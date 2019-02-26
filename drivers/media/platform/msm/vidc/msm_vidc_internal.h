@@ -302,6 +302,7 @@ struct session_prop {
 	struct session_crop crop_info;
 	u32 fps;
 	u32 bitrate;
+	bool bframe_changed;
 };
 
 struct buf_queue {

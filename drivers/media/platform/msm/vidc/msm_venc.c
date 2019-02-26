@@ -1072,6 +1072,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
+	inst->prop.bframe_changed = false;
 	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
@@ -1383,31 +1384,6 @@ static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 	inst->rc_type = ctrl->val;
 
 	return 0;
-}
-
-void msm_venc_adjust_gop_size(struct msm_vidc_inst *inst)
-{
-	struct v4l2_ctrl *hier_ctrl;
-
-	/*
-	 * Layer encoding needs GOP size to be multiple of subgop size
-	 * And subgop size is 2 ^ number of enhancement layers
-	 */
-	hier_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
-	if (hier_ctrl->val > 1) {
-		struct v4l2_ctrl *gop_size_ctrl;
-		u32 min_gop_size;
-		u32 num_subgops;
-
-		gop_size_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
-		min_gop_size = (1 << (hier_ctrl->val - 1));
-		num_subgops = (gop_size_ctrl->val + (min_gop_size >> 1)) /
-				min_gop_size;
-		if (num_subgops)
-			gop_size_ctrl->val = num_subgops * min_gop_size;
-		else
-			gop_size_ctrl->val = min_gop_size;
-	}
 }
 
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
@@ -1731,9 +1707,16 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				__func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			dprintk(VIDC_ERR,
+			"%s: Dynamic setting of Bframe is not supported\n",
+			__func__);
+			return -EINVAL;
+		}
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE:
-	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
@@ -2058,59 +2041,83 @@ int msm_venc_set_idr_period(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
+void msm_venc_decide_bframe(struct msm_vidc_inst *inst)
 {
-	int rc = 0;
-	struct hfi_device *hdev;
+	u32 width = inst->prop.width[OUTPUT_PORT];
+	u32 height = inst->prop.height[OUTPUT_PORT];
+	u32 num_mbs_per_frame, num_mbs_per_sec;
 	struct v4l2_ctrl *ctrl;
-	struct hfi_intra_period intra_period;
+	struct v4l2_ctrl *bframe_ctrl;
+	struct msm_vidc_platform_resources *res;
 
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
+	res = &inst->core->resources;
+	bframe_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+	num_mbs_per_frame = NUM_MBS_PER_FRAME(width, height);
+	if (num_mbs_per_frame > res->max_bframe_mbs_per_frame)
+		goto disable_bframe;
+
+	num_mbs_per_sec = num_mbs_per_frame *
+		(inst->clk_data.frame_rate >> 16);
+	if (num_mbs_per_sec > res->max_bframe_mbs_per_sec)
+		goto disable_bframe;
+
+	ctrl = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	if (ctrl->val > 1)
+		goto disable_bframe;
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
+	if (ctrl->val)
+		goto disable_bframe;
+
+	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
+		goto disable_bframe;
+
+	if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264) {
+		ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
+		if ((ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_MAIN) &&
+			(ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_HIGH))
+			goto disable_bframe;
+	} else if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+		goto disable_bframe;
+
+	if (inst->clk_data.low_latency_mode)
+		goto disable_bframe;
+
+	if (!bframe_ctrl->val) {
+		ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VENC_NATIVE_RECORDER);
+		if (ctrl->val) {
+			/*
+			 * Native recorder is enabled and bframe is not enabled
+			 * Hence, forcefully enable bframe
+			 */
+			inst->prop.bframe_changed = true;
+			bframe_ctrl->val = MAX_NUM_B_FRAMES;
+			dprintk(VIDC_DBG, "Bframe is forcefully enabled\n");
+		} else {
+			/*
+			 * Native recorder is not enabled
+			 * B-Frame is not enabled by client
+			 */
+			goto disable_bframe;
+		}
 	}
-	hdev = inst->core->device;
+	dprintk(VIDC_DBG, "Bframe can be enabled!\n");
 
-	msm_venc_adjust_gop_size(inst);
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
-	intra_period.pframes = ctrl->val;
-
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
-	intra_period.bframes = ctrl->val;
-
-	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, intra_period.pframes,
-		intra_period.bframes);
-	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD, &intra_period,
-		sizeof(intra_period));
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
-		return rc;
+	return;
+disable_bframe:
+	if (bframe_ctrl->val) {
+		/*
+		 * Client wanted to enable bframe but,
+		 * conditions to enable are not met
+		 * Hence, forcefully disable bframe
+		 */
+		inst->prop.bframe_changed = true;
+		bframe_ctrl->val = 0;
+		dprintk(VIDC_DBG, "Bframe is forcefully disabled!\n");
+	} else {
+		dprintk(VIDC_DBG, "Bframe is disabled\n");
 	}
-
-	return rc;
-}
-
-int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	dprintk(VIDC_DBG, "%s\n", __func__);
-	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME, NULL, 0);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
-		return rc;
-	}
-
-	return rc;
 }
 
 int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
@@ -2132,6 +2139,117 @@ int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
 		HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B, &enable, sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+
+	return rc;
+}
+
+void msm_venc_adjust_gop_size(struct msm_vidc_inst *inst)
+{
+	struct v4l2_ctrl *hier_ctrl;
+	struct v4l2_ctrl *bframe_ctrl;
+	struct v4l2_ctrl *gop_size_ctrl;
+
+	gop_size_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
+	if (inst->prop.bframe_changed) {
+		/*
+		 * BFrame size was explicitly change
+		 * Hence, adjust GOP size accordingly
+		 */
+		bframe_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+		if (!bframe_ctrl->val)
+			/* Forcefully disabled */
+			gop_size_ctrl->val = gop_size_ctrl->val *
+					(1 + MAX_NUM_B_FRAMES);
+		else
+			/* Forcefully enabled */
+			gop_size_ctrl->val = gop_size_ctrl->val /
+					(1 + MAX_NUM_B_FRAMES);
+	}
+
+	/*
+	 * Layer encoding needs GOP size to be multiple of subgop size
+	 * And subgop size is 2 ^ number of enhancement layers
+	 */
+	hier_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+	if (hier_ctrl->val > 1) {
+		u32 min_gop_size;
+		u32 num_subgops;
+
+		min_gop_size = (1 << (hier_ctrl->val - 1));
+		num_subgops = (gop_size_ctrl->val + (min_gop_size >> 1)) /
+				min_gop_size;
+		if (num_subgops)
+			gop_size_ctrl->val = num_subgops * min_gop_size;
+		else
+			gop_size_ctrl->val = min_gop_size;
+	}
+}
+
+int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct v4l2_ctrl *ctrl;
+	struct hfi_intra_period intra_period;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	msm_venc_adjust_gop_size(inst);
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
+	intra_period.pframes = ctrl->val;
+
+	/*
+	 * At this point we have already made decision on bframe
+	 * Control value gives updated bframe value.
+	 */
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+	intra_period.bframes = ctrl->val;
+
+	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, intra_period.pframes,
+		intra_period.bframes);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD, &intra_period,
+		sizeof(intra_period));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
+
+	if (intra_period.bframes) {
+		/* Enable adaptive bframes as nbframes!= 0 */
+		rc = msm_venc_set_adaptive_bframes(inst);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: set property failed\n",
+				__func__);
+			return rc;
+		}
+	}
+	return rc;
+}
+
+int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	dprintk(VIDC_DBG, "%s\n", __func__);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME, NULL, 0);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
 
 	return rc;
 }
@@ -2764,10 +2882,6 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
 		return 0;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
-	if (ctrl->val)
-		return 0;
-
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
 	if (ctrl->val)
 		return 0;
@@ -2781,6 +2895,8 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	/*
 	 * Hybrid HP is enabled only for H264 when
 	 * LTR and B-frame are both disabled,
+	 * Layer encoding has higher priority over B-frame
+	 * Hence, no need to check for B-frame
 	 * Rate control type is VBR and
 	 * Max layer equals layer count.
 	 */
@@ -3456,37 +3572,28 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_frame_rate(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_color_format(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_buffer_counts(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_operating_rate(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_secure_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_priority(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_color_format(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_sequence_header_mode(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_profile_level(inst);
 	if (rc)
 		goto exit;
-	/*
-	 * set adaptive bframes before intra period as
-	 * intra period setting may enable adaptive bframes
-	 * if bframes are present (even though client might not
-	 * have enabled adaptive bframes setting)
-	 */
-	rc = msm_venc_set_adaptive_bframes(inst);
+	rc = msm_venc_set_8x8_transform(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_intra_period(inst);
+	rc = msm_venc_set_bitrate(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_idr_period(inst);
+	rc = msm_venc_set_entropy_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_rate_control(inst);
@@ -3507,40 +3614,28 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_grid(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_entropy_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_slice_control_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_intra_refresh_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_loop_filter_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_sequence_header_mode(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_au_delimiter_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_vpx_error_resilience(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_video_signal_info(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_video_csc(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_8x8_transform(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_vui_timing_info(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_hdr_info(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_vpx_error_resilience(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_nal_stream_format(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_slice_control_mode(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_loop_filter_mode(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_intra_refresh_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_ltr_mode(inst);
@@ -3550,6 +3645,22 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_hp_layer(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_base_layer_priority_id(inst);
+	if (rc)
+		goto exit;
+	msm_venc_decide_bframe(inst);
+	rc = msm_venc_set_idr_period(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_intra_period(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_aspect_ratio(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_video_signal_info(inst);
 	if (rc)
 		goto exit;
 	/*
@@ -3562,22 +3673,21 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_bitrate(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_base_layer_priority_id(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_aspect_ratio(inst);
+	rc = msm_venc_set_video_csc(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_blur_resolution(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_hdr_info(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_extradata(inst);
 	if (rc)
 		goto exit;
-
+	rc = msm_venc_set_operating_rate(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_buffer_counts(inst);
+	if (rc)
+		goto exit;
 exit:
 	if (rc)
 		dprintk(VIDC_ERR, "%s: failed with %d\n", __func__, rc);
