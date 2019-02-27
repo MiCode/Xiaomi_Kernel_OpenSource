@@ -56,6 +56,9 @@
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI     0x35C
 #define PCIE20_PARF_ATU_BASE_ADDR      0x634
 #define PCIE20_PARF_ATU_BASE_ADDR_HI   0x638
+#define PCIE20_PARF_BUS_DISCONNECT_CTRL          0x648
+#define PCIE20_PARF_BUS_DISCONNECT_STATUS        0x64c
+
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
 #define PCIE20_PARF_EDMA_BASE_ADDR      0x64C
 #define PCIE20_PARF_EDMA_BASE_ADDR_HI   0x650
@@ -235,6 +238,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_ELBI,
 	EP_PCIE_RES_IATU,
 	EP_PCIE_RES_EDMA,
+	EP_PCIE_RES_TCSR_PERST,
 	EP_PCIE_MAX_RES,
 };
 
@@ -327,6 +331,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *edma;
 	void __iomem                 *elbi;
 	void __iomem                 *iatu;
+	void __iomem		     *tcsr_perst_en;
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	u32                          bus_client;
