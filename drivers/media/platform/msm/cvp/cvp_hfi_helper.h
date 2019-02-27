@@ -1097,7 +1097,6 @@ struct hfi_msg_session_cvp_dme_packet_type {
 	u32 skip_mv_calc;
 	u32 src_buf_addr;
 	u32 src_buf_size;
-	u32 nSrcBuffer_size;
 	u32 src_frame_ctx_buf_addr;
 	u32 src_frame_ctx_buf_size;
 	u32 ref_buf_addr;
@@ -1111,16 +1110,6 @@ struct hfi_msg_session_cvp_dme_packet_type {
 	u32 proc_frame_width;
 	u32 proc_frame_height;
 	u32 transform_confidence;
-	u32 frame_sum_gradient;
-	u32 frame_sum_square_gradient1;
-	u32 frame_sum_square_gradient2;
-	u16 n_luma_hist[8];
-	s32 mvx_sum;
-	s32 mvy_Sum;
-	u32 num_mvs;
-	s32 final_transform[9];
-	s32 pad;
-	s64 transform[9];
 };
 
 struct hfi_msg_session_cvp_persist_packet_type {
