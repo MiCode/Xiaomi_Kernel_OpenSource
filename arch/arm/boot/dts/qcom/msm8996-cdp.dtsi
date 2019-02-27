@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016,2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8996-pinctrl.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
 #include "msm8996-camera-sensor-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 
@@ -187,17 +187,6 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
-
-	chan@7c {
-		label = "xo_therm_buf";
-		reg = <0x7c>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
