@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
 #define CF_MIN_3DB_75HZ			0x1
 #define CF_MIN_3DB_150HZ		0x2
 
+#define DEC_SVA 5
 #define MSM_DIG_CDC_VERSION_ENTRY_SIZE 32
 
 static unsigned long rx_digital_gain_reg[] = {
@@ -212,6 +213,9 @@ static int msm_dig_cdc_put_dec_enum(struct snd_kcontrol *kcontrol,
 
 	tx_mux_ctl_reg =
 		MSM89XX_CDC_CORE_TX1_MUX_CTL + 32 * (decimator - 1);
+
+	if (decimator == DEC_SVA)
+		tx_mux_ctl_reg = MSM89XX_CDC_CORE_TX5_MUX_CTL;
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x1, adc_dmic_sel);
 
@@ -939,7 +943,7 @@ static int msm_dig_cdc_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			 32 * (decimator - 1);
 	tx_mux_ctl_reg = MSM89XX_CDC_CORE_TX1_MUX_CTL +
 			  32 * (decimator - 1);
-	if (decimator == 5) {
+	if (decimator == DEC_SVA) {
 		tx_vol_ctl_reg = MSM89XX_CDC_CORE_TX5_VOL_CTL_CFG;
 		tx_mux_ctl_reg = MSM89XX_CDC_CORE_TX5_MUX_CTL;
 	}
@@ -1250,15 +1254,19 @@ static void sdm660_tx_mute_update_callback(struct work_struct *work)
 	dig_cdc = tx_mute_dwork->dig_cdc;
 	codec = dig_cdc->codec;
 
-	for (i = 0; i < (NUM_DECIMATORS - 1); i++) {
+	for (i = 0; i < NUM_DECIMATORS; i++) {
 		if (dig_cdc->dec_active[i])
 			decimator = i + 1;
-		if (decimator && decimator < NUM_DECIMATORS) {
+		if (decimator && decimator <= NUM_DECIMATORS) {
 			/* unmute decimators corresponding to Tx DAI's*/
 			tx_vol_ctl_reg =
 				MSM89XX_CDC_CORE_TX1_VOL_CTL_CFG +
 					32 * (decimator - 1);
-				snd_soc_update_bits(codec, tx_vol_ctl_reg,
+			if (decimator == DEC_SVA)
+				tx_vol_ctl_reg =
+					MSM89XX_CDC_CORE_TX5_VOL_CTL_CFG;
+
+			snd_soc_update_bits(codec, tx_vol_ctl_reg,
 					0x01, 0x00);
 		}
 		decimator = 0;
