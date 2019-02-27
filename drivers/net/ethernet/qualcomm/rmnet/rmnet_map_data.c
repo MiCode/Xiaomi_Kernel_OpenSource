@@ -789,9 +789,30 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	if (iph->version == 4) {
 		protocol = iph->protocol;
 		ip_len = iph->ihl * 4;
+
+		/* Don't allow coalescing of any packets with IP options */
+		if (iph->ihl != 5)
+			gro = false;
 	} else if (iph->version == 6) {
+		__be16 frag_off;
+
 		protocol = ((struct ipv6hdr *)iph)->nexthdr;
-		ip_len = sizeof(struct ipv6hdr);
+		ip_len = ipv6_skip_exthdr(coal_skb, sizeof(struct ipv6hdr),
+					  &protocol, &frag_off);
+
+		/* If we run into a problem, or this has a fragment header
+		 * (which should technically not be possible, if the HW
+		 * works as intended...), bail.
+		 */
+		if (ip_len < 0 || frag_off) {
+			priv->stats.coal.coal_ip_invalid++;
+			return;
+		} else if (ip_len > sizeof(struct ipv6hdr)) {
+			/* Don't allow coalescing of any packets with IPv6
+			 * extension headers.
+			 */
+			gro = false;
+		}
 	} else {
 		priv->stats.coal.coal_ip_invalid++;
 		return;
