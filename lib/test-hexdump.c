@@ -81,7 +81,7 @@ static void __init test_hexdump(size_t len, int rowsize, int groupsize,
 		const char *q = *result++;
 		size_t amount = strlen(q);
 
-		strncpy(p, q, amount);
+		memcpy(p, q, amount);
 		p += amount + 1;
 	}
 	if (i)
