@@ -24,6 +24,7 @@
 
 /*#include <linux/wakelock.h>*/
 #include <linux/pm_wakeup.h>
+#include <linux/input/touch_event_notify.h>
 
 #include "fts_lib/ftsSoftware.h"
 #include "fts_lib/ftsHardware.h"
@@ -311,6 +312,20 @@ struct fts_ts_info {
 
 	uint8_t *i2c_data;
 	uint8_t i2c_data_len;
+
+	struct device *aoi_cmd_dev;
+	bool aoi_notify_enabled;
+	bool aoi_wake_on_suspend;
+
+	unsigned long event_mask;
+	unsigned long finger_pressed;
+	struct touch_event event[FIFO_DEPTH];
+
+	/* aoi region */
+	int aoi_left;
+	int aoi_top;
+	int aoi_bottom;
+	int aoi_right;
 };
 
 extern struct chipInfo ftsInfo;
@@ -323,12 +338,14 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep);
 extern int input_register_notifier_client(struct notifier_block *nb);
 extern int input_unregister_notifier_client(struct notifier_block *nb);
 
+extern struct attribute_group aoi_cmd_attr_group;
+
 #ifdef SCRIPTLESS
-extern struct attribute_group	i2c_cmd_attr_group;
+extern struct attribute_group i2c_cmd_attr_group;
 #endif
 
 #ifdef DRIVER_TEST
-extern struct attribute_group	test_cmd_attr_group;
+extern struct attribute_group test_cmd_attr_group;
 #endif
 
 
