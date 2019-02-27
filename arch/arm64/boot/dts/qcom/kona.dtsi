@@ -2210,6 +2210,7 @@
 		qcom,register-collection-on-crash;
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
+		qcom,secure-debug-check-action = <0>;
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
