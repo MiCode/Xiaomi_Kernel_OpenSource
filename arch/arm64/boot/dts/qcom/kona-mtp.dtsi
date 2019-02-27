@@ -125,6 +125,14 @@
 	};
 };
 
+&vreg_hap_boost {
+	status = "ok";
+};
+
+&pm8150b_haptics {
+	vdd-supply = <&vreg_hap_boost>;
+};
+
 &pm8150b_vadc {
 	#address-cells = <1>;
 	#size-cells = <0>;
