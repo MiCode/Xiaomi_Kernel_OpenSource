@@ -49,6 +49,8 @@ Optional Properties:
   - qcom,phy-status-reg: Register offset for PHY status.
   - qcom,dbi-base-reg: Register offset for DBI base address.
   - qcom,slv-space-reg: Register offset for slave address space size.
+  - qcom,pcie-vendor-id: Vendor id to be written to the Vendor ID register.
+  - qcom,pcie-device-id: Device id to be written to the Device ID register.
   - qcom,pcie-link-speed: generation of PCIe link speed. The value could be
     1, 2 or 3.
   - qcom,pcie-active-config: boolean type; active configuration of PCIe

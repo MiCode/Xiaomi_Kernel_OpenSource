@@ -567,6 +567,9 @@ struct mhi_dev {
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
 
+	/* Indicates if mhi init is done */
+	bool				init_done;
+
 	/* MHI state info */
 	enum mhi_ctrl_info		ctrl_info;
 
@@ -606,6 +609,7 @@ enum mhi_msg_level {
 	MHI_MSG_reserved = 0x80000000
 };
 
+extern uint32_t bhi_imgtxdb;
 extern enum mhi_msg_level mhi_msg_lvl;
 extern enum mhi_msg_level mhi_ipc_msg_lvl;
 extern void *mhi_ipc_log;
@@ -616,7 +620,7 @@ extern void *mhi_ipc_log;
 	} \
 	if (mhi_ipc_log && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
 		ipc_log_string(mhi_ipc_log,                     \
-			"[%s] " _msg, __func__, ##__VA_ARGS__);     \
+		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__);     \
 	} \
 } while (0)
 
@@ -959,7 +963,7 @@ int mhi_dev_get_mhi_addr(struct mhi_dev *dev);
  * @mhi_reset:	MHI device reset from host.
  */
 int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
-						bool *mhi_reset);
+						u32 *mhi_reset);
 
 /**
  * mhi_dev_mmio_init() - Initializes the MMIO and reads the Number of event
@@ -1069,5 +1073,17 @@ int mhi_dev_net_interface_init(void);
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
 void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason);
+/**
+ * mhi_uci_chan_state_notify_all - Notifies channel state updates for
+ *				all clients who have uevents enabled.
+ */
+void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
+		enum mhi_ctrl_info ch_state);
+/**
+ * mhi_uci_chan_state_notify - Notifies channel state update to the client
+ *				if uevents are enabled.
+ */
+void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
+		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state);
 
 #endif /* _MHI_H */
