@@ -2258,7 +2258,7 @@ static int venus_hfi_session_set_property(void *sess,
 	struct venus_hfi_device *device;
 	int rc = 0;
 
-	if (!session || !session->device || !pdata) {
+	if (!session || !session->device) {
 		dprintk(VIDC_ERR, "Invalid Params\n");
 		return -EINVAL;
 	}
