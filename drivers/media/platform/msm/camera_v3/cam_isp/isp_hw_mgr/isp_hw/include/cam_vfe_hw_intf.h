@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 enum cam_isp_hw_vfe_in_mux {
 	CAM_ISP_HW_VFE_IN_CAMIF       = 0,
 	CAM_ISP_HW_VFE_IN_TESTGEN     = 1,
-	CAM_ISP_HW_VFE_IN_BUS_RD      = 2,
+	CAM_ISP_HW_VFE_IN_RD          = 2,
 	CAM_ISP_HW_VFE_IN_RDI0        = 3,
 	CAM_ISP_HW_VFE_IN_RDI1        = 4,
 	CAM_ISP_HW_VFE_IN_RDI2        = 5,
@@ -153,6 +153,7 @@ struct cam_vfe_hw_vfe_in_acquire_args {
  *                           used to schedule bottom of IRQ events associated
  *                           with this resource.
  * @vfe_out:                 Acquire args for VFE_OUT
+ * @vfe_bus_rd               Acquire args for VFE_BUS_READ
  * @vfe_in:                  Acquire args for VFE_IN
  */
 struct cam_vfe_acquire_args {
@@ -160,6 +161,7 @@ struct cam_vfe_acquire_args {
 	void                                *tasklet;
 	union {
 		struct cam_vfe_hw_vfe_out_acquire_args  vfe_out;
+		struct cam_vfe_hw_vfe_out_acquire_args  vfe_bus_rd;
 		struct cam_vfe_hw_vfe_in_acquire_args   vfe_in;
 	};
 };
@@ -178,7 +180,7 @@ struct cam_vfe_clock_update_args {
 /*
  * struct cam_vfe_bw_update_args:
  *
- * @node_res:             Resource to get the time stamp
+ * @node_res:             Resource to get the BW
  * @camnoc_bw_bytes:      Bandwidth vote request for CAMNOC
  * @external_bw_bytes:    Bandwidth vote request from CAMNOC
  *                        out to the rest of the path-to-DDR
@@ -187,6 +189,18 @@ struct cam_vfe_bw_update_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           camnoc_bw_bytes;
 	uint64_t                           external_bw_bytes;
+};
+
+/*
+ * struct cam_vfe_fe_update_args:
+ *
+ * @node_res:             Resource to get fetch configuration
+ * @fe_config:            fetch engine configuration
+ *
+ */
+struct cam_vfe_fe_update_args {
+	struct cam_isp_resource_node      *node_res;
+	struct cam_fe_config               fe_config;
 };
 
 enum cam_vfe_bw_control_action {
@@ -218,6 +232,7 @@ struct cam_vfe_bw_control_args {
  * @irq_reg_val:             IRQ and Error register values, read when IRQ was
  *                           handled
  * @error_type:              Identify different errors
+ * @enable_reg_dump:         enable register dump on error
  * @ts:                      Timestamp
  */
 struct cam_vfe_top_irq_evt_payload {
@@ -227,6 +242,7 @@ struct cam_vfe_top_irq_evt_payload {
 	uint32_t                   evt_id;
 	uint32_t                   irq_reg_val[CAM_IFE_IRQ_REGISTERS_MAX];
 	uint32_t                   error_type;
+	bool                       enable_reg_dump;
 	struct cam_isp_timestamp   ts;
 };
 

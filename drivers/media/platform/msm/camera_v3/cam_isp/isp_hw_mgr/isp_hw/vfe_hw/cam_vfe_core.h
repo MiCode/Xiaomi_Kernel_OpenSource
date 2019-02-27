@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,9 @@ struct cam_vfe_hw_info {
 
 	uint32_t                          bus_version;
 	void                             *bus_hw_info;
+
+	uint32_t                          bus_rd_version;
+	void                             *bus_rd_hw_info;
 
 	uint32_t                          top_version;
 	void                             *top_hw_info;
@@ -53,6 +56,7 @@ struct cam_vfe_hw_core_info {
 	void                               *vfe_irq_controller;
 	struct cam_vfe_top                 *vfe_top;
 	struct cam_vfe_bus                 *vfe_bus;
+	struct cam_vfe_bus                 *vfe_rd_bus;
 	void                               *tasklet_info;
 	struct cam_vfe_top_irq_evt_payload  evt_payload[CAM_VFE_EVT_MAX];
 	struct list_head                    free_payload_list;

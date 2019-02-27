@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +94,15 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
  */
 int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr,
 	size_t *len);
+
+/**
+ * @brief: This indicates end of CPU access
+ *
+ * @buf_handle: Handle for the buffer
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_put_cpu_buf(int32_t buf_handle);
 
 static inline bool cam_mem_is_secure_buf(int32_t buf_handle)
 {

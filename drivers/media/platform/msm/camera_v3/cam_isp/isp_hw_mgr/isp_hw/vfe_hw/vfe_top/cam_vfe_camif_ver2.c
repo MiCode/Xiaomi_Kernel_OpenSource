@@ -264,13 +264,9 @@ static int cam_vfe_camif_resource_start(
 	case CAM_CPAS_TITAN_170_V100:
 	case CAM_CPAS_TITAN_170_V110:
 	case CAM_CPAS_TITAN_170_V120:
-		cam_io_w_mb(rsrc_data->reg_data->epoch_line_cfg,
-				rsrc_data->mem_base +
-				rsrc_data->camif_reg->epoch_irq);
-		break;
 	default:
-		epoch0_irq_mask = ((rsrc_data->last_line -
-				rsrc_data->first_line) / 2) +
+		epoch0_irq_mask = (((rsrc_data->last_line -
+				rsrc_data->first_line) * 2) / 3) +
 				rsrc_data->first_line;
 		epoch1_irq_mask = rsrc_data->reg_data->epoch_line_cfg &
 				0xFFFF;
@@ -592,7 +588,8 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		}
 		break;
 	case CAM_ISP_HW_EVENT_ERROR:
-		if (irq_status1 & camif_priv->reg_data->error_irq_mask1) {
+		if (irq_status1 & camif_priv->reg_data->error_irq_mask1 &&
+			payload->enable_reg_dump) {
 			CAM_DBG(CAM_ISP, "Received ERROR\n");
 			ret = CAM_ISP_HW_ERROR_OVERFLOW;
 			cam_vfe_camif_reg_dump(camif_node->res_priv);

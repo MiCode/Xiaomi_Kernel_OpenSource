@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,11 +19,18 @@
 
 #define CAM_VFE_BUS_VER_1_0             0x1000
 #define CAM_VFE_BUS_VER_2_0             0x2000
+#define CAM_VFE_BUS_RD_VER_4_0          0x4000
 
 enum cam_vfe_bus_plane_type {
 	PLANE_Y,
 	PLANE_C,
 	PLANE_MAX,
+};
+
+enum cam_vfe_bus_type {
+	BUS_TYPE_WR,
+	BUS_TYPE_RD,
+	BUS_TYPE_MAX,
 };
 
 /*
@@ -50,6 +57,7 @@ struct cam_vfe_bus {
  * @Brief:                   Initialize Bus layer
  *
  * @bus_version:             Version of BUS to initialize
+ * @bus_type:                Bus Type RD/WR
  * @soc_info:                Soc Information for the associated HW
  * @hw_intf:                 HW Interface of HW to which this resource belongs
  * @bus_hw_info:             BUS HW info that contains details of BUS registers
@@ -62,6 +70,7 @@ struct cam_vfe_bus {
  *                           Non-zero: Failure
  */
 int cam_vfe_bus_init(uint32_t          bus_version,
+	int                            bus_type,
 	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,
 	void                          *bus_hw_info,

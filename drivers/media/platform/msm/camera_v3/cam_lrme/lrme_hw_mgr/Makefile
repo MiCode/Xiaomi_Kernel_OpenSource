@@ -7,7 +7,7 @@ ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_cdm
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_lrme
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_lrme/lrme_hw_mgr
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_lrme/lrme_hw_mgr/lrme_hw
-ccflags-y += -Idrivers/media/platform/msm/camera
+ccflags-y += -Idrivers/media/platform/msm/camera_v3
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_cpas/include
 
 obj-$(CONFIG_SPECTRA_CAMERA) += lrme_hw/

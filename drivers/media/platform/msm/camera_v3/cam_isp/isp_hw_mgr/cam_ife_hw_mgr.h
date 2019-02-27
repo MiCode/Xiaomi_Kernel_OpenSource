@@ -88,6 +88,7 @@ struct ctx_base_info {
  * @csid_debug:                csid debug information
  * @enable_recovery:           enable recovery
  * @enable_diag_sensor_status: enable sensor diagnosis status
+ * @enable_reg_dump:           enable register dump on error
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -95,6 +96,7 @@ struct cam_ife_hw_mgr_debug {
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
 	uint32_t       camif_debug;
+	uint32_t       enable_reg_dump;
 };
 
 /**
@@ -130,7 +132,8 @@ struct cam_ife_hw_mgr_debug {
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
-* @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @res_bitmap              fill resource bitmap for which rup to be set
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -167,6 +170,7 @@ struct cam_ife_hw_mgr_ctx {
 	struct completion               config_done_complete;
 	bool                            init_done;
 	bool                            is_fe_enable;
+	unsigned long                   res_bitmap;
 };
 
 /**

@@ -11,4 +11,4 @@ ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_isp/isp_hw_mgr/isp_hw/vf
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/include
 ccflags-y += -Idrivers/media/platform/msm/camera_v3/cam_cpas/include
 
-obj-$(CONFIG_SPECTRA_CAMERA) += cam_vfe_bus.o cam_vfe_bus_ver2.o
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_vfe_bus.o cam_vfe_bus_ver2.o cam_vfe_bus_rd_ver1.o
