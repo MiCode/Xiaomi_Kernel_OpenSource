@@ -88,6 +88,11 @@
 	};
 };
 
+&pm8150b_fg {
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
+};
+
 &pm8150b_qnovo {
 	pinctrl-names = "q_state1", "q_state2";
 	pinctrl-0 = <&qnovo_fet_ctrl_state1>;
