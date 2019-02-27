@@ -421,6 +421,21 @@ static inline void enable_tcs_irq(struct rsc_drv *drv, int m, bool enable)
 	write_tcs_reg(base, RSC_DRV_IRQ_ENABLE, 0, 0, data);
 }
 
+static int rsc_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int rsc_resume(struct device *dev)
+{
+	struct rsc_drv *drv = (struct rsc_drv *)dev_get_drvdata(dev);
+
+	write_tcs_reg(drv->reg_base, RSC_DRV_IRQ_ENABLE, 0, 0,
+					drv->tcs[ACTIVE_TCS].tcs_mask);
+
+	return 0;
+}
+
 /**
  * tcs_irq_handler: TX Done / Recv data handler
  */
@@ -1296,11 +1311,18 @@ static int rsc_drv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	platform_set_drvdata(pdev, drv);
+
 	pr_debug("Mailbox controller (%s, drv=%d) registered\n",
 					dn->full_name, drv->drv_id);
 
 	return 0;
 }
+
+static const struct dev_pm_ops rpmh_mailbox_dev_pm_ops = {
+	.poweroff_noirq = rsc_suspend,
+	.restore_noirq = rsc_resume,
+};
 
 static const struct of_device_id rsc_drv_match[] = {
 	{ .compatible = "qcom,tcs-drv", },
@@ -1311,6 +1333,7 @@ static struct platform_driver rpmh_mbox_driver = {
 	.probe = rsc_drv_probe,
 	.driver = {
 		.name = KBUILD_MODNAME,
+		.pm = &rpmh_mailbox_dev_pm_ops,
 		.of_match_table = rsc_drv_match,
 		.suppress_bind_attrs = true,
 	},
