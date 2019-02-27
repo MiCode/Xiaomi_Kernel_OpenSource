@@ -5171,6 +5171,32 @@ static int ipa3_alloc_pkt_init(void)
 	return 0;
 }
 
+/*
+ * SCM call to check if secure dump is allowed.
+ *
+ * Returns true in secure dump allowed.
+ * Return false when secure dump not allowed.
+ */
+#define TZ_UTIL_GET_SEC_DUMP_STATE  0x10
+static bool ipa_is_mem_dump_allowed(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+
+	ret = scm_call2(
+		SCM_SIP_FNID(SCM_SVC_UTIL, TZ_UTIL_GET_SEC_DUMP_STATE),
+		&desc);
+	if (ret) {
+		IPAERR("SCM DUMP_STATE call failed\n");
+		return false;
+	}
+
+	return (desc.ret[0] == 1);
+}
+
 /**
  * ipa3_pre_init() - Initialize the IPA Driver.
  * This part contains all initialization which doesn't require IPA HW, such
@@ -5260,6 +5286,30 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->do_testbus_collection_on_crash;
 	ipa3_ctx->do_non_tn_collection_on_crash =
 	    resource_p->do_non_tn_collection_on_crash;
+	ipa3_ctx->secure_debug_check_action =
+		resource_p->secure_debug_check_action;
+
+	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
+		if (ipa_is_mem_dump_allowed())
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			ipa3_ctx->sd_state = SD_DISABLED;
+	} else {
+		if (ipa3_ctx->secure_debug_check_action == OVERRIDE_SCM_TRUE)
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			/* secure_debug_check_action == OVERRIDE_SCM_FALSE */
+			ipa3_ctx->sd_state = SD_DISABLED;
+	}
+
+	if (ipa3_ctx->sd_state == SD_ENABLED) {
+		/* secure debug is enabled. */
+		IPADBG("secure debug enabled\n");
+	} else {
+		/* secure debug is disabled. */
+		IPADBG("secure debug disabled\n");
+		ipa3_ctx->do_testbus_collection_on_crash = false;
+	}
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5380,7 +5430,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/*
 	 * Setup access for register collection/dump on crash
 	 */
-	if (ipa_reg_save_init(0xFF) != 0) {
+	if (ipa_reg_save_init(IPA_MEM_INIT_VAL) != 0) {
 		result = -EFAULT;
 		goto fail_gsi_map;
 	}
@@ -6212,6 +6262,19 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	IPADBG(": doing register collection on crash = %u\n",
 	       ipa_drv_res->do_register_collection_on_crash);
+
+	result = of_property_read_u32(
+		pdev->dev.of_node,
+		"qcom,secure-debug-check-action",
+		&ipa_drv_res->secure_debug_check_action);
+	if (result ||
+		(ipa_drv_res->secure_debug_check_action != 0 &&
+		 ipa_drv_res->secure_debug_check_action != 1 &&
+		 ipa_drv_res->secure_debug_check_action != 2))
+		ipa_drv_res->secure_debug_check_action = USE_SCM;
+
+	IPADBG(": secure-debug-check-action = %d\n",
+		   ipa_drv_res->secure_debug_check_action);
 
 	return 0;
 }
