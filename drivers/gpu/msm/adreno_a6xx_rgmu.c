@@ -31,6 +31,8 @@
 #define GLM_SLEEP_TIMEOUT		10	/* ms */
 
 static const unsigned int a6xx_rgmu_registers[] = {
+	/*GPUCX_TCM */
+	0x1B400, 0x1B7FF,
 	/* GMU CX */
 	0x1F80F, 0x1F83D, 0x1F840, 0x1F8D8, 0x1F990, 0x1F99E, 0x1F9C0, 0x1F9CC,
 	/* GMU AO */
