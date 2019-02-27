@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -186,6 +186,10 @@ static struct clk_branch gpu_cc_cx_qdss_at_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_at_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -199,6 +203,10 @@ static struct clk_branch gpu_cc_cx_qdss_trig_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_trig_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -212,6 +220,10 @@ static struct clk_branch gpu_cc_cx_qdss_tsctr_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_tsctr_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -282,6 +294,10 @@ static struct clk_branch gpu_cc_gx_qdss_tsctr_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_gx_qdss_tsctr_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},

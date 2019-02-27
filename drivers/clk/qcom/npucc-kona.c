@@ -477,6 +477,10 @@ static struct clk_branch npu_cc_atb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_atb_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
