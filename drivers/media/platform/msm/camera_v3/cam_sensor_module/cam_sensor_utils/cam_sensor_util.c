@@ -347,7 +347,8 @@ int cam_sensor_i2c_command_parser(
 			if ((remain_len - byte_cnt) <
 				sizeof(struct common_header)) {
 				CAM_ERR(CAM_SENSOR, "Not enough buffer");
-				return -EINVAL;
+				rc = -EINVAL;
+				goto rel_buf;
 			}
 			cmm_hdr = (struct common_header *)cmd_buf;
 			generic_op_code = cmm_hdr->third_byte;
@@ -362,7 +363,8 @@ int cam_sensor_i2c_command_parser(
 					sizeof(struct cam_cmd_i2c_random_wr)) {
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
-					return -EINVAL;
+					rc = -EINVAL;
+					goto rel_buf;
 				}
 				tot_size = sizeof(struct i2c_rdwr_header) +
 					(sizeof(struct i2c_random_wr_payload) *
@@ -371,7 +373,8 @@ int cam_sensor_i2c_command_parser(
 				if (tot_size > (remain_len - byte_cnt)) {
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
-					return -EINVAL;
+					rc = -EINVAL;
+					goto rel_buf;
 				}
 
 				rc = cam_sensor_handle_random_write(
@@ -475,7 +478,8 @@ int cam_sensor_i2c_command_parser(
 				    sizeof(struct cam_cmd_i2c_info)) {
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer space");
-					return -EINVAL;
+					rc = -EINVAL;
+					goto rel_buf;
 				}
 				rc = cam_sensor_handle_slave_info(
 					io_master, cmd_buf);
@@ -483,7 +487,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 					"Handle slave info failed with rc: %d",
 					rc);
-					return rc;
+					goto rel_buf;
 				}
 				cmd_length_in_bytes =
 					sizeof(struct cam_cmd_i2c_info);
@@ -495,12 +499,22 @@ int cam_sensor_i2c_command_parser(
 			default:
 				CAM_ERR(CAM_SENSOR, "Invalid Command Type:%d",
 					 cmm_hdr->cmd_type);
-				return -EINVAL;
+				rc = -EINVAL;
+				goto rel_buf;
 			}
 		}
 		i2c_reg_settings->is_settings_valid = 1;
+		if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+			CAM_WARN(CAM_SENSOR, "put failed for buffer :%d",
+				cmd_desc[i].mem_handle);
 	}
 
+	return rc;
+
+rel_buf:
+	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
+		CAM_WARN(CAM_SENSOR, "put failed for buffer :%d",
+			cmd_desc[i].mem_handle);
 	return rc;
 }
 
