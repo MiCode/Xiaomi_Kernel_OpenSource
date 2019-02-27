@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +433,9 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 				"rgmu boot Failed. status:%08x\n", status);
 		return -ETIMEDOUT;
 	}
+
+	/* Read the RGMU firmware version from registers */
+	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &rgmu->ver);
 
 	return 0;
 }
