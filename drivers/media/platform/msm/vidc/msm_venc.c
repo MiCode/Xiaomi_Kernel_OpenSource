@@ -17,6 +17,7 @@
 #define MAX_BIT_RATE 1200000000
 #define DEFAULT_BIT_RATE 64000
 #define BIT_RATE_STEP 1
+#define MAX_BASE_LAYER_PRIORITY_ID 63
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
 #define MIN_SLICE_BYTE_SIZE 512
 #define MAX_SLICE_MB_SIZE (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
@@ -758,10 +759,10 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID,
-		.name = "Set Base Layer ID for Hier-P",
+		.name = "Set Base Layer Priority ID for Hier-P",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 6,
+		.maximum = MAX_BASE_LAYER_PRIORITY_ID,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -1704,6 +1705,15 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					__func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_base_layer_priority_id(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"%s: set baselayer id failed.\n",
+					__func__);
+		}
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE:
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
@@ -1718,7 +1728,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER:
 	case V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR:
 	case V4L2_CID_MPEG_VIDC_VIDEO_VPX_ERROR_RESILIENCE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_QP:
@@ -2654,11 +2663,12 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	return 0;
 }
 
-int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
+int msm_venc_set_base_layer_priority_id(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
+	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
 	u32 baselayerid;
 
 	if (!inst || !inst->core) {
@@ -2667,9 +2677,13 @@ int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
-		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	if (max_layer->val <= 0) {
+		dprintk(VIDC_DBG, "%s: Layer id can only be set with Hierp\n",
+			__func__);
 		return 0;
+	}
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID);
 	baselayerid = ctrl->val;
@@ -3371,9 +3385,6 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_au_delimiter_mode(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_base_layer_id(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_vpx_error_resilience(inst);
 	if (rc)
 		goto exit;
@@ -3399,6 +3410,9 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_hp_layer(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_base_layer_priority_id(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_aspect_ratio(inst);
