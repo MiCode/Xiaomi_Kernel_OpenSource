@@ -2171,20 +2171,21 @@ static int shmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct shmem_inode_info *info = SHMEM_I(file_inode(file));
 
-	/*
-	 * New PROT_READ and MAP_SHARED mmaps are not allowed when "future
-	 * write" seal active.
-	 */
-	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_WRITE) &&
-	    (info->seals & F_SEAL_FUTURE_WRITE))
-		return -EPERM;
+	if (info->seals & F_SEAL_FUTURE_WRITE) {
+		/*
+		 * New PROT_WRITE and MAP_SHARED mmaps are not allowed when
+		 * "future write" seal active.
+		 */
+		if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_WRITE))
+			return -EPERM;
 
-	/*
-	 * Since the F_SEAL_FUTURE_WRITE seals allow for a MAP_SHARED read-only
-	 * mapping, take care to not allow mprotect to revert protections.
-	 */
-	if (info->seals & F_SEAL_FUTURE_WRITE)
+		/*
+		 * Since the F_SEAL_FUTURE_WRITE seals allow for a MAP_SHARED
+		 * read-only mapping, take care to not allow mprotect to revert
+		 * protections.
+		 */
 		vma->vm_flags &= ~(VM_MAYWRITE);
+	}
 
 	file_accessed(file);
 	vma->vm_ops = &shmem_vm_ops;
