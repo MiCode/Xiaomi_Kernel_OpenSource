@@ -188,18 +188,41 @@ enum bus_vote {
 	BUS_VOTE_MAX
 };
 
-struct usb_irq {
-	char *name;
-	int irq;
-	bool enable;
+struct usb_irq_info {
+	const char	*name;
+	unsigned long	irq_type;
+	bool		required;
 };
 
-static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
-	{"hs_phy_irq", 0},
-	{"pwr_event_irq", 0},
-	{"dp_hs_phy_irq", 0},
-	{"dm_hs_phy_irq", 0},
-	{"ss_phy_irq", 0},
+static const struct usb_irq_info usb_irq_info[USB_MAX_IRQ] = {
+	{ "hs_phy_irq",
+	  IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQ_TYPE_LEVEL_HIGH |
+		 IRQF_EARLY_RESUME,
+	  false,
+	},
+	{ "pwr_event_irq",
+	  IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQ_TYPE_LEVEL_HIGH |
+		 IRQF_EARLY_RESUME,
+	  true,
+	},
+	{ "dp_hs_phy_irq",
+	  IRQF_TRIGGER_RISING | IRQF_ONESHOT | IRQF_EARLY_RESUME,
+	  false,
+	},
+	{ "dm_hs_phy_irq",
+	  IRQF_TRIGGER_RISING | IRQF_ONESHOT | IRQF_EARLY_RESUME,
+	  false,
+	},
+	{ "ss_phy_irq",
+	  IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQ_TYPE_LEVEL_HIGH |
+		 IRQF_EARLY_RESUME,
+	  false,
+	},
+};
+
+struct usb_irq {
+	int irq;
+	bool enable;
 };
 
 static const char * const gsi_op_strings[] = {
@@ -3416,7 +3439,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0, size = 0, i;
 	u32 val;
-	unsigned long irq_type;
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
@@ -3471,18 +3493,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->lpm_to_suspend_delay = 0;
 	}
 
-	memcpy(mdwc->wakeup_irq, usb_irq_info, sizeof(usb_irq_info));
 	for (i = 0; i < USB_MAX_IRQ; i++) {
-		irq_type = IRQF_TRIGGER_HIGH | IRQF_ONESHOT |
-			IRQ_TYPE_LEVEL_HIGH | IRQF_EARLY_RESUME;
 		mdwc->wakeup_irq[i].irq = platform_get_irq_byname(pdev,
-					mdwc->wakeup_irq[i].name);
+					usb_irq_info[i].name);
 		if (mdwc->wakeup_irq[i].irq < 0) {
 			/* pwr_evnt_irq is only mandatory irq */
-			if (!strcmp(mdwc->wakeup_irq[i].name,
-						"pwr_event_irq")) {
+			if (usb_irq_info[i].required) {
 				dev_err(&pdev->dev, "get_irq for %s failed\n\n",
-						mdwc->wakeup_irq[i].name);
+						usb_irq_info[i].name);
 				ret = -EINVAL;
 				goto err;
 			}
@@ -3490,15 +3508,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		} else {
 			irq_set_status_flags(mdwc->wakeup_irq[i].irq,
 						IRQ_NOAUTOEN);
+
 			ret = devm_request_threaded_irq(&pdev->dev,
 					mdwc->wakeup_irq[i].irq,
 					msm_dwc3_pwr_irq,
 					msm_dwc3_pwr_irq_thread,
-					irq_type,
-					mdwc->wakeup_irq[i].name, mdwc);
+					usb_irq_info[i].irq_type,
+					usb_irq_info[i].name, mdwc);
 			if (ret) {
 				dev_err(&pdev->dev, "irq req %s failed: %d\n\n",
-						mdwc->wakeup_irq[i].name, ret);
+						usb_irq_info[i].name, ret);
 				goto err;
 			}
 		}
