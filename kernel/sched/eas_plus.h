@@ -34,7 +34,7 @@ ___select_idle_sibling(struct task_struct *p, int prev_cpu, int new_cpu);
 extern int find_best_idle_cpu(struct task_struct *p, bool prefer_idle);
 
 static int start_cpu(struct task_struct *p, bool prefer_idle,
-				bool boosted, int cap_min, bool *t);
+				bool boosted, bool *t);
 
 #ifdef CONFIG_MTK_UNIFY_POWER
 extern int

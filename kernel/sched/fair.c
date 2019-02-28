@@ -7340,12 +7340,10 @@ static inline int task_fits_capacity(struct task_struct *p, long capacity)
 }
 
 static int start_cpu(struct task_struct *p, bool prefer_idle,
-		bool boosted, int cap_min, bool *t)
+		bool boosted, bool *t)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-	int cap_limit;
 	unsigned long capacity_curr_little;
-	unsigned long capacity_real_little;
 	bool turning = false;
 
 	if (rd->min_cap_orig_cpu < 0)
@@ -7359,15 +7357,12 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 		return rd->min_cap_orig_cpu;
 
 	capacity_curr_little = capacity_curr_of(rd->min_cap_orig_cpu);
-	capacity_real_little = capacity_hw_of(rd->min_cap_orig_cpu);
-	cap_limit = cap_min * 1280 / 1024;
 
 	/*
 	 * favor higher cpu if hitting
 	 * power turnning point or capacity impact.
 	 */
-	if (capacity_curr_little > cpu_eff_tp ||
-			capacity_real_little < cap_limit)
+	if (capacity_curr_little > cpu_eff_tp)
 		turning = true;
 
 	*t = turning;
@@ -7391,15 +7386,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
-	int cap_min;
 	bool turning = false;
-
-#ifdef CONFIG_CGROUP_SCHEDTUNE
-	cap_min = schedtune_task_capacity_min(p);
-#else
-	cap_min = 0;
-#endif
-
 
 	*backup_cpu = -1;
 
@@ -7416,7 +7403,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		target_capacity = 0;
 
 	/* Find start CPU based on boost value */
-	cpu = start_cpu(p, prefer_idle, boosted, cap_min, &turning);
+	cpu = start_cpu(p, prefer_idle, boosted, &turning);
 	if (cpu < 0)
 		return -1;
 
