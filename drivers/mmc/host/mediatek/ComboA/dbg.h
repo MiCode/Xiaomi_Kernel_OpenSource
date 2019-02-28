@@ -136,11 +136,18 @@ do { \
 #define IRQ_MSG(fmt, args...)
 #endif
 
+/*
+ * snprintf may return a value of size or "more" to indicate
+ * that the output was truncated, thus be careful of "more"
+ * case.
+ */
 #define SPREAD_PRINTF(buff, size, evt, fmt, args...) \
 do { \
 	if (buff && size && *(size)) { \
 		unsigned long var = snprintf(*(buff), *(size), fmt, ##args); \
 		if (var > 0) { \
+			if (var > *(size)) \
+				var = *(size); \
 			*(size) -= var; \
 			*(buff) += var; \
 		} \
