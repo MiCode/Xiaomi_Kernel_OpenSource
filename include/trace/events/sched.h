@@ -1393,13 +1393,13 @@ TRACE_EVENT(sched_avg_heavy_task,
 );
 
 TRACE_EVENT(sched_avg_heavy_nr,
-	TP_PROTO(const char *func_name, int nr_heavy,
+	TP_PROTO(int invoker, int nr_heavy,
 		long long int diff, int ack_cap, int cpu),
 
-	TP_ARGS(func_name, nr_heavy, diff, ack_cap, cpu),
+	TP_ARGS(invoker, nr_heavy, diff, ack_cap, cpu),
 
 	TP_STRUCT__entry(
-		__array(char, func_name, 32)
+		__field(int, invoker)
 		__field(int, nr_heavy)
 		__field(long long int, diff)
 		__field(int, ack_cap)
@@ -1407,15 +1407,15 @@ TRACE_EVENT(sched_avg_heavy_nr,
 	),
 
 	TP_fast_assign(
-		memcpy(__entry->func_name, func_name, 32);
+		__entry->invoker = invoker;
 		__entry->nr_heavy = nr_heavy;
 		__entry->diff = diff;
 		__entry->ack_cap = ack_cap;
 		__entry->cpu = cpu;
 	),
 
-	TP_printk("%s nr_heavy=%d time diff:%lld ack_cap:%d cpu:%d",
-		__entry->func_name,
+	TP_printk("invoker=%d nr_heavy=%d time diff:%lld ack_cap:%d cpu:%d",
+		__entry->invoker,
 		__entry->nr_heavy, __entry->diff, __entry->ack_cap, __entry->cpu
 	)
 );
