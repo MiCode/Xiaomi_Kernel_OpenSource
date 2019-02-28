@@ -286,9 +286,9 @@ sd_alloc_ctl_energy_table(struct sched_group_energy *sge)
 			sge->nr_cap_states*sizeof(struct capacity_state), 0444,
 			proc_doulongvec_minmax, false);
 #else
-	//set_table_entry(&table[3], "cap_states", &sge->cap_states[0].cap,
-	//		sge->nr_cap_states*sizeof(struct upower_tbl_row), 0644,
-	//		proc_doulongvec_minmax, false);
+	set_table_entry(&table[3], "cap_states", &sge->cap_states[0].cap,
+			sge->nr_cap_states*sizeof(struct upower_tbl_row), 0644,
+			proc_doulongvec_minmax, false);
 #endif
 
 	return table;

@@ -272,8 +272,6 @@ static int init_cpu_info(void)
 
 			capacity = cpu_core_energy(i)->cap_states[idx].cap;
 		}
-
-		cpu_rq(i)->cpu_capacity_hw = capacity;
 	}
 
 	return 0;
