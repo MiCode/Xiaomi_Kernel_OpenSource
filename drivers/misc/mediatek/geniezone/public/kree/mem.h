@@ -65,8 +65,10 @@ typedef uint32_t *KREE_ION_HANDLE_PTR;
  * @param size	shared memory size in bytes
  */
 struct kree_shared_mem_param {
-	void *buffer;
+
 	uint32_t size;
+	uint32_t region_id;
+	void *buffer;
 	void *mapAry;
 };
 #define KREE_SHAREDMEM_PARAM struct kree_shared_mem_param
@@ -94,9 +96,8 @@ struct KREE_SHM_RUNLENGTH_LIST {
 
 /* map_p: 0 = no remap, 1 = remap */
 TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
-				  KREE_SHAREDMEM_HANDLE *mem_handle,
-				  void *start, uint32_t size, void *map_p,
-				  uint32_t cmd);
+		KREE_SHAREDMEM_HANDLE *mem_handle, void *start,
+		uint32_t size, void *map_p, uint32_t cmd, uint32_t region_id);
 
 TZ_RESULT kree_unregister_sharedmem(KREE_SESSION_HANDLE session,
 				    KREE_SHAREDMEM_HANDLE mem_handle);
@@ -292,6 +293,9 @@ TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 TZ_RESULT KREE_ReleaseSecurechunkmem(KREE_SESSION_HANDLE session,
 				     uint32_t *size);
 TZ_RESULT KREE_ReleaseSecureMultichunkmem(KREE_SESSION_HANDLE session,
+					KREE_SHAREDMEM_HANDLE cm_handle);
+
+TZ_RESULT KREE_ReleaseSecureMultichunkmem_basic(KREE_SESSION_HANDLE session,
 					  KREE_SHAREDMEM_HANDLE cm_handle);
 
 
@@ -308,7 +312,10 @@ TZ_RESULT KREE_AppendSecureMultichunkmem(KREE_SESSION_HANDLE session,
 					 KREE_SHAREDMEM_HANDLE *cm_handle,
 					 KREE_SHAREDMEM_PARAM *param);
 
-#if 0
+TZ_RESULT KREE_AppendSecureMultichunkmem_basic(KREE_SESSION_HANDLE session,
+					KREE_SHAREDMEM_HANDLE *cm_handle,
+					KREE_SHAREDMEM_PARAM *param);
+#if 1
 TZ_RESULT KREE_AllocSecureMultichunkmem(KREE_SESSION_HANDLE session,
 				KREE_SHAREDMEM_HANDLE chm_handle,
 				KREE_SECUREMEM_HANDLE *mem_handle,
@@ -344,6 +351,8 @@ TZ_RESULT KREE_ION_UnreferenceChunkmem(KREE_SESSION_HANDLE session,
 				       KREE_ION_HANDLE IONHandle);
 
 /*only for test*/
+TZ_RESULT KREE_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
+				KREE_ION_HANDLE IONHandle, uint32_t cmd);
 TZ_RESULT KREE_ION_QueryChunkmem_TEST(KREE_SESSION_HANDLE session,
 				      KREE_ION_HANDLE IONHandle, uint32_t cmd);
 

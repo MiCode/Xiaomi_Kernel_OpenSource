@@ -40,7 +40,7 @@
  */
 #define TEST_BEGIN(name)                                                       \
 	bool _success = true;                                                  \
-	const char *_test = name
+	char *_test = name
 
 
 #define TEST_END                                                               \
@@ -51,6 +51,14 @@
 			UT_LOG("%s: FAILED\n", _test);                         \
 	}
 
+#define TEST_END_NO_PRT							\
+{									\
+	if (_success)                                                   \
+		_success = true;					\
+	else                                                            \
+		_success = false;					\
+	strcpy(_test, _test);						\
+}
 /*
  * CHECK_* macros to check test results.
  */
