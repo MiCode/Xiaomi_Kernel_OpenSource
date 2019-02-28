@@ -915,6 +915,39 @@ static void __check_sit_bitmap(struct f2fs_sb_info *sbi,
 #endif
 }
 
+static void __init_discard_policy(struct f2fs_sb_info *sbi,
+				struct discard_policy *dpolicy,
+				int discard_type, unsigned int granularity)
+{
+	/* common policy */
+	dpolicy->type = discard_type;
+	dpolicy->sync = true;
+	dpolicy->granularity = granularity;
+
+	dpolicy->max_requests = DEF_MAX_DISCARD_REQUEST;
+	dpolicy->io_aware_gran = MAX_PLIST_NUM;
+
+	if (discard_type == DPOLICY_BG) {
+		dpolicy->min_interval = DEF_MIN_DISCARD_ISSUE_TIME;
+		dpolicy->max_interval = DEF_MAX_DISCARD_ISSUE_TIME;
+		dpolicy->io_aware = true;
+		dpolicy->sync = false;
+		if (utilization(sbi) > DEF_DISCARD_URGENT_UTIL) {
+			dpolicy->granularity = 1;
+			dpolicy->max_interval = DEF_MIN_DISCARD_ISSUE_TIME;
+		}
+	} else if (discard_type == DPOLICY_FORCE) {
+		dpolicy->min_interval = DEF_MIN_DISCARD_ISSUE_TIME;
+		dpolicy->max_interval = DEF_MAX_DISCARD_ISSUE_TIME;
+		dpolicy->io_aware = false;
+	} else if (discard_type == DPOLICY_FSTRIM) {
+		dpolicy->io_aware = false;
+	} else if (discard_type == DPOLICY_UMOUNT) {
+		dpolicy->io_aware = false;
+	}
+}
+
+
 /* this function is copied from blkdev_issue_discard from block/blk-lib.c */
 static void __submit_discard_cmd(struct f2fs_sb_info *sbi,
 						struct discard_policy *dpolicy,
@@ -1130,68 +1163,6 @@ static int __queue_discard_cmd(struct f2fs_sb_info *sbi,
 	return 0;
 }
 
-static void __issue_discard_cmd_range(struct f2fs_sb_info *sbi,
-					struct discard_policy *dpolicy,
-					unsigned int start, unsigned int end)
-{
-	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
-	struct discard_cmd *prev_dc = NULL, *next_dc = NULL;
-	struct rb_node **insert_p = NULL, *insert_parent = NULL;
-	struct discard_cmd *dc;
-	struct blk_plug plug;
-	int issued;
-
-next:
-	issued = 0;
-
-	mutex_lock(&dcc->cmd_lock);
-	f2fs_bug_on(sbi, !__check_rb_tree_consistence(sbi, &dcc->root));
-
-	dc = (struct discard_cmd *)__lookup_rb_tree_ret(&dcc->root,
-					NULL, start,
-					(struct rb_entry **)&prev_dc,
-					(struct rb_entry **)&next_dc,
-					&insert_p, &insert_parent, true);
-	if (!dc)
-		dc = next_dc;
-
-	blk_start_plug(&plug);
-
-	while (dc && dc->lstart <= end) {
-		struct rb_node *node;
-
-		if (dc->len < dpolicy->granularity)
-			goto skip;
-
-		if (dc->state != D_PREP) {
-			list_move_tail(&dc->list, &dcc->fstrim_list);
-			goto skip;
-		}
-
-		__submit_discard_cmd(sbi, dpolicy, dc);
-
-		if (++issued >= dpolicy->max_requests) {
-			start = dc->lstart + dc->len;
-
-			blk_finish_plug(&plug);
-			mutex_unlock(&dcc->cmd_lock);
-
-			schedule();
-
-			goto next;
-		}
-skip:
-		node = rb_next(&dc->rb_node);
-		dc = rb_entry_safe(node, struct discard_cmd, rb_node);
-
-		if (fatal_signal_pending(current))
-			break;
-	}
-
-	blk_finish_plug(&plug);
-	mutex_unlock(&dcc->cmd_lock);
-}
-
 static int __issue_discard_cmd(struct f2fs_sb_info *sbi,
 					struct discard_policy *dpolicy)
 {
@@ -1332,7 +1303,18 @@ next:
 static void __wait_all_discard_cmd(struct f2fs_sb_info *sbi,
 						struct discard_policy *dpolicy)
 {
-	__wait_discard_cmd_range(sbi, dpolicy, 0, UINT_MAX);
+	struct discard_policy dp;
+
+	if (dpolicy) {
+		__wait_discard_cmd_range(sbi, dpolicy, 0, UINT_MAX);
+		return;
+	}
+
+	/* wait all */
+	__init_discard_policy(sbi, &dp, DPOLICY_FSTRIM, 1);
+	__wait_discard_cmd_range(sbi, &dp, 0, UINT_MAX);
+	__init_discard_policy(sbi, &dp, DPOLICY_UMOUNT, 1);
+	__wait_discard_cmd_range(sbi, &dp, 0, UINT_MAX);
 }
 
 /* This should be covered by global mutex, &sit_i->sentry_lock */
@@ -1377,11 +1359,13 @@ bool f2fs_wait_discard_bios(struct f2fs_sb_info *sbi)
 	struct discard_policy dpolicy;
 	bool dropped;
 
-	init_discard_policy(&dpolicy, DPOLICY_UMOUNT, dcc->discard_granularity);
+	__init_discard_policy(sbi, &dpolicy, DPOLICY_UMOUNT,
+					dcc->discard_granularity);
 	__issue_discard_cmd(sbi, &dpolicy);
 	dropped = __drop_discard_cmd(sbi);
-	__wait_all_discard_cmd(sbi, &dpolicy);
 
+	/* just to make sure there is no pending discard commands */
+	__wait_all_discard_cmd(sbi, NULL);
 	return dropped;
 }
 
@@ -1397,7 +1381,7 @@ static int issue_discard_thread(void *data)
 	set_freezable();
 
 	do {
-		init_discard_policy(&dpolicy, DPOLICY_BG,
+		__init_discard_policy(sbi, &dpolicy, DPOLICY_BG,
 					dcc->discard_granularity);
 
 		wait_event_interruptible_timeout(*q,
@@ -1411,12 +1395,11 @@ static int issue_discard_thread(void *data)
 		if (kthread_should_stop())
 			return 0;
 
-		if (dcc->discard_wake) {
+		if (dcc->discard_wake)
 			dcc->discard_wake = 0;
-			if (sbi->gc_thread && sbi->gc_thread->gc_urgent)
-				init_discard_policy(&dpolicy,
-							DPOLICY_FORCE, 1);
-		}
+
+		if (sbi->gc_thread && sbi->gc_thread->gc_urgent)
+			__init_discard_policy(sbi, &dpolicy, DPOLICY_FORCE, 1);
 
 		sb_start_intwrite(sbi->sb);
 
@@ -1485,7 +1468,7 @@ static int __issue_discard_async(struct f2fs_sb_info *sbi,
 		struct block_device *bdev, block_t blkstart, block_t blklen)
 {
 #ifdef CONFIG_BLK_DEV_ZONED
-	if (f2fs_sb_mounted_blkzoned(sbi->sb) &&
+	if (f2fs_sb_has_blkzoned(sbi->sb) &&
 				bdev_zoned_model(bdev) != BLK_ZONED_NONE)
 		return __f2fs_issue_discard_zone(sbi, bdev, blkstart, blklen);
 #endif
@@ -1683,7 +1666,7 @@ find_next:
 					sbi->blocks_per_seg, cur_pos);
 			len = next_pos - cur_pos;
 
-			if (f2fs_sb_mounted_blkzoned(sbi->sb) ||
+			if (f2fs_sb_has_blkzoned(sbi->sb) ||
 			    (force && len < cpc->trim_minlen))
 				goto skip;
 
@@ -1707,32 +1690,6 @@ skip:
 	}
 
 	wake_up_discard_thread(sbi, false);
-}
-
-void init_discard_policy(struct discard_policy *dpolicy,
-				int discard_type, unsigned int granularity)
-{
-	/* common policy */
-	dpolicy->type = discard_type;
-	dpolicy->sync = true;
-	dpolicy->granularity = granularity;
-
-	dpolicy->max_requests = DEF_MAX_DISCARD_REQUEST;
-	dpolicy->io_aware_gran = MAX_PLIST_NUM;
-
-	if (discard_type == DPOLICY_BG) {
-		dpolicy->min_interval = DEF_MIN_DISCARD_ISSUE_TIME;
-		dpolicy->max_interval = DEF_MAX_DISCARD_ISSUE_TIME;
-		dpolicy->io_aware = true;
-	} else if (discard_type == DPOLICY_FORCE) {
-		dpolicy->min_interval = DEF_MIN_DISCARD_ISSUE_TIME;
-		dpolicy->max_interval = DEF_MAX_DISCARD_ISSUE_TIME;
-		dpolicy->io_aware = true;
-	} else if (discard_type == DPOLICY_FSTRIM) {
-		dpolicy->io_aware = false;
-	} else if (discard_type == DPOLICY_UMOUNT) {
-		dpolicy->io_aware = false;
-	}
 }
 
 static int create_discard_cmd_control(struct f2fs_sb_info *sbi)
@@ -1863,7 +1820,7 @@ static void update_sit_entry(struct f2fs_sb_info *sbi, block_t blkaddr, int del)
 			sbi->discard_blks--;
 
 		/* don't overwrite by SSR to keep node chain */
-		if (se->type == CURSEG_WARM_NODE) {
+		if (IS_NODESEG(se->type)) {
 			if (!f2fs_test_and_set_bit(offset, se->ckpt_valid_map))
 				se->ckpt_valid_blocks++;
 		}
@@ -2164,11 +2121,17 @@ static unsigned int __get_next_segno(struct f2fs_sb_info *sbi, int type)
 	if (sbi->segs_per_sec != 1)
 		return CURSEG_I(sbi, type)->segno;
 
-	if (type == CURSEG_HOT_DATA || IS_NODESEG(type))
+	if (test_opt(sbi, NOHEAP) &&
+		(type == CURSEG_HOT_DATA || IS_NODESEG(type)))
 		return 0;
 
 	if (SIT_I(sbi)->last_victim[ALLOC_NEXT])
 		return SIT_I(sbi)->last_victim[ALLOC_NEXT];
+
+	/* find segments from 0 to reuse freed segments */
+	if (F2FS_OPTION(sbi).alloc_mode == ALLOC_MODE_REUSE)
+		return 0;
+
 	return CURSEG_I(sbi, type)->segno;
 }
 
@@ -2368,11 +2331,72 @@ bool exist_trim_candidates(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	return has_candidate;
 }
 
+static void __issue_discard_cmd_range(struct f2fs_sb_info *sbi,
+					struct discard_policy *dpolicy,
+					unsigned int start, unsigned int end)
+{
+	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
+	struct discard_cmd *prev_dc = NULL, *next_dc = NULL;
+	struct rb_node **insert_p = NULL, *insert_parent = NULL;
+	struct discard_cmd *dc;
+	struct blk_plug plug;
+	int issued;
+
+next:
+	issued = 0;
+
+	mutex_lock(&dcc->cmd_lock);
+	f2fs_bug_on(sbi, !__check_rb_tree_consistence(sbi, &dcc->root));
+
+	dc = (struct discard_cmd *)__lookup_rb_tree_ret(&dcc->root,
+					NULL, start,
+					(struct rb_entry **)&prev_dc,
+					(struct rb_entry **)&next_dc,
+					&insert_p, &insert_parent, true);
+	if (!dc)
+		dc = next_dc;
+
+	blk_start_plug(&plug);
+
+	while (dc && dc->lstart <= end) {
+		struct rb_node *node;
+
+		if (dc->len < dpolicy->granularity)
+			goto skip;
+
+		if (dc->state != D_PREP) {
+			list_move_tail(&dc->list, &dcc->fstrim_list);
+			goto skip;
+		}
+
+		__submit_discard_cmd(sbi, dpolicy, dc);
+
+		if (++issued >= dpolicy->max_requests) {
+			start = dc->lstart + dc->len;
+
+			blk_finish_plug(&plug);
+			mutex_unlock(&dcc->cmd_lock);
+			__wait_all_discard_cmd(sbi, NULL);
+			congestion_wait(BLK_RW_ASYNC, HZ/50);
+			goto next;
+		}
+skip:
+		node = rb_next(&dc->rb_node);
+		dc = rb_entry_safe(node, struct discard_cmd, rb_node);
+
+		if (fatal_signal_pending(current))
+			break;
+	}
+
+	blk_finish_plug(&plug);
+	mutex_unlock(&dcc->cmd_lock);
+}
+
 int f2fs_trim_fs(struct f2fs_sb_info *sbi, struct fstrim_range *range)
 {
 	__u64 start = F2FS_BYTES_TO_BLK(range->start);
 	__u64 end = start + F2FS_BYTES_TO_BLK(range->len) - 1;
-	unsigned int start_segno, end_segno, cur_segno;
+	unsigned int start_segno, end_segno;
 	block_t start_block, end_block;
 	struct cp_control cpc;
 	struct discard_policy dpolicy;
@@ -2398,40 +2422,36 @@ int f2fs_trim_fs(struct f2fs_sb_info *sbi, struct fstrim_range *range)
 
 	cpc.reason = CP_DISCARD;
 	cpc.trim_minlen = max_t(__u64, 1, F2FS_BYTES_TO_BLK(range->minlen));
+	cpc.trim_start = start_segno;
+	cpc.trim_end = end_segno;
 
-	/* do checkpoint to issue discard commands safely */
-	for (cur_segno = start_segno; cur_segno <= end_segno;
-					cur_segno = cpc.trim_end + 1) {
-		cpc.trim_start = cur_segno;
+	if (sbi->discard_blks == 0)
+		goto out;
 
-		if (sbi->discard_blks == 0)
-			break;
-		else if (sbi->discard_blks < BATCHED_TRIM_BLOCKS(sbi))
-			cpc.trim_end = end_segno;
-		else
-			cpc.trim_end = min_t(unsigned int,
-				rounddown(cur_segno +
-				BATCHED_TRIM_SEGMENTS(sbi),
-				sbi->segs_per_sec) - 1, end_segno);
-
-		mutex_lock(&sbi->gc_mutex);
-		err = write_checkpoint(sbi, &cpc);
-		mutex_unlock(&sbi->gc_mutex);
-		if (err)
-			break;
-
-		schedule();
-	}
+	mutex_lock(&sbi->gc_mutex);
+	err = write_checkpoint(sbi, &cpc);
+	mutex_unlock(&sbi->gc_mutex);
+	if (err)
+		goto out;
 
 	start_block = START_BLOCK(sbi, start_segno);
-	end_block = START_BLOCK(sbi, min(cur_segno, end_segno) + 1);
+	end_block = START_BLOCK(sbi, end_segno + 1);
 
-	init_discard_policy(&dpolicy, DPOLICY_FSTRIM, cpc.trim_minlen);
+	__init_discard_policy(sbi, &dpolicy, DPOLICY_FSTRIM, cpc.trim_minlen);
 	__issue_discard_cmd_range(sbi, &dpolicy, start_block, end_block);
-	trimmed = __wait_discard_cmd_range(sbi, &dpolicy,
+
+	/*
+	 * We filed discard candidates, but actually we don't need to wait for
+	 * all of them, since they'll be issued in idle time along with runtime
+	 * discard option. User configuration looks like using runtime discard
+	 * or periodic fstrim instead of it.
+	 */
+	if (!test_opt(sbi, DISCARD)) {
+		trimmed = __wait_discard_cmd_range(sbi, &dpolicy,
 					start_block, end_block);
+		range->len = F2FS_BLK_TO_BYTES(trimmed);
+	}
 out:
-	range->len = F2FS_BLK_TO_BYTES(trimmed);
 	return err;
 }
 
@@ -2453,6 +2473,101 @@ int rw_hint_to_seg_type(enum rw_hint hint)
 	default:
 		return CURSEG_WARM_DATA;
 	}
+}
+
+/* This returns write hints for each segment type. This hints will be
+ * passed down to block layer. There are mapping tables which depend on
+ * the mount option 'whint_mode'.
+ *
+ * 1) whint_mode=off. F2FS only passes down WRITE_LIFE_NOT_SET.
+ *
+ * 2) whint_mode=user-based. F2FS tries to pass down hints given by users.
+ *
+ * User                  F2FS                     Block
+ * ----                  ----                     -----
+ *                       META                     WRITE_LIFE_NOT_SET
+ *                       HOT_NODE                 "
+ *                       WARM_NODE                "
+ *                       COLD_NODE                "
+ * ioctl(COLD)           COLD_DATA                WRITE_LIFE_EXTREME
+ * extension list        "                        "
+ *
+ * -- buffered io
+ * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
+ * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
+ * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
+ * WRITE_LIFE_NONE       "                        "
+ * WRITE_LIFE_MEDIUM     "                        "
+ * WRITE_LIFE_LONG       "                        "
+ *
+ * -- direct io
+ * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
+ * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
+ * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
+ * WRITE_LIFE_NONE       "                        WRITE_LIFE_NONE
+ * WRITE_LIFE_MEDIUM     "                        WRITE_LIFE_MEDIUM
+ * WRITE_LIFE_LONG       "                        WRITE_LIFE_LONG
+ *
+ * 3) whint_mode=fs-based. F2FS passes down hints with its policy.
+ *
+ * User                  F2FS                     Block
+ * ----                  ----                     -----
+ *                       META                     WRITE_LIFE_MEDIUM;
+ *                       HOT_NODE                 WRITE_LIFE_NOT_SET
+ *                       WARM_NODE                "
+ *                       COLD_NODE                WRITE_LIFE_NONE
+ * ioctl(COLD)           COLD_DATA                WRITE_LIFE_EXTREME
+ * extension list        "                        "
+ *
+ * -- buffered io
+ * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
+ * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
+ * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_LONG
+ * WRITE_LIFE_NONE       "                        "
+ * WRITE_LIFE_MEDIUM     "                        "
+ * WRITE_LIFE_LONG       "                        "
+ *
+ * -- direct io
+ * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
+ * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
+ * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
+ * WRITE_LIFE_NONE       "                        WRITE_LIFE_NONE
+ * WRITE_LIFE_MEDIUM     "                        WRITE_LIFE_MEDIUM
+ * WRITE_LIFE_LONG       "                        WRITE_LIFE_LONG
+ */
+
+enum rw_hint io_type_to_rw_hint(struct f2fs_sb_info *sbi,
+				enum page_type type, enum temp_type temp)
+{
+	if (F2FS_OPTION(sbi).whint_mode == WHINT_MODE_USER) {
+		if (type == DATA) {
+			if (temp == WARM)
+				return WRITE_LIFE_NOT_SET;
+			else if (temp == HOT)
+				return WRITE_LIFE_SHORT;
+			else if (temp == COLD)
+				return WRITE_LIFE_EXTREME;
+		} else {
+			return WRITE_LIFE_NOT_SET;
+		}
+	} else if (F2FS_OPTION(sbi).whint_mode == WHINT_MODE_FS) {
+		if (type == DATA) {
+			if (temp == WARM)
+				return WRITE_LIFE_LONG;
+			else if (temp == HOT)
+				return WRITE_LIFE_SHORT;
+			else if (temp == COLD)
+				return WRITE_LIFE_EXTREME;
+		} else if (type == NODE) {
+			if (temp == WARM || temp == HOT)
+				return WRITE_LIFE_NOT_SET;
+			else if (temp == COLD)
+				return WRITE_LIFE_NONE;
+		} else if (type == META) {
+			return WRITE_LIFE_MEDIUM;
+		}
+	}
+	return WRITE_LIFE_NOT_SET;
 }
 
 static int __get_segment_type_2(struct f2fs_io_info *fio)
@@ -2487,7 +2602,8 @@ static int __get_segment_type_6(struct f2fs_io_info *fio)
 
 		if (is_cold_data(fio->page) || file_is_cold(inode))
 			return CURSEG_COLD_DATA;
-		if (is_inode_flag_set(inode, FI_HOT_DATA))
+		if (file_is_hot(inode) ||
+				is_inode_flag_set(inode, FI_HOT_DATA))
 			return CURSEG_HOT_DATA;
 		return rw_hint_to_seg_type(inode->i_write_hint);
 	} else {
@@ -2502,7 +2618,7 @@ static int __get_segment_type(struct f2fs_io_info *fio)
 {
 	int type = 0;
 
-	switch (fio->sbi->active_logs) {
+	switch (F2FS_OPTION(fio->sbi).active_logs) {
 	case 2:
 		type = __get_segment_type_2(fio);
 		break;
@@ -2642,6 +2758,7 @@ void write_meta_page(struct f2fs_sb_info *sbi, struct page *page,
 	struct f2fs_io_info fio = {
 		.sbi = sbi,
 		.type = META,
+		.temp = HOT,
 		.op = REQ_OP_WRITE,
 		.op_flags = REQ_SYNC | REQ_META | REQ_PRIO,
 		.old_blkaddr = page->index,
@@ -2655,6 +2772,7 @@ void write_meta_page(struct f2fs_sb_info *sbi, struct page *page,
 		fio.op_flags &= ~REQ_META;
 
 	set_page_writeback(page);
+	ClearPageError(page);
 	f2fs_submit_page_write(&fio);
 
 	f2fs_update_iostat(sbi, io_type, F2FS_BLKSIZE);
@@ -2688,8 +2806,15 @@ void write_data_page(struct dnode_of_data *dn, struct f2fs_io_info *fio)
 int rewrite_data_page(struct f2fs_io_info *fio)
 {
 	int err;
+	struct f2fs_sb_info *sbi = fio->sbi;
 
 	fio->new_blkaddr = fio->old_blkaddr;
+	/* i/o temperature is needed for passing down write hints */
+	__get_segment_type(fio);
+
+	f2fs_bug_on(sbi, !IS_DATASEG(get_seg_entry(sbi,
+			GET_SEGNO(sbi, fio->new_blkaddr))->type));
+
 	stat_inc_inplace_blocks(fio->sbi);
 
 	err = f2fs_submit_page_bio(fio);
@@ -3712,8 +3837,6 @@ int build_segment_manager(struct f2fs_sb_info *sbi)
 	sm_info->min_fsync_blocks = DEF_MIN_FSYNC_BLOCKS;
 	sm_info->min_hot_blocks = DEF_MIN_HOT_BLOCKS;
 	sm_info->min_ssr_sections = reserved_sections(sbi);
-
-	sm_info->trim_sections = DEF_BATCHED_TRIM_SECTIONS;
 
 	INIT_LIST_HEAD(&sm_info->sit_entry_set);
 

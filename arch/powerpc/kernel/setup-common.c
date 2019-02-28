@@ -242,14 +242,6 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned short maj;
 	unsigned short min;
 
-	/* We only show online cpus: disable preempt (overzealous, I
-	 * knew) to prevent cpu going down. */
-	preempt_disable();
-	if (!cpu_online(cpu_id)) {
-		preempt_enable();
-		return 0;
-	}
-
 #ifdef CONFIG_SMP
 	pvr = per_cpu(cpu_pvr, cpu_id);
 #else
@@ -358,9 +350,6 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 #ifdef CONFIG_SMP
 	seq_printf(m, "\n");
 #endif
-
-	preempt_enable();
-
 	/* If this is the last cpu, print the summary */
 	if (cpumask_next(cpu_id, cpu_online_mask) >= nr_cpu_ids)
 		show_cpuinfo_summary(m);
@@ -926,6 +915,8 @@ void __init setup_arch(char **cmdline_p)
 #ifdef CONFIG_PPC_MM_SLICES
 #ifdef CONFIG_PPC64
 	init_mm.context.addr_limit = DEFAULT_MAP_WINDOW_USER64;
+#elif defined(CONFIG_PPC_8xx)
+	init_mm.context.addr_limit = DEFAULT_MAP_WINDOW;
 #else
 #error	"context.addr_limit not initialized."
 #endif

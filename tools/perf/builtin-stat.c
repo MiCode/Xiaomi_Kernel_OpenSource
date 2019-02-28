@@ -922,7 +922,7 @@ static void print_metric_csv(void *ctx,
 	char buf[64], *vals, *ends;
 
 	if (unit == NULL || fmt == NULL) {
-		fprintf(out, "%s%s%s%s", csv_sep, csv_sep, csv_sep, csv_sep);
+		fprintf(out, "%s%s", csv_sep, csv_sep);
 		return;
 	}
 	snprintf(buf, sizeof(buf), fmt, val);
@@ -2185,11 +2185,16 @@ static int add_default_attributes(void)
 		return 0;
 
 	if (transaction_run) {
+		struct parse_events_error errinfo;
+
 		if (pmu_have_event("cpu", "cycles-ct") &&
 		    pmu_have_event("cpu", "el-start"))
-			err = parse_events(evsel_list, transaction_attrs, NULL);
+			err = parse_events(evsel_list, transaction_attrs,
+					   &errinfo);
 		else
-			err = parse_events(evsel_list, transaction_limited_attrs, NULL);
+			err = parse_events(evsel_list,
+					   transaction_limited_attrs,
+					   &errinfo);
 		if (err) {
 			fprintf(stderr, "Cannot set up transaction events\n");
 			return -1;

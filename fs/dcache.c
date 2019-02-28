@@ -468,9 +468,11 @@ static void dentry_lru_add(struct dentry *dentry)
  * d_drop() is used mainly for stuff that wants to invalidate a dentry for some
  * reason (NFS timeouts or autofs deletes).
  *
- * __d_drop requires dentry->d_lock.
+ * __d_drop requires dentry->d_lock
+ * ___d_drop doesn't mark dentry as "unhashed"
+ *   (dentry->d_hash.pprev will be LIST_POISON2, not NULL).
  */
-void __d_drop(struct dentry *dentry)
+static void ___d_drop(struct dentry *dentry)
 {
 	if (!d_unhashed(dentry)) {
 		struct hlist_bl_head *b;
@@ -486,11 +488,16 @@ void __d_drop(struct dentry *dentry)
 
 		hlist_bl_lock(b);
 		__hlist_bl_del(&dentry->d_hash);
-		dentry->d_hash.pprev = NULL;
 		hlist_bl_unlock(b);
 		/* After this call, in-progress rcu-walk path lookup will fail. */
 		write_seqcount_invalidate(&dentry->d_seq);
 	}
+}
+
+void __d_drop(struct dentry *dentry)
+{
+	___d_drop(dentry);
+	dentry->d_hash.pprev = NULL;
 }
 EXPORT_SYMBOL(__d_drop);
 
@@ -644,11 +651,16 @@ again:
 		spin_unlock(&parent->d_lock);
 		goto again;
 	}
-	rcu_read_unlock();
-	if (parent != dentry)
+	if (parent != dentry) {
 		spin_lock_nested(&dentry->d_lock, DENTRY_D_LOCK_NESTED);
-	else
+		if (unlikely(dentry->d_lockref.count < 0)) {
+			spin_unlock(&parent->d_lock);
+			parent = NULL;
+		}
+	} else {
 		parent = NULL;
+	}
+	rcu_read_unlock();
 	return parent;
 }
 
@@ -1855,6 +1867,28 @@ void d_instantiate(struct dentry *entry, struct inode * inode)
 }
 EXPORT_SYMBOL(d_instantiate);
 
+/*
+ * This should be equivalent to d_instantiate() + unlock_new_inode(),
+ * with lockdep-related part of unlock_new_inode() done before
+ * anything else.  Use that instead of open-coding d_instantiate()/
+ * unlock_new_inode() combinations.
+ */
+void d_instantiate_new(struct dentry *entry, struct inode *inode)
+{
+	BUG_ON(!hlist_unhashed(&entry->d_u.d_alias));
+	BUG_ON(!inode);
+	lockdep_annotate_inode_mutex_key(inode);
+	security_d_instantiate(entry, inode);
+	spin_lock(&inode->i_lock);
+	__d_instantiate(entry, inode);
+	WARN_ON(!(inode->i_state & I_NEW));
+	inode->i_state &= ~I_NEW;
+	smp_mb();
+	wake_up_bit(&inode->i_state, __I_NEW);
+	spin_unlock(&inode->i_lock);
+}
+EXPORT_SYMBOL(d_instantiate_new);
+
 /**
  * d_instantiate_no_diralias - instantiate a non-aliased dentry
  * @entry: dentry to complete
@@ -2381,7 +2415,7 @@ EXPORT_SYMBOL(d_delete);
 static void __d_rehash(struct dentry *entry)
 {
 	struct hlist_bl_head *b = d_hash(entry->d_name.hash);
-	BUG_ON(!d_unhashed(entry));
+
 	hlist_bl_lock(b);
 	hlist_bl_add_head_rcu(&entry->d_hash, b);
 	hlist_bl_unlock(b);
@@ -2448,7 +2482,7 @@ struct dentry *d_alloc_parallel(struct dentry *parent,
 
 retry:
 	rcu_read_lock();
-	seq = smp_load_acquire(&parent->d_inode->i_dir_seq) & ~1;
+	seq = smp_load_acquire(&parent->d_inode->i_dir_seq);
 	r_seq = read_seqbegin(&rename_lock);
 	dentry = __d_lookup_rcu(parent, name, &d_seq);
 	if (unlikely(dentry)) {
@@ -2469,8 +2503,14 @@ retry:
 		rcu_read_unlock();
 		goto retry;
 	}
+
+	if (unlikely(seq & 1)) {
+		rcu_read_unlock();
+		goto retry;
+	}
+
 	hlist_bl_lock(b);
-	if (unlikely(parent->d_inode->i_dir_seq != seq)) {
+	if (unlikely(READ_ONCE(parent->d_inode->i_dir_seq) != seq)) {
 		hlist_bl_unlock(b);
 		rcu_read_unlock();
 		goto retry;
@@ -2816,9 +2856,9 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 	write_seqcount_begin_nested(&target->d_seq, DENTRY_D_LOCK_NESTED);
 
 	/* unhash both */
-	/* __d_drop does write_seqcount_barrier, but they're OK to nest. */
-	__d_drop(dentry);
-	__d_drop(target);
+	/* ___d_drop does write_seqcount_barrier, but they're OK to nest. */
+	___d_drop(dentry);
+	___d_drop(target);
 
 	/* Switch the names.. */
 	if (exchange)
@@ -2830,6 +2870,8 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 	__d_rehash(dentry);
 	if (exchange)
 		__d_rehash(target);
+	else
+		target->d_hash.pprev = NULL;
 
 	/* ... and switch them in the tree */
 	if (IS_ROOT(dentry)) {
