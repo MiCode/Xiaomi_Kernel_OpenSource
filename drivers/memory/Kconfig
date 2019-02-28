@@ -129,7 +129,7 @@ config JZ4780_NEMC
 
 config MTK_SMI
 	bool
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	#depends on ARCH_MEDIATEK || COMPILE_TEST
 	help
 	  This driver is for the Memory Controller module in MediaTek SoCs,
 	  mainly help enable/disable iommu and control the power domain and

@@ -47,10 +47,6 @@
 #include "mtk_devinfo.h"
 //#include <mt_emi_api.h>
 
-#ifdef CONFIG_MTK_SMI_EXT
-#include <mmdvfs_mgr.h>
-#endif
-
 #include <helio-dvfsrc-opp.h>
 #include <helio-dvfsrc.h>
 
@@ -76,11 +72,7 @@
 void __iomem *dvfsrc_base;
 void __iomem *qos_sram_base;
 
-#ifdef CONFIG_MTK_SMI_EXT
-enum mmdvfs_lcd_size_enum plat_lcd_resolution;
-#else
 int plat_lcd_resolution;
-#endif
 
 enum spm_vcorefs_step {
 	SPM_VCOREFS_ENTER = 0x00000001,
