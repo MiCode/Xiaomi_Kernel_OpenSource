@@ -29,8 +29,6 @@ static int index;
 
 char *serial_string;
 int serial_idx;
-#define MAX_USB_STRING_LEN	126
-#define MAX_USB_STRING_WITH_NULL_LEN	(MAX_USB_STRING_LEN+1)
 
 struct device *create_function_device(char *name)
 {
@@ -150,6 +148,8 @@ struct gadget_config_name {
 	struct list_head list;
 };
 
+#define MAX_USB_STRING_LEN	126
+#define MAX_USB_STRING_WITH_NULL_LEN	(MAX_USB_STRING_LEN+1)
 static int usb_string_copy(const char *s, char **s_copy)
 {
 	int ret;
