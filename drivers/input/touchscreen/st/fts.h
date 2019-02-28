@@ -66,7 +66,7 @@
 
 
 /**** FEATURES USED IN THE IC ***/
-#define PHONE_KEY /*enable the keys*/
+/* #define PHONE_KEY enable the keys */
 
 #define PHONE_GESTURE /*allow to use the gestures*/
 #ifdef PHONE_GESTURE

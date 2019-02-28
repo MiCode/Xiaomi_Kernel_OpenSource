@@ -3526,14 +3526,12 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 	hrtimer_start(&info->timer, ktime_set(1, 0), HRTIMER_MODE_REL);
 #else
 	logError(0, "%s Interrupt Mode\n", tag);
-	if (request_irq(info->client->irq, fts_interrupt_handler,
-		IRQF_TRIGGER_LOW, info->client->name, info)) {
+	if (request_threaded_irq(info->client->irq, NULL, fts_interrupt_handler,
+		IRQF_TRIGGER_LOW | IRQF_ONESHOT, info->client->name, info)) {
 		logError(1, "%s Request irq failed\n", tag);
 		kfree(info->event_dispatch_table);
 		error = -EBUSY;
-	} /*else {*/
-	/*error = fts_enableInterrupt();*/
-	/*}*/
+	}
 #endif
 	return error;
 }
@@ -3558,6 +3556,21 @@ static void fts_interrupt_enable(struct fts_ts_info *info)
 #else
 	enable_irq(info->client->irq);
 #endif
+	/* enable the touch IC irq */
+	fts_enableInterrupt();
+}
+
+static void fts_interrupt_disable(struct fts_ts_info *info)
+{
+	/* disable the touch IC irq */
+	fts_disableInterrupt();
+
+#ifdef FTS_USE_POLLING_MODE
+	hrtimer_cancel(&info->timer);
+#else
+	disable_irq(info->client->irq);
+#endif
+
 }
 
 static int fts_init(struct fts_ts_info *info)
@@ -4041,11 +4054,6 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
-	if (fts_enable_reg(info, true) < 0) {
-		logError(1, "%s %s: ERROR Failed to enable regulators\n",
-			tag, __func__);
-	}
-
 	if (info->ts_pinctrl) {
 		/*
 		 * Pinctrl handle is optional. If pinctrl handle is found
@@ -4060,10 +4068,11 @@ static void fts_resume_work(struct work_struct *work)
 	}
 
 	info->resume_bit = 1;
+
+	fts_system_reset();
 #ifdef USE_NOISE_PARAM
 	readNoiseParameters(noise_params);
 #endif
-	fts_system_reset();
 
 #ifdef USE_NOISE_PARAM
 	writeNoiseParameters(noise_params);
@@ -4075,7 +4084,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	info->sensor_sleep = false;
 
-	fts_enableInterrupt();
+	fts_interrupt_enable(info);
 }
 
 
@@ -4091,10 +4100,9 @@ static void fts_suspend_work(struct work_struct *work)
 
 	fts_mode_handler(info, 0);
 
+	fts_interrupt_disable(info);
 	release_all_touches(info);
 	info->sensor_sleep = true;
-
-	fts_enableInterrupt();
 
 	if (info->ts_pinctrl) {
 		/*
@@ -4109,7 +4117,6 @@ static void fts_suspend_work(struct work_struct *work)
 		}
 	}
 
-	fts_enable_reg(info, false);
 }
 
 
