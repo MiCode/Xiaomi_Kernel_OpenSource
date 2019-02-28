@@ -19,6 +19,7 @@
 #include <linux/sched_clock.h>
 #include <linux/seqlock.h>
 #include <linux/bitops.h>
+#include <mt-plat/mtk_sys_timer.h>
 
 /**
  * struct clock_read_data - data required to read from sched_clock()
@@ -113,6 +114,32 @@ unsigned long long notrace sched_clock(void)
 }
 
 /*
+ * alternative sched_clock to get arch_timer cycle as well
+ */
+unsigned long long notrace sched_clock_get_cyc(unsigned long long *cyc_ret)
+{
+	u64 cyc, cyc_cur, res;
+	unsigned long seq;
+	struct clock_read_data *rd;
+
+	do {
+		seq = raw_read_seqcount(&cd.seq);
+		rd = cd.read_data + (seq & 1);
+
+		cyc_cur = rd->read_sched_clock();
+
+		cyc = (cyc_cur - rd->epoch_cyc) &
+		      rd->sched_clock_mask;
+		res = rd->epoch_ns + cyc_to_ns(cyc, rd->mult, rd->shift);
+	} while (read_seqcount_retry(&cd.seq, seq));
+
+	if (cyc_ret)
+		*cyc_ret = cyc_cur;
+
+	return res;
+}
+
+/*
  * Updating the data required to read the clock.
  *
  * sched_clock() will never observe mis-matched data even if called from
@@ -161,6 +188,9 @@ static enum hrtimer_restart sched_clock_poll(struct hrtimer *hrt)
 {
 	update_sched_clock();
 	hrtimer_forward_now(hrt, cd.wrap_kt);
+
+	/* snchronize new sched_clock base to co-processors */
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_ASYNC);
 
 	return HRTIMER_RESTART;
 }
@@ -283,6 +313,10 @@ static int sched_clock_suspend(void)
 	hrtimer_cancel(&sched_clock_timer);
 	rd->read_sched_clock = suspended_sched_clock_read;
 
+	/* snchronize new sched_clock base to co-processors */
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
+		SYS_TIMER_TIMESYNC_FLAG_FREEZE);
+
 	return 0;
 }
 
@@ -293,6 +327,10 @@ static void sched_clock_resume(void)
 	rd->epoch_cyc = cd.actual_read_sched_clock();
 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL);
 	rd->read_sched_clock = cd.actual_read_sched_clock;
+
+	/* snchronize new sched_clock base to co-processors */
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
+		SYS_TIMER_TIMESYNC_FLAG_UNFREEZE);
 }
 
 static struct syscore_ops sched_clock_ops = {
