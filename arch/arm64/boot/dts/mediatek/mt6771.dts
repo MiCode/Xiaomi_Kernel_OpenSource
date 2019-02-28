@@ -877,11 +877,11 @@ firmware_class.path=/vendor/firmware";
 
 	scp: scp@10500000 {
 		compatible = "mediatek,scp";
-		status = "disable";
-		do_addr_A = <0 0>;
-		reg = <0 0x10500000 0 0x80000>,		/* sram */
-		<0 0x105C0000 0 0x1000>,		/* cfgreg */
-		<0 0x105C4000 0 0x1000>;		/* clkctrl */
+		status = "okay";
+		reg = <0 0x10500000 0 0x80000>,
+			<0 0x105c0000 0 0x3000>,
+			<0 0x105c4000 0 0x1000>,
+			<0 0x105d4000 0 0x6000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
 	};
 	scp_cfgreg@105c0000 {
