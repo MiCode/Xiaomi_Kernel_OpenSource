@@ -1,0 +1,17 @@
+config MTK_CAMERA_ISP
+	bool "Camera ISP Driver Support"
+	default y
+	help
+	  Enable to build various camera isp drivers
+	  like dpe, rsc, tsf, etc. Disable to prevent
+	  camera drivers from being built into the
+	  kernel image.
+
+source "drivers/misc/mediatek/cameraisp/src/Kconfig"
+#source "drivers/misc/mediatek/cameraisp/owe/Kconfig"
+source "drivers/misc/mediatek/cameraisp/rsc/Kconfig"
+#source "drivers/misc/mediatek/cameraisp/wpe/Kconfig"
+source "drivers/misc/mediatek/cameraisp/dpe/Kconfig"
+source "drivers/misc/mediatek/cameraisp/tsf/Kconfig"
+source "drivers/misc/mediatek/cameraisp/mfb/Kconfig"
+source "drivers/misc/mediatek/cameraisp/fdvt/Kconfig"
