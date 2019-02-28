@@ -146,6 +146,9 @@ static int mt_charger_get_property(struct power_supply *psy,
 		if (mtk_chg->chg_type != CHARGER_UNKNOWN)
 			val->intval = 1;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		val->intval = mtk_chg->chg_type;
+		break;
 	default:
 		return -EINVAL;
 	}
