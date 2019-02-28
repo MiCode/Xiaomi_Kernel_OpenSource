@@ -23,8 +23,7 @@
 
 #include "hf_manager.h"
 
-#define SENSOR_LIST_BITMAP_BITS (HIGH_FREQUENCY_SENSOR_MAX + 8)
-static DECLARE_BITMAP(sensor_list_map, SENSOR_LIST_BITMAP_BITS);
+static DECLARE_BITMAP(sensor_list_bitmap, HIGH_FREQUENCY_SENSOR_MAX);
 static LIST_HEAD(hf_manager_list);
 static DEFINE_SPINLOCK(hf_fifo_lock);
 static DEFINE_MUTEX(hf_manager_list_mtx);
@@ -219,7 +218,7 @@ int hf_manager_create(struct hf_device *device)
 	mutex_lock(&hf_manager_list_mtx);
 	for (i = 0; i < device->support_size; ++i) {
 		sensor_id = device->support_list[i];
-		if (test_and_set_bit(sensor_id, sensor_list_map)) {
+		if (test_and_set_bit(sensor_id, sensor_list_bitmap)) {
 			mutex_unlock(&hf_manager_list_mtx);
 			pr_err("%s %s %d repeat\n", __func__,
 				device->dev_name, sensor_id);
@@ -250,7 +249,7 @@ int hf_manager_destroy(struct hf_manager *manager)
 	mutex_lock(&hf_manager_list_mtx);
 	for (i = 0; i < device->support_size; ++i) {
 		clear_bit(device->support_list[i],
-			sensor_list_map);
+			sensor_list_bitmap);
 	}
 	list_del(&manager->list);
 	mutex_unlock(&hf_manager_list_mtx);
@@ -393,11 +392,11 @@ static int hf_manager_drive_device(struct hf_manager_cmd *cmd)
 	struct hf_manager *manager = NULL;
 	struct hf_device *device = NULL;
 
-	if (cmd->sensor_id >= HIGH_FREQUENCY_SENSOR_MAX_PLUS_ONE)
+	if (cmd->sensor_id >= HIGH_FREQUENCY_SENSOR_MAX)
 		return -EINVAL;
 
 	mutex_lock(&hf_manager_list_mtx);
-	if (!test_bit(cmd->sensor_id, sensor_list_map)) {
+	if (!test_bit(cmd->sensor_id, sensor_list_bitmap)) {
 		pr_err("%s: %d not registered\n", __func__, cmd->sensor_id);
 		mutex_unlock(&hf_manager_list_mtx);
 		return -EINVAL;
