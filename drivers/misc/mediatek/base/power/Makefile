@@ -10,7 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-obj-$(CONFIG_CPU_FREQ) += cpufreq_v1/
+obj-$(CONFIG_MTK_CPU_FREQ) += cpufreq_v1/
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6771) += pbm_v3/
