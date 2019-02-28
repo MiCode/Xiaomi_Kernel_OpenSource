@@ -105,28 +105,28 @@ static void interrupt_init_vpu4(struct venus_hfi_device *device);
 static void interrupt_init_iris1(struct venus_hfi_device *device);
 static void setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device);
 static void clock_config_on_enable_iris1(struct venus_hfi_device *device);
-static int prepare_ahb2axi_bridge(struct venus_hfi_device *device);
+static int reset_ahb2axi_bridge(struct venus_hfi_device *device);
 static int __set_ubwc_config(struct venus_hfi_device *device);
 
 struct venus_hfi_vpu_ops vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
-	.prepare_ahb2axi_bridge = NULL,
+	.reset_ahb2axi_bridge = NULL,
 };
 
 struct venus_hfi_vpu_ops iris1_ops = {
 	.interrupt_init = interrupt_init_iris1,
 	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_iris1,
 	.clock_config_on_enable = clock_config_on_enable_iris1,
-	.prepare_ahb2axi_bridge = prepare_ahb2axi_bridge,
+	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
 };
 
 struct venus_hfi_vpu_ops iris2_ops = {
 	.interrupt_init = interrupt_init_iris1,
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
-	.prepare_ahb2axi_bridge = prepare_ahb2axi_bridge,
+	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
 };
 
 /**
@@ -3695,22 +3695,46 @@ static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 	if (!rst_set->reset_tbl)
 		return 0;
 
-	dprintk(VIDC_DBG, "%s reset_state %d\n", __func__, state);
+	dprintk(VIDC_DBG, "%s reset_state %d rst_set->count = %d\n",
+		__func__, state, rst_set->count);
+
 	for (i = 0; i < rst_set->count; i++) {
 		rst = rst_set->reset_tbl[i].rst;
 		switch (state) {
 		case INIT:
+			dprintk(VIDC_DBG, "%s reset_state name = %s %pK\n",
+				__func__, rst_set->reset_tbl[i].name, rst);
+
+			if (rst)
+				continue;
 			rst = devm_reset_control_get(&res->pdev->dev,
-						rst_set->reset_tbl[i].name);
+				rst_set->reset_tbl[i].name);
 			if (IS_ERR(rst))
 				rc = PTR_ERR(rst);
 
 			rst_set->reset_tbl[i].rst = rst;
 			break;
 		case ASSERT:
+			if (!rst) {
+				dprintk(VIDC_DBG,
+					"%s reset_state name = %s %pK\n",
+					__func__, rst_set->reset_tbl[i].name,
+					 rst);
+				 rc = PTR_ERR(rst);
+				goto failed_to_reset;
+			}
+
 			rc = reset_control_assert(rst);
 			break;
 		case DEASSERT:
+			if (!rst) {
+				dprintk(VIDC_DBG,
+					"%s reset_state name = %s %pK\n",
+					__func__, rst_set->reset_tbl[i].name,
+					 rst);
+				 rc = PTR_ERR(rst);
+				goto failed_to_reset;
+			}
 			rc = reset_control_deassert(rst);
 			break;
 		default:
@@ -3718,9 +3742,13 @@ static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 		}
 
 		if (rc)
-			return rc;
+			goto failed_to_reset;
 	}
+
 	return 0;
+
+failed_to_reset:
+	return rc;
 }
 
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
@@ -3752,7 +3780,7 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 	}
 }
 
-static int prepare_ahb2axi_bridge(struct venus_hfi_device *device)
+static int reset_ahb2axi_bridge(struct venus_hfi_device *device)
 {
 	int rc;
 
@@ -4515,9 +4543,9 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		goto fail_enable_gdsc;
 	}
 
-	rc = call_venus_op(device, prepare_ahb2axi_bridge, device);
+	rc = call_venus_op(device, reset_ahb2axi_bridge, device);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable ahb2axi: %d\n", rc);
+		dprintk(VIDC_ERR, "Failed to reset ahb2axi: %d\n", rc);
 		goto fail_enable_clks;
 	}
 
@@ -4574,6 +4602,9 @@ static void __venus_power_off(struct venus_hfi_device *device)
 	device->intr_status = 0;
 
 	__disable_unprepare_clks(device);
+	if (call_venus_op(device, reset_ahb2axi_bridge, device))
+		dprintk(VIDC_ERR, "Failed to reset ahb2axi\n");
+
 	if (__disable_regulators(device))
 		dprintk(VIDC_WARN, "Failed to disable regulators\n");
 
