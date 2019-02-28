@@ -286,6 +286,12 @@ static void trusted_mem_manual_cmd_invoke(u64 cmd, u64 param1, u64 param2,
 		secmem_dynamic_debug_control(false);
 #endif
 		break;
+	case TMEM_SECMEM_FORCE_HW_PROTECTION:
+		pr_info("TMEM_SECMEM_FORCE_HW_PROTECTION\n");
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
+		secmem_force_hw_protection();
+#endif
+		break;
 	default:
 		break;
 	}
