@@ -15,6 +15,7 @@ DECLARE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 #include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
 extern int l_plus_cpu;
 extern unsigned long get_cpu_util(int cpu);
+extern void init_sched_groups_capacity(int cpu, struct sched_domain *sd);
 #ifdef CONFIG_SMP
 #ifdef CONFIG_ARM64
 extern unsigned long arch_scale_get_max_freq(int cpu);
@@ -89,3 +90,46 @@ static inline bool is_max_capacity_cpu(int cpu)
 	return capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE;
 }
 
+/*
+ *for isolation interface
+ */
+#ifdef CONFIG_HOTPLUG_CPU
+extern int sched_isolate_count(const cpumask_t *mask, bool include_offline);
+extern int sched_isolate_cpu(int cpu);
+extern int sched_deisolate_cpu(int cpu);
+extern int sched_deisolate_cpu_unlocked(int cpu);
+#else
+static inline int sched_isolate_count(const cpumask_t *mask,
+				      bool include_offline)
+{
+	cpumask_t count_mask;
+
+	if (include_offline)
+		cpumask_andnot(&count_mask, mask, cpu_online_mask);
+	else
+		return 0;
+
+	return cpumask_weight(&count_mask);
+}
+
+static inline int sched_isolate_cpu(int cpu)
+{
+	return 0;
+}
+
+static inline int sched_deisolate_cpu(int cpu)
+{
+	return 0;
+}
+
+static inline int sched_deisolate_cpu_unlocked(int cpu)
+{
+	return 0;
+}
+#endif
+
+enum iso_prio_t {ISO_CUSTOMIZE, ISO_TURBO, ISO_SCHED, ISO_UNSET};
+extern int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr);
+extern int unset_cpu_isolation(enum iso_prio_t prio);
+extern struct cpumask cpu_all_masks;
+extern enum iso_prio_t iso_prio;
