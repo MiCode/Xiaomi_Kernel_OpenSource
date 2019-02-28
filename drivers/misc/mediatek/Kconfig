@@ -97,6 +97,7 @@ endmenu  # Storage
 
 menu "Power, PMIC, Battery & Low Power"
 
+source "drivers/misc/mediatek/pmic/Kconfig"
 endmenu  # Power
 
 menu "MultiMedia, Display, Camera"
