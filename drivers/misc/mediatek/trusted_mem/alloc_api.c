@@ -35,10 +35,8 @@ static inline void trusted_mem_type_enum_validate(void)
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SDSP == (int)TRUSTED_MEM_SDSP);
 	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_SDSP_SHARED
 		       == (int)TRUSTED_MEM_SDSP_SHARED);
-	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_2D_FR
-		       == (int)TRUSTED_MEM_SVP_VIRT_2D_FR);
-	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1)
-		       == (int)TRUSTED_MEM_SVP_VIRT_2D_FR);
+	COMPILE_ASSERT((int)TRUSTED_MEM_REQ_2D_FR == (int)TRUSTED_MEM_2D_FR);
+	COMPILE_ASSERT((int)(TRUSTED_MEM_MAX - 1) == (int)TRUSTED_MEM_2D_FR);
 }
 
 static inline enum TRUSTED_MEM_TYPE
@@ -61,7 +59,7 @@ get_mem_type(enum TRUSTED_MEM_REQ_TYPE req_type)
 	case TRUSTED_MEM_REQ_SDSP_SHARED:
 		return TRUSTED_MEM_SDSP_SHARED;
 	case TRUSTED_MEM_REQ_2D_FR:
-		return TRUSTED_MEM_SVP_VIRT_2D_FR;
+		return TRUSTED_MEM_2D_FR;
 	default:
 		return TRUSTED_MEM_SVP;
 	}

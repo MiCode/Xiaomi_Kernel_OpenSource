@@ -71,7 +71,7 @@ enum UT_RET_STATE all_regmgr_state_off_check(void)
 			/* wait one more time for 2D_FR region for safe
 			 * due to pmem will invoke it when pmem unrefence mem
 			 */
-			if (mem_idx == TRUSTED_MEM_SVP_VIRT_2D_FR)
+			if (mem_idx == TRUSTED_MEM_2D_FR)
 				mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
 
 			ASSERT_EQ(0,
@@ -249,7 +249,7 @@ static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 		return SIZE_128M;
 	case TRUSTED_MEM_WFD:
 		return SIZE_64M;
-	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	case TRUSTED_MEM_2D_FR:
 		return SIZE_16M;
 	case TRUSTED_MEM_HAPP:
 		return SIZE_16M;
@@ -683,16 +683,20 @@ static enum UT_RET_STATE mem_multi_type_alloc_multithread_test_locked(void)
 	int mem_idx;
 	int ret;
 
-	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
-	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+	for (mem_idx = TRUSTED_MEM_START; mem_idx < TRUSTED_MEM_MAX;
+	     mem_idx++) {
+		if (mem_idx == TRUSTED_MEM_2D_FR)
+			continue;
 		if (tmem_core_is_device_registered(mem_idx)) {
 			ret = mem_create_run_thread(mem_idx);
 			ASSERT_EQ(0, ret, "create run thread check");
 		}
 	}
 
-	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
-	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+	for (mem_idx = TRUSTED_MEM_START; mem_idx < TRUSTED_MEM_MAX;
+	     mem_idx++) {
+		if (mem_idx == TRUSTED_MEM_2D_FR)
+			continue;
 		if (tmem_core_is_device_registered(mem_idx)) {
 			ret = mem_wait_run_thread(mem_idx);
 			ASSERT_EQ(0, ret,
@@ -713,9 +717,11 @@ static enum UT_RET_STATE mem_mtee_mchunks_alloc_multithread_test_locked(void)
 	int mem_idx;
 	int ret;
 
-	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
-	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+	for (mem_idx = TRUSTED_MEM_START; mem_idx < TRUSTED_MEM_MAX;
+	     mem_idx++) {
 		if (!is_mtee_mchunks(mem_idx))
+			continue;
+		if (mem_idx == TRUSTED_MEM_2D_FR)
 			continue;
 		if (tmem_core_is_device_registered(mem_idx)) {
 			ret = mem_create_run_thread(mem_idx);
@@ -723,9 +729,11 @@ static enum UT_RET_STATE mem_mtee_mchunks_alloc_multithread_test_locked(void)
 		}
 	}
 
-	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
-	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+	for (mem_idx = TRUSTED_MEM_START; mem_idx < TRUSTED_MEM_MAX;
+	     mem_idx++) {
 		if (!is_mtee_mchunks(mem_idx))
+			continue;
+		if (mem_idx == TRUSTED_MEM_2D_FR)
 			continue;
 		if (tmem_core_is_device_registered(mem_idx)) {
 			ret = mem_wait_run_thread(mem_idx);

@@ -156,7 +156,6 @@ static int __init pmem_init(void)
 	t_device->ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM;
 #endif
 	t_device->mem_type = TRUSTED_MEM_PROT;
-	t_device->shared_trusted_mem_device = NULL;
 
 	ret = register_trusted_mem_device(TRUSTED_MEM_PROT, t_device);
 	if (ret) {
