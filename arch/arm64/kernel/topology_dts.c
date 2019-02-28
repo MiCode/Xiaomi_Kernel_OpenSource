@@ -11,8 +11,6 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/list_sort.h>
-
 struct cpu_efficiency {
 	const char *compatible;
 	unsigned long efficiency;
@@ -37,20 +35,16 @@ static const struct cpu_efficiency table_efficiency[] = {
 	{ NULL, },
 };
 
-static unsigned long *__cpu_capacity;
+static unsigned long __cpu_capacity[NR_CPUS];
 #define cpu_capacity(cpu)	__cpu_capacity[cpu]
 
 static unsigned long max_cpu_perf, min_cpu_perf;
-
 
 void __init parse_dt_cpu_capacity(void)
 {
 	const struct cpu_efficiency *cpu_eff;
 	struct device_node *cn = NULL;
 	int cpu = 0, i = 0;
-
-	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
-				 GFP_NOWAIT);
 
 	min_cpu_perf = ULONG_MAX;
 	max_cpu_perf = 0;
@@ -99,31 +93,9 @@ void __init parse_dt_cpu_capacity(void)
  * generic entry point for cpu mask construction, dedicated for
  * mediatek scheduler.
  */
-static int cpu_topology_init;
 void __init arch_build_cpu_topology_domain(void)
 {
-	WARN(smp_processor_id() != 0,
-		"%s is supposed runs on CPU0 while kernel init", __func__);
-	/*
-	 * sched_init
-	 *   |-> arch_build_cpu_topology_domain()
-	 *       |-> init_cpu_topology()
-	 *   |-> *scheduler_running = 1*
-	 * ...
-	 * rest_init
-	 *   ^ fork kernel_init
-	 *       |-> kernel_init_freeable
-	 *        ...
-	 *        (x)|-> init_cpu_topology
-	 *
-	 * here, we focus to build up cpu topology and domain
-	 * before scheduler runs.
-	 */
-	pr_debug("[CPUTOPO][%s] build CPU topology and cluster.\n", __func__);
-	init_cpu_topology();
 	parse_dt_cpu_capacity();
-
-	cpu_topology_init = 1;
 }
 #ifdef CONFIG_MTK_UNIFY_POWER
 
@@ -251,12 +223,9 @@ int arch_is_smp(void)
 
 int arch_get_nr_clusters(void)
 {
-	static int __arch_nr_clusters = -1;
+	int __arch_nr_clusters = -1;
 	int max_id = 0;
 	unsigned int cpu;
-
-	if (__arch_nr_clusters != -1)
-		return __arch_nr_clusters;
 
 	/* assume socket id is monotonic increasing without gap. */
 	for_each_possible_cpu(cpu) {
@@ -292,90 +261,4 @@ void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 		if (cpu_topo->cluster_id == cluster_id)
 			cpumask_set_cpu(cpu, cpus);
 	}
-}
-
-/*
- * Heterogenous CPU capacity compare function
- * Only inspect lowest id of cpus in same domain.
- * Assume CPUs in same domain has same capacity.
- */
-struct cluster_info {
-	struct hmp_domain *hmpd;
-	unsigned long cpu_perf;
-	int cpu;
-};
-
-static inline __init void fillin_cluster(struct cluster_info *cinfo,
-		struct hmp_domain *hmpd)
-{
-	int cpu;
-	unsigned long cpu_perf;
-
-	cinfo->hmpd = hmpd;
-	cinfo->cpu = cpumask_any(&cinfo->hmpd->possible_cpus);
-
-	for_each_cpu(cpu, &hmpd->possible_cpus) {
-		cpu_perf = cpu_capacity(cpu);
-		if (cpu_perf > 0)
-			break;
-	}
-	cinfo->cpu_perf = cpu_perf;
-
-	if (cpu_perf == 0)
-		pr_info("Uninitialized CPU performance (CPU mask: %lx)",
-				cpumask_bits(&hmpd->possible_cpus)[0]);
-}
-
-/*
- * Negative, if @a should sort before @b
- * Positive, if @a should sort after @b.
- * Return 0, if ordering is to be preserved
- */
-int __init hmp_compare(void *priv, struct list_head *a, struct list_head *b)
-{
-	struct cluster_info ca;
-	struct cluster_info cb;
-
-	fillin_cluster(&ca, list_entry(a, struct hmp_domain, hmp_domains));
-	fillin_cluster(&cb, list_entry(b, struct hmp_domain, hmp_domains));
-
-	return (ca.cpu_perf > cb.cpu_perf) ? -1 : 1;
-}
-
-void __init arch_init_hmp_domains(void)
-{
-	struct hmp_domain *domain;
-	struct cpumask cpu_mask;
-	int id, maxid;
-
-	cpumask_clear(&cpu_mask);
-	maxid = arch_get_nr_clusters();
-
-	/*
-	 * Initialize hmp_domains
-	 * Must be ordered with respect to compute capacity.
-	 * Fastest domain at head of list.
-	 */
-	for (id = 0; id < maxid; id++) {
-		arch_get_cluster_cpus(&cpu_mask, id);
-		domain = (struct hmp_domain *)
-			kmalloc(sizeof(struct hmp_domain), GFP_KERNEL);
-		if (domain) {
-			cpumask_copy(&domain->possible_cpus, &cpu_mask);
-			cpumask_and(&domain->cpus, cpu_online_mask,
-				&domain->possible_cpus);
-			list_add(&domain->hmp_domains, &hmp_domains);
-		}
-	}
-
-	/*
-	 * Sorting HMP domain by CPU capacity
-	 */
-	list_sort(NULL, &hmp_domains, &hmp_compare);
-	pr_info("Sort hmp_domains from little to big:\n");
-	for_each_hmp_domain_L_first(domain) {
-		pr_info("    cpumask: 0x%02lx\n",
-				*cpumask_bits(&domain->possible_cpus));
-	}
-
 }
