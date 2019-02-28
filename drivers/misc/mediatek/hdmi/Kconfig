@@ -1,0 +1,52 @@
+# HDMI
+config CUSTOM_KERNEL_HDMI
+	string "Select vendor driver"
+	help
+	  To select vendor driver.
+	  e.g:"Sii8348","ANX7805","ANX7625","MT8193"
+
+config MTK_HDMI_SUPPORT
+	bool "Enable or disable HDMI feature"
+	default n
+	help
+	  To control whether enable or disable HDMI feature. If choose yes,
+	  phone's screen can be demonstrated on TV via HDMI cable.
+
+config MTK_HDMI_3D_SUPPORT
+	bool "Enable or disable HDMI 3D feature"
+	default n
+	help
+	  To control whether enable or disable HDMI 3D feature. If choose yes,
+	  phone's screen can show 3D content on TV via HDMI cable.
+
+config MTK_MT8193_HDMI_SUPPORT
+	bool "Enable or disable MT8193 HDMI feature"
+	depends on MTK_HDMI_SUPPORT
+	depends on MTK_MT8193_SUPPORT
+	help
+	  To control whether enable or disable MT8193 HDMI feature.
+	  If choose yes,
+	  screen can show on TV via MT8193.
+	  else
+	  do not support MT8193.
+
+config MTK_INTERNAL_HDMI_SUPPORT
+	bool "Enable the Internal HDMI Support"
+	default n
+	depends on MTK_HDMI_SUPPORT
+	help
+	  Enable the Internal HDMI Support
+	  If choose yes,
+	  screen can show on TV via internal HDMI.
+	  else
+	  do not support HDMI.
+
+config MTK_HDMI_HDCP_SUPPORT
+	bool "Enable hdmi tx hdcp support"
+	depends on MTK_HDMI_SUPPORT
+	help
+	  Enable hdmi tx hdcp support
+	  If choose yes,
+	  screen can show on TV via HDMI and support hdcp.
+	  else
+	  do not support hdcp.
