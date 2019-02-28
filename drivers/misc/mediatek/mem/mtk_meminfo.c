@@ -15,22 +15,6 @@
 #include <linux/page-flags.h>
 #include <linux/mmzone.h>
 
-phys_addr_t get_zone_movable_cma_base(void)
-{
-#ifdef CONFIG_MTK_MEMORY_LOWPOWER
-	return memory_lowpower_base();
-#endif /* end CONFIG_MTK_MEMORY_LOWPOWER */
-	return (~(phys_addr_t)0);
-}
-
-phys_addr_t get_zone_movable_cma_size(void)
-{
-#ifdef CONFIG_MTK_MEMORY_LOWPOWER
-	return memory_lowpower_size();
-#endif /* end CONFIG_MTK_MEMORY_LOWPOWER */
-	return 0;
-}
-
 /**
  *	vmap_reserved_mem - map reserved memory into virtually contiguous space
  *	@start:		start of reserved memory
