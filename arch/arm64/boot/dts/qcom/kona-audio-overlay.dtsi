@@ -181,6 +181,7 @@
 &kona_snd {
 	qcom,model = "kona-mtp-snd-card";
 	qcom,msm-mi2s-master = <1>, <1>, <1>;
+	qcom,ext-disp-audio-rx = <1>;
 	qcom,audio-routing =
 		"AMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Analog Mic1",
@@ -233,8 +234,9 @@
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
 	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
-	asoc-codec  = <&stub_codec>, <&bolero>;
-	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+			   "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 			<&wsa881x_0213>, <&wsa881x_0214>;
