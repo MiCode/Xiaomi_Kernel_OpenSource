@@ -437,20 +437,21 @@ struct SCP_SENSOR_HUB_GET_RAW_DATA {
 
 struct mag_dev_info_t {
 	char libname[16];
-	int32_t layout;
-	int32_t deviceid;
+	int8_t layout;
+	int8_t deviceid;
 };
 
 struct sensorInfo_t {
-	union {
-		char name[16];
-		struct mag_dev_info_t mag_dev_info;
-	};
+	char name[16];
+	struct mag_dev_info_t mag_dev_info;
 };
 
 struct scp_sensor_hub_get_sensor_info {
 	enum CUST_ACTION action;
-	struct sensorInfo_t sensorInfo;
+	union {
+		int32_t int32_data[0];
+		struct sensorInfo_t sensorInfo;
+	};
 };
 
 enum {

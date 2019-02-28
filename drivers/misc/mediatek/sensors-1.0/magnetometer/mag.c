@@ -643,7 +643,6 @@ int mag_register_control_path(struct mag_control_path *ctl)
 }
 static int x1, y1, z1;
 static long pc;
-static long count;
 
 static int check_repeat_data(int x, int y, int z)
 {
@@ -664,26 +663,6 @@ static int check_repeat_data(int x, int y, int z)
 	return 0;
 }
 
-static int check_abnormal_data(int x, int y, int z, int status)
-{
-	long total;
-	struct mag_context *cxt = mag_context_obj;
-
-	total = (x * x + y * y + z * z) /
-		(cxt->mag_dev_data.div * cxt->mag_dev_data.div);
-	if ((total < 100) || (total > 10000)) {
-		if (count % 10 == 0)
-			pr_debug(
-				"mag sensor abnormal data: x=%d,y=%d,z=%d, status=%d\n",
-				x, y, z, status);
-		count++;
-		if (count > 1000)
-			count = 0;
-	}
-
-	return 0;
-}
-
 int mag_data_report(struct mag_data *data)
 {
 	/* pr_debug("update!valus: %d, %d, %d, %d\n" , x, y, z, status); */
@@ -693,7 +672,6 @@ int mag_data_report(struct mag_data *data)
 	memset(&event, 0, sizeof(struct sensor_event));
 
 	check_repeat_data(data->x, data->y, data->z);
-	check_abnormal_data(data->x, data->y, data->z, data->status);
 	event.flush_action = DATA_ACTION;
 	event.status = data->status;
 	event.time_stamp = data->timestamp;

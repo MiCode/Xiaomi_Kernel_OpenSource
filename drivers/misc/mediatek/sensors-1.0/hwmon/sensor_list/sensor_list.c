@@ -121,6 +121,7 @@ static void sensorlist_get_deviceinfo(struct work_struct *work)
 		sensor = handle_to_sensor(handle);
 		if (sensor < 0)
 			continue;
+		memset(&devinfo, 0, sizeof(struct sensorInfo_t));
 		err = sensor_set_cmd_to_hub(sensor,
 			CUST_ACTION_GET_SENSOR_INFO, &devinfo);
 		if (err < 0) {
