@@ -16,7 +16,8 @@
 #include <linux/cpu.h>
 #include <linux/regulator/consumer.h>
 
-#include <mt_freqhopping.h>
+/* TODO: wait for FH ready #include <mt_freqhopping.h> */
+#define mt_pause_armpll(X, Y) /* remove when FH driver is ready */
 
 #include "mtk_cpuhp_private.h"
 
