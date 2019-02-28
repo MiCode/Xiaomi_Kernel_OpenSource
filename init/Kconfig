@@ -600,7 +600,7 @@ menu "Scheduler features"
 config UCLAMP_TASK
 	bool "Enable utilization clamping for RT/FAIR tasks"
 	depends on CPU_FREQ_GOV_SCHEDUTIL
-	default false
+	default n
 	help
 	  This feature enables the scheduler to track the clamped utilization
 	  of each CPU based on RUNNABLE tasks currently scheduled on that CPU.
@@ -632,6 +632,15 @@ config UCLAMP_GROUPS_COUNT
 
 	  If in doubt, use the default value.
 
+config UCLAMP_MAP_OPP
+	bool "Map utilization clamping to opp corresponding capacity"
+	depends on UCLAMP_TASK
+	depends on MTK_UNIFY_POWER
+	default n
+	help
+	  This feature map utilization clamping value to cpu opp capacity.
+
+	  If in doubt, say N.
 endmenu
 
 menu "FAIR Scheuler tunables"
