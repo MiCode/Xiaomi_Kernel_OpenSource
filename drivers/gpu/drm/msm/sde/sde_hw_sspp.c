@@ -994,7 +994,7 @@ static void sde_hw_sspp_setup_uidle(struct sde_hw_pipe *ctx,
 		offset = SSPP_UIDLE_CTRL_VALUE;
 
 	val = SDE_REG_READ(&ctx->hw, offset + idx);
-	val = (val & ~BIT(31)) | (cfg->enable ? BIT(31) : 0x0);
+	val = (val & ~BIT(31)) | (cfg->enable ? 0x0 : BIT(31));
 	val = (val & ~0xFF00000) | (cfg->fal_allowed_threshold << 20);
 	val = (val & ~0xF0000) | (cfg->fal10_exit_threshold << 16);
 	val = (val & ~0xF00) | (cfg->fal10_threshold << 8);
