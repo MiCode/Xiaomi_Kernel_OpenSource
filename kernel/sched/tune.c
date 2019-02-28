@@ -459,6 +459,17 @@ prefer_idle_write(struct cgroup_subsys_state *css, struct cftype *cft,
 	struct schedtune *st = css_st(css);
 	st->prefer_idle = !!prefer_idle;
 
+#if MET_STUNE_DEBUG
+	/* user: foreground */
+	if (st->idx == 1)
+		met_tag_oneshot(0, "sched_user_prefer_idle_fg",
+				st->prefer_idle);
+	/* user: top-app */
+	if (st->idx == 3)
+		met_tag_oneshot(0, "sched_user_prefer_idle_top",
+				st->prefer_idle);
+#endif
+
 	return 0;
 }
 
@@ -483,6 +494,15 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 
 	/* Update CPU boost */
 	schedtune_boostgroup_update(st->idx, st->boost);
+
+#if MET_STUNE_DEBUG
+	/* user: foreground */
+	if (st->idx == 1)
+		met_tag_oneshot(0, "sched_user_boost_fg", st->boost);
+	/* user: top-app */
+	if (st->idx == 3)
+		met_tag_oneshot(0, "sched_user_boost_top", st->boost);
+#endif
 
 	return 0;
 }
