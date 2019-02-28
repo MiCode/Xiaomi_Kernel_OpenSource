@@ -18,3 +18,4 @@ config CUSTOM_KERNEL_ACCELEROMETER
 
 source "drivers/misc/mediatek/sensors-1.0/accelerometer/accelhub/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/accelerometer/bmi160-i2c/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/accelerometer/mc3410-i2c/Kconfig"
