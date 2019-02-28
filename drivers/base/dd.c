@@ -346,6 +346,13 @@ int device_bind_driver(struct device *dev)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(device_bind_driver);
+#ifdef CONFIG_MTPROF
+#include "bootprof.h"
+#else
+#define TIME_LOG_START()
+#define TIME_LOG_END()
+#define bootprof_probe(ts, dev, drv, probe)
+#endif
 
 static atomic_t probe_count = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(probe_waitqueue);
@@ -356,7 +363,9 @@ static int really_probe(struct device *dev, struct device_driver *drv)
 	int local_trigger_count = atomic_read(&deferred_trigger_count);
 	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
 			   !drv->suppress_bind_attrs;
-
+#ifdef CONFIG_MTPROF
+		unsigned long long ts = 0;
+#endif
 	if (defer_all_probes) {
 		/*
 		 * Value of defer_all_probes can be set only by
@@ -402,11 +411,17 @@ re_probe:
 	}
 
 	if (dev->bus->probe) {
+		TIME_LOG_START();
 		ret = dev->bus->probe(dev);
+		TIME_LOG_END();
+		bootprof_probe(ts, dev, drv, (unsigned long)dev->bus->probe);
 		if (ret)
 			goto probe_failed;
 	} else if (drv->probe) {
+		TIME_LOG_START();
 		ret = drv->probe(dev);
+		TIME_LOG_END();
+		bootprof_probe(ts, dev, drv, (unsigned long)drv->probe);
 		if (ret)
 			goto probe_failed;
 	}
