@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 # generic pinmux support
+ifeq ($(cc-name),clang)
 ccflags-y += -Wno-error=enum-conversion
+endif
 
 subdir-ccflags-$(CONFIG_DEBUG_PINCTRL)	+= -DDEBUG
 
