@@ -48,8 +48,6 @@ struct mtee_chunk_memory_configs {
 };
 
 static struct trusted_mem_configs mchunk_general_configs = {
-	.mock_peer_enable = false,
-	.mock_ssmr_enable = false,
 	.session_keep_alive_enable = false,
 	.minimal_chunk_size = SIZE_4K,
 	.phys_mem_shift_bits = 10,
