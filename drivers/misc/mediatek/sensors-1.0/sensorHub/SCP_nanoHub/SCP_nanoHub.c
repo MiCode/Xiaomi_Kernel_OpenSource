@@ -907,7 +907,6 @@ static void SCP_sensorHub_init_sensor_state(void)
 	mSensorState[SENSOR_TYPE_RGBW].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
-	mSensorState[SENSOR_TYPE_SAR].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
 }
 
