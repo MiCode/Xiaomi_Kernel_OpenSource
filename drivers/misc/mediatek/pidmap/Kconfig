@@ -30,8 +30,6 @@
 # any damages of any kind arising from your use or distribution of
 # this program.
 
-comment "PID Map"
-
 config MTK_PID_MAP
 	bool "Map of PID and Task Name"
 	default n
