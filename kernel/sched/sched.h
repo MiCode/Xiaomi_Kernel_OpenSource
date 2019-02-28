@@ -690,6 +690,50 @@ extern void rto_push_irq_work_func(struct irq_work *work);
 #endif
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_UCLAMP_TASK
+/**
+ * struct uclamp_group - Utilization clamp Group
+ * @value: utilization clamp value for tasks on this clamp group
+ * @tasks: number of RUNNABLE tasks on this clamp group
+ *
+ * Keep track of how many tasks are RUNNABLE for a given utilization
+ * clamp value.
+ */
+struct uclamp_group {
+	int value;
+	int tasks;
+};
+
+/**
+ * struct uclamp_cpu - CPU's utilization clamp
+ * @value: currently active clamp values for a CPU
+ * @group: utilization clamp groups affecting a CPU
+ *
+ * Keep track of RUNNABLE tasks on a CPUs to aggregate their clamp values.
+ * A clamp value is affecting a CPU where there is at least one task RUNNABLE
+ * (or actually running) with that value.
+ *
+ * We have up to UCLAMP_CNT possible different clamp value, which are
+ * currently only two: minmum utilization and maximum utilization.
+ *
+ * All utilization clamping values are MAX aggregated, since:
+ * - for util_min: we want to run the CPU at least at the max of the minimum
+ *   utilization required by its currently RUNNABLE tasks.
+ * - for util_max: we want to allow the CPU to run up to the max of the
+ *   maximum utilization allowed by its currently RUNNABLE tasks.
+ *
+ * Since on each system we expect only a limited number of different
+ * utilization clamp values (CONFIG_UCLAMP_GROUPS_COUNT), we use a simple
+ * array to track the metrics required to compute all the per-CPU utilization
+ * clamp values. The additional slot is used to track the default clamp
+ * values, i.e. no min/max clamping at all.
+ */
+struct uclamp_cpu {
+	int value[UCLAMP_CNT];
+	struct uclamp_group group[UCLAMP_CNT][CONFIG_UCLAMP_GROUPS_COUNT + 1];
+};
+#endif /* CONFIG_UCLAMP_TASK */
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -726,6 +770,11 @@ struct rq {
 	struct load_weight load;
 	unsigned long nr_load_updates;
 	u64 nr_switches;
+
+#ifdef CONFIG_UCLAMP_TASK
+	/* Utilization clamp values based on CPU's RUNNABLE tasks */
+	struct uclamp_cpu	uclamp ____cacheline_aligned;
+#endif
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
@@ -1521,6 +1570,10 @@ struct sched_class {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group) (struct task_struct *p, int type);
 #endif
+
+#ifdef CONFIG_UCLAMP_TASK
+	int uclamp_enabled;
+#endif
 };
 
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
@@ -2190,6 +2243,24 @@ static inline u64 irq_time_read(int cpu)
 	return total;
 }
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
+
+#ifdef CONFIG_UCLAMP_TASK
+/**
+ * uclamp_group_active: check if a clamp group is active on a CPU
+ * @uc_grp: the clamp groups for a CPU
+ * @group_id: the clamp group to check
+ *
+ * A clamp group affects a CPU if it has at least one RUNNABLE task.
+ *
+ * Return: true if the specified CPU has at least one RUNNABLE task
+ *         for the specified clamp group.
+ */
+static inline bool uclamp_group_active(struct uclamp_group *uc_grp,
+				       int group_id)
+{
+	return uc_grp[group_id].tasks > 0;
+}
+#endif /* CONFIG_UCLAMP_TASK */
 
 /* sched:  add for print aee log */
 #ifdef CONFIG_SMP
