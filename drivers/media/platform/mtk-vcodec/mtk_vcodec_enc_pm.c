@@ -16,7 +16,6 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
-#include <soc/mediatek/smi.h>
 
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_util.h"
@@ -118,20 +117,20 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
 	if (ret)
 		mtk_v4l2_err("clk_set_parent fail %d", ret);
 
-	ret = mtk_smi_larb_get(pm->larbvenc);
-	if (ret)
-		mtk_v4l2_err("mtk_smi_larb_get larb3 fail %d", ret);
+	ret = pm_runtime_get_sync(pm->larbvenc);
+	if (ret < 0)
+		mtk_v4l2_err("pm_runtime_get_sync larb3 fail %d", ret);
 
-	ret = mtk_smi_larb_get(pm->larbvenclt);
-	if (ret)
-		mtk_v4l2_err("mtk_smi_larb_get larb4 fail %d", ret);
+	ret = pm_runtime_get_sync(pm->larbvenclt);
+	if (ret < 0)
+		mtk_v4l2_err("pm_runtime_get_sync larb4 fail %d", ret);
 
 }
 
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm)
 {
-	mtk_smi_larb_put(pm->larbvenc);
-	mtk_smi_larb_put(pm->larbvenclt);
+	pm_runtime_put_sync(pm->larbvenc);
+	pm_runtime_put_sync(pm->larbvenclt);
 	clk_disable_unprepare(pm->venc_lt_sel);
 	clk_disable_unprepare(pm->venc_sel);
 }
