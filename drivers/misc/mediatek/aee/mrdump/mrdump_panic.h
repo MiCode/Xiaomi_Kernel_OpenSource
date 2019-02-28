@@ -39,7 +39,7 @@ extern void sysrq_sched_debug_show_at_AEE(void);
 #ifdef CONFIG_MTK_WQ_DEBUG
 extern void wq_debug_dump(void);
 #endif
-extern void dis_D_inner_fL1L2(void);
+extern void dis_D_inner_flush_all(void);
 extern int console_trylock(void);
 
 #endif
