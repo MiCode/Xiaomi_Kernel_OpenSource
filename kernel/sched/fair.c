@@ -9018,6 +9018,9 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 	lockdep_assert_held(&env->src_rq->lock);
 
 	list_for_each_entry_safe(p, n, &env->src_rq->cfs_tasks, se.group_node) {
+		if (!hmp_should_migrate_task(p, env->src_rq))
+			continue;
+
 		if (!can_migrate_task(p, env))
 			continue;
 
@@ -10826,7 +10829,7 @@ more_balance:
 			 * only after active load balance is finished.
 			 */
 			if (!busiest->active_balance) {
-				busiest->active_balance = 1;
+				busiest->active_balance = MIGR_LOAD_BALANCE;
 				busiest->push_cpu = this_cpu;
 				active_balance = 1;
 			}
@@ -10837,7 +10840,7 @@ more_balance:
 					active_load_balance_cpu_stop, busiest,
 					&busiest->active_balance_work);
 				trace_sched_hmp_migrate(busiest->curr,
-							this_cpu, 6);
+						this_cpu, MIGR_LOAD_BALANCE);
 			}
 
 			/* We've kicked active balancing, force task migration. */
