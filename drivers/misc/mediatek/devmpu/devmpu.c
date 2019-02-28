@@ -111,10 +111,16 @@ static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 }
 
 int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
-		uint32_t vio_domain, uint32_t vio_is_write, bool from_emimpu)
+		uint32_t vio_domain, uint32_t vio_rw, bool from_emimpu)
 {
 	size_t ret;
-	struct devmpu_vio_stat vio;
+	struct devmpu_vio_stat vio = {
+		.id = 0,
+		.domain = 0,
+		.is_ns = false,
+		.is_write = false,
+		.addr = 0x0ULL
+	};
 
 	uint32_t vio_axi_id;
 	uint32_t vio_port_id;
@@ -131,7 +137,12 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		vio_id = vio.id;
 		vio_addr = vio.addr;
 		vio_domain = vio.domain;
-		vio_is_write = (vio.is_write) ? 1 : 0;
+
+		/*
+		 * use 0b01/0b10 to specify write/read violation
+		 * to be consistent with EMI MPU violation handling
+		 */
+		vio_rw = (vio.is_write) ? 1 : 2;
 	}
 
 	vio_axi_id = (vio_id >> 3) & 0x1FFF;
@@ -147,13 +158,12 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 	pr_info("violation master is %s, from domain 0x%x\n",
 			id2name(vio_axi_id, vio_port_id), vio_domain);
 
-	if (__builtin_popcount(vio_is_write) == 1) {
-		pr_info("%s violation\n",
-				(vio_is_write) ? "write" : "read");
-	} else {
-		pr_info("strange read/write violation (%u)\n",
-				vio_is_write);
-	}
+	if (vio_rw == 1)
+		pr_info("write violation\n");
+	else if (vio_rw == 2)
+		pr_info("read violation\n");
+	else
+		pr_info("strange read/write violation (%u)\n", vio_rw);
 
 	if (!from_emimpu) {
 		pr_info("%s transaction\n",
@@ -285,7 +295,7 @@ static int __init devmpu_init(void)
 	ret = platform_driver_register(&devmpu_drv);
 	if (ret) {
 		pr_err("%s:%d failed to register devmpu driver, ret=%d\n",
-				__func__, __LINE__);
+				__func__, __LINE__, ret);
 	}
 
 #if !defined(USER_BUILD_KERNEL)
@@ -293,7 +303,7 @@ static int __init devmpu_init(void)
 			&driver_attr_devmpu_config);
 	if (ret) {
 		pr_err("%s:%d failed to create driver sysfs file, ret=%d\n",
-				__func__, __LINE__);
+				__func__, __LINE__, ret);
 	}
 #endif
 
