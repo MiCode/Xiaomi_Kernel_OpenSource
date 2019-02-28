@@ -38,7 +38,7 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
-#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/kthread.h>
 #include <linux/bitops.h>
 #include <linux/kernel.h>
