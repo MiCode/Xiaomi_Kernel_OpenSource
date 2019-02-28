@@ -25,8 +25,15 @@ while getopts "cuh" opt; do
 	else
 		CHECK_COMMIT="HEAD"
 	fi
-	CONFIGS=`git show ${CHECK_COMMIT} --stat | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
 
+	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
+	if [ ".$KCONFIG" != "." ]; then
+		echo From git commit: Checking all defconfig due to Kconfig is changed.
+		CONFIGS=`grep -rl CONFIG_MTK_PLATFORM arch/arm/configs arch/arm64/configs`
+		break
+	fi
+
+	CONFIGS=`git show ${CHECK_COMMIT} --stat | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
 	if [ ".$CONFIGS" != "." ]; then
 		echo From git commit: Checking $CONFIGS
 	fi
