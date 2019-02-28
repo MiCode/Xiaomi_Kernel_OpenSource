@@ -13,6 +13,7 @@
 
 bool schedtune_initialized = false;
 extern struct reciprocal_value schedtune_spc_rdiv;
+static int default_stune_threshold;
 
 /* We hold schedtune boost in effect for at least this long */
 #define SCHEDTUNE_BOOST_HOLD_NS 50000000ULL
@@ -210,6 +211,8 @@ schedtune_boostgroup_update(int idx, int boost)
 
 	return 0;
 }
+
+#include "tune_plus.c"
 
 #define ENQUEUE_TASK  1
 #define DEQUEUE_TASK -1
@@ -614,8 +617,22 @@ schedtune_init_cgroups(void)
 static int
 schedtune_init(void)
 {
+	const struct sched_group_energy *sge_core;
+
+	rcu_read_lock();
+	sge_core = cpu_core_energy(0); /* first CPU in system */
+	if (!sge_core) {
+		pr_info("schedtune: no energy model data\n");
+	} else {
+		default_stune_threshold = sge_core->cap_states[0].cap;
+		if (default_stune_threshold)
+			set_stune_task_threshold(-1);
+	}
+	rcu_read_unlock();
+
 	schedtune_spc_rdiv = reciprocal_value(100);
 	schedtune_init_cgroups();
+
 	return 0;
 }
 postcore_initcall(schedtune_init);
