@@ -383,7 +383,7 @@ static int als_enable_and_batch(void)
 		pr_debug("als set ODR, fifo latency done\n");
 		/* start polling, if needed */
 		if (cxt->als_ctl.is_report_input_direct == false) {
-			int mdelay = cxt->als_delay_ns;
+			uint64_t mdelay = cxt->als_delay_ns;
 
 			do_div(mdelay, 1000000);
 			/* defaut max polling delay */
