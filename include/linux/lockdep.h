@@ -721,12 +721,30 @@ do {									\
 	lock_acquire(&(lock)->dep_map, 0, 0, 0, 1, NULL, _THIS_IP_);	\
 	lock_release(&(lock)->dep_map, 0, _THIS_IP_);			\
 } while (0)
+
+/*
+ * might_lock_read() is only invoked by might_fault() and the
+ * problem is might_fault() generates a new lock dependency.
+ *
+ *     (&sb->s_type->i_mutex_key#2) --> (&mm->mmap_sem).
+ *
+ * The new lock dependency brings several kinds of false alarm on
+ * lockdep. When lockdep catches a possible problem, the debug
+ * function will be disabled at the same time. Lockdep would be
+ * unable to help other function to debug lock issue. So we remove
+ * might_lock_read() until we find a better solution to resolve
+ * the false alarms caused by the new lock dependency.
+ */
+#if 0
 # define might_lock_read(lock) 						\
 do {									\
 	typecheck(struct lockdep_map *, &(lock)->dep_map);		\
 	lock_acquire(&(lock)->dep_map, 0, 0, 1, 1, NULL, _THIS_IP_);	\
 	lock_release(&(lock)->dep_map, 0, _THIS_IP_);			\
 } while (0)
+#else
+# define might_lock_read(lock) do { } while (0)
+#endif
 #else
 # define might_lock(lock) do { } while (0)
 # define might_lock_read(lock) do { } while (0)
