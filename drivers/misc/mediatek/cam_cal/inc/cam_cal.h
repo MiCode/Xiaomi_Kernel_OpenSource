@@ -29,20 +29,19 @@
 /*X means "switch G and S atomically"*/
 /*H means "switch T and Q atomically"*/
 
-/******************************************************************************
+/**********************************************
  *
- ******************************************************************************/
+ **********************************************/
 
 /*CAM_CAL write*/
-#define CAM_CALIOC_S_WRITE    _IOW(CAM_CALAGIC, 0, struct stCAM_CAL_INFO_STRUCT)
+#define CAM_CALIOC_S_WRITE _IOW(CAM_CALAGIC, 0, struct stCAM_CAL_INFO_STRUCT)
 /*CAM_CAL read*/
-#define CAM_CALIOC_G_READ    _IOWR(CAM_CALAGIC, 5, struct stCAM_CAL_INFO_STRUCT)
+#define CAM_CALIOC_G_READ _IOWR(CAM_CALAGIC, 5, struct stCAM_CAL_INFO_STRUCT)
 
 #ifdef CONFIG_COMPAT
 #define COMPAT_CAM_CALIOC_S_WRITE \
-		_IOW(CAM_CALAGIC, 0, struct COMPAT_stCAM_CAL_INFO_STRUCT)
+	_IOW(CAM_CALAGIC, 0, struct COMPAT_stCAM_CAL_INFO_STRUCT)
 #define COMPAT_CAM_CALIOC_G_READ \
-		_IOWR(CAM_CALAGIC, 5, struct COMPAT_stCAM_CAL_INFO_STRUCT)
+	_IOWR(CAM_CALAGIC, 5, struct COMPAT_stCAM_CAL_INFO_STRUCT)
 #endif
 #endif /*_CAM_CAL_H*/
-

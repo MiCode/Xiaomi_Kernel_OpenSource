@@ -23,7 +23,14 @@ struct stCAM_CAL_INFO_STRUCT {
 	u32 u4Offset;
 	u32 u4Length;
 	u32 sensorID;
-	u32 deviceID;/* MAIN = 0x01, SUB  = 0x02, MAIN_2 = 0x04, SUB_2 = 0x08 */
+	/*
+	 * MAIN = 0x01,
+	 * SUB  = 0x02,
+	 * MAIN_2 = 0x04,
+	 * SUB_2 = 0x08,
+	 * MAIN_3 = 0x10,
+	 */
+	u32 deviceID;
 	u8 *pu1Params;
 };
 
@@ -39,4 +46,3 @@ struct COMPAT_stCAM_CAL_INFO_STRUCT {
 #endif
 
 #endif/*_CAM_CAL_DATA_H*/
-
