@@ -233,6 +233,8 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 	rt = sched_get_rt_rq_util(cpu);
 
 	*util = boosted_cpu_util(cpu, rt);
+	if (*util)
+		*util = uclamp_util(cpu, *util);
 	*util = min(*util, max_cap);
 	*max = max_cap;
 }
@@ -240,16 +242,32 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
 				   unsigned int flags)
 {
+	unsigned int max_boost;
+
 	if (flags & SCHED_CPUFREQ_IOWAIT) {
 		if (sg_cpu->iowait_boost_pending)
 			return;
 
 		sg_cpu->iowait_boost_pending = true;
 
+		/*
+		 * Boost FAIR tasks only up to the CPU clamped utilization.
+		 *
+		 * Since DL tasks have a much more advanced bandwidth control,
+		 * it's safe to assume that IO boost does not apply to
+		 * those tasks.
+		 * Instead, since RT tasks are currently not utiliation clamped,
+		 * we don't want to apply clamping on IO boost while there is
+		 * blocked RT utilization.
+		 */
+		max_boost = sg_cpu->iowait_boost_max;
+		if (!sched_get_rt_rq_util(sg_cpu->cpu))
+			max_boost = uclamp_util(sg_cpu->cpu, max_boost);
+
 		if (sg_cpu->iowait_boost) {
 			sg_cpu->iowait_boost <<= 1;
-			if (sg_cpu->iowait_boost > sg_cpu->iowait_boost_max)
-				sg_cpu->iowait_boost = sg_cpu->iowait_boost_max;
+			if (sg_cpu->iowait_boost > max_boost)
+				sg_cpu->iowait_boost = max_boost;
 		} else {
 			sg_cpu->iowait_boost = sg_cpu->sg_policy->policy->min;
 		}
