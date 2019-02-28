@@ -639,6 +639,11 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 	reinit_completion(&dp->notification_comp);
 	dp_display_send_hpd_event(dp);
 
+	if (dp->suspended) {
+		pr_debug("DP in suspend state. Skip wait for notification\n");
+		goto skip_wait;
+	}
+
 	if (hpd && dp->mst.mst_active)
 		goto skip_wait;
 
@@ -650,9 +655,8 @@ static int dp_display_send_hpd_notification(struct dp_display_private *dp)
 		pr_warn("%s timeout\n", hpd ? "connect" : "disconnect");
 		ret = -EINVAL;
 	}
-	return ret;
 skip_wait:
-	return 0;
+	return ret;
 }
 
 static void dp_display_update_mst_state(struct dp_display_private *dp,
@@ -985,8 +989,8 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	rc = dp_display_process_hpd_low(dp);
 	if (rc) {
 		/* cancel any pending request */
-		dp->ctrl->abort(dp->ctrl);
-		dp->aux->abort(dp->aux);
+		dp->ctrl->abort(dp->ctrl, false);
+		dp->aux->abort(dp->aux, false);
 	}
 
 	mutex_lock(&dp->session_lock);
@@ -1004,8 +1008,8 @@ static void dp_display_disconnect_sync(struct dp_display_private *dp)
 {
 	/* cancel any pending request */
 	atomic_set(&dp->aborted, 1);
-	dp->ctrl->abort(dp->ctrl);
-	dp->aux->abort(dp->aux);
+	dp->ctrl->abort(dp->ctrl, false);
+	dp->aux->abort(dp->aux, false);
 
 	/* wait for idle state */
 	cancel_work(&dp->connect_work);
@@ -2723,9 +2727,22 @@ static int dp_pm_prepare(struct device *dev)
 	struct dp_display_private *dp = container_of(g_dp_display,
 			struct dp_display_private, dp_display);
 
+	dp->suspended = true;
+
 	dp_display_set_mst_state(g_dp_display, PM_SUSPEND);
 
-	dp->suspended = true;
+	/*
+	 * There are a few instances where the DP is hotplugged when the device
+	 * is in PM suspend state. After hotplug, it is observed the device
+	 * enters and exits the PM suspend multiple times while aux transactions
+	 * are taking place. This may sometimes cause an unclocked register
+	 * access error. So, abort aux transactions when such a situation
+	 * arises i.e. when DP is connected but not powered on yet.
+	 */
+	if (dp->is_connected && !dp->power_on) {
+		dp->aux->abort(dp->aux, false);
+		dp->ctrl->abort(dp->ctrl, false);
+	}
 
 	return 0;
 }
@@ -2738,6 +2755,19 @@ static void dp_pm_complete(struct device *dev)
 	dp_display_set_mst_state(g_dp_display, PM_DEFAULT);
 
 	dp->suspended = false;
+
+	/*
+	 * There are multiple PM suspend entry and exits observed before
+	 * the connect uevent is issued to userspace. The aux transactions are
+	 * aborted during PM suspend entry in dp_pm_prepare to prevent unclocked
+	 * register access. On PM suspend exit, there will be no host_init call
+	 * to reset the abort flags for ctrl and aux incase the DP is connected
+	 * but not powered on. So, resetting the abort flags for aux and ctrl.
+	 */
+	if (dp->is_connected && !dp->power_on) {
+		dp->aux->abort(dp->aux, true);
+		dp->ctrl->abort(dp->ctrl, true);
+	}
 }
 
 static const struct dev_pm_ops dp_pm_ops = {
