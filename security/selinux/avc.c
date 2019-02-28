@@ -730,6 +730,21 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 	if (ad->selinux_audit_data->denied) {
 		audit_log_format(ab, " permissive=%u",
 				 ad->selinux_audit_data->result ? 0 : 1);
+#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+		{
+			struct nlmsghdr *nlh;
+			char *selinux_data;
+
+			if (ab) {
+				nlh = nlmsg_hdr(audit_get_skb(ab));
+				selinux_data = nlmsg_data(nlh);
+				if (nlh->nlmsg_type != AUDIT_EOE) {
+					if (nlh->nlmsg_type == 1400)
+						mtk_audit_hook(selinux_data);
+				}
+			}
+		}
+#endif
 	}
 }
 
