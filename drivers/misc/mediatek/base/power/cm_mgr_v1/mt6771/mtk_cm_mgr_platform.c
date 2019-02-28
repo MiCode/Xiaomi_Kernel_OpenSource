@@ -58,6 +58,7 @@
 #include <linux/notifier.h>
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
+#include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #include <mtk_spm_vcore_dvfs.h>
 #endif /* CONFIG_MTK_QOS_SUPPORT */
@@ -203,7 +204,6 @@ spinlock_t cm_mgr_cpu_mask_lock;
 
 #define CM_MGR_MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-#define USE_TIME_NS
 /* #define USE_DEBUG_LOG */
 
 struct stall_s {
@@ -351,9 +351,7 @@ int cm_mgr_check_stall_ratio(int mp0, int mp1)
 	unsigned int i;
 	unsigned int clustor;
 	unsigned int stall_val_new;
-#ifdef USE_TIME_NS
 	unsigned long long time_ns_new;
-#endif /* USE_TIME_NS */
 
 	pstall_all->clustor[0] = mp0;
 	pstall_all->clustor[1] = mp1;
@@ -378,12 +376,12 @@ int cm_mgr_check_stall_ratio(int mp0, int mp1)
 			continue;
 		}
 
-#ifdef USE_TIME_NS
 		time_ns_new = sched_clock();
 		pstall_all->time_ns_diff[i] =
 			time_ns_new - pstall_all->time_ns[i];
 		pstall_all->time_ns[i] = time_ns_new;
-#endif /* USE_TIME_NS */
+		if (pstall_all->time_ns_diff[i] == 0)
+			continue;
 
 		diff_value_overflow(pstall_all->stall_val_diff[i],
 				stall_val_new, pstall_all->stall_val[i]);
@@ -672,6 +670,7 @@ void cm_mgr_ratio_timer_en(int enable)
 	}
 }
 
+static struct pm_qos_request ddr_opp_req;
 static int debounce_times_perf_down_local;
 static int pm_qos_update_request_status;
 void cm_mgr_perf_platform_set_status(int enable)
@@ -681,9 +680,38 @@ void cm_mgr_perf_platform_set_status(int enable)
 
 		if (cm_mgr_perf_enable == 0)
 			return;
+
+		if (cm_mgr_idx == CM_MGR_LP4X_2CH_3600) {
+			cpu_power_ratio_up[0] = 500;
+			cpu_power_ratio_up[1] = 500;
+			debounce_times_up_adb[1] = 0;
+		} else if (cm_mgr_idx == CM_MGR_LP4X_2CH_3200) {
+			cpu_power_ratio_up[0] = 500;
+			cpu_power_ratio_up[1] = 500;
+			debounce_times_up_adb[1] = 0;
+		} else if (cm_mgr_idx == CM_MGR_LP3_1CH_1866) {
+			cpu_power_ratio_up[0] = 500;
+			cpu_power_ratio_up[1] = 500;
+			debounce_times_up_adb[1] = 0;
+		}
+
 	} else {
 		if (++debounce_times_perf_down_local < debounce_times_perf_down)
 			return;
+
+		if (cm_mgr_idx == CM_MGR_LP4X_2CH_3600) {
+			cpu_power_ratio_up[0] = 100;
+			cpu_power_ratio_up[1] = 100;
+			debounce_times_up_adb[1] = 3;
+		} else if (cm_mgr_idx == CM_MGR_LP4X_2CH_3200) {
+			cpu_power_ratio_up[0] = 100;
+			cpu_power_ratio_up[1] = 100;
+			debounce_times_up_adb[1] = 3;
+		} else if (cm_mgr_idx == CM_MGR_LP3_1CH_1866) {
+			cpu_power_ratio_up[0] = 100;
+			cpu_power_ratio_up[1] = 100;
+			debounce_times_up_adb[1] = 3;
+		}
 
 		debounce_times_perf_down_local = 0;
 	}
@@ -700,6 +728,15 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 		if ((cm_mgr_perf_force_enable == 0) ||
 				(pm_qos_update_request_status == 1))
 			return;
+
+		if (cm_mgr_idx == CM_MGR_LP4X_2CH_3600)
+			pm_qos_update_request(&ddr_opp_req, 0);
+		else if (cm_mgr_idx == CM_MGR_LP4X_2CH_3200)
+			pm_qos_update_request(&ddr_opp_req, 0);
+		else if (cm_mgr_idx == CM_MGR_LP3_1CH_1866)
+			pm_qos_update_request(&ddr_opp_req, 0);
+
+		pm_qos_update_request_status = enable;
 	} else {
 		if (pm_qos_update_request_status == 0)
 			return;
@@ -708,6 +745,18 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 				(++debounce_times_perf_down_local >=
 				 debounce_times_perf_force_down)) {
 
+			if (cm_mgr_idx == CM_MGR_LP4X_2CH_3600) {
+				pm_qos_update_request(&ddr_opp_req,
+						PM_QOS_EMI_OPP_DEFAULT_VALUE);
+			} else if (cm_mgr_idx == CM_MGR_LP4X_2CH_3200) {
+				pm_qos_update_request(&ddr_opp_req,
+						PM_QOS_EMI_OPP_DEFAULT_VALUE);
+			} else if (cm_mgr_idx == CM_MGR_LP3_1CH_1866) {
+				pm_qos_update_request(&ddr_opp_req,
+						PM_QOS_EMI_OPP_DEFAULT_VALUE);
+			}
+
+			pm_qos_update_request_status = enable;
 			debounce_times_perf_down_local = 0;
 		}
 	}
