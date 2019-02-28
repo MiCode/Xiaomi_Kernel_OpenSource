@@ -56,18 +56,14 @@
 #include <m4u.h>
 #endif
 
-#define EP_CODE_MARK_CMDQ
 #ifndef EP_CODE_MARK_CMDQ
 #include <cmdq_core.h>
 #endif
 
 #define EP_CODE_MARK_KERNEL414
 
-#define EP_CODE_MARK_SMI
 #ifndef EP_CODE_MARK_SMI
 #include <smi_public.h>
-/*for SMI BW debug log*/
-#include"../../../smi/smi_debug.h"
 #endif
 
 #include <linux/module.h>
