@@ -1591,10 +1591,10 @@ firmware_class.path=/vendor/firmware";
 		reg = <0 0x11002000 0 0x1000>; /* UART base */
 		interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_LOW>; /* UART IRQ */
 		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART0_CG>;
-		clock-names = "baud0", "bus0";
+		clock-names = "baud", "bus";
 		dmas = <&apdma 0
 				&apdma 1>;
-		dma-names = "tx0", "rx0";
+		dma-names = "tx", "rx";
 	};
 
 	apuart1: serial@11003000 {
@@ -1602,10 +1602,10 @@ firmware_class.path=/vendor/firmware";
 		reg = <0 0x11003000 0 0x1000>;/* UART base */
 		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_LOW>; /* UART IRQ */
 		clocks =  <&clk26m>, <&infracfg_ao INFRACFG_AO_UART1_CG>;
-		clock-names = "baud1", "bus1";
+		clock-names = "baud", "bus";
 		dmas = <&apdma 2
 				&apdma 3>;
-		dma-names = "tx1", "rx1";
+		dma-names = "tx", "rx";
 	};
 
 	apuart2: serial@11004000 {
@@ -1613,10 +1613,10 @@ firmware_class.path=/vendor/firmware";
 		reg = <0 0x11004000 0 0x1000>; /* UART base */
 		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_LOW>;/* UART IRQ */
 		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART2_CG>;
-		clock-names = "baud2", "bus2";
+		clock-names = "baud", "bus";
 		dmas = <&apdma 4
 				&apdma 5>;
-		dma-names = "tx2", "rx2";
+		dma-names = "tx", "rx";
 	};
 
 	i2c6@11005000 {
