@@ -246,7 +246,7 @@ static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 	case TRUSTED_MEM_SVP:
 		return SIZE_256M;
 	case TRUSTED_MEM_PROT:
-		return SIZE_320M;
+		return SIZE_128M;
 	case TRUSTED_MEM_WFD:
 		return SIZE_64M;
 	case TRUSTED_MEM_SVP_VIRT_2D_FR:

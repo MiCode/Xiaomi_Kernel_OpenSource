@@ -45,7 +45,7 @@ static DEFINE_MUTEX(mock_mem_lock);
 #endif
 
 #define MOCK_POOL_PA_ADDR64_START (0x180000000ULL)
-#define MOCK_POOL_SIZE SIZE_320M
+#define MOCK_POOL_SIZE SIZE_128M
 
 static int mock_ssmr_get(u64 *pa, u32 *size, u32 feat, void *priv)
 {
