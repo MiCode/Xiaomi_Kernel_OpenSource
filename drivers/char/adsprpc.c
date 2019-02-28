@@ -58,9 +58,11 @@
 
 #define AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME   "audio_pdr_adsprpc"
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
+#define ADSP_AUDIOPD_NAME                        "msm/adsp/audio_pd"
 
-#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME   "sensors_pdr_adsprpc"
-#define SENSORS_PDR_ADSP_SERVICE_NAME              "tms/servreg"
+#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_adsprpc"
+#define SENSORS_PDR_SLPI_SERVICE_NAME            "tms/servreg"
+#define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
@@ -87,6 +89,8 @@
 #define MDSP_DOMAIN_ID (1)
 #define SDSP_DOMAIN_ID (2)
 #define CDSP_DOMAIN_ID (3)
+
+#define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
 	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
@@ -244,6 +248,7 @@ struct fastrpc_session_ctx {
 };
 
 struct fastrpc_static_pd {
+	char *servloc_name;
 	char *spdname;
 	struct notifier_block pdrnb;
 	struct notifier_block get_service_nb;
@@ -274,7 +279,7 @@ struct fastrpc_channel_ctx {
 	int vmid;
 	struct secure_vm rhvm;
 	int ramdumpenabled;
-	void *remoteheap_ramdump_dev;
+	void *rh_dump_dev;
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
 };
@@ -363,7 +368,7 @@ struct fastrpc_file {
 	int cid;
 	int ssrcount;
 	int pd;
-	char *spdname;
+	char *servloc_name;
 	int file_close;
 	struct fastrpc_apps *apps;
 	struct hlist_head perf;
@@ -386,19 +391,13 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.subsys = "adsp",
 		.spd = {
 			{
-				.spdname =
+				.servloc_name =
 					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				.spdname = ADSP_AUDIOPD_NAME,
 				.pdrnb.notifier_call =
 						fastrpc_pdr_notifier_cb,
 				.cid = ADSP_DOMAIN_ID,
 			},
-			{
-				.spdname =
-				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
-				.pdrnb.notifier_call =
-						fastrpc_pdr_notifier_cb,
-				.cid = ADSP_DOMAIN_ID,
-			}
 		},
 	},
 	{
@@ -415,6 +414,11 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.subsys = "slpi",
 		.spd = {
 			{
+				.servloc_name =
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
+				.spdname = SLPI_SENSORPD_NAME,
+				.pdrnb.notifier_call =
+						fastrpc_pdr_notifier_cb,
 				.cid = SDSP_DOMAIN_ID,
 			}
 		},
@@ -1261,7 +1265,6 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 		complete(&ictx->work);
 	}
 	spin_unlock(&me->hlock);
-
 }
 
 
@@ -1294,21 +1297,20 @@ static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
 			fastrpc_notify_users(fl);
 	}
 	spin_unlock(&me->hlock);
-
 }
 
-static void fastrpc_notify_pdr_drivers(struct fastrpc_apps *me, char *spdname)
+static void fastrpc_notify_pdr_drivers(struct fastrpc_apps *me,
+		char *servloc_name)
 {
 	struct fastrpc_file *fl;
 	struct hlist_node *n;
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->spdname && !strcmp(spdname, fl->spdname))
+		if (fl->servloc_name && !strcmp(servloc_name, fl->servloc_name))
 			fastrpc_notify_users_staticpd_pdr(fl);
 	}
 	spin_unlock(&me->hlock);
-
 }
 
 static void context_list_ctor(struct fastrpc_ctx_lst *me)
@@ -1931,21 +1933,28 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	return err;
 }
 
-static int fastrpc_get_spd_session(char *name, int *session)
+static int fastrpc_get_spd_session(char *name, int *session, int *cid)
 {
 	struct fastrpc_apps *me = &gfa;
-	int err = 0, i;
+	int err = 0, i, j, match = 0;
 
-	for (i = 0; i < NUM_SESSIONS; i++) {
-		if (!me->channel[0].spd[i].spdname)
-			continue;
-		if (!strcmp(name, me->channel[0].spd[i].spdname))
+	for (i = 0; i < NUM_CHANNELS; i++) {
+		for (j = 0; j < NUM_SESSIONS; j++) {
+			if (!me->channel[i].spd[j].servloc_name)
+				continue;
+			if (!strcmp(name, me->channel[i].spd[j].servloc_name)) {
+				match = 1;
+				break;
+			}
+		}
+		if (match)
 			break;
 	}
-	VERIFY(err, i < NUM_SESSIONS);
+	VERIFY(err, i < NUM_CHANNELS && j < NUM_SESSIONS);
 	if (err)
 		goto bail;
-	*session = i;
+	*cid = i;
+	*session = j;
 bail:
 	return err;
 }
@@ -1985,7 +1994,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (init->flags == FASTRPC_INIT_ATTACH)
 			fl->pd = 0;
 		else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
-			fl->spdname = SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			fl->servloc_name =
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME;
 			fl->pd = 2;
 		}
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
@@ -2114,8 +2124,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.pageslen = 0;
 
 		if (!strcmp(proc_name, "audiopd")) {
-			fl->spdname = AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
-			VERIFY(err, !fastrpc_mmap_remove_pdr(fl));
+			fl->servloc_name =
+				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME;
+			err = fastrpc_mmap_remove_pdr(fl);
 			if (err)
 				goto bail;
 		}
@@ -2123,9 +2134,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (!me->staticpd_flags && !(me->legacy_remote_heap)) {
 			inbuf.pageslen = 1;
 			mutex_lock(&fl->map_mutex);
-			VERIFY(err, !fastrpc_mmap_create(fl, -1, 0, init->mem,
+			err = fastrpc_mmap_create(fl, -1, 0, init->mem,
 				 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR,
-				 &mem));
+				 &mem);
 			mutex_unlock(&fl->map_mutex);
 			if (err)
 				goto bail;
@@ -2406,6 +2417,9 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 	struct fastrpc_apps *me = &gfa;
 	struct ramdump_segment *ramdump_segments_rh = NULL;
 
+	VERIFY(err, fl->cid == RH_CID);
+	if (err)
+		goto bail;
 	do {
 		match = NULL;
 		spin_lock(&me->hlock);
@@ -2421,7 +2435,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 						match->size, match->flags);
 			if (err)
 				goto bail;
-			if (me->channel[0].ramdumpenabled) {
+			if (me->channel[RH_CID].ramdumpenabled) {
 				ramdump_segments_rh = kcalloc(1,
 				sizeof(struct ramdump_segment), GFP_KERNEL);
 				if (ramdump_segments_rh) {
@@ -2429,7 +2443,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl)
 					match->phys;
 					ramdump_segments_rh->size = match->size;
 					ret = do_elf_ramdump(
-					 me->channel[0].remoteheap_ramdump_dev,
+					 me->channel[RH_CID].rh_dump_dev,
 					 ramdump_segments_rh, 1);
 					if (ret < 0)
 						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
@@ -2449,10 +2463,13 @@ bail:
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 {
 	struct fastrpc_apps *me = &gfa;
-	int session = 0, err = 0;
+	int session = 0, err = 0, cid = -1;
 
-	err = fastrpc_get_spd_session(AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
-			&session);
+	err = fastrpc_get_spd_session(fl->servloc_name,
+			&session, &cid);
+	if (err)
+		goto bail;
+	VERIFY(err, cid == fl->cid);
 	if (err)
 		goto bail;
 	if (me->channel[fl->cid].spd[session].pdrcount !=
@@ -2464,12 +2481,10 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 		me->channel[fl->cid].spd[session].prevpdrcount =
 				me->channel[fl->cid].spd[session].pdrcount;
 	}
-	if (!me->channel[fl->cid].spd[session].ispdup) {
-		VERIFY(err, 0);
-		if (err) {
-			err = -ENOTCONN;
-			goto bail;
-		}
+	if (!me->channel[fl->cid].spd[session].ispdup &&
+		me->channel[fl->cid].spd[session].pdrhandle) {
+		err = -ENOTCONN;
+		goto bail;
 	}
 bail:
 	return err;
@@ -2969,7 +2984,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %14s %d\n", "pd", ":", fl->pd);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%s %9s %s\n", "spdname", ":", fl->spdname);
+			"%s %9s %s\n", "servloc_name", ":", fl->servloc_name);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s %6s %d\n", "file_close", ":", fl->file_close);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -3101,11 +3116,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 
 	VERIFY(err, fl && fl->sctx);
 	if (err)
-		return err;
+		goto bail;
 	cid = fl->cid;
 	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
 	if (err)
-		return err;
+		goto bail;
 
 	mutex_lock(&me->channel[cid].rpmsg_mutex);
 	VERIFY(err, NULL != me->channel[cid].rpdev);
@@ -3120,12 +3135,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 		if (!me->channel[cid].issubsystemup) {
-			VERIFY(err, 0);
-			if (err) {
-				err = -ENOTCONN;
-				mutex_unlock(&me->channel[cid].smd_mutex);
-				goto bail;
-			}
+			err = -ENOTCONN;
+			mutex_unlock(&me->channel[cid].smd_mutex);
+			goto bail;
 		}
 	}
 	fl->ssrcount = me->channel[cid].ssrcount;
@@ -3519,27 +3531,32 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *ctx;
-	struct notif_data *notifdata = data;
-	int cid;
+	struct notif_data *notifdata = (struct notif_data *)data;
+	int cid = -1;
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+		pr_debug("adsprpc: %s: %s subsystem is restarting\n",
+			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
 		ctx->ssrcount++;
 		ctx->issubsystemup = 0;
 		mutex_unlock(&me->channel[cid].smd_mutex);
-		if (cid == 0)
+		if (cid == RH_CID)
 			me->staticpd_flags = 0;
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
-		if (me->channel[0].remoteheap_ramdump_dev &&
-				notifdata->enable_ramdump) {
-			me->channel[0].ramdumpenabled = 1;
+		if (cid == RH_CID) {
+			if (me->channel[RH_CID].rh_dump_dev &&
+					notifdata->enable_ramdump) {
+				me->channel[RH_CID].ramdumpenabled = 1;
+			}
 		}
 	} else if (code == SUBSYS_AFTER_POWERUP) {
+		pr_debug("adsprpc: %s: %s subsystem is up\n",
+			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
 	}
-
 	return NOTIFY_DONE;
 }
 
@@ -3549,26 +3566,30 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_static_pd *spd;
-	struct notif_data *notifdata = data;
+	struct notif_data *notifdata = (struct notif_data *)data;
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
+		pr_debug("adsprpc: %s: %s (%s) is down for PDR\n",
+			__func__, spd->spdname, spd->servloc_name);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
 		spd->pdrcount++;
 		spd->ispdup = 0;
 		mutex_unlock(&me->channel[spd->cid].smd_mutex);
-		pr_info("adsprpc: %s called for %s (dev %d)\n",
-				__func__, spd->spdname, MAJOR(me->dev_no));
-		if (!strcmp(spd->spdname,
+		if (!strcmp(spd->servloc_name,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
 			me->staticpd_flags = 0;
-		fastrpc_notify_pdr_drivers(me, spd->spdname);
+		fastrpc_notify_pdr_drivers(me, spd->servloc_name);
 	} else if (code == SUBSYS_RAMDUMP_NOTIFICATION) {
-		if (me->channel[0].remoteheap_ramdump_dev &&
-				notifdata->enable_ramdump) {
-			me->channel[0].ramdumpenabled = 1;
+		if (spd->cid == RH_CID) {
+			if (me->channel[RH_CID].rh_dump_dev &&
+					notifdata->enable_ramdump) {
+				me->channel[RH_CID].ramdumpenabled = 1;
+			}
 		}
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
+		pr_debug("adsprpc: %s: %s (%s) is up\n",
+			__func__, spd->spdname, spd->servloc_name);
 		spd->ispdup = 1;
 	}
 
@@ -3584,18 +3605,20 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
 	if (opcode == LOCATOR_DOWN) {
-		pr_err("adsprpc: %s: PD restart notifier locator down\n",
-				__func__);
+		pr_warn("adsprpc: %s: PDR notifier locator is down for %s\n",
+				__func__, spd->servloc_name);
 		return NOTIFY_DONE;
 	}
 	for (i = 0; i < pdr->total_domains; i++) {
-		if ((!strcmp(spd->spdname, "audio_pdr_adsprpc"))
-					&& (!strcmp(pdr->domain_list[i].name,
-						"msm/adsp/audio_pd"))) {
+		if ((!strcmp(spd->servloc_name,
+				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME))
+				&& (!strcmp(pdr->domain_list[i].name,
+				ADSP_AUDIOPD_NAME))) {
 			goto pdr_register;
-		} else if ((!strcmp(spd->spdname, "sensors_pdr_adsprpc"))
-					&& (!strcmp(pdr->domain_list[i].name,
-						"msm/adsp/sensor_pd"))) {
+		} else if ((!strcmp(spd->servloc_name,
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME))
+				&& (!strcmp(pdr->domain_list[i].name,
+				SLPI_SENSORPD_NAME))) {
 			goto pdr_register;
 		}
 	}
@@ -3608,19 +3631,24 @@ pdr_register:
 			pdr->domain_list[i].name,
 			pdr->domain_list[i].instance_id,
 			&spd->pdrnb, &curr_state);
+		if (IS_ERR_OR_NULL(spd->pdrhandle))
+			pr_warn("adsprpc: %s: PDR notifier register failed for %s (%s) with err %d\n",
+				__func__, pdr->domain_list[i].name,
+				spd->servloc_name, PTR_ERR(spd->pdrhandle));
+		else
+			pr_info("adsprpc: %s: PDR notifier registered for %s (%s)\n",
+			__func__, pdr->domain_list[i].name, spd->servloc_name);
 	} else {
-		pr_err("adsprpc: %s is already registered\n", spd->spdname);
+		pr_warn("adsprpc: %s: %s (%s) notifier is already registered\n",
+			__func__, pdr->domain_list[i].name, spd->servloc_name);
 	}
 
-	if (IS_ERR(spd->pdrhandle))
-		pr_err("adsprpc: Unable to register notifier\n");
-
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("adsprpc: %s: %s is up\n", __func__, spd->spdname);
+		pr_debug("adsprpc: %s: %s (%s) PDR service is up\n",
+			__func__, spd->servloc_name, pdr->domain_list[i].name);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		pr_info("adsprpc: %s: %s is uninitialzed\n",
-			__func__, spd->spdname);
+		spd->ispdup = 0;
 	}
 	return NOTIFY_DONE;
 }
@@ -3791,6 +3819,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 	uint32_t val;
 	int ret = 0;
 	uint32_t secure_domains;
+	int session = -1, cid = -1;
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
@@ -3861,45 +3890,50 @@ static int fastrpc_probe(struct platform_device *pdev)
 					"qcom,fastrpc-legacy-remote-heap");
 	if (of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-adsp-audio-pdr")) {
-		int session;
-
-		VERIFY(err, !fastrpc_get_spd_session(
-			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
+		err = fastrpc_get_spd_session(
+			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
 		if (err)
 			goto spdbail;
-		me->channel[0].spd[session].get_service_nb.notifier_call =
+		me->channel[cid].spd[session].get_service_nb.notifier_call =
 					fastrpc_get_service_location_notify;
 		ret = get_service_location(
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME,
 				AUDIO_PDR_ADSP_SERVICE_NAME,
-				&me->channel[0].spd[session].get_service_nb);
+				&me->channel[cid].spd[session].get_service_nb);
 		if (ret)
-			pr_err("adsprpc: %s: getting ADSP service location failed with %d\n",
-					__func__, ret);
+			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
+				__func__, ret, AUDIO_PDR_ADSP_SERVICE_NAME,
+				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
+		else
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+				__func__, AUDIO_PDR_ADSP_SERVICE_NAME,
+				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	}
 	if (of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-adsp-sensors-pdr")) {
-		int session;
-
-		VERIFY(err, !fastrpc_get_spd_session(
-			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
+		err = fastrpc_get_spd_session(
+		SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME, &session, &cid);
 		if (err)
 			goto spdbail;
-		me->channel[0].spd[session].get_service_nb.notifier_call =
+		me->channel[cid].spd[session].get_service_nb.notifier_call =
 					fastrpc_get_service_location_notify;
 		ret = get_service_location(
 				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME,
-				SENSORS_PDR_ADSP_SERVICE_NAME,
-				&me->channel[0].spd[session].get_service_nb);
+				SENSORS_PDR_SLPI_SERVICE_NAME,
+				&me->channel[cid].spd[session].get_service_nb);
 		if (ret)
-			pr_err("adsprpc: %s: getting sensors service location failed with %d\n",
-					__func__, ret);
+			pr_warn("adsprpc: %s: get service location failed with %d for %s (%s)\n",
+				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+		else
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
+				SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	}
 spdbail:
-	err = 0;
-	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
+	err = of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
-					  NULL, &pdev->dev));
+					  NULL, &pdev->dev);
 	if (err)
 		goto bail;
 bail:
@@ -4012,11 +4046,18 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].prevssrcount = 0;
 		me->channel[i].issubsystemup = 1;
 		me->channel[i].ramdumpenabled = 0;
-		me->channel[i].remoteheap_ramdump_dev = NULL;
+		me->channel[i].rh_dump_dev = NULL;
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
 		me->channel[i].handle = subsys_notif_register_notifier(
 							gcinfo[i].subsys,
 							&me->channel[i].nb);
+		if (IS_ERR_OR_NULL(me->channel[i].handle))
+			pr_warn("adsprpc: %s: SSR notifier register failed for %s with err %d\n",
+				__func__, gcinfo[i].subsys,
+				PTR_ERR(me->channel[i].handle));
+		else
+			pr_info("adsprpc: %s: SSR notifier registered for %s\n",
+				__func__, gcinfo[i].subsys);
 	}
 
 	err = register_rpmsg_driver(&fastrpc_rpmsg_client);
