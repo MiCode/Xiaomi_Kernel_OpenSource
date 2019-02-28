@@ -126,7 +126,6 @@ firmware_class.path=/vendor/firmware";
 				core0 {
 					cpu = <&cpu0>;
 				};
-/*
 				core1 {
 					cpu = <&cpu1>;
 				};
@@ -136,11 +135,9 @@ firmware_class.path=/vendor/firmware";
 				core3 {
 					cpu = <&cpu3>;
 				};
-*/
 			};
 
 			cluster1 {
-/*
 				core0 {
 					cpu = <&cpu4>;
 				};
@@ -153,7 +150,6 @@ firmware_class.path=/vendor/firmware";
 				core3 {
 					cpu = <&cpu7>;
 				};
-*/
 			};
 		};
 
