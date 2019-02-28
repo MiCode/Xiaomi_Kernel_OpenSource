@@ -178,6 +178,10 @@ DTC_INCLUDE    := $(srctree)/scripts/dtc/include-prefixes
 
 dtc_cpp_flags  = -Wp,-MD,$(depfile).pre.tmp -nostdinc                    \
 		 $(addprefix -I,$(DTC_INCLUDE))                          \
+		 -I$(srctree)/arch/$(SRCARCH)/boot/dts                   \
+		 -I$(srctree)/arch/$(SRCARCH)/boot/dts/include           \
+		 -I$(objtree)/include/                                   \
+		 -Iarch/$(SRCARCH)/boot/dts                              \
 		 -undef -D__DTS__
 
 # Finds the multi-part object the current object will be linked into
@@ -308,7 +312,7 @@ $(obj)/%.dtb.S: $(obj)/%.dtb
 quiet_cmd_dtc = DTC     $@
 cmd_dtc = mkdir -p $(dir ${dtc-tmp}) ; \
 	$(CPP) $(dtc_cpp_flags) -x assembler-with-cpp -o $(dtc-tmp) $< ; \
-	$(DTC) -O dtb -o $@ -b 0 \
+	$(srctree)/scripts/dtc/dtc_overlay -@ -O dtb -o $@ -b 0 \
 		$(addprefix -i,$(dir $<) $(DTC_INCLUDE)) $(DTC_FLAGS) \
 		-d $(depfile).dtc.tmp $(dtc-tmp) ; \
 	cat $(depfile).pre.tmp $(depfile).dtc.tmp > $(depfile)
