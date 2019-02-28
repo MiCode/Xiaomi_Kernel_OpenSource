@@ -1451,6 +1451,11 @@ static struct sk_buff *ath10k_wmi_tlv_op_gen_init(struct ath10k *ar)
 	cfg->keep_alive_pattern_size = __cpu_to_le32(0);
 	cfg->max_tdls_concurrent_sleep_sta = __cpu_to_le32(1);
 	cfg->max_tdls_concurrent_buffer_sta = __cpu_to_le32(1);
+	cfg->wmi_send_separate = __cpu_to_le32(0);
+	cfg->num_ocb_vdevs = __cpu_to_le32(0);
+	cfg->num_ocb_channels = __cpu_to_le32(0);
+	cfg->num_ocb_schedules = __cpu_to_le32(0);
+	cfg->host_capab = __cpu_to_le32(0);
 
 	ath10k_wmi_put_host_mem_chunks(ar, chunks);
 
@@ -1481,10 +1486,10 @@ ath10k_wmi_tlv_op_gen_start_scan(struct ath10k *ar,
 	bssid_len = arg->n_bssids * sizeof(struct wmi_mac_addr);
 	ie_len = roundup(arg->ie_len, 4);
 	len = (sizeof(*tlv) + sizeof(*cmd)) +
-	      (arg->n_channels ? sizeof(*tlv) + chan_len : 0) +
-	      (arg->n_ssids ? sizeof(*tlv) + ssid_len : 0) +
-	      (arg->n_bssids ? sizeof(*tlv) + bssid_len : 0) +
-	      (arg->ie_len ? sizeof(*tlv) + ie_len : 0);
+	      sizeof(*tlv) + chan_len +
+	      sizeof(*tlv) + ssid_len +
+	      sizeof(*tlv) + bssid_len +
+	      sizeof(*tlv) + ie_len;
 
 	skb = ath10k_wmi_alloc_skb(ar, len);
 	if (!skb)
