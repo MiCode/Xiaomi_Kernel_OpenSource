@@ -30,6 +30,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
+#ifdef CONFIG_MTK_SCHED_MONITOR
+#include "mtk_sched_mon.h"
+#endif
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -130,6 +134,9 @@ void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 		current->preempt_disable_ip = get_lock_parent_ip();
 #endif
 		trace_preempt_off(CALLER_ADDR0, get_lock_parent_ip());
+#ifdef CONFIG_PREEMPT_MONITOR
+		MT_trace_preempt_off();
+#endif
 	}
 }
 EXPORT_SYMBOL(__local_bh_disable_ip);
@@ -281,7 +288,13 @@ restart:
 		kstat_incr_softirqs_this_cpu(vec_nr);
 
 		trace_softirq_entry(vec_nr);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+		mt_trace_SoftIRQ_start(vec_nr);
+#endif
 		h->action(h);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+		mt_trace_SoftIRQ_end(vec_nr);
+#endif
 		trace_softirq_exit(vec_nr);
 		if (unlikely(prev_count != preempt_count())) {
 			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
@@ -506,7 +519,13 @@ static __latent_entropy void tasklet_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
+#ifdef CONFIG_MTK_SCHED_MONITOR
+				mt_trace_tasklet_start(t->func);
+#endif
 				t->func(t->data);
+#ifdef CONFIG_MTK_SCHED_MONITOR
+				mt_trace_tasklet_end(t->func);
+#endif
 				tasklet_unlock(t);
 				continue;
 			}
