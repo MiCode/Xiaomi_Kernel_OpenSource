@@ -11,12 +11,12 @@
 # GNU General Public License for more details.
 #
 
-obj-y += dip/
-obj-y += src/
-#obj-y += owe/
-#obj-y += rsc/
-#obj-y += wpe/
-#obj-y += dpe/
-#obj-y += tsf/
-#obj-y += mfb/
-#obj-y += fdvt/
+obj-y := cameraisp_dummy.o
+
+ifeq ($(CONFIG_MACH_MT6775),y)
+  obj-y += isp_50/
+endif
+
+ifeq ($(CONFIG_MACH_MT6771),y)
+  obj-y += isp_50/
+endif
