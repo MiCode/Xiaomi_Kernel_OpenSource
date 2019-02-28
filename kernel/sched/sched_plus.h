@@ -44,6 +44,7 @@ task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
 #define LB_SMP           (0x2  << LB_POLICY_SHIFT)
 #define LB_HMP           (0x4  << LB_POLICY_SHIFT)
 #define LB_EAS           (0x8  << LB_POLICY_SHIFT)
+#define LB_HINT         (0x10  << LB_POLICY_SHIFT)
 #define LB_EAS_AFFINE   (0x18  << LB_POLICY_SHIFT)
 #define LB_EAS_LB       (0x28  << LB_POLICY_SHIFT)
 

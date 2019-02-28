@@ -1310,7 +1310,6 @@ void mtk_update_new_capacity(struct energy_env *eenv)
 #endif
 
 #ifdef CONFIG_MTK_SCHED_BOOST
-#if 0
 static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
 {
 	int task_prefer;
@@ -1329,45 +1328,12 @@ static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
 		*result = new_cpu | LB_HINT;
 }
 
-void check_for_hint_migration(struct rq *rq, struct task_struct *p)
-{
-	int new_cpu;
-	int active_balance;
-	int cpu = task_cpu(p);
-
-	if (rq->curr->state != TASK_RUNNING ||
-		rq->curr->nr_cpus_allowed == 1)
-		return;
-
-	if (task_prefer_match(p, cpu))
-		return;
-
-	new_cpu = select_task_prefer_cpu(p, cpu);
-
-	if (new_cpu != cpu) {
-
-		active_balance = kick_active_balance(rq, p, new_cpu);
-		if (active_balance) {
-			stop_one_cpu_nowait(cpu,
-					active_load_balance_cpu_stop,
-					rq, &rq->active_balance_work);
-			trace_sched_hmp_migrate(p, new_cpu, 7);
-		}
-	}
-}
-#endif
-
 #else
 
-#if 0
 static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
 {
 }
-#endif
 
-void check_for_hint_migration(struct rq *rq, struct task_struct *p)
-{
-}
 #endif
 
 inline int
