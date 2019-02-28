@@ -305,7 +305,10 @@ void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
 {
 	struct pstore_info *psi = psinfo;
 	ssize_t size;
-	struct pstore_record prd;
+	struct pstore_record record;
+
+	pstore_record_init(&record, psinfo);
+	record.buf = NULL;
 
 	if (!psi)
 		return;
@@ -313,10 +316,13 @@ void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
 	if (psi->open && psi->open(psi))
 		goto out;
 
-	while ((size = psi->read(&prd)) > 0) {
-		if (prd.type == type_id)
-			seq_write(m, prd.buf, prd.size);
-		kfree(buf);
+	while ((size = psi->read(&record)) > 0) {
+		if (record.type == type_id)
+			seq_write(m, record.buf, size);
+		if (record.buf != NULL) {
+			kfree(record.buf);
+			record.buf = NULL;
+		}
 	}
 
 	if (psi->close)
