@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -48,7 +48,8 @@ struct llcc_slice_desc {
  * @res_ways: reserved ways associated with llcc slice
  * @cache_mode: mode of the llcc slice
  * @probe_target_ways: Probe only reserved and bonus ways on a cache miss
- * @dis_cap_alloc: Disable capacity based allocation
+ * @dis_icap_alloc: Disable capacity based allocation
+ * @write_scid_en: Enables write cache support for a given scid.
  * @retain_on_pc: Retain through power collapse
  * @activate_on_init: activate the slice on init
  */
@@ -63,6 +64,7 @@ struct llcc_slice_config {
 	u32 cache_mode;
 	u32 probe_target_ways;
 	bool dis_cap_alloc;
+	bool write_scid_en;
 	bool retain_on_pc;
 	bool activate_on_init;
 };

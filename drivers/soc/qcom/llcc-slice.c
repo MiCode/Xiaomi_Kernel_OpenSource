@@ -263,12 +263,15 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 sz;
 	u32 pcb = 0;
 	u32 cad = 0;
+	u32 wren = 0;
 	int ret = 0;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_slice_desc desc;
 	bool cap_based_alloc_and_pwr_collapse =
 		drv_data->cap_based_alloc_and_pwr_collapse;
 	uint32_t mask = ~0;
+	int v2_ver = of_device_is_compatible(pdev->dev.of_node,
+							 "qcom,llcc-v2");
 
 	sz = drv_data->cfg_size;
 	llcc_table = drv_data->cfg;
@@ -276,7 +279,7 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 	/* Disable the Cache as Non-Cache override and enable
 	 * the Non-Cache as Cache override
 	 */
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,llcc-v2")) {
+	if (v2_ver) {
 		ret  = regmap_write(drv_data->bcast_regmap,
 						 LLCC_TRP_C_AS_NC, 0);
 		if (ret)
@@ -333,6 +336,15 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 					attr0_val);
 		if (ret)
 			return ret;
+
+		if (v2_ver) {
+			wren |= llcc_table[i].write_scid_en <<
+						llcc_table[i].slice_id;
+			ret = regmap_write(drv_data->bcast_regmap,
+				LLCC_TRP_WRSC_EN, wren);
+			if (ret)
+				return ret;
+		}
 
 		if (cap_based_alloc_and_pwr_collapse) {
 			cad |= llcc_table[i].dis_cap_alloc <<
