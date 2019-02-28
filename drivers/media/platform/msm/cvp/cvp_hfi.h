@@ -326,10 +326,6 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define HFI_CMD_SESSION_CVP_START	\
 	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
 	HFI_CMD_START_OFFSET + 0x1000)
-#define HFI_CMD_SESSION_REGISTER_BUFFERS	\
-	(HFI_CMD_SESSION_CVP_START + 0x0A0)
-#define HFI_CMD_SESSION_UNREGISTER_BUFFERS	\
-	(HFI_CMD_SESSION_CVP_START + 0x0A1)
 
 /* =============BASIC OPERATIONS=================*/
 #define  HFI_CMD_SESSION_CVP_SET_BUFFERS\
@@ -384,6 +380,13 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define HFI_CMD_SESSION_CVP_PYS_HCD_CONFIG\
 	(HFI_CMD_SESSION_CVP_START + 0x017)
 
+#define  HFI_CMD_SESSION_CVP_DME_CONFIG\
+	(HFI_CMD_SESSION_CVP_START + 0x039)
+#define  HFI_CMD_SESSION_CVP_DME_FRAME\
+	(HFI_CMD_SESSION_CVP_START + 0x03A)
+
+#define  HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS\
+	(HFI_CMD_SESSION_CVP_START + 0x04D)
 
 #define HFI_MSG_SYS_OX_START			\
 (HFI_DOMAIN_BASE_COMMON + HFI_ARCH_OX_OFFSET + HFI_MSG_START_OFFSET + 0x0000)
@@ -409,10 +412,6 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define HFI_MSG_SESSION_CVP_START	\
 	(HFI_DOMAIN_BASE_CVP + HFI_ARCH_COMMON_OFFSET +	\
 	HFI_MSG_START_OFFSET + 0x1000)
-#define HFI_MSG_SESSION_REGISTER_BUFFERS_DONE	\
-	(HFI_MSG_SESSION_CVP_START + 0x0A0)
-#define HFI_MSG_SESSION_UNREGISTER_BUFFERS_DONE	\
-	(HFI_MSG_SESSION_CVP_START + 0x0A1)
 
 /* =================BASIC OPERATIONS=================*/
 #define HFI_MSG_SESSION_CVP_SET_BUFFERS\
@@ -436,7 +435,12 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define HFI_MSG_SESSION_CVP_FTEXT\
 	(HFI_MSG_SESSION_CVP_START + 0x00A)
 
-#define HFI_MSG_SESSION_CVP_OPERATION_CONFIG (HFI_MSG_SESSION_CVP_START + 0x010)
+#define HFI_MSG_SESSION_CVP_DME\
+	(HFI_MSG_SESSION_CVP_START + 0x023)
+#define HFI_MSG_SESSION_CVP_OPERATION_CONFIG (HFI_MSG_SESSION_CVP_START + 0x030)
+
+#define  HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS\
+	(HFI_MSG_SESSION_CVP_START + 0x034)
 
 #define CVP_IFACEQ_MAX_PKT_SIZE       1024
 #define CVP_IFACEQ_MED_PKT_SIZE       768
@@ -577,36 +581,40 @@ struct HFI_CVP_COLOR_PLANE_INFO {
 	u32 buf_size[HFI_MAX_PLANES];
 };
 
-struct hfi_cmd_session_cvp_dfs_config {
+struct hfi_cmd_session_hdr {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	u32 srcbuffer_format;
-	struct HFI_CVP_COLOR_PLANE_INFO left_plane_info;
-	struct HFI_CVP_COLOR_PLANE_INFO right_plane_info;
-	u32 width;
-	u32 height;
-	u32 occlusionmask_enable;
-	u32 occlusioncost;
-	u32 occlusionbound;
-	u32 occlusionshift;
-	u32 maxdisparity;
-	u32 disparityoffset;
-	u32 medianfilter_enable;
-	u32 occlusionfilling_enable;
-	u32 occlusionmaskdump;
-	struct hfi_cvp_client_data  clientdata;
 };
 
-struct hfi_cmd_session_cvp_dfs_frame {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 left_buffer_index;
-	u32 right_buffer_index;
-	u32 disparitymap_buffer_idx;
-	u32 occlusionmask_buffer_idx;
-	struct hfi_cvp_client_data  clientdata;
+struct hfi_cmd_session_cvp_dfs_config_packet {
+	u32 cvp_internal_dfs_config[CVP_DFS_CONFIG_CMD_SIZE];
+};
+
+struct hfi_cmd_session_cvp_dfs_frame_packet {
+	u32 cvp_dfs_frame[CVP_DFS_FRAME_BUFFERS_OFFSET];
+	u32 left_view_buffer_addr;
+	u32 left_view_buffer_size;
+	u32 right_view_buffer_addr;
+	u32 right_view_buffer_size;
+	u32 disparity_map_buffer_addr;
+	u32 disparity_map_buffer_size;
+	u32 occlusion_mask_buffer_addr;
+	u32 occlusion_mask_buffer_size;
+};
+
+struct hfi_cmd_session_cvp_dme_config_packet {
+	u32 cvp_internal_dme_config[CVP_DME_CONFIG_CMD_SIZE];
+};
+
+struct hfi_cmd_session_cvp_dme_frame_packet {
+	u32 cvp_dme_frame[CVP_DME_FRAME_BUFFERS_OFFSET];
+	struct buf_desc bufs[8];
+};
+
+struct hfi_cmd_session_cvp_persist_packet {
+	u32 cvp_persist_frame[CVP_PERSIST_BUFFERS_OFFSET];
+	struct buf_desc bufs[CVP_PSRSIST_BUF_NUM];
 };
 
 struct hfi_cmd_session_release_buffer_packet {
@@ -812,22 +820,6 @@ struct hfi_msg_session_release_buffers_done_packet {
 	u32 error_type;
 	u32 num_buffers;
 	u32 rg_buffer_info[1];
-};
-
-struct hfi_msg_session_register_buffers_done_packet {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 client_data;
-	u32 error_type;
-};
-
-struct hfi_msg_session_unregister_buffers_done_packet {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	u32 client_data;
-	u32 error_type;
 };
 
 struct hfi_extradata_mb_quantization_payload {

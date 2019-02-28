@@ -526,12 +526,6 @@ struct msm_cvp_internal_send_cmd {
 	struct msm_cvp_send_cmd send_cmd;
 };
 
-struct msm_cvp_internal_dfsconfig {
-	struct list_head list;
-	struct msm_smem smem;
-	struct msm_cvp_dfsconfig dfsconfig;
-};
-
 void msm_cvp_comm_handle_thermal_event(void);
 int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,

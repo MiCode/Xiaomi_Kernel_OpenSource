@@ -585,7 +585,7 @@ struct msm_cvp_inst *cvp_get_inst(struct msm_cvp_core *core,
 	return inst;
 }
 
-static void cvp_handle_session_dfs_cmd_done(enum hal_command_response cmd,
+static void cvp_handle_session_cmd_done(enum hal_command_response cmd,
 	void *data)
 {
 	struct msm_cvp_cb_cmd_done *response = data;
@@ -1679,11 +1679,6 @@ enum hal_buffer msm_cvp_comm_get_hal_output_buffer(struct msm_cvp_inst *inst)
 		return HAL_BUFFER_OUTPUT;
 }
 
-static void handle_dfs(enum hal_command_response cmd, void *data)
-{
-	dprintk(CVP_ERR, "%s: is called\n", __func__);
-}
-
 void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 {
 	dprintk(CVP_DBG, "Command response = %d\n", cmd);
@@ -1699,9 +1694,6 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 		break;
 	case HAL_SESSION_CVP_OPERATION_CONFIG:
 		handle_operation_config(cmd, data);
-		break;
-	case HAL_SESSION_CVP_DFS:
-		handle_dfs(cmd, data);
 		break;
 	case HAL_SESSION_RELEASE_RESOURCE_DONE:
 		handle_release_res_done(cmd, data);
@@ -1729,15 +1721,12 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
 		break;
-	case HAL_SESSION_REGISTER_BUFFER_DONE:
-		cvp_handle_session_register_buffer_done(cmd, data);
-		break;
-	case HAL_SESSION_UNREGISTER_BUFFER_DONE:
-		cvp_handle_session_unregister_buffer_done(cmd, data);
-		break;
 	case HAL_SESSION_DFS_CONFIG_CMD_DONE:
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:
-		cvp_handle_session_dfs_cmd_done(cmd, data);
+	case HAL_SESSION_DME_CONFIG_CMD_DONE:
+	case HAL_SESSION_DME_FRAME_CMD_DONE:
+	case HAL_SESSION_PERSIST_CMD_DONE:
+		cvp_handle_session_cmd_done(cmd, data);
 		break;
 	default:
 		dprintk(CVP_DBG, "response unhandled: %d\n", cmd);

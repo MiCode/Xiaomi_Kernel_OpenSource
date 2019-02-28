@@ -105,87 +105,77 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 	}
 	case MSM_CVP_HFI_DFS_CONFIG_CMD:
 	{
-		struct msm_cvp_dfsconfig *k, *u;
+		struct msm_cvp_dfs_config *k, *u;
 
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n",
-				__func__);
-		k = &kp->data.dfsconfig;
-		u = &up->data.dfsconfig;
-		if (get_user(k->cmd_address, &u->cmd_address) ||
-			get_user(k->cmd_size, &u->cmd_size) ||
-			get_user(k->packet_type, &u->packet_type) ||
-			get_user(k->session_id, &u->session_id) ||
-			get_user(k->srcbuffer_format, &u->srcbuffer_format) ||
-			get_user(
-			k->left_plane_info.stride[HFI_MAX_PLANES - 1],
-			&u->left_plane_info.stride[HFI_MAX_PLANES - 1]) ||
-			get_user(
-			k->left_plane_info.buf_size[HFI_MAX_PLANES - 1],
-			&u->left_plane_info.buf_size[HFI_MAX_PLANES - 1]) ||
-			get_user(
-			k->right_plane_info.stride[HFI_MAX_PLANES - 1],
-			&u->right_plane_info.stride[HFI_MAX_PLANES - 1]) ||
-			get_user(
-			k->right_plane_info.buf_size[HFI_MAX_PLANES - 1],
-			&u->right_plane_info.buf_size[HFI_MAX_PLANES - 1]) ||
-			get_user(k->width, &u->width) ||
-			get_user(k->height, &u->height) ||
-			get_user(k->occlusionmask_enable,
-				&u->occlusionmask_enable) ||
-			get_user(k->occlusioncost, &u->occlusioncost) ||
-			get_user(k->occlusionshift, &u->occlusionshift) ||
-			get_user(k->maxdisparity, &u->maxdisparity) ||
-			get_user(k->disparityoffset, &u->disparityoffset) ||
-			get_user(k->medianfilter_enable,
-				&u->medianfilter_enable) ||
-			get_user(k->occlusionbound, &u->occlusionbound) ||
-			get_user(k->occlusionfilling_enable,
-				&u->occlusionfilling_enable) ||
-			get_user(k->occlusionmaskdump,
-				&u->occlusionmaskdump) ||
-			get_user(k->clientdata.transactionid,
-				&u->clientdata.transactionid) ||
-			get_user(k->clientdata.client_data1,
-				&u->clientdata.client_data1) ||
-			get_user(k->clientdata.client_data2,
-				&u->clientdata.client_data2))
-			return -EFAULT;
-		for (i = 0; i < MAX_DFS_HFI_PARAMS; i++)
-			if (get_user(k->reserved[i], &u->reserved[i]))
+		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n", __func__);
+		k = &kp->data.dfs_config;
+		u = &up->data.dfs_config;
+		for (i = 0; i < CVP_DFS_CONFIG_CMD_SIZE; i++)
+			if (get_user(k->cvp_dfs_config[i],
+				&u->cvp_dfs_config[i]))
 				return -EFAULT;
 		break;
 	}
 	case MSM_CVP_HFI_DFS_FRAME_CMD:
 	case MSM_CVP_HFI_DFS_FRAME_CMD_RESPONSE:
 	{
-		struct msm_cvp_dfsframe *k, *u;
+		struct msm_cvp_dfs_frame *k, *u;
 
-		dprintk(CVP_DBG, "%s: Type =%d\n",
-							__func__, kp->type);
-		k = &kp->data.dfsframe;
-		u = &up->data.dfsframe;
-		if (get_user(k->cmd_address, &u->cmd_address) ||
-			get_user(k->cmd_size, &u->cmd_size) ||
-			get_user(k->packet_type, &u->packet_type) ||
-			get_user(k->session_id, &u->session_id) ||
-			get_user(k->left_buffer_index,
-				&u->left_buffer_index) ||
-			get_user(k->right_buffer_index,
-				&u->right_buffer_index) ||
-			get_user(k->disparitymap_buffer_idx,
-				&u->disparitymap_buffer_idx) ||
-			get_user(k->occlusionmask_buffer_idx,
-				&u->occlusionmask_buffer_idx) ||
-			get_user(k->clientdata.transactionid,
-				&u->clientdata.transactionid) ||
-			get_user(k->clientdata.client_data1,
-				&u->clientdata.client_data1) ||
-			get_user(k->clientdata.client_data2,
-				&u->clientdata.client_data2))
-			return -EFAULT;
+		dprintk(CVP_DBG, "%s: Type =%d\n", __func__, kp->type);
+		k = &kp->data.dfs_frame;
+		u = &up->data.dfs_frame;
+		for (i = 0; i < CVP_DFS_FRAME_CMD_SIZE; i++)
+			if (get_user(k->frame_data[i], &u->frame_data[i]))
+				return -EFAULT;
 
 		break;
 	}
+	case MSM_CVP_HFI_DME_CONFIG_CMD:
+	{
+		struct msm_cvp_dme_config *k, *u;
+
+		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n", __func__);
+		k = &kp->data.dme_config;
+		u = &up->data.dme_config;
+		for (i = 0; i < CVP_DME_CONFIG_CMD_SIZE; i++)
+			if (get_user(k->cvp_dme_config[i],
+				&u->cvp_dme_config[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_HFI_DME_FRAME_CMD:
+	case MSM_CVP_HFI_DME_FRAME_CMD_RESPONSE:
+	{
+		struct msm_cvp_dme_frame *k, *u;
+
+		dprintk(CVP_DBG, "%s: type = %d\n",
+					__func__, kp->type);
+		k = &kp->data.dme_frame;
+		u = &up->data.dme_frame;
+
+		for (i = 0; i < CVP_DME_FRAME_CMD_SIZE; i++)
+			if (get_user(k->frame_data[i], &u->frame_data[i]))
+				return -EFAULT;
+
+		break;
+	}
+	case MSM_CVP_HFI_PERSIST_CMD:
+	case MSM_CVP_HFI_PERSIST_CMD_RESPONSE:
+	{
+		struct msm_cvp_persist_buf *k, *u;
+
+		dprintk(CVP_DBG, "%s: type = %d\n",
+					__func__, kp->type);
+		k = &kp->data.pbuf_cmd;
+		u = &up->data.pbuf_cmd;
+
+		for (i = 0; i < CVP_PERSIST_CMD_SIZE; i++)
+			if (get_user(k->persist_data[i], &u->persist_data[i]))
+				return -EFAULT;
+
+		break;
+	}
+
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -297,87 +287,78 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 	}
 	case MSM_CVP_HFI_DFS_CONFIG_CMD:
 	{
-		struct msm_cvp_dfsconfig *k, *u;
+		struct msm_cvp_dfs_config *k, *u;
 
 		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n",
 					__func__);
 
-		k = &kp->data.dfsconfig;
-		u = &up->data.dfsconfig;
-		if (put_user(k->cmd_address, &u->cmd_address) ||
-			put_user(k->cmd_size, &u->cmd_size) ||
-			put_user(k->packet_type, &u->packet_type) ||
-			put_user(k->session_id, &u->session_id) ||
-			put_user(k->srcbuffer_format, &u->srcbuffer_format) ||
-			put_user(
-			k->left_plane_info.stride[HFI_MAX_PLANES - 1],
-			&u->left_plane_info.stride[HFI_MAX_PLANES - 1]) ||
-			put_user(
-			k->left_plane_info.buf_size[HFI_MAX_PLANES - 1],
-			&u->left_plane_info.buf_size[HFI_MAX_PLANES - 1]) ||
-			put_user(
-			k->right_plane_info.stride[HFI_MAX_PLANES - 1],
-			&u->right_plane_info.stride[HFI_MAX_PLANES - 1]) ||
-			put_user(
-			k->right_plane_info.buf_size[HFI_MAX_PLANES - 1],
-			&u->right_plane_info.buf_size[HFI_MAX_PLANES - 1])
-			|| put_user(k->width, &u->width) ||
-			put_user(k->height, &u->height) ||
-			put_user(k->occlusionmask_enable,
-				&u->occlusionmask_enable) ||
-			put_user(k->occlusioncost, &u->occlusioncost) ||
-			put_user(k->occlusionshift, &u->occlusionshift) ||
-			put_user(k->maxdisparity, &u->maxdisparity) ||
-			put_user(
-				k->disparityoffset, &u->disparityoffset) ||
-			put_user(k->medianfilter_enable,
-				&u->medianfilter_enable) ||
-			put_user(k->occlusionbound, &u->occlusionbound) ||
-			put_user(k->occlusionfilling_enable,
-				&u->occlusionfilling_enable) ||
-			put_user(k->occlusionmaskdump,
-				&u->occlusionmaskdump) ||
-			put_user(k->clientdata.transactionid,
-				&u->clientdata.transactionid) ||
-			put_user(k->clientdata.client_data1,
-				&u->clientdata.client_data1) ||
-			put_user(k->clientdata.client_data2,
-				&u->clientdata.client_data2))
-			return -EFAULT;
-		for (i = 0; i < MAX_DFS_HFI_PARAMS; i++)
-			if (put_user(k->reserved[i], &u->reserved[i]))
+		k = &kp->data.dfs_config;
+		u = &up->data.dfs_config;
+		for (i = 0; i < CVP_DFS_CONFIG_CMD_SIZE; i++)
+			if (put_user(k->cvp_dfs_config[i],
+				&u->cvp_dfs_config[i]))
 				return -EFAULT;
 		break;
 	}
 	case MSM_CVP_HFI_DFS_FRAME_CMD:
 	case MSM_CVP_HFI_DFS_FRAME_CMD_RESPONSE:
 	{
-		struct msm_cvp_dfsframe *k, *u;
+		struct msm_cvp_dfs_frame *k, *u;
 
 		dprintk(CVP_DBG, "%s: type = %d\n",
 					__func__, kp->type);
-		k = &kp->data.dfsframe;
-		u = &up->data.dfsframe;
+		k = &kp->data.dfs_frame;
+		u = &up->data.dfs_frame;
 
-		if (put_user(k->cmd_address, &u->cmd_address) ||
-			put_user(k->cmd_size, &u->cmd_size) ||
-			put_user(k->packet_type, &u->packet_type) ||
-			put_user(k->session_id, &u->session_id) ||
-			put_user(k->left_buffer_index,
-				&u->left_buffer_index) ||
-			put_user(k->right_buffer_index,
-				&u->right_buffer_index) ||
-			put_user(k->disparitymap_buffer_idx,
-				&u->disparitymap_buffer_idx) ||
-			put_user(k->occlusionmask_buffer_idx,
-				&u->occlusionmask_buffer_idx) ||
-			put_user(k->clientdata.transactionid,
-				&u->clientdata.transactionid) ||
-			put_user(k->clientdata.client_data1,
-				&u->clientdata.client_data1) ||
-			put_user(k->clientdata.client_data2,
-				&u->clientdata.client_data2))
-			return -EFAULT;
+		for (i = 0; i < CVP_DFS_FRAME_CMD_SIZE; i++)
+			if (put_user(k->frame_data[i], &u->frame_data[i]))
+				return -EFAULT;
+
+		break;
+	}
+	case MSM_CVP_HFI_DME_CONFIG_CMD:
+	{
+		struct msm_cvp_dme_config *k, *u;
+
+		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DME_CONFIG_CMD\n", __func__);
+		k = &kp->data.dme_config;
+		u = &up->data.dme_config;
+		for (i = 0; i < CVP_DME_CONFIG_CMD_SIZE; i++)
+			if (put_user(k->cvp_dme_config[i],
+				&u->cvp_dme_config[i]))
+				return -EFAULT;
+		break;
+	}
+	case MSM_CVP_HFI_DME_FRAME_CMD:
+	case MSM_CVP_HFI_DME_FRAME_CMD_RESPONSE:
+	{
+		struct msm_cvp_dme_frame *k, *u;
+
+		dprintk(CVP_DBG, "%s: type = %d\n",
+					__func__, kp->type);
+		k = &kp->data.dme_frame;
+		u = &up->data.dme_frame;
+
+		for (i = 0; i < CVP_DME_FRAME_CMD_SIZE; i++)
+			if (put_user(k->frame_data[i], &u->frame_data[i]))
+				return -EFAULT;
+
+		break;
+	}
+	case MSM_CVP_HFI_PERSIST_CMD:
+	case MSM_CVP_HFI_PERSIST_CMD_RESPONSE:
+	{
+		struct msm_cvp_persist_buf *k, *u;
+
+		dprintk(CVP_DBG, "%s: type = %d\n",
+					__func__, kp->type);
+		k = &kp->data.pbuf_cmd;
+		u = &up->data.pbuf_cmd;
+
+		for (i = 0; i < CVP_PERSIST_CMD_SIZE; i++)
+			if (put_user(k->persist_data[i], &u->persist_data[i]))
+				return -EFAULT;
+
 		break;
 	}
 	default:
