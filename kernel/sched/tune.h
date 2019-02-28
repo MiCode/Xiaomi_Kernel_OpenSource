@@ -21,6 +21,15 @@ void schedtune_enqueue_task(struct task_struct *p, int cpu);
 void schedtune_dequeue_task(struct task_struct *p, int cpu);
 extern int stune_task_threshold;
 
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+extern struct mutex uclamp_mutex;
+extern  void uclamp_group_get(struct task_struct *p,
+			     struct cgroup_subsys_state *css,
+			     struct uclamp_se *uc_se,
+			     unsigned int clamp_id, unsigned int clamp_value);
+extern void uclamp_group_put(unsigned int clamp_id, unsigned int group_id);
+#endif
+
 #else /* CONFIG_SCHED_TUNE */
 
 #define schedtune_cpu_boost(cpu)  0

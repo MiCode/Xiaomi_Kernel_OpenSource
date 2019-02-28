@@ -290,9 +290,6 @@ struct vtime {
 	u64			gtime;
 };
 
-/* Clamp not valid, i.e. group not assigned or invalid value */
-#define UCLAMP_NOT_VALID -1
-
 enum uclamp_id {
 	UCLAMP_MIN = 0, /* Minimum utilization */
 	UCLAMP_MAX,     /* Maximum utilization */
@@ -331,6 +328,12 @@ struct sched_info {
  */
 # define SCHED_FIXEDPOINT_SHIFT		10
 # define SCHED_FIXEDPOINT_SCALE		(1L << SCHED_FIXEDPOINT_SHIFT)
+
+/*
+ * Increase resolution of cpu_capacity calculations
+ */
+# define SCHED_CAPACITY_SHIFT		SCHED_FIXEDPOINT_SHIFT
+# define SCHED_CAPACITY_SCALE		(1L << SCHED_CAPACITY_SHIFT)
 
 static inline unsigned int scale_from_percent(unsigned int pct)
 {
@@ -660,25 +663,61 @@ struct sched_dl_entity {
 	struct hrtimer inactive_timer;
 };
 
-/**
- * Utilization's clamp group
+#ifdef CONFIG_UCLAMP_TASK
+/*
+ * Number of utiliation clamp groups
  *
- * A utilization clamp group maps a "clamp value" (value), i.e.
- * util_{min,max}, to a "clamp group index" (group_id).
- * The same "group_id" can be used by multiple TG's to enforce the same
- * clamp "value" for a given clamp index.
+ * The first clamp group (group_id=0) is used to track non clamped tasks, i.e.
+ * util_{min,max} (0,SCHED_CAPACITY_SCALE). Thus we allocate one more group in
+ * addition to the configured number.
+ */
+#define UCLAMP_GROUPS (CONFIG_UCLAMP_GROUPS_COUNT + 1)
+
+/**
+ * Utilization clamp group
+ *
+ * A utilization clamp group maps a:
+ *   clamp value (value), i.e.
+ *   util_{min,max} value requested from userspace
+ * to a:
+ *   clamp group index (group_id), i.e.
+ *   index of the per-cpu RUNNABLE tasks refcounting array
+ *
+ * The mapped bit is set whenever a scheduling entity has been mapped on a
+ * clamp group for the first time. When this bit is set, any clamp group get
+ * (for a new clamp value) will be matches by a clamp group put (for the old
+ * clamp value).
+ *
+ * The user_defined bit is set whenever a task has got a task-specific clamp
+ * value requested from userspace, i.e. the system defaults applies to this
+ * task just as a restriction. This allows to relax TG's clamps when a less
+ * restrictive task specific value has been defined, thus allowing to
+ * implement a "nice" semantic when both task group and task specific values
+ * are used. For example, a task running on a 20% boosted TG can still drop
+ * its own boosting to 0%.
  */
 struct uclamp_se {
-	/* Utilization constraint for tasks in this group */
-	unsigned int value;
-	/* Utilization clamp group for this constraint */
-	unsigned int group_id;
-	/* Effective clamp  for tasks in this group */
+	unsigned int value		: SCHED_CAPACITY_SHIFT + 1;
+	unsigned int group_id		: order_base_2(UCLAMP_GROUPS);
+	unsigned int mapped		: 1;
+	unsigned int active		: 1;
+	unsigned int user_defined	: 1;
+	/*
+	 * Clamp group and value actually used by a scheduling entity,
+	 * i.e. a (RUNNABLE) task or a task group.
+	 * For task groups, this is the value (eventually) enforced by a
+	 * parent task group.
+	 * For a task, this is the value (eventually) enforced by the
+	 * task group the task is currently part of or by the system
+	 * default clamp values, whichever is the most restrictive.
+	 */
 	struct {
-		unsigned int value;
-		unsigned int group_id;
+		unsigned int value	: SCHED_CAPACITY_SHIFT + 1;
+		unsigned int group_id	: order_base_2(UCLAMP_GROUPS);
 	} effective;
 };
+#endif /* CONFIG_UCLAMP_TASK */
+
 
 union rcu_special {
 	struct {
@@ -769,8 +808,6 @@ struct task_struct {
 	struct sched_dl_entity		dl;
 
 #ifdef CONFIG_UCLAMP_TASK
-	/* Clamp group the task is currently accounted into */
-	int				uclamp_group_id[UCLAMP_CNT];
 	/* Utlization clamp values for this task */
 	struct uclamp_se		uclamp[UCLAMP_CNT];
 #endif
