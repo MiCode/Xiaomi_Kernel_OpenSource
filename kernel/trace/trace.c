@@ -7612,7 +7612,9 @@ rb_simple_write(struct file *filp, const char __user *ubuf,
 			pr_debug("[ftrace]tracing_on is toggled to %lu\n", val);
 #endif
 		mutex_lock(&trace_types_lock);
-		if (val) {
+		if (!!val == tracer_tracing_is_on(tr)) {
+			val = 0; /* do nothing */
+		} else if (val) {
 			tracer_tracing_on(tr);
 #ifdef CONFIG_MTK_SCHED_TRACERS
 			trace_tracing_on(val, CALLER_ADDR0);

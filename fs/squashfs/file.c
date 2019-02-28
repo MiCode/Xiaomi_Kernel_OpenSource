@@ -453,7 +453,8 @@ static int squashfs_readpage_fragment(struct page *page, int expected)
 }
 
 static int squashfs_readpages_fragment(struct page *page,
-	struct list_head *readahead_pages, struct address_space *mapping)
+	struct list_head *readahead_pages, struct address_space *mapping,
+	int expected)
 {
 	if (!page) {
 		page = lru_to_page(readahead_pages);
@@ -464,18 +465,18 @@ static int squashfs_readpages_fragment(struct page *page,
 			return 0;
 		}
 	}
-	return squashfs_readpage_fragment(page);
+	return squashfs_readpage_fragment(page, expected);
 }
 
-static int squashfs_readpage_sparse(struct page *page, int index, int file_end)
+static int squashfs_readpage_sparse(struct page *page, int expected)
 {
 	squashfs_copy_cache(page, NULL, expected, 0);
 	return 0;
 }
 
 static int squashfs_readpages_sparse(struct page *page,
-	struct list_head *readahead_pages, int index, int file_end,
-	struct address_space *mapping)
+	struct list_head *readahead_pages, struct address_space *mapping,
+	int expected)
 {
 	if (!page) {
 		page = lru_to_page(readahead_pages);
@@ -486,7 +487,7 @@ static int squashfs_readpages_sparse(struct page *page,
 			return 0;
 		}
 	}
-	return squashfs_readpage_sparse(page, index, file_end);
+	return squashfs_readpage_sparse(page, expected);
 }
 
 static int __squashfs_readpages(struct file *file, struct page *page,
@@ -496,9 +497,6 @@ static int __squashfs_readpages(struct file *file, struct page *page,
 	struct inode *inode = mapping->host;
 	struct squashfs_sb_info *msblk = inode->i_sb->s_fs_info;
 	int file_end = i_size_read(inode) >> msblk->block_log;
-	int expected = index == file_end ?
-			(i_size_read(inode) & (msblk->block_size - 1)) :
-			 msblk->block_size;
 	int res;
 
 	do {
@@ -506,6 +504,9 @@ static int __squashfs_readpages(struct file *file, struct page *page,
 					     : lru_to_page(readahead_pages);
 		int page_index = cur_page->index;
 		int index = page_index >> (msblk->block_log - PAGE_SHIFT);
+		int expected = index == file_end ?
+			(i_size_read(inode) & (msblk->block_size - 1)) :
+			 msblk->block_size;
 
 		if (page_index >= ((i_size_read(inode) + PAGE_SIZE - 1) >>
 						PAGE_SHIFT))
@@ -521,8 +522,7 @@ static int __squashfs_readpages(struct file *file, struct page *page,
 
 			if (bsize == 0) {
 				res = squashfs_readpages_sparse(page,
-					readahead_pages, index, file_end,
-					mapping);
+					readahead_pages, mapping, expected);
 			} else {
 				res = squashfs_readpages_block(page,
 					readahead_pages, &nr_pages, mapping,
@@ -530,7 +530,7 @@ static int __squashfs_readpages(struct file *file, struct page *page,
 			}
 		} else {
 			res = squashfs_readpages_fragment(page,
-				readahead_pages, mapping);
+				readahead_pages, mapping, expected);
 		}
 		if (res)
 			return 0;
