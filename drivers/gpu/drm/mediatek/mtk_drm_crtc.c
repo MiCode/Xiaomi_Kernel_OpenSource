@@ -18,7 +18,6 @@
 #include <drm/drm_plane_helper.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
-#include <soc/mediatek/smi.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -375,15 +374,15 @@ static void mtk_drm_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	DRM_DEBUG_DRIVER("%s %d\n", __func__, crtc->base.id);
 
-	ret = mtk_smi_larb_get(ovl->larb_dev);
-	if (ret) {
+	ret = pm_runtime_get_sync(ovl->larb_dev);
+	if (ret < 0) {
 		DRM_ERROR("Failed to get larb: %d\n", ret);
 		return;
 	}
 
 	ret = mtk_crtc_ddp_hw_init(mtk_crtc);
 	if (ret) {
-		mtk_smi_larb_put(ovl->larb_dev);
+		pm_runtime_put_sync(ovl->larb_dev);
 		return;
 	}
 
@@ -418,7 +417,7 @@ static void mtk_drm_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	drm_crtc_vblank_off(crtc);
 	mtk_crtc_ddp_hw_fini(mtk_crtc);
-	mtk_smi_larb_put(ovl->larb_dev);
+	pm_runtime_put_sync(ovl->larb_dev);
 
 	mtk_crtc->enabled = false;
 }
