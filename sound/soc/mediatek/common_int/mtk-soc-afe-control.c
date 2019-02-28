@@ -502,10 +502,6 @@ irqreturn_t AudDrv_IRQ_handler(int irq, void *dev_id)
 			Afe_Set_Reg(AFE_IRQ_MCU_CLR, irq_scp_en, irq_scp_en);
 		}
 
-		pr_debug("%s(), [AudioWarn] u4RegValue = 0x%x, irqcount = %d, AFE_IRQ_MCU_EN = 0x%x irq_scp_en = 0x%x\n",
-			 __func__,
-			 u4RegValue, irqcount, irq_mcu_en, irq_scp_en);
-
 		/* only clear IRQ which is sent to MCU */
 		irq_mcu_en &= irqMcuEnReg->mask;
 		Afe_Set_Reg(AFE_IRQ_MCU_CLR, irq_mcu_en, irq_mcu_en);
@@ -530,6 +526,10 @@ irqreturn_t AudDrv_IRQ_handler(int irq, void *dev_id)
 			}
 			irqcount = 0;
 		}
+
+		pr_debug("%s(), [AudioWarn] u4RegValue = 0x%x, irqcount = %d, irq_mcu_en = 0x%x irq_scp_en = 0x%x\n",
+			 __func__,
+			 u4RegValue, irqcount, irq_mcu_en, irq_scp_en);
 
 		goto AudDrv_IRQ_handler_exit;
 	}
