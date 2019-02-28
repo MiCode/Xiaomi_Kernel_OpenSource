@@ -70,6 +70,7 @@ endmenu  # Security
 
 menu "Other Peripherals"
 
+source "drivers/misc/mediatek/atf/Kconfig"
 endmenu # Other Peripheral
 
 menu "Misc configs"
