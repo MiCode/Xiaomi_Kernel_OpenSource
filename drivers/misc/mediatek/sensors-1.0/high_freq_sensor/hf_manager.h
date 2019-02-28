@@ -20,6 +20,8 @@
 
 /* HIGH_FREQUENCY_SENSOR_GYRO udps report to hal */
 #define HIGH_FREQUENCY_SENSOR_GYRO 1
+#define HIGH_FREQUENCY_SENSOR_MAX  1
+#define HIGH_FREQUENCY_SENSOR_MAX_PLUS_ONE (HIGH_FREQUENCY_SENSOR_MAX + 1)
 
 #define HIGH_FREQUENCY_ACCURANCY_UNRELIALE 0
 #define HIGH_FREQUENCY_ACCURANCY_LOW       1
@@ -53,14 +55,17 @@ struct hf_manager_cmd {
 } __packed;
 
 struct hf_device {
-	int (*enable)(struct hf_device *hfdev, int en);
-	int (*batch)(struct hf_device *hfdev, int64_t delay, int64_t latency);
+	int (*enable)(struct hf_device *hfdev, int sensor_id, int en);
+	int (*batch)(struct hf_device *hfdev, int sensor_id,
+		int64_t delay, int64_t latency);
 	int (*sample)(struct hf_device *hfdev);
 
 	char *dev_name;
 	unsigned char device_poll;
 	unsigned char device_bus;
-	unsigned char sensor_id;
+
+	unsigned char *support_list;
+	unsigned int support_size;
 
 	struct hf_manager *manager;
 	void *private_data;
@@ -99,8 +104,9 @@ struct hf_manager {
 	struct hf_device *hf_dev;
 	struct hf_manager_fifo *hf_fifo;
 
-	void (*complete)(struct hf_manager *manager,
+	void (*report)(struct hf_manager *manager,
 		struct hf_manager_event *event);
+	void (*complete)(struct hf_manager *manager);
 	void (*interrupt)(struct hf_manager *manager);
 };
 
