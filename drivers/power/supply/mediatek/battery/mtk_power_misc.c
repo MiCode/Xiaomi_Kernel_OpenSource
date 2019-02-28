@@ -449,19 +449,28 @@ static int power_misc_kthread_fgtimer_func(struct gtimer *data)
 	return 0;
 }
 
-static int power_misc_routine_thread(void *arg)
+void power_misc_handler(void *arg)
 {
 	struct shutdown_controller *sdd = arg;
 	int ret;
+
+	mutex_lock(&sdd->lock);
+	ret = shutdown_event_handler(sdd);
+	mutex_unlock(&sdd->lock);
+	if (ret != 0 && is_fg_disabled() == false)
+		gtimer_start(&sdd->kthread_fgtimer, ret);
+
+}
+
+static int power_misc_routine_thread(void *arg)
+{
+	struct shutdown_controller *sdd = arg;
 
 	while (1) {
 		wait_event(sdd->wait_que, (sdd->timeout == true));
 		sdd->timeout = false;
 
-		ret = shutdown_event_handler(sdd);
-
-		if (ret != 0 && is_fg_disabled() == false)
-			gtimer_start(&sdd->kthread_fgtimer, ret);
+		power_misc_handler(arg);
 	}
 
 	return 0;

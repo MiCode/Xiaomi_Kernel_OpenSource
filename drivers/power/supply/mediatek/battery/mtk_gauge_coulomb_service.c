@@ -89,7 +89,7 @@ void mutex_hw_coulomb_unlock(void)
 
 void wake_up_gauge_coulomb(void)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	if (init == false) {
 		ft_err("[%s]gauge_coulomb service is not rdy\n", __func__);
