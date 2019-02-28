@@ -364,7 +364,7 @@ int mtk_pctrl_spec_pull_set_samereg(struct mtk_pinctrl *pctl,
 		reg_pupd = reg_set;
 
 	if (spec_pupd_pin->ip_num != 0)
-		regmap = pctl->regmap[i];
+		regmap = pctl->regmap[spec_pupd_pin->ip_num];
 	bit_pupd = BIT(spec_pupd_pin->pupd_bit);
 	regmap_write(regmap, reg_pupd, bit_pupd);
 
