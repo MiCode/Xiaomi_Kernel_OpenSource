@@ -372,6 +372,13 @@ __packed __aligned(4)
  */
 DEFINE_RAW_SPINLOCK(logbuf_lock);
 
+bool is_logbuf_lock(raw_spinlock_t *lock)
+{
+	if (lock == &logbuf_lock || lock == &console_sem.lock)
+		return true;
+	return false;
+}
+
 /*
  * Helper macros to lock/unlock logbuf_lock and switch between
  * printk-safe/unsafe modes.
