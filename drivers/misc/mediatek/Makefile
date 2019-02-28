@@ -47,3 +47,5 @@ obj-$(CONFIG_MTK_BOOT) += boot/
 obj-$(CONFIG_MTK_BOOT_REASON) += boot_reason/
 obj-$(CONFIG_MTK_CHIP) += chip/
 obj-$(CONFIG_MTK_RAM_CONSOLE) += ram_console/
+obj-$(CONFIG_MU3_PHY)   += mu3phy/
+obj-$(CONFIG_USB_MU3D_DRV)  += mu3d/
