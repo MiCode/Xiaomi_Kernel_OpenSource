@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 function usage ()
 {
@@ -15,11 +15,18 @@ CONFIGS=
 OUT=out-$$
 FAIL=0
 UPDATE=0
+CHECK_COMMIT=0
 
 while getopts "cuh" opt; do
     case $opt in
       c)
-	CONFIGS=`git log -1 --stat | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
+	if [ $# == 2 ]; then
+		CHECK_COMMIT=$2
+	else
+		CHECK_COMMIT="HEAD"
+	fi
+	CONFIGS=`git show ${CHECK_COMMIT} --stat | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
+
 	if [ ".$CONFIGS" != "." ]; then
 		echo From git commit: Checking $CONFIGS
 	fi
@@ -37,8 +44,10 @@ if [ $# == 0 ]; then
 	usage
 fi
 
-shift $((OPTIND-1))
-CONFIGS="${CONFIGS} $*"
+if [ $CHECK_COMMIT == 0 ]; then
+	shift $((OPTIND-1))
+	CONFIGS="${CONFIGS} $*"
+fi
 
 mkdir ${OUT}
 
