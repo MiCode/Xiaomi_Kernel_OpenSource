@@ -353,9 +353,9 @@
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		L23A: pm6125_l23: regulator-l23 {
-			regulator-min-microvolt = <3200000>;
+			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3400000>;
-			qcom,init-voltage = <3200000>;
+			qcom,init-voltage = <3000000>;
 			status = "okay";
 		};
 	};
