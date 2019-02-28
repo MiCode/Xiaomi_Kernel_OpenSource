@@ -130,8 +130,11 @@ source "drivers/misc/mediatek/masp/Kconfig"
 endmenu  # Security
 
 menu "Other Peripherals"
+
 source "drivers/misc/mediatek/accdet/Kconfig"
 source "drivers/misc/mediatek/ext_gic/Kconfig"
+source "drivers/misc/mediatek/m4u/Kconfig"
+
 source "drivers/misc/mediatek/atf/Kconfig"
 source "drivers/misc/mediatek/lens/Kconfig"
 source "drivers/misc/mediatek/flashlight/Kconfig"

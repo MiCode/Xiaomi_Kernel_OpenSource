@@ -22,15 +22,32 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/swap.h>
+#include <linux/sched/clock.h>//hc2
+#include "ion_priv.h"
 
-#include "ion.h"
-
+static unsigned long long last_alloc_ts;
 static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
-	struct page *page = alloc_pages(pool->gfp_mask, pool->order);
+	unsigned long long start, end;
+	struct page *page;
+
+	start = sched_clock();
+	page = alloc_pages(pool->gfp_mask, pool->order);
+	end = sched_clock();
+
+	if ((end - start > 10000000ULL) &&
+	    (end - last_alloc_ts > 1000000000ULL)) { /* unit is ns, 1s */
+		IONMSG("warn: alloc pages order: %d time: %lld ns\n",
+		       pool->order, end - start);
+		show_free_areas(0, NULL);//hc2
+		last_alloc_ts = end;
+	}
 
 	if (!page)
 		return NULL;
+	ion_pages_sync_for_device(g_ion_device->dev.this_device,
+				  page, PAGE_SIZE << pool->order,
+				  DMA_BIDIRECTIONAL);
 	return page;
 }
 
@@ -95,6 +112,10 @@ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
 {
 	int ret;
 
+	if (pool->order != compound_order(page))
+		IONMSG("free page = 0x%p, compound_order(page) = 0x%x",
+		       page, compound_order(page));
+
 	BUG_ON(pool->order != compound_order(page));
 
 	ret = ion_page_pool_add(pool, page);
@@ -151,8 +172,10 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order,
 {
 	struct ion_page_pool *pool = kmalloc(sizeof(*pool), GFP_KERNEL);
 
-	if (!pool)
+	if (!pool) {
+		IONMSG("%s kmalloc failed pool is null.\n", __func__);
 		return NULL;
+	}
 	pool->high_count = 0;
 	pool->low_count = 0;
 	INIT_LIST_HEAD(&pool->low_items);
