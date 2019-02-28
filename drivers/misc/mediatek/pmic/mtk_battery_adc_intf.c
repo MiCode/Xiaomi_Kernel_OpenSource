@@ -23,6 +23,15 @@
 #include <mtk_charger.h>
 #include "include/pmic_auxadc.h"
 
+bool __attribute__ ((weak))
+	is_power_path_supported(void)
+{
+	pr_notice_once("%s: do not define is_power_path_supported()\n",
+		__func__);
+	return true;
+}
+
+
 int pmic_get_battery_voltage(void)
 {
 	int bat = 0;
