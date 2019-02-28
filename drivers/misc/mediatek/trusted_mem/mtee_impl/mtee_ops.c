@@ -270,6 +270,8 @@ static int MTEE_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
 	mem_param.mapAry = NULL;
 #if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
 	mem_param.region_id = get_mchunks_id(priv_data->mem_type);
+#else
+	mem_param.region_id = 0;
 #endif
 
 	MTEE_SESSION_LOCK();
