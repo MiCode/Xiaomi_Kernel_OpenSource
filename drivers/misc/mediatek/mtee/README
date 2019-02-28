@@ -1,0 +1,2 @@
+The "mediatek/kernel/drivers/trustzone/" directory is intended for
+common parts of MTK inhouse TEE kernel module & library.
