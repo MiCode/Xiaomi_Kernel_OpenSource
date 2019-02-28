@@ -40,6 +40,7 @@
 #include "tune.h"
 #include "walt.h"
 #include "eas_plus.h"
+#include "hmp.h"
 
 /*
  * Targeted preemption latency for CPU-bound tasks:
@@ -12126,5 +12127,9 @@ __init void init_sched_fair_class(void)
 	alloc_eenv();
 #endif /* SMP */
 
+#ifdef CONFIG_ARM64
+	arch_build_cpu_topology_domain();
+	arch_init_hmp_domains();
+#endif
 }
 #include "eas_plus.c"

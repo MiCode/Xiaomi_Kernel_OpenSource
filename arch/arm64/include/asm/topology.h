@@ -47,6 +47,14 @@ int pcibus_to_node(struct pci_bus *bus);
 /* Enable topology flag updates */
 #define arch_update_cpu_topology topology_update_cpu_topology
 
+/* Extras of CPU & Cluster functions */
+int arch_is_multi_cluster(void);
+int arch_is_smp(void);
+int arch_get_nr_clusters(void);
+int arch_get_cluster_id(unsigned int cpu);
+void arch_build_cpu_topology_domain(void);
+void arch_init_hmp_domains(void);
+
 #include <asm-generic/topology.h>
 
 #endif /* _ASM_ARM_TOPOLOGY_H */

@@ -52,4 +52,18 @@ typedef int (*busy_power_func)(int, int, void*, int);
 extern int set_stune_task_threshold(int threshold);
 #endif
 
+struct hmp_domain {
+	struct cpumask cpus;
+	struct cpumask possible_cpus;
+	struct list_head hmp_domains;
+};
+extern struct list_head hmp_domains;
+
+#define for_each_hmp_domain(hmpd) for_each_hmp_domain_B_first(hmpd)
+#define for_each_hmp_domain_B_first(hmpd) \
+		list_for_each_entry(hmpd, &hmp_domains, hmp_domains)
+
+#define for_each_hmp_domain_L_first(hmpd) \
+		list_for_each_entry_reverse(hmpd, &hmp_domains, hmp_domains)
+
 #endif
