@@ -43,7 +43,7 @@
 #include <mt-plat/mtk_ccci_common.h>
 #include <linux/delay.h>
 #include <emi_bwl.h>
-
+#include <linux/memblock.h>
 static int Violation_PortID = MASTER_ALL;
 
 #define EMI_MPU_TEST	0
@@ -482,7 +482,8 @@ static void protect_ap_region(void)
 	phys_addr_t dram_size;
 
 	kernel_base = emi_physical_offset;
-	dram_size = get_max_DRAM_size();
+/*	dram_size = get_max_DRAM_size();*/
+	dram_size = memblock_end_of_DRAM() - 1 - memblock_start_of_DRAM();
 
 	ap_mem_mpu_id = AP_REGION_ID;
 	ap_mem_mpu_attr = SET_ACCESS_PERMISSON(LOCK,
