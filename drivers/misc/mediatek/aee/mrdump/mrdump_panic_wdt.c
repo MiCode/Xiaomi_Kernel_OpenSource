@@ -46,9 +46,6 @@
 #ifdef CONFIG_MTK_EIC_HISTORY_DUMP
 #include <linux/irqchip/mtk-eic.h>
 #endif
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
-#endif
 #include <mrdump_private.h>
 #include <mt-plat/upmu_common.h>
 
@@ -73,15 +70,6 @@ wdt_percpu_stackframe[AEE_MTK_CPU_NUMS][MAX_EXCEPTION_FRAME];
 static int wdt_log_length;
 static atomic_t wdt_enter_fiq;
 static char str_buf[AEE_MTK_CPU_NUMS][PRINTK_BUFFER_SIZE];
-
-#ifndef CONFIG_MTK_RAM_CONSOLE
-__weak void aee_sram_fiq_save_bin(const char *msg, size_t len)
-{
-}
-__weak void aee_sram_fiq_log(const char *msg)
-{
-}
-#endif
 
 #define ATF_AEE_DEBUG_BUF_LENGTH	0x4000
 static void *atf_aee_debug_virt_addr;

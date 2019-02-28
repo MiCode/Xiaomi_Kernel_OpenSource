@@ -16,6 +16,7 @@
 
 #include <generated/autoconf.h>
 #include <mt-plat/aee.h>
+#include <mt-plat/mtk_ram_console.h>
 
 /* for WDT timeout case : dump timer/schedule/irq/softirq etc...
  * debug information
@@ -31,18 +32,7 @@ extern void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
 		unsigned long start, char *name);
 extern int mrdump_task_info(unsigned char *buffer, size_t sz_buf);
 extern int mrdump_modules_info(unsigned char *buffer, size_t sz_buf);
-#ifdef CONFIG_MTK_RAM_CONSOLE
-extern void aee_rr_rec_exp_type(unsigned int type);
-extern unsigned int aee_rr_curr_exp_type(void);
-extern void aee_rr_rec_scp(void);
-extern void aee_rr_rec_fiq_step(u8 step);
-extern void aee_rr_rec_kaslr_offset(u64 value64);
-#else
-__weak unsigned int aee_rr_curr_exp_type(void)
-{
-	return -1;
-}
-#endif
+
 #ifdef CONFIG_SCHED_DEBUG
 extern void sysrq_sched_debug_show_at_AEE(void);
 #endif
