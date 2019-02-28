@@ -312,7 +312,7 @@ struct disp_ddp_path_config {
 	struct RSZ_CONFIG_STRUCT rsz_config;
 	struct RDMA_CONFIG_STRUCT rdma_config;
 	struct WDMA_CONFIG_STRUCT wdma_config;
-	LCM_PARAMS dispif_config;
+	struct LCM_PARAMS dispif_config;
 	unsigned int lcm_bpp;
 	unsigned int dst_w;
 	unsigned int dst_h;
@@ -375,7 +375,8 @@ struct DDP_MODULE_DRIVER {
 	int (*dump_info)(enum DISP_MODULE_ENUM module, int level);
 	int (*bypass)(enum DISP_MODULE_ENUM module, int bypass);
 	int (*build_cmdq)(enum DISP_MODULE_ENUM module, void *cmdq_handle, enum CMDQ_STATE state);
-	int (*set_lcm_utils)(enum DISP_MODULE_ENUM module, LCM_DRIVER *lcm_drv);
+	int (*set_lcm_utils)(enum DISP_MODULE_ENUM module,
+				struct LCM_DRIVER *lcm_drv);
 	int (*set_listener)(enum DISP_MODULE_ENUM module, ddp_module_notify notify);
 	int (*cmd)(enum DISP_MODULE_ENUM module, unsigned int msg, unsigned long arg, void *handle);
 	int (*ioctl)(enum DISP_MODULE_ENUM module, void *handle, enum DDP_IOCTL_NAME ioctl_cmd,
