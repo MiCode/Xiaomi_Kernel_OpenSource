@@ -756,4 +756,5 @@ config KEYBOARD_BCM
 	  To compile this driver as a module, choose M here: the
 	  module will be called bcm-keypad.
 
+source "drivers/input/keyboard/mediatek/Kconfig"
 endif
