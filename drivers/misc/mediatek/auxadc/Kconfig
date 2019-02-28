@@ -1,0 +1,27 @@
+config MTK_AUXADC
+	tristate "MediaTek AUXADC driver"
+	default n
+	help
+	  AUXADC driver support for MediaTek SOC
+	  The auxiliary ADC unit is used to identify the plugged peripheral
+	  and perform temperature measurement.
+	  If you want to use MediaTek AUXADC driver, say Y or M here.
+	  If unsure, say N.
+
+config AUXADC_NEED_POWER_ON
+	tristate "Support MediaTek IC that need to enable power for AUXADC"
+	depends on MTK_AUXADC
+	help
+	  AUXADC driver support for MediaTek IC which need to enbale power.
+	  If you want to use MediaTek AUXADC driver to enable power for these IC,
+	  say Y or M here.
+	  If unsure, say N.
+
+config AUXADC_NOT_CONTROL_APMIXED_BASE
+	tristate "Support MediaTek ICs that don't need to control APMIXED_BASE"
+	depends on MTK_AUXADC
+	help
+	  AUXADC driver support for MediaTek IC which don't need to control APMIXED_BASE.
+	  If you don't want to use MediaTek AUXADC driver to control APMIXED_BASE for these IC,
+	  say Y or M here.
+	  If unsure, say N.
