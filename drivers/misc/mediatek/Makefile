@@ -31,6 +31,7 @@ obj-$(CONFIG_MTK_PSEUDO_M4U)   += pseudo_m4u/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
+obj-$(CONFIG_MTK_IRRX) += irrx/
 
 obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
