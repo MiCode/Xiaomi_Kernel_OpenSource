@@ -53,7 +53,9 @@
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_pmic_api_buck.h>
 #include <mtk_spm_vcore_dvfs.h>
+#endif
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
 #include <mt-plat/mtk_ccci_common.h>
 #endif
 

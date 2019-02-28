@@ -35,7 +35,11 @@
 #include <mach/wd_api.h>
 #endif
 #include <mtk_gpt.h>
+
+#ifdef CONFIG_MTK_CCCI_DEVICES
 #include <mt-plat/mtk_ccci_common.h>
+#endif
+
 #include <mtk_spm_misc.h>
 #if defined(CONFIG_MTK_PMIC) || defined(CONFIG_MTK_PMIC_NEW_ARCH)
 #include <mt-plat/upmu_common.h>
