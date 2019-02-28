@@ -763,8 +763,9 @@ retry:
 		goto exit;
 	}
 
-	if (unlikely(copy_from_user(ISRCopyBuffer.pBufferBase, (char *)addr,
-				    size))) {
+	if (unlikely(__copy_from_user_inatomic(ISRCopyBuffer.pBufferBase,
+					       (char *)addr,
+					       size))) {
 		pr_warn("%s Fail copy from user !!\n", __func__);
 		goto exit;
 	}
