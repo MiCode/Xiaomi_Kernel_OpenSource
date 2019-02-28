@@ -13,6 +13,13 @@ obj-y				+= nommu.o
 endif
 
 obj-$(CONFIG_ARM_PTDUMP)	+= dump.o
+
+ifneq ($(CONFIG_ARM_LPAE),y)
+ifeq ($(CONFIG_ARCH_HAS_PTE_SPECIAL),y)
+obj-$(CONFIG_MMU)		+= gup.o
+endif
+endif
+
 obj-$(CONFIG_MODULES)		+= proc-syms.o
 obj-$(CONFIG_DEBUG_VIRTUAL)	+= physaddr.o
 
