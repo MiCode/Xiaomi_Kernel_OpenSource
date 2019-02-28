@@ -30,6 +30,11 @@ obj-$(CONFIG_MTK_PSEUDO_M4U)   += pseudo_m4u/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
+
+obj-$(CONFIG_MTK_COMBO) += connectivity/
+obj-$(CONFIG_MTK_BTIF) += btif/
+obj-$(CONFIG_MTK_CONN_MD) += conn_md/
+
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-$(CONFIG_MTK_GZ_KREE) += geniezone/
 obj-y += atf/

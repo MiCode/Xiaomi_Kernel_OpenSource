@@ -14,6 +14,7 @@
 
 #include "conn_md.h"
 #include "conn_md_dbg.h"
+#include <linux/sched/clock.h>
 
 /*global data structure defination*/
 struct conn_md_struct g_conn_md;
