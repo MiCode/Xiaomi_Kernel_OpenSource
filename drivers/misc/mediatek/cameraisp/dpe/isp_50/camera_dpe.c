@@ -2475,7 +2475,7 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> DPE clk
 	 */
-	smi_bus_enable(SMI_LARB_IMGSYS1, DPE_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB5, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_IMGSYS_DPE);
 	if (ret)
 		LOG_INF("cannot prepare and enable CG_IMGSYS_DPE clock\n");
@@ -2487,7 +2487,7 @@ static inline void DPE_Disable_Unprepare_ccf_clock(void)
 	 * DPE clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
 	clk_disable_unprepare(dpe_clk.CG_IMGSYS_DPE);
-	smi_bus_disable(SMI_LARB_IMGSYS1, DPE_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB5, DPE_DEV_NAME);
 }
 #endif
 #endif
