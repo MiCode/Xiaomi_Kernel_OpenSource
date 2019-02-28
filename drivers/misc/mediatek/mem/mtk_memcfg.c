@@ -10,7 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -33,14 +32,6 @@
 
 #include <mt-plat/mtk_memcfg.h>
 #include <mt-plat/mtk_memcfg_reserve_info.h>
-
-/* kenerl memory fragmentation trigger */
-
-static LIST_HEAD(frag_page_list);
-static DEFINE_SPINLOCK(frag_page_list_lock);
-static DEFINE_MUTEX(frag_task_lock);
-static unsigned long mtk_memcfg_frag_round;
-static struct kmem_cache *frag_page_cache;
 
 /* kernel memory layout */
 static void mtk_memcfg_show_layout_region(struct seq_file *m, const char *name,
@@ -281,214 +272,24 @@ static const struct file_operations mtk_memcfg_memory_layout_operations = {
 };
 /* end of kernel memory layout */
 
-struct frag_page {
-	struct list_head list;
-	struct page *page;
-};
-
-static int mtk_memcfg_frag_show(struct seq_file *m, void *v)
-{
-	int cnt = 0;
-	struct frag_page *frag_page, *n_frag_page;
-
-	spin_lock(&frag_page_list_lock);
-	list_for_each_entry_safe(frag_page, n_frag_page,
-			&frag_page_list, list) {
-		cnt++;
-	}
-	spin_unlock(&frag_page_list_lock);
-	seq_printf(m, "round: %lu, fragmentation-trigger held %d pages, %d MB\n",
-		   mtk_memcfg_frag_round,
-		   cnt, (cnt << PAGE_SHIFT) >> 20);
-
-	return 0;
-}
-
-static int mtk_memcfg_frag_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtk_memcfg_frag_show, NULL);
-}
-
-static int do_fragmentation(void *n)
-{
-	struct frag_page *frag_page, *n_frag_page;
-	struct page *page;
-	gfp_t gfp_mask = GFP_ATOMIC;
-	unsigned int max_order = 2;
-	int cnt = 0, i;
-
-	/* trigger fragmentation */
-	/*
-	 * Allocate an order-2-page, split it into 4 order-0-pages,
-	 * and free 3 of them, repeatedly.
-	 * In this way, we split all high order pages to
-	 * order-0-pages and order-1-pages to create a
-	 * fragmentation scenario.
-	 *
-	 * In current stage, we only trigger fragmentation in
-	 * normal zone.
-	 */
-	while (1) {
-#if 1
-		if (cnt >= 10000) {
-			/*
-			 * release all memory and restart the fragmentation
-			 * Allocating too much frag_page consumes
-			 * too mush order-0 pages
-			 */
-			spin_lock(&frag_page_list_lock);
-			list_for_each_entry_safe(frag_page, n_frag_page,
-						 &frag_page_list, list) {
-				list_del(&frag_page->list);
-				__free_page(frag_page->page);
-				kmem_cache_free(frag_page_cache, frag_page);
-				cnt--;
-			}
-			spin_unlock(&frag_page_list_lock);
-			pr_info("round: %lu, fragmentation-trigger free pages %d left\n",
-				 mtk_memcfg_frag_round, cnt);
-		}
-#endif
-		while (1) {
-			frag_page = kmem_cache_alloc(frag_page_cache, gfp_mask);
-			if (!frag_page)
-				break;
-			page = alloc_pages(gfp_mask, max_order);
-			if (!page) {
-				kfree(frag_page);
-				break;
-			}
-			split_page(page, 0);
-			INIT_LIST_HEAD(&frag_page->list);
-			frag_page->page = page;
-			spin_lock(&frag_page_list_lock);
-			list_add(&frag_page->list, &frag_page_list);
-			spin_unlock(&frag_page_list_lock);
-			for (i = 1; i < (1 << max_order); i++)
-				__free_page(page + i);
-			cnt++;
-		}
-		mtk_memcfg_frag_round++;
-		pr_info("round: %lu, fragmentation-trigger allocate %d pages %d MB\n",
-			 mtk_memcfg_frag_round, cnt, (cnt << PAGE_SHIFT) >> 20);
-		msleep(500);
-	}
-
-	return 0;
-}
-
-static ssize_t
-mtk_memcfg_frag_write(struct file *file, const char __user *buffer,
-		      size_t count, loff_t *pos)
-{
-	static char state;
-	static struct task_struct *p;
-
-	if (count > 0) {
-		if (get_user(state, buffer))
-			return -EFAULT;
-		state -= '0';
-		pr_info("%s state = %d\n", __func__, state);
-
-		mutex_lock(&frag_task_lock);
-		if (state && !p) {
-			pr_info("activate do_fragmentation kthread\n");
-			p = kthread_create(do_fragmentation, NULL,
-					   "fragmentationd");
-			if (!IS_ERR(p))
-				wake_up_process(p);
-			else
-				p = 0;
-		}
-		mutex_unlock(&frag_task_lock);
-	}
-	return count;
-}
-
-static const struct file_operations mtk_memcfg_frag_operations = {
-	.open = mtk_memcfg_frag_open,
-	.write = mtk_memcfg_frag_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-/* end of kenerl memory fragmentation trigger */
-
-/* kenerl out-of-memory(oom) trigger */
-
-static int mtk_memcfg_oom_show(struct seq_file *m, void *v)
-{
-	seq_puts(m, "oom-trigger\n");
-
-	return 0;
-}
-
-static int mtk_memcfg_oom_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtk_memcfg_oom_show, NULL);
-}
-
-static void oom_reboot(unsigned long data)
-{
-	BUG();
-}
-
-static ssize_t
-mtk_memcfg_oom_write(struct file *file, const char __user *buffer,
-		      size_t count, loff_t *pos)
-{
-	static char state;
-	struct timer_list timer;
-
-	/* oom may cause system hang, reboot after 60 sec */
-	init_timer(&timer);
-	timer.function = oom_reboot;
-	timer.expires = jiffies + 300 * HZ;
-	add_timer(&timer);
-
-	if (count > 0) {
-		if (get_user(state, buffer))
-			return -EFAULT;
-		state -= '0';
-		pr_info("%s state = %d\n", __func__, state);
-		if (state) {
-			pr_info("oom test, trying to kill system under oom scenario\n");
-			/* exhaust all memory */
-			for (;;)
-				alloc_pages(GFP_HIGHUSER_MOVABLE, 0);
-		}
-	}
-	return count;
-}
-
 static const struct file_operations mtk_memcfg_memblock_reserved_operations = {
 	.open = mtk_memcfg_memblock_reserved_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
-static const struct file_operations mtk_memcfg_oom_operations = {
-	.open = mtk_memcfg_oom_open,
-	.write = mtk_memcfg_oom_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-/* end of kenerl out-of-memory(oom) trigger */
+/* end of kernel reserved memory */
 
 #ifdef CONFIG_SLUB_DEBUG
-/* kenerl slabtrace  */
 static const struct file_operations proc_slabtrace_operations = {
 	.open = slabtrace_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
-
 /* end of kernel slabtrace */
 #endif
+
 static int __init mtk_memcfg_late_init(void)
 {
 	struct proc_dir_entry *entry = NULL;
