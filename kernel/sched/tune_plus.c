@@ -20,22 +20,22 @@
 int stune_task_threshold;
 static int default_stune_threshold;
 
-/* A mutex for set stune_task_threshold */
-static DEFINE_MUTEX(stune_threshold_mutex);
+/* A lock for set stune_task_threshold */
+static raw_spinlock_t stune_lock;
 
 int set_stune_task_threshold(int threshold)
 {
 	if (threshold > 1024 || threshold < -1)
 		return -EINVAL;
 
-	mutex_lock(&stune_threshold_mutex);
+	raw_spin_lock(&stune_lock);
 
 	if (threshold < 0)
 		stune_task_threshold = default_stune_threshold;
 	else
 		stune_task_threshold = threshold;
 
-	mutex_unlock(&stune_threshold_mutex);
+	raw_spin_unlock(&stune_lock);
 
 #if MET_STUNE_DEBUG
 	met_tag_oneshot(0, "sched_stune_threshold", stune_task_threshold);
@@ -68,6 +68,7 @@ void calculate_default_stune_threshold(void)
 	struct hmp_domain *domain;
 	int cluster_first_cpu = 0;
 
+	raw_spin_lock_init(&stune_lock);
 	rcu_read_lock();
 	for_each_hmp_domain_L_first(domain) {
 		cluster_first_cpu = cpumask_first(&domain->possible_cpus);
