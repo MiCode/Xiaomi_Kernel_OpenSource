@@ -2072,7 +2072,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	struct timeval time_getrequest;
 	struct timeval time_ready2return;
 	bool freeze_passbysigcnt = false;
-	ktime_t  sec = 0;
+	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 
 	/* do_gettimeofday(&time_getrequest); */
