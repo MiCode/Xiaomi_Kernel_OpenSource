@@ -253,12 +253,11 @@ TRACE_EVENT(sched_cluster_stats,
 		TP_PROTO(int target, unsigned long loadwop_avg,
 			unsigned int h_nr_running, unsigned long cluster_mask,
 			int nr_task, int load_avg, int capacity,
-			int acap, int scaled_acap, int scaled_atask,
-			int threshold),
+			int acap, int scaled_acap, int threshold),
 
 		TP_ARGS(target, loadwop_avg, h_nr_running,
 			cluster_mask, nr_task, load_avg, capacity,
-			acap, scaled_acap, scaled_atask, threshold),
+			acap, scaled_acap, threshold),
 
 		TP_STRUCT__entry(
 			__field(int, target)
@@ -270,7 +269,6 @@ TRACE_EVENT(sched_cluster_stats,
 			__field(int, capacity)
 			__field(int, acap)
 			__field(int, scaled_acap)
-			__field(int, scaled_atask)
 			__field(int, threshold)
 			),
 
@@ -284,11 +282,10 @@ TRACE_EVENT(sched_cluster_stats,
 			__entry->capacity = capacity;
 			__entry->acap = acap;
 			__entry->scaled_acap = scaled_acap;
-			__entry->scaled_atask = scaled_atask;
 			__entry->threshold = threshold;
 			),
 
-		TP_printk("cpu[%d]:load=%lu len=%u, cluster[%lx]: nr_task=%d load_avg=%d capacity=%d acap=%d scaled_acap=%d scaled_atask=%d threshold=%d",
+		TP_printk("cpu[%d]:load=%lu len=%u, cluster[%lx]: nr_task=%d load_avg=%d capacity=%d acap=%d scaled_acap=%d threshold=%d",
 			__entry->target,
 			__entry->loadwop_avg,
 			__entry->h_nr_running,
@@ -298,7 +295,6 @@ TRACE_EVENT(sched_cluster_stats,
 			__entry->capacity,
 			__entry->acap,
 			__entry->scaled_acap,
-			__entry->scaled_atask,
 			__entry->threshold)
 		);
 /*
