@@ -1506,11 +1506,16 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
-	ret = pinctrl_select_state(rsc->geni_pinctrl,
+	geni_mas->disable_dma_mode = of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-dma");
+	if (!geni_mas->disable_dma_mode) {
+		ret = pinctrl_select_state(rsc->geni_pinctrl,
 					rsc->geni_gpio_sleep);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to set sleep configuration\n");
-		goto spi_geni_probe_err;
+		if (ret) {
+			dev_err(&pdev->dev,
+					"Failed to set sleep configuration\n");
+			goto spi_geni_probe_err;
+		}
 	}
 
 	rsc->se_clk = devm_clk_get(&pdev->dev, "se-clk");
@@ -1593,9 +1598,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 		spi->slave = true;
 		spi->slave_abort = spi_slv_abort;
 	}
-
-	geni_mas->disable_dma_mode = of_property_read_bool(pdev->dev.of_node,
-			"qcom,disable-dma");
 
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
