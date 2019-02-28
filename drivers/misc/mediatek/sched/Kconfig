@@ -21,13 +21,13 @@ config MTK_SCHED_TRACE
 	  Say Y to enable mtk scheduling trace
 
 config MTK_SCHED_DEBUG
-	bool "mtk scheduling log, also output the scheduling log into Kernel log"
+	bool "mtk scheduling log, also output schedule log into Kernel log"
 	depends on MTK_SCHED_TRACE
 	default n
 	help
 	  MTK scheduling log, add scheduling log into Kernel log.
-	  Including print scheduler debug information at KE and print load balance
-	  information at kernel log.
+	  Including print scheduler debug information at KE and print
+	  load balance information at kernel log.
 	  Say no if not sure.
 
 endmenu
@@ -52,9 +52,10 @@ config SCHED_HMP
 	depends on SCHED_MC && FAIR_GROUP_SCHED && !SCHED_AUTOGROUP
 	help
 	  Scheduler optimizations for heterogeneous platforms.
-	  Attempts to introspectively select task affinity to optimize power
-	  and performance. Basic support for multiple (>2) cpu types is in place,
-	  but it has only been tested with two types of cpus.
+	  Attempts to introspectively select task affinity to
+	  optimize power and performance. Basic support for multiple (>2)
+	  cpu types is in place, but it has only been tested with two
+	  types of cpus.
 	  There is currently no support for migration of task groups, hence
 	  !SCHED_AUTOGROUP.
 
@@ -95,16 +96,27 @@ config SCHED_HMP_PLUS
 	help
 	  Corepilot hmp enhancement.
 	  1. Do hmp_idle_pull at idle_balance
-	  2. At global balance, consider the tasks in rq, move heaviest/lightest
-	  of first 5 tasks in rq.
+	  2. At global balance, consider the tasks in rq,
+	  move heaviest/lightest of first 5 tasks in rq.
 	  3. Enhance down migration rule: Do not migrate task when big core
 	  is idle
+
+config MTK_SCHED_BOOST
+	bool "mtk scheduling boost enhancement"
+	depends on SCHED_DEBUG && CPUSETS && SCHED_HMP && \
+		DEFAULT_USE_ENERGY_AWARE
+	default n
+	help
+	  Sched Boost type:
+	  0:  cancel sched boost
+	  1:  prefer boost  ALL tasks to big cores
+	  2:  foreground task move to big cores
 endmenu
 
 menu "MTK runqueue statistic calculation"
 
 config MTK_SCHED_RQAVG_KS
-	bool "Enable runqueue statistic calculation used in kernel space operation"
+	bool "Enable runqueue stat calculation used in kernel space operation"
 	depends on SMP && SCHED_HMP
 	help
 	  MTK ruqueue statistic kernel space CPUfreq governors, e.g., hotplug
@@ -113,7 +125,7 @@ config MTK_SCHED_RQAVG_KS
 	  per CPU load for kernel space CPUfreq governors
 
 config MTK_SCHED_RQAVG_US
-	bool "Enable runqueue staticsic calculation used in user space operation"
+	bool "Enable runqueue stat calculation used in user space operation"
 	depends on SMP && SCHED_HMP && HIGH_RES_TIMERS
 	help
 	  MTK runqueue staticsic calculation
@@ -131,7 +143,7 @@ config MTK_SCHED_CPULOAD
 	  and more quick response in loading change.
 
 config MTK_SCHED_SYSHINT
-	bool "Enable asynchronus hint for external modules to get loading change in time"
+	bool "Enable asynchronus hint to get loading change in time"
 	help
 	  Support asynchronus hint for external modules
 	  to get loading change notification from scheduler
