@@ -2419,7 +2419,11 @@ int filemap_fault(struct vm_fault *vmf)
 	} else if (!page) {
 		/* No page in the page cache at all */
 		do_sync_mmap_readahead(vmf->vma, ra, file, offset);
+#ifdef CONFIG_MTK_MLOG
+		current->fm_flt++;
+#endif
 		count_vm_event(PGMAJFAULT);
+		count_vm_event(PGFMFAULT);
 		count_memcg_event_mm(vmf->vma->vm_mm, PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
 retry_find:
