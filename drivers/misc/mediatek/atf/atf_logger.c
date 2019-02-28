@@ -45,10 +45,6 @@
 #define ATF_CRASH_MAGIC_NO	0xdead1abf
 #define ATF_LAST_MAGIC_NO	0x41544641
 
-/* define a pattern for generate ATF crash report */
-#define GENERATE_ATF_CRASH_REPORT 0xCA7FDEAD
-#define GENERATE_ATF_CRASH_STRING_PATTERN "CA7FDEAD"
-
 #define atf_log_lock()        spin_lock(&atf_logger_lock)
 #define atf_log_unlock()      spin_unlock(&atf_logger_lock)
 
@@ -202,16 +198,24 @@ size_t ipanic_atflog_buffer(void *data, unsigned char *buffer, size_t sz_buffer)
 static ssize_t atf_log_write(struct file *file,
 	const char __user *buf, size_t count, loff_t *pos)
 {
-	char kernel_buf[10];
 	unsigned long ret;
+	unsigned long param;
 
-	ret = copy_from_user(kernel_buf, buf, 8);
-	if (!strncmp((const char *) GENERATE_ATF_CRASH_STRING_PATTERN,
-				(const char *) kernel_buf,
-				(__kernel_size_t) 8)) {
+	ret = -1;
+	param = -1;
+
+	if (count < 12) {
+		/* for coverity check */
+		/* use kstrtoul_from_user() instead of */
+		/* copy_from_user() and kstrtoul() */
+		ret = kstrtoul_from_user(buf, count, 16, &param);
+	}
+
+	pr_notice("[%s]param:0x%lx, count:%zu, ret:%ld\n",
+		__func__, param, count, ret);
+	if (ret == 0x0) {
 		mt_secure_call(MTK_SIP_KERNEL_ATF_DEBUG,
-			GENERATE_ATF_CRASH_REPORT, 0, 0, 0);
-
+			param, 0, 0, 0);
 	} else {
 		wake_up_interruptible(&atf_log_wq);
 	}
@@ -365,12 +369,15 @@ static unsigned int atf_log_poll(struct file *file, poll_table *wait)
 
 	if (!(file->f_mode & FMODE_READ))
 		return ret;
+
 	poll_wait(file, &atf_log_wq, wait);
+
 	atf_log_lock();
 	if (atf_buf_vir_ctl->info.atf_write_pos !=
 		atf_buf_vir_ctl->info.atf_read_pos)
 		ret |= POLLIN | POLLRDNORM;
 	atf_log_unlock();
+
 	return ret;
 }
 
