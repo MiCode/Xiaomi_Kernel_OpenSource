@@ -47,7 +47,9 @@
 #include <mtk_spm_resource_req_internal.h>
 #include <mtk_spm_pmic_wrap.h>
 
+#if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
+#endif
 
 #include <trace/events/mtk_idle_event.h>
 
@@ -188,11 +190,11 @@ void spm_trigger_wfi_for_sodi(u32 pcm_flags)
 	if (is_cpu_pdn(pcm_flags))
 		spm_dormant_sta = mtk_enter_idle_state(MTK_SODI_MODE);
 	else {
-		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_SODI, 0, 0);
-		mt_secure_call(MTK_SIP_KERNEL_SPM_LEGACY_SLEEP,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_LEGACY_SLEEP,
 			       0, 0, 0);
-		mt_secure_call(MTK_SIP_KERNEL_SPM_ARGS,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_SODI_FINISH, 0, 0);
 	}
 
@@ -488,14 +490,19 @@ unsigned int spm_go_to_sodi(u32 spm_flags, u32 spm_data, u32 sodi_flags)
 	spm_sodi_footprint(SPM_SODI_ENTER_UART_SLEEP);
 
 	if (!(sodi_flags & SODI_FLAG_DUMP_LP_GS)) {
+#if defined(CONFIG_MACH_MT6771)
+		if (mtk8250_request_to_sleep()) {
+#else
 		if (request_uart_to_sleep()) {
+#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
 	}
-
+#if !defined(SPM_K414_EARLY_PORTING)
 	if (sodi_flags & SODI_FLAG_DUMP_LP_GS)
 		mt_power_gs_dump_sodi3(GS_ALL);
+#endif
 #endif
 
 	spm_sodi_footprint_val((1 << SPM_SODI_ENTER_WFI) |
@@ -515,7 +522,11 @@ unsigned int spm_go_to_sodi(u32 spm_flags, u32 spm_data, u32 sodi_flags)
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (!(sodi_flags & SODI_FLAG_DUMP_LP_GS))
+#if defined(CONFIG_MACH_MT6771)
+		mtk8250_request_to_wakeup();
+#else
 		request_uart_to_wakeup();
+#endif
 RESTORE_IRQ:
 
 	spm_sodi_footprint(SPM_SODI_ENTER_UART_AWAKE);
