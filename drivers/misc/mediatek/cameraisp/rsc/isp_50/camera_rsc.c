@@ -62,7 +62,7 @@
 #include <smi_public.h>
 #include "../engine_request.h"
 
-#define RSC_PMQOS_EN
+/*#define RSC_PMQOS_EN*/
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
 #endif
@@ -1261,7 +1261,7 @@ static inline void RSC_Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* open order:CG_SCP_SYS_MM0>CG_MM_SMI_COMMON>CG_SCP_SYS_ISP>RSC clk */
 #ifdef SMI_CLK
-	smi_bus_enable(SMI_LARB_IMGSYS1, "camera_rsc");
+	smi_bus_prepare_enable(SMI_LARB5, "camera_rsc");
 #endif
 	ret = clk_prepare_enable(rsc_clk.CG_IMGSYS_RSC);
 	if (ret)
@@ -1274,7 +1274,7 @@ static inline void RSC_Disable_Unprepare_ccf_clock(void)
 	/* close order:RSC clk>CG_SCP_SYS_ISP>CG_MM_SMI_COMMON>CG_SCP_SYS_MM0 */
 	clk_disable_unprepare(rsc_clk.CG_IMGSYS_RSC);
 #ifdef SMI_CLK
-	smi_bus_disable(SMI_LARB_IMGSYS1, "camera_rsc");
+	smi_bus_disable_unprepare(SMI_LARB5, "camera_rsc");
 #endif
 }
 #endif
