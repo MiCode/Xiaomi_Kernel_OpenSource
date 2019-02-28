@@ -11,8 +11,8 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include "include/regulator_codegen.h"
 #include "include/pmic.h"
+#include "include/regulator_codegen.h"
 #include "include/pmic_api.h"
 #include "include/pmic_api_buck.h"
 #include "include/pmic_api_ldo.h"
