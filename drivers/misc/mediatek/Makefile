@@ -46,6 +46,7 @@ obj-$(CONFIG_MTK_MEM) += mem/
 obj-$(CONFIG_MTK_MEMORY_LOWPOWER) += memory-lowpower/
 obj-y += memory-amms/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
+obj-$(CONFIG_MTK_SENSORS_1_0) += sensors-1.0/
 obj-$(CONFIG_MTK_SSMR) += memory-ssmr/
 obj-$(CONFIG_ZONE_MOVABLE_CMA) += zone_movable_cma/
 obj-$(CONFIG_MTK_VIBRATOR) += vibrator/
