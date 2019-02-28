@@ -5,7 +5,7 @@
 
 &soc {
 	mdss_dsi0_pll: qcom,mdss_dsi_pll@ae94900 {
-		compatible = "qcom,mdss_dsi_pll_7nm";
+		compatible = "qcom,mdss_dsi_pll_7nm_v4_1";
 		label = "MDSS DSI 0 PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
@@ -32,7 +32,7 @@
 	};
 
 	mdss_dsi1_pll: qcom,mdss_dsi_pll@ae96900 {
-		compatible = "qcom,mdss_dsi_pll_7nm";
+		compatible = "qcom,mdss_dsi_pll_7nm_v4_1";
 		label = "MDSS DSI 1 PLL";
 		cell-index = <1>;
 		#clock-cells = <1>;
