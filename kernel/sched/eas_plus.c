@@ -1021,6 +1021,7 @@ mtk_cluster_max_usage(int cid, struct energy_env *eenv, int cpu_idx,
 	return max_util;
 }
 
+unsigned int capacity_margin_dvfs = 1280;
 void mtk_cluster_capacity_idx(int cid, struct energy_env *eenv, int cpu_idx)
 {
 	int cpu;
@@ -1424,3 +1425,81 @@ void mtk_update_new_capacity(struct energy_env *eenv)
 {
 }
 #endif
+
+#ifdef CONFIG_MTK_SCHED_BOOST
+#if 0
+static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
+{
+	int task_prefer;
+	int cpu, new_cpu;
+
+	task_prefer = cpu_prefer(p);
+
+	cpu = (*result & LB_CPU_MASK);
+
+	if (task_prefer_match(p, cpu))
+		return;
+
+	new_cpu = select_task_prefer_cpu(p, cpu);
+
+	if ((new_cpu >= 0)  && (new_cpu != cpu))
+		*result = new_cpu | LB_HINT;
+}
+
+void check_for_hint_migration(struct rq *rq, struct task_struct *p)
+{
+	int new_cpu;
+	int active_balance;
+	int cpu = task_cpu(p);
+
+	if (rq->curr->state != TASK_RUNNING ||
+		rq->curr->nr_cpus_allowed == 1)
+		return;
+
+	if (task_prefer_match(p, cpu))
+		return;
+
+	new_cpu = select_task_prefer_cpu(p, cpu);
+
+	if (new_cpu != cpu) {
+
+		active_balance = kick_active_balance(rq, p, new_cpu);
+		if (active_balance) {
+			stop_one_cpu_nowait(cpu,
+					active_load_balance_cpu_stop,
+					rq, &rq->active_balance_work);
+			trace_sched_hmp_migrate(p, new_cpu, 7);
+		}
+	}
+}
+#endif
+
+#else
+
+#if 0
+static void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
+{
+}
+#endif
+
+void check_for_hint_migration(struct rq *rq, struct task_struct *p)
+{
+}
+#endif
+
+inline int
+task_match_on_dst_cpu(struct task_struct *p, int src_cpu, int target_cpu)
+{
+	struct task_struct *target_tsk;
+	struct rq *rq = cpu_rq(target_cpu);
+
+	if (task_prefer_match(p, src_cpu))
+		return 0;
+
+	target_tsk = rq->curr;
+	if (task_prefer_fit(target_tsk, target_cpu))
+		return 0;
+
+	return 1;
+}
+

@@ -522,3 +522,64 @@ TRACE_EVENT(sched_cfs_dequeue_task,
 			__entry->comm)
 		);
 #endif /* CONFIG_SCHED_HMP */
+
+#ifdef CONFIG_MTK_SCHED_BOOST
+/*
+ * Tracepoint for set task cpu prefer
+ */
+TRACE_EVENT(sched_set_cpuprefer,
+
+	TP_PROTO(struct task_struct *tsk),
+
+	TP_ARGS(tsk),
+
+	TP_STRUCT__entry(
+		__array(char,  comm,   TASK_COMM_LEN)
+		__field(pid_t, pid)
+		__field(int,   cpu_prefer)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid            = tsk->pid;
+		__entry->cpu_prefer     = tsk->cpu_prefer;
+	),
+
+	TP_printk("pid=%d comm=%s cpu_prefer=%d",
+		__entry->pid, __entry->comm, __entry->cpu_prefer)
+);
+#endif
+
+/*
+ * Tracepoint for load balance sched group calculation
+ */
+TRACE_EVENT(sched_update_lb_sg,
+
+	TP_PROTO(unsigned long avg_load, unsigned long group_load,
+		unsigned long group_capacity,
+		int group_no_capacity, int group_type),
+
+	TP_ARGS(avg_load, group_load, group_capacity,
+		group_no_capacity, group_type),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, avg_load)
+		__field(unsigned long, group_load)
+		__field(unsigned long, group_capacity)
+		__field(int, group_no_capacity)
+		__field(int, group_type)
+	),
+
+	TP_fast_assign(
+		__entry->avg_load       = avg_load;
+		__entry->group_load     = group_load;
+		__entry->group_capacity = group_capacity;
+		__entry->group_no_capacity = group_no_capacity;
+		__entry->group_type = group_type;
+	),
+
+	TP_printk("avg_load=%lu group_load=%lu group_capacity=%lu group_no_capacity=%d group_type=%d",
+		__entry->avg_load, __entry->group_load, __entry->group_capacity,
+		__entry->group_no_capacity, __entry->group_type)
+);
+

@@ -20,8 +20,26 @@ enum {
 	SCHED_UNKNOWN_BOOST
 };
 
+#define SCHED_PREFER_NONE   0
+#define SCHED_PREFER_BIG    1
+#define SCHED_PREFER_LITTLE 2
+#define SCHED_PREFER_END    3
+
+/*
+ * For the sched_{set,get}attr_enhanced() calls
+ */
+#define SCHED_FLAG_PREFER_BIG_   0x10
+#define SCHED_FLAG_PREFER_LITTLE 0x20
+
 extern void set_user_space_global_cpuset
 		(struct cpumask *global_cpus, int cgroup_id);
 extern void unset_user_space_global_cpuset(int cgroup_id);
 extern int sched_scheduler_switch(enum SCHED_LB_TYPE new_sched);
 #endif
+#ifdef CONFIG_SCHED_TUNE
+extern int schedtune_task_boost(struct task_struct *tsk);
+#endif
+
+extern unsigned int hmp_cpu_is_slowest(int cpu);
+extern unsigned int hmp_cpu_is_fastest(int cpu);
+extern bool is_intra_domain(int prev, int target);
