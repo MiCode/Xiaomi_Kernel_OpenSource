@@ -783,6 +783,20 @@ static void set_load_weight(struct task_struct *p)
  */
 static DEFINE_MUTEX(uclamp_mutex);
 
+/*
+ * Minimum utilization for tasks in the root cgroup
+ * default: 0
+ */
+unsigned int sysctl_sched_uclamp_util_min;
+
+/*
+ * Maximum utilization for tasks in the root cgroup
+ * default: 1024
+ */
+unsigned int sysctl_sched_uclamp_util_max = 1024;
+
+static struct uclamp_se uclamp_default[UCLAMP_CNT];
+
 /**
  * uclamp_map: reference counts a utilization "clamp value"
  * @value:    the utilization "clamp value" required
@@ -999,12 +1013,25 @@ static inline int uclamp_task_group_id(struct task_struct *p, int clamp_id)
 	group_id = uc_se->group_id;
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
+	/*
+	 * Tasks in the root group, which do not have a task specific clamp
+	 * value, get the system default calmp value.
+	 */
+	if (group_id == UCLAMP_NOT_VALID &&
+	    task_group(p) == &root_task_group) {
+		return uclamp_default[clamp_id].group_id;
+	}
+
 	/* Use TG's clamp value to limit task specific values */
 	uc_se = &task_group(p)->uclamp[clamp_id];
 	if (group_id == UCLAMP_NOT_VALID ||
 	    clamp_value > uc_se->effective.value) {
 		group_id = uc_se->effective.group_id;
 	}
+#else
+	/* By default, all tasks get the system default clamp value */
+	if (group_id == UCLAMP_NOT_VALID)
+		return uclamp_default[clamp_id].group_id;
 #endif
 
 	return group_id;
@@ -1273,9 +1300,30 @@ static inline void uclamp_group_put(int clamp_id, int group_id)
 	raw_spin_unlock_irqrestore(&uc_map[group_id].se_lock, flags);
 }
 
+static inline void uclamp_group_get_tg(struct cgroup_subsys_state *css,
+				       int clamp_id, unsigned int group_id)
+{
+	struct css_task_iter it;
+	struct task_struct *p;
+
+	/*
+	 * In lazy update mode, tasks will be accounted into the right clamp
+	 * group the next time they will be requeued.
+	 */
+	if (unlikely(sched_feat(UCLAMP_LAZY_UPDATE)))
+		return;
+
+	/* Update clamp groups for RUNNABLE tasks in this TG */
+	css_task_iter_start(css, 0, &it);
+	while ((p = css_task_iter_next(&it)))
+		uclamp_task_update_active(p, clamp_id, group_id);
+	css_task_iter_end(&it);
+}
+
 /**
  * uclamp_group_get: increase the reference count for a clamp group
  * @p: the task which clamp value must be tracked
+ * @css: the task group which clamp value must be tracked
  * @clamp_id: the clamp index affected by the task
  * @next_group_id: the clamp group to refcount
  * @uc_se: the utilization clamp data for the task
@@ -1287,6 +1335,7 @@ static inline void uclamp_group_put(int clamp_id, int group_id)
  * the task to reference count the clamp value on CPUs while enqueued.
  */
 static inline void uclamp_group_get(struct task_struct *p,
+				    struct cgroup_subsys_state *css,
 				    int clamp_id, int next_group_id,
 				    struct uclamp_se *uc_se,
 				    unsigned int clamp_value)
@@ -1306,12 +1355,87 @@ static inline void uclamp_group_get(struct task_struct *p,
 	uc_map[next_group_id].se_count += 1;
 	raw_spin_unlock_irqrestore(&uc_map[next_group_id].se_lock, flags);
 
+	/* Newly created TG don't have tasks assigned */
+	if (css)
+		uclamp_group_get_tg(css, clamp_id, next_group_id);
+
 	/* Update CPU's clamp group refcounts of RUNNABLE task */
 	if (p)
 		uclamp_task_update_active(p, clamp_id, next_group_id);
 
 	/* Release the previous clamp group */
 	uclamp_group_put(clamp_id, prev_group_id);
+}
+
+int sched_uclamp_handler(struct ctl_table *table, int write,
+			 void __user *buffer, size_t *lenp,
+			 loff_t *ppos)
+{
+	int group_id[UCLAMP_CNT] = { UCLAMP_NOT_VALID };
+	struct uclamp_se *uc_se;
+	int old_min, old_max;
+	int result;
+
+	mutex_lock(&uclamp_mutex);
+
+	old_min = sysctl_sched_uclamp_util_min;
+	old_max = sysctl_sched_uclamp_util_max;
+
+	result = proc_dointvec(table, write, buffer, lenp, ppos);
+	if (result)
+		goto undo;
+	if (!write)
+		goto done;
+
+	if (sysctl_sched_uclamp_util_min > sysctl_sched_uclamp_util_max)
+		goto undo;
+	if (sysctl_sched_uclamp_util_max > 1024)
+		goto undo;
+
+	/* Find a valid group_id for each required clamp value */
+	if (old_min != sysctl_sched_uclamp_util_min) {
+		result = uclamp_group_find(UCLAMP_MIN,
+				sysctl_sched_uclamp_util_min);
+		if (result == -ENOSPC) {
+			pr_err("Cannot allocate more than %d UTIL_MIN clamp groups\n",
+			       CONFIG_UCLAMP_GROUPS_COUNT);
+			goto undo;
+		}
+		group_id[UCLAMP_MIN] = result;
+	}
+	if (old_max != sysctl_sched_uclamp_util_max) {
+		result = uclamp_group_find(UCLAMP_MAX,
+				sysctl_sched_uclamp_util_max);
+		if (result == -ENOSPC) {
+			pr_err("Cannot allocate more than %d UTIL_MAX clamp groups\n",
+			       CONFIG_UCLAMP_GROUPS_COUNT);
+			goto undo;
+		}
+		group_id[UCLAMP_MAX] = result;
+	}
+
+	/* Update each required clamp group */
+	if (old_min != sysctl_sched_uclamp_util_min) {
+		uc_se = &uclamp_default[UCLAMP_MIN];
+		uclamp_group_get(NULL, NULL, UCLAMP_MIN, group_id[UCLAMP_MIN],
+				 uc_se, sysctl_sched_uclamp_util_min);
+	}
+	if (old_max != sysctl_sched_uclamp_util_max) {
+		uc_se = &uclamp_default[UCLAMP_MAX];
+		uclamp_group_get(NULL, NULL, UCLAMP_MAX, group_id[UCLAMP_MAX],
+				 uc_se, sysctl_sched_uclamp_util_max);
+	}
+
+	if (result) {
+undo:
+		sysctl_sched_uclamp_util_min = old_min;
+		sysctl_sched_uclamp_util_max = old_max;
+	}
+
+done:
+	mutex_unlock(&uclamp_mutex);
+
+	return result;
 }
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
@@ -1336,11 +1460,11 @@ static inline void init_uclamp_sched_group(void)
 		/* Map root TG's clamp value */
 		uclamp_group_init(clamp_id, group_id, uclamp_none(clamp_id));
 
-		/* Init root TG's clamp group */
+		/* Init root TG's clamp group: max values always enabled */
 		uc_se = &root_task_group.uclamp[clamp_id];
-		uc_se->value = uclamp_none(clamp_id);
+		uc_se->value = uclamp_none(UCLAMP_MAX);
 		uc_se->group_id = group_id;
-		uc_se->effective.value = uclamp_none(clamp_id);
+		uc_se->effective.value = uclamp_none(UCLAMP_MAX);
 		uc_se->effective.group_id = group_id;
 
 		/* Attach root TG's clamp group */
@@ -1390,7 +1514,7 @@ static inline int alloc_uclamp_sched_group(struct task_group *tg,
 			return 0;
 		}
 #endif
-		uclamp_group_get(NULL, clamp_id, group_id, uc_se,
+		uclamp_group_get(NULL, NULL, clamp_id, group_id, uc_se,
 				 parent->uclamp[clamp_id].value);
 	}
 
@@ -7286,6 +7410,10 @@ static void cpu_util_update_hier(struct cgroup_subsys_state *css,
 
 		uc_se->effective.value = value;
 		uc_se->effective.group_id = group_id;
+
+		/* Immediately updated descendants active tasks */
+		if (css != top_css)
+			uclamp_group_get_tg(css, clamp_id, group_id);
 	}
 }
 
@@ -7326,7 +7454,7 @@ static int cpu_util_min_write_u64(struct cgroup_subsys_state *css,
 
 	/* Update TG's reference count */
 	uc_se = &tg->uclamp[UCLAMP_MIN];
-	uclamp_group_get(NULL, UCLAMP_MIN, group_id, uc_se, min_value);
+	uclamp_group_get(NULL, css, UCLAMP_MIN, group_id, uc_se, min_value);
 
 out:
 	rcu_read_unlock();
@@ -7372,7 +7500,7 @@ static int cpu_util_max_write_u64(struct cgroup_subsys_state *css,
 
 	/* Update TG's reference count */
 	uc_se = &tg->uclamp[UCLAMP_MAX];
-	uclamp_group_get(NULL, UCLAMP_MAX, group_id, uc_se, max_value);
+	uclamp_group_get(NULL, css, UCLAMP_MAX, group_id, uc_se, max_value);
 
 out:
 	rcu_read_unlock();
