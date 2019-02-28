@@ -215,9 +215,8 @@ static void probe_signal_generate(void *ignore, int sig, struct siginfo *info,
 	 * only log delivered signals
 	 */
 	STORE_SIGINFO(errno, code, info);
-	pr_debug("[signal][%d:%s]generate sig %d",
-		 current->pid, current->comm, sig);
-	pr_debug(" to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
+	pr_debug("[signal][%d:%s]generate sig %d to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
+		 current->pid, current->comm, sig,
 		task->pid, task->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?',
 		errno, code, group, signal_deliver_results[result]);
@@ -229,16 +228,9 @@ static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
 	int errno, code;
 
 	STORE_SIGINFO(errno, code, info);
-	pr_debug("[signal]sig %d delivered to [%d:%s]",
-		sig,
-		current->pid,
-		current->comm);
-	pr_debug(" errno=%d code=%d sa_handler=%lx sa_flags=%lx\n",
-		errno,
-		code,
-		(unsigned long)ka->sa.sa_handler,
-		ka->sa.sa_flags);
-
+	pr_debug("[signal]sig %d delivered to [%d:%s] errno=%d code=%d sa_handler=%lx sa_flags=%lx\n",
+			sig, current->pid, current->comm, errno, code,
+			(unsigned long)ka->sa.sa_handler, ka->sa.sa_flags);
 }
 
 static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
