@@ -523,7 +523,6 @@ static int maghub_factory_do_self_test(void)
 	if (ret < 0)
 		return -1;
 
-	init_completion(&obj->selftest_done);
 	ret = wait_for_completion_timeout(&obj->selftest_done,
 					  msecs_to_jiffies(3000));
 	if (!ret)
