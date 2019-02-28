@@ -132,10 +132,10 @@ static int g_cur_eint0_state = EINT_PIN_PLUG_OUT;
 static int g_cur_eint1_state = EINT_PIN_PLUG_OUT;
 #endif
 
-static struct wake_lock accdet_suspend_lock;
-static struct wake_lock accdet_irq_lock;
-static struct wake_lock accdet_key_lock;
-static struct wake_lock accdet_timer_lock;
+static struct wakeup_source accdet_suspend_lock;
+static struct wakeup_source accdet_irq_lock;
+static struct wakeup_source accdet_key_lock;
+static struct wakeup_source accdet_timer_lock;
 static struct timer_list micbias_timer;
 static struct timer_list accdet_init_timer;
 
@@ -967,8 +967,8 @@ static inline void disable_accdet(void)
 	pmic_pwrap_write(ACCDET_CON02,
 			 pmic_pwrap_read(ACCDET_CON02) &
 			     (~ACCDET_SWCTRL_ACCDET_EN)); /* clear clk */
-	pr_debug("[%s][0x%x]=0x%x\n", ACCDET_CON12,
-		    __func__, pmic_pwrap_read(ACCDET_CON12));
+	pr_debug("[%s][0x%x]=0x%x\n", __func__, ACCDET_CON12,
+		     pmic_pwrap_read(ACCDET_CON12));
 }
 
 static inline void clear_accdet_eint_interrupt(int eint_id)
@@ -1042,7 +1042,7 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		mutex_lock(&accdet_eint_irq_sync_mutex);
 		s_eint_accdet_sync_flag = 1;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
-		wake_lock_timeout(&accdet_timer_lock, 7 * HZ);
+		__pm_wakeup_event(&accdet_timer_lock, 7 * HZ);
 		accdet_init(); /* do set pwm_idle on in accdet_init */
 
 #if 0
@@ -1112,7 +1112,7 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		mutex_lock(&accdet_eint_irq_sync_mutex);
 		s_eint_accdet_sync_flag = 1;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
-		wake_lock_timeout(&accdet_timer_lock, 7 * HZ);
+		__pm_wakeup_event(&accdet_timer_lock, 7 * HZ);
 
 		accdet_init(); /* do set pwm_idle on in accdet_init*/
 		reg_val = pmic_pwrap_read(ACCDET_CON02);
@@ -1358,7 +1358,7 @@ static void accdet_work_callback(struct work_struct *work)
 	unsigned int reg_val = 0;
 
 	reg_val = 0;
-	wake_lock(&accdet_irq_lock);
+	__pm_stay_awake(&accdet_irq_lock);
 
 	check_cable_type();
 
@@ -1369,7 +1369,7 @@ static void accdet_work_callback(struct work_struct *work)
 		pr_info(
 		    "[accdet]Headset has plugged out don't set accdet state\n");
 	mutex_unlock(&accdet_eint_irq_sync_mutex);
-	wake_unlock(&accdet_irq_lock);
+	__pm_relax(&accdet_irq_lock);
 #ifdef DIGITAL_FASTDISCHARGE_SUPPORT
 	/* workround for HW fast discharge */
 	if ((!fast_discharge) && (s_cable_type == MIC_BIAS)) {
@@ -2991,14 +2991,10 @@ int mt_accdet_probe(struct platform_device *dev)
 		    "[%s]kpd_accdet_dev register : fail!\n", __func__);
 
 	/* wake lock */
-	wake_lock_init(&accdet_suspend_lock, WAKE_LOCK_SUSPEND,
-		       "accdet wakelock");
-	wake_lock_init(&accdet_irq_lock, WAKE_LOCK_SUSPEND,
-		       "accdet irq wakelock");
-	wake_lock_init(&accdet_key_lock, WAKE_LOCK_SUSPEND,
-		       "accdet key wakelock");
-	wake_lock_init(&accdet_timer_lock, WAKE_LOCK_SUSPEND,
-		       "accdet timer wakelock");
+	wakeup_source_init(&accdet_suspend_lock, "accdet wakelock");
+	wakeup_source_init(&accdet_irq_lock, "accdet irq wakelock");
+	wakeup_source_init(&accdet_key_lock, "accdet key wakelock");
+	wakeup_source_init(&accdet_timer_lock, "accdet timer wakelock");
 
 	/* INIT the timer to disable micbias */
 	init_timer(&micbias_timer);

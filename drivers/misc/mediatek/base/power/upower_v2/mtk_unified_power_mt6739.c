@@ -43,11 +43,6 @@
 #define BIT(bit)	(1U << (bit))
 #define MSB(range)	(1 ? range)
 #define LSB(range)	(0 ? range)
-/**
- * Genearte a mask wher MSB to LSB are all 0b1
- * @r:	Range in the form of MSB:LSB
- */
-#define BITMASK(r)	(((unsigned) -1 >> (31 - MSB(r))) & ~((1U << LSB(r)) - 1))
 
 /**
  * Set value at MSB:LSB. For example, BITS(7:3, 0x5A)

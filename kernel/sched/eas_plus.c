@@ -42,6 +42,7 @@ int l_plus_cpu = -1;
 #elif defined(CONFIG_MACH_MT6779)
  #ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
 static int share_buck[2] = {2, 1};
+#define ARM_V8_2
  #endif
 int l_plus_cpu = -1;
 #else
@@ -860,7 +861,7 @@ long group_norm_util(struct energy_env *eenv, int cpu_idx)
 			"%s: cpu=%d util_sum=%lu norm_util=%d delta=%d util=%lu capacity=%d",
 			__func__, cpu, util_sum,
 			(int)__cpu_norm_util(util, capacity),
-			eenv->util_delta, util, (int)capacity);
+			(int)eenv->util_delta, util, (int)capacity);
 	}
 
 	if (util_sum > SCHED_CAPACITY_SCALE)
@@ -973,6 +974,24 @@ bool is_share_buck(int cid, int *co_buck_cid)
 	return ret;
 }
 
+#ifdef ARM_V8_2
+const struct sched_group_energy * const cci_energy(void)
+{
+	struct sched_group_energy *sge = &cci_tbl;
+	struct upower_tbl_info **addr_ptr_tbl_info;
+	struct upower_tbl_info *ptr_tbl_info;
+	struct upower_tbl *ptr_tbl;
+
+	addr_ptr_tbl_info = upower_get_tbl();
+	ptr_tbl_info = *addr_ptr_tbl_info;
+	ptr_tbl = ptr_tbl_info[UPOWER_BANK_CCI].p_upower_tbl;
+
+	sge->nr_cap_states = ptr_tbl->row_num;
+	sge->cap_states = ptr_tbl->row;
+	sge->lkg_idx = ptr_tbl->lkg_idx;
+	return sge;
+}
+
 extern unsigned int mt_cpufreq_get_cur_cci_freq_idx(void);
 int get_cci_cap_idx(void)
 {
@@ -988,6 +1007,7 @@ int get_cci_cap_idx(void)
 
 	return CCI_nr_cap_stats - mt_cpufreq_get_cur_cci_freq_idx();
 }
+#endif
 
 int share_buck_cap_idx(struct energy_env *eenv, int cpu_idx,
 			int cid, int *co_buck_cid)
@@ -1001,9 +1021,10 @@ int share_buck_cap_idx(struct energy_env *eenv, int cpu_idx,
 		if (*co_buck_cid < num_cluster)
 			co_buck_cap_idx =
 				eenv->cpu[cpu_idx].cap_idx[*co_buck_cid];
+#ifdef ARM_V8_2
 		else if (*co_buck_cid ==  CCI_ID)    /* CCI + DSU */
 			co_buck_cap_idx = get_cci_cap_idx();
-
+#endif
 		trace_sched_share_buck(cpu_idx, cid, cap_idx, *co_buck_cid,
 					co_buck_cap_idx);
 	}
@@ -1088,6 +1109,7 @@ mtk_idle_power(int cpu_idx, int idle_state, int cpu, void *argu, int sd_level)
 		trace_sched_idle_power(sd_level, cap_idx, lkg_pwr, energy_cost);
 	}
 
+#ifdef ARM_V8_2
 	if ((sd_level != 0) && (co_buck_cid == CCI_ID)) {
 		struct upower_tbl_row *CCI_pwr_tbl;
 		unsigned long lkg_pwr;
@@ -1100,6 +1122,7 @@ mtk_idle_power(int cpu_idx, int idle_state, int cpu, void *argu, int sd_level)
 
 		trace_sched_idle_power(sd_level, cap_idx, lkg_pwr, energy_cost);
 	}
+#endif
 
 	return energy_cost;
 }
@@ -1275,6 +1298,7 @@ int mtk_busy_power(int cpu_idx, int cpu, void *argu, int sd_level)
 
 	}
 
+#ifdef ARM_V8_2
 	if ((sd_level != 0) && (co_buck_cid == CCI_ID)) {
 		/* CCI + DSU */
 		const struct sched_group_energy *_sge;
@@ -1283,6 +1307,7 @@ int mtk_busy_power(int cpu_idx, int cpu, void *argu, int sd_level)
 		energy_cost += calc_busy_power(_sge, co_cap_idx, cap_idx,
 							sd_level);
 	}
+#endif
 
 	return energy_cost;
 }
