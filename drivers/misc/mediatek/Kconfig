@@ -178,3 +178,4 @@ config MTK_DM_VERITY_OFF
 endmenu    # Misc
 
 source "drivers/misc/mediatek/freqhopping/Kconfig"
+source "drivers/misc/mediatek/sspm/Kconfig"
