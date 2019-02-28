@@ -26,9 +26,6 @@
 #include <linux/time.h>
 #include <linux/random.h>
 
-#define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "pmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
@@ -79,6 +76,9 @@ DEFINE_UT_SUPPORT(memmgr);
 #define CONTROL_AREA_COUNT (MAX_ORDER_NUM + 1)
 
 #define ORDER_SIZE(order) (MIN_BUDDY_BLOCK_SIZE << order)
+
+#define PMEM_64BIT_PHYS_SHIFT (10)
+#define PMEM_PHYS_LIMIT_MIN_ALLOC_SIZE (1 << PMEM_64BIT_PHYS_SHIFT)
 
 #define PA_TO_HANDLE(pa) (u32)((pa >> PMEM_64BIT_PHYS_SHIFT) & 0xFFFFFFFFULL)
 #define HANDLE_TO_PA(handle)                                                   \
