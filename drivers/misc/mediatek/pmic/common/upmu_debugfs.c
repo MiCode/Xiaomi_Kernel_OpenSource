@@ -272,7 +272,7 @@ int pmic_debug_init(struct platform_device *dev)
 
 	pmic_regulator_debug_init(dev, mtk_pmic_dir);
 
-	pmic_throttling_dlpt_debug_init(dev, mtk_pmic_dir);
+	/*pmic_throttling_dlpt_debug_init(dev, mtk_pmic_dir); TBD*/
 
 	pmic_irq_debug_init(mtk_pmic_dir);
 
