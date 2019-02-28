@@ -10,73 +10,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-
-#include <asm/page.h>
-#include <asm/setup.h>
 #include <asm/pgtable.h>
-#include <linux/module.h>
-#include <linux/of_fdt.h>
 #include <linux/vmalloc.h>
-#include <linux/mm_types.h>
 #include <linux/page-flags.h>
-#include <mt-plat/mtk_meminfo.h>
-
-#ifdef CONFIG_OF
-static u64 mntl_base;
-static u64 mntl_size;
-
-static int __init __fdt_scan_reserved_mem(unsigned long node, const char *uname,
-					  int depth, void *data)
-{
-	static int found;
-	const __be32 *reg, *endp;
-	int l;
-
-	if (!found && depth == 1 && strcmp(uname, "reserved-memory") == 0) {
-		found = 1;
-		/* scan next node */
-		return 0;
-	} else if (!found) {
-		/* scan next node */
-		return 0;
-	} else if (found && depth < 2) {
-		/* scanning of /reserved-memory has been finished */
-		return 1;
-	}
-
-	if (!strstr(uname, "KOBuffer"))
-		return 0;
-
-	reg = of_get_flat_dt_prop(node, "reg", &l);
-	if (reg == NULL)
-		return 0;
-
-	endp = reg + (l / sizeof(__be32));
-	while ((endp - reg) >= (dt_root_addr_cells + dt_root_size_cells)) {
-		mntl_base = dt_mem_next_cell(dt_root_addr_cells, &reg);
-		mntl_size = dt_mem_next_cell(dt_root_size_cells, &reg);
-	}
-
-	return 0;
-}
-
-static int __init init_fdt_mntl_buf(void)
-{
-	of_scan_flat_dt(__fdt_scan_reserved_mem, NULL);
-
-	return 0;
-}
-early_initcall(init_fdt_mntl_buf);
-
-int get_mntl_buf(u64 *base, u64 *size)
-{
-	*base = mntl_base;
-	*size = mntl_size;
-
-	return 0;
-}
-
-#endif /* end of CONFIG_OF */
 
 phys_addr_t get_zone_movable_cma_base(void)
 {
