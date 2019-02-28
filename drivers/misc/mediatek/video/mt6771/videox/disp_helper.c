@@ -352,13 +352,13 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_OVL_WARM_RESET, 0);
 
 	/* ================ Begin: lowpower option setting ================ */
-	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 1);
+	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 0);
 	disp_helper_set_option(DISP_OPT_IDLE_MGR, 0);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
 	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 1);
-	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 1);
+	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
 
 	/* 2. cmd mode + screen idle(need idlemgr) */
@@ -371,7 +371,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_MET_LOG, 1);
 	/* ================ End: lowpower option setting ================== */
 
-	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 1);
+	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 0);
 
 	/* use fake vsync timer for low power measurement */
 	disp_helper_set_option(DISP_OPT_NO_LCM_FOR_LOW_POWER_MEASUREMENT, 0);
@@ -381,8 +381,8 @@ void disp_helper_option_init(void)
 
 	disp_helper_set_option(DISP_OPT_BYPASS_PQ, 0);
 	disp_helper_set_option(DISP_OPT_MUTEX_EOF_EN_FOR_CMD_MODE, 1);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 1);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 1);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 0);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 0);
 
 	disp_helper_set_option(DISP_OPT_BYPASS_OVL, 0);
 	disp_helper_set_option(DISP_OPT_FPS_CALC_WND, 10);
