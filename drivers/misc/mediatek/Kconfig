@@ -114,7 +114,24 @@ endmenu  # Power
 
 menu "MultiMedia, Display, Camera"
 
+config CUSTOM_KERNEL_IMGSENSOR
+	string "Custom image sensor driver"
+	help
+	  Kernel space image sensor driver. Define  project used all image
+	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
+	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
+	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config CUSTOM_KERNEL_CAM_CAL_DRV
+	string "Camera calibration driver"
+	help
+	  Kernel space camera calibration driver. Define  project used cam_cal
+	  driver .
+
+source "drivers/misc/mediatek/cameraisp/Kconfig"
+source "drivers/misc/mediatek/cam_cal/Kconfig"
 source "drivers/misc/mediatek/cmdq/Kconfig"
+source "drivers/misc/mediatek/imgsensor/Kconfig"
 source "drivers/misc/mediatek/smi/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
