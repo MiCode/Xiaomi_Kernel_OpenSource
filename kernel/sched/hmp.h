@@ -69,7 +69,6 @@ unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
 /* #define se_contrib(se) se->avg.load_avg_contrib */
 
 /* CPU related : load information */
-#define cfs_pending_load(cpu) cpu_rq(cpu)->cfs.avg.pending_load
 #define cfs_load(cpu) cpu_rq(cpu)->cfs.avg.loadwop_avg
 #define cfs_contrib(cpu) cpu_rq(cpu)->cfs.avg.loadwop_avg
 
@@ -77,7 +76,7 @@ unsigned int hmp_up_prio = NICE_TO_PRIO(CONFIG_SCHED_HMP_PRIO_FILTER_VAL);
 #define cfs_nr_normal_prio(cpu) cpu_rq(cpu)->cfs.avg.nr_normal_prio
 #define cfs_nr_pending(cpu) cpu_rq(cpu)->cfs.avg.nr_pending
 #define cfs_length(cpu) cpu_rq(cpu)->cfs.h_nr_running
-#define rq_length(cpu) (cpu_rq(cpu)->nr_running + cfs_nr_pending(cpu))
+#define rq_length(cpu) cpu_rq(cpu)->nr_running
 
 
 inline int hmp_fork_balance(struct task_struct *p, int prev_cpu);
