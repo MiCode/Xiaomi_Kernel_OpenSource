@@ -84,4 +84,12 @@ config MTK_SCHED_SYSHINT
 	  in time that helps resource control
 	  in low latency.
 
+config MTK_RT_THROTTLE_MON
+	bool "mtk rt throttle monitor"
+	default n
+	help
+	  MTK_RT_THROTTLE_MON is used to monitor rt throttle.
+	  When rt throttle activated print 5 longest execusion time rt tasks.
+	  Say Y here to enable rt throttle monitor.
+	  If you are not sure about whether to enable it or not, please set n.
 endmenu

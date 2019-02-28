@@ -12,6 +12,12 @@
 
 #include "walt.h"
 
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+#include "mtk_rt_mon.h"
+#endif
+
+#include "rt_ext.c"
+
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
 
@@ -761,7 +767,17 @@ balanced:
 		 * Disable all the borrow logic by pretending we have inf
 		 * runtime - in which case borrowing doesn't make sense.
 		 */
-		rt_rq->rt_runtime = RUNTIME_INF;
+		/*
+		 * sched:  prevent normal task could run anymore,
+		 * use rt_disable_borrow
+		 */
+		/* rt_rq->rt_runtime = RUNTIME_INF; */
+		rt_rq->rt_runtime = rt_b->rt_runtime;
+
+		/* sched: print __disable_runtime unthrottled */
+		if (rt_rq->rt_throttled == 1)
+			print_disable_runtime_unthrottle(rt_rq);
+
 		rt_rq->rt_throttled = 0;
 		raw_spin_unlock(&rt_rq->rt_runtime_lock);
 		raw_spin_unlock(&rt_b->rt_runtime_lock);
@@ -834,6 +850,7 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 		struct rt_rq *rt_rq = sched_rt_period_rt_rq(rt_b, i);
 		struct rq *rq = rq_of_rt_rq(rt_rq);
 		int skip;
+		u64 runtime_pre = 0, rt_time_pre = 0; /* sched: get runtime */
 
 		/*
 		 * When span == cpu_online_mask, taking each rq->lock
@@ -849,19 +866,43 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 
 		raw_spin_lock(&rq->lock);
 		update_rq_clock(rq);
+		per_cpu(rt_period_time, i) = rq_clock_task(rq);
 
 		if (rt_rq->rt_time) {
 			u64 runtime;
 
 			raw_spin_lock(&rt_rq->rt_runtime_lock);
+			per_cpu(old_rt_time, i) = rt_rq->rt_time;
+			if (rt_rq->rt_throttled) {
+				runtime_pre = rt_rq->rt_runtime;
+				rt_time_pre = rt_rq->rt_time;
+			}
 			if (rt_rq->rt_throttled)
 				balance_runtime(rt_rq);
 			runtime = rt_rq->rt_runtime;
 			rt_rq->rt_time -= min(rt_rq->rt_time, overrun*runtime);
+			per_cpu(init_rt_time, i) = rt_rq->rt_time;
+			/* sched: print rt_time_info */
+			if (rt_rq->rt_throttled) {
+				printk_deferred(
+				"[name:rt&]sched: cpu=%d, [%llu -> %llu] -= min(%llu, %d*[%llu -> %llu])\n",
+					i, rt_time_pre,	rt_rq->rt_time,
+					rt_time_pre, overrun,
+					runtime_pre, runtime);
+			}
 			if (rt_rq->rt_throttled && rt_rq->rt_time < runtime) {
 				rt_rq->rt_throttled = 0;
 				enqueue = 1;
 
+				/* sched: print unthrottle*/
+				printk_deferred("[name:rt&]sched: RT throttling inactivated cpu=%d\n",
+						i);
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+				if (rt_rq->rt_time != 0) {
+					mt_rt_mon_switch(MON_RESET, i);
+					mt_rt_mon_switch(MON_START, i);
+				}
+#endif
 				/*
 				 * When we're idle and a woken (rt) task is
 				 * throttled check_preempt_curr() will set
@@ -909,6 +950,8 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
 static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
 	u64 runtime = sched_rt_runtime(rt_rq);
+	u64 runtime_pre = runtime; /* sched: get runtime */
+	int cpu = rq_cpu(rt_rq->rq);
 
 	if (rt_rq->rt_throttled)
 		return rt_rq_throttled(rt_rq);
@@ -924,13 +967,27 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 	if (rt_rq->rt_time > runtime) {
 		struct rt_bandwidth *rt_b = sched_rt_bandwidth(rt_rq);
 
+#ifdef CONFIG_RT_GROUP_SCHED
+		print_rt_throttle_info(cpu, rt_rq, runtime_pre, runtime);
+#endif
+
 		/*
 		 * Don't actually throttle groups that have no runtime assigned
 		 * but accrue some time due to boosting.
 		 */
 		if (likely(rt_b->rt_runtime)) {
 			rt_rq->rt_throttled = 1;
-			printk_deferred_once("sched: RT throttling activated\n");
+			/* sched: print throttle every time*/
+			printk_deferred("sched: RT throttling activated\n");
+#ifdef CONFIG_RT_GROUP_SCHED
+			per_cpu(rt_throttling_start, cpu) =
+				rq_clock_task(rt_rq->rq);
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+			/* sched: rt throttle monitor */
+			mt_rt_mon_switch(MON_STOP, cpu);
+			mt_rt_mon_print_task(cpu);
+#endif
+#endif
 		} else {
 			/*
 			 * In case we did anyway, make it go away,
@@ -958,6 +1015,11 @@ static void update_curr_rt(struct rq *rq)
 	struct task_struct *curr = rq->curr;
 	struct sched_rt_entity *rt_se = &curr->rt;
 	u64 delta_exec;
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+	struct rt_rq *cpu_rt_rq;
+	u64 runtime;
+	u64 old_exec_start;
+#endif
 
 	if (curr->sched_class != &rt_sched_class)
 		return;
@@ -972,16 +1034,43 @@ static void update_curr_rt(struct rq *rq)
 	schedstat_set(curr->se.statistics.exec_max,
 		      max(curr->se.statistics.exec_max, delta_exec));
 
+	/* sched: update rt exec info*/
+	update_rt_exec_info(curr, delta_exec, rq);
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+	old_exec_start = curr->se.exec_start;
+#endif
+
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
 
 	curr->se.exec_start = rq_clock_task(rq);
+	per_cpu(sched_update_exec_start, rq->cpu) =
+		per_cpu(update_curr_exec_start, rq->cpu);
+	per_cpu(update_curr_exec_start, rq->cpu) = sched_clock_cpu(rq->cpu);
+
 	cpuacct_charge(curr, delta_exec);
 
 	sched_rt_avg_update(rq, delta_exec);
 
 	if (!rt_bandwidth_enabled())
 		return;
+
+#ifdef CONFIG_MTK_RT_THROTTLE_MON
+	cpu_rt_rq = rt_rq_of_se(rt_se);
+	runtime = sched_rt_runtime(cpu_rt_rq);
+	if (cpu_rt_rq->rt_time == 0 && !(cpu_rt_rq->rt_throttled)) {
+		if (old_exec_start < per_cpu(rt_period_time, rq->cpu) &&
+		(per_cpu(old_rt_time, rq->cpu) + delta_exec) > runtime) {
+			save_mt_rt_mon_info(rq->cpu, delta_exec, curr);
+			mt_rt_mon_switch(MON_STOP, rq->cpu);
+			mt_rt_mon_print_task(rq->cpu);
+		}
+		mt_rt_mon_switch(MON_RESET, rq->cpu);
+		mt_rt_mon_switch(MON_START, rq->cpu);
+		update_mt_rt_mon_start(rq->cpu, delta_exec);
+	}
+	save_mt_rt_mon_info(rq->cpu, delta_exec, curr);
+#endif
 
 	for_each_sched_rt_entity(rt_se) {
 		struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
@@ -1534,6 +1623,8 @@ static struct task_struct *_pick_next_task_rt(struct rq *rq)
 
 	p = rt_task_of(rt_se);
 	p->se.exec_start = rq_clock_task(rq);
+	per_cpu(pick_exec_start, rq->cpu) = p->se.exec_start;
+	per_cpu(sched_pick_exec_start, rq->cpu) = sched_clock_cpu(rq->cpu);
 
 	return p;
 }
@@ -2355,7 +2446,8 @@ static void set_curr_task_rt(struct rq *rq)
 	struct task_struct *p = rq->curr;
 
 	p->se.exec_start = rq_clock_task(rq);
-
+	per_cpu(set_curr_exec_start, rq->cpu) = p->se.exec_start;
+	per_cpu(sched_set_curr_exec_start, rq->cpu) = sched_clock_cpu(rq->cpu);
 	/* The running task is never eligible for pushing */
 	dequeue_pushable_task(rq, p);
 }

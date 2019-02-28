@@ -2185,6 +2185,13 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
 
+/* sched:  add for print aee log */
+#ifdef CONFIG_SMP
+static inline int rq_cpu(const struct rq *rq) { return rq->cpu; }
+#else
+static inline int rq_cpu(const struct rq *rq) { return 0; }
+#endif
+
 #ifdef CONFIG_CPU_FREQ
 DECLARE_PER_CPU(struct update_util_data *, cpufreq_update_util_data);
 
