@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <mt-plat/mtk_boot_common.h>
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 #include <mt-plat/upmu_common.h>
 #endif
@@ -310,7 +311,7 @@ void kpd_wakeup_src_setting(int enable)
 }
 
 /********************************************************************/
-void kpd_init_keymap(u16 keymap[])
+void kpd_init_keymap(u32 keymap[])
 {
 	int i = 0;
 
