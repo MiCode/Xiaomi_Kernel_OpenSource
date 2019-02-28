@@ -250,14 +250,13 @@ static void adj_threshold(struct clb_env *clbenv)
 	b_nacap = clbenv->bstats.acap;
 	l_nacap = clbenv->lstats.acap * l_cap / (b_cap+1);
 
+	b_nacap = hmp_scale_down(b_nacap);
+	l_nacap = hmp_scale_down(l_nacap);
 
 	if ((b_nacap + l_nacap) == 0) {
 		clbenv->bstats.threshold = hmp_max_weight;
 		clbenv->lstats.threshold = 0;
 	} else {
-		b_nacap = hmp_scale_down(b_nacap);
-		l_nacap = hmp_scale_down(l_nacap);
-
 		clbenv->bstats.threshold = hmp_max_weight -
 			(hmp_max_weight * b_nacap * b_nacap) /
 			((b_nacap + l_nacap) * (b_nacap + l_nacap));
