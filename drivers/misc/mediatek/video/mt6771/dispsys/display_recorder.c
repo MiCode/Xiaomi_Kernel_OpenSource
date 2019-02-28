@@ -1053,7 +1053,7 @@ void cal_fps_for_debug(void)
 	struct dprec_logger_fps *l = &old_logger_fps;
 	int i;
 	unsigned long long fps_high_tmp = 0;
-	unsigned long fps_low_tmp = 0;
+	unsigned long long fps_low_tmp = 0;
 	unsigned long long total = 0;
 
 	spin_lock_irqsave(&gdprec_logger_spinlock, flags);
@@ -1067,7 +1067,7 @@ void cal_fps_for_debug(void)
 		fps_high_tmp = l->total_fps * 1000 * 1000 * 1000;
 	fps_low_tmp = do_div(fps_high_tmp, total);
 	fps_low_tmp *= 10;
-	fps_low_tmp /= total;
+	do_div(fps_low_tmp, total);
 	fps_info_debug.total_fps_high = fps_high_tmp;
 	fps_info_debug.total_fps_low = fps_low_tmp;
 
@@ -1079,7 +1079,7 @@ void cal_fps_for_debug(void)
 			fps_high_tmp = l->layer_fps[i] * 1000 * 1000 * 1000;
 		fps_low_tmp = do_div(fps_high_tmp, total);
 		fps_low_tmp *= 10;
-		fps_low_tmp /= total;
+		do_div(fps_low_tmp, total);
 		fps_info_debug.layer_fps_high[i] = fps_high_tmp;
 		fps_info_debug.layer_fps_low[i] = fps_low_tmp;
 		fps_high_tmp = 0;
@@ -1096,7 +1096,7 @@ int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
 	int len = 0;
 	struct dprec_logger *l = &logger[source];
 	unsigned long long fps_high = 0;
-	unsigned long fps_low = 0;
+	unsigned long long fps_low = 0;
 	unsigned long long avg;
 	unsigned long long count;
 	unsigned long long total = 0;
@@ -1136,7 +1136,7 @@ int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
 	    source == DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND ||
 	    source == DPREC_LOGGER_PQ_TRIGGER_1SECOND) {
 		fps_low *= 1000;
-		fps_low /= total;
+		do_div(fps_low, total);
 	}
 	if (fps) {
 		fps->fps = fps_high;
