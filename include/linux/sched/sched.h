@@ -48,4 +48,8 @@ typedef int (*idle_power_func)(int, int, int, void *, int);
 typedef int (*busy_power_func)(int, int, void*, int);
 #endif
 
+#ifdef CONFIG_SCHED_TUNE
+extern int set_stune_task_threshold(int threshold);
+#endif
+
 #endif
