@@ -75,7 +75,7 @@ struct thread_info {
 	.flags		= 0,						\
 	.preempt_count	= INIT_PREEMPT_COUNT,				\
 	.addr_limit	= KERNEL_DS,					\
-	.cpu_excp = 0;	/* aee */					\
+	.cpu_excp = 0	/* aee */					\
 }
 
 #define init_thread_info	(init_thread_union.thread_info)

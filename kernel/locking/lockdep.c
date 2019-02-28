@@ -704,7 +704,7 @@ static void lockdep_print_held_locks(struct task_struct *curr)
 		printk("no locks held by %s/%d.\n", curr->comm, task_pid_nr(curr));
 		return;
 	}
-	pr_info("%d lock%s held by %s/%d/stat[0x%x] on CPU#%d:\n",
+	pr_info("%d lock%s held by %s/%d/stat[%ld] on CPU#%d:\n",
 		depth, depth > 1 ? "s" : "", curr->comm,
 		curr->pid, curr->state, task_cpu(curr));
 
