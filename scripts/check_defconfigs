@@ -12,8 +12,6 @@ function usage ()
 }
 
 CONFIGS=
-OUT=out-$$
-FAIL=0
 UPDATE=0
 CHECK_COMMIT=0
 
@@ -29,11 +27,11 @@ while getopts "cuh" opt; do
 	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
 	if [ ".$KCONFIG" != "." ]; then
 		echo From git commit: Checking all defconfig due to Kconfig is changed.
-		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM\|CONFIG_ARCH_MEDIATEK" arch/arm/configs arch/arm64/configs`
-		break
+		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM" arch/arm/configs arch/arm64/configs`
 	fi
 
-	CONFIGS=`git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
+	CONFIGS+=" `git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`"
+	CONFIGS=`echo $CONFIGS | xargs -n1 | sort -u | xargs`
 	if [ ".$CONFIGS" != "." ]; then
 		echo From git commit: Checking $CONFIGS
 	fi
@@ -56,13 +54,14 @@ if [ $CHECK_COMMIT == 0 ]; then
 	CONFIGS="${CONFIGS} $*"
 fi
 
-mkdir ${OUT}
-
-for CONFIG in $CONFIGS ; do
+check_defconfig() {
+	CONFIG=$1
+	UPDATE=$2
+	FAIL=0
+	echo "Checking ${CONFIG}"
 	if [ ! -e ${CONFIG} ]; then
-		echo error: defconfig file $CONFIG not found
-		FAIL=1
-		continue
+		echo warning: defconfig file $CONFIG not found
+		return $FAIL
 	fi
 
 	echo $CONFIG | grep arch/arm64 > /dev/null
@@ -73,25 +72,29 @@ for CONFIG in $CONFIGS ; do
 		ARCH=arm64
 	fi
 
+	OUT=out-$$
+	mkdir ${OUT}
+
 	OUTPUT="$(make ARCH=${ARCH} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1)"
 	RETVAL=$?
 	echo "$OUTPUT"
 
 	if [ $RETVAL != 0 ]; then
 		echo error: Make ${CONFIG} error
+		rm -rf ${OUT}
 		FAIL=1
-		continue
+		return $FAIL
 	fi
 
 	# Check if there is a warning message
-	if echo "$OUTPUT" | grep -q ":warning:"; then
+	if echo "$OUTPUT" | grep -q "^warning:"; then
 		echo error: there is a warning message with Kconfig
+		rm -rf ${OUT}
 		FAIL=1
-		continue
+		return $FAIL
 	fi
 
 	# Check option mismatch
-	echo ${CONFIG} ${OUT}/.config
 	gawk 'BEGIN{lastf="";} { if (lastf != FILENAME) { if (lastf != "") CHECK=1; lastf=FILENAME; } }  \
 		/CONFIG_/ { match($0, /CONFIG_[^ =]*/); option=substr($0, RSTART, RLENGTH); \
 			if (CHECK==1) {  if (option in opts && opts[option]==$0) delete opts[option]; } \
@@ -99,10 +102,12 @@ for CONFIG in $CONFIGS ; do
 		END { C=0; RET=0; for (i in dups) { RET=1; C++; printf("error: %s duplicate in defconfig\n", i); } \
 			for (i in opts) { RET=1; C++;  printf("error: %s mismatch\n", i); } exit(RET);}' ${CONFIG} ${OUT}/.config
 	RETVAL=$?
+
 	if [ $RETVAL != 0 ]; then
 		echo error: ${CONFIG}: defconfig mismatch. Please check Kconfig and follow SOP to update _defconfig.
+		rm -rf ${OUT}
 		FAIL=1
-		continue
+		return $FAIL
 	fi
 
 	if [ $UPDATE == 0 ]; then
@@ -112,22 +117,27 @@ for CONFIG in $CONFIGS ; do
 		if [ $RETVAL != 0 ]; then
 			echo error: ${CONFIG} compare error. Please follow SOP to update _defconfig
 			echo "$OUTPUT"
+			rm -rf ${OUT}
 			FAIL=1
-			continue
+			return $FAIL
 		fi
 	else
 		cp ${OUT}/defconfig ${CONFIG}
 	fi
-done
 
-if [ $FAIL == 1 ]; then
-	echo
-	echo Please be informed that we had phased in defconfig check mechanism in kernel preflight for kernel 3.18 on 2015/7/27.
+	rm -rf ${OUT}
+	return $FAIL
+}
+export -f check_defconfig
+
+parallel check_defconfig ::: $CONFIGS ::: $UPDATE
+RETVAL=$?
+
+if [ $RETVAL != 0 ]; then
 	echo
 	echo Please check the following wiki for detail, thanks!
 	echo http://wiki.mediatek.inc/display/KernelStandardization/Check+defconfig+in+kernel+preflight
 	echo http://wiki.mediatek.inc/display/KernelStandardization/SOP+to+update+kernel+config
 fi
 
-rm -rf ${OUT}
-exit $FAIL
+exit $RETVAL
