@@ -322,13 +322,17 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		if (cap_based_alloc_and_pwr_collapse) {
 			cad |= llcc_table[i].dis_cap_alloc <<
 				llcc_table[i].slice_id;
-			regmap_write(drv_data->bcast_regmap,
+			ret = regmap_write(drv_data->bcast_regmap,
 					LLCC_TRP_SCID_DIS_CAP_ALLOC, cad);
+			if (ret)
+				return ret;
 
 			pcb |= llcc_table[i].retain_on_pc <<
 					llcc_table[i].slice_id;
-			regmap_write(drv_data->bcast_regmap,
-					LLCC_TRP_PCB_ACT, pcb);
+			ret = regmap_write(drv_data->bcast_regmap,
+						LLCC_TRP_PCB_ACT, pcb);
+			if (ret)
+				return ret;
 		}
 
 		if (llcc_table[i].activate_on_init) {
@@ -414,8 +418,10 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	platform_set_drvdata(pdev, drv_data);
 
 	ret = qcom_llcc_cfg_program(pdev);
-	if (ret)
+	if (ret) {
+		pr_err("llcc configuration failed!!\n");
 		return ret;
+	}
 
 	drv_data->ecc_irq = platform_get_irq(pdev, 0);
 	llcc_edac = platform_device_register_data(&pdev->dev,
