@@ -3,6 +3,8 @@
  * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  */
 
+#define pr_fmt(fmt)	"Qnovo: %s: " fmt, __func__
+
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -73,6 +75,7 @@
 #define USER_VOTER		"user_voter"
 #define SHUTDOWN_VOTER		"user_voter"
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
+#define HW_OK_TO_QNOVO_VOTER	"HW_OK_TO_QNOVO_VOTER"
 
 #define QNOVO_VOTER		"qnovo_voter"
 #define QNOVO_OVERALL_VOTER	"QNOVO_OVERALL_VOTER"
@@ -1126,8 +1129,8 @@ static void status_change_work(struct work_struct *work)
 	struct qnovo *chip = container_of(work,
 			struct qnovo, status_change_work);
 	union power_supply_propval pval;
-	bool usb_present = false;
-	int rc;
+	bool usb_present = false, hw_ok_to_qnovo = false;
+	int rc, battery_health, charge_status;
 
 	if (is_usb_available(chip)) {
 		rc = power_supply_get_property(chip->usb_psy,
@@ -1158,6 +1161,36 @@ static void status_change_work(struct work_struct *work)
 		vote(chip->awake_votable, USB_READY_VOTER, true, 0);
 		schedule_delayed_work(&chip->usb_debounce_work,
 				msecs_to_jiffies(DEBOUNCE_MS));
+	}
+
+	if (!is_batt_available(chip))
+		return;
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
+					&pval);
+	if (rc < 0) {
+		pr_err("Error in getting battery health, rc=%d\n", rc);
+		return;
+	}
+	battery_health = pval.intval;
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
+					&pval);
+	if (rc < 0) {
+		pr_err("Error in getting charging status, rc=%d\n", rc);
+		return;
+	}
+	charge_status = pval.intval;
+
+	pr_debug("USB present: %d health:%d charge_status: %d\n",
+		chip->usb_present, battery_health, charge_status);
+
+	if (chip->usb_present) {
+		hw_ok_to_qnovo =
+			(battery_health == POWER_SUPPLY_HEALTH_GOOD) &&
+			(charge_status == POWER_SUPPLY_STATUS_CHARGING);
+		vote(chip->not_ok_to_qnovo_votable, HW_OK_TO_QNOVO_VOTER,
+					!hw_ok_to_qnovo, 0);
 	}
 }
 
