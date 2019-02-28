@@ -176,13 +176,13 @@ zinstall install:
 
 PHONY += dtbs dtbs_install
 
-dtbs: prepare scripts $(DRVGEN_FILE_LIST)
+dtbs: prepare scripts $(DRVGEN_FILE_LIST) dtbo_check
 	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 dtbs_install:
 	$(Q)$(MAKE) $(dtbinst)=$(boot)/dts
 
-Image-dtb: vmlinux scripts dtbs apply_dtbo_check
+Image-dtb: vmlinux scripts dtbs
 	echo "Andy"
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 
