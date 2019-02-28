@@ -571,9 +571,6 @@ struct TGPD *_ex_mu3d_hal_prepare_tx_gpd(struct TGPD *gpd, dma_addr_t pBuf, unsi
 				  unsigned char ep_num, unsigned char _is_bdp, unsigned char isHWO,
 				  unsigned char ioc, unsigned char bps, unsigned char zlp)
 {
-	qmu_printk(K_DEBUG,
-		   "[TX] %s gpd=%p, epnum=%d, len=%d, zlp=%d, size(TGPD)=%lld, pBuf=%llx\n",
-		   __func__, gpd, ep_num, data_len, zlp, (u64) sizeof(struct TGPD), pBuf);
 	/*Set actual data point to "DATA Buffer" */
 	TGPD_SET_DATA(gpd, (unsigned long)pBuf);
 
@@ -830,9 +827,6 @@ struct TGPD *_ex_mu3d_hal_prepare_rx_gpd(struct TGPD *gpd, dma_addr_t pBuf, unsi
 				  unsigned char ep_num, unsigned char _is_bdp, unsigned char isHWO,
 				  unsigned char ioc, unsigned char bps, unsigned int cMaxPacketSize)
 {
-	qmu_printk(K_DEBUG, "[RX] %s gpd=%p, epnum=%d, len=%d, pBuf=%llx\n", __func__,
-		   gpd, ep_num, data_len, pBuf);
-
 	/*Set actual data point to "DATA Buffer" */
 	TGPD_SET_DATA(gpd, (unsigned long)pBuf);
 #if defined(CONFIG_USB_MU3D_DRV_36BIT)
