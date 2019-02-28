@@ -3557,7 +3557,7 @@ static inline unsigned int WPE_GetFrameState(signed int WPEReadIdx)
 	}
 	/*spin_unlock_irqrestore(*/
 	/*&(WPEInfo.SpinLockIrq[WPE_IRQ_TYPE_INT_WPE_ST]),flags);*/
-	LOG_DBG("WPE: Leave %s\n");
+	LOG_DBG("WPE: Leave %s\n", __func__);
 
 	return ret;
 }
