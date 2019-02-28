@@ -1074,7 +1074,8 @@ firmware_class.path=/vendor/firmware";
 
 	devapc@10207000 {
 		compatible = "mediatek,devapc";
-		reg = <0 0x10207000 0 0x1000>;
+		reg = <0 0x10207000 0 0x1000>,
+			<0 0x1000E000 0 0x1000>;
 		interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
 		clock-names = "devapc-infra-clock";
