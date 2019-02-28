@@ -19,6 +19,7 @@
 #include <linux/kdb.h>
 #include <linux/utsname.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/list.h>
 #include <linux/init.h>
 #include <linux/smp.h>
