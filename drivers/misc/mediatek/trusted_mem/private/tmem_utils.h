@@ -48,6 +48,7 @@
 #define SIZE_16M      0x01000000    /* 16M   */
 #define SIZE_32M      0x02000000    /* 32M   */
 #define SIZE_64M      0x04000000    /* 64M   */
+#define SIZE_96M      0x06000000    /* 96M   */
 #define SIZE_128M     0x08000000    /* 128M  */
 #define SIZE_256M     0x10000000    /* 256M  */
 #define SIZE_320M     0x14000000    /* 320M  */

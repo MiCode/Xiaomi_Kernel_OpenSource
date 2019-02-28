@@ -251,6 +251,14 @@ static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 		return SIZE_64M;
 	case TRUSTED_MEM_SVP_VIRT_2D_FR:
 		return SIZE_16M;
+	case TRUSTED_MEM_HAPP:
+		return SIZE_16M;
+	case TRUSTED_MEM_HAPP_EXTRA:
+		return SIZE_96M;
+	case TRUSTED_MEM_SDSP:
+		return SIZE_16M;
+	case TRUSTED_MEM_SDSP_SHARED:
+		return SIZE_16M;
 	default:
 		return SIZE_4K;
 	}
@@ -283,9 +291,23 @@ enum UT_RET_STATE mem_handle_list_deinit(void)
 	return UT_STATE_PASS;
 }
 
+static bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_HAPP:
+	case TRUSTED_MEM_HAPP_EXTRA:
+	case TRUSTED_MEM_SDSP:
+	case TRUSTED_MEM_SDSP_SHARED:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static u32 get_saturation_test_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
 {
-	if (mem_type == TRUSTED_MEM_PROT)
+	if (is_mtee_mchunks(mem_type))
 		return get_saturation_stress_pmem_min_chunk_size();
 
 	return tmem_core_get_min_chunk_size(mem_type);
@@ -570,6 +592,7 @@ static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 	int idx;
 	int chunk_cnt;
 	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
+	u32 max_total_sz = get_max_pool_size(mem_type) / MEM_SPAWN_THREAD_COUNT;
 
 	/* create new thread */
 	for (idx = 0; idx < MEM_SPAWN_THREAD_COUNT; idx++) {
@@ -579,7 +602,7 @@ static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 			 "mem%d_thread_%d", mem_type, idx);
 		thread_param[mem_type][idx].mem_type = mem_type;
 		thread_param[mem_type][idx].alloc_chunk_size = min_alloc_sz;
-		thread_param[mem_type][idx].alloc_total_size = SIZE_8M;
+		thread_param[mem_type][idx].alloc_total_size = max_total_sz;
 		chunk_cnt = thread_param[mem_type][idx].alloc_total_size
 			    / thread_param[mem_type][idx].alloc_chunk_size;
 		thread_param[mem_type][idx].running = false;
@@ -647,6 +670,7 @@ enum UT_RET_STATE mem_alloc_multithread_test(enum TRUSTED_MEM_TYPE mem_type)
 	return UT_STATE_PASS;
 }
 
+#if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 static enum UT_RET_STATE mem_multi_type_alloc_multithread_test_locked(void)
 {
 	int mem_idx;
@@ -674,6 +698,41 @@ static enum UT_RET_STATE mem_multi_type_alloc_multithread_test_locked(void)
 
 	return UT_STATE_PASS;
 }
+#endif
+
+#if MTEE_MCHUNKS_MULTIPLE_THREAD_TEST_ENABLE
+static enum UT_RET_STATE mem_mtee_mchunks_alloc_multithread_test_locked(void)
+{
+	int mem_idx;
+	int ret;
+
+	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
+	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+		if (!is_mtee_mchunks(mem_idx))
+			continue;
+		if (tmem_core_is_device_registered(mem_idx)) {
+			ret = mem_create_run_thread(mem_idx);
+			ASSERT_EQ(0, ret, "create run thread check");
+		}
+	}
+
+	for (mem_idx = TRUSTED_MEM_PHYICAL_START;
+	     mem_idx <= TRUSTED_MEM_PHYSICAL_END; mem_idx++) {
+		if (!is_mtee_mchunks(mem_idx))
+			continue;
+		if (tmem_core_is_device_registered(mem_idx)) {
+			ret = mem_wait_run_thread(mem_idx);
+			ASSERT_EQ(0, ret,
+				  "wait for running thread to stop check");
+		}
+	}
+
+	ret = all_regmgr_state_off_check();
+	ASSERT_EQ(0, ret, "all region state off check");
+
+	return UT_STATE_PASS;
+}
+#endif
 
 static bool multi_type_alloc_multithread_locked;
 static inline void set_multi_type_test_lock(bool lock_en)
@@ -685,6 +744,7 @@ bool is_multi_type_alloc_multithread_test_locked(void)
 	return multi_type_alloc_multithread_locked;
 }
 
+#if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 enum UT_RET_STATE mem_multi_type_alloc_multithread_test(void)
 {
 	int ret;
@@ -696,6 +756,21 @@ enum UT_RET_STATE mem_multi_type_alloc_multithread_test(void)
 	ASSERT_EQ(0, ret, "multi type alloc multithread test check");
 	return UT_STATE_PASS;
 }
+#endif
+
+#if MTEE_MCHUNKS_MULTIPLE_THREAD_TEST_ENABLE
+enum UT_RET_STATE mem_mtee_mchunks_alloc_multithread_test(void)
+{
+	int ret;
+
+	set_multi_type_test_lock(true);
+	ret = mem_mtee_mchunks_alloc_multithread_test_locked();
+	set_multi_type_test_lock(false);
+
+	ASSERT_EQ(0, ret, "mtee multiple chunks multithread test check");
+	return UT_STATE_PASS;
+}
+#endif
 
 enum UT_RET_STATE ut_dummy(void)
 {

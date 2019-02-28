@@ -58,11 +58,77 @@ config MTK_WFD_SMEM_SUPPORT
 	  If unsure, say N.
 
 #
+# HAPP Memory configuration
+#
+config MTK_HAPP_MEM_SUPPORT
+	tristate "MTK MTEE Hypervisor App Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek MTEE EL2 app memory driver.
+	  This driver is in charge of EL2 app memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# SDSP Memory configuration
+#
+config MTK_SDSP_MEM_SUPPORT
+	tristate "MTK MTEE SDSP Firmware Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek MTEE SDSP firmware memory driver.
+	  This driver is in charge of SDSP image memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# SDSP/TEE Shared Memory configuration
+#
+config MTK_SDSP_SHARED_MEM_SUPPORT
+	tristate "MTK MTEE SDSP Shared Memory Support"
+	depends on MTK_GZ_KREE
+	default n
+	help
+	  Enable the support of MediaTek MTEE SDSP shared memory driver.
+	  This driver is in charge of SDSP shared memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
+	  memory management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
+# MTEE Multiple Chunk Memory configuration
+#
+config MTK_MTEE_MULTI_CHUNK_SUPPORT
+	tristate "MTK MTEE Multiple Chunk Memory Support"
+	depends on MTK_HAPP_MEM_SUPPORT || MTK_SDSP_MEM_SUPPORT || \
+		   MTK_SDSP_SHARED_MEM_SUPPORT
+	default y
+	help
+	  Enable the support of MediaTek MTEE multiple chunks memory driver.
+	  This driver is in charge of multi-chunk memory region require/release
+	  from SSMR and also the memory allocation/free requests from ION.
+	  It is a proxy of MTEE multi-chunk memory driver for isolated memory
+	  management.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+#
 # Trusted Memory Subsystem Configuration
 #
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
-	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+		   MTK_MTEE_MULTI_CHUNK_SUPPORT
 	default y
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.

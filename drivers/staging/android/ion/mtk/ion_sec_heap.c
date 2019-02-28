@@ -137,6 +137,32 @@ static void ion_sec_heap_unmap_dma(
 	sg_free_table(buffer->sg_table);
 }
 
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+static enum TRUSTED_MEM_REQ_TYPE get_trusted_mem_type(unsigned int heap_id)
+{
+	switch (heap_id) {
+	case ION_HEAP_TYPE_MULTIMEDIA_SEC:
+		return TRUSTED_MEM_REQ_SVP;
+	case ION_HEAP_TYPE_MULTIMEDIA_PROT:
+		return TRUSTED_MEM_REQ_PROT;
+	case ION_HEAP_TYPE_MULTIMEDIA_2D_FR:
+		return TRUSTED_MEM_REQ_2D_FR;
+	case ION_HEAP_TYPE_MULTIMEDIA_WFD:
+		return TRUSTED_MEM_REQ_WFD;
+	case ION_HEAP_TYPE_MULTIMEDIA_HAPP:
+		return TRUSTED_MEM_REQ_HAPP;
+	case ION_HEAP_TYPE_MULTIMEDIA_HAPP_EXTRA:
+		return TRUSTED_MEM_REQ_HAPP_EXTRA;
+	case ION_HEAP_TYPE_MULTIMEDIA_SDSP:
+		return TRUSTED_MEM_REQ_SDSP;
+	case ION_HEAP_TYPE_MULTIMEDIA_SDSP_SHARED:
+		return TRUSTED_MEM_REQ_SDSP_SHARED;
+	default:
+		return TRUSTED_MEM_REQ_SVP;
+	}
+}
+#endif
+
 static int ion_sec_heap_allocate(struct ion_heap *heap,
 				 struct ion_buffer *buffer,
 				 unsigned long size, unsigned long align,
@@ -145,6 +171,9 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	u32 sec_handle = 0;
 	struct ion_sec_buffer_info *pbufferinfo = NULL;
 	u32 refcount = 0;
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	enum TRUSTED_MEM_REQ_TYPE tmem_type;
+#endif
 
 	IONDBG(
 		"%s enter id %d size 0x%lx align %ld flags 0x%lx\n",
@@ -166,51 +195,15 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	}
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
-	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_PROT) {
-		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			trusted_mem_api_alloc_zero(
-				TRUSTED_MEM_REQ_PROT,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-		else
-			trusted_mem_api_alloc(
-				TRUSTED_MEM_REQ_PROT,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR) {
-		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			trusted_mem_api_alloc_zero(
-				TRUSTED_MEM_REQ_2D_FR,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-		else
-			trusted_mem_api_alloc(
-				TRUSTED_MEM_REQ_2D_FR,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_WFD) {
-		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			trusted_mem_api_alloc_zero(
-				TRUSTED_MEM_REQ_WFD,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-		else
-			trusted_mem_api_alloc(
-				TRUSTED_MEM_REQ_WFD,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-	} else if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
-		if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
-			trusted_mem_api_alloc_zero(
-				TRUSTED_MEM_REQ_SVP,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-		else
-			trusted_mem_api_alloc(
-				TRUSTED_MEM_REQ_SVP,
-				align, size, &refcount, &sec_handle,
-				(uint8_t *)heap->name, heap->id);
-	}
+	tmem_type = get_trusted_mem_type(heap->id);
+	if (flags & ION_FLAG_MM_HEAP_INIT_ZERO)
+		trusted_mem_api_alloc_zero(tmem_type, align, size, &refcount,
+					   &sec_handle, (uint8_t *)heap->name,
+					   heap->id);
+	else
+		trusted_mem_api_alloc(tmem_type, align, size, &refcount,
+				      &sec_handle, (uint8_t *)heap->name,
+				      heap->id);
 #elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 	{
 		int ret = 0;
@@ -284,6 +277,9 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 	struct ion_sec_buffer_info *pbufferinfo =
 		(struct ion_sec_buffer_info *)buffer->priv_virt;
 	u32 sec_handle = 0;
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	enum TRUSTED_MEM_REQ_TYPE tmem_type;
+#endif
 
 	IONDBG("%s enter priv_virt %p\n", __func__, buffer->priv_virt);
 	sec_heap_total_memory -= buffer->size;
@@ -291,26 +287,10 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 		((struct ion_sec_buffer_info *)buffer->priv_virt)->priv_phys;
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
-	if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_PROT)
-		trusted_mem_api_unref(
-			TRUSTED_MEM_REQ_PROT,
-			sec_handle, (uint8_t *)buffer->heap->name,
-			buffer->heap->id);
-	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_2D_FR)
-		trusted_mem_api_unref(
-			TRUSTED_MEM_REQ_2D_FR,
-			sec_handle, (uint8_t *)buffer->heap->name,
-			buffer->heap->id);
-	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_WFD)
-		trusted_mem_api_unref(
-		TRUSTED_MEM_REQ_WFD,
-		sec_handle, (uint8_t *)buffer->heap->name,
-			buffer->heap->id);
-	else if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC)
-		trusted_mem_api_unref(
-		TRUSTED_MEM_REQ_SVP,
-		sec_handle, (uint8_t *)buffer->heap->name,
-			buffer->heap->id);
+	tmem_type = get_trusted_mem_type(heap->id);
+	trusted_mem_api_unref(tmem_type, sec_handle,
+			      (uint8_t *)buffer->heap->name,
+			      buffer->heap->id);
 #elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 	{
 		int ret = 0;

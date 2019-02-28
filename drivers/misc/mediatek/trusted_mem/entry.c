@@ -418,3 +418,19 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
 
 	return mem_device->configs.minimal_chunk_size;
 }
+
+bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
+			       u32 *size)
+{
+	struct trusted_mem_device *mem_device =
+		get_trusted_mem_device(mem_type);
+
+	if (unlikely(INVALID(mem_device)))
+		return false;
+
+	*pa = mem_device->peer_mgr->peer_mgr_data.mem_pa_start;
+	*size = mem_device->peer_mgr->peer_mgr_data.mem_size;
+
+	pr_debug("[%d] region pa: 0x%llx, sz: 0x%x\n", mem_type, *pa, *size);
+	return true;
+}
