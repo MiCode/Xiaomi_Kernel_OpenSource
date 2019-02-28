@@ -83,9 +83,28 @@ int xfrm4_output_finish(struct sock *sk, struct sk_buff *skb)
 	return xfrm_output(sk, skb);
 }
 
+static int __xfrm4_output_finish(struct net *net, struct sock *sk,
+				 struct sk_buff *skb)
+{
+	struct xfrm_state *x = skb_dst(skb)->xfrm;
+
+	return x->outer_mode->afinfo->output_finish(sk, skb);
+}
+
+static inline int ip4_skb_dst_mtu(struct sk_buff *skb)
+{
+	struct inet_sock *np = skb->sk && !dev_recursion_level() ?
+				inet_sk(skb->sk) : NULL;
+
+	return (np && np->pmtudisc >= IP_PMTUDISC_PROBE) ?
+	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+}
+
 static int __xfrm4_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 {
 	struct xfrm_state *x = skb_dst(skb)->xfrm;
+	int mtu;
+	bool toobig;
 
 #ifdef CONFIG_NETFILTER
 	if (!x) {
@@ -93,7 +112,25 @@ static int __xfrm4_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 		return dst_output(net, sk, skb);
 	}
 #endif
+	if (x->props.mode != XFRM_MODE_TUNNEL)
+		goto skip_frag;
 
+	if (skb->protocol == htons(ETH_P_IP))
+		mtu = ip4_skb_dst_mtu(skb);
+	else
+		goto skip_frag;
+
+	toobig = skb->len > mtu && !skb_is_gso(skb);
+
+	if (!skb->ignore_df && toobig && skb->sk) {
+		xfrm_local_error(skb, mtu);
+		return -EMSGSIZE;
+	}
+
+	if (toobig || dst_allfrag(skb_dst(skb)))
+		return ip_fragment(net, sk, skb, mtu, __xfrm4_output_finish);
+
+skip_frag:
 	return x->outer_mode->afinfo->output_finish(sk, skb);
 }
 
