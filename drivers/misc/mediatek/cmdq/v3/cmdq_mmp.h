@@ -17,7 +17,6 @@
 #include "cmdq_helper_ext.h"
 #ifdef CMDQ_PROFILE_MMP
 #include "mmprofile.h"
-#include "mmprofile_function.h"
 #endif
 
 struct CMDQ_MMP_events_t {
