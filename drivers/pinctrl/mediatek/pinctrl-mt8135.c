@@ -238,7 +238,8 @@ static const struct mtk_spec_pull_set spec_pupd[] = {
 	SPEC_PULL(202, PUPD_BASE2+0xc0, 10, R0_BASE1, 12, R1_BASE2+0xc0, 10)
 };
 
-static int spec_pull_set(struct regmap *regmap, unsigned int pin,
+static int spec_pull_set(struct mtk_pinctrl *pctl,
+		struct regmap *regmap, unsigned int pin,
 		unsigned char align, bool isup, unsigned int r1r0)
 {
 	unsigned int i;
@@ -310,9 +311,11 @@ static const struct mtk_pinctrl_devdata mt8135_pinctrl_data = {
 	.pinmux_offset = 0x0C00,
 	.type1_start = 34,
 	.type1_end = 149,
+	.regmap_num = 2,
 	.port_shf = 4,
 	.port_mask = 0xf,
 	.port_align = 4,
+	.port_pin_shf = 4,
 	.eint_offsets = {
 		.name = "mt8135_eint",
 		.stat      = 0x000,
