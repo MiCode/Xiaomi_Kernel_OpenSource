@@ -3839,12 +3839,12 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				 * Confiugure USB500 mode if Float charger is
 				 * configured for SDP mode.
 				 */
-				rc = set_sdp_current(chg, USBIN_500MA);
+				rc = vote(chg->usb_icl_votable,
+					SW_ICL_MAX_VOTER, true, USBIN_500MA);
 				if (rc < 0)
 					smblib_err(chg,
 						"Couldn't set SDP ICL rc=%d\n",
 						rc);
-
 				return rc;
 			}
 
