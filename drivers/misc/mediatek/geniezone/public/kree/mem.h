@@ -593,6 +593,10 @@ TZ_RESULT KREE_QuerySecurechunkmem(KREE_SESSION_HANDLE session,
 
 #endif /* end of chunk mem API */
 
+TZ_RESULT KREE_ConfigSecureMultiChunkMemInfo(KREE_SESSION_HANDLE session,
+					     uint64_t pa, uint32_t size,
+					     uint32_t region_id);
+
 /*fix mtee sync*/
 #ifdef CONFIG_MTEE_CMA_SECURE_MEMORY
 /**
