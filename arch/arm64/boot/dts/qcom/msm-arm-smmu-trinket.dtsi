@@ -23,6 +23,7 @@
 		#iommu-cells = <2>;
 		qcom,dynamic;
 		qcom,skip-init;
+		qcom,no-dynamic-asid;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
 		qcom,regulator-names = "vdd";
