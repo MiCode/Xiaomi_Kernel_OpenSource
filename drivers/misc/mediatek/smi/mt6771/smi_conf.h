@@ -11,14 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __SMI_CONF_MT6771_H__
-#define __SMI_CONF_MT6771_H__
+#ifndef __SMI_CONF_H__
+#define __SMI_CONF_H__
 
 #include <soc/mediatek/smi.h>
-#include "smi_reg.h"
-#include "smi_conf_dbg.h"
+#include "smi_hw.h"
+#include "../smi_reg.h"
+#include "../smi_conf_dbg.h"
 
-#define SMI_LARB_NUM		7
 #define SMI_SCEN_NUM		2
 #define SMI_ESL_INIT		0
 #define SMI_ESL_VPWFD		(SMI_ESL_INIT)
@@ -32,23 +32,6 @@ static u32 smi_scen_map[SMI_BWC_SCEN_CNT] = {
 	SMI_ESL_VPWFD, SMI_ESL_VPWFD,
 	SMI_ESL_VR4K, SMI_ESL_VR4K, SMI_ESL_VR4K, SMI_ESL_VR4K,
 	SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_INIT
-};
-
-#define SMI_COMM_SCEN_NUM	(SMI_LARB_NUM)
-#define SMI_LARB0_PORT_NUM	10	/* SYS_DIS */
-#define SMI_LARB1_PORT_NUM	7	/* SYS_VDE */
-#define SMI_LARB2_PORT_NUM	3	/* SYS_ISP */
-#define SMI_LARB3_PORT_NUM	5	/* SYS_CAM */
-#define SMI_LARB4_PORT_NUM	11	/* SYS_VEN */
-#define SMI_LARB5_PORT_NUM	25	/* SYS_ISP */
-#define SMI_LARB6_PORT_NUM	31	/* SYS_CAM */
-
-static u32 smi_larb_cmd_gr_en_port[SMI_LARB_NUM][2] = {
-	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}
-};
-
-static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
-	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}
 };
 
 /* conf */
@@ -90,10 +73,10 @@ struct mtk_smi_pair *smi_conf_pair[SMI_LARB_NUM + 1] = {
 };
 
 /* scen: INIT */
-struct mtk_smi_pair smi_comm_init_pair[SMI_COMM_SCEN_NUM] = {
-	{SMI_BUS_SEL, 0x4414},
+struct mtk_smi_pair smi_comm_init_pair[SMI_LARB_NUM] = {
 	{SMI_L1ARB(0), 0x0}, {SMI_L1ARB(1), 0x0}, {SMI_L1ARB(2), 0x0},
-	{SMI_L1ARB(3), 0x0}, {SMI_L1ARB(5), 0x0}, {SMI_L1ARB(6), 0x0}
+	{SMI_L1ARB(3), 0x0}, {SMI_L1ARB(5), 0x0}, {SMI_L1ARB(6), 0x0},
+	{SMI_BUS_SEL, 0x4414},
 };
 
 struct mtk_smi_pair smi_larb0_init_pair[SMI_LARB0_PORT_NUM] = {
@@ -167,7 +150,7 @@ struct mtk_smi_pair smi_larb6_init_pair[SMI_LARB6_PORT_NUM] = {
 };
 
 /* scen: ICFP */
-struct mtk_smi_pair smi_comm_icfp_pair[SMI_COMM_SCEN_NUM] = {
+struct mtk_smi_pair smi_comm_icfp_pair[SMI_LARB_NUM] = {
 	{SMI_BUS_SEL, 0x4414},
 	{SMI_L1ARB(0), 0x1361}, {SMI_L1ARB(1), 0x119e}, {SMI_L1ARB(2), 0x12ad},
 	{SMI_L1ARB(3), 0x130d}, {SMI_L1ARB(5), 0x1610}, {SMI_L1ARB(6), 0x1610}
@@ -296,7 +279,7 @@ u32 smi_scen_pair_num[SMI_LARB_NUM + 1] = {
 	SMI_LARB0_PORT_NUM, SMI_LARB1_PORT_NUM, SMI_LARB2_PORT_NUM,
 	SMI_LARB3_PORT_NUM, SMI_LARB4_PORT_NUM, SMI_LARB5_PORT_NUM,
 	SMI_LARB6_PORT_NUM,
-	SMI_COMM_SCEN_NUM
+	SMI_LARB_NUM
 };
 
 struct mtk_smi_pair **smi_scen_pair[SMI_LARB_NUM + 1] = {

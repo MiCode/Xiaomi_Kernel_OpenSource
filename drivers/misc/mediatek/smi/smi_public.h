@@ -20,12 +20,12 @@ enum {
 	SMI_LARB5, SMI_LARB6, SMI_LARB7, SMI_LARB8, SMI_LARB9,
 };
 
-bool smi_mm_first_check(void);
+bool smi_mm_first_get(void);
 s32 smi_bus_prepare_enable(const u32 id, const char *user);
 s32 smi_bus_disable_unprepare(const u32 id, const char *user);
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user);
 #else
-#define smi_mm_first_check(void) ((void)0)
+#define smi_mm_first_get(void) ((void)0)
 #define smi_bus_prepare_enable(id, user) ((void)0)
 #define smi_bus_disable_unprepare(id, user) ((void)0)
 #define smi_debug_bus_hang_detect(gce, user) ((void)0)
