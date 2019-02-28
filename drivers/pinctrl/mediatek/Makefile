@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 # Core
-obj-y				+= pinctrl-mtk-common.o
+obj-$(CONFIG_PINCTRL_MTK)	+= pinctrl-mtk-common.o
 
-ifneq ($(CONFIG_ARCH_MEDIATEK), n)
-ccflags-y += -DCONFIG_PINCTRL_MTK_ALTERNATIVE
-endif
+obj-$(CONFIG_EINT_MTK_V2)	+= mtk-eint-v2.o
+obj-$(CONFIG_PINCTRL_MTK_MOORE) += pinctrl-moore.o pinctrl-mtk-common-v2.o
+obj-$(CONFIG_PINCTRL_MTK_PARIS) += pinctrl-paris.o pinctrl-mtk-common-v2.o pinctrl-mtk-common-v2_debug.o
 
 # SoC Drivers
 obj-$(CONFIG_PINCTRL_MT2701)	+= pinctrl-mt2701.o
@@ -14,4 +14,5 @@ obj-$(CONFIG_PINCTRL_MT8168)	+= pinctrl-mt8168.o
 obj-$(CONFIG_PINCTRL_MT8173)	+= pinctrl-mt8173.o
 obj-$(CONFIG_PINCTRL_MT8183)	+= pinctrl-mt8183.o
 obj-$(CONFIG_PINCTRL_MT6397)	+= pinctrl-mt6397.o
-obj-$(CONFIG_PINCTRL_MT6771)	+= pinctrl-mt6771.o
+obj-$(CONFIG_PINCTRL_MT6768)	+= pinctrl-mt6768.o
+obj-$(CONFIG_PINCTRL_MT6771)	+= pinctrl-mt6771-paris.o
