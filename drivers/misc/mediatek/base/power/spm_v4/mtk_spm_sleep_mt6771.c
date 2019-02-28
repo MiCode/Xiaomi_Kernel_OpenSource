@@ -267,9 +267,8 @@ void spm_ap_mdsrc_req(u8 set)
 					mdelay(1);
 				} else {
 					spm_crit2(
-			"WARNING: MD SLEEP = %d, %s CAN NOT polling AP_MD1SRC_ACK\n",
-			__func__,
-			md_sleep);
+		"WARNING: MD SLEEP = %d, %s CAN NOT polling AP_MD1SRC_ACK\n",
+		md_sleep, __func__);
 					break;
 				}
 			}
