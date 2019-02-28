@@ -3583,7 +3583,7 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 
 	kasan_cache_create(s, &size, &s->flags);
 #ifdef CONFIG_SLUB_DEBUG
-	if (flags & SLAB_RED_ZONE) {
+	if (flags & SLAB_RED_ZONE && 0) {
 		/*
 		 * Add some empty padding so that we can catch
 		 * overwrites from earlier objects rather than let
