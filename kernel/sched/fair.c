@@ -8234,7 +8234,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag,
 
 	trace_sched_select_task_rq(p, result, prev_cpu, cpu,
 			task_util(p), boosted_task_util(p),
-			(schedtune_prefer_idle(p) > 0));
+			(schedtune_prefer_idle(p) > 0), wake_flags);
 	return cpu;
 
 }
