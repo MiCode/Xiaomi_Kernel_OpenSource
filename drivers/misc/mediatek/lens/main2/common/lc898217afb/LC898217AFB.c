@@ -25,7 +25,7 @@
 
 #include "lens_info.h"
 
-#define AF_DRVNAME "LC898217AF_DRV"
+#define AF_DRVNAME "LC898217AFB_DRV"
 #define AF_I2C_SLAVE_ADDR 0xE4
 
 #define AF_DEBUG
@@ -108,7 +108,11 @@ static int setPosition(unsigned short UsPosition)
 	unsigned int i4RetValue = 0;
 
 	UsPosition = 1023 - UsPosition;
-	TarPos = UsPosition;
+
+	if (UsPosition < 512)
+		TarPos = 0x800 + (UsPosition << 2);
+	else
+		TarPos = ((UsPosition - 512) << 2);
 
 	/* LOG_INF("DAC(%04d) -> %03x\n", UsPosition, TarPos); */
 
@@ -237,7 +241,7 @@ static inline int setAFMacro(unsigned long a_u4Position)
 }
 
 /* ////////////////////////////////////////////////////////////// */
-long LC898217AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+long LC898217AFB_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		      unsigned long a_u4Param)
 {
 	long i4RetValue = 0;
@@ -274,7 +278,7 @@ long LC898217AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 /* 2.Shut down the device on last close. */
 /* 3.Only called once on last time. */
 /* Q1 : Try release multiple times. */
-int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
+int LC898217AFB_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	int Ret = 0;
 
@@ -329,7 +333,7 @@ int LC898217AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	return Ret;
 }
 
-int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+int LC898217AFB_PowerDown(struct i2c_client *pstAF_I2Cclient,
 			int *pAF_Opened)
 {
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
@@ -378,7 +382,7 @@ int LC898217AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 	return 0;
 }
 
-int LC898217AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+int LC898217AFB_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 			    spinlock_t *pAF_SpinLock, int *pAF_Opened)
 {
 	#if POWER_ALWAYS_ON
@@ -393,7 +397,7 @@ int LC898217AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 	return 1;
 }
 
-int LC898217AF_GetFileName(unsigned char *pFileName)
+int LC898217AFB_GetFileName(unsigned char *pFileName)
 {
 	char FilePath[512];
 	char *FileString;
