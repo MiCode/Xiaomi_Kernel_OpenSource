@@ -96,7 +96,7 @@ static int barohub_get_pressure(char *buf, int bufsize)
 
 	return err;
 }
-static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
+static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
 {
 	char strbuf[BAROHUB_BUFSIZE];
 	int err = 0;
@@ -113,7 +113,7 @@ static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
 	}
 	return sprintf(buf, "%s\n", strbuf);
 }
-static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
+static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t res = 0;
 	struct barohub_ipi_data *obj = obj_ipi_data;
@@ -127,7 +127,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 			const char *buf, size_t count)
 {
 	struct barohub_ipi_data *obj = obj_ipi_data;
@@ -152,8 +152,8 @@ static ssize_t store_trace_value(struct device_driver *ddri,
 	}
 	return count;
 }
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
+static DRIVER_ATTR_RO(sensordata);
+static DRIVER_ATTR_RW(trace);
 
 static struct driver_attribute *barohub_attr_list[] = {
 	&driver_attr_sensordata,	/* dump sensor data */

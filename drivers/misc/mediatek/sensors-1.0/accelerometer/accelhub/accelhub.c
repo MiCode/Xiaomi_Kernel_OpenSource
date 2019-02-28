@@ -235,7 +235,7 @@ static int accelhub_ReadSensorData(char *buf, int bufsize)
 
 	return 0;
 }
-static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
+static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
 	char strbuf[ACCELHUB_BUFSIZE];
 
@@ -248,7 +248,7 @@ static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 
-static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
+static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
 {
 	char strbuf[ACCELHUB_BUFSIZE];
 
@@ -256,7 +256,7 @@ static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 
-static ssize_t show_cali_value(struct device_driver *ddri, char *buf)
+static ssize_t cali_show(struct device_driver *ddri, char *buf)
 {
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 	int len = 0;
@@ -270,7 +270,7 @@ static ssize_t show_cali_value(struct device_driver *ddri, char *buf)
 	return len;
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri, const char *buf,
+static ssize_t trace_store(struct device_driver *ddri, const char *buf,
 				 size_t count)
 {
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -299,7 +299,7 @@ static ssize_t store_trace_value(struct device_driver *ddri, const char *buf,
 	return count;
 }
 
-static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
+static ssize_t chip_orientation_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t _tLength = 0;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -310,7 +310,7 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
+static ssize_t chip_orientation_store(struct device_driver *ddri,
 				      const char *buf, size_t tCount)
 {
 	int _nDirection = 0, ret = 0;
@@ -339,7 +339,7 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 }
 
 static int gsensor_factory_enable_calibration(void);
-static ssize_t store_test_cali(struct device_driver *ddri, const char *buf,
+static ssize_t test_cali_store(struct device_driver *ddri, const char *buf,
 			       size_t tCount)
 {
 	int enable = 0, ret = 0;
@@ -354,20 +354,20 @@ static ssize_t store_test_cali(struct device_driver *ddri, const char *buf,
 	return tCount;
 }
 
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(cali, 0644, show_cali_value, NULL);
-static DRIVER_ATTR(trace, 0644, NULL, store_trace_value);
-static DRIVER_ATTR(orientation, 0644, show_chip_orientation,
-		   store_chip_orientation);
-static DRIVER_ATTR(test_cali, 0644, NULL, store_test_cali);
+static DRIVER_ATTR_RO(chipinfo);
+static DRIVER_ATTR_RO(sensordata);
+static DRIVER_ATTR_RO(cali);
+static DRIVER_ATTR_WO(trace);
+static DRIVER_ATTR_RW(chip_orientation);
+static DRIVER_ATTR_WO(test_cali);
 
 static struct driver_attribute *accelhub_attr_list[] = {
 	&driver_attr_chipinfo,   /*chip information */
 	&driver_attr_sensordata, /*dump sensor data */
 	&driver_attr_cali,       /*show calibration data */
 	&driver_attr_trace,      /*trace log */
-	&driver_attr_orientation, &driver_attr_test_cali,
+	&driver_attr_chip_orientation,
+	&driver_attr_test_cali,
 };
 
 static int accelhub_create_attr(struct device_driver *driver)

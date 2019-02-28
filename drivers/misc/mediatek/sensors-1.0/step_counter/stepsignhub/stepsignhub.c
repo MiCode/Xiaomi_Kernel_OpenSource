@@ -33,12 +33,12 @@ struct step_chub_ipi_data {
 };
 
 static struct step_chub_ipi_data obj_ipi_data;
-static ssize_t show_step_cds_value(struct device_driver *ddri, char *buf)
+static ssize_t step_cds_show(struct device_driver *ddri, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%s\n", buf);
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 	const char *buf, size_t count)
 {
 	struct step_chub_ipi_data *obj = &obj_ipi_data;
@@ -59,8 +59,8 @@ static ssize_t store_trace_value(struct device_driver *ddri,
 	return count;
 }
 
-static DRIVER_ATTR(step_cds, 0444, show_step_cds_value, NULL);
-static DRIVER_ATTR(trace, 0644, NULL, store_trace_value);
+static DRIVER_ATTR_RO(step_cds);
+static DRIVER_ATTR_WO(trace);
 
 static struct driver_attribute *step_chub_attr_list[] = {
 	&driver_attr_step_cds,
