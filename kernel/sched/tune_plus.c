@@ -18,6 +18,7 @@
 #endif
 
 int stune_task_threshold;
+static int default_stune_threshold;
 
 /* A mutex for set stune_task_threshold */
 static DEFINE_MUTEX(stune_threshold_mutex);
@@ -59,6 +60,30 @@ int sched_stune_task_threshold_handler(struct ctl_table *table,
 	}
 
 	return ret;
+}
+
+void calculate_default_stune_threshold(void)
+{
+	const struct sched_group_energy *sge_core;
+	struct hmp_domain *domain;
+	int cluster_first_cpu = 0;
+
+	rcu_read_lock();
+	for_each_hmp_domain_L_first(domain) {
+		cluster_first_cpu = cpumask_first(&domain->possible_cpus);
+		/* lowest capacity CPU in system */
+		sge_core = cpu_core_energy(cluster_first_cpu);
+		if (!sge_core) {
+			pr_info("schedtune: no energy model data\n");
+		} else {
+			default_stune_threshold = sge_core->cap_states[0].cap;
+			if (default_stune_threshold) {
+				set_stune_task_threshold(-1);
+				break;
+			}
+		}
+	}
+	rcu_read_unlock();
 }
 
 int boost_write_for_perf_idx(int idx, int boost_value)
