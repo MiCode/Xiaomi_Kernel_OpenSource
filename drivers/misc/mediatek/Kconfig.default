@@ -184,6 +184,8 @@ config ANDROID_DEFAULT_SETTING
 	select TASK_IO_ACCOUNTING
 	select TASKSTATS
 	select TASK_XACCT
+	select TCP_CONG_ADVANCED
+	select TCP_CONG_BIC
 	select TIMERFD
 	select TUN
 	select UID_SYS_STATS
