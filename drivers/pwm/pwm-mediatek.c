@@ -230,6 +230,7 @@ static int mtk_pwm_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_pwm_of_match[] = {
 	{ .compatible = "mediatek,mt7623-pwm" },
+	{ .compatible = "mediatek,mt8168-pwm" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mtk_pwm_of_match);
