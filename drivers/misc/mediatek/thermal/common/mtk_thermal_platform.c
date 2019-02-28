@@ -137,7 +137,6 @@ do { \
 /* ********************************************* */
 #include <linux/kernel_stat.h>
 #include <linux/cpumask.h>
-//#include <asm/cputime.h>   //JOSH
 #include <linux/sched.h>
 #include <linux/tick.h>
 #include <linux/time.h>
@@ -176,10 +175,9 @@ static u64 get_idle_time(int cpu)
 	if (idle_time == -1ULL)
 		/* !NO_HZ or cpu offline so we can rely on cpustat.idle */
 		idle = kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE];
-#if 0 //JOSH
 	else
-		idle = usecs_to_cputime64(idle_time);
-#endif
+		idle = idle_time * NSEC_PER_USEC;
+
 	return idle;
 }
 
@@ -193,10 +191,9 @@ static u64 get_iowait_time(int cpu)
 	if (iowait_time == -1ULL)
 		/* !NO_HZ or cpu offline so we can rely on cpustat.iowait */
 		iowait = kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT];
-#if 0 //JOSH
 	else
-		iowait = usecs_to_cputime64(iowait_time);
-#endif
+		iowait = iowait_time * NSEC_PER_USEC;
+
 	return iowait;
 }
 

@@ -316,24 +316,24 @@ int mtktspmic_get_hw_temp(void)
 	mtktspmic_dprintk("[pmic_debug] Raw=%d, T=%d\n", temp, temp1);
 
 	if ((temp1 > 100000) || (temp1 < -30000))
-		mtktspmic_info("[%d] raw=%d, PMIC T=%d", __func__,
+		mtktspmic_info("[%s] raw=%d, PMIC T=%d", __func__,
 				temp, temp1);
 
 	if ((temp1 > 150000) || (temp1 < -50000)) {
 		mtktspmic_info(
-				"[%d] temp(%d) too high, drop this data!\n",
+				"[%s] temp(%d) too high, drop this data!\n",
 				__func__, temp1);
 		temp1 = pre_temp1;
 	} else if ((PMIC_counter != 0)
 			&& (((pre_temp1 - temp1) > 30000)
 				|| ((temp1 - pre_temp1) > 30000))) {
 		mtktspmic_info(
-			"[%d] temp diff too large, drop this data\n", __func__);
+			"[%s] temp diff too large, drop this data\n", __func__);
 		temp1 = pre_temp1;
 	} else {
 		/* update previous temp */
 		pre_temp1 = temp1;
-		mtktspmic_dprintk("[%d] pre_temp1=%d\n", __func__,
+		mtktspmic_dprintk("[%s] pre_temp1=%d\n", __func__,
 				pre_temp1);
 
 		if (PMIC_counter == 0)
