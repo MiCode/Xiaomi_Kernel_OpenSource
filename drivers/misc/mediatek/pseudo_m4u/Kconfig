@@ -1,0 +1,5 @@
+config MTK_PSEUDO_M4U
+	bool "PSEUDO m4u driver for MTK m4u"
+	depends on MTK_IOMMU && (!MTK_M4U)
+	help
+	  MTK iommu support m4u.

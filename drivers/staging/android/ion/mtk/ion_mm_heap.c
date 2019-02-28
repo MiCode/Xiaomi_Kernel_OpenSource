@@ -39,7 +39,7 @@
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
-#include <mach/pseudo_m4u.h>
+#include "pseudo_m4u.h"
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu_ext.h"
 #endif
@@ -532,11 +532,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.emoduleid = buffer_info->module_id;
 	port_info.cache_coherent = buffer_info->coherent;
 	port_info.security = buffer_info->security;
-#if defined(CONFIG_MTK_M4U)
 	port_info.buf_size = buffer->size;
-#else
-	port_info.bufsize = buffer->size;
-#endif
 
 	if (((*(unsigned int *)addr & 0xffff) == ION_FLAG_GET_FIXED_PHYS) &&
 	    ((*(unsigned int *)len) == ION_FLAG_GET_FIXED_PHYS)) {
@@ -594,7 +590,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		mmprofile_log_ex(ion_mmp_events[PROFILE_MVA_ALLOC],
 				 MMPROFILE_FLAG_PULSE,
 				 port_info.mva,
-				 port_info.mva + port_info.bufsize);
+				 port_info.mva + port_info.buf_size);
 #endif
 
 	} else {
@@ -843,7 +839,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			     "current time %lld ms, total: %16zu!!\n",
 			     current_ts, mm_heap_total_memory);
 #ifdef CONFIG_MTK_PSEUDO_M4U
-	mtk_iommu_log_dump(s);
+	/* mtk_iommu_log_dump(s); */
 #endif
 	up_read(&dev->lock);
 
