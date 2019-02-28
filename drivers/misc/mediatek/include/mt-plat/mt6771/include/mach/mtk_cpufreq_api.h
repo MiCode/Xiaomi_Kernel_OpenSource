@@ -75,6 +75,7 @@ extern unsigned int mt_cpufreq_get_cpu_level(void);
 
 /* CPI */
 extern unsigned int mt_cpufreq_get_cur_freq_idx(unsigned int cluster_id);
+extern unsigned int mt_cpufreq_get_cur_cci_freq_idx(void);
 extern unsigned int
 mt_cpufreq_get_cur_phy_freq_idx_no_lock(unsigned int cluster_id);
 

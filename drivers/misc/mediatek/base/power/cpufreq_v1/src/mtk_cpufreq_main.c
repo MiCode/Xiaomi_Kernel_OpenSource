@@ -32,6 +32,7 @@ DEFINE_MUTEX(cpufreq_mutex);
 DEFINE_MUTEX(cpufreq_para_mutex);
 struct opp_idx_tbl opp_tbl_m[NR_OPP_IDX];
 int dvfs_disable_flag;
+unsigned int dvfs_init_flag;
 int new_idx_bk;
 
 struct mt_cpu_dvfs *id_to_cpu_dvfs(enum mt_cpu_dvfs_id id)
@@ -1200,6 +1201,7 @@ static int _mt_cpufreq_init(struct cpufreq_policy *policy)
 	if (ret)
 		tag_pr_notice("failed to setup frequency table\n");
 
+	dvfs_init_flag = 1;
 	FUNC_EXIT(FUNC_LV_MODULE);
 
 	return ret;
