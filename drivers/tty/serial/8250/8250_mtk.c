@@ -78,6 +78,13 @@
 #define MTK_UART_TX_TRIGGER	1
 #define MTK_UART_RX_TRIGGER	MTK_UART_RX_SIZE
 
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+char uart_write_statbuf[256];
+#endif
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define MTK_UART_FPGA_CLK  10000000
+#define MTK_UART_FPGA_BAUD 921600
+#endif
 #ifdef CONFIG_SERIAL_8250_DMA
 enum dma_rx_status {
 	DMA_RX_START = 0,
@@ -486,6 +493,37 @@ mtk8250_do_pm(struct uart_port *port, unsigned int state, unsigned int old)
 			mtk8250_runtime_suspend(port->dev);
 }
 
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+char *mtk8250_uart_dump(void)
+{
+	u32 high_speed = 0, dll = 0, dlh = 0, line = 0;
+	u32 lcr = 0, count = 0, point = 0, guide = 0;
+	struct uart_8250_port *up = NULL;
+
+	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
+		up = serial8250_get_port(line);
+		if (!uart_console(&up->port))
+			continue;
+		lcr = serial_in(up, UART_LCR);
+		serial_out(up, 0x27, 0x01);
+		high_speed = serial_in(up, MTK_UART_HIGHS);
+		count = serial_in(up, MTK_UART_SAMPLE_COUNT);
+		point = serial_in(up, MTK_UART_SAMPLE_POINT);
+		dll = serial_in(up, 0x24);
+		dlh = serial_in(up, 0x25);
+		guide = serial_in(up, MTK_UART_GUARD);
+		serial_out(up, 0x27, 0x00);
+	}
+	snprintf(uart_write_statbuf,
+		sizeof(uart_write_statbuf) - 1,
+	"high_speed = 0x%x, dll = 0x%x, dlh = 0x%x, lcr = 0x%x, count = 0x%x, point = 0x%x, guide = 0x%x",
+					high_speed, dll, dlh, lcr,
+					count, point, guide);
+	return uart_write_statbuf;
+}
+#endif
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_SERIAL_8250_DMA
 static bool mtk8250_dma_filter(struct dma_chan *chan, void *param)
 {
@@ -534,6 +572,7 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 
 	return 0;
 }
+#endif
 
 static int mtk8250_probe(struct platform_device *pdev)
 {
@@ -559,12 +598,14 @@ static int mtk8250_probe(struct platform_device *pdev)
 
 	data->clk_count = 0;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (pdev->dev.of_node) {
 		err = mtk8250_probe_of(pdev, &uart.port, data);
 		if (err)
 			return err;
 	} else
 		return -ENODEV;
+#endif
 
 	spin_lock_init(&uart.port.lock);
 	uart.port.mapbase = regs->start;
@@ -580,6 +621,9 @@ static int mtk8250_probe(struct platform_device *pdev)
 	uart.port.startup = mtk8250_startup;
 	uart.port.set_termios = mtk8250_set_termios;
 	uart.port.uartclk = clk_get_rate(data->uart_clk);
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	uart.port.uartclk = MTK_UART_FPGA_CLK;
+#endif
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (data->dma)
 		uart.dma = data->dma;
@@ -651,7 +695,8 @@ int mtk8250_request_to_sleep(void)
 			& MTK_UART_SLEEP_ACK_IDLE)) {
 			if (i++ >= MTK_UART_WAIT_ACK_TIMES) {
 				serial_out(up, MTK_UART_SLEEP_REQ, sleep_req);
-				pr_err("CANNOT GET UART%d SLEEP ACK\n", line);
+				pr_info_ratelimited("UART%d SLEEP ACK Fail\n",
+					line);
 				return -EBUSY;
 			}
 			udelay(10);
@@ -751,6 +796,68 @@ static void mtk8250_save_dev(struct device *dev)
 	reg->rx_sel = serial_in(up, MTK_UART_RX_SEL);
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
+
+/* Backup uart register before leave suspend
+ * To fix some messy code before uart resume
+ */
+void mtk8250_backup_dev(void)
+{
+	unsigned long flags;
+	int line = 0;
+	struct uart_8250_port *up;
+	struct mtk8250_data *data;
+	struct mtk8250_reg *reg;
+
+	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
+		up = serial8250_get_port(line);
+		data = dev_get_drvdata(up->port.dev);
+		reg = &data->reg;
+
+		if (!uart_console(&up->port))
+			continue;
+
+		spin_lock_irqsave(&up->port.lock, flags);
+
+		/* save when LCR = 0xBF */
+		reg->lcr = serial_in(up, UART_LCR);
+		serial_out(up, UART_LCR, 0xBF);
+		reg->efr = serial_in(up, UART_EFR);
+		serial_out(up, UART_LCR, reg->lcr);
+		reg->fcr_rd = serial_in(up, MTK_UART_FCR_RD);
+
+		/*save baudrate */
+		reg->highspeed = serial_in(up, MTK_UART_HIGHS);
+		reg->fracdiv_l = serial_in(up, MTK_UART_FRACDIV_L);
+		reg->fracdiv_m = serial_in(up, MTK_UART_FRACDIV_M);
+		serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
+		reg->dll = serial_in(up, UART_DLL);
+		reg->dlm = serial_in(up, UART_DLM);
+		serial_out(up, UART_LCR, reg->lcr);
+		reg->sample_count = serial_in(up, MTK_UART_SAMPLE_COUNT);
+		reg->sample_point = serial_in(up, MTK_UART_SAMPLE_POINT);
+		reg->guard = serial_in(up, MTK_UART_GUARD);
+
+		/* save flow control */
+		reg->mcr = serial_in(up, UART_MCR);
+		reg->ier = serial_in(up, UART_IER);
+		reg->xon1 = serial_in(up, UART_XON1);
+		reg->xon2 = serial_in(up, UART_XON2);
+		reg->xoff1 = serial_in(up, UART_XOFF1);
+		reg->xoff2 = serial_in(up, UART_XOFF2);
+		reg->escape_dat = serial_in(up, MTK_UART_ESCAPE_DAT);
+		reg->sleep_en = serial_in(up, MTK_UART_SLEEP_EN);
+
+		/* save others */
+		reg->escape_en = serial_in(up, MTK_UART_ESCAPE_EN);
+		reg->msr = serial_in(up, UART_MSR);
+		reg->scr = serial_in(up, UART_SCR);
+		reg->dma_en = serial_in(up, MTK_UART_DMA_EN);
+		reg->rxtri_ad = serial_in(up, MTK_UART_RXTRI_AD);
+		reg->rx_sel = serial_in(up, MTK_UART_RX_SEL);
+		spin_unlock_irqrestore(&up->port.lock, flags);
+	}
+}
+EXPORT_SYMBOL(mtk8250_backup_dev);
 
 void mtk8250_restore_dev(void)
 {
@@ -870,10 +977,15 @@ static int __init early_mtk8250_setup(struct earlycon_device *device,
 		return -ENODEV;
 
 	device->port.iotype = UPIO_MEM32;
-
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	device->port.uartclk = MTK_UART_FPGA_CLK;
+	device->baud = MTK_UART_FPGA_BAUD;
+#endif
 	return early_serial8250_setup(device, NULL);
 }
-
+#ifdef CONFIG_FPGA_EARLY_PORTING
+EARLYCON_DECLARE(mtk8250, early_mtk8250_setup);
+#endif
 OF_EARLYCON_DECLARE(mtk8250, "mediatek,mt6577-uart", early_mtk8250_setup);
 #endif
 
