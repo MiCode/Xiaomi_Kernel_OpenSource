@@ -5,6 +5,8 @@
 #ifndef __PINCTRL_MSM_H__
 #define __PINCTRL_MSM_H__
 
+#include <linux/pinctrl/qcom-pinctrl.h>
+
 struct pinctrl_pin_desc;
 
 /**
@@ -93,6 +95,16 @@ struct msm_pingroup {
 	unsigned intr_detection_width:5;
 };
 
+/*
+ * struct pinctrl_qup - Qup mode configuration
+ * @mode:	Qup i3c mode
+ * @offset:	Offset of the register
+ */
+struct pinctrl_qup {
+	u32 mode;
+	u32 offset;
+};
+
 /**
  * struct msm_pinctrl_soc_data - Qualcomm pin controller driver configuration
  * @pins:	    An array describing all pins the pin controller affects.
@@ -116,6 +128,8 @@ struct msm_pinctrl_soc_data {
 	const char *const *tiles;
 	unsigned int ntiles;
 	const int *reserved_gpios;
+	struct pinctrl_qup *qup_regs;
+	unsigned int nqup_regs;
 };
 
 extern const struct dev_pm_ops msm_pinctrl_dev_pm_ops;

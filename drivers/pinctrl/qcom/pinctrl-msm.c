@@ -22,6 +22,7 @@
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/log2.h>
+#include <linux/bitmap.h>
 
 #include "../core.h"
 #include "../pinconf.h"
@@ -31,6 +32,7 @@
 #define MAX_NR_GPIO 300
 #define MAX_NR_TILES 4
 #define PS_HOLD_OFFSET 0x820
+#define QUP_MASK       GENMASK(5, 0)
 
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
@@ -65,6 +67,8 @@ struct msm_pinctrl {
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs[MAX_NR_TILES];
 };
+
+static struct msm_pinctrl *msm_pinctrl_data;
 
 #define MSM_ACCESSOR(name) \
 static u32 msm_readl_##name(struct msm_pinctrl *pctrl, \
@@ -1128,6 +1132,42 @@ SIMPLE_DEV_PM_OPS(msm_pinctrl_dev_pm_ops, msm_pinctrl_suspend,
 
 EXPORT_SYMBOL(msm_pinctrl_dev_pm_ops);
 
+int msm_qup_write(u32 mode, u32 val)
+{
+	int i;
+	struct pinctrl_qup *regs = msm_pinctrl_data->soc->qup_regs;
+	int num_regs =  msm_pinctrl_data->soc->nqup_regs;
+
+	/*Iterate over modes*/
+	for (i = 0; i < num_regs; i++) {
+		if (regs[i].mode == mode) {
+			writel_relaxed(val & QUP_MASK,
+				 msm_pinctrl_data->regs[0] + regs[i].offset);
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+
+int msm_qup_read(unsigned int mode)
+{
+	int i, val;
+	struct pinctrl_qup *regs = msm_pinctrl_data->soc->qup_regs;
+	int num_regs =  msm_pinctrl_data->soc->nqup_regs;
+
+	/*Iterate over modes*/
+	for (i = 0; i < num_regs; i++) {
+		if (regs[i].mode == mode) {
+			val = readl_relaxed(msm_pinctrl_data->regs[0] +
+								regs[i].offset);
+			return val & QUP_MASK;
+		}
+	}
+
+	return -ENOENT;
+}
+
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
@@ -1136,7 +1176,8 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	int ret;
 	int i;
 
-	pctrl = devm_kzalloc(&pdev->dev, sizeof(*pctrl), GFP_KERNEL);
+	msm_pinctrl_data = pctrl = devm_kzalloc(&pdev->dev, sizeof(*pctrl),
+						GFP_KERNEL);
 	if (!pctrl)
 		return -ENOMEM;
 
