@@ -24,6 +24,7 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
+		serial0 = &qupv3_se2_2uart;	/*RUMI*/
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 	};
 
@@ -1390,3 +1391,5 @@
 &mvs1_gdsc {
 	status = "ok";
 };
+
+#include "lito-qupv3.dtsi"
