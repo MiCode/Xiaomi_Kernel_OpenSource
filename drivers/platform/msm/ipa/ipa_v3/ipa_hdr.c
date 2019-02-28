@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -54,7 +54,7 @@ static int ipa3_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 }
 
 static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
-	u32 hdr_base_addr)
+	u64 hdr_base_addr)
 {
 	struct ipa3_hdr_proc_ctx_entry *entry;
 	int ret;
@@ -109,10 +109,10 @@ static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
  *
  * Returns:	0 on success, negative on failure
  */
-static int ipa3_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
+static int ipa3_generate_hdr_proc_ctx_hw_tbl(u64 hdr_sys_addr,
 	struct ipa_mem_buffer *mem, struct ipa_mem_buffer *aligned_mem)
 {
-	u32 hdr_base_addr;
+	u64 hdr_base_addr;
 
 	mem->size = (ipa3_ctx->hdr_proc_ctx_tbl.end) ? : 4;
 
