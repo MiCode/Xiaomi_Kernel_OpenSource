@@ -20,7 +20,8 @@
 
 #if defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT6763) || \
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761)
+	defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || \
+	defined(CONFIG_MACH_MT8168)
 #define AAL_SUPPORT_KERNEL_API            (1)
 #endif
 

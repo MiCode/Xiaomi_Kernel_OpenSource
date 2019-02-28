@@ -28,7 +28,8 @@
 	defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6763) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6758) || \
 	defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || \
-	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967)
+	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT3967) || \
+	defined(CONFIG_MACH_MT8168)
 #include <ddp_clkmgr.h>
 #endif
 #endif
@@ -640,7 +641,7 @@ static int ddp_pwm_power_on(enum DISP_MODULE_ENUM module, void *handle)
 
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
-	defined(CONFIG_MACH_MT6761)
+	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT8168)
 	/* pwm ccf api */
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6771)
@@ -698,7 +699,7 @@ static int ddp_pwm_power_off(enum DISP_MODULE_ENUM module, void *handle)
 
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || \
 	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6765) || \
-	defined(CONFIG_MACH_MT6761)
+	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT8168)
 	/* pwm ccf api */
 	ddp_clk_disable_unprepare(ddp_get_module_clk_id(module));
 #elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6771)
@@ -779,7 +780,7 @@ bool disp_pwm_is_osc(void)
 	defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739) || \
 	defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6765) || \
 	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6771) || \
-	defined(CONFIG_MACH_MT3967)
+	defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT8168)
 
 	is_osc = disp_pwm_mux_is_osc();
 #endif

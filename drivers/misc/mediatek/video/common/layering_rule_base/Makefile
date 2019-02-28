@@ -12,3 +12,4 @@
 #
 
 obj-$(CONFIG_MACH_MT6771) += v1.1/
+obj-$(CONFIG_MACH_MT8168) += v1.1/
