@@ -134,6 +134,8 @@
 /* MTK_WDT_DEBUG_CTL */
 #define MTK_WDT_DEBUG_CTL_KEY           (0x59000000)
 #define MTK_RG_MCU_CACHE_PRESERVE       (0x00000008)
+#define MTK_WDT_DVFSRC_PAUSE_PULSE          (0x00008000)
+#define MTK_WDT_DVFSRC_SUCECESS_ACK         (0x00200000)
 
 /* MTK_WDT_DEBUG_CTL2 */
 #define MTK_WDT_DEBUG_CTL2_KEY           (0x55000000)
@@ -150,7 +152,7 @@
 #define MTK_WDT_DFD_THERMAL1_DIS    (1 << 18)
 #define MTK_WDT_DFD_THERMAL2_DIS    (1 << 19)
 #define MTK_WDT_DFD_TIMEOUT_SHIFT   (0)
-#define MTK_WDT_DFD_TIMEOUT_MASK    (0x1FFF << MTK_WDT_DFD_TIMEOUT_SHIFT)
+#define MTK_WDT_DFD_TIMEOUT_MASK    (0x1FFFF << MTK_WDT_DFD_TIMEOUT_SHIFT)
 
 /*MTK_WDT_RSTDEG_EN*/
 #define MTK_WDT_RSTDEG_EN1_KEY			(0xa357)
@@ -159,6 +161,11 @@
 /*MTK_WDT_SYSDBG_DEG_EN*/
 #define MTK_WDT_SYSDBG_DEG_EN1_KEY		(0x1b2a)
 #define MTK_WDT_SYSDBG_DEG_EN2_KEY		(0x4f59)
+
+enum wdt_rst_modes {
+	WDT_RST_MODE_DEFAULT,
+	WDT_RST_MODE_PMIC,
+};
 
 extern void __inner_flush_dcache_all(void);
 
