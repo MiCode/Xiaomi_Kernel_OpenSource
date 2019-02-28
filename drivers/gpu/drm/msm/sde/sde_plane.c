@@ -1604,9 +1604,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate, *old_pstate;
 	int ret = 0;
-	const struct msm_format *msm_fmt;
-	const struct sde_format *fmt;
-	u32 height;
+	u32 rotation;
 
 	if (!plane || !state) {
 		SDE_ERROR("invalid plane/state\n");
@@ -1618,27 +1616,38 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 	old_pstate = to_sde_plane_state(plane->state);
 
 	/* check inline rotation and simplify the transform */
-	pstate->rotation = drm_rotation_simplify(
+	rotation = drm_rotation_simplify(
 			state->rotation,
 			DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 |
 			DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
 
-	if ((pstate->rotation & DRM_MODE_ROTATE_180) ||
-		(pstate->rotation & DRM_MODE_ROTATE_270)) {
+	if ((rotation & DRM_MODE_ROTATE_180) ||
+		(rotation & DRM_MODE_ROTATE_270)) {
 		SDE_ERROR_PLANE(psde,
 			"invalid rotation transform must be simplified 0x%x\n",
-			pstate->rotation);
+			rotation);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	msm_fmt = msm_framebuffer_format(state->fb);
-	fmt = to_sde_format(msm_fmt);
-	height = state->fb ? state->fb->height : 0x0;
-
-	if ((pstate->rotation & DRM_MODE_ROTATE_90)) {
+	if (rotation & DRM_MODE_ROTATE_90) {
 		struct msm_drm_private *priv = plane->dev->dev_private;
 		struct sde_kms *sde_kms;
+		const struct msm_format *msm_fmt;
+		const struct sde_format *fmt;
+		struct sde_rect src;
+		bool q16_data = true;
+
+		msm_fmt = msm_framebuffer_format(state->fb);
+		fmt = to_sde_format(msm_fmt);
+		POPULATE_RECT(&src, state->src_x, state->src_y,
+			state->src_w, state->src_h, q16_data);
+		/*
+		 * DRM framework expects rotation flag in counter-clockwise
+		 * direction and the HW expects in clockwise direction.
+		 * Flip the flags to match with HW.
+		 */
+		rotation ^= (DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
 
 		if (!psde->pipe_sblk->in_rot_maxdwnscale_rt ||
 			!psde->pipe_sblk->in_rot_maxdwnscale_nrt ||
@@ -1657,25 +1666,22 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		}
 
 		/* check for valid height */
-		if (height > psde->pipe_sblk->in_rot_maxheight) {
+		if (src.h > psde->pipe_sblk->in_rot_maxheight) {
 			SDE_ERROR_PLANE(psde,
 				"invalid height for inline rot:%d max:%d\n",
-				height, psde->pipe_sblk->in_rot_maxheight);
+				src.h, psde->pipe_sblk->in_rot_maxheight);
 			ret = -EINVAL;
 			goto exit;
 		}
-
-		if (!sde_plane_enabled(state))
-			goto exit;
 
 		/* check for valid formats supported by inline rot */
 		sde_kms = to_sde_kms(priv->kms);
 		ret = sde_format_validate_fmt(&sde_kms->base, fmt,
 			psde->pipe_sblk->in_rot_format_list);
-
 	}
 
 exit:
+	pstate->rotation = rotation;
 	return ret;
 }
 
