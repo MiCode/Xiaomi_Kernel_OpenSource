@@ -673,7 +673,7 @@ static long _flashlight_ioctl(
 			flashlight_get_ct_index(fl_arg.ct_id));
 	mutex_unlock(&fl_mutex);
 	if (!fdev) {
-		pr_info("Find no flashlight device\n");
+		pr_info_ratelimited("Find no flashlight device\n");
 		return -EINVAL;
 	}
 
@@ -893,6 +893,7 @@ static int flashlight_release(struct inode *inode, struct file *file)
 
 		pr_debug("Release(%d,%d,%d)\n", fdev->dev_id.type,
 				fdev->dev_id.ct, fdev->dev_id.part);
+		fl_enable(fdev, 0);
 		fdev->ops->flashlight_release();
 	}
 	mutex_unlock(&fl_mutex);
@@ -991,6 +992,11 @@ static ssize_t flashlight_strobe_store(struct device *dev,
 	}
 
 	fl_arg.channel = fdev->dev_id.channel;
+	fl_arg.decouple = fdev->dev_id.decouple;
+
+	pr_info("channel:%d decouple:%d\n",
+			fl_arg.channel, fl_arg.decouple);
+
 	if (fdev->ops) {
 		fdev->ops->flashlight_strobe_store(fl_arg);
 		ret = size;

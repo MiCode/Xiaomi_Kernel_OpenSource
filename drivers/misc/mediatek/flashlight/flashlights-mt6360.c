@@ -66,6 +66,7 @@ static unsigned int mt6360_timeout_ms[MT6360_CHANNEL_NUM];
 
 /* define usage count */
 static int use_count;
+static int fd_use_count;
 
 /* define RTK flashlight device */
 static struct flashlight_device *flashlight_dev_ch1;
@@ -172,6 +173,9 @@ static int mt6360_enable(void)
 			|| (mt6360_en_ch2 == MT6360_ENABLE_FLASH))
 		mode = FLASHLIGHT_MODE_FLASH;
 
+	pr_debug("enable(%d,%d), mode:%d.\n",
+		mt6360_en_ch1, mt6360_en_ch2, mode);
+
 	/* enable channel 1 and channel 2 */
 	if (mt6360_en_ch1)
 		ret |= flashlight_set_mode(
@@ -197,6 +201,8 @@ static int mt6360_disable_ch1(void)
 {
 	int ret = 0;
 
+	pr_debug("disable_ch1.\n");
+
 	if (!flashlight_dev_ch1) {
 		pr_info("Failed to disable since no flashlight device.\n");
 		return -1;
@@ -213,6 +219,8 @@ static int mt6360_disable_ch1(void)
 static int mt6360_disable_ch2(void)
 {
 	int ret = 0;
+
+	pr_debug("disable_ch2.\n");
 
 	if (!flashlight_dev_ch2) {
 		pr_info("Failed to disable since no flashlight device.\n");
@@ -463,6 +471,9 @@ static int mt6360_operate(int channel, int enable)
 		}
 	}
 
+	pr_debug("en_ch(%d,%d), decouple:%d\n",
+		mt6360_en_ch1, mt6360_en_ch2, mt6360_decouple_mode);
+
 	/* operate flashlight and setup timer */
 	if ((mt6360_en_ch1 != MT6360_NONE) && (mt6360_en_ch2 != MT6360_NONE)) {
 		if ((mt6360_en_ch1 == MT6360_DISABLE) &&
@@ -556,6 +567,7 @@ static int mt6360_ioctl(unsigned int cmd, unsigned long arg)
 	case FLASH_IOC_IS_CHARGER_READY:
 		pr_debug("FLASH_IOC_IS_CHARGER_READY(%d)\n", channel);
 		fl_arg->arg = mt6360_is_charger_ready();
+		pr_debug("FLASH_IOC_IS_CHARGER_READY(%d)\n", fl_arg->arg);
 		break;
 
 	case FLASH_IOC_GET_DUTY_NUMBER:
@@ -592,12 +604,29 @@ static int mt6360_ioctl(unsigned int cmd, unsigned long arg)
 static int mt6360_open(void)
 {
 	/* Move to set driver for saving power */
+	mutex_lock(&mt6360_mutex);
+	fd_use_count++;
+	pr_debug("open driver: %d\n", fd_use_count);
+	mutex_unlock(&mt6360_mutex);
 	return 0;
 }
 
 static int mt6360_release(void)
 {
 	/* Move to set driver for saving power */
+	mutex_lock(&mt6360_mutex);
+	fd_use_count--;
+	pr_debug("close driver: %d\n", fd_use_count);
+	/* If camera NE, we need to enable pe by ourselves*/
+	if (fd_use_count == 0 && is_decrease_voltage) {
+#ifdef CONFIG_MTK_CHARGER
+		pr_info("Increase voltage level.\n");
+		charger_manager_enable_high_voltage_charging(
+				flashlight_charger_consumer, true);
+#endif
+		is_decrease_voltage = 0;
+	}
+	mutex_unlock(&mt6360_mutex);
 	return 0;
 }
 
@@ -628,7 +657,12 @@ static int mt6360_set_driver(int set)
 static ssize_t mt6360_strobe_store(struct flashlight_arg arg)
 {
 	mt6360_set_driver(1);
-	mt6360_set_scenario(
+	if (arg.decouple)
+		mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_CAMERA |
+			FLASHLIGHT_SCENARIO_DECOUPLE);
+	else
+		mt6360_set_scenario(
 			FLASHLIGHT_SCENARIO_CAMERA |
 			FLASHLIGHT_SCENARIO_COUPLE);
 	mt6360_set_level(arg.channel, arg.level);
@@ -640,7 +674,12 @@ static ssize_t mt6360_strobe_store(struct flashlight_arg arg)
 		mt6360_operate(arg.channel, MT6360_ENABLE);
 
 	msleep(arg.dur);
-	mt6360_set_scenario(
+	if (arg.decouple)
+		mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_FLASHLIGHT |
+			FLASHLIGHT_SCENARIO_DECOUPLE);
+	else
+		mt6360_set_scenario(
 			FLASHLIGHT_SCENARIO_FLASHLIGHT |
 			FLASHLIGHT_SCENARIO_COUPLE);
 	mt6360_operate(arg.channel, MT6360_DISABLE);
@@ -750,6 +789,7 @@ static int mt6360_probe(struct platform_device *pdev)
 
 	/* clear attributes */
 	use_count = 0;
+	fd_use_count = 0;
 	is_decrease_voltage = 0;
 
 	/* get RTK flashlight handler */
