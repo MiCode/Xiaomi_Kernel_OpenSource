@@ -30,6 +30,18 @@ Properties:
   Definition: Specifies the interrupt name for Qnovo5. There is only one
 		interrupt named as "ptrain-done".
 
+- pinctrl-N:
+  Usage:      optional
+  Value type: <phandle>
+  Definition: Specifies the pinctrl configuration that needs to be applied
+		when the charger is removed for controlling external FET.
+
+- pinctrl-names:
+  Usage:      optional
+  Value type: <string>
+  Definition: Specifies the names for pinctrl configurations defined above.
+		Allowed names are "q_state1" and "q_state2".
+
 Example:
 
 qcom,qpnp-qnovo@b000 {
@@ -37,4 +49,7 @@ qcom,qpnp-qnovo@b000 {
 	reg = <0xb000 0x100>;
 	interrupts = <0x2 0xb0 0x1 IRQ_TYPE_NONE>;
 	interrupt-names = "ptrain-done";
+	pinctrl-names = "q_state1", "q_state2";
+	pinctrl-0 = <&qnovo_fet_ctrl_state1>;
+	pinctrl-1 = <&qnovo_fet_ctrl_state2>;
 };
