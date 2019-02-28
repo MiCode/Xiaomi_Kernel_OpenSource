@@ -62,4 +62,4 @@ obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
-
+obj-y += mmdvfs/
