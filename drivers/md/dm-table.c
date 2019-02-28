@@ -419,6 +419,29 @@ dev_t dm_get_dev_t(const char *path)
 		bdput(bdev);
 	}
 
+	if (!dev) {
+		unsigned int wait_time_ms = 0;
+
+		DMERR("%s: retry %s\n", __func__, path);
+		while (driver_probe_done() != 0 || dev == 0) {
+			msleep(100);
+			wait_time_ms += 100;
+			if (wait_time_ms > DM_WAIT_DEV_MAX_TIME) {
+				DMERR("%s: retry timeout(%dms)\n", __func__,
+					DM_WAIT_DEV_MAX_TIME);
+				DMERR("no dev found for %s", path);
+				return 0;
+			}
+			bdev = lookup_bdev(path);
+			if (IS_ERR(bdev))
+				dev = name_to_dev_t(path);
+			else {
+				dev = bdev->bd_dev;
+				bdput(bdev);
+			}
+		}
+	}
+
 	return dev;
 }
 EXPORT_SYMBOL_GPL(dm_get_dev_t);
