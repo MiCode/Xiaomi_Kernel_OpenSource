@@ -1097,8 +1097,8 @@ struct hfi_hdr10_pq_sei {
 	struct msm_vidc_content_light_level_sei_payload cll_info;
 };
 
-struct hfi_vbv_hdr_buf_size {
-	u32 vbv_hdr_buf_size;
+struct hfi_vbv_hrd_buf_size {
+	u32 vbv_hrd_buf_size;
 };
 
 #endif

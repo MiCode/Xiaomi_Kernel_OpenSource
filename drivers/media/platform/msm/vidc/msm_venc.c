@@ -36,6 +36,8 @@
 #define MAX_INTRA_REFRESH_MBS ((7680 * 4320) >> 8)
 #define MAX_LTR_FRAME_COUNT 10
 #define MAX_NUM_B_FRAMES 1
+#define MIN_CBRPLUS_W 1280
+#define MIN_CBRPLUS_H 720
 
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 #define MIN_NUM_ENC_OUTPUT_BUFFERS 4
@@ -2258,13 +2260,55 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	u32 hfi_rc;
+	u32 hfi_rc, codec;
+	u32 height, width, mbpf;
+	struct hfi_vbv_hrd_buf_size hrd_buf_size;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
+
 	hdev = inst->core->device;
+	inst->clk_data.is_cbr_plus = false;
+	codec = inst->fmts[CAPTURE_PORT].fourcc;
+	height = inst->prop.height[OUTPUT_PORT];
+	width = inst->prop.width[OUTPUT_PORT];
+	mbpf = NUM_MBS_PER_FRAME(height, width);
+
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR)
+		inst->rc_type = V4L2_MPEG_VIDEO_BITRATE_MODE_MBR;
+	else if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR &&
+			   inst->clk_data.low_latency_mode)
+		inst->rc_type = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+
+	if ((inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
+		inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR) &&
+		(codec != V4L2_PIX_FMT_VP8)) {
+		hrd_buf_size.vbv_hrd_buf_size = 500;
+		inst->clk_data.low_latency_mode = true;
+
+		if ((width > MIN_CBRPLUS_W && height > MIN_CBRPLUS_H) ||
+			(width > MIN_CBRPLUS_H && height > MIN_CBRPLUS_W) ||
+			mbpf > NUM_MBS_PER_FRAME(720, 1280)) {
+			hrd_buf_size.vbv_hrd_buf_size = 1000;
+			inst->clk_data.is_cbr_plus = true;
+		}
+
+		dprintk(VIDC_DBG, "Set hrd_buf_size %d",
+				hrd_buf_size.vbv_hrd_buf_size);
+
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session,
+			HFI_PROPERTY_CONFIG_VENC_VBV_HRD_BUF_SIZE,
+			(void *)&hrd_buf_size, sizeof(hrd_buf_size));
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: set HRD_BUF_SIZE %u failed\n",
+					__func__,
+					hrd_buf_size.vbv_hrd_buf_size);
+			inst->clk_data.is_cbr_plus = false;
+		}
+	}
 
 	switch (inst->rc_type) {
 	case RATE_CONTROL_OFF:
@@ -2281,9 +2325,6 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 		break;
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR:
 		hfi_rc = HFI_RATE_CONTROL_CBR_VFR;
-		break;
-	case V4L2_MPEG_VIDEO_BITRATE_MODE_MBR_VFR:
-		hfi_rc = HFI_RATE_CONTROL_MBR_VFR;
 		break;
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_CQ:
 		hfi_rc = HFI_RATE_CONTROL_CQ;
