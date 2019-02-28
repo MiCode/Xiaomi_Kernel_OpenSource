@@ -373,6 +373,25 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 }
 #endif
 
+inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
+{
+	struct hmp_domain *domain;
+	unsigned int max_capacity = 0;
+
+	for_each_hmp_domain_L_first(domain) {
+		int cpu;
+		unsigned long capacity;
+
+		cpu = cpumask_first(&domain->possible_cpus);
+		capacity = capacity_of(cpu);
+
+		if (capacity > max_capacity)
+			max_capacity = capacity;
+	}
+
+	return min(uclamp_task_effective_util(p, UCLAMP_MIN), max_capacity);
+}
+
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 bool idle_lb_enhance(struct task_struct *p, int cpu)
 {
