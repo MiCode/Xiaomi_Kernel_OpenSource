@@ -446,6 +446,7 @@ static struct clk_regmap_div cam_cc_sbi_div_clk_src = {
 		.name = "cam_cc_sbi_div_clk_src",
 		.parent_names = (const char *[]){ "cam_cc_ife_0_clk_src" },
 		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
 	},
 };
