@@ -124,16 +124,6 @@ static int mt6370_is_charger_ready(void)
 		return FLASHLIGHT_CHARGER_NOT_READY;
 }
 
-static int mt6370_get_irq1(void)
-{
-	return flashlight_get_irq1(flashlight_dev_ch1);
-}
-
-static int mt6370_get_irq2(void)
-{
-	return flashlight_get_irq2(flashlight_dev_ch1);
-}
-
 static int mt6370_is_torch(int level)
 {
 	if (level >= MT6370_LEVEL_TORCH)
@@ -536,16 +526,6 @@ static int mt6370_ioctl(unsigned int cmd, unsigned long arg)
 	case FLASH_IOC_GET_HW_TIMEOUT:
 		pr_debug("FLASH_IOC_GET_HW_TIMEOUT(%d)\n", channel);
 		fl_arg->arg = MT6370_HW_TIMEOUT;
-		break;
-
-	case FLASH_IOC_GET_HW_FAULT:
-		pr_debug("FLASH_IOC_GET_HW_FAULT(%d)\n", channel);
-		fl_arg->arg = mt6370_get_irq1();
-		break;
-
-	case FLASH_IOC_GET_HW_FAULT2:
-		pr_debug("FLASH_IOC_GET_HW_FAULT2(%d)\n", channel);
-		fl_arg->arg = mt6370_get_irq2();
 		break;
 
 	default:
