@@ -432,18 +432,19 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	pio: pinctrl@1000b000 {
-		compatible = "mediatek,pinctrl";
-		reg = <0 0x1000b000 0 0x1000>;
-		mediatek,pctl-regmap = <&syscfg_pctl_a>,
-				       <&syscfg_pctl_lt>,
-				       <&syscfg_pctl_lm>,
-				       <&syscfg_pctl_lb>,
-				       <&syscfg_pctl_bl>,
-				       <&syscfg_pctl_bm>,
-				       <&syscfg_pctl_rb>,
-				       <&syscfg_pctl_rt>;
+		compatible = "mediatek,pinctrl-mt6739";
+		reg_bases = <&gpio>,
+			    <&io_cfg_lt>,
+			    <&io_cfg_lm>,
+			    <&io_cfg_lb>,
+			    <&io_cfg_bl>,
+			    <&io_cfg_bm>,
+			    <&io_cfg_rb>,
+			    <&io_cfg_rt>;
+		eint_base = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
+		gpio-ranges = <&pio 0 0 168>;
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
@@ -475,6 +476,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,hacc";
 		reg = <0 0x1000a000 0 0x1000>;
 		interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	eint: apirq@1000b000 {
+		compatible = "mediatek,apirq";
+		reg = <0 0x1000b000 0 0x1000>;
+		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	apmixed: apmixed@1000c000 {
@@ -594,36 +601,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	ddrphy@1001e000 {
 		compatible = "mediatek,ddrphy";
 		reg = <0 0x1001e000 0 0x1000>;
-	};
-
-	iocfg_0@10002000 {
-		compatible = "mediatek,iocfg_0";
-		reg = <0 0x10002000 0 0x200>;
-	};
-
-	iocfg_1@10002200 {
-		compatible = "mediatek,iocfg_1";
-		reg = <0 0x10002200 0 0x200>;
-	};
-
-	iocfg_2@10002400 {
-		compatible = "mediatek,iocfg_2";
-		reg = <0 0x10002400 0 0x200>;
-	};
-
-	iocfg_3@10002600 {
-		compatible = "mediatek,iocfg_3";
-		reg = <0 0x10002600 0 0x200>;
-	};
-
-	iocfg_4@10002800 {
-		compatible = "mediatek,iocfg_4";
-		reg = <0 0x10002800 0 0x200>;
-	};
-
-	iocfg_5@10002a00 {
-		compatible = "mediatek,iocfg_5";
-		reg = <0 0x10002a00 0 0x200>;
 	};
 
 	mdcldmain_ao@10015000 {
