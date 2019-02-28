@@ -1,0 +1,19 @@
+AOP (Always-On-Processor) DDRSS Commands
+
+The AOP DDRSS commands driver is used to send commands
+to the AOP, using the mailbox interface, to affect the
+behavior of the DDR.
+
+Required properties
+
+- compatible : "qcom,aop-ddrss-cmds"
+- mbox : QMP mailbox phandle and channel identifier
+
+Optional properties:
+-mbox-name: name of the mailbox
+
+Example:
+	qcom,aop-ddrss-cmds {
+		compatible = "qcom,aop-ddrss-cmds";
+		mboxes = <&qmp_aop 0>;
+	};
