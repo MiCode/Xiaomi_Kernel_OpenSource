@@ -44,6 +44,7 @@
 #include "aed.h"
 #include "../common/aee-common.h"
 #include "../mrdump/mrdump_mini.h"
+#include "../mrdump/mrdump_panic.h"
 #include <linux/pid.h>
 #ifdef CONFIG_MTK_BOOT
 #include <mt-plat/mtk_boot_common.h>
@@ -72,11 +73,7 @@ static int pwk_start_monitor;
 #ifdef HANG_LOW_MEM
 #define MAX_HANG_INFO_SIZE (512*1024) /* 512 K info for low mem*/
 #else
-#ifndef __aarch64__
-#define MAX_HANG_INFO_SIZE (4*1024*1024) /* 4M info */
-#else
-#define MAX_HANG_INFO_SIZE (1*1024*1024) /* 1M info for 64bit*/
-#endif
+#define MAX_HANG_INFO_SIZE (2*1024*1024) /* 2M info */
 #endif
 
 static int MaxHangInfoSize = MAX_HANG_INFO_SIZE;
@@ -111,6 +108,7 @@ static int hang_aee_warn;
 #endif
 static int system_server_pid;
 static bool watchdog_thread_exist;
+static bool reboot_flag;
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 
@@ -118,6 +116,8 @@ DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 /* For the condition, where kernel is still alive,
  * but system server is not scheduled.
  */
+static void ShowStatus(int flag);
+static void reset_hang_info(void);
 
 static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg);
@@ -173,6 +173,18 @@ static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 	} else if (val == 0) {
 		monit_hang_flag = 0;
 		pr_debug("[hang_detect] disable ke.\n");
+	} else if (val == 2) {
+		reset_hang_info();
+		ShowStatus(0);
+	} else if (val == 3) {
+		reset_hang_info();
+		ShowStatus(1);
+	} else if (val == 4) {
+		hang_aee_warn = 0;
+		pr_info("[hang_detect] disable coredump.\n");
+	} else if (val == 5) {
+		hang_aee_warn = 2;
+		pr_info("[hang_detect] denable coredump.\n");
 	} else if (val > 10) {
 		show_native_bt_by_pid((int)val);
 	}
@@ -292,7 +304,20 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 			hang_aee_warn = 2;
 			pr_info("hang_detect: aee enable system_server coredump.\n");
 		}
+		return ret;
+	}
 
+	if (cmd == AEEIOCTL_SET_HANG_REBOOT &&
+		(!strncmp(current->comm, "init", 4))) {
+		reboot_flag = true;
+#ifdef CONFIG_MTK_ENG_BUILD
+		hang_detect_counter = 3;
+#else
+		hang_detect_counter = 1;
+#endif
+		hd_timeout = 3;
+		pr_info("hang_detect: %s set reboot command.\n", current->comm);
+		return ret;
 	}
 
 	return ret;
@@ -653,11 +678,12 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 
 	Log2HangInfo("%-15.15s %c ", p->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
-	Log2HangInfo("%lld.%06ld %d %lu %lu 0x%x 0x%lx ",
+	Log2HangInfo("%lld.%06ld %d %lu %lu 0x%x 0x%lx %d ",
 		nsec_high(p->se.sum_exec_runtime),
 		nsec_low(p->se.sum_exec_runtime),
 		task_pid_nr(p), p->nvcsw, p->nivcsw, p->flags,
-		(unsigned long)task_thread_info(p)->flags);
+		(unsigned long)task_thread_info(p)->flags,
+		p->tgid);
 #ifdef CONFIG_SCHED_INFO
 	Log2HangInfo("%llu", p->sched_info.last_arrival);
 #endif
@@ -691,7 +717,9 @@ static int DumpThreadNativeMaps_log(pid_t pid)
 	char *path_p = NULL;
 	struct path base_path;
 
+	rcu_read_lock();
 	current_task = find_task_by_vpid(pid);	/* get tid task */
+	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -771,7 +799,9 @@ static int DumpThreadNativeInfo_By_tid_log(pid_t tid)
 	int ret = -1;
 
 	/* current_task = get_current(); */
+	rcu_read_lock();
 	current_task = find_task_by_vpid(tid);	/* get tid task */
+	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1079,7 +1109,7 @@ void show_native_bt_by_pid(int task_pid)
 		/* change send ptrace_stop to send signal stop */
 		if (stat_nam[state] != 'T')
 			do_send_sig_info(SIGCONT, SEND_SIG_FORCED, p, true);
-		put_task_struct(t);
+		put_task_struct(p);
 	}
 	put_pid(pid);
 }
@@ -1100,7 +1130,9 @@ static int DumpThreadNativeMaps(pid_t pid)
 	char *path_p = NULL;
 	struct path base_path;
 
+	rcu_read_lock();
 	current_task = find_task_by_vpid(pid);	/* get tid task */
+	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1201,7 +1233,9 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid)
 	int ret = -1;
 
 	/* current_task = get_current(); */
+	rcu_read_lock();
 	current_task = find_task_by_vpid(tid);	/* get tid task */
+	rcu_read_unlock();
 	if (current_task == NULL)
 		return -ESRCH;
 	user_ret = task_pt_regs(current_task);
@@ -1464,7 +1498,7 @@ static void show_bt_by_pid(int task_pid)
 	pid = find_get_pid(task_pid);
 	t = p = get_pid_task(pid, PIDTYPE_PID);
 
-	if (p != NULL) {
+	if (p != NULL && p->stack != NULL) {
 		Log2HangInfo("%s: %d: %s.\n", __func__, task_pid, t->comm);
 #ifndef __aarch64__	 /* 32bit */
 		if (strcmp(t->comm, "system_server") == 0)
@@ -1510,29 +1544,18 @@ static void show_bt_by_pid(int task_pid)
 				Log2HangInfo("%s sysTid=%d, pid=%d\n", t->comm,
 						tid, task_pid);
 
-				if (dump_native == 1) {
-					/* change send ptrace_stop to send
-					 * signal stop
-					 */
-					do_send_sig_info(SIGSTOP,
-							SEND_SIG_FORCED, t,
-							true);
-					/* catch user-space bt */
+				if (dump_native == 1)
 					DumpThreadNativeInfo_By_tid(tid);
-					/* change send ptrace_stop to send
-					 * signal stop
-					 */
-					if (stat_nam[state] != 'T')
-						do_send_sig_info(SIGCONT,
-								SEND_SIG_FORCED,
-								t, true);
-				}
 			}
 			if ((++count) % 5 == 4)
 				msleep(20);
 			Log2HangInfo("-\n");
 		} while_each_thread(p, t);
-		put_task_struct(t);
+		put_task_struct(p);
+	} else if (p != NULL) {
+		put_task_struct(p);
+		Log2HangInfo("%s pid %d state %d, flags %d. stack is null.\n",
+			t->comm, task_pid, t->state, t->flags);
 	}
 	put_pid(pid);
 }
@@ -1604,13 +1627,14 @@ static void ShowStatus(int flag)
 #ifdef CONFIG_MTK_GPU_SUPPORT
 		mtk_dump_gpu_memory_usage();
 #endif
+#ifdef CONFIG_MTK_WQ_DEBUG
+		wq_debug_dump();
+#endif
 
 	}
-
-
 }
 
-void reset_hang_info(void)
+static void reset_hang_info(void)
 {
 	Hang_Detect_first = false;
 	memset(Hang_Info, 0, MaxHangInfoSize);
@@ -1720,7 +1744,8 @@ static int hang_detect_thread(void *arg)
 			hang_detect_counter, hd_timeout, hd_detect_enabled);
 		system_server_pid = FindTaskByName("system_server");
 
-		if ((hd_detect_enabled == 1) && (system_server_pid != -1)) {
+		if (reboot_flag || ((hd_detect_enabled == 1) &&
+			(system_server_pid != -1))) {
 #ifdef CONFIG_MTK_RAM_CONSOLE
 			aee_rr_rec_hang_detect_timeout_count(hd_timeout);
 #endif
@@ -1736,9 +1761,8 @@ static int hang_detect_thread(void *arg)
 				}
 			}
 #endif
-
 			if (hang_detect_counter == 1 && hang_aee_warn == 2
-				&& hd_timeout != 11) {
+				&& hd_timeout != 11 && reboot_flag == false) {
 				hang_detect_counter = hd_timeout / 2;
 				hang_aee_warn = 1;
 				wake_up_dump();
@@ -1758,9 +1782,8 @@ static int hang_detect_thread(void *arg)
 						NULL, "hang_detect2");
 					if (hd_thread != NULL)
 						wake_up_process(hd_thread);
-					if (dump_bt_done != 1)
-						wait_event_interruptible_timeout
-							(
+				if (dump_bt_done != 1)
+					wait_event_interruptible_timeout(
 							dump_bt_done_wait,
 							dump_bt_done == 1,
 							HZ*10);
@@ -1772,7 +1795,7 @@ static int hang_detect_thread(void *arg)
 						"[Hang_Detect] aee mode is %d, we should triger KE...\n",
 						aee_mode);
 #ifdef CONFIG_MTK_RAM_CONSOLE
-	if (watchdog_thread_exist == false)
+	if (watchdog_thread_exist == false && reboot_flag == false)
 		aee_rr_rec_hang_detect_timeout_count(COUNT_ANDROID_REBOOT);
 #endif
 #ifdef CONFIG_MTK_ENG_BUILD
@@ -1785,12 +1808,17 @@ static int hang_detect_thread(void *arg)
 						(unsigned long)Hang_Info,
 							MaxHangInfoSize);
 						mrdump_mini_add_extra_misc();
-						mrdump_mini_save_regs(
-							&saved_regs);
+					mrdump_mini_save_regs(&saved_regs);
+#ifdef CONFIG_MTK_RAM_CONSOLE
 						mrdump_common_die(
 						AEE_FIQ_STEP_HANG_DETECT,
 						AEE_REBOOT_MODE_HANG_DETECT,
 						"Hang Detect", &saved_regs);
+#else
+					mrdump_common_die(0,
+						AEE_REBOOT_MODE_HANG_DETECT,
+						"Hang Detect", &saved_regs);
+#endif
 #ifdef CONFIG_MTK_ENG_BUILD
 					}
 #endif
@@ -1824,6 +1852,11 @@ void hd_test(void)
 void aee_kernel_RT_Monitor_api(int lParam)
 {
 	reset_hang_info();
+	if (reboot_flag) {
+		pr_info("[Hang_Detect] in reboot flow.\n");
+		return;
+	}
+
 	if (lParam == 0) {
 		hd_detect_enabled = 0;
 		hang_detect_counter = hd_timeout;

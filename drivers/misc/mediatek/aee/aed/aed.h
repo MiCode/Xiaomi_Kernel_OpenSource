@@ -197,6 +197,8 @@ struct aee_siginfo {
 #define AEEIOCTL_SET_AEE_FORCE_EXP _IOR('p', 0x0F, int)
 #define AEEIOCTL_GET_AEE_SIGINFO _IOW('p', 0x10, struct aee_siginfo)
 #define AEEIOCTL_SET_HANG_FLAG _IOW('p', 0x11, int)
+#define AEEIOCTL_SET_HANG_REBOOT _IO('p', 0x12)
+
 
 #define AED_FILE_OPS(entry) \
 	static const struct file_operations proc_##entry##_fops = { \
