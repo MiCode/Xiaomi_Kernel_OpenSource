@@ -445,6 +445,7 @@
 				sel-gpio = <&gpio2 4 0>;
 				adi,dsi-lanes = <4>;
 				adi,disable-timing-generator;
+				#sound-dai-cells = <0>;
 
 				port {
 					adv7533_in: endpoint {
