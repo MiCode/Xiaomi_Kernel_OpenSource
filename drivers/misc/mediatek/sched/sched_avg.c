@@ -876,11 +876,6 @@ void sched_big_task_nr(int *L_nr, int *B_nr)
 		/* how to quantify it???? */
 		if (boosted > BIG_TASK_BOOSTED_THRESHOLD)
 			*B_nr = 1;
-#ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
-		/* Game mode detection is supported in EAS power module */
-		else if (is_game_mode && util > BIG_TASK_GAME_THRESHOLD)
-			*B_nr = 1;
-#endif
 	}
 
 	if (cluster_nr < 3) { /* no big core */
