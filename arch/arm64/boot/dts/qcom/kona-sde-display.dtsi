@@ -5,7 +5,25 @@
 
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-cmd.dtsi"
 #include "dsi-panel-sw43404-amoled-dsc-wqhd-video.dtsi"
+#include "dsi-panel-sharp-dsc-4k-cmd.dtsi"
+#include "dsi-panel-sharp-dsc-4k-video.dtsi"
 #include <dt-bindings/clock/mdss-7nm-pll-clk.h>
+
+&tlmm {
+	display_panel_avdd_default: display_panel_avdd_default {
+		mux {
+			pins = "gpio61";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio61";
+			drive-strength = <8>;
+			bias-disable = <0>;
+			output-high;
+		};
+	};
+};
 
 &soc {
 	ext_disp: qcom,msm-ext-disp {
@@ -41,6 +59,43 @@
 		};
 	};
 
+	dsi_panel_pwr_supply_avdd: dsi_panel_pwr_supply_avdd {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <62000>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "avdd";
+			qcom,supply-min-voltage = <4600000>;
+			qcom,supply-max-voltage = <6000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+
+	display_panel_avdd: display_gpio_regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "display_panel_avdd";
+		regulator-min-microvolt = <5500000>;
+		regulator-max-microvolt = <5500000>;
+		regulator-enable-ramp-delay = <233>;
+		gpio = <&tlmm 61 0>;
+		enable-active-high;
+		regulator-boost-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&display_panel_avdd_default>;
+	};
+
 	sde_dsi: qcom,dsi-display-primary {
 		compatible = "qcom,dsi-display";
 		label = "primary";
@@ -64,6 +119,7 @@
 
 		vddio-supply = <&pm8150_l14>;
 		vdd-supply = <&pm8150a_l11>;
+		avdd-supply = <&display_panel_avdd>;
 
 		qcom,mdp = <&mdss_mdp>;
 		qcom,dsi-default-panel = <&dsi_sw43404_amoled_cmd>;
@@ -109,6 +165,28 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
 				05 03 02 04 00 12 15];
 			qcom,display-topology = <2 2 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sharp_4k_dsc_cmd {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
+				08 05 02 04 00 19 18];
+			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
