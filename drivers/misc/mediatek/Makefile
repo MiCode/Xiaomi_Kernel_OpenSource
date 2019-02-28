@@ -90,6 +90,7 @@ obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/
 obj-$(CONFIG_MTK_HDMI_SUPPORT) += hdmi/
 obj-$(CONFIG_MTK_FB) += video/
+obj-$(CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT) += dfrc/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)

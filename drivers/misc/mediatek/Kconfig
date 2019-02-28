@@ -143,6 +143,7 @@ source "drivers/misc/mediatek/video/Kconfig"
 source "drivers/misc/mediatek/ext_disp/Kconfig"
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/hifi_dsp/Kconfig"
+source "drivers/misc/mediatek/dfrc/Kconfig"
 
 endmenu  # MM
 
