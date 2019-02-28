@@ -188,12 +188,6 @@ void cm_mgr_update_met(void)
 
 #include <linux/cpu_pm.h>
 static int cm_mgr_idle_mask = CLUSTER0_MASK | CLUSTER1_MASK;
-#include <mtk_spm_reg.h>
-void __iomem *spm_sleep_base;
-
-#define SPM_PWR_STATUS                     (0x180)
-#define SPM_MP0_CPUTOP_PWR_CON             (0x204)
-#define SPM_MP1_CPUTOP_PWR_CON             (0x218)
 
 void __iomem *mcucfg_mp0_counter_base;
 void __iomem *mcucfg_mp2_counter_base;
@@ -743,15 +737,6 @@ int cm_mgr_register_init(void)
 		return -1;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
-	if (!node)
-		pr_info("find sleep node failed\n");
-	spm_sleep_base = of_iomap(node, 0);
-	if (!spm_sleep_base) {
-		pr_info("base spm_sleep_base failed\n");
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -775,12 +760,10 @@ int cm_mgr_platform_init(void)
 		return r;
 	}
 
-	r = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 			"cm_mgr:online",
 			cm_mgr_cpuhp_online,
 			cm_mgr_cpuhp_offline);
-
-	WARN_ON(r < 0);
 
 #ifdef USE_IDLE_NOTIFY
 	mtk_idle_notifier_register(&cm_mgr_idle_notify);
@@ -818,4 +801,8 @@ int cm_mgr_get_dram_opp(void)
 #endif /* CONFIG_MTK_QOS_SUPPORT */
 
 	return dram_opp_cur;
+}
+
+void cm_mgr_emi_latency(int enable)
+{
 }
