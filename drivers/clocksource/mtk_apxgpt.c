@@ -36,6 +36,12 @@
 #include <linux/irqchip/mtk-gic-extend.h> /* for aee dump */
 #include <linux/sched.h> /* for aee dump */
 
+#ifndef cycle_t
+typedef u64 cycle_t;
+#endif
+
+#define APXGPT_OF_COMPTIBLE_NAME "mediatek,apxgpt"
+
 /*
  * CONFIG_MTK_TIMER_BC_IRQ_FORCE_CPU0:
  *
@@ -60,18 +66,27 @@
  */
 #define CONFIG_MTK_TIMER_AEE_DUMP
 
+#ifdef CONFIG_MTK_TIMER_APXGPT
 #ifdef CONFIG_MTK_TIMER_AEE_DUMP
 #ifdef CONFIG_MTK_RAM_CONSOLE
 #include <mt-plat/mtk_ram_console.h>
 
-static char gpt_clkevt_aee_dump_buf[128];
+static char     gpt_clkevt_aee_dump_buf[128];
+static uint64_t gpt_time_clkevt_handler_entry;
+static uint64_t gpt_time_clkevt_handler_exit;
+static uint64_t gpt_time_clkevt_set_next_event_entry;
+static uint64_t gpt_time_clkevt_set_next_event_exit;
+static uint64_t gpt_time_int_handler_entry;
+static uint64_t gpt_time_int_handler_exit;
+
+#define _MTK_TIMER_DBG_AEE_DUMP
+
+#endif
 #endif
 #endif
 
 #define GPT_CLKEVT_ID       (GPT1)
 #define GPT_CLKSRC_ID       (GPT2)
-
-#define AP_XGPT_BASE         xgpt_timers.tmr_regs
 
 #define GPT_IRQEN           (AP_XGPT_BASE + 0x0000)
 #define GPT_IRQSTA          (AP_XGPT_BASE + 0x0004)
@@ -105,12 +120,12 @@ static char gpt_clkevt_aee_dump_buf[128];
 #define GPT_BIT_MASK_H 0xFFFFFFFF00000000
 /****************************************************/
 
-struct mt_xgpt_timers {
+struct mt_gpt_timers {
 	int tmr_irq;
 	void __iomem *tmr_regs;
 };
 
-struct gpt_device {
+struct mt_gpt_device {
 	unsigned int id;
 	unsigned int mode;
 	unsigned int clksrc;
@@ -122,11 +137,6 @@ struct gpt_device {
 	void __iomem *base_addr;
 };
 
-static struct mt_xgpt_timers xgpt_timers;
-static struct gpt_device gpt_devs[NR_GPTS];
-
-static DEFINE_SPINLOCK(gpt_lock);
-
 /*
  * Return GPT4 count(before init clear) to record
  * kernel start time between LK and kernel
@@ -135,14 +145,60 @@ static DEFINE_SPINLOCK(gpt_lock);
 /* 1000000 / 76.92ns = 13000.520 */
 #define GPT4_1MS_TICK       ((u32)(13000))
 #define GPT4_BASE           (AP_XGPT_BASE + 0x0040)
-static unsigned int boot_time_value;
 
 #define mt_gpt_set_reg(val, addr) \
 	mt_reg_sync_writel(__raw_readl(addr)|(val), addr)
 #define mt_gpt_clr_reg(val, addr) \
 	mt_reg_sync_writel(__raw_readl(addr)&~(val), addr)
 
-static unsigned int xgpt_boot_up_time(void)
+static struct mt_gpt_timers gpt_timers;
+static struct mt_gpt_device gpt_devs[NR_GPTS];
+
+#define AP_XGPT_BASE gpt_timers.tmr_regs
+
+static void __gpt_disable_irq(struct mt_gpt_device *dev)
+{
+	mt_gpt_clr_reg(0x1 << (dev->id), GPT_IRQEN);
+}
+
+static void __gpt_ack_irq(struct mt_gpt_device *dev)
+{
+	mt_reg_sync_writel(0x1 << (dev->id), GPT_IRQACK);
+}
+
+static void __gpt_reset(struct mt_gpt_device *dev)
+{
+	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CON);
+	__gpt_disable_irq(dev);
+	__gpt_ack_irq(dev);
+	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CLK);
+	mt_reg_sync_writel(0x2, dev->base_addr + GPT_CON);
+	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CMP);
+	if (dev->features & GPT_FEAT_64_BIT)
+		mt_reg_sync_writel(0, dev->base_addr + GPT_CMPH);
+}
+
+static void gpt_devs_init(void)
+{
+	int i;
+
+	for (i = 0; i < NR_GPTS; i++) {
+		gpt_devs[i].id = i;
+		gpt_devs[i].base_addr = GPT1_BASE + 0x10 * i;
+		pr_info("gpt%d, base=0x%lx\n",
+			i + 1, (unsigned long)gpt_devs[i].base_addr);
+	}
+
+	gpt_devs[GPT6].features |= GPT_FEAT_64_BIT;
+}
+
+#ifdef CONFIG_MTK_TIMER_APXGPT
+
+static DEFINE_SPINLOCK(gpt_lock);
+
+static unsigned int boot_time_value;
+
+static unsigned int gpt_boot_up_time(void)
 {
 	unsigned int tick;
 
@@ -151,7 +207,7 @@ static unsigned int xgpt_boot_up_time(void)
 }
 /*********************************************************/
 
-static struct gpt_device *id_to_dev(unsigned int id)
+static struct mt_gpt_device *id_to_dev(unsigned int id)
 {
 	return id < NR_GPTS ? gpt_devs + id : NULL;
 }
@@ -180,7 +236,7 @@ static void task_sched(unsigned long data)
 }
 
 static irqreturn_t gpt_handler(int irq, void *dev_id);
-static void __gpt_ack_irq(struct gpt_device *dev);
+static void __gpt_ack_irq(struct mt_gpt_device *dev);
 static cycle_t mt_gpt_read(struct clocksource *cs);
 static int mt_gpt_clkevt_next_event(unsigned long cycles,
 				   struct clock_event_device *evt);
@@ -221,40 +277,60 @@ static struct clock_event_device gpt_clockevent = {
 
 static struct irqaction gpt_irq = {
 	.name = "mt-gpt",
-	.flags = IRQF_TIMER | IRQF_IRQPOLL,
+	.flags = IRQF_TIMER | IRQF_IRQPOLL | IRQF_TRIGGER_LOW | IRQF_PERCPU,
 	.handler = gpt_handler,
 	.dev_id = &gpt_clockevent,
 };
 
-#if defined(CONFIG_MTK_TIMER_AEE_DUMP)
-static uint64_t gpt_clkevt_last_interrupt_time;
-static uint64_t gpt_clkevt_last_setting_next_event_time;
-#endif
-
 void mtk_timer_clkevt_aee_dump(void)
 {
-#if defined(CONFIG_MTK_RAM_CONSOLE) && defined(CONFIG_MTK_TIMER_AEE_DUMP)
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
 
 	/*
-	 * Notice: printk cannot be used during AEE flow to avoid lock issues.
+	 * Notice: print function cannot be used during AEE flow
+	 * to avoid lock issues.
 	 */
 
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
-	/* last interrupt time */
+	/* interrupt time */
 
 	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
 	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] last interrupt time: %llu\n",
-		gpt_clkevt_last_interrupt_time);
+		"[GPT] int handler entry: %llu\n", gpt_time_int_handler_entry);
 	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
-	/* last time of setting next event */
+	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
+	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
+		"[GPT] int handler exit: %llu\n", gpt_time_int_handler_exit);
+	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+
+	/* clkevt handler time */
 
 	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
 	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
-		"[GPT] last setting next event time: %llu\n",
-		gpt_clkevt_last_setting_next_event_time);
+		"[GPT] clkevt handler entry: %llu\n",
+		gpt_time_clkevt_handler_entry);
+	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+
+	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
+	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
+		"[GPT] clkevt handler exit: %llu\n",
+		gpt_time_clkevt_handler_exit);
+	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+
+	/* set next event */
+
+	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
+	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
+		"[GPT] set next event entry: %llu\n",
+		gpt_time_clkevt_set_next_event_entry);
+	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
+
+	memset(gpt_clkevt_aee_dump_buf, 0, sizeof(gpt_clkevt_aee_dump_buf));
+	snprintf(gpt_clkevt_aee_dump_buf, sizeof(gpt_clkevt_aee_dump_buf),
+		"[GPT] set next event exit: %llu\n",
+		gpt_time_clkevt_set_next_event_exit);
 	aee_sram_fiq_log(gpt_clkevt_aee_dump_buf);
 
 	/* global gpt status */
@@ -299,11 +375,11 @@ void mtk_timer_clkevt_aee_dump(void)
 	/*
 	 * TODO: dump apxgpt irq status
 	 *
-	 * Since printk cannot be used during AEE flow, we may need to
-	 * change printk way in mt_irq_dump_status().
+	 * Since print function cannot be used during AEE flow, we may need to
+	 * change print way in mt_irq_dump_status().
 	 */
 
-	/* mt_irq_dump_status(xgpt_timers.tmr_irq); */
+	/* mt_irq_dump_status(gpt_timers.tmr_irq); */
 
 #endif
 }
@@ -335,8 +411,15 @@ static inline unsigned int gpt_get_and_ack_irq(void)
  */
 static irqreturn_t gpt_handler(int irq, void *dev_id)
 {
-	unsigned int id = gpt_get_and_ack_irq();
-	struct gpt_device *dev = id_to_dev(id);
+	unsigned int id;
+	struct mt_gpt_device *dev;
+
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_int_handler_entry = sched_clock();
+#endif
+
+	id = gpt_get_and_ack_irq();
+	dev = id_to_dev(id);
 
 	if (likely(dev)) {
 		if (!(dev->flags & GPT_ISR))
@@ -346,51 +429,33 @@ static irqreturn_t gpt_handler(int irq, void *dev_id)
 	} else
 		pr_info("GPT id is %d\n", id);
 
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_int_handler_exit = sched_clock();
+#endif
+
 	return IRQ_HANDLED;
 }
 
-static void __gpt_enable_irq(struct gpt_device *dev)
+static void __gpt_enable_irq(struct mt_gpt_device *dev)
 {
 	mt_gpt_set_reg(0x1 << (dev->id), GPT_IRQEN);
 }
 
-static void __gpt_disable_irq(struct gpt_device *dev)
-{
-	mt_gpt_clr_reg(0x1 << (dev->id), GPT_IRQEN);
-}
-
-static void __gpt_ack_irq(struct gpt_device *dev)
-{
-	mt_reg_sync_writel(0x1 << (dev->id), GPT_IRQACK);
-}
-
-static void __gpt_reset(struct gpt_device *dev)
-{
-	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CON);
-	__gpt_disable_irq(dev);
-	__gpt_ack_irq(dev);
-	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CLK);
-	mt_reg_sync_writel(0x2, dev->base_addr + GPT_CON);
-	mt_reg_sync_writel(0x0, dev->base_addr + GPT_CMP);
-	if (dev->features & GPT_FEAT_64_BIT)
-		mt_reg_sync_writel(0, dev->base_addr + GPT_CMPH);
-}
-
-static void __gpt_get_cnt(struct gpt_device *dev, unsigned int *ptr)
+static void __gpt_get_cnt(struct mt_gpt_device *dev, unsigned int *ptr)
 {
 	*ptr = __raw_readl(dev->base_addr + GPT_CNT);
 	if (dev->features & GPT_FEAT_64_BIT)
 		*(++ptr) = __raw_readl(dev->base_addr + GPT_CNTH);
 }
 
-static void __gpt_get_cmp(struct gpt_device *dev, unsigned int *ptr)
+static void __gpt_get_cmp(struct mt_gpt_device *dev, unsigned int *ptr)
 {
 	*ptr = __raw_readl(dev->base_addr + GPT_CMP);
 	if (dev->features & GPT_FEAT_64_BIT)
 		*(++ptr) = __raw_readl(dev->base_addr + GPT_CMPH);
 }
 
-static void __gpt_set_mode(struct gpt_device *dev, unsigned int mode)
+static void __gpt_set_mode(struct mt_gpt_device *dev, unsigned int mode)
 {
 	unsigned int ctl = __raw_readl(dev->base_addr + GPT_CON);
 
@@ -404,7 +469,7 @@ static void __gpt_set_mode(struct gpt_device *dev, unsigned int mode)
 	dev->mode = mode;
 }
 
-static void __gpt_set_clk(struct gpt_device *dev,
+static void __gpt_set_clk(struct mt_gpt_device *dev,
 	unsigned int clksrc, unsigned int clkdiv)
 {
 	unsigned int clk = (clksrc << GPT_CLKSRC_OFFSET) | clkdiv;
@@ -415,7 +480,7 @@ static void __gpt_set_clk(struct gpt_device *dev,
 	dev->clkdiv = clkdiv;
 }
 
-static void __gpt_set_cmp(struct gpt_device *dev, unsigned int cmpl,
+static void __gpt_set_cmp(struct mt_gpt_device *dev, unsigned int cmpl,
 		unsigned int cmph)
 {
 	mt_reg_sync_writel(cmpl, dev->base_addr + GPT_CMP);
@@ -427,14 +492,14 @@ static void __gpt_set_cmp(struct gpt_device *dev, unsigned int cmpl,
 	}
 }
 
-static void __gpt_clrcnt(struct gpt_device *dev)
+static void __gpt_clrcnt(struct mt_gpt_device *dev)
 {
 	mt_gpt_set_reg(GPT_CON_CLRCNT, dev->base_addr + GPT_CON);
 	while (__raw_readl(dev->base_addr + GPT_CNT))
 		cpu_relax();
 }
 
-static void __gpt_start(struct gpt_device *dev)
+static void __gpt_start(struct mt_gpt_device *dev)
 {
 	mt_gpt_set_reg(GPT_CON_ENABLE, dev->base_addr + GPT_CON);
 }
@@ -456,22 +521,22 @@ static void __gpt_wait_clrcnt(void)
 		end_time = sched_clock();
 }
 
-static void __gpt_wait_clrcnt_then_start(struct gpt_device *dev)
+static void __gpt_wait_clrcnt_then_start(struct mt_gpt_device *dev)
 {
 	__gpt_wait_clrcnt();
 	__gpt_start(dev);
 }
 
-static void __gpt_stop(struct gpt_device *dev)
+static void __gpt_stop(struct mt_gpt_device *dev)
 {
 	mt_gpt_clr_reg(GPT_CON_ENABLE, dev->base_addr + GPT_CON);
 }
-static void __gpt_set_flags(struct gpt_device *dev, unsigned int flags)
+static void __gpt_set_flags(struct mt_gpt_device *dev, unsigned int flags)
 {
 	dev->flags |= flags;
 }
 
-static void __gpt_set_handler(struct gpt_device *dev,
+static void __gpt_set_handler(struct mt_gpt_device *dev,
 	void (*func)(unsigned long))
 {
 	if (func) {
@@ -485,21 +550,7 @@ static void __gpt_set_handler(struct gpt_device *dev,
 	dev->func = func;
 }
 
-static void gpt_devs_init(void)
-{
-	int i;
-
-	for (i = 0; i < NR_GPTS; i++) {
-		gpt_devs[i].id = i;
-		gpt_devs[i].base_addr = GPT1_BASE + 0x10 * i;
-		pr_info("[mtk_gpt] gpt%d, base=0x%lx\n",
-			i + 1, (unsigned long)gpt_devs[i].base_addr);
-	}
-
-	gpt_devs[GPT6].features |= GPT_FEAT_64_BIT;
-}
-
-static void setup_gpt_dev_locked(struct gpt_device *dev, unsigned int mode,
+static void setup_gpt_dev_locked(struct mt_gpt_device *dev, unsigned int mode,
 		unsigned int clksrc, unsigned int clkdiv, unsigned int cmp,
 		void (*func)(unsigned long), unsigned int flags)
 {
@@ -524,7 +575,11 @@ static void setup_gpt_dev_locked(struct gpt_device *dev, unsigned int mode,
 static int mt_gpt_clkevt_next_event(unsigned long cycles,
 				   struct clock_event_device *evt)
 {
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_clkevt_set_next_event_entry = sched_clock();
+#endif
 
 	/*
 	 * disable irq first because we do not expect interrupt is triggered
@@ -583,15 +638,16 @@ static int mt_gpt_clkevt_next_event(unsigned long cycles,
 
 	__gpt_start(dev);
 
-#if defined(CONFIG_MTK_TIMER_AEE_DUMP)
-	gpt_clkevt_last_setting_next_event_time = sched_clock();
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_clkevt_set_next_event_exit = sched_clock();
 #endif
+
 	return 0;
 }
 
 static int mt_gpt_clkevt_shutdown(struct clock_event_device *clk)
 {
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
 	__gpt_stop(dev);
 	__gpt_disable_irq(dev);
@@ -607,7 +663,7 @@ static int mt_gpt_clkevt_resume(struct clock_event_device *clk)
 
 static int mt_gpt_clkevt_oneshot(struct clock_event_device *clk)
 {
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
 	__gpt_stop(dev);
 	__gpt_set_mode(dev, GPT_ONE_SHOT);
@@ -619,7 +675,7 @@ static int mt_gpt_clkevt_oneshot(struct clock_event_device *clk)
 
 static int mt_gpt_set_periodic(struct clock_event_device *clk)
 {
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
 	__gpt_stop(dev);
 	__gpt_set_mode(dev, GPT_REPEAT);
@@ -633,7 +689,7 @@ static cycle_t mt_gpt_read(struct clocksource *cs)
 {
 	cycle_t cycles;
 	unsigned int cnt[2] = {0, 0};
-	struct gpt_device *dev = id_to_dev(GPT_CLKSRC_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKSRC_ID);
 
 	__gpt_get_cnt(dev, cnt);
 
@@ -655,8 +711,8 @@ static void clkevt_handler(unsigned long data)
 {
 	struct clock_event_device *evt = (struct clock_event_device *)data;
 
-#if defined(CONFIG_MTK_TIMER_AEE_DUMP)
-	gpt_clkevt_last_interrupt_time = sched_clock();
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_clkevt_handler_entry = sched_clock();
 #endif
 
 #if defined(CONFIG_MTK_TIMER_DEBUG) && \
@@ -688,12 +744,16 @@ static void clkevt_handler(unsigned long data)
 #endif
 
 	evt->event_handler(evt);
+
+#ifdef _MTK_TIMER_DBG_AEE_DUMP
+	gpt_time_clkevt_handler_exit = sched_clock();
+#endif
 }
 
 static inline void setup_clksrc(u32 freq)
 {
 	struct clocksource *cs = &gpt_clocksource;
-	struct gpt_device *dev = id_to_dev(GPT_CLKSRC_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKSRC_ID);
 
 	pr_info("setup_clksrc1: dev->base_addr=0x%lx GPT2_CON=0x%x\n",
 		(unsigned long)dev->base_addr, __raw_readl(dev->base_addr));
@@ -716,7 +776,7 @@ static inline void setup_clkevt(u32 freq, int irq)
 	unsigned int cmp[2];
 	unsigned int clkdiv;
 	struct clock_event_device *evt = &gpt_clockevent;
-	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
+	struct mt_gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
 	/* ensure to provide irq number for tick_broadcast_set_affinity() */
 	evt->irq = irq;
@@ -741,7 +801,7 @@ static inline void setup_clkevt(u32 freq, int irq)
 
 	__gpt_get_cmp(dev, cmp);
 
-	pr_info("[mtk_gpt] gpt%d: clkdiv=%d, cmp=%d, hz=%d, freq=%d\n",
+	pr_info("apxgpt%d: clkdiv=%d, cmp=%d, hz=%d, freq=%d\n",
 		GPT_CLKEVT_ID + 1, clkdiv, cmp[0], HZ, freq);
 
 	clockevents_register_device(evt);
@@ -756,65 +816,31 @@ static void __init mt_gpt_init_acao(struct device_node *node)
 
 	clk_evt = of_clk_get(node, 0);
 	if (IS_ERR(clk_evt)) {
-		pr_info("[mtk_gpt] can't get timer clk_evt\n");
+		pr_info("can't get timer clk_evt\n");
 		return;
 	}
 
 	if (clk_prepare_enable(clk_evt)) {
-		pr_info("[mtk_gpt] can't prepare clk_evt\n");
+		pr_info("can't prepare clk_evt\n");
 		clk_put(clk_evt);
 		return;
 	}
 
 	freq = (u32)clk_get_rate(clk_evt);
 
-	WARN(!freq, "[mtk_gpt] can't get freq of clk_evt\n");
+	WARN(!freq, "can't get freq of clk_evt\n");
 
 #ifdef CONFIG_MTK_TIMER_BC_IRQ_FORCE_CPU0
-	irq_force_affinity(xgpt_timers.tmr_irq, cpumask_of(0));
+	irq_force_affinity(gpt_timers.tmr_irq, cpumask_of(0));
 #endif
 
-	setup_clkevt(freq, xgpt_timers.tmr_irq);
+	setup_clkevt(freq, gpt_timers.tmr_irq);
 
-	pr_info("[mtk_gpt] acao clkevt, freq=%d\n",	freq);
+	pr_info("acao clkevt, freq=%d\n",	freq);
 
 }
 
-static int __init mt_gpt_init(struct device_node *node)
-{
-	int i;
-	unsigned long save_flags;
-
-	gpt_update_lock(save_flags);
-
-	/* Setup IRQ numbers */
-	xgpt_timers.tmr_irq = irq_of_parse_and_map(node, 0);
-
-	/* Setup IO addresses */
-	xgpt_timers.tmr_regs = of_iomap(node, 0);
-
-	pr_info("[mtk_gpt] base=0x%lx, irq=%d\n",
-		(unsigned long)xgpt_timers.tmr_regs, xgpt_timers.tmr_irq);
-
-	/* setup gpt itself */
-	gpt_devs_init();
-
-	for (i = 0; i < NR_GPTS; i++)
-		__gpt_reset(&gpt_devs[i]);
-
-	setup_irq(xgpt_timers.tmr_irq, &gpt_irq);
-
-	mt_gpt_init_acao(node);
-
-	/* record the time when init GPT */
-	boot_time_value = xgpt_boot_up_time();
-
-	gpt_update_unlock(save_flags);
-
-	return 0;
-}
-
-static void release_gpt_dev_locked(struct gpt_device *dev)
+static void release_gpt_dev_locked(struct mt_gpt_device *dev)
 {
 	__gpt_reset(dev);
 
@@ -825,7 +851,7 @@ static void release_gpt_dev_locked(struct gpt_device *dev)
 }
 
 /* gpt is counting or not */
-static int __gpt_get_status(struct gpt_device *dev)
+static int __gpt_get_status(struct mt_gpt_device *dev)
 {
 	return !!(__raw_readl(dev->base_addr + GPT_CON) & GPT_CON_ENABLE);
 }
@@ -836,7 +862,7 @@ int request_gpt(unsigned int id, unsigned int mode, unsigned int clksrc,
 		void (*func)(unsigned long), unsigned int flags)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -858,7 +884,7 @@ int free_gpt(unsigned int id)
 {
 	unsigned long save_flags;
 
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -876,7 +902,7 @@ EXPORT_SYMBOL(free_gpt);
 int start_gpt(unsigned int id)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -898,7 +924,7 @@ EXPORT_SYMBOL(start_gpt);
 int stop_gpt(unsigned int id)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -919,7 +945,7 @@ EXPORT_SYMBOL(stop_gpt);
 int restart_gpt(unsigned int id)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -941,7 +967,7 @@ int gpt_is_counting(unsigned int id)
 {
 	unsigned long save_flags;
 	int is_counting;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -962,7 +988,7 @@ EXPORT_SYMBOL(gpt_is_counting);
 int gpt_set_cmp(unsigned int id, unsigned int val)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -981,7 +1007,7 @@ EXPORT_SYMBOL(gpt_set_cmp);
 int gpt_get_cmp(unsigned int id, unsigned int *ptr)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev || !ptr)
 		return -EINVAL;
@@ -997,7 +1023,7 @@ EXPORT_SYMBOL(gpt_get_cmp);
 int gpt_get_cnt(unsigned int id, unsigned int *ptr)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev || !ptr)
 		return -EINVAL;
@@ -1019,7 +1045,7 @@ u64 mtk_timer_get_cnt(u8 timer)
 	unsigned long save_flags;
 	unsigned int val[2] = {0, 0};
 	u64 cnt = 0;
-	struct gpt_device *dev = id_to_dev(timer - 1);
+	struct mt_gpt_device *dev = id_to_dev(timer - 1);
 
 	if (!dev || timer <= 0)
 		return -EINVAL;
@@ -1069,7 +1095,7 @@ EXPORT_SYMBOL(gpt_boot_time);
 int gpt_set_clk(unsigned int id, unsigned int clksrc, unsigned int clkdiv)
 {
 	unsigned long save_flags;
-	struct gpt_device *dev = id_to_dev(id);
+	struct mt_gpt_device *dev = id_to_dev(id);
 
 	if (!dev)
 		return -EINVAL;
@@ -1088,4 +1114,80 @@ int gpt_set_clk(unsigned int id, unsigned int clksrc, unsigned int clkdiv)
 	return 0;
 }
 EXPORT_SYMBOL(gpt_set_clk);
-CLOCKSOURCE_OF_DECLARE(mtk_apxgpt, "mediatek,apxgpt", mt_gpt_init);
+
+static int __init mt_gpt_init(struct device_node *node)
+{
+	int i;
+	unsigned long save_flags;
+
+	gpt_update_lock(save_flags);
+
+	/* Setup IRQ numbers */
+	gpt_timers.tmr_irq = irq_of_parse_and_map(node, 0);
+
+	/* Setup IO addresses */
+	gpt_timers.tmr_regs = of_iomap(node, 0);
+
+	pr_info("base=0x%lx, irq=%d\n",
+		(unsigned long)gpt_timers.tmr_regs, gpt_timers.tmr_irq);
+
+	/* setup gpt itself */
+	gpt_devs_init();
+
+	for (i = 0; i < NR_GPTS; i++)
+		__gpt_reset(&gpt_devs[i]);
+
+	setup_irq(gpt_timers.tmr_irq, &gpt_irq);
+
+	mt_gpt_init_acao(node);
+
+	/* record the time when init GPT */
+	boot_time_value = gpt_boot_up_time();
+
+	gpt_update_unlock(save_flags);
+
+	return 0;
+}
+
+CLOCKSOURCE_OF_DECLARE(mtk_apxgpt, APXGPT_OF_COMPTIBLE_NAME, mt_gpt_init);
+
+#else /* !CONFIG_MTK_TIMER_APXGPT */
+
+static int __init mt_gpt_init(void)
+{
+	u32 i;
+	struct device_node *node;
+	const struct of_device_id apxgpt_of_match[] = {
+		{ .compatible = APXGPT_OF_COMPTIBLE_NAME, },
+	};
+
+	node = of_find_compatible_node(NULL, NULL,
+		apxgpt_of_match[0].compatible);
+
+	if (!node) {
+		pr_info("node not found\n");
+		return 0;
+	}
+
+	gpt_timers.tmr_regs = of_iomap(node, 0);
+
+	if (!gpt_timers.tmr_regs) {
+		pr_info("base not found\n");
+		return 0;
+	}
+
+	gpt_devs_init();
+
+	for (i = 0; i < NR_GPTS; i++)
+		__gpt_reset(&gpt_devs[i]);
+
+	pr_info("base=0x%lx, disabled\n",
+		(unsigned long)gpt_timers.tmr_regs);
+
+	return 0;
+}
+
+module_init(mt_gpt_init);
+
+#endif /* CONFIG_MTK_TIMER_APXGPT */
+
