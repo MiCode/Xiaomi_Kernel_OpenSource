@@ -350,3 +350,17 @@ void __init init_cpu_topology(void)
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
 }
+
+#ifdef CONFIG_MTK_SCHED_RQAVG_KS
+/* To add this function for sched_avg.c */
+unsigned long get_cpu_orig_capacity(unsigned int cpu)
+{
+	//TODO: Porting the function prototype at first
+	u64 capacity = cpu_capacity(cpu);
+	// if (!capacity || !max_cpu_perf)
+	//	return 1024;
+	// capacity *= SCHED_CAPACITY_SCALE;
+	// capacity = div64_u64(capacity, max_cpu_perf);
+	return capacity;
+}
+#endif
