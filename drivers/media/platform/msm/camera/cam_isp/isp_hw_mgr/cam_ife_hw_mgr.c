@@ -1849,7 +1849,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 			CAM_ERR(CAM_ISP, "Acquire IFE RD SRC resource Failed");
 			goto err;
 		}
-	} else if (ipp_count || ppp_count) {
+	} else if (ipp_count || ppp_count || rdi_count) {
 		rc = cam_ife_hw_mgr_acquire_res_ife_src(ife_ctx,
 			in_port, false);
 
