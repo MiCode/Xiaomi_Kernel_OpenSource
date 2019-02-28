@@ -199,12 +199,27 @@ struct ion_mm_pool_info {
 	unsigned int ret;
 };
 
+struct ion_mm_get_iova_param {
+	union {
+		int handle;
+		struct ion_handle *kernel_handle;
+	};
+	int module_id;
+	unsigned int security;
+	unsigned int coherent;
+	unsigned int reserve_iova_start;
+	unsigned int reserve_iova_end;
+	unsigned long long phy_addr;
+	unsigned long len;
+};
+
 struct ion_mm_data {
 	enum ION_MM_CMDS mm_cmd;
 	union {
 		struct ion_mm_config_buffer_param config_buffer_param;
 		struct ion_mm_buf_debug_info buf_debug_info_param;
 		struct ion_mm_pool_info pool_info_param;
+		struct ion_mm_get_iova_param get_phys_param;
 	};
 };
 
