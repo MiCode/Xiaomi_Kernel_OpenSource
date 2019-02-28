@@ -71,16 +71,24 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	dir = ion_ioctl_dir(cmd);
 
-	if (_IOC_SIZE(cmd) > sizeof(data))
+	if (_IOC_SIZE(cmd) > sizeof(data)) {
+		IONMSG(
+				"%s cmd = %d, _IOC_SIZE(cmd) = %d, sizeof(data) = %zd.\n",
+				__func__, cmd, _IOC_SIZE(cmd), sizeof(data));
 		return -EINVAL;
+	}
 
 	/*
 	 * The copy_from_user is unconditional here for both read and write
 	 * to do the validate. If there is no write for the ioctl, the
 	 * buffer is cleared
 	 */
-	if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd)))
+	if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd))) {
+		IONMSG(
+			"%s copy_from_user fail!. cmd = %d, n = %d.\n",
+			__func__, cmd, _IOC_SIZE(cmd));
 		return -EFAULT;
+	}
 
 	ret = validate_ioctl_arg(cmd, &data);
 	if (WARN_ON_ONCE(ret))
@@ -99,8 +107,12 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						data.allocation.align,
 						data.allocation.heap_id_mask,
 						data.allocation.flags);
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)) {
+			IONMSG(
+				"ION_IOC_ALLOC handle is invalid. ret = %d.\n",
+				ret);
 			return PTR_ERR(handle);
+		}
 
 		data.allocation.handle = handle->id;
 
@@ -116,6 +128,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				client, data.handle.handle);
 		if (IS_ERR(handle)) {
 			mutex_unlock(&client->lock);
+			IONMSG(
+				"ION_IOC_FREE handle is invalid. handle = %d, ret = %d.\n",
+				data.handle.handle, ret);
 			return PTR_ERR(handle);
 		}
 		ion_free_nolock(client, handle);
@@ -183,6 +198,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
 			if (cleanup_handle)
 				ion_free(client, cleanup_handle);
+			IONMSG(
+				"%s copy_to_user fail! cmd = %d, n = %d.\n",
+				__func__, cmd, _IOC_SIZE(cmd));
 			return -EFAULT;
 		}
 	}
