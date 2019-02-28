@@ -9657,6 +9657,8 @@ static inline void update_sd_lb_stats(struct lb_env *env, struct sd_lb_stats *sd
 	int load_idx;
 	bool overload = false, overutilized = false, misfit_task = false;
 	bool prefer_sibling = child && child->flags & SD_PREFER_SIBLING;
+	unsigned long sys_util = 0;
+	unsigned long sys_cap = 0;
 
 #ifdef CONFIG_NO_HZ_COMMON
 	if (env->idle == CPU_NEWLY_IDLE) {
@@ -9702,6 +9704,10 @@ static inline void update_sd_lb_stats(struct lb_env *env, struct sd_lb_stats *sd
 						&overload, &overutilized,
 						&misfit_task);
 
+		if (sg->group_weight > 1) {
+			sys_util += sgs->group_util;
+			sys_cap += sg->sgc->capacity;
+		}
 		if (local_group)
 			goto next_group;
 
@@ -9746,6 +9752,8 @@ next_group:
 		/* update overload indicator if we are at root domain */
 		if (READ_ONCE(env->dst_rq->rd->overload) != overload)
 			WRITE_ONCE(env->dst_rq->rd->overload, overload);
+
+		update_sched_hint(sys_util, sys_cap);
 	}
 
 	if (overutilized)
