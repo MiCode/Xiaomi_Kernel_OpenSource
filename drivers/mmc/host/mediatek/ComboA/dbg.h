@@ -154,6 +154,7 @@ do { \
 
 void msdc_dump_gpd_bd(int id);
 int msdc_debug_proc_init(void);
+int msdc_debug_proc_init_bootdevice(void);
 
 #ifdef MTK_MMC_SDIO_DEBUG
 void msdc_performance(u32 opcode, u32 sizes, u32 bRx, u32 ticks);

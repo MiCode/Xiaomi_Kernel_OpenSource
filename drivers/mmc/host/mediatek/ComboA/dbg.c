@@ -2811,13 +2811,39 @@ static const struct file_operations *proc_fops_list[] = {
 #define PROC_PERM		0440
 #endif
 
-int msdc_debug_proc_init(void)
+int msdc_debug_proc_init_bootdevice(void)
 {
 	struct proc_dir_entry *prEntry;
 	struct proc_dir_entry *bootdevice_dir;
+	int i, num;
+
+	bootdevice_dir = proc_mkdir("bootdevice", NULL);
+
+	if (!bootdevice_dir) {
+		pr_notice("[%s]: failed to create /proc/bootdevice\n",
+			__func__);
+		return -1;
+	}
+
+	num = ARRAY_SIZE(msdc_proc_list);
+	for (i = 0; i < num; i++) {
+		prEntry = proc_create(msdc_proc_list[i], 0440,
+			bootdevice_dir, proc_fops_list[i]);
+		if (prEntry)
+			continue;
+		pr_notice(
+			"[%s]: failed to create /proc/bootdevice/%s\n",
+			__func__, msdc_proc_list[i]);
+	}
+
+	return 0;
+}
+
+int msdc_debug_proc_init(void)
+{
 	kuid_t uid;
 	kgid_t gid;
-	int i, num;
+	struct proc_dir_entry *prEntry;
 
 	uid = make_kuid(&init_user_ns, 0);
 	gid = make_kgid(&init_user_ns, 1001);
@@ -2842,20 +2868,6 @@ int msdc_debug_proc_init(void)
 		pr_notice("[%s]: failed to create /proc/sdcard_intr_gpio_value\n",
 			__func__);
 
-	/*boot device*/
-	bootdevice_dir = proc_mkdir("bootdevice", NULL);
-	if (bootdevice_dir) {
-		num = ARRAY_SIZE(msdc_proc_list);
-		for (i = 0; i < num; i++) {
-			prEntry = proc_create(msdc_proc_list[i], 0440,
-				bootdevice_dir, proc_fops_list[i]);
-			if (!prEntry)
-				pr_notice("[%s]: failed to create /proc/bootdevice/%s\n",
-					__func__, msdc_proc_list[i]);
-		}
-	} else
-		pr_notice("[%s]: failed to create /proc/bootdevice\n",
-			__func__);
 #ifdef MSDC_DMA_ADDR_DEBUG
 	msdc_init_dma_latest_address();
 #endif
