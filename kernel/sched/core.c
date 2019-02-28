@@ -3721,7 +3721,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	 * do an early lockdep release here:
 	 */
 	rq_unpin_lock(rq, rf);
-	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
+	spin_release(&rq->lock.dep_map, 1, 0UL);
 
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
