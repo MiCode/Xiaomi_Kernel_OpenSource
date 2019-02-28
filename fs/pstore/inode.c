@@ -342,8 +342,12 @@ int pstore_mkfile(struct dentry *root, struct pstore_record *record)
 			  record->compressed ? ".enc.z" : "");
 		break;
 	case PSTORE_TYPE_CONSOLE:
-		scnprintf(name, sizeof(name), "console-%s-%llu",
-			  record->psi->name, record->id);
+		if (record->id)
+			scnprintf(name, sizeof(name), "console-%s-%llu",
+				  record->psi->name, record->id);
+		else
+			scnprintf(name, sizeof(name), "console-%s",
+				  record->psi->name);
 		break;
 	case PSTORE_TYPE_FTRACE:
 		scnprintf(name, sizeof(name), "ftrace-%s-%llu",
