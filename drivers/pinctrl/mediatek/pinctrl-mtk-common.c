@@ -855,9 +855,11 @@ static int mtk_pmx_set_mode(struct pinctrl_dev *pctldev,
 		return mtk_pinctrl_set_gpio_mode(pctl, pin, mode);
 #endif
 
-	if (pctl->devdata->spec_pinmux_set)
+	if (pctl->devdata->spec_pinmux_set) {
 		pctl->devdata->spec_pinmux_set(mtk_get_regmap(pctl, pin),
 					pin, mode);
+		return 0;
+	}
 
 	reg_addr = ((pin / MAX_GPIO_MODE_PER_REG) << pctl->devdata->port_shf)
 			+ pctl->devdata->pinmux_offset;
