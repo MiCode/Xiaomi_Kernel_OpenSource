@@ -130,3 +130,5 @@ config MTK_DM_VERITY_OFF
 	default n
 
 endmenu    # Misc
+
+source "drivers/misc/mediatek/freqhopping/Kconfig"

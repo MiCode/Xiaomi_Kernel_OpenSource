@@ -25,3 +25,5 @@ obj-y += atf/
 obj-y += devinfo/
 
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
+obj-$(CONFIG_MTK_FREQ_HOPPING) += freqhopping/
+
