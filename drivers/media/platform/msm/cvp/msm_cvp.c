@@ -597,7 +597,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct msm_cvp_arg *arg)
 		dprintk(CVP_ERR, "%s: invalid args\n", __func__);
 		return -EINVAL;
 	}
-	dprintk(CVP_DBG, "%s:: arg->type = %d", __func__, arg->type);
+	dprintk(CVP_DBG, "%s:: arg->type = %x", __func__, arg->type);
 
 	switch (arg->type) {
 	case MSM_CVP_GET_SESSION_INFO:

@@ -63,12 +63,13 @@ static int msm_cvp_v4l2_open(struct file *filp)
 
 static int msm_cvp_v4l2_close(struct file *filp)
 {
+	int rc = 0;
 	struct msm_cvp_inst *cvp_inst;
 
 	trace_msm_v4l2_cvp_close_start("msm v4l2_close start");
 	cvp_inst = get_cvp_inst(filp, NULL);
 
-	//rc = msm_cvp_close(cvp_inst);
+	rc = msm_cvp_close(cvp_inst);
 	filp->private_data = NULL;
 	trace_msm_v4l2_cvp_close_end("msm v4l2_close end");
 	return 0;

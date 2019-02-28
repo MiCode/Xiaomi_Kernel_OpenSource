@@ -614,6 +614,7 @@ static void cvp_handle_session_cmd_done(enum hal_command_response cmd,
 	} else
 		dprintk(CVP_ERR,
 			"%s: Invalid inst cmd response: %d\n", __func__, cmd);
+	cvp_put_inst(inst);
 }
 
 static void handle_session_set_buf_done(enum hal_command_response cmd,
@@ -644,6 +645,7 @@ static void handle_session_set_buf_done(enum hal_command_response cmd,
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	else
 		dprintk(CVP_ERR, "set_buf_done: invalid cmd: %d\n", cmd);
+	cvp_put_inst(inst);
 
 }
 
@@ -1137,6 +1139,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				HAL_BUFFER_OUTPUT);
 		if (!bufreq) {
 			mutex_unlock(&inst->lock);
+			cvp_put_inst(inst);
 			return;
 		}
 
@@ -1148,6 +1151,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				HAL_BUFFER_OUTPUT2);
 		if (!bufreq) {
 			mutex_unlock(&inst->lock);
+			cvp_put_inst(inst);
 			return;
 		}
 
@@ -1162,6 +1166,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				HAL_BUFFER_OUTPUT);
 		if (!bufreq) {
 			mutex_unlock(&inst->lock);
+			cvp_put_inst(inst);
 			return;
 		}
 
@@ -1485,7 +1490,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	}
 
 	dprintk(CVP_WARN, "SYS_ERROR received for core %pK\n", core);
-	msm_cvp_noc_error_info(core);
+	/* msm_cvp_noc_error_info(core) is disabled as of now */
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(CVP_WARN,
@@ -1975,7 +1980,7 @@ static int msm_comm_init_core(struct msm_cvp_inst *inst)
 	hdev = core->device;
 	mutex_lock(&core->lock);
 	if (core->state >= CVP_CORE_INIT) {
-		dprintk(CVP_INFO, "Video core: %d is already in state: %d\n",
+		dprintk(CVP_DBG, "CVP core: %d is already in state: %d\n",
 				core->id, core->state);
 		goto core_already_inited;
 	}
