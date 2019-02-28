@@ -2351,9 +2351,6 @@ static void crypt_dtr(struct dm_target *ti)
 	kzfree(cc->cipher_auth);
 	kzfree(cc->authenc_key);
 
-	/* Must zero key material before freeing */
-	kzfree(cc);
-
 /* MTK PATCH */
 #if defined(CONFIG_MTK_HW_FDE)
 	if (cc->hw_fde == 0)
@@ -2365,6 +2362,9 @@ static void crypt_dtr(struct dm_target *ti)
 	crypt_calculate_pages_per_client();
 	spin_unlock(&dm_crypt_clients_lock);
 	}
+
+	/* Must zero key material before freeing */
+	kzfree(cc);
 }
 
 static int crypt_ctr_ivmode(struct dm_target *ti, const char *ivmode)
