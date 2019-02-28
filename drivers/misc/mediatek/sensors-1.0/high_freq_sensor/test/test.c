@@ -49,6 +49,8 @@ static int test_enable(struct hf_device *hfdev, int sensor_id, int en)
 static int test_batch(struct hf_device *hfdev, int sensor_id,
 		int64_t delay, int64_t latency)
 {
+	pr_debug("%s id:%d delay:%lld latency:%lld\n", __func__, sensor_id,
+		delay, latency);
 	return 0;
 }
 
