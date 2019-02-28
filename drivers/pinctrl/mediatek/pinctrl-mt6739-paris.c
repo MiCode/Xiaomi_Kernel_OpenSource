@@ -11,7 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include "pinctrl-mtk-mt6739.h"
+#include "pinctrl-mtk-mt6739-paris.h"
 #include "pinctrl-paris.h"
 
 static const struct mtk_pin_reg_calc mt6739_reg_cals[PINCTRL_PIN_REG_MAX] = {
