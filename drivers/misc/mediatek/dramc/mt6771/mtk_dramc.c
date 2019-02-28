@@ -45,7 +45,6 @@
 #define DRAM_R0_DUMMY_READ_RESERVED_KEY "reserve-memory-dram_r0_dummy_read"
 #define DRAM_R1_DUMMY_READ_RESERVED_KEY "reserve-memory-dram_r1_dummy_read"
 #include <linux/of_reserved_mem.h>
-#include <mt-plat/mtk_memcfg.h>
 #endif
 
 #include <mt-plat/aee.h>

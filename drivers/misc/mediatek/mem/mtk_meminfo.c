@@ -19,7 +19,6 @@
 #include <linux/vmalloc.h>
 #include <linux/mm_types.h>
 #include <linux/page-flags.h>
-#include <mt-plat/mtk_memcfg.h>
 #include <mt-plat/mtk_meminfo.h>
 
 #ifdef CONFIG_OF
