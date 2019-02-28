@@ -20,12 +20,13 @@
  */
 static bool is_encryption_context_consistent_with_policy(
 				const struct fscrypt_context *ctx,
-				const struct fscrypt_policy *policy)
+				const struct fscrypt_policy *policy,
+				const struct inode *inode)
 {
 
 	if ((ctx->contents_encryption_mode !=
 		 policy->contents_encryption_mode) &&
-		 !(hie_is_ready() &&
+		!(hie_is_capable(inode->i_sb) &&
 		 (ctx->contents_encryption_mode ==
 		 FS_ENCRYPTION_MODE_PRIVATE)))
 		return 0;
@@ -54,7 +55,8 @@ static int create_encryption_context_from_policy(struct inode *inode,
 		return -EINVAL;
 
 	ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(policy->contents_encryption_mode);
+		fscrypt_data_crypt_mode(inode,
+		policy->contents_encryption_mode);
 	ctx.filenames_encryption_mode = policy->filenames_encryption_mode;
 	ctx.flags = policy->flags;
 	BUILD_BUG_ON(sizeof(ctx.nonce) != FS_KEY_DERIVATION_NONCE_SIZE);
@@ -96,7 +98,8 @@ int fscrypt_ioctl_set_policy(struct file *filp, const void __user *arg)
 								    &policy);
 	} else if (ret == sizeof(ctx) &&
 		   is_encryption_context_consistent_with_policy(&ctx,
-								&policy)) {
+								&policy,
+								inode)) {
 		/* The file already uses the same encryption policy. */
 		ret = 0;
 	} else if (ret >= 0 || ret == -ERANGE) {
@@ -233,9 +236,11 @@ int fscrypt_has_permitted_context(struct inode *parent, struct inode *child)
 		return 0;
 
 	parent_ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(parent_ctx.contents_encryption_mode);
+		fscrypt_data_crypt_mode(parent,
+		parent_ctx.contents_encryption_mode);
 	child_ctx.contents_encryption_mode =
-		fscrypt_data_crypt_mode(child_ctx.contents_encryption_mode);
+		fscrypt_data_crypt_mode(child,
+		child_ctx.contents_encryption_mode);
 
 	return memcmp(parent_ctx.master_key_descriptor,
 		      child_ctx.master_key_descriptor,
@@ -300,7 +305,7 @@ int fscrypt_set_bio_ctx(struct inode *inode, struct bio *bio)
 
 	if (S_ISREG(inode->i_mode) && ci &&
 	    (ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE)) {
-		WARN_ON(!hie_is_ready());
+		WARN_ON(!hie_is_capable(inode->i_sb));
 		/* HIE: default use aes-256-xts */
 		bio->bi_crypt_ctx.bc_flags |= (BC_CRYPT | BC_AES_256_XTS);
 		/* HIE: always use FS_AES_256_XTS_KEY_SIZE = 64*/
