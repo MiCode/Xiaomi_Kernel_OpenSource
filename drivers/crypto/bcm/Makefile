@@ -13,6 +13,7 @@ endif
 
 obj-$(CONFIG_CRYPTO_DEV_BCM_SPU) := bcm_crypto_spu.o
 
+CFLAGS_spu2.o = -Wno-maybe-uninitialized
 bcm_crypto_spu-objs :=  util.o spu.o spu2.o cipher.o
 
 ccflags-y += -I. -DBCMDRIVER
