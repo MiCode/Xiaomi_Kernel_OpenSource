@@ -11560,7 +11560,7 @@ static __latent_entropy void run_rebalance_domains(struct softirq_action *h)
 	int this_cpu = cpu_of(this_rq);
 
 	/* bypass load balance of HMP if EAS consideration */
-	if (false && should_hmp(this_cpu))
+	if (should_hmp(this_cpu))
 		hmp_force_up_migration(this_cpu);
 
 	/*

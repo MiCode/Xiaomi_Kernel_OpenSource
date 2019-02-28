@@ -995,7 +995,7 @@ static void hmp_force_down_migration(int this_cpu)
 	}
 	raw_spin_unlock_irqrestore(&target->lock, flags);
 	if (force) {
-		if (stop_one_cpu_dispatch(cpu_of(target),
+		if (!stop_one_cpu_nowait(cpu_of(target),
 					hmp_force_down_cpu_stop,
 					target, &target->active_balance_work)) {
 			put_task_struct(p); /* out of rq->lock */
@@ -1130,7 +1130,7 @@ static void hmp_force_up_migration(int this_cpu)
 
 		raw_spin_unlock_irqrestore(&target->lock, flags);
 		if (force) {
-			if (stop_one_cpu_dispatch(cpu_of(target),
+			if (!stop_one_cpu_nowait(cpu_of(target),
 					hmp_force_up_cpu_stop,
 					target, &target->active_balance_work)) {
 				put_task_struct(p); /* out of rq->lock */
@@ -1288,8 +1288,8 @@ static struct sched_entity *hmp_get_heaviest_task(
 		struct sched_entity *se, int target_cpu)
 {
 	int num_tasks = hmp_max_tasks;
-	struct sched_entity *max_se = 0;
-	long int max_ratio = -1;
+	struct sched_entity *max_se = se;
+	long int max_ratio = se->avg.loadwop_avg;
 	const struct cpumask *hmp_target_mask = NULL;
 	struct hmp_domain *hmp;
 

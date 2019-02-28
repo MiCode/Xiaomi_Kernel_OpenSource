@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+#include <linux/stop_machine.h>
 static inline unsigned long task_util(struct task_struct *p);
 static int select_max_spare_capacity(struct task_struct *p, int target);
 int cpu_eff_tp = 1024;
@@ -530,7 +531,7 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 	}
 	raw_spin_unlock_irqrestore(&target->lock, flags);
 	if (force) {
-		if (stop_one_cpu_dispatch(cpu_of(target),
+		if (!stop_one_cpu_nowait(cpu_of(target),
 					hmp_idle_pull_cpu_stop,
 					target, &target->active_balance_work)) {
 			put_task_struct(p); /* out of rq->lock */

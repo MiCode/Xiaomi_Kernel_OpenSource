@@ -38,8 +38,6 @@ static inline bool should_hmp(int cpu)
 }
 
 extern int cpu_park(int cpu);
-extern int stop_one_cpu_dispatch(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
-				struct cpu_stop_work *work_buf);
 static void __init hmp_cpu_mask_setup(void);
 
 #ifdef CONFIG_SCHED_HMP
