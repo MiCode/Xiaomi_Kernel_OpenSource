@@ -439,7 +439,7 @@ static void __trace_out(int heavy, int cpu, struct task_struct *p)
 			heavy ? "Y" : "N",
 			cpu, p->se.avg.load_avg,
 			topology_cur_cpu_capacity(cpu),
-			topology_max_cpu_capacity(cpu),
+			arch_scale_cpu_capacity(NULL, cpu),
 			p->pid,
 			p->comm);
 		trace_sched_heavy_task(tracebuf);
@@ -462,7 +462,7 @@ static int ack_by_curcap(int cpu, int cluster_id, int max_cluster_id)
 	else
 		thrshld = SCHED_CAPACITY_SCALE*40/100;
 	cur_cap = topology_cur_cpu_capacity(cpu);
-	max_cap = topology_max_cpu_capacity(cpu);
+	max_cap = arch_scale_cpu_capacity(NULL, cpu);
 	if ((cur_cap * SCHED_CAPACITY_SCALE) >= max_cap * thrshld)
 		acked = 1;
 	else

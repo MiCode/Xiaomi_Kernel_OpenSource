@@ -12,6 +12,7 @@
  */
 
 #include <linux/sched.h>
+#include <linux/arch_topology.h>
 #include "eas_plus.h"
 
 #include <mt-plat/met_drv.h>
@@ -87,28 +88,33 @@ int show_cpu_capacity(char *buf, int buf_size)
 			"cpu=%d orig=%4lu(%4lu) max_cap=%4lu max=%4lu min=%4lu ",
 			cpu,
 			cpu_rq(cpu)->cpu_capacity_orig,
-			cpu_online(cpu)?cpu_rq(cpu)->cpu_capacity:0,
-			cpu_online(cpu)?cpu_rq(cpu)->rd->max_cpu_capacity.val:0,
+			cpu_online(cpu) ? cpu_rq(cpu)->cpu_capacity : 0,
+			cpu_online(cpu) ?
+				cpu_rq(cpu)->rd->max_cpu_capacity.val : 0,
 			/* limited frequency */
-			cpu_online(cpu)?arch_scale_get_max_freq(cpu) / 1000 : 0,
-			cpu_online(cpu)?arch_scale_get_min_freq(cpu) / 1000 : 0
+			cpu_online(cpu) ? arch_max_cpu_freq(NULL, cpu) *
+				arch_max_freq_scale(NULL, cpu) >>
+				SCHED_CAPACITY_SHIFT : 0,
+			cpu_online(cpu) ? arch_max_cpu_freq(NULL, cpu) *
+				arch_min_freq_scale(NULL, cpu) >>
+				SCHED_CAPACITY_SHIFT : 0
 			);
 
 		len += snprintf(buf+len, buf_size-len,
 			"cur_freq=%4luMHZ, cur=%4lu util=%4lu(%s)\n",
 			/* current frequency */
-			cpu_online(cpu)?capacity_curr_of(cpu) *
-			arch_scale_get_max_freq(cpu) /
-			cpu_rq(cpu)->cpu_capacity_orig / 1000 : 0,
+			cpu_online(cpu) ? (arch_max_cpu_freq(NULL, cpu) *
+			arch_scale_freq_capacity(NULL, cpu) >>
+			SCHED_CAPACITY_SHIFT) / 1000 : 0,
 
 			/* current capacity */
-			cpu_online(cpu)?capacity_curr_of(cpu):0,
+			cpu_online(cpu) ? capacity_curr_of(cpu) : 0,
 
 			/* cpu utilization */
-			cpu_online(cpu)?get_cpu_util(cpu):0,
+			cpu_online(cpu) ? get_cpu_util(cpu) : 0,
 
 			/* cpu on/off */
-			cpu_online(cpu)?"on":"off"
+			cpu_online(cpu) ? "on" : "off"
 			);
 	}
 
