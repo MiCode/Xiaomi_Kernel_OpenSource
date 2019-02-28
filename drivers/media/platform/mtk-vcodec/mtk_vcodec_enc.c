@@ -383,6 +383,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->operationrate = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_OPERATION_RATE;
 		break;
+	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_VIDEO_BITRATE_MODE: %d",
+			ctrl->val);
+		p->bitratemode = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_BITRATE_MODE;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -752,7 +759,10 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->intra_period = enc_params->intra_period;
 	param->gop_size = enc_params->gop_size;
 	param->bitrate = enc_params->bitrate;
-
+	param->operationrate = enc_params->operationrate;
+	param->scenario = enc_params->scenario;
+	param->prependheader = enc_params->prependheader;
+	param->bitratemode = enc_params->bitratemode;
 	mtk_v4l2_debug(
 		0,
 		"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d, gop %d, i_period %d",
@@ -1517,7 +1527,17 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 		ret |= venc_if_set_param(ctx, VENC_SET_PARAM_OPERATION_RATE,
 					 &enc_prm);
 	}
-
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_BITRATE_MODE) {
+		enc_prm.bitratemode = mtk_buf->enc_params.bitratemode;
+		mtk_v4l2_debug(1, "[%d] idx=%d, bitratemode=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.bitratemode);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_BITRATE_MODE,
+					&enc_prm);
+	}
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -1812,7 +1832,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	v4l2_ctrl_handler_init(handler, MTK_MAX_CTRLS_HINT);
 
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE, 1,
-			  20000000, 1, 20000000);
+			  400000000, 1, 20000000);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_MTK_SEC_ENCODE,
 			0, 2, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES, 0, 2, 1,
@@ -1852,7 +1872,9 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
 			       V4L2_MPEG_VIDEO_MPEG4_LEVEL_3, 0,
 			       V4L2_MPEG_VIDEO_MPEG4_LEVEL_3);
-
+	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
+		V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
+		0, V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_SCENARIO;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
