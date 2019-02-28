@@ -694,10 +694,25 @@ static int crypto_try_merge(struct request *rq, struct bio *bio, int type)
 	if (rq->bio->bi_crypt_ctx.bc_flags != bio->bi_crypt_ctx.bc_flags)
 		return ELEVATOR_NO_MERGE;
 
-	if (type == ELEVATOR_BACK_MERGE)
+	/*
+	 * Check both sector and crypto iv here to make
+	 * sure blk_try_merge() allows merging only if crypto iv
+	 * is also allowed to fix below cases,
+	 *
+	 * rq and bio can do front-merge in sector view, but
+	 * not allowed by their crypto ivs.
+	 */
+	if (type == ELEVATOR_BACK_MERGE) {
+		if (blk_rq_pos(rq) + blk_rq_sectors(rq) !=
+		    bio->bi_iter.bi_sector)
+			return ELEVATOR_NO_MERGE;
 		return crypto_try_merge_bio(rq->biotail, bio, type);
-	else if (type == ELEVATOR_FRONT_MERGE)
+	} else if (type == ELEVATOR_FRONT_MERGE) {
+		if (bio->bi_iter.bi_sector + bio_sectors(bio) !=
+		    blk_rq_pos(rq))
+			return ELEVATOR_NO_MERGE;
 		return crypto_try_merge_bio(bio, rq->bio, type);
+	}
 
 	return ELEVATOR_NO_MERGE;
 }
@@ -725,9 +740,18 @@ static bool crypto_not_mergeable(struct request *req, struct bio *nxt)
 		if ((bio_bc_sb(bio) != bio_bc_sb(nxt)) ||
 			(bio_bc_ino(bio) != bio_bc_ino(nxt)))
 			return true;
-		/* page index must be contiguous */
-		if (crypto_try_merge(req, bio, ELEVATOR_BACK_MERGE)
-			== ELEVATOR_NO_MERGE)
+		/*
+		 * Page index must be contiguous.
+		 *
+		 * Check both back and front direction because
+		 * req and nxt here are not promised any orders.
+		 *
+		 * For example, merge attempt from blk_attempt_plug_merge().
+		 */
+		if ((crypto_try_merge(req, nxt, ELEVATOR_BACK_MERGE) ==
+		     ELEVATOR_NO_MERGE) &&
+		    (crypto_try_merge(req, nxt, ELEVATOR_FRONT_MERGE) ==
+		     ELEVATOR_NO_MERGE))
 			return true;
 	}
 
