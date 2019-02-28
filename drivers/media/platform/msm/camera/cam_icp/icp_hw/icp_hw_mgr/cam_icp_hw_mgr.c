@@ -2472,7 +2472,7 @@ static int cam_icp_mgr_abort_handle(
 	int rc = 0;
 	unsigned long rem_jiffies;
 	size_t packet_size;
-	int timeout = 100;
+	int timeout = 1000;
 	struct hfi_cmd_ipebps_async *abort_cmd;
 
 	packet_size =
@@ -2523,7 +2523,7 @@ static int cam_icp_mgr_destroy_handle(
 	struct cam_icp_hw_ctx_data *ctx_data)
 {
 	int rc = 0;
-	int timeout = 100;
+	int timeout = 1000;
 	unsigned long rem_jiffies;
 	size_t packet_size;
 	struct hfi_cmd_ipebps_async *destroy_cmd;
@@ -3398,6 +3398,13 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 				*fw_cmd_buf_iova_addr = 0;
 				num_cmd_buf = (num_cmd_buf > 0) ?
 					num_cmd_buf-- : 0;
+				goto rel_cmd_buf;
+			}
+			if ((len <= cmd_desc[i].offset) ||
+				(cmd_desc[i].size < cmd_desc[i].length) ||
+				((len - cmd_desc[i].offset) <
+				cmd_desc[i].length)) {
+				CAM_ERR(CAM_ICP, "Invalid offset or length");
 				goto rel_cmd_buf;
 			}
 			cpu_addr = cpu_addr + cmd_desc[i].offset;
