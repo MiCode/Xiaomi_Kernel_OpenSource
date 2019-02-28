@@ -16,5 +16,4 @@
 
 #include "../2.4/m4u_v2.h"
 
-#define M4U_MIGRATION_MT6771
 #endif

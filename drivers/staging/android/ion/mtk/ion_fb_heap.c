@@ -292,7 +292,7 @@ struct ion_heap *ion_fb_heap_create(struct ion_platform_heap *heap_data)
 	fb_heap->size = heap_data->size;
 	gen_pool_add(fb_heap->pool, fb_heap->base, fb_heap->size, -1);
 	fb_heap->heap.ops = &fb_heap_ops;
-	fb_heap->heap.type = (unsigned int)ION_HEAP_TYPE_FB;//hc2
+	fb_heap->heap.type = (unsigned int)ION_HEAP_TYPE_FB;
 	fb_heap->heap.flags = (unsigned int)ION_HEAP_FLAG_DEFER_FREE;
 	fb_heap->heap.debug_show = ion_fb_heap_debug_show;
 
