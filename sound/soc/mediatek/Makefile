@@ -29,9 +29,9 @@ MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
 
 # flags for not ready feature, uncomment after ready
-#subdir-ccflags-y += -DAUDIO_USING_WRAP_DRIVER
-#subdir-ccflags-y += -D_MT_IDLE_HEADER
-#subdir-ccflags-y += -D_REG_SYNC_WRITE
+subdir-ccflags-y += -DAUDIO_USING_WRAP_DRIVER
+subdir-ccflags-y += -D_MT_IDLE_HEADER
+subdir-ccflags-y += -D_REG_SYNC_WRITE
 
 # include path
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6358

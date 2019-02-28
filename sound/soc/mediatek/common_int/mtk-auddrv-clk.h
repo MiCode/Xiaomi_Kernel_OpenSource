@@ -128,4 +128,5 @@ void EnableI2SCLKDiv(unsigned int I2snum, bool bEnable);
 void PowerDownAllI2SDiv(void);
 void audio_clk_control(void);
 
+extern void aud_intbus_mux_sel(unsigned int aud_idx);
 #endif
