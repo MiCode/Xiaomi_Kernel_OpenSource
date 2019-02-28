@@ -4269,3 +4269,6 @@ firmware_class.path=/vendor/firmware";
 #include "cust_mt6771_msdc.dtsi"
 #include "mt6370.dtsi"
 #include "mt6370_pd.dtsi"
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#include "trusty.dtsi"
+#endif

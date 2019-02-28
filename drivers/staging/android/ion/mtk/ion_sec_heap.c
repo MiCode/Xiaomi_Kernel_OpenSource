@@ -49,8 +49,9 @@
 #include "secmem_api.h"
 #endif
 
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
-#include "pmem_api.h"
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+#define SECMEM_KERNEL_API
+#include "trusted_mem_api.h"
 #endif
 
 #define ION_PRINT_LOG_OR_SEQ(seq_files, fmt, args...) \
@@ -826,7 +827,7 @@ struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 		return ERR_PTR(-ENOMEM);
 	}
 	heap->heap.ops = &mm_sec_heap_ops;
-	heap->heap.type = ION_HEAP_TYPE_MULTIMEDIA_SEC;
+	heap->heap.type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA_SEC;
 	heap->heap.flags &= ~ION_HEAP_FLAG_DEFER_FREE;
 	heap->heap.debug_show = ion_sec_heap_debug_show;
 
