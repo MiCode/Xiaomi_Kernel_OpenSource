@@ -63,6 +63,7 @@ struct tee_op_cmd_mappings {
 
 u32 get_tee_cmd(enum TEE_OP op, void *peer_priv);
 u32 get_tee_mem_type(void *peer_priv);
-void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type, void **peer_priv);
+void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type,
+			    struct tee_op_cmd_mappings **peer_priv);
 
 #endif /* TEE_COMMON_H_ */
