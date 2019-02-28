@@ -14,6 +14,23 @@
 /* Heterogenous multi processor common utils */
 LIST_HEAD(hmp_domains);
 
+/*
+ *  Consider EAS if only EAS enabled, but HMP
+ *  if hybrid enabled and system is over-utilized.
+ */
+static inline bool should_hmp(int cpu)
+{
+#ifdef CONFIG_MTK_SCHED_EAS_POWER_SUPPORT
+	if (sched_feat(ENERGY_AWARE) && !system_overutilized(cpu))
+		return false;
+#endif
+	return sched_feat(SCHED_HMP);
+}
+
+extern int cpu_park(int cpu);
+extern int stop_one_cpu_dispatch(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
+				struct cpu_stop_work *work_buf);
+
 #ifdef CONFIG_SCHED_HMP
 
 /* CPU cluster statistics for task migration control */
@@ -66,10 +83,6 @@ static inline void
 hmp_enqueue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se);
 static inline void
 hmp_dequeue_entity_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *se);
-static inline void
-hmp_update_load_avg(unsigned int decayed, unsigned long weight,
-		unsigned int scaled_delta_w, struct sched_avg *sa, u64 periods,
-		u32 contrib, u64 scaled_delta, struct cfs_rq *cfs_rq);
 
 static inline void hmp_next_up_delay(struct sched_entity *se, int cpu);
 

@@ -45,6 +45,48 @@ config SCHED_HMP
 	  but it has only been tested with two types of cpus.
 	  There is currently no support for migration of task groups, hence
 	  !SCHED_AUTOGROUP.
+
+config SCHED_HMP_PRIO_FILTER
+	bool "(EXPERIMENTAL) Filter HMP migrations by task priority"
+	default y
+	depends on SCHED_HMP
+	help
+	  Enables task priority based HMP migration filter. Any task with
+	  a NICE value above the threshold will always be on low-power cpus
+	  with less compute capacity.
+	  If unsure say N here.
+
+config SCHED_HMP_PRIO_FILTER_VAL
+	int "NICE priority threshold"
+	default 5
+	depends on SCHED_HMP_PRIO_FILTER
+
+config HMP_FREQUENCY_INVARIANT_SCALE
+	bool "(EXPERIMENTAL) Frequency-Invariant Tracked Load for HMP"
+	depends on !ARCH_SCALE_INVARIANT_CPU_CAPACITY
+	help
+	  Scales the current load contribution in line with the frequency
+	  of the CPU that the task was executed on.
+	  In this version, we use a simple linear scale derived from the
+	  maximum frequency reported by CPUFreq.
+	  Restricting tracked load to be scaled by the CPU's frequency
+	  represents the consumption of possible compute capacity
+	  (rather than consumption of actual instantaneous capacity as
+	  normal) and allows the HMP migration's simple threshold
+	  migration strategy to interact more predictably with CPUFreq's
+	  asynchronous compute capacity changes.
+
+config SCHED_HMP_PLUS
+	bool "(EXPERIMENTAL) Corepilot enhancement"
+	depends on SCHED_HMP
+	default y
+	help
+	  Corepilot hmp enhancement.
+	  1. Do hmp_idle_pull at idle_balance
+	  2. At global balance, consider the tasks in rq, move heaviest/lightest
+	  of first 5 tasks in rq.
+	  3. Enhance down migration rule: Do not migrate task when big core
+	  is idle
 endmenu
 
 menu "MTK runqueue statistic calculation"
