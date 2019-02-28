@@ -24,6 +24,10 @@
 #include <linux/timer.h>
 #include <linux/sched/clock.h>
 
+#if defined(CONFIG_MTK_SMI_EXT)
+#include <smi_public.h>
+#endif
+
 /* #include <mach/mt_irq.h> */
 #include "ddp_reg.h"
 #include "ddp_irq.h"
@@ -299,11 +303,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			cnt_wdma_underflow[index]++;
 			if (!wdma_diagnosed) {
 #if defined(CONFIG_MTK_SMI_EXT)
-				smi_debug_bus_hanging_detect_ext2(
-						SMI_DBG_DISPSYS |
-						SMI_DBG_VDEC | SMI_DBG_IMGSYS |
-						SMI_DBG_VENC | SMI_DBG_MJC, 1,
-						0, 1);
+				smi_debug_bus_hang_detect(false, "DISP");
 #endif
 				wdma_diagnosed = 1;
 			}

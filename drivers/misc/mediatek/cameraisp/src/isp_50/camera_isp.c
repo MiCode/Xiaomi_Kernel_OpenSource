@@ -86,7 +86,6 @@
 #ifndef EP_MARK_SMI
 #include <smi_public.h>
 /*for SMI BW debug log*/
-#include <smi_debug.h>
 #endif
 
 #include "inc/camera_isp.h"
@@ -1179,9 +1178,6 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	g_DmaErr_CAM[module][_ufgo_] |= dmaerr[_ufgo_];
 	g_DmaErr_CAM[module][_rawi_] |= dmaerr[_rawi_];
 	g_DmaErr_CAM[module][_pdi_] |= dmaerr[_pdi_];
-
-	/* smi_debug_bus_hanging_detect_ext2(0x1FF, 1, 0, 1); */
-
 }
 
 static inline void Prepare_Enable_ccf_clock(void)
@@ -1193,8 +1189,8 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 	#ifndef EP_MARK_SMI /* enable through smi API */
 	LOG_INF("enable CG/MTCMOS through SMI CLK API\n");
-	smi_bus_enable(SMI_LARB6, ISP_DEV_NAME);
-	smi_bus_enable(SMI_LARB3, ISP_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB6, ISP_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB3, ISP_DEV_NAME);
 	#endif
 
 	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_DIS);
@@ -1247,8 +1243,8 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 	#ifndef EP_MARK_SMI
 	LOG_INF("disable CG/MTCMOS through SMI CLK API\n");
-	smi_bus_disable(SMI_LARB6, ISP_DEV_NAME);
-	smi_bus_disable(SMI_LARB3, ISP_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB6, ISP_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB3, ISP_DEV_NAME);
 	#endif
 }
 
@@ -8066,8 +8062,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 			    INT_ST_MASK_CAM_WARN_2)) {
 				LOG_NOTICE(
 				    "ERR:SMI_DUMP by module:%d\n", irq_module);
-				smi_debug_bus_hanging_detect_ext2(
-				    0x1ff, 1, 0, 1);
+				smi_debug_bus_hang_detect(false, ISP_DEV_NAME);
 			}
 
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
@@ -8075,7 +8070,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		} else if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
 		    CQ_VS_ERR_ST) {
 			LOG_NOTICE("ERR:SMI_DUMP by module:%d\n", irq_module);
-			smi_debug_bus_hanging_detect_ext2(0x1ff, 1, 0, 1);
+			smi_debug_bus_hang_detect(false, ISP_DEV_NAME);
 
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt3Err = 0;
@@ -8094,8 +8089,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 				LOG_NOTICE(
 					"ERR:SMI_DUMP by module:%d\n",
 					irq_module);
-				smi_debug_bus_hanging_detect_ext2(
-					0x1ff, 1, 0, 1);
+				smi_debug_bus_hang_detect(false, ISP_DEV_NAME);
 			}
 
 			g_ISPIntStatus_SMI[irq_module].ispIntErr = 0;

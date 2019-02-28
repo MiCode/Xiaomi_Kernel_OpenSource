@@ -1333,7 +1333,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* enable through smi API */
 #ifndef EP_CODE_MARK_SMI
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, DIP_DEV_NAME);
 #endif
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB5);
 	if (ret)
@@ -1350,7 +1350,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB5);
 #ifndef EP_CODE_MARK_SMI
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, DIP_DEV_NAME);
 #endif
 }
 
