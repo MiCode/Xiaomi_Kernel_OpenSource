@@ -230,6 +230,7 @@ source "drivers/misc/mediatek/rtc/Kconfig"
 source "drivers/misc/mediatek/rt-regmap/Kconfig"
 source "drivers/misc/mediatek/typec/Kconfig"
 source "drivers/misc/mediatek/irrx/Kconfig"
+source "drivers/misc/mediatek/devmpu/Kconfig"
 endmenu # Other Peripheral
 
 menu "Memory configs"
