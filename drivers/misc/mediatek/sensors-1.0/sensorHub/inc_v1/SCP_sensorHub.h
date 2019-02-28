@@ -199,7 +199,13 @@ struct geofence_event_t {
 };
 
 struct sar_event_t {
-	int32_t state;
+	struct {
+		int32_t data[3];
+		int32_t x_bias;
+		int32_t y_bias;
+		int32_t z_bias;
+	};
+	uint32_t status;
 };
 
 enum activity_type_t {

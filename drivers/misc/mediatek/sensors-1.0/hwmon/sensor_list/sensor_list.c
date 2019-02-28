@@ -37,6 +37,7 @@ enum {
 	als,
 	ps,
 	baro,
+	sar,
 	maxhandle,
 };
 
@@ -70,6 +71,9 @@ inline int sensor_to_handle(int sensor)
 	case ID_PRESSURE:
 		handle = baro;
 		break;
+	case ID_SAR:
+		handle = sar;
+		break;
 	}
 	return handle;
 }
@@ -96,6 +100,9 @@ static inline int handle_to_sensor(int handle)
 		break;
 	case baro:
 		sensor = ID_PRESSURE;
+		break;
+	case sar:
+		sensor = ID_SAR;
 		break;
 	}
 	return sensor;
