@@ -79,11 +79,13 @@ static int motion_detect_batch(int flag,
 static int motion_detect_recv_data(struct data_unit_t *event,
 	void *reserved)
 {
+	int err = 0;
+
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("stat do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		situation_notify(ID_MOTION_DETECT);
-	return 0;
+		err = situation_notify(ID_MOTION_DETECT);
+	return err;
 }
 
 static int motion_detect_local_init(void)
