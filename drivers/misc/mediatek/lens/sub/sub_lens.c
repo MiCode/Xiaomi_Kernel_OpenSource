@@ -89,10 +89,6 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 DW9714AF_Release, DW9714AF_GetFileName, NULL},
 	{1, AFDRV_DW9718AF, DW9718AF_SetI2Cclient, DW9718AF_Ioctl,
 	 DW9718AF_Release, DW9718AF_GetFileName, NULL},
-	{1, AFDRV_LC898212AF, LC898212AF_SetI2Cclient, LC898212AF_Ioctl,
-	 LC898212AF_Release, LC898212AF_GetFileName, NULL},
-	{1, AFDRV_FM50AF, FM50AF_SetI2Cclient, FM50AF_Ioctl, FM50AF_Release,
-	 FM50AF_GetFileName, NULL},
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;
@@ -323,12 +319,12 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	LOG_INF("Start\n");
 
+	spin_lock(&g_AF_SpinLock);
 	if (g_s4AF_Opened) {
+		spin_unlock(&g_AF_SpinLock);
 		LOG_INF("The device is opened\n");
 		return -EBUSY;
 	}
-
-	spin_lock(&g_AF_SpinLock);
 	g_s4AF_Opened = 1;
 	spin_unlock(&g_AF_SpinLock);
 
