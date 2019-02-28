@@ -8067,8 +8067,8 @@ static inline int wake_energy(struct task_struct *p, int prev_cpu,
  * preempt must be disabled.
  */
 static int
-select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags,
-		    int sibling_count_hint)
+SELECT_TASK_RQ_FAIR(struct task_struct *p, int prev_cpu, int sd_flag,
+		int wake_flags, int sibling_count_hint)
 {
 	struct sched_domain *tmp, *affine_sd = NULL;
 	struct sched_domain *sd = NULL, *energy_sd = NULL;
@@ -8077,6 +8077,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int want_affine = 0;
 	int want_energy = 0;
 	int sync = wake_flags & WF_SYNC;
+	int select_reason = LB_PREV;
 
 	if (should_hmp(cpu) && p->mm && (sd_flag & SD_BALANCE_FORK)) {
 		int hmp_cpu;
@@ -8086,7 +8087,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		hmp_cpu = hmp_fork_balance(p, prev_cpu);
 
 		if (hmp_cpu >= 0 && (hmp_cpu < nr_cpu_ids))
-			return hmp_cpu;
+			return LB_FORK | hmp_cpu;
 	}
 
 	rcu_read_lock();
@@ -8138,8 +8139,10 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		if (cpu == prev_cpu)
 			goto pick_cpu;
 
-		if (wake_affine(affine_sd, p, prev_cpu, sync))
+		if (wake_affine(affine_sd, p, prev_cpu, sync)) {
 			new_cpu = cpu;
+			select_reason = LB_SMP;
+		}
 	}
 
 	if (sd && !(sd_flag & SD_BALANCE_FORK)) {
@@ -8153,18 +8156,24 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 	if (!sd) {
 pick_cpu:
-		if (sd_flag & SD_BALANCE_WAKE) /* XXX always ? */
+		if (sd_flag & SD_BALANCE_WAKE) { /* XXX always ? */
 			new_cpu = ___select_idle_sibling(p, prev_cpu, new_cpu);
+			select_reason = LB_EAS_AFFINE;
+		}
 
 	} else {
-		if (energy_sd)
+		if (energy_sd) {
 			new_cpu = find_energy_efficient_cpu(energy_sd, p, cpu, prev_cpu, sync);
+			select_reason = LB_EAS;
+		}
 
 		/* if we did an energy-aware placement and had no choices available
 		 * then fall back to the default find_idlest_cpu choice
 		 */
-		if (!energy_sd || (energy_sd && new_cpu == -1))
+		if (!energy_sd || (energy_sd && new_cpu == -1)) {
 			new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+			select_reason = LB_EAS_LB;
+		}
 	}
 
 	rcu_read_unlock();
@@ -8173,11 +8182,31 @@ pick_cpu:
 	if (nohz_kick_needed(cpu_rq(new_cpu), true))
 		nohz_balancer_kick(true);
 #endif
-	if (should_hmp(cpu))
+	if (should_hmp(cpu)) {
 		new_cpu = hmp_select_task_rq_fair(sd_flag,
 				p, prev_cpu, new_cpu);
+		select_reason = LB_HMP;
+	}
 
-	return new_cpu;
+	return select_reason | new_cpu;
+}
+
+static inline int
+select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag,
+			int wake_flags, int sibling_count_hint)
+{
+	int result = 0;
+	int cpu;
+
+	result = SELECT_TASK_RQ_FAIR(p, prev_cpu, sd_flag, wake_flags,
+			sibling_count_hint);
+	cpu = (result & LB_CPU_MASK);
+
+	trace_sched_select_task_rq(p, result, prev_cpu, cpu,
+			task_util(p), boosted_task_util(p),
+			(schedtune_prefer_idle(p) > 0));
+	return cpu;
+
 }
 
 /*
