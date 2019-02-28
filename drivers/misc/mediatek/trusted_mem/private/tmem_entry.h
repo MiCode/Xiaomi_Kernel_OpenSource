@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TMEM_UT_ENTRY_H
-#define TMEM_UT_ENTRY_H
+#ifndef TMEM_ENTRY_H
+#define TMEM_ENTRY_H
 
 #include "private/tmem_device.h"
 
@@ -37,4 +37,4 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type);
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size);
 
-#endif /* end of TMEM_UT_ENTRY_H */
+#endif /* end of TMEM_ENTRY_H */

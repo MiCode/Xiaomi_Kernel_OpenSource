@@ -53,18 +53,7 @@ struct profile_entry_string profile_entry_str[] = {
 #define GET_START_TIME() do_gettimeofday(&start_time)
 #define GET_END_TIME() do_gettimeofday(&end_time)
 
-/* clang-format off */
-#define GET_TIME_DIFF_SEC_P(start, end) \
-	(int)((end->tv_usec > start->tv_usec) ? (end->tv_sec - start->tv_sec) \
-					    : (end->tv_sec - start->tv_sec - 1))
-
-#define GET_TIME_DIFF_USEC_P(start, end) \
-	(int)((end->tv_usec > start->tv_usec) \
-		      ? (end->tv_usec - start->tv_usec) \
-		      : (1000000 + end->tv_usec - start->tv_usec))
-
 #define SEC_TO_US(s) (s*1000000)
-/* clang-format on */
 
 #include <asm/div64.h>
 static inline u64 u64_div(u64 n, u64 base)
