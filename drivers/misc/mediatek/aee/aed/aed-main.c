@@ -24,6 +24,7 @@
 #include <linux/proc_fs.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/sched/task_stack.h>
 #include <linux/vmalloc.h>
 #ifdef CONFIG_MTK_LCM
 #include <disp_assert_layer.h>
