@@ -331,8 +331,7 @@ unsigned char get_clkdiv(struct pll_ctrl_t *pll_p)
 
 static void adjust_freq_hopping(struct pll_ctrl_t *pll_p, unsigned int dds)
 {
-/* #ifdef CONFIG_MTK_FREQ_HOPPING */
-#if 0
+#ifdef CONFIG_MTK_FREQ_HOPPING
 	mt_dfs_armpll(pll_p->hopping_id, dds);
 #endif
 }

@@ -1524,7 +1524,7 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 	cpufreq_register_driver(&_mt_cpufreq_driver);
 
 	hp_online = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
-						   "cpufreq:online",
+						   "cpu_dvfs:online",
 						   cpuhp_cpufreq_online,
 						   cpuhp_cpufreq_offline);
 
