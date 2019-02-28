@@ -224,7 +224,7 @@ struct mrdump_rsvmem_block {
 int mrdump_init(void);
 void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		struct pt_regs *regs, const char *msg, ...);
-void mrdump_save_ctrlreg(void);
+void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
