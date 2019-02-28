@@ -186,6 +186,10 @@ static ssize_t show_eas_info_attr(struct kobject *kobj,
 	len += snprintf(buf+len, max_len - len, "min_cap_orig_cpu=%d\n",
 		cpu_rq(cpu)->rd->min_cap_orig_cpu);
 
+	len += snprintf(buf+len, max_len - len,
+			"turning_point=%d, big_cpu_eff_tp=%llu\n",
+		cpu_eff_tp, big_cpu_eff_tp);
+
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS
 	sched_max_util_task(&max_cpu, &max_pid, &max_util, &boost);
 #endif
