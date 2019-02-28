@@ -23,7 +23,6 @@
 #define MEM_UNORDER_SIZE_TEST_CFG_DISABLE (0)
 
 #define MEM_REGION_ON_OFF_STREE_ROUND (100ULL)
-#define MEM_SATURATION_STREE_ROUND (5ULL)
 
 enum UT_RET_STATE all_regmgr_state_off_check(void);
 enum UT_RET_STATE mem_basic_test(enum TRUSTED_MEM_TYPE mem_type,
