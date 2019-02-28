@@ -54,3 +54,31 @@ config PINCTRL_MT6397
 	select PINCTRL_MTK
 
 endif
+
+if !ARCH_MEDIATEK
+config PINCTRL_MTK
+	bool
+	depends on OF
+	select PINMUX
+	select GENERIC_PINCONF
+	select GPIOLIB
+	select OF_GPIO
+
+config PINCTRL_MT6771
+	bool "Mediatek MT6771 pin control"
+	default n
+	depends on MACH_MT6771
+	select PINCTRL_MTK
+	select PINCTRL_MTK_NO_UPSTREAM
+	select MTK_EINT_MULTI_TRIGGER_DESIGN
+
+config MTK_EINT_MULTI_TRIGGER_DESIGN
+	bool "Mediatek EINT multi-trigger design"
+	depends on PINCTRL_MTK
+	default n
+	help
+	  On MTK EINT design, a GPIO pin is connected to 2 EINT pin  in order to
+	  save pins for assignments. Which EINT pin is actually occupied by a GPIO
+	  is described in *pins and it is decided in run time.
+
+endif
