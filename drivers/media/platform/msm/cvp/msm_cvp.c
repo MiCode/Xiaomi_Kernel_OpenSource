@@ -309,7 +309,7 @@ static int msm_cvp_session_cvp_dme_frame(
 	struct msm_cvp_inst *inst,
 	struct msm_cvp_dme_frame *dme_frame)
 {
-	int rc = 0;
+	int i, rc = 0;
 	struct hfi_device *hdev;
 	struct msm_cvp_internal_dmeframe internal_dme_frame;
 	struct msm_cvp_dme_frame_kmd *dest_ptr = &internal_dme_frame.dme_frame;
@@ -330,7 +330,7 @@ static int msm_cvp_session_cvp_dme_frame(
 	memcpy(&internal_dme_frame.dme_frame, dme_frame,
 		CVP_DME_FRAME_CMD_SIZE*sizeof(unsigned int));
 
-	for (int i = 0; i < CVP_DME_BUF_NUM; i++) {
+	for (i = 0; i < CVP_DME_BUF_NUM; i++) {
 		if (!src_frame.bufs[i].fd) {
 			dest_ptr->bufs[i].fd = src_frame.bufs[i].fd;
 			dest_ptr->bufs[i].size = src_frame.bufs[i].size;
@@ -367,7 +367,7 @@ static int msm_cvp_session_cvp_persist(
 	struct msm_cvp_inst *inst,
 	struct msm_cvp_persist_buf *pbuf_cmd)
 {
-	int rc = 0;
+	int i, rc = 0;
 	struct hfi_device *hdev;
 	struct msm_cvp_internal_persist_cmd internal_pcmd;
 	struct msm_cvp_persist_kmd *dest_ptr = &internal_pcmd.persist_cmd;
@@ -388,7 +388,7 @@ static int msm_cvp_session_cvp_persist(
 	memcpy(&internal_pcmd.persist_cmd, pbuf_cmd,
 		CVP_PERSIST_CMD_SIZE*sizeof(unsigned int));
 
-	for (int i = 0; i < CVP_PSRSIST_BUF_NUM; i++) {
+	for (i = 0; i < CVP_PSRSIST_BUF_NUM; i++) {
 		if (!src_frame.bufs[i].fd) {
 			dest_ptr->bufs[i].fd = src_frame.bufs[i].fd;
 			dest_ptr->bufs[i].size = src_frame.bufs[i].size;
