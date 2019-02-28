@@ -53,5 +53,5 @@ unsigned long usec_low(unsigned long long nsec);
 long long sec_high(unsigned long long nsec);
 unsigned long sec_low(unsigned long long nsec);
 
-void mt_sched_monitor_test_init(void);
+void mt_sched_monitor_test_init(struct proc_dir_entry *dir);
 
