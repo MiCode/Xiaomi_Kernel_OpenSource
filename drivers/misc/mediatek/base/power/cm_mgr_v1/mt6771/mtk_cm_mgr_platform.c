@@ -822,3 +822,20 @@ int cm_mgr_get_dram_opp(void)
 void cm_mgr_emi_latency(int enable)
 {
 }
+
+int cm_mgr_check_bw_status(void)
+{
+	if (cm_mgr_get_bw() > CM_MGR_BW_VALUE)
+		return 1;
+	else
+		return 0;
+}
+
+int cm_mgr_get_bw(void)
+{
+#ifdef CONFIG_MTK_QOS_SUPPORT
+	return dvfsrc_get_bw(QOS_TOTAL);
+#else
+	return 0;
+#endif /* CONFIG_MTK_QOS_SUPPORT */
+}
