@@ -7,6 +7,7 @@
  */
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/energy.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/sched/loadavg.h>
 #include <linux/sched/hotplug.h>
@@ -6737,6 +6738,8 @@ void __init sched_init(void)
 	init_schedstats();
 
 	init_uclamp();
+
+	init_sched_energy_costs();
 
 	scheduler_running = 1;
 }

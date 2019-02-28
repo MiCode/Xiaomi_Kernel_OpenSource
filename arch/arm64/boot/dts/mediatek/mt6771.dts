@@ -4278,6 +4278,10 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <179 IRQ_TYPE_LEVEL_LOW 187 0>;
 		status = "okay";
 	};
+
+	eas {
+		tiny = <50>;
+	};
 };
 
 #include "mt6358.dtsi"
