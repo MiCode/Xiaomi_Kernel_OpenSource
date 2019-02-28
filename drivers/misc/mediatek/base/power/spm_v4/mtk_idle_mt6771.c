@@ -14,8 +14,9 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 
+#include <mtk_spm_internal.h>
 #include <mtk_idle_internal.h>
-#include <ddp_pwm.h>
+//#include <ddp_pwm.h>
 
 #include <mt-plat/mtk_secure_api.h>
 #include <mtk_spm_reg.h>
@@ -49,9 +50,9 @@ void __iomem  *apmixed_base_in_idle;
 
 /* Idle handler on/off */
 int idle_switch[NR_TYPES] = {
-	1,	/* dpidle switch */
-	1,	/* soidle3 switch */
-	1,	/* soidle switch */
+	0,	/* dpidle switch */
+	0,	/* soidle3 switch */
+	0,	/* soidle switch */
 	1,	/* rgidle switch */
 };
 
@@ -379,10 +380,8 @@ static int sys_is_on(enum subsys_id id)
 	u32 sta = idle_readl(SPM_PWR_STATUS);
 	u32 sta_s = idle_readl(SPM_PWR_STATUS_2ND);
 
-#if 0
 	/* if (id >= NR_SYSS__) */
 		/* BUG(); */
-#endif
 
 	return (sta & mask) && (sta_s & mask);
 }
@@ -392,9 +391,7 @@ static int is_clkmux_on(int id)
 	unsigned int clkcfg = 0;
 	int reg_idx = id / 4;
 	int sub_idx = id % 4;
-	unsigned int mask[4] = {
-		0x80000000, 0x00800000, 0x00008000, 0x00000080
-	};
+	unsigned int mask[4] = {0x80000000, 0x00800000, 0x00008000, 0x00000080};
 
 	clkcfg = idle_readl(CLK_CFG(reg_idx));
 
@@ -426,7 +423,8 @@ static void get_all_clock_state(u32 clks[NR_GRPS])
 	clks[CG_PWR_STATE] = idle_readl(SPM_PWR_STATUS);
 }
 
-static inline void mtk_idle_check_cg_internal(
+static inline void
+	mtk_idle_check_cg_internal(
 		unsigned int block_mask[NR_TYPES][NF_CG_STA_RECORD],
 		int idle_type)
 {
@@ -446,7 +444,7 @@ bool mtk_idle_check_secure_cg(
 	int ret = 0;
 	int i;
 
-	ret = mt_secure_call(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0);
+	ret = SMC_CALL(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0);
 
 	if (ret)
 		for (i = 0; i < NR_TYPES; i++)
@@ -456,8 +454,7 @@ bool mtk_idle_check_secure_cg(
 	return !ret;
 }
 
-bool mtk_idle_check_cg(
-		unsigned int block_mask[NR_TYPES][NF_CG_STA_RECORD])
+bool mtk_idle_check_cg(unsigned int block_mask[NR_TYPES][NF_CG_STA_RECORD])
 {
 	bool ret = true;
 	int i, j;
@@ -492,7 +489,7 @@ bool mtk_idle_check_cg(
 			}
 			if (i == IDLE_TYPE_DP)
 				mtk_idle_check_cg_internal(block_mask,
-							   IDLE_TYPE_DP);
+								IDLE_TYPE_DP);
 
 			/* mtcmos */
 			if (i == IDLE_TYPE_DP && !dpidle_by_pass_pg) {
@@ -501,18 +498,17 @@ bool mtk_idle_check_cg(
 				if (sta & flag) {
 					block_mask[i][NR_GRPS + 0] |= 0x4;
 					block_mask[i][NR_GRPS + 1] =
-						(sta & flag);
+								(sta & flag);
 				}
 			}
-			if ((i == IDLE_TYPE_SO ||
-			     i == IDLE_TYPE_SO3) &&
-			    !soidle_by_pass_pg) {
+			if ((i == IDLE_TYPE_SO || i == IDLE_TYPE_SO3) &&
+				!soidle_by_pass_pg) {
 				unsigned int flag = SO_PWR_STA_MASK;
 
 				if (sta & flag) {
 					block_mask[i][NR_GRPS + 0] |= 0x4;
 					block_mask[i][NR_GRPS + 1] =
-						(sta & flag);
+								(sta & flag);
 				}
 			}
 			if (block_mask[i][NR_GRPS])
@@ -536,8 +532,7 @@ const char *mtk_get_pll_group_name(int id)
 	return pll_name[id];
 }
 
-bool mtk_idle_check_pll(unsigned int *condition_mask,
-			unsigned int *block_mask)
+bool mtk_idle_check_pll(unsigned int *condition_mask, unsigned int *block_mask)
 {
 	int i, j;
 
@@ -558,8 +553,8 @@ bool mtk_idle_check_pll(unsigned int *condition_mask,
 #if 0
 /* No need to get audio base */
 static int __init get_base_from_matching_node(
-		     const struct of_device_id *ids,
-		     void __iomem **pbase, int idx, const char *cmp)
+		const struct of_device_id *ids, void __iomem **pbase, int idx,
+		const char *cmp)
 {
 	struct device_node *node;
 

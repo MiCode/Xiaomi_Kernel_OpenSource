@@ -28,6 +28,7 @@
  * Then polling SPM2SW_MAILBOX_3 (0x100065DC) = 0
  */
 
+#if !defined(SPM_K414_EARLY_PORTING)
 void exit_pd_by_cmdq(struct cmdqRecStruct *handler)
 {
 	/* Switch to CG mode */
@@ -41,7 +42,7 @@ void enter_pd_by_cmdq(struct cmdqRecStruct *handler)
 	/* Switch to PD mode */
 	cmdqRecWrite(handler, 0x100065F8, 0x9ce0, 0xffff);
 }
-
+#endif
 
 void spm_sodi_pre_process(struct pwr_ctrl *pwrctrl, u32 operation_cond)
 {
@@ -76,7 +77,7 @@ void spm_sodi_pcm_setup_before_wfi(
 	/* Get SPM resource request and update reg_spm_xxx_req */
 	resource_usage = spm_get_resource_usage();
 
-	mt_secure_call(MTK_SIP_KERNEL_SPM_SODI_ARGS,
+	SMC_CALL(MTK_SIP_KERNEL_SPM_SODI_ARGS,
 		pwrctrl->pcm_flags, pwrctrl->pcm_flags1, resource_usage);
 }
 
@@ -93,9 +94,9 @@ void spm_sodi3_pcm_setup_before_wfi(
 	/* Get SPM resource request and update reg_spm_xxx_req */
 	resource_usage = spm_get_resource_usage();
 
-	mt_secure_call(MTK_SIP_KERNEL_SPM_SODI_ARGS,
+	SMC_CALL(MTK_SIP_KERNEL_SPM_SODI_ARGS,
 		pwrctrl->pcm_flags, pwrctrl->pcm_flags1, resource_usage);
-	mt_secure_call(MTK_SIP_KERNEL_SPM_PWR_CTRL_ARGS,
-		SPM_PWR_CTRL_SODI3, PWR_WDT_DISABLE, pwrctrl->wdt_disable);
+	SMC_CALL(MTK_SIP_KERNEL_SPM_PWR_CTRL_ARGS,
+		SPM_PWR_CTRL_SODI3, PW_WDT_DISABLE, pwrctrl->wdt_disable);
 }
 

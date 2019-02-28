@@ -18,6 +18,7 @@
 #include "mtk_idle_internal.h"
 #include "mtk_idle_profile.h"
 #include "mtk_spm_resource_req_internal.h"
+#include <linux/sched/clock.h>
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 #include <mtk_cpufreq_api.h>
@@ -149,7 +150,7 @@ static const char *idle_met_label[NR_TYPES] = {
 };
 #endif
 
-#if 0
+#if 1
 unsigned int __attribute__((weak)) mt_cpufreq_get_cur_freq(unsigned int id)
 {
 	return 0;
