@@ -23,7 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
-#include <linux/switch.h>
+/*#include <linux/switch.h>*/
 
 #include "disp_drv_platform.h"
 #include "debug.h"
@@ -60,7 +60,7 @@ int primary_display_get_cur_refresh_rate(void)
 int primary_display_get_max_refresh_rate(void)
 {
 	int ret = -1;
-	LCM_PARAMS *lcm_params = DISP_GetLcmPara();
+	struct LCM_PARAMS *lcm_params = DISP_GetLcmPara();
 
 	/* _primary_path_lock(__func__); */
 	if (lcm_params && (lcm_params->max_refresh_rate != 0))
@@ -75,7 +75,7 @@ int primary_display_get_max_refresh_rate(void)
 int primary_display_get_min_refresh_rate(void)
 {
 	int ret = -1;
-	LCM_PARAMS *lcm_params = DISP_GetLcmPara();
+	struct LCM_PARAMS *lcm_params = DISP_GetLcmPara();
 
 	/* _primary_path_lock(__func__); */
 	if (lcm_params && (lcm_params->min_refresh_rate != 0))

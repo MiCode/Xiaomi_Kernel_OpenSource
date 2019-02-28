@@ -123,7 +123,7 @@ unsigned int disp_allocate_mva(unsigned int pa, unsigned int size, M4U_PORT_ID p
 	int ret = 0;
 	unsigned int mva = 0;
 
-	m4u_client_t *client = NULL;
+	struct m4u_client_t *client = NULL;
 	struct sg_table *sg_table = kzalloc(sizeof(struct sg_table), GFP_ATOMIC);
 
 	sg_alloc_table(sg_table, 1, GFP_KERNEL);
@@ -144,7 +144,7 @@ unsigned int disp_allocate_mva(unsigned int pa, unsigned int size, M4U_PORT_ID p
 	return mva;
 }
 #endif
-int disp_allocate_mva(m4u_client_t *client, enum DISP_MODULE_ENUM module,
+int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 								unsigned long va, struct sg_table *sg_table,
 								unsigned int size, unsigned int prot,
 								unsigned int flags, unsigned int *pMva)

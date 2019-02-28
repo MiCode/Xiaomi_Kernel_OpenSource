@@ -172,7 +172,7 @@ enum DSI_PORCH_TYPE {
 	DSI_PORCH_NUM,
 };
 
-extern const LCM_UTIL_FUNCS PM_lcm_utils_dsi0;
+extern const struct LCM_UTIL_FUNCS PM_lcm_utils_dsi0;
 /* defined in mtkfb.c */
 extern bool is_ipoh_bootup;
 

@@ -80,7 +80,7 @@ struct mtkfb_fence_sync_info {
 	unsigned int timeline_idx;
 	unsigned int inc;
 	unsigned int cur_idx;
-	struct sw_sync_timeline *timeline;
+	struct sync_timeline *timeline;
 	struct list_head buf_list;
 };
 
@@ -123,7 +123,7 @@ struct disp_sync_info {
 	unsigned int fence_fd;
 	unsigned int inc;
 	unsigned int cur_idx;
-	struct sw_sync_timeline *timeline;
+	struct sync_timeline *timeline;
 	struct list_head buf_list;
 	struct FENCE_LAYER_INFO cached_config;
 };

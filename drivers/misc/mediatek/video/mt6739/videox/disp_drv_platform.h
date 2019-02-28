@@ -15,7 +15,7 @@
 #define __DISP_DRV_PLATFORM_H__
 
 #include <linux/dma-mapping.h>
-#include "mt-plat/mtk_gpio.h"
+/* #include "mt-plat/mtk_gpio.h" */
 #include "m4u.h"
 /* #include <mach/mt_reg_base.h> */
 #ifdef CONFIG_MTK_CLKMGR
@@ -42,8 +42,8 @@
 
 /* Wrap SPM/MMDVFS code for early porting */
 #define MTK_FB_SPM_SUPPORT
-#define MTK_FB_MMDVFS_SUPPORT
-
+/* #define MTK_FB_MMDVFS_SUPPORT*/
+/* #define DISP_SYNC_ENABLE */
 #define MTK_FB_ION_SUPPORT
 #define VIDEO_LAYER_COUNT            (3)
 /* #define HW_OVERLAY_COUNT                  (4) */

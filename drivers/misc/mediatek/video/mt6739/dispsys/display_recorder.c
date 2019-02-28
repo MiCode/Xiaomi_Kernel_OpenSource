@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include <linux/slab.h>
 #include "mt-plat/met_drv.h"
-
+#include <linux/sched/clock.h>
 #include "ddp_mmp.h"
 #include "debug.h"
 
@@ -140,13 +140,14 @@ static mmp_event dprec_mmp_event_spy(enum DPREC_LOGGER_ENUM l)
 	return 0xffff;
 }
 
-static void dprec_to_mmp(unsigned int type_logsrc, mmp_log_type mmp_log, unsigned int data1,
-			 unsigned data2)
+static void dprec_to_mmp(unsigned int type_logsrc,
+	enum mmp_log_type mmp_log, unsigned int data1,
+	unsigned int data2)
 {
-	int mmp_event = dprec_mmp_event_spy(type_logsrc);
+	int event = dprec_mmp_event_spy(type_logsrc);
 
-	if (mmp_event < 0xffff)
-		mmprofile_log_ex(mmp_event, mmp_log, data1, data2);
+	if (event < 0xffff)
+		mmprofile_log_ex(event, mmp_log, data1, data2);
 
 }
 
@@ -870,7 +871,7 @@ int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source, struct fpsEx *f
 	int len = 0;
 	struct dprec_logger *l = &logger[source];
 	unsigned long long fps_high = 0;
-	unsigned long fps_low = 0;
+	uint64_t fps_low = 0;
 	unsigned long long avg;
 	unsigned long long count;
 	unsigned long long total = 0;

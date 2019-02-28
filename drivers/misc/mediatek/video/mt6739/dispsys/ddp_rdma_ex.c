@@ -290,8 +290,8 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 
 	unsigned int frame_rate;
 	unsigned int Bytes_per_sec;
-	long long temp;   /* must be signed */
-	long long temp_for_div;  /* must be signed */
+	unsigned long long temp;   /* must be signed */
+	unsigned long long temp_for_div;  /* must be signed */
 
 
 	if (!p_golden_setting) {
@@ -411,7 +411,7 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	temp_for_div = 1200 * (fill_rate - consume_rate);
 	WARN_ON(temp_for_div < 0);
 	do_div(temp_for_div, 1000000);
-	temp = fifo_valid_size - temp_for_div;
+	temp = (long long)fifo_valid_size - temp_for_div;
 	if (temp < 0)
 		sodi_threshold_high = preultra_high;
 	else
@@ -860,7 +860,7 @@ static int do_rdma_config_l(enum DISP_MODULE_ENUM module, struct disp_ddp_path_c
 {
 	struct RDMA_CONFIG_STRUCT *r_config = &pConfig->rdma_config;
 	enum RDMA_MODE mode = rdma_config_mode(r_config->address);
-	LCM_PARAMS *lcm_param = &(pConfig->dispif_config);
+	struct LCM_PARAMS *lcm_param = &(pConfig->dispif_config);
 	unsigned int width = pConfig->dst_dirty ? pConfig->dst_w : r_config->width;
 	unsigned int height = pConfig->dst_dirty ? pConfig->dst_h : r_config->height;
 	struct golden_setting_context *p_golden_setting = pConfig->p_golden_setting_context;

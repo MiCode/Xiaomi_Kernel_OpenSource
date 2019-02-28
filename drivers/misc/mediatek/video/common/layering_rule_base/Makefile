@@ -11,5 +11,6 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+obj-$(CONFIG_MACH_MT6739) += v1/
 obj-$(CONFIG_MACH_MT6771) += v1.1/
 obj-$(CONFIG_MACH_MT8168) += v1.1/

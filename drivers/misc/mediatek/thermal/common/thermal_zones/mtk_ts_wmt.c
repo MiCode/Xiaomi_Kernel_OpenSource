@@ -1720,7 +1720,7 @@ struct file *filp, const char __user *buf, size_t count, loff_t *data)
 		p_linux_if->interval = ptr_tm_data->time_msec;
 
 		wmt_tm_dprintk(
-			"[%S] g_trip_temp [0]=%d, [1]=%d, [2]=%d, [3]=%d, [4]=%d\n",
+			"[%s] g_trip_temp [0]=%d, [1]=%d, [2]=%d, [3]=%d, [4]=%d\n",
 			__func__,
 			g_thermal_trip[0], g_thermal_trip[1], g_thermal_trip[2],
 			g_thermal_trip[3], g_thermal_trip[4]);

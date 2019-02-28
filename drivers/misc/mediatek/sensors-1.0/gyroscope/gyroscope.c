@@ -271,7 +271,7 @@ static int gyro_enable_and_batch(void)
 		/* start polling, if needed */
 		if (cxt->is_active_data == true &&
 		    cxt->gyro_ctl.is_report_input_direct == false) {
-			int mdelay = cxt->delay_ns;
+			uint64_t mdelay = cxt->delay_ns;
 
 			do_div(mdelay, 1000000);
 			atomic_set(&cxt->delay, mdelay);
