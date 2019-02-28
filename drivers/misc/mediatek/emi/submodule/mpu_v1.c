@@ -22,6 +22,7 @@
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/mtk_meminfo.h>
+#include <mt-plat/mtk_ccci_common.h>
 #include <mt-plat/mtk_secure_api.h>
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
@@ -30,10 +31,6 @@
 #include <mt_emi.h>
 #include "mpu_v1.h"
 #include <mpu_platform.h>
-
-#if MTK_CCCI_READY
-#include <mt-plat/mtk_ccci_common.h>
-#endif
 
 _Static_assert(EMI_MPU_DOMAIN_NUM <= 2048, "EMI_MPU_DOMAIN_NUM is over 2048");
 _Static_assert(EMI_MPU_REGION_NUM <= 256, "EMI_MPU_REGION_NUM is over 256");
@@ -94,18 +91,6 @@ static void clear_violation(void)
 		pr_info("[MPU] EMI_MPUS: %x, EMI_MPUT: %x\n", mpus, mput);
 	}
 }
-
-#ifdef CONFIG_MTK_AEE_FEATURE
-#ifndef ID_MD_MPU_ASSERT
-#define ID_MD_MPU_ASSERT 8
-#endif
-int __weak exec_ccci_kern_func_by_md_id(int md_id, unsigned int id,
-		char *buf, unsigned int len)
-{
-	pr_info("%s: weak function\n", __func__);
-	return -1;
-}
-#endif
 
 static void check_violation(void)
 {
