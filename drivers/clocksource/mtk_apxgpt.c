@@ -85,6 +85,14 @@ static uint64_t gpt_time_int_handler_exit;
 #endif
 #endif
 
+/*
+ * Common apxpgt definition and functions used when,
+ * 1. CONFIG_MTK_TIMER_APXGPT on: apxgpt will be used.
+ * 2. CONFIG_MTK_TIMER_SYSTIMER on: apxgpt will be un-initialized
+ *    in init stage.
+ */
+#if defined(CONFIG_MTK_TIMER_APXGPT) || defined(CONFIG_MTK_TIMER_SYSTIMER)
+
 #define GPT_CLKEVT_ID       (GPT1)
 #define GPT_CLKSRC_ID       (GPT2)
 
@@ -191,6 +199,8 @@ static void gpt_devs_init(void)
 
 	gpt_devs[GPT6].features |= GPT_FEAT_64_BIT;
 }
+
+#endif
 
 #ifdef CONFIG_MTK_TIMER_APXGPT
 
@@ -1151,7 +1161,12 @@ static int __init mt_gpt_init(struct device_node *node)
 
 CLOCKSOURCE_OF_DECLARE(mtk_apxgpt, APXGPT_OF_COMPTIBLE_NAME, mt_gpt_init);
 
-#else /* !CONFIG_MTK_TIMER_APXGPT */
+#endif
+
+/*
+ * Apxgpt un-initialization used when sys_timer is selected.
+ */
+#if !defined(CONFIG_MTK_TIMER_APXGPT) && !defined(CONFIG_MTK_TIMER)
 
 static int __init mt_gpt_init(void)
 {
@@ -1189,5 +1204,5 @@ static int __init mt_gpt_init(void)
 
 module_init(mt_gpt_init);
 
-#endif /* CONFIG_MTK_TIMER_APXGPT */
+#endif
 
