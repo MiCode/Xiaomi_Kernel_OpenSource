@@ -18,7 +18,9 @@
 #include <mtk_cm_mgr_platform_reg.h>
 
 #include <linux/kernel.h>
+#ifdef CONFIG_MTK_CPU_FREQ
 #include <mtk_cpufreq_internal.h>
+#endif /* CONFIG_MTK_CPU_FREQ */
 
 struct cm_mgr_data {
 	unsigned int cmd;

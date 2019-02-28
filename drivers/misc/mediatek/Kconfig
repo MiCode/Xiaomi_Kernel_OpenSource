@@ -97,6 +97,8 @@ config MTK_BASE_POWER
 	Select if you want to enable MediaTek power
 	management feature.
 
+source "drivers/misc/mediatek/base/power/Kconfig"
+
 config MTK_MEMORY_LOWPOWER
 	bool "Support Mediatek memory lowpower technology"
 	depends on CMA && ZONE_MOVABLE_CMA

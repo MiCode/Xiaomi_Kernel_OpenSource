@@ -42,14 +42,23 @@
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 #include <trace/events/mtk_events.h>
+#ifdef MET_SUPPORT
 #include <mt-plat/met_drv.h>
+#endif /* MET_SUPPORT */
 
 #include <mtk_cm_mgr.h>
 #include <mtk_cm_mgr_platform_data.h>
+#ifdef CONFIG_MTK_CPU_FREQ
 #include <mtk_cpufreq_api.h>
+#endif /* CONFIG_MTK_CPU_FREQ */
 
 #include <linux/pm_qos.h>
+#ifdef CONFIG_MTK_QOS_SUPPORT
 #include <helio-dvfsrc.h>
+#if defined(CONFIG_MACH_MT6771)
+#include <mtk_spm_vcore_dvfs.h>
+#endif /* defined(CONFIG_MACH_MT6771) */
+#endif /* CONFIG_MTK_QOS_SUPPORT */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 #include <sspm_ipi.h>
@@ -60,8 +69,10 @@ spinlock_t cm_mgr_lock;
 static unsigned long long test_diff;
 static unsigned long long cnt;
 static unsigned int test_max;
+#ifdef CONFIG_MTK_CPU_FREQ
 static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
 static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
+#endif /* CONFIG_MTK_CPU_FREQ */
 /* 0: < 50us */
 /* 1: 50~100us */
 /* 2: 100~200us */
@@ -102,8 +113,10 @@ static void update_v2f(int update, int debug)
 
 	for (j = 0; j < CM_MGR_CPU_CLUSTER; j++) {
 		for (i = 0; i < 16; i++) {
+#ifdef CONFIG_MTK_CPU_FREQ
 			_f = mt_cpufreq_get_freq_by_idx(j, i) / 1000;
 			_v = mt_cpufreq_get_volt_by_idx(j, i) / 100;
+#endif /* CONFIG_MTK_CPU_FREQ */
 			_v2f = (_v / 10) * (_v / 10) * _f / 100000;
 			if (update)
 				_v2f_all[i][j] = _v2f;
@@ -352,8 +365,12 @@ void check_cm_mgr_status_internal(void)
 	int level;
 	unsigned long flags;
 
+#ifdef CONFIG_MTK_QOS_SUPPORT
+#if !defined(CONFIG_MACH_MT6771)
 	if (!is_dvfsrc_enabled())
 		return;
+#endif /* defined(CONFIG_MACH_MT6771) */
+#endif /* CONFIG_MTK_QOS_SUPPORT */
 
 	if (cm_mgr_enable == 0)
 		return;
@@ -370,7 +387,9 @@ void check_cm_mgr_status_internal(void)
 		return;
 
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
+#ifdef CONFIG_MTK_CPU_FREQ
 		int ret;
+#endif /* CONFIG_MTK_CPU_FREQ */
 		int max_ratio_idx[CM_MGR_CPU_CLUSTER];
 #if defined(LIGHT_LOAD) && defined(CONFIG_MTK_SCHED_RQAVG_US)
 		unsigned int cpu;
@@ -401,9 +420,11 @@ void check_cm_mgr_status_internal(void)
 			if (cpu >= CM_MGR_CPU_COUNT)
 				break;
 
+#ifdef CONFIG_MTK_CPU_FREQ
 			tmp = mt_cpufreq_get_cur_phy_freq_no_lock(
 					cpu / CM_MGR_CPU_LIMIT) /
 				100000;
+#endif /* CONFIG_MTK_CPU_FREQ */
 			sched_get_percpu_load2(cpu, 1, &rel_load, &abs_load);
 			cm_mgr_abs_load += abs_load * tmp;
 			cm_mgr_rel_load += rel_load * tmp;
@@ -434,6 +455,7 @@ void check_cm_mgr_status_internal(void)
 				prev_freq[1] / 1000);
 #endif /* USE_SINGLE_CLUSTER */
 #else
+#ifdef CONFIG_MTK_CPU_FREQ
 #ifdef USE_AVG_PMU
 #ifdef USE_SINGLE_CLUSTER
 		ret = cm_mgr_check_stall_ratio(
@@ -455,12 +477,17 @@ void check_cm_mgr_status_internal(void)
 				mt_cpufreq_get_cur_freq(1) / 1000);
 #endif /* USE_SINGLE_CLUSTER */
 #endif /* USE_AVG_PMU */
+#endif /* CONFIG_MTK_CPU_FREQ */
 #endif /* USE_NEW_CPU_OPP */
-#if defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6771)
+#ifdef CONFIG_MTK_QOS_SUPPORT
+#if defined(CONFIG_MACH_MT6771)
 		total_bw = dvfsrc_get_bw(QOS_TOTAL) / 512;
 #else
 		total_bw = dvfsrc_get_emi_bw(QOS_EMI_BW_TOTAL) / 512;
-#endif /* defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6771) */
+#endif /* defined(CONFIG_MACH_MT6771) */
+#else
+		total_bw = 0;
+#endif /* CONFIG_MTK_QOS_SUPPORT */
 		memset(count_ack, 0, ARRAY_SIZE(count_ack));
 
 		if (total_bw_value)
@@ -501,7 +528,9 @@ void check_cm_mgr_status_internal(void)
 #ifdef USE_NEW_CPU_OPP
 			cpu_opp_cur[i] = prev_freq_idx[i];
 #else
+#ifdef CONFIG_MTK_CPU_FREQ
 			cpu_opp_cur[i] = mt_cpufreq_get_cur_freq_idx(i);
+#endif /* CONFIG_MTK_CPU_FREQ */
 #endif /* USE_NEW_CPU_OPP */
 			v2f[i] = _v2f_all[cpu_opp_cur[i]][i];
 			cpu_power_up_array[i] = cpu_power_up[i] = 0;
@@ -602,6 +631,7 @@ cm_mgr_opp_end:
 
 void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 {
+#ifdef CONFIG_MTK_CPU_FREQ
 	int freq_idx = 0;
 	struct mt_cpu_dvfs *p;
 
@@ -613,6 +643,7 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 
 	prev_freq_idx[cluster] = freq_idx;
 	prev_freq[cluster] = freq;
+#endif /* CONFIG_MTK_CPU_FREQ */
 
 	check_cm_mgr_status_internal();
 }
@@ -620,8 +651,10 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 void cm_mgr_enable_fn(int enable)
 {
 	cm_mgr_enable = enable;
+#ifdef CONFIG_MTK_QOS_SUPPORT
 	if (!cm_mgr_enable)
-		dvfsrc_set_power_model_ddr_request(0);
+		cm_mgr_set_dram_level(0);
+#endif /* CONFIG_MTK_QOS_SUPPORT */
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
