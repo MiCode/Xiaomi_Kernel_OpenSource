@@ -502,7 +502,7 @@
 	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
 };
 
-/{
+&vendor{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-itech-3000mah.dtsi"
