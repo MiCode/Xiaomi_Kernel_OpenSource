@@ -318,6 +318,7 @@ static int cm_mgr_init_flag;
 static unsigned int cm_mgr_read_stall(int cpu)
 {
 	unsigned int val = 0;
+	unsigned long spinlock_save_flags;
 
 	if (cm_mgr_init_flag) {
 		if (ktime_ms_delta(ktime_get(), cm_mgr_init_time) <
@@ -327,7 +328,7 @@ static unsigned int cm_mgr_read_stall(int cpu)
 	}
 
 #ifdef CONFIG_MTK_DRAMC
-	if (!spin_trylock(&sw_zq_tx_lock))
+	if (!spin_trylock_irqsave(&sw_zq_tx_lock, spinlock_save_flags))
 		return val;
 #endif /* CONFIG_MTK_DRAMC */
 
@@ -340,7 +341,7 @@ static unsigned int cm_mgr_read_stall(int cpu)
 					4 * (cpu - CM_MGR_CPU_LIMIT));
 	}
 #ifdef CONFIG_MTK_DRAMC
-	spin_unlock(&sw_zq_tx_lock);
+	spin_unlock_irqrestore(&sw_zq_tx_lock, spinlock_save_flags);
 #endif /* CONFIG_MTK_DRAMC */
 
 	return val;
