@@ -36,12 +36,10 @@
 #include "private/tmem_utils.h"
 #include "private/tmem_priv.h"
 #include "private/ut_entry.h"
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
-#include "private/secmem_ext.h"
-#endif
 
 #include "private/ut_tests.h"
 #include "private/ut_cmd.h"
+#include "tee_impl/tee_invoke.h"
 
 static int tmem_open(struct inode *inode, struct file *file)
 {
