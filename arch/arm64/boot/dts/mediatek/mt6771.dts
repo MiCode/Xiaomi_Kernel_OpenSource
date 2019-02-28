@@ -29,7 +29,7 @@
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyMT3,921600n1 \
+		bootargs = "console=tty0 console=ttyS0,921600n1 \
 vmalloc=496M slub_max_order=0 slub_debug=OFZPU \
 androidboot.hardware=mt6771 \
 firmware_class.path=/vendor/firmware";
@@ -1565,49 +1565,56 @@ firmware_class.path=/vendor/firmware";
 		clock-names = "auxadc-main";
 	};
 
-	apuart0: apuart0@11002000 {
-		cell-index = <0>;
-		compatible = "mediatek,mtk-uart";
-		reg = <0 0x11002000 0 0x1000>, /* UART base */
-			<0 0x11000780 0 0x80>, /* DMA Tx base */
-			<0 0x11000800 0 0x80>; /* DMA Rx base */
-		interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_LOW>, /* UART IRQ */
-				<GIC_SPI 108 IRQ_TYPE_LEVEL_LOW>, /* DMA Tx */
-				<GIC_SPI 109 IRQ_TYPE_LEVEL_LOW>; /* DMA Rx */
-		clock-frequency = <26000000>;
-		clock-div = <1>;
-		clocks = <&infracfg_ao INFRACFG_AO_UART0_CG>, <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
-		clock-names = "uart0-main", "uart-apdma";
+	apdma: dma-controller@11000780 {
+		compatible = "mediatek,mt6577-uart-dma";
+		reg = <0 0x11000780 0 0x80>,
+		      <0 0x11000800 0 0x80>,
+		      <0 0x11000880 0 0x80>,
+		      <0 0x11000900 0 0x80>,
+		      <0 0x11000980 0 0x80>,
+		      <0 0x11000A00 0 0x80>;
+		interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 109 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 111 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 112 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 113 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
+		clock-names = "apdma";
+		#dma-cells = <1>;
 	};
 
-	apuart1: apuart1@11003000 {
-		cell-index = <1>;
-		compatible = "mediatek,mtk-uart";
-		reg = <0 0x11003000 0 0x1000>, /* UART base */
-			<0 0x11000880 0 0x80>, /* DMA Tx base */
-			<0 0x11000900 0 0x80>; /* DMA Rx base */
-		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_LOW>, /* UART IRQ */
-				<GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>, /* DMA Tx */
-				<GIC_SPI 111 IRQ_TYPE_LEVEL_LOW>; /* DMA Rx */
-		clock-frequency = <26000000>;
-		clock-div = <1>;
-		clocks = <&infracfg_ao INFRACFG_AO_UART1_CG>;
-		clock-names = "uart1-main";
+	apuart0: serial@11002000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11002000 0 0x1000>; /* UART base */
+		interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_LOW>; /* UART IRQ */
+		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART0_CG>;
+		clock-names = "baud0", "bus0";
+		dmas = <&apdma 0
+				&apdma 1>;
+		dma-names = "tx0", "rx0";
 	};
 
-	apuart2: apuart2@11004000 {
-		cell-index = <2>;
-		compatible = "mediatek,mtk-uart";
-		reg = <0 0x11004000 0 0x1000>, /* UART base */
-			<0 0x11000980 0 0x80>, /* DMA Tx base */
-			<0 0x11000A00 0 0x80>; /* DMA Rx base */
-		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_LOW>, /* UART IRQ */
-				<GIC_SPI 112 IRQ_TYPE_LEVEL_LOW>, /* DMA Tx */
-				<GIC_SPI 113 IRQ_TYPE_LEVEL_LOW>; /* DMA Rx */
-		clock-frequency = <26000000>;
-		clock-div = <1>;
-		clocks = <&infracfg_ao INFRACFG_AO_UART2_CG>;
-		clock-names = "uart2-main";
+	apuart1: serial@11003000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11003000 0 0x1000>;/* UART base */
+		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_LOW>; /* UART IRQ */
+		clocks =  <&clk26m>, <&infracfg_ao INFRACFG_AO_UART1_CG>;
+		clock-names = "baud1", "bus1";
+		dmas = <&apdma 2
+				&apdma 3>;
+		dma-names = "tx1", "rx1";
+	};
+
+	apuart2: serial@11004000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11004000 0 0x1000>; /* UART base */
+		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_LOW>;/* UART IRQ */
+		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART2_CG>;
+		clock-names = "baud2", "bus2";
+		dmas = <&apdma 4
+				&apdma 5>;
+		dma-names = "tx2", "rx2";
 	};
 
 	i2c6@11005000 {
