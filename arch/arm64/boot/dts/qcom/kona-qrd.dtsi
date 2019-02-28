@@ -5,6 +5,7 @@
 
 #include "kona-pmic-overlay.dtsi"
 #include "kona-sde-display.dtsi"
+#include "kona-camera-sensor-qrd.dtsi"
 #include "kona-audio-overlay.dtsi"
 
 &vendor {
