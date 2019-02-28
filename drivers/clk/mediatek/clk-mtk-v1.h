@@ -44,6 +44,7 @@ extern spinlock_t *get_mtk_clk_lock(void);
 #define MAX_MUX_GATE_BIT	31
 #define INVALID_MUX_GATE_BIT	(MAX_MUX_GATE_BIT + 1)
 
+#if 0
 struct clk *mtk_clk_register_mux(
 		const char *name,
 		const char **parent_names,
@@ -52,5 +53,5 @@ struct clk *mtk_clk_register_mux(
 		u8 shift,
 		u8 width,
 		u8 gate_bit);
-
+#endif
 #endif /* __DRV_CLK_MTK_H */
