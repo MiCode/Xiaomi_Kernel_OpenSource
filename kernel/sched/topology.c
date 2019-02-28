@@ -6,6 +6,7 @@
 #include <linux/mutex.h>
 
 #include "sched.h"
+#include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
 
 DEFINE_MUTEX(sched_domains_mutex);
 
@@ -1006,7 +1007,12 @@ next:
 	update_group_capacity(sd, cpu);
 }
 
+#ifndef CONFIG_MTK_UNIFY_POWER
 #define cap_state_power(s,i) (s->cap_states[i].power)
+#else
+#define cap_state_power(s, i) \
+	(s->cap_states[i].dyn_pwr + s->cap_states[i].lkg_pwr[0])
+#endif
 #define cap_state_cap(s,i) (s->cap_states[i].cap)
 #define idle_state_power(s,i) (s->idle_states[i].power)
 
@@ -1042,7 +1048,7 @@ static inline int sched_group_energy_equal(const struct sched_group_energy *a,
 }
 
 #define energy_eff(e, n) \
-    ((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/e->cap_states[n].power)
+	((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/cap_state_power(e, n))
 
 static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
 				     sched_domain_energy_f fn)
