@@ -133,7 +133,7 @@ __weak struct vm_struct *find_vm_area(const void *addr)
 
 #undef mrdump_virt_addr_valid
 #define mrdump_virt_addr_valid(kaddr) \
-	pfn_valid(virt_2_pfn((unsigned long)(kaddr)))
+	kernel_addr_valid((unsigned long)kaddr)
 #ifdef __aarch64__
 static unsigned long virt_2_pfn(unsigned long addr)
 {
@@ -361,35 +361,10 @@ void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
 
 int kernel_addr_valid(unsigned long addr)
 {
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	pte_t *pte;
-
 	if (addr < MIN_MARGIN)
 		return 0;
 
-	pgd = pgd_offset_k(addr);
-	if (pgd_none(*pgd))
-		return 0;
-	pr_notice("[%08lx] *pgd=%08llx", addr, (long long)pgd_val(*pgd));
-
-	pud = pud_offset(pgd, addr);
-	if (pud_none(*pud))
-		return 0;
-	pr_notice("*pud=%08llx", (long long)pud_val(*pud));
-
-	pmd = pmd_offset(pud, addr);
-	if (pmd_none(*pmd))
-		return 0;
-	pr_notice("*pmd=%08llx", (long long)pmd_val(*pmd));
-
-	pte = pte_offset_kernel(pmd, addr);
-	if (pte_none(*pte))
-		return 0;
-	pr_notice("*pte=%08llx", (long long)pte_val(*pte));
-
-	return pfn_valid(pte_pfn(*pte));
+	return pfn_valid(virt_2_pfn(addr));
 }
 
 static void mrdump_mini_add_entry_ext(unsigned long start, unsigned long end,
