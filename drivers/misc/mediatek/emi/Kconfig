@@ -1,0 +1,8 @@
+config MTK_EMI
+	bool "EMI driver"
+	default n
+	help
+	  This config enable/disable the IP-based EMI
+	  driver, which includes bandwidth limiter
+	  (BWL), memory protect unit (MPU), and EMI
+	  latency monitor (ELM).
