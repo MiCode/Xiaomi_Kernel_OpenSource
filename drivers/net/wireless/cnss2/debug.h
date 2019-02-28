@@ -54,6 +54,9 @@ extern void *cnss_ipc_log_context;
 	} while (0)
 #endif
 
+#define cnss_fatal_err(_fmt, ...)					\
+	cnss_pr_err("fatal: " _fmt, ##__VA_ARGS__)
+
 int cnss_debug_init(void);
 void cnss_debug_deinit(void);
 int cnss_debugfs_create(struct cnss_plat_data *plat_priv);
