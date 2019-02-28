@@ -1047,8 +1047,15 @@ static inline int sched_group_energy_equal(const struct sched_group_energy *a,
 	return true;
 }
 
+#ifndef CONFIG_MTK_UNIFY_POWER
 #define energy_eff(e, n) \
 	((e->cap_states[n].cap << SCHED_CAPACITY_SHIFT)/cap_state_power(e, n))
+#else
+	/* to enlarge the difference of energy_eff */
+#define energy_eff(e, n) \
+	((e->cap_states[n].cap << (SCHED_CAPACITY_SHIFT+4)) \
+		/cap_state_power(e, n))
+#endif
 
 static void init_sched_groups_energy(int cpu, struct sched_domain *sd,
 				     sched_domain_energy_f fn)
