@@ -268,6 +268,9 @@ static void *_memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 
+#ifdef memcpy
+#undef memcpy
+#endif
 #define memcpy _memcpy
 #endif
 
