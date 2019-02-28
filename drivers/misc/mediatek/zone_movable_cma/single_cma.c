@@ -38,7 +38,8 @@ enum ZMC_ZONE_ORDER {
 	ZMC_LOCATE_NORMAL,
 	NR_ZMC_LOCATIONS,
 };
-static struct single_cma_registration *single_cma_list[NR_ZMC_LOCATIONS][4] = {
+static struct single_cma_registration __initdata
+		*single_cma_list[NR_ZMC_LOCATIONS][4] = {
 	/* CMA region need to locate at NORMAL zone */
 	[ZMC_LOCATE_NORMAL] = {
 #ifdef CONFIG_MTK_MEMORY_LOWPOWER
