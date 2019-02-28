@@ -20,18 +20,15 @@
 #define IP_VER_4 4
 #define IP_VER_6 6
 
+#define MAX_MQ_NUM 10
 #define MAX_CLIENT_NUM 2
 #define MAX_FLOW_NUM 32
 #define DEFAULT_GRANT 1
 #define DFC_MAX_BEARERS_V01 16
 
-struct rmnet_flow_map {
-	struct list_head list;
-	u8 bearer_id;
-	u32 flow_id;
-	int ip_type;
-	u32 tcm_handle;
-};
+#define DFC_MODE_FLOW_ID 2
+#define DFC_MODE_MQ_NUM 3
+extern int dfc_mode;
 
 struct rmnet_bearer_map {
 	struct list_head list;
@@ -48,10 +45,24 @@ struct rmnet_bearer_map {
 	bool tx_off;
 };
 
+struct rmnet_flow_map {
+	struct list_head list;
+	u8 bearer_id;
+	u32 flow_id;
+	int ip_type;
+	u32 mq_idx;
+	struct rmnet_bearer_map *bearer;
+};
+
 struct svc_info {
 	u32 instance;
 	u32 ep_type;
 	u32 iface_id;
+};
+
+struct mq_map {
+	struct rmnet_bearer_map *bearer;
+	bool ancillary;
 };
 
 struct qos_info {
@@ -59,14 +70,10 @@ struct qos_info {
 	struct net_device *real_dev;
 	struct list_head flow_head;
 	struct list_head bearer_head;
+	struct mq_map mq[MAX_MQ_NUM];
 	u32 default_grant;
 	u32 tran_num;
 	spinlock_t qos_lock;
-};
-
-struct flow_info {
-	struct net_device *dev;
-	struct rmnet_flow_map *itm;
 };
 
 struct qmi_info {
@@ -119,7 +126,7 @@ void dfc_qmi_client_exit(void *dfc_data);
 void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 			 int ip_type, u32 mark, unsigned int len);
 
-int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
+int qmi_rmnet_flow_control(struct net_device *dev, u32 mq_idx, int enable);
 
 void dfc_qmi_query_flow(void *dfc_data);
 
