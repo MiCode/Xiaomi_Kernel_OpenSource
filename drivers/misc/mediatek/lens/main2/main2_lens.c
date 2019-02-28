@@ -246,6 +246,7 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 	/* Set Driver Name */
 	int i;
 	struct stAF_MotorName stMotorName;
+	struct stAF_DrvList *pstAF_CurDrv = NULL;
 	__user struct stAF_MotorName *pstMotorName =
 			(__user struct stAF_MotorName *)a_u4Param;
 
@@ -263,19 +264,19 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 		if (strcmp(stMotorName.uMotorName,
 			   g_stAF_DrvList[i].uDrvName) == 0) {
 			LOG_INF("Motor Name : %s\n", stMotorName.uMotorName);
-			g_pstAF_CurDrv = &g_stAF_DrvList[i];
+			pstAF_CurDrv = &g_stAF_DrvList[i];
 			break;
 		}
 	}
 
 	/* Get File Name */
-	if (g_pstAF_CurDrv) {
-		if (g_pstAF_CurDrv->pAF_GetFileName) {
+	if (pstAF_CurDrv) {
+		if (pstAF_CurDrv->pAF_GetFileName) {
 			__user struct stAF_MotorName *pstMotorName =
 			(__user struct stAF_MotorName *)a_u4Param;
 			struct stAF_MotorName MotorFileName;
 
-			g_pstAF_CurDrv->pAF_GetFileName(
+			pstAF_CurDrv->pAF_GetFileName(
 					MotorFileName.uMotorName);
 			i4RetValue = 1;
 			LOG_INF("GETDRVNAME : get file name(%s)\n",
