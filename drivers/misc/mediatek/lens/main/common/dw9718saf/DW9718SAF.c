@@ -48,6 +48,10 @@ static int i2c_read(u8 a_u2Addr, u8 *a_puBuff)
 	int i4RetValue = 0;
 	char puReadCmd[1] = {(char)(a_u2Addr)};
 
+	g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
+
+	g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
+
 	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puReadCmd, 1);
 	if (i4RetValue < 0) {
 		LOG_INF(" I2C write failed!!\n");
@@ -138,6 +142,8 @@ static int initAF(void)
 		char puSendCmd2[2] = {0x01, 0x39};
 		char puSendCmd3[2] = {0x05, 0x07};
 
+		g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
+		g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
 		i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
 
 		if (i4RetValue < 0) {
@@ -256,6 +262,8 @@ int DW9718SAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 		LOG_INF("apply\n");
 
+		g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
+		g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
 		i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
 	}
 
@@ -272,8 +280,12 @@ int DW9718SAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	return 0;
 }
 
-int DW9718SAF_PowerDown(void)
+int DW9718SAF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+			int *pAF_Opened)
 {
+	g_pstAF_I2Cclient = pstAF_I2Cclient;
+	g_pAF_Opened = pAF_Opened;
+
 	LOG_INF("+\n");
 	if (*g_pAF_Opened == 0) {
 		int i4RetValue = 0;
