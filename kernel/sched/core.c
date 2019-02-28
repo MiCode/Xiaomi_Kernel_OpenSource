@@ -3127,6 +3127,10 @@ void scheduler_tick(void)
 	trigger_load_balance(rq);
 #endif
 	rq_last_tick_reset(rq);
+
+#ifdef CONFIG_MTK_SCHED_RQAVG_KS
+	sched_max_util_task_tracking();
+#endif
 }
 
 #ifdef CONFIG_NO_HZ_FULL
