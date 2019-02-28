@@ -945,7 +945,6 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	u32 rocr = 0;
 
 	WARN_ON(!host->claimed);
-
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
 	if (err)
 		return err;
@@ -1267,7 +1266,6 @@ int mmc_attach_sd(struct mmc_host *host)
 #endif
 
 	WARN_ON(!host->claimed);
-
 	err = mmc_send_app_op_cond(host, 0, &ocr);
 	if (err)
 		return err;

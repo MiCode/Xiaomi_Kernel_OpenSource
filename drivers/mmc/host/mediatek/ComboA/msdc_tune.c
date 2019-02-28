@@ -81,9 +81,10 @@ void msdc_set_bad_card_and_remove(struct msdc_host *host)
 		pr_info("WARN: host is NULL");
 		return;
 	}
-
-	host->card_inserted = 0;
-	host->block_bad_card = 1;
+	if (host->card_inserted) {
+		host->block_bad_card = 1;
+		host->card_inserted = 0;
+	}
 
 	if ((host->mmc == NULL) || (host->mmc->card == NULL)) {
 		ERR_MSG("WARN: mmc or card is NULL");
@@ -113,9 +114,10 @@ void msdc_set_bad_card_and_remove(struct msdc_host *host)
 				msecs_to_jiffies(200));
 		}
 
-		ERR_MSG(
-		"Remove the bad card, block_bad_card=%d, card_inserted=%d",
-			host->block_bad_card, host->card_inserted);
+		if (host->block_bad_card)
+			ERR_MSG(
+			"Remove the bad card, block_bad_card=%d, card_inserted=%d",
+				host->block_bad_card, host->card_inserted);
 	}
 }
 
@@ -212,6 +214,20 @@ int sdcard_hw_reset(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret = 0;
+
+	int level = 1;
+
+#ifdef CONFIG_GPIOLIB
+	level = __gpio_get_value(cd_gpio);
+#endif
+	host->card_inserted = (host->hw->cd_level == level) ? 1 : 0;
+
+	if (!(host->card_inserted)) {
+		pr_notice("card is not inserted!\n");
+		msdc_set_bad_card_and_remove(host);
+		ret = -1;
+		return ret;
+	}
 
 	/* power reset sdcard */
 	mmc->ios.timing = MMC_TIMING_LEGACY;

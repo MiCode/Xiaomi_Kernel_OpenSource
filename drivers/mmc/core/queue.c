@@ -14,12 +14,17 @@
 #include <linux/kthread.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+#include <linux/delay.h>
+#endif
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <linux/sched/rt.h>
 #include <uapi/linux/sched/types.h>
+#include <mt-plat/mtk_io_boost.h>
 
+#include "mtk_mmc_block.h"
 #include "queue.h"
 #include "block.h"
 #include "core.h"
@@ -40,12 +45,46 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 	return BLKPREP_OK;
 }
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+static void mmc_queue_softirq_done(struct request *req)
+{
+	blk_end_request_all(req, 0);
+}
+
+int mmc_is_cmdq_full(struct mmc_queue *mq, struct request *req)
+{
+	struct mmc_host *host;
+	int cnt, rt;
+	u8 cmp_depth;
+
+	host = mq->card->host;
+	rt = IS_RT_CLASS_REQ(req);
+
+	cnt = atomic_read(&host->areq_cnt);
+	cmp_depth = host->card->ext_csd.cmdq_depth;
+	if (!rt &&
+		cmp_depth > EMMC_MIN_RT_CLASS_TAG_COUNT)
+		cmp_depth -= EMMC_MIN_RT_CLASS_TAG_COUNT;
+
+	if (cnt >= cmp_depth)
+		return 1;
+
+	return 0;
+}
+#endif
+
 static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
 	struct request_queue *q = mq->queue;
 	struct mmc_context_info *cntx = &mq->card->host->context_info;
 	struct sched_param scheduler_params = {0};
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int cmdq_full = 0;
+	unsigned int tmo;
+#endif
+	bool part_cmdq_en = false;
 
 	scheduler_params.sched_priority = 1;
 
@@ -54,11 +93,27 @@ static int mmc_queue_thread(void *d)
 	current->flags |= PF_MEMALLOC;
 
 	down(&mq->thread_sem);
+	mt_bio_queue_alloc(current, q);
+
+	mtk_iobst_register_tid(current->pid);
 	do {
 		struct request *req;
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		part_cmdq_en = mmc_blk_part_cmdq_en(mq);
+		req = blk_peek_request(q);
+		if (!req && part_cmdq_en)
+			goto fetch_done;
+		if (part_cmdq_en && mmc_is_cmdq_full(mq, req)) {
+			req = NULL;
+			cmdq_full = 1;
+			goto fetch_done;
+		}
+#endif
+
 		req = blk_fetch_request(q);
 		mq->asleep = false;
 		cntx->is_waiting_last_req = false;
@@ -73,9 +128,13 @@ static int mmc_queue_thread(void *d)
 			else
 				mq->asleep = true;
 		}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+fetch_done:
+#endif
 		spin_unlock_irq(q->queue_lock);
 
-		if (req || mq->qcnt) {
+		if (req || (!part_cmdq_en && mq->qcnt)) {
 			set_current_state(TASK_RUNNING);
 			mmc_blk_issue_rq(mq, req);
 			cond_resched();
@@ -84,11 +143,32 @@ static int mmc_queue_thread(void *d)
 				set_current_state(TASK_RUNNING);
 				break;
 			}
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			if (!cmdq_full) {
+				/* no request */
+				up(&mq->thread_sem);
+				schedule();
+				down(&mq->thread_sem);
+			} else {
+				/* queue full */
+				cmdq_full = 0;
+				/* wait when queue full */
+				tmo = schedule_timeout(HZ);
+				if (!tmo)
+					pr_info("%s:sched_tmo,areq_cnt=%d\n",
+						__func__,
+					atomic_read(&mq->card->host->areq_cnt));
+			}
+
+#else
 			up(&mq->thread_sem);
 			schedule();
 			down(&mq->thread_sem);
+#endif
+
 		}
 	} while (1);
+	mt_bio_queue_free(current);
 	up(&mq->thread_sem);
 
 	return 0;
@@ -114,8 +194,15 @@ static void mmc_request_fn(struct request_queue *q)
 		return;
 	}
 
-	cntx = &mq->card->host->context_info;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	/* just wake up thread for cmdq */
+	if (mmc_blk_part_cmdq_en(mq)) {
+		wake_up_process(mq->thread);
+		return;
+	}
+#endif
 
+	cntx = &mq->card->host->context_info;
 	if (cntx->is_waiting_last_req) {
 		cntx->is_new_req = true;
 		wake_up_interruptible(&cntx->wait);
@@ -199,6 +286,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	struct mmc_host *host = card->host;
 	u64 limit = BLK_BOUNCE_HIGH;
 	int ret = -ENOMEM;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int i;
+#endif
 
 	if (mmc_dev(host)->dma_mask && *mmc_dev(host)->dma_mask)
 		limit = (u64)dma_max_pfn(mmc_dev(host)) << PAGE_SHIFT;
@@ -220,17 +310,39 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		return ret;
 	}
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mmc_card_mmc(card)) {
+		for (i = 0; i < card->ext_csd.cmdq_depth; i++)
+			atomic_set(&mq->mqrq[i].index, 0);
+	}
+#endif
+
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
 	queue_flag_clear_unlocked(QUEUE_FLAG_ADD_RANDOM, mq->queue);
 	if (mmc_can_erase(card))
 		mmc_queue_setup_discard(mq->queue, card);
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	blk_queue_softirq_done(mq->queue, mmc_queue_softirq_done);
+#endif
+
 	blk_queue_bounce_limit(mq->queue, limit);
 	blk_queue_max_hw_sectors(mq->queue,
 		min(host->max_blk_count, host->max_req_size / 512));
 	blk_queue_max_segments(mq->queue, host->max_segs);
 	blk_queue_max_segment_size(mq->queue, host->max_seg_size);
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mmc_card_mmc(card)) {
+		for (i = 0; i < card->ext_csd.cmdq_depth; i++) {
+			mq->mqrq[i].sg = mmc_alloc_sg(host->max_segs,
+				GFP_KERNEL);
+			if (!mq->mqrq[i].sg)
+				goto cleanup_queue;
+		}
+	}
+#endif
 
 	sema_init(&mq->thread_sem, 1);
 
@@ -245,6 +357,15 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	return 0;
 
 cleanup_queue:
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mmc_card_mmc(card)) {
+		for (i = 0; i < card->ext_csd.cmdq_depth; i++) {
+			kfree(mq->mqrq[i].sg);
+			mq->mqrq[i].sg = NULL;
+		}
+	}
+#endif
+
 	blk_cleanup_queue(mq->queue);
 	return ret;
 }

@@ -960,3 +960,5 @@ config MMC_SDHCI_XENON
 	  This selects Marvell Xenon eMMC/SD/SDIO SDHCI.
 	  If you have a controller with this interface, say Y or M here.
 	  If unsure, say N.
+
+source "drivers/mmc/host/mediatek/Kconfig"

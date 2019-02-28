@@ -165,6 +165,7 @@ int msdc_rsp[] = {
 
 #elif (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
 		&& !defined(CONFIG_MTK_HW_FDE_AES)
+
 #define msdc_dma_on()           { msdc_pre_crypto(mmc, mrq); \
 			MSDC_CLR_BIT32(MSDC_CFG, MSDC_CFG_PIO); }
 #define msdc_dma_off()          { MSDC_SET_BIT32(MSDC_CFG, MSDC_CFG_PIO); \
@@ -1704,9 +1705,17 @@ skip_cmd_resp_polling:
 			if ((cmd->opcode == 13) || (cmd->opcode == 25)) {
 				/* Only print msg on this error */
 				if (*rsp & R1_WP_VIOLATION) {
-					pr_notice("[%s]: msdc%d XXX CMD<%d> resp<0x%.8x>, write protection violation\n",
-						__func__, host->id, cmd->opcode,
-						*rsp);
+					if (cmd->opcode == 25)
+						pr_notice(
+"[%s]: msdc%d XXX CMD<%d> resp<0x%.8x>, write protection violation addr:0x%x\n",
+							__func__, host->id,
+							cmd->opcode, *rsp,
+							cmd->arg);
+					else
+						pr_notice(
+"[%s]: msdc%d XXX CMD<%d> resp<0x%.8x>, write protection violation\n",
+							__func__, host->id,
+							cmd->opcode, *rsp);
 				}
 
 				if ((*rsp & R1_OUT_OF_RANGE)
@@ -2492,7 +2501,7 @@ static void msdc_dma_start(struct msdc_host *host)
 	unsigned long flags;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	host->mmc->is_data_dma = 1;
+	atomic_set(&host->mmc->is_data_dma, 1);
 #endif
 
 	if (host->autocmd & MSDC_AUTOCMD12)
@@ -2871,7 +2880,7 @@ int msdc_rw_cmd_using_sync_dma(struct mmc_host *mmc, struct mmc_command *cmd,
 	host->dma.used_gpd = 0;
 	dma_unmap_sg(mmc_dev(mmc), data->sg, data->sg_len, dir);
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	host->mmc->is_data_dma = 0;
+	atomic_set(&host->mmc->is_data_dma, 0);
 #endif
 
 	return 0;
@@ -3399,10 +3408,10 @@ static int msdc_cq_cmd_wait_xfr_done(struct msdc_host *host)
 	if (lock)
 		spin_unlock(&host->lock);
 
-	while (host->mmc->is_data_dma) {
+	while (atomic_read(&host->mmc->is_data_dma)) {
 		msleep(100);
 		if (time_after(jiffies, polling_tmo)) {
-			if (!timeout && host->mmc->is_data_dma) {
+			if (!timeout && atomic_read(&host->mmc->is_data_dma)) {
 				ERR_MSG("xfer tmo, check data timeout");
 			cancel_delayed_work_sync(&host->data_timeout_work);
 				host->data_timeout_ms = 0;
@@ -3514,7 +3523,7 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 	u32 status;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc->card && mmc->card->ext_csd.cmdq_mode_en) {
+	if (mmc->card && mmc->card->ext_csd.cmdq_en) {
 		pr_notice("msdc%d waiting data transfer done3\n", host->id);
 		if (msdc_cq_cmd_wait_xfr_done(host)) {
 			pr_notice("msdc%d waiting data transfer done3 TMO\n",
@@ -3622,7 +3631,7 @@ start_tune:
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			/* CQ DAT tune in MMC layer, here tune CMD13 CRC */
 			if (host->mmc->card
-				&& host->mmc->card->ext_csd.cmdq_mode_en)
+				&& host->mmc->card->ext_csd.cmdq_en)
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
 			else
 #endif
@@ -3780,7 +3789,7 @@ static void msdc_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 	data = mrq->data;
 	if (data && (msdc_use_async_dma(data->host_cookie))) {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		if (!mmc->card || !mmc->card->ext_csd.cmdq_mode_en)
+		if (!mmc->card || !mmc->card->ext_csd.cmdq_en)
 #endif
 			host->xfer_size = data->blocks * data->blksz;
 		dir = data->flags & MMC_DATA_READ ?
@@ -3962,7 +3971,9 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 	struct mmc_command *cmd;
 	struct mmc_data *data;
 	struct mmc_command *stop = NULL;
+#ifdef MTK_MMC_SDIO_DEBUG
 	struct timespec sdio_profile_start;
+#endif
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	int ret;
 #endif
@@ -3984,8 +3995,10 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 	if (data)
 		stop = data->stop;
 
+#ifdef MTK_MMC_SDIO_DEBUG
 	if (sdio_pro_enable)
 		sdio_get_time(mrq, &sdio_profile_start);
+#endif
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	if (check_mmc_cmd44(mrq->sbc)) {
@@ -3994,7 +4007,7 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 	}
 
 	/* only CMD0/12/13 can be send when non-empty queue @ CMDQ on */
-	if (mmc->card && mmc->card->ext_csd.cmdq_mode_en
+	if (mmc->card && mmc->card->ext_csd.cmdq_en
 		&& atomic_read(&mmc->areq_cnt)
 		&& !check_mmc_cmd001213(cmd->opcode)
 		&& !check_mmc_cmd48(cmd->opcode)) {
@@ -4061,14 +4074,15 @@ cq_req_done:
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	/* if not CMDQ CMD44/45 or CMD13, follow original flow to
 	 * clear host->mrq if it's CMD44/45 or CMD13 QSR,
-	 * host->mrq may be CMD46,47
 	 */
 	if (!(check_mmc_cmd13_sqs(mrq->cmd) || check_mmc_cmd44(mrq->sbc)))
 #endif
 		host->mrq = NULL;
 
+#ifdef MTK_MMC_SDIO_DEBUG
 	if (sdio_pro_enable)
 		sdio_calc_time(mrq, &sdio_profile_start);
+#endif
 
 	spin_unlock(&host->lock);
 
@@ -4101,7 +4115,7 @@ int msdc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	autok_msdc_tx_setting(host, &mmc->ios);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (mmc->card && mmc->card->ext_csd.cmdq_mode_en) {
+	if (mmc->card && mmc->card->ext_csd.cmdq_en) {
 		if (msdc_cq_cmd_wait_xfr_done(host)) {
 			pr_notice("msdc%d waiting data transfer done4 TMO\n",
 				host->id);
@@ -4611,7 +4625,7 @@ static void msdc_check_data_timeout(struct work_struct *work)
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 		/* clear flag here */
-		host->mmc->is_data_dma = 0;
+		atomic_set(&host->mmc->is_data_dma, 0);
 #endif
 		host->error |= REQ_DAT_ERR;
 	} else {
@@ -4678,10 +4692,10 @@ skip_non_FDE_ERROR_HANDLING:
 			 * Otherwise, CMD only error handling and msdc_irq()'s
 			 * error handling may interfer
 			 */
-			host->mmc->is_data_dma = 0;
+			atomic_set(&host->mmc->is_data_dma, 0);
 
 			/* CQ mode:just set data->error & let mmc layer tune */
-			if (host->mmc->card->ext_csd.cmdq_mode_en) {
+			if (host->mmc->card->ext_csd.cmdq_en) {
 				if (mrq->data->flags & MMC_DATA_WRITE)
 					atomic_set(&host->cq_error_need_stop,
 						1);
@@ -4721,7 +4735,7 @@ skip:
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 			atomic_set(&host->cq_error_need_stop, 0);
-			host->mmc->is_data_dma = 0;
+			atomic_set(&host->mmc->is_data_dma, 0);
 #endif
 
 			host->error &= ~REQ_DAT_ERR;
@@ -5019,7 +5033,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	struct msdc_hw *hw = NULL;
 	void __iomem *base = NULL;
 	int ret = 0;
-
 	/* Allocate MMC host for this device */
 	mmc = mmc_alloc_host(sizeof(struct msdc_host), &pdev->dev);
 	if (!mmc)
@@ -5047,7 +5060,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (host->hw->host_function == MSDC_EMMC)
 		mmc->caps |= MMC_CAP_CMD23;
 #endif
-	mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
+	if (host->hw->host_function == MSDC_SD)
+		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 
 	mmc->caps |= MMC_CAP_ERASE;
 
@@ -5215,6 +5229,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 #ifdef CONFIG_HIE
 	msdc_hie_register(host);
 #endif
+	if (host->hw->host_function == MSDC_EMMC) {
+#ifdef CONFIG_PWR_LOSS_MTK_TEST
+		msdc_proc_emmc_create();
+#endif
+		msdc_debug_proc_init();
+	}
 
 	return 0;
 
@@ -5386,11 +5406,6 @@ static int __init mt_msdc_init(void)
 		pr_notice(DRV_NAME ": Can't register driver");
 		return ret;
 	}
-
-#ifdef CONFIG_PWR_LOSS_MTK_TEST
-	msdc_proc_emmc_create();
-#endif
-	msdc_debug_proc_init();
 
 	pr_debug(DRV_NAME ": MediaTek MSDC Driver\n");
 
