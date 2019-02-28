@@ -304,6 +304,8 @@ static int init_rootdomain(struct root_domain *rd)
 
 	rd->max_cap_orig_cpu = rd->min_cap_orig_cpu = -1;
 
+	init_max_cpu_capacity(&rd->max_cpu_capacity);
+
 	return 0;
 
 free_cpudl:
@@ -417,6 +419,7 @@ DEFINE_PER_CPU(struct sched_domain *, sd_numa);
 DEFINE_PER_CPU(struct sched_domain *, sd_asym);
 DEFINE_PER_CPU(struct sched_domain *, sd_ea);
 DEFINE_PER_CPU(struct sched_domain *, sd_scs);
+DEFINE_STATIC_KEY_FALSE(sched_asym_cpucapacity);
 
 static void update_top_cache_domain(int cpu)
 {
@@ -454,6 +457,21 @@ static void update_top_cache_domain(int cpu)
 
 	sd = highest_flag_domain(cpu, SD_SHARE_CAP_STATES);
 	rcu_assign_pointer(per_cpu(sd_scs, cpu), sd);
+}
+
+static void update_asym_cpucapacity(int cpu)
+{
+	int enable = false;
+
+	rcu_read_lock();
+	if (lowest_flag_domain(cpu, SD_ASYM_CPUCAPACITY))
+		enable = true;
+	rcu_read_unlock();
+
+	if (enable) {
+		/* This expects to be hotplug-safe */
+		static_branch_enable_cpuslocked(&sched_asym_cpucapacity);
+	}
 }
 
 /*
@@ -898,6 +916,7 @@ static struct sched_group *get_group(int cpu, struct sd_data *sdd)
 
 	sg->sgc->capacity = SCHED_CAPACITY_SCALE * cpumask_weight(sched_group_span(sg));
 	sg->sgc->min_capacity = SCHED_CAPACITY_SCALE;
+	sg->sgc->max_capacity = SCHED_CAPACITY_SCALE;
 
 	return sg;
 }
@@ -1270,7 +1289,7 @@ sd_init(struct sched_domain_topology_level *tl,
 					| 0*SD_SHARE_CPUCAPACITY
 					| 0*SD_SHARE_PKG_RESOURCES
 					| 0*SD_SERIALIZE
-					| 0*SD_PREFER_SIBLING
+					| 1*SD_PREFER_SIBLING
 					| 0*SD_NUMA
 					| sd_flags
 					,
@@ -1290,18 +1309,43 @@ sd_init(struct sched_domain_topology_level *tl,
 	sd_id = cpumask_first(sched_domain_span(sd));
 
 	/*
+	 * Check if cpu_map eclipses cpu capacity asymmetry.
+	 */
+
+	if (sd->flags & SD_ASYM_CPUCAPACITY) {
+		long capacity = arch_scale_cpu_capacity(NULL, sd_id);
+		bool disable = true;
+		int i;
+
+		for_each_cpu(i, sched_domain_span(sd)) {
+			if (capacity != arch_scale_cpu_capacity(NULL, i)) {
+				disable = false;
+				break;
+			}
+		}
+
+		if (disable)
+			sd->flags &= ~SD_ASYM_CPUCAPACITY;
+	}
+
+	/*
 	 * Convert topological properties into behaviour.
 	 */
 
 	if (sd->flags & SD_ASYM_CPUCAPACITY) {
 		struct sched_domain *t = sd;
 
+		/*
+		 * Don't attempt to spread across cpus of different capacities.
+		 */
+		if (sd->child)
+			sd->child->flags &= ~SD_PREFER_SIBLING;
+
 		for_each_lower_domain(t)
 			t->flags |= SD_BALANCE_WAKE;
 	}
 
 	if (sd->flags & SD_SHARE_CPUCAPACITY) {
-		sd->flags |= SD_PREFER_SIBLING;
 		sd->imbalance_pct = 110;
 		sd->smt_gain = 1178; /* ~15% */
 
@@ -1316,6 +1360,7 @@ sd_init(struct sched_domain_topology_level *tl,
 		sd->busy_idx = 3;
 		sd->idle_idx = 2;
 
+		sd->flags &= ~SD_PREFER_SIBLING;
 		sd->flags |= SD_SERIALIZE;
 		if (sched_domains_numa_distance[tl->numa_level] > RECLAIM_DISTANCE) {
 			sd->flags &= ~(SD_BALANCE_EXEC |
@@ -1325,7 +1370,6 @@ sd_init(struct sched_domain_topology_level *tl,
 
 #endif
 	} else {
-		sd->flags |= SD_PREFER_SIBLING;
 		sd->cache_nice_tries = 1;
 		sd->busy_idx = 2;
 		sd->idle_idx = 1;
@@ -1776,7 +1820,6 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	enum s_alloc alloc_state;
 	struct sched_domain *sd;
 	struct s_data d;
-	struct rq *rq = NULL;
 	int i, ret = -ENOMEM;
 
 	alloc_state = __visit_domain_allocation_hell(&d, cpu_map);
@@ -1831,12 +1874,7 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
 		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
 
-		rq = cpu_rq(i);
 		sd = *per_cpu_ptr(d.sd, i);
-
-		/* Use READ_ONCE()/WRITE_ONCE() to avoid load/store tearing: */
-		if (rq->cpu_capacity_orig > READ_ONCE(d.rd->max_cpu_capacity))
-			WRITE_ONCE(d.rd->max_cpu_capacity, rq->cpu_capacity_orig);
 
 		if ((max_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig >
 		    cpu_rq(max_cpu)->cpu_capacity_orig))
@@ -1850,10 +1888,8 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 	}
 	rcu_read_unlock();
 
-	if (rq && sched_debug_enabled) {
-		pr_info("span: %*pbl (max cpu_capacity = %lu)\n",
-			cpumask_pr_args(cpu_map), rq->rd->max_cpu_capacity);
-	}
+	if (!cpumask_empty(cpu_map))
+		update_asym_cpucapacity(cpumask_first(cpu_map));
 
 	ret = 0;
 error:
@@ -2065,4 +2101,3 @@ match2:
 
 	mutex_unlock(&sched_domains_mutex);
 }
-
