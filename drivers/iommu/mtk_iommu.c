@@ -31,6 +31,9 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <asm/barrier.h>
+#ifndef CONFIG_ARM64
+#include <asm/dma-iommu.h>
+#endif
 #include <soc/mediatek/smi.h>
 
 #include "mtk_iommu.h"
@@ -332,7 +335,7 @@ static struct iommu_domain *mtk_iommu_domain_alloc(unsigned type)
 {
 	struct mtk_iommu_domain *dom;
 
-	if (type != IOMMU_DOMAIN_DMA)
+	if (type != IOMMU_DOMAIN_DMA && type != IOMMU_DOMAIN_UNMANAGED)
 		return NULL;
 
 	dom = kzalloc(sizeof(*dom), GFP_KERNEL);
@@ -451,6 +454,7 @@ static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 	return pa;
 }
 
+#ifdef CONFIG_ARM64
 static int mtk_iommu_add_device(struct device *dev)
 {
 	struct mtk_iommu_data *data;
@@ -469,6 +473,67 @@ static int mtk_iommu_add_device(struct device *dev)
 	iommu_group_put(group);
 	return 0;
 }
+#else
+static int mtk_iommu_init_arm_mapping(struct device *dev)
+{
+	struct mtk_iommu_data *data;
+	struct dma_iommu_mapping *mtk_mapping;
+	struct device *m4udev;
+	int ret;
+
+	data = dev->iommu_fwspec->iommu_priv;
+	m4udev = data->dev;
+	mtk_mapping = m4udev->archdata.iommu;
+	if (!mtk_mapping) {
+		/* MTK iommu support 4GB iova address space. */
+		mtk_mapping = arm_iommu_create_mapping(&platform_bus_type,
+						0, 1ULL << 32);
+		if (IS_ERR(mtk_mapping))
+			return PTR_ERR(mtk_mapping);
+
+		m4udev->archdata.iommu = mtk_mapping;
+
+		ret = arm_iommu_attach_device(dev, mtk_mapping);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static int mtk_iommu_add_device(struct device *dev)
+{
+	struct mtk_iommu_data *data;
+	struct iommu_group *group;
+	int err;
+
+	if (!dev->iommu_fwspec || dev->iommu_fwspec->ops != &mtk_iommu_ops)
+		return -ENODEV; /* Not a iommu client device */
+
+	/*
+	 * This is a short-term bodge because the ARM DMA code doesn't
+	 * understand multi-device groups, but we have to call into it
+	 * successfully (and not just rely on a normal IOMMU API attach
+	 * here) in order to set the correct DMA API ops on @dev.
+	 */
+	group = iommu_group_alloc();
+	if (IS_ERR(group))
+		return PTR_ERR(group);
+
+	err = iommu_group_add_device(group, dev);
+	iommu_group_put(group);
+	if (err)
+		return err;
+
+	err = mtk_iommu_init_arm_mapping(dev);
+	if (err) {
+		iommu_group_remove_device(dev);
+		return err;
+	}
+
+	data = dev->iommu_fwspec->iommu_priv;
+	return iommu_device_link(&data->iommu, dev);
+}
+#endif
 
 static void mtk_iommu_remove_device(struct device *dev)
 {
