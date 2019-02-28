@@ -6835,6 +6835,17 @@ static unsigned long capacity_spare_wake(int cpu, struct task_struct *p)
 	return max_t(long, capacity_of(cpu) - cpu_util_wake(cpu, p), 0);
 }
 
+#ifdef CONFIG_MTK_SCHED_INTEROP
+#define MT_RT_LOAD (2*1023*NICE_0_LOAD)
+static inline unsigned long mt_rt_load(int cpu)
+{
+	if (likely(!is_rt_throttle(cpu)))
+		return cpu_rq(cpu)->rt.rt_nr_running * MT_RT_LOAD;
+
+	return 0;
+}
+#endif
+
 /*
  * find_idlest_group finds and returns the least busy CPU group within the
  * domain.
@@ -6891,6 +6902,10 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 			runnable_load += load;
 
 			avg_load += cfs_rq_load_avg(&cpu_rq(i)->cfs);
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			avg_load += mt_rt_load(i);
+#endif
 
 			spare_cap = capacity_spare_wake(i, p);
 
@@ -7012,6 +7027,9 @@ find_idlest_group_cpu(struct sched_group *group, struct task_struct *p, int this
 			}
 		} else if (shallowest_idle_cpu == -1) {
 			load = weighted_cpuload(cpu_rq(i));
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			load += mt_rt_load(i);
+#endif
 			if (load < min_load || (load == min_load && i == this_cpu)) {
 				min_load = load;
 				least_loaded_cpu = i;
@@ -9380,7 +9398,14 @@ static unsigned long scale_rt_capacity(int cpu)
 	 * we read them once before doing sanity checks on them.
 	 */
 	age_stamp = READ_ONCE(rq->age_stamp);
-	avg = READ_ONCE(rq->rt_avg);
+#ifdef CONFIG_MTK_SCHED_INTEROP
+	if (unlikely(is_rt_throttle(cpu)) || !(rq->rt.rt_nr_running)) {
+		/* mtk: don't reduce capacity when rt task throttle or sleep*/
+		avg = 0;
+		trace_sched_interop_lb(cpu, rq->rt.rt_nr_running);
+	} else
+#endif
+		avg = READ_ONCE(rq->rt_avg);
 	delta = __rq_clock_broken(rq) - age_stamp;
 
 	if (unlikely(delta < 0))
@@ -10454,6 +10479,10 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 			continue;
 
 		wl = weighted_cpuload(rq);
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+		wl += mt_rt_load(i);
+#endif
 
 		/*
 		 * When comparing with imbalance, use weighted_cpuload()
