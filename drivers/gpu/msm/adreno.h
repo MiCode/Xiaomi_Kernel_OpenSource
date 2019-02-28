@@ -1356,6 +1356,18 @@ static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
 
+static inline int adreno_is_a680v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A680) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
+}
+
+static inline int adreno_is_a680v2(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A680) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
+}
+
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
  * @adreno_dev:		Pointer to adreno device
