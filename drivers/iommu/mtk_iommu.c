@@ -492,12 +492,12 @@ static int mtk_iommu_init_arm_mapping(struct device *dev)
 			return PTR_ERR(mtk_mapping);
 
 		m4udev->archdata.iommu = mtk_mapping;
-
-		ret = arm_iommu_attach_device(dev, mtk_mapping);
-		if (ret)
-			return ret;
 	}
-	return 0;
+
+	ret = arm_iommu_attach_device(dev, mtk_mapping);
+	if (ret)
+		dev_info(dev, "attach fail %d\n", ret);
+	return ret;
 }
 
 static int mtk_iommu_add_device(struct device *dev)
