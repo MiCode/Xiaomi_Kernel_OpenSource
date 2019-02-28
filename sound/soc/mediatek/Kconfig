@@ -32,6 +32,24 @@ config SND_SOC_MT2701_WM8960
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT8168
+	tristate "ASoC support for Mediatek MT8168 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	help
+	  This adds ASoC platform driver support for Mediatek MT8168 chip
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  Ex: MT8168
+
+config SND_SOC_MT8168_FPGA
+	tristate "ASoC Audio driver for MT8168 Early Porting"
+	depends on SND_SOC_MT8168
+	help
+	  This adds ASoC driver for Mediatek MT8168 FPGA boards
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_MT8173
 	tristate "ASoC support for Mediatek MT8173 chip"
 	depends on ARCH_MEDIATEK
