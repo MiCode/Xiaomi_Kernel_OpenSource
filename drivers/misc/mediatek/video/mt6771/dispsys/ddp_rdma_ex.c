@@ -320,8 +320,8 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	unsigned int if_fps; /* ineterface fps */
 	unsigned int Bpp;
 	unsigned int offset = idx * DISP_RDMA_INDEX_OFFSET;
-	long long temp;
-	long long temp_for_div;
+	unsigned long long temp;
+	unsigned long long temp_for_div;
 
 	if (!gsc) {
 		DDPPR_ERR("golden setting is null, %s,%d\n",
@@ -431,7 +431,7 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	/* SODI threshold */
 	sodi_threshold_low = (ultra_low_us * 10 + fifo_off_spm) *
 			consume_rate_div;
-	do_div(sodi_threshold_low, 10);
+	sodi_threshold_low /= 10;
 
 
 	temp_for_div = 1200 * (fill_rate - consume_rate_div * 1000);

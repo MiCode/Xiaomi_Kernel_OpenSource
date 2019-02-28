@@ -746,7 +746,7 @@ static void add_layer_info_for_debug(void)
 
 	memset(disp_tmp, 0, sizeof(disp_tmp));
 	if (hrt_show_flag == 1) {
-		snprintf(p, sizeof(disp_tmp), "hrt:%01d.%01d ",
+		snprintf(p, sizeof(disp_tmp), "hrt:%01llu.%01llu ",
 				hrt_high, hrt_low);
 		j = strlen(p);
 		p = p + j;
@@ -759,16 +759,16 @@ static void add_layer_info_for_debug(void)
 	}
 	if (layer_size_flag == 1) {
 		int full_layer_width = primary_display_get_width();
-		int full_layer_height = primary_display_get_height();
-		int full_layer_size =
+		uint64_t full_layer_height = primary_display_get_height();
+		uint64_t full_layer_size =
 			full_layer_width * full_layer_height * 4;
 
 		if (full_layer_size != 0) {
 			layer_size_low =
 				do_div(layer_size_high, full_layer_size);
 			layer_size_low *= 10;
-			do_div(layer_size_low, full_layer_size);
-			snprintf(p, sizeof(disp_tmp), "Lsize:%01d.%01d ",
+			layer_size_low /= full_layer_size;
+			snprintf(p, sizeof(disp_tmp), "Lsize:%01llu.%01d ",
 				layer_size_high,
 				layer_size_low);
 		} else

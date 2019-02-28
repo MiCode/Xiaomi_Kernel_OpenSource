@@ -1107,7 +1107,7 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
 		t_to_check = idle_check_interval * 1000 * 1000 - t_idle;
-		do_div(t_to_check, 1000000);
+		t_to_check /= 1000000;
 
 		mmprofile_log_ex(ddp_mmp_get_events()->idle_monitor,
 				 MMPROFILE_FLAG_PULSE, idle_check_interval,

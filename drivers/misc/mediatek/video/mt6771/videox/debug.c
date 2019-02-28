@@ -76,13 +76,13 @@ int fps_show_flag;
 struct fps_debug fps_info_debug = {0};
 
 /* hrt */
-int hrt_high, hrt_low;
+unsigned long long hrt_high, hrt_low;
 int hrt_show_flag;
 
 /* layer_en */
 int layer_en_num;
 int layer_en_num_flag;
-int layer_size_high;
+uint64_t layer_size_high;
 int layer_size_low;
 int layer_size_flag;
 

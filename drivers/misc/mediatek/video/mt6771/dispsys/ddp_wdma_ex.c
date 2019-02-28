@@ -819,8 +819,8 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 			consume_rate * bytes_per_sec;
 	ultra_low_UV = (ultra_low_us + fifo_off_drs_leave) *
 			 consume_rate;
-	do_div(ultra_low, 1000);
-	do_div(ultra_low_UV, 1000);
+	ultra_low /= 1000;
+	ultra_low_UV /= 1000;
 
 	regval = 0;
 	temp = (long long)fifo_pseudo_size - ultra_low;
@@ -843,22 +843,22 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 			consume_rate * bytes_per_sec;
 	preultra_low_UV = (preultra_low_us + fifo_off_dvfs) *
 			consume_rate;
-	do_div(preultra_low, 1000);
-	do_div(preultra_low_UV, 1000);
+	preultra_low /= 1000;
+	preultra_low_UV /= 1000;
 
 	preultra_high = (preultra_high_us + fifo_off_dvfs) *
 			consume_rate * bytes_per_sec;
 	preultra_high_UV = (preultra_high_us + fifo_off_dvfs) *
 			consume_rate;
-	do_div(preultra_high, 1000);
-	do_div(preultra_high_UV, 1000);
+	preultra_high /= 1000;
+	preultra_high_UV /= 1000;
 
 	ultra_high = (ultra_high_us + fifo_off_dvfs) *
 			consume_rate * bytes_per_sec;
 	ultra_high_UV = (ultra_high_us + fifo_off_dvfs) *
 			consume_rate;
-	do_div(ultra_high, 1000);
-	do_div(ultra_high_UV, 1000);
+	ultra_high /= 1000;
+	ultra_high_UV /= 1000;
 
 	ultra_low = preultra_high;
 	ultra_low_UV = preultra_high_UV;
