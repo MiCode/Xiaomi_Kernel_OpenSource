@@ -579,10 +579,11 @@ void mtk_smi_clk_disable(struct mtk_smi_dev *smi)
 		pr_info("No such device or address\n");
 	else if (!smi->dev || !smi->clks)
 		pr_info("SMI%u no such device or address\n", smi->id);
-
-	atomic_dec(&(smi->clk_cnts));
-	for (i = smi->nr_clks - 1; i > 0; i--)
-		clk_disable_unprepare(smi->clks[i]);
+	else {
+		atomic_dec(&(smi->clk_cnts));
+		for (i = smi->nr_clks - 1; i > 0; i--)
+			clk_disable_unprepare(smi->clks[i]);
+	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_clk_disable);
 
@@ -630,7 +631,7 @@ static s32 mtk_smi_clks_get(struct mtk_smi_dev *smi)
 {
 	struct property *prop;
 	const char *name, *clk_names = "clock-names";
-	s32 i = 0;
+	s32 i = 0, ret;
 
 	if (!smi) {
 		pr_info("No such device or address\n");
@@ -640,8 +641,10 @@ static s32 mtk_smi_clks_get(struct mtk_smi_dev *smi)
 		return -ENXIO;
 	}
 
-	smi->nr_clks = of_property_count_strings(smi->dev->of_node, clk_names);
-	/* MMDVFS */
+	ret = of_property_count_strings(smi->dev->of_node, clk_names);
+	if (ret < 0)
+		return ret;
+	smi->nr_clks = (u32)ret;
 	smi->clks = devm_kcalloc(smi->dev, smi->nr_clks, sizeof(*smi->clks),
 		GFP_KERNEL);
 	if (!smi->clks)
@@ -691,7 +694,8 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 		return PTR_ERR(base);
 	}
 	smi_dev[id]->base = base;
-	of_address_to_resource(smi_dev[id]->dev->of_node, 0, res);
+	if (of_address_to_resource(smi_dev[id]->dev->of_node, 0, res))
+		return -EINVAL;
 	dev_info(&pdev->dev,
 		"SMI%u base: VA=%p, PA=%pa\n", id, base, &res->start);
 

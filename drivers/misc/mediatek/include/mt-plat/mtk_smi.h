@@ -66,4 +66,19 @@ struct MTK_SMI_BWC_CONF {
 };
 
 #define MTK_IOC_SMI_BWC_CONF	_IOW('O', 24, struct MTK_SMI_BWC_CONF)
+
+enum {SMI_IPI_INIT, SMI_IPI_ENABLE, NR_SMI_IPI,};
+
+struct smi_ipi_data_s {
+	u32 cmd;
+	union {
+		struct {
+			u32 phys;
+			u32 size;
+		} ctrl;
+		struct {
+			u32 enable;
+		} logger;
+	} u;
+};
 #endif
