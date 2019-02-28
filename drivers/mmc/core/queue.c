@@ -103,10 +103,11 @@ static int mmc_queue_thread(void *d)
 		set_current_state(TASK_INTERRUPTIBLE);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		part_cmdq_en = mmc_blk_part_cmdq_en(mq);
 		req = blk_peek_request(q);
-		if (!req && part_cmdq_en)
+		if (!req)
 			goto fetch_done;
+
+		part_cmdq_en = mmc_blk_part_cmdq_en(mq);
 		if (part_cmdq_en && mmc_is_cmdq_full(mq, req)) {
 			req = NULL;
 			cmdq_full = 1;
@@ -115,6 +116,10 @@ static int mmc_queue_thread(void *d)
 #endif
 
 		req = blk_fetch_request(q);
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+fetch_done:
+#endif
 		mq->asleep = false;
 		cntx->is_waiting_last_req = false;
 		cntx->is_new_req = false;
@@ -129,9 +134,6 @@ static int mmc_queue_thread(void *d)
 				mq->asleep = true;
 		}
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-fetch_done:
-#endif
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || (!part_cmdq_en && mq->qcnt)) {
