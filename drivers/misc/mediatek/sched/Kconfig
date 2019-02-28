@@ -1,0 +1,33 @@
+
+menu "MTK Heterogenous MultiProcessor Scheduler"
+
+config SCHED_HMP
+	bool "Heterogenous multiprocessor scheduling"
+	default n
+	depends on SCHED_MC && FAIR_GROUP_SCHED && !SCHED_AUTOGROUP
+	help
+	  Scheduler optimizations for heterogeneous platforms.
+	  Attempts to introspectively select task affinity to optimize power
+	  and performance. Basic support for multiple (>2) cpu types is in place,
+	  but it has only been tested with two types of cpus.
+	  There is currently no support for migration of task groups, hence
+	  !SCHED_AUTOGROUP.
+endmenu
+
+menu "MTK runqueue statistic calculation"
+
+config MTK_SCHED_RQAVG_KS
+	bool "Enable runqueue statistic calculation used in kernel space operation"
+	depends on SMP && SCHED_HMP
+	help
+	  MTK ruqueue statistic kernel space CPUfreq governors, e.g., hotplug
+	  TLP estimation,
+	  heavy task detection and
+	  per CPU load for kernel space CPUfreq governors
+
+config MTK_SCHED_RQAVG_US
+	bool "Enable runqueue staticsic calculation used in user space operation"
+	depends on SMP && SCHED_HMP && HIGH_RES_TIMERS
+	help
+	  TLP estimation for user space CPUfreq governors
+endmenu

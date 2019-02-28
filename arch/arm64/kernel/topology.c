@@ -29,6 +29,8 @@
 #include <asm/cputype.h>
 #include <asm/topology.h>
 
+#include "topology_dts.c"
+
 static int __init get_cpu_for_node(struct device_node *node)
 {
 	struct device_node *cpu_node;
