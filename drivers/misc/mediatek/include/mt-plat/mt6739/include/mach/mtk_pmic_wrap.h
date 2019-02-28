@@ -83,6 +83,6 @@ u32 mt_pmic_wrap_eint_status(void);
 void mt_pmic_wrap_eint_clr(int offset);
 s32 pwrap_init(void);
 struct mt_pmic_wrap_driver *get_mt_pmic_wrap_drv(void);
-void pwrap_dump_all_register(void);
+void pwrap_dump_all_registers(void);
 
 #endif				/* __MT_PMIC_WRAP_H__ */

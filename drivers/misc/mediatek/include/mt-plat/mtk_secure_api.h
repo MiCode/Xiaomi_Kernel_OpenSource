@@ -165,6 +165,10 @@
 #define MTK_SIP_KERNEL_I2C_SEC_WRITE \
 	(0x820002A0 | MTK_SIP_SMC_AARCH_BIT)
 
+/* SPM dummy read */
+#define MTK_SIP_KERNEL_SPM_DUMMY_READ	\
+	(0x82000225 | MTK_SIP_SMC_AARCH_BIT)
+
 extern size_t mt_secure_call_all(size_t function_id,
 	size_t arg0, size_t arg1, size_t arg2,
 	size_t arg3, size_t *r1, size_t *r2, size_t *r3);
@@ -194,8 +198,8 @@ mt_secure_call(MTK_SIP_KERNEL_EMIMPU_READ, offset, 0, 0, 0)
 mt_secure_call(MTK_SIP_KERNEL_EMIMPU_SET, start, end, region_permission, 0)
 #else
 #define emi_mpu_smc_set(start, end, apc8, apc0) \
-mt_secure_call_all(MTK_SIP_KERNEL_EMIMPU_SET,\
-start, end, apc8, apc0, 0, 0, 0, 0)
+	mt_secure_call_all(MTK_SIP_KERNEL_EMIMPU_SET,\
+	start, end, apc8, apc0, 0, 0, 0)
 #endif
 
 #define emi_mpu_smc_clear(region) \

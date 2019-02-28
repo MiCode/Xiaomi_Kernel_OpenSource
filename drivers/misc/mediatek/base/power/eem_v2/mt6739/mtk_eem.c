@@ -75,7 +75,6 @@
 /* local includes (kernel-4.4)*/
 #ifdef __KERNEL__
 	#include <mt-plat/mtk_chip.h>
-	#include <mt-plat/mtk_gpio.h>
 	#include "mtk_eem_config.h"
 #ifndef CONFIG_MACH_MT6739
 	#include "upmu_common.h"
@@ -104,7 +103,7 @@
 	#include <regulator/consumer.h>
 	#if defined(CONFIG_MTK_PMIC_CHIP_MT6356) || defined(CONFIG_MTK_PMIC_CHIP_MT6357)
 		#include "pmic_regulator.h"
-		#include "mtk_pmic_regulator.h"
+		#include "mt6357/mtk_pmic_regulator.h"
 		#include "mt6311-i2c.h"
 		#include "pmic_api_buck.h"
 	#endif

@@ -27,8 +27,10 @@
 #include <mt-plat/upmu_common.h>
 #endif
 /* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
+#if !defined(SPM_K414_EARLY_PORTING) && !defined(CONFIG_MACH_MT6739)
 #include <mtk_pmic_api_buck.h>
+#elif defined(CONFIG_MACH_MT6739)
+#include "pmic_api_buck.h"
 #endif
 #include <upmu_sw.h>
 #if !defined(CONFIG_FPGA_EARLY_PORTING)

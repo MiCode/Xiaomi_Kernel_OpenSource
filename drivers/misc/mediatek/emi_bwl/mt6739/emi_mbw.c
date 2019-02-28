@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <asm/div64.h>
 #include <mtk_dramc.h>
 

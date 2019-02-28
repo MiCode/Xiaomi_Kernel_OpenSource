@@ -100,7 +100,7 @@ extern signed int pwrap_read_nochk(unsigned int adr, unsigned int *rdata);
 extern signed int pwrap_wacs2(unsigned int write, unsigned int adr, unsigned int wdata, unsigned int *rdata);
 extern signed int pwrap_wacs2_read(unsigned int  adr, unsigned int *rdata);
 extern signed int pwrap_wacs2_write(unsigned int  adr, unsigned int  wdata);
-extern void pwrap_dump_all_register(void);
+extern void pwrap_dump_all_registers(void);
 extern signed int pwrap_init_preloader(void);
 extern signed int pwrap_init_lk(void);
 extern signed int pwrap_init_scp(void);

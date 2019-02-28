@@ -23,6 +23,41 @@
  */
 extern int pmic_get_auxadc_value(int list);
 
+/* channel_rdy : AUXADC ready bit
+ * channel_out : AUXCAD out data
+ * resolution : AUXADC resolution
+ * r_val : AUXADC channel R value
+ */
+struct pmic_auxadc_channel {
+	u8 resolution;
+	u8 r_val;
+	unsigned int channel_rqst;
+	unsigned int channel_rdy;
+	unsigned int channel_out;
+};
+enum {
+	AUXADC_DUMP,
+	AUXADC_CHANNEL,
+	AUXADC_VALUE,
+	AUXADC_REGS,
+};
+struct mtk_auxadc_ops {
+	void (*lock)(void);
+	void (*unlock)(void);
+	void (*dump_regs)(char *buf);
+	int (*get_channel_value)(int channel);
+};
+
+struct mtk_auxadc_intf {
+	struct mtk_auxadc_ops *ops;
+	char *name;
+	int channel_num;
+	const char **channel_name;
+	int dbg_chl;
+	int dbg_md_chl;
+	int reg;
+	int data;
+};
 enum {
 #ifdef CONFIG_MTK_PMIC_CHIP_MT6357
 	/* mt6357 */
