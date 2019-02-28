@@ -4,6 +4,7 @@
 #
 subdir-ccflags-$(CONFIG_USB_GADGET_DEBUG)	:= -DDEBUG
 subdir-ccflags-$(CONFIG_USB_GADGET_VERBOSE)	+= -DVERBOSE_DEBUG
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_boost
 ccflags-y				+= -I$(srctree)/drivers/usb/gadget/udc
 ccflags-y				+= -I$(srctree)/drivers/usb/gadget/function
 ifdef CONFIG_MTPROF
