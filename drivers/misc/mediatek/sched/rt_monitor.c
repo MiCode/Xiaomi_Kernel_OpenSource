@@ -28,6 +28,7 @@
 #include "mtk_ram_console.h"
 
 #define MAX_THROTTLE_COUNT 5
+#define MAX_RT_TASK_COUNT 1024
 
 struct mt_rt_mon_struct {
 	struct list_head list;
@@ -58,6 +59,8 @@ static int rt_mon_count_buffer;
 static unsigned long long rt_start_ts_buffer, rt_end_ts_buffer;
 static unsigned long long rt_dur_ts_buffer;
 char rt_monitor_print_at_AEE_buffer[124];
+unsigned long rt_mon_map[BITS_TO_LONGS(MAX_RT_TASK_COUNT)];
+static struct mt_rt_mon_struct memory_base[MAX_RT_TASK_COUNT];
 /*
  * Ease the printing of nsec fields:
  */
@@ -84,20 +87,45 @@ static unsigned long nsec_low(unsigned long long nsec)
 
 #define SPLIT_NS_L(x) nsec_low(x)
 
+static struct mt_rt_mon_struct *alloc_entry(void)
+{
+	int index;
+
+	index = bitmap_find_free_region(rt_mon_map, MAX_RT_TASK_COUNT, 0);
+	if (index == -ENOMEM)
+		return NULL;
+
+	bitmap_set(rt_mon_map, index, 1);
+	return &memory_base[index];
+}
+
+static void release_entry(struct mt_rt_mon_struct *entry)
+{
+	unsigned int index;
+	uintptr_t diff;
+
+	diff = ((uintptr_t)entry - (uintptr_t)&memory_base[0]);
+	index = diff / sizeof(struct mt_rt_mon_struct);
+	bitmap_clear(rt_mon_map, index, 1);
+}
 
 static void store_rt_mon_info(int cpu, u64 delta_exec, struct task_struct *p)
 {
 	struct mt_rt_mon_struct *mtmon;
 	unsigned long irq_flags;
 
-	mtmon = kmalloc(sizeof(struct mt_rt_mon_struct),
-			(GFP_ATOMIC & ~__GFP_KSWAPD_RECLAIM));
-	if (!mtmon)
+	spin_lock_irqsave(&mt_rt_mon_lock, irq_flags);
+	mtmon = alloc_entry();
+
+	if (!mtmon) {
+		spin_unlock_irqrestore(&mt_rt_mon_lock, irq_flags);
+		printk_deferred("[name:rt_monitor&] sched: monitor entry is full: p=%d, cpu=%d\n",
+				p->pid, cpu);
 		return;
+	}
+
 	memset(mtmon, 0, sizeof(struct mt_rt_mon_struct));
 	INIT_LIST_HEAD(&(mtmon->list));
-
-	spin_lock_irqsave(&mt_rt_mon_lock, irq_flags);
 	per_cpu(rt_mon_count, cpu)++;
 
 	mtmon->pid = p->pid;
@@ -189,7 +217,7 @@ void reset_rt_mon_list(int cpu)
 	rcu_read_lock();
 	list_for_each_entry_safe(tmp, tmp2, list_head, list) {
 		tsk = find_task_by_vpid(tmp->pid);
-		if (tsk) {
+		if (tsk && (tsk->sched_class == &rt_sched_class)) {
 			tmp->cputime = 0;
 			tmp->cost_cputime = 0;
 			tmp->cputime_percen_6 = 0;
@@ -200,7 +228,7 @@ void reset_rt_mon_list(int cpu)
 		} else {
 			per_cpu(rt_mon_count, cpu)--;
 			list_del(&(tmp->list));
-			kfree(tmp);
+			release_entry(tmp);
 		}
 	}
 	rcu_read_unlock();
