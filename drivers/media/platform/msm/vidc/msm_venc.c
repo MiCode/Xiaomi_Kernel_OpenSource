@@ -3249,6 +3249,71 @@ int msm_venc_set_video_signal_info(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+int msm_venc_set_rotation(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct v4l2_ctrl *rotation = NULL;
+	struct v4l2_ctrl *hflip = NULL;
+	struct v4l2_ctrl *vflip = NULL;
+	struct hfi_device *hdev;
+	struct hfi_vpe_rotation_type vpe_rotation;
+	struct hfi_frame_size frame_sz;
+
+	hdev = inst->core->device;
+
+	rotation = get_ctrl(inst, V4L2_CID_ROTATE);
+
+	vpe_rotation.rotation = HFI_ROTATE_NONE;
+	if (rotation->val == 90)
+		vpe_rotation.rotation = HFI_ROTATE_90;
+	else if (rotation->val == 180)
+		vpe_rotation.rotation = HFI_ROTATE_180;
+	else if (rotation->val ==  270)
+		vpe_rotation.rotation = HFI_ROTATE_270;
+
+	hflip = get_ctrl(inst, V4L2_CID_HFLIP);
+	vflip = get_ctrl(inst, V4L2_CID_VFLIP);
+
+	vpe_rotation.flip = HFI_FLIP_NONE;
+	if ((hflip->val == V4L2_MPEG_MSM_VIDC_ENABLE) &&
+		(vflip->val == V4L2_MPEG_MSM_VIDC_ENABLE))
+		vpe_rotation.flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
+	else if (hflip->val == V4L2_MPEG_MSM_VIDC_ENABLE)
+		vpe_rotation.flip = HFI_FLIP_HORIZONTAL;
+	else if (vflip->val == V4L2_MPEG_MSM_VIDC_ENABLE)
+		vpe_rotation.flip = HFI_FLIP_VERTICAL;
+
+	dprintk(VIDC_DBG, "Set rotation = %d, flip = %d\n",
+			vpe_rotation.rotation, vpe_rotation.flip);
+	rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session,
+				HFI_PROPERTY_PARAM_VPE_ROTATION,
+				&vpe_rotation, sizeof(vpe_rotation));
+	if (rc) {
+		dprintk(VIDC_ERR, "Set rotation/flip failed\n");
+		return rc;
+	}
+
+	/* flip the output resolution if required */
+	if (vpe_rotation.rotation == HFI_ROTATE_90 ||
+		vpe_rotation.rotation == HFI_ROTATE_270) {
+		frame_sz.buffer_type = HFI_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.height[CAPTURE_PORT];
+		frame_sz.height = inst->prop.width[CAPTURE_PORT];
+		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
+			frame_sz.width, frame_sz.height);
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HFI_PROPERTY_PARAM_FRAME_SIZE,
+			&frame_sz, sizeof(frame_sz));
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set framesize\n");
+			return rc;
+		}
+	}
+	return rc;
+}
+
 int msm_venc_set_video_csc(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -3837,6 +3902,10 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_buffer_counts(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_rotation(inst);
+	if (rc)
+		goto exit;
+
 exit:
 	if (rc)
 		dprintk(VIDC_ERR, "%s: failed with %d\n", __func__, rc);
