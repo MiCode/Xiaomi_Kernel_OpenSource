@@ -268,45 +268,6 @@ struct tpdm_drvdata {
 
 static void tpdm_init_default_data(struct tpdm_drvdata *drvdata);
 
-static void tpdm_setup_disable(struct tpdm_drvdata *drvdata)
-{
-	int i;
-
-	for (i = 0; i < drvdata->nr_tclk; i++)
-		clk_disable_unprepare(drvdata->tclk[i]);
-	for (i = 0; i < drvdata->nr_treg; i++)
-		regulator_disable(drvdata->treg[i]);
-}
-
-int tpdm_setup_enable(struct tpdm_drvdata *drvdata)
-{
-	int ret;
-	int i, j;
-
-	for (i = 0; i < drvdata->nr_treg; i++) {
-		ret = regulator_enable(drvdata->treg[i]);
-		if (ret)
-			goto err_regs;
-	}
-
-	for (j = 0; j < drvdata->nr_tclk; j++) {
-		ret = clk_prepare_enable(drvdata->tclk[j]);
-		if (ret)
-			goto err_clks;
-	}
-
-	return 0;
-
-err_clks:
-	for (j--; j >= 0; j--)
-		clk_disable_unprepare(drvdata->tclk[j]);
-err_regs:
-	for (i--; i >= 0; i--)
-		regulator_disable(drvdata->treg[i]);
-
-	return ret;
-}
-
 static void __tpdm_enable_gpr(struct tpdm_drvdata *drvdata)
 {
 	int i;
@@ -706,12 +667,6 @@ static int tpdm_enable(struct coresight_device *csdev,
 		return ret;
 	}
 
-	ret = tpdm_setup_enable(drvdata);
-	if (ret) {
-		dev_err(drvdata->dev, "TPDM setup failed. Skipping enable\n");
-		return ret;
-	}
-
 	mutex_lock(&drvdata->lock);
 	__tpdm_enable(drvdata);
 	drvdata->enable = true;
@@ -794,8 +749,6 @@ static void tpdm_disable(struct coresight_device *csdev,
 	__tpdm_disable(drvdata);
 	drvdata->enable = false;
 	mutex_unlock(&drvdata->lock);
-
-	tpdm_setup_disable(drvdata);
 
 	dev_info(drvdata->dev, "TPDM tracing disabled\n");
 }
@@ -1024,14 +977,14 @@ static ssize_t bc_capture_mode_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1049,12 +1002,12 @@ static ssize_t bc_capture_mode_store(struct device *dev,
 		drvdata->bc->capture_mode = TPDM_MODE_APB;
 	} else {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EINVAL;
 	}
 
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_capture_mode);
@@ -1121,14 +1074,14 @@ static ssize_t bc_reset_counters_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1141,7 +1094,7 @@ static ssize_t bc_reset_counters_store(struct device *dev,
 	}
 
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_WO(bc_reset_counters);
@@ -1482,14 +1435,14 @@ static ssize_t bc_ovsr_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1497,7 +1450,7 @@ static ssize_t bc_ovsr_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_BC_OVSR);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -1515,14 +1468,14 @@ static ssize_t bc_ovsr_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1532,7 +1485,7 @@ static ssize_t bc_ovsr_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_ovsr);
@@ -1548,14 +1501,14 @@ static ssize_t bc_counter_sel_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1563,7 +1516,7 @@ static ssize_t bc_counter_sel_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_BC_SELR);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -1581,14 +1534,14 @@ static ssize_t bc_counter_sel_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable || val >= drvdata->bc_counters_avail) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1596,7 +1549,7 @@ static ssize_t bc_counter_sel_store(struct device *dev,
 	tpdm_writel(drvdata, val, TPDM_BC_SELR);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_counter_sel);
@@ -1612,14 +1565,14 @@ static ssize_t bc_count_val_lo_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1627,7 +1580,7 @@ static ssize_t bc_count_val_lo_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_BC_CNTR_LO);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -1645,14 +1598,14 @@ static ssize_t bc_count_val_lo_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1663,7 +1616,7 @@ static ssize_t bc_count_val_lo_store(struct device *dev,
 		/* Check if selected counter is disabled */
 		if (BVAL(tpdm_readl(drvdata, TPDM_BC_CNTENSET), select)) {
 			mutex_unlock(&drvdata->lock);
-			tpdm_setup_disable(drvdata);
+			coresight_disable_reg_clk(drvdata->csdev);
 			return -EPERM;
 		}
 
@@ -1671,7 +1624,7 @@ static ssize_t bc_count_val_lo_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_count_val_lo);
@@ -1687,14 +1640,14 @@ static ssize_t bc_count_val_hi_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1702,7 +1655,7 @@ static ssize_t bc_count_val_hi_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_BC_CNTR_HI);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -1720,14 +1673,14 @@ static ssize_t bc_count_val_hi_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1738,7 +1691,7 @@ static ssize_t bc_count_val_hi_store(struct device *dev,
 		/* Check if selected counter is disabled */
 		if (BVAL(tpdm_readl(drvdata, TPDM_BC_CNTENSET), select)) {
 			mutex_unlock(&drvdata->lock);
-			tpdm_setup_disable(drvdata);
+			coresight_disable_reg_clk(drvdata->csdev);
 			return -EPERM;
 		}
 
@@ -1746,7 +1699,7 @@ static ssize_t bc_count_val_hi_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_count_val_hi);
@@ -1763,14 +1716,14 @@ static ssize_t bc_shadow_val_lo_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1782,7 +1735,7 @@ static ssize_t bc_shadow_val_lo_show(struct device *dev,
 	}
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RO(bc_shadow_val_lo);
@@ -1799,14 +1752,14 @@ static ssize_t bc_shadow_val_hi_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1817,7 +1770,7 @@ static ssize_t bc_shadow_val_hi_show(struct device *dev,
 				  tpdm_readl(drvdata, TPDM_BC_SHADOW_HI(i)));
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RO(bc_shadow_val_hi);
@@ -1833,14 +1786,14 @@ static ssize_t bc_sw_inc_show(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1848,7 +1801,7 @@ static ssize_t bc_sw_inc_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_BC_SWINC);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -1866,14 +1819,14 @@ static ssize_t bc_sw_inc_store(struct device *dev,
 	if (!test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1883,7 +1836,7 @@ static ssize_t bc_sw_inc_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(bc_sw_inc);
@@ -1969,14 +1922,14 @@ static ssize_t tc_capture_mode_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -1994,11 +1947,11 @@ static ssize_t tc_capture_mode_store(struct device *dev,
 		drvdata->tc->capture_mode = TPDM_MODE_APB;
 	} else {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EINVAL;
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_capture_mode);
@@ -2033,14 +1986,14 @@ static ssize_t tc_retrieval_mode_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2050,11 +2003,11 @@ static ssize_t tc_retrieval_mode_store(struct device *dev,
 		drvdata->tc->retrieval_mode = TPDM_MODE_APB;
 	} else {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EINVAL;
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_retrieval_mode);
@@ -2073,14 +2026,14 @@ static ssize_t tc_reset_counters_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2092,7 +2045,7 @@ static ssize_t tc_reset_counters_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_WO(tc_reset_counters);
@@ -2412,14 +2365,14 @@ static ssize_t tc_ovsr_gp_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2427,7 +2380,7 @@ static ssize_t tc_ovsr_gp_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_OVSR_GP);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2445,14 +2398,14 @@ static ssize_t tc_ovsr_gp_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2462,7 +2415,7 @@ static ssize_t tc_ovsr_gp_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_ovsr_gp);
@@ -2478,14 +2431,14 @@ static ssize_t tc_ovsr_impl_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2493,7 +2446,7 @@ static ssize_t tc_ovsr_impl_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_OVSR_IMPL);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2511,14 +2464,14 @@ static ssize_t tc_ovsr_impl_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2528,7 +2481,7 @@ static ssize_t tc_ovsr_impl_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_ovsr_impl);
@@ -2544,14 +2497,14 @@ static ssize_t tc_counter_sel_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2559,7 +2512,7 @@ static ssize_t tc_counter_sel_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_SELR);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2577,14 +2530,14 @@ static ssize_t tc_counter_sel_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2592,7 +2545,7 @@ static ssize_t tc_counter_sel_store(struct device *dev,
 	tpdm_writel(drvdata, val, TPDM_TC_SELR);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_counter_sel);
@@ -2608,14 +2561,14 @@ static ssize_t tc_count_val_lo_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2623,7 +2576,7 @@ static ssize_t tc_count_val_lo_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_CNTR_LO);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2641,14 +2594,14 @@ static ssize_t tc_count_val_lo_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2660,7 +2613,7 @@ static ssize_t tc_count_val_lo_store(struct device *dev,
 		/* Check if selected counter is disabled */
 		if (BVAL(tpdm_readl(drvdata, TPDM_TC_CNTENSET), select)) {
 			mutex_unlock(&drvdata->lock);
-			tpdm_setup_disable(drvdata);
+			coresight_disable_reg_clk(drvdata->csdev);
 			return -EPERM;
 		}
 
@@ -2668,7 +2621,7 @@ static ssize_t tc_count_val_lo_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_count_val_lo);
@@ -2684,14 +2637,14 @@ static ssize_t tc_count_val_hi_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2699,7 +2652,7 @@ static ssize_t tc_count_val_hi_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_CNTR_HI);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2717,14 +2670,14 @@ static ssize_t tc_count_val_hi_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2736,7 +2689,7 @@ static ssize_t tc_count_val_hi_store(struct device *dev,
 		/* Check if selected counter is disabled */
 		if (BVAL(tpdm_readl(drvdata, TPDM_TC_CNTENSET), select)) {
 			mutex_unlock(&drvdata->lock);
-			tpdm_setup_disable(drvdata);
+			coresight_disable_reg_clk(drvdata->csdev);
 			return -EPERM;
 		}
 
@@ -2744,7 +2697,7 @@ static ssize_t tc_count_val_hi_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_count_val_hi);
@@ -2761,14 +2714,14 @@ static ssize_t tc_shadow_val_lo_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2780,7 +2733,7 @@ static ssize_t tc_shadow_val_lo_show(struct device *dev,
 	}
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RO(tc_shadow_val_lo);
@@ -2797,14 +2750,14 @@ static ssize_t tc_shadow_val_hi_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2816,7 +2769,7 @@ static ssize_t tc_shadow_val_hi_show(struct device *dev,
 	}
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RO(tc_shadow_val_hi);
@@ -2832,14 +2785,14 @@ static ssize_t tc_sw_inc_show(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2847,7 +2800,7 @@ static ssize_t tc_sw_inc_show(struct device *dev,
 	val = tpdm_readl(drvdata, TPDM_TC_SWINC);
 	TPDM_LOCK(drvdata);
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
 }
 
@@ -2865,14 +2818,14 @@ static ssize_t tc_sw_inc_store(struct device *dev,
 	if (!test_bit(TPDM_DS_TC, drvdata->enable_ds))
 		return -EPERM;
 
-	ret = tpdm_setup_enable(drvdata);
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->lock);
 	if (!drvdata->enable) {
 		mutex_unlock(&drvdata->lock);
-		tpdm_setup_disable(drvdata);
+		coresight_disable_reg_clk(drvdata->csdev);
 		return -EPERM;
 	}
 
@@ -2882,7 +2835,7 @@ static ssize_t tc_sw_inc_store(struct device *dev,
 		TPDM_LOCK(drvdata);
 	}
 	mutex_unlock(&drvdata->lock);
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 	return size;
 }
 static DEVICE_ATTR_RW(tc_sw_inc);
@@ -4392,7 +4345,20 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 		return -EINVAL;
 	}
 
-	ret = tpdm_setup_enable(drvdata);
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
+	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
+	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
+	desc->ops = &tpdm_cs_ops;
+	desc->pdata = adev->dev.platform_data;
+	desc->dev = &adev->dev;
+	desc->groups = tpdm_attr_grps;
+	drvdata->csdev = coresight_register(desc);
+	if (IS_ERR(drvdata->csdev))
+		return PTR_ERR(drvdata->csdev);
+
+	ret = coresight_enable_reg_clk(drvdata->csdev);
 	if (ret)
 		return ret;
 
@@ -4411,8 +4377,10 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	ret = tpdm_datasets_alloc(drvdata);
-	if (ret)
+	if (ret) {
+		coresight_unregister(drvdata->csdev);
 		return ret;
+	}
 
 	tpdm_init_default_data(drvdata);
 
@@ -4423,22 +4391,9 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->bc_counters_avail = BMVAL(devid, 6, 10) + 1;
 	drvdata->tc_counters_avail = BMVAL(devid, 4, 5) + 1;
 
-	tpdm_setup_disable(drvdata);
+	coresight_disable_reg_clk(drvdata->csdev);
 
 	drvdata->traceid = traceid++;
-
-	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
-	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
-	desc->ops = &tpdm_cs_ops;
-	desc->pdata = adev->dev.platform_data;
-	desc->dev = &adev->dev;
-	desc->groups = tpdm_attr_grps;
-	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev))
-		return PTR_ERR(drvdata->csdev);
 
 	dev_dbg(drvdata->dev, "TPDM initialized\n");
 
