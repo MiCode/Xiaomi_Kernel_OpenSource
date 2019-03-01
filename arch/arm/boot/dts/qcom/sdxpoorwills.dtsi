@@ -25,7 +25,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
 	compatible = "qcom,sdxpoorwills";
-	qcom,msm-id = <334 0x0>, <335 0x0>;
+	qcom,msm-id = <334 0x0>, <335 0x0>, <408 0x0>;
 	interrupt-parent = <&pdc>;
 
 	reserved-memory {
