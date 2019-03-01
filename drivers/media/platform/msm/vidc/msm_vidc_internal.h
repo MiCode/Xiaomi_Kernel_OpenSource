@@ -187,6 +187,7 @@ struct msm_vidc_buf_data {
 	u32 index;
 	u32 mark_data;
 	u32 mark_target;
+	u32 filled_length;
 };
 
 struct msm_vidc_common_data {
