@@ -57,10 +57,11 @@ static struct cam_vfe_camif_ver3_pp_clc_reg vfe480_camif_reg = {
 
 static struct cam_vfe_camif_ver3_reg_data vfe_480_camif_reg_data = {
 	.pp_extern_reg_update_shift      = 4,
-	.lcr_extern_reg_update_shift     = 16,
 	.dual_pd_extern_reg_update_shift = 17,
 	.extern_reg_update_mask          = 1,
 	.dual_ife_pix_en_shift           = 3,
+	.operating_mode_shift            = 11,
+	.input_mux_sel_shift             = 5,
 	.pixel_pattern_shift             = 24,
 	.pixel_pattern_mask              = 0x7,
 	.dsp_mode_shift                  = 24,
@@ -198,6 +199,7 @@ static struct cam_vfe_camif_lite_ver3_reg vfe480_camif_lcr = {
 	.lite_debug_0               = 0xA1F4,
 	.lite_test_bus_ctrl         = 0xA1F8,
 	.camif_lite_spare           = 0xA1FC,
+	.reg_update_cmd             = 0x0034,
 };
 
 static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_lcr_reg_data = {
@@ -223,10 +225,13 @@ static struct cam_vfe_camif_lite_ver3_reg vfe480_camif_pd = {
 	.lite_debug_0               = 0xA5F4,
 	.lite_test_bus_ctrl         = 0xA5F8,
 	.camif_lite_spare           = 0xA5FC,
+	.reg_update_cmd             = 0x0034,
 };
 
 static struct cam_vfe_camif_lite_ver3_reg_data vfe480_camif_pd_reg_data = {
 	.extern_reg_update_shift    = 17,
+	.operating_mode_shift       = 13,
+	.input_mux_sel_shift        = 31,
 	.reg_update_cmd_data        = 0x20,
 	.epoch_line_cfg             = 0x00140014,
 	.sof_irq_mask               = 0x10000,

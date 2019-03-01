@@ -129,10 +129,12 @@ static int cam_vfe_camif_lite_resource_start(
 	val = cam_io_r_mb(rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
 
-	if (camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB &&
-		camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_LCR &&
+	if (camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_LCR &&
 		rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
 		val |= (1 << rsrc_data->reg_data->extern_reg_update_shift);
+
+	if (camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)
+		val |= (1 << rsrc_data->reg_data->operating_mode_shift);
 
 	cam_io_w_mb(val, rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);

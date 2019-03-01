@@ -27,6 +27,8 @@ struct cam_vfe_camif_lite_ver3_reg {
 
 struct cam_vfe_camif_lite_ver3_reg_data {
 	uint32_t     extern_reg_update_shift;
+	uint32_t     operating_mode_shift;
+	uint32_t     input_mux_sel_shift;
 	uint32_t     reg_update_cmd_data;
 	uint32_t     epoch_line_cfg;
 	uint32_t     sof_irq_mask;
