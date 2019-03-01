@@ -2699,6 +2699,27 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+
+	case KGSL_PROP_GAMING_BIN:
+	{
+		unsigned int gaming_bin;
+
+		if (sizebytes != sizeof(unsigned int)) {
+			status = -EINVAL;
+			break;
+		}
+
+		gaming_bin = adreno_dev->gaming_bin ? 1 : 0;
+
+		if (copy_to_user(value, &gaming_bin,
+					sizeof(unsigned int))) {
+			status = -EFAULT;
+			break;
+		}
+		status = 0;
+	}
+	break;
+
 	default:
 		status = -EINVAL;
 	}
