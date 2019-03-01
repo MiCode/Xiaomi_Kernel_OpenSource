@@ -26,6 +26,7 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_LINKDOWN = 0x1,
 	MSM_PCIE_EVENT_LINKUP = 0x2,
 	MSM_PCIE_EVENT_WAKEUP = 0x4,
+	MSM_PCIE_EVENT_L1SS_TIMEOUT = BIT(3),
 };
 
 enum msm_pcie_trigger {
@@ -75,6 +76,24 @@ static inline int msm_msi_init(struct device *dev)
  */
 int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 				u16 target_link_width);
+
+/**
+ * msm_pcie_l1ss_timeout_disable - disable L1ss timeout feature
+ * @pci_dev:	client's pci device structure
+ *
+ * This function gives PCIe clients the control to disable L1ss timeout
+ * feature.
+ */
+void msm_pcie_l1ss_timeout_disable(struct pci_dev *pci_dev);
+
+/**
+ * msm_pcie_l1ss_timeout_enable - enable L1ss timeout feature
+ * @pci_dev:	client's pci device structure
+ *
+ * This function gives PCIe clients the control to enable L1ss timeout
+ * feature.
+ */
+void msm_pcie_l1ss_timeout_enable(struct pci_dev *pci_dev);
 
 /**
  * msm_pcie_pm_control - control the power state of a PCIe link.
@@ -176,6 +195,16 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 #else /* !CONFIG_PCI_MSM */
 static inline int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr,
 			void *user, void *data, u32 options)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_l1ss_timeout_disable(struct pci_dev *pci_dev)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_l1ss_timeout_enable(struct pci_dev *pci_dev)
 {
 	return -ENODEV;
 }
