@@ -153,7 +153,7 @@
 			/* &pcie0_perst_default>; */
 			/*&pcie0_wake_default>;*/
 
-		perst-gpio = <&tlmm 35 0>;
+		/*perst-gpio = <&tlmm 35 0>;*/
 		/*wake-gpio = <&tlmm 37 0>;*/
 
 		gdsc-vdd-supply = <&pcie_0_gdsc>;

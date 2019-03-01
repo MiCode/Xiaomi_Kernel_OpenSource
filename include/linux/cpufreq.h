@@ -120,7 +120,7 @@ struct cpufreq_policy {
 	 */
 	bool			fast_switch_possible;
 	bool			fast_switch_enabled;
-	bool			force_gov_sync;
+
 	/*
 	 * Preferred average time interval between consecutive invocations of
 	 * the driver to set the frequency for this policy.  To be set by the

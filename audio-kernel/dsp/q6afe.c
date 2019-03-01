@@ -30,9 +30,6 @@
 #include <ipc/apr_tal.h>
 #include "adsp_err.h"
 #include "q6afecal-hwdep.h"
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-#include "../asoc/codecs/tfa98xx/inc/tfa_platform_interface_definition.h"
-#endif
 
 #ifdef CONFIG_MSM_CSPL
 #include <dsp/msm-cirrus-playback.h>
@@ -151,12 +148,9 @@ struct afe_ctl {
 	u32 island_mode[AFE_MAX_PORTS];
 	struct vad_config vad_cfg[AFE_MAX_PORTS];
 	struct work_struct afe_dc_work;
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-	struct rtac_cal_block_data tfa_cal;
-	atomic_t tfa_state;
-#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
 	struct notifier_block event_notifier;
 };
+
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
 static unsigned long afe_configured_cmd;
@@ -521,24 +515,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			if (rtac_make_afe_callback(data->payload,
 						   data->payload_size))
 				return 0;
-
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-			if (atomic_read(&this_afe.tfa_state) == 1 &&
-				data->payload_size == sizeof(uint32_t)) {
-
-				atomic_set(&this_afe.status, payload[0]);
-				if (payload[0])
-					atomic_set(&this_afe.state, -1);
-				else
-					atomic_set(&this_afe.state, 0);
-
-				atomic_set(&this_afe.tfa_state, 0);
-				wake_up(&this_afe.wait[data->token]);
-
-				return 0;
-			}
-#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
-
 			if (sp_make_afe_callback(data->opcode, data->payload,
 						 data->payload_size))
 				return -EINVAL;
@@ -1596,15 +1572,6 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 	case AFE_PARAM_ID_SP_V2_EX_VI_FTM_CFG:
 		param_info.module_id = AFE_MODULE_SPEAKER_PROTECTION_V2_EX_VI;
 		break;
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-	case AFE_PARAM_ID_TFADSP_RX_CFG:
-	case AFE_PARAM_ID_TFADSP_RX_SET_BYPASS:
-		param_info.module_id = AFE_MODULE_ID_TFADSP_RX;
-		break;
-	case AFE_PARAM_ID_TFADSP_TX_SET_ENABLE:
-		param_info.module_id = AFE_MODULE_ID_TFADSP_TX;
-		break;
-#endif	/*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
 	default:
 		pr_err("%s: default case 0x%x\n", __func__, param_id);
 		goto fail_cmd;
@@ -8285,211 +8252,6 @@ static void afe_release_uevent_data(struct kobject *kobj)
 	kfree(data);
 }
 
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-
-int send_tfa_cal_apr(void *buf, int cmd_size, bool bRead)
-{
-	int32_t result, port_id = AFE_PORT_ID_TFADSP_RX;
-	uint32_t port_index = 0, payload_size = 0;
-	size_t len;
-	struct rtac_cal_block_data *tfa_cal = &(this_afe.tfa_cal);
-	struct mem_mapping_hdr mem_hdr;
-	struct param_hdr_v3  param_hdr;
-
-	pr_debug("%s\n", __func__);
-
-	memset(&mem_hdr, 0x00, sizeof(mem_hdr));
-	memset(&param_hdr, 0x00, sizeof(param_hdr));
-
-	if (0 == tfa_cal->map_data.dma_buf ) {
-		/*Minimal chunk size is 4K*/
-		tfa_cal->map_data.map_size = SZ_4K;
-		result = msm_audio_ion_alloc(&(tfa_cal->map_data.dma_buf),
-								tfa_cal->map_data.map_size,
-								&(tfa_cal->cal_data.paddr),
-								&len,
-								&(tfa_cal->cal_data.kvaddr));
-		if (result < 0) {
-			pr_err("%s: allocate buffer failed! ret = %d\n",
-				__func__, result);
-			goto err;
-		}
-		pr_debug("%s: paddr 0x%pK, kvaddr 0x%pK, map_size 0x%x\n",
-				__func__,
-				&tfa_cal->cal_data.paddr,
-				tfa_cal->cal_data.kvaddr,
-				tfa_cal->map_data.map_size);
-	}
-
-	if (0 == tfa_cal->map_data.map_handle ) {
-		result = afe_map_rtac_block(tfa_cal);
-		if (result < 0) {
-			pr_err("%s: map buffer failed! ret = %d\n",
-				__func__, result);
-			goto err;
-		}
-	}
-
-	port_index = q6audio_get_port_index(port_id);
-	if (port_index >= AFE_MAX_PORTS) {
-		pr_err("%s: Invalid AFE port = 0x%x\n", __func__, port_id);
-		goto err;
-	}
-
-	if (cmd_size > (SZ_4K - sizeof(struct param_hdr_v3))) {
-		pr_err("%s: Invalid payload size = %d\n", __func__, cmd_size);
-		result = -EINVAL;
-		goto err;
-	}
-
-	/* Pack message header with data */
-	param_hdr.module_id = AFE_MODULE_ID_TFADSP_RX;
-	param_hdr.instance_id = INSTANCE_ID_0;
-	param_hdr.param_size = cmd_size;
-
-	if (!bRead) {
-		param_hdr.param_id = AFE_PARAM_ID_TFADSP_RX_CFG;
-
-		q6common_pack_pp_params(tfa_cal->cal_data.kvaddr,
-							&param_hdr,
-							buf,
-							&payload_size);
-		tfa_cal->cal_data.size = payload_size;
-	}
-	else {
-		param_hdr.param_id = AFE_PARAM_ID_TFADSP_RX_GET_RESULT;
-		tfa_cal->cal_data.size = cmd_size + sizeof(struct param_hdr_v3) ;
-	}
-
-	/*Send/Get package to/from ADSP*/
-	mem_hdr.data_payload_addr_lsw =
-		lower_32_bits(tfa_cal->cal_data.paddr);
-	mem_hdr.data_payload_addr_msw =
-		msm_audio_populate_upper_32_bits(tfa_cal->cal_data.paddr);
-	mem_hdr.mem_map_handle =
-		tfa_cal->map_data.map_handle;
-
-	pr_debug("%s: Sending tfa_cal port = 0x%x, cal size = %zd, cal addr = 0x%pK\n",
-		__func__, port_id, tfa_cal->cal_data.size, &tfa_cal->cal_data.paddr);
-
-	result = afe_q6_interface_prepare();
-	if (result != 0) {
-		pr_err("%s: Q6 interface prepare failed %d\n", __func__, result);
-		goto err;
-	}
-
-	if (!bRead) {
-		if (q6common_is_instance_id_supported())
-			result = q6afe_set_params_v3(port_id, port_index, &mem_hdr, NULL, payload_size);
-		else
-			result = q6afe_set_params_v2(port_id, port_index, &mem_hdr, NULL, payload_size);
-	} else {
-		int8_t *resp = (int8_t *)tfa_cal->cal_data.kvaddr;
-
-		atomic_set(&this_afe.tfa_state, 1);
-		if (q6common_is_instance_id_supported()){
-			result = q6afe_get_params_v3(port_id, port_index, &mem_hdr, &param_hdr);
-			resp += sizeof(struct param_hdr_v3);
-		}
-		else {
-			result = q6afe_get_params_v2(port_id, port_index, &mem_hdr, &param_hdr);
-			resp += sizeof(struct param_hdr_v1);
-		}
-
-		if (result) {
-			pr_err("%s: get response from port 0x%x failed %d\n", __func__, port_id, result);
-			goto err;
-		}
-		else {
-			/*Copy response data to command buffer*/
-			memcpy(buf,  resp,  cmd_size);
-		}
-	}
-
-err:
-	return result;
-}
-EXPORT_SYMBOL(send_tfa_cal_apr);
-
-void send_tfa_cal_unmap_memory(void)
-{
-	int result = 0;
-
-	if (this_afe.tfa_cal.map_data.map_handle) {
-		result = afe_unmap_rtac_block(&this_afe.tfa_cal.map_data.map_handle);
-
-		/*Force to remap after unmap failed*/
-		if (result)
-			this_afe.tfa_cal.map_data.map_handle = 0;
-	}
-}
-EXPORT_SYMBOL(send_tfa_cal_unmap_memory);
-
-int send_tfa_cal_in_band(void *buf, int cmd_size)
-{
-	union afe_spkr_prot_config afe_spk_config;
-	int32_t port_id = AFE_PORT_ID_TFADSP_RX;
-
-	if (cmd_size > sizeof(afe_spk_config))
-		return -EINVAL;
-
-	memcpy(&afe_spk_config, buf, cmd_size);
-
-	if (afe_spk_prot_prepare(port_id, 0,
-			AFE_PARAM_ID_TFADSP_RX_CFG,
-			&afe_spk_config)) {
-			pr_err("%s: AFE_PARAM_ID_TFADSP_RX_CFG failed\n",
-				   __func__);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(send_tfa_cal_in_band);
-
-int send_tfa_cal_set_bypass(void *buf, int cmd_size)
-{
-	union afe_spkr_prot_config afe_spk_config;
-	int32_t port_id = AFE_PORT_ID_TFADSP_RX;
-
-	if (cmd_size > sizeof(afe_spk_config))
-		return -EINVAL;
-
-	memcpy(&afe_spk_config, buf, cmd_size);
-
-	if (afe_spk_prot_prepare(port_id, 0,
-			AFE_PARAM_ID_TFADSP_RX_SET_BYPASS,
-			&afe_spk_config)) {
-		pr_err("%s: AFE_PARAM_ID_TFADSP_RX_SET_BYPASS failed\n",
-				   __func__);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(send_tfa_cal_set_bypass);
-
-int send_tfa_cal_set_tx_enable(void *buf, int cmd_size)
-{
-	union afe_spkr_prot_config afe_spk_config;
-	int32_t port_id = AFE_PORT_ID_TFADSP_TX;
-
-	if (cmd_size > sizeof(afe_spk_config))
-		return -EINVAL;
-
-	memcpy(&afe_spk_config, buf, cmd_size);
-
-	if (afe_spk_prot_prepare(port_id, 0,
-			AFE_PARAM_ID_TFADSP_TX_SET_ENABLE,
-			&afe_spk_config)) {
-		pr_err("%s: AFE_PARAM_ID_TFADSP_TX_SET_ENABLE failed\n",
-				   __func__);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(send_tfa_cal_set_tx_enable);
-
-#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
-
 int __init afe_init(void)
 {
 	int i = 0, ret;
@@ -8546,10 +8308,6 @@ int __init afe_init(void)
 
 void afe_exit(void)
 {
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-	afe_unmap_rtac_block(&this_afe.tfa_cal.map_data.map_handle);
-#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
-
 	if (this_afe.apr) {
 		apr_reset(this_afe.apr);
 		atomic_set(&this_afe.state, 0);

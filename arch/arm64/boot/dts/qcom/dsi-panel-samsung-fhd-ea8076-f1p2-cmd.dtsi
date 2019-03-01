@@ -59,7 +59,7 @@
 		qcom,mdss-dsi-panel-blackness-level = <3230>;
 
 		qcom,dispparam-enabled;
-		qcom,mdss-panel-on-dimming-delay = <120>;
+		qcom,mdss-panel-on-dimming-delay = <200>;
 
 		qcom,disp-doze-backlight-threshold = <8>;
 
@@ -243,7 +243,12 @@
 					39 01 00 00 00 00 03 F0 A5 A5
 					];
 				qcom,mdss-dsi-dispparam-crc-off-command-state = "dsi_lp_mode";
-
+				qcom,mdss-dsi-dispparam-elvss-dimming-off-command = [
+					39 00 00 00 00 00 03 F0 5A 5A
+					39 00 00 00 00 00 02 B0 07
+					39 00 00 00 00 00 02 B7 91
+					39 01 00 00 01 00 03 F0 A5 A5];
+				qcom,mdss-dsi-dispparam-elvss-dimming-off-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 			};
 		};

@@ -34,6 +34,7 @@
 #include <soc/qcom/watchdog.h>
 #include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/debug.h>
 #include <linux/cpumask.h>
 #include <uapi/linux/sched/types.h>
 
@@ -137,6 +138,21 @@ module_param(WDT_HZ, long, 0000);
 static int ipi_en = IPI_CORES_IN_LPM;
 module_param(ipi_en, int, 0444);
 
+#ifdef CONFIG_FIRE_WATCHDOG
+static int wdog_fire;
+static int wdog_fire_set(const char *val, const struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int, &wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, const struct kernel_param *kp)
+{
+	local_irq_disable();
+	while (1)
+		;
+
+	return 0;
+}
+#endif
+
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
 	static char alive_mask_buf[MASK_SIZE];
@@ -206,6 +222,10 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+#ifdef CONFIG_DUMP_ALL_STACKS
+	printk(KERN_INFO "D Status stack trace dump:\n");
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -535,10 +555,13 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(wdog_dd->last_pet, 1000000000);
 	dev_info(wdog_dd->dev, "Watchdog last pet at %lu.%06lu\n",
 			(unsigned long) wdog_dd->last_pet, nanosec_rem / 1000);
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();
 	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
+
 	return IRQ_HANDLED;
 }
 

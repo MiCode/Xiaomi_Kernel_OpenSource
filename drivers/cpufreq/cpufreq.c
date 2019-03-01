@@ -1120,7 +1120,6 @@ static struct cpufreq_policy *cpufreq_policy_alloc(unsigned int cpu)
 	init_completion(&policy->kobj_unregister);
 	INIT_WORK(&policy->update, handle_update);
 
-	policy->force_gov_sync = false;
 	policy->cpu = cpu;
 	return policy;
 

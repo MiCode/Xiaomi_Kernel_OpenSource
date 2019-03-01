@@ -20,6 +20,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/syscalls.h>
 #include "fg-core.h"
 #include "fg-reg.h"
 #include "fg-alg.h"
@@ -235,6 +236,7 @@ struct fg_gen4_chip {
 	struct votable		*parallel_current_en_votable;
 	struct votable		*mem_attn_irq_en_votable;
 	struct work_struct	esr_calib_work;
+	struct work_struct	vbat_sync_work;
 	struct alarm		esr_fast_cal_timer;
 	struct delayed_work	pl_enable_work;
 	struct delayed_work	pl_current_en_work;
@@ -2576,6 +2578,7 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, vbatt_mv, msoc_raw;
 
+	schedule_work(&chip->vbat_sync_work);
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
 		return IRQ_HANDLED;
@@ -2590,6 +2593,20 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 
 	if (vbatt_mv < chip->dt.cutoff_volt_mv) {
 		if (chip->dt.rapid_soc_dec_en) {
+			/*
+			 * Set vbat_low debounce window to avoid shutdown in low temperature and high
+			 * current scene, we set the counter to maxium 5, if fg_vbatt_low_irq trigger
+			 * exceed 5 times, decrease soc to 0% very rapidly.
+			 */
+			fg->vbat_critical_low_count++;
+			if (fg->vbat_critical_low_count < EMPTY_DEBOUNCE_TIME_COUNT_MAX
+					&& vbatt_mv > VBAT_CRITICAL_LOW_THR) {
+				pr_info("fg->vbat_critical_low_count:%d\n",
+						fg->vbat_critical_low_count);
+				if (batt_psy_initialized(fg))
+					power_supply_changed(fg->batt_psy);
+				return IRQ_HANDLED;
+			}
 			/*
 			 * Set this flag so that slope limiter coefficient
 			 * cannot be configured during rapid SOC decrease.
@@ -3108,6 +3125,12 @@ static void pl_enable_work(struct work_struct *work)
 	if (chip->cp_disable_votable)
 		vote(chip->cp_disable_votable, ESR_FCC_VOTER, false, 0);
 	vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
+}
+
+static void vbat_sync_work(struct work_struct *work)
+{
+	pr_err("sys_sync:vbat_sync_work\n");
+	sys_sync();
 }
 
 static void status_change_work(struct work_struct *work)
@@ -4834,6 +4857,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	fg->batt_id_ohms = -EINVAL;
 	chip->ki_coeff_full_soc[0] = -EINVAL;
 	chip->ki_coeff_full_soc[1] = -EINVAL;
+	fg->vbat_critical_low_count = 0;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");
@@ -4848,6 +4872,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	init_completion(&chip->mem_attn);
 	INIT_WORK(&fg->status_change_work, status_change_work);
 	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
+	INIT_WORK(&chip->vbat_sync_work, vbat_sync_work);
 	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
 	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
 	INIT_DELAYED_WORK(&fg->soc_work, soc_work_fn);

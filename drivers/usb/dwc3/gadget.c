@@ -364,8 +364,6 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param)
 	return ret;
 }
 
-static int __dwc3_gadget_wakeup(struct dwc3 *dwc);
-
 /**
  * dwc3_send_gadget_ep_cmd - issue an endpoint command
  * @dep: the endpoint to which the command is going to be issued
@@ -401,20 +399,6 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 			susphy = true;
 			reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
 			dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
-		}
-	}
-
-	if (DWC3_DEPCMD_CMD(cmd) == DWC3_DEPCMD_STARTTRANSFER) {
-		int		needs_wakeup;
-
-		needs_wakeup = (dwc->link_state == DWC3_LINK_STATE_U1 ||
-				dwc->link_state == DWC3_LINK_STATE_U2 ||
-				dwc->link_state == DWC3_LINK_STATE_U3);
-
-		if (unlikely(needs_wakeup)) {
-			ret = __dwc3_gadget_wakeup(dwc);
-			dev_WARN_ONCE(dwc->dev, ret, "wakeup failed --> %d\n",
-					ret);
 		}
 	}
 
@@ -1375,6 +1359,11 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 	int				ret;
 	u32				cmd;
 
+	if (dep->flags & DWC3_EP_END_TRANSFER_PENDING) {
+		dbg_event(dep->number, "ENDXFER Pending", dep->flags);
+		return -EBUSY;
+	}
+
 	starting = !(dep->flags & DWC3_EP_BUSY);
 
 	dwc3_prepare_trbs(dep);
@@ -1845,72 +1834,6 @@ static int dwc3_gadget_get_frame(struct usb_gadget *g)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 
 	return __dwc3_gadget_get_frame(dwc);
-}
-
-static int __dwc3_gadget_wakeup(struct dwc3 *dwc)
-{
-	int			retries;
-
-	int			ret;
-	u32			reg;
-
-	u8			link_state;
-	u8			speed;
-
-	/*
-	 * According to the Databook Remote wakeup request should
-	 * be issued only when the device is in early suspend state.
-	 *
-	 * We can check that via USB Link State bits in DSTS register.
-	 */
-	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-
-	speed = reg & DWC3_DSTS_CONNECTSPD;
-	if ((speed == DWC3_DSTS_SUPERSPEED) ||
-	    (speed == DWC3_DSTS_SUPERSPEED_PLUS))
-		return 0;
-
-	link_state = DWC3_DSTS_USBLNKST(reg);
-
-	switch (link_state) {
-	case DWC3_LINK_STATE_RX_DET:	/* in HS, means Early Suspend */
-	case DWC3_LINK_STATE_U3:	/* in HS, means SUSPEND */
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	ret = dwc3_gadget_set_link_state(dwc, DWC3_LINK_STATE_RECOV);
-	if (ret < 0) {
-		dev_err(dwc->dev, "failed to put link in Recovery\n");
-		return ret;
-	}
-
-	/* Recent versions do this automatically */
-	if (dwc->revision < DWC3_REVISION_194A) {
-		/* write zeroes to Link Change Request */
-		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-		reg &= ~DWC3_DCTL_ULSTCHNGREQ_MASK;
-		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
-	}
-
-	/* poll until Link State changes to ON */
-	retries = 20000;
-
-	while (retries--) {
-		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-
-		/* in HS, means ON */
-		if (DWC3_DSTS_USBLNKST(reg) == DWC3_LINK_STATE_U0)
-			break;
-	}
-
-	if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U0) {
-		dev_err(dwc->dev, "failed to send remote wakeup\n");
-		return -EINVAL;
-	}
-
-	return 0;
 }
 
 #define DWC3_PM_RESUME_RETRIES		20    /* Max Number of retries */

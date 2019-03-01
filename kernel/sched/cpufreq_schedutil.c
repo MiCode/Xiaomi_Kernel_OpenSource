@@ -990,14 +990,6 @@ static void sugov_limits(struct cpufreq_policy *policy)
 	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned long flags;
 
-	if (policy->force_gov_sync && policy->fast_switch_enabled) {
-		sg_policy->need_freq_update = true;
-		raw_spin_lock_irqsave(&cpu_rq(policy->cpu)->lock, flags);
-		cpufreq_update_util(cpu_rq(policy->cpu), SCHED_CPUFREQ_WALT);
-		raw_spin_unlock_irqrestore(&cpu_rq(policy->cpu)->lock, flags);
-		return;
-        }
-
 	if (!policy->fast_switch_enabled) {
 		mutex_lock(&sg_policy->work_lock);
 		raw_spin_lock_irqsave(&sg_policy->update_lock, flags);

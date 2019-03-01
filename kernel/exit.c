@@ -69,8 +69,6 @@
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
 
-struct list_head global_debug_info_rwsem;
-
 static void __unhash_process(struct task_struct *p, bool group_dead)
 {
 	nr_threads--;
@@ -770,14 +768,7 @@ static inline void check_stack_usage(void) {}
 void __noreturn do_exit(long code)
 {
 	struct task_struct *tsk = current;
-	struct dbg_rwsem_task *new = NULL;
-	int length;
-	int index;
-	int count = 0;
 	int group_dead;
-
-	if (!global_debug_info_rwsem.next)
-		INIT_LIST_HEAD(&global_debug_info_rwsem);
 
 	profile_task_exit(tsk);
 	kcov_task_exit(tsk);
@@ -938,38 +929,6 @@ void __noreturn do_exit(long code)
 	exit_tasks_rcu_finish();
 
 	lockdep_free_task(tsk);
-
-	if (tsk->fill_count != 0) {
-		new = kzalloc(sizeof(*new), GFP_ATOMIC);
-		if (!new) {
-			trace_printk("Allocation failed for dbg_rwsem_task node task:%p pid:%d comm:%s\n", tsk, tsk->pid, tsk->comm);
-			pr_err("Allocation failed for dbg_rwsem_task node task:%p pid:%d comm:%s\n", tsk, tsk->pid, tsk->comm);
-			goto skip;
-		}
-
-		new->task_pid = tsk->pid;
-
-		memcpy(new->task_comm, tsk->comm, TASK_COMM_LEN);
-		length = sizeof(struct debug_rwsem) * tsk->fill_count;
-		new->dbg_rwsem_dump = kzalloc(length, GFP_ATOMIC);
-		if (!new->dbg_rwsem_dump) {
-			trace_printk("Allocation failed for dbg_rwsem_dump task:%p pid:%d comm:%s\n", tsk, tsk->pid, tsk->comm);
-			pr_err("Allocation failed for dbg_rwsem_dump task:%p pid:%d comm:%s\n", tsk, tsk->pid, tsk->comm);
-			kfree(new);
-			goto skip;
-		}
-
-		for (index=0; index<NUM_DEBUG_ENTRIES; index++) {
-			if (tsk->debug_info_rwsem[index].rwsem != NULL) {
-				new->dbg_rwsem_dump[count] = tsk->debug_info_rwsem[index];
-				count++;
-			}
-		}
-
-		list_add(&new->task_entry, &global_debug_info_rwsem);
-	}
-
-skip:
 	do_task_dead();
 }
 EXPORT_SYMBOL_GPL(do_exit);

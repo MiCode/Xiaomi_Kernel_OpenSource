@@ -98,7 +98,7 @@ int fts_system_reset(void)
 	}
 	for (i = 0; i < RETRY_SYSTEM_RESET && res < 0; i++) {
 		resetErrorList();
-		fts_disableInterrupt();
+		fts_disableInterruptNoSync();
 
 		if (reset_gpio == GPIO_NOT_DEFINED) {
 			res =
@@ -793,7 +793,7 @@ int fts_disableInterruptNoSync(void)
 			disable_irq_count++;
 		}
 
-		spin_unlock(&fts_int);
+		spin_unlock_irq(&fts_int);
 		logError(0, "%s Interrupt No Sync Disabled!\n", tag);
 		return OK;
 	} else {

@@ -59,7 +59,7 @@
 		qcom,mdss-dsi-panel-blackness-level = <3230>;
 
 		qcom,dispparam-enabled;
-		qcom,mdss-panel-on-dimming-delay = <120>;
+		qcom,mdss-panel-on-dimming-delay = <200>;
 
 		qcom,disp-doze-backlight-threshold = <8>;
 

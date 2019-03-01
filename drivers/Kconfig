@@ -221,4 +221,5 @@ source "drivers/esoc/Kconfig"
 
 source "drivers/halls/Kconfig"
 
+source "drivers/trusty/Kconfig"
 endmenu

@@ -373,6 +373,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->qc_class_ab = of_property_read_bool(node,
 				"qcom,distinguish-qc-class-ab");
 
+	chg->support_wireless = of_property_read_bool(node,
+				"qcom,support-wireless");
+
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
@@ -1930,7 +1933,8 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_DC_THERMAL_LEVELS:
-		rc = smblib_set_prop_dc_temp_level(chg, val);
+		if (chg->support_wireless)
+			rc = smblib_set_prop_dc_temp_level(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_set_prop_batt_capacity(chg, val);
@@ -2974,6 +2978,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
 		.handler	= dcin_uv_handler,
+		.wake           = true,
 	},
 	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
@@ -2999,7 +3004,6 @@ static struct smb_irq_info smb5_irqs[] = {
 	[TYPEC_OR_RID_DETECTION_CHANGE_IRQ] = {
 		.name		= "typec-or-rid-detect-change",
 		.handler	= typec_or_rid_detection_change_irq_handler,
-		.wake           = true,
 	},
 	[TYPEC_VPD_DETECT_IRQ] = {
 		.name		= "typec-vpd-detect",

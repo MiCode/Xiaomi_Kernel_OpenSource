@@ -71,6 +71,7 @@ enum print_reason {
 #define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
 #define LPD_VOTER			"LPD_VOTER"
 #define DC_AWAKE_VOTER			"DC_AWAKE_VOTER"
+#define DC_UV_AWAKE_VOTER		"DC_UV_AWAKE_VOTER"
 #define CLASSA_QC_FCC_VOTER		"CLASSA_QC_FCC_VOTER"
 #define QC_A_CP_ICL_MAX_VOTER		"QC_A_CP_ICL_MAX_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
@@ -597,12 +598,14 @@ struct smb_charger {
 	int			power_good_en;
 	int			fake_dc_on;
 	int			fake_dc_flag;
+	int			last_batt_stat;
 	/* charger type recheck */
 	int			recheck_charger;
 	int			precheck_charger_type;
 	/* workarounds */
 	bool			cc_un_compliant_detected;
 	bool			snk_debug_acc_detected;
+	bool			support_wireless;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);

@@ -1,0 +1,68 @@
+#
+# Trusty
+#
+
+menu "Trusty"
+
+config TRUSTY
+	tristate "Trusty"
+	default n
+	help
+	  Trusty is a secure Operating System (OS) that provides a
+	  Trusted Execution Environment (TEE) for Android.
+	  Trusty is compatible with ARM and Intel processors.
+	  Say N if unsure.
+
+config TRUSTY_VIRQ_SIMULATION
+	tristate "Trusty Virq Simulation"
+	default n
+	help
+	  This module adds support for simulations of communications based
+	  on virq with Trusty Services.
+
+	  It'll be called trusty-ipc, trusty-virtio.
+	  Say N if unsure.
+
+config TRUSTY_FIQ
+	tristate
+	depends on TRUSTY
+	default n
+
+config TRUSTY_FIQ_ARM
+	tristate
+	depends on TRUSTY
+	depends on ARM
+	select FIQ_GLUE
+	select TRUSTY_FIQ
+	default n
+
+config TRUSTY_FIQ_ARM64
+	tristate
+	depends on TRUSTY
+	depends on ARM64
+	select FIQ_GLUE
+	select TRUSTY_FIQ
+	default n
+
+config TRUSTY_LOG
+	tristate
+	depends on TRUSTY
+	default y
+
+config TRUSTY_VIRTIO
+	tristate "Trusty virtio support"
+	depends on TRUSTY
+	select VIRTIO
+	default y
+
+config TRUSTY_VIRTIO_IPC
+	tristate "Trusty Virtio IPC driver"
+	depends on TRUSTY_VIRTIO
+	default y
+	help
+	  This module adds support for communications with Trusty Services
+
+	  If you choose to build a module, it'll be called trusty-ipc.
+	  Say N if unsure.
+
+endmenu

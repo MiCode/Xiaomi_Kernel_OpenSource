@@ -1,0 +1,67 @@
+Trusty irq interface
+
+Trusty requires non-secure irqs to be forwarded to the secure OS.
+
+Required properties:
+- compatible: "android,trusty-irq-v1"
+
+Optional properties:
+
+- interrupt-templates: is an optional property that works together
+  with "interrupt-ranges" to specify secure side to kernel IRQs mapping.
+
+  It is a list of entries, each one of which defines a group of interrupts
+  having common properties, and has the following format:
+    < phandle irq_id_pos [templ_data]>
+      phandle - phandle of interrupt controller this template is for
+      irq_id_pos - the position of irq id in interrupt specifier array
+                   for interrupt controller referenced by phandle.
+      templ_data - is an array of u32 values (could be empty) in the same
+                   format as interrupt specifier for interrupt controller
+                   referenced by phandle but with omitted irq id field.
+
+- interrupt-ranges: list of entries that specifies secure side to kernel
+  IRQs mapping.
+
+  Each entry in the "interrupt-ranges" list has the following format:
+    <beg end templ_idx>
+      beg - first entry in this range
+      end - last entry in this range
+      templ_idx  - index of entry in "interrupt-templates" property
+                   that must be used as a template for all interrupts
+                   in this range
+
+Example:
+{
+	gic: interrupt-controller@50041000 {
+		compatible = "arm,gic-400";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		...
+	};
+	...
+	IPI: interrupt-controller {
+		compatible = "android,CustomIPI";
+		#interrupt-cells = <1>;
+		interrupt-controller;
+	};
+	...
+	trusty {
+		compatible = "android,trusty-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		irq {
+			compatible = "android,trusty-irq-v1";
+			interrupt-templates = <&IPI 0>,
+					      <&gic 1 GIC_PPI 0>,
+					      <&gic 1 GIC_SPI 0>;
+			interrupt-ranges = < 0  15 0>,
+					   <16  31 1>,
+					   <32 223 2>;
+		};
+	}
+}
+
+Must be a child of the node that provides the trusty std/fast call interface.

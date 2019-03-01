@@ -59,7 +59,7 @@
 		qcom,mdss-dsi-panel-blackness-level = <3230>;
 
 		qcom,dispparam-enabled;
-		qcom,mdss-panel-on-dimming-delay = <120>;
+		qcom,mdss-panel-on-dimming-delay = <200>;
 
 		qcom,disp-doze-backlight-threshold = <8>;
 
@@ -184,13 +184,12 @@
 				qcom,mdss-dsi-dispparam-hbm-on-command-state = "dsi_lp_mode";
 
 				qcom,mdss-dsi-dispparam-hbm-fod2norm-command = [39 00 00 00 00 00 03 F0 5A 5A
-					39 00 00 00 00 00 03 B2 00 40
-					39 00 00 00 00 00 02 B0 04
-					39 00 00 00 00 00 02 B2 80
-					39 00 00 00 00 00 02 F7 03
-					39 01 00 00 00 00 03 F0 A5 A5];
-				qcom,mdss-dsi-dispparam-hbm-fod2norm-command-state = "dsi_hs_mode";
-
+									39 00 00 00 00 00 03 B2 00 40
+									39 00 00 00 00 00 02 B0 04
+									39 00 00 00 00 00 02 B2 80
+									39 00 00 00 00 00 02 F7 03
+									39 01 00 00 00 00 03 F0 A5 A5];
+				qcom,mdss-dsi-dispparam-hbm-fod2norm-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-dispparam-dimmingon-command = [39 01 00 00 01 00 02 53 28];
 				qcom,mdss-dsi-dispparam-dimmingon-command-state = "dsi_lp_mode";
 				qcom,mdss-dsi-dispparam-dimmingoff-command = [39 01 00 00 01 00 02 53 20];
@@ -238,6 +237,7 @@
 					39 01 00 00 00 00 03 F0 A5 A5
 					];
 				qcom,mdss-dsi-dispparam-crc-off-command-state = "dsi_lp_mode";
+
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 			};
 		};

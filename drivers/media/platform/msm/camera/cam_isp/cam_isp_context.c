@@ -1,5 +1,4 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1478,8 +1477,6 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	list_for_each_entry_safe(req, req_temp, &flush_list, list) {
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
-			CAM_INFO(CAM_ISP, "Flushing req %lld, flush_type %d",
-					req->request_id, flush_req->type);
 			if (req_isp->fence_map_out[i].sync_id != -1) {
 				CAM_DBG(CAM_ISP, "Flush req 0x%llx, fence %d",
 					 req->request_id,
@@ -1498,7 +1495,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
-		CAM_INFO(CAM_ISP,
+		CAM_DBG(CAM_ISP,
 			"Flush request id:%lld is not found in the list",
 			flush_req->req_id);
 
@@ -1509,65 +1506,22 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_context *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
 {
-	struct cam_isp_context           *ctx_isp =
-		(struct cam_isp_context *) ctx->ctx_priv;
-	struct cam_isp_stop_args          stop_isp;
-	struct cam_hw_stop_args           stop_args;
-	struct cam_isp_start_args         start_isp;
 	int rc = 0;
+	struct cam_isp_context *ctx_isp;
 
+	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		CAM_INFO(CAM_ISP, "Last request id to flush is %lld",
 			flush_req->req_id);
 		ctx->last_flush_req = flush_req->req_id;
 	}
 
-	CAM_INFO(CAM_ISP, "try to flush pending list");
+	CAM_DBG(CAM_ISP, "try to flush pending list");
 	spin_lock_bh(&ctx->lock);
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
 
-	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
-		/* if active and wait list are empty, return */
-		spin_lock_bh(&ctx->lock);
-		if ((list_empty(&ctx->wait_req_list)) &&
-			(list_empty(&ctx->active_req_list))) {
-			spin_unlock_bh(&ctx->lock);
-			CAM_INFO(CAM_ISP, "active and wait list are empty");
-			goto end;
-		}
-		spin_unlock_bh(&ctx->lock);
-
-		/* Stop hw first before active list flush */
-		stop_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_AT_FRAME_BOUNDARY;
-		stop_isp.stop_only = true;
-		stop_args.args = (void *)&stop_isp;
-		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
-				&stop_args);
-
-		spin_lock_bh(&ctx->lock);
-		CAM_INFO(CAM_ISP, "try to flush wait list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list,
-		flush_req);
-		CAM_INFO(CAM_ISP, "try to flush active list");
-		rc = __cam_isp_ctx_flush_req(ctx, &ctx->active_req_list,
-		flush_req);
-		ctx_isp->active_req_cnt = 0;
-		spin_unlock_bh(&ctx->lock);
-
-		/* Start hw */
-		start_isp.hw_config.ctxt_to_hw_map = ctx_isp->hw_ctx;
-		start_isp.start_only = true;
-		start_isp.hw_config.priv = NULL;
-
-		rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv,
-			&start_isp);
-	}
-
-end:
-	CAM_INFO(CAM_ISP, "Flush request in top state %d",
-		 ctx->state);
+	atomic_set(&ctx_isp->process_bubble, 0);
 	return rc;
 }
 
@@ -2780,6 +2734,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	start_isp.hw_config.init_packet = 1;
 	start_isp.start_only = false;
 
+	atomic_set(&ctx_isp->process_bubble, 0);
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -2814,9 +2769,6 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	} else {
 		list_add_tail(&req->list, &ctx->wait_req_list);
 	}
-
-	CAM_INFO(CAM_ISP, "Start device success next state %d on ctx %u dev_hdl 0x%x link_hdl 0x%x",
-			ctx->state, ctx->ctx_id, ctx->dev_hdl, ctx->link_hdl);
 end:
 	return rc;
 }
@@ -2918,9 +2870,10 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	atomic_set(&ctx_isp->process_bubble, 0);
 
-	CAM_INFO(CAM_ISP, "Stop device success next state %d on ctx %u dev_hdl 0x%x link_hdl 0x%x",
-			ctx->state, ctx->ctx_id, ctx->dev_hdl, ctx->link_hdl);
+	CAM_DBG(CAM_ISP, "Stop device success next state %d on ctx %u",
+		ctx->state, ctx->ctx_id);
 
 	if (!stop_cmd) {
 		rc = __cam_isp_ctx_unlink_in_ready(ctx, NULL);

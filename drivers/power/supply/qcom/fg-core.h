@@ -100,6 +100,9 @@
 #define RESTART_FG_WORK_MS		2000
 #define EMPTY_REPORT_SOC		1
 
+#define VBAT_CRITICAL_LOW_THR		2800
+#define EMPTY_DEBOUNCE_TIME_COUNT_MAX		5
+
 enum prof_load_status {
 	PROFILE_MISSING,
 	PROFILE_LOADED,
@@ -453,6 +456,7 @@ struct fg_dev {
 	int			delta_soc;
 	int			last_msoc;
 	int			last_recharge_volt_mv;
+	int			vbat_critical_low_count;
 	bool			profile_available;
 	enum prof_load_status	profile_load_status;
 	bool			battery_missing;

@@ -731,29 +731,6 @@ struct wake_q_node {
 	struct wake_q_node *next;
 };
 
-#define NUM_DEBUG_ENTRIES 200
-
-enum rwsem_operation {
-	rwsem_read_down = 0,
-	rwsem_read_up,
-	rwsem_write_down,
-	rwsem_write_up
-};
-
-struct debug_rwsem {
-	struct rw_semaphore *rwsem;
-	struct task_struct *task;
-	int operation;
-	unsigned long long timestamp;
-};
-
-struct dbg_rwsem_task {
-	struct list_head task_entry;
-	char task_comm[TASK_COMM_LEN];
-	pid_t task_pid;
-	struct debug_rwsem *dbg_rwsem_dump;
-};
-
 struct task_struct {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 	/*
@@ -1339,8 +1316,6 @@ struct task_struct {
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 	unsigned long			task_state_change;
 #endif
-	struct debug_rwsem		debug_info_rwsem[NUM_DEBUG_ENTRIES];
-	int				fill_count;
 	int				pagefault_disabled;
 #ifdef CONFIG_MMU
 	struct task_struct		*oom_reaper_list;

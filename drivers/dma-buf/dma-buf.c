@@ -1359,7 +1359,6 @@ static void free_proc(struct dma_proc *proc)
 	struct dma_info *tmp, *n;
 
 	list_for_each_entry_safe(tmp, n, &proc->dma_bufs, head) {
-		//dma_buf_put(tmp->dmabuf);
 		if (tmp->dmabuf && tmp->dmabuf->file)
 			fput(tmp->dmabuf->file);
 		list_del(&tmp->head);

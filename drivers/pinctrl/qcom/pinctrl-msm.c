@@ -39,7 +39,8 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
-#include <soc/qcom/socinfo.h>
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
@@ -606,14 +607,6 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 		/* gpio 0~3 is NFC spi, gpio 126~129 is FP spi */
 		if (i < 4 || (i > 125 && i < 130))
 			continue;
-
-		/*only for E5G*/
-		if (HARDWARE_PLATFORM_ANDROMEDA == get_hw_version_platform()){
-		  /*skip 5G related gpio: 5G IPC HS-UART, 5G RF HS-UART*/
-		  if ((i >= 4 && i <= 7) || (i >= 83 && i <= 86))
-			continue;
-		}
-
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}

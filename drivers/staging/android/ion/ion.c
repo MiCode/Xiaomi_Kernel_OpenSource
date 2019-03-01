@@ -1216,6 +1216,36 @@ static const struct file_operations ion_fops = {
 #endif
 };
 
+static int ion_debug_heap_show(struct seq_file *s, void *unused)
+{
+	struct ion_heap *heap = s->private;
+
+	seq_puts(s, "----------------------------------------------------\n");
+	seq_printf(s, "%25s %16zu\n", "num_of_alloc_bytes ", heap->num_of_alloc_bytes);
+	seq_printf(s, "%25s %16zu\n", "num_of_buffers ", heap->num_of_buffers);
+	seq_printf(s, "%25s %16zu\n", "alloc_bytes_wm ", heap->alloc_bytes_wm);
+	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
+		seq_printf(s, "%25s %16zu\n", "deferred free ", heap->free_list_size);
+	seq_puts(s, "----------------------------------------------------\n");
+
+	if (heap->debug_show)
+		heap->debug_show(heap, s, unused);
+
+	return 0;
+}
+
+static int ion_debug_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, inode->i_private);
+}
+
+static const struct file_operations debug_heap_fops = {
+	.open = ion_debug_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int debug_shrink_set(void *data, u64 val)
 {
 	struct ion_heap *heap = data;
@@ -1253,6 +1283,7 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
+	struct dentry *debug_file;
 	struct dentry *heap_root;
 	char debug_name[64];
 
@@ -1274,6 +1305,18 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	heap->num_of_buffers = 0;
 	heap->num_of_alloc_bytes = 0;
 	heap->alloc_bytes_wm = 0;
+
+	debug_file = debugfs_create_file(heap->name, 0664,
+					dev->heaps_debug_root, heap,
+					&debug_heap_fops);
+
+	if (!debug_file) {
+		char buf[256], *path;
+
+		path = dentry_path(dev->heaps_debug_root, buf, 256);
+		pr_err("Failed to create heap debugfs at %s/%s\n",
+			path, heap->name);
+	}
 
 	heap_root = debugfs_create_dir(heap->name, dev->debug_root);
 	debugfs_create_u64("num_of_buffers",
@@ -1334,6 +1377,11 @@ struct ion_device *ion_device_create(void)
 	idev->debug_root = debugfs_create_dir("ion", NULL);
 	if (!idev->debug_root) {
 		pr_err("ion: failed to create debugfs root directory.\n");
+		goto debugfs_done;
+	}
+	idev->heaps_debug_root = debugfs_create_dir("heaps", idev->debug_root);
+	if (!idev->heaps_debug_root) {
+		pr_err("ion: failed to create debugfs heaps directory.\n");
 		goto debugfs_done;
 	}
 

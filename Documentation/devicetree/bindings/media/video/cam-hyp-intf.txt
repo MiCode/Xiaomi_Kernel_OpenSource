@@ -1,0 +1,29 @@
+* Qualcomm Technologies, Inc. MSM Camera Hypervisor interface
+
+The MSM camera hypervisor driver provides interface to communicate with resource
+manager within hypervisor to get secure handle for ion buffer handle.
+
+=======================
+Required Node Structure
+=======================
+The hypervisor is described in one level of device node.
+
+==================================
+First Level Node
+==================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,resource-manager-scbuf".
+- reg
+  Usage: required
+  Value type: <int>
+  Definition: Should have transmit and receive pipe handle of resource manager
+
+Example:
+
+	scbuf@18 {
+		compatible = "qcom,resource-manager-scbuf";
+		status = "ok";
+		reg = <0x15 0x11>;
+	};

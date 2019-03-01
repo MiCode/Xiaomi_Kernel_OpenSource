@@ -1918,12 +1918,17 @@ int smblib_get_prop_batt_capacity(struct smb_charger *chg,
 static bool smblib_wireless_to_usb_charging(struct smb_charger *chg,
 	bool usb_online, bool dc_online)
 {
-	if (!dc_online && usb_online && chg->power_good_en) {
+	if ((usb_online || chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)
+		&& chg->fake_dc_on) {
 		/* insert usb when wireless charging, set status
 		 * to charge and charger type to DCP
+		 * insert pd charger when wireless charging, power good irq will
+		 * trigger very qucickly difference with other charger type.
 		 */
-		chg->real_charger_type = POWER_SUPPLY_TYPE_USB_DCP;
-		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		if (!chg->pd_active) {
+			chg->real_charger_type = POWER_SUPPLY_TYPE_USB_DCP;
+			chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		}
 		return true;
 	} else if (smblib_get_prop_dfp_mode(chg) != POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER
 			&& smblib_get_prop_dfp_mode(chg) != POWER_SUPPLY_TYPEC_NONE
@@ -2046,8 +2051,10 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		if (POWER_SUPPLY_HEALTH_WARM == pval.intval
 			|| POWER_SUPPLY_HEALTH_OVERHEAT == pval.intval)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
-		else
+		else {
 			val->intval = POWER_SUPPLY_STATUS_FULL;
+			chg->last_batt_stat = val->intval;
+		}
 		break;
 	case DISABLE_CHARGE:
 	case PAUSE_CHARGE:
@@ -2062,14 +2069,25 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		break;
 	}
 
-	if (!usb_online && dc_online && chg->fake_dc_on) {
+	if (!usb_online && chg->typec_mode != POWER_SUPPLY_TYPEC_SOURCE_HIGH
+			&& dc_online && chg->fake_dc_on) {
+		/*
+		 * fix insert wireless charger the logo will show twice.
+		 * Also include wireless swith to pd charger, "wireless charger stop" issue.
+		 */
 		if (val->intval == POWER_SUPPLY_STATUS_CHARGING)
 			chg->fake_dc_on = 0;
+		else if (chg->last_batt_stat == POWER_SUPPLY_STATUS_FULL &&
+				val->intval != POWER_SUPPLY_STATUS_CHARGING) {
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+			chg->last_batt_stat = val->intval;
+		}
 		else if (val->intval != POWER_SUPPLY_STATUS_FULL)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		smblib_dbg(chg, PR_WLS, "fake dc on, battery staus: %d\n", val->intval);
 		return 0;
 	}
+
 	if (is_charging_paused(chg)) {
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		return 0;
@@ -2082,21 +2100,9 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	if (!usb_online && dc_online
 		&& chg->fake_batt_status == POWER_SUPPLY_STATUS_FULL) {
 		val->intval = POWER_SUPPLY_STATUS_FULL;
+		chg->last_batt_stat = val->intval;
 		return 0;
 	}
-
-	/* rc = smblib_read(chg, BATTERY_CHARGER_STATUS_5_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_2 rc=%d\n",
-				rc);
-			return rc;
-	}
-
-	stat &= ENABLE_TRICKLE_BIT | ENABLE_PRE_CHARGING_BIT |
-						ENABLE_FULLON_MODE_BIT;
-
-	if (!stat)
-		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING; */
 
 	return 0;
 }
@@ -2478,40 +2484,40 @@ static int smblib_dc_therm_charging(struct smb_charger *chg,
 	rc = power_supply_get_property(chg->wls_psy,
 				POWER_SUPPLY_PROP_WIRELESS_VERSION,
 				&val);
-	switch (pval.intval) {
-	case ADAPTER_XIAOMI_QC3:
-	case ADAPTER_ZIMI_CAR_POWER:
-		thermal_icl_ua = chg->thermal_mitigation_dc[temp_level];
-		break;
-	case ADAPTER_QC2:
-		thermal_icl_ua = chg->thermal_mitigation_bpp_qc2[temp_level];
-		break;
-	case ADAPTER_QC3:
-		if (val.intval == 1)/*is epp*/
-			thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
-		else
-			thermal_icl_ua = chg->thermal_mitigation_bpp_qc3[temp_level];
-		break;
-	case ADAPTER_XIAOMI_PD:
-	case ADAPTER_PD:
-		if (val.intval == 1)/*is epp*/
-			thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
-		else
+		switch (pval.intval) {
+		case ADAPTER_XIAOMI_QC3:
+		case ADAPTER_ZIMI_CAR_POWER:
+			thermal_icl_ua = chg->thermal_mitigation_dc[temp_level];
+			break;
+		case ADAPTER_QC2:
+			thermal_icl_ua = chg->thermal_mitigation_bpp_qc2[temp_level];
+			break;
+		case ADAPTER_QC3:
+			if(val.intval == 1)/*is epp*/
+				thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
+			else
+				thermal_icl_ua = chg->thermal_mitigation_bpp_qc3[temp_level];
+			break;
+		case ADAPTER_XIAOMI_PD:
+		case ADAPTER_PD:
+			if(val.intval == 1)/*is epp*/
+				thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
+			else
+				thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
+			break;
+		case ADAPTER_AUTH_FAILED:
+			if(val.intval == 1)/*is epp*/
+				thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
+			else
+				thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
+			break;
+		case ADAPTER_CDP:
+		case ADAPTER_DCP:
 			thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
-		break;
-	case ADAPTER_AUTH_FAILED:
-		if (val.intval == 1)/*is epp*/
-			thermal_icl_ua = chg->thermal_mitigation_epp[temp_level];
-		else
+			break;
+		default:
 			thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
-		break;
-	case ADAPTER_CDP:
-	case ADAPTER_DCP:
-		thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
-		break;
-	default:
-		thermal_icl_ua = chg->thermal_mitigation_bpp[temp_level];
-		break;
+			break;
 	}
 	vote(chg->dc_icl_votable, THERMAL_DAEMON_VOTER, true, thermal_icl_ua);
 
@@ -3636,7 +3642,10 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 
 	if (usb_present && chg->power_good_en) {
 		/* show online when insert usb in wireless charging */
-		val->intval = true;
+		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK)
+			val->intval = false;
+		else
+			val->intval = true;
 		return rc;
 	}
 
@@ -5041,6 +5050,7 @@ irqreturn_t dcin_uv_handler(int irq, void *data)
 		chg->fake_dc_flag = 1;
 		schedule_delayed_work(&chg->dc_plug_out_delay_work,
 				msecs_to_jiffies(1800));
+		vote(chg->awake_votable, DC_UV_AWAKE_VOTER, true, 0);
 	}
 	smblib_dbg(chg, PR_WLS, "Delay dc plug out and power path 0x%x\n", stat);
 
@@ -6349,14 +6359,16 @@ int smblib_set_wirless_power_good_enable(struct smb_charger *chg,
 
 	chg->power_good_en = val->intval;
 	if (chg->power_good_en) {
-		smblib_dbg(chg, PR_OEM, "power good on\n");
 		chg->fake_dc_on = 1;
+		chg->fake_dc_flag = 0;
+		chg->last_batt_stat = 0;
+		cancel_delayed_work(&chg->dc_plug_out_delay_work);
+		vote(chg->awake_votable, DC_UV_AWAKE_VOTER, false, 0);
 
 	}
 	else {
 		if (!chg->fake_dc_flag)
 			chg->fake_dc_on = 0;
-		smblib_dbg(chg, PR_OEM, "power good off, set dc_en sw override\n");
 		/* step1: enter dc suspend */
 		rc = vote(chg->dc_suspend_votable, OTG_VOTER,
 			true, 0);
@@ -6405,6 +6417,9 @@ int smblib_set_wirless_power_good_enable(struct smb_charger *chg,
 	}
 	power_supply_changed(chg->dc_psy);
 	power_supply_changed(chg->batt_psy);
+	if (chg->wls_psy)
+		power_supply_changed(chg->wls_psy);
+
 	return 0;
 }
 
@@ -6415,8 +6430,9 @@ static void smblib_dc_plug_out_work(struct work_struct *work)
 
 	chg->fake_dc_on = 0;  /*use for delay 1.8s*/
 	chg->fake_dc_flag = 0;
+	chg->last_batt_stat = 0;
 	power_supply_changed(chg->dc_psy);
-	smblib_dbg(chg, PR_WLS, "Delay timeout and clear dc fake value\n");
+	vote(chg->awake_votable, DC_UV_AWAKE_VOTER, false, 0);
 }
 
 irqreturn_t dc_plugin_irq_handler(int irq, void *data)
@@ -6426,20 +6442,9 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	union power_supply_propval pval = {0, };
 	int input_present;
 	bool dcin_present, vbus_present;
-	//int rc, wireless_vout = 0;
 	int rc;
 	int sec_charger;
 
-/*
-	rc = iio_read_channel_processed(chg->iio.vph_v_chan,
-			&wireless_vout);
-	if (rc < 0)
-		return IRQ_HANDLED;
-
-	wireless_vout *= 2;
-	wireless_vout /= 100000;
-	wireless_vout *= 100000;
-*/
 
 	rc = smblib_is_input_present(chg, &input_present);
 	if (rc < 0)
@@ -6507,6 +6512,8 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	}
 
 	power_supply_changed(chg->dc_psy);
+	if (chg->wls_psy)
+		power_supply_changed(chg->wls_psy);
 
 	smblib_dbg(chg, PR_WLS, "dcin_present= %d, usbin_present= %d, cp_reason = %d\n",
 			dcin_present, vbus_present, chg->cp_reason);

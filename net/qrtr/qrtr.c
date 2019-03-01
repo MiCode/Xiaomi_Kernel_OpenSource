@@ -36,6 +36,8 @@
 #define QRTR_MIN_EPH_SOCKET 0x4000
 #define QRTR_MAX_EPH_SOCKET 0x7fff
 
+#define QRTR_PORT_CTRL_LEGACY 0xffff
+
 /* qrtr socket states */
 #define QRTR_STATE_MULTI	-2
 #define QRTR_STATE_INIT	-1
@@ -601,6 +603,48 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 }
 
 /**
+ * qrtr_peek_pkt_size() - Peek into the packet header to get potential pkt size
+ *
+ * @data: Starting address of the packet which points to router header.
+ *
+ * @returns: potential packet size on success, < 0 on error.
+ *
+ * This function is used by the underlying transport abstraction layer to
+ * peek into the potential packet size of an incoming packet. This information
+ * is used to perform link layer fragmentation and re-assembly
+ */
+int qrtr_peek_pkt_size(const void *data)
+{
+	const struct qrtr_hdr_v1 *v1;
+	const struct qrtr_hdr_v2 *v2;
+	unsigned int hdrlen;
+	unsigned int size;
+	unsigned int ver;
+
+	/* Version field in v1 is little endian, so this works for both cases */
+	ver = *(u8 *)data;
+
+	switch (ver) {
+	case QRTR_PROTO_VER_1:
+		v1 = data;
+		hdrlen = sizeof(*v1);
+		size = le32_to_cpu(v1->size);
+		break;
+	case QRTR_PROTO_VER_2:
+		v2 = data;
+		hdrlen = sizeof(*v2) + v2->optlen;
+		size = le32_to_cpu(v2->size);
+		break;
+	default:
+		pr_err("qrtr: Invalid version %d\n", ver);
+		return -EINVAL;
+	}
+
+	return ALIGN(size, 4) + hdrlen;
+}
+EXPORT_SYMBOL(qrtr_peek_pkt_size);
+
+/**
  * qrtr_endpoint_post() - post incoming data
  * @ep: endpoint handle
  * @data: data pointer
@@ -667,6 +711,9 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		pr_err("qrtr: Invalid version %d\n", ver);
 		goto err;
 	}
+
+	if (cb->dst_port == QRTR_PORT_CTRL_LEGACY)
+		cb->dst_port = QRTR_PORT_CTRL;
 
 	if (len != ALIGN(size, 4) + hdrlen)
 		goto err;

@@ -224,6 +224,14 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	if (c_bridge->display->is_prim_display && atomic_read(&prim_panel_is_on)) {
 		cancel_delayed_work_sync(&prim_panel_work);
 		__pm_relax(&prim_panel_wakelock);
+		if (dev->fp_quickon &&
+			(dev->doze_state == DRM_BLANK_LP1 || dev->doze_state == DRM_BLANK_LP2)) {
+			event = DRM_BLANK_POWERDOWN;
+			drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
+			drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
+			dev->fp_quickon = false;
+		}
+		pr_info("%s panel already on\n", __func__);
 		return;
 	}
 
@@ -303,6 +311,8 @@ int dsi_bridge_interface_enable(int timeout)
 		mutex_unlock(&gbridge->base.lock);
 		return 0;
 	}
+
+	gbridge->base.dev->fp_quickon = true;
 
 	__pm_stay_awake(&prim_panel_wakelock);
 	dsi_bridge_pre_enable(&gbridge->base);
@@ -425,6 +435,19 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (c_bridge->display->is_prim_display && !atomic_read(&prim_panel_is_on)) {
+		pr_err("%s Already power off\n", __func__);
+		return;
+	}
+
+	if (dev->doze_state == DRM_BLANK_LP1 || dev->doze_state == DRM_BLANK_LP2) {
+		pr_err("%s doze state can't power off panel\n", __func__);
+		event = DRM_BLANK_POWERDOWN;
+		drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
+		drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
+		return;
+	}
+
 	drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
 
 	SDE_ATRACE_BEGIN("dsi_bridge_post_disable");
@@ -449,6 +472,9 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 
 	drm_notifier_call_chain(DRM_EVENT_BLANK, &g_notify_data);
 
+	if (gbridge)
+		gbridge->base.dev->fp_quickon = false;
+
 	if (c_bridge->display->is_prim_display)
 		atomic_set(&prim_panel_is_on, false);
 }
@@ -459,6 +485,7 @@ static void prim_panel_off_delayed_work(struct work_struct *work)
 	if (atomic_read(&prim_panel_is_on)) {
 		dsi_bridge_post_disable(&gbridge->base);
 		__pm_relax(&prim_panel_wakelock);
+		gbridge->base.dev->fp_quickon = false;
 		mutex_unlock(&gbridge->base.lock);
 		return;
 	}

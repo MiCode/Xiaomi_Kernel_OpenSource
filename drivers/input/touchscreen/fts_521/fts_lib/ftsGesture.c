@@ -206,7 +206,7 @@ int enterGestureMode(int reload)
 {
 	int res, ret;
 
-	res = fts_disableInterrupt();
+	res = fts_disableInterruptNoSync();
 	if (res < OK) {
 		logError(1, "%s enterGestureMode: ERROR %08X \n", tag,
 			 res | ERROR_DISABLE_INTER);

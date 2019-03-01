@@ -1797,6 +1797,8 @@ static int screen_state_for_thermal_callback(struct notifier_block *nb, unsigned
 	switch (blank) {
 	case DRM_BLANK_LP1:
 		pr_warn("%s: DRM_BLANK_LP1\n", __func__);
+	case DRM_BLANK_LP2:
+		pr_warn("%s: DRM_BLANK_LP2\n", __func__);
 	case DRM_BLANK_POWERDOWN:
 		sm.screen_state = 0;
 		pr_warn("%s: DRM_BLANK_POWERDOWN\n", __func__);

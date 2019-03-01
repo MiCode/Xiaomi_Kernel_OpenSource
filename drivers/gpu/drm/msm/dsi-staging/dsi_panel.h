@@ -227,8 +227,8 @@ struct dsi_panel {
 	struct dsi_panel_cmd_set hbm_fod_off;
 
 	bool fod_backlight_flag;
+	u32 fod_target_backlight;
 	bool fod_flag;
-	bool fod_skip_flag; /* optimize to skip nolp command */
 	bool in_aod; /* set  DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM only in AOD */
 };
 

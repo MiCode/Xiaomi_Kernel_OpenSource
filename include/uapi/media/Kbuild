@@ -15,3 +15,4 @@ header-y += msm_sde_rotator.h
 header-y += radio-iris.h
 header-y += radio-iris-commands.h
 header-y += cam_lrme.h
+header-y += cam_hyp_intf.h

@@ -1,0 +1,6 @@
+Trusty virtio interface
+
+Trusty virtio is communication channel between secure and non-secure world..
+
+Required properties:
+- compatible: "android,trusty-virtio-v1"

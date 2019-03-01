@@ -155,6 +155,7 @@ struct ion_device {
 	struct rw_semaphore lock;
 	struct plist_head heaps;
 	struct dentry *debug_root;
+	struct dentry *heaps_debug_root;
 	int heap_cnt;
 };
 
