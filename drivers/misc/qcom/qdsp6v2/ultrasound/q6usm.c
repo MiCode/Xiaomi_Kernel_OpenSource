@@ -507,6 +507,12 @@ static int32_t q6usm_mmapcallback(struct apr_client_data *data, void *priv)
 	uint32_t token;
 	uint32_t *payload = data->payload;
 
+	if (data->payload_size < (2 * sizeof(uint32_t))) {
+		pr_err("%s: payload has invalid size[%d]\n", __func__,
+		       data->payload_size);
+		return -EINVAL;
+	}
+
 	pr_debug("%s: ptr0[0x%x]; ptr1[0x%x]; opcode[0x%x]\n",
 		 __func__, payload[0], payload[1], data->opcode);
 	pr_debug("%s: token[0x%x]; payload_size[%d]; src[%d]; dest[%d];\n",
