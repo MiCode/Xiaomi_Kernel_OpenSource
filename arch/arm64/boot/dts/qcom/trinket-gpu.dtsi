@@ -129,6 +129,7 @@
 		qcom,ca-target-pwrlevel = <5>;
 
 		qcom,gpu-speed-bin = <0x6004 0x1fe00000 21>;
+		qcom,gpu-gaming-bin = <0x6018 0x80 7>;
 
 		/* CX iPeak limit support */
 		qcom,gpu-cx-ipeak = <&cx_ipeak_lm 5>;
