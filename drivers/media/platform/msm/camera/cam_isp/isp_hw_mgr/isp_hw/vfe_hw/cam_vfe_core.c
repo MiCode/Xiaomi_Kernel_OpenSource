@@ -652,6 +652,10 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 			if (isp_res->irq_handle < 1)
 				rc = -ENOMEM;
 		} else if (isp_res->rdi_only_ctx) {
+			if (strnstr(soc_info->compatible, "lite",
+				strlen(soc_info->compatible)) != NULL)
+				rdi_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
+					= 0x3333;
 			isp_res->irq_handle =
 				cam_irq_controller_subscribe_irq(
 					core_info->vfe_irq_controller,

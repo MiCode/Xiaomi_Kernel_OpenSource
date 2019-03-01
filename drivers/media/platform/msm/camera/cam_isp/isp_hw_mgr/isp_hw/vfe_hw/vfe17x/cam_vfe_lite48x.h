@@ -107,8 +107,8 @@ static struct cam_vfe_camif_lite_ver3_reg vfe48x_camif_rdi[4] = {
 static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 	{
 		.extern_reg_update_shift         = 0,
-		.reg_update_cmd_data             = 0x11,
-		.epoch_line_cfg                  = 0x00140014,
+		.reg_update_cmd_data             = 0x1,
+		.epoch_line_cfg                  = 0x0,
 		.sof_irq_mask                    = 0x1,
 		.epoch0_irq_mask                 = 0x4,
 		.epoch1_irq_mask                 = 0x8,
@@ -119,8 +119,8 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 	},
 	{
 		.extern_reg_update_shift         = 0,
-		.reg_update_cmd_data             = 0x22,
-		.epoch_line_cfg                  = 0x00140014,
+		.reg_update_cmd_data             = 0x2,
+		.epoch_line_cfg                  = 0x0,
 		.sof_irq_mask                    = 0x10,
 		.epoch0_irq_mask                 = 0x40,
 		.epoch1_irq_mask                 = 0x80,
@@ -131,8 +131,8 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 	},
 	{
 		.extern_reg_update_shift         = 0,
-		.reg_update_cmd_data             = 0x44,
-		.epoch_line_cfg                  = 0x00140014,
+		.reg_update_cmd_data             = 0x4,
+		.epoch_line_cfg                  = 0x0,
 		.sof_irq_mask                    = 0x100,
 		.epoch0_irq_mask                 = 0x400,
 		.epoch1_irq_mask                 = 0x800,
@@ -143,8 +143,8 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 	},
 	{
 		.extern_reg_update_shift         = 0,
-		.reg_update_cmd_data             = 0x88,
-		.epoch_line_cfg                  = 0x00140014,
+		.reg_update_cmd_data             = 0x8,
+		.epoch_line_cfg                  = 0x0,
 		.sof_irq_mask                    = 0x1000,
 		.epoch0_irq_mask                 = 0x4000,
 		.epoch1_irq_mask                 = 0x8000,

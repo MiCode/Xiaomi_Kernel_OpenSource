@@ -51,6 +51,10 @@ static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
+	if (strnstr(soc_info->compatible, "lite",
+		strlen(soc_info->compatible)) != NULL)
+		goto end;
+
 	switch (soc_info->hw_version) {
 	case CAM_CPAS_TITAN_480_V100:
 		num_ubwc_cfg = of_property_count_u32_elems(of_node,
