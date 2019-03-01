@@ -522,15 +522,16 @@ new_packet:
 		 * sparse, don't aggregate. We will need to tune this later
 		 */
 		diff = timespec_sub(port->agg_last, last);
+		size = port->egress_agg_size - skb->len;
 
-		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time) {
+		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time ||
+		    size <= 0) {
 			spin_unlock_irqrestore(&port->agg_lock, flags);
 			skb->protocol = htons(ETH_P_MAP);
 			dev_queue_xmit(skb);
 			return;
 		}
 
-		size = port->egress_agg_size - skb->len;
 		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
