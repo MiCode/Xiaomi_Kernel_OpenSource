@@ -733,6 +733,13 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 	codecs = sys_init_done->dec_codec_supported;
 	for (i = 0; i < 8 * sizeof(codecs); i++) {
 		if ((1 << i) & codecs) {
+			if (codec_count >= VIDC_MAX_SESSIONS) {
+				dprintk(VIDC_ERR,
+					"%s: codec count exceeding max sessions %d\n",
+					__func__, VIDC_MAX_SESSIONS);
+				break;
+			}
+
 			capability =
 				&sys_init_done->capabilities[codec_count++];
 			capability->codec =
@@ -741,9 +748,17 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 				vidc_get_hal_domain(HFI_VIDEO_DOMAIN_DECODER);
 		}
 	}
+
 	codecs = sys_init_done->enc_codec_supported;
 	for (i = 0; i < 8 * sizeof(codecs); i++) {
 		if ((1 << i) & codecs) {
+			if (codec_count >= VIDC_MAX_SESSIONS) {
+				dprintk(VIDC_ERR,
+					"%s: codec count exceeding max sessions %d\n",
+					__func__, VIDC_MAX_SESSIONS);
+				break;
+			}
+
 			capability =
 				&sys_init_done->capabilities[codec_count++];
 			capability->codec =
