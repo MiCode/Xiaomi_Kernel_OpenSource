@@ -17,6 +17,8 @@
 #include <dt-bindings/clock/qcom,camcc-sdmmagpie.h>
 
 #include "sdmmagpie-atp.dtsi"
+#include "sdmmagpie-ext-codec-audio-overlay.dtsi"
+#include "sdmmagpie-external-codec.dtsi"
 
 / {
 	model = "ATP";
