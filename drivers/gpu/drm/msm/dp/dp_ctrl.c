@@ -1306,9 +1306,7 @@ static void dp_ctrl_send_phy_test_pattern(struct dp_ctrl_private *ctrl)
 	u32 pattern_sent = 0x0;
 	u32 pattern_requested = ctrl->link->phy_params.phy_test_pattern_sel;
 
-	ctrl->catalog->update_vx_px(ctrl->catalog,
-			ctrl->link->phy_params.v_level,
-			ctrl->link->phy_params.p_level);
+	dp_ctrl_update_vx_px(ctrl);
 	ctrl->catalog->send_phy_pattern(ctrl->catalog, pattern_requested);
 	ctrl->link->send_test_response(ctrl->link);
 
