@@ -2432,7 +2432,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_5 APQ */
-	[IPA_4_5_APQ][IPA_CLIENT_WLAN1_PROD]          = {
+	[IPA_4_5_APQ][IPA_CLIENT_WLAN2_PROD]          = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
@@ -2494,7 +2494,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 10, 10, 8, 16, IPA_EE_AP } },
 
-	[IPA_4_5_APQ][IPA_CLIENT_WLAN1_CONS]          = {
+	[IPA_4_5_APQ][IPA_CLIENT_WLAN2_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL_DST,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
