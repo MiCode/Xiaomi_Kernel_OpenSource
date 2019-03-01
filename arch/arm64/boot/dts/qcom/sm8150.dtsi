@@ -574,7 +574,7 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,system,vendor,dtbo,odm";
 			};
 			fstab {
 				compatible = "android,fstab";
@@ -591,7 +591,7 @@
 					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/odm";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect";
+					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
 				};
 			};
