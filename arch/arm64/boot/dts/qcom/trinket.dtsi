@@ -35,6 +35,13 @@
 	qcom,pmic-name = "pm6125 + pmi632";
 	interrupt-parent = <&wakegic>;
 
+	mem-offline {
+		compatible = "qcom,mem-offline";
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
+				<0x1 0xc0000000 0x0 0x80000000>;
+		granule = <512>;
+	};
+
 	aliases {
 		serial0 = &qupv3_se4_2uart;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
