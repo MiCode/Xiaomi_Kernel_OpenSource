@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1404,6 +1404,7 @@ int ipa2_reset_rt(enum ipa_ip_type ip, bool user_only)
 					hdr_entry->cookie != IPA_HDR_COOKIE) {
 						IPAERR_RL(
 						"Header already deleted\n");
+						mutex_unlock(&ipa_ctx->lock);
 						return -EINVAL;
 					}
 				} else if (rule->proc_ctx) {
@@ -1415,6 +1416,7 @@ int ipa2_reset_rt(enum ipa_ip_type ip, bool user_only)
 							IPA_PROC_HDR_COOKIE) {
 					IPAERR_RL(
 						"Proc entry already deleted\n");
+						mutex_unlock(&ipa_ctx->lock);
 						return -EINVAL;
 					}
 				}
