@@ -6952,7 +6952,7 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
-		if (data->payload_size) {
+		if (data->payload_size >= (2 * sizeof(uint32_t))) {
 			ptr = data->payload;
 
 			pr_debug("%x %x\n", ptr[0], ptr[1]);
