@@ -18,8 +18,7 @@ struct msm_vidc_enc_buff_size_calculators {
 	u32 (*calculate_scratch_size)(struct msm_vidc_inst *inst, u32 width,
 		u32 height, u32 work_mode);
 	u32 (*calculate_scratch1_size)(struct msm_vidc_inst *inst,
-		u32 width, u32 height, u32 num_ref, bool ten_bit,
-		u32 num_vpp_pipes);
+		u32 width, u32 height, u32 num_ref, bool ten_bit);
 	u32 (*calculate_scratch2_size)(struct msm_vidc_inst *inst,
 		u32 width, u32 height, u32 num_ref, bool ten_bit);
 	u32 (*calculate_persist_size)(void);
