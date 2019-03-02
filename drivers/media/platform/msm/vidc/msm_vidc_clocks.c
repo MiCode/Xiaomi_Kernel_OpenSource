@@ -315,17 +315,17 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].input_height = inst->prop.height[OUTPUT_PORT];
 		vote_data[i].output_width = inst->prop.width[CAPTURE_PORT];
 		vote_data[i].output_height = inst->prop.height[CAPTURE_PORT];
-		vote_data[i].rotation =
-			msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
 		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
 				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
-		vote_data[i].b_frames_enabled =
-			msm_comm_g_ctrl_for_id(inst,
-				V4L2_CID_MPEG_VIDEO_B_FRAMES) != 0;
 
 		vote_data[i].fps = msm_vidc_get_fps(inst);
 		if (inst->session_type == MSM_VIDC_ENCODER) {
 			vote_data[i].bitrate = inst->clk_data.bitrate;
+			vote_data[i].rotation =
+				msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
+			vote_data[i].b_frames_enabled =
+				msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDEO_B_FRAMES) != 0;
 			/* scale bitrate if operating rate is larger than fps */
 			if (vote_data[i].fps > (inst->clk_data.frame_rate >> 16)
 				&& (inst->clk_data.frame_rate >> 16)) {
@@ -1682,7 +1682,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	struct hfi_videocores_usage_type core_info;
 	u32 core0_load = 0, core1_load = 0, core0_lp_load = 0,
 		core1_lp_load = 0;
-	u32 current_inst_load = 0, current_inst_lp_load = 0,
+	u32 current_inst_load = 0, cur_inst_lp_load = 0,
 		min_load = 0, min_lp_load = 0;
 	u32 min_core_id, min_lp_core_id;
 
@@ -1727,7 +1727,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 	current_inst_load = (msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
 		inst->clk_data.entry->vpp_cycles)/inst->clk_data.work_route;
 
-	current_inst_lp_load = (msm_comm_get_inst_load(inst,
+	cur_inst_lp_load = (msm_comm_get_inst_load(inst,
 		LOAD_CALC_NO_QUIRKS) * lp_cycles)/inst->clk_data.work_route;
 
 	dprintk(VIDC_DBG, "Core 0 RT Load = %d Core 1 RT Load = %d\n",
@@ -1736,40 +1736,32 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 		core0_lp_load, core1_lp_load);
 	dprintk(VIDC_DBG, "Max Load = %lu\n", max_freq);
 	dprintk(VIDC_DBG, "Current Load = %d Current LP Load = %d\n",
-		current_inst_load, current_inst_lp_load);
+		current_inst_load, cur_inst_lp_load);
 
-	/* Hier mode can be normal HP or Hybrid HP. */
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		/* Hier mode can be normal HP or Hybrid HP. */
+		u32 max_cores, work_mode;
 
-	hier_mode = msm_comm_g_ctrl_for_id(inst,
-		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
-
-	/* Try for preferred core based on settings. */
-	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode &&
-		inst->capability.cap[CAP_MAX_VIDEOCORES].max >=
-			VIDC_CORE_ID_3) {
-		if (current_inst_load / 2 + core0_load <= max_freq &&
+		hier_mode = msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+		max_cores = inst->capability.cap[CAP_MAX_VIDEOCORES].max;
+		work_mode = inst->clk_data.work_mode;
+		if (hier_mode && max_cores >= VIDC_CORE_ID_3 &&
+			work_mode == HFI_WORKMODE_2) {
+			if (current_inst_load / 2 + core0_load <= max_freq &&
 			current_inst_load / 2 + core1_load <= max_freq) {
-			if (inst->clk_data.work_mode == HFI_WORKMODE_2) {
 				inst->clk_data.core_id = VIDC_CORE_ID_3;
 				msm_vidc_power_save_mode_enable(inst, false);
 				goto decision_done;
 			}
-		}
-	}
-
-	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode &&
-		inst->capability.cap[CAP_MAX_VIDEOCORES].max >=
-			VIDC_CORE_ID_3) {
-		if (current_inst_lp_load / 2 +
-				core0_lp_load <= max_freq &&
-			current_inst_lp_load / 2 +
-				core1_lp_load <= max_freq) {
-			if (inst->clk_data.work_mode == HFI_WORKMODE_2) {
+			if (cur_inst_lp_load / 2 + core0_lp_load <= max_freq &&
+			cur_inst_lp_load / 2 + core1_lp_load <= max_freq) {
 				inst->clk_data.core_id = VIDC_CORE_ID_3;
 				msm_vidc_power_save_mode_enable(inst, true);
 				goto decision_done;
 			}
 		}
+
 	}
 
 	if (current_inst_load + min_load < max_freq) {
@@ -1778,7 +1770,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 			"Selected normally : Core ID = %d\n",
 				inst->clk_data.core_id);
 		msm_vidc_power_save_mode_enable(inst, false);
-	} else if (current_inst_lp_load + min_load < max_freq) {
+	} else if (cur_inst_lp_load + min_load < max_freq) {
 		/* Move current instance to LP and return */
 		inst->clk_data.core_id = min_core_id;
 		dprintk(VIDC_DBG,
@@ -1786,7 +1778,7 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 				inst->clk_data.core_id);
 		msm_vidc_power_save_mode_enable(inst, true);
 
-	} else if (current_inst_lp_load + min_lp_load < max_freq) {
+	} else if (cur_inst_lp_load + min_lp_load < max_freq) {
 		/* Move all instances to LP mode and return */
 		inst->clk_data.core_id = min_lp_core_id;
 		dprintk(VIDC_DBG,

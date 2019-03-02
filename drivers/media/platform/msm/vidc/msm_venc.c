@@ -76,9 +76,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_UNKNOWN,
 		.name = "Invalid control",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = INT_MAX,
-		.maximum = INT_MAX,
-		.default_value = INT_MAX,
+		.minimum = 0,
+		.maximum = 0,
+		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -1399,13 +1399,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	mdisp_sei = &(inst->hdr10_sei_params.disp_color_sei);
 	cll_sei = &(inst->hdr10_sei_params.cll_sei);
 
-	/*
-	 * Unlock the control prior to setting to the hardware. Otherwise
-	 * lower level code that attempts to do a get_ctrl() will end up
-	 * deadlocking.
-	 */
-	v4l2_ctrl_unlock(ctrl);
-
 	dprintk(VIDC_DBG,
 		"%s: %x : name %s, id 0x%x value %d\n",
 		__func__, hash32_ptr(inst->session), ctrl->name,
@@ -1750,7 +1743,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 
-	v4l2_ctrl_lock(ctrl);
 	return rc;
 }
 
