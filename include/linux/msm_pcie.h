@@ -15,6 +15,7 @@ enum msm_pcie_config {
 };
 
 enum msm_pcie_pm_opt {
+	MSM_PCIE_DRV_SUSPEND,
 	MSM_PCIE_SUSPEND,
 	MSM_PCIE_RESUME,
 	MSM_PCIE_DISABLE_PC,
@@ -27,6 +28,8 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_LINKUP = 0x2,
 	MSM_PCIE_EVENT_WAKEUP = 0x4,
 	MSM_PCIE_EVENT_L1SS_TIMEOUT = BIT(3),
+	MSM_PCIE_EVENT_DRV_CONNECT = BIT(4),
+	MSM_PCIE_EVENT_DRV_DISCONNECT = BIT(5),
 };
 
 enum msm_pcie_trigger {
