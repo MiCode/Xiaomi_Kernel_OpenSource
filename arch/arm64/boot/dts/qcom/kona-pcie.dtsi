@@ -91,6 +91,7 @@
 			<0x100 &apps_smmu 0x1c01 0x1>;
 
 		qcom,boot-option = <0x1>;
+		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,no-l0s-supported;
 		qcom,no-l1-supported;
@@ -330,6 +331,7 @@
 			<0x100 &apps_smmu 0x1c81 0x1>;
 
 		qcom,boot-option = <0x1>;
+		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,no-l0s-supported;
 		qcom,no-l1-supported;
@@ -608,6 +610,7 @@
 			<0x100 &apps_smmu 0x1d01 0x1>;
 
 		qcom,boot-option = <0x1>;
+		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,no-l0s-supported;
 		qcom,no-l1-supported;
