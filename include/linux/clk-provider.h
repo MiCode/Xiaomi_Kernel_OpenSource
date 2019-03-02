@@ -46,7 +46,7 @@
 					 * hand-off enable_count & prepare_count
 					 * to first consumer that enables clk
 					 */
-#define CLK_IS_MEASURE          BIT(14) /* measure clock */
+#define CLK_IS_MEASURE          BIT(15) /* measure clock */
 
 struct clk;
 struct clk_hw;
