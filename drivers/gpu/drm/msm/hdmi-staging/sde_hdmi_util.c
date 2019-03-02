@@ -874,14 +874,19 @@ void sde_hdmi_ddc_config(void *hdmi_display)
 {
 	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
 	struct hdmi *hdmi = display->ctrl.ctrl;
+	uint32_t ddc_speed;
 
 	if (!hdmi) {
 		pr_err("Invalid parameters\n");
 		return;
 	}
+
+	ddc_speed = hdmi_read(hdmi, REG_HDMI_DDC_SPEED);
+	ddc_speed |= HDMI_DDC_SPEED_THRESHOLD(2);
+	ddc_speed |= HDMI_DDC_SPEED_PRESCALE(12);
+
 	hdmi_write(hdmi, REG_HDMI_DDC_SPEED,
-			   HDMI_DDC_SPEED_THRESHOLD(2) |
-			   HDMI_DDC_SPEED_PRESCALE(10));
+			   ddc_speed);
 
 	hdmi_write(hdmi, REG_HDMI_DDC_SETUP,
 			   HDMI_DDC_SETUP_TIMEOUT(0xff));
