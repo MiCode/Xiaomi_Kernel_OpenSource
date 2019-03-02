@@ -342,6 +342,11 @@ int qg_get_battery_current(struct qpnp_qg *chip, int *ibat_ua)
 		return 0;
 	}
 
+	if (chip->dt.qg_vbms_mode) {
+		*ibat_ua = chip->vbms_ibat_ua;
+		return 0;
+	}
+
 	/* hold data */
 	rc = qg_masked_write(chip, chip->qg_base + QG_DATA_CTL2_REG,
 				BURST_AVG_HOLD_FOR_READ_BIT,

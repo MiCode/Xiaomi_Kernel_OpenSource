@@ -602,7 +602,8 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			qseecom.smcinvoke_support = true;
 			smc_id = TZ_OS_REGISTER_LISTENER_SMCINVOKE_ID;
 			ret = scm_call2(smc_id, &desc);
-			if (ret && ret != -EBUSY) {
+			if (ret == -EIO) {
+				/* smcinvoke is not supported */
 				qseecom.smcinvoke_support = false;
 				smc_id = TZ_OS_REGISTER_LISTENER_ID;
 				ret = scm_call2(smc_id, &desc);
@@ -4143,6 +4144,7 @@ static int __qseecom_allocate_img_data(struct ion_handle **pihandle,
 	struct ion_handle *ihandle = NULL;
 	u8 *img_data = NULL;
 	int retry = 0;
+	int ion_flag = ION_FLAG_CACHED;
 
 	do {
 		if (retry++) {
@@ -4151,7 +4153,7 @@ static int __qseecom_allocate_img_data(struct ion_handle **pihandle,
 			mutex_lock(&app_access_lock);
 		}
 		ihandle = ion_alloc(qseecom.ion_clnt, fw_size,
-			SZ_4K, ION_HEAP(ION_QSECOM_TA_HEAP_ID), 0);
+			SZ_4K, ION_HEAP(ION_QSECOM_TA_HEAP_ID), ion_flag);
 	} while (IS_ERR_OR_NULL(ihandle) &&
 			(retry <= QSEECOM_TA_ION_ALLOCATE_MAX_ATTEMP));
 

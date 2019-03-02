@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,4 +20,66 @@
 	status = "okay";
 	qcom,connector-type-uAB;
 	extcon = <0>, <0>, <0>, <&vbus_detect>;
+};
+
+&soc {
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm 42 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
+	vreg_can: vreg_can {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_can";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		enable-active-high;
+		gpio = <&tlmm 71 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&i2c_4 {
+	status = "okay";
+
+	iam20680@69 {
+	       compatible = "inven,iam20680";
+	       reg = <0x69>;
+	       pinctrl-names = "default";
+	       pinctrl-0 = <&sensor_int1_default>;
+	       interrupt-parent = <&tlmm>;
+	       interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+	       axis_map_x = <1>;
+	       axis_map_y = <0>;
+	       axis_map_z = <2>;
+	       negate_x = <1>;
+	       negate_y = <0>;
+	       negate_z = <0>;
+	       inven,secondary_type = "none";
+	       inven,aux_type = "none";
+	       inven,read_only_slave_type = "none";
+	};
+
+	asm330@6a {
+	       compatible = "st,asm330lhh";
+	       reg = <0x6a>;
+	       pinctrl-names = "default";
+	       pinctrl-0 = <&sensor_int1_default>;
+	       interrupt-parent = <&tlmm>;
+	       interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+	       st,drdy-int-pin= <2>;
+	};
+};
+
+&spi_2 {
+	status = "okay";
+};
+
+&tlmm {
+	/* Set these up as hogs */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pmx_can_reset>;
 };

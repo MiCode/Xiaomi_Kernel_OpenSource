@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1697,6 +1697,58 @@
 					drive-strength = <8>;	/* 8 mA */
 					bias-disable;		/* NO PULL*/
 				};
+			};
+		};
+
+		sensor_int1_default: sensor_int1_default {
+			     mux {
+				     pins = "gpio78";
+				     function = "gpio";
+			     };
+
+			     config {
+				     pins = "gpio78";
+				     drive-strength = <16>; /* 16 mA */
+				     bias-pull-down; /* pull down */
+			     };
+		};
+
+		sensor_int2_default: sensor_int2_default {
+			     mux {
+				     pins = "gpio79";
+				     function = "gpio";
+			     };
+
+			     config {
+				     pins = "gpio79";
+				     drive-strength = <16>; /* 16 mA */
+				     bias-pull-down; /* pull down */
+			     };
+		};
+
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio42";
+				function = "nav_dr";
+			};
+
+			config {
+				pins = "gpio42";
+				bias-pull-down;
+			};
+		};
+
+		pmx_can_reset: pmx_can_reset {
+			mux {
+				pins = "gpio99";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio99";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
 			};
 		};
 	};

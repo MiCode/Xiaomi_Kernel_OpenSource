@@ -1088,6 +1088,8 @@ int hfi1_verbs_send_pio(struct rvt_qp *qp, struct hfi1_pkt_state *ps,
 
 				if (slen > len)
 					slen = len;
+				if (slen > ss->sge.sge_length)
+					slen = ss->sge.sge_length;
 				update_sge(ss, slen);
 				seg_pio_copy_mid(pbuf, addr, slen);
 				len -= slen;

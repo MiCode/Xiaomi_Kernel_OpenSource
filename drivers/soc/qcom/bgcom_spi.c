@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +106,7 @@ static uint32_t g_slav_status_reg;
 static void send_input_events(struct work_struct *work);
 static struct list_head cb_head = LIST_HEAD_INIT(cb_head);
 static struct list_head pr_lst_hd = LIST_HEAD_INIT(pr_lst_hd);
+static DEFINE_SPINLOCK(lst_setup_lock);
 static enum bgcom_spi_state spi_state;
 
 
@@ -148,7 +149,9 @@ static void send_input_events(struct work_struct *work)
 		evnt = node->evnt;
 		bgrsb_send_input(evnt);
 		kfree(evnt);
+		spin_lock(&lst_setup_lock);
 		list_del(&node->list);
+		spin_unlock(&lst_setup_lock);
 		kfree(node);
 	}
 }
@@ -323,8 +326,9 @@ static void parse_fifo(uint8_t *data, union bgcom_event_data_type *event_data)
 
 			data_list = kmalloc(sizeof(*data_list), GFP_KERNEL);
 			data_list->evnt = evnt;
+			spin_lock(&lst_setup_lock);
 			list_add_tail(&data_list->list, &pr_lst_hd);
-
+			spin_unlock(&lst_setup_lock);
 		} else if (event_id == 0x0001) {
 			evnt_data = kmalloc(p_len, GFP_KERNEL);
 			if (evnt_data != NULL) {
@@ -821,6 +825,19 @@ int bgcom_resume(void *handle)
 		return -ECANCELED;
 
 	cntx = (struct bg_context *)handle;
+
+	/* if client is outside bgcom scope and
+	 * handle is provided before BGCOM probed
+	 */
+	if (cntx->state == BGCOM_PROB_WAIT) {
+		pr_info("handle is provided before BGCOM probed\n");
+		if (!is_bgcom_ready())
+			return -EAGAIN;
+		cntx->bg_spi = container_of(bg_com_drv,
+						struct bg_spi_priv, lhandle);
+		cntx->state = BGCOM_PROB_SUCCESS;
+	}
+
 	bg_spi = cntx->bg_spi;
 
 	mutex_lock(&bg_resume_mutex);
@@ -1006,7 +1023,7 @@ static int bg_spi_probe(struct spi_device *spi)
 
 	bg_irq = gpio_to_irq(irq_gpio);
 	ret = request_threaded_irq(bg_irq, NULL, bg_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom,bg_spi", bg_spi);
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-bg_spi", bg_spi);
 
 	if (ret)
 		goto err_ret;

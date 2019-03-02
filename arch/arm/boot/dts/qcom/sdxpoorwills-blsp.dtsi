@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,7 +128,7 @@
 		status = "disabled";
 	};
 
-	i2c_5: i2c@835000 { /* BLSP1 QUP1: GPIO: 74,75 */
+	i2c_5: i2cb@835000 { /* BLSP1 QUP1: GPIO: 74,75 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -151,7 +151,7 @@
 		status = "disabled";
 	};
 
-	i2c_6: i2c@836000 { /* BLSP1 QUP2: GPIO: 65,66 */
+	i2c_6: i2cb@836000 { /* BLSP1 QUP2: GPIO: 65,66 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -174,7 +174,7 @@
 		status = "disabled";
 	};
 
-	i2c_7: i2c@838000 { /* BLSP1 QUP4: GPIO: 18,19 */
+	i2c_7: i2cb@838000 { /* BLSP1 QUP4: GPIO: 18,19 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;

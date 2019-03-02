@@ -1,0 +1,369 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
+#include "msm8909w-gpu.dtsi"
+#include "msm8909w.dtsi"
+#include "apq8009w-memory.dtsi"
+#include "8909w-pm660.dtsi"
+#include "spi-panel-st7789v2-qvga-cmd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8009W-PM660 WTP SDW2500";
+	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
+	qcom,msm-id =   <265 0>,
+			<301 0>;
+	qcom,board-id = <8 0x112>;
+	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
+			<0x0001011b 0x0 0x0 0x0>;
+};
+
+&soc {
+	/delete-node/ qcom,msm-cpufreq;
+	qcom,msm-cpufreq {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk";
+		qcom,cpufreq-table =
+			 <  400000 >,
+			 <  800000 >,
+			 < 1094400 >,
+			 < 1267200 >;
+	};
+
+	i2c@78b7000 { /* BLSP1 QUP3 */
+		synaptics@20 {
+			compatible = "synaptics,dsx-i2c";
+			reg = <0x20>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <98 0x2008>;
+			vdd_ana-supply = <&pm660_l18>;
+			vcc_i2c-supply = <&pm660_l13>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+							"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,irq-gpio = <&msm_gpio 98 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,max-y-for-2d = <389>;
+			synaptics,wakeup-gestures-en = <1>;
+			synaptics,resume-in-workqueue;
+			synaptics,x-flip;
+			synaptics,y-flip;
+
+			synaptics,reset-gpio = <&msm_gpio 31 0x0>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,reset-on-state = <0>;
+			synaptics,reset-active-ms = <20>;
+			/delete-property/ synaptics,display-coords;
+			/delete-property/ synaptics,panel-coords;
+			/delete-property/ synaptics,power-down;
+			/delete-property/ synaptics,disable-gpios;
+			/delete-property/ synaptics,is_wake;
+		};
+
+		/delete-node/ it7260@46;
+	};
+
+	spi@78B8000 {  /* BLSP1 QUP4 */
+		status = "ok";
+		qcom,mdss_spi_client {
+			reg = <0>;
+			compatible = "qcom,mdss-spi-client";
+			label = "MDSS SPI QUP4 CLIENT";
+			dc-gpio = <&msm_gpio 59 0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm660_s2_floor_corner>;
+
+		msm_thermal_freq: qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1094400>;
+			qcom,freq-req;
+		};
+	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <1000000>;
+			qcom,high-threshold-uamp = <2000000>;
+			qcom,mitigation-freq-khz = <1094400>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
+	msm_digital_codec: msm-dig-codec@771c000 {
+		compatible = "qcom,msm-digital-codec";
+		reg = <0x0771c000 0x0>;
+
+		cdc-vdd-digital-supply = <&pm660_l11>;
+		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-digital-current = <5000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
+
+		qcom,subsys-name = "modem";
+	};
+
+	mdss_spi: qcom,mdss_spi {
+		compatible = "qcom,mdss-spi-display";
+		label = "mdss spi panel";
+
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
+		vdd-supply = <&pm660_l18>;
+		vddio-supply = <&pm660_l11>;
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <3000000>;
+				qcom,supply-max-voltage = <3000000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <3000000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
+};
+
+&qcom_seecom {
+	reg = <0x87a00000 0x200000>;
+	reg-names = "secapp-region";
+	status = "okay";
+};
+
+&external_image_mem {
+	reg = <0x0 0x87a00000 0x0 0x0600000>;
+};
+
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x05600000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x8d600000 0x0 0x0600000>;
+};
+
+&i2c_1 {
+	status = "disabled";
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_4 {
+	status = "disabled";
+};
+
+&i2c_2 {
+	status = "okay";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&msm_gpio 50 0x00>;
+		qcom,nq-ven = <&msm_gpio 52 0x00>;
+		qcom,nq-firm = <&msm_gpio 38 0x00>;
+		qcom,nq-esepwr = <&msm_gpio 49 0x00>;
+		qcom,nq-clkreq = <&pm660_gpios 4 0x00>;
+		qcom,clk-src = "BBCLK3";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <50 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active","nfc_suspend";
+		pinctrl-0 = <&nfcw_int_active &nfcv2k_disable_active>;
+		pinctrl-1 = <&nfcw_int_suspend &nfcv2k_disable_suspend>;
+		clocks = <&clock_rpm clk_bb_clk3_pin>;
+		clock-names = "ref_clk";
+	};
+};
+
+&i2c_5 {
+	status = "disabled";
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&blsp1_uart1 {
+	status = "disabled";
+};
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console2_sleep>;
+};
+
+/* Pinctrl dt nodes for interrupt & reset gpio for Synaptics touch controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio31";
+	};
+
+	config {
+		pins = "gpio31";
+	};
+};
+
+&ts_reset_suspend {
+	mux {
+		pins = "gpio31";
+	};
+
+	config {
+		pins = "gpio31";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio31";
+	};
+
+	config {
+		pins = "gpio98", "gpio31";
+	};
+};
+
+&vendor_fstab {
+	fsmgr_flags = "wait";
+};
+
+&mdss_dsi0{
+	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
+};
+
+&spi_st7789v2_qvga_cmd {
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+	qcom,mdss-spi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-spi-bl-pmic-bank-select = <0>;
+	qcom,cont-splash-enabled;
+};
+
+&mdss_spi {
+	qcom,spi-pref-prim-pan = <&spi_st7789v2_qvga_cmd>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_te_active>;
+	pinctrl-1 = <&mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&msm_gpio 24 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-spi-dc-gpio = <&msm_gpio 59 0>;
+
+	vdd-supply = <&pm660_l18>;
+	vddio-supply = <&pm660_l11>;
+};
+
+&dai_mi2s3 {
+	qcom,msm-mi2s-rx-lines = <1>;
+	qcom,msm-mi2s-tx-lines = <2>;
+};
+
+&audio_codec_mtp {
+	compatible = "qcom,msm8909-audio-codec";
+	qcom,model = "msm8909w-wtp-snd-card";
+	qcom,msm-ext-pa = "quaternary";
+	qcom,split-a2dp;
+	qcom,audio-routing =
+		"CDC_CONN", "MCLK",
+		"QUAT_MI2S_RX", "DIGIT_REGULATOR",
+		"TX_I2S_CLK", "DIGIT_REGULATOR",
+		"DMIC1", "Digital Mic1",
+		"DMIC2", "Digital Mic2";
+	qcom,msm-gpios =
+		"quat_i2s",
+		"dmic";
+	qcom,pinctrl-names =
+		"all_off",
+		"quat_i2s_act",
+		"dmic_act",
+		"quat_i2s_dmic_act";
+	pinctrl-names =
+		"all_off",
+		"quat_i2s_act",
+		"dmic_act",
+		"quat_i2s_dmic_act";
+	pinctrl-0 = <&quat_mi2s_sleep &quat_mi2s_din_sleep
+			&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	pinctrl-1 = <&quat_mi2s_active &quat_mi2s_din_active
+			&cdc_dmic0_clk_sus &cdc_dmic0_data_sus>;
+	pinctrl-2 = <&quat_mi2s_sleep &quat_mi2s_din_sleep
+			&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+	pinctrl-3 = <&quat_mi2s_active &quat_mi2s_din_active
+			&cdc_dmic0_clk_act &cdc_dmic0_data_act>;
+	/delete-property/qcom,cdc-us-euro-gpios;
+
+	asoc-codec = <&stub_codec>, <&msm_digital_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec";
+};

@@ -579,7 +579,10 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009-robot-pronto-refboard.dtb \
 	apq8009-dragon.dtb \
 	apq8009-lat-v1.0.dtb \
-	sdw3100-msm8909w-1gb-wtp.dtb
+	sdw3100-msm8909w-1gb-wtp.dtb \
+	sdw2500-apq8009w-wtp.dtb \
+	sdw2500-msm8909w-wtp.dtb
+
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \

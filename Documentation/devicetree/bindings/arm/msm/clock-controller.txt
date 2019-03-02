@@ -30,6 +30,7 @@ Required properties:
 			"qcom,gcc-8917"
 			"qcom,gcc-8940"
 			"qcom,gcc-8920"
+			"qcom,gcc-qm215"
 			"qcom,gcc-spm-8952"
 			"qcom,gcc-spm-8937"
 			"qcom,rpmcc-8909"
