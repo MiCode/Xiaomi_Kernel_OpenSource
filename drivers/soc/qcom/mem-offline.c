@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/memory.h>
@@ -346,8 +346,9 @@ static int mem_parse_dt(struct platform_device *pdev)
 
 	mailbox.mbox = mbox_request_channel(&mailbox.cl, 0);
 	if (IS_ERR(mailbox.mbox)) {
-		pr_err("mem-offline: failed to get mailbox channel %pK %d\n",
-			mailbox.mbox, PTR_ERR(mailbox.mbox));
+		if (PTR_ERR(mailbox.mbox) != -EPROBE_DEFER)
+			pr_err("mem-offline: failed to get mailbox channel %pK %d\n",
+				mailbox.mbox, PTR_ERR(mailbox.mbox));
 		return PTR_ERR(mailbox.mbox);
 	}
 
@@ -363,8 +364,9 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	if (mem_parse_dt(pdev))
-		return -ENODEV;
+	ret = mem_parse_dt(pdev);
+	if (ret)
+		return ret;
 
 	ret = mem_online_remaining_blocks();
 	if (ret < 0)
