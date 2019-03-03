@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#define pr_fmt(fmt)	"Qnovo: %s: " fmt, __func__
 
 #include <linux/device.h>
 #include <linux/module.h>
@@ -79,6 +81,7 @@
 #define USER_VOTER		"user_voter"
 #define SHUTDOWN_VOTER		"user_voter"
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
+#define HW_OK_TO_QNOVO_VOTER	"HW_OK_TO_QNOVO_VOTER"
 
 #define QNOVO_VOTER		"qnovo_voter"
 #define QNOVO_OVERALL_VOTER	"QNOVO_OVERALL_VOTER"
@@ -115,6 +118,9 @@ struct qnovo {
 	struct class		qnovo_class;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pinctrl_state1;
+	struct pinctrl_state	*pinctrl_state2;
 	struct notifier_block	nb;
 	struct votable		*disable_votable;
 	struct votable		*pt_dis_votable;
@@ -302,6 +308,30 @@ static int qnovo5_parse_dt(struct qnovo *chip)
 	if (rc < 0) {
 		pr_err("Couldn't read base rc = %d\n", rc);
 		return rc;
+	}
+
+	chip->pinctrl = devm_pinctrl_get(chip->dev);
+	if (IS_ERR(chip->pinctrl)) {
+		pr_err("Couldn't get pinctrl rc=%d\n", PTR_ERR(chip->pinctrl));
+		chip->pinctrl = NULL;
+	}
+
+	if (chip->pinctrl) {
+		chip->pinctrl_state1 = pinctrl_lookup_state(chip->pinctrl,
+						"q_state1");
+		if (IS_ERR(chip->pinctrl_state1)) {
+			rc = PTR_ERR(chip->pinctrl_state1);
+			pr_err("Couldn't get pinctrl state1 rc=%d\n", rc);
+			return rc;
+		}
+
+		chip->pinctrl_state2 = pinctrl_lookup_state(chip->pinctrl,
+						"q_state2");
+		if (IS_ERR(chip->pinctrl_state2)) {
+			rc = PTR_ERR(chip->pinctrl_state2);
+			pr_err("Couldn't get pinctrl state2 rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -1105,8 +1135,8 @@ static void status_change_work(struct work_struct *work)
 	struct qnovo *chip = container_of(work,
 			struct qnovo, status_change_work);
 	union power_supply_propval pval;
-	bool usb_present = false;
-	int rc;
+	bool usb_present = false, hw_ok_to_qnovo = false;
+	int rc, battery_health, charge_status;
 
 	if (is_usb_available(chip)) {
 		rc = power_supply_get_property(chip->usb_psy,
@@ -1120,12 +1150,53 @@ static void status_change_work(struct work_struct *work)
 		cancel_delayed_work_sync(&chip->usb_debounce_work);
 		vote(chip->awake_votable, USB_READY_VOTER, false, 0);
 		vote(chip->chg_ready_votable, USB_READY_VOTER, false, 0);
+		if (chip->pinctrl) {
+			rc = pinctrl_select_state(chip->pinctrl,
+					chip->pinctrl_state1);
+			if (rc < 0)
+				pr_err("Couldn't select state 1 rc=%d\n", rc);
+
+			rc = pinctrl_select_state(chip->pinctrl,
+					chip->pinctrl_state2);
+			if (rc < 0)
+				pr_err("Couldn't select state 2 rc=%d\n", rc);
+		}
 	} else if (!chip->usb_present && usb_present) {
 		/* insertion */
 		chip->usb_present = 1;
 		vote(chip->awake_votable, USB_READY_VOTER, true, 0);
 		schedule_delayed_work(&chip->usb_debounce_work,
 				msecs_to_jiffies(DEBOUNCE_MS));
+	}
+
+	if (!is_batt_available(chip))
+		return;
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_HEALTH,
+					&pval);
+	if (rc < 0) {
+		pr_err("Error in getting battery health, rc=%d\n", rc);
+		return;
+	}
+	battery_health = pval.intval;
+
+	rc = power_supply_get_property(chip->batt_psy, POWER_SUPPLY_PROP_STATUS,
+					&pval);
+	if (rc < 0) {
+		pr_err("Error in getting charging status, rc=%d\n", rc);
+		return;
+	}
+	charge_status = pval.intval;
+
+	pr_debug("USB present: %d health:%d charge_status: %d\n",
+		chip->usb_present, battery_health, charge_status);
+
+	if (chip->usb_present) {
+		hw_ok_to_qnovo =
+			(battery_health == POWER_SUPPLY_HEALTH_GOOD) &&
+			(charge_status == POWER_SUPPLY_STATUS_CHARGING);
+		vote(chip->not_ok_to_qnovo_votable, HW_OK_TO_QNOVO_VOTER,
+					!hw_ok_to_qnovo, 0);
 	}
 }
 

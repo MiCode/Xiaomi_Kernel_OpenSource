@@ -1387,6 +1387,10 @@ static void qcom_glink_destroy_ept(struct rpmsg_endpoint *ept)
 	unsigned long flags;
 
 	spin_lock_irqsave(&channel->recv_lock, flags);
+	if (!channel->ept.cb) {
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
+		return;
+	}
 	channel->ept.cb = NULL;
 	spin_unlock_irqrestore(&channel->recv_lock, flags);
 
@@ -1474,6 +1478,9 @@ static int __qcom_glink_send(struct glink_channel *channel,
 			/* We found an available intent */
 			if (intent)
 				break;
+
+			if (atomic_read(&glink->in_reset))
+				return -ECONNRESET;
 
 			if (!wait)
 				return -EBUSY;

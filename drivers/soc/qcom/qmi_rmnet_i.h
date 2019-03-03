@@ -43,7 +43,8 @@ struct rmnet_bearer_map {
 	u8  ack_req;
 	u32 last_grant;
 	u16 last_seq;
-	u32 ancillary;
+	bool tcp_bidir;
+	bool rat_switch;
 };
 
 struct svc_info {

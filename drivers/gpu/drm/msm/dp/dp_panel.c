@@ -1512,12 +1512,14 @@ static int dp_panel_dsc_prepare_basic_params(
 	struct dp_dsc_slices_per_line *rec;
 	int slice_width;
 	u32 ppr = dp_mode->timing.pixel_clk_khz/1000;
+	int max_slice_width;
 
 	comp_info->dsc_info.slice_per_pkt = 0;
 	for (i = 0; i < ARRAY_SIZE(slice_per_line_tbl); i++) {
 		rec = &slice_per_line_tbl[i];
 		if ((ppr > rec->min_ppr) && (ppr <= rec->max_ppr)) {
 			comp_info->dsc_info.slice_per_pkt = rec->num_slices;
+			i++;
 			break;
 		}
 	}
@@ -1525,8 +1527,20 @@ static int dp_panel_dsc_prepare_basic_params(
 	if (comp_info->dsc_info.slice_per_pkt == 0)
 		return -EINVAL;
 
+	max_slice_width = dp_panel->dsc_dpcd[12] * 320;
 	slice_width = (dp_mode->timing.h_active /
 				comp_info->dsc_info.slice_per_pkt);
+
+	while (slice_width >= max_slice_width) {
+		if (i == ARRAY_SIZE(slice_per_line_tbl))
+			return -EINVAL;
+
+		rec = &slice_per_line_tbl[i];
+		comp_info->dsc_info.slice_per_pkt = rec->num_slices;
+		slice_width = (dp_mode->timing.h_active /
+				comp_info->dsc_info.slice_per_pkt);
+		i++;
+	}
 
 	comp_info->dsc_info.block_pred_enable =
 			dp_panel->sink_dsc_caps.block_pred_en;
@@ -2832,6 +2846,8 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	if (in->base_panel) {
 		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
 				DP_RECEIVER_CAP_SIZE + 1);
+		memcpy(dp_panel->dsc_dpcd, in->base_panel->dsc_dpcd,
+				DP_RECEIVER_DSC_CAP_SIZE + 1);
 		memcpy(&dp_panel->link_info, &in->base_panel->link_info,
 				sizeof(dp_panel->link_info));
 		dp_panel->mst_state = in->base_panel->mst_state;

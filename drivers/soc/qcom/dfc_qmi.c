@@ -21,6 +21,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/dfc.h>
 
+#define DFC_MASK_TCP_BIDIR 0x1
+#define DFC_MASK_RAT_SWITCH 0x2
+#define DFC_IS_TCP_BIDIR(r) (bool)((r) & DFC_MASK_TCP_BIDIR)
+#define DFC_IS_RAT_SWITCH(r) (bool)((r) & DFC_MASK_RAT_SWITCH)
+
 #define DFC_IS_ANCILLARY(type) ((type) != AF_INET && (type) != AF_INET6)
 
 #define DFC_MAX_QOS_ID_V01 2
@@ -852,7 +857,7 @@ static int dfc_bearer_flow_ctl(struct net_device *dev,
 			/*
 			 * Do not flow disable ancillary q if ancillary is true
 			 */
-			if (bearer->ancillary && enable == 0 &&
+			if (bearer->tcp_bidir && enable == 0 &&
 					DFC_IS_ANCILLARY(itm->ip_type))
 				continue;
 
@@ -890,7 +895,7 @@ static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 			qmi_rmnet_grant_per(bearer_itm->grant_size);
 		bearer_itm->seq = fc_info->seq_num;
 		bearer_itm->ack_req = ack_req;
-		bearer_itm->ancillary = ancillary;
+		bearer_itm->tcp_bidir = DFC_IS_TCP_BIDIR(ancillary);
 		bearer_itm->last_grant = fc_info->num_bytes;
 		bearer_itm->last_seq = fc_info->seq_num;
 	}
@@ -918,24 +923,32 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 {
 	struct rmnet_bearer_map *itm = NULL;
 	int rc = 0;
-	int action = -1;
+	bool action = false;
 
 	itm = qmi_rmnet_get_bearer_map(qos, fc_info->bearer_id);
 	if (itm) {
-		if (itm->grant_size == 0 && fc_info->num_bytes > 0)
-			action = 1;
-		else if (itm->grant_size > 0 && fc_info->num_bytes == 0)
-			action = 0;
+		/* The RAT switch flag indicates the start and end of
+		 * the switch. Ignore indications in between.
+		 */
+		if (DFC_IS_RAT_SWITCH(ancillary))
+			itm->rat_switch = !fc_info->num_bytes;
+		else
+			if (itm->rat_switch)
+				return 0;
+
+		if ((itm->grant_size == 0 && fc_info->num_bytes > 0) ||
+		    (itm->grant_size > 0 && fc_info->num_bytes == 0))
+			action = true;
 
 		itm->grant_size = fc_info->num_bytes;
 		itm->grant_thresh = qmi_rmnet_grant_per(itm->grant_size);
 		itm->seq = fc_info->seq_num;
 		itm->ack_req = ack_req;
-		itm->ancillary = ancillary;
+		itm->tcp_bidir = DFC_IS_TCP_BIDIR(ancillary);
 		itm->last_grant = fc_info->num_bytes;
 		itm->last_seq = fc_info->seq_num;
 
-		if (action != -1)
+		if (action)
 			rc = dfc_bearer_flow_ctl(dev, itm, qos);
 	} else {
 		pr_debug("grant %u before flow activate", fc_info->num_bytes);

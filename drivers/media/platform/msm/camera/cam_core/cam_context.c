@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,6 +244,7 @@ int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
 		return -EINVAL;
 	}
 
+	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].pagefault_ops) {
 		rc = ctx->state_machine[ctx->state].pagefault_ops(ctx, iova,
 			buf_info);
@@ -251,6 +252,7 @@ int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
 		CAM_WARN(CAM_CORE, "No dump ctx in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
 	}
+	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
 }

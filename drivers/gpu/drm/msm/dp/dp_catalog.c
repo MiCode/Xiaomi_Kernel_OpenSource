@@ -379,13 +379,21 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	struct dp_catalog_private *catalog;
 	struct drm_msm_ext_hdr_metadata *hdr;
 	struct dp_io_data *io_data;
-	u32 header, parity, data;
+	u32 header, parity, data, mst_offset = 0;
 	u8 buf[SZ_128], off = 0;
 
 	if (!panel) {
 		pr_err("invalid input\n");
 		return;
 	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	if (panel->stream_id == DP_STREAM_1)
+		mst_offset = MMSS_DP1_VSCEXT_0 - MMSS_DP_VSCEXT_0;
 
 	catalog = dp_catalog_get_priv(panel);
 	hdr = &panel->hdr_data.hdr_meta;
@@ -396,7 +404,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_1_BIT)
 			| (parity << PARITY_BYTE_1_BIT));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_0, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_0 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -405,22 +414,26 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_2_BIT)
 			| (parity << PARITY_BYTE_2_BIT));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_1, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_1 + mst_offset,
+			data);
 
 	/* HEADER BYTE 3 */
 	header = panel->hdr_data.vscext_header_byte3;
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_3_BIT)
 			| (parity << PARITY_BYTE_3_BIT));
-	data |= dp_read(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_1);
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_1, data);
+	data |= dp_read(catalog->exe_mode, io_data,
+			MMSS_DP_VSCEXT_1 + mst_offset);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_1 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
 	data = panel->hdr_data.version;
 	data |= panel->hdr_data.length << 8;
 	data |= hdr->eotf << 16;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_2, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_2 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -428,7 +441,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[0]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[0]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[0]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_3, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_3 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -436,7 +450,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[1]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[1]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[1]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_4, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_4 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -444,7 +459,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[2]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[2]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[2]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_5, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_5 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -452,7 +468,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->white_point_x) << 8) |
 		(DP_GET_LSB(hdr->white_point_y) << 16) |
 		(DP_GET_MSB(hdr->white_point_y) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_6, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_6 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -460,7 +477,8 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->max_luminance) << 8) |
 		(DP_GET_LSB(hdr->min_luminance) << 16) |
 		(DP_GET_MSB(hdr->min_luminance) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_7, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_7 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -468,12 +486,14 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->max_content_light_level) << 8) |
 		(DP_GET_LSB(hdr->max_average_light_level) << 16) |
 		(DP_GET_MSB(hdr->max_average_light_level) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_8, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_8 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
 	data = 0;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_9, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_9 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -485,7 +505,7 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct dp_io_data *io_data;
-	u32 header, parity, data;
+	u32 header, parity, data, mst_offset = 0;
 	u8 bpc, off = 0;
 	u8 buf[SZ_128];
 
@@ -493,6 +513,14 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 		pr_err("invalid input\n");
 		return;
 	}
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	if (panel->stream_id == DP_STREAM_1)
+		mst_offset = MMSS_DP1_GENERIC0_0 - MMSS_DP_GENERIC0_0;
 
 	catalog = dp_catalog_get_priv(panel);
 	io_data = catalog->io.dp_link;
@@ -502,7 +530,8 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_1_BIT)
 			| (parity << PARITY_BYTE_1_BIT));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_0, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_0 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -511,32 +540,39 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_2_BIT)
 			| (parity << PARITY_BYTE_2_BIT));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_1, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_1 + mst_offset,
+			data);
 
 	/* HEADER BYTE 3 */
 	header = panel->hdr_data.vsc_header_byte3;
 	parity = dp_header_get_parity(header);
 	data   = ((header << HEADER_BYTE_3_BIT)
 			| (parity << PARITY_BYTE_3_BIT));
-	data |= dp_read(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_1);
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_1, data);
+	data |= dp_read(catalog->exe_mode, io_data,
+			MMSS_DP_GENERIC0_1 + mst_offset);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_1 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
 	data = 0;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_2, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_2 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_3, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_3 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_4, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_4 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_5, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_5 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
@@ -559,20 +595,24 @@ static void dp_catalog_panel_setup_vsc_sdp(struct dp_catalog_panel *panel)
 		((panel->hdr_data.dynamic_range & 0x1) << 15) |
 		((panel->hdr_data.content_type & 0x7) << 16);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_6, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_6 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
 	data = 0;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_7, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_7 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_8, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_8 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_9, data);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC0_9 + mst_offset,
+			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 

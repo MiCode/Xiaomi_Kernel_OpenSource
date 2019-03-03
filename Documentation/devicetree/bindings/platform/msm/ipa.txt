@@ -93,6 +93,8 @@ memory allocation over a PCIe bridge
 				over pcie bus or not.
 - qcom,ipa-wdi2_over_gsi: Boolean context flag to indicate WDI2 offload over GSI
 				supported or not.
+- qcom,ipa-endp-delay-wa: Boolean context flag to indicate end point delay work around
+				supported or not.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

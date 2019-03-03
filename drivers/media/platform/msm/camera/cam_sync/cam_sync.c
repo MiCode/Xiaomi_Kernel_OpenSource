@@ -196,8 +196,8 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: Sync object already signaled sync_obj = %d",
-			sync_obj);
+			"Sync object already signaled sync_obj = %d state = %d",
+			sync_obj, row->state);
 		return -EALREADY;
 	}
 
@@ -323,8 +323,8 @@ int cam_sync_get_obj_ref(int32_t sync_obj)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj = %d",
-			sync_obj);
+			"accessing an uninitialized sync obj = %d state = %d",
+			sync_obj, row->state);
 		return -EINVAL;
 	}
 
