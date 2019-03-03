@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 # define _GSI_EMULATION_STUBS_H_
 
 # include <asm/barrier.h>
-# define __iormb()       rmb() /* used in gsi.h */
 # define __iowmb()       wmb() /* used in gsi.h */
 
 #endif /* #if !defined(_GSI_EMULATION_STUBS_H_) */
