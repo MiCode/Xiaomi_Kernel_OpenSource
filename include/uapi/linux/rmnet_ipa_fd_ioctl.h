@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,10 @@ struct wan_ioctl_lan_client_info {
 	uint8_t hdr_len;
 	/* Source pipe of the lan client. */
 	enum ipa_client_type ul_src_pipe;
+	/* Counter indices for h/w fnr stats */
+#define IPA_HW_FNR_STATS
+	uint8_t ul_cnt_idx;
+	uint8_t dl_cnt_idx;
 };
 
 struct wan_ioctl_per_client_info {

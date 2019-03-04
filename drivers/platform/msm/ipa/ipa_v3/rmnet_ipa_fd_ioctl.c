@@ -426,9 +426,12 @@ static long ipa3_wan_ioctl(struct file *filp,
 			retval = -EFAULT;
 			break;
 		}
-
-		retval = rmnet_ipa3_query_per_client_stats(
-			(struct wan_ioctl_query_per_client_stats *)param);
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			retval = rmnet_ipa3_query_per_client_stats_v2(
+			  (struct wan_ioctl_query_per_client_stats *)param);
+		else
+			retval = rmnet_ipa3_query_per_client_stats(
+			  (struct wan_ioctl_query_per_client_stats *)param);
 		if (retval) {
 			IPAWANERR("WAN_IOC_QUERY_PER_CLIENT_STATS failed\n");
 			break;
