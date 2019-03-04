@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/export.h>
@@ -353,32 +353,31 @@ static DEVICE_ATTR(mapped, 0444, memstat_show, NULL);
 static DEVICE_ATTR(mapped_max, 0444, memstat_show, NULL);
 static DEVICE_ATTR_RW(full_cache_threshold);
 
-static const struct device_attribute *drv_attr_list[] = {
-	&dev_attr_vmalloc,
-	&dev_attr_vmalloc_max,
-	&dev_attr_page_alloc,
-	&dev_attr_page_alloc_max,
-	&dev_attr_coherent,
-	&dev_attr_coherent_max,
-	&dev_attr_secure,
-	&dev_attr_secure_max,
-	&dev_attr_mapped,
-	&dev_attr_mapped_max,
-	&dev_attr_full_cache_threshold,
-	NULL
+static const struct attribute *drv_attr_list[] = {
+	&dev_attr_vmalloc.attr,
+	&dev_attr_vmalloc_max.attr,
+	&dev_attr_page_alloc.attr,
+	&dev_attr_page_alloc_max.attr,
+	&dev_attr_coherent.attr,
+	&dev_attr_coherent_max.attr,
+	&dev_attr_secure.attr,
+	&dev_attr_secure_max.attr,
+	&dev_attr_mapped.attr,
+	&dev_attr_mapped_max.attr,
+	&dev_attr_full_cache_threshold.attr,
+	NULL,
 };
 
 void
 kgsl_sharedmem_uninit_sysfs(void)
 {
-	kgsl_remove_device_sysfs_files(&kgsl_driver.virtdev, drv_attr_list);
+	sysfs_remove_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
 }
 
 int
 kgsl_sharedmem_init_sysfs(void)
 {
-	return kgsl_create_device_sysfs_files(&kgsl_driver.virtdev,
-		drv_attr_list);
+	return sysfs_create_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
 }
 
 static int kgsl_cma_alloc_secure(struct kgsl_device *device,

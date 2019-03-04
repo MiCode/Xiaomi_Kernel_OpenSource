@@ -1391,35 +1391,35 @@ static DEVICE_ATTR_RO(clock_mhz);
 static DEVICE_ATTR_RO(freq_table_mhz);
 static DEVICE_ATTR_RW(pwrscale);
 
-static const struct device_attribute *pwrctrl_attr_list[] = {
-	&dev_attr_gpuclk,
-	&dev_attr_max_gpuclk,
-	&dev_attr_idle_timer,
-	&dev_attr_gpubusy,
-	&dev_attr_gpu_available_frequencies,
-	&dev_attr_gpu_clock_stats,
-	&dev_attr_max_pwrlevel,
-	&dev_attr_min_pwrlevel,
-	&dev_attr_thermal_pwrlevel,
-	&dev_attr_num_pwrlevels,
-	&dev_attr_pmqos_active_latency,
-	&dev_attr_reset_count,
-	&dev_attr_force_clk_on,
-	&dev_attr_force_bus_on,
-	&dev_attr_force_rail_on,
-	&dev_attr_force_no_nap,
-	&dev_attr_bus_split,
-	&dev_attr_default_pwrlevel,
-	&dev_attr_popp,
-	&dev_attr_gpu_model,
-	&dev_attr_gpu_busy_percentage,
-	&dev_attr_min_clock_mhz,
-	&dev_attr_max_clock_mhz,
-	&dev_attr_clock_mhz,
-	&dev_attr_freq_table_mhz,
-	&dev_attr_temp,
-	&dev_attr_pwrscale,
-	NULL
+static const struct attribute *pwrctrl_attr_list[] = {
+	&dev_attr_gpuclk.attr,
+	&dev_attr_max_gpuclk.attr,
+	&dev_attr_idle_timer.attr,
+	&dev_attr_gpubusy.attr,
+	&dev_attr_gpu_available_frequencies.attr,
+	&dev_attr_gpu_clock_stats.attr,
+	&dev_attr_max_pwrlevel.attr,
+	&dev_attr_min_pwrlevel.attr,
+	&dev_attr_thermal_pwrlevel.attr,
+	&dev_attr_num_pwrlevels.attr,
+	&dev_attr_pmqos_active_latency.attr,
+	&dev_attr_reset_count.attr,
+	&dev_attr_force_clk_on.attr,
+	&dev_attr_force_bus_on.attr,
+	&dev_attr_force_rail_on.attr,
+	&dev_attr_force_no_nap.attr,
+	&dev_attr_bus_split.attr,
+	&dev_attr_default_pwrlevel.attr,
+	&dev_attr_popp.attr,
+	&dev_attr_gpu_model.attr,
+	&dev_attr_gpu_busy_percentage.attr,
+	&dev_attr_min_clock_mhz.attr,
+	&dev_attr_max_clock_mhz.attr,
+	&dev_attr_clock_mhz.attr,
+	&dev_attr_freq_table_mhz.attr,
+	&dev_attr_temp.attr,
+	&dev_attr_pwrscale.attr,
+	NULL,
 };
 
 struct sysfs_link {
@@ -1441,7 +1441,7 @@ int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 {
 	int i, ret;
 
-	ret = kgsl_create_device_sysfs_files(device->dev, pwrctrl_attr_list);
+	ret = sysfs_create_files(&device->dev->kobj, pwrctrl_attr_list);
 	if (ret)
 		return ret;
 
@@ -1460,7 +1460,7 @@ int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device)
 {
-	kgsl_remove_device_sysfs_files(device->dev, pwrctrl_attr_list);
+	sysfs_remove_files(&device->dev->kobj, pwrctrl_attr_list);
 }
 
 /*
