@@ -58,6 +58,7 @@ int klp_write_module_reloc(struct module *mod, unsigned long type,
 		val = (s32)value;
 		break;
 	case R_X86_64_PC32:
+	case R_X86_64_PLT32:
 		val = (u32)(value - loc);
 		break;
 	default:
