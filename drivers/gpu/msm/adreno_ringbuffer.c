@@ -232,10 +232,8 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 /**
  * adreno_ringbuffer_start() - Ringbuffer start
  * @adreno_dev: Pointer to adreno device
- * @start_type: Warm or cold start
  */
-int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
-	unsigned int start_type)
+int adreno_ringbuffer_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -255,7 +253,7 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 	}
 
 	/* start is specific GPU rb */
-	return gpudev->rb_start(adreno_dev, start_type);
+	return gpudev->rb_start(adreno_dev);
 }
 
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)

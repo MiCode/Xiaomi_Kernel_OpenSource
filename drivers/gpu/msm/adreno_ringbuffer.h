@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
@@ -143,8 +143,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev);
 
-int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
-		unsigned int start_type);
+int adreno_ringbuffer_start(struct adreno_device *adreno_dev);
 
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 

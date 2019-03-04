@@ -2363,10 +2363,8 @@ static int a5xx_send_me_init(struct adreno_device *adreno_dev,
 /*
  * a5xx_rb_start() - Start the ringbuffer
  * @adreno_dev: Pointer to adreno device
- * @start_type: Warm or cold start
  */
-static int a5xx_rb_start(struct adreno_device *adreno_dev,
-			 unsigned int start_type)
+static int a5xx_rb_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	struct kgsl_device *device = &adreno_dev->dev;

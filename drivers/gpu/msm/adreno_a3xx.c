@@ -683,8 +683,9 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static int a3xx_rb_start(struct adreno_device *adreno_dev,
-			 unsigned int start_type)
+static int a3xx_microcode_load(struct adreno_device *adreno_dev);
+
+static int a3xx_rb_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	int ret;
@@ -703,7 +704,7 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
 			rb->buffer_desc.gpuaddr);
 
-	ret = a3xx_microcode_load(adreno_dev, start_type);
+	ret = a3xx_microcode_load(adreno_dev);
 	if (ret == 0) {
 		/* clear ME_HALT to start micro engine */
 		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
@@ -1593,7 +1594,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	return (*buf != NULL) ? 0 : -ENOMEM;
 }
 
-int a3xx_microcode_read(struct adreno_device *adreno_dev)
+static int a3xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
@@ -1693,32 +1694,16 @@ static inline void load_pfp_ucode(struct adreno_device *adreno_dev,
 				adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
 }
 
-int a3xx_microcode_load(struct adreno_device *adreno_dev,
-				unsigned int start_type)
+static int a3xx_microcode_load(struct adreno_device *adreno_dev)
 {
 	size_t pm4_size = adreno_dev->fw[ADRENO_FW_PM4].size;
 	size_t pfp_size = adreno_dev->fw[ADRENO_FW_PFP].size;
 
-	if (start_type == ADRENO_START_COLD) {
-			/* load the CP ucode using AHB writes */
-			load_pm4_ucode(adreno_dev, 1, pm4_size, 0);
+	/* load the CP ucode using AHB writes */
+	load_pm4_ucode(adreno_dev, 1, pm4_size, 0);
 
-			/* load the prefetch parser ucode using AHB writes */
-			load_pfp_ucode(adreno_dev, 1, pfp_size, 0);
-	} else if (start_type == ADRENO_START_WARM) {
-			/* load the CP jump tables using AHB writes */
-			load_pm4_ucode(adreno_dev,
-				adreno_dev->gpucore->pm4_jt_idx,
-				pm4_size, adreno_dev->gpucore->pm4_jt_addr);
-
-			/*
-			 * load the prefetch parser jump tables using AHB writes
-			 */
-			load_pfp_ucode(adreno_dev,
-				adreno_dev->gpucore->pfp_jt_idx,
-				pfp_size, adreno_dev->gpucore->pfp_jt_addr);
-	} else
-		return -EINVAL;
+	/* load the prefetch parser ucode using AHB writes */
+	load_pfp_ucode(adreno_dev, 1, pfp_size, 0);
 
 	return 0;
 }
