@@ -79,6 +79,7 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 
 #define RES_1080p		(1088*1920)
 #define RES_UHD		(3840*2160)
+#define RES_WQXGA	(2560*1600)
 #define XIN_HALT_TIMEOUT_US	0x4000
 
 static int sde_mdp_wait_for_xin_halt(u32 xin_id)
@@ -242,18 +243,36 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%llu rd:%d\n",
 		width, height, fps, pixfmt, is_yuv, res, is_rd);
 
-	if (!is_yuv)
-		goto exit;
-
 	/*
 	 * If (total_source_pixels <= 62208000  && YUV) -> RD/WROT=2 //1080p30
 	 * If (total_source_pixels <= 124416000 && YUV) -> RD/WROT=4 //1080p60
 	 * If (total_source_pixels <= 2160p && YUV && FPS <= 30) -> RD/WROT = 32
 	 */
-	if (res <= (RES_1080p * 30))
-		ot_lim = 2;
-	else if (res <= (RES_1080p * 60))
-		ot_lim = 4;
+	switch (mdata->mdss_version) {
+	case SDE_MDP_HW_REV_540:
+		if (is_yuv) {
+			if (res <= (RES_1080p * 30))
+				ot_lim = 2;
+			else if (res <= (RES_1080p * 60))
+				ot_lim = 4;
+			else if (res <= (RES_WQXGA * 60))
+				ot_lim = 4;
+			else if (res <= (RES_UHD * 30))
+				ot_lim = 8;
+		} else if (fmt->bpp == 4 && res <= (RES_WQXGA * 60)) {
+			ot_lim = 16;
+		}
+
+		break;
+	default:
+		if (is_yuv) {
+			if (res <= (RES_1080p * 30))
+				ot_lim = 2;
+			else if (res <= (RES_1080p * 60))
+				ot_lim = 4;
+		}
+		break;
+	}
 
 exit:
 	SDEROT_DBG("ot_lim=%d\n", ot_lim);
@@ -535,7 +554,7 @@ static void sde_mdp_parse_vbif_memtype(struct platform_device *pdev,
 			"qcom,mdss-rot-vbif-memtype");
 	mdata->vbif_memtype = kcalloc(mdata->vbif_memtype_count,
 			sizeof(u32), GFP_KERNEL);
-	if (!mdata->vbif_memtype) {
+	if (!mdata->vbif_memtype || !mdata->vbif_memtype_count) {
 		mdata->vbif_memtype_count = 0;
 		return;
 	}
@@ -563,7 +582,7 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 			"qcom,mdss-rot-vbif-qos-setting");
 	mdata->vbif_nrt_qos = kcalloc(mdata->npriority_lvl,
 			sizeof(u32), GFP_KERNEL);
-	if (!mdata->vbif_nrt_qos) {
+	if (!mdata->vbif_nrt_qos || !mdata->npriority_lvl) {
 		mdata->npriority_lvl = 0;
 		return;
 	}

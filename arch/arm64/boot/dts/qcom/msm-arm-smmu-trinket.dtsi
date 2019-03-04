@@ -29,10 +29,12 @@
 		vdd-supply = <&gpu_cx_gdsc>;
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			 <&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
-			 <&clock_gpucc GPU_CC_AHB_CLK>;
+			 <&clock_gpucc GPU_CC_AHB_CLK>,
+			 <&clock_gpucc GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK>;
 		clock-names = "gcc_gpu_memnoc_gfx_clk",
 			      "gcc_gpu_snoc_dvm_gfx_clk",
-			      "gpu_cc_ahb_clk";
+			      "gpu_cc_ahb_clk",
+			      "gpu_cc_hlos1_vote_gpu_smmu_clk";
 		#size-cells = <1>;
 		#address-cells = <1>;
 		ranges;

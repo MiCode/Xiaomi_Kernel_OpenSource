@@ -326,9 +326,9 @@
 
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdxprairie";
-		qcom,cc-count = <2>;
 		qcom,gcc = <&clock_gcc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
@@ -336,9 +336,8 @@
 
 	clock_cpu: qcom,clock-cpu@17808100 {
 		compatible = "qcom,cpu-sdxprairie";
-		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			 <&clock_gcc GPLL0>;
-		clock-names = "bi_tcxo", "gpll0";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
 		reg = <0x17810008 0x8>,
 			<0x17808100 0x44>;
 		reg-names = "apcs_cmd" , "apcs_pll";
@@ -349,13 +348,18 @@
 			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
 			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
 			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
-			< 1497600000 RPMH_REGULATOR_LEVEL_TURBO>;
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
 	};
 
 	cpucc_debug: syscon@1781101c {
 		compatible = "syscon";
 		reg = <0x1781101c 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x800>;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
@@ -500,6 +504,15 @@
 		qcom,rmnet-ipa-ssr;
 	};
 
+	dcc: dcc_v2@10a2000 {
+		compatible = "qcom,dcc-v2";
+		reg = <0x10a2000 0x1000>,
+			<0x10ae800 0x1800>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		dcc-ram-offset = <0x800>;
+	};
+
 	qcom,ipa_fws {
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xf>;
@@ -525,7 +538,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
-		qcom,mhi-event-ring-id-limits = <9 10>; /* start and end */
+		qcom,mhi-event-ring-id-limits = <9 11>; /* start and end */
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,use-ipa-pm;
 		qcom,arm-smmu;
@@ -533,6 +546,7 @@
 		qcom,wlan-ce-db-over-pcie;
 		qcom,bandwidth-vote-for-ipa;
 		qcom,msm-bus,name = "ipa";
+		qcom,ipa-wdi3-over-gsi;
 		qcom,msm-bus,num-cases = <5>;
 		qcom,msm-bus,num-paths = <5>;
 		qcom,msm-bus,vectors-KBps =
@@ -820,8 +834,8 @@
 				<125 512 393600 393600>;
 		qcom,no-clock-support;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x0066 0x0013>,
-			<&apps_smmu 0x0076 0x0013>;
+		iommus = <&apps_smmu 0x0066 0x0011>,
+			<&apps_smmu 0x0076 0x0011>;
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -849,8 +863,8 @@
 		qcom,use-sw-hmac-algo;
 		qcom,no-clock-support;
 		qcom,smmu-s1-enable;
-		iommus = <&apps_smmu 0x0064 0x0013>,
-			<&apps_smmu 0x0074 0x0013>;
+		iommus = <&apps_smmu 0x0064 0x0011>,
+			<&apps_smmu 0x0074 0x0011>;
 	};
 
 	mem_dump {
@@ -1030,6 +1044,8 @@
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
+		pcie-disable-l1;
+		pcie-disable-l1ss;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
@@ -1357,6 +1373,7 @@
 &pcie0_rp {
 	cnss: qcom,qca6390@0 {
 		reg = <0 0 0 0 0>;
+		pci-ids = "17cb:1101";
 
 		memory-region = <&cnss_wlan_mem>;
 	};

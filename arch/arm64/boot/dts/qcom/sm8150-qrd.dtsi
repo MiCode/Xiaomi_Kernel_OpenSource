@@ -230,6 +230,7 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm8150_l5>;
+	vdda-phy-always-on;
 	vdda-pll-supply = <&pm8150l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
@@ -602,6 +603,9 @@
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
+	qcom,thermal-mitigation = <4875000 4000000 3500000
+				3000000 2500000 2000000
+				1500000 1000000 500000>;
 };
 
 &smb1390 {

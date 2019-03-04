@@ -42,6 +42,14 @@ Optional properties:
 			for every request sent for this regulator including
 			those which are for a strictly lower power state.
 
+- qcom,regulator-hw-type: Specifies the regulator LDO hardware type. This
+			  property must be specified if "qcom,regulator-type"
+			  has been specified with a value of 0 (LDO).
+
+			  Must be one of the below:
+			  "pmic4-ldo" for PMIC4.
+			  "pmic5-ldo" for PMIC5.
+
 [Second Level Nodes]
 
 Required properties:

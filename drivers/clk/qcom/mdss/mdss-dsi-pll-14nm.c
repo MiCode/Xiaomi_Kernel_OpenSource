@@ -80,6 +80,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 			.name = "dsi0pll_vco_clk_14nm",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_dsi_vco,
 		},
 };
@@ -92,6 +93,7 @@ static struct dsi_pll_vco_clk dsi0pll_shadow_vco_clk = {
 			.name = "dsi0pll_shadow_vco_clk_14nm",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
 };
@@ -106,6 +108,7 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 			.name = "dsi1pll_vco_clk_14nm",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_dsi_vco,
 		},
 };
@@ -120,6 +123,7 @@ static struct dsi_pll_vco_clk dsi1pll_shadow_vco_clk = {
 			.name = "dsi1pll_shadow_vco_clk_14nm",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
+			.flags = CLK_GET_RATE_NOCACHE,
 			.ops = &clk_ops_shadow_dsi_vco,
 		},
 };

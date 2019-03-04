@@ -168,6 +168,7 @@ enum sde_prop {
 	UBWC_BW_CALC_VERSION,
 	PIPE_ORDER_VERSION,
 	SEC_SID_MASK,
+	LINE_INSERTION,
 	SDE_PROP_MAX,
 };
 
@@ -447,6 +448,7 @@ static struct sde_prop_type sde_prop[] = {
 	{PIPE_ORDER_VERSION, "qcom,sde-pipe-order-version", false,
 			PROP_TYPE_U32},
 	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
+	{LINE_INSERTION, "qcom,sde-has-line-insertion", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -1396,6 +1398,9 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			set_bit(SDE_SSPP_TS_PREFILL, &sspp->features);
 			set_bit(SDE_SSPP_TS_PREFILL_REC1, &sspp->features);
 		}
+
+		if (sde_cfg->has_line_insertion)
+			set_bit(SDE_SSPP_LINE_INSERTION, &sspp->features);
 
 		sblk->smart_dma_priority =
 			PROP_VALUE_ACCESS(prop_value, SSPP_SMART_DMA, i);
@@ -3054,6 +3059,8 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	cfg->has_idle_pc = PROP_VALUE_ACCESS(prop_value, IDLE_PC, 0);
 	cfg->pipe_order_type = PROP_VALUE_ACCESS(prop_value,
 		PIPE_ORDER_VERSION, 0);
+	cfg->has_line_insertion = PROP_VALUE_ACCESS(prop_value,
+		LINE_INSERTION, 0);
 end:
 	kfree(prop_value);
 	return rc;
@@ -3420,15 +3427,17 @@ static int sde_parse_merge_3d_dt(struct device_node *np,
 	rc = _validate_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
 		prop_count, &off_count);
 	if (rc)
-		goto error;
+		goto end;
 
 	sde_cfg->merge_3d_count = off_count;
 
 	rc = _read_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
 			prop_count,
 			prop_exists, prop_value);
-	if (rc)
-		goto error;
+	if (rc) {
+		sde_cfg->merge_3d_count = 0;
+		goto end;
+	}
 
 	for (i = 0; i < off_count; i++) {
 		merge_3d = sde_cfg->merge_3d + i;
@@ -3439,9 +3448,7 @@ static int sde_parse_merge_3d_dt(struct device_node *np,
 		merge_3d->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
 	}
 
-	return 0;
-error:
-	sde_cfg->merge_3d_count = 0;
+end:
 	kfree(prop_value);
 fail:
 	return rc;

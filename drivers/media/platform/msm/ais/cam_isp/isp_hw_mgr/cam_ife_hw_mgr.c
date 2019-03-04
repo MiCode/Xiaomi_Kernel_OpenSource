@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1616,6 +1616,14 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	/* acquire HW resources */
 	for (i = 0; i < acquire_hw_info->num_inputs; i++) {
+
+		if (in_port->num_out_res > CAM_IFE_HW_OUT_RES_MAX) {
+			CAM_ERR(CAM_ISP, "too many output res %d",
+				in_port->num_out_res);
+			rc = -EINVAL;
+			goto free_res;
+		}
+
 		in_port_length = sizeof(struct cam_isp_in_port_info) +
 			(in_port->num_out_res - 1) *
 			sizeof(struct cam_isp_out_port_info);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,13 +191,28 @@
 };
 
 &usb0 {
+	qcom,default-mode-none;
 	qcom,host-poweroff-in-pm-suspend;
+};
+
+&qusb_phy0 {
+	qcom,usb-hs-ac-bitmask = <0x30>;
+	qcom,usb-hs-ac-value = <0x10>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_hs_ac_en_default>;
 };
 
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
 	qcom,host-poweroff-in-pm-suspend;
+};
+
+&qusb_phy1 {
+	qcom,usb-hs-ac-bitmask = <0xc0>;
+	qcom,usb-hs-ac-value = <0x40>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_hs_ac_en_default>;
 };
 
 &qupv3_se0_2uart {

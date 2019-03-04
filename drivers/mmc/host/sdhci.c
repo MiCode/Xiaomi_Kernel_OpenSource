@@ -152,6 +152,7 @@ void sdhci_dumpregs(struct sdhci_host *host)
 	}
 
 	host->mmc->err_occurred = true;
+	host->mmc->last_failed_rq_time = ktime_get();
 
 	if (host->ops->dump_vendor_regs)
 		host->ops->dump_vendor_regs(host);
@@ -3586,7 +3587,11 @@ out:
 			   mmc_hostname(host->mmc), unexpected);
 		MMC_TRACE(host->mmc, "Unexpected interrupt 0x%08x.\n",
 				unexpected);
-		sdhci_dumpregs(host);
+		if (host->mmc->cmdq_ops && host->mmc->cmdq_ops->dumpstate)
+			host->mmc->cmdq_ops->dumpstate(host->mmc);
+		else
+			sdhci_dumpregs(host);
+		BUG_ON(1);
 	}
 
 	return result;

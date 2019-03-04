@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,7 @@
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
 static int restart_mode;
-static void *restart_reason, *dload_type_addr;
+static void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
 static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
@@ -64,7 +64,7 @@ static void scm_disable_sdi(void);
  * So the SDI cannot be re-enabled when it already by-passed.
  */
 static int download_mode = 1;
-static struct kobject dload_kobj;
+static bool force_warm_reboot;
 
 #ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -74,16 +74,16 @@ static struct kobject dload_kobj;
 #endif
 
 static int in_panic;
+static struct kobject dload_kobj;
 static int dload_type = SCM_DLOAD_FULLDUMP;
 static void *dload_mode_addr;
+static void *dload_type_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 #ifdef CONFIG_RANDOMIZE_BASE
 static void *kaslr_imem_addr;
 #endif
 static bool scm_dload_supported;
-
-static bool force_warm_reboot;
 
 static int dload_set(const char *val, const struct kernel_param *kp);
 /* interface for exporting attributes */
@@ -190,6 +190,11 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 
 	int old_val = download_mode;
 
+	if (!download_mode) {
+		pr_err("Error: SDI dynamic enablement is not supported\n");
+		return -EINVAL;
+	}
+
 	ret = param_set_int(val, kp);
 
 	if (ret)
@@ -202,6 +207,9 @@ static int dload_set(const char *val, const struct kernel_param *kp)
 	}
 
 	set_dload_mode(download_mode);
+
+	if (!download_mode)
+		scm_disable_sdi();
 
 	return 0;
 }
@@ -408,6 +416,7 @@ static void do_msm_poweroff(void)
 	pr_err("Powering off has failed\n");
 }
 
+#ifdef CONFIG_QCOM_DLOAD_MODE
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
@@ -525,6 +534,7 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 }
 RESET_ATTR(dload_mode, 0644, show_dload_mode, store_dload_mode);
 #endif
+
 RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
 
 static struct attribute *reset_attrs[] = {
@@ -538,6 +548,7 @@ static struct attribute *reset_attrs[] = {
 static struct attribute_group reset_attr_group = {
 	.attrs = reset_attrs,
 };
+#endif
 
 static int msm_restart_probe(struct platform_device *pdev)
 {

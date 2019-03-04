@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 
 /**
  * struct rgmu_device - rGMU device structure
+ * @ver: RGMU firmware version
  * @reg_phys: RGMU CSR physical address
  * @reg_virt: RGMU CSR virtual address
  * @reg_len: RGMU CSR range
@@ -44,6 +45,7 @@
  * @fault_count: RGMU fault count
  */
 struct rgmu_device {
+	u32 ver;
 	struct platform_device *pdev;
 	unsigned long reg_phys;
 	unsigned int reg_len;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +85,20 @@ struct coresight_dev_subtype {
 };
 
 /**
+ * struct coresight_reg_clk - regulators and clocks need by coresight
+ * @nr_reg:	number of regulators
+ * @nr_clk:	number of clocks
+ * @reg:	regulator list
+ * @clk:	clock list
+ */
+struct coresight_reg_clk {
+	int nr_reg;
+	int nr_clk;
+	struct regulator **reg;
+	struct clk **clk;
+};
+
+/**
  * struct coresight_platform_data - data harvested from the DT specification
  * @cpu:	the CPU a source belongs to. Only applicable for ETM/PTMs.
  * @name:	name of the component as shown under sysfs.
@@ -95,6 +109,7 @@ struct coresight_dev_subtype {
 		connected  to.
  * @nr_outport:	number of output ports for this component.
  * @clk:	The clock this component is associated to.
+ * @reg_clk:	as defined by @coresight_reg_clk.
  */
 struct coresight_platform_data {
 	int cpu;
@@ -105,6 +120,7 @@ struct coresight_platform_data {
 	int *child_ports;
 	int nr_outport;
 	struct clk *clk;
+	struct coresight_reg_clk *reg_clk;
 };
 
 /**
@@ -159,6 +175,7 @@ struct coresight_connection {
 		activated but not yet enabled.  Enabling for a _sink_
 		happens when a source has been selected for that it.
  * @abort:     captures sink trace on abort.
+ * @reg_clk:	as defined by @coresight_reg_clk.
  */
 struct coresight_device {
 	struct coresight_connection *conns;
@@ -173,6 +190,7 @@ struct coresight_device {
 	bool orphan;
 	bool enable;	/* true only if configured as part of a path */
 	bool activated;	/* true only if a sink is part of a path */
+	struct coresight_reg_clk *reg_clk;
 };
 
 #define to_coresight_device(d) container_of(d, struct coresight_device, dev)
@@ -255,6 +273,8 @@ extern void coresight_disable(struct coresight_device *csdev);
 extern int coresight_timeout(void __iomem *addr, u32 offset,
 			     int position, int value);
 extern void coresight_abort(void);
+extern void coresight_disable_reg_clk(struct coresight_device *csdev);
+extern void coresight_enable_reg_clk(struct coresight_device *csdev);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -265,6 +285,8 @@ static inline void coresight_disable(struct coresight_device *csdev) {}
 static inline int coresight_timeout(void __iomem *addr, u32 offset,
 				     int position, int value) { return 1; }
 static inline void coresight_abort(void) {}
+static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
+static inline void coresight_enable_reg_clk(struct coresight_device *csdev) {}
 #endif
 
 #ifdef CONFIG_OF

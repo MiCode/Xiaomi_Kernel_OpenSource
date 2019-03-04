@@ -158,20 +158,27 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
 		__func__, mode.intval != POWER_SUPPLY_TYPEC_NONE);
 
-	if (mode.intval != POWER_SUPPLY_TYPEC_NONE) {
+	switch (mode.intval) {
+	/* add all modes FSA should notify for in here */
+	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
 		/* activate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
 
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
-		POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER, NULL);
-	} else {
+		mode.intval, NULL);
+		break;
+	case POWER_SUPPLY_TYPEC_NONE:
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
 				POWER_SUPPLY_TYPEC_NONE, NULL);
 
 		/* deactivate switches */
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		break;
+	default:
+		/* ignore other usb connection modes */
+		break;
 	}
 
 done:

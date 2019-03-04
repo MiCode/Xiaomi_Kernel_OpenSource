@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,8 @@ static const char * const clocks[] = {
 	"rbcpr_clk",
 	"iref_clk",
 	"gmu_clk",
-	"ahb_clk"
+	"ahb_clk",
+	"smmu_vote",
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];

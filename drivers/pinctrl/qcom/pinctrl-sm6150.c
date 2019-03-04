@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -519,9 +519,11 @@ enum sm6150_functions {
 	msm_mux_qdss_cti,
 	msm_mux_phase_flag12,
 	msm_mux_copy_gp,
+	msm_mux_usb0_hs_ac,
 	msm_mux_emac_phy,
 	msm_mux_pcie_ep,
 	msm_mux_tgu_ch3,
+	msm_mux_usb1_hs_ac,
 	msm_mux_mdp_vsync0,
 	msm_mux_mdp_vsync1,
 	msm_mux_mdp_vsync2,
@@ -982,6 +984,9 @@ static const char * const phase_flag12_groups[] = {
 static const char * const copy_gp_groups[] = {
 	"gpio86",
 };
+static const char * const usb0_hs_ac_groups[] = {
+	"gpio88",
+};
 static const char * const emac_phy_groups[] = {
 	"gpio89",
 };
@@ -989,6 +994,9 @@ static const char * const pcie_ep_groups[] = {
 	"gpio89",
 };
 static const char * const tgu_ch3_groups[] = {
+	"gpio89",
+};
+static const char * const usb1_hs_ac_groups[] = {
 	"gpio89",
 };
 static const char * const mdp_vsync0_groups[] = {
@@ -1280,9 +1288,11 @@ static const struct msm_function sm6150_functions[] = {
 	FUNCTION(qdss_cti),
 	FUNCTION(phase_flag12),
 	FUNCTION(copy_gp),
+	FUNCTION(usb0_hs_ac),
 	FUNCTION(emac_phy),
 	FUNCTION(pcie_ep),
 	FUNCTION(tgu_ch3),
+	FUNCTION(usb1_hs_ac),
 	FUNCTION(mdp_vsync0),
 	FUNCTION(mdp_vsync1),
 	FUNCTION(mdp_vsync2),
@@ -1491,9 +1501,9 @@ static const struct msm_pingroup sm6150_groups[] = {
 	[85] = PINGROUP(85, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[86] = PINGROUP(86, SOUTH, copy_gp, NA, NA, NA, NA, NA, NA, NA, NA),
 	[87] = PINGROUP(87, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[88] = PINGROUP(88, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[89] = PINGROUP(89, WEST, emac_phy, pcie_ep, tgu_ch3, NA, NA, NA, NA,
-			NA, NA),
+	[88] = PINGROUP(88, WEST, NA, usb0_hs_ac, NA, NA, NA, NA, NA, NA, NA),
+	[89] = PINGROUP(89, WEST, emac_phy, pcie_ep, tgu_ch3, usb1_hs_ac, NA,
+			NA, NA, NA, NA),
 	[90] = PINGROUP(90, WEST, mdp_vsync, mdp_vsync0, mdp_vsync1,
 			mdp_vsync2, mdp_vsync3, mdp_vsync4, mdp_vsync5,
 			pcie_clk, tgu_ch0),

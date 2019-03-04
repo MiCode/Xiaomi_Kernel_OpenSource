@@ -107,6 +107,7 @@ Optional properties:
 				controller. These pin configurations are installed in the pinctrl
 				device node. Refer to pinctrl-bindings.txt
 - qcom,max-lclk-frequency-khz:	An integer specifying the max. link clock in KHz supported by Display Port.
+- qcom,mst-fixed-topology-ports: u32 values of which MST output port to reserve, start from one
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then

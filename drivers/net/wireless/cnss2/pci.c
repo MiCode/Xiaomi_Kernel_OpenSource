@@ -51,6 +51,7 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 #define DEV_RDDM_TIMEOUT		5000
+#define RECOVERY_TIMEOUT		60000
 
 #ifdef CONFIG_CNSS_EMULATION
 #define EMULATION_HW			1
@@ -277,15 +278,15 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 		}
 	}
 
+	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
+	if (ret)
+		goto out;
+
 	ret = pci_enable_device(pci_priv->pci_dev);
 	if (ret) {
 		cnss_pr_err("Failed to enable PCI device, err = %d\n", ret);
 		goto out;
 	}
-
-	ret = cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
-	if (ret)
-		goto out;
 
 	pci_set_master(pci_priv->pci_dev);
 
@@ -403,6 +404,7 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+		complete(&plat_priv->recovery_complete);
 	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)) {
 		ret = pci_priv->driver_ops->probe(pci_priv->pci_dev,
 						  pci_priv->pci_device_id);
@@ -450,6 +452,7 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		   test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
 		pci_priv->driver_ops->remove(pci_priv->pci_dev);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	}
 
 	return 0;
@@ -689,11 +692,6 @@ static void cnss_qca6290_crash_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Ignore crash shutdown\n");
-		return;
-	}
-
 	cnss_pci_collect_dump_info(pci_priv, true);
 }
 
@@ -890,12 +888,26 @@ EXPORT_SYMBOL(cnss_wlan_register_driver);
 void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver_ops)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
+	int ret = 0;
 
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL\n");
 		return;
 	}
 
+	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
+	    !test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		goto skip_wait;
+
+	reinit_completion(&plat_priv->recovery_complete);
+	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
+					  RECOVERY_TIMEOUT);
+	if (!ret) {
+		cnss_pr_err("Timeout waiting for recovery to complete\n");
+		CNSS_ASSERT(0);
+	}
+
+skip_wait:
 	cnss_driver_event_post(plat_priv,
 			       CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 			       CNSS_EVENT_SYNC_UNINTERRUPTIBLE, NULL);
@@ -1230,6 +1242,9 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	driver_ops = pci_priv->driver_ops;
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
+
+	if (pci_priv->disable_pc && !pci_dev->state_saved)
+		pci_save_state(pci_dev);
 
 out:
 	return ret;
@@ -1604,6 +1619,63 @@ int cnss_pci_alloc_fw_mem(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+int cnss_pci_alloc_qdss_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *qdss_mem = plat_priv->qdss_mem;
+	int i, j;
+
+	for (i = 0; i < plat_priv->qdss_mem_seg_len; i++) {
+		if (!qdss_mem[i].va && qdss_mem[i].size) {
+			qdss_mem[i].va =
+				dma_alloc_coherent(&pci_priv->pci_dev->dev,
+						   qdss_mem[i].size,
+						   &qdss_mem[i].pa,
+						   GFP_KERNEL);
+			if (!qdss_mem[i].va) {
+				cnss_pr_err("Failed to allocate QDSS memory for FW, size: 0x%zx, type: %u, chuck-ID: %d\n",
+					    qdss_mem[i].size,
+					    qdss_mem[i].type, i);
+				break;
+			}
+		}
+	}
+
+	/* Best-effort allocation for QDSS trace */
+	if (i < plat_priv->qdss_mem_seg_len) {
+		for (j = i; j < plat_priv->qdss_mem_seg_len; j++) {
+			qdss_mem[j].type = 0;
+			qdss_mem[j].size = 0;
+		}
+		plat_priv->qdss_mem_seg_len = i;
+	}
+
+	return 0;
+}
+
+void cnss_pci_free_qdss_mem(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_fw_mem *qdss_mem = plat_priv->qdss_mem;
+	int i;
+
+	for (i = 0; i < plat_priv->qdss_mem_seg_len; i++) {
+		if (qdss_mem[i].va && qdss_mem[i].size) {
+			cnss_pr_dbg("Freeing memory for QDSS: pa: %pa, size: 0x%zx, type: %u\n",
+				    &qdss_mem[i].pa, qdss_mem[i].size,
+				    qdss_mem[i].type);
+			dma_free_coherent(&pci_priv->pci_dev->dev,
+					  qdss_mem[i].size, qdss_mem[i].va,
+					  qdss_mem[i].pa);
+			qdss_mem[i].va = NULL;
+			qdss_mem[i].pa = 0;
+			qdss_mem[i].size = 0;
+			qdss_mem[i].type = 0;
+		}
+	}
+	plat_priv->qdss_mem_seg_len = 0;
+}
+
 static void cnss_pci_free_fw_mem(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
@@ -1695,17 +1767,12 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
-	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev)) {
-		cnss_pr_info("Device is already in bad state, ignore force assert\n");
-		return 0;
-	}
-
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
 		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 				       CNSS_REASON_DEFAULT);
-		return 0;
+		return ret;
 	}
 
 	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
@@ -2758,6 +2825,63 @@ out:
 	return ret;
 }
 
+static void cnss_pci_disable_l1(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct pci_dev *pdev = pci_priv->pci_dev;
+	bool disable_l1 = false;
+	u32 lnkctl_offset;
+	u32 val;
+
+	if (of_property_read_bool(plat_priv->dev_node, "pcie-disable-l1"))
+		disable_l1 = true;
+
+	cnss_pr_dbg("disable_l1 %d\n", disable_l1);
+
+	if (!disable_l1)
+		return;
+
+	lnkctl_offset = pdev->pcie_cap + PCI_EXP_LNKCTL;
+	pci_read_config_dword(pdev, lnkctl_offset, &val);
+	cnss_pr_dbg("lnkctl 0x%x\n", val);
+
+	val &= ~PCI_EXP_LNKCTL_ASPM_L1;
+	pci_write_config_dword(pdev, lnkctl_offset, val);
+}
+
+static void cnss_pci_disable_l1ss(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct pci_dev *pdev = pci_priv->pci_dev;
+	bool disable_l1ss = false;
+	u32 l1ss_cap_id_offset;
+	u32 l1ss_ctl1_offset;
+	u32 val;
+
+	if (of_property_read_bool(plat_priv->dev_node, "pcie-disable-l1ss"))
+		disable_l1ss = true;
+
+	cnss_pr_dbg("disable_l1ss %d\n", disable_l1ss);
+
+	if (!disable_l1ss)
+		return;
+
+	l1ss_cap_id_offset = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_L1SS);
+	if (!l1ss_cap_id_offset) {
+		cnss_pr_dbg("could not find L1ss capability register\n");
+		return;
+	}
+
+	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
+
+	pci_read_config_dword(pdev, l1ss_ctl1_offset, &val);
+	cnss_pr_dbg("l1ss_ctl1 0x%x\n", val);
+
+	val &= ~(PCI_L1SS_CTL1_PCIPM_L1_1 | PCI_L1SS_CTL1_PCIPM_L1_2 |
+		 PCI_L1SS_CTL1_ASPM_L1_1 | PCI_L1SS_CTL1_ASPM_L1_2);
+	pci_write_config_dword(pdev, l1ss_ctl1_offset, val);
+}
+
 static int cnss_pci_probe(struct pci_dev *pci_dev,
 			  const struct pci_device_id *id)
 {
@@ -2827,6 +2951,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	pci_save_state(pci_dev);
 	pci_priv->default_state = pci_store_saved_state(pci_dev);
 
+	cnss_pci_disable_l1(pci_priv);
+	cnss_pci_disable_l1ss(pci_priv);
+
 	switch (pci_dev->device) {
 	case QCA6174_DEVICE_ID:
 		pci_read_config_word(pci_dev, QCA6174_REV_ID_OFFSET,
@@ -2893,6 +3020,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 
 	cnss_pci_free_m3_mem(pci_priv);
 	cnss_pci_free_fw_mem(pci_priv);
+	cnss_pci_free_qdss_mem(pci_priv);
 
 	switch (pci_dev->device) {
 	case QCA6290_DEVICE_ID:

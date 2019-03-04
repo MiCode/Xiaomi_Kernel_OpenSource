@@ -1544,6 +1544,7 @@ struct ipa3_char_device_context {
  * @init_completion_obj: Completion object to be used in case IPA driver hasn't
  * @mhi_evid_limits: MHI event rings start and end ids
  *  finished initializing. Example of use - IOCTLs to /dev/ipa
+ * @dl_csum_offload_enabled: IPA will do dl csum offload
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
@@ -1625,6 +1626,7 @@ struct ipa3_context {
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
 	bool ipa_wdi3_over_gsi;
+	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1700,6 +1702,7 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
+	bool dl_csum_offload_enabled;
 };
 
 struct ipa3_plat_drv_res {
@@ -1743,6 +1746,7 @@ struct ipa3_plat_drv_res {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	bool ipa_endp_delay_wa;
 };
 
 /**
@@ -2024,6 +2028,11 @@ void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
 void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl);
+void ipa3_client_prod_post_shutdown_cleanup(void);
+
+
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client);
 

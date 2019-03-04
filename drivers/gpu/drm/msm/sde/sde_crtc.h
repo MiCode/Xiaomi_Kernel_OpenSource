@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -186,6 +186,7 @@ struct sde_crtc_fps_info {
  * @output_fence  : output release fence context
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
+ * @priv_handle   : Pointer to external private handle, if present
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
@@ -249,6 +250,7 @@ struct sde_crtc {
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
+	void *priv_handle;
 
 	u32 vblank_cb_count;
 	u64 play_count;
@@ -393,6 +395,9 @@ struct sde_crtc_respool {
  * @sbuf_clk_rate : previous and current user specified inline rotator clock
  * @sbuf_clk_shifted : whether or not sbuf_clk_rate has been shifted as part
  *	of crtc atomic check
+ * @padding_height: panel height after line padding
+ * @padding_active: active lines in panel stacking pattern
+ * @padding_dummy: dummy lines in panel stacking pattern
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -426,6 +431,10 @@ struct sde_crtc_state {
 	u32 sbuf_prefill_line;
 	u64 sbuf_clk_rate[2];
 	bool sbuf_clk_shifted;
+
+	u32 padding_height;
+	u32 padding_active;
+	u32 padding_dummy;
 
 	struct sde_crtc_respool rp;
 };
@@ -827,5 +836,18 @@ uint64_t sde_crtc_get_sbuf_clk(struct drm_crtc_state *state);
  * @frame_count: frame_count to be configured
  */
 void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count);
+
+/**
+ * sde_crtc_calc_vpadding_param - calculate vpadding parameters
+ * @state: Pointer to DRM crtc state object
+ * @crtc_y: Plane's CRTC_Y offset
+ * @crtc_h: Plane's CRTC_H size
+ * @padding_y: Padding Y offset
+ * @padding_start: Padding start offset
+ * @padding_height: Padding height in total
+ */
+int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
+		uint32_t crtc_y, uint32_t crtc_h, uint32_t *padding_y,
+		uint32_t *padding_start, uint32_t *padding_height);
 
 #endif /* _SDE_CRTC_H_ */

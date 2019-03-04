@@ -158,7 +158,7 @@
 #define LUCID_PLL_STANDBY		0x0
 #define LUCID_PLL_RUN			0x1
 #define LUCID_PLL_OUT_MASK		0x7
-#define LUCID_PCAL_DONE			BIT(26)
+#define LUCID_PCAL_DONE			BIT(27)
 #define LUCID_PLL_RATE_MARGIN		500
 #define LUCID_PLL_ACK_LATCH		BIT(29)
 #define LUCID_PLL_UPDATE		BIT(22)
@@ -2553,8 +2553,7 @@ static int alpha_pll_lucid_prepare(struct clk_hw *hw)
 		return 0;
 
 	/* Return early if calibration is not needed. */
-	ret = regmap_read(pll->clkr.regmap, pll->offset + LUCID_PLL_OFF_STATUS,
-		      &regval);
+	ret = regmap_read(pll->clkr.regmap, pll->offset, &regval);
 	if (regval & LUCID_PCAL_DONE)
 		return ret;
 
@@ -2626,12 +2625,18 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (ret)
 		return ret;
 
-	/* Wait for 2 reference cycles before checking the ACK bit. */
-	udelay(1);
-	regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &regval);
-	if (!(regval & LUCID_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
-		return -EINVAL;
+	/*
+	 * When PLL_HW_UPDATE_LOGIC_BYPASS bit is not set then waiting for
+	 * pll_ack_latch to return to zero can be bypassed.
+	 */
+	if (!(pll->flags & SUPPORTS_NO_PLL_LATCH)) {
+		/* Wait for 2 reference cycles before checking the ACK bit. */
+		udelay(1);
+		regmap_read(pll->clkr.regmap, pll->offset + PLL_MODE, &regval);
+		if (!(regval & LUCID_PLL_ACK_LATCH)) {
+			WARN(1, "PLL latch failed. Output may be unstable!\n");
+			return -EINVAL;
+		}
 	}
 
 	/* Return the latch input to 0 */

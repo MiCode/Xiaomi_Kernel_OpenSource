@@ -253,8 +253,6 @@ struct msm_vidc_platform_data {
 	struct msm_vidc_ubwc_config *ubwc_config;
 	unsigned int ubwc_config_length;
 	unsigned int sku_version;
-	phys_addr_t gcc_register_base;
-	uint32_t gcc_register_size;
 	uint32_t vpu_ver;
 };
 
@@ -505,7 +503,7 @@ struct msm_vidc_ctrl {
 	s64 maximum;
 	s64 default_value;
 	u32 step;
-	u32 menu_skip_mask;
+	u64 menu_skip_mask;
 	u32 flags;
 	const char * const *qmenu;
 };

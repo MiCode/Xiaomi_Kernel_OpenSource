@@ -329,12 +329,16 @@ enum ipa_client_type {
 
 	/* RESERVED PROD			= 86, */
 	IPA_CLIENT_APPS_WAN_COAL_CONS		= 87,
+
 	IPA_CLIENT_WIGIG_PROD			= 88,
 	IPA_CLIENT_WIGIG1_CONS			= 89,
+
 	/* RESERVERD PROD			= 90, */
 	IPA_CLIENT_WIGIG2_CONS			= 91,
+
 	/* RESERVERD PROD			= 92, */
 	IPA_CLIENT_WIGIG3_CONS			= 93,
+
 	/* RESERVERD PROD			= 94, */
 	IPA_CLIENT_WIGIG4_CONS			= 95,
 
@@ -361,7 +365,8 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
-	(client) == IPA_CLIENT_APPS_WAN_CONS)
+	(client) == IPA_CLIENT_APPS_WAN_CONS || \
+	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \

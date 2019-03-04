@@ -955,7 +955,8 @@ static void receive_file_work(struct work_struct *data)
 				r = -EIO;
 				if (dev->state != STATE_OFFLINE)
 					dev->state = STATE_ERROR;
-				usb_ep_dequeue(dev->ep_out, read_req);
+				if (read_req && !dev->rx_done)
+					usb_ep_dequeue(dev->ep_out, read_req);
 				break;
 			}
 			dev->perf[dev->dbg_write_index].vfs_wtime =

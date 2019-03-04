@@ -170,6 +170,9 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 	CNSS_DRIVER_EVENT_POWER_UP,
 	CNSS_DRIVER_EVENT_POWER_DOWN,
+	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
+	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
+	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -225,6 +228,7 @@ enum cnss_debug_quirks {
 enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
+	CNSS_BDF_REGDB = 4,
 	CNSS_BDF_DUMMY = 255,
 };
 
@@ -281,6 +285,8 @@ struct cnss_plat_data {
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_fw_mem m3_mem;
+	u32 qdss_mem_seg_len;
+	struct cnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_pin_connect_result pin_result;
 	struct dentry *root_dentry;
 	atomic_t pm_count;
@@ -295,6 +301,7 @@ struct cnss_plat_data {
 	bool cal_done;
 	char firmware_name[CNSS_FW_PATH_MAX_LEN];
 	struct completion rddm_complete;
+	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
 	u32 is_converged_dt;
 	struct device_node *dev_node;

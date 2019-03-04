@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -305,4 +305,26 @@ static inline bool sde_rm_topology_is_dual_ctl(struct sde_rm *rm,
 
 	return rm->topology_tbl[topology].num_ctl == DUAL_CTL;
 }
+
+/**
+ * sde_rm_ext_blk_create_reserve - Create external HW blocks
+ *	in resource manager and reserve for specific encoder.
+ * @rm: SDE Resource Manager handle
+ * @hw: external HW block
+ * @drm_enc: DRM Encoder handle
+ * @Return: 0 on Success otherwise -ERROR
+ */
+int sde_rm_ext_blk_create_reserve(struct sde_rm *rm,
+				struct sde_hw_blk *hw,
+				struct drm_encoder *enc);
+
+/**
+ * sde_rm_ext_blk_destroy - Given the encoder for the display chain, release
+ *	external HW blocks created for that.
+ * @rm: SDE Resource Manager handle
+ * @enc: DRM Encoder handle
+ * @Return: 0 on Success otherwise -ERROR
+ */
+int sde_rm_ext_blk_destroy(struct sde_rm *rm,
+				struct drm_encoder *enc);
 #endif /* __SDE_RM_H__ */

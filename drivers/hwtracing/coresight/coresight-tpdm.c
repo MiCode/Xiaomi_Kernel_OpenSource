@@ -943,18 +943,11 @@ static ssize_t reset_store(struct device *dev,
 	/* Init the default data */
 	tpdm_init_default_data(drvdata);
 
-	/* Disable tpdm if enabled */
-	if (drvdata->enable) {
-		__tpdm_disable(drvdata);
-		drvdata->enable = false;
-	}
-
 	mutex_unlock(&drvdata->lock);
 
-	if (drvdata->enable) {
-		tpdm_setup_disable(drvdata);
-		dev_info(drvdata->dev, "TPDM tracing disabled\n");
-	}
+	/* Disable tpdm if enabled */
+	if (drvdata->enable)
+		coresight_disable(drvdata->csdev);
 
 	return size;
 }

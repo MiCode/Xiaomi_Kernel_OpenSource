@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1674,12 +1674,24 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 
 
 static void adreno_fault_header(struct kgsl_device *device,
-		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj)
+		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
+		int fault, bool gx_on)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 	unsigned int status, rptr, wptr, ib1sz, ib2sz;
 	uint64_t ib1base, ib2base;
+
+	/*
+	 * GPU registers can't be accessed if the gx headswitch is off.
+	 * During the gx off case access to GPU gx blocks will show data
+	 * as 0x5c00bd00. Hence skip adreno fault header dump.
+	 */
+	if (!gx_on) {
+		dev_err(device->dev, "%s fault and gx is off\n",
+				fault & ADRENO_GMU_FAULT ? "GMU" : "GPU");
+		return;
+	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &status);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
@@ -2036,13 +2048,14 @@ replay:
 }
 
 static void do_header_and_snapshot(struct kgsl_device *device, int fault,
-		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj)
+		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
+		bool gx_on)
 {
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
 	/* Always dump the snapshot on a non-drawobj failure */
 	if (cmdobj == NULL) {
-		adreno_fault_header(device, rb, NULL);
+		adreno_fault_header(device, rb, NULL, fault, gx_on);
 		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 		return;
 	}
@@ -2052,7 +2065,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 		return;
 
 	/* Print the fault header */
-	adreno_fault_header(device, rb, cmdobj);
+	adreno_fault_header(device, rb, cmdobj, fault, gx_on);
 
 	if (!(drawobj->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
 		kgsl_device_snapshot(device, drawobj->context,
@@ -2080,6 +2093,22 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	if (fault == 0)
 		return 0;
 
+	mutex_lock(&device->mutex);
+
+	/*
+	 * In the very unlikely case that the power is off, do nothing - the
+	 * state will be reset on power up and everybody will be happy
+	 */
+	if (!kgsl_state_is_awake(device)) {
+		mutex_unlock(&device->mutex);
+		if (fault & ADRENO_SOFT_FAULT) {
+			/* Clear the existing register values */
+			memset(adreno_ft_regs_val, 0,
+				adreno_ft_regs_num * sizeof(unsigned int));
+		}
+		return 0;
+	}
+
 	/* Mask all GMU interrupts */
 	if (gmu_core_isenabled(device)) {
 		adreno_write_gmureg(adreno_dev,
@@ -2093,17 +2122,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on))
 		gx_on = gmu_dev_ops->gx_is_on(adreno_dev);
 
-	/*
-	 * In the very unlikely case that the power is off, do nothing - the
-	 * state will be reset on power up and everybody will be happy
-	 */
-
-	if (!kgsl_state_is_awake(device) && (fault & ADRENO_SOFT_FAULT)) {
-		/* Clear the existing register values */
-		memset(adreno_ft_regs_val, 0,
-				adreno_ft_regs_num * sizeof(unsigned int));
-		return 0;
-	}
 
 	/*
 	 * On A5xx and A6xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24)
@@ -2116,11 +2134,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		gx_on) {
 		unsigned int val;
 
-		mutex_lock(&device->mutex);
 		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
-		mutex_unlock(&device->mutex);
-		if (val & BIT(24))
+		if (val & BIT(24)) {
+			mutex_unlock(&device->mutex);
 			return 0;
+		}
 	}
 
 	/* Turn off all the timers */
@@ -2132,8 +2150,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 	if (adreno_is_preemption_enabled(adreno_dev))
 		del_timer_sync(&adreno_dev->preempt.timer);
-
-	mutex_lock(&device->mutex);
 
 	if (gx_on)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
@@ -2177,7 +2193,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &base);
 
-	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
+	do_header_and_snapshot(device, fault, hung_rb, cmdobj, gx_on);
 
 	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
 	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)

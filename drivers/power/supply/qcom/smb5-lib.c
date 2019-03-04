@@ -1110,6 +1110,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
+	vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER, false, 0);
 
 	/* Remove SW thermal regulation WA votes */
 	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
@@ -2860,6 +2861,57 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_set_prop_dc_reset(struct smb_charger *chg)
+{
+	int rc;
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, true, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't suspend DC rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK,
+				DCIN_EN_OVERRIDE_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, DCIN_PON_BIT | MID_CHG_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write %d to DCIN_CMD_PON_REG rc=%d\n",
+			DCIN_PON_BIT | MID_CHG_BIT, rc);
+		return rc;
+	}
+
+	/* Wait for 10ms to allow the charge to get drained */
+	usleep_range(10000, 10010);
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_CMD_PON_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, false, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't unsuspend  DC rc=%d\n", rc);
+		return rc;
+	}
+
+	smblib_dbg(chg, PR_MISC, "Wireless charger removal detection successful\n");
+	return rc;
+}
+
 /*******************
  * USB PSY GETTERS *
  *******************/
@@ -3017,18 +3069,12 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 		return -ENODATA;
 	}
 
-	/* usb not present */
-	if (!pval.intval) {
-		val->intval = 0;
-		return 0;
-	}
-
 	/*
 	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
 	 * to occur randomly in the USBIN channel, particularly at high
 	 * voltages.
 	 */
-	if (chg->smb_version == PM8150B_SUBTYPE)
+	if (chg->smb_version == PM8150B_SUBTYPE && pval.intval)
 		return smblib_read_mid_voltage_chan(chg, val);
 	else
 		return smblib_read_usbin_voltage_chan(chg, val);
@@ -3512,7 +3558,7 @@ int smblib_get_prop_die_health(struct smb_charger *chg)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
-int smblib_get_prop_connector_health(struct smb_charger *chg)
+static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
@@ -3548,6 +3594,56 @@ int smblib_get_prop_connector_health(struct smb_charger *chg)
 
 	if (stat & CONNECTOR_TEMP_LB_BIT)
 		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+static int smblib_get_skin_temp_status(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, SKIN_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SKIN_TEMP_STATUS_REG, rc=%d\n",
+				rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (stat & SKIN_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (stat & SKIN_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & SKIN_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+int smblib_get_prop_connector_health(struct smb_charger *chg)
+{
+	bool dc_present, usb_present;
+	int input_present;
+	int rc;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	dc_present = input_present & INPUT_PRESENT_DC;
+	usb_present = input_present & INPUT_PRESENT_USB;
+
+	if (usb_present)
+		return smblib_get_typec_connector_temp_status(chg);
+
+	/*
+	 * In PM8150B, SKIN channel measures Wireless charger receiver
+	 * temp, used to regulate DC ICL.
+	 */
+	if (chg->smb_version == PM8150B_SUBTYPE && dc_present)
+		return smblib_get_skin_temp_status(chg);
 
 	return POWER_SUPPLY_HEALTH_COOL;
 }
@@ -4622,6 +4718,8 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		smblib_micro_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
 					vbus_rising ? "attached" : "detached");
 }
@@ -4719,6 +4817,11 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 	/* while PD is active it should have complete ICL control */
 	if (chg->pd_active)
 		return;
+
+	if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+		return;
+	}
 
 	/*
 	 * HVDCP 2/3, handled separately
@@ -4856,6 +4959,8 @@ irqreturn_t usb_source_change_irq_handler(int irq, void *data)
 	smblib_hvdcp_adaptive_voltage_change(chg);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	rc = smblib_read(chg, APSD_STATUS_REG, &stat);
 	if (rc < 0) {
@@ -4992,6 +5097,14 @@ static void typec_src_insertion(struct smb_charger *chg)
 		smblib_hvdcp_detect_enable(chg, true);
 }
 
+static void typec_ra_ra_insertion(struct smb_charger *chg)
+{
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
+	chg->ok_to_pd = false;
+	smblib_hvdcp_detect_enable(chg, true);
+}
+
 static void typec_sink_removal(struct smb_charger *chg)
 {
 	int rc;
@@ -5055,6 +5168,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, CTM_VOTER, false, 0);
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
+	vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER, false, 0);
 
 	/* reset usb irq voters */
 	vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
@@ -5248,6 +5362,8 @@ irqreturn_t typec_state_change_irq_handler(int irq, void *data)
 				smblib_typec_mode_name[chg->typec_mode]);
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	return IRQ_HANDLED;
 }
@@ -5290,7 +5406,11 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			return IRQ_HANDLED;
 		}
 
-		if (stat & SNK_SRC_MODE_BIT) {
+		if (smblib_get_prop_dfp_mode(chg) ==
+				POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+			chg->sink_src_mode = AUDIO_ACCESS_MODE;
+			typec_ra_ra_insertion(chg);
+		} else if (stat & SNK_SRC_MODE_BIT) {
 			if (smblib_src_lpd(chg))
 				return IRQ_HANDLED;
 			chg->sink_src_mode = SRC_MODE;
@@ -5306,6 +5426,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			typec_sink_removal(chg);
 			break;
 		case SINK_MODE:
+		case AUDIO_ACCESS_MODE:
 			typec_src_removal(chg);
 			break;
 		case UNATTACHED_MODE:
@@ -5319,6 +5440,15 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			chg->sink_src_mode = UNATTACHED_MODE;
 			chg->early_usb_attach = false;
 			smblib_apsd_enable(chg, true);
+
+			/*
+			 * Restore DRP mode on type-C cable disconnect if role
+			 * swap is not in progress, to ensure forced sink or src
+			 * mode configuration is reset properly.
+			 */
+			if (chg->dual_role)
+				smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
 		}
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
@@ -5327,6 +5457,8 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	power_supply_changed(chg->usb_psy);
+	if (chg->dual_role)
+		dual_role_instance_changed(chg->dual_role);
 
 	return IRQ_HANDLED;
 }
@@ -6216,6 +6348,97 @@ static void smblib_lpd_detach_work(struct work_struct *work)
 		chg->lpd_stage = LPD_STAGE_NONE;
 }
 
+static char *dr_mode_text[] = {
+	"ufp", "dfp", "none"
+};
+
+int smblib_force_dr_mode(struct smb_charger *chg, int mode)
+{
+	int rc = 0;
+
+	switch (mode) {
+	case DUAL_ROLE_PROP_MODE_UFP:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_SNK_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable snk, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case DUAL_ROLE_PROP_MODE_DFP:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_SRC_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable src, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case DUAL_ROLE_PROP_MODE_NONE:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+				TYPEC_POWER_ROLE_CMD_MASK | EN_TRY_SNK_BIT,
+				EN_TRY_SNK_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable try.snk, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	default:
+		smblib_err(chg, "Power role %d not supported\n", mode);
+		return -EINVAL;
+	}
+
+	if (chg->dr_mode != mode) {
+		chg->dr_mode = mode;
+		smblib_dbg(chg, PR_MISC, "Forced mode: %s\n",
+					dr_mode_text[chg->dr_mode]);
+	}
+
+	return rc;
+}
+
+static void smblib_dual_role_check_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+					role_reversal_check.work);
+	int rc = 0;
+
+	mutex_lock(&chg->dr_lock);
+
+	switch (chg->dr_mode) {
+	case DUAL_ROLE_PROP_MODE_UFP:
+		if (chg->typec_mode < POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to UFP in %d msecs. Resetting to DRP mode\n",
+				ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc < 0)
+				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+		}
+		chg->pr_swap_in_progress = false;
+		break;
+	case DUAL_ROLE_PROP_MODE_DFP:
+		if (chg->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+				chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to DFP in %d msecs. Resetting to DRP mode\n",
+				ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_NONE);
+			if (rc < 0)
+				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+		}
+		chg->pr_swap_in_progress = false;
+		break;
+	default:
+		pr_debug("Already in DRP mode\n");
+		break;
+	}
+
+	mutex_unlock(&chg->dr_lock);
+	vote(chg->awake_votable, DR_SWAP_VOTER, false, 0);
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -6361,6 +6584,8 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->thermal_regulation_work,
 					smblib_thermal_regulation_work);
 	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
+	INIT_DELAYED_WORK(&chg->role_reversal_check,
+					smblib_dual_role_check_work);
 
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
@@ -6396,6 +6621,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->sec_chg_selected = POWER_SUPPLY_CHARGER_SEC_NONE;
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	chg->thermal_status = TEMP_BELOW_RANGE;
+	chg->dr_mode = DUAL_ROLE_PROP_MODE_NONE;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -6500,6 +6726,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		cancel_delayed_work_sync(&chg->role_reversal_check);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();

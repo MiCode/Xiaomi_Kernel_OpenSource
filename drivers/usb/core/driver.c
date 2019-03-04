@@ -1435,10 +1435,10 @@ static void choose_wakeup(struct usb_device *udev, pm_message_t msg)
 	int	w;
 
 	/* Remote wakeup is needed only when we actually go to sleep.
-	 * For things like FREEZE and QUIESCE, if the device is already
+	 * For QUIESCE, if the device is already
 	 * autosuspended then its current wakeup setting is okay.
 	 */
-	if (msg.event == PM_EVENT_FREEZE || msg.event == PM_EVENT_QUIESCE) {
+	if (msg.event == PM_EVENT_QUIESCE) {
 		if (udev->state != USB_STATE_SUSPENDED)
 			udev->do_remote_wakeup = 0;
 		return;

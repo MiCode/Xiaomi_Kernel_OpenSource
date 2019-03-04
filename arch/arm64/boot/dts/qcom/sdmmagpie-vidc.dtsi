@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -197,7 +197,7 @@
 			label = "venus_sec_bitstream";
 			iommus = <&apps_smmu 0x1081 0x4>;
 			buffer-types = <0x241>;
-			virtual-addr-pool = <0x0 0xe0000000>;
+			virtual-addr-pool = <0x500000 0xdfb00000>;
 			qcom,secure-context-bank;
 		};
 
@@ -206,7 +206,7 @@
 			label = "venus_sec_pixel";
 			iommus = <&apps_smmu 0x1083 0x20>;
 			buffer-types = <0x106>;
-			virtual-addr-pool = <0x0 0xe0000000>;
+			virtual-addr-pool = <0x500000 0xdfb00000>;
 			qcom,secure-context-bank;
 		};
 
