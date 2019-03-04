@@ -46,6 +46,11 @@
 #define IPA_V4_0_CLK_RATE_NOMINAL (220 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_TURBO (250 * 1000 * 1000UL)
 
+#define IPA_V4_2_CLK_RATE_SVS2 (50 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_SVS (100 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_NOMINAL (201 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_TURBO (240 * 1000 * 1000UL)
+
 #define IPA_V3_0_MAX_HOLB_TMR_VAL (4294967296 - 1)
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
@@ -5556,10 +5561,17 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		enum ipa_hw_type hw_type)
 {
 	if (hw_type >= IPA_HW_v4_0) {
-		ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
-		ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
-		ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
-		ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
+		if (hw_type == IPA_HW_v4_2) {
+			ctrl->ipa_clk_rate_turbo = IPA_V4_2_CLK_RATE_TURBO;
+			ctrl->ipa_clk_rate_nominal = IPA_V4_2_CLK_RATE_NOMINAL;
+			ctrl->ipa_clk_rate_svs = IPA_V4_2_CLK_RATE_SVS;
+			ctrl->ipa_clk_rate_svs2 = IPA_V4_2_CLK_RATE_SVS2;
+		} else {
+			ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
+			ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
+			ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
+			ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
+		}
 	} else if (hw_type >= IPA_HW_v3_5) {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;
