@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -88,9 +88,21 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	code = readl_relaxed_no_log(trdy);
 	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
 			TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
-		pr_err("TSENS device first round not complete0x%x\n", code);
+		pr_err("tsens device first round not complete0x%x, ctr is %d\n",
+			code, tmdev->trdy_fail_ctr);
+		tmdev->trdy_fail_ctr++;
+
+		if (tmdev->trdy_fail_ctr >= 50) {
+			if (tmdev->ops->dbg)
+				tmdev->ops->dbg(tmdev, 0,
+					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
+			BUG();
+		}
+
 		return -ENODATA;
 	}
+
+	tmdev->trdy_fail_ctr = 0;
 
 	code = readl_relaxed_no_log(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));

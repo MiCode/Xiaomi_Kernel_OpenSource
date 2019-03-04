@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_TSENS_H__
@@ -13,6 +13,7 @@
 #include <linux/workqueue.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/ipc_logging.h>
 
 #define DEBUG_SIZE					10
 #define TSENS_MAX_SENSORS			16
@@ -29,6 +30,8 @@
 #define SLOPE_FACTOR		1000
 #define SLOPE_DEFAULT		3200
 
+#define IPC_LOGPAGES 10
+
 enum tsens_dbg_type {
 	TSENS_DBG_POLL,
 	TSENS_DBG_LOG_TEMP_READS,
@@ -41,6 +44,54 @@ enum tsens_dbg_type {
 #define tsens_sec_to_msec_value		1000
 
 struct tsens_device;
+
+#ifdef CONFIG_DEBUG_FS
+#define TSENS_IPC(idx, dev, msg, args...) do { \
+		if (dev) { \
+			if ((idx == 0) && (dev)->ipc_log0) \
+				ipc_log_string((dev)->ipc_log0, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 1) && (dev)->ipc_log1) \
+				ipc_log_string((dev)->ipc_log1, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 2) && (dev)->ipc_log2) \
+				ipc_log_string((dev)->ipc_log2, \
+					"%s: " msg, __func__, args); \
+			else \
+				pr_debug("tsens: invalid logging index\n"); \
+		} \
+	} while (0)
+#define TSENS_DUMP(dev, msg, args...) do {				\
+		TSENS_IPC(2, dev, msg, args); \
+		pr_info(msg, ##args);	\
+	} while (0)
+#define TSENS_ERR(dev, msg, args...) do {				\
+		pr_err(msg, ##args);	\
+		TSENS_IPC(1, dev, msg, args); \
+	} while (0)
+#define TSENS_INFO(dev, msg, args...) do {				\
+		pr_info(msg, ##args);	\
+		TSENS_IPC(1, dev, msg, args); \
+	} while (0)
+#define TSENS_DBG(dev, msg, args...) do {				\
+		pr_debug(msg, ##args);	\
+		if (dev) { \
+			TSENS_IPC(0, dev, msg, args); \
+		}	\
+	} while (0)
+#define TSENS_DBG1(dev, msg, args...) do {				\
+		pr_debug(msg, ##args);	\
+		if (dev) { \
+			TSENS_IPC(1, dev, msg, args); \
+		}	\
+	} while (0)
+#else
+#define	TSENS_DBG1(x...)		pr_debug(x)
+#define	TSENS_DBG(x...)		pr_debug(x)
+#define	TSENS_INFO(x...)		pr_info(x)
+#define	TSENS_ERR(x...)		pr_err(x)
+#define	TSENS_DUMP(x...)		pr_info(x)
+#endif
 
 #if defined(CONFIG_THERMAL_TSENS)
 int tsens2xxx_dbg(struct tsens_device *data, u32 id, u32 dbg_type, int *temp);
@@ -147,11 +198,16 @@ struct tsens_device {
 	void __iomem			*tsens_tm_addr;
 	void __iomem			*tsens_calib_addr;
 	const struct tsens_ops		*ops;
+	void					*ipc_log0;
+	void					*ipc_log1;
+	void					*ipc_log2;
+	phys_addr_t				phys_addr_tm;
 	struct tsens_dbg_context	tsens_dbg;
 	spinlock_t			tsens_crit_lock;
 	spinlock_t			tsens_upp_low_lock;
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
+	int				trdy_fail_ctr;
 	struct tsens_sensor		sensor[0];
 };
 
