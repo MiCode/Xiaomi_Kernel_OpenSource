@@ -38,11 +38,17 @@ Required properties:
 				above this powerlevel isense clock is at working frequency.
 
 Bus Scaling Data:
-- qcom,msm-bus,name: String property to describe the name of the 3D graphics processor.
-- qcom,msm-bus,num-cases: This is the the number of Bus Scaling use cases defined in the vectors property.
-- qcom,msm-bus,active-only: A boolean flag indicating if it is active only.
-- qcom,msm-bus,num-paths: This represents the number of paths in each Bus Scaling Usecase.
-- qcom,msm-bus,vectors-KBps: A series of 4 cell properties, format of which is:
+- qcom,gpu-bus-table:		Defines a bus voting table with the below properties. Multiple sets of bus
+				voting tables can be defined for given platform based on the type of ddr system.
+
+Properties:
+- compatible:			Must be "qcom,gpu-bus-table". Additionally, "qcom,gpu-bus-table-ddr" must also
+				be provided, with the ddr type value(integer) appended to the string.
+- qcom,msm-bus,name:		String property to describe the name of the 3D graphics processor.
+- qcom,msm-bus,num-cases:	This is the the number of Bus Scaling use cases defined in the vectors property.
+- qcom,msm-bus,active-only:	A boolean flag indicating if it is active only.
+- qcom,msm-bus,num-paths: 	This represents the number of paths in each Bus Scaling Usecase.
+- qcom,msm-bus,vectors-KBps:	A series of 4 cell properties, format of which is:
 					<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 1
 					<src dst ab ib>, <src dst ab ib>, // For Bus Scaling Usecase 2
 					<..  ..  .. ..>, <..  ..  .. ..>; // For Bus Scaling Usecase n
@@ -171,8 +177,7 @@ Optional Properties:
 				certain protected registers and also pass to the user as
 				a property.
 - qcom,l2pc-cpu-mask:
-				Disables L2PC on masked CPUs when any of Graphics
-				rendering thread is running on masked CPUs.
+				Disables L2PC on masked CPUto the string.rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
 
 - qcom,l2pc-update-queue:
@@ -339,14 +344,17 @@ Example of A330 GPU in MSM8916:
 				"mem_iface_clk", "alt_mem_iface_clk";
 
 		/* Bus Scale Settings */
-		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-			<26 512 0 0>,
-			<26 512 0 1600000>,
-			<26 512 0 3200000>,
-			<26 512 0 4264000>;
+		qcom, gpu-bus-table {
+			compatible="qcom,gpu-bus-table","qcom,gpu-bus-table-ddr7";
+			qcom,msm-bus,name = "grp3d";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,
+				<26 512 0 1600000>,
+				<26 512 0 3200000>,
+				<26 512 0 4264000>;
+		};
 
 		/* GDSC oxili regulators */
 		vdd-supply = <&gdsc_oxili_gx>;
