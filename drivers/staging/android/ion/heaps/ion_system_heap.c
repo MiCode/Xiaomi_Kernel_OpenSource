@@ -153,8 +153,19 @@ void free_buffer_page(struct ion_system_heap *heap,
 			ion_page_pool_free_immediate(pool, page);
 		else
 			ion_page_pool_free(pool, page);
+
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(page), NR_UNRECLAIMABLE_PAGES,
+				    -(1 << pool->order));
+#endif
 	} else {
 		__free_pages(page, order);
+
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(page), NR_UNRECLAIMABLE_PAGES,
+				    -(1 << order));
+#endif
+
 	}
 }
 
@@ -313,6 +324,12 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		}
 
 		sz = (1 << info->order) * PAGE_SIZE;
+
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+		mod_node_page_state(page_pgdat(info->page),
+				    NR_UNRECLAIMABLE_PAGES,
+				    (1 << (info->order)));
+#endif
 
 		if (info->from_pool) {
 			list_add_tail(&info->list, &pages_from_pool);
