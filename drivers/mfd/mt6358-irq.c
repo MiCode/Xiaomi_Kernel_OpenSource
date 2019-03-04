@@ -5,6 +5,8 @@
 #include <linux/interrupt.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6358/registers.h>
+#include <linux/mfd/mt6359/core.h>
+#include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -43,6 +45,17 @@ static struct irq_top_t mt6358_ints[] = {
 	MT6358_TOP_GEN(HK),
 	MT6358_TOP_GEN(AUD),
 	MT6358_TOP_GEN(MISC),
+};
+
+static struct irq_top_t mt6359_ints[] = {
+	MT6359_TOP_GEN(BUCK),
+	MT6359_TOP_GEN(LDO),
+	MT6359_TOP_GEN(PSC),
+	MT6359_TOP_GEN(SCK),
+	MT6359_TOP_GEN(BM),
+	MT6359_TOP_GEN(HK),
+	MT6359_TOP_GEN(AUD),
+	MT6359_TOP_GEN(MISC),
 };
 
 static int parsing_hwirq_to_top_group(struct pmic_irq_data *irq_data,
@@ -224,6 +237,13 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		irq_data->reg_width = MT6358_REG_WIDTH;
 		irq_data->top_int_status_reg = MT6358_TOP_INT_STATUS0;
 		irq_data->pmic_ints = mt6358_ints;
+		break;
+	case MT6359_CID_CODE:
+		irq_data->num_top = MT6359_TOP_NR;
+		irq_data->num_pmic_irqs = MT6359_IRQ_NR;
+		irq_data->reg_width = MT6359_REG_WIDTH;
+		irq_data->top_int_status_reg = MT6359_TOP_INT_STATUS0;
+		irq_data->pmic_ints = mt6359_ints;
 		break;
 	default:
 		dev_err(chip->dev, "unsupported chip: 0x%x\n", chip->chip_id);
