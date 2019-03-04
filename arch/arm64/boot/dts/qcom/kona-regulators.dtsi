@@ -429,6 +429,7 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+			regulator-always-on;
 		};
 
 		VDD_MMCX_LEVEL_AO: S4C_LEVEL_AO:
