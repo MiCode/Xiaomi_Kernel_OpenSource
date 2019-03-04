@@ -2559,36 +2559,27 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/* configure float charger options */
 	switch (chip->dt.float_option) {
-	case FLOAT_DCP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, 0);
-		break;
 	case FLOAT_SDP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		val = FORCE_FLOAT_SDP_CFG_BIT;
 		break;
 	case DISABLE_CHARGING:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		val = FLOAT_DIS_CHGING_CFG_BIT;
 		break;
 	case SUSPEND_INPUT:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		val = SUSPEND_FLOAT_CFG_BIT;
 		break;
+	case FLOAT_DCP:
 	default:
-		rc = 0;
+		val = 0;
 		break;
 	}
 
+	chg->float_cfg = val;
+	/* Update float charger setting and set DCD timeout 300ms */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK | DCD_TIMEOUT_SEL_BIT, val);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+		dev_err(chg->dev, "Couldn't change float charger setting rc=%d\n",
 			rc);
 		return rc;
 	}
