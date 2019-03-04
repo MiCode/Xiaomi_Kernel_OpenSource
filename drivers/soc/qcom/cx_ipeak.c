@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,8 +124,9 @@ static struct cx_ipeak_client *cx_ipeak_register_v2(int client_id)
 	struct cx_ipeak_client *client;
 	unsigned int client_offset = 0;
 	void __iomem *vptr = device_ipeak.tcsr_vptr;
+	int i;
 
-	for (int i = 0; i <= client_id; i++)
+	for (i = 0; i <= client_id; i++)
 		client_offset += CXIP_CLIENT_OFFSET;
 
 	reg_enable = readl_relaxed(device_ipeak.tcsr_vptr +
