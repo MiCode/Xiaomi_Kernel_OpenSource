@@ -77,8 +77,6 @@
 /* Adreno core features */
 /* The core supports SP/TP hw controlled power collapse */
 #define ADRENO_SPTP_PC BIT(3)
-/* The core supports Peak Power Detection(PPD)*/
-#define ADRENO_PPD BIT(4)
 /* The GPU supports content protection */
 #define ADRENO_CONTENT_PROTECTION BIT(5)
 /* The GPU supports preemption */
@@ -223,11 +221,10 @@ enum adreno_gpurev {
 #define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(6)
 
 #define ADRENO_SPTP_PC_CTRL 0
-#define ADRENO_PPD_CTRL     1
-#define ADRENO_LM_CTRL      2
-#define ADRENO_HWCG_CTRL    3
-#define ADRENO_THROTTLING_CTRL 4
-#define ADRENO_ACD_CTRL 5
+#define ADRENO_LM_CTRL      1
+#define ADRENO_HWCG_CTRL    2
+#define ADRENO_THROTTLING_CTRL 3
+#define ADRENO_ACD_CTRL 4
 
 /* VBIF,  GBIF halt request and ack mask */
 #define GBIF_HALT_REQUEST       0x1E0

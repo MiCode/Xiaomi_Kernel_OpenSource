@@ -1586,14 +1586,7 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 {
 	int on = 0;
 
-	/*
-	 * On pre A540 HW only call through if PPD or LMx
-	 * is supported and enabled
-	 */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PPD) &&
-		test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag))
-		on = ADRENO_PPD;
-
+	/* On pre A540 HW only call through if LMx is supported and enabled */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		on = ADRENO_LM;

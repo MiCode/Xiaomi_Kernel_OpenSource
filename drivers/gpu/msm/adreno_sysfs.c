@@ -444,130 +444,6 @@ static const struct attribute *_attr_list[] = {
 	NULL,
 };
 
-/* Add a ppd directory for controlling different knobs from sysfs */
-struct adreno_ppd_attribute {
-	struct attribute attr;
-	ssize_t (*show)(struct kgsl_device *device, char *buf);
-	ssize_t (*store)(struct kgsl_device *device, const char *buf,
-		size_t count);
-};
-
-#define PPD_ATTR(_name, _mode, _show, _store) \
-struct adreno_ppd_attribute attr_##_name = { \
-	.attr = { .name = __stringify(_name), .mode = _mode }, \
-	.show = _show, \
-	.store = _store, \
-}
-
-#define to_ppd_attr(a) \
-container_of((a), struct adreno_ppd_attribute, attr)
-
-#define kobj_to_device(a) \
-container_of((a), struct kgsl_device, ppd_kobj)
-
-static ssize_t ppd_enable_store(struct kgsl_device *device,
-				const char *buf, size_t count)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int ppd_on = 0;
-	int ret;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
-		return count;
-
-	ret = kgsl_sysfs_store(buf, &ppd_on);
-	if (ret < 0)
-		return ret;
-
-	ppd_on = (ppd_on) ? 1 : 0;
-
-	if (ppd_on == test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag))
-		return count;
-
-	mutex_lock(&device->mutex);
-
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	change_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-	return count;
-}
-
-static ssize_t ppd_enable_show(struct kgsl_device *device,
-					char *buf)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-		test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag));
-}
-/* Add individual ppd attributes here */
-static PPD_ATTR(enable, 0644, ppd_enable_show, ppd_enable_store);
-
-static ssize_t ppd_sysfs_show(struct kobject *kobj,
-	struct attribute *attr, char *buf)
-{
-	struct adreno_ppd_attribute *pattr = to_ppd_attr(attr);
-	struct kgsl_device *device = kobj_to_device(kobj);
-	ssize_t ret = -EIO;
-
-	if (device != NULL && pattr->show != NULL)
-		ret = pattr->show(device, buf);
-
-	return ret;
-}
-
-static ssize_t ppd_sysfs_store(struct kobject *kobj,
-	struct attribute *attr, const char *buf, size_t count)
-{
-	struct adreno_ppd_attribute *pattr = to_ppd_attr(attr);
-	struct kgsl_device *device = kobj_to_device(kobj);
-	ssize_t ret = -EIO;
-
-	if (device != NULL && pattr->store != NULL)
-		ret = pattr->store(device, buf, count);
-
-	return ret;
-}
-
-static const struct sysfs_ops ppd_sysfs_ops = {
-	.show = ppd_sysfs_show,
-	.store = ppd_sysfs_store,
-};
-
-static struct kobj_type ktype_ppd = {
-	.sysfs_ops = &ppd_sysfs_ops,
-};
-
-static void ppd_sysfs_close(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
-		return;
-
-	sysfs_remove_file(&device->ppd_kobj, &attr_enable.attr);
-	kobject_put(&device->ppd_kobj);
-}
-
-static int ppd_sysfs_init(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int ret;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
-		return -ENODEV;
-
-	ret = kobject_init_and_add(&device->ppd_kobj, &ktype_ppd,
-		&device->dev->kobj, "ppd");
-
-	if (ret == 0)
-		ret = sysfs_create_file(&device->ppd_kobj, &attr_enable.attr);
-
-	return ret;
-}
-
 /**
  * adreno_sysfs_close() - Take down the adreno sysfs files
  * @adreno_dev: Pointer to the adreno device
@@ -578,7 +454,6 @@ void adreno_sysfs_close(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	ppd_sysfs_close(adreno_dev);
 	sysfs_remove_files(&device->dev->kobj, _attr_list);
 }
 
@@ -592,14 +467,7 @@ void adreno_sysfs_close(struct adreno_device *adreno_dev)
 int adreno_sysfs_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int ret;
 
-	ret = sysfs_create_files(&device->dev->kobj, _attr_list);
-
-	/* Add the PPD directory and files */
-	if (ret == 0)
-		ppd_sysfs_init(adreno_dev);
-
-	return 0;
+	return sysfs_create_files(&device->dev->kobj, _attr_list);
 }
 
