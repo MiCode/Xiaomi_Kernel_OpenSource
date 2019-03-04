@@ -52,7 +52,7 @@ static int get_trip_level(struct thermal_zone_device *tz)
 	 */
 	if (count > 0) {
 		tz->ops->get_trip_type(tz, count - 1, &trip_type);
-		trace_thermal_zone_trip(tz, count - 1, trip_type);
+		trace_thermal_zone_trip(tz, count - 1, trip_type, 1);
 	}
 
 	return count;
