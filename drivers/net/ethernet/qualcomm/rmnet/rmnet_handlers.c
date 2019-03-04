@@ -316,10 +316,15 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 		struct sk_buff *skb_frag = skb_shinfo(skb)->frag_list;
 
 		skb_shinfo(skb)->frag_list = NULL;
-		while ((skbn = rmnet_map_deaggregate(skb, port)) != NULL)
+		while ((skbn = rmnet_map_deaggregate(skb, port)) != NULL) {
 			__rmnet_map_ingress_handler(skbn, port);
 
+			if (skbn == skb)
+				goto next_skb;
+		}
+
 		consume_skb(skb);
+next_skb:
 		skb = skb_frag;
 	}
 }

@@ -324,7 +324,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 {
 	struct rmnet_map_header *maph;
 	struct sk_buff *skbn;
-	unsigned char *data = rmnet_map_data_ptr(skb);
+	unsigned char *data = rmnet_map_data_ptr(skb), *next_hdr = NULL;
 	u32 packet_len;
 
 	if (skb->len == 0)
@@ -336,8 +336,12 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 		packet_len += sizeof(struct rmnet_map_dl_csum_trailer);
 	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5) {
-		if (!maph->cd_bit)
+		if (!maph->cd_bit) {
 			packet_len += sizeof(struct rmnet_map_v5_csum_header);
+
+			/* Coalescing headers require MAPv5 */
+			next_hdr = data + sizeof(*maph);
+		}
 	}
 
 	if (((int)skb->len - (int)packet_len) < 0)
@@ -346,6 +350,11 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	/* Some hardware can send us empty frames. Catch them */
 	if (ntohs(maph->pkt_len) == 0)
 		return NULL;
+
+	if (next_hdr &&
+	    ((struct rmnet_map_v5_coal_header *)next_hdr)->header_type ==
+	     RMNET_MAP_HEADER_TYPE_COALESCING)
+		return skb;
 
 	if (skb_is_nonlinear(skb)) {
 		skb_frag_t *frag0 = skb_shinfo(skb)->frags;
