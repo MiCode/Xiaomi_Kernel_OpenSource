@@ -15,6 +15,7 @@ config QCOM_COMMAND_DB
 
 config QCOM_MEM_OFFLINE
 	bool "Dynamic Memory Region Offline driver"
+	depends on MEMORY_HOTPLUG
 	help
 	  Add support for DDR Self-Refresh power management through the dynamic
 	  memory offline framework. This driver interfaces between the memory
