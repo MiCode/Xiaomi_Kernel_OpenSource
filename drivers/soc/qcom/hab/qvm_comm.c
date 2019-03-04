@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +42,9 @@ int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
 		void *payload)
 {
-	int sizebytes = HAB_HEADER_GET_SIZE(*header);
+	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
-	int total_size = sizeof(*header) + sizebytes;
+	size_t total_size = sizeof(*header) + sizebytes;
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
 		return -EINVAL; /* too much data for ring */
