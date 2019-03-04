@@ -1544,7 +1544,6 @@ struct ipa3_char_device_context {
  * @init_completion_obj: Completion object to be used in case IPA driver hasn't
  * @mhi_evid_limits: MHI event rings start and end ids
  *  finished initializing. Example of use - IOCTLs to /dev/ipa
- * @dl_csum_offload_enabled: IPA will do dl csum offload
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
@@ -1702,7 +1701,6 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
-	bool dl_csum_offload_enabled;
 };
 
 struct ipa3_plat_drv_res {
