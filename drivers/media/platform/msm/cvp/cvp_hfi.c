@@ -105,6 +105,8 @@ static void interrupt_init_vpu5(struct venus_hfi_device *device);
 static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device);
 static void clock_config_on_enable_vpu5(struct venus_hfi_device *device);
 
+static int __set_ubwc_config(struct venus_hfi_device *device);
+
 struct venus_hfi_vpu_ops cvp_vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
 	.setup_dsp_uc_memmap = NULL,
@@ -2064,8 +2066,9 @@ static int venus_hfi_core_init(void *device)
 
 	__enable_subcaches(device);
 	__set_subcaches(device);
-
 	__dsp_send_hfi_queue(device);
+
+	__set_ubwc_config(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -4111,6 +4114,35 @@ static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device)
 static void clock_config_on_enable_vpu5(struct venus_hfi_device *device)
 {
 		__write_register(device, CVP_WRAPPER_CPU_CLOCK_CONFIG, 0);
+}
+
+static int __set_ubwc_config(struct venus_hfi_device *device)
+{
+	u8 packet[CVP_IFACEQ_VAR_SMALL_PKT_SIZE];
+	int rc = 0;
+
+	struct hfi_cmd_sys_set_property_packet *pkt =
+		(struct hfi_cmd_sys_set_property_packet *) &packet;
+
+	if (!device->res->ubwc_config)
+		return 0;
+
+	rc = call_hfi_pkt_op(device, sys_ubwc_config, pkt,
+		device->res->ubwc_config);
+	if (rc) {
+		dprintk(CVP_WARN,
+			"ubwc config setting to FW failed\n");
+		rc = -ENOTEMPTY;
+		goto fail_to_set_ubwc_config;
+	}
+
+	if (__iface_cmdq_write(device, pkt)) {
+		rc = -ENOTEMPTY;
+		goto fail_to_set_ubwc_config;
+	}
+
+fail_to_set_ubwc_config:
+	return rc;
 }
 
 static int __venus_power_on(struct venus_hfi_device *device)

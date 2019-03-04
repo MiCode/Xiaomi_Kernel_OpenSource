@@ -15,9 +15,14 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/io.h>
+#include <linux/of_fdt.h>
 #include "msm_cvp_internal.h"
 #include "msm_cvp_debug.h"
 
+#define DDR_TYPE_LPDDR4 0x6
+#define DDR_TYPE_LPDDR4X 0x7
+#define DDR_TYPE_LPDDR4Y 0x8
+#define DDR_TYPE_LPDDR5 0x9
 
 #define CODEC_ENTRY(n, p, vsp, vpp, lp) \
 {	\
@@ -35,6 +40,21 @@
 	.mask = m,	\
 	.shift = sh,	\
 	.purpose = p	\
+}
+
+#define UBWC_CONFIG(mco, mlo, hbo, bslo, bso, rs, mc, ml, hbb, bsl, bsp) \
+{	\
+	.override_bit_info.max_channel_override = mco,	\
+	.override_bit_info.mal_length_override = mlo,	\
+	.override_bit_info.hb_override = hbo,	\
+	.override_bit_info.bank_swzl_level_override = bslo,	\
+	.override_bit_info.bank_spreading_override = bso,	\
+	.override_bit_info.reserved = rs,	\
+	.max_channels = mc,	\
+	.mal_length = ml,	\
+	.highest_bank_bit = hbb,	\
+	.bank_swzl_level = bsl,	\
+	.bank_spreading = bsp,	\
 }
 
 /*FIXME: hard coded AXI_REG_START_ADDR???*/
@@ -170,6 +190,11 @@ static struct msm_cvp_common_data sm8250_common_data[] = {
 	},
 };
 
+/* Default UBWC config for LPDDR5 */
+static struct msm_cvp_ubwc_config_data kona_ubwc_data[] = {
+	UBWC_CONFIG(1, 1, 1, 0, 0, 0, 8, 32, 16, 0, 0),
+};
+
 
 static struct msm_cvp_platform_data default_data = {
 	.codec_data = default_codec_data,
@@ -185,6 +210,7 @@ static struct msm_cvp_platform_data default_data = {
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
 	.vpu_ver = VPU_VERSION_5,
+	.ubwc_config = 0x0,
 };
 
 static struct msm_cvp_platform_data sm8250_data = {
@@ -199,6 +225,7 @@ static struct msm_cvp_platform_data sm8250_data = {
 	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_5,
+	.ubwc_config = kona_ubwc_data,
 };
 
 static const struct of_device_id msm_cvp_dt_match[] = {
@@ -213,19 +240,33 @@ MODULE_DEVICE_TABLE(of, msm_cvp_dt_match);
 
 void *cvp_get_drv_data(struct device *dev)
 {
-	struct msm_cvp_platform_data *driver_data = NULL;
+	struct msm_cvp_platform_data *driver_data;
 	const struct of_device_id *match;
+	uint32_t ddr_type = DDR_TYPE_LPDDR5;
 
-	if (!IS_ENABLED(CONFIG_OF) || !dev->of_node) {
-		driver_data = &default_data;
+	driver_data = &default_data;
+
+	if (!IS_ENABLED(CONFIG_OF) || !dev->of_node)
 		goto exit;
-	}
 
 	match = of_match_node(msm_cvp_dt_match, dev->of_node);
 
 	if (match)
 		driver_data = (struct msm_cvp_platform_data *)match->data;
 
+	if (!strcmp(match->compatible, "qcom,kona-cvp")) {
+		ddr_type = of_fdt_get_ddrtype();
+		if (ddr_type == -ENOENT) {
+			dprintk(CVP_ERR,
+				"Failed to get ddr type, use LPDDR5\n");
+		}
+
+		if (driver_data->ubwc_config &&
+			(ddr_type == DDR_TYPE_LPDDR4 ||
+			ddr_type == DDR_TYPE_LPDDR4X ||
+			ddr_type == DDR_TYPE_LPDDR4Y))
+			driver_data->ubwc_config->highest_bank_bit = 15;
+	}
 exit:
 	return driver_data;
 }
