@@ -39,7 +39,7 @@ int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
 		void *payload)
 {
-	int sizebytes = HAB_HEADER_GET_SIZE(*header);
+	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
 	uint8_t *msg;
