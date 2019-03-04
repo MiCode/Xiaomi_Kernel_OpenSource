@@ -472,8 +472,7 @@ static ssize_t ppd_enable_store(struct kgsl_device *device,
 	unsigned int ppd_on = 0;
 	int ret;
 
-	if (!adreno_is_a430v2(adreno_dev) ||
-		!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
 		return count;
 
 	ret = kgsl_sysfs_store(buf, &ppd_on);

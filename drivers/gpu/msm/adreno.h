@@ -17,8 +17,6 @@
 #include <linux/delay.h>
 #include "kgsl_gmu_core.h"
 
-#include "a4xx_reg.h"
-
 #ifdef CONFIG_QCOM_OCMEM
 #include <soc/qcom/ocmem.h>
 #endif
@@ -85,8 +83,6 @@
 #define ADRENO_USES_OCMEM     BIT(0)
 /* The core supports an accelerated warm start */
 #define ADRENO_WARM_START     BIT(1)
-/* The core supports the microcode bootstrap functionality */
-#define ADRENO_USE_BOOTSTRAP  BIT(2)
 /* The core supports SP/TP hw controlled power collapse */
 #define ADRENO_SPTP_PC BIT(3)
 /* The core supports Peak Power Detection(PPD)*/
@@ -289,8 +285,6 @@ enum adreno_preempt_states {
  * preemption counters on switch
  * @timer: A timer to make sure preemption doesn't stall
  * @work: A work struct for the preemption worker (for 5XX)
- * @token_submit: Indicates if a preempt token has been submitted in
- * current ringbuffer (for 4XX)
  * preempt_level: The level of preemption (for 6XX)
  * skipsaverestore: To skip saverestore during L1 preemption (for 6XX)
  * usesgmem: enable GMEM save/restore across preemption (for 6XX)
@@ -301,7 +295,6 @@ struct adreno_preemption {
 	struct kgsl_memdesc counters;
 	struct timer_list timer;
 	struct work_struct work;
-	bool token_submit;
 	unsigned int preempt_level;
 	bool skipsaverestore;
 	bool usesgmem;
@@ -1107,7 +1100,6 @@ extern unsigned int adreno_ft_regs_num;
 extern unsigned int *adreno_ft_regs_val;
 
 extern struct adreno_gpudev adreno_a3xx_gpudev;
-extern struct adreno_gpudev adreno_a4xx_gpudev;
 extern struct adreno_gpudev adreno_a5xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gpudev;
 
@@ -1234,30 +1226,6 @@ static inline int adreno_is_a330v21(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) > 0xF));
 }
 
-static inline int adreno_is_a4xx(struct adreno_device *adreno_dev)
-{
-	return ADRENO_GPUREV(adreno_dev) >= 400 &&
-		ADRENO_GPUREV(adreno_dev) < 500;
-}
-
-ADRENO_TARGET(a405, ADRENO_REV_A405);
-
-static inline int adreno_is_a405v2(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A405) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0x10);
-}
-
-ADRENO_TARGET(a418, ADRENO_REV_A418)
-ADRENO_TARGET(a420, ADRENO_REV_A420)
-ADRENO_TARGET(a430, ADRENO_REV_A430)
-
-static inline int adreno_is_a430v2(struct adreno_device *adreno_dev)
-{
-	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A430) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1));
-}
-
 static inline int adreno_is_a5xx(struct adreno_device *adreno_dev)
 {
 	return ADRENO_GPUREV(adreno_dev) >= 500 &&
@@ -1349,7 +1317,7 @@ static inline bool adreno_checkreg_off(struct adreno_device *adreno_dev,
 	 * programming needs to be skipped for certain GPU cores.
 	 * Example: Certain registers on a5xx like IB1_BASE are 64 bit.
 	 * Common programming programs 64bit register but upper 32 bits
-	 * are skipped in a4xx and a3xx using ADRENO_REG_SKIP.
+	 * are skipped in a3xx using ADRENO_REG_SKIP.
 	 */
 	if (gpudev->reg_offsets->offsets[offset_name] == ADRENO_REG_SKIP)
 		return false;
@@ -1616,17 +1584,6 @@ static inline void adreno_set_protected_registers(
 					*index, max_slots))
 		return;
 
-	/*
-	 * On A4XX targets with more than 16 protected mode registers
-	 * the upper registers are not contiguous with the lower 16
-	 * registers so we have to adjust the base and offset accordingly
-	 */
-
-	if (adreno_is_a4xx(adreno_dev) && *index >= 0x10) {
-		base = A4XX_CP_PROTECT_REG_10;
-		offset = *index - 0x10;
-	}
-
 	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
 
 	kgsl_regwrite(KGSL_DEVICE(adreno_dev), base + offset, val);
@@ -1676,17 +1633,6 @@ static inline int adreno_compare_pfp_version(struct adreno_device *adreno_dev,
 		return 0;
 
 	return (adreno_dev->fw[ADRENO_FW_PFP].version > version) ? 1 : -1;
-}
-
-/*
- * adreno_bootstrap_ucode() - Checks if Ucode bootstrapping is supported
- * @adreno_dev:		Pointer to the the adreno device
- */
-static inline int adreno_bootstrap_ucode(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_FEATURE(adreno_dev, ADRENO_USE_BOOTSTRAP) &&
-		adreno_compare_pfp_version(adreno_dev,
-			adreno_dev->gpucore->pfp_bstrp_ver) >= 0) ? 1 : 0;
 }
 
 /**

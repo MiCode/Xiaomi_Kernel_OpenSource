@@ -376,37 +376,12 @@ int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds,
 {
 	uint *start = cmds;
 
-	if (adreno_is_a4xx(adreno_dev)) {
-		cmds += cp_wait_for_idle(adreno_dev, cmds);
-		/*
-		 * The two commands will stall the PFP until the PFP-ME-AHB
-		 * is drained and the GPU is idle. As soon as this happens,
-		 * the PFP will start moving again.
-		 */
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-
-		/*
-		 * Below commands are processed by ME. GPU will be
-		 * idle when they are processed. But the PFP will continue
-		 * to fetch instructions at the same time.
-		 */
-		cmds += cp_protected_mode(adreno_dev, cmds, 0);
-		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-		*cmds++ = adreno_getreg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONTROL);
-		*cmds++ = set;
-		cmds += cp_protected_mode(adreno_dev, cmds, 1);
-
-		/* Stall PFP until all above commands are complete */
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-	} else {
-		/*
-		 * A5xx has a separate opcode specifically to put the GPU
-		 * in and out of secure mode.
-		 */
-		*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
-		*cmds++ = set;
-	}
+	/*
+	 * A5xx has a separate opcode specifically to put the GPU
+	 * in and out of secure mode.
+	 */
+	*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
+	*cmds++ = set;
 
 	return cmds - start;
 }
@@ -505,7 +480,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 3;
 
 	/* For HLSQ updates below */
-	if (adreno_is_a4xx(adreno_dev) || adreno_is_a3xx(adreno_dev))
+	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 4;
 
 	if (gpudev->preemption_pre_ibsubmit &&
@@ -625,7 +600,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * Flush HLSQ lazy updates to make sure there are no
 	 * resources pending for indirect loads after the timestamp
 	 */
-	if (adreno_is_a4xx(adreno_dev) || adreno_is_a3xx(adreno_dev)) {
+	if (adreno_is_a3xx(adreno_dev)) {
 		*ringcmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
 		*ringcmds++ = 0x07; /* HLSQ_FLUSH */
 		ringcmds += cp_wait_for_idle(adreno_dev, ringcmds);

@@ -1731,9 +1731,6 @@ static void _set_secvid(struct kgsl_device *device)
 
 	/* Program GPU contect protection init values */
 	if (device->mmu.secured && !set) {
-		if (adreno_is_a4xx(adreno_dev))
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
 		adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
 
