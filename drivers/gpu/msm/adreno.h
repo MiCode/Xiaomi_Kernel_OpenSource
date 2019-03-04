@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
@@ -126,7 +126,8 @@
 #define ADRENO_ECP BIT(18)
 /* Cooperative reset enabled GMU */
 #define ADRENO_COOP_RESET BIT(19)
-
+/* Indicates that the specific target is no longer supported */
+#define ADRENO_DEPRECATED BIT(20)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
