@@ -839,7 +839,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int bit, lower_bit, mal, mode, glbl_inv, upper_bit;
+	unsigned int bit, lower_bit, mal, mode, upper_bit;
 	unsigned int uavflagprd_inv;
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
@@ -974,8 +974,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	mal = (mal == 64) ? 1 : 0;
 
-	/* (1 << 29)globalInvFlushFilterDis bit needs to be set for A630 V1 */
-	glbl_inv = (adreno_is_a630v1(adreno_dev)) ? 1 : 0;
 	uavflagprd_inv = (adreno_is_a650(adreno_dev)) ? 2 : 0;
 
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (rgb565_predicator << 11)|
@@ -989,8 +987,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 				(mal << 3) | (uavflagprd_inv << 4) |
 				(lower_bit << 1) | mode);
 
-	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
-				(mal << 23) | (lower_bit << 21));
+	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (mal << 23) |
+		(lower_bit << 21));
 
 	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,

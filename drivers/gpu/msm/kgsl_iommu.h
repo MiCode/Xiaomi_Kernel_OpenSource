@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
@@ -186,9 +186,6 @@ kgsl_iommu_reg(struct kgsl_iommu_context *ctx, enum kgsl_iommu_reg_map reg)
 {
 	return ctx->regbase + kgsl_iommu_reg_list[reg];
 }
-
-/* Program aperture registers using SCM call */
-int kgsl_program_smmu_aperture(void);
 
 #define KGSL_IOMMU_SET_CTX_REG_Q(_ctx, REG, val) \
 		writeq_relaxed((val), \

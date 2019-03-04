@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -857,7 +857,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
-	unsigned int reg, i;
+	unsigned int i;
 	struct adreno_ringbuffer *rb;
 	struct registers regs;
 
@@ -909,16 +909,6 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A5XX_CP_DRAW_STATE_ADDR, A5XX_CP_DRAW_STATE_DATA,
 		0, 1 << A5XX_CP_DRAW_STATE_ADDR_WIDTH);
-
-	/*
-	 * CP needs to be halted on a530v1 before reading CP_PFP_UCODE_DBG_DATA
-	 * and CP_PM4_UCODE_DBG_DATA registers
-	 */
-	if (adreno_is_a530v1(adreno_dev)) {
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
-		reg |= (1 << 27) | (1 << 28);
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, reg);
-	}
 
 	/* ME_UCODE Cache */
 	kgsl_snapshot_indexed_registers(device, snapshot,

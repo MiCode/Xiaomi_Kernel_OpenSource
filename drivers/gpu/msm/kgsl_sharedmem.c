@@ -804,7 +804,6 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		memdesc->priv |= KGSL_MEMDESC_SECURE;
 
 	memdesc->flags = flags;
-	memdesc->pad_to = mmu->va_padding;
 	memdesc->dev = device->dev->parent;
 
 	align = max_t(unsigned int,

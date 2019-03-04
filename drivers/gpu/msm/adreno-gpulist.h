@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
@@ -136,12 +136,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.major = 3,
 		.minor = 0,
 		.patchid = 0,
-		.pm4fw_name = "a530v1_pm4.fw",
-		.pfpfw_name = "a530v1_pfp.fw",
-		.gpudev = &adreno_a5xx_gpudev,
-		.gmem_size = SZ_1M,
-		.num_protected_regs = 0x20,
-		.busy_mask = 0xFFFFFFFE,
+		.features = ADRENO_DEPRECATED,
 	},
 	{
 		.gpurev = ADRENO_REV_A530,
@@ -242,21 +237,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.major = 4,
 		.minor = 0,
 		.patchid = 0,
-		.features = ADRENO_PREEMPTION | ADRENO_64BIT |
-			ADRENO_CONTENT_PROTECTION |
-			ADRENO_GPMU | ADRENO_SPTP_PC,
-		.pm4fw_name = "a530_pm4.fw",
-		.pfpfw_name = "a530_pfp.fw",
-		.zap_name = "a540_zap",
-		.gpudev = &adreno_a5xx_gpudev,
-		.gmem_size = SZ_1M,
-		.num_protected_regs = 0x20,
-		.busy_mask = 0xFFFFFFFE,
-		.gpmufw_name = "a540_gpmu.fw2",
-		.gpmu_major = 3,
-		.gpmu_minor = 0,
-		.gpmu_tsens = 0x000C000D,
-		.max_power = 5448,
+		.features = ADRENO_DEPRECATED,
 	},
 	{
 		.gpurev = ADRENO_REV_A540,
@@ -318,21 +299,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.major = 3,
 		.minor = 0,
 		.patchid = 0,
-		.features = ADRENO_64BIT | ADRENO_RPMH |
-			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_LM,
-		.sqefw_name = "a630_sqe.fw",
-		.zap_name = "a630_zap",
-		.gpudev = &adreno_a6xx_gpudev,
-		.gmem_size = SZ_1M,
-		.num_protected_regs = 0x20,
-		.busy_mask = 0xFFFFFFFE,
-		.gpmufw_name = "a630_gmu.bin",
-		.gpmu_major = 0x1,
-		.gpmu_minor = 0x003,
-		.gpmu_tsens = 0x000C000D,
-		.max_power = 5448,
-		.prim_fifo_threshold = 0x0018000,
-		.pdc_address_offset = 0x00030080,
+		.features = ADRENO_DEPRECATED,
 	},
 	{
 		.gpurev = ADRENO_REV_A630,
@@ -397,30 +364,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_major = 0x1,
 		.gpmu_minor = 0x007,
 		.prim_fifo_threshold = 0x0018000,
-		.pdc_address_offset = 0x00030090,
-	},
-	{
-		.gpurev = ADRENO_REV_A640,
-		.core = 6,
-		.major = 4,
-		.minor = 0,
-		.patchid = 0,
-		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
-			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_IFPC,
-		.sqefw_name = "a630_sqe.fw",
-		.zap_name = "a640_zap",
-		.gpudev = &adreno_a6xx_gpudev,
-		.gmem_size = SZ_1M, //Verified 1MB
-		.num_protected_regs = 0x20,
-		.busy_mask = 0xFFFFFFFE,
-		.gpmufw_name = "a640_gmu.bin",
-		.gpmu_major = 0x2,
-		.gpmu_minor = 0x000,
-		.gpmu_tsens = 0x000C000D,
-		.max_power = 5448,
-		.va_padding = SZ_64K,
-		.prim_fifo_threshold = 0x00200000,
 		.pdc_address_offset = 0x00030090,
 	},
 	{

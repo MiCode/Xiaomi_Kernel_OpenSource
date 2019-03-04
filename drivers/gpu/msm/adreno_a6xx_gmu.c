@@ -162,10 +162,6 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(rscc, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
 	_regwrite(rscc, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
-	/* Enable timestamp event for v1 only */
-	if (adreno_is_a630v1(adreno_dev))
-		_regwrite(rscc, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
-
 	/* Load RSC sequencer uCode for sleep and wakeup */
 	if (adreno_is_a650(adreno_dev)) {
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xEAAAE5A0);
@@ -430,41 +426,19 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
 			&gmu->log_wptr_retention);
 
-	/* RSC sleep sequence is different on v1 */
-	if (adreno_is_a630v1(adreno_dev))
-		gmu_core_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0 +
-						RSCC_OFFSET_LEGACY, 1);
-
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	/* Make sure the request completes before continuing */
 	wmb();
 
-	if (adreno_is_a630v1(adreno_dev))
-		ret = timed_poll_check_rscc(device,
-				A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
-				BIT(0),
-				GPU_START_TIMEOUT,
-				BIT(0));
-	else
-		ret = timed_poll_check_rscc(device,
-				A6XX_GPU_RSCC_RSC_STATUS0_DRV0,
-				BIT(16),
-				GPU_START_TIMEOUT,
-				BIT(16));
+	ret = timed_poll_check_rscc(device,
+			A6XX_GPU_RSCC_RSC_STATUS0_DRV0,
+			BIT(16),
+			GPU_START_TIMEOUT,
+			BIT(16));
 
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "GPU RSC power off fail\n");
 		return -ETIMEDOUT;
-	}
-
-	/* Read to clear the timestamp valid signal. Don't care what we read. */
-	if (adreno_is_a630v1(adreno_dev)) {
-		gmu_core_regread(device,
-				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0 +
-					RSCC_OFFSET_LEGACY, &ret);
-		gmu_core_regread(device,
-				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0 +
-					RSCC_OFFSET_LEGACY, &ret);
 	}
 
 	gmu_core_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);

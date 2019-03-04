@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -1873,21 +1873,17 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	}
 
 	/*
-	 * Turn on hang detection for a530 v2 and beyond. This spews a
-	 * lot of useful information into the RBBM registers on a hang.
+	 * Turn on hang detection. This spews a lot of useful information
+	 * into the RBBM registers on a hang.
 	 */
-	if (!adreno_is_a530v1(adreno_dev)) {
-
-		set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
-		gpudev->irq->mask |= (1 << A5XX_INT_MISC_HANG_DETECT);
-		/*
-		 * Set hang detection threshold to 4 million cycles
-		 * (0x3FFFF*16)
-		 */
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					  (1 << 30) | 0x3FFFF);
-	}
-
+	set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
+	gpudev->irq->mask |= (1 << A5XX_INT_MISC_HANG_DETECT);
+	/*
+	 * Set hang detection threshold to 4 million cycles
+	 * (0x3FFFF*16)
+	 */
+	kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_INT_CNTL,
+				  (1 << 30) | 0x3FFFF);
 
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_CNTL, 0x01);
@@ -1955,19 +1951,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	else
 		kgsl_regwrite(device, A5XX_PC_DBG_ECO_CNTL,
 						(0x400 << 11 | 0x300 << 22));
-
-	/*
-	 * A5x USP LDST non valid pixel wrongly update read combine offset
-	 * In A5xx we added optimization for read combine. There could be cases
-	 * on a530 v1 there is no valid pixel but the active masks is not
-	 * cleared and the offset can be wrongly updated if the invalid address
-	 * can be combined. The wrongly latched value will make the returning
-	 * data got shifted at wrong offset. workaround this issue by disabling
-	 * LD combine, bit[25] of SP_DBG_ECO_CNTL (sp chicken bit[17]) need to
-	 * be set to 1, default is 0(enable)
-	 */
-	if (adreno_is_a530v1(adreno_dev))
-		kgsl_regrmw(device, A5XX_SP_DBG_ECO_CNTL, 0, (1 << 25));
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI)) {
 		/*
@@ -2253,14 +2236,6 @@ static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
 		 * WFI after every 2D Mode 3 draw.
 		 */
 		return 0x0000000B;
-	case ADRENO_REV_A540:
-		/*
-		 * WFI after every direct-render 3D mode draw and
-		 * WFI after every 2D Mode 3 draw. This is needed
-		 * only on a540v1.
-		 */
-		if (adreno_is_a540v1(adreno_dev))
-			return 0x0000000A;
 	default:
 		return 0x00000000; /* No ucode workarounds enabled */
 	}
@@ -2301,18 +2276,8 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 	/* Enabled ordinal mask */
 	*cmds++ = CP_INIT_MASK;
 
-	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT) {
-		/*
-		 * Multiple HW ctxs are unreliable on a530v1,
-		 * use single hw context.
-		 * Use multiple contexts if bit set, otherwise serialize:
-		 *      3D (bit 0) 2D (bit 1)
-		 */
-		if (adreno_is_a530v1(adreno_dev))
-			*cmds++ = 0x00000000;
-		else
-			*cmds++ = 0x00000003;
-	}
+	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT)
+		*cmds++ = 0x00000003;
 
 	if (CP_INIT_MASK & CP_INIT_ERROR_DETECTION_CONTROL)
 		*cmds++ = 0x20000000;

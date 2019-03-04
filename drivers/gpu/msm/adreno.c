@@ -499,25 +499,13 @@ static int _soft_reset(struct adreno_device *adreno_dev)
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
 
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
 	/*
-	 * On a530 v1 RBBM cannot be reset in soft reset.
-	 * Reset all blocks except RBBM for a530v1.
+	 * Do a dummy read to get a brief read cycle delay for the
+	 * reset to take effect
 	 */
-	if (adreno_is_a530v1(adreno_dev)) {
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
-						 0xFFDFFC0);
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
-						0x1FFFFFFF);
-	} else {
-
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
-		/*
-		 * Do a dummy read to get a brief read cycle delay for the
-		 * reset to take effect
-		 */
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
-	}
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
 
 	/* The SP/TP regulator gets turned off after a soft reset */
 
@@ -1368,14 +1356,6 @@ static int adreno_probe(struct platform_device *pdev)
 	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
 
-	/* Default to 4K alignment (in other words, no additional padding) */
-	device->mmu.va_padding = PAGE_SIZE;
-
-	if (adreno_dev->gpucore->va_padding) {
-		device->mmu.features |= KGSL_MMU_PAD_VA;
-		device->mmu.va_padding = adreno_dev->gpucore->va_padding;
-	}
-
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;
@@ -1657,9 +1637,7 @@ static int adreno_init(struct kgsl_device *device)
 			return ret;
 	}
 
-	ret = adreno_iommu_init(adreno_dev);
-	if (ret)
-		return ret;
+	 adreno_iommu_init(adreno_dev);
 
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
@@ -1881,23 +1859,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
-
-	if (adreno_is_a640v1(adreno_dev)) {
-		unsigned long start = jiffies;
-
-		if (scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-			ret = kgsl_program_smmu_aperture();
-			/* Log it if it takes more than 2 seconds */
-			if (((jiffies - start) / HZ) > 2)
-				dev_err(device->dev, "scm call took too long to finish on a640v1: %lu seconds\n",
-					((jiffies - start) / HZ));
-			if (ret) {
-				dev_err(device->dev, "SMMU aperture programming call failed with error %d\n",
-					ret);
-				goto error_pwr_off;
-			}
-		}
-	}
 
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 
