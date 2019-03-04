@@ -248,7 +248,7 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	if (qmap->next_hdr &&
 	    (port->data_format & (RMNET_FLAGS_INGRESS_COALESCE |
 				  RMNET_FLAGS_INGRESS_MAP_CKSUMV5))) {
-		if (rmnet_map_process_next_hdr_packet(skb, &list))
+		if (rmnet_map_process_next_hdr_packet(skb, &list, len))
 			goto free_skb;
 	} else {
 		/* We only have the main QMAP header to worry about */

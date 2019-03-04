@@ -1000,7 +1000,8 @@ static int rmnet_map_data_check_coal_header(struct sk_buff *skb,
 
 /* Process a QMAPv5 packet header */
 int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
-				      struct sk_buff_head *list)
+				      struct sk_buff_head *list,
+				      u16 len)
 {
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 	u64 nlo_err_mask;
@@ -1027,6 +1028,11 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 		pskb_pull(skb,
 			  (sizeof(struct rmnet_map_header) +
 			   sizeof(struct rmnet_map_v5_csum_header)));
+
+		/* Remove padding only for csum offload packets.
+		 * Coalesced packets should never have padding.
+		 */
+		pskb_trim(skb, len);
 		__skb_queue_tail(list, skb);
 		break;
 	default:
