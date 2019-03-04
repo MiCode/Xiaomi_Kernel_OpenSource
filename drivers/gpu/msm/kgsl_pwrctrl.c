@@ -293,14 +293,6 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	/* buslevel is the IB vote, update the AB */
 	_ab_buslevel_update(pwr, &ab);
 
-	/**
-	 * vote for ocmem if target supports ocmem scaling,
-	 * shut down based on "on" parameter
-	 */
-	if (pwr->ocmem_pcl)
-		msm_bus_scale_client_update_request(pwr->ocmem_pcl,
-			on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
-
 	kgsl_bus_scale_request(device, buslevel);
 
 	kgsl_pwrctrl_vbif_update(ab);
@@ -1957,14 +1949,6 @@ static inline void _close_pcl(struct kgsl_pwrctrl *pwr)
 	pwr->pcl = 0;
 }
 
-static inline void _close_ocmem_pcl(struct kgsl_pwrctrl *pwr)
-{
-	if (pwr->ocmem_pcl)
-		msm_bus_scale_unregister_client(pwr->ocmem_pcl);
-
-	pwr->ocmem_pcl = 0;
-}
-
 static inline void _close_regulators(struct kgsl_pwrctrl *pwr)
 {
 	int i;
@@ -2038,8 +2022,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	int i, k, m, n = 0, result, freq;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct device_node *ocmem_bus_node;
-	struct msm_bus_scale_pdata *ocmem_scale_table = NULL;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct device_node *gpubw_dev_node = NULL;
 	struct platform_device *p2dev;
@@ -2117,23 +2099,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	ocmem_bus_node = of_find_node_by_name(
-				device->pdev->dev.of_node,
-				"qcom,ocmem-bus-client");
-	/* If platform has split ocmem bus client - use it */
-	if (ocmem_bus_node) {
-		ocmem_scale_table = msm_bus_pdata_from_node
-				(device->pdev, ocmem_bus_node);
-		if (ocmem_scale_table)
-			pwr->ocmem_pcl = msm_bus_scale_register_client
-					(ocmem_scale_table);
-
-		if (!pwr->ocmem_pcl) {
-			result = -EINVAL;
-			goto error_disable_pm;
-		}
-	}
-
 	/* Bus width in bytes, set it to zero if not found */
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
 		&pwr->bus_width))
@@ -2163,7 +2128,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		pwr->pcl = msm_bus_scale_register_client(bus_scale_table);
 		if (pwr->pcl == 0) {
 			result = -EINVAL;
-			goto error_cleanup_ocmem_pcl;
+			goto error_disable_pm;
 		}
 	}
 
@@ -2231,8 +2196,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 error_cleanup_pcl:
 	_close_pcl(pwr);
-error_cleanup_ocmem_pcl:
-	_close_ocmem_pcl(pwr);
 error_disable_pm:
 	pm_runtime_disable(&pdev->dev);
 error_cleanup_regulators:
@@ -2256,8 +2219,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	kfree(pwr->bus_ib);
 
 	_close_pcl(pwr);
-
-	_close_ocmem_pcl(pwr);
 
 	pm_runtime_disable(&device->pdev->dev);
 

@@ -1393,10 +1393,6 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A3XX_RBBM_GPR0_CTL,
 			A310_RBBM_GPR0_CTL_DEFAULT);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_USES_OCMEM))
-		kgsl_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
-			(unsigned int)(adreno_dev->gmem_base >> 14));
-
 	/* Turn on protection */
 	a3xx_protect_init(adreno_dev);
 

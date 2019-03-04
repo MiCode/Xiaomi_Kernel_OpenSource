@@ -1132,49 +1132,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-#ifdef CONFIG_QCOM_OCMEM
-static int
-adreno_ocmem_malloc(struct adreno_device *adreno_dev)
-{
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_USES_OCMEM))
-		return 0;
-
-	if (adreno_dev->ocmem_hdl == NULL) {
-		adreno_dev->ocmem_hdl =
-			ocmem_allocate(OCMEM_GRAPHICS, adreno_dev->gmem_size);
-		if (IS_ERR_OR_NULL(adreno_dev->ocmem_hdl)) {
-			adreno_dev->ocmem_hdl = NULL;
-			return -ENOMEM;
-		}
-
-		adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
-		adreno_dev->gmem_base = adreno_dev->ocmem_hdl->addr;
-	}
-
-	return 0;
-}
-
-static void
-adreno_ocmem_free(struct adreno_device *adreno_dev)
-{
-	if (adreno_dev->ocmem_hdl != NULL) {
-		ocmem_free(OCMEM_GRAPHICS, adreno_dev->ocmem_hdl);
-		adreno_dev->ocmem_hdl = NULL;
-	}
-}
-#else
-static int
-adreno_ocmem_malloc(struct adreno_device *adreno_dev)
-{
-	return 0;
-}
-
-static void
-adreno_ocmem_free(struct adreno_device *adreno_dev)
-{
-}
-#endif
-
 static void adreno_cx_dbgc_probe(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1863,12 +1820,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_boot_oob_clear;
 
-	status = adreno_ocmem_malloc(adreno_dev);
-	if (status) {
-		dev_err(device->dev, "OCMEM malloc failed\n");
-		goto error_mmu_off;
-	}
-
 	/* Send OOB request to turn on the GX */
 	status = gmu_core_dev_oob_set(device, oob_gpu);
 	if (status)
@@ -2142,8 +2093,6 @@ static int adreno_stop(struct kgsl_device *device)
 	kgsl_pwrscale_update_stats(device);
 
 	adreno_irqctrl(adreno_dev, 0);
-
-	adreno_ocmem_free(adreno_dev);
 
 	adreno_llc_deactivate_slice(adreno_dev->gpu_llc_slice);
 	adreno_llc_deactivate_slice(adreno_dev->gpuhtw_llc_slice);

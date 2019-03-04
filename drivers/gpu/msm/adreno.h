@@ -17,10 +17,6 @@
 #include <linux/delay.h>
 #include "kgsl_gmu_core.h"
 
-#ifdef CONFIG_QCOM_OCMEM
-#include <soc/qcom/ocmem.h>
-#endif
-
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
@@ -79,8 +75,6 @@
 #define ADRENO_FW(a, f)		(&(a->fw[f]))
 
 /* Adreno core features */
-/* The core uses OCMEM for GMEM/binning memory */
-#define ADRENO_USES_OCMEM     BIT(0)
 /* The core supports SP/TP hw controlled power collapse */
 #define ADRENO_SPTP_PC BIT(3)
 /* The core supports Peak Power Detection(PPD)*/
@@ -441,7 +435,6 @@ enum gpu_coresight_sources {
  * @ft_policy: Defines the fault tolerance policy
  * @long_ib_detect: Long IB detection availability
  * @ft_pf_policy: Defines the fault policy for page faults
- * @ocmem_hdl: Handle to the ocmem allocated buffer
  * @profile: Container for adreno profiler information
  * @dispatcher: Container for adreno GPU dispatcher
  * @pwron_fixup: Command buffer to run a post-power collapse shader workaround
@@ -522,7 +515,6 @@ struct adreno_device {
 	unsigned long ft_policy;
 	unsigned int long_ib_detect;
 	unsigned long ft_pf_policy;
-	struct ocmem_buf *ocmem_hdl;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
 	struct kgsl_memdesc pwron_fixup;
