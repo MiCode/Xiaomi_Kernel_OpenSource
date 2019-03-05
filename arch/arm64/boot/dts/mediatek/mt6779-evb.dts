@@ -26,6 +26,12 @@
 	};
 };
 
+&pwrap {
+	pmic: mt6359 {
+		compatible = "mediatek,mt6359";
+	};
+};
+
 &uart0 {
 	status = "okay";
 };

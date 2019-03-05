@@ -97,6 +97,16 @@
 			gpio-ranges = <&pio 0 0 209>;
 		};
 
+		pwrap: pwrap@1000d000 {
+			compatible = "mediatek,mt6779-pwrap",
+				     "mediatek,pwrap_mpu";
+			reg = <0 0x1000d000 0 0x1000>;
+			reg-names = "pwrap";
+			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&uart_clk>, <&uart_clk>;
+			clock-names = "spi", "wrap";
+		};
+
 		uart0: serial@11002000 {
 			compatible = "mediatek,mt6779-uart",
 				     "mediatek,mt6577-uart";
