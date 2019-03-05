@@ -598,14 +598,25 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 
 	/* prevent multi-threads accessing rmnet_ipa3_ctx->num_q6_rules */
 	mutex_lock(&rmnet_ipa3_ctx->add_mux_channel_lock);
-	if (rule_req->filter_spec_ex_list_valid == true) {
+	if (rule_req->filter_spec_ex_list_valid == true &&
+		rule_req->filter_spec_ex2_list_valid == false) {
 		rmnet_ipa3_ctx->num_q6_rules =
 			rule_req->filter_spec_ex_list_len;
-		IPAWANDBG("Received (%d) install_flt_req\n",
+		IPAWANDBG("Received (%d) install_flt_req_ex_list\n",
+			rmnet_ipa3_ctx->num_q6_rules);
+	} else if (rule_req->filter_spec_ex2_list_valid == true &&
+		rule_req->filter_spec_ex_list_valid == false) {
+		rmnet_ipa3_ctx->num_q6_rules =
+			rule_req->filter_spec_ex2_list_len;
+		IPAWANDBG("Received (%d) install_flt_req_ex2_list\n",
 			rmnet_ipa3_ctx->num_q6_rules);
 	} else {
 		rmnet_ipa3_ctx->num_q6_rules = 0;
-		IPAWANERR("got no UL rules from modem\n");
+		if (rule_req->filter_spec_ex2_list_valid == true)
+			IPAWANERR(
+			"both ex and ex2 flt rules are set to valid\n");
+		else
+			IPAWANERR("got no UL rules from modem\n");
 		mutex_unlock(
 			&rmnet_ipa3_ctx->add_mux_channel_lock);
 		return -EINVAL;
@@ -621,14 +632,14 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 				rmnet_ipa3_ctx->num_q6_rules);
 			goto failure;
 		}
-		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
-			ipa3_copy_qmi_flt_rule_ex(
-				&ipa3_qmi_ctx->q6_ul_filter_rule[i],
-				&rule_req->filter_spec_ex2_list[i]);
-		else
+		if (rule_req->filter_spec_ex_list_valid == true)
 			ipa3_copy_qmi_flt_rule_ex(
 				&ipa3_qmi_ctx->q6_ul_filter_rule[i],
 				&rule_req->filter_spec_ex_list[i]);
+		else if (rule_req->filter_spec_ex2_list_valid == true)
+			ipa3_copy_qmi_flt_rule_ex(
+				&ipa3_qmi_ctx->q6_ul_filter_rule[i],
+				&rule_req->filter_spec_ex2_list[i]);
 	}
 
 	if (rule_req->xlat_filter_indices_list_valid) {
