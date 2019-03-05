@@ -6984,8 +6984,7 @@ int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
 {
 	struct sde_kms *kms;
 	struct sde_crtc_state *cstate = to_sde_crtc_state(state);
-	u32 y_blocks, y_remain, y_start;
-	u32 h_start, h_blocks, h_end, h_total;
+	u32 y_remain, y_start, y_end;
 	u32 m, n;
 
 	kms = _sde_crtc_get_kms(state->crtc);
@@ -7004,19 +7003,14 @@ int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
 
 	m = cstate->padding_active;
 	n = m + cstate->padding_dummy;
-	y_blocks = crtc_y / m;
-	y_remain = crtc_y - y_blocks * m;
-	y_start = y_remain + y_blocks * n;
-	h_start = m - y_remain;
-	h_blocks = (crtc_h - h_start) / m;
-	h_end = (crtc_h - h_start) - h_blocks * m;
-	if (h_end)
-		h_end += cstate->padding_dummy;
-	h_total = h_start + h_end + h_blocks * n;
+
+	y_remain = crtc_y % m;
+	y_start = y_remain + crtc_y / m * n;
+	y_end = (crtc_y + crtc_h - 1) / m * n + (crtc_y + crtc_h - 1) % m;
 
 	*padding_y = y_start;
-	*padding_start = h_start;
-	*padding_height = h_total;
+	*padding_start = m - y_remain;
+	*padding_height = y_end - y_start + 1;
 
 	return 0;
 }
