@@ -162,6 +162,7 @@
 
 /* PHY TIMINGS REVISION W */
 &dsi_sw43404_amoled_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
@@ -184,6 +185,7 @@
 };
 
 &dsi_sw43404_amoled_fhd_plus_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 12 04 04 1e 1e 04
@@ -195,6 +197,7 @@
 };
 
 &dsi_sharp_4k_dsc_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22 08
@@ -217,6 +220,7 @@
 };
 
 &dsi_sharp_1080_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1E 08 08 24 22 08
@@ -229,6 +233,7 @@
 };
 
 &dsi_dual_nt35597_truly_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
@@ -251,6 +256,7 @@
 };
 
 &dsi_nt35695b_truly_fhd_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
@@ -273,6 +279,7 @@
 };
 
 &dsi_sim_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
@@ -319,6 +326,7 @@
 };
 
 &dsi_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* 1080p */
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
@@ -339,6 +347,7 @@
 };
 
 &dsi_dual_sim_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
@@ -377,6 +386,7 @@
 };
 
 &dsi_dual_sim_dsc_375_cmd {
+	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* qhd */
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
