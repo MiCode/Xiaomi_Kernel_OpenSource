@@ -76,7 +76,7 @@ static int kona_qcom_llcc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id kona_qcom_llcc_of_match[] = {
-	{ .compatible = "qcom,kona-llcc", },
+	{ .compatible = "qcom,llcc-v2", },
 	{ },
 };
 
