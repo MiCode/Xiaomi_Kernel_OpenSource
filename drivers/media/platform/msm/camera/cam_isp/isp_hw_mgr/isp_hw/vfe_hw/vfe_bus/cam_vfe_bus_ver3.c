@@ -1115,10 +1115,8 @@ rdi_config:
 	} else if (rsrc_data->index == 22) {
 		switch (rsrc_data->format) {
 		case CAM_FORMAT_PLAIN16_16:
-			rsrc_data->width = 0;
-			rsrc_data->height = 0;
-			rsrc_data->stride = 1;
-			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+			rsrc_data->stride = ALIGNUP(rsrc_data->width * 2, 8);
+			rsrc_data->en_cfg = 0x1;
 			/* LSB aligned */
 			rsrc_data->pack_fmt |= 0x10;
 			break;
