@@ -53,6 +53,38 @@ Example:
 		};
 	};
 
+odm:
+-----------------
+
+odm partition specification.
+
+Required properties:
+
+-compatible: "android, odm"
+-dev: block device corresponding to odm partition
+-type: file system type of odm partition
+-mnt_flags: mount flags
+-fsmgr_flags: fsmgr flags
+
+Example:
+
+       firmware: firmware {
+               android {
+                       compatible = "android,firmware";
+                       fstab {
+                               compatible = "android,fstab";
+                               odm {
+                                       compatible = "android,odm";
+                                       dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/odm";
+                                       type = "ext4";
+                                       mnt_flags = "ro,barrier=1,discard";
+                                       fsmgr_flags = "wait,slotselect";
+                                       status = "ok";
+                               };
+                       };
+               };
+       };
+
 system:
 -----------------
 
