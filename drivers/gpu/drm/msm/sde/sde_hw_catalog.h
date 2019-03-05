@@ -1116,6 +1116,7 @@ struct sde_mdss_cfg {
 	bool has_qsync;
 	bool has_3d_merge_reset;
 	bool has_line_insertion;
+	bool has_base_layer;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;
