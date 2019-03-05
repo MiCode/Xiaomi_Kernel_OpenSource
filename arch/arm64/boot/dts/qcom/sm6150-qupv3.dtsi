@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -460,6 +460,7 @@
 		pinctrl-1 = <&qupv3_se9_spi_sleep>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_2>;
+		qcom,disable-dma;
 		status = "disabled";
 	};
 
@@ -479,6 +480,7 @@
 		pinctrl-1 = <&qupv3_se10_spi_sleep>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_2>;
+		qcom,disable-dma;
 		status = "disabled";
 	};
 };
