@@ -818,21 +818,25 @@ u32 msm_vidc_calculate_enc_output_frame_size(struct msm_vidc_inst *inst)
 	u32 width, height;
 
 	/*
-	 * Encoder output size calculation:
+	 * Encoder output size calculation: 32 Align width/height
 	 * For resolution < 720p : YUVsize * 4
 	 * For resolution > 720p & <= 4K : YUVsize / 2
 	 * For resolution > 4k : YUVsize / 4
+	 * Initially frame_size = YUVsize * 2;
 	 */
-	width = inst->prop.width[CAPTURE_PORT];
-	height = inst->prop.height[CAPTURE_PORT];
-	mbs_per_frame = ((width + 15) >> 4) * ((height + 15) >> 4);
-	frame_size = (width * height * 3) >> 1;
+	width = ALIGN(inst->prop.width[CAPTURE_PORT],
+		BUFFER_ALIGNMENT_SIZE(32));
+	height = ALIGN(inst->prop.height[CAPTURE_PORT],
+		BUFFER_ALIGNMENT_SIZE(32));
+	mbs_per_frame = NUM_MBS_PER_FRAME(width, height);
+	frame_size = (width * height * 3);
+
 	if (mbs_per_frame < NUM_MBS_720P)
-		frame_size = frame_size << 2;
+		frame_size = frame_size << 1;
 	else if (mbs_per_frame <= NUM_MBS_4k)
-		frame_size = frame_size >> 1;
-	else
 		frame_size = frame_size >> 2;
+	else
+		frame_size = frame_size >> 3;
 
 	if ((inst->rc_type == RATE_CONTROL_OFF) ||
 		(inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ))
