@@ -37,6 +37,7 @@
 				"lut_clk", "rot_clk";
 		clock-rate = <0 0 0 0 0 256000000 19200000 192000000>;
 		clock-max-rate = <0 0 0 0 0 307000000 19200000 307000000>;
+		qcom,dss-cx-ipeak = <&cx_ipeak_lm 1>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
@@ -50,6 +51,8 @@
 		#size-cells = <0>;
 
 		#power-domain-cells = <0>;
+
+		#list-cells = <1>;
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -285,7 +288,12 @@
 
 		power-domains = <&mdss_mdp>;
 
+		/*Offline rotator RT setting */
+		qcom,mdss-rot-parent = <&mdss_mdp 0>;
+		qcom,mdss-rot-xin-id = <10 11>;
+
 		/* Offline rotator QoS setting */
+		qcom,mdss-rot-vbif-qos-setting = <3 3 4 4 5 5 6 6>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
@@ -370,8 +378,10 @@
 		label = "dsi-phy-0";
 		cell-index = <0>;
 		reg = <0x5e94400 0x588>,
-			<0x5e01400 0x100>;
-		reg-names = "dsi_phy", "phy_clamp_base";
+			<0x5e01400 0x100>,
+			<0x5e94200 0x100>;
+		reg-names = "dsi_phy", "phy_clamp_base",
+			"dyn_refresh_base";
 		vdda-0p9-supply = <&VDD_MX_LEVEL>;
 		qcom,platform-strength-ctrl = [ff 06
 						ff 06
@@ -392,9 +402,11 @@
 				reg = <0>;
 				qcom,supply-name = "vdda-0p9";
 				qcom,supply-min-voltage =
-					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-				qcom,supply-max-voltage =
 					<RPM_SMD_REGULATOR_LEVEL_NOM>;
+				qcom,supply-max-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_NO_CPR>;
+				qcom,supply-off-min-voltage =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};

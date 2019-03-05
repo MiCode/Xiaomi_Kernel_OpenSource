@@ -98,7 +98,7 @@
 	/delete-node/ camera-lowf;
 	/delete-node/ video-lowf;
 	/delete-node/ cpu-1-0-lowf;
-	/delete-node/ cpuss-2-lowf;
+	/delete-node/ cpuss-0-lowf;
 	/delete-node/ mdm-core-lowf;
 	/delete-node/ display-lowf;
 	/delete-node/ gpu-lowf;

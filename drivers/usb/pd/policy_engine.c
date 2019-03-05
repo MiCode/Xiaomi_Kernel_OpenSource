@@ -509,6 +509,21 @@ enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 }
 EXPORT_SYMBOL(usbpd_get_plug_orientation);
 
+static unsigned int get_connector_type(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_CONNECTOR_TYPE, &val);
+
+	if (ret) {
+		dev_err(&pd->dev, "Unable to read CONNECTOR TYPE: %d\n", ret);
+		return ret;
+	}
+	return val.intval;
+}
+
 static inline void stop_usb_host(struct usbpd *pd)
 {
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
@@ -884,10 +899,12 @@ static void kick_sm(struct usbpd *pd, int ms)
 	pm_stay_awake(&pd->dev);
 	pd->sm_queued = true;
 
-	if (ms)
+	if (ms) {
+		usbpd_dbg(&pd->dev, "delay %d ms", ms);
 		hrtimer_start(&pd->timer, ms_to_ktime(ms), HRTIMER_MODE_REL);
-	else
+	} else {
 		queue_work(pd->wq, &pd->sm_work);
+	}
 }
 
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
@@ -1154,7 +1171,6 @@ static enum hrtimer_restart pd_timeout(struct hrtimer *timer)
 {
 	struct usbpd *pd = container_of(timer, struct usbpd, timer);
 
-	usbpd_dbg(&pd->dev, "timeout");
 	queue_work(pd->wq, &pd->sm_work);
 
 	return HRTIMER_NORESTART;
@@ -3550,6 +3566,8 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 		enum dual_role_property prop, const unsigned int *val)
 {
 	struct usbpd *pd = dual_role_get_drvdata(dual_role);
+	union power_supply_propval value;
+	int wait_count = 5;
 	bool do_swap = false;
 
 	if (!pd)
@@ -3572,8 +3590,32 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 		set_power_role(pd, PR_NONE);
 
 		/* wait until it takes effect */
-		while (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
+		while (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE &&
+				--wait_count)
 			msleep(20);
+
+		if (!wait_count) {
+			usbpd_err(&pd->dev, "setting mode timed out\n");
+			/* Setting it to DRP. HW can figure out new mode */
+			value.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+			power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &value);
+			return -ETIMEDOUT;
+		}
+
+		/* if we cannot have a valid connection, fallback to old role */
+		wait_count = 5;
+		while (pd->current_pr == PR_NONE && --wait_count)
+			msleep(300);
+
+		if (!wait_count) {
+			usbpd_err(&pd->dev, "setting mode timed out\n");
+			/* Setting it to DRP. HW can figure out new mode */
+			value.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+			power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &value);
+			return -ETIMEDOUT;
+		}
 
 		break;
 
@@ -4526,12 +4568,19 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->dr_desc.set_property = usbpd_dr_set_property;
 	pd->dr_desc.property_is_writeable = usbpd_dr_prop_writeable;
 
-	pd->dual_role = devm_dual_role_instance_register(&pd->dev,
-			&pd->dr_desc);
-	if (IS_ERR(pd->dual_role)) {
-		usbpd_err(&pd->dev, "could not register dual_role instance\n");
+	ret = get_connector_type(pd);
+
+	if (ret < 0)
 		goto put_psy;
-	} else {
+
+	/* For non-TypeC connector, it will be handled elsewhere */
+	if (ret != POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		pd->dual_role = devm_dual_role_instance_register(&pd->dev,
+				&pd->dr_desc);
+		if (IS_ERR(pd->dual_role)) {
+			usbpd_err(&pd->dev, "could not register dual_role instance\n");
+			goto put_psy;
+		}
 		pd->dual_role->drv_data = pd;
 	}
 

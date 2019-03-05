@@ -82,3 +82,7 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&qseecom_mem {
+	size = <0 0x400000>;
+};

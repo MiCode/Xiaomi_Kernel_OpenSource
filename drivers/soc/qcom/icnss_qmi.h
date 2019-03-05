@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,11 @@ static inline int icnss_register_fw_service(struct icnss_priv *priv)
 	return 0;
 }
 static inline void icnss_unregister_fw_service(struct icnss_priv *priv) {}
+static inline int icnss_send_vbatt_update(struct icnss_priv *priv,
+					  uint64_t voltage_uv)
+{
+	return 0;
+}
 
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
@@ -121,6 +126,7 @@ int icnss_send_wlan_enable_to_fw(struct icnss_priv *priv,
 int icnss_send_wlan_disable_to_fw(struct icnss_priv *priv);
 int icnss_register_fw_service(struct icnss_priv *priv);
 void icnss_unregister_fw_service(struct icnss_priv *priv);
+int icnss_send_vbatt_update(struct icnss_priv *priv, uint64_t voltage_uv);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/

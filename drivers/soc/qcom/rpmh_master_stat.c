@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ enum master_smem_id {
 	SLPI,
 	GPU,
 	DISPLAY,
+	SLPI_ISLAND = 613,
 };
 
 enum master_pid {
@@ -70,8 +71,10 @@ struct msm_rpmh_master_data {
 static const struct msm_rpmh_master_data rpmh_masters[] = {
 	{"MPSS", MPSS, PID_MPSS},
 	{"ADSP", ADSP, PID_ADSP},
+	{"ADSP_ISLAND", SLPI_ISLAND, PID_ADSP},
 	{"CDSP", CDSP, PID_CDSP},
 	{"SLPI", SLPI, PID_SLPI},
+	{"SLPI_ISLAND", SLPI_ISLAND, PID_SLPI},
 	{"GPU", GPU, PID_GPU},
 	{"DISPLAY", DISPLAY, PID_DISPLAY},
 };

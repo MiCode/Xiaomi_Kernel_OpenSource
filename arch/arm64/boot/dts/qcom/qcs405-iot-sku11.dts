@@ -47,3 +47,33 @@
 			< 1401600 MHZ_TO_MBPS( 710, 8) >;
 	};
 };
+
+&pms405_s3 {
+	status = "disabled";
+};
+
+&pms405_gpios {
+	hl7503_vsel {
+		hl7503_vsel_default: hl7503_vsel_default {
+			pins = "gpio6";
+			function = "normal";
+		};
+	};
+};
+
+&i2c_2 {
+	status = "ok";
+};
+
+&hl7503_vreg {
+	status = "ok";
+	fcs,vsel-gpio = <&pms405_gpios 6 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hl7503_vsel_default>;
+};
+
+&apc_vreg_corner {
+	vdd-apc-supply = <&hl7503_vreg>;
+	qcom,cpr-apc-volt-step = <6250>;
+	qcom,cpr-voltage-ceiling = <1224000 1288000 1356250 1387500>;
+};

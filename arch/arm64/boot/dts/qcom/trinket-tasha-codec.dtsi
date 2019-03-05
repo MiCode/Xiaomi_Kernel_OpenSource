@@ -120,8 +120,8 @@
 	asoc-codec = <&stub_codec>;
 	asoc-codec-names = "msm-stub-codec.1";
 	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_70211>, <&wsa881x_70212>,
-		<&wsa881x_70213>, <&wsa881x_70214>;
+	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70211>,
+		<&wsa881x_70214>, <&wsa881x_70213>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 		"SpkrLeft", "SpkrRight";
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&wcd9335>,

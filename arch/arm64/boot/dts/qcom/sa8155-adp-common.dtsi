@@ -45,6 +45,33 @@
 &qupv3_se4_i2c {
 	status = "ok";
 };
+
+&qupv3_se10_i2c {
+	status = "ok";
+	asm330@6a {
+		compatible = "st,asm330lhh";
+		reg = <0x6a>;
+		vio-supply = <&pm8150_2_l7>;
+		vdd-supply = <&pm8150_2_l16>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <41 IRQ_TYPE_EDGE_RISING>,
+				<42 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default
+			&sensor_int2_default>;
+		sensor_int1_default: sensor_int1_default {
+			pins = "gpio41";
+			drive-strength = <16>;
+			bias-pull-up;
+		};
+		sensor_int2_default: sensor_int2_default {
+			pins = "gpio42";
+			drive-strength = <16>;
+			bias-pull-up;
+		};
+	};
+};
+
 &pil_modem {
 	status = "disabled";
 };
@@ -182,11 +209,34 @@
 };
 
 &usb0 {
+	qcom,default-mode-none;
 	qcom,host-poweroff-in-pm-suspend;
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x43 0x70
+		 0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en1_default>;
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
 };
 
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
 	qcom,host-poweroff-in-pm-suspend;
+};
+
+&usb2_phy1 {
+	qcom,param-override-seq = <0x01 0xb0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2phy_ac_en2_default>;
 };

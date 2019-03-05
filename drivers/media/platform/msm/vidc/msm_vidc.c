@@ -1808,6 +1808,16 @@ static const struct v4l2_ctrl_ops msm_vidc_ctrl_ops = {
 	.g_volatile_ctrl = msm_vidc_op_g_volatile_ctrl,
 };
 
+static void batch_timer_callback(unsigned long data)
+{
+	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)data;
+
+	if (!inst->batch.enable)
+		return;
+
+	schedule_work(&inst->batch_work);
+}
+
 void *msm_vidc_open(int core_id, int session_type)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -1944,6 +1954,10 @@ void *msm_vidc_open(int core_id, int session_type)
 		}
 	}
 
+	INIT_WORK(&inst->batch_work, msm_vidc_batch_handler);
+	setup_timer(&inst->batch_timer,
+				batch_timer_callback, (unsigned long)inst);
+
 	return inst;
 fail_init:
 	mutex_lock(&core->lock);
@@ -2023,6 +2037,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		kref_put_mbuf(temp);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
+
+	del_timer(&inst->batch_timer);
 
 	msm_comm_free_freq_table(inst);
 

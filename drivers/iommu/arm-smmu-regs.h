@@ -192,6 +192,7 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x25dc
+#define ARM_SMMU_TBU_PWR_STATUS         0x2204
 
 #define SCTLR_SHCFG_SHIFT		22
 #define SCTLR_SHCFG_MASK		0x3

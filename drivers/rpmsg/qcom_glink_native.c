@@ -1480,6 +1480,9 @@ static int __qcom_glink_send(struct glink_channel *channel,
 			if (intent)
 				break;
 
+			if (atomic_read(&glink->in_reset))
+				return -ECONNRESET;
+
 			if (!wait)
 				return -EBUSY;
 
@@ -1510,6 +1513,7 @@ static int __qcom_glink_send(struct glink_channel *channel,
 	}
 
 	while (left_size > 0) {
+		data = (void *)((char *)data + chunk_size);
 		chunk_size = left_size;
 		if (chunk_size > SZ_8K)
 			chunk_size = SZ_8K;

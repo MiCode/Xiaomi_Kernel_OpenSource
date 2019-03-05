@@ -94,7 +94,8 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150p-hdk.dtb
 endif
 
-dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb
+dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
+	sa6155p-vm.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \
@@ -168,6 +169,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
 		sdmmagpiep-idp-overlay.dtbo \
+		sdmmagpiep-atp-overlay.dtbo \
 		sdmmagpiep-qrd-overlay.dtbo \
 		sdmmagpie-external-codec-idp-overlay.dtbo \
 		sdmmagpie-usbc-idp-overlay.dtbo \
@@ -178,6 +180,7 @@ sdmmagpie-atp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
+sdmmagpiep-atp-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpie-external-codec-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-usbc-idp-overlay.dtbo-base := sdmmagpie.dtb
@@ -188,6 +191,7 @@ dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-atp.dtb \
 	sdmmagpie-qrd.dtb \
 	sdmmagpiep-idp.dtb \
+	sdmmagpiep-atp.dtb \
 	sdmmagpiep-qrd.dtb \
 	sdmmagpie-external-codec-idp.dtb \
 	sdmmagpie-usbc-idp.dtb \

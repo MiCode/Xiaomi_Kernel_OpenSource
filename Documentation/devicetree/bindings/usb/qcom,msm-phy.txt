@@ -33,6 +33,8 @@ Optional properties:
         "phy_rcal_reg": register address for efuse used for rext calibration
  - qcom,no-rext-present: Set only if external REXT is not present. Default value
    is present.
+ - pinctrl-names/pinctrl-0: The GPIO configured as usb2phy_ac function. Name represents
+   "active" state.
 
 Example:
 	hsphy@f9200000 {
@@ -187,6 +189,9 @@ Optional properties:
    de-asserted, it will prevent random leakage from qusb2 phy resulting from
    out of sequence turn on/off of 1p8, 3p3 and DVDD regulators.
    "refgen_north_bg_reg" : address used to read REFGEN status for overriding QUSB PHY register.
+   "tcsr_conn_box_spare" : To enable/disable USB HS AC/DC coupling feature. When
+   enabled, DP/DM signals will take path through capacitor when USB HS device is
+   connected. This is a required property if 'qcom,usb-hs-ac-bitmask' property is present.
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
@@ -203,8 +208,8 @@ Optional properties:
  - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
  - qcom,phy-clk-scheme: Should be one of "cml" or "cmos" if ref_clk_addr is provided.
  - qcom,major-rev: provide major revision number to differentiate power up sequence. default is 2.0
- - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Names represents "active"
-   state when attached in host mode and "suspend" state when detached.
+ - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Allowed names are
+   "default" and "sleep".
  - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
    improved rise/fall times.
  - qcom,host-chirp-erratum: Indicates host chirp fix is required.
@@ -214,6 +219,11 @@ Optional properties:
    usually it is defined by qfprom device node.
  - nvmem-cell-names: specifies the given nvmem cell name as defined in
    qfprom node.
+ - qcom,usb-hs-ac-bitmask: Specifies the polarity and enable bitfields in
+   tcsr_conn_box_spare register so as to enable USB HS AC/DC coupling feature.
+ - qcom,usb-hs-ac-value: Specifies the value to be written to polarity and
+   enable bitfields so as to enable USB HS AC/DC coupling feature. This is a
+   required property if 'qcom,usb-hs-ac-bitmask' property is present.
 
 Example:
 	qusb_phy: qusb@f9b39000 {

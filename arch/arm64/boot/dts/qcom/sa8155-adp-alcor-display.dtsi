@@ -1,0 +1,88 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&tlmm {
+	dp_hpd_cfg_pins: dp_hpd_cfg_pins {
+		mux {
+			pins = "gpio48";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio48";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	dp_redriver_en: dp_redriver_en {
+		mux {
+			pins = "gpio47";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio47";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+&sde_dp {
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-hpd-gpio = <&tlmm 48 0>;
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep",
+			"mdss_dp_hpd_active";
+	pinctrl-0 = <&dp_hpd_cfg_pins &dp_redriver_en>;
+	pinctrl-1 = <&dp_hpd_cfg_pins &dp_redriver_en>;
+	pinctrl-2 = <&dp_hpd_cfg_pins &dp_redriver_en>;
+
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&soc {
+	refgen: refgen-regulator@88e7000 {
+		compatible = "qcom,refgen-regulator";
+		reg = <0x88e7000 0x60>;
+		regulator-name = "refgen";
+		regulator-enable-ramp-delay = <5>;
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_dp &sde_wb>;
+};

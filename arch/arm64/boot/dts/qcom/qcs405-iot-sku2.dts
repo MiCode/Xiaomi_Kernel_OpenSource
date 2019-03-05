@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,16 @@
 		qcom,spi-pref-prim-pan = <&spi_st7789v2_qvga_cmd>;
 		qcom,mdss-spi = <&mdss_spi_display>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+	};
+
+	spi@78b5000 {
+		status = "okay";
+
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
 	};
 
 	spi@7af5000 {  /* BLSP1 QUP2 */
@@ -172,6 +182,8 @@
 };
 
 &sdhc_2 {
+	/delete-property/ qcom,nonhotplug;
+
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
 			&sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off

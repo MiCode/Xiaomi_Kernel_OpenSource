@@ -423,8 +423,10 @@
 		label = "dsi-phy-0";
 		cell-index = <0>;
 		reg = <0xae94400 0x588>,
-		    <0xae01400 0x100>;
-		reg-names = "dsi_phy", "phy_clamp_base";
+		    <0xae01400 0x100>,
+		    <0xae94200 0x100>;
+		reg-names = "dsi_phy", "phy_clamp_base",
+			"dyn_refresh_base";
 		vdda-0p9-supply = <&pm6150_l4>;
 		qcom,platform-strength-ctrl = [ff 06
 						ff 06

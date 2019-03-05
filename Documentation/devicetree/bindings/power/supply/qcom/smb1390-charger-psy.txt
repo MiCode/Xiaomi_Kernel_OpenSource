@@ -32,6 +32,22 @@ Charger specific properties:
   Definition: For details about IIO bindings see:
 	      Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- qcom,min-ilim-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Minimum ILIM supported, if requested ILIM goes below this value
+	      disable SMB1390. If this values is not specified default minimum
+	      ILIM is 1A.
+
+- qcom,max-temp-alarm-degc
+  Usage:      optional
+  Value type: <u32>
+  Definition: Maximum die temperature to trigger temp alarm. The value
+	      must be one of the following:
+	      85, 95, 110, 125.
+	      If this value is not specified or is not one of the above
+	      then default value is 110.
+
 ================================================
 Second Level Nodes - SMB1390 Charger Peripherals
 ================================================

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 /dts-v1/;
 
 #include "sa8155-v2.dtsi"
-#include "sa8155-adp-common.dtsi"
+#include "sa8155-adp-alcor.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155 ADP ALCOR";

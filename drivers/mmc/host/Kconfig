@@ -429,6 +429,7 @@ config MMC_SDHCI_MSM
 	tristate "Qualcomm Technologies, Inc. SDHCI Controller Support"
 	depends on ARCH_QCOM || ARCH_MSM || (ARM && COMPILE_TEST)
 	depends on MMC_SDHCI_PLTFM
+	select MMC_SDHCI_IO_ACCESSORS
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI)
 	  support present in Qualcomm Technologies, Inc. SOCs. The controller

@@ -73,6 +73,12 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	clock_virt: qcom,virt {
+		compatible = "qcom,virt-clk-sm8150";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	clock_gcc: qcom,gcc {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;

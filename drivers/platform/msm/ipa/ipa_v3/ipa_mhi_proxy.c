@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018 - 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,9 +388,10 @@ static int __imp_configure_mhi_device(
 			ridx++;
 			resp->alloc_resp_arr_len = ridx;
 			resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-			/* return INCOMPATIBLE_STATE if mhi not active */
+			/* return INCOMPATIBLE_STATE in any case */
 			if (mhi_is_active(imp_ctx->md.mhi_dev))
-				resp->resp.error = IPA_QMI_ERR_INVALID_ID_V01;
+				resp->resp.error =
+					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 			else
 				resp->resp.error =
 					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
@@ -556,9 +557,9 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 *imp_handle_allocate_channel_req(
 			.is_success = 0;
 		resp->alloc_resp_arr_len++;
 		resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-		/* return INCOMPATIBLE_STATE if mhi not active */
+		/* return INCOMPATIBLE_STATE in any case */
 		if (mhi_is_active(imp_ctx->md.mhi_dev))
-			resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+			resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 		else
 			resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 		goto fail_smmu;
@@ -620,7 +621,7 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 	IMP_DBG_LOW("vote %d\n", vote);
 	memset(resp, 0, sizeof(struct ipa_mhi_clk_vote_resp_msg_v01));
 	resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-	resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+	resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 
 	mutex_lock(&imp_ctx->mutex);
 
@@ -658,9 +659,10 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 		if (ret) {
 			IMP_ERR("mhi_sync_get failed %d\n", ret);
 			resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-			/* return INCOMPATIBLE_STATE if mhi not active */
+			/* return INCOMPATIBLE_STATE in any case */
 			if (mhi_is_active(imp_ctx->md.mhi_dev))
-				resp->resp.error = IPA_QMI_ERR_INVALID_ID_V01;
+				resp->resp.error =
+					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 			else
 				resp->resp.error =
 					IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
@@ -1089,7 +1091,6 @@ void imp_handle_modem_shutdown(void)
 		}
 	}
 
-	imp_ctx->state = IMP_PROBED;
 	mutex_unlock(&imp_ctx->mutex);
 
 	IMP_FUNC_EXIT();

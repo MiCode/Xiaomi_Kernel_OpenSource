@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,6 @@ static struct {
 	struct regulator *gdsc;
 	const char *reg_name;
 	void __iomem *reg_base;
-	void __iomem *gcc_base;
 	struct device *iommu_ctx_bank_dev;
 	struct dma_iommu_mapping *mapping;
 	dma_addr_t fw_iova;
@@ -446,18 +445,6 @@ int venus_boot_init(struct msm_vidc_platform_resources *res,
 		goto err_ioremap_fail;
 	}
 
-	venus_data->gcc_base = ioremap_nocache(res->gcc_register_base,
-			(unsigned long)res->gcc_register_size);
-	dprintk(VIDC_DBG, "gcc reg: base %llx size %x\n",
-		 res->gcc_register_base, res->gcc_register_size);
-	if (!venus_data->gcc_base) {
-		dprintk(VIDC_ERR,
-				"could not map reg addr %pa of size %d\n",
-				&res->gcc_register_base,
-				res->gcc_register_size);
-		rc = -ENOMEM;
-		goto err_ioremap_fail;
-	}
 	venus_data->venus_notif_hdle = subsys_notif_register_notifier("venus",
 							&venus_notifier);
 	if (IS_ERR(venus_data->venus_notif_hdle)) {

@@ -33,6 +33,7 @@
 #include <linux/i2c.h>
 #include <linux/of_gpio.h>
 #include "synaptics_tcm_core.h"
+#include "linux/moduleparam.h"
 
 #define XFER_ATTEMPTS 10
 
@@ -45,6 +46,8 @@ static struct syna_tcm_bus_io bus_io;
 static struct syna_tcm_hw_interface hw_if;
 
 static struct platform_device *syna_tcm_i2c_device;
+
+active_tp_setup(synaptics_tcm);
 
 #ifdef CONFIG_OF
 static int parse_dt(struct device *dev, struct syna_tcm_board_data *bdata)
@@ -398,6 +401,11 @@ static int syna_tcm_i2c_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *dev_id)
 {
 	int retval;
+	struct device_node *dt = i2c->dev.of_node;
+
+	if (synaptics_tcm_check_assigned_tp(dt, "compatible",
+				"qcom,i2c-touch-active") < 0)
+		return -ENODEV;
 
 	syna_tcm_i2c_device = platform_device_alloc(PLATFORM_DRIVER_NAME, 0);
 	if (!syna_tcm_i2c_device) {

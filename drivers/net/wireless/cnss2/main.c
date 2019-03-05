@@ -25,6 +25,7 @@
 #include "main.h"
 #include "bus.h"
 #include "debug.h"
+#include "genl.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
 #define CNSS_DUMP_FORMAT_VER_V2		0x22
@@ -456,6 +457,12 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "POWER_UP";
 	case CNSS_DRIVER_EVENT_POWER_DOWN:
 		return "POWER_DOWN";
+	case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+		return "QDSS_TRACE_REQ_MEM";
+	case CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+		return "QDSS_TRACE_SAVE";
+	case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+		return "QDSS_TRACE_FREE";
 	case CNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1003,6 +1010,11 @@ int cnss_force_fw_assert(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
+	if (cnss_pci_is_device_down(dev)) {
+		cnss_pr_info("Device is already in bad state, ignore force assert\n");
+		return 0;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_info("Recovery is already in progress, ignore forced FW assert\n");
 		return 0;
@@ -1031,14 +1043,19 @@ int cnss_force_collect_rddm(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
+	if (cnss_pci_is_device_down(dev)) {
+		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
+		return 0;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
 		return 0;
 	}
 
-	cnss_driver_event_post(plat_priv,
-			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
-			       0, NULL);
+	ret = cnss_bus_force_fw_assert_hdlr(plat_priv);
+	if (ret)
+		return ret;
 
 	reinit_completion(&plat_priv->rddm_complete);
 	ret = wait_for_completion_timeout
@@ -1096,6 +1113,109 @@ static int cnss_power_up_hdlr(struct cnss_plat_data *plat_priv)
 static int cnss_power_down_hdlr(struct cnss_plat_data *plat_priv)
 {
 	cnss_bus_dev_shutdown(plat_priv);
+
+	return 0;
+}
+
+static int cnss_qdss_trace_req_mem_hdlr(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	ret = cnss_bus_alloc_qdss_mem(plat_priv);
+	if (ret < 0)
+		return ret;
+
+	return cnss_wlfw_qdss_trace_mem_info_send_sync(plat_priv);
+}
+
+static void *cnss_qdss_trace_pa_to_va(struct cnss_plat_data *plat_priv,
+				      u64 pa, u32 size, int *seg_id)
+{
+	int i = 0;
+	struct cnss_fw_mem *qdss_mem = plat_priv->qdss_mem;
+	u64 offset = 0;
+	void *va = NULL;
+	u64 local_pa;
+	u32 local_size;
+
+	for (i = 0; i < plat_priv->qdss_mem_seg_len; i++) {
+		local_pa = (u64)qdss_mem[i].pa;
+		local_size = (u32)qdss_mem[i].size;
+		if (pa == local_pa && size <= local_size) {
+			va = qdss_mem[i].va;
+			break;
+		}
+		if (pa > local_pa &&
+		    pa < local_pa + local_size &&
+		    pa + size <= local_pa + local_size) {
+			offset = pa - local_pa;
+			va = qdss_mem[i].va + offset;
+			break;
+		}
+	}
+
+	*seg_id = i;
+	return va;
+}
+
+static int cnss_qdss_trace_save_hdlr(struct cnss_plat_data *plat_priv,
+				     void *data)
+{
+	struct cnss_qmi_event_qdss_trace_save_data *event_data = data;
+	struct cnss_fw_mem *qdss_mem = plat_priv->qdss_mem;
+	int ret = 0;
+	int i;
+	void *va = NULL;
+	u64 pa;
+	u32 size;
+	int seg_id = 0;
+
+	if (!plat_priv->qdss_mem_seg_len) {
+		cnss_pr_err("Memory for QDSS trace is not available\n");
+		return -ENOMEM;
+	}
+
+	if (event_data->mem_seg_len == 0) {
+		for (i = 0; i < plat_priv->qdss_mem_seg_len; i++) {
+			ret = cnss_genl_send_msg(qdss_mem[i].va,
+						 CNSS_GENL_MSG_TYPE_QDSS,
+						 event_data->file_name,
+						 qdss_mem[i].size);
+			if (ret < 0) {
+				cnss_pr_err("Fail to save QDSS data: %d\n",
+					    ret);
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < event_data->mem_seg_len; i++) {
+			pa = event_data->mem_seg[i].addr;
+			size = event_data->mem_seg[i].size;
+			va = cnss_qdss_trace_pa_to_va(plat_priv, pa,
+						      size, &seg_id);
+			if (!va) {
+				cnss_pr_err("Fail to find matching va for pa %pa\n",
+					    pa);
+				ret = -EINVAL;
+				break;
+			}
+			ret = cnss_genl_send_msg(va, CNSS_GENL_MSG_TYPE_QDSS,
+						 event_data->file_name, size);
+			if (ret < 0) {
+				cnss_pr_err("Fail to save QDSS data: %d\n",
+					    ret);
+				break;
+			}
+		}
+	}
+
+	kfree(data);
+	return ret;
+}
+
+static int cnss_qdss_trace_free_hdlr(struct cnss_plat_data *plat_priv)
+{
+	cnss_bus_free_qdss_mem(plat_priv);
 
 	return 0;
 }
@@ -1172,6 +1292,16 @@ static void cnss_driver_event_work(struct work_struct *work)
 			break;
 		case CNSS_DRIVER_EVENT_POWER_DOWN:
 			ret = cnss_power_down_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
+			ret = cnss_qdss_trace_req_mem_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
+			ret = cnss_qdss_trace_save_hdlr(plat_priv,
+							event->data);
+			break;
+		case CNSS_DRIVER_EVENT_QDSS_TRACE_FREE:
+			ret = cnss_qdss_trace_free_hdlr(plat_priv);
 			break;
 		default:
 			cnss_pr_err("Invalid driver event type: %d",
@@ -1582,6 +1712,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	init_completion(&plat_priv->power_up_complete);
 	init_completion(&plat_priv->cal_complete);
 	init_completion(&plat_priv->rddm_complete);
+	init_completion(&plat_priv->recovery_complete);
 	mutex_init(&plat_priv->dev_lock);
 
 	return 0;
@@ -1589,6 +1720,7 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 
 static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 {
+	complete_all(&plat_priv->recovery_complete);
 	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
@@ -1759,6 +1891,10 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto destroy_debugfs;
 
+	ret = cnss_genl_init();
+	if (ret < 0)
+		cnss_pr_err("CNSS genl init failed %d\n", ret);
+
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
@@ -1794,6 +1930,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	cnss_genl_exit();
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);

@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
 
@@ -94,7 +95,7 @@ static const struct parent_map disp_cc_parent_map_3[] = {
 static const char * const disp_cc_parent_names_3[] = {
 	"bi_tcxo",
 	"disp_cc_pll0_out_main",
-	"gpll0_out_main",
+	"gcc_disp_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -106,7 +107,7 @@ static const struct parent_map disp_cc_parent_map_4[] = {
 
 static const char * const disp_cc_parent_names_4[] = {
 	"bi_tcxo",
-	"gpll0_out_main",
+	"gcc_disp_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -344,7 +345,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 192000000,
 			[VDD_LOW] = 256000000,
-			[VDD_LOW_L1] = 307000000},
+			[VDD_LOW_L1] = 307200000},
 	},
 };
 
@@ -385,7 +386,7 @@ static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 192000000,
 			[VDD_LOW] = 256000000,
-			[VDD_LOW_L1] = 307000000},
+			[VDD_LOW_L1] = 307200000},
 	},
 };
 
@@ -744,6 +745,7 @@ MODULE_DEVICE_TABLE(of, disp_cc_trinket_match_table);
 static int disp_cc_trinket_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	struct clk *clk;
 	int ret;
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
@@ -752,6 +754,14 @@ static int disp_cc_trinket_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
 	}
+
+	clk = devm_clk_get(&pdev->dev, "cfg_ahb_clk");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
+		return PTR_ERR(clk);
+	}
+	devm_clk_put(&pdev->dev, clk);
 
 	regmap = qcom_cc_map(pdev, &disp_cc_trinket_desc);
 	if (IS_ERR(regmap)) {

@@ -685,6 +685,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_rm_dependency rm_depend;
 	struct ipa_ioc_nat_dma_cmd *table_dma_cmd;
 	struct ipa_ioc_get_vlan_mode vlan_mode;
+	struct ipa_ioc_wigig_fst_switch fst_switch;
 	size_t sz;
 	int pre_entry;
 
@@ -1874,6 +1875,19 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case IPA_IOC_WIGIG_FST_SWITCH:
+		IPADBG("Got IPA_IOCTL_WIGIG_FST_SWITCH\n");
+		if (copy_from_user(&fst_switch, (const void __user *)arg,
+			sizeof(struct ipa_ioc_wigig_fst_switch))) {
+			retval = -EFAULT;
+			break;
+		}
+		retval = ipa_wigig_send_msg(WIGIG_FST_SWITCH,
+			fst_switch.netdev_name,
+			fst_switch.client_mac_addr,
+			IPA_CLIENT_MAX,
+			fst_switch.to_wigig);
+		break;
 	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
@@ -2631,7 +2645,8 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	ipa3_q6_pipe_delay(true);
+	if (!ipa3_ctx->ipa_endp_delay_wa)
+		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
 	if (ipa3_ctx->ipa_config_is_mhi)
 		ipa3_set_reset_client_cons_pipe_sus_holb(true,
@@ -2655,12 +2670,20 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	/* Remove delay from Q6 PRODs to avoid pending descriptors
 	 * on pipe reset procedure
 	 */
-	ipa3_q6_pipe_delay(false);
-	ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_USB_PROD);
-	if (ipa3_ctx->ipa_config_is_mhi)
+	if (!ipa3_ctx->ipa_endp_delay_wa) {
+		ipa3_q6_pipe_delay(false);
 		ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_MHI_PROD);
+			IPA_CLIENT_USB_PROD);
+		if (ipa3_ctx->ipa_config_is_mhi)
+			ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_MHI_PROD);
+	} else {
+		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD,
+						false);
+		if (ipa3_ctx->ipa_config_is_mhi)
+			ipa3_start_stop_client_prod_gsi_chnl(
+					IPA_CLIENT_MHI_PROD, false);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -2718,6 +2741,32 @@ void ipa3_q6_post_shutdown_cleanup(void)
 				 */
 			}
 		}
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG_LOW("Exit with success\n");
+}
+
+/*
+ * ipa3_client_prod_post_shutdown_cleanup () - As part of this function
+ * set end point delay client producer pipes and starting corresponding
+ * gsi channels
+ */
+
+void ipa3_client_prod_post_shutdown_cleanup(void)
+{
+	IPADBG_LOW("ENTER\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_USB_PROD);
+	ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD, true);
+
+	if (ipa3_ctx->ipa_config_is_mhi) {
+		ipa3_set_reset_client_prod_pipe_delay(true,
+						IPA_CLIENT_MHI_PROD);
+		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_MHI_PROD, true);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -3881,7 +3930,7 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
 	if (!ipa3_uc_state_check() &&
-		(ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)) {
+		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)) {
 		ipa3_read_mailbox_17(IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS);
 		/* assert if intset = 0 */
 		if (ipa3_ctx->gsi_chk_intset_value == 0) {
@@ -4489,7 +4538,7 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (res)
 		IPAERR("uC panic handler failed %d\n", res);
 
-	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt) != 0) {
+	if (atomic_read(&ipa3_ctx->ipa_clk_vote)) {
 		ipahal_print_all_regs(false);
 		ipa_save_registers();
 	}
@@ -5347,6 +5396,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->do_testbus_collection_on_crash;
 	ipa3_ctx->do_non_tn_collection_on_crash =
 	    resource_p->do_non_tn_collection_on_crash;
+	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5964,6 +6014,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
+	ipa_drv_res->ipa_endp_delay_wa = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -6048,6 +6099,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2_over_gsi");
 	IPADBG(": WDI-2.0 over gsi= %s\n",
 			ipa_drv_res->ipa_wdi2_over_gsi
+			? "True" : "False");
+	ipa_drv_res->ipa_endp_delay_wa =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-endp-delay-wa");
+	IPADBG(": endppoint delay wa = %s\n",
+			ipa_drv_res->ipa_endp_delay_wa
 			? "True" : "False");
 
 	ipa_drv_res->ipa_wdi3_over_gsi =
@@ -7153,8 +7210,14 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 
 	switch (in->smmu_client) {
 	case IPA_SMMU_WLAN_CLIENT:
-		is_smmu_enable = !(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
-			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
+			is_smmu_enable =
+				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] |
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		else
+			is_smmu_enable =
+				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
 		break;
 	default:
 		is_smmu_enable = 0;

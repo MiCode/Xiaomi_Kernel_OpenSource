@@ -254,8 +254,11 @@ void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
 void msm_comm_fetch_mark_data(struct msm_vidc_list *data_list,
 		u32 index, u32 *mark_data, u32 *mark_target);
 int msm_comm_release_mark_data(struct msm_vidc_inst *inst);
+int msm_comm_qbufs_batch(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_qbuf_decode_batch(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
 int msm_comm_num_queued_bufs(struct msm_vidc_inst *inst, u32 type);
 bool msm_comm_check_for_inst_overload(struct msm_vidc_core *core);
+void msm_vidc_batch_handler(struct work_struct *work);
 #endif
