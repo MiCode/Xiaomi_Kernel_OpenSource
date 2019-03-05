@@ -96,3 +96,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pmx_can_reset>;
 };
+
+&emac_hw {
+	early-ethernet-en;
+};
