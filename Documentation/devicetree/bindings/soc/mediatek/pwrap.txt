@@ -19,6 +19,7 @@ IP Pairing
 Required properties in pwrap device node.
 - compatible:
 	"mediatek,mt2701-pwrap" for MT2701/7623 SoCs
+	"mediatek,mt6779-pwrap" for MT6779 SoCs
 	"mediatek,mt6797-pwrap" for MT6797 SoCs
 	"mediatek,mt7622-pwrap" for MT7622 SoCs
 	"mediatek,mt8135-pwrap" for MT8135 SoCs
@@ -44,7 +45,7 @@ Optional properities:
   See the following definitions for such kinds of devices.
   Documentation/devicetree/bindings/regulator/mt6380-regulator.txt
 - reset-names:
-  "pwrap"
+  "pwrap": For MT6779 is optional, for other chip is mandatory.
 
 Example:
 	pwrap: pwrap@1000f000 {
