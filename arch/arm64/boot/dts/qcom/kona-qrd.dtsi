@@ -101,6 +101,29 @@
 	};
 };
 
+&qupv3_se13_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+
+	st_fts@49 {
+		compatible = "st,fts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <39 0x2008>;
+		vdd-supply = <&pm8150a_l1>;
+		avdd-supply = <&pm8150_l13>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		st,irq-gpio = <&tlmm 39 0x2008>;
+		st,reset-gpio = <&tlmm 38 0x00>;
+		st,regulator_dvdd = "vdd";
+		st,regulator_avdd = "avdd";
+	};
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 
