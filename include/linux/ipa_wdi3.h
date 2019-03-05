@@ -97,10 +97,12 @@ struct ipa_wdi_reg_intf_in_params {
  * @transfer_ring_size:  size of the transfer ring
  * @transfer_ring_doorbell_pa:  physical address of the doorbell that
 	IPA uC will update the tailpointer of the transfer ring
+ * @is_txr_rn_db_pcie_addr: Bool indicated txr ring DB is pcie or not
  * @event_ring_base_pa:  physical address of the base of the event ring
  * @event_ring_size:  event ring size
  * @event_ring_doorbell_pa:  physical address of the doorbell that IPA uC
 	will update the headpointer of the event ring
+ * @is_evt_rn_db_pcie_addr: Bool indicated evt ring DB is pcie or not
  * @num_pkt_buffers:  Number of pkt buffers allocated. The size of the event
 	ring and the transfer ring has to be atleast ( num_pkt_buffers + 1)
  * @pkt_offset: packet offset (wdi header length)
@@ -113,10 +115,12 @@ struct ipa_wdi_pipe_setup_info {
 	phys_addr_t  transfer_ring_base_pa;
 	u32  transfer_ring_size;
 	phys_addr_t  transfer_ring_doorbell_pa;
+	bool is_txr_rn_db_pcie_addr;
 
 	phys_addr_t  event_ring_base_pa;
 	u32  event_ring_size;
 	phys_addr_t  event_ring_doorbell_pa;
+	bool is_evt_rn_db_pcie_addr;
 	u16  num_pkt_buffers;
 
 	u16 pkt_offset;
@@ -132,10 +136,12 @@ struct ipa_wdi_pipe_setup_info {
  * @transfer_ring_size:  size of the transfer ring
  * @transfer_ring_doorbell_pa:  physical address of the doorbell that
 	IPA uC will update the tailpointer of the transfer ring
+ * @is_txr_rn_db_pcie_addr: Bool indicated  txr ring DB is pcie or not
  * @event_ring_base_pa:  physical address of the base of the event ring
  * @event_ring_size:  event ring size
  * @event_ring_doorbell_pa:  physical address of the doorbell that IPA uC
 	will update the headpointer of the event ring
+ * @is_evt_rn_db_pcie_addr: Bool indicated evt ring DB is pcie or not
  * @num_pkt_buffers:  Number of pkt buffers allocated. The size of the event
 	ring and the transfer ring has to be atleast ( num_pkt_buffers + 1)
  * @pkt_offset: packet offset (wdi header length)
@@ -148,10 +154,12 @@ struct ipa_wdi_pipe_setup_info_smmu {
 	struct sg_table  transfer_ring_base;
 	u32  transfer_ring_size;
 	phys_addr_t  transfer_ring_doorbell_pa;
+	bool is_txr_rn_db_pcie_addr;
 
 	struct sg_table  event_ring_base;
 	u32  event_ring_size;
 	phys_addr_t  event_ring_doorbell_pa;
+	bool is_evt_rn_db_pcie_addr;
 	u16  num_pkt_buffers;
 
 	u16 pkt_offset;

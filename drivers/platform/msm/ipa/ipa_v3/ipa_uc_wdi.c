@@ -512,6 +512,9 @@ static int ipa_create_ap_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		return -EINVAL;
 	}
 
+	if (len > PAGE_SIZE)
+		va = roundup(cb->next_addr, len);
+
 	ret = ipa3_iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
 			true_len,
 			device ? (prot | IOMMU_MMIO) : prot);
@@ -565,7 +568,7 @@ static int ipa_create_ap_smmu_mapping_sgt(struct sg_table *sgt,
 	struct scatterlist *sg;
 	unsigned long start_iova = va;
 	phys_addr_t phys;
-	size_t len;
+	size_t len = 0;
 	int count = 0;
 
 	if (!cb->valid) {
@@ -575,6 +578,17 @@ static int ipa_create_ap_smmu_mapping_sgt(struct sg_table *sgt,
 	if (!sgt) {
 		IPAERR("Bad parameters, scatter / gather list is NULL\n");
 		return -EINVAL;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+		/* directly get sg_tbl PA from wlan-driver */
+		len += PAGE_ALIGN(sg->offset + sg->length);
+	}
+
+	if (len > PAGE_SIZE) {
+		va = roundup(cb->next_addr,
+				roundup_pow_of_two(len));
+		start_iova = va;
 	}
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
@@ -662,10 +676,14 @@ static void ipa_release_ap_smmu_mappings(enum ipa_client_type client)
 
 	if (IPA_CLIENT_IS_CONS(client)) {
 		start = IPA_WDI_TX_RING_RES;
-		end = IPA_WDI_CE_DB_RES;
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
+			end = IPA_WDI_TX_DB_RES;
+		else
+			end = IPA_WDI_CE_DB_RES;
 	} else {
 		start = IPA_WDI_RX_RING_RES;
-		if (ipa3_ctx->ipa_wdi2)
+		if (ipa3_ctx->ipa_wdi2 ||
+			ipa3_ctx->ipa_wdi3_over_gsi)
 			end = IPA_WDI_RX_COMP_RING_WP_RES;
 		else
 			end = IPA_WDI_RX_RING_RP_RES;
