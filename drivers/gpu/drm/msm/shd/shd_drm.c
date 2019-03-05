@@ -166,10 +166,9 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 						struct shd_display_base *base)
 {
 	struct drm_crtc *crtc = NULL;
-	struct drm_display_mode *drm_mode;
 	struct msm_drm_private *priv;
 	int crtc_idx;
-	int rc = 0, i;
+	int i;
 
 	priv = dev->dev_private;
 
@@ -194,19 +193,7 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 	base->crtc = crtc;
 	SDE_DEBUG("found base crtc %d\n", crtc->base.id);
 
-	/* fixed mode is used */
-	drm_mode = &base->mode;
-
-	/* update crtc drm structure */
-	rc = drm_atomic_set_mode_for_crtc(crtc->state, drm_mode);
-	if (rc) {
-		SDE_ERROR("Failed: set mode for crtc. rc = %d\n", rc);
-		return rc;
-	}
-	drm_mode_copy(&crtc->state->adjusted_mode, drm_mode);
-	drm_mode_copy(&crtc->mode, drm_mode);
-
-	return rc;
+	return 0;
 }
 
 static void shd_display_setup_base_mixer_out(struct shd_display_base *base)
@@ -274,6 +261,10 @@ static void shd_display_enable_base(struct drm_device *dev,
 	drm_connector_get(connector);
 	conn_state->best_encoder = base->encoder;
 	connector->encoder = base->encoder;
+
+	drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
+	drm_mode_copy(&crtc_state->adjusted_mode, &base->mode);
+	drm_mode_copy(&base->crtc->mode, &base->mode);
 
 	if (conn_funcs->atomic_best_encoder) {
 		conn_funcs->atomic_best_encoder(base->connector,
