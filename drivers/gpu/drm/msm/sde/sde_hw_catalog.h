@@ -1372,6 +1372,14 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_LTM(s) ((s)->ltm)
 
 /**
+ * sde_hw_set_preference: populate the individual hw lm preferences,
+ *                        overwrite if exists
+ * @sde_cfg:              pointer to sspp cfg
+ * @num_lm:               num lms to set preference
+ */
+void sde_hw_mixer_set_preference(struct sde_mdss_cfg *sde_cfg, u32 num_lm);
+
+/**
  * sde_hw_catalog_init - sde hardware catalog init API parses dtsi property
  * and stores all parsed offset, hardware capabilities in config structure.
  * @dev:          drm device node.

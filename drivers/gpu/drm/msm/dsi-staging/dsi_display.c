@@ -5656,6 +5656,37 @@ int dsi_display_get_panel_vfp(void *dsi_display,
 	return rc;
 }
 
+int dsi_display_get_default_lms(void *dsi_display, u32 *num_lm)
+{
+	struct dsi_display *display = (struct dsi_display *)dsi_display;
+	u32 count, i;
+	int rc = 0;
+
+	*num_lm = 0;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc)
+		return rc;
+
+	if (!display->modes) {
+		struct dsi_display_mode *m;
+
+		rc = dsi_display_get_modes(display, &m);
+		if (rc)
+			return rc;
+	}
+
+	mutex_lock(&display->display_lock);
+	for (i = 0; i < count; i++) {
+		struct dsi_display_mode *m = &display->modes[i];
+
+		*num_lm = max(m->priv_info->topology.num_lm, *num_lm);
+	}
+	mutex_unlock(&display->display_lock);
+
+	return rc;
+}
+
 int dsi_display_find_mode(struct dsi_display *display,
 		const struct dsi_display_mode *cmp,
 		struct dsi_display_mode **out_mode)

@@ -1524,6 +1524,35 @@ int sde_connector_helper_reset_custom_properties(
 	return 0;
 }
 
+static int _sde_connector_primary_preference(struct sde_connector *sde_conn,
+		struct sde_kms *sde_kms)
+{
+	int ret = 0;
+	u32 num_lm = 0;
+
+	if (!sde_conn || !sde_kms || !sde_conn->ops.get_default_lms) {
+		SDE_DEBUG("invalid input params");
+		return -EINVAL;
+	}
+
+	ret = sde_conn->ops.get_default_lms(sde_conn->display, &num_lm);
+	if (ret || !num_lm) {
+		SDE_DEBUG("failed to get default lm count");
+		return ret;
+	}
+
+	if (num_lm > sde_kms->catalog->mixer_count) {
+		SDE_DEBUG(
+				"topology requesting more lms [%d] than hw exists [%d]",
+				num_lm, sde_kms->catalog->mixer_count);
+		return -EINVAL;
+	}
+
+	sde_hw_mixer_set_preference(sde_kms->catalog, num_lm);
+
+	return ret;
+}
+
 int sde_connector_get_panel_vfp(struct drm_connector *connector,
 	struct drm_display_mode *mode)
 {
@@ -2410,6 +2439,9 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		SDE_ERROR("failed to create one or more properties\n");
 		goto error_destroy_property;
 	}
+
+	if (display_info.is_primary)
+		_sde_connector_primary_preference(c_conn, sde_kms);
 
 	SDE_DEBUG("connector %d attach encoder %d\n",
 			c_conn->base.base.id, encoder->base.id);

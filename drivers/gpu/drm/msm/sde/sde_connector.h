@@ -304,6 +304,14 @@ struct sde_connector_ops {
 	 * Returns: v_front_porch on success error-code on failure
 	 */
 	int (*get_panel_vfp)(void *display, int h_active, int v_active);
+
+	/**
+	 * get_default_lm - returns default number of lm
+	 * @display: Pointer to private display handle
+	 * @num_lm: Pointer to number of lms to be populated
+	 * Returns: zero for success, negetive for failure
+	 */
+	int (*get_default_lms)(void *display, u32 *num_lm);
 };
 
 /**

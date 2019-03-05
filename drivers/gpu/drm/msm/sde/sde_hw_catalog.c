@@ -1603,6 +1603,19 @@ end:
 	return rc;
 }
 
+void sde_hw_mixer_set_preference(struct sde_mdss_cfg *sde_cfg, u32 num_lm)
+{
+	u32 i;
+
+	for (i = 0; i < sde_cfg->mixer_count; i++) {
+		clear_bit(SDE_DISP_PRIMARY_PREF,
+				&sde_cfg->mixer[i].features);
+		if (i < num_lm)
+			set_bit(SDE_DISP_PRIMARY_PREF,
+					&sde_cfg->mixer[i].features);
+	}
+}
+
 static int sde_mixer_parse_dt(struct device_node *np,
 						struct sde_mdss_cfg *sde_cfg)
 {
