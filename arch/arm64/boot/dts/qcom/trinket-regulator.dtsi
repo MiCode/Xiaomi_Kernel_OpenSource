@@ -159,8 +159,8 @@
 
 	rpm-regulator-ldoa4 {
 		status = "okay";
-		pm6125_l4-parent-supply = <&pm6125_l7>;
 		L4A: pm6125_l4: regulator-l4 {
+			parent-supply = <&pm6125_l7>;
 			regulator-min-microvolt = <872000>;
 			regulator-max-microvolt = <976000>;
 			qcom,init-voltage = <872000>;
@@ -271,8 +271,8 @@
 
 	rpm-regulator-ldoa15 {
 		status = "okay";
-		pm6125_l15-parent-supply = <&pm6125_l10>;
 		L15A: pm6125_l15: regulator-l15 {
+			parent-supply = <&pm6125_l10>;
 			regulator-min-microvolt = <3104000>;
 			regulator-max-microvolt = <3232000>;
 			qcom,init-voltage = <3104000>;
