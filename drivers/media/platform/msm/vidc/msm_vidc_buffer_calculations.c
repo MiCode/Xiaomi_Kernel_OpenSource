@@ -586,9 +586,8 @@ void msm_vidc_init_buffer_size_calculators(struct msm_vidc_inst *inst)
 	inst->buffer_size_calculators = NULL;
 	core = inst->core;
 
-	/* Only decoder is enabled for now */
-	if ((core->platform_data->vpu_ver == VPU_VERSION_IRIS2) &&
-		(inst->session_type == MSM_VIDC_DECODER))
+	/* Change this to IRIS2 when ready */
+	if (core->platform_data->vpu_ver == VPU_VERSION_AR50)
 		inst->buffer_size_calculators =
 			msm_vidc_calculate_internal_buffer_sizes;
 }
