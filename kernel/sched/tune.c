@@ -242,9 +242,15 @@ void restore_cgroup_boost_settings(void)
 
 bool task_sched_boost(struct task_struct *p)
 {
-	struct schedtune *st = task_schedtune(p);
+	struct schedtune *st;
+	bool sched_boost_enabled;
 
-	return st->sched_boost_enabled;
+	rcu_read_lock();
+	st = task_schedtune(p);
+	sched_boost_enabled = st->sched_boost_enabled;
+	rcu_read_unlock();
+
+	return sched_boost_enabled;
 }
 
 static u64
