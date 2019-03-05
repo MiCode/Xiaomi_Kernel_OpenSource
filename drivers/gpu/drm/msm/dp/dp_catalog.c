@@ -964,12 +964,10 @@ static void dp_catalog_panel_config_misc(struct dp_catalog_panel *panel)
 }
 
 static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
-					u32 rate, u32 stream_rate_khz,
-					bool fixed_nvid)
+					u32 rate, u32 stream_rate_khz)
 {
 	u32 pixel_m, pixel_n;
 	u32 mvid, nvid;
-	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate_hbr2 = 540000;
 	u32 const link_rate_hbr3 = 810000;
@@ -989,56 +987,38 @@ static void dp_catalog_panel_config_msa(struct dp_catalog_panel *panel,
 	}
 
 	catalog = dp_catalog_get_priv(panel);
-	if (fixed_nvid) {
-		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
-		nvid = nvid_fixed;
+	io_data = catalog->io.dp_mmss_cc;
 
-		pr_debug("link rate=%dkbps, stream_rate_khz=%uKhz",
-			rate, stream_rate_khz);
+	if (panel->stream_id == DP_STREAM_1)
+		strm_reg_off = MMSS_DP_PIXEL1_M - MMSS_DP_PIXEL_M;
 
-		/*
-		 * For intermediate results, use 64 bit arithmetic to avoid
-		 * loss of precision.
-		 */
-		mvid_calc = (u64) stream_rate_khz * nvid;
-		mvid_calc = div_u64(mvid_calc, rate);
+	pixel_m = dp_read(catalog->exe_mode, io_data,
+			MMSS_DP_PIXEL_M + strm_reg_off);
+	pixel_n = dp_read(catalog->exe_mode, io_data,
+			MMSS_DP_PIXEL_N + strm_reg_off);
+	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
-		/*
-		 * truncate back to 32 bits as this final divided value will
-		 * always be within the range of a 32 bit unsigned int.
-		 */
-		mvid = (u32) mvid_calc;
+	mvid = (pixel_m & 0xFFFF) * 5;
+	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
-		if (panel->widebus_en) {
-			mvid <<= 1;
-			nvid <<= 1;
-		}
-	} else {
-		io_data = catalog->io.dp_mmss_cc;
+	if (nvid < nvid_fixed) {
+		u32 temp;
 
-		if (panel->stream_id == DP_STREAM_1)
-			strm_reg_off = MMSS_DP_PIXEL1_M - MMSS_DP_PIXEL_M;
-
-		pixel_m = dp_read(catalog->exe_mode, io_data,
-				MMSS_DP_PIXEL_M + strm_reg_off);
-		pixel_n = dp_read(catalog->exe_mode, io_data,
-				MMSS_DP_PIXEL_N + strm_reg_off);
-		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
-
-		mvid = (pixel_m & 0xFFFF) * 5;
-		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
-
-		pr_debug("rate = %d\n", rate);
-
-		if (panel->widebus_en)
-			mvid <<= 1;
-
-		if (link_rate_hbr2 == rate)
-			nvid *= 2;
-
-		if (link_rate_hbr3 == rate)
-			nvid *= 3;
+		temp = (nvid_fixed / nvid) * nvid;
+		mvid = (nvid_fixed / nvid) * mvid;
+		nvid = temp;
 	}
+
+	pr_debug("rate = %d\n", rate);
+
+	if (panel->widebus_en)
+		mvid <<= 1;
+
+	if (link_rate_hbr2 == rate)
+		nvid *= 2;
+
+	if (link_rate_hbr3 == rate)
+		nvid *= 3;
 
 	io_data = catalog->io.dp_link;
 
