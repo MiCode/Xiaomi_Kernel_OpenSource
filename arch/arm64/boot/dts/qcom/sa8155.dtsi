@@ -353,6 +353,24 @@
 			/delete-node/ mmcx_vdd_cdev;
 		};
 	};
+
+	lmh-dcvs-01 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
+
+	lmh-dcvs-00 {
+		trips {
+			active-config {
+				temperature = <105000>;
+				hysteresis = <40000>;
+			};
+		};
+	};
 };
 
 &mdss_dsi0_pll {
