@@ -119,7 +119,7 @@ static int get_id_from_token(int token)
 	for (dev_idx = 0; dev_idx < NUM_MHI_DEV; dev_idx++)
 		for (ch_idx = 0; ch_idx < NUM_MHI_CHAN; ch_idx++)
 			if (diag_mhi[dev_idx][ch_idx].dev_id == token)
-				return ch_idx;
+				return dev_idx;
 
 	return -EINVAL;
 }
