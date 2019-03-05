@@ -730,7 +730,7 @@ struct dentry *ovl_lookup(struct inode *dir, struct dentry *dentry,
 			ovl_set_flag(OVL_INDEX, inode);
 	}
 
-	ovl_revert_creds(old_cred);
+	revert_creds(old_cred);
 	dput(index);
 	kfree(stack);
 	kfree(d.redirect);
@@ -751,7 +751,7 @@ out_put_upper:
 	kfree(upperredirect);
 out:
 	kfree(d.redirect);
-	ovl_revert_creds(old_cred);
+	revert_creds(old_cred);
 	return ERR_PTR(err);
 }
 

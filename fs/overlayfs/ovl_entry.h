@@ -15,7 +15,6 @@ struct ovl_config {
 	bool default_permissions;
 	bool redirect_dir;
 	bool index;
-	bool override_creds;
 };
 
 /* private information held for overlayfs's superblock */
