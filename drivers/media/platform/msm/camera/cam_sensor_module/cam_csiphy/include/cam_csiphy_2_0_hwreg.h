@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,8 @@ struct csiphy_reg_parms_t csiphy_v2_0 = {
 	.mipi_csiphy_interrupt_status0_addr = 0x8B0,
 	.mipi_csiphy_interrupt_clear0_addr = 0x858,
 	.mipi_csiphy_glbl_irq_cmd_addr = 0x828,
-	.csiphy_common_array_size = 6,
-	.csiphy_reset_array_size = 3,
+	.csiphy_common_array_size = 8,
+	.csiphy_reset_array_size = 5,
 	.csiphy_2ph_config_array_size = 15,
 	.csiphy_3ph_config_array_size = 17,
 	.csiphy_2ph_clock_lane = 0x1,
@@ -31,6 +31,8 @@ struct csiphy_reg_t csiphy_common_reg_2_0[] = {
 	{0x0814, 0x00, 0x00, CSIPHY_LANE_ENABLE},
 	{0x0818, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
 	{0x081C, 0x06, 0x00, CSIPHY_3PH_REGS},
+	{0x0800, 0x01, 0x01, CSIPHY_DEFAULT_PARAMS},
+	{0x0800, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
 	{0x0164, 0x00, 0x00, CSIPHY_2PH_REGS},
 	{0x0364, 0x00, 0x00, CSIPHY_2PH_REGS},
 	{0x0564, 0x00, 0x00, CSIPHY_2PH_REGS},
@@ -40,6 +42,8 @@ struct csiphy_reg_t csiphy_reset_reg_2_0[] = {
 	{0x0814, 0x00, 0x05, CSIPHY_LANE_ENABLE},
 	{0x0818, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
 	{0x081C, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
+	{0x0800, 0x01, 0x01, CSIPHY_DEFAULT_PARAMS},
+	{0x0800, 0x00, 0x00, CSIPHY_DEFAULT_PARAMS},
 };
 
 struct csiphy_reg_t csiphy_irq_reg_2_0[] = {

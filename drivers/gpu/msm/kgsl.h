@@ -158,6 +158,8 @@ struct kgsl_driver {
 		atomic_long_t secure_max;
 		atomic_long_t mapped;
 		atomic_long_t mapped_max;
+		atomic_long_t page_free_pending;
+		atomic_long_t page_alloc_pending;
 	} stats;
 	unsigned int full_cache_threshold;
 	struct workqueue_struct *workqueue;

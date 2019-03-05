@@ -1064,10 +1064,6 @@ static void process_udata_work(struct work_struct *work)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
 
-	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
-		chip->charge_counter_uah =
-			chip->udata.param[QG_CHARGE_COUNTER].data;
-
 	if (chip->udata.param[QG_ESR].valid)
 		chip->esr_last = chip->udata.param[QG_ESR].data;
 
@@ -1548,6 +1544,26 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
+{
+	int rc, cc_soc = 0;
+	int64_t temp = 0;
+
+	rc = qg_get_learned_capacity(chip, &temp);
+	if (rc < 0 || !temp)
+		rc = qg_get_nominal_capacity((int *)&temp, 250, true);
+
+	if (rc < 0) {
+		pr_err("Failed to get FCC for charge-counter rc=%d\n", rc);
+		return rc;
+	}
+
+	cc_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->cc_soc, 100));
+	*charge_counter = div_s64(temp * cc_soc, 100);
+
+	return 0;
+}
+
 static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 {
 	union power_supply_propval prop = {0, };
@@ -1829,7 +1845,7 @@ static int qg_psy_get_property(struct power_supply *psy,
 		pval->intval = chip->bp.qg_profile_version;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		pval->intval = chip->charge_counter_uah;
+		rc = qg_get_charge_counter(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (!chip->dt.cl_disable && chip->dt.cl_feedback_on)
@@ -1871,6 +1887,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CC_SOC:
 		rc = qg_get_cc_soc(chip, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
+		rc = qg_get_vbat_avg(chip, &pval->intval);
 		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
@@ -1925,6 +1944,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_FG_RESET,
 	POWER_SUPPLY_PROP_CC_SOC,
+	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -1959,8 +1979,9 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	if (rc < 0 || prop.intval < 0) {
 		pr_debug("Failed to get recharge-soc\n");
 		recharge_soc = DEFAULT_RECHARGE_SOC;
+	} else {
+		recharge_soc = prop.intval;
 	}
-	recharge_soc = prop.intval;
 	chip->recharge_soc = recharge_soc;
 
 	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",

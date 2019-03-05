@@ -88,11 +88,9 @@ Optional Properties:
 	  contents will not be retained. It is software responsibility to restore the
 	  SDCC registers before resuming to normal operation.
 	- qcom,force-sdhc1-probe: Force probing sdhc1 even if it is not the boot device.
-	- qcom,ddr-config: Certain chipsets and platforms require particular settings for
-			   the RCLK delay DLL configuration register for HS400 mode to work.
-			   This value can vary between platforms and msms. If a msm/platform
-			   require a different DLL setting than the default/POR setting for
-			   HS400 mode, it can be specified using this field.
+	- qcom,dll-hsr-list: List of DLL-HSR values which are tuned for given process-node
+			 and platform. The sequence of values in this list must follow the
+			 sequence listed in sdhci_msm_dll_hsr data structure.
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
 	- qcom,<supply>-lpm_sup - specifies whether supply can be kept in low power mode (lpm).

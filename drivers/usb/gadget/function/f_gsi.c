@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,6 +173,8 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 		return -ENODEV;
 	}
 
+	gsi->rwake_inprogress = true;
+
 	/*
 	 * In Super-Speed mode, remote wakeup is not allowed for suspended
 	 * functions which have been disallowed by the host to issue Function
@@ -194,6 +196,9 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 		log_event_dbg("RW delayed due to LPM exit.");
 	else if (ret)
 		log_event_err("wakeup failed. ret=%d.", ret);
+
+	if (ret)
+		gsi->rwake_inprogress = false;
 
 	return ret;
 }
@@ -476,7 +481,8 @@ int ipa_usb_notify_cb(enum ipa_usb_notify_event event,
 		break;
 
 	case IPA_USB_REMOTE_WAKEUP:
-		gsi_wakeup_host(gsi);
+		if (!gsi->rwake_inprogress)
+			gsi_wakeup_host(gsi);
 		break;
 
 	case IPA_USB_SUSPEND_COMPLETED:
@@ -1402,7 +1408,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	struct gsi_ctrl_port *c_port;
 	struct f_gsi *gsi;
 	struct gsi_ctrl_pkt *cpkt;
-	struct ep_info info;
+	struct ep_info info = { {0}, {0} };
 	struct data_buf_info data_info = {0};
 	enum ipa_usb_teth_prot prot_id =
 		*(enum ipa_usb_teth_prot *)(fp->private_data);
@@ -1790,10 +1796,15 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	__le32 *data;
 	struct usb_cdc_notification *event;
 	struct usb_request *req = gsi->c_port.notify_req;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
+	struct usb_composite_dev *cdev;
 	struct gsi_ctrl_pkt *cpkt;
 	unsigned long flags;
 	bool del_free_cpkt = false;
+
+	if (!gsi->function.config)
+		return -ENODEV;
+
+	cdev = gsi->function.config->cdev;
 
 	if (!atomic_read(&gsi->connected)) {
 		log_event_dbg("%s: cable disconnect", __func__);
@@ -2591,6 +2602,8 @@ static void gsi_resume(struct usb_function *f)
 			!usb_gsi_remote_wakeup_allowed(f) &&
 			gsi->host_supports_flow_control)
 		rndis_flow_control(gsi->params, false);
+
+	gsi->rwake_inprogress = false;
 
 	post_event(&gsi->d_port, EVT_RESUMED);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
@@ -3597,8 +3610,9 @@ static int gsi_set_inst_name(struct usb_function_instance *fi,
 	mutex_unlock(&inst_status[prot_id].gsi_lock);
 
 	if (prot_id == IPA_USB_RNDIS)
-		config_group_init_type_name(&opts->func_inst.group, "",
-					    &gsi_func_rndis_type);
+		config_group_init_type_name(&opts->func_inst.group,
+						fi->group.cg_item.ci_name,
+						&gsi_func_rndis_type);
 
 	gsi = gsi_function_init(prot_id);
 	if (IS_ERR(gsi))

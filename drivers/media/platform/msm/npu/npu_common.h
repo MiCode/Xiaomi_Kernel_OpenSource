@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@
 #define NPU_MAX_DT_NAME_LEN	    21
 #define NPU_MAX_PWRLEVELS		8
 #define NPU_MAX_STATS_BUF_SIZE 16384
+#define NPU_MAX_PATCH_NUM		160
 
 enum npu_power_level {
 	NPU_PWRLEVEL_MINSVS = 0,
