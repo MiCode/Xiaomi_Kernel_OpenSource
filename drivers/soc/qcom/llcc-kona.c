@@ -56,7 +56,7 @@ static struct llcc_slice_config kona_data[] =  {
 	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0),
 	SCT_ENTRY(LLCC_CMPT,    10, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0),
 	SCT_ENTRY(LLCC_GPUHTW,  11, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPU,     12, 2560, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1, 0),
+	SCT_ENTRY(LLCC_GPU,     12, 2048, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1, 0),
 	SCT_ENTRY(LLCC_MMUHWT,  13, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 1),
 	SCT_ENTRY(LLCC_CMPTDMA, 15, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 	SCT_ENTRY(LLCC_DISP,    16, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
