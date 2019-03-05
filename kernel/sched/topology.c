@@ -203,34 +203,8 @@ sd_parent_degenerate(struct sched_domain *sd, struct sched_domain *parent)
 
 DEFINE_STATIC_KEY_FALSE(sched_energy_present);
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
-unsigned int sysctl_sched_energy_aware = 1;
 DEFINE_MUTEX(sched_energy_mutex);
 bool sched_energy_update;
-
-#ifdef CONFIG_PROC_SYSCTL
-int sched_energy_aware_handler(struct ctl_table *table, int write,
-			 void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	int ret, state;
-
-	if (write && !capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
-	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
-	if (!ret && write) {
-		state = static_branch_unlikely(&sched_energy_present);
-		if (state != sysctl_sched_energy_aware) {
-			mutex_lock(&sched_energy_mutex);
-			sched_energy_update = 1;
-			rebuild_sched_domains();
-			sched_energy_update = 0;
-			mutex_unlock(&sched_energy_mutex);
-		}
-	}
-
-	return ret;
-}
-#endif
 
 static void free_pd(struct perf_domain *pd)
 {
@@ -279,7 +253,7 @@ static void perf_domain_debug(const struct cpumask *cpu_map,
 	if (!sched_debug() || !pd)
 		return;
 
-	printk(KERN_DEBUG "root_domain %*pbl: ", cpumask_pr_args(cpu_map));
+	printk(KERN_DEBUG "root_domain %*pbl:", cpumask_pr_args(cpu_map));
 
 	while (pd) {
 		printk(KERN_CONT " pd%d:{ cpus=%*pbl nr_cstate=%d }",
@@ -300,29 +274,13 @@ static void destroy_perf_domain_rcu(struct rcu_head *rp)
 	free_pd(pd);
 }
 
-static void sched_energy_start(int ndoms_new, cpumask_var_t doms_new[])
+static void sched_energy_set(bool has_eas)
 {
-	/*
-	 * The conditions for EAS to start are checked during the creation of
-	 * root domains. If one of them meets all conditions, it will have a
-	 * non-null list of performance domains.
-	 */
-	while (ndoms_new) {
-		if (cpu_rq(cpumask_first(doms_new[ndoms_new - 1]))->rd->pd)
-			goto enable;
-		ndoms_new--;
-	}
-
-	if (static_branch_unlikely(&sched_energy_present)) {
+	if (!has_eas && static_branch_unlikely(&sched_energy_present)) {
 		if (sched_debug())
 			pr_info("%s: stopping EAS\n", __func__);
 		static_branch_disable_cpuslocked(&sched_energy_present);
-	}
-
-	return;
-
-enable:
-	if (!static_branch_unlikely(&sched_energy_present)) {
+	} else if (has_eas && !static_branch_unlikely(&sched_energy_present)) {
 		if (sched_debug())
 			pr_info("%s: starting EAS\n", __func__);
 		static_branch_enable_cpuslocked(&sched_energy_present);
@@ -355,7 +313,7 @@ enable:
 #define EM_MAX_COMPLEXITY 2048
 
 extern struct cpufreq_governor schedutil_gov;
-static void build_perf_domains(const struct cpumask *cpu_map)
+static bool build_perf_domains(const struct cpumask *cpu_map)
 {
 	int i, nr_pd = 0, nr_cs = 0, nr_cpus = cpumask_weight(cpu_map);
 	struct perf_domain *pd = NULL, *tmp;
@@ -363,9 +321,6 @@ static void build_perf_domains(const struct cpumask *cpu_map)
 	struct root_domain *rd = cpu_rq(cpu)->rd;
 	struct cpufreq_policy *policy;
 	struct cpufreq_governor *gov;
-
-	if (!sysctl_sched_energy_aware)
-		goto free;
 
 	/* EAS is enabled for asymmetric CPU capacity topologies. */
 	if (!per_cpu(sd_asym_cpucapacity, cpu)) {
@@ -424,7 +379,7 @@ static void build_perf_domains(const struct cpumask *cpu_map)
 	if (tmp)
 		call_rcu(&tmp->rcu, destroy_perf_domain_rcu);
 
-	return;
+	return !!pd;
 
 free:
 	free_pd(pd);
@@ -432,6 +387,8 @@ free:
 	rcu_assign_pointer(rd->pd, NULL);
 	if (tmp)
 		call_rcu(&tmp->rcu, destroy_perf_domain_rcu);
+
+	return false;
 }
 #else
 static void free_pd(struct perf_domain *pd) { }
@@ -2198,6 +2155,7 @@ static int dattrs_equal(struct sched_domain_attr *cur, int idx_cur,
 void partition_sched_domains(int ndoms_new, cpumask_var_t doms_new[],
 			     struct sched_domain_attr *dattr_new)
 {
+	bool __maybe_unused has_eas = false;
 	int i, j, n;
 	int new_topology;
 
@@ -2261,15 +2219,17 @@ match2:
 	for (i = 0; i < ndoms_new; i++) {
 		for (j = 0; j < n && !sched_energy_update; j++) {
 			if (cpumask_equal(doms_new[i], doms_cur[j]) &&
-			    cpu_rq(cpumask_first(doms_cur[j]))->rd->pd)
+			    cpu_rq(cpumask_first(doms_cur[j]))->rd->pd) {
+				has_eas = true;
 				goto match3;
+			}
 		}
 		/* No match - add perf. domains for a new rd */
-		build_perf_domains(doms_new[i]);
+		has_eas |= build_perf_domains(doms_new[i]);
 match3:
 		;
 	}
-	sched_energy_start(ndoms_new, doms_new);
+	sched_energy_set(has_eas);
 #endif
 
 	/* Remember the new sched domains: */
