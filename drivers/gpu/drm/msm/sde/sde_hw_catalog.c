@@ -172,6 +172,7 @@ enum sde_prop {
 	PIPE_ORDER_VERSION,
 	SEC_SID_MASK,
 	LINE_INSERTION,
+	BASE_LAYER,
 	SDE_PROP_MAX,
 };
 
@@ -461,6 +462,7 @@ static struct sde_prop_type sde_prop[] = {
 			PROP_TYPE_U32},
 	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
 	{LINE_INSERTION, "qcom,sde-has-line-insertion", false, PROP_TYPE_BOOL},
+	{BASE_LAYER, "qcom,sde-mixer-stage-base-layer", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -3100,6 +3102,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		PIPE_ORDER_VERSION, 0);
 	cfg->has_line_insertion = PROP_VALUE_ACCESS(prop_value,
 		LINE_INSERTION, 0);
+	cfg->has_base_layer = PROP_VALUE_ACCESS(prop_value, BASE_LAYER, 0);
 end:
 	kfree(prop_value);
 	return rc;
