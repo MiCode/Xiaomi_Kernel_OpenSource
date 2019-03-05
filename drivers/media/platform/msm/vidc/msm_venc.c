@@ -2401,6 +2401,13 @@ int msm_venc_set_layer_bitrate(struct msm_vidc_inst *inst)
 	layer = get_ctrl(inst,
 		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
 
+	if (!max_layer->val || !layer->val) {
+		dprintk(VIDC_DBG,
+			"%s: Hierp layer not set. Ignore layer bitrate\n",
+			__func__);
+		goto error;
+	}
+
 	if (max_layer->val < layer->val) {
 		dprintk(VIDC_DBG,
 			"%s: Hierp layer greater than max isn't allowed\n",
