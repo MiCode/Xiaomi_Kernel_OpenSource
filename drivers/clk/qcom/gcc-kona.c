@@ -1969,19 +1969,6 @@ static struct clk_branch gcc_gpu_snoc_dvm_gfx_clk = {
 	},
 };
 
-static struct clk_branch gcc_npu_at_clk = {
-	.halt_reg = 0x4d014,
-	.halt_check = BRANCH_VOTED,
-	.clkr = {
-		.enable_reg = 0x4d014,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_npu_at_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_npu_axi_clk = {
 	.halt_reg = 0x4d008,
 	.halt_check = BRANCH_VOTED,
@@ -2079,19 +2066,6 @@ static struct clk_branch gcc_npu_gpll0_div_clk_src = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_npu_trig_clk = {
-	.halt_reg = 0x4d010,
-	.halt_check = BRANCH_VOTED,
-	.clkr = {
-		.enable_reg = 0x4d010,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_npu_trig_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4033,7 +4007,6 @@ static struct clk_regmap *gcc_kona_clocks[] = {
 	[GCC_GPU_IREF_EN] = &gcc_gpu_iref_en.clkr,
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
-	[GCC_NPU_AT_CLK] = &gcc_npu_at_clk.clkr,
 	[GCC_NPU_AXI_CLK] = &gcc_npu_axi_clk.clkr,
 	[GCC_NPU_BWMON_AXI_CLK] = &gcc_npu_bwmon_axi_clk.clkr,
 	[GCC_NPU_BWMON_CFG_AHB_CLK] = &gcc_npu_bwmon_cfg_ahb_clk.clkr,
@@ -4041,7 +4014,6 @@ static struct clk_regmap *gcc_kona_clocks[] = {
 	[GCC_NPU_DMA_CLK] = &gcc_npu_dma_clk.clkr,
 	[GCC_NPU_GPLL0_CLK_SRC] = &gcc_npu_gpll0_clk_src.clkr,
 	[GCC_NPU_GPLL0_DIV_CLK_SRC] = &gcc_npu_gpll0_div_clk_src.clkr,
-	[GCC_NPU_TRIG_CLK] = &gcc_npu_trig_clk.clkr,
 	[GCC_PCIE0_PHY_REFGEN_CLK] = &gcc_pcie0_phy_refgen_clk.clkr,
 	[GCC_PCIE1_PHY_REFGEN_CLK] = &gcc_pcie1_phy_refgen_clk.clkr,
 	[GCC_PCIE2_PHY_REFGEN_CLK] = &gcc_pcie2_phy_refgen_clk.clkr,
