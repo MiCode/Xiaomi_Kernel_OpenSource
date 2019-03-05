@@ -2521,6 +2521,11 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 		do_async_mmap_readahead(vmf->vma, ra, file, page, offset);
 	} else if (!page) {
 		/* No page in the page cache at all */
+		struct address_space *mapping = file->f_mapping;
+
+		if (mapping && (mapping->gfp_mask & __GFP_MOVABLE))
+			mapping->gfp_mask |= __GFP_CMA;
+
 		do_sync_mmap_readahead(vmf->vma, ra, file, offset);
 		count_vm_event(PGMAJFAULT);
 		count_memcg_event_mm(vmf->vma->vm_mm, PGMAJFAULT);
