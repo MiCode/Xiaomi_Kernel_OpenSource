@@ -88,14 +88,6 @@ int fw_init(struct npu_device *npu_dev)
 		goto enable_sys_cache_fail;
 	}
 
-	/* Boot the NPU subsystem */
-	host_ctx->subsystem_handle = subsystem_get_local("npu");
-	if (IS_ERR(host_ctx->subsystem_handle)) {
-		pr_err("pil load npu fw failed\n");
-		ret = -ENODEV;
-		goto subsystem_get_fail;
-	}
-
 	/* Clear control/status registers */
 	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
 	REGW(npu_dev, REG_NPU_HOST_CTRL_VALUE, 0x0);
@@ -109,30 +101,30 @@ int fw_init(struct npu_device *npu_dev)
 	if (host_ctx->fw_dbg_mode & FW_DBG_DISABLE_WDOG)
 		reg_val |= HOST_CTRL_STATUS_DISABLE_WDOG_VAL;
 
+	/* Enable clock gating only if the HW access platform allows it */
+	if (npu_hw_clk_gating_enabled())
+		reg_val |= HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_VAL;
+
 	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, reg_val);
 	/* Read back to flush all registers for fw to read */
 	REGR(npu_dev, REG_NPU_HOST_CTRL_STATUS);
+
+	/* Initialize the host side IPC before fw boots up */
+	npu_host_ipc_pre_init(npu_dev);
+
+	/* Boot the NPU subsystem */
+	host_ctx->subsystem_handle = subsystem_get_local("npu");
+	if (IS_ERR(host_ctx->subsystem_handle)) {
+		pr_err("pil load npu fw failed\n");
+		ret = -ENODEV;
+		goto subsystem_get_fail;
+	}
 
 	/* Post PIL clocks */
 	if (npu_enable_post_pil_clocks(npu_dev)) {
 		ret = -EPERM;
 		goto enable_post_clk_fail;
 	}
-
-	/*
-	 * Set logging state and clock gating state
-	 * during FW bootup initialization
-	 */
-	reg_val = REGR(npu_dev, REG_NPU_HOST_CTRL_STATUS);
-
-	/* Enable clock gating only if the HW access platform allows it */
-	if (npu_hw_clk_gating_enabled())
-		reg_val |= HOST_CTRL_STATUS_BOOT_ENABLE_CLK_GATE_VAL;
-
-	REGW(npu_dev, REG_NPU_HOST_CTRL_STATUS, reg_val);
-
-	/* Initialize the host side IPC */
-	npu_host_ipc_pre_init(npu_dev);
 
 	/* Keep reading ctrl status until NPU is ready */
 	pr_debug("waiting for status ready from fw\n");
@@ -170,11 +162,12 @@ int fw_init(struct npu_device *npu_dev)
 wait_fw_ready_fail:
 	npu_disable_post_pil_clocks(npu_dev);
 enable_post_clk_fail:
-	subsystem_put_local(host_ctx->subsystem_handle);
 subsystem_get_fail:
-	npu_disable_sys_cache(npu_dev);
 enable_sys_cache_fail:
+	npu_disable_sys_cache(npu_dev);
 	npu_disable_core_power(npu_dev);
+	if (!IS_ERR(host_ctx->subsystem_handle))
+		subsystem_put_local(host_ctx->subsystem_handle);
 enable_pw_fail:
 	host_ctx->fw_state = FW_DISABLED;
 	mutex_unlock(&host_ctx->lock);
@@ -236,8 +229,6 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 
 	npu_disable_post_pil_clocks(npu_dev);
 	npu_disable_sys_cache(npu_dev);
-	subsystem_put_local(host_ctx->subsystem_handle);
-	host_ctx->fw_state = FW_DISABLED;
 
 	/*
 	 * if fw is still alive, notify dsp before power off
@@ -250,6 +241,9 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 		msleep(500);
 
 	npu_disable_core_power(npu_dev);
+
+	subsystem_put_local(host_ctx->subsystem_handle);
+	host_ctx->fw_state = FW_DISABLED;
 
 	if (ssr) {
 		/* mark all existing network to error state */
@@ -277,7 +271,6 @@ int npu_host_init(struct npu_device *npu_dev)
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
-	host_ctx->sys_cache_disable = true;
 	host_ctx->wq = npu_create_wq(host_ctx, "irq_hdl", host_irq_wq,
 		&host_ctx->irq_work);
 	if (!host_ctx->wq)
