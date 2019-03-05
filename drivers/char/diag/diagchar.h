@@ -49,6 +49,10 @@
 
 #define MAX_SSID_PER_RANGE	200
 
+#define NUM_CHANNEL_BUFFERS		2
+#define BUF_1_INDEX		0
+#define BUF_2_INDEX		1
+
 #define ALL_PROC		-1
 
 #define REMOTE_DATA		4

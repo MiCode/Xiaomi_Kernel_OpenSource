@@ -128,6 +128,15 @@ config IPA3
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config IPA_DEBUG
+	bool "IPA DEBUG for non-perf build"
+	depends on IPA3
+	help
+	  This driver support more debug info for non-perf build.
+	  If you use the non-perf build and want to have more debug
+	  info enabled, then this flag can be enabled.
+	  It is not suggested to enable this flag for perf build.
+
 config IPA_WDI_UNIFIED_API
 	bool "IPA WDI unified API support"
 	depends on IPA3

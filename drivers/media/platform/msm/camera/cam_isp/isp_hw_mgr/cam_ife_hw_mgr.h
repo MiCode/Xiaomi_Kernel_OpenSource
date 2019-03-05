@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +88,7 @@ struct ctx_base_info {
  * @csid_debug:                csid debug information
  * @enable_recovery:           enable recovery
  * @enable_diag_sensor_status: enable sensor diagnosis status
+ * @enable_reg_dump:           enable register dump on error
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -95,6 +96,7 @@ struct cam_ife_hw_mgr_debug {
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
 	uint32_t       camif_debug;
+	uint32_t       enable_reg_dump;
 };
 
 /**
@@ -131,6 +133,7 @@ struct cam_ife_hw_mgr_debug {
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
  * @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @res_bitmap              fill resource bitmap for which rup to be set
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -167,6 +170,7 @@ struct cam_ife_hw_mgr_ctx {
 	struct completion               config_done_complete;
 	bool                            init_done;
 	bool                            is_fe_enable;
+	unsigned long                   res_bitmap;
 };
 
 /**

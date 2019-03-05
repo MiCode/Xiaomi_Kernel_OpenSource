@@ -174,10 +174,6 @@ int msm_camera_clk_enable(struct device *dev,
 		int num_clk,
 		int enable);
 
-int msm_camera_cpp_clk_disable(struct device *dev,
-		struct msm_cam_clk_info *clk_info,
-		struct clk **clk_ptr, int num_clk, int enable);
-
 /**
  * @brief      : Set clock rate
  *

@@ -426,24 +426,6 @@ cam_clk_set_err:
 }
 EXPORT_SYMBOL(msm_camera_clk_enable);
 
-
-int msm_camera_cpp_clk_disable(struct device *dev,
-		struct msm_cam_clk_info *clk_info,
-		struct clk **clk_ptr, int num_clk, int enable)
-{
-	int i;
-	int rc = 1;
-
-	for (i = num_clk - 1; i >= 0; i--) {
-		if (clk_ptr[i] != NULL) {
-			rc = strcmp(clk_info[i].clk_name, "cpp_src_clk");
-			if (rc == 0)
-				continue;
-			clk_disable_unprepare(clk_ptr[i]);
-		}
-	}
-	return 0;
-}
 /* Set rate on a specific clock */
 long msm_camera_clk_set_rate(struct device *dev,
 			struct clk *clk,

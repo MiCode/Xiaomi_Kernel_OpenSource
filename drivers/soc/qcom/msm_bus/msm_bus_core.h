@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@ enum msm_bus_hw_sel {
 	MSM_BUS_RPM = 0,
 	MSM_BUS_NOC,
 	MSM_BUS_BIMC,
+	MSM_BUS_QNOC,
 };
 
 struct msm_bus_arb_ops {

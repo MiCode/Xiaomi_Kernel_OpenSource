@@ -35,6 +35,9 @@
 #include <linux/ipc_logging.h>
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
+#include <linux/adc-tm-clients.h>
+#include <linux/iio/consumer.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <linux/etherdevice.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -606,6 +609,21 @@ bool icnss_is_fw_ready(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_ready);
 
+void icnss_block_shutdown(bool status)
+{
+	if (!penv)
+		return;
+
+	if (status) {
+		set_bit(ICNSS_BLOCK_SHUTDOWN, &penv->state);
+		reinit_completion(&penv->unblock_shutdown);
+	} else {
+		clear_bit(ICNSS_BLOCK_SHUTDOWN, &penv->state);
+		complete(&penv->unblock_shutdown);
+	}
+}
+EXPORT_SYMBOL(icnss_block_shutdown);
+
 bool icnss_is_fw_down(void)
 {
 	if (!penv)
@@ -662,14 +680,15 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 	icnss_pr_err("Received early crash indication from FW\n");
 
 	if (priv) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+
 		if (test_bit(ICNSS_FW_READY, &priv->state) &&
 		    !test_bit(ICNSS_DRIVER_UNLOADING, &priv->state)) {
 			fw_down_data.crashed = true;
 			icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 						 &fw_down_data);
 		}
-		set_bit(ICNSS_FW_DOWN, &priv->state);
-		icnss_ignore_fw_timeout(true);
 	}
 
 	icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_EARLY_CRASH_IND,
@@ -775,6 +794,136 @@ int icnss_call_driver_uevent(struct icnss_priv *priv,
 	return priv->ops->uevent(&priv->pdev->dev, &uevent_data);
 }
 
+
+static int icnss_get_phone_power(struct icnss_priv *priv, uint64_t *result_uv)
+{
+	int ret = 0;
+	int result;
+
+	if (!priv->channel) {
+		icnss_pr_err("Channel doesn't exists\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = iio_read_channel_processed(penv->channel, &result);
+	if (ret < 0) {
+		icnss_pr_err("Error reading channel, ret = %d\n", ret);
+		goto out;
+	}
+
+	*result_uv = (uint64_t) result;
+out:
+	return ret;
+}
+
+static void icnss_vph_notify(enum adc_tm_state state, void *ctx)
+{
+	struct icnss_priv *priv = ctx;
+	uint64_t vph_pwr = 0;
+	uint64_t vph_pwr_prev;
+	int ret = 0;
+	bool update = true;
+
+	if (!priv) {
+		icnss_pr_err("Priv pointer is NULL\n");
+		return;
+	}
+
+	vph_pwr_prev = priv->vph_pwr;
+
+	ret = icnss_get_phone_power(priv, &vph_pwr);
+	if (ret < 0)
+		return;
+
+	if (vph_pwr < ICNSS_THRESHOLD_LOW) {
+		if (vph_pwr_prev < ICNSS_THRESHOLD_LOW)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_HIGH_THR_ENABLE;
+		priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_LOW +
+			ICNSS_THRESHOLD_GUARD;
+		priv->vph_monitor_params.low_thr = 0;
+	} else if (vph_pwr > ICNSS_THRESHOLD_HIGH) {
+		if (vph_pwr_prev > ICNSS_THRESHOLD_HIGH)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_LOW_THR_ENABLE;
+		priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_HIGH -
+			ICNSS_THRESHOLD_GUARD;
+		priv->vph_monitor_params.high_thr = 0;
+	} else {
+		if (vph_pwr_prev > ICNSS_THRESHOLD_LOW &&
+		    vph_pwr_prev < ICNSS_THRESHOLD_HIGH)
+			update = false;
+		priv->vph_monitor_params.state_request =
+			ADC_TM_HIGH_LOW_THR_ENABLE;
+		priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_LOW;
+		priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_HIGH;
+	}
+
+	priv->vph_pwr = vph_pwr;
+
+	if (update) {
+		icnss_send_vbatt_update(priv, vph_pwr);
+		icnss_pr_dbg("set low threshold to %d, high threshold to %d Phone power=%llu\n",
+			     priv->vph_monitor_params.low_thr,
+			     priv->vph_monitor_params.high_thr, vph_pwr);
+	}
+
+	ret = adc_tm5_channel_measure(priv->adc_tm_dev,
+				      &priv->vph_monitor_params);
+	if (ret)
+		icnss_pr_err("TM channel setup failed %d\n", ret);
+}
+
+static int icnss_setup_vph_monitor(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	if (!priv->adc_tm_dev) {
+		icnss_pr_err("ADC TM handler is NULL\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	priv->vph_monitor_params.low_thr = ICNSS_THRESHOLD_LOW;
+	priv->vph_monitor_params.high_thr = ICNSS_THRESHOLD_HIGH;
+	priv->vph_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	priv->vph_monitor_params.channel = ADC_VBAT_SNS;
+	priv->vph_monitor_params.btm_ctx = priv;
+	priv->vph_monitor_params.threshold_notification = &icnss_vph_notify;
+	icnss_pr_dbg("Set low threshold to %d, high threshold to %d\n",
+		     priv->vph_monitor_params.low_thr,
+		     priv->vph_monitor_params.high_thr);
+
+	ret = adc_tm5_channel_measure(priv->adc_tm_dev,
+				      &priv->vph_monitor_params);
+	if (ret)
+		icnss_pr_err("TM channel setup failed %d\n", ret);
+out:
+	return ret;
+}
+
+static int icnss_init_vph_monitor(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	ret = icnss_get_phone_power(priv, &priv->vph_pwr);
+	if (ret < 0)
+		goto out;
+
+	icnss_pr_dbg("Phone power=%llu\n", priv->vph_pwr);
+
+	icnss_send_vbatt_update(priv, priv->vph_pwr);
+
+	ret = icnss_setup_vph_monitor(priv);
+	if (ret)
+		goto out;
+out:
+	return ret;
+}
+
 static int icnss_driver_event_server_arrive(void *data)
 {
 	int ret = 0;
@@ -844,6 +993,9 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (!penv->fw_early_crash_irq)
 		register_early_crash_notifications(&penv->pdev->dev);
 
+	if (penv->vbatt_supported)
+		icnss_init_vph_monitor(penv);
+
 	return ret;
 
 err_setup_msa:
@@ -867,6 +1019,10 @@ static int icnss_driver_event_server_exit(void *data)
 
 	icnss_clear_server(penv);
 
+	if (penv->adc_tm_dev && penv->vbatt_supported)
+		adc_tm5_disable_chan_meas(penv->adc_tm_dev,
+					  &penv->vph_monitor_params);
+
 	return 0;
 }
 
@@ -885,8 +1041,7 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
-	set_bit(ICNSS_DRIVER_LOADING, &priv->state);
-	reinit_completion(&penv->driver_probed);
+	icnss_block_shutdown(true);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = priv->ops->probe(&priv->pdev->dev);
 		probe_cnt++;
@@ -896,13 +1051,11 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, priv->state, probe_cnt);
-		complete(&penv->driver_probed);
-		clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
+		icnss_block_shutdown(false);
 		goto out;
 	}
 
-	complete(&penv->driver_probed);
-	clear_bit(ICNSS_DRIVER_LOADING, &priv->state);
+	icnss_block_shutdown(false);
 	set_bit(ICNSS_DRIVER_PROBED, &priv->state);
 
 	return 0;
@@ -960,16 +1113,20 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
+	icnss_block_shutdown(true);
+
 	ret = priv->ops->reinit(&priv->pdev->dev);
 	if (ret < 0) {
 		icnss_fatal_err("Driver reinit failed: %d, state: 0x%lx\n",
 				ret, priv->state);
 		if (!priv->allow_recursive_recovery)
 			ICNSS_ASSERT(false);
+		icnss_block_shutdown(false);
 		goto out_power_off;
 	}
 
 out:
+	icnss_block_shutdown(false);
 	clear_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 	return 0;
 
@@ -1041,8 +1198,7 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret)
 		goto out;
 
-	set_bit(ICNSS_DRIVER_LOADING, &penv->state);
-	reinit_completion(&penv->driver_probed);
+	icnss_block_shutdown(true);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = penv->ops->probe(&penv->pdev->dev);
 		probe_cnt++;
@@ -1052,13 +1208,11 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, penv->state, probe_cnt);
-		clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
-		complete(&penv->driver_probed);
+		icnss_block_shutdown(false);
 		goto power_off;
 	}
 
-	complete(&penv->driver_probed);
-	clear_bit(ICNSS_DRIVER_LOADING, &penv->state);
+	icnss_block_shutdown(false);
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
 	return 0;
@@ -1077,8 +1231,13 @@ static int icnss_driver_event_unregister_driver(void *data)
 	}
 
 	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
+
+	icnss_block_shutdown(true);
+
 	if (penv->ops)
 		penv->ops->remove(&penv->pdev->dev);
+
+	icnss_block_shutdown(false);
 
 	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
@@ -1284,8 +1443,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
-	    test_bit(ICNSS_DRIVER_LOADING, &priv->state)) {
-		if (!wait_for_completion_timeout(&priv->driver_probed,
+	    test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
+		if (!wait_for_completion_timeout(&priv->unblock_shutdown,
 						 PROBE_TIMEOUT))
 			icnss_pr_err("wlan driver probe timeout\n");
 	}
@@ -2601,8 +2760,8 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_MODE_ON:
 			seq_puts(s, "MODE ON DONE");
 			continue;
-		case ICNSS_DRIVER_LOADING:
-			seq_puts(s, "WLAN DRIVER LOADING");
+		case ICNSS_BLOCK_SHUTDOWN:
+			seq_puts(s, "BLOCK SHUTDOWN");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -3032,6 +3191,45 @@ static void icnss_debugfs_destroy(struct icnss_priv *priv)
 	debugfs_remove_recursive(priv->root_dentry);
 }
 
+
+static int icnss_get_vbatt_info(struct icnss_priv *priv)
+{
+	struct adc_tm_chip *adc_tm_dev = NULL;
+	struct iio_channel *channel = NULL;
+	int ret = 0;
+
+	adc_tm_dev = get_adc_tm(&priv->pdev->dev, "icnss");
+	if (PTR_ERR(adc_tm_dev) == -EPROBE_DEFER) {
+		icnss_pr_err("adc_tm_dev probe defer\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (IS_ERR(adc_tm_dev)) {
+		ret = PTR_ERR(adc_tm_dev);
+		icnss_pr_err("Not able to get ADC dev, VBATT monitoring is disabled: %d\n",
+			     ret);
+		return ret;
+	}
+
+	channel = iio_channel_get(&priv->pdev->dev, "icnss");
+	if (PTR_ERR(channel) == -EPROBE_DEFER) {
+		icnss_pr_err("channel probe defer\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (IS_ERR(channel)) {
+		ret = PTR_ERR(channel);
+		icnss_pr_err("Not able to get VADC dev, VBATT monitoring is disabled: %d\n",
+			     ret);
+		return ret;
+	}
+
+	priv->adc_tm_dev = adc_tm_dev;
+	priv->channel = channel;
+
+	return 0;
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3060,6 +3258,13 @@ static int icnss_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 
 	priv->vreg_info = icnss_vreg_info;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,icnss-adc_tm")) {
+		ret = icnss_get_vbatt_info(priv);
+		if (ret == -EPROBE_DEFER)
+			goto out;
+		priv->vbatt_supported = true;
+	}
 
 	for (i = 0; i < ICNSS_VREG_INFO_SIZE; i++) {
 		ret = icnss_get_vreg_info(dev, &priv->vreg_info[i]);
@@ -3226,7 +3431,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv = priv;
 
-	init_completion(&priv->driver_probed);
+	init_completion(&priv->unblock_shutdown);
 
 	icnss_pr_info("Platform driver probed successfully\n");
 
@@ -3250,7 +3455,7 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_debugfs_destroy(penv);
 
-	complete_all(&penv->driver_probed);
+	complete_all(&penv->unblock_shutdown);
 
 	icnss_modem_ssr_unregister_notifier(penv);
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +113,7 @@
 		vdda18-supply = <&pms405_l5>;
 		qcom,vdd-voltage-level = <0 1050000 1050000>;
 
-		clocks = <&clock_rpmcc RPM_SMD_LN_BB_CLK>,
+		clocks = <&clock_cmn_blk_pll CMN_BLK_PLL>,
 			 <&clock_gcc GCC_USB_HS_PHY_CFG_AHB_CLK>,
 			 <&clock_gcc GCC_USB3_PHY_PIPE_CLK>;
 		clock-names = "ref_clk", "cfg_ahb_clk", "pipe_clk";

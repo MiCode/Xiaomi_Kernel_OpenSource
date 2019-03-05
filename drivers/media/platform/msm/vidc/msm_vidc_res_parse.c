@@ -694,6 +694,39 @@ err_load_clk_table_fail:
 	return rc;
 }
 
+static int msm_vidc_load_reset_table(
+		struct msm_vidc_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+	struct reset_set *rst = &res->reset_set;
+	int num_clocks = 0, c = 0;
+
+	num_clocks = of_property_count_strings(pdev->dev.of_node,
+				"reset-names");
+	if (num_clocks <= 0) {
+		dprintk(VIDC_DBG, "No reset clocks found\n");
+		rst->count = 0;
+		return 0;
+	}
+
+	rst->reset_tbl = devm_kcalloc(&pdev->dev, num_clocks,
+			sizeof(*rst->reset_tbl), GFP_KERNEL);
+	if (!rst->reset_tbl)
+		return -ENOMEM;
+
+	rst->count = num_clocks;
+	dprintk(VIDC_DBG, "Found %d reset clocks\n", num_clocks);
+
+	for (c = 0; c < num_clocks; ++c) {
+		struct reset_info *rc = &res->reset_set.reset_tbl[c];
+
+		of_property_read_string_index(pdev->dev.of_node,
+				"reset-names", c, &rc->name);
+	}
+
+	return 0;
+}
+
 static int msm_decide_dt_node(
 		struct msm_vidc_platform_resources *res)
 {
@@ -761,8 +794,8 @@ int read_platform_resources_from_drv_data(
 	res->max_hq_mbs_per_frame = find_key_value(platform_data,
 			"qcom,max-hq-mbs-per-frame");
 
-	res->max_hq_fps = find_key_value(platform_data,
-			"qcom,max-hq-frames-per-sec");
+	res->max_hq_mbs_per_sec = find_key_value(platform_data,
+			"qcom,max-hq-mbs-per-sec");
 
 	res->sw_power_collapsible = find_key_value(platform_data,
 			"qcom,sw-power-collapse");
@@ -805,9 +838,6 @@ int read_platform_resources_from_drv_data(
 			"qcom,fw-vpp-cycles");
 
 	res->csc_coeff_data = &platform_data->csc_data;
-
-	res->gcc_register_base = platform_data->gcc_register_base;
-	res->gcc_register_size = platform_data->gcc_register_size;
 
 	res->vpu_ver = platform_data->vpu_ver;
 
@@ -930,6 +960,13 @@ int read_platform_resources_from_dt(
 		goto err_load_allowed_clocks_table;
 	}
 
+	rc = msm_vidc_load_reset_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to load reset table: %d\n", rc);
+		goto err_load_reset_table;
+	}
+
 	rc = msm_vidc_populate_legacy_context_bank(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -957,6 +994,7 @@ int read_platform_resources_from_dt(
 
 return rc;
 
+err_load_reset_table:
 err_register_cx_ipeak:
 err_setup_legacy_cb:
 	msm_vidc_free_allowed_clocks_table(res);

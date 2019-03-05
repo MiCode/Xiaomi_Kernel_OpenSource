@@ -174,6 +174,13 @@
 	};
 };
 
+&soc {
+	bluetooth: bt_qca6390 {
+		compatible = "qca,qca6390";
+		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
+	};
+};
+
 &pm8150b_charger {
 	qcom,batteryless-platform;
 	io-channels = <&pm8150b_vadc ADC_USB_IN_V_16>,

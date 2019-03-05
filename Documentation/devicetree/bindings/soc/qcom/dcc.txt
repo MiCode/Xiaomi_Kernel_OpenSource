@@ -30,6 +30,11 @@ Optional properties:
 - qcom,save-reg: boolean, To save dcc registers state in memory after dcc
 		 enable and disable
 
+- link-list subnode: Each link-list subnode represents a link-list configured by default.
+		     It supports configure multiple link-list nodes.
+
+link-list subnode properties:
+
 - qcom,data-sink: string, To specify default data sink for dcc, should be one
 		  of the following:
 		  "atb"	  : To send captured data over ATB to a trace sink
@@ -54,14 +59,28 @@ Example:
 
 		clocks = <&clock_gcc clk_gcc_dcc_ahb_clk>;
 		clock-names = "dcc_clk";
-
-		qcom,curr-link-list = <2>;
-		qcom,link-list = <DCC_READ 0x1740300 6 0>,
-				 <DCC_READ 0x1620500 4 0>,
-				 <DCC_READ 0x7840000 1 0>,
-				 <DCC_READ 0x7841010 12 0>,
-				 <DCC_READ 0x7842000 16 0>,
-				 <DCC_READ 0x7842500 2 0>;
 		qcom,save-reg;
+
+		link_list_0 {
+			qcom,curr-link-list = <2>;
+			qcom,data-sink = "sram";
+			qcom,link-list = <DCC_READ 0x1740300 6 0>,
+					 <DCC_READ 0x1620500 4 0>,
+					 <DCC_READ 0x7840000 1 0>,
+					 <DCC_READ 0x7841010 12 0>,
+					 <DCC_READ 0x7842000 16 0>,
+					 <DCC_READ 0x7842500 2 0>;
+		};
+
+		link_list_2 {
+			qcom,curr-link-list = <3>;
+			qcom,data-sink = "atb";
+			qcom,link-list = <DCC_READ 0x18220d14 3 0>,
+					 <DCC_READ 0x18220d30 4 0>,
+					 <DCC_READ 0x18220d44 4 0>,
+					 <DCC_READ 0x18220d58 4 0>,
+					 <DCC_READ 0x18220fb4 3 0>,
+					 <DCC_READ 0x18220fd0 4 0>;
+		};
 	};
 

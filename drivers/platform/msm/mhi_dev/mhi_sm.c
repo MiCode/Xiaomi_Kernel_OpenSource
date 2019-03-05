@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,36 +445,41 @@ static int mhi_sm_change_to_M0(void)
 
 	old_state = mhi_sm_ctx->mhi_state;
 
-	if (old_state == MHI_DEV_M0_STATE) {
+	switch (old_state) {
+	case MHI_DEV_M0_STATE:
 		MHI_SM_DBG("Nothing to do, already in M0 state\n");
 		res = 0;
 		goto exit;
-	} else if (old_state == MHI_DEV_M3_STATE ||
-				old_state == MHI_DEV_READY_STATE) {
-		/*  Retrieve MHI configuration*/
-		res = mhi_dev_config_outbound_iatu(mhi_sm_ctx->mhi_dev);
-		if (res) {
-			MHI_SM_ERR("Fail to configure iATU, returned %d\n",
-			res);
-			goto exit;
-		}
+	case MHI_DEV_M3_STATE:
+	case MHI_DEV_READY_STATE:
 		res = ep_pcie_get_msi_config(mhi_sm_ctx->mhi_dev->phandle,
 			&cfg);
 		if (res) {
 			MHI_SM_ERR("Error retrieving pcie msi logic\n");
 			goto exit;
 		}
-		res = mhi_pcie_config_db_routing(mhi_sm_ctx->mhi_dev);
-		if (res) {
-			MHI_SM_ERR("Error configuring db routing\n");
-			goto exit;
+		if (mhi_sm_ctx->mhi_dev->use_ipa) {
+			/*  Retrieve MHI configuration*/
+			res = mhi_dev_config_outbound_iatu(mhi_sm_ctx->mhi_dev);
+			if (res) {
+				MHI_SM_ERR("Fail to configure iATU, ret: %d\n",
+									res);
+				goto exit;
+			}
 
+			res = mhi_pcie_config_db_routing(mhi_sm_ctx->mhi_dev);
+			if (res) {
+				MHI_SM_ERR("Error configuring db routing\n");
+				goto exit;
+			}
 		}
-	} else {
+		break;
+	default:
 		MHI_SM_ERR("unexpected old_state: %s\n",
 			mhi_sm_mstate_str(old_state));
 		goto exit;
 	}
+
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_M0_STATE);
 
 	/* Tell the host, device move to M0 */
@@ -1185,7 +1190,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		spin_lock_irqsave(&mhi_sm_ctx->mhi_dev->lock, flags);
 		if ((mhi_sm_ctx->mhi_dev->mhi_int) &&
 				(mhi_sm_ctx->mhi_dev->mhi_int_en)) {
-			disable_irq(mhi_sm_ctx->mhi_dev->mhi_irq);
+			disable_irq_nosync(mhi_sm_ctx->mhi_dev->mhi_irq);
 			mhi_sm_ctx->mhi_dev->mhi_int_en = false;
 			MHI_SM_DBG("Disable MHI IRQ during D3 HOT");
 		}

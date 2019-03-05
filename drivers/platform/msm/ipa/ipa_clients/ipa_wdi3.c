@@ -500,6 +500,7 @@ int ipa_wdi_conn_pipes(struct ipa_wdi_conn_in_params *in,
 			goto fail_add_dependency;
 		}
 	} else {
+		memset(&pm_params, 0, sizeof(pm_params));
 		pm_params.name = "wdi";
 		pm_params.callback = ipa_wdi_pm_cb;
 		pm_params.user_data = NULL;

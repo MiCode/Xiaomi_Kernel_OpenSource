@@ -105,6 +105,7 @@
 #define IPA_IOCTL_ODL_QUERY_MODEM_CONFIG        63
 #define IPA_IOCTL_GSB_CONNECT                   64
 #define IPA_IOCTL_GSB_DISCONNECT                65
+#define IPA_IOCTL_WIGIG_FST_SWITCH              66
 
 
 /**
@@ -328,12 +329,16 @@ enum ipa_client_type {
 
 	/* RESERVED PROD			= 86, */
 	IPA_CLIENT_APPS_WAN_COAL_CONS		= 87,
+
 	IPA_CLIENT_WIGIG_PROD			= 88,
 	IPA_CLIENT_WIGIG1_CONS			= 89,
+
 	/* RESERVERD PROD			= 90, */
 	IPA_CLIENT_WIGIG2_CONS			= 91,
+
 	/* RESERVERD PROD			= 92, */
 	IPA_CLIENT_WIGIG3_CONS			= 93,
+
 	/* RESERVERD PROD			= 94, */
 	IPA_CLIENT_WIGIG4_CONS			= 95,
 
@@ -360,7 +365,8 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
-	(client) == IPA_CLIENT_APPS_WAN_CONS)
+	(client) == IPA_CLIENT_APPS_WAN_CONS || \
+	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
@@ -608,7 +614,11 @@ enum ipa_coalesce_event {
 #define IPA_COALESCE_EVENT_MAX IPA_COALESCE_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_COALESCE_EVENT_MAX)
+#define WIGIG_CLIENT_CONNECT (IPA_COALESCE_EVENT_MAX)
+#define WIGIG_FST_SWITCH (WIGIG_CLIENT_CONNECT + 1)
+#define WIGIG_EVENT_MAX (WIGIG_FST_SWITCH + 1)
+
+#define IPA_EVENT_MAX_NUM (WIGIG_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -1792,6 +1802,18 @@ struct ipa_ioc_gsb_info {
 };
 
 /**
+ * struct ipa_ioc_wigig_fst_switch - switch between wigig and wlan
+ * @netdev_name: wigig interface name
+ * @client_mac_addr: client to switch between netdevs
+ * @to_wigig: shall wlan client switch to wigig or the opposite?
+ */
+struct ipa_ioc_wigig_fst_switch {
+	uint8_t netdev_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t client_mac_addr[IPA_MAC_ADDR_SIZE];
+	int to_wigig;
+};
+
+/**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
  * @rsvd: reserved bits for future use.
@@ -1873,6 +1895,22 @@ struct ipa_wlan_msg_ex {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t num_of_attribs;
 	struct ipa_wlan_hdr_attrib_val attribs[0];
+};
+
+/**
+ * struct ipa_wigig_msg- To hold information about wigig event
+ * @name: name of the wigig interface
+ * @client_mac_addr: the relevant wigig client mac address
+ * @ipa_client: TX pipe associated with the wigig client in case of connect
+ * @to_wigig: FST switch direction wlan->wigig?
+ */
+struct ipa_wigig_msg {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t client_mac_addr[IPA_MAC_ADDR_SIZE];
+	union {
+		enum ipa_client_type ipa_client;
+		uint8_t to_wigig;
+	} u;
 };
 
 struct ipa_ecm_msg {
@@ -2246,6 +2284,10 @@ struct ipa_odl_modem_config {
 #define IPA_IOC_GSB_DISCONNECT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GSB_DISCONNECT, \
 				struct ipa_ioc_gsb_info)
+
+#define IPA_IOC_WIGIG_FST_SWITCH _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_WIGIG_FST_SWITCH, \
+				struct ipa_ioc_wigig_fst_switch)
 
 /*
  * unique magic number of the Tethering bridge ioctls

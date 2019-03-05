@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,8 @@
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
 
-#define IPA_DMA_SYNC                    1
-#define IPA_DMA_ASYNC                   0
+#define DMA_SYNC		1
+#define DMA_ASYNC		0
 
 enum cb_reason {
 	MHI_DEV_TRE_AVAILABLE = 0,
@@ -67,7 +67,7 @@ struct mhi_req {
 	u32                             snd_cmpl;
 	void                            *context;
 	size_t                          len;
-	size_t                          actual_len;
+	size_t                          transfer_len;
 	uint32_t                        rd_offset;
 	struct mhi_dev_client           *client;
 	struct list_head                list;

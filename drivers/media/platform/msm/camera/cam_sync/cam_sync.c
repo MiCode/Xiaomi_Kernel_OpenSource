@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,8 +196,8 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: Sync object already signaled sync_obj = %d",
-			sync_obj);
+			"Sync object already signaled sync_obj = %d state = %d",
+			sync_obj, row->state);
 		return -EALREADY;
 	}
 
@@ -323,8 +323,8 @@ int cam_sync_get_obj_ref(int32_t sync_obj)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj = %d",
-			sync_obj);
+			"accessing an uninitialized sync obj = %d state = %d",
+			sync_obj, row->state);
 		return -EINVAL;
 	}
 
@@ -433,6 +433,7 @@ static int cam_sync_handle_create(struct cam_private_ioctl_arg *k_ioctl)
 
 static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 {
+	int rc = 0;
 	struct cam_sync_signal sync_signal;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_signal))
@@ -447,7 +448,14 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 		return -EFAULT;
 
 	/* need to get ref for UMD signaled fences */
-	cam_sync_get_obj_ref(sync_signal.sync_obj);
+	rc = cam_sync_get_obj_ref(sync_signal.sync_obj);
+	if (rc) {
+		CAM_DBG(CAM_SYNC,
+			"Error: cannot signal an uninitialized sync obj = %d",
+			sync_signal.sync_obj);
+		return rc;
+	}
+
 	return cam_sync_signal(sync_signal.sync_obj,
 		sync_signal.sync_state);
 }

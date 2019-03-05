@@ -13,6 +13,9 @@
 #ifndef __ICNSS_PRIVATE_H__
 #define __ICNSS_PRIVATE_H__
 
+#include <linux/adc-tm-clients.h>
+#include <linux/iio/consumer.h>
+
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
 		ipc_log_string(icnss_ipc_log_context, _x);		\
@@ -156,7 +159,7 @@ enum icnss_driver_state {
 	ICNSS_DRIVER_UNLOADING,
 	ICNSS_REJUVENATE,
 	ICNSS_MODE_ON,
-	ICNSS_DRIVER_LOADING,
+	ICNSS_BLOCK_SHUTDOWN,
 };
 
 struct ce_irq_list {
@@ -239,6 +242,9 @@ struct icnss_stats {
 	uint32_t rejuvenate_ack_req;
 	uint32_t rejuvenate_ack_resp;
 	uint32_t rejuvenate_ack_err;
+	uint32_t vbatt_req;
+	uint32_t vbatt_resp;
+	uint32_t vbatt_req_err;
 };
 
 #define WLFW_MAX_TIMESTAMP_LEN 32
@@ -355,7 +361,12 @@ struct icnss_priv {
 	bool is_hyp_disabled;
 	uint32_t fw_error_fatal_irq;
 	uint32_t fw_early_crash_irq;
-	struct completion driver_probed;
+	struct completion unblock_shutdown;
+	struct adc_tm_param vph_monitor_params;
+	struct adc_tm_chip *adc_tm_dev;
+	struct iio_channel *channel;
+	uint64_t vph_pwr;
+	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 };
 

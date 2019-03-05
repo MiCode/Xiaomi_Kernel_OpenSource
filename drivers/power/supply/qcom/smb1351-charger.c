@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2700,12 +2700,6 @@ static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 	if (reg & IRQ_COLD_SOFT_BIT)
 		chip->batt_cool = true;
 
-	rc = smb1351_read_reg(chip, IRQ_E_REG, &reg);
-	if (rc) {
-		pr_err("Couldn't read IRQ_E rc = %d\n", rc);
-		goto fail_init_status;
-	}
-
 	/* check initial state of OTG */
 	rc = smb1351_read_reg(chip, IRQ_F_REG, &reg);
 	if (rc) {
@@ -2713,6 +2707,12 @@ static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 		goto fail_init_status;
 	}
 	smb1351_rid_handler(chip, reg & IRQ_RID_BIT);
+
+	rc = smb1351_read_reg(chip, IRQ_E_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read IRQ_E rc = %d\n", rc);
+		goto fail_init_status;
+	}
 
 	if (reg & IRQ_USBIN_UV_BIT) {
 		smb1351_usbin_uv_handler(chip, 1);

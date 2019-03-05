@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -477,6 +477,9 @@ static void msm_bus_fab_init_noc_ops(struct msm_bus_node_device_type *bus_dev)
 	case MSM_BUS_BIMC:
 		msm_bus_bimc_set_ops(bus_dev);
 		break;
+	case MSM_BUS_QNOC:
+		msm_bus_qnoc_set_ops(bus_dev);
+		break;
 	default:
 		MSM_BUS_ERR("%s: Invalid Bus type", __func__);
 	}
@@ -829,6 +832,9 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
 	node_info->qos_params.prio1 = pdata_node_info->qos_params.prio1;
 	node_info->qos_params.prio0 = pdata_node_info->qos_params.prio0;
+	node_info->qos_params.prio_dflt = pdata_node_info->qos_params.prio_dflt;
+	node_info->qos_params.urg_fwd_en =
+				pdata_node_info->qos_params.urg_fwd_en;
 	node_info->qos_params.reg_prio1 = pdata_node_info->qos_params.reg_prio1;
 	node_info->qos_params.reg_prio0 = pdata_node_info->qos_params.reg_prio0;
 	node_info->qos_params.prio_lvl = pdata_node_info->qos_params.prio_lvl;

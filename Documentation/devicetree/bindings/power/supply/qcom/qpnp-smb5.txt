@@ -313,6 +313,14 @@ Charger specific properties:
 		connector THERM, only valid values are (0/30/100/400).
 		If not specified 100K is used as default pull-up.
 
+- qcom,wd-snarl-time-config
+  Usage:      optional
+  Value type: <u32>
+  Definition: WDOG snarl timeout configuration value. The possible values are
+		0 to 7, where 0 = 62.5ms, 1 = 125ms, 2 = 250ms, 3 = 500ms,
+		4 = 1s, 5 = 2s, 6 = 4s and 7 = 8s. If not defined, wdog-snarl
+		irq is disabled by default.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

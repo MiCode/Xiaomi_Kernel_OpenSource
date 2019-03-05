@@ -69,6 +69,10 @@
 #define CORE_FTRIM_ILIM_REG		0x1030
 #define CFG_ILIM_MASK			GENMASK(4, 0)
 
+#define CORE_FTRIM_CTRL_REG		0x1031
+#define TEMP_ALERT_LVL_MASK		GENMASK(6, 5)
+#define TEMP_ALERT_LVL_SHIFT		5
+
 #define CORE_FTRIM_LVL_REG		0x1033
 #define CFG_WIN_HI_MASK			GENMASK(3, 2)
 #define WIN_OV_LVL_1000MV		0x08
@@ -92,6 +96,8 @@
 #define WIRELESS_VOTER		"WIRELESS_VOTER"
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
+
+#define THERMAL_SUSPEND_DECIDEGC	1400
 
 #define smb1390_dbg(chip, reason, fmt, ...)				\
 	do {								\
@@ -170,6 +176,8 @@ struct smb1390 {
 	int			die_temp;
 	bool			suspended;
 	u32			debug_mask;
+	u32			min_ilim_ua;
+	u32			max_temp_alarm_degc;
 };
 
 struct smb_irq {
@@ -502,8 +510,8 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 		return rc;
 	}
 
-	/* ILIM less than 1A is not accurate; disable charging */
-	if (ilim_uA < 1000000) {
+	/* ILIM less than min_ilim_ua, disable charging */
+	if (ilim_uA < chip->min_ilim_ua) {
 		smb1390_dbg(chip, PR_INFO, "ILIM %duA is too low to allow charging\n",
 			ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
@@ -669,7 +677,7 @@ static void smb1390_taper_work(struct work_struct *work)
 				fcc_uA);
 			vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
 
-			if (fcc_uA < 2000000) {
+			if (fcc_uA < (chip->min_ilim_ua * 2)) {
 				vote(chip->disable_votable, TAPER_END_VOTER,
 								true, 0);
 				goto out;
@@ -741,9 +749,24 @@ static int smb1390_get_prop(struct power_supply *psy,
 			else
 				rc = -ENODATA;
 		} else {
+			/*
+			 * Add a filter to the die temp value read:
+			 * If temp > THERMAL_SUSPEND_DECIDEGC then
+			 *	- treat it as an error and report last valid
+			 *	  cached temperature.
+			 *	- return -ENODATA if the cached value is
+			 *	  invalid.
+			 */
+
 			rc = smb1390_get_die_temp(chip, val);
-			if (rc >= 0)
-				chip->die_temp = val->intval;
+			if (rc >= 0) {
+				if (val->intval <= THERMAL_SUSPEND_DECIDEGC)
+					chip->die_temp = val->intval;
+				else if (chip->die_temp == -ENODATA)
+					rc = -ENODATA;
+				else
+					val->intval = chip->die_temp;
+			}
 		}
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS:
@@ -868,9 +891,19 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 			chip->iio.die_temp_chan = NULL;
 			return rc;
 		}
+	} else {
+		return rc;
 	}
 
-	return rc;
+	chip->min_ilim_ua = 1000000; /* 1A */
+	of_property_read_u32(chip->dev->of_node, "qcom,min-ilim-ua",
+			&chip->min_ilim_ua);
+
+	chip->max_temp_alarm_degc = 110;
+	of_property_read_u32(chip->dev->of_node, "qcom,max-temp-alarm-degc",
+			&chip->max_temp_alarm_degc);
+
+	return 0;
 }
 
 static void smb1390_release_channels(struct smb1390 *chip)
@@ -916,7 +949,7 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 
 static int smb1390_init_hw(struct smb1390 *chip)
 {
-	int rc;
+	int rc = 0, val;
 
 	/*
 	 * Improve ILIM accuracy:
@@ -933,8 +966,25 @@ static int smb1390_init_hw(struct smb1390 *chip)
 	if (rc < 0)
 		return rc;
 
+	switch (chip->max_temp_alarm_degc) {
+	case 125:
+		val = 0x00;
+		break;
+	case 95:
+		val = 0x02;
+		break;
+	case 85:
+		val = 0x03;
+		break;
+	case 110:
+	default:
+		val = 0x01;
+		break;
+	}
+	rc = smb1390_masked_write(chip, CORE_FTRIM_CTRL_REG,
+			TEMP_ALERT_LVL_MASK, val << TEMP_ALERT_LVL_SHIFT);
 
-	return 0;
+	return rc;
 }
 
 static int smb1390_get_irq_index_byname(const char *irq_name)

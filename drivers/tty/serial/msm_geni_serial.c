@@ -462,7 +462,7 @@ static struct msm_geni_serial_port *get_port_from_line(int line,
 
 	if (is_console) {
 		if ((line < 0) || (line >= GENI_UART_CONS_PORTS))
-			port = ERR_PTR(-ENXIO);
+			return ERR_PTR(-ENXIO);
 		port = &msm_geni_console_port;
 	} else {
 		if ((line < 0) || (line >= GENI_UART_NR_PORTS))
@@ -1635,7 +1635,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 		msm_port->rx_buf = devm_kzalloc(uport->dev, DMA_RX_BUF_SIZE,
 								GFP_KERNEL);
 		if (!msm_port->rx_buf) {
-			kfree(msm_port->rx_fifo);
+			devm_kfree(uport->dev, msm_port->rx_fifo);
 			msm_port->rx_fifo = NULL;
 			ret = -ENOMEM;
 			goto exit_portsetup;

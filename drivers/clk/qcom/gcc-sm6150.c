@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,17 +233,28 @@ static struct clk_fixed_factor gpll0_out_aux2 = {
 	},
 };
 
-static struct clk_alpha_pll gpll6_out_main = {
+static struct clk_alpha_pll gpll6_out_early = {
 	.offset = 0x13000,
 	.clkr = {
 		.enable_reg = 0x52000,
 		.enable_mask = BIT(6),
 		.hw.init = &(struct clk_init_data){
-			.name = "gpll6_out_main",
+			.name = "gpll6_out_early",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
 		},
+	},
+};
+
+static struct clk_fixed_factor gpll6_out_main = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll6_out_main",
+		.parent_names = (const char *[]){ "gpll6_out_early" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
 	},
 };
 
@@ -261,17 +272,28 @@ static struct clk_alpha_pll gpll7_out_main = {
 	},
 };
 
-static struct clk_alpha_pll gpll8_out_main = {
+static struct clk_alpha_pll gpll8_out_early = {
 	.offset = 0x1b000,
 	.clkr = {
 		.enable_reg = 0x52000,
 		.enable_mask = BIT(8),
 		.hw.init = &(struct clk_init_data){
-			.name = "gpll8_out_main",
+			.name = "gpll8_out_early",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_ops,
 		},
+	},
+};
+
+static struct clk_fixed_factor gpll8_out_main = {
+	.mult = 1,
+	.div = 2,
+	.hw.init = &(struct clk_init_data){
+		.name = "gpll8_out_main",
+		.parent_names = (const char *[]){ "gpll8_out_early" },
+		.num_parents = 1,
+		.ops = &clk_fixed_factor_ops,
 	},
 };
 
@@ -3259,6 +3281,8 @@ static struct clk_dummy measure_only_snoc_clk = {
 
 struct clk_hw *gcc_sm6150_hws[] = {
 	[GPLL0_OUT_AUX2] = &gpll0_out_aux2.hw,
+	[GPLL6_OUT_MAIN] = &gpll6_out_main.hw,
+	[GPLL8_OUT_MAIN] = &gpll8_out_main.hw,
 	[MEASURE_ONLY_MMCC_CLK] = &measure_only_mccc_clk.hw,
 	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
 	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
@@ -3434,9 +3458,9 @@ static struct clk_regmap *gcc_sm6150_clocks[] = {
 	[GCC_VSENSOR_CLK_SRC] = &gcc_vsensor_clk_src.clkr,
 	[GCC_WCSS_VS_CLK] = &gcc_wcss_vs_clk.clkr,
 	[GPLL0_OUT_MAIN] = &gpll0_out_main.clkr,
-	[GPLL6_OUT_MAIN] = &gpll6_out_main.clkr,
+	[GPLL6_OUT_EARLY] = &gpll6_out_early.clkr,
 	[GPLL7_OUT_MAIN] = &gpll7_out_main.clkr,
-	[GPLL8_OUT_MAIN] = &gpll8_out_main.clkr,
+	[GPLL8_OUT_EARLY] = &gpll8_out_early.clkr,
 	[GCC_RX1_USB2_CLKREF_CLK] = &gcc_rx1_usb2_clkref_clk.clkr,
 	[GCC_RX3_USB2_CLKREF_CLK] = &gcc_rx3_usb2_clkref_clk.clkr,
 	[GCC_USB2_PRIM_CLKREF_CLK] = &gcc_usb2_prim_clkref_clk.clkr,

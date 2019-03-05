@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1079,7 +1079,9 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req_to_dump->req_priv;
-	cam_isp_ctx_dump_req(req_isp);
+
+	if (error_event_data->enable_reg_dump)
+		cam_isp_ctx_dump_req(req_isp);
 
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_ERROR, req_to_dump->request_id);

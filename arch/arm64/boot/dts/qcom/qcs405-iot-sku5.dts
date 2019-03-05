@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "qcs405.dtsi"
-#include "qcs405-audio-overlay.dtsi"
+#include "qcs405-nowcd-audio-overlay.dtsi"
 #include "qcs405-geni-ir-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
 #include "qcs405-mdss-panels.dtsi"
@@ -85,5 +85,13 @@
 &soc {
 	gpio_keys {
 		status = "disabled";
+	};
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
 	};
 };

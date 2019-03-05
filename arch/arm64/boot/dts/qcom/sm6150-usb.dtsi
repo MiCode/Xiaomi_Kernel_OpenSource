@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,10 +138,12 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x88e2000 0x180>,
 			<0x01fcb250 0x4>,
-			<0x007801f8 0x4>;
+			<0x007801f8 0x4>,
+			<0x01fcb3e4 0x4>;
 		reg-names = "qusb_phy_base",
 			"tcsr_clamp_dig_n_1p8",
-			"tune2_efuse_addr";
+			"tune2_efuse_addr",
+			"tcsr_conn_box_spare_0";
 
 		vdd-supply = <&pm6150_l4>;
 		vdda18-supply = <&pm6150_l11>;
@@ -380,7 +382,6 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 664 0>;
 			usb-phy = <&qusb_phy1>, <&usb_nop_phy>;
-			tx-fifo-resize;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,dis_u2_susphy_quirk;
@@ -397,8 +398,10 @@
 	/* Secondary USB port related High Speed PHY */
 	qusb_phy1: qusb@88e3000 {
 		compatible = "qcom,qusb2phy";
-		reg = <0x88e3000 0x180>;
-		reg-names = "qusb_phy_base";
+		reg = <0x88e3000 0x180>,
+			<0x01fcb3e4 0x4>;
+		reg-names = "qusb_phy_base",
+			"tcsr_conn_box_spare_0";
 
 		vdd-supply = <&pm6150_l4>;
 		vdda18-supply = <&pm6150_l11>;

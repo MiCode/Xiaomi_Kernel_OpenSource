@@ -554,3 +554,11 @@ config QCS_CMN_BLK_PLL
 	 Support for the CMN BLK PLL on Qualcomm Technologies, Inc QCS405
 	 devices.
 	 Say Y if you want to support the Common Block PLL.
+
+config QCOM_CLK_VIRT
+	tristate "QTI Virtual Clock Frontend Driver"
+	depends on COMMON_CLK_QCOM && MSM_HAB
+	help
+	  This is the virtual clock frontend driver which is based on HAB for
+	  the QTI virtual machine.
+	  Say Y if you want to support virtual clock.

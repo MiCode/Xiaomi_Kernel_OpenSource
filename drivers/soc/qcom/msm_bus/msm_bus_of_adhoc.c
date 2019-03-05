@@ -190,6 +190,12 @@ static void get_qos_params(
 	of_property_read_u32(dev_node, "qcom,prio-wr",
 						&node_info->qos_params.prio_wr);
 
+	of_property_read_u32(dev_node, "qcom,prio",
+					&node_info->qos_params.prio_dflt);
+
+	node_info->qos_params.urg_fwd_en = of_property_read_bool(dev_node,
+						"qcom,forwarding");
+
 	of_property_read_u32(dev_node, "qcom,gp",
 						&node_info->qos_params.gp);
 

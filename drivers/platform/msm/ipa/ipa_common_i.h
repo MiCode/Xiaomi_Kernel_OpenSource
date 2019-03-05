@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -470,5 +470,9 @@ int ipa_disconn_wigig_pipe_i(enum ipa_client_type client,
 int ipa_enable_wigig_pipe_i(enum ipa_client_type client);
 
 int ipa_disable_wigig_pipe_i(enum ipa_client_type client);
+
+int ipa_wigig_send_msg(int msg_type,
+	const char *netdev_name, u8 *mac,
+	enum ipa_client_type client, bool to_wigig);
 
 #endif /* _IPA_COMMON_I_H_ */
