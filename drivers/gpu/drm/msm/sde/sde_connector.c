@@ -1325,14 +1325,14 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 static void sde_connector_update_hdr_props(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct drm_msm_ext_hdr_properties hdr = {
-		connector->hdr_metadata_type_one,
-		connector->hdr_supported,
-		connector->hdr_eotf,
-		connector->hdr_max_luminance,
-		connector->hdr_avg_luminance,
-		connector->hdr_min_luminance,
-	};
+	struct drm_msm_ext_hdr_properties hdr = {0};
+
+	hdr.hdr_metadata_type_one = connector->hdr_metadata_type_one ? 1 : 0;
+	hdr.hdr_supported = connector->hdr_supported ? 1 : 0;
+	hdr.hdr_eotf = connector->hdr_eotf;
+	hdr.hdr_max_luminance = connector->hdr_max_luminance;
+	hdr.hdr_avg_luminance = connector->hdr_avg_luminance;
+	hdr.hdr_min_luminance = connector->hdr_min_luminance;
 
 	msm_property_set_blob(&c_conn->property_info, &c_conn->blob_ext_hdr,
 			&hdr, sizeof(hdr), CONNECTOR_PROP_EXT_HDR_INFO);
