@@ -1170,6 +1170,29 @@ static void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
 			drv_type);
 }
 
+static void sdhci_msm_set_cdr(struct sdhci_host *host, bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+	u32 config, oldconfig = readl_relaxed(host->ioaddr +
+					      msm_host_offset->CORE_DLL_CONFIG);
+
+	config = oldconfig;
+	if (enable) {
+		config |= CORE_CDR_EN;
+		config &= ~CORE_CDR_EXT_EN;
+	} else {
+		config &= ~CORE_CDR_EN;
+		config |= CORE_CDR_EXT_EN;
+	}
+
+	if (config != oldconfig)
+		writel_relaxed(config, host->ioaddr +
+			       msm_host_offset->CORE_DLL_CONFIG);
+}
+
 int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	unsigned long flags;
@@ -1195,8 +1218,14 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	if (host->clock <= CORE_FREQ_100MHZ ||
 		!((ios.timing == MMC_TIMING_MMC_HS400) ||
 		(ios.timing == MMC_TIMING_MMC_HS200) ||
-		(ios.timing == MMC_TIMING_UHS_SDR104)))
+		(ios.timing == MMC_TIMING_UHS_SDR104))) {
+		msm_host->use_cdr = false;
+		sdhci_msm_set_cdr(host, false);
 		return 0;
+	}
+
+	/* Clock-Data-Recovery used to dynamically adjust RX sampling point */
+	msm_host->use_cdr = true;
 
 	/*
 	 * Don't allow re-tuning for CRC errors observed for any commands

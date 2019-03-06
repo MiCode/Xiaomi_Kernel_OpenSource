@@ -565,22 +565,36 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
 {
 	struct amdgpu_dm_connector *aconnector;
 	struct drm_connector *connector;
+	struct drm_dp_mst_topology_mgr *mgr;
+	int ret;
+	bool need_hotplug = false;
 
 	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		   aconnector = to_amdgpu_dm_connector(connector);
-		   if (aconnector->dc_link->type == dc_connection_mst_branch &&
-				   !aconnector->mst_port) {
+	list_for_each_entry(connector, &dev->mode_config.connector_list,
+			    head) {
+		aconnector = to_amdgpu_dm_connector(connector);
+		if (aconnector->dc_link->type != dc_connection_mst_branch ||
+		    aconnector->mst_port)
+			continue;
 
-			   if (suspend)
-				   drm_dp_mst_topology_mgr_suspend(&aconnector->mst_mgr);
-			   else
-				   drm_dp_mst_topology_mgr_resume(&aconnector->mst_mgr);
-		   }
+		mgr = &aconnector->mst_mgr;
+
+		if (suspend) {
+			drm_dp_mst_topology_mgr_suspend(mgr);
+		} else {
+			ret = drm_dp_mst_topology_mgr_resume(mgr);
+			if (ret < 0) {
+				drm_dp_mst_topology_mgr_set_mst(mgr, false);
+				need_hotplug = true;
+			}
+		}
 	}
 
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
+
+	if (need_hotplug)
+		drm_kms_helper_hotplug_event(dev);
 }
 
 static int dm_hw_init(void *handle)
@@ -736,7 +750,6 @@ static int dm_resume(void *handle)
 	struct drm_plane_state *new_plane_state;
 	struct dm_plane_state *dm_new_plane_state;
 	enum dc_connection_type new_connection_type = dc_connection_none;
-	int ret;
 	int i;
 
 	/* power on hardware */
@@ -809,13 +822,13 @@ static int dm_resume(void *handle)
 		}
 	}
 
-	ret = drm_atomic_helper_resume(ddev, dm->cached_state);
+	drm_atomic_helper_resume(ddev, dm->cached_state);
 
 	dm->cached_state = NULL;
 
 	amdgpu_dm_irq_resume_late(adev);
 
-	return ret;
+	return 0;
 }
 
 static const struct amd_ip_funcs amdgpu_dm_funcs = {
@@ -2894,6 +2907,7 @@ void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector)
 		state->underscan_enable = false;
 		state->underscan_hborder = 0;
 		state->underscan_vborder = 0;
+		state->max_bpc = 8;
 
 		__drm_atomic_helper_connector_reset(connector, &state->base);
 	}
@@ -2911,6 +2925,7 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
 	if (new_state) {
 		__drm_atomic_helper_connector_duplicate_state(connector,
 							      &new_state->base);
+		new_state->max_bpc = state->max_bpc;
 		return &new_state->base;
 	}
 

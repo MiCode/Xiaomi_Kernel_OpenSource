@@ -601,12 +601,8 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
 		csep = snd_usb_find_desc(alts->extra, alts->extralen, NULL, USB_DT_CS_ENDPOINT);
 
 	if (!csep || csep->bLength < 7 ||
-	    csep->bDescriptorSubtype != UAC_EP_GENERAL) {
-		usb_audio_warn(chip,
-			       "%u:%d : no or invalid class specific endpoint descriptor\n",
-			       iface_no, altsd->bAlternateSetting);
-		return 0;
-	}
+	    csep->bDescriptorSubtype != UAC_EP_GENERAL)
+		goto error;
 
 	if (protocol == UAC_VERSION_1) {
 		attributes = csep->bmAttributes;
@@ -614,6 +610,8 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
 		struct uac2_iso_endpoint_descriptor *csep2 =
 			(struct uac2_iso_endpoint_descriptor *) csep;
 
+		if (csep2->bLength < sizeof(*csep2))
+			goto error;
 		attributes = csep->bmAttributes & UAC_EP_CS_ATTR_FILL_MAX;
 
 		/* emulate the endpoint attributes of a v1 device */
@@ -623,12 +621,20 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
 		struct uac3_iso_endpoint_descriptor *csep3 =
 			(struct uac3_iso_endpoint_descriptor *) csep;
 
+		if (csep3->bLength < sizeof(*csep3))
+			goto error;
 		/* emulate the endpoint attributes of a v1 device */
 		if (le32_to_cpu(csep3->bmControls) & UAC2_CONTROL_PITCH)
 			attributes |= UAC_EP_CS_ATTR_PITCH_CONTROL;
 	}
 
 	return attributes;
+
+ error:
+	usb_audio_warn(chip,
+		       "%u:%d : no or invalid class specific endpoint descriptor\n",
+		       iface_no, altsd->bAlternateSetting);
+	return 0;
 }
 
 /* find an input terminal descriptor (either UAC1 or UAC2) with the given
@@ -636,13 +642,17 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
  */
 static void *
 snd_usb_find_input_terminal_descriptor(struct usb_host_interface *ctrl_iface,
-					       int terminal_id)
+				       int terminal_id, bool uac23)
 {
 	struct uac2_input_terminal_descriptor *term = NULL;
+	size_t minlen = uac23 ? sizeof(struct uac2_input_terminal_descriptor) :
+		sizeof(struct uac_input_terminal_descriptor);
 
 	while ((term = snd_usb_find_csint_desc(ctrl_iface->extra,
 					       ctrl_iface->extralen,
 					       term, UAC_INPUT_TERMINAL))) {
+		if (term->bLength < minlen)
+			continue;
 		if (term->bTerminalID == terminal_id)
 			return term;
 	}
@@ -660,7 +670,8 @@ snd_usb_find_output_terminal_descriptor(struct usb_host_interface *ctrl_iface,
 	while ((term = snd_usb_find_csint_desc(ctrl_iface->extra,
 					       ctrl_iface->extralen,
 					       term, UAC_OUTPUT_TERMINAL))) {
-		if (term->bTerminalID == terminal_id)
+		if (term->bLength >= sizeof(*term) &&
+		    term->bTerminalID == terminal_id)
 			return term;
 	}
 
@@ -734,7 +745,8 @@ snd_usb_get_audioformat_uac12(struct snd_usb_audio *chip,
 		format = le16_to_cpu(as->wFormatTag); /* remember the format value */
 
 		iterm = snd_usb_find_input_terminal_descriptor(chip->ctrl_intf,
-							     as->bTerminalLink);
+							       as->bTerminalLink,
+							       false);
 		if (iterm) {
 			num_channels = iterm->bNrChannels;
 			chconfig = le16_to_cpu(iterm->wChannelConfig);
@@ -769,7 +781,8 @@ snd_usb_get_audioformat_uac12(struct snd_usb_audio *chip,
 		 * to extract the clock
 		 */
 		input_term = snd_usb_find_input_terminal_descriptor(chip->ctrl_intf,
-								    as->bTerminalLink);
+								    as->bTerminalLink,
+								    true);
 		if (input_term) {
 			clock = input_term->bCSourceID;
 			if (!chconfig && (num_channels == input_term->bNrChannels))
@@ -1003,7 +1016,8 @@ snd_usb_get_audioformat_uac3(struct snd_usb_audio *chip,
 	 * to extract the clock
 	 */
 	input_term = snd_usb_find_input_terminal_descriptor(chip->ctrl_intf,
-							    as->bTerminalLink);
+							    as->bTerminalLink,
+							    true);
 	if (input_term) {
 		clock = input_term->bCSourceID;
 		goto found_clock;

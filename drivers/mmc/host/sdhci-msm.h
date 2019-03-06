@@ -252,6 +252,8 @@ struct sdhci_msm_host {
 	bool use_7nm_dll;
 	int soc_min_rev;
 	struct workqueue_struct *pm_qos_wq;
+	bool use_cdr;
+	u32 transfer_mode;
 };
 
 extern char *saved_command_line;
