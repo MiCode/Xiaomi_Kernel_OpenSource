@@ -1480,6 +1480,26 @@
 			qcom,plane-name = "rgb3";
 			lm-stage = <5>;
 		};
+		reserved_plane2: qcom,sde-reserved-plane@2 {
+			reg = <0x2>;
+			qcom,plane-name = "rgb0";
+			qcom,pipe-early-release;
+		};
+		reserved_plane3: qcom,sde-reserved-plane@3 {
+			reg = <0x3>;
+			qcom,plane-name = "rgb1";
+			qcom,pipe-early-release;
+		};
+		reserved_plane4: qcom,sde-reserved-plane@4 {
+			reg = <0x4>;
+			qcom,plane-name = "rgb2";
+			qcom,pipe-early-release;
+		};
+		reserved_plane5: qcom,sde-reserved-plane@5 {
+			reg = <0x5>;
+			qcom,plane-name = "rgb3";
+			qcom,pipe-early-release;
+		};
 	};
 };
 
