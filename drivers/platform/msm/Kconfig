@@ -182,4 +182,42 @@ config QCOM_GENI_SE
 	  module is used to configure and read the configuration from the
 	  Serial Engines.
 
+config IPA3_REGDUMP
+	bool "Dump or collect IPA/GSI register values on Linux crash"
+	depends on IPA3
+	help
+	  This option is to be used when the saving of IPA register state is
+	  desired upon a fatal system exception. When an exception occurs,
+	  an IPA register collection algorithm will be run in the context of
+	  the exception handler.  A predefined set of registers will be read
+	  and their values will be placed into a static hierarchical data
+	  structure that can be perused post crash.
+
+choice
+	prompt "Platform whose registers are to be dumped/collected"
+	depends on IPA3_REGDUMP
+	help
+	  The choices within represent the possible platforms this build is
+	  intended for. The choices are mutually exclusive.  By selecting
+	  one, you effect the inclusion path used, such that the relevant
+	  register definitions will be found.  Each platform has unique
+	  register definitions.
+
+config IPA3_REGDUMP_IPA_4_5
+	bool "The 4.5 IPA"
+	depends on IPA3_REGDUMP
+	depends on ARCH_KONA
+	help
+	  Set this to enable the 4.5 IPA's registers to be dumped/collected.
+
+endchoice
+
+config IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS
+	int "The number of extra endp registers for remaining pipes"
+	depends on IPA3_REGDUMP
+	default 0
+	help
+	  If the platform has extra endpoint registers for remaining
+	  pipes, please express how many here.
+
 endmenu

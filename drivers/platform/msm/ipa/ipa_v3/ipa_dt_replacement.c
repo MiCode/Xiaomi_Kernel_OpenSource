@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/errno.h>
@@ -80,6 +80,9 @@ static struct dtsi_replacement_bool ipa3_plat_drv_bool_4_5[] = {
 	{"qcom,use-rg10-limitation-mitigation", false},
 	{"qcom,do-not-use-ch-gsi-20",           false},
 	{"qcom,use-ipa-pm",                     true},
+	{"qcom,register-collection-on-crash",   true},
+	{"qcom,testbus-collection-on-crash",    true},
+	{"qcom,non-tn-collection-on-crash",     true},
 };
 
 static struct dtsi_replacement_bool ipa3_plat_drv_bool_4_0[] = {
@@ -93,6 +96,9 @@ static struct dtsi_replacement_bool ipa3_plat_drv_bool_4_0[] = {
 	{"qcom,use-rg10-limitation-mitigation", false},
 	{"qcom,do-not-use-ch-gsi-20",           false},
 	{"qcom,use-ipa-pm",                     false},
+	{"qcom,register-collection-on-crash",   true},
+	{"qcom,testbus-collection-on-crash",    true},
+	{"qcom,non-tn-collection-on-crash",     true},
 };
 
 static struct dtsi_replacement_bool ipa3_plat_drv_bool_3_5_1[] = {
@@ -106,6 +112,9 @@ static struct dtsi_replacement_bool ipa3_plat_drv_bool_3_5_1[] = {
 	{"qcom,use-rg10-limitation-mitigation", false},
 	{"qcom,do-not-use-ch-gsi-20",           false},
 	{"qcom,use-ipa-pm",                     false},
+	{"qcom,register-collection-on-crash",   true},
+	{"qcom,testbus-collection-on-crash",    true},
+	{"qcom,non-tn-collection-on-crash",     true},
 };
 
 static struct dtsi_replacement_bool_table
@@ -126,6 +135,7 @@ static struct dtsi_replacement_u32 ipa3_plat_drv_u32_4_5[] = {
 	{"qcom,ee",                             0},
 	{"qcom,msm-bus,num-cases",              5},
 	{"emulator-bar0-offset",                0x01C00000},
+	{"qcom,entire-ipa-block-size",          0x00100000},
 };
 
 static struct dtsi_replacement_u32 ipa3_plat_drv_u32_4_0[] = {
@@ -135,6 +145,7 @@ static struct dtsi_replacement_u32 ipa3_plat_drv_u32_4_0[] = {
 	{"qcom,lan-rx-ring-size",               192},
 	{"qcom,ee",                             0},
 	{"emulator-bar0-offset",                0x01C00000},
+	{"qcom,entire-ipa-block-size",          0x00100000},
 };
 
 static struct dtsi_replacement_u32 ipa3_plat_drv_u32_3_5_1[] = {
@@ -144,6 +155,7 @@ static struct dtsi_replacement_u32 ipa3_plat_drv_u32_3_5_1[] = {
 	{"qcom,lan-rx-ring-size",               192},
 	{"qcom,ee",                             0},
 	{"emulator-bar0-offset",                0x01C00000},
+	{"qcom,entire-ipa-block-size",          0x00100000},
 };
 
 static struct dtsi_replacement_u32_table ipa3_plat_drv_u32_table[] = {
