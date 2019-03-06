@@ -962,6 +962,9 @@ enum v4l2_mpeg_vidc_video_vp9_level {
 #define V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 119)
 
+#define V4L2_CID_MPEG_VIDC_VENC_BITRATE_SAVINGS \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 131)
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE + 120)
 enum v4l2_mpeg_vidc_video_hevc_max_hier_coding_layer {
