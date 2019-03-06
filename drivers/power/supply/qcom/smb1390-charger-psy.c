@@ -169,6 +169,7 @@ struct smb1390 {
 	bool			switcher_enabled;
 	int			die_temp;
 	bool			suspended;
+	bool			disabled;
 	u32			debug_mask;
 	u32			min_ilim_ua;
 	u32			max_temp_alarm_degc;
@@ -499,8 +500,10 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 	}
 
 	/* charging may have been disabled by ILIM; send uevent */
-	if (chip->cp_master_psy)
+	if (chip->cp_master_psy && (disable != chip->disabled))
 		power_supply_changed(chip->cp_master_psy);
+
+	chip->disabled = disable;
 	return rc;
 }
 
@@ -1145,6 +1148,7 @@ static int smb1390_probe(struct platform_device *pdev)
 	mutex_init(&chip->die_chan_lock);
 	chip->die_temp = -ENODATA;
 	chip->pmic_rev_id = pmic_rev_id;
+	chip->disabled = true;
 	platform_set_drvdata(pdev, chip);
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
