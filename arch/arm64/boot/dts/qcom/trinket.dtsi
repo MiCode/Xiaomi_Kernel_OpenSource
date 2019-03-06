@@ -2530,6 +2530,15 @@
 	demux {
 		compatible = "qcom,demux";
 	};
+
+	qfprom: qfprom@1b46018 {
+		compatible = "qcom,qfprom";
+		reg = <0x1b46018 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+	};
 };
 
 #include "pmi632.dtsi"
