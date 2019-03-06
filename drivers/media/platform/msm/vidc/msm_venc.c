@@ -1926,6 +1926,16 @@ int msm_venc_set_secure_mode(struct msm_vidc_inst *inst)
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
 	enable.enable = !!ctrl->val;
 
+	if (enable.enable) {
+		if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC)) {
+			dprintk(VIDC_ERR,
+				"%s: Secure mode only allowed for HEVC/H264\n",
+				__func__);
+			return -EINVAL;
+		}
+	}
+
 	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_PARAM_SECURE_SESSION, &enable, sizeof(enable));
@@ -2839,7 +2849,8 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
+	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *rc_mode = NULL;
 	struct hfi_intra_refresh intra_refresh;
 
 	if (!inst || !inst->core) {
@@ -2847,6 +2858,11 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	rc_mode = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+	if (!(rc_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR ||
+		rc_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR))
+		return 0;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_RANDOM);
 	intra_refresh.mbs = 0;
@@ -2891,6 +2907,9 @@ int msm_venc_set_loop_filter_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_MODE);
 	ctrl_a = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA);
 	ctrl_b = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA);
@@ -2925,6 +2944,10 @@ int msm_venc_set_sequence_header_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC))
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR);
 	if (ctrl->val)
 		enable.enable = true;
@@ -2953,6 +2976,10 @@ int msm_venc_set_au_delimiter_mode(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC))
+		return 0;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER);
 	enable.enable = !!ctrl->val;
@@ -3196,7 +3223,8 @@ int msm_venc_set_video_signal_info(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC))
 		return 0;
 
 	ctrl_cs = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE);
@@ -3266,8 +3294,8 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
-	struct v4l2_ctrl *profile;
+	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *profile = NULL;
 	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
@@ -3276,17 +3304,13 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
-		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264) {
-		profile = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
-		if (profile->val == V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE ||
-			profile->val ==
-			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE)
-			return 0;
-	}
+	profile = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
+	if (!(profile->val == V4L2_MPEG_VIDEO_H264_PROFILE_HIGH ||
+		profile->val == V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH))
+		return 0;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM);
 	enable.enable = !!ctrl->val;
@@ -3410,6 +3434,10 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264))
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
 	if (!ctrl->val)
 		return 0;
@@ -3444,6 +3472,10 @@ int msm_venc_set_ltr_useframe(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264))
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME);
 	use_ltr.ref_ltr = ctrl->val;
 	use_ltr.use_constrnt = false;
@@ -3470,6 +3502,10 @@ int msm_venc_set_ltr_markframe(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264))
+		return 0;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_MARKLTRFRAME);
 	mark_ltr.mark_frame = ctrl->val;
@@ -3535,6 +3571,10 @@ int msm_venc_set_aspect_ratio(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (!(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+		inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC))
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH);
 	if (!ctrl->val)
 		return 0;
@@ -3585,6 +3625,7 @@ int msm_venc_set_blur_resolution(struct msm_vidc_inst *inst)
 int msm_venc_set_hdr_info(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct v4l2_ctrl *profile = NULL;
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core) {
@@ -3592,6 +3633,13 @@ int msm_venc_set_hdr_info(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+		return 0;
+
+	profile = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_PROFILE);
+	if (profile->val != V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10)
+		return 0;
 
 	/* No conversion to HFI needed as both structures are same */
 	dprintk(VIDC_DBG, "%s: setting hdr info\n", __func__);
