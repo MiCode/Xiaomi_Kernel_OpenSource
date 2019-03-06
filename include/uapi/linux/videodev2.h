@@ -2213,6 +2213,10 @@ struct v4l2_streamparm {
 #define V4L2_EVENT_MSM_VIDC_HW_OVERLOAD (V4L2_EVENT_MSM_VIDC_START + 8)
 #define V4L2_EVENT_MSM_VIDC_MAX_CLIENTS (V4L2_EVENT_MSM_VIDC_START + 9)
 #define V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED (V4L2_EVENT_MSM_VIDC_START + 10)
+#define V4L2_EVENT_MSM_VIDC_REGISTER_BUFFER_DONE \
+		(V4L2_EVENT_MSM_VIDC_START + 11)
+#define V4L2_EVENT_MSM_VIDC_UNREGISTER_BUFFER_DONE \
+		(V4L2_EVENT_MSM_VIDC_START + 12)
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {
@@ -2457,5 +2461,8 @@ struct v4l2_create_buffers {
    drivers/media/v4l2-core/v4l2-compat-ioctl32.c as well! */
 
 #define BASE_VIDIOC_PRIVATE	192		/* 192-255 are private */
+
+/* (BASE_VIDIOC_PRIVATE + 0) is private ioctl code for video module */
+#define BASE_VIDIOC_PRIVATE_VIDEO	(BASE_VIDIOC_PRIVATE + 0)
 
 #endif /* _UAPI__LINUX_VIDEODEV2_H */
