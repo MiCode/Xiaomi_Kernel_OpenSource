@@ -223,7 +223,6 @@ static struct msm_vidc_common_data default_common_data[] = {
 	},
 };
 
-/* Update with kona */
 static struct msm_vidc_common_data kona_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
@@ -251,19 +250,19 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	{
 		.key = "qcom,max-hw-load",
 		.value = 3916800,       /*
-					 * 1920x1088/256 MBs@480fps. It is less
-					 * any other usecases (ex:
+					 * 1920x1088/256 MB's@480fps. It is more
+					 * than any other usecases (ex:
 					 * 3840x2160@120fps, 4096x2160@96ps,
 					 * 7680x4320@30fps)
 					 */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
+		.value = 34560,		/* 4096x2160 */
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 1036800,	/* 4096x2160@30fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
@@ -333,8 +332,8 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
@@ -404,8 +403,8 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
@@ -479,8 +478,8 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
@@ -534,8 +533,8 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
@@ -585,8 +584,8 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-hq-mbs-per-sec",
+		.value = 244800,  /* 1920 x 1088 @ 30 fps */
 	},
 	{
 		.key = "qcom,max-b-frame-mbs-per-frame",
