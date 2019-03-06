@@ -35,7 +35,7 @@ struct splash_ctl_top {
 	struct splash_lm_hw lm[LM_MAX - LM_0];
 };
 
-struct sde_res_data {
+struct splash_res_data {
 	struct splash_ctl_top top[CTL_MAX - CTL_0];
 	u8 ctl_ids[CTL_MAX - CTL_0];
 	u8 lm_ids[LM_MAX - LM_0];
@@ -43,12 +43,17 @@ struct sde_res_data {
 	u8 lm_cnt;
 };
 
+struct splash_reserved_pipe_info {
+	uint32_t pipe_id;
+	bool early_release;
+};
+
 struct sde_splash_info {
 	/* handoff flag */
 	bool handoff;
 
 	/* current hw configuration */
-	struct sde_res_data res;
+	struct splash_res_data res;
 
 	/* flag of display splash status */
 	bool display_splash_enabled;
@@ -86,8 +91,8 @@ struct sde_splash_info {
 	/* registered dst connector count */
 	uint32_t dsi_connector_cnt;
 
-	/* reserved pipe info for early RVC */
-	uint32_t reserved_pipe_info[MAX_BLOCKS];
+	/* reserved pipe info both for early RVC and early splash */
+	struct splash_reserved_pipe_info reserved_pipe_info[MAX_BLOCKS];
 };
 
 /* APIs for early splash handoff functions */

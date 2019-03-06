@@ -16,6 +16,7 @@
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
+#include "sde_splash.h"
 
 /**
  * sde_ctl_mode_sel: Interface mode selection
@@ -148,10 +149,12 @@ struct sde_hw_ctl_ops {
 	 * @ctx       : ctl path ctx pointer
 	 * @handoff   : indicate if lk is prepare for handoff
 	 * @resv_pipes  : reserved pipes in DT
-	 * @resv_pipes_length:    array size of array reserved_pipes
+	 * @resv_pipes_length: array size of array reserved_pipes
 	 */
 	void (*clear_all_blendstages)(struct sde_hw_ctl *ctx,
-		bool handoff, const u32 *resv_pipes, u32 resv_pipes_length);
+		bool handoff,
+		const struct splash_reserved_pipe_info *resv_pipes,
+		u32 resv_pipes_length);
 
 	/**
 	 * Configure layer mixer to pipe configuration
@@ -160,11 +163,13 @@ struct sde_hw_ctl_ops {
 	 * @cfg       : blend stage configuration
 	 * @handoff   : indicate if lk is prepare for handoff
 	 * @resv_pipes  : reserved pipes in DT
-	 * @resv_pipes_length:   array size of array reserved_pipes
+	 * @resv_pipes_length: array size of array reserved_pipes
 	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
 		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index,
-		bool handoff, const u32 *resv_pipes, u32 resv_pipes_length);
+		bool handoff,
+		const struct splash_reserved_pipe_info *resv_pipes,
+		u32 resv_pipes_length);
 
 	/**
 	 * read CTL_TOP register value for splash case

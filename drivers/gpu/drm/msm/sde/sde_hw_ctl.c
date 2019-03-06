@@ -258,8 +258,9 @@ static inline int sde_hw_ctl_get_bitmask_cdm(struct sde_hw_ctl *ctx,
 	return 0;
 }
 
-static inline void sde_hw_ctl_get_splash_mixer_mask(const u32 *resv_pipes,
-				u32 length, u32 *mixercfg, u32 *mixercfg_ext)
+static inline void sde_hw_ctl_get_splash_mixer_mask(
+			const struct splash_reserved_pipe_info *resv_pipes,
+			u32 length, u32 *mixercfg, u32 *mixercfg_ext)
 {
 	int i = 0;
 	u32 mixer_mask = 0;
@@ -268,7 +269,7 @@ static inline void sde_hw_ctl_get_splash_mixer_mask(const u32 *resv_pipes,
 	for (i = 0; i < length; i++) {
 		/* LK's splash VIG layer always stays on second top */
 		/*  most layerearly HMI RGB layer stays at top most layer */
-		switch (resv_pipes[i]) {
+		switch (resv_pipes[i].pipe_id) {
 		case SSPP_VIG0:
 			mixer_mask |= 0x7 << 0;
 			mixer_ext_mask |= BIT(0);
@@ -285,20 +286,25 @@ static inline void sde_hw_ctl_get_splash_mixer_mask(const u32 *resv_pipes,
 			mixer_mask |= 0x7 << 26;
 			mixer_ext_mask |= BIT(6);
 			break;
+		/*
+		 * If going here, that means the call comes from one
+		 * NULL commit, so stage RGB pipe as the same stage level
+		 * as that in bootloader splash.
+		 */
 		case SSPP_RGB0:
-			mixer_mask |= 0x7 << 9;
+			mixer_mask |= 0x2 << 9;
 			mixer_ext_mask |= BIT(8);
 			break;
 		case SSPP_RGB1:
-			mixer_mask |= 0x7 << 12;
+			mixer_mask |= 0x2 << 12;
 			mixer_ext_mask |= BIT(10);
 			break;
 		case SSPP_RGB2:
-			mixer_mask |= 0x7 << 15;
+			mixer_mask |= 0x2 << 15;
 			mixer_ext_mask |= BIT(12);
 			break;
 		case SSPP_RGB3:
-			mixer_mask |= 0x7 << 29;
+			mixer_mask |= 0x2 << 29;
 			mixer_ext_mask |= BIT(14);
 			break;
 		default:
@@ -364,7 +370,9 @@ static int sde_hw_ctl_wait_reset_status(struct sde_hw_ctl *ctx)
 }
 
 static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
-		bool handoff, const u32 *resv_pipes, u32 resv_pipes_length)
+	bool handoff,
+	const struct splash_reserved_pipe_info *resv_pipes,
+	u32 resv_pipes_length)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	int i;
@@ -402,7 +410,9 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
 
 static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index,
-	bool handoff, const u32 *resv_pipes, u32 resv_pipes_length)
+	bool handoff,
+	const struct splash_reserved_pipe_info *resv_pipes,
+	u32 resv_pipes_length)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u32 mixercfg, mixercfg_ext, mix, ext, mixercfg_ext2;

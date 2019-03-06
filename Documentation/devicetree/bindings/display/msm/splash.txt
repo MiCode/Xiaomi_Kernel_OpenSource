@@ -1,0 +1,32 @@
+Qualcomm Technologies, Inc. SDE early splash support
+
+Optional properties:
+- qcom,sde-plane-id: reserved plane id
+- qcom,plane-name: reserved plane name
+- qcom,pipe-early-release: dedicated for splash layer(not early RVC)
+
+Example:
+
+/ {
+	qcom,sde-reserved-plane {
+		qcom,sde-plane-id@0 {
+			reg = <0x0>;
+			qcom,plane-name = "vig0";
+		};
+		qcom,sde-plane-id@1 {
+			reg = <0x1>;
+			qcom,plane-name = "rgb0";
+			qcom,pipe-early-release;
+		};
+		qcom,sde-plane-id@2 {
+			reg = <0x2>;
+			qcom,plane-name = "rgb1";
+			qcom,pipe-early-release;
+		};
+		qcom,sde-plane-id@3 {
+			reg = <0x3>;
+			qcom,plane-name = "rgb2";
+			qcom,pipe-early-release;
+		};
+	};
+};
