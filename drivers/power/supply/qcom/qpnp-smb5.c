@@ -2508,13 +2508,15 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	val = WDOG_TIMER_EN_ON_PLUGIN_BIT;
+	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
+		val |= BARK_WDOG_INT_EN_BIT;
+
 	/* enable WD BARK and enable it on plugin */
 	rc = smblib_masked_write(chg, WD_CFG_REG,
 			WATCHDOG_TRIGGER_AFP_EN_BIT |
 			WDOG_TIMER_EN_ON_PLUGIN_BIT |
-			BARK_WDOG_INT_EN_BIT,
-			WDOG_TIMER_EN_ON_PLUGIN_BIT |
-			BARK_WDOG_INT_EN_BIT);
+			BARK_WDOG_INT_EN_BIT, val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
 		return rc;
