@@ -919,9 +919,9 @@ static int fg_gen4_get_power(struct fg_gen4_chip *chip, int *val, bool average)
 	v_min = chip->dt.sys_min_volt_mv * 1000;
 	power = (s64)v_min * (v_pred - v_min);
 
-	rc = fg_get_sram_prop(fg, FG_SRAM_ESR, &esr_uohms);
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
 	if (rc < 0) {
-		pr_err("failed to get ESR, rc=%d\n", rc);
+		pr_err("failed to get ESR_ACT, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -3251,9 +3251,15 @@ static void esr_calib_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "esr_raw: 0x%x esr_char_raw: 0x%x esr_meas_diff: 0x%x esr_delta: 0x%x\n",
 		esr_raw, esr_char_raw, esr_meas_diff, esr_delta);
 
-	fg_esr_meas_diff = esr_delta - esr_meas_diff;
-	esr_filtered = fg_esr_meas_diff >> chip->dt.esr_filter_factor;
-	esr_delta = esr_delta - esr_filtered;
+	fg_esr_meas_diff = esr_meas_diff - (esr_delta / 32);
+
+	/* Don't filter for the first attempt so that ESR can converge faster */
+	if (!chip->delta_esr_count)
+		esr_filtered = fg_esr_meas_diff;
+	else
+		esr_filtered = fg_esr_meas_diff >> chip->dt.esr_filter_factor;
+
+	esr_delta = esr_delta + (esr_filtered * 32);
 
 	/* Bound the limits */
 	if (esr_delta > SHRT_MAX)
