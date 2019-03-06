@@ -78,6 +78,17 @@
 			power-source = <0>;
 		};
 	};
+
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			  pins = "gpio6";
+			  function = "normal";
+			  input-enable;
+			  bias-pull-up;
+			  qcom,pull-up-strength = <PMIC_GPIO_PULL_UP_30>;
+			  power-source = <0>;
+		  };
+	};
 };
 
 &pm8150b_qnovo {
