@@ -73,6 +73,13 @@ struct dci_ops_tbl_t dci_ops_tbl[NUM_DCI_PROC] = {
 		.send_event_mask = diag_send_dci_event_mask_remote,
 		.peripheral_status = 0,
 		.mempool = POOL_TYPE_MDM_DCI_WRITE,
+	},
+	{
+		.ctx = DIAGFWD_MDM_DCI_2,
+		.send_log_mask = diag_send_dci_log_mask_remote,
+		.send_event_mask = diag_send_dci_event_mask_remote,
+		.peripheral_status = 0,
+		.mempool = POOL_TYPE_MDM2_DCI_WRITE,
 	}
 #endif
 };
@@ -593,7 +600,7 @@ start:
 		 * (1 byte) + version (1 byte) + length (2 bytes)
 		 */
 		err = diag_process_single_dci_pkt(buf + 4, dci_pkt_len,
-						 DCI_REMOTE_DATA, DCI_MDM_PROC);
+						 DCI_REMOTE_DATA, token);
 		if (err)
 			break;
 		read_bytes += header_len + dci_pkt_len;
@@ -2963,6 +2970,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 		new_entry->num_buffers = NUM_DCI_PERIPHERALS;
 		break;
 	case DCI_MDM_PROC:
+	case DCI_MDM_2_PROC:
 		new_entry->num_buffers = 1;
 		break;
 	}

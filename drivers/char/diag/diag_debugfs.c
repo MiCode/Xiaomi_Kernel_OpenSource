@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifdef CONFIG_DEBUG_FS
@@ -789,7 +789,8 @@ static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 {
 	char *buf = NULL;
 	int ret = 0;
-	int i = 0;
+	int ch_idx = 0;
+	int dev_idx = 0;
 	unsigned int buf_size;
 	unsigned int bytes_remaining = 0;
 	unsigned int bytes_written = 0;
@@ -810,23 +811,27 @@ static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 
 	buf_size = ksize(buf);
 	bytes_remaining = buf_size;
-	for (i = diag_dbgfs_mhiinfo_index; i < NUM_MHI_DEV; i++) {
-		mhi_info = &diag_mhi[i];
-		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
-			"id: %d\n"
-			"name: %s\n"
-			"enabled %d\n"
-			"bridge index: %s\n"
-			"mempool: %s\n"
-			"read ch opened: %d\n"
-			"write ch opened: %d\n"
-			"read work pending: %d\n"
-			"read done work pending: %d\n"
-			"open work pending: %d\n"
-			"close work pending: %d\n\n",
-			mhi_info->id,
-			mhi_info->name,
-			mhi_info->enabled,
+	for (dev_idx = diag_dbgfs_mhiinfo_index; dev_idx < NUM_MHI_DEV;
+								dev_idx++) {
+		for (ch_idx = diag_dbgfs_mhiinfo_index; ch_idx < NUM_MHI_DEV;
+								ch_idx++) {
+			mhi_info = &diag_mhi[dev_idx][ch_idx];
+			bytes_written = scnprintf(buf+bytes_in_buffer,
+						bytes_remaining,
+						"id: %d\n"
+						"name: %s\n"
+						"enabled %d\n"
+						"bridge index: %s\n"
+						"mempool: %s\n"
+						"read ch opened: %d\n"
+						"write ch opened: %d\n"
+						"read work pending: %d\n"
+						"read done work pending: %d\n"
+						"open work pending: %d\n"
+						"close work pending: %d\n\n",
+						mhi_info->id,
+						mhi_info->name,
+						mhi_info->enabled,
 			DIAG_BRIDGE_GET_NAME(mhi_info->dev_id),
 			DIAG_MEMPOOL_GET_NAME(mhi_info->mempool),
 			atomic_read(&mhi_info->read_ch.opened),
@@ -835,15 +840,16 @@ static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 			work_pending(&mhi_info->read_done_work),
 			work_pending(&mhi_info->open_work),
 			work_pending(&mhi_info->close_work));
-		bytes_in_buffer += bytes_written;
+			bytes_in_buffer += bytes_written;
 
-		/* Check if there is room to add another table entry */
-		bytes_remaining = buf_size - bytes_in_buffer;
+			/* Check if there is room to add another table entry */
+			bytes_remaining = buf_size - bytes_in_buffer;
 
-		if (bytes_remaining < bytes_written)
-			break;
+			if (bytes_remaining < bytes_written)
+				break;
+		}
 	}
-	diag_dbgfs_mhiinfo_index = i+1;
+	diag_dbgfs_mhiinfo_index = dev_idx + 1;
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 

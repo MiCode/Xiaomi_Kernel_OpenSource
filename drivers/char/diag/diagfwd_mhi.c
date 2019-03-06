@@ -36,43 +36,93 @@
 
 #define DIAG_MHI_STRING_SZ		11
 
-struct diag_mhi_info diag_mhi[NUM_MHI_DEV] = {
+struct diag_mhi_info diag_mhi[NUM_MHI_DEV][NUM_MHI_CHAN] = {
 	{
-		.id = MHI_1,
-		.dev_id = DIAGFWD_MDM,
-		.name = "MDM",
-		.enabled = 0,
-		.num_read = 0,
-		.mempool = POOL_TYPE_MDM,
-		.mempool_init = 0,
-		.mhi_wq = NULL,
-		.mhi_dev = NULL,
-		.read_ch = {
-			.type = TYPE_MHI_READ_CH,
+		{
+			.id = MHI_1,
+			.dev_id = DIAGFWD_MDM,
+			.name = "MDM",
+			.enabled = 0,
+			.num_read = 0,
+			.mempool = POOL_TYPE_MDM,
+			.mempool_init = 0,
+			.mhi_wq = NULL,
+			.mhi_dev = NULL,
+			.read_ch = {
+				.type = TYPE_MHI_READ_CH,
+			},
+			.write_ch = {
+				.type = TYPE_MHI_WRITE_CH,
+			}
 		},
-		.write_ch = {
-			.type = TYPE_MHI_WRITE_CH,
+		{
+			.id = MHI_DCI_1,
+			.dev_id = DIAGFWD_MDM_DCI,
+			.name = "MDM_DCI",
+			.enabled = 0,
+			.num_read = 0,
+			.mempool = POOL_TYPE_MDM_DCI,
+			.mempool_init = 0,
+			.mhi_wq = NULL,
+			.mhi_dev = NULL,
+			.read_ch = {
+				.type = TYPE_MHI_READ_CH,
+			},
+			.write_ch = {
+				.type = TYPE_MHI_WRITE_CH,
+			}
 		}
 	},
 	{
-		.id = MHI_DCI_1,
-		.dev_id = DIAGFWD_MDM_DCI,
-		.name = "MDM_DCI",
-		.enabled = 0,
-		.num_read = 0,
-		.mempool = POOL_TYPE_MDM_DCI,
-		.mempool_init = 0,
-		.mhi_wq = NULL,
-		.mhi_dev = NULL,
-		.read_ch = {
-			.type = TYPE_MHI_READ_CH,
+		{
+			.id = MHI_1,
+			.dev_id = DIAGFWD_MDM2,
+			.name = "MDM_2",
+			.enabled = 0,
+			.num_read = 0,
+			.mempool = POOL_TYPE_MDM2,
+			.mempool_init = 0,
+			.mhi_wq = NULL,
+			.mhi_dev = NULL,
+			.read_ch = {
+				.type = TYPE_MHI_READ_CH,
+			},
+			.write_ch = {
+				.type = TYPE_MHI_WRITE_CH,
+			}
 		},
-		.write_ch = {
-			.type = TYPE_MHI_WRITE_CH,
+		{
+			.id = MHI_DCI_1,
+			.dev_id = DIAGFWD_MDM_DCI_2,
+			.name = "MDM_DCI_2",
+			.enabled = 0,
+			.num_read = 0,
+			.mempool = POOL_TYPE_MDM2_DCI,
+			.mempool_init = 0,
+			.mhi_wq = NULL,
+			.mhi_dev = NULL,
+			.read_ch = {
+				.type = TYPE_MHI_READ_CH,
+			},
+			.write_ch = {
+				.type = TYPE_MHI_WRITE_CH,
+			}
 		}
 	}
-};
 
+};
+static int get_id_from_token(int token)
+{
+	int ch_idx = 0;
+	int dev_idx = 0;
+
+	for (dev_idx = 0; dev_idx < NUM_MHI_DEV; dev_idx++)
+		for (ch_idx = 0; ch_idx < NUM_MHI_CHAN; ch_idx++)
+			if (diag_mhi[dev_idx][ch_idx].dev_id == token)
+				return ch_idx;
+
+	return -EINVAL;
+}
 static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
 			   void *buf, int len)
 {
@@ -228,21 +278,26 @@ static int __mhi_close(struct diag_mhi_info *mhi_info, int close_flag)
 	return 0;
 }
 
-static int mhi_close(int id)
+static int mhi_close(int token, int ch)
 {
-	if (id < 0 || id >= NUM_MHI_DEV) {
-		pr_err("diag: In %s, invalid index %d\n", __func__, id);
+	int dev_idx = get_id_from_token(token);
+
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
+		pr_err("diag: In %s, invalid index %d\n", __func__, dev_idx);
 		return -EINVAL;
 	}
 
-	if (!diag_mhi[id].enabled)
+	if (ch < 0 || ch >= NUM_MHI_CHAN)
+		pr_err("diag: In %s, invalid channel %d\n", __func__, ch);
+
+	if (!diag_mhi[dev_idx][ch].enabled)
 		return -ENODEV;
 	/*
 	 * This function is called whenever the channel needs to be closed
 	 * explicitly by Diag. Close both the read and write channels (denoted
 	 * by CLOSE_CHANNELS flag)
 	 */
-	return __mhi_close(&diag_mhi[id], CLOSE_CHANNELS);
+	return __mhi_close(&diag_mhi[dev_idx][ch], CLOSE_CHANNELS);
 }
 
 static void mhi_close_work_fn(struct work_struct *work)
@@ -259,7 +314,7 @@ static void mhi_close_work_fn(struct work_struct *work)
 		__mhi_close(mhi_info, CHANNELS_CLOSED);
 }
 
-static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
+static int __mhi_open(struct diag_mhi_info *mhi_info, int token, int open_flag)
 {
 	int err = 0;
 
@@ -294,15 +349,21 @@ static int __mhi_open(struct diag_mhi_info *mhi_info, int open_flag)
 	return 0;
 
 fail:
-	pr_err("diag: Failed to open mhi channlels, err: %d\n", err);
-	mhi_close(mhi_info->id);
+	mhi_close(token, mhi_info->id);
 	return err;
 }
 
-static int mhi_open(int id)
+static int mhi_open(int token, int ch)
 {
-	if (id < 0 || id >= NUM_MHI_DEV) {
-		pr_err("diag: In %s, invalid index %d\n", __func__, id);
+	int dev_idx = get_id_from_token(token);
+
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
+		pr_err("diag: In %s, invalid index %d\n", __func__, dev_idx);
+		return -EINVAL;
+	}
+
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err("diag: In %s, invalid ch %d\n", __func__, ch);
 		return -EINVAL;
 	}
 
@@ -311,9 +372,10 @@ static int mhi_open(int id)
 	 * explicitly by Diag. Open both the read and write channels (denoted by
 	 * OPEN_CHANNELS flag)
 	 */
-	__mhi_open(&diag_mhi[id], OPEN_CHANNELS);
-	diag_remote_dev_open(diag_mhi[id].dev_id);
-	queue_work(diag_mhi[id].mhi_wq, &(diag_mhi[id].read_work));
+	__mhi_open(&diag_mhi[dev_idx][ch], token, OPEN_CHANNELS);
+	diag_remote_dev_open(diag_mhi[dev_idx][ch].dev_id);
+	queue_work(diag_mhi[dev_idx][ch].mhi_wq,
+			&(diag_mhi[dev_idx][ch].read_work));
 
 	return 0;
 }
@@ -441,64 +503,82 @@ fail:
 	queue_work(mhi_info->mhi_wq, &mhi_info->read_work);
 }
 
-static int mhi_queue_read(int id)
+static int mhi_queue_read(int token, int ch)
 {
-	if (id < 0 || id >= NUM_MHI_DEV) {
+	int dev_idx = get_id_from_token(token);
+
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
 		pr_err_ratelimited("diag: In %s, invalid index %d\n", __func__,
-				   id);
+				   dev_idx);
 		return -EINVAL;
 	}
-	queue_work(diag_mhi[id].mhi_wq, &(diag_mhi[id].read_work));
+
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err_ratelimited("diag: In %s, invalid chan %d\n", __func__,
+					ch);
+		return -EINVAL;
+	}
+	queue_work(diag_mhi[dev_idx][ch].mhi_wq,
+			&(diag_mhi[dev_idx][ch].read_work));
 	return 0;
 }
 
-static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
+static int mhi_write(int token, int ch, unsigned char *buf, int len, int ctxt)
 {
 	int err = 0;
 	enum MHI_FLAGS mhi_flags = MHI_EOT;
 	unsigned long flags;
-	struct diag_mhi_ch_t *ch = NULL;
+	struct diag_mhi_ch_t *ch_info = NULL;
+	int dev_idx = get_id_from_token(token);
 
-	if (id < 0 || id >= NUM_MHI_DEV) {
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
 		pr_err_ratelimited("diag: In %s, invalid index %d\n", __func__,
-				   id);
+				   dev_idx);
+		return -EINVAL;
+	}
+
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err_ratelimited("diag: In %s, invalid chan %d\n", __func__,
+				   ch);
 		return -EINVAL;
 	}
 
 	if (!buf || len <= 0) {
 		pr_err("diag: In %s, ch %d, invalid buf %pK len %d\n",
-			__func__, id, buf, len);
+			__func__, dev_idx, buf, len);
 		return -EINVAL;
 	}
 
-	if (!diag_mhi[id].enabled) {
+	if (!diag_mhi[dev_idx][ch].enabled) {
 		pr_err_ratelimited("diag: In %s, MHI channel %s is not enabled\n",
-				   __func__, diag_mhi[id].name);
+				   __func__, diag_mhi[dev_idx][ch].name);
 		return -EIO;
 	}
 
-	ch = &diag_mhi[id].write_ch;
-	if (!(atomic_read(&(ch->opened)))) {
+	ch_info = &diag_mhi[dev_idx][ch].write_ch;
+	if (!(atomic_read(&(ch_info->opened)))) {
 		pr_err_ratelimited("diag: In %s, MHI write channel %s is not open\n",
-				   __func__, diag_mhi[id].name);
+				   __func__, diag_mhi[dev_idx][ch].name);
 		return -EIO;
 	}
 
-	spin_lock_irqsave(&ch->lock, flags);
-	err = mhi_buf_tbl_add(&diag_mhi[id], TYPE_MHI_WRITE_CH, buf,
+	spin_lock_irqsave(&ch_info->lock, flags);
+	err = mhi_buf_tbl_add(&diag_mhi[dev_idx][ch], TYPE_MHI_WRITE_CH, buf,
 			      len);
 	if (err) {
-		spin_unlock_irqrestore(&ch->lock, flags);
+		spin_unlock_irqrestore(&ch_info->lock, flags);
 		goto fail;
 	}
 
-	err = mhi_queue_transfer(diag_mhi[id].mhi_dev, DMA_TO_DEVICE, buf,
-				len, mhi_flags);
-	spin_unlock_irqrestore(&ch->lock, flags);
+	err = mhi_queue_transfer(diag_mhi[dev_idx][ch].mhi_dev, DMA_TO_DEVICE,
+					buf, len, mhi_flags);
+	spin_unlock_irqrestore(&ch_info->lock, flags);
 	if (err) {
-		pr_err_ratelimited("diag: In %s, cannot write to MHI channel %pK, len %d, err: %d\n",
-				   __func__, diag_mhi[id].name, len, err);
-		mhi_buf_tbl_remove(&diag_mhi[id], TYPE_MHI_WRITE_CH, buf, len);
+		pr_err_ratelimited("diag: In %s, cannot write to MHI channel %s, len %d, err: %d\n",
+					__func__, diag_mhi[dev_idx][ch].name,
+					len, err);
+		mhi_buf_tbl_remove(&diag_mhi[dev_idx][ch], TYPE_MHI_WRITE_CH,
+					buf, len);
 		goto fail;
 	}
 
@@ -507,36 +587,54 @@ fail:
 	return err;
 }
 
-static int mhi_fwd_complete(int id, unsigned char *buf, int len, int ctxt)
+static int mhi_fwd_complete(int token, int ch, unsigned char *buf,
+				int len, int ctxt)
 {
-	if (id < 0 || id >= NUM_MHI_DEV) {
+	int dev_idx = get_id_from_token(token);
+
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
 		pr_err_ratelimited("diag: In %s, invalid index %d\n", __func__,
-				   id);
+				   dev_idx);
 		return -EINVAL;
 	}
 
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err_ratelimited("diag: In %s, invalid chan %d\n", __func__,
+				   ch);
+		return -EINVAL;
+	}
 	if (!buf)
 		return -EINVAL;
 
-	mhi_buf_tbl_remove(&diag_mhi[id], TYPE_MHI_READ_CH, buf, len);
-	queue_work(diag_mhi[id].mhi_wq, &(diag_mhi[id].read_work));
+	mhi_buf_tbl_remove(&diag_mhi[dev_idx][ch], TYPE_MHI_READ_CH,
+				buf, len);
+	queue_work(diag_mhi[dev_idx][ch].mhi_wq,
+			&(diag_mhi[dev_idx][ch].read_work));
 	return 0;
 }
 
-static int mhi_remote_proc_check(void)
+static int mhi_remote_proc_check(int token)
 {
-	return diag_mhi[MHI_1].enabled;
+	int dev_idx = get_id_from_token(token);
+
+	if (dev_idx >= 0 && dev_idx < NUM_MHI_DEV)
+		return diag_mhi[dev_idx][MHI_1].enabled;
+	else
+		return 0;
 }
 
 static struct diag_mhi_info *diag_get_mhi_info(struct mhi_device *mhi_dev)
 {
 	struct diag_mhi_info *mhi_info = NULL;
-	int i;
+	int ch;
+	int dev_idx;
 
-	for (i = 0; i < NUM_MHI_DEV; i++) {
-		mhi_info = &diag_mhi[i];
-		if (mhi_info->mhi_dev == mhi_dev)
-			return mhi_info;
+	for (dev_idx = 0; dev_idx < NUM_MHI_DEV; dev_idx++) {
+		for (ch = 0; ch < NUM_MHI_CHAN; ch++) {
+			mhi_info = &diag_mhi[dev_idx][ch];
+			if (mhi_info->mhi_dev == mhi_dev)
+				return mhi_info;
+		}
 	}
 	return NULL;
 }
@@ -635,22 +733,46 @@ static void diag_mhi_remove(struct mhi_device *mhi_dev)
 static int diag_mhi_probe(struct mhi_device *mhi_dev,
 			const struct mhi_device_id *id)
 {
-	int index = id->driver_data;
+	int dev_idx;
+	int ch = id->driver_data;
 	unsigned long flags;
-	struct diag_mhi_info *mhi_info = &diag_mhi[index];
+	struct diag_mhi_info *mhi_info;
 
+	switch (mhi_dev->dev_id) {
+	case MHI_DEV_ID_1:
+		dev_idx = 0;
+		break;
+	case MHI_DEV_ID_2:
+		dev_idx = 1;
+		break;
+	default:
+		return 0;
+	}
+
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
+		pr_err_ratelimited(" In %s invalid dev index %d\n", __func__,
+					dev_idx);
+		return 0;
+	}
+
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err_ratelimited(" In %s invalid channel %d\n", __func__, ch);
+		return 0;
+	}
+
+	mhi_info = &diag_mhi[dev_idx][ch];
 	DIAG_LOG(DIAG_DEBUG_BRIDGE,
-		"received probe for %d\n",
-		index);
-	diag_mhi[index].mhi_dev = mhi_dev;
+		"received probe for dev:%d ch:%d\n",
+		dev_idx, ch);
+	mhi_info->mhi_dev = mhi_dev;
 	DIAG_LOG(DIAG_DEBUG_BRIDGE,
 		"diag: mhi device is ready to open\n");
 	spin_lock_irqsave(&mhi_info->lock, flags);
 	mhi_info->enabled = 1;
 	spin_unlock_irqrestore(&mhi_info->lock, flags);
-	__mhi_open(&diag_mhi[index], OPEN_CHANNELS);
-	queue_work(diag_mhi[index].mhi_wq,
-			   &(diag_mhi[index].open_work));
+	__mhi_open(mhi_info, mhi_info->dev_id, OPEN_CHANNELS);
+	queue_work(diag_mhi[dev_idx][ch].mhi_wq,
+			   &(diag_mhi[dev_idx][ch].open_work));
 	return 0;
 }
 
@@ -663,70 +785,87 @@ static struct diag_remote_dev_ops diag_mhi_fwd_ops = {
 	.remote_proc_check = mhi_remote_proc_check,
 };
 
-static void diag_mhi_dev_exit(int dev)
+static void diag_mhi_dev_exit(int dev_idx, int ch)
 {
 	struct diag_mhi_info *mhi_info = NULL;
 
-	mhi_info = &diag_mhi[dev];
+	if (dev_idx < 0 || dev_idx >= NUM_MHI_DEV) {
+		pr_err_ratelimited(" In %s invalid dev index %d\n", __func__,
+					dev_idx);
+		return;
+	}
+
+	if (ch < 0 || ch >= NUM_MHI_CHAN) {
+		pr_err_ratelimited(" In %s invalid channel %d\n", __func__, ch);
+		return;
+	}
+
+	mhi_info = &diag_mhi[dev_idx][ch];
 	if (!mhi_info)
 		return;
 	if (mhi_info->mhi_wq)
 		destroy_workqueue(mhi_info->mhi_wq);
-	mhi_close(mhi_info->id);
+	mhi_close(mhi_info->dev_id, mhi_info->id);
 	if (mhi_info->mempool_init)
 		diagmem_exit(driver, mhi_info->mempool);
 }
 
 int diag_mhi_init(void)
 {
-	int i;
-	int err = 0;
+	int ch, dev_idx, err = 0;
 	struct diag_mhi_info *mhi_info = NULL;
 	char wq_name[DIAG_MHI_NAME_SZ + DIAG_MHI_STRING_SZ];
 
-	for (i = 0; i < NUM_MHI_DEV; i++) {
-		mhi_info = &diag_mhi[i];
-		spin_lock_init(&mhi_info->lock);
-		spin_lock_init(&mhi_info->read_ch.lock);
-		spin_lock_init(&mhi_info->write_ch.lock);
-		INIT_LIST_HEAD(&mhi_info->read_ch.buf_tbl);
-		INIT_LIST_HEAD(&mhi_info->write_ch.buf_tbl);
-		atomic_set(&(mhi_info->read_ch.opened), 0);
-		atomic_set(&(mhi_info->write_ch.opened), 0);
-		INIT_WORK(&(mhi_info->read_work), mhi_read_work_fn);
-		INIT_LIST_HEAD(&mhi_info->read_done_list);
-		INIT_WORK(&(mhi_info->read_done_work), mhi_read_done_work_fn);
-		INIT_WORK(&(mhi_info->open_work), mhi_open_work_fn);
-		INIT_WORK(&(mhi_info->close_work), mhi_close_work_fn);
-		strlcpy(wq_name, "diag_mhi_", sizeof(wq_name));
-		strlcat(wq_name, mhi_info->name, sizeof(wq_name));
-		diagmem_init(driver, mhi_info->mempool);
-		mhi_info->mempool_init = 1;
-		mhi_info->mhi_wq = create_singlethread_workqueue(wq_name);
-		if (!mhi_info->mhi_wq)
-			goto fail;
-		err = diagfwd_bridge_register(mhi_info->dev_id, mhi_info->id,
-					      &diag_mhi_fwd_ops);
-		if (err) {
-			pr_err("diag: Unable to register MHI channel %d with bridge, err: %d\n",
-			       i, err);
-			goto fail;
+	for (dev_idx = 0; dev_idx < NUM_MHI_DEV; dev_idx++) {
+		for (ch = 0; ch < NUM_MHI_CHAN; ch++) {
+			mhi_info = &diag_mhi[dev_idx][ch];
+			spin_lock_init(&mhi_info->lock);
+			spin_lock_init(&mhi_info->read_ch.lock);
+			spin_lock_init(&mhi_info->write_ch.lock);
+			INIT_LIST_HEAD(&mhi_info->read_ch.buf_tbl);
+			INIT_LIST_HEAD(&mhi_info->write_ch.buf_tbl);
+			atomic_set(&(mhi_info->read_ch.opened), 0);
+			atomic_set(&(mhi_info->write_ch.opened), 0);
+			INIT_WORK(&(mhi_info->read_work), mhi_read_work_fn);
+			INIT_LIST_HEAD(&mhi_info->read_done_list);
+			INIT_WORK(&(mhi_info->read_done_work),
+					mhi_read_done_work_fn);
+			INIT_WORK(&(mhi_info->open_work), mhi_open_work_fn);
+			INIT_WORK(&(mhi_info->close_work), mhi_close_work_fn);
+			strlcpy(wq_name, "diag_mhi_", sizeof(wq_name));
+			strlcat(wq_name, mhi_info->name, sizeof(wq_name));
+			diagmem_init(driver, mhi_info->mempool);
+			mhi_info->mempool_init = 1;
+			mhi_info->mhi_wq =
+				create_singlethread_workqueue(wq_name);
+			if (!mhi_info->mhi_wq)
+				goto fail;
+			err = diagfwd_bridge_register(mhi_info->dev_id,
+							mhi_info->id,
+							&diag_mhi_fwd_ops);
+			if (err) {
+				pr_err("diag: Unable to register MHI channel %d with bridge dev:%d, err: %d\n",
+					ch, dev_idx, err);
+				goto fail;
+			}
+			DIAG_LOG(DIAG_DEBUG_BRIDGE,
+					"mhi dev %d port %d initialized\n",
+					dev_idx, ch);
 		}
-		DIAG_LOG(DIAG_DEBUG_BRIDGE, "mhi port %d is initailzed\n", i);
 	}
-
 	return 0;
 fail:
-	diag_mhi_dev_exit(i);
+	diag_mhi_dev_exit(dev_idx, ch);
 	return -ENOMEM;
 }
 
 void diag_mhi_exit(void)
 {
-	int i;
+	int ch, dev_idx;
 
-	for (i = 0; i < NUM_MHI_DEV; i++)
-		diag_mhi_dev_exit(i);
+	for (dev_idx = 0; dev_idx < NUM_MHI_DEV; dev_idx++)
+		for (ch = 0; ch < NUM_MHI_CHAN; ch++)
+			diag_mhi_dev_exit(dev_idx, ch);
 }
 
 static const struct mhi_device_id diag_mhi_match_table[] = {
