@@ -4124,6 +4124,9 @@ int smblib_set_prop_pd_voltage_min(struct smb_charger *chg,
 	int rc, min_uv;
 
 	min_uv = min(val->intval, chg->voltage_max_uv);
+	if (chg->voltage_min_uv == min_uv)
+		return 0;
+
 	rc = smblib_set_usb_pd_allowed_voltage(chg, min_uv,
 					       chg->voltage_max_uv);
 	if (rc < 0) {
@@ -4144,6 +4147,8 @@ int smblib_set_prop_pd_voltage_max(struct smb_charger *chg,
 	int rc, max_uv;
 
 	max_uv = max(val->intval, chg->voltage_min_uv);
+	if (chg->voltage_max_uv == max_uv)
+		return 0;
 
 	rc = smblib_set_usb_pd_fsw(chg, max_uv);
 	if (rc < 0) {
