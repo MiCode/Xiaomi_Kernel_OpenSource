@@ -74,7 +74,7 @@
 		qcom,sde-wb-size = <0x2c8>;
 		qcom,sde-wb-xin-id = <6>;
 		qcom,sde-wb-id = <2>;
-		qcom,sde-wb-clk-ctrl = <0x3b8 24>;
+		qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
@@ -177,6 +177,8 @@
 
 		qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
 		qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
+		qcom,sde-vbif-qos-cwb-remap = <3 3 4 4 5 5 6 3>;
+		qcom,sde-vbif-qos-lutdma-remap = <3 3 3 3 4 4 4 4>;
 
 		/* macrotile & macrotile-qseed has the same configs */
 		qcom,sde-danger-lut = <0x0000000f 0x0000ffff
@@ -205,6 +207,8 @@
 		qcom,sde-reg-dma-off = <0>;
 		qcom,sde-reg-dma-version = <0x00010002>;
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
+		qcom,sde-reg-dma-xin-id = <7>;
+		qcom,sde-reg-dma-clk-ctrl = <0x2bc 20>;
 
 		qcom,sde-secure-sid-mask = <0x4200801>;
 

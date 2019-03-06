@@ -312,6 +312,13 @@ Optional properties:
 				defined in reg property.
 - qcom,sde-reg-dma-broadcast-disabled: Boolean property to indicate if broadcast
 				functionality in the register dma hardware block should be used.
+- qcom,sde-reg-dma-xin-id:	VBIF clients id (xin) corresponding
+				to the LUTDMA block.
+- qcom,sde-reg-dma-clk-ctrl:	Array of 2 cell property describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register.
 - qcom,sde-dram-channels:	This represents the number of channels in the
 				Bus memory controller.
 - qcom,sde-num-nrt-paths:	Integer property represents the number of non-realtime
@@ -371,6 +378,10 @@ Optional properties:
 				priority for realtime clients.
 - qcom,sde-vbif-qos-nrt-remap:	This array is used to program vbif qos remapper register
 				priority for non-realtime clients.
+- qcom,sde-vbif-qos-cwb-remap:	This array is used to program vbif qos remapper register
+				priority for concurrent writeback clients.
+- qcom,sde-vbif-qos-lutdma-remap:	This array is used to program vbif qos remapper register
+				priority for lutdma client.
 - qcom,sde-danger-lut:		Array of 5 cell property, with a format of
 				<linear, tile, nrt, cwb, tile-qseed>,
 				indicating the danger luts on sspp.
@@ -733,6 +744,15 @@ Example:
 
     qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
     qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
+    qcom,sde-vbif-qos-cwb-remap = <3 3 4 4 5 5 6 3>;
+    qcom,sde-vbif-qos-lutdma-remap = <3 3 3 3 4 4 4 4>;
+
+    qcom,sde-reg-dma-off = <0>;
+    qcom,sde-reg-dma-version = <0x00010002>;
+    qcom,sde-reg-dma-trigger-off = <0x119c>;
+    qcom,sde-reg-dma-broadcast-disabled = <0>;
+    qcom,sde-reg-dma-xin-id = <7>;
+    qcom,sde-reg-dma-clk-ctrl = <0x2bc 20>;
 
     qcom,sde-sspp-vig-blocks {
         qcom,sde-vig-csc-off = <0x320>;
