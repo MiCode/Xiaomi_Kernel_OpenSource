@@ -2008,7 +2008,7 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 #define DWC3_SOFT_RESET_TIMEOUT		10  /* 10 msec */
 static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
-	u32			reg;
+	u32			reg, reg1;
 	u32			timeout = 1500;
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
@@ -2045,6 +2045,16 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * device controller.
 		 */
 		dwc3_stop_active_transfers(dwc);
+
+		/*
+		 * Clear out any pending events (i.e. End Transfer Command
+		 * Complete) before clearing run/stop
+		 */
+		reg1 = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+		reg1 &= DWC3_GEVNTCOUNT_MASK;
+		dbg_log_string("remaining EVNTCOUNT(0)=%d", reg1);
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg1);
+		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 
 		reg &= ~DWC3_DCTL_RUN_STOP;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2021,6 +2021,15 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 					DWC3_GEVNTSIZ_INTMASK |
 					DWC3_GEVNTSIZ_SIZE((i+1)));
 			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), 0);
+		}
+		break;
+	case DWC3_GSI_EVT_BUF_CLEAR:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_CLEAR\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT((i+1)));
+			reg &= DWC3_GEVNTCOUNT_MASK;
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), reg);
+			dbg_log_string("remaining EVNTCOUNT(%d)=%d", i+1, reg);
 		}
 		break;
 	case DWC3_GSI_EVT_BUF_FREE:
