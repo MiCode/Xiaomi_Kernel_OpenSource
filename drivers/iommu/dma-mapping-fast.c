@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-contiguous.h>
@@ -540,11 +540,21 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	void *addr;
 	unsigned long flags;
 	struct sg_mapping_iter miter;
-	unsigned int count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
+	size_t count = ALIGN(size, SZ_4K) >> PAGE_SHIFT;
 	bool is_coherent = is_dma_coherent(dev, attrs);
 	int prot = dma_info_to_prot(DMA_BIDIRECTIONAL, is_coherent, attrs);
 	pgprot_t remap_prot = __get_dma_pgprot(attrs, PAGE_KERNEL, is_coherent);
 	struct page **pages;
+
+	/*
+	 * sg_alloc_table_from_pages accepts unsigned int value for count
+	 * so check count doesn't exceed UINT_MAX.
+	 */
+
+	if (count > UINT_MAX) {
+		dev_err(dev, "count: %zx exceeds UNIT_MAX\n", count);
+		return NULL;
+	}
 
 	*handle = DMA_ERROR_CODE;
 
