@@ -52,6 +52,15 @@ First Level Node - FG Gen4 device
 		    is not specified, then the default value used will be
 		    2812 mV.
 
+- qcom,fg-sys-min-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) which describes the system
+		    minimum voltage as per the hardware recommendation. This
+		    is not used for any configuration but only for calculating
+		    the available power. If this property is not specified,
+		    then the default value used is 2800 mV.
+
 - qcom,fg-sys-term-current
 	Usage:      optional
 	Value type: <u32>
