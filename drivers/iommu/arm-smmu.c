@@ -638,7 +638,7 @@ static void parse_driver_options(struct arm_smmu_device *smmu)
 	} while (arm_smmu_options[++i].opt);
 
 	if (arm_smmu_opt_hibernation(smmu) &&
-	    smmu->options && ARM_SMMU_OPT_SKIP_INIT) {
+	    (smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
 		dev_info(smmu->dev,
 			 "Disabling incompatible option: skip-init\n");
 		smmu->options &= ~ARM_SMMU_OPT_SKIP_INIT;
