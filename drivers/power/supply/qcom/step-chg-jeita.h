@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __STEP_CHG_H__
@@ -22,7 +22,7 @@ struct range_data {
 };
 
 int qcom_step_chg_init(struct device *dev,
-		bool step_chg_enable, bool sw_jeita_enable);
+		bool step_chg_enable, bool sw_jeita_enable, bool jeita_arb_en);
 void qcom_step_chg_deinit(void);
 int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
