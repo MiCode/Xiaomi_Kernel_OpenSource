@@ -31,6 +31,7 @@ struct hfi_mem {
  * @sfr_buf: buffer for subsystem failure reason[SFR]
  * @sec_heap: secondary heap hfi memory for firmware
  * @qdss: qdss mapped memory for fw
+ * @io_mem: io memory info
  * @icp_base: icp base address
  */
 struct hfi_mem_info {
@@ -42,6 +43,7 @@ struct hfi_mem_info {
 	struct hfi_mem sec_heap;
 	struct hfi_mem shmem;
 	struct hfi_mem qdss;
+	struct hfi_mem io_mem;
 	void __iomem *icp_base;
 };
 
