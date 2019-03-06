@@ -336,6 +336,8 @@ enum mhi_cmd_type {
 #define MHI_TRE_GET_EV_TIME(tre) ((tre)->ptr)
 #define MHI_TRE_GET_EV_COOKIE(tre) lower_32_bits((tre)->ptr)
 #define MHI_TRE_GET_EV_VEID(tre) (((tre)->dword[0] >> 16) & 0xFF)
+#define MHI_TRE_GET_EV_LINKSPEED(tre) (((tre)->dword[1] >> 24) & 0xFF)
+#define MHI_TRE_GET_EV_LINKWIDTH(tre) ((tre)->dword[0] & 0xFF)
 
 /* transfer descriptor macros */
 #define MHI_TRE_DATA_PTR(ptr) (ptr)
@@ -368,6 +370,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_RSC_TX_EVENT = 0x28,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
+	MHI_PKT_TYPE_BW_REQ_EVENT = 0x50,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
 };
 

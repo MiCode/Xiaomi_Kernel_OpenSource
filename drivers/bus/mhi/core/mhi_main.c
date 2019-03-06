@@ -1124,6 +1124,25 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
 		switch (type) {
+		case MHI_PKT_TYPE_BW_REQ_EVENT:
+		{
+			struct mhi_link_info *link_info;
+
+			link_info = &mhi_cntrl->mhi_link_info;
+			write_lock_irq(&mhi_cntrl->pm_lock);
+			link_info->target_link_speed =
+				MHI_TRE_GET_EV_LINKSPEED(local_rp);
+			link_info->target_link_width =
+				MHI_TRE_GET_EV_LINKWIDTH(local_rp);
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_VERB(
+				 "Received BW_REQ with link speed:0x%x width:0x%x\n",
+				 link_info->target_link_speed,
+				 link_info->target_link_width);
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_BW_REQ);
+			break;
+		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum mhi_dev_state new_state;
