@@ -3230,4 +3230,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 	.clk_set_options = a6xx_clk_set_options,
+	.snapshot_preemption = a6xx_snapshot_preemption,
 };
