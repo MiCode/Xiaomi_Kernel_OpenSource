@@ -189,6 +189,7 @@ struct smb_dt_props {
 	int			term_current_src;
 	int			term_current_thresh_hi_ma;
 	int			term_current_thresh_lo_ma;
+	int			disable_suspend_on_collapse;
 };
 
 struct smb5 {
@@ -531,6 +532,8 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (rc < 0)
 		return rc;
 
+	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
+					"qcom,disable-suspend-on-collapse");
 	return 0;
 }
 
@@ -1767,7 +1770,7 @@ static int smb5_init_hw(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	int rc, type = 0;
-	u8 val = 0;
+	u8 val = 0, mask = 0;
 	union power_supply_propval pval;
 
 	if (chip->dt.no_battery)
@@ -1935,11 +1938,14 @@ static int smb5_init_hw(struct smb5 *chip)
 	 * start from min and AICL ADC disable, and enable aicl rerun
 	 */
 	if (chg->smb_version != PMI632_SUBTYPE) {
+		mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
+			| USBIN_AICL_EN_BIT | SUSPEND_ON_COLLAPSE_USBIN_BIT;
+		val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
+		if (!chip->dt.disable_suspend_on_collapse)
+			val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+
 		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				USBIN_AICL_PERIODIC_RERUN_EN_BIT
-				| USBIN_AICL_ADC_EN_BIT | USBIN_AICL_EN_BIT,
-				USBIN_AICL_PERIODIC_RERUN_EN_BIT
-				| USBIN_AICL_EN_BIT);
+				mask, val);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
 			return rc;

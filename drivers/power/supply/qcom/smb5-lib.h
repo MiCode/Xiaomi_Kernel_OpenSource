@@ -365,6 +365,7 @@ struct smb_charger {
 	struct votable		*usb_irq_enable_votable;
 	struct votable		*cp_disable_votable;
 	struct votable		*wdog_snarl_irq_en_votable;
+	struct votable		*smb_override_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
