@@ -94,6 +94,7 @@ struct rpmh_ctrlr {
  * @lock:       synchronize state of the controller
  * @client:     handle to the DRV's client.
  * @irq:        IRQ at gic
+ * @ipc_log_ctx IPC logger handle
  */
 struct rsc_drv {
 	const char *name;
@@ -107,6 +108,7 @@ struct rsc_drv {
 	spinlock_t lock;
 	struct rpmh_ctrlr client;
 	int irq;
+	void *ipc_log_ctx;
 };
 
 extern bool rpmh_standalone;
