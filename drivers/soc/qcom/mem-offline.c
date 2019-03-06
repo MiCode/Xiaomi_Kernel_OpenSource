@@ -170,7 +170,7 @@ static int aop_send_msg(unsigned long addr, bool online)
 
 	pkt.size = MAX_LEN;
 	pkt.data = mbox_msg;
-	return mbox_send_message(mailbox.mbox, &pkt);
+	return (mbox_send_message(mailbox.mbox, &pkt) < 0);
 }
 
 static int send_msg(struct memory_notify *mn, bool online)
