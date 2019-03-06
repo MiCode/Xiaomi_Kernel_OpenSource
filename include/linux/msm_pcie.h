@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
 
 #ifndef __MSM_PCIE_H
 #define __MSM_PCIE_H
@@ -60,6 +60,22 @@ static inline int msm_msi_init(struct device *dev)
 #endif
 
 #ifdef CONFIG_PCI_MSM
+
+/**
+ * msm_pcie_set_link_bandwidth - updates the number of lanes and speed of PCIe
+ * link.
+ * @pci_dev:		client's pci device structure
+ * @target_link_speed:	gen speed
+ * @target_link_width:	number of lanes
+ *
+ * This function gives PCIe clients the control to update the number of lanes
+ * and gen speed of the link.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
+				u16 target_link_width);
+
 /**
  * msm_pcie_pm_control - control the power state of a PCIe link.
  * @pm_opt:	power management operation
