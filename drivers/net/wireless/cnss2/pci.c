@@ -335,8 +335,8 @@ static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 
 	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
 	if (device_id != pci_priv->device_id)  {
-		cnss_pr_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
-			    device_id, pci_priv->device_id);
+		cnss_fatal_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
+			       device_id, pci_priv->device_id);
 		return -EIO;
 	}
 
@@ -1066,7 +1066,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		pci_priv->pci_link_down_ind = true;
 		spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
-		cnss_pr_err("PCI link down, schedule recovery!\n");
+		cnss_fatal_err("PCI link down, schedule recovery!\n");
 		if (pci_dev->device == QCA6174_DEVICE_ID)
 			disable_irq(pci_dev->irq);
 		cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
@@ -1703,7 +1703,7 @@ void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return;
 
-	cnss_pr_err("Timeout waiting for FW ready indication\n");
+	cnss_fatal_err("Timeout waiting for FW ready indication\n");
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 			       CNSS_REASON_TIMEOUT);
@@ -2234,7 +2234,7 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	if (!pci_priv)
 		return;
 
-	cnss_pr_err("Timeout waiting for RDDM notification\n");
+	cnss_fatal_err("Timeout waiting for RDDM notification\n");
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
