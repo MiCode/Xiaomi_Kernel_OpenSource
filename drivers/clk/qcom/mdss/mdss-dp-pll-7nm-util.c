@@ -19,6 +19,7 @@
 #define DP_PHY_PD_CTL				0x0018
 #define DP_PHY_MODE				0x001C
 
+#define DP_PHY_AUX_CFG1				0x0024
 #define DP_PHY_AUX_CFG2				0x0028
 
 #define DP_PHY_VCO_DIV				0x0070
@@ -405,7 +406,8 @@ static int dp_pll_enable_7nm(struct clk_hw *hw)
 	struct dp_pll_db_7nm *pdb = (struct dp_pll_db_7nm *)dp_res->priv;
 	u32 bias_en, drvr_en;
 
-	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_AUX_CFG2, 0x24);
+	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_AUX_CFG1, 0x13);
+	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_AUX_CFG2, 0xA4);
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_CFG, 0x01);
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_CFG, 0x05);
 	MDSS_PLL_REG_W(dp_res->phy_base, DP_PHY_CFG, 0x01);
