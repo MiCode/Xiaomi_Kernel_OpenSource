@@ -1114,6 +1114,11 @@ static void arm_iommu_get_dma_window(struct device *dev, u64 *dma_addr,
 			naddr + nsize);
 		return;
 	}
+	if (naddr == 0 || nsize == 0) {
+		dev_err(dev, "Invalid #address-cells %d or #size-cells %d\n",
+			naddr, nsize);
+		return;
+	}
 
 	*dma_addr = of_read_number(ranges, naddr);
 	*dma_size = of_read_number(ranges + naddr, nsize);
@@ -1237,6 +1242,11 @@ int __depr_arm_iommu_attach_device(struct device *dev,
 	int err;
 	struct iommu_domain *domain;
 	struct iommu_group *group = dev->iommu_group;
+
+	if (!dev || !mapping) {
+		pr_err("%s: Error input is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	if (!group) {
 		dev_err(dev, "No iommu associated with device\n");
