@@ -128,11 +128,26 @@ struct drm_gem_object *msm_gem_prime_import(struct drm_device *dev,
 		goto fail_put;
 	}
 
-	domain = (flags & ION_FLAG_SECURE) ? MSM_SMMU_DOMAIN_SECURE :
-						MSM_SMMU_DOMAIN_UNSECURE;
-	if (kms && kms->funcs->get_address_space_device)
-		attach_dev = kms->funcs->get_address_space_device(
-							kms, domain);
+	if (!kms || !kms->funcs->get_address_space_device) {
+		DRM_ERROR("invalid kms ops\n");
+		goto fail_put;
+	}
+
+	if (flags & ION_FLAG_SECURE) {
+		if (flags & ION_FLAG_CP_PIXEL)
+			attach_dev = kms->funcs->get_address_space_device(kms,
+						MSM_SMMU_DOMAIN_SECURE);
+
+		else if ((flags & ION_FLAG_CP_SEC_DISPLAY)
+				|| (flags & ION_FLAG_CP_CAMERA_PREVIEW))
+			attach_dev = dev->dev;
+		else
+			DRM_ERROR("invalid ion secure flag: 0x%x\n", flags);
+	} else {
+		attach_dev = kms->funcs->get_address_space_device(kms,
+						MSM_SMMU_DOMAIN_UNSECURE);
+	}
+
 	if (!attach_dev) {
 		DRM_ERROR("aspace device not found for domain:%d\n", domain);
 		ret = -EINVAL;
