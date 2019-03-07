@@ -18,12 +18,12 @@ struct btfmslim_ch slave_rxport[] = {
 };
 
 struct btfmslim_ch slave_txport[] = {
+	{.id = BTFM_BT_SCO_SLIM_TX, .name = "SCO_Tx",
+	.port = SLAVE_SB_PGD_PORT_TX_SCO},
 	{.id = BTFM_FM_SLIM_TX, .name = "FM_Tx1",
 	.port = SLAVE_SB_PGD_PORT_TX1_FM},
 	{.id = BTFM_FM_SLIM_TX, .name = "FM_Tx2",
 	.port = SLAVE_SB_PGD_PORT_TX2_FM},
-	{.id = BTFM_BT_SCO_SLIM_TX, .name = "SCO_Tx",
-	.port = SLAVE_SB_PGD_PORT_TX_SCO},
 	{.id = BTFM_SLIM_NUM_CODEC_DAIS, .name = "",
 	.port = BTFM_SLIM_PGD_PORT_LAST},
 };
