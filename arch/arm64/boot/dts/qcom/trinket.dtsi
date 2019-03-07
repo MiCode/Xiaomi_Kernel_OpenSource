@@ -2253,7 +2253,7 @@
 		qcom,ice-clk-rates = <300000000 75000000>;
 
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
-		qcom,dll-hsr-list = <0x000F642C 0x0 0x0 0x00010800 0x80040868>;
+		qcom,dll-hsr-list = <0x000f642c 0x0 0x0 0x00010800 0x80040873>;
 
 		qcom,nonremovable;
 		status = "disabled";
@@ -2319,7 +2319,7 @@
 		clock-names = "iface_clk", "core_clk";
 
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
-		qcom,dll-hsr-list = <0x0007642C 0x0 0x0 0x00010800 0x80040868>;
+		qcom,dll-hsr-list = <0x0007642c 0x0 0x0 0x00010800 0x80040873>;
 
 		status = "disabled";
 	};
