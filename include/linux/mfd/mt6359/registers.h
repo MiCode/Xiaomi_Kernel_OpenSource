@@ -1968,4 +1968,15477 @@
 #define MT6359_ACCDET_CON39                  0x26d6
 #define MT6359_ACCDET_CON40                  0x26d8
 
+#define MT6359_BUCK_TOP_ANA_ID_ADDR                           \
+	MT6359_BUCK_TOP_DSN_ID
+#define MT6359_BUCK_TOP_ANA_ID_MASK                           0xFF
+#define MT6359_BUCK_TOP_ANA_ID_SHIFT                          0
+#define MT6359_BUCK_TOP_DIG_ID_ADDR                           \
+	MT6359_BUCK_TOP_DSN_ID
+#define MT6359_BUCK_TOP_DIG_ID_MASK                           0xFF
+#define MT6359_BUCK_TOP_DIG_ID_SHIFT                          8
+#define MT6359_BUCK_TOP_ANA_MINOR_REV_ADDR                    \
+	MT6359_BUCK_TOP_DSN_REV0
+#define MT6359_BUCK_TOP_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_TOP_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_BUCK_TOP_ANA_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_TOP_DSN_REV0
+#define MT6359_BUCK_TOP_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_TOP_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_BUCK_TOP_DIG_MINOR_REV_ADDR                    \
+	MT6359_BUCK_TOP_DSN_REV0
+#define MT6359_BUCK_TOP_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_TOP_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_BUCK_TOP_DIG_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_TOP_DSN_REV0
+#define MT6359_BUCK_TOP_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_TOP_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_BUCK_TOP_CBS_ADDR                              \
+	MT6359_BUCK_TOP_DBI
+#define MT6359_BUCK_TOP_CBS_MASK                              0x3
+#define MT6359_BUCK_TOP_CBS_SHIFT                             0
+#define MT6359_BUCK_TOP_BIX_ADDR                              \
+	MT6359_BUCK_TOP_DBI
+#define MT6359_BUCK_TOP_BIX_MASK                              0x3
+#define MT6359_BUCK_TOP_BIX_SHIFT                             2
+#define MT6359_BUCK_TOP_ESP_ADDR                              \
+	MT6359_BUCK_TOP_DBI
+#define MT6359_BUCK_TOP_ESP_MASK                              0xFF
+#define MT6359_BUCK_TOP_ESP_SHIFT                             8
+#define MT6359_BUCK_TOP_FPI_ADDR                              \
+	MT6359_BUCK_TOP_DXI
+#define MT6359_BUCK_TOP_FPI_MASK                              0xFF
+#define MT6359_BUCK_TOP_FPI_SHIFT                             0
+#define MT6359_BUCK_TOP_CLK_OFFSET_ADDR                       \
+	MT6359_BUCK_TOP_PAM0
+#define MT6359_BUCK_TOP_CLK_OFFSET_MASK                       0xFF
+#define MT6359_BUCK_TOP_CLK_OFFSET_SHIFT                      0
+#define MT6359_BUCK_TOP_RST_OFFSET_ADDR                       \
+	MT6359_BUCK_TOP_PAM0
+#define MT6359_BUCK_TOP_RST_OFFSET_MASK                       0xFF
+#define MT6359_BUCK_TOP_RST_OFFSET_SHIFT                      8
+#define MT6359_BUCK_TOP_INT_OFFSET_ADDR                       \
+	MT6359_BUCK_TOP_PAM1
+#define MT6359_BUCK_TOP_INT_OFFSET_MASK                       0xFF
+#define MT6359_BUCK_TOP_INT_OFFSET_SHIFT                      0
+#define MT6359_BUCK_TOP_INT_LEN_ADDR                          \
+	MT6359_BUCK_TOP_PAM1
+#define MT6359_BUCK_TOP_INT_LEN_MASK                          0xFF
+#define MT6359_BUCK_TOP_INT_LEN_SHIFT                         8
+#define MT6359_RG_BUCK32K_CK_PDN_ADDR                         \
+	MT6359_BUCK_TOP_CLK_CON0
+#define MT6359_RG_BUCK32K_CK_PDN_MASK                         0x1
+#define MT6359_RG_BUCK32K_CK_PDN_SHIFT                        0
+#define MT6359_RG_BUCK1M_CK_PDN_ADDR                          \
+	MT6359_BUCK_TOP_CLK_CON0
+#define MT6359_RG_BUCK1M_CK_PDN_MASK                          0x1
+#define MT6359_RG_BUCK1M_CK_PDN_SHIFT                         1
+#define MT6359_RG_BUCK26M_CK_PDN_ADDR                         \
+	MT6359_BUCK_TOP_CLK_CON0
+#define MT6359_RG_BUCK26M_CK_PDN_MASK                         0x1
+#define MT6359_RG_BUCK26M_CK_PDN_SHIFT                        2
+#define MT6359_RG_BUCK_VPA_ANA_2M_CK_PDN_ADDR                 \
+	MT6359_BUCK_TOP_CLK_CON0
+#define MT6359_RG_BUCK_VPA_ANA_2M_CK_PDN_MASK                 0x1
+#define MT6359_RG_BUCK_VPA_ANA_2M_CK_PDN_SHIFT                3
+#define MT6359_RG_BUCK_TOP_CLK_CON0_SET_ADDR                  \
+	MT6359_BUCK_TOP_CLK_CON0_SET
+#define MT6359_RG_BUCK_TOP_CLK_CON0_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_TOP_CLK_CON0_SET_SHIFT                 0
+#define MT6359_RG_BUCK_TOP_CLK_CON0_CLR_ADDR                  \
+	MT6359_BUCK_TOP_CLK_CON0_CLR
+#define MT6359_RG_BUCK_TOP_CLK_CON0_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_TOP_CLK_CON0_CLR_SHIFT                 0
+#define MT6359_RG_BUCK32K_CK_PDN_HWEN_ADDR                    \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0
+#define MT6359_RG_BUCK32K_CK_PDN_HWEN_MASK                    0x1
+#define MT6359_RG_BUCK32K_CK_PDN_HWEN_SHIFT                   0
+#define MT6359_RG_BUCK1M_CK_PDN_HWEN_ADDR                     \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0
+#define MT6359_RG_BUCK1M_CK_PDN_HWEN_MASK                     0x1
+#define MT6359_RG_BUCK1M_CK_PDN_HWEN_SHIFT                    1
+#define MT6359_RG_BUCK26M_CK_PDN_HWEN_ADDR                    \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0
+#define MT6359_RG_BUCK26M_CK_PDN_HWEN_MASK                    0x1
+#define MT6359_RG_BUCK26M_CK_PDN_HWEN_SHIFT                   2
+#define MT6359_RG_BUCK_SLEEP_CTRL_MODE_ADDR                   \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0
+#define MT6359_RG_BUCK_SLEEP_CTRL_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_SLEEP_CTRL_MODE_SHIFT                  3
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_SET_ADDR             \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0_SET
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_SET_MASK             0xFFFF
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_SET_SHIFT            0
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_CLR_ADDR             \
+	MT6359_BUCK_TOP_CLK_HWEN_CON0_CLR
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_CLR_MASK             0xFFFF
+#define MT6359_RG_BUCK_TOP_CLK_HWEN_CON0_CLR_SHIFT            0
+#define MT6359_RG_INT_EN_VPU_OC_ADDR                          \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VPU_OC_MASK                          0x1
+#define MT6359_RG_INT_EN_VPU_OC_SHIFT                         0
+#define MT6359_RG_INT_EN_VCORE_OC_ADDR                        \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCORE_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VCORE_OC_SHIFT                       1
+#define MT6359_RG_INT_EN_VGPU11_OC_ADDR                       \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VGPU11_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VGPU11_OC_SHIFT                      2
+#define MT6359_RG_INT_EN_VGPU12_OC_ADDR                       \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VGPU12_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VGPU12_OC_SHIFT                      3
+#define MT6359_RG_INT_EN_VMODEM_OC_ADDR                       \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VMODEM_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VMODEM_OC_SHIFT                      4
+#define MT6359_RG_INT_EN_VPROC1_OC_ADDR                       \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VPROC1_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VPROC1_OC_SHIFT                      5
+#define MT6359_RG_INT_EN_VPROC2_OC_ADDR                       \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VPROC2_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VPROC2_OC_SHIFT                      6
+#define MT6359_RG_INT_EN_VS1_OC_ADDR                          \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VS1_OC_MASK                          0x1
+#define MT6359_RG_INT_EN_VS1_OC_SHIFT                         7
+#define MT6359_RG_INT_EN_VS2_OC_ADDR                          \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VS2_OC_MASK                          0x1
+#define MT6359_RG_INT_EN_VS2_OC_SHIFT                         8
+#define MT6359_RG_INT_EN_VPA_OC_ADDR                          \
+	MT6359_BUCK_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VPA_OC_MASK                          0x1
+#define MT6359_RG_INT_EN_VPA_OC_SHIFT                         9
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_SET_ADDR               \
+	MT6359_BUCK_TOP_INT_CON0_SET
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_SET_MASK               0xFFFF
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_SET_SHIFT              0
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_CLR_ADDR               \
+	MT6359_BUCK_TOP_INT_CON0_CLR
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_CLR_MASK               0xFFFF
+#define MT6359_RG_BUCK_TOP_INT_EN_CON0_CLR_SHIFT              0
+#define MT6359_RG_INT_MASK_VPU_OC_ADDR                        \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VPU_OC_MASK                        0x1
+#define MT6359_RG_INT_MASK_VPU_OC_SHIFT                       0
+#define MT6359_RG_INT_MASK_VCORE_OC_ADDR                      \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCORE_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VCORE_OC_SHIFT                     1
+#define MT6359_RG_INT_MASK_VGPU11_OC_ADDR                     \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VGPU11_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VGPU11_OC_SHIFT                    2
+#define MT6359_RG_INT_MASK_VGPU12_OC_ADDR                     \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VGPU12_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VGPU12_OC_SHIFT                    3
+#define MT6359_RG_INT_MASK_VMODEM_OC_ADDR                     \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VMODEM_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VMODEM_OC_SHIFT                    4
+#define MT6359_RG_INT_MASK_VPROC1_OC_ADDR                     \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VPROC1_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VPROC1_OC_SHIFT                    5
+#define MT6359_RG_INT_MASK_VPROC2_OC_ADDR                     \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VPROC2_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VPROC2_OC_SHIFT                    6
+#define MT6359_RG_INT_MASK_VS1_OC_ADDR                        \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VS1_OC_MASK                        0x1
+#define MT6359_RG_INT_MASK_VS1_OC_SHIFT                       7
+#define MT6359_RG_INT_MASK_VS2_OC_ADDR                        \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VS2_OC_MASK                        0x1
+#define MT6359_RG_INT_MASK_VS2_OC_SHIFT                       8
+#define MT6359_RG_INT_MASK_VPA_OC_ADDR                        \
+	MT6359_BUCK_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VPA_OC_MASK                        0x1
+#define MT6359_RG_INT_MASK_VPA_OC_SHIFT                       9
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_SET_ADDR             \
+	MT6359_BUCK_TOP_INT_MASK_CON0_SET
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_SET_MASK             0xFFFF
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_SET_SHIFT            0
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_CLR_ADDR             \
+	MT6359_BUCK_TOP_INT_MASK_CON0_CLR
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_CLR_MASK             0xFFFF
+#define MT6359_RG_BUCK_TOP_INT_MASK_CON0_CLR_SHIFT            0
+#define MT6359_RG_INT_STATUS_VPU_OC_ADDR                      \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VPU_OC_MASK                      0x1
+#define MT6359_RG_INT_STATUS_VPU_OC_SHIFT                     0
+#define MT6359_RG_INT_STATUS_VCORE_OC_ADDR                    \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCORE_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VCORE_OC_SHIFT                   1
+#define MT6359_RG_INT_STATUS_VGPU11_OC_ADDR                   \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VGPU11_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VGPU11_OC_SHIFT                  2
+#define MT6359_RG_INT_STATUS_VGPU12_OC_ADDR                   \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VGPU12_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VGPU12_OC_SHIFT                  3
+#define MT6359_RG_INT_STATUS_VMODEM_OC_ADDR                   \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VMODEM_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VMODEM_OC_SHIFT                  4
+#define MT6359_RG_INT_STATUS_VPROC1_OC_ADDR                   \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VPROC1_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VPROC1_OC_SHIFT                  5
+#define MT6359_RG_INT_STATUS_VPROC2_OC_ADDR                   \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VPROC2_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VPROC2_OC_SHIFT                  6
+#define MT6359_RG_INT_STATUS_VS1_OC_ADDR                      \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VS1_OC_MASK                      0x1
+#define MT6359_RG_INT_STATUS_VS1_OC_SHIFT                     7
+#define MT6359_RG_INT_STATUS_VS2_OC_ADDR                      \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VS2_OC_MASK                      0x1
+#define MT6359_RG_INT_STATUS_VS2_OC_SHIFT                     8
+#define MT6359_RG_INT_STATUS_VPA_OC_ADDR                      \
+	MT6359_BUCK_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VPA_OC_MASK                      0x1
+#define MT6359_RG_INT_STATUS_VPA_OC_SHIFT                     9
+#define MT6359_RG_INT_RAW_STATUS_VPU_OC_ADDR                  \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VPU_OC_MASK                  0x1
+#define MT6359_RG_INT_RAW_STATUS_VPU_OC_SHIFT                 0
+#define MT6359_RG_INT_RAW_STATUS_VCORE_OC_ADDR                \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCORE_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VCORE_OC_SHIFT               1
+#define MT6359_RG_INT_RAW_STATUS_VGPU11_OC_ADDR               \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VGPU11_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VGPU11_OC_SHIFT              2
+#define MT6359_RG_INT_RAW_STATUS_VGPU12_OC_ADDR               \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VGPU12_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VGPU12_OC_SHIFT              3
+#define MT6359_RG_INT_RAW_STATUS_VMODEM_OC_ADDR               \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VMODEM_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VMODEM_OC_SHIFT              4
+#define MT6359_RG_INT_RAW_STATUS_VPROC1_OC_ADDR               \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VPROC1_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VPROC1_OC_SHIFT              5
+#define MT6359_RG_INT_RAW_STATUS_VPROC2_OC_ADDR               \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VPROC2_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VPROC2_OC_SHIFT              6
+#define MT6359_RG_INT_RAW_STATUS_VS1_OC_ADDR                  \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VS1_OC_MASK                  0x1
+#define MT6359_RG_INT_RAW_STATUS_VS1_OC_SHIFT                 7
+#define MT6359_RG_INT_RAW_STATUS_VS2_OC_ADDR                  \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VS2_OC_MASK                  0x1
+#define MT6359_RG_INT_RAW_STATUS_VS2_OC_SHIFT                 8
+#define MT6359_RG_INT_RAW_STATUS_VPA_OC_ADDR                  \
+	MT6359_BUCK_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VPA_OC_MASK                  0x1
+#define MT6359_RG_INT_RAW_STATUS_VPA_OC_SHIFT                 9
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_DONE_ADDR                \
+	MT6359_BUCK_TOP_VOW_CON
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_DONE_MASK                0x1
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_DONE_SHIFT               0
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_SW_MODE_ADDR             \
+	MT6359_BUCK_TOP_VOW_CON
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_SW_MODE_MASK             0x1
+#define MT6359_RG_VOW_BUCK_VCORE_DVS_SW_MODE_SHIFT            1
+#define MT6359_RG_BUCK_STB_MAX_ADDR                           \
+	MT6359_BUCK_TOP_STB_CON
+#define MT6359_RG_BUCK_STB_MAX_MASK                           0x1FF
+#define MT6359_RG_BUCK_STB_MAX_SHIFT                          0
+#define MT6359_RG_BUCK_VGP2_MINFREQ_LATENCY_MAX_ADDR          \
+	MT6359_BUCK_TOP_VGP2_MINFREQ_CON
+#define MT6359_RG_BUCK_VGP2_MINFREQ_LATENCY_MAX_MASK          0xFF
+#define MT6359_RG_BUCK_VGP2_MINFREQ_LATENCY_MAX_SHIFT         0
+#define MT6359_RG_BUCK_VGP2_MINFREQ_DURATION_MAX_ADDR         \
+	MT6359_BUCK_TOP_VGP2_MINFREQ_CON
+#define MT6359_RG_BUCK_VGP2_MINFREQ_DURATION_MAX_MASK         0x7
+#define MT6359_RG_BUCK_VGP2_MINFREQ_DURATION_MAX_SHIFT        8
+#define MT6359_RG_BUCK_VPA_MINFREQ_LATENCY_MAX_ADDR           \
+	MT6359_BUCK_TOP_VPA_MINFREQ_CON
+#define MT6359_RG_BUCK_VPA_MINFREQ_LATENCY_MAX_MASK           0xFF
+#define MT6359_RG_BUCK_VPA_MINFREQ_LATENCY_MAX_SHIFT          0
+#define MT6359_RG_BUCK_VPA_MINFREQ_DURATION_MAX_ADDR          \
+	MT6359_BUCK_TOP_VPA_MINFREQ_CON
+#define MT6359_RG_BUCK_VPA_MINFREQ_DURATION_MAX_MASK          0xF
+#define MT6359_RG_BUCK_VPA_MINFREQ_DURATION_MAX_SHIFT         8
+#define MT6359_RG_BUCK_VPU_OC_SDN_STATUS_ADDR                 \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VPU_OC_SDN_STATUS_MASK                 0x1
+#define MT6359_RG_BUCK_VPU_OC_SDN_STATUS_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_OC_SDN_STATUS_ADDR               \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VCORE_OC_SDN_STATUS_MASK               0x1
+#define MT6359_RG_BUCK_VCORE_OC_SDN_STATUS_SHIFT              1
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_STATUS_ADDR              \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_STATUS_MASK              0x1
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_STATUS_SHIFT             2
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_STATUS_ADDR              \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_STATUS_MASK              0x1
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_STATUS_SHIFT             3
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_STATUS_ADDR              \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_STATUS_MASK              0x1
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_STATUS_SHIFT             4
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_STATUS_ADDR              \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_STATUS_MASK              0x1
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_STATUS_SHIFT             5
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_STATUS_ADDR              \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_STATUS_MASK              0x1
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_STATUS_SHIFT             6
+#define MT6359_RG_BUCK_VS1_OC_SDN_STATUS_ADDR                 \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VS1_OC_SDN_STATUS_MASK                 0x1
+#define MT6359_RG_BUCK_VS1_OC_SDN_STATUS_SHIFT                7
+#define MT6359_RG_BUCK_VS2_OC_SDN_STATUS_ADDR                 \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VS2_OC_SDN_STATUS_MASK                 0x1
+#define MT6359_RG_BUCK_VS2_OC_SDN_STATUS_SHIFT                8
+#define MT6359_RG_BUCK_VPA_OC_SDN_STATUS_ADDR                 \
+	MT6359_BUCK_TOP_OC_CON0
+#define MT6359_RG_BUCK_VPA_OC_SDN_STATUS_MASK                 0x1
+#define MT6359_RG_BUCK_VPA_OC_SDN_STATUS_SHIFT                9
+#define MT6359_BUCK_TOP_WRITE_KEY_ADDR                        \
+	MT6359_BUCK_TOP_KEY_PROT
+#define MT6359_BUCK_TOP_WRITE_KEY_MASK                        0xFFFF
+#define MT6359_BUCK_TOP_WRITE_KEY_SHIFT                       0
+#define MT6359_BUCK_VPU_WDTDBG_VOSEL_ADDR                     \
+	MT6359_BUCK_TOP_WDTDBG0
+#define MT6359_BUCK_VPU_WDTDBG_VOSEL_MASK                     0x7F
+#define MT6359_BUCK_VPU_WDTDBG_VOSEL_SHIFT                    0
+#define MT6359_BUCK_VCORE_WDTDBG_VOSEL_ADDR                   \
+	MT6359_BUCK_TOP_WDTDBG0
+#define MT6359_BUCK_VCORE_WDTDBG_VOSEL_MASK                   0x7F
+#define MT6359_BUCK_VCORE_WDTDBG_VOSEL_SHIFT                  8
+#define MT6359_BUCK_VGPU11_WDTDBG_VOSEL_ADDR                  \
+	MT6359_BUCK_TOP_WDTDBG1
+#define MT6359_BUCK_VGPU11_WDTDBG_VOSEL_MASK                  0x7F
+#define MT6359_BUCK_VGPU11_WDTDBG_VOSEL_SHIFT                 0
+#define MT6359_BUCK_VGPU12_WDTDBG_VOSEL_ADDR                  \
+	MT6359_BUCK_TOP_WDTDBG1
+#define MT6359_BUCK_VGPU12_WDTDBG_VOSEL_MASK                  0x7F
+#define MT6359_BUCK_VGPU12_WDTDBG_VOSEL_SHIFT                 8
+#define MT6359_BUCK_VMODEM_WDTDBG_VOSEL_ADDR                  \
+	MT6359_BUCK_TOP_WDTDBG2
+#define MT6359_BUCK_VMODEM_WDTDBG_VOSEL_MASK                  0x7F
+#define MT6359_BUCK_VMODEM_WDTDBG_VOSEL_SHIFT                 0
+#define MT6359_BUCK_VPROC1_WDTDBG_VOSEL_ADDR                  \
+	MT6359_BUCK_TOP_WDTDBG2
+#define MT6359_BUCK_VPROC1_WDTDBG_VOSEL_MASK                  0x7F
+#define MT6359_BUCK_VPROC1_WDTDBG_VOSEL_SHIFT                 8
+#define MT6359_BUCK_VPROC2_WDTDBG_VOSEL_ADDR                  \
+	MT6359_BUCK_TOP_WDTDBG3
+#define MT6359_BUCK_VPROC2_WDTDBG_VOSEL_MASK                  0x7F
+#define MT6359_BUCK_VPROC2_WDTDBG_VOSEL_SHIFT                 0
+#define MT6359_BUCK_VS1_WDTDBG_VOSEL_ADDR                     \
+	MT6359_BUCK_TOP_WDTDBG3
+#define MT6359_BUCK_VS1_WDTDBG_VOSEL_MASK                     0x7F
+#define MT6359_BUCK_VS1_WDTDBG_VOSEL_SHIFT                    8
+#define MT6359_BUCK_VS2_WDTDBG_VOSEL_ADDR                     \
+	MT6359_BUCK_TOP_WDTDBG4
+#define MT6359_BUCK_VS2_WDTDBG_VOSEL_MASK                     0x7F
+#define MT6359_BUCK_VS2_WDTDBG_VOSEL_SHIFT                    0
+#define MT6359_BUCK_VPA_WDTDBG_VOSEL_ADDR                     \
+	MT6359_BUCK_TOP_WDTDBG4
+#define MT6359_BUCK_VPA_WDTDBG_VOSEL_MASK                     0x3F
+#define MT6359_BUCK_VPA_WDTDBG_VOSEL_SHIFT                    8
+#define MT6359_BUCK_TOP_ELR_LEN_ADDR                          \
+	MT6359_BUCK_TOP_ELR_NUM
+#define MT6359_BUCK_TOP_ELR_LEN_MASK                          0xFF
+#define MT6359_BUCK_TOP_ELR_LEN_SHIFT                         0
+#define MT6359_RG_BUCK_VPU_OC_SDN_EN_ADDR                     \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VPU_OC_SDN_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_OC_SDN_EN_SHIFT                    0
+#define MT6359_RG_BUCK_VCORE_OC_SDN_EN_ADDR                   \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VCORE_OC_SDN_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_OC_SDN_EN_SHIFT                  1
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_EN_ADDR                  \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_OC_SDN_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_EN_ADDR                  \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_OC_SDN_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_EN_ADDR                  \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_OC_SDN_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_EN_ADDR                  \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_OC_SDN_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_EN_ADDR                  \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_OC_SDN_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VS1_OC_SDN_EN_ADDR                     \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VS1_OC_SDN_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_OC_SDN_EN_SHIFT                    7
+#define MT6359_RG_BUCK_VS2_OC_SDN_EN_ADDR                     \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VS2_OC_SDN_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_OC_SDN_EN_SHIFT                    8
+#define MT6359_RG_BUCK_VPA_OC_SDN_EN_ADDR                     \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_VPA_OC_SDN_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPA_OC_SDN_EN_SHIFT                    9
+#define MT6359_RG_BUCK_DCM_MODE_ADDR                          \
+	MT6359_BUCK_TOP_ELR0
+#define MT6359_RG_BUCK_DCM_MODE_MASK                          0x1
+#define MT6359_RG_BUCK_DCM_MODE_SHIFT                         10
+#define MT6359_RG_BUCK_VPU_VOSEL_LIMIT_SEL_ADDR               \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VPU_VOSEL_LIMIT_SEL_MASK               0x3
+#define MT6359_RG_BUCK_VPU_VOSEL_LIMIT_SEL_SHIFT              0
+#define MT6359_RG_BUCK_VCORE_VOSEL_LIMIT_SEL_ADDR             \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VCORE_VOSEL_LIMIT_SEL_MASK             0x3
+#define MT6359_RG_BUCK_VCORE_VOSEL_LIMIT_SEL_SHIFT            2
+#define MT6359_RG_BUCK_VGPU11_VOSEL_LIMIT_SEL_ADDR            \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VGPU11_VOSEL_LIMIT_SEL_MASK            0x3
+#define MT6359_RG_BUCK_VGPU11_VOSEL_LIMIT_SEL_SHIFT           4
+#define MT6359_RG_BUCK_VGPU12_VOSEL_LIMIT_SEL_ADDR            \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VGPU12_VOSEL_LIMIT_SEL_MASK            0x3
+#define MT6359_RG_BUCK_VGPU12_VOSEL_LIMIT_SEL_SHIFT           6
+#define MT6359_RG_BUCK_VMODEM_VOSEL_LIMIT_SEL_ADDR            \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VMODEM_VOSEL_LIMIT_SEL_MASK            0x3
+#define MT6359_RG_BUCK_VMODEM_VOSEL_LIMIT_SEL_SHIFT           8
+#define MT6359_RG_BUCK_VPROC1_VOSEL_LIMIT_SEL_ADDR            \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VPROC1_VOSEL_LIMIT_SEL_MASK            0x3
+#define MT6359_RG_BUCK_VPROC1_VOSEL_LIMIT_SEL_SHIFT           10
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LIMIT_SEL_ADDR            \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LIMIT_SEL_MASK            0x3
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LIMIT_SEL_SHIFT           12
+#define MT6359_RG_BUCK_VS1_VOSEL_LIMIT_SEL_ADDR               \
+	MT6359_BUCK_TOP_ELR1
+#define MT6359_RG_BUCK_VS1_VOSEL_LIMIT_SEL_MASK               0x3
+#define MT6359_RG_BUCK_VS1_VOSEL_LIMIT_SEL_SHIFT              14
+#define MT6359_RG_BUCK_VS2_VOSEL_LIMIT_SEL_ADDR               \
+	MT6359_BUCK_TOP_ELR2
+#define MT6359_RG_BUCK_VS2_VOSEL_LIMIT_SEL_MASK               0x3
+#define MT6359_RG_BUCK_VS2_VOSEL_LIMIT_SEL_SHIFT              0
+#define MT6359_RG_BUCK_VPA_VOSEL_LIMIT_SEL_ADDR               \
+	MT6359_BUCK_TOP_ELR2
+#define MT6359_RG_BUCK_VPA_VOSEL_LIMIT_SEL_MASK               0x3
+#define MT6359_RG_BUCK_VPA_VOSEL_LIMIT_SEL_SHIFT              2
+#define MT6359_BUCK_VPU_ANA_ID_ADDR                           \
+	MT6359_BUCK_VPU_DSN_ID
+#define MT6359_BUCK_VPU_ANA_ID_MASK                           0xFF
+#define MT6359_BUCK_VPU_ANA_ID_SHIFT                          0
+#define MT6359_BUCK_VPU_DIG_ID_ADDR                           \
+	MT6359_BUCK_VPU_DSN_ID
+#define MT6359_BUCK_VPU_DIG_ID_MASK                           0xFF
+#define MT6359_BUCK_VPU_DIG_ID_SHIFT                          8
+#define MT6359_BUCK_VPU_ANA_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VPU_DSN_REV0
+#define MT6359_BUCK_VPU_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPU_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_BUCK_VPU_ANA_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VPU_DSN_REV0
+#define MT6359_BUCK_VPU_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPU_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_BUCK_VPU_DIG_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VPU_DSN_REV0
+#define MT6359_BUCK_VPU_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPU_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_BUCK_VPU_DIG_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VPU_DSN_REV0
+#define MT6359_BUCK_VPU_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPU_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_BUCK_VPU_DSN_CBS_ADDR                          \
+	MT6359_BUCK_VPU_DSN_DBI
+#define MT6359_BUCK_VPU_DSN_CBS_MASK                          0x3
+#define MT6359_BUCK_VPU_DSN_CBS_SHIFT                         0
+#define MT6359_BUCK_VPU_DSN_BIX_ADDR                          \
+	MT6359_BUCK_VPU_DSN_DBI
+#define MT6359_BUCK_VPU_DSN_BIX_MASK                          0x3
+#define MT6359_BUCK_VPU_DSN_BIX_SHIFT                         2
+#define MT6359_BUCK_VPU_DSN_ESP_ADDR                          \
+	MT6359_BUCK_VPU_DSN_DBI
+#define MT6359_BUCK_VPU_DSN_ESP_MASK                          0xFF
+#define MT6359_BUCK_VPU_DSN_ESP_SHIFT                         8
+#define MT6359_BUCK_VPU_DSN_FPI_SSHUB_ADDR                    \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_SSHUB_MASK                    0x1
+#define MT6359_BUCK_VPU_DSN_FPI_SSHUB_SHIFT                   0
+#define MT6359_BUCK_VPU_DSN_FPI_TRACKING_ADDR                 \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_TRACKING_MASK                 0x1
+#define MT6359_BUCK_VPU_DSN_FPI_TRACKING_SHIFT                1
+#define MT6359_BUCK_VPU_DSN_FPI_PREOC_ADDR                    \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_PREOC_MASK                    0x1
+#define MT6359_BUCK_VPU_DSN_FPI_PREOC_SHIFT                   2
+#define MT6359_BUCK_VPU_DSN_FPI_VOTER_ADDR                    \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_VOTER_MASK                    0x1
+#define MT6359_BUCK_VPU_DSN_FPI_VOTER_SHIFT                   3
+#define MT6359_BUCK_VPU_DSN_FPI_ULTRASONIC_ADDR               \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_ULTRASONIC_MASK               0x1
+#define MT6359_BUCK_VPU_DSN_FPI_ULTRASONIC_SHIFT              4
+#define MT6359_BUCK_VPU_DSN_FPI_DLC_ADDR                      \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_DLC_MASK                      0x1
+#define MT6359_BUCK_VPU_DSN_FPI_DLC_SHIFT                     5
+#define MT6359_BUCK_VPU_DSN_FPI_TRAP_ADDR                     \
+	MT6359_BUCK_VPU_DSN_DXI
+#define MT6359_BUCK_VPU_DSN_FPI_TRAP_MASK                     0x1
+#define MT6359_BUCK_VPU_DSN_FPI_TRAP_SHIFT                    6
+#define MT6359_RG_BUCK_VPU_EN_ADDR                            \
+	MT6359_BUCK_VPU_CON0
+#define MT6359_RG_BUCK_VPU_EN_MASK                            0x1
+#define MT6359_RG_BUCK_VPU_EN_SHIFT                           0
+#define MT6359_RG_BUCK_VPU_LP_ADDR                            \
+	MT6359_BUCK_VPU_CON0
+#define MT6359_RG_BUCK_VPU_LP_MASK                            0x1
+#define MT6359_RG_BUCK_VPU_LP_SHIFT                           1
+#define MT6359_RG_BUCK_VPU_CON0_SET_ADDR                      \
+	MT6359_BUCK_VPU_CON0_SET
+#define MT6359_RG_BUCK_VPU_CON0_SET_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VPU_CON0_SET_SHIFT                     0
+#define MT6359_RG_BUCK_VPU_CON0_CLR_ADDR                      \
+	MT6359_BUCK_VPU_CON0_CLR
+#define MT6359_RG_BUCK_VPU_CON0_CLR_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VPU_CON0_CLR_SHIFT                     0
+#define MT6359_RG_BUCK_VPU_VOSEL_SLEEP_ADDR                   \
+	MT6359_BUCK_VPU_CON1
+#define MT6359_RG_BUCK_VPU_VOSEL_SLEEP_MASK                   0x7F
+#define MT6359_RG_BUCK_VPU_VOSEL_SLEEP_SHIFT                  0
+#define MT6359_RG_BUCK_VPU_SELR2R_CTRL_ADDR                   \
+	MT6359_BUCK_VPU_SLP_CON
+#define MT6359_RG_BUCK_VPU_SELR2R_CTRL_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_SELR2R_CTRL_SHIFT                  0
+#define MT6359_RG_BUCK_VPU_SFCHG_FRATE_ADDR                   \
+	MT6359_BUCK_VPU_CFG0
+#define MT6359_RG_BUCK_VPU_SFCHG_FRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VPU_SFCHG_FRATE_SHIFT                  0
+#define MT6359_RG_BUCK_VPU_SFCHG_FEN_ADDR                     \
+	MT6359_BUCK_VPU_CFG0
+#define MT6359_RG_BUCK_VPU_SFCHG_FEN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_SFCHG_FEN_SHIFT                    7
+#define MT6359_RG_BUCK_VPU_SFCHG_RRATE_ADDR                   \
+	MT6359_BUCK_VPU_CFG0
+#define MT6359_RG_BUCK_VPU_SFCHG_RRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VPU_SFCHG_RRATE_SHIFT                  8
+#define MT6359_RG_BUCK_VPU_SFCHG_REN_ADDR                     \
+	MT6359_BUCK_VPU_CFG0
+#define MT6359_RG_BUCK_VPU_SFCHG_REN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_SFCHG_REN_SHIFT                    15
+#define MT6359_RG_BUCK_VPU_HW0_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_BUCK_VPU_HW1_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_BUCK_VPU_HW2_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_BUCK_VPU_HW3_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_BUCK_VPU_HW4_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_BUCK_VPU_HW5_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_BUCK_VPU_HW6_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_BUCK_VPU_HW7_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_BUCK_VPU_HW8_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_BUCK_VPU_HW9_OP_EN_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VPU_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_BUCK_VPU_HW10_OP_EN_ADDR                    \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_BUCK_VPU_HW11_OP_EN_ADDR                    \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_BUCK_VPU_HW12_OP_EN_ADDR                    \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_BUCK_VPU_HW13_OP_EN_ADDR                    \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_BUCK_VPU_HW14_OP_EN_ADDR                    \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_BUCK_VPU_SW_OP_EN_ADDR                      \
+	MT6359_BUCK_VPU_OP_EN
+#define MT6359_RG_BUCK_VPU_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VPU_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_BUCK_VPU_OP_EN_SET_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN_SET
+#define MT6359_RG_BUCK_VPU_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_BUCK_VPU_OP_EN_CLR_ADDR                     \
+	MT6359_BUCK_VPU_OP_EN_CLR
+#define MT6359_RG_BUCK_VPU_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_BUCK_VPU_HW0_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_BUCK_VPU_HW1_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_BUCK_VPU_HW2_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_BUCK_VPU_HW3_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_BUCK_VPU_HW4_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_BUCK_VPU_HW5_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_BUCK_VPU_HW6_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_BUCK_VPU_HW7_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_BUCK_VPU_HW8_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_BUCK_VPU_HW9_OP_CFG_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_BUCK_VPU_HW10_OP_CFG_ADDR                   \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_BUCK_VPU_HW11_OP_CFG_ADDR                   \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_BUCK_VPU_HW12_OP_CFG_ADDR                   \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_BUCK_VPU_HW13_OP_CFG_ADDR                   \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_BUCK_VPU_HW14_OP_CFG_ADDR                   \
+	MT6359_BUCK_VPU_OP_CFG
+#define MT6359_RG_BUCK_VPU_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_BUCK_VPU_OP_CFG_SET_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG_SET
+#define MT6359_RG_BUCK_VPU_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_BUCK_VPU_OP_CFG_CLR_ADDR                    \
+	MT6359_BUCK_VPU_OP_CFG_CLR
+#define MT6359_RG_BUCK_VPU_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_BUCK_VPU_HW0_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW0_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW0_OP_MODE_SHIFT                  0
+#define MT6359_RG_BUCK_VPU_HW1_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW1_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW1_OP_MODE_SHIFT                  1
+#define MT6359_RG_BUCK_VPU_HW2_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW2_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW2_OP_MODE_SHIFT                  2
+#define MT6359_RG_BUCK_VPU_HW3_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW3_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW3_OP_MODE_SHIFT                  3
+#define MT6359_RG_BUCK_VPU_HW4_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW4_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW4_OP_MODE_SHIFT                  4
+#define MT6359_RG_BUCK_VPU_HW5_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW5_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW5_OP_MODE_SHIFT                  5
+#define MT6359_RG_BUCK_VPU_HW6_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW6_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW6_OP_MODE_SHIFT                  6
+#define MT6359_RG_BUCK_VPU_HW7_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW7_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW7_OP_MODE_SHIFT                  7
+#define MT6359_RG_BUCK_VPU_HW8_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW8_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW8_OP_MODE_SHIFT                  8
+#define MT6359_RG_BUCK_VPU_HW9_OP_MODE_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW9_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VPU_HW9_OP_MODE_SHIFT                  9
+#define MT6359_RG_BUCK_VPU_HW10_OP_MODE_ADDR                  \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW10_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VPU_HW10_OP_MODE_SHIFT                 10
+#define MT6359_RG_BUCK_VPU_HW11_OP_MODE_ADDR                  \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW11_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VPU_HW11_OP_MODE_SHIFT                 11
+#define MT6359_RG_BUCK_VPU_HW12_OP_MODE_ADDR                  \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW12_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VPU_HW12_OP_MODE_SHIFT                 12
+#define MT6359_RG_BUCK_VPU_HW13_OP_MODE_ADDR                  \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW13_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VPU_HW13_OP_MODE_SHIFT                 13
+#define MT6359_RG_BUCK_VPU_HW14_OP_MODE_ADDR                  \
+	MT6359_BUCK_VPU_OP_MODE
+#define MT6359_RG_BUCK_VPU_HW14_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VPU_HW14_OP_MODE_SHIFT                 14
+#define MT6359_RG_BUCK_VPU_OP_MODE_SET_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE_SET
+#define MT6359_RG_BUCK_VPU_OP_MODE_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_MODE_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VPU_OP_MODE_CLR_ADDR                   \
+	MT6359_BUCK_VPU_OP_MODE_CLR
+#define MT6359_RG_BUCK_VPU_OP_MODE_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPU_OP_MODE_CLR_SHIFT                  0
+#define MT6359_DA_VPU_VOSEL_ADDR                              \
+	MT6359_BUCK_VPU_DBG0
+#define MT6359_DA_VPU_VOSEL_MASK                              0x7F
+#define MT6359_DA_VPU_VOSEL_SHIFT                             0
+#define MT6359_DA_VPU_VOSEL_GRAY_ADDR                         \
+	MT6359_BUCK_VPU_DBG0
+#define MT6359_DA_VPU_VOSEL_GRAY_MASK                         0x7F
+#define MT6359_DA_VPU_VOSEL_GRAY_SHIFT                        8
+#define MT6359_DA_VPU_EN_ADDR                                 \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_EN_MASK                                 0x1
+#define MT6359_DA_VPU_EN_SHIFT                                0
+#define MT6359_DA_VPU_STB_ADDR                                \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_STB_MASK                                0x1
+#define MT6359_DA_VPU_STB_SHIFT                               1
+#define MT6359_DA_VPU_LOOP_SEL_ADDR                           \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_LOOP_SEL_MASK                           0x1
+#define MT6359_DA_VPU_LOOP_SEL_SHIFT                          2
+#define MT6359_DA_VPU_R2R_PDN_ADDR                            \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_R2R_PDN_MASK                            0x1
+#define MT6359_DA_VPU_R2R_PDN_SHIFT                           3
+#define MT6359_DA_VPU_DVS_EN_ADDR                             \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_DVS_EN_MASK                             0x1
+#define MT6359_DA_VPU_DVS_EN_SHIFT                            4
+#define MT6359_DA_VPU_DVS_DOWN_ADDR                           \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_DVS_DOWN_MASK                           0x1
+#define MT6359_DA_VPU_DVS_DOWN_SHIFT                          5
+#define MT6359_DA_VPU_SSH_ADDR                                \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_SSH_MASK                                0x1
+#define MT6359_DA_VPU_SSH_SHIFT                               6
+#define MT6359_DA_VPU_MINFREQ_DISCHARGE_ADDR                  \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_DA_VPU_MINFREQ_DISCHARGE_MASK                  0x1
+#define MT6359_DA_VPU_MINFREQ_DISCHARGE_SHIFT                 8
+#define MT6359_RG_BUCK_VPU_CK_SW_MODE_ADDR                    \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_RG_BUCK_VPU_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_BUCK_VPU_CK_SW_MODE_SHIFT                   12
+#define MT6359_RG_BUCK_VPU_CK_SW_EN_ADDR                      \
+	MT6359_BUCK_VPU_DBG1
+#define MT6359_RG_BUCK_VPU_CK_SW_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VPU_CK_SW_EN_SHIFT                     13
+#define MT6359_BUCK_VPU_ELR_LEN_ADDR                          \
+	MT6359_BUCK_VPU_ELR_NUM
+#define MT6359_BUCK_VPU_ELR_LEN_MASK                          0xFF
+#define MT6359_BUCK_VPU_ELR_LEN_SHIFT                         0
+#define MT6359_RG_BUCK_VPU_VOSEL_ADDR                         \
+	MT6359_BUCK_VPU_ELR0
+#define MT6359_RG_BUCK_VPU_VOSEL_MASK                         0x7F
+#define MT6359_RG_BUCK_VPU_VOSEL_SHIFT                        0
+#define MT6359_BUCK_VCORE_ANA_ID_ADDR                         \
+	MT6359_BUCK_VCORE_DSN_ID
+#define MT6359_BUCK_VCORE_ANA_ID_MASK                         0xFF
+#define MT6359_BUCK_VCORE_ANA_ID_SHIFT                        0
+#define MT6359_BUCK_VCORE_DIG_ID_ADDR                         \
+	MT6359_BUCK_VCORE_DSN_ID
+#define MT6359_BUCK_VCORE_DIG_ID_MASK                         0xFF
+#define MT6359_BUCK_VCORE_DIG_ID_SHIFT                        8
+#define MT6359_BUCK_VCORE_ANA_MINOR_REV_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_REV0
+#define MT6359_BUCK_VCORE_ANA_MINOR_REV_MASK                  0xF
+#define MT6359_BUCK_VCORE_ANA_MINOR_REV_SHIFT                 0
+#define MT6359_BUCK_VCORE_ANA_MAJOR_REV_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_REV0
+#define MT6359_BUCK_VCORE_ANA_MAJOR_REV_MASK                  0xF
+#define MT6359_BUCK_VCORE_ANA_MAJOR_REV_SHIFT                 4
+#define MT6359_BUCK_VCORE_DIG_MINOR_REV_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_REV0
+#define MT6359_BUCK_VCORE_DIG_MINOR_REV_MASK                  0xF
+#define MT6359_BUCK_VCORE_DIG_MINOR_REV_SHIFT                 8
+#define MT6359_BUCK_VCORE_DIG_MAJOR_REV_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_REV0
+#define MT6359_BUCK_VCORE_DIG_MAJOR_REV_MASK                  0xF
+#define MT6359_BUCK_VCORE_DIG_MAJOR_REV_SHIFT                 12
+#define MT6359_BUCK_VCORE_DSN_CBS_ADDR                        \
+	MT6359_BUCK_VCORE_DSN_DBI
+#define MT6359_BUCK_VCORE_DSN_CBS_MASK                        0x3
+#define MT6359_BUCK_VCORE_DSN_CBS_SHIFT                       0
+#define MT6359_BUCK_VCORE_DSN_BIX_ADDR                        \
+	MT6359_BUCK_VCORE_DSN_DBI
+#define MT6359_BUCK_VCORE_DSN_BIX_MASK                        0x3
+#define MT6359_BUCK_VCORE_DSN_BIX_SHIFT                       2
+#define MT6359_BUCK_VCORE_DSN_ESP_ADDR                        \
+	MT6359_BUCK_VCORE_DSN_DBI
+#define MT6359_BUCK_VCORE_DSN_ESP_MASK                        0xFF
+#define MT6359_BUCK_VCORE_DSN_ESP_SHIFT                       8
+#define MT6359_BUCK_VCORE_DSN_FPI_SSHUB_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_SSHUB_MASK                  0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_SSHUB_SHIFT                 0
+#define MT6359_BUCK_VCORE_DSN_FPI_TRACKING_ADDR               \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_TRACKING_MASK               0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_TRACKING_SHIFT              1
+#define MT6359_BUCK_VCORE_DSN_FPI_PREOC_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_PREOC_MASK                  0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_PREOC_SHIFT                 2
+#define MT6359_BUCK_VCORE_DSN_FPI_VOTER_ADDR                  \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_VOTER_MASK                  0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_VOTER_SHIFT                 3
+#define MT6359_BUCK_VCORE_DSN_FPI_ULTRASONIC_ADDR             \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_ULTRASONIC_MASK             0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_ULTRASONIC_SHIFT            4
+#define MT6359_BUCK_VCORE_DSN_FPI_DLC_ADDR                    \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_DLC_MASK                    0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_DLC_SHIFT                   5
+#define MT6359_BUCK_VCORE_DSN_FPI_TRAP_ADDR                   \
+	MT6359_BUCK_VCORE_DSN_DXI
+#define MT6359_BUCK_VCORE_DSN_FPI_TRAP_MASK                   0x1
+#define MT6359_BUCK_VCORE_DSN_FPI_TRAP_SHIFT                  6
+#define MT6359_RG_BUCK_VCORE_EN_ADDR                          \
+	MT6359_BUCK_VCORE_CON0
+#define MT6359_RG_BUCK_VCORE_EN_MASK                          0x1
+#define MT6359_RG_BUCK_VCORE_EN_SHIFT                         0
+#define MT6359_RG_BUCK_VCORE_LP_ADDR                          \
+	MT6359_BUCK_VCORE_CON0
+#define MT6359_RG_BUCK_VCORE_LP_MASK                          0x1
+#define MT6359_RG_BUCK_VCORE_LP_SHIFT                         1
+#define MT6359_RG_BUCK_VCORE_CON0_SET_ADDR                    \
+	MT6359_BUCK_VCORE_CON0_SET
+#define MT6359_RG_BUCK_VCORE_CON0_SET_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VCORE_CON0_SET_SHIFT                   0
+#define MT6359_RG_BUCK_VCORE_CON0_CLR_ADDR                    \
+	MT6359_BUCK_VCORE_CON0_CLR
+#define MT6359_RG_BUCK_VCORE_CON0_CLR_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VCORE_CON0_CLR_SHIFT                   0
+#define MT6359_RG_BUCK_VCORE_VOSEL_SLEEP_ADDR                 \
+	MT6359_BUCK_VCORE_CON1
+#define MT6359_RG_BUCK_VCORE_VOSEL_SLEEP_MASK                 0x7F
+#define MT6359_RG_BUCK_VCORE_VOSEL_SLEEP_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_SELR2R_CTRL_ADDR                 \
+	MT6359_BUCK_VCORE_SLP_CON
+#define MT6359_RG_BUCK_VCORE_SELR2R_CTRL_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_SELR2R_CTRL_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_SFCHG_FRATE_ADDR                 \
+	MT6359_BUCK_VCORE_CFG0
+#define MT6359_RG_BUCK_VCORE_SFCHG_FRATE_MASK                 0x7F
+#define MT6359_RG_BUCK_VCORE_SFCHG_FRATE_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_SFCHG_FEN_ADDR                   \
+	MT6359_BUCK_VCORE_CFG0
+#define MT6359_RG_BUCK_VCORE_SFCHG_FEN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_SFCHG_FEN_SHIFT                  7
+#define MT6359_RG_BUCK_VCORE_SFCHG_RRATE_ADDR                 \
+	MT6359_BUCK_VCORE_CFG0
+#define MT6359_RG_BUCK_VCORE_SFCHG_RRATE_MASK                 0x7F
+#define MT6359_RG_BUCK_VCORE_SFCHG_RRATE_SHIFT                8
+#define MT6359_RG_BUCK_VCORE_SFCHG_REN_ADDR                   \
+	MT6359_BUCK_VCORE_CFG0
+#define MT6359_RG_BUCK_VCORE_SFCHG_REN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_SFCHG_REN_SHIFT                  15
+#define MT6359_RG_BUCK_VCORE_HW0_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_BUCK_VCORE_HW1_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_BUCK_VCORE_HW3_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_BUCK_VCORE_HW4_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_BUCK_VCORE_HW5_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_BUCK_VCORE_HW6_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_BUCK_VCORE_HW7_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_BUCK_VCORE_HW8_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_BUCK_VCORE_HW9_OP_EN_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VCORE_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_BUCK_VCORE_HW10_OP_EN_ADDR                  \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_BUCK_VCORE_HW11_OP_EN_ADDR                  \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_BUCK_VCORE_HW12_OP_EN_ADDR                  \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_BUCK_VCORE_HW13_OP_EN_ADDR                  \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_BUCK_VCORE_HW14_OP_EN_ADDR                  \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_BUCK_VCORE_SW_OP_EN_ADDR                    \
+	MT6359_BUCK_VCORE_OP_EN
+#define MT6359_RG_BUCK_VCORE_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VCORE_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_BUCK_VCORE_OP_EN_SET_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN_SET
+#define MT6359_RG_BUCK_VCORE_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VCORE_OP_EN_CLR_ADDR                   \
+	MT6359_BUCK_VCORE_OP_EN_CLR
+#define MT6359_RG_BUCK_VCORE_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VCORE_HW0_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_BUCK_VCORE_HW1_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_BUCK_VCORE_HW3_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_BUCK_VCORE_HW4_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_BUCK_VCORE_HW5_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_BUCK_VCORE_HW6_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_BUCK_VCORE_HW7_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_BUCK_VCORE_HW8_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_BUCK_VCORE_HW9_OP_CFG_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_BUCK_VCORE_HW10_OP_CFG_ADDR                 \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_BUCK_VCORE_HW11_OP_CFG_ADDR                 \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_BUCK_VCORE_HW12_OP_CFG_ADDR                 \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_BUCK_VCORE_HW13_OP_CFG_ADDR                 \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_BUCK_VCORE_HW14_OP_CFG_ADDR                 \
+	MT6359_BUCK_VCORE_OP_CFG
+#define MT6359_RG_BUCK_VCORE_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_BUCK_VCORE_OP_CFG_SET_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG_SET
+#define MT6359_RG_BUCK_VCORE_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VCORE_OP_CFG_CLR_ADDR                  \
+	MT6359_BUCK_VCORE_OP_CFG_CLR
+#define MT6359_RG_BUCK_VCORE_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VCORE_HW0_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW0_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW0_OP_MODE_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_HW1_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW1_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW1_OP_MODE_SHIFT                1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW2_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW2_OP_MODE_SHIFT                2
+#define MT6359_RG_BUCK_VCORE_HW3_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW3_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW3_OP_MODE_SHIFT                3
+#define MT6359_RG_BUCK_VCORE_HW4_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW4_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW4_OP_MODE_SHIFT                4
+#define MT6359_RG_BUCK_VCORE_HW5_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW5_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW5_OP_MODE_SHIFT                5
+#define MT6359_RG_BUCK_VCORE_HW6_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW6_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW6_OP_MODE_SHIFT                6
+#define MT6359_RG_BUCK_VCORE_HW7_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW7_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW7_OP_MODE_SHIFT                7
+#define MT6359_RG_BUCK_VCORE_HW8_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW8_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW8_OP_MODE_SHIFT                8
+#define MT6359_RG_BUCK_VCORE_HW9_OP_MODE_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW9_OP_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VCORE_HW9_OP_MODE_SHIFT                9
+#define MT6359_RG_BUCK_VCORE_HW10_OP_MODE_ADDR                \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW10_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VCORE_HW10_OP_MODE_SHIFT               10
+#define MT6359_RG_BUCK_VCORE_HW11_OP_MODE_ADDR                \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW11_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VCORE_HW11_OP_MODE_SHIFT               11
+#define MT6359_RG_BUCK_VCORE_HW12_OP_MODE_ADDR                \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW12_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VCORE_HW12_OP_MODE_SHIFT               12
+#define MT6359_RG_BUCK_VCORE_HW13_OP_MODE_ADDR                \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW13_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VCORE_HW13_OP_MODE_SHIFT               13
+#define MT6359_RG_BUCK_VCORE_HW14_OP_MODE_ADDR                \
+	MT6359_BUCK_VCORE_OP_MODE
+#define MT6359_RG_BUCK_VCORE_HW14_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VCORE_HW14_OP_MODE_SHIFT               14
+#define MT6359_RG_BUCK_VCORE_OP_MODE_SET_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE_SET
+#define MT6359_RG_BUCK_VCORE_OP_MODE_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_MODE_SET_SHIFT                0
+#define MT6359_RG_BUCK_VCORE_OP_MODE_CLR_ADDR                 \
+	MT6359_BUCK_VCORE_OP_MODE_CLR
+#define MT6359_RG_BUCK_VCORE_OP_MODE_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VCORE_OP_MODE_CLR_SHIFT                0
+#define MT6359_DA_VCORE_VOSEL_ADDR                            \
+	MT6359_BUCK_VCORE_DBG0
+#define MT6359_DA_VCORE_VOSEL_MASK                            0x7F
+#define MT6359_DA_VCORE_VOSEL_SHIFT                           0
+#define MT6359_DA_VCORE_VOSEL_GRAY_ADDR                       \
+	MT6359_BUCK_VCORE_DBG0
+#define MT6359_DA_VCORE_VOSEL_GRAY_MASK                       0x7F
+#define MT6359_DA_VCORE_VOSEL_GRAY_SHIFT                      8
+#define MT6359_DA_VCORE_EN_ADDR                               \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_EN_MASK                               0x1
+#define MT6359_DA_VCORE_EN_SHIFT                              0
+#define MT6359_DA_VCORE_STB_ADDR                              \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_STB_MASK                              0x1
+#define MT6359_DA_VCORE_STB_SHIFT                             1
+#define MT6359_DA_VCORE_LOOP_SEL_ADDR                         \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_LOOP_SEL_MASK                         0x1
+#define MT6359_DA_VCORE_LOOP_SEL_SHIFT                        2
+#define MT6359_DA_VCORE_R2R_PDN_ADDR                          \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_R2R_PDN_MASK                          0x1
+#define MT6359_DA_VCORE_R2R_PDN_SHIFT                         3
+#define MT6359_DA_VCORE_DVS_EN_ADDR                           \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_DVS_EN_MASK                           0x1
+#define MT6359_DA_VCORE_DVS_EN_SHIFT                          4
+#define MT6359_DA_VCORE_DVS_DOWN_ADDR                         \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_DVS_DOWN_MASK                         0x1
+#define MT6359_DA_VCORE_DVS_DOWN_SHIFT                        5
+#define MT6359_DA_VCORE_SSH_ADDR                              \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_SSH_MASK                              0x1
+#define MT6359_DA_VCORE_SSH_SHIFT                             6
+#define MT6359_DA_VCORE_MINFREQ_DISCHARGE_ADDR                \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_DA_VCORE_MINFREQ_DISCHARGE_MASK                0x1
+#define MT6359_DA_VCORE_MINFREQ_DISCHARGE_SHIFT               8
+#define MT6359_RG_BUCK_VCORE_CK_SW_MODE_ADDR                  \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_RG_BUCK_VCORE_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VCORE_CK_SW_MODE_SHIFT                 12
+#define MT6359_RG_BUCK_VCORE_CK_SW_EN_ADDR                    \
+	MT6359_BUCK_VCORE_DBG1
+#define MT6359_RG_BUCK_VCORE_CK_SW_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VCORE_CK_SW_EN_SHIFT                   13
+#define MT6359_RG_BUCK_VCORE_SSHUB_EN_ADDR                    \
+	MT6359_BUCK_VCORE_SSHUB_CON0
+#define MT6359_RG_BUCK_VCORE_SSHUB_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VCORE_SSHUB_EN_SHIFT                   0
+#define MT6359_RG_BUCK_VCORE_SSHUB_VOSEL_ADDR                 \
+	MT6359_BUCK_VCORE_SSHUB_CON0
+#define MT6359_RG_BUCK_VCORE_SSHUB_VOSEL_MASK                 0x7F
+#define MT6359_RG_BUCK_VCORE_SSHUB_VOSEL_SHIFT                4
+#define MT6359_RG_BUCK_VCORE_SPI_EN_ADDR                      \
+	MT6359_BUCK_VCORE_SPI_CON0
+#define MT6359_RG_BUCK_VCORE_SPI_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VCORE_SPI_EN_SHIFT                     0
+#define MT6359_RG_BUCK_VCORE_SPI_VOSEL_ADDR                   \
+	MT6359_BUCK_VCORE_SPI_CON0
+#define MT6359_RG_BUCK_VCORE_SPI_VOSEL_MASK                   0x7F
+#define MT6359_RG_BUCK_VCORE_SPI_VOSEL_SHIFT                  4
+#define MT6359_RG_BUCK_VCORE_BT_LP_EN_ADDR                    \
+	MT6359_BUCK_VCORE_BT_LP_CON0
+#define MT6359_RG_BUCK_VCORE_BT_LP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VCORE_BT_LP_EN_SHIFT                   0
+#define MT6359_RG_BUCK_VCORE_BT_LP_VOSEL_ADDR                 \
+	MT6359_BUCK_VCORE_BT_LP_CON0
+#define MT6359_RG_BUCK_VCORE_BT_LP_VOSEL_MASK                 0x7F
+#define MT6359_RG_BUCK_VCORE_BT_LP_VOSEL_SHIFT                4
+#define MT6359_RG_BUCK_VCORE_TRACK_STALL_BYPASS_ADDR          \
+	MT6359_BUCK_VCORE_STALL_TRACK0
+#define MT6359_RG_BUCK_VCORE_TRACK_STALL_BYPASS_MASK          0x1
+#define MT6359_RG_BUCK_VCORE_TRACK_STALL_BYPASS_SHIFT         0
+#define MT6359_BUCK_VCORE_ELR_LEN_ADDR                        \
+	MT6359_BUCK_VCORE_ELR_NUM
+#define MT6359_BUCK_VCORE_ELR_LEN_MASK                        0xFF
+#define MT6359_BUCK_VCORE_ELR_LEN_SHIFT                       0
+#define MT6359_RG_BUCK_VCORE_VOSEL_ADDR                       \
+	MT6359_BUCK_VCORE_ELR0
+#define MT6359_RG_BUCK_VCORE_VOSEL_MASK                       0x7F
+#define MT6359_RG_BUCK_VCORE_VOSEL_SHIFT                      0
+#define MT6359_BUCK_VGPU11_ANA_ID_ADDR                        \
+	MT6359_BUCK_VGPU11_DSN_ID
+#define MT6359_BUCK_VGPU11_ANA_ID_MASK                        0xFF
+#define MT6359_BUCK_VGPU11_ANA_ID_SHIFT                       0
+#define MT6359_BUCK_VGPU11_DIG_ID_ADDR                        \
+	MT6359_BUCK_VGPU11_DSN_ID
+#define MT6359_BUCK_VGPU11_DIG_ID_MASK                        0xFF
+#define MT6359_BUCK_VGPU11_DIG_ID_SHIFT                       8
+#define MT6359_BUCK_VGPU11_ANA_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_REV0
+#define MT6359_BUCK_VGPU11_ANA_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU11_ANA_MINOR_REV_SHIFT                0
+#define MT6359_BUCK_VGPU11_ANA_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_REV0
+#define MT6359_BUCK_VGPU11_ANA_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU11_ANA_MAJOR_REV_SHIFT                4
+#define MT6359_BUCK_VGPU11_DIG_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_REV0
+#define MT6359_BUCK_VGPU11_DIG_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU11_DIG_MINOR_REV_SHIFT                8
+#define MT6359_BUCK_VGPU11_DIG_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_REV0
+#define MT6359_BUCK_VGPU11_DIG_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU11_DIG_MAJOR_REV_SHIFT                12
+#define MT6359_BUCK_VGPU11_DSN_CBS_ADDR                       \
+	MT6359_BUCK_VGPU11_DSN_DBI
+#define MT6359_BUCK_VGPU11_DSN_CBS_MASK                       0x3
+#define MT6359_BUCK_VGPU11_DSN_CBS_SHIFT                      0
+#define MT6359_BUCK_VGPU11_DSN_BIX_ADDR                       \
+	MT6359_BUCK_VGPU11_DSN_DBI
+#define MT6359_BUCK_VGPU11_DSN_BIX_MASK                       0x3
+#define MT6359_BUCK_VGPU11_DSN_BIX_SHIFT                      2
+#define MT6359_BUCK_VGPU11_DSN_ESP_ADDR                       \
+	MT6359_BUCK_VGPU11_DSN_DBI
+#define MT6359_BUCK_VGPU11_DSN_ESP_MASK                       0xFF
+#define MT6359_BUCK_VGPU11_DSN_ESP_SHIFT                      8
+#define MT6359_BUCK_VGPU11_DSN_FPI_SSHUB_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_SSHUB_MASK                 0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_SSHUB_SHIFT                0
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRACKING_ADDR              \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRACKING_MASK              0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRACKING_SHIFT             1
+#define MT6359_BUCK_VGPU11_DSN_FPI_PREOC_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_PREOC_MASK                 0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_PREOC_SHIFT                2
+#define MT6359_BUCK_VGPU11_DSN_FPI_VOTER_ADDR                 \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_VOTER_MASK                 0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_VOTER_SHIFT                3
+#define MT6359_BUCK_VGPU11_DSN_FPI_ULTRASONIC_ADDR            \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_ULTRASONIC_MASK            0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_ULTRASONIC_SHIFT           4
+#define MT6359_BUCK_VGPU11_DSN_FPI_DLC_ADDR                   \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_DLC_MASK                   0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_DLC_SHIFT                  5
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRAP_ADDR                  \
+	MT6359_BUCK_VGPU11_DSN_DXI
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRAP_MASK                  0x1
+#define MT6359_BUCK_VGPU11_DSN_FPI_TRAP_SHIFT                 6
+#define MT6359_RG_BUCK_VGPU11_EN_ADDR                         \
+	MT6359_BUCK_VGPU11_CON0
+#define MT6359_RG_BUCK_VGPU11_EN_MASK                         0x1
+#define MT6359_RG_BUCK_VGPU11_EN_SHIFT                        0
+#define MT6359_RG_BUCK_VGPU11_LP_ADDR                         \
+	MT6359_BUCK_VGPU11_CON0
+#define MT6359_RG_BUCK_VGPU11_LP_MASK                         0x1
+#define MT6359_RG_BUCK_VGPU11_LP_SHIFT                        1
+#define MT6359_RG_BUCK_VGPU11_CON0_SET_ADDR                   \
+	MT6359_BUCK_VGPU11_CON0_SET
+#define MT6359_RG_BUCK_VGPU11_CON0_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VGPU11_CON0_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VGPU11_CON0_CLR_ADDR                   \
+	MT6359_BUCK_VGPU11_CON0_CLR
+#define MT6359_RG_BUCK_VGPU11_CON0_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VGPU11_CON0_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VGPU11_VOSEL_SLEEP_ADDR                \
+	MT6359_BUCK_VGPU11_CON1
+#define MT6359_RG_BUCK_VGPU11_VOSEL_SLEEP_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU11_VOSEL_SLEEP_SHIFT               0
+#define MT6359_RG_BUCK_VGPU11_SELR2R_CTRL_ADDR                \
+	MT6359_BUCK_VGPU11_SLP_CON
+#define MT6359_RG_BUCK_VGPU11_SELR2R_CTRL_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_SELR2R_CTRL_SHIFT               0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FRATE_ADDR                \
+	MT6359_BUCK_VGPU11_CFG0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FRATE_SHIFT               0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FEN_ADDR                  \
+	MT6359_BUCK_VGPU11_CFG0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FEN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_SFCHG_FEN_SHIFT                 7
+#define MT6359_RG_BUCK_VGPU11_SFCHG_RRATE_ADDR                \
+	MT6359_BUCK_VGPU11_CFG0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_RRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU11_SFCHG_RRATE_SHIFT               8
+#define MT6359_RG_BUCK_VGPU11_SFCHG_REN_ADDR                  \
+	MT6359_BUCK_VGPU11_CFG0
+#define MT6359_RG_BUCK_VGPU11_SFCHG_REN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_SFCHG_REN_SHIFT                 15
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_BUCK_VGPU11_SW_OP_EN_ADDR                   \
+	MT6359_BUCK_VGPU11_OP_EN
+#define MT6359_RG_BUCK_VGPU11_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VGPU11_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_BUCK_VGPU11_OP_EN_SET_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN_SET
+#define MT6359_RG_BUCK_VGPU11_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU11_OP_EN_CLR_ADDR                  \
+	MT6359_BUCK_VGPU11_OP_EN_CLR
+#define MT6359_RG_BUCK_VGPU11_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU11_OP_CFG
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_SET_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG_SET
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_CLR_ADDR                 \
+	MT6359_BUCK_VGPU11_OP_CFG_CLR
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW0_OP_MODE_SHIFT               0
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW1_OP_MODE_SHIFT               1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW2_OP_MODE_SHIFT               2
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW3_OP_MODE_SHIFT               3
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW4_OP_MODE_SHIFT               4
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW5_OP_MODE_SHIFT               5
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW6_OP_MODE_SHIFT               6
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW7_OP_MODE_SHIFT               7
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW8_OP_MODE_SHIFT               8
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU11_HW9_OP_MODE_SHIFT               9
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU11_HW10_OP_MODE_SHIFT              10
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU11_HW11_OP_MODE_SHIFT              11
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU11_HW12_OP_MODE_SHIFT              12
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU11_HW13_OP_MODE_SHIFT              13
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU11_OP_MODE
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU11_HW14_OP_MODE_SHIFT              14
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_SET_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE_SET
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_SET_MASK                0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_SET_SHIFT               0
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_CLR_ADDR                \
+	MT6359_BUCK_VGPU11_OP_MODE_CLR
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_CLR_MASK                0xFFFF
+#define MT6359_RG_BUCK_VGPU11_OP_MODE_CLR_SHIFT               0
+#define MT6359_DA_VGPU11_VOSEL_ADDR                           \
+	MT6359_BUCK_VGPU11_DBG0
+#define MT6359_DA_VGPU11_VOSEL_MASK                           0x7F
+#define MT6359_DA_VGPU11_VOSEL_SHIFT                          0
+#define MT6359_DA_VGPU11_VOSEL_GRAY_ADDR                      \
+	MT6359_BUCK_VGPU11_DBG0
+#define MT6359_DA_VGPU11_VOSEL_GRAY_MASK                      0x7F
+#define MT6359_DA_VGPU11_VOSEL_GRAY_SHIFT                     8
+#define MT6359_DA_VGPU11_EN_ADDR                              \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_EN_MASK                              0x1
+#define MT6359_DA_VGPU11_EN_SHIFT                             0
+#define MT6359_DA_VGPU11_STB_ADDR                             \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_STB_MASK                             0x1
+#define MT6359_DA_VGPU11_STB_SHIFT                            1
+#define MT6359_DA_VGPU11_LOOP_SEL_ADDR                        \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_LOOP_SEL_MASK                        0x1
+#define MT6359_DA_VGPU11_LOOP_SEL_SHIFT                       2
+#define MT6359_DA_VGPU11_R2R_PDN_ADDR                         \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_R2R_PDN_MASK                         0x1
+#define MT6359_DA_VGPU11_R2R_PDN_SHIFT                        3
+#define MT6359_DA_VGPU11_DVS_EN_ADDR                          \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_DVS_EN_MASK                          0x1
+#define MT6359_DA_VGPU11_DVS_EN_SHIFT                         4
+#define MT6359_DA_VGPU11_DVS_DOWN_ADDR                        \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_DVS_DOWN_MASK                        0x1
+#define MT6359_DA_VGPU11_DVS_DOWN_SHIFT                       5
+#define MT6359_DA_VGPU11_SSH_ADDR                             \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_SSH_MASK                             0x1
+#define MT6359_DA_VGPU11_SSH_SHIFT                            6
+#define MT6359_DA_VGPU11_MINFREQ_DISCHARGE_ADDR               \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_DA_VGPU11_MINFREQ_DISCHARGE_MASK               0x1
+#define MT6359_DA_VGPU11_MINFREQ_DISCHARGE_SHIFT              8
+#define MT6359_RG_BUCK_VGPU11_CK_SW_MODE_ADDR                 \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_RG_BUCK_VGPU11_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU11_CK_SW_MODE_SHIFT                12
+#define MT6359_RG_BUCK_VGPU11_CK_SW_EN_ADDR                   \
+	MT6359_BUCK_VGPU11_DBG1
+#define MT6359_RG_BUCK_VGPU11_CK_SW_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VGPU11_CK_SW_EN_SHIFT                  13
+#define MT6359_BUCK_VGPU11_ELR_LEN_ADDR                       \
+	MT6359_BUCK_VGPU11_ELR_NUM
+#define MT6359_BUCK_VGPU11_ELR_LEN_MASK                       0xFF
+#define MT6359_BUCK_VGPU11_ELR_LEN_SHIFT                      0
+#define MT6359_RG_BUCK_VGPU11_VOSEL_ADDR                      \
+	MT6359_BUCK_VGPU11_ELR0
+#define MT6359_RG_BUCK_VGPU11_VOSEL_MASK                      0x7F
+#define MT6359_RG_BUCK_VGPU11_VOSEL_SHIFT                     0
+#define MT6359_BUCK_VGPU12_ANA_ID_ADDR                        \
+	MT6359_BUCK_VGPU12_DSN_ID
+#define MT6359_BUCK_VGPU12_ANA_ID_MASK                        0xFF
+#define MT6359_BUCK_VGPU12_ANA_ID_SHIFT                       0
+#define MT6359_BUCK_VGPU12_DIG_ID_ADDR                        \
+	MT6359_BUCK_VGPU12_DSN_ID
+#define MT6359_BUCK_VGPU12_DIG_ID_MASK                        0xFF
+#define MT6359_BUCK_VGPU12_DIG_ID_SHIFT                       8
+#define MT6359_BUCK_VGPU12_ANA_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_REV0
+#define MT6359_BUCK_VGPU12_ANA_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU12_ANA_MINOR_REV_SHIFT                0
+#define MT6359_BUCK_VGPU12_ANA_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_REV0
+#define MT6359_BUCK_VGPU12_ANA_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU12_ANA_MAJOR_REV_SHIFT                4
+#define MT6359_BUCK_VGPU12_DIG_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_REV0
+#define MT6359_BUCK_VGPU12_DIG_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU12_DIG_MINOR_REV_SHIFT                8
+#define MT6359_BUCK_VGPU12_DIG_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_REV0
+#define MT6359_BUCK_VGPU12_DIG_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VGPU12_DIG_MAJOR_REV_SHIFT                12
+#define MT6359_BUCK_VGPU12_DSN_CBS_ADDR                       \
+	MT6359_BUCK_VGPU12_DSN_DBI
+#define MT6359_BUCK_VGPU12_DSN_CBS_MASK                       0x3
+#define MT6359_BUCK_VGPU12_DSN_CBS_SHIFT                      0
+#define MT6359_BUCK_VGPU12_DSN_BIX_ADDR                       \
+	MT6359_BUCK_VGPU12_DSN_DBI
+#define MT6359_BUCK_VGPU12_DSN_BIX_MASK                       0x3
+#define MT6359_BUCK_VGPU12_DSN_BIX_SHIFT                      2
+#define MT6359_BUCK_VGPU12_DSN_ESP_ADDR                       \
+	MT6359_BUCK_VGPU12_DSN_DBI
+#define MT6359_BUCK_VGPU12_DSN_ESP_MASK                       0xFF
+#define MT6359_BUCK_VGPU12_DSN_ESP_SHIFT                      8
+#define MT6359_BUCK_VGPU12_DSN_FPI_SSHUB_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_SSHUB_MASK                 0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_SSHUB_SHIFT                0
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRACKING_ADDR              \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRACKING_MASK              0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRACKING_SHIFT             1
+#define MT6359_BUCK_VGPU12_DSN_FPI_PREOC_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_PREOC_MASK                 0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_PREOC_SHIFT                2
+#define MT6359_BUCK_VGPU12_DSN_FPI_VOTER_ADDR                 \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_VOTER_MASK                 0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_VOTER_SHIFT                3
+#define MT6359_BUCK_VGPU12_DSN_FPI_ULTRASONIC_ADDR            \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_ULTRASONIC_MASK            0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_ULTRASONIC_SHIFT           4
+#define MT6359_BUCK_VGPU12_DSN_FPI_DLC_ADDR                   \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_DLC_MASK                   0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_DLC_SHIFT                  5
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRAP_ADDR                  \
+	MT6359_BUCK_VGPU12_DSN_DXI
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRAP_MASK                  0x1
+#define MT6359_BUCK_VGPU12_DSN_FPI_TRAP_SHIFT                 6
+#define MT6359_RG_BUCK_VGPU12_EN_ADDR                         \
+	MT6359_BUCK_VGPU12_CON0
+#define MT6359_RG_BUCK_VGPU12_EN_MASK                         0x1
+#define MT6359_RG_BUCK_VGPU12_EN_SHIFT                        0
+#define MT6359_RG_BUCK_VGPU12_LP_ADDR                         \
+	MT6359_BUCK_VGPU12_CON0
+#define MT6359_RG_BUCK_VGPU12_LP_MASK                         0x1
+#define MT6359_RG_BUCK_VGPU12_LP_SHIFT                        1
+#define MT6359_RG_BUCK_VGPU12_CON0_SET_ADDR                   \
+	MT6359_BUCK_VGPU12_CON0_SET
+#define MT6359_RG_BUCK_VGPU12_CON0_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VGPU12_CON0_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VGPU12_CON0_CLR_ADDR                   \
+	MT6359_BUCK_VGPU12_CON0_CLR
+#define MT6359_RG_BUCK_VGPU12_CON0_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VGPU12_CON0_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VGPU12_VOSEL_SLEEP_ADDR                \
+	MT6359_BUCK_VGPU12_CON1
+#define MT6359_RG_BUCK_VGPU12_VOSEL_SLEEP_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU12_VOSEL_SLEEP_SHIFT               0
+#define MT6359_RG_BUCK_VGPU12_SELR2R_CTRL_ADDR                \
+	MT6359_BUCK_VGPU12_SLP_CON
+#define MT6359_RG_BUCK_VGPU12_SELR2R_CTRL_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_SELR2R_CTRL_SHIFT               0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FRATE_ADDR                \
+	MT6359_BUCK_VGPU12_CFG0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FRATE_SHIFT               0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FEN_ADDR                  \
+	MT6359_BUCK_VGPU12_CFG0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FEN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_SFCHG_FEN_SHIFT                 7
+#define MT6359_RG_BUCK_VGPU12_SFCHG_RRATE_ADDR                \
+	MT6359_BUCK_VGPU12_CFG0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_RRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VGPU12_SFCHG_RRATE_SHIFT               8
+#define MT6359_RG_BUCK_VGPU12_SFCHG_REN_ADDR                  \
+	MT6359_BUCK_VGPU12_CFG0
+#define MT6359_RG_BUCK_VGPU12_SFCHG_REN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_SFCHG_REN_SHIFT                 15
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_EN_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_EN_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_BUCK_VGPU12_SW_OP_EN_ADDR                   \
+	MT6359_BUCK_VGPU12_OP_EN
+#define MT6359_RG_BUCK_VGPU12_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VGPU12_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_BUCK_VGPU12_OP_EN_SET_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN_SET
+#define MT6359_RG_BUCK_VGPU12_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU12_OP_EN_CLR_ADDR                  \
+	MT6359_BUCK_VGPU12_OP_EN_CLR
+#define MT6359_RG_BUCK_VGPU12_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_CFG_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_CFG_ADDR                \
+	MT6359_BUCK_VGPU12_OP_CFG
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_SET_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG_SET
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_CLR_ADDR                 \
+	MT6359_BUCK_VGPU12_OP_CFG_CLR
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW0_OP_MODE_SHIFT               0
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW1_OP_MODE_SHIFT               1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW2_OP_MODE_SHIFT               2
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW3_OP_MODE_SHIFT               3
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW4_OP_MODE_SHIFT               4
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW5_OP_MODE_SHIFT               5
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW6_OP_MODE_SHIFT               6
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW7_OP_MODE_SHIFT               7
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW8_OP_MODE_SHIFT               8
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_MODE_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VGPU12_HW9_OP_MODE_SHIFT               9
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU12_HW10_OP_MODE_SHIFT              10
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU12_HW11_OP_MODE_SHIFT              11
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU12_HW12_OP_MODE_SHIFT              12
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU12_HW13_OP_MODE_SHIFT              13
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_MODE_ADDR               \
+	MT6359_BUCK_VGPU12_OP_MODE
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VGPU12_HW14_OP_MODE_SHIFT              14
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_SET_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE_SET
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_SET_MASK                0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_SET_SHIFT               0
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_CLR_ADDR                \
+	MT6359_BUCK_VGPU12_OP_MODE_CLR
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_CLR_MASK                0xFFFF
+#define MT6359_RG_BUCK_VGPU12_OP_MODE_CLR_SHIFT               0
+#define MT6359_DA_VGPU12_VOSEL_ADDR                           \
+	MT6359_BUCK_VGPU12_DBG0
+#define MT6359_DA_VGPU12_VOSEL_MASK                           0x7F
+#define MT6359_DA_VGPU12_VOSEL_SHIFT                          0
+#define MT6359_DA_VGPU12_VOSEL_GRAY_ADDR                      \
+	MT6359_BUCK_VGPU12_DBG0
+#define MT6359_DA_VGPU12_VOSEL_GRAY_MASK                      0x7F
+#define MT6359_DA_VGPU12_VOSEL_GRAY_SHIFT                     8
+#define MT6359_DA_VGPU12_EN_ADDR                              \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_EN_MASK                              0x1
+#define MT6359_DA_VGPU12_EN_SHIFT                             0
+#define MT6359_DA_VGPU12_STB_ADDR                             \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_STB_MASK                             0x1
+#define MT6359_DA_VGPU12_STB_SHIFT                            1
+#define MT6359_DA_VGPU12_LOOP_SEL_ADDR                        \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_LOOP_SEL_MASK                        0x1
+#define MT6359_DA_VGPU12_LOOP_SEL_SHIFT                       2
+#define MT6359_DA_VGPU12_R2R_PDN_ADDR                         \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_R2R_PDN_MASK                         0x1
+#define MT6359_DA_VGPU12_R2R_PDN_SHIFT                        3
+#define MT6359_DA_VGPU12_DVS_EN_ADDR                          \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_DVS_EN_MASK                          0x1
+#define MT6359_DA_VGPU12_DVS_EN_SHIFT                         4
+#define MT6359_DA_VGPU12_DVS_DOWN_ADDR                        \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_DVS_DOWN_MASK                        0x1
+#define MT6359_DA_VGPU12_DVS_DOWN_SHIFT                       5
+#define MT6359_DA_VGPU12_SSH_ADDR                             \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_SSH_MASK                             0x1
+#define MT6359_DA_VGPU12_SSH_SHIFT                            6
+#define MT6359_DA_VGPU12_MINFREQ_DISCHARGE_ADDR               \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_DA_VGPU12_MINFREQ_DISCHARGE_MASK               0x1
+#define MT6359_DA_VGPU12_MINFREQ_DISCHARGE_SHIFT              8
+#define MT6359_RG_BUCK_VGPU12_CK_SW_MODE_ADDR                 \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_RG_BUCK_VGPU12_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VGPU12_CK_SW_MODE_SHIFT                12
+#define MT6359_RG_BUCK_VGPU12_CK_SW_EN_ADDR                   \
+	MT6359_BUCK_VGPU12_DBG1
+#define MT6359_RG_BUCK_VGPU12_CK_SW_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VGPU12_CK_SW_EN_SHIFT                  13
+#define MT6359_BUCK_VGPU12_ELR_LEN_ADDR                       \
+	MT6359_BUCK_VGPU12_ELR_NUM
+#define MT6359_BUCK_VGPU12_ELR_LEN_MASK                       0xFF
+#define MT6359_BUCK_VGPU12_ELR_LEN_SHIFT                      0
+#define MT6359_RG_BUCK_VGPU12_VOSEL_ADDR                      \
+	MT6359_BUCK_VGPU12_ELR0
+#define MT6359_RG_BUCK_VGPU12_VOSEL_MASK                      0x7F
+#define MT6359_RG_BUCK_VGPU12_VOSEL_SHIFT                     0
+#define MT6359_BUCK_VMODEM_ANA_ID_ADDR                        \
+	MT6359_BUCK_VMODEM_DSN_ID
+#define MT6359_BUCK_VMODEM_ANA_ID_MASK                        0xFF
+#define MT6359_BUCK_VMODEM_ANA_ID_SHIFT                       0
+#define MT6359_BUCK_VMODEM_DIG_ID_ADDR                        \
+	MT6359_BUCK_VMODEM_DSN_ID
+#define MT6359_BUCK_VMODEM_DIG_ID_MASK                        0xFF
+#define MT6359_BUCK_VMODEM_DIG_ID_SHIFT                       8
+#define MT6359_BUCK_VMODEM_ANA_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_REV0
+#define MT6359_BUCK_VMODEM_ANA_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VMODEM_ANA_MINOR_REV_SHIFT                0
+#define MT6359_BUCK_VMODEM_ANA_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_REV0
+#define MT6359_BUCK_VMODEM_ANA_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VMODEM_ANA_MAJOR_REV_SHIFT                4
+#define MT6359_BUCK_VMODEM_DIG_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_REV0
+#define MT6359_BUCK_VMODEM_DIG_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VMODEM_DIG_MINOR_REV_SHIFT                8
+#define MT6359_BUCK_VMODEM_DIG_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_REV0
+#define MT6359_BUCK_VMODEM_DIG_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VMODEM_DIG_MAJOR_REV_SHIFT                12
+#define MT6359_BUCK_VMODEM_DSN_CBS_ADDR                       \
+	MT6359_BUCK_VMODEM_DSN_DBI
+#define MT6359_BUCK_VMODEM_DSN_CBS_MASK                       0x3
+#define MT6359_BUCK_VMODEM_DSN_CBS_SHIFT                      0
+#define MT6359_BUCK_VMODEM_DSN_BIX_ADDR                       \
+	MT6359_BUCK_VMODEM_DSN_DBI
+#define MT6359_BUCK_VMODEM_DSN_BIX_MASK                       0x3
+#define MT6359_BUCK_VMODEM_DSN_BIX_SHIFT                      2
+#define MT6359_BUCK_VMODEM_DSN_ESP_ADDR                       \
+	MT6359_BUCK_VMODEM_DSN_DBI
+#define MT6359_BUCK_VMODEM_DSN_ESP_MASK                       0xFF
+#define MT6359_BUCK_VMODEM_DSN_ESP_SHIFT                      8
+#define MT6359_BUCK_VMODEM_DSN_FPI_SSHUB_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_SSHUB_MASK                 0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_SSHUB_SHIFT                0
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRACKING_ADDR              \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRACKING_MASK              0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRACKING_SHIFT             1
+#define MT6359_BUCK_VMODEM_DSN_FPI_PREOC_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_PREOC_MASK                 0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_PREOC_SHIFT                2
+#define MT6359_BUCK_VMODEM_DSN_FPI_VOTER_ADDR                 \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_VOTER_MASK                 0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_VOTER_SHIFT                3
+#define MT6359_BUCK_VMODEM_DSN_FPI_ULTRASONIC_ADDR            \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_ULTRASONIC_MASK            0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_ULTRASONIC_SHIFT           4
+#define MT6359_BUCK_VMODEM_DSN_FPI_DLC_ADDR                   \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_DLC_MASK                   0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_DLC_SHIFT                  5
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRAP_ADDR                  \
+	MT6359_BUCK_VMODEM_DSN_DXI
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRAP_MASK                  0x1
+#define MT6359_BUCK_VMODEM_DSN_FPI_TRAP_SHIFT                 6
+#define MT6359_RG_BUCK_VMODEM_EN_ADDR                         \
+	MT6359_BUCK_VMODEM_CON0
+#define MT6359_RG_BUCK_VMODEM_EN_MASK                         0x1
+#define MT6359_RG_BUCK_VMODEM_EN_SHIFT                        0
+#define MT6359_RG_BUCK_VMODEM_LP_ADDR                         \
+	MT6359_BUCK_VMODEM_CON0
+#define MT6359_RG_BUCK_VMODEM_LP_MASK                         0x1
+#define MT6359_RG_BUCK_VMODEM_LP_SHIFT                        1
+#define MT6359_RG_BUCK_VMODEM_CON0_SET_ADDR                   \
+	MT6359_BUCK_VMODEM_CON0_SET
+#define MT6359_RG_BUCK_VMODEM_CON0_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VMODEM_CON0_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VMODEM_CON0_CLR_ADDR                   \
+	MT6359_BUCK_VMODEM_CON0_CLR
+#define MT6359_RG_BUCK_VMODEM_CON0_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VMODEM_CON0_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VMODEM_VOSEL_SLEEP_ADDR                \
+	MT6359_BUCK_VMODEM_CON1
+#define MT6359_RG_BUCK_VMODEM_VOSEL_SLEEP_MASK                0x7F
+#define MT6359_RG_BUCK_VMODEM_VOSEL_SLEEP_SHIFT               0
+#define MT6359_RG_BUCK_VMODEM_SELR2R_CTRL_ADDR                \
+	MT6359_BUCK_VMODEM_SLP_CON
+#define MT6359_RG_BUCK_VMODEM_SELR2R_CTRL_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_SELR2R_CTRL_SHIFT               0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FRATE_ADDR                \
+	MT6359_BUCK_VMODEM_CFG0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FRATE_SHIFT               0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FEN_ADDR                  \
+	MT6359_BUCK_VMODEM_CFG0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FEN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_SFCHG_FEN_SHIFT                 7
+#define MT6359_RG_BUCK_VMODEM_SFCHG_RRATE_ADDR                \
+	MT6359_BUCK_VMODEM_CFG0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_RRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VMODEM_SFCHG_RRATE_SHIFT               8
+#define MT6359_RG_BUCK_VMODEM_SFCHG_REN_ADDR                  \
+	MT6359_BUCK_VMODEM_CFG0
+#define MT6359_RG_BUCK_VMODEM_SFCHG_REN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_SFCHG_REN_SHIFT                 15
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_EN_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_EN_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_EN_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_EN_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_EN_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_EN_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_BUCK_VMODEM_SW_OP_EN_ADDR                   \
+	MT6359_BUCK_VMODEM_OP_EN
+#define MT6359_RG_BUCK_VMODEM_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VMODEM_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_BUCK_VMODEM_OP_EN_SET_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN_SET
+#define MT6359_RG_BUCK_VMODEM_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VMODEM_OP_EN_CLR_ADDR                  \
+	MT6359_BUCK_VMODEM_OP_EN_CLR
+#define MT6359_RG_BUCK_VMODEM_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_CFG_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_CFG_ADDR                \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_CFG_ADDR                \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_CFG_ADDR                \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_CFG_ADDR                \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_CFG_ADDR                \
+	MT6359_BUCK_VMODEM_OP_CFG
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_SET_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG_SET
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_CLR_ADDR                 \
+	MT6359_BUCK_VMODEM_OP_CFG_CLR
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW0_OP_MODE_SHIFT               0
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW1_OP_MODE_SHIFT               1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW2_OP_MODE_SHIFT               2
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW3_OP_MODE_SHIFT               3
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW4_OP_MODE_SHIFT               4
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW5_OP_MODE_SHIFT               5
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW6_OP_MODE_SHIFT               6
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW7_OP_MODE_SHIFT               7
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW8_OP_MODE_SHIFT               8
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_MODE_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VMODEM_HW9_OP_MODE_SHIFT               9
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_MODE_ADDR               \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VMODEM_HW10_OP_MODE_SHIFT              10
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_MODE_ADDR               \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VMODEM_HW11_OP_MODE_SHIFT              11
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_MODE_ADDR               \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VMODEM_HW12_OP_MODE_SHIFT              12
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_MODE_ADDR               \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VMODEM_HW13_OP_MODE_SHIFT              13
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_MODE_ADDR               \
+	MT6359_BUCK_VMODEM_OP_MODE
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VMODEM_HW14_OP_MODE_SHIFT              14
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_SET_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE_SET
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_SET_MASK                0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_SET_SHIFT               0
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_CLR_ADDR                \
+	MT6359_BUCK_VMODEM_OP_MODE_CLR
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_CLR_MASK                0xFFFF
+#define MT6359_RG_BUCK_VMODEM_OP_MODE_CLR_SHIFT               0
+#define MT6359_DA_VMODEM_VOSEL_ADDR                           \
+	MT6359_BUCK_VMODEM_DBG0
+#define MT6359_DA_VMODEM_VOSEL_MASK                           0x7F
+#define MT6359_DA_VMODEM_VOSEL_SHIFT                          0
+#define MT6359_DA_VMODEM_VOSEL_GRAY_ADDR                      \
+	MT6359_BUCK_VMODEM_DBG0
+#define MT6359_DA_VMODEM_VOSEL_GRAY_MASK                      0x7F
+#define MT6359_DA_VMODEM_VOSEL_GRAY_SHIFT                     8
+#define MT6359_DA_VMODEM_EN_ADDR                              \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_EN_MASK                              0x1
+#define MT6359_DA_VMODEM_EN_SHIFT                             0
+#define MT6359_DA_VMODEM_STB_ADDR                             \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_STB_MASK                             0x1
+#define MT6359_DA_VMODEM_STB_SHIFT                            1
+#define MT6359_DA_VMODEM_LOOP_SEL_ADDR                        \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_LOOP_SEL_MASK                        0x1
+#define MT6359_DA_VMODEM_LOOP_SEL_SHIFT                       2
+#define MT6359_DA_VMODEM_R2R_PDN_ADDR                         \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_R2R_PDN_MASK                         0x1
+#define MT6359_DA_VMODEM_R2R_PDN_SHIFT                        3
+#define MT6359_DA_VMODEM_DVS_EN_ADDR                          \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_DVS_EN_MASK                          0x1
+#define MT6359_DA_VMODEM_DVS_EN_SHIFT                         4
+#define MT6359_DA_VMODEM_DVS_DOWN_ADDR                        \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_DVS_DOWN_MASK                        0x1
+#define MT6359_DA_VMODEM_DVS_DOWN_SHIFT                       5
+#define MT6359_DA_VMODEM_SSH_ADDR                             \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_SSH_MASK                             0x1
+#define MT6359_DA_VMODEM_SSH_SHIFT                            6
+#define MT6359_DA_VMODEM_MINFREQ_DISCHARGE_ADDR               \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_DA_VMODEM_MINFREQ_DISCHARGE_MASK               0x1
+#define MT6359_DA_VMODEM_MINFREQ_DISCHARGE_SHIFT              8
+#define MT6359_RG_BUCK_VMODEM_CK_SW_MODE_ADDR                 \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_RG_BUCK_VMODEM_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VMODEM_CK_SW_MODE_SHIFT                12
+#define MT6359_RG_BUCK_VMODEM_CK_SW_EN_ADDR                   \
+	MT6359_BUCK_VMODEM_DBG1
+#define MT6359_RG_BUCK_VMODEM_CK_SW_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VMODEM_CK_SW_EN_SHIFT                  13
+#define MT6359_RG_BUCK_VMODEM_TRACK_STALL_BYPASS_ADDR         \
+	MT6359_BUCK_VMODEM_STALL_TRACK0
+#define MT6359_RG_BUCK_VMODEM_TRACK_STALL_BYPASS_MASK         0x1
+#define MT6359_RG_BUCK_VMODEM_TRACK_STALL_BYPASS_SHIFT        0
+#define MT6359_BUCK_VMODEM_ELR_LEN_ADDR                       \
+	MT6359_BUCK_VMODEM_ELR_NUM
+#define MT6359_BUCK_VMODEM_ELR_LEN_MASK                       0xFF
+#define MT6359_BUCK_VMODEM_ELR_LEN_SHIFT                      0
+#define MT6359_RG_BUCK_VMODEM_VOSEL_ADDR                      \
+	MT6359_BUCK_VMODEM_ELR0
+#define MT6359_RG_BUCK_VMODEM_VOSEL_MASK                      0x7F
+#define MT6359_RG_BUCK_VMODEM_VOSEL_SHIFT                     0
+#define MT6359_BUCK_VPROC1_ANA_ID_ADDR                        \
+	MT6359_BUCK_VPROC1_DSN_ID
+#define MT6359_BUCK_VPROC1_ANA_ID_MASK                        0xFF
+#define MT6359_BUCK_VPROC1_ANA_ID_SHIFT                       0
+#define MT6359_BUCK_VPROC1_DIG_ID_ADDR                        \
+	MT6359_BUCK_VPROC1_DSN_ID
+#define MT6359_BUCK_VPROC1_DIG_ID_MASK                        0xFF
+#define MT6359_BUCK_VPROC1_DIG_ID_SHIFT                       8
+#define MT6359_BUCK_VPROC1_ANA_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_REV0
+#define MT6359_BUCK_VPROC1_ANA_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC1_ANA_MINOR_REV_SHIFT                0
+#define MT6359_BUCK_VPROC1_ANA_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_REV0
+#define MT6359_BUCK_VPROC1_ANA_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC1_ANA_MAJOR_REV_SHIFT                4
+#define MT6359_BUCK_VPROC1_DIG_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_REV0
+#define MT6359_BUCK_VPROC1_DIG_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC1_DIG_MINOR_REV_SHIFT                8
+#define MT6359_BUCK_VPROC1_DIG_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_REV0
+#define MT6359_BUCK_VPROC1_DIG_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC1_DIG_MAJOR_REV_SHIFT                12
+#define MT6359_BUCK_VPROC1_DSN_CBS_ADDR                       \
+	MT6359_BUCK_VPROC1_DSN_DBI
+#define MT6359_BUCK_VPROC1_DSN_CBS_MASK                       0x3
+#define MT6359_BUCK_VPROC1_DSN_CBS_SHIFT                      0
+#define MT6359_BUCK_VPROC1_DSN_BIX_ADDR                       \
+	MT6359_BUCK_VPROC1_DSN_DBI
+#define MT6359_BUCK_VPROC1_DSN_BIX_MASK                       0x3
+#define MT6359_BUCK_VPROC1_DSN_BIX_SHIFT                      2
+#define MT6359_BUCK_VPROC1_DSN_ESP_ADDR                       \
+	MT6359_BUCK_VPROC1_DSN_DBI
+#define MT6359_BUCK_VPROC1_DSN_ESP_MASK                       0xFF
+#define MT6359_BUCK_VPROC1_DSN_ESP_SHIFT                      8
+#define MT6359_BUCK_VPROC1_DSN_FPI_SSHUB_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_SSHUB_MASK                 0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_SSHUB_SHIFT                0
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRACKING_ADDR              \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRACKING_MASK              0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRACKING_SHIFT             1
+#define MT6359_BUCK_VPROC1_DSN_FPI_PREOC_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_PREOC_MASK                 0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_PREOC_SHIFT                2
+#define MT6359_BUCK_VPROC1_DSN_FPI_VOTER_ADDR                 \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_VOTER_MASK                 0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_VOTER_SHIFT                3
+#define MT6359_BUCK_VPROC1_DSN_FPI_ULTRASONIC_ADDR            \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_ULTRASONIC_MASK            0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_ULTRASONIC_SHIFT           4
+#define MT6359_BUCK_VPROC1_DSN_FPI_DLC_ADDR                   \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_DLC_MASK                   0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_DLC_SHIFT                  5
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRAP_ADDR                  \
+	MT6359_BUCK_VPROC1_DSN_DXI
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRAP_MASK                  0x1
+#define MT6359_BUCK_VPROC1_DSN_FPI_TRAP_SHIFT                 6
+#define MT6359_RG_BUCK_VPROC1_EN_ADDR                         \
+	MT6359_BUCK_VPROC1_CON0
+#define MT6359_RG_BUCK_VPROC1_EN_MASK                         0x1
+#define MT6359_RG_BUCK_VPROC1_EN_SHIFT                        0
+#define MT6359_RG_BUCK_VPROC1_LP_ADDR                         \
+	MT6359_BUCK_VPROC1_CON0
+#define MT6359_RG_BUCK_VPROC1_LP_MASK                         0x1
+#define MT6359_RG_BUCK_VPROC1_LP_SHIFT                        1
+#define MT6359_RG_BUCK_VPROC1_CON0_SET_ADDR                   \
+	MT6359_BUCK_VPROC1_CON0_SET
+#define MT6359_RG_BUCK_VPROC1_CON0_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPROC1_CON0_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC1_CON0_CLR_ADDR                   \
+	MT6359_BUCK_VPROC1_CON0_CLR
+#define MT6359_RG_BUCK_VPROC1_CON0_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPROC1_CON0_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC1_VOSEL_SLEEP_ADDR                \
+	MT6359_BUCK_VPROC1_CON1
+#define MT6359_RG_BUCK_VPROC1_VOSEL_SLEEP_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC1_VOSEL_SLEEP_SHIFT               0
+#define MT6359_RG_BUCK_VPROC1_SELR2R_CTRL_ADDR                \
+	MT6359_BUCK_VPROC1_SLP_CON
+#define MT6359_RG_BUCK_VPROC1_SELR2R_CTRL_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_SELR2R_CTRL_SHIFT               0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FRATE_ADDR                \
+	MT6359_BUCK_VPROC1_CFG0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FRATE_SHIFT               0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FEN_ADDR                  \
+	MT6359_BUCK_VPROC1_CFG0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FEN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_SFCHG_FEN_SHIFT                 7
+#define MT6359_RG_BUCK_VPROC1_SFCHG_RRATE_ADDR                \
+	MT6359_BUCK_VPROC1_CFG0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_RRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC1_SFCHG_RRATE_SHIFT               8
+#define MT6359_RG_BUCK_VPROC1_SFCHG_REN_ADDR                  \
+	MT6359_BUCK_VPROC1_CFG0
+#define MT6359_RG_BUCK_VPROC1_SFCHG_REN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_SFCHG_REN_SHIFT                 15
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_BUCK_VPROC1_SW_OP_EN_ADDR                   \
+	MT6359_BUCK_VPROC1_OP_EN
+#define MT6359_RG_BUCK_VPROC1_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VPROC1_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_BUCK_VPROC1_OP_EN_SET_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN_SET
+#define MT6359_RG_BUCK_VPROC1_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC1_OP_EN_CLR_ADDR                  \
+	MT6359_BUCK_VPROC1_OP_EN_CLR
+#define MT6359_RG_BUCK_VPROC1_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC1_OP_CFG
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_SET_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG_SET
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_CLR_ADDR                 \
+	MT6359_BUCK_VPROC1_OP_CFG_CLR
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW0_OP_MODE_SHIFT               0
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW1_OP_MODE_SHIFT               1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW2_OP_MODE_SHIFT               2
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW3_OP_MODE_SHIFT               3
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW4_OP_MODE_SHIFT               4
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW5_OP_MODE_SHIFT               5
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW6_OP_MODE_SHIFT               6
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW7_OP_MODE_SHIFT               7
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW8_OP_MODE_SHIFT               8
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC1_HW9_OP_MODE_SHIFT               9
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC1_HW10_OP_MODE_SHIFT              10
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC1_HW11_OP_MODE_SHIFT              11
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC1_HW12_OP_MODE_SHIFT              12
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC1_HW13_OP_MODE_SHIFT              13
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC1_OP_MODE
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC1_HW14_OP_MODE_SHIFT              14
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_SET_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE_SET
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_SET_MASK                0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_SET_SHIFT               0
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_CLR_ADDR                \
+	MT6359_BUCK_VPROC1_OP_MODE_CLR
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_CLR_MASK                0xFFFF
+#define MT6359_RG_BUCK_VPROC1_OP_MODE_CLR_SHIFT               0
+#define MT6359_DA_VPROC1_VOSEL_ADDR                           \
+	MT6359_BUCK_VPROC1_DBG0
+#define MT6359_DA_VPROC1_VOSEL_MASK                           0x7F
+#define MT6359_DA_VPROC1_VOSEL_SHIFT                          0
+#define MT6359_DA_VPROC1_VOSEL_GRAY_ADDR                      \
+	MT6359_BUCK_VPROC1_DBG0
+#define MT6359_DA_VPROC1_VOSEL_GRAY_MASK                      0x7F
+#define MT6359_DA_VPROC1_VOSEL_GRAY_SHIFT                     8
+#define MT6359_DA_VPROC1_EN_ADDR                              \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_EN_MASK                              0x1
+#define MT6359_DA_VPROC1_EN_SHIFT                             0
+#define MT6359_DA_VPROC1_STB_ADDR                             \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_STB_MASK                             0x1
+#define MT6359_DA_VPROC1_STB_SHIFT                            1
+#define MT6359_DA_VPROC1_LOOP_SEL_ADDR                        \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_LOOP_SEL_MASK                        0x1
+#define MT6359_DA_VPROC1_LOOP_SEL_SHIFT                       2
+#define MT6359_DA_VPROC1_R2R_PDN_ADDR                         \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_R2R_PDN_MASK                         0x1
+#define MT6359_DA_VPROC1_R2R_PDN_SHIFT                        3
+#define MT6359_DA_VPROC1_DVS_EN_ADDR                          \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_DVS_EN_MASK                          0x1
+#define MT6359_DA_VPROC1_DVS_EN_SHIFT                         4
+#define MT6359_DA_VPROC1_DVS_DOWN_ADDR                        \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_DVS_DOWN_MASK                        0x1
+#define MT6359_DA_VPROC1_DVS_DOWN_SHIFT                       5
+#define MT6359_DA_VPROC1_SSH_ADDR                             \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_SSH_MASK                             0x1
+#define MT6359_DA_VPROC1_SSH_SHIFT                            6
+#define MT6359_DA_VPROC1_MINFREQ_DISCHARGE_ADDR               \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_DA_VPROC1_MINFREQ_DISCHARGE_MASK               0x1
+#define MT6359_DA_VPROC1_MINFREQ_DISCHARGE_SHIFT              8
+#define MT6359_RG_BUCK_VPROC1_CK_SW_MODE_ADDR                 \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_RG_BUCK_VPROC1_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC1_CK_SW_MODE_SHIFT                12
+#define MT6359_RG_BUCK_VPROC1_CK_SW_EN_ADDR                   \
+	MT6359_BUCK_VPROC1_DBG1
+#define MT6359_RG_BUCK_VPROC1_CK_SW_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VPROC1_CK_SW_EN_SHIFT                  13
+#define MT6359_RG_BUCK_VPROC1_TRACK_STALL_BYPASS_ADDR         \
+	MT6359_BUCK_VPROC1_STALL_TRACK0
+#define MT6359_RG_BUCK_VPROC1_TRACK_STALL_BYPASS_MASK         0x1
+#define MT6359_RG_BUCK_VPROC1_TRACK_STALL_BYPASS_SHIFT        0
+#define MT6359_BUCK_VPROC1_ELR_LEN_ADDR                       \
+	MT6359_BUCK_VPROC1_ELR_NUM
+#define MT6359_BUCK_VPROC1_ELR_LEN_MASK                       0xFF
+#define MT6359_BUCK_VPROC1_ELR_LEN_SHIFT                      0
+#define MT6359_RG_BUCK_VPROC1_VOSEL_ADDR                      \
+	MT6359_BUCK_VPROC1_ELR0
+#define MT6359_RG_BUCK_VPROC1_VOSEL_MASK                      0x7F
+#define MT6359_RG_BUCK_VPROC1_VOSEL_SHIFT                     0
+#define MT6359_BUCK_VPROC2_ANA_ID_ADDR                        \
+	MT6359_BUCK_VPROC2_DSN_ID
+#define MT6359_BUCK_VPROC2_ANA_ID_MASK                        0xFF
+#define MT6359_BUCK_VPROC2_ANA_ID_SHIFT                       0
+#define MT6359_BUCK_VPROC2_DIG_ID_ADDR                        \
+	MT6359_BUCK_VPROC2_DSN_ID
+#define MT6359_BUCK_VPROC2_DIG_ID_MASK                        0xFF
+#define MT6359_BUCK_VPROC2_DIG_ID_SHIFT                       8
+#define MT6359_BUCK_VPROC2_ANA_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_REV0
+#define MT6359_BUCK_VPROC2_ANA_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC2_ANA_MINOR_REV_SHIFT                0
+#define MT6359_BUCK_VPROC2_ANA_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_REV0
+#define MT6359_BUCK_VPROC2_ANA_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC2_ANA_MAJOR_REV_SHIFT                4
+#define MT6359_BUCK_VPROC2_DIG_MINOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_REV0
+#define MT6359_BUCK_VPROC2_DIG_MINOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC2_DIG_MINOR_REV_SHIFT                8
+#define MT6359_BUCK_VPROC2_DIG_MAJOR_REV_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_REV0
+#define MT6359_BUCK_VPROC2_DIG_MAJOR_REV_MASK                 0xF
+#define MT6359_BUCK_VPROC2_DIG_MAJOR_REV_SHIFT                12
+#define MT6359_BUCK_VPROC2_DSN_CBS_ADDR                       \
+	MT6359_BUCK_VPROC2_DSN_DBI
+#define MT6359_BUCK_VPROC2_DSN_CBS_MASK                       0x3
+#define MT6359_BUCK_VPROC2_DSN_CBS_SHIFT                      0
+#define MT6359_BUCK_VPROC2_DSN_BIX_ADDR                       \
+	MT6359_BUCK_VPROC2_DSN_DBI
+#define MT6359_BUCK_VPROC2_DSN_BIX_MASK                       0x3
+#define MT6359_BUCK_VPROC2_DSN_BIX_SHIFT                      2
+#define MT6359_BUCK_VPROC2_DSN_ESP_ADDR                       \
+	MT6359_BUCK_VPROC2_DSN_DBI
+#define MT6359_BUCK_VPROC2_DSN_ESP_MASK                       0xFF
+#define MT6359_BUCK_VPROC2_DSN_ESP_SHIFT                      8
+#define MT6359_BUCK_VPROC2_DSN_FPI_SSHUB_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_SSHUB_MASK                 0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_SSHUB_SHIFT                0
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRACKING_ADDR              \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRACKING_MASK              0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRACKING_SHIFT             1
+#define MT6359_BUCK_VPROC2_DSN_FPI_PREOC_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_PREOC_MASK                 0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_PREOC_SHIFT                2
+#define MT6359_BUCK_VPROC2_DSN_FPI_VOTER_ADDR                 \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_VOTER_MASK                 0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_VOTER_SHIFT                3
+#define MT6359_BUCK_VPROC2_DSN_FPI_ULTRASONIC_ADDR            \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_ULTRASONIC_MASK            0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_ULTRASONIC_SHIFT           4
+#define MT6359_BUCK_VPROC2_DSN_FPI_DLC_ADDR                   \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_DLC_MASK                   0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_DLC_SHIFT                  5
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRAP_ADDR                  \
+	MT6359_BUCK_VPROC2_DSN_DXI
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRAP_MASK                  0x1
+#define MT6359_BUCK_VPROC2_DSN_FPI_TRAP_SHIFT                 6
+#define MT6359_RG_BUCK_VPROC2_EN_ADDR                         \
+	MT6359_BUCK_VPROC2_CON0
+#define MT6359_RG_BUCK_VPROC2_EN_MASK                         0x1
+#define MT6359_RG_BUCK_VPROC2_EN_SHIFT                        0
+#define MT6359_RG_BUCK_VPROC2_LP_ADDR                         \
+	MT6359_BUCK_VPROC2_CON0
+#define MT6359_RG_BUCK_VPROC2_LP_MASK                         0x1
+#define MT6359_RG_BUCK_VPROC2_LP_SHIFT                        1
+#define MT6359_RG_BUCK_VPROC2_CON0_SET_ADDR                   \
+	MT6359_BUCK_VPROC2_CON0_SET
+#define MT6359_RG_BUCK_VPROC2_CON0_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPROC2_CON0_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC2_CON0_CLR_ADDR                   \
+	MT6359_BUCK_VPROC2_CON0_CLR
+#define MT6359_RG_BUCK_VPROC2_CON0_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VPROC2_CON0_CLR_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_SLEEP_ADDR                \
+	MT6359_BUCK_VPROC2_CON1
+#define MT6359_RG_BUCK_VPROC2_VOSEL_SLEEP_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC2_VOSEL_SLEEP_SHIFT               0
+#define MT6359_RG_BUCK_VPROC2_SELR2R_CTRL_ADDR                \
+	MT6359_BUCK_VPROC2_SLP_CON
+#define MT6359_RG_BUCK_VPROC2_SELR2R_CTRL_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_SELR2R_CTRL_SHIFT               0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FRATE_ADDR                \
+	MT6359_BUCK_VPROC2_CFG0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FRATE_SHIFT               0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FEN_ADDR                  \
+	MT6359_BUCK_VPROC2_CFG0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FEN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_SFCHG_FEN_SHIFT                 7
+#define MT6359_RG_BUCK_VPROC2_SFCHG_RRATE_ADDR                \
+	MT6359_BUCK_VPROC2_CFG0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_RRATE_MASK                0x7F
+#define MT6359_RG_BUCK_VPROC2_SFCHG_RRATE_SHIFT               8
+#define MT6359_RG_BUCK_VPROC2_SFCHG_REN_ADDR                  \
+	MT6359_BUCK_VPROC2_CFG0
+#define MT6359_RG_BUCK_VPROC2_SFCHG_REN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_SFCHG_REN_SHIFT                 15
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_EN_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_EN_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_BUCK_VPROC2_SW_OP_EN_ADDR                   \
+	MT6359_BUCK_VPROC2_OP_EN
+#define MT6359_RG_BUCK_VPROC2_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VPROC2_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_BUCK_VPROC2_OP_EN_SET_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN_SET
+#define MT6359_RG_BUCK_VPROC2_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC2_OP_EN_CLR_ADDR                  \
+	MT6359_BUCK_VPROC2_OP_EN_CLR
+#define MT6359_RG_BUCK_VPROC2_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_CFG_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_CFG_ADDR                \
+	MT6359_BUCK_VPROC2_OP_CFG
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_SET_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG_SET
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_CLR_ADDR                 \
+	MT6359_BUCK_VPROC2_OP_CFG_CLR
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW0_OP_MODE_SHIFT               0
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW1_OP_MODE_SHIFT               1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW2_OP_MODE_SHIFT               2
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW3_OP_MODE_SHIFT               3
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW4_OP_MODE_SHIFT               4
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW5_OP_MODE_SHIFT               5
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW6_OP_MODE_SHIFT               6
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW7_OP_MODE_SHIFT               7
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW8_OP_MODE_SHIFT               8
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_MODE_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_MODE_MASK                0x1
+#define MT6359_RG_BUCK_VPROC2_HW9_OP_MODE_SHIFT               9
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC2_HW10_OP_MODE_SHIFT              10
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC2_HW11_OP_MODE_SHIFT              11
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC2_HW12_OP_MODE_SHIFT              12
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC2_HW13_OP_MODE_SHIFT              13
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_MODE_ADDR               \
+	MT6359_BUCK_VPROC2_OP_MODE
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_MODE_MASK               0x1
+#define MT6359_RG_BUCK_VPROC2_HW14_OP_MODE_SHIFT              14
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_SET_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE_SET
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_SET_MASK                0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_SET_SHIFT               0
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_CLR_ADDR                \
+	MT6359_BUCK_VPROC2_OP_MODE_CLR
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_CLR_MASK                0xFFFF
+#define MT6359_RG_BUCK_VPROC2_OP_MODE_CLR_SHIFT               0
+#define MT6359_DA_VPROC2_VOSEL_ADDR                           \
+	MT6359_BUCK_VPROC2_DBG0
+#define MT6359_DA_VPROC2_VOSEL_MASK                           0x7F
+#define MT6359_DA_VPROC2_VOSEL_SHIFT                          0
+#define MT6359_DA_VPROC2_VOSEL_GRAY_ADDR                      \
+	MT6359_BUCK_VPROC2_DBG0
+#define MT6359_DA_VPROC2_VOSEL_GRAY_MASK                      0x7F
+#define MT6359_DA_VPROC2_VOSEL_GRAY_SHIFT                     8
+#define MT6359_DA_VPROC2_EN_ADDR                              \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_EN_MASK                              0x1
+#define MT6359_DA_VPROC2_EN_SHIFT                             0
+#define MT6359_DA_VPROC2_STB_ADDR                             \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_STB_MASK                             0x1
+#define MT6359_DA_VPROC2_STB_SHIFT                            1
+#define MT6359_DA_VPROC2_LOOP_SEL_ADDR                        \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_LOOP_SEL_MASK                        0x1
+#define MT6359_DA_VPROC2_LOOP_SEL_SHIFT                       2
+#define MT6359_DA_VPROC2_R2R_PDN_ADDR                         \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_R2R_PDN_MASK                         0x1
+#define MT6359_DA_VPROC2_R2R_PDN_SHIFT                        3
+#define MT6359_DA_VPROC2_DVS_EN_ADDR                          \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_DVS_EN_MASK                          0x1
+#define MT6359_DA_VPROC2_DVS_EN_SHIFT                         4
+#define MT6359_DA_VPROC2_DVS_DOWN_ADDR                        \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_DVS_DOWN_MASK                        0x1
+#define MT6359_DA_VPROC2_DVS_DOWN_SHIFT                       5
+#define MT6359_DA_VPROC2_SSH_ADDR                             \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_SSH_MASK                             0x1
+#define MT6359_DA_VPROC2_SSH_SHIFT                            6
+#define MT6359_DA_VPROC2_MINFREQ_DISCHARGE_ADDR               \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_DA_VPROC2_MINFREQ_DISCHARGE_MASK               0x1
+#define MT6359_DA_VPROC2_MINFREQ_DISCHARGE_SHIFT              8
+#define MT6359_RG_BUCK_VPROC2_CK_SW_MODE_ADDR                 \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_RG_BUCK_VPROC2_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_CK_SW_MODE_SHIFT                12
+#define MT6359_RG_BUCK_VPROC2_CK_SW_EN_ADDR                   \
+	MT6359_BUCK_VPROC2_DBG1
+#define MT6359_RG_BUCK_VPROC2_CK_SW_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VPROC2_CK_SW_EN_SHIFT                  13
+#define MT6359_RG_BUCK_VPROC2_TRACK_EN_ADDR                   \
+	MT6359_BUCK_VPROC2_TRACK0
+#define MT6359_RG_BUCK_VPROC2_TRACK_EN_MASK                   0x1
+#define MT6359_RG_BUCK_VPROC2_TRACK_EN_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC2_TRACK_MODE_ADDR                 \
+	MT6359_BUCK_VPROC2_TRACK0
+#define MT6359_RG_BUCK_VPROC2_TRACK_MODE_MASK                 0x1
+#define MT6359_RG_BUCK_VPROC2_TRACK_MODE_SHIFT                1
+#define MT6359_RG_BUCK_VPROC2_VOSEL_DELTA_ADDR                \
+	MT6359_BUCK_VPROC2_TRACK0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_DELTA_MASK                0xF
+#define MT6359_RG_BUCK_VPROC2_VOSEL_DELTA_SHIFT               4
+#define MT6359_RG_BUCK_VPROC2_VOSEL_OFFSET_ADDR               \
+	MT6359_BUCK_VPROC2_TRACK0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_OFFSET_MASK               0x7F
+#define MT6359_RG_BUCK_VPROC2_VOSEL_OFFSET_SHIFT              8
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LB_ADDR                   \
+	MT6359_BUCK_VPROC2_TRACK1
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LB_MASK                   0x7F
+#define MT6359_RG_BUCK_VPROC2_VOSEL_LB_SHIFT                  0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_HB_ADDR                   \
+	MT6359_BUCK_VPROC2_TRACK1
+#define MT6359_RG_BUCK_VPROC2_VOSEL_HB_MASK                   0x7F
+#define MT6359_RG_BUCK_VPROC2_VOSEL_HB_SHIFT                  8
+#define MT6359_RG_BUCK_VPROC2_TRACK_STALL_BYPASS_ADDR         \
+	MT6359_BUCK_VPROC2_STALL_TRACK0
+#define MT6359_RG_BUCK_VPROC2_TRACK_STALL_BYPASS_MASK         0x1
+#define MT6359_RG_BUCK_VPROC2_TRACK_STALL_BYPASS_SHIFT        0
+#define MT6359_BUCK_VPROC2_ELR_LEN_ADDR                       \
+	MT6359_BUCK_VPROC2_ELR_NUM
+#define MT6359_BUCK_VPROC2_ELR_LEN_MASK                       0xFF
+#define MT6359_BUCK_VPROC2_ELR_LEN_SHIFT                      0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_ADDR                      \
+	MT6359_BUCK_VPROC2_ELR0
+#define MT6359_RG_BUCK_VPROC2_VOSEL_MASK                      0x7F
+#define MT6359_RG_BUCK_VPROC2_VOSEL_SHIFT                     0
+#define MT6359_BUCK_VS1_ANA_ID_ADDR                           \
+	MT6359_BUCK_VS1_DSN_ID
+#define MT6359_BUCK_VS1_ANA_ID_MASK                           0xFF
+#define MT6359_BUCK_VS1_ANA_ID_SHIFT                          0
+#define MT6359_BUCK_VS1_DIG_ID_ADDR                           \
+	MT6359_BUCK_VS1_DSN_ID
+#define MT6359_BUCK_VS1_DIG_ID_MASK                           0xFF
+#define MT6359_BUCK_VS1_DIG_ID_SHIFT                          8
+#define MT6359_BUCK_VS1_ANA_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VS1_DSN_REV0
+#define MT6359_BUCK_VS1_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS1_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_BUCK_VS1_ANA_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VS1_DSN_REV0
+#define MT6359_BUCK_VS1_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS1_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_BUCK_VS1_DIG_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VS1_DSN_REV0
+#define MT6359_BUCK_VS1_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS1_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_BUCK_VS1_DIG_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VS1_DSN_REV0
+#define MT6359_BUCK_VS1_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS1_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_BUCK_VS1_DSN_CBS_ADDR                          \
+	MT6359_BUCK_VS1_DSN_DBI
+#define MT6359_BUCK_VS1_DSN_CBS_MASK                          0x3
+#define MT6359_BUCK_VS1_DSN_CBS_SHIFT                         0
+#define MT6359_BUCK_VS1_DSN_BIX_ADDR                          \
+	MT6359_BUCK_VS1_DSN_DBI
+#define MT6359_BUCK_VS1_DSN_BIX_MASK                          0x3
+#define MT6359_BUCK_VS1_DSN_BIX_SHIFT                         2
+#define MT6359_BUCK_VS1_DSN_ESP_ADDR                          \
+	MT6359_BUCK_VS1_DSN_DBI
+#define MT6359_BUCK_VS1_DSN_ESP_MASK                          0xFF
+#define MT6359_BUCK_VS1_DSN_ESP_SHIFT                         8
+#define MT6359_BUCK_VS1_DSN_FPI_SSHUB_ADDR                    \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_SSHUB_MASK                    0x1
+#define MT6359_BUCK_VS1_DSN_FPI_SSHUB_SHIFT                   0
+#define MT6359_BUCK_VS1_DSN_FPI_TRACKING_ADDR                 \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_TRACKING_MASK                 0x1
+#define MT6359_BUCK_VS1_DSN_FPI_TRACKING_SHIFT                1
+#define MT6359_BUCK_VS1_DSN_FPI_PREOC_ADDR                    \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_PREOC_MASK                    0x1
+#define MT6359_BUCK_VS1_DSN_FPI_PREOC_SHIFT                   2
+#define MT6359_BUCK_VS1_DSN_FPI_VOTER_ADDR                    \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_VOTER_MASK                    0x1
+#define MT6359_BUCK_VS1_DSN_FPI_VOTER_SHIFT                   3
+#define MT6359_BUCK_VS1_DSN_FPI_ULTRASONIC_ADDR               \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_ULTRASONIC_MASK               0x1
+#define MT6359_BUCK_VS1_DSN_FPI_ULTRASONIC_SHIFT              4
+#define MT6359_BUCK_VS1_DSN_FPI_DLC_ADDR                      \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_DLC_MASK                      0x1
+#define MT6359_BUCK_VS1_DSN_FPI_DLC_SHIFT                     5
+#define MT6359_BUCK_VS1_DSN_FPI_TRAP_ADDR                     \
+	MT6359_BUCK_VS1_DSN_DXI
+#define MT6359_BUCK_VS1_DSN_FPI_TRAP_MASK                     0x1
+#define MT6359_BUCK_VS1_DSN_FPI_TRAP_SHIFT                    6
+#define MT6359_RG_BUCK_VS1_EN_ADDR                            \
+	MT6359_BUCK_VS1_CON0
+#define MT6359_RG_BUCK_VS1_EN_MASK                            0x1
+#define MT6359_RG_BUCK_VS1_EN_SHIFT                           0
+#define MT6359_RG_BUCK_VS1_LP_ADDR                            \
+	MT6359_BUCK_VS1_CON0
+#define MT6359_RG_BUCK_VS1_LP_MASK                            0x1
+#define MT6359_RG_BUCK_VS1_LP_SHIFT                           1
+#define MT6359_RG_BUCK_VS1_CON0_SET_ADDR                      \
+	MT6359_BUCK_VS1_CON0_SET
+#define MT6359_RG_BUCK_VS1_CON0_SET_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VS1_CON0_SET_SHIFT                     0
+#define MT6359_RG_BUCK_VS1_CON0_CLR_ADDR                      \
+	MT6359_BUCK_VS1_CON0_CLR
+#define MT6359_RG_BUCK_VS1_CON0_CLR_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VS1_CON0_CLR_SHIFT                     0
+#define MT6359_RG_BUCK_VS1_VOSEL_SLEEP_ADDR                   \
+	MT6359_BUCK_VS1_CON1
+#define MT6359_RG_BUCK_VS1_VOSEL_SLEEP_MASK                   0x7F
+#define MT6359_RG_BUCK_VS1_VOSEL_SLEEP_SHIFT                  0
+#define MT6359_RG_BUCK_VS1_SELR2R_CTRL_ADDR                   \
+	MT6359_BUCK_VS1_SLP_CON
+#define MT6359_RG_BUCK_VS1_SELR2R_CTRL_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_SELR2R_CTRL_SHIFT                  0
+#define MT6359_RG_BUCK_VS1_SFCHG_FRATE_ADDR                   \
+	MT6359_BUCK_VS1_CFG0
+#define MT6359_RG_BUCK_VS1_SFCHG_FRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VS1_SFCHG_FRATE_SHIFT                  0
+#define MT6359_RG_BUCK_VS1_SFCHG_FEN_ADDR                     \
+	MT6359_BUCK_VS1_CFG0
+#define MT6359_RG_BUCK_VS1_SFCHG_FEN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_SFCHG_FEN_SHIFT                    7
+#define MT6359_RG_BUCK_VS1_SFCHG_RRATE_ADDR                   \
+	MT6359_BUCK_VS1_CFG0
+#define MT6359_RG_BUCK_VS1_SFCHG_RRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VS1_SFCHG_RRATE_SHIFT                  8
+#define MT6359_RG_BUCK_VS1_SFCHG_REN_ADDR                     \
+	MT6359_BUCK_VS1_CFG0
+#define MT6359_RG_BUCK_VS1_SFCHG_REN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_SFCHG_REN_SHIFT                    15
+#define MT6359_RG_BUCK_VS1_HW0_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_BUCK_VS1_HW1_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_BUCK_VS1_HW2_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_BUCK_VS1_HW3_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_BUCK_VS1_HW4_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_BUCK_VS1_HW5_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_BUCK_VS1_HW6_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_BUCK_VS1_HW7_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_BUCK_VS1_HW8_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_BUCK_VS1_HW9_OP_EN_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS1_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_BUCK_VS1_HW10_OP_EN_ADDR                    \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_BUCK_VS1_HW11_OP_EN_ADDR                    \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_BUCK_VS1_HW12_OP_EN_ADDR                    \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_BUCK_VS1_HW13_OP_EN_ADDR                    \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_BUCK_VS1_HW14_OP_EN_ADDR                    \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_BUCK_VS1_SW_OP_EN_ADDR                      \
+	MT6359_BUCK_VS1_OP_EN
+#define MT6359_RG_BUCK_VS1_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VS1_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_BUCK_VS1_OP_EN_SET_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN_SET
+#define MT6359_RG_BUCK_VS1_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_BUCK_VS1_OP_EN_CLR_ADDR                     \
+	MT6359_BUCK_VS1_OP_EN_CLR
+#define MT6359_RG_BUCK_VS1_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_BUCK_VS1_HW0_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_BUCK_VS1_HW1_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_BUCK_VS1_HW2_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_BUCK_VS1_HW3_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_BUCK_VS1_HW4_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_BUCK_VS1_HW5_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_BUCK_VS1_HW6_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_BUCK_VS1_HW7_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_BUCK_VS1_HW8_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_BUCK_VS1_HW9_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_BUCK_VS1_HW10_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_BUCK_VS1_HW11_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_BUCK_VS1_HW12_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_BUCK_VS1_HW13_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_BUCK_VS1_HW14_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS1_OP_CFG
+#define MT6359_RG_BUCK_VS1_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_BUCK_VS1_OP_CFG_SET_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG_SET
+#define MT6359_RG_BUCK_VS1_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_BUCK_VS1_OP_CFG_CLR_ADDR                    \
+	MT6359_BUCK_VS1_OP_CFG_CLR
+#define MT6359_RG_BUCK_VS1_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_BUCK_VS1_HW0_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW0_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW0_OP_MODE_SHIFT                  0
+#define MT6359_RG_BUCK_VS1_HW1_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW1_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW1_OP_MODE_SHIFT                  1
+#define MT6359_RG_BUCK_VS1_HW2_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW2_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW2_OP_MODE_SHIFT                  2
+#define MT6359_RG_BUCK_VS1_HW3_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW3_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW3_OP_MODE_SHIFT                  3
+#define MT6359_RG_BUCK_VS1_HW4_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW4_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW4_OP_MODE_SHIFT                  4
+#define MT6359_RG_BUCK_VS1_HW5_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW5_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW5_OP_MODE_SHIFT                  5
+#define MT6359_RG_BUCK_VS1_HW6_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW6_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW6_OP_MODE_SHIFT                  6
+#define MT6359_RG_BUCK_VS1_HW7_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW7_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW7_OP_MODE_SHIFT                  7
+#define MT6359_RG_BUCK_VS1_HW8_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW8_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW8_OP_MODE_SHIFT                  8
+#define MT6359_RG_BUCK_VS1_HW9_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW9_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS1_HW9_OP_MODE_SHIFT                  9
+#define MT6359_RG_BUCK_VS1_HW10_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW10_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS1_HW10_OP_MODE_SHIFT                 10
+#define MT6359_RG_BUCK_VS1_HW11_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW11_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS1_HW11_OP_MODE_SHIFT                 11
+#define MT6359_RG_BUCK_VS1_HW12_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW12_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS1_HW12_OP_MODE_SHIFT                 12
+#define MT6359_RG_BUCK_VS1_HW13_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW13_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS1_HW13_OP_MODE_SHIFT                 13
+#define MT6359_RG_BUCK_VS1_HW14_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS1_OP_MODE
+#define MT6359_RG_BUCK_VS1_HW14_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS1_HW14_OP_MODE_SHIFT                 14
+#define MT6359_RG_BUCK_VS1_OP_MODE_SET_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE_SET
+#define MT6359_RG_BUCK_VS1_OP_MODE_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_MODE_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VS1_OP_MODE_CLR_ADDR                   \
+	MT6359_BUCK_VS1_OP_MODE_CLR
+#define MT6359_RG_BUCK_VS1_OP_MODE_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VS1_OP_MODE_CLR_SHIFT                  0
+#define MT6359_DA_VS1_VOSEL_ADDR                              \
+	MT6359_BUCK_VS1_DBG0
+#define MT6359_DA_VS1_VOSEL_MASK                              0x7F
+#define MT6359_DA_VS1_VOSEL_SHIFT                             0
+#define MT6359_DA_VS1_VOSEL_GRAY_ADDR                         \
+	MT6359_BUCK_VS1_DBG0
+#define MT6359_DA_VS1_VOSEL_GRAY_MASK                         0x7F
+#define MT6359_DA_VS1_VOSEL_GRAY_SHIFT                        8
+#define MT6359_DA_VS1_EN_ADDR                                 \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_EN_MASK                                 0x1
+#define MT6359_DA_VS1_EN_SHIFT                                0
+#define MT6359_DA_VS1_STB_ADDR                                \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_STB_MASK                                0x1
+#define MT6359_DA_VS1_STB_SHIFT                               1
+#define MT6359_DA_VS1_LOOP_SEL_ADDR                           \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_LOOP_SEL_MASK                           0x1
+#define MT6359_DA_VS1_LOOP_SEL_SHIFT                          2
+#define MT6359_DA_VS1_R2R_PDN_ADDR                            \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_R2R_PDN_MASK                            0x1
+#define MT6359_DA_VS1_R2R_PDN_SHIFT                           3
+#define MT6359_DA_VS1_DVS_EN_ADDR                             \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_DVS_EN_MASK                             0x1
+#define MT6359_DA_VS1_DVS_EN_SHIFT                            4
+#define MT6359_DA_VS1_DVS_DOWN_ADDR                           \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_DVS_DOWN_MASK                           0x1
+#define MT6359_DA_VS1_DVS_DOWN_SHIFT                          5
+#define MT6359_DA_VS1_SSH_ADDR                                \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_SSH_MASK                                0x1
+#define MT6359_DA_VS1_SSH_SHIFT                               6
+#define MT6359_DA_VS1_MINFREQ_DISCHARGE_ADDR                  \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_DA_VS1_MINFREQ_DISCHARGE_MASK                  0x1
+#define MT6359_DA_VS1_MINFREQ_DISCHARGE_SHIFT                 8
+#define MT6359_RG_BUCK_VS1_CK_SW_MODE_ADDR                    \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_RG_BUCK_VS1_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_BUCK_VS1_CK_SW_MODE_SHIFT                   12
+#define MT6359_RG_BUCK_VS1_CK_SW_EN_ADDR                      \
+	MT6359_BUCK_VS1_DBG1
+#define MT6359_RG_BUCK_VS1_CK_SW_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VS1_CK_SW_EN_SHIFT                     13
+#define MT6359_RG_BUCK_VS1_VOTER_EN_ADDR                      \
+	MT6359_BUCK_VS1_VOTER
+#define MT6359_RG_BUCK_VS1_VOTER_EN_MASK                      0xFFF
+#define MT6359_RG_BUCK_VS1_VOTER_EN_SHIFT                     0
+#define MT6359_RG_BUCK_VS1_VOTER_EN_SET_ADDR                  \
+	MT6359_BUCK_VS1_VOTER_SET
+#define MT6359_RG_BUCK_VS1_VOTER_EN_SET_MASK                  0xFFF
+#define MT6359_RG_BUCK_VS1_VOTER_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VS1_VOTER_EN_CLR_ADDR                  \
+	MT6359_BUCK_VS1_VOTER_CLR
+#define MT6359_RG_BUCK_VS1_VOTER_EN_CLR_MASK                  0xFFF
+#define MT6359_RG_BUCK_VS1_VOTER_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VS1_VOTER_VOSEL_ADDR                   \
+	MT6359_BUCK_VS1_VOTER_CFG
+#define MT6359_RG_BUCK_VS1_VOTER_VOSEL_MASK                   0x7F
+#define MT6359_RG_BUCK_VS1_VOTER_VOSEL_SHIFT                  0
+#define MT6359_BUCK_VS1_ELR_LEN_ADDR                          \
+	MT6359_BUCK_VS1_ELR_NUM
+#define MT6359_BUCK_VS1_ELR_LEN_MASK                          0xFF
+#define MT6359_BUCK_VS1_ELR_LEN_SHIFT                         0
+#define MT6359_RG_BUCK_VS1_VOSEL_ADDR                         \
+	MT6359_BUCK_VS1_ELR0
+#define MT6359_RG_BUCK_VS1_VOSEL_MASK                         0x7F
+#define MT6359_RG_BUCK_VS1_VOSEL_SHIFT                        0
+#define MT6359_BUCK_VS2_ANA_ID_ADDR                           \
+	MT6359_BUCK_VS2_DSN_ID
+#define MT6359_BUCK_VS2_ANA_ID_MASK                           0xFF
+#define MT6359_BUCK_VS2_ANA_ID_SHIFT                          0
+#define MT6359_BUCK_VS2_DIG_ID_ADDR                           \
+	MT6359_BUCK_VS2_DSN_ID
+#define MT6359_BUCK_VS2_DIG_ID_MASK                           0xFF
+#define MT6359_BUCK_VS2_DIG_ID_SHIFT                          8
+#define MT6359_BUCK_VS2_ANA_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VS2_DSN_REV0
+#define MT6359_BUCK_VS2_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS2_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_BUCK_VS2_ANA_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VS2_DSN_REV0
+#define MT6359_BUCK_VS2_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS2_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_BUCK_VS2_DIG_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VS2_DSN_REV0
+#define MT6359_BUCK_VS2_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS2_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_BUCK_VS2_DIG_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VS2_DSN_REV0
+#define MT6359_BUCK_VS2_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VS2_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_BUCK_VS2_DSN_CBS_ADDR                          \
+	MT6359_BUCK_VS2_DSN_DBI
+#define MT6359_BUCK_VS2_DSN_CBS_MASK                          0x3
+#define MT6359_BUCK_VS2_DSN_CBS_SHIFT                         0
+#define MT6359_BUCK_VS2_DSN_BIX_ADDR                          \
+	MT6359_BUCK_VS2_DSN_DBI
+#define MT6359_BUCK_VS2_DSN_BIX_MASK                          0x3
+#define MT6359_BUCK_VS2_DSN_BIX_SHIFT                         2
+#define MT6359_BUCK_VS2_DSN_ESP_ADDR                          \
+	MT6359_BUCK_VS2_DSN_DBI
+#define MT6359_BUCK_VS2_DSN_ESP_MASK                          0xFF
+#define MT6359_BUCK_VS2_DSN_ESP_SHIFT                         8
+#define MT6359_BUCK_VS2_DSN_FPI_SSHUB_ADDR                    \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_SSHUB_MASK                    0x1
+#define MT6359_BUCK_VS2_DSN_FPI_SSHUB_SHIFT                   0
+#define MT6359_BUCK_VS2_DSN_FPI_TRACKING_ADDR                 \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_TRACKING_MASK                 0x1
+#define MT6359_BUCK_VS2_DSN_FPI_TRACKING_SHIFT                1
+#define MT6359_BUCK_VS2_DSN_FPI_PREOC_ADDR                    \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_PREOC_MASK                    0x1
+#define MT6359_BUCK_VS2_DSN_FPI_PREOC_SHIFT                   2
+#define MT6359_BUCK_VS2_DSN_FPI_VOTER_ADDR                    \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_VOTER_MASK                    0x1
+#define MT6359_BUCK_VS2_DSN_FPI_VOTER_SHIFT                   3
+#define MT6359_BUCK_VS2_DSN_FPI_ULTRASONIC_ADDR               \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_ULTRASONIC_MASK               0x1
+#define MT6359_BUCK_VS2_DSN_FPI_ULTRASONIC_SHIFT              4
+#define MT6359_BUCK_VS2_DSN_FPI_DLC_ADDR                      \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_DLC_MASK                      0x1
+#define MT6359_BUCK_VS2_DSN_FPI_DLC_SHIFT                     5
+#define MT6359_BUCK_VS2_DSN_FPI_TRAP_ADDR                     \
+	MT6359_BUCK_VS2_DSN_DXI
+#define MT6359_BUCK_VS2_DSN_FPI_TRAP_MASK                     0x1
+#define MT6359_BUCK_VS2_DSN_FPI_TRAP_SHIFT                    6
+#define MT6359_RG_BUCK_VS2_EN_ADDR                            \
+	MT6359_BUCK_VS2_CON0
+#define MT6359_RG_BUCK_VS2_EN_MASK                            0x1
+#define MT6359_RG_BUCK_VS2_EN_SHIFT                           0
+#define MT6359_RG_BUCK_VS2_LP_ADDR                            \
+	MT6359_BUCK_VS2_CON0
+#define MT6359_RG_BUCK_VS2_LP_MASK                            0x1
+#define MT6359_RG_BUCK_VS2_LP_SHIFT                           1
+#define MT6359_RG_BUCK_VS2_CON0_SET_ADDR                      \
+	MT6359_BUCK_VS2_CON0_SET
+#define MT6359_RG_BUCK_VS2_CON0_SET_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VS2_CON0_SET_SHIFT                     0
+#define MT6359_RG_BUCK_VS2_CON0_CLR_ADDR                      \
+	MT6359_BUCK_VS2_CON0_CLR
+#define MT6359_RG_BUCK_VS2_CON0_CLR_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VS2_CON0_CLR_SHIFT                     0
+#define MT6359_RG_BUCK_VS2_VOSEL_SLEEP_ADDR                   \
+	MT6359_BUCK_VS2_CON1
+#define MT6359_RG_BUCK_VS2_VOSEL_SLEEP_MASK                   0x7F
+#define MT6359_RG_BUCK_VS2_VOSEL_SLEEP_SHIFT                  0
+#define MT6359_RG_BUCK_VS2_SELR2R_CTRL_ADDR                   \
+	MT6359_BUCK_VS2_SLP_CON
+#define MT6359_RG_BUCK_VS2_SELR2R_CTRL_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_SELR2R_CTRL_SHIFT                  0
+#define MT6359_RG_BUCK_VS2_SFCHG_FRATE_ADDR                   \
+	MT6359_BUCK_VS2_CFG0
+#define MT6359_RG_BUCK_VS2_SFCHG_FRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VS2_SFCHG_FRATE_SHIFT                  0
+#define MT6359_RG_BUCK_VS2_SFCHG_FEN_ADDR                     \
+	MT6359_BUCK_VS2_CFG0
+#define MT6359_RG_BUCK_VS2_SFCHG_FEN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_SFCHG_FEN_SHIFT                    7
+#define MT6359_RG_BUCK_VS2_SFCHG_RRATE_ADDR                   \
+	MT6359_BUCK_VS2_CFG0
+#define MT6359_RG_BUCK_VS2_SFCHG_RRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VS2_SFCHG_RRATE_SHIFT                  8
+#define MT6359_RG_BUCK_VS2_SFCHG_REN_ADDR                     \
+	MT6359_BUCK_VS2_CFG0
+#define MT6359_RG_BUCK_VS2_SFCHG_REN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_SFCHG_REN_SHIFT                    15
+#define MT6359_RG_BUCK_VS2_HW0_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_BUCK_VS2_HW1_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_BUCK_VS2_HW2_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_BUCK_VS2_HW3_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_BUCK_VS2_HW4_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_BUCK_VS2_HW5_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_BUCK_VS2_HW6_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_BUCK_VS2_HW7_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_BUCK_VS2_HW8_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_BUCK_VS2_HW9_OP_EN_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_BUCK_VS2_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_BUCK_VS2_HW10_OP_EN_ADDR                    \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_BUCK_VS2_HW11_OP_EN_ADDR                    \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_BUCK_VS2_HW12_OP_EN_ADDR                    \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_BUCK_VS2_HW13_OP_EN_ADDR                    \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_BUCK_VS2_HW14_OP_EN_ADDR                    \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_BUCK_VS2_SW_OP_EN_ADDR                      \
+	MT6359_BUCK_VS2_OP_EN
+#define MT6359_RG_BUCK_VS2_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VS2_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_BUCK_VS2_OP_EN_SET_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN_SET
+#define MT6359_RG_BUCK_VS2_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_BUCK_VS2_OP_EN_CLR_ADDR                     \
+	MT6359_BUCK_VS2_OP_EN_CLR
+#define MT6359_RG_BUCK_VS2_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_BUCK_VS2_HW0_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_BUCK_VS2_HW1_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_BUCK_VS2_HW2_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_BUCK_VS2_HW3_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_BUCK_VS2_HW4_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_BUCK_VS2_HW5_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_BUCK_VS2_HW6_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_BUCK_VS2_HW7_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_BUCK_VS2_HW8_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_BUCK_VS2_HW9_OP_CFG_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_BUCK_VS2_HW10_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_BUCK_VS2_HW11_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_BUCK_VS2_HW12_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_BUCK_VS2_HW13_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_BUCK_VS2_HW14_OP_CFG_ADDR                   \
+	MT6359_BUCK_VS2_OP_CFG
+#define MT6359_RG_BUCK_VS2_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_BUCK_VS2_OP_CFG_SET_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG_SET
+#define MT6359_RG_BUCK_VS2_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_BUCK_VS2_OP_CFG_CLR_ADDR                    \
+	MT6359_BUCK_VS2_OP_CFG_CLR
+#define MT6359_RG_BUCK_VS2_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_BUCK_VS2_HW0_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW0_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW0_OP_MODE_SHIFT                  0
+#define MT6359_RG_BUCK_VS2_HW1_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW1_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW1_OP_MODE_SHIFT                  1
+#define MT6359_RG_BUCK_VS2_HW2_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW2_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW2_OP_MODE_SHIFT                  2
+#define MT6359_RG_BUCK_VS2_HW3_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW3_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW3_OP_MODE_SHIFT                  3
+#define MT6359_RG_BUCK_VS2_HW4_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW4_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW4_OP_MODE_SHIFT                  4
+#define MT6359_RG_BUCK_VS2_HW5_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW5_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW5_OP_MODE_SHIFT                  5
+#define MT6359_RG_BUCK_VS2_HW6_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW6_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW6_OP_MODE_SHIFT                  6
+#define MT6359_RG_BUCK_VS2_HW7_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW7_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW7_OP_MODE_SHIFT                  7
+#define MT6359_RG_BUCK_VS2_HW8_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW8_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW8_OP_MODE_SHIFT                  8
+#define MT6359_RG_BUCK_VS2_HW9_OP_MODE_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW9_OP_MODE_MASK                   0x1
+#define MT6359_RG_BUCK_VS2_HW9_OP_MODE_SHIFT                  9
+#define MT6359_RG_BUCK_VS2_HW10_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW10_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS2_HW10_OP_MODE_SHIFT                 10
+#define MT6359_RG_BUCK_VS2_HW11_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW11_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS2_HW11_OP_MODE_SHIFT                 11
+#define MT6359_RG_BUCK_VS2_HW12_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW12_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS2_HW12_OP_MODE_SHIFT                 12
+#define MT6359_RG_BUCK_VS2_HW13_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW13_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS2_HW13_OP_MODE_SHIFT                 13
+#define MT6359_RG_BUCK_VS2_HW14_OP_MODE_ADDR                  \
+	MT6359_BUCK_VS2_OP_MODE
+#define MT6359_RG_BUCK_VS2_HW14_OP_MODE_MASK                  0x1
+#define MT6359_RG_BUCK_VS2_HW14_OP_MODE_SHIFT                 14
+#define MT6359_RG_BUCK_VS2_OP_MODE_SET_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE_SET
+#define MT6359_RG_BUCK_VS2_OP_MODE_SET_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_MODE_SET_SHIFT                  0
+#define MT6359_RG_BUCK_VS2_OP_MODE_CLR_ADDR                   \
+	MT6359_BUCK_VS2_OP_MODE_CLR
+#define MT6359_RG_BUCK_VS2_OP_MODE_CLR_MASK                   0xFFFF
+#define MT6359_RG_BUCK_VS2_OP_MODE_CLR_SHIFT                  0
+#define MT6359_DA_VS2_VOSEL_ADDR                              \
+	MT6359_BUCK_VS2_DBG0
+#define MT6359_DA_VS2_VOSEL_MASK                              0x7F
+#define MT6359_DA_VS2_VOSEL_SHIFT                             0
+#define MT6359_DA_VS2_VOSEL_GRAY_ADDR                         \
+	MT6359_BUCK_VS2_DBG0
+#define MT6359_DA_VS2_VOSEL_GRAY_MASK                         0x7F
+#define MT6359_DA_VS2_VOSEL_GRAY_SHIFT                        8
+#define MT6359_DA_VS2_EN_ADDR                                 \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_EN_MASK                                 0x1
+#define MT6359_DA_VS2_EN_SHIFT                                0
+#define MT6359_DA_VS2_STB_ADDR                                \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_STB_MASK                                0x1
+#define MT6359_DA_VS2_STB_SHIFT                               1
+#define MT6359_DA_VS2_LOOP_SEL_ADDR                           \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_LOOP_SEL_MASK                           0x1
+#define MT6359_DA_VS2_LOOP_SEL_SHIFT                          2
+#define MT6359_DA_VS2_R2R_PDN_ADDR                            \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_R2R_PDN_MASK                            0x1
+#define MT6359_DA_VS2_R2R_PDN_SHIFT                           3
+#define MT6359_DA_VS2_DVS_EN_ADDR                             \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_DVS_EN_MASK                             0x1
+#define MT6359_DA_VS2_DVS_EN_SHIFT                            4
+#define MT6359_DA_VS2_DVS_DOWN_ADDR                           \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_DVS_DOWN_MASK                           0x1
+#define MT6359_DA_VS2_DVS_DOWN_SHIFT                          5
+#define MT6359_DA_VS2_SSH_ADDR                                \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_SSH_MASK                                0x1
+#define MT6359_DA_VS2_SSH_SHIFT                               6
+#define MT6359_DA_VS2_MINFREQ_DISCHARGE_ADDR                  \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_DA_VS2_MINFREQ_DISCHARGE_MASK                  0x1
+#define MT6359_DA_VS2_MINFREQ_DISCHARGE_SHIFT                 8
+#define MT6359_RG_BUCK_VS2_CK_SW_MODE_ADDR                    \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_RG_BUCK_VS2_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_BUCK_VS2_CK_SW_MODE_SHIFT                   12
+#define MT6359_RG_BUCK_VS2_CK_SW_EN_ADDR                      \
+	MT6359_BUCK_VS2_DBG1
+#define MT6359_RG_BUCK_VS2_CK_SW_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VS2_CK_SW_EN_SHIFT                     13
+#define MT6359_RG_BUCK_VS2_VOTER_EN_ADDR                      \
+	MT6359_BUCK_VS2_VOTER
+#define MT6359_RG_BUCK_VS2_VOTER_EN_MASK                      0xFFF
+#define MT6359_RG_BUCK_VS2_VOTER_EN_SHIFT                     0
+#define MT6359_RG_BUCK_VS2_VOTER_EN_SET_ADDR                  \
+	MT6359_BUCK_VS2_VOTER_SET
+#define MT6359_RG_BUCK_VS2_VOTER_EN_SET_MASK                  0xFFF
+#define MT6359_RG_BUCK_VS2_VOTER_EN_SET_SHIFT                 0
+#define MT6359_RG_BUCK_VS2_VOTER_EN_CLR_ADDR                  \
+	MT6359_BUCK_VS2_VOTER_CLR
+#define MT6359_RG_BUCK_VS2_VOTER_EN_CLR_MASK                  0xFFF
+#define MT6359_RG_BUCK_VS2_VOTER_EN_CLR_SHIFT                 0
+#define MT6359_RG_BUCK_VS2_VOTER_VOSEL_ADDR                   \
+	MT6359_BUCK_VS2_VOTER_CFG
+#define MT6359_RG_BUCK_VS2_VOTER_VOSEL_MASK                   0x7F
+#define MT6359_RG_BUCK_VS2_VOTER_VOSEL_SHIFT                  0
+#define MT6359_BUCK_VS2_ELR_LEN_ADDR                          \
+	MT6359_BUCK_VS2_ELR_NUM
+#define MT6359_BUCK_VS2_ELR_LEN_MASK                          0xFF
+#define MT6359_BUCK_VS2_ELR_LEN_SHIFT                         0
+#define MT6359_RG_BUCK_VS2_VOSEL_ADDR                         \
+	MT6359_BUCK_VS2_ELR0
+#define MT6359_RG_BUCK_VS2_VOSEL_MASK                         0x7F
+#define MT6359_RG_BUCK_VS2_VOSEL_SHIFT                        0
+#define MT6359_BUCK_VPA_ANA_ID_ADDR                           \
+	MT6359_BUCK_VPA_DSN_ID
+#define MT6359_BUCK_VPA_ANA_ID_MASK                           0xFF
+#define MT6359_BUCK_VPA_ANA_ID_SHIFT                          0
+#define MT6359_BUCK_VPA_DIG_ID_ADDR                           \
+	MT6359_BUCK_VPA_DSN_ID
+#define MT6359_BUCK_VPA_DIG_ID_MASK                           0xFF
+#define MT6359_BUCK_VPA_DIG_ID_SHIFT                          8
+#define MT6359_BUCK_VPA_ANA_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VPA_DSN_REV0
+#define MT6359_BUCK_VPA_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPA_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_BUCK_VPA_ANA_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VPA_DSN_REV0
+#define MT6359_BUCK_VPA_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPA_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_BUCK_VPA_DIG_MINOR_REV_ADDR                    \
+	MT6359_BUCK_VPA_DSN_REV0
+#define MT6359_BUCK_VPA_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPA_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_BUCK_VPA_DIG_MAJOR_REV_ADDR                    \
+	MT6359_BUCK_VPA_DSN_REV0
+#define MT6359_BUCK_VPA_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_BUCK_VPA_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_BUCK_VPA_DSN_CBS_ADDR                          \
+	MT6359_BUCK_VPA_DSN_DBI
+#define MT6359_BUCK_VPA_DSN_CBS_MASK                          0x3
+#define MT6359_BUCK_VPA_DSN_CBS_SHIFT                         0
+#define MT6359_BUCK_VPA_DSN_BIX_ADDR                          \
+	MT6359_BUCK_VPA_DSN_DBI
+#define MT6359_BUCK_VPA_DSN_BIX_MASK                          0x3
+#define MT6359_BUCK_VPA_DSN_BIX_SHIFT                         2
+#define MT6359_BUCK_VPA_DSN_ESP_ADDR                          \
+	MT6359_BUCK_VPA_DSN_DBI
+#define MT6359_BUCK_VPA_DSN_ESP_MASK                          0xFF
+#define MT6359_BUCK_VPA_DSN_ESP_SHIFT                         8
+#define MT6359_BUCK_VPA_DSN_FPI_SSHUB_ADDR                    \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_SSHUB_MASK                    0x1
+#define MT6359_BUCK_VPA_DSN_FPI_SSHUB_SHIFT                   0
+#define MT6359_BUCK_VPA_DSN_FPI_TRACKING_ADDR                 \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_TRACKING_MASK                 0x1
+#define MT6359_BUCK_VPA_DSN_FPI_TRACKING_SHIFT                1
+#define MT6359_BUCK_VPA_DSN_FPI_PREOC_ADDR                    \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_PREOC_MASK                    0x1
+#define MT6359_BUCK_VPA_DSN_FPI_PREOC_SHIFT                   2
+#define MT6359_BUCK_VPA_DSN_FPI_VOTER_ADDR                    \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_VOTER_MASK                    0x1
+#define MT6359_BUCK_VPA_DSN_FPI_VOTER_SHIFT                   3
+#define MT6359_BUCK_VPA_DSN_FPI_ULTRASONIC_ADDR               \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_ULTRASONIC_MASK               0x1
+#define MT6359_BUCK_VPA_DSN_FPI_ULTRASONIC_SHIFT              4
+#define MT6359_BUCK_VPA_DSN_FPI_DLC_ADDR                      \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_DLC_MASK                      0x1
+#define MT6359_BUCK_VPA_DSN_FPI_DLC_SHIFT                     5
+#define MT6359_BUCK_VPA_DSN_FPI_TRAP_ADDR                     \
+	MT6359_BUCK_VPA_DSN_DXI
+#define MT6359_BUCK_VPA_DSN_FPI_TRAP_MASK                     0x1
+#define MT6359_BUCK_VPA_DSN_FPI_TRAP_SHIFT                    6
+#define MT6359_RG_BUCK_VPA_EN_ADDR                            \
+	MT6359_BUCK_VPA_CON0
+#define MT6359_RG_BUCK_VPA_EN_MASK                            0x1
+#define MT6359_RG_BUCK_VPA_EN_SHIFT                           0
+#define MT6359_RG_BUCK_VPA_LP_ADDR                            \
+	MT6359_BUCK_VPA_CON0
+#define MT6359_RG_BUCK_VPA_LP_MASK                            0x1
+#define MT6359_RG_BUCK_VPA_LP_SHIFT                           1
+#define MT6359_RG_BUCK_VPA_CON0_SET_ADDR                      \
+	MT6359_BUCK_VPA_CON0_SET
+#define MT6359_RG_BUCK_VPA_CON0_SET_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VPA_CON0_SET_SHIFT                     0
+#define MT6359_RG_BUCK_VPA_CON0_CLR_ADDR                      \
+	MT6359_BUCK_VPA_CON0_CLR
+#define MT6359_RG_BUCK_VPA_CON0_CLR_MASK                      0xFFFF
+#define MT6359_RG_BUCK_VPA_CON0_CLR_SHIFT                     0
+#define MT6359_RG_BUCK_VPA_VOSEL_ADDR                         \
+	MT6359_BUCK_VPA_CON1
+#define MT6359_RG_BUCK_VPA_VOSEL_MASK                         0x3F
+#define MT6359_RG_BUCK_VPA_VOSEL_SHIFT                        0
+#define MT6359_RG_BUCK_VPA_SFCHG_FRATE_ADDR                   \
+	MT6359_BUCK_VPA_CFG0
+#define MT6359_RG_BUCK_VPA_SFCHG_FRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VPA_SFCHG_FRATE_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_SFCHG_FEN_ADDR                     \
+	MT6359_BUCK_VPA_CFG0
+#define MT6359_RG_BUCK_VPA_SFCHG_FEN_MASK                     0x1
+#define MT6359_RG_BUCK_VPA_SFCHG_FEN_SHIFT                    7
+#define MT6359_RG_BUCK_VPA_SFCHG_RRATE_ADDR                   \
+	MT6359_BUCK_VPA_CFG0
+#define MT6359_RG_BUCK_VPA_SFCHG_RRATE_MASK                   0x7F
+#define MT6359_RG_BUCK_VPA_SFCHG_RRATE_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_SFCHG_REN_ADDR                     \
+	MT6359_BUCK_VPA_CFG0
+#define MT6359_RG_BUCK_VPA_SFCHG_REN_MASK                     0x1
+#define MT6359_RG_BUCK_VPA_SFCHG_REN_SHIFT                    15
+#define MT6359_RG_BUCK_VPA_DVS_DOWN_CTRL_ADDR                 \
+	MT6359_BUCK_VPA_CFG1
+#define MT6359_RG_BUCK_VPA_DVS_DOWN_CTRL_MASK                 0x1
+#define MT6359_RG_BUCK_VPA_DVS_DOWN_CTRL_SHIFT                0
+#define MT6359_DA_VPA_VOSEL_ADDR                              \
+	MT6359_BUCK_VPA_DBG0
+#define MT6359_DA_VPA_VOSEL_MASK                              0x3F
+#define MT6359_DA_VPA_VOSEL_SHIFT                             0
+#define MT6359_DA_VPA_VOSEL_GRAY_ADDR                         \
+	MT6359_BUCK_VPA_DBG0
+#define MT6359_DA_VPA_VOSEL_GRAY_MASK                         0x3F
+#define MT6359_DA_VPA_VOSEL_GRAY_SHIFT                        8
+#define MT6359_DA_VPA_EN_ADDR                                 \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_EN_MASK                                 0x1
+#define MT6359_DA_VPA_EN_SHIFT                                0
+#define MT6359_DA_VPA_STB_ADDR                                \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_STB_MASK                                0x1
+#define MT6359_DA_VPA_STB_SHIFT                               1
+#define MT6359_DA_VPA_DVS_TRANST_ADDR                         \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_DVS_TRANST_MASK                         0x1
+#define MT6359_DA_VPA_DVS_TRANST_SHIFT                        5
+#define MT6359_DA_VPA_DVS_BW_ADDR                             \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_DVS_BW_MASK                             0x1
+#define MT6359_DA_VPA_DVS_BW_SHIFT                            6
+#define MT6359_DA_VPA_DVS_DOWN_ADDR                           \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_DVS_DOWN_MASK                           0x1
+#define MT6359_DA_VPA_DVS_DOWN_SHIFT                          7
+#define MT6359_DA_VPA_MINFREQ_DISCHARGE_ADDR                  \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_DA_VPA_MINFREQ_DISCHARGE_MASK                  0x1
+#define MT6359_DA_VPA_MINFREQ_DISCHARGE_SHIFT                 8
+#define MT6359_RG_BUCK_VPA_CK_SW_MODE_ADDR                    \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_RG_BUCK_VPA_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_BUCK_VPA_CK_SW_MODE_SHIFT                   12
+#define MT6359_RG_BUCK_VPA_CK_SW_EN_ADDR                      \
+	MT6359_BUCK_VPA_DBG1
+#define MT6359_RG_BUCK_VPA_CK_SW_EN_MASK                      0x1
+#define MT6359_RG_BUCK_VPA_CK_SW_EN_SHIFT                     13
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC011_ADDR                  \
+	MT6359_BUCK_VPA_DLC_CON0
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC011_MASK                  0x3F
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC011_SHIFT                 0
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC111_ADDR                  \
+	MT6359_BUCK_VPA_DLC_CON0
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC111_MASK                  0x3F
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC111_SHIFT                 8
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC001_ADDR                  \
+	MT6359_BUCK_VPA_DLC_CON1
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC001_MASK                  0x3F
+#define MT6359_RG_BUCK_VPA_VOSEL_DLC001_SHIFT                 8
+#define MT6359_RG_BUCK_VPA_DLC_MAP_EN_ADDR                    \
+	MT6359_BUCK_VPA_DLC_CON2
+#define MT6359_RG_BUCK_VPA_DLC_MAP_EN_MASK                    0x1
+#define MT6359_RG_BUCK_VPA_DLC_MAP_EN_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_DLC_ADDR                           \
+	MT6359_BUCK_VPA_DLC_CON2
+#define MT6359_RG_BUCK_VPA_DLC_MASK                           0x7
+#define MT6359_RG_BUCK_VPA_DLC_SHIFT                          8
+#define MT6359_DA_VPA_DLC_ADDR                                \
+	MT6359_BUCK_VPA_DLC_CON2
+#define MT6359_DA_VPA_DLC_MASK                                0x7
+#define MT6359_DA_VPA_DLC_SHIFT                               12
+#define MT6359_RG_BUCK_VPA_MSFG_EN_ADDR                       \
+	MT6359_BUCK_VPA_MSFG_CON0
+#define MT6359_RG_BUCK_VPA_MSFG_EN_MASK                       0x1
+#define MT6359_RG_BUCK_VPA_MSFG_EN_SHIFT                      0
+#define MT6359_RG_BUCK_VPA_MSFG_RDELTA2GO_ADDR                \
+	MT6359_BUCK_VPA_MSFG_CON1
+#define MT6359_RG_BUCK_VPA_MSFG_RDELTA2GO_MASK                0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RDELTA2GO_SHIFT               0
+#define MT6359_RG_BUCK_VPA_MSFG_FDELTA2GO_ADDR                \
+	MT6359_BUCK_VPA_MSFG_CON1
+#define MT6359_RG_BUCK_VPA_MSFG_FDELTA2GO_MASK                0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FDELTA2GO_SHIFT               8
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE0_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE0
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE0_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE0_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE1_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE0
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE1_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE1_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE2_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE1
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE2_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE2_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE3_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE1
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE3_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE3_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE4_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE2
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE4_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE4_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE5_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_RRATE2
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE5_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RRATE5_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD0_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_RTHD0
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD0_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD0_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD1_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_RTHD0
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD1_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD1_SHIFT                   8
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD2_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_RTHD1
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD2_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD2_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD3_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_RTHD1
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD3_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD3_SHIFT                   8
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD4_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_RTHD2
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD4_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_RTHD4_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE0_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE0_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE0_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE1_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE1_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE1_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE2_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE1
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE2_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE2_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE3_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE1
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE3_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE3_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE4_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE2
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE4_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE4_SHIFT                  0
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE5_ADDR                   \
+	MT6359_BUCK_VPA_MSFG_FRATE2
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE5_MASK                   0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FRATE5_SHIFT                  8
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD0_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_FTHD0
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD0_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD0_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD1_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_FTHD0
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD1_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD1_SHIFT                   8
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD2_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_FTHD1
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD2_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD2_SHIFT                   0
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD3_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_FTHD1
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD3_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD3_SHIFT                   8
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD4_ADDR                    \
+	MT6359_BUCK_VPA_MSFG_FTHD2
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD4_MASK                    0x3F
+#define MT6359_RG_BUCK_VPA_MSFG_FTHD4_SHIFT                   0
+#define MT6359_BUCK_ANA0_ANA_ID_ADDR                          \
+	MT6359_BUCK_ANA0_DSN_ID
+#define MT6359_BUCK_ANA0_ANA_ID_MASK                          0xFF
+#define MT6359_BUCK_ANA0_ANA_ID_SHIFT                         0
+#define MT6359_BUCK_ANA0_DIG_ID_ADDR                          \
+	MT6359_BUCK_ANA0_DSN_ID
+#define MT6359_BUCK_ANA0_DIG_ID_MASK                          0xFF
+#define MT6359_BUCK_ANA0_DIG_ID_SHIFT                         8
+#define MT6359_BUCK_ANA0_ANA_MINOR_REV_ADDR                   \
+	MT6359_BUCK_ANA0_DSN_REV0
+#define MT6359_BUCK_ANA0_ANA_MINOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA0_ANA_MINOR_REV_SHIFT                  0
+#define MT6359_BUCK_ANA0_ANA_MAJOR_REV_ADDR                   \
+	MT6359_BUCK_ANA0_DSN_REV0
+#define MT6359_BUCK_ANA0_ANA_MAJOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA0_ANA_MAJOR_REV_SHIFT                  4
+#define MT6359_BUCK_ANA0_DIG_MINOR_REV_ADDR                   \
+	MT6359_BUCK_ANA0_DSN_REV0
+#define MT6359_BUCK_ANA0_DIG_MINOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA0_DIG_MINOR_REV_SHIFT                  8
+#define MT6359_BUCK_ANA0_DIG_MAJOR_REV_ADDR                   \
+	MT6359_BUCK_ANA0_DSN_REV0
+#define MT6359_BUCK_ANA0_DIG_MAJOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA0_DIG_MAJOR_REV_SHIFT                  12
+#define MT6359_BUCK_ANA0_DSN_CBS_ADDR                         \
+	MT6359_BUCK_ANA0_DSN_DBI
+#define MT6359_BUCK_ANA0_DSN_CBS_MASK                         0x3
+#define MT6359_BUCK_ANA0_DSN_CBS_SHIFT                        0
+#define MT6359_BUCK_ANA0_DSN_BIX_ADDR                         \
+	MT6359_BUCK_ANA0_DSN_DBI
+#define MT6359_BUCK_ANA0_DSN_BIX_MASK                         0x3
+#define MT6359_BUCK_ANA0_DSN_BIX_SHIFT                        2
+#define MT6359_BUCK_ANA0_DSN_ESP_ADDR                         \
+	MT6359_BUCK_ANA0_DSN_DBI
+#define MT6359_BUCK_ANA0_DSN_ESP_MASK                         0xFF
+#define MT6359_BUCK_ANA0_DSN_ESP_SHIFT                        8
+#define MT6359_BUCK_ANA0_DSN_FPI_ADDR                         \
+	MT6359_BUCK_ANA0_DSN_FPI
+#define MT6359_BUCK_ANA0_DSN_FPI_MASK                         0xFF
+#define MT6359_BUCK_ANA0_DSN_FPI_SHIFT                        0
+#define MT6359_RG_SMPS_TESTMODE_B_ADDR                        \
+	MT6359_SMPS_ANA_CON0
+#define MT6359_RG_SMPS_TESTMODE_B_MASK                        0x3F
+#define MT6359_RG_SMPS_TESTMODE_B_SHIFT                       0
+#define MT6359_RG_AUTOK_RST_ADDR                              \
+	MT6359_SMPS_ANA_CON0
+#define MT6359_RG_AUTOK_RST_MASK                              0x1
+#define MT6359_RG_AUTOK_RST_SHIFT                             6
+#define MT6359_RG_SMPS_DISAUTOK_ADDR                          \
+	MT6359_SMPS_ANA_CON0
+#define MT6359_RG_SMPS_DISAUTOK_MASK                          0x1
+#define MT6359_RG_SMPS_DISAUTOK_SHIFT                         7
+#define MT6359_RG_VGPU11_NDIS_EN_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VGPU11_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VGPU11_PWM_RSTRAMP_EN_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_PWM_RSTRAMP_EN_MASK                  0x1
+#define MT6359_RG_VGPU11_PWM_RSTRAMP_EN_SHIFT                 1
+#define MT6359_RG_VGPU11_SLEEP_TIME_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_SLEEP_TIME_MASK                      0x3
+#define MT6359_RG_VGPU11_SLEEP_TIME_SHIFT                     2
+#define MT6359_RG_VGPU11_LOOPSEL_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_LOOPSEL_DIS_MASK                     0x1
+#define MT6359_RG_VGPU11_LOOPSEL_DIS_SHIFT                    4
+#define MT6359_RG_VGPU11_TB_DIS_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_TB_DIS_MASK                          0x1
+#define MT6359_RG_VGPU11_TB_DIS_SHIFT                         5
+#define MT6359_RG_VGPU11_TB_PFM_OFF_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_TB_PFM_OFF_MASK                      0x1
+#define MT6359_RG_VGPU11_TB_PFM_OFF_SHIFT                     6
+#define MT6359_RG_VGPU11_DUMMY_LOAD_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_DUMMY_LOAD_EN_MASK                   0x1
+#define MT6359_RG_VGPU11_DUMMY_LOAD_EN_SHIFT                  7
+#define MT6359_RG_VGPU11_TB_VREFSEL_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_TB_VREFSEL_MASK                      0x3
+#define MT6359_RG_VGPU11_TB_VREFSEL_SHIFT                     8
+#define MT6359_RG_VGPU11_TON_EXTEND_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_TON_EXTEND_EN_MASK                   0x1
+#define MT6359_RG_VGPU11_TON_EXTEND_EN_SHIFT                  10
+#define MT6359_RG_VGPU11_URT_EN_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_URT_EN_MASK                          0x1
+#define MT6359_RG_VGPU11_URT_EN_SHIFT                         11
+#define MT6359_RG_VGPU11_OVP_EN_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_OVP_EN_MASK                          0x1
+#define MT6359_RG_VGPU11_OVP_EN_SHIFT                         12
+#define MT6359_RG_VGPU11_OVP_VREFSEL_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_OVP_VREFSEL_MASK                     0x1
+#define MT6359_RG_VGPU11_OVP_VREFSEL_SHIFT                    13
+#define MT6359_RG_VGPU11_RAMP_AC_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON0
+#define MT6359_RG_VGPU11_RAMP_AC_MASK                         0x1
+#define MT6359_RG_VGPU11_RAMP_AC_SHIFT                        14
+#define MT6359_RG_VGPU11_OCP_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON1
+#define MT6359_RG_VGPU11_OCP_MASK                             0x7
+#define MT6359_RG_VGPU11_OCP_SHIFT                            0
+#define MT6359_RG_VGPU11_OCN_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON1
+#define MT6359_RG_VGPU11_OCN_MASK                             0x7
+#define MT6359_RG_VGPU11_OCN_SHIFT                            3
+#define MT6359_RG_VGPU11_FUGON_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON1
+#define MT6359_RG_VGPU11_FUGON_MASK                           0x1
+#define MT6359_RG_VGPU11_FUGON_SHIFT                          6
+#define MT6359_RG_VGPU11_FLGON_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON1
+#define MT6359_RG_VGPU11_FLGON_MASK                           0x1
+#define MT6359_RG_VGPU11_FLGON_SHIFT                          7
+#define MT6359_RG_VGPU11_PFM_PEAK_ADDR                        \
+	MT6359_VGPUVCORE_ANA_CON1
+#define MT6359_RG_VGPU11_PFM_PEAK_MASK                        0xF
+#define MT6359_RG_VGPU11_PFM_PEAK_SHIFT                       8
+#define MT6359_RG_VGPU11_SONIC_PFM_PEAK_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_SONIC_PFM_PEAK_MASK                  0xF
+#define MT6359_RG_VGPU11_SONIC_PFM_PEAK_SHIFT                 0
+#define MT6359_RG_VGPU11_VDIFF_GROUNDSEL_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_VDIFF_GROUNDSEL_MASK                 0x1
+#define MT6359_RG_VGPU11_VDIFF_GROUNDSEL_SHIFT                4
+#define MT6359_RG_VGPU11_UG_SR_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_UG_SR_MASK                           0x3
+#define MT6359_RG_VGPU11_UG_SR_SHIFT                          5
+#define MT6359_RG_VGPU11_LG_SR_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_LG_SR_MASK                           0x3
+#define MT6359_RG_VGPU11_LG_SR_SHIFT                          7
+#define MT6359_RG_VGPU11_FCCM_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_FCCM_MASK                            0x1
+#define MT6359_RG_VGPU11_FCCM_SHIFT                           9
+#define MT6359_RG_VGPU11_RETENTION_EN_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_RETENTION_EN_MASK                    0x1
+#define MT6359_RG_VGPU11_RETENTION_EN_SHIFT                   10
+#define MT6359_RG_VGPU11_NONAUDIBLE_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON2
+#define MT6359_RG_VGPU11_NONAUDIBLE_EN_MASK                   0x1
+#define MT6359_RG_VGPU11_NONAUDIBLE_EN_SHIFT                  11
+#define MT6359_RG_VGPU11_RSVH_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON3
+#define MT6359_RG_VGPU11_RSVH_MASK                            0xFF
+#define MT6359_RG_VGPU11_RSVH_SHIFT                           0
+#define MT6359_RG_VGPU11_RSVL_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON3
+#define MT6359_RG_VGPU11_RSVL_MASK                            0xFF
+#define MT6359_RG_VGPU11_RSVL_SHIFT                           8
+#define MT6359_RGS_VGPU11_OC_STATUS_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON4
+#define MT6359_RGS_VGPU11_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VGPU11_OC_STATUS_SHIFT                     0
+#define MT6359_RGS_VGPU11_DIG_MON_ADDR                        \
+	MT6359_VGPUVCORE_ANA_CON4
+#define MT6359_RGS_VGPU11_DIG_MON_MASK                        0x1
+#define MT6359_RGS_VGPU11_DIG_MON_SHIFT                       1
+#define MT6359_RG_VGPU11_DIGMON_SEL_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON4
+#define MT6359_RG_VGPU11_DIGMON_SEL_MASK                      0x7
+#define MT6359_RG_VGPU11_DIGMON_SEL_SHIFT                     2
+#define MT6359_RG_VGPU11_VBAT_LOW_DIS_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_VBAT_LOW_DIS_MASK                    0x1
+#define MT6359_RG_VGPU11_VBAT_LOW_DIS_SHIFT                   0
+#define MT6359_RG_VGPU11_VBAT_HI_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_VBAT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VGPU11_VBAT_HI_DIS_SHIFT                    1
+#define MT6359_RG_VGPU11_VOUT_HI_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_VOUT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VGPU11_VOUT_HI_DIS_SHIFT                    2
+#define MT6359_RG_VGPU11_RCB_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_RCB_MASK                             0x7
+#define MT6359_RG_VGPU11_RCB_SHIFT                            3
+#define MT6359_RG_VGPU11_VDIFF_OFF_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_VDIFF_OFF_MASK                       0x1
+#define MT6359_RG_VGPU11_VDIFF_OFF_SHIFT                      6
+#define MT6359_RG_VGPU11_VDIFFCAP_EN_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_VDIFFCAP_EN_MASK                     0x1
+#define MT6359_RG_VGPU11_VDIFFCAP_EN_SHIFT                    7
+#define MT6359_RG_VGPU11_DAC_VREF_1P1V_EN_ADDR                \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_DAC_VREF_1P1V_EN_MASK                0x1
+#define MT6359_RG_VGPU11_DAC_VREF_1P1V_EN_SHIFT               8
+#define MT6359_RG_VGPU11_DAC_VREF_1P2V_EN_ADDR                \
+	MT6359_VGPUVCORE_ANA_CON5
+#define MT6359_RG_VGPU11_DAC_VREF_1P2V_EN_MASK                0x1
+#define MT6359_RG_VGPU11_DAC_VREF_1P2V_EN_SHIFT               9
+#define MT6359_RG_VGPU12_NDIS_EN_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VGPU12_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VGPU12_PWM_RSTRAMP_EN_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_PWM_RSTRAMP_EN_MASK                  0x1
+#define MT6359_RG_VGPU12_PWM_RSTRAMP_EN_SHIFT                 1
+#define MT6359_RG_VGPU12_SLEEP_TIME_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_SLEEP_TIME_MASK                      0x3
+#define MT6359_RG_VGPU12_SLEEP_TIME_SHIFT                     2
+#define MT6359_RG_VGPU12_LOOPSEL_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_LOOPSEL_DIS_MASK                     0x1
+#define MT6359_RG_VGPU12_LOOPSEL_DIS_SHIFT                    4
+#define MT6359_RG_VGPU12_TB_DIS_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_TB_DIS_MASK                          0x1
+#define MT6359_RG_VGPU12_TB_DIS_SHIFT                         5
+#define MT6359_RG_VGPU12_TB_PFM_OFF_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_TB_PFM_OFF_MASK                      0x1
+#define MT6359_RG_VGPU12_TB_PFM_OFF_SHIFT                     6
+#define MT6359_RG_VGPU12_TB_VREFSEL_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_TB_VREFSEL_MASK                      0x3
+#define MT6359_RG_VGPU12_TB_VREFSEL_SHIFT                     8
+#define MT6359_RG_VGPU12_TON_EXTEND_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_TON_EXTEND_EN_MASK                   0x1
+#define MT6359_RG_VGPU12_TON_EXTEND_EN_SHIFT                  10
+#define MT6359_RG_VGPU12_URT_EN_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_URT_EN_MASK                          0x1
+#define MT6359_RG_VGPU12_URT_EN_SHIFT                         11
+#define MT6359_RG_VGPU12_DUMMY_LOAD_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_DUMMY_LOAD_EN_MASK                   0x1
+#define MT6359_RG_VGPU12_DUMMY_LOAD_EN_SHIFT                  12
+#define MT6359_RG_VGPU12_OVP_EN_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_OVP_EN_MASK                          0x1
+#define MT6359_RG_VGPU12_OVP_EN_SHIFT                         13
+#define MT6359_RG_VGPU12_OVP_VREFSEL_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_OVP_VREFSEL_MASK                     0x1
+#define MT6359_RG_VGPU12_OVP_VREFSEL_SHIFT                    14
+#define MT6359_RG_VGPU12_RAMP_AC_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON6
+#define MT6359_RG_VGPU12_RAMP_AC_MASK                         0x1
+#define MT6359_RG_VGPU12_RAMP_AC_SHIFT                        15
+#define MT6359_RG_VGPU12_OCP_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON7
+#define MT6359_RG_VGPU12_OCP_MASK                             0x7
+#define MT6359_RG_VGPU12_OCP_SHIFT                            0
+#define MT6359_RG_VGPU12_OCN_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON7
+#define MT6359_RG_VGPU12_OCN_MASK                             0x7
+#define MT6359_RG_VGPU12_OCN_SHIFT                            3
+#define MT6359_RG_VGPU12_PFM_PEAK_ADDR                        \
+	MT6359_VGPUVCORE_ANA_CON7
+#define MT6359_RG_VGPU12_PFM_PEAK_MASK                        0xF
+#define MT6359_RG_VGPU12_PFM_PEAK_SHIFT                       8
+#define MT6359_RG_VGPU12_SONIC_PFM_PEAK_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON7
+#define MT6359_RG_VGPU12_SONIC_PFM_PEAK_MASK                  0xF
+#define MT6359_RG_VGPU12_SONIC_PFM_PEAK_SHIFT                 12
+#define MT6359_RG_VGPU12_FLGON_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_FLGON_MASK                           0x1
+#define MT6359_RG_VGPU12_FLGON_SHIFT                          0
+#define MT6359_RG_VGPU12_FUGON_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_FUGON_MASK                           0x1
+#define MT6359_RG_VGPU12_FUGON_SHIFT                          1
+#define MT6359_RG_VGPU12_VDIFF_GROUNDSEL_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_VDIFF_GROUNDSEL_MASK                 0x1
+#define MT6359_RG_VGPU12_VDIFF_GROUNDSEL_SHIFT                2
+#define MT6359_RG_VGPU12_UG_SR_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_UG_SR_MASK                           0x3
+#define MT6359_RG_VGPU12_UG_SR_SHIFT                          3
+#define MT6359_RG_VGPU12_LG_SR_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_LG_SR_MASK                           0x3
+#define MT6359_RG_VGPU12_LG_SR_SHIFT                          5
+#define MT6359_RG_VGPU12_FCCM_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_FCCM_MASK                            0x1
+#define MT6359_RG_VGPU12_FCCM_SHIFT                           7
+#define MT6359_RG_VGPU12_RSVH_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON8
+#define MT6359_RG_VGPU12_RSVH_MASK                            0xFF
+#define MT6359_RG_VGPU12_RSVH_SHIFT                           8
+#define MT6359_RG_VGPU12_RSVL_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RG_VGPU12_RSVL_MASK                            0xFF
+#define MT6359_RG_VGPU12_RSVL_SHIFT                           0
+#define MT6359_RG_VGPU12_NONAUDIBLE_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RG_VGPU12_NONAUDIBLE_EN_MASK                   0x1
+#define MT6359_RG_VGPU12_NONAUDIBLE_EN_SHIFT                  8
+#define MT6359_RG_VGPU12_RETENTION_EN_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RG_VGPU12_RETENTION_EN_MASK                    0x1
+#define MT6359_RG_VGPU12_RETENTION_EN_SHIFT                   9
+#define MT6359_RGS_VGPU12_OC_STATUS_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RGS_VGPU12_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VGPU12_OC_STATUS_SHIFT                     10
+#define MT6359_RGS_VGPU12_DIG_MON_ADDR                        \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RGS_VGPU12_DIG_MON_MASK                        0x1
+#define MT6359_RGS_VGPU12_DIG_MON_SHIFT                       11
+#define MT6359_RG_VGPU12_DIGMON_SEL_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON9
+#define MT6359_RG_VGPU12_DIGMON_SEL_MASK                      0x7
+#define MT6359_RG_VGPU12_DIGMON_SEL_SHIFT                     12
+#define MT6359_RG_VGPU12_RCB_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_RCB_MASK                             0x7
+#define MT6359_RG_VGPU12_RCB_SHIFT                            0
+#define MT6359_RG_VGPU12_VBAT_HI_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_VBAT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VGPU12_VBAT_HI_DIS_SHIFT                    3
+#define MT6359_RG_VGPU12_VBAT_LOW_DIS_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_VBAT_LOW_DIS_MASK                    0x1
+#define MT6359_RG_VGPU12_VBAT_LOW_DIS_SHIFT                   4
+#define MT6359_RG_VGPU12_VOUT_HI_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_VOUT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VGPU12_VOUT_HI_DIS_SHIFT                    5
+#define MT6359_RG_VGPU12_VDIFF_OFF_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_VDIFF_OFF_MASK                       0x1
+#define MT6359_RG_VGPU12_VDIFF_OFF_SHIFT                      6
+#define MT6359_RG_VGPU12_VDIFFCAP_EN_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_VDIFFCAP_EN_MASK                     0x1
+#define MT6359_RG_VGPU12_VDIFFCAP_EN_SHIFT                    7
+#define MT6359_RG_VGPU12_DAC_VREF_1P1V_EN_ADDR                \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_DAC_VREF_1P1V_EN_MASK                0x1
+#define MT6359_RG_VGPU12_DAC_VREF_1P1V_EN_SHIFT               8
+#define MT6359_RG_VGPU12_DAC_VREF_1P2V_EN_ADDR                \
+	MT6359_VGPUVCORE_ANA_CON10
+#define MT6359_RG_VGPU12_DAC_VREF_1P2V_EN_MASK                0x1
+#define MT6359_RG_VGPU12_DAC_VREF_1P2V_EN_SHIFT               9
+#define MT6359_RG_VCORE_TB_DIS_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_TB_DIS_MASK                           0x1
+#define MT6359_RG_VCORE_TB_DIS_SHIFT                          0
+#define MT6359_RG_VCORE_NDIS_EN_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VCORE_NDIS_EN_SHIFT                         1
+#define MT6359_RG_VCORE_LOOPSEL_DIS_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_LOOPSEL_DIS_MASK                      0x1
+#define MT6359_RG_VCORE_LOOPSEL_DIS_SHIFT                     2
+#define MT6359_RG_VCORE_PWM_RSTRAMP_EN_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_PWM_RSTRAMP_EN_MASK                   0x1
+#define MT6359_RG_VCORE_PWM_RSTRAMP_EN_SHIFT                  3
+#define MT6359_RG_VCORE_SLEEP_TIME_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_SLEEP_TIME_MASK                       0x3
+#define MT6359_RG_VCORE_SLEEP_TIME_SHIFT                      4
+#define MT6359_RG_VCORE_TB_VREFSEL_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_TB_VREFSEL_MASK                       0x3
+#define MT6359_RG_VCORE_TB_VREFSEL_SHIFT                      6
+#define MT6359_RG_VCORE_TB_PFM_OFF_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_TB_PFM_OFF_MASK                       0x1
+#define MT6359_RG_VCORE_TB_PFM_OFF_SHIFT                      8
+#define MT6359_RG_VCORE_TON_EXTEND_EN_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_TON_EXTEND_EN_MASK                    0x1
+#define MT6359_RG_VCORE_TON_EXTEND_EN_SHIFT                   9
+#define MT6359_RG_VCORE_URT_EN_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_URT_EN_MASK                           0x1
+#define MT6359_RG_VCORE_URT_EN_SHIFT                          10
+#define MT6359_RG_VCORE_DUMMY_LOAD_EN_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_DUMMY_LOAD_EN_MASK                    0x1
+#define MT6359_RG_VCORE_DUMMY_LOAD_EN_SHIFT                   11
+#define MT6359_RG_VCORE_OVP_EN_ADDR                           \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_OVP_EN_MASK                           0x1
+#define MT6359_RG_VCORE_OVP_EN_SHIFT                          12
+#define MT6359_RG_VCORE_OVP_VREFSEL_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_OVP_VREFSEL_MASK                      0x1
+#define MT6359_RG_VCORE_OVP_VREFSEL_SHIFT                     13
+#define MT6359_RG_VCORE_RAMP_AC_ADDR                          \
+	MT6359_VGPUVCORE_ANA_CON11
+#define MT6359_RG_VCORE_RAMP_AC_MASK                          0x1
+#define MT6359_RG_VCORE_RAMP_AC_SHIFT                         14
+#define MT6359_RG_VCORE_OCP_ADDR                              \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_OCP_MASK                              0x7
+#define MT6359_RG_VCORE_OCP_SHIFT                             0
+#define MT6359_RG_VCORE_OCN_ADDR                              \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_OCN_MASK                              0x7
+#define MT6359_RG_VCORE_OCN_SHIFT                             3
+#define MT6359_RG_VCORE_FUGON_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_FUGON_MASK                            0x1
+#define MT6359_RG_VCORE_FUGON_SHIFT                           6
+#define MT6359_RG_VCORE_FLGON_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_FLGON_MASK                            0x1
+#define MT6359_RG_VCORE_FLGON_SHIFT                           7
+#define MT6359_RG_VCORE_PFM_PEAK_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_PFM_PEAK_MASK                         0xF
+#define MT6359_RG_VCORE_PFM_PEAK_SHIFT                        8
+#define MT6359_RG_VCORE_SONIC_PFM_PEAK_ADDR                   \
+	MT6359_VGPUVCORE_ANA_CON12
+#define MT6359_RG_VCORE_SONIC_PFM_PEAK_MASK                   0xF
+#define MT6359_RG_VCORE_SONIC_PFM_PEAK_SHIFT                  12
+#define MT6359_RG_VCORE_UG_SR_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_UG_SR_MASK                            0x3
+#define MT6359_RG_VCORE_UG_SR_SHIFT                           0
+#define MT6359_RG_VCORE_LG_SR_ADDR                            \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_LG_SR_MASK                            0x3
+#define MT6359_RG_VCORE_LG_SR_SHIFT                           2
+#define MT6359_RG_VCORE_VDIFF_GROUNDSEL_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_VDIFF_GROUNDSEL_MASK                  0x1
+#define MT6359_RG_VCORE_VDIFF_GROUNDSEL_SHIFT                 4
+#define MT6359_RG_VCORE_FCCM_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_FCCM_MASK                             0x1
+#define MT6359_RG_VCORE_FCCM_SHIFT                            5
+#define MT6359_RG_VCORE_NONAUDIBLE_EN_ADDR                    \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_NONAUDIBLE_EN_MASK                    0x1
+#define MT6359_RG_VCORE_NONAUDIBLE_EN_SHIFT                   6
+#define MT6359_RG_VCORE_RETENTION_EN_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_RETENTION_EN_MASK                     0x1
+#define MT6359_RG_VCORE_RETENTION_EN_SHIFT                    7
+#define MT6359_RG_VCORE_RSVH_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON13
+#define MT6359_RG_VCORE_RSVH_MASK                             0xFF
+#define MT6359_RG_VCORE_RSVH_SHIFT                            8
+#define MT6359_RG_VCORE_RSVL_ADDR                             \
+	MT6359_VGPUVCORE_ANA_CON14
+#define MT6359_RG_VCORE_RSVL_MASK                             0xFF
+#define MT6359_RG_VCORE_RSVL_SHIFT                            0
+#define MT6359_RGS_VCORE_OC_STATUS_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON14
+#define MT6359_RGS_VCORE_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VCORE_OC_STATUS_SHIFT                      8
+#define MT6359_RGS_VCORE_DIG_MON_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON14
+#define MT6359_RGS_VCORE_DIG_MON_MASK                         0x1
+#define MT6359_RGS_VCORE_DIG_MON_SHIFT                        9
+#define MT6359_RG_VCORE_DIGMON_SEL_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON14
+#define MT6359_RG_VCORE_DIGMON_SEL_MASK                       0x7
+#define MT6359_RG_VCORE_DIGMON_SEL_SHIFT                      10
+#define MT6359_RG_VGPUVCORE_TMDL_ADDR                         \
+	MT6359_VGPUVCORE_ANA_CON14
+#define MT6359_RG_VGPUVCORE_TMDL_MASK                         0x1
+#define MT6359_RG_VGPUVCORE_TMDL_SHIFT                        15
+#define MT6359_RG_VCORE_RCB_ADDR                              \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_RCB_MASK                              0x7
+#define MT6359_RG_VCORE_RCB_SHIFT                             0
+#define MT6359_RG_VCORE_VBAT_LOW_DIS_ADDR                     \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_VBAT_LOW_DIS_MASK                     0x1
+#define MT6359_RG_VCORE_VBAT_LOW_DIS_SHIFT                    3
+#define MT6359_RG_VCORE_VBAT_HI_DIS_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_VBAT_HI_DIS_MASK                      0x1
+#define MT6359_RG_VCORE_VBAT_HI_DIS_SHIFT                     4
+#define MT6359_RG_VCORE_VOUT_HI_DIS_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_VOUT_HI_DIS_MASK                      0x1
+#define MT6359_RG_VCORE_VOUT_HI_DIS_SHIFT                     5
+#define MT6359_RG_VCORE_VDIFF_OFF_ADDR                        \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_VDIFF_OFF_MASK                        0x1
+#define MT6359_RG_VCORE_VDIFF_OFF_SHIFT                       6
+#define MT6359_RG_VCORE_VDIFFCAP_EN_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_VDIFFCAP_EN_MASK                      0x1
+#define MT6359_RG_VCORE_VDIFFCAP_EN_SHIFT                     7
+#define MT6359_RG_VCORE_DAC_VREF_1P1V_EN_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_DAC_VREF_1P1V_EN_MASK                 0x1
+#define MT6359_RG_VCORE_DAC_VREF_1P1V_EN_SHIFT                8
+#define MT6359_RG_VCORE_DAC_VREF_1P2V_EN_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VCORE_DAC_VREF_1P2V_EN_MASK                 0x1
+#define MT6359_RG_VCORE_DAC_VREF_1P2V_EN_SHIFT                9
+#define MT6359_RG_VGPUVCORE_DIFF_L_ADDR                       \
+	MT6359_VGPUVCORE_ANA_CON15
+#define MT6359_RG_VGPUVCORE_DIFF_L_MASK                       0x1
+#define MT6359_RG_VGPUVCORE_DIFF_L_SHIFT                      10
+#define MT6359_RG_VGPUVCORE_SR_VBAT_ADDR                      \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RG_VGPUVCORE_SR_VBAT_MASK                      0x1
+#define MT6359_RG_VGPUVCORE_SR_VBAT_SHIFT                     0
+#define MT6359_RG_VGPUVCORE_CONFIG_LAT_RSVH_ADDR              \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RG_VGPUVCORE_CONFIG_LAT_RSVH_MASK              0x1
+#define MT6359_RG_VGPUVCORE_CONFIG_LAT_RSVH_SHIFT             1
+#define MT6359_RG_VGPUVCORE_RECONFIG_RSVH_ADDR                \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RG_VGPUVCORE_RECONFIG_RSVH_MASK                0x1
+#define MT6359_RG_VGPUVCORE_RECONFIG_RSVH_SHIFT               2
+#define MT6359_RG_VGPUVCORE_RECONFIG_EN_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RG_VGPUVCORE_RECONFIG_EN_MASK                  0x1
+#define MT6359_RG_VGPUVCORE_RECONFIG_EN_SHIFT                 3
+#define MT6359_RGS_3PH1_VGPU11_DIGCFG_EN_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RGS_3PH1_VGPU11_DIGCFG_EN_MASK                 0x1
+#define MT6359_RGS_3PH1_VGPU11_DIGCFG_EN_SHIFT                4
+#define MT6359_RGS_3PH2_VCORE_DIGCFG_EN_ADDR                  \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RGS_3PH2_VCORE_DIGCFG_EN_MASK                  0x1
+#define MT6359_RGS_3PH2_VCORE_DIGCFG_EN_SHIFT                 5
+#define MT6359_RGS_3PH3_VGPU12_DIGCFG_EN_ADDR                 \
+	MT6359_VGPUVCORE_ANA_CON16
+#define MT6359_RGS_3PH3_VGPU12_DIGCFG_EN_MASK                 0x1
+#define MT6359_RGS_3PH3_VGPU12_DIGCFG_EN_SHIFT                6
+#define MT6359_RG_VPROC1_SR_VBAT_ADDR                         \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_SR_VBAT_MASK                         0x1
+#define MT6359_RG_VPROC1_SR_VBAT_SHIFT                        0
+#define MT6359_RG_VPROC1_NDIS_EN_ADDR                         \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VPROC1_NDIS_EN_SHIFT                        1
+#define MT6359_RG_VPROC1_PWM_RSTRAMP_EN_ADDR                  \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_PWM_RSTRAMP_EN_MASK                  0x1
+#define MT6359_RG_VPROC1_PWM_RSTRAMP_EN_SHIFT                 2
+#define MT6359_RG_VPROC1_SLEEP_TIME_ADDR                      \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_SLEEP_TIME_MASK                      0x3
+#define MT6359_RG_VPROC1_SLEEP_TIME_SHIFT                     3
+#define MT6359_RG_VPROC1_LOOPSEL_DIS_ADDR                     \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_LOOPSEL_DIS_MASK                     0x1
+#define MT6359_RG_VPROC1_LOOPSEL_DIS_SHIFT                    5
+#define MT6359_RG_VPROC1_RAMP_AC_ADDR                         \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_RAMP_AC_MASK                         0x1
+#define MT6359_RG_VPROC1_RAMP_AC_SHIFT                        6
+#define MT6359_RG_VPROC1_TB_DIS_ADDR                          \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_TB_DIS_MASK                          0x1
+#define MT6359_RG_VPROC1_TB_DIS_SHIFT                         7
+#define MT6359_RG_VPROC1_TB_PFM_OFF_ADDR                      \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_TB_PFM_OFF_MASK                      0x1
+#define MT6359_RG_VPROC1_TB_PFM_OFF_SHIFT                     8
+#define MT6359_RG_VPROC1_TB_VREFSEL_ADDR                      \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_TB_VREFSEL_MASK                      0x3
+#define MT6359_RG_VPROC1_TB_VREFSEL_SHIFT                     9
+#define MT6359_RG_VPROC1_TON_EXTEND_EN_ADDR                   \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_TON_EXTEND_EN_MASK                   0x1
+#define MT6359_RG_VPROC1_TON_EXTEND_EN_SHIFT                  11
+#define MT6359_RG_VPROC1_URT_EN_ADDR                          \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_URT_EN_MASK                          0x1
+#define MT6359_RG_VPROC1_URT_EN_SHIFT                         12
+#define MT6359_RG_VPROC1_DUMMY_LOAD_EN_ADDR                   \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_DUMMY_LOAD_EN_MASK                   0x1
+#define MT6359_RG_VPROC1_DUMMY_LOAD_EN_SHIFT                  13
+#define MT6359_RG_VPROC1_OVP_EN_ADDR                          \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_OVP_EN_MASK                          0x1
+#define MT6359_RG_VPROC1_OVP_EN_SHIFT                         14
+#define MT6359_RG_VPROC1_OVP_VREFSEL_ADDR                     \
+	MT6359_VPROC1_ANA_CON0
+#define MT6359_RG_VPROC1_OVP_VREFSEL_MASK                     0x1
+#define MT6359_RG_VPROC1_OVP_VREFSEL_SHIFT                    15
+#define MT6359_RG_VPROC1_OCN_ADDR                             \
+	MT6359_VPROC1_ANA_CON1
+#define MT6359_RG_VPROC1_OCN_MASK                             0x7
+#define MT6359_RG_VPROC1_OCN_SHIFT                            1
+#define MT6359_RG_VPROC1_OCP_ADDR                             \
+	MT6359_VPROC1_ANA_CON1
+#define MT6359_RG_VPROC1_OCP_MASK                             0x7
+#define MT6359_RG_VPROC1_OCP_SHIFT                            4
+#define MT6359_RG_VPROC1_PFM_PEAK_ADDR                        \
+	MT6359_VPROC1_ANA_CON1
+#define MT6359_RG_VPROC1_PFM_PEAK_MASK                        0xF
+#define MT6359_RG_VPROC1_PFM_PEAK_SHIFT                       7
+#define MT6359_RG_VPROC1_SONIC_PFM_PEAK_ADDR                  \
+	MT6359_VPROC1_ANA_CON1
+#define MT6359_RG_VPROC1_SONIC_PFM_PEAK_MASK                  0xF
+#define MT6359_RG_VPROC1_SONIC_PFM_PEAK_SHIFT                 11
+#define MT6359_RGS_VPROC1_OC_STATUS_ADDR                      \
+	MT6359_VPROC1_ANA_CON1
+#define MT6359_RGS_VPROC1_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VPROC1_OC_STATUS_SHIFT                     15
+#define MT6359_RGS_VPROC1_DIG_MON_ADDR                        \
+	MT6359_VPROC1_ANA_CON2
+#define MT6359_RGS_VPROC1_DIG_MON_MASK                        0x1
+#define MT6359_RGS_VPROC1_DIG_MON_SHIFT                       9
+#define MT6359_RG_VPROC1_UG_SR_ADDR                           \
+	MT6359_VPROC1_ANA_CON2
+#define MT6359_RG_VPROC1_UG_SR_MASK                           0x3
+#define MT6359_RG_VPROC1_UG_SR_SHIFT                          10
+#define MT6359_RG_VPROC1_LG_SR_ADDR                           \
+	MT6359_VPROC1_ANA_CON2
+#define MT6359_RG_VPROC1_LG_SR_MASK                           0x3
+#define MT6359_RG_VPROC1_LG_SR_SHIFT                          12
+#define MT6359_RG_VPROC1_TMDL_ADDR                            \
+	MT6359_VPROC1_ANA_CON2
+#define MT6359_RG_VPROC1_TMDL_MASK                            0x1
+#define MT6359_RG_VPROC1_TMDL_SHIFT                           14
+#define MT6359_RG_VPROC1_FUGON_ADDR                           \
+	MT6359_VPROC1_ANA_CON2
+#define MT6359_RG_VPROC1_FUGON_MASK                           0x1
+#define MT6359_RG_VPROC1_FUGON_SHIFT                          15
+#define MT6359_RG_VPROC1_FLGON_ADDR                           \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_FLGON_MASK                           0x1
+#define MT6359_RG_VPROC1_FLGON_SHIFT                          0
+#define MT6359_RG_VPROC1_FCCM_ADDR                            \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_FCCM_MASK                            0x1
+#define MT6359_RG_VPROC1_FCCM_SHIFT                           1
+#define MT6359_RG_VPROC1_NONAUDIBLE_EN_ADDR                   \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_NONAUDIBLE_EN_MASK                   0x1
+#define MT6359_RG_VPROC1_NONAUDIBLE_EN_SHIFT                  2
+#define MT6359_RG_VPROC1_RETENTION_EN_ADDR                    \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_RETENTION_EN_MASK                    0x1
+#define MT6359_RG_VPROC1_RETENTION_EN_SHIFT                   3
+#define MT6359_RG_VPROC1_VDIFF_GROUNDSEL_ADDR                 \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_VDIFF_GROUNDSEL_MASK                 0x1
+#define MT6359_RG_VPROC1_VDIFF_GROUNDSEL_SHIFT                4
+#define MT6359_RG_VPROC1_DIGMON_SEL_ADDR                      \
+	MT6359_VPROC1_ANA_CON3
+#define MT6359_RG_VPROC1_DIGMON_SEL_MASK                      0x7
+#define MT6359_RG_VPROC1_DIGMON_SEL_SHIFT                     5
+#define MT6359_RG_VPROC1_RSVH_ADDR                            \
+	MT6359_VPROC1_ANA_CON4
+#define MT6359_RG_VPROC1_RSVH_MASK                            0xFF
+#define MT6359_RG_VPROC1_RSVH_SHIFT                           0
+#define MT6359_RG_VPROC1_RSVL_ADDR                            \
+	MT6359_VPROC1_ANA_CON4
+#define MT6359_RG_VPROC1_RSVL_MASK                            0xFF
+#define MT6359_RG_VPROC1_RSVL_SHIFT                           8
+#define MT6359_RG_VPROC1_RCB_ADDR                             \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_RCB_MASK                             0x7
+#define MT6359_RG_VPROC1_RCB_SHIFT                            1
+#define MT6359_RG_VPROC1_VDIFFCAP_EN_ADDR                     \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_VDIFFCAP_EN_MASK                     0x1
+#define MT6359_RG_VPROC1_VDIFFCAP_EN_SHIFT                    4
+#define MT6359_RG_VPROC1_VBAT_HI_DIS_ADDR                     \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_VBAT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VPROC1_VBAT_HI_DIS_SHIFT                    5
+#define MT6359_RG_VPROC1_VBAT_LOW_DIS_ADDR                    \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_VBAT_LOW_DIS_MASK                    0x1
+#define MT6359_RG_VPROC1_VBAT_LOW_DIS_SHIFT                   6
+#define MT6359_RG_VPROC1_VOUT_HI_DIS_ADDR                     \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_VOUT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VPROC1_VOUT_HI_DIS_SHIFT                    7
+#define MT6359_RG_VPROC1_DAC_VREF_1P1V_EN_ADDR                \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_DAC_VREF_1P1V_EN_MASK                0x1
+#define MT6359_RG_VPROC1_DAC_VREF_1P1V_EN_SHIFT               8
+#define MT6359_RG_VPROC1_DAC_VREF_1P2V_EN_ADDR                \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_DAC_VREF_1P2V_EN_MASK                0x1
+#define MT6359_RG_VPROC1_DAC_VREF_1P2V_EN_SHIFT               9
+#define MT6359_RG_VPROC1_VDIFF_OFF_ADDR                       \
+	MT6359_VPROC1_ANA_CON5
+#define MT6359_RG_VPROC1_VDIFF_OFF_MASK                       0x1
+#define MT6359_RG_VPROC1_VDIFF_OFF_SHIFT                      10
+#define MT6359_BUCK_ANA0_ELR_LEN_ADDR                         \
+	MT6359_BUCK_ANA0_ELR_NUM
+#define MT6359_BUCK_ANA0_ELR_LEN_MASK                         0xFF
+#define MT6359_BUCK_ANA0_ELR_LEN_SHIFT                        0
+#define MT6359_RG_VGPU11_DRIVER_SR_TRIM_ADDR                  \
+	MT6359_SMPS_ELR_0
+#define MT6359_RG_VGPU11_DRIVER_SR_TRIM_MASK                  0x7
+#define MT6359_RG_VGPU11_DRIVER_SR_TRIM_SHIFT                 0
+#define MT6359_RG_VGPU11_CCOMP_ADDR                           \
+	MT6359_SMPS_ELR_0
+#define MT6359_RG_VGPU11_CCOMP_MASK                           0x3
+#define MT6359_RG_VGPU11_CCOMP_SHIFT                          3
+#define MT6359_RG_VGPU11_RCOMP_ADDR                           \
+	MT6359_SMPS_ELR_0
+#define MT6359_RG_VGPU11_RCOMP_MASK                           0xF
+#define MT6359_RG_VGPU11_RCOMP_SHIFT                          5
+#define MT6359_RG_VGPU11_RAMP_SLP_ADDR                        \
+	MT6359_SMPS_ELR_0
+#define MT6359_RG_VGPU11_RAMP_SLP_MASK                        0x7
+#define MT6359_RG_VGPU11_RAMP_SLP_SHIFT                       9
+#define MT6359_RG_VGPU11_NLIM_TRIM_ADDR                       \
+	MT6359_SMPS_ELR_0
+#define MT6359_RG_VGPU11_NLIM_TRIM_MASK                       0xF
+#define MT6359_RG_VGPU11_NLIM_TRIM_SHIFT                      12
+#define MT6359_RG_VGPU12_DRIVER_SR_TRIM_ADDR                  \
+	MT6359_SMPS_ELR_1
+#define MT6359_RG_VGPU12_DRIVER_SR_TRIM_MASK                  0x7
+#define MT6359_RG_VGPU12_DRIVER_SR_TRIM_SHIFT                 0
+#define MT6359_RG_VGPU12_CCOMP_ADDR                           \
+	MT6359_SMPS_ELR_1
+#define MT6359_RG_VGPU12_CCOMP_MASK                           0x3
+#define MT6359_RG_VGPU12_CCOMP_SHIFT                          3
+#define MT6359_RG_VGPU12_RCOMP_ADDR                           \
+	MT6359_SMPS_ELR_1
+#define MT6359_RG_VGPU12_RCOMP_MASK                           0xF
+#define MT6359_RG_VGPU12_RCOMP_SHIFT                          5
+#define MT6359_RG_VGPU12_RAMP_SLP_ADDR                        \
+	MT6359_SMPS_ELR_1
+#define MT6359_RG_VGPU12_RAMP_SLP_MASK                        0x7
+#define MT6359_RG_VGPU12_RAMP_SLP_SHIFT                       9
+#define MT6359_RG_VGPU12_NLIM_TRIM_ADDR                       \
+	MT6359_SMPS_ELR_1
+#define MT6359_RG_VGPU12_NLIM_TRIM_MASK                       0xF
+#define MT6359_RG_VGPU12_NLIM_TRIM_SHIFT                      12
+#define MT6359_RG_VCORE_DRIVER_SR_TRIM_ADDR                   \
+	MT6359_SMPS_ELR_2
+#define MT6359_RG_VCORE_DRIVER_SR_TRIM_MASK                   0x7
+#define MT6359_RG_VCORE_DRIVER_SR_TRIM_SHIFT                  0
+#define MT6359_RG_VCORE_CCOMP_ADDR                            \
+	MT6359_SMPS_ELR_2
+#define MT6359_RG_VCORE_CCOMP_MASK                            0x3
+#define MT6359_RG_VCORE_CCOMP_SHIFT                           3
+#define MT6359_RG_VCORE_RCOMP_ADDR                            \
+	MT6359_SMPS_ELR_2
+#define MT6359_RG_VCORE_RCOMP_MASK                            0xF
+#define MT6359_RG_VCORE_RCOMP_SHIFT                           5
+#define MT6359_RG_VCORE_RAMP_SLP_ADDR                         \
+	MT6359_SMPS_ELR_2
+#define MT6359_RG_VCORE_RAMP_SLP_MASK                         0x7
+#define MT6359_RG_VCORE_RAMP_SLP_SHIFT                        9
+#define MT6359_RG_VCORE_NLIM_TRIM_ADDR                        \
+	MT6359_SMPS_ELR_2
+#define MT6359_RG_VCORE_NLIM_TRIM_MASK                        0xF
+#define MT6359_RG_VCORE_NLIM_TRIM_SHIFT                       12
+#define MT6359_RG_VGPU11_CSNSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_3
+#define MT6359_RG_VGPU11_CSNSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VGPU11_CSNSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VGPU11_ZC_TRIM_ADDR                         \
+	MT6359_SMPS_ELR_3
+#define MT6359_RG_VGPU11_ZC_TRIM_MASK                         0x3
+#define MT6359_RG_VGPU11_ZC_TRIM_SHIFT                        4
+#define MT6359_RG_VGPU12_CSNSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_4
+#define MT6359_RG_VGPU12_CSNSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VGPU12_CSNSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VGPU12_ZC_TRIM_ADDR                         \
+	MT6359_SMPS_ELR_4
+#define MT6359_RG_VGPU12_ZC_TRIM_MASK                         0x3
+#define MT6359_RG_VGPU12_ZC_TRIM_SHIFT                        4
+#define MT6359_RG_VCORE_CSNSLP_TRIM_ADDR                      \
+	MT6359_SMPS_ELR_5
+#define MT6359_RG_VCORE_CSNSLP_TRIM_MASK                      0xF
+#define MT6359_RG_VCORE_CSNSLP_TRIM_SHIFT                     0
+#define MT6359_RG_VCORE_ZC_TRIM_ADDR                          \
+	MT6359_SMPS_ELR_5
+#define MT6359_RG_VCORE_ZC_TRIM_MASK                          0x3
+#define MT6359_RG_VCORE_ZC_TRIM_SHIFT                         4
+#define MT6359_RG_VGPU11_CSPSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_6
+#define MT6359_RG_VGPU11_CSPSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VGPU11_CSPSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VGPU12_CSPSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_7
+#define MT6359_RG_VGPU12_CSPSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VGPU12_CSPSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VCORE_CSPSLP_TRIM_ADDR                      \
+	MT6359_SMPS_ELR_8
+#define MT6359_RG_VCORE_CSPSLP_TRIM_MASK                      0xF
+#define MT6359_RG_VCORE_CSPSLP_TRIM_SHIFT                     0
+#define MT6359_RG_VGPUVCORE_PHIN_TRIM_ADDR                    \
+	MT6359_SMPS_ELR_9
+#define MT6359_RG_VGPUVCORE_PHIN_TRIM_MASK                    0xF
+#define MT6359_RG_VGPUVCORE_PHIN_TRIM_SHIFT                   0
+#define MT6359_RG_VPROC1_DRIVER_SR_TRIM_ADDR                  \
+	MT6359_SMPS_ELR_10
+#define MT6359_RG_VPROC1_DRIVER_SR_TRIM_MASK                  0x7
+#define MT6359_RG_VPROC1_DRIVER_SR_TRIM_SHIFT                 0
+#define MT6359_RG_VPROC1_CCOMP_ADDR                           \
+	MT6359_SMPS_ELR_10
+#define MT6359_RG_VPROC1_CCOMP_MASK                           0x3
+#define MT6359_RG_VPROC1_CCOMP_SHIFT                          3
+#define MT6359_RG_VPROC1_RCOMP_ADDR                           \
+	MT6359_SMPS_ELR_10
+#define MT6359_RG_VPROC1_RCOMP_MASK                           0xF
+#define MT6359_RG_VPROC1_RCOMP_SHIFT                          5
+#define MT6359_RG_VPROC1_RAMP_SLP_ADDR                        \
+	MT6359_SMPS_ELR_10
+#define MT6359_RG_VPROC1_RAMP_SLP_MASK                        0x7
+#define MT6359_RG_VPROC1_RAMP_SLP_SHIFT                       9
+#define MT6359_RG_VPROC1_NLIM_TRIM_ADDR                       \
+	MT6359_SMPS_ELR_10
+#define MT6359_RG_VPROC1_NLIM_TRIM_MASK                       0xF
+#define MT6359_RG_VPROC1_NLIM_TRIM_SHIFT                      12
+#define MT6359_RG_VPROC1_CSNSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_11
+#define MT6359_RG_VPROC1_CSNSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VPROC1_CSNSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VPROC1_ZC_TRIM_ADDR                         \
+	MT6359_SMPS_ELR_11
+#define MT6359_RG_VPROC1_ZC_TRIM_MASK                         0x3
+#define MT6359_RG_VPROC1_ZC_TRIM_SHIFT                        4
+#define MT6359_RG_VPROC1_CSPSLP_TRIM_ADDR                     \
+	MT6359_SMPS_ELR_12
+#define MT6359_RG_VPROC1_CSPSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VPROC1_CSPSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VS1_TRIMH_ADDR                              \
+	MT6359_SMPS_ELR_13
+#define MT6359_RG_VS1_TRIMH_MASK                              0xF
+#define MT6359_RG_VS1_TRIMH_SHIFT                             0
+#define MT6359_RG_VS2_TRIMH_ADDR                              \
+	MT6359_SMPS_ELR_13
+#define MT6359_RG_VS2_TRIMH_MASK                              0xF
+#define MT6359_RG_VS2_TRIMH_SHIFT                             4
+#define MT6359_RG_VGPU11_TRIMH_ADDR                           \
+	MT6359_SMPS_ELR_13
+#define MT6359_RG_VGPU11_TRIMH_MASK                           0xF
+#define MT6359_RG_VGPU11_TRIMH_SHIFT                          8
+#define MT6359_RG_VGPU12_TRIMH_ADDR                           \
+	MT6359_SMPS_ELR_13
+#define MT6359_RG_VGPU12_TRIMH_MASK                           0xF
+#define MT6359_RG_VGPU12_TRIMH_SHIFT                          12
+#define MT6359_RG_VPROC2_TRIMH_ADDR                           \
+	MT6359_SMPS_ELR_14
+#define MT6359_RG_VPROC2_TRIMH_MASK                           0xF
+#define MT6359_RG_VPROC2_TRIMH_SHIFT                          0
+#define MT6359_RG_VPROC1_TRIMH_ADDR                           \
+	MT6359_SMPS_ELR_14
+#define MT6359_RG_VPROC1_TRIMH_MASK                           0xF
+#define MT6359_RG_VPROC1_TRIMH_SHIFT                          4
+#define MT6359_RG_VCORE_TRIMH_ADDR                            \
+	MT6359_SMPS_ELR_14
+#define MT6359_RG_VCORE_TRIMH_MASK                            0xF
+#define MT6359_RG_VCORE_TRIMH_SHIFT                           8
+#define MT6359_RG_VMODEM_TRIMH_ADDR                           \
+	MT6359_SMPS_ELR_14
+#define MT6359_RG_VMODEM_TRIMH_MASK                           0xF
+#define MT6359_RG_VMODEM_TRIMH_SHIFT                          12
+#define MT6359_RG_VPA_TRIMH_ADDR                              \
+	MT6359_SMPS_ELR_15
+#define MT6359_RG_VPA_TRIMH_MASK                              0xF
+#define MT6359_RG_VPA_TRIMH_SHIFT                             0
+#define MT6359_RG_VPU_TRIMH_ADDR                              \
+	MT6359_SMPS_ELR_15
+#define MT6359_RG_VPU_TRIMH_MASK                              0xF
+#define MT6359_RG_VPU_TRIMH_SHIFT                             4
+#define MT6359_RG_VSRAM_PROC1_TRIMH_ADDR                      \
+	MT6359_SMPS_ELR_15
+#define MT6359_RG_VSRAM_PROC1_TRIMH_MASK                      0x1F
+#define MT6359_RG_VSRAM_PROC1_TRIMH_SHIFT                     8
+#define MT6359_RG_VSRAM_PROC2_TRIMH_ADDR                      \
+	MT6359_SMPS_ELR_16
+#define MT6359_RG_VSRAM_PROC2_TRIMH_MASK                      0x1F
+#define MT6359_RG_VSRAM_PROC2_TRIMH_SHIFT                     0
+#define MT6359_RG_VSRAM_MD_TRIMH_ADDR                         \
+	MT6359_SMPS_ELR_16
+#define MT6359_RG_VSRAM_MD_TRIMH_MASK                         0x1F
+#define MT6359_RG_VSRAM_MD_TRIMH_SHIFT                        5
+#define MT6359_RG_VSRAM_OTHERS_TRIMH_ADDR                     \
+	MT6359_SMPS_ELR_16
+#define MT6359_RG_VSRAM_OTHERS_TRIMH_MASK                     0x1F
+#define MT6359_RG_VSRAM_OTHERS_TRIMH_SHIFT                    10
+#define MT6359_RG_VGPU11_TON_TRIM_ADDR                        \
+	MT6359_SMPS_ELR_17
+#define MT6359_RG_VGPU11_TON_TRIM_MASK                        0x3F
+#define MT6359_RG_VGPU11_TON_TRIM_SHIFT                       0
+#define MT6359_RG_VGPU12_TON_TRIM_ADDR                        \
+	MT6359_SMPS_ELR_17
+#define MT6359_RG_VGPU12_TON_TRIM_MASK                        0x3F
+#define MT6359_RG_VGPU12_TON_TRIM_SHIFT                       6
+#define MT6359_RG_VCORE_TON_TRIM_ADDR                         \
+	MT6359_SMPS_ELR_18
+#define MT6359_RG_VCORE_TON_TRIM_MASK                         0x3F
+#define MT6359_RG_VCORE_TON_TRIM_SHIFT                        0
+#define MT6359_RG_VGPUVCORE_PH2_OFF_ADDR                      \
+	MT6359_SMPS_ELR_18
+#define MT6359_RG_VGPUVCORE_PH2_OFF_MASK                      0x1
+#define MT6359_RG_VGPUVCORE_PH2_OFF_SHIFT                     6
+#define MT6359_RG_VGPUVCORE_PH3_OFF_ADDR                      \
+	MT6359_SMPS_ELR_18
+#define MT6359_RG_VGPUVCORE_PH3_OFF_MASK                      0x1
+#define MT6359_RG_VGPUVCORE_PH3_OFF_SHIFT                     7
+#define MT6359_RG_VGPUVCORE_PG_FB3_ADDR                       \
+	MT6359_SMPS_ELR_18
+#define MT6359_RG_VGPUVCORE_PG_FB3_MASK                       0x1
+#define MT6359_RG_VGPUVCORE_PG_FB3_SHIFT                      8
+#define MT6359_RG_VPROC1_TON_TRIM_ADDR                        \
+	MT6359_SMPS_ELR_18
+#define MT6359_RG_VPROC1_TON_TRIM_MASK                        0x3F
+#define MT6359_RG_VPROC1_TON_TRIM_SHIFT                       9
+#define MT6359_BUCK_ANA1_ANA_ID_ADDR                          \
+	MT6359_BUCK_ANA1_DSN_ID
+#define MT6359_BUCK_ANA1_ANA_ID_MASK                          0xFF
+#define MT6359_BUCK_ANA1_ANA_ID_SHIFT                         0
+#define MT6359_BUCK_ANA1_DIG_ID_ADDR                          \
+	MT6359_BUCK_ANA1_DSN_ID
+#define MT6359_BUCK_ANA1_DIG_ID_MASK                          0xFF
+#define MT6359_BUCK_ANA1_DIG_ID_SHIFT                         8
+#define MT6359_BUCK_ANA1_ANA_MINOR_REV_ADDR                   \
+	MT6359_BUCK_ANA1_DSN_REV0
+#define MT6359_BUCK_ANA1_ANA_MINOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA1_ANA_MINOR_REV_SHIFT                  0
+#define MT6359_BUCK_ANA1_ANA_MAJOR_REV_ADDR                   \
+	MT6359_BUCK_ANA1_DSN_REV0
+#define MT6359_BUCK_ANA1_ANA_MAJOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA1_ANA_MAJOR_REV_SHIFT                  4
+#define MT6359_BUCK_ANA1_DIG_MINOR_REV_ADDR                   \
+	MT6359_BUCK_ANA1_DSN_REV0
+#define MT6359_BUCK_ANA1_DIG_MINOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA1_DIG_MINOR_REV_SHIFT                  8
+#define MT6359_BUCK_ANA1_DIG_MAJOR_REV_ADDR                   \
+	MT6359_BUCK_ANA1_DSN_REV0
+#define MT6359_BUCK_ANA1_DIG_MAJOR_REV_MASK                   0xF
+#define MT6359_BUCK_ANA1_DIG_MAJOR_REV_SHIFT                  12
+#define MT6359_BUCK_ANA1_DSN_CBS_ADDR                         \
+	MT6359_BUCK_ANA1_DSN_DBI
+#define MT6359_BUCK_ANA1_DSN_CBS_MASK                         0x3
+#define MT6359_BUCK_ANA1_DSN_CBS_SHIFT                        0
+#define MT6359_BUCK_ANA1_DSN_BIX_ADDR                         \
+	MT6359_BUCK_ANA1_DSN_DBI
+#define MT6359_BUCK_ANA1_DSN_BIX_MASK                         0x3
+#define MT6359_BUCK_ANA1_DSN_BIX_SHIFT                        2
+#define MT6359_BUCK_ANA1_DSN_ESP_ADDR                         \
+	MT6359_BUCK_ANA1_DSN_DBI
+#define MT6359_BUCK_ANA1_DSN_ESP_MASK                         0xFF
+#define MT6359_BUCK_ANA1_DSN_ESP_SHIFT                        8
+#define MT6359_BUCK_ANA1_DSN_FPI_ADDR                         \
+	MT6359_BUCK_ANA1_DSN_FPI
+#define MT6359_BUCK_ANA1_DSN_FPI_MASK                         0xFF
+#define MT6359_BUCK_ANA1_DSN_FPI_SHIFT                        0
+#define MT6359_RG_VPROC2_SR_VBAT_ADDR                         \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_SR_VBAT_MASK                         0x1
+#define MT6359_RG_VPROC2_SR_VBAT_SHIFT                        0
+#define MT6359_RG_VPROC2_NDIS_EN_ADDR                         \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VPROC2_NDIS_EN_SHIFT                        1
+#define MT6359_RG_VPROC2_PWM_RSTRAMP_EN_ADDR                  \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_PWM_RSTRAMP_EN_MASK                  0x1
+#define MT6359_RG_VPROC2_PWM_RSTRAMP_EN_SHIFT                 2
+#define MT6359_RG_VPROC2_SLEEP_TIME_ADDR                      \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_SLEEP_TIME_MASK                      0x3
+#define MT6359_RG_VPROC2_SLEEP_TIME_SHIFT                     3
+#define MT6359_RG_VPROC2_LOOPSEL_DIS_ADDR                     \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_LOOPSEL_DIS_MASK                     0x1
+#define MT6359_RG_VPROC2_LOOPSEL_DIS_SHIFT                    5
+#define MT6359_RG_VPROC2_RAMP_AC_ADDR                         \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_RAMP_AC_MASK                         0x1
+#define MT6359_RG_VPROC2_RAMP_AC_SHIFT                        6
+#define MT6359_RG_VPROC2_TB_DIS_ADDR                          \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_TB_DIS_MASK                          0x1
+#define MT6359_RG_VPROC2_TB_DIS_SHIFT                         7
+#define MT6359_RG_VPROC2_TB_PFM_OFF_ADDR                      \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_TB_PFM_OFF_MASK                      0x1
+#define MT6359_RG_VPROC2_TB_PFM_OFF_SHIFT                     8
+#define MT6359_RG_VPROC2_TB_VREFSEL_ADDR                      \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_TB_VREFSEL_MASK                      0x3
+#define MT6359_RG_VPROC2_TB_VREFSEL_SHIFT                     9
+#define MT6359_RG_VPROC2_TON_EXTEND_EN_ADDR                   \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_TON_EXTEND_EN_MASK                   0x1
+#define MT6359_RG_VPROC2_TON_EXTEND_EN_SHIFT                  11
+#define MT6359_RG_VPROC2_URT_EN_ADDR                          \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_URT_EN_MASK                          0x1
+#define MT6359_RG_VPROC2_URT_EN_SHIFT                         12
+#define MT6359_RG_VPROC2_DUMMY_LOAD_EN_ADDR                   \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_DUMMY_LOAD_EN_MASK                   0x1
+#define MT6359_RG_VPROC2_DUMMY_LOAD_EN_SHIFT                  13
+#define MT6359_RG_VPROC2_OVP_EN_ADDR                          \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_OVP_EN_MASK                          0x1
+#define MT6359_RG_VPROC2_OVP_EN_SHIFT                         14
+#define MT6359_RG_VPROC2_OVP_VREFSEL_ADDR                     \
+	MT6359_VPROC2_ANA_CON0
+#define MT6359_RG_VPROC2_OVP_VREFSEL_MASK                     0x1
+#define MT6359_RG_VPROC2_OVP_VREFSEL_SHIFT                    15
+#define MT6359_RG_VPROC2_OCN_ADDR                             \
+	MT6359_VPROC2_ANA_CON1
+#define MT6359_RG_VPROC2_OCN_MASK                             0x7
+#define MT6359_RG_VPROC2_OCN_SHIFT                            1
+#define MT6359_RG_VPROC2_OCP_ADDR                             \
+	MT6359_VPROC2_ANA_CON1
+#define MT6359_RG_VPROC2_OCP_MASK                             0x7
+#define MT6359_RG_VPROC2_OCP_SHIFT                            4
+#define MT6359_RG_VPROC2_PFM_PEAK_ADDR                        \
+	MT6359_VPROC2_ANA_CON1
+#define MT6359_RG_VPROC2_PFM_PEAK_MASK                        0xF
+#define MT6359_RG_VPROC2_PFM_PEAK_SHIFT                       7
+#define MT6359_RG_VPROC2_SONIC_PFM_PEAK_ADDR                  \
+	MT6359_VPROC2_ANA_CON1
+#define MT6359_RG_VPROC2_SONIC_PFM_PEAK_MASK                  0xF
+#define MT6359_RG_VPROC2_SONIC_PFM_PEAK_SHIFT                 11
+#define MT6359_RGS_VPROC2_OC_STATUS_ADDR                      \
+	MT6359_VPROC2_ANA_CON1
+#define MT6359_RGS_VPROC2_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VPROC2_OC_STATUS_SHIFT                     15
+#define MT6359_RGS_VPROC2_DIG_MON_ADDR                        \
+	MT6359_VPROC2_ANA_CON2
+#define MT6359_RGS_VPROC2_DIG_MON_MASK                        0x1
+#define MT6359_RGS_VPROC2_DIG_MON_SHIFT                       9
+#define MT6359_RG_VPROC2_UG_SR_ADDR                           \
+	MT6359_VPROC2_ANA_CON2
+#define MT6359_RG_VPROC2_UG_SR_MASK                           0x3
+#define MT6359_RG_VPROC2_UG_SR_SHIFT                          10
+#define MT6359_RG_VPROC2_LG_SR_ADDR                           \
+	MT6359_VPROC2_ANA_CON2
+#define MT6359_RG_VPROC2_LG_SR_MASK                           0x3
+#define MT6359_RG_VPROC2_LG_SR_SHIFT                          12
+#define MT6359_RG_VPROC2_TMDL_ADDR                            \
+	MT6359_VPROC2_ANA_CON2
+#define MT6359_RG_VPROC2_TMDL_MASK                            0x1
+#define MT6359_RG_VPROC2_TMDL_SHIFT                           14
+#define MT6359_RG_VPROC2_FUGON_ADDR                           \
+	MT6359_VPROC2_ANA_CON2
+#define MT6359_RG_VPROC2_FUGON_MASK                           0x1
+#define MT6359_RG_VPROC2_FUGON_SHIFT                          15
+#define MT6359_RG_VPROC2_FLGON_ADDR                           \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_FLGON_MASK                           0x1
+#define MT6359_RG_VPROC2_FLGON_SHIFT                          0
+#define MT6359_RG_VPROC2_FCCM_ADDR                            \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_FCCM_MASK                            0x1
+#define MT6359_RG_VPROC2_FCCM_SHIFT                           1
+#define MT6359_RG_VPROC2_NONAUDIBLE_EN_ADDR                   \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_NONAUDIBLE_EN_MASK                   0x1
+#define MT6359_RG_VPROC2_NONAUDIBLE_EN_SHIFT                  2
+#define MT6359_RG_VPROC2_RETENTION_EN_ADDR                    \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_RETENTION_EN_MASK                    0x1
+#define MT6359_RG_VPROC2_RETENTION_EN_SHIFT                   3
+#define MT6359_RG_VPROC2_VDIFF_GROUNDSEL_ADDR                 \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_VDIFF_GROUNDSEL_MASK                 0x1
+#define MT6359_RG_VPROC2_VDIFF_GROUNDSEL_SHIFT                4
+#define MT6359_RG_VPROC2_DIGMON_SEL_ADDR                      \
+	MT6359_VPROC2_ANA_CON3
+#define MT6359_RG_VPROC2_DIGMON_SEL_MASK                      0x7
+#define MT6359_RG_VPROC2_DIGMON_SEL_SHIFT                     5
+#define MT6359_RG_VPROC2_RSVH_ADDR                            \
+	MT6359_VPROC2_ANA_CON4
+#define MT6359_RG_VPROC2_RSVH_MASK                            0xFF
+#define MT6359_RG_VPROC2_RSVH_SHIFT                           0
+#define MT6359_RG_VPROC2_RSVL_ADDR                            \
+	MT6359_VPROC2_ANA_CON4
+#define MT6359_RG_VPROC2_RSVL_MASK                            0xFF
+#define MT6359_RG_VPROC2_RSVL_SHIFT                           8
+#define MT6359_RG_VPROC2_RCB_ADDR                             \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_RCB_MASK                             0x7
+#define MT6359_RG_VPROC2_RCB_SHIFT                            1
+#define MT6359_RG_VPROC2_VDIFFCAP_EN_ADDR                     \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_VDIFFCAP_EN_MASK                     0x1
+#define MT6359_RG_VPROC2_VDIFFCAP_EN_SHIFT                    4
+#define MT6359_RG_VPROC2_VBAT_HI_DIS_ADDR                     \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_VBAT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VPROC2_VBAT_HI_DIS_SHIFT                    5
+#define MT6359_RG_VPROC2_VBAT_LOW_DIS_ADDR                    \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_VBAT_LOW_DIS_MASK                    0x1
+#define MT6359_RG_VPROC2_VBAT_LOW_DIS_SHIFT                   6
+#define MT6359_RG_VPROC2_VOUT_HI_DIS_ADDR                     \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_VOUT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VPROC2_VOUT_HI_DIS_SHIFT                    7
+#define MT6359_RG_VPROC2_DAC_VREF_1P1V_EN_ADDR                \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_DAC_VREF_1P1V_EN_MASK                0x1
+#define MT6359_RG_VPROC2_DAC_VREF_1P1V_EN_SHIFT               8
+#define MT6359_RG_VPROC2_DAC_VREF_1P2V_EN_ADDR                \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_DAC_VREF_1P2V_EN_MASK                0x1
+#define MT6359_RG_VPROC2_DAC_VREF_1P2V_EN_SHIFT               9
+#define MT6359_RG_VPROC2_VDIFF_OFF_ADDR                       \
+	MT6359_VPROC2_ANA_CON5
+#define MT6359_RG_VPROC2_VDIFF_OFF_MASK                       0x1
+#define MT6359_RG_VPROC2_VDIFF_OFF_SHIFT                      10
+#define MT6359_RG_VMODEM_SR_VBAT_ADDR                         \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_SR_VBAT_MASK                         0x1
+#define MT6359_RG_VMODEM_SR_VBAT_SHIFT                        0
+#define MT6359_RG_VMODEM_NDIS_EN_ADDR                         \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VMODEM_NDIS_EN_SHIFT                        1
+#define MT6359_RG_VMODEM_PWM_RSTRAMP_EN_ADDR                  \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_PWM_RSTRAMP_EN_MASK                  0x1
+#define MT6359_RG_VMODEM_PWM_RSTRAMP_EN_SHIFT                 2
+#define MT6359_RG_VMODEM_SLEEP_TIME_ADDR                      \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_SLEEP_TIME_MASK                      0x3
+#define MT6359_RG_VMODEM_SLEEP_TIME_SHIFT                     3
+#define MT6359_RG_VMODEM_LOOPSEL_DIS_ADDR                     \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_LOOPSEL_DIS_MASK                     0x1
+#define MT6359_RG_VMODEM_LOOPSEL_DIS_SHIFT                    5
+#define MT6359_RG_VMODEM_RAMP_AC_ADDR                         \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_RAMP_AC_MASK                         0x1
+#define MT6359_RG_VMODEM_RAMP_AC_SHIFT                        6
+#define MT6359_RG_VMODEM_TB_DIS_ADDR                          \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_TB_DIS_MASK                          0x1
+#define MT6359_RG_VMODEM_TB_DIS_SHIFT                         7
+#define MT6359_RG_VMODEM_TB_PFM_OFF_ADDR                      \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_TB_PFM_OFF_MASK                      0x1
+#define MT6359_RG_VMODEM_TB_PFM_OFF_SHIFT                     8
+#define MT6359_RG_VMODEM_TB_VREFSEL_ADDR                      \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_TB_VREFSEL_MASK                      0x3
+#define MT6359_RG_VMODEM_TB_VREFSEL_SHIFT                     9
+#define MT6359_RG_VMODEM_TON_EXTEND_EN_ADDR                   \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_TON_EXTEND_EN_MASK                   0x1
+#define MT6359_RG_VMODEM_TON_EXTEND_EN_SHIFT                  11
+#define MT6359_RG_VMODEM_URT_EN_ADDR                          \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_URT_EN_MASK                          0x1
+#define MT6359_RG_VMODEM_URT_EN_SHIFT                         12
+#define MT6359_RG_VMODEM_DUMMY_LOAD_EN_ADDR                   \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_DUMMY_LOAD_EN_MASK                   0x1
+#define MT6359_RG_VMODEM_DUMMY_LOAD_EN_SHIFT                  13
+#define MT6359_RG_VMODEM_OVP_EN_ADDR                          \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_OVP_EN_MASK                          0x1
+#define MT6359_RG_VMODEM_OVP_EN_SHIFT                         14
+#define MT6359_RG_VMODEM_OVP_VREFSEL_ADDR                     \
+	MT6359_VMODEM_ANA_CON0
+#define MT6359_RG_VMODEM_OVP_VREFSEL_MASK                     0x1
+#define MT6359_RG_VMODEM_OVP_VREFSEL_SHIFT                    15
+#define MT6359_RG_VMODEM_OCN_ADDR                             \
+	MT6359_VMODEM_ANA_CON1
+#define MT6359_RG_VMODEM_OCN_MASK                             0x7
+#define MT6359_RG_VMODEM_OCN_SHIFT                            1
+#define MT6359_RG_VMODEM_OCP_ADDR                             \
+	MT6359_VMODEM_ANA_CON1
+#define MT6359_RG_VMODEM_OCP_MASK                             0x7
+#define MT6359_RG_VMODEM_OCP_SHIFT                            4
+#define MT6359_RG_VMODEM_PFM_PEAK_ADDR                        \
+	MT6359_VMODEM_ANA_CON1
+#define MT6359_RG_VMODEM_PFM_PEAK_MASK                        0xF
+#define MT6359_RG_VMODEM_PFM_PEAK_SHIFT                       7
+#define MT6359_RG_VMODEM_SONIC_PFM_PEAK_ADDR                  \
+	MT6359_VMODEM_ANA_CON1
+#define MT6359_RG_VMODEM_SONIC_PFM_PEAK_MASK                  0xF
+#define MT6359_RG_VMODEM_SONIC_PFM_PEAK_SHIFT                 11
+#define MT6359_RGS_VMODEM_OC_STATUS_ADDR                      \
+	MT6359_VMODEM_ANA_CON1
+#define MT6359_RGS_VMODEM_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VMODEM_OC_STATUS_SHIFT                     15
+#define MT6359_RGS_VMODEM_DIG_MON_ADDR                        \
+	MT6359_VMODEM_ANA_CON2
+#define MT6359_RGS_VMODEM_DIG_MON_MASK                        0x1
+#define MT6359_RGS_VMODEM_DIG_MON_SHIFT                       9
+#define MT6359_RG_VMODEM_UG_SR_ADDR                           \
+	MT6359_VMODEM_ANA_CON2
+#define MT6359_RG_VMODEM_UG_SR_MASK                           0x3
+#define MT6359_RG_VMODEM_UG_SR_SHIFT                          10
+#define MT6359_RG_VMODEM_LG_SR_ADDR                           \
+	MT6359_VMODEM_ANA_CON2
+#define MT6359_RG_VMODEM_LG_SR_MASK                           0x3
+#define MT6359_RG_VMODEM_LG_SR_SHIFT                          12
+#define MT6359_RG_VMODEM_TMDL_ADDR                            \
+	MT6359_VMODEM_ANA_CON2
+#define MT6359_RG_VMODEM_TMDL_MASK                            0x1
+#define MT6359_RG_VMODEM_TMDL_SHIFT                           14
+#define MT6359_RG_VMODEM_FUGON_ADDR                           \
+	MT6359_VMODEM_ANA_CON2
+#define MT6359_RG_VMODEM_FUGON_MASK                           0x1
+#define MT6359_RG_VMODEM_FUGON_SHIFT                          15
+#define MT6359_RG_VMODEM_FLGON_ADDR                           \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_FLGON_MASK                           0x1
+#define MT6359_RG_VMODEM_FLGON_SHIFT                          0
+#define MT6359_RG_VMODEM_FCCM_ADDR                            \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_FCCM_MASK                            0x1
+#define MT6359_RG_VMODEM_FCCM_SHIFT                           1
+#define MT6359_RG_VMODEM_NONAUDIBLE_EN_ADDR                   \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_NONAUDIBLE_EN_MASK                   0x1
+#define MT6359_RG_VMODEM_NONAUDIBLE_EN_SHIFT                  2
+#define MT6359_RG_VMODEM_RETENTION_EN_ADDR                    \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_RETENTION_EN_MASK                    0x1
+#define MT6359_RG_VMODEM_RETENTION_EN_SHIFT                   3
+#define MT6359_RG_VMODEM_VDIFF_GROUNDSEL_ADDR                 \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_VDIFF_GROUNDSEL_MASK                 0x1
+#define MT6359_RG_VMODEM_VDIFF_GROUNDSEL_SHIFT                4
+#define MT6359_RG_VMODEM_DIGMON_SEL_ADDR                      \
+	MT6359_VMODEM_ANA_CON3
+#define MT6359_RG_VMODEM_DIGMON_SEL_MASK                      0x7
+#define MT6359_RG_VMODEM_DIGMON_SEL_SHIFT                     5
+#define MT6359_RG_VMODEM_RSVH_ADDR                            \
+	MT6359_VMODEM_ANA_CON4
+#define MT6359_RG_VMODEM_RSVH_MASK                            0xFF
+#define MT6359_RG_VMODEM_RSVH_SHIFT                           0
+#define MT6359_RG_VMODEM_RSVL_ADDR                            \
+	MT6359_VMODEM_ANA_CON4
+#define MT6359_RG_VMODEM_RSVL_MASK                            0xFF
+#define MT6359_RG_VMODEM_RSVL_SHIFT                           8
+#define MT6359_RG_VMODEM_RCB_ADDR                             \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_RCB_MASK                             0x7
+#define MT6359_RG_VMODEM_RCB_SHIFT                            1
+#define MT6359_RG_VMODEM_VDIFFCAP_EN_ADDR                     \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_VDIFFCAP_EN_MASK                     0x1
+#define MT6359_RG_VMODEM_VDIFFCAP_EN_SHIFT                    4
+#define MT6359_RG_VMODEM_VBAT_HI_DIS_ADDR                     \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_VBAT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VMODEM_VBAT_HI_DIS_SHIFT                    5
+#define MT6359_RG_VMODEM_VBAT_LOW_DIS_ADDR                    \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_VBAT_LOW_DIS_MASK                    0x1
+#define MT6359_RG_VMODEM_VBAT_LOW_DIS_SHIFT                   6
+#define MT6359_RG_VMODEM_VOUT_HI_DIS_ADDR                     \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_VOUT_HI_DIS_MASK                     0x1
+#define MT6359_RG_VMODEM_VOUT_HI_DIS_SHIFT                    7
+#define MT6359_RG_VMODEM_DAC_VREF_1P1V_EN_ADDR                \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_DAC_VREF_1P1V_EN_MASK                0x1
+#define MT6359_RG_VMODEM_DAC_VREF_1P1V_EN_SHIFT               8
+#define MT6359_RG_VMODEM_DAC_VREF_1P2V_EN_ADDR                \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_DAC_VREF_1P2V_EN_MASK                0x1
+#define MT6359_RG_VMODEM_DAC_VREF_1P2V_EN_SHIFT               9
+#define MT6359_RG_VMODEM_VDIFF_OFF_ADDR                       \
+	MT6359_VMODEM_ANA_CON5
+#define MT6359_RG_VMODEM_VDIFF_OFF_MASK                       0x1
+#define MT6359_RG_VMODEM_VDIFF_OFF_SHIFT                      10
+#define MT6359_RG_VPU_SR_VBAT_ADDR                            \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_SR_VBAT_MASK                            0x1
+#define MT6359_RG_VPU_SR_VBAT_SHIFT                           0
+#define MT6359_RG_VPU_NDIS_EN_ADDR                            \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_NDIS_EN_MASK                            0x1
+#define MT6359_RG_VPU_NDIS_EN_SHIFT                           1
+#define MT6359_RG_VPU_PWM_RSTRAMP_EN_ADDR                     \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_PWM_RSTRAMP_EN_MASK                     0x1
+#define MT6359_RG_VPU_PWM_RSTRAMP_EN_SHIFT                    2
+#define MT6359_RG_VPU_SLEEP_TIME_ADDR                         \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_SLEEP_TIME_MASK                         0x3
+#define MT6359_RG_VPU_SLEEP_TIME_SHIFT                        3
+#define MT6359_RG_VPU_LOOPSEL_DIS_ADDR                        \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_LOOPSEL_DIS_MASK                        0x1
+#define MT6359_RG_VPU_LOOPSEL_DIS_SHIFT                       5
+#define MT6359_RG_VPU_RAMP_AC_ADDR                            \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_RAMP_AC_MASK                            0x1
+#define MT6359_RG_VPU_RAMP_AC_SHIFT                           6
+#define MT6359_RG_VPU_TB_DIS_ADDR                             \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_TB_DIS_MASK                             0x1
+#define MT6359_RG_VPU_TB_DIS_SHIFT                            7
+#define MT6359_RG_VPU_TB_PFM_OFF_ADDR                         \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_TB_PFM_OFF_MASK                         0x1
+#define MT6359_RG_VPU_TB_PFM_OFF_SHIFT                        8
+#define MT6359_RG_VPU_TB_VREFSEL_ADDR                         \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_TB_VREFSEL_MASK                         0x3
+#define MT6359_RG_VPU_TB_VREFSEL_SHIFT                        9
+#define MT6359_RG_VPU_TON_EXTEND_EN_ADDR                      \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_TON_EXTEND_EN_MASK                      0x1
+#define MT6359_RG_VPU_TON_EXTEND_EN_SHIFT                     11
+#define MT6359_RG_VPU_URT_EN_ADDR                             \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_URT_EN_MASK                             0x1
+#define MT6359_RG_VPU_URT_EN_SHIFT                            12
+#define MT6359_RG_VPU_DUMMY_LOAD_EN_ADDR                      \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_DUMMY_LOAD_EN_MASK                      0x1
+#define MT6359_RG_VPU_DUMMY_LOAD_EN_SHIFT                     13
+#define MT6359_RG_VPU_OVP_EN_ADDR                             \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_OVP_EN_MASK                             0x1
+#define MT6359_RG_VPU_OVP_EN_SHIFT                            14
+#define MT6359_RG_VPU_OVP_VREFSEL_ADDR                        \
+	MT6359_VPU_ANA_CON0
+#define MT6359_RG_VPU_OVP_VREFSEL_MASK                        0x1
+#define MT6359_RG_VPU_OVP_VREFSEL_SHIFT                       15
+#define MT6359_RG_VPU_OCN_ADDR                                \
+	MT6359_VPU_ANA_CON1
+#define MT6359_RG_VPU_OCN_MASK                                0x7
+#define MT6359_RG_VPU_OCN_SHIFT                               1
+#define MT6359_RG_VPU_OCP_ADDR                                \
+	MT6359_VPU_ANA_CON1
+#define MT6359_RG_VPU_OCP_MASK                                0x7
+#define MT6359_RG_VPU_OCP_SHIFT                               4
+#define MT6359_RG_VPU_PFM_PEAK_ADDR                           \
+	MT6359_VPU_ANA_CON1
+#define MT6359_RG_VPU_PFM_PEAK_MASK                           0xF
+#define MT6359_RG_VPU_PFM_PEAK_SHIFT                          7
+#define MT6359_RG_VPU_SONIC_PFM_PEAK_ADDR                     \
+	MT6359_VPU_ANA_CON1
+#define MT6359_RG_VPU_SONIC_PFM_PEAK_MASK                     0xF
+#define MT6359_RG_VPU_SONIC_PFM_PEAK_SHIFT                    11
+#define MT6359_RGS_VPU_OC_STATUS_ADDR                         \
+	MT6359_VPU_ANA_CON1
+#define MT6359_RGS_VPU_OC_STATUS_MASK                         0x1
+#define MT6359_RGS_VPU_OC_STATUS_SHIFT                        15
+#define MT6359_RGS_VPU_DIG_MON_ADDR                           \
+	MT6359_VPU_ANA_CON2
+#define MT6359_RGS_VPU_DIG_MON_MASK                           0x1
+#define MT6359_RGS_VPU_DIG_MON_SHIFT                          9
+#define MT6359_RG_VPU_UG_SR_ADDR                              \
+	MT6359_VPU_ANA_CON2
+#define MT6359_RG_VPU_UG_SR_MASK                              0x3
+#define MT6359_RG_VPU_UG_SR_SHIFT                             10
+#define MT6359_RG_VPU_LG_SR_ADDR                              \
+	MT6359_VPU_ANA_CON2
+#define MT6359_RG_VPU_LG_SR_MASK                              0x3
+#define MT6359_RG_VPU_LG_SR_SHIFT                             12
+#define MT6359_RG_VPU_TMDL_ADDR                               \
+	MT6359_VPU_ANA_CON2
+#define MT6359_RG_VPU_TMDL_MASK                               0x1
+#define MT6359_RG_VPU_TMDL_SHIFT                              14
+#define MT6359_RG_VPU_FUGON_ADDR                              \
+	MT6359_VPU_ANA_CON2
+#define MT6359_RG_VPU_FUGON_MASK                              0x1
+#define MT6359_RG_VPU_FUGON_SHIFT                             15
+#define MT6359_RG_VPU_FLGON_ADDR                              \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_FLGON_MASK                              0x1
+#define MT6359_RG_VPU_FLGON_SHIFT                             0
+#define MT6359_RG_VPU_FCCM_ADDR                               \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_FCCM_MASK                               0x1
+#define MT6359_RG_VPU_FCCM_SHIFT                              1
+#define MT6359_RG_VPU_NONAUDIBLE_EN_ADDR                      \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_NONAUDIBLE_EN_MASK                      0x1
+#define MT6359_RG_VPU_NONAUDIBLE_EN_SHIFT                     2
+#define MT6359_RG_VPU_RETENTION_EN_ADDR                       \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_RETENTION_EN_MASK                       0x1
+#define MT6359_RG_VPU_RETENTION_EN_SHIFT                      3
+#define MT6359_RG_VPU_VDIFF_GROUNDSEL_ADDR                    \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_VDIFF_GROUNDSEL_MASK                    0x1
+#define MT6359_RG_VPU_VDIFF_GROUNDSEL_SHIFT                   4
+#define MT6359_RG_VPU_DIGMON_SEL_ADDR                         \
+	MT6359_VPU_ANA_CON3
+#define MT6359_RG_VPU_DIGMON_SEL_MASK                         0x7
+#define MT6359_RG_VPU_DIGMON_SEL_SHIFT                        5
+#define MT6359_RG_VPU_RSVH_ADDR                               \
+	MT6359_VPU_ANA_CON4
+#define MT6359_RG_VPU_RSVH_MASK                               0xFF
+#define MT6359_RG_VPU_RSVH_SHIFT                              0
+#define MT6359_RG_VPU_RSVL_ADDR                               \
+	MT6359_VPU_ANA_CON4
+#define MT6359_RG_VPU_RSVL_MASK                               0xFF
+#define MT6359_RG_VPU_RSVL_SHIFT                              8
+#define MT6359_RG_VPU_RCB_ADDR                                \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_RCB_MASK                                0x7
+#define MT6359_RG_VPU_RCB_SHIFT                               1
+#define MT6359_RG_VPU_VDIFFCAP_EN_ADDR                        \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_VDIFFCAP_EN_MASK                        0x1
+#define MT6359_RG_VPU_VDIFFCAP_EN_SHIFT                       4
+#define MT6359_RG_VPU_VBAT_HI_DIS_ADDR                        \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_VBAT_HI_DIS_MASK                        0x1
+#define MT6359_RG_VPU_VBAT_HI_DIS_SHIFT                       5
+#define MT6359_RG_VPU_VBAT_LOW_DIS_ADDR                       \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_VBAT_LOW_DIS_MASK                       0x1
+#define MT6359_RG_VPU_VBAT_LOW_DIS_SHIFT                      6
+#define MT6359_RG_VPU_VOUT_HI_DIS_ADDR                        \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_VOUT_HI_DIS_MASK                        0x1
+#define MT6359_RG_VPU_VOUT_HI_DIS_SHIFT                       7
+#define MT6359_RG_VPU_DAC_VREF_1P1V_EN_ADDR                   \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_DAC_VREF_1P1V_EN_MASK                   0x1
+#define MT6359_RG_VPU_DAC_VREF_1P1V_EN_SHIFT                  8
+#define MT6359_RG_VPU_DAC_VREF_1P2V_EN_ADDR                   \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_DAC_VREF_1P2V_EN_MASK                   0x1
+#define MT6359_RG_VPU_DAC_VREF_1P2V_EN_SHIFT                  9
+#define MT6359_RG_VPU_VDIFF_OFF_ADDR                          \
+	MT6359_VPU_ANA_CON5
+#define MT6359_RG_VPU_VDIFF_OFF_MASK                          0x1
+#define MT6359_RG_VPU_VDIFF_OFF_SHIFT                         10
+#define MT6359_RG_VS1_TON_TRIM_EN_ADDR                        \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_TON_TRIM_EN_MASK                        0x1
+#define MT6359_RG_VS1_TON_TRIM_EN_SHIFT                       1
+#define MT6359_RG_VS1_TB_DIS_ADDR                             \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_TB_DIS_MASK                             0x1
+#define MT6359_RG_VS1_TB_DIS_SHIFT                            2
+#define MT6359_RG_VS1_FPWM_ADDR                               \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_FPWM_MASK                               0x1
+#define MT6359_RG_VS1_FPWM_SHIFT                              3
+#define MT6359_RG_VS1_PFM_TON_ADDR                            \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_PFM_TON_MASK                            0x7
+#define MT6359_RG_VS1_PFM_TON_SHIFT                           4
+#define MT6359_RG_VS1_VREF_TRIM_EN_ADDR                       \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_VREF_TRIM_EN_MASK                       0x1
+#define MT6359_RG_VS1_VREF_TRIM_EN_SHIFT                      7
+#define MT6359_RG_VS1_SLEEP_TIME_ADDR                         \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_SLEEP_TIME_MASK                         0x3
+#define MT6359_RG_VS1_SLEEP_TIME_SHIFT                        8
+#define MT6359_RG_VS1_NLIM_GATING_ADDR                        \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_NLIM_GATING_MASK                        0x1
+#define MT6359_RG_VS1_NLIM_GATING_SHIFT                       10
+#define MT6359_RG_VS1_VREFUP_ADDR                             \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_VREFUP_MASK                             0x3
+#define MT6359_RG_VS1_VREFUP_SHIFT                            11
+#define MT6359_RG_VS1_TB_WIDTH_ADDR                           \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_TB_WIDTH_MASK                           0x3
+#define MT6359_RG_VS1_TB_WIDTH_SHIFT                          13
+#define MT6359_RG_VS1_VDIFFPFMOFF_ADDR                        \
+	MT6359_VS1_ANA_CON0
+#define MT6359_RG_VS1_VDIFFPFMOFF_MASK                        0x1
+#define MT6359_RG_VS1_VDIFFPFMOFF_SHIFT                       15
+#define MT6359_RG_VS1_VDIFF_OFF_ADDR                          \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_VDIFF_OFF_MASK                          0x1
+#define MT6359_RG_VS1_VDIFF_OFF_SHIFT                         0
+#define MT6359_RG_VS1_UG_SR_ADDR                              \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_UG_SR_MASK                              0x3
+#define MT6359_RG_VS1_UG_SR_SHIFT                             1
+#define MT6359_RG_VS1_LG_SR_ADDR                              \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_LG_SR_MASK                              0x3
+#define MT6359_RG_VS1_LG_SR_SHIFT                             3
+#define MT6359_RG_VS1_NDIS_EN_ADDR                            \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_NDIS_EN_MASK                            0x1
+#define MT6359_RG_VS1_NDIS_EN_SHIFT                           5
+#define MT6359_RG_VS1_TMDL_ADDR                               \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_TMDL_MASK                               0x1
+#define MT6359_RG_VS1_TMDL_SHIFT                              6
+#define MT6359_RG_VS1_CMPV_FCOT_ADDR                          \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_CMPV_FCOT_MASK                          0x1
+#define MT6359_RG_VS1_CMPV_FCOT_SHIFT                         7
+#define MT6359_RG_VS1_RSV1_ADDR                               \
+	MT6359_VS1_ANA_CON1
+#define MT6359_RG_VS1_RSV1_MASK                               0xFF
+#define MT6359_RG_VS1_RSV1_SHIFT                              8
+#define MT6359_RG_VS1_RSV2_ADDR                               \
+	MT6359_VS1_ANA_CON2
+#define MT6359_RG_VS1_RSV2_MASK                               0xFF
+#define MT6359_RG_VS1_RSV2_SHIFT                              0
+#define MT6359_RG_VS1_FUGON_ADDR                              \
+	MT6359_VS1_ANA_CON2
+#define MT6359_RG_VS1_FUGON_MASK                              0x1
+#define MT6359_RG_VS1_FUGON_SHIFT                             8
+#define MT6359_RG_VS1_FLGON_ADDR                              \
+	MT6359_VS1_ANA_CON2
+#define MT6359_RG_VS1_FLGON_MASK                              0x1
+#define MT6359_RG_VS1_FLGON_SHIFT                             9
+#define MT6359_RGS_VS1_OC_STATUS_ADDR                         \
+	MT6359_VS1_ANA_CON2
+#define MT6359_RGS_VS1_OC_STATUS_MASK                         0x1
+#define MT6359_RGS_VS1_OC_STATUS_SHIFT                        10
+#define MT6359_RGS_VS1_DIG_MON_ADDR                           \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RGS_VS1_DIG_MON_MASK                           0x1
+#define MT6359_RGS_VS1_DIG_MON_SHIFT                          0
+#define MT6359_RG_VS1_NONAUDIBLE_EN_ADDR                      \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_NONAUDIBLE_EN_MASK                      0x1
+#define MT6359_RG_VS1_NONAUDIBLE_EN_SHIFT                     1
+#define MT6359_RG_VS1_OCP_ADDR                                \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_OCP_MASK                                0x7
+#define MT6359_RG_VS1_OCP_SHIFT                               2
+#define MT6359_RG_VS1_OCN_ADDR                                \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_OCN_MASK                                0x7
+#define MT6359_RG_VS1_OCN_SHIFT                               5
+#define MT6359_RG_VS1_SONIC_PFM_TON_ADDR                      \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_SONIC_PFM_TON_MASK                      0x7
+#define MT6359_RG_VS1_SONIC_PFM_TON_SHIFT                     8
+#define MT6359_RG_VS1_RETENTION_EN_ADDR                       \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_RETENTION_EN_MASK                       0x1
+#define MT6359_RG_VS1_RETENTION_EN_SHIFT                      11
+#define MT6359_RG_VS1_DIGMON_SEL_ADDR                         \
+	MT6359_VS1_ANA_CON3
+#define MT6359_RG_VS1_DIGMON_SEL_MASK                         0x7
+#define MT6359_RG_VS1_DIGMON_SEL_SHIFT                        12
+#define MT6359_RG_VS2_TON_TRIM_EN_ADDR                        \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_TON_TRIM_EN_MASK                        0x1
+#define MT6359_RG_VS2_TON_TRIM_EN_SHIFT                       1
+#define MT6359_RG_VS2_TB_DIS_ADDR                             \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_TB_DIS_MASK                             0x1
+#define MT6359_RG_VS2_TB_DIS_SHIFT                            2
+#define MT6359_RG_VS2_FPWM_ADDR                               \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_FPWM_MASK                               0x1
+#define MT6359_RG_VS2_FPWM_SHIFT                              3
+#define MT6359_RG_VS2_PFM_TON_ADDR                            \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_PFM_TON_MASK                            0x7
+#define MT6359_RG_VS2_PFM_TON_SHIFT                           4
+#define MT6359_RG_VS2_VREF_TRIM_EN_ADDR                       \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_VREF_TRIM_EN_MASK                       0x1
+#define MT6359_RG_VS2_VREF_TRIM_EN_SHIFT                      7
+#define MT6359_RG_VS2_SLEEP_TIME_ADDR                         \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_SLEEP_TIME_MASK                         0x3
+#define MT6359_RG_VS2_SLEEP_TIME_SHIFT                        8
+#define MT6359_RG_VS2_NLIM_GATING_ADDR                        \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_NLIM_GATING_MASK                        0x1
+#define MT6359_RG_VS2_NLIM_GATING_SHIFT                       10
+#define MT6359_RG_VS2_VREFUP_ADDR                             \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_VREFUP_MASK                             0x3
+#define MT6359_RG_VS2_VREFUP_SHIFT                            11
+#define MT6359_RG_VS2_TB_WIDTH_ADDR                           \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_TB_WIDTH_MASK                           0x3
+#define MT6359_RG_VS2_TB_WIDTH_SHIFT                          13
+#define MT6359_RG_VS2_VDIFFPFMOFF_ADDR                        \
+	MT6359_VS2_ANA_CON0
+#define MT6359_RG_VS2_VDIFFPFMOFF_MASK                        0x1
+#define MT6359_RG_VS2_VDIFFPFMOFF_SHIFT                       15
+#define MT6359_RG_VS2_VDIFF_OFF_ADDR                          \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_VDIFF_OFF_MASK                          0x1
+#define MT6359_RG_VS2_VDIFF_OFF_SHIFT                         0
+#define MT6359_RG_VS2_UG_SR_ADDR                              \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_UG_SR_MASK                              0x3
+#define MT6359_RG_VS2_UG_SR_SHIFT                             1
+#define MT6359_RG_VS2_LG_SR_ADDR                              \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_LG_SR_MASK                              0x3
+#define MT6359_RG_VS2_LG_SR_SHIFT                             3
+#define MT6359_RG_VS2_NDIS_EN_ADDR                            \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_NDIS_EN_MASK                            0x1
+#define MT6359_RG_VS2_NDIS_EN_SHIFT                           5
+#define MT6359_RG_VS2_TMDL_ADDR                               \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_TMDL_MASK                               0x1
+#define MT6359_RG_VS2_TMDL_SHIFT                              6
+#define MT6359_RG_VS2_CMPV_FCOT_ADDR                          \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_CMPV_FCOT_MASK                          0x1
+#define MT6359_RG_VS2_CMPV_FCOT_SHIFT                         7
+#define MT6359_RG_VS2_RSV1_ADDR                               \
+	MT6359_VS2_ANA_CON1
+#define MT6359_RG_VS2_RSV1_MASK                               0xFF
+#define MT6359_RG_VS2_RSV1_SHIFT                              8
+#define MT6359_RG_VS2_RSV2_ADDR                               \
+	MT6359_VS2_ANA_CON2
+#define MT6359_RG_VS2_RSV2_MASK                               0xFF
+#define MT6359_RG_VS2_RSV2_SHIFT                              0
+#define MT6359_RG_VS2_FUGON_ADDR                              \
+	MT6359_VS2_ANA_CON2
+#define MT6359_RG_VS2_FUGON_MASK                              0x1
+#define MT6359_RG_VS2_FUGON_SHIFT                             8
+#define MT6359_RG_VS2_FLGON_ADDR                              \
+	MT6359_VS2_ANA_CON2
+#define MT6359_RG_VS2_FLGON_MASK                              0x1
+#define MT6359_RG_VS2_FLGON_SHIFT                             9
+#define MT6359_RGS_VS2_OC_STATUS_ADDR                         \
+	MT6359_VS2_ANA_CON2
+#define MT6359_RGS_VS2_OC_STATUS_MASK                         0x1
+#define MT6359_RGS_VS2_OC_STATUS_SHIFT                        10
+#define MT6359_RGS_VS2_DIG_MON_ADDR                           \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RGS_VS2_DIG_MON_MASK                           0x1
+#define MT6359_RGS_VS2_DIG_MON_SHIFT                          0
+#define MT6359_RG_VS2_NONAUDIBLE_EN_ADDR                      \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_NONAUDIBLE_EN_MASK                      0x1
+#define MT6359_RG_VS2_NONAUDIBLE_EN_SHIFT                     1
+#define MT6359_RG_VS2_OCP_ADDR                                \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_OCP_MASK                                0x7
+#define MT6359_RG_VS2_OCP_SHIFT                               2
+#define MT6359_RG_VS2_OCN_ADDR                                \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_OCN_MASK                                0x7
+#define MT6359_RG_VS2_OCN_SHIFT                               5
+#define MT6359_RG_VS2_SONIC_PFM_TON_ADDR                      \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_SONIC_PFM_TON_MASK                      0x7
+#define MT6359_RG_VS2_SONIC_PFM_TON_SHIFT                     8
+#define MT6359_RG_VS2_RETENTION_EN_ADDR                       \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_RETENTION_EN_MASK                       0x1
+#define MT6359_RG_VS2_RETENTION_EN_SHIFT                      11
+#define MT6359_RG_VS2_DIGMON_SEL_ADDR                         \
+	MT6359_VS2_ANA_CON3
+#define MT6359_RG_VS2_DIGMON_SEL_MASK                         0x7
+#define MT6359_RG_VS2_DIGMON_SEL_SHIFT                        12
+#define MT6359_RG_VPA_NDIS_EN_ADDR                            \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_NDIS_EN_MASK                            0x1
+#define MT6359_RG_VPA_NDIS_EN_SHIFT                           0
+#define MT6359_RG_VPA_MODESET_ADDR                            \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_MODESET_MASK                            0x1
+#define MT6359_RG_VPA_MODESET_SHIFT                           1
+#define MT6359_RG_VPA_CC_ADDR                                 \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_CC_MASK                                 0x3
+#define MT6359_RG_VPA_CC_SHIFT                                2
+#define MT6359_RG_VPA_CSR_ADDR                                \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_CSR_MASK                                0x3
+#define MT6359_RG_VPA_CSR_SHIFT                               4
+#define MT6359_RG_VPA_CSMIR_ADDR                              \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_CSMIR_MASK                              0x3
+#define MT6359_RG_VPA_CSMIR_SHIFT                             6
+#define MT6359_RG_VPA_CSL_ADDR                                \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_CSL_MASK                                0x3
+#define MT6359_RG_VPA_CSL_SHIFT                               8
+#define MT6359_RG_VPA_SLP_ADDR                                \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_SLP_MASK                                0x3
+#define MT6359_RG_VPA_SLP_SHIFT                               10
+#define MT6359_RG_VPA_ZXFT_L_ADDR                             \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_ZXFT_L_MASK                             0x1
+#define MT6359_RG_VPA_ZXFT_L_SHIFT                            12
+#define MT6359_RG_VPA_CP_FWUPOFF_ADDR                         \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_CP_FWUPOFF_MASK                         0x1
+#define MT6359_RG_VPA_CP_FWUPOFF_SHIFT                        13
+#define MT6359_RG_VPA_NONAUDIBLE_EN_ADDR                      \
+	MT6359_VPA_ANA_CON0
+#define MT6359_RG_VPA_NONAUDIBLE_EN_MASK                      0x1
+#define MT6359_RG_VPA_NONAUDIBLE_EN_SHIFT                     14
+#define MT6359_RG_VPA_RZSEL_ADDR                              \
+	MT6359_VPA_ANA_CON1
+#define MT6359_RG_VPA_RZSEL_MASK                              0x3
+#define MT6359_RG_VPA_RZSEL_SHIFT                             0
+#define MT6359_RG_VPA_SLEW_ADDR                               \
+	MT6359_VPA_ANA_CON1
+#define MT6359_RG_VPA_SLEW_MASK                               0x3
+#define MT6359_RG_VPA_SLEW_SHIFT                              2
+#define MT6359_RG_VPA_SLEW_NMOS_ADDR                          \
+	MT6359_VPA_ANA_CON1
+#define MT6359_RG_VPA_SLEW_NMOS_MASK                          0x3
+#define MT6359_RG_VPA_SLEW_NMOS_SHIFT                         4
+#define MT6359_RG_VPA_MIN_ON_ADDR                             \
+	MT6359_VPA_ANA_CON1
+#define MT6359_RG_VPA_MIN_ON_MASK                             0x3
+#define MT6359_RG_VPA_MIN_ON_SHIFT                            6
+#define MT6359_RG_VPA_BURST_SEL_ADDR                          \
+	MT6359_VPA_ANA_CON1
+#define MT6359_RG_VPA_BURST_SEL_MASK                          0x3
+#define MT6359_RG_VPA_BURST_SEL_SHIFT                         8
+#define MT6359_RG_VPA_ZC_ADDR                                 \
+	MT6359_VPA_ANA_CON2
+#define MT6359_RG_VPA_ZC_MASK                                 0x3
+#define MT6359_RG_VPA_ZC_SHIFT                                0
+#define MT6359_RG_VPA_RSV1_ADDR                               \
+	MT6359_VPA_ANA_CON2
+#define MT6359_RG_VPA_RSV1_MASK                               0xFF
+#define MT6359_RG_VPA_RSV1_SHIFT                              8
+#define MT6359_RG_VPA_RSV2_ADDR                               \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RG_VPA_RSV2_MASK                               0xFF
+#define MT6359_RG_VPA_RSV2_SHIFT                              0
+#define MT6359_RGS_VPA_OC_STATUS_ADDR                         \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RGS_VPA_OC_STATUS_MASK                         0x1
+#define MT6359_RGS_VPA_OC_STATUS_SHIFT                        8
+#define MT6359_RGS_VPA_AZC_ZX_ADDR                            \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RGS_VPA_AZC_ZX_MASK                            0x1
+#define MT6359_RGS_VPA_AZC_ZX_SHIFT                           9
+#define MT6359_RGS_VPA_DIG_MON_ADDR                           \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RGS_VPA_DIG_MON_MASK                           0x1
+#define MT6359_RGS_VPA_DIG_MON_SHIFT                          10
+#define MT6359_RG_VPA_PFM_DLC1_VTH_ADDR                       \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RG_VPA_PFM_DLC1_VTH_MASK                       0x3
+#define MT6359_RG_VPA_PFM_DLC1_VTH_SHIFT                      11
+#define MT6359_RG_VPA_PFM_DLC2_VTH_ADDR                       \
+	MT6359_VPA_ANA_CON3
+#define MT6359_RG_VPA_PFM_DLC2_VTH_MASK                       0x3
+#define MT6359_RG_VPA_PFM_DLC2_VTH_SHIFT                      13
+#define MT6359_RG_VPA_PFM_DLC3_VTH_ADDR                       \
+	MT6359_VPA_ANA_CON4
+#define MT6359_RG_VPA_PFM_DLC3_VTH_MASK                       0x3
+#define MT6359_RG_VPA_PFM_DLC3_VTH_SHIFT                      0
+#define MT6359_RG_VPA_PFM_DLC4_VTH_ADDR                       \
+	MT6359_VPA_ANA_CON4
+#define MT6359_RG_VPA_PFM_DLC4_VTH_MASK                       0x3
+#define MT6359_RG_VPA_PFM_DLC4_VTH_SHIFT                      2
+#define MT6359_RG_VPA_ZXFT_H_ADDR                             \
+	MT6359_VPA_ANA_CON4
+#define MT6359_RG_VPA_ZXFT_H_MASK                             0x1
+#define MT6359_RG_VPA_ZXFT_H_SHIFT                            4
+#define MT6359_RG_VPA_DECODE_TMB_ADDR                         \
+	MT6359_VPA_ANA_CON4
+#define MT6359_RG_VPA_DECODE_TMB_MASK                         0x1
+#define MT6359_RG_VPA_DECODE_TMB_SHIFT                        5
+#define MT6359_RG_VPA_RSV3_ADDR                               \
+	MT6359_VPA_ANA_CON4
+#define MT6359_RG_VPA_RSV3_MASK                               0xFF
+#define MT6359_RG_VPA_RSV3_SHIFT                              8
+#define MT6359_BUCK_ANA1_ELR_LEN_ADDR                         \
+	MT6359_BUCK_ANA1_ELR_NUM
+#define MT6359_BUCK_ANA1_ELR_LEN_MASK                         0xFF
+#define MT6359_BUCK_ANA1_ELR_LEN_SHIFT                        0
+#define MT6359_RG_VPROC2_DRIVER_SR_TRIM_ADDR                  \
+	MT6359_VPROC2_ELR_0
+#define MT6359_RG_VPROC2_DRIVER_SR_TRIM_MASK                  0x7
+#define MT6359_RG_VPROC2_DRIVER_SR_TRIM_SHIFT                 0
+#define MT6359_RG_VPROC2_CCOMP_ADDR                           \
+	MT6359_VPROC2_ELR_0
+#define MT6359_RG_VPROC2_CCOMP_MASK                           0x3
+#define MT6359_RG_VPROC2_CCOMP_SHIFT                          3
+#define MT6359_RG_VPROC2_RCOMP_ADDR                           \
+	MT6359_VPROC2_ELR_0
+#define MT6359_RG_VPROC2_RCOMP_MASK                           0xF
+#define MT6359_RG_VPROC2_RCOMP_SHIFT                          5
+#define MT6359_RG_VPROC2_RAMP_SLP_ADDR                        \
+	MT6359_VPROC2_ELR_0
+#define MT6359_RG_VPROC2_RAMP_SLP_MASK                        0x7
+#define MT6359_RG_VPROC2_RAMP_SLP_SHIFT                       9
+#define MT6359_RG_VPROC2_NLIM_TRIM_ADDR                       \
+	MT6359_VPROC2_ELR_0
+#define MT6359_RG_VPROC2_NLIM_TRIM_MASK                       0xF
+#define MT6359_RG_VPROC2_NLIM_TRIM_SHIFT                      12
+#define MT6359_RG_VPROC2_CSNSLP_TRIM_ADDR                     \
+	MT6359_VPROC2_ELR_1
+#define MT6359_RG_VPROC2_CSNSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VPROC2_CSNSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VPROC2_ZC_TRIM_ADDR                         \
+	MT6359_VPROC2_ELR_1
+#define MT6359_RG_VPROC2_ZC_TRIM_MASK                         0x3
+#define MT6359_RG_VPROC2_ZC_TRIM_SHIFT                        4
+#define MT6359_RG_VPROC2_CSPSLP_TRIM_ADDR                     \
+	MT6359_VPROC2_ELR_2
+#define MT6359_RG_VPROC2_CSPSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VPROC2_CSPSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VMODEM_DRIVER_SR_TRIM_ADDR                  \
+	MT6359_VPROC2_ELR_3
+#define MT6359_RG_VMODEM_DRIVER_SR_TRIM_MASK                  0x7
+#define MT6359_RG_VMODEM_DRIVER_SR_TRIM_SHIFT                 0
+#define MT6359_RG_VMODEM_CCOMP_ADDR                           \
+	MT6359_VPROC2_ELR_3
+#define MT6359_RG_VMODEM_CCOMP_MASK                           0x3
+#define MT6359_RG_VMODEM_CCOMP_SHIFT                          3
+#define MT6359_RG_VMODEM_RCOMP_ADDR                           \
+	MT6359_VPROC2_ELR_3
+#define MT6359_RG_VMODEM_RCOMP_MASK                           0xF
+#define MT6359_RG_VMODEM_RCOMP_SHIFT                          5
+#define MT6359_RG_VMODEM_RAMP_SLP_ADDR                        \
+	MT6359_VPROC2_ELR_3
+#define MT6359_RG_VMODEM_RAMP_SLP_MASK                        0x7
+#define MT6359_RG_VMODEM_RAMP_SLP_SHIFT                       9
+#define MT6359_RG_VMODEM_NLIM_TRIM_ADDR                       \
+	MT6359_VPROC2_ELR_3
+#define MT6359_RG_VMODEM_NLIM_TRIM_MASK                       0xF
+#define MT6359_RG_VMODEM_NLIM_TRIM_SHIFT                      12
+#define MT6359_RG_VMODEM_CSNSLP_TRIM_ADDR                     \
+	MT6359_VPROC2_ELR_4
+#define MT6359_RG_VMODEM_CSNSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VMODEM_CSNSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VMODEM_ZC_TRIM_ADDR                         \
+	MT6359_VPROC2_ELR_4
+#define MT6359_RG_VMODEM_ZC_TRIM_MASK                         0x3
+#define MT6359_RG_VMODEM_ZC_TRIM_SHIFT                        4
+#define MT6359_RG_VMODEM_CSPSLP_TRIM_ADDR                     \
+	MT6359_VPROC2_ELR_5
+#define MT6359_RG_VMODEM_CSPSLP_TRIM_MASK                     0xF
+#define MT6359_RG_VMODEM_CSPSLP_TRIM_SHIFT                    0
+#define MT6359_RG_VPU_DRIVER_SR_TRIM_ADDR                     \
+	MT6359_VPROC2_ELR_6
+#define MT6359_RG_VPU_DRIVER_SR_TRIM_MASK                     0x7
+#define MT6359_RG_VPU_DRIVER_SR_TRIM_SHIFT                    0
+#define MT6359_RG_VPU_CCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_6
+#define MT6359_RG_VPU_CCOMP_MASK                              0x3
+#define MT6359_RG_VPU_CCOMP_SHIFT                             3
+#define MT6359_RG_VPU_RCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_6
+#define MT6359_RG_VPU_RCOMP_MASK                              0xF
+#define MT6359_RG_VPU_RCOMP_SHIFT                             5
+#define MT6359_RG_VPU_RAMP_SLP_ADDR                           \
+	MT6359_VPROC2_ELR_6
+#define MT6359_RG_VPU_RAMP_SLP_MASK                           0x7
+#define MT6359_RG_VPU_RAMP_SLP_SHIFT                          9
+#define MT6359_RG_VPU_NLIM_TRIM_ADDR                          \
+	MT6359_VPROC2_ELR_6
+#define MT6359_RG_VPU_NLIM_TRIM_MASK                          0xF
+#define MT6359_RG_VPU_NLIM_TRIM_SHIFT                         12
+#define MT6359_RG_VPU_CSNSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_7
+#define MT6359_RG_VPU_CSNSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VPU_CSNSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VPU_ZC_TRIM_ADDR                            \
+	MT6359_VPROC2_ELR_7
+#define MT6359_RG_VPU_ZC_TRIM_MASK                            0x3
+#define MT6359_RG_VPU_ZC_TRIM_SHIFT                           4
+#define MT6359_RG_VPU_CSPSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_8
+#define MT6359_RG_VPU_CSPSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VPU_CSPSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VS1_CSNSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_CSNSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VS1_CSNSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VS1_CCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_CCOMP_MASK                              0x3
+#define MT6359_RG_VS1_CCOMP_SHIFT                             4
+#define MT6359_RG_VS1_RCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_RCOMP_MASK                              0xF
+#define MT6359_RG_VS1_RCOMP_SHIFT                             6
+#define MT6359_RG_VS1_COTRAMP_SLP_ADDR                        \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_COTRAMP_SLP_MASK                        0x7
+#define MT6359_RG_VS1_COTRAMP_SLP_SHIFT                       10
+#define MT6359_RG_VS1_ZC_TRIM_ADDR                            \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_ZC_TRIM_MASK                            0x3
+#define MT6359_RG_VS1_ZC_TRIM_SHIFT                           13
+#define MT6359_RG_VS1_LDO_SENSE_ADDR                          \
+	MT6359_VPROC2_ELR_9
+#define MT6359_RG_VS1_LDO_SENSE_MASK                          0x1
+#define MT6359_RG_VS1_LDO_SENSE_SHIFT                         15
+#define MT6359_RG_VS1_CSPSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_10
+#define MT6359_RG_VS1_CSPSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VS1_CSPSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VS1_NLIM_TRIM_ADDR                          \
+	MT6359_VPROC2_ELR_10
+#define MT6359_RG_VS1_NLIM_TRIM_MASK                          0xF
+#define MT6359_RG_VS1_NLIM_TRIM_SHIFT                         4
+#define MT6359_RG_VS2_CSNSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_CSNSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VS2_CSNSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VS2_CCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_CCOMP_MASK                              0x3
+#define MT6359_RG_VS2_CCOMP_SHIFT                             4
+#define MT6359_RG_VS2_RCOMP_ADDR                              \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_RCOMP_MASK                              0xF
+#define MT6359_RG_VS2_RCOMP_SHIFT                             6
+#define MT6359_RG_VS2_COTRAMP_SLP_ADDR                        \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_COTRAMP_SLP_MASK                        0x7
+#define MT6359_RG_VS2_COTRAMP_SLP_SHIFT                       10
+#define MT6359_RG_VS2_ZC_TRIM_ADDR                            \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_ZC_TRIM_MASK                            0x3
+#define MT6359_RG_VS2_ZC_TRIM_SHIFT                           13
+#define MT6359_RG_VS2_LDO_SENSE_ADDR                          \
+	MT6359_VPROC2_ELR_11
+#define MT6359_RG_VS2_LDO_SENSE_MASK                          0x1
+#define MT6359_RG_VS2_LDO_SENSE_SHIFT                         15
+#define MT6359_RG_VS2_CSPSLP_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_12
+#define MT6359_RG_VS2_CSPSLP_TRIM_MASK                        0xF
+#define MT6359_RG_VS2_CSPSLP_TRIM_SHIFT                       0
+#define MT6359_RG_VS2_NLIM_TRIM_ADDR                          \
+	MT6359_VPROC2_ELR_12
+#define MT6359_RG_VS2_NLIM_TRIM_MASK                          0xF
+#define MT6359_RG_VS2_NLIM_TRIM_SHIFT                         4
+#define MT6359_RG_VPROC2_TON_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_13
+#define MT6359_RG_VPROC2_TON_TRIM_MASK                        0x3F
+#define MT6359_RG_VPROC2_TON_TRIM_SHIFT                       0
+#define MT6359_RG_VMODEM_TON_TRIM_ADDR                        \
+	MT6359_VPROC2_ELR_13
+#define MT6359_RG_VMODEM_TON_TRIM_MASK                        0x3F
+#define MT6359_RG_VMODEM_TON_TRIM_SHIFT                       6
+#define MT6359_RG_VPU_TON_TRIM_ADDR                           \
+	MT6359_VPROC2_ELR_14
+#define MT6359_RG_VPU_TON_TRIM_MASK                           0x3F
+#define MT6359_RG_VPU_TON_TRIM_SHIFT                          0
+#define MT6359_RG_VS1_TON_TRIM_ADDR                           \
+	MT6359_VPROC2_ELR_14
+#define MT6359_RG_VS1_TON_TRIM_MASK                           0x3F
+#define MT6359_RG_VS1_TON_TRIM_SHIFT                          6
+#define MT6359_RG_VS2_TON_TRIM_ADDR                           \
+	MT6359_VPROC2_ELR_15
+#define MT6359_RG_VS2_TON_TRIM_MASK                           0x3F
+#define MT6359_RG_VS2_TON_TRIM_SHIFT                          0
+#define MT6359_RG_VPA_NLIM_SEL_ADDR                           \
+	MT6359_VPROC2_ELR_15
+#define MT6359_RG_VPA_NLIM_SEL_MASK                           0xF
+#define MT6359_RG_VPA_NLIM_SEL_SHIFT                          6
+#define MT6359_LDO_TOP_ANA_ID_ADDR                            \
+	MT6359_LDO_TOP_ID
+#define MT6359_LDO_TOP_ANA_ID_MASK                            0xFF
+#define MT6359_LDO_TOP_ANA_ID_SHIFT                           0
+#define MT6359_LDO_TOP_DIG_ID_ADDR                            \
+	MT6359_LDO_TOP_ID
+#define MT6359_LDO_TOP_DIG_ID_MASK                            0xFF
+#define MT6359_LDO_TOP_DIG_ID_SHIFT                           8
+#define MT6359_LDO_TOP_ANA_MINOR_REV_ADDR                     \
+	MT6359_LDO_TOP_REV0
+#define MT6359_LDO_TOP_ANA_MINOR_REV_MASK                     0xF
+#define MT6359_LDO_TOP_ANA_MINOR_REV_SHIFT                    0
+#define MT6359_LDO_TOP_ANA_MAJOR_REV_ADDR                     \
+	MT6359_LDO_TOP_REV0
+#define MT6359_LDO_TOP_ANA_MAJOR_REV_MASK                     0xF
+#define MT6359_LDO_TOP_ANA_MAJOR_REV_SHIFT                    4
+#define MT6359_LDO_TOP_DIG_MINOR_REV_ADDR                     \
+	MT6359_LDO_TOP_REV0
+#define MT6359_LDO_TOP_DIG_MINOR_REV_MASK                     0xF
+#define MT6359_LDO_TOP_DIG_MINOR_REV_SHIFT                    8
+#define MT6359_LDO_TOP_DIG_MAJOR_REV_ADDR                     \
+	MT6359_LDO_TOP_REV0
+#define MT6359_LDO_TOP_DIG_MAJOR_REV_MASK                     0xF
+#define MT6359_LDO_TOP_DIG_MAJOR_REV_SHIFT                    12
+#define MT6359_LDO_TOP_CBS_ADDR                               \
+	MT6359_LDO_TOP_DBI
+#define MT6359_LDO_TOP_CBS_MASK                               0x3
+#define MT6359_LDO_TOP_CBS_SHIFT                              0
+#define MT6359_LDO_TOP_BIX_ADDR                               \
+	MT6359_LDO_TOP_DBI
+#define MT6359_LDO_TOP_BIX_MASK                               0x3
+#define MT6359_LDO_TOP_BIX_SHIFT                              2
+#define MT6359_LDO_TOP_ESP_ADDR                               \
+	MT6359_LDO_TOP_DBI
+#define MT6359_LDO_TOP_ESP_MASK                               0xFF
+#define MT6359_LDO_TOP_ESP_SHIFT                              8
+#define MT6359_LDO_TOP_FPI_ADDR                               \
+	MT6359_LDO_TOP_DXI
+#define MT6359_LDO_TOP_FPI_MASK                               0xFF
+#define MT6359_LDO_TOP_FPI_SHIFT                              0
+#define MT6359_LDO_TOP_CLK_OFFSET_ADDR                        \
+	MT6359_LDO_TPM0
+#define MT6359_LDO_TOP_CLK_OFFSET_MASK                        0xFF
+#define MT6359_LDO_TOP_CLK_OFFSET_SHIFT                       0
+#define MT6359_LDO_TOP_RST_OFFSET_ADDR                        \
+	MT6359_LDO_TPM0
+#define MT6359_LDO_TOP_RST_OFFSET_MASK                        0xFF
+#define MT6359_LDO_TOP_RST_OFFSET_SHIFT                       8
+#define MT6359_LDO_TOP_INT_OFFSET_ADDR                        \
+	MT6359_LDO_TPM1
+#define MT6359_LDO_TOP_INT_OFFSET_MASK                        0xFF
+#define MT6359_LDO_TOP_INT_OFFSET_SHIFT                       0
+#define MT6359_LDO_TOP_INT_LEN_ADDR                           \
+	MT6359_LDO_TPM1
+#define MT6359_LDO_TOP_INT_LEN_MASK                           0xFF
+#define MT6359_LDO_TOP_INT_LEN_SHIFT                          8
+#define MT6359_RG_LDO_32K_CK_PDN_ADDR                         \
+	MT6359_LDO_TOP_CKPDN_CON0
+#define MT6359_RG_LDO_32K_CK_PDN_MASK                         0x1
+#define MT6359_RG_LDO_32K_CK_PDN_SHIFT                        0
+#define MT6359_RG_LDO_INTRP_CK_PDN_ADDR                       \
+	MT6359_LDO_TOP_CKPDN_CON0
+#define MT6359_RG_LDO_INTRP_CK_PDN_MASK                       0x1
+#define MT6359_RG_LDO_INTRP_CK_PDN_SHIFT                      1
+#define MT6359_RG_LDO_1M_CK_PDN_ADDR                          \
+	MT6359_LDO_TOP_CKPDN_CON0
+#define MT6359_RG_LDO_1M_CK_PDN_MASK                          0x1
+#define MT6359_RG_LDO_1M_CK_PDN_SHIFT                         2
+#define MT6359_RG_LDO_26M_CK_PDN_ADDR                         \
+	MT6359_LDO_TOP_CKPDN_CON0
+#define MT6359_RG_LDO_26M_CK_PDN_MASK                         0x1
+#define MT6359_RG_LDO_26M_CK_PDN_SHIFT                        3
+#define MT6359_RG_LDO_32K_CK_PDN_HWEN_ADDR                    \
+	MT6359_TOP_TOP_CKHWEN_CON0
+#define MT6359_RG_LDO_32K_CK_PDN_HWEN_MASK                    0x1
+#define MT6359_RG_LDO_32K_CK_PDN_HWEN_SHIFT                   0
+#define MT6359_RG_LDO_INTRP_CK_PDN_HWEN_ADDR                  \
+	MT6359_TOP_TOP_CKHWEN_CON0
+#define MT6359_RG_LDO_INTRP_CK_PDN_HWEN_MASK                  0x1
+#define MT6359_RG_LDO_INTRP_CK_PDN_HWEN_SHIFT                 1
+#define MT6359_RG_LDO_1M_CK_PDN_HWEN_ADDR                     \
+	MT6359_TOP_TOP_CKHWEN_CON0
+#define MT6359_RG_LDO_1M_CK_PDN_HWEN_MASK                     0x1
+#define MT6359_RG_LDO_1M_CK_PDN_HWEN_SHIFT                    2
+#define MT6359_RG_LDO_26M_CK_PDN_HWEN_ADDR                    \
+	MT6359_TOP_TOP_CKHWEN_CON0
+#define MT6359_RG_LDO_26M_CK_PDN_HWEN_MASK                    0x1
+#define MT6359_RG_LDO_26M_CK_PDN_HWEN_SHIFT                   3
+#define MT6359_RG_LDO_DCM_MODE_ADDR                           \
+	MT6359_LDO_TOP_CLK_DCM_CON0
+#define MT6359_RG_LDO_DCM_MODE_MASK                           0x1
+#define MT6359_RG_LDO_DCM_MODE_SHIFT                          0
+#define MT6359_RG_LDO_VSRAM_PROC1_OSC_SEL_DIS_ADDR            \
+	MT6359_LDO_TOP_CLK_VSRAM_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_OSC_SEL_DIS_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_OSC_SEL_DIS_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_PROC2_OSC_SEL_DIS_ADDR            \
+	MT6359_LDO_TOP_CLK_VSRAM_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_OSC_SEL_DIS_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_OSC_SEL_DIS_SHIFT           1
+#define MT6359_RG_LDO_VSRAM_OTHERS_OSC_SEL_DIS_ADDR           \
+	MT6359_LDO_TOP_CLK_VSRAM_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OSC_SEL_DIS_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_OSC_SEL_DIS_SHIFT          2
+#define MT6359_RG_LDO_VSRAM_MD_OSC_SEL_DIS_ADDR               \
+	MT6359_LDO_TOP_CLK_VSRAM_CON0
+#define MT6359_RG_LDO_VSRAM_MD_OSC_SEL_DIS_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_OSC_SEL_DIS_SHIFT              3
+#define MT6359_RG_INT_EN_VFE28_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VFE28_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VFE28_OC_SHIFT                       0
+#define MT6359_RG_INT_EN_VXO22_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VXO22_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VXO22_OC_SHIFT                       1
+#define MT6359_RG_INT_EN_VRF18_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VRF18_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VRF18_OC_SHIFT                       2
+#define MT6359_RG_INT_EN_VRF12_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VRF12_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VRF12_OC_SHIFT                       3
+#define MT6359_RG_INT_EN_VEFUSE_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VEFUSE_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VEFUSE_OC_SHIFT                      4
+#define MT6359_RG_INT_EN_VCN33_1_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCN33_1_OC_MASK                      0x1
+#define MT6359_RG_INT_EN_VCN33_1_OC_SHIFT                     5
+#define MT6359_RG_INT_EN_VCN33_2_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCN33_2_OC_MASK                      0x1
+#define MT6359_RG_INT_EN_VCN33_2_OC_SHIFT                     6
+#define MT6359_RG_INT_EN_VCN13_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCN13_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VCN13_OC_SHIFT                       7
+#define MT6359_RG_INT_EN_VCN18_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCN18_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VCN18_OC_SHIFT                       8
+#define MT6359_RG_INT_EN_VA09_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VA09_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VA09_OC_SHIFT                        9
+#define MT6359_RG_INT_EN_VCAMIO_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VCAMIO_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VCAMIO_OC_SHIFT                      10
+#define MT6359_RG_INT_EN_VA12_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VA12_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VA12_OC_SHIFT                        11
+#define MT6359_RG_INT_EN_VAUX18_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VAUX18_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VAUX18_OC_SHIFT                      12
+#define MT6359_RG_INT_EN_VAUD18_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VAUD18_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VAUD18_OC_SHIFT                      13
+#define MT6359_RG_INT_EN_VIO18_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VIO18_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VIO18_OC_SHIFT                       14
+#define MT6359_RG_INT_EN_VSRAM_PROC1_OC_ADDR                  \
+	MT6359_LDO_TOP_INT_CON0
+#define MT6359_RG_INT_EN_VSRAM_PROC1_OC_MASK                  0x1
+#define MT6359_RG_INT_EN_VSRAM_PROC1_OC_SHIFT                 15
+#define MT6359_LDO_INT_CON0_SET_ADDR                          \
+	MT6359_LDO_TOP_INT_CON0_SET
+#define MT6359_LDO_INT_CON0_SET_MASK                          0xFFFF
+#define MT6359_LDO_INT_CON0_SET_SHIFT                         0
+#define MT6359_LDO_INT_CON0_CLR_ADDR                          \
+	MT6359_LDO_TOP_INT_CON0_CLR
+#define MT6359_LDO_INT_CON0_CLR_MASK                          0xFFFF
+#define MT6359_LDO_INT_CON0_CLR_SHIFT                         0
+#define MT6359_RG_INT_EN_VSRAM_PROC2_OC_ADDR                  \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VSRAM_PROC2_OC_MASK                  0x1
+#define MT6359_RG_INT_EN_VSRAM_PROC2_OC_SHIFT                 0
+#define MT6359_RG_INT_EN_VSRAM_OTHERS_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VSRAM_OTHERS_OC_MASK                 0x1
+#define MT6359_RG_INT_EN_VSRAM_OTHERS_OC_SHIFT                1
+#define MT6359_RG_INT_EN_VSRAM_MD_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VSRAM_MD_OC_MASK                     0x1
+#define MT6359_RG_INT_EN_VSRAM_MD_OC_SHIFT                    2
+#define MT6359_RG_INT_EN_VEMC_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VEMC_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VEMC_OC_SHIFT                        3
+#define MT6359_RG_INT_EN_VSIM1_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VSIM1_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VSIM1_OC_SHIFT                       4
+#define MT6359_RG_INT_EN_VSIM2_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VSIM2_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VSIM2_OC_SHIFT                       5
+#define MT6359_RG_INT_EN_VUSB_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VUSB_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VUSB_OC_SHIFT                        6
+#define MT6359_RG_INT_EN_VRFCK_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VRFCK_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VRFCK_OC_SHIFT                       7
+#define MT6359_RG_INT_EN_VBBCK_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VBBCK_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VBBCK_OC_SHIFT                       8
+#define MT6359_RG_INT_EN_VBIF28_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VBIF28_OC_MASK                       0x1
+#define MT6359_RG_INT_EN_VBIF28_OC_SHIFT                      9
+#define MT6359_RG_INT_EN_VIBR_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VIBR_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VIBR_OC_SHIFT                        10
+#define MT6359_RG_INT_EN_VIO28_OC_ADDR                        \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VIO28_OC_MASK                        0x1
+#define MT6359_RG_INT_EN_VIO28_OC_SHIFT                       11
+#define MT6359_RG_INT_EN_VM18_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VM18_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VM18_OC_SHIFT                        12
+#define MT6359_RG_INT_EN_VUFS_OC_ADDR                         \
+	MT6359_LDO_TOP_INT_CON1
+#define MT6359_RG_INT_EN_VUFS_OC_MASK                         0x1
+#define MT6359_RG_INT_EN_VUFS_OC_SHIFT                        13
+#define MT6359_RG_INT_MASK_VFE28_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VFE28_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VFE28_OC_SHIFT                     0
+#define MT6359_RG_INT_MASK_VXO22_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VXO22_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VXO22_OC_SHIFT                     1
+#define MT6359_RG_INT_MASK_VRF18_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VRF18_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VRF18_OC_SHIFT                     2
+#define MT6359_RG_INT_MASK_VRF12_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VRF12_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VRF12_OC_SHIFT                     3
+#define MT6359_RG_INT_MASK_VEFUSE_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VEFUSE_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VEFUSE_OC_SHIFT                    4
+#define MT6359_RG_INT_MASK_VCN33_1_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCN33_1_OC_MASK                    0x1
+#define MT6359_RG_INT_MASK_VCN33_1_OC_SHIFT                   5
+#define MT6359_RG_INT_MASK_VCN33_2_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCN33_2_OC_MASK                    0x1
+#define MT6359_RG_INT_MASK_VCN33_2_OC_SHIFT                   6
+#define MT6359_RG_INT_MASK_VCN13_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCN13_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VCN13_OC_SHIFT                     7
+#define MT6359_RG_INT_MASK_VCN18_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCN18_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VCN18_OC_SHIFT                     8
+#define MT6359_RG_INT_MASK_VA09_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VA09_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VA09_OC_SHIFT                      9
+#define MT6359_RG_INT_MASK_VCAMIO_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VCAMIO_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VCAMIO_OC_SHIFT                    10
+#define MT6359_RG_INT_MASK_VA12_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VA12_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VA12_OC_SHIFT                      11
+#define MT6359_RG_INT_MASK_VAUX18_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VAUX18_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VAUX18_OC_SHIFT                    12
+#define MT6359_RG_INT_MASK_VAUD18_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VAUD18_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VAUD18_OC_SHIFT                    13
+#define MT6359_RG_INT_MASK_VIO18_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VIO18_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VIO18_OC_SHIFT                     14
+#define MT6359_RG_INT_MASK_VSRAM_PROC1_OC_ADDR                \
+	MT6359_LDO_TOP_INT_MASK_CON0
+#define MT6359_RG_INT_MASK_VSRAM_PROC1_OC_MASK                0x1
+#define MT6359_RG_INT_MASK_VSRAM_PROC1_OC_SHIFT               15
+#define MT6359_LDO_INT_MASK_CON0_SET_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0_SET
+#define MT6359_LDO_INT_MASK_CON0_SET_MASK                     0xFFFF
+#define MT6359_LDO_INT_MASK_CON0_SET_SHIFT                    0
+#define MT6359_LDO_INT_MASK_CON0_CLR_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON0_CLR
+#define MT6359_LDO_INT_MASK_CON0_CLR_MASK                     0xFFFF
+#define MT6359_LDO_INT_MASK_CON0_CLR_SHIFT                    0
+#define MT6359_RG_INT_MASK_VSRAM_PROC2_OC_ADDR                \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VSRAM_PROC2_OC_MASK                0x1
+#define MT6359_RG_INT_MASK_VSRAM_PROC2_OC_SHIFT               0
+#define MT6359_RG_INT_MASK_VSRAM_OTHERS_OC_ADDR               \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VSRAM_OTHERS_OC_MASK               0x1
+#define MT6359_RG_INT_MASK_VSRAM_OTHERS_OC_SHIFT              1
+#define MT6359_RG_INT_MASK_VSRAM_MD_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VSRAM_MD_OC_MASK                   0x1
+#define MT6359_RG_INT_MASK_VSRAM_MD_OC_SHIFT                  2
+#define MT6359_RG_INT_MASK_VEMC_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VEMC_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VEMC_OC_SHIFT                      3
+#define MT6359_RG_INT_MASK_VSIM1_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VSIM1_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VSIM1_OC_SHIFT                     4
+#define MT6359_RG_INT_MASK_VSIM2_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VSIM2_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VSIM2_OC_SHIFT                     5
+#define MT6359_RG_INT_MASK_VUSB_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VUSB_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VUSB_OC_SHIFT                      6
+#define MT6359_RG_INT_MASK_VRFCK_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VRFCK_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VRFCK_OC_SHIFT                     7
+#define MT6359_RG_INT_MASK_VBBCK_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VBBCK_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VBBCK_OC_SHIFT                     8
+#define MT6359_RG_INT_MASK_VBIF28_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VBIF28_OC_MASK                     0x1
+#define MT6359_RG_INT_MASK_VBIF28_OC_SHIFT                    9
+#define MT6359_RG_INT_MASK_VIBR_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VIBR_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VIBR_OC_SHIFT                      10
+#define MT6359_RG_INT_MASK_VIO28_OC_ADDR                      \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VIO28_OC_MASK                      0x1
+#define MT6359_RG_INT_MASK_VIO28_OC_SHIFT                     11
+#define MT6359_RG_INT_MASK_VM18_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VM18_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VM18_OC_SHIFT                      12
+#define MT6359_RG_INT_MASK_VUFS_OC_ADDR                       \
+	MT6359_LDO_TOP_INT_MASK_CON1
+#define MT6359_RG_INT_MASK_VUFS_OC_MASK                       0x1
+#define MT6359_RG_INT_MASK_VUFS_OC_SHIFT                      13
+#define MT6359_LDO_INT_MASK_CON1_SET_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON1_SET
+#define MT6359_LDO_INT_MASK_CON1_SET_MASK                     0xFFFF
+#define MT6359_LDO_INT_MASK_CON1_SET_SHIFT                    0
+#define MT6359_LDO_INT_MASK_CON1_CLR_ADDR                     \
+	MT6359_LDO_TOP_INT_MASK_CON1_CLR
+#define MT6359_LDO_INT_MASK_CON1_CLR_MASK                     0xFFFF
+#define MT6359_LDO_INT_MASK_CON1_CLR_SHIFT                    0
+#define MT6359_RG_INT_STATUS_VFE28_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VFE28_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VFE28_OC_SHIFT                   0
+#define MT6359_RG_INT_STATUS_VXO22_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VXO22_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VXO22_OC_SHIFT                   1
+#define MT6359_RG_INT_STATUS_VRF18_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VRF18_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VRF18_OC_SHIFT                   2
+#define MT6359_RG_INT_STATUS_VRF12_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VRF12_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VRF12_OC_SHIFT                   3
+#define MT6359_RG_INT_STATUS_VEFUSE_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VEFUSE_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VEFUSE_OC_SHIFT                  4
+#define MT6359_RG_INT_STATUS_VCN33_1_OC_ADDR                  \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCN33_1_OC_MASK                  0x1
+#define MT6359_RG_INT_STATUS_VCN33_1_OC_SHIFT                 5
+#define MT6359_RG_INT_STATUS_VCN33_2_OC_ADDR                  \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCN33_2_OC_MASK                  0x1
+#define MT6359_RG_INT_STATUS_VCN33_2_OC_SHIFT                 6
+#define MT6359_RG_INT_STATUS_VCN13_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCN13_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VCN13_OC_SHIFT                   7
+#define MT6359_RG_INT_STATUS_VCN18_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCN18_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VCN18_OC_SHIFT                   8
+#define MT6359_RG_INT_STATUS_VA09_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VA09_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VA09_OC_SHIFT                    9
+#define MT6359_RG_INT_STATUS_VCAMIO_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VCAMIO_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VCAMIO_OC_SHIFT                  10
+#define MT6359_RG_INT_STATUS_VA12_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VA12_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VA12_OC_SHIFT                    11
+#define MT6359_RG_INT_STATUS_VAUX18_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VAUX18_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VAUX18_OC_SHIFT                  12
+#define MT6359_RG_INT_STATUS_VAUD18_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VAUD18_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VAUD18_OC_SHIFT                  13
+#define MT6359_RG_INT_STATUS_VIO18_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VIO18_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VIO18_OC_SHIFT                   14
+#define MT6359_RG_INT_STATUS_VSRAM_PROC1_OC_ADDR              \
+	MT6359_LDO_TOP_INT_STATUS0
+#define MT6359_RG_INT_STATUS_VSRAM_PROC1_OC_MASK              0x1
+#define MT6359_RG_INT_STATUS_VSRAM_PROC1_OC_SHIFT             15
+#define MT6359_RG_INT_STATUS_VSRAM_PROC2_OC_ADDR              \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VSRAM_PROC2_OC_MASK              0x1
+#define MT6359_RG_INT_STATUS_VSRAM_PROC2_OC_SHIFT             0
+#define MT6359_RG_INT_STATUS_VSRAM_OTHERS_OC_ADDR             \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VSRAM_OTHERS_OC_MASK             0x1
+#define MT6359_RG_INT_STATUS_VSRAM_OTHERS_OC_SHIFT            1
+#define MT6359_RG_INT_STATUS_VSRAM_MD_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VSRAM_MD_OC_MASK                 0x1
+#define MT6359_RG_INT_STATUS_VSRAM_MD_OC_SHIFT                2
+#define MT6359_RG_INT_STATUS_VEMC_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VEMC_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VEMC_OC_SHIFT                    3
+#define MT6359_RG_INT_STATUS_VSIM1_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VSIM1_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VSIM1_OC_SHIFT                   4
+#define MT6359_RG_INT_STATUS_VSIM2_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VSIM2_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VSIM2_OC_SHIFT                   5
+#define MT6359_RG_INT_STATUS_VUSB_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VUSB_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VUSB_OC_SHIFT                    6
+#define MT6359_RG_INT_STATUS_VRFCK_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VRFCK_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VRFCK_OC_SHIFT                   7
+#define MT6359_RG_INT_STATUS_VBBCK_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VBBCK_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VBBCK_OC_SHIFT                   8
+#define MT6359_RG_INT_STATUS_VBIF28_OC_ADDR                   \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VBIF28_OC_MASK                   0x1
+#define MT6359_RG_INT_STATUS_VBIF28_OC_SHIFT                  9
+#define MT6359_RG_INT_STATUS_VIBR_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VIBR_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VIBR_OC_SHIFT                    10
+#define MT6359_RG_INT_STATUS_VIO28_OC_ADDR                    \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VIO28_OC_MASK                    0x1
+#define MT6359_RG_INT_STATUS_VIO28_OC_SHIFT                   11
+#define MT6359_RG_INT_STATUS_VM18_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VM18_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VM18_OC_SHIFT                    12
+#define MT6359_RG_INT_STATUS_VUFS_OC_ADDR                     \
+	MT6359_LDO_TOP_INT_STATUS1
+#define MT6359_RG_INT_STATUS_VUFS_OC_MASK                     0x1
+#define MT6359_RG_INT_STATUS_VUFS_OC_SHIFT                    13
+#define MT6359_RG_INT_RAW_STATUS_VFE28_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VFE28_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VFE28_OC_SHIFT               0
+#define MT6359_RG_INT_RAW_STATUS_VXO22_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VXO22_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VXO22_OC_SHIFT               1
+#define MT6359_RG_INT_RAW_STATUS_VRF18_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VRF18_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VRF18_OC_SHIFT               2
+#define MT6359_RG_INT_RAW_STATUS_VRF12_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VRF12_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VRF12_OC_SHIFT               3
+#define MT6359_RG_INT_RAW_STATUS_VEFUSE_OC_ADDR               \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VEFUSE_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VEFUSE_OC_SHIFT              4
+#define MT6359_RG_INT_RAW_STATUS_VCN33_1_OC_ADDR              \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCN33_1_OC_MASK              0x1
+#define MT6359_RG_INT_RAW_STATUS_VCN33_1_OC_SHIFT             5
+#define MT6359_RG_INT_RAW_STATUS_VCN33_2_OC_ADDR              \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCN33_2_OC_MASK              0x1
+#define MT6359_RG_INT_RAW_STATUS_VCN33_2_OC_SHIFT             6
+#define MT6359_RG_INT_RAW_STATUS_VCN13_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCN13_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VCN13_OC_SHIFT               7
+#define MT6359_RG_INT_RAW_STATUS_VCN18_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCN18_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VCN18_OC_SHIFT               8
+#define MT6359_RG_INT_RAW_STATUS_VA09_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VA09_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VA09_OC_SHIFT                9
+#define MT6359_RG_INT_RAW_STATUS_VCAMIO_OC_ADDR               \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VCAMIO_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VCAMIO_OC_SHIFT              10
+#define MT6359_RG_INT_RAW_STATUS_VA12_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VA12_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VA12_OC_SHIFT                11
+#define MT6359_RG_INT_RAW_STATUS_VAUX18_OC_ADDR               \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VAUX18_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VAUX18_OC_SHIFT              12
+#define MT6359_RG_INT_RAW_STATUS_VAUD18_OC_ADDR               \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VAUD18_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VAUD18_OC_SHIFT              13
+#define MT6359_RG_INT_RAW_STATUS_VIO18_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VIO18_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VIO18_OC_SHIFT               14
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC1_OC_ADDR          \
+	MT6359_LDO_TOP_INT_RAW_STATUS0
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC1_OC_MASK          0x1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC1_OC_SHIFT         15
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC2_OC_ADDR          \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC2_OC_MASK          0x1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_PROC2_OC_SHIFT         0
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_OTHERS_OC_ADDR         \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_OTHERS_OC_MASK         0x1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_OTHERS_OC_SHIFT        1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_MD_OC_ADDR             \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_MD_OC_MASK             0x1
+#define MT6359_RG_INT_RAW_STATUS_VSRAM_MD_OC_SHIFT            2
+#define MT6359_RG_INT_RAW_STATUS_VEMC_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VEMC_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VEMC_OC_SHIFT                3
+#define MT6359_RG_INT_RAW_STATUS_VSIM1_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VSIM1_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VSIM1_OC_SHIFT               4
+#define MT6359_RG_INT_RAW_STATUS_VSIM2_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VSIM2_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VSIM2_OC_SHIFT               5
+#define MT6359_RG_INT_RAW_STATUS_VUSB_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VUSB_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VUSB_OC_SHIFT                6
+#define MT6359_RG_INT_RAW_STATUS_VRFCK_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VRFCK_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VRFCK_OC_SHIFT               7
+#define MT6359_RG_INT_RAW_STATUS_VBBCK_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VBBCK_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VBBCK_OC_SHIFT               8
+#define MT6359_RG_INT_RAW_STATUS_VBIF28_OC_ADDR               \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VBIF28_OC_MASK               0x1
+#define MT6359_RG_INT_RAW_STATUS_VBIF28_OC_SHIFT              9
+#define MT6359_RG_INT_RAW_STATUS_VIBR_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VIBR_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VIBR_OC_SHIFT                10
+#define MT6359_RG_INT_RAW_STATUS_VIO28_OC_ADDR                \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VIO28_OC_MASK                0x1
+#define MT6359_RG_INT_RAW_STATUS_VIO28_OC_SHIFT               11
+#define MT6359_RG_INT_RAW_STATUS_VM18_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VM18_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VM18_OC_SHIFT                12
+#define MT6359_RG_INT_RAW_STATUS_VUFS_OC_ADDR                 \
+	MT6359_LDO_TOP_INT_RAW_STATUS1
+#define MT6359_RG_INT_RAW_STATUS_VUFS_OC_MASK                 0x1
+#define MT6359_RG_INT_RAW_STATUS_VUFS_OC_SHIFT                13
+#define MT6359_RG_LDO_MON_FLAG_SEL_ADDR                       \
+	MT6359_LDO_TEST_CON0
+#define MT6359_RG_LDO_MON_FLAG_SEL_MASK                       0xFF
+#define MT6359_RG_LDO_MON_FLAG_SEL_SHIFT                      0
+#define MT6359_RG_LDO_INT_FLAG_EN_ADDR                        \
+	MT6359_LDO_TEST_CON0
+#define MT6359_RG_LDO_INT_FLAG_EN_MASK                        0x1
+#define MT6359_RG_LDO_INT_FLAG_EN_SHIFT                       9
+#define MT6359_RG_LDO_MON_GRP_SEL_ADDR                        \
+	MT6359_LDO_TEST_CON0
+#define MT6359_RG_LDO_MON_GRP_SEL_MASK                        0x1
+#define MT6359_RG_LDO_MON_GRP_SEL_SHIFT                       10
+#define MT6359_RG_LDO_WDT_MODE_ADDR                           \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_WDT_MODE_MASK                           0x1
+#define MT6359_RG_LDO_WDT_MODE_SHIFT                          0
+#define MT6359_RG_LDO_DUMMY_LOAD_GATED_DIS_ADDR               \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_DUMMY_LOAD_GATED_DIS_MASK               0x1
+#define MT6359_RG_LDO_DUMMY_LOAD_GATED_DIS_SHIFT              1
+#define MT6359_RG_LDO_LP_PROT_DISABLE_ADDR                    \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_LP_PROT_DISABLE_MASK                    0x1
+#define MT6359_RG_LDO_LP_PROT_DISABLE_SHIFT                   2
+#define MT6359_RG_LDO_SLEEP_CTRL_MODE_ADDR                    \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_SLEEP_CTRL_MODE_MASK                    0x1
+#define MT6359_RG_LDO_SLEEP_CTRL_MODE_SHIFT                   3
+#define MT6359_RG_LDO_TOP_RSV1_ADDR                           \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_TOP_RSV1_MASK                           0xF
+#define MT6359_RG_LDO_TOP_RSV1_SHIFT                          8
+#define MT6359_RG_LDO_TOP_RSV0_ADDR                           \
+	MT6359_LDO_TOP_CON
+#define MT6359_RG_LDO_TOP_RSV0_MASK                           0xF
+#define MT6359_RG_LDO_TOP_RSV0_SHIFT                          12
+#define MT6359_RG_VRTC28_EN_ADDR                              \
+	MT6359_VRTC28_CON
+#define MT6359_RG_VRTC28_EN_MASK                              0x1
+#define MT6359_RG_VRTC28_EN_SHIFT                             1
+#define MT6359_DA_VRTC28_EN_ADDR                              \
+	MT6359_VRTC28_CON
+#define MT6359_DA_VRTC28_EN_MASK                              0x1
+#define MT6359_DA_VRTC28_EN_SHIFT                             15
+#define MT6359_RG_VAUX18_OFF_ACKTIME_SEL_ADDR                 \
+	MT6359_VAUX18_ACK
+#define MT6359_RG_VAUX18_OFF_ACKTIME_SEL_MASK                 0x1
+#define MT6359_RG_VAUX18_OFF_ACKTIME_SEL_SHIFT                0
+#define MT6359_RG_VAUX18_LP_ACKTIME_SEL_ADDR                  \
+	MT6359_VAUX18_ACK
+#define MT6359_RG_VAUX18_LP_ACKTIME_SEL_MASK                  0x1
+#define MT6359_RG_VAUX18_LP_ACKTIME_SEL_SHIFT                 1
+#define MT6359_RG_VBIF28_OFF_ACKTIME_SEL_ADDR                 \
+	MT6359_VBIF28_ACK
+#define MT6359_RG_VBIF28_OFF_ACKTIME_SEL_MASK                 0x1
+#define MT6359_RG_VBIF28_OFF_ACKTIME_SEL_SHIFT                0
+#define MT6359_RG_VBIF28_LP_ACKTIME_SEL_ADDR                  \
+	MT6359_VBIF28_ACK
+#define MT6359_RG_VBIF28_LP_ACKTIME_SEL_MASK                  0x1
+#define MT6359_RG_VBIF28_LP_ACKTIME_SEL_SHIFT                 1
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_DONE_ADDR            \
+	MT6359_VOW_DVS_CON
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_DONE_MASK            0x1
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_DONE_SHIFT           0
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_SW_MODE_ADDR         \
+	MT6359_VOW_DVS_CON
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_SW_MODE_MASK         0x1
+#define MT6359_RG_VOW_LDO_VSRAM_CORE_DVS_SW_MODE_SHIFT        1
+#define MT6359_RG_LDO_VXO22_EN_SW_MODE_ADDR                   \
+	MT6359_VXO22_CON
+#define MT6359_RG_LDO_VXO22_EN_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_EN_SW_MODE_SHIFT                  0
+#define MT6359_RG_LDO_VXO22_EN_TEST_ADDR                      \
+	MT6359_VXO22_CON
+#define MT6359_RG_LDO_VXO22_EN_TEST_MASK                      0x1
+#define MT6359_RG_LDO_VXO22_EN_TEST_SHIFT                     1
+#define MT6359_LDO_TOP_ELR_LEN_ADDR                           \
+	MT6359_LDO_TOP_ELR_NUM
+#define MT6359_LDO_TOP_ELR_LEN_MASK                           0xFF
+#define MT6359_LDO_TOP_ELR_LEN_SHIFT                          0
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_ADDR                  \
+	MT6359_LDO_VSRAM_PROC1_ELR
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_MASK                  0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_SHIFT                 0
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LIMIT_SEL_ADDR        \
+	MT6359_LDO_VSRAM_PROC1_ELR
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LIMIT_SEL_MASK        0x3
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LIMIT_SEL_SHIFT       8
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_ADDR                  \
+	MT6359_LDO_VSRAM_PROC2_ELR
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_MASK                  0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_SHIFT                 0
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LIMIT_SEL_ADDR        \
+	MT6359_LDO_VSRAM_PROC2_ELR
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LIMIT_SEL_MASK        0x3
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LIMIT_SEL_SHIFT       8
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_ADDR                 \
+	MT6359_LDO_VSRAM_OTHERS_ELR
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_MASK                 0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_SHIFT                0
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LIMIT_SEL_ADDR       \
+	MT6359_LDO_VSRAM_OTHERS_ELR
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LIMIT_SEL_MASK       0x3
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LIMIT_SEL_SHIFT      8
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_ADDR                     \
+	MT6359_LDO_VSRAM_MD_ELR
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_MASK                     0x7F
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_SHIFT                    0
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LIMIT_SEL_ADDR           \
+	MT6359_LDO_VSRAM_MD_ELR
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LIMIT_SEL_MASK           0x3
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LIMIT_SEL_SHIFT          8
+#define MT6359_RG_LDO_VRFCK_ANA_SEL_ADDR                      \
+	MT6359_LDO_VSRAM_MD_ELR
+#define MT6359_RG_LDO_VRFCK_ANA_SEL_MASK                      0x1
+#define MT6359_RG_LDO_VRFCK_ANA_SEL_SHIFT                     15
+#define MT6359_LDO_GNR0_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR0_DSN_ID
+#define MT6359_LDO_GNR0_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR0_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR0_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR0_DSN_ID
+#define MT6359_LDO_GNR0_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR0_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR0_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR0_DSN_REV0
+#define MT6359_LDO_GNR0_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR0_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR0_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR0_DSN_REV0
+#define MT6359_LDO_GNR0_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR0_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR0_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR0_DSN_REV0
+#define MT6359_LDO_GNR0_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR0_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR0_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR0_DSN_REV0
+#define MT6359_LDO_GNR0_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR0_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR0_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR0_DSN_DBI
+#define MT6359_LDO_GNR0_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR0_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR0_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR0_DSN_DBI
+#define MT6359_LDO_GNR0_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR0_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR0_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR0_DSN_DBI
+#define MT6359_LDO_GNR0_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR0_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR0_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR0_DSN_DXI
+#define MT6359_LDO_GNR0_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR0_DSN_FPI_SHIFT                         0
+#define MT6359_RG_LDO_VFE28_EN_ADDR                           \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_EN_MASK                           0x1
+#define MT6359_RG_LDO_VFE28_EN_SHIFT                          0
+#define MT6359_RG_LDO_VFE28_LP_ADDR                           \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_LP_MASK                           0x1
+#define MT6359_RG_LDO_VFE28_LP_SHIFT                          1
+#define MT6359_RG_LDO_VFE28_STBTD_ADDR                        \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VFE28_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VFE28_ULP_ADDR                          \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VFE28_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VFE28_OCFB_EN_ADDR                      \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VFE28_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VFE28_OC_MODE_ADDR                      \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VFE28_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VFE28_OC_TSEL_ADDR                      \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VFE28_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VFE28_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VFE28_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VFE28_OP_MODE_ADDR                      \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VFE28_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VFE28_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VFE28_CON0
+#define MT6359_RG_LDO_VFE28_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VFE28_B_EN_ADDR                             \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_B_EN_MASK                             0x1
+#define MT6359_DA_VFE28_B_EN_SHIFT                            0
+#define MT6359_DA_VFE28_B_STB_ADDR                            \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_B_STB_MASK                            0x1
+#define MT6359_DA_VFE28_B_STB_SHIFT                           1
+#define MT6359_DA_VFE28_B_LP_ADDR                             \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_B_LP_MASK                             0x1
+#define MT6359_DA_VFE28_B_LP_SHIFT                            2
+#define MT6359_DA_VFE28_L_EN_ADDR                             \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_L_EN_MASK                             0x1
+#define MT6359_DA_VFE28_L_EN_SHIFT                            3
+#define MT6359_DA_VFE28_L_STB_ADDR                            \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_L_STB_MASK                            0x1
+#define MT6359_DA_VFE28_L_STB_SHIFT                           4
+#define MT6359_DA_VFE28_OCFB_EN_ADDR                          \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VFE28_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VFE28_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VFE28_MON
+#define MT6359_DA_VFE28_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VFE28_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VFE28_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VFE28_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VFE28_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VFE28_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VFE28_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VFE28_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VFE28_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VFE28_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VFE28_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VFE28_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VFE28_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VFE28_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VFE28_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VFE28_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VFE28_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VFE28_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VFE28_OP_EN
+#define MT6359_RG_LDO_VFE28_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VFE28_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VFE28_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN_SET
+#define MT6359_RG_LDO_VFE28_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VFE28_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VFE28_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VFE28_OP_EN_CLR
+#define MT6359_RG_LDO_VFE28_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VFE28_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VFE28_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VFE28_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VFE28_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VFE28_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VFE28_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VFE28_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VFE28_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VFE28_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VFE28_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VFE28_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VFE28_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VFE28_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VFE28_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VFE28_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VFE28_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VFE28_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VFE28_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VFE28_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VFE28_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VFE28_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VFE28_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VFE28_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VFE28_OP_CFG
+#define MT6359_RG_LDO_VFE28_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VFE28_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VFE28_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG_SET
+#define MT6359_RG_LDO_VFE28_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VFE28_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VFE28_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VFE28_OP_CFG_CLR
+#define MT6359_RG_LDO_VFE28_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VFE28_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VXO22_EN_ADDR                           \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_EN_MASK                           0x1
+#define MT6359_RG_LDO_VXO22_EN_SHIFT                          0
+#define MT6359_RG_LDO_VXO22_LP_ADDR                           \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_LP_MASK                           0x1
+#define MT6359_RG_LDO_VXO22_LP_SHIFT                          1
+#define MT6359_RG_LDO_VXO22_STBTD_ADDR                        \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VXO22_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VXO22_ULP_ADDR                          \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VXO22_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VXO22_OCFB_EN_ADDR                      \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VXO22_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VXO22_OC_MODE_ADDR                      \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VXO22_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VXO22_OC_TSEL_ADDR                      \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VXO22_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VXO22_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VXO22_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VXO22_OP_MODE_ADDR                      \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VXO22_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VXO22_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VXO22_CON0
+#define MT6359_RG_LDO_VXO22_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VXO22_B_EN_ADDR                             \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_B_EN_MASK                             0x1
+#define MT6359_DA_VXO22_B_EN_SHIFT                            0
+#define MT6359_DA_VXO22_B_STB_ADDR                            \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_B_STB_MASK                            0x1
+#define MT6359_DA_VXO22_B_STB_SHIFT                           1
+#define MT6359_DA_VXO22_B_LP_ADDR                             \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_B_LP_MASK                             0x1
+#define MT6359_DA_VXO22_B_LP_SHIFT                            2
+#define MT6359_DA_VXO22_L_EN_ADDR                             \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_L_EN_MASK                             0x1
+#define MT6359_DA_VXO22_L_EN_SHIFT                            3
+#define MT6359_DA_VXO22_L_STB_ADDR                            \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_L_STB_MASK                            0x1
+#define MT6359_DA_VXO22_L_STB_SHIFT                           4
+#define MT6359_DA_VXO22_OCFB_EN_ADDR                          \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VXO22_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VXO22_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VXO22_MON
+#define MT6359_DA_VXO22_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VXO22_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VXO22_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VXO22_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VXO22_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VXO22_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VXO22_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VXO22_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VXO22_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VXO22_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VXO22_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VXO22_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VXO22_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VXO22_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VXO22_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VXO22_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VXO22_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VXO22_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VXO22_OP_EN
+#define MT6359_RG_LDO_VXO22_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VXO22_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VXO22_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN_SET
+#define MT6359_RG_LDO_VXO22_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VXO22_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VXO22_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VXO22_OP_EN_CLR
+#define MT6359_RG_LDO_VXO22_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VXO22_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VXO22_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VXO22_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VXO22_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VXO22_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VXO22_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VXO22_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VXO22_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VXO22_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VXO22_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VXO22_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VXO22_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VXO22_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VXO22_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VXO22_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VXO22_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VXO22_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VXO22_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VXO22_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VXO22_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VXO22_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VXO22_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VXO22_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VXO22_OP_CFG
+#define MT6359_RG_LDO_VXO22_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VXO22_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VXO22_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG_SET
+#define MT6359_RG_LDO_VXO22_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VXO22_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VXO22_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VXO22_OP_CFG_CLR
+#define MT6359_RG_LDO_VXO22_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VXO22_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VRF18_EN_ADDR                           \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_EN_MASK                           0x1
+#define MT6359_RG_LDO_VRF18_EN_SHIFT                          0
+#define MT6359_RG_LDO_VRF18_LP_ADDR                           \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_LP_MASK                           0x1
+#define MT6359_RG_LDO_VRF18_LP_SHIFT                          1
+#define MT6359_RG_LDO_VRF18_STBTD_ADDR                        \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VRF18_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VRF18_ULP_ADDR                          \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VRF18_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VRF18_OCFB_EN_ADDR                      \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VRF18_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VRF18_OC_MODE_ADDR                      \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VRF18_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VRF18_OC_TSEL_ADDR                      \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VRF18_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VRF18_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VRF18_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VRF18_OP_MODE_ADDR                      \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VRF18_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VRF18_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VRF18_CON0
+#define MT6359_RG_LDO_VRF18_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VRF18_B_EN_ADDR                             \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_B_EN_MASK                             0x1
+#define MT6359_DA_VRF18_B_EN_SHIFT                            0
+#define MT6359_DA_VRF18_B_STB_ADDR                            \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_B_STB_MASK                            0x1
+#define MT6359_DA_VRF18_B_STB_SHIFT                           1
+#define MT6359_DA_VRF18_B_LP_ADDR                             \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_B_LP_MASK                             0x1
+#define MT6359_DA_VRF18_B_LP_SHIFT                            2
+#define MT6359_DA_VRF18_L_EN_ADDR                             \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_L_EN_MASK                             0x1
+#define MT6359_DA_VRF18_L_EN_SHIFT                            3
+#define MT6359_DA_VRF18_L_STB_ADDR                            \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_L_STB_MASK                            0x1
+#define MT6359_DA_VRF18_L_STB_SHIFT                           4
+#define MT6359_DA_VRF18_OCFB_EN_ADDR                          \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VRF18_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VRF18_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VRF18_MON
+#define MT6359_DA_VRF18_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VRF18_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VRF18_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VRF18_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VRF18_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VRF18_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VRF18_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VRF18_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VRF18_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VRF18_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VRF18_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VRF18_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VRF18_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VRF18_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VRF18_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VRF18_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VRF18_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VRF18_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VRF18_OP_EN
+#define MT6359_RG_LDO_VRF18_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VRF18_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VRF18_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN_SET
+#define MT6359_RG_LDO_VRF18_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRF18_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VRF18_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VRF18_OP_EN_CLR
+#define MT6359_RG_LDO_VRF18_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRF18_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VRF18_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VRF18_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VRF18_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VRF18_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VRF18_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VRF18_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VRF18_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VRF18_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VRF18_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VRF18_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF18_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VRF18_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF18_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VRF18_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF18_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VRF18_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF18_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VRF18_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF18_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VRF18_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF18_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VRF18_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VRF18_OP_CFG
+#define MT6359_RG_LDO_VRF18_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VRF18_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VRF18_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG_SET
+#define MT6359_RG_LDO_VRF18_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRF18_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VRF18_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VRF18_OP_CFG_CLR
+#define MT6359_RG_LDO_VRF18_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRF18_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VRF12_EN_ADDR                           \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_EN_MASK                           0x1
+#define MT6359_RG_LDO_VRF12_EN_SHIFT                          0
+#define MT6359_RG_LDO_VRF12_LP_ADDR                           \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_LP_MASK                           0x1
+#define MT6359_RG_LDO_VRF12_LP_SHIFT                          1
+#define MT6359_RG_LDO_VRF12_STBTD_ADDR                        \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VRF12_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VRF12_ULP_ADDR                          \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VRF12_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VRF12_OCFB_EN_ADDR                      \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VRF12_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VRF12_OC_MODE_ADDR                      \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VRF12_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VRF12_OC_TSEL_ADDR                      \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VRF12_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VRF12_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VRF12_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VRF12_OP_MODE_ADDR                      \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VRF12_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VRF12_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VRF12_CON0
+#define MT6359_RG_LDO_VRF12_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VRF12_B_EN_ADDR                             \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_B_EN_MASK                             0x1
+#define MT6359_DA_VRF12_B_EN_SHIFT                            0
+#define MT6359_DA_VRF12_B_STB_ADDR                            \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_B_STB_MASK                            0x1
+#define MT6359_DA_VRF12_B_STB_SHIFT                           1
+#define MT6359_DA_VRF12_B_LP_ADDR                             \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_B_LP_MASK                             0x1
+#define MT6359_DA_VRF12_B_LP_SHIFT                            2
+#define MT6359_DA_VRF12_L_EN_ADDR                             \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_L_EN_MASK                             0x1
+#define MT6359_DA_VRF12_L_EN_SHIFT                            3
+#define MT6359_DA_VRF12_L_STB_ADDR                            \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_L_STB_MASK                            0x1
+#define MT6359_DA_VRF12_L_STB_SHIFT                           4
+#define MT6359_DA_VRF12_OCFB_EN_ADDR                          \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VRF12_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VRF12_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VRF12_MON
+#define MT6359_DA_VRF12_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VRF12_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VRF12_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VRF12_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VRF12_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VRF12_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VRF12_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VRF12_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VRF12_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VRF12_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VRF12_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VRF12_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VRF12_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VRF12_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VRF12_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VRF12_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VRF12_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VRF12_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VRF12_OP_EN
+#define MT6359_RG_LDO_VRF12_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VRF12_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VRF12_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN_SET
+#define MT6359_RG_LDO_VRF12_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRF12_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VRF12_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VRF12_OP_EN_CLR
+#define MT6359_RG_LDO_VRF12_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRF12_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VRF12_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VRF12_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VRF12_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VRF12_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VRF12_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VRF12_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VRF12_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VRF12_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VRF12_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VRF12_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRF12_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VRF12_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF12_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VRF12_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF12_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VRF12_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF12_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VRF12_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF12_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VRF12_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRF12_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VRF12_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VRF12_OP_CFG
+#define MT6359_RG_LDO_VRF12_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VRF12_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VRF12_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG_SET
+#define MT6359_RG_LDO_VRF12_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRF12_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VRF12_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VRF12_OP_CFG_CLR
+#define MT6359_RG_LDO_VRF12_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRF12_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VEFUSE_EN_ADDR                          \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_EN_MASK                          0x1
+#define MT6359_RG_LDO_VEFUSE_EN_SHIFT                         0
+#define MT6359_RG_LDO_VEFUSE_LP_ADDR                          \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_LP_MASK                          0x1
+#define MT6359_RG_LDO_VEFUSE_LP_SHIFT                         1
+#define MT6359_RG_LDO_VEFUSE_STBTD_ADDR                       \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_STBTD_MASK                       0x3
+#define MT6359_RG_LDO_VEFUSE_STBTD_SHIFT                      2
+#define MT6359_RG_LDO_VEFUSE_ULP_ADDR                         \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_ULP_MASK                         0x1
+#define MT6359_RG_LDO_VEFUSE_ULP_SHIFT                        4
+#define MT6359_RG_LDO_VEFUSE_OCFB_EN_ADDR                     \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_OCFB_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEFUSE_OCFB_EN_SHIFT                    5
+#define MT6359_RG_LDO_VEFUSE_OC_MODE_ADDR                     \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_OC_MODE_MASK                     0x1
+#define MT6359_RG_LDO_VEFUSE_OC_MODE_SHIFT                    6
+#define MT6359_RG_LDO_VEFUSE_OC_TSEL_ADDR                     \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_OC_TSEL_MASK                     0x1
+#define MT6359_RG_LDO_VEFUSE_OC_TSEL_SHIFT                    7
+#define MT6359_RG_LDO_VEFUSE_DUMMY_LOAD_ADDR                  \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_DUMMY_LOAD_MASK                  0x3
+#define MT6359_RG_LDO_VEFUSE_DUMMY_LOAD_SHIFT                 8
+#define MT6359_RG_LDO_VEFUSE_OP_MODE_ADDR                     \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_OP_MODE_MASK                     0x7
+#define MT6359_RG_LDO_VEFUSE_OP_MODE_SHIFT                    10
+#define MT6359_RG_LDO_VEFUSE_CK_SW_MODE_ADDR                  \
+	MT6359_LDO_VEFUSE_CON0
+#define MT6359_RG_LDO_VEFUSE_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_CK_SW_MODE_SHIFT                 15
+#define MT6359_DA_VEFUSE_B_EN_ADDR                            \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_B_EN_MASK                            0x1
+#define MT6359_DA_VEFUSE_B_EN_SHIFT                           0
+#define MT6359_DA_VEFUSE_B_STB_ADDR                           \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_B_STB_MASK                           0x1
+#define MT6359_DA_VEFUSE_B_STB_SHIFT                          1
+#define MT6359_DA_VEFUSE_B_LP_ADDR                            \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_B_LP_MASK                            0x1
+#define MT6359_DA_VEFUSE_B_LP_SHIFT                           2
+#define MT6359_DA_VEFUSE_L_EN_ADDR                            \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_L_EN_MASK                            0x1
+#define MT6359_DA_VEFUSE_L_EN_SHIFT                           3
+#define MT6359_DA_VEFUSE_L_STB_ADDR                           \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_L_STB_MASK                           0x1
+#define MT6359_DA_VEFUSE_L_STB_SHIFT                          4
+#define MT6359_DA_VEFUSE_OCFB_EN_ADDR                         \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_OCFB_EN_MASK                         0x1
+#define MT6359_DA_VEFUSE_OCFB_EN_SHIFT                        5
+#define MT6359_DA_VEFUSE_DUMMY_LOAD_ADDR                      \
+	MT6359_LDO_VEFUSE_MON
+#define MT6359_DA_VEFUSE_DUMMY_LOAD_MASK                      0x3
+#define MT6359_DA_VEFUSE_DUMMY_LOAD_SHIFT                     6
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_EN_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_EN_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_EN_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_EN_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_EN_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_EN_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_LDO_VEFUSE_SW_OP_EN_ADDR                    \
+	MT6359_LDO_VEFUSE_OP_EN
+#define MT6359_RG_LDO_VEFUSE_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEFUSE_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_LDO_VEFUSE_OP_EN_SET_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN_SET
+#define MT6359_RG_LDO_VEFUSE_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VEFUSE_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_LDO_VEFUSE_OP_EN_CLR_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_EN_CLR
+#define MT6359_RG_LDO_VEFUSE_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VEFUSE_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_CFG_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VEFUSE_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_CFG_ADDR                 \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VEFUSE_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_CFG_ADDR                 \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VEFUSE_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_CFG_ADDR                 \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VEFUSE_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_CFG_ADDR                 \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VEFUSE_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_CFG_ADDR                 \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VEFUSE_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_LDO_VEFUSE_SW_OP_CFG_ADDR                   \
+	MT6359_LDO_VEFUSE_OP_CFG
+#define MT6359_RG_LDO_VEFUSE_SW_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEFUSE_SW_OP_CFG_SHIFT                  15
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_SET_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG_SET
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_CLR_ADDR                  \
+	MT6359_LDO_VEFUSE_OP_CFG_CLR
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VEFUSE_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_1_EN_0_ADDR                       \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_EN_0_MASK                       0x1
+#define MT6359_RG_LDO_VCN33_1_EN_0_SHIFT                      0
+#define MT6359_RG_LDO_VCN33_1_LP_ADDR                         \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_LP_MASK                         0x1
+#define MT6359_RG_LDO_VCN33_1_LP_SHIFT                        1
+#define MT6359_RG_LDO_VCN33_1_STBTD_ADDR                      \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_STBTD_MASK                      0x3
+#define MT6359_RG_LDO_VCN33_1_STBTD_SHIFT                     2
+#define MT6359_RG_LDO_VCN33_1_ULP_ADDR                        \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_ULP_MASK                        0x1
+#define MT6359_RG_LDO_VCN33_1_ULP_SHIFT                       4
+#define MT6359_RG_LDO_VCN33_1_OCFB_EN_ADDR                    \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_OCFB_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_1_OCFB_EN_SHIFT                   5
+#define MT6359_RG_LDO_VCN33_1_OC_MODE_ADDR                    \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_OC_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_1_OC_MODE_SHIFT                   6
+#define MT6359_RG_LDO_VCN33_1_OC_TSEL_ADDR                    \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_OC_TSEL_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_1_OC_TSEL_SHIFT                   7
+#define MT6359_RG_LDO_VCN33_1_DUMMY_LOAD_ADDR                 \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_DUMMY_LOAD_MASK                 0x3
+#define MT6359_RG_LDO_VCN33_1_DUMMY_LOAD_SHIFT                8
+#define MT6359_RG_LDO_VCN33_1_OP_MODE_ADDR                    \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_OP_MODE_MASK                    0x7
+#define MT6359_RG_LDO_VCN33_1_OP_MODE_SHIFT                   10
+#define MT6359_RG_LDO_VCN33_1_CK_SW_MODE_ADDR                 \
+	MT6359_LDO_VCN33_1_CON0
+#define MT6359_RG_LDO_VCN33_1_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_CK_SW_MODE_SHIFT                15
+#define MT6359_DA_VCN33_1_B_EN_ADDR                           \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_B_EN_MASK                           0x1
+#define MT6359_DA_VCN33_1_B_EN_SHIFT                          0
+#define MT6359_DA_VCN33_1_B_STB_ADDR                          \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_B_STB_MASK                          0x1
+#define MT6359_DA_VCN33_1_B_STB_SHIFT                         1
+#define MT6359_DA_VCN33_1_B_LP_ADDR                           \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_B_LP_MASK                           0x1
+#define MT6359_DA_VCN33_1_B_LP_SHIFT                          2
+#define MT6359_DA_VCN33_1_L_EN_ADDR                           \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_L_EN_MASK                           0x1
+#define MT6359_DA_VCN33_1_L_EN_SHIFT                          3
+#define MT6359_DA_VCN33_1_L_STB_ADDR                          \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_L_STB_MASK                          0x1
+#define MT6359_DA_VCN33_1_L_STB_SHIFT                         4
+#define MT6359_DA_VCN33_1_OCFB_EN_ADDR                        \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_OCFB_EN_MASK                        0x1
+#define MT6359_DA_VCN33_1_OCFB_EN_SHIFT                       5
+#define MT6359_DA_VCN33_1_DUMMY_LOAD_ADDR                     \
+	MT6359_LDO_VCN33_1_MON
+#define MT6359_DA_VCN33_1_DUMMY_LOAD_MASK                     0x3
+#define MT6359_DA_VCN33_1_DUMMY_LOAD_SHIFT                    6
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_LDO_VCN33_1_SW_OP_EN_ADDR                   \
+	MT6359_LDO_VCN33_1_OP_EN
+#define MT6359_RG_LDO_VCN33_1_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN33_1_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_LDO_VCN33_1_OP_EN_SET_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN_SET
+#define MT6359_RG_LDO_VCN33_1_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCN33_1_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_1_OP_EN_CLR_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_EN_CLR
+#define MT6359_RG_LDO_VCN33_1_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCN33_1_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_1_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_1_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_1_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_1_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_1_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_1_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_LDO_VCN33_1_SW_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN33_1_OP_CFG
+#define MT6359_RG_LDO_VCN33_1_SW_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_1_SW_OP_CFG_SHIFT                 15
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_SET_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG_SET
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_CLR_ADDR                 \
+	MT6359_LDO_VCN33_1_OP_CFG_CLR
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_LDO_VCN33_1_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_LDO_VCN33_1_EN_1_ADDR                       \
+	MT6359_LDO_VCN33_1_MULTI_SW
+#define MT6359_RG_LDO_VCN33_1_EN_1_MASK                       0x1
+#define MT6359_RG_LDO_VCN33_1_EN_1_SHIFT                      15
+#define MT6359_LDO_GNR1_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR1_DSN_ID
+#define MT6359_LDO_GNR1_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR1_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR1_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR1_DSN_ID
+#define MT6359_LDO_GNR1_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR1_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR1_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR1_DSN_REV0
+#define MT6359_LDO_GNR1_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR1_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR1_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR1_DSN_REV0
+#define MT6359_LDO_GNR1_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR1_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR1_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR1_DSN_REV0
+#define MT6359_LDO_GNR1_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR1_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR1_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR1_DSN_REV0
+#define MT6359_LDO_GNR1_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR1_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR1_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR1_DSN_DBI
+#define MT6359_LDO_GNR1_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR1_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR1_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR1_DSN_DBI
+#define MT6359_LDO_GNR1_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR1_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR1_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR1_DSN_DBI
+#define MT6359_LDO_GNR1_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR1_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR1_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR1_DSN_DXI
+#define MT6359_LDO_GNR1_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR1_DSN_FPI_SHIFT                         0
+#define MT6359_RG_LDO_VCN33_2_EN_0_ADDR                       \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_EN_0_MASK                       0x1
+#define MT6359_RG_LDO_VCN33_2_EN_0_SHIFT                      0
+#define MT6359_RG_LDO_VCN33_2_LP_ADDR                         \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_LP_MASK                         0x1
+#define MT6359_RG_LDO_VCN33_2_LP_SHIFT                        1
+#define MT6359_RG_LDO_VCN33_2_STBTD_ADDR                      \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_STBTD_MASK                      0x3
+#define MT6359_RG_LDO_VCN33_2_STBTD_SHIFT                     2
+#define MT6359_RG_LDO_VCN33_2_ULP_ADDR                        \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_ULP_MASK                        0x1
+#define MT6359_RG_LDO_VCN33_2_ULP_SHIFT                       4
+#define MT6359_RG_LDO_VCN33_2_OCFB_EN_ADDR                    \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_OCFB_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_2_OCFB_EN_SHIFT                   5
+#define MT6359_RG_LDO_VCN33_2_OC_MODE_ADDR                    \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_OC_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_2_OC_MODE_SHIFT                   6
+#define MT6359_RG_LDO_VCN33_2_OC_TSEL_ADDR                    \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_OC_TSEL_MASK                    0x1
+#define MT6359_RG_LDO_VCN33_2_OC_TSEL_SHIFT                   7
+#define MT6359_RG_LDO_VCN33_2_DUMMY_LOAD_ADDR                 \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_DUMMY_LOAD_MASK                 0x3
+#define MT6359_RG_LDO_VCN33_2_DUMMY_LOAD_SHIFT                8
+#define MT6359_RG_LDO_VCN33_2_OP_MODE_ADDR                    \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_OP_MODE_MASK                    0x7
+#define MT6359_RG_LDO_VCN33_2_OP_MODE_SHIFT                   10
+#define MT6359_RG_LDO_VCN33_2_CK_SW_MODE_ADDR                 \
+	MT6359_LDO_VCN33_2_CON0
+#define MT6359_RG_LDO_VCN33_2_CK_SW_MODE_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_CK_SW_MODE_SHIFT                15
+#define MT6359_DA_VCN33_2_B_EN_ADDR                           \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_B_EN_MASK                           0x1
+#define MT6359_DA_VCN33_2_B_EN_SHIFT                          0
+#define MT6359_DA_VCN33_2_B_STB_ADDR                          \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_B_STB_MASK                          0x1
+#define MT6359_DA_VCN33_2_B_STB_SHIFT                         1
+#define MT6359_DA_VCN33_2_B_LP_ADDR                           \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_B_LP_MASK                           0x1
+#define MT6359_DA_VCN33_2_B_LP_SHIFT                          2
+#define MT6359_DA_VCN33_2_L_EN_ADDR                           \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_L_EN_MASK                           0x1
+#define MT6359_DA_VCN33_2_L_EN_SHIFT                          3
+#define MT6359_DA_VCN33_2_L_STB_ADDR                          \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_L_STB_MASK                          0x1
+#define MT6359_DA_VCN33_2_L_STB_SHIFT                         4
+#define MT6359_DA_VCN33_2_OCFB_EN_ADDR                        \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_OCFB_EN_MASK                        0x1
+#define MT6359_DA_VCN33_2_OCFB_EN_SHIFT                       5
+#define MT6359_DA_VCN33_2_DUMMY_LOAD_ADDR                     \
+	MT6359_LDO_VCN33_2_MON
+#define MT6359_DA_VCN33_2_DUMMY_LOAD_MASK                     0x3
+#define MT6359_DA_VCN33_2_DUMMY_LOAD_SHIFT                    6
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_EN_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_EN_SHIFT                 1
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_EN_SHIFT                 2
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_EN_SHIFT                 3
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_EN_SHIFT                 4
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_EN_SHIFT                 5
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_EN_SHIFT                 6
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_EN_SHIFT                 7
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_EN_SHIFT                 8
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_EN_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_EN_SHIFT                 9
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_EN_SHIFT                10
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_EN_SHIFT                11
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_EN_SHIFT                12
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_EN_SHIFT                13
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_EN_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_EN_SHIFT                14
+#define MT6359_RG_LDO_VCN33_2_SW_OP_EN_ADDR                   \
+	MT6359_LDO_VCN33_2_OP_EN
+#define MT6359_RG_LDO_VCN33_2_SW_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN33_2_SW_OP_EN_SHIFT                  15
+#define MT6359_RG_LDO_VCN33_2_OP_EN_SET_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN_SET
+#define MT6359_RG_LDO_VCN33_2_OP_EN_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCN33_2_OP_EN_SET_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_2_OP_EN_CLR_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_EN_CLR
+#define MT6359_RG_LDO_VCN33_2_OP_EN_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCN33_2_OP_EN_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW0_OP_CFG_SHIFT                0
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW1_OP_CFG_SHIFT                1
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW2_OP_CFG_SHIFT                2
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW3_OP_CFG_SHIFT                3
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW4_OP_CFG_SHIFT                4
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW5_OP_CFG_SHIFT                5
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW6_OP_CFG_SHIFT                6
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW7_OP_CFG_SHIFT                7
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW8_OP_CFG_SHIFT                8
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_CFG_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCN33_2_HW9_OP_CFG_SHIFT                9
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_2_HW10_OP_CFG_SHIFT               10
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_2_HW11_OP_CFG_SHIFT               11
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_2_HW12_OP_CFG_SHIFT               12
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_2_HW13_OP_CFG_SHIFT               13
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_CFG_ADDR                \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VCN33_2_HW14_OP_CFG_SHIFT               14
+#define MT6359_RG_LDO_VCN33_2_SW_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN33_2_OP_CFG
+#define MT6359_RG_LDO_VCN33_2_SW_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN33_2_SW_OP_CFG_SHIFT                 15
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_SET_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG_SET
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_SET_MASK                 0xFFFF
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_SET_SHIFT                0
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_CLR_ADDR                 \
+	MT6359_LDO_VCN33_2_OP_CFG_CLR
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_CLR_MASK                 0xFFFF
+#define MT6359_RG_LDO_VCN33_2_OP_CFG_CLR_SHIFT                0
+#define MT6359_RG_LDO_VCN33_2_EN_1_ADDR                       \
+	MT6359_LDO_VCN33_2_MULTI_SW
+#define MT6359_RG_LDO_VCN33_2_EN_1_MASK                       0x1
+#define MT6359_RG_LDO_VCN33_2_EN_1_SHIFT                      15
+#define MT6359_RG_LDO_VCN13_EN_ADDR                           \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_EN_MASK                           0x1
+#define MT6359_RG_LDO_VCN13_EN_SHIFT                          0
+#define MT6359_RG_LDO_VCN13_LP_ADDR                           \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_LP_MASK                           0x1
+#define MT6359_RG_LDO_VCN13_LP_SHIFT                          1
+#define MT6359_RG_LDO_VCN13_STBTD_ADDR                        \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VCN13_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VCN13_ULP_ADDR                          \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VCN13_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VCN13_OCFB_EN_ADDR                      \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VCN13_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VCN13_OC_MODE_ADDR                      \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VCN13_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VCN13_OC_TSEL_ADDR                      \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VCN13_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VCN13_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VCN13_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VCN13_OP_MODE_ADDR                      \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VCN13_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VCN13_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VCN13_CON0
+#define MT6359_RG_LDO_VCN13_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VCN13_B_EN_ADDR                             \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_B_EN_MASK                             0x1
+#define MT6359_DA_VCN13_B_EN_SHIFT                            0
+#define MT6359_DA_VCN13_B_STB_ADDR                            \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_B_STB_MASK                            0x1
+#define MT6359_DA_VCN13_B_STB_SHIFT                           1
+#define MT6359_DA_VCN13_B_LP_ADDR                             \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_B_LP_MASK                             0x1
+#define MT6359_DA_VCN13_B_LP_SHIFT                            2
+#define MT6359_DA_VCN13_L_EN_ADDR                             \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_L_EN_MASK                             0x1
+#define MT6359_DA_VCN13_L_EN_SHIFT                            3
+#define MT6359_DA_VCN13_L_STB_ADDR                            \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_L_STB_MASK                            0x1
+#define MT6359_DA_VCN13_L_STB_SHIFT                           4
+#define MT6359_DA_VCN13_OCFB_EN_ADDR                          \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VCN13_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VCN13_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VCN13_MON
+#define MT6359_DA_VCN13_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VCN13_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VCN13_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VCN13_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VCN13_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VCN13_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VCN13_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VCN13_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VCN13_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VCN13_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VCN13_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VCN13_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VCN13_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VCN13_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VCN13_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VCN13_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VCN13_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VCN13_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VCN13_OP_EN
+#define MT6359_RG_LDO_VCN13_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VCN13_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VCN13_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN_SET
+#define MT6359_RG_LDO_VCN13_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VCN13_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VCN13_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VCN13_OP_EN_CLR
+#define MT6359_RG_LDO_VCN13_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VCN13_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VCN13_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VCN13_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VCN13_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VCN13_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VCN13_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VCN13_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VCN13_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VCN13_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VCN13_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VCN13_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN13_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VCN13_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN13_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VCN13_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN13_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VCN13_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN13_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VCN13_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN13_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VCN13_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN13_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VCN13_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VCN13_OP_CFG
+#define MT6359_RG_LDO_VCN13_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VCN13_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VCN13_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG_SET
+#define MT6359_RG_LDO_VCN13_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCN13_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VCN13_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VCN13_OP_CFG_CLR
+#define MT6359_RG_LDO_VCN13_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCN13_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VCN18_EN_ADDR                           \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_EN_MASK                           0x1
+#define MT6359_RG_LDO_VCN18_EN_SHIFT                          0
+#define MT6359_RG_LDO_VCN18_LP_ADDR                           \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_LP_MASK                           0x1
+#define MT6359_RG_LDO_VCN18_LP_SHIFT                          1
+#define MT6359_RG_LDO_VCN18_STBTD_ADDR                        \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VCN18_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VCN18_ULP_ADDR                          \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VCN18_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VCN18_OCFB_EN_ADDR                      \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VCN18_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VCN18_OC_MODE_ADDR                      \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VCN18_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VCN18_OC_TSEL_ADDR                      \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VCN18_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VCN18_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VCN18_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VCN18_OP_MODE_ADDR                      \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VCN18_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VCN18_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VCN18_CON0
+#define MT6359_RG_LDO_VCN18_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VCN18_B_EN_ADDR                             \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_B_EN_MASK                             0x1
+#define MT6359_DA_VCN18_B_EN_SHIFT                            0
+#define MT6359_DA_VCN18_B_STB_ADDR                            \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_B_STB_MASK                            0x1
+#define MT6359_DA_VCN18_B_STB_SHIFT                           1
+#define MT6359_DA_VCN18_B_LP_ADDR                             \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_B_LP_MASK                             0x1
+#define MT6359_DA_VCN18_B_LP_SHIFT                            2
+#define MT6359_DA_VCN18_L_EN_ADDR                             \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_L_EN_MASK                             0x1
+#define MT6359_DA_VCN18_L_EN_SHIFT                            3
+#define MT6359_DA_VCN18_L_STB_ADDR                            \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_L_STB_MASK                            0x1
+#define MT6359_DA_VCN18_L_STB_SHIFT                           4
+#define MT6359_DA_VCN18_OCFB_EN_ADDR                          \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VCN18_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VCN18_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VCN18_MON
+#define MT6359_DA_VCN18_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VCN18_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VCN18_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VCN18_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VCN18_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VCN18_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VCN18_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VCN18_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VCN18_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VCN18_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VCN18_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VCN18_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VCN18_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VCN18_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VCN18_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VCN18_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VCN18_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VCN18_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VCN18_OP_EN
+#define MT6359_RG_LDO_VCN18_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VCN18_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VCN18_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN_SET
+#define MT6359_RG_LDO_VCN18_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VCN18_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VCN18_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VCN18_OP_EN_CLR
+#define MT6359_RG_LDO_VCN18_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VCN18_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VCN18_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VCN18_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VCN18_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VCN18_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VCN18_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VCN18_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VCN18_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VCN18_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VCN18_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VCN18_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCN18_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VCN18_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN18_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VCN18_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN18_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VCN18_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN18_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VCN18_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN18_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VCN18_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCN18_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VCN18_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VCN18_OP_CFG
+#define MT6359_RG_LDO_VCN18_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VCN18_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VCN18_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG_SET
+#define MT6359_RG_LDO_VCN18_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCN18_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VCN18_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VCN18_OP_CFG_CLR
+#define MT6359_RG_LDO_VCN18_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCN18_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VA09_EN_ADDR                            \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_EN_MASK                            0x1
+#define MT6359_RG_LDO_VA09_EN_SHIFT                           0
+#define MT6359_RG_LDO_VA09_LP_ADDR                            \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_LP_MASK                            0x1
+#define MT6359_RG_LDO_VA09_LP_SHIFT                           1
+#define MT6359_RG_LDO_VA09_STBTD_ADDR                         \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VA09_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VA09_ULP_ADDR                           \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VA09_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VA09_OCFB_EN_ADDR                       \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VA09_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VA09_OC_MODE_ADDR                       \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VA09_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VA09_OC_TSEL_ADDR                       \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VA09_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VA09_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VA09_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VA09_OP_MODE_ADDR                       \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VA09_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VA09_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VA09_CON0
+#define MT6359_RG_LDO_VA09_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VA09_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VA09_B_EN_ADDR                              \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_B_EN_MASK                              0x1
+#define MT6359_DA_VA09_B_EN_SHIFT                             0
+#define MT6359_DA_VA09_B_STB_ADDR                             \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_B_STB_MASK                             0x1
+#define MT6359_DA_VA09_B_STB_SHIFT                            1
+#define MT6359_DA_VA09_B_LP_ADDR                              \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_B_LP_MASK                              0x1
+#define MT6359_DA_VA09_B_LP_SHIFT                             2
+#define MT6359_DA_VA09_L_EN_ADDR                              \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_L_EN_MASK                              0x1
+#define MT6359_DA_VA09_L_EN_SHIFT                             3
+#define MT6359_DA_VA09_L_STB_ADDR                             \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_L_STB_MASK                             0x1
+#define MT6359_DA_VA09_L_STB_SHIFT                            4
+#define MT6359_DA_VA09_OCFB_EN_ADDR                           \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VA09_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VA09_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VA09_MON
+#define MT6359_DA_VA09_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VA09_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VA09_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VA09_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VA09_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VA09_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VA09_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VA09_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VA09_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VA09_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VA09_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VA09_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA09_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VA09_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VA09_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VA09_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VA09_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VA09_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VA09_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VA09_OP_EN
+#define MT6359_RG_LDO_VA09_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VA09_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VA09_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VA09_OP_EN_SET
+#define MT6359_RG_LDO_VA09_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VA09_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VA09_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VA09_OP_EN_CLR
+#define MT6359_RG_LDO_VA09_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VA09_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VA09_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VA09_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VA09_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VA09_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VA09_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VA09_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VA09_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VA09_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VA09_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VA09_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA09_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VA09_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA09_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VA09_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA09_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VA09_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA09_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VA09_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA09_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VA09_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA09_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VA09_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VA09_OP_CFG
+#define MT6359_RG_LDO_VA09_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VA09_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VA09_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG_SET
+#define MT6359_RG_LDO_VA09_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VA09_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VA09_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VA09_OP_CFG_CLR
+#define MT6359_RG_LDO_VA09_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VA09_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VCAMIO_EN_ADDR                          \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_EN_MASK                          0x1
+#define MT6359_RG_LDO_VCAMIO_EN_SHIFT                         0
+#define MT6359_RG_LDO_VCAMIO_LP_ADDR                          \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_LP_MASK                          0x1
+#define MT6359_RG_LDO_VCAMIO_LP_SHIFT                         1
+#define MT6359_RG_LDO_VCAMIO_STBTD_ADDR                       \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_STBTD_MASK                       0x3
+#define MT6359_RG_LDO_VCAMIO_STBTD_SHIFT                      2
+#define MT6359_RG_LDO_VCAMIO_ULP_ADDR                         \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_ULP_MASK                         0x1
+#define MT6359_RG_LDO_VCAMIO_ULP_SHIFT                        4
+#define MT6359_RG_LDO_VCAMIO_OCFB_EN_ADDR                     \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_OCFB_EN_MASK                     0x1
+#define MT6359_RG_LDO_VCAMIO_OCFB_EN_SHIFT                    5
+#define MT6359_RG_LDO_VCAMIO_OC_MODE_ADDR                     \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_OC_MODE_MASK                     0x1
+#define MT6359_RG_LDO_VCAMIO_OC_MODE_SHIFT                    6
+#define MT6359_RG_LDO_VCAMIO_OC_TSEL_ADDR                     \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_OC_TSEL_MASK                     0x1
+#define MT6359_RG_LDO_VCAMIO_OC_TSEL_SHIFT                    7
+#define MT6359_RG_LDO_VCAMIO_DUMMY_LOAD_ADDR                  \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_DUMMY_LOAD_MASK                  0x3
+#define MT6359_RG_LDO_VCAMIO_DUMMY_LOAD_SHIFT                 8
+#define MT6359_RG_LDO_VCAMIO_OP_MODE_ADDR                     \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_OP_MODE_MASK                     0x7
+#define MT6359_RG_LDO_VCAMIO_OP_MODE_SHIFT                    10
+#define MT6359_RG_LDO_VCAMIO_CK_SW_MODE_ADDR                  \
+	MT6359_LDO_VCAMIO_CON0
+#define MT6359_RG_LDO_VCAMIO_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_CK_SW_MODE_SHIFT                 15
+#define MT6359_DA_VCAMIO_B_EN_ADDR                            \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_B_EN_MASK                            0x1
+#define MT6359_DA_VCAMIO_B_EN_SHIFT                           0
+#define MT6359_DA_VCAMIO_B_STB_ADDR                           \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_B_STB_MASK                           0x1
+#define MT6359_DA_VCAMIO_B_STB_SHIFT                          1
+#define MT6359_DA_VCAMIO_B_LP_ADDR                            \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_B_LP_MASK                            0x1
+#define MT6359_DA_VCAMIO_B_LP_SHIFT                           2
+#define MT6359_DA_VCAMIO_L_EN_ADDR                            \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_L_EN_MASK                            0x1
+#define MT6359_DA_VCAMIO_L_EN_SHIFT                           3
+#define MT6359_DA_VCAMIO_L_STB_ADDR                           \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_L_STB_MASK                           0x1
+#define MT6359_DA_VCAMIO_L_STB_SHIFT                          4
+#define MT6359_DA_VCAMIO_OCFB_EN_ADDR                         \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_OCFB_EN_MASK                         0x1
+#define MT6359_DA_VCAMIO_OCFB_EN_SHIFT                        5
+#define MT6359_DA_VCAMIO_DUMMY_LOAD_ADDR                      \
+	MT6359_LDO_VCAMIO_MON
+#define MT6359_DA_VCAMIO_DUMMY_LOAD_MASK                      0x3
+#define MT6359_DA_VCAMIO_DUMMY_LOAD_SHIFT                     6
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_EN_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_EN_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_EN_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_EN_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_EN_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_EN_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_LDO_VCAMIO_SW_OP_EN_ADDR                    \
+	MT6359_LDO_VCAMIO_OP_EN
+#define MT6359_RG_LDO_VCAMIO_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VCAMIO_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_LDO_VCAMIO_OP_EN_SET_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN_SET
+#define MT6359_RG_LDO_VCAMIO_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCAMIO_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_LDO_VCAMIO_OP_EN_CLR_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_EN_CLR
+#define MT6359_RG_LDO_VCAMIO_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VCAMIO_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_CFG_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VCAMIO_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_CFG_ADDR                 \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCAMIO_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_CFG_ADDR                 \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCAMIO_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_CFG_ADDR                 \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCAMIO_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_CFG_ADDR                 \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCAMIO_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_CFG_ADDR                 \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VCAMIO_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_LDO_VCAMIO_SW_OP_CFG_ADDR                   \
+	MT6359_LDO_VCAMIO_OP_CFG
+#define MT6359_RG_LDO_VCAMIO_SW_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VCAMIO_SW_OP_CFG_SHIFT                  15
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_SET_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG_SET
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_CLR_ADDR                  \
+	MT6359_LDO_VCAMIO_OP_CFG_CLR
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VCAMIO_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VA12_EN_ADDR                            \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_EN_MASK                            0x1
+#define MT6359_RG_LDO_VA12_EN_SHIFT                           0
+#define MT6359_RG_LDO_VA12_LP_ADDR                            \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_LP_MASK                            0x1
+#define MT6359_RG_LDO_VA12_LP_SHIFT                           1
+#define MT6359_RG_LDO_VA12_STBTD_ADDR                         \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VA12_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VA12_ULP_ADDR                           \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VA12_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VA12_OCFB_EN_ADDR                       \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VA12_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VA12_OC_MODE_ADDR                       \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VA12_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VA12_OC_TSEL_ADDR                       \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VA12_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VA12_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VA12_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VA12_OP_MODE_ADDR                       \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VA12_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VA12_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VA12_CON0
+#define MT6359_RG_LDO_VA12_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VA12_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VA12_B_EN_ADDR                              \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_B_EN_MASK                              0x1
+#define MT6359_DA_VA12_B_EN_SHIFT                             0
+#define MT6359_DA_VA12_B_STB_ADDR                             \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_B_STB_MASK                             0x1
+#define MT6359_DA_VA12_B_STB_SHIFT                            1
+#define MT6359_DA_VA12_B_LP_ADDR                              \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_B_LP_MASK                              0x1
+#define MT6359_DA_VA12_B_LP_SHIFT                             2
+#define MT6359_DA_VA12_L_EN_ADDR                              \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_L_EN_MASK                              0x1
+#define MT6359_DA_VA12_L_EN_SHIFT                             3
+#define MT6359_DA_VA12_L_STB_ADDR                             \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_L_STB_MASK                             0x1
+#define MT6359_DA_VA12_L_STB_SHIFT                            4
+#define MT6359_DA_VA12_OCFB_EN_ADDR                           \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VA12_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VA12_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VA12_MON
+#define MT6359_DA_VA12_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VA12_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VA12_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VA12_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VA12_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VA12_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VA12_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VA12_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VA12_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VA12_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VA12_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VA12_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VA12_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VA12_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VA12_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VA12_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VA12_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VA12_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VA12_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VA12_OP_EN
+#define MT6359_RG_LDO_VA12_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VA12_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VA12_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VA12_OP_EN_SET
+#define MT6359_RG_LDO_VA12_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VA12_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VA12_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VA12_OP_EN_CLR
+#define MT6359_RG_LDO_VA12_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VA12_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VA12_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VA12_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VA12_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VA12_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VA12_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VA12_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VA12_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VA12_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VA12_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VA12_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VA12_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VA12_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA12_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VA12_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA12_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VA12_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA12_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VA12_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA12_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VA12_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VA12_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VA12_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VA12_OP_CFG
+#define MT6359_RG_LDO_VA12_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VA12_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VA12_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG_SET
+#define MT6359_RG_LDO_VA12_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VA12_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VA12_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VA12_OP_CFG_CLR
+#define MT6359_RG_LDO_VA12_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VA12_OP_CFG_CLR_SHIFT                   0
+#define MT6359_LDO_GNR2_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR2_DSN_ID
+#define MT6359_LDO_GNR2_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR2_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR2_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR2_DSN_ID
+#define MT6359_LDO_GNR2_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR2_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR2_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR2_DSN_REV0
+#define MT6359_LDO_GNR2_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR2_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR2_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR2_DSN_REV0
+#define MT6359_LDO_GNR2_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR2_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR2_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR2_DSN_REV0
+#define MT6359_LDO_GNR2_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR2_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR2_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR2_DSN_REV0
+#define MT6359_LDO_GNR2_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR2_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR2_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR2_DSN_DBI
+#define MT6359_LDO_GNR2_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR2_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR2_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR2_DSN_DBI
+#define MT6359_LDO_GNR2_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR2_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR2_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR2_DSN_DBI
+#define MT6359_LDO_GNR2_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR2_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR2_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR2_DSN_DXI
+#define MT6359_LDO_GNR2_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR2_DSN_FPI_SHIFT                         0
+#define MT6359_RG_LDO_VAUX18_EN_ADDR                          \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_EN_MASK                          0x1
+#define MT6359_RG_LDO_VAUX18_EN_SHIFT                         0
+#define MT6359_RG_LDO_VAUX18_LP_ADDR                          \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_LP_MASK                          0x1
+#define MT6359_RG_LDO_VAUX18_LP_SHIFT                         1
+#define MT6359_RG_LDO_VAUX18_STBTD_ADDR                       \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_STBTD_MASK                       0x3
+#define MT6359_RG_LDO_VAUX18_STBTD_SHIFT                      2
+#define MT6359_RG_LDO_VAUX18_ULP_ADDR                         \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_ULP_MASK                         0x1
+#define MT6359_RG_LDO_VAUX18_ULP_SHIFT                        4
+#define MT6359_RG_LDO_VAUX18_OCFB_EN_ADDR                     \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_OCFB_EN_MASK                     0x1
+#define MT6359_RG_LDO_VAUX18_OCFB_EN_SHIFT                    5
+#define MT6359_RG_LDO_VAUX18_OC_MODE_ADDR                     \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_OC_MODE_MASK                     0x1
+#define MT6359_RG_LDO_VAUX18_OC_MODE_SHIFT                    6
+#define MT6359_RG_LDO_VAUX18_OC_TSEL_ADDR                     \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_OC_TSEL_MASK                     0x1
+#define MT6359_RG_LDO_VAUX18_OC_TSEL_SHIFT                    7
+#define MT6359_RG_LDO_VAUX18_DUMMY_LOAD_ADDR                  \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_DUMMY_LOAD_MASK                  0x3
+#define MT6359_RG_LDO_VAUX18_DUMMY_LOAD_SHIFT                 8
+#define MT6359_RG_LDO_VAUX18_OP_MODE_ADDR                     \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_OP_MODE_MASK                     0x7
+#define MT6359_RG_LDO_VAUX18_OP_MODE_SHIFT                    10
+#define MT6359_RG_LDO_VAUX18_CK_SW_MODE_ADDR                  \
+	MT6359_LDO_VAUX18_CON0
+#define MT6359_RG_LDO_VAUX18_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_CK_SW_MODE_SHIFT                 15
+#define MT6359_DA_VAUX18_B_EN_ADDR                            \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_B_EN_MASK                            0x1
+#define MT6359_DA_VAUX18_B_EN_SHIFT                           0
+#define MT6359_DA_VAUX18_B_STB_ADDR                           \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_B_STB_MASK                           0x1
+#define MT6359_DA_VAUX18_B_STB_SHIFT                          1
+#define MT6359_DA_VAUX18_B_LP_ADDR                            \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_B_LP_MASK                            0x1
+#define MT6359_DA_VAUX18_B_LP_SHIFT                           2
+#define MT6359_DA_VAUX18_L_EN_ADDR                            \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_L_EN_MASK                            0x1
+#define MT6359_DA_VAUX18_L_EN_SHIFT                           3
+#define MT6359_DA_VAUX18_L_STB_ADDR                           \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_L_STB_MASK                           0x1
+#define MT6359_DA_VAUX18_L_STB_SHIFT                          4
+#define MT6359_DA_VAUX18_OCFB_EN_ADDR                         \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_OCFB_EN_MASK                         0x1
+#define MT6359_DA_VAUX18_OCFB_EN_SHIFT                        5
+#define MT6359_DA_VAUX18_DUMMY_LOAD_ADDR                      \
+	MT6359_LDO_VAUX18_MON
+#define MT6359_DA_VAUX18_DUMMY_LOAD_MASK                      0x3
+#define MT6359_DA_VAUX18_DUMMY_LOAD_SHIFT                     6
+#define MT6359_RG_LDO_VAUX18_HW0_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_LDO_VAUX18_HW1_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_LDO_VAUX18_HW2_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_LDO_VAUX18_HW3_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_LDO_VAUX18_HW4_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_LDO_VAUX18_HW5_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_LDO_VAUX18_HW6_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_LDO_VAUX18_HW7_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_LDO_VAUX18_HW8_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_LDO_VAUX18_HW9_OP_EN_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_LDO_VAUX18_HW10_OP_EN_ADDR                  \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_LDO_VAUX18_HW11_OP_EN_ADDR                  \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_LDO_VAUX18_HW12_OP_EN_ADDR                  \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_LDO_VAUX18_HW13_OP_EN_ADDR                  \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_LDO_VAUX18_HW14_OP_EN_ADDR                  \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_LDO_VAUX18_SW_OP_EN_ADDR                    \
+	MT6359_LDO_VAUX18_OP_EN
+#define MT6359_RG_LDO_VAUX18_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VAUX18_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_LDO_VAUX18_OP_EN_SET_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN_SET
+#define MT6359_RG_LDO_VAUX18_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VAUX18_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_LDO_VAUX18_OP_EN_CLR_ADDR                   \
+	MT6359_LDO_VAUX18_OP_EN_CLR
+#define MT6359_RG_LDO_VAUX18_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VAUX18_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VAUX18_HW0_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_LDO_VAUX18_HW1_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_LDO_VAUX18_HW2_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_LDO_VAUX18_HW3_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_LDO_VAUX18_HW4_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_LDO_VAUX18_HW5_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_LDO_VAUX18_HW6_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_LDO_VAUX18_HW7_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_LDO_VAUX18_HW8_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_LDO_VAUX18_HW9_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUX18_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_LDO_VAUX18_HW10_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUX18_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_LDO_VAUX18_HW11_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUX18_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_LDO_VAUX18_HW12_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUX18_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_LDO_VAUX18_HW13_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUX18_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_LDO_VAUX18_HW14_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUX18_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_LDO_VAUX18_SW_OP_CFG_ADDR                   \
+	MT6359_LDO_VAUX18_OP_CFG
+#define MT6359_RG_LDO_VAUX18_SW_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VAUX18_SW_OP_CFG_SHIFT                  15
+#define MT6359_RG_LDO_VAUX18_OP_CFG_SET_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG_SET
+#define MT6359_RG_LDO_VAUX18_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VAUX18_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_LDO_VAUX18_OP_CFG_CLR_ADDR                  \
+	MT6359_LDO_VAUX18_OP_CFG_CLR
+#define MT6359_RG_LDO_VAUX18_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VAUX18_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VAUD18_EN_ADDR                          \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_EN_MASK                          0x1
+#define MT6359_RG_LDO_VAUD18_EN_SHIFT                         0
+#define MT6359_RG_LDO_VAUD18_LP_ADDR                          \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_LP_MASK                          0x1
+#define MT6359_RG_LDO_VAUD18_LP_SHIFT                         1
+#define MT6359_RG_LDO_VAUD18_STBTD_ADDR                       \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_STBTD_MASK                       0x3
+#define MT6359_RG_LDO_VAUD18_STBTD_SHIFT                      2
+#define MT6359_RG_LDO_VAUD18_ULP_ADDR                         \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_ULP_MASK                         0x1
+#define MT6359_RG_LDO_VAUD18_ULP_SHIFT                        4
+#define MT6359_RG_LDO_VAUD18_OCFB_EN_ADDR                     \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_OCFB_EN_MASK                     0x1
+#define MT6359_RG_LDO_VAUD18_OCFB_EN_SHIFT                    5
+#define MT6359_RG_LDO_VAUD18_OC_MODE_ADDR                     \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_OC_MODE_MASK                     0x1
+#define MT6359_RG_LDO_VAUD18_OC_MODE_SHIFT                    6
+#define MT6359_RG_LDO_VAUD18_OC_TSEL_ADDR                     \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_OC_TSEL_MASK                     0x1
+#define MT6359_RG_LDO_VAUD18_OC_TSEL_SHIFT                    7
+#define MT6359_RG_LDO_VAUD18_DUMMY_LOAD_ADDR                  \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_DUMMY_LOAD_MASK                  0x3
+#define MT6359_RG_LDO_VAUD18_DUMMY_LOAD_SHIFT                 8
+#define MT6359_RG_LDO_VAUD18_OP_MODE_ADDR                     \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_OP_MODE_MASK                     0x7
+#define MT6359_RG_LDO_VAUD18_OP_MODE_SHIFT                    10
+#define MT6359_RG_LDO_VAUD18_CK_SW_MODE_ADDR                  \
+	MT6359_LDO_VAUD18_CON0
+#define MT6359_RG_LDO_VAUD18_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_CK_SW_MODE_SHIFT                 15
+#define MT6359_DA_VAUD18_B_EN_ADDR                            \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_B_EN_MASK                            0x1
+#define MT6359_DA_VAUD18_B_EN_SHIFT                           0
+#define MT6359_DA_VAUD18_B_STB_ADDR                           \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_B_STB_MASK                           0x1
+#define MT6359_DA_VAUD18_B_STB_SHIFT                          1
+#define MT6359_DA_VAUD18_B_LP_ADDR                            \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_B_LP_MASK                            0x1
+#define MT6359_DA_VAUD18_B_LP_SHIFT                           2
+#define MT6359_DA_VAUD18_L_EN_ADDR                            \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_L_EN_MASK                            0x1
+#define MT6359_DA_VAUD18_L_EN_SHIFT                           3
+#define MT6359_DA_VAUD18_L_STB_ADDR                           \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_L_STB_MASK                           0x1
+#define MT6359_DA_VAUD18_L_STB_SHIFT                          4
+#define MT6359_DA_VAUD18_OCFB_EN_ADDR                         \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_OCFB_EN_MASK                         0x1
+#define MT6359_DA_VAUD18_OCFB_EN_SHIFT                        5
+#define MT6359_DA_VAUD18_DUMMY_LOAD_ADDR                      \
+	MT6359_LDO_VAUD18_MON
+#define MT6359_DA_VAUD18_DUMMY_LOAD_MASK                      0x3
+#define MT6359_DA_VAUD18_DUMMY_LOAD_SHIFT                     6
+#define MT6359_RG_LDO_VAUD18_HW0_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_LDO_VAUD18_HW1_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_LDO_VAUD18_HW2_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_LDO_VAUD18_HW3_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_LDO_VAUD18_HW4_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_LDO_VAUD18_HW5_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_LDO_VAUD18_HW6_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_LDO_VAUD18_HW7_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_LDO_VAUD18_HW8_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_LDO_VAUD18_HW9_OP_EN_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_LDO_VAUD18_HW10_OP_EN_ADDR                  \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_LDO_VAUD18_HW11_OP_EN_ADDR                  \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_LDO_VAUD18_HW12_OP_EN_ADDR                  \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_LDO_VAUD18_HW13_OP_EN_ADDR                  \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_LDO_VAUD18_HW14_OP_EN_ADDR                  \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_LDO_VAUD18_SW_OP_EN_ADDR                    \
+	MT6359_LDO_VAUD18_OP_EN
+#define MT6359_RG_LDO_VAUD18_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VAUD18_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_LDO_VAUD18_OP_EN_SET_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN_SET
+#define MT6359_RG_LDO_VAUD18_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VAUD18_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_LDO_VAUD18_OP_EN_CLR_ADDR                   \
+	MT6359_LDO_VAUD18_OP_EN_CLR
+#define MT6359_RG_LDO_VAUD18_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VAUD18_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VAUD18_HW0_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_LDO_VAUD18_HW1_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_LDO_VAUD18_HW2_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_LDO_VAUD18_HW3_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_LDO_VAUD18_HW4_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_LDO_VAUD18_HW5_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_LDO_VAUD18_HW6_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_LDO_VAUD18_HW7_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_LDO_VAUD18_HW8_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_LDO_VAUD18_HW9_OP_CFG_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VAUD18_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_LDO_VAUD18_HW10_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUD18_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_LDO_VAUD18_HW11_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUD18_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_LDO_VAUD18_HW12_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUD18_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_LDO_VAUD18_HW13_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUD18_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_LDO_VAUD18_HW14_OP_CFG_ADDR                 \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VAUD18_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_LDO_VAUD18_SW_OP_CFG_ADDR                   \
+	MT6359_LDO_VAUD18_OP_CFG
+#define MT6359_RG_LDO_VAUD18_SW_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VAUD18_SW_OP_CFG_SHIFT                  15
+#define MT6359_RG_LDO_VAUD18_OP_CFG_SET_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG_SET
+#define MT6359_RG_LDO_VAUD18_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VAUD18_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_LDO_VAUD18_OP_CFG_CLR_ADDR                  \
+	MT6359_LDO_VAUD18_OP_CFG_CLR
+#define MT6359_RG_LDO_VAUD18_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VAUD18_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VIO18_EN_ADDR                           \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_EN_MASK                           0x1
+#define MT6359_RG_LDO_VIO18_EN_SHIFT                          0
+#define MT6359_RG_LDO_VIO18_LP_ADDR                           \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_LP_MASK                           0x1
+#define MT6359_RG_LDO_VIO18_LP_SHIFT                          1
+#define MT6359_RG_LDO_VIO18_STBTD_ADDR                        \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VIO18_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VIO18_ULP_ADDR                          \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VIO18_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VIO18_OCFB_EN_ADDR                      \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VIO18_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VIO18_OC_MODE_ADDR                      \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VIO18_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VIO18_OC_TSEL_ADDR                      \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VIO18_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VIO18_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VIO18_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VIO18_OP_MODE_ADDR                      \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VIO18_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VIO18_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VIO18_CON0
+#define MT6359_RG_LDO_VIO18_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VIO18_B_EN_ADDR                             \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_B_EN_MASK                             0x1
+#define MT6359_DA_VIO18_B_EN_SHIFT                            0
+#define MT6359_DA_VIO18_B_STB_ADDR                            \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_B_STB_MASK                            0x1
+#define MT6359_DA_VIO18_B_STB_SHIFT                           1
+#define MT6359_DA_VIO18_B_LP_ADDR                             \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_B_LP_MASK                             0x1
+#define MT6359_DA_VIO18_B_LP_SHIFT                            2
+#define MT6359_DA_VIO18_L_EN_ADDR                             \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_L_EN_MASK                             0x1
+#define MT6359_DA_VIO18_L_EN_SHIFT                            3
+#define MT6359_DA_VIO18_L_STB_ADDR                            \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_L_STB_MASK                            0x1
+#define MT6359_DA_VIO18_L_STB_SHIFT                           4
+#define MT6359_DA_VIO18_OCFB_EN_ADDR                          \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VIO18_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VIO18_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VIO18_MON
+#define MT6359_DA_VIO18_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VIO18_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VIO18_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VIO18_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VIO18_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VIO18_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VIO18_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VIO18_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VIO18_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VIO18_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VIO18_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VIO18_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VIO18_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VIO18_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VIO18_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VIO18_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VIO18_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VIO18_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VIO18_OP_EN
+#define MT6359_RG_LDO_VIO18_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIO18_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VIO18_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN_SET
+#define MT6359_RG_LDO_VIO18_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIO18_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VIO18_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VIO18_OP_EN_CLR
+#define MT6359_RG_LDO_VIO18_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIO18_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VIO18_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VIO18_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VIO18_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VIO18_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VIO18_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VIO18_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VIO18_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VIO18_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VIO18_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VIO18_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO18_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VIO18_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO18_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VIO18_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO18_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VIO18_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO18_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VIO18_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO18_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VIO18_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO18_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VIO18_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VIO18_OP_CFG
+#define MT6359_RG_LDO_VIO18_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIO18_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VIO18_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG_SET
+#define MT6359_RG_LDO_VIO18_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VIO18_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VIO18_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VIO18_OP_CFG_CLR
+#define MT6359_RG_LDO_VIO18_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VIO18_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VEMC_EN_ADDR                            \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_EN_MASK                            0x1
+#define MT6359_RG_LDO_VEMC_EN_SHIFT                           0
+#define MT6359_RG_LDO_VEMC_LP_ADDR                            \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_LP_MASK                            0x1
+#define MT6359_RG_LDO_VEMC_LP_SHIFT                           1
+#define MT6359_RG_LDO_VEMC_STBTD_ADDR                         \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VEMC_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VEMC_ULP_ADDR                           \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VEMC_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VEMC_OCFB_EN_ADDR                       \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VEMC_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VEMC_OC_MODE_ADDR                       \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VEMC_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VEMC_OC_TSEL_ADDR                       \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VEMC_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VEMC_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VEMC_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VEMC_OP_MODE_ADDR                       \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VEMC_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VEMC_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VEMC_CON0
+#define MT6359_RG_LDO_VEMC_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VEMC_B_EN_ADDR                              \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_B_EN_MASK                              0x1
+#define MT6359_DA_VEMC_B_EN_SHIFT                             0
+#define MT6359_DA_VEMC_B_STB_ADDR                             \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_B_STB_MASK                             0x1
+#define MT6359_DA_VEMC_B_STB_SHIFT                            1
+#define MT6359_DA_VEMC_B_LP_ADDR                              \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_B_LP_MASK                              0x1
+#define MT6359_DA_VEMC_B_LP_SHIFT                             2
+#define MT6359_DA_VEMC_L_EN_ADDR                              \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_L_EN_MASK                              0x1
+#define MT6359_DA_VEMC_L_EN_SHIFT                             3
+#define MT6359_DA_VEMC_L_STB_ADDR                             \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_L_STB_MASK                             0x1
+#define MT6359_DA_VEMC_L_STB_SHIFT                            4
+#define MT6359_DA_VEMC_OCFB_EN_ADDR                           \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VEMC_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VEMC_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VEMC_MON
+#define MT6359_DA_VEMC_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VEMC_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VEMC_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VEMC_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VEMC_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VEMC_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VEMC_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VEMC_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VEMC_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VEMC_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VEMC_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VEMC_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VEMC_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VEMC_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VEMC_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VEMC_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VEMC_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VEMC_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VEMC_OP_EN
+#define MT6359_RG_LDO_VEMC_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VEMC_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VEMC_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN_SET
+#define MT6359_RG_LDO_VEMC_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VEMC_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VEMC_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VEMC_OP_EN_CLR
+#define MT6359_RG_LDO_VEMC_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VEMC_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VEMC_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VEMC_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VEMC_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VEMC_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VEMC_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VEMC_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VEMC_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VEMC_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VEMC_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VEMC_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VEMC_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VEMC_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEMC_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VEMC_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEMC_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VEMC_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEMC_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VEMC_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEMC_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VEMC_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VEMC_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VEMC_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VEMC_OP_CFG
+#define MT6359_RG_LDO_VEMC_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VEMC_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VEMC_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG_SET
+#define MT6359_RG_LDO_VEMC_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VEMC_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VEMC_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VEMC_OP_CFG_CLR
+#define MT6359_RG_LDO_VEMC_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VEMC_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VSIM1_EN_ADDR                           \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_EN_MASK                           0x1
+#define MT6359_RG_LDO_VSIM1_EN_SHIFT                          0
+#define MT6359_RG_LDO_VSIM1_LP_ADDR                           \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_LP_MASK                           0x1
+#define MT6359_RG_LDO_VSIM1_LP_SHIFT                          1
+#define MT6359_RG_LDO_VSIM1_STBTD_ADDR                        \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VSIM1_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VSIM1_ULP_ADDR                          \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VSIM1_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VSIM1_OCFB_EN_ADDR                      \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VSIM1_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VSIM1_OC_MODE_ADDR                      \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VSIM1_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VSIM1_OC_TSEL_ADDR                      \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VSIM1_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VSIM1_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VSIM1_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VSIM1_OP_MODE_ADDR                      \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VSIM1_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VSIM1_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VSIM1_CON0
+#define MT6359_RG_LDO_VSIM1_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VSIM1_B_EN_ADDR                             \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_B_EN_MASK                             0x1
+#define MT6359_DA_VSIM1_B_EN_SHIFT                            0
+#define MT6359_DA_VSIM1_B_STB_ADDR                            \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_B_STB_MASK                            0x1
+#define MT6359_DA_VSIM1_B_STB_SHIFT                           1
+#define MT6359_DA_VSIM1_B_LP_ADDR                             \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_B_LP_MASK                             0x1
+#define MT6359_DA_VSIM1_B_LP_SHIFT                            2
+#define MT6359_DA_VSIM1_L_EN_ADDR                             \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_L_EN_MASK                             0x1
+#define MT6359_DA_VSIM1_L_EN_SHIFT                            3
+#define MT6359_DA_VSIM1_L_STB_ADDR                            \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_L_STB_MASK                            0x1
+#define MT6359_DA_VSIM1_L_STB_SHIFT                           4
+#define MT6359_DA_VSIM1_OCFB_EN_ADDR                          \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VSIM1_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VSIM1_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VSIM1_MON
+#define MT6359_DA_VSIM1_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VSIM1_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VSIM1_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VSIM1_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VSIM1_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VSIM1_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VSIM1_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VSIM1_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VSIM1_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VSIM1_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VSIM1_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VSIM1_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VSIM1_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VSIM1_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VSIM1_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VSIM1_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VSIM1_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VSIM1_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VSIM1_OP_EN
+#define MT6359_RG_LDO_VSIM1_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VSIM1_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VSIM1_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN_SET
+#define MT6359_RG_LDO_VSIM1_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VSIM1_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VSIM1_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VSIM1_OP_EN_CLR
+#define MT6359_RG_LDO_VSIM1_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VSIM1_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VSIM1_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VSIM1_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VSIM1_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VSIM1_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VSIM1_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VSIM1_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VSIM1_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VSIM1_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VSIM1_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VSIM1_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM1_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VSIM1_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM1_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VSIM1_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM1_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VSIM1_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM1_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VSIM1_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM1_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VSIM1_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM1_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VSIM1_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VSIM1_OP_CFG
+#define MT6359_RG_LDO_VSIM1_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VSIM1_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VSIM1_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG_SET
+#define MT6359_RG_LDO_VSIM1_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VSIM1_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VSIM1_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VSIM1_OP_CFG_CLR
+#define MT6359_RG_LDO_VSIM1_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VSIM1_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VSIM2_EN_ADDR                           \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_EN_MASK                           0x1
+#define MT6359_RG_LDO_VSIM2_EN_SHIFT                          0
+#define MT6359_RG_LDO_VSIM2_LP_ADDR                           \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_LP_MASK                           0x1
+#define MT6359_RG_LDO_VSIM2_LP_SHIFT                          1
+#define MT6359_RG_LDO_VSIM2_STBTD_ADDR                        \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VSIM2_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VSIM2_ULP_ADDR                          \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VSIM2_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VSIM2_OCFB_EN_ADDR                      \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VSIM2_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VSIM2_OC_MODE_ADDR                      \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VSIM2_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VSIM2_OC_TSEL_ADDR                      \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VSIM2_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VSIM2_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VSIM2_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VSIM2_OP_MODE_ADDR                      \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VSIM2_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VSIM2_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VSIM2_CON0
+#define MT6359_RG_LDO_VSIM2_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VSIM2_B_EN_ADDR                             \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_B_EN_MASK                             0x1
+#define MT6359_DA_VSIM2_B_EN_SHIFT                            0
+#define MT6359_DA_VSIM2_B_STB_ADDR                            \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_B_STB_MASK                            0x1
+#define MT6359_DA_VSIM2_B_STB_SHIFT                           1
+#define MT6359_DA_VSIM2_B_LP_ADDR                             \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_B_LP_MASK                             0x1
+#define MT6359_DA_VSIM2_B_LP_SHIFT                            2
+#define MT6359_DA_VSIM2_L_EN_ADDR                             \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_L_EN_MASK                             0x1
+#define MT6359_DA_VSIM2_L_EN_SHIFT                            3
+#define MT6359_DA_VSIM2_L_STB_ADDR                            \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_L_STB_MASK                            0x1
+#define MT6359_DA_VSIM2_L_STB_SHIFT                           4
+#define MT6359_DA_VSIM2_OCFB_EN_ADDR                          \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VSIM2_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VSIM2_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VSIM2_MON
+#define MT6359_DA_VSIM2_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VSIM2_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VSIM2_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VSIM2_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VSIM2_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VSIM2_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VSIM2_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VSIM2_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VSIM2_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VSIM2_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VSIM2_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VSIM2_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VSIM2_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VSIM2_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VSIM2_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VSIM2_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VSIM2_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VSIM2_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VSIM2_OP_EN
+#define MT6359_RG_LDO_VSIM2_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VSIM2_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VSIM2_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN_SET
+#define MT6359_RG_LDO_VSIM2_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VSIM2_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VSIM2_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VSIM2_OP_EN_CLR
+#define MT6359_RG_LDO_VSIM2_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VSIM2_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VSIM2_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VSIM2_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VSIM2_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VSIM2_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VSIM2_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VSIM2_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VSIM2_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VSIM2_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VSIM2_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VSIM2_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VSIM2_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VSIM2_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM2_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VSIM2_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM2_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VSIM2_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM2_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VSIM2_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM2_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VSIM2_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VSIM2_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VSIM2_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VSIM2_OP_CFG
+#define MT6359_RG_LDO_VSIM2_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VSIM2_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VSIM2_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG_SET
+#define MT6359_RG_LDO_VSIM2_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VSIM2_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VSIM2_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VSIM2_OP_CFG_CLR
+#define MT6359_RG_LDO_VSIM2_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VSIM2_OP_CFG_CLR_SHIFT                  0
+#define MT6359_LDO_GNR3_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR3_DSN_ID
+#define MT6359_LDO_GNR3_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR3_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR3_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR3_DSN_ID
+#define MT6359_LDO_GNR3_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR3_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR3_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR3_DSN_REV0
+#define MT6359_LDO_GNR3_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR3_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR3_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR3_DSN_REV0
+#define MT6359_LDO_GNR3_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR3_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR3_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR3_DSN_REV0
+#define MT6359_LDO_GNR3_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR3_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR3_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR3_DSN_REV0
+#define MT6359_LDO_GNR3_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR3_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR3_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR3_DSN_DBI
+#define MT6359_LDO_GNR3_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR3_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR3_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR3_DSN_DBI
+#define MT6359_LDO_GNR3_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR3_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR3_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR3_DSN_DBI
+#define MT6359_LDO_GNR3_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR3_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR3_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR3_DSN_DXI
+#define MT6359_LDO_GNR3_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR3_DSN_FPI_SHIFT                         0
+#define MT6359_RG_LDO_VUSB_EN_0_ADDR                          \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_EN_0_MASK                          0x1
+#define MT6359_RG_LDO_VUSB_EN_0_SHIFT                         0
+#define MT6359_RG_LDO_VUSB_LP_ADDR                            \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_LP_MASK                            0x1
+#define MT6359_RG_LDO_VUSB_LP_SHIFT                           1
+#define MT6359_RG_LDO_VUSB_STBTD_ADDR                         \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VUSB_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VUSB_ULP_ADDR                           \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VUSB_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VUSB_OCFB_EN_ADDR                       \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VUSB_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VUSB_OC_MODE_ADDR                       \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VUSB_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VUSB_OC_TSEL_ADDR                       \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VUSB_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VUSB_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VUSB_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VUSB_OP_MODE_ADDR                       \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VUSB_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VUSB_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VUSB_CON0
+#define MT6359_RG_LDO_VUSB_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VUSB_B_EN_ADDR                              \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_B_EN_MASK                              0x1
+#define MT6359_DA_VUSB_B_EN_SHIFT                             0
+#define MT6359_DA_VUSB_B_STB_ADDR                             \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_B_STB_MASK                             0x1
+#define MT6359_DA_VUSB_B_STB_SHIFT                            1
+#define MT6359_DA_VUSB_B_LP_ADDR                              \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_B_LP_MASK                              0x1
+#define MT6359_DA_VUSB_B_LP_SHIFT                             2
+#define MT6359_DA_VUSB_L_EN_ADDR                              \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_L_EN_MASK                              0x1
+#define MT6359_DA_VUSB_L_EN_SHIFT                             3
+#define MT6359_DA_VUSB_L_STB_ADDR                             \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_L_STB_MASK                             0x1
+#define MT6359_DA_VUSB_L_STB_SHIFT                            4
+#define MT6359_DA_VUSB_OCFB_EN_ADDR                           \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VUSB_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VUSB_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VUSB_MON
+#define MT6359_DA_VUSB_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VUSB_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VUSB_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VUSB_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VUSB_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VUSB_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VUSB_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VUSB_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VUSB_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VUSB_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VUSB_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VUSB_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VUSB_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VUSB_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VUSB_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VUSB_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VUSB_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VUSB_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VUSB_OP_EN
+#define MT6359_RG_LDO_VUSB_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VUSB_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VUSB_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN_SET
+#define MT6359_RG_LDO_VUSB_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VUSB_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VUSB_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VUSB_OP_EN_CLR
+#define MT6359_RG_LDO_VUSB_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VUSB_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VUSB_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VUSB_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VUSB_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VUSB_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VUSB_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VUSB_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VUSB_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VUSB_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VUSB_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VUSB_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUSB_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VUSB_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUSB_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VUSB_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUSB_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VUSB_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUSB_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VUSB_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUSB_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VUSB_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUSB_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VUSB_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VUSB_OP_CFG
+#define MT6359_RG_LDO_VUSB_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VUSB_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VUSB_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG_SET
+#define MT6359_RG_LDO_VUSB_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VUSB_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VUSB_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VUSB_OP_CFG_CLR
+#define MT6359_RG_LDO_VUSB_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VUSB_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VUSB_EN_1_ADDR                          \
+	MT6359_LDO_VUSB_MULTI_SW
+#define MT6359_RG_LDO_VUSB_EN_1_MASK                          0x1
+#define MT6359_RG_LDO_VUSB_EN_1_SHIFT                         15
+#define MT6359_RG_LDO_VRFCK_EN_ADDR                           \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_EN_MASK                           0x1
+#define MT6359_RG_LDO_VRFCK_EN_SHIFT                          0
+#define MT6359_RG_LDO_VRFCK_LP_ADDR                           \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_LP_MASK                           0x1
+#define MT6359_RG_LDO_VRFCK_LP_SHIFT                          1
+#define MT6359_RG_LDO_VRFCK_STBTD_ADDR                        \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VRFCK_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VRFCK_ULP_ADDR                          \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VRFCK_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VRFCK_OCFB_EN_ADDR                      \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VRFCK_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VRFCK_OC_MODE_ADDR                      \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VRFCK_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VRFCK_OC_TSEL_ADDR                      \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VRFCK_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VRFCK_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VRFCK_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VRFCK_OP_MODE_ADDR                      \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VRFCK_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VRFCK_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VRFCK_CON0
+#define MT6359_RG_LDO_VRFCK_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VRFCK_B_EN_ADDR                             \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_B_EN_MASK                             0x1
+#define MT6359_DA_VRFCK_B_EN_SHIFT                            0
+#define MT6359_DA_VRFCK_B_STB_ADDR                            \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_B_STB_MASK                            0x1
+#define MT6359_DA_VRFCK_B_STB_SHIFT                           1
+#define MT6359_DA_VRFCK_B_LP_ADDR                             \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_B_LP_MASK                             0x1
+#define MT6359_DA_VRFCK_B_LP_SHIFT                            2
+#define MT6359_DA_VRFCK_L_EN_ADDR                             \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_L_EN_MASK                             0x1
+#define MT6359_DA_VRFCK_L_EN_SHIFT                            3
+#define MT6359_DA_VRFCK_L_STB_ADDR                            \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_L_STB_MASK                            0x1
+#define MT6359_DA_VRFCK_L_STB_SHIFT                           4
+#define MT6359_DA_VRFCK_OCFB_EN_ADDR                          \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VRFCK_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VRFCK_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VRFCK_MON
+#define MT6359_DA_VRFCK_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VRFCK_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VRFCK_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VRFCK_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VRFCK_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VRFCK_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VRFCK_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VRFCK_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VRFCK_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VRFCK_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VRFCK_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VRFCK_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VRFCK_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VRFCK_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VRFCK_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VRFCK_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VRFCK_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VRFCK_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VRFCK_OP_EN
+#define MT6359_RG_LDO_VRFCK_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VRFCK_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VRFCK_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN_SET
+#define MT6359_RG_LDO_VRFCK_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRFCK_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VRFCK_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VRFCK_OP_EN_CLR
+#define MT6359_RG_LDO_VRFCK_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VRFCK_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VRFCK_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VRFCK_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VRFCK_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VRFCK_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VRFCK_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VRFCK_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VRFCK_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VRFCK_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VRFCK_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VRFCK_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VRFCK_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VRFCK_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRFCK_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VRFCK_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRFCK_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VRFCK_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRFCK_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VRFCK_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRFCK_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VRFCK_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VRFCK_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VRFCK_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VRFCK_OP_CFG
+#define MT6359_RG_LDO_VRFCK_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VRFCK_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VRFCK_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG_SET
+#define MT6359_RG_LDO_VRFCK_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRFCK_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VRFCK_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VRFCK_OP_CFG_CLR
+#define MT6359_RG_LDO_VRFCK_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VRFCK_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VBBCK_EN_ADDR                           \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_EN_MASK                           0x1
+#define MT6359_RG_LDO_VBBCK_EN_SHIFT                          0
+#define MT6359_RG_LDO_VBBCK_LP_ADDR                           \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_LP_MASK                           0x1
+#define MT6359_RG_LDO_VBBCK_LP_SHIFT                          1
+#define MT6359_RG_LDO_VBBCK_STBTD_ADDR                        \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VBBCK_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VBBCK_ULP_ADDR                          \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VBBCK_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VBBCK_OCFB_EN_ADDR                      \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VBBCK_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VBBCK_OC_MODE_ADDR                      \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VBBCK_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VBBCK_OC_TSEL_ADDR                      \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VBBCK_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VBBCK_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VBBCK_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VBBCK_OP_MODE_ADDR                      \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VBBCK_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VBBCK_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VBBCK_CON0
+#define MT6359_RG_LDO_VBBCK_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VBBCK_B_EN_ADDR                             \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_B_EN_MASK                             0x1
+#define MT6359_DA_VBBCK_B_EN_SHIFT                            0
+#define MT6359_DA_VBBCK_B_STB_ADDR                            \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_B_STB_MASK                            0x1
+#define MT6359_DA_VBBCK_B_STB_SHIFT                           1
+#define MT6359_DA_VBBCK_B_LP_ADDR                             \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_B_LP_MASK                             0x1
+#define MT6359_DA_VBBCK_B_LP_SHIFT                            2
+#define MT6359_DA_VBBCK_L_EN_ADDR                             \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_L_EN_MASK                             0x1
+#define MT6359_DA_VBBCK_L_EN_SHIFT                            3
+#define MT6359_DA_VBBCK_L_STB_ADDR                            \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_L_STB_MASK                            0x1
+#define MT6359_DA_VBBCK_L_STB_SHIFT                           4
+#define MT6359_DA_VBBCK_OCFB_EN_ADDR                          \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VBBCK_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VBBCK_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VBBCK_MON
+#define MT6359_DA_VBBCK_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VBBCK_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VBBCK_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VBBCK_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VBBCK_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VBBCK_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VBBCK_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VBBCK_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VBBCK_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VBBCK_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VBBCK_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VBBCK_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VBBCK_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VBBCK_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VBBCK_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VBBCK_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VBBCK_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VBBCK_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VBBCK_OP_EN
+#define MT6359_RG_LDO_VBBCK_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VBBCK_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VBBCK_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN_SET
+#define MT6359_RG_LDO_VBBCK_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VBBCK_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VBBCK_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VBBCK_OP_EN_CLR
+#define MT6359_RG_LDO_VBBCK_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VBBCK_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VBBCK_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VBBCK_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VBBCK_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VBBCK_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VBBCK_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VBBCK_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VBBCK_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VBBCK_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VBBCK_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VBBCK_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBBCK_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VBBCK_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBBCK_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VBBCK_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBBCK_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VBBCK_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBBCK_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VBBCK_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBBCK_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VBBCK_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBBCK_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VBBCK_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VBBCK_OP_CFG
+#define MT6359_RG_LDO_VBBCK_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VBBCK_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VBBCK_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG_SET
+#define MT6359_RG_LDO_VBBCK_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VBBCK_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VBBCK_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VBBCK_OP_CFG_CLR
+#define MT6359_RG_LDO_VBBCK_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VBBCK_OP_CFG_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VBIF28_EN_ADDR                          \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_EN_MASK                          0x1
+#define MT6359_RG_LDO_VBIF28_EN_SHIFT                         0
+#define MT6359_RG_LDO_VBIF28_LP_ADDR                          \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_LP_MASK                          0x1
+#define MT6359_RG_LDO_VBIF28_LP_SHIFT                         1
+#define MT6359_RG_LDO_VBIF28_STBTD_ADDR                       \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_STBTD_MASK                       0x3
+#define MT6359_RG_LDO_VBIF28_STBTD_SHIFT                      2
+#define MT6359_RG_LDO_VBIF28_ULP_ADDR                         \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_ULP_MASK                         0x1
+#define MT6359_RG_LDO_VBIF28_ULP_SHIFT                        4
+#define MT6359_RG_LDO_VBIF28_OCFB_EN_ADDR                     \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_OCFB_EN_MASK                     0x1
+#define MT6359_RG_LDO_VBIF28_OCFB_EN_SHIFT                    5
+#define MT6359_RG_LDO_VBIF28_OC_MODE_ADDR                     \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_OC_MODE_MASK                     0x1
+#define MT6359_RG_LDO_VBIF28_OC_MODE_SHIFT                    6
+#define MT6359_RG_LDO_VBIF28_OC_TSEL_ADDR                     \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_OC_TSEL_MASK                     0x1
+#define MT6359_RG_LDO_VBIF28_OC_TSEL_SHIFT                    7
+#define MT6359_RG_LDO_VBIF28_DUMMY_LOAD_ADDR                  \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_DUMMY_LOAD_MASK                  0x3
+#define MT6359_RG_LDO_VBIF28_DUMMY_LOAD_SHIFT                 8
+#define MT6359_RG_LDO_VBIF28_OP_MODE_ADDR                     \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_OP_MODE_MASK                     0x7
+#define MT6359_RG_LDO_VBIF28_OP_MODE_SHIFT                    10
+#define MT6359_RG_LDO_VBIF28_CK_SW_MODE_ADDR                  \
+	MT6359_LDO_VBIF28_CON0
+#define MT6359_RG_LDO_VBIF28_CK_SW_MODE_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_CK_SW_MODE_SHIFT                 15
+#define MT6359_DA_VBIF28_B_EN_ADDR                            \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_B_EN_MASK                            0x1
+#define MT6359_DA_VBIF28_B_EN_SHIFT                           0
+#define MT6359_DA_VBIF28_B_STB_ADDR                           \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_B_STB_MASK                           0x1
+#define MT6359_DA_VBIF28_B_STB_SHIFT                          1
+#define MT6359_DA_VBIF28_B_LP_ADDR                            \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_B_LP_MASK                            0x1
+#define MT6359_DA_VBIF28_B_LP_SHIFT                           2
+#define MT6359_DA_VBIF28_L_EN_ADDR                            \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_L_EN_MASK                            0x1
+#define MT6359_DA_VBIF28_L_EN_SHIFT                           3
+#define MT6359_DA_VBIF28_L_STB_ADDR                           \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_L_STB_MASK                           0x1
+#define MT6359_DA_VBIF28_L_STB_SHIFT                          4
+#define MT6359_DA_VBIF28_OCFB_EN_ADDR                         \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_OCFB_EN_MASK                         0x1
+#define MT6359_DA_VBIF28_OCFB_EN_SHIFT                        5
+#define MT6359_DA_VBIF28_DUMMY_LOAD_ADDR                      \
+	MT6359_LDO_VBIF28_MON
+#define MT6359_DA_VBIF28_DUMMY_LOAD_MASK                      0x3
+#define MT6359_DA_VBIF28_DUMMY_LOAD_SHIFT                     6
+#define MT6359_RG_LDO_VBIF28_HW0_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW0_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW0_OP_EN_SHIFT                  0
+#define MT6359_RG_LDO_VBIF28_HW1_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW1_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW1_OP_EN_SHIFT                  1
+#define MT6359_RG_LDO_VBIF28_HW2_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW2_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW2_OP_EN_SHIFT                  2
+#define MT6359_RG_LDO_VBIF28_HW3_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW3_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW3_OP_EN_SHIFT                  3
+#define MT6359_RG_LDO_VBIF28_HW4_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW4_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW4_OP_EN_SHIFT                  4
+#define MT6359_RG_LDO_VBIF28_HW5_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW5_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW5_OP_EN_SHIFT                  5
+#define MT6359_RG_LDO_VBIF28_HW6_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW6_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW6_OP_EN_SHIFT                  6
+#define MT6359_RG_LDO_VBIF28_HW7_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW7_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW7_OP_EN_SHIFT                  7
+#define MT6359_RG_LDO_VBIF28_HW8_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW8_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW8_OP_EN_SHIFT                  8
+#define MT6359_RG_LDO_VBIF28_HW9_OP_EN_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW9_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_HW9_OP_EN_SHIFT                  9
+#define MT6359_RG_LDO_VBIF28_HW10_OP_EN_ADDR                  \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW10_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW10_OP_EN_SHIFT                 10
+#define MT6359_RG_LDO_VBIF28_HW11_OP_EN_ADDR                  \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW11_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW11_OP_EN_SHIFT                 11
+#define MT6359_RG_LDO_VBIF28_HW12_OP_EN_ADDR                  \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW12_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW12_OP_EN_SHIFT                 12
+#define MT6359_RG_LDO_VBIF28_HW13_OP_EN_ADDR                  \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW13_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW13_OP_EN_SHIFT                 13
+#define MT6359_RG_LDO_VBIF28_HW14_OP_EN_ADDR                  \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_HW14_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW14_OP_EN_SHIFT                 14
+#define MT6359_RG_LDO_VBIF28_SW_OP_EN_ADDR                    \
+	MT6359_LDO_VBIF28_OP_EN
+#define MT6359_RG_LDO_VBIF28_SW_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VBIF28_SW_OP_EN_SHIFT                   15
+#define MT6359_RG_LDO_VBIF28_OP_EN_SET_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN_SET
+#define MT6359_RG_LDO_VBIF28_OP_EN_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VBIF28_OP_EN_SET_SHIFT                  0
+#define MT6359_RG_LDO_VBIF28_OP_EN_CLR_ADDR                   \
+	MT6359_LDO_VBIF28_OP_EN_CLR
+#define MT6359_RG_LDO_VBIF28_OP_EN_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VBIF28_OP_EN_CLR_SHIFT                  0
+#define MT6359_RG_LDO_VBIF28_HW0_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW0_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW0_OP_CFG_SHIFT                 0
+#define MT6359_RG_LDO_VBIF28_HW1_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW1_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW1_OP_CFG_SHIFT                 1
+#define MT6359_RG_LDO_VBIF28_HW2_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW2_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW2_OP_CFG_SHIFT                 2
+#define MT6359_RG_LDO_VBIF28_HW3_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW3_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW3_OP_CFG_SHIFT                 3
+#define MT6359_RG_LDO_VBIF28_HW4_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW4_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW4_OP_CFG_SHIFT                 4
+#define MT6359_RG_LDO_VBIF28_HW5_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW5_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW5_OP_CFG_SHIFT                 5
+#define MT6359_RG_LDO_VBIF28_HW6_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW6_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW6_OP_CFG_SHIFT                 6
+#define MT6359_RG_LDO_VBIF28_HW7_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW7_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW7_OP_CFG_SHIFT                 7
+#define MT6359_RG_LDO_VBIF28_HW8_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW8_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW8_OP_CFG_SHIFT                 8
+#define MT6359_RG_LDO_VBIF28_HW9_OP_CFG_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW9_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VBIF28_HW9_OP_CFG_SHIFT                 9
+#define MT6359_RG_LDO_VBIF28_HW10_OP_CFG_ADDR                 \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW10_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VBIF28_HW10_OP_CFG_SHIFT                10
+#define MT6359_RG_LDO_VBIF28_HW11_OP_CFG_ADDR                 \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW11_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VBIF28_HW11_OP_CFG_SHIFT                11
+#define MT6359_RG_LDO_VBIF28_HW12_OP_CFG_ADDR                 \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW12_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VBIF28_HW12_OP_CFG_SHIFT                12
+#define MT6359_RG_LDO_VBIF28_HW13_OP_CFG_ADDR                 \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW13_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VBIF28_HW13_OP_CFG_SHIFT                13
+#define MT6359_RG_LDO_VBIF28_HW14_OP_CFG_ADDR                 \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_HW14_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VBIF28_HW14_OP_CFG_SHIFT                14
+#define MT6359_RG_LDO_VBIF28_SW_OP_CFG_ADDR                   \
+	MT6359_LDO_VBIF28_OP_CFG
+#define MT6359_RG_LDO_VBIF28_SW_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VBIF28_SW_OP_CFG_SHIFT                  15
+#define MT6359_RG_LDO_VBIF28_OP_CFG_SET_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG_SET
+#define MT6359_RG_LDO_VBIF28_OP_CFG_SET_MASK                  0xFFFF
+#define MT6359_RG_LDO_VBIF28_OP_CFG_SET_SHIFT                 0
+#define MT6359_RG_LDO_VBIF28_OP_CFG_CLR_ADDR                  \
+	MT6359_LDO_VBIF28_OP_CFG_CLR
+#define MT6359_RG_LDO_VBIF28_OP_CFG_CLR_MASK                  0xFFFF
+#define MT6359_RG_LDO_VBIF28_OP_CFG_CLR_SHIFT                 0
+#define MT6359_RG_LDO_VIBR_EN_ADDR                            \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_EN_MASK                            0x1
+#define MT6359_RG_LDO_VIBR_EN_SHIFT                           0
+#define MT6359_RG_LDO_VIBR_LP_ADDR                            \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_LP_MASK                            0x1
+#define MT6359_RG_LDO_VIBR_LP_SHIFT                           1
+#define MT6359_RG_LDO_VIBR_STBTD_ADDR                         \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VIBR_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VIBR_ULP_ADDR                           \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VIBR_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VIBR_OCFB_EN_ADDR                       \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VIBR_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VIBR_OC_MODE_ADDR                       \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VIBR_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VIBR_OC_TSEL_ADDR                       \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VIBR_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VIBR_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VIBR_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VIBR_OP_MODE_ADDR                       \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VIBR_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VIBR_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VIBR_CON0
+#define MT6359_RG_LDO_VIBR_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VIBR_B_EN_ADDR                              \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_B_EN_MASK                              0x1
+#define MT6359_DA_VIBR_B_EN_SHIFT                             0
+#define MT6359_DA_VIBR_B_STB_ADDR                             \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_B_STB_MASK                             0x1
+#define MT6359_DA_VIBR_B_STB_SHIFT                            1
+#define MT6359_DA_VIBR_B_LP_ADDR                              \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_B_LP_MASK                              0x1
+#define MT6359_DA_VIBR_B_LP_SHIFT                             2
+#define MT6359_DA_VIBR_L_EN_ADDR                              \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_L_EN_MASK                              0x1
+#define MT6359_DA_VIBR_L_EN_SHIFT                             3
+#define MT6359_DA_VIBR_L_STB_ADDR                             \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_L_STB_MASK                             0x1
+#define MT6359_DA_VIBR_L_STB_SHIFT                            4
+#define MT6359_DA_VIBR_OCFB_EN_ADDR                           \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VIBR_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VIBR_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VIBR_MON
+#define MT6359_DA_VIBR_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VIBR_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VIBR_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VIBR_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VIBR_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VIBR_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VIBR_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VIBR_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VIBR_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VIBR_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VIBR_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VIBR_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VIBR_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VIBR_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VIBR_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VIBR_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VIBR_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VIBR_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VIBR_OP_EN
+#define MT6359_RG_LDO_VIBR_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VIBR_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VIBR_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN_SET
+#define MT6359_RG_LDO_VIBR_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VIBR_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VIBR_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VIBR_OP_EN_CLR
+#define MT6359_RG_LDO_VIBR_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VIBR_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VIBR_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VIBR_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VIBR_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VIBR_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VIBR_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VIBR_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VIBR_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VIBR_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VIBR_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VIBR_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIBR_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VIBR_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIBR_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VIBR_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIBR_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VIBR_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIBR_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VIBR_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIBR_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VIBR_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIBR_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VIBR_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VIBR_OP_CFG
+#define MT6359_RG_LDO_VIBR_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VIBR_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VIBR_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG_SET
+#define MT6359_RG_LDO_VIBR_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIBR_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VIBR_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VIBR_OP_CFG_CLR
+#define MT6359_RG_LDO_VIBR_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIBR_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VIO28_EN_ADDR                           \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_EN_MASK                           0x1
+#define MT6359_RG_LDO_VIO28_EN_SHIFT                          0
+#define MT6359_RG_LDO_VIO28_LP_ADDR                           \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_LP_MASK                           0x1
+#define MT6359_RG_LDO_VIO28_LP_SHIFT                          1
+#define MT6359_RG_LDO_VIO28_STBTD_ADDR                        \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_STBTD_MASK                        0x3
+#define MT6359_RG_LDO_VIO28_STBTD_SHIFT                       2
+#define MT6359_RG_LDO_VIO28_ULP_ADDR                          \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_ULP_MASK                          0x1
+#define MT6359_RG_LDO_VIO28_ULP_SHIFT                         4
+#define MT6359_RG_LDO_VIO28_OCFB_EN_ADDR                      \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_OCFB_EN_MASK                      0x1
+#define MT6359_RG_LDO_VIO28_OCFB_EN_SHIFT                     5
+#define MT6359_RG_LDO_VIO28_OC_MODE_ADDR                      \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_OC_MODE_MASK                      0x1
+#define MT6359_RG_LDO_VIO28_OC_MODE_SHIFT                     6
+#define MT6359_RG_LDO_VIO28_OC_TSEL_ADDR                      \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_OC_TSEL_MASK                      0x1
+#define MT6359_RG_LDO_VIO28_OC_TSEL_SHIFT                     7
+#define MT6359_RG_LDO_VIO28_DUMMY_LOAD_ADDR                   \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_DUMMY_LOAD_MASK                   0x3
+#define MT6359_RG_LDO_VIO28_DUMMY_LOAD_SHIFT                  8
+#define MT6359_RG_LDO_VIO28_OP_MODE_ADDR                      \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_OP_MODE_MASK                      0x7
+#define MT6359_RG_LDO_VIO28_OP_MODE_SHIFT                     10
+#define MT6359_RG_LDO_VIO28_CK_SW_MODE_ADDR                   \
+	MT6359_LDO_VIO28_CON0
+#define MT6359_RG_LDO_VIO28_CK_SW_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_CK_SW_MODE_SHIFT                  15
+#define MT6359_DA_VIO28_B_EN_ADDR                             \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_B_EN_MASK                             0x1
+#define MT6359_DA_VIO28_B_EN_SHIFT                            0
+#define MT6359_DA_VIO28_B_STB_ADDR                            \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_B_STB_MASK                            0x1
+#define MT6359_DA_VIO28_B_STB_SHIFT                           1
+#define MT6359_DA_VIO28_B_LP_ADDR                             \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_B_LP_MASK                             0x1
+#define MT6359_DA_VIO28_B_LP_SHIFT                            2
+#define MT6359_DA_VIO28_L_EN_ADDR                             \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_L_EN_MASK                             0x1
+#define MT6359_DA_VIO28_L_EN_SHIFT                            3
+#define MT6359_DA_VIO28_L_STB_ADDR                            \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_L_STB_MASK                            0x1
+#define MT6359_DA_VIO28_L_STB_SHIFT                           4
+#define MT6359_DA_VIO28_OCFB_EN_ADDR                          \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_OCFB_EN_MASK                          0x1
+#define MT6359_DA_VIO28_OCFB_EN_SHIFT                         5
+#define MT6359_DA_VIO28_DUMMY_LOAD_ADDR                       \
+	MT6359_LDO_VIO28_MON
+#define MT6359_DA_VIO28_DUMMY_LOAD_MASK                       0x3
+#define MT6359_DA_VIO28_DUMMY_LOAD_SHIFT                      6
+#define MT6359_RG_LDO_VIO28_HW0_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW0_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW0_OP_EN_SHIFT                   0
+#define MT6359_RG_LDO_VIO28_HW1_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW1_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW1_OP_EN_SHIFT                   1
+#define MT6359_RG_LDO_VIO28_HW2_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW2_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW2_OP_EN_SHIFT                   2
+#define MT6359_RG_LDO_VIO28_HW3_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW3_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW3_OP_EN_SHIFT                   3
+#define MT6359_RG_LDO_VIO28_HW4_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW4_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW4_OP_EN_SHIFT                   4
+#define MT6359_RG_LDO_VIO28_HW5_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW5_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW5_OP_EN_SHIFT                   5
+#define MT6359_RG_LDO_VIO28_HW6_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW6_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW6_OP_EN_SHIFT                   6
+#define MT6359_RG_LDO_VIO28_HW7_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW7_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW7_OP_EN_SHIFT                   7
+#define MT6359_RG_LDO_VIO28_HW8_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW8_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW8_OP_EN_SHIFT                   8
+#define MT6359_RG_LDO_VIO28_HW9_OP_EN_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW9_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_HW9_OP_EN_SHIFT                   9
+#define MT6359_RG_LDO_VIO28_HW10_OP_EN_ADDR                   \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW10_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW10_OP_EN_SHIFT                  10
+#define MT6359_RG_LDO_VIO28_HW11_OP_EN_ADDR                   \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW11_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW11_OP_EN_SHIFT                  11
+#define MT6359_RG_LDO_VIO28_HW12_OP_EN_ADDR                   \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW12_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW12_OP_EN_SHIFT                  12
+#define MT6359_RG_LDO_VIO28_HW13_OP_EN_ADDR                   \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW13_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW13_OP_EN_SHIFT                  13
+#define MT6359_RG_LDO_VIO28_HW14_OP_EN_ADDR                   \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_HW14_OP_EN_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW14_OP_EN_SHIFT                  14
+#define MT6359_RG_LDO_VIO28_SW_OP_EN_ADDR                     \
+	MT6359_LDO_VIO28_OP_EN
+#define MT6359_RG_LDO_VIO28_SW_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VIO28_SW_OP_EN_SHIFT                    15
+#define MT6359_RG_LDO_VIO28_OP_EN_SET_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN_SET
+#define MT6359_RG_LDO_VIO28_OP_EN_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIO28_OP_EN_SET_SHIFT                   0
+#define MT6359_RG_LDO_VIO28_OP_EN_CLR_ADDR                    \
+	MT6359_LDO_VIO28_OP_EN_CLR
+#define MT6359_RG_LDO_VIO28_OP_EN_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VIO28_OP_EN_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VIO28_HW0_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW0_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW0_OP_CFG_SHIFT                  0
+#define MT6359_RG_LDO_VIO28_HW1_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW1_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW1_OP_CFG_SHIFT                  1
+#define MT6359_RG_LDO_VIO28_HW2_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW2_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW2_OP_CFG_SHIFT                  2
+#define MT6359_RG_LDO_VIO28_HW3_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW3_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW3_OP_CFG_SHIFT                  3
+#define MT6359_RG_LDO_VIO28_HW4_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW4_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW4_OP_CFG_SHIFT                  4
+#define MT6359_RG_LDO_VIO28_HW5_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW5_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW5_OP_CFG_SHIFT                  5
+#define MT6359_RG_LDO_VIO28_HW6_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW6_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW6_OP_CFG_SHIFT                  6
+#define MT6359_RG_LDO_VIO28_HW7_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW7_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW7_OP_CFG_SHIFT                  7
+#define MT6359_RG_LDO_VIO28_HW8_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW8_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW8_OP_CFG_SHIFT                  8
+#define MT6359_RG_LDO_VIO28_HW9_OP_CFG_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW9_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VIO28_HW9_OP_CFG_SHIFT                  9
+#define MT6359_RG_LDO_VIO28_HW10_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW10_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO28_HW10_OP_CFG_SHIFT                 10
+#define MT6359_RG_LDO_VIO28_HW11_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW11_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO28_HW11_OP_CFG_SHIFT                 11
+#define MT6359_RG_LDO_VIO28_HW12_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW12_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO28_HW12_OP_CFG_SHIFT                 12
+#define MT6359_RG_LDO_VIO28_HW13_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW13_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO28_HW13_OP_CFG_SHIFT                 13
+#define MT6359_RG_LDO_VIO28_HW14_OP_CFG_ADDR                  \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_HW14_OP_CFG_MASK                  0x1
+#define MT6359_RG_LDO_VIO28_HW14_OP_CFG_SHIFT                 14
+#define MT6359_RG_LDO_VIO28_SW_OP_CFG_ADDR                    \
+	MT6359_LDO_VIO28_OP_CFG
+#define MT6359_RG_LDO_VIO28_SW_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VIO28_SW_OP_CFG_SHIFT                   15
+#define MT6359_RG_LDO_VIO28_OP_CFG_SET_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG_SET
+#define MT6359_RG_LDO_VIO28_OP_CFG_SET_MASK                   0xFFFF
+#define MT6359_RG_LDO_VIO28_OP_CFG_SET_SHIFT                  0
+#define MT6359_RG_LDO_VIO28_OP_CFG_CLR_ADDR                   \
+	MT6359_LDO_VIO28_OP_CFG_CLR
+#define MT6359_RG_LDO_VIO28_OP_CFG_CLR_MASK                   0xFFFF
+#define MT6359_RG_LDO_VIO28_OP_CFG_CLR_SHIFT                  0
+#define MT6359_LDO_GNR4_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR4_DSN_ID
+#define MT6359_LDO_GNR4_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR4_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR4_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR4_DSN_ID
+#define MT6359_LDO_GNR4_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR4_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR4_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR4_DSN_REV0
+#define MT6359_LDO_GNR4_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR4_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR4_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR4_DSN_REV0
+#define MT6359_LDO_GNR4_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR4_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR4_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR4_DSN_REV0
+#define MT6359_LDO_GNR4_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR4_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR4_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR4_DSN_REV0
+#define MT6359_LDO_GNR4_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR4_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR4_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR4_DSN_DBI
+#define MT6359_LDO_GNR4_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR4_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR4_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR4_DSN_DBI
+#define MT6359_LDO_GNR4_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR4_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR4_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR4_DSN_DBI
+#define MT6359_LDO_GNR4_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR4_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR4_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR4_DSN_DXI
+#define MT6359_LDO_GNR4_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR4_DSN_FPI_SHIFT                         0
+#define MT6359_RG_LDO_VM18_EN_ADDR                            \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_EN_MASK                            0x1
+#define MT6359_RG_LDO_VM18_EN_SHIFT                           0
+#define MT6359_RG_LDO_VM18_LP_ADDR                            \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_LP_MASK                            0x1
+#define MT6359_RG_LDO_VM18_LP_SHIFT                           1
+#define MT6359_RG_LDO_VM18_STBTD_ADDR                         \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VM18_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VM18_ULP_ADDR                           \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VM18_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VM18_OCFB_EN_ADDR                       \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VM18_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VM18_OC_MODE_ADDR                       \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VM18_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VM18_OC_TSEL_ADDR                       \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VM18_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VM18_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VM18_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VM18_OP_MODE_ADDR                       \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VM18_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VM18_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VM18_CON0
+#define MT6359_RG_LDO_VM18_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VM18_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VM18_B_EN_ADDR                              \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_B_EN_MASK                              0x1
+#define MT6359_DA_VM18_B_EN_SHIFT                             0
+#define MT6359_DA_VM18_B_STB_ADDR                             \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_B_STB_MASK                             0x1
+#define MT6359_DA_VM18_B_STB_SHIFT                            1
+#define MT6359_DA_VM18_B_LP_ADDR                              \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_B_LP_MASK                              0x1
+#define MT6359_DA_VM18_B_LP_SHIFT                             2
+#define MT6359_DA_VM18_L_EN_ADDR                              \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_L_EN_MASK                              0x1
+#define MT6359_DA_VM18_L_EN_SHIFT                             3
+#define MT6359_DA_VM18_L_STB_ADDR                             \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_L_STB_MASK                             0x1
+#define MT6359_DA_VM18_L_STB_SHIFT                            4
+#define MT6359_DA_VM18_OCFB_EN_ADDR                           \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VM18_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VM18_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VM18_MON
+#define MT6359_DA_VM18_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VM18_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VM18_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VM18_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VM18_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VM18_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VM18_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VM18_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VM18_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VM18_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VM18_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VM18_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VM18_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VM18_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VM18_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VM18_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VM18_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VM18_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VM18_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VM18_OP_EN
+#define MT6359_RG_LDO_VM18_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VM18_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VM18_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VM18_OP_EN_SET
+#define MT6359_RG_LDO_VM18_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VM18_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VM18_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VM18_OP_EN_CLR
+#define MT6359_RG_LDO_VM18_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VM18_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VM18_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VM18_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VM18_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VM18_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VM18_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VM18_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VM18_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VM18_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VM18_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VM18_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VM18_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VM18_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VM18_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VM18_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VM18_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VM18_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VM18_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VM18_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VM18_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VM18_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VM18_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VM18_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VM18_OP_CFG
+#define MT6359_RG_LDO_VM18_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VM18_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VM18_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG_SET
+#define MT6359_RG_LDO_VM18_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VM18_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VM18_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VM18_OP_CFG_CLR
+#define MT6359_RG_LDO_VM18_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VM18_OP_CFG_CLR_SHIFT                   0
+#define MT6359_RG_LDO_VUFS_EN_ADDR                            \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_EN_MASK                            0x1
+#define MT6359_RG_LDO_VUFS_EN_SHIFT                           0
+#define MT6359_RG_LDO_VUFS_LP_ADDR                            \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_LP_MASK                            0x1
+#define MT6359_RG_LDO_VUFS_LP_SHIFT                           1
+#define MT6359_RG_LDO_VUFS_STBTD_ADDR                         \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_STBTD_MASK                         0x3
+#define MT6359_RG_LDO_VUFS_STBTD_SHIFT                        2
+#define MT6359_RG_LDO_VUFS_ULP_ADDR                           \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_ULP_MASK                           0x1
+#define MT6359_RG_LDO_VUFS_ULP_SHIFT                          4
+#define MT6359_RG_LDO_VUFS_OCFB_EN_ADDR                       \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_OCFB_EN_MASK                       0x1
+#define MT6359_RG_LDO_VUFS_OCFB_EN_SHIFT                      5
+#define MT6359_RG_LDO_VUFS_OC_MODE_ADDR                       \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_OC_MODE_MASK                       0x1
+#define MT6359_RG_LDO_VUFS_OC_MODE_SHIFT                      6
+#define MT6359_RG_LDO_VUFS_OC_TSEL_ADDR                       \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_OC_TSEL_MASK                       0x1
+#define MT6359_RG_LDO_VUFS_OC_TSEL_SHIFT                      7
+#define MT6359_RG_LDO_VUFS_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_DUMMY_LOAD_MASK                    0x3
+#define MT6359_RG_LDO_VUFS_DUMMY_LOAD_SHIFT                   8
+#define MT6359_RG_LDO_VUFS_OP_MODE_ADDR                       \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_OP_MODE_MASK                       0x7
+#define MT6359_RG_LDO_VUFS_OP_MODE_SHIFT                      10
+#define MT6359_RG_LDO_VUFS_CK_SW_MODE_ADDR                    \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_CK_SW_MODE_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_CK_SW_MODE_SHIFT                   15
+#define MT6359_DA_VUFS_B_EN_ADDR                              \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_B_EN_MASK                              0x1
+#define MT6359_DA_VUFS_B_EN_SHIFT                             0
+#define MT6359_DA_VUFS_B_STB_ADDR                             \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_B_STB_MASK                             0x1
+#define MT6359_DA_VUFS_B_STB_SHIFT                            1
+#define MT6359_DA_VUFS_B_LP_ADDR                              \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_B_LP_MASK                              0x1
+#define MT6359_DA_VUFS_B_LP_SHIFT                             2
+#define MT6359_DA_VUFS_L_EN_ADDR                              \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_L_EN_MASK                              0x1
+#define MT6359_DA_VUFS_L_EN_SHIFT                             3
+#define MT6359_DA_VUFS_L_STB_ADDR                             \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_L_STB_MASK                             0x1
+#define MT6359_DA_VUFS_L_STB_SHIFT                            4
+#define MT6359_DA_VUFS_OCFB_EN_ADDR                           \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_OCFB_EN_MASK                           0x1
+#define MT6359_DA_VUFS_OCFB_EN_SHIFT                          5
+#define MT6359_DA_VUFS_DUMMY_LOAD_ADDR                        \
+	MT6359_LDO_VUFS_MON
+#define MT6359_DA_VUFS_DUMMY_LOAD_MASK                        0x3
+#define MT6359_DA_VUFS_DUMMY_LOAD_SHIFT                       6
+#define MT6359_RG_LDO_VUFS_HW0_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW0_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW0_OP_EN_SHIFT                    0
+#define MT6359_RG_LDO_VUFS_HW1_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW1_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW1_OP_EN_SHIFT                    1
+#define MT6359_RG_LDO_VUFS_HW2_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW2_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW2_OP_EN_SHIFT                    2
+#define MT6359_RG_LDO_VUFS_HW3_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW3_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW3_OP_EN_SHIFT                    3
+#define MT6359_RG_LDO_VUFS_HW4_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW4_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW4_OP_EN_SHIFT                    4
+#define MT6359_RG_LDO_VUFS_HW5_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW5_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW5_OP_EN_SHIFT                    5
+#define MT6359_RG_LDO_VUFS_HW6_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW6_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW6_OP_EN_SHIFT                    6
+#define MT6359_RG_LDO_VUFS_HW7_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW7_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW7_OP_EN_SHIFT                    7
+#define MT6359_RG_LDO_VUFS_HW8_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW8_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW8_OP_EN_SHIFT                    8
+#define MT6359_RG_LDO_VUFS_HW9_OP_EN_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW9_OP_EN_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_HW9_OP_EN_SHIFT                    9
+#define MT6359_RG_LDO_VUFS_HW10_OP_EN_ADDR                    \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW10_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW10_OP_EN_SHIFT                   10
+#define MT6359_RG_LDO_VUFS_HW11_OP_EN_ADDR                    \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW11_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW11_OP_EN_SHIFT                   11
+#define MT6359_RG_LDO_VUFS_HW12_OP_EN_ADDR                    \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW12_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW12_OP_EN_SHIFT                   12
+#define MT6359_RG_LDO_VUFS_HW13_OP_EN_ADDR                    \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW13_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW13_OP_EN_SHIFT                   13
+#define MT6359_RG_LDO_VUFS_HW14_OP_EN_ADDR                    \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_HW14_OP_EN_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW14_OP_EN_SHIFT                   14
+#define MT6359_RG_LDO_VUFS_SW_OP_EN_ADDR                      \
+	MT6359_LDO_VUFS_OP_EN
+#define MT6359_RG_LDO_VUFS_SW_OP_EN_MASK                      0x1
+#define MT6359_RG_LDO_VUFS_SW_OP_EN_SHIFT                     15
+#define MT6359_RG_LDO_VUFS_OP_EN_SET_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN_SET
+#define MT6359_RG_LDO_VUFS_OP_EN_SET_MASK                     0xFFFF
+#define MT6359_RG_LDO_VUFS_OP_EN_SET_SHIFT                    0
+#define MT6359_RG_LDO_VUFS_OP_EN_CLR_ADDR                     \
+	MT6359_LDO_VUFS_OP_EN_CLR
+#define MT6359_RG_LDO_VUFS_OP_EN_CLR_MASK                     0xFFFF
+#define MT6359_RG_LDO_VUFS_OP_EN_CLR_SHIFT                    0
+#define MT6359_RG_LDO_VUFS_HW0_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW0_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW0_OP_CFG_SHIFT                   0
+#define MT6359_RG_LDO_VUFS_HW1_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW1_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW1_OP_CFG_SHIFT                   1
+#define MT6359_RG_LDO_VUFS_HW2_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW2_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW2_OP_CFG_SHIFT                   2
+#define MT6359_RG_LDO_VUFS_HW3_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW3_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW3_OP_CFG_SHIFT                   3
+#define MT6359_RG_LDO_VUFS_HW4_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW4_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW4_OP_CFG_SHIFT                   4
+#define MT6359_RG_LDO_VUFS_HW5_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW5_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW5_OP_CFG_SHIFT                   5
+#define MT6359_RG_LDO_VUFS_HW6_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW6_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW6_OP_CFG_SHIFT                   6
+#define MT6359_RG_LDO_VUFS_HW7_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW7_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW7_OP_CFG_SHIFT                   7
+#define MT6359_RG_LDO_VUFS_HW8_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW8_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW8_OP_CFG_SHIFT                   8
+#define MT6359_RG_LDO_VUFS_HW9_OP_CFG_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW9_OP_CFG_MASK                    0x1
+#define MT6359_RG_LDO_VUFS_HW9_OP_CFG_SHIFT                   9
+#define MT6359_RG_LDO_VUFS_HW10_OP_CFG_ADDR                   \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW10_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUFS_HW10_OP_CFG_SHIFT                  10
+#define MT6359_RG_LDO_VUFS_HW11_OP_CFG_ADDR                   \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW11_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUFS_HW11_OP_CFG_SHIFT                  11
+#define MT6359_RG_LDO_VUFS_HW12_OP_CFG_ADDR                   \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW12_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUFS_HW12_OP_CFG_SHIFT                  12
+#define MT6359_RG_LDO_VUFS_HW13_OP_CFG_ADDR                   \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW13_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUFS_HW13_OP_CFG_SHIFT                  13
+#define MT6359_RG_LDO_VUFS_HW14_OP_CFG_ADDR                   \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_HW14_OP_CFG_MASK                   0x1
+#define MT6359_RG_LDO_VUFS_HW14_OP_CFG_SHIFT                  14
+#define MT6359_RG_LDO_VUFS_SW_OP_CFG_ADDR                     \
+	MT6359_LDO_VUFS_OP_CFG
+#define MT6359_RG_LDO_VUFS_SW_OP_CFG_MASK                     0x1
+#define MT6359_RG_LDO_VUFS_SW_OP_CFG_SHIFT                    15
+#define MT6359_RG_LDO_VUFS_OP_CFG_SET_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG_SET
+#define MT6359_RG_LDO_VUFS_OP_CFG_SET_MASK                    0xFFFF
+#define MT6359_RG_LDO_VUFS_OP_CFG_SET_SHIFT                   0
+#define MT6359_RG_LDO_VUFS_OP_CFG_CLR_ADDR                    \
+	MT6359_LDO_VUFS_OP_CFG_CLR
+#define MT6359_RG_LDO_VUFS_OP_CFG_CLR_MASK                    0xFFFF
+#define MT6359_RG_LDO_VUFS_OP_CFG_CLR_SHIFT                   0
+#define MT6359_LDO_GNR5_ANA_ID_ADDR                           \
+	MT6359_LDO_GNR5_DSN_ID
+#define MT6359_LDO_GNR5_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_GNR5_ANA_ID_SHIFT                          0
+#define MT6359_LDO_GNR5_DIG_ID_ADDR                           \
+	MT6359_LDO_GNR5_DSN_ID
+#define MT6359_LDO_GNR5_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_GNR5_DIG_ID_SHIFT                          8
+#define MT6359_LDO_GNR5_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR5_DSN_REV0
+#define MT6359_LDO_GNR5_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR5_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_GNR5_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR5_DSN_REV0
+#define MT6359_LDO_GNR5_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR5_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_GNR5_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_GNR5_DSN_REV0
+#define MT6359_LDO_GNR5_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR5_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_GNR5_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_GNR5_DSN_REV0
+#define MT6359_LDO_GNR5_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_GNR5_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_GNR5_DSN_CBS_ADDR                          \
+	MT6359_LDO_GNR5_DSN_DBI
+#define MT6359_LDO_GNR5_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_GNR5_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_GNR5_DSN_BIX_ADDR                          \
+	MT6359_LDO_GNR5_DSN_DBI
+#define MT6359_LDO_GNR5_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_GNR5_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_GNR5_DSN_ESP_ADDR                          \
+	MT6359_LDO_GNR5_DSN_DBI
+#define MT6359_LDO_GNR5_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_GNR5_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_GNR5_DSN_FPI_ADDR                          \
+	MT6359_LDO_GNR5_DSN_DXI
+#define MT6359_LDO_GNR5_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_GNR5_DSN_FPI_SHIFT                         0
+#define MT6359_LDO_VSRAM0_ANA_ID_ADDR                         \
+	MT6359_LDO_VSRAM0_DSN_ID
+#define MT6359_LDO_VSRAM0_ANA_ID_MASK                         0xFF
+#define MT6359_LDO_VSRAM0_ANA_ID_SHIFT                        0
+#define MT6359_LDO_VSRAM0_DIG_ID_ADDR                         \
+	MT6359_LDO_VSRAM0_DSN_ID
+#define MT6359_LDO_VSRAM0_DIG_ID_MASK                         0xFF
+#define MT6359_LDO_VSRAM0_DIG_ID_SHIFT                        8
+#define MT6359_LDO_VSRAM0_ANA_MINOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM0_DSN_REV0
+#define MT6359_LDO_VSRAM0_ANA_MINOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM0_ANA_MINOR_REV_SHIFT                 0
+#define MT6359_LDO_VSRAM0_ANA_MAJOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM0_DSN_REV0
+#define MT6359_LDO_VSRAM0_ANA_MAJOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM0_ANA_MAJOR_REV_SHIFT                 4
+#define MT6359_LDO_VSRAM0_DIG_MINOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM0_DSN_REV0
+#define MT6359_LDO_VSRAM0_DIG_MINOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM0_DIG_MINOR_REV_SHIFT                 8
+#define MT6359_LDO_VSRAM0_DIG_MAJOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM0_DSN_REV0
+#define MT6359_LDO_VSRAM0_DIG_MAJOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM0_DIG_MAJOR_REV_SHIFT                 12
+#define MT6359_LDO_VSRAM0_DSN_CBS_ADDR                        \
+	MT6359_LDO_VSRAM0_DSN_DBI
+#define MT6359_LDO_VSRAM0_DSN_CBS_MASK                        0x3
+#define MT6359_LDO_VSRAM0_DSN_CBS_SHIFT                       0
+#define MT6359_LDO_VSRAM0_DSN_BIX_ADDR                        \
+	MT6359_LDO_VSRAM0_DSN_DBI
+#define MT6359_LDO_VSRAM0_DSN_BIX_MASK                        0x3
+#define MT6359_LDO_VSRAM0_DSN_BIX_SHIFT                       2
+#define MT6359_LDO_VSRAM0_DSN_ESP_ADDR                        \
+	MT6359_LDO_VSRAM0_DSN_DBI
+#define MT6359_LDO_VSRAM0_DSN_ESP_MASK                        0xFF
+#define MT6359_LDO_VSRAM0_DSN_ESP_SHIFT                       8
+#define MT6359_LDO_VSRAM0_DSN_FPI_ADDR                        \
+	MT6359_LDO_VSRAM0_DSN_DXI
+#define MT6359_LDO_VSRAM0_DSN_FPI_MASK                        0xFF
+#define MT6359_LDO_VSRAM0_DSN_FPI_SHIFT                       0
+#define MT6359_RG_LDO_VSRAM_PROC1_EN_ADDR                     \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_EN_MASK                     0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_EN_SHIFT                    0
+#define MT6359_RG_LDO_VSRAM_PROC1_LP_ADDR                     \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_LP_MASK                     0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_LP_SHIFT                    1
+#define MT6359_RG_LDO_VSRAM_PROC1_STBTD_ADDR                  \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_STBTD_MASK                  0x3
+#define MT6359_RG_LDO_VSRAM_PROC1_STBTD_SHIFT                 2
+#define MT6359_RG_LDO_VSRAM_PROC1_ULP_ADDR                    \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_ULP_MASK                    0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_ULP_SHIFT                   4
+#define MT6359_RG_LDO_VSRAM_PROC1_OCFB_EN_ADDR                \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_OCFB_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_OCFB_EN_SHIFT               5
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_MODE_ADDR                \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_MODE_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_MODE_SHIFT               6
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_TSEL_ADDR                \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_TSEL_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_OC_TSEL_SHIFT               7
+#define MT6359_RG_LDO_VSRAM_PROC1_DUMMY_LOAD_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_DUMMY_LOAD_MASK             0x3
+#define MT6359_RG_LDO_VSRAM_PROC1_DUMMY_LOAD_SHIFT            8
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_MODE_ADDR                \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_MODE_MASK                0x7
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_MODE_SHIFT               10
+#define MT6359_RG_LDO_VSRAM_PROC1_R2R_PDN_DIS_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_R2R_PDN_DIS_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_R2R_PDN_DIS_SHIFT           14
+#define MT6359_RG_LDO_VSRAM_PROC1_CK_SW_MODE_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_CON0
+#define MT6359_RG_LDO_VSRAM_PROC1_CK_SW_MODE_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_CK_SW_MODE_SHIFT            15
+#define MT6359_DA_VSRAM_PROC1_B_EN_ADDR                       \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_B_EN_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC1_B_EN_SHIFT                      0
+#define MT6359_DA_VSRAM_PROC1_B_STB_ADDR                      \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_B_STB_MASK                      0x1
+#define MT6359_DA_VSRAM_PROC1_B_STB_SHIFT                     1
+#define MT6359_DA_VSRAM_PROC1_B_LP_ADDR                       \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_B_LP_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC1_B_LP_SHIFT                      2
+#define MT6359_DA_VSRAM_PROC1_L_EN_ADDR                       \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_L_EN_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC1_L_EN_SHIFT                      3
+#define MT6359_DA_VSRAM_PROC1_L_STB_ADDR                      \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_L_STB_MASK                      0x1
+#define MT6359_DA_VSRAM_PROC1_L_STB_SHIFT                     4
+#define MT6359_DA_VSRAM_PROC1_OCFB_EN_ADDR                    \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_OCFB_EN_MASK                    0x1
+#define MT6359_DA_VSRAM_PROC1_OCFB_EN_SHIFT                   5
+#define MT6359_DA_VSRAM_PROC1_DUMMY_LOAD_ADDR                 \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_DUMMY_LOAD_MASK                 0x3
+#define MT6359_DA_VSRAM_PROC1_DUMMY_LOAD_SHIFT                6
+#define MT6359_DA_VSRAM_PROC1_VSLEEP_SEL_ADDR                 \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_VSLEEP_SEL_MASK                 0x1
+#define MT6359_DA_VSRAM_PROC1_VSLEEP_SEL_SHIFT                8
+#define MT6359_DA_VSRAM_PROC1_R2R_PDN_ADDR                    \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_R2R_PDN_MASK                    0x1
+#define MT6359_DA_VSRAM_PROC1_R2R_PDN_SHIFT                   9
+#define MT6359_DA_VSRAM_PROC1_TRACK_NDIS_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_MON
+#define MT6359_DA_VSRAM_PROC1_TRACK_NDIS_EN_MASK              0x1
+#define MT6359_DA_VSRAM_PROC1_TRACK_NDIS_EN_SHIFT             10
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_SLEEP_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_VOSEL0
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_SLEEP_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_SLEEP_SHIFT           0
+#define MT6359_LDO_VSRAM_PROC1_WDTDBG_VOSEL_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_VOSEL0
+#define MT6359_LDO_VSRAM_PROC1_WDTDBG_VOSEL_MASK              0x7F
+#define MT6359_LDO_VSRAM_PROC1_WDTDBG_VOSEL_SHIFT             8
+#define MT6359_DA_VSRAM_PROC1_VOSEL_GRAY_ADDR                 \
+	MT6359_LDO_VSRAM_PROC1_VOSEL1
+#define MT6359_DA_VSRAM_PROC1_VOSEL_GRAY_MASK                 0x7F
+#define MT6359_DA_VSRAM_PROC1_VOSEL_GRAY_SHIFT                0
+#define MT6359_DA_VSRAM_PROC1_VOSEL_ADDR                      \
+	MT6359_LDO_VSRAM_PROC1_VOSEL1
+#define MT6359_DA_VSRAM_PROC1_VOSEL_MASK                      0x7F
+#define MT6359_DA_VSRAM_PROC1_VOSEL_SHIFT                     8
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FRATE_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FRATE_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FRATE_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FEN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FEN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_FEN_SHIFT             7
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_RRATE_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_RRATE_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_RRATE_SHIFT           8
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_REN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_REN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_SFCHG_REN_SHIFT             15
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_TD_ADDR           \
+	MT6359_LDO_VSRAM_PROC1_DVS
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_TD_MASK           0x3
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_TD_SHIFT          0
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_CTRL_ADDR         \
+	MT6359_LDO_VSRAM_PROC1_DVS
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_CTRL_MASK         0x3
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_CTRL_SHIFT        4
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_ONCE_ADDR         \
+	MT6359_LDO_VSRAM_PROC1_DVS
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_ONCE_MASK         0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_DVS_TRANS_ONCE_SHIFT        6
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_EN_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_EN_SHIFT             1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_EN_SHIFT             2
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_EN_SHIFT             3
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_EN_SHIFT             4
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_EN_SHIFT             5
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_EN_SHIFT             6
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_EN_SHIFT             7
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_EN_SHIFT             8
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_EN_SHIFT             9
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_EN_SHIFT            10
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_EN_SHIFT            11
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_EN_SHIFT            12
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_EN_SHIFT            13
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_EN_SHIFT            14
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_EN_ADDR               \
+	MT6359_LDO_VSRAM_PROC1_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_EN_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_EN_SHIFT              15
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_SET_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN_SET
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_SET_MASK              0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_SET_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_CLR_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_EN_CLR
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_CLR_MASK              0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_EN_CLR_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW0_OP_CFG_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW1_OP_CFG_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW2_OP_CFG_SHIFT            2
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW3_OP_CFG_SHIFT            3
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW4_OP_CFG_SHIFT            4
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW5_OP_CFG_SHIFT            5
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW6_OP_CFG_SHIFT            6
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW7_OP_CFG_SHIFT            7
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW8_OP_CFG_SHIFT            8
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW9_OP_CFG_SHIFT            9
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW10_OP_CFG_SHIFT           10
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW11_OP_CFG_SHIFT           11
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW12_OP_CFG_SHIFT           12
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW13_OP_CFG_SHIFT           13
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_HW14_OP_CFG_SHIFT           14
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_CFG_ADDR              \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_CFG_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_SW_OP_CFG_SHIFT             15
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_SET_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG_SET
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_SET_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_SET_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_CLR_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_OP_CFG_CLR
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_CLR_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC1_OP_CFG_CLR_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_EN_ADDR               \
+	MT6359_LDO_VSRAM_PROC1_TRACK0
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_EN_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_EN_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_MODE_ADDR             \
+	MT6359_LDO_VSRAM_PROC1_TRACK0
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_MODE_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC1_TRACK_MODE_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_DELTA_ADDR            \
+	MT6359_LDO_VSRAM_PROC1_TRACK1
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_DELTA_MASK            0xF
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_DELTA_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_OFFSET_ADDR           \
+	MT6359_LDO_VSRAM_PROC1_TRACK1
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_OFFSET_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_OFFSET_SHIFT          8
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LB_ADDR               \
+	MT6359_LDO_VSRAM_PROC1_TRACK2
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LB_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_LB_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_HB_ADDR               \
+	MT6359_LDO_VSRAM_PROC1_TRACK2
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_HB_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_PROC1_VOSEL_HB_SHIFT              8
+#define MT6359_RG_LDO_VSRAM_PROC2_EN_ADDR                     \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_EN_MASK                     0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_EN_SHIFT                    0
+#define MT6359_RG_LDO_VSRAM_PROC2_LP_ADDR                     \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_LP_MASK                     0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_LP_SHIFT                    1
+#define MT6359_RG_LDO_VSRAM_PROC2_STBTD_ADDR                  \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_STBTD_MASK                  0x3
+#define MT6359_RG_LDO_VSRAM_PROC2_STBTD_SHIFT                 2
+#define MT6359_RG_LDO_VSRAM_PROC2_ULP_ADDR                    \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_ULP_MASK                    0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_ULP_SHIFT                   4
+#define MT6359_RG_LDO_VSRAM_PROC2_OCFB_EN_ADDR                \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_OCFB_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_OCFB_EN_SHIFT               5
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_MODE_ADDR                \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_MODE_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_MODE_SHIFT               6
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_TSEL_ADDR                \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_TSEL_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_OC_TSEL_SHIFT               7
+#define MT6359_RG_LDO_VSRAM_PROC2_DUMMY_LOAD_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_DUMMY_LOAD_MASK             0x3
+#define MT6359_RG_LDO_VSRAM_PROC2_DUMMY_LOAD_SHIFT            8
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_MODE_ADDR                \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_MODE_MASK                0x7
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_MODE_SHIFT               10
+#define MT6359_RG_LDO_VSRAM_PROC2_R2R_PDN_DIS_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_R2R_PDN_DIS_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_R2R_PDN_DIS_SHIFT           14
+#define MT6359_RG_LDO_VSRAM_PROC2_CK_SW_MODE_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_CON0
+#define MT6359_RG_LDO_VSRAM_PROC2_CK_SW_MODE_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_CK_SW_MODE_SHIFT            15
+#define MT6359_DA_VSRAM_PROC2_B_EN_ADDR                       \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_B_EN_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC2_B_EN_SHIFT                      0
+#define MT6359_DA_VSRAM_PROC2_B_STB_ADDR                      \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_B_STB_MASK                      0x1
+#define MT6359_DA_VSRAM_PROC2_B_STB_SHIFT                     1
+#define MT6359_DA_VSRAM_PROC2_B_LP_ADDR                       \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_B_LP_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC2_B_LP_SHIFT                      2
+#define MT6359_DA_VSRAM_PROC2_L_EN_ADDR                       \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_L_EN_MASK                       0x1
+#define MT6359_DA_VSRAM_PROC2_L_EN_SHIFT                      3
+#define MT6359_DA_VSRAM_PROC2_L_STB_ADDR                      \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_L_STB_MASK                      0x1
+#define MT6359_DA_VSRAM_PROC2_L_STB_SHIFT                     4
+#define MT6359_DA_VSRAM_PROC2_OCFB_EN_ADDR                    \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_OCFB_EN_MASK                    0x1
+#define MT6359_DA_VSRAM_PROC2_OCFB_EN_SHIFT                   5
+#define MT6359_DA_VSRAM_PROC2_DUMMY_LOAD_ADDR                 \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_DUMMY_LOAD_MASK                 0x3
+#define MT6359_DA_VSRAM_PROC2_DUMMY_LOAD_SHIFT                6
+#define MT6359_DA_VSRAM_PROC2_VSLEEP_SEL_ADDR                 \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_VSLEEP_SEL_MASK                 0x1
+#define MT6359_DA_VSRAM_PROC2_VSLEEP_SEL_SHIFT                8
+#define MT6359_DA_VSRAM_PROC2_R2R_PDN_ADDR                    \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_R2R_PDN_MASK                    0x1
+#define MT6359_DA_VSRAM_PROC2_R2R_PDN_SHIFT                   9
+#define MT6359_DA_VSRAM_PROC2_TRACK_NDIS_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_MON
+#define MT6359_DA_VSRAM_PROC2_TRACK_NDIS_EN_MASK              0x1
+#define MT6359_DA_VSRAM_PROC2_TRACK_NDIS_EN_SHIFT             10
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_SLEEP_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_VOSEL0
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_SLEEP_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_SLEEP_SHIFT           0
+#define MT6359_LDO_VSRAM_PROC2_WDTDBG_VOSEL_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_VOSEL0
+#define MT6359_LDO_VSRAM_PROC2_WDTDBG_VOSEL_MASK              0x7F
+#define MT6359_LDO_VSRAM_PROC2_WDTDBG_VOSEL_SHIFT             8
+#define MT6359_DA_VSRAM_PROC2_VOSEL_GRAY_ADDR                 \
+	MT6359_LDO_VSRAM_PROC2_VOSEL1
+#define MT6359_DA_VSRAM_PROC2_VOSEL_GRAY_MASK                 0x7F
+#define MT6359_DA_VSRAM_PROC2_VOSEL_GRAY_SHIFT                0
+#define MT6359_DA_VSRAM_PROC2_VOSEL_ADDR                      \
+	MT6359_LDO_VSRAM_PROC2_VOSEL1
+#define MT6359_DA_VSRAM_PROC2_VOSEL_MASK                      0x7F
+#define MT6359_DA_VSRAM_PROC2_VOSEL_SHIFT                     8
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FRATE_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FRATE_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FRATE_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FEN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FEN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_FEN_SHIFT             7
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_RRATE_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_RRATE_MASK            0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_RRATE_SHIFT           8
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_REN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_SFCHG
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_REN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_SFCHG_REN_SHIFT             15
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_TD_ADDR           \
+	MT6359_LDO_VSRAM_PROC2_DVS
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_TD_MASK           0x3
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_TD_SHIFT          0
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_CTRL_ADDR         \
+	MT6359_LDO_VSRAM_PROC2_DVS
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_CTRL_MASK         0x3
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_CTRL_SHIFT        4
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_ONCE_ADDR         \
+	MT6359_LDO_VSRAM_PROC2_DVS
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_ONCE_MASK         0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_DVS_TRANS_ONCE_SHIFT        6
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_EN_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_EN_SHIFT             1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_EN_SHIFT             2
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_EN_SHIFT             3
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_EN_SHIFT             4
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_EN_SHIFT             5
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_EN_SHIFT             6
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_EN_SHIFT             7
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_EN_SHIFT             8
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_EN_SHIFT             9
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_EN_SHIFT            10
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_EN_SHIFT            11
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_EN_SHIFT            12
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_EN_SHIFT            13
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_EN_SHIFT            14
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_EN_ADDR               \
+	MT6359_LDO_VSRAM_PROC2_OP_EN
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_EN_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_EN_SHIFT              15
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_SET_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN_SET
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_SET_MASK              0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_SET_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_CLR_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_EN_CLR
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_CLR_MASK              0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_EN_CLR_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW0_OP_CFG_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW1_OP_CFG_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW2_OP_CFG_SHIFT            2
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW3_OP_CFG_SHIFT            3
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW4_OP_CFG_SHIFT            4
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW5_OP_CFG_SHIFT            5
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW6_OP_CFG_SHIFT            6
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW7_OP_CFG_SHIFT            7
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW8_OP_CFG_SHIFT            8
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW9_OP_CFG_SHIFT            9
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW10_OP_CFG_SHIFT           10
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW11_OP_CFG_SHIFT           11
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW12_OP_CFG_SHIFT           12
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW13_OP_CFG_SHIFT           13
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_HW14_OP_CFG_SHIFT           14
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_CFG_ADDR              \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_CFG_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_SW_OP_CFG_SHIFT             15
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_SET_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG_SET
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_SET_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_SET_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_CLR_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_OP_CFG_CLR
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_CLR_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_PROC2_OP_CFG_CLR_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_EN_ADDR               \
+	MT6359_LDO_VSRAM_PROC2_TRACK0
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_EN_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_EN_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_MODE_ADDR             \
+	MT6359_LDO_VSRAM_PROC2_TRACK0
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_MODE_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_PROC2_TRACK_MODE_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_DELTA_ADDR            \
+	MT6359_LDO_VSRAM_PROC2_TRACK1
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_DELTA_MASK            0xF
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_DELTA_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_OFFSET_ADDR           \
+	MT6359_LDO_VSRAM_PROC2_TRACK1
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_OFFSET_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_OFFSET_SHIFT          8
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LB_ADDR               \
+	MT6359_LDO_VSRAM_PROC2_TRACK2
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LB_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_LB_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_HB_ADDR               \
+	MT6359_LDO_VSRAM_PROC2_TRACK2
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_HB_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_PROC2_VOSEL_HB_SHIFT              8
+#define MT6359_LDO_VSRAM1_ANA_ID_ADDR                         \
+	MT6359_LDO_VSRAM1_DSN_ID
+#define MT6359_LDO_VSRAM1_ANA_ID_MASK                         0xFF
+#define MT6359_LDO_VSRAM1_ANA_ID_SHIFT                        0
+#define MT6359_LDO_VSRAM1_DIG_ID_ADDR                         \
+	MT6359_LDO_VSRAM1_DSN_ID
+#define MT6359_LDO_VSRAM1_DIG_ID_MASK                         0xFF
+#define MT6359_LDO_VSRAM1_DIG_ID_SHIFT                        8
+#define MT6359_LDO_VSRAM1_ANA_MINOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM1_DSN_REV0
+#define MT6359_LDO_VSRAM1_ANA_MINOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM1_ANA_MINOR_REV_SHIFT                 0
+#define MT6359_LDO_VSRAM1_ANA_MAJOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM1_DSN_REV0
+#define MT6359_LDO_VSRAM1_ANA_MAJOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM1_ANA_MAJOR_REV_SHIFT                 4
+#define MT6359_LDO_VSRAM1_DIG_MINOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM1_DSN_REV0
+#define MT6359_LDO_VSRAM1_DIG_MINOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM1_DIG_MINOR_REV_SHIFT                 8
+#define MT6359_LDO_VSRAM1_DIG_MAJOR_REV_ADDR                  \
+	MT6359_LDO_VSRAM1_DSN_REV0
+#define MT6359_LDO_VSRAM1_DIG_MAJOR_REV_MASK                  0xF
+#define MT6359_LDO_VSRAM1_DIG_MAJOR_REV_SHIFT                 12
+#define MT6359_LDO_VSRAM1_DSN_CBS_ADDR                        \
+	MT6359_LDO_VSRAM1_DSN_DBI
+#define MT6359_LDO_VSRAM1_DSN_CBS_MASK                        0x3
+#define MT6359_LDO_VSRAM1_DSN_CBS_SHIFT                       0
+#define MT6359_LDO_VSRAM1_DSN_BIX_ADDR                        \
+	MT6359_LDO_VSRAM1_DSN_DBI
+#define MT6359_LDO_VSRAM1_DSN_BIX_MASK                        0x3
+#define MT6359_LDO_VSRAM1_DSN_BIX_SHIFT                       2
+#define MT6359_LDO_VSRAM1_DSN_ESP_ADDR                        \
+	MT6359_LDO_VSRAM1_DSN_DBI
+#define MT6359_LDO_VSRAM1_DSN_ESP_MASK                        0xFF
+#define MT6359_LDO_VSRAM1_DSN_ESP_SHIFT                       8
+#define MT6359_LDO_VSRAM1_DSN_FPI_ADDR                        \
+	MT6359_LDO_VSRAM1_DSN_DXI
+#define MT6359_LDO_VSRAM1_DSN_FPI_MASK                        0xFF
+#define MT6359_LDO_VSRAM1_DSN_FPI_SHIFT                       0
+#define MT6359_RG_LDO_VSRAM_OTHERS_EN_ADDR                    \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_EN_MASK                    0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_EN_SHIFT                   0
+#define MT6359_RG_LDO_VSRAM_OTHERS_LP_ADDR                    \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_LP_MASK                    0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_LP_SHIFT                   1
+#define MT6359_RG_LDO_VSRAM_OTHERS_STBTD_ADDR                 \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_STBTD_MASK                 0x3
+#define MT6359_RG_LDO_VSRAM_OTHERS_STBTD_SHIFT                2
+#define MT6359_RG_LDO_VSRAM_OTHERS_ULP_ADDR                   \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_ULP_MASK                   0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_ULP_SHIFT                  4
+#define MT6359_RG_LDO_VSRAM_OTHERS_OCFB_EN_ADDR               \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OCFB_EN_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_OCFB_EN_SHIFT              5
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_MODE_ADDR               \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_MODE_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_MODE_SHIFT              6
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_TSEL_ADDR               \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_TSEL_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_OC_TSEL_SHIFT              7
+#define MT6359_RG_LDO_VSRAM_OTHERS_DUMMY_LOAD_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_DUMMY_LOAD_MASK            0x3
+#define MT6359_RG_LDO_VSRAM_OTHERS_DUMMY_LOAD_SHIFT           8
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_MODE_ADDR               \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_MODE_MASK               0x7
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_MODE_SHIFT              10
+#define MT6359_RG_LDO_VSRAM_OTHERS_R2R_PDN_DIS_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_R2R_PDN_DIS_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_R2R_PDN_DIS_SHIFT          14
+#define MT6359_RG_LDO_VSRAM_OTHERS_CK_SW_MODE_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_CON0
+#define MT6359_RG_LDO_VSRAM_OTHERS_CK_SW_MODE_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_CK_SW_MODE_SHIFT           15
+#define MT6359_DA_VSRAM_OTHERS_B_EN_ADDR                      \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_B_EN_MASK                      0x1
+#define MT6359_DA_VSRAM_OTHERS_B_EN_SHIFT                     0
+#define MT6359_DA_VSRAM_OTHERS_B_STB_ADDR                     \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_B_STB_MASK                     0x1
+#define MT6359_DA_VSRAM_OTHERS_B_STB_SHIFT                    1
+#define MT6359_DA_VSRAM_OTHERS_B_LP_ADDR                      \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_B_LP_MASK                      0x1
+#define MT6359_DA_VSRAM_OTHERS_B_LP_SHIFT                     2
+#define MT6359_DA_VSRAM_OTHERS_L_EN_ADDR                      \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_L_EN_MASK                      0x1
+#define MT6359_DA_VSRAM_OTHERS_L_EN_SHIFT                     3
+#define MT6359_DA_VSRAM_OTHERS_L_STB_ADDR                     \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_L_STB_MASK                     0x1
+#define MT6359_DA_VSRAM_OTHERS_L_STB_SHIFT                    4
+#define MT6359_DA_VSRAM_OTHERS_OCFB_EN_ADDR                   \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_OCFB_EN_MASK                   0x1
+#define MT6359_DA_VSRAM_OTHERS_OCFB_EN_SHIFT                  5
+#define MT6359_DA_VSRAM_OTHERS_DUMMY_LOAD_ADDR                \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_DUMMY_LOAD_MASK                0x3
+#define MT6359_DA_VSRAM_OTHERS_DUMMY_LOAD_SHIFT               6
+#define MT6359_DA_VSRAM_OTHERS_VSLEEP_SEL_ADDR                \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_VSLEEP_SEL_MASK                0x1
+#define MT6359_DA_VSRAM_OTHERS_VSLEEP_SEL_SHIFT               8
+#define MT6359_DA_VSRAM_OTHERS_R2R_PDN_ADDR                   \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_R2R_PDN_MASK                   0x1
+#define MT6359_DA_VSRAM_OTHERS_R2R_PDN_SHIFT                  9
+#define MT6359_DA_VSRAM_OTHERS_TRACK_NDIS_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_MON
+#define MT6359_DA_VSRAM_OTHERS_TRACK_NDIS_EN_MASK             0x1
+#define MT6359_DA_VSRAM_OTHERS_TRACK_NDIS_EN_SHIFT            10
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_SLEEP_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_VOSEL0
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_SLEEP_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_SLEEP_SHIFT          0
+#define MT6359_LDO_VSRAM_OTHERS_WDTDBG_VOSEL_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_VOSEL0
+#define MT6359_LDO_VSRAM_OTHERS_WDTDBG_VOSEL_MASK             0x7F
+#define MT6359_LDO_VSRAM_OTHERS_WDTDBG_VOSEL_SHIFT            8
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_GRAY_ADDR                \
+	MT6359_LDO_VSRAM_OTHERS_VOSEL1
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_GRAY_MASK                0x7F
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_GRAY_SHIFT               0
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_ADDR                     \
+	MT6359_LDO_VSRAM_OTHERS_VOSEL1
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_MASK                     0x7F
+#define MT6359_DA_VSRAM_OTHERS_VOSEL_SHIFT                    8
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FRATE_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_SFCHG
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FRATE_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FRATE_SHIFT          0
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FEN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_SFCHG
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FEN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_FEN_SHIFT            7
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_RRATE_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_SFCHG
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_RRATE_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_RRATE_SHIFT          8
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_REN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_SFCHG
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_REN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SFCHG_REN_SHIFT            15
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_TD_ADDR          \
+	MT6359_LDO_VSRAM_OTHERS_DVS
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_TD_MASK          0x3
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_TD_SHIFT         0
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_CTRL_ADDR        \
+	MT6359_LDO_VSRAM_OTHERS_DVS
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_CTRL_MASK        0x3
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_CTRL_SHIFT       4
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_ONCE_ADDR        \
+	MT6359_LDO_VSRAM_OTHERS_DVS
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_ONCE_MASK        0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_DVS_TRANS_ONCE_SHIFT       6
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_EN_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_EN_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_EN_SHIFT            2
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_EN_SHIFT            3
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_EN_SHIFT            4
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_EN_SHIFT            5
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_EN_SHIFT            6
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_EN_SHIFT            7
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_EN_SHIFT            8
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_EN_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_EN_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_EN_SHIFT            9
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_EN_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_EN_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_EN_SHIFT           10
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_EN_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_EN_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_EN_SHIFT           11
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_EN_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_EN_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_EN_SHIFT           12
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_EN_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_EN_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_EN_SHIFT           13
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_EN_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_EN_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_EN_SHIFT           14
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_EN_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_EN_SHIFT             15
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_SET_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN_SET
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_SET_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_SET_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_CLR_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_EN_CLR
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_CLR_MASK             0xFFFF
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_EN_CLR_SHIFT            0
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW0_OP_CFG_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW1_OP_CFG_SHIFT           1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW2_OP_CFG_SHIFT           2
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW3_OP_CFG_SHIFT           3
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW4_OP_CFG_SHIFT           4
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW5_OP_CFG_SHIFT           5
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW6_OP_CFG_SHIFT           6
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW7_OP_CFG_SHIFT           7
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW8_OP_CFG_SHIFT           8
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_CFG_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_CFG_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW9_OP_CFG_SHIFT           9
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_CFG_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_CFG_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW10_OP_CFG_SHIFT          10
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_CFG_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_CFG_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW11_OP_CFG_SHIFT          11
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_CFG_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_CFG_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW12_OP_CFG_SHIFT          12
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_CFG_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_CFG_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW13_OP_CFG_SHIFT          13
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_CFG_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_CFG_MASK           0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_HW14_OP_CFG_SHIFT          14
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_CFG_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_CFG_MASK             0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SW_OP_CFG_SHIFT            15
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_SET_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG_SET
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_SET_MASK            0xFFFF
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_SET_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_CLR_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_OP_CFG_CLR
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_CLR_MASK            0xFFFF
+#define MT6359_RG_LDO_VSRAM_OTHERS_OP_CFG_CLR_SHIFT           0
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_EN_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_TRACK0
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_EN_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_MODE_ADDR            \
+	MT6359_LDO_VSRAM_OTHERS_TRACK0
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_MODE_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_TRACK_MODE_SHIFT           1
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_DELTA_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_TRACK1
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_DELTA_MASK           0xF
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_DELTA_SHIFT          0
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_OFFSET_ADDR          \
+	MT6359_LDO_VSRAM_OTHERS_TRACK1
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_OFFSET_MASK          0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_OFFSET_SHIFT         8
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LB_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_TRACK2
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LB_MASK              0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_LB_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_HB_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_TRACK2
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_HB_MASK              0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_VOSEL_HB_SHIFT             8
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_EN_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_EN_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SHIFT          1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN_ADDR  \
+	MT6359_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN_MASK  0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN_SHIFT 8
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP_ADDR     \
+	MT6359_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP_MASK     0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP_SHIFT    9
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_EN_ADDR              \
+	MT6359_LDO_VSRAM_OTHERS_BT
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_EN_MASK              0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_EN_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_VOSEL_ADDR           \
+	MT6359_LDO_VSRAM_OTHERS_BT
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_VOSEL_MASK           0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_BT_LP_VOSEL_SHIFT          1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_EN_ADDR                \
+	MT6359_LDO_VSRAM_OTHERS_SPI
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_EN_SHIFT               0
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_VOSEL_ADDR             \
+	MT6359_LDO_VSRAM_OTHERS_SPI
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_VOSEL_MASK             0x7F
+#define MT6359_RG_LDO_VSRAM_OTHERS_SPI_VOSEL_SHIFT            1
+#define MT6359_RG_LDO_VSRAM_MD_EN_ADDR                        \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_EN_MASK                        0x1
+#define MT6359_RG_LDO_VSRAM_MD_EN_SHIFT                       0
+#define MT6359_RG_LDO_VSRAM_MD_LP_ADDR                        \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_LP_MASK                        0x1
+#define MT6359_RG_LDO_VSRAM_MD_LP_SHIFT                       1
+#define MT6359_RG_LDO_VSRAM_MD_STBTD_ADDR                     \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_STBTD_MASK                     0x3
+#define MT6359_RG_LDO_VSRAM_MD_STBTD_SHIFT                    2
+#define MT6359_RG_LDO_VSRAM_MD_ULP_ADDR                       \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_ULP_MASK                       0x1
+#define MT6359_RG_LDO_VSRAM_MD_ULP_SHIFT                      4
+#define MT6359_RG_LDO_VSRAM_MD_OCFB_EN_ADDR                   \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_OCFB_EN_MASK                   0x1
+#define MT6359_RG_LDO_VSRAM_MD_OCFB_EN_SHIFT                  5
+#define MT6359_RG_LDO_VSRAM_MD_OC_MODE_ADDR                   \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_OC_MODE_MASK                   0x1
+#define MT6359_RG_LDO_VSRAM_MD_OC_MODE_SHIFT                  6
+#define MT6359_RG_LDO_VSRAM_MD_OC_TSEL_ADDR                   \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_OC_TSEL_MASK                   0x1
+#define MT6359_RG_LDO_VSRAM_MD_OC_TSEL_SHIFT                  7
+#define MT6359_RG_LDO_VSRAM_MD_DUMMY_LOAD_ADDR                \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_DUMMY_LOAD_MASK                0x3
+#define MT6359_RG_LDO_VSRAM_MD_DUMMY_LOAD_SHIFT               8
+#define MT6359_RG_LDO_VSRAM_MD_OP_MODE_ADDR                   \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_OP_MODE_MASK                   0x7
+#define MT6359_RG_LDO_VSRAM_MD_OP_MODE_SHIFT                  10
+#define MT6359_RG_LDO_VSRAM_MD_R2R_PDN_DIS_ADDR               \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_R2R_PDN_DIS_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_R2R_PDN_DIS_SHIFT              14
+#define MT6359_RG_LDO_VSRAM_MD_CK_SW_MODE_ADDR                \
+	MT6359_LDO_VSRAM_MD_CON0
+#define MT6359_RG_LDO_VSRAM_MD_CK_SW_MODE_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_CK_SW_MODE_SHIFT               15
+#define MT6359_DA_VSRAM_MD_B_EN_ADDR                          \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_B_EN_MASK                          0x1
+#define MT6359_DA_VSRAM_MD_B_EN_SHIFT                         0
+#define MT6359_DA_VSRAM_MD_B_STB_ADDR                         \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_B_STB_MASK                         0x1
+#define MT6359_DA_VSRAM_MD_B_STB_SHIFT                        1
+#define MT6359_DA_VSRAM_MD_B_LP_ADDR                          \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_B_LP_MASK                          0x1
+#define MT6359_DA_VSRAM_MD_B_LP_SHIFT                         2
+#define MT6359_DA_VSRAM_MD_L_EN_ADDR                          \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_L_EN_MASK                          0x1
+#define MT6359_DA_VSRAM_MD_L_EN_SHIFT                         3
+#define MT6359_DA_VSRAM_MD_L_STB_ADDR                         \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_L_STB_MASK                         0x1
+#define MT6359_DA_VSRAM_MD_L_STB_SHIFT                        4
+#define MT6359_DA_VSRAM_MD_OCFB_EN_ADDR                       \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_OCFB_EN_MASK                       0x1
+#define MT6359_DA_VSRAM_MD_OCFB_EN_SHIFT                      5
+#define MT6359_DA_VSRAM_MD_DUMMY_LOAD_ADDR                    \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_DUMMY_LOAD_MASK                    0x3
+#define MT6359_DA_VSRAM_MD_DUMMY_LOAD_SHIFT                   6
+#define MT6359_DA_VSRAM_MD_VSLEEP_SEL_ADDR                    \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_VSLEEP_SEL_MASK                    0x1
+#define MT6359_DA_VSRAM_MD_VSLEEP_SEL_SHIFT                   8
+#define MT6359_DA_VSRAM_MD_R2R_PDN_ADDR                       \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_R2R_PDN_MASK                       0x1
+#define MT6359_DA_VSRAM_MD_R2R_PDN_SHIFT                      9
+#define MT6359_DA_VSRAM_MD_TRACK_NDIS_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_MON
+#define MT6359_DA_VSRAM_MD_TRACK_NDIS_EN_MASK                 0x1
+#define MT6359_DA_VSRAM_MD_TRACK_NDIS_EN_SHIFT                10
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_SLEEP_ADDR               \
+	MT6359_LDO_VSRAM_MD_VOSEL0
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_SLEEP_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_SLEEP_SHIFT              0
+#define MT6359_LDO_VSRAM_MD_WDTDBG_VOSEL_ADDR                 \
+	MT6359_LDO_VSRAM_MD_VOSEL0
+#define MT6359_LDO_VSRAM_MD_WDTDBG_VOSEL_MASK                 0x7F
+#define MT6359_LDO_VSRAM_MD_WDTDBG_VOSEL_SHIFT                8
+#define MT6359_DA_VSRAM_MD_VOSEL_GRAY_ADDR                    \
+	MT6359_LDO_VSRAM_MD_VOSEL1
+#define MT6359_DA_VSRAM_MD_VOSEL_GRAY_MASK                    0x7F
+#define MT6359_DA_VSRAM_MD_VOSEL_GRAY_SHIFT                   0
+#define MT6359_DA_VSRAM_MD_VOSEL_ADDR                         \
+	MT6359_LDO_VSRAM_MD_VOSEL1
+#define MT6359_DA_VSRAM_MD_VOSEL_MASK                         0x7F
+#define MT6359_DA_VSRAM_MD_VOSEL_SHIFT                        8
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FRATE_ADDR               \
+	MT6359_LDO_VSRAM_MD_SFCHG
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FRATE_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FRATE_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FEN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_SFCHG
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FEN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_FEN_SHIFT                7
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_RRATE_ADDR               \
+	MT6359_LDO_VSRAM_MD_SFCHG
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_RRATE_MASK               0x7F
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_RRATE_SHIFT              8
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_REN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_SFCHG
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_REN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_SFCHG_REN_SHIFT                15
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_TD_ADDR              \
+	MT6359_LDO_VSRAM_MD_DVS
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_TD_MASK              0x3
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_TD_SHIFT             0
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_CTRL_ADDR            \
+	MT6359_LDO_VSRAM_MD_DVS
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_CTRL_MASK            0x3
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_CTRL_SHIFT           4
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_ONCE_ADDR            \
+	MT6359_LDO_VSRAM_MD_DVS
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_ONCE_MASK            0x1
+#define MT6359_RG_LDO_VSRAM_MD_DVS_TRANS_ONCE_SHIFT           6
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_EN_SHIFT                0
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_EN_SHIFT                1
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_EN_SHIFT                2
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_EN_SHIFT                3
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_EN_SHIFT                4
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_EN_SHIFT                5
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_EN_SHIFT                6
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_EN_SHIFT                7
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_EN_SHIFT                8
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_EN_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_EN_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_EN_SHIFT                9
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_EN_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_EN_SHIFT               10
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_EN_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_EN_SHIFT               11
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_EN_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_EN_SHIFT               12
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_EN_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_EN_SHIFT               13
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_EN_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_EN_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_EN_SHIFT               14
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_EN_ADDR                  \
+	MT6359_LDO_VSRAM_MD_OP_EN
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_EN_MASK                  0x1
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_EN_SHIFT                 15
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_SET_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN_SET
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_SET_MASK                 0xFFFF
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_SET_SHIFT                0
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_CLR_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_EN_CLR
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_CLR_MASK                 0xFFFF
+#define MT6359_RG_LDO_VSRAM_MD_OP_EN_CLR_SHIFT                0
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW0_OP_CFG_SHIFT               0
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW1_OP_CFG_SHIFT               1
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW2_OP_CFG_SHIFT               2
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW3_OP_CFG_SHIFT               3
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW4_OP_CFG_SHIFT               4
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW5_OP_CFG_SHIFT               5
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW6_OP_CFG_SHIFT               6
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW7_OP_CFG_SHIFT               7
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW8_OP_CFG_SHIFT               8
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_CFG_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_CFG_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW9_OP_CFG_SHIFT               9
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_CFG_ADDR               \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_CFG_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW10_OP_CFG_SHIFT              10
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_CFG_ADDR               \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_CFG_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW11_OP_CFG_SHIFT              11
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_CFG_ADDR               \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_CFG_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW12_OP_CFG_SHIFT              12
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_CFG_ADDR               \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_CFG_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW13_OP_CFG_SHIFT              13
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_CFG_ADDR               \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_CFG_MASK               0x1
+#define MT6359_RG_LDO_VSRAM_MD_HW14_OP_CFG_SHIFT              14
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_CFG_ADDR                 \
+	MT6359_LDO_VSRAM_MD_OP_CFG
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_CFG_MASK                 0x1
+#define MT6359_RG_LDO_VSRAM_MD_SW_OP_CFG_SHIFT                15
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_SET_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG_SET
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_SET_MASK                0xFFFF
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_SET_SHIFT               0
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_CLR_ADDR                \
+	MT6359_LDO_VSRAM_MD_OP_CFG_CLR
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_CLR_MASK                0xFFFF
+#define MT6359_RG_LDO_VSRAM_MD_OP_CFG_CLR_SHIFT               0
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_EN_ADDR                  \
+	MT6359_LDO_VSRAM_MD_TRACK0
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_EN_MASK                  0x1
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_EN_SHIFT                 0
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_MODE_ADDR                \
+	MT6359_LDO_VSRAM_MD_TRACK0
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_MODE_MASK                0x1
+#define MT6359_RG_LDO_VSRAM_MD_TRACK_MODE_SHIFT               1
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_DELTA_ADDR               \
+	MT6359_LDO_VSRAM_MD_TRACK1
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_DELTA_MASK               0xF
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_DELTA_SHIFT              0
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_OFFSET_ADDR              \
+	MT6359_LDO_VSRAM_MD_TRACK1
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_OFFSET_MASK              0x7F
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_OFFSET_SHIFT             8
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LB_ADDR                  \
+	MT6359_LDO_VSRAM_MD_TRACK2
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LB_MASK                  0x7F
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_LB_SHIFT                 0
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_HB_ADDR                  \
+	MT6359_LDO_VSRAM_MD_TRACK2
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_HB_MASK                  0x7F
+#define MT6359_RG_LDO_VSRAM_MD_VOSEL_HB_SHIFT                 8
+#define MT6359_LDO_ANA0_ANA_ID_ADDR                           \
+	MT6359_LDO_ANA0_DSN_ID
+#define MT6359_LDO_ANA0_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_ANA0_ANA_ID_SHIFT                          0
+#define MT6359_LDO_ANA0_DIG_ID_ADDR                           \
+	MT6359_LDO_ANA0_DSN_ID
+#define MT6359_LDO_ANA0_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_ANA0_DIG_ID_SHIFT                          8
+#define MT6359_LDO_ANA0_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA0_DSN_REV0
+#define MT6359_LDO_ANA0_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA0_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_ANA0_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA0_DSN_REV0
+#define MT6359_LDO_ANA0_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA0_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_ANA0_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA0_DSN_REV0
+#define MT6359_LDO_ANA0_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA0_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_ANA0_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA0_DSN_REV0
+#define MT6359_LDO_ANA0_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA0_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_ANA0_DSN_CBS_ADDR                          \
+	MT6359_LDO_ANA0_DSN_DBI
+#define MT6359_LDO_ANA0_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_ANA0_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_ANA0_DSN_BIX_ADDR                          \
+	MT6359_LDO_ANA0_DSN_DBI
+#define MT6359_LDO_ANA0_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_ANA0_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_ANA0_DSN_ESP_ADDR                          \
+	MT6359_LDO_ANA0_DSN_DBI
+#define MT6359_LDO_ANA0_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_ANA0_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_ANA0_DSN_FPI_ADDR                          \
+	MT6359_LDO_ANA0_DSN_FPI
+#define MT6359_LDO_ANA0_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_ANA0_DSN_FPI_SHIFT                         0
+#define MT6359_RG_VFE28_VOCAL_ADDR                            \
+	MT6359_VFE28_ANA_CON0
+#define MT6359_RG_VFE28_VOCAL_MASK                            0xF
+#define MT6359_RG_VFE28_VOCAL_SHIFT                           0
+#define MT6359_RG_VFE28_VOSEL_ADDR                            \
+	MT6359_VFE28_ANA_CON0
+#define MT6359_RG_VFE28_VOSEL_MASK                            0xF
+#define MT6359_RG_VFE28_VOSEL_SHIFT                           8
+#define MT6359_RG_VFE28_NDIS_EN_ADDR                          \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VFE28_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VFE28_RSV_1_ADDR                            \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_RSV_1_MASK                            0x1
+#define MT6359_RG_VFE28_RSV_1_SHIFT                           2
+#define MT6359_RG_VFE28_OC_LP_EN_ADDR                         \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VFE28_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VFE28_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VFE28_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VFE28_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VFE28_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VFE28_MEASURE_FT_EN_ADDR                    \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RG_VFE28_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VFE28_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VFE28_OC_STATUS_ADDR                       \
+	MT6359_VFE28_ANA_CON1
+#define MT6359_RGS_VFE28_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VFE28_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VAUX18_VOCAL_ADDR                           \
+	MT6359_VAUX18_ANA_CON0
+#define MT6359_RG_VAUX18_VOCAL_MASK                           0xF
+#define MT6359_RG_VAUX18_VOCAL_SHIFT                          0
+#define MT6359_RG_VAUX18_VOSEL_ADDR                           \
+	MT6359_VAUX18_ANA_CON0
+#define MT6359_RG_VAUX18_VOSEL_MASK                           0xF
+#define MT6359_RG_VAUX18_VOSEL_SHIFT                          8
+#define MT6359_RG_VAUX18_NDIS_EN_ADDR                         \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VAUX18_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VAUX18_RSV_1_ADDR                           \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_RSV_1_MASK                           0x1
+#define MT6359_RG_VAUX18_RSV_1_SHIFT                          2
+#define MT6359_RG_VAUX18_OC_LP_EN_ADDR                        \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_OC_LP_EN_MASK                        0x1
+#define MT6359_RG_VAUX18_OC_LP_EN_SHIFT                       3
+#define MT6359_RG_VAUX18_ULP_IQ_CLAMP_EN_ADDR                 \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_ULP_IQ_CLAMP_EN_MASK                 0x1
+#define MT6359_RG_VAUX18_ULP_IQ_CLAMP_EN_SHIFT                4
+#define MT6359_RG_VAUX18_ULP_BIASX2_EN_ADDR                   \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_ULP_BIASX2_EN_MASK                   0x1
+#define MT6359_RG_VAUX18_ULP_BIASX2_EN_SHIFT                  5
+#define MT6359_RG_VAUX18_MEASURE_FT_EN_ADDR                   \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RG_VAUX18_MEASURE_FT_EN_MASK                   0x1
+#define MT6359_RG_VAUX18_MEASURE_FT_EN_SHIFT                  6
+#define MT6359_RGS_VAUX18_OC_STATUS_ADDR                      \
+	MT6359_VAUX18_ANA_CON1
+#define MT6359_RGS_VAUX18_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VAUX18_OC_STATUS_SHIFT                     7
+#define MT6359_RG_VUSB_VOCAL_ADDR                             \
+	MT6359_VUSB_ANA_CON0
+#define MT6359_RG_VUSB_VOCAL_MASK                             0xF
+#define MT6359_RG_VUSB_VOCAL_SHIFT                            0
+#define MT6359_RG_VUSB_VOSEL_ADDR                             \
+	MT6359_VUSB_ANA_CON0
+#define MT6359_RG_VUSB_VOSEL_MASK                             0xF
+#define MT6359_RG_VUSB_VOSEL_SHIFT                            8
+#define MT6359_RG_VUSB_NDIS_EN_ADDR                           \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VUSB_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VUSB_RSV_1_ADDR                             \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_RSV_1_MASK                             0x1
+#define MT6359_RG_VUSB_RSV_1_SHIFT                            2
+#define MT6359_RG_VUSB_OC_LP_EN_ADDR                          \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VUSB_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VUSB_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VUSB_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VUSB_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VUSB_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VUSB_MEASURE_FT_EN_ADDR                     \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RG_VUSB_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VUSB_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VUSB_OC_STATUS_ADDR                        \
+	MT6359_VUSB_ANA_CON1
+#define MT6359_RGS_VUSB_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VUSB_OC_STATUS_SHIFT                       7
+#define MT6359_RG_VBIF28_VOCAL_ADDR                           \
+	MT6359_VBIF28_ANA_CON0
+#define MT6359_RG_VBIF28_VOCAL_MASK                           0xF
+#define MT6359_RG_VBIF28_VOCAL_SHIFT                          0
+#define MT6359_RG_VBIF28_VOSEL_ADDR                           \
+	MT6359_VBIF28_ANA_CON0
+#define MT6359_RG_VBIF28_VOSEL_MASK                           0xF
+#define MT6359_RG_VBIF28_VOSEL_SHIFT                          8
+#define MT6359_RG_VBIF28_NDIS_EN_ADDR                         \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VBIF28_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VBIF28_RSV_1_ADDR                           \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_RSV_1_MASK                           0x1
+#define MT6359_RG_VBIF28_RSV_1_SHIFT                          2
+#define MT6359_RG_VBIF28_OC_LP_EN_ADDR                        \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_OC_LP_EN_MASK                        0x1
+#define MT6359_RG_VBIF28_OC_LP_EN_SHIFT                       3
+#define MT6359_RG_VBIF28_ULP_IQ_CLAMP_EN_ADDR                 \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_ULP_IQ_CLAMP_EN_MASK                 0x1
+#define MT6359_RG_VBIF28_ULP_IQ_CLAMP_EN_SHIFT                4
+#define MT6359_RG_VBIF28_ULP_BIASX2_EN_ADDR                   \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_ULP_BIASX2_EN_MASK                   0x1
+#define MT6359_RG_VBIF28_ULP_BIASX2_EN_SHIFT                  5
+#define MT6359_RG_VBIF28_MEASURE_FT_EN_ADDR                   \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RG_VBIF28_MEASURE_FT_EN_MASK                   0x1
+#define MT6359_RG_VBIF28_MEASURE_FT_EN_SHIFT                  6
+#define MT6359_RGS_VBIF28_OC_STATUS_ADDR                      \
+	MT6359_VBIF28_ANA_CON1
+#define MT6359_RGS_VBIF28_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VBIF28_OC_STATUS_SHIFT                     7
+#define MT6359_RG_VCN33_1_VOCAL_ADDR                          \
+	MT6359_VCN33_1_ANA_CON0
+#define MT6359_RG_VCN33_1_VOCAL_MASK                          0xF
+#define MT6359_RG_VCN33_1_VOCAL_SHIFT                         0
+#define MT6359_RG_VCN33_1_VOSEL_ADDR                          \
+	MT6359_VCN33_1_ANA_CON0
+#define MT6359_RG_VCN33_1_VOSEL_MASK                          0xF
+#define MT6359_RG_VCN33_1_VOSEL_SHIFT                         8
+#define MT6359_RG_VCN33_1_NDIS_EN_ADDR                        \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_NDIS_EN_MASK                        0x1
+#define MT6359_RG_VCN33_1_NDIS_EN_SHIFT                       0
+#define MT6359_RG_VCN33_1_RSV_0_ADDR                          \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_RSV_0_MASK                          0x3
+#define MT6359_RG_VCN33_1_RSV_0_SHIFT                         2
+#define MT6359_RG_VCN33_1_RSV_1_ADDR                          \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_RSV_1_MASK                          0x1
+#define MT6359_RG_VCN33_1_RSV_1_SHIFT                         4
+#define MT6359_RG_VCN33_1_OC_LP_EN_ADDR                       \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_OC_LP_EN_MASK                       0x1
+#define MT6359_RG_VCN33_1_OC_LP_EN_SHIFT                      5
+#define MT6359_RG_VCN33_1_ULP_IQ_CLAMP_EN_ADDR                \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_ULP_IQ_CLAMP_EN_MASK                0x1
+#define MT6359_RG_VCN33_1_ULP_IQ_CLAMP_EN_SHIFT               6
+#define MT6359_RG_VCN33_1_ULP_BIASX2_EN_ADDR                  \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_ULP_BIASX2_EN_MASK                  0x1
+#define MT6359_RG_VCN33_1_ULP_BIASX2_EN_SHIFT                 7
+#define MT6359_RG_VCN33_1_MEASURE_FT_EN_ADDR                  \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RG_VCN33_1_MEASURE_FT_EN_MASK                  0x1
+#define MT6359_RG_VCN33_1_MEASURE_FT_EN_SHIFT                 8
+#define MT6359_RGS_VCN33_1_OC_STATUS_ADDR                     \
+	MT6359_VCN33_1_ANA_CON1
+#define MT6359_RGS_VCN33_1_OC_STATUS_MASK                     0x1
+#define MT6359_RGS_VCN33_1_OC_STATUS_SHIFT                    9
+#define MT6359_RG_VCN33_2_VOCAL_ADDR                          \
+	MT6359_VCN33_2_ANA_CON0
+#define MT6359_RG_VCN33_2_VOCAL_MASK                          0xF
+#define MT6359_RG_VCN33_2_VOCAL_SHIFT                         0
+#define MT6359_RG_VCN33_2_VOSEL_ADDR                          \
+	MT6359_VCN33_2_ANA_CON0
+#define MT6359_RG_VCN33_2_VOSEL_MASK                          0xF
+#define MT6359_RG_VCN33_2_VOSEL_SHIFT                         8
+#define MT6359_RG_VCN33_2_NDIS_EN_ADDR                        \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_NDIS_EN_MASK                        0x1
+#define MT6359_RG_VCN33_2_NDIS_EN_SHIFT                       0
+#define MT6359_RG_VCN33_2_RSV_0_ADDR                          \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_RSV_0_MASK                          0x3
+#define MT6359_RG_VCN33_2_RSV_0_SHIFT                         2
+#define MT6359_RG_VCN33_2_RSV_1_ADDR                          \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_RSV_1_MASK                          0x1
+#define MT6359_RG_VCN33_2_RSV_1_SHIFT                         4
+#define MT6359_RG_VCN33_2_OC_LP_EN_ADDR                       \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_OC_LP_EN_MASK                       0x1
+#define MT6359_RG_VCN33_2_OC_LP_EN_SHIFT                      5
+#define MT6359_RG_VCN33_2_ULP_IQ_CLAMP_EN_ADDR                \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_ULP_IQ_CLAMP_EN_MASK                0x1
+#define MT6359_RG_VCN33_2_ULP_IQ_CLAMP_EN_SHIFT               6
+#define MT6359_RG_VCN33_2_ULP_BIASX2_EN_ADDR                  \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_ULP_BIASX2_EN_MASK                  0x1
+#define MT6359_RG_VCN33_2_ULP_BIASX2_EN_SHIFT                 7
+#define MT6359_RG_VCN33_2_MEASURE_FT_EN_ADDR                  \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RG_VCN33_2_MEASURE_FT_EN_MASK                  0x1
+#define MT6359_RG_VCN33_2_MEASURE_FT_EN_SHIFT                 8
+#define MT6359_RGS_VCN33_2_OC_STATUS_ADDR                     \
+	MT6359_VCN33_2_ANA_CON1
+#define MT6359_RGS_VCN33_2_OC_STATUS_MASK                     0x1
+#define MT6359_RGS_VCN33_2_OC_STATUS_SHIFT                    9
+#define MT6359_RG_VEMC_VOCAL_ADDR                             \
+	MT6359_VEMC_ANA_CON0
+#define MT6359_RG_VEMC_VOCAL_MASK                             0xF
+#define MT6359_RG_VEMC_VOCAL_SHIFT                            0
+#define MT6359_RG_VEMC_VOSEL_ADDR                             \
+	MT6359_VEMC_ANA_CON0
+#define MT6359_RG_VEMC_VOSEL_MASK                             0xF
+#define MT6359_RG_VEMC_VOSEL_SHIFT                            8
+#define MT6359_RG_VEMC_NDIS_EN_ADDR                           \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VEMC_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VEMC_RSV_0_ADDR                             \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_RSV_0_MASK                             0x3
+#define MT6359_RG_VEMC_RSV_0_SHIFT                            2
+#define MT6359_RG_VEMC_RSV_1_ADDR                             \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_RSV_1_MASK                             0x1
+#define MT6359_RG_VEMC_RSV_1_SHIFT                            4
+#define MT6359_RG_VEMC_OC_LP_EN_ADDR                          \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VEMC_OC_LP_EN_SHIFT                         5
+#define MT6359_RG_VEMC_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VEMC_ULP_IQ_CLAMP_EN_SHIFT                  6
+#define MT6359_RG_VEMC_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VEMC_ULP_BIASX2_EN_SHIFT                    7
+#define MT6359_RG_VEMC_MEASURE_FT_EN_ADDR                     \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RG_VEMC_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VEMC_MEASURE_FT_EN_SHIFT                    8
+#define MT6359_RGS_VEMC_OC_STATUS_ADDR                        \
+	MT6359_VEMC_ANA_CON1
+#define MT6359_RGS_VEMC_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VEMC_OC_STATUS_SHIFT                       9
+#define MT6359_RG_VSIM1_VOCAL_ADDR                            \
+	MT6359_VSIM1_ANA_CON0
+#define MT6359_RG_VSIM1_VOCAL_MASK                            0xF
+#define MT6359_RG_VSIM1_VOCAL_SHIFT                           0
+#define MT6359_RG_VSIM1_VOSEL_ADDR                            \
+	MT6359_VSIM1_ANA_CON0
+#define MT6359_RG_VSIM1_VOSEL_MASK                            0xF
+#define MT6359_RG_VSIM1_VOSEL_SHIFT                           8
+#define MT6359_RG_VSIM1_NDIS_EN_ADDR                          \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VSIM1_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VSIM1_RSV_1_ADDR                            \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_RSV_1_MASK                            0x1
+#define MT6359_RG_VSIM1_RSV_1_SHIFT                           2
+#define MT6359_RG_VSIM1_OC_LP_EN_ADDR                         \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VSIM1_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VSIM1_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VSIM1_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VSIM1_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VSIM1_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VSIM1_MEASURE_FT_EN_ADDR                    \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RG_VSIM1_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VSIM1_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VSIM1_OC_STATUS_ADDR                       \
+	MT6359_VSIM1_ANA_CON1
+#define MT6359_RGS_VSIM1_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VSIM1_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VSIM2_VOCAL_ADDR                            \
+	MT6359_VSIM2_ANA_CON0
+#define MT6359_RG_VSIM2_VOCAL_MASK                            0xF
+#define MT6359_RG_VSIM2_VOCAL_SHIFT                           0
+#define MT6359_RG_VSIM2_VOSEL_ADDR                            \
+	MT6359_VSIM2_ANA_CON0
+#define MT6359_RG_VSIM2_VOSEL_MASK                            0xF
+#define MT6359_RG_VSIM2_VOSEL_SHIFT                           8
+#define MT6359_RG_VSIM2_NDIS_EN_ADDR                          \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VSIM2_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VSIM2_RSV_1_ADDR                            \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_RSV_1_MASK                            0x1
+#define MT6359_RG_VSIM2_RSV_1_SHIFT                           2
+#define MT6359_RG_VSIM2_OC_LP_EN_ADDR                         \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VSIM2_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VSIM2_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VSIM2_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VSIM2_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VSIM2_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VSIM2_MEASURE_FT_EN_ADDR                    \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RG_VSIM2_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VSIM2_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VSIM2_OC_STATUS_ADDR                       \
+	MT6359_VSIM2_ANA_CON1
+#define MT6359_RGS_VSIM2_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VSIM2_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VIO28_VOCAL_ADDR                            \
+	MT6359_VIO28_ANA_CON0
+#define MT6359_RG_VIO28_VOCAL_MASK                            0xF
+#define MT6359_RG_VIO28_VOCAL_SHIFT                           0
+#define MT6359_RG_VIO28_VOSEL_ADDR                            \
+	MT6359_VIO28_ANA_CON0
+#define MT6359_RG_VIO28_VOSEL_MASK                            0xF
+#define MT6359_RG_VIO28_VOSEL_SHIFT                           8
+#define MT6359_RG_VIO28_NDIS_EN_ADDR                          \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VIO28_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VIO28_RSV_1_ADDR                            \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_RSV_1_MASK                            0x1
+#define MT6359_RG_VIO28_RSV_1_SHIFT                           2
+#define MT6359_RG_VIO28_OC_LP_EN_ADDR                         \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VIO28_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VIO28_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VIO28_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VIO28_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VIO28_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VIO28_MEASURE_FT_EN_ADDR                    \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RG_VIO28_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VIO28_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VIO28_OC_STATUS_ADDR                       \
+	MT6359_VIO28_ANA_CON1
+#define MT6359_RGS_VIO28_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VIO28_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VIBR_VOCAL_ADDR                             \
+	MT6359_VIBR_ANA_CON0
+#define MT6359_RG_VIBR_VOCAL_MASK                             0xF
+#define MT6359_RG_VIBR_VOCAL_SHIFT                            0
+#define MT6359_RG_VIBR_VOSEL_ADDR                             \
+	MT6359_VIBR_ANA_CON0
+#define MT6359_RG_VIBR_VOSEL_MASK                             0xF
+#define MT6359_RG_VIBR_VOSEL_SHIFT                            8
+#define MT6359_RG_VIBR_NDIS_EN_ADDR                           \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VIBR_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VIBR_RSV_1_ADDR                             \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_RSV_1_MASK                             0x1
+#define MT6359_RG_VIBR_RSV_1_SHIFT                            2
+#define MT6359_RG_VIBR_OC_LP_EN_ADDR                          \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VIBR_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VIBR_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VIBR_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VIBR_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VIBR_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VIBR_MEASURE_FT_EN_ADDR                     \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RG_VIBR_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VIBR_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VIBR_OC_STATUS_ADDR                        \
+	MT6359_VIBR_ANA_CON1
+#define MT6359_RGS_VIBR_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VIBR_OC_STATUS_SHIFT                       7
+#define MT6359_RG_ADLDO_RSV_ADDR                              \
+	MT6359_ADLDO_ANA_CON0
+#define MT6359_RG_ADLDO_RSV_MASK                              0x3F
+#define MT6359_RG_ADLDO_RSV_SHIFT                             0
+#define MT6359_LDO_ANA0_ELR_LEN_ADDR                          \
+	MT6359_LDO_ANA0_ELR_NUM
+#define MT6359_LDO_ANA0_ELR_LEN_MASK                          0xFF
+#define MT6359_LDO_ANA0_ELR_LEN_SHIFT                         0
+#define MT6359_RG_VFE28_VOTRIM_ADDR                           \
+	MT6359_VFE28_ELR_0
+#define MT6359_RG_VFE28_VOTRIM_MASK                           0xF
+#define MT6359_RG_VFE28_VOTRIM_SHIFT                          0
+#define MT6359_RG_VAUX18_VOTRIM_ADDR                          \
+	MT6359_VFE28_ELR_0
+#define MT6359_RG_VAUX18_VOTRIM_MASK                          0xF
+#define MT6359_RG_VAUX18_VOTRIM_SHIFT                         4
+#define MT6359_RG_VUSB_VOTRIM_ADDR                            \
+	MT6359_VFE28_ELR_0
+#define MT6359_RG_VUSB_VOTRIM_MASK                            0xF
+#define MT6359_RG_VUSB_VOTRIM_SHIFT                           8
+#define MT6359_RG_VBIF28_VOTRIM_ADDR                          \
+	MT6359_VFE28_ELR_0
+#define MT6359_RG_VBIF28_VOTRIM_MASK                          0xF
+#define MT6359_RG_VBIF28_VOTRIM_SHIFT                         12
+#define MT6359_RG_VCN33_1_VOTRIM_ADDR                         \
+	MT6359_VFE28_ELR_1
+#define MT6359_RG_VCN33_1_VOTRIM_MASK                         0xF
+#define MT6359_RG_VCN33_1_VOTRIM_SHIFT                        0
+#define MT6359_RG_VCN33_1_OC_TRIM_ADDR                        \
+	MT6359_VFE28_ELR_1
+#define MT6359_RG_VCN33_1_OC_TRIM_MASK                        0x7
+#define MT6359_RG_VCN33_1_OC_TRIM_SHIFT                       4
+#define MT6359_RG_VCN33_2_VOTRIM_ADDR                         \
+	MT6359_VFE28_ELR_1
+#define MT6359_RG_VCN33_2_VOTRIM_MASK                         0xF
+#define MT6359_RG_VCN33_2_VOTRIM_SHIFT                        7
+#define MT6359_RG_VCN33_2_OC_TRIM_ADDR                        \
+	MT6359_VFE28_ELR_1
+#define MT6359_RG_VCN33_2_OC_TRIM_MASK                        0x7
+#define MT6359_RG_VCN33_2_OC_TRIM_SHIFT                       11
+#define MT6359_RG_VEMC_VOTRIM_ADDR                            \
+	MT6359_VFE28_ELR_2
+#define MT6359_RG_VEMC_VOTRIM_MASK                            0xF
+#define MT6359_RG_VEMC_VOTRIM_SHIFT                           0
+#define MT6359_RG_VEMC_OC_TRIM_ADDR                           \
+	MT6359_VFE28_ELR_2
+#define MT6359_RG_VEMC_OC_TRIM_MASK                           0x7
+#define MT6359_RG_VEMC_OC_TRIM_SHIFT                          4
+#define MT6359_RG_VSIM1_VOTRIM_ADDR                           \
+	MT6359_VFE28_ELR_2
+#define MT6359_RG_VSIM1_VOTRIM_MASK                           0xF
+#define MT6359_RG_VSIM1_VOTRIM_SHIFT                          7
+#define MT6359_RG_VSIM1_OC_TRIM_ADDR                          \
+	MT6359_VFE28_ELR_2
+#define MT6359_RG_VSIM1_OC_TRIM_MASK                          0x7
+#define MT6359_RG_VSIM1_OC_TRIM_SHIFT                         11
+#define MT6359_RG_VSIM2_VOTRIM_ADDR                           \
+	MT6359_VFE28_ELR_3
+#define MT6359_RG_VSIM2_VOTRIM_MASK                           0xF
+#define MT6359_RG_VSIM2_VOTRIM_SHIFT                          0
+#define MT6359_RG_VSIM2_OC_TRIM_ADDR                          \
+	MT6359_VFE28_ELR_3
+#define MT6359_RG_VSIM2_OC_TRIM_MASK                          0x7
+#define MT6359_RG_VSIM2_OC_TRIM_SHIFT                         4
+#define MT6359_RG_VIO28_VOTRIM_ADDR                           \
+	MT6359_VFE28_ELR_3
+#define MT6359_RG_VIO28_VOTRIM_MASK                           0xF
+#define MT6359_RG_VIO28_VOTRIM_SHIFT                          7
+#define MT6359_RG_VIBR_VOTRIM_ADDR                            \
+	MT6359_VFE28_ELR_3
+#define MT6359_RG_VIBR_VOTRIM_MASK                            0xF
+#define MT6359_RG_VIBR_VOTRIM_SHIFT                           11
+#define MT6359_RG_VIBR_OC_TRIM_ADDR                           \
+	MT6359_VFE28_ELR_4
+#define MT6359_RG_VIBR_OC_TRIM_MASK                           0x7
+#define MT6359_RG_VIBR_OC_TRIM_SHIFT                          0
+#define MT6359_RG_VRTC28_BIAS_SEL_ADDR                        \
+	MT6359_VFE28_ELR_4
+#define MT6359_RG_VRTC28_BIAS_SEL_MASK                        0x1
+#define MT6359_RG_VRTC28_BIAS_SEL_SHIFT                       3
+#define MT6359_LDO_ANA1_ANA_ID_ADDR                           \
+	MT6359_LDO_ANA1_DSN_ID
+#define MT6359_LDO_ANA1_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_ANA1_ANA_ID_SHIFT                          0
+#define MT6359_LDO_ANA1_DIG_ID_ADDR                           \
+	MT6359_LDO_ANA1_DSN_ID
+#define MT6359_LDO_ANA1_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_ANA1_DIG_ID_SHIFT                          8
+#define MT6359_LDO_ANA1_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA1_DSN_REV0
+#define MT6359_LDO_ANA1_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA1_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_ANA1_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA1_DSN_REV0
+#define MT6359_LDO_ANA1_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA1_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_ANA1_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA1_DSN_REV0
+#define MT6359_LDO_ANA1_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA1_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_ANA1_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA1_DSN_REV0
+#define MT6359_LDO_ANA1_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA1_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_ANA1_DSN_CBS_ADDR                          \
+	MT6359_LDO_ANA1_DSN_DBI
+#define MT6359_LDO_ANA1_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_ANA1_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_ANA1_DSN_BIX_ADDR                          \
+	MT6359_LDO_ANA1_DSN_DBI
+#define MT6359_LDO_ANA1_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_ANA1_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_ANA1_DSN_ESP_ADDR                          \
+	MT6359_LDO_ANA1_DSN_DBI
+#define MT6359_LDO_ANA1_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_ANA1_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_ANA1_DSN_FPI_ADDR                          \
+	MT6359_LDO_ANA1_DSN_FPI
+#define MT6359_LDO_ANA1_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_ANA1_DSN_FPI_SHIFT                         0
+#define MT6359_RG_VRF18_VOCAL_ADDR                            \
+	MT6359_VRF18_ANA_CON0
+#define MT6359_RG_VRF18_VOCAL_MASK                            0xF
+#define MT6359_RG_VRF18_VOCAL_SHIFT                           0
+#define MT6359_RG_VRF18_VOSEL_ADDR                            \
+	MT6359_VRF18_ANA_CON0
+#define MT6359_RG_VRF18_VOSEL_MASK                            0xF
+#define MT6359_RG_VRF18_VOSEL_SHIFT                           8
+#define MT6359_RG_VRF18_NDIS_EN_ADDR                          \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VRF18_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VRF18_RSV_0_ADDR                            \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_RSV_0_MASK                            0x3
+#define MT6359_RG_VRF18_RSV_0_SHIFT                           2
+#define MT6359_RG_VRF18_RSV_1_ADDR                            \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_RSV_1_MASK                            0x1
+#define MT6359_RG_VRF18_RSV_1_SHIFT                           4
+#define MT6359_RG_VRF18_OC_LP_EN_ADDR                         \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VRF18_OC_LP_EN_SHIFT                        5
+#define MT6359_RG_VRF18_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VRF18_ULP_IQ_CLAMP_EN_SHIFT                 6
+#define MT6359_RG_VRF18_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VRF18_ULP_BIASX2_EN_SHIFT                   7
+#define MT6359_RG_VRF18_MEASURE_FT_EN_ADDR                    \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RG_VRF18_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VRF18_MEASURE_FT_EN_SHIFT                   8
+#define MT6359_RGS_VRF18_OC_STATUS_ADDR                       \
+	MT6359_VRF18_ANA_CON1
+#define MT6359_RGS_VRF18_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VRF18_OC_STATUS_SHIFT                      9
+#define MT6359_RG_VEFUSE_VOCAL_ADDR                           \
+	MT6359_VEFUSE_ANA_CON0
+#define MT6359_RG_VEFUSE_VOCAL_MASK                           0xF
+#define MT6359_RG_VEFUSE_VOCAL_SHIFT                          0
+#define MT6359_RG_VEFUSE_VOSEL_ADDR                           \
+	MT6359_VEFUSE_ANA_CON0
+#define MT6359_RG_VEFUSE_VOSEL_MASK                           0xF
+#define MT6359_RG_VEFUSE_VOSEL_SHIFT                          8
+#define MT6359_RG_VEFUSE_NDIS_EN_ADDR                         \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VEFUSE_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VEFUSE_RSV_1_ADDR                           \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_RSV_1_MASK                           0x1
+#define MT6359_RG_VEFUSE_RSV_1_SHIFT                          2
+#define MT6359_RG_VEFUSE_OC_LP_EN_ADDR                        \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_OC_LP_EN_MASK                        0x1
+#define MT6359_RG_VEFUSE_OC_LP_EN_SHIFT                       3
+#define MT6359_RG_VEFUSE_ULP_IQ_CLAMP_EN_ADDR                 \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_ULP_IQ_CLAMP_EN_MASK                 0x1
+#define MT6359_RG_VEFUSE_ULP_IQ_CLAMP_EN_SHIFT                4
+#define MT6359_RG_VEFUSE_ULP_BIASX2_EN_ADDR                   \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_ULP_BIASX2_EN_MASK                   0x1
+#define MT6359_RG_VEFUSE_ULP_BIASX2_EN_SHIFT                  5
+#define MT6359_RG_VEFUSE_MEASURE_FT_EN_ADDR                   \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RG_VEFUSE_MEASURE_FT_EN_MASK                   0x1
+#define MT6359_RG_VEFUSE_MEASURE_FT_EN_SHIFT                  6
+#define MT6359_RGS_VEFUSE_OC_STATUS_ADDR                      \
+	MT6359_VEFUSE_ANA_CON1
+#define MT6359_RGS_VEFUSE_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VEFUSE_OC_STATUS_SHIFT                     7
+#define MT6359_RG_VCN18_VOCAL_ADDR                            \
+	MT6359_VCN18_ANA_CON0
+#define MT6359_RG_VCN18_VOCAL_MASK                            0xF
+#define MT6359_RG_VCN18_VOCAL_SHIFT                           0
+#define MT6359_RG_VCN18_VOSEL_ADDR                            \
+	MT6359_VCN18_ANA_CON0
+#define MT6359_RG_VCN18_VOSEL_MASK                            0xF
+#define MT6359_RG_VCN18_VOSEL_SHIFT                           8
+#define MT6359_RG_VCN18_NDIS_EN_ADDR                          \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VCN18_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VCN18_RSV_1_ADDR                            \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_RSV_1_MASK                            0x1
+#define MT6359_RG_VCN18_RSV_1_SHIFT                           2
+#define MT6359_RG_VCN18_OC_LP_EN_ADDR                         \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VCN18_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VCN18_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VCN18_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VCN18_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VCN18_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VCN18_MEASURE_FT_EN_ADDR                    \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RG_VCN18_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VCN18_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VCN18_OC_STATUS_ADDR                       \
+	MT6359_VCN18_ANA_CON1
+#define MT6359_RGS_VCN18_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VCN18_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VCAMIO_VOCAL_ADDR                           \
+	MT6359_VCAMIO_ANA_CON0
+#define MT6359_RG_VCAMIO_VOCAL_MASK                           0xF
+#define MT6359_RG_VCAMIO_VOCAL_SHIFT                          0
+#define MT6359_RG_VCAMIO_VOSEL_ADDR                           \
+	MT6359_VCAMIO_ANA_CON0
+#define MT6359_RG_VCAMIO_VOSEL_MASK                           0xF
+#define MT6359_RG_VCAMIO_VOSEL_SHIFT                          8
+#define MT6359_RG_VCAMIO_NDIS_EN_ADDR                         \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VCAMIO_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VCAMIO_RSV_1_ADDR                           \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_RSV_1_MASK                           0x1
+#define MT6359_RG_VCAMIO_RSV_1_SHIFT                          2
+#define MT6359_RG_VCAMIO_OC_LP_EN_ADDR                        \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_OC_LP_EN_MASK                        0x1
+#define MT6359_RG_VCAMIO_OC_LP_EN_SHIFT                       3
+#define MT6359_RG_VCAMIO_ULP_IQ_CLAMP_EN_ADDR                 \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_ULP_IQ_CLAMP_EN_MASK                 0x1
+#define MT6359_RG_VCAMIO_ULP_IQ_CLAMP_EN_SHIFT                4
+#define MT6359_RG_VCAMIO_ULP_BIASX2_EN_ADDR                   \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_ULP_BIASX2_EN_MASK                   0x1
+#define MT6359_RG_VCAMIO_ULP_BIASX2_EN_SHIFT                  5
+#define MT6359_RG_VCAMIO_MEASURE_FT_EN_ADDR                   \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RG_VCAMIO_MEASURE_FT_EN_MASK                   0x1
+#define MT6359_RG_VCAMIO_MEASURE_FT_EN_SHIFT                  6
+#define MT6359_RGS_VCAMIO_OC_STATUS_ADDR                      \
+	MT6359_VCAMIO_ANA_CON1
+#define MT6359_RGS_VCAMIO_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VCAMIO_OC_STATUS_SHIFT                     7
+#define MT6359_RG_VAUD18_VOCAL_ADDR                           \
+	MT6359_VAUD18_ANA_CON0
+#define MT6359_RG_VAUD18_VOCAL_MASK                           0xF
+#define MT6359_RG_VAUD18_VOCAL_SHIFT                          0
+#define MT6359_RG_VAUD18_VOSEL_ADDR                           \
+	MT6359_VAUD18_ANA_CON0
+#define MT6359_RG_VAUD18_VOSEL_MASK                           0xF
+#define MT6359_RG_VAUD18_VOSEL_SHIFT                          8
+#define MT6359_RG_VAUD18_NDIS_EN_ADDR                         \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_NDIS_EN_MASK                         0x1
+#define MT6359_RG_VAUD18_NDIS_EN_SHIFT                        0
+#define MT6359_RG_VAUD18_RSV_1_ADDR                           \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_RSV_1_MASK                           0x1
+#define MT6359_RG_VAUD18_RSV_1_SHIFT                          2
+#define MT6359_RG_VAUD18_OC_LP_EN_ADDR                        \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_OC_LP_EN_MASK                        0x1
+#define MT6359_RG_VAUD18_OC_LP_EN_SHIFT                       3
+#define MT6359_RG_VAUD18_ULP_IQ_CLAMP_EN_ADDR                 \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_ULP_IQ_CLAMP_EN_MASK                 0x1
+#define MT6359_RG_VAUD18_ULP_IQ_CLAMP_EN_SHIFT                4
+#define MT6359_RG_VAUD18_ULP_BIASX2_EN_ADDR                   \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_ULP_BIASX2_EN_MASK                   0x1
+#define MT6359_RG_VAUD18_ULP_BIASX2_EN_SHIFT                  5
+#define MT6359_RG_VAUD18_MEASURE_FT_EN_ADDR                   \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RG_VAUD18_MEASURE_FT_EN_MASK                   0x1
+#define MT6359_RG_VAUD18_MEASURE_FT_EN_SHIFT                  6
+#define MT6359_RGS_VAUD18_OC_STATUS_ADDR                      \
+	MT6359_VAUD18_ANA_CON1
+#define MT6359_RGS_VAUD18_OC_STATUS_MASK                      0x1
+#define MT6359_RGS_VAUD18_OC_STATUS_SHIFT                     7
+#define MT6359_RG_VIO18_VOCAL_ADDR                            \
+	MT6359_VIO18_ANA_CON0
+#define MT6359_RG_VIO18_VOCAL_MASK                            0xF
+#define MT6359_RG_VIO18_VOCAL_SHIFT                           0
+#define MT6359_RG_VIO18_VOSEL_ADDR                            \
+	MT6359_VIO18_ANA_CON0
+#define MT6359_RG_VIO18_VOSEL_MASK                            0xF
+#define MT6359_RG_VIO18_VOSEL_SHIFT                           8
+#define MT6359_RG_VIO18_NDIS_EN_ADDR                          \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VIO18_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VIO18_RSV_1_ADDR                            \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_RSV_1_MASK                            0x1
+#define MT6359_RG_VIO18_RSV_1_SHIFT                           2
+#define MT6359_RG_VIO18_OC_LP_EN_ADDR                         \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VIO18_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VIO18_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VIO18_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VIO18_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VIO18_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VIO18_MEASURE_FT_EN_ADDR                    \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RG_VIO18_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VIO18_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VIO18_OC_STATUS_ADDR                       \
+	MT6359_VIO18_ANA_CON1
+#define MT6359_RGS_VIO18_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VIO18_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VM18_VOCAL_ADDR                             \
+	MT6359_VM18_ANA_CON0
+#define MT6359_RG_VM18_VOCAL_MASK                             0xF
+#define MT6359_RG_VM18_VOCAL_SHIFT                            0
+#define MT6359_RG_VM18_VOSEL_ADDR                             \
+	MT6359_VM18_ANA_CON0
+#define MT6359_RG_VM18_VOSEL_MASK                             0xF
+#define MT6359_RG_VM18_VOSEL_SHIFT                            8
+#define MT6359_RG_VM18_NDIS_EN_ADDR                           \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VM18_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VM18_RSV_1_ADDR                             \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_RSV_1_MASK                             0x1
+#define MT6359_RG_VM18_RSV_1_SHIFT                            2
+#define MT6359_RG_VM18_OC_LP_EN_ADDR                          \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VM18_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VM18_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VM18_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VM18_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VM18_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VM18_MEASURE_FT_EN_ADDR                     \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RG_VM18_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VM18_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VM18_OC_STATUS_ADDR                        \
+	MT6359_VM18_ANA_CON1
+#define MT6359_RGS_VM18_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VM18_OC_STATUS_SHIFT                       7
+#define MT6359_RG_VUFS_VOCAL_ADDR                             \
+	MT6359_VUFS_ANA_CON0
+#define MT6359_RG_VUFS_VOCAL_MASK                             0xF
+#define MT6359_RG_VUFS_VOCAL_SHIFT                            0
+#define MT6359_RG_VUFS_VOSEL_ADDR                             \
+	MT6359_VUFS_ANA_CON0
+#define MT6359_RG_VUFS_VOSEL_MASK                             0xF
+#define MT6359_RG_VUFS_VOSEL_SHIFT                            8
+#define MT6359_RG_VUFS_NDIS_EN_ADDR                           \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VUFS_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VUFS_RSV_1_ADDR                             \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_RSV_1_MASK                             0x1
+#define MT6359_RG_VUFS_RSV_1_SHIFT                            2
+#define MT6359_RG_VUFS_OC_LP_EN_ADDR                          \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VUFS_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VUFS_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VUFS_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VUFS_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VUFS_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VUFS_MEASURE_FT_EN_ADDR                     \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RG_VUFS_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VUFS_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VUFS_OC_STATUS_ADDR                        \
+	MT6359_VUFS_ANA_CON1
+#define MT6359_RGS_VUFS_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VUFS_OC_STATUS_SHIFT                       7
+#define MT6359_RG_SLDO20_RSV_ADDR                             \
+	MT6359_SLDO20_ANA_CON0
+#define MT6359_RG_SLDO20_RSV_MASK                             0x3F
+#define MT6359_RG_SLDO20_RSV_SHIFT                            0
+#define MT6359_RG_VRF12_VOCAL_ADDR                            \
+	MT6359_VRF12_ANA_CON0
+#define MT6359_RG_VRF12_VOCAL_MASK                            0xF
+#define MT6359_RG_VRF12_VOCAL_SHIFT                           0
+#define MT6359_RG_VRF12_VOSEL_ADDR                            \
+	MT6359_VRF12_ANA_CON0
+#define MT6359_RG_VRF12_VOSEL_MASK                            0xF
+#define MT6359_RG_VRF12_VOSEL_SHIFT                           8
+#define MT6359_RG_VRF12_NDIS_EN_ADDR                          \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VRF12_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VRF12_RSV_0_ADDR                            \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_RSV_0_MASK                            0x3
+#define MT6359_RG_VRF12_RSV_0_SHIFT                           2
+#define MT6359_RG_VRF12_RSV_1_ADDR                            \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_RSV_1_MASK                            0x1
+#define MT6359_RG_VRF12_RSV_1_SHIFT                           4
+#define MT6359_RG_VRF12_OC_LP_EN_ADDR                         \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VRF12_OC_LP_EN_SHIFT                        5
+#define MT6359_RG_VRF12_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VRF12_ULP_IQ_CLAMP_EN_SHIFT                 6
+#define MT6359_RG_VRF12_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VRF12_ULP_BIASX2_EN_SHIFT                   7
+#define MT6359_RG_VRF12_MEASURE_FT_EN_ADDR                    \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RG_VRF12_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VRF12_MEASURE_FT_EN_SHIFT                   8
+#define MT6359_RGS_VRF12_OC_STATUS_ADDR                       \
+	MT6359_VRF12_ANA_CON1
+#define MT6359_RGS_VRF12_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VRF12_OC_STATUS_SHIFT                      9
+#define MT6359_RG_VCN13_VOCAL_ADDR                            \
+	MT6359_VCN13_ANA_CON0
+#define MT6359_RG_VCN13_VOCAL_MASK                            0xF
+#define MT6359_RG_VCN13_VOCAL_SHIFT                           0
+#define MT6359_RG_VCN13_VOSEL_ADDR                            \
+	MT6359_VCN13_ANA_CON0
+#define MT6359_RG_VCN13_VOSEL_MASK                            0xF
+#define MT6359_RG_VCN13_VOSEL_SHIFT                           8
+#define MT6359_RG_VCN13_NDIS_EN_ADDR                          \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VCN13_NDIS_EN_SHIFT                         0
+#define MT6359_RG_VCN13_RSV_0_ADDR                            \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_RSV_0_MASK                            0x3
+#define MT6359_RG_VCN13_RSV_0_SHIFT                           2
+#define MT6359_RG_VCN13_RSV_1_ADDR                            \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_RSV_1_MASK                            0x1
+#define MT6359_RG_VCN13_RSV_1_SHIFT                           4
+#define MT6359_RG_VCN13_OC_LP_EN_ADDR                         \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VCN13_OC_LP_EN_SHIFT                        5
+#define MT6359_RG_VCN13_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VCN13_ULP_IQ_CLAMP_EN_SHIFT                 6
+#define MT6359_RG_VCN13_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VCN13_ULP_BIASX2_EN_SHIFT                   7
+#define MT6359_RG_VCN13_MEASURE_FT_EN_ADDR                    \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RG_VCN13_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VCN13_MEASURE_FT_EN_SHIFT                   8
+#define MT6359_RGS_VCN13_OC_STATUS_ADDR                       \
+	MT6359_VCN13_ANA_CON1
+#define MT6359_RGS_VCN13_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VCN13_OC_STATUS_SHIFT                      9
+#define MT6359_RG_VA09_VOCAL_ADDR                             \
+	MT6359_VA09_ANA_CON0
+#define MT6359_RG_VA09_VOCAL_MASK                             0xF
+#define MT6359_RG_VA09_VOCAL_SHIFT                            0
+#define MT6359_RG_VA09_VOSEL_ADDR                             \
+	MT6359_VA09_ANA_CON0
+#define MT6359_RG_VA09_VOSEL_MASK                             0xF
+#define MT6359_RG_VA09_VOSEL_SHIFT                            8
+#define MT6359_RG_VA09_NDIS_EN_ADDR                           \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VA09_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VA09_RSV_1_ADDR                             \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_RSV_1_MASK                             0x1
+#define MT6359_RG_VA09_RSV_1_SHIFT                            2
+#define MT6359_RG_VA09_OC_LP_EN_ADDR                          \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VA09_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VA09_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VA09_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VA09_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VA09_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VA09_MEASURE_FT_EN_ADDR                     \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RG_VA09_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VA09_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VA09_OC_STATUS_ADDR                        \
+	MT6359_VA09_ANA_CON1
+#define MT6359_RGS_VA09_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VA09_OC_STATUS_SHIFT                       7
+#define MT6359_RG_VA12_VOCAL_ADDR                             \
+	MT6359_VA12_ANA_CON0
+#define MT6359_RG_VA12_VOCAL_MASK                             0xF
+#define MT6359_RG_VA12_VOCAL_SHIFT                            0
+#define MT6359_RG_VA12_VOSEL_ADDR                             \
+	MT6359_VA12_ANA_CON0
+#define MT6359_RG_VA12_VOSEL_MASK                             0xF
+#define MT6359_RG_VA12_VOSEL_SHIFT                            8
+#define MT6359_RG_VA12_NDIS_EN_ADDR                           \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_NDIS_EN_MASK                           0x1
+#define MT6359_RG_VA12_NDIS_EN_SHIFT                          0
+#define MT6359_RG_VA12_RSV_1_ADDR                             \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_RSV_1_MASK                             0x1
+#define MT6359_RG_VA12_RSV_1_SHIFT                            2
+#define MT6359_RG_VA12_OC_LP_EN_ADDR                          \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_OC_LP_EN_MASK                          0x1
+#define MT6359_RG_VA12_OC_LP_EN_SHIFT                         3
+#define MT6359_RG_VA12_ULP_IQ_CLAMP_EN_ADDR                   \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_ULP_IQ_CLAMP_EN_MASK                   0x1
+#define MT6359_RG_VA12_ULP_IQ_CLAMP_EN_SHIFT                  4
+#define MT6359_RG_VA12_ULP_BIASX2_EN_ADDR                     \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_ULP_BIASX2_EN_MASK                     0x1
+#define MT6359_RG_VA12_ULP_BIASX2_EN_SHIFT                    5
+#define MT6359_RG_VA12_MEASURE_FT_EN_ADDR                     \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RG_VA12_MEASURE_FT_EN_MASK                     0x1
+#define MT6359_RG_VA12_MEASURE_FT_EN_SHIFT                    6
+#define MT6359_RGS_VA12_OC_STATUS_ADDR                        \
+	MT6359_VA12_ANA_CON1
+#define MT6359_RGS_VA12_OC_STATUS_MASK                        0x1
+#define MT6359_RGS_VA12_OC_STATUS_SHIFT                       7
+#define MT6359_RG_VSRAM_PROC1_NDIS_EN_ADDR                    \
+	MT6359_VSRAM_PROC1_ANA_CON0
+#define MT6359_RG_VSRAM_PROC1_NDIS_EN_MASK                    0x1
+#define MT6359_RG_VSRAM_PROC1_NDIS_EN_SHIFT                   4
+#define MT6359_RG_VSRAM_PROC1_NDIS_PLCUR_ADDR                 \
+	MT6359_VSRAM_PROC1_ANA_CON0
+#define MT6359_RG_VSRAM_PROC1_NDIS_PLCUR_MASK                 0x3
+#define MT6359_RG_VSRAM_PROC1_NDIS_PLCUR_SHIFT                5
+#define MT6359_RG_VSRAM_PROC1_OC_LP_EN_ADDR                   \
+	MT6359_VSRAM_PROC1_ANA_CON0
+#define MT6359_RG_VSRAM_PROC1_OC_LP_EN_MASK                   0x1
+#define MT6359_RG_VSRAM_PROC1_OC_LP_EN_SHIFT                  7
+#define MT6359_RG_VSRAM_PROC1_RSV_H_ADDR                      \
+	MT6359_VSRAM_PROC1_ANA_CON0
+#define MT6359_RG_VSRAM_PROC1_RSV_H_MASK                      0xF
+#define MT6359_RG_VSRAM_PROC1_RSV_H_SHIFT                     8
+#define MT6359_RG_VSRAM_PROC1_RSV_L_ADDR                      \
+	MT6359_VSRAM_PROC1_ANA_CON0
+#define MT6359_RG_VSRAM_PROC1_RSV_L_MASK                      0xF
+#define MT6359_RG_VSRAM_PROC1_RSV_L_SHIFT                     12
+#define MT6359_RG_VSRAM_PROC1_ULP_IQ_CLAMP_EN_ADDR            \
+	MT6359_VSRAM_PROC1_ANA_CON1
+#define MT6359_RG_VSRAM_PROC1_ULP_IQ_CLAMP_EN_MASK            0x1
+#define MT6359_RG_VSRAM_PROC1_ULP_IQ_CLAMP_EN_SHIFT           0
+#define MT6359_RG_VSRAM_PROC1_ULP_BIASX2_EN_ADDR              \
+	MT6359_VSRAM_PROC1_ANA_CON1
+#define MT6359_RG_VSRAM_PROC1_ULP_BIASX2_EN_MASK              0x1
+#define MT6359_RG_VSRAM_PROC1_ULP_BIASX2_EN_SHIFT             1
+#define MT6359_RG_VSRAM_PROC1_MEASURE_FT_EN_ADDR              \
+	MT6359_VSRAM_PROC1_ANA_CON1
+#define MT6359_RG_VSRAM_PROC1_MEASURE_FT_EN_MASK              0x1
+#define MT6359_RG_VSRAM_PROC1_MEASURE_FT_EN_SHIFT             2
+#define MT6359_RGS_VSRAM_PROC1_OC_STATUS_ADDR                 \
+	MT6359_VSRAM_PROC1_ANA_CON1
+#define MT6359_RGS_VSRAM_PROC1_OC_STATUS_MASK                 0x1
+#define MT6359_RGS_VSRAM_PROC1_OC_STATUS_SHIFT                3
+#define MT6359_RG_VSRAM_PROC2_NDIS_EN_ADDR                    \
+	MT6359_VSRAM_PROC2_ANA_CON0
+#define MT6359_RG_VSRAM_PROC2_NDIS_EN_MASK                    0x1
+#define MT6359_RG_VSRAM_PROC2_NDIS_EN_SHIFT                   4
+#define MT6359_RG_VSRAM_PROC2_NDIS_PLCUR_ADDR                 \
+	MT6359_VSRAM_PROC2_ANA_CON0
+#define MT6359_RG_VSRAM_PROC2_NDIS_PLCUR_MASK                 0x3
+#define MT6359_RG_VSRAM_PROC2_NDIS_PLCUR_SHIFT                5
+#define MT6359_RG_VSRAM_PROC2_OC_LP_EN_ADDR                   \
+	MT6359_VSRAM_PROC2_ANA_CON0
+#define MT6359_RG_VSRAM_PROC2_OC_LP_EN_MASK                   0x1
+#define MT6359_RG_VSRAM_PROC2_OC_LP_EN_SHIFT                  7
+#define MT6359_RG_VSRAM_PROC2_RSV_H_ADDR                      \
+	MT6359_VSRAM_PROC2_ANA_CON0
+#define MT6359_RG_VSRAM_PROC2_RSV_H_MASK                      0xF
+#define MT6359_RG_VSRAM_PROC2_RSV_H_SHIFT                     8
+#define MT6359_RG_VSRAM_PROC2_RSV_L_ADDR                      \
+	MT6359_VSRAM_PROC2_ANA_CON0
+#define MT6359_RG_VSRAM_PROC2_RSV_L_MASK                      0xF
+#define MT6359_RG_VSRAM_PROC2_RSV_L_SHIFT                     12
+#define MT6359_RG_VSRAM_PROC2_ULP_IQ_CLAMP_EN_ADDR            \
+	MT6359_VSRAM_PROC2_ANA_CON1
+#define MT6359_RG_VSRAM_PROC2_ULP_IQ_CLAMP_EN_MASK            0x1
+#define MT6359_RG_VSRAM_PROC2_ULP_IQ_CLAMP_EN_SHIFT           0
+#define MT6359_RG_VSRAM_PROC2_ULP_BIASX2_EN_ADDR              \
+	MT6359_VSRAM_PROC2_ANA_CON1
+#define MT6359_RG_VSRAM_PROC2_ULP_BIASX2_EN_MASK              0x1
+#define MT6359_RG_VSRAM_PROC2_ULP_BIASX2_EN_SHIFT             1
+#define MT6359_RG_VSRAM_PROC2_MEASURE_FT_EN_ADDR              \
+	MT6359_VSRAM_PROC2_ANA_CON1
+#define MT6359_RG_VSRAM_PROC2_MEASURE_FT_EN_MASK              0x1
+#define MT6359_RG_VSRAM_PROC2_MEASURE_FT_EN_SHIFT             2
+#define MT6359_RGS_VSRAM_PROC2_OC_STATUS_ADDR                 \
+	MT6359_VSRAM_PROC2_ANA_CON1
+#define MT6359_RGS_VSRAM_PROC2_OC_STATUS_MASK                 0x1
+#define MT6359_RGS_VSRAM_PROC2_OC_STATUS_SHIFT                3
+#define MT6359_RG_VSRAM_OTHERS_NDIS_EN_ADDR                   \
+	MT6359_VSRAM_OTHERS_ANA_CON0
+#define MT6359_RG_VSRAM_OTHERS_NDIS_EN_MASK                   0x1
+#define MT6359_RG_VSRAM_OTHERS_NDIS_EN_SHIFT                  4
+#define MT6359_RG_VSRAM_OTHERS_NDIS_PLCUR_ADDR                \
+	MT6359_VSRAM_OTHERS_ANA_CON0
+#define MT6359_RG_VSRAM_OTHERS_NDIS_PLCUR_MASK                0x3
+#define MT6359_RG_VSRAM_OTHERS_NDIS_PLCUR_SHIFT               5
+#define MT6359_RG_VSRAM_OTHERS_OC_LP_EN_ADDR                  \
+	MT6359_VSRAM_OTHERS_ANA_CON0
+#define MT6359_RG_VSRAM_OTHERS_OC_LP_EN_MASK                  0x1
+#define MT6359_RG_VSRAM_OTHERS_OC_LP_EN_SHIFT                 7
+#define MT6359_RG_VSRAM_OTHERS_RSV_H_ADDR                     \
+	MT6359_VSRAM_OTHERS_ANA_CON0
+#define MT6359_RG_VSRAM_OTHERS_RSV_H_MASK                     0xF
+#define MT6359_RG_VSRAM_OTHERS_RSV_H_SHIFT                    8
+#define MT6359_RG_VSRAM_OTHERS_RSV_L_ADDR                     \
+	MT6359_VSRAM_OTHERS_ANA_CON0
+#define MT6359_RG_VSRAM_OTHERS_RSV_L_MASK                     0xF
+#define MT6359_RG_VSRAM_OTHERS_RSV_L_SHIFT                    12
+#define MT6359_RG_VSRAM_OTHERS_ULP_IQ_CLAMP_EN_ADDR           \
+	MT6359_VSRAM_OTHERS_ANA_CON1
+#define MT6359_RG_VSRAM_OTHERS_ULP_IQ_CLAMP_EN_MASK           0x1
+#define MT6359_RG_VSRAM_OTHERS_ULP_IQ_CLAMP_EN_SHIFT          0
+#define MT6359_RG_VSRAM_OTHERS_ULP_BIASX2_EN_ADDR             \
+	MT6359_VSRAM_OTHERS_ANA_CON1
+#define MT6359_RG_VSRAM_OTHERS_ULP_BIASX2_EN_MASK             0x1
+#define MT6359_RG_VSRAM_OTHERS_ULP_BIASX2_EN_SHIFT            1
+#define MT6359_RG_VSRAM_OTHERS_MEASURE_FT_EN_ADDR             \
+	MT6359_VSRAM_OTHERS_ANA_CON1
+#define MT6359_RG_VSRAM_OTHERS_MEASURE_FT_EN_MASK             0x1
+#define MT6359_RG_VSRAM_OTHERS_MEASURE_FT_EN_SHIFT            2
+#define MT6359_RGS_VSRAM_OTHERS_OC_STATUS_ADDR                \
+	MT6359_VSRAM_OTHERS_ANA_CON1
+#define MT6359_RGS_VSRAM_OTHERS_OC_STATUS_MASK                0x1
+#define MT6359_RGS_VSRAM_OTHERS_OC_STATUS_SHIFT               3
+#define MT6359_RG_VSRAM_MD_NDIS_EN_ADDR                       \
+	MT6359_VSRAM_MD_ANA_CON0
+#define MT6359_RG_VSRAM_MD_NDIS_EN_MASK                       0x1
+#define MT6359_RG_VSRAM_MD_NDIS_EN_SHIFT                      4
+#define MT6359_RG_VSRAM_MD_NDIS_PLCUR_ADDR                    \
+	MT6359_VSRAM_MD_ANA_CON0
+#define MT6359_RG_VSRAM_MD_NDIS_PLCUR_MASK                    0x3
+#define MT6359_RG_VSRAM_MD_NDIS_PLCUR_SHIFT                   5
+#define MT6359_RG_VSRAM_MD_OC_LP_EN_ADDR                      \
+	MT6359_VSRAM_MD_ANA_CON0
+#define MT6359_RG_VSRAM_MD_OC_LP_EN_MASK                      0x1
+#define MT6359_RG_VSRAM_MD_OC_LP_EN_SHIFT                     7
+#define MT6359_RG_VSRAM_MD_RSV_H_ADDR                         \
+	MT6359_VSRAM_MD_ANA_CON0
+#define MT6359_RG_VSRAM_MD_RSV_H_MASK                         0xF
+#define MT6359_RG_VSRAM_MD_RSV_H_SHIFT                        8
+#define MT6359_RG_VSRAM_MD_RSV_L_ADDR                         \
+	MT6359_VSRAM_MD_ANA_CON0
+#define MT6359_RG_VSRAM_MD_RSV_L_MASK                         0xF
+#define MT6359_RG_VSRAM_MD_RSV_L_SHIFT                        12
+#define MT6359_RG_VSRAM_MD_ULP_IQ_CLAMP_EN_ADDR               \
+	MT6359_VSRAM_MD_ANA_CON1
+#define MT6359_RG_VSRAM_MD_ULP_IQ_CLAMP_EN_MASK               0x1
+#define MT6359_RG_VSRAM_MD_ULP_IQ_CLAMP_EN_SHIFT              0
+#define MT6359_RG_VSRAM_MD_ULP_BIASX2_EN_ADDR                 \
+	MT6359_VSRAM_MD_ANA_CON1
+#define MT6359_RG_VSRAM_MD_ULP_BIASX2_EN_MASK                 0x1
+#define MT6359_RG_VSRAM_MD_ULP_BIASX2_EN_SHIFT                1
+#define MT6359_RG_VSRAM_MD_MEASURE_FT_EN_ADDR                 \
+	MT6359_VSRAM_MD_ANA_CON1
+#define MT6359_RG_VSRAM_MD_MEASURE_FT_EN_MASK                 0x1
+#define MT6359_RG_VSRAM_MD_MEASURE_FT_EN_SHIFT                2
+#define MT6359_RGS_VSRAM_MD_OC_STATUS_ADDR                    \
+	MT6359_VSRAM_MD_ANA_CON1
+#define MT6359_RGS_VSRAM_MD_OC_STATUS_MASK                    0x1
+#define MT6359_RGS_VSRAM_MD_OC_STATUS_SHIFT                   3
+#define MT6359_RG_SLDO14_RSV_ADDR                             \
+	MT6359_SLDO14_ANA_CON0
+#define MT6359_RG_SLDO14_RSV_MASK                             0x3F
+#define MT6359_RG_SLDO14_RSV_SHIFT                            0
+#define MT6359_LDO_ANA1_ELR_LEN_ADDR                          \
+	MT6359_LDO_ANA1_ELR_NUM
+#define MT6359_LDO_ANA1_ELR_LEN_MASK                          0xFF
+#define MT6359_LDO_ANA1_ELR_LEN_SHIFT                         0
+#define MT6359_RG_VRF18_VOTRIM_ADDR                           \
+	MT6359_VRF18_ELR_0
+#define MT6359_RG_VRF18_VOTRIM_MASK                           0xF
+#define MT6359_RG_VRF18_VOTRIM_SHIFT                          0
+#define MT6359_RG_VEFUSE_VOTRIM_ADDR                          \
+	MT6359_VRF18_ELR_0
+#define MT6359_RG_VEFUSE_VOTRIM_MASK                          0xF
+#define MT6359_RG_VEFUSE_VOTRIM_SHIFT                         4
+#define MT6359_RG_VCN18_VOTRIM_ADDR                           \
+	MT6359_VRF18_ELR_0
+#define MT6359_RG_VCN18_VOTRIM_MASK                           0xF
+#define MT6359_RG_VCN18_VOTRIM_SHIFT                          8
+#define MT6359_RG_VCN18_OC_TRIM_ADDR                          \
+	MT6359_VRF18_ELR_0
+#define MT6359_RG_VCN18_OC_TRIM_MASK                          0x7
+#define MT6359_RG_VCN18_OC_TRIM_SHIFT                         12
+#define MT6359_RG_VCAMIO_VOTRIM_ADDR                          \
+	MT6359_VRF18_ELR_1
+#define MT6359_RG_VCAMIO_VOTRIM_MASK                          0xF
+#define MT6359_RG_VCAMIO_VOTRIM_SHIFT                         0
+#define MT6359_RG_VAUD18_VOTRIM_ADDR                          \
+	MT6359_VRF18_ELR_1
+#define MT6359_RG_VAUD18_VOTRIM_MASK                          0xF
+#define MT6359_RG_VAUD18_VOTRIM_SHIFT                         4
+#define MT6359_RG_VIO18_VOTRIM_ADDR                           \
+	MT6359_VRF18_ELR_1
+#define MT6359_RG_VIO18_VOTRIM_MASK                           0xF
+#define MT6359_RG_VIO18_VOTRIM_SHIFT                          8
+#define MT6359_RG_VM18_VOTRIM_ADDR                            \
+	MT6359_VRF18_ELR_1
+#define MT6359_RG_VM18_VOTRIM_MASK                            0xF
+#define MT6359_RG_VM18_VOTRIM_SHIFT                           12
+#define MT6359_RG_VUFS_VOTRIM_ADDR                            \
+	MT6359_VRF18_ELR_2
+#define MT6359_RG_VUFS_VOTRIM_MASK                            0xF
+#define MT6359_RG_VUFS_VOTRIM_SHIFT                           0
+#define MT6359_RG_VUFS_OC_TRIM_ADDR                           \
+	MT6359_VRF18_ELR_2
+#define MT6359_RG_VUFS_OC_TRIM_MASK                           0x7
+#define MT6359_RG_VUFS_OC_TRIM_SHIFT                          4
+#define MT6359_RG_VRF12_VOTRIM_ADDR                           \
+	MT6359_VRF18_ELR_2
+#define MT6359_RG_VRF12_VOTRIM_MASK                           0xF
+#define MT6359_RG_VRF12_VOTRIM_SHIFT                          7
+#define MT6359_RG_VCN13_VOTRIM_ADDR                           \
+	MT6359_VRF18_ELR_2
+#define MT6359_RG_VCN13_VOTRIM_MASK                           0xF
+#define MT6359_RG_VCN13_VOTRIM_SHIFT                          11
+#define MT6359_RG_VA09_VOTRIM_ADDR                            \
+	MT6359_VRF18_ELR_3
+#define MT6359_RG_VA09_VOTRIM_MASK                            0xF
+#define MT6359_RG_VA09_VOTRIM_SHIFT                           0
+#define MT6359_RG_VA12_VOTRIM_ADDR                            \
+	MT6359_VRF18_ELR_3
+#define MT6359_RG_VA12_VOTRIM_MASK                            0xF
+#define MT6359_RG_VA12_VOTRIM_SHIFT                           4
+#define MT6359_LDO_ANA2_ANA_ID_ADDR                           \
+	MT6359_LDO_ANA2_DSN_ID
+#define MT6359_LDO_ANA2_ANA_ID_MASK                           0xFF
+#define MT6359_LDO_ANA2_ANA_ID_SHIFT                          0
+#define MT6359_LDO_ANA2_DIG_ID_ADDR                           \
+	MT6359_LDO_ANA2_DSN_ID
+#define MT6359_LDO_ANA2_DIG_ID_MASK                           0xFF
+#define MT6359_LDO_ANA2_DIG_ID_SHIFT                          8
+#define MT6359_LDO_ANA2_ANA_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA2_DSN_REV0
+#define MT6359_LDO_ANA2_ANA_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA2_ANA_MINOR_REV_SHIFT                   0
+#define MT6359_LDO_ANA2_ANA_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA2_DSN_REV0
+#define MT6359_LDO_ANA2_ANA_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA2_ANA_MAJOR_REV_SHIFT                   4
+#define MT6359_LDO_ANA2_DIG_MINOR_REV_ADDR                    \
+	MT6359_LDO_ANA2_DSN_REV0
+#define MT6359_LDO_ANA2_DIG_MINOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA2_DIG_MINOR_REV_SHIFT                   8
+#define MT6359_LDO_ANA2_DIG_MAJOR_REV_ADDR                    \
+	MT6359_LDO_ANA2_DSN_REV0
+#define MT6359_LDO_ANA2_DIG_MAJOR_REV_MASK                    0xF
+#define MT6359_LDO_ANA2_DIG_MAJOR_REV_SHIFT                   12
+#define MT6359_LDO_ANA2_DSN_CBS_ADDR                          \
+	MT6359_LDO_ANA2_DSN_DBI
+#define MT6359_LDO_ANA2_DSN_CBS_MASK                          0x3
+#define MT6359_LDO_ANA2_DSN_CBS_SHIFT                         0
+#define MT6359_LDO_ANA2_DSN_BIX_ADDR                          \
+	MT6359_LDO_ANA2_DSN_DBI
+#define MT6359_LDO_ANA2_DSN_BIX_MASK                          0x3
+#define MT6359_LDO_ANA2_DSN_BIX_SHIFT                         2
+#define MT6359_LDO_ANA2_DSN_ESP_ADDR                          \
+	MT6359_LDO_ANA2_DSN_DBI
+#define MT6359_LDO_ANA2_DSN_ESP_MASK                          0xFF
+#define MT6359_LDO_ANA2_DSN_ESP_SHIFT                         8
+#define MT6359_LDO_ANA2_DSN_FPI_ADDR                          \
+	MT6359_LDO_ANA2_DSN_FPI
+#define MT6359_LDO_ANA2_DSN_FPI_MASK                          0xFF
+#define MT6359_LDO_ANA2_DSN_FPI_SHIFT                         0
+#define MT6359_RG_VXO22_VOCAL_ADDR                            \
+	MT6359_VXO22_ANA_CON0
+#define MT6359_RG_VXO22_VOCAL_MASK                            0xF
+#define MT6359_RG_VXO22_VOCAL_SHIFT                           0
+#define MT6359_RG_VXO22_VOSEL_ADDR                            \
+	MT6359_VXO22_ANA_CON0
+#define MT6359_RG_VXO22_VOSEL_MASK                            0xF
+#define MT6359_RG_VXO22_VOSEL_SHIFT                           8
+#define MT6359_RG_VXO22_RSV_1_ADDR                            \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RG_VXO22_RSV_1_MASK                            0x1
+#define MT6359_RG_VXO22_RSV_1_SHIFT                           2
+#define MT6359_RG_VXO22_OC_LP_EN_ADDR                         \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RG_VXO22_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VXO22_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VXO22_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RG_VXO22_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VXO22_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VXO22_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RG_VXO22_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VXO22_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VXO22_MEASURE_FT_EN_ADDR                    \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RG_VXO22_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VXO22_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VXO22_OC_STATUS_ADDR                       \
+	MT6359_VXO22_ANA_CON1
+#define MT6359_RGS_VXO22_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VXO22_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VRFCK_VOCAL_ADDR                            \
+	MT6359_VRFCK_ANA_CON0
+#define MT6359_RG_VRFCK_VOCAL_MASK                            0xF
+#define MT6359_RG_VRFCK_VOCAL_SHIFT                           0
+#define MT6359_RG_VRFCK_VOSEL_ADDR                            \
+	MT6359_VRFCK_ANA_CON0
+#define MT6359_RG_VRFCK_VOSEL_MASK                            0xF
+#define MT6359_RG_VRFCK_VOSEL_SHIFT                           8
+#define MT6359_RG_VRFCK_RSV_1_ADDR                            \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RG_VRFCK_RSV_1_MASK                            0x1
+#define MT6359_RG_VRFCK_RSV_1_SHIFT                           2
+#define MT6359_RG_VRFCK_OC_LP_EN_ADDR                         \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RG_VRFCK_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VRFCK_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VRFCK_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RG_VRFCK_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VRFCK_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VRFCK_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RG_VRFCK_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VRFCK_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VRFCK_MEASURE_FT_EN_ADDR                    \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RG_VRFCK_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VRFCK_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VRFCK_OC_STATUS_ADDR                       \
+	MT6359_VRFCK_ANA_CON1
+#define MT6359_RGS_VRFCK_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VRFCK_OC_STATUS_SHIFT                      7
+#define MT6359_RG_VRFCK_1_VOCAL_ADDR                          \
+	MT6359_VRFCK_1_ANA_CON0
+#define MT6359_RG_VRFCK_1_VOCAL_MASK                          0xF
+#define MT6359_RG_VRFCK_1_VOCAL_SHIFT                         0
+#define MT6359_RG_VRFCK_1_VOSEL_ADDR                          \
+	MT6359_VRFCK_1_ANA_CON0
+#define MT6359_RG_VRFCK_1_VOSEL_MASK                          0xF
+#define MT6359_RG_VRFCK_1_VOSEL_SHIFT                         8
+#define MT6359_RG_VRFCK_1_RSV_1_ADDR                          \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RG_VRFCK_1_RSV_1_MASK                          0x1
+#define MT6359_RG_VRFCK_1_RSV_1_SHIFT                         2
+#define MT6359_RG_VRFCK_1_OC_LP_EN_ADDR                       \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RG_VRFCK_1_OC_LP_EN_MASK                       0x1
+#define MT6359_RG_VRFCK_1_OC_LP_EN_SHIFT                      3
+#define MT6359_RG_VRFCK_1_ULP_IQ_CLAMP_EN_ADDR                \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RG_VRFCK_1_ULP_IQ_CLAMP_EN_MASK                0x1
+#define MT6359_RG_VRFCK_1_ULP_IQ_CLAMP_EN_SHIFT               4
+#define MT6359_RG_VRFCK_1_ULP_BIASX2_EN_ADDR                  \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RG_VRFCK_1_ULP_BIASX2_EN_MASK                  0x1
+#define MT6359_RG_VRFCK_1_ULP_BIASX2_EN_SHIFT                 5
+#define MT6359_RG_VRFCK_1_MEASURE_FT_EN_ADDR                  \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RG_VRFCK_1_MEASURE_FT_EN_MASK                  0x1
+#define MT6359_RG_VRFCK_1_MEASURE_FT_EN_SHIFT                 6
+#define MT6359_RGS_VRFCK_1_OC_STATUS_ADDR                     \
+	MT6359_VRFCK_1_ANA_CON1
+#define MT6359_RGS_VRFCK_1_OC_STATUS_MASK                     0x1
+#define MT6359_RGS_VRFCK_1_OC_STATUS_SHIFT                    7
+#define MT6359_RG_VBBCK_VOCAL_ADDR                            \
+	MT6359_VBBCK_ANA_CON0
+#define MT6359_RG_VBBCK_VOCAL_MASK                            0xF
+#define MT6359_RG_VBBCK_VOCAL_SHIFT                           0
+#define MT6359_RG_VBBCK_VOSEL_ADDR                            \
+	MT6359_VBBCK_ANA_CON0
+#define MT6359_RG_VBBCK_VOSEL_MASK                            0xF
+#define MT6359_RG_VBBCK_VOSEL_SHIFT                           8
+#define MT6359_RG_VBBCK_RSV_1_ADDR                            \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RG_VBBCK_RSV_1_MASK                            0x1
+#define MT6359_RG_VBBCK_RSV_1_SHIFT                           2
+#define MT6359_RG_VBBCK_OC_LP_EN_ADDR                         \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RG_VBBCK_OC_LP_EN_MASK                         0x1
+#define MT6359_RG_VBBCK_OC_LP_EN_SHIFT                        3
+#define MT6359_RG_VBBCK_ULP_IQ_CLAMP_EN_ADDR                  \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RG_VBBCK_ULP_IQ_CLAMP_EN_MASK                  0x1
+#define MT6359_RG_VBBCK_ULP_IQ_CLAMP_EN_SHIFT                 4
+#define MT6359_RG_VBBCK_ULP_BIASX2_EN_ADDR                    \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RG_VBBCK_ULP_BIASX2_EN_MASK                    0x1
+#define MT6359_RG_VBBCK_ULP_BIASX2_EN_SHIFT                   5
+#define MT6359_RG_VBBCK_MEASURE_FT_EN_ADDR                    \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RG_VBBCK_MEASURE_FT_EN_MASK                    0x1
+#define MT6359_RG_VBBCK_MEASURE_FT_EN_SHIFT                   6
+#define MT6359_RGS_VBBCK_OC_STATUS_ADDR                       \
+	MT6359_VBBCK_ANA_CON1
+#define MT6359_RGS_VBBCK_OC_STATUS_MASK                       0x1
+#define MT6359_RGS_VBBCK_OC_STATUS_SHIFT                      7
+#define MT6359_LDO_ANA2_ELR_LEN_ADDR                          \
+	MT6359_LDO_ANA2_ELR_NUM
+#define MT6359_LDO_ANA2_ELR_LEN_MASK                          0xFF
+#define MT6359_LDO_ANA2_ELR_LEN_SHIFT                         0
+#define MT6359_RG_VXO22_VOTRIM_ADDR                           \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VXO22_VOTRIM_MASK                           0xF
+#define MT6359_RG_VXO22_VOTRIM_SHIFT                          0
+#define MT6359_RG_VXO22_NDIS_EN_ADDR                          \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VXO22_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VXO22_NDIS_EN_SHIFT                         4
+#define MT6359_RG_VRFCK_VOTRIM_ADDR                           \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VRFCK_VOTRIM_MASK                           0xF
+#define MT6359_RG_VRFCK_VOTRIM_SHIFT                          5
+#define MT6359_RG_VRFCK_NDIS_EN_ADDR                          \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VRFCK_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VRFCK_NDIS_EN_SHIFT                         9
+#define MT6359_RG_VRFCK_1_VOTRIM_ADDR                         \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VRFCK_1_VOTRIM_MASK                         0xF
+#define MT6359_RG_VRFCK_1_VOTRIM_SHIFT                        10
+#define MT6359_RG_VRFCK_1_NDIS_EN_ADDR                        \
+	MT6359_DCXO_ADLDO_BIAS_ELR_0
+#define MT6359_RG_VRFCK_1_NDIS_EN_MASK                        0x1
+#define MT6359_RG_VRFCK_1_NDIS_EN_SHIFT                       14
+#define MT6359_RG_VBBCK_VOTRIM_ADDR                           \
+	MT6359_DCXO_ADLDO_BIAS_ELR_1
+#define MT6359_RG_VBBCK_VOTRIM_MASK                           0xF
+#define MT6359_RG_VBBCK_VOTRIM_SHIFT                          0
+#define MT6359_RG_VBBCK_NDIS_EN_ADDR                          \
+	MT6359_DCXO_ADLDO_BIAS_ELR_1
+#define MT6359_RG_VBBCK_NDIS_EN_MASK                          0x1
+#define MT6359_RG_VBBCK_NDIS_EN_SHIFT                         4
+#define MT6359_DUMMYLOAD_ANA_ID_ADDR                          \
+	MT6359_DUMMYLOAD_DSN_ID
+#define MT6359_DUMMYLOAD_ANA_ID_MASK                          0xFF
+#define MT6359_DUMMYLOAD_ANA_ID_SHIFT                         0
+#define MT6359_DUMMYLOAD_DIG_ID_ADDR                          \
+	MT6359_DUMMYLOAD_DSN_ID
+#define MT6359_DUMMYLOAD_DIG_ID_MASK                          0xFF
+#define MT6359_DUMMYLOAD_DIG_ID_SHIFT                         8
+#define MT6359_DUMMYLOAD_ANA_MINOR_REV_ADDR                   \
+	MT6359_DUMMYLOAD_DSN_REV0
+#define MT6359_DUMMYLOAD_ANA_MINOR_REV_MASK                   0xF
+#define MT6359_DUMMYLOAD_ANA_MINOR_REV_SHIFT                  0
+#define MT6359_DUMMYLOAD_ANA_MAJOR_REV_ADDR                   \
+	MT6359_DUMMYLOAD_DSN_REV0
+#define MT6359_DUMMYLOAD_ANA_MAJOR_REV_MASK                   0xF
+#define MT6359_DUMMYLOAD_ANA_MAJOR_REV_SHIFT                  4
+#define MT6359_DUMMYLOAD_DIG_MINOR_REV_ADDR                   \
+	MT6359_DUMMYLOAD_DSN_REV0
+#define MT6359_DUMMYLOAD_DIG_MINOR_REV_MASK                   0xF
+#define MT6359_DUMMYLOAD_DIG_MINOR_REV_SHIFT                  8
+#define MT6359_DUMMYLOAD_DIG_MAJOR_REV_ADDR                   \
+	MT6359_DUMMYLOAD_DSN_REV0
+#define MT6359_DUMMYLOAD_DIG_MAJOR_REV_MASK                   0xF
+#define MT6359_DUMMYLOAD_DIG_MAJOR_REV_SHIFT                  12
+#define MT6359_DUMMYLOAD_DSN_CBS_ADDR                         \
+	MT6359_DUMMYLOAD_DSN_DBI
+#define MT6359_DUMMYLOAD_DSN_CBS_MASK                         0x3
+#define MT6359_DUMMYLOAD_DSN_CBS_SHIFT                        0
+#define MT6359_DUMMYLOAD_DSN_BIX_ADDR                         \
+	MT6359_DUMMYLOAD_DSN_DBI
+#define MT6359_DUMMYLOAD_DSN_BIX_MASK                         0x3
+#define MT6359_DUMMYLOAD_DSN_BIX_SHIFT                        2
+#define MT6359_DUMMYLOAD_DSN_ESP_ADDR                         \
+	MT6359_DUMMYLOAD_DSN_DBI
+#define MT6359_DUMMYLOAD_DSN_ESP_MASK                         0xFF
+#define MT6359_DUMMYLOAD_DSN_ESP_SHIFT                        8
+#define MT6359_DUMMYLOAD_DSN_FPI_ADDR                         \
+	MT6359_DUMMYLOAD_DSN_FPI
+#define MT6359_DUMMYLOAD_DSN_FPI_MASK                         0xFF
+#define MT6359_DUMMYLOAD_DSN_FPI_SHIFT                        0
+#define MT6359_RG_ISINK_TRIM_EN_ADDR                          \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK_TRIM_EN_MASK                          0x1
+#define MT6359_RG_ISINK_TRIM_EN_SHIFT                         0
+#define MT6359_RG_ISINK_TRIM_SEL_ADDR                         \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK_TRIM_SEL_MASK                         0x7
+#define MT6359_RG_ISINK_TRIM_SEL_SHIFT                        1
+#define MT6359_RG_ISINK_RSV_ADDR                              \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK_RSV_MASK                              0xF
+#define MT6359_RG_ISINK_RSV_SHIFT                             4
+#define MT6359_RG_ISINK0_CHOP_EN_ADDR                         \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK0_CHOP_EN_MASK                         0x1
+#define MT6359_RG_ISINK0_CHOP_EN_SHIFT                        8
+#define MT6359_RG_ISINK1_CHOP_EN_ADDR                         \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK1_CHOP_EN_MASK                         0x1
+#define MT6359_RG_ISINK1_CHOP_EN_SHIFT                        9
+#define MT6359_RG_ISINK0_DOUBLE_ADDR                          \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK0_DOUBLE_MASK                          0x1
+#define MT6359_RG_ISINK0_DOUBLE_SHIFT                         12
+#define MT6359_RG_ISINK1_DOUBLE_ADDR                          \
+	MT6359_DUMMYLOAD_ANA_CON0
+#define MT6359_RG_ISINK1_DOUBLE_MASK                          0x1
+#define MT6359_RG_ISINK1_DOUBLE_SHIFT                         13
+#define MT6359_ISINK0_RSV1_ADDR                               \
+	MT6359_ISINK0_CON1
+#define MT6359_ISINK0_RSV1_MASK                               0xF
+#define MT6359_ISINK0_RSV1_SHIFT                              0
+#define MT6359_ISINK0_RSV0_ADDR                               \
+	MT6359_ISINK0_CON1
+#define MT6359_ISINK0_RSV0_MASK                               0x7
+#define MT6359_ISINK0_RSV0_SHIFT                              4
+#define MT6359_ISINK_CH0_STEP_ADDR                            \
+	MT6359_ISINK0_CON1
+#define MT6359_ISINK_CH0_STEP_MASK                            0x7
+#define MT6359_ISINK_CH0_STEP_SHIFT                           12
+#define MT6359_ISINK1_RSV1_ADDR                               \
+	MT6359_ISINK1_CON1
+#define MT6359_ISINK1_RSV1_MASK                               0xF
+#define MT6359_ISINK1_RSV1_SHIFT                              0
+#define MT6359_ISINK1_RSV0_ADDR                               \
+	MT6359_ISINK1_CON1
+#define MT6359_ISINK1_RSV0_MASK                               0x7
+#define MT6359_ISINK1_RSV0_SHIFT                              4
+#define MT6359_ISINK_CH1_STEP_ADDR                            \
+	MT6359_ISINK1_CON1
+#define MT6359_ISINK_CH1_STEP_MASK                            0x7
+#define MT6359_ISINK_CH1_STEP_SHIFT                           12
+#define MT6359_AD_ISINK0_STATUS_ADDR                          \
+	MT6359_ISINK_ANA1_SMPL
+#define MT6359_AD_ISINK0_STATUS_MASK                          0x1
+#define MT6359_AD_ISINK0_STATUS_SHIFT                         0
+#define MT6359_AD_ISINK1_STATUS_ADDR                          \
+	MT6359_ISINK_ANA1_SMPL
+#define MT6359_AD_ISINK1_STATUS_MASK                          0x1
+#define MT6359_AD_ISINK1_STATUS_SHIFT                         1
+#define MT6359_ISINK_CH1_EN_ADDR                              \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CH1_EN_MASK                              0x1
+#define MT6359_ISINK_CH1_EN_SHIFT                             0
+#define MT6359_ISINK_CH0_EN_ADDR                              \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CH0_EN_MASK                              0x1
+#define MT6359_ISINK_CH0_EN_SHIFT                             1
+#define MT6359_ISINK_CHOP1_EN_ADDR                            \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CHOP1_EN_MASK                            0x1
+#define MT6359_ISINK_CHOP1_EN_SHIFT                           4
+#define MT6359_ISINK_CHOP0_EN_ADDR                            \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CHOP0_EN_MASK                            0x1
+#define MT6359_ISINK_CHOP0_EN_SHIFT                           5
+#define MT6359_ISINK_CH1_BIAS_EN_ADDR                         \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CH1_BIAS_EN_MASK                         0x1
+#define MT6359_ISINK_CH1_BIAS_EN_SHIFT                        8
+#define MT6359_ISINK_CH0_BIAS_EN_ADDR                         \
+	MT6359_ISINK_EN_CTRL_SMPL
+#define MT6359_ISINK_CH0_BIAS_EN_MASK                         0x1
+#define MT6359_ISINK_CH0_BIAS_EN_SHIFT                        9
+#define MT6359_DUMMYLOAD_ELR_LEN_ADDR                         \
+	MT6359_DUMMYLOAD_ELR_NUM
+#define MT6359_DUMMYLOAD_ELR_LEN_MASK                         0xFF
+#define MT6359_DUMMYLOAD_ELR_LEN_SHIFT                        0
+#define MT6359_RG_ISINK_TRIM_BIAS_ADDR                        \
+	MT6359_DUMMYLOAD_ELR_0
+#define MT6359_RG_ISINK_TRIM_BIAS_MASK                        0x7
+#define MT6359_RG_ISINK_TRIM_BIAS_SHIFT                       0
+
 #endif /* __MFD_MT6359_REGISTERS_H__ */
