@@ -666,9 +666,20 @@ int cvp_create_pkt_cmd_session_release_buffers(
 
 	pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
 	pkt->session_id = hash32_ptr(session);
-	pkt->buffer_type = 0xdeadbeef;
-	pkt->num_buffers = 0;
-	pkt->size = sizeof(struct hfi_cmd_session_cvp_release_buffers_packet);
+	pkt->num_buffers = buffer_info->num_buffers;
+
+	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
+		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
+		dprintk(CVP_ERR, "%s: deprecated buffer_type\n", __func__);
+		return -EINVAL;
+	}
+
+	pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
+		((buffer_info->num_buffers - 1) * sizeof(u32));
+
+	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
+	if (!pkt->buffer_type)
+		return -EINVAL;
 
 	return 0;
 }

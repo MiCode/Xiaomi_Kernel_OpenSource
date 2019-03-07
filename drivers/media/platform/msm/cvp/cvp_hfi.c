@@ -26,7 +26,6 @@
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
-#include <linux/fastcvpd.h>
 #include "hfi_packetization.h"
 #include "msm_cvp_debug.h"
 #include "cvp_core_hfi.h"
@@ -317,7 +316,7 @@ static int __dsp_suspend(struct venus_hfi_device *device, bool force, u32 flags)
 	}
 
 	dprintk(CVP_DBG, "%s: suspend dsp\n", __func__);
-	rc = fastcvpd_video_suspend(flags);
+	rc = cvp_dsp_suspend(flags);
 	if (rc) {
 		dprintk(CVP_ERR, "%s: dsp suspend failed with error %d\n",
 			__func__, rc);
@@ -342,7 +341,7 @@ static int __dsp_resume(struct venus_hfi_device *device, u32 flags)
 	}
 
 	dprintk(CVP_DBG, "%s: resume dsp\n", __func__);
-	rc = fastcvpd_video_resume(flags);
+	rc = cvp_dsp_resume(flags);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: dsp resume failed with error %d\n",
@@ -368,7 +367,7 @@ static int __dsp_shutdown(struct venus_hfi_device *device, u32 flags)
 	}
 
 	dprintk(CVP_DBG, "%s: shutdown dsp\n", __func__);
-	rc = fastcvpd_video_shutdown(flags);
+	rc = cvp_dsp_shutdown(flags);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"%s: dsp shutdown failed with error %d\n",

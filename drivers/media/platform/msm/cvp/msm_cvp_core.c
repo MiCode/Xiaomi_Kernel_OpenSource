@@ -1262,7 +1262,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	msm_cvp_debugfs_deinit_inst(inst);
 
-	pr_info(CVP_DBG_TAG "Closed video instance: %pK\n",
+	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK\n",
 			"info", inst);
 	kfree(inst);
 	return 0;
