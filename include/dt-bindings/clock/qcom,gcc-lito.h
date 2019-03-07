@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_LITO_H
 #define _DT_BINDINGS_CLK_QCOM_GCC_LITO_H
@@ -153,5 +153,8 @@
 #define GCC_UFS_PHY_BCR						12
 #define GCC_USB30_PRIM_BCR					13
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				14
+#define GCC_QUSB2PHY_PRIM_BCR					15
+#define GCC_USB3_DP_PHY_PRIM_BCR				16
+#define GCC_USB3_PHY_PRIM_BCR					17
 
 #endif
