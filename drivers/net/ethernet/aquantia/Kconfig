@@ -21,4 +21,9 @@ config AQTION
 	---help---
 	  This enables the support for the aQuantia AQtion(tm) Ethernet card.
 
+config AQFWD
+	tristate "aQuantia Forwarding driver"
+	depends on PCI && (X86_64 || ARM64)
+	---help---
+	  This enables the support for forwarding driver for the aQuantia AQtion(tm) Ethernet card.
 endif # NET_VENDOR_AQUANTIA
