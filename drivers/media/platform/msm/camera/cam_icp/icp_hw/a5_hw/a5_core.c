@@ -368,7 +368,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	uint32_t ubwc_ipe_cfg[ICP_UBWC_MAX] = {0};
 	uint32_t ubwc_bps_cfg[ICP_UBWC_MAX] = {0};
 	uint32_t index = 0;
-	int rc = 0;
+	int rc = 0, ddr_type = 0;
 
 	if (!device_priv) {
 		CAM_ERR(CAM_ICP, "Invalid arguments");
@@ -474,7 +474,9 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 		if (a5_soc->ubwc_config_ext) {
 			/* Invoke kernel API to determine DDR type */
-			if (of_fdt_get_ddrtype() == DDR_TYPE_LPDDR5)
+			ddr_type = of_fdt_get_ddrtype();
+			if ((ddr_type == DDR_TYPE_LPDDR5) ||
+				(ddr_type == DDR_TYPE_LPDDR5X))
 				index = 1;
 
 			ubwc_cfg_ext = &a5_soc->uconfig.ubwc_cfg_ext;

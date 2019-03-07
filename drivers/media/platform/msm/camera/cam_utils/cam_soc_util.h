@@ -36,8 +36,10 @@
 #define CAM_SOC_MAX_CLK             32
 
 /* DDR device types */
-#define DDR_TYPE_LPDDR4       6
-#define DDR_TYPE_LPDDR5       9
+#define DDR_TYPE_LPDDR4        6
+#define DDR_TYPE_LPDDR4X       7
+#define DDR_TYPE_LPDDR5        8
+#define DDR_TYPE_LPDDR5X       9
 
 /**
  * enum cam_vote_level - Enum for voting level
