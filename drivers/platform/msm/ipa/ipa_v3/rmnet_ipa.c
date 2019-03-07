@@ -2797,6 +2797,11 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 	if (!ipa3_rmnet_ctx.ipa_rmnet_ssr)
 		return NOTIFY_DONE;
 
+	if (!ipa3_ctx) {
+		IPAWANERR_RL("ipa3_ctx was not initialized\n");
+		return NOTIFY_DONE;
+	}
+
 	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
 		IPAWANERR("Local modem SSR event=%lu on APQ platform\n",
 			code);
@@ -4375,6 +4380,10 @@ static int __init ipa3_wwan_init(void)
 	void *ssr_hdl;
 	int rc = 0;
 
+	if (!ipa3_ctx) {
+		IPAWANERR_RL("ipa3_ctx was not initialized\n");
+		return -EINVAL;
+	}
 	rmnet_ipa3_ctx = kzalloc(sizeof(*rmnet_ipa3_ctx), GFP_KERNEL);
 
 	if (!rmnet_ipa3_ctx)
