@@ -1417,20 +1417,10 @@ static ssize_t iommu_debug_attach_read(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *offset)
 {
 	struct iommu_debug_device *ddev = file->private_data;
-	char c[2];
+	char buf[100];
 
-	if (*offset)
-		return 0;
-
-	c[0] = ddev->domain ? '1' : '0';
-	c[1] = '\n';
-	if (copy_to_user(ubuf, &c, 2)) {
-		pr_err_ratelimited("copy_to_user failed\n");
-		return -EFAULT;
-	}
-	*offset = 1;		/* non-zero means we're done */
-
-	return 2;
+	snprintf(buf, sizeof(buf), "%d\n", ddev->domain ? 1 : 0);
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_dma_attach_fops = {
@@ -1444,9 +1434,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 					       size_t count, loff_t *offset)
 {
 	char buf[100];
-	ssize_t retval;
-	size_t buflen;
-	int buf_len = sizeof(buf);
+	size_t buf_len = sizeof(buf);
 
 	if (*offset)
 		return 0;
@@ -1458,16 +1446,7 @@ static ssize_t iommu_debug_test_virt_addr_read(struct file *file,
 	else
 		snprintf(buf, buf_len, "0x%pK\n", test_virt_addr);
 
-	buflen = strlen(buf);
-	if (copy_to_user(ubuf, buf, buflen)) {
-		pr_err_ratelimited("Couldn't copy_to_user\n");
-		retval = -EFAULT;
-	} else {
-		*offset = 1;	/* non-zero means we're done */
-		retval = buflen;
-	}
-
-	return retval;
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_test_virt_addr_fops = {
@@ -1512,8 +1491,6 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 	struct iommu_debug_device *ddev = file->private_data;
 	uint64_t pte;
 	char buf[100];
-	ssize_t retval;
-	size_t buflen;
 
 	if (kptr_restrict != 0) {
 		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
@@ -1538,18 +1515,8 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 		strlcpy(buf, "FAIL\n", sizeof(buf));
 	else
 		snprintf(buf, sizeof(buf), "pte=%016llx\n", pte);
-
-	buflen = strlen(buf);
-	if (copy_to_user(ubuf, buf, buflen)) {
-		pr_err_ratelimited("Couldn't copy_to_user\n");
-		retval = -EFAULT;
-	} else {
-		*offset = 1;	/* non-zero means we're done */
-		retval = buflen;
-	}
-
 	mutex_unlock(&ddev->state_lock);
-	return retval;
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_pte_fops = {
@@ -1582,8 +1549,6 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 	struct iommu_debug_device *ddev = file->private_data;
 	phys_addr_t phys;
 	char buf[100];
-	ssize_t retval;
-	size_t buflen;
 
 	if (kptr_restrict != 0) {
 		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
@@ -1611,18 +1576,8 @@ static ssize_t iommu_debug_atos_read(struct file *file, char __user *ubuf,
 	} else {
 		snprintf(buf, 100, "%pa\n", &phys);
 	}
-
-	buflen = strlen(buf);
-	if (copy_to_user(ubuf, buf, buflen)) {
-		pr_err_ratelimited("Couldn't copy_to_user\n");
-		retval = -EFAULT;
-	} else {
-		*offset = 1;	/* non-zero means we're done */
-		retval = buflen;
-	}
-
 	mutex_unlock(&ddev->state_lock);
-	return retval;
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_atos_fops = {
@@ -1637,8 +1592,6 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	struct iommu_debug_device *ddev = file->private_data;
 	phys_addr_t phys;
 	char buf[100];
-	ssize_t retval;
-	size_t buflen;
 
 	if (kptr_restrict != 0) {
 		pr_err_ratelimited("kptr_restrict needs to be disabled.\n");
@@ -1662,18 +1615,8 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 		strlcpy(buf, "FAIL\n", sizeof(buf));
 	else
 		snprintf(buf, sizeof(buf), "%pa\n", &phys);
-
-	buflen = strlen(buf);
-	if (copy_to_user(ubuf, buf, buflen)) {
-		pr_err_ratelimited("Couldn't copy_to_user\n");
-		retval = -EFAULT;
-	} else {
-		*offset = 1;	/* non-zero means we're done */
-		retval = buflen;
-	}
-
 	mutex_unlock(&ddev->state_lock);
-	return retval;
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_dma_atos_fops = {
@@ -1875,8 +1818,6 @@ static ssize_t iommu_debug_dma_map_read(struct file *file, char __user *ubuf,
 {
 	struct iommu_debug_device *ddev = file->private_data;
 	char buf[100];
-	ssize_t retval;
-	size_t buflen;
 	dma_addr_t iova;
 
 	if (*offset)
@@ -1886,17 +1827,7 @@ static ssize_t iommu_debug_dma_map_read(struct file *file, char __user *ubuf,
 
 	iova = ddev->iova;
 	snprintf(buf, sizeof(buf), "%pa\n", &iova);
-
-	buflen = strlen(buf);
-	if (copy_to_user(ubuf, buf, buflen)) {
-		pr_err_ratelimited("Couldn't copy_to_user\n");
-		retval = -EFAULT;
-	} else {
-		*offset = 1;	/* non-zero means we're done */
-		retval = buflen;
-	}
-
-	return retval;
+	return simple_read_from_buffer(ubuf, count, offset, buf, strlen(buf));
 }
 
 static const struct file_operations iommu_debug_dma_map_fops = {
