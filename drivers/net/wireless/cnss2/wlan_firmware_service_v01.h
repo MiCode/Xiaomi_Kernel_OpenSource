@@ -380,9 +380,11 @@ struct wlfw_cap_resp_msg_v01 {
 	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1];
 	u8 num_macs_valid;
 	u8 num_macs;
+	u8 voltage_mv_valid;
+	u32 voltage_mv;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 207
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 214
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
