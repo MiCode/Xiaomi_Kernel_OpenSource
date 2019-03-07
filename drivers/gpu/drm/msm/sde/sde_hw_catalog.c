@@ -131,6 +131,8 @@
 		"NV12/5/1/1.25 AB24/5/1/1.25 XB24/5/1/1.25"
 #define DEFAULT_MAX_PER_PIPE_BW			2400000
 #define DEFAULT_AMORTIZABLE_THRESHOLD		25
+#define DEFAULT_MNOC_PORTS			2
+#define DEFAULT_AXI_BUS_WIDTH			32
 #define DEFAULT_CPU_MASK			0
 #define DEFAULT_CPU_DMA_LATENCY			PM_QOS_DEFAULT_VALUE
 
@@ -204,6 +206,8 @@ enum {
 	PERF_CPU_DMA_LATENCY,
 	PERF_QOS_LUT_MACROTILE_QSEED,
 	PERF_SAFE_LUT_MACROTILE_QSEED,
+	PERF_NUM_MNOC_PORTS,
+	PERF_AXI_BUS_WIDTH,
 	PERF_PROP_MAX,
 };
 
@@ -506,6 +510,10 @@ static struct sde_prop_type sde_perf_prop[] = {
 			false, PROP_TYPE_U32_ARRAY},
 	{PERF_SAFE_LUT_MACROTILE_QSEED, "qcom,sde-safe-lut-macrotile-qseed",
 			false, PROP_TYPE_U32_ARRAY},
+	{PERF_NUM_MNOC_PORTS, "qcom,sde-num-mnoc-ports",
+			false, PROP_TYPE_U32},
+	{PERF_AXI_BUS_WIDTH, "qcom,sde-axi-bus-width",
+			false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sspp_prop[] = {
@@ -3271,6 +3279,16 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			PROP_VALUE_ACCESS(prop_value,
 					PERF_AMORTIZABLE_THRESHOLD, 0) :
 			DEFAULT_AMORTIZABLE_THRESHOLD;
+	cfg->perf.num_mnoc_ports =
+			prop_exists[PERF_NUM_MNOC_PORTS] ?
+			PROP_VALUE_ACCESS(prop_value,
+				PERF_NUM_MNOC_PORTS, 0) :
+			DEFAULT_MNOC_PORTS;
+	cfg->perf.axi_bus_width =
+			prop_exists[PERF_AXI_BUS_WIDTH] ?
+			PROP_VALUE_ACCESS(prop_value,
+				PERF_AXI_BUS_WIDTH, 0) :
+			DEFAULT_AXI_BUS_WIDTH;
 
 	if (prop_exists[PERF_DANGER_LUT] && prop_count[PERF_DANGER_LUT] <=
 			SDE_QOS_LUT_USAGE_MAX) {

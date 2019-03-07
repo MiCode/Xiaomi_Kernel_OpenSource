@@ -185,6 +185,8 @@
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
 		qcom,sde-secure-sid-mask = <0x0000401>;
+		qcom,sde-num-mnoc-ports = <1>;
+		qcom,sde-axi-bus-width = <16>;
 
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
