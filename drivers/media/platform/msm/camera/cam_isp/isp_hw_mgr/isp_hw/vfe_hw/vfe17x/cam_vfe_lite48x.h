@@ -115,6 +115,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.eof_irq_mask                    = 0x02,
 		.error_irq_mask0                 = 0x1,
 		.error_irq_mask2                 = 0x100,
+		.subscribe_irq_mask1             = 0x3,
 		.enable_diagnostic_hw            = 0x1,
 	},
 	{
@@ -127,6 +128,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.eof_irq_mask                    = 0x20,
 		.error_irq_mask0                 = 0x2,
 		.error_irq_mask2                 = 0x200,
+		.subscribe_irq_mask1             = 0x30,
 		.enable_diagnostic_hw            = 0x1,
 	},
 	{
@@ -139,6 +141,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.eof_irq_mask                    = 0x200,
 		.error_irq_mask0                 = 0x4,
 		.error_irq_mask2                 = 0x400,
+		.subscribe_irq_mask1             = 0x300,
 		.enable_diagnostic_hw            = 0x1,
 	},
 	{
@@ -151,6 +154,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.eof_irq_mask                    = 0x2000,
 		.error_irq_mask0                 = 0x8,
 		.error_irq_mask2                 = 0x800,
+		.subscribe_irq_mask1             = 0x3000,
 		.enable_diagnostic_hw            = 0x1,
 	},
 };
@@ -356,23 +360,29 @@ static struct cam_vfe_bus_ver3_hw_info vfe48x_bus_hw_info = {
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI0,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI1,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_1,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI2,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_2,
 		},
 		{
 			.vfe_out_type  = CAM_VFE_BUS_VER3_VFE_OUT_RDI3,
 			.max_width     = -1,
 			.max_height    = -1,
+			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_3,
 		},
 	},
+	.comp_done_shift = 4,
+	.top_irq_shift   = 4,
 };
 
 static struct cam_vfe_hw_info cam_vfe_lite48x_hw_info = {

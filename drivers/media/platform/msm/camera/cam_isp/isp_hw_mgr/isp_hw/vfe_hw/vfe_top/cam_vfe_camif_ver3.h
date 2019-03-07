@@ -13,6 +13,7 @@
  * Debug values for camif module
  */
 #define CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS      BIT(0)
+#define CAM_VFE_CAMIF_EVT_MAX                      256
 
 struct cam_vfe_camif_ver3_pp_clc_reg {
 	uint32_t     hw_version;
@@ -52,10 +53,10 @@ struct cam_vfe_camif_ver3_reg_data {
 	uint32_t     sof_irq_mask;
 	uint32_t     epoch0_irq_mask;
 	uint32_t     epoch1_irq_mask;
-	uint32_t     reg_update_irq_mask;
 	uint32_t     eof_irq_mask;
 	uint32_t     error_irq_mask0;
 	uint32_t     error_irq_mask2;
+	uint32_t     subscribe_irq_mask1;
 
 	uint32_t     enable_diagnostic_hw;
 	uint32_t     pp_camif_cfg_en_shift;
@@ -76,7 +77,8 @@ int cam_vfe_camif_ver3_init(
 	struct cam_hw_intf            *hw_intf,
 	struct cam_hw_soc_info        *soc_info,
 	void                          *camif_hw_info,
-	struct cam_isp_resource_node  *camif_node);
+	struct cam_isp_resource_node  *camif_node,
+	void                          *vfe_irq_controller);
 
 int cam_vfe_camif_ver3_deinit(
 	struct cam_isp_resource_node  *camif_node);

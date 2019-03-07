@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_HW_INTF_H_
@@ -72,5 +72,9 @@ struct cam_hw_intf {
 	struct cam_hw_ops            hw_ops;
 	void                        *hw_priv;
 };
+
+/* hardware event callback function type */
+typedef int (*cam_hw_mgr_event_cb_func)(void *priv, uint32_t evt_id,
+	void *evt_data);
 
 #endif /* _CAM_HW_INTF_H_ */

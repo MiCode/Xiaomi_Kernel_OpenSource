@@ -124,6 +124,7 @@ struct cam_ife_hw_mgr_debug {
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
  * @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @is_dual                 indicate whether context is in dual VFE mode
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -160,6 +161,7 @@ struct cam_ife_hw_mgr_ctx {
 	struct completion               config_done_complete;
 	bool                            init_done;
 	bool                            is_fe_enable;
+	bool                            is_dual;
 };
 
 /**
@@ -209,39 +211,5 @@ struct cam_ife_hw_mgr {
  *
  */
 int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl);
-
-/**
- * cam_ife_mgr_do_tasklet_buf_done()
- *
- * @brief:              Main tasklet handle function for the buf done event
- *
- * @handler_priv:       Tasklet information handle
- * @evt_payload_priv:   Event payload for the handler funciton
- *
- */
-int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv, void *evt_payload_priv);
-
-/**
- * cam_ife_mgr_do_tasklet()
- *
- * @brief:              Main tasklet handle function for mux resource events
- *
- * @handler_priv:       Tasklet information handle
- * @evt_payload_priv:   Event payload for the handler funciton
- *
- */
-int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv);
-
-/**
- * cam_ife_mgr_do_tasklet_reg_update()
- *
- * @brief:              Tasklet handle function for reg update
- *
- * @handler_priv:       Tasklet information handle
- * @evt_payload_priv:   Event payload for the handler funciton
- *
- */
-int cam_ife_mgr_do_tasklet_reg_update(void *handler_priv,
-	void *evt_payload_priv);
 
 #endif /* _CAM_IFE_HW_MGR_H_ */

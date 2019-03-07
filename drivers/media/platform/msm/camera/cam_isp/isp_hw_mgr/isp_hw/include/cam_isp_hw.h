@@ -8,9 +8,9 @@
 
 #include <linux/completion.h>
 #include "cam_hw.h"
-#include <uapi/media/cam_isp.h>
 #include "cam_soc_util.h"
 #include "cam_irq_controller.h"
+#include "cam_hw_intf.h"
 #include <uapi/media/cam_isp.h>
 
 /*
@@ -150,6 +150,24 @@ struct cam_isp_resource_node {
 		uint32_t cmd_type, void *cmd_args, uint32_t arg_size);
 	CAM_IRQ_HANDLER_TOP_HALF       top_half_handler;
 	CAM_IRQ_HANDLER_BOTTOM_HALF    bottom_half_handler;
+};
+
+/*
+ * struct cam_isp_hw_event_info:
+ *
+ * @Brief:          Structure to pass event details to hw mgr
+ *
+ * @res_type:       Type of IFE resource
+ * @res_id:         Unique resource ID
+ * @hw_idx:         IFE hw index
+ * @err_type:       Error type if any
+ *
+ */
+struct cam_isp_hw_event_info {
+	enum cam_isp_resource_type     res_type;
+	uint32_t                       res_id;
+	uint32_t                       hw_idx;
+	uint32_t                       err_type;
 };
 
 /*

@@ -52,6 +52,7 @@ struct cam_vfe_top_ver3_hw_info {
 int cam_vfe_top_ver3_init(struct cam_hw_soc_info     *soc_info,
 	struct cam_hw_intf                           *hw_intf,
 	void                                         *top_hw_info,
+	void                                         *vfe_irq_controller,
 	struct cam_vfe_top                          **vfe_top);
 
 int cam_vfe_top_ver3_deinit(struct cam_vfe_top      **vfe_top);

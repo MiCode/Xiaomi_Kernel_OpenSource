@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_CAMIF_VER2_H_
@@ -13,6 +13,8 @@
  * Debug values for camif module
  */
 #define CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS      BIT(0)
+
+#define CAM_VFE_CAMIF_EVT_MAX                      256
 
 struct cam_vfe_camif_ver2_reg {
 	uint32_t     camif_cmd;
@@ -63,6 +65,8 @@ struct cam_vfe_camif_reg_data {
 	uint32_t     eof_irq_mask;
 	uint32_t     error_irq_mask0;
 	uint32_t     error_irq_mask1;
+	uint32_t     subscribe_irq_mask0;
+	uint32_t     subscribe_irq_mask1;
 
 	uint32_t     enable_diagnostic_hw;
 };
@@ -81,7 +85,8 @@ int cam_vfe_camif_ver2_init(
 	struct cam_hw_intf            *hw_intf,
 	struct cam_hw_soc_info        *soc_info,
 	void                          *camif_hw_info,
-	struct cam_isp_resource_node  *camif_node);
+	struct cam_isp_resource_node  *camif_node,
+	void                          *vfe_irq_controller);
 
 int cam_vfe_camif_ver2_deinit(
 	struct cam_isp_resource_node  *camif_node);

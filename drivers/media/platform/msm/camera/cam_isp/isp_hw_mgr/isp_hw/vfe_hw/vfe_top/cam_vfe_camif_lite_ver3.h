@@ -10,6 +10,7 @@
 #include "cam_vfe_top.h"
 
 #define CAM_VFE_RDI_VER2_MAX 4
+#define CAM_VFE_CAMIF_LITE_EVT_MAX 256
 
 struct cam_vfe_camif_lite_ver3_reg {
 	uint32_t     lite_hw_version;
@@ -35,6 +36,7 @@ struct cam_vfe_camif_lite_ver3_reg_data {
 	uint32_t     eof_irq_mask;
 	uint32_t     error_irq_mask0;
 	uint32_t     error_irq_mask2;
+	uint32_t     subscribe_irq_mask1;
 	uint32_t     enable_diagnostic_hw;
 };
 
@@ -52,7 +54,8 @@ int cam_vfe_camif_lite_ver3_init(
 	struct cam_hw_intf            *hw_intf,
 	struct cam_hw_soc_info        *soc_info,
 	void                          *camif_lite_hw_info,
-	struct cam_isp_resource_node  *camif_lite_node);
+	struct cam_isp_resource_node  *camif_lite_node,
+	void                          *vfe_irq_controller);
 
 int cam_vfe_camif_lite_ver3_deinit(
 	struct cam_isp_resource_node  *camif_node);

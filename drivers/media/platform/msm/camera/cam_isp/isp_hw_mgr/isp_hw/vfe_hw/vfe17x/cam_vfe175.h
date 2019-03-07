@@ -75,6 +75,8 @@ static struct cam_vfe_camif_reg_data vfe_175_camif_reg_data = {
 	.eof_irq_mask                    = 0x00000002,
 	.error_irq_mask0                 = 0x0003FC00,
 	.error_irq_mask1                 = 0xEFFF7E80,
+	.subscribe_irq_mask0             = 0x00000017,
+	.subscribe_irq_mask1             = 0x00000000,
 	.enable_diagnostic_hw            = 0x1,
 };
 
@@ -94,8 +96,10 @@ static struct cam_vfe_camif_lite_ver2_reg_data vfe175_camif_lite_reg_data = {
 	.lite_epoch0_irq_mask            = 0x00100000,
 	.dual_pd_reg_upd_irq_mask        = 0x04000000,
 	.lite_eof_irq_mask               = 0x00080000,
-	.lite_error_irq_mask0            = 0x00400000,
-	.lite_error_irq_mask1            = 0x00004100,
+	.lite_err_irq_mask0              = 0x00400000,
+	.lite_err_irq_mask1              = 0x00004100,
+	.lite_subscribe_irq_mask0        = 0x001C0000,
+	.lite_subscribe_irq_mask1        = 0x0,
 	.extern_reg_update_shift         = 4,
 	.dual_pd_path_sel_shift          = 24,
 };
@@ -149,6 +153,13 @@ static struct cam_vfe_rdi_ver2_reg vfe175_rdi_reg = {
 	.reg_update_cmd           = 0x000004AC,
 };
 
+static struct cam_vfe_rdi_common_reg_data vfe175_rdi_reg_data = {
+	.subscribe_irq_mask0      = 0x780001E0,
+	.subscribe_irq_mask1      = 0x0,
+	.error_irq_mask0          = 0x0,
+	.error_irq_mask1          = 0x3C,
+};
+
 static struct cam_vfe_rdi_reg_data  vfe_175_rdi_0_data = {
 	.reg_update_cmd_data      = 0x2,
 	.sof_irq_mask             = 0x8000000,
@@ -180,8 +191,9 @@ static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 		.reg_data       = &vfe175_camif_lite_reg_data,
 		},
 	.rdi_hw_info = {
-		.common_reg = &vfe175_top_common_reg,
-		.rdi_reg    = &vfe175_rdi_reg,
+		.common_reg      = &vfe175_top_common_reg,
+		.rdi_reg         = &vfe175_rdi_reg,
+		.common_reg_data = &vfe175_rdi_reg_data,
 		.reg_data = {
 			&vfe_175_rdi_0_data,
 			&vfe_175_rdi_1_data,

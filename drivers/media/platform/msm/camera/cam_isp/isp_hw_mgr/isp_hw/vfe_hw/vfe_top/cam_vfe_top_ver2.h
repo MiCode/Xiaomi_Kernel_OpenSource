@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_VFE_TOP_VER2_H_
@@ -56,7 +56,8 @@ struct cam_vfe_top_ver2_hw_info {
 int cam_vfe_top_ver2_init(struct cam_hw_soc_info     *soc_info,
 	struct cam_hw_intf                           *hw_intf,
 	void                                         *top_hw_info,
-	struct cam_vfe_top                          **vfe_top);
+	void                                         *vfe_irq_controller,
+	struct cam_vfe_top                          **vfe_top_ptr);
 
 int cam_vfe_top_ver2_deinit(struct cam_vfe_top      **vfe_top);
 

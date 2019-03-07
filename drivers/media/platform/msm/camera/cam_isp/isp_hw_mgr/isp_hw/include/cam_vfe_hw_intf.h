@@ -112,7 +112,6 @@ struct cam_vfe_hw_get_hw_cap {
  *                           (Default is Master in case of Single VFE)
  * @dual_slave_core:         If Master and Slave exists, HW Index of Slave
  * @cdm_ops:                 CDM operations
- * @ctx:                     Context data
  */
 struct cam_vfe_hw_vfe_out_acquire_args {
 	struct cam_isp_resource_node      *rsrc_node;
@@ -123,7 +122,6 @@ struct cam_vfe_hw_vfe_out_acquire_args {
 	uint32_t                           is_master;
 	uint32_t                           dual_slave_core;
 	struct cam_cdm_utils_ops          *cdm_ops;
-	void                              *ctx;
 };
 
 /*
@@ -153,6 +151,8 @@ struct cam_vfe_hw_vfe_in_acquire_args {
  * @tasklet:                 Tasklet to associate with this resource. This is
  *                           used to schedule bottom of IRQ events associated
  *                           with this resource.
+ * @priv:                    Context data
+ * @event_cb:                Callback function to hw mgr in case of hw events
  * @vfe_out:                 Acquire args for VFE_OUT
  * @vfe_bus_rd               Acquire args for VFE_BUS_READ
  * @vfe_in:                  Acquire args for VFE_IN
@@ -160,6 +160,8 @@ struct cam_vfe_hw_vfe_in_acquire_args {
 struct cam_vfe_acquire_args {
 	enum cam_isp_resource_type           rsrc_type;
 	void                                *tasklet;
+	void                                *priv;
+	cam_hw_mgr_event_cb_func             event_cb;
 	union {
 		struct cam_vfe_hw_vfe_out_acquire_args  vfe_out;
 		struct cam_vfe_hw_vfe_out_acquire_args  vfe_bus_rd;
@@ -227,24 +229,14 @@ struct cam_vfe_bw_control_args {
  *                           related to VFE_TOP resources
  *
  * @list:                    list_head node for the payload
- * @core_index:              Index of VFE HW that generated this IRQ event
- * @core_info:               Private data of handler in bottom half context
- * @evt_id:                  IRQ event
  * @irq_reg_val:             IRQ and Error register values, read when IRQ was
  *                           handled
- * @error_type:              Identify different errors
  * @ts:                      Timestamp
- * @hw_version:              CPAS hw version
  */
 struct cam_vfe_top_irq_evt_payload {
-	struct list_head           list;
-	uint32_t                   core_index;
-	void                      *core_info;
-	uint32_t                   evt_id;
-	uint32_t                   irq_reg_val[CAM_IFE_IRQ_REGISTERS_MAX];
-	uint32_t                   error_type;
-	struct cam_isp_timestamp   ts;
-	uint32_t                   hw_version;
+	struct list_head            list;
+	uint32_t                    irq_reg_val[CAM_IFE_IRQ_REGISTERS_MAX];
+	struct cam_isp_timestamp    ts;
 };
 
 /*
@@ -261,7 +253,6 @@ struct cam_vfe_top_irq_evt_payload {
  *                           handled
  * @error_type:              Identify different errors
  * @ts:                      Timestamp
- * @ctx:                     Context data received during acquire
  */
 struct cam_vfe_bus_irq_evt_payload {
 	struct list_head            list;
@@ -271,32 +262,8 @@ struct cam_vfe_bus_irq_evt_payload {
 	uint32_t                    overflow_status;
 	uint32_t                    image_size_violation_status;
 	uint32_t                    evt_id;
-	uint32_t                    irq_reg_val[CAM_IFE_IRQ_BUS_VER3_REG_MAX];
-	uint32_t                    error_type;
+	uint32_t                    irq_reg_val[CAM_IFE_BUS_IRQ_REGISTERS_MAX];
 	struct cam_isp_timestamp    ts;
-	void                       *ctx;
-};
-
-/*
- * struct cam_vfe_irq_handler_priv:
- *
- * @Brief:                   This structure is used as private data to
- *                           register with IRQ controller. It has information
- *                           needed by top half and bottom half.
- *
- * @core_index:              Index of VFE HW that generated this IRQ event
- * @core_info:               Private data of handler in bottom half context
- * @mem_base:                Mapped base address of the register space
- * @reset_complete:          Completion structure to be signaled if Reset IRQ
- *                           is Set
- * @hw_version:              CPAS hw version
- */
-struct cam_vfe_irq_handler_priv {
-	uint32_t                     core_index;
-	void                        *core_info;
-	void __iomem                *mem_base;
-	struct completion           *reset_complete;
-	uint32_t                     hw_version;
 };
 
 /**

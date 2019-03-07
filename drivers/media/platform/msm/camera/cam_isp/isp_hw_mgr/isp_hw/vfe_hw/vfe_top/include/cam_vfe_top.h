@@ -34,7 +34,8 @@ int cam_vfe_top_init(uint32_t          top_version,
 	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,
 	void                          *top_hw_info,
-	struct cam_vfe_top            **vfe_top);
+	void                          *vfe_irq_controller,
+	struct cam_vfe_top           **vfe_top);
 
 int cam_vfe_top_deinit(uint32_t        top_version,
 	struct cam_vfe_top           **vfe_top);

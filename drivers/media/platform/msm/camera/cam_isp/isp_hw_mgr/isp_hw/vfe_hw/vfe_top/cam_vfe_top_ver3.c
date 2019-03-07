@@ -13,8 +13,10 @@
 #include "cam_cpas_api.h"
 #include "cam_vfe_soc.h"
 
-#define CAM_VFE_HW_RESET_HW_AND_REG_VAL  0x00000003
-#define CAM_VFE_HW_RESET_HW_VAL          0x007F0000
+#define CAM_VFE_HW_RESET_HW_AND_REG_VAL       0x00000003
+#define CAM_VFE_HW_RESET_HW_VAL               0x007F0000
+#define CAM_VFE_LITE_HW_RESET_AND_REG_VAL     0x00000002
+#define CAM_VFE_LITE_HW_RESET_HW_VAL          0x0000003D
 #define CAM_VFE_DELAY_BW_REDUCTION_NUM_FRAMES 3
 
 struct cam_vfe_top_ver3_common_data {
@@ -436,20 +438,33 @@ int cam_vfe_top_ver3_reset(void *device_priv,
 		return -EINVAL;
 	}
 
+	soc_info = top_priv->common_data.soc_info;
+	reg_common = top_priv->common_data.common_reg;
+
 	switch (*reset_reg_args) {
 	case CAM_VFE_HW_RESET_HW_AND_REG:
-		reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+		if (strnstr(soc_info->compatible, "lite",
+			strlen(soc_info->compatible)) == NULL)
+			reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+		else
+			reset_reg_val = CAM_VFE_LITE_HW_RESET_AND_REG_VAL;
 		break;
 	default:
-		reset_reg_val = CAM_VFE_HW_RESET_HW_VAL;
+		if (strnstr(soc_info->compatible, "lite",
+			strlen(soc_info->compatible)) == NULL)
+			reset_reg_val = CAM_VFE_HW_RESET_HW_VAL;
+		else
+			reset_reg_val = CAM_VFE_LITE_HW_RESET_HW_VAL;
 		break;
 	}
 	/* override due to hw limitation */
-	reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+	if (strnstr(soc_info->compatible, "lite",
+		strlen(soc_info->compatible)) == NULL)
+		reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
+	else
+		reset_reg_val = CAM_VFE_LITE_HW_RESET_AND_REG_VAL;
 
-	CAM_DBG(CAM_ISP, "reset reg value: %x", reset_reg_val);
-	soc_info = top_priv->common_data.soc_info;
-	reg_common = top_priv->common_data.common_reg;
+	CAM_DBG(CAM_ISP, "reset reg value: 0x%x", reset_reg_val);
 
 	/* Mask All the IRQs except RESET */
 	if (strnstr(soc_info->compatible, "lite",
@@ -711,6 +726,7 @@ int cam_vfe_top_ver3_init(
 	struct cam_hw_soc_info                 *soc_info,
 	struct cam_hw_intf                     *hw_intf,
 	void                                   *top_hw_info,
+	void                                   *vfe_irq_controller,
 	struct cam_vfe_top                    **vfe_top_ptr)
 {
 	int i, j, rc = 0;
@@ -768,7 +784,7 @@ int cam_vfe_top_ver3_init(
 
 			rc = cam_vfe_camif_ver3_init(hw_intf, soc_info,
 				&ver3_hw_info->camif_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else if (ver3_hw_info->mux_type[i] ==
@@ -779,7 +795,7 @@ int cam_vfe_top_ver3_init(
 
 			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
 				&ver3_hw_info->pdlib_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else if (ver3_hw_info->mux_type[i] ==
@@ -801,7 +817,7 @@ int cam_vfe_top_ver3_init(
 
 			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
 				ver3_hw_info->rdi_hw_info[j++],
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else if (ver3_hw_info->mux_type[i] ==
@@ -812,7 +828,7 @@ int cam_vfe_top_ver3_init(
 
 			rc = cam_vfe_camif_lite_ver3_init(hw_intf, soc_info,
 				&ver3_hw_info->lcr_hw_info,
-				&top_priv->mux_rsrc[i]);
+				&top_priv->mux_rsrc[i], vfe_irq_controller);
 			if (rc)
 				goto deinit_resources;
 		} else {

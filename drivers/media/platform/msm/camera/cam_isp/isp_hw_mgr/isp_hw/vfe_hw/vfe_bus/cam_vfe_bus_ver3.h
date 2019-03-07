@@ -158,6 +158,7 @@ struct cam_vfe_bus_ver3_vfe_out_hw_info {
 	enum cam_vfe_bus_ver3_vfe_out_type  vfe_out_type;
 	uint32_t                            max_width;
 	uint32_t                            max_height;
+	uint32_t                            source_group;
 };
 
 /*
@@ -166,9 +167,11 @@ struct cam_vfe_bus_ver3_vfe_out_hw_info {
  * @Brief:            HW register info for entire Bus
  *
  * @common_reg:       Common register details
+ * @num_client:       Total number of write clients
  * @bus_client_reg:   Bus client register info
- * @comp_reg_grp:     Composite group register info
  * @vfe_out_hw_info:  VFE output capability
+ * @comp_done_shift:  Mask shift for comp done mask
+ * @top_irq_shift:    Mask shift for top level BUS WR irq
  */
 struct cam_vfe_bus_ver3_hw_info {
 	struct cam_vfe_bus_ver3_reg_offset_common common_reg;
@@ -178,6 +181,8 @@ struct cam_vfe_bus_ver3_hw_info {
 	uint32_t num_out;
 	struct cam_vfe_bus_ver3_vfe_out_hw_info
 		vfe_out_hw_info[CAM_VFE_BUS_VER3_VFE_OUT_MAX];
+	uint32_t comp_done_shift;
+	uint32_t top_irq_shift;
 };
 
 /*
