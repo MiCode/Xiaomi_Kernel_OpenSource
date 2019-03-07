@@ -16,5 +16,6 @@
 #define AUDIO_LPASS_MCLK_6	7
 #define AUDIO_LPASS_MCLK_7	8
 #define AUDIO_LPASS_CORE_HW_VOTE	9
+#define AUDIO_LPASS_MCLK_8	10
 
 #endif
