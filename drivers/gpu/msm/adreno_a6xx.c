@@ -2836,6 +2836,22 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a6xx_efuse_gaming_bin(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+	unsigned int gaming_bin[3];
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		"qcom,gpu-gaming-bin", gaming_bin, 3))
+		return;
+
+	adreno_efuse_read_u32(adreno_dev, gaming_bin[0], &val);
+
+	/* If fuse bit is set that means its not a gaming bin */
+	adreno_dev->gaming_bin = !((val & gaming_bin[1]) >> gaming_bin[2]);
+}
+
 static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
@@ -2858,6 +2874,7 @@ static const struct {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
 	{ adreno_is_a610, a6xx_efuse_speed_bin },
+	{ adreno_is_a610, a6xx_efuse_gaming_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)
