@@ -18,6 +18,8 @@
 #ifndef __ASM_GENERIC_QSPINLOCK_TYPES_H
 #define __ASM_GENERIC_QSPINLOCK_TYPES_H
 
+#include <asm/byteorder.h>
+
 /*
  * Including atomic.h with PARAVIRT on will cause compilation errors because
  * of recursive header file incluson via paravirt_types.h. So don't include

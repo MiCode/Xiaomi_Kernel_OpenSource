@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,6 +571,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* sdxpoorwills ID */
 	[334] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
 	[335] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
+	[408] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
 
 	/* 9650 IDs */
 	[279] = {MSM_CPU_9650, "MDM9650"},

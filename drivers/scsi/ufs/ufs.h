@@ -505,6 +505,7 @@ struct ufs_dev_info {
 	u8	b_device_sub_class;
 	u16	w_manufacturer_id;
 	u8	i_product_name;
+	u16	w_spec_version;
 
 	/* query flags */
 	bool f_power_on_wp_en;
