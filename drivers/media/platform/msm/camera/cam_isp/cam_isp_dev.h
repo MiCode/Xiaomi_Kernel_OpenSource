@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,15 +25,12 @@
  * @sd:                    Commone camera subdevice node
  * @ctx:                   Isp base context storage
  * @ctx_isp:               Isp private context storage
- * @isp_mutex:             ISP dev mutex
- * @open_cnt:              Open device count
+ *
  */
 struct cam_isp_dev {
 	struct cam_subdev          sd;
 	struct cam_context         ctx[CAM_CTX_MAX];
 	struct cam_isp_context     ctx_isp[CAM_CTX_MAX];
-	struct mutex               isp_mutex;
-	int32_t                    open_cnt;
 };
 
 #endif /* __CAM_ISP_DEV_H__ */

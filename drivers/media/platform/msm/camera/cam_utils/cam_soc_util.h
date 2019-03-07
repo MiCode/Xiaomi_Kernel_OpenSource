@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +23,6 @@
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk/qcom.h>
-#include <linux/debugfs.h>
 
 #include "cam_io_util.h"
 
@@ -44,22 +44,20 @@
 /* soc id */
 #define SDM670_SOC_ID 336
 #define SDM710_SOC_ID 360
-#define SDM712_SOC_ID 393
 
 /* Minor Version */
 #define SDM670_V1_1 0x1
 /**
  * enum cam_vote_level - Enum for voting level
  *
- * @CAM_SUSPEND_VOTE  : Suspend vote
- * @CAM_MINSVS_VOTE   : Min SVS vote
- * @CAM_LOWSVS_VOTE   : Low SVS vote
- * @CAM_SVS_VOTE      : SVS vote
- * @CAM_SVSL1_VOTE    : SVS Plus vote
- * @CAM_NOMINAL_VOTE  : Nominal vote
- * @CAM_NOMINALL1_VOTE: Nominal plus vote
- * @CAM_TURBO_VOTE    : Turbo vote
- * @CAM_MAX_VOTE      : Max voting level, This is invalid level.
+ * @CAM_SUSPEND_VOTE : Suspend vote
+ * @CAM_MINSVS_VOTE  : Min SVS vote
+ * @CAM_LOWSVS_VOTE  : Low SVS vote
+ * @CAM_SVS_VOTE     : SVS vote
+ * @CAM_SVSL1_VOTE   : SVS Plus vote
+ * @CAM_NOMINAL_VOTE : Nominal vote
+ * @CAM_TURBO_VOTE   : Turbo vote
+ * @CAM_MAX_VOTE     : Max voting level, This is invalid level.
  */
 enum cam_vote_level {
 	CAM_SUSPEND_VOTE,
@@ -68,7 +66,6 @@ enum cam_vote_level {
 	CAM_SVS_VOTE,
 	CAM_SVSL1_VOTE,
 	CAM_NOMINAL_VOTE,
-	CAM_NOMINALL1_VOTE,
 	CAM_TURBO_VOTE,
 	CAM_MAX_VOTE,
 };
@@ -160,9 +157,6 @@ struct cam_soc_gpio_data {
  * @clk_level_valid:        Indicates whether corresponding level is valid
  * @gpio_data:              Pointer to gpio info
  * @pinctrl_info:           Pointer to pinctrl info
- * @dentry:                 Debugfs entry
- * @clk_level_override:     Clk level set from debugfs
- * @clk_control:            Enable/disable clk rate control through debugfs
  * @soc_private:            Soc private data
  */
 struct cam_hw_soc_info {
@@ -203,10 +197,6 @@ struct cam_hw_soc_info {
 
 	struct cam_soc_gpio_data       *gpio_data;
 	struct cam_soc_pinctrl_info     pinctrl_info;
-
-	struct dentry                  *dentry;
-	uint32_t                        clk_level_override;
-	bool                            clk_control_enable;
 
 	void                           *soc_private;
 };
@@ -381,16 +371,17 @@ int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
 	 uint32_t clk_index, unsigned long flags);
 
 /**
- * cam_soc_util_set_src_clk_rate()
+ * cam_soc_util_set_clk_rate()
  *
- * @brief:              Set the rate on the source clock.
+ * @brief:              Set the rate on a given clock.
  *
- * @soc_info:           Device soc information
- * @clk_rate:           Clock rate associated with the src clk
+ * @clk:                Clock that needs to be set
+ * @clk_name:           Clocks name associated with clk
+ * @clk_rate:           Clocks rate associated with clk
  *
  * @return:             success or failure
  */
-int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
+int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate);
 
 /**

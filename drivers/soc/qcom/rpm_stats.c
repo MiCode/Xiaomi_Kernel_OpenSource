@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +47,7 @@ struct msm_rpmstats_private_data {
 	u32 num_records;
 	u32 read_idx;
 	u32 len;
-	char buf[480];
+	char buf[320];
 	struct msm_rpmstats_platform_data *platform_data;
 };
 
@@ -179,7 +180,6 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 {
 	struct msm_rpmstats_private_data prvdata;
 	struct msm_rpmstats_platform_data *pdata = NULL;
-	ssize_t length;
 
 	pdata = GET_PDATA_OF_ATTR(attr);
 
@@ -193,14 +193,12 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 
 	prvdata.read_idx = prvdata.len = 0;
 	prvdata.platform_data = pdata;
-	prvdata.num_records = pdata->num_records;
+	prvdata.num_records = RPM_STATS_NUM_REC;
 
 	if (prvdata.read_idx < prvdata.num_records)
 		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
-	length = scnprintf(buf, prvdata.len, "%s", prvdata.buf);
-	iounmap(prvdata.reg_base);
-	return length;
+	return snprintf(buf, prvdata.len, "%s", prvdata.buf);
 }
 
 static int msm_rpmstats_create_sysfs(struct platform_device *pdev,

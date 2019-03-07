@@ -2972,12 +2972,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		 * drivers published by usbif.
 		 * Linux rndis host driver supports MISC_ACTIVE_SYNC and
 		 * WIRELESS_CONTROLLER_REMOTE_NDIS as of now.
-		 * Default to rndis over ethernet which loads NDIS6 drivers
-		 * for windows7/windows10 to avoid data stall issues
 		 */
-		if (gsi->rndis_id == RNDIS_ID_UNKNOWN)
-			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
-
 		switch (gsi->rndis_id) {
 		default:
 			/* fall throug */

@@ -2,6 +2,7 @@
  *  linux/mm/vmscan.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  *  Swap reorganised 29.12.95, Stephen Tweedie.
  *  kswapd added: 7.1.96  sct
@@ -2390,6 +2391,15 @@ out:
 	}
 }
 
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+int __weak reclaimed_time_clock(void)
+{
+	return 0;
+}
+
+void __weak update_task_anon_cur(u64 delta) {}
+#endif
+
 /*
  * This is a basic per-node page freer.  Used by both kswapd and direct reclaim.
  */
@@ -2405,6 +2415,9 @@ static void shrink_node_memcg(struct pglist_data *pgdat, struct mem_cgroup *memc
 	unsigned long nr_to_reclaim = sc->nr_to_reclaim;
 	struct blk_plug plug;
 	bool scan_adjusted;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 anon_reclaimed_stamp = 0;
+#endif
 
 	get_scan_count(lruvec, memcg, sc, nr, lru_pages);
 
@@ -2435,9 +2448,18 @@ static void shrink_node_memcg(struct pglist_data *pgdat, struct mem_cgroup *memc
 			if (nr[lru]) {
 				nr_to_scan = min(nr[lru], SWAP_CLUSTER_MAX);
 				nr[lru] -= nr_to_scan;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+				if (!is_file_lru(lru))
+					anon_reclaimed_stamp = reclaimed_time_clock();
 
 				nr_reclaimed += shrink_list(lru, nr_to_scan,
 							    lruvec, sc);
+				if (!is_file_lru(lru))
+					update_task_anon_cur(reclaimed_time_clock() - anon_reclaimed_stamp);
+#else
+				nr_reclaimed += shrink_list(lru, nr_to_scan,
+							    lruvec, sc);
+#endif
 			}
 		}
 
@@ -2504,9 +2526,17 @@ static void shrink_node_memcg(struct pglist_data *pgdat, struct mem_cgroup *memc
 	 * Even if we did not try to evict anon pages at all, we want to
 	 * rebalance the anon lru active/inactive ratio.
 	 */
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	anon_reclaimed_stamp = reclaimed_time_clock();
 	if (inactive_list_is_low(lruvec, false, sc))
 		shrink_active_list(SWAP_CLUSTER_MAX, lruvec,
 				   sc, LRU_ACTIVE_ANON);
+	update_task_anon_cur(reclaimed_time_clock() - anon_reclaimed_stamp);
+#else
+	if (inactive_list_is_low(lruvec, false, sc))
+		shrink_active_list(SWAP_CLUSTER_MAX, lruvec,
+				   sc, LRU_ACTIVE_ANON);
+#endif
 }
 
 /* Use reclaim/compaction for costly allocs or under memory pressure */
@@ -3506,6 +3536,10 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 	finish_wait(&pgdat->kswapd_wait, &wait);
 }
 
+#if defined(CONFIG_ANDROID_WHETSTONE)
+extern void wakeup_kmemsw_chkd(void);
+#endif
+
 /*
  * The background pageout daemon, started as a kernel thread
  * from the init process.
@@ -3592,6 +3626,9 @@ kswapd_try_sleep:
 		trace_mm_vmscan_kswapd_wake(pgdat->node_id, classzone_idx,
 						alloc_order);
 		reclaim_order = balance_pgdat(pgdat, alloc_order, classzone_idx);
+#if defined(CONFIG_ANDROID_WHETSTONE)
+                                 wakeup_kmemsw_chkd();
+#endif
 		if (reclaim_order < alloc_order)
 			goto kswapd_try_sleep;
 	}

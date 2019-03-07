@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,13 +147,11 @@
 	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
 
 	asoc-codec = <&stub_codec>, <&msm_digital_codec>,
-		     <&pmic_analog_codec>, <&msm_sdw_codec>,
-		     <&ext_disp_audio_codec>;
+		     <&pmic_analog_codec>, <&msm_sdw_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
-			   "analog-codec", "msm_sdw_codec",
-			   "msm-ext-disp-audio-codec-rx";
+			   "analog-codec", "msm_sdw_codec";
 
-	qcom,wsa-max-devs = <2>;
+	qcom,wsa-max-devs = <0>;
 	qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,
 			<&wsa881x_213_en>, <&wsa881x_214_en>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
@@ -166,7 +165,14 @@
 		pinctrl-0 = <&wcd_usbc_analog_en1_active>;
 		pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
 	};
-
+/*
+    wcd_gnd_mic_swap_gpio: msm_cdc_pinctrl_gnd_mic_swap {
+	compatible = "qcom,msm-cdc-pinctrl";
+	pinctrl-names = "aud_active", "aud_sleep";
+	pinctrl-0 = <&wcd_gnd_mic_swap_active>;
+	pinctrl-1 = <&wcd_gnd_mic_swap_idle>;
+	};
+*/
 	cdc_pdm_gpios: cdc_pdm_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -198,6 +204,7 @@
 	};
 
 	cdc_sdw_gpios: sdw_clk_data_pinctrl {
+		status = "disable";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
@@ -205,6 +212,7 @@
 	};
 
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+		status = "disable";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_1_sd_n_active>;
@@ -212,6 +220,7 @@
 	};
 
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+		status = "disable";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&spkr_2_sd_n_active>;

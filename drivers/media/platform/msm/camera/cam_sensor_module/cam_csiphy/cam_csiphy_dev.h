@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,11 +59,6 @@
 #define CSIPHY_SETTLE_CNT_HIGHER_BYTE    3
 #define CSIPHY_DNP_PARAMS                4
 
-#define CSIPHY_MAX_INSTANCES     2
-
-#define CAM_CSIPHY_MAX_DPHY_LANES    4
-#define CAM_CSIPHY_MAX_CPHY_LANES    3
-
 #define ENABLE_IRQ false
 
 #undef CDBG
@@ -106,12 +102,6 @@ struct csiphy_reg_parms_t {
 	uint32_t csiphy_reset_array_size;
 	uint32_t csiphy_2ph_config_array_size;
 	uint32_t csiphy_3ph_config_array_size;
-	uint32_t csiphy_cpas_cp_bits_per_phy;
-	uint32_t csiphy_cpas_cp_is_interleaved;
-	uint32_t csiphy_cpas_cp_2ph_offset;
-	uint32_t csiphy_cpas_cp_3ph_offset;
-	uint32_t csiphy_clock_lane;
-	uint32_t csiphy_combo_clk_lane;
 };
 
 /**
@@ -122,9 +112,9 @@ struct csiphy_reg_parms_t {
  * @crm_cb: Callback API pointers
  */
 struct intf_params {
-	int32_t device_hdl[CSIPHY_MAX_INSTANCES];
-	int32_t session_hdl[CSIPHY_MAX_INSTANCES];
-	int32_t link_hdl[CSIPHY_MAX_INSTANCES];
+	int32_t device_hdl[2];
+	int32_t session_hdl[2];
+	int32_t link_hdl[2];
 	struct cam_req_mgr_kmd_ops ops;
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
@@ -186,7 +176,7 @@ struct cam_csiphy_param {
 	uint8_t     csiphy_3phase;
 	uint8_t     combo_mode;
 	uint8_t     lane_cnt;
-	uint8_t     secure_mode[CSIPHY_MAX_INSTANCES];
+	uint8_t     secure_mode;
 	uint64_t    settle_time;
 	uint64_t    settle_time_combo_sensor;
 	uint64_t    data_rate;
@@ -209,6 +199,7 @@ struct cam_csiphy_param {
  * @csiphy_reg_ptr: Regulator structure
  * @csiphy_3p_clk_info: 3Phase clock information
  * @csiphy_3p_clk: 3Phase clocks structure
+ * @csiphy_clk_index: Timer Src clk index
  * @csi_3phase: Is it a 3Phase mode
  * @ref_count: Reference count
  * @clk_lane: Clock lane
@@ -226,6 +217,7 @@ struct csiphy_device {
 	uint32_t csiphy_max_clk;
 	struct msm_cam_clk_info csiphy_3p_clk_info[2];
 	struct clk *csiphy_3p_clk[2];
+	uint32_t csiphy_clk_index;
 	unsigned char csi_3phase;
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
@@ -242,7 +234,6 @@ struct csiphy_device {
 	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
 	uint32_t config_count;
-	uint64_t csiphy_cpas_cp_reg_mask[CSIPHY_MAX_INSTANCES];
 };
 
 #endif /* _CAM_CSIPHY_DEV_H_ */

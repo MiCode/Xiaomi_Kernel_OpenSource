@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +189,6 @@ static int nx30p6093_read_impedance_status(struct nx30p6093_info *info)
 			>> NX30P6093_IMPEDANCE_SHIFT;
 	if (impedance == NX30P6093_IMPEDANCE_GOOD_VAL && info->high_impedance) {
 		info->high_impedance = false;
-
 		/* enable the type-C CC detection */
 		psp_val.intval = 0;
 		rc = power_supply_set_property(info->usb_psy,
@@ -196,7 +196,6 @@ static int nx30p6093_read_impedance_status(struct nx30p6093_info *info)
 					&psp_val);
 	} else if (impedance == NX30P6093_IMPEDANCE_BAD_VAL) {
 		info->high_impedance = true;
-
 		/* disable the type-C CC detection */
 		psp_val.intval = 1;
 		rc = power_supply_set_property(info->usb_psy,

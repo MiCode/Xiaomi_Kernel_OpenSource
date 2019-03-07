@@ -2,6 +2,7 @@
  * SWIOTLB-based DMA API implementation
  *
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Catalin Marinas <catalin.marinas@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1254,7 +1255,7 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 	struct page **pages;
 	size_t count = size >> PAGE_SHIFT;
 	size_t array_size = count * sizeof(struct page *);
-	int i = 0;
+	int i = 0, order;
 	bool is_coherent = is_dma_coherent(dev, attrs);
 
 	if (array_size <= PAGE_SIZE)
@@ -1285,9 +1286,11 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 	 */
 	gfp |= __GFP_NOWARN | __GFP_HIGHMEM;
 
+	order = __fls(count);
 	while (count) {
-		int j, order = __fls(count);
-
+		int j, order_tmp = __fls(count);
+		if (order > order_tmp)
+			order = order_tmp;
 		pages[i] = alloc_pages(gfp, order);
 		while (!pages[i] && order)
 			pages[i] = alloc_pages(gfp, --order);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,17 +26,17 @@
 static struct cam_mem_table tbl;
 
 static int cam_mem_util_map_cpu_va(struct ion_handle *hdl,
-	uintptr_t *vaddr,
+	uint64_t *vaddr,
 	size_t *len)
 {
 	*vaddr = (uintptr_t)ion_map_kernel(tbl.client, hdl);
-	if (IS_ERR_OR_NULL((void *)(uintptr_t)(*vaddr))) {
-		CAM_ERR(CAM_MEM, "kernel map fail");
+	if (IS_ERR_OR_NULL((void *)*vaddr)) {
+		CAM_ERR(CAM_CRM, "kernel map fail");
 		return -ENOSPC;
 	}
 
 	if (ion_handle_get_size(tbl.client, hdl, len)) {
-		CAM_ERR(CAM_MEM, "kernel get len failed");
+		CAM_ERR(CAM_CRM, "kernel get len failed");
 		ion_unmap_kernel(tbl.client, hdl);
 		return -ENOSPC;
 	}
@@ -65,7 +66,7 @@ static int cam_mem_util_client_create(void)
 
 	tbl.client = msm_ion_client_create("camera_global_pool");
 	if (IS_ERR_OR_NULL(tbl.client)) {
-		CAM_ERR(CAM_MEM, "fail to create client");
+		CAM_ERR(CAM_CRM, "fail to create client");
 		rc = -EINVAL;
 	}
 
@@ -88,7 +89,7 @@ int cam_mem_mgr_init(void)
 
 	rc = cam_mem_util_client_create();
 	if (rc < 0) {
-		CAM_ERR(CAM_MEM, "fail to create ion client");
+		CAM_ERR(CAM_CRM, "fail to create ion client");
 		goto client_fail;
 	}
 
@@ -147,7 +148,7 @@ static void cam_mem_put_slot(int32_t idx)
 }
 
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
-	dma_addr_t *iova_ptr, size_t *len_ptr)
+	uint64_t *iova_ptr, size_t *len_ptr)
 {
 	int rc = 0, idx;
 
@@ -175,7 +176,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 			iova_ptr,
 			len_ptr);
 	if (rc < 0)
-		CAM_ERR(CAM_MEM, "fail to get buf hdl :%d", buf_handle);
+		CAM_ERR(CAM_CRM, "fail to get buf hdl :%d", buf_handle);
 
 handle_mismatch:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
@@ -183,12 +184,12 @@ handle_mismatch:
 }
 EXPORT_SYMBOL(cam_mem_get_io_buf);
 
-int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
+int cam_mem_get_cpu_buf(int32_t buf_handle, uint64_t *vaddr_ptr, size_t *len)
 {
 	int rc = 0;
 	int idx;
 	struct ion_handle *ion_hdl = NULL;
-	uintptr_t kvaddr = 0;
+	uint64_t kvaddr = 0;
 	size_t klen = 0;
 
 	if (!buf_handle || !vaddr_ptr || !len)
@@ -201,42 +202,37 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 	if (!tbl.bufq[idx].active)
 		return -EPERM;
 
+	mutex_lock(&tbl.bufq[idx].q_lock);
 	if (buf_handle != tbl.bufq[idx].buf_handle) {
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+	ion_hdl = tbl.bufq[idx].i_hdl;
+	if (!ion_hdl) {
+		CAM_ERR(CAM_CRM, "Invalid ION handle");
 		rc = -EINVAL;
 		goto exit_func;
 	}
 
-	if (!tbl.bufq[idx].kmdvaddr) {
-		mutex_lock(&tbl.bufq[idx].q_lock);
-		ion_hdl = tbl.bufq[idx].i_hdl;
-		if (!ion_hdl) {
-			CAM_ERR(CAM_MEM, "Invalid ION handle");
-			rc = -EINVAL;
-			goto release_mutex;
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) {
+		if (!tbl.bufq[idx].kmdvaddr) {
+			rc = cam_mem_util_map_cpu_va(ion_hdl,
+				&kvaddr, &klen);
+			if (rc)
+				goto exit_func;
+			tbl.bufq[idx].kmdvaddr = kvaddr;
 		}
-
-		rc = cam_mem_util_map_cpu_va(ion_hdl,
-			&kvaddr, &klen);
-		if (rc)
-			goto release_mutex;
-
-		tbl.bufq[idx].kmdvaddr = kvaddr;
-		mutex_unlock(&tbl.bufq[idx].q_lock);
+	} else {
+		rc = -EINVAL;
+		goto exit_func;
 	}
 
 	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 	*len = tbl.bufq[idx].len;
 
-	return rc;
-
-release_mutex:
-	mutex_unlock(&tbl.bufq[idx].q_lock);
 exit_func:
+	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
@@ -269,7 +265,7 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 	rc = ion_handle_get_flags(tbl.client, tbl.bufq[idx].i_hdl,
 		&ion_flag);
 	if (rc) {
-		CAM_ERR(CAM_MEM, "cache get flags failed %d", rc);
+		CAM_ERR(CAM_CRM, "cache get flags failed %d", rc);
 		goto fail;
 	}
 
@@ -285,7 +281,7 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 			ion_cache_ops = ION_IOC_CLEAN_INV_CACHES;
 			break;
 		default:
-			CAM_ERR(CAM_MEM,
+			CAM_ERR(CAM_CRM,
 				"invalid cache ops :%d", cmd->mem_cache_ops);
 			rc = -EINVAL;
 			goto fail;
@@ -293,11 +289,11 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 
 		rc = msm_ion_do_cache_op(tbl.client,
 				tbl.bufq[idx].i_hdl,
-				(void *)(uintptr_t)tbl.bufq[idx].vaddr,
+				(void *)tbl.bufq[idx].vaddr,
 				tbl.bufq[idx].len,
 				ion_cache_ops);
 		if (rc)
-			CAM_ERR(CAM_MEM, "cache operation failed %d", rc);
+			CAM_ERR(CAM_CRM, "cache operation failed %d", rc);
 	}
 fail:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
@@ -315,7 +311,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	int rc = 0;
 
 	if (!hdl || !buf) {
-		CAM_ERR(CAM_MEM, "Invalid params");
+		CAM_ERR(CAM_CRM, "Invalid params");
 		return -EINVAL;
 	}
 
@@ -325,7 +321,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 
 	*buf = ion_share_dma_buf(tbl.client, *hdl);
 	if (IS_ERR_OR_NULL(*buf)) {
-		CAM_ERR(CAM_MEM, "get dma buf fail");
+		CAM_ERR(CAM_CRM, "get dma buf fail");
 		rc = -EINVAL;
 		goto get_buf_fail;
 	}
@@ -348,7 +344,7 @@ static int cam_mem_util_get_dma_buf_fd(size_t len,
 	int rc = 0;
 
 	if (!hdl || !fd) {
-		CAM_ERR(CAM_MEM, "Invalid params");
+		CAM_ERR(CAM_CRM, "Invalid params");
 		return -EINVAL;
 	}
 
@@ -358,7 +354,7 @@ static int cam_mem_util_get_dma_buf_fd(size_t len,
 
 	*fd = ion_share_dma_buf_fd(tbl.client, *hdl);
 	if (*fd < 0) {
-		CAM_ERR(CAM_MEM, "get fd fail");
+		CAM_ERR(CAM_CRM, "get fd fail");
 		rc = -EINVAL;
 		goto get_fd_fail;
 	}
@@ -405,19 +401,19 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 static int cam_mem_util_check_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 {
 	if (!cmd->flags) {
-		CAM_ERR(CAM_MEM, "Invalid flags");
+		CAM_ERR(CAM_CRM, "Invalid flags");
 		return -EINVAL;
 	}
 
 	if (cmd->num_hdl > CAM_MEM_MMU_MAX_HANDLE) {
-		CAM_ERR(CAM_MEM, "Num of mmu hdl exceeded maximum(%d)",
+		CAM_ERR(CAM_CRM, "Num of mmu hdl exceeded maximum(%d)",
 			CAM_MEM_MMU_MAX_HANDLE);
 		return -EINVAL;
 	}
 
 	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
 		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
-		CAM_ERR(CAM_MEM, "Kernel mapping in secure mode not allowed");
+		CAM_ERR(CAM_CRM, "Kernel mapping in secure mode not allowed");
 		return -EINVAL;
 	}
 
@@ -427,24 +423,24 @@ static int cam_mem_util_check_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 static int cam_mem_util_check_map_flags(struct cam_mem_mgr_map_cmd *cmd)
 {
 	if (!cmd->flags) {
-		CAM_ERR(CAM_MEM, "Invalid flags");
+		CAM_ERR(CAM_CRM, "Invalid flags");
 		return -EINVAL;
 	}
 
 	if (cmd->num_hdl > CAM_MEM_MMU_MAX_HANDLE) {
-		CAM_ERR(CAM_MEM, "Num of mmu hdl exceeded maximum(%d)",
+		CAM_ERR(CAM_CRM, "Num of mmu hdl exceeded maximum(%d)",
 			CAM_MEM_MMU_MAX_HANDLE);
 		return -EINVAL;
 	}
 
 	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
 		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
-		CAM_ERR(CAM_MEM, "Kernel mapping in secure mode not allowed");
+		CAM_ERR(CAM_CRM, "Kernel mapping in secure mode not allowed");
 		return -EINVAL;
 	}
 
 	if (cmd->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Shared memory buffers are not allowed to be mapped");
 		return -EINVAL;
 	}
@@ -465,7 +461,7 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 	int dir = cam_mem_util_get_dma_dir(flags);
 
 	if (dir < 0) {
-		CAM_ERR(CAM_MEM, "fail to map DMA direction");
+		CAM_ERR(CAM_CRM, "fail to map DMA direction");
 		return dir;
 	}
 
@@ -479,7 +475,7 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 				len);
 
 			if (rc < 0) {
-				CAM_ERR(CAM_MEM,
+				CAM_ERR(CAM_CRM,
 					"Failed to securely map to smmu");
 				goto multi_map_fail;
 			}
@@ -494,7 +490,7 @@ static int cam_mem_util_map_hw_va(uint32_t flags,
 				region);
 
 			if (rc < 0) {
-				CAM_ERR(CAM_MEM, "Failed to map to smmu");
+				CAM_ERR(CAM_CRM, "Failed to map to smmu");
 				goto multi_map_fail;
 			}
 		}
@@ -524,14 +520,14 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	size_t len;
 
 	if (!cmd) {
-		CAM_ERR(CAM_MEM, " Invalid argument");
+		CAM_ERR(CAM_CRM, " Invalid argument");
 		return -EINVAL;
 	}
 	len = cmd->len;
 
 	rc = cam_mem_util_check_flags(cmd);
 	if (rc) {
-		CAM_ERR(CAM_MEM, "Invalid flags: flags = %X", cmd->flags);
+		CAM_ERR(CAM_CRM, "Invalid flags: flags = %X", cmd->flags);
 		return rc;
 	}
 
@@ -539,13 +535,12 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 		&ion_hdl,
 		&ion_fd);
 	if (rc) {
-		CAM_ERR(CAM_MEM, "Ion allocation failed");
+		CAM_ERR(CAM_CRM, "Ion allocation failed");
 		return rc;
 	}
 
 	idx = cam_mem_get_slot();
 	if (idx < 0) {
-		CAM_ERR(CAM_MEM, "Failed to get slot");
 		rc = -ENOMEM;
 		goto slot_fail;
 	}
@@ -600,7 +595,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	cmd->out.fd = tbl.bufq[idx].fd;
 	cmd->out.vaddr = 0;
 
-	CAM_DBG(CAM_MEM, "buf handle: %x, fd: %d, len: %zu",
+	CAM_DBG(CAM_CRM, "buf handle: %x, fd: %d, len: %zu",
 		cmd->out.buf_handle, cmd->out.fd,
 		tbl.bufq[idx].len);
 
@@ -622,7 +617,7 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	size_t len = 0;
 
 	if (!cmd || (cmd->fd < 0)) {
-		CAM_ERR(CAM_MEM, "Invalid argument");
+		CAM_ERR(CAM_CRM, "Invalid argument");
 		return -EINVAL;
 	}
 
@@ -631,13 +626,13 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 
 	rc = cam_mem_util_check_map_flags(cmd);
 	if (rc) {
-		CAM_ERR(CAM_MEM, "Invalid flags: flags = %X", cmd->flags);
+		CAM_ERR(CAM_CRM, "Invalid flags: flags = %X", cmd->flags);
 		return rc;
 	}
 
 	ion_hdl = ion_import_dma_buf_fd(tbl.client, cmd->fd);
 	if (IS_ERR_OR_NULL((void *)(ion_hdl))) {
-		CAM_ERR(CAM_MEM, "Failed to import ion fd");
+		CAM_ERR(CAM_CRM, "Failed to import ion fd");
 		return -EINVAL;
 	}
 
@@ -652,10 +647,6 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 			CAM_SMMU_REGION_IO);
 		if (rc)
 			goto map_fail;
-	} else {
-		rc = ion_handle_get_size(tbl.client, ion_hdl, &len);
-		if (rc)
-			return rc;
 	}
 
 	idx = cam_mem_get_slot();
@@ -708,7 +699,7 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 	int rc = -EINVAL;
 
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
-		CAM_ERR(CAM_MEM, "Incorrect index");
+		CAM_ERR(CAM_CRM, "Incorrect index");
 		return rc;
 	}
 
@@ -732,7 +723,7 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 				rc = cam_smmu_unmap_kernel_iova(mmu_hdls[i],
 					tbl.bufq[idx].dma_buf, region);
 			} else {
-				CAM_ERR(CAM_MEM,
+				CAM_ERR(CAM_CRM,
 					"invalid caller for unmapping : %d",
 					client);
 				rc = -EINVAL;
@@ -745,7 +736,7 @@ static int cam_mem_util_unmap_hw_va(int32_t idx,
 	return rc;
 
 unmap_end:
-	CAM_ERR(CAM_MEM, "unmapping failed");
+	CAM_ERR(CAM_CRM, "unmapping failed");
 	return rc;
 }
 
@@ -768,11 +759,11 @@ static int cam_mem_mgr_cleanup_table(void)
 	mutex_lock(&tbl.m_lock);
 	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
 		if (!tbl.bufq[i].active) {
-			CAM_DBG(CAM_MEM,
+			CAM_DBG(CAM_CRM,
 				"Buffer inactive at idx=%d, continuing", i);
 			continue;
 		} else {
-			CAM_DBG(CAM_MEM,
+			CAM_DBG(CAM_CRM,
 			"Active buffer at idx=%d, possible leak needs unmapping",
 			i);
 			cam_mem_mgr_unmap_active_buf(i);
@@ -787,6 +778,7 @@ static int cam_mem_mgr_cleanup_table(void)
 		tbl.bufq[i].flags = 0;
 		tbl.bufq[i].buf_handle = -1;
 		tbl.bufq[i].vaddr = 0;
+		tbl.bufq[i].kmdvaddr = 0;
 		tbl.bufq[i].len = 0;
 		memset(tbl.bufq[i].hdls, 0,
 			sizeof(int32_t) * tbl.bufq[i].num_hdl);
@@ -823,16 +815,16 @@ static int cam_mem_util_unmap(int32_t idx,
 	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
 
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
-		CAM_ERR(CAM_MEM, "Incorrect index");
+		CAM_ERR(CAM_CRM, "Incorrect index");
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_MEM, "Flags = %X idx %d", tbl.bufq[idx].flags, idx);
+	CAM_DBG(CAM_CRM, "Flags = %X idx %d", tbl.bufq[idx].flags, idx);
 
 	mutex_lock(&tbl.m_lock);
 	if ((!tbl.bufq[idx].active) &&
 		(tbl.bufq[idx].vaddr) == 0) {
-		CAM_WARN(CAM_MEM, "Buffer at idx=%d is already unmapped,",
+		CAM_WARN(CAM_CRM, "Buffer at idx=%d is already unmapped,",
 			idx);
 		mutex_unlock(&tbl.m_lock);
 		return 0;
@@ -861,10 +853,11 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].flags = 0;
 	tbl.bufq[idx].buf_handle = -1;
 	tbl.bufq[idx].vaddr = 0;
+	tbl.bufq[idx].kmdvaddr = 0;
 	memset(tbl.bufq[idx].hdls, 0,
 		sizeof(int32_t) * CAM_MEM_MMU_MAX_HANDLE);
 
-	CAM_DBG(CAM_MEM,
+	CAM_DBG(CAM_CRM,
 		"Ion handle at idx = %d freeing = %pK, fd = %d, imported %d dma_buf %pK",
 		idx, tbl.bufq[idx].i_hdl, tbl.bufq[idx].fd,
 		tbl.bufq[idx].is_imported,
@@ -895,28 +888,28 @@ int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd)
 	int rc;
 
 	if (!cmd) {
-		CAM_ERR(CAM_MEM, "Invalid argument");
+		CAM_ERR(CAM_CRM, "Invalid argument");
 		return -EINVAL;
 	}
 
 	idx = CAM_MEM_MGR_GET_HDL_IDX(cmd->buf_handle);
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
-		CAM_ERR(CAM_MEM, "Incorrect index extracted from mem handle");
+		CAM_ERR(CAM_CRM, "Incorrect index extracted from mem handle");
 		return -EINVAL;
 	}
 
 	if (!tbl.bufq[idx].active) {
-		CAM_ERR(CAM_MEM, "Released buffer state should be active");
+		CAM_ERR(CAM_CRM, "Released buffer state should be active");
 		return -EINVAL;
 	}
 
 	if (tbl.bufq[idx].buf_handle != cmd->buf_handle) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Released buf handle not matching within table");
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_MEM, "Releasing hdl = %u", cmd->buf_handle);
+	CAM_DBG(CAM_CRM, "Releasing hdl = %u", cmd->buf_handle);
 	rc = cam_mem_util_unmap(idx, CAM_SMMU_MAPPING_USER);
 
 	return rc;
@@ -931,7 +924,7 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	int rc = 0;
 	uint32_t heap_id;
 	int32_t ion_flag = 0;
-	uintptr_t kvaddr;
+	uint64_t kvaddr;
 	dma_addr_t iova = 0;
 	size_t request_len = 0;
 	uint32_t mem_handle;
@@ -942,14 +935,14 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
 
 	if (!inp || !out) {
-		CAM_ERR(CAM_MEM, "Invalid params");
+		CAM_ERR(CAM_CRM, "Invalid params");
 		return -EINVAL;
 	}
 
 	if (!(inp->flags & CAM_MEM_FLAG_HW_READ_WRITE ||
 		inp->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS ||
 		inp->flags & CAM_MEM_FLAG_CACHE)) {
-		CAM_ERR(CAM_MEM, "Invalid flags for request mem");
+		CAM_ERR(CAM_CRM, "Invalid flags for request mem");
 		return -EINVAL;
 	}
 
@@ -969,20 +962,20 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 		&buf);
 
 	if (rc) {
-		CAM_ERR(CAM_MEM, "ION alloc failed for shared buffer");
+		CAM_ERR(CAM_CRM, "ION alloc failed for shared buffer");
 		goto ion_fail;
 	} else {
-		CAM_DBG(CAM_MEM, "Got dma_buf = %pK, hdl = %pK", buf, hdl);
+		CAM_DBG(CAM_CRM, "Got dma_buf = %pK, hdl = %pK", buf, hdl);
 	}
 
 	rc = cam_mem_util_map_cpu_va(hdl, &kvaddr, &request_len);
 	if (rc) {
-		CAM_ERR(CAM_MEM, "Failed to get kernel vaddr");
+		CAM_ERR(CAM_CRM, "Failed to get kernel vaddr");
 		goto map_fail;
 	}
 
 	if (!inp->smmu_hdl) {
-		CAM_ERR(CAM_MEM, "Invalid SMMU handle");
+		CAM_ERR(CAM_CRM, "Invalid SMMU handle");
 		rc = -EINVAL;
 		goto smmu_fail;
 	}
@@ -1003,7 +996,7 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 		region);
 
 	if (rc < 0) {
-		CAM_ERR(CAM_MEM, "SMMU mapping failed");
+		CAM_ERR(CAM_CRM, "SMMU mapping failed");
 		goto smmu_fail;
 	}
 
@@ -1060,32 +1053,32 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp)
 	int rc;
 
 	if (!inp) {
-		CAM_ERR(CAM_MEM, "Invalid argument");
+		CAM_ERR(CAM_CRM, "Invalid argument");
 		return -EINVAL;
 	}
 
 	idx = CAM_MEM_MGR_GET_HDL_IDX(inp->mem_handle);
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
-		CAM_ERR(CAM_MEM, "Incorrect index extracted from mem handle");
+		CAM_ERR(CAM_CRM, "Incorrect index extracted from mem handle");
 		return -EINVAL;
 	}
 
 	if (!tbl.bufq[idx].active) {
 		if (tbl.bufq[idx].vaddr == 0) {
-			CAM_ERR(CAM_MEM, "buffer is released already");
+			CAM_ERR(CAM_CRM, "buffer is released already");
 			return 0;
 		}
-		CAM_ERR(CAM_MEM, "Released buffer state should be active");
+		CAM_ERR(CAM_CRM, "Released buffer state should be active");
 		return -EINVAL;
 	}
 
 	if (tbl.bufq[idx].buf_handle != inp->mem_handle) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Released buf handle not matching within table");
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_MEM, "Releasing hdl = %X", inp->mem_handle);
+	CAM_DBG(CAM_CRM, "Releasing hdl = %X", inp->mem_handle);
 	rc = cam_mem_util_unmap(idx, CAM_SMMU_MAPPING_KERNEL);
 
 	return rc;
@@ -1109,17 +1102,17 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
 	int32_t num_hdl = 0;
 
 	if (!inp || !out) {
-		CAM_ERR(CAM_MEM, "Invalid param(s)");
+		CAM_ERR(CAM_CRM, "Invalid param(s)");
 		return -EINVAL;
 	}
 
 	if (!inp->smmu_hdl) {
-		CAM_ERR(CAM_MEM, "Invalid SMMU handle");
+		CAM_ERR(CAM_CRM, "Invalid SMMU handle");
 		return -EINVAL;
 	}
 
 	if (region != CAM_SMMU_REGION_SECHEAP) {
-		CAM_ERR(CAM_MEM, "Only secondary heap supported");
+		CAM_ERR(CAM_CRM, "Only secondary heap supported");
 		return -EINVAL;
 	}
 
@@ -1133,10 +1126,10 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
 		&buf);
 
 	if (rc) {
-		CAM_ERR(CAM_MEM, "ION alloc failed for sec heap buffer");
+		CAM_ERR(CAM_CRM, "ION alloc failed for sec heap buffer");
 		goto ion_fail;
 	} else {
-		CAM_DBG(CAM_MEM, "Got dma_buf = %pK, hdl = %pK", buf, hdl);
+		CAM_DBG(CAM_CRM, "Got dma_buf = %pK, hdl = %pK", buf, hdl);
 	}
 
 	rc = cam_smmu_reserve_sec_heap(inp->smmu_hdl,
@@ -1145,7 +1138,7 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
 		&request_len);
 
 	if (rc) {
-		CAM_ERR(CAM_MEM, "Reserving secondary heap failed");
+		CAM_ERR(CAM_CRM, "Reserving secondary heap failed");
 		goto smmu_fail;
 	}
 
@@ -1201,38 +1194,38 @@ int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp)
 	int32_t smmu_hdl;
 
 	if (!inp) {
-		CAM_ERR(CAM_MEM, "Invalid argument");
+		CAM_ERR(CAM_CRM, "Invalid argument");
 		return -EINVAL;
 	}
 
 	if (inp->region != CAM_SMMU_REGION_SECHEAP) {
-		CAM_ERR(CAM_MEM, "Only secondary heap supported");
+		CAM_ERR(CAM_CRM, "Only secondary heap supported");
 		return -EINVAL;
 	}
 
 	idx = CAM_MEM_MGR_GET_HDL_IDX(inp->mem_handle);
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
-		CAM_ERR(CAM_MEM, "Incorrect index extracted from mem handle");
+		CAM_ERR(CAM_CRM, "Incorrect index extracted from mem handle");
 		return -EINVAL;
 	}
 
 	if (!tbl.bufq[idx].active) {
 		if (tbl.bufq[idx].vaddr == 0) {
-			CAM_ERR(CAM_MEM, "buffer is released already");
+			CAM_ERR(CAM_CRM, "buffer is released already");
 			return 0;
 		}
-		CAM_ERR(CAM_MEM, "Released buffer state should be active");
+		CAM_ERR(CAM_CRM, "Released buffer state should be active");
 		return -EINVAL;
 	}
 
 	if (tbl.bufq[idx].buf_handle != inp->mem_handle) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Released buf handle not matching within table");
 		return -EINVAL;
 	}
 
 	if (tbl.bufq[idx].num_hdl != 1) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Sec heap region should have only one smmu hdl");
 		return -ENODEV;
 	}
@@ -1240,22 +1233,22 @@ int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp)
 	memcpy(&smmu_hdl, tbl.bufq[idx].hdls,
 		sizeof(int32_t));
 	if (inp->smmu_hdl != smmu_hdl) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Passed SMMU handle doesn't match with internal hdl");
 		return -ENODEV;
 	}
 
 	rc = cam_smmu_release_sec_heap(inp->smmu_hdl);
 	if (rc) {
-		CAM_ERR(CAM_MEM,
+		CAM_ERR(CAM_CRM,
 			"Sec heap region release failed");
 		return -ENODEV;
 	}
 
-	CAM_DBG(CAM_MEM, "Releasing hdl = %X", inp->mem_handle);
+	CAM_DBG(CAM_CRM, "Releasing hdl = %X", inp->mem_handle);
 	rc = cam_mem_util_unmap(idx, CAM_SMMU_MAPPING_KERNEL);
 	if (rc)
-		CAM_ERR(CAM_MEM, "unmapping secondary heap failed");
+		CAM_ERR(CAM_CRM, "unmapping secondary heap failed");
 
 	return rc;
 }

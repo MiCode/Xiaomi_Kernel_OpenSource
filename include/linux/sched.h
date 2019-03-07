@@ -63,7 +63,17 @@ struct sched_param {
 #include <asm/processor.h>
 
 #define SCHED_ATTR_SIZE_VER0	48	/* sizeof first published struct */
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#define HISTORY_ITMES           4
+#define HISTORY_WINDOWS          (HISTORY_ITMES+2)
+struct reclaimed_time {
+	u64 total;
+	u64 max;
+	u64 anon_cur;
+	u64 anon_max;
+	u64 max_file_slab;
+};
+#endif
 /*
  * Extended scheduling parameters data structure.
  *
@@ -986,7 +996,12 @@ struct user_struct {
 	struct key *uid_keyring;	/* UID specific keyring */
 	struct key *session_keyring;	/* UID's default session keyring */
 #endif
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
+	struct reclaimed_time reclaimed_time;
+	struct reclaimed_time reclaimed_time_back;
+#endif
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	kuid_t uid;
@@ -1590,6 +1605,7 @@ struct ravg {
 	u32 sum, demand;
 	u32 coloc_demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
+	u64 proc_load;
 	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
 	u16 active_windows;
@@ -1784,6 +1800,12 @@ struct task_struct {
 	struct list_head grp_list;
 	u64 cpu_cycles;
 	bool misfit;
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+	u64 big_cluster_runtime[HISTORY_WINDOWS];
+	u64 little_cluster_runtime[HISTORY_WINDOWS];
+	struct reclaimed_time reclaimed_time;
+	struct reclaimed_time reclaimed_time_back;
+#endif
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED

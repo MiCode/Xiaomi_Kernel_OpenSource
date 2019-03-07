@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +17,7 @@
 
 
 int cam_isp_hw_mgr_init(struct device_node *of_node,
-	struct cam_hw_mgr_intf *hw_mgr, int *iommu_hdl)
+	struct cam_hw_mgr_intf *hw_mgr)
 {
 	int rc = 0;
 	const char *compat_str = NULL;
@@ -25,7 +26,7 @@ int cam_isp_hw_mgr_init(struct device_node *of_node,
 		(const char **)&compat_str);
 
 	if (strnstr(compat_str, "ife", strlen(compat_str)))
-		rc = cam_ife_hw_mgr_init(hw_mgr, iommu_hdl);
+		rc = cam_ife_hw_mgr_init(hw_mgr);
 	else {
 		CAM_ERR(CAM_ISP, "Invalid ISP hw type");
 		rc = -EINVAL;

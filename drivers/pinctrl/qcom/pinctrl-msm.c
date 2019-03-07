@@ -496,7 +496,6 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	func = (ctl_reg >> g->mux_bit) & 7;
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
-
 	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
 	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
 	seq_printf(s, " %s", pulls[pull]);
@@ -508,6 +507,12 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		/* bypass the NFC SPI gpios */
+		if (i < 4)
+			continue;
+		/* bypass the FingerPrint gpios */
+		if ((i > 80 && i < 85))
+			continue;
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}
@@ -1661,52 +1666,6 @@ static void msm_pinctrl_setup_pm_reset(struct msm_pinctrl *pctrl)
 		}
 }
 
-#ifdef CONFIG_PM
-static int msm_pinctrl_suspend(void)
-{
-	return 0;
-}
-
-static void msm_pinctrl_resume(void)
-{
-	int i, irq;
-	u32 val;
-	unsigned long flags;
-	struct irq_desc *desc;
-	const struct msm_pingroup *g;
-	const char *name = "null";
-	struct msm_pinctrl *pctrl = msm_pinctrl_data;
-
-	if (!msm_show_resume_irq_mask)
-		return;
-
-	spin_lock_irqsave(&pctrl->lock, flags);
-	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
-		g = &pctrl->soc->groups[i];
-		val = readl_relaxed(pctrl->regs + g->intr_status_reg);
-		if (val & BIT(g->intr_status_bit)) {
-			irq = irq_find_mapping(pctrl->chip.irqdomain, i);
-			desc = irq_to_desc(irq);
-			if (desc == NULL)
-				name = "stray irq";
-			else if (desc->action && desc->action->name)
-				name = desc->action->name;
-
-			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
-		}
-	}
-	spin_unlock_irqrestore(&pctrl->lock, flags);
-}
-#else
-#define msm_pinctrl_suspend NULL
-#define msm_pinctrl_resume NULL
-#endif
-
-static struct syscore_ops msm_pinctrl_pm_ops = {
-	.suspend = msm_pinctrl_suspend,
-	.resume = msm_pinctrl_resume,
-};
-
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
@@ -1768,7 +1727,6 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	platform_set_drvdata(pdev, pctrl);
 
-	register_syscore_ops(&msm_pinctrl_pm_ops);
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
 
 	return 0;
@@ -1782,7 +1740,6 @@ int msm_pinctrl_remove(struct platform_device *pdev)
 	gpiochip_remove(&pctrl->chip);
 
 	unregister_restart_handler(&pctrl->restart_nb);
-	unregister_syscore_ops(&msm_pinctrl_pm_ops);
 
 	return 0;
 }

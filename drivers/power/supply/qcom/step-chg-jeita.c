@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +363,14 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	int i;
 
 	*new_index = -EINVAL;
+
+	/*
+	 * As battery temperature may be below 0, range.xxx is a unsigned int, but battery
+	 * temperature is a signed int, so cannot compare them when battery temp is below 0.
+	 * we treat it as 0 degree when the parameter threshold(battery temp) is below 0.
+	 */
+	if (threshold < 0)
+		threshold = 0;
 
 	/*
 	 * If the threshold is lesser than the minimum allowed range,
@@ -781,10 +790,10 @@ int qcom_step_chg_init(struct device *dev,
 
 	chip->jeita_fcc_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fcc_config->prop_name = "BATT_TEMP";
-	chip->jeita_fcc_config->hysteresis = 10;
+	chip->jeita_fcc_config->hysteresis = 5;
 	chip->jeita_fv_config->psy_prop = POWER_SUPPLY_PROP_TEMP;
 	chip->jeita_fv_config->prop_name = "BATT_TEMP";
-	chip->jeita_fv_config->hysteresis = 10;
+	chip->jeita_fv_config->hysteresis = 5;
 
 	INIT_DELAYED_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->get_config_work, get_config_work);

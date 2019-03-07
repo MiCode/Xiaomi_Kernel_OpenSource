@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,12 +44,6 @@ struct cam_cpas_vdd_ahb_mapping {
  * @vdd_ahb : AHB level mapping info for the supported vdd levels
  * @soc_id : SOC id
  * @hw_rev : Camera hw revision
- * @control_camnoc_axi_clk : Whether CPAS driver need to set camnoc axi clk freq
- * @camnoc_bus_width : CAMNOC Bus width
- * @camnoc_axi_clk_bw_margin : BW Margin in percentage to add while calculating
- *      camnoc axi clock
- * @camnoc_axi_min_ib_bw: Min camnoc BW which varies based on target
- *
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
@@ -62,10 +57,6 @@ struct cam_cpas_private_soc {
 	struct cam_cpas_vdd_ahb_mapping vdd_ahb[CAM_REGULATOR_LEVEL_MAX];
 	uint32_t soc_id;
 	uint32_t hw_rev;
-	bool control_camnoc_axi_clk;
-	uint32_t camnoc_bus_width;
-	uint32_t camnoc_axi_clk_bw_margin;
-	uint64_t camnoc_axi_min_ib_bw;
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,

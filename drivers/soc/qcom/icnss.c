@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +50,11 @@
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/ramdump.h>
+
+#ifdef CONFIG_ICNSS_ANT
+#include <net/sock.h>
+#include <linux/netlink.h>
+#endif
 
 #include "wlan_firmware_service_v01.h"
 
@@ -484,6 +490,12 @@ static void icnss_ignore_qmi_timeout(bool ignore)
 }
 #else
 static void icnss_ignore_qmi_timeout(bool ignore) { }
+#endif
+
+#ifdef CONFIG_ICNSS_ANT
+#define NETLINK_ICNSS_WIFI_ANT 29
+static struct sock *netlinkfd;
+static unsigned int gpio_wifi_ant;
 #endif
 
 static int icnss_assign_msa_perm(struct icnss_mem_region_info
@@ -4524,6 +4536,74 @@ static int icnss_get_vbatt_info(struct icnss_priv *priv)
 	return 0;
 }
 
+#ifdef CONFIG_ICNSS_ANT
+
+static void icnss_set_wifi_ant(int index)
+{
+	if (gpio_is_valid(gpio_wifi_ant))
+		gpio_set_value(gpio_wifi_ant, index);
+}
+
+#if 0
+static int icnss_get_wifi_ant(void)
+{
+	int r = -1;
+
+	if (gpio_is_valid(gpio_wifi_ant))
+		r = gpio_get_value(gpio_wifi_ant);
+
+	return r;
+}
+
+#endif
+
+static void icnss_wifi_ant_recv(struct sk_buff *skb)
+{
+	struct nlmsghdr *nlh = NULL;
+	char *data = NULL;
+	int wifi_index = 0;
+
+	icnss_pr_err("skb->len:%u\n", skb->len);
+	if (skb->len >= nlmsg_total_size(0)) {
+		nlh = nlmsg_hdr(skb);
+		data = (char *)NLMSG_DATA(nlh);
+		if (data) {
+			icnss_pr_err("kernel receive data: %s\n", data);
+			wifi_index = data[0] - '0';
+			icnss_pr_err("switch to wifi ant: %d\n", wifi_index);
+			icnss_set_wifi_ant(wifi_index);
+		}
+	}
+}
+
+struct netlink_kernel_cfg cfg = {
+	.input = icnss_wifi_ant_recv,
+};
+
+static void icnss_ant_switch_netlink_init(void)
+{
+	icnss_pr_err("init antenna switch netlink service");
+	netlinkfd = netlink_kernel_create(&init_net, NETLINK_ICNSS_WIFI_ANT, &cfg);
+}
+
+static void icnss_ant_switch_netlink_exit(void)
+{
+	sock_release(netlinkfd->sk_socket);
+	icnss_pr_err("antenna switch netlink service exit\n!");
+}
+
+static void icnss_ant_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+
+	gpio_wifi_ant = of_get_named_gpio(np, "qcom,wifi-ant", 0);
+	if (!gpio_is_valid(gpio_wifi_ant))
+		icnss_pr_err("wifi ant gpio invalid\n!");
+
+	icnss_pr_err("wifi ant gpio is: %d\n!", gpio_wifi_ant);
+}
+#endif
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -4721,6 +4801,10 @@ static int icnss_probe(struct platform_device *pdev)
 	penv = priv;
 
 	icnss_pr_info("Platform driver probed successfully\n");
+
+#ifdef CONFIG_ICNSS_ANT
+	icnss_ant_parse_dt(&penv->pdev->dev);
+#endif
 
 	return 0;
 
@@ -4920,6 +5004,10 @@ static int __init icnss_initialize(void)
 	if (!icnss_ipc_log_long_context)
 		icnss_pr_err("Unable to create log long context\n");
 
+#ifdef CONFIG_ICNSS_ANT
+	icnss_ant_switch_netlink_init();
+#endif
+
 	return platform_driver_register(&icnss_driver);
 }
 
@@ -4930,6 +5018,10 @@ static void __exit icnss_exit(void)
 	icnss_ipc_log_context = NULL;
 	ipc_log_context_destroy(icnss_ipc_log_long_context);
 	icnss_ipc_log_long_context = NULL;
+
+#ifdef CONFIG_ICNSS_ANT
+	icnss_ant_switch_netlink_exit();
+#endif
 }
 
 

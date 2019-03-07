@@ -89,6 +89,7 @@ static ssize_t max_brightness_store(struct device *dev,
 
 	return size;
 }
+
 static DEVICE_ATTR_RW(max_brightness);
 
 #ifdef CONFIG_LEDS_TRIGGERS

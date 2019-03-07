@@ -119,6 +119,7 @@ static void backlight_generate_event(struct backlight_device *bd,
 	envp[1] = NULL;
 	kobject_uevent_env(&bd->dev.kobj, KOBJ_CHANGE, envp);
 	sysfs_notify(&bd->dev.kobj, NULL, "actual_brightness");
+	sysfs_notify(&bd->dev.kobj, NULL, "brightness");
 }
 
 static ssize_t bl_power_show(struct device *dev, struct device_attribute *attr,
@@ -180,6 +181,14 @@ int backlight_device_set_brightness(struct backlight_device *bd,
 		if (brightness > bd->props.max_brightness)
 			rc = -EINVAL;
 		else {
+			if ((!bd->use_count && brightness) || (bd->use_count && !brightness)) {
+				pr_info("%s: set brightness to %lu\n", __func__, brightness);
+				if (!bd->use_count)
+					bd->use_count++;
+				else
+					bd->use_count--;
+			}
+
 			pr_debug("set brightness to %lu\n", brightness);
 			bd->props.brightness = brightness;
 			rc = backlight_update_status(bd);

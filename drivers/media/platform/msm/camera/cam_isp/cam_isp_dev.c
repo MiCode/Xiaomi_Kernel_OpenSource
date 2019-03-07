@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,28 +27,8 @@
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_node.h"
 #include "cam_debug_util.h"
-#include "cam_smmu_api.h"
 
 static struct cam_isp_dev g_isp_dev;
-
-static void cam_isp_dev_iommu_fault_handler(
-	struct iommu_domain *domain, struct device *dev, unsigned long iova,
-	int flags, void *token, uint32_t buf_info)
-{
-	int i = 0;
-	struct cam_node *node = NULL;
-
-	if (!token) {
-		CAM_ERR(CAM_ISP, "invalid token in page handler cb");
-		return;
-	}
-
-	node = (struct cam_node *)token;
-
-	for (i = 0; i < node->ctx_size; i++)
-		cam_context_dump_pf_info(&(node->ctx_list[i]), iova,
-			buf_info);
-}
 
 static const struct of_device_id cam_isp_dt_match[] = {
 	{
@@ -56,47 +37,23 @@ static const struct of_device_id cam_isp_dt_match[] = {
 	{}
 };
 
-static int cam_isp_subdev_open(struct v4l2_subdev *sd,
+static int cam_isp_subdev_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
-	mutex_lock(&g_isp_dev.isp_mutex);
-	g_isp_dev.open_cnt++;
-	mutex_unlock(&g_isp_dev.isp_mutex);
+	struct cam_node *node = v4l2_get_subdevdata(sd);
+
+	if (!node) {
+		CAM_ERR(CAM_ISP, "Node ptr is NULL");
+		return -EINVAL;
+	}
+
+	cam_node_shutdown(node);
 
 	return 0;
 }
 
-static int cam_isp_subdev_close(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh)
-{
-	int rc = 0;
-	struct cam_node *node = v4l2_get_subdevdata(sd);
-
-	mutex_lock(&g_isp_dev.isp_mutex);
-	if (g_isp_dev.open_cnt <= 0) {
-		CAM_DBG(CAM_ISP, "ISP subdev is already closed");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	g_isp_dev.open_cnt--;
-	if (!node) {
-		CAM_ERR(CAM_ISP, "Node ptr is NULL");
-		rc = -EINVAL;
-		goto end;
-	}
-
-	if (g_isp_dev.open_cnt == 0)
-		cam_node_shutdown(node);
-
-end:
-	mutex_unlock(&g_isp_dev.isp_mutex);
-	return rc;
-}
-
 static const struct v4l2_subdev_internal_ops cam_isp_subdev_internal_ops = {
 	.close = cam_isp_subdev_close,
-	.open = cam_isp_subdev_open,
 };
 
 static int cam_isp_dev_remove(struct platform_device *pdev)
@@ -126,7 +83,6 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	int i;
 	struct cam_hw_mgr_intf         hw_mgr_intf;
 	struct cam_node               *node;
-	int iommu_hdl = -1;
 
 	g_isp_dev.sd.internal_ops = &cam_isp_subdev_internal_ops;
 	/* Initialze the v4l2 subdevice first. (create cam_node) */
@@ -139,7 +95,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	node = (struct cam_node *) g_isp_dev.sd.token;
 
 	memset(&hw_mgr_intf, 0, sizeof(hw_mgr_intf));
-	rc = cam_isp_hw_mgr_init(pdev->dev.of_node, &hw_mgr_intf, &iommu_hdl);
+	rc = cam_isp_hw_mgr_init(pdev->dev.of_node, &hw_mgr_intf);
 	if (rc != 0) {
 		CAM_ERR(CAM_ISP, "Can not initialized ISP HW manager!");
 		goto unregister;
@@ -164,11 +120,6 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 		goto unregister;
 	}
 
-	cam_smmu_set_client_page_fault_handler(iommu_hdl,
-		cam_isp_dev_iommu_fault_handler, node);
-
-	mutex_init(&g_isp_dev.isp_mutex);
-
 	CAM_INFO(CAM_ISP, "Camera ISP probe complete");
 
 	return 0;
@@ -186,7 +137,6 @@ static struct platform_driver isp_driver = {
 		.name = "cam_isp",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_isp_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

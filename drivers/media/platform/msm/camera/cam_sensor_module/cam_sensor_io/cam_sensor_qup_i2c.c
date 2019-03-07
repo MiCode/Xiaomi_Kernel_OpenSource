@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -245,14 +246,8 @@ static int32_t cam_qup_i2c_write(struct camera_io_master *client,
 	enum camera_sensor_i2c_type data_type)
 {
 	int32_t rc = 0;
-	unsigned char *buf = NULL;
+	unsigned char buf[I2C_REG_MAX_BUF_SIZE];
 	uint8_t len = 0;
-
-	buf = kzalloc(I2C_REG_MAX_BUF_SIZE, GFP_KERNEL | GFP_DMA);
-	if (!buf) {
-		CAM_ERR(CAM_SENSOR, "Buffer memory allocation failed");
-		return -ENOMEM;
-	}
 
 	CAM_DBG(CAM_SENSOR, "reg addr = 0x%x data type: %d",
 			reg_setting->reg_addr, data_type);
@@ -279,8 +274,7 @@ static int32_t cam_qup_i2c_write(struct camera_io_master *client,
 		len = 4;
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid I2C addr type");
-		rc = -EINVAL;
-		goto deallocate_buffer;
+		return -EINVAL;
 	}
 
 	CAM_DBG(CAM_SENSOR, "Data: 0x%x", reg_setting->reg_data);
@@ -314,16 +308,12 @@ static int32_t cam_qup_i2c_write(struct camera_io_master *client,
 		len += 4;
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid Data Type");
-		rc = -EINVAL;
-		goto deallocate_buffer;
+		return -EINVAL;
 	}
 
 	rc = cam_qup_i2c_txdata(client, buf, len);
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "failed rc: %d", rc);
-
-deallocate_buffer:
-	kfree(buf);
 	return rc;
 }
 

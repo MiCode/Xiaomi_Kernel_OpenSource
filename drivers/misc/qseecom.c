@@ -2,6 +2,7 @@
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -390,6 +391,8 @@ static int get_qseecom_keymaster_status(char *str)
 	return 1;
 }
 __setup("androidboot.keymaster=", get_qseecom_keymaster_status);
+
+extern void read_qseelog_wakeup(void);
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -1051,6 +1054,8 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		svc_id, tz_cmd_id, qseos_cmd_id, smc_id, desc.arginfo);
 	pr_debug("scm_resp->result = 0x%x, scm_resp->resp_type = 0x%x, scm_resp->data = 0x%x\n",
 		scm_resp->result, scm_resp->resp_type, scm_resp->data);
+
+	read_qseelog_wakeup();
 	return ret;
 }
 

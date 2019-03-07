@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +18,6 @@
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
-#include <linux/debugfs.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
@@ -139,7 +139,6 @@ struct sync_user_payload {
  * @signaled          : Completion variable on which block calls will wait
  * @callback_list     : Linked list of kernel callbacks registered
  * @user_payload_list : LInked list of user space payloads registered
- * @ref_cnt           : ref count of the number of usage of the fence.
  */
 struct sync_table_row {
 	char name[CAM_SYNC_OBJ_NAME_LEN];
@@ -154,7 +153,6 @@ struct sync_table_row {
 	struct completion signaled;
 	struct list_head callback_list;
 	struct list_head user_payload_list;
-	atomic_t ref_cnt;
 };
 
 /**
@@ -180,7 +178,6 @@ struct cam_signalable_info {
  * @row_spinlocks   : Spinlock array, one for each row in the table
  * @table_lock      : Mutex used to lock the table
  * @open_cnt        : Count of file open calls made on the sync driver
- * @dentry          : Debugfs entry
  * @work_queue      : Work queue used for dispatching kernel callbacks
  * @cam_sync_eventq : Event queue used to dispatch user payloads to user space
  * @bitmap          : Bitmap representation of all sync objects
@@ -192,7 +189,6 @@ struct sync_device {
 	spinlock_t row_spinlocks[CAM_SYNC_MAX_OBJS];
 	struct mutex table_lock;
 	int open_cnt;
-	struct dentry *dentry;
 	struct workqueue_struct *work_queue;
 	struct v4l2_fh *cam_sync_eventq;
 	spinlock_t cam_sync_eventq_lock;

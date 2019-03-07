@@ -60,6 +60,7 @@ static struct bus_type gpio_bus_type = {
 	.name = "gpio",
 };
 
+
 /* gpio_lock prevents conflicts during gpio_desc[] table updates.
  * While any GPIO is requested, its gpio_chip is not removable;
  * each GPIO's "requested" flag serves as a lock and refcount.
@@ -3538,7 +3539,7 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 	for (i = 0; i < gdev->ngpio; i++, gpio++, gdesc++) {
 		if (!test_bit(FLAG_REQUESTED, &gdesc->flags)) {
 			if (gdesc->name) {
-				seq_printf(s, " gpio-%-3d (%-20.20s)\n",
+				    seq_printf(s, " gpio-%-3d (%-20.20s)\n",
 					   gpio, gdesc->name);
 			}
 			continue;
@@ -3611,7 +3612,6 @@ static int gpiolib_seq_show(struct seq_file *s, void *v)
 			   dev_name(&gdev->dev));
 		return 0;
 	}
-
 	seq_printf(s, "%s%s: GPIOs %d-%d", (char *)s->private,
 		   dev_name(&gdev->dev),
 		   gdev->base, gdev->base + gdev->ngpio - 1);
@@ -3654,11 +3654,13 @@ static const struct file_operations gpiolib_operations = {
 	.release	= seq_release,
 };
 
+
 static int __init gpiolib_debugfs_init(void)
 {
 	/* /sys/kernel/debug/gpio */
 	(void) debugfs_create_file("gpio", S_IFREG | S_IRUGO,
 				NULL, NULL, &gpiolib_operations);
+
 	return 0;
 }
 subsys_initcall(gpiolib_debugfs_init);

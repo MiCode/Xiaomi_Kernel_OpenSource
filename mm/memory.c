@@ -2,6 +2,7 @@
  *  linux/mm/memory.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -943,6 +944,7 @@ static int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	spinlock_t *src_ptl, *dst_ptl;
 	int progress = 0;
 	int rss[NR_MM_COUNTERS];
+	unsigned long orig_addr = addr;
 	swp_entry_t entry = (swp_entry_t){0};
 
 again:
@@ -979,6 +981,14 @@ again:
 			break;
 		progress += 8;
 	} while (dst_pte++, src_pte++, addr += PAGE_SIZE, addr != end);
+
+	/*
+	 * Prevent the page fault handler to copy the page while stale tlb entry
+	 * are still not flushed.
+	 */
+	if (IS_ENABLED(CONFIG_SPECULATIVE_PAGE_FAULT) &&
+	    is_cow_mapping(vma->vm_flags))
+		flush_tlb_range(vma, orig_addr, end);
 
 	arch_leave_lazy_mmu_mode();
 	spin_unlock(src_ptl);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,7 +368,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 	case CAM_QUERY_CAP: {
 		struct cam_cpas_query_cap query;
 
-		rc = copy_from_user(&query, u64_to_user_ptr(cmd->handle),
+		rc = copy_from_user(&query, (void __user *) cmd->handle,
 			sizeof(query));
 		if (rc) {
 			CAM_ERR(CAM_CPAS, "Failed in copy from user, rc=%d",
@@ -381,7 +382,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 		if (rc)
 			break;
 
-		rc = copy_to_user(u64_to_user_ptr(cmd->handle), &query,
+		rc = copy_to_user((void __user *) cmd->handle, &query,
 			sizeof(query));
 		if (rc)
 			CAM_ERR(CAM_CPAS, "Failed in copy to user, rc=%d", rc);
@@ -619,7 +620,6 @@ static int cam_cpas_dev_remove(struct platform_device *dev)
 	}
 
 	mutex_lock(&g_cpas_intf->intf_lock);
-	g_cpas_intf->probe_done = false;
 	cam_unregister_subdev(&g_cpas_intf->subdev);
 	cam_cpas_hw_remove(g_cpas_intf->hw_intf);
 	mutex_unlock(&g_cpas_intf->intf_lock);
@@ -642,7 +642,6 @@ static struct platform_driver cam_cpas_driver = {
 		.name = CAM_CPAS_DEV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = cam_cpas_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +14,7 @@
 
 &int_codec {
 	qcom,msm-mbhc-usbc-audio-supported = <1>;
-	qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
+	qcom,usbc-analog-en1-gpio = <&pm660_gpios 13 0>;
 	qcom,usbc-analog-en2-gpio = <&tlmm 40 0>;
 	pinctrl-names = "aud_active", "aud_sleep";
 	pinctrl-0 = <&wcd_usbc_analog_en2_active>;

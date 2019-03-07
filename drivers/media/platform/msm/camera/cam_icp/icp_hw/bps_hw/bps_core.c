@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +19,6 @@
 #include <linux/firmware.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
-#include <linux/iopoll.h>
 #include "cam_io_util.h"
 #include "cam_hw.h"
 #include "cam_hw_intf.h"
@@ -31,9 +31,6 @@
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
-#include "hfi_reg.h"
-
-#define HFI_MAX_POLL_TRY 5
 
 static int cam_bps_cpas_vote(struct cam_bps_device_core_info *core_info,
 			struct cam_icp_cpas_vote *cpas_vote)
@@ -199,10 +196,8 @@ static int cam_bps_handle_resume(struct cam_hw_info *bps_dev)
 	cam_cpas_reg_read(core_info->cpas_handle,
 		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true, &pwr_ctrl);
 	if (pwr_ctrl & BPS_COLLAPSE_MASK) {
-		CAM_DBG(CAM_ICP, "BPS: pwr_ctrl set(%x)", pwr_ctrl);
-		cam_cpas_reg_write(core_info->cpas_handle,
-			CAM_CPAS_REG_CPASTOP,
-			hw_info->pwr_ctrl, true, 0);
+		CAM_ERR(CAM_ICP, "BPS: pwr_ctrl(%x)", pwr_ctrl);
+		return -EINVAL;
 	}
 
 	rc = cam_bps_transfer_gdsc_control(soc_info);
@@ -212,77 +207,6 @@ static int cam_bps_handle_resume(struct cam_hw_info *bps_dev)
 		CAM_CPAS_REG_CPASTOP, hw_info->pwr_status, true, &pwr_status);
 	CAM_DBG(CAM_ICP, "pwr_ctrl = %x pwr_status = %x",
 		pwr_ctrl, pwr_status);
-
-	return rc;
-}
-
-static int cam_bps_cmd_reset(struct cam_hw_soc_info *soc_info,
-	struct cam_bps_device_core_info *core_info)
-{
-	uint32_t retry_cnt = 0;
-	uint32_t status = 0;
-	int pwr_ctrl, pwr_status, rc = 0;
-	bool reset_bps_cdm_fail = false;
-	bool reset_bps_top_fail = false;
-
-	CAM_DBG(CAM_ICP, "CAM_ICP_BPS_CMD_RESET");
-	/* Reset BPS CDM core*/
-	cam_io_w_mb((uint32_t)0xF,
-		soc_info->reg_map[0].mem_base + BPS_CDM_RST_CMD);
-	while (retry_cnt < HFI_MAX_POLL_TRY) {
-		readw_poll_timeout((soc_info->reg_map[0].mem_base +
-			BPS_CDM_IRQ_STATUS),
-			status, ((status & BPS_RST_DONE_IRQ_STATUS_BIT) == 0x1),
-			100, 10000);
-
-		CAM_DBG(CAM_ICP, "bps_cdm_irq_status = %u", status);
-
-		if ((status & BPS_RST_DONE_IRQ_STATUS_BIT) == 0x1)
-			break;
-		retry_cnt++;
-	}
-	status = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-		BPS_CDM_IRQ_STATUS);
-	if ((status & BPS_RST_DONE_IRQ_STATUS_BIT) != 0x1) {
-		CAM_ERR(CAM_ICP, "BPS CDM rst failed status 0x%x", status);
-		reset_bps_cdm_fail = true;
-	}
-
-	/* Reset BPS core*/
-	status = 0;
-	cam_io_w_mb((uint32_t)0x3,
-		soc_info->reg_map[0].mem_base + BPS_TOP_RST_CMD);
-	while (retry_cnt < HFI_MAX_POLL_TRY) {
-		readw_poll_timeout((soc_info->reg_map[0].mem_base +
-			BPS_TOP_IRQ_STATUS),
-			status, ((status & BPS_RST_DONE_IRQ_STATUS_BIT) == 0x1),
-			100, 10000);
-
-		CAM_DBG(CAM_ICP, "bps_top_irq_status = %u", status);
-
-		if ((status & BPS_RST_DONE_IRQ_STATUS_BIT) == 0x1)
-			break;
-		retry_cnt++;
-	}
-	status = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-		BPS_TOP_IRQ_STATUS);
-	if ((status & BPS_RST_DONE_IRQ_STATUS_BIT) != 0x1) {
-		CAM_ERR(CAM_ICP, "BPS top rst failed status 0x%x", status);
-		reset_bps_top_fail = true;
-	}
-
-	cam_bps_get_gdsc_control(soc_info);
-	cam_cpas_reg_read(core_info->cpas_handle,
-		CAM_CPAS_REG_CPASTOP, core_info->bps_hw_info->pwr_ctrl,
-		true, &pwr_ctrl);
-	cam_cpas_reg_read(core_info->cpas_handle,
-		CAM_CPAS_REG_CPASTOP, core_info->bps_hw_info->pwr_status,
-		true, &pwr_status);
-	CAM_DBG(CAM_ICP, "(After) pwr_ctrl = %x pwr_status = %x",
-		pwr_ctrl, pwr_status);
-
-	if (reset_bps_cdm_fail || reset_bps_top_fail)
-		rc = -EAGAIN;
 
 	return rc;
 }
@@ -388,12 +312,7 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 			cam_bps_toggle_clk(soc_info, false);
 		core_info->clk_enable = false;
 		break;
-	case CAM_ICP_BPS_CMD_RESET:
-		rc = cam_bps_cmd_reset(soc_info, core_info);
-		break;
 	default:
-		CAM_ERR(CAM_ICP, "Invalid Cmd Type:%u", cmd_type);
-		rc = -EINVAL;
 		break;
 	}
 	return rc;

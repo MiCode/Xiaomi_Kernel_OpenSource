@@ -3,6 +3,7 @@
  * driver source file
  *
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2769,7 +2770,7 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	irq_status = sdhci_msm_readb_relaxed(host,
 		msm_host_offset->CORE_PWRCTL_STATUS);
 
-	pr_debug("%s: Received IRQ(%d), status=0x%x\n",
+	pr_err("%s: Received IRQ(%d), status=0x%x\n",
 		mmc_hostname(msm_host->mmc), irq, irq_status);
 
 	sdhci_msm_clear_pwrctl_status(host, irq_status);
@@ -2989,8 +2990,13 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 		init_completion(&msm_host->pwr_irq_completion);
 	else if (!wait_for_completion_timeout(&msm_host->pwr_irq_completion,
 				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS))) {
+#if 0
 		__WARN_printf("%s: request(%d) timed out waiting for pwr_irq\n",
 					mmc_hostname(host->mmc), req_type);
+#else
+		panic("%s: request(%d) timed out waiting for pwr_irq\n",
+					mmc_hostname(host->mmc), req_type);
+#endif
 		MMC_TRACE(host->mmc,
 			"%s: request(%d) timed out waiting for pwr_irq\n",
 			__func__, req_type);

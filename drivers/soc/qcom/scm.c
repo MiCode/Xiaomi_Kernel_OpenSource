@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +38,7 @@
 #define SCM_V2_EBUSY		-12
 
 static DEFINE_MUTEX(scm_lock);
+static DECLARE_WAIT_QUEUE_HEAD(scm_busy_wait_wq);
 
 /*
  * MSM8996 V2 requires a lock to protect against
@@ -46,7 +48,7 @@ static DEFINE_MUTEX(scm_lock);
 DEFINE_MUTEX(scm_lmh_lock);
 
 #define SCM_EBUSY_WAIT_MS 30
-#define SCM_EBUSY_MAX_RETRY 67
+#define SCM_EBUSY_MAX_RETRY 10
 
 #define N_EXT_SCM_ARGS 7
 #define FIRST_EXT_ARG_IDX 3
@@ -724,6 +726,62 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	return __scm_call2(fn_id, desc, true);
 }
 EXPORT_SYMBOL(scm_call2);
+
+int scm_call2_noblock(u32 fn_id, struct scm_desc *desc)
+{
+        int arglen = desc->arginfo & 0xf;
+        int ret;
+        u64 x0;
+
+        if (unlikely(!is_scm_armv8()))
+                return -ENODEV;
+
+        ret = allocate_extra_arg_buffer(desc, GFP_NOIO);
+        if (ret)
+                return ret;
+
+        x0 = fn_id | scm_version_mask;
+
+        mutex_lock(&scm_lock);
+
+        if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
+		mutex_lock(&scm_lmh_lock);
+
+        desc->ret[0] = desc->ret[1] = desc->ret[2] = 0;
+
+        trace_scm_call_start(x0, desc);
+
+        if (scm_version == SCM_ARMV8_64)
+		ret = __scm_call_armv8_64(x0, desc->arginfo,
+                                                  desc->args[0], desc->args[1],
+                                                  desc->args[2], desc->x5,
+                                                  &desc->ret[0], &desc->ret[1],
+                                                  &desc->ret[2]);
+        else
+                ret = __scm_call_armv8_32(x0, desc->arginfo,
+                                                  desc->args[0], desc->args[1],
+                                                  desc->args[2], desc->x5,
+                                                  &desc->ret[0], &desc->ret[1],
+                                                  &desc->ret[2]);
+
+        trace_scm_call_end(desc);
+
+        if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
+                mutex_unlock(&scm_lmh_lock);
+
+        mutex_unlock(&scm_lock);
+
+        if (ret < 0)
+                pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+                        x0, ret, desc->ret[0], desc->ret[1], desc->ret[2]);
+
+        if (arglen > N_REGISTER_ARGS)
+                kfree(desc->extra_arg_buf);
+        if (ret < 0)
+                return scm_remap_error(ret);
+        return 0;
+}
+EXPORT_SYMBOL(scm_call2_noblock);
 
 /**
  * scm_call2_noretry() - Invoke a syscall in the secure world

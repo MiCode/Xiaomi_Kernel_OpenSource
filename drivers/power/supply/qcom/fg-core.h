@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +97,11 @@ enum prof_load_status {
 	PROFILE_SKIPPED,
 	PROFILE_NOT_LOADED,
 };
+
+#define VBAT_RESTART_FG_EMPTY_UV		3700000
+#define TEMP_THR_RESTART_FG		150
+#define RESTART_FG_START_WORK_MS		1000
+#define RESTART_FG_WORK_MS		2000
 
 /* Debug flag definitions */
 enum fg_debug_flag {
@@ -342,6 +348,7 @@ struct fg_batt_props {
 	int		float_volt_uv;
 	int		vbatt_full_mv;
 	int		fastchg_curr_ma;
+	int		nom_cap_uah;
 };
 
 struct fg_cyc_ctr_data {
@@ -350,6 +357,7 @@ struct fg_cyc_ctr_data {
 	u16		count[BUCKET_COUNT];
 	u8		last_soc[BUCKET_COUNT];
 	char		counter[BUCKET_COUNT * 8];
+        int             id;
 	struct mutex	lock;
 };
 
@@ -501,20 +509,26 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			report_full;
 	bool			usb_present;
 	bool			twm_state;
 	bool			use_dma;
 	bool			qnovo_enable;
 	bool			suspended;
+	bool			empty_restart_fg;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	esr_sw_work;
 	struct delayed_work	ttf_work;
+	struct delayed_work	esr_timer_config_work;
 	struct delayed_work	sram_dump_work;
+	struct delayed_work     soc_work;
 	struct delayed_work	pl_enable_work;
+	struct delayed_work	empty_restart_fg_work;
 	struct work_struct	esr_filter_work;
+	struct work_struct	vbat_sync_work;
 	struct alarm		esr_filter_alarm;
 	ktime_t			last_delta_temp_time;
 };

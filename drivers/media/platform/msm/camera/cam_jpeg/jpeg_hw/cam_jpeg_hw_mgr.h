@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +39,7 @@
 struct cam_jpeg_process_frame_work_data_t {
 	uint32_t type;
 	void *data;
-	uintptr_t request_id;
+	uint64_t request_id;
 };
 
 /**
@@ -81,7 +82,7 @@ struct cam_jpeg_hw_cfg_req {
 	struct list_head list;
 	struct cam_hw_config_args hw_cfg_args;
 	uint32_t dev_type;
-	uintptr_t req_id;
+	int64_t req_id;
 };
 
 /**

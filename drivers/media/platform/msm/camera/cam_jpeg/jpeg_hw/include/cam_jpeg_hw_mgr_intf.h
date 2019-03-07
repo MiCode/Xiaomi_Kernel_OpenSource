@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +18,8 @@
 #include <uapi/media/cam_defs.h>
 #include <linux/of.h>
 
+
 int cam_jpeg_hw_mgr_init(struct device_node *of_node,
-	uint64_t *hw_mgr_hdl, int *iommu_hdl);
+	uint64_t *hw_mgr_hdl);
 
 #endif /* CAM_JPEG_HW_MGR_INTF_H */

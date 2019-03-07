@@ -94,6 +94,9 @@ static struct dentry *proc_mount(struct file_system_type *fs_type,
 		ns = task_active_pid_ns(current);
 	}
 
+	if (!proc_parse_options(data, ns))
+		return ERR_PTR(-EINVAL);
+
 	return mount_ns(fs_type, flags, data, ns, ns->user_ns, proc_fill_super);
 }
 

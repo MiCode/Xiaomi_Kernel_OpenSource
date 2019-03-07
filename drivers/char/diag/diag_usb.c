@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,14 +182,6 @@ static void usb_connect(struct diag_usb_info *ch)
 	if (!ch || !atomic_read(&ch->connected))
 		return;
 
-	num_write = diag_mempools[ch->mempool].poolsize;
-	err = usb_diag_alloc_req(ch->hdl, num_write, num_read);
-	if (err) {
-		pr_err("diag: Unable to allocate usb requests for %s, write: %d read: %d, err: %d\n",
-		       ch->name, num_write, num_read, err);
-		return;
-	}
-
 	if (ch->ops && ch->ops->open) {
 		if (atomic_read(&ch->diag_state)) {
 			ch->ops->open(ch->ctxt, DIAG_USB_MODE);
@@ -201,6 +194,15 @@ static void usb_connect(struct diag_usb_info *ch)
 			 */
 		}
 	}
+
+        num_write = diag_mempools[ch->mempool].poolsize;
+        err = usb_diag_alloc_req(ch->hdl, num_write, num_read);
+        if (err) {
+               pr_err("diag: Unable to allocate usb requests for %s, write: %d read: %d, err: %d\n",
+                      ch->name, num_write, num_read, err);
+               return;
+        }
+
 	/* As soon as we open the channel, queue a read */
 	queue_work(ch->usb_wq, &(ch->read_work));
 }

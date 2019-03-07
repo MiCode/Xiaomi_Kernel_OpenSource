@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1727,6 +1728,7 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 				return rc;
 			}
 		}
+
 		period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
 		if (period_us > INT_MAX / NSEC_PER_USEC) {
 			duty_us = (period_us * led->cdev.brightness) /
@@ -1748,6 +1750,7 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 				"pwm config failed\n");
 			return rc;
 		}
+
 		rc = qpnp_led_masked_write(led,
 			RGB_LED_EN_CTL(led->base),
 			led->rgb_cfg->enable, led->rgb_cfg->enable);
@@ -3878,7 +3881,7 @@ static int qpnp_leds_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	temp = NULL;
-	while ((temp = of_get_next_child(node, temp)))
+	while ((temp = of_get_next_available_child(node, temp)))
 		num_leds++;
 
 	if (!num_leds)
@@ -3889,7 +3892,7 @@ static int qpnp_leds_probe(struct platform_device *pdev)
 	if (!led_array)
 		return -ENOMEM;
 
-	for_each_child_of_node(node, temp) {
+	for_each_available_child_of_node(node, temp) {
 		led = &led_array[parsed_leds];
 		led->num_leds = num_leds;
 		led->regmap = dev_get_regmap(pdev->dev.parent, NULL);

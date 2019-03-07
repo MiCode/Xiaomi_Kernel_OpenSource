@@ -2,6 +2,7 @@
  *  linux/kernel/fork.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -235,7 +236,6 @@ static inline void free_thread_stack(struct task_struct *tsk)
 		return;
 	}
 #endif
-
 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
 }
 # else
