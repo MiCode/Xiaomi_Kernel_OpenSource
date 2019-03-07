@@ -10,6 +10,12 @@
  * GNU General Public License for more details.
  */
 
+/ {
+	aliases {
+		i2c7 = &qupv3_se20_i2c;
+	};
+};
+
 /* Remove regulator nodes specific to SA8155 */
 &soc {
 	/delete-node/ regulator-pm8150-s4;
