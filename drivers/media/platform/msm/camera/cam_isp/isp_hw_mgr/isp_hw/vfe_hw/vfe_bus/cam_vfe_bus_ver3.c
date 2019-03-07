@@ -783,9 +783,6 @@ static int cam_vfe_bus_ver3_get_comp_vfe_out_res_id_list(
 	if (comp_mask & 0x400)
 		out_list[count++] = CAM_ISP_IFE_OUT_RES_RAW_DUMP;
 
-	if (comp_mask & 0x800)
-		out_list[count++] = CAM_ISP_IFE_OUT_RES_2PD;
-
 	if (comp_mask & 0x1000)
 		out_list[count++] = CAM_ISP_IFE_OUT_RES_STATS_HDR_BE;
 
@@ -814,7 +811,7 @@ static int cam_vfe_bus_ver3_get_comp_vfe_out_res_id_list(
 		out_list[count++] = CAM_ISP_IFE_OUT_RES_STATS_BF;
 
 	if (comp_mask & 0x200000)
-		out_list[count++] = CAM_ISP_IFE_OUT_RES_PDAF;
+		out_list[count++] = CAM_ISP_IFE_OUT_RES_2PD;
 
 	if (comp_mask & 0x400000)
 		out_list[count++] = CAM_ISP_IFE_OUT_RES_LCR;
@@ -1241,7 +1238,7 @@ rdi_config:
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 	} else if (rsrc_data->index == 21) {
-		/* WM 21 2PD */
+		/* WM 21 PD */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
@@ -2527,9 +2524,6 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 			CAM_INFO(CAM_ISP,
 			"PIXEL RAW DUMP image size violation");
 
-		if (val & 0x0800)
-			CAM_INFO(CAM_ISP, "CAMIF PD image size violation");
-
 		if (val & 0x01000)
 			CAM_INFO(CAM_ISP, "STATS HDR BE image size violation");
 
@@ -2560,7 +2554,7 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 			CAM_INFO(CAM_ISP, "STATS BAF image size violation");
 
 		if (val & 0x0200000)
-			CAM_INFO(CAM_ISP, "PDAF image size violation");
+			CAM_INFO(CAM_ISP, "PD image size violation");
 
 		if (val & 0x0400000)
 			CAM_INFO(CAM_ISP, "LCR image size violation");
@@ -2612,9 +2606,6 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 		if (val & 0x0400)
 			CAM_INFO(CAM_ISP, "PIXEL RAW DUMP ccif violation");
 
-		if (val & 0x0800)
-			CAM_INFO(CAM_ISP, "CAMIF PD ccif violation");
-
 		if (val & 0x01000)
 			CAM_INFO(CAM_ISP, "STATS HDR BE ccif violation");
 
@@ -2643,7 +2634,7 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 			CAM_INFO(CAM_ISP, "STATS BAF ccif violation");
 
 		if (val & 0x0200000)
-			CAM_INFO(CAM_ISP, "PDAF ccif violation");
+			CAM_INFO(CAM_ISP, "PD ccif violation");
 
 		if (val & 0x0400000)
 			CAM_INFO(CAM_ISP, "LCR ccif violation");
