@@ -70,7 +70,12 @@
 		"RX_TX DEC1_INP", "TX DEC1 MUX",
 		"RX_TX DEC2_INP", "TX DEC2 MUX",
 		"RX_TX DEC3_INP", "TX DEC3 MUX",
-		"SpkrRight IN", "WSA_SPK2 OUT";
+		"SpkrRight IN", "WSA_SPK2 OUT",
+		"VA DMIC1", "MIC BIAS3",
+		"VA DMIC2", "MIC BIAS1",
+		"VA DMIC3", "MIC BIAS1",
+		"VA DMIC5", "MIC BIAS4",
+		"VA SWR_ADC1", "ADC2_OUTPUT";
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_0212>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
