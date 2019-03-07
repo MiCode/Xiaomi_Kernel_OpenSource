@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1415,7 +1415,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 						cdev);
 	struct f_gsi *gsi;
 	struct gsi_ctrl_pkt *cpkt;
-	struct ep_info info;
+	struct ep_info info = { {0}, {0} };
 	struct data_buf_info data_info = {0};
 	int val, ret = 0;
 	unsigned long flags;
@@ -1806,10 +1806,15 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	__le32 *data;
 	struct usb_cdc_notification *event;
 	struct usb_request *req = gsi->c_port.notify_req;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
+	struct usb_composite_dev *cdev;
 	struct gsi_ctrl_pkt *cpkt;
 	unsigned long flags;
 	bool del_free_cpkt = false;
+
+	if (!gsi->function.config)
+		return -ENODEV;
+
+	cdev = gsi->function.config->cdev;
 
 	if (!atomic_read(&gsi->connected)) {
 		log_event_dbg("%s: cable disconnect", __func__);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1860,7 +1860,8 @@ static int ipa_fltrt_generate_hw_rule_bdy_from_eq(
 	if (attrib->fl_eq_present)
 		rest = ipa_write_32(attrib->fl_eq & 0xFFFFF, rest);
 
-	extra = ipa_pad_to_64(extra);
+	if (extra)
+		extra = ipa_pad_to_64(extra);
 	rest = ipa_pad_to_64(rest);
 	*buf = rest;
 

@@ -1971,8 +1971,6 @@ static int sdhci_msm_dt_parse_hsr_info(struct device *dev,
 skip_hsr:
 	if (!msm_host->dll_hsr)
 		dev_info(dev, "Failed to get dll hsr settings from dt\n");
-	if (dll_hsr_table)
-		devm_kfree(dev, dll_hsr_table);
 	return ret;
 }
 

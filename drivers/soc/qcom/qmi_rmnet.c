@@ -453,7 +453,7 @@ __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 		qmi->dfc_pending[idx] = NULL;
 	}
 
-	if (!qmi_rmnet_has_client(qmi)) {
+	if (!qmi_rmnet_has_client(qmi) && !qmi_rmnet_has_pending(qmi)) {
 		rmnet_reset_qmi_pt(port);
 		kfree(qmi);
 		return 0;

@@ -32,5 +32,6 @@ struct ep_info {
 #define MHI_UCI_IOCTL_MAGIC	'm'
 
 #define MHI_UCI_EP_LOOKUP _IOR(MHI_UCI_IOCTL_MAGIC, 2, struct ep_info)
+#define MHI_UCI_DPL_EP_LOOKUP _IOR(MHI_UCI_IOCTL_MAGIC, 3, struct ep_info)
 
 #endif /* _UAPI_MHI_H */

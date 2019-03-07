@@ -455,8 +455,25 @@ static int ufs_qcom_phy_disable_vreg(struct device *dev,
 {
 	int ret = 0;
 
-	if (!vreg || !vreg->enabled || vreg->is_always_on)
+	if (!vreg || !vreg->enabled)
 		goto out;
+
+	if (vreg->is_always_on) {
+		/* voting 0 uA load will keep regulator in LPM mode */
+		ret = regulator_set_load(vreg->reg, 0);
+		if (ret >= 0) {
+			/*
+			 * regulator_set_load() returns new regulator
+			 * mode upon success.
+			 */
+			ret = 0;
+		} else {
+			dev_err(dev, "%s: %s set optimum mode(uA_load=0) failed, err=%d\n",
+					__func__, vreg->name, ret);
+		}
+
+		goto out;
+	}
 
 	ret = regulator_disable(vreg->reg);
 

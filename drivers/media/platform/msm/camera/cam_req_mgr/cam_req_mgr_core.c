@@ -989,6 +989,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	uint32_t trigger)
 {
 	int                                  rc = 0, idx;
+	int                                  reset_step = 0;
 	struct cam_req_mgr_slot             *slot = NULL;
 	struct cam_req_mgr_req_queue        *in_q;
 	struct cam_req_mgr_core_session     *session;
@@ -1121,8 +1122,15 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				slot->req_id,
 				link->link_hdl);
 			idx = in_q->rd_idx;
+			reset_step = link->max_delay;
+			if (link->sync_link) {
+				if ((link->in_msync_mode) &&
+					(link->sync_link->is_master))
+					reset_step =
+						link->sync_link->max_delay;
+			}
 			__cam_req_mgr_dec_idx(
-				&idx, link->max_delay + 1,
+				&idx, reset_step + 1,
 				in_q->num_slots);
 			__cam_req_mgr_reset_req_slot(link, idx);
 		}

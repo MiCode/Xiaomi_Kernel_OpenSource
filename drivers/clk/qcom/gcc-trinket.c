@@ -1394,7 +1394,6 @@ static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
-		.flags = CLK_SET_RATE_UNGATE,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 100000000,
 			[VDD_NOMINAL] = 384000000},
@@ -3684,7 +3683,7 @@ static struct clk_branch gcc_sdcc1_apps_clk = {
 				"gcc_sdcc1_apps_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_ENABLE_HAND_OFF,
 			.ops = &clk_branch2_ops,
 		},
 	},

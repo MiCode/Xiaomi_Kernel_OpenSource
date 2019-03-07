@@ -104,6 +104,8 @@ memory allocation over a PCIe bridge
 				control.
 - qcom,entire-ipa-block-size: Complete size of the ipa block in which all
 				registers, collected upon crash, reside.
+- qcom,ipa-endp-delay-wa: Boolean context flag to indicate end point delay work around
+				supported or not.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

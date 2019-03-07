@@ -47,6 +47,10 @@ Optional properties:
 
 - qcom,slv-ctrl : Set this flag to configure QUPV3 as SPI slave controller.
 
+- qcom,disable-dma : Set this flag to ensure only fifo mode is used for
+			transfers. FIFO mode does not work when FW of SE
+			is configured in GSI mode.
+
 Other optional properties described in
 Documentation/devicetree/bindings/spi/spi-bus.txt
 

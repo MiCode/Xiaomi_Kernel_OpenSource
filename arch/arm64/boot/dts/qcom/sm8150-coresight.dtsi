@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1227,6 +1227,15 @@
 					<&tpda_spss_out_funnel_spss>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_spss_in_spss_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&spss_etm0_out_funnel_spss>;
+				};
+			};
 		};
 	};
 
@@ -1280,6 +1289,19 @@
 		port {
 			tpdm_spss_out_tpda_spss: endpoint {
 				remote-endpoint = <&tpda_spss_in_tpdm_spss>;
+			};
+		};
+	};
+
+	spss_etm0 {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-spss-etm0";
+		qcom,dummy-source;
+
+		port {
+			spss_etm0_out_funnel_spss: endpoint {
+				remote-endpoint = <&funnel_spss_in_spss_etm0>;
 			};
 		};
 	};

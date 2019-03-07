@@ -127,6 +127,7 @@ struct qusb_phy {
 	void __iomem		*tune2_efuse_reg;
 	void __iomem		*ref_clk_base;
 	void __iomem		*tcsr_clamp_dig_n;
+	void __iomem		*tcsr_conn_box_spare;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -143,6 +144,8 @@ struct qusb_phy {
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
 	u32			major_rev;
+	u32			usb_hs_ac_bitmask;
+	u32			usb_hs_ac_value;
 
 	u32			tune2_val;
 	int			tune2_efuse_bit_pos;
@@ -904,6 +907,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	int ret = 0, size = 0;
 	const char *phy_type;
 	bool hold_phy_reset;
+	u32 temp;
 
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
 	if (!qphy)
@@ -986,6 +990,32 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (IS_ERR(qphy->tcsr_clamp_dig_n)) {
 			dev_err(dev, "err reading tcsr_clamp_dig_n\n");
 			qphy->tcsr_clamp_dig_n = NULL;
+		}
+	}
+
+	ret = of_property_read_u32(dev->of_node, "qcom,usb-hs-ac-bitmask",
+					&qphy->usb_hs_ac_bitmask);
+	if (!ret) {
+		ret = of_property_read_u32(dev->of_node, "qcom,usb-hs-ac-value",
+						&qphy->usb_hs_ac_value);
+		if (ret) {
+			dev_err(dev, "usb_hs_ac_value not passed\n", __func__);
+			return ret;
+		}
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"tcsr_conn_box_spare_0");
+		if (!res) {
+			dev_err(dev, "tcsr_conn_box_spare_0 not passed\n",
+								__func__);
+			return -ENOENT;
+		}
+
+		qphy->tcsr_conn_box_spare = devm_ioremap_nocache(dev,
+						res->start, resource_size(res));
+		if (IS_ERR(qphy->tcsr_conn_box_spare)) {
+			dev_err(dev, "err reading tcsr_conn_box_spare\n");
+			return PTR_ERR(qphy->tcsr_conn_box_spare);
 		}
 	}
 
@@ -1211,6 +1241,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	/* de-assert clamp dig n to reduce leakage on 1p8 upon boot up */
 	if (qphy->tcsr_clamp_dig_n)
 		writel_relaxed(0x0, qphy->tcsr_clamp_dig_n);
+
+	/*
+	 * Write the usb_hs_ac_value to usb_hs_ac_bitmask of tcsr_conn_box_spare
+	 * reg to enable AC/DC coupling
+	 */
+	if (qphy->tcsr_conn_box_spare) {
+		temp = readl_relaxed(qphy->tcsr_conn_box_spare) &
+						~qphy->usb_hs_ac_bitmask;
+		writel_relaxed(temp | qphy->usb_hs_ac_value,
+						qphy->tcsr_conn_box_spare);
+	}
 
 	qphy->suspended = true;
 

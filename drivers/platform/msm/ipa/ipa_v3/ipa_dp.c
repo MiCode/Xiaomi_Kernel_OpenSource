@@ -2844,8 +2844,7 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.rx_pkts);
 		if (status.endp_dest_idx >= ipa3_ctx->ipa_num_pipes ||
-			status.endp_src_idx >= ipa3_ctx->ipa_num_pipes ||
-			status.pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
+			status.endp_src_idx >= ipa3_ctx->ipa_num_pipes) {
 			IPAERR("status fields invalid\n");
 			WARN_ON(1);
 			goto bail;
@@ -3074,6 +3073,10 @@ static void ipa3_wq_rx_common(struct ipa3_sys_context *sys,
 	struct ipa3_sys_context *coal_sys;
 	int ipa_ep_idx;
 
+	if (!notify) {
+		IPAERR_RL("gsi_chan_xfer_notify is null\n");
+		return;
+	}
 	rx_skb = handle_skb_completion(notify, true);
 
 	if (rx_skb) {

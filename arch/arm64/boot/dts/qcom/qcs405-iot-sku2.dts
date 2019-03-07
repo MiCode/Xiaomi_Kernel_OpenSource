@@ -82,6 +82,16 @@
 		qcom,mdss-fb-map = <&mdss_fb0>;
 	};
 
+	spi@78b5000 {
+		status = "okay";
+
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
 	spi@7af5000 {  /* BLSP1 QUP2 */
 		status = "ok";
 		mdss_spi_client: qcom,mdss_spi_client {

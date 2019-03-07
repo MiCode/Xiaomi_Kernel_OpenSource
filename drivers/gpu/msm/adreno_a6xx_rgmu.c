@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@
 #define GLM_SLEEP_TIMEOUT		10	/* ms */
 
 static const unsigned int a6xx_rgmu_registers[] = {
+	/*GPUCX_TCM */
+	0x1B400, 0x1B7FF,
 	/* GMU CX */
 	0x1F80F, 0x1F83D, 0x1F840, 0x1F8D8, 0x1F990, 0x1F99E, 0x1F9C0, 0x1F9CC,
 	/* GMU AO */
@@ -433,6 +435,9 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 				"rgmu boot Failed. status:%08x\n", status);
 		return -ETIMEDOUT;
 	}
+
+	/* Read the RGMU firmware version from registers */
+	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &rgmu->ver);
 
 	return 0;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 16
+#define KGSL_MAX_CLKS 17
 #define KGSL_MAX_REGULATORS 2
 
 #define KGSL_MAX_PWRLEVELS 10
