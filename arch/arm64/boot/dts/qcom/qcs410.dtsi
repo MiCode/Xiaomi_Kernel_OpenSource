@@ -1,0 +1,137 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sm6150.dtsi"
+#include "sm6150-pm.dtsi"
+#include "sm6150-thermal-overlay.dtsi"
+#include "sm6150-thermal.dtsi"
+#include "sm6150-coresight.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS410 SoC";
+	qcom,msm-name = "QCS410";
+	qcom,msm-id = <406 0>;
+
+	cpus {
+		/delete-node/ cpu@200;
+		/delete-node/ cpu@300;
+		/delete-node/ cpu@400;
+		/delete-node/ cpu@500;
+
+		cpu-map {
+			cluster0 {
+				/delete-node/ core2;
+				/delete-node/ core3;
+				/delete-node/ core4;
+				/delete-node/ core5;
+			};
+		};
+	};
+};
+
+&soc {
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			 qcom,pm-cpu@0 {
+				qcom,cpu = <&CPU0 &CPU1>;
+			};
+		};
+	};
+
+	dsu_pmu@0 {
+		cpus = <&CPU0>, <&CPU1>, <&CPU6>, <&CPU7>;
+	};
+
+	qcom,chd_silver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x18000058 0x18010058>;
+		qcom,config-arr = <0x18000060 0x18010060>;
+	};
+
+	/delete-node/ cti@7220000;
+	/delete-node/ cti@7320000;
+	/delete-node/ cti@7420000;
+	/delete-node/ cti@7520000;
+	/delete-node/ etm@7240000;
+	/delete-node/ etm@7340000;
+	/delete-node/ etm@7440000;
+	/delete-node/ etm@7540000;
+	cpuss_dump {
+		/delete-node/ qcom,l1_i_cache200;
+		/delete-node/ qcom,l1_i_cache300;
+		/delete-node/ qcom,l1_i_cache400;
+		/delete-node/ qcom,l1_i_cache500;
+		/delete-node/ qcom,l1_d_cache200;
+		/delete-node/ qcom,l1_d_cache300;
+		/delete-node/ qcom,l1_d_cache400;
+		/delete-node/ qcom,l1_d_cache500;
+		/delete-node/ qcom,l2_tlb_dump200;
+		/delete-node/ qcom,l2_tlb_dump300;
+		/delete-node/ qcom,l2_tlb_dump400;
+		/delete-node/ qcom,l2_tlb_dump500;
+	};
+
+	qcom,cpu0-cpu-l3-latmon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	qcom,cpu0-cpu-llcc-latmon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	qcom,cpu0-llcc-ddr-latmon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	qcom,cpu0-computemon {
+		qcom,cpulist = <&CPU0 &CPU1>;
+	};
+
+	funnel@7800000 {
+			ports {
+				/delete-node/ port@3;
+				/delete-node/ port@4;
+				/delete-node/ port@5;
+				/delete-node/ port@6;
+			};
+	};
+};
+
+&thermal_zones {
+	pm6150l-tz {
+		cooling-maps {
+			/delete-node/ trip0_cpu2;
+			/delete-node/ trip0_cpu3;
+			/delete-node/ trip0_cpu4;
+			/delete-node/ trip0_cpu5;
+			/delete-node/ trip1_cpu2;
+			/delete-node/ trip1_cpu3;
+			/delete-node/ trip1_cpu4;
+			/delete-node/ trip1_cpu5;
+		};
+	};
+	cpuss-0-step {
+		/delete-node/ cooling-maps;
+	};
+	cpuss-1-step {
+		/delete-node/ cooling-maps;
+	};
+	quiet-therm-step {
+		cooling-maps {
+			/delete-node/ skin_cpu2;
+			/delete-node/ skin_cpu3;
+			/delete-node/ skin_cpu4;
+			/delete-node/ skin_cpu5;
+		};
+	};
+};
