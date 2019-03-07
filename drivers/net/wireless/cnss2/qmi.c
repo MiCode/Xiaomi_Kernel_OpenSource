@@ -17,6 +17,7 @@
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
+#define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
@@ -400,7 +401,8 @@ out:
 	return ret;
 }
 
-int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
+int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
+				 u32 bdf_type)
 {
 	struct wlfw_bdf_download_req_msg_v01 *req;
 	struct wlfw_bdf_download_resp_msg_v01 *resp;
@@ -411,8 +413,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	unsigned int remaining;
 	int ret = 0;
 
-	cnss_pr_dbg("Sending BDF download message, state: 0x%lx\n",
-		    plat_priv->driver_state);
+	cnss_pr_dbg("Sending BDF download message, state: 0x%lx, type: %d\n",
+		    plat_priv->driver_state, bdf_type);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
@@ -424,7 +426,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
-	switch (plat_priv->ctrl_params.bdf_type) {
+	switch (bdf_type) {
 	case CNSS_BDF_ELF:
 		if (plat_priv->board_info.board_id == 0xFF)
 			snprintf(filename, sizeof(filename), ELF_BDF_FILE_NAME);
@@ -448,6 +450,9 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 			snprintf(filename, sizeof(filename),
 				 BIN_BDF_FILE_NAME_PREFIX "%04x",
 				 plat_priv->board_info.board_id);
+		break;
+	case CNSS_BDF_REGDB:
+		snprintf(filename, sizeof(filename), REGDB_FILE_NAME);
 		break;
 	case CNSS_BDF_DUMMY:
 		cnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
@@ -542,7 +547,8 @@ err_send:
 	if (plat_priv->ctrl_params.bdf_type != CNSS_BDF_DUMMY)
 		release_firmware(fw_entry);
 err_req_fw:
-	CNSS_ASSERT(0);
+	if (bdf_type != CNSS_BDF_REGDB)
+		CNSS_ASSERT(0);
 	kfree(req);
 	kfree(resp);
 	return ret;

@@ -24,7 +24,8 @@ int cnss_wlfw_server_arrive(struct cnss_plat_data *plat_priv, void *data);
 int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv);
-int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv);
+int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
+				 u32 bdf_type);
 int cnss_wlfw_m3_dnld_send_sync(struct cnss_plat_data *plat_priv);
 int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 				  enum cnss_driver_mode mode);
@@ -86,7 +87,8 @@ static inline int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 
-static inline int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
+static inline int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
+					       u32 bdf_type)
 {
 	return 0;
 }

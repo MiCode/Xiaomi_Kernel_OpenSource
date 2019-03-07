@@ -207,6 +207,7 @@ enum cnss_debug_quirks {
 enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
+	CNSS_BDF_REGDB = 4,
 	CNSS_BDF_DUMMY = 255,
 };
 
