@@ -378,6 +378,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* trinket ID */
 	[394] = {MSM_CPU_TRINKET, "TRINKET"},
 
+	/* qcs610 ID */
+	[401] = {MSM_CPU_QCS610, "QCS610"},
+
+	/* qcs410 ID */
+	[406] = {MSM_CPU_QCS410, "QCS410"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1305,6 +1311,14 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_trinket()) {
 		dummy_socinfo.id = 394;
 		strlcpy(dummy_socinfo.build_id, "trinket - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qcs610()) {
+		dummy_socinfo.id = 401;
+		strlcpy(dummy_socinfo.build_id, "qcs610 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_qcs410()) {
+		dummy_socinfo.id = 406;
+		strlcpy(dummy_socinfo.build_id, "qcs410 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
