@@ -350,6 +350,8 @@ EXPORT_SYMBOL_GPL(of_irq_parse_one);
 int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
 {
 	int irq = of_irq_get(dev, index);
+	u32 trigger_type;
+	struct of_phandle_args oirq;
 
 	if (irq < 0)
 		return irq;
@@ -367,8 +369,17 @@ int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
 		of_property_read_string_index(dev, "interrupt-names", index,
 					      &name);
 
+		trigger_type = irqd_get_trigger_type(irq_get_irq_data(irq));
+
+		of_irq_parse_one(dev, index, &oirq);
+
+		if (!trigger_type &&
+			of_device_is_compatible(oirq.np, "arm,gic-v3"))
+			pr_err("IRQ TYPE should not be NONE for %s\n",
+							dev->full_name);
+
 		r->start = r->end = irq;
-		r->flags = IORESOURCE_IRQ | irqd_get_trigger_type(irq_get_irq_data(irq));
+		r->flags = IORESOURCE_IRQ | trigger_type;
 		r->name = name ? name : of_node_full_name(dev);
 	}
 
