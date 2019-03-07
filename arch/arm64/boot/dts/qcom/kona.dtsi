@@ -1500,42 +1500,49 @@
 		compatible = "qcom,gdsc";
 		reg = <0x16b004 0x4>;
 		regulator-name = "pcie_0_gdsc";
+		qcom,retain-regs;
 	};
 
 	pcie_1_gdsc: qcom,gdsc@18d004 {
 		compatible = "qcom,gdsc";
 		reg = <0x18d004 0x4>;
 		regulator-name = "pcie_1_gdsc";
+		qcom,retain-regs;
 	};
 
 	pcie_2_gdsc: qcom,gdsc@106004 {
 		compatible = "qcom,gdsc";
 		reg = <0x106004 0x4>;
 		regulator-name = "pcie_2_gdsc";
+		qcom,retain-regs;
 	};
 
 	ufs_card_gdsc: qcom,gdsc@175004 {
 		compatible = "qcom,gdsc";
 		reg = <0x175004 0x4>;
 		regulator-name = "ufs_card_gdsc";
+		qcom,retain-regs;
 	};
 
 	ufs_phy_gdsc: qcom,gdsc@177004 {
 		compatible = "qcom,gdsc";
 		reg = <0x177004 0x4>;
 		regulator-name = "ufs_phy_gdsc";
+		qcom,retain-regs;
 	};
 
 	usb30_prim_gdsc: qcom,gdsc@10f004 {
 		compatible = "qcom,gdsc";
 		reg = <0x10f004 0x4>;
 		regulator-name = "usb30_prim_gdsc";
+		qcom,retain-regs;
 	};
 
 	usb30_sec_gdsc: qcom,gdsc@110004 {
 		compatible = "qcom,gdsc";
 		reg = <0x110004 0x4>;
 		regulator-name = "usb30_sec_gdsc";
+		qcom,retain-regs;
 	};
 
 	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d050 {
@@ -1580,6 +1587,7 @@
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	ife_0_gdsc: qcom,gdsc@ad0a004 {
@@ -1590,6 +1598,7 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	ife_1_gdsc: qcom,gdsc@ad0b004 {
@@ -1600,6 +1609,7 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	ipe_0_gdsc: qcom,gdsc@ad08004 {
@@ -1611,6 +1621,7 @@
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	sbi_gdsc: qcom,gdsc@ad09004 {
@@ -1621,6 +1632,7 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	titan_top_gdsc: qcom,gdsc@ad0c144 {
@@ -1631,6 +1643,7 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	/* DISP_CC GDSC */
@@ -1643,6 +1656,7 @@
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	/* GPU_CC GDSCs */
@@ -1660,6 +1674,7 @@
 		qcom,no-status-check-on-disable;
 		qcom,clk-dis-wait-val = <8>;
 		qcom,gds-timeout = <500>;
+		qcom,retain-regs;
 	};
 
 	gpu_gx_domain_addr: syscon@3d91508 {
@@ -1681,6 +1696,7 @@
 		parent-supply = <&VDD_GFX_LEVEL>;
 		vdd_parent-supply = <&VDD_GFX_LEVEL>;
 		qcom,reset-aon-logic;
+		qcom,retain-regs;
 	};
 
 	/* NPU GDSC */
@@ -1690,6 +1706,7 @@
 		regulator-name = "npu_core_gdsc";
 		clock-names = "ahb_clk";
 		clocks = <&clock_gcc GCC_NPU_CFG_AHB_CLK>;
+		qcom,retain-regs;
 	};
 
 	qcom,sps {
@@ -1706,7 +1723,7 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
-		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	mvs0c_gdsc: qcom,gdsc@abf0bf8 {
@@ -1717,7 +1734,7 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
-		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	mvs1_gdsc: qcom,gdsc@abf0d98 {
@@ -1729,6 +1746,7 @@
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
 		qcom,support-hw-trigger;
+		qcom,retain-regs;
 	};
 
 	mvs1c_gdsc: qcom,gdsc@abf0c98 {
@@ -1739,6 +1757,7 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,retain-regs;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
