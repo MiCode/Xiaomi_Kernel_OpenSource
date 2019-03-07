@@ -1414,6 +1414,11 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				EP_PCIE_INFO(dev,
 					"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
 					dev->rev);
+				/*
+				 * Skip mhi mmio config for host reboot case
+				 * with bios-locking enabled.
+				 */
+				dev->config_mmio_init = true;
 				ep_pcie_core_init(dev, true);
 				dev->link_status = EP_PCIE_LINK_UP;
 				dev->l23_ready = false;

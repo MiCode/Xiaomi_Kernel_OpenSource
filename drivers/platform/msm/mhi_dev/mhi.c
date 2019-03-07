@@ -3151,8 +3151,9 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
-		EP_PCIE_EVENT_MHI_A7 |
 		EP_PCIE_EVENT_LINKDOWN;
+	if (!mhi_ctx->mhi_int)
+		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
 	mhi_ctx->event_reg.user = mhi_ctx;
 	mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
 	mhi_ctx->event_reg.callback = mhi_dev_sm_pcie_handler;
@@ -3314,8 +3315,9 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
-		EP_PCIE_EVENT_MHI_A7 |
 		EP_PCIE_EVENT_LINKDOWN;
+	if (!mhi_ctx->mhi_int)
+		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
 	mhi_ctx->event_reg.user = mhi_ctx;
 	mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
 	mhi_ctx->event_reg.callback = mhi_dev_sm_pcie_handler;
