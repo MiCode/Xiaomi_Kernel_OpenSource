@@ -782,7 +782,7 @@ int create_pkt_cmd_session_set_property(
 	pkt->num_properties = 1;
 	pkt->size += size;
 	pkt->rg_property_data[0] = ptype;
-	if (size)
+	if (size && pdata)
 		memcpy(&pkt->rg_property_data[1], pdata, size);
 
 	dprintk(VIDC_DBG, "Setting HAL Property = 0x%x\n", ptype);
