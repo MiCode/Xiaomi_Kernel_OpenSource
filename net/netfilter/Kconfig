@@ -884,6 +884,20 @@ config NETFILTER_XT_TARGET_IDLETIMER
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NETFILTER_XT_TARGET_HARDIDLETIMER
+	tristate  "HARDIDLETIMER target support"
+	depends on NETFILTER_ADVANCED
+	help
+
+	  This option adds the `HARDIDLETIMER' target.  Each matching packet
+	  resets the timer associated with label specified when the rule is
+	  added.  When the timer expires, it triggers a sysfs notification.
+	  The remaining time for expiration can be read via sysfs.
+	   Compared to IDLETIMER HARDIDLETIMER will send notification when
+	   CPU in suspend too.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config NETFILTER_XT_TARGET_LED
 	tristate '"LED" target support'
 	depends on LEDS_CLASS && LEDS_TRIGGERS
