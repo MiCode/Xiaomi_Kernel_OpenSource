@@ -136,9 +136,6 @@ struct sde_plane {
 
 	/* debugfs related stuff */
 	struct dentry *debugfs_root;
-	struct sde_debugfs_regset32 debugfs_src;
-	struct sde_debugfs_regset32 debugfs_scaler;
-	struct sde_debugfs_regset32 debugfs_csc;
 	bool debugfs_default_scale;
 };
 

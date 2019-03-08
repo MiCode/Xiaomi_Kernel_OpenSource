@@ -106,174 +106,6 @@ bool sde_is_custom_client(void)
 }
 
 #ifdef CONFIG_DEBUG_FS
-static int _sde_danger_signal_status(struct seq_file *s,
-		bool danger_status)
-{
-	struct sde_kms *kms = (struct sde_kms *)s->private;
-	struct msm_drm_private *priv;
-	struct sde_danger_safe_status status;
-	int i;
-	int rc;
-
-	if (!kms || !kms->dev || !kms->dev->dev_private || !kms->hw_mdp) {
-		SDE_ERROR("invalid arg(s)\n");
-		return 0;
-	}
-
-	priv = kms->dev->dev_private;
-	memset(&status, 0, sizeof(struct sde_danger_safe_status));
-
-	rc = sde_power_resource_enable(&priv->phandle, kms->core_client, true);
-	if (rc) {
-		SDE_ERROR("failed to enable power resource %d\n", rc);
-		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
-		return rc;
-	}
-
-	if (danger_status) {
-		seq_puts(s, "\nDanger signal status:\n");
-		if (kms->hw_mdp->ops.get_danger_status)
-			kms->hw_mdp->ops.get_danger_status(kms->hw_mdp,
-					&status);
-	} else {
-		seq_puts(s, "\nSafe signal status:\n");
-		if (kms->hw_mdp->ops.get_danger_status)
-			kms->hw_mdp->ops.get_danger_status(kms->hw_mdp,
-					&status);
-	}
-	sde_power_resource_enable(&priv->phandle, kms->core_client, false);
-
-	seq_printf(s, "MDP     :  0x%x\n", status.mdp);
-
-	for (i = SSPP_VIG0; i < SSPP_MAX; i++)
-		seq_printf(s, "SSPP%d   :  0x%x  \t", i - SSPP_VIG0,
-				status.sspp[i]);
-	seq_puts(s, "\n");
-
-	for (i = WB_0; i < WB_MAX; i++)
-		seq_printf(s, "WB%d     :  0x%x  \t", i - WB_0,
-				status.wb[i]);
-	seq_puts(s, "\n");
-
-	return 0;
-}
-
-#define DEFINE_SDE_DEBUGFS_SEQ_FOPS(__prefix)				\
-static int __prefix ## _open(struct inode *inode, struct file *file)	\
-{									\
-	return single_open(file, __prefix ## _show, inode->i_private);	\
-}									\
-static const struct file_operations __prefix ## _fops = {		\
-	.owner = THIS_MODULE,						\
-	.open = __prefix ## _open,					\
-	.release = single_release,					\
-	.read = seq_read,						\
-	.llseek = seq_lseek,						\
-}
-
-static int sde_debugfs_danger_stats_show(struct seq_file *s, void *v)
-{
-	return _sde_danger_signal_status(s, true);
-}
-DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_danger_stats);
-
-static int sde_debugfs_safe_stats_show(struct seq_file *s, void *v)
-{
-	return _sde_danger_signal_status(s, false);
-}
-DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_safe_stats);
-
-static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms)
-{
-	debugfs_remove_recursive(sde_kms->debugfs_danger);
-	sde_kms->debugfs_danger = NULL;
-}
-
-static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
-		struct dentry *parent)
-{
-	sde_kms->debugfs_danger = debugfs_create_dir("danger",
-			parent);
-	if (!sde_kms->debugfs_danger) {
-		SDE_ERROR("failed to create danger debugfs\n");
-		return -EINVAL;
-	}
-
-	debugfs_create_file("danger_status", 0400, sde_kms->debugfs_danger,
-			sde_kms, &sde_debugfs_danger_stats_fops);
-	debugfs_create_file("safe_status", 0400, sde_kms->debugfs_danger,
-			sde_kms, &sde_debugfs_safe_stats_fops);
-
-	return 0;
-}
-
-static int _sde_debugfs_show_regset32(struct seq_file *s, void *data)
-{
-	struct sde_debugfs_regset32 *regset;
-	struct sde_kms *sde_kms;
-	struct drm_device *dev;
-	struct msm_drm_private *priv;
-	void __iomem *base;
-	uint32_t i, addr;
-
-	if (!s || !s->private)
-		return 0;
-
-	regset = s->private;
-
-	sde_kms = regset->sde_kms;
-	if (!sde_kms || !sde_kms->mmio)
-		return 0;
-
-	dev = sde_kms->dev;
-	if (!dev)
-		return 0;
-
-	priv = dev->dev_private;
-	if (!priv)
-		return 0;
-
-	base = sde_kms->mmio + regset->offset;
-
-	/* insert padding spaces, if needed */
-	if (regset->offset & 0xF) {
-		seq_printf(s, "[%x]", regset->offset & ~0xF);
-		for (i = 0; i < (regset->offset & 0xF); i += 4)
-			seq_puts(s, "         ");
-	}
-
-	if (sde_power_resource_enable(&priv->phandle,
-				sde_kms->core_client, true)) {
-		seq_puts(s, "failed to enable sde clocks\n");
-		return 0;
-	}
-
-	/* main register output */
-	for (i = 0; i < regset->blk_len; i += 4) {
-		addr = regset->offset + i;
-		if ((addr & 0xF) == 0x0)
-			seq_printf(s, i ? "\n[%x]" : "[%x]", addr);
-		seq_printf(s, " %08x", readl_relaxed(base + i));
-	}
-	seq_puts(s, "\n");
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
-
-	return 0;
-}
-
-static int sde_debugfs_open_regset32(struct inode *inode,
-		struct file *file)
-{
-	return single_open(file, _sde_debugfs_show_regset32, inode->i_private);
-}
-
-static const struct file_operations sde_fops_regset32 = {
-	.open =		sde_debugfs_open_regset32,
-	.read =		seq_read,
-	.llseek =	seq_lseek,
-	.release =	single_release,
-};
-
 void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv;
@@ -303,7 +135,6 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 	/* allow debugfs_root to be NULL */
 	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0600, debugfs_root, p);
 
-	(void) sde_debugfs_danger_init(sde_kms, debugfs_root);
 	(void) sde_debugfs_vbif_init(sde_kms, debugfs_root);
 	(void) sde_debugfs_core_irq_init(sde_kms, debugfs_root);
 
@@ -321,7 +152,6 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 	/* don't need to NULL check debugfs_root */
 	if (sde_kms) {
 		sde_debugfs_vbif_destroy(sde_kms);
-		sde_debugfs_danger_destroy(sde_kms);
 		sde_debugfs_core_irq_destroy(sde_kms);
 	}
 }

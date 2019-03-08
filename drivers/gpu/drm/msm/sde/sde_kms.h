@@ -243,7 +243,6 @@ struct sde_kms {
 	struct sde_power_event *power_event;
 
 	/* directory entry for debugfs */
-	struct dentry *debugfs_danger;
 	struct dentry *debugfs_vbif;
 
 	/* io/register spaces: */
@@ -423,20 +422,8 @@ static inline bool sde_kms_is_cp_operation_allowed(struct sde_kms *sde_kms)
  *
  * Documentation/filesystems/debugfs.txt
  *
- * @sde_debugfs_setup_regset32: Initialize data for sde_debugfs_create_regset32
- * @sde_debugfs_create_regset32: Create 32-bit register dump file
  * @sde_debugfs_get_root: Get root dentry for SDE_KMS's debugfs node
  */
-
-/**
- * Companion structure for sde_debugfs_create_regset32. Do not initialize the
- * members of this structure explicitly; use sde_debugfs_setup_regset32 instead.
- */
-struct sde_debugfs_regset32 {
-	uint32_t offset;
-	uint32_t blk_len;
-	struct sde_kms *sde_kms;
-};
 
 /**
  * sde_debugfs_get_root - Return root directory entry for KMS's debugfs
