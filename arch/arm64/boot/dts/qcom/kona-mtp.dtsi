@@ -8,6 +8,7 @@
 #include "kona-sde-display.dtsi"
 #include "kona-camera-sensor-mtp.dtsi"
 #include "kona-audio-overlay.dtsi"
+#include "kona-thermal-overlay.dtsi"
 
 &qupv3_se12_2uart {
 	status = "ok";
