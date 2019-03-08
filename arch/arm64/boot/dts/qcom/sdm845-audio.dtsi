@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,8 @@
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
 				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
-				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>;
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+				<&dai_quat_tdm_rx_1>;
 		asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -89,7 +90,8 @@
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
 				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
-				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913";
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+				"msm-dai-q6-tdm.36914";
 	};
 };
 
@@ -97,5 +99,15 @@
 	msm_dai_slim {
 		compatible = "qcom,msm-dai-slim";
 		elemental-addr = [ff ff ff fe 17 02];
+	};
+};
+
+&msm_dai_tdm_quat_rx {
+	qcom,msm-cpudai-tdm-group-num-ports = <2>;
+	qcom,msm-cpudai-tdm-group-port-id = <36912 36914>;
+	dai_quat_tdm_rx_1: qcom,msm-dai-q6-tdm-quat-rx-1 {
+		compatible = "qcom,msm-dai-q6-tdm";
+		qcom,msm-cpudai-tdm-dev-id = <36914>;
+		qcom,msm-cpudai-tdm-data-align = <0>;
 	};
 };
