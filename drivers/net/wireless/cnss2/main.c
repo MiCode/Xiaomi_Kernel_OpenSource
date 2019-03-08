@@ -376,6 +376,38 @@ out:
 	return ret;
 }
 
+static int cnss_request_antenna_sharing(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	if (!plat_priv->antenna) {
+		ret = cnss_wlfw_antenna_switch_send_sync(plat_priv);
+		if (ret)
+			goto out;
+	}
+
+	if (test_bit(CNSS_COEX_CONNECTED, &plat_priv->driver_state)) {
+		ret = coex_antenna_switch_to_wlan_send_sync_msg(plat_priv);
+		if (ret)
+			goto out;
+	}
+
+	ret = cnss_wlfw_antenna_grant_send_sync(plat_priv);
+	if (ret)
+		goto out;
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static void cnss_release_antenna_sharing(struct cnss_plat_data *plat_priv)
+{
+	if (test_bit(CNSS_COEX_CONNECTED, &plat_priv->driver_state))
+		coex_antenna_switch_to_mdm_send_sync_msg(plat_priv);
+}
+
 static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -396,6 +428,7 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_WALTEST);
 	} else if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
+		cnss_request_antenna_sharing(plat_priv);
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_CALIBRATION);
 	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
@@ -1084,6 +1117,7 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 
 	plat_priv->cal_done = true;
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
+	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
@@ -1709,6 +1743,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto destroy_debugfs;
 
+	cnss_register_coex_service(plat_priv);
+
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
@@ -1744,6 +1780,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	cnss_unregister_coex_service(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
