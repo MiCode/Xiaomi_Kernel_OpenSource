@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/bitops.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -22,6 +23,7 @@
 #include <linux/serial.h>
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
+#include <soc/qcom/scm.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -32,6 +34,7 @@
 #define EUD_REG_COM_RX_ID	0x000C
 #define EUD_REG_COM_RX_LEN	0x0010
 #define EUD_REG_COM_RX_DAT	0x0014
+#define EUD_REG_EUD_EN2		0x0000
 #define EUD_REG_INT1_EN_MASK	0x0024
 #define EUD_REG_INT_STATUS_1	0x0044
 #define EUD_REG_CTL_OUT_1	0x0074
@@ -65,6 +68,9 @@ struct eud_chip {
 	struct extcon_dev		*extcon;
 	struct uart_port		port;
 	struct work_struct		eud_work;
+	struct power_supply		*batt_psy;
+	bool				secure_eud_en;
+	phys_addr_t			eud_mode_mgr2_phys_base;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -119,6 +125,14 @@ static void enable_eud(struct platform_device *pdev)
 		/* Enable vbus, chgr & safe mode warning interrupts */
 		writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
 				priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+		/* Enable secure eud if supported */
+		if (priv->secure_eud_en) {
+			ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
+					   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
+			if (ret)
+				dev_err(&pdev->dev,
+				"scm_io_write failed with rc:%d\n", ret);
+		}
 
 		/* Ensure Register Writes Complete */
 		wmb();
@@ -142,10 +156,21 @@ static void enable_eud(struct platform_device *pdev)
 static void disable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
+	int ret;
 
 	/* write into CSR to disable EUD */
 	writel_relaxed(0, priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
-	dev_dbg(&pdev->dev, "%s: EUD is Disabled\n", __func__);
+
+	/* Disable secure eud if supported */
+	if (priv->secure_eud_en) {
+		ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
+				   EUD_REG_EUD_EN2, EUD_DISABLE_CMD);
+		if (ret)
+			dev_err(&pdev->dev,
+			"scm_io_write failed with rc:%d\n", ret);
+	}
+
+	dev_dbg(&pdev->dev, "%s: EUD Disabled!\n", __func__);
 }
 
 static int param_eud_set(const char *val, const struct kernel_param *kp)
@@ -180,17 +205,33 @@ static const struct kernel_param_ops eud_param_ops = {
 
 module_param_cb(enable, &eud_param_ops, &enable, 0644);
 
+static bool is_batt_available(struct eud_chip *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
 static void eud_event_notifier(struct work_struct *eud_work)
 {
 	struct eud_chip *chip = container_of(eud_work, struct eud_chip,
 					eud_work);
+	union power_supply_propval pval;
 
 	if (chip->int_status == EUD_INT_VBUS)
 		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->usb_attach);
-	else if (chip->int_status == EUD_INT_CHGR)
-		extcon_set_state_sync(chip->extcon, chip->extcon_id,
-					chip->chgr_enable);
+	else if (chip->int_status == EUD_INT_CHGR) {
+		if (is_batt_available(chip)) {
+			pval.intval = !chip->chgr_enable;
+			power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_INPUT_SUSPEND, &pval);
+		}
+	}
 }
 
 static void usb_attach_detach(struct eud_chip *chip)
@@ -507,6 +548,22 @@ static int msm_eud_probe(struct platform_device *pdev)
 		return PTR_ERR(chip->eud_reg_base);
 
 	chip->eud_irq = platform_get_irq_byname(pdev, "eud_irq");
+
+	chip->secure_eud_en = of_property_read_bool(pdev->dev.of_node,
+			      "qcom,secure-eud-en");
+	if (chip->secure_eud_en) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "eud_mode_mgr2");
+		if (!res) {
+			dev_err(chip->dev,
+			"%s: failed to get resource eud_mode_mgr2\n",
+			__func__);
+			ret = -ENOMEM;
+			return ret;
+		}
+
+		chip->eud_mode_mgr2_phys_base = res->start;
+	}
 
 	ret = devm_request_irq(&pdev->dev, chip->eud_irq, handle_eud_irq,
 				IRQF_TRIGGER_HIGH, "eud_irq", chip);
