@@ -179,6 +179,7 @@ struct qti_hap_effect {
 	int			brake_pattern_length;
 	bool			brake_en;
 	bool			lra_auto_res_disable;
+	enum wf_src		wf_src;
 };
 
 struct qti_hap_play_info {
@@ -193,11 +194,9 @@ struct qti_hap_config {
 	enum actutor_type	act_type;
 	enum lra_res_sig_shape	lra_shape;
 	enum lra_auto_res_mode	lra_auto_res_mode;
-	enum wf_src		ext_src;
 	u16			vmax_mv;
 	u16			play_rate_us;
 	bool			lra_allow_variable_play_rate;
-	bool			use_ext_wf_src;
 };
 
 struct qti_hap_chip {
@@ -205,7 +204,6 @@ struct qti_hap_chip {
 	struct device			*dev;
 	struct regmap			*regmap;
 	struct input_dev		*input_dev;
-	struct pwm_device		*pwm_dev;
 	struct qti_hap_config		config;
 	struct qti_hap_play_info	play;
 	struct qti_hap_effect		*predefined;
@@ -228,6 +226,7 @@ struct qti_hap_chip {
 
 static int wf_repeat[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 static int wf_s_repeat[4] = {1, 2, 4, 8};
+const static char * const wf_src_str[] = {"vmax", "buffer", "audio", "pwm"};
 
 static inline bool is_secure(u8 addr)
 {
@@ -398,6 +397,11 @@ static int qti_haptics_config_wf_buffer(struct qti_hap_chip *chip)
 	int rc = 0;
 	size_t len;
 
+	if (effect->pattern == NULL) {
+		dev_dbg(chip->dev, "no pattern for effect %d\n", effect->id);
+		return 0;
+	}
+
 	if (play->playing_pos == effect->pattern_length) {
 		dev_dbg(chip->dev, "pattern playing done\n");
 		return 0;
@@ -493,11 +497,8 @@ static int qti_haptics_config_wf_src(struct qti_hap_chip *chip,
 	int rc;
 
 	addr = REG_HAP_SEL;
-	mask = HAP_WF_SOURCE_MASK | HAP_WF_TRIGGER_BIT;
+	mask = HAP_WF_SOURCE_MASK;
 	val = src << HAP_WF_SOURCE_SHIFT;
-	if (src == EXT_WF_AUDIO || src == EXT_WF_PWM)
-		val |= HAP_WF_TRIGGER_BIT;
-
 	rc = qti_haptics_masked_write(chip, addr, mask, val);
 	if (rc < 0)
 		dev_err(chip->dev, "set HAP_SEL failed, rc=%d\n", rc);
@@ -704,20 +705,22 @@ static int qti_haptics_load_predefined_effect(struct qti_hap_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	rc = qti_haptics_config_wf_buffer(chip);
+	/* Set corresponding WF_SOURCE */
+	rc = qti_haptics_config_wf_src(chip, play->effect->wf_src);
 	if (rc < 0)
 		return rc;
 
-	rc = qti_haptics_config_wf_repeat(chip);
-	if (rc < 0)
-		return rc;
+	if (play->effect->wf_src == INT_WF_BUFFER) {
+		rc = qti_haptics_config_wf_buffer(chip);
+		if (rc < 0)
+			return rc;
 
-	/* Set WF_SOURCE to buffer */
-	rc = qti_haptics_config_wf_src(chip, INT_WF_BUFFER);
-	if (rc < 0)
-		return rc;
+		rc = qti_haptics_config_wf_repeat(chip);
+		if (rc < 0)
+			return rc;
 
-	play->playing_pattern = true;
+		play->playing_pattern = true;
+	}
 
 	return 0;
 }
@@ -811,6 +814,17 @@ static inline void get_play_length(struct qti_hap_play_info *play,
 {
 	struct qti_hap_effect *effect = play->effect;
 	int tmp;
+
+	/*
+	 * Return play_length to 0 if playing LINE-IN signal,
+	 * the playing has to be stopped explicitly from the
+	 * requester.
+	 */
+	if (effect->wf_src == EXT_WF_PWM ||
+			effect->wf_src == EXT_WF_AUDIO) {
+		*length_us = 0;
+		return;
+	}
 
 	tmp = effect->pattern_length * effect->play_rate_us;
 	tmp *= wf_s_repeat[effect->wf_s_repeat_n];
@@ -961,11 +975,15 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 				disable_irq_nosync(chip->play_irq);
 				chip->play_irq_en = false;
 			}
-			secs = play->length_us / USEC_PER_SEC;
-			nsecs = (play->length_us % USEC_PER_SEC) *
-				NSEC_PER_USEC;
-			hrtimer_start(&chip->stop_timer, ktime_set(secs, nsecs),
-					HRTIMER_MODE_REL);
+
+			if (play->length_us != 0) {
+				secs = play->length_us / USEC_PER_SEC;
+				nsecs = (play->length_us % USEC_PER_SEC) *
+					NSEC_PER_USEC;
+				hrtimer_start(&chip->stop_timer,
+						ktime_set(secs, nsecs),
+						HRTIMER_MODE_REL);
+			}
 		}
 	} else {
 		play->length_us = 0;
@@ -1085,13 +1103,6 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	if (rc < 0)
 		return rc;
 
-	/* Set external waveform source if it's used */
-	if (config->use_ext_wf_src) {
-		rc = qti_haptics_config_wf_src(chip, config->ext_src);
-		if (rc < 0)
-			return rc;
-	}
-
 	/*
 	 * Skip configurations below for ERM actuator
 	 * as they're only for LRA actuators
@@ -1206,6 +1217,61 @@ static int qti_haptics_parse_dt_per_effect(struct qti_hap_chip *chip)
 			effect->vmax_mv = (tmp > HAP_VMAX_MV_MAX) ?
 				HAP_VMAX_MV_MAX : tmp;
 
+		effect->play_rate_us = config->play_rate_us;
+		rc = of_property_read_u32(child_node, "qcom,wf-play-rate-us",
+				&tmp);
+		if (rc < 0)
+			dev_dbg(chip->dev, "Read qcom,wf-play-rate-us failed, rc=%d\n",
+					rc);
+		else
+			effect->play_rate_us = tmp;
+
+		if (config->act_type == ACT_LRA &&
+				!config->lra_allow_variable_play_rate &&
+				config->play_rate_us != effect->play_rate_us) {
+			dev_warn(chip->dev, "play rate should match with LRA resonance frequency\n");
+			effect->play_rate_us = config->play_rate_us;
+		}
+
+		effect->lra_auto_res_disable = of_property_read_bool(child_node,
+				"qcom,lra-auto-resonance-disable");
+
+		tmp = of_property_count_elems_of_size(child_node,
+				"qcom,wf-brake-pattern", sizeof(u8));
+		if (tmp > 0) {
+			if (tmp > HAP_BRAKE_PATTERN_MAX) {
+				dev_err(chip->dev, "wf-brake-pattern shouldn't be more than %d bytes\n",
+						HAP_BRAKE_PATTERN_MAX);
+				return -EINVAL;
+			}
+
+			rc = of_property_read_u8_array(child_node,
+					"qcom,wf-brake-pattern",
+					effect->brake, tmp);
+			if (rc < 0) {
+				dev_err(chip->dev, "Failed to get wf-brake-pattern, rc=%d\n",
+						rc);
+				return rc;
+			}
+
+			effect->brake_pattern_length = tmp;
+			verify_brake_setting(effect);
+		}
+
+		effect->wf_src = INT_WF_BUFFER;
+		if (of_property_read_bool(child_node, "qcom,wf-line-in-pwm"))
+			effect->wf_src = EXT_WF_PWM;
+		if (of_property_read_bool(child_node, "qcom,wf-line-in-audio"))
+			effect->wf_src = EXT_WF_AUDIO;
+
+		/*
+		 * Ignore wf-pattern configuration iff it's
+		 * supposed to play waveform/signal from LINE-IN
+		 * pin
+		 */
+		if (effect->wf_src != INT_WF_BUFFER)
+			continue;
+
 		rc = of_property_count_elems_of_size(child_node,
 				"qcom,wf-pattern", sizeof(u8));
 		if (rc < 0) {
@@ -1229,22 +1295,6 @@ static int qti_haptics_parse_dt_per_effect(struct qti_hap_chip *chip)
 			dev_err(chip->dev, "Read qcom,wf-pattern property failed, rc=%d\n",
 					rc);
 			return rc;
-		}
-
-		effect->play_rate_us = config->play_rate_us;
-		rc = of_property_read_u32(child_node, "qcom,wf-play-rate-us",
-				&tmp);
-		if (rc < 0)
-			dev_dbg(chip->dev, "Read qcom,wf-play-rate-us failed, rc=%d\n",
-					rc);
-		else
-			effect->play_rate_us = tmp;
-
-		if (config->act_type == ACT_LRA &&
-				!config->lra_allow_variable_play_rate &&
-				config->play_rate_us != effect->play_rate_us) {
-			dev_warn(chip->dev, "play rate should match with LRA resonance frequency\n");
-			effect->play_rate_us = config->play_rate_us;
 		}
 
 		rc = of_property_read_u32(child_node, "qcom,wf-repeat-count",
@@ -1272,53 +1322,33 @@ static int qti_haptics_parse_dt_per_effect(struct qti_hap_chip *chip)
 
 			effect->wf_s_repeat_n = j;
 		}
-
-		effect->lra_auto_res_disable = of_property_read_bool(child_node,
-				"qcom,lra-auto-resonance-disable");
-
-		tmp = of_property_count_elems_of_size(child_node,
-				"qcom,wf-brake-pattern", sizeof(u8));
-		if (tmp <= 0)
-			continue;
-
-		if (tmp > HAP_BRAKE_PATTERN_MAX) {
-			dev_err(chip->dev, "wf-brake-pattern shouldn't be more than %d bytes\n",
-					HAP_BRAKE_PATTERN_MAX);
-			return -EINVAL;
-		}
-
-		rc = of_property_read_u8_array(child_node,
-				"qcom,wf-brake-pattern", effect->brake, tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "Failed to get wf-brake-pattern, rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		effect->brake_pattern_length = tmp;
-		verify_brake_setting(effect);
 	}
 
 	for (j = 0; j < i; j++) {
 		dev_dbg(chip->dev, "effect: %d\n", chip->predefined[j].id);
-		dev_dbg(chip->dev, "        vmax: %d mv\n",
+		dev_dbg(chip->dev, "    vmax: %d mv\n",
 				chip->predefined[j].vmax_mv);
-		dev_dbg(chip->dev, "        play_rate: %d us\n",
-				chip->predefined[j].play_rate_us);
-		for (m = 0; m < chip->predefined[j].pattern_length; m++)
-			dev_dbg(chip->dev, "        pattern[%d]: 0x%x\n",
-					m, chip->predefined[j].pattern[m]);
-		for (m = 0; m < chip->predefined[j].brake_pattern_length; m++)
-			dev_dbg(chip->dev, "        brake_pattern[%d]: 0x%x\n",
-					m, chip->predefined[j].brake[m]);
+		dev_dbg(chip->dev, "    waveform source: %s\n",
+				wf_src_str[chip->predefined[j].wf_src]);
 		dev_dbg(chip->dev, "    brake_en: %d\n",
 				chip->predefined[j].brake_en);
+		for (m = 0; m < chip->predefined[j].brake_pattern_length; m++)
+			dev_dbg(chip->dev, "    brake_pattern[%d]: 0x%x\n",
+					m, chip->predefined[j].brake[m]);
+		dev_dbg(chip->dev, "    lra_auto_res_disable: %d\n",
+				chip->predefined[j].lra_auto_res_disable);
+		if (chip->predefined[j].wf_src != INT_WF_BUFFER)
+			continue;
+
+		for (m = 0; m < chip->predefined[j].pattern_length; m++)
+			dev_dbg(chip->dev, "    pattern[%d]: 0x%x\n",
+					m, chip->predefined[j].pattern[m]);
+		dev_dbg(chip->dev, "    play_rate: %d us\n",
+				chip->predefined[j].play_rate_us);
 		dev_dbg(chip->dev, "    wf_repeat_n: %d\n",
 				chip->predefined[j].wf_repeat_n);
 		dev_dbg(chip->dev, "    wf_s_repeat_n: %d\n",
 				chip->predefined[j].wf_s_repeat_n);
-		dev_dbg(chip->dev, "    lra_auto_res_disable: %d\n",
-				chip->predefined[j].lra_auto_res_disable);
 	}
 
 	return 0;
@@ -1421,22 +1451,6 @@ static int qti_haptics_parse_dt(struct qti_hap_chip *chip)
 	if (!rc)
 		config->play_rate_us = (tmp >= HAP_PLAY_RATE_US_MAX) ?
 			HAP_PLAY_RATE_US_MAX : tmp;
-
-	if (of_find_property(node, "qcom,external-waveform-source", NULL)) {
-		if (!of_property_read_string(node,
-				"qcom,external-waveform-source", &str)) {
-			if (strcmp(str, "audio") == 0) {
-				config->ext_src = EXT_WF_AUDIO;
-			} else if (strcmp(str, "pwm") == 0) {
-				config->ext_src = EXT_WF_PWM;
-			} else {
-				dev_err(chip->dev, "Invalid external waveform source: %s\n",
-						str);
-				return -EINVAL;
-			}
-		}
-		config->use_ext_wf_src = true;
-	}
 
 	if (of_find_property(node, "vdd-supply", NULL)) {
 		chip->vdd_supply = devm_regulator_get(chip->dev, "vdd");
@@ -1603,6 +1617,34 @@ static int auto_res_dbgfs_write(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(auto_res_debugfs_ops,  auto_res_dbgfs_read,
 		auto_res_dbgfs_write, "%llu\n");
+
+#define WF_SRC_BYTES	12
+static ssize_t wf_src_dbgfs_read(struct file *filep,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct qti_hap_effect *effect =
+		(struct qti_hap_effect *)filep->private_data;
+	char kbuf[WF_SRC_BYTES] = {0};
+	int rc, length;
+
+	length = snprintf(kbuf, WF_SRC_BYTES, "%s",
+			wf_src_str[effect->wf_src]);
+
+	if (length > WF_SRC_BYTES - 2)
+		return -EINVAL;
+
+	kbuf[length++] = '\n';
+	kbuf[length++] = '\0';
+
+	rc = simple_read_from_buffer(buf, count, ppos, kbuf, length);
+	return rc;
+}
+
+static const struct file_operations wf_src_dbgfs_ops = {
+	.read = wf_src_dbgfs_read,
+	.owner = THIS_MODULE,
+	.open = simple_open,
+};
 
 #define CHAR_PER_PATTERN 8
 static ssize_t brake_pattern_dbgfs_read(struct file *filep,
@@ -1787,20 +1829,6 @@ static int create_effect_debug_files(struct qti_hap_effect *effect,
 		return -ENOMEM;
 	}
 
-	file = debugfs_create_file("wf_repeat_n", 0644, dir,
-			effect, &wf_repeat_n_debugfs_ops);
-	if (!file) {
-		pr_err("create wf-repeat debugfs node failed\n");
-		return -ENOMEM;
-	}
-
-	file = debugfs_create_file("wf_s_repeat_n", 0644, dir,
-			effect, &wf_s_repeat_n_debugfs_ops);
-	if (!file) {
-		pr_err("create wf-s-repeat debugfs node failed\n");
-		return -ENOMEM;
-	}
-
 	file = debugfs_create_file("lra_auto_res_en", 0644, dir,
 			effect, &auto_res_debugfs_ops);
 	if (!file) {
@@ -1815,10 +1843,34 @@ static int create_effect_debug_files(struct qti_hap_effect *effect,
 		return -ENOMEM;
 	}
 
+	file = debugfs_create_file("wf_src", 0444, dir,
+			effect, &wf_src_dbgfs_ops);
+	if (!file) {
+		pr_err("create wf_src debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	if (effect->wf_src == EXT_WF_AUDIO || effect->wf_src == EXT_WF_PWM)
+		return 0;
+
 	file = debugfs_create_file("pattern", 0644, dir,
 			effect, &pattern_dbgfs_ops);
 	if (!file) {
 		pr_err("create pattern debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("wf_repeat_n", 0644, dir,
+			effect, &wf_repeat_n_debugfs_ops);
+	if (!file) {
+		pr_err("create wf_repeat debugfs node failed\n");
+		return -ENOMEM;
+	}
+
+	file = debugfs_create_file("wf_s_repeat_n", 0644, dir,
+			effect, &wf_s_repeat_n_debugfs_ops);
+	if (!file) {
+		pr_err("create wf_s_repeat debugfs node failed\n");
 		return -ENOMEM;
 	}
 
