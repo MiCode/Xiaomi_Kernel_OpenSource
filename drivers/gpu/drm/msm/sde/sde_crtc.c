@@ -91,8 +91,9 @@ static struct sde_crtc_custom_events custom_events[] = {
 #define MAX_FRAME_COUNT			1000
 #define MILI_TO_MICRO			1000
 
-/* Line padding ratio limit */
-#define MAX_VPADDING_RATIO		3
+/* default line padding ratio limitation */
+#define MAX_VPADDING_RATIO_M		63
+#define MAX_VPADDING_RATIO_N		15
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -1681,7 +1682,7 @@ static int _sde_crtc_check_panel_stacking(struct drm_crtc *crtc,
 	m = state->mode.vdisplay / gcd;
 	n = mode_info.vpadding / gcd - m;
 
-	if (m > MAX_VPADDING_RATIO || n > MAX_VPADDING_RATIO) {
+	if (m > MAX_VPADDING_RATIO_M || n > MAX_VPADDING_RATIO_N) {
 		SDE_ERROR("unsupported panel stacking pattern %d:%d", m, n);
 		return -EINVAL;
 	}
@@ -5713,6 +5714,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			catalog->perf.amortizable_threshold);
 	sde_kms_info_add_keyint(info, "min_prefill_lines",
 			catalog->perf.min_prefill_lines);
+	sde_kms_info_add_keyint(info, "num_mnoc_ports",
+			catalog->perf.num_mnoc_ports);
+	sde_kms_info_add_keyint(info, "axi_bus_width",
+			catalog->perf.axi_bus_width);
 	sde_kms_info_add_keyint(info, "sec_ui_blendstage",
 			catalog->sui_supported_blendstage);
 
@@ -6979,8 +6984,7 @@ int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
 {
 	struct sde_kms *kms;
 	struct sde_crtc_state *cstate = to_sde_crtc_state(state);
-	u32 y_blocks, y_remain, y_start;
-	u32 h_start, h_blocks, h_end, h_total;
+	u32 y_remain, y_start, y_end;
 	u32 m, n;
 
 	kms = _sde_crtc_get_kms(state->crtc);
@@ -6999,19 +7003,14 @@ int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
 
 	m = cstate->padding_active;
 	n = m + cstate->padding_dummy;
-	y_blocks = crtc_y / m;
-	y_remain = crtc_y - y_blocks * m;
-	y_start = y_remain + y_blocks * n;
-	h_start = m - y_remain;
-	h_blocks = (crtc_h - h_start) / m;
-	h_end = (crtc_h - h_start) - h_blocks * m;
-	if (h_end)
-		h_end += cstate->padding_dummy;
-	h_total = h_start + h_end + h_blocks * n;
+
+	y_remain = crtc_y % m;
+	y_start = y_remain + crtc_y / m * n;
+	y_end = (crtc_y + crtc_h - 1) / m * n + (crtc_y + crtc_h - 1) % m;
 
 	*padding_y = y_start;
-	*padding_start = h_start;
-	*padding_height = h_total;
+	*padding_start = m - y_remain;
+	*padding_height = y_end - y_start + 1;
 
 	return 0;
 }
