@@ -568,3 +568,9 @@
 		qca,bt-vdd-rfa2-voltage-level = <1350000 1350000>;
 	};
 };
+
+&usb0 {
+	dwc3@a600000 {
+		maximum-speed = "high-speed";
+	};
+};
