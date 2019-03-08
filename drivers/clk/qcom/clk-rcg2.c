@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1324,6 +1324,9 @@ static int clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
 	if (cfg & mask)
 		f->pre_div = cfg & mask;
 
+	mode = cfg & CFG_MODE_MASK;
+	mode >>= CFG_MODE_SHIFT;
+
 	cfg &= CFG_SRC_SEL_MASK;
 	cfg >>= CFG_SRC_SEL_SHIFT;
 
@@ -1338,8 +1341,6 @@ static int clk_rcg2_dfs_populate_freq(struct clk_hw *hw, unsigned int l,
 		}
 	}
 
-	mode = cfg & CFG_MODE_MASK;
-	mode >>= CFG_MODE_SHIFT;
 	if (mode) {
 		mask = BIT(rcg->mnd_width) - 1;
 		regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + SE_PERF_M_DFSR(l),
