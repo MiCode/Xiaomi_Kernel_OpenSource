@@ -1,0 +1,139 @@
+/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "ipa_eth_i.h"
+
+static bool ipa_eth_bus_is_ready;
+
+static struct dentry *ipa_eth_bus_debugfs;
+
+struct ipa_eth_bus_map {
+	struct bus_type *bus;
+	struct ipa_eth_bus *eth_bus;
+	int (*modinit)(struct dentry *);
+	void (*modexit)(void);
+} bus_map[] = {
+	{
+		&pci_bus_type,
+		&ipa_eth_pci_bus,
+		&ipa_eth_pci_modinit,
+		&ipa_eth_pci_modexit
+	},
+	{},
+};
+
+static int ipa_eth_bus_debugfs_init(struct dentry *dbgfs_root)
+{
+	if (!dbgfs_root)
+		return 0;
+
+	ipa_eth_bus_debugfs = debugfs_create_dir("bus", dbgfs_root);
+	if (IS_ERR_OR_NULL(ipa_eth_bus_debugfs)) {
+		int rc = ipa_eth_bus_debugfs ?
+			PTR_ERR(ipa_eth_bus_debugfs) : -EFAULT;
+
+		ipa_eth_bus_debugfs = NULL;
+		return rc;
+	}
+
+	return 0;
+}
+
+static void ipa_eth_bus_debugfs_cleanup(void)
+{
+	debugfs_remove_recursive(ipa_eth_bus_debugfs);
+}
+
+static struct ipa_eth_bus *lookup_eth_bus(struct bus_type *bus)
+{
+	struct ipa_eth_bus_map *map;
+
+	for (map = bus_map; map->bus != NULL; map++) {
+		if (map->bus == bus)
+			return map->eth_bus;
+	}
+
+	return NULL;
+}
+
+int ipa_eth_bus_register_driver(struct ipa_eth_net_driver *nd)
+{
+	struct ipa_eth_bus *eth_bus;
+
+	if (!nd->bus) {
+		ipa_eth_err("Missing bus info in net driver");
+		return -EINVAL;
+	}
+
+	eth_bus = lookup_eth_bus(nd->bus);
+	if (!eth_bus) {
+		ipa_eth_err("Unsupported bus %s", nd->bus->name);
+		return -ENOTSUPP;
+	}
+
+	return eth_bus->register_net_driver(nd);
+}
+
+void ipa_eth_bus_unregister_driver(struct ipa_eth_net_driver *nd)
+{
+	struct ipa_eth_bus *eth_bus = lookup_eth_bus(nd->bus);
+
+	eth_bus->unregister_net_driver(nd);
+}
+
+int ipa_eth_bus_modinit(struct dentry *dbgfs_root)
+{
+	int rc;
+	struct ipa_eth_bus_map *map;
+
+	rc = ipa_eth_bus_debugfs_init(dbgfs_root);
+	if (rc) {
+		ipa_eth_err("Unable to create debugfs root for bus");
+		return rc;
+	}
+
+	/* initialize all registered busses */
+	for (rc = 0, map = bus_map; map->bus != NULL; map++)
+		rc |= map->modinit(ipa_eth_bus_debugfs);
+
+	if (rc) {
+		ipa_eth_err("Failed to initialize one or more busses");
+		goto err_init;
+	}
+
+	ipa_eth_bus_is_ready = true;
+
+	return 0;
+
+err_init:
+	for (map = bus_map; map->bus != NULL; map++)
+		map->modexit();
+
+	ipa_eth_bus_debugfs_cleanup();
+
+	return rc;
+}
+
+void ipa_eth_bus_modexit(void)
+{
+	struct ipa_eth_bus_map *map;
+
+	if (!ipa_eth_bus_is_ready)
+		return;
+
+	ipa_eth_bus_is_ready = false;
+
+	for (map = bus_map; map->bus != NULL; map++)
+		map->modexit();
+
+	ipa_eth_bus_debugfs_cleanup();
+}
