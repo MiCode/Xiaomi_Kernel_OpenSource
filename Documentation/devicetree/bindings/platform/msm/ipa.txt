@@ -102,6 +102,10 @@ memory allocation over a PCIe bridge
 				control.
 - qcom,entire-ipa-block-size: Complete size of the ipa block in which all
 				registers, collected upon crash, reside.
+- qcom,secure-debug-check-action: Drives secure memory debug check. Three values allowed:
+				0 (use scm call),
+				1 (override scm call as though it returned true), and
+				2 (override scm call as though it returned false)
 
 Optional properties:
 -qcom,ipa-pipe-mem: Specifies the base physical address and the

@@ -19,21 +19,9 @@
  */
 #define my_in_dword(addr) \
 	({ u32 __v = readl_relaxed((addr)); __iormb(); __v; })
-#define in_dword(addr) \
-	my_in_dword((u8 *) ipa3_ctx->reg_collection_base + \
-		    (u32)(addr))
-
-#define my_in_dword_masked(addr, mask) \
-	(my_in_dword(addr) & (mask))
-#define in_dword_masked(addr, mask) \
-	my_in_dword_masked((u8 *) ipa3_ctx->reg_collection_base + \
-			   (u32)(addr), (mask))
 
 #define my_out_dword(addr, val) \
 	({ __iowmb(); writel_relaxed((val), (addr)); })
-#define out_dword(addr, val) \
-	my_out_dword((u8 *) ipa3_ctx->reg_collection_base + \
-		     (u32)(addr), (val))
 
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
@@ -1263,6 +1251,7 @@ struct ipa_regs_save_hierarchy_s {
 
 /* Top level GSI register save data struct */
 struct gsi_regs_save_hierarchy_s {
+	u32 fw_ver;
 	struct ipa_reg_save_gsi_gen_s		gen;
 	struct ipa_reg_save_gsi_gen_ee_s	gen_ee[IPA_REG_SAVE_GSI_NUM_EE];
 	struct ipa_reg_save_gsi_ch_cntxt_s	ch_cntxt;
@@ -1323,6 +1312,105 @@ struct regs_save_hierarchy_s {
 		rsrc_cnts;
 	struct ipa_reg_save_gsi_fifo_status_s
 		gsi_fifo_status[IPA_HW_PIPE_ID_MAX];
+};
+
+/*
+ * The following section deals with handling IPA registers' memory
+ * access relative to pre-defined memory protection schemes
+ * (ie. "access control").
+ *
+ * In a nut shell, the intent of the data stuctures below is to allow
+ * higher level register accessors to be unaware of what really is
+ * going on at the lowest level (ie. real vs non-real access).  This
+ * methodology is also designed to allow for platform specific "access
+ * maps."
+ */
+
+/*
+ * Function for doing an actual read
+ */
+static inline u32
+act_read(void __iomem *addr)
+{
+	u32 val = my_in_dword(addr);
+
+	return val;
+}
+
+/*
+ * Function for doing an actual write
+ */
+static inline void
+act_write(void __iomem *addr, u32 val)
+{
+	my_out_dword(addr, val);
+}
+
+/*
+ * Function that pretends to do a read
+ */
+static inline u32
+nop_read(void __iomem *addr)
+{
+	return IPA_MEM_INIT_VAL;
+}
+
+/*
+ * Function that pretends to do a write
+ */
+static inline void
+nop_write(void __iomem *addr, u32 val)
+{
+}
+
+/*
+ * The following are used to define struct reg_access_funcs_s below...
+ */
+typedef u32 (*reg_read_func_t)(
+	void __iomem *addr);
+typedef void (*reg_write_func_t)(
+	void __iomem *addr,
+	u32 val);
+
+/*
+ * The following in used to define io_matrix[] below...
+ */
+struct reg_access_funcs_s {
+	reg_read_func_t  read;
+	reg_write_func_t write;
+};
+
+/*
+ * The following will be used to appropriately index into the
+ * read/write combos defined in io_matrix[] below...
+ */
+#define AA_COMBO 0 /* actual read, actual write */
+#define AN_COMBO 1 /* actual read, no-op write  */
+#define NA_COMBO 2 /* no-op read,  actual write */
+#define NN_COMBO 3 /* no-op read,  no-op write  */
+
+/*
+ * The following will be used to dictate registers' access methods
+ * relative to the state of secure debug...whether it's enabled or
+ * disabled.
+ *
+ * NOTE: The table below defines all access combinations.
+ */
+static struct reg_access_funcs_s io_matrix[] = {
+	{ act_read, act_write }, /* the AA_COMBO */
+	{ act_read, nop_write }, /* the AN_COMBO */
+	{ nop_read, act_write }, /* the NA_COMBO */
+	{ nop_read, nop_write }, /* the NN_COMBO */
+};
+
+/*
+ * The following will be used to define and drive IPA's register
+ * access rules.
+ */
+struct reg_mem_access_map_t {
+	u32 addr_range_begin;
+	u32 addr_range_end;
+	struct reg_access_funcs_s *access[2];
 };
 
 #endif /* #if !defined(_IPA_REG_DUMP_H_) */
