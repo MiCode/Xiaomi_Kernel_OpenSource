@@ -68,6 +68,9 @@ SoCs:
 - TRINKET
   compatible = "qcom,trinket"
 
+- ATOLL
+  compatible = "qcom,atoll"
+
 Generic board variants:
 
 - CDP device:
@@ -205,3 +208,4 @@ compatible = "qcom,sdmmagpiep-qrd"
 compatible = "qcom,trinket-rumi"
 compatible = "qcom,trinket-idp"
 compatible = "qcom,trinket-qrd"
+compatible = "qcom,atoll-rumi"
