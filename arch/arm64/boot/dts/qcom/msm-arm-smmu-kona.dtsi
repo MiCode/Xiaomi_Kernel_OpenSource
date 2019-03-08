@@ -15,6 +15,7 @@
 		qcom,dynamic;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,no-dynamic-asid;
 		#global-interrupts = <2>;
 		#size-cells = <1>;
 		#address-cells = <1>;
