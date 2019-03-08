@@ -84,6 +84,34 @@ static inline unsigned long get_ubwc_compression_ratio(
 	return compression_ratio;
 }
 
+bool res_is_less_than(u32 width, u32 height,
+			u32 ref_width, u32 ref_height)
+{
+	u32 num_mbs = NUM_MBS_PER_FRAME(height, width);
+	u32 max_side = max(ref_width, ref_height);
+
+	if (num_mbs < NUM_MBS_PER_FRAME(ref_height, ref_width) &&
+		width < max_side &&
+		height < max_side)
+		return true;
+	else
+		return false;
+}
+
+bool res_is_greater_than(u32 width, u32 height,
+				u32 ref_width, u32 ref_height)
+{
+	u32 num_mbs = NUM_MBS_PER_FRAME(height, width);
+	u32 max_side = max(ref_width, ref_height);
+
+	if (num_mbs > NUM_MBS_PER_FRAME(ref_height, ref_width) ||
+		width > max_side ||
+		height > max_side)
+		return true;
+	else
+		return false;
+}
+
 int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int height, width;
@@ -1290,19 +1318,15 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 			inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE)
 			pdata.video_work_route = 1;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
-		u32 slice_mode, output_width, output_height, num_mbs;
+		u32 slice_mode, width, height;
 		bool is_1080p_above;
 
 		slice_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		output_height = inst->prop.height[OUTPUT_PORT];
-		output_width = inst->prop.width[OUTPUT_PORT];
-		num_mbs = NUM_MBS_PER_FRAME(output_height, output_width);
+		height = inst->prop.height[OUTPUT_PORT];
+		width = inst->prop.width[OUTPUT_PORT];
 
-		is_1080p_above =
-			((output_height > 1088 && output_width > 1920) ||
-			 (output_height > 1920 && output_width > 1088) ||
-			 num_mbs > NUM_MBS_PER_FRAME(1088, 1920));
+		is_1080p_above = res_is_greater_than(width, height, 1920, 1088);
 
 		if (slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
 			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8 ||
@@ -1316,13 +1340,14 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Configurng work route = %u",
 			pdata.video_work_route);
 
-	inst->clk_data.work_route = pdata.video_work_route;
 	rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_ROUTE,
 			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure work route %pK\n", inst);
+	else
+		inst->clk_data.work_route = pdata.video_work_route;
 
 	return rc;
 }
@@ -1480,8 +1505,8 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hfi_video_work_mode pdata;
 	struct hfi_enable latency;
-	u32 num_mbs = 0;
 	u32 width, height;
+	bool res_ok = false;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1497,24 +1522,19 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	if (inst->session_type == MSM_VIDC_DECODER) {
 		height = inst->prop.height[CAPTURE_PORT];
 		width = inst->prop.width[CAPTURE_PORT];
-		num_mbs = NUM_MBS_PER_FRAME(height, width);
+		res_ok = res_is_less_than(width, height, 1280, 720);
 		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2 ||
 			inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE ||
-			inst->clk_data.low_latency_mode ||
-			(width < 1280 && height < 720) ||
-			(width < 720 && height < 1280) ||
-			num_mbs < NUM_MBS_PER_FRAME(720, 1280)) {
+			inst->clk_data.low_latency_mode || res_ok) {
 			pdata.video_work_mode = HFI_WORKMODE_1;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		height = inst->prop.height[OUTPUT_PORT];
 		width = inst->prop.width[OUTPUT_PORT];
-		num_mbs = NUM_MBS_PER_FRAME(height, width);
-		if ((num_mbs >= NUM_MBS_PER_FRAME(2160, 4096) ||
-			(width < 4096 && height < 2160) ||
-			(width < 2160 && height < 4096)) &&
+		res_ok = !res_is_greater_than(width, height, 4096, 2160);
+		if (res_ok &&
 			(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8 ||
-			 inst->clk_data.low_latency_mode)) {
+			  inst->clk_data.low_latency_mode)) {
 			pdata.video_work_mode = HFI_WORKMODE_1;
 			/* For WORK_MODE_1, set Low Latency mode by default */
 			latency.enable = true;
@@ -1524,27 +1544,29 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	}
 
 	dprintk(VIDC_DBG, "Configuring work mode = %u low latency = %u",
-			inst->clk_data.work_mode,
+			pdata.video_work_mode,
 			latency.enable);
 
-	rc = call_hfi_op(hdev, session_set_property,
-		(void *)inst->session,
-		HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE,
-		(void *)&latency, sizeof(latency));
-	if (rc)
-		dprintk(VIDC_WARN,
-			" Failed to configure low latency %pK\n", inst);
-	else
-		inst->clk_data.low_latency_mode = latency.enable;
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session,
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE,
+			(void *)&latency, sizeof(latency));
+		if (rc)
+			dprintk(VIDC_WARN,
+				" Failed to configure low latency %pK\n", inst);
+		else
+			inst->clk_data.low_latency_mode = latency.enable;
+	}
 
-
-	inst->clk_data.work_mode = pdata.video_work_mode;
 	rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, HFI_PROPERTY_PARAM_WORK_MODE,
 			(void *)&pdata, sizeof(pdata));
 	if (rc)
 		dprintk(VIDC_WARN,
 			" Failed to configure Work Mode %pK\n", inst);
+	else
+		inst->clk_data.work_mode = pdata.video_work_mode;
 
 	return rc;
 }
