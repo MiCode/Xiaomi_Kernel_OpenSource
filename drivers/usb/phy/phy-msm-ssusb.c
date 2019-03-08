@@ -402,6 +402,17 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
+	/* Power down PHY to avoid leakage at 1.8V LDO */
+	if (of_property_read_bool(dev->of_node, "qcom,keep-powerdown")) {
+		msm_ssusb_ldo_enable(phy, 1);
+		msm_ssusb_enable_clocks(phy);
+		msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
+					TEST_POWERDOWN, TEST_POWERDOWN);
+		msm_ssusb_disable_clocks(phy);
+		msm_ssusb_ldo_enable(phy, 0);
+		msm_ssusb_config_vdd(phy, 0);
+	}
+
 	phy->phy.init			= msm_ssphy_init;
 	phy->phy.set_suspend		= msm_ssphy_set_suspend;
 	phy->phy.notify_connect		= msm_ssphy_notify_connect;
