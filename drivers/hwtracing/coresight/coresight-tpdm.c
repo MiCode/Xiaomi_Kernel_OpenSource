@@ -592,6 +592,11 @@ static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 		val = val | BIT(1);
 	else
 		val = val & ~BIT(1);
+	if (drvdata->cmb->ts_all)
+		val = val | BIT(2);
+	else
+		val = val & ~BIT(2);
+
 	tpdm_writel(drvdata, val, TPDM_CMB_TIER);
 
 	__tpdm_config_cmb_msr(drvdata);
