@@ -2105,7 +2105,7 @@
 		qca,bt-vdd-xtal-supply = <&pm6125_l16>;
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
-		qca,bt-vdd-core-voltage-level = <1245000 1350000>; /* RFA */
+		qca,bt-vdd-core-voltage-level = <1304000 1304000>; /* RFA */
 		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
 
