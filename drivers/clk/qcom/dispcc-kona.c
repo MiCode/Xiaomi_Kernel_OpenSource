@@ -422,60 +422,6 @@ static struct clk_rcg2 disp_cc_mdss_dp_aux_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_disp_cc_mdss_dp_crypto1_clk_src[] = {
-	F( 108000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 180000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 360000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	F( 540000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
-	{ }
-};
-
-static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
-	.cmd_rcgr = 0x2228,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = disp_cc_parent_map_0,
-	.freq_tbl = ftbl_disp_cc_mdss_dp_crypto1_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "disp_cc_mdss_dp_crypto1_clk_src",
-		.parent_names = disp_cc_parent_names_0,
-		.num_parents = 8,
-		.flags = CLK_GET_RATE_NOCACHE,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_mm,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 108000,
-			[VDD_LOW] = 180000,
-			[VDD_LOW_L1] = 360000,
-			[VDD_NOMINAL] = 540000},
-	},
-};
-
-static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
-	.cmd_rcgr = 0x2194,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = disp_cc_parent_map_0,
-	.freq_tbl = ftbl_disp_cc_mdss_dp_crypto1_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "disp_cc_mdss_dp_crypto_clk_src",
-		.parent_names = disp_cc_parent_names_0,
-		.num_parents = 8,
-		.flags = CLK_GET_RATE_NOCACHE,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_mm,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 12800,
-			[VDD_LOWER] = 108000,
-			[VDD_LOW] = 180000,
-			[VDD_LOW_L1] = 360000,
-			[VDD_NOMINAL] = 540000},
-	},
-};
-
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_link1_clk_src[] = {
 	F( 162000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
 	F( 270000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
@@ -997,42 +943,6 @@ static struct clk_branch disp_cc_mdss_dp_aux_clk = {
 	},
 };
 
-static struct clk_branch disp_cc_mdss_dp_crypto1_clk = {
-	.halt_reg = 0x2064,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x2064,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_mdss_dp_crypto1_clk",
-			.parent_names = (const char *[]){
-				"disp_cc_mdss_dp_crypto1_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch disp_cc_mdss_dp_crypto_clk = {
-	.halt_reg = 0x2048,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x2048,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_mdss_dp_crypto_clk",
-			.parent_names = (const char *[]){
-				"disp_cc_mdss_dp_crypto_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch disp_cc_mdss_dp_link1_clk = {
 	.halt_reg = 0x205c,
 	.halt_check = BRANCH_HALT,
@@ -1493,11 +1403,6 @@ static struct clk_regmap *disp_cc_kona_clocks[] = {
 	[DISP_CC_MDSS_DP_AUX1_CLK_SRC] = &disp_cc_mdss_dp_aux1_clk_src.clkr,
 	[DISP_CC_MDSS_DP_AUX_CLK] = &disp_cc_mdss_dp_aux_clk.clkr,
 	[DISP_CC_MDSS_DP_AUX_CLK_SRC] = &disp_cc_mdss_dp_aux_clk_src.clkr,
-	[DISP_CC_MDSS_DP_CRYPTO1_CLK] = &disp_cc_mdss_dp_crypto1_clk.clkr,
-	[DISP_CC_MDSS_DP_CRYPTO1_CLK_SRC] =
-		&disp_cc_mdss_dp_crypto1_clk_src.clkr,
-	[DISP_CC_MDSS_DP_CRYPTO_CLK] = &disp_cc_mdss_dp_crypto_clk.clkr,
-	[DISP_CC_MDSS_DP_CRYPTO_CLK_SRC] = &disp_cc_mdss_dp_crypto_clk_src.clkr,
 	[DISP_CC_MDSS_DP_LINK1_CLK] = &disp_cc_mdss_dp_link1_clk.clkr,
 	[DISP_CC_MDSS_DP_LINK1_CLK_SRC] = &disp_cc_mdss_dp_link1_clk_src.clkr,
 	[DISP_CC_MDSS_DP_LINK1_DIV_CLK_SRC] =
