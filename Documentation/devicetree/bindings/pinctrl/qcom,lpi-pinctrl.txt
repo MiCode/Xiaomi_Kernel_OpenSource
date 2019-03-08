@@ -37,6 +37,18 @@ Following properties are for LPI GPIO controller device main node.
 		    The first cell will be used to define gpio number and the
 		    second denotes the flags for this gpio.
 
+- #qcom,slew-reg:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: Register base of the slew register and length.
+
+- #qcom,lpi-slew-offset-tbl:
+	Usage: optional
+	Value type: <u32-array>
+	Definition: Offset table that points to each pin's shift value
+		    position in bits in the slew register base for slew
+		    settings.
+
 Please refer to ../gpio/gpio.txt for general description of GPIO bindings.
 
 Please refer to pinctrl-bindings.txt in this directory for details of the
@@ -123,12 +135,18 @@ to specify in a pin configuration subnode:
 	Value type: <u32>
 	Definition: Selects the drive strength for the specified pins.
 
+- slew-rate:
+	Usage: optional
+	Value type: <u32>
+	Definition: Selects the slew rate for the specified pins.
+
 Example:
 
 	lpi_tlmm: lpi_pinctrl@152c000 {
 		compatible = "qcom,lpi-pinctrl";
 		qcom,num-gpios = <32>;
 		reg = <0x152c000 0>;
+		qcom,slew-reg = <0x355a000 0x0>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		qcom,lpi-offset-tbl = <0x00000010>, <0x00000020>,
@@ -142,6 +160,13 @@ Example:
 				<0x00000170>, <0x00000180>,
 				<0x00000190>, <0x00000200>,
 				<0x00000210>;
+		qcom,lpi-slew-offset-tbl = <0x00000000>, <0x00000002>,
+				<0x00000004>, <0x00000008>,
+				<0x0000000A>, <0x0000000C>,
+				<0x00000000>, <0x00000000>,
+				<0x00000000>, <0x00000000>,
+				<0x00000010>, <0x00000012>,
+				<0x00000000>, <0x00000000>;
 
 		hph_comp_active: hph_comp_active {
 			mux {
@@ -165,6 +190,7 @@ Example:
 			config {
 				pins = "gpio22";
 				qcom,drive-strength = <2>;
+				slew-rate = <1>;
 			};
 		};
 	};
