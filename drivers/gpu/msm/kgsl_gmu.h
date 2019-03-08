@@ -172,6 +172,7 @@ struct kgsl_mailbox {
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
  * @mailbox: Messages to AOP for ACD enable/disable go through this
+ * @log_wptr_retention: Store the log wptr offset on slumber
  */
 struct gmu_device {
 	struct {
@@ -214,6 +215,7 @@ struct gmu_device {
 	struct gmu_memdesc kmem_entries[GMU_KERNEL_ENTRIES];
 	unsigned long kmem_bitmap;
 	const struct gmu_vma_entry *vma;
+	unsigned int log_wptr_retention;
 };
 
 struct gmu_memdesc *gmu_get_memdesc(struct gmu_device *gmu,
