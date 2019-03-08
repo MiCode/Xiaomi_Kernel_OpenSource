@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,9 +73,9 @@ struct tsens_dbg_context {
 };
 
 struct tsens_context {
-	enum thermal_device_mode	high_th_state;
-	enum thermal_device_mode	low_th_state;
-	enum thermal_device_mode	crit_th_state;
+	enum thermal_trip_activation_mode	high_th_state;
+	enum thermal_trip_activation_mode	low_th_state;
+	enum thermal_trip_activation_mode	crit_th_state;
 	int				high_temp;
 	int				low_temp;
 	int				crit_temp;
