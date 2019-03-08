@@ -137,6 +137,16 @@ config ARCH_SDM845
 	  This enables support for the SDM845 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_SDM845_VM
+	bool "Enable Support for Qualcomm Technologies Inc. SDM845 VM"
+	select QCOM_VM_WDT if WATCHDOG
+	help
+	  This enables support for VM on sdm845 chipset.If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called SDM845_VM.
+
 config ARCH_SDM670
 	bool "Enable Support for Qualcomm Technologies Inc. SDM670"
 	depends on ARCH_QCOM

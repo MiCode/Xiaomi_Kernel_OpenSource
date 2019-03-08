@@ -1,0 +1,32 @@
+* Qualcomm Technologies, Inc. VM  Watchdog
+
+Watchdog timer is configured with bark and bite time interval.
+If Virtual Machine fails to reset the counter during bark interval,
+a bark interrupt (SPI) is send to the VM. Failing to respond to the
+bark interrupt causes a bite, when counter reaches programmed
+bite interval. The bite interrupt is routed to secure world, and
+causes a system reset.
+
+The device tree parameters are:
+
+Required properties:
+
+- compatible : "qcom,vm-wdt"
+- reg : base offset and length of the register set.
+- reg-names : names corresponding to each reg property value.
+        "wdt-base" - physical base address of watchdog timer registers
+- interrupts : should contain bark and bite irq numbers
+- qcom,pet-time : Non zero time interval at which watchdog should be pet in ms.
+- qcom,bark-time : Non zero timeout value for a watchdog bark in ms.
+
+
+Example:
+
+	qcom,vm-wdt@f9017000 {
+		compatible = "qcom,vm-wdt";
+		reg = <0x17980000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 3 0>, <0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+	};

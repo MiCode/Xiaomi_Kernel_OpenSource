@@ -71,6 +71,10 @@ Construction Parameters
     Example of optional parameters section:
         1 ignore_corruption
 
+device_wait
+    Wait (indefinitely) for target devices to show up. Useful for devices
+    that are detected asynchronously.
+
 ignore_corruption
     Log corrupted blocks, but allow read operations to proceed normally.
 
