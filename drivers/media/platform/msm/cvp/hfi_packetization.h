@@ -79,26 +79,10 @@ struct hfi_packetization_ops {
 	int (*session_sync_process)(
 		struct hfi_cmd_session_sync_process_packet *pkt,
 		struct hal_session *session);
-	int (*session_cvp_dfs_config)(
-			struct hfi_cmd_session_cvp_dfs_config_packet *pkt,
+	int (*session_cvp_hfi_packetize)(
+			struct cvp_kmd_hfi_packet *out_pkt,
 			struct hal_session *session,
-			struct msm_cvp_internal_dfsconfig *dfs_config);
-	int (*session_cvp_dfs_frame)(
-			struct hfi_cmd_session_cvp_dfs_frame_packet *pkt,
-			struct hal_session *session,
-			struct msm_cvp_internal_dfsframe *dfs_frame);
-	int (*session_cvp_dme_config)(
-			struct hfi_cmd_session_cvp_dme_config_packet *pkt,
-			struct hal_session *session,
-			struct msm_cvp_internal_dmeconfig *dme_config);
-	int (*session_cvp_dme_frame)(
-			struct hfi_cmd_session_cvp_dme_frame_packet *pkt,
-			struct hal_session *session,
-			struct msm_cvp_internal_dmeframe *dme_frame);
-	int (*session_cvp_persist)(
-			struct hfi_cmd_session_cvp_persist_packet *pkt,
-			struct hal_session *session,
-			struct msm_cvp_internal_persist_cmd *pbuf_cmd);
+			struct cvp_kmd_hfi_packet *in_pkt);
 };
 
 struct hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(

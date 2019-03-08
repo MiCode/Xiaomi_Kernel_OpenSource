@@ -19,7 +19,6 @@ enum clock_properties {
 };
 
 #define PERF_GOV "performance"
-#define DEFAULT_CVP_CLK_SVS2
 
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
@@ -329,14 +328,8 @@ EXPORT_SYMBOL(msm_cvp_load_u32_table);
 /* A comparator to compare loads (needed later on) */
 static int cmp(const void *a, const void *b)
 {
-#ifdef DEFAULT_CVP_CLK_SVS2
 	return ((struct allowed_clock_rates_table *)a)->clock_rate -
 		((struct allowed_clock_rates_table *)b)->clock_rate;
-#else
-	/* want to sort in reverse so flip the comparison */
-	return ((struct allowed_clock_rates_table *)b)->clock_rate -
-		((struct allowed_clock_rates_table *)a)->clock_rate;
-#endif
 }
 
 static int msm_cvp_load_allowed_clocks_table(

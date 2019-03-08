@@ -535,13 +535,7 @@ struct msm_video_buffer {
 struct msm_cvp_internal_buffer {
 	struct list_head list;
 	struct msm_smem smem;
-	struct msm_cvp_buffer buf;
-};
-
-struct msm_cvp_internal_send_cmd {
-	struct list_head list;
-	struct msm_smem smem;
-	struct msm_cvp_send_cmd send_cmd;
+	struct cvp_kmd_buffer buf;
 };
 
 void msm_cvp_comm_handle_thermal_event(void);
