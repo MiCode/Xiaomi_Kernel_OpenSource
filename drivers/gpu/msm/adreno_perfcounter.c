@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/uaccess.h>
@@ -29,10 +29,15 @@
 /* offset of clear register from the power enable register for GBIF*/
 #define GBIF_PWR_CLR_REG_EN_OFF    1
 
+/* offset of select register from the power enable register for GBIF*/
+#define GBIF_PWR_SEL_REG_EN_OFF  3
+
 /* */
-#define GBIF_PERF_RMW_MASK   0xFF
+#define GBIF_PERF_SEL_RMW_MASK   0xFF
 /* */
-#define GBIF_PWR_RMW_MASK    0x10000
+#define GBIF_PWR_SEL_RMW_MASK    0xFF
+/* */
+#define GBIF_PWR_EN_CLR_RMW_MASK 0x10000
 
 /* offset of clear register from the enable register */
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
@@ -635,7 +640,7 @@ static void _perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 			perfctr_mask, 0);
 		/* select the desired countable */
 		kgsl_regrmw(device, reg->select,
-			GBIF_PERF_RMW_MASK << shift, countable << shift);
+			GBIF_PERF_SEL_RMW_MASK << shift, countable << shift);
 		/* enable counter */
 		kgsl_regrmw(device, reg->select - GBIF_PERF_EN_REG_SEL_OFF,
 			perfctr_mask, perfctr_mask);
@@ -659,7 +664,8 @@ static void _perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 }
 
 static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
-		struct adreno_perfcounters *counters, unsigned int counter)
+		struct adreno_perfcounters *counters, unsigned int counter,
+		unsigned int countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
@@ -667,7 +673,8 @@ static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
 
 	if (adreno_has_gbif(adreno_dev)) {
-		unsigned int perfctr_mask = GBIF_PWR_RMW_MASK << counter;
+		unsigned int shift = counter << 3;
+		unsigned int perfctr_mask = GBIF_PWR_EN_CLR_RMW_MASK << counter;
 		/*
 		 * Write 1, followed by 0 to CLR register for
 		 * clearing the counter
@@ -676,6 +683,9 @@ static void _perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 			perfctr_mask, perfctr_mask);
 		kgsl_regrmw(device, reg->select + GBIF_PWR_CLR_REG_EN_OFF,
 			perfctr_mask, 0);
+		/* select the desired countable */
+		kgsl_regrmw(device, reg->select + GBIF_PWR_SEL_REG_EN_OFF,
+			GBIF_PWR_SEL_RMW_MASK << shift, countable << shift);
 		/* Enable the counter */
 		kgsl_regrmw(device, reg->select, perfctr_mask, perfctr_mask);
 	} else {
@@ -886,7 +896,8 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 							countable);
 		break;
 	case KGSL_PERFCOUNTER_GROUP_VBIF_PWR:
-		_perfcounter_enable_vbif_pwr(adreno_dev, counters, counter);
+		_perfcounter_enable_vbif_pwr(adreno_dev, counters, counter,
+							countable);
 		break;
 	case KGSL_PERFCOUNTER_GROUP_SP_PWR:
 	case KGSL_PERFCOUNTER_GROUP_TP_PWR:
