@@ -30,7 +30,7 @@
 #include <linux/perf/arm_pmu.h>
 #include <linux/platform_device.h>
 
-static DEFINE_PER_CPU(bool, is_hotplugging);
+static DEFINE_PER_CPU(bool, perf_event_is_hotplugging);
 
 /*
  * ARMv8 PMUv3 Performance Events handling code.
@@ -1148,7 +1148,7 @@ static void armv8pmu_idle_update(struct arm_pmu *cpu_pmu)
 	if (!cpu_pmu)
 		return;
 
-	if (__this_cpu_read(is_hotplugging))
+	if (__this_cpu_read(perf_event_is_hotplugging))
 		return;
 
 	hw_events = this_cpu_ptr(cpu_pmu->hw_events);
@@ -1385,13 +1385,13 @@ static const struct of_device_id armv8_pmu_of_device_ids[] = {
 #ifdef CONFIG_HOTPLUG_CPU
 static int perf_event_hotplug_coming_up(unsigned int cpu)
 {
-	per_cpu(is_hotplugging, cpu) = false;
+	per_cpu(perf_event_is_hotplugging, cpu) = false;
 	return 0;
 }
 
 static int perf_event_hotplug_going_down(unsigned int cpu)
 {
-	per_cpu(is_hotplugging, cpu) = true;
+	per_cpu(perf_event_is_hotplugging, cpu) = true;
 	return 0;
 }
 
@@ -1428,7 +1428,7 @@ static int armv8_pmu_device_probe(struct platform_device *pdev)
 	int ret, cpu;
 
 	for_each_possible_cpu(cpu)
-		per_cpu(is_hotplugging, cpu) = false;
+		per_cpu(perf_event_is_hotplugging, cpu) = false;
 
 	ret = perf_event_cpu_hp_init();
 	if (ret)
