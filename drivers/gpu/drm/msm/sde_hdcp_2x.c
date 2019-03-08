@@ -252,10 +252,7 @@ static int sde_hdcp_2x_get_next_message(struct sde_hdcp_2x_ctrl *hdcp,
 	case REP_SEND_RECV_ID_LIST:
 		return REP_SEND_ACK;
 	case REP_STREAM_MANAGE:
-		if (hdcp->resend_stream_manage)
-			return REP_STREAM_MANAGE;
-		else
-			return REP_STREAM_READY;
+		return REP_STREAM_READY;
 	default:
 		pr_err("Uknown message ID (%d)", hdcp->last_msg);
 		return -EINVAL;
@@ -486,6 +483,12 @@ static void sde_hdcp_2x_stream(struct sde_hdcp_2x_ctrl *hdcp)
 		return;
 	}
 
+	if (!hdcp->authenticated &&
+			hdcp->app_data.response.data[0] != REP_SEND_ACK) {
+		pr_debug("invalid state. HDCP repeater not authenticated\n");
+		return;
+	}
+
 	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_QUERY_STREAM,
 			&hdcp->app_data);
 	if (rc)
@@ -500,8 +503,11 @@ static void sde_hdcp_2x_stream(struct sde_hdcp_2x_ctrl *hdcp)
 	pr_debug("message received from TZ: %s\n",
 		 sde_hdcp_2x_message_name(hdcp->app_data.response.data[0]));
 exit:
-	if (!rc && !atomic_read(&hdcp->hdcp_off))
+	if (!rc && !atomic_read(&hdcp->hdcp_off)) {
+		/* Modify last message to ensure the proper message is sent */
+		hdcp->last_msg = REP_SEND_ACK;
 		sde_hdcp_2x_send_message(hdcp);
+	}
 }
 
 static void sde_hdcp_2x_query_stream_work(struct kthread_work *work)
@@ -758,11 +764,8 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 		hdcp->resend_lc_init = true;
 	}
 
-	hdcp->resend_stream_manage = false;
-	if (msg[0] == REP_STREAM_READY && out_msg == REP_STREAM_MANAGE) {
+	if (msg[0] == REP_STREAM_READY && out_msg == REP_STREAM_MANAGE)
 		pr_debug("resend %s\n", sde_hdcp_2x_message_name(out_msg));
-		hdcp->resend_stream_manage = true;
-	}
 
 	if (out_msg == AKE_NO_STORED_KM)
 		hdcp->no_stored_km = 1;
