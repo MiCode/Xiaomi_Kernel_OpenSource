@@ -410,6 +410,7 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 	}
 
 	dev_dbg(&pdev->dev, "QCOM CPUFreq HW driver initialized\n");
+	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 
 	return 0;
 }
