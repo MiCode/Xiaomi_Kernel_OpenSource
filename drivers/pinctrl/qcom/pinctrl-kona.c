@@ -113,6 +113,18 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
+
+#define QUP_I3C_0_MODE_OFFSET	0x9BB000
+#define QUP_I3C_1_MODE_OFFSET	0x9BC000
+#define QUP_I3C_8_MODE_OFFSET	0x5BA000
+#define QUP_I3C_14_MODE_OFFSET	0x5BB000
+
+#define QUP_I3C(qup_mode, qup_offset)					\
+	{						\
+		.mode = qup_mode,			\
+		.offset = qup_offset,			\
+	}
+
 static const struct pinctrl_pin_desc kona_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
@@ -1698,6 +1710,13 @@ static const struct msm_pingroup kona_groups[] = {
 	[183] = UFS_RESET(ufs_reset, 0x5b8000),
 };
 
+static struct pinctrl_qup kona_qup_regs[] = {
+	[0] = QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
+	[1] = QUP_I3C(1, QUP_I3C_1_MODE_OFFSET),
+	[2] = QUP_I3C(8, QUP_I3C_8_MODE_OFFSET),
+	[3] = QUP_I3C(14, QUP_I3C_14_MODE_OFFSET),
+};
+
 static const struct msm_pinctrl_soc_data kona_pinctrl = {
 	.pins = kona_pins,
 	.npins = ARRAY_SIZE(kona_pins),
@@ -1706,6 +1725,8 @@ static const struct msm_pinctrl_soc_data kona_pinctrl = {
 	.groups = kona_groups,
 	.ngroups = ARRAY_SIZE(kona_groups),
 	.ngpios = 180,
+	.qup_regs = kona_qup_regs,
+	.nqup_regs = ARRAY_SIZE(kona_qup_regs),
 };
 
 static int kona_pinctrl_probe(struct platform_device *pdev)
