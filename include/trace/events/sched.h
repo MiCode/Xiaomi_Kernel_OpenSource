@@ -1493,15 +1493,16 @@ TRACE_EVENT(sched_overutilized,
  */
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max),
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max, int nr_scaled),
 
-	TP_ARGS(cpu, nr, nr_misfit, nr_max),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max, nr_scaled),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
 		__field(int, nr)
 		__field(int, nr_misfit)
 		__field(int, nr_max)
+		__field( int, nr_scaled)
 	),
 
 	TP_fast_assign(
@@ -1509,10 +1510,12 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__entry->nr = nr;
 		__entry->nr_misfit = nr_misfit;
 		__entry->nr_max = nr_max;
+		__entry->nr_scaled = nr_scaled;
 	),
 
-	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d",
-		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max)
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d nr_scaled=%d",
+		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max,
+		__entry->nr_scaled)
 );
 
 /*
