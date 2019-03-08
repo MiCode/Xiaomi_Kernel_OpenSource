@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -780,12 +780,10 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 }
 
 static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
-					u32 rate, u32 stream_rate_khz,
-					bool fixed_nvid)
+					u32 rate, u32 stream_rate_khz)
 {
 	u32 pixel_m, pixel_n;
 	u32 mvid, nvid;
-	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate_hbr2 = 540000;
 	u32 const link_rate_hbr3 = 810000;
@@ -798,43 +796,30 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	}
 
 	catalog = dp_catalog_get_priv(ctrl);
-	if (fixed_nvid) {
-		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
-		nvid = nvid_fixed;
+	io_data = catalog->io.dp_mmss_cc;
 
-		pr_debug("link rate=%dkbps, stream_rate_khz=%uKhz",
-			rate, stream_rate_khz);
+	pixel_m = dp_read(catalog, io_data, MMSS_DP_PIXEL_M);
+	pixel_n = dp_read(catalog, io_data, MMSS_DP_PIXEL_N);
+	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
 
-		/*
-		 * For intermediate results, use 64 bit arithmetic to avoid
-		 * loss of precision.
-		 */
-		mvid_calc = (u64) stream_rate_khz * nvid;
-		mvid_calc = div_u64(mvid_calc, rate);
+	mvid = (pixel_m & 0xFFFF) * 5;
+	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
-		/*
-		 * truncate back to 32 bits as this final divided value will
-		 * always be within the range of a 32 bit unsigned int.
-		 */
-		mvid = (u32) mvid_calc;
-	} else {
-		io_data = catalog->io.dp_mmss_cc;
+	if (nvid < nvid_fixed) {
+		u32 temp;
 
-		pixel_m = dp_read(catalog, io_data, MMSS_DP_PIXEL_M);
-		pixel_n = dp_read(catalog, io_data, MMSS_DP_PIXEL_N);
-		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
-
-		mvid = (pixel_m & 0xFFFF) * 5;
-		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
-
-		pr_debug("rate = %d\n", rate);
-
-		if (link_rate_hbr2 == rate)
-			nvid *= 2;
-
-		if (link_rate_hbr3 == rate)
-			nvid *= 3;
+		temp = (nvid_fixed / nvid) * nvid;
+		mvid = (nvid_fixed / nvid) * mvid;
+		nvid = temp;
 	}
+
+	pr_debug("rate = %d\n", rate);
+
+	if (link_rate_hbr2 == rate)
+		nvid *= 2;
+
+	if (link_rate_hbr3 == rate)
+		nvid *= 3;
 
 	io_data = catalog->io.dp_link;
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
