@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 #include <drm/msm_drm_pp.h>
 #include "sde_hw_mdss.h"
@@ -303,6 +303,13 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+
+	if ((cfg->sblk->ltm.id == SDE_DSPP_LTM) && cfg->sblk->ltm.base) {
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME, "LTM",
+				c->hw.blk_off + cfg->sblk->ltm.base,
+				c->hw.blk_off + cfg->sblk->ltm.base + 0xC4,
+				c->hw.xin_id);
+	}
 
 	return c;
 
