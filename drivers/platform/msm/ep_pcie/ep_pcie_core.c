@@ -574,7 +574,16 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	uint32_t val = 0;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: WRITING TO BDF TO SID\n",
+			dev->rev);
+	/* PARF_BDF_TO_SID disable */
+	ep_pcie_write_mask(dev->parf + PCIE20_PARF_BDF_TO_SID_CFG,
+			0, BIT(0));
 
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: FINISHED WRITING BDF TO SID\n",
+			dev->rev);
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
 			0, BIT(3) | BIT(2) | BIT(1));
@@ -623,7 +632,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1\n", dev->rev);
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
+		ep_pcie_write_reg(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
 					0, BIT(0));
 		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
 					0x200);
