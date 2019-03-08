@@ -11,4 +11,8 @@ config MTK_MET
           Select "N" if you are not sure.
 
 source "drivers/misc/mediatek/met_drv/Kconfig"
+source "drivers/misc/mediatek/mmp/Kconfig"
+source "drivers/misc/mediatek/lcm/Kconfig"
+source "drivers/misc/mediatek/sync/Kconfig"
+source "drivers/misc/mediatek/video/Kconfig"
 endmenu
