@@ -171,6 +171,8 @@ struct msm_vidc_platform_resources {
 	uint32_t max_load;
 	uint32_t max_hq_mbs_per_frame;
 	uint32_t max_hq_fps;
+	uint32_t max_bframe_mbs_per_frame;
+	uint32_t max_bframe_mbs_per_sec;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;

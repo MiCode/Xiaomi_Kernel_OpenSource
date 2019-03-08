@@ -196,12 +196,12 @@ static struct msm_vidc_common_data kona_common_data[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
+		.key = "qcom,max-b-frame-mbs-per-frame",
+		.value = 32400, /* 3840x2160/256 */
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 1944000, /* 3840x2160/256 MBs@60fps */
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -267,12 +267,12 @@ static struct msm_vidc_common_data sm6150_common_data[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
+		.key = "qcom,max-b-frame-mbs-per-frame",
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 489600,
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -338,12 +338,12 @@ static struct msm_vidc_common_data sm8150_common_data[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
+		.key = "qcom,max-b-frame-mbs-per-frame",
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 489600,
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -413,12 +413,12 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
+		.key = "qcom,max-b-frame-mbs-per-frame",
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 489600,
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -468,12 +468,12 @@ static struct msm_vidc_common_data sdm670_common_data_v0[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
+		.key = "qcom,max-b-frame-mbs-per-frame",
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 489600,
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -519,12 +519,12 @@ static struct msm_vidc_common_data sdm670_common_data_v1[] = {
 		.value = 60,
 	},
 	{
-		.key = "qcom,max-b-frame-size",
+		.key = "qcom,max-b-frame-mbs-per-frame",
 		.value = 8160,
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 489600,
 	},
 	{
 		.key = "qcom,power-collapse-delay",

@@ -16,7 +16,11 @@
 #define MIN_BIT_RATE 32000
 #define MAX_BIT_RATE 1200000000
 #define DEFAULT_BIT_RATE 64000
+#define MIN_BIT_RATE_RATIO 0
+#define MAX_BIT_RATE_RATIO 100
+#define MAX_HIER_CODING_LAYER 6
 #define BIT_RATE_STEP 1
+#define MAX_BASE_LAYER_PRIORITY_ID 63
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
 #define MIN_SLICE_BYTE_SIZE 512
 #define MAX_SLICE_MB_SIZE (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
@@ -582,7 +586,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Set Hier layers",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 6,
+		.maximum = MAX_HIER_CODING_LAYER,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -674,9 +678,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR,
 		.name = "Set layer0 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -684,9 +688,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR,
 		.name = "Set layer1 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -694,9 +698,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR,
 		.name = "Set layer2 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -704,9 +708,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR,
 		.name = "Set layer3 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -714,9 +718,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR,
 		.name = "Set layer4 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -724,9 +728,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR,
 		.name = "Set layer5 BR",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_BIT_RATE,
-		.maximum = MAX_BIT_RATE,
-		.default_value = DEFAULT_BIT_RATE,
+		.minimum = MIN_BIT_RATE_RATIO,
+		.maximum = MAX_BIT_RATE_RATIO,
+		.default_value = MIN_BIT_RATE_RATIO,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -742,10 +746,10 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID,
-		.name = "Set Base Layer ID for Hier-P",
+		.name = "Set Base Layer Priority ID for Hier-P",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 6,
+		.maximum = MAX_BASE_LAYER_PRIORITY_ID,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -1061,6 +1065,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
+	inst->prop.bframe_changed = false;
 	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
@@ -1374,31 +1379,6 @@ static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 	return 0;
 }
 
-void msm_venc_adjust_gop_size(struct msm_vidc_inst *inst)
-{
-	struct v4l2_ctrl *hier_ctrl;
-
-	/*
-	 * Layer encoding needs GOP size to be multiple of subgop size
-	 * And subgop size is 2 ^ number of enhancement layers
-	 */
-	hier_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
-	if (hier_ctrl->val > 1) {
-		struct v4l2_ctrl *gop_size_ctrl;
-		u32 min_gop_size;
-		u32 num_subgops;
-
-		gop_size_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
-		min_gop_size = (1 << (hier_ctrl->val - 1));
-		num_subgops = (gop_size_ctrl->val + (min_gop_size >> 1)) /
-				min_gop_size;
-		if (num_subgops)
-			gop_size_ctrl->val = num_subgops * min_gop_size;
-		else
-			gop_size_ctrl->val = min_gop_size;
-	}
-}
-
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -1697,9 +1677,39 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					__func__);
 		}
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_base_layer_priority_id(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"%s: set baselayer id failed.\n",
+					__func__);
+		}
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR:
+	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			rc = msm_venc_set_layer_bitrate(inst);
+			if (rc)
+				dprintk(VIDC_ERR,
+				"%s: set layer bitrate failed\n",
+				__func__);
+		}
+		break;
+	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
+		if (inst->state == MSM_VIDC_START_DONE) {
+			dprintk(VIDC_ERR,
+			"%s: Dynamic setting of Bframe is not supported\n",
+			__func__);
+			return -EINVAL;
+		}
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_TYPE:
-	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 	case V4L2_CID_ROTATE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
@@ -1711,19 +1721,12 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER:
 	case V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR:
 	case V4L2_CID_MPEG_VIDC_VIDEO_VPX_ERROR_RESILIENCE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_QP:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR:
-	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR:
 	case V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_FULL_RANGE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_TRANSFER_CHARS:
@@ -2032,59 +2035,83 @@ int msm_venc_set_idr_period(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
+void msm_venc_decide_bframe(struct msm_vidc_inst *inst)
 {
-	int rc = 0;
-	struct hfi_device *hdev;
+	u32 width = inst->prop.width[OUTPUT_PORT];
+	u32 height = inst->prop.height[OUTPUT_PORT];
+	u32 num_mbs_per_frame, num_mbs_per_sec;
 	struct v4l2_ctrl *ctrl;
-	struct hfi_intra_period intra_period;
+	struct v4l2_ctrl *bframe_ctrl;
+	struct msm_vidc_platform_resources *res;
 
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
+	res = &inst->core->resources;
+	bframe_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+	num_mbs_per_frame = NUM_MBS_PER_FRAME(width, height);
+	if (num_mbs_per_frame > res->max_bframe_mbs_per_frame)
+		goto disable_bframe;
+
+	num_mbs_per_sec = num_mbs_per_frame *
+		(inst->clk_data.frame_rate >> 16);
+	if (num_mbs_per_sec > res->max_bframe_mbs_per_sec)
+		goto disable_bframe;
+
+	ctrl = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	if (ctrl->val > 1)
+		goto disable_bframe;
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
+	if (ctrl->val)
+		goto disable_bframe;
+
+	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
+		goto disable_bframe;
+
+	if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264) {
+		ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
+		if ((ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_MAIN) &&
+			(ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_HIGH))
+			goto disable_bframe;
+	} else if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+		goto disable_bframe;
+
+	if (inst->clk_data.low_latency_mode)
+		goto disable_bframe;
+
+	if (!bframe_ctrl->val) {
+		ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VENC_NATIVE_RECORDER);
+		if (ctrl->val) {
+			/*
+			 * Native recorder is enabled and bframe is not enabled
+			 * Hence, forcefully enable bframe
+			 */
+			inst->prop.bframe_changed = true;
+			bframe_ctrl->val = MAX_NUM_B_FRAMES;
+			dprintk(VIDC_DBG, "Bframe is forcefully enabled\n");
+		} else {
+			/*
+			 * Native recorder is not enabled
+			 * B-Frame is not enabled by client
+			 */
+			goto disable_bframe;
+		}
 	}
-	hdev = inst->core->device;
+	dprintk(VIDC_DBG, "Bframe can be enabled!\n");
 
-	msm_venc_adjust_gop_size(inst);
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
-	intra_period.pframes = ctrl->val;
-
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
-	intra_period.bframes = ctrl->val;
-
-	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, intra_period.pframes,
-		intra_period.bframes);
-	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD, &intra_period,
-		sizeof(intra_period));
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
-		return rc;
+	return;
+disable_bframe:
+	if (bframe_ctrl->val) {
+		/*
+		 * Client wanted to enable bframe but,
+		 * conditions to enable are not met
+		 * Hence, forcefully disable bframe
+		 */
+		inst->prop.bframe_changed = true;
+		bframe_ctrl->val = 0;
+		dprintk(VIDC_DBG, "Bframe is forcefully disabled!\n");
+	} else {
+		dprintk(VIDC_DBG, "Bframe is disabled\n");
 	}
-
-	return rc;
-}
-
-int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	dprintk(VIDC_DBG, "%s\n", __func__);
-	rc = call_hfi_op(hdev, session_set_property, inst->session,
-		HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME, NULL, 0);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
-		return rc;
-	}
-
-	return rc;
 }
 
 int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
@@ -2106,6 +2133,117 @@ int msm_venc_set_adaptive_bframes(struct msm_vidc_inst *inst)
 		HFI_PROPERTY_PARAM_VENC_ADAPTIVE_B, &enable, sizeof(enable));
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+
+	return rc;
+}
+
+void msm_venc_adjust_gop_size(struct msm_vidc_inst *inst)
+{
+	struct v4l2_ctrl *hier_ctrl;
+	struct v4l2_ctrl *bframe_ctrl;
+	struct v4l2_ctrl *gop_size_ctrl;
+
+	gop_size_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
+	if (inst->prop.bframe_changed) {
+		/*
+		 * BFrame size was explicitly change
+		 * Hence, adjust GOP size accordingly
+		 */
+		bframe_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+		if (!bframe_ctrl->val)
+			/* Forcefully disabled */
+			gop_size_ctrl->val = gop_size_ctrl->val *
+					(1 + MAX_NUM_B_FRAMES);
+		else
+			/* Forcefully enabled */
+			gop_size_ctrl->val = gop_size_ctrl->val /
+					(1 + MAX_NUM_B_FRAMES);
+	}
+
+	/*
+	 * Layer encoding needs GOP size to be multiple of subgop size
+	 * And subgop size is 2 ^ number of enhancement layers
+	 */
+	hier_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+	if (hier_ctrl->val > 1) {
+		u32 min_gop_size;
+		u32 num_subgops;
+
+		min_gop_size = (1 << (hier_ctrl->val - 1));
+		num_subgops = (gop_size_ctrl->val + (min_gop_size >> 1)) /
+				min_gop_size;
+		if (num_subgops)
+			gop_size_ctrl->val = num_subgops * min_gop_size;
+		else
+			gop_size_ctrl->val = min_gop_size;
+	}
+}
+
+int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct v4l2_ctrl *ctrl;
+	struct hfi_intra_period intra_period;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	msm_venc_adjust_gop_size(inst);
+
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_GOP_SIZE);
+	intra_period.pframes = ctrl->val;
+
+	/*
+	 * At this point we have already made decision on bframe
+	 * Control value gives updated bframe value.
+	 */
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
+	intra_period.bframes = ctrl->val;
+
+	dprintk(VIDC_DBG, "%s: %d %d\n", __func__, intra_period.pframes,
+		intra_period.bframes);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_CONFIG_VENC_INTRA_PERIOD, &intra_period,
+		sizeof(intra_period));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
+
+	if (intra_period.bframes) {
+		/* Enable adaptive bframes as nbframes!= 0 */
+		rc = msm_venc_set_adaptive_bframes(inst);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: set property failed\n",
+				__func__);
+			return rc;
+		}
+	}
+	return rc;
+}
+
+int msm_venc_set_request_keyframe(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	dprintk(VIDC_DBG, "%s\n", __func__);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_CONFIG_VENC_REQUEST_SYNC_FRAME, NULL, 0);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
 
 	return rc;
 }
@@ -2198,12 +2336,29 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
 	struct hfi_bitrate bitrate;
+	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
+
+	if (inst->layer_bitrate) {
+		dprintk(VIDC_DBG, "%s: Layer bitrate is enabled\n", __func__);
+		return 0;
+	}
+
+	enable.enable = 0;
+	dprintk(VIDC_DBG, "%s: bitrate type: %d\n",
+		__func__, enable.enable);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE, &enable,
+		sizeof(enable));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		return rc;
+	}
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE);
 	bitrate.bit_rate = ctrl->val;
@@ -2215,6 +2370,112 @@ int msm_venc_set_bitrate(struct msm_vidc_inst *inst)
 	if (rc)
 		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
 
+	return rc;
+}
+
+int msm_venc_set_layer_bitrate(struct msm_vidc_inst *inst)
+{
+	int rc = 0, i = 0;
+	struct hfi_device *hdev;
+	struct v4l2_ctrl *bitrate = NULL;
+	struct v4l2_ctrl *layer = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
+	struct v4l2_ctrl *layer_br_ratios[MAX_HIER_CODING_LAYER] = {NULL};
+	struct hfi_bitrate layer_br;
+	struct hfi_enable enable;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+
+	if (!max_layer->val || !layer->val) {
+		dprintk(VIDC_DBG,
+			"%s: Hierp layer not set. Ignore layer bitrate\n",
+			__func__);
+		goto error;
+	}
+
+	if (max_layer->val < layer->val) {
+		dprintk(VIDC_DBG,
+			"%s: Hierp layer greater than max isn't allowed\n",
+			__func__);
+		goto error;
+	}
+
+	layer_br_ratios[0] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L0_BR);
+	layer_br_ratios[1] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L1_BR);
+	layer_br_ratios[2] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L2_BR);
+	layer_br_ratios[3] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L3_BR);
+	layer_br_ratios[4] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L4_BR);
+	layer_br_ratios[5] = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_L5_BR);
+
+	/* Set layer bitrates only when highest layer br ratio is 100. */
+	if (layer_br_ratios[layer->val-1]->val != MAX_BIT_RATE_RATIO ||
+		layer_br_ratios[0]->val == 0) {
+		dprintk(VIDC_DBG,
+			"%s: Improper layer bitrate ratio\n",
+			__func__);
+		goto error;
+	}
+
+	for (i = layer->val - 1; i > 0; --i) {
+		if (layer_br_ratios[i]->val == 0) {
+			dprintk(VIDC_DBG,
+				"%s: Layer ratio must be non-zero\n",
+				__func__);
+			goto error;
+		}
+		layer_br_ratios[i]->val -= layer_br_ratios[i-1]->val;
+	}
+
+	enable.enable = 1;
+	dprintk(VIDC_DBG, "%s: %d\n", __func__, enable.enable);
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE, &enable,
+		sizeof(enable));
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: set property failed\n", __func__);
+		goto error;
+	}
+
+	bitrate = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE);
+	for (i = 0; i < layer->val; ++i) {
+		layer_br.bit_rate =
+			bitrate->val * layer_br_ratios[i]->val / 100;
+		layer_br.layer_id = i;
+		dprintk(VIDC_DBG,
+			"%s: Bitrate for Layer[%u]: [%u]\n",
+			__func__, layer_br.layer_id, layer_br.bit_rate);
+
+		rc = call_hfi_op(hdev, session_set_property, inst->session,
+			HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE, &layer_br,
+			sizeof(layer_br));
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: set property failed for layer: %u\n",
+				__func__, layer_br.layer_id);
+			goto error;
+		}
+	}
+
+	inst->layer_bitrate = true;
+	return rc;
+
+error:
+	inst->layer_bitrate = false;
 	return rc;
 }
 
@@ -2622,10 +2883,6 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	if (inst->rc_type != V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)
 		return 0;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_B_FRAMES);
-	if (ctrl->val)
-		return 0;
-
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
 	if (ctrl->val)
 		return 0;
@@ -2639,6 +2896,8 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	/*
 	 * Hybrid HP is enabled only for H264 when
 	 * LTR and B-frame are both disabled,
+	 * Layer encoding has higher priority over B-frame
+	 * Hence, no need to check for B-frame
 	 * Rate control type is VBR and
 	 * Max layer equals layer count.
 	 */
@@ -2648,11 +2907,12 @@ int msm_venc_enable_hybrid_hp(struct msm_vidc_inst *inst)
 	return 0;
 }
 
-int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
+int msm_venc_set_base_layer_priority_id(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct v4l2_ctrl *ctrl;
+	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
 	u32 baselayerid;
 
 	if (!inst || !inst->core) {
@@ -2661,9 +2921,13 @@ int msm_venc_set_base_layer_id(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
-		inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_HEVC)
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
+	if (max_layer->val <= 0) {
+		dprintk(VIDC_DBG, "%s: Layer id can only be set with Hierp\n",
+			__func__);
 		return 0;
+	}
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID);
 	baselayerid = ctrl->val;
@@ -2713,10 +2977,14 @@ int msm_venc_set_hp_max_layer(struct msm_vidc_inst *inst)
 		hp_layer = ctrl->val - 1;
 
 	if (inst->hybrid_hp) {
+		dprintk(VIDC_DBG, "%s: Hybrid hierp layer: %d\n",
+			__func__, hp_layer);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE,
 			&hp_layer, sizeof(hp_layer));
 	} else {
+		dprintk(VIDC_DBG, "%s: Hierp max layer: %d\n",
+			__func__, hp_layer);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER,
 			&hp_layer, sizeof(hp_layer));
@@ -2732,6 +3000,7 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl = NULL;
+	struct v4l2_ctrl *max_layer = NULL;
 	u32 hp_layer = 0;
 
 	if (!inst || !inst->core) {
@@ -2751,8 +3020,18 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
+	max_layer = get_ctrl(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HEVC_MAX_HIER_CODING_LAYER);
 	ctrl = get_ctrl(inst,
 		V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER);
+
+	if (max_layer->val < ctrl->val) {
+		dprintk(VIDC_WARN,
+			"%s: HP layer count greater than max isn't allowed\n",
+			__func__);
+		return 0;
+	}
+
 	/*
 	 * We send enhancement layer count to FW,
 	 * hence, input 0/1 indicates absence of layer encoding.
@@ -2760,7 +3039,8 @@ int msm_venc_set_hp_layer(struct msm_vidc_inst *inst)
 	if (ctrl->val)
 		hp_layer = ctrl->val - 1;
 
-	dprintk(VIDC_DBG, "%s: HP layer: %d\n", __func__, hp_layer);
+	dprintk(VIDC_DBG, "%s: Hierp enhancement layer: %d\n",
+		__func__, hp_layer);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER,
 		&hp_layer, sizeof(hp_layer));
@@ -3299,46 +3579,34 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_frame_rate(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_color_format(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_buffer_counts(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_operating_rate(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_secure_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_priority(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_color_format(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_sequence_header_mode(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_profile_level(inst);
 	if (rc)
 		goto exit;
-	/*
-	 * set adaptive bframes before intra period as
-	 * intra period setting may enable adaptive bframes
-	 * if bframes are present (even though client might not
-	 * have enabled adaptive bframes setting)
-	 */
-	rc = msm_venc_set_adaptive_bframes(inst);
+	rc = msm_venc_set_8x8_transform(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_intra_period(inst);
+	rc = msm_venc_set_bitrate(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_idr_period(inst);
+	rc = msm_venc_set_entropy_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_rate_control(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_input_timestamp_rc(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_bitrate(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_frame_qp(inst);
@@ -3353,43 +3621,28 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_grid(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_entropy_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_slice_control_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_intra_refresh_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_loop_filter_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_sequence_header_mode(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_au_delimiter_mode(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_base_layer_id(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_vpx_error_resilience(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_video_signal_info(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_video_csc(inst);
-	if (rc)
-		goto exit;
-	rc = msm_venc_set_8x8_transform(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_vui_timing_info(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_hdr_info(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_vpx_error_resilience(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_nal_stream_format(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_slice_control_mode(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_loop_filter_mode(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_intra_refresh_mode(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_ltr_mode(inst);
@@ -3401,19 +3654,47 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	rc = msm_venc_set_hp_layer(inst);
 	if (rc)
 		goto exit;
+	rc = msm_venc_set_base_layer_priority_id(inst);
+	if (rc)
+		goto exit;
+	msm_venc_decide_bframe(inst);
+	rc = msm_venc_set_idr_period(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_intra_period(inst);
+	if (rc)
+		goto exit;
 	rc = msm_venc_set_aspect_ratio(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_video_signal_info(inst);
+	if (rc)
+		goto exit;
+	/*
+	 * Layer bitrate is preferred over cumulative bitrate.
+	 * Cumulative bitrate is set only when we fall back.
+	 */
+	rc = msm_venc_set_layer_bitrate(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_bitrate(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_video_csc(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_blur_resolution(inst);
 	if (rc)
 		goto exit;
-	rc = msm_venc_set_hdr_info(inst);
-	if (rc)
-		goto exit;
 	rc = msm_venc_set_extradata(inst);
 	if (rc)
 		goto exit;
-
+	rc = msm_venc_set_operating_rate(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_buffer_counts(inst);
+	if (rc)
+		goto exit;
 exit:
 	if (rc)
 		dprintk(VIDC_ERR, "%s: failed with %d\n", __func__, rc);

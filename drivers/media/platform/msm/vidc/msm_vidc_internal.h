@@ -302,6 +302,7 @@ struct session_prop {
 	struct session_crop crop_info;
 	u32 fps;
 	u32 bitrate;
+	bool bframe_changed;
 };
 
 struct buf_queue {
@@ -486,6 +487,7 @@ struct msm_vidc_inst {
 	u32 frame_quality;
 	u32 rc_type;
 	u32 hybrid_hp;
+	u32 layer_bitrate;
 	u32 client_set_ctrls;
 	struct internal_buf *dpb_extra_binfo;
 	struct msm_vidc_codec_data *codec_data;
