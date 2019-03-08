@@ -40,12 +40,6 @@
 		#size-cells = <1>;
 		ranges;
 
-		mpss_debug_mem: mpss_debug_region@90c00000 {
-			no-map;
-			reg = <0x90c00000 0x800000>;
-			label = "mpss_debug_mem";
-		};
-
 		tz_apps_mem: tz_apps_region@0x90000000 {
 			no-map;
 			reg = <0x90000000 0xc00000>;
@@ -70,6 +64,12 @@
 			label = "peripheral2_mem";
 		};
 
+		secdata_mem: secdata_region@8fcfd000 {
+			no-map;
+			reg = <0x8fcfd000 0x1000>;
+			label = "secdata_mem";
+		};
+
 		ac_db_mem: ac_db_region@8fc80000 {
 			no-map;
 			reg = <0x8fc80000 0x40000>;
@@ -82,10 +82,16 @@
 			label = "hyp_mem";
 		};
 
-		mpss_adsp_mem: mpss_adsp_region@83c00000 {
+		mpss_debug_mem: mpss_debug_region@8ef00000 {
+			no-map;
+			reg = <0x8ef00000 0x800000>;
+			label = "mpss_debug_mem";
+		};
+
+		mpss_adsp_mem: mpss_adsp_region@83400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x83c00000 0xbb00000>;
+			reg = <0x83400000 0xbb00000>;
 			label = "mpss_adsp_mem";
 		};
 
