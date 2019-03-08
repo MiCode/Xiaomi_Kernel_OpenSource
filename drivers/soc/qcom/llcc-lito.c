@@ -78,7 +78,7 @@ static int lito_qcom_llcc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id lito_qcom_llcc_of_match[] = {
-	{ .compatible = "qcom,lito-llcc", },
+	{ .compatible = "qcom,llcc-v1", },
 	{ },
 };
 
