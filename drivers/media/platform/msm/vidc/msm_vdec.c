@@ -1196,6 +1196,19 @@ int msm_vdec_set_secure_mode(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
+
+	if (ctrl->val) {
+		if (!(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
+			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_H264 ||
+			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9 ||
+			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2)) {
+			dprintk(VIDC_ERR,
+				"%s: Secure allowed for HEVC/H264/VP9/MPEG2\n",
+				__func__);
+			return -EINVAL;
+		}
+	}
+
 	dprintk(VIDC_DBG, "%s: %#x\n", __func__, ctrl->val);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HFI_PROPERTY_PARAM_SECURE_SESSION, &ctrl->val, sizeof(u32));

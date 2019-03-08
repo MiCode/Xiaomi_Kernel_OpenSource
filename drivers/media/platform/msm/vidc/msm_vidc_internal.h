@@ -362,6 +362,7 @@ struct clock_data {
 	u32 opb_fourcc;
 	u32 work_mode;
 	bool low_latency_mode;
+	bool is_cbr_plus;
 	bool turbo_mode;
 	u32 work_route;
 	u32 dcvs_flags;
