@@ -811,7 +811,19 @@ static struct platform_driver qpnp_amoled_regulator_driver = {
 	.probe		= qpnp_amoled_regulator_probe,
 	.remove		= qpnp_amoled_regulator_remove,
 };
-module_platform_driver(qpnp_amoled_regulator_driver);
+
+static int __init qpnp_amoled_regulator_init(void)
+{
+	return platform_driver_register(&qpnp_amoled_regulator_driver);
+}
+
+static void __exit qpnp_amoled_regulator_exit(void)
+{
+	platform_driver_unregister(&qpnp_amoled_regulator_driver);
+}
 
 MODULE_DESCRIPTION("QPNP AMOLED regulator driver");
 MODULE_LICENSE("GPL v2");
+
+arch_initcall(qpnp_amoled_regulator_init);
+module_exit(qpnp_amoled_regulator_exit);
