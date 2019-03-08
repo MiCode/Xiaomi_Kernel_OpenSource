@@ -224,11 +224,12 @@
 		/* CB5(ATOS) & CB5/6/7 are protected by HYP */
 		qcom,protect = <0xa0000 0xc000>;
 
-		clocks =<&clock_gcc GCC_GPU_CFG_AHB_CLK>,
-			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
-			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>;
-
-		clock-names = "iface_clk", "mem_clk", "mem_iface_clk";
+		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>;
+		clock-names = "gcc_gpu_memnoc_gfx",
+			"gcc_gpu_snoc_dvm_gfx",
+			"gpu_cc_ahb";
 
 		qcom,secure_align_mask = <0xfff>;
 		qcom,global_pt;
