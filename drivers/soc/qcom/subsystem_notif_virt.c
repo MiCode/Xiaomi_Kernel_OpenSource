@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,11 +26,34 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <soc/qcom/subsystem_notif.h>
+#ifdef CONFIG_GHS_VMM
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/mm.h>
+#include <linux/vmalloc.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
+#include <linux/cdev.h>
+#include <linux/spinlock.h>
+#include <linux/rbtree.h>
+#include <linux/idr.h>
+#include <linux/uaccess.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
+#include <linux/jiffies.h>
+#include <linux/reboot.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
+#include <ghs_vmm/kgipc.h>
+#endif
 
 #define CLIENT_STATE_OFFSET 4
 #define SUBSYS_STATE_OFFSET 8
-
-static void __iomem *base_reg;
+#define SUBSYS_NAME_MAX_LEN 64
+#define GIPC_RECV_BUFF_SIZE_BYTES (32*1024)
+#define SSR_VIRT_DT_PATHLEN 100
+#define SUBSYS_STATE_STRLEN 100
 
 enum subsystem_type {
 	VIRTUAL,
@@ -46,10 +69,312 @@ struct subsystem_descriptor {
 	int ssr_irq;
 	struct list_head subsystem_list;
 	struct work_struct work;
+	void *commdev;
 };
 
 static LIST_HEAD(subsystem_descriptor_list);
 static struct workqueue_struct *ssr_wq;
+
+
+#ifdef CONFIG_GHS_VMM
+struct ghs_vdev {
+	void *read_data; /* buffer to receive from gipc */
+	size_t read_size;
+	int read_offset;
+	GIPC_Endpoint endpoint;
+	spinlock_t io_lock;
+	char name[32];
+};
+
+static char dt_gipc_path_name[SSR_VIRT_DT_PATHLEN];
+
+static int ssrvirt_channel_send(struct ghs_vdev *dev, void *payload,
+		size_t size)
+{
+	GIPC_Result result;
+	uint8_t *msg;
+
+	spin_lock_bh(&dev->io_lock);
+
+	result = GIPC_PrepareMessage(dev->endpoint, size,
+			(void **)&msg);
+	if (result == GIPC_Full) {
+		spin_unlock_bh(&dev->io_lock);
+		pr_err("Failed to reserve send msg for %zd bytes\n",
+				size);
+		return -EBUSY;
+	} else if (result != GIPC_Success) {
+		spin_unlock_bh(&dev->io_lock);
+		pr_err("Failed to send due to error %d\n", result);
+		return -ENOMEM;
+	}
+
+	if (size)
+		memcpy(msg, payload, size);
+
+	result = GIPC_IssueMessage(dev->endpoint, size, 0);
+
+	spin_unlock_bh(&dev->io_lock);
+
+	if (result != GIPC_Success) {
+		pr_err("Send error %d, size %zd, protocol %x\n",
+				result, size, 0);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static int subsystem_state_callback(struct notifier_block *this,
+		unsigned long value, void *priv)
+{
+	struct subsystem_descriptor *subsystem =
+		container_of(this, struct subsystem_descriptor, nb);
+	char buf[SUBSYS_STATE_STRLEN];
+
+	memset(buf, 0, SUBSYS_STATE_STRLEN);
+	snprintf(buf, SUBSYS_STATE_STRLEN, "%ld", value);
+	ssrvirt_channel_send(subsystem->commdev, buf, (strlen(buf) + 1));
+
+	return NOTIFY_OK;
+}
+
+static void ssrvirt_channel_rx_dispatch(struct subsystem_descriptor *subsystem,
+		struct ghs_vdev *dev)
+{
+	GIPC_Result result;
+	uint32_t events;
+	uint32_t id_type_size;
+	void *subsystem_handle;
+	int state;
+	char subsystem_name[SUBSYS_NAME_MAX_LEN];
+
+	events = kgipc_dequeue_events(dev->endpoint);
+
+	if (events & (GIPC_EVENT_RECEIVEREADY)) {
+		do {
+			dev->read_size = 0;
+			dev->read_offset = 0;
+			result = GIPC_ReceiveMessage(dev->endpoint,
+					dev->read_data,
+					GIPC_RECV_BUFF_SIZE_BYTES,
+					&dev->read_size,
+					&id_type_size);
+
+			if (result == GIPC_Success || dev->read_size > 0) {
+				if (sscanf(dev->read_data, "%s %d",
+						subsystem_name, &state) != 2) {
+					pr_err("%s:return error", __func__);
+					break;
+				}
+
+				subsystem_handle =
+					subsys_notif_add_subsys(
+							subsystem->name);
+				subsys_notif_queue_notification(
+						subsystem_handle, state, NULL);
+			}
+		} while (result == GIPC_Success);
+	}
+}
+
+static void ghs_irq_handler(void *cookie)
+{
+	struct subsystem_descriptor *subsystem =
+		(struct subsystem_descriptor *)cookie;
+
+	queue_work(ssr_wq, &subsystem->work);
+}
+
+static int ssrvirt_commdev_alloc(void *dev_id, const char *name)
+{
+	struct ghs_vdev *dev = NULL;
+	struct device_node *gvh_dn;
+	struct subsystem_descriptor *subsystem =
+		(struct subsystem_descriptor *)dev_id;
+	int ret = 0;
+
+	memset(dt_gipc_path_name, 0, SSR_VIRT_DT_PATHLEN);
+	snprintf(dt_gipc_path_name, SSR_VIRT_DT_PATHLEN, "ssrvirt_%s", name);
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		ret = -ENOMEM;
+		pr_err("Allocate struct ghs_vdev failed %zu bytes on subsystem %s\n",
+				sizeof(*dev), name);
+		goto err;
+	}
+
+	subsystem->commdev = dev;
+
+	memset(dev, 0, sizeof(*dev));
+	spin_lock_init(&dev->io_lock);
+
+	gvh_dn = of_find_node_by_path("/aliases");
+	if (gvh_dn) {
+		const char *ep_path = NULL;
+		struct device_node *ep_dn;
+
+		ret = of_property_read_string(gvh_dn, dt_gipc_path_name,
+				&ep_path);
+		if (ret) {
+			pr_err("Failed to read endpoint string ret %d\n",
+					ret);
+			goto err;
+		}
+
+		of_node_put(gvh_dn);
+
+		ep_dn = of_find_node_by_path(ep_path);
+		if (ep_dn) {
+			dev->endpoint = kgipc_endpoint_alloc(ep_dn);
+			of_node_put(ep_dn);
+			if (IS_ERR(dev->endpoint)) {
+				ret = PTR_ERR(dev->endpoint);
+				pr_err("KGIPC alloc failed id: %s, ret: %d\n",
+						dt_gipc_path_name, ret);
+				goto err;
+			} else {
+				pr_debug("gipc ep found for %s\n",
+						dt_gipc_path_name);
+			}
+		} else {
+			pr_err("of_parse_phandle failed for : %s\n",
+					dt_gipc_path_name);
+			ret = -ENOENT;
+			goto err;
+		}
+	} else {
+		pr_err("of_find_compatible_node failed for : %s\n",
+				dt_gipc_path_name);
+		ret = -ENOENT;
+		goto err;
+	}
+
+	strlcpy(dev->name, name, sizeof(dev->name));
+	dev->read_data = kmalloc(GIPC_RECV_BUFF_SIZE_BYTES, GFP_KERNEL);
+	if (!dev->read_data) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = kgipc_endpoint_start_with_irq_callback(dev->endpoint,
+			ghs_irq_handler,
+			subsystem);
+	if (ret) {
+		pr_err("irq alloc failed : %s, ret: %d\n", name, ret);
+		kfree(dev->read_data);
+		goto err;
+	}
+
+	return 0;
+err:
+	kfree(dev);
+	return ret;
+}
+
+static int ssrvirt_commdev_dealloc(void *dev_id)
+{
+	struct subsystem_descriptor *subsystem =
+		(struct subsystem_descriptor *)dev_id;
+	struct ghs_vdev *dev = (struct ghs_vdev *)subsystem->commdev;
+
+	kgipc_endpoint_free(dev->endpoint);
+	kfree(dev->read_data);
+	kfree(dev);
+	return 0;
+}
+
+static void subsystem_notif_wq_func(struct work_struct *work)
+{
+	struct subsystem_descriptor *subsystem =
+		container_of(work, struct subsystem_descriptor, work);
+
+	ssrvirt_channel_rx_dispatch(subsystem, subsystem->commdev);
+}
+
+static int get_resources(struct platform_device *pdev)
+{
+	struct device_node *node;
+	struct device_node *child = NULL;
+	const char *ss_type;
+	struct subsystem_descriptor *subsystem = NULL;
+	int ret = 0;
+
+	node = pdev->dev.of_node;
+
+	for_each_child_of_node(node, child) {
+		subsystem = devm_kmalloc(&pdev->dev,
+				sizeof(struct subsystem_descriptor),
+				GFP_KERNEL);
+		if (!subsystem)
+			return -ENOMEM;
+
+		subsystem->name =
+			of_get_property(child, "subsys-name", NULL);
+		if (IS_ERR_OR_NULL(subsystem->name)) {
+			dev_err(&pdev->dev, "Could not find subsystem name\n");
+			return -EINVAL;
+		}
+
+		ret = of_property_read_string(child, "type",
+				&ss_type);
+		if (ret) {
+			dev_err(&pdev->dev, "type reading for %s failed\n",
+					subsystem->name);
+			return -EINVAL;
+		}
+
+		if (!strcmp(ss_type, "virtual"))
+			subsystem->type = VIRTUAL;
+
+		if (!strcmp(ss_type, "native"))
+			subsystem->type = NATIVE;
+
+		INIT_WORK(&subsystem->work, subsystem_notif_wq_func);
+
+		if (subsystem->type == NATIVE) {
+			subsystem->nb.notifier_call =
+				subsystem_state_callback;
+
+			subsystem->handle =
+				subsys_notif_register_notifier(
+					subsystem->name, &subsystem->nb);
+			if (IS_ERR_OR_NULL(subsystem->handle)) {
+				dev_err(&pdev->dev,
+					"Could not register SSR notifier cb\n");
+				return -EINVAL;
+			}
+		}
+
+		ssrvirt_commdev_alloc(subsystem, subsystem->name);
+		list_add_tail(&subsystem->subsystem_list,
+			&subsystem_descriptor_list);
+	}
+
+	return 0;
+}
+
+static void release_resources(void)
+{
+	struct subsystem_descriptor *subsystem, *node;
+
+	list_for_each_entry_safe(subsystem, node, &subsystem_descriptor_list,
+			subsystem_list) {
+		if (subsystem->type == NATIVE)
+			subsys_notif_unregister_notifier(subsystem->handle,
+					&subsystem->nb);
+		ssrvirt_commdev_dealloc(subsystem->commdev);
+		list_del(&subsystem->subsystem_list);
+	}
+
+}
+#endif
+
+#ifndef CONFIG_GHS_VMM
+#ifdef CONFIG_MSM_GVM_QUIN
+
+static void __iomem *base_reg;
 
 static void subsystem_notif_wq_func(struct work_struct *work)
 {
@@ -85,7 +410,7 @@ static irqreturn_t subsystem_restart_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int subsys_notif_virt_probe(struct platform_device *pdev)
+static int get_resources(struct platform_device *pdev)
 {
 	struct device_node *node;
 	struct device_node *child = NULL;
@@ -94,13 +419,6 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 	struct subsystem_descriptor *subsystem = NULL;
 	int ret = 0;
 
-	if (!pdev) {
-		dev_err(&pdev->dev, "pdev is NULL\n");
-		return -EINVAL;
-	}
-
-	node = pdev->dev.of_node;
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vdev_base");
 	base_reg = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR_OR_NULL(base_reg)) {
@@ -108,28 +426,20 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ssr_wq = create_singlethread_workqueue("ssr_wq");
-	if (!ssr_wq) {
-		dev_err(&pdev->dev, "Workqueue creation failed\n");
-		return -ENOMEM;
-	}
-
+	node = pdev->dev.of_node;
 	for_each_child_of_node(node, child) {
 
 		subsystem = devm_kmalloc(&pdev->dev,
 				sizeof(struct subsystem_descriptor),
 				GFP_KERNEL);
-		if (!subsystem) {
-			ret = -ENOMEM;
-			goto err;
-		}
+		if (!subsystem)
+			return -ENOMEM;
 
 		subsystem->name =
 			of_get_property(child, "subsys-name", NULL);
 		if (IS_ERR_OR_NULL(subsystem->name)) {
 			dev_err(&pdev->dev, "Could not find subsystem name\n");
-			ret = -EINVAL;
-			goto err;
+			return -EINVAL;
 		}
 
 		ret = of_property_read_u32(child, "offset",
@@ -137,8 +447,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "offset reading for %s failed\n",
 					subsystem->name);
-			ret = -EINVAL;
-			goto err;
+			return -EINVAL;
 		}
 
 		ret = of_property_read_string(child, "type",
@@ -146,8 +455,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "type reading for %s failed\n",
 					subsystem->name);
-			ret = -EINVAL;
-			goto err;
+			return -EINVAL;
 		}
 
 		if (!strcmp(ss_type, "virtual"))
@@ -167,8 +475,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 			if (IS_ERR_OR_NULL(subsystem->handle)) {
 				dev_err(&pdev->dev,
 					"Could not register SSR notifier cb\n");
-				ret = -EINVAL;
-				goto err;
+				return -EINVAL;
 			}
 			list_add_tail(&subsystem->subsystem_list,
 					&subsystem_descriptor_list);
@@ -178,8 +485,7 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 				of_irq_get_byname(child, "state-irq");
 			if (subsystem->ssr_irq < 0) {
 				dev_err(&pdev->dev, "Could not find IRQ\n");
-				ret = -EINVAL;
-				goto err;
+				return -EINVAL;
 			}
 			ret = devm_request_threaded_irq(&pdev->dev,
 					subsystem->ssr_irq, NULL,
@@ -195,16 +501,11 @@ static int subsys_notif_virt_probe(struct platform_device *pdev)
 	}
 
 	return 0;
-err:
-	destroy_workqueue(ssr_wq);
-	return ret;
 }
 
-static int subsys_notif_virt_remove(struct platform_device *pdev)
+static void release_resources(void)
 {
 	struct subsystem_descriptor *subsystem, *node;
-
-	destroy_workqueue(ssr_wq);
 
 	list_for_each_entry_safe(subsystem, node, &subsystem_descriptor_list,
 			subsystem_list) {
@@ -212,6 +513,37 @@ static int subsys_notif_virt_remove(struct platform_device *pdev)
 				&subsystem->nb);
 		list_del(&subsystem->subsystem_list);
 	}
+}
+#endif
+#endif
+
+static int subsys_notif_virt_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if (!pdev) {
+		dev_err(&pdev->dev, "pdev is NULL\n");
+		return -EINVAL;
+	}
+
+	ssr_wq = create_singlethread_workqueue("ssr_wq");
+	if (!ssr_wq) {
+		dev_err(&pdev->dev, "Workqueue creation failed\n");
+		return -ENOMEM;
+	}
+
+	ret = get_resources(pdev);
+	if (ret)
+		destroy_workqueue(ssr_wq);
+
+	return ret;
+}
+
+static int subsys_notif_virt_remove(struct platform_device *pdev)
+{
+	destroy_workqueue(ssr_wq);
+	release_resources();
+
 	return 0;
 }
 
