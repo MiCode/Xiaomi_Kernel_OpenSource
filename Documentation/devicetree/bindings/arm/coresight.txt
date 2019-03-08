@@ -169,6 +169,9 @@ its hardware characteristcs.
 
 	* qcom,tpdm-regs: List of regulators required.
 
+	* qcom,hw-enable-check: Check if the tpdm need to be probed as some tpdms
+	  are not enabled in secure device.
+
 * Optional properties for CSRs:
 
 	* qcom,usb-bam-support: boolean, indicates CSR has the ability to operate on
