@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _SDE_HW_CTL_H
@@ -286,6 +286,13 @@ struct sde_hw_ctl_ops {
 	 * Returns: current value of ctl reset status
 	 */
 	u32 (*get_reset)(struct sde_hw_ctl *ctx);
+
+	/**
+	 * get_scheduler_reset - check ctl scheduler status bit
+	 * @ctx    : ctl path ctx pointer
+	 * Returns: current value of ctl scheduler and idle status
+	 */
+	u32 (*get_scheduler_status)(struct sde_hw_ctl *ctx);
 
 	/**
 	 * hard_reset - force reset on ctl_path
