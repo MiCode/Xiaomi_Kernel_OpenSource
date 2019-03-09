@@ -298,7 +298,7 @@ extern int coresight_timeout(void __iomem *addr, u32 offset,
 			     int position, int value);
 extern void coresight_abort(void);
 extern void coresight_disable_reg_clk(struct coresight_device *csdev);
-extern void coresight_enable_reg_clk(struct coresight_device *csdev);
+extern int coresight_enable_reg_clk(struct coresight_device *csdev);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -310,7 +310,7 @@ static inline int coresight_timeout(void __iomem *addr, u32 offset,
 				     int position, int value) { return 1; }
 static inline void coresight_abort(void) {}
 static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
-static inline void coresight_enable_reg_clk(struct coresight_device *csdev) {}
+static inline int coresight_enable_reg_clk(struct coresight_device *csdev) {}
 #endif
 
 #ifdef CONFIG_OF
