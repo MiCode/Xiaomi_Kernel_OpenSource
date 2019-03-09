@@ -256,11 +256,13 @@
 		sb_7_rx: qcom,msm-dai-q6-sb-7-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16398>;
+			qcom,msm-dai-q6-slim-dev-id = <0>;
 		};
 
 		sb_7_tx: qcom,msm-dai-q6-sb-7-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16399>;
+			qcom,msm-dai-q6-slim-dev-id = <0>;
 		};
 
 		bt_sco_rx: qcom,msm-dai-q6-bt-sco-rx {
