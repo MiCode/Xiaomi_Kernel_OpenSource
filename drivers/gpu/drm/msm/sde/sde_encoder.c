@@ -5180,7 +5180,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 	debugfs_create_bool("idle_power_collapse", 0600, sde_enc->debugfs_root,
 			&sde_enc->idle_pc_enabled);
 
-	debugfs_create_u32("frame_trigger_mode", 0600, sde_enc->debugfs_root,
+	debugfs_create_u32("frame_trigger_mode", 0400, sde_enc->debugfs_root,
 			&sde_enc->frame_trigger_mode);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
