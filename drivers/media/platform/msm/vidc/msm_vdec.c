@@ -184,8 +184,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_5_2) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_0) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_1) |
-		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2) |
-		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN)
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2)
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
@@ -210,7 +209,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "HEVC Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_HEVC_LEVEL_1,
-		.maximum = V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2,
 		.default_value = V4L2_MPEG_VIDEO_HEVC_LEVEL_5,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_1) |
@@ -225,8 +224,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1) |
-		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2) |
-		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN)
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2)
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,

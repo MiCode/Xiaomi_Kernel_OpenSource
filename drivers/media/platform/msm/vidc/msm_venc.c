@@ -291,8 +291,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN,
-		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN,
+		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_6_2,
+		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_6_2,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1_0) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_1B) |
@@ -313,8 +313,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_5_2) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_0) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_1) |
-		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2) |
-		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN)
+		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2)
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
@@ -367,9 +366,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "HEVC Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_HEVC_LEVEL_1,
-		.maximum = V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN,
+		.maximum = V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2,
 		.default_value =
-			V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN,
+			V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_1) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_2) |
@@ -383,8 +382,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1) |
-		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2) |
-		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN)
+		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2)
 		),
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
@@ -1990,6 +1988,12 @@ int msm_venc_set_profile_level(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	if (!inst->profile) {
+		dprintk(VIDC_ERR,
+			"%s: skip as client did not set profile\n",
+			__func__);
+		return -EINVAL;
+	}
 	profile_level.profile = inst->profile;
 	profile_level.level = inst->level;
 
@@ -3276,7 +3280,6 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl = NULL;
-	struct v4l2_ctrl *profile = NULL;
 	struct hfi_enable enable;
 
 	if (!inst || !inst->core) {
@@ -3285,13 +3288,14 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264)
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
+		inst->profile != HFI_H264_PROFILE_HIGH &&
+		inst->profile != HFI_H264_PROFILE_CONSTRAINED_HIGH) {
+		dprintk(VIDC_DBG, "%s: skip due to %#x %#x\n",
+			__func__, inst->fmts[CAPTURE_PORT].fourcc,
+			inst->profile);
 		return 0;
-
-	profile = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_PROFILE);
-	if (!(profile->val == V4L2_MPEG_VIDEO_H264_PROFILE_HIGH ||
-		profile->val == V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH))
-		return 0;
+	}
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM);
 	enable.enable = !!ctrl->val;

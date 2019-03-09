@@ -1619,8 +1619,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
 	inst->colour_space = MSM_VIDC_BT601_6_525;
-	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN;
 	inst->smem_ops = &msm_vidc_smem_ops;
 	inst->rc_type = RATE_CONTROL_OFF;
 	inst->dpb_extra_binfo = NULL;
