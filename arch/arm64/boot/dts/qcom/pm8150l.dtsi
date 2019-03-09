@@ -98,6 +98,18 @@
 			};
 		};
 
+		pm8150l_bcl: bcl@3d00 {
+			compatible = "qcom,bcl-v5";
+			reg = <0x3d00 0x100>;
+			interrupts = <0x4 0x3d 0x0 IRQ_TYPE_NONE>,
+					<0x4 0x3d 0x1 IRQ_TYPE_NONE>,
+					<0x4 0x3d 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-vbat-lvl0",
+						"bcl-vbat-lvl1",
+						"bcl-vbat-lvl2";
+			#thermal-sensor-cells = <1>;
+		};
+
 		pm8150l_adc_tm: adc_tm@3500 {
 			compatible = "qcom,adc-tm5";
 			reg = <0x3500 0x100>;
@@ -432,6 +444,54 @@
 			trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8150l-vph-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm8150l_bcl 2>;
+		tracks-low;
+
+		trips {
+			vph_lvl0: vph-lvl0 {
+				temperature = <3000>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8150l-vph-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm8150l_bcl 3>;
+		tracks-low;
+
+		trips {
+			vph_lvl1:vph-lvl1 {
+				temperature = <2750>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm8150l-vph-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&pm8150l_bcl 4>;
+		tracks-low;
+
+		trips {
+			vph_lvl2:vph-lvl2 {
+				temperature = <2500>;
+				hysteresis = <200>;
 				type = "passive";
 			};
 		};
