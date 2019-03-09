@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"[sde_rsc_hw:%s:%d]: " fmt, __func__, __LINE__
@@ -293,7 +293,7 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	return 0;
 }
 
-int rsc_hw_timer_update(struct sde_rsc_priv *rsc)
+static int rsc_hw_timer_update(struct sde_rsc_priv *rsc)
 {
 	if (!rsc) {
 		pr_debug("invalid input param\n");
