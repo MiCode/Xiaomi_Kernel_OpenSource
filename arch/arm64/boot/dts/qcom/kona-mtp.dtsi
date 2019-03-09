@@ -148,6 +148,7 @@
 	kona_mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen4-batterydata-alium-3600mah.dtsi"
+		#include "fg-gen4-batterydata-ascent-3450mah.dtsi"
 	};
 };
 
