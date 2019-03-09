@@ -166,6 +166,8 @@ config IPA_ETH_NOAUTO
 	  to enable offloading. This feature is meant only for debugging.
 	  If unsure, say N.
 
+source "drivers/platform/msm/ipa/ipa_v3/ethernet/aquantia/Kconfig"
+
 config RMNET_IPA3
 	tristate "IPA3 RMNET WWAN Network Device"
 	depends on IPA3 && QCOM_QMI_HELPERS
