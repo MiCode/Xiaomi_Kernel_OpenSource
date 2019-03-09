@@ -26,8 +26,7 @@ uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->core_io.base + off);
-	__iormb();
+	ret = readl(npu_dev->core_io.base + off);
 	return ret;
 }
 
@@ -41,8 +40,7 @@ uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->qdsp_io.base + off);
-	__iormb();
+	ret = readl(npu_dev->qdsp_io.base + off);
 	return ret;
 }
 
@@ -56,8 +54,7 @@ uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->apss_shared_io.base + off);
-	__iormb();
+	ret = readl(npu_dev->apss_shared_io.base + off);
 	return ret;
 }
 
@@ -72,8 +69,7 @@ uint32_t npu_bwmon_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	ret = readl_relaxed(npu_dev->bwmon_io.base + off);
-	__iormb();
+	ret = readl(npu_dev->bwmon_io.base + off);
 	return ret;
 }
 
@@ -88,10 +84,8 @@ uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
 
-	if (npu_dev->qfprom_io.base) {
-		ret = readl_relaxed(npu_dev->qfprom_io.base + off);
-		__iormb();
-	}
+	if (npu_dev->qfprom_io.base)
+		ret = readl(npu_dev->qfprom_io.base + off);
 
 	return ret;
 }
