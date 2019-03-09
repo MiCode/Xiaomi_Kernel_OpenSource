@@ -196,6 +196,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_SYS_COMMON_START + 0x006)
 #define  HFI_PROPERTY_SYS_CONFIG_COVERAGE    \
 	(HFI_PROPERTY_SYS_COMMON_START + 0x007)
+#define  HFI_PROPERTY_SYS_UBWC_CONFIG    \
+	(HFI_PROPERTY_SYS_COMMON_START + 0x008)
 
 #define HFI_PROPERTY_PARAM_COMMON_START	\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
@@ -966,6 +968,25 @@ struct hfi_cmd_sys_set_buffers_packet {
 	u32 rg_buffer_addr[1];
 };
 
+struct hfi_cmd_sys_set_ubwc_config_packet_type {
+	u32 size;
+	u32 packet_type;
+	struct {
+		u32 max_channel_override : 1;
+		u32 mal_length_override : 1;
+		u32 hb_override : 1;
+		u32 bank_swzl_level_override : 1;
+		u32 bank_spreading_override : 1;
+		u32 reserved : 27;
+	} override_bit_info;
+	u32 max_channels;
+	u32 mal_length;
+	u32 highest_bank_bit;
+	u32 bank_swzl_level;
+	u32 bank_spreading;
+	u32 reserved[2];
+};
+
 struct hfi_cmd_session_set_property_packet {
 	u32 size;
 	u32 packet_type;
@@ -1097,7 +1118,6 @@ struct hfi_msg_session_cvp_dme_packet_type {
 	u32 skip_mv_calc;
 	u32 src_buf_addr;
 	u32 src_buf_size;
-	u32 nSrcBuffer_size;
 	u32 src_frame_ctx_buf_addr;
 	u32 src_frame_ctx_buf_size;
 	u32 ref_buf_addr;
@@ -1111,16 +1131,6 @@ struct hfi_msg_session_cvp_dme_packet_type {
 	u32 proc_frame_width;
 	u32 proc_frame_height;
 	u32 transform_confidence;
-	u32 frame_sum_gradient;
-	u32 frame_sum_square_gradient1;
-	u32 frame_sum_square_gradient2;
-	u16 n_luma_hist[8];
-	s32 mvx_sum;
-	s32 mvy_Sum;
-	u32 num_mvs;
-	s32 final_transform[9];
-	s32 pad;
-	s64 transform[9];
 };
 
 struct hfi_msg_session_cvp_persist_packet_type {

@@ -772,6 +772,7 @@ int cvp_read_platform_resources_from_drv_data(
 	res->gcc_register_size = platform_data->gcc_register_size;
 
 	res->vpu_ver = platform_data->vpu_ver;
+	res->ubwc_config = platform_data->ubwc_config;
 	return rc;
 
 }
