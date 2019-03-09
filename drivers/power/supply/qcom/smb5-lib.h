@@ -61,6 +61,8 @@ enum print_reason {
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define SW_THERM_REGULATION_VOTER	"SW_THERM_REGULATION_VOTER"
 #define JEITA_ARB_VOTER			"JEITA_ARB_VOTER"
+#define MOISTURE_VOTER			"MOISTURE_VOTER"
+#define HVDCP2_ICL_VOTER		"HVDCP2_ICL_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -364,13 +366,13 @@ struct smb_charger {
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*usb_irq_enable_votable;
 	struct votable		*cp_disable_votable;
-	struct votable		*wdog_snarl_irq_en_votable;
 	struct votable		*smb_override_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
 	struct work_struct	pl_update_work;
 	struct work_struct	jeita_update_work;
+	struct work_struct	moisture_protection_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -382,6 +384,7 @@ struct smb_charger {
 	struct delayed_work	thermal_regulation_work;
 
 	struct alarm		lpd_recheck_timer;
+	struct alarm		moisture_protection_alarm;
 
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -448,6 +451,9 @@ struct smb_charger {
 	u32			jeita_soft_hys_thlds[2];
 	int			jeita_soft_fcc[2];
 	int			jeita_soft_fv[2];
+	bool			moisture_present;
+	bool			uusb_moisture_protection_capable;
+	bool			uusb_moisture_protection_enabled;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -584,6 +590,8 @@ int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_online(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_usb_online(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
@@ -594,8 +602,12 @@ int smblib_get_prop_low_power(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_usb_prop_typec_mode(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_scope(struct smb_charger *chg,
+			union power_supply_propval *val);
 int smblib_get_prop_typec_select_rp(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
