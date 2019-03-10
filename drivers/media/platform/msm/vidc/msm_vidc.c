@@ -797,83 +797,6 @@ static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static int msm_vidc_set_rotation(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	int value = 0, hflip = 0, vflip = 0;
-	struct hfi_device *hdev;
-	struct hfi_vpe_rotation_type vpe_rotation;
-	struct hfi_frame_size frame_sz;
-
-	hdev = inst->core->device;
-
-	/* Set rotation and flip first */
-	value = msm_comm_g_ctrl_for_id(inst, V4L2_CID_ROTATE);
-	if (value < 0) {
-		dprintk(VIDC_ERR, "Get control for rotation failed\n");
-		return value;
-	}
-
-	vpe_rotation.rotation = HFI_ROTATE_NONE;
-	if (value == 90)
-		vpe_rotation.rotation = HFI_ROTATE_90;
-	else if (value == 180)
-		vpe_rotation.rotation = HFI_ROTATE_180;
-	else if (value ==  270)
-		vpe_rotation.rotation = HFI_ROTATE_270;
-
-	hflip = msm_comm_g_ctrl_for_id(inst, V4L2_CID_HFLIP);
-	if (hflip < 0) {
-		dprintk(VIDC_ERR, "Get control for hflip failed\n");
-		return value;
-	}
-
-	vflip = msm_comm_g_ctrl_for_id(inst, V4L2_CID_VFLIP);
-	if (vflip < 0) {
-		dprintk(VIDC_ERR, "Get control for vflip failed\n");
-		return value;
-	}
-
-	vpe_rotation.flip = HFI_FLIP_NONE;
-	if ((hflip == V4L2_MPEG_MSM_VIDC_ENABLE) &&
-		(vflip == V4L2_MPEG_MSM_VIDC_ENABLE))
-		vpe_rotation.flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
-	else if (hflip == V4L2_MPEG_MSM_VIDC_ENABLE)
-		vpe_rotation.flip = HFI_FLIP_HORIZONTAL;
-	else if (vflip == V4L2_MPEG_MSM_VIDC_ENABLE)
-		vpe_rotation.flip = HFI_FLIP_VERTICAL;
-
-	dprintk(VIDC_DBG, "Set rotation = %d, flip = %d for capture port.\n",
-			vpe_rotation.rotation, vpe_rotation.flip);
-	rc = call_hfi_op(hdev, session_set_property,
-				(void *)inst->session,
-				HFI_PROPERTY_PARAM_VPE_ROTATION,
-				&vpe_rotation, sizeof(vpe_rotation));
-	if (rc) {
-		dprintk(VIDC_ERR, "Set rotation/flip at start stream failed\n");
-		return rc;
-	}
-
-	/* flip the output resolution if required */
-	if (vpe_rotation.rotation == HFI_ROTATE_90 ||
-		vpe_rotation.rotation == HFI_ROTATE_270) {
-		frame_sz.buffer_type = HFI_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.height[CAPTURE_PORT];
-		frame_sz.height = inst->prop.width[CAPTURE_PORT];
-		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
-			frame_sz.width, frame_sz.height);
-		rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HFI_PROPERTY_PARAM_FRAME_SIZE,
-			&frame_sz, sizeof(frame_sz));
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set framesize for CAPTURE port\n");
-			return rc;
-		}
-	}
-	return rc;
-}
-
 static int msm_vidc_set_properties(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -904,15 +827,8 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 	b.buffer_type = HFI_BUFFER_OUTPUT;
-	if (inst->session_type == MSM_VIDC_ENCODER) {
-		rc = msm_vidc_set_rotation(inst);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Set rotation for encoder failed %pK\n", inst);
-			goto fail_start;
-		}
-	} else if ((inst->session_type == MSM_VIDC_DECODER) &&
-			(is_secondary_output_mode(inst)))
+	if (inst->session_type == MSM_VIDC_DECODER &&
+		is_secondary_output_mode(inst))
 		b.buffer_type = HFI_BUFFER_OUTPUT2;
 
 	/* HEIC HW/FWK tiling encode is supported only for CQ RC mode */
