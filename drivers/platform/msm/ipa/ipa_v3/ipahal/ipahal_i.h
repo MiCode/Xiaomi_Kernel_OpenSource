@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,8 @@
 	(kzalloc((__size), ((__is_atomic_ctx) ? GFP_ATOMIC : GFP_KERNEL)))
 
 #define IPAHAL_IPC_LOG_PAGES 50
+
+#define IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID 0x3ff
 
 /*
  * struct ipahal_context - HAL global context data
