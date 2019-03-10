@@ -2464,11 +2464,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
-
-		if (mdwc->iommu_map) {
-			__depr_arm_iommu_detach_device(mdwc->dev);
-			dev_dbg(mdwc->dev, "IOMMU detached\n");
-		}
 	}
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
@@ -2625,16 +2620,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
-		if (mdwc->iommu_map) {
-			ret = __depr_arm_iommu_attach_device(mdwc->dev,
-					mdwc->iommu_map);
-			if (ret)
-				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
-						ret);
-			else
-				dev_dbg(mdwc->dev, "attached to IOMMU\n");
-		}
-
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
 		dwc3_msm_power_collapse_por(mdwc);
@@ -3180,60 +3165,6 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-#define SMMU_BASE	0x90000000 /* Device address range base */
-#define SMMU_SIZE	0x60000000 /* Device address range size */
-
-static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
-{
-	struct device_node *node = mdwc->dev->of_node;
-	int atomic_ctx = 1, s1_bypass;
-	int ret;
-
-	if (!of_property_read_bool(node, "iommus"))
-		return 0;
-
-	mdwc->iommu_map = __depr_arm_iommu_create_mapping(&platform_bus_type,
-			SMMU_BASE, SMMU_SIZE);
-	if (IS_ERR_OR_NULL(mdwc->iommu_map)) {
-		ret = PTR_ERR(mdwc->iommu_map) ?: -ENODEV;
-		dev_err(mdwc->dev, "Failed to create IOMMU mapping (%d)\n",
-				ret);
-		return ret;
-	}
-	dev_dbg(mdwc->dev, "IOMMU mapping created: %pK\n", mdwc->iommu_map);
-
-	ret = iommu_domain_set_attr(mdwc->iommu_map->domain, DOMAIN_ATTR_ATOMIC,
-			&atomic_ctx);
-	if (ret) {
-		dev_err(mdwc->dev, "IOMMU set atomic attribute failed (%d)\n",
-			ret);
-		goto release_mapping;
-	}
-
-	s1_bypass = of_property_read_bool(node, "qcom,smmu-s1-bypass");
-	ret = iommu_domain_set_attr(mdwc->iommu_map->domain,
-			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
-	if (ret) {
-		dev_err(mdwc->dev, "IOMMU set s1 bypass (%d) failed (%d)\n",
-			s1_bypass, ret);
-		goto release_mapping;
-	}
-
-	ret = __depr_arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
-	if (ret) {
-		dev_err(mdwc->dev, "IOMMU attach failed (%d)\n", ret);
-		goto release_mapping;
-	}
-	dev_dbg(mdwc->dev, "attached to IOMMU\n");
-
-	return 0;
-
-release_mapping:
-	__depr_arm_iommu_release_mapping(mdwc->iommu_map);
-	mdwc->iommu_map = NULL;
-	return ret;
-}
-
 static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -3620,16 +3551,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				"qcom,use-pdc-interrupts");
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
-	ret = dwc3_msm_init_iommu(mdwc);
-	if (ret)
-		goto err;
-
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
 		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
 			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
 			ret = -EOPNOTSUPP;
-			goto uninit_iommu;
+			goto err;
 		}
 	}
 
@@ -3638,7 +3565,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
 		ret = -ENODEV;
-		goto uninit_iommu;
+		goto err;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -3646,7 +3573,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto uninit_iommu;
+		goto err;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -3689,11 +3616,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	mdwc->use_pwr_event_for_wakeup = dwc->maximum_speed >= USB_SPEED_SUPER
 					&& !mdwc->wakeup_irq[SS_PHY_IRQ].irq;
-
-
-	/* IOMMU will be reattached upon each resume/connect */
-	if (mdwc->iommu_map)
-		__depr_arm_iommu_detach_device(mdwc->dev);
 
 	/*
 	 * Clocks and regulators will not be turned on until the first time
@@ -3779,11 +3701,6 @@ put_dwc3:
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
-uninit_iommu:
-	if (mdwc->iommu_map) {
-		__depr_arm_iommu_detach_device(mdwc->dev);
-		__depr_arm_iommu_release_mapping(mdwc->iommu_map);
-	}
 	of_platform_depopulate(&pdev->dev);
 err:
 	destroy_workqueue(mdwc->sm_usb_wq);
@@ -3867,12 +3784,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_put(mdwc->xo_clk);
 
 	dwc3_msm_config_gdsc(mdwc, 0);
-
-	if (mdwc->iommu_map) {
-		if (!atomic_read(&dwc->in_lpm))
-			__depr_arm_iommu_detach_device(mdwc->dev);
-		__depr_arm_iommu_release_mapping(mdwc->iommu_map);
-	}
 
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
