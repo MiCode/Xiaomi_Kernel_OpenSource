@@ -881,6 +881,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_RC_TIMESTAMP_DISABLE,
+		.name = "RC Timestamp disable",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
+		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
+		.step = 1,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_CUSTOM_MATRIX,
 		.name = "Enable/Disable CSC Custom Matrix",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -1733,6 +1742,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB:
 	case V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE:
 	case V4L2_CID_MPEG_VIDC_VENC_NATIVE_RECORDER:
+	case V4L2_CID_MPEG_VIDC_VENC_RC_TIMESTAMP_DISABLE:
 		dprintk(VIDC_DBG, "Control set: ID : %x Val : %d\n",
 			ctrl->id, ctrl->val);
 		break;
@@ -2350,11 +2360,12 @@ int msm_venc_set_input_timestamp_rc(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
+	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VENC_RC_TIMESTAMP_DISABLE);
 	/*
-	 * 0 - rate control considers buffer timestamps
-	 * 1 - rate control igonres buffer timestamp and
-	 *     calculates timedelta based on frame rate
+	 * HFI values:
+	 * 0 - time delta is calculated based on buffer timestamp
+	 * 1 - ignores buffer timestamp and fw derives time delta based
+	 *     on input frame rate.
 	 */
 	enable.enable = !!ctrl->val;
 
