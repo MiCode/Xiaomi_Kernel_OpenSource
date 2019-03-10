@@ -763,12 +763,6 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
-	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
-	inst->capability.height.max = DEFAULT_HEIGHT;
-	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
-	inst->capability.width.max = DEFAULT_WIDTH;
-	inst->capability.secure_output2_threshold.min = 0;
-	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
@@ -909,13 +903,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst->flags |= VIDC_REALTIME;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		if (((ctrl->val >> 16) < inst->capability.frame_rate.min ||
-			(ctrl->val >> 16) > inst->capability.frame_rate.max) &&
-			ctrl->val != INT_MAX) {
-			dprintk(VIDC_ERR, "Invalid operating rate %u\n",
-				(ctrl->val >> 16));
-			rc = -ENOTSUPP;
-		} else if (ctrl->val == INT_MAX) {
+		if (ctrl->val == INT_MAX) {
 			dprintk(VIDC_DBG,
 				"inst(%pK) Request for turbo mode\n", inst);
 			inst->clk_data.turbo_mode = true;

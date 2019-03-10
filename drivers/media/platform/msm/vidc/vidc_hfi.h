@@ -837,13 +837,5 @@ struct msm_vidc_fw {
 int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		struct msm_vidc_cb_info *info);
 
-enum vidc_status hfi_process_sys_init_done_prop_read(
-	struct hfi_msg_sys_init_done_packet *pkt,
-	struct vidc_hal_sys_init_done *sys_init_done);
-
-enum vidc_status hfi_process_session_init_done_prop_read(
-	struct hfi_msg_sys_session_init_done_packet *pkt,
-	struct vidc_hal_session_init_done *session_init_done);
-
 #endif
 

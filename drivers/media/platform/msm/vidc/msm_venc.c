@@ -1068,16 +1068,9 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
 	inst->prop.bframe_changed = false;
-	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
-	inst->capability.height.max = DEFAULT_HEIGHT;
-	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
-	inst->capability.width.max = DEFAULT_WIDTH;
-	inst->capability.secure_output2_threshold.min = 0;
-	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
-	inst->capability.pixelprocess_capabilities = 0;
 
 	inst->bufq[OUTPUT_PORT].num_planes = 2;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
@@ -1497,13 +1490,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		if (((ctrl->val >> 16) < inst->capability.frame_rate.min ||
-			(ctrl->val >> 16) > inst->capability.frame_rate.max) &&
-			ctrl->val != INT_MAX) {
-			dprintk(VIDC_ERR, "Invalid operating rate %u\n",
-				(ctrl->val >> 16));
-			rc = -ENOTSUPP;
-		} else if (ctrl->val == INT_MAX) {
+		if (ctrl->val == INT_MAX) {
 			dprintk(VIDC_DBG, "inst(%pK) Request for turbo mode\n",
 				inst);
 			inst->clk_data.turbo_mode = true;
@@ -3500,9 +3487,10 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
 	if (!ctrl->val)
 		return 0;
-	if (ctrl->val > inst->capability.ltr_count.max) {
+	if (ctrl->val > inst->capability.cap[CAP_LTR_COUNT].max) {
 		dprintk(VIDC_ERR, "%s: invalid ltr count %d, max %d\n",
-			__func__, ctrl->val, inst->capability.ltr_count.max);
+			__func__, ctrl->val,
+			inst->capability.cap[CAP_LTR_COUNT].max);
 		return -EINVAL;
 	}
 	ltr.ltr_count =  ctrl->val;
