@@ -758,6 +758,16 @@ config PERCPU_STATS
 	  information includes global and per chunk statistics, which can
 	  be used to help understand percpu memory usage.
 
+config MM_STAT_UNRECLAIMABLE_PAGES
+	default y
+	depends on QGKI
+	bool "Enable counter for unreclaimable pages"
+	help
+	  Unreclaimable pages counters accounts the pages that cannot be
+	  reclaimed under memory pressure. These include mm rss and global
+	  counter. This option allows the enabling of the mm rss and global
+	  unreclaimables pages counters on QGKI systems.
+
 config HAVE_USERSPACE_LOW_MEMORY_KILLER
 	bool "Configure reclaim paths if there is a userspace LMK"
 	default n

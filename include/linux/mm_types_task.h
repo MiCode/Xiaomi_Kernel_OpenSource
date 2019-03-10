@@ -45,6 +45,9 @@ enum {
 	MM_ANONPAGES,	/* Resident anonymous pages */
 	MM_SWAPENTS,	/* Anonymous swap entries */
 	MM_SHMEMPAGES,	/* Resident shared memory pages */
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	MM_UNRECLAIMABLE,	/* Unreclaimable pages, e.g. shared with HW */
+#endif
 	NR_MM_COUNTERS
 };
 

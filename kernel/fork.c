@@ -134,6 +134,9 @@ static const char * const resident_page_types[] = {
 	NAMED_ARRAY_INDEX(MM_ANONPAGES),
 	NAMED_ARRAY_INDEX(MM_SWAPENTS),
 	NAMED_ARRAY_INDEX(MM_SHMEMPAGES),
+#ifdef CONFIG_MM_STAT_UNRECLAIMABLE_PAGES
+	NAMED_ARRAY_INDEX(MM_UNRECLAIMABLE),
+#endif
 };
 
 DEFINE_PER_CPU(unsigned long, process_counts) = 0;
