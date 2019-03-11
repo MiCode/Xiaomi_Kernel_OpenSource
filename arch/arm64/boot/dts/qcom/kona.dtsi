@@ -1193,7 +1193,7 @@
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,target-dev = <&cpu0_llcc_ddr_lat>;
-		qcom,cachemiss-ev = <0x1000>;
+		qcom,cachemiss-ev = <0x2A>;
 		qcom,core-dev-table =
 			<  300000 MHZ_TO_MBPS(  200, 4) >,
 			<  729600 MHZ_TO_MBPS(  451, 4) >,
@@ -1215,7 +1215,7 @@
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,target-dev = <&cpu4_llcc_ddr_lat>;
-		qcom,cachemiss-ev = <0x1000>;
+		qcom,cachemiss-ev = <0x2A>;
 		qcom,core-dev-table =
 			<  300000 MHZ_TO_MBPS( 200, 4) >,
 			<  691200 MHZ_TO_MBPS( 451, 4) >,
