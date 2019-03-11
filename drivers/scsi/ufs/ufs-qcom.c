@@ -2882,6 +2882,9 @@ static const struct dev_pm_ops ufs_qcom_pm_ops = {
 	.runtime_suspend = ufshcd_pltfrm_runtime_suspend,
 	.runtime_resume  = ufshcd_pltfrm_runtime_resume,
 	.runtime_idle    = ufshcd_pltfrm_runtime_idle,
+	.freeze		= ufshcd_pltfrm_freeze,
+	.restore	= ufshcd_pltfrm_restore,
+	.thaw		= ufshcd_pltfrm_thaw,
 };
 
 static struct platform_driver ufs_qcom_pltform = {
