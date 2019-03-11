@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 /*
  * Process Domain Service Notifier API header
@@ -15,6 +15,7 @@ enum qmi_servreg_notif_service_state_enum_type_v01 {
 	QMI_SERVREG_NOTIF_SERVICE_STATE_ENUM_TYPE_MAX_VAL_V01 = INT_MAX,
 	SERVREG_NOTIF_SERVICE_STATE_DOWN_V01 = 0x0FFFFFFF,
 	SERVREG_NOTIF_SERVICE_STATE_UP_V01 = 0x1FFFFFFF,
+	SERVREG_NOTIF_SERVICE_STATE_EARLY_DOWN_V01 = 0x2FFFFFFF,
 	SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01 = 0x7FFFFFFF,
 };
 
