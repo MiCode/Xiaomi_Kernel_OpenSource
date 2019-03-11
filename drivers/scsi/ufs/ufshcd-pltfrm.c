@@ -371,6 +371,45 @@ static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
 
 #ifdef CONFIG_SMP
 /**
+ * ufshcd_pltfrm_restore - restore power management function
+ * @dev: pointer to device handle
+ *
+ * Returns 0 if successful
+ * Returns non-zero otherwise
+ */
+int ufshcd_pltfrm_restore(struct device *dev)
+{
+	return ufshcd_system_restore(dev_get_drvdata(dev));
+}
+EXPORT_SYMBOL(ufshcd_pltfrm_restore);
+
+/**
+ * ufshcd_pltfrm_freeze - freeze power management function
+ * @dev: pointer to device handle
+ *
+ * Returns 0 if successful
+ * Returns non-zero otherwise
+ */
+int ufshcd_pltfrm_freeze(struct device *dev)
+{
+	return ufshcd_system_freeze(dev_get_drvdata(dev));
+}
+EXPORT_SYMBOL(ufshcd_pltfrm_freeze);
+
+/**
+ * ufshcd_pltfrm_thaw - freeze power management function
+ * @dev: pointer to device handle
+ *
+ * Returns 0 if successful
+ * Returns non-zero otherwise
+ */
+int ufshcd_pltfrm_thaw(struct device *dev)
+{
+	return ufshcd_system_thaw(dev_get_drvdata(dev));
+}
+EXPORT_SYMBOL(ufshcd_pltfrm_thaw);
+
+/**
  * ufshcd_pltfrm_suspend - suspend power management function
  * @dev: pointer to device handle
  *
