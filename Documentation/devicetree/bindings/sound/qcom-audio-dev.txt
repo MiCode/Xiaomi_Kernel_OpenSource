@@ -220,6 +220,13 @@ Required properties:
                             inCall Music Delivery port ID is 32773.
                             incall Music 2 Delivery port ID is 32770.
 
+Optional properties:
+
+ - qcom,msm-dai-q6-slim-dev-id : The Slimbus HW device (instance) ID associated
+                                 with Slimbus ports.
+                                 0 - Slimbus HW device ID 0 (first instance)
+                                 1 - Slimbus HW device ID 1 (second instance)
+
 * msm_dai_cdc_dma
 
 [First Level Nodes]
@@ -553,6 +560,7 @@ Example:
 		qcom,msm-dai-q6-sb-0-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16384>;
+			qcom,msm-dai-q6-slim-dev-id = <0>;
 		};
 
 		qcom,msm-dai-q6-sb-0-tx {
