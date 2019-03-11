@@ -411,3 +411,51 @@
 &apps_smmu {
 	/delete-property/ qcom,actlr;
 };
+
+&msm_fastrpc_compute_cb1 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb2 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb3 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb4 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb5 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb6 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb7 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb8 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb9 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb10 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb11 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb12 {
+	/delete-property/ dma-coherent;
+};
