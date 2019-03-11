@@ -2437,7 +2437,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 9, 3, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 9, 3, 8, 16, IPA_EE_AP, GSI_FREE_PRE_FETCH, 2 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG_PROD]          = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
@@ -2499,7 +2499,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 23, 8, 8, 13, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 23, 8, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG1_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL_DST,
 			false,
