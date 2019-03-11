@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@ enum cam_ife_hw_mgr_res_type {
 	CAM_IFE_HW_MGR_RES_CID,
 	CAM_IFE_HW_MGR_RES_CSID,
 	CAM_IFE_HW_MGR_RES_IFE_SRC,
+	CAM_IFE_HW_MGR_RES_IFE_IN_RD,
 	CAM_IFE_HW_MGR_RES_IFE_OUT,
 };
 
@@ -87,6 +88,7 @@ struct ctx_base_info {
  * @csid_debug:                csid debug information
  * @enable_recovery:           enable recovery
  * @enable_diag_sensor_status: enable sensor diagnosis status
+ * @enable_reg_dump:           enable register dump on error
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -94,6 +96,7 @@ struct cam_ife_hw_mgr_debug {
 	uint64_t       csid_debug;
 	uint32_t       enable_recovery;
 	uint32_t       camif_debug;
+	uint32_t       enable_reg_dump;
 };
 
 /**
@@ -108,6 +111,7 @@ struct cam_ife_hw_mgr_debug {
  *                          one.
  * @res_list_csid:          CSID resource list
  * @res_list_ife_src:       IFE input resource list
+ * @res_list_ife_in_rd      IFE input resource list for read path
  * @res_list_ife_out:       IFE output resoruces array
  * @free_res_list:          Free resources list for the branch node
  * @res_pool:               memory storage for the free resource list
@@ -128,6 +132,8 @@ struct cam_ife_hw_mgr_debug {
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
  * @init_done               indicate whether init hw is done
+ * @is_fe_enable            indicate whether fetch engine\read path is enabled
+ * @res_bitmap              fill resource bitmap for which rup to be set
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -141,6 +147,7 @@ struct cam_ife_hw_mgr_ctx {
 	struct list_head                res_list_ife_cid;
 	struct list_head                res_list_ife_csid;
 	struct list_head                res_list_ife_src;
+	struct list_head                res_list_ife_in_rd;
 	struct cam_ife_hw_mgr_res       res_list_ife_out[
 						CAM_IFE_HW_OUT_RES_MAX];
 
@@ -162,6 +169,8 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
 	bool                            init_done;
+	bool                            is_fe_enable;
+	unsigned long                   res_bitmap;
 };
 
 /**

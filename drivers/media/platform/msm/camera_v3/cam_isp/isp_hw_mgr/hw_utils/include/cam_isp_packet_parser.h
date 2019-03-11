@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,8 +123,11 @@ int cam_isp_add_command_buffers(
  * @base_idx:              Base or dev index of the IFE/VFE HW instance
  * @kmd_buf_info:          Kmd buffer to store the change base command
  * @res_list_isp_out:      IFE /VFE out resource list
+ * @res_list_ife_in_rd:    IFE /VFE in rd resource list
  * @size_isp_out:          Size of the res_list_isp_out array
  * @fill_fence:            If true, Fence map table will be filled
+ * @res_bitmap             resource bitmap to be set for rup
+ * @fill_res_bitmap        callback function to set resource bitmap
  *
  * @return:                0 for success
  *                         -EINVAL for Fail
@@ -136,8 +139,11 @@ int cam_isp_add_io_buffers(
 	uint32_t                              base_idx,
 	struct cam_kmd_buf_info              *kmd_buf_info,
 	struct cam_ife_hw_mgr_res            *res_list_isp_out,
+	struct list_head                     *res_list_ife_in_rd,
 	uint32_t                              size_isp_out,
-	bool                                  fill_fence);
+	bool                                  fill_fence,
+	unsigned long                        *res_bitmap,
+	cam_fill_res_bitmap                   fill_res_bitmap);
 
 /*
  * cam_isp_add_reg_update()
@@ -150,6 +156,9 @@ int cam_isp_add_io_buffers(
  * @res_list_isp_src:      Resource list for IFE/VFE source
  * @base_idx:              Base or dev index of the IFE/VFE HW instance
  * @kmd_buf_info:          Kmd buffer to store the change base command
+ * @is_fe_enable           If fetch engine enable
+ * @res_bitmap             resource bitmap to be set for rup
+ *
  * @return:                0 for success
  *                         -EINVAL for Fail
  */
@@ -157,6 +166,8 @@ int cam_isp_add_reg_update(
 	struct cam_hw_prepare_update_args    *prepare,
 	struct list_head                     *res_list_isp_src,
 	uint32_t                              base_idx,
-	struct cam_kmd_buf_info              *kmd_buf_info);
+	struct cam_kmd_buf_info              *kmd_buf_info,
+	bool                                  is_fe_enable,
+	unsigned long                         res_bitmap);
 
 #endif /*_CAM_ISP_HW_PARSER_H */

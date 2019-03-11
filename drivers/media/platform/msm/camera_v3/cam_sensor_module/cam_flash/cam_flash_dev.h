@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/leds-qpnp-flash.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
@@ -135,6 +136,7 @@ struct cam_flash_frame_setting {
  * @torch_trigger_name  : Torch trigger name array
  * @torch_op_current    : Torch operational current
  * @torch_max_current   : Max supported current for LED in torch mode
+ * @is_wled_flash       : Detection between WLED/LED flash
  */
 
 struct cam_flash_private_soc {
@@ -146,6 +148,7 @@ struct cam_flash_private_soc {
 	const char   *torch_trigger_name[CAM_FLASH_MAX_LED_TRIGGERS];
 	uint32_t     torch_op_current[CAM_FLASH_MAX_LED_TRIGGERS];
 	uint32_t     torch_max_current[CAM_FLASH_MAX_LED_TRIGGERS];
+	bool         is_wled_flash;
 };
 
 struct cam_flash_func_tbl {
@@ -180,6 +183,7 @@ struct cam_flash_func_tbl {
  * @cci_i2c_master      : I2C structure
  * @io_master_info      : Information about the communication master
  * @i2c_data            : I2C register settings
+ * @last_flush_req      : last request to flush
  */
 struct cam_flash_ctrl {
 	struct cam_hw_soc_info              soc_info;
@@ -205,6 +209,7 @@ struct cam_flash_ctrl {
 	enum   cci_i2c_master_t             cci_i2c_master;
 	struct camera_io_master             io_master_info;
 	struct i2c_data_settings            i2c_data;
+	uint32_t                            last_flush_req;
 };
 
 int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1823,9 +1823,11 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 			diagfwd_write_done(peripheral, type, num);
 			diag_ws_on_copy(DIAG_WS_MUX);
 		} else if (peripheral == APPS_DATA) {
+			spin_lock_irqsave(&driver->diagmem_lock, flags);
 			diagmem_free(driver, (unsigned char *)buf,
 				     POOL_TYPE_HDLC);
 			buf = NULL;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 		} else {
 			pr_err_ratelimited("diag: Invalid peripheral %d in %s, type: %d\n",
 					   peripheral, __func__, type);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,8 @@ static bool cam_vfe_cpas_cb(uint32_t client_handle, void *userdata,
 	switch (irq_data->irq_type) {
 	case CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR:
 	case CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR:
+	case CAM_CAMNOC_IRQ_IFE0_UBWC_ENCODE_ERROR:
+	case CAM_CAMNOC_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR:
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"IFE UBWC Encode error type=%d status=%x",
 			irq_data->irq_type,
@@ -104,7 +106,7 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		CAM_VFE_DSP_CLK_NAME, &soc_private->dsp_clk,
 		&soc_private->dsp_clk_index, &soc_private->dsp_clk_rate);
 	if (rc)
-		CAM_WARN(CAM_ISP, "option clk get failed");
+		CAM_WARN(CAM_ISP, "Option clk get failed with rc %d", rc);
 
 	rc = cam_vfe_request_platform_resource(soc_info, vfe_irq_handler,
 		irq_data);
@@ -115,20 +117,56 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	}
 
 	memset(&cpas_register_param, 0, sizeof(cpas_register_param));
-	strlcpy(cpas_register_param.identifier, "ife",
-		CAM_HW_IDENTIFIER_LENGTH);
+
 	cpas_register_param.cell_index = soc_info->index;
 	cpas_register_param.dev = soc_info->dev;
 	cpas_register_param.cam_cpas_client_cb = cam_vfe_cpas_cb;
 	cpas_register_param.userdata = soc_info;
-	rc = cam_cpas_register_client(&cpas_register_param);
+
+	rc = cam_cpas_get_cpas_hw_version(&soc_private->cpas_version);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);
-		goto release_soc;
-	} else {
-		soc_private->cpas_handle = cpas_register_param.client_handle;
+		CAM_ERR(CAM_ISP, "Error! Invalid cpas version rc=%d", rc);
+		goto free_soc_private;
 	}
 
+	switch (soc_private->cpas_version) {
+	case CAM_CPAS_TITAN_175_V120:
+		strlcpy(cpas_register_param.identifier, "iferdi",
+			CAM_HW_IDENTIFIER_LENGTH);
+		rc = cam_cpas_register_client(&cpas_register_param);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "rdi CPAS registration failed rc=%d",
+				rc);
+			goto release_soc;
+		} else {
+			soc_private->cpas_handle[0] =
+				cpas_register_param.client_handle;
+		}
+
+		strlcpy(cpas_register_param.identifier, "ifenrdi",
+			CAM_HW_IDENTIFIER_LENGTH);
+		rc = cam_cpas_register_client(&cpas_register_param);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "nrdi CPAS registration failed rc=%d",
+				rc);
+			goto release_soc;
+		} else {
+			soc_private->cpas_handle[1] =
+				cpas_register_param.client_handle;
+		}
+		break;
+	default:
+		strlcpy(cpas_register_param.identifier, "ife",
+			CAM_HW_IDENTIFIER_LENGTH);
+		rc = cam_cpas_register_client(&cpas_register_param);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);
+			goto release_soc;
+		} else {
+			soc_private->cpas_handle[0] =
+				cpas_register_param.client_handle;
+		}
+	}
 	return rc;
 
 release_soc:
@@ -154,10 +192,15 @@ int cam_vfe_deinit_soc_resources(struct cam_hw_soc_info *soc_info)
 		CAM_ERR(CAM_ISP, "Error! soc_private NULL");
 		return -ENODEV;
 	}
-
-	rc = cam_cpas_unregister_client(soc_private->cpas_handle);
+	rc = cam_cpas_unregister_client(soc_private->cpas_handle[0]);
 	if (rc)
-		CAM_ERR(CAM_ISP, "CPAS unregistration failed rc=%d", rc);
+		CAM_ERR(CAM_ISP, "CPAS0 unregistration failed rc=%d", rc);
+
+	if (!rc && soc_private->cpas_version == CAM_CPAS_TITAN_175_V120)
+		rc = cam_cpas_unregister_client(soc_private->cpas_handle[1]);
+		if (rc)
+			CAM_ERR(CAM_ISP, "CPAS1 unregistration failed rc=%d",
+				rc);
 
 	rc = cam_vfe_release_platform_resource(soc_info);
 	if (rc < 0)
@@ -194,12 +237,21 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	axi_vote.compressed_bw   = 10640000000L;
 	axi_vote.uncompressed_bw = 10640000000L;
 
-	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
+	rc = cam_cpas_start(soc_private->cpas_handle[0], &ahb_vote, &axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Error! CPAS start failed rc=%d", rc);
+		CAM_ERR(CAM_ISP, "Error! CPAS0 start failed rc=%d", rc);
 		rc = -EFAULT;
 		goto end;
 	}
+
+	if (!rc && soc_private->cpas_version == CAM_CPAS_TITAN_175_V120)
+		rc = cam_cpas_start(soc_private->cpas_handle[1], &ahb_vote,
+			&axi_vote);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Error! CPAS1 start failed rc=%d", rc);
+			rc = -EFAULT;
+			goto end;
+		}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
@@ -211,7 +263,9 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	return rc;
 
 stop_cpas:
-	cam_cpas_stop(soc_private->cpas_handle);
+	cam_cpas_stop(soc_private->cpas_handle[0]);
+	if (soc_private->cpas_version == CAM_CPAS_TITAN_175_V120)
+		cam_cpas_stop(soc_private->cpas_handle[1]);
 end:
 	return rc;
 }
@@ -283,11 +337,18 @@ int cam_vfe_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
-	rc = cam_cpas_stop(soc_private->cpas_handle);
+	rc = cam_cpas_stop(soc_private->cpas_handle[0]);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Error! CPAS stop failed rc=%d", rc);
 		return rc;
 	}
+
+	if (!rc && soc_private->cpas_version == CAM_CPAS_TITAN_175_V120)
+		rc = cam_cpas_stop(soc_private->cpas_handle[1]);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Error! CPAS stop failed rc=%d", rc);
+			return rc;
+		}
 
 	return rc;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,11 +128,11 @@ struct clk_work_data {
 };
 
 /**
- * struct icp_frame_info
- * @request_id: request id
- * @io_config: the address of io config
- * @hfi_cfg_io_cmd: command struct to be sent to hfi
- */
+  * struct icp_frame_info
+  * @request_id: request id
+  * @io_config: the address of io config
+  * @hfi_cfg_io_cmd: command struct to be sent to hfi
+  */
 struct icp_frame_info {
 	uint64_t request_id;
 	uint64_t io_config;

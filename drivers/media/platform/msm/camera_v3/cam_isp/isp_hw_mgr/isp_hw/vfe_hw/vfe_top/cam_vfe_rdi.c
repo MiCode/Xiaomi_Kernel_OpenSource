@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,14 @@ static int cam_vfe_rdi_get_reg_update(
 			"Error - buf size:%d is not sufficient, expected: %d",
 			cdm_args->cmd.size, size * 4);
 		return -EINVAL;
+	}
+
+	if (cdm_args->rup_data->is_fe_enable &&
+		(cdm_args->rup_data->res_bitmap &
+			(1 << CAM_IFE_REG_UPD_CMD_PIX_BIT))) {
+		cdm_args->cmd.used_bytes = 0;
+		CAM_DBG(CAM_ISP, "Avoiding reg_upd for fe for rdi");
+		return 0;
 	}
 
 	rsrc_data = rdi_res->res_priv;

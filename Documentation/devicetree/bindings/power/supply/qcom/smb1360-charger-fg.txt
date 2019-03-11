@@ -13,12 +13,15 @@ Required Properties:
 
 Optional Properties:
 
-- interrupts			This indicates the IRQ number of the GPIO
-				connected to the STAT pin.
+- interrupts			This indicates the IRQ numbers of the GPIOs
+				connected to the STAT and usb-id pins.
+- interrupt-names		The irq names should be smb1360_stat_irq and
+				smb1360_usb_id_irq.The stat irq is mandatory
+				and usb_id irq is optional.
 - pinctrl-names:		The state name of the pin configuration. Only
 				support: "default".
-- pinctrl-0:			The phandle of the pin configuration node in
-				pinctrl for smb_int_pin.
+- pinctrl-0:			The phandles of the pin configuration node in
+				pinctrl for smb_int_pin and usb-id pin.
 				For details of pinctrl properties, please refer to:
 				"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
 - qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
@@ -177,6 +180,8 @@ Optional Properties:
 				Please go through the documentation for PMIC gpio
 				configuration details:
 				Documentation/devicetree/bindings/gpio/qpnp-pin.txt
+- qcom,usb-id-gpio		GPIO for usb-id detection.This property is mandatory
+				if usb-id irq is specified.
 - qcom,parallel-charging-enabled: A bool property which enables SMB1360 to
 				operate in the parallel mode. SMB1360 acts
 				as the primary charger.
@@ -192,9 +197,13 @@ Example:
 			compatible = "qcom,smb1360-chg-fg";
 			reg = <0x1b>;
 			interrupt-parent = <&spmi_bus>;
-			interrupts = <0x00 0xcd 0>;
+			interrupts = <0x00 0xcd 0>,
+					<0 0xc3 0 3>;
+			interrupt-names = "smb1360_stat_irq",
+					"smb1360_usb_id_irq";
 			pinctrl-names = "default";
-			pinctrl-0 = <&smb_int_default>;
+			pinctrl-0 = <&smb_int_default>,
+					<&usb_id_default>;
 
 			/* battery-profile selection properties */
 			qcom,batt-profile-select;
@@ -242,5 +251,6 @@ Example:
 
 			qcom,otg-fet-present;
 			qcom,otg-fet-enable-gpio = <&pm8916_gpios 3 0>;
+			qcom,usb-id-gpio = <&pm8916_gpios 4 0>;
 		};
 	};

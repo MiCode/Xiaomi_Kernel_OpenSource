@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,7 @@
 #define CSID_PATH_INFO_INPUT_SOF                  BIT(12)
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
+#define CSID_PATH_ERROR_CCIF_VIOLATION            BIT(15)
 
 /*
  * Debug values enable the corresponding interrupts and debug logs provide
@@ -138,6 +139,8 @@ struct cam_ife_csid_pxl_reg_offset {
 	/* configuration */
 	uint32_t  pix_store_en_shift_val;
 	uint32_t  early_eof_en_shift_val;
+	uint32_t  quad_cfa_bin_en_shift_val;
+	uint32_t  ccif_violation_en;
 };
 
 struct cam_ife_csid_rdi_reg_offset {
@@ -182,6 +185,10 @@ struct cam_ife_csid_rdi_reg_offset {
 	uint32_t csid_rdi_timestamp_prev1_eof_addr;
 	uint32_t csid_rdi_byte_cntr_ping_addr;
 	uint32_t csid_rdi_byte_cntr_pong_addr;
+
+	/* configuration */
+	uint32_t packing_format;
+	uint32_t ccif_violation_en;
 };
 
 struct cam_ife_csid_csi2_rx_reg_offset {
@@ -194,7 +201,7 @@ struct cam_ife_csid_csi2_rx_reg_offset {
 	uint32_t csid_csi2_rx_capture_ctrl_addr;
 	uint32_t csid_csi2_rx_rst_strobes_addr;
 	uint32_t csid_csi2_rx_de_scramble_cfg0_addr;
-	uint32_t csid_csi2_rx_de_scramble_cfg1_addr; /* */
+	uint32_t csid_csi2_rx_de_scramble_cfg1_addr;
 	uint32_t csid_csi2_rx_cap_unmap_long_pkt_hdr_0_addr;
 	uint32_t csid_csi2_rx_cap_unmap_long_pkt_hdr_1_addr;
 	uint32_t csid_csi2_rx_captured_short_pkt_0_addr;
@@ -210,6 +217,14 @@ struct cam_ife_csid_csi2_rx_reg_offset {
 	uint32_t csid_csi2_rx_total_pkts_rcvd_addr;
 	uint32_t csid_csi2_rx_stats_ecc_addr;
 	uint32_t csid_csi2_rx_total_crc_err_addr;
+	uint32_t csid_csi2_rx_de_scramble_type3_cfg0_addr;
+	uint32_t csid_csi2_rx_de_scramble_type3_cfg1_addr;
+	uint32_t csid_csi2_rx_de_scramble_type2_cfg0_addr;
+	uint32_t csid_csi2_rx_de_scramble_type2_cfg1_addr;
+	uint32_t csid_csi2_rx_de_scramble_type1_cfg0_addr;
+	uint32_t csid_csi2_rx_de_scramble_type1_cfg1_addr;
+	uint32_t csid_csi2_rx_de_scramble_type0_cfg0_addr;
+	uint32_t csid_csi2_rx_de_scramble_type0_cfg1_addr;
 
 	/*configurations */
 	uint32_t csi2_rst_srb_all;
@@ -225,6 +240,7 @@ struct cam_ife_csid_csi2_rx_reg_offset {
 	uint32_t csi2_capture_short_pkt_vc_shift;
 	uint32_t csi2_capture_cphy_pkt_dt_shift;
 	uint32_t csi2_capture_cphy_pkt_vc_shift;
+	uint32_t csi2_rx_phy_num_mask;
 };
 
 struct cam_ife_csid_csi2_tpg_reg_offset {
@@ -274,6 +290,7 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t num_rdis;
 	uint32_t num_pix;
 	uint32_t num_ppp;
+	uint32_t csid_reg_rst_stb;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;
@@ -477,6 +494,8 @@ struct cam_ife_csid_hw {
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;
 	uint32_t                         error_irq_count;
+	uint32_t                         device_enabled;
+	spinlock_t                       lock_state;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -232,6 +232,7 @@ static const struct cam_ife_csid_csi2_rx_reg_offset
 	.csi2_capture_short_pkt_vc_shift              = 15,
 	.csi2_capture_cphy_pkt_dt_shift               = 20,
 	.csi2_capture_cphy_pkt_vc_shift               = 26,
+	.csi2_rx_phy_num_mask                         = 0x3,
 };
 
 
@@ -286,6 +287,7 @@ static const struct cam_ife_csid_common_reg_offset
 	.version_incr                                 = 0,
 	.num_rdis                                     = 4,
 	.num_pix                                      = 0,
+	.csid_reg_rst_stb                             = 1,
 	.csid_rst_stb                                 = 0x1e,
 	.csid_rst_stb_sw_all                          = 0x1f,
 	.path_rst_stb_all                             = 0x7f,

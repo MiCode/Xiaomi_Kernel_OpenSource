@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/completion.h>
 #include <linux/pm_wakeup.h>
+#include <linux/of_irq.h>
 
 #define _SMB1360_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -405,6 +406,7 @@ struct smb1360_chip {
 	bool				otg_fet_present;
 	bool				fet_gain_enabled;
 	int				otg_fet_enable_gpio;
+	int				usb_id_gpio;
 
 	/* status tracking */
 	int				voltage_now;
@@ -466,6 +468,7 @@ struct smb1360_chip {
 	int				cold_hysteresis;
 	int				hot_hysteresis;
 	struct extcon_dev		*extcon;
+	int				usb_id_irq;
 };
 
 static int chg_time[] = {
@@ -2885,6 +2888,28 @@ static irqreturn_t smb1360_stat_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t smb1360_usb_id_irq_handler(int irq, void *dev_id)
+{
+	struct smb1360_chip *chip = dev_id;
+	int rc = 0;
+	bool id_state;
+
+	id_state = gpio_get_value(chip->usb_id_gpio);
+
+	rc = smb1360_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT,
+					!id_state ? CMD_OTG_EN_BIT : 0);
+	if (rc) {
+		pr_err("Couldn't enable  OTG mode rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+	extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST,
+					!id_state ? true : false);
+
+	pr_debug("usb_id_irq triggered, id_state = %d\n", id_state);
+
+	return IRQ_HANDLED;
+}
+
 static int show_irq_count(struct seq_file *m, void *data)
 {
 	int i, j, total = 0;
@@ -3421,6 +3446,10 @@ static int smb1360_regulator_init(struct smb1360_chip *chip)
 	int rc = 0;
 	struct regulator_config cfg = {};
 
+	/* OTG is enabled by SMB1360 if usb-id config is defined */
+	if (chip->usb_id_gpio > 0 && chip->usb_id_irq > 0)
+		return 0;
+
 	chip->otg_vreg.rdesc.owner = THIS_MODULE;
 	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
 	chip->otg_vreg.rdesc.ops = &smb1360_otg_reg_ops;
@@ -3557,6 +3586,7 @@ static int determine_initial_status(struct smb1360_chip *chip)
 {
 	int rc;
 	u8 reg = 0;
+	bool id_state;
 
 	/*
 	 * It is okay to read the IRQ status as the irq's are
@@ -3620,6 +3650,25 @@ static int determine_initial_status(struct smb1360_chip *chip)
 	/* USB inserted */
 	else
 		extcon_set_cable_state_(chip->extcon, EXTCON_USB, true);
+
+	pr_debug("usb %s at boot\n", chip->usb_present ? "present" : "absent");
+
+	/*check otg presence and notify*/
+	if (chip->usb_id_gpio != -EINVAL) {
+		id_state = gpio_get_value(chip->usb_id_gpio);
+		/* usb-id is low, enable OTG */
+		if (!id_state) {
+			rc = smb1360_masked_write(chip, CMD_CHG_REG,
+						CMD_OTG_EN_BIT, CMD_OTG_EN_BIT);
+			if (rc) {
+				pr_err("Couldn't enable  OTG mode rc=%d\n", rc);
+				return rc;
+			}
+			extcon_set_state_sync(chip->extcon, EXTCON_USB_HOST,
+									true);
+			pr_debug("OTG enabled at boot\n");
+		}
+	}
 
 	power_supply_changed(chip->usb_psy);
 	return 0;
@@ -4752,6 +4801,11 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 			return rc;
 		}
 	}
+	chip->usb_id_gpio = -EINVAL;
+	if (of_find_property(node, "qcom,usb-id-gpio", NULL)) {
+		chip->usb_id_gpio = of_get_named_gpio(node,
+					"qcom,usb-id-gpio", 0);
+	}
 
 	chip->pulsed_irq = of_property_read_bool(node, "qcom,stat-pulsed-irq");
 
@@ -5073,6 +5127,28 @@ static int smb1360_probe(struct i2c_client *client,
 		enable_irq_wake(client->irq);
 	}
 
+	chip->usb_id_irq = of_irq_get_byname(chip->dev->of_node,
+						"smb1360_usb_id_irq");
+	if (chip->usb_id_irq > 0) {
+		if (chip->usb_id_gpio == -EINVAL) {
+			pr_err("usb-id gpio not defined\n");
+		} else {
+			rc = devm_request_threaded_irq(&client->dev,
+						chip->usb_id_irq, NULL,
+						smb1360_usb_id_irq_handler,
+						IRQF_ONESHOT
+						| IRQF_TRIGGER_FALLING
+						| IRQF_TRIGGER_RISING,
+						"smb1360_usb_id_irq", chip);
+			if (rc < 0) {
+				dev_err(&client->dev,
+					"usb-id request_irq for irq=%d  failed rc = %d\n",
+					chip->usb_id_irq, rc);
+				goto unregister_batt_psy;
+			}
+			enable_irq_wake(chip->usb_id_irq);
+		}
+	}
 	chip->debug_root = debugfs_create_dir("smb1360", NULL);
 	if (!chip->debug_root)
 		dev_err(chip->dev, "Couldn't create debug dir\n");
@@ -5201,7 +5277,8 @@ static int smb1360_probe(struct i2c_client *client,
 unregister_batt_psy:
 	power_supply_unregister(chip->batt_psy);
 fail_hw_init:
-	regulator_unregister(chip->otg_vreg.rdev);
+	if (chip->otg_vreg.rdev)
+		regulator_unregister(chip->otg_vreg.rdev);
 destroy_mutex:
 	power_supply_unregister(chip->usb_psy);
 	wakeup_source_trash(&chip->smb1360_ws.source);
@@ -5218,8 +5295,9 @@ destroy_mutex:
 static int smb1360_remove(struct i2c_client *client)
 {
 	struct smb1360_chip *chip = i2c_get_clientdata(client);
+	if (chip->otg_vreg.rdev)
+		regulator_unregister(chip->otg_vreg.rdev);
 
-	regulator_unregister(chip->otg_vreg.rdev);
 	power_supply_unregister(chip->usb_psy);
 	power_supply_unregister(chip->batt_psy);
 	wakeup_source_trash(&chip->smb1360_ws.source);
