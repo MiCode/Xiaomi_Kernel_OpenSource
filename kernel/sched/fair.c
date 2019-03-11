@@ -7023,9 +7023,14 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * visiting other clusters. If the boost is ON_BIG we visit
 		 * next cluster if they are higher in capacity. If we are
 		 * not in any kind of boost, we break.
+		 *
+		 * And always visit higher capacity group, if solo cpu group
+		 * is not in idle.
 		 */
 		if (!prefer_idle && !boosted &&
-			(target_cpu != -1 || best_idle_cpu != -1) &&
+			((target_cpu != -1 && (sg->group_weight > 1 ||
+			 !next_group_higher_cap)) ||
+			 best_idle_cpu != -1) &&
 			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
 			!is_full_throttle_boost() ||
 			(fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
