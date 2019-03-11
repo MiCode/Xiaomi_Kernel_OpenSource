@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,7 +156,6 @@ struct external_imu_format {
 	s16 mz3; //368 bytes
 };
 
-int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid);
 void qvr_clear_def_parmeter(void);
 void qvr_init(struct hid_device *hdev);
 int qvr_input_init(void);
