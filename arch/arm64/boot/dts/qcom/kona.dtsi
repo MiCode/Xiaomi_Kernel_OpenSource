@@ -1077,23 +1077,30 @@
 
 	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@60300 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00060300 0x300>, <0x00060400 0x200>;
+		reg = <0x00060400 0x300>, <0x00060300 0x200>;
 		reg-names = "base", "global_base";
-		interrupts = <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npu_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
 	};
 
-	npu_npu_ddr_bwmon_dsp: qcom,npu-npu-ddr-bwmoni_dsp@70200 {
+	npudsp_npu_ddr_bw: qcom,npudsp-npu-ddr-bw {
+		compatible = "qcom,devbw";
+		governor = "performance";
+		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
+		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
+	};
+
+	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70200 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00070200 0x300>, <0x00070300 0x200>;
+		reg = <0x00070300 0x300>, <0x00070200 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
-		qcom,target-dev = <&npu_npu_ddr_bw>;
+		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
 	};
 
