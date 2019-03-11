@@ -562,11 +562,13 @@ static int msm_11ad_suspend_power_off(void *handle)
 
 	pcidev = ctx->pcidev;
 
+	/* free the old saved state and save the latest state */
 	rc = pci_save_state(pcidev);
 	if (rc) {
 		dev_err(ctx->dev, "pci_save_state failed :%d\n", rc);
 		goto out;
 	}
+	kfree(ctx->pristine_state);
 	ctx->pristine_state = pci_store_saved_state(pcidev);
 
 	rc = msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
@@ -603,6 +605,7 @@ static int ops_suspend(void *handle, bool keep_device_power)
 	dev_dbg(ctx->dev, "disable device and save config\n");
 	pci_disable_device(pcidev);
 	pci_save_state(pcidev);
+	kfree(ctx->pristine_state);
 	ctx->pristine_state = pci_store_saved_state(pcidev);
 	dev_dbg(ctx->dev, "moving to D3\n");
 	pci_set_power_state(pcidev, PCI_D3hot);
