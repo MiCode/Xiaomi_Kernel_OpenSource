@@ -1941,6 +1941,22 @@ union ipa_hwio_def_ipa_rx_hps_cmdq_cmd_u {
 	struct ipa_hwio_def_ipa_rx_hps_cmdq_cmd_s	def;
 	u32						value;
 };
+struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_s {
+	u32	block_wr : 5;
+	u32	reserved0 : 27;
+};
+union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_u {
+	struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_s	def;
+	u32						value;
+};
+struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_s {
+	u32	block_rd : 5;
+	u32	reserved0 : 27;
+};
+union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_u {
+	struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_s	def;
+	u32						value;
+};
 struct ipa_hwio_def_ipa_rx_hps_cmdq_data_rd_0_s {
 	u32	cmdq_packet_len_f : 16;
 	u32	cmdq_dest_len_f : 16;

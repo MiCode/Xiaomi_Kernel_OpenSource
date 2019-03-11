@@ -246,7 +246,12 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 	IPA_REG_SAVE_RX_SPLT_CMDQ(
 		IPA_RX_SPLT_CMDQ_STATUS_n, ipa_rx_splt_cmdq_status_n),
 
-
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_WR,
+				  ipa.dbg,
+				  ipa_rx_hps_cmdq_cfg_wr),
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_RD,
+				  ipa.dbg,
+				  ipa_rx_hps_cmdq_cfg_rd),
 	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CMD,
 			     ipa.dbg,
 			     ipa_rx_hps_cmdq_cmd),
@@ -731,9 +736,11 @@ static void out_dword(
  */
 void ipa_save_gsi_ver(void)
 {
+	if (!ipa3_ctx->do_register_collection_on_crash)
+		return;
+
 	ipa_reg_save.gsi.fw_ver =
-		IPA_READ_1xVECTOR_REG(IPA_GSI_TOP_GSI_INST_RAM_n, 0) &
-		0x0000FFFF;
+		IPA_READ_1xVECTOR_REG(IPA_GSI_TOP_GSI_INST_RAM_n, 0);
 }
 
 /*
@@ -775,7 +782,11 @@ void ipa_save_registers(void)
 			in_dword(ipa_regs_to_save_array[i].src_addr);
 	}
 
-	IPA_HW_REG_SAVE_CFG_ENTRY_PIPE_ENDP_ACTIVE();
+	/*
+	 * Set the active flag for all active pipe indexed registers.
+	 */
+	for (i = 0; i < IPA_HW_PIPE_ID_MAX; i++)
+		ipa_reg_save.ipa.pipes[i].active = true;
 
 	/* Now save the per endp registers for the remaining pipes */
 	for (i = 0; i < (CONFIG_IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS *
@@ -858,26 +869,6 @@ void ipa_save_registers(void)
 				GSI_SHRAM_n,
 				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
 		ipa_reg_save.gsi.ch_cntxt.a7[
-			i].mcs_channel_scratch.scratch5.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
-	}
-
-	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6; i++) {
-		u32 phys_ch_idx = ipa_reg_save.gsi.ch_cntxt.q6[
-			i].gsi_map_ee_n_ch_k_vp_table.phy_ch;
-		u32 n = phys_ch_idx*IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
-
-		if (!ipa_reg_save.gsi.ch_cntxt.q6[
-				i].gsi_map_ee_n_ch_k_vp_table.valid)
-			continue;
-		ipa_reg_save.gsi.ch_cntxt.q6[
-			i].mcs_channel_scratch.scratch4.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
-		ipa_reg_save.gsi.ch_cntxt.q6[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
