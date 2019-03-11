@@ -103,7 +103,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t i = 0;
 	uint32_t num = 0;
 
-	pr_debug("write dst_off %x size %x\n", dst_off, size);
+	pr_debug("write dst_off %zx size %x\n", dst_off, size);
 	num = size/4;
 	for (i = 0; i < num; i++) {
 		writel_relaxed(src_ptr32[i], npu_dev->tcm_io.base + dst_off);
@@ -130,7 +130,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint32_t i = 0;
 	uint32_t num = 0;
 
-	pr_debug("read src_off %x size %x\n", src_off, size);
+	pr_debug("read src_off %zx size %x\n", src_off, size);
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
