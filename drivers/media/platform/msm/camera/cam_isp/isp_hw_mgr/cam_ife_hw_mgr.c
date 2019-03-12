@@ -4276,7 +4276,7 @@ static int cam_ife_mgr_process_recovery_cb(void *priv, void *data)
 
 		CAM_DBG(CAM_ISP, "RESET: Calling VFE reset");
 
-		for (i = 0; i < CAM_VFE_HW_NUM_MAX; i++) {
+		for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
 			if (recovery_data->affected_core[i])
 				cam_ife_mgr_reset_vfe_hw(ife_hw_mgr, i);
 		}
