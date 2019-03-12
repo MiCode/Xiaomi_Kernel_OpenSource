@@ -492,6 +492,107 @@
 		};
 	};
 
+	funnel_gpu: funnel@6902000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb908>;
+
+		reg = <0x6902000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-gpu";
+
+		clocks =  <&clock_aop QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CXO_CLK>,
+			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>,
+			<&clock_cpucc L3_GPU_VOTE_CLK>;
+
+		clock-names = "apb_pclk",
+			"rbbmtimer_clk",
+			"mem_clk",
+			"mem_iface_clk",
+			"gmu_clk",
+			"gpu_cc_ahb",
+			"l3_vote";
+
+		qcom,proxy-clks = "rbbmtimer_clk",
+			"mem_clk",
+			"mem_iface_clk",
+			"gmu_clk",
+			"gpu_cc_ahb",
+			"l3_vote";
+
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		regulator-names = "vddcx", "vdd";
+		qcom,proxy-regs  = "vddcx", "vdd";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				funnel_gpu_out_tpda: endpoint {
+					remote-endpoint =
+					  <&tpda_in_funnel_gpu>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				funnel_gpu_in_tpdm_gpu: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&tpdm_gpu_out_funnel_gpu>;
+				};
+			};
+		};
+	};
+
+	tpdm_gpu: tpdm@6900000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
+		reg = <0x6900000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-gpu";
+
+		clocks =  <&clock_aop QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CXO_CLK>,
+			<&clock_gcc GCC_DDRSS_GPU_AXI_CLK>,
+			<&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
+			<&clock_gpucc GPU_CC_CX_GMU_CLK>,
+			<&clock_gpucc GPU_CC_AHB_CLK>,
+			<&clock_cpucc L3_GPU_VOTE_CLK>;
+		clock-names = "apb_pclk",
+			"rbbmtimer_clk",
+			"mem_clk",
+			"mem_iface_clk",
+			"gmu_clk",
+			"gpu_cc_ahb",
+			"l3_vote";
+
+		qcom,proxy-clks = "rbbmtimer_clk",
+			"mem_clk",
+			"mem_iface_clk",
+			"gmu_clk",
+			"gpu_cc_ahb",
+			"l3_vote";
+
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		regulator-names = "vddcx", "vdd";
+		qcom,proxy-regs  = "vddcx", "vdd";
+
+		port {
+			tpdm_gpu_out_funnel_gpu: endpoint {
+				remote-endpoint = <&funnel_gpu_in_tpdm_gpu>;
+			};
+		};
+	};
+
 	tpda: tpda@6004000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb969>;
@@ -544,6 +645,15 @@
 			};
 
 			port@1 {
+				reg = <1>;
+				tpda_in_funnel_gpu: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&funnel_gpu_out_tpda>;
+				};
+			};
+
+			port@2 {
 				reg = <6>;
 				tpda_6_in_tpdm_venus: endpoint {
 					slave-mode;
@@ -552,7 +662,7 @@
 				};
 			};
 
-			port@2 {
+			port@3 {
 				reg = <7>;
 				tpda_7_in_tpdm_mdss: endpoint {
 					slave-mode;
@@ -561,7 +671,7 @@
 				};
 			};
 
-			port@3 {
+			port@4 {
 				reg = <9>;
 				tpda_9_in_tpdm_mm: endpoint {
 					slave-mode;
@@ -570,7 +680,7 @@
 				};
 			};
 
-			port@4 {
+			port@5 {
 				reg = <10>;
 				tpda_10_in_funnel_dl_center: endpoint {
 					slave-mode;
@@ -579,7 +689,7 @@
 				};
 			};
 
-			port@5 {
+			port@6 {
 				reg = <11>;
 				tpda_11_in_tpdm_ddr_ch02: endpoint {
 					slave-mode;
@@ -588,7 +698,7 @@
 				};
 			};
 
-			port@6 {
+			port@7 {
 				reg = <12>;
 				tpda_12_in_tpdm_ddr_ch13: endpoint {
 					slave-mode;
@@ -597,7 +707,7 @@
 				};
 			};
 
-			port@7 {
+			port@8 {
 				reg = <13>;
 				tpda_13_in_tpdm_ddr: endpoint {
 					slave-mode;
@@ -606,7 +716,7 @@
 				};
 			};
 
-			port@8 {
+			port@9 {
 				reg = <14>;
 				tpda_14_in_tpdm_turing: endpoint {
 					slave-mode;
@@ -615,7 +725,7 @@
 				};
 			};
 
-			port@9 {
+			port@10 {
 				reg = <15>;
 				tpda_15_in_tpdm_llm_turing: endpoint {
 					slave-mode;
@@ -624,7 +734,7 @@
 				};
 			};
 
-			port@10 {
+			port@11 {
 				reg = <16>;
 				tpda_16_in_tpdm_npu: endpoint {
 					slave-mode;
@@ -633,7 +743,7 @@
 				};
 			};
 
-			port@11 {
+			port@12 {
 				reg = <17>;
 				tpda_17_in_tpdm_npu_llm: endpoint {
 					slave-mode;
@@ -642,7 +752,7 @@
 				};
 			};
 
-			port@12 {
+			port@13 {
 				reg = <18>;
 				tpda_18_in_tpdm_npu_dpm: endpoint {
 					slave-mode;
@@ -651,7 +761,7 @@
 				};
 			};
 
-			port@13 {
+			port@14 {
 				reg = <19>;
 				tpda_19_in_tpdm_dlct: endpoint {
 					slave-mode;
@@ -660,7 +770,7 @@
 				};
 			};
 
-			port@14 {
+			port@15 {
 				reg = <20>;
 				tpda_20_in_tpdm_ipcc: endpoint {
 					slave-mode;
@@ -669,7 +779,7 @@
 				};
 			};
 
-			port@15 {
+			port@16 {
 				reg = <21>;
 				tpda_in_tpdm_vsense: endpoint {
 					slave-mode;
@@ -678,7 +788,7 @@
 				};
 			};
 
-			port@16 {
+			port@17 {
 				reg = <22>;
 				tpda_in_tpdm_dcc: endpoint {
 					slave-mode;
@@ -687,7 +797,7 @@
 				};
 			};
 
-			port@17 {
+			port@18 {
 				reg = <23>;
 				tpda_in_tpdm_prng: endpoint {
 					slave-mode;
@@ -696,7 +806,7 @@
 				};
 			};
 
-			port@18 {
+			port@19 {
 				reg = <24>;
 				tpda_in_tpdm_qm: endpoint {
 					slave-mode;
@@ -705,7 +815,7 @@
 				};
 			};
 
-			port@19 {
+			port@20 {
 				reg = <25>;
 				tpda_in_tpdm_pimem: endpoint {
 					slave-mode;
