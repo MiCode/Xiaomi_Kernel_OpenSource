@@ -2309,6 +2309,8 @@ static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 		uint32_t hor_req_pixels, hor_fetch_pixels;
 		uint32_t vert_req_pixels, vert_fetch_pixels;
 		uint32_t src_w_tmp, src_h_tmp;
+		uint32_t scaler_w, scaler_h;
+		bool rot;
 
 		/* re-use color plane 1's config for plane 2 */
 		if (i == 2)
@@ -2358,20 +2360,27 @@ static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 		}
 
 		/*
+		 * swap the scaler src width & height for inline-rotation 90
+		 * comparison with Pixel-Extension, as PE is based on
+		 * pre-rotation and QSEED is based on post-rotation
+		 */
+		rot = pstate->rotation & DRM_MODE_ROTATE_90;
+		scaler_w = rot ? pstate->scaler3_cfg.src_height[i]
+				    : pstate->scaler3_cfg.src_width[i];
+		scaler_h = rot ? pstate->scaler3_cfg.src_width[i]
+				    : pstate->scaler3_cfg.src_height[i];
+		/*
 		 * Alpha plane can only be scaled using bilinear or pixel
 		 * repeat/drop, src_width and src_height are only specified
 		 * for Y and UV plane
 		 */
-		if (i != 3 &&
-			(hor_req_pixels != pstate->scaler3_cfg.src_width[i] ||
-			vert_req_pixels != pstate->scaler3_cfg.src_height[i])) {
+		if (i != 3 && (hor_req_pixels != scaler_w ||
+					vert_req_pixels != scaler_h)) {
 			SDE_ERROR_PLANE(psde,
-				"roi[%d] %d/%d, scaler src %dx%d, src %dx%d\n",
+			    "roi[%d] roi:%dx%d scaler:%dx%d src:%dx%d rot:%d\n",
 				i, pstate->pixel_ext.roi_w[i],
 				pstate->pixel_ext.roi_h[i],
-				pstate->scaler3_cfg.src_width[i],
-				pstate->scaler3_cfg.src_height[i],
-				src_w, src_h);
+				scaler_w, scaler_h, src_w, src_h, rot);
 			return -EINVAL;
 		}
 
