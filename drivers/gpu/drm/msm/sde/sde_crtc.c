@@ -4838,10 +4838,19 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct sde_rect left_rect, right_rect;
 		int32_t left_pid, right_pid;
 		int32_t stage;
+		int32_t left_layout, right_layout;
 
 		prv_pstate = &pstates[i - 1];
 		cur_pstate = &pstates[i];
 		if (prv_pstate->stage != cur_pstate->stage)
+			continue;
+
+		left_layout = sde_plane_get_property(prv_pstate->sde_pstate,
+				PLANE_PROP_LAYOUT);
+		right_layout = sde_plane_get_property(cur_pstate->sde_pstate,
+				PLANE_PROP_LAYOUT);
+
+		if (left_layout != right_layout)
 			continue;
 
 		stage = cur_pstate->stage;
