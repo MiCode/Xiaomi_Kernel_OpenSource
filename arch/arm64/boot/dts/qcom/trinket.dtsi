@@ -2435,7 +2435,7 @@
 		compatible = "qcom,bimc-bwmon4";
 		reg = <0x01b8e200 0x100>, <0x01b8e100 0x100>;
 		reg-names = "base", "global_base";
-		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpu_cpu_ddr_bw>;
