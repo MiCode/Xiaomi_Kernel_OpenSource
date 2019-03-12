@@ -1660,7 +1660,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("qdsp phy address=0x%x virt=%pK\n",
+	pr_debug("qdsp phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->qdsp_io.base);
 
 	res = platform_get_resource_byname(pdev,
@@ -1679,7 +1679,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("apss_shared phy address=0x%x virt=%pK\n",
+	pr_debug("apss_shared phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->apss_shared_io.base);
 
 	res = platform_get_resource_byname(pdev,
