@@ -145,6 +145,8 @@ struct sched_cluster {
 	u64 aggr_grp_load;
 	u64 coloc_boost_load;
 };
+
+extern cpumask_t asym_cap_sibling_cpus;
 #endif /* CONFIG_SCHED_WALT */
 
 /* task_struct::on_rq states: */
@@ -2731,6 +2733,12 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define CONSERVATIVE_BOOST_DISABLE -2
 #define RESTRAINED_BOOST_DISABLE -3
 #define MAX_NUM_BOOST_TYPE (RESTRAINED_BOOST+1)
+
+static inline int asym_cap_siblings(int cpu1, int cpu2)
+{
+	return (cpumask_test_cpu(cpu1, &asym_cap_sibling_cpus) &&
+		cpumask_test_cpu(cpu2, &asym_cap_sibling_cpus));
+}
 
 static inline int cpu_capacity(int cpu)
 {
