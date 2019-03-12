@@ -3420,15 +3420,17 @@ static int sde_parse_merge_3d_dt(struct device_node *np,
 	rc = _validate_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
 		prop_count, &off_count);
 	if (rc)
-		goto error;
+		goto end;
 
 	sde_cfg->merge_3d_count = off_count;
 
 	rc = _read_dt_entry(np, merge_3d_prop, ARRAY_SIZE(merge_3d_prop),
 			prop_count,
 			prop_exists, prop_value);
-	if (rc)
-		goto error;
+	if (rc) {
+		sde_cfg->merge_3d_count = 0;
+		goto end;
+	}
 
 	for (i = 0; i < off_count; i++) {
 		merge_3d = sde_cfg->merge_3d + i;
@@ -3439,9 +3441,7 @@ static int sde_parse_merge_3d_dt(struct device_node *np,
 		merge_3d->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
 	}
 
-	return 0;
-error:
-	sde_cfg->merge_3d_count = 0;
+end:
 	kfree(prop_value);
 fail:
 	return rc;

@@ -2807,7 +2807,6 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		/* send SSR before-shutdown notification to IPACM */
 		rmnet_ipa_send_ssr_notification(false);
 		atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
-		ipa3_update_ssr_state(true);
 		ipa3_q6_pre_shutdown_cleanup();
 		if (IPA_NETDEV())
 			netif_stop_queue(IPA_NETDEV());
