@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,24 +10,14 @@
  * GNU General Public License for more details.
  */
 
-/*
- * As a general rule, only chipset-specific property overrides should be placed
- * inside this file.
- */
+/dts-v1/;
+/plugin/;
 
-#include "msm8996-pm8994-pm8004.dtsi"
+#include "apq8096pro-v1.1-auto-adp.dtsi"
 
 / {
-	qcom,pmic-id = <0x20009 0x0 0x0 0x0>;
-};
-
-&pm8004_s2 {
-	status = "disabled";
-};
-
-/delete-node/ &qcom_pm8004_4;
-/delete-node/ &qcom_pm8004_5;
-
-&gfx_cpr {
-	/delete-property/ vdd-supply;
+	model = "Qualcomm Technologies, Inc. APQ 8096pro V1.1 AUTO ADP";
+	compatible = "qcom,apq8096-adp", "qcom,msm8996", "qcom,adp";
+	qcom,msm-id = <316 0x10001>;
+	qcom,board-id = <0x02010019 0>, <0x00010001 0>;
 };
