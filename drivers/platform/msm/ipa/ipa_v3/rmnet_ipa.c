@@ -157,6 +157,7 @@ struct rmnet_ipa3_context {
 	u32 outstanding_high_ctl;
 	u32 outstanding_low;
 	struct rmnet_ipa_debugfs dbgfs;
+	bool dl_csum_offload_enabled;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -190,7 +191,8 @@ static int ipa3_setup_a7_qmap_hdr(void)
 
 	strlcpy(hdr_entry->name, IPA_A7_QMAP_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		rmnet_ipa3_ctx->dl_csum_offload_enabled) {
 		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
 		/* new DL QMAP header format */
 		hdr_entry->hdr[0] = 0x40;
@@ -327,7 +329,7 @@ static int ipa3_add_qmap_hdr(uint32_t mux_id, uint32_t *hdr_hdl)
 				IPA_RESOURCE_NAME_MAX);
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
-		ipa3_ctx->dl_csum_offload_enabled) {
+		rmnet_ipa3_ctx->dl_csum_offload_enabled) {
 		hdr_entry->hdr_len = IPA_DL_CHECKSUM_LENGTH; /* 8 bytes */
 		/* new DL QMAP header format */
 		hdr_entry->hdr[0] = 0x40;
@@ -1369,9 +1371,12 @@ static int handle3_ingress_format(struct net_device *dev,
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
 		(in->u.data) & RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM) {
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 8;
-		ipa3_ctx->dl_csum_offload_enabled = true;
-	} else
+		rmnet_ipa3_ctx->dl_csum_offload_enabled = true;
+	} else {
 		ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 4;
+		rmnet_ipa3_ctx->dl_csum_offload_enabled = false;
+	}
+
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_metadata = 1;
 	ipa_wan_ep_cfg->ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
@@ -1409,7 +1414,19 @@ static int handle3_ingress_format(struct net_device *dev,
 	   &rmnet_ipa3_ctx->ipa3_to_apps_hdl);
 
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+	if (ret)
+		goto end;
 
+	/* construct default WAN RT tbl for IPACM */
+	ret = ipa3_setup_a7_qmap_hdr();
+	if (ret)
+		goto end;
+
+	ret = ipa3_setup_dflt_wan_rt_tables();
+	if (ret)
+		ipa3_del_a7_qmap_hdr();
+
+end:
 	if (ret)
 		IPAWANERR("failed to configure ingress\n");
 
@@ -2498,16 +2515,6 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		/* LE platform not loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_V01);
 
-	/* construct default WAN RT tbl for IPACM */
-	if (wan_cons_ep != IPA_EP_NOT_ALLOCATED) {
-		ret = ipa3_setup_a7_qmap_hdr();
-		if (ret)
-			goto setup_a7_qmap_hdr_err;
-		ret = ipa3_setup_dflt_wan_rt_tables();
-		if (ret)
-			goto setup_dflt_wan_rt_tables_err;
-	}
-
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
 		/* Start transport-driver fd ioctl for ipacm for first init */
 		ret = ipa3_wan_ioctl_init();
@@ -2622,12 +2629,6 @@ q6_init_err:
 alloc_netdev_err:
 	ipa3_wan_ioctl_deinit();
 wan_ioctl_init_err:
-	if (wan_cons_ep != IPA_EP_NOT_ALLOCATED)
-		ipa3_del_dflt_wan_rt_tables();
-setup_dflt_wan_rt_tables_err:
-	if (wan_cons_ep != IPA_EP_NOT_ALLOCATED)
-		ipa3_del_a7_qmap_hdr();
-setup_a7_qmap_hdr_err:
 	ipa3_qmi_service_exit();
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
 	return ret;
@@ -2674,6 +2675,8 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	if (!ipa3_qmi_ctx->modem_cfg_emb_pipe_flt)
 		ipa3_wwan_del_ul_flt_rule_to_ipa();
 	ipa3_cleanup_deregister_intf();
+	/* reset dl_csum_offload_enabled */
+	rmnet_ipa3_ctx->dl_csum_offload_enabled = false;
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 0);
 	IPAWANINFO("rmnet_ipa completed deinitialization\n");
 	return 0;
