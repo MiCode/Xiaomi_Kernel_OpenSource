@@ -290,7 +290,8 @@ int diagfwd_bridge_close(int id)
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->close)
-		return bridge_info[id].dev_ops->close(id, bridge_info[id].ctxt);
+		return bridge_info[id].dev_ops->close(bridge_info[id].id,
+						bridge_info[id].ctxt);
 	return 0;
 }
 
@@ -299,8 +300,9 @@ int diagfwd_bridge_write(int id, unsigned char *buf, int len)
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->write) {
-		return bridge_info[id].dev_ops->write(id, bridge_info[id].ctxt,
-						      buf, len, 0);
+		return bridge_info[id].dev_ops->write(bridge_info[id].id,
+							bridge_info[id].ctxt,
+							buf, len, 0);
 	}
 	return 0;
 }
