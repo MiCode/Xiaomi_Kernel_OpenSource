@@ -91,7 +91,7 @@
 
 	/* DISP_CC GDSC */
 	mdss_core_gdsc: qcom,gdsc@af03000 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		reg = <0xaf03000 0x4>;
 		regulator-name = "mdss_core_gdsc";
 		qcom,support-hw-trigger;
