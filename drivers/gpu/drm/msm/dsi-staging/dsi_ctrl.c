@@ -43,22 +43,6 @@
 
 #define TICKS_IN_MICRO_SECOND    1000000
 
-/**
- * enum dsi_ctrl_driver_ops - controller driver ops
- */
-enum dsi_ctrl_driver_ops {
-	DSI_CTRL_OP_POWER_STATE_CHANGE,
-	DSI_CTRL_OP_CMD_ENGINE,
-	DSI_CTRL_OP_VID_ENGINE,
-	DSI_CTRL_OP_HOST_ENGINE,
-	DSI_CTRL_OP_CMD_TX,
-	DSI_CTRL_OP_HOST_INIT,
-	DSI_CTRL_OP_TPG,
-	DSI_CTRL_OP_PHY_SW_RESET,
-	DSI_CTRL_OP_ASYNC_TIMING,
-	DSI_CTRL_OP_MAX
-};
-
 struct dsi_ctrl_list_item {
 	struct dsi_ctrl *ctrl;
 	struct list_head list;
@@ -2630,27 +2614,37 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 }
 
 /**
- * dsi_ctrl_update_host_init_state() - Update the host initialization state.
+ * dsi_ctrl_update_host_state() - Update the host state.
  * @dsi_ctrl:        DSI controller handle.
+ * @op:            ctrl driver ops
  * @enable:        boolean signifying host state.
  *
- * Update the host initialization status only while exiting from ulps during
+ * Update the host status only while exiting from ulps during
  * suspend state.
  *
  * Return: error code.
  */
-int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool enable)
+int dsi_ctrl_update_host_state(struct dsi_ctrl *dsi_ctrl,
+			       enum dsi_ctrl_driver_ops op, bool enable)
 {
 	int rc = 0;
 	u32 state = enable ? 0x1 : 0x0;
 
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	if (!dsi_ctrl)
+		return rc;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl_check_state(dsi_ctrl, op, state);
 	if (rc) {
 		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
 		       dsi_ctrl->cell_index, rc);
+		mutex_unlock(&dsi_ctrl->ctrl_lock);
 		return rc;
 	}
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+
+	dsi_ctrl_update_state(dsi_ctrl, op, state);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
 	return rc;
 }
 
