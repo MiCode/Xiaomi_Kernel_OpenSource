@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -287,6 +287,7 @@ static struct cnss_data {
 	bool monitor_wake_intr;
 	struct cnss_dual_wifi dual_wifi_info;
 	struct cnss_dev_platform_ops platform_ops;
+	enum cnss_sleep_power_mode sleep_power_mode;
 } *penv;
 
 static unsigned int pcie_link_down_panic;
@@ -1594,6 +1595,7 @@ static void cnss_pcie_set_platform_ops(struct device *dev)
 	pf_ops->set_wlan_mac_address = cnss_pcie_set_wlan_mac_address;
 	pf_ops->power_up = cnss_pcie_power_up;
 	pf_ops->power_down = cnss_pcie_power_down;
+	pf_ops->set_sleep_power_mode = cnss_pci_set_sleep_power_mode;
 
 	dev->platform_data = pf_ops;
 }
@@ -1746,35 +1748,85 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 		cnss_smmu_remove(&pdev->dev);
 }
 
+static int cnss_powerup(const struct subsys_desc *subsys);
+
+static int cnss_pci_change_power_mode(struct pci_dev *pdev,
+				      enum cnss_state state,
+				      enum cnss_sleep_power_mode sleep_mode)
+{
+	int ret = 0;
+	struct cnss_wlan_driver *wdriver;
+
+	if (!penv || !penv->driver || !pdev)
+		return ret;
+
+	if (sleep_mode != CNSS_SLEEP_POWER_MODE_RESET &&
+	    sleep_mode != CNSS_SLEEP_POWER_MODE_CUT_PWR) {
+		pr_err("wrong sleep power mode!\n");
+		return -EINVAL;
+	}
+
+	wdriver = penv->driver;
+	if (CNSS_SUSPEND == state && wdriver->shutdown) {
+		wdriver->shutdown(pdev);
+		if (penv->pcie_link_state) {
+			if (cnss_msm_pcie_pm_control(
+			    MSM_PCIE_SUSPEND,
+			    cnss_get_pci_dev_bus_number(pdev),
+			    pdev, PM_OPTIONS_SUSPEND_LINK_DOWN))
+				pr_err("%s: shutdown PCIe link fail\n",
+				       __func__);
+
+			penv->saved_state = NULL;
+			penv->pcie_link_state = PCIE_LINK_DOWN;
+		}
+		cnss_configure_wlan_en_gpio(WLAN_EN_LOW);
+		if (sleep_mode == CNSS_SLEEP_POWER_MODE_CUT_PWR) {
+			if (cnss_wlan_vreg_set(&penv->vreg_info,
+					       VREG_OFF))
+				pr_err("%s: set WLAN VREG_OFF fail\n",
+				       __func__);
+		}
+	} else if (CNSS_RESUME == state) {
+		cnss_powerup(NULL);
+	} else {
+		pr_err("fail to change power mode!\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int cnss_wlan_pci_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct cnss_wlan_driver *wdriver;
 	struct pci_dev *pdev = to_pci_dev(dev);
+	enum cnss_sleep_power_mode sleep_mode;
 
 	pm_message_t state = { .event = PM_EVENT_SUSPEND };
 
-	if (!penv)
-		goto out;
-
-	if (!penv->pcie_link_state)
-		goto out;
-
+	if (!penv || !penv->pcie_link_state || !penv->driver)
+		return ret;
 	wdriver = penv->driver;
-	if (!wdriver)
-		goto out;
 
-	if (wdriver->suspend) {
-		ret = wdriver->suspend(pdev, state);
+	sleep_mode = penv->sleep_power_mode;
+	if (CNSS_SLEEP_POWER_MODE_NONE != sleep_mode) {
+		ret = cnss_pci_change_power_mode(pdev, CNSS_SUSPEND,
+						 sleep_mode);
+	} else {
+		if (wdriver->suspend) {
+			ret = wdriver->suspend(pdev, state);
 
-		if (penv->pcie_link_state) {
-			pci_save_state(pdev);
-			penv->saved_state = cnss_pci_store_saved_state(pdev);
+			if (penv->pcie_link_state) {
+				pci_save_state(pdev);
+				penv->saved_state =
+					cnss_pci_store_saved_state(pdev);
+			}
 		}
 	}
 	penv->monitor_wake_intr = false;
 
-out:
 	return ret;
 }
 
@@ -1783,27 +1835,29 @@ static int cnss_wlan_pci_resume(struct device *dev)
 	int ret = 0;
 	struct cnss_wlan_driver *wdriver;
 	struct pci_dev *pdev = to_pci_dev(dev);
+	enum cnss_sleep_power_mode sleep_mode;
 
-	if (!penv)
-		goto out;
-
-	if (!penv->pcie_link_state)
-		goto out;
-
+	if (!penv || !penv->driver)
+		return ret;
 	wdriver = penv->driver;
-	if (!wdriver)
-		goto out;
 
-	if (wdriver->resume && !penv->pcie_link_down_ind) {
-		if (penv->saved_state)
-			cnss_pci_load_and_free_saved_state(
-				pdev, &penv->saved_state);
-		pci_restore_state(pdev);
+	sleep_mode = penv->sleep_power_mode;
+	if (CNSS_SLEEP_POWER_MODE_NONE != sleep_mode) {
+		ret = cnss_pci_change_power_mode(pdev, CNSS_RESUME,
+						 sleep_mode);
+	} else {
+		if (!penv->pcie_link_state)
+			return ret;
+		if (wdriver->resume && !penv->pcie_link_down_ind) {
+			if (penv->saved_state)
+				cnss_pci_load_and_free_saved_state(
+					pdev, &penv->saved_state);
+			pci_restore_state(pdev);
 
-		ret = wdriver->resume(pdev);
+			ret = wdriver->resume(pdev);
+		}
 	}
 
-out:
 	return ret;
 }
 
@@ -2915,6 +2969,7 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->vreg_info.state = VREG_OFF;
 	penv->pci_register_again = false;
 	mutex_init(&penv->fw_setup_stat_lock);
+	penv->sleep_power_mode = CNSS_SLEEP_POWER_MODE_NONE;
 
 	ret = cnss_wlan_get_resources(pdev);
 	if (ret)
@@ -3355,6 +3410,27 @@ int cnss_get_bmi_setup(void)
 	return penv->bmi_test;
 }
 EXPORT_SYMBOL(cnss_get_bmi_setup);
+
+int cnss_pci_set_sleep_power_mode(enum cnss_sleep_power_mode mode)
+{
+	int ret = 0;
+
+	if (!penv)
+		return -ENODEV;
+
+	switch (mode) {
+	case CNSS_SLEEP_POWER_MODE_NONE:
+	case CNSS_SLEEP_POWER_MODE_RESET:
+	case CNSS_SLEEP_POWER_MODE_CUT_PWR:
+		penv->sleep_power_mode = mode;
+		break;
+	default:
+		pr_err("%s: Invalid sleep power mode %d", __func__, mode);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
 
 #ifdef CONFIG_CNSS_SECURE_FW
 int cnss_get_sha_hash(const u8 *data, u32 data_len, u8 *hash_idx, u8 *out)

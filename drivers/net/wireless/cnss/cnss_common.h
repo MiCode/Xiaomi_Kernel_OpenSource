@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,11 @@
 
 /* max 20mhz channel count */
 #define CNSS_MAX_CH_NUM		45
+
+enum cnss_state {
+	CNSS_SUSPEND,
+	CNSS_RESUME,
+};
 
 struct cnss_cap_tsf_info {
 	int irq_num;
@@ -35,6 +40,7 @@ struct cnss_dev_platform_ops {
 	int (*register_tsf_captured_handler)(irq_handler_t handler,
 					     void *adapter);
 	int (*unregister_tsf_captured_handler)(void *adapter);
+	int (*set_sleep_power_mode)(enum cnss_sleep_power_mode mode);
 };
 
 int cnss_pci_request_bus_bandwidth(int bandwidth);
@@ -62,4 +68,7 @@ int cnss_sdio_power_down(struct device *dev);
 int cnss_pcie_power_up(struct device *dev);
 int cnss_pcie_power_down(struct device *dev);
 const char *cnss_wlan_get_evicted_data_file(void);
+
+int cnss_pci_set_sleep_power_mode(enum cnss_sleep_power_mode mode);
+int cnss_sdio_set_sleep_power_mode(enum cnss_sleep_power_mode mode);
 #endif /* _NET_CNSS_COMMON_H_ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,6 +202,13 @@ enum {
 	CNSS_RESET_SUBSYS_COUPLED,
 	CNSS_RESET_LEVEL_MAX
 };
+
+enum cnss_sleep_power_mode {
+	CNSS_SLEEP_POWER_MODE_NONE,
+	CNSS_SLEEP_POWER_MODE_RESET,
+	CNSS_SLEEP_POWER_MODE_CUT_PWR,
+};
+
 extern int cnss_get_restart_level(void);
 
 struct cnss_sdio_wlan_driver {
@@ -266,4 +273,6 @@ extern int cnss_common_register_tsf_captured_handler(struct device *dev,
 						     void *ctx);
 extern int cnss_common_unregister_tsf_captured_handler(struct device *dev,
 						       void *ctx);
+extern int cnss_common_set_sleep_power_mode(struct device *dev,
+					    enum cnss_sleep_power_mode mode);
 #endif /* _NET_CNSS_H_ */

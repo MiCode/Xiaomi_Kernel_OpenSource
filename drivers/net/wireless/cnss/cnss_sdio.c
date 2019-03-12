@@ -82,6 +82,7 @@ struct cnss_sdio_info {
 	bool cnss_hw_state;
 	int tsf_gpio;
 	struct cnss_cap_tsf_info cap_tsf_info;
+	enum cnss_sleep_power_mode sleep_power_mode;
 };
 
 struct cnss_ssr_info {
@@ -828,6 +829,7 @@ static void cnss_sdio_set_platform_ops(struct device *dev)
 	pf_ops->set_wlan_mac_address = cnss_sdio_set_wlan_mac_address;
 	pf_ops->schedule_recovery_work = cnss_sdio_schedule_recovery_work;
 	pf_ops->request_bus_bandwidth = cnss_sdio_request_bus_bandwidth;
+	pf_ops->set_sleep_power_mode = cnss_sdio_set_sleep_power_mode;
 
 	if (info->tsf_gpio >= 0) {
 		pf_ops->register_tsf_captured_handler =
@@ -876,13 +878,84 @@ static void cnss_sdio_wlan_removed(struct sdio_func *func)
 	info->id = NULL;
 }
 
+static int cnss_set_pinctrl_state(struct cnss_sdio_data *pdata, bool state);
+
+static int cnss_sdio_change_power_mode(enum cnss_state state,
+				       enum cnss_sleep_power_mode sleep_mode)
+{
+	struct cnss_sdio_wlan_driver *wdrv;
+	struct cnss_sdio_info *cnss_info;
+	struct sdio_func *func;
+	int ret = 0;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	func = cnss_pdata->cnss_sdio_info.func;
+	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
+	if (!wdrv) {
+		/* This can happen when no wlan driver loaded (no register to
+		 * platform driver).
+		 */
+		sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+		pr_debug("wlan driver not registered\n");
+		return ret;
+	}
+
+	if (sleep_mode != CNSS_SLEEP_POWER_MODE_RESET &&
+	    sleep_mode != CNSS_SLEEP_POWER_MODE_CUT_PWR) {
+		pr_err("wrong sleep power mode!\n");
+		return -EINVAL;
+	}
+
+	if (CNSS_SUSPEND == state && wdrv->shutdown) {
+		wdrv->shutdown(func);
+		ret = cnss_set_pinctrl_state(cnss_pdata, PINCTRL_SLEEP);
+		if (ret)
+			pr_err("%s: Fail to set pinctrl to SLEEP\n",
+			       __func__);
+		if (sleep_mode == CNSS_SLEEP_POWER_MODE_CUT_PWR) {
+			if (cnss_pdata->regulator.wlan_vreg) {
+				ret = regulator_disable(
+				      cnss_pdata->regulator.wlan_vreg);
+				if (ret)
+					pr_err("cut wlan_vreg fail\n");
+			} else {
+				pr_warn("invalid wlan_vreg\n");
+			}
+		}
+	} else if (CNSS_RESUME == state && wdrv->reinit) {
+		if (sleep_mode == CNSS_SLEEP_POWER_MODE_CUT_PWR) {
+			if (cnss_pdata->regulator.wlan_vreg) {
+				ret = regulator_enable(
+				      cnss_pdata->regulator.wlan_vreg);
+				if (ret)
+					pr_err("wlan_vreg on fail\n");
+			} else {
+				pr_err("invalid regulator!\n");
+			}
+		}
+		ret = cnss_set_pinctrl_state(cnss_pdata,
+					     PINCTRL_ACTIVE);
+		if (ret)
+			pr_err("%s: Fail to set pinctrl to ACTIVE\n",
+			       __func__);
+		ret = wdrv->reinit(cnss_info->func, cnss_info->id);
+		if (ret)
+			pr_err("wlan reinit error=%d\n", ret);
+	} else {
+		pr_err("fail to change power mode!\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 #if defined(CONFIG_PM)
 static int cnss_sdio_wlan_suspend(struct device *dev)
 {
 	struct cnss_sdio_wlan_driver *wdrv;
 	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
 	struct sdio_func *func;
-
+	enum cnss_sleep_power_mode sleep_mode;
 	int error = 0;
 
 	if (!cnss_pdata)
@@ -904,10 +977,17 @@ static int cnss_sdio_wlan_suspend(struct device *dev)
 		pr_debug("wlan driver not registered\n");
 		return 0;
 	}
-	if (wdrv->suspend) {
-		error = wdrv->suspend(dev);
-		if (error)
-			pr_err("wlan suspend failed error=%d\n", error);
+
+	sleep_mode = cnss_pdata->cnss_sdio_info.sleep_power_mode;
+	if (CNSS_SLEEP_POWER_MODE_NONE != sleep_mode) {
+		error = cnss_sdio_change_power_mode(CNSS_SUSPEND, sleep_mode);
+	} else {
+		if (wdrv->suspend) {
+			error = wdrv->suspend(dev);
+			if (error)
+				pr_err("wlan suspend failed error=%d\n",
+				       error);
+		}
 	}
 
 	return error;
@@ -917,6 +997,8 @@ static int cnss_sdio_wlan_resume(struct device *dev)
 {
 	struct cnss_sdio_wlan_driver *wdrv;
 	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
+	struct cnss_sdio_info *cnss_info;
+	enum cnss_sleep_power_mode sleep_mode;
 	int error = 0;
 
 	if (!cnss_pdata)
@@ -929,6 +1011,7 @@ static int cnss_sdio_wlan_resume(struct device *dev)
 			bus_bandwidth->current_bandwidth_vote);
 	}
 
+	cnss_info = &cnss_pdata->cnss_sdio_info;
 	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
 	if (!wdrv) {
 		/* This can happen when no wlan driver loaded (no register to
@@ -937,11 +1020,19 @@ static int cnss_sdio_wlan_resume(struct device *dev)
 		pr_debug("wlan driver not registered\n");
 		return 0;
 	}
-	if (wdrv->resume) {
-		error = wdrv->resume(dev);
-		if (error)
-			pr_err("wlan resume failed error=%d\n", error);
+
+	sleep_mode = cnss_pdata->cnss_sdio_info.sleep_power_mode;
+	if (CNSS_SLEEP_POWER_MODE_NONE != sleep_mode) {
+		error = cnss_sdio_change_power_mode(CNSS_RESUME, sleep_mode);
+	} else {
+		if (wdrv->resume) {
+			error = wdrv->resume(dev);
+			if (error)
+				pr_err("wlan resume failed error=%d\n",
+				       error);
+		}
 	}
+
 	return error;
 }
 #endif
@@ -987,6 +1078,30 @@ int cnss_sdio_configure_spdt(bool state)
 	return cnss_set_pinctrl_state(cnss_pdata, state);
 }
 EXPORT_SYMBOL(cnss_sdio_configure_spdt);
+
+int cnss_sdio_set_sleep_power_mode(enum cnss_sleep_power_mode mode)
+{
+	int ret = 0;
+	struct cnss_sdio_info *cnss_info;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+
+	switch (mode) {
+	case CNSS_SLEEP_POWER_MODE_NONE:
+	case CNSS_SLEEP_POWER_MODE_RESET:
+	case CNSS_SLEEP_POWER_MODE_CUT_PWR:
+		cnss_info->sleep_power_mode = mode;
+		break;
+	default:
+		pr_err("%s: Invalid sleep power mode %d", __func__, mode);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
 
 /**
  * cnss_sdio_wlan_register_driver() - cnss wlan register API
@@ -1477,6 +1592,8 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 					   WLAN_GPIO_CAPTSF_NAME, 0);
 	if (info->tsf_gpio >= 0)
 		cnss_sdio_tsf_init(dev, &info->cap_tsf_info);
+
+	info->sleep_power_mode = CNSS_SLEEP_POWER_MODE_NONE;
 
 	error = cnss_sdio_wlan_init();
 	if (error) {
