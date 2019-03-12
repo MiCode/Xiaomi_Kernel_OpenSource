@@ -1256,6 +1256,7 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 	u8 status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
 	struct qpnp_qg *chip = data;
+	unsigned long rtc_sec = 0;
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "IRQ triggered\n");
 
@@ -1276,6 +1277,8 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 		goto done;
 	}
 
+	get_rtc_time(&rtc_sec);
+	chip->kdata.fifo_time = (u32)rtc_sec;
 	chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 
@@ -3789,6 +3792,7 @@ static int process_resume(struct qpnp_qg *chip)
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
 	int rc;
+	unsigned long rtc_sec = 0;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3809,6 +3813,8 @@ static int process_resume(struct qpnp_qg *chip)
 
 		 /* Clear suspend data as there has been a GOOD OCV */
 		memset(&chip->kdata, 0, sizeof(chip->kdata));
+		get_rtc_time(&rtc_sec);
+		chip->kdata.fifo_time = (u32)rtc_sec;
 		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		chip->suspend_data = false;
