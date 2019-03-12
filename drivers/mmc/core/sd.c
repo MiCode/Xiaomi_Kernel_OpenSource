@@ -817,14 +817,6 @@ try_again:
 		ocr |= SD_OCR_CCS;
 
 	/*
-	 * If the host supports one of UHS-I modes, request the card
-	 * to switch to 1.8V signaling level. If the card has failed
-	 * repeatedly to switch however, skip this.
-	 */
-	if (retries && mmc_host_uhs(host))
-		ocr |= SD_OCR_S18R;
-
-	/*
 	 * If the host can supply more than 150mA at current voltage,
 	 * XPC should be set to 1.
 	 */
