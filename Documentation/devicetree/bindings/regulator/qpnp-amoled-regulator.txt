@@ -61,6 +61,12 @@ Subnode common properties for OLEDB and AB/IBB regulator devices.
 		    controlled by SWIRE signal. When this is specified, output
 		    voltage of the regulator is not controlled by SW.
 
+- qcom,aod-pd-control:
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property to specify that the pull down control
+		    for AB/IBB needs to be configured during AOD mode.
+
 Example:
 
 pm8150a_amoled: oledb@e000 {
@@ -82,6 +88,7 @@ pm8150a_amoled: oledb@e000 {
 		regulator-min-microvolt = <4600000>;
 		regulator-max-microvolt = <6100000>;
 		qcom,swire-control;
+		qcom,aod-pd-control;
 	};
 
 	ibb_vreg: ibb@dc00 {
@@ -91,5 +98,6 @@ pm8150a_amoled: oledb@e000 {
 		regulator-min-microvolt = <800000>;
 		regulator-max-microvolt = <5400000>;
 		qcom,swire-control;
+		qcom,aod-pd-control;
 	};
 };
