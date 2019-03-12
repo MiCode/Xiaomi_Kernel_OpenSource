@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -654,6 +654,10 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 					"Status=0x%x Unmasked status=0x%x Mask=0x%x\n",
 					shadow_status & irq_params->mask,
 					shadow_status, irq_params->mask);
+				adreno_set_gpu_fault(adreno_dev,
+						ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(KGSL_DEVICE
+						(adreno_dev));
 				goto done;
 			}
 			fence_retries++;

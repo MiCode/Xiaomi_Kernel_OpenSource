@@ -259,6 +259,7 @@ static void dp_display_check_source_hdcp_caps(struct dp_display_private *dp)
 static void dp_display_hdcp_register_streams(struct dp_display_private *dp)
 {
 	int rc;
+	size_t i;
 	struct sde_hdcp_ops *ops = dp->hdcp.ops;
 	void *data = dp->hdcp.data;
 
@@ -268,7 +269,7 @@ static void dp_display_hdcp_register_streams(struct dp_display_private *dp)
 		int index = 0;
 
 		pr_debug("Registering all active panel streams with HDCP\n");
-		for (size_t i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+		for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
 			if (!dp->active_panels[i])
 				continue;
 			streams[index].stream_id = i;
@@ -290,7 +291,8 @@ static void dp_display_hdcp_deregister_stream(struct dp_display_private *dp,
 		enum dp_stream_id stream_id)
 {
 	if (dp->hdcp.ops->deregister_streams) {
-		struct stream_info stream = {stream_id, 0};
+		struct stream_info stream = {stream_id,
+				dp->active_panels[stream_id]->vcpi};
 
 		pr_debug("Deregistering stream within HDCP library");
 		dp->hdcp.ops->deregister_streams(dp->hdcp.data, 1, &stream);
@@ -306,11 +308,20 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 	void *data;
 	int rc = 0;
 	u32 hdcp_auth_state;
+	u8 sink_status = 0;
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
 	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted))
 		return;
+
+	drm_dp_dpcd_readb(dp->aux->drm_aux, DP_SINK_STATUS, &sink_status);
+	sink_status &= (DP_RECEIVE_PORT_0_STATUS | DP_RECEIVE_PORT_1_STATUS);
+	if (sink_status < 1) {
+		pr_debug("Sink not synchronized. Queuing again then exiting\n");
+		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
+		return;
+	}
 
 	status = &dp->link->hdcp_status;
 
@@ -1643,7 +1654,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel = panel;
 	struct dp_link_hdcp_status *status;
-	int rc = 0;
+	int i, rc = 0;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1667,10 +1678,9 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 		if (dp->mst.mst_active) {
 			dp_display_hdcp_deregister_stream(dp,
 				dp_panel->stream_id);
-			for (int i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
-				if (i != dp_panel->stream_id)
-					continue;
-				if (dp->active_panels[i]) {
+			for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+				if (i != dp_panel->stream_id &&
+						dp->active_panels[i]) {
 					pr_debug("Streams are still active. Skip disabling HDCP\n");
 					goto stream;
 				}

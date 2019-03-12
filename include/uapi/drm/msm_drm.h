@@ -360,6 +360,16 @@ struct drm_msm_event_resp {
 	__u8 data[];
 };
 
+/**
+ * struct drm_msm_power_ctrl: Payload to enable/disable the power vote
+ * @enable: enable/disable the power vote
+ * @flags:  operation control flags, for future use
+ */
+struct drm_msm_power_ctrl {
+	__u32 enable;
+	__u32 flags;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -376,6 +386,7 @@ struct drm_msm_event_resp {
 #define DRM_MSM_REGISTER_EVENT         0x41
 #define DRM_MSM_DEREGISTER_EVENT       0x42
 #define DRM_MSM_RMFB2                  0x43
+#define DRM_MSM_POWER_CTRL             0x44
 
 /* sde custom events */
 #define DRM_EVENT_HISTOGRAM 0x80000000
@@ -403,6 +414,8 @@ struct drm_msm_event_resp {
 			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
 #define DRM_IOCTL_MSM_RMFB2 DRM_IOW((DRM_COMMAND_BASE + \
 			DRM_MSM_RMFB2), unsigned int)
+#define DRM_IOCTL_MSM_POWER_CTRL DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_POWER_CTRL), struct drm_msm_power_ctrl)
 
 #if defined(__cplusplus)
 }

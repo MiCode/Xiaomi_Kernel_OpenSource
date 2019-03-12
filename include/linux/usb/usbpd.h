@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,8 @@ int usbpd_send_svdm(struct usbpd *pd, u16 svid, u8 cmd,
  *         otherwise ORIENTATION_NONE if not attached
  */
 enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd);
+
+void usbpd_vdm_in_suspend(struct usbpd *pd, bool in_suspend);
 #else
 static inline struct usbpd *devm_usbpd_get_by_phandle(struct device *dev,
 		const char *phandle)
@@ -140,6 +142,8 @@ static inline enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
 {
 	return ORIENTATION_NONE;
 }
+
+static inline void usbpd_vdm_in_suspend(struct usbpd *pd, bool in_suspend) { }
 #endif /* IS_ENABLED(CONFIG_USB_PD_POLICY) */
 
 /*
