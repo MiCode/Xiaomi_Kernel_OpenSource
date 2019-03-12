@@ -9,25 +9,25 @@
 #include "main.h"
 #include "debug.h"
 
-static struct cnss_vreg_info cnss_vreg_info[] = {
-	{NULL, "vdd-wlan-core", 1300000, 1300000, 0, 0},
-	{NULL, "vdd-wlan-io", 1800000, 1800000, 0, 0},
-	{NULL, "vdd-wlan-xtal-aon", 0, 0, 0, 0},
-	{NULL, "vdd-wlan-xtal", 1800000, 1800000, 0, 2},
-	{NULL, "vdd-wlan", 0, 0, 0, 0},
-	{NULL, "vdd-wlan-ctrl1", 0, 0, 0, 0},
-	{NULL, "vdd-wlan-ctrl2", 0, 0, 0, 0},
-	{NULL, "vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
-	{NULL, "wlan-ant-switch", 1800000, 1800000, 0, 0},
-	{NULL, "wlan-soc-swreg", 1200000, 1200000, 0, 0},
-	{NULL, "vdd-wlan-aon", 950000, 950000, 0, 0},
-	{NULL, "vdd-wlan-dig", 950000, 952000, 0, 0},
-	{NULL, "vdd-wlan-rfa1", 1900000, 1900000, 0, 0},
-	{NULL, "vdd-wlan-rfa2", 1350000, 1350000, 0, 0},
-	{NULL, "vdd-wlan-en", 0, 0, 0, 10},
+static struct cnss_vreg_cfg cnss_vreg_list[] = {
+	{"vdd-wlan-core", 1300000, 1300000, 0, 0},
+	{"vdd-wlan-io", 1800000, 1800000, 0, 0},
+	{"vdd-wlan-xtal-aon", 0, 0, 0, 0},
+	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2},
+	{"vdd-wlan", 0, 0, 0, 0},
+	{"vdd-wlan-ctrl1", 0, 0, 0, 0},
+	{"vdd-wlan-ctrl2", 0, 0, 0, 0},
+	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
+	{"wlan-ant-switch", 1800000, 1800000, 0, 0},
+	{"wlan-soc-swreg", 1200000, 1200000, 0, 0},
+	{"vdd-wlan-aon", 950000, 950000, 0, 0},
+	{"vdd-wlan-dig", 950000, 952000, 0, 0},
+	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0},
+	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0},
+	{"vdd-wlan-en", 0, 0, 0, 10},
 };
 
-#define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_info)
+#define CNSS_VREG_INFO_SIZE		ARRAY_SIZE(cnss_vreg_list)
 #define MAX_PROP_SIZE			32
 
 #define BOOTSTRAP_GPIO			"qcom,enable-bootstrap-gpio"
@@ -39,189 +39,328 @@ static struct cnss_vreg_info cnss_vreg_info[] = {
 #define BOOTSTRAP_DELAY			1000
 #define WLAN_ENABLE_DELAY		1000
 
-int cnss_get_vreg(struct cnss_plat_data *plat_priv)
+static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
+				struct cnss_vreg_info *vreg)
 {
 	int ret = 0;
-	int i;
-	struct cnss_vreg_info *vreg_info;
 	struct device *dev;
 	struct regulator *reg;
 	const __be32 *prop;
-	char prop_name[MAX_PROP_SIZE];
+	char prop_name[MAX_PROP_SIZE] = {0};
 	int len;
 
 	dev = &plat_priv->plat_dev->dev;
-
-	plat_priv->vreg_info = devm_kzalloc(dev, sizeof(cnss_vreg_info),
-					    GFP_KERNEL);
-	if (!plat_priv->vreg_info) {
-		ret = -ENOMEM;
-		goto out;
+	reg = devm_regulator_get_optional(dev, vreg->cfg.name);
+	if (IS_ERR(reg)) {
+		ret = PTR_ERR(reg);
+		if (ret == -ENODEV)
+			return ret;
+		else if (ret == -EPROBE_DEFER)
+			cnss_pr_info("EPROBE_DEFER for regulator: %s\n",
+				     vreg->cfg.name);
+		else
+			cnss_pr_err("Failed to get regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+		return ret;
 	}
 
-	memcpy(plat_priv->vreg_info, cnss_vreg_info, sizeof(cnss_vreg_info));
+	vreg->reg = reg;
 
-	for (i = 0; i < CNSS_VREG_INFO_SIZE; i++) {
-		vreg_info = &plat_priv->vreg_info[i];
-		reg = devm_regulator_get_optional(dev, vreg_info->name);
-		if (IS_ERR(reg)) {
-			ret = PTR_ERR(reg);
-			if (ret == -ENODEV)
-				continue;
-			else if (ret == -EPROBE_DEFER)
-				cnss_pr_info("EPROBE_DEFER for regulator: %s\n",
-					     vreg_info->name);
-			else
-				cnss_pr_err("Failed to get regulator %s, err = %d\n",
-					    vreg_info->name, ret);
-			goto out;
-		}
+	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-info",
+		 vreg->cfg.name);
 
-		vreg_info->reg = reg;
-
-		snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-info",
-			 vreg_info->name);
-
-		prop = of_get_property(dev->of_node, prop_name, &len);
-		cnss_pr_dbg("Got regulator info, name: %s, len: %d\n",
-			    prop_name, len);
-
-		if (!prop || len != (4 * sizeof(__be32))) {
-			cnss_pr_dbg("Property %s %s, use default\n", prop_name,
-				    prop ? "invalid format" : "doesn't exist");
-		} else {
-			vreg_info->min_uv = be32_to_cpup(&prop[0]);
-			vreg_info->max_uv = be32_to_cpup(&prop[1]);
-			vreg_info->load_ua = be32_to_cpup(&prop[2]);
-			vreg_info->delay_us = be32_to_cpup(&prop[3]);
-		}
-
-		cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u\n",
-			    vreg_info->name, vreg_info->min_uv,
-			    vreg_info->max_uv, vreg_info->load_ua,
-			    vreg_info->delay_us);
+	prop = of_get_property(dev->of_node, prop_name, &len);
+	if (!prop || len != (4 * sizeof(__be32))) {
+		cnss_pr_dbg("Property %s %s, use default\n", prop_name,
+			    prop ? "invalid format" : "doesn't exist");
+	} else {
+		vreg->cfg.min_uv = be32_to_cpup(&prop[0]);
+		vreg->cfg.max_uv = be32_to_cpup(&prop[1]);
+		vreg->cfg.load_ua = be32_to_cpup(&prop[2]);
+		vreg->cfg.delay_us = be32_to_cpup(&prop[3]);
 	}
+
+	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u\n",
+		    vreg->cfg.name, vreg->cfg.min_uv,
+		    vreg->cfg.max_uv, vreg->cfg.load_ua,
+		    vreg->cfg.delay_us);
 
 	return 0;
+}
+
+static void cnss_put_vreg_single(struct cnss_plat_data *plat_priv,
+				 struct cnss_vreg_info *vreg)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+
+	cnss_pr_dbg("Put regulator: %s\n", vreg->cfg.name);
+	devm_regulator_put(vreg->reg);
+	devm_kfree(dev, vreg);
+}
+
+static cnss_vreg_on_single(struct cnss_vreg_info *vreg)
+{
+	int ret = 0;
+
+	if (vreg->enabled) {
+		cnss_pr_dbg("Regulator %s is already enabled\n",
+			    vreg->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Regulator %s is being enabled\n", vreg->cfg.name);
+
+	if (vreg->cfg.min_uv != 0 && vreg->cfg.max_uv != 0) {
+		ret = regulator_set_voltage(vreg->reg,
+					    vreg->cfg.min_uv,
+					    vreg->cfg.max_uv);
+
+		if (ret) {
+			cnss_pr_err("Failed to set voltage for regulator %s, min_uv: %u, max_uv: %u, err = %d\n",
+				    vreg->cfg.name, vreg->cfg.min_uv,
+				    vreg->cfg.max_uv, ret);
+			goto out;
+		}
+	}
+
+	if (vreg->cfg.load_ua) {
+		ret = regulator_set_load(vreg->reg,
+					 vreg->cfg.load_ua);
+
+		if (ret < 0) {
+			cnss_pr_err("Failed to set load for regulator %s, load: %u, err = %d\n",
+				    vreg->cfg.name, vreg->cfg.load_ua,
+				    ret);
+			goto out;
+		}
+	}
+
+	if (vreg->cfg.delay_us)
+		udelay(vreg->cfg.delay_us);
+
+	ret = regulator_enable(vreg->reg);
+	if (ret) {
+		cnss_pr_err("Failed to enable regulator %s, err = %d\n",
+			    vreg->cfg.name, ret);
+		goto out;
+	}
+	vreg->enabled = true;
+
 out:
 	return ret;
 }
 
-static int cnss_vreg_on(struct cnss_plat_data *plat_priv)
+static int cnss_vreg_off_single(struct cnss_vreg_info *vreg)
 {
 	int ret = 0;
-	struct cnss_vreg_info *vreg_info;
+
+	if (!vreg->enabled) {
+		cnss_pr_dbg("Regulator %s is already disabled\n",
+			    vreg->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Regulator %s is being disabled\n",
+		    vreg->cfg.name);
+
+	ret = regulator_disable(vreg->reg);
+	if (ret)
+		cnss_pr_err("Failed to disable regulator %s, err = %d\n",
+			    vreg->cfg.name, ret);
+
+	if (vreg->cfg.load_ua) {
+		ret = regulator_set_load(vreg->reg, 0);
+		if (ret < 0)
+			cnss_pr_err("Failed to set load for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+
+	if (vreg->cfg.min_uv != 0 && vreg->cfg.max_uv != 0) {
+		ret = regulator_set_voltage(vreg->reg, 0,
+					    vreg->cfg.max_uv);
+		if (ret)
+			cnss_pr_err("Failed to set voltage for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+	vreg->enabled = false;
+
+	return ret;
+}
+
+static struct cnss_vreg_cfg *get_vreg_list(u32 *vreg_list_size,
+					   enum cnss_vreg_type type)
+{
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		*vreg_list_size = CNSS_VREG_INFO_SIZE;
+		return cnss_vreg_list;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		*vreg_list_size = 0;
+		return NULL;
+	}
+}
+
+static int cnss_get_vreg(struct cnss_plat_data *plat_priv,
+			 struct list_head *vreg_list,
+			 struct cnss_vreg_cfg *vreg_cfg,
+			 u32 vreg_list_size)
+{
+
+	int ret = 0;
 	int i;
+	struct cnss_vreg_info *vreg;
+	struct device *dev = &plat_priv->plat_dev->dev;
 
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -ENODEV;
+	if (!list_empty(vreg_list)) {
+		cnss_pr_dbg("Vregs have already been updated\n");
+		return 0;
 	}
 
-	for (i = 0; i < CNSS_VREG_INFO_SIZE; i++) {
-		vreg_info = &plat_priv->vreg_info[i];
+	for (i = 0; i < vreg_list_size; i++) {
+		vreg = devm_kzalloc(dev, sizeof(*vreg), GFP_KERNEL);
+		if (!vreg)
+			return -ENOMEM;
 
-		if (!vreg_info->reg)
-			continue;
-
-		cnss_pr_dbg("Regulator %s is being enabled\n", vreg_info->name);
-
-		if (vreg_info->min_uv != 0 && vreg_info->max_uv != 0) {
-			ret = regulator_set_voltage(vreg_info->reg,
-						    vreg_info->min_uv,
-						    vreg_info->max_uv);
-
-			if (ret) {
-				cnss_pr_err("Failed to set voltage for regulator %s, min_uv: %u, max_uv: %u, err = %d\n",
-					    vreg_info->name, vreg_info->min_uv,
-					    vreg_info->max_uv, ret);
-				break;
-			}
-		}
-
-		if (vreg_info->load_ua) {
-			ret = regulator_set_load(vreg_info->reg,
-						 vreg_info->load_ua);
-
-			if (ret < 0) {
-				cnss_pr_err("Failed to set load for regulator %s, load: %u, err = %d\n",
-					    vreg_info->name, vreg_info->load_ua,
-					    ret);
-				break;
-			}
-		}
-
-		if (vreg_info->delay_us)
-			udelay(vreg_info->delay_us);
-
-		ret = regulator_enable(vreg_info->reg);
-		if (ret) {
-			cnss_pr_err("Failed to enable regulator %s, err = %d\n",
-				    vreg_info->name, ret);
-			break;
-		}
-	}
-
-	if (ret) {
-		for (; i >= 0; i--) {
-			vreg_info = &plat_priv->vreg_info[i];
-
-			if (!vreg_info->reg)
+		memcpy(&vreg->cfg, &vreg_cfg[i], sizeof(vreg->cfg));
+		ret = cnss_get_vreg_single(plat_priv, vreg);
+		if (ret != 0) {
+			if (ret == -ENODEV) {
+				devm_kfree(dev, vreg);
 				continue;
-
-			regulator_disable(vreg_info->reg);
-			if (vreg_info->load_ua)
-				regulator_set_load(vreg_info->reg, 0);
-			if (vreg_info->min_uv != 0 && vreg_info->max_uv != 0)
-				regulator_set_voltage(vreg_info->reg, 0,
-						      vreg_info->max_uv);
+			} else {
+				devm_kfree(dev, vreg);
+				return ret;
+			}
 		}
-
-		return ret;
+		list_add_tail(&vreg->list, vreg_list);
 	}
 
 	return 0;
 }
 
-static int cnss_vreg_off(struct cnss_plat_data *plat_priv)
+static void cnss_put_vreg(struct cnss_plat_data *plat_priv,
+			  struct list_head *vreg_list)
 {
-	int ret = 0;
-	struct cnss_vreg_info *vreg_info;
-	int i;
+	struct cnss_vreg_info *vreg;
 
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -ENODEV;
+	while (!list_empty(vreg_list)) {
+		vreg = list_first_entry(vreg_list,
+					struct cnss_vreg_info, list);
+		list_del(&vreg->list);
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+		cnss_put_vreg_single(plat_priv, vreg);
+	}
+}
+
+static int cnss_vreg_on(struct cnss_plat_data *plat_priv,
+			struct list_head *vreg_list)
+{
+	struct cnss_vreg_info *vreg;
+	int ret = 0;
+
+	list_for_each_entry(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+		ret = cnss_vreg_on_single(vreg);
+		if (ret)
+			break;
 	}
 
-	for (i = CNSS_VREG_INFO_SIZE - 1; i >= 0; i--) {
-		vreg_info = &plat_priv->vreg_info[i];
+	if (!ret)
+		return 0;
 
-		if (!vreg_info->reg)
+	list_for_each_entry_continue_reverse(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg) || !vreg->enabled)
 			continue;
 
-		cnss_pr_dbg("Regulator %s is being disabled\n",
-			    vreg_info->name);
+		cnss_vreg_off_single(vreg);
+	}
 
-		ret = regulator_disable(vreg_info->reg);
-		if (ret)
-			cnss_pr_err("Failed to disable regulator %s, err = %d\n",
-				    vreg_info->name, ret);
+	return ret;
+}
 
-		if (vreg_info->load_ua) {
-			ret = regulator_set_load(vreg_info->reg, 0);
-			if (ret < 0)
-				cnss_pr_err("Failed to set load for regulator %s, err = %d\n",
-					    vreg_info->name, ret);
-		}
+static int cnss_vreg_off(struct cnss_plat_data *plat_priv,
+			 struct list_head *vreg_list)
+{
+	struct cnss_vreg_info *vreg;
 
-		if (vreg_info->min_uv != 0 && vreg_info->max_uv != 0) {
-			ret = regulator_set_voltage(vreg_info->reg, 0,
-						    vreg_info->max_uv);
-			if (ret)
-				cnss_pr_err("Failed to set voltage for regulator %s, err = %d\n",
-					    vreg_info->name, ret);
-		}
+	list_for_each_entry_reverse(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		cnss_vreg_off_single(vreg);
+	}
+
+	return 0;
+}
+
+int cnss_get_vreg_type(struct cnss_plat_data *plat_priv,
+		       enum cnss_vreg_type type)
+{
+	struct cnss_vreg_cfg *vreg_cfg;
+	u32 vreg_list_size = 0;
+	int ret = 0;
+
+	vreg_cfg = get_vreg_list(&vreg_list_size, type);
+	if (!vreg_cfg)
+		return -EINVAL;
+
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		ret = cnss_get_vreg(plat_priv, &plat_priv->vreg_list,
+				    vreg_cfg, vreg_list_size);
+		break;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+void cnss_put_vreg_type(struct cnss_plat_data *plat_priv,
+			enum cnss_vreg_type type)
+{
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		cnss_put_vreg(plat_priv, &plat_priv->vreg_list);
+		break;
+	default:
+		return;
+	}
+}
+
+int cnss_vreg_on_type(struct cnss_plat_data *plat_priv,
+		      enum cnss_vreg_type type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		ret = cnss_vreg_on(plat_priv, &plat_priv->vreg_list);
+		break;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
+		       enum cnss_vreg_type type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		ret = cnss_vreg_off(plat_priv, &plat_priv->vreg_list);
+		break;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		return -EINVAL;
 	}
 
 	return ret;
@@ -346,7 +485,7 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 		return 0;
 	}
 
-	ret = cnss_vreg_on(plat_priv);
+	ret = cnss_vreg_on_type(plat_priv, CNSS_VREG_PRIM);
 	if (ret) {
 		cnss_pr_err("Failed to turn on vreg, err = %d\n", ret);
 		goto out;
@@ -361,7 +500,7 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 
 	return 0;
 vreg_off:
-	cnss_vreg_off(plat_priv);
+	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);
 out:
 	return ret;
 }
@@ -374,7 +513,7 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 	}
 
 	cnss_select_pinctrl_state(plat_priv, false);
-	cnss_vreg_off(plat_priv);
+	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);
 	plat_priv->powered_on = false;
 }
 

@@ -29,13 +29,23 @@ enum cnss_dev_bus_type {
 	CNSS_BUS_PCI,
 };
 
-struct cnss_vreg_info {
-	struct regulator *reg;
+struct cnss_vreg_cfg {
 	const char *name;
 	u32 min_uv;
 	u32 max_uv;
 	u32 load_ua;
 	u32 delay_us;
+};
+
+struct cnss_vreg_info {
+	struct list_head list;
+	struct regulator *reg;
+	struct cnss_vreg_cfg cfg;
+	u32 enabled;
+};
+
+enum cnss_vreg_type {
+	CNSS_VREG_PRIM,
 };
 
 struct cnss_pinctrl_info {
@@ -238,7 +248,7 @@ struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
 	enum cnss_dev_bus_type bus_type;
-	struct cnss_vreg_info *vreg_info;
+	struct list_head vreg_list;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
@@ -290,7 +300,14 @@ struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_event_type type,
 			   u32 flags, void *data);
-int cnss_get_vreg(struct cnss_plat_data *plat_priv);
+int cnss_get_vreg_type(struct cnss_plat_data *plat_priv,
+		       enum cnss_vreg_type type);
+void cnss_put_vreg_type(struct cnss_plat_data *plat_priv,
+			enum cnss_vreg_type type);
+int cnss_vreg_on_type(struct cnss_plat_data *plat_priv,
+		      enum cnss_vreg_type type);
+int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
+		       enum cnss_vreg_type type);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);

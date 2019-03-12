@@ -635,7 +635,7 @@ static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
 
-	ret = cnss_get_vreg(plat_priv);
+	ret = cnss_get_vreg_type(plat_priv, CNSS_VREG_PRIM);
 	if (ret) {
 		cnss_pr_err("Failed to get vreg, err = %d\n", ret);
 		goto out;
@@ -1698,6 +1698,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
+	INIT_LIST_HEAD(&plat_priv->vreg_list);
 
 	cnss_init_control_params(plat_priv);
 
