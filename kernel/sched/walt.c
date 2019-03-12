@@ -2551,7 +2551,8 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 	struct sched_cluster *last_best_cluster = sched_cluster[0];
 
 	for_each_sched_cluster(cluster) {
-		if (cpumask_weight(&cluster->cpus) <= 1)
+
+		if (cluster == sched_cluster[MAX_NR_CLUSTERS - 1])
 			continue;
 
 		last_best_cluster = cluster;

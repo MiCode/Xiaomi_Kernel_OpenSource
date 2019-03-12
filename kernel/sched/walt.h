@@ -10,6 +10,8 @@
 
 #include <linux/sched/sysctl.h>
 
+#define MAX_NR_CLUSTERS			3
+
 #define WINDOW_STATS_RECENT		0
 #define WINDOW_STATS_MAX		1
 #define WINDOW_STATS_MAX_RECENT_AVG	2
@@ -273,6 +275,8 @@ static inline void assign_cluster_ids(struct list_head *head)
 		cluster->id = pos;
 		sched_cluster[pos++] = cluster;
 	}
+
+	WARN_ON(pos > MAX_NR_CLUSTERS);
 }
 
 static inline int same_cluster(int src_cpu, int dst_cpu)
