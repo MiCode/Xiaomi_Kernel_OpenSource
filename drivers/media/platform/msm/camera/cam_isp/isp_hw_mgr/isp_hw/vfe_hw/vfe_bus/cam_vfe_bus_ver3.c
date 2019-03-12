@@ -3177,11 +3177,9 @@ static uint32_t cam_vfe_bus_ver3_convert_bytes_to_pixels(uint32_t packer_fmt,
 		break;
 	case PACKER_FMT_VER3_PLAIN_8:
 	case PACKER_FMT_VER3_PLAIN_8_ODD_EVEN:
-		pixels = width;
-		break;
 	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10:
 	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN:
-		pixels = width * 8 / 10;
+		pixels = width;
 		break;
 	case PACKER_FMT_VER3_PLAIN_16_10BPP:
 	case PACKER_FMT_VER3_PLAIN_16_12BPP:
