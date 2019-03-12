@@ -254,6 +254,7 @@
 #define NUM_MBS_720P (((1280 + 15) >> 4) * ((720 + 15) >> 4))
 #define NUM_MBS_4k (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
 #define MB_SIZE_IN_PIXEL (16 * 16)
+#define HDR10PLUS_PAYLOAD_SIZE 1024
 
 static inline u32 calculate_h264d_scratch_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, bool is_interlaced);
@@ -884,7 +885,7 @@ u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
 	}
 
 	if (extra_types & EXTRADATA_ENC_INPUT_HDR10PLUS) {
-		size += sizeof(struct hfi_hdr10_pq_sei);
+		size += HDR10PLUS_PAYLOAD_SIZE;
 		extradata_count++;
 	}
 
