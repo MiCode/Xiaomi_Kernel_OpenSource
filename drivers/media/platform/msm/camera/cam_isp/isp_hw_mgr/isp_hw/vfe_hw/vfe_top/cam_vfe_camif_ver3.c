@@ -193,7 +193,7 @@ static int cam_vfe_camif_ver3_get_reg_update(
 	struct cam_vfe_mux_camif_ver3_data *rsrc_data = NULL;
 
 	if (arg_size != sizeof(struct cam_isp_hw_get_cmd_update)) {
-		CAM_ERR(CAM_ISP, "Invalid arg size: %d expected:%d",
+		CAM_ERR(CAM_ISP, "Invalid arg size: %d expected:%ld",
 			arg_size, sizeof(struct cam_isp_hw_get_cmd_update));
 		return -EINVAL;
 	}
@@ -533,7 +533,10 @@ static int cam_vfe_camif_ver3_reg_dump(
 			wm_idx, offset,
 			cam_io_r_mb(camif_priv->mem_base + offset),
 			offset + 4, cam_io_r_mb(camif_priv->mem_base +
-			offset + 4), offset + 8,
+			offset + 4));
+		CAM_INFO(CAM_ISP,
+			"BUS_WM%u offset 0x%x val 0x%x offset 0x%x val 0x%x",
+			wm_idx, offset + 8,
 			cam_io_r_mb(camif_priv->mem_base + offset + 8),
 			offset + 12, cam_io_r_mb(camif_priv->mem_base +
 			offset + 12));
