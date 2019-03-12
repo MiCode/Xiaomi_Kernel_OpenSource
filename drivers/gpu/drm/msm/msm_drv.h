@@ -78,6 +78,12 @@ struct msm_file_private {
 	struct list_head submitqueues;
 
 	int queueid;
+
+	/* update the refcount when user driver calls power_ctrl IOCTL */
+	unsigned short enable_refcnt;
+
+	/* protects enable_refcnt */
+	struct mutex power_lock;
 };
 
 enum msm_mdp_plane_property {
