@@ -3826,6 +3826,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			break;
 		case PLANE_PROP_MULTIRECT_MODE:
 		case PLANE_PROP_COLOR_FILL:
+		case PLANE_PROP_LAYOUT:
 			/* potentially need to refresh everything */
 			pstate->dirty = SDE_PLANE_DIRTY_ALL;
 			break;
