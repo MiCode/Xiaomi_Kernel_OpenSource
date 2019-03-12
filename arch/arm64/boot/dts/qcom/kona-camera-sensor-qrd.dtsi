@@ -38,7 +38,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <2856000>;
 		rgltr-max-voltage = <3104000>;
-		rgltr-load-current = <0>;
+		rgltr-load-current = <100000>;
 	};
 
 	eeprom_rear: qcom,eeprom0 {
