@@ -4619,7 +4619,7 @@ static void clk_populate_clock_opp_table(struct device_node *np,
 
 	for (n = 0; ; n++) {
 		rrate = clk_hw_round_rate(hw, rate + 1);
-		if (!rate) {
+		if (!rrate) {
 			pr_err("clk_round_rate failed for %s\n",
 							core->name);
 			goto err_derive_device_list;
