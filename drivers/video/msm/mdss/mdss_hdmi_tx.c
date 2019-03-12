@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -380,11 +380,18 @@ static inline void hdmi_tx_send_cable_notification(
 	schedule_work(&hdmi_ctrl->cable_notify_work);
 } /* hdmi_tx_send_cable_notification */
 
+static bool mdss_hdmi_sink_audio_supp(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	return hdmi_edid_is_audio_supported(
+			hdmi_ctrl->panel_data.panel_info.edid_data);
+}
+
 static inline void hdmi_tx_set_audio_switch_node(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
 	if (hdmi_ctrl && hdmi_ctrl->audio_ops.notify &&
-		!hdmi_tx_is_dvi_mode(hdmi_ctrl))
+		!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
+		mdss_hdmi_sink_audio_supp(hdmi_ctrl))
 		hdmi_ctrl->audio_ops.notify(hdmi_ctrl->audio_data, val);
 }
 
