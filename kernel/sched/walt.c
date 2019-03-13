@@ -109,9 +109,6 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
-/* 1 -> use PELT based load stats, 0 -> use window-based load stats */
-unsigned int __read_mostly walt_disabled = 0;
-
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
@@ -2137,9 +2134,6 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	cluster->max_mitigated_freq	=	UINT_MAX;
 	cluster->min_freq		=	1;
 	cluster->max_possible_freq	=	1;
-	cluster->dstate			=	0;
-	cluster->dstate_wakeup_energy	=	0;
-	cluster->dstate_wakeup_latency	=	0;
 	cluster->freq_init_done		=	false;
 
 	raw_spin_lock_init(&cluster->load_lock);
@@ -2151,7 +2145,6 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	if (cluster->efficiency < min_possible_efficiency)
 		min_possible_efficiency = cluster->efficiency;
 
-	cluster->notifier_sent = 0;
 	return cluster;
 }
 
@@ -2323,12 +2316,7 @@ struct sched_cluster init_cluster = {
 	.max_mitigated_freq	=	UINT_MAX,
 	.min_freq		=	1,
 	.max_possible_freq	=	1,
-	.dstate			=	0,
-	.dstate_wakeup_energy	=	0,
-	.dstate_wakeup_latency	=	0,
 	.exec_scale_factor	=	1024,
-	.notifier_sent		=	0,
-	.wake_up_idle		=	0,
 	.aggr_grp_load		=	0,
 	.coloc_boost_load	=	0,
 };
@@ -2643,8 +2631,6 @@ int update_preferred_cluster(struct related_thread_group *grp,
 
 	return 0;
 }
-
-DEFINE_MUTEX(policy_mutex);
 
 #define pct_to_real(tunable)	\
 		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
