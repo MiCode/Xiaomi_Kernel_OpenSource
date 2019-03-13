@@ -253,6 +253,14 @@ static inline void regulator_has_full_constraints(void)
 }
 #endif
 
+#ifdef CONFIG_REGULATOR_QTI_DEBUG
+void regulator_debug_print_enabled(void);
+#else
+static inline void regulator_debug_print_enabled(void)
+{
+}
+#endif
+
 static inline int regulator_suspend_prepare(suspend_state_t state)
 {
 	return 0;
