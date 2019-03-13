@@ -396,6 +396,7 @@ struct mmc_card {
 	struct notifier_block   reboot_notify;
 	enum mmc_pon_type	pon_type;
 	struct mmc_bkops_info bkops;
+	struct workqueue_struct *complete_wq;	/* Private workqueue */
 };
 
 static inline bool mmc_large_sector(struct mmc_card *card)
