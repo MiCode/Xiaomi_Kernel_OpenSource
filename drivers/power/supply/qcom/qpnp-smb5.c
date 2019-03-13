@@ -173,6 +173,7 @@ struct smb_dt_props {
 	int			chg_inhibit_thr_mv;
 	bool			no_battery;
 	bool			hvdcp_disable;
+	bool			hvdcp_autonomous;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
@@ -400,6 +401,9 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.hvdcp_disable = of_property_read_bool(node,
 						"qcom,hvdcp-disable");
 	chg->hvdcp_disable = chip->dt.hvdcp_disable;
+
+	chip->dt.hvdcp_autonomous = of_property_read_bool(node,
+						"qcom,hvdcp-autonomous-enable");
 
 	chip->dt.auto_recharge_soc = -EINVAL;
 	rc = of_property_read_u32(node, "qcom,auto-recharge-soc",
@@ -1915,11 +1919,15 @@ static int smb5_init_hw(struct smb5 *chip)
 	}
 
 	/*
-	 * Disable HVDCP autonomous mode operation by default. Additionally, if
-	 * specified in DT: disable HVDCP and HVDCP authentication algorithm.
+	 * Disable HVDCP autonomous mode operation by default, providing a DT
+	 * knob to turn it on if required. Additionally, if specified in DT,
+	 * disable HVDCP and HVDCP authentication algorithm.
 	 */
 	val = (chg->hvdcp_disable) ? 0 :
 		(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT);
+	if (chip->dt.hvdcp_autonomous)
+		val |= HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT;
+
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 			(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT |
 			 HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT),
