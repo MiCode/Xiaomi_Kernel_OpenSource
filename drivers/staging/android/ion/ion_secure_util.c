@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,9 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	int vmid;
 
 	flags = flags & ION_FLAGS_CP_MASK;
+	if (!flags)
+		return -EINVAL;
+
 	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
 		vmid = get_vmid(0x1UL << itr);
 		if (vmid < 0 || !nelems)
