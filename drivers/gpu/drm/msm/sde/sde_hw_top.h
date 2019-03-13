@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,14 +120,6 @@ struct sde_hw_mdp_ops {
 	 */
 	void (*setup_pp_split)(struct sde_hw_mdp *mdp,
 			struct split_pipe_cfg *cfg);
-
-	/**
-	 * setup_cdm_output() : Setup selection control of the cdm data path
-	 * @mdp  : mdp top context driver
-	 * @cfg  : cdm output configuration
-	 */
-	void (*setup_cdm_output)(struct sde_hw_mdp *mdp,
-			struct cdm_output_cfg *cfg);
 
 	/**
 	 * setup_traffic_shaper() : Setup traffic shaper control
