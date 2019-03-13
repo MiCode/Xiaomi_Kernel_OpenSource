@@ -43,6 +43,26 @@
 		pinctrl-1 = <&cdc_dmic67_clk_sleep &cdc_dmic67_data_sleep>;
 		qcom,lpi-gpios;
 	};
+
+	pri_mi2s_gpios: pri_mi2s_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_sck_active &pri_mi2s_ws_active
+		&pri_mi2s_sd0_active>;
+		pinctrl-1 = <&pri_mi2s_sck_sleep &pri_mi2s_ws_sleep
+		&pri_mi2s_sd0_sleep>;
+	};
+
+	sec_mi2s_gpios: sec_mi2s_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_mi2s_sck_active &sec_mi2s_ws_active
+		&sec_mi2s_sd0_active &sec_mi2s_sd1_active
+		&sec_mi2s_sd2_active &sec_mi2s_sd3_active>;
+		pinctrl-1 = <&sec_mi2s_sck_sleep &sec_mi2s_ws_sleep
+		&sec_mi2s_sd0_sleep &sec_mi2s_sd1_sleep
+		&sec_mi2s_sd2_sleep &sec_mi2s_sd3_sleep>;
+	};
 };
 
 &q6core {
@@ -68,6 +88,8 @@
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
 	qcom,cdc-dmic45-gpios = <&cdc_dmic45_gpios>;
 	qcom,cdc-dmic67-gpios = <&cdc_dmic67_gpios>;
+	qcom,pri-mi2s-gpios = <&pri_mi2s_gpios>;
+	qcom,sec-mi2s-gpios = <&sec_mi2s_gpios>;
 	qcom,audio-routing =
 		"RX_BIAS", "MCLK",
 		"lineout booster", "LINEOUT1",
@@ -94,12 +116,7 @@
 		"VA MIC BIAS1", "Digital Mic7",
 		"CSRA_12 IN", "PRI_MI2S_RX";
 	pinctrl-names = "default";
-	pinctrl-0 = <&spdifrx_opt_default
-		&pri_mi2s_sck_active &pri_mi2s_ws_active
-		&pri_mi2s_sd0_active
-		&sec_mi2s_sck_active &sec_mi2s_ws_active
-		&sec_mi2s_sd0_active &sec_mi2s_sd1_active
-		&sec_mi2s_sd2_active &sec_mi2s_sd3_active>;
+	pinctrl-0 = <&spdifrx_opt_default>;
 };
 
 &dai_mi2s0 {
