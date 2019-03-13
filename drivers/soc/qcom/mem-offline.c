@@ -218,6 +218,10 @@ static int mem_event_callback(struct notifier_block *self,
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%lx end = 0x%lx",
 				start_addr, end_addr);
+		if (send_msg(mn, false))
+			pr_err("PASR: %s online request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
+			       __pfn_to_phys(start));
 		break;
 	default:
 		break;
