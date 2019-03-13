@@ -17,6 +17,7 @@
 #include "sm6150-sde.dtsi"
 #include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde-display.dtsi"
+#include "qcs610-camera-sensor-idp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";

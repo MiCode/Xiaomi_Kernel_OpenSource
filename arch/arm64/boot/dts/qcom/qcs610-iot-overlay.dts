@@ -13,6 +13,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+
 #include "qcs610-iot.dtsi"
 
 / {
