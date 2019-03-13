@@ -3153,11 +3153,9 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 				&pstate->property_state)) >= 0) {
 		dirty_prop_flag = plane_prop_array[idx];
 		pstate->dirty |= dirty_prop_flag;
-		if (dirty_prop_flag == SDE_PLANE_DIRTY_ALL &&
-				idx != PLANE_PROP_MULTIRECT_MODE &&
-				idx != PLANE_PROP_COLOR_FILL)
-			SDE_ERROR("executing full mode set, prp_idx %d\n", idx);
-		break;
+
+		if (dirty_prop_flag == SDE_PLANE_DIRTY_ALL)
+			break;
 	}
 
 	/**
