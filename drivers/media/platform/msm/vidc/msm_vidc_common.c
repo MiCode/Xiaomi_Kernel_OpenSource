@@ -37,63 +37,6 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 #define V4L2_HEVC_LEVEL_UNKNOWN V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN
 #define V4L2_VP9_LEVEL_61 V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61
 
-int h264_level_v4l2_to_hfi[] = {
-	HFI_H264_LEVEL_1,
-	HFI_H264_LEVEL_1b,
-	HFI_H264_LEVEL_11,
-	HFI_H264_LEVEL_12,
-	HFI_H264_LEVEL_13,
-	HFI_H264_LEVEL_2,
-	HFI_H264_LEVEL_21,
-	HFI_H264_LEVEL_22,
-	HFI_H264_LEVEL_3,
-	HFI_H264_LEVEL_31,
-	HFI_H264_LEVEL_32,
-	HFI_H264_LEVEL_4,
-	HFI_H264_LEVEL_41,
-	HFI_H264_LEVEL_42,
-	HFI_H264_LEVEL_5,
-	HFI_H264_LEVEL_51,
-	HFI_H264_LEVEL_52,
-	HFI_H264_LEVEL_6,
-	HFI_H264_LEVEL_61,
-	HFI_H264_LEVEL_62,
-	HFI_LEVEL_UNKNOWN,
-};
-
-int hevc_level_v4l2_to_hfi[] = {
-	HFI_HEVC_LEVEL_1,
-	HFI_HEVC_LEVEL_2,
-	HFI_HEVC_LEVEL_21,
-	HFI_HEVC_LEVEL_3,
-	HFI_HEVC_LEVEL_31,
-	HFI_HEVC_LEVEL_4,
-	HFI_HEVC_LEVEL_41,
-	HFI_HEVC_LEVEL_5,
-	HFI_HEVC_LEVEL_51,
-	HFI_HEVC_LEVEL_52,
-	HFI_HEVC_LEVEL_6,
-	HFI_HEVC_LEVEL_61,
-	HFI_HEVC_LEVEL_62,
-	HFI_LEVEL_UNKNOWN,
-};
-
-int vp9_level_v4l2_to_hfi[] = {
-	HFI_LEVEL_UNKNOWN,
-	HFI_VP9_LEVEL_1,
-	HFI_VP9_LEVEL_11,
-	HFI_VP9_LEVEL_2,
-	HFI_VP9_LEVEL_21,
-	HFI_VP9_LEVEL_3,
-	HFI_VP9_LEVEL_31,
-	HFI_VP9_LEVEL_4,
-	HFI_VP9_LEVEL_41,
-	HFI_VP9_LEVEL_5,
-	HFI_VP9_LEVEL_51,
-	HFI_VP9_LEVEL_6,
-	HFI_VP9_LEVEL_61,
-};
-
 int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
@@ -329,6 +272,138 @@ unknown_value:
 	return -EINVAL;
 }
 
+static int h264_level_v4l2_to_hfi(int value)
+{
+	switch (value) {
+	case V4L2_MPEG_VIDEO_H264_LEVEL_1_0:
+		return HFI_H264_LEVEL_1;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_1B:
+		return HFI_H264_LEVEL_1b;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_1_1:
+		return HFI_H264_LEVEL_11;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_1_2:
+		return HFI_H264_LEVEL_12;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_1_3:
+		return HFI_H264_LEVEL_13;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_2_0:
+		return HFI_H264_LEVEL_2;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_2_1:
+		return HFI_H264_LEVEL_21;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_2_2:
+		return HFI_H264_LEVEL_22;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_3_0:
+		return HFI_H264_LEVEL_3;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_3_1:
+		return HFI_H264_LEVEL_31;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_3_2:
+		return HFI_H264_LEVEL_32;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_4_0:
+		return HFI_H264_LEVEL_4;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_4_1:
+		return HFI_H264_LEVEL_41;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
+		return HFI_H264_LEVEL_42;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
+		return HFI_H264_LEVEL_5;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
+		return HFI_H264_LEVEL_51;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
+		return HFI_H264_LEVEL_52;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_6_0:
+		return HFI_H264_LEVEL_6;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_6_1:
+		return HFI_H264_LEVEL_61;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_6_2:
+		return HFI_H264_LEVEL_62;
+	case V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN:
+		return HFI_LEVEL_UNKNOWN;
+	default:
+		goto unknown_value;
+	}
+
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown level (%d)\n", value);
+	return -EINVAL;
+}
+
+static int hevc_level_v4l2_to_hfi(int value)
+{
+	switch (value) {
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_1:
+		return HFI_HEVC_LEVEL_1;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2:
+		return HFI_HEVC_LEVEL_2;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1:
+		return HFI_HEVC_LEVEL_21;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3:
+		return HFI_HEVC_LEVEL_3;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1:
+		return HFI_HEVC_LEVEL_31;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4:
+		return HFI_HEVC_LEVEL_4;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1:
+		return HFI_HEVC_LEVEL_41;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5:
+		return HFI_HEVC_LEVEL_5;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
+		return HFI_HEVC_LEVEL_51;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
+		return HFI_HEVC_LEVEL_52;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6:
+		return HFI_HEVC_LEVEL_6;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1:
+		return HFI_HEVC_LEVEL_61;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2:
+		return HFI_HEVC_LEVEL_62;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_UNKNOWN:
+		return HFI_LEVEL_UNKNOWN;
+	default:
+		goto unknown_value;
+	}
+
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown level (%d)\n", value);
+	return -EINVAL;
+}
+
+static int vp9_level_v4l2_to_hfi(value)
+{
+	switch (value) {
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1:
+		return HFI_VP9_LEVEL_1;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_11:
+		return HFI_VP9_LEVEL_11;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_2:
+		return HFI_VP9_LEVEL_2;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_21:
+		return HFI_VP9_LEVEL_21;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_3:
+		return HFI_VP9_LEVEL_3;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_31:
+		return HFI_VP9_LEVEL_31;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_4:
+		return HFI_VP9_LEVEL_4;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_41:
+		return HFI_VP9_LEVEL_41;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_5:
+		return HFI_VP9_LEVEL_5;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_51:
+		return HFI_VP9_LEVEL_51;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_6:
+		return HFI_VP9_LEVEL_6;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61:
+		return HFI_VP9_LEVEL_61;
+	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_UNUSED:
+		return HFI_LEVEL_UNKNOWN;
+	default:
+		goto unknown_value;
+	}
+
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown level (%d)\n", value);
+	return -EINVAL;
+
+}
 int msm_comm_v4l2_to_hfi(int id, int value)
 {
 	switch (id) {
@@ -353,11 +428,7 @@ int msm_comm_v4l2_to_hfi(int id, int value)
 			return HFI_H264_PROFILE_HIGH;
 		}
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		if (value >= 0 && value <= V4L2_H264_LEVEL_UNKNOWN) {
-			return h264_level_v4l2_to_hfi[value];
-		} else {
-			return h264_level_v4l2_to_hfi[V4L2_H264_LEVEL_UNKNOWN];
-		}
+		return h264_level_v4l2_to_hfi(value);
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC:
@@ -399,11 +470,7 @@ int msm_comm_v4l2_to_hfi(int id, int value)
 			return HFI_VP9_PROFILE_P0;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL:
-		if (value >= 0 && value <= V4L2_VP9_LEVEL_61) {
-			return vp9_level_v4l2_to_hfi[value];
-		} else {
-			return vp9_level_v4l2_to_hfi[V4L2_VP9_LEVEL_61];
-		}
+		return vp9_level_v4l2_to_hfi(value);
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN:
@@ -416,11 +483,7 @@ int msm_comm_v4l2_to_hfi(int id, int value)
 			return HFI_HEVC_PROFILE_MAIN;
 		}
 	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
-		if (value >= 0 && value <= V4L2_HEVC_LEVEL_UNKNOWN) {
-			return hevc_level_v4l2_to_hfi[value];
-		} else {
-			return hevc_level_v4l2_to_hfi[V4L2_HEVC_LEVEL_UNKNOWN];
-		}
+		return hevc_level_v4l2_to_hfi(value);
 	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_HEVC_TIER_MAIN:
