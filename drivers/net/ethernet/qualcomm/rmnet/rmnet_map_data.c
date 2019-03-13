@@ -599,6 +599,9 @@ static void rmnet_map_move_headers(struct sk_buff *skb)
 
 pull:
 	__pskb_pull_tail(skb, ip_len + trans_len);
+	skb_reset_network_header(skb);
+	if (trans_len)
+		skb_set_transport_header(skb, ip_len);
 }
 
 static void rmnet_map_nonlinear_copy(struct sk_buff *coal_skb,
@@ -861,10 +864,27 @@ static void rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		 * the previous one, if we haven't done so. NLOs only switch
 		 * when the packet length changes.
 		 */
-		if (gro && coal_meta.pkt_count)
+		if (gro && coal_meta.pkt_count) {
+			/* Fast forward the (hopefully) common case.
+			 * Frames with only one NLO (i.e. one packet length) and
+			 * no checksum errors don't need to be segmented here.
+			 * We can just pass off the original skb.
+			 */
+			if (pkt_len * coal_meta.pkt_count ==
+			    coal_skb->len - coal_meta.ip_len -
+			    coal_meta.trans_len) {
+				rmnet_map_move_headers(coal_skb);
+				coal_skb->ip_summed = CHECKSUM_UNNECESSARY;
+				if (coal_meta.pkt_count > 1)
+					rmnet_map_gso_stamp(coal_skb,
+							    &coal_meta);
+				__skb_queue_tail(list, coal_skb);
+				return;
+			}
+
 			__rmnet_map_segment_coal_skb(coal_skb, &coal_meta, list,
 						     total_pkt);
-
+		}
 	}
 }
 
@@ -986,7 +1006,8 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 			return rc;
 
 		rmnet_map_segment_coal_skb(skb, nlo_err_mask, list);
-		consume_skb(skb);
+		if (skb_peek(list) != skb)
+			consume_skb(skb);
 		break;
 	case RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD:
 		if (rmnet_map_get_csum_valid(skb)) {
