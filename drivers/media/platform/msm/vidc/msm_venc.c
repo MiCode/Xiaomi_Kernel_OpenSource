@@ -3364,12 +3364,16 @@ int msm_venc_set_8x8_transform(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264 &&
-		inst->profile != HFI_H264_PROFILE_HIGH &&
+	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_H264) {
+		dprintk(VIDC_DBG, "%s: skip due to %#x\n",
+			__func__, inst->fmts[CAPTURE_PORT].fourcc);
+		return 0;
+	}
+
+	if (inst->profile != HFI_H264_PROFILE_HIGH &&
 		inst->profile != HFI_H264_PROFILE_CONSTRAINED_HIGH) {
-		dprintk(VIDC_DBG, "%s: skip due to %#x %#x\n",
-			__func__, inst->fmts[CAPTURE_PORT].fourcc,
-			inst->profile);
+		dprintk(VIDC_DBG, "%s: skip due to %#x\n",
+			__func__, inst->profile);
 		return 0;
 	}
 
