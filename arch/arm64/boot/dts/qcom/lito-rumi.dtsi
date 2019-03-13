@@ -32,10 +32,6 @@
 				     0x0 0x4>;
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	cxo: bi_tcxo {
 		compatible = "fixed-factor-clock";
 		clocks = <&xo_board>;
@@ -62,6 +58,12 @@
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy0 {
+	hsphy@88e3000 {
+		status = "disabled";
 	};
 };
 
