@@ -913,10 +913,12 @@ static void ipa_work_handler(struct work_struct *w)
 								__func__);
 				break;
 			}
-			ipa_connect_channels(d_port);
+
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
 					__func__);
+			if (peek_event(d_port) != EVT_DISCONNECTED)
+				ipa_connect_channels(d_port);
 		} else if (event == EVT_HOST_READY) {
 			/*
 			 * When in a composition such as RNDIS + ADB,
