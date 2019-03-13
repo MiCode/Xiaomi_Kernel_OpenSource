@@ -862,8 +862,7 @@ static inline u32 ROI_EXTRADATA_SIZE(
 	return (((lcu_width + 7) >> 3) << 3) * lcu_height * 2;
 }
 
-u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
-	u32 extra_types)
+u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst)
 {
 	u32 size = 0;
 	u32 width = inst->prop.width[OUTPUT_PORT];
@@ -874,7 +873,7 @@ u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
 	size += sizeof(struct msm_vidc_enc_cvp_metadata_payload);
 	extradata_count++;
 
-	if (extra_types & EXTRADATA_ENC_INPUT_ROI) {
+	if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_ROI) {
 		u32 lcu_size = 16;
 
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC)
@@ -884,7 +883,7 @@ u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
 		extradata_count++;
 	}
 
-	if (extra_types & EXTRADATA_ENC_INPUT_HDR10PLUS) {
+	if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_HDR10PLUS) {
 		size += HDR10PLUS_PAYLOAD_SIZE;
 		extradata_count++;
 	}
@@ -900,13 +899,8 @@ u32 msm_vidc_calculate_enc_input_extra_size(struct msm_vidc_inst *inst,
 u32 msm_vidc_calculate_enc_output_extra_size(struct msm_vidc_inst *inst)
 {
 	u32 size = 0;
-	u32 extra_types;
-	struct v4l2_ctrl *extradata_ctrl;
 
-	extradata_ctrl = get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-	extra_types = extradata_ctrl->val;
-	if (extra_types & EXTRADATA_ADVANCED)
+	if (inst->prop.extradata_ctrls & EXTRADATA_ADVANCED)
 		size += sizeof(struct msm_vidc_metadata_ltr_payload);
 
 	/* Add size for extradata none */

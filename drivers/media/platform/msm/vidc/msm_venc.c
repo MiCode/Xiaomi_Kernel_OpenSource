@@ -1075,6 +1075,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
 	inst->prop.bframe_changed = false;
+	inst->prop.extradata_ctrls = EXTRADATA_DEFAULT;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
@@ -1116,7 +1117,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	}
 
 	buff_req_buffer->buffer_size =
-		msm_vidc_calculate_enc_input_extra_size(inst, 0);
+		msm_vidc_calculate_enc_input_extra_size(inst);
 	inst->bufq[OUTPUT_PORT].plane_sizes[1] =
 		buff_req_buffer->buffer_size;
 
@@ -1232,7 +1233,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int i = 0;
 	struct msm_vidc_format *fmt = NULL;
-	struct v4l2_ctrl *extradata_ctrl;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -1315,11 +1315,8 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		 */
 		inst->bufq[fmt->type].plane_sizes[0] =
 			msm_vidc_calculate_enc_input_frame_size(inst);
-		extradata_ctrl = get_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		inst->bufq[fmt->type].plane_sizes[1] =
-			msm_vidc_calculate_enc_input_extra_size(inst,
-				extradata_ctrl->val);
+			msm_vidc_calculate_enc_input_extra_size(inst);
 		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
 		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
 			f->fmt.pix_mp.plane_fmt[i].sizeimage =
@@ -1572,8 +1569,13 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
-		if ((ctrl->val & EXTRADATA_ENC_INPUT_ROI) ||
-			(ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS)) {
+		if (ctrl->val == EXTRADATA_NONE)
+			inst->prop.extradata_ctrls = 0;
+		else
+			inst->prop.extradata_ctrls |= ctrl->val;
+
+		if ((inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_ROI) ||
+		(inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_HDR10PLUS)) {
 			buff_req_buffer = get_buff_req_buffer(inst,
 						HAL_BUFFER_EXTRADATA_INPUT);
 			if (!buff_req_buffer) {
@@ -1584,13 +1586,12 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			}
 
 			buff_req_buffer->buffer_size =
-				msm_vidc_calculate_enc_input_extra_size(inst,
-					ctrl->val);
+				msm_vidc_calculate_enc_input_extra_size(inst);
 			inst->bufq[OUTPUT_PORT].plane_sizes[1] =
 					buff_req_buffer->buffer_size;
 		}
 
-		if (ctrl->val & EXTRADATA_ADVANCED) {
+		if (inst->prop.extradata_ctrls & EXTRADATA_ADVANCED) {
 			inst->bufq[CAPTURE_PORT].num_planes = 2;
 
 			buff_req_buffer = get_buff_req_buffer(inst,
@@ -3717,12 +3718,10 @@ int msm_venc_set_hdr_info(struct msm_vidc_inst *inst)
 int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct v4l2_ctrl *ctrl;
 	struct v4l2_ctrl *cvp_ctrl;
 	u32 value = 0x0;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
-	if (ctrl->val == EXTRADATA_NONE) {
+	if (inst->prop.extradata_ctrls == EXTRADATA_NONE) {
 		// Disable all Extradata
 		msm_comm_set_index_extradata(inst,
 			MSM_VIDC_EXTRADATA_ASPECT_RATIO, 0x0);
@@ -3737,17 +3736,17 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 		}
 	}
 
-	if (ctrl->val & EXTRADATA_ADVANCED)
+	if (inst->prop.extradata_ctrls & EXTRADATA_ADVANCED)
 		// Enable Advanced Extradata - LTR Info
 		msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_VENC_LTR_INFO, 0x1);
 
-	if (ctrl->val & EXTRADATA_ENC_INPUT_ROI)
+	if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_ROI)
 		// Enable ROIQP Extradata
 		msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_VENC_ROI_QP_EXTRADATA, 0x1);
 
-	if (ctrl->val & EXTRADATA_ENC_INPUT_HDR10PLUS) {
+	if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_HDR10PLUS) {
 		// Enable HDR10+ Extradata
 		if (inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
 			msm_comm_set_extradata(inst,
@@ -3758,7 +3757,7 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 
 	cvp_ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VENC_CVP_DISABLE);
 	if (cvp_ctrl->val == V4L2_MPEG_MSM_VIDC_ENABLE) {
-		if (ctrl->val & EXTRADATA_ENC_INPUT_CVP) {
+		if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_CVP) {
 			dprintk(VIDC_ERR,
 				"%s: invalid params\n", __func__);
 			return -EINVAL;
@@ -3769,7 +3768,7 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 		 * Once the kernel-mode CVP metadata implementation
 		 * is completed, this condition should be removed.
 		 */
-		if (ctrl->val & EXTRADATA_ENC_INPUT_CVP)
+		if (inst->prop.extradata_ctrls & EXTRADATA_ENC_INPUT_CVP)
 			value = 0x1;
 
 	}
