@@ -2333,12 +2333,20 @@ int sdhci_msm_cqe_crypto_cfg_end(struct mmc_host *mmc,
 	return 0;
 }
 
+void sdhci_msm_cqe_sdhci_dumpregs(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	sdhci_dumpregs(host);
+}
+
 static const struct cqhci_host_ops sdhci_msm_cqhci_ops = {
 	.enable		= sdhci_msm_cqe_enable,
 	.disable	= sdhci_msm_cqe_disable,
 	.crypto_cfg	= sdhci_msm_cqe_crypto_cfg,
 	.crypto_cfg_reset	= sdhci_msm_cqe_crypto_cfg_reset,
 	.crypto_cfg_end		= sdhci_msm_cqe_crypto_cfg_end,
+	.dumpregs		= sdhci_msm_cqe_sdhci_dumpregs,
 };
 
 #ifdef CONFIG_MMC_CQHCI
