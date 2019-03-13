@@ -77,6 +77,9 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	int vmid;
 
 	flags = flags & ION_FLAGS_CP_MASK;
+	if (!flags)
+		return -EINVAL;
+
 	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
 		vmid = get_vmid(0x1UL << itr);
 		if (vmid < 0 || !nelems)

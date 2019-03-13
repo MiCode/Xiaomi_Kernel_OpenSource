@@ -3,7 +3,7 @@
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
  *
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -150,6 +150,9 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 {
 	int ret;
 
+	if (!(flags & ION_FLAGS_CP_MASK))
+		return -EINVAL;
+
 	ret = ion_cma_allocate(heap, buffer, len, flags);
 	if (ret) {
 		dev_err(heap->priv, "Unable to allocate cma buffer");
@@ -157,8 +160,14 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	}
 
 	ret = ion_hyp_assign_sg_from_flags(buffer->sg_table, flags, true);
-	if (ret)
-		goto out_free_buf;
+	if (ret) {
+		if (ret == -EADDRNOTAVAIL) {
+			goto out_free_buf;
+		} else {
+			ion_cma_free(buffer);
+			goto out;
+		}
+	}
 
 	return ret;
 
