@@ -3172,7 +3172,7 @@ void walt_irq_work(struct irq_work *irq_work)
 	int cpu;
 	u64 wc;
 	bool is_migration = false;
-	u64 total_grp_load = 0;
+	u64 total_grp_load = 0, min_cluster_grp_load = 0;
 	int level = 0;
 
 	/* Am I the window rollover work or the migration work? */
@@ -3208,11 +3208,21 @@ void walt_irq_work(struct irq_work *irq_work)
 		total_grp_load += aggr_grp_load;
 		cluster->coloc_boost_load = 0;
 
+		if (is_min_capacity_cluster(cluster))
+			min_cluster_grp_load = aggr_grp_load;
 		raw_spin_unlock(&cluster->load_lock);
 	}
 
-	if (total_grp_load)
+	if (total_grp_load) {
+		if (cpumask_weight(&asym_cap_sibling_cpus)) {
+			u64 big_grp_load =
+					  total_grp_load - min_cluster_grp_load;
+
+			for_each_cpu(cpu, &asym_cap_sibling_cpus)
+				cpu_cluster(cpu)->aggr_grp_load = big_grp_load;
+		}
 		walt_update_coloc_boost_load();
+	}
 
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
