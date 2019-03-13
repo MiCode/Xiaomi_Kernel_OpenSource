@@ -129,8 +129,8 @@ extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
 
 #define LIB_PATH_LENGTH 512
 extern char sched_lib_name[LIB_PATH_LENGTH];
-extern unsigned int sched_lib_mask_check;
 extern unsigned int sched_lib_mask_force;
+extern bool is_sched_lib_based_app(pid_t pid);
 extern unsigned long *sched_busy_hysteresis_cpubits;
 
 #endif /* _LINUX_SCHED_SYSCTL_H */
