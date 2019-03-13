@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -572,6 +572,19 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 				atomic_read(&phys_enc->vblank_refcount));
 }
 
+static void sde_encoder_phys_cmd_post_disable(
+		struct sde_encoder_phys *phys_enc)
+{
+	if (!phys_enc || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid encoder %d\n", phys_enc != NULL);
+		return;
+	}
+
+	if (!_sde_encoder_phys_is_ppsplit_slave(phys_enc) &&
+			phys_enc->hw_ctl->ops.clear_intf_cfg)
+		phys_enc->hw_ctl->ops.clear_intf_cfg(phys_enc->hw_ctl);
+}
+
 static void sde_encoder_phys_cmd_destroy(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -648,6 +661,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->mode_fixup = sde_encoder_phys_cmd_mode_fixup;
 	ops->enable = sde_encoder_phys_cmd_enable;
 	ops->disable = sde_encoder_phys_cmd_disable;
+	ops->post_disable = sde_encoder_phys_cmd_post_disable;
 	ops->destroy = sde_encoder_phys_cmd_destroy;
 	ops->get_hw_resources = sde_encoder_phys_cmd_get_hw_resources;
 	ops->control_vblank_irq = sde_encoder_phys_cmd_control_vblank_irq;
