@@ -331,3 +331,17 @@
 		clock-rates = <24000000>;
 	};
 };
+
+&qupv3_se5_spi {
+	status = "ok";
+	mini_isp@0 {
+		compatible = "altek,isp";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-cpol;
+		spi-cpha;
+		/*spi-cs-high;*/
+		irq-gpios = <&tlmm 24 0x00>;
+		status = "ok";
+	};
+};
