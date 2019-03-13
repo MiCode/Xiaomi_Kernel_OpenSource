@@ -417,7 +417,7 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 	struct iommu_domain *domain;
 	struct device *dev = ddev->dev;
 	unsigned long iova = 0x10000;
-	phys_addr_t paddr = 0xa000;
+	phys_addr_t paddr = 0x80000000;
 
 	if (iommu_debug_dma_reconfigure(ddev, attrs, 0, SZ_1G * 4ULL))
 		return;
@@ -435,10 +435,21 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 		u32 map_elapsed_rem = 0, unmap_elapsed_rem = 0;
 		ktime_t tbefore, tafter, diff;
 		int i;
+		unsigned long align_mask = ~0UL;
+
+		if (IS_ENABLED(CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT))
+			align_mask <<= min_t(unsigned long,
+					     CONFIG_IOMMU_IOVA_ALIGNMENT +
+					     PAGE_SHIFT, fls_long(size - 1));
+		else
+			align_mask <<= fls_long(size - 1);
+
+		align_mask = ~align_mask;
 
 		for (i = 0; i < iters_per_op; ++i) {
 			tbefore = ktime_get();
-			if (iommu_map(domain, iova, paddr, size,
+			if (iommu_map(domain, __ALIGN_MASK(iova, align_mask),
+				      ALIGN(paddr, size), size,
 				      IOMMU_READ | IOMMU_WRITE)) {
 				seq_puts(s, "Failed to map\n");
 				continue;
@@ -448,7 +459,9 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 			map_elapsed_ns += ktime_to_ns(diff);
 
 			tbefore = ktime_get();
-			unmapped = iommu_unmap(domain, iova, size);
+			unmapped = iommu_unmap(domain,
+					       __ALIGN_MASK(iova, align_mask),
+					       size);
 			if (unmapped != size) {
 				seq_printf(s,
 					   "Only unmapped %zx instead of %zx\n",
@@ -488,6 +501,16 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 		struct sg_table table;
 		unsigned long chunk_size = SZ_4K;
 		int i;
+		unsigned long align_mask = ~0UL;
+
+		if (IS_ENABLED(CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT))
+			align_mask <<= min_t(unsigned long,
+					     CONFIG_IOMMU_IOVA_ALIGNMENT +
+					     PAGE_SHIFT, fls_long(size - 1));
+		else
+			align_mask <<= fls_long(size - 1);
+
+		align_mask = ~align_mask;
 
 		if (iommu_debug_build_phoney_sg_table(dev, &table, size,
 						      chunk_size)) {
@@ -498,8 +521,10 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 
 		for (i = 0; i < iters_per_op; ++i) {
 			tbefore = ktime_get();
-			if (iommu_map_sg(domain, iova, table.sgl, table.nents,
-					 IOMMU_READ | IOMMU_WRITE) != size) {
+			if (iommu_map_sg(domain, __ALIGN_MASK(iova, align_mask),
+					 table.sgl, table.nents,
+					 IOMMU_READ | IOMMU_WRITE)
+			    != size) {
 				seq_puts(s, "Failed to map_sg\n");
 				goto next;
 			}
@@ -508,7 +533,9 @@ static void iommu_debug_device_profiling(struct seq_file *s,
 			map_elapsed_ns += ktime_to_ns(diff);
 
 			tbefore = ktime_get();
-			unmapped = iommu_unmap(domain, iova, size);
+			unmapped = iommu_unmap(domain,
+					       __ALIGN_MASK(iova, align_mask),
+					       size);
 			if (unmapped != size) {
 				seq_printf(s,
 					   "Only unmapped %zx instead of %zx\n",
