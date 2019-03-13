@@ -2471,7 +2471,7 @@ int xhci_event_ring_setup(struct xhci_hcd *xhci, struct xhci_ring **er,
 	if (!*er)
 		return -ENOMEM;
 
-	ret = xhci_alloc_erst(xhci, xhci->event_ring, &xhci->erst, flags);
+	ret = xhci_alloc_erst(xhci, *er, erst, flags);
 	if (ret)
 		return ret;
 
