@@ -140,10 +140,11 @@ static int mem_event_callback(struct notifier_block *self,
 
 		break;
 	case MEM_ONLINE:
-		pr_info("mem-offline: Onlined memory block mem%lu\n", sec_nr);
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_ONLINE);
 		cur = 0;
+		pr_info("mem-offline: Onlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
@@ -153,8 +154,6 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
-		pr_info("mem-offline: Offlined memory block mem%lu\n", sec_nr);
-
 		if (aop_send_msg(__pfn_to_phys(start), false))
 			pr_err("PASR: AOP offline request addr:0x%llx failed\n",
 			       __pfn_to_phys(start));
@@ -162,6 +161,8 @@ static int mem_event_callback(struct notifier_block *self,
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
+		pr_info("mem-offline: Offlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
