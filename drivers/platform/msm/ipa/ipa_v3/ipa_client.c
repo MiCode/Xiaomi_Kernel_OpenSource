@@ -372,12 +372,10 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	return 0;
 }
 
-static enum ipa_client_cb_type ipa_get_client_cb_type(u32 ipa_ep_idx)
+static enum ipa_client_cb_type ipa_get_client_cb_type(
+					enum ipa_client_type client_type)
 {
-	enum ipa_client_type client_type;
 	enum ipa_client_cb_type client_cb;
-
-	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
 
 	if (client_type == IPA_CLIENT_USB_PROD ||
 			client_type == IPA_CLIENT_USB_CONS) {
@@ -398,10 +396,12 @@ void ipa3_register_lock_unlock_callback(int (*client_cb)(bool is_lock),
 						u32 ipa_ep_idx)
 {
 	enum ipa_client_cb_type client;
+	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client = ipa_get_client_cb_type(ipa_ep_idx);
+	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
+	client = ipa_get_client_cb_type(client_type);
 	if (client == IPA_MAX_CLNT)
 		return;
 
@@ -418,10 +418,12 @@ void ipa3_register_lock_unlock_callback(int (*client_cb)(bool is_lock),
 void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx)
 {
 	enum ipa_client_cb_type client_cb;
+	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client_cb = ipa_get_client_cb_type(ipa_ep_idx);
+	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
+	client_cb = ipa_get_client_cb_type(client_type);
 	if (client_cb == IPA_MAX_CLNT)
 		return;
 
@@ -434,13 +436,13 @@ void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx)
 	IPADBG("exit\n");
 }
 
-static void client_lock_unlock_cb(u32 ipa_ep_idx, bool is_lock)
+static void client_lock_unlock_cb(enum ipa_client_type client, bool is_lock)
 {
 	enum ipa_client_cb_type client_cb;
 
 	IPADBG("entry\n");
 
-	client_cb = ipa_get_client_cb_type(ipa_ep_idx);
+	client_cb = ipa_get_client_cb_type(client);
 	if (client_cb == IPA_MAX_CLNT)
 		return;
 
@@ -1115,7 +1117,7 @@ int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 	ep = &ipa3_ctx->ep[pipe_idx];
 
 	/* Setting delay on USB_PROD with skip_ep_cfg */
-	client_lock_unlock_cb(pipe_idx, true);
+	client_lock_unlock_cb(client, true);
 	if (ep->valid && ep->skip_ep_cfg) {
 		ep->ep_delay_set = ep_ctrl.ipa_ep_delay;
 		result = ipa3_cfg_ep_ctrl(pipe_idx, &ep_ctrl);
@@ -1125,7 +1127,7 @@ int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		else
 			IPADBG("client (ep: %d) success\n", pipe_idx);
 	}
-	client_lock_unlock_cb(pipe_idx, false);
+	client_lock_unlock_cb(client, false);
 	return result;
 }
 
@@ -1152,13 +1154,13 @@ int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
 		return -EINVAL;
 	}
 
-	client_lock_unlock_cb(pipe_idx, true);
+	client_lock_unlock_cb(client, true);
 	ep = &ipa3_ctx->ep[pipe_idx];
 	if (start_chnl)
 		result = ipa3_start_gsi_channel(pipe_idx);
 	else
 		result = ipa3_stop_gsi_channel(pipe_idx);
-	client_lock_unlock_cb(pipe_idx, false);
+	client_lock_unlock_cb(client, false);
 	return result;
 }
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
@@ -1190,7 +1192,7 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 
 	ep = &ipa3_ctx->ep[pipe_idx];
 	/* Setting sus/holb on MHI_CONS with skip_ep_cfg */
-	client_lock_unlock_cb(pipe_idx, true);
+	client_lock_unlock_cb(client, true);
 	if (ep->valid && ep->skip_ep_cfg) {
 		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 			ipahal_write_reg_n_fields(
@@ -1209,7 +1211,7 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 			IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			pipe_idx, &ep_holb);
 	}
-	client_lock_unlock_cb(pipe_idx, false);
+	client_lock_unlock_cb(client, false);
 	return 0;
 }
 
