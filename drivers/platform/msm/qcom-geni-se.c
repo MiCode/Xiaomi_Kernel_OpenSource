@@ -41,7 +41,8 @@
 
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
-static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
+static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
+				100000000, 150000000, 200000000, 236000000};
 
 /**
  * @struct geni_se_device - Data structure to represent the QUPv3 Core
@@ -628,8 +629,11 @@ static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 	int new_bus_bw_idx = geni_se_dev->bus_bw_set_size - 1;
 	unsigned long new_bus_bw;
 	bool bus_bw_update = false;
+	/* Convert agg ab into bytes per second */
+	unsigned long new_ab_in_hz = DEFAULT_BUS_WIDTH *
+					((2*geni_se_dev->cur_ab)*10000);
 
-	new_bus_bw = max(geni_se_dev->cur_ib, geni_se_dev->cur_ab) /
+	new_bus_bw = max(geni_se_dev->cur_ib, new_ab_in_hz) /
 							DEFAULT_BUS_WIDTH;
 	for (i = 0; i < geni_se_dev->bus_bw_set_size; i++) {
 		if (geni_se_dev->bus_bw_set[i] >= new_bus_bw) {
