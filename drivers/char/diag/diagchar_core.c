@@ -3342,20 +3342,32 @@ exit:
 				DIAG_LOG(DIAG_DEBUG_DCI,
 				"diag: valid task doesn't exist for pid = %d\n",
 				entry->tgid);
+				put_pid(pid_struct);
 				continue;
 			}
-			if (task_s == entry->client)
-				if (entry->client->tgid != current->tgid)
+			if (task_s == entry->client) {
+				if (entry->client->tgid != current->tgid) {
+					put_task_struct(task_s);
+					put_pid(pid_struct);
 					continue;
-			if (!entry->in_service)
+				}
+			}
+			if (!entry->in_service) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				continue;
+			}
 			if (copy_to_user(buf + ret, &data_type, sizeof(int))) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
 			ret += sizeof(int);
 			if (copy_to_user(buf + ret, &entry->client_info.token,
 				sizeof(int))) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
@@ -3367,9 +3379,13 @@ exit:
 			atomic_dec(&driver->data_ready_notif[index]);
 			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
+			put_task_struct(task_s);
+			put_pid(pid_struct);
 		}
 		mutex_unlock(&driver->dci_mutex);
 		goto end;
