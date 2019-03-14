@@ -40,11 +40,6 @@ enum dp_stream_id {
 };
 
 struct dp_catalog_hdr_data {
-	u32 ext_header_byte0;
-	u32 ext_header_byte1;
-	u32 ext_header_byte2;
-	u32 ext_header_byte3;
-
 	u32 vsc_header_byte0;
 	u32 vsc_header_byte1;
 	u32 vsc_header_byte2;
@@ -54,6 +49,11 @@ struct dp_catalog_hdr_data {
 	u32 vscext_header_byte1;
 	u32 vscext_header_byte2;
 	u32 vscext_header_byte3;
+
+	u32 shdr_header_byte0;
+	u32 shdr_header_byte1;
+	u32 shdr_header_byte2;
+	u32 shdr_header_byte3;
 
 	u32 bpc;
 

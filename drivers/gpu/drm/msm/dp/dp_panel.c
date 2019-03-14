@@ -17,7 +17,6 @@
 #define VSC_SDP_EXTENSION_FOR_COLORIMETRY_SUPPORTED BIT(3)
 #define VSC_EXT_VESA_SDP_SUPPORTED BIT(4)
 #define VSC_EXT_VESA_SDP_CHAINING_SUPPORTED BIT(5)
-#define SEQ_INCREMENT_FOR_CHAINED_PACKETS BIT(6)
 
 enum dp_panel_hdr_pixel_encoding {
 	RGB,
@@ -2550,20 +2549,15 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 
 	panel->hdr_state = hdr_meta->hdr_state;
 
-	hdr->ext_header_byte0 = 0x00;
-	hdr->ext_header_byte1 = 0x04;
-	hdr->ext_header_byte2 = 0x1F;
-	hdr->ext_header_byte3 = 0x00;
-
 	hdr->vsc_header_byte0 = 0x00;
 	hdr->vsc_header_byte1 = 0x07;
 	hdr->vsc_header_byte2 = 0x05;
 	hdr->vsc_header_byte3 = 0x13;
 
-	hdr->vscext_header_byte0 = 0x00;
-	hdr->vscext_header_byte1 = 0x87;
-	hdr->vscext_header_byte2 = 0x1D;
-	hdr->vscext_header_byte3 = 0x13 << 2;
+	hdr->shdr_header_byte0 = 0x00;
+	hdr->shdr_header_byte1 = 0x87;
+	hdr->shdr_header_byte2 = 0x1D;
+	hdr->shdr_header_byte3 = 0x13 << 2;
 
 	/* VSC SDP Payload for DB16 */
 	hdr->pixel_encoding = RGB;
@@ -2586,7 +2580,10 @@ static int dp_panel_setup_hdr(struct dp_panel *dp_panel,
 		memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 cached:
 	if (dhdr_update) {
-		hdr->vscext_header_byte2 |= SEQ_INCREMENT_FOR_CHAINED_PACKETS;
+		hdr->vscext_header_byte0 = 0x00;
+		hdr->vscext_header_byte1 = 0x81;
+		hdr->vscext_header_byte2 = 0x1D;
+		hdr->vscext_header_byte3 = 0x13 << 2;
 
 		input.mdp_clk = core_clk_rate;
 		input.lclk = dp_panel->link_info.rate;
@@ -2603,11 +2600,8 @@ cached:
 		panel->catalog->stream_id = dp_panel->stream_id;
 		panel->catalog->config_hdr(panel->catalog, panel->hdr_state,
 				max_pkts);
-		if (dhdr_update) {
+		if (dhdr_update)
 			panel->catalog->dhdr_flush(panel->catalog);
-			hdr->vscext_header_byte2 &=
-					~SEQ_INCREMENT_FOR_CHAINED_PACKETS;
-		}
 	}
 end:
 	return rc;
