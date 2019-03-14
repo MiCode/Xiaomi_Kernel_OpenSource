@@ -187,6 +187,13 @@ struct bio {
 		struct bio_integrity_payload *bi_integrity; /* data integrity */
 #endif
 	};
+#ifdef CONFIG_PFK
+	/* Encryption key to use (NULL if none) */
+	const struct blk_encryption_key	*bi_crypt_key;
+#endif
+#ifdef CONFIG_DM_DEFAULT_KEY
+	int bi_crypt_skip;
+#endif
 
 	unsigned short		bi_vcnt;	/* how many bio_vec's */
 
@@ -201,7 +208,9 @@ struct bio {
 	struct bio_vec		*bi_io_vec;	/* the actual vec list */
 
 	struct bio_set		*bi_pool;
-
+#ifdef CONFIG_PFK
+	struct inode		*bi_dio_inode;
+#endif
 	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member
@@ -324,6 +333,11 @@ enum req_flag_bits {
 
 	__REQ_SORTED = __REQ_RAHEAD, /* elevator knows about this request */
 	__REQ_URGENT,		/* urgent request */
+	/* Android specific flags */
+	__REQ_NOENCRYPT,	/*
+				 * ok to not encrypt (already encrypted at fs
+				 * level)
+				 */
 	/* command specific flags for REQ_OP_WRITE_ZEROES: */
 	__REQ_NOUNMAP,		/* do not free blocks when zeroing */
 
@@ -348,6 +362,7 @@ enum req_flag_bits {
 #define REQ_RAHEAD		(1ULL << __REQ_RAHEAD)
 #define REQ_BACKGROUND		(1ULL << __REQ_BACKGROUND)
 #define REQ_NOWAIT		(1ULL << __REQ_NOWAIT)
+#define REQ_NOENCRYPT		(1ULL << __REQ_NOENCRYPT)
 
 #define REQ_NOUNMAP		(1ULL << __REQ_NOUNMAP)
 

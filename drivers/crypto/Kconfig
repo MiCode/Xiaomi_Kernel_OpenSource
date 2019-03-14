@@ -762,4 +762,8 @@ config CRYPTO_DEV_CCREE
 
 source "drivers/crypto/hisilicon/Kconfig"
 
+if ARCH_QCOM
+source drivers/crypto/msm/Kconfig
+endif
+
 endif # CRYPTO_HW
