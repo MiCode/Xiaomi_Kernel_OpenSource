@@ -382,6 +382,8 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 
 #define  HFI_CMD_SESSION_CVP_DME_CONFIG\
 	(HFI_CMD_SESSION_CVP_START + 0x039)
+#define  HFI_CMD_SESSION_CVP_DME_BASIC_CONFIG\
+	(HFI_CMD_SESSION_CVP_START + 0x03B)
 #define  HFI_CMD_SESSION_CVP_DME_FRAME\
 	(HFI_CMD_SESSION_CVP_START + 0x03A)
 

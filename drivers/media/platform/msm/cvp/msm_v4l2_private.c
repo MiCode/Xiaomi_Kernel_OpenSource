@@ -28,6 +28,25 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	return 0;
 }
 
+static int _get_fence_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
+		struct cvp_hal_session_cmd_pkt *pkt_hdr)
+{
+	struct cvp_kmd_hfi_fence_packet *u;
+
+	u = &up->data.hfi_fence_pkt;
+
+	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
+		return -EFAULT;
+
+	pkt_hdr->size = (MAX_HFI_FENCE_OFFSET + MAX_HFI_FENCE_SIZE)
+			* sizeof(unsigned int);
+
+	if (pkt_hdr->size > (MAX_HFI_PKT_SIZE*sizeof(unsigned int)))
+		return -EINVAL;
+
+	return 0;
+}
+
 /* Size is in unit of u32 */
 static int _copy_pkt_from_user(struct cvp_kmd_arg *kp,
 		struct cvp_kmd_arg __user *up,
@@ -45,6 +64,27 @@ static int _copy_pkt_from_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
+/* Size is in unit of u32 */
+static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_fence_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_fence_pkt;
+	u = &up->data.hfi_fence_pkt;
+	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
+		if (get_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+	}
+	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
+		if (get_user(k->fence_data[i], &u->fence_data[i]))
+			return -EFAULT;
+	}
+	return 0;
+}
+
 static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
 		struct cvp_kmd_arg __user *up,
 		unsigned int size)
@@ -58,6 +98,26 @@ static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
 		if (put_user(k->pkt_data[i], &u->pkt_data[i]))
 			return -EFAULT;
 
+	return 0;
+}
+
+static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_fence_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_fence_pkt;
+	u = &up->data.hfi_fence_pkt;
+	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
+		if (put_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+	}
+	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
+		if (put_user(k->fence_data[i], &u->fence_data[i]))
+			return -EFAULT;
+	}
 	return 0;
 }
 
@@ -176,7 +236,19 @@ static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		rc = _copy_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
+	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
+	{
+		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr)) {
+			dprintk(CVP_ERR, "Invalid syscall: %x, %x, %x\n",
+				kp->type, pkt_hdr.size, pkt_hdr.packet_type);
+			return -EFAULT;
+		}
 
+		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_fence_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
+		break;
+	}
 	case CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE:
 	case CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE:
 	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
@@ -309,6 +381,16 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
 		rc = _copy_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
+		break;
+	}
+	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
+	{
+		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr))
+			return -EFAULT;
+
+		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_fence_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
 	default:

@@ -880,6 +880,9 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	case HFI_CMD_SESSION_CVP_DME_CONFIG:
 		info->response_type = HAL_SESSION_DME_CONFIG_CMD_DONE;
 		break;
+	case HFI_CMD_SESSION_CVP_DME_BASIC_CONFIG:
+		info->response_type = HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE;
+		break;
 	default:
 		dprintk(CVP_ERR, "%s Invalid op config id\n", __func__);
 		return -EINVAL;
