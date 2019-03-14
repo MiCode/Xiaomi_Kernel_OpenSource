@@ -1229,13 +1229,13 @@ static void uaudio_qmi_bye_cb(struct qmi_handle *handle, unsigned int node)
 {
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 
-	uaudio_dbg("client node:%x\n", node);
 	if (svc->uaudio_svc_hdl != handle) {
 		uaudio_err("handle mismatch\n");
 		return;
 	}
 
 	if (svc->client_connected && svc->client_sq.sq_node == node) {
+		uaudio_dbg("node:\n", node);
 		queue_work(svc->uaudio_wq, &svc->qmi_disconnect_work);
 		svc->client_sq.sq_node = 0;
 		svc->client_sq.sq_port = 0;
@@ -1249,7 +1249,6 @@ static void uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
 {
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 
-	uaudio_dbg("client node:%x port:%x\n", node, port);
 	if (svc->uaudio_svc_hdl != handle) {
 		uaudio_err("handle mismatch\n");
 		return;
@@ -1257,6 +1256,7 @@ static void uaudio_qmi_svc_disconnect_cb(struct qmi_handle *handle,
 
 	if (svc->client_connected && svc->client_sq.sq_node == node &&
 			svc->client_sq.sq_port == port) {
+		uaudio_dbg("client node:%x port:%x\n", node, port);
 		queue_work(svc->uaudio_wq, &svc->qmi_disconnect_work);
 		svc->client_sq.sq_node = 0;
 		svc->client_sq.sq_port = 0;
