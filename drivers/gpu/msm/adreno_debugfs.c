@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,7 +132,7 @@ static void sync_event_print(struct seq_file *s,
 {
 	switch (sync_event->type) {
 	case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP: {
-		seq_printf(s, "sync: ctx: %d ts: %d",
+		seq_printf(s, "sync: ctx: %u ts: %u",
 				sync_event->context->id, sync_event->timestamp);
 		break;
 	}
@@ -231,7 +231,7 @@ static void cmdobj_print(struct seq_file *s,
 	else
 		seq_puts(s, " markerobj ");
 
-	seq_printf(s, "\t %d ", drawobj->timestamp);
+	seq_printf(s, "\t %u ", drawobj->timestamp);
 
 	seq_puts(s, " priv: ");
 	print_flags(s, cmdobj_priv, ARRAY_SIZE(cmdobj_priv),
@@ -276,7 +276,7 @@ static int ctx_print(struct seq_file *s, void *unused)
 	struct kgsl_event *event;
 	unsigned int queued = 0, consumed = 0, retired = 0;
 
-	seq_printf(s, "id: %d type: %s priority: %d process: %s (%d) tid: %d\n",
+	seq_printf(s, "id: %u type: %s priority: %d process: %s (%d) tid: %d\n",
 		   drawctxt->base.id,
 		   ctx_type_str(drawctxt->type),
 		   drawctxt->base.priority,
