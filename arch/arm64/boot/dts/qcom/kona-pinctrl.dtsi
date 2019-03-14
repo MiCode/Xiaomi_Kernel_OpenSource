@@ -3852,5 +3852,14 @@
 				};
 			};
 		};
+
+		usb2_id_det_default: usb2_id_det_default {
+			config {
+				pins = "gpio91";
+				function = "gpio";
+				input-enable;
+				bias-pull-up;
+			};
+		};
 	};
 };
