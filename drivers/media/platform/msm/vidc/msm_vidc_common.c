@@ -96,13 +96,10 @@ int vp9_level_v4l2_to_hfi[] = {
 
 int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id)
 {
-	int rc = 0;
-	struct v4l2_control ctrl = {
-		.id = id,
-	};
+	struct v4l2_ctrl *ctrl;
 
-	rc = msm_comm_g_ctrl(inst, &ctrl);
-	return rc ? rc : ctrl.value;
+	ctrl = get_ctrl(inst, id);
+	return ctrl->val;
 }
 
 static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,

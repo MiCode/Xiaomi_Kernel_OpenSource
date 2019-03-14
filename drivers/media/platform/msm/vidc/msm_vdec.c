@@ -67,9 +67,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDEO_UNKNOWN,
 		.name = "Invalid control",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = INT_MAX,
-		.maximum = INT_MAX,
-		.default_value = INT_MAX,
+		.minimum = 0,
+		.maximum = 0,
+		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -835,7 +835,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		return -EINVAL;
 	}
 
-	v4l2_ctrl_unlock(ctrl);
 	dprintk(VIDC_DBG,
 		"%s: %x : control name = %s, id = 0x%x value = %d\n",
 		__func__, hash32_ptr(inst->session), ctrl->name,
@@ -925,7 +924,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			"Unknown control %#x\n", ctrl->id);
 		break;
 	}
-	v4l2_ctrl_lock(ctrl);
 
 	return rc;
 }
