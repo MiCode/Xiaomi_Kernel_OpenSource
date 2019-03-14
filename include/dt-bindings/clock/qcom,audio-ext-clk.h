@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __AUDIO_EXT_CLK_H
@@ -15,5 +15,6 @@
 #define AUDIO_LPASS_MCLK_5	6
 #define AUDIO_LPASS_MCLK_6	7
 #define AUDIO_LPASS_MCLK_7	8
+#define AUDIO_LPASS_CORE_HW_VOTE	9
 
 #endif
