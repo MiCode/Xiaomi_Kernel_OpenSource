@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -164,7 +164,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	uint32_t                *cmd_buf = NULL;
 	struct cam_csiphy_info  *cam_cmd_csiphy_info = NULL;
-	size_t                  len = 0;
+	size_t                  len;
 
 	if (!cfg_dev || !csiphy_dev) {
 		CAM_ERR(CAM_CSIPHY, "Invalid Args");
@@ -576,6 +576,14 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		struct cam_csiphy_acquire_dev_info csiphy_acq_params;
 
 		struct cam_create_dev_hdl bridge_params;
+
+		if (csiphy_dev->csiphy_state == CAM_CSIPHY_START) {
+			CAM_ERR(CAM_CSIPHY,
+				"Not in right state to acquire : %d",
+				csiphy_dev->csiphy_state);
+			rc = -EINVAL;
+			goto release_mutex;
+		}
 
 		rc = copy_from_user(&csiphy_acq_dev,
 			u64_to_user_ptr(cmd->handle),

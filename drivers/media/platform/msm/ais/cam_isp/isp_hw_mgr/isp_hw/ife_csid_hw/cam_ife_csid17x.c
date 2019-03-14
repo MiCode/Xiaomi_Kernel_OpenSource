@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include "cam_ife_csid_core.h"
 #include "cam_ife_csid170.h"
 #include "cam_ife_csid175.h"
+#include "cam_ife_csid175_200.h"
 #include "cam_ife_csid_dev.h"
 
 #define CAM_CSID_DRV_NAME                    "csid_17x"
@@ -31,6 +32,11 @@ static struct cam_ife_csid_hw_info cam_ife_csid175_hw_info = {
 	.hw_dts_version = CAM_CSID_VERSION_V175,
 };
 
+static struct cam_ife_csid_hw_info cam_ife_csid175_200_hw_info = {
+	.csid_reg = &cam_ife_csid_175_200_reg_offset,
+	.hw_dts_version = CAM_CSID_VERSION_V175,
+};
+
 static const struct of_device_id cam_ife_csid17x_dt_match[] = {
 	{
 		.compatible = "qcom,csid170",
@@ -39,6 +45,10 @@ static const struct of_device_id cam_ife_csid17x_dt_match[] = {
 	{
 		.compatible = "qcom,csid175",
 		.data = &cam_ife_csid175_hw_info,
+	},
+	{
+		.compatible = "qcom,csid175_200",
+		.data = &cam_ife_csid175_200_hw_info,
 	},
 	{}
 };
