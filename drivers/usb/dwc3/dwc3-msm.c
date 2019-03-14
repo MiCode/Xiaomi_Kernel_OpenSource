@@ -936,6 +936,11 @@ static int gsi_startxfer_for_ep(struct usb_ep *ep)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3	*dwc = dep->dwc;
 
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		dbg_log_string("ep:%s disabled\n", ep->name);
+		return -ESHUTDOWN;
+	}
+
 	memset(&params, 0, sizeof(params));
 	params.param0 = GSI_TRB_ADDR_BIT_53_MASK | GSI_TRB_ADDR_BIT_55_MASK;
 	params.param0 |= (ep->ep_intr_num << 16);
@@ -1110,6 +1115,11 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 					: (req->num_bufs + 2);
 	struct scatterlist *sg;
 	struct sg_table *sgt;
+
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		dbg_log_string("ep:%s disabled\n", ep->name);
+		return -ESHUTDOWN;
+	}
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
