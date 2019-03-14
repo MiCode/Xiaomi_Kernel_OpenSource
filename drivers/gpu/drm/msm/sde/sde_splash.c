@@ -29,6 +29,7 @@
 #include "sde_hdmi.h"
 #include "sde_crtc.h"
 #include "sde_plane.h"
+#include "sde_shd.h"
 
 #define MDP_SSPP_TOP0_OFF		0x1000
 #define DISP_INTF_SEL			0x004
@@ -417,6 +418,42 @@ _sde_splash_release_early_splash_layer(struct sde_splash_info *splash_info)
 	}
 }
 
+static bool _sde_splash_check_splash(int connector_type,
+				void *display,
+				bool connector_is_shared)
+{
+	struct dsi_display *dsi_display;
+	struct sde_hdmi *sde_hdmi;
+	struct shd_display *shd_display;
+	bool splash_on = false;
+
+	switch (connector_type) {
+	case DRM_MODE_CONNECTOR_HDMIA:
+		if (connector_is_shared) {
+			shd_display = (struct shd_display *)display;
+			splash_on = shd_display->cont_splash_enabled;
+		} else {
+			sde_hdmi = (struct sde_hdmi *)display;
+			splash_on = sde_hdmi->cont_splash_enabled;
+		}
+		break;
+	case DRM_MODE_CONNECTOR_DSI:
+		if (connector_is_shared) {
+			shd_display = (struct shd_display *)display;
+			splash_on = shd_display->cont_splash_enabled;
+		} else {
+			dsi_display = (struct dsi_display *)display;
+			splash_on = dsi_display->cont_splash_enabled;
+		}
+		break;
+	default:
+		SDE_ERROR("%s:invalid connector_type %d\n",
+		__func__, connector_type);
+	}
+
+	return splash_on;
+}
+
 __ref int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -719,8 +756,14 @@ static bool _sde_splash_get_panel_intf_status(struct sde_splash_info *sinfo,
 }
 
 int sde_splash_setup_display_resource(struct sde_splash_info *sinfo,
-					void *disp, int connector_type)
+					void *disp, int connector_type,
+					bool display_is_shared)
 {
+	struct dsi_display *dsi_display;
+	struct sde_hdmi *sde_hdmi;
+	struct shd_display *shd_display;
+	bool splash_is_on;
+
 	if (!sinfo || !disp)
 		return -EINVAL;
 
@@ -729,47 +772,161 @@ int sde_splash_setup_display_resource(struct sde_splash_info *sinfo,
 		return 0;
 
 	if (connector_type == DRM_MODE_CONNECTOR_DSI) {
-		struct dsi_display *display = (struct dsi_display *)disp;
-
-		display->cont_splash_enabled =
-			_sde_splash_get_panel_intf_status(sinfo,
-					display->name,
+		if (display_is_shared) {
+			shd_display = (struct shd_display *)disp;
+			shd_display->cont_splash_enabled =
+				_sde_splash_get_panel_intf_status(sinfo,
+					shd_display->name, connector_type);
+			splash_is_on = shd_display->cont_splash_enabled;
+		} else {
+			dsi_display = (struct dsi_display *)disp;
+			dsi_display->cont_splash_enabled =
+				_sde_splash_get_panel_intf_status(sinfo,
+					dsi_display->name,
 					connector_type);
+			splash_is_on = dsi_display->cont_splash_enabled;
 
-		DRM_INFO("DSI splash %s\n",
-		display->cont_splash_enabled ? "enabled" : "disabled");
-
-		if (display->cont_splash_enabled) {
-			if (dsi_dsiplay_setup_splash_resource(display))
-				return -EINVAL;
+			if (dsi_display->cont_splash_enabled) {
+				if (dsi_dsiplay_setup_splash_resource(
+							dsi_display))
+					return -EINVAL;
+			}
 		}
+
+		DRM_INFO("DSI %s splash %s\n",
+			display_is_shared ? "shared" : "normal",
+			splash_is_on ? "enabled" : "disabled");
 	} else if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
-		struct sde_hdmi *sde_hdmi = (struct sde_hdmi *)disp;
-
-		sde_hdmi->cont_splash_enabled =
-			_sde_splash_get_panel_intf_status(sinfo,
+		if (display_is_shared) {
+			shd_display = (struct shd_display *)disp;
+			shd_display->cont_splash_enabled =
+				_sde_splash_get_panel_intf_status(sinfo,
 					NULL, connector_type);
+			splash_is_on = shd_display->cont_splash_enabled;
+		} else {
+			sde_hdmi = (struct sde_hdmi *)disp;
+			sde_hdmi->cont_splash_enabled =
+				_sde_splash_get_panel_intf_status(sinfo,
+					NULL, connector_type);
+			splash_is_on = sde_hdmi->cont_splash_enabled;
+		}
 
-		DRM_INFO("HDMI splash %s\n",
-		sde_hdmi->cont_splash_enabled ? "enabled" : "disabled");
+		DRM_INFO("HDMI %s splash %s\n",
+			display_is_shared ? "shared" : "normal",
+			splash_is_on ? "enabled" : "disabled");
 	}
 
 	return 0;
 }
 
 void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
-					int connector_type)
+					int connector_type,
+					void *display,
+					bool connector_is_shared)
 {
+	bool splash_on = false;
+
+	if (!sinfo || !display)
+		return;
+
+	splash_on = _sde_splash_check_splash(connector_type,
+				display, connector_is_shared);
+
 	switch (connector_type) {
 	case DRM_MODE_CONNECTOR_HDMIA:
-		sinfo->hdmi_connector_cnt++;
+		if (splash_on)
+			sinfo->hdmi_connector_cnt++;
 		break;
 	case DRM_MODE_CONNECTOR_DSI:
-		sinfo->dsi_connector_cnt++;
+		if (splash_on)
+			sinfo->dsi_connector_cnt++;
 		break;
 	default:
-		SDE_ERROR("invalid connector_type %d\n", connector_type);
+		SDE_ERROR("%s:invalid connector_type %d\n",
+			__func__, connector_type);
 	}
+}
+
+void sde_splash_decrease_connector_cnt(struct drm_device *dev,
+			int connector_type, bool splash_on)
+{
+	struct msm_drm_private *priv = dev->dev_private;
+	struct sde_kms *sde_kms;
+	struct sde_splash_info *sinfo;
+
+	if (!priv || !priv->kms) {
+		SDE_ERROR("Invalid kms\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	sinfo = &sde_kms->splash_info;
+
+	if (!sinfo->handoff || !splash_on)
+		return;
+
+	switch (connector_type) {
+	case DRM_MODE_CONNECTOR_HDMIA:
+		sinfo->hdmi_connector_cnt--;
+		break;
+	case DRM_MODE_CONNECTOR_DSI:
+		sinfo->dsi_connector_cnt--;
+		break;
+	default:
+		SDE_ERROR("%s: invalid connector_type %d\n",
+			__func__, connector_type);
+	}
+}
+
+void sde_splash_get_mixer_mask(
+	const struct splash_reserved_pipe_info *resv_pipes,
+	u32 length, u32 *mixercfg, u32 *mixercfg_ext)
+{
+	int i = 0;
+	u32 mixer_mask = 0;
+	u32 mixer_ext_mask = 0;
+
+	for (i = 0; i < length; i++) {
+		switch (resv_pipes[i].pipe_id) {
+		case SSPP_VIG0:
+			mixer_mask |= 0x7 << 0;
+			mixer_ext_mask |= BIT(0);
+			break;
+		case SSPP_VIG1:
+			mixer_mask |= 0x7 << 3;
+			mixer_ext_mask |= BIT(2);
+			break;
+		case SSPP_VIG2:
+			mixer_mask |= 0x7 << 6;
+			mixer_ext_mask |= BIT(4);
+			break;
+		case SSPP_VIG3:
+			mixer_mask |= 0x7 << 26;
+			mixer_ext_mask |= BIT(6);
+			break;
+		case SSPP_RGB0:
+			mixer_mask |= 0x7 << 9;
+			mixer_ext_mask |= BIT(8);
+			break;
+		case SSPP_RGB1:
+			mixer_mask |= 0x7 << 12;
+			mixer_ext_mask |= BIT(10);
+			break;
+		case SSPP_RGB2:
+			mixer_mask |= 0x7 << 15;
+			mixer_ext_mask |= BIT(12);
+			break;
+		case SSPP_RGB3:
+			mixer_mask |= 0x7 << 29;
+			mixer_ext_mask |= BIT(14);
+			break;
+		default:
+			break;
+		}
+	}
+
+	*mixercfg = mixer_mask;
+	*mixercfg_ext = mixer_ext_mask;
 }
 
 bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
@@ -797,19 +954,24 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
 
 int sde_splash_free_resource(struct msm_kms *kms,
 			struct sde_power_handle *phandle,
-			int connector_type, void *display)
+			int connector_type, void *display,
+			bool connector_is_shared)
 {
 	struct sde_kms *sde_kms;
 	struct sde_splash_info *sinfo;
 	struct msm_mmu *mmu;
-	struct dsi_display *dsi_display = display;
+	struct dsi_display *dsi_display;
+	struct sde_hdmi *hdmi_display;
+	struct shd_display *shd_display;
+	const char *disp_type;
 	int ret = 0;
 	int hdmi_conn_count = 0;
 	int dsi_conn_count = 0;
-	static const char *last_commit_display_type = "unknown";
+	static const char *dsi_old_disp_type = "unknown";
+	static const char *hdmi_old_disp_type = "unknown";
 
-	if (!phandle || !kms) {
-		SDE_ERROR("invalid phandle/kms.\n");
+	if (!phandle || !kms || !display) {
+		SDE_ERROR("invalid phandle/kms/display\n");
 		return -EINVAL;
 	}
 
@@ -820,7 +982,7 @@ int sde_splash_free_resource(struct msm_kms *kms,
 		return -EINVAL;
 	}
 
-	/* Get connector number where the early splash in on. */
+	/* Get ref count of connector who has early splash. */
 	_sde_splash_get_connector_ref_cnt(sinfo, &hdmi_conn_count,
 						&dsi_conn_count);
 
@@ -883,17 +1045,37 @@ int sde_splash_free_resource(struct msm_kms *kms,
 	 */
 	switch (connector_type) {
 	case DRM_MODE_CONNECTOR_HDMIA:
-		if (sinfo->hdmi_connector_cnt == 1)
-			sinfo->hdmi_connector_cnt--;
+		if (connector_is_shared) {
+			shd_display = (struct shd_display *)display;
+			disp_type = shd_display->display_type;
+		} else {
+			hdmi_display = (struct sde_hdmi *)display;
+			disp_type = hdmi_display->display_type;
+		}
+
+		if (strcmp(disp_type, "unknown") &&
+			strcmp(hdmi_old_disp_type, disp_type)) {
+			if (sinfo->hdmi_connector_cnt >= 1)
+				sinfo->hdmi_connector_cnt--;
+
+			hdmi_old_disp_type = disp_type;
+		}
 		break;
 	case DRM_MODE_CONNECTOR_DSI:
-		if (strcmp(dsi_display->display_type, "unknown") &&
-			strcmp(last_commit_display_type,
-				dsi_display->display_type)) {
+		if (connector_is_shared) {
+			shd_display = (struct shd_display *)display;
+			disp_type = shd_display->display_type;
+		} else {
+			dsi_display = (struct dsi_display *)display;
+			disp_type = dsi_display->display_type;
+		}
+
+		if (strcmp(disp_type, "unknown") &&
+			strcmp(dsi_old_disp_type, disp_type)) {
 			if (sinfo->dsi_connector_cnt >= 1)
 				sinfo->dsi_connector_cnt--;
 
-			last_commit_display_type = dsi_display->display_type;
+			dsi_old_disp_type = disp_type;
 		}
 		break;
 	default:

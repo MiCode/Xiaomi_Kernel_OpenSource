@@ -689,7 +689,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		}
 
 		rc = sde_splash_setup_display_resource(&sde_kms->splash_info,
-					display, DRM_MODE_CONNECTOR_DSI);
+					display, DRM_MODE_CONNECTOR_DSI, false);
 		if (rc) {
 			SDE_ERROR("dsi %d splash resource setup failed %d\n",
 									i, rc);
@@ -790,7 +790,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		}
 
 		rc = sde_splash_setup_display_resource(&sde_kms->splash_info,
-				display, DRM_MODE_CONNECTOR_HDMIA);
+				display, DRM_MODE_CONNECTOR_HDMIA, false);
 		if (rc) {
 			SDE_ERROR("hdmi %d splash resource setup failed %d\n",
 									i, rc);
@@ -838,6 +838,15 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		encoder = sde_encoder_init(dev, &info);
 		if (IS_ERR_OR_NULL(encoder)) {
 			SDE_ERROR("shd encoder init failed %d\n", i);
+			continue;
+		}
+
+		rc = sde_splash_setup_display_resource(&sde_kms->splash_info,
+			display, info.intf_type, true);
+		if (rc) {
+			SDE_ERROR("shared %d splash res setup failed %d\n",
+					i, rc);
+			sde_encoder_destroy(encoder);
 			continue;
 		}
 

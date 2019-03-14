@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include "sde_encoder.h"
 #include "sde_crtc.h"
 #include "sde_shd.h"
+#include "sde_splash.h"
 
 #define SHD_DEBUG(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
 
@@ -344,8 +345,18 @@ static void shd_display_enable(struct shd_display *display)
 
 	display->enabled = true;
 
-	if (!base->enabled)
+	if (!base->enabled) {
 		shd_display_enable_base(dev, base);
+		/*
+		 * Since base display is enabled, and it's marked to have
+		 * splash on, but it's not available to user. So for early
+		 * splash case, it's needed to update total registered
+		 * connector number to reflect the true case to make handoff
+		 * can finish.
+		 */
+		sde_splash_decrease_connector_cnt(dev, base->connector_type,
+						display->cont_splash_enabled);
+	}
 
 	mutex_unlock(&base->base_mutex);
 }

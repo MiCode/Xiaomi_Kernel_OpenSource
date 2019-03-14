@@ -628,7 +628,8 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 
 		sde_splash_free_resource(priv->kms, &priv->phandle,
 					c_conn->connector_type,
-					c_conn->display);
+					c_conn->display,
+					c_conn->is_shared);
 	}
 
 }
@@ -1003,7 +1004,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	sinfo = &sde_kms->splash_info;
 	if (sinfo && sinfo->handoff)
-		sde_splash_setup_connector_count(sinfo, connector_type);
+		sde_splash_setup_connector_count(sinfo, connector_type,
+					display, c_conn->is_shared);
 
 	priv->connectors[priv->num_connectors++] = &c_conn->base;
 

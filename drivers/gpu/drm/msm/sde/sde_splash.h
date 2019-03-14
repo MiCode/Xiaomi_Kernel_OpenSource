@@ -88,7 +88,7 @@ struct sde_splash_info {
 	/* registered hdmi connector count */
 	uint32_t hdmi_connector_cnt;
 
-	/* registered dst connector count */
+	/* registered dsi connector count */
 	uint32_t dsi_connector_cnt;
 
 	/* reserved pipe info both for early RVC and early splash */
@@ -118,7 +118,8 @@ int sde_splash_init(struct sde_power_handle *phandle, struct msm_kms *kms);
  * To count connector numbers for DSI and HDMI respectively.
  */
 void sde_splash_setup_connector_count(struct sde_splash_info *sinfo,
-				int connector_type);
+				int connector_type, void *display,
+				bool connector_is_shared);
 
 /**
  * sde_splash_lk_stop_splash.
@@ -137,7 +138,8 @@ int sde_splash_lk_stop_splash(struct msm_kms *kms,
  */
 int sde_splash_free_resource(struct msm_kms *kms,
 			struct sde_power_handle *phandle,
-			int connector_type, void *display);
+			int connector_type, void *display,
+			bool connector_is_shared);
 
 /**
  * sde_splash_parse_memory_dt.
@@ -193,5 +195,24 @@ bool sde_splash_get_lk_complete_status(struct msm_kms *kms);
  * Setup display resource based on connector type.
  */
 int sde_splash_setup_display_resource(struct sde_splash_info *sinfo,
-				void *disp, int connector_type);
+				void *disp, int connector_type,
+				bool display_is_shared);
+
+/**
+ * sde_splash_decrease_connector_cnt()
+ *
+ * Decrease splash connector count when shared display configuration is enabled.
+ */
+void sde_splash_decrease_connector_cnt(struct drm_device *dev,
+				int connector_type,
+				bool splash_on);
+
+/**
+ * sde_splash_get_mixer_mask
+ *
+ * Get mask configuration of splash layer mixer.
+ */
+void sde_splash_get_mixer_mask(
+	const struct splash_reserved_pipe_info *resv_pipes,
+	u32 length, u32 *mixercfg, u32 *mixercfg_ext);
 #endif
