@@ -1,4 +1,4 @@
- /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,7 @@ struct apq8009_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_quin_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	struct snd_info_entry *codec_root;
+	bool wcd_mic_tri_state;
 };
 
 struct apq8009_wsa881x_dev_info {
@@ -1447,6 +1448,7 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 	struct apq8009_asoc_mach_data *pdata =
 		snd_soc_card_get_drvdata(card);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_codec *codec = rtd->codec;
 	int ret = 0, val = 0;
 
 	pr_debug("substream = %s  stream = %d",
@@ -1470,6 +1472,11 @@ static int msm_tdm_startup(struct snd_pcm_substream *substream)
 	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
 	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+		if (pdata->wcd_mic_tri_state) {
+			pr_debug("%s: set high impedance\n", __func__);
+			tasha_set_reset_high_impedance_mode(codec, true);
+		}
+
 		/* Configure mux for Primary TDM */
 		if (pdata->vaddr_gpio_mux_pcm_ctl) {
 			val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
@@ -1507,6 +1514,10 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_card *card = rtd->card;
+	struct apq8009_asoc_mach_data *pdata =
+		snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
 	switch (cpu_dai->id) {
@@ -1530,6 +1541,11 @@ static void msm_tdm_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s: gpio set cannot be de-activated %s\n",
 				__func__, "pri_tdm");
 			return;
+		}
+
+		if (pdata->wcd_mic_tri_state) {
+			pr_debug("%s: reset high impedance\n", __func__);
+			tasha_set_reset_high_impedance_mode(codec, false);
 		}
 
 		if (tdm_i2s_switch_enable >= 0)
@@ -2935,6 +2951,12 @@ static int apq8009_asoc_machine_probe(struct platform_device *pdev)
 			"qcom,tdm-mic-mute-enable",
 			pdev->dev.of_node->full_name);
 	}
+
+	pdata->wcd_mic_tri_state = of_property_read_bool(pdev->dev.of_node,
+					"qcom,wcd-mic-tristate");
+
+	pr_debug("%s: WCD mic tri state %d", __func__,
+			pdata->wcd_mic_tri_state);
 
 	return 0;
 err:
