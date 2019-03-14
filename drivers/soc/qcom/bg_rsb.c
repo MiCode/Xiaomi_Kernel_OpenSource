@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,13 +22,13 @@
 #include <linux/platform_device.h>
 #include <soc/qcom/glink.h>
 #include <linux/input.h>
+#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/regulator/consumer.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-
 #include "bgrsb.h"
 
 #define BGRSB_GLINK_INTENT_SIZE 0x04
@@ -841,7 +841,6 @@ static int split_bg_work(struct bgrsb_priv *dev, char *str)
 	}
 	return 0;
 }
-
 static int store_enable(struct device *pdev, struct device_attribute *attr,
 		const char *buff, size_t count)
 {
@@ -850,13 +849,16 @@ static int store_enable(struct device *pdev, struct device_attribute *attr,
 	char *arr = kstrdup(buff, GFP_KERNEL);
 
 	if (!arr)
-		goto err_ret;
+		return -ENOMEM;
+
+	if (!dev->is_cnfgrd) {
+		kfree(arr);
+		return -ENOMEDIUM;
+	}
 
 	rc = split_bg_work(dev, arr);
 	if (rc != 0)
 		pr_err("Not able to process request\n");
-
-err_ret:
 	return count;
 }
 
