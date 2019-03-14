@@ -1526,6 +1526,7 @@ static struct spi_driver qti_can_driver = {
 #ifdef CONFIG_PM
 		.pm = &qti_can_dev_pm_ops,
 #endif
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.probe = qti_can_probe,
 	.remove = qti_can_remove,
