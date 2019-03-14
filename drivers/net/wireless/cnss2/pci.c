@@ -836,6 +836,7 @@ int cnss_pci_dev_powerup(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		ret = cnss_qca6290_powerup(pci_priv);
 		break;
 	default:
@@ -862,6 +863,7 @@ int cnss_pci_dev_shutdown(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		ret = cnss_qca6290_shutdown(pci_priv);
 		break;
 	default:
@@ -914,6 +916,7 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		ret = cnss_qca6290_ramdump(pci_priv);
 		break;
 	default:
@@ -2569,7 +2572,11 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	mhi_ctrl->runtime_put = cnss_mhi_pm_runtime_put_noidle;
 
 	mhi_ctrl->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
-	mhi_ctrl->sbl_size = SZ_512K;
+	if (pci_priv->device_id == QCN7605_DEVICE_ID)
+		mhi_ctrl->sbl_size = SZ_256K;
+	else
+		mhi_ctrl->sbl_size = SZ_512K;
+
 	mhi_ctrl->seg_len = SZ_512K;
 	mhi_ctrl->fbc_download = true;
 
@@ -3023,6 +3030,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		setup_timer(&pci_priv->dev_rddm_timer,
 			    cnss_dev_rddm_timeout_hdlr,
 			    (unsigned long)pci_priv);
@@ -3105,6 +3113,7 @@ static const struct pci_device_id cnss_pci_id_table[] = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6290_VENDOR_ID, QCA6290_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6390_VENDOR_ID, QCA6390_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ QCN7605_VENDOR_ID, QCN7605_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID},
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);

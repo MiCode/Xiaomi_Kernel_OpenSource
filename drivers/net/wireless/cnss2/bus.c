@@ -52,6 +52,7 @@ enum cnss_dev_bus_type cnss_get_bus_type(struct cnss_plat_data *plat_priv)
 	case QCA6174_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		bus_type = CNSS_BUS_PCI;
 		break;
 	case QCN7605_COMPOSITE_DEVICE_ID:
@@ -429,4 +430,19 @@ int cnss_bus_update_status(struct cnss_plat_data *plat_priv,
 			    plat_priv->bus_type);
 		return -EINVAL;
 	}
+}
+
+int cnss_get_msi_assignment(struct cnss_plat_data *plat_priv,
+			    char *msi_name,
+			    int *num_vectors, u32 *user_base_data,
+			    u32 *base_vector)
+{
+	struct cnss_pci_data *pci_priv;
+
+	pci_priv = plat_priv->bus_priv;
+	return cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
+					    msi_name,
+					    num_vectors,
+					    user_base_data,
+					    base_vector);
 }
