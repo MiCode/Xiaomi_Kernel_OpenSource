@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,12 +88,12 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->supports_apps_hdlc_encoding,
 		driver->supports_apps_header_untagging,
 		driver->supports_sockets,
-		driver->logging_mode,
+		driver->logging_mode[0],
 		driver->rsp_buf_busy,
 		driver->hdlc_disabled,
 		driver->time_sync_enabled,
-		driver->md_session_mode,
-		driver->md_session_mask,
+		driver->md_session_mode[0],
+		driver->md_session_mask[0],
 		driver->uses_time_api,
 		driver->supports_pd_buffering);
 
@@ -245,7 +245,7 @@ static ssize_t diag_dbgfs_read_power(struct file *file, char __user *ubuf,
 		driver->num_dci_client,
 		driver->md_ws.ref_count,
 		driver->md_ws.copy_count,
-		driver->logging_mode,
+		driver->logging_mode[0],
 		driver->diag_dev->power.wakeup->active_count,
 		driver->diag_dev->power.wakeup->relax_count);
 
