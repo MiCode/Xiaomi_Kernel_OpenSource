@@ -559,6 +559,17 @@ void diag_pcie_connect_all(void)
 	}
 }
 
+void diag_pcie_connect_device(int id)
+{
+	struct diag_pcie_info *pcie_info = NULL;
+
+	pcie_info = &diag_pcie[id];
+	if (!atomic_read(&pcie_info->enabled))
+		return;
+	atomic_set(&pcie_info->diag_state, 1);
+	diag_pcie_connect(pcie_info);
+}
+
 static void diag_pcie_disconnect(struct diag_pcie_info *ch)
 {
 	if (!ch)
@@ -589,6 +600,17 @@ void diag_pcie_disconnect_all(void)
 		atomic_set(&pcie_info->diag_state, 0);
 		diag_pcie_disconnect(pcie_info);
 	}
+}
+
+void diag_pcie_disconnect_device(int id)
+{
+	struct diag_pcie_info *pcie_info = NULL;
+
+	pcie_info = &diag_pcie[id];
+	if (!atomic_read(&pcie_info->enabled))
+		return;
+	atomic_set(&pcie_info->diag_state, 0);
+	diag_pcie_disconnect(pcie_info);
 }
 
 void diag_pcie_close_work_fn(struct work_struct *work)
