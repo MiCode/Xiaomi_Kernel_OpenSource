@@ -4413,7 +4413,7 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 
 		snprintf(debug_name, sizeof(debug_name), "%s_reg",
 				blk_base->name);
-		debugfs_create_file(debug_name, 0600, debugfs_root, blk_base,
+		debugfs_create_file(debug_name, 0400, debugfs_root, blk_base,
 				&sde_reg_fops);
 	}
 
