@@ -211,6 +211,59 @@ static struct attribute_group cpu_isolated_attr_group = {
 
 #endif
 
+static ssize_t show_sched_load_boost(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t rc;
+	unsigned int boost;
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+
+	boost = per_cpu(sched_load_boost, cpuid);
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", boost);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_load_boost(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int err;
+	int boost;
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &boost);
+	if (err)
+		return err;
+
+	/*
+	 * -100 is low enough to cancel out CPU's load and make it near zro.
+	 * 1000 is close to the maximum value that cpu_util_freq_{walt,pelt}
+	 * can take without overflow.
+	 */
+	if (boost < -100 || boost > 1000)
+		return -EINVAL;
+
+	per_cpu(sched_load_boost, cpuid) = boost;
+
+	return count;
+}
+
+static DEVICE_ATTR(sched_load_boost, 0644,
+		   show_sched_load_boost,
+		   store_sched_load_boost);
+
+static struct attribute *sched_cpu_attrs[] = {
+	&dev_attr_sched_load_boost.attr,
+	NULL
+};
+
+static struct attribute_group sched_cpu_attr_group = {
+	.attrs = sched_cpu_attrs,
+};
+
 static const struct attribute_group *common_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
@@ -218,6 +271,7 @@ static const struct attribute_group *common_cpu_attr_groups[] = {
 #ifdef CONFIG_HOTPLUG_CPU
 	&cpu_isolated_attr_group,
 #endif
+	&sched_cpu_attr_group,
 	NULL
 };
 
@@ -228,6 +282,7 @@ static const struct attribute_group *hotplugable_cpu_attr_groups[] = {
 #ifdef CONFIG_HOTPLUG_CPU
 	&cpu_isolated_attr_group,
 #endif
+	&sched_cpu_attr_group,
 	NULL
 };
 
