@@ -102,12 +102,13 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmshrike-cdp-overlay.dtbo \
 		sdmshrike-mtp-overlay.dtbo
 
-sdmshrike-cdp-overlay.dtbo-base := sdmshrike.dtb
-sdmshrike-mtp-overlay.dtbo-base := sdmshrike.dtb
+sdmshrike-cdp-overlay.dtbo-base := sdmshrike.dtb sdmshrike-v2.dtb
+sdmshrike-mtp-overlay.dtbo-base := sdmshrike.dtb sdmshrike-v2.dtb
 else
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 	sdmshrike-mtp.dtb \
-	sdmshrike-cdp.dtb
+	sdmshrike-cdp.dtb \
+	sdmshrike-v2-mtp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
