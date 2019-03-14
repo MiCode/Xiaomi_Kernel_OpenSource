@@ -2683,6 +2683,193 @@
 		clock-names = "apb_pclk";
 	};
 
+	cti_gpu_m3: cti@6962000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6962000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-gpu_cortex_m3";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_gpu_isdb: cti@6961000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6961000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-gpu_isdb_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_iris: cti@6831000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6831000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-iris_dl_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_lpass: cti@6845000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6845000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-lpass_dl_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_lpass_lpi: cti@6b21000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b21000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-lpass_lpi_cti";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_lpass_q6: cti@6b2b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b2b000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-lpass_q6_cti";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_mdss: cti@6c61000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c61000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-mdss_dl_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_npu_dl0: cti@6c42000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c42000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-npu_dl_cti_0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_npu_dl1: cti@6c43000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c43000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-npu_dl_cti_1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_npu: cti@6c4b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c4b000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-npu_q6_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_titan: cti@6c13000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c13000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-sierra_a6_cti";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_sdc: cti@6b40000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b40000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ssc_cortex_m3";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_ssc0: cti@6b4b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b4b000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ssc_cti0_q6";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_ssc1: cti@6b41000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b41000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ssc_cti1";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_ssc4: cti@6b4e000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b4e000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ssc_cti_noc";
+		status = "disabled";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	cti0_swao:cti@6b00000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb966>;
@@ -2690,6 +2877,78 @@
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti-swao_cti0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_swao:cti@6b01000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b01000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-swao_cti1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti2_swao:cti@6b02000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b02000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-swao_cti2";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti3_swao:cti@6b03000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6b03000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-swao_cti3";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_turing:cti@6982000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6982000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-turing_dl_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_turing_q6:cti@698b000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x698b000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-turing_q6_cti";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_compute:cti@6c38000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x000bb966>;
+		reg = <0x6c38000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-compute_dl_cti";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
