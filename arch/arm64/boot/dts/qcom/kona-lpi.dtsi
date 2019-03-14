@@ -26,6 +26,9 @@
 					   <0x00000010>, <0x00000012>,
 					   <0x00000000>, <0x00000000>;
 
+		clock-names = "lpass_core_hw_vote";
+		clocks = <&lpass_core_hw_vote 0>;
+
 		quat_mi2s_sck {
 			quat_mi2s_sck_sleep: quat_mi2s_sck_sleep {
 				mux {
