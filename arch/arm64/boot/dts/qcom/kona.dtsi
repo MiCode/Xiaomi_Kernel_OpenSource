@@ -3247,9 +3247,8 @@
 
 	qcom,cnss-qca6390@a0000000 {
 		compatible = "qcom,cnss-qca6390";
-		reg = <0xa0000000 0x10000000>,
-		      <0xb0000000 0x10000>;
-		reg-names = "smmu_iova_base", "smmu_iova_ipa";
+		reg = <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_ipa";
 		wlan-en-gpio = <&tlmm 20 0>;
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
@@ -3375,7 +3374,16 @@
 
 	cnss_pci: cnss_pci {
 		reg = <0 0 0 0 0>;
-		qcom,iommu-dma = "disabled";
+		qcom,iommu-group = <&cnss_pci_iommu_group>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		cnss_pci_iommu_group: cnss_pci_iommu_group {
+			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+		};
 	};
 };
 
