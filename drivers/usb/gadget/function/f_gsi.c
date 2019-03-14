@@ -487,10 +487,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
 		d_port->in_request.num_bufs, d_port->in_request.buf_len);
 
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
-		GSI_EP_OP_PREPARE_TRBS);
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+			GSI_EP_OP_PREPARE_TRBS);
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 			GSI_EP_OP_STARTXFER);
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+				__func__, ret);
+		return ret;
+	}
+
 	d_port->in_xfer_rsc_index = usb_gsi_ep_op(d_port->in_ep, NULL,
 			GSI_EP_OP_GET_XFER_IDX);
 
@@ -533,10 +545,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		log_event_dbg("OUT: num_bufs:=%zu, buf_len=%zu\n",
 			d_port->out_request.num_bufs,
 			d_port->out_request.buf_len);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 			GSI_EP_OP_PREPARE_TRBS);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+					__func__, ret);
+			return ret;
+		}
+
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 				GSI_EP_OP_STARTXFER);
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+					__func__, ret);
+			return ret;
+		}
+
 		d_port->out_xfer_rsc_index =
 			usb_gsi_ep_op(d_port->out_ep,
 				NULL, GSI_EP_OP_GET_XFER_IDX);
