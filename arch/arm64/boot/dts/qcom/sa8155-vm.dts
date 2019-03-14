@@ -29,7 +29,3 @@
 &usb2_phy0 {
 	status = "ok";
 };
-
-&usb_qmp_dp_phy {
-	status = "ok";
-};
