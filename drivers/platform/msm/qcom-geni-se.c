@@ -1052,7 +1052,8 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 			}
 		}
 
-		rsc->ab = ab;
+		/* To reduce the higher ab values from individual drivers */
+		rsc->ab = ab/2;
 		rsc->ib = ab;
 		rsc->ab_noc = 0;
 		rsc->ib_noc = ib;
