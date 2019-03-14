@@ -41,6 +41,14 @@
 				<GIC_SPI 684 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH>;
 
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_GPU_TCU>,
+			<MSM_BUS_SLAVE_EBI_CH0>,
+			<0 0>,
+			<MSM_BUS_MASTER_GPU_TCU>,
+			<MSM_BUS_SLAVE_EBI_CH0>,
+			<0 1000>;
+
 		qcom,actlr =
 			/* All CBs of GFX: +15 deep PF */
 			<0x2 0x400 0x303>,
