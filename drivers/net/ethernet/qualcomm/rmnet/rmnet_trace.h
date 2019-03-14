@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,11 +54,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -91,21 +91,18 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
 	(rmnet_err,
-
 	 TP_PROTO(u8 func, u8 evt, u32 uint1, u32 uint2,
 		  u64 ulong1, u64 ulong2, void *ptr1, void *ptr2),
-
 	 TP_ARGS(func, evt, uint1, uint2, ulong1, ulong2, ptr1, ptr2),
-
 	 TP_STRUCT__entry(
 		__field(u8, func)
 		__field(u8, evt)
@@ -128,11 +125,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 /*****************************************************************************/
@@ -168,11 +165,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -205,11 +202,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -242,11 +239,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 /*****************************************************************************/
 /* Trace events for rmnet_shs module */
@@ -257,7 +254,8 @@ TRACE_EVENT
 	 TP_PROTO(u8 func, u8 evt, u32 uint1, u32 uint2,
 		  u64 ulong1, u64 ulong2, void *ptr1, void *ptr2),
 
-	 TP_ARGS(func, evt, uint1, uint2, ulong1, ulong2, ptr1, ptr2),
+	 TP_ARGS(func, evt, uint1, uint2,
+		 ulong1, ulong2, ptr1, ptr2),
 
 	 TP_STRUCT__entry(
 		__field(u8, func)
@@ -281,11 +279,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -318,11 +316,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -355,11 +353,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -392,11 +390,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -429,11 +427,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 
 TRACE_EVENT
@@ -466,11 +464,11 @@ TRACE_EVENT
 		__entry->ptr2 = ptr2;
 	 ),
 
-	 TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%lu ul2:%lu p1:0x%pK p2:0x%pK",
-		   __entry->func, __entry->evt,
-		   __entry->uint1, __entry->uint2,
-		   __entry->ulong1, __entry->ulong2,
-		   __entry->ptr1, __entry->ptr2)
+TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
+	  __entry->func, __entry->evt,
+	  __entry->uint1, __entry->uint2,
+	  __entry->ulong1, __entry->ulong2,
+	  __entry->ptr1, __entry->ptr2)
 )
 #endif /* _RMNET_TRACE_H_ */
 

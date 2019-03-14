@@ -3462,8 +3462,9 @@ static void sde_encoder_frame_done_callback(
 	unsigned int i;
 
 	if (!drm_enc || !sde_enc->cur_master) {
-		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
-				drm_enc, drm_enc ? sde_enc->cur_master : 0);
+		SDE_ERROR("invalid param: drm_enc %lx, cur_master %lx\n",
+			  (unsigned long)drm_enc, drm_enc ?
+			  (unsigned long)sde_enc->cur_master : 0);
 		return;
 	}
 

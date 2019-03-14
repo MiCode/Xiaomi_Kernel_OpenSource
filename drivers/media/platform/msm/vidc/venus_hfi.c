@@ -1366,7 +1366,7 @@ static int __set_clk_rate(struct venus_hfi_device *device,
 				"cx_ipeak_update failed! ipeak %pK\n", ipeak);
 			return rc;
 		}
-		dprintk(VIDC_PROF, "cx_ipeak_update: up, clk freq = %lu\n",
+		dprintk(VIDC_PROF, "cx_ipeak_update: up, clk freq = %u\n",
 			device->clk_freq);
 	}
 
@@ -1386,7 +1386,7 @@ static int __set_clk_rate(struct venus_hfi_device *device,
 			device->clk_freq = rate;
 			return rc;
 		}
-		dprintk(VIDC_PROF, "cx_ipeak_update: down, clk freq = %lu\n",
+		dprintk(VIDC_PROF, "cx_ipeak_update: down, clk freq = %u\n",
 			device->clk_freq);
 	}
 

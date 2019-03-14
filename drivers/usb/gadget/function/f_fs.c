@@ -1075,7 +1075,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 
 		spin_unlock_irq(&epfile->ffs->eps_lock);
 
-		ffs_log("queued %d bytes on %s", data_len, epfile->name);
+		ffs_log("queued %ld bytes on %s", data_len, epfile->name);
 
 		if (unlikely(wait_for_completion_interruptible(&done))) {
 			/*
@@ -1118,7 +1118,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			goto error_lock;
 		}
 
-		ffs_log("queued %d bytes on %s", data_len, epfile->name);
+		ffs_log("queued %ld bytes on %s", data_len, epfile->name);
 
 		ret = -EIOCBQUEUED;
 		/*

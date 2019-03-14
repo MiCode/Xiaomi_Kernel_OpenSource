@@ -2698,7 +2698,7 @@ int cam_req_mgr_schedule_request(
 
 	if (sched_req->req_id <= link->last_flush_id) {
 		CAM_INFO(CAM_CRM,
-			"request %d is flushed, last_flush_id to flush %lld",
+			"request %lld is flushed, last_flush_id to flush %d",
 			sched_req->req_id, link->last_flush_id);
 		rc = -EINVAL;
 		goto end;
