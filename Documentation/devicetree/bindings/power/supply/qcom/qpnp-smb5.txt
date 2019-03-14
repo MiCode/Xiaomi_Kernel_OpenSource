@@ -280,6 +280,31 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present disables USB-PD operation.
 
+- qcom,hw-die-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based thermal
+		mitigation.
+
+- qcom,hw-connector-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based
+		connector temperature mitigation.
+
+- qcom,hw-skin-temp-mitigation
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables h/w based skin
+		temperature mitigation.
+
+- qcom,connector-internal-pull-kohm
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies internal pull-up configuration to be applied to
+		connector THERM. The only valid values are (0/30/100/400).
+		If not specified 100K is used as default pull-up.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

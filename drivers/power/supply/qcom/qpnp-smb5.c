@@ -54,7 +54,7 @@ static struct smb_params smb5_pmi632_params = {
 	},
 	.icl_stat		= {
 		.name   = "input current limit status",
-		.reg    = AICL_ICL_STATUS_REG,
+		.reg    = ICL_STATUS_REG,
 		.min_u  = 0,
 		.max_u  = 3000000,
 		.step_u = 50000,
@@ -87,6 +87,22 @@ static struct smb_params smb5_pmi632_params = {
 		.max_u	= 1200,
 		.step_u	= 400,
 		.set_proc = smblib_set_chg_freq,
+	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 8800,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
 	},
 };
 
@@ -163,6 +179,22 @@ static struct smb_params smb5_pm8150b_params = {
 		.max_u	= 1200,
 		.step_u	= 400,
 		.set_proc = smblib_set_chg_freq,
+	},
+	.aicl_5v_threshold		= {
+		.name   = "AICL 5V threshold",
+		.reg    = USBIN_5V_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 4700,
+		.step_u = 100,
+	},
+	.aicl_cont_threshold		= {
+		.name   = "AICL CONT threshold",
+		.reg    = USBIN_CONT_AICL_THRESHOLD_REG,
+		.min_u  = 4000,
+		.max_u  = 11800,
+		.step_u = 100,
+		.get_proc = smblib_get_aicl_cont_threshold,
+		.set_proc = smblib_set_aicl_cont_threshold,
 	},
 };
 
@@ -251,6 +283,13 @@ static struct attribute *smb5_attrs[] = {
 };
 ATTRIBUTE_GROUPS(smb5);
 
+enum {
+	BAT_THERM = 0,
+	MISC_THERM,
+	CONN_THERM,
+	SMB_THERM,
+};
+
 #define PMI632_MAX_ICL_UA	3000000
 #define PM6150_MAX_FCC_UA	3000000
 static int smb5_chg_config_init(struct smb5 *chip)
@@ -295,6 +334,7 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		break;
 	case PMI632_SUBTYPE:
 		chip->chg.smb_version = PMI632_SUBTYPE;
+		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -321,6 +361,45 @@ static int smb5_chg_config_init(struct smb5 *chip)
 
 out:
 	of_node_put(revid_dev_node);
+	return rc;
+}
+
+#define PULL_NO_PULL	0
+#define PULL_30K	30
+#define PULL_100K	100
+#define PULL_400K	400
+static int get_valid_pullup(int pull_up)
+{
+	/* pull up can only be 0/30K/100K/400K) */
+	switch (pull_up) {
+	case PULL_NO_PULL:
+		return INTERNAL_PULL_NO_PULL;
+	case PULL_30K:
+		return INTERNAL_PULL_30K_PULL;
+	case PULL_100K:
+		return INTERNAL_PULL_100K_PULL;
+	case PULL_400K:
+		return INTERNAL_PULL_400K_PULL;
+	default:
+		return INTERNAL_PULL_100K_PULL;
+	}
+}
+
+#define INTERNAL_PULL_UP_MASK	0x3
+static int smb5_configure_internal_pull(struct smb_charger *chg, int type,
+					int pull)
+{
+	int rc;
+	int shift = type * 2;
+	u8 mask = INTERNAL_PULL_UP_MASK << shift;
+	u8 val = pull << shift;
+
+	rc = smblib_masked_write(chg, BATIF_ADC_INTERNAL_PULL_UP_REG,
+				mask, val);
+	if (rc < 0)
+		dev_err(chg->dev,
+			"Couldn't configure ADC pull-up reg rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -433,6 +512,19 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 		chg->uusb_moisture_protection_enabled =
 			of_property_read_bool(node,
 					"qcom,uusb-moisture-protection-enable");
+
+	chg->hw_die_temp_mitigation = of_property_read_bool(node,
+					"qcom,hw-die-temp-mitigation");
+
+	chg->hw_connector_mitigation = of_property_read_bool(node,
+					"qcom,hw-connector-mitigation");
+
+	chg->hw_skin_temp_mitigation = of_property_read_bool(node,
+					"qcom,hw-skin-temp-mitigation");
+
+	chg->connector_pull_up = -EINVAL;
+	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
+					&chg->connector_pull_up);
 
 	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
 					"qcom,disable-suspend-on-collapse");
@@ -623,6 +715,8 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
+	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -632,6 +726,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
+	val->intval = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -732,6 +827,16 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MOISTURE_DETECTED:
 		val->intval = chg->moisture_present;
+		break;
+	case POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED:
+		val->intval = !chg->flash_active;
+		break;
+	case POWER_SUPPLY_PROP_QC_OPTI_DISABLE:
+		if (chg->hw_die_temp_mitigation)
+			val->intval = POWER_SUPPLY_QC_THERMAL_BALANCE_DISABLE
+					| POWER_SUPPLY_QC_INOV_THERMAL_DISABLE;
+		if (chg->hw_connector_mitigation)
+			val->intval |= POWER_SUPPLY_QC_CTM_DISABLE;
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1026,6 +1131,7 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 {
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
+	union power_supply_propval pval = {0, };
 	int rc = 0;
 
 	switch (psp) {
@@ -1039,7 +1145,35 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		rc = smblib_set_icl_current(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
-		chg->flash_active = val->intval;
+		if ((chg->smb_version == PMI632_SUBTYPE)
+				&& (chg->flash_active != val->intval)) {
+			chg->flash_active = val->intval;
+
+			rc = smblib_get_prop_usb_present(chg, &pval);
+			if (rc < 0)
+				pr_err("Failed to get USB preset status rc=%d\n",
+						rc);
+			if (pval.intval) {
+				rc = smblib_force_vbus_voltage(chg,
+					chg->flash_active ? FORCE_5V_BIT
+								: IDLE_BIT);
+				if (rc < 0)
+					pr_err("Failed to force 5V\n");
+				else
+					chg->pulse_cnt = 0;
+			} else {
+				/* USB absent & flash not-active - vote 100mA */
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER,
+							true, SDP_100_MA);
+			}
+
+			pr_debug("flash active VBUS 5V restriction %s\n",
+				chg->flash_active ? "applied" : "removed");
+
+			/* Update userspace */
+			if (chg->batt_psy)
+				power_supply_changed(chg->batt_psy);
+		}
 		break;
 	case POWER_SUPPLY_PROP_TOGGLE_STAT:
 		rc = smblib_toggle_smb_en(chg, val->intval);
@@ -1462,10 +1596,11 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		rc = smblib_set_prop_ship_mode(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_RERUN_AICL:
-		rc = smblib_rerun_aicl(chg);
+		rc = smblib_run_aicl(chg, RERUN_AICL);
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
-		rc = smblib_dp_dm(chg, val->intval);
+		if (!chg->flash_active)
+			rc = smblib_dp_dm(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		rc = smblib_set_prop_input_current_limited(chg, val);
@@ -1802,30 +1937,37 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 	return rc;
 }
 
+#define RAW_ITERM(iterm_ma, max_range)				\
+		div_s64((int64_t)iterm_ma * ADC_CHG_ITERM_MASK, max_range)
 static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 {
 	u8 *buf;
 	int rc = 0;
-	s16 raw_hi_thresh, raw_lo_thresh;
+	s16 raw_hi_thresh, raw_lo_thresh, max_limit_ma;
 	struct smb_charger *chg = &chip->chg;
 
-	if (chip->dt.term_current_thresh_hi_ma < -10000 ||
-			chip->dt.term_current_thresh_hi_ma > 10000 ||
-			chip->dt.term_current_thresh_lo_ma < -10000 ||
-			chip->dt.term_current_thresh_lo_ma > 10000) {
+	if (chip->chg.smb_version == PMI632_SUBTYPE)
+		max_limit_ma = ITERM_LIMITS_PMI632_MA;
+	else
+		max_limit_ma = ITERM_LIMITS_PM8150B_MA;
+
+	if (chip->dt.term_current_thresh_hi_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_hi_ma > max_limit_ma
+		|| chip->dt.term_current_thresh_lo_ma < (-1 * max_limit_ma)
+		|| chip->dt.term_current_thresh_lo_ma > max_limit_ma) {
 		dev_err(chg->dev, "ITERM threshold out of range rc=%d\n", rc);
 		return -EINVAL;
 	}
 
 	/*
 	 * Conversion:
-	 *	raw (A) = (scaled_mA * ADC_CHG_TERM_MASK) / (10 * 1000)
+	 *	raw (A) = (term_current * ADC_CHG_ITERM_MASK) / max_limit_ma
 	 * Note: raw needs to be converted to big-endian format.
 	 */
 
 	if (chip->dt.term_current_thresh_hi_ma) {
-		raw_hi_thresh = ((chip->dt.term_current_thresh_hi_ma *
-						ADC_CHG_TERM_MASK) / 10000);
+		raw_hi_thresh = RAW_ITERM(chip->dt.term_current_thresh_hi_ma,
+					max_limit_ma);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
 		buf = (u8 *)&raw_hi_thresh;
 		raw_hi_thresh = buf[1] | (buf[0] << 8);
@@ -1840,8 +1982,8 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 	}
 
 	if (chip->dt.term_current_thresh_lo_ma) {
-		raw_lo_thresh = ((chip->dt.term_current_thresh_lo_ma *
-					ADC_CHG_TERM_MASK) / 10000);
+		raw_lo_thresh = RAW_ITERM(chip->dt.term_current_thresh_lo_ma,
+					max_limit_ma);
 		raw_lo_thresh = sign_extend32(raw_lo_thresh, 15);
 		buf = (u8 *)&raw_lo_thresh;
 		raw_lo_thresh = buf[1] | (buf[0] << 8);
@@ -1871,6 +2013,54 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 	}
 
 	return rc;
+}
+
+static int smb5_configure_mitigation(struct smb_charger *chg)
+{
+	int rc;
+	u8 chan = 0, src_cfg = 0;
+
+	if (!chg->hw_die_temp_mitigation && !chg->hw_connector_mitigation &&
+			!chg->hw_skin_temp_mitigation) {
+		src_cfg = THERMREG_SW_ICL_ADJUST_BIT;
+	} else {
+		if (chg->hw_die_temp_mitigation) {
+			chan = DIE_TEMP_CHANNEL_EN_BIT;
+			src_cfg = THERMREG_DIE_ADC_SRC_EN_BIT
+				| THERMREG_DIE_CMP_SRC_EN_BIT;
+		}
+
+		if (chg->hw_connector_mitigation) {
+			chan |= CONN_THM_CHANNEL_EN_BIT;
+			src_cfg |= THERMREG_CONNECTOR_ADC_SRC_EN_BIT;
+		}
+
+		if (chg->hw_skin_temp_mitigation) {
+			chan |= MISC_THM_CHANNEL_EN_BIT;
+			src_cfg |= THERMREG_SKIN_ADC_SRC_EN_BIT;
+		}
+
+		rc = smblib_masked_write(chg, BATIF_ADC_CHANNEL_EN_REG,
+			CONN_THM_CHANNEL_EN_BIT | DIE_TEMP_CHANNEL_EN_BIT |
+			MISC_THM_CHANNEL_EN_BIT, chan);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't enable ADC channel rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
+		THERMREG_SW_ICL_ADJUST_BIT | THERMREG_DIE_ADC_SRC_EN_BIT |
+		THERMREG_DIE_CMP_SRC_EN_BIT | THERMREG_SKIN_ADC_SRC_EN_BIT |
+		SKIN_ADC_CFG_BIT | THERMREG_CONNECTOR_ADC_SRC_EN_BIT, src_cfg);
+	if (rc < 0) {
+		dev_err(chg->dev,
+				"Couldn't configure THERM_SRC reg rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 static int smb5_init_dc_peripheral(struct smb_charger *chg)
@@ -1920,6 +2110,12 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
+	smblib_get_charge_param(chg, &chg->param.aicl_5v_threshold,
+				&chg->default_aicl_5v_threshold_mv);
+	chg->aicl_5v_threshold_mv = chg->default_aicl_5v_threshold_mv;
+	smblib_get_charge_param(chg, &chg->param.aicl_cont_threshold,
+				&chg->default_aicl_cont_threshold_mv);
+	chg->aicl_cont_threshold_mv = chg->default_aicl_cont_threshold_mv;
 
 	if (chg->charger_temp_max == -EINVAL) {
 		rc = smblib_get_thermal_threshold(chg,
@@ -1946,11 +2142,10 @@ static int smb5_init_hw(struct smb5 *chip)
 			return rc;
 		}
 	} else {
-		/* Allows software thermal regulation only */
-		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
-					 THERMREG_SW_ICL_ADJUST_BIT);
+		/* configure temperature mitigation */
+		rc = smb5_configure_mitigation(chg);
 		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure SMB thermal regulation rc=%d\n",
+			dev_err(chg->dev, "Couldn't configure mitigation rc=%d\n",
 					rc);
 			return rc;
 		}
@@ -2295,6 +2490,17 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 	}
 
+	if (chg->connector_pull_up != -EINVAL) {
+		rc = smb5_configure_internal_pull(chg, CONN_THERM,
+				get_valid_pullup(chg->connector_pull_up));
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure CONN_THERM pull-up rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	return rc;
 }
 
@@ -2466,10 +2672,12 @@ static struct smb_irq_info smb5_irqs[] = {
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= usbin_uv_irq_handler,
+		.wake		= true,
+		.storm_data	= {true, 3000, 5},
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
-		.handler	= default_irq_handler,
+		.handler	= usbin_ov_irq_handler,
 	},
 	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
