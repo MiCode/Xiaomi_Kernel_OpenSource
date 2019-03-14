@@ -1389,6 +1389,9 @@ static const struct file_operations synx_fops = {
 	.flush = synx_close,
 	.poll  = synx_poll,
 	.unlocked_ioctl = synx_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = synx_ioctl,
+#endif
 };
 
 #ifdef CONFIG_SPECTRA_CAMERA
