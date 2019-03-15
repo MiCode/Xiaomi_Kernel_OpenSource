@@ -62,7 +62,7 @@
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
 			qcom,bus-governor = "msm-vidc-ddr";
 			qcom,bus-range-kbps = <762 6533000>;
-			operating-points-v2 = <&ddr_bw_opp_table>;
+			operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
 		};
 
 		venus_bus_llcc {
@@ -72,7 +72,7 @@
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
 			qcom,bus-governor = "msm-vidc-llcc";
 			qcom,bus-range-kbps = <2288 6533000>;
-			operating-points-v2 = <&llcc_bw_opp_table>;
+			operating-points-v2 = <&suspendable_llcc_bw_opp_table>;
 		};
 
 		/* MMUs */
