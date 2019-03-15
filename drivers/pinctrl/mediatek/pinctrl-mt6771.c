@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,505 +11,528 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/pinctrl/pinctrl.h>
-#include <linux/regmap.h>
-#include <dt-bindings/pinctrl/mt65xx.h>
-#include "pinctrl-mtk-common.h"
 #include "pinctrl-mtk-mt6771.h"
-#include <linux/irq.h>
-#include <linux/irqdomain.h>
+#include "pinctrl-paris.h"
 
-/* #define HAS_PUPD */
-#define HAS_CONTIN_PUPD_R0R1
-/* #define HAS_DISCRE_PUPD_R0R1 */
-#define HAS_PULLSEL_PULLEN
-
-#if defined(HAS_CONTIN_PUPD_R0R1)
-/* For type continuous PUPD + R1 + R0 */
-static int mtk_pinctrl_set_gpio_pupd_r1r0(struct mtk_pinctrl *pctl, int pin,
-		bool enable, bool isup, unsigned int r1r0)
-{
-	int ret;
-	unsigned int pupd_r1r0 = 0;
-
-	if (r1r0 == MTK_PUPD_SET_R1R0_01)
-		pupd_r1r0 = 1;
-	else if (r1r0 == MTK_PUPD_SET_R1R0_10)
-		pupd_r1r0 = 2;
-	else if (r1r0 == MTK_PUPD_SET_R1R0_11)
-		pupd_r1r0 = 3;
-	else
-		pupd_r1r0 = 0;
-	/* HW value 0 for PU, HW value 1 for PD
-	 * So need to revert input parametet isup before write to HW
-	 */
-	if (!isup)
-		pupd_r1r0 |= 0x4;
-
-	ret = mtk_pinctrl_update_gpio_value(pctl, pin, pupd_r1r0,
-		pctl->devdata->n_pin_pupd_r1r0,
-			pctl->devdata->pin_pupd_r1r0_grps);
-
-	return ret;
-}
-
-static int mtk_pinctrl_get_gpio_pupd_r1r0(struct mtk_pinctrl *pctl, int pin)
-{
-	int ret, bit_pupd, bit_r0, bit_r1;
-
-	/* For type continuous PUPD + R1 + R0 */
-	ret = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pupd_r1r0,
-			pctl->devdata->pin_pupd_r1r0_grps);
-	if (ret >= 0) {
-		/* bit_upd: set for PU, clr for PD, ie, revert HW value */
-		bit_pupd = (ret & 0x4) ? 0 : 1;
-		bit_r0   = (ret & 0x1) ? MTK_PUPD_R1R0_BIT_R0 : 0;
-		bit_r1   = (ret & 0x2) ? MTK_PUPD_R1R0_BIT_R1 : 0;
-		return MTK_PUPD_R1R0_BIT_SUPPORT | bit_r1 | bit_r0 | bit_pupd;
-	}
-
-	return -EPERM;
-}
-#endif
-
-#if defined(HAS_DISCRE_PUPD_R0R1)
-/* For type discreate PUPD + R1 + R0 */
-static int mtk_pinctrl_set_gpio_pupd_r1r0(struct mtk_pinctrl *pctl, int pin,
-		bool enable, bool isup, unsigned int r1r0)
-{
-	int ret;
-	unsigned int r0, r1;
-
-	ret = mtk_pinctrl_update_gpio_value(pctl, pin, !isup,
-		pctl->devdata->n_pin_pupd, pctl->devdata->pin_pupd_grps);
-	if (ret == 0) {
-		r0 = r1r0 & 0x1;
-		r1 = (r1r0 & 0x2) >> 1;
-		mtk_pinctrl_update_gpio_value(pctl, pin, r0,
-			pctl->devdata->n_pin_r0, pctl->devdata->pin_r0_grps);
-		mtk_pinctrl_update_gpio_value(pctl, pin, r1,
-			pctl->devdata->n_pin_r1, pctl->devdata->pin_r1_grps);
-		ret = 0;
-	}
-	return ret;
-}
-
-static int mtk_pinctrl_get_gpio_pupd_r1r0(struct mtk_pinctrl *pctl, int pin)
-{
-	int bit_pupd, bit_r0, bit_r1;
-
-	bit_pupd = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pupd, pctl->devdata->pin_pupd_grps);
-	if (bit_pupd != -EPERM) {
-		if (mtk_pinctrl_get_gpio_value(pctl, pin,
-			pctl->devdata->n_pin_r1, pctl->devdata->pin_r1_grps))
-			bit_r1 = MTK_PUPD_R1R0_BIT_R1;
-		else
-			bit_r1 = 0;
-		if (mtk_pinctrl_get_gpio_value(pctl, pin,
-			pctl->devdata->n_pin_r0, pctl->devdata->pin_r0_grps))
-			bit_r0 = MTK_PUPD_R1R0_BIT_R0;
-		else
-			bit_r0 = 0;
-		/* bit_upd: set for PU, clr for PD, ie, revert HW value */
-		return MTK_PUPD_R1R0_BIT_SUPPORT | bit_r1 | bit_r0 | !bit_pupd;
-	}
-	return -EPERM;
-}
-#endif
-
-#if defined(HAS_PUPD)
-/* For type PU+PD */
-static int mtk_pinctrl_set_gpio_pu_pd(struct mtk_pinctrl *pctl, int pin,
-		bool enable, bool isup, unsigned int r1r0)
-{
-	if (enable) {
-		mtk_pinctrl_update_gpio_value(pctl, pin, isup,
-			pctl->devdata->n_pin_pu, pctl->devdata->pin_pu_grps);
-		mtk_pinctrl_update_gpio_value(pctl, pin, !isup,
-			pctl->devdata->n_pin_pd, pctl->devdata->pin_pd_grps);
-	} else {
-		mtk_pinctrl_update_gpio_value(pctl, pin, 0,
-			pctl->devdata->n_pin_pu, pctl->devdata->pin_pu_grps);
-		mtk_pinctrl_update_gpio_value(pctl, pin, 0,
-			pctl->devdata->n_pin_pd, pctl->devdata->pin_pd_grps);
-	}
-	return 0;
-}
-
-static int mtk_pinctrl_get_gpio_pu_pd(struct mtk_pinctrl *pctl, int pin)
-{
-	unsigned int bit_pu = 0, bit_pd = 0;
-
-	bit_pu = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pu, pctl->devdata->pin_pu_grps);
-	bit_pd = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pd, pctl->devdata->pin_pd_grps);
-	if ((bit_pd != -EPERM) && (bit_pu != -EPERM))
-		return bit_pd | (bit_pu << 1);
-	else if ((bit_pd == -EPERM) && (bit_pu != -EPERM))
-		return bit_pu << 1;
-	else if ((bit_pd != -EPERM) && (bit_pu == -EPERM))
-		return bit_pd;
-	else
-		return -EPERM;
-}
-#endif
-
-#if defined(HAS_PULLSEL_PULLEN)
-/* For type PULLSEL + PULLEN */
-static int mtk_pinctrl_set_gpio_pullsel_pullen(struct mtk_pinctrl *pctl,
-	int pin, bool enable, bool isup, unsigned int r1r0)
-{
-	mtk_pinctrl_update_gpio_value(pctl, pin, isup,
-		pctl->devdata->n_pin_pullsel, pctl->devdata->pin_pullsel_grps);
-	mtk_pinctrl_update_gpio_value(pctl, pin, enable,
-		pctl->devdata->n_pin_pullen, pctl->devdata->pin_pullen_grps);
-	return 0;
-}
-
-/* For type PULLSEL + PULLEN */
-static int mtk_pinctrl_get_gpio_pullsel_pullen(struct mtk_pinctrl *pctl,
-	int pin)
-{
-	unsigned int pullsel = 0, pullen = 0;
-
-	pullsel = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pullsel, pctl->devdata->pin_pullsel_grps);
-	pullen = mtk_pinctrl_get_gpio_value(pctl, pin,
-		pctl->devdata->n_pin_pullen, pctl->devdata->pin_pullen_grps);
-	if (pullsel == -EPERM || pullen == -EPERM)
-		return -EPERM;
-	if (pullen == 0)
-		return 0;
-	else if ((pullsel == 1) && (pullen == 1))
-		return MTK_PUPD_BIT_PU;
-	else if ((pullsel == 0) && (pullen == 1))
-		return MTK_PUPD_BIT_PD;
-	else
-		return -EINVAL;
-}
-#endif
-
-/* Not specifically for gettting pullsel of PULLSEL type,
- * For getting pull-up/pull-down/no-pull + pull-enable/pull-disable
+/* MT6771 have multiple bases to program pin configuration listed as the below:
+ * gpio:0x10005000,    iocfg_0:0x11F20000, iocfg_1:0x11E80000,
+ * iocfg_2:0x11E70000, iocfg_4:0x11E90000, iocfg_5:0x11D30000,
+ * iocfg_6:0x11D20000, iocfg_7:0x11C50000
+ * _i_based could be used to indicate what base the pin should be mapped into.
  */
-static int mtk_pinctrl_get_gpio_pullsel(struct mtk_pinctrl *pctl,
-	unsigned int pin)
-{
-	int pull_val = 0;
 
-#if defined(HAS_CONTIN_PUPD_R0R1) || defined(HAS_DISCRE_PUPD_R0R1)
-	pull_val = mtk_pinctrl_get_gpio_pupd_r1r0(pctl, pin);
-	if (pull_val != -EPERM)
-		return pull_val;
-#endif
+#define PIN_FIELD_BASE(s_pin, e_pin, i_base, s_addr, x_addrs, s_bit, x_bits) \
+	PIN_FIELD_CALC(s_pin, e_pin, i_base, s_addr, x_addrs, s_bit, x_bits, \
+		       32, 0)
 
-#if defined(HAS_PULLSEL_PULLEN) || defined(HAS_PUPD)
-	#if defined(HAS_PULLSEL_PULLEN)
-	pull_val = mtk_pinctrl_get_gpio_pullsel_pullen(pctl, pin);
-	#else /* defined(HAS_PUPD) */
-	pull_val = mtk_pinctrl_get_gpio_pu_pd(pctl, pin);
-	#endif
+#define PINS_FIELD_BASE(s_pin, e_pin, i_base, s_addr, x_addrs, s_bit, x_bits) \
+	PIN_FIELD_CALC(s_pin, e_pin, i_base, s_addr, x_addrs, s_bit, x_bits,  \
+		       32, 1)
 
-	/*pull_val = [pu,pd], 10 is pull up, 01 is pull down*/
-	if (pull_val == MTK_PUPD_BIT_PU)
-		pull_val = GPIO_PULL_UP;
-	else if (pull_val == MTK_PUPD_BIT_PD)
-		pull_val = GPIO_PULL_DOWN;
-	else if (pull_val == -EPERM)
-		pull_val = GPIO_PULL_UNSUPPORTED;
-	else
-		pull_val = GPIO_NO_PULL;
-#endif
-	return pull_val;
-}
-
-/* Specifically for PULLEN type or pull-resistors of PUPD+R0+R1 */
-static int mtk_pinctrl_get_gpio_pullen(struct mtk_pinctrl *pctl,
-	unsigned int pin)
-{
-	int pull_val = 0, pull_en = 0;
-
-#if defined(HAS_CONTIN_PUPD_R0R1) || defined(HAS_DISCRE_PUPD_R0R1)
-	pull_val = mtk_pinctrl_get_gpio_pupd_r1r0(pctl, pin);
-	if (pull_val > 0 && pull_val & MTK_PUPD_R1R0_BIT_SUPPORT) {
-		/*pull_val = [r1,r0,pupd], pull disabel 000,001, others enable*/
-		if (MTK_PUPD_R1R0_GET_PULLEN(pull_val))
-			pull_en = GPIO_PULL_ENABLE;
-		else
-			pull_en = GPIO_PULL_DISABLE;
-
-		return pull_en;
-	} else if (pull_val != -EPERM) {
-		return -EINVAL;
-	}
-#endif
-
-#if defined(HAS_PULLSEL_PULLEN) || defined(HAS_PUPD)
-	#if defined(HAS_PULLSEL_PULLEN)
-	pull_en = mtk_pinctrl_get_gpio_pullsel_pullen(pctl, pin);
-	#else /* defined(HAS_PUPD) */
-	pull_en = mtk_pinctrl_get_gpio_pu_pd(pctl, pin);
-	#endif
-
-	/*pull_en = [pu,pd], 10,01 pull enabel, others pull disable*/
-	if (pull_en & (MTK_PUPD_BIT_PU | MTK_PUPD_BIT_PD))
-		pull_en = GPIO_PULL_ENABLE;
-	else if (pull_en == -EPERM)
-		pull_en = GPIO_PULL_EN_UNSUPPORTED;
-	else
-		pull_en = GPIO_PULL_DISABLE;
-#endif
-	return pull_en;
-
-}
-
-static int mtk_pinctrl_set_gpio_pull(struct mtk_pinctrl *pctl,
-		unsigned int pin, bool enable, bool isup, unsigned int arg)
-{
-	int ret;
-
-/* #define GPIO_DEBUG */
-#ifdef GPIO_DEBUG
-	int pull_val;
-
-	pr_info("mtk_pinctrl set_gpio_pull, pin = %d, enab = %d, sel = %d, arg = %u\n",
-		pin, enable, isup, arg);
-#endif
-
-#if defined(HAS_CONTIN_PUPD_R0R1) || defined(HAS_DISCRE_PUPD_R0R1)
-	ret = mtk_pinctrl_set_gpio_pupd_r1r0(pctl, pin, enable, isup, arg);
-	if (ret == 0) {
-#ifdef GPIO_DEBUG
-		pull_val = mtk_pinctrl_get_gpio_pullsel(pctl, pin);
-		pr_info("mtk_pinctrl_get_gpio_pull, pin = %d, enab = %d, sel = %d\n",
-			pin,
-			((pull_val >= 0) ?
-				MTK_PUPD_R1R0_GET_PULLEN(pull_val) : -1),
-			((pull_val >= 0) ?
-				MTK_PUPD_R1R0_GET_PUPD(pull_val) : -1));
-#endif
-		goto out;
-	}
-#endif
-
-#if defined(HAS_PULLSEL_PULLEN)
-	if (!pctl->devdata->pin_pullsel_grps) {
-		ret = -EPERM;
-		goto out;
-	}
-
-	ret = mtk_pinctrl_set_gpio_pullsel_pullen(pctl, pin, enable, isup, arg);
-#endif
-
-#if defined(HAS_PUPD)
-	if (!pctl->devdata->pin_pu_grps) {
-		ret = -EPERM;
-		goto out;
-	}
-
-	ret = mtk_pinctrl_set_gpio_pu_pd(pctl, pin, enable, isup, arg);
-#endif
-
-#ifdef GPIO_DEBUG
-	if (ret == 0) {
-		int enab = -1, sel = -1;
-
-		pull_val = mtk_pinctrl_get_gpio_pullsel(pctl, pin);
-		if (pull_val == GPIO_PULL_UP) {
-			enab = 1;
-			sel = 1;
-		} else if (pull_val == GPIO_PULL_DOWN) {
-			enab = 1;
-			sel = 0;
-		} else if (pull_val == GPIO_NO_PULL) {
-			enab = 0;
-			sel = 0;
-		} else if (pull_val == GPIO_PULL_UNSUPPORTED) {
-			enab = -1;
-			sel = -1;
-		}
-		pr_info("mtk_pinctrl_get_gpio_pull, pin = %d, enab = %d, sel = %d\n",
-			pin, enab, sel);
-	}
-#endif
-
-out:
-
-	return ret;
-}
-
-int mtk_pinctrl_get_gpio_mode_for_eint(int pin)
-{
-	return mtk_pinctrl_get_gpio_value(pctl_alt, pin,
-		pctl_alt->devdata->n_pin_mode,
-		pctl_alt->devdata->pin_mode_grps);
-}
-
-static const unsigned int mt6771_debounce_data[] = {
-	128, 256, 512, 1024, 16384,
-	32768, 65536, 131072, 262144, 524288
+static const struct mtk_pin_field_calc mt6771_pin_mode_range[] = {
+	PIN_FIELD(0, 192, 0x300, 0x10, 0, 4),
 };
 
-static unsigned int mt6771_spec_debounce_select(unsigned int debounce)
-{
-	return mtk_gpio_debounce_select(mt6771_debounce_data,
-		ARRAY_SIZE(mt6771_debounce_data), debounce);
-}
-
-int mtk_irq_domain_xlate_fourcell(struct irq_domain *d,
-			struct device_node *ctrlr,
-			const u32 *intspec, unsigned int intsize,
-			irq_hw_number_t *out_hwirq, unsigned int *out_type)
-{
-	struct mtk_desc_eint *eint;
-	int gpio, mode;
-
-	if (WARN_ON(intsize < 4))
-		return -EINVAL;
-	*out_hwirq = intspec[0];
-	*out_type = intspec[1] & IRQ_TYPE_SENSE_MASK;
-	gpio = intspec[2];
-	mode = intspec[3];
-
-	eint = &pctl_alt->devdata->pins[gpio].eint;
-	eint->eintmux = mode;
-	eint->eintnum = intspec[0];
-
-	pr_debug("%s: mtk_pin[%d], eint=%d, mode=%d\n", __func__,
-			gpio, eint->eintnum, eint->eintmux);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mtk_irq_domain_xlate_fourcell);
-
-const struct irq_domain_ops mtk_irq_domain_ops = {
-	.xlate = mtk_irq_domain_xlate_fourcell,
+static const struct mtk_pin_field_calc mt6771_pin_dir_range[] = {
+	PIN_FIELD(0, 192, 0x0, 0x10, 0, 1),
 };
 
-static const struct mtk_pinctrl_devdata mtk_pinctrl_data = {
+static const struct mtk_pin_field_calc mt6771_pin_di_range[] = {
+	PIN_FIELD(0, 192, 0x200, 0x10, 0, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_do_range[] = {
+	PIN_FIELD(0, 192, 0x100, 0x10, 0, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_ies_range[] = {
+	PINS_FIELD_BASE(0, 3, 6, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(4, 7, 6, 0x000, 0x10, 5, 1),
+	PIN_FIELD_BASE(8, 8, 6, 0x000, 0x10, 0, 1),
+	PINS_FIELD_BASE(9, 10, 6, 0x000, 0x10, 12, 1),
+	PIN_FIELD_BASE(11, 11, 1, 0x000, 0x10, 3, 1),
+	PIN_FIELD_BASE(12, 12, 1, 0x000, 0x10, 7, 1),
+	PINS_FIELD_BASE(13, 16, 2, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(17, 20, 2, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(21, 24, 2, 0x000, 0x10, 4, 1),
+	PINS_FIELD_BASE(25, 28, 2, 0x000, 0x10, 5, 1),
+	PIN_FIELD_BASE(29, 29, 2, 0x000, 0x10, 6, 1),
+	PIN_FIELD_BASE(30, 30, 2, 0x000, 0x10, 7, 1),
+	PINS_FIELD_BASE(31, 31, 2, 0x000, 0x10, 8, 1),
+	PINS_FIELD_BASE(32, 34, 2, 0x000, 0x10, 7, 1),
+	PINS_FIELD_BASE(35, 37, 3, 0x000, 0x10, 0, 1),
+	PINS_FIELD_BASE(38, 40, 3, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(41, 42, 3, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(43, 45, 3, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(46, 47, 3, 0x000, 0x10, 4, 1),
+	PINS_FIELD_BASE(48, 49, 3, 0x000, 0x10, 5, 1),
+	PINS_FIELD_BASE(50, 51, 4, 0x000, 0x10, 0, 1),
+	PINS_FIELD_BASE(52, 57, 4, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(58, 60, 4, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(61, 64, 5, 0x000, 0x10, 0, 1),
+	PINS_FIELD_BASE(65, 66, 5, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(67, 68, 5, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(69, 71, 5, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(72, 76, 5, 0x000, 0x10, 4, 1),
+	PINS_FIELD_BASE(77, 80, 5, 0x000, 0x10, 5, 1),
+	PIN_FIELD_BASE(81, 81, 5, 0x000, 0x10, 6, 1),
+	PINS_FIELD_BASE(82, 83, 5, 0x000, 0x10, 7, 1),
+	PIN_FIELD_BASE(84, 84, 5, 0x000, 0x10, 6, 1),
+	PINS_FIELD_BASE(85, 88, 5, 0x000, 0x10, 8, 1),
+	PIN_FIELD_BASE(89, 89, 6, 0x000, 0x10, 11, 1),
+	PIN_FIELD_BASE(90, 90, 6, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(91, 94, 6, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(95, 96, 6, 0x000, 0x10, 6, 1),
+	PINS_FIELD_BASE(97, 98, 6, 0x000, 0x10, 7, 1),
+	PIN_FIELD_BASE(99, 99, 6, 0x000, 0x10, 8, 1),
+	PIN_FIELD_BASE(100, 100, 6, 0x000, 0x10, 9, 1),
+	PINS_FIELD_BASE(101, 102, 6, 0x000, 0x10, 10, 1),
+	PINS_FIELD_BASE(103, 104, 6, 0x000, 0x10, 13, 1),
+	PINS_FIELD_BASE(105, 106, 6, 0x000, 0x10, 14, 1),
+	PIN_FIELD_BASE(107, 107, 7, 0x000, 0x10, 0, 1),
+	PIN_FIELD_BASE(108, 108, 7, 0x000, 0x10, 1, 1),
+	PIN_FIELD_BASE(109, 109, 7, 0x000, 0x10, 2, 1),
+	PIN_FIELD_BASE(110, 110, 7, 0x000, 0x10, 0, 1),
+	PIN_FIELD_BASE(111, 111, 7, 0x000, 0x10, 3, 1),
+	PIN_FIELD_BASE(112, 112, 7, 0x000, 0x10, 2, 1),
+	PIN_FIELD_BASE(113, 113, 7, 0x000, 0x10, 4, 1),
+	PIN_FIELD_BASE(114, 114, 7, 0x000, 0x10, 5, 1),
+	PIN_FIELD_BASE(115, 115, 7, 0x000, 0x10, 6, 1),
+	PIN_FIELD_BASE(116, 116, 7, 0x000, 0x10, 7, 1),
+	PIN_FIELD_BASE(117, 117, 7, 0x000, 0x10, 8, 1),
+	PIN_FIELD_BASE(118, 118, 7, 0x000, 0x10, 9, 1),
+	PIN_FIELD_BASE(119, 119, 7, 0x000, 0x10, 10, 1),
+	PIN_FIELD_BASE(120, 120, 7, 0x000, 0x10, 11, 1),
+	PIN_FIELD_BASE(121, 121, 7, 0x000, 0x10, 12, 1),
+	PIN_FIELD_BASE(122, 122, 8, 0x000, 0x10, 0, 1),
+	PIN_FIELD_BASE(123, 123, 8, 0x000, 0x10, 1, 1),
+	PIN_FIELD_BASE(124, 124, 8, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(125, 130, 8, 0x000, 0x10, 1, 1),
+	PIN_FIELD_BASE(131, 131, 8, 0x000, 0x10, 3, 1),
+	PIN_FIELD_BASE(132, 132, 8, 0x000, 0x10, 1, 1),
+	PIN_FIELD_BASE(133, 133, 8, 0x000, 0x10, 4, 1),
+	PIN_FIELD_BASE(134, 134, 1, 0x000, 0x10, 0, 1),
+	PIN_FIELD_BASE(135, 135, 1, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(136, 143, 1, 0x000, 0x10, 2, 1),
+	PINS_FIELD_BASE(144, 147, 1, 0x000, 0x10, 4, 1),
+	PIN_FIELD_BASE(148, 148, 1, 0x000, 0x10, 5, 1),
+	PIN_FIELD_BASE(149, 149, 1, 0x000, 0x10, 6, 1),
+	PINS_FIELD_BASE(150, 153, 1, 0x000, 0x10, 8, 1),
+	PIN_FIELD_BASE(154, 154, 1, 0x000, 0x10, 9, 1),
+	PINS_FIELD_BASE(155, 157, 1, 0x000, 0x10, 10, 1),
+	PINS_FIELD_BASE(158, 160, 1, 0x000, 0x10, 8, 1),
+	PINS_FIELD_BASE(161, 164, 2, 0x000, 0x10, 0, 1),
+	PINS_FIELD_BASE(165, 166, 2, 0x000, 0x10, 1, 1),
+	PINS_FIELD_BASE(167, 168, 4, 0x000, 0x10, 2, 1),
+	PIN_FIELD_BASE(169, 169, 4, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(170, 174, 4, 0x000, 0x10, 4, 1),
+	PINS_FIELD_BASE(175, 176, 4, 0x000, 0x10, 3, 1),
+	PINS_FIELD_BASE(177, 179, 6, 0x000, 0x10, 4, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_smt_range[] = {
+	PINS_FIELD_BASE(0, 3, 6, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(4, 7, 6, 0x010, 0x10, 5, 1),
+	PIN_FIELD_BASE(8, 8, 6, 0x010, 0x10, 0, 1),
+	PINS_FIELD_BASE(9, 10, 6, 0x010, 0x10, 12, 1),
+	PIN_FIELD_BASE(11, 11, 1, 0x010, 0x10, 3, 1),
+	PIN_FIELD_BASE(12, 12, 1, 0x010, 0x10, 7, 1),
+	PINS_FIELD_BASE(13, 16, 2, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(17, 20, 2, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(21, 24, 2, 0x010, 0x10, 4, 1),
+	PINS_FIELD_BASE(25, 28, 2, 0x010, 0x10, 5, 1),
+	PIN_FIELD_BASE(29, 29, 2, 0x010, 0x10, 6, 1),
+	PIN_FIELD_BASE(30, 30, 2, 0x010, 0x10, 7, 1),
+	PINS_FIELD_BASE(31, 31, 2, 0x010, 0x10, 8, 1),
+	PINS_FIELD_BASE(32, 34, 2, 0x010, 0x10, 7, 1),
+	PINS_FIELD_BASE(35, 37, 3, 0x010, 0x10, 0, 1),
+	PINS_FIELD_BASE(38, 40, 3, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(41, 42, 3, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(43, 45, 3, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(46, 47, 3, 0x010, 0x10, 4, 1),
+	PINS_FIELD_BASE(48, 49, 3, 0x010, 0x10, 5, 1),
+	PINS_FIELD_BASE(50, 51, 4, 0x010, 0x10, 0, 1),
+	PINS_FIELD_BASE(52, 57, 4, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(58, 60, 4, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(61, 64, 5, 0x010, 0x10, 0, 1),
+	PINS_FIELD_BASE(65, 66, 5, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(67, 68, 5, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(69, 71, 5, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(72, 76, 5, 0x010, 0x10, 4, 1),
+	PINS_FIELD_BASE(77, 80, 5, 0x010, 0x10, 5, 1),
+	PIN_FIELD_BASE(81, 81, 5, 0x010, 0x10, 6, 1),
+	PINS_FIELD_BASE(82, 83, 5, 0x010, 0x10, 7, 1),
+	PIN_FIELD_BASE(84, 84, 5, 0x010, 0x10, 6, 1),
+	PINS_FIELD_BASE(85, 88, 5, 0x010, 0x10, 8, 1),
+	PIN_FIELD_BASE(89, 89, 6, 0x010, 0x10, 11, 1),
+	PIN_FIELD_BASE(90, 90, 6, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(91, 94, 6, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(95, 96, 6, 0x010, 0x10, 6, 1),
+	PINS_FIELD_BASE(97, 98, 6, 0x010, 0x10, 7, 1),
+	PIN_FIELD_BASE(99, 99, 6, 0x010, 0x10, 8, 1),
+	PIN_FIELD_BASE(100, 100, 6, 0x010, 0x10, 9, 1),
+	PINS_FIELD_BASE(101, 102, 6, 0x010, 0x10, 10, 1),
+	PINS_FIELD_BASE(103, 104, 6, 0x010, 0x10, 13, 1),
+	PINS_FIELD_BASE(105, 106, 6, 0x010, 0x10, 14, 1),
+	PIN_FIELD_BASE(107, 107, 7, 0x010, 0x10, 0, 1),
+	PIN_FIELD_BASE(108, 108, 7, 0x010, 0x10, 1, 1),
+	PIN_FIELD_BASE(109, 109, 7, 0x010, 0x10, 2, 1),
+	PIN_FIELD_BASE(110, 110, 7, 0x010, 0x10, 0, 1),
+	PIN_FIELD_BASE(111, 111, 7, 0x010, 0x10, 3, 1),
+	PIN_FIELD_BASE(112, 112, 7, 0x010, 0x10, 2, 1),
+	PIN_FIELD_BASE(113, 113, 7, 0x010, 0x10, 4, 1),
+	PIN_FIELD_BASE(114, 114, 7, 0x010, 0x10, 5, 1),
+	PIN_FIELD_BASE(115, 115, 7, 0x010, 0x10, 6, 1),
+	PIN_FIELD_BASE(116, 116, 7, 0x010, 0x10, 7, 1),
+	PIN_FIELD_BASE(117, 117, 7, 0x010, 0x10, 8, 1),
+	PIN_FIELD_BASE(118, 118, 7, 0x010, 0x10, 9, 1),
+	PIN_FIELD_BASE(119, 119, 7, 0x010, 0x10, 10, 1),
+	PIN_FIELD_BASE(120, 120, 7, 0x010, 0x10, 11, 1),
+	PIN_FIELD_BASE(121, 121, 7, 0x010, 0x10, 12, 1),
+	PIN_FIELD_BASE(122, 122, 8, 0x010, 0x10, 0, 1),
+	PIN_FIELD_BASE(123, 123, 8, 0x010, 0x10, 1, 1),
+	PIN_FIELD_BASE(124, 124, 8, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(125, 130, 8, 0x010, 0x10, 1, 1),
+	PIN_FIELD_BASE(131, 131, 8, 0x010, 0x10, 3, 1),
+	PIN_FIELD_BASE(132, 132, 8, 0x010, 0x10, 1, 1),
+	PIN_FIELD_BASE(133, 133, 8, 0x010, 0x10, 4, 1),
+	PIN_FIELD_BASE(134, 134, 1, 0x010, 0x10, 0, 1),
+	PIN_FIELD_BASE(135, 135, 1, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(136, 143, 1, 0x010, 0x10, 2, 1),
+	PINS_FIELD_BASE(144, 147, 1, 0x010, 0x10, 4, 1),
+	PIN_FIELD_BASE(148, 148, 1, 0x010, 0x10, 5, 1),
+	PIN_FIELD_BASE(149, 149, 1, 0x010, 0x10, 6, 1),
+	PINS_FIELD_BASE(150, 153, 1, 0x010, 0x10, 8, 1),
+	PIN_FIELD_BASE(154, 154, 1, 0x010, 0x10, 9, 1),
+	PINS_FIELD_BASE(155, 157, 1, 0x010, 0x10, 10, 1),
+	PINS_FIELD_BASE(158, 160, 1, 0x010, 0x10, 8, 1),
+	PINS_FIELD_BASE(161, 164, 2, 0x010, 0x10, 0, 1),
+	PINS_FIELD_BASE(165, 166, 2, 0x010, 0x10, 1, 1),
+	PINS_FIELD_BASE(167, 168, 4, 0x010, 0x10, 2, 1),
+	PIN_FIELD_BASE(169, 169, 4, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(170, 174, 4, 0x010, 0x10, 4, 1),
+	PINS_FIELD_BASE(175, 176, 4, 0x010, 0x10, 3, 1),
+	PINS_FIELD_BASE(177, 179, 6, 0x010, 0x10, 4, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_pullen_range[] = {
+	PIN_FIELD_BASE(0, 3, 6, 0x060, 0x10, 6, 1),
+	PIN_FIELD_BASE(4, 7, 6, 0x060, 0x10, 11, 1),
+	PIN_FIELD_BASE(8, 8, 6, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(9, 10, 6, 0x060, 0x10, 26, 1),
+	PIN_FIELD_BASE(11, 11, 1, 0x060, 0x10, 10, 1),
+	PIN_FIELD_BASE(12, 12, 1, 0x060, 0x10, 17, 1),
+	PIN_FIELD_BASE(13, 28, 2, 0x060, 0x10, 6, 1),
+	PIN_FIELD_BASE(43, 49, 3, 0x060, 0x10, 8, 1),
+	PIN_FIELD_BASE(50, 60, 4, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(61, 88, 5, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(89, 89, 6, 0x060, 0x10, 24, 1),
+	PIN_FIELD_BASE(90, 90, 6, 0x060, 0x10, 1, 1),
+	PIN_FIELD_BASE(95, 95, 6, 0x060, 0x10, 15, 1),
+	PIN_FIELD_BASE(96, 102, 6, 0x060, 0x10, 17, 1),
+	PIN_FIELD_BASE(103, 106, 6, 0x060, 0x10, 28, 1),
+	PIN_FIELD_BASE(107, 121, 7, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(134, 143, 1, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(144, 149, 1, 0x060, 0x10, 11, 1),
+	PIN_FIELD_BASE(150, 160, 1, 0x060, 0x10, 18, 1),
+	PIN_FIELD_BASE(161, 166, 2, 0x060, 0x10, 0, 1),
+	PIN_FIELD_BASE(167, 176, 4, 0x060, 0x10, 11, 1),
+	PIN_FIELD_BASE(177, 177, 6, 0x060, 0x10, 10, 1),
+	PIN_FIELD_BASE(178, 178, 6, 0x060, 0x10, 16, 1),
+	PIN_FIELD_BASE(179, 179, 6, 0x060, 0x10, 25, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_pullsel_range[] = {
+	PIN_FIELD_BASE(0, 3, 6, 0x080, 0x10, 6, 1),
+	PIN_FIELD_BASE(4, 7, 6, 0x080, 0x10, 11, 1),
+	PIN_FIELD_BASE(8, 8, 6, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(9, 10, 6, 0x080, 0x10, 26, 1),
+	PIN_FIELD_BASE(11, 11, 1, 0x080, 0x10, 10, 1),
+	PIN_FIELD_BASE(12, 12, 1, 0x080, 0x10, 17, 1),
+	PIN_FIELD_BASE(13, 28, 2, 0x080, 0x10, 6, 1),
+	PIN_FIELD_BASE(43, 49, 3, 0x080, 0x10, 8, 1),
+	PIN_FIELD_BASE(50, 60, 4, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(61, 88, 5, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(89, 89, 6, 0x080, 0x10, 24, 1),
+	PIN_FIELD_BASE(90, 90, 6, 0x080, 0x10, 1, 1),
+	PIN_FIELD_BASE(95, 95, 6, 0x080, 0x10, 15, 1),
+	PIN_FIELD_BASE(96, 102, 6, 0x080, 0x10, 17, 1),
+	PIN_FIELD_BASE(103, 106, 6, 0x080, 0x10, 28, 1),
+	PIN_FIELD_BASE(107, 121, 7, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(134, 143, 1, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(144, 149, 1, 0x080, 0x10, 11, 1),
+	PIN_FIELD_BASE(150, 160, 1, 0x080, 0x10, 18, 1),
+	PIN_FIELD_BASE(161, 166, 2, 0x080, 0x10, 0, 1),
+	PIN_FIELD_BASE(167, 176, 4, 0x080, 0x10, 11, 1),
+	PIN_FIELD_BASE(177, 177, 6, 0x080, 0x10, 10, 1),
+	PIN_FIELD_BASE(178, 178, 6, 0x080, 0x10, 16, 1),
+	PIN_FIELD_BASE(179, 179, 6, 0x080, 0x10, 25, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_drv_range[] = {
+	PINS_FIELD_BASE(0, 3, 6, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(4, 7, 6, 0x0A0, 0x10, 20, 3),
+	PIN_FIELD_BASE(8, 8, 6, 0x0A0, 0x10, 0, 3),
+	PINS_FIELD_BASE(9, 10, 6, 0x0B0, 0x10, 16, 3),
+	PIN_FIELD_BASE(11, 11, 1, 0x0A0, 0x10, 12, 3),
+	PIN_FIELD_BASE(12, 12, 1, 0x0A0, 0x10, 28, 3),
+	PINS_FIELD_BASE(13, 16, 2, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(17, 20, 2, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(21, 24, 2, 0x0A0, 0x10, 16, 3),
+	PINS_FIELD_BASE(25, 28, 2, 0x0A0, 0x10, 20, 3),
+	PIN_FIELD_BASE(29, 29, 2, 0x0A0, 0x10, 24, 3),
+	PIN_FIELD_BASE(30, 30, 2, 0x0A0, 0x10, 28, 3),
+	PINS_FIELD_BASE(31, 31, 2, 0x0B0, 0x10, 0, 3),
+	PINS_FIELD_BASE(32, 34, 2, 0x0A0, 0x10, 28, 3),
+	PINS_FIELD_BASE(35, 37, 3, 0x0A0, 0x10, 0, 3),
+	PINS_FIELD_BASE(38, 40, 3, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(41, 42, 3, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(43, 45, 3, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(46, 47, 3, 0x0A0, 0x10, 16, 3),
+	PINS_FIELD_BASE(48, 49, 3, 0x0A0, 0x10, 20, 3),
+	PINS_FIELD_BASE(50, 51, 4, 0x0A0, 0x10, 0, 3),
+	PINS_FIELD_BASE(52, 57, 4, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(58, 60, 4, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(61, 64, 5, 0x0A0, 0x10, 0, 3),
+	PINS_FIELD_BASE(65, 66, 5, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(67, 68, 5, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(69, 71, 5, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(72, 76, 5, 0x0A0, 0x10, 16, 3),
+	PINS_FIELD_BASE(77, 80, 5, 0x0A0, 0x10, 20, 3),
+	PIN_FIELD_BASE(81, 81, 5, 0x0A0, 0x10, 24, 3),
+	PINS_FIELD_BASE(82, 83, 5, 0x0A0, 0x10, 28, 3),
+	PIN_FIELD_BASE(84, 84, 5, 0x0A0, 0x10, 24, 3),
+	PINS_FIELD_BASE(85, 88, 5, 0x0B0, 0x10, 0, 3),
+	PIN_FIELD_BASE(89, 89, 6, 0x0B0, 0x10, 12, 3),
+	PIN_FIELD_BASE(90, 90, 6, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(91, 94, 6, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(95, 96, 6, 0x0A0, 0x10, 24, 3),
+	PINS_FIELD_BASE(97, 98, 6, 0x0A0, 0x10, 28, 3),
+	PIN_FIELD_BASE(99, 99, 6, 0x0B0, 0x10, 0, 3),
+	PIN_FIELD_BASE(100, 100, 6, 0x0B0, 0x10, 4, 3),
+	PINS_FIELD_BASE(101, 102, 6, 0x0B0, 0x10, 8, 3),
+	PINS_FIELD_BASE(103, 104, 6, 0x0B0, 0x10, 20, 3),
+	PINS_FIELD_BASE(105, 106, 6, 0x0B0, 0x10, 24, 3),
+	PIN_FIELD_BASE(107, 107, 7, 0x0A0, 0x10, 0, 3),
+	PIN_FIELD_BASE(108, 108, 7, 0x0A0, 0x10, 4, 3),
+	PIN_FIELD_BASE(109, 109, 7, 0x0A0, 0x10, 8, 3),
+	PIN_FIELD_BASE(110, 110, 7, 0x0A0, 0x10, 0, 3),
+	PIN_FIELD_BASE(111, 111, 7, 0x0A0, 0x10, 4, 3),
+	PIN_FIELD_BASE(112, 112, 7, 0x0A0, 0x10, 8, 3),
+	PIN_FIELD_BASE(113, 113, 7, 0x0A0, 0x10, 16, 3),
+	PIN_FIELD_BASE(114, 114, 7, 0x0A0, 0x10, 20, 3),
+	PIN_FIELD_BASE(115, 115, 7, 0x0A0, 0x10, 24, 3),
+	PIN_FIELD_BASE(116, 116, 7, 0x0A0, 0x10, 28, 3),
+	PIN_FIELD_BASE(117, 117, 7, 0x0B0, 0x10, 0, 3),
+	PIN_FIELD_BASE(118, 118, 7, 0x0B0, 0x10, 4, 3),
+	PIN_FIELD_BASE(119, 119, 7, 0x0B0, 0x10, 8, 3),
+	PIN_FIELD_BASE(120, 120, 7, 0x0B0, 0x10, 12, 3),
+	PIN_FIELD_BASE(121, 121, 7, 0x0B0, 0x10, 16, 3),
+	PIN_FIELD_BASE(122, 122, 8, 0x0A0, 0x10, 0, 3),
+	PIN_FIELD_BASE(123, 123, 8, 0x0A0, 0x10, 4, 3),
+	PIN_FIELD_BASE(124, 124, 8, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(125, 130, 8, 0x0A0, 0x10, 4, 3),
+	PIN_FIELD_BASE(131, 131, 8, 0x0A0, 0x10, 12, 3),
+	PIN_FIELD_BASE(132, 132, 8, 0x0A0, 0x10, 4, 3),
+	PIN_FIELD_BASE(133, 133, 8, 0x0A0, 0x10, 16, 3),
+	PIN_FIELD_BASE(134, 134, 1, 0x0A0, 0x10, 0, 3),
+	PIN_FIELD_BASE(135, 135, 1, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(136, 143, 1, 0x0A0, 0x10, 8, 3),
+	PINS_FIELD_BASE(144, 147, 1, 0x0A0, 0x10, 16, 3),
+	PIN_FIELD_BASE(148, 148, 1, 0x0A0, 0x10, 20, 3),
+	PIN_FIELD_BASE(149, 149, 1, 0x0A0, 0x10, 24, 3),
+	PINS_FIELD_BASE(150, 153, 1, 0x0B0, 0x10, 0, 3),
+	PIN_FIELD_BASE(154, 154, 1, 0x0B0, 0x10, 4, 3),
+	PINS_FIELD_BASE(155, 157, 1, 0x0B0, 0x10, 8, 3),
+	PINS_FIELD_BASE(158, 160, 1, 0x0B0, 0x10, 0, 3),
+	PINS_FIELD_BASE(161, 164, 2, 0x0A0, 0x10, 0, 3),
+	PINS_FIELD_BASE(165, 166, 2, 0x0A0, 0x10, 4, 3),
+	PINS_FIELD_BASE(167, 168, 4, 0x0A0, 0x10, 8, 3),
+	PIN_FIELD_BASE(169, 169, 4, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(170, 174, 4, 0x0A0, 0x10, 16, 3),
+	PINS_FIELD_BASE(175, 176, 4, 0x0A0, 0x10, 12, 3),
+	PINS_FIELD_BASE(177, 179, 6, 0x0A0, 0x10, 16, 3),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_pupd_range[] = {
+	PIN_FIELD_BASE(29, 29, 2, 0x0C0, 0x10, 2, 1),
+	PIN_FIELD_BASE(30, 30, 2, 0x0C0, 0x10, 6, 1),
+	PIN_FIELD_BASE(31, 31, 2, 0x0C0, 0x10, 10, 1),
+	PIN_FIELD_BASE(32, 32, 2, 0x0C0, 0x10, 14, 1),
+	PIN_FIELD_BASE(33, 33, 2, 0x0C0, 0x10, 18, 1),
+	PIN_FIELD_BASE(34, 34, 2, 0x0C0, 0x10, 22, 1),
+	PIN_FIELD_BASE(35, 35, 3, 0x0C0, 0x10, 2, 1),
+	PIN_FIELD_BASE(36, 36, 3, 0x0C0, 0x10, 6, 1),
+	PIN_FIELD_BASE(37, 37, 3, 0x0C0, 0x10, 10, 1),
+	PIN_FIELD_BASE(38, 38, 3, 0x0C0, 0x10, 14, 1),
+	PIN_FIELD_BASE(39, 39, 3, 0x0C0, 0x10, 18, 1),
+	PIN_FIELD_BASE(40, 40, 3, 0x0C0, 0x10, 22, 1),
+	PIN_FIELD_BASE(41, 41, 3, 0x0C0, 0x10, 26, 1),
+	PIN_FIELD_BASE(42, 42, 3, 0x0C0, 0x10, 30, 1),
+	PIN_FIELD_BASE(91, 91, 6, 0x0C0, 0x10, 2, 1),
+	PIN_FIELD_BASE(92, 92, 6, 0x0C0, 0x10, 6, 1),
+	PIN_FIELD_BASE(93, 93, 6, 0x0C0, 0x10, 10, 1),
+	PIN_FIELD_BASE(94, 94, 6, 0x0C0, 0x10, 14, 1),
+	PIN_FIELD_BASE(122, 122, 8, 0x0C0, 0x10, 2, 1),
+	PIN_FIELD_BASE(123, 123, 8, 0x0C0, 0x10, 6, 1),
+	PIN_FIELD_BASE(124, 124, 8, 0x0C0, 0x10, 10, 1),
+	PIN_FIELD_BASE(125, 125, 8, 0x0C0, 0x10, 14, 1),
+	PIN_FIELD_BASE(126, 126, 8, 0x0C0, 0x10, 18, 1),
+	PIN_FIELD_BASE(127, 127, 8, 0x0C0, 0x10, 22, 1),
+	PIN_FIELD_BASE(128, 128, 8, 0x0C0, 0x10, 26, 1),
+	PIN_FIELD_BASE(129, 129, 8, 0x0C0, 0x10, 30, 1),
+	PIN_FIELD_BASE(130, 130, 8, 0x0D0, 0x10, 2, 1),
+	PIN_FIELD_BASE(131, 131, 8, 0x0D0, 0x10, 6, 1),
+	PIN_FIELD_BASE(132, 132, 8, 0x0D0, 0x10, 10, 1),
+	PIN_FIELD_BASE(133, 133, 8, 0x0D0, 0x10, 14, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_r0_range[] = {
+	PIN_FIELD_BASE(29, 29, 2, 0x0C0, 0x10, 0, 1),
+	PIN_FIELD_BASE(30, 30, 2, 0x0C0, 0x10, 4, 1),
+	PIN_FIELD_BASE(31, 31, 2, 0x0C0, 0x10, 8, 1),
+	PIN_FIELD_BASE(32, 32, 2, 0x0C0, 0x10, 12, 1),
+	PIN_FIELD_BASE(33, 33, 2, 0x0C0, 0x10, 16, 1),
+	PIN_FIELD_BASE(34, 34, 2, 0x0C0, 0x10, 20, 1),
+	PIN_FIELD_BASE(35, 35, 3, 0x0C0, 0x10, 0, 1),
+	PIN_FIELD_BASE(36, 36, 3, 0x0C0, 0x10, 4, 1),
+	PIN_FIELD_BASE(37, 37, 3, 0x0C0, 0x10, 8, 1),
+	PIN_FIELD_BASE(38, 38, 3, 0x0C0, 0x10, 12, 1),
+	PIN_FIELD_BASE(39, 39, 3, 0x0C0, 0x10, 16, 1),
+	PIN_FIELD_BASE(40, 40, 3, 0x0C0, 0x10, 20, 1),
+	PIN_FIELD_BASE(41, 41, 3, 0x0C0, 0x10, 24, 1),
+	PIN_FIELD_BASE(42, 42, 3, 0x0C0, 0x10, 28, 1),
+	PIN_FIELD_BASE(48, 48, 3, 0x0F0, 0x10, 18, 1),
+	PIN_FIELD_BASE(49, 49, 3, 0x0F0, 0x10, 13, 1),
+	PIN_FIELD_BASE(50, 50, 4, 0x0F0, 0x10, 10, 1),
+	PIN_FIELD_BASE(51, 51, 4, 0x0F0, 0x10, 5, 1),
+	PIN_FIELD_BASE(81, 81, 5, 0x0F0, 0x10, 7, 1),
+	PIN_FIELD_BASE(82, 82, 5, 0x0F0, 0x10, 5, 1),
+	PIN_FIELD_BASE(83, 83, 5, 0x0F0, 0x10, 15, 1),
+	PIN_FIELD_BASE(84, 84, 5, 0x0F0, 0x10, 17, 1),
+	PIN_FIELD_BASE(91, 91, 6, 0x0C0, 0x10, 0, 1),
+	PIN_FIELD_BASE(92, 92, 6, 0x0C0, 0x10, 4, 1),
+	PIN_FIELD_BASE(93, 93, 6, 0x0C0, 0x10, 8, 1),
+	PIN_FIELD_BASE(94, 94, 6, 0x0C0, 0x10, 12, 1),
+	PIN_FIELD_BASE(103, 103, 6, 0x0F0, 0x10, 20, 1),
+	PIN_FIELD_BASE(104, 104, 6, 0x0F0, 0x10, 10, 1),
+	PIN_FIELD_BASE(105, 105, 6, 0x0F0, 0x10, 22, 1),
+	PIN_FIELD_BASE(106, 106, 6, 0x0F0, 0x10, 12, 1),
+	PIN_FIELD_BASE(122, 122, 8, 0x0C0, 0x10, 0, 1),
+	PIN_FIELD_BASE(123, 123, 8, 0x0C0, 0x10, 4, 1),
+	PIN_FIELD_BASE(124, 124, 8, 0x0C0, 0x10, 8, 1),
+	PIN_FIELD_BASE(125, 125, 8, 0x0C0, 0x10, 12, 1),
+	PIN_FIELD_BASE(126, 126, 8, 0x0C0, 0x10, 16, 1),
+	PIN_FIELD_BASE(127, 127, 8, 0x0C0, 0x10, 20, 1),
+	PIN_FIELD_BASE(128, 128, 8, 0x0C0, 0x10, 24, 1),
+	PIN_FIELD_BASE(129, 129, 8, 0x0C0, 0x10, 28, 1),
+	PIN_FIELD_BASE(130, 130, 8, 0x0D0, 0x10, 0, 1),
+	PIN_FIELD_BASE(131, 131, 8, 0x0D0, 0x10, 4, 1),
+	PIN_FIELD_BASE(132, 132, 8, 0x0D0, 0x10, 8, 1),
+	PIN_FIELD_BASE(133, 133, 8, 0x0D0, 0x10, 12, 1),
+};
+
+static const struct mtk_pin_field_calc mt6771_pin_r1_range[] = {
+	PIN_FIELD_BASE(29, 29, 2, 0x0C0, 0x10, 1, 1),
+	PIN_FIELD_BASE(30, 30, 2, 0x0C0, 0x10, 5, 1),
+	PIN_FIELD_BASE(31, 31, 2, 0x0C0, 0x10, 9, 1),
+	PIN_FIELD_BASE(32, 32, 2, 0x0C0, 0x10, 13, 1),
+	PIN_FIELD_BASE(33, 33, 2, 0x0C0, 0x10, 17, 1),
+	PIN_FIELD_BASE(34, 34, 2, 0x0C0, 0x10, 21, 1),
+	PIN_FIELD_BASE(35, 35, 3, 0x0C0, 0x10, 1, 1),
+	PIN_FIELD_BASE(36, 36, 3, 0x0C0, 0x10, 5, 1),
+	PIN_FIELD_BASE(37, 37, 3, 0x0C0, 0x10, 9, 1),
+	PIN_FIELD_BASE(38, 38, 3, 0x0C0, 0x10, 13, 1),
+	PIN_FIELD_BASE(39, 39, 3, 0x0C0, 0x10, 17, 1),
+	PIN_FIELD_BASE(40, 40, 3, 0x0C0, 0x10, 21, 1),
+	PIN_FIELD_BASE(41, 41, 3, 0x0C0, 0x10, 25, 1),
+	PIN_FIELD_BASE(42, 42, 3, 0x0C0, 0x10, 29, 1),
+	PIN_FIELD_BASE(48, 48, 3, 0x0F0, 0x10, 19, 1),
+	PIN_FIELD_BASE(49, 49, 3, 0x0F0, 0x10, 14, 1),
+	PIN_FIELD_BASE(50, 50, 4, 0x0F0, 0x10, 11, 1),
+	PIN_FIELD_BASE(51, 51, 4, 0x0F0, 0x10, 6, 1),
+	PIN_FIELD_BASE(81, 81, 5, 0x0F0, 0x10, 8, 1),
+	PIN_FIELD_BASE(82, 82, 5, 0x0F0, 0x10, 6, 1),
+	PIN_FIELD_BASE(83, 83, 5, 0x0F0, 0x10, 16, 1),
+	PIN_FIELD_BASE(84, 84, 5, 0x0F0, 0x10, 18, 1),
+	PIN_FIELD_BASE(91, 91, 6, 0x0C0, 0x10, 1, 1),
+	PIN_FIELD_BASE(92, 92, 6, 0x0C0, 0x10, 5, 1),
+	PIN_FIELD_BASE(93, 93, 6, 0x0C0, 0x10, 9, 1),
+	PIN_FIELD_BASE(94, 94, 6, 0x0C0, 0x10, 13, 1),
+	PIN_FIELD_BASE(103, 103, 6, 0x0F0, 0x10, 21, 1),
+	PIN_FIELD_BASE(104, 104, 6, 0x0F0, 0x10, 11, 1),
+	PIN_FIELD_BASE(105, 105, 6, 0x0F0, 0x10, 23, 1),
+	PIN_FIELD_BASE(106, 106, 6, 0x0F0, 0x10, 13, 1),
+	PIN_FIELD_BASE(122, 122, 8, 0x0C0, 0x10, 1, 1),
+	PIN_FIELD_BASE(123, 123, 8, 0x0C0, 0x10, 5, 1),
+	PIN_FIELD_BASE(124, 124, 8, 0x0C0, 0x10, 9, 1),
+	PIN_FIELD_BASE(125, 125, 8, 0x0C0, 0x10, 13, 1),
+	PIN_FIELD_BASE(126, 126, 8, 0x0C0, 0x10, 17, 1),
+	PIN_FIELD_BASE(127, 127, 8, 0x0C0, 0x10, 21, 1),
+	PIN_FIELD_BASE(128, 128, 8, 0x0C0, 0x10, 25, 1),
+	PIN_FIELD_BASE(129, 129, 8, 0x0C0, 0x10, 29, 1),
+	PIN_FIELD_BASE(130, 130, 8, 0x0D0, 0x10, 1, 1),
+	PIN_FIELD_BASE(131, 131, 8, 0x0D0, 0x10, 5, 1),
+	PIN_FIELD_BASE(132, 132, 8, 0x0D0, 0x10, 9, 1),
+	PIN_FIELD_BASE(133, 133, 8, 0x0D0, 0x10, 13, 1),
+};
+
+static const struct mtk_pin_reg_calc mt6771_reg_cals[PINCTRL_PIN_REG_MAX] = {
+	[PINCTRL_PIN_REG_MODE] = MTK_RANGE(mt6771_pin_mode_range),
+	[PINCTRL_PIN_REG_DIR] = MTK_RANGE(mt6771_pin_dir_range),
+	[PINCTRL_PIN_REG_DI] = MTK_RANGE(mt6771_pin_di_range),
+	[PINCTRL_PIN_REG_DO] = MTK_RANGE(mt6771_pin_do_range),
+	[PINCTRL_PIN_REG_SMT] = MTK_RANGE(mt6771_pin_smt_range),
+	[PINCTRL_PIN_REG_IES] = MTK_RANGE(mt6771_pin_ies_range),
+	[PINCTRL_PIN_REG_PULLEN] = MTK_RANGE(mt6771_pin_pullen_range),
+	[PINCTRL_PIN_REG_PULLSEL] = MTK_RANGE(mt6771_pin_pullsel_range),
+	[PINCTRL_PIN_REG_DRV] = MTK_RANGE(mt6771_pin_drv_range),
+	[PINCTRL_PIN_REG_PUPD] = MTK_RANGE(mt6771_pin_pupd_range),
+	[PINCTRL_PIN_REG_R0] = MTK_RANGE(mt6771_pin_r0_range),
+	[PINCTRL_PIN_REG_R1] = MTK_RANGE(mt6771_pin_r1_range),
+};
+
+static const struct mtk_eint_hw mt6771_eint_hw = {
+	.port_mask = 7,
+	.ports     = 6,
+	.ap_num    = 212,
+	.db_cnt    = 13,
+};
+
+static const struct mtk_pin_soc mt6771_data = {
+	.reg_cal = mt6771_reg_cals,
 	.pins = mtk_pins_mt6771,
 	.npins = ARRAY_SIZE(mtk_pins_mt6771),
-	.pin_mode_grps = mtk_pin_info_mode,
-	.n_pin_mode = ARRAY_SIZE(mtk_pin_info_mode),
-	.pin_drv_grps = mtk_pin_info_drv,
-	.n_pin_drv = ARRAY_SIZE(mtk_pin_info_mode),
-	.pin_smt_grps = mtk_pin_info_smt,
-	.n_pin_smt = ARRAY_SIZE(mtk_pin_info_smt),
-	.pin_ies_grps = mtk_pin_info_ies,
-	.n_pin_ies = ARRAY_SIZE(mtk_pin_info_ies),
-
-#if defined(HAS_PULLSEL_PULLEN)
-	.pin_pullsel_grps = mtk_pin_info_pullsel,
-	.n_pin_pullsel = ARRAY_SIZE(mtk_pin_info_pullsel),
-	.pin_pullen_grps = mtk_pin_info_pullen,
-	.n_pin_pullen = ARRAY_SIZE(mtk_pin_info_pullen),
-#endif
-
-#if defined(HAS_CONTIN_PUPD_R0R1)
-	.pin_pupd_r1r0_grps = mtk_pin_info_pupd_r1r0,
-	.n_pin_pupd_r1r0 = ARRAY_SIZE(mtk_pin_info_pupd_r1r0),
-#endif
-
-#if defined(HAS_PUPD)
-	.pin_pu_grps = mtk_pin_info_pu,
-	.n_pin_pu = ARRAY_SIZE(mtk_pin_info_pu),
-	.pin_pd_grps = mtk_pin_info_pd,
-	.n_pin_pd = ARRAY_SIZE(mtk_pin_info_pd),
-#endif
-
-#if defined(HAS_DISCRE_PUPD_R0R1)
-	.pin_pupd_grps = mtk_pin_info_pupd,
-	.n_pin_pupd = ARRAY_SIZE(mtk_pin_info_pupd),
-	.pin_r0_grps = mtk_pin_info_r0,
-	.n_pin_r0 = ARRAY_SIZE(mtk_pin_info_r0),
-	.pin_r1_grps = mtk_pin_info_r1,
-	.n_pin_r1 = ARRAY_SIZE(mtk_pin_info_r1),
-#endif
-
-	.pin_dout_grps = mtk_pin_info_dataout,
-	.n_pin_dout = ARRAY_SIZE(mtk_pin_info_dataout),
-	.pin_din_grps = mtk_pin_info_datain,
-	.n_pin_din = ARRAY_SIZE(mtk_pin_info_datain),
-	.pin_dir_grps = mtk_pin_info_dir,
-	.n_pin_dir = ARRAY_SIZE(mtk_pin_info_dir),
-	.mtk_pctl_set_pull_sel = mtk_pinctrl_set_gpio_pull,
-	.mtk_pctl_get_pull_sel = mtk_pinctrl_get_gpio_pullsel,
-	.mtk_pctl_get_pull_en = mtk_pinctrl_get_gpio_pullen,
-	.spec_debounce_select = mt6771_spec_debounce_select,
-	.mtk_irq_domain_ops = &mtk_irq_domain_ops,
-	.type1_start = 192,
-	.type1_end = 192,
-	.regmap_num = 9,
-	.port_shf = 4,
-	.port_mask = 0xf,
-	.port_align = 4,
-	.eint_offsets = {
-		.name = "mt6771_eint",
-		.stat      = 0x000,
-		.ack       = 0x040,
-		.mask      = 0x080,
-		.mask_set  = 0x0c0,
-		.mask_clr  = 0x100,
-		.sens      = 0x140,
-		.sens_set  = 0x180,
-		.sens_clr  = 0x1c0,
-		.soft      = 0x200,
-		.soft_set  = 0x240,
-		.soft_clr  = 0x280,
-		.pol       = 0x300,
-		.pol_set   = 0x340,
-		.pol_clr   = 0x380,
-		.dom_en    = 0x400,
-		.dbnc_ctrl = 0x500,
-		.dbnc_set  = 0x600,
-		.dbnc_clr  = 0x700,
-		.port_mask = 7,
-		.ports     = 6,
-	},
-	.ap_num = 212,
-	.db_cnt = 13,
+	.ngrps = ARRAY_SIZE(mtk_pins_mt6771),
+	.nfuncs = 8,
+	.eint_hw = &mt6771_eint_hw,
+	.gpio_m = 0,
+	.bias_set_combo = mtk_pinconf_bias_set_combo,
+	.bias_get_combo = mtk_pinconf_bias_get_combo,
+	.drive_set = mtk_pinconf_drive_set_direct_val,
+	.drive_get = mtk_pinconf_drive_get_direct_val,
 };
 
-static int mtk_pinctrl_probe(struct platform_device *pdev)
+static const struct of_device_id mt6771_pinctrl_of_match[] = {
+	{ .compatible = "mediatek,mt6771-pinctrl", },
+	{ }
+};
+
+static int mt6771_pinctrl_probe(struct platform_device *pdev)
 {
-	pr_info("mtk pinctrl probe\n");
-	return mtk_pctrl_init(pdev, &mtk_pinctrl_data, NULL);
+	return mtk_paris_pinctrl_probe(pdev, &mt6771_data);
 }
 
-static const struct of_device_id mtk_pctrl_match[] = {
-	{
-		.compatible = "mediatek,pinctrl",
-	}, {
-	}
-};
-MODULE_DEVICE_TABLE(of, mtk_pctrl_match);
-
-static struct platform_driver mtk_pinctrl_driver = {
-	.probe = mtk_pinctrl_probe,
+static struct platform_driver mt6771_pinctrl_driver = {
 	.driver = {
-		.name = "mediatek,pinctrl",
-		.owner = THIS_MODULE,
-		.of_match_table = mtk_pctrl_match,
-		.pm = &mtk_eint_pm_ops,
+		.name = "mt6771-pinctrl",
+		.of_match_table = mt6771_pinctrl_of_match,
 	},
+	.probe = mt6771_pinctrl_probe,
 };
 
-static int __init mtk_pinctrl_init(void)
+static int __init mt6771_pinctrl_init(void)
 {
-	return platform_driver_register(&mtk_pinctrl_driver);
+	return platform_driver_register(&mt6771_pinctrl_driver);
 }
-
-/* module_init(mtk_pinctrl_init); */
-
-postcore_initcall(mtk_pinctrl_init);
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek Pinctrl Driver");
-MODULE_AUTHOR("Light Hsieh <light.hsieh@mediatek.com>");
+arch_initcall(mt6771_pinctrl_init);

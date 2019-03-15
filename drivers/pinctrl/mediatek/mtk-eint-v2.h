@@ -1,16 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2014-2018 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Author: Maoguang Meng <maoguang.meng@mediatek.com>
+ *	   Sean Wang <sean.wang@mediatek.com>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-
 #ifndef __MTK_EINT_V2_H
 #define __MTK_EINT_V2_H
 
@@ -97,13 +92,14 @@ static inline int mtk_eint_do_resume(struct mtk_eint *eint)
 	return -EOPNOTSUPP;
 }
 
-int mtk_eint_set_debounce(struct mtk_eint *eint, unsigned long eint_n,
-			  unsigned int debounce)
+static inline int mtk_eint_set_debounce(struct mtk_eint *eint,
+	unsigned long eint_n, unsigned int debounce)
 {
 	return -EOPNOTSUPP;
 }
 
-int mtk_eint_find_irq(struct mtk_eint *eint, unsigned long eint_n)
+static inline int mtk_eint_find_irq(struct mtk_eint *eint,
+	unsigned long eint_n)
 {
 	return -EOPNOTSUPP;
 }

@@ -1,19 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+// Copyright (c) 2014-2018 MediaTek Inc.
+
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Library for MediaTek External Interrupt Support
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Author: Maoguang Meng <maoguang.meng@mediatek.com>
+ *	   Sean Wang <sean.wang@mediatek.com>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 #include <linux/io.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
