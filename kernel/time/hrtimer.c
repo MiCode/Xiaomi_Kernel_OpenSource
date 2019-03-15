@@ -64,6 +64,18 @@
 #include "mtk_sched_mon.h"
 #endif
 
+#ifdef CONFIG_DEBUG_OBJECTS_TIMERS
+#include <mt-plat/aee.h>
+
+#define mtk_aee_kernel_warn(reason) \
+	aee_kernel_warning_api(__FILE__, __LINE__, \
+		DB_OPT_DEFAULT, \
+		reason, \
+		"[wrong hrtimer usage]")
+#else
+#define mtk_aee_kernel_warn(reason)
+#endif
+
 /*
  * The timer bases:
  *
@@ -346,6 +358,7 @@ static bool hrtimer_fixup_init(void *addr, enum debug_obj_state state)
 
 	switch (state) {
 	case ODEBUG_STATE_ACTIVE:
+		mtk_aee_kernel_warn("re-init active hrtimer");
 		hrtimer_cancel(timer);
 		debug_object_init(timer, &hrtimer_debug_descr);
 		return true;
@@ -364,6 +377,7 @@ static bool hrtimer_fixup_activate(void *addr, enum debug_obj_state state)
 	switch (state) {
 	case ODEBUG_STATE_ACTIVE:
 		WARN_ON(1);
+		mtk_aee_kernel_warn("activate an active hrtimer");
 
 	default:
 		return false;
@@ -382,6 +396,7 @@ static bool hrtimer_fixup_free(void *addr, enum debug_obj_state state)
 	case ODEBUG_STATE_ACTIVE:
 		hrtimer_cancel(timer);
 		debug_object_free(timer, &hrtimer_debug_descr);
+		mtk_aee_kernel_warn("free an active hrtimer");
 		return true;
 	default:
 		return false;
