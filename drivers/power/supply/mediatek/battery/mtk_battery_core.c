@@ -2301,11 +2301,6 @@ void fg_daemon_send_data(
 		prcv->size,
 		prcv->idx);
 
-		pret->type = prcv->type;
-		pret->total_size = prcv->total_size;
-		pret->size = prcv->size;
-		pret->idx = prcv->idx;
-
 
 	switch (prcv->type) {
 	case FGD_CMD_PARAM_T_CUSTOM:
