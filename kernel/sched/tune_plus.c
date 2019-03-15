@@ -101,6 +101,8 @@ int uclamp_min_for_perf_idx(int idx, int min_value)
 	if (!st)
 		return -EINVAL;
 
+	min_value = find_fit_capacity(min_value);
+
 	css = &st->css;
 
 	mutex_lock(&uclamp_mutex);
