@@ -196,8 +196,10 @@ static int mtkfb_get_overlay_layer_info(
 #ifdef CONFIG_OF
 static int _parse_tag_videolfb(void);
 #endif
+#if defined(CONFIG_PM_AUTOSLEEP)
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
+#endif
 
 
 void mtkfb_log_enable(int enable)
@@ -2801,9 +2803,7 @@ static void mtkfb_early_suspend(void)
 	DISPMSG("[FB Driver] leave early_suspend\n");
 
 }
-#endif
 
-#if defined(CONFIG_PM_AUTOSLEEP)
 static void mtkfb_late_resume(void)
 {
 	int ret = 0;
