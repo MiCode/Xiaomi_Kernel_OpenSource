@@ -135,6 +135,7 @@ static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static int msm_mi2s_tx_ch = 2;
+static int msm_afe_lb_tx_ch = 2;
 static int msm_pri_mi2s_rx_ch = 2;
 static int pri_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int pri_tx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -332,6 +333,7 @@ static const char *const mi2s_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 static char const *pri_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 					"KHZ_192", "KHZ_8",
 					"KHZ_16", "KHZ_32"};
+static const char *const afe_lb_tx_ch_text[] = {"One", "Two"};
 
 
 static int msm_pri_tdm_rx_0_ch_get(struct snd_kcontrol *kcontrol,
@@ -748,6 +750,20 @@ static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_afe_lb_tx_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s(), channel:%d\n", __func__, msm_afe_lb_tx_ch);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_afe_lb_tx_ch;
+
+	return 0;
+}
 
 static int msm_tdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		struct snd_pcm_hw_params *params)
@@ -1044,6 +1060,25 @@ static int msm_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_afe_loopback_tx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_afe_lb_tx_ch  = %d\n", __func__,
+		 msm_afe_lb_tx_ch);
+	ucontrol->value.integer.value[0] = msm_afe_lb_tx_ch - 1;
+	return 0;
+}
+
+static int msm_afe_loopback_tx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_afe_lb_tx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_afe_lb_tx_ch = %d\n", __func__,
+			msm_afe_lb_tx_ch);
+	return 1;
+}
+
 static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -1229,6 +1264,8 @@ static const struct soc_enum msm_snd_enum[] = {
 			tdm_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tdm_sample_rate_text),
 			tdm_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(afe_lb_tx_ch_text),
+			afe_lb_tx_ch_text),
 };
 
 static const char *const btsco_rate_text[] = {"BTSCO_RATE_8KHZ",
@@ -1266,6 +1303,9 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("PRI_TDM_TX_0 SampleRate", msm_snd_enum[5],
 			msm_pri_tdm_tx_0_sample_rate_get,
 			msm_pri_tdm_tx_0_sample_rate_put),
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", msm_snd_enum[6],
+			msm_afe_loopback_tx_ch_get,
+			msm_afe_loopback_tx_ch_put),
 };
 
 static int apq8009_mclk_event(struct snd_soc_dapm_widget *w,
@@ -1663,6 +1703,7 @@ static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.be_hw_params_fixup = msm_afe_lb_tx_hw_params_fixup,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
