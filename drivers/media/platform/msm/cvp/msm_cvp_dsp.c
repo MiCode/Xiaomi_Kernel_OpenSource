@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 #include <linux/of_platform.h>
+#include <linux/of_fdt.h>
 #include <soc/qcom/secure_buffer.h>
 #include "msm_cvp_dsp.h"
 
@@ -32,7 +33,7 @@ struct cvp_dsp_cmd_msg {
 	uint32_t buff_index;
 	uint32_t buff_size;
 	uint32_t session_id;
-	int64_t ddr_type;
+	int32_t ddr_type;
 	uint32_t reserved[CVP_DSP_MAX_RESERVED];
 };
 
@@ -192,14 +193,21 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 	local_cmd_msg.cmd_msg_type = CVP_DSP_SEND_HFI_CMD_QUEUE;
 	local_cmd_msg.msg_ptr = (uint64_t)phys_addr;
 	local_cmd_msg.msg_ptr_len = size_in_bytes;
+	local_cmd_msg.ddr_type = of_fdt_get_ddrtype();
+	if (local_cmd_msg.ddr_type < 0) {
+		dprintk(CVP_ERR,
+			"%s: Incorrect DDR type value %d\n",
+			__func__, local_cmd_msg.ddr_type);
+	}
+
 	mutex_lock(&me->smd_mutex);
 	cmd_msg.msg_ptr = (uint64_t)phys_addr;
 	cmd_msg.msg_ptr_len = (size_in_bytes);
 	mutex_unlock(&me->smd_mutex);
 
 	dprintk(CVP_DBG,
-		"%s :: address of buffer, PA=0x%pK  size_buff=%d\n",
-		__func__, phys_addr, size_in_bytes);
+		"%s :: address of buffer, PA=0x%pK  size_buff=%d ddr_type=%d\n",
+		__func__, phys_addr, size_in_bytes, local_cmd_msg.ddr_type);
 
 	err = hyp_assign_phys((uint64_t)local_cmd_msg.msg_ptr,
 		local_cmd_msg.msg_ptr_len, srcVM, SRC_VM_NUM, destVM,
