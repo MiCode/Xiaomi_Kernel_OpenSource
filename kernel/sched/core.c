@@ -1281,7 +1281,7 @@ static inline void uclamp_cpu_put_id(struct task_struct *p, struct rq *rq,
 		rq->uclamp.group[clamp_id][group_id].tasks -= 1;
 #ifdef CONFIG_SCHED_DEBUG
 	else {
-		WARN(1, "invalid CPU[%d] clamp group [%u:%u] refcount\n",
+		printk_deferred("[name:uclamp&] invalid CPU[%d] clamp group [%u:%u] refcount\n",
 		     cpu_of(rq), clamp_id, group_id);
 	}
 #endif
@@ -1292,7 +1292,7 @@ static inline void uclamp_cpu_put_id(struct task_struct *p, struct rq *rq,
 	clamp_value = rq->uclamp.group[clamp_id][group_id].value;
 #ifdef CONFIG_SCHED_DEBUG
 	if (unlikely(clamp_value > rq->uclamp.value[clamp_id])) {
-		WARN(1, "invalid CPU[%d] clamp group [%u:%u] value\n",
+		printk_deferred("[name:uclamp&] invalid CPU[%d] clamp group [%u:%u] value\n",
 		     cpu_of(rq), clamp_id, group_id);
 	}
 #endif
