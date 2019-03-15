@@ -14,6 +14,9 @@
 		reg = <0xab00000 0x100000>;
 		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
 
+		/* LLCC Cache */
+		cache-slice-names = "cvp";
+
 		/* Supply */
 		cvp-supply = <&mvs1c_gdsc>;
 		cvp-core-supply = <&mvs1_gdsc>;
