@@ -1207,7 +1207,7 @@ signed int pwrap_init(void)
 /*-------------------pwrap debug---------------------*/
 static inline void pwrap_dump_ap_register(void)
 {
-	unsigned int i = 0;
+	unsigned int i = 0, offset = 0;
 #if (PMIC_WRAP_KERNEL) || (PMIC_WRAP_CTP)
 	unsigned int *reg_addr;
 #else
@@ -1217,17 +1217,31 @@ static inline void pwrap_dump_ap_register(void)
 
 	PWRAPLOG("dump reg\n");
 	for (i = 0; i <= PMIC_WRAP_REG_RANGE; i++) {
+#if (PMIC_WRAP_KERNEL) || (PMIC_WRAP_CTP)
 		reg_addr = (unsigned int *) (PMIC_WRAP_BASE + i * 4);
-#if (PMIC_WRAP_KERNEL)
-		reg_value = WRAP_RD32(((unsigned int *) (PMIC_WRAP_BASE + i * 4)));
-#else
 		reg_value = WRAP_RD32(reg_addr);
-#endif
 		PWRAPLOG("addr:0x%p = 0x%x\n", reg_addr, reg_value);
+#else
+		reg_addr = (PMIC_WRAP_BASE + i * 4);
+		reg_value = WRAP_RD32(reg_addr);
+		PWRAPLOG("addr:0x%x = 0x%x\n", reg_addr, reg_value);
+#endif
+	}
+	for (i = 0; i <= 14; i++) {
+		offset = 0xc00 + i * 4;
+#if (PMIC_WRAP_KERNEL) || (PMIC_WRAP_CTP)
+		reg_addr = (unsigned int *) (PMIC_WRAP_BASE + offset);
+		reg_value = WRAP_RD32(reg_addr);
+		PWRAPLOG("addr:0x%p = 0x%x\n", reg_addr, reg_value);
+#else
+		reg_addr = (PMIC_WRAP_BASE + offset);
+		reg_value = WRAP_RD32(reg_addr);
+		PWRAPLOG("addr:0x%x = 0x%x\n", reg_addr, reg_value);
+#endif
 	}
 }
 
-void pwrap_dump_all_registers(void)
+void pwrap_dump_all_register(void)
 {
 	unsigned int tsx_0 = 0, tsx_1 = 0, dcxo_0 = 0, dcxo_1 = 0;
 
@@ -1240,7 +1254,6 @@ void pwrap_dump_all_registers(void)
 	pr_notice("tsx dump reg_addr:0x1000d288 = 0x%x\n", dcxo_0);
 	dcxo_1 = WRAP_RD32(PMIC_WRAP_MD_ADCINF_1_STA_1);
 	pr_notice("tsx dump reg_addr:0x1000d28c = 0x%x\n", dcxo_1);
-/*	pwrap_dump_ap_register(); */
 }
 
 static int is_pwrap_init_done(void)
@@ -1255,7 +1268,7 @@ static int is_pwrap_init_done(void)
 	ret = pwrap_init();
 	if (ret != 0) {
 		PWRAP_PR_ERR("init error (%d)\n", ret);
-		pwrap_dump_all_registers();
+		pwrap_dump_all_register();
 		return ret;
 	}
 	PWRAPLOG("init successfully done (%d)\n\n", ret);
@@ -1372,25 +1385,25 @@ static irqreturn_t mt_pmic_wrap_irq(int irqno, void *dev_id)
 	}
 /* Check INT1_FLA Status, if wrong status, dump all register info */
 	if ((WRAP_RD32(PMIC_WRAP_INT1_FLG) & 0xffffff) != 0) {
+		PWRAPREG("INT1_FLG status Wrong,value=0x%x\n",
+			  WRAP_RD32(PMIC_WRAP_INT1_FLG));
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 		pwrap_wacs2_ipi(0x10010000 + 0xD8, 0xffffffff, (WRITE_CMD | WRITE_PMIC_WRAP));
 #else
 		WRAP_WR32(PMIC_WRAP_INT1_CLR, 0xffffffff);
 #endif
-		PWRAPREG("INT1_FLG status Wrong,value=0x%x\n", WRAP_RD32(PMIC_WRAP_INT1_FLG));
 	}
 	spin_lock_irqsave(&wrp_lock, flags);
-	/* pwrap_dump_all_registers(); */
+	/* pwrap_dump_all_register(); */
 
 	/* clear interrupt flag */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-			pwrap_wacs2_ipi(0x10010000 + 0xc8, 0xffffffff, (WRITE_CMD | WRITE_PMIC_WRAP));
+	pwrap_wacs2_ipi(0x10010000 + 0xc8, 0xffffffff,
+			(WRITE_CMD | WRITE_PMIC_WRAP));
 #else
-			WRAP_WR32(PMIC_WRAP_INT0_CLR, 0xffffffff);
+	WRAP_WR32(PMIC_WRAP_INT0_CLR, 0xffffffff);
 #endif
-
-	PWRAPREG("INT0 flag 0x%x\n", WRAP_RD32(PMIC_WRAP_INT0_EN));
-	if (g_wrap_wdt_irq_count == 10 || g_case_flag == 1)
+	if (g_wrap_wdt_irq_count == 10)
 		WARN_ON(1);
 
 	spin_unlock_irqrestore(&wrp_lock, flags);
@@ -1433,7 +1446,7 @@ static signed int mt_pwrap_store_hal(const char *buf, size_t count)
 	("PWRAP debug: [-dump_reg][-trace_wacs2][-init][-rdap][-wrap][-rdpmic][-wrpmic][-readtest][-writetest]\n");
 		PWRAPREG("PWRAP UT: [1][2]\n");
 	} else if (!strncmp(buf, "-dump_reg", 9)) {
-		pwrap_dump_all_registers();
+		pwrap_dump_all_register();
 	} else if (!strncmp(buf, "-trace_wacs2", 12)) {
 		/* pwrap_trace_wacs2(); */
 	} else if (!strncmp(buf, "-init", 5)) {
