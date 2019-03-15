@@ -13,6 +13,10 @@
 		qcom,dsi-phy-num = <0>;
 		qcom,dsi-select-clocks = "src_byte_clk0", "src_pixel_clk0";
 
+		qcom,dsi-sec-ctrl-num = <1>;
+		qcom,dsi-sec-phy-num = <1>;
+		qcom,dsi-select-sec-clocks = "src_byte_clk1", "src_pixel_clk1";
+
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-bpp = <24>;
