@@ -325,7 +325,11 @@ static int IMM_auxadc_GetOneChannelValue(int dwChannel, int data[4],
 	/* step2 clear bit */
 	if (adc_auto_set == 0) {
 		/* clear bit */
+#if defined(CONFIG_MACH_MT6739)
+		AUXADC_DRV_ClearBits16((u16 *)AUXADC_CON1, (1 << dwChannel));
+#else
 		AUXADC_DRV_WriteReg16((u16 *)AUXADC_CON1_CLR, (1 << dwChannel));
+#endif
 	}
 
 	/* step3 read channel and make sure old ready bit == 0 */
@@ -345,8 +349,11 @@ static int IMM_auxadc_GetOneChannelValue(int dwChannel, int data[4],
 
 	/* step4 set bit to trigger sample */
 	if (adc_auto_set == 0)
+#if defined(CONFIG_MACH_MT6739)
+		AUXADC_DRV_SetBits16((u16 *)AUXADC_CON1, (1 << dwChannel));
+#else
 		AUXADC_DRV_WriteReg16((u16 *)AUXADC_CON1_SET, (1 << dwChannel));
-
+#endif
 	/* step5 read channel and make sure ready bit == 1
 	 * we must dealay here for hw sample cahnnel data
 	 */
