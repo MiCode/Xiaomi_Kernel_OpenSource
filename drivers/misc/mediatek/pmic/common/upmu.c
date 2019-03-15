@@ -40,6 +40,10 @@
 #define CONFIG_PMIC_HW_ACCESS_EN
 #endif
 
+#ifdef CONFIG_MTK_AUXADC_INTF
+#include <mt-plat/mtk_auxadc_intf.h>
+#endif /* CONFIG_MTK_AUXADC_INTF */
+
 /*---IPI Mailbox define---*/
 #if defined(IPIMB)
 #include <mach/mtk_pmic_ipi.h>
@@ -538,6 +542,10 @@ static int pmic_mt_probe(struct platform_device *pdev)
 
 	mtk_regulator_init(pdev);
 	PMICLOG("[PMIC] mtk_regulator_init : done.\n");
+
+#ifdef CONFIG_MTK_AUXADC_INTF
+	mtk_auxadc_init();
+#endif /* CONFIG_MTK_AUXADC_INTF */
 
 	pmic_throttling_dlpt_init();
 
