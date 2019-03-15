@@ -30,7 +30,14 @@
 
 #define RSC_MODE_INSTRUCTION_TIME	100
 #define RSC_MODE_THRESHOLD_OVERHEAD	2700
-#define MIN_THRESHOLD_TIME		0
+
+/**
+ * rsc_min_threshold will be set to MIN_THRESHOLD_OVERHEAD_TIME which
+ * takes into account back off time + overhead from RSC/RSC_WRAPPER. The
+ * overhead buffer time is required to be greater than 14. For measure,
+ * this value assumes 18.
+ */
+#define MIN_THRESHOLD_OVERHEAD_TIME	18
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER_NUMERATOR	2
@@ -329,7 +336,7 @@ end:
 }
 
 static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
-	struct sde_rsc_cmd_config *cmd_config)
+	struct sde_rsc_cmd_config *cmd_config, enum sde_rsc_state state)
 {
 	const u32 cxo_period_ns = 52;
 	u64 rsc_backoff_time_ns = rsc->backoff_time_ns;
@@ -380,7 +387,12 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	line_time_ns = div_u64(line_time_ns, rsc->cmd_config.vtotal);
 	prefill_time_ns = line_time_ns * rsc->cmd_config.prefill_lines;
 
-	total = frame_time_ns - frame_jitter - prefill_time_ns;
+	/* only take jitter into account for CMD mode */
+	if (state == SDE_RSC_CMD_STATE)
+		total = frame_time_ns - frame_jitter - prefill_time_ns;
+	else
+		total = frame_time_ns - prefill_time_ns;
+
 	if (total < 0) {
 		pr_err("invalid total time period time:%llu jiter_time:%llu blanking time:%llu\n",
 			frame_time_ns, frame_jitter, prefill_time_ns);
@@ -421,7 +433,7 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	/* mode 2 is infinite */
 	rsc->timer_config.rsc_time_slot_2_ns = 0xFFFFFFFF;
 
-	rsc->timer_config.min_threshold_time_ns = 0;
+	rsc->timer_config.min_threshold_time_ns = MIN_THRESHOLD_OVERHEAD_TIME;
 	rsc->timer_config.bwi_threshold_time_ns =
 		rsc->timer_config.rsc_time_slot_0_ns;
 
@@ -461,7 +473,7 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 
 	/* update timers - might not be available at next switch */
 	if (config)
-		sde_rsc_timer_calculate(rsc, config);
+		sde_rsc_timer_calculate(rsc, config, SDE_RSC_CMD_STATE);
 
 	/**
 	 * rsc clients can still send config at any time. If a config is
@@ -601,7 +613,7 @@ static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 
 	/* update timers - might not be available at next switch */
 	if (config)
-		sde_rsc_timer_calculate(rsc, config);
+		sde_rsc_timer_calculate(rsc, config, SDE_RSC_VID_STATE);
 
 	/**
 	 * rsc clients can still send config at any time. If a config is
@@ -1541,7 +1553,7 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		goto sde_rsc_fail;
 	}
 
-	if (sde_rsc_timer_calculate(rsc, NULL))
+	if (sde_rsc_timer_calculate(rsc, NULL, SDE_RSC_IDLE_STATE))
 		goto sde_rsc_fail;
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
