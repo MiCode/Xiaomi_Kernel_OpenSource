@@ -743,8 +743,15 @@ int m4u_alloc_mva(struct m4u_client_t *client, M4U_PORT_ID port,
 		mva = m4u_do_mva_alloc(va, size, pMvaInfo);
 
 	if (mva == 0) {
-		m4u_aee_print("alloc mva fail: larb=%d,module=%s,size=%d\n",
-			      m4u_port_2_larb_id(port), m4u_get_port_name(port), size);
+		if (flags & M4U_FLAGS_FIX_MVA)
+			M4UMSG("%s, fix err: p(%d,%d),m:%s,s:%d\n",
+			       __func__, m4u_port_2_larb_id(port),
+			       port, m4u_get_port_name(port), size);
+		else
+			m4u_aee_print("%s,%d err: p(%d,%d),m:%s,s:%d\n",
+					__func__, __LINE__,
+					m4u_port_2_larb_id(port),
+					port, m4u_get_port_name(port), size);
 		m4u_dump_buf_info(NULL);
 		ret = -EINVAL;
 		goto err1;
