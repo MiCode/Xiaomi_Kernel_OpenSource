@@ -196,7 +196,7 @@ struct dentry *msm_cvp_debugfs_init_drv(void)
 			&msm_cvp_thermal_mitigation_disabled) &&
 	__debugfs_create(u32, "core_clock_voting",
 			&msm_cvp_clock_voting) &&
-	__debugfs_create(bool, "disable_video_syscache",
+	__debugfs_create(bool, "disable_cvp_syscache",
 			&msm_cvp_syscache_disable);
 
 #undef __debugfs_create
