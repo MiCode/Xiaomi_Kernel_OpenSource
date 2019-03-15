@@ -32,8 +32,8 @@
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
-#include "tee_impl/tee_priv.h"
-#include "tee_impl/tee_common.h"
+#include "private/tmem_dev_desc.h"
+#include "tee_impl/tee_ops.h"
 #include "tee_impl/tee_gp_def.h"
 #if defined(CONFIG_MTK_GZ_KREE)
 #include "mtee_impl/mtee_invoke.h"
@@ -169,10 +169,10 @@ static int tee_session_close_single_session_unlocked(void)
 	return TMEM_OK;
 }
 
-int tee_session_open(void **tee_data, void *priv)
+int tee_session_open(void **tee_data, void *dev_desc)
 {
 	UNUSED(tee_data);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	TEE_SESSION_LOCK();
 
@@ -183,10 +183,10 @@ int tee_session_open(void **tee_data, void *priv)
 	return TMEM_OK;
 }
 
-int tee_session_close(void *tee_data, void *priv)
+int tee_session_close(void *tee_data, void *dev_desc)
 {
 	UNUSED(tee_data);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	TEE_SESSION_LOCK();
 
@@ -256,17 +256,20 @@ static int secmem_execute(u32 cmd, struct secmem_param *param)
 }
 
 int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
-	      u8 *owner, u32 id, u32 clean, void *tee_data, void *priv)
+	      u8 *owner, u32 id, u32 clean, void *tee_data, void *dev_desc)
 {
 	int ret;
 	struct secmem_param param = {0};
-	u32 tee_ta_cmd = (clean ? get_tee_cmd(TEE_OP_ALLOC_ZERO, priv)
-				: get_tee_cmd(TEE_OP_ALLOC, priv));
+	struct tmem_device_description *tee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct tee_peer_ops_data *ops_data = &tee_dev_desc->u_ops_data.tee;
+	u32 tee_ta_cmd = (clean ? ops_data->tee_cmds[TEE_OP_ALLOC_ZERO]
+				: ops_data->tee_cmds[TEE_OP_ALLOC]);
 
 	UNUSED(tee_data);
 	UNUSED(owner);
 	UNUSED(id);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	*refcount = 0;
 	*sec_handle = 0;
@@ -287,31 +290,18 @@ int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 	return TMEM_OK;
 }
 
-static int tee_mem_reg_cfg_notify_mtee(enum TEE_MEM_TYPE tee_mem_type, u64 pa,
-				       u32 size)
-{
-	switch (tee_mem_type) {
-	case TEE_MEM_SDSP_SHARED:
-#if defined(CONFIG_MTK_GZ_KREE) && defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) \
-	&& defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)
-		return mtee_set_mchunks_region(pa, size, tee_mem_type);
-#else
-		return TMEM_OK;
-#endif
-	default:
-		return TMEM_OK;
-	}
-}
-
-int tee_free(u32 sec_handle, u8 *owner, u32 id, void *tee_data, void *priv)
+int tee_free(u32 sec_handle, u8 *owner, u32 id, void *tee_data, void *dev_desc)
 {
 	struct secmem_param param = {0};
-	u32 tee_ta_cmd = get_tee_cmd(TEE_OP_FREE, priv);
+	struct tmem_device_description *tee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct tee_peer_ops_data *ops_data = &tee_dev_desc->u_ops_data.tee;
+	u32 tee_ta_cmd = ops_data->tee_cmds[TEE_OP_FREE];
 
 	UNUSED(tee_data);
 	UNUSED(owner);
 	UNUSED(id);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	param.sec_handle = sec_handle;
 
@@ -321,49 +311,59 @@ int tee_free(u32 sec_handle, u8 *owner, u32 id, void *tee_data, void *priv)
 	return TMEM_OK;
 }
 
-int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *priv)
+int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *dev_desc)
 {
 	int ret;
 	struct secmem_param param = {0};
-	u32 tee_ta_cmd = get_tee_cmd(TEE_OP_REGION_ENABLE, priv);
-	enum TEE_MEM_TYPE tee_mem_type = get_tee_mem_type(priv);
+	struct tmem_device_description *tee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct tee_peer_ops_data *ops_data = &tee_dev_desc->u_ops_data.tee;
+	u32 tee_ta_cmd = ops_data->tee_cmds[TEE_OP_REGION_ENABLE];
 
 	UNUSED(tee_data);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 	param.sec_handle = pa;
 	param.size = size;
 
 	if (secmem_execute(tee_ta_cmd, &param))
 		return TMEM_TEE_APPEND_MEMORY_FAILED;
 
-	ret = tee_mem_reg_cfg_notify_mtee(tee_mem_type, pa, size);
-	if (ret != 0) {
-		pr_err("[%d] TEE notify reg mem add to MTEE failed:%d\n",
-		       tee_mem_type, ret);
-		return TMEM_TEE_NOTIFY_MEM_ADD_CFG_TO_MTEE_FAILED;
+	if (tee_dev_desc->notify_remote && tee_dev_desc->notify_remote_fn) {
+		ret = tee_dev_desc->notify_remote_fn(
+			pa, size, tee_dev_desc->mtee_chunks_id);
+		if (ret != 0) {
+			pr_err("[%d] TEE notify reg mem add to MTEE failed:%d\n",
+			       tee_dev_desc->mtee_chunks_id, ret);
+			return TMEM_TEE_NOTIFY_MEM_ADD_CFG_TO_MTEE_FAILED;
+		}
 	}
 
 	return TMEM_OK;
 }
 
-int tee_mem_reg_remove(void *tee_data, void *priv)
+int tee_mem_reg_remove(void *tee_data, void *dev_desc)
 {
 	int ret;
 	struct secmem_param param = {0};
-	u32 tee_ta_cmd = get_tee_cmd(TEE_OP_REGION_DISABLE, priv);
-	enum TEE_MEM_TYPE tee_mem_type = get_tee_mem_type(priv);
+	struct tmem_device_description *tee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct tee_peer_ops_data *ops_data = &tee_dev_desc->u_ops_data.tee;
+	u32 tee_ta_cmd = ops_data->tee_cmds[TEE_OP_REGION_DISABLE];
 
 	UNUSED(tee_data);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	if (secmem_execute(tee_ta_cmd, &param))
 		return TMEM_TEE_RELEASE_MEMORY_FAILED;
 
-	ret = tee_mem_reg_cfg_notify_mtee(tee_mem_type, 0x0ULL, 0x0);
-	if (ret != 0) {
-		pr_err("[%d] TEE notify reg mem remove to MTEE failed:%d\n",
-		       tee_mem_type, ret);
-		return TMEM_TEE_NOTIFY_MEM_REMOVE_CFG_TO_MTEE_FAILED;
+	if (tee_dev_desc->notify_remote && tee_dev_desc->notify_remote_fn) {
+		ret = tee_dev_desc->notify_remote_fn(
+			0x0ULL, 0x0, tee_dev_desc->mtee_chunks_id);
+		if (ret != 0) {
+			pr_err("[%d] TEE notify reg mem remove to MTEE failed:%d\n",
+			       tee_dev_desc->mtee_chunks_id, ret);
+			return TMEM_TEE_NOTIFY_MEM_REMOVE_CFG_TO_MTEE_FAILED;
+		}
 	}
 
 	return TMEM_OK;
@@ -374,12 +374,12 @@ int tee_mem_reg_remove(void *tee_data, void *priv)
 	 && (cmd <= CMD_SEC_MEM_INVOKE_CMD_END))
 
 static int tee_invoke_command(struct trusted_driver_cmd_params *invoke_params,
-			      void *tee_data, void *priv)
+			      void *tee_data, void *dev_desc)
 {
 	struct secmem_param param = {0};
 
 	UNUSED(tee_data);
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
 	if (INVALID(invoke_params))
 		return TMEM_PARAMETER_ERROR;

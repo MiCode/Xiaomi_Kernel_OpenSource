@@ -321,6 +321,14 @@ static int __init tmem_ut_server_init(void)
 
 static void __exit tmem_ut_server_exit(void)
 {
+	struct UT_TEST_CASE *t_case, *tmp;
+
+	/* clang-format off */
+	list_for_each_entry_safe(t_case, tmp, &g_test_case_list.list, list) {
+		/* clang-format on */
+		list_del(&t_case->list);
+		kfree(t_case);
+	}
 }
 
 subsys_initcall(tmem_ut_server_init);

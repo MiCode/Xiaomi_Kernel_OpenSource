@@ -38,9 +38,10 @@
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
+#include "private/tmem_dev_desc.h"
 #include "public/mtee_regions.h"
 /* clang-format off */
-#include "mtee_impl/mtee_priv.h"
+#include "mtee_impl/mtee_ops.h"
 /* clang-format on */
 #include "tee_impl/tee_invoke.h"
 
@@ -89,35 +90,36 @@ static void mtee_destroy_session_data(struct MTEE_SESSION_DATA *sess_data)
 		mld_kfree(sess_data);
 }
 
-static int mtee_session_open(void **peer_data, void *priv)
+static int mtee_session_open(void **peer_data, void *dev_desc)
 {
 	int ret = 0;
 	struct MTEE_SESSION_DATA *sess_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(priv);
+	UNUSED(dev_desc);
 
-	sess_data = mtee_create_session_data(priv_data->mem_type);
+	sess_data = mtee_create_session_data(mtee_dev_desc->kern_tmem_type);
 	if (INVALID(sess_data)) {
 		pr_err("[%d] Create session data failed: out of memory!\n",
-		       priv_data->mem_type);
+		       mtee_dev_desc->kern_tmem_type);
 		return TMEM_MTEE_CREATE_SESSION_FAILED;
 	}
 
 	MTEE_SESSION_LOCK();
 
-	if (unlikely(priv_data->service_name))
-		ret = KREE_CreateSession(priv_data->service_name,
+	if (unlikely(ops_data->service_name))
+		ret = KREE_CreateSession(ops_data->service_name,
 					 &sess_data->session_handle);
 	else
 		ret = KREE_CreateSession(mem_srv_name,
 					 &sess_data->session_handle);
 	if (ret != 0) {
 		pr_err("[%d] MTEE open session failed:%d (srv=%s)\n",
-		       priv_data->mem_type, ret,
-		       (priv_data->service_name ? priv_data->service_name
-						: mem_srv_name));
+		       mtee_dev_desc->kern_tmem_type, ret,
+		       (ops_data->service_name ? ops_data->service_name
+					       : mem_srv_name));
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_CREATE_SESSION_FAILED;
 	}
@@ -127,21 +129,22 @@ static int mtee_session_open(void **peer_data, void *priv)
 	return TMEM_OK;
 }
 
-static int mtee_session_close(void *peer_data, void *priv)
+static int mtee_session_close(void *peer_data, void *dev_desc)
 {
 	int ret;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(priv);
+	UNUSED(ops_data);
 	MTEE_SESSION_LOCK();
 
 	ret = KREE_CloseSession(sess_data->session_handle);
 	if (ret != 0) {
 		pr_err("[%d] MTEE close session failed:%d\n",
-		       priv_data->mem_type, ret);
+		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_CLOSE_SESSION_FAILED;
 	}
@@ -152,15 +155,17 @@ static int mtee_session_close(void *peer_data, void *priv)
 }
 
 static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
-		      u8 *owner, u32 id, u32 clean, void *peer_data, void *priv)
+		      u8 *owner, u32 id, u32 clean, void *peer_data,
+		      void *dev_desc)
 {
 	int ret;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(priv);
+	UNUSED(ops_data);
 	MTEE_SESSION_LOCK();
 
 	if (clean) {
@@ -175,7 +180,7 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 
 	if (ret != 0) {
 		pr_err("[%d] MTEE alloc chunk memory failed:%d\n",
-		       priv_data->mem_type, ret);
+		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_ALLOC_CHUNK_FAILED;
 	}
@@ -186,22 +191,23 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 }
 
 static int mtee_free(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
-		     void *priv)
+		     void *dev_desc)
 {
 	int ret;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(priv);
+	UNUSED(ops_data);
 	MTEE_SESSION_LOCK();
 
 	ret = KREE_ION_UnreferenceChunkmem(sess_data->session_handle,
 					   sec_handle);
 	if (ret != 0) {
 		pr_err("[%d] MTEE free chunk memory failed:%d\n",
-		       priv_data->mem_type, ret);
+		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_FREE_CHUNK_FAILED;
 	}
@@ -210,97 +216,22 @@ static int mtee_free(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
 	return TMEM_OK;
 }
 
-static int mtee_mem_reg_cfg_notify_tee(enum TRUSTED_MEM_TYPE mem_type, u64 pa,
-				       u32 size)
-{
-	switch (mem_type) {
-	case TRUSTED_MEM_PROT:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-		return secmem_fr_set_prot_shared_region(pa, size);
-#else
-		return TMEM_OK;
-#endif
-	case TRUSTED_MEM_HAPP:
-	case TRUSTED_MEM_HAPP_EXTRA:
-	case TRUSTED_MEM_SDSP:
-#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
-		return secmem_set_mchunks_region(pa, size, mem_type);
-#else
-		return TMEM_OK;
-#endif
-	case TRUSTED_MEM_SDSP_SHARED:
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
-	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                      \
-	    || defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
-		return secmem_set_mchunks_region(pa, size, mem_type);
-#else
-		return TMEM_OK;
-#endif
-	case TRUSTED_MEM_SVP:
-	/* no need to notify */
-	case TRUSTED_MEM_WFD:
-	/* no need to notify */
-	case TRUSTED_MEM_2D_FR:
-		/* no need to notify */
-		return TMEM_OK;
-	default:
-		return TMEM_OK;
-	}
-}
-
-#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
-static int get_mchunks_id(enum TRUSTED_MEM_TYPE mem_type)
-{
-	switch (mem_type) {
-	case TRUSTED_MEM_PROT:
-		return MTEE_MCHUNKS_PROT;
-	case TRUSTED_MEM_HAPP:
-		return MTEE_MCHUNKS_HAPP;
-	case TRUSTED_MEM_HAPP_EXTRA:
-		return MTEE_MCHUNKS_HAPP_EXTRA;
-	case TRUSTED_MEM_SDSP:
-		return MTEE_MCHUNKS_SDSP;
-	case TRUSTED_MEM_SDSP_SHARED:
-#if defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
-		return MTEE_MCHUNKS_SDSP_SHARED_MTEE_TEE;
-#elif defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
-		return MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE;
-#else
-		return MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE;
-#endif
-	case TRUSTED_MEM_SVP:
-	/* this is not mchunk */
-	case TRUSTED_MEM_WFD:
-	/* this is not mchunk */
-	case TRUSTED_MEM_2D_FR:
-		/* this is not mchunk */
-		return MTEE_MCUHNKS_INVALID;
-	default:
-		return MTEE_MCUHNKS_INVALID;
-	}
-}
-#endif
-
-static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
+static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 {
 	int ret;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 	KREE_SHAREDMEM_PARAM mem_param;
 
-	UNUSED(priv);
 	mem_param.buffer = (void *)pa;
 	mem_param.size = size;
 	mem_param.mapAry = NULL;
-#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
-	mem_param.region_id = get_mchunks_id(priv_data->mem_type);
-#else
-	mem_param.region_id = 0;
-#endif
+	mem_param.region_id = mtee_dev_desc->mtee_chunks_id;
 
+	UNUSED(ops_data);
 	MTEE_SESSION_LOCK();
 
 	ret = KREE_AppendSecureMultichunkmem(sess_data->session_handle,
@@ -308,49 +239,56 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
 					     &mem_param);
 	if (ret != 0) {
 		pr_err("[%d] MTEE append reg mem failed:%d\n",
-		       priv_data->mem_type, ret);
+		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_APPEND_MEMORY_FAILED;
 	}
 
-	ret = mtee_mem_reg_cfg_notify_tee(priv_data->mem_type, pa, size);
-	if (ret != 0) {
-		pr_err("[%d] MTEE notify reg mem add to TEE failed:%d\n",
-		       priv_data->mem_type, ret);
-		MTEE_SESSION_UNLOCK();
-		return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
+	if (mtee_dev_desc->notify_remote && mtee_dev_desc->notify_remote_fn) {
+		ret = mtee_dev_desc->notify_remote_fn(
+			pa, size, mtee_dev_desc->tee_smem_type);
+		if (ret != 0) {
+			pr_err("[%d] MTEE notify reg mem add to TEE failed:%d\n",
+			       mtee_dev_desc->tee_smem_type, ret);
+			MTEE_SESSION_UNLOCK();
+			return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
+		}
 	}
 
 	MTEE_SESSION_UNLOCK();
 	return TMEM_OK;
 }
 
-static int mtee_mem_reg_remove(void *peer_data, void *priv)
+static int mtee_mem_reg_remove(void *peer_data, void *dev_desc)
 {
 	int ret;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(priv);
+	UNUSED(ops_data);
 	MTEE_SESSION_LOCK();
 
 	ret = KREE_ReleaseSecureMultichunkmem(sess_data->session_handle,
 					      sess_data->append_mem_handle);
 	if (ret != 0) {
 		pr_err("[%d] MTEE release reg mem failed:%d\n",
-		       priv_data->mem_type, ret);
+		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_RELEASE_MEMORY_FAILED;
 	}
 
-	ret = mtee_mem_reg_cfg_notify_tee(priv_data->mem_type, 0x0ULL, 0x0);
-	if (ret != 0) {
-		pr_err("[%d] MTEE notify reg mem remove to TEE failed:%d\n",
-		       priv_data->mem_type, ret);
-		MTEE_SESSION_UNLOCK();
-		return TMEM_MTEE_NOTIFY_MEM_REMOVE_CFG_TO_TEE_FAILED;
+	if (mtee_dev_desc->notify_remote && mtee_dev_desc->notify_remote_fn) {
+		ret = mtee_dev_desc->notify_remote_fn(
+			0x0ULL, 0x0, mtee_dev_desc->tee_smem_type);
+		if (ret != 0) {
+			pr_err("[%d] MTEE notify reg mem remove to TEE failed:%d\n",
+			       mtee_dev_desc->tee_smem_type, ret);
+			MTEE_SESSION_UNLOCK();
+			return TMEM_MTEE_NOTIFY_MEM_REMOVE_CFG_TO_TEE_FAILED;
+		}
 	}
 
 	MTEE_SESSION_UNLOCK();
@@ -392,13 +330,14 @@ static int mtee_mem_srv_execute(KREE_SESSION_HANDLE session_handle, u32 cmd,
 }
 
 static int mtee_invoke_command(struct trusted_driver_cmd_params *invoke_params,
-			       void *peer_data, void *priv)
+			       void *peer_data, void *dev_desc)
 {
 	int ret = TMEM_OK;
 	struct MTEE_SESSION_DATA *sess_data =
 		(struct MTEE_SESSION_DATA *)peer_data;
-	struct mtee_peer_ops_priv_data *priv_data =
-		(struct mtee_peer_ops_priv_data *)priv;
+	struct tmem_device_description *mtee_dev_desc =
+		(struct tmem_device_description *)dev_desc;
+	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 	struct mtee_driver_params drv_params = {0};
 
 	if (INVALID(invoke_params))
@@ -409,7 +348,7 @@ static int mtee_invoke_command(struct trusted_driver_cmd_params *invoke_params,
 	drv_params.param2 = invoke_params->param2;
 	drv_params.param3 = invoke_params->param3;
 
-	if (unlikely(priv_data->service_name)) {
+	if (unlikely(ops_data->service_name)) {
 		ret = mtee_drv_execute(sess_data->session_handle,
 				       invoke_params->cmd, &drv_params);
 		if (ret) {

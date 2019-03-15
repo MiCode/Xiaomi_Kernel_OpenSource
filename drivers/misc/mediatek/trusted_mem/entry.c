@@ -75,7 +75,7 @@ int tmem_core_session_open(enum TRUSTED_MEM_TYPE mem_type)
 
 	return mem_device->peer_mgr->mgr_sess_open(
 		mem_device->peer_ops, &mem_device->peer_mgr->peer_mgr_data,
-		mem_device->peer_priv);
+		mem_device->dev_desc);
 }
 
 int tmem_core_session_close(enum TRUSTED_MEM_TYPE mem_type)
@@ -92,7 +92,7 @@ int tmem_core_session_close(enum TRUSTED_MEM_TYPE mem_type)
 	return mem_device->peer_mgr->mgr_sess_close(
 		mem_device->configs.session_keep_alive_enable,
 		mem_device->peer_ops, &mem_device->peer_mgr->peer_mgr_data,
-		mem_device->peer_priv);
+		mem_device->dev_desc);
 }
 
 int tmem_core_ssmr_allocate(enum TRUSTED_MEM_TYPE mem_type)
@@ -110,7 +110,7 @@ int tmem_core_ssmr_allocate(enum TRUSTED_MEM_TYPE mem_type)
 
 	return mem_device->ssmr_ops->offline(&region_pa, &region_size,
 					     mem_device->ssmr_feature_id,
-					     mem_device->peer_priv);
+					     mem_device->dev_desc);
 }
 
 int tmem_core_ssmr_release(enum TRUSTED_MEM_TYPE mem_type)
@@ -125,7 +125,7 @@ int tmem_core_ssmr_release(enum TRUSTED_MEM_TYPE mem_type)
 	}
 
 	return mem_device->ssmr_ops->online(mem_device->ssmr_feature_id,
-					    mem_device->peer_priv);
+					    mem_device->dev_desc);
 }
 
 static int min_chunk_size_check(u32 size, struct trusted_mem_configs *cfg)
@@ -241,7 +241,7 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	ret = mem_device->peer_mgr->mgr_sess_mem_alloc(
 		alignment, size, refcount, sec_handle, owner, id, clean,
 		mem_device->peer_ops, &mem_device->peer_mgr->peer_mgr_data,
-		mem_device->peer_priv);
+		mem_device->dev_desc);
 	if (unlikely(ret)) {
 		pr_err("[%d] alloc chunk failed:%d, sz:0x%x, align:0x%x\n",
 		       mem_type, ret, size, alignment);
@@ -276,7 +276,7 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 
 	ret = mem_device->peer_mgr->mgr_sess_mem_free(
 		sec_handle, owner, id, mem_device->peer_ops,
-		&mem_device->peer_mgr->peer_mgr_data, mem_device->peer_priv);
+		&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
 	if (unlikely(ret)) {
 		pr_err("[%d] free chunk failed!\n", mem_type);
 		return ret;
