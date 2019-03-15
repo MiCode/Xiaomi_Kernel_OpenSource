@@ -130,7 +130,8 @@ int auxadc_priv_read_channel(int channel)
 	if (auxadc_chan->convert_fn)
 		auxadc_chan->convert_fn(1);
 
-	auxadc_write(auxadc_chan->regs->ch_rqst, 1);
+	if (auxadc_chan->regs->ch_rqst != -1)
+		auxadc_write(auxadc_chan->regs->ch_rqst, 1);
 	udelay(auxadc_chan->avg_num * AUXADC_AVG_TIME_US);
 
 	while (auxadc_read(auxadc_chan->regs->ch_rdy) != 1) {
@@ -211,7 +212,8 @@ static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 	if (auxadc_chan->convert_fn)
 		auxadc_chan->convert_fn(1);
 
-	auxadc_write(auxadc_chan->regs->ch_rqst, 1);
+	if (auxadc_chan->regs->ch_rqst != -1)
+		auxadc_write(auxadc_chan->regs->ch_rqst, 1);
 	udelay(auxadc_chan->avg_num * AUXADC_AVG_TIME_US);
 
 	while (auxadc_read(auxadc_chan->regs->ch_rdy) != 1) {
@@ -221,12 +223,11 @@ static unsigned short get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
 			break;
 		}
 	}
+	auxadc_out = auxadc_read(auxadc_chan->regs->ch_out);
 	pmic_auxadc_chip_timeout_handler(
 		adc_dev->dev,
 		is_timeout,
 		auxadc_chan->ch_num);
-
-	auxadc_out = auxadc_read(auxadc_chan->regs->ch_out);
 
 	if (auxadc_chan->convert_fn)
 		auxadc_chan->convert_fn(0);
@@ -463,7 +464,15 @@ static struct platform_driver mt635x_auxadc_driver = {
 	.probe	= mt635x_auxadc_probe,
 	.remove	= mt635x_auxadc_remove,
 };
+#if 1 /* internal version */
+static int __init mt635x_auxadc_driver_init(void)
+{
+	return platform_driver_register(&mt635x_auxadc_driver);
+}
+fs_initcall(mt635x_auxadc_driver_init);
+#else
 module_platform_driver(mt635x_auxadc_driver);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jeter Chen <Jeter.Chen@mediatek.com>");
