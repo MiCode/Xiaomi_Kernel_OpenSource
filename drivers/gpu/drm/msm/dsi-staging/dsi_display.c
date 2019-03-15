@@ -2887,25 +2887,27 @@ static bool dsi_display_check_prefix(const char *clk_prefix,
 	return !!strnstr(clk_name, clk_prefix, strlen(clk_name));
 }
 
-static int dsi_display_get_clocks_count(struct dsi_display *display)
+static int dsi_display_get_clocks_count(struct dsi_display *display,
+						char *dsi_clk_name)
 {
 	if (display->fw)
 		return dsi_parser_count_strings(display->parser_node,
-			"qcom,dsi-select-clocks");
+			dsi_clk_name);
 	else
 		return of_property_count_strings(display->panel_node,
-			"qcom,dsi-select-clocks");
+			dsi_clk_name);
 }
 
 static void dsi_display_get_clock_name(struct dsi_display *display,
-					int index, const char **clk_name)
+					char *dsi_clk_name, int index,
+					const char **clk_name)
 {
 	if (display->fw)
 		dsi_parser_read_string_index(display->parser_node,
-			"qcom,dsi-select-clocks", index, clk_name);
+			dsi_clk_name, index, clk_name);
 	else
 		of_property_read_string_index(display->panel_node,
-			"qcom,dsi-select-clocks", index, clk_name);
+			dsi_clk_name, index, clk_name);
 }
 
 static int dsi_display_clocks_init(struct dsi_display *display)
@@ -2919,13 +2921,20 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	struct dsi_clk_link_set *src = &display->clock_info.src_clks;
 	struct dsi_clk_link_set *mux = &display->clock_info.mux_clks;
 	struct dsi_clk_link_set *shadow = &display->clock_info.shadow_clks;
+	char *dsi_clock_name;
 
-	num_clk = dsi_display_get_clocks_count(display);
+	if (!strcmp(display->display_type, "primary"))
+		dsi_clock_name = "qcom,dsi-select-clocks";
+	else
+		dsi_clock_name = "qcom,dsi-select-sec-clocks";
+
+	num_clk = dsi_display_get_clocks_count(display, dsi_clock_name);
 
 	pr_debug("clk count=%d\n", num_clk);
 
 	for (i = 0; i < num_clk; i++) {
-		dsi_display_get_clock_name(display, i, &clk_name);
+		dsi_display_get_clock_name(display, dsi_clock_name, i,
+						&clk_name);
 
 		pr_debug("clock name:%s\n", clk_name);
 
@@ -3447,11 +3456,19 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	int i, rc = 0;
 	u32 phy_count = 0;
 	struct device_node *of_node = display->pdev->dev.of_node;
+	char *dsi_ctrl_name, *dsi_phy_name;
+
+	if (!strcmp(display->display_type, "primary")) {
+		dsi_ctrl_name = "qcom,dsi-ctrl-num";
+		dsi_phy_name = "qcom,dsi-phy-num";
+	} else {
+		dsi_ctrl_name = "qcom,dsi-sec-ctrl-num";
+		dsi_phy_name = "qcom,dsi-sec-phy-num";
+	}
 
 	display->ctrl_count = dsi_display_get_phandle_count(display,
-				"qcom,dsi-ctrl-num");
-	phy_count = dsi_display_get_phandle_count(display,
-				"qcom,dsi-phy-num");
+					dsi_ctrl_name);
+	phy_count = dsi_display_get_phandle_count(display, dsi_phy_name);
 
 	pr_debug("ctrl count=%d, phy count=%d\n",
 			display->ctrl_count, phy_count);
@@ -3471,15 +3488,14 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 	display_for_each_ctrl(i, display) {
 		struct dsi_display_ctrl *ctrl = &display->ctrl[i];
 		int index;
-
-		index = dsi_display_get_phandle_index(display,
-				"qcom,dsi-ctrl-num", display->ctrl_count, i);
+		index = dsi_display_get_phandle_index(display, dsi_ctrl_name,
+			display->ctrl_count, i);
 		ctrl->ctrl_of_node = of_parse_phandle(of_node,
 				"qcom,dsi-ctrl", index);
 		of_node_put(ctrl->ctrl_of_node);
 
-		index = dsi_display_get_phandle_index(display,
-				"qcom,dsi-phy-num", display->ctrl_count, i);
+		index = dsi_display_get_phandle_index(display, dsi_phy_name,
+			display->ctrl_count, i);
 		ctrl->phy_of_node = of_parse_phandle(of_node,
 				"qcom,dsi-phy", index);
 		of_node_put(ctrl->phy_of_node);
@@ -4794,18 +4810,13 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 
 		/* The panel name should be same as UEFI name index */
 		panel_node = of_find_node_by_name(mdp_node, boot_disp->name);
-		if (!panel_node) {
-			pr_err("panel_node %s not found\n", boot_disp->name);
-			rc = -ENODEV;
-			goto end;
-		}
+		if (!panel_node)
+			pr_warn("panel_node %s not found\n", boot_disp->name);
 	} else {
 		panel_node = of_parse_phandle(node,
 				"qcom,dsi-default-panel", 0);
-		if (!panel_node) {
-			pr_err("default panel not found\n");
-			goto end;
-		}
+		if (!panel_node)
+			pr_warn("default panel not found\n");
 
 		if (IS_ENABLED(CONFIG_DSI_PARSER))
 			firm_req = !request_firmware_nowait(
