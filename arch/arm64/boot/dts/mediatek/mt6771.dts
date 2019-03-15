@@ -485,7 +485,7 @@
 	};
 
 	pio: pinctrl@1000b000 {
-		compatible = "mediatek,pinctrl";
+		compatible = "mediatek,mt6771-pinctrl";
 		reg_bases = <&gpio>,
 			<&iocfg_0>,
 			<&iocfg_1>,
