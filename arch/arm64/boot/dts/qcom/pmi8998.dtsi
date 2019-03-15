@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -729,6 +729,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 0>;
+		wake-capable-sensor;
 
 		trips {
 			ibat_high: low-ibat {
@@ -743,6 +744,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 1>;
+		wake-capable-sensor;
 
 		trips {
 			ibat_vhigh: ibat_vhigh {
@@ -757,6 +759,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 2>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -798,6 +801,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 3>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -813,6 +817,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 4>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -828,6 +833,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 5>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -869,6 +875,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&pmi8998_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pmi8998_trip0: pmi8998-trip0 {
