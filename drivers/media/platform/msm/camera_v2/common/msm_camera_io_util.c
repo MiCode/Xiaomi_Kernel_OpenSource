@@ -182,7 +182,7 @@ void msm_camera_io_dump(void __iomem *addr, int size, int enable)
 	size_t offset = 0, used = 0;
 	u32 data;
 
-	trace_printk("%s: addr=%p size=%d\n", __func__, addr, size);
+	CDBG("%s: addr=%pK size=%d\n", __func__, addr, size);
 
 	if (!addr || (size <= 0) || !enable)
 		return;
@@ -193,7 +193,7 @@ void msm_camera_io_dump(void __iomem *addr, int size, int enable)
 			used = snprintf(line_str + offset,
 				sizeof(line_str) - offset, "0x%04tX: ", p);
 			if (offset + used >= sizeof(line_str)) {
-				trace_printk("%s\n", line_str);
+				pr_err("%s\n", line_str);
 				offset = 0;
 				line_str[0] = '\0';
 			} else {
@@ -205,20 +205,20 @@ void msm_camera_io_dump(void __iomem *addr, int size, int enable)
 		used = snprintf(line_str + offset,
 			sizeof(line_str) - offset, "%08x ", data);
 		if (offset + used >= sizeof(line_str)) {
-			trace_printk("%s\n", line_str);
+			pr_err("%s\n", line_str);
 			offset = 0;
 			line_str[0] = '\0';
 		} else {
 			offset += used;
 		}
 		if ((i + 1) % 4 == 0) {
-			trace_printk("%s\n", line_str);
+			pr_err("%s\n", line_str);
 			line_str[0] = '\0';
 			offset = 0;
 		}
 	}
 	if (line_str[0] != '\0')
-		trace_printk("%s\n", line_str);
+		pr_err("%s\n", line_str);
 }
 
 void msm_camera_io_dump_wstring_base(void __iomem *addr,

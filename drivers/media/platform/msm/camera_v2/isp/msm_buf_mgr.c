@@ -398,7 +398,6 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 		buf = info->buffer;
 	}
 
-	trace_printk("%s: stream_id %x paddr %d\n", __func__, bufq->stream_id, buf_info->mapped_info[0].paddr );
 	rc = msm_isp_prepare_v4l2_buf(buf_mgr, buf_info, &buf, bufq->stream_id);
 	if (rc < 0) {
 		pr_err_ratelimited("%s: Prepare buffer error\n", __func__);
@@ -515,7 +514,6 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_v4l2_buf,
 				bufq->session_id, bufq->stream_id);
 	}
-	trace_printk("%s: stream_id %x buf_idx %d paddr %p\n", __func__, bufq->stream_id, buf_idx, buf_info->mapped_info[0].paddr );
 	msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info, bufq->stream_id);
 
 	return 0;
@@ -1328,8 +1326,6 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	}
 	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
 		struct msm_isp_qbuf_info *qbuf_info = arg;
-		trace_printk("%s: VIDIOC_MSM_ISP_DEQUEUE_BUF qbuf_info->buf_idx %d\n",
-			__func__, qbuf_info->buf_idx);
 
 		rc = buf_mgr->ops->dequeue_buf(buf_mgr, qbuf_info);
 		break;
@@ -1417,22 +1413,15 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	}
 
-	pr_info("%s: ==== SMMU page fault addr %lx ====\n", __func__,
+	pr_err("%s: ==== SMMU page fault addr %lx ====\n", __func__,
 		fault_addr);
-	pr_info("%s: nearby stream id %x, frame_id %d\n", __func__,
+	pr_err("%s: nearby stream id %x, frame_id %d\n", __func__,
 		debug_stream_id, debug_frame_id);
-	pr_info("%s: nearby buf index %d, plane %d, state %d\n", __func__,
+	pr_err("%s: nearby buf index %d, plane %d, state %d\n", __func__,
 		debug_buf_idx, debug_buf_plane, debug_state);
-	pr_info("%s: buf address %p -- %p\n", __func__,
+	pr_err("%s: buf address %pK -- %pK\n", __func__,
 		(void *)debug_start_addr, (void *)debug_end_addr);
-	trace_printk("%s: ==== SMMU page fault addr %lx ====\n", __func__,
-		fault_addr);
-	trace_printk("%s: nearby stream id %x, frame_id %d\n", __func__,
-		debug_stream_id, debug_frame_id);
-	trace_printk("%s: nearby buf index %d, plane %d, state %d\n", __func__,
-		debug_buf_idx, debug_buf_plane, debug_state);
-	trace_printk("%s: buf address %p -- %p\n", __func__,
-		(void *)debug_start_addr, (void *)debug_end_addr);
+
 	if (BUF_DEBUG_FULL) {
 		print_buf = kzalloc(print_buf_size, GFP_ATOMIC);
 		if (!print_buf)
@@ -1485,7 +1474,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
 				end_addr = 0;
 			}
 		}
-		pr_info("%s\n", print_buf);
+		pr_err("%s\n", print_buf);
 		kfree(print_buf);
 	}
 	return rc;
