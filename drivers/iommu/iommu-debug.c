@@ -240,7 +240,7 @@ static struct iommu_debug_attr fastmap_attr = {
 
 static struct iommu_debug_attr secure_attr = {
 	.dma_type = 0,
-	.vmid = VMID_CP_CAMERA,
+	.vmid = VMID_CP_PIXEL,
 };
 
 static int iommu_debug_set_attrs(struct iommu_debug_device *ddev,
