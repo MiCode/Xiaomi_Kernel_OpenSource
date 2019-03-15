@@ -89,7 +89,6 @@ static int sar_factory_get_cali(int32_t data[3])
 	struct sarhub_ipi_data *obj = obj_ipi_data;
 	int8_t status = 0;
 
-	init_completion(&obj->calibration_done);
 	err = wait_for_completion_timeout(&obj->calibration_done,
 					  msecs_to_jiffies(3000));
 	if (!err) {
@@ -212,6 +211,7 @@ static int sarhub_local_init(void)
 	memset(obj, 0, sizeof(*obj));
 	obj_ipi_data = obj;
 	WRITE_ONCE(obj->factory_enable, false);
+	init_completion(&obj->calibration_done);
 
 	ctl.open_report_data = sar_open_report_data;
 	ctl.batch = sar_batch;
