@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #include <cam_cpas_api.h>
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+#include "cam_context.h"
 
 #define MAX_CSIPHY                  3
 #define MAX_DPHY_DATA_LN            4
@@ -194,6 +195,7 @@ struct cam_csiphy_param {
 
 /**
  * struct csiphy_device
+ * @device_name: Device name
  * @pdev: Platform device
  * @irq: Interrupt structure
  * @base: Base address
@@ -219,6 +221,7 @@ struct cam_csiphy_param {
  *   device is for combo mode
  */
 struct csiphy_device {
+	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct mutex mutex;
 	uint32_t hw_version;
 	enum cam_csiphy_state csiphy_state;
@@ -237,7 +240,6 @@ struct csiphy_device {
 	uint32_t clk_lane;
 	uint32_t acquire_count;
 	uint32_t start_dev_count;
-	char device_name[20];
 	uint32_t is_acquired_dev_combo_mode;
 	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
