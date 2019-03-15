@@ -73,7 +73,8 @@ int __conn_md_dmp_in(struct ipc_ilm *p_ilm, enum conn_md_msg_type msg_type,
 	memcpy(&p_msg->ilm, p_ilm, sizeof(struct ipc_ilm));
 
 	/*Log msg length */
-	p_msg->msg_len = p_ilm->local_para_ptr->msg_len;
+	p_msg->msg_len = p_ilm->local_para_ptr->msg_len
+				- sizeof(struct local_para);
 
 	/*Log msg content */
 	memcpy(&p_msg->data, p_ilm->local_para_ptr->data,
