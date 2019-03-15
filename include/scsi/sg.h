@@ -90,6 +90,9 @@ typedef struct sg_io_hdr
 /* defaults:: for sg driver: Q_AT_HEAD; for block layer: Q_AT_TAIL */
 #define SG_FLAG_Q_AT_TAIL 0x10
 #define SG_FLAG_Q_AT_HEAD 0x20
+#ifdef MTK_UFS_HQA
+#define SG_FLAG_POWER_LOSS 0x8000 /* MTK PATCH for SPOH */
+#endif
 
 /* following 'info' values are "or"-ed together */
 #define SG_INFO_OK_MASK 0x1
