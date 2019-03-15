@@ -20,7 +20,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char icp_dev_name[] = "icp";
+static const char icp_dev_name[] = "cam-icp";
 
 static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)
