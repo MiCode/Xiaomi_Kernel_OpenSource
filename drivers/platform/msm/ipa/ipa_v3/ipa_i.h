@@ -445,8 +445,7 @@ struct ipa3_client_names {
 struct ipa_smmu_cb_ctx {
 	bool valid;
 	struct device *dev;
-	struct dma_iommu_mapping *mapping;
-	struct iommu_domain *iommu;
+	struct iommu_domain *iommu_domain;
 	unsigned long next_addr;
 	u32 va_start;
 	u32 va_size;
@@ -1432,6 +1431,9 @@ enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_11AD,
 	IPA_SMMU_CB_MAX
 };
+
+#define VALID_IPA_SMMU_CB_TYPE(t) \
+	((t) >= IPA_SMMU_CB_AP && (t) < IPA_SMMU_CB_MAX)
 
 /**
  * struct ipa3_char_device_context - IPA character device

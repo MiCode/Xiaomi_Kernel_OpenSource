@@ -525,7 +525,7 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
 	struct iommu_domain *smmu_domain;
 	int res;
 
-	if (cb_type >= IPA_SMMU_CB_MAX) {
+	if (!VALID_IPA_SMMU_CB_TYPE(cb_type)) {
 		IPAERR("invalid cb_type\n");
 		return -EINVAL;
 	}
@@ -572,7 +572,7 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	int i;
 	struct page *page;
 
-	if (cb_type >= IPA_SMMU_CB_MAX) {
+	if (!VALID_IPA_SMMU_CB_TYPE(cb_type)) {
 		IPAERR("invalid cb_type\n");
 		return -EINVAL;
 	}
