@@ -2962,7 +2962,7 @@ static int __init musb_init(void)
 		, musb_driver_name);
 	return platform_driver_register(&musb_driver);
 }
-late_initcall(musb_init);
+module_init(musb_init);
 
 static void __exit musb_cleanup(void)
 {
