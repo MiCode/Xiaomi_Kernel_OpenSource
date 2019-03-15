@@ -588,11 +588,6 @@ static int msm_isp_composite_irq(struct vfe_device *vfe_dev,
 				struct msm_vfe_axi_stream *stream_info,
 				enum msm_isp_comp_irq_types irq)
 {
-	/* for dual vfe mode need not check anything*/
-	if (vfe_dev->dual_vfe_sync_mode) {
-		stream_info->composite_irq[irq] = 0;
-		return 0;
-	}
 	/* interrupt recv on same vfe w/o recv on other vfe */
 	if (stream_info->composite_irq[irq] & (1 << vfe_dev->pdev->id)) {
 		msm_isp_dump_ping_pong_mismatch(vfe_dev);
@@ -667,18 +662,19 @@ void msm_isp_process_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 			continue;
 
 		spin_lock_irqsave(&stream_info->lock, flags);
-
-		ret = msm_isp_composite_irq(vfe_dev, stream_info, irq);
-		if (ret) {
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-			if (ret < 0) {
-				msm_isp_halt_send_error(vfe_dev,
+		if (!vfe_dev->dual_vfe_sync_mode) {
+			ret = msm_isp_composite_irq(vfe_dev, stream_info, irq);
+			if (ret) {
+				spin_unlock_irqrestore(&stream_info->lock,
+					flags);
+				if (ret < 0) {
+					msm_isp_halt_send_error(vfe_dev,
 						ISP_EVENT_PING_PONG_MISMATCH);
-				return;
+					return;
+				}
+				continue;
 			}
-			continue;
 		}
-
 		switch (irq) {
 		case MSM_ISP_COMP_IRQ_REG_UPD:
 			stream_info->activated_framedrop_period =
@@ -967,13 +963,23 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			vfe_dev->axi_data.src_info[frame_src].frame_id +=
 				vfe_dev->axi_data.src_info[
 					frame_src].sof_counter_step;
-			ISP_DBG("%s: vfe %d sof_step %d\n", __func__,
+			ISP_DBG("%s: vfe %d sof_step %d frame_id %d\n",
+			__func__,
 			vfe_dev->pdev->id,
-			vfe_dev->axi_data.src_info[
-					frame_src].sof_counter_step);
+			vfe_dev->axi_data.src_info[frame_src].sof_counter_step,
+			vfe_dev->axi_data.src_info[frame_src].frame_id);
 		} else {
 			vfe_dev->axi_data.src_info[frame_src].frame_id++;
 		}
+	}
+	if (vfe_dev->is_split && vfe_dev->dual_vfe_sync_mode) {
+		struct vfe_device *temp_dev;
+		int other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0 ?
+					ISP_VFE1 : ISP_VFE0);
+		temp_dev = vfe_dev->common_data->dual_vfe_res->vfe_dev[
+			other_vfe_id];
+		temp_dev->axi_data.src_info[frame_src].frame_id =
+			vfe_dev->axi_data.src_info[frame_src].frame_id;
 	}
 
 	if (frame_src == VFE_PIX_0) {
@@ -1071,8 +1077,9 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 			vfe_dev->isp_raw2_debug++;
 		}
 
-		ISP_DBG("%s: vfe %d frame_src %d\n", __func__,
-			vfe_dev->pdev->id, frame_src);
+		ISP_DBG("%s: vfe %d frame_src %d frameid %d\n", __func__,
+			vfe_dev->pdev->id, frame_src,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 
 		/*
 		 * Cannot support dual_cam and framedrop same time in union.
@@ -2182,7 +2189,6 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 		}
 	}
-
 	rc = vfe_dev->buf_mgr->ops->get_buf_src(vfe_dev->buf_mgr,
 					buf->bufq_handle, &buf_src);
 	if (rc != 0) {
@@ -2477,6 +2483,9 @@ static void msm_isp_input_enable(struct vfe_device *vfe_dev,
 	if (vfe_dev->dual_vfe_sync_mode) {
 		vfe_dev->hw_info->vfe_ops.platform_ops.set_dual_vfe_mode(
 			vfe_dev);
+		ISP_DBG("%s: set dual vfe sync mode %d enable %d\n",
+		__func__, vfe_dev->dual_vfe_sync_mode,
+		vfe_dev->dual_vfe_sync_enable);
 	}
 
 	for (i = 0; i < VFE_SRC_MAX; i++) {
@@ -4318,10 +4327,17 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;
 	}
+	if (vfe_dev->dual_vfe_sync_mode)
+		if (stream_info->num_planes == 1)
+			/* composite the irq for dual vfe */
+			rc = msm_isp_composite_irq(vfe_dev, stream_info,
+				MSM_ISP_COMP_IRQ_PING_BUFDONE + pingpong_bit);
+		else
+			rc = 0;
+	else
+		rc = msm_isp_composite_irq(vfe_dev, stream_info,
+			MSM_ISP_COMP_IRQ_PING_BUFDONE + pingpong_bit);
 
-	/* composite the irq for dual vfe */
-	rc = msm_isp_composite_irq(vfe_dev, stream_info,
-		MSM_ISP_COMP_IRQ_PING_BUFDONE + pingpong_bit);
 	if (rc) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		if (rc < 0)
@@ -4495,7 +4511,8 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	if (!(comp_mask || wm_mask))
 		return;
 
-	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
+	ISP_DBG("%s: status0: 0x%x dual_irq_status %x\n",
+	__func__, irq_status0, dual_irq_status);
 
 	for (i = 0; i < axi_data->hw_info->num_comp_mask; i++) {
 		rc = 0;
@@ -4518,7 +4535,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			stream_idx = HANDLE_TO_IDX(comp_info->stream_handle);
 			stream_info = msm_isp_get_stream_common_data(vfe_dev,
 								stream_idx);
-
 			msm_isp_process_axi_irq_stream(vfe_dev, stream_info,
 						pingpong_status, ts);
 
@@ -4538,7 +4554,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			}
 			stream_info = msm_isp_get_stream_common_data(vfe_dev,
 								stream_idx);
-
 			msm_isp_process_axi_irq_stream(vfe_dev, stream_info,
 						pingpong_status, ts);
 		}
