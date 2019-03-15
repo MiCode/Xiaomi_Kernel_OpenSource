@@ -389,6 +389,12 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 			resp->fw_version_info.fw_build_timestamp,
 			QMI_WLFW_MAX_TIMESTAMP_LEN + 1);
 	}
+	if (resp->voltage_mv_valid) {
+		plat_priv->cpr_info.voltage = resp->voltage_mv;
+		cnss_pr_dbg("Voltage for CPR: %dmV\n",
+			    plat_priv->cpr_info.voltage);
+		cnss_update_cpr_info(plat_priv);
+	}
 	if (resp->otp_version_valid)
 		plat_priv->otp_version = resp->otp_version;
 

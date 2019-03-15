@@ -231,6 +231,15 @@ struct cnss_control_params {
 	unsigned int bdf_type;
 };
 
+struct cnss_cpr_info {
+	resource_size_t tcs_cmd_base_addr;
+	resource_size_t tcs_cmd_data_addr;
+	void __iomem *tcs_cmd_base_addr_io;
+	void __iomem *tcs_cmd_data_addr_io;
+	u32 cpr_pmic_addr;
+	u32 voltage;
+};
+
 enum cnss_ce_index {
 	CNSS_CE_00,
 	CNSS_CE_01,
@@ -298,6 +307,7 @@ struct cnss_plat_data {
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
+	struct cnss_cpr_info cpr_info;
 	u64 antenna;
 	u64 grant;
 	struct qmi_handle coex_qmi;
@@ -323,5 +333,7 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
+int cnss_get_cpr_info(struct cnss_plat_data *plat_priv);
+int cnss_update_cpr_info(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */
