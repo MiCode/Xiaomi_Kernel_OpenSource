@@ -44,6 +44,7 @@
  *************************************************************************/
 #define __ENABLE_WDT_SYSFS__
 #define __ENABLE_WDT_AT_INIT__
+#define KWDT_KICK_TIME_ALIGN
 
 /* ------------------------------------------------------------------------ */
 #define PFX "wdk: "
@@ -60,6 +61,7 @@
 #define WK_MAX_MSG_SIZE (128)
 #define MIN_KICK_INTERVAL	 1
 #define MAX_KICK_INTERVAL	30
+#define SOFT_KICK_RANGE     (100*1000) // 100ms
 #define	MRDUMP_SYSRESETB	0
 #define	MRDUMP_EINTRST		1
 #define PROC_WK "wdk"
@@ -103,6 +105,9 @@ static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
+#ifdef KWDT_KICK_TIME_ALIGN
+static unsigned long g_nxtKickTime;
+#endif
 
 static char cmd_buf[256];
 
@@ -480,7 +485,8 @@ static void kwdt_print_utc(char *msg_buf, int msg_buf_size)
 		tm_android.tm_min, tm_android.tm_sec,
 		(unsigned int)tv_android.tv_usec);
 }
-static void kwdt_process_kick(int local_bit, int cpu, char msg_buf[])
+static void kwdt_process_kick(int local_bit, int cpu,
+				unsigned long curInterval, char msg_buf[])
 {
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -494,9 +500,9 @@ static void kwdt_process_kick(int local_bit, int cpu, char msg_buf[])
 	 *  avoid bulk of delayed printk happens here
 	 */
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-		"[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,[%lld]\n",
+		"[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,[%lld,%ld]\n",
 		cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
-		lasthpg_t, sched_clock());
+		lasthpg_t, sched_clock(), curInterval);
 
 	if (local_bit == wk_check_kick_bit()) {
 		msg_buf[5] = 'k';
@@ -530,6 +536,7 @@ static int kwdt_thread(void *arg)
 	struct sched_param param = {.sched_priority = 99 };
 	int cpu = 0;
 	int local_bit = 0, loc_need_config = 0, loc_timeout = 0;
+	unsigned long curInterval = 0;
 	struct wd_api *loc_wk_wdt = NULL;
 	char msg_buf[WK_MAX_MSG_SIZE];
 
@@ -584,8 +591,24 @@ static int kwdt_thread(void *arg)
 				 * if thread-x is on cpu-x
 				 */
 				if (wk_tsk[cpu]->pid == current->pid) {
+#ifdef KWDT_KICK_TIME_ALIGN
+					if (kick_bit == 0) {
+						g_nxtKickTime =
+							ktime_to_us(ktime_get())
+							+ g_kinterval*1000*1000;
+						curInterval =
+							g_kinterval*1000*1000;
+					} else {
+						curInterval =	g_nxtKickTime
+						- ktime_to_us(ktime_get());
+					}
+					/* to avoid interval too long */
+					if (curInterval > g_kinterval*1000*1000)
+						curInterval =
+							g_kinterval*1000*1000;
+#endif
 					kwdt_process_kick(local_bit, cpu,
-						msg_buf);
+						curInterval, msg_buf);
 				} else
 					spin_unlock(&lock);
 			} else
@@ -624,7 +647,12 @@ static int kwdt_thread(void *arg)
 			}
 		}
 
-		msleep_interruptible((g_kinterval) * 1000);
+#ifdef KWDT_KICK_TIME_ALIGN
+		usleep_range(curInterval, curInterval + SOFT_KICK_RANGE);
+#else
+		usleep_range(g_kinterval*1000*1000,
+			g_kinterval*1000*1000 + SOFT_KICK_RANGE);
+#endif
 
 #ifdef CONFIG_MTK_AEE_POWERKEY_HANG_DETECT
 		if ((cpu == 0) && (wk_tsk[cpu]->pid == current->pid)) {
@@ -833,6 +861,8 @@ static int wk_cpu_callback_offline(unsigned int cpu)
 #endif
 	wk_cpu_update_bit_flag(cpu, 0);
 	/* pr_info("[wdk]cpu %d plug off, kick wdt\n", hotcpu); */
+
+	mtk_wdt_restart(WD_TYPE_NORMAL);/* for KICK external wdt */
 
 	mtk_wdt_cpu_callback(wk_tsk[cpu], cpu, g_kicker_init);
 
