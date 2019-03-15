@@ -574,8 +574,10 @@ int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	if (!policy)
 		return -EINVAL;
 
+	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
 	if (!sg_policy) {
+		mutex_unlock(&global_tunables_lock);
 		cpufreq_cpu_put(policy);
 		return -EINVAL;
 	}
@@ -584,10 +586,13 @@ int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	tunables->down_rate_limit_us = rate_limit_us;
 	attr_set = &tunables->attr_set;
 
+	mutex_lock(&attr_set->update_lock);
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
 		sg_policy->down_rate_delay_ns = rate_limit_us * NSEC_PER_USEC;
 		update_min_rate_limit_ns(sg_policy);
 	}
+	mutex_unlock(&attr_set->update_lock);
+	mutex_unlock(&global_tunables_lock);
 
 	if (policy)
 		cpufreq_cpu_put(policy);
@@ -606,8 +611,10 @@ int schedutil_set_up_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	if (!policy)
 		return -EINVAL;
 
+	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
 	if (!sg_policy) {
+		mutex_unlock(&global_tunables_lock);
 		cpufreq_cpu_put(policy);
 		return -EINVAL;
 	}
@@ -616,10 +623,13 @@ int schedutil_set_up_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	tunables->up_rate_limit_us = rate_limit_us;
 	attr_set = &tunables->attr_set;
 
+	mutex_lock(&attr_set->update_lock);
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
 		sg_policy->up_rate_delay_ns = rate_limit_us * NSEC_PER_USEC;
 		update_min_rate_limit_ns(sg_policy);
 	}
+	mutex_unlock(&attr_set->update_lock);
+	mutex_unlock(&global_tunables_lock);
 
 	if (policy)
 		cpufreq_cpu_put(policy);
