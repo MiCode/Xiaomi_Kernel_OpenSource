@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,8 +194,15 @@
 #define VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_LOW_OFFS	0x0538
 #define VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_HIGH_OFFS	0x053C
 
+#define VIDEO_GCC_AXI0_CBCR	(VIDEO_GCC_BASE_OFFS + 0x0)
+#define VIDEO_GCC_AXI0_CBCR_CLK_ARES_BMSK	0x4
+#define VIDEO_GCC_AXI0_CBCR_CLK_ENABLE_BMSK	0x1
+
+#define VIDEO_GCC_AXI1_CBCR	(VIDEO_GCC_BASE_OFFS + 0x4)
+#define VIDEO_GCC_AXI1_CBCR_CLK_ARES_BMSK	0x4
+#define VIDEO_GCC_AXI1_CBCR_CLK_ENABLE_BMSK	0x1
+
 #define VIDEO_GCC_AXIC_CBCR	(VIDEO_GCC_BASE_OFFS + 0x8)
-#define VIDEO_GCC_AXIC_CBCR_CLK_OFF_BMSK	0x80000000
 #define VIDEO_GCC_AXIC_CBCR_CLK_ARES_BMSK	0x4
 #define VIDEO_GCC_AXIC_CBCR_CLK_ENABLE_BMSK	0x1
 
