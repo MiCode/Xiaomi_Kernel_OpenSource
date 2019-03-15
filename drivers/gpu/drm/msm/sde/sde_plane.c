@@ -1636,8 +1636,6 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		struct sde_rect src;
 		bool q16_data = true;
 
-		msm_fmt = msm_framebuffer_format(state->fb);
-		fmt = to_sde_format(msm_fmt);
 		POPULATE_RECT(&src, state->src_x, state->src_y,
 			state->src_w, state->src_h, q16_data);
 		/*
@@ -1672,8 +1670,13 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			goto exit;
 		}
 
+		if (!sde_plane_enabled(state))
+			goto exit;
+
 		/* check for valid formats supported by inline rot */
 		sde_kms = to_sde_kms(priv->kms);
+		msm_fmt = msm_framebuffer_format(state->fb);
+		fmt = to_sde_format(msm_fmt);
 		ret = sde_format_validate_fmt(&sde_kms->base, fmt,
 			psde->pipe_sblk->in_rot_format_list);
 	}
