@@ -181,17 +181,17 @@
 		qcom,sde-vbif-qos-lutdma-remap = <3 3 3 3 4 4 4 4>;
 
 		/* macrotile & macrotile-qseed has the same configs */
-		qcom,sde-danger-lut = <0x0000000f 0x0000ffff
+		qcom,sde-danger-lut = <0x000000ff 0x0000ffff
 			0x00000000 0x00000000 0x0000ffff>;
 
-		qcom,sde-safe-lut-linear = <0 0xfffc>;
+		qcom,sde-safe-lut-linear = <0 0xfff0>;
 		qcom,sde-safe-lut-macrotile = <0 0xff00>;
 		/* same as safe-lut-macrotile */
 		qcom,sde-safe-lut-macrotile-qseed = <0 0xff00>;
 		qcom,sde-safe-lut-nrt = <0 0xffff>;
 		qcom,sde-safe-lut-cwb = <0 0x3ff>;
 
-		qcom,sde-qos-lut-linear = <0 0x00112222 0x22223357>;
+		qcom,sde-qos-lut-linear = <0 0x00112222 0x22335777>;
 		qcom,sde-qos-lut-macrotile = <0 0x00112233 0x44556677>;
 		qcom,sde-qos-lut-macrotile-qseed = <0 0x00112233 0x66777777>;
 		qcom,sde-qos-lut-nrt = <0 0x00000000 0x00000000>;
