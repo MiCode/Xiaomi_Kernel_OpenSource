@@ -314,7 +314,7 @@ int conn_md_send_msg(struct ipc_ilm *ilm)
 				sizeof(struct local_para));
 		/*copy data from local_para_ptr structure */
 		memcpy(p_local_para->data, ilm->local_para_ptr->data,
-				msg_info_len);
+				msg_info_len - sizeof(struct local_para));
 
 		CONN_MD_DBG_FUNC("p_local_para:0x%08x, msg_len:%d\n",
 				p_local_para, p_local_para->msg_len);
