@@ -175,6 +175,13 @@
 		polling-delay = <5000>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6125_adc_tm_iio ADC_GPIO1_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	emmc-ufs-therm-adc {
@@ -182,6 +189,13 @@
 		polling-delay = <5000>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6125_adc_tm_iio ADC_GPIO3_PU2>;
+		trips {
+			active-config0 {
+				temperature = <125000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
 	};
 
 	aoss0-usr {

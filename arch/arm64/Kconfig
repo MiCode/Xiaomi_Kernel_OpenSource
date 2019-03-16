@@ -508,7 +508,7 @@ config ARM64_ERRATUM_1024718
 
 config ARM64_ERRATUM_1286807
 	bool "Cortex-A76: Modification of the translation table for a virtual address might lead to read-after-read ordering violation"
-	default y
+	default n
 	select ARM64_WORKAROUND_REPEAT_TLBI
 	help
 	  This option adds workaround for ARM Cortex-A76 erratum 1286807

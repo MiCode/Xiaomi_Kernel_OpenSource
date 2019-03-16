@@ -1823,15 +1823,19 @@ static unsigned int _get_protection_flags(struct kgsl_pagetable *pt,
 {
 	unsigned int flags = IOMMU_READ | IOMMU_WRITE |
 		IOMMU_NOEXEC;
-	int ret, llc_nwa = 0;
+	int ret, llc_nwa = 0, upstream_hint = 0;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+				DOMAIN_ATTR_USE_UPSTREAM_HINT, &upstream_hint);
+
+	if (!ret && upstream_hint)
+		flags |= IOMMU_USE_UPSTREAM_HINT;
 
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 				DOMAIN_ATTR_USE_LLC_NWA, &llc_nwa);
 
-	if (ret || (llc_nwa == 0))
-		flags |= IOMMU_USE_UPSTREAM_HINT;
-	else
+	if (!ret && llc_nwa)
 		flags |= IOMMU_USE_LLC_NWA;
 
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
