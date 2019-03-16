@@ -1364,6 +1364,9 @@ static int __queue_discard_cmd(struct f2fs_sb_info *sbi,
 {
 	block_t lblkstart = blkstart;
 
+	if (!f2fs_bdev_support_discard(bdev))
+		return 0;
+
 	trace_f2fs_queue_discard(bdev, blkstart, blklen);
 
 	if (f2fs_is_multi_device(sbi)) {
@@ -1758,8 +1761,6 @@ static int __f2fs_issue_discard_zone(struct f2fs_sb_info *sbi,
 	}
 
 	/* For conventional zones, use regular discard if supported */
-	if (!blk_queue_discard(bdev_get_queue(bdev)))
-		return 0;
 	return __queue_discard_cmd(sbi, bdev, lblkstart, blklen);
 }
 #endif
@@ -1768,8 +1769,7 @@ static int __issue_discard_async(struct f2fs_sb_info *sbi,
 		struct block_device *bdev, block_t blkstart, block_t blklen)
 {
 #ifdef CONFIG_BLK_DEV_ZONED
-	if (f2fs_sb_has_blkzoned(sbi) &&
-				bdev_zoned_model(bdev) != BLK_ZONED_NONE)
+	if (f2fs_sb_has_blkzoned(sbi) && bdev_is_zoned(bdev))
 		return __f2fs_issue_discard_zone(sbi, bdev, blkstart, blklen);
 #endif
 	return __queue_discard_cmd(sbi, bdev, blkstart, blklen);
