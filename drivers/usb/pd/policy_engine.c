@@ -1499,6 +1499,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 				!pd->in_explicit_contract)
 			stop_usb_host(pd);
 
+		if (!pd->in_explicit_contract)
+			dual_role_instance_changed(pd->dual_role);
+
 		pd->in_explicit_contract = true;
 
 		if (pd->vdm_tx && !pd->sm_queued)
@@ -1512,7 +1515,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
-		dual_role_instance_changed(pd->dual_role);
 		break;
 
 	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
@@ -1687,6 +1689,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	case PE_SNK_READY:
+		if (!pd->in_explicit_contract)
+			dual_role_instance_changed(pd->dual_role);
+
 		pd->in_explicit_contract = true;
 
 		if (pd->vdm_tx)
@@ -1698,7 +1703,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		complete(&pd->is_ready);
-		dual_role_instance_changed(pd->dual_role);
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
