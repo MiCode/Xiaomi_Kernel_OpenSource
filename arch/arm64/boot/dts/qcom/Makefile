@@ -228,6 +228,15 @@ dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
 	trinket-usbc-idp.dtb
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_ATOLL) += \
+		atoll-rumi-overlay.dtbo\
+
+atoll-rumi-overlay.dtbo-base := atoll.dtb
+else
+dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-rumi.dtb
+endif
+
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp.dtb \
 	sdxprairie-mtp.dtb \
