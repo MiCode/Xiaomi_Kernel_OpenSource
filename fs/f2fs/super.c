@@ -2190,6 +2190,11 @@ static bool f2fs_dummy_context(struct inode *inode)
 	return DUMMY_ENCRYPTION_ENABLED(F2FS_I_SB(inode));
 }
 
+static inline bool f2fs_is_encrypted(struct inode *inode)
+{
+	return f2fs_encrypted_file(inode);
+}
+
 static const struct fscrypt_operations f2fs_cryptops = {
 	.key_prefix	= "f2fs:",
 	.get_context	= f2fs_get_context,
@@ -2197,6 +2202,7 @@ static const struct fscrypt_operations f2fs_cryptops = {
 	.dummy_context	= f2fs_dummy_context,
 	.empty_dir	= f2fs_empty_dir,
 	.max_namelen	= F2FS_NAME_LEN,
+	.is_encrypted	= f2fs_is_encrypted,
 };
 #endif
 

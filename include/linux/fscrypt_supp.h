@@ -30,6 +30,7 @@ struct fscrypt_operations {
 	bool (*dummy_context)(struct inode *);
 	bool (*empty_dir)(struct inode *);
 	unsigned int max_namelen;
+	bool (*is_encrypted)(struct inode *inode);
 };
 
 struct fscrypt_ctx {
@@ -181,6 +182,12 @@ extern void fscrypt_enqueue_decrypt_bio(struct fscrypt_ctx *ctx,
 extern void fscrypt_pullback_bio_page(struct page **, bool);
 extern int fscrypt_zeroout_range(const struct inode *, pgoff_t, sector_t,
 				 unsigned int);
+
+/* fscrypt_ice.c */
+extern int fscrypt_using_hardware_encryption(const struct inode *inode);
+extern void fscrypt_set_ice_dun(const struct inode *inode,
+		struct bio *bio, u64 dun);
+extern bool fscrypt_mergeable_bio(struct bio *bio, u64 dun, bool bio_encrypted);
 
 /* hooks.c */
 extern int fscrypt_file_open(struct inode *inode, struct file *filp);

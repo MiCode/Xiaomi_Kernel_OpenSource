@@ -280,6 +280,7 @@ int ext4_mpage_readpages(struct address_space *mapping,
 		}
 		if (bio == NULL) {
 			struct fscrypt_ctx *ctx = NULL;
+			unsigned int flags = 0;
 
 			if (ext4_encrypted_inode(inode) &&
 			    S_ISREG(inode->i_mode)) {
@@ -298,8 +299,9 @@ int ext4_mpage_readpages(struct address_space *mapping,
 			bio->bi_iter.bi_sector = blocks[0] << (blkbits - 9);
 			bio->bi_end_io = mpage_end_io;
 			bio->bi_private = ctx;
-			bio_set_op_attrs(bio, REQ_OP_READ,
-						is_readahead ? REQ_RAHEAD : 0);
+			if (is_readahead)
+				flags = flags | REQ_RAHEAD;
+			bio_set_op_attrs(bio, REQ_OP_READ, flags);
 		}
 
 		length = first_hole << blkbits;
