@@ -142,17 +142,9 @@ struct sched_cluster {
 	unsigned int cur_freq, max_freq, max_mitigated_freq, min_freq;
 	unsigned int max_possible_freq;
 	bool freq_init_done;
-	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
-	unsigned int static_cluster_pwr_cost;
-	int notifier_sent;
-	bool wake_up_idle;
 	u64 aggr_grp_load;
 	u64 coloc_boost_load;
 };
-
-extern unsigned int sched_disable_window_stats;
-
-extern struct timer_list sched_grp_timer;
 #endif /* CONFIG_SCHED_WALT */
 
 /* task_struct::on_rq states: */
@@ -2069,14 +2061,10 @@ static inline unsigned long capacity_orig_of(int cpu)
 	return cpu_rq(cpu)->cpu_capacity_orig;
 }
 
-extern unsigned int sysctl_sched_use_walt_cpu_util;
-extern unsigned int walt_disabled;
-
 static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
-	if (likely(!walt_disabled && sysctl_sched_use_walt_task_util))
-		return p->ravg.demand_scaled;
+	return p->ravg.demand_scaled;
 #endif
 	return READ_ONCE(p->se.avg.util_avg);
 }
@@ -2125,13 +2113,10 @@ static inline unsigned long cpu_util(int cpu)
 	unsigned int util;
 
 #ifdef CONFIG_SCHED_WALT
-	if (likely(!walt_disabled && sysctl_sched_use_walt_cpu_util)) {
-		u64 walt_cpu_util =
-			cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
+	u64 walt_cpu_util =
+		cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
 
-		return min_t(unsigned long, walt_cpu_util,
-						capacity_orig_of(cpu));
-	}
+	return min_t(unsigned long, walt_cpu_util, capacity_orig_of(cpu));
 #endif
 
 	cfs_rq = &cpu_rq(cpu)->cfs;
@@ -2156,8 +2141,7 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
-		util = cpu_rq(cpu)->cum_window_demand_scaled;
+	util = cpu_rq(cpu)->cum_window_demand_scaled;
 #endif
 	delta += util;
 	if (delta < 0)
@@ -2183,9 +2167,6 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long capacity = capacity_orig_of(cpu);
 	int boost;
-
-	if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
-		return cpu_util(cpu);
 
 	boost = per_cpu(sched_load_boost, cpu);
 	util_unboosted = util = freq_policy_load(rq);
@@ -2231,7 +2212,6 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 }
 
 #define sched_ravg_window TICK_NSEC
-#define sysctl_sched_use_walt_cpu_util 0
 
 #endif /* CONFIG_SCHED_WALT */
 
@@ -2718,26 +2698,12 @@ struct related_thread_group {
 	u64 last_update;
 };
 
-extern struct list_head cluster_head;
 extern struct sched_cluster *sched_cluster[NR_CPUS];
-
-#define for_each_sched_cluster(cluster) \
-	list_for_each_entry_rcu(cluster, &cluster_head, list)
-
-#define WINDOW_STATS_RECENT		0
-#define WINDOW_STATS_MAX		1
-#define WINDOW_STATS_MAX_RECENT_AVG	2
-#define WINDOW_STATS_AVG		3
-#define WINDOW_STATS_INVALID_POLICY	4
-
-#define SCHED_UPMIGRATE_MIN_NICE 15
-#define EXITING_TASK_MARKER	0xdeaddead
 
 #define UP_MIGRATION		1
 #define DOWN_MIGRATION		2
 #define IRQLOAD_MIGRATION	3
 
-extern struct mutex policy_mutex;
 extern unsigned int sched_disable_window_stats;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
@@ -2745,23 +2711,10 @@ extern unsigned int max_possible_efficiency;
 extern unsigned int min_possible_efficiency;
 extern unsigned int max_capacity;
 extern unsigned int min_capacity;
-extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
 extern unsigned int min_max_possible_capacity;
 extern unsigned int max_power_cost;
 extern unsigned int __read_mostly sched_init_task_load_windows;
-extern unsigned int up_down_migrate_scale_factor;
-extern unsigned int sysctl_sched_restrict_cluster_spill;
-extern unsigned int sched_pred_alert_load;
-extern struct sched_cluster init_cluster;
-extern unsigned int  __read_mostly sched_short_sleep_task_threshold;
-extern unsigned int  __read_mostly sched_long_cpu_selection_threshold;
-extern unsigned int  __read_mostly sched_big_waker_task_load;
-extern unsigned int  __read_mostly sched_small_wakee_task_load;
-extern unsigned int  __read_mostly sched_spill_load;
-extern unsigned int  __read_mostly sched_upmigrate;
-extern unsigned int  __read_mostly sched_downmigrate;
-extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
 extern unsigned int  __read_mostly sched_load_granule;
 
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
@@ -2792,16 +2745,6 @@ static inline int cpu_max_possible_capacity(int cpu)
 static inline int cpu_load_scale_factor(int cpu)
 {
 	return cpu_rq(cpu)->cluster->load_scale_factor;
-}
-
-static inline int cpu_efficiency(int cpu)
-{
-	return cpu_rq(cpu)->cluster->efficiency;
-}
-
-static inline unsigned int cpu_min_freq(int cpu)
-{
-	return cpu_rq(cpu)->cluster->min_freq;
 }
 
 static inline unsigned int cluster_max_freq(struct sched_cluster *cluster)
@@ -2881,16 +2824,6 @@ static inline int compute_load_scale_factor(struct sched_cluster *cluster)
 	load_scale >>= 10;
 
 	return load_scale;
-}
-
-static inline int cpu_max_power_cost(int cpu)
-{
-	return cpu_rq(cpu)->cluster->max_power_cost;
-}
-
-static inline int cpu_min_power_cost(int cpu)
-{
-	return cpu_rq(cpu)->cluster->min_power_cost;
 }
 
 static inline bool hmp_capable(void)
@@ -3245,11 +3178,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 
 static inline void clear_reserved(int cpu) { }
 static inline int alloc_related_thread_groups(void) { return 0; }
-
-#define trace_sched_cpu_load(...)
-#define trace_sched_cpu_load_lb(...)
-#define trace_sched_cpu_load_cgroup(...)
-#define trace_sched_cpu_load_wakeup(...)
 
 static inline void walt_fixup_cum_window_demand(struct rq *rq,
 						s64 scaled_delta) { }

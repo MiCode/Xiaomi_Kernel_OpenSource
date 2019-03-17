@@ -940,10 +940,7 @@ TRACE_EVENT(sched_load_rt_rq,
 );
 
 #ifdef CONFIG_SCHED_WALT
-extern unsigned int sysctl_sched_use_walt_cpu_util;
-extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int sched_ravg_window;
-extern unsigned int walt_disabled;
 #endif
 
 /*
@@ -973,8 +970,7 @@ TRACE_EVENT(sched_load_avg_cpu,
 		__entry->util_avg_walt  = div64_ul(cpu_rq(cpu)->prev_runnable_sum,
 					  sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
-		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
-			__entry->util_avg       = __entry->util_avg_walt;
+		__entry->util_avg       = __entry->util_avg_walt;
 #endif
 	),
 
@@ -1002,8 +998,6 @@ TRACE_EVENT(sched_load_se,
 		__field(	unsigned long,	load			      )
 		__field(	unsigned long,	rbl_load		      )
 		__field(	unsigned long,	util			      )
-		__field(	unsigned long,	util_pelt		      )
-		__field(	u32,		util_walt		      )
 	),
 
 	TP_fast_assign(
@@ -1020,22 +1014,11 @@ TRACE_EVENT(sched_load_se,
 		__entry->load = se->avg.load_avg;
 		__entry->rbl_load = se->avg.runnable_load_avg;
 		__entry->util = se->avg.util_avg;
-		__entry->util_pelt  = __entry->util;
-		__entry->util_walt  = 0;
-#ifdef CONFIG_SCHED_WALT
-		if (!se->my_q) {
-			struct task_struct *p = container_of(se, struct task_struct, se);
-			__entry->util_walt = p->ravg.demand / (sched_ravg_window >> SCHED_CAPACITY_SHIFT);
-			if (!walt_disabled && sysctl_sched_use_walt_task_util)
-				__entry->util = __entry->util_walt;
-		}
-#endif
 	),
 
-	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu rbl_load=%lu util=%lu util_pelt=%lu util_walt=%u",
+	TP_printk("cpu=%d path=%s comm=%s pid=%d load=%lu rbl_load=%lu util=%lu",
 		  __entry->cpu, __get_str(path), __entry->comm, __entry->pid,
-		  __entry->load, __entry->rbl_load, __entry->util,
-		  __entry->util_pelt, __entry->util_walt)
+		  __entry->load, __entry->rbl_load, __entry->util)
 );
 
 /*

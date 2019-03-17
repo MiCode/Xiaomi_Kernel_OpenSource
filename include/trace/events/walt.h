@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifdef CONFIG_SCHED_WALT
@@ -489,57 +489,6 @@ TRACE_EVENT(sched_load_balance_skip_tasks,
 		__entry->scpu, __entry->src_util_cum, __entry->grp_type,
 		__entry->dcpu, __entry->dst_util_cum, __entry->pid,
 		__entry->affinity, __entry->task_util, __entry->h_load)
-);
-
-DECLARE_EVENT_CLASS(sched_cpu_load,
-
-	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost),
-
-	TP_ARGS(rq, idle, irqload, power_cost),
-
-	TP_STRUCT__entry(
-		__field(unsigned int, cpu)
-		__field(unsigned int, idle)
-		__field(unsigned int, nr_running)
-		__field(unsigned int, nr_big_tasks)
-		__field(unsigned int, load_scale_factor)
-		__field(unsigned int, capacity)
-		__field(u64,	      cumulative_runnable_avg)
-		__field(u64,	      irqload)
-		__field(unsigned int, max_freq)
-		__field(unsigned int, power_cost)
-		__field(int,	      cstate)
-		__field(int,	      dstate)
-	),
-
-	TP_fast_assign(
-		__entry->cpu			= rq->cpu;
-		__entry->idle			= idle;
-		__entry->nr_running		= rq->nr_running;
-		__entry->nr_big_tasks		= rq->walt_stats.nr_big_tasks;
-		__entry->load_scale_factor	=
-						cpu_load_scale_factor(rq->cpu);
-		__entry->capacity		= cpu_capacity(rq->cpu);
-		__entry->cumulative_runnable_avg =
-				rq->walt_stats.cumulative_runnable_avg_scaled;
-		__entry->irqload		= irqload;
-		__entry->max_freq		= cpu_max_freq(rq->cpu);
-		__entry->power_cost		= power_cost;
-		__entry->cstate			= rq->cstate;
-		__entry->dstate			= rq->cluster->dstate;
-	),
-
-	TP_printk("cpu %u idle %d nr_run %u nr_big %u lsf %u capacity %u cr_avg %llu irqload %llu fmax %u power_cost %u cstate %d dstate %d",
-		__entry->cpu, __entry->idle, __entry->nr_running,
-		__entry->nr_big_tasks, __entry->load_scale_factor,
-		__entry->capacity, __entry->cumulative_runnable_avg,
-		__entry->irqload, __entry->max_freq, __entry->power_cost,
-		__entry->cstate, __entry->dstate)
-);
-
-DEFINE_EVENT(sched_cpu_load, sched_cpu_load_lb,
-	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost),
-	TP_ARGS(rq, idle, irqload, power_cost)
 );
 
 TRACE_EVENT(sched_load_to_gov,
