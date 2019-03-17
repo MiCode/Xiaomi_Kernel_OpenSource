@@ -940,7 +940,7 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
 	struct cam_vfe_bus_rd_ver1_priv    *bus_priv = hw_priv;
-	uint32_t                            top_irq_reg_mask[2] = {0};
+	uint32_t                            top_irq_reg_mask[3] = {0};
 	uint32_t                            offset = 0, val = 0;
 	struct cam_vfe_bus_rd_ver1_reg_offset_common  *common_reg;
 
