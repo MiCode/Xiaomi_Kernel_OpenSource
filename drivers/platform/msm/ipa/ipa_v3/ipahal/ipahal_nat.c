@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -10,7 +10,6 @@
 
 #define IPA_64_LOW_32_MASK (0xFFFFFFFF)
 #define IPA_64_HIGH_32_MASK (0xFFFFFFFF00000000ULL)
-#define IPAHAL_NAT_INVALID_PROTOCOL (0xFF)
 
 static const char *ipahal_nat_type_to_str[IPA_NAT_MAX] = {
 	__stringify(IPAHAL_NAT_IPV4),
