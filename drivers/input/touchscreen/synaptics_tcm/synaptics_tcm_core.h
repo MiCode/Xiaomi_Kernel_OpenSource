@@ -394,6 +394,7 @@ struct syna_tcm_hcd {
 	bool in_suspend;
 	bool irq_enabled;
 	bool host_download_mode;
+	unsigned char marker;
 	unsigned char fb_ready;
 	unsigned char command;
 	unsigned char async_report_id;

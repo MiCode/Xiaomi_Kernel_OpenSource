@@ -1603,7 +1603,6 @@ static void syna_tcm_update_watchdog(struct syna_tcm_hcd *tcm_hcd, bool en)
 static void syna_tcm_watchdog_work(struct work_struct *work)
 {
 	int retval;
-	unsigned char marker;
 	struct delayed_work *delayed_work =
 			container_of(work, struct delayed_work, work);
 	struct syna_tcm_watchdog *watchdog =
@@ -1618,12 +1617,12 @@ static void syna_tcm_watchdog_work(struct work_struct *work)
 	mutex_lock(&tcm_hcd->rw_ctrl_mutex);
 
 	retval = syna_tcm_read(tcm_hcd,
-			&marker,
+			&tcm_hcd->marker,
 			1);
 
 	mutex_unlock(&tcm_hcd->rw_ctrl_mutex);
 
-	if (retval < 0 || marker != MESSAGE_MARKER) {
+	if (retval < 0 || tcm_hcd->marker != MESSAGE_MARKER) {
 		LOGE(tcm_hcd->pdev->dev.parent,
 				"Failed to read from device\n");
 
