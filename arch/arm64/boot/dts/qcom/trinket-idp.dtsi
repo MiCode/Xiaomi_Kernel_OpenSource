@@ -68,6 +68,10 @@
 			};
 		};
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
 
 &qupv3_se1_i2c {
