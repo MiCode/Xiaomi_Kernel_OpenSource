@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,7 +101,7 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 				&retired);
 
 			dev_err(device->dev,
-				"  [timestamp] context %d timestamp %d (retired %d)\n",
+				"  [timestamp] context %u timestamp %u (retired %u)\n",
 				event->context->id, event->timestamp,
 				retired);
 			break;
@@ -143,7 +143,7 @@ static void syncobj_timer(unsigned long data)
 	device = drawobj->context->device;
 
 	dev_err(device->dev,
-		"kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
+		"kgsl: possible gpu syncpoint deadlock for context %u timestamp %u\n",
 		drawobj->context->id, drawobj->timestamp);
 
 	set_bit(ADRENO_CONTEXT_FENCE_LOG, &drawobj->context->priv);
@@ -160,7 +160,7 @@ static void syncobj_timer(unsigned long data)
 
 		switch (event->type) {
 		case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP:
-			dev_err(device->dev, "       [%d] TIMESTAMP %d:%d\n",
+			dev_err(device->dev, "       [%u] TIMESTAMP %u:%u\n",
 				i, event->context->id, event->timestamp);
 			break;
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE: {
@@ -168,7 +168,7 @@ static void syncobj_timer(unsigned long data)
 			struct event_fence_info *info = &event->info;
 
 			for (j = 0; j < info->num_fences; j++)
-				dev_err(device->dev, "       [%d] FENCE %s\n",
+				dev_err(device->dev, "       [%u] FENCE %s\n",
 					i, info->fences[j].name);
 			break;
 		}
