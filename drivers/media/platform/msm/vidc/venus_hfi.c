@@ -3877,19 +3877,30 @@ static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 
 	for (i = 0; i < rst_set->count; i++) {
 		rst = rst_set->reset_tbl[i].rst;
+		dprintk(VIDC_DBG, "%s reset_state name = %s state %d\n",
+			__func__, rst_set->reset_tbl[i].name, state);
 		switch (state) {
 		case INIT:
+			if (rst)
+				continue;
+
 			rst = devm_reset_control_get(&res->pdev->dev,
-						rst_set->reset_tbl[i].name);
+				rst_set->reset_tbl[i].name);
 			if (IS_ERR(rst))
 				rc = PTR_ERR(rst);
 
 			rst_set->reset_tbl[i].rst = rst;
 			break;
 		case ASSERT:
+			if (!rst)
+				goto no_init;
+
 			rc = reset_control_assert(rst);
 			break;
 		case DEASSERT:
+			if (!rst)
+				goto no_init;
+
 			rc = reset_control_deassert(rst);
 			break;
 		default:
@@ -3900,6 +3911,10 @@ static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
 			return rc;
 	}
 	return 0;
+no_init:
+	dprintk(VIDC_ERR, "%s reset_state name = %s failed state %d\n",
+		__func__, rst_set->reset_tbl[i].name, state);
+	return PTR_ERR(rst);
 }
 
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
