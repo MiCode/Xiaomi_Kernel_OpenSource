@@ -1121,6 +1121,7 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	trace_pil_event("before_auth_reset", desc);
+	notify_before_auth_and_reset(desc->dev);
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset(rc:%d)\n", ret);

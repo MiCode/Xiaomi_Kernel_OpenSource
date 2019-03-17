@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011, 2013-2014, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2014, 2018-2019, The Linux Foundation. All rights reserved.
  */
 /*
  * Subsystem restart notifier API header
@@ -17,6 +17,7 @@ enum subsys_notif_type {
 	SUBSYS_AFTER_SHUTDOWN,
 	SUBSYS_BEFORE_POWERUP,
 	SUBSYS_AFTER_POWERUP,
+	SUBSYS_BEFORE_AUTH_AND_RESET,
 	SUBSYS_RAMDUMP_NOTIFICATION,
 	SUBSYS_POWERUP_FAILURE,
 	SUBSYS_PROXY_VOTE,
