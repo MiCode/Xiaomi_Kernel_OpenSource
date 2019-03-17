@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.*/
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
@@ -136,7 +136,7 @@ static struct clk_branch gpu_cc_ahb_clk = {
 
 static struct clk_branch gpu_cc_crc_ahb_clk = {
 	.halt_reg = 0x107c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x107c,
 		.enable_mask = BIT(0),
@@ -149,7 +149,7 @@ static struct clk_branch gpu_cc_crc_ahb_clk = {
 
 static struct clk_branch gpu_cc_cx_apb_clk = {
 	.halt_reg = 0x1088,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1088,
 		.enable_mask = BIT(0),
@@ -180,12 +180,16 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 
 static struct clk_branch gpu_cc_cx_qdss_at_clk = {
 	.halt_reg = 0x1080,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1080,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_at_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -193,12 +197,16 @@ static struct clk_branch gpu_cc_cx_qdss_at_clk = {
 
 static struct clk_branch gpu_cc_cx_qdss_trig_clk = {
 	.halt_reg = 0x1094,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1094,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_trig_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -206,12 +214,16 @@ static struct clk_branch gpu_cc_cx_qdss_trig_clk = {
 
 static struct clk_branch gpu_cc_cx_qdss_tsctr_clk = {
 	.halt_reg = 0x1084,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1084,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_qdss_tsctr_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -219,7 +231,7 @@ static struct clk_branch gpu_cc_cx_qdss_tsctr_clk = {
 
 static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
 	.halt_reg = 0x108c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x108c,
 		.enable_mask = BIT(0),
@@ -232,7 +244,7 @@ static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
 
 static struct clk_branch gpu_cc_cxo_aon_clk = {
 	.halt_reg = 0x1004,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1004,
 		.enable_mask = BIT(0),
@@ -276,12 +288,16 @@ static struct clk_branch gpu_cc_gx_gmu_clk = {
 
 static struct clk_branch gpu_cc_gx_qdss_tsctr_clk = {
 	.halt_reg = 0x105c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x105c,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_gx_qdss_tsctr_clk",
+			.parent_names = (const char *[]){
+				"qdss_qmp_clk",
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -289,7 +305,7 @@ static struct clk_branch gpu_cc_gx_qdss_tsctr_clk = {
 
 static struct clk_branch gpu_cc_gx_vsense_clk = {
 	.halt_reg = 0x1058,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1058,
 		.enable_mask = BIT(0),
@@ -302,7 +318,7 @@ static struct clk_branch gpu_cc_gx_vsense_clk = {
 
 static struct clk_branch gpu_cc_sleep_clk = {
 	.halt_reg = 0x1090,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x1090,
 		.enable_mask = BIT(0),
