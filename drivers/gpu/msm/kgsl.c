@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -559,7 +559,7 @@ void kgsl_context_dump(struct kgsl_context *context)
 	device = context->device;
 
 	if (kgsl_context_detached(context)) {
-		dev_err(device->dev, "  context[%d]: context detached\n",
+		dev_err(device->dev, "  context[%u]: context detached\n",
 			context->id);
 	} else if (device->ftbl->drawctxt_dump != NULL)
 		device->ftbl->drawctxt_dump(device, context);

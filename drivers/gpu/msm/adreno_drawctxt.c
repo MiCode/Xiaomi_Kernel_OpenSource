@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,13 +74,13 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	 * deadlock. To prevent this use spin_trylock_bh.
 	 */
 	if (!spin_trylock_bh(&drawctxt->lock)) {
-		dev_err(device->dev, "  context[%d]: could not get lock\n",
+		dev_err(device->dev, "  context[%u]: could not get lock\n",
 			context->id);
 		return;
 	}
 
 	dev_err(device->dev,
-		"  context[%d]: queue=%d, submit=%d, start=%d, retire=%d\n",
+		"  context[%u]: queue=%u, submit=%u, start=%u, retire=%u\n",
 		context->id, queue, drawctxt->submitted_timestamp,
 		start, retire);
 
@@ -90,7 +90,7 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 
 		if (test_bit(ADRENO_CONTEXT_FENCE_LOG, &context->priv)) {
 			dev_err(device->dev,
-				"  possible deadlock. Context %d might be blocked for itself\n",
+				"  possible deadlock. Context %u might be blocked for itself\n",
 				context->id);
 			goto stats;
 		}
@@ -103,7 +103,7 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 
 			if (kgsl_drawobj_events_pending(syncobj)) {
 				dev_err(device->dev,
-					"  context[%d] (ts=%d) Active sync points:\n",
+					"  context[%u] (ts=%u) Active sync points:\n",
 					context->id, drawobj->timestamp);
 
 				kgsl_dump_syncpoints(device, syncobj);
@@ -127,10 +127,10 @@ stats:
 		msecs = drawctxt->submit_retire_ticks[index] * 10;
 		usecs = do_div(msecs, 192);
 		usecs = do_div(msecs, 1000);
-		pos += snprintf(buf + pos, sizeof(buf) - pos, "%d.%0d ",
+		pos += snprintf(buf + pos, sizeof(buf) - pos, "%u.%0u ",
 			(unsigned int)msecs, usecs);
 	}
-	dev_err(device->dev, "  context[%d]: submit times: %s\n",
+	dev_err(device->dev, "  context[%u]: submit times: %s\n",
 		context->id, buf);
 
 	spin_unlock_bh(&drawctxt->lock);
@@ -534,7 +534,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	 */
 	if (ret && ret != -EAGAIN) {
 		KGSL_DRV_ERR(device,
-				"Wait for global ctx=%d ts=%d type=%d error=%d\n",
+				"Wait for global ctx=%u ts=%u type=%d error=%d\n",
 				drawctxt->base.id, drawctxt->internal_timestamp,
 				drawctxt->type, ret);
 
