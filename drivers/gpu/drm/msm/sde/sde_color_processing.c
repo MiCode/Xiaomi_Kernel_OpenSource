@@ -1597,6 +1597,7 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 	struct sde_crtc *sde_crtc = NULL;
 	struct sde_cp_node *prop_node = NULL, *n = NULL;
 	bool ad_suspend = false;
+	unsigned long irq_flags;
 
 	if (!crtc) {
 		DRM_ERROR("crtc %pK\n", crtc);
@@ -1622,6 +1623,10 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 		ad_suspend = true;
 	}
 	mutex_unlock(&sde_crtc->crtc_cp_lock);
+
+	spin_lock_irqsave(&sde_crtc->ltm_lock, irq_flags);
+	sde_crtc->ltm_hist_en = false;
+	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
 
 	if (ad_suspend)
 		sde_cp_ad_set_prop(sde_crtc, AD_SUSPEND);
@@ -2076,6 +2081,12 @@ static void sde_cp_update_list(struct sde_cp_node *prop_node,
 		else
 			list_add_tail(&prop_node->active_list,
 					&crtc->ad_active);
+		break;
+	case SDE_CP_CRTC_DSPP_LTM_SET_BUF:
+	case SDE_CP_CRTC_DSPP_LTM_QUEUE_BUF:
+		if (dirty_list)
+			list_add_tail(&prop_node->dirty_list,
+					&crtc->dirty_list);
 		break;
 	default:
 		/* color processing properties handle here */
@@ -2577,7 +2588,7 @@ exit:
 /* needs to be called within ltm_buffer_lock mutex */
 static void _sde_cp_crtc_free_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
 {
-	u32 i = 0;
+	u32 i = 0, buffer_count = 0;
 	unsigned long irq_flags;
 
 	if (!sde_crtc) {
@@ -2602,13 +2613,13 @@ static void _sde_cp_crtc_free_ltm_buffer(struct sde_crtc *sde_crtc, void *cfg)
 		return;
 	}
 
+	buffer_count = sde_crtc->ltm_buffer_cnt;
 	sde_crtc->ltm_buffer_cnt = 0;
 	INIT_LIST_HEAD(&sde_crtc->ltm_buf_free);
 	INIT_LIST_HEAD(&sde_crtc->ltm_buf_busy);
 	spin_unlock_irqrestore(&sde_crtc->ltm_lock, irq_flags);
 
-	for (i = 0; i < sde_crtc->ltm_buffer_cnt && sde_crtc->ltm_buffers[i];
-			i++) {
+	for (i = 0; i < buffer_count && sde_crtc->ltm_buffers[i]; i++) {
 		msm_gem_put_vaddr(sde_crtc->ltm_buffers[i]->gem);
 		drm_framebuffer_put(sde_crtc->ltm_buffers[i]->fb);
 		msm_gem_put_iova(sde_crtc->ltm_buffers[i]->gem,
