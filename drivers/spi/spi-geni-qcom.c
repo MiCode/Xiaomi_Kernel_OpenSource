@@ -91,7 +91,7 @@
 #define TIMESTAMP_AFTER		BIT(3)
 #define POST_CMD_DELAY		BIT(4)
 
-#define SPI_CORE2X_VOTE		(7600)
+#define SPI_CORE2X_VOTE		(5000)
 /* GSI CONFIG0 TRE Params */
 /* Flags bit fields */
 #define GSI_LOOPBACK_EN		(BIT(0))
