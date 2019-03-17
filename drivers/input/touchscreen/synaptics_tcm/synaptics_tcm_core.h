@@ -387,7 +387,9 @@ struct syna_tcm_hcd {
 	pid_t isr_pid;
 	atomic_t command_status;
 	atomic_t host_downloading;
+	atomic_t firmware_flashing;
 	wait_queue_head_t hdl_wq;
+	wait_queue_head_t reflash_wq;
 	int irq;
 	bool init_okay;
 	bool do_polling;
@@ -486,6 +488,7 @@ struct syna_tcm_module_handler {
 struct syna_tcm_module_pool {
 	bool initialized;
 	bool queue_work;
+	bool reconstructing;
 	struct mutex mutex;
 	struct list_head list;
 	struct work_struct work;
