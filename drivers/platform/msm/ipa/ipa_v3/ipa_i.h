@@ -812,8 +812,6 @@ struct ipa3_ep_context {
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
-	int (*client_lock_unlock)(bool is_lock);
-
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
 };
@@ -1442,6 +1440,12 @@ enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_MAX
 };
 
+enum ipa_client_cb_type {
+	IPA_USB_CLNT,
+	IPA_MHI_CLNT,
+	IPA_MAX_CLNT
+};
+
 /**
  * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
@@ -1701,6 +1705,7 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
+	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 };
 
 struct ipa3_plat_drv_res {
