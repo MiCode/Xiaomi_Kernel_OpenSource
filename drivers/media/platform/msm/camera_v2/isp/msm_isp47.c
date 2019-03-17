@@ -671,9 +671,10 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
-	if (reg_updated & BIT(VFE_PIX_0))
+	if (reg_updated & BIT(VFE_PIX_0)) {
+		trace_printk("VFE_PIX_0: vfe %d reg_updated: 1 \n", vfe_dev->pdev->id);
 		vfe_dev->reg_updated = 1;
-
+	}
 	vfe_dev->reg_update_requested &= ~reg_updated;
 	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
 }
@@ -709,8 +710,11 @@ void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
 {
 	if (irq_status0 & BIT(3))
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
-	if (irq_status0 & BIT(0))
+	if (irq_status0 & BIT(0)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
+		vfe_dev->irq_sof_id++;
+		trace_printk("irq_sof_id = %d\n", vfe_dev->irq_sof_id);
+	}
 }
 
 void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
@@ -733,8 +737,10 @@ void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
 		update_mask = 0xF;
 	else
 		update_mask = BIT((uint32_t)frame_src);
-	ISP_DBG("%s update_mask %x\n", __func__, update_mask);
-
+	if (frame_src == VFE_PIX_0) {
+		trace_printk("user issue reg_update: vfeid: %d framesrc: %d frameid: %d \n",
+		vfe_dev->pdev->id, frame_src, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+	}
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
 	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
