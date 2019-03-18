@@ -1197,6 +1197,7 @@ struct sde_perf_cfg {
  * @has_qsync	       Supports qsync feature
  * @has_3d_merge_reset Supports 3D merge reset
  * @has_decimation     Supports decimation
+ * @has_qos_fl_nocalc  flag to indicate QoS fill level needs no calculation
  * @sc_cfg: system cache configuration
  * @uidle_cfg		Settings for uidle feature
  * @sui_misr_supported  indicate if secure-ui-misr is supported
@@ -1208,6 +1209,7 @@ struct sde_perf_cfg {
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
+ * @has_sui_blendstage  flag to indicate secure-ui has a blendstage restriction
  * @has_cursor    indicates if hardware cursor is supported
  * @has_vig_p010  indicates if vig pipe supports p010 format
  * @inline_rot_formats	formats supported by the inline rotator feature
@@ -1253,6 +1255,7 @@ struct sde_mdss_cfg {
 	bool has_qsync;
 	bool has_3d_merge_reset;
 	bool has_decimation;
+	bool has_qos_fl_nocalc;
 
 	struct sde_sc_cfg sc_cfg;
 
@@ -1263,6 +1266,7 @@ struct sde_mdss_cfg {
 	u32 sec_sid_mask[MAX_BLOCKS];
 	u32 sui_ns_allowed;
 	u32 sui_supported_blendstage;
+	bool has_sui_blendstage;
 
 	bool has_hdr;
 	bool has_hdr_plus;
