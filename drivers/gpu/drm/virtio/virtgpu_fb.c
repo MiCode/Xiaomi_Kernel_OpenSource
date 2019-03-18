@@ -229,11 +229,11 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	parms.size = mode_cmd.pitches[0] * mode_cmd.height;
 	parms.width = mode_cmd.width;
 	parms.height = mode_cmd.height;
-	obj = virtio_gpu_alloc_object(dev, &parms);
+	obj = virtio_gpu_alloc_object(dev, &parms, NULL);
 	if (IS_ERR(obj))
 		return PTR_ERR(obj);
 
-	virtio_gpu_cmd_create_resource(vgdev, obj, &parms);
+	virtio_gpu_cmd_create_resource(vgdev, obj, &parms, NULL);
 
 	ret = virtio_gpu_object_kmap(obj);
 	if (ret) {

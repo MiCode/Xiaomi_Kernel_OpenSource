@@ -41,7 +41,7 @@ static bool virtio_enable_signaling(struct dma_fence *f)
 	return true;
 }
 
-static bool virtio_signaled(struct dma_fence *f)
+bool virtio_fence_signaled(struct dma_fence *f)
 {
 	struct virtio_gpu_fence *fence = to_virtio_fence(f);
 
@@ -68,7 +68,7 @@ static const struct dma_fence_ops virtio_fence_ops = {
 	.get_driver_name     = virtio_get_driver_name,
 	.get_timeline_name   = virtio_get_timeline_name,
 	.enable_signaling    = virtio_enable_signaling,
-	.signaled            = virtio_signaled,
+	.signaled            = virtio_fence_signaled,
 	.wait                = dma_fence_default_wait,
 	.fence_value_str     = virtio_fence_value_str,
 	.timeline_value_str  = virtio_timeline_value_str,
