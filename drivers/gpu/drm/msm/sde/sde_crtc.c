@@ -1603,6 +1603,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 					sde_plane_pipe(plane);
 		stage_cfg->multirect_index[pstate->stage][stage_idx] =
 					pstate->multirect_index;
+		stage_cfg->layout_index[pstate->stage][stage_idx] =
+			    sde_plane_get_property(pstate, PLANE_PROP_LAYOUT);
 
 		SDE_EVT32(DRMID(crtc), DRMID(plane), stage_idx,
 			sde_plane_pipe(plane) - SSPP_VIG0, pstate->stage,
@@ -1782,6 +1784,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 			mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
+			mixer[i].hw_lm->cfg.flags,
 			&sde_crtc->stage_cfg);
 	}
 
@@ -2984,6 +2987,7 @@ static void _sde_crtc_setup_mixer_for_encoder(
 
 		if (!sde_rm_get_hw(rm, &lm_iter))
 			break;
+
 		mixer->hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
 
 		/* CTL may be <= LMs, if <, multiple LMs controlled by 1 CTL */
@@ -3005,6 +3009,11 @@ static void _sde_crtc_setup_mixer_for_encoder(
 					mixer->hw_lm->idx - LM_0);
 			return;
 		}
+
+		if (sde_crtc->num_mixers < mixer_per_ctl)
+			mixer->hw_lm->cfg.flags |= SDE_MIXER_LAYOUT_LEFT;
+		else
+			mixer->hw_lm->cfg.flags |= SDE_MIXER_LAYOUT_RIGHT;
 
 		mixer->hw_lm->cfg.right_mixer =
 			(sde_crtc->num_mixers & 1) ? true : false;
