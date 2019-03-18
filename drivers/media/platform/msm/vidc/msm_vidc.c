@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1760,6 +1760,15 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
 		ctrl->val =
 		inst->capability.nal_stream_format.nal_stream_format_supported;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE:
+		if (!inst->core || !inst->core->platform_data)
+			return -EINVAL;
+
+		ctrl->val = (inst->core->platform_data->vpu_ver ==
+				VPU_VERSION_4) ?
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BIT :
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE;
 		break;
 	default:
 		/*
