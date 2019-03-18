@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/ipc_logging.h>
 
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
@@ -706,5 +707,29 @@ int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
 int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
 	size_t size, int prot, bool split);
 int ipa_eth_uc_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
+
+/* IPC logging interface */
+
+#define ipa_eth_ipc_do_log(ipcbuf, fmt, args...) \
+	do { \
+		void *__buf = (ipcbuf); \
+		if (__buf) \
+			ipc_log_string(__buf, " %s:%d " fmt "\n", \
+				__func__, __LINE__, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_log(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf(), \
+					fmt, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_dbg(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf_dbg(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf_dbg(), \
+					fmt, ## args); \
+	} while (0)
 
 #endif // _IPA_ETH_H_
