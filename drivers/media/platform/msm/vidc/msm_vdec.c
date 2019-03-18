@@ -760,6 +760,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
 	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
+	inst->prop.extradata_ctrls = EXTRADATA_DEFAULT;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
 	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
@@ -884,6 +885,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->clk_data.frame_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+		if (ctrl->val == EXTRADATA_NONE)
+			inst->prop.extradata_ctrls = 0;
+		else
+			inst->prop.extradata_ctrls |= ctrl->val;
 		/*
 		 * nothing to do here as inst->bufq[CAPTURE_PORT].num_planes
 		 * and inst->bufq[CAPTURE_PORT].plane_sizes[1] are already
@@ -1376,11 +1381,9 @@ int msm_vdec_set_conceal_color(struct msm_vidc_inst *inst)
 int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 {
 	uint32_t display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
-	struct v4l2_ctrl *ctrl;
 	u32 value = 0x0;
 	u32 hdr10_hist = 0x0;
 
-	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 	switch (inst->fmts[OUTPUT_PORT].fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_HEVC:
@@ -1419,7 +1422,7 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 	}
 
 	/* Enable / Disable Advanced Extradata */
-	if (ctrl->val == EXTRADATA_ADVANCED)
+	if (inst->prop.extradata_ctrls & EXTRADATA_ADVANCED)
 		value = 0x1;
 	msm_comm_set_extradata(inst,
 		HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA, value);

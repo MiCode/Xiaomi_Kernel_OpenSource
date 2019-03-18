@@ -1412,6 +1412,9 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
 			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+		ctrl->val = inst->prop.extradata_ctrls;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to

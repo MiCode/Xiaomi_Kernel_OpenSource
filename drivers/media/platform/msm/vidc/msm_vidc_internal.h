@@ -322,6 +322,7 @@ struct session_prop {
 	u32 fps;
 	u32 bitrate;
 	bool bframe_changed;
+	u32 extradata_ctrls;
 };
 
 struct buf_queue {
