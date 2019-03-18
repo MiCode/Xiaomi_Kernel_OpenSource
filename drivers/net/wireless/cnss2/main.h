@@ -279,6 +279,7 @@ struct cnss_plat_data {
 	struct cnss_fw_mem m3_mem;
 	u32 qdss_mem_seg_len;
 	struct cnss_fw_mem qdss_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
+	u32 *qdss_reg;
 	struct cnss_pin_connect_result pin_result;
 	struct dentry *root_dentry;
 	atomic_t pm_count;

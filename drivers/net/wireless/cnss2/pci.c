@@ -88,6 +88,13 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 
 #define QCA6390_CE_REG_INTERVAL			0x2000
 
+#define QDSS_APB_DEC_CSR_BASE			0x1C01000
+
+#define QDSS_APB_DEC_CSR_ETRIRQCTRL_OFFSET	0x6C
+#define QDSS_APB_DEC_CSR_PRESERVEETF_OFFSET	0x70
+#define QDSS_APB_DEC_CSR_PRESERVEETR0_OFFSET	0x74
+#define QDSS_APB_DEC_CSR_PRESERVEETR1_OFFSET	0x78
+
 #define MAX_UNWINDOWED_ADDRESS			0x80000
 #define WINDOW_ENABLE_BIT			0x40000000
 #define WINDOW_SHIFT				19
@@ -125,6 +132,14 @@ static struct cnss_pci_reg ce_cmn[] = {
 	{ "GXI_WDOG_STATUS", QCA6390_CE_COMMON_GXI_WDOG_STATUS },
 	{ "TARGET_IE_0", QCA6390_CE_COMMON_TARGET_IE_0 },
 	{ "TARGET_IE_1", QCA6390_CE_COMMON_TARGET_IE_1 },
+	{ NULL },
+};
+
+static struct cnss_pci_reg qdss_csr[] = {
+	{ "QDSSCSR_ETRIRQCTRL", QDSS_APB_DEC_CSR_ETRIRQCTRL_OFFSET },
+	{ "QDSSCSR_PRESERVEETF", QDSS_APB_DEC_CSR_PRESERVEETF_OFFSET },
+	{ "QDSSCSR_PRESERVEETR0", QDSS_APB_DEC_CSR_PRESERVEETR0_OFFSET },
+	{ "QDSSCSR_PRESERVEETR1", QDSS_APB_DEC_CSR_PRESERVEETR1_OFFSET },
 	{ NULL },
 };
 
@@ -2037,6 +2052,30 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 	}
 };
 
+static void cnss_pci_dump_qdss_reg(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	int i, array_size = ARRAY_SIZE(qdss_csr) - 1;
+	gfp_t gfp = GFP_KERNEL;
+	u32 reg_offset;
+
+	if (in_interrupt() || irqs_disabled())
+		gfp = GFP_ATOMIC;
+
+	if (!plat_priv->qdss_reg)
+		plat_priv->qdss_reg = devm_kzalloc(&pci_priv->pci_dev->dev,
+						   sizeof(*plat_priv->qdss_reg)
+						   * array_size, gfp);
+
+	for (i = 0; qdss_csr[i].name; i++) {
+		reg_offset = QDSS_APB_DEC_CSR_BASE + qdss_csr[i].offset;
+		plat_priv->qdss_reg[i] = cnss_pci_reg_read(pci_priv,
+							   reg_offset);
+		cnss_pr_dbg("%s[0x%x] = 0x%x\n", qdss_csr[i].name, reg_offset,
+			    plat_priv->qdss_reg[i]);
+	}
+}
+
 static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 				 enum cnss_ce_index ce)
 {
@@ -2105,6 +2144,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 		cnss_pr_dbg("RAM dump is already collected, skip\n");
 		return;
 	}
+
+	cnss_pci_dump_qdss_reg(pci_priv);
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
