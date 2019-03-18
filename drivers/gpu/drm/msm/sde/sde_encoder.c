@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1432,6 +1432,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc, params);
 		break;
 	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
+	case SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC:
 		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc, params);
 		break;
 	default:

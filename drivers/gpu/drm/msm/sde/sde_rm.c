@@ -57,6 +57,9 @@ static const struct sde_rm_topology_def g_top_table[] = {
 	{   SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC, 2, 1, 1, 1, false },
 	{   SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,    2, 2, 1, 1, false },
 	{   SDE_RM_TOPOLOGY_PPSPLIT,              1, 0, 2, 1, true  },
+	{   SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE,     4, 0, 2, 2, true  },
+	{   SDE_RM_TOPOLOGY_QUADPIPE_DSCMERGE,    4, 4, 2, 2, true  },
+	{   SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC, 4, 2, 2, 2, true  },
 };
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -521,7 +521,10 @@ static bool _sde_encoder_phys_is_dual_ctl(struct sde_encoder_phys *phys_enc)
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if ((topology == SDE_RM_TOPOLOGY_DUALPIPE_DSC) ||
-		(topology == SDE_RM_TOPOLOGY_DUALPIPE))
+		(topology == SDE_RM_TOPOLOGY_DUALPIPE) ||
+		(topology == SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE) ||
+		(topology == SDE_RM_TOPOLOGY_QUADPIPE_DSCMERGE) ||
+		(topology == SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC))
 		return true;
 
 	return false;

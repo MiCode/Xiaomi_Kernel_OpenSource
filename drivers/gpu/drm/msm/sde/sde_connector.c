@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,9 @@ static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC,	"sde_dualpipemerge_dsc"},
 	{SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,	"sde_dualpipe_dscmerge"},
 	{SDE_RM_TOPOLOGY_PPSPLIT,	"sde_ppsplit"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE,	"sde_quadpipemerge"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_DSCMERGE,	"sde_quadpipe_dscmerge"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC,	"sde_quadpipe_3dmerge_dsc"}
 };
 static const struct drm_prop_enum_list e_topology_control[] = {
 	{SDE_RM_TOPCTL_RESERVE_LOCK,	"reserve_lock"},
