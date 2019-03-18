@@ -182,10 +182,15 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	struct arch_info *arch_info = mhi_dev->arch_info;
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
 	if (!mhi_dev->powered_on) {
 		MHI_LOG("Not in active state\n");
+		mutex_unlock(&mhi_cntrl->pm_mutex);
 		return;
 	}
+	mhi_dev->powered_on = false;
+	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	MHI_LOG("Triggering shutdown process\n");
 	mhi_power_down(mhi_cntrl, !mdm_state);
@@ -199,7 +204,6 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 
 	mhi_arch_pcie_deinit(mhi_cntrl);
 	mhi_cntrl->dev = NULL;
-	mhi_dev->powered_on = false;
 }
 
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
