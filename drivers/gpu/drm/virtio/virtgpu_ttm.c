@@ -246,42 +246,45 @@ static void virtio_gpu_ttm_io_mem_free(struct ttm_bo_device *bdev,
  */
 struct virtio_gpu_ttm_tt {
 	struct ttm_dma_tt		ttm;
-	struct virtio_gpu_device	*vgdev;
-	u64				offset;
+	struct virtio_gpu_object        *obj;
 };
 
-static int virtio_gpu_ttm_backend_bind(struct ttm_tt *ttm,
-				       struct ttm_mem_reg *bo_mem)
+static int virtio_gpu_ttm_tt_bind(struct ttm_tt *ttm,
+				  struct ttm_mem_reg *bo_mem)
 {
-	struct virtio_gpu_ttm_tt *gtt = (void *)ttm;
+	struct virtio_gpu_ttm_tt *gtt =
+		container_of(ttm, struct virtio_gpu_ttm_tt, ttm.ttm);
+	struct virtio_gpu_device *vgdev =
+		virtio_gpu_get_vgdev(gtt->obj->tbo.bdev);
 
-	gtt->offset = (unsigned long)(bo_mem->start << PAGE_SHIFT);
-	if (!ttm->num_pages)
-		WARN(1, "nothing to bind %lu pages for mreg %p back %p!\n",
-		     ttm->num_pages, bo_mem, ttm);
-
-	/* Not implemented */
+	virtio_gpu_object_attach(vgdev, gtt->obj, NULL);
 	return 0;
 }
 
-static int virtio_gpu_ttm_backend_unbind(struct ttm_tt *ttm)
+static int virtio_gpu_ttm_tt_unbind(struct ttm_tt *ttm)
 {
-	/* Not implemented */
+	struct virtio_gpu_ttm_tt *gtt =
+		container_of(ttm, struct virtio_gpu_ttm_tt, ttm.ttm);
+	struct virtio_gpu_device *vgdev =
+		virtio_gpu_get_vgdev(gtt->obj->tbo.bdev);
+
+	virtio_gpu_object_detach(vgdev, gtt->obj);
 	return 0;
 }
 
-static void virtio_gpu_ttm_backend_destroy(struct ttm_tt *ttm)
+static void virtio_gpu_ttm_tt_destroy(struct ttm_tt *ttm)
 {
-	struct virtio_gpu_ttm_tt *gtt = (void *)ttm;
+	struct virtio_gpu_ttm_tt *gtt =
+		container_of(ttm, struct virtio_gpu_ttm_tt, ttm.ttm);
 
 	ttm_dma_tt_fini(&gtt->ttm);
 	kfree(gtt);
 }
 
-static struct ttm_backend_func virtio_gpu_backend_func = {
-	.bind = &virtio_gpu_ttm_backend_bind,
-	.unbind = &virtio_gpu_ttm_backend_unbind,
-	.destroy = &virtio_gpu_ttm_backend_destroy,
+static struct ttm_backend_func virtio_gpu_tt_func = {
+	.bind = &virtio_gpu_ttm_tt_bind,
+	.unbind = &virtio_gpu_ttm_tt_unbind,
+	.destroy = &virtio_gpu_ttm_tt_destroy,
 };
 
 static int virtio_gpu_ttm_tt_populate(struct ttm_tt *ttm)
@@ -297,72 +300,26 @@ static void virtio_gpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	ttm_pool_unpopulate(ttm);
 }
 
-static struct ttm_tt *virtio_gpu_ttm_tt_create(struct ttm_bo_device *bdev,
-					       unsigned long size,
-					       uint32_t page_flags,
-					       struct page *dummy_read_page)
+static struct ttm_tt *virtio_gpu_ttm_tt_create2(struct ttm_buffer_object *bo,
+						uint32_t page_flags,
+						struct page *dummy_read_page)
 {
+	unsigned long size = bo->num_pages << PAGE_SHIFT;
 	struct virtio_gpu_device *vgdev;
 	struct virtio_gpu_ttm_tt *gtt;
 
-	vgdev = virtio_gpu_get_vgdev(bdev);
+	vgdev = virtio_gpu_get_vgdev(bo->bdev);
 	gtt = kzalloc(sizeof(struct virtio_gpu_ttm_tt), GFP_KERNEL);
 	if (gtt == NULL)
 		return NULL;
-	gtt->ttm.ttm.func = &virtio_gpu_backend_func;
-	gtt->vgdev = vgdev;
-	if (ttm_dma_tt_init(&gtt->ttm, bdev, size, page_flags,
+	gtt->ttm.ttm.func = &virtio_gpu_tt_func;
+	gtt->obj = container_of(bo, struct virtio_gpu_object, tbo);
+	if (ttm_dma_tt_init(&gtt->ttm, bo->bdev, size, page_flags,
 			    dummy_read_page)) {
 		kfree(gtt);
 		return NULL;
 	}
 	return &gtt->ttm.ttm;
-}
-
-static void virtio_gpu_move_null(struct ttm_buffer_object *bo,
-				 struct ttm_mem_reg *new_mem)
-{
-	struct ttm_mem_reg *old_mem = &bo->mem;
-
-	BUG_ON(old_mem->mm_node != NULL);
-	*old_mem = *new_mem;
-	new_mem->mm_node = NULL;
-}
-
-static int virtio_gpu_bo_move(struct ttm_buffer_object *bo,
-			      bool evict, bool interruptible,
-			      bool no_wait_gpu,
-			      struct ttm_mem_reg *new_mem)
-{
-	int ret;
-
-	ret = ttm_bo_wait(bo, interruptible, no_wait_gpu);
-	if (ret)
-		return ret;
-
-	virtio_gpu_move_null(bo, new_mem);
-	return 0;
-}
-
-static void virtio_gpu_bo_move_notify(struct ttm_buffer_object *tbo,
-				      bool evict,
-				      struct ttm_mem_reg *new_mem)
-{
-	struct virtio_gpu_object *bo;
-	struct virtio_gpu_device *vgdev;
-
-	bo = container_of(tbo, struct virtio_gpu_object, tbo);
-	vgdev = (struct virtio_gpu_device *)bo->gem_base.dev->dev_private;
-
-	if (!new_mem || (new_mem->placement & TTM_PL_FLAG_SYSTEM)) {
-		if (bo->hw_res_handle)
-			virtio_gpu_object_detach(vgdev, bo);
-
-	} else if (new_mem->placement & TTM_PL_FLAG_TT) {
-		if (bo->hw_res_handle) {
-			virtio_gpu_object_attach(vgdev, bo, NULL);
-		}
-	}
 }
 
 static void virtio_gpu_bo_swap_notify(struct ttm_buffer_object *tbo)
@@ -376,19 +333,17 @@ static void virtio_gpu_bo_swap_notify(struct ttm_buffer_object *tbo)
 }
 
 static struct ttm_bo_driver virtio_gpu_bo_driver = {
-	.ttm_tt_create = &virtio_gpu_ttm_tt_create,
+	.ttm_tt_create2 = &virtio_gpu_ttm_tt_create2,
 	.ttm_tt_populate = &virtio_gpu_ttm_tt_populate,
 	.ttm_tt_unpopulate = &virtio_gpu_ttm_tt_unpopulate,
 	.invalidate_caches = &virtio_gpu_invalidate_caches,
 	.init_mem_type = &virtio_gpu_init_mem_type,
 	.eviction_valuable = ttm_bo_eviction_valuable,
 	.evict_flags = &virtio_gpu_evict_flags,
-	.move = &virtio_gpu_bo_move,
 	.verify_access = &virtio_gpu_verify_access,
 	.io_mem_reserve = &virtio_gpu_ttm_io_mem_reserve,
 	.io_mem_free = &virtio_gpu_ttm_io_mem_free,
 	.io_mem_pfn = ttm_bo_default_io_mem_pfn,
-	.move_notify = &virtio_gpu_bo_move_notify,
 	.swap_notify = &virtio_gpu_bo_swap_notify,
 };
 
