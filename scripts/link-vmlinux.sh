@@ -213,14 +213,20 @@ rtic_mp()
 	# assume that RTIC_MP_O generation may fail
 	RTIC_MP_O=
 
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+			${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
 	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
 	--binpath='' --vmlinux=${1} --config=${KCONFIG_CONFIG} && \
-	cat rtic_mp.c | ${CC} -c -o ${2} -x c - && \
+	cat rtic_mp.c | ${CC} ${aflags} -c -o ${2} -x c - && \
 	cp rtic_mp.c ${4} && \
 	${NM} --print-size --size-sort ${2} > ${3} && \
-	RTIC_MP_O=${2}
+	RTIC_MP_O=${2} || echo “RTIC MP generation has failed”
 	# NM - save generated variable sizes for verification
 	# RTIC_MP_O is our retval - great success if set to generated .o file
+	# Echo statement above prints the error message in case any of the
+	# above RTIC MP generation commands fail and it ensures rtic mp failure
+	# does not cause kernel compilation to fail.
 }
 
 # Create map file with all symbols from ${1}
@@ -378,7 +384,11 @@ fi
 # Update RTIC MP object by replacing the place holder
 # with actual MP data of the same size
 # Also double check that object size did not change
-if [ ! -z ${RTIC_MPGEN+x} ]; then
+# Note: Check initilally if RTIC_MP_O is not empty or uninitialized,
+# as incase RTIC_MPGEN is set and failure occurs in RTIC_MP_O
+# generation, below check for comparing object sizes fails
+# due to an empty RTIC_MP_O object.
+if [ ! -z ${RTIC_MP_O} ]; then
 	rtic_mp "${kallsyms_vmlinux}" rtic_mp.o .tmp_rtic_mp_sz2 \
                 .tmp_rtic_mp2.c
 	if ! cmp -s .tmp_rtic_mp_sz1 .tmp_rtic_mp_sz2; then
