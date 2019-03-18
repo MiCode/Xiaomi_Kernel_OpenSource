@@ -17,6 +17,24 @@
 		qcom,iommu-dma = "bypass";
 	};
 
+	/* QUPV3_0_SE0 */
+	i3c0: i3c@980000 {
+		compatible = "qcom,geni-i3c";
+		reg = <0x980000 0x4000>;
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se0_i3c_active>;
+		pinctrl-1 = <&qupv3_se0_i3c_sleep>;
+		interrupts = <GIC_SPI 601 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <3>;
+		#size-cells = <0>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "disabled";
+	};
+
 	/* Debug UART Instance for RUMI platform */
 	qupv3_se2_2uart: qcom,qup_uart@988000 {
 		compatible = "qcom,msm-geni-console";

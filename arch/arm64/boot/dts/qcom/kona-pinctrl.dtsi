@@ -2538,7 +2538,35 @@
 			};
 		};
 
-		/* QUPv3_0 North SE mappings */
+		/* QUPv3_0 North SE0 mappings */
+		qupv3_se0_i3c_pins: qupv3_se0_i3c_pins {
+			qupv3_se0_i3c_active: qupv3_se0_i3c_active {
+				mux {
+					pins = "gpio28", "gpio29";
+					function = "ibi_i3c";
+				};
+
+				config {
+					pins = "gpio28", "gpio29";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			qupv3_se0_i3c_sleep: qupv3_se0_i3c_sleep {
+				mux {
+					pins = "gpio28", "gpio29";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio28", "gpio29";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		/* SE 0 pin mappings */
 		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
 			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
