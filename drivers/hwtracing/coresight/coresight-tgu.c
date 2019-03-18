@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019-2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,9 +15,11 @@
 #include <linux/amba/bus.h>
 #include <linux/topology.h>
 #include <linux/of.h>
+#include <linux/string.h>
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"
+#include "apss_tgu.h"
 
 #define tgu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tgu_readl(drvdata, off)		__raw_readl(drvdata->base + off)
@@ -409,6 +411,7 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_platform_data *pdata;
 	struct tgu_drvdata *drvdata;
 	struct coresight_desc desc = { 0 };
+	const char *name;
 
 	desc.name = coresight_alloc_device_name(&tgu_devs, dev);
 	if (!desc.name)
@@ -494,6 +497,13 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
 		goto err;
+	}
+
+	of_property_read_string(adev->dev.of_node, "coresight-name", &name);
+	if (!strcmp(name, "coresight-tgu-apss")) {
+		ret = register_interrupt_handler(adev->dev.of_node);
+		if (ret)
+			return ret;
 	}
 
 	pm_runtime_put(&adev->dev);
