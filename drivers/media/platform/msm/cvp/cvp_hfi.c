@@ -80,7 +80,13 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 		.buf_num = HFI_PERSIST_BUF_NUM,
 		.resp = HAL_NO_RESP,
 	},
-
+	{
+		.size = HFI_DS_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DS,
+		.buf_offset = HFI_DS_BUFFERS_OFFSET,
+		.buf_num = HFI_DS_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
 };
 
 static struct hal_device_data hal_ctxt;
@@ -118,7 +124,7 @@ const struct msm_cvp_gov_data CVP_DEFAULT_BUS_VOTE = {
 	.data_count = 0,
 };
 
-const int cvp_max_packets = 1000;
+const int cvp_max_packets = 32;
 
 static void venus_hfi_pm_handler(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_handler);
@@ -3266,6 +3272,9 @@ static int __response_handler(struct venus_hfi_device *device)
 		if (rc) {
 			dprintk(CVP_WARN,
 					"Corrupt/unknown packet found, discarding\n");
+			--packet_count;
+			continue;
+		} else if (info->response_type == HAL_NO_RESP) {
 			--packet_count;
 			continue;
 		}

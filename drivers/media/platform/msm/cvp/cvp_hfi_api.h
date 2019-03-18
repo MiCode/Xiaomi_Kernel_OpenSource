@@ -72,6 +72,10 @@
 #define HFI_PERSIST_BUFFERS_OFFSET 7
 #define HFI_PERSIST_BUF_NUM     2
 
+#define HFI_DS_CMD_SIZE	54
+#define HFI_DS_BUFFERS_OFFSET	48
+#define HFI_DS_BUF_NUM	3
+
 
 enum cvp_status {
 	CVP_ERR_NONE = 0x0,
@@ -1270,6 +1274,7 @@ struct msm_cvp_cb_cmd_done {
 	enum cvp_status status;
 	u32 size;
 	union {
+		struct hfi_msg_session_hdr msg_hdr;
 		struct cvp_resource_hdr resource_hdr;
 		struct cvp_buffer_addr_info buffer_addr_info;
 		struct cvp_frame_plane_config frame_plane_config;

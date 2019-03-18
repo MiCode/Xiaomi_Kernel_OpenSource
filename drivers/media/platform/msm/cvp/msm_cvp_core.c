@@ -975,6 +975,38 @@ static const struct v4l2_ctrl_ops msm_cvp_ctrl_ops = {
 	.g_volatile_ctrl = msm_cvp_op_g_volatile_ctrl,
 };
 
+static int _init_session_queue(struct msm_cvp_inst *inst)
+{
+	spin_lock_init(&inst->session_queue.lock);
+	INIT_LIST_HEAD(&inst->session_queue.msgs);
+	inst->session_queue.msg_count = 0;
+	init_waitqueue_head(&inst->session_queue.wq);
+	inst->session_queue.msg_cache = KMEM_CACHE(session_msg, 0);
+	if (!inst->session_queue.msg_cache) {
+		dprintk(CVP_ERR, "Failed to allocate msg quque\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void _deinit_session_queue(struct msm_cvp_inst *inst)
+{
+	struct session_msg *msg, *tmpmsg;
+
+	/* free all messages */
+	spin_lock(&inst->session_queue.lock);
+	list_for_each_entry_safe(msg, tmpmsg, &inst->session_queue.msgs, node) {
+		list_del_init(&msg->node);
+		kmem_cache_free(inst->session_queue.msg_cache, msg);
+	}
+	inst->session_queue.msg_count = 0;
+	spin_unlock(&inst->session_queue.lock);
+
+	wake_up_all(&inst->session_queue.wq);
+
+	kmem_cache_destroy(inst->session_queue.msg_cache);
+}
+
 void *msm_cvp_open(int core_id, int session_type)
 {
 	struct msm_cvp_inst *inst = NULL;
@@ -1077,6 +1109,11 @@ void *msm_cvp_open(int core_id, int session_type)
 	list_add_tail(&inst->list, &core->instances);
 	mutex_unlock(&core->lock);
 
+
+	rc = _init_session_queue(inst);
+	if (rc)
+		goto fail_init;
+
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_INIT_DONE);
 	if (rc) {
 		dprintk(CVP_ERR,
@@ -1115,6 +1152,7 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	return inst;
 fail_init:
+	_deinit_session_queue(inst);
 	mutex_lock(&core->lock);
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
@@ -1261,6 +1299,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	mutex_destroy(&inst->flush_lock);
 
 	msm_cvp_debugfs_deinit_inst(inst);
+	_deinit_session_queue(inst);
 
 	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK\n",
 			"info", inst);

@@ -403,6 +403,22 @@ struct msm_cvp_core_ops {
 	int (*decide_work_mode)(struct msm_cvp_inst *inst);
 };
 
+#define MAX_NUM_MSGS_PER_SESSION	128
+#define CVP_MAX_WAIT_TIME	2000
+
+struct session_msg {
+	struct list_head node;
+	struct hfi_msg_session_hdr pkt;
+};
+
+struct cvp_session_queue {
+	spinlock_t lock;
+	unsigned int msg_count;
+	struct list_head msgs;
+	wait_queue_head_t wq;
+	struct kmem_cache *msg_cache;
+};
+
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
@@ -436,6 +452,7 @@ struct msm_cvp_inst {
 	struct mutex sync_lock, lock, flush_lock;
 	struct msm_cvp_core *core;
 	enum session_type session_type;
+	struct cvp_session_queue session_queue;
 	void *session;
 	struct session_prop prop;
 	enum instance_state state;
