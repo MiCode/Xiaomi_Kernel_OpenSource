@@ -21,7 +21,6 @@
 #include "mtk_vcodec_dec.h"
 #include "vdec_drv_base.h"
 #include "mtk_vcodec_dec_pm.h"
-#include "mtk_vpu.h"
 
 extern const struct vdec_common_if vdec_h264_if;
 extern const struct vdec_common_if vdec_vp8_if;
