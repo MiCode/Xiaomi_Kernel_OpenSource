@@ -1751,6 +1751,15 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		ctrl->val =
 		inst->capability.nal_stream_format.nal_stream_format_supported;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE:
+		if (!inst->core || !inst->core->platform_data)
+			return -EINVAL;
+
+		ctrl->val = (inst->core->platform_data->vpu_ver ==
+				VPU_VERSION_4) ?
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BIT :
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to
