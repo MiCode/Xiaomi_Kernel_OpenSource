@@ -4,8 +4,6 @@
  */
 
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
-
-#include "kona-lpi.dtsi"
 #include "msm-audio-lpass.dtsi"
 
 &msm_audio_ion {
@@ -165,4 +163,3 @@
 		reg = <0x43>;
 	};
 };
-
