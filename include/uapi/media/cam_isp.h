@@ -96,6 +96,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
+#define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
 
 /* Query devices */
 /**
@@ -433,6 +434,37 @@ struct cam_fe_config {
 } __attribute__((packed));
 
 /* Acquire Device/HW v2 */
+
+/**
+ * struct cam_isp_core_config - ISP core registers configuration
+ *
+ * @version:                    Version info
+ * @vid_ds16_r2pd:              Enables Y and C merging PD output for video DS16
+ * @vid_ds4_r2pd:               Enables Y and C merging PD output for video DS4
+ * @disp_ds16_r2pd:             Enables Y and C merging PD output for disp DS16
+ * @disp_ds4_r2pd:              Enables Y and C merging PD output for disp DS4
+ * @dsp_streaming_tap_point:    This selects source for DSP streaming interface
+ * @ihist_src_sel:              Selects input for IHIST module
+ * @hdr_be_src_sel:             Selects input for HDR BE module
+ * @hdr_bhist_src_sel:          Selects input for HDR BHIST module
+ * @input_mux_sel_pdaf:         Selects input for PDAF
+ * @input_mux_sel_pp:           Selects input for Pixel Pipe
+ * @reserved:                   Reserved
+ */
+struct cam_isp_core_config {
+	uint32_t     version;
+	uint32_t     vid_ds16_r2pd;
+	uint32_t     vid_ds4_r2pd;
+	uint32_t     disp_ds16_r2pd;
+	uint32_t     disp_ds4_r2pd;
+	uint32_t     dsp_streaming_tap_point;
+	uint32_t     ihist_src_sel;
+	uint32_t     hdr_be_src_sel;
+	uint32_t     hdr_bhist_src_sel;
+	uint32_t     input_mux_sel_pdaf;
+	uint32_t     input_mux_sel_pp;
+	uint32_t     reserved;
+} __attribute__((packed));
 
 /**
  * struct cam_isp_acquire_hw_info - ISP acquire HW params

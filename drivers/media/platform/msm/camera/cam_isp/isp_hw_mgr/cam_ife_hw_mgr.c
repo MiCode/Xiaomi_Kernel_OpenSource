@@ -36,7 +36,7 @@
 	(CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON + 1)
 
 #define CAM_ISP_GENERIC_BLOB_TYPE_MAX               \
-	(CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2 + 1)
+	(CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG + 1)
 
 static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
@@ -3600,6 +3600,54 @@ static int cam_isp_blob_csid_clock_update(
 	return rc;
 }
 
+static int cam_isp_blob_core_cfg_update(
+	uint32_t                               blob_type,
+	struct cam_isp_generic_blob_info      *blob_info,
+	struct cam_isp_core_config            *core_config,
+	struct cam_hw_prepare_update_args     *prepare)
+{
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	struct cam_hw_intf                    *hw_intf;
+	uint64_t                               clk_rate = 0;
+	int                                    rc = -EINVAL, i;
+	struct cam_vfe_core_config_args        vfe_core_config;
+
+	ctx = prepare->ctxt_to_hw_map;
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			clk_rate = 0;
+			if (!hw_mgr_res->hw_res[i] ||
+				hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_CAMIF)
+				continue;
+
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf && hw_intf->hw_ops.process_cmd) {
+				vfe_core_config.node_res =
+					hw_mgr_res->hw_res[i];
+
+				memcpy(&vfe_core_config.core_config,
+					core_config,
+					sizeof(struct cam_isp_core_config));
+
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_ISP_HW_CMD_CORE_CONFIG,
+					&vfe_core_config,
+					sizeof(
+					struct cam_vfe_core_config_args));
+				if (rc)
+					CAM_ERR(CAM_ISP, "Core cfg parse fail");
+			} else {
+				CAM_WARN(CAM_ISP, "NULL hw_intf!");
+			}
+		}
+	}
+
+	return rc;
+}
+
 static int cam_isp_blob_clock_update(
 	uint32_t                               blob_type,
 	struct cam_isp_generic_blob_info      *blob_info,
@@ -3937,6 +3985,16 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			fe_config, prepare);
 		if (rc)
 			CAM_ERR(CAM_ISP, "FS Update Failed rc: %d", rc);
+	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG: {
+		struct cam_isp_core_config *core_config =
+			(struct cam_isp_core_config *)blob_data;
+
+		rc = cam_isp_blob_core_cfg_update(blob_type, blob_info,
+			core_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Core cfg update fail: %d", rc);
 	}
 		break;
 

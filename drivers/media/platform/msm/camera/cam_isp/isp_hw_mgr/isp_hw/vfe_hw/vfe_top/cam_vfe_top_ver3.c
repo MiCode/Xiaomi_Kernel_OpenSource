@@ -350,6 +350,19 @@ static int cam_vfe_top_ver3_bw_update(
 	return rc;
 }
 
+static int cam_vfe_core_config_control(
+	struct cam_vfe_top_ver3_priv *top_priv,
+	 void *cmd_args, uint32_t arg_size)
+{
+	struct cam_vfe_core_config_args  *core_config = cmd_args;
+
+	if (core_config->node_res->process_cmd)
+		return core_config->node_res->process_cmd(core_config->node_res,
+			CAM_ISP_HW_CMD_CORE_CONFIG, cmd_args, arg_size);
+
+	return -EINVAL;
+}
+
 static int cam_vfe_top_ver3_bw_control(
 	struct cam_vfe_top_ver3_priv *top_priv,
 	 void *cmd_args, uint32_t arg_size)
@@ -712,6 +725,9 @@ int cam_vfe_top_ver3_process_cmd(void *device_priv, uint32_t cmd_type,
 		break;
 	case CAM_ISP_HW_CMD_BW_CONTROL:
 		rc = cam_vfe_top_ver3_bw_control(top_priv, cmd_args, arg_size);
+		break;
+	case CAM_ISP_HW_CMD_CORE_CONFIG:
+		rc = cam_vfe_core_config_control(top_priv, cmd_args, arg_size);
 		break;
 	default:
 		rc = -EINVAL;

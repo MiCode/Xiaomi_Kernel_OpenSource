@@ -20,7 +20,6 @@
 #include "cam_cpas_api.h"
 
 #define CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX 2
-#define CAM_VFE_CAMIF_VER3_CORE_CFG_0_DEFAULT 0x78002800
 
 struct cam_vfe_mux_camif_ver3_data {
 	void __iomem                                *mem_base;
@@ -29,6 +28,7 @@ struct cam_vfe_mux_camif_ver3_data {
 	struct cam_vfe_top_ver3_reg_offset_common   *common_reg;
 	struct cam_vfe_camif_ver3_reg_data          *reg_data;
 	struct cam_hw_soc_info                      *soc_info;
+	struct cam_vfe_camif_common_cfg             cam_common_cfg;
 
 	cam_hw_mgr_event_cb_func             event_cb;
 	void                                *priv;
@@ -394,11 +394,6 @@ static int cam_vfe_camif_ver3_resource_start(
 	val = cam_io_r_mb(rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
 
-	/* Programming to default value must be removed once uapis have been
-	 * updated to receive this programming from userspace.
-	 */
-	val |= CAM_VFE_CAMIF_VER3_CORE_CFG_0_DEFAULT;
-
 	/* AF stitching by hw disabled by default
 	 * PP CAMIF currently operates only in offline mode
 	 */
@@ -418,6 +413,25 @@ static int cam_vfe_camif_ver3_resource_start(
 	if ((rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE) ||
 		(rsrc_data->sync_mode == CAM_ISP_HW_SYNC_MASTER))
 		val |= (1 << rsrc_data->reg_data->dual_ife_pix_en_shift);
+
+	val |= (~rsrc_data->cam_common_cfg.vid_ds16_r2pd & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_VID_DS16_R2PD;
+	val |= (~rsrc_data->cam_common_cfg.vid_ds4_r2pd & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_VID_DS4_R2PD;
+	val |= (~rsrc_data->cam_common_cfg.disp_ds16_r2pd & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_DISP_DS16_R2PD;
+	val |= (~rsrc_data->cam_common_cfg.disp_ds4_r2pd & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_DISP_DS4_R2PD;
+	val |= (rsrc_data->cam_common_cfg.dsp_streaming_tap_point & 0x3) <<
+		CAM_SHIFT_TOP_CORE_CFG_DSP_STREAMING;
+	val |= (rsrc_data->cam_common_cfg.ihist_src_sel & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_STATS_IHIST;
+	val |= (rsrc_data->cam_common_cfg.hdr_be_src_sel & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_STATS_HDR_BE;
+	val |= (rsrc_data->cam_common_cfg.hdr_bhist_src_sel & 0x1) <<
+		CAM_SHIFT_TOP_CORE_CFG_STATS_HDR_BHIST;
+	val |= (rsrc_data->cam_common_cfg.input_mux_sel_pp & 0x3) <<
+		CAM_SHIFT_TOP_CORE_CFG_INPUTMUX_PP;
 
 	cam_io_w_mb(val, rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
@@ -676,6 +690,39 @@ static int cam_vfe_camif_ver3_resource_stop(
 	return rc;
 }
 
+static int cam_vfe_camif_ver3_core_config(
+	struct cam_isp_resource_node *rsrc_node, void *cmd_args)
+{
+	struct cam_vfe_mux_camif_ver3_data *camif_priv;
+	struct cam_vfe_core_config_args *vfe_core_cfg =
+		(struct cam_vfe_core_config_args *)cmd_args;
+
+	camif_priv =
+		(struct cam_vfe_mux_camif_ver3_data *)rsrc_node->res_priv;
+	camif_priv->cam_common_cfg.vid_ds16_r2pd =
+		vfe_core_cfg->core_config.vid_ds16_r2pd;
+	camif_priv->cam_common_cfg.vid_ds4_r2pd =
+		vfe_core_cfg->core_config.vid_ds4_r2pd;
+	camif_priv->cam_common_cfg.disp_ds16_r2pd =
+		vfe_core_cfg->core_config.disp_ds16_r2pd;
+	camif_priv->cam_common_cfg.disp_ds4_r2pd =
+		vfe_core_cfg->core_config.disp_ds4_r2pd;
+	camif_priv->cam_common_cfg.dsp_streaming_tap_point =
+		vfe_core_cfg->core_config.dsp_streaming_tap_point;
+	camif_priv->cam_common_cfg.ihist_src_sel =
+		vfe_core_cfg->core_config.ihist_src_sel;
+	camif_priv->cam_common_cfg.hdr_be_src_sel =
+		vfe_core_cfg->core_config.hdr_be_src_sel;
+	camif_priv->cam_common_cfg.hdr_bhist_src_sel =
+		vfe_core_cfg->core_config.hdr_bhist_src_sel;
+	camif_priv->cam_common_cfg.input_mux_sel_pdaf =
+		vfe_core_cfg->core_config.input_mux_sel_pdaf;
+	camif_priv->cam_common_cfg.input_mux_sel_pp =
+		vfe_core_cfg->core_config.input_mux_sel_pp;
+
+	return 0;
+}
+
 static int cam_vfe_camif_ver3_sof_irq_debug(
 	struct cam_isp_resource_node *rsrc_node, void *cmd_args)
 {
@@ -717,6 +764,9 @@ static int cam_vfe_camif_ver3_process_cmd(
 		break;
 	case CAM_ISP_HW_CMD_SOF_IRQ_DEBUG:
 		rc = cam_vfe_camif_ver3_sof_irq_debug(rsrc_node, cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_CORE_CONFIG:
+		rc = cam_vfe_camif_ver3_core_config(rsrc_node, cmd_args);
 		break;
 	case CAM_ISP_HW_CMD_SET_CAMIF_DEBUG:
 		camif_priv = (struct cam_vfe_mux_camif_ver3_data *)
