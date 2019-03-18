@@ -281,8 +281,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_0) |
 		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_1) |
-		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_2) |
-		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_3)
+		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_2)
 		),
 		.qmenu = NULL,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
