@@ -550,6 +550,57 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 	}
 }
 
+static void rmnet_map_move_headers(struct sk_buff *skb)
+{
+	struct iphdr *iph;
+	u16 ip_len;
+	u16 trans_len = 0;
+	u8 proto;
+
+	/* This only applies to non-linear SKBs */
+	if (!skb_is_nonlinear(skb))
+		return;
+
+	iph = (struct iphdr *)rmnet_map_data_ptr(skb);
+	if (iph->version == 4) {
+		ip_len = iph->ihl * 4;
+		proto = iph->protocol;
+		if (iph->frag_off & htons(IP_OFFSET))
+			/* No transport header information */
+			goto pull;
+	} else if (iph->version == 6) {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
+		__be16 frag_off;
+		u8 nexthdr = ip6h->nexthdr;
+
+		ip_len = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr,
+					  &frag_off);
+		if (ip_len < 0)
+			return;
+
+		proto = nexthdr;
+	} else {
+		return;
+	}
+
+	if (proto == IPPROTO_TCP) {
+		struct tcphdr *tp = (struct tcphdr *)((u8 *)iph + ip_len);
+
+		trans_len = tp->doff * 4;
+	} else if (proto == IPPROTO_UDP) {
+		trans_len = sizeof(struct udphdr);
+	} else if (proto == NEXTHDR_FRAGMENT) {
+		/* Non-first fragments don't have the fragment length added by
+		 * ipv6_skip_exthdr() and sho up as proto NEXTHDR_FRAGMENT, so
+		 * we account for the length here.
+		 */
+		ip_len += sizeof(struct frag_hdr);
+	}
+
+pull:
+	__pskb_pull_tail(skb, ip_len + trans_len);
+}
+
 static void rmnet_map_nonlinear_copy(struct sk_buff *coal_skb,
 				     struct rmnet_map_coal_metadata *coal_meta,
 				     struct sk_buff *dest)
@@ -945,9 +996,13 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 			priv->stats.csum_valid_unset++;
 		}
 
+		/* Pull unnecessary headers and move the rest to the linear
+		 * section of the skb.
+		 */
 		pskb_pull(skb,
 			  (sizeof(struct rmnet_map_header) +
 			   sizeof(struct rmnet_map_v5_csum_header)));
+		rmnet_map_move_headers(skb);
 
 		/* Remove padding only for csum offload packets.
 		 * Coalesced packets should never have padding.
