@@ -295,22 +295,16 @@ static void _sde_fence_trigger(struct sde_fence_context *ctx,
 	unsigned long flags;
 	struct sde_fence *fc, *next;
 	bool is_signaled = false;
-	struct list_head local_list_head;
 
-	INIT_LIST_HEAD(&local_list_head);
+	kref_get(&ctx->kref);
 
 	spin_lock(&ctx->list_lock);
 	if (list_empty(&ctx->fence_list_head)) {
 		SDE_DEBUG("nothing to trigger!\n");
-		spin_unlock(&ctx->list_lock);
-		return;
+		goto end;
 	}
 
-	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list)
-		list_move(&fc->fence_list, &local_list_head);
-	spin_unlock(&ctx->list_lock);
-
-	list_for_each_entry_safe(fc, next, &local_list_head, fence_list) {
+	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list) {
 		spin_lock_irqsave(&ctx->lock, flags);
 		fc->base.error = error ? -EBUSY : 0;
 		fc->base.timestamp = ts;
@@ -320,20 +314,20 @@ static void _sde_fence_trigger(struct sde_fence_context *ctx,
 		if (is_signaled) {
 			list_del_init(&fc->fence_list);
 			dma_fence_put(&fc->base);
-		} else {
-			spin_lock(&ctx->list_lock);
-			list_move(&fc->fence_list, &ctx->fence_list_head);
-			spin_unlock(&ctx->list_lock);
 		}
 	}
+end:
+	spin_unlock(&ctx->list_lock);
+	kref_put(&ctx->kref, sde_fence_destroy);
 }
 
 int sde_fence_create(struct sde_fence_context *ctx, uint64_t *val,
 							uint32_t offset)
 {
 	uint32_t trigger_value;
-	int fd, rc = -EINVAL;
+	int fd = -1, rc = -EINVAL;
 	unsigned long flags;
+	struct sde_fence *fc;
 
 	if (!ctx || !val) {
 		SDE_ERROR("invalid argument(s), fence %d, pval %d\n",
@@ -351,22 +345,26 @@ int sde_fence_create(struct sde_fence_context *ctx, uint64_t *val,
 	 */
 	spin_lock_irqsave(&ctx->lock, flags);
 	trigger_value = ctx->commit_count + offset;
-
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
-	fd = _sde_fence_create_fd(ctx, trigger_value);
-	*val = fd;
-	SDE_DEBUG("fence_create::fd:%d trigger:%d commit:%d offset:%d\n",
+	spin_lock(&ctx->list_lock);
+	list_for_each_entry(fc, &ctx->fence_list_head, fence_list) {
+		if (trigger_value == fc->base.seqno) {
+			fd = fc->fd;
+			break;
+		}
+	}
+	spin_unlock(&ctx->list_lock);
+
+	if (fd < 0) {
+		fd = _sde_fence_create_fd(ctx, trigger_value);
+		*val = fd;
+		SDE_DEBUG("fd:%d trigger:%d commit:%d offset:%d\n",
 				fd, trigger_value, ctx->commit_count, offset);
+	}
 
 	SDE_EVT32(ctx->drm_id, trigger_value, fd);
-
-	if (fd >= 0) {
-		rc = 0;
-		_sde_fence_trigger(ctx, ktime_get(), false);
-	} else {
-		rc = fd;
-	}
+	rc = (fd >= 0) ? 0 : fd;
 
 	return rc;
 }
