@@ -1229,6 +1229,24 @@ static void adreno_rscc_probe(struct kgsl_device *device)
 		dev_warn(device->dev, "rscc ioremap failed\n");
 }
 
+static void adreno_isense_probe(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct resource *res;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+			"isense_cntl");
+	if (res == NULL)
+		return;
+
+	adreno_dev->isense_base = res->start - device->reg_phys;
+	adreno_dev->isense_len = resource_size(res);
+	adreno_dev->isense_virt = devm_ioremap(device->dev, res->start,
+					adreno_dev->isense_len);
+	if (adreno_dev->isense_virt == NULL)
+		dev_warn(device->dev, "isense ioremap failed\n");
+}
+
 static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
@@ -1355,6 +1373,8 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_cx_misc_probe(device);
 
 	adreno_rscc_probe(device);
+
+	adreno_isense_probe(device);
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
 	 * content but that is only part of the story - the GPU also has to be
@@ -3239,6 +3259,25 @@ void adreno_rscc_regread(struct adreno_device *adreno_dev,
 		return;
 
 	*value =  __raw_readl(adreno_dev->rscc_virt + rscc_offset);
+
+	/*
+	 * ensure this read finishes before the next one.
+	 * i.e. act like normal readl()
+	 */
+	rmb();
+}
+
+void adreno_isense_regread(struct adreno_device *adreno_dev,
+	unsigned int offsetwords, unsigned int *value)
+{
+	unsigned int isense_offset;
+
+	isense_offset = (offsetwords << 2);
+	if (!adreno_dev->isense_virt ||
+		(isense_offset >= adreno_dev->isense_len))
+		return;
+
+	*value =  __raw_readl(adreno_dev->isense_virt + isense_offset);
 
 	/*
 	 * ensure this read finishes before the next one.
