@@ -213,8 +213,9 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
 	struct drm_mode_fb_cmd2 mode_cmd = {};
+        struct virtio_gpu_object_params parms = {};
 	struct virtio_gpu_object *obj;
-	uint32_t format, size;
+	uint32_t format;
 	int ret;
 
 	mode_cmd.width = sizes->surface_width;
@@ -226,8 +227,8 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	if (format == 0)
 		return -EINVAL;
 
-	size = mode_cmd.pitches[0] * mode_cmd.height;
-	obj = virtio_gpu_alloc_object(dev, size, false, true);
+	parms.size = mode_cmd.pitches[0] * mode_cmd.height;
+	obj = virtio_gpu_alloc_object(dev, &parms);
 	if (IS_ERR(obj))
 		return PTR_ERR(obj);
 
