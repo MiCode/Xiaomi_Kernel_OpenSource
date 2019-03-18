@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,7 +293,7 @@ static int ad4_params_check(struct sde_hw_dspp *dspp,
 	}
 
 	if (!cfg->hw_cfg->num_of_mixers ||
-	    cfg->hw_cfg->num_of_mixers > CRTC_DUAL_MIXERS) {
+	    cfg->hw_cfg->num_of_mixers > MAX_MIXERS_PER_CRTC) {
 		DRM_ERROR("invalid mixer cnt %d\n",
 				cfg->hw_cfg->num_of_mixers);
 		return -EINVAL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -1229,7 +1229,7 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
-	const struct sde_rect *roi[CRTC_DUAL_MIXERS];
+	const struct sde_rect *roi[MAX_MIXERS_PER_CRTC];
 
 	if (!crtc || !state)
 		return -EINVAL;
@@ -1237,7 +1237,7 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
 
-	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+	if (sde_crtc->num_mixers > MAX_MIXERS_PER_CRTC) {
 		SDE_ERROR("%s: unsupported number of mixers: %d\n",
 				sde_crtc->name, sde_crtc->num_mixers);
 		return -EINVAL;
@@ -1429,7 +1429,7 @@ static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 	struct sde_crtc_state *crtc_state;
 	const struct sde_rect *lm_roi;
 	struct sde_hw_mixer *hw_lm;
-	int lm_idx, lm_horiz_position;
+	int lm_idx;
 
 	if (!crtc)
 		return;
@@ -1437,7 +1437,6 @@ static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(crtc->state);
 
-	lm_horiz_position = 0;
 	for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
 		struct sde_hw_mixer_cfg cfg;
 
@@ -1452,11 +1451,10 @@ static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 
 		hw_lm->cfg.out_width = lm_roi->w;
 		hw_lm->cfg.out_height = lm_roi->h;
-		hw_lm->cfg.right_mixer = lm_horiz_position;
 
 		cfg.out_width = lm_roi->w;
 		cfg.out_height = lm_roi->h;
-		cfg.right_mixer = lm_horiz_position++;
+		cfg.right_mixer = hw_lm->cfg.right_mixer;
 		cfg.flags = 0;
 		hw_lm->ops.setup_mixer_out(hw_lm, &cfg);
 	}
@@ -1724,7 +1722,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc,
 
 	SDE_DEBUG("%s\n", sde_crtc->name);
 
-	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+	if (sde_crtc->num_mixers > MAX_MIXERS_PER_CRTC) {
 		SDE_ERROR("invalid number mixers: %d\n", sde_crtc->num_mixers);
 		return;
 	}
@@ -2068,7 +2066,7 @@ static int _sde_validate_hw_resources(struct sde_crtc *sde_crtc)
 	}
 
 	if (!sde_crtc->num_mixers ||
-		sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+		sde_crtc->num_mixers > MAX_MIXERS_PER_CRTC) {
 		SDE_ERROR("%s: invalid number mixers: %d\n",
 			sde_crtc->name, sde_crtc->num_mixers);
 		SDE_EVT32(DRMID(&sde_crtc->base), sde_crtc->num_mixers,
@@ -2961,14 +2959,25 @@ static void _sde_crtc_setup_mixer_for_encoder(
 	struct sde_rm *rm = &sde_kms->rm;
 	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *last_valid_ctl = NULL;
-	int i;
 	struct sde_rm_hw_iter lm_iter, ctl_iter, dspp_iter, ds_iter;
+	u64 mixer_per_ctl = 0;
+	u32 reuse_ctl = 0;
+	int i;
 
 	sde_rm_init_hw_iter(&lm_iter, enc->base.id, SDE_HW_BLK_LM);
 	sde_rm_init_hw_iter(&ctl_iter, enc->base.id, SDE_HW_BLK_CTL);
 	sde_rm_init_hw_iter(&dspp_iter, enc->base.id, SDE_HW_BLK_DSPP);
 	sde_rm_init_hw_iter(&ds_iter, enc->base.id, SDE_HW_BLK_DS);
 
+	reuse_ctl = sde_rm_get_hw_count(rm, enc->base.id, SDE_HW_BLK_CTL);
+	mixer_per_ctl = sde_rm_get_hw_count(rm, enc->base.id, SDE_HW_BLK_LM);
+
+	do_div(mixer_per_ctl, reuse_ctl);
+	if (!mixer_per_ctl) {
+		SDE_DEBUG("no valid lm/ctl count:%d\n", reuse_ctl);
+		return;
+	}
+	reuse_ctl = 0;
 	/* Set up all the mixers and ctls reserved by this encoder */
 	for (i = sde_crtc->num_mixers; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
 		mixer = &sde_crtc->mixers[i];
@@ -2978,14 +2987,17 @@ static void _sde_crtc_setup_mixer_for_encoder(
 		mixer->hw_lm = (struct sde_hw_mixer *)lm_iter.hw;
 
 		/* CTL may be <= LMs, if <, multiple LMs controlled by 1 CTL */
-		if (!sde_rm_get_hw(rm, &ctl_iter)) {
-			SDE_DEBUG("no ctl assigned to lm %d, using previous\n",
+		if (reuse_ctl || !sde_rm_get_hw(rm, &ctl_iter)) {
+			SDE_DEBUG("no ctl assigned to lm %d using previous\n",
 					mixer->hw_lm->idx - LM_0);
 			mixer->hw_ctl = last_valid_ctl;
 		} else {
 			mixer->hw_ctl = (struct sde_hw_ctl *)ctl_iter.hw;
 			last_valid_ctl = mixer->hw_ctl;
+			reuse_ctl = mixer_per_ctl;
 		}
+		if (reuse_ctl)
+			reuse_ctl--;
 
 		/* Shouldn't happen, mixers are always >= ctls */
 		if (!mixer->hw_ctl) {
@@ -2993,6 +3005,9 @@ static void _sde_crtc_setup_mixer_for_encoder(
 					mixer->hw_lm->idx - LM_0);
 			return;
 		}
+
+		mixer->hw_lm->cfg.right_mixer =
+			(sde_crtc->num_mixers & 1) ? true : false;
 
 		/* Dspp may be null */
 		(void) sde_rm_get_hw(rm, &dspp_iter);

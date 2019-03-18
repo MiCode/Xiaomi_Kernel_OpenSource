@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,6 +187,32 @@ enum sde_rm_topology_name sde_rm_get_topology_name(
 	return SDE_RM_TOPOLOGY_NONE;
 }
 
+int sde_rm_get_hw_count(struct sde_rm *rm, uint32_t enc_id,
+	enum sde_hw_blk_type type)
+{
+	struct list_head *blk_list;
+	struct sde_rm_hw_blk *blk;
+	int count = 0;
+
+	mutex_lock(&rm->rm_lock);
+	if (!rm || type >= SDE_HW_BLK_MAX) {
+		SDE_ERROR("invalid rm/type %d\n", type);
+		count = -EINVAL;
+		goto exit;
+	}
+
+	blk_list = &rm->hw_blks[type];
+	list_for_each_entry(blk, blk_list, list) {
+		struct sde_rm_rsvp *rsvp = blk->rsvp;
+
+		if (rsvp && rsvp->enc_id == enc_id)
+			count++;
+	}
+
+exit:
+	mutex_unlock(&rm->rm_lock);
+	return count;
+}
 static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 {
 	struct list_head *blk_list;
