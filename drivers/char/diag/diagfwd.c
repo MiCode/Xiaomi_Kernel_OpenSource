@@ -42,6 +42,8 @@
 #define STM_RSP_NUM_BYTES		9
 #define RETRY_MAX_COUNT		1000
 
+#define SET_APPS_FEATURE(driver, n) ((driver->apps_feature) |= (1 << (n)))
+
 struct diag_md_hdlc_reset_work {
 	int pid;
 	struct work_struct work;
@@ -983,6 +985,43 @@ static int diag_cmd_disable_hdlc(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
+int diag_cmd_feature_query(unsigned char *src_buf, int src_len,
+				      unsigned char *dest_buf, int dest_len)
+{
+	int write_len = 0;
+	struct diag_pkt_header_t *header = NULL;
+	struct diag_cmd_feature_query_rsp_t rsp;
+
+	if (!src_buf || !dest_buf || src_len <= sizeof(struct diag_pkt_header_t)
+			|| dest_len <= 0 || dest_len > DIAG_MAX_RSP_SIZE) {
+		pr_err("diag: Feature query, invalid input src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d\n",
+			src_buf, src_len, dest_buf, dest_len);
+		return -EINVAL;
+	}
+
+	header = (struct diag_pkt_header_t *)src_buf;
+
+	rsp.header.cmd_code = header->cmd_code;
+	rsp.header.subsys_id = header->subsys_id;
+	rsp.header.subsys_cmd_code = header->subsys_cmd_code;
+	rsp.version = 1;
+	rsp.feature_len = sizeof(driver->apps_feature);
+	if (dest_len < (sizeof(rsp) + sizeof(driver->apps_feature)))
+		return -EINVAL;
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+	memcpy(dest_buf + sizeof(rsp), &(driver->apps_feature),
+			sizeof(driver->apps_feature));
+	write_len = sizeof(rsp) + sizeof(driver->apps_feature);
+	return write_len;
+}
+
+static void diag_init_apps_feature(void)
+{
+	driver->apps_feature = 0;
+
+	SET_APPS_FEATURE(driver, F_DIAG_EVENT_REPORT);
+}
+
 void diag_send_error_rsp(unsigned char *buf, int len,
 			int pid)
 {
@@ -1117,6 +1156,17 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		(*(buf+1) == DIAG_SS_DIAG) &&
 		(*(uint16_t *)(buf+2) == DIAG_GET_DIAG_ID)) {
 		write_len = diag_process_diag_id_query_cmd(buf, len,
+							driver->apps_rsp_buf,
+							DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		return 0;
+	}
+	/* Check for Diag Feature Query command */
+	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+		(*(buf+1) == DIAG_SS_DIAG) &&
+		(*(uint16_t *)(buf+2) == DIAG_FEATURE_QUERY)) {
+		write_len = diag_cmd_feature_query(buf, len,
 							driver->apps_rsp_buf,
 							DIAG_MAX_RSP_SIZE);
 		if (write_len > 0)
@@ -1909,6 +1959,8 @@ int diagfwd_init(void)
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
 	}
+
+	diag_init_apps_feature();
 
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		driver->buffering_mode[i].peripheral = i;
