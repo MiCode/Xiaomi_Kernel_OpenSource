@@ -31,6 +31,7 @@
 		qcom,use-pdc-interrupts;
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
+		dpdm-supply = <&usb2_phy>;
 		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
 			<&clock_gcc GCC_USB30_SLV_AHB_CLK>,
 			<&clock_gcc GCC_USB30_MSTR_AXI_CLK>,
