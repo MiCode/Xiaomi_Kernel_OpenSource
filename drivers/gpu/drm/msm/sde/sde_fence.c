@@ -351,6 +351,7 @@ int sde_fence_create(struct sde_fence_context *ctx, uint64_t *val,
 	list_for_each_entry(fc, &ctx->fence_list_head, fence_list) {
 		if (trigger_value == fc->base.seqno) {
 			fd = fc->fd;
+			*val = fd;
 			break;
 		}
 	}
