@@ -30,6 +30,9 @@
 /* Indicate backport support for external authentication in AP mode */
 #define CFG80211_EXTERNAL_AUTH_AP_SUPPORT 1
 
+/* Indicate backport support for DH IE creation/update*/
+#define CFG80211_EXTERNAL_DH_UPDATE_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
