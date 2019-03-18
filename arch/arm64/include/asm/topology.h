@@ -11,6 +11,7 @@ struct cpu_topology {
 	int llc_id;
 	cpumask_t thread_sibling;
 	cpumask_t core_sibling;
+	cpumask_t core_possible_sibling;
 	cpumask_t llc_sibling;
 };
 
@@ -26,6 +27,7 @@ void init_cpu_topology(void);
 void store_cpu_topology(unsigned int cpuid);
 void remove_cpu_topology(unsigned int cpuid);
 const struct cpumask *cpu_coregroup_mask(int cpu);
+const struct cpumask *cpu_possible_coregroup_mask(int cpu);
 
 #ifdef CONFIG_NUMA
 
