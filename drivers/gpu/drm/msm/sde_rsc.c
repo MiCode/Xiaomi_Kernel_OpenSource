@@ -94,7 +94,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 		pr_err("invalid rsc index\n");
 		return ERR_PTR(-EINVAL);
 	} else if (!rsc_prv_list[rsc_index]) {
-		pr_err("rsc not probed yet or not available\n");
+		pr_debug("rsc not probed yet or not available\n");
 		return NULL;
 	}
 
@@ -250,7 +250,7 @@ bool is_sde_rsc_available(int rsc_index)
 		pr_err("invalid rsc index:%d\n", rsc_index);
 		return false;
 	} else if (!rsc_prv_list[rsc_index]) {
-		pr_err("rsc idx:%d not probed yet or not available\n",
+		pr_debug("rsc idx:%d not probed yet or not available\n",
 								rsc_index);
 		return false;
 	}

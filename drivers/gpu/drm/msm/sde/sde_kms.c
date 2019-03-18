@@ -2967,7 +2967,7 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 
 	node = of_find_node_by_name(parent, node_name);
 	if (!node) {
-		SDE_ERROR("failed to find node %s\n", node_name);
+		SDE_DEBUG("failed to find node %s\n", node_name);
 		return -EINVAL;
 	}
 
@@ -2987,7 +2987,7 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 
 	data->num_splash_displays = num_displays;
 
-	pr_info("splash mem num_regions:%d\n", num_regions);
+	SDE_DEBUG("splash mem num_regions:%d\n", num_regions);
 	if (num_displays > num_regions) {
 		share_splash_mem = true;
 		pr_info(":%d displays share same splash buf\n", num_displays);
@@ -3020,7 +3020,7 @@ static int _sde_kms_get_splash_data(struct sde_splash_data *data)
 			data->splash_display[i].splash = &data->splash_mem[0];
 		}
 
-		pr_info("splash mem for disp:%d add:%lx size:%x\n", (i + 1),
+		SDE_DEBUG("splash mem for disp:%d add:%lx size:%x\n", (i + 1),
 				splash_display->splash->splash_buf_base,
 				splash_display->splash->splash_buf_size);
 	}
