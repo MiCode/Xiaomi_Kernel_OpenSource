@@ -18,7 +18,7 @@ config GCC_VERSION
 	default 0
 
 config CC_IS_CLANG
-	def_bool $(success,$(CC) --version | head -n 1 | grep -q clang)
+	def_bool $(success,$(CC) --version | grep -q clang)
 
 config CLANG_VERSION
 	int
