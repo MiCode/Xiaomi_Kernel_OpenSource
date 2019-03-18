@@ -369,6 +369,10 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	/* pull out the memtype before the flags get cleared */
 	memtype = kgsl_memdesc_usermem_type(&entry->memdesc);
 
+	if (!(entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_VIRT))
+		kgsl_process_sub_stats(entry->priv, memtype,
+			entry->memdesc.size);
+
 	/* Detach from process list */
 	kgsl_mem_entry_detach_process(entry);
 
@@ -527,7 +531,6 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	entry->id = 0;
 
 	type = kgsl_memdesc_usermem_type(&entry->memdesc);
-	entry->priv->stats[type].cur -= entry->memdesc.size;
 
 	if (type != KGSL_MEM_ENTRY_ION)
 		entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
@@ -3480,6 +3483,10 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 
 	param->id = entry->id;
 	param->flags = entry->memdesc.flags;
+
+	kgsl_process_add_stats(process,
+			kgsl_memdesc_usermem_type(&entry->memdesc),
+			entry->memdesc.size);
 
 	trace_sparse_phys_alloc(entry->id, param->size, param->pagesize);
 	kgsl_mem_entry_commit_process(entry);
