@@ -1240,6 +1240,8 @@
 		};
 
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
 			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep>;
