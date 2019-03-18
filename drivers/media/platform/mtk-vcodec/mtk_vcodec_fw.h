@@ -19,11 +19,13 @@
 
 // TODO move these into .c file!
 #include "../mtk-vpu/mtk_vpu.h"
+#include <linux/platform_data/mtk_scp.h>
 
 struct mtk_vcodec_dev;
 
 enum mtk_vcodec_fw_type {
 	VPU,
+	SCP,
 };
 
 struct mtk_vcodec_fw;
