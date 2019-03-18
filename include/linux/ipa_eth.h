@@ -142,8 +142,12 @@ struct ipa_eth_resource {
  * @features: Features enabled in the channel
  * @direction: Channel direction
  * @queue: Network device queue/ring number
- * @desc_mem: Descriptor ring memory
- * @buff_mem: Buffer memory pointed to by descriptors
+ * @desc_size: Size of each descriptor
+ * @desc_count: Number of descriptors in the ring
+ * @desc_mem: Descriptor ring memory base
+ * @buff_size: Size of each data buffer
+ * @buff_count: Number of data buffers
+ * @buff_mem: Data buffer memory base
  * @od_priv: Private field for use by offload driver
  * @eth_dev: Associated ipa_eth_device
  * @ipa_client: IPA client type enum to be used for the channel
@@ -165,7 +169,13 @@ struct ipa_eth_channel {
 	enum ipa_eth_channel_dir direction;
 
 	int queue;
+
+	u16 desc_size;
+	u32 desc_count;
 	struct ipa_eth_resource desc_mem;
+
+	u16 buff_size;
+	u32 buff_count;
 	struct ipa_eth_resource buff_mem;
 
 	/* fields managed by offload driver */
