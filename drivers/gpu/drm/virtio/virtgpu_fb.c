@@ -215,7 +215,6 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	struct drm_mode_fb_cmd2 mode_cmd = {};
         struct virtio_gpu_object_params parms = {};
 	struct virtio_gpu_object *obj;
-	uint32_t format;
 	int ret;
 
 	mode_cmd.width = sizes->surface_width;
@@ -223,17 +222,18 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	mode_cmd.pitches[0] = mode_cmd.width * 4;
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(32, 24);
 
-	format = virtio_gpu_translate_format(mode_cmd.pixel_format);
-	if (format == 0)
+	parms.format = virtio_gpu_translate_format(mode_cmd.pixel_format);
+	if (parms.format == 0)
 		return -EINVAL;
 
 	parms.size = mode_cmd.pitches[0] * mode_cmd.height;
+	parms.width = mode_cmd.width;
+	parms.height = mode_cmd.height;
 	obj = virtio_gpu_alloc_object(dev, &parms);
 	if (IS_ERR(obj))
 		return PTR_ERR(obj);
 
-	virtio_gpu_cmd_create_resource(vgdev, obj, format,
-				       mode_cmd.width, mode_cmd.height);
+	virtio_gpu_cmd_create_resource(vgdev, obj, &parms);
 
 	ret = virtio_gpu_object_kmap(obj);
 	if (ret) {
