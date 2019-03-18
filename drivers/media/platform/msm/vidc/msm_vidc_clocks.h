@@ -8,8 +8,6 @@
 #include "msm_vidc_internal.h"
 
 void msm_clock_data_reset(struct msm_vidc_inst *inst);
-int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
-	u32 operating_rate);
 int msm_vidc_set_clocks(struct msm_vidc_core *core);
 int msm_comm_vote_bus(struct msm_vidc_core *core);
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst);
