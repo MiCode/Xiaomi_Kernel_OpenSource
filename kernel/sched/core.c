@@ -6134,7 +6134,9 @@ int sched_isolate_cpu(int cpu)
 	smp_call_function_any(&avail_cpus, timer_quiesce_cpu, &cpu, 1);
 
 	watchdog_disable(cpu);
+	irq_lock_sparse();
 	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
+	irq_unlock_sparse();
 
 	calc_load_migrate(rq);
 	update_max_interval();
