@@ -124,5 +124,5 @@ int msm_cvp_dqevent(void *instance, struct v4l2_event *event);
 int msm_cvp_g_crop(void *instance, struct v4l2_crop *a);
 int msm_cvp_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
 int msm_cvp_private(void *cvp_inst, unsigned int cmd,
-		struct msm_cvp_arg *arg);
+		struct cvp_kmd_arg *arg);
 #endif

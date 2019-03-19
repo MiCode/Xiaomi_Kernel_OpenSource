@@ -382,6 +382,8 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 
 #define  HFI_CMD_SESSION_CVP_DME_CONFIG\
 	(HFI_CMD_SESSION_CVP_START + 0x039)
+#define  HFI_CMD_SESSION_CVP_DME_BASIC_CONFIG\
+	(HFI_CMD_SESSION_CVP_START + 0x03B)
 #define  HFI_CMD_SESSION_CVP_DME_FRAME\
 	(HFI_CMD_SESSION_CVP_START + 0x03A)
 
@@ -579,42 +581,6 @@ struct hfi_cmd_session_get_property_packet {
 struct HFI_CVP_COLOR_PLANE_INFO {
 	s32 stride[HFI_MAX_PLANES];
 	u32 buf_size[HFI_MAX_PLANES];
-};
-
-struct hfi_cmd_session_hdr {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-};
-
-struct hfi_cmd_session_cvp_dfs_config_packet {
-	u32 cvp_internal_dfs_config[CVP_DFS_CONFIG_CMD_SIZE];
-};
-
-struct hfi_cmd_session_cvp_dfs_frame_packet {
-	u32 cvp_dfs_frame[CVP_DFS_FRAME_BUFFERS_OFFSET];
-	u32 left_view_buffer_addr;
-	u32 left_view_buffer_size;
-	u32 right_view_buffer_addr;
-	u32 right_view_buffer_size;
-	u32 disparity_map_buffer_addr;
-	u32 disparity_map_buffer_size;
-	u32 occlusion_mask_buffer_addr;
-	u32 occlusion_mask_buffer_size;
-};
-
-struct hfi_cmd_session_cvp_dme_config_packet {
-	u32 cvp_internal_dme_config[CVP_DME_CONFIG_CMD_SIZE];
-};
-
-struct hfi_cmd_session_cvp_dme_frame_packet {
-	u32 cvp_dme_frame[CVP_DME_FRAME_BUFFERS_OFFSET];
-	struct buf_desc bufs[8];
-};
-
-struct hfi_cmd_session_cvp_persist_packet {
-	u32 cvp_persist_frame[CVP_PERSIST_BUFFERS_OFFSET];
-	struct buf_desc bufs[CVP_PSRSIST_BUF_NUM];
 };
 
 struct hfi_cmd_session_release_buffer_packet {

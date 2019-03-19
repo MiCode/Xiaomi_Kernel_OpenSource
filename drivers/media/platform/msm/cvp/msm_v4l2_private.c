@@ -4,12 +4,129 @@
  */
 
 #include "msm_v4l2_private.h"
+#include "cvp_hfi_api.h"
 
-static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
+static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
+		struct cvp_hal_session_cmd_pkt *pkt_hdr)
+{
+	struct cvp_kmd_hfi_packet *u;
+
+	u = &up->data.hfi_pkt;
+
+	if (get_user(pkt_hdr->size, &u->pkt_data[0]))
+		return -EFAULT;
+
+	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
+		return -EFAULT;
+
+	if (get_pkt_index(pkt_hdr) < 0)
+		return -EINVAL;
+
+	if (pkt_hdr->size > MAX_HFI_PKT_SIZE*sizeof(unsigned int))
+		return -EINVAL;
+
+	return 0;
+}
+
+static int _get_fence_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
+		struct cvp_hal_session_cmd_pkt *pkt_hdr)
+{
+	struct cvp_kmd_hfi_fence_packet *u;
+
+	u = &up->data.hfi_fence_pkt;
+
+	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
+		return -EFAULT;
+
+	pkt_hdr->size = (MAX_HFI_FENCE_OFFSET + MAX_HFI_FENCE_SIZE)
+			* sizeof(unsigned int);
+
+	if (pkt_hdr->size > (MAX_HFI_PKT_SIZE*sizeof(unsigned int)))
+		return -EINVAL;
+
+	return 0;
+}
+
+/* Size is in unit of u32 */
+static int _copy_pkt_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_pkt;
+	u = &up->data.hfi_pkt;
+	for (i = 0; i < size; i++)
+		if (get_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+
+	return 0;
+}
+
+/* Size is in unit of u32 */
+static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_fence_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_fence_pkt;
+	u = &up->data.hfi_fence_pkt;
+	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
+		if (get_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+	}
+	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
+		if (get_user(k->fence_data[i], &u->fence_data[i]))
+			return -EFAULT;
+	}
+	return 0;
+}
+
+static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_pkt;
+	u = &up->data.hfi_pkt;
+	for (i = 0; i < size; i++)
+		if (put_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+
+	return 0;
+}
+
+static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up,
+		unsigned int size)
+{
+	struct cvp_kmd_hfi_fence_packet *k, *u;
+	int i;
+
+	k = &kp->data.hfi_fence_pkt;
+	u = &up->data.hfi_fence_pkt;
+	for (i = 0; i < MAX_HFI_FENCE_OFFSET; i++) {
+		if (put_user(k->pkt_data[i], &u->pkt_data[i]))
+			return -EFAULT;
+	}
+	for (i = 0; i < MAX_HFI_FENCE_SIZE; i++) {
+		if (put_user(k->fence_data[i], &u->fence_data[i]))
+			return -EFAULT;
+	}
+	return 0;
+}
+
+static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
 	int i;
-	struct msm_cvp_arg __user *up = compat_ptr(arg);
+	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
 	if (!kp || !up) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -20,9 +137,9 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 		return -EFAULT;
 
 	switch (kp->type) {
-	case MSM_CVP_GET_SESSION_INFO:
+	case CVP_KMD_GET_SESSION_INFO:
 	{
-		struct msm_cvp_session_info *k, *u;
+		struct cvp_kmd_session_info *k, *u;
 
 		k = &kp->data.session;
 		u = &up->data.session;
@@ -33,9 +150,9 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_REQUEST_POWER:
+	case CVP_KMD_REQUEST_POWER:
 	{
-		struct msm_cvp_request_power *k, *u;
+		struct cvp_kmd_request_power *k, *u;
 
 		k = &kp->data.req_power;
 		u = &up->data.req_power;
@@ -49,9 +166,9 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_REGISTER_BUFFER:
+	case CVP_KMD_REGISTER_BUFFER:
 	{
-		struct msm_cvp_buffer *k, *u;
+		struct cvp_kmd_buffer *k, *u;
 
 		k = &kp->data.regbuf;
 		u = &up->data.regbuf;
@@ -68,9 +185,9 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_UNREGISTER_BUFFER:
+	case CVP_KMD_UNREGISTER_BUFFER:
 	{
-		struct msm_cvp_buffer *k, *u;
+		struct cvp_kmd_buffer *k, *u;
 
 		k = &kp->data.unregbuf;
 		u = &up->data.unregbuf;
@@ -87,12 +204,10 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_HFI_SEND_CMD:
+	case CVP_KMD_HFI_SEND_CMD:
 	{
-		struct msm_cvp_send_cmd *k, *u;
+		struct cvp_kmd_send_cmd *k, *u;
 
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_SEND_CMD\n",
-				__func__);
 		k = &kp->data.send_cmd;
 		u = &up->data.send_cmd;
 		if (get_user(k->cmd_address_fd, &u->cmd_address_fd) ||
@@ -103,79 +218,41 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_HFI_DFS_CONFIG_CMD:
+	case CVP_KMD_SEND_CMD_PKT:
+	case CVP_KMD_HFI_DFS_CONFIG_CMD:
+	case CVP_KMD_HFI_DFS_FRAME_CMD:
+	case CVP_KMD_HFI_DME_CONFIG_CMD:
+	case CVP_KMD_HFI_DME_FRAME_CMD:
+	case CVP_KMD_HFI_PERSIST_CMD:
 	{
-		struct msm_cvp_dfs_config *k, *u;
+		if (_get_pkt_hdr_from_user(up, &pkt_hdr)) {
+			dprintk(CVP_ERR, "Invalid syscall: %x, %x, %x\n",
+				kp->type, pkt_hdr.size, pkt_hdr.packet_type);
+			return -EFAULT;
+		}
 
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n", __func__);
-		k = &kp->data.dfs_config;
-		u = &up->data.dfs_config;
-		for (i = 0; i < CVP_DFS_CONFIG_CMD_SIZE; i++)
-			if (get_user(k->cvp_dfs_config[i],
-				&u->cvp_dfs_config[i]))
-				return -EFAULT;
+		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
-	case MSM_CVP_HFI_DFS_FRAME_CMD:
-	case MSM_CVP_HFI_DFS_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
 	{
-		struct msm_cvp_dfs_frame *k, *u;
+		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr)) {
+			dprintk(CVP_ERR, "Invalid syscall: %x, %x, %x\n",
+				kp->type, pkt_hdr.size, pkt_hdr.packet_type);
+			return -EFAULT;
+		}
 
-		dprintk(CVP_DBG, "%s: Type =%d\n", __func__, kp->type);
-		k = &kp->data.dfs_frame;
-		u = &up->data.dfs_frame;
-		for (i = 0; i < CVP_DFS_FRAME_CMD_SIZE; i++)
-			if (get_user(k->frame_data[i], &u->frame_data[i]))
-				return -EFAULT;
-
+		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_fence_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
-	case MSM_CVP_HFI_DME_CONFIG_CMD:
-	{
-		struct msm_cvp_dme_config *k, *u;
-
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n", __func__);
-		k = &kp->data.dme_config;
-		u = &up->data.dme_config;
-		for (i = 0; i < CVP_DME_CONFIG_CMD_SIZE; i++)
-			if (get_user(k->cvp_dme_config[i],
-				&u->cvp_dme_config[i]))
-				return -EFAULT;
+	case CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
 		break;
-	}
-	case MSM_CVP_HFI_DME_FRAME_CMD:
-	case MSM_CVP_HFI_DME_FRAME_CMD_RESPONSE:
-	{
-		struct msm_cvp_dme_frame *k, *u;
-
-		dprintk(CVP_DBG, "%s: type = %d\n",
-					__func__, kp->type);
-		k = &kp->data.dme_frame;
-		u = &up->data.dme_frame;
-
-		for (i = 0; i < CVP_DME_FRAME_CMD_SIZE; i++)
-			if (get_user(k->frame_data[i], &u->frame_data[i]))
-				return -EFAULT;
-
-		break;
-	}
-	case MSM_CVP_HFI_PERSIST_CMD:
-	case MSM_CVP_HFI_PERSIST_CMD_RESPONSE:
-	{
-		struct msm_cvp_persist_buf *k, *u;
-
-		dprintk(CVP_DBG, "%s: type = %d\n",
-					__func__, kp->type);
-		k = &kp->data.pbuf_cmd;
-		u = &up->data.pbuf_cmd;
-
-		for (i = 0; i < CVP_PERSIST_CMD_SIZE; i++)
-			if (get_user(k->persist_data[i], &u->persist_data[i]))
-				return -EFAULT;
-
-		break;
-	}
-
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -186,11 +263,12 @@ static int convert_from_user(struct msm_cvp_arg *kp, unsigned long arg)
 	return rc;
 }
 
-static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
+static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
 	int i;
-	struct msm_cvp_arg __user *up = compat_ptr(arg);
+	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
 	if (!kp || !up) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -201,9 +279,11 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 		return -EFAULT;
 
 	switch (kp->type) {
-	case MSM_CVP_GET_SESSION_INFO:
+	case CVP_KMD_RECEIVE_MSG_PKT:
+		break;
+	case CVP_KMD_GET_SESSION_INFO:
 	{
-		struct msm_cvp_session_info *k, *u;
+		struct cvp_kmd_session_info *k, *u;
 
 		k = &kp->data.session;
 		u = &up->data.session;
@@ -214,9 +294,9 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_REQUEST_POWER:
+	case CVP_KMD_REQUEST_POWER:
 	{
-		struct msm_cvp_request_power *k, *u;
+		struct cvp_kmd_request_power *k, *u;
 
 		k = &kp->data.req_power;
 		u = &up->data.req_power;
@@ -230,9 +310,9 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_REGISTER_BUFFER:
+	case CVP_KMD_REGISTER_BUFFER:
 	{
-		struct msm_cvp_buffer *k, *u;
+		struct cvp_kmd_buffer *k, *u;
 
 		k = &kp->data.regbuf;
 		u = &up->data.regbuf;
@@ -249,9 +329,9 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_UNREGISTER_BUFFER:
+	case CVP_KMD_UNREGISTER_BUFFER:
 	{
-		struct msm_cvp_buffer *k, *u;
+		struct cvp_kmd_buffer *k, *u;
 
 		k = &kp->data.unregbuf;
 		u = &up->data.unregbuf;
@@ -268,11 +348,11 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_HFI_SEND_CMD:
+	case CVP_KMD_HFI_SEND_CMD:
 	{
-		struct msm_cvp_send_cmd *k, *u;
+		struct cvp_kmd_send_cmd *k, *u;
 
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_SEND_CMD\n",
+		dprintk(CVP_DBG, "%s: CVP_KMD_HFI_SEND_CMD\n",
 					__func__);
 
 		k = &kp->data.send_cmd;
@@ -285,80 +365,32 @@ static int convert_to_user(struct msm_cvp_arg *kp, unsigned long arg)
 				return -EFAULT;
 		break;
 	}
-	case MSM_CVP_HFI_DFS_CONFIG_CMD:
+	case CVP_KMD_SEND_CMD_PKT:
+	case CVP_KMD_HFI_DFS_CONFIG_CMD:
+	case CVP_KMD_HFI_DFS_FRAME_CMD:
+	case CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_DME_CONFIG_CMD:
+	case CVP_KMD_HFI_DME_FRAME_CMD:
+	case CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_PERSIST_CMD:
+	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
 	{
-		struct msm_cvp_dfs_config *k, *u;
+		if (_get_pkt_hdr_from_user(up, &pkt_hdr))
+			return -EFAULT;
 
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DFS_CONFIG_CMD\n",
-					__func__);
-
-		k = &kp->data.dfs_config;
-		u = &up->data.dfs_config;
-		for (i = 0; i < CVP_DFS_CONFIG_CMD_SIZE; i++)
-			if (put_user(k->cvp_dfs_config[i],
-				&u->cvp_dfs_config[i]))
-				return -EFAULT;
+		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
-	case MSM_CVP_HFI_DFS_FRAME_CMD:
-	case MSM_CVP_HFI_DFS_FRAME_CMD_RESPONSE:
+	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
 	{
-		struct msm_cvp_dfs_frame *k, *u;
+		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr))
+			return -EFAULT;
 
-		dprintk(CVP_DBG, "%s: type = %d\n",
-					__func__, kp->type);
-		k = &kp->data.dfs_frame;
-		u = &up->data.dfs_frame;
-
-		for (i = 0; i < CVP_DFS_FRAME_CMD_SIZE; i++)
-			if (put_user(k->frame_data[i], &u->frame_data[i]))
-				return -EFAULT;
-
-		break;
-	}
-	case MSM_CVP_HFI_DME_CONFIG_CMD:
-	{
-		struct msm_cvp_dme_config *k, *u;
-
-		dprintk(CVP_DBG, "%s: MSM_CVP_HFI_DME_CONFIG_CMD\n", __func__);
-		k = &kp->data.dme_config;
-		u = &up->data.dme_config;
-		for (i = 0; i < CVP_DME_CONFIG_CMD_SIZE; i++)
-			if (put_user(k->cvp_dme_config[i],
-				&u->cvp_dme_config[i]))
-				return -EFAULT;
-		break;
-	}
-	case MSM_CVP_HFI_DME_FRAME_CMD:
-	case MSM_CVP_HFI_DME_FRAME_CMD_RESPONSE:
-	{
-		struct msm_cvp_dme_frame *k, *u;
-
-		dprintk(CVP_DBG, "%s: type = %d\n",
-					__func__, kp->type);
-		k = &kp->data.dme_frame;
-		u = &up->data.dme_frame;
-
-		for (i = 0; i < CVP_DME_FRAME_CMD_SIZE; i++)
-			if (put_user(k->frame_data[i], &u->frame_data[i]))
-				return -EFAULT;
-
-		break;
-	}
-	case MSM_CVP_HFI_PERSIST_CMD:
-	case MSM_CVP_HFI_PERSIST_CMD_RESPONSE:
-	{
-		struct msm_cvp_persist_buf *k, *u;
-
-		dprintk(CVP_DBG, "%s: type = %d\n",
-					__func__, kp->type);
-		k = &kp->data.pbuf_cmd;
-		u = &up->data.pbuf_cmd;
-
-		for (i = 0; i < CVP_PERSIST_CMD_SIZE; i++)
-			if (put_user(k->persist_data[i], &u->persist_data[i]))
-				return -EFAULT;
-
+		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
+				pkt_hdr.size, pkt_hdr.packet_type);
+		rc = _copy_fence_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
 	default:
@@ -376,7 +408,7 @@ long msm_cvp_v4l2_private(struct file *filp,
 {
 	int rc;
 	struct msm_cvp_inst *inst;
-	struct msm_cvp_arg karg;
+	struct cvp_kmd_arg karg;
 
 	if (!filp || !filp->private_data) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -385,15 +417,18 @@ long msm_cvp_v4l2_private(struct file *filp,
 
 	inst = container_of(filp->private_data, struct msm_cvp_inst,
 			event_handler);
-	memset(&karg, 0, sizeof(struct msm_cvp_arg));
+	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 
 	/*
 	 * the arg points to user space memory and needs
 	 * to be converted to kernel space before using it.
 	 * Check do_video_ioctl() for more details.
 	 */
-	if (convert_from_user(&karg, arg))
+	if (convert_from_user(&karg, arg)) {
+		dprintk(CVP_ERR, "%s: failed to get from user cmd %x\n",
+			__func__, karg.type);
 		return -EFAULT;
+	}
 
 	rc = msm_cvp_private((void *)inst, cmd, &karg);
 	if (rc) {

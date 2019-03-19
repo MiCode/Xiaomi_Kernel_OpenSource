@@ -830,7 +830,7 @@ int msm_cvp_dqevent(void *inst, struct v4l2_event *event)
 EXPORT_SYMBOL(msm_cvp_dqevent);
 
 int msm_cvp_private(void *cvp_inst, unsigned int cmd,
-		struct msm_cvp_arg *arg)
+		struct cvp_kmd_arg *arg)
 {
 	int rc = 0;
 	struct msm_cvp_inst *inst = (struct msm_cvp_inst *)cvp_inst;

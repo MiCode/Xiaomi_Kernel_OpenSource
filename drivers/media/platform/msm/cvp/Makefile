@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 ccflags-y += -I$(srctree)/drivers/media/platform/msm/cvp/
+ccflags-y += -I$(srctree)/drivers/media/platform/msm/synx/
 
 msm-cvp-objs := msm_v4l2_cvp.o \
 				msm_v4l2_private.o \

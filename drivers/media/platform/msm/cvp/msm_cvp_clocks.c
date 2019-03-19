@@ -717,7 +717,7 @@ int msm_cvp_set_clocks(struct msm_cvp_core *core)
 	 * keep checking from lowest to highest rate until
 	 * table rate >= requested rate
 	 */
-	for (i = core->resources.allowed_clks_tbl_size - 1; i >= 0; i--) {
+	for (i = 0; i < core->resources.allowed_clks_tbl_size;  i++) {
 		rate = allowed_clks_tbl[i].clock_rate;
 		if (rate >= freq_core_max)
 			break;

@@ -37,6 +37,52 @@
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
 #define QDSS_IOVA_START 0x80001000
 
+const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
+	{
+		.size = HFI_DFS_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DFS_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_DFS_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_DFS_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DFS_FRAME,
+		.buf_offset = HFI_DFS_FRAME_BUFFERS_OFFSET,
+		.buf_num = HFI_DFS_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_DME_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DME_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_DME_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_DME_BASIC_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DME_BASIC_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_DME_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DME_FRAME,
+		.buf_offset = HFI_DME_FRAME_BUFFERS_OFFSET,
+		.buf_num = HFI_DME_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_PERSIST_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS,
+		.buf_offset = HFI_PERSIST_BUFFERS_OFFSET,
+		.buf_num = HFI_PERSIST_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+
+};
+
 static struct hal_device_data hal_ctxt;
 
 #define TZBSP_MEM_PROTECT_VIDEO_VAR 0x8
@@ -146,6 +192,18 @@ static inline bool is_sys_cache_present(struct venus_hfi_device *device)
 }
 
 #define ROW_SIZE 32
+
+int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr)
+{
+	int i, pkt_num = ARRAY_SIZE(cvp_hfi_defs);
+
+	for (i = 0; i < pkt_num; i++)
+		if ((cvp_hfi_defs[i].size*sizeof(unsigned int) == hdr->size) &&
+			(cvp_hfi_defs[i].type == hdr->packet_type))
+			return i;
+
+	return -EINVAL;
+}
 
 static void __dump_packet(u8 *packet, enum cvp_msg_prio log_level)
 {
@@ -1292,7 +1350,7 @@ static int __set_clocks(struct venus_hfi_device *device, u32 freq)
 			}
 
 			trace_msm_cvp_perf_clock_scale(cl->name, freq);
-			dprintk(CVP_PROF, "Scaling clock %s to %u\n",
+			dprintk(CVP_DBG, "Scaling clock %s to %u\n",
 					cl->name, freq);
 		}
 	}
@@ -2641,11 +2699,11 @@ static int venus_hfi_session_stop(void *session)
 	return rc;
 }
 
-static int venus_hfi_session_cvp_dme_config(void *sess,
-		struct msm_cvp_internal_dmeconfig *dme_config)
+static int venus_hfi_session_send(void *sess,
+		struct cvp_kmd_hfi_packet *in_pkt)
 {
 	int rc = 0;
-	struct hfi_cmd_session_cvp_dme_config_packet pkt;
+	struct cvp_kmd_hfi_packet pkt;
 	struct hal_session *session = sess;
 	struct venus_hfi_device *device;
 
@@ -2659,171 +2717,23 @@ static int venus_hfi_session_cvp_dme_config(void *sess,
 
 	if (!__is_session_valid(device, session, __func__)) {
 		rc = -EINVAL;
-		goto dme_config_err;
+		goto err_send_pkt;
 	}
-	rc = call_hfi_pkt_op(device, session_cvp_dme_config,
-			&pkt, session, dme_config);
+	rc = call_hfi_pkt_op(device, session_cvp_hfi_packetize,
+			&pkt, session, in_pkt);
 	if (rc) {
 		dprintk(CVP_ERR,
-				"Session get buf req: failed to create pkt\n");
-		goto dme_config_err;
-	}
-
-	if (__iface_cmdq_write(session->device, &pkt))
-		rc = -ENOTEMPTY;
-	dprintk(CVP_DBG, "%s: calling __iface_cmdq_write\n", __func__);
-dme_config_err:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
-static int venus_hfi_session_cvp_dme_frame(void *sess,
-				struct msm_cvp_internal_dmeframe *dme_frame)
-{
-	int rc = 0;
-	struct hfi_cmd_session_cvp_dme_frame_packet pkt;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "invalid session");
-		return -ENODEV;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto dme_frame_err;
-	}
-	rc = call_hfi_pkt_op(device, session_cvp_dme_frame,
-			&pkt, session, dme_frame);
-	if (rc) {
-		dprintk(CVP_ERR,
-				"Session get buf req: failed to create pkt\n");
-		goto dme_frame_err;
-	}
-
-	if (__iface_cmdq_write(session->device, &pkt))
-		rc = -ENOTEMPTY;
-	dprintk(CVP_DBG, "%s: done calling __iface_cmdq_write\n", __func__);
-dme_frame_err:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
-
-static int venus_hfi_session_cvp_persist(void *sess,
-		struct msm_cvp_internal_persist_cmd *pbuf_cmd)
-{
-	int rc = 0;
-	struct hfi_cmd_session_cvp_persist_packet pkt;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "invalid session");
-		return -ENODEV;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto persist_err;
-	}
-	rc = call_hfi_pkt_op(device, session_cvp_persist,
-			&pkt, session, pbuf_cmd);
-	if (rc) {
-		dprintk(CVP_ERR,
-				"Failed to create persist pkt\n");
-		goto persist_err;
+				"failed to create pkt\n");
+		goto err_send_pkt;
 	}
 
 	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 
-	dprintk(CVP_DBG, "%s: done calling __iface_cmdq_write\n", __func__);
-persist_err:
-	mutex_unlock(&device->lock);
-	return rc;
-}
-
-static int venus_hfi_session_cvp_dfs_config(void *sess,
-		struct msm_cvp_internal_dfsconfig *dfs_config)
-{
-	int rc = 0;
-	struct hfi_cmd_session_cvp_dfs_config_packet pkt;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "invalid session");
-		return -ENODEV;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto err_create_pkt;
-	}
-	rc = call_hfi_pkt_op(device, session_cvp_dfs_config,
-			&pkt, session, dfs_config);
-	if (rc) {
-		dprintk(CVP_ERR,
-				"Session get buf req: failed to create pkt\n");
-		goto err_create_pkt;
-	}
-
-	dprintk(CVP_DBG, "%s: calling __iface_cmdq_write\n", __func__);
-	if (__iface_cmdq_write(session->device, &pkt))
-		rc = -ENOTEMPTY;
-	dprintk(CVP_DBG, "%s: done calling __iface_cmdq_write\n", __func__);
-err_create_pkt:
+err_send_pkt:
 	mutex_unlock(&device->lock);
 	return rc;
 
-	return rc;
-}
-
-static int venus_hfi_session_cvp_dfs_frame(void *sess,
-				struct msm_cvp_internal_dfsframe *dfs_frame)
-{
-	int rc = 0;
-	struct hfi_cmd_session_cvp_dfs_frame_packet pkt;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "invalid session");
-		return -ENODEV;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto err_create_pkt;
-	}
-	rc = call_hfi_pkt_op(device, session_cvp_dfs_frame,
-			&pkt, session, dfs_frame);
-	if (rc) {
-		dprintk(CVP_ERR,
-				"Session get buf req: failed to create pkt\n");
-		goto err_create_pkt;
-	}
-
-	dprintk(CVP_DBG, "%s: calling __iface_cmdq_write\n", __func__);
-	if (__iface_cmdq_write(session->device, &pkt))
-		rc = -ENOTEMPTY;
-	dprintk(CVP_DBG, "%s: done calling __iface_cmdq_write\n", __func__);
-err_create_pkt:
-	mutex_unlock(&device->lock);
 	return rc;
 }
 
@@ -3284,6 +3194,7 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_UNREGISTER_BUFFER_DONE:
 	case HAL_SESSION_DFS_CONFIG_CMD_DONE:
 	case HAL_SESSION_DME_CONFIG_CMD_DONE:
+	case HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE:
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_CMD_DONE:
@@ -4014,30 +3925,14 @@ static int __enable_regulators(struct venus_hfi_device *device)
 	dprintk(CVP_DBG, "Enabling regulators\n");
 
 	venus_hfi_for_each_regulator(device, rinfo) {
-		if (rinfo->has_hw_power_collapse) {
-			rc = regulator_set_mode(rinfo->regulator,
-				REGULATOR_MODE_FAST);
-			if (rc) {
-				dprintk(CVP_ERR,
-					"Failed to enable hwctrl%s: %d\n",
-						rinfo->name, rc);
-				goto err_reg_enable_failed;
-			}
-			dprintk(CVP_DBG, "Enabled regulator %s hw ctrl\n",
-					rinfo->name);
-
-		} else {
-			rc = regulator_enable(rinfo->regulator);
-			if (rc) {
-				dprintk(CVP_ERR,
-						"Failed to enable %s: %d\n",
-						rinfo->name, rc);
-				goto err_reg_enable_failed;
-			}
-
-			dprintk(CVP_DBG, "Enabled regulator %s\n",
-					rinfo->name);
+		rc = regulator_enable(rinfo->regulator);
+		if (rc) {
+			dprintk(CVP_ERR, "Failed to enable %s: %d\n",
+					rinfo->name, rc);
+			goto err_reg_enable_failed;
 		}
+
+		dprintk(CVP_DBG, "Enabled regulator %s\n", rinfo->name);
 		c++;
 	}
 
@@ -4743,11 +4638,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_continue = venus_hfi_session_continue;
 	hdev->session_stop = venus_hfi_session_stop;
 	hdev->session_get_buf_req = venus_hfi_session_get_buf_req;
-	hdev->session_cvp_dfs_config = venus_hfi_session_cvp_dfs_config;
-	hdev->session_cvp_dfs_frame = venus_hfi_session_cvp_dfs_frame;
-	hdev->session_cvp_dme_config = venus_hfi_session_cvp_dme_config;
-	hdev->session_cvp_dme_frame = venus_hfi_session_cvp_dme_frame;
-	hdev->session_cvp_persist = venus_hfi_session_cvp_persist;
+	hdev->session_cvp_hfi_send = venus_hfi_session_send;
 	hdev->session_flush = venus_hfi_session_flush;
 	hdev->session_set_property = venus_hfi_session_set_property;
 	hdev->session_get_property = venus_hfi_session_get_property;

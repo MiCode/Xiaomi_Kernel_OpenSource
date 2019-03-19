@@ -1729,6 +1729,7 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_DFS_CONFIG_CMD_DONE:
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:
 	case HAL_SESSION_DME_CONFIG_CMD_DONE:
+	case HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE:
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_CMD_DONE:
 		cvp_handle_session_cmd_done(cmd, data);
