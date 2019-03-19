@@ -89,36 +89,6 @@
 #include "sa6155-pcie.dtsi"
 
 &soc {
-	cnss_pcie: qcom,cnss {
-		compatible = "qcom,cnss";
-		wlan-en-gpio = <&tlmm 98 0>;
-		vdd-wlan-supply = <&vreg_wlan>;
-		vdd-wlan-io-supply = <&pm6155_1_s4>;
-		vdd-wlan-ctrl1-supply = <&vreg_conn_pa>;
-		vdd-wlan-ctrl2-supply = <&vreg_conn_1p8>;
-		reg = <0x10000000 0x10000000>,
-			<0x20000000 0x10000>;
-		reg-names = "smmu_iova_base", "smmu_iova_ipa";
-		qcom,notify-modem-status;
-		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
-		pinctrl-0 = <&cnss_wlan_en_active>;
-		pinctrl-1 = <&cnss_wlan_en_sleep>;
-		qcom,wlan-rc-num = <0>;
-		qcom,wlan-ramdump-dynamic = <0x200000>;
-
-		qcom,msm-bus,name = "msm-cnss";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <2>;
-		qcom,msm-bus,vectors-KBps =
-				<45 512 0 0>, <1 512 0 0>,
-				/* Upto 200 Mbps */
-				<45 512 41421 655360>, <1 512 41421 655360>,
-				/* Upto 400 Mbps */
-				<45 512 98572 655360>, <1 512 98572 1600000>,
-				/* Upto 800 Mbps */
-				<45 512 207108 1146880>, <1 512 207108 3124992>;
-		qcom,smmu-s1-enable;
-	};
 	qfprom: qfprom@780130 {
 		compatible = "qcom,qfprom";
 		reg = <0x00780130 0x4>;

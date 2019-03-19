@@ -11,7 +11,11 @@
  */
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include "sa6155-cnss.dtsi"
 
+&bluetooth_ext {
+	status = "ok";
+};
 
 &qupv3_se6_spi {
 	status = "ok";
@@ -120,9 +124,6 @@
 		};
 	};
 
-	bluetooth_ext: bt_qca6174 {
-		status = "ok";
-	};
 };
 
 &ufsphy_mem {

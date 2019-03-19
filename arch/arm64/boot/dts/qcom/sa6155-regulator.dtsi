@@ -533,28 +533,5 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
-
-	/* PWR_CTR1_VDD_1P8 supply */
-	vreg_conn_1p8: vreg_conn_1p8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_1p8";
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&pm6155_1_gpios 1 0>;
-	};
-
-	/* PWR_CTR2_VDD_PA supply */
-	vreg_conn_pa: vreg_conn_pa {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_pa";
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&pm6155_1_gpios 6 0>;
-	};
-
-	vreg_wlan: vreg_wlan {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "vreg_wlan";
-	};
 };
 
