@@ -4127,6 +4127,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		pval->intval = chip->batt_age_level;
+		break;
 	case POWER_SUPPLY_PROP_SCALE_MODE_EN:
 		pval->intval = chip->soc_scale_mode;
 		break;
