@@ -1015,6 +1015,74 @@
 		};
 	};
 
+	qcom_crypto: qcrypto@720000 {
+		 compatible = "qcom,qcrypto";
+		 reg = <0x720000 0x20000>,
+		     <0x704000 0x20000>;
+		 reg-names = "crypto-base","crypto-bam-base";
+		 interrupts = <0 206 0>;
+		 qcom,bam-pipe-pair = <2>;
+		 qcom,ce-hw-instance = <0>;
+		 qcom,ce-device = <0>;
+		 qcom,bam-ee = <0>;
+		 qcom,ce-hw-shared;
+		 qcom,clk-mgmt-sus-res;
+		 qcom,msm-bus,name = "qcrypto-noc";
+		 qcom,msm-bus,num-cases = <2>;
+		 qcom,msm-bus,num-paths = <1>;
+		 qcom,msm-bus,vectors-KBps =
+			 <55 512 0 0>,
+			 <55 512 393600 393600>;
+		clock-names =
+			"core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		clocks =
+			<&clock_rpmcc QCRYPTO_CE1_CLK>,
+			<&clock_rpmcc QCRYPTO_CE1_CLK>,
+			<&clock_rpmcc QCRYPTO_CE1_CLK>,
+			<&clock_rpmcc QCRYPTO_CE1_CLK>;
+		 qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		 qcom,use-sw-aes-xts-algo;
+		 qcom,use-sw-aes-ccm-algo;
+		 qcom,use-sw-ahash-algo;
+		 qcom,use-sw-hmac-algo;
+		 qcom,use-sw-aead-algo;
+		 qcom,smmu-s1-enable;
+		 iommus = <&apps_smmu 0x0064 0x0011>,
+			<&apps_smmu 0x0074 0x0011>;
+	     };
+
+	qcom_cedev: qcedev@720000 {
+		compatible = "qcom,qcedev";
+		reg = <0x720000 0x20000>,
+		    <0x704000 0x20000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 206 0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
+		qcom,bam-pipe-pair = <3>;
+		qcom,ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<55 512 0 0>,
+			<55 512 393600 393600>;
+		clock-names =
+			"core_clk_src", "core_clk",
+			"iface_clk", "bus_clk";
+		clocks =
+			<&clock_rpmcc QCEDEV_CE1_CLK>,
+			<&clock_rpmcc QCEDEV_CE1_CLK>,
+			<&clock_rpmcc QCEDEV_CE1_CLK>,
+			<&clock_rpmcc QCEDEV_CE1_CLK>;
+		qcom,smmu-s1-enable;
+		iommus = <&apps_smmu 0x0066 0x0011>,
+		       <&apps_smmu 0x0076 0x0011>;
+	    };
+
 	qcom_tzlog: tz-log@8600720 {
 		compatible = "qcom,tz-log";
 		reg = <0x08600720 0x2000>;
