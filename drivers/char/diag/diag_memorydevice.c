@@ -59,15 +59,6 @@ struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 		.md_info_inited = 0,
 		.tbl = NULL,
 		.ops = NULL,
-	},
-	{
-		.id = DIAG_MD_SMUX,
-		.ctx = 0,
-		.mempool = POOL_TYPE_QSC_MUX,
-		.num_tbl_entries = 0,
-		.md_info_inited = 0,
-		.tbl = NULL,
-		.ops = NULL,
 	}
 #endif
 };
