@@ -1,11 +1,12 @@
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_MSM8996) += \
-	msm8996-mtp-overlay.dtbo
+	msm8996-mtp-overlay.dtbo \
+	apq8096pro-v1.1-auto-adp-overlay.dtbo
 
 msm8996-mtp-overlay.dtbo-base :=  msm8996pro-v1.1-pmi8996.dtb \
 				msm8996-v3-pmi8996.dtb \
 				msm8996pro-v1.1-pmi8994.dtb
-
+apq8096pro-v1.1-auto-adp-overlay.dtbo-base := apq8096pro-v1.1-auto.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996-v2-pmi8994-mtp.dtb \

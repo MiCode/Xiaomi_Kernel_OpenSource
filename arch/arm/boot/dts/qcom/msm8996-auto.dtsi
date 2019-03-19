@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-&vendor {
+&android_vendor {
 	fsmgr_flags = "wait,slotselect,verify";
 };
 
