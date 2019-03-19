@@ -63,4 +63,6 @@ int diag_remote_dev_read_done(int id, unsigned char *buf, int len);
 int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt);
 int diag_remote_init(void);
 void diag_remote_exit(void);
+void diag_register_with_bridge(void);
+void diag_unregister_bridge(void);
 #endif
