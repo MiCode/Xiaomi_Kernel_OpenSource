@@ -479,6 +479,7 @@
 		      <0x0aeb8000 0x3000>;
 		reg-names = "mdp_phys",
 			"rot_vbif_phys";
+		status = "disabled";
 
 		#list-cells = <1>;
 
