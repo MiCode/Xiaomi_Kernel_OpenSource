@@ -1,0 +1,23 @@
+* Qualcomm Technologies, Inc. IPA MHI Prime Manager driver module
+
+This module enables IPA Modem to IPA  APQ communication using
+MHI Prime.
+
+Required properties:
+- compatible:		Must be "qcom,ipa-mpm"
+- qcom,mhi-chdb-base:	MHI channel doorbell base address in MMIO space.
+- qcom,mhi-erdb-base:	MHI event doorbell base address in MMIO space.
+
+Optional:
+- qcom,iova-mapping:	Start address and size of the carved IOVA space
+				dedicated for MHI control structures
+				(such as transfer rings, event rings, doorbells).
+				If not present, SMMU S1 is considered to be in bypass mode.
+
+Example:
+	ipa_mpm: qcom,ipa-mpm {
+		compatible = "qcom,ipa-mpm";
+		qcom,mhi-chdb-base = <0x40300300>;
+		qcom,mhi-erdb-base = <0x40300700>;
+		qcom,iova-mapping = <0x10000000 0x1FFFFFFF>;
+	}

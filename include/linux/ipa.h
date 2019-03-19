@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1185,6 +1185,7 @@ struct ipa_tz_unlock_reg_info {
 
 enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_AP_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
