@@ -28,7 +28,7 @@
 #define WAIT_FOR_SCAN_ABORT_MS 1000
 #define WIL_BOARD_FILE_MAX_NAMELEN 128
 #define WIL6210_ITR_VR_RX_MAX_BURST_DURATION (5) /* usec */
-#define WIL6210_VR_TX_RING_ORDER 7
+#define WIL6210_VR_TX_RING_ORDER 10
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -1159,8 +1159,6 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 		 * is requested
 		 */
 		wil->ps_profile = WMI_PS_PROFILE_TYPE_DEFAULT;
-		mtu_max = TXRX_BUF_LEN_DEFAULT - WIL_MAX_MPDU_OVERHEAD;
-		rx_large_buf = 0;
 		tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
 		drop_if_ring_full = false;
 		wil->rx_max_burst_duration =
@@ -1175,8 +1173,6 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 
 	/* VR default configuration */
 	wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
-	mtu_max = WIL_MAX_ETH_MTU;
-	rx_large_buf = 1;
 	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
 	drop_if_ring_full = true;
 

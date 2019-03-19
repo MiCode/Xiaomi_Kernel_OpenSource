@@ -2402,7 +2402,14 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 			rc = ep_pcie_trigger_msi(mhi->phandle, bhi_intvec);
 			if (rc) {
 				pr_err("%s: error sending msi\n", __func__);
-				return rc;
+				/*
+				 * MSIs are not enabled by host yet, set
+				 * mhistatus to syserr and exit.
+				 * Expected mhi host driver behaviour
+				 * is to check the device state and
+				 * issue a reset after it finds the device.
+				 */
+				goto mask_intr;
 			}
 		}
 
@@ -2433,6 +2440,7 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 			return -EINVAL;
 		}
 	}
+mask_intr:
 	/*
 	 * Now mask the interrupts so that the state machine moves
 	 * only after IPA is ready

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,8 @@
 
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
-static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
+static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
+				100000000, 150000000, 200000000, 236000000};
 
 /**
  * @struct geni_se_device - Data structure to represent the QUPv3 Core
@@ -298,6 +299,10 @@ static int geni_se_select_fifo_mode(void __iomem *base)
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_RX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_IRQ_EN);
 
+	/* Clearing registers before reading */
+	geni_write_reg(0x00000000, base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_S_IRQ_EN);
+
 	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
 	common_geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
@@ -317,9 +322,7 @@ static int geni_se_select_fifo_mode(void __iomem *base)
 
 static int geni_se_select_dma_mode(void __iomem *base)
 {
-	int proto = get_se_proto(base);
 	unsigned int geni_dma_mode = 0;
-	unsigned int common_geni_m_irq_en;
 
 	geni_write_reg(0, base, SE_GSI_EVENT_EN);
 	geni_write_reg(0xFFFFFFFF, base, SE_GENI_M_IRQ_CLEAR);
@@ -327,13 +330,9 @@ static int geni_se_select_dma_mode(void __iomem *base)
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_TX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_RX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_S_IRQ_EN);
 
-	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
-	if (proto != UART)
-		common_geni_m_irq_en &=
-			~(M_TX_FIFO_WATERMARK_EN | M_RX_FIFO_WATERMARK_EN);
-
-	geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
 	geni_dma_mode |= GENI_DMA_MODE_EN;
 	geni_write_reg(geni_dma_mode, base, SE_GENI_DMA_MODE_EN);
@@ -630,8 +629,11 @@ static bool geni_se_check_bus_bw(struct geni_se_device *geni_se_dev)
 	int new_bus_bw_idx = geni_se_dev->bus_bw_set_size - 1;
 	unsigned long new_bus_bw;
 	bool bus_bw_update = false;
+	/* Convert agg ab into bytes per second */
+	unsigned long new_ab_in_hz = DEFAULT_BUS_WIDTH *
+					((2*geni_se_dev->cur_ab)*10000);
 
-	new_bus_bw = max(geni_se_dev->cur_ib, geni_se_dev->cur_ab) /
+	new_bus_bw = max(geni_se_dev->cur_ib, new_ab_in_hz) /
 							DEFAULT_BUS_WIDTH;
 	for (i = 0; i < geni_se_dev->bus_bw_set_size; i++) {
 		if (geni_se_dev->bus_bw_set[i] >= new_bus_bw) {
@@ -991,6 +993,9 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 	unsigned long *tbl;
 	int num_clk_levels;
 	int i;
+	unsigned long best_delta = 0;
+	unsigned long new_delta;
+	unsigned int divider;
 
 	num_clk_levels = geni_se_clk_tbl_get(rsc, &tbl);
 	if (num_clk_levels < 0)
@@ -1000,17 +1005,21 @@ int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
 		return -EFAULT;
 
 	*res_freq = 0;
-	for (i = 0; i < num_clk_levels; i++) {
-		if (!(tbl[i] % req_freq)) {
-			*index = i;
-			*res_freq = tbl[i];
-			return 0;
-		}
 
-		if (!(*res_freq) || ((tbl[i] > *res_freq) &&
-				     (tbl[i] < req_freq))) {
+	for (i = 0; i < num_clk_levels; i++) {
+		divider = DIV_ROUND_UP(tbl[i], req_freq);
+		new_delta = req_freq - (tbl[i] / divider);
+
+		if (!best_delta || new_delta < best_delta) {
+			/* We have a new best! */
 			*index = i;
 			*res_freq = tbl[i];
+
+			/*If the new best is exact then we're done*/
+			if (new_delta == 0)
+				return 0;
+
+			best_delta = new_delta;
 		}
 	}
 

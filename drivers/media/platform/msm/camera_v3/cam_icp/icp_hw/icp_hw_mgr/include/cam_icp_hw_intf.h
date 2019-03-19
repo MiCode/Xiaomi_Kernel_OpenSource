@@ -10,17 +10,27 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef CAM_ICP_HW_INTF_H
+#define CAM_ICP_HW_INTF_H
 
-#include "sdxpoorwills-ttp.dtsi"
+#define CAM_ICP_CMD_BUF_MAX_SIZE     128
+#define CAM_ICP_MSG_BUF_MAX_SIZE     CAM_ICP_CMD_BUF_MAX_SIZE
 
-/ {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS TTP";
-	compatible = "qcom,sdxpoorwills-ttp",
-		"qcom,sdxpoorwills", "qcom,ttp";
-	qcom,board-id = <30 0x100>;
+enum cam_a5_hw_type {
+	CAM_ICP_DEV_A5,
+	CAM_ICP_DEV_IPE,
+	CAM_ICP_DEV_BPS,
+	CAM_ICP_DEV_MAX,
 };
 
-&blsp1_uart2b_hs {
-	status = "okay";
+/**
+ * struct cam_a5_clk_update_cmd - Payload for hw manager command
+ *
+ * @curr_clk_rate:        clk rate to HW
+ * @ipe_bps_pc_enable     power collpase enable flag
+ */
+struct cam_a5_clk_update_cmd {
+	uint32_t  curr_clk_rate;
+	bool  ipe_bps_pc_enable;
 };
+#endif
