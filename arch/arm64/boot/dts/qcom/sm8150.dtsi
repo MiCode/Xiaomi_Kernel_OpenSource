@@ -3687,6 +3687,9 @@
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
 
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		mhi_chan@0 {
 			reg = <0>;
 			label = "LOOPBACK";
