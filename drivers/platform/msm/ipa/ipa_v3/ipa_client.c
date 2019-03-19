@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/barrier.h>
@@ -1015,7 +1015,7 @@ write_chan_scratch_fail:
 	return result;
 }
 
-static int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
+int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
 	unsigned long chan_hdl)
 {
 	enum gsi_status gsi_res;
