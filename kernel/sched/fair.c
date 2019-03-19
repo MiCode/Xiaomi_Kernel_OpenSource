@@ -7193,6 +7193,24 @@ static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
 	return min(util, capacity_orig_of(cpu));
 }
 
+#ifdef CONFIG_SCHED_WALT
+static inline unsigned long
+cpu_util_next_walt(int cpu, struct task_struct *p, int dst_cpu)
+{
+	unsigned long util =
+			cpu_rq(cpu)->walt_stats.cumulative_runnable_avg_scaled;
+	bool queued = task_on_rq_queued(p);
+
+	if (unlikely(queued && task_cpu(p) == cpu && dst_cpu != cpu))
+		util = max_t(long, util - task_util(p), 0);
+	else if (task_cpu(p) != cpu && dst_cpu == cpu &&
+						p->state == TASK_WAKING)
+		util += task_util(p);
+
+	return min_t(unsigned long, util, capacity_orig_of(cpu));
+}
+#endif
+
 /*
  * compute_energy(): Estimates the energy that would be consumed if @p was
  * migrated to @dst_cpu. compute_energy() predicts what will be the utilization
@@ -7219,9 +7237,13 @@ compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * by compute_energy().
 		 */
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
+#ifdef CONFIG_SCHED_WALT
+			util = cpu_util_next_walt(cpu, p, dst_cpu);
+#else
 			util = cpu_util_next(cpu, p, dst_cpu);
 			util += cpu_util_rt(cpu_rq(cpu));
 			util = schedutil_energy_util(cpu, util);
+#endif
 			max_util = max(util, max_util);
 			sum_util += util;
 		}
