@@ -273,8 +273,6 @@ static void __dump(struct dump dump[], int len)
 
 			}
 		}
-
-		dprintk(VIDC_PROF, "%s", formatted_line);
 	}
 }
 
