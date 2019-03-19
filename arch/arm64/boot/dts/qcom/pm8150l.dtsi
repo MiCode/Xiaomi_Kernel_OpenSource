@@ -362,6 +362,14 @@
 			};
 		};
 
+		pm8150l_pwm: qcom,pwms@bc00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x200>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
+		};
+
 		pm8150l_rgb_led: qcom,leds@d000 {
 			compatible = "qcom,tri-led";
 			reg = <0xd000 0x100>;
