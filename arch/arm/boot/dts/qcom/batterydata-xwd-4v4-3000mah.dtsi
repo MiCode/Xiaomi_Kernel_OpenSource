@@ -1,0 +1,107 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+qcom,xingwangda-4v4-3000mah-data {
+	qcom,default-rbatt-mohm = <120>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fcc-mah = <3000>;
+	qcom,rbatt-capacitive-mohm = <10>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <330>;
+	qcom,flat-ocv-threshold-uv = <3800000>;
+	qcom,battery-type = "xwd-4v4-3000mah";
+    qcom,fg-profile-data = [
+	5A
+	04
+	51
+	00
+	CD
+	00
+	00
+	00
+	B3
+	C6
+	E7
+	C0
+	C6
+	C7
+	AE
+	5D
+	31
+	FF
+	FF
+	CD
+	B7
+	98
+	81
+	69
+	5B
+	4A
+	3B
+	48
+	C7
+	DC
+	5A
+	E5
+	D6
+	D2
+	D2
+	D0
+	CF
+	C4
+	D4
+	D2
+	A9
+	C1
+	C2
+	A9
+	92
+	87
+	79
+	6B
+	52
+	53
+	72
+	8E
+	A8
+	7C
+	86
+	94
+	00
+	00
+	90
+	01
+	00
+	00
+	00
+	00
+	00
+	00
+	64
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	4C
+	];
+};

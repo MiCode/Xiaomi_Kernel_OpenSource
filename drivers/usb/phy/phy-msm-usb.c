@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2018, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +55,7 @@
 
 #define DRIVER_NAME	"msm_otg"
 
-#define CHG_RECHECK_DELAY	(jiffies + msecs_to_jiffies(2000))
+#define CHG_RECHECK_DELAY	(jiffies + msecs_to_jiffies(5000))
 #define ULPI_IO_TIMEOUT_USEC	(10 * 1000)
 #define USB_PHY_3P3_VOL_MIN	3050000 /* uV */
 #define USB_PHY_3P3_VOL_MAX	3300000 /* uV */
@@ -139,6 +140,20 @@ static u32 bus_freqs[USB_NOC_NUM_VOTE][USB_NUM_BUS_CLOCKS]  /*bimc,snoc,pcnoc*/;
 static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
+
+
+int oem_is_kpoc = 0;
+static int __init oem_kpoc_setup(char *str)
+{
+             if (!strncmp(str, "charger", 4)) {
+                             oem_is_kpoc = 1;
+                             printk("[oem][kpoc] disable udc @kpoc mode\n");
+             }
+
+             return 1;
+}
+__setup("androidboot.mode=", oem_kpoc_setup);
+
 
 static void dbg_inc(unsigned *idx)
 {
@@ -1764,11 +1779,16 @@ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 			goto psy_error;
 	} else if (motg->cur_power >= 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
-		if (power_supply_set_online(psy, false))
-			goto psy_error;
-		/* Set max current limit in uA */
-		if (power_supply_set_current_limit(psy, 1000*mA))
-			goto psy_error;
+
+		if (!oem_is_kpoc){
+			if (power_supply_set_online(psy, false))
+				goto psy_error;
+
+			/* Set max current limit in uA */
+			if (power_supply_set_current_limit(psy, 1000*mA))
+				goto psy_error;
+		}
+
 	} else {
 		if (power_supply_set_online(psy, true))
 			goto psy_error;
@@ -2121,6 +2141,13 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 			msm_otg_bus_vote(motg, USB_MAX_PERF_VOTE);
 		/* bump up usb core_clk to default */
 		clk_set_rate(motg->core_clk, motg->core_clk_rate);
+
+
+		if (oem_is_kpoc) {
+			if(USB_CDP_CHARGER == motg->chg_type || USB_SDP_CHARGER == motg->chg_type)
+				usb_gadget_connect(otg->gadget);
+		}
+
 
 		usb_gadget_vbus_connect(otg->gadget);
 
@@ -2548,6 +2575,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;
+		pr_err("[usb_info]%s: line_state=%d, dm_vlgc=%d, vout=%d\n", __func__, line_state, dm_vlgc, (u32)vout);
 		if (vout && !dm_vlgc) { /* VDAT_REF < DM < VLGC */
 			if (line_state) { /* DP > VLGC */
 				motg->chg_type = USB_PROPRIETARY_CHARGER;
@@ -2606,7 +2634,7 @@ state_detected:
 		/* to match _get from sm_work before starting chg_det_work */
 		pm_runtime_mark_last_busy(phy->dev);
 		pm_runtime_put_autosuspend(phy->dev);
-
+		pr_err("[usb_info]%s:state_detected: motg->chg_type=%s\n", __func__, chg_to_string(motg->chg_type));
 		queue_work(motg->otg_wq, &motg->sm_work);
 		return;
 	default:
@@ -2794,6 +2822,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 		pm_runtime_put_noidle(otg->phy->dev);
 	}
 
+	pr_err("[usb_info]%s:enter, otg->phy->state=%s, motg->chg_state=%d, motg->chg_type=%s\n", \
+			__func__, usb_otg_state_string(otg->phy->state), motg->chg_state, chg_to_string(motg->chg_type));
+
 	switch (otg->phy->state) {
 	case OTG_STATE_UNDEFINED:
 		pm_runtime_get_sync(otg->phy->dev);
@@ -2858,6 +2889,26 @@ static void msm_otg_sm_work(struct work_struct *w)
 							IDEV_CHG_MAX);
 					/* fall through */
 				case USB_SDP_CHARGER:
+
+#if 0
+
+					if (oem_is_kpoc) {
+
+						if(USB_SDP_CHARGER == motg->chg_type)
+							msm_otg_notify_charger(motg, IDEV_CHG_MIN);
+						motg->chg_type = USB_DCP_CHARGER;
+
+						otg->phy->state = OTG_STATE_B_CHARGER;
+						work = 0;
+						pm_runtime_put_noidle(otg->phy->dev);
+						pm_runtime_suspend(otg->phy->dev);
+						break;
+					}
+
+#endif
+
+					if(USB_SDP_CHARGER == motg->chg_type)
+						msm_otg_notify_charger(motg, IDEV_CHG_MIN);
 					pm_runtime_get_sync(otg->phy->dev);
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =
@@ -2979,8 +3030,11 @@ static void msm_otg_sm_work(struct work_struct *w)
 		break;
 	}
 
-	if (work)
+	if (work) {
+		pr_err("[usb_info]%s:end, otg->phy->state=%s, motg->chg_state=%d, motg->chg_type=%s\n", \
+			__func__, usb_otg_state_string(otg->phy->state), motg->chg_state, chg_to_string(motg->chg_type));
 		queue_work(motg->otg_wq, &motg->sm_work);
+	}
 }
 
 static irqreturn_t msm_otg_irq(int irq, void *data)
@@ -3532,6 +3586,13 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 		val->intval = motg->usb_supply_type;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
+
+		if (POWER_SUPPLY_TYPE_UNKNOWN == motg->usb_supply_type) {
+			if(0 == motg->vbus_state) {
+				psy->type = POWER_SUPPLY_TYPE_UNKNOWN;
+			}
+		}
+
 		val->intval = psy->type;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
@@ -3603,6 +3664,7 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		motg->usb_supply_type = val->intval;
+		pr_err("[usb_info]%s: motg->usb_supply_type = %d\n", __func__, motg->usb_supply_type);
 		/*
 		 * Update TYPE property to DCP for HVDCP/HVDCP3 charger types
 		 * so that they can be recongized as AC chargers by healthd.
@@ -3612,8 +3674,15 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 		if (motg->usb_supply_type == POWER_SUPPLY_TYPE_USB_HVDCP_3
 			|| motg->usb_supply_type == POWER_SUPPLY_TYPE_USB_HVDCP)
 			psy->type = POWER_SUPPLY_TYPE_USB_DCP;
-		else if (motg->usb_supply_type == POWER_SUPPLY_TYPE_UNKNOWN)
-			psy->type = POWER_SUPPLY_TYPE_USB;
+
+		else if (motg->usb_supply_type == POWER_SUPPLY_TYPE_UNKNOWN) {
+			if(0 == motg->vbus_state) {
+				psy->type = POWER_SUPPLY_TYPE_UNKNOWN;
+			} else {
+				psy->type = POWER_SUPPLY_TYPE_USB;
+			}
+		}
+
 		else
 			psy->type = motg->usb_supply_type;
 		/*
@@ -3651,6 +3720,7 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 			motg->chg_type = USB_CDP_CHARGER;
 			motg->voltage_max = MICRO_5V;
 			motg->current_max = CDP_CURRENT_UA;
+			msm_otg_notify_charger(motg, IDEV_CHG_MAX);
 			break;
 		case POWER_SUPPLY_TYPE_USB_ACA:
 			motg->chg_type = USB_PROPRIETARY_CHARGER;
@@ -3666,8 +3736,8 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 		}
 
-		dev_dbg(motg->phy.dev, "%s: charger type = %s\n", __func__,
-			chg_to_string(motg->chg_type));
+		pr_err("[usb_info]%s:motg->chg_type=%s, psy->type=%d(USB-4/DCP-5/CDP-6/FLOAT-12)\n", \
+				__func__, chg_to_string(motg->chg_type), psy->type);
 		msm_otg_dbg_log_event(&motg->phy, "SET CHARGER TYPE ",
 				motg->chg_type, motg->usb_supply_type);
 		break;

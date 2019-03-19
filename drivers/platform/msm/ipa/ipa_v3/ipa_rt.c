@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1222,13 +1223,12 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 		goto error;
 	}
 	/*
-	 * do not allow any rules to be added at end of the "default" routing
-	 * tables
+	 * do not allow any rule to be added at "default" routing
+	 * table
 	 */
 	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
-	    (tbl->rule_cnt > 0) && (at_rear != 0)) {
-		IPAERR_RL("cannot add rule at end of tbl rule_cnt=%d at_rear=%d"
-				, tbl->rule_cnt, at_rear);
+	    (tbl->rule_cnt > 0)) {
+		IPAERR_RL("cannot add rules to default rt table\n");
 		goto error;
 	}
 
@@ -1433,13 +1433,12 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 	}
 
 	/*
-	 * do not allow any rules to be added at end of the "default" routing
-	 * tables
+	 * do not allow any rule to be added at "default" routing
+	 * table
 	 */
 	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
-			(&entry->link == tbl->head_rt_rule_list.prev)) {
-		IPAERR_RL("cannot add rule at end of tbl rule_cnt=%d\n",
-			tbl->rule_cnt);
+			(tbl->rule_cnt > 0)) {
++		IPAERR_RL("cannot add rules to default rt table\n");
 		ret = -EINVAL;
 		goto bail;
 	}
@@ -1869,6 +1868,10 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
 	if (entry->cookie != IPA_RT_RULE_COOKIE) {
 		IPAERR_RL("bad params\n");
 		goto error;
+	}
+	if (!strcmp(entry->tbl->name, IPA_DFLT_RT_TBL_NAME)) {
+		IPAERR_RL("Default tbl rule cannot be modified\n");
+		return -EINVAL;
 	}
 
 	/* Adding check to confirm still

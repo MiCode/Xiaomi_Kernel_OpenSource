@@ -55,6 +55,7 @@
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
 #include "mdp3_ctrl.h"
+#include "mdss_dsi.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -291,6 +292,8 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
+	if(value >= 60)
+		value = (value*90)/100 + 6;
 	MDSS_BRIGHT_TO_BL(bl_lvl, value, mfd->panel_info->bl_max,
 				mfd->panel_info->brightness_max);
 
@@ -2046,7 +2049,7 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 		ret = 0;
 		goto end;
 	}
-	pr_debug("mode: %d\n", blank_mode);
+	pr_debug("[Display]set mode: %d\n", blank_mode);
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
@@ -4788,6 +4791,10 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_buf_sync buf_sync;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
+	unsigned int Color_mode = 0;
+	unsigned int CE_mode = 0;
+	unsigned int Eye_mode = 0;
+	unsigned int CABC_mode = 0;
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -4866,6 +4873,40 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_fb_async_position_update_ioctl(info, argp);
 		break;
 
+	case MSMFB_ENHANCE_SET_GAMMA:
+		if (copy_from_user(&Color_mode, argp, sizeof(Color_mode)))
+		{
+			pr_err("%s: MSMFB_ENHANCE_SET_GAMMA ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_gamma(pdata, Color_mode);
+		break;
+
+	case MSMFB_ENHANCE_SET_CE:
+		if (copy_from_user(&CE_mode, argp, sizeof(CE_mode)))
+		{
+			pr_err("%s: MSMFB_ENHANCE_SET_CE ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_ce(pdata, CE_mode);
+		break;
+	case MSMFB_ENHANCE_SET_EYE:
+		if (copy_from_user(&Eye_mode, argp, sizeof(Eye_mode)))
+		{
+			pr_err("%s: MSMFB_ENHANCE_SET_EYE ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_dispparam(pdata, Eye_mode);
+		break;
+	case MSMFB_SET_CABC:
+		if (copy_from_user(&CABC_mode, argp, sizeof(CABC_mode)))
+		{
+			pr_err("%s: MSMFB_SET_CABC ioctl failed\n", __func__);
+			goto exit;
+		}
+		ret = mdss_panel_set_cabc(pdata, CABC_mode);
+		pdata->panel_info.cabcmode=CABC_mode;
+		break;
 	default:
 		if (mfd->mdp.ioctl_handler)
 			ret = mfd->mdp.ioctl_handler(mfd, cmd, argp);
@@ -5064,6 +5105,8 @@ int mdss_fb_suspres_panel(struct device *dev, void *data)
  * from the panel. The function sends the PANEL_ALIVE=0 status to HAL
  * layer.
  */
+int panel_dead2tp=0;
+EXPORT_SYMBOL(panel_dead2tp);
 void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd)
 {
 	char *envp[2] = {"PANEL_ALIVE=0", NULL};
@@ -5075,6 +5118,7 @@ void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd)
 	}
 
 	pdata->panel_info.panel_dead = true;
+	panel_dead2tp=pdata->panel_info.panel_dead;
 	kobject_uevent_env(&mfd->fbi->dev->kobj,
 		KOBJ_CHANGE, envp);
 	pr_err("Panel has gone bad, sending uevent - %s\n", envp[0]);

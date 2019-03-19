@@ -462,7 +462,7 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	if (!cipher_code) {
 		ecryptfs_printk(
 			KERN_ERR,
-			"eCryptfs doesn't support cipher: %s and key size %lu",
+			"eCryptfs doesn't support cipher: %s and key size %u",
 			ecryptfs_get_full_cipher(
 				mount_crypt_stat->global_default_cipher_name,
 				mount_crypt_stat->global_default_cipher_mode,

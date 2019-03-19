@@ -37,6 +37,7 @@
 #include <linux/string.h>
 #include <linux/of.h>
 #include <linux/kthread.h>
+#include <linux/switch.h>
 #include <net/netlink.h>
 #include <net/genetlink.h>
 
@@ -2564,6 +2565,61 @@ static inline int genetlink_init(void) { return 0; }
 static inline void genetlink_exit(void) {}
 #endif /* !CONFIG_NET */
 
+static struct device *device_scfg;
+static struct mutex temp_state_lock;
+static struct switch_dev *temp_state_sdev;
+static int sconfg_num=0;
+static ssize_t
+ sconfig_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", sconfg_num);
+}
+
+static ssize_t
+ sconfig_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	int result;
+	if (kstrtoint(buf, 10, &result))
+		return -EINVAL;
+        sconfg_num=result;
+	return count;
+}
+
+static DEVICE_ATTR(sconfig, 0664, sconfig_show, sconfig_store);
+
+static int temp=0;
+static ssize_t
+ temp_state_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", temp);
+}
+
+static ssize_t
+ temp_state_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+
+	int result;
+	if (kstrtoint(buf, 10, &result))
+		return -EINVAL;
+        temp=result;
+
+
+	mutex_lock(&temp_state_lock);
+	switch_set_state(temp_state_sdev, temp);
+	mutex_unlock(&temp_state_lock);
+	return count;
+}
+
+static DEVICE_ATTR(temp_state, 0664, temp_state_show, temp_state_store);
+
+
+
 static int __init thermal_register_governors(void)
 {
 	int result;
@@ -2598,7 +2654,12 @@ static void thermal_unregister_governors(void)
 
 static int __init thermal_init(void)
 {
+
 	int result;
+        mutex_init(&temp_state_lock);
+
+        device_scfg = kzalloc(sizeof(struct device), GFP_KERNEL);
+        temp_state_sdev = kzalloc(sizeof(struct switch_dev), GFP_KERNEL);
 
 	result = thermal_register_governors();
 	if (result)
@@ -2608,9 +2669,29 @@ static int __init thermal_init(void)
 	if (result)
 		goto unregister_governors;
 
+        dev_set_name(device_scfg, "thermal_message");
+        device_scfg->class = &thermal_class;
+        result = device_register(device_scfg);
+        if (result)
+		goto unregister_class;
+
+        result = device_create_file(device_scfg, &dev_attr_sconfig);
+        if (result)
+		goto unregister_class;
+
+
+        result = device_create_file(device_scfg, &dev_attr_temp_state);
+        if (result)
+		goto unregister_class;
+
+        temp_state_sdev->name = "temp_state";
+        switch_dev_register(temp_state_sdev);
+
+
+
 	result = genetlink_init();
 	if (result)
-		goto unregister_class;
+		goto unregister_device;
 
 	result = of_parse_thermal_zones();
 	if (result)
@@ -2620,6 +2701,9 @@ static int __init thermal_init(void)
 
 exit_netlink:
 	genetlink_exit();
+unregister_device:
+        device_remove_file(device_scfg, &dev_attr_sconfig);
+        device_unregister(device_scfg);
 unregister_class:
 	class_unregister(&thermal_class);
 unregister_governors:
@@ -2630,6 +2714,7 @@ error:
 	mutex_destroy(&thermal_idr_lock);
 	mutex_destroy(&thermal_list_lock);
 	mutex_destroy(&thermal_governor_lock);
+        kfree(device_scfg);
 	return result;
 }
 

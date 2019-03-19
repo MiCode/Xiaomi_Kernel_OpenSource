@@ -4,6 +4,7 @@
  * Author:	Nicolas Pitre
  * Created:	september 8, 2008
  * Copyright:	Marvell Semiconductors Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -115,6 +116,8 @@ void __kunmap_atomic(void *kvaddr)
 		set_fixmap_pte(idx, __pte(0));
 #else
 		(void) idx;  /* to kill a warning */
+
+		set_fixmap_pte(idx, __pte(0));
 #endif
 		kmap_atomic_idx_pop();
 	} else if (vaddr >= PKMAP_ADDR(0) && vaddr < PKMAP_ADDR(LAST_PKMAP)) {

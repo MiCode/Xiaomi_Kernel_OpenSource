@@ -1,5 +1,6 @@
 /*
  * Copyright 2005, Red Hat, Inc., Ingo Molnar
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Released under the General Public License (GPL).
  *
  * This file contains the spinlock/rwlock implementations for
@@ -113,7 +114,7 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 static void __spin_lock_debug(raw_spinlock_t *lock)
 {
 	u64 i;
-	u64 loops = loops_per_jiffy * HZ;
+	u64 loops = loops_per_jiffy * HZ*5;
 
 	for (i = 0; i < loops; i++) {
 		if (arch_spin_trylock(&lock->raw_lock))

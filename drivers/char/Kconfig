@@ -8,7 +8,7 @@ source "drivers/tty/Kconfig"
 
 config DEVMEM
 	bool "Memory device driver"
-	default y
+	default n
 	help
 	  The memory driver provides two character devices, mem and kmem, which
 	  provide access to the system's memory. The mem device is a view of
@@ -21,7 +21,7 @@ config DEVMEM
 
 config DEVKMEM
 	bool "/dev/kmem virtual device support"
-	default y
+	default n
 	help
 	  Say Y here if you want to support the /dev/kmem device. The
 	  /dev/kmem device is rarely used, but can be used for certain

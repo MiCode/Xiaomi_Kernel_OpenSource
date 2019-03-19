@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,11 @@
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
 
+#define GC8034_USE_OTP
+
+#ifdef GC8034_USE_OTP
+void gc8034_gcore_identify_otp(struct msm_sensor_ctrl_t *s_ctrl);
+#endif
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
@@ -269,6 +275,12 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
+#ifdef GC8034_USE_OTP
+	if(0==strcmp(sensor_name, "gc8034_sunny")){
+		pr_err("%s Enter gc8034_otp\n", __func__);
+		gc8034_gcore_identify_otp(s_ctrl);
+	}
+#endif
 	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
 			__func__, chipid, slave_info->sensor_id);
 	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {

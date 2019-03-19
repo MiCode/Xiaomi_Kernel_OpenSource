@@ -1,0 +1,107 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+qcom,mingmei-4v4-3000mah-data {
+	qcom,default-rbatt-mohm = <116>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fcc-mah = <3000>;
+	qcom,rbatt-capacitive-mohm = <10>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <200>;
+	qcom,flat-ocv-threshold-uv = <3800000>;
+	qcom,battery-type = "mingmei-4v4-3000mah";
+    qcom,fg-profile-data = [
+        5A
+	1C
+	81
+	40
+	00
+	00
+	00
+	00
+	9D
+	AF
+	D1
+	CA
+	CC
+	CE
+	AA
+	54
+	2A
+	FF
+	E2
+	BF
+	A6
+	8B
+	74
+	68
+	63
+	52
+	45
+	4B
+	B4
+	DC
+	44
+	DF
+	D1
+	D1
+	D1
+	D1
+	CE
+	CD
+	C8
+	CA
+	C0
+	C1
+	BE
+	A7
+	96
+	8C
+	82
+	74
+	64
+	5B
+	72
+	8E
+	A5
+	87
+	78
+	94
+	00
+	00
+	AB
+	01
+	00
+	00
+	00
+	00
+	00
+	00
+	64
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	00
+	93
+	];
+};

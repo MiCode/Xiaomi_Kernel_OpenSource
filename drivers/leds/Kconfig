@@ -563,3 +563,9 @@ comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
 endif # NEW_LEDS
+
+config VIB_GPIO
+	tristate "LED support for LM3533"
+	help
+	  This option enables support for the LEDs on National Semiconductor /
+	  TI LM3533 Lighting Power chips

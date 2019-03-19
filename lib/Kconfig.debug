@@ -1219,6 +1219,7 @@ config DEBUG_KOBJECT_RELEASE
 	  kind of kobject release bug.
 
 config HAVE_DEBUG_BUGVERBOSE
+    default n
 	bool
 
 config DEBUG_BUGVERBOSE

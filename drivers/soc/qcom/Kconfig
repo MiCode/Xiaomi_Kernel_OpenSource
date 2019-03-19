@@ -787,6 +787,18 @@ config MSM_BAM_DMUX
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
 
+config SERIAL_NUM
+       bool "Enable Serial Number Proc Interface"
+         help
+         Provide a interface for reading CPU serial number
+
+
+config SECBOOT_FUSE
+       bool "Enable Secure boot fuse Proc Interface"
+       help
+         Provide a interface for reading CPU secure boot fuse setting. Interface located in
+         /proc/secboot_fuse_reg
+
 config MSM_PERFORMANCE
 	tristate "Core control driver to support userspace hotplug requests"
 	help
@@ -887,6 +899,11 @@ config MSM_REMOTEQDSS
 	  events. Provide a sysfs interface for debug tools to dynamically
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
+
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	  Provide a interface for getting the maximum frequency supported by cpu core
 
 config QCOM_SMCINVOKE
 	bool "Secure QSEE Support"
