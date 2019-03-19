@@ -524,6 +524,8 @@ static irqreturn_t gpi_handle_irq(int irq, void *data);
 static void gpi_ring_recycle_ev_element(struct gpi_ring *ring);
 static int gpi_ring_add_element(struct gpi_ring *ring, void **wp);
 static void gpi_process_events(struct gpii *gpii);
+static u64 get_gpi_ee_base(u64 base, int num_gpii);
+
 
 static inline struct gpii_chan *to_gpii_chan(struct dma_chan *dma_chan)
 {
@@ -2638,11 +2640,24 @@ release_mapping:
 	return ret;
 }
 
+/* Variabe EE register offset Kona */
+static u64 get_gpi_ee_base(u64 base, int num_gpii)
+{
+	if (num_gpii == QUP0_NUM_GPII_KONA)
+		base -= QUP0_VAR_OFFSET_KONA;
+	else
+		base -= QUP1_VAR_OFFSET_KONA;
+	return base;
+}
+
 static int gpi_probe(struct platform_device *pdev)
 {
 	struct gpi_dev *gpi_dev;
 	int ret, i;
 	const char *mode = NULL;
+	u64 ee_base;
+	u64 base;
+	bool gpii_offset;
 
 	gpi_dev = devm_kzalloc(&pdev->dev, sizeof(*gpi_dev), GFP_KERNEL);
 	if (!gpi_dev)
@@ -2676,6 +2691,9 @@ static int gpi_probe(struct platform_device *pdev)
 		GPI_ERR(gpi_dev, "missing 'gpii-mask' DT node\n");
 		return ret;
 	}
+
+	gpii_offset = of_property_read_bool(gpi_dev->dev->of_node,
+						"qcom,gpii_offset");
 
 	ret = of_property_read_u32(gpi_dev->dev->of_node, "qcom,ev-factor",
 				   &gpi_dev->ev_factor);
@@ -2742,6 +2760,12 @@ static int gpi_probe(struct platform_device *pdev)
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
 
+	if (gpii_offset) {
+		base = (u64)gpi_dev->regs;
+		ee_base = get_gpi_ee_base(base, gpi_dev->max_gpii);
+	} else
+		ee_base = (u64)gpi_dev->regs;
+
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
@@ -2752,9 +2776,9 @@ static int gpi_probe(struct platform_device *pdev)
 			continue;
 
 		/* set up ev cntxt register map */
-		gpii->ev_cntxt_base_reg = gpi_dev->regs +
+		gpii->ev_cntxt_base_reg = (void *)ee_base +
 			GPI_GPII_n_EV_CH_k_CNTXT_0_OFFS(i, 0);
-		gpii->ev_cntxt_db_reg = gpi_dev->regs +
+		gpii->ev_cntxt_db_reg = (void *)ee_base +
 			GPI_GPII_n_EV_CH_k_DOORBELL_0_OFFS(i, 0);
 		gpii->ev_ring_base_lsb_reg = gpii->ev_cntxt_base_reg +
 			CNTXT_2_RING_BASE_LSB;
@@ -2762,11 +2786,11 @@ static int gpi_probe(struct platform_device *pdev)
 			CNTXT_4_RING_RP_LSB;
 		gpii->ev_ring_wp_lsb_reg = gpii->ev_cntxt_base_reg +
 			CNTXT_6_RING_WP_LSB;
-		gpii->ev_cmd_reg = gpi_dev->regs +
+		gpii->ev_cmd_reg = (void *)ee_base +
 			GPI_GPII_n_EV_CH_CMD_OFFS(i);
-		gpii->ieob_src_reg = gpi_dev->regs +
+		gpii->ieob_src_reg = (void *)ee_base +
 			GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_OFFS(i);
-		gpii->ieob_clr_reg = gpi_dev->regs +
+		gpii->ieob_clr_reg = (void *)ee_base +
 			GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(i);
 
 		/* set up irq */
@@ -2783,9 +2807,9 @@ static int gpi_probe(struct platform_device *pdev)
 			struct gpii_chan *gpii_chan = &gpii->gpii_chan[chan];
 
 			/* set up ch cntxt register map */
-			gpii_chan->ch_cntxt_base_reg = gpi_dev->regs +
+			gpii_chan->ch_cntxt_base_reg = (void *)ee_base +
 				GPI_GPII_n_CH_k_CNTXT_0_OFFS(i, chan);
-			gpii_chan->ch_cntxt_db_reg = gpi_dev->regs +
+			gpii_chan->ch_cntxt_db_reg = (void *)ee_base +
 				GPI_GPII_n_CH_k_DOORBELL_0_OFFS(i, chan);
 			gpii_chan->ch_ring_base_lsb_reg =
 				gpii_chan->ch_cntxt_base_reg +
@@ -2796,7 +2820,7 @@ static int gpi_probe(struct platform_device *pdev)
 			gpii_chan->ch_ring_wp_lsb_reg =
 				gpii_chan->ch_cntxt_base_reg +
 				CNTXT_6_RING_WP_LSB;
-			gpii_chan->ch_cmd_reg = gpi_dev->regs +
+			gpii_chan->ch_cmd_reg = (void *)ee_base +
 				GPI_GPII_n_CH_CMD_OFFS(i);
 
 			/* vchan setup */
@@ -2812,7 +2836,7 @@ static int gpi_probe(struct platform_device *pdev)
 			     (unsigned long)gpii);
 		init_completion(&gpii->cmd_completion);
 		gpii->gpii_id = i;
-		gpii->regs = gpi_dev->regs;
+		gpii->regs = (void *)ee_base;
 		gpii->gpi_dev = gpi_dev;
 		atomic_set(&gpii->dbg_index, 0);
 	}
