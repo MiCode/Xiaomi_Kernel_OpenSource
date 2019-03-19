@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "subsys-restart: %s(): " fmt, __func__
@@ -1341,6 +1341,16 @@ void notify_proxy_unvote(struct device *device)
 	if (dev)
 		notify_each_subsys_device(&dev, 1, SUBSYS_PROXY_UNVOTE, NULL);
 }
+
+void notify_before_auth_and_reset(struct device *device)
+{
+	struct subsys_device *dev = desc_to_subsys(device);
+
+	if (dev)
+		notify_each_subsys_device(&dev, 1,
+			SUBSYS_BEFORE_AUTH_AND_RESET, NULL);
+}
+
 
 static int subsys_device_open(struct inode *inode, struct file *file)
 {

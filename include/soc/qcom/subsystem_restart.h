@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SUBSYS_RESTART_H
@@ -157,6 +157,7 @@ extern void subsys_set_crash_status(struct subsys_device *dev,
 extern enum crash_status subsys_get_crash_status(struct subsys_device *dev);
 void notify_proxy_vote(struct device *device);
 void notify_proxy_unvote(struct device *device);
+void notify_before_auth_and_reset(struct device *device);
 void complete_err_ready(struct subsys_device *subsys);
 void complete_shutdown_ack(struct subsys_device *subsys);
 struct subsys_device *find_subsys_device(const char *str);
@@ -218,6 +219,7 @@ enum crash_status subsys_get_crash_status(struct subsys_device *dev)
 }
 static inline void notify_proxy_vote(struct device *device) { }
 static inline void notify_proxy_unvote(struct device *device) { }
+static inline void notify_before_auth_and_reset(struct device *device) { }
 static inline int wait_for_shutdown_ack(struct subsys_desc *desc)
 {
 	return -EOPNOTSUPP;
