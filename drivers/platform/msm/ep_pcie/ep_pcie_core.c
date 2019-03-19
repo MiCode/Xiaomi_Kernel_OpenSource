@@ -574,7 +574,16 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	uint32_t val = 0;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: WRITING TO BDF TO SID\n",
+			dev->rev);
+	/* PARF_BDF_TO_SID disable */
+	ep_pcie_write_mask(dev->parf + PCIE20_PARF_BDF_TO_SID_CFG,
+			0, BIT(0));
 
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: FINISHED WRITING BDF TO SID\n",
+			dev->rev);
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
 			0, BIT(3) | BIT(2) | BIT(1));
@@ -623,7 +632,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		EP_PCIE_DBG2(dev, "PCIe V%d: Enable L1\n", dev->rev);
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
+		ep_pcie_write_reg(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
 					0, BIT(0));
 		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI,
 					0x200);
@@ -731,7 +740,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
 
 		/* Set Subsystem ID and Subsystem Vendor ID */
-		ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
+		if (ep_pcie_dev.subsystem_id)
+			ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM,
+					ep_pcie_dev.subsystem_id);
 
 		/* Set the PMC Register - to support PME in D0/D3hot/D3cold */
 		ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
@@ -1414,6 +1425,18 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				EP_PCIE_INFO(dev,
 					"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
 					dev->rev);
+				/*
+				 * Read and save the subsystem id set in PBL
+				 * (needed for restore during D3->D0)
+				 */
+				ep_pcie_dev.subsystem_id =
+					readl_relaxed(dev->dm_core +
+							PCIE20_SUBSYSTEM);
+				/*
+				 * Skip mhi mmio config for host reboot case
+				 * with bios-locking enabled.
+				 */
+				dev->config_mmio_init = true;
 				ep_pcie_core_init(dev, true);
 				dev->link_status = EP_PCIE_LINK_UP;
 				dev->l23_ready = false;

@@ -3469,6 +3469,7 @@ cmdq_switch:
 		pr_err("%s: %s: mmc_blk_cmdq_switch failed: %d\n",
 			mmc_hostname(host), __func__,  err);
 		ret = err;
+		goto out;
 	}
 cmdq_unhalt:
 	err = mmc_cmdq_halt(host, false);

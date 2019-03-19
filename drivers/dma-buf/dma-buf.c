@@ -39,7 +39,7 @@
 #include <linux/sched/signal.h>
 #include <linux/fdtable.h>
 #include <linux/list_sort.h>
-
+#include <linux/hashtable.h>
 #include <uapi/linux/dma-buf.h>
 
 static atomic_long_t name_counter;
@@ -53,14 +53,14 @@ struct dma_buf_list {
 
 struct dma_info {
 	struct dma_buf *dmabuf;
-	struct list_head head;
+	struct hlist_node head;
 };
 
 struct dma_proc {
 	char name[TASK_COMM_LEN];
 	pid_t pid;
 	size_t size;
-	struct list_head dma_bufs;
+	struct hlist_head dma_bufs[1 << 10];
 	struct list_head head;
 };
 
@@ -1298,17 +1298,6 @@ static const struct file_operations dma_buf_debug_fops = {
 	.release        = single_release,
 };
 
-static bool list_contains(struct list_head *list, struct dma_buf *info)
-{
-	struct dma_info *curr;
-
-	list_for_each_entry(curr, list, head)
-		if (curr->dmabuf == info)
-			return true;
-
-	return false;
-}
-
 static int get_dma_info(const void *data, struct file *file, unsigned int n)
 {
 	struct dma_proc *dma_proc;
@@ -1318,8 +1307,10 @@ static int get_dma_info(const void *data, struct file *file, unsigned int n)
 	if (!is_dma_buf_file(file))
 		return 0;
 
-	if (list_contains(&dma_proc->dma_bufs, file->private_data))
-		return 0;
+	hash_for_each_possible(dma_proc->dma_bufs, dma_info,
+			       head, (unsigned long)file->private_data)
+		if (file->private_data == dma_info->dmabuf)
+			return 0;
 
 	dma_info = kzalloc(sizeof(*dma_info), GFP_ATOMIC);
 	if (!dma_info)
@@ -1328,20 +1319,22 @@ static int get_dma_info(const void *data, struct file *file, unsigned int n)
 	get_file(file);
 	dma_info->dmabuf = file->private_data;
 	dma_proc->size += dma_info->dmabuf->size / SZ_1K;
-	list_add(&dma_info->head, &dma_proc->dma_bufs);
+	hash_add(dma_proc->dma_bufs, &dma_info->head,
+			(unsigned long)dma_info->dmabuf);
 	return 0;
 }
 
 static void write_proc(struct seq_file *s, struct dma_proc *proc)
 {
 	struct dma_info *tmp;
+	int i;
 
 	seq_printf(s, "\n%s (PID %ld) size: %ld\nDMA Buffers:\n",
 		proc->name, proc->pid, proc->size);
 	seq_printf(s, "%-8s\t%-8s\t%-8s\n",
 		"Name", "Size (KB)", "Time Alive (sec)");
 
-	list_for_each_entry(tmp, &proc->dma_bufs, head) {
+	hash_for_each(proc->dma_bufs, i, tmp, head) {
 		struct dma_buf *dmabuf = tmp->dmabuf;
 		ktime_t elapmstime = ktime_ms_delta(ktime_get(), dmabuf->ktime);
 
@@ -1355,23 +1348,16 @@ static void write_proc(struct seq_file *s, struct dma_proc *proc)
 
 static void free_proc(struct dma_proc *proc)
 {
-	struct dma_info *tmp, *n;
+	struct dma_info *tmp;
+	struct hlist_node *n;
+	int i;
 
-	list_for_each_entry_safe(tmp, n, &proc->dma_bufs, head) {
-		dma_buf_put(tmp->dmabuf);
-		list_del(&tmp->head);
+	hash_for_each_safe(proc->dma_bufs, i, n, tmp, head) {
+		fput(tmp->dmabuf->file);
+		hash_del(&tmp->head);
 		kfree(tmp);
 	}
 	kfree(proc);
-}
-
-static int dmacmp(void *unused, struct list_head *a, struct list_head *b)
-{
-	struct dma_info *a_buf, *b_buf;
-
-	a_buf = list_entry(a, struct dma_info, head);
-	b_buf = list_entry(b, struct dma_info, head);
-	return b_buf->dmabuf->size - a_buf->dmabuf->size;
 }
 
 static int proccmp(void *unused, struct list_head *a, struct list_head *b)
@@ -1401,7 +1387,7 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 			rcu_read_unlock();
 			goto mem_err;
 		}
-		INIT_LIST_HEAD(&tmp->dma_bufs);
+		hash_init(tmp->dma_bufs);
 		for_each_thread(task, thread) {
 			task_lock(thread);
 			if (unlikely(!group_leader_files))
@@ -1412,9 +1398,8 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 				ret = iterate_fd(files, 0, get_dma_info, tmp);
 			task_unlock(thread);
 		}
-		if (ret || list_empty(&tmp->dma_bufs))
+		if (ret || hash_empty(tmp->dma_bufs))
 			goto skip;
-		list_sort(NULL, &tmp->dma_bufs, dmacmp);
 		get_task_comm(tmp->name, task);
 		tmp->pid = task->tgid;
 		list_add(&tmp->head, &plist);

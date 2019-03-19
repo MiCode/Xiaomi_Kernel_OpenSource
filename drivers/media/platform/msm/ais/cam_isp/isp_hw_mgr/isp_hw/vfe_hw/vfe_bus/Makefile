@@ -11,4 +11,4 @@ ccflags-y += -Idrivers/media/platform/msm/ais/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/v
 ccflags-y += -Idrivers/media/platform/msm/ais/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_bus/include
 ccflags-y += -Idrivers/media/platform/msm/ais/cam_cpas/include
 
-obj-$(CONFIG_MSM_AIS) += cam_vfe_bus.o cam_vfe_bus_ver2.o
+obj-$(CONFIG_MSM_AIS) += cam_vfe_bus.o cam_vfe_bus_ver2.o cam_vfe_bus_rd_ver1.o

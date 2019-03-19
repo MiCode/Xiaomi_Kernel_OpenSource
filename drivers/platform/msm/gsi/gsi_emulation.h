@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 # include "gsi_reg.h"
 # include "gsi_emulation_stubs.h"
 
-# define gsi_emu_readl(c)     ({ u32 __v = readl_relaxed(c); __iormb(); __v; })
+# define gsi_emu_readl(c)     (readl(c))
 # define gsi_emu_writel(v, c) ({ __iowmb(); writel_relaxed((v), (c)); })
 
 # define CNTRLR_BASE 0

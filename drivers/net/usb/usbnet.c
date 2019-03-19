@@ -329,7 +329,9 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 
 	flags = u64_stats_update_begin_irqsave(&stats64->syncp);
 	stats64->rx_packets++;
+	dev->net->stats.rx_packets++;
 	stats64->rx_bytes += skb->len;
+	dev->net->stats.rx_bytes += skb->len;
 	u64_stats_update_end_irqrestore(&stats64->syncp, flags);
 
 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
@@ -1255,7 +1257,9 @@ static void tx_complete (struct urb *urb)
 
 		flags = u64_stats_update_begin_irqsave(&stats64->syncp);
 		stats64->tx_packets += entry->packets;
+		dev->net->stats.tx_packets += entry->packets;
 		stats64->tx_bytes += entry->length;
+		dev->net->stats.tx_bytes += entry->length;
 		u64_stats_update_end_irqrestore(&stats64->syncp, flags);
 	} else {
 		dev->net->stats.tx_errors++;

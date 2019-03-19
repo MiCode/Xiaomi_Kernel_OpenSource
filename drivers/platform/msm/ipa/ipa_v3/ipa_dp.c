@@ -775,7 +775,8 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
-	if (ret != GSI_STATUS_SUCCESS) {
+	if ((ret != GSI_STATUS_SUCCESS) &&
+		!atomic_read(&sys->curr_polling_state)) {
 		if (ret == -GSI_STATUS_PENDING_IRQ) {
 			ipa3_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
@@ -3043,7 +3044,9 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 	INIT_LIST_HEAD(&rx_pkt->link);
 	list_add_tail(&rx_pkt->link, head);
 
-	if (notify->evt_id == GSI_CHAN_EVT_EOT) {
+	/* Check added for handling LAN consumer packet without EOT flag */
+	if (notify->evt_id == GSI_CHAN_EVT_EOT ||
+		sys->ep->client == IPA_CLIENT_APPS_LAN_CONS) {
 	/* go over the list backward to save computations on updating length */
 		list_for_each_entry_safe_reverse(rx_pkt, tmp, head, link) {
 			rx_skb = rx_pkt->data.skb;

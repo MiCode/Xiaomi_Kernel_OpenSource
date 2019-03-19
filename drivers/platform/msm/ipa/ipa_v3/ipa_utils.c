@@ -46,6 +46,11 @@
 #define IPA_V4_0_CLK_RATE_NOMINAL (220 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_TURBO (250 * 1000 * 1000UL)
 
+#define IPA_V4_2_CLK_RATE_SVS2 (50 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_SVS (100 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_NOMINAL (201 * 1000 * 1000UL)
+#define IPA_V4_2_CLK_RATE_TURBO (240 * 1000 * 1000UL)
+
 #define IPA_V3_0_MAX_HOLB_TMR_VAL (4294967296 - 1)
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
@@ -2204,7 +2209,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 9, 12, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 9, 12, 8, 16, IPA_EE_AP, GSI_FREE_PRE_FETCH, 2 } },
 	[IPA_4_5][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			true,
@@ -2246,7 +2251,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 5, 0, 16, 28, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 8 } },
+			{ 5, 0, 16, 28, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 2 } },
 	[IPA_4_5][IPA_CLIENT_Q6_CMD_PROD]	  = {
 			true, IPA_v4_5_GROUP_UL_DL_SRC,
 			false,
@@ -2439,7 +2444,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 5, 0, 16, 28, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 8 } },
+			{ 5, 0, 16, 28, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 2 } },
 	[IPA_4_5_MHI][IPA_CLIENT_Q6_CMD_PROD]		= {
 			true, IPA_v4_5_MHI_GROUP_PCIE,
 			false,
@@ -5556,10 +5561,17 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		enum ipa_hw_type hw_type)
 {
 	if (hw_type >= IPA_HW_v4_0) {
-		ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
-		ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
-		ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
-		ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
+		if (hw_type == IPA_HW_v4_2) {
+			ctrl->ipa_clk_rate_turbo = IPA_V4_2_CLK_RATE_TURBO;
+			ctrl->ipa_clk_rate_nominal = IPA_V4_2_CLK_RATE_NOMINAL;
+			ctrl->ipa_clk_rate_svs = IPA_V4_2_CLK_RATE_SVS;
+			ctrl->ipa_clk_rate_svs2 = IPA_V4_2_CLK_RATE_SVS2;
+		} else {
+			ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
+			ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
+			ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
+			ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
+		}
 	} else if (hw_type >= IPA_HW_v3_5) {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;

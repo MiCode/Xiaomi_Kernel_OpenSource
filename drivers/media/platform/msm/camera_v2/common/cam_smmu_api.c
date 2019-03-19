@@ -121,6 +121,7 @@ struct cam_iommu_cb_set {
 	struct cam_context_bank_info *cb_info;
 	u32 cb_num;
 	u32 cb_init_count;
+	bool camera_secure_sid;
 	struct work_struct smmu_work;
 	struct mutex payload_list_lock;
 	struct list_head payload_list;
@@ -882,9 +883,7 @@ static int cam_smmu_attach_sec_cpp(int idx)
 		 * entered the secure mode.
 		 */
 	}
-
 	iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
-
 	return 0;
 }
 
@@ -921,34 +920,35 @@ static int cam_smmu_attach_sec_vfe_ns_stats(int idx)
 {
 	int32_t rc = 0;
 
-	/*
-	 *When switching to secure, for secure pix and non-secure stats
-	 *localizing scm/attach of non-secure SID's in attach secure
-	 */
-	if (cam_smmu_send_syscall_pix_intf(VMID_CP_CAMERA, idx)) {
-		pr_err("error: syscall failed\n");
-		return -EINVAL;
+	if (iommu_cb_set.camera_secure_sid == false) {
+		/*
+		 *When switching to secure, for secure pix and non-secure stats
+		 *localizing scm/attach of non-secure SID's in attach secure
+		 */
+		if (cam_smmu_send_syscall_pix_intf(VMID_CP_CAMERA, idx)) {
+			pr_err("error: syscall failed\n");
+			return -EINVAL;
+		}
 	}
-
 	if (iommu_cb_set.cb_info[idx].state != CAM_SMMU_ATTACH) {
 		if (cam_smmu_attach(idx)) {
 			pr_err("error: failed to attach\n");
 			return -EINVAL;
 		}
 	}
-
-	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
-		MSM_CAMERA_TZ_HW_BLOCK_ISP);
-	if (rc != 0) {
-		pr_err("secure mode TA notification for vfe unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error as at this point vfe had already
-		 * entered the secure mode
-		 */
+	if (iommu_cb_set.camera_secure_sid == false) {
+		rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_SECURE,
+			MSM_CAMERA_TZ_HW_BLOCK_ISP);
+		if (rc != 0) {
+			pr_err("secure mode TA notify vfe unsuccessful rc %d\n",
+				rc);
+			/*
+			 * Although the TA notification failed, the flow should
+			 * proceed without returning an error as at this point
+			 * vfe had already entered the secure mode
+			 */
+		}
 	}
-
 	return 0;
 }
 
@@ -956,18 +956,20 @@ static int cam_smmu_detach_sec_vfe_ns_stats(int idx)
 {
 	int32_t rc = 0;
 
-	rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
-		MSM_CAMERA_TZ_HW_BLOCK_ISP);
-	if (rc != 0) {
-		pr_err("secure mode TA notification for vfe unsuccessful, rc %d\n",
-			rc);
-		/*
-		 * Although the TA notification failed, the flow should proceed
-		 * without returning an error, as at this point vfe is in secure
-		 * mode and should be switched to non-secure regardless
-		 */
+	if (iommu_cb_set.camera_secure_sid == false) {
+		rc = msm_camera_tz_set_mode(MSM_CAMERA_TZ_MODE_NON_SECURE,
+			MSM_CAMERA_TZ_HW_BLOCK_ISP);
+		if (rc != 0) {
+			pr_err("secure mode TA notify vfe unsuccessful rc %d\n",
+				rc);
+			/*
+			 * Although the TA notification failed, the flow should
+			 * proceed without returning an error, as at this point
+			 * vfe is in secure mode and should be switched to
+			 * non-secure regardless
+			 */
+		}
 	}
-
 	/*
 	 *While exiting from secure mode for secure pix and non-secure stats,
 	 *localizing detach/scm of non-secure SID's to detach secure
@@ -978,10 +980,11 @@ static int cam_smmu_detach_sec_vfe_ns_stats(int idx)
 			return -ENODEV;
 		}
 	}
-
-	if (cam_smmu_send_syscall_pix_intf(VMID_HLOS, idx)) {
-		pr_err("error: syscall failed\n");
-		return -EINVAL;
+	if (iommu_cb_set.camera_secure_sid == false) {
+		if (cam_smmu_send_syscall_pix_intf(VMID_HLOS, idx)) {
+			pr_err("error: syscall failed\n");
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -1255,11 +1258,17 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 		break;
 	}
 	case CAM_SMMU_ATTACH_SEC_CPP: {
-		ret = cam_smmu_attach_sec_cpp(idx);
+		if (iommu_cb_set.camera_secure_sid == false)
+			ret = cam_smmu_attach_sec_cpp(idx);
+		else
+			iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
 		break;
 	}
 	case CAM_SMMU_DETACH_SEC_CPP: {
-		ret = cam_smmu_detach_sec_cpp(idx);
+		if (iommu_cb_set.camera_secure_sid == false)
+			ret = cam_smmu_detach_sec_cpp(idx);
+		else
+			iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
 		break;
 	}
 	case CAM_SMMU_VOTE:
@@ -1773,6 +1782,7 @@ static int cam_smmu_map_stage2_buffer_and_add_to_list(int idx, int ion_fd,
 	mapping_info->len = *len_ptr;
 	mapping_info->dir = dma_dir;
 	mapping_info->ref_count = 1;
+	mapping_info->dmabuf = dmabuf;
 
 	CDBG("ion_fd = %d, dev = %pK, paddr= %pK, len = %u\n", ion_fd,
 			(void *)iommu_cb_set.cb_info[idx].dev,
@@ -2238,6 +2248,11 @@ static int cam_smmu_probe(struct platform_device *pdev)
 		}
 		return rc;
 	}
+
+	if (of_property_read_bool(dev->of_node, "qcom,camera-secure-sid"))
+		iommu_cb_set.camera_secure_sid = true;
+	else
+		iommu_cb_set.camera_secure_sid = false;
 
 	/* probe thru all the subdevices */
 	rc = of_platform_populate(pdev->dev.of_node, msm_cam_smmu_dt_match,

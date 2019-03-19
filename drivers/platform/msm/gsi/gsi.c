@@ -3634,6 +3634,7 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 	struct gsi_chan_ctx *ctx;
 	enum gsi_chan_mode curr;
 	unsigned long flags;
+	enum gsi_chan_mode chan_mode;
 
 	if (!gsi_ctx) {
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
@@ -3705,13 +3706,20 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode)
 					GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(
 							gsi_ctx->per.ee));
 				spin_unlock_irqrestore(&gsi_ctx->slock, flags);
-				spin_lock_irqsave(&ctx->ring.slock, flags);
-				atomic_set(
-					&ctx->poll_mode, GSI_CHAN_MODE_POLL);
+				spin_lock_irqsave(&ctx->evtr->ring.slock,
+									flags);
+				chan_mode = atomic_xchg(&ctx->poll_mode,
+						GSI_CHAN_MODE_POLL);
 				spin_unlock_irqrestore(
-					&ctx->ring.slock, flags);
+					&ctx->evtr->ring.slock, flags);
 				ctx->stats.poll_pending_irq++;
-				return -GSI_STATUS_PENDING_IRQ;
+				GSIDBG("In IEOB WA pnd cnt = %d prvmode = %d\n",
+						ctx->stats.poll_pending_irq,
+						chan_mode);
+				if (chan_mode == GSI_CHAN_MODE_POLL)
+					return GSI_STATUS_SUCCESS;
+				else
+					return -GSI_STATUS_PENDING_IRQ;
 			}
 		}
 		ctx->stats.poll_to_callback++;

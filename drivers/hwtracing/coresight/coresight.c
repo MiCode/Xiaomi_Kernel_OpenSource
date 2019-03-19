@@ -157,9 +157,9 @@ void coresight_disable_reg_clk(struct coresight_device *csdev)
 	if (IS_ERR_OR_NULL(reg_clk))
 		return;
 
-	for (i = 0; i < reg_clk->nr_clk; i++)
+	for (i = reg_clk->nr_clk - 1; i >= 0; i--)
 		clk_disable_unprepare(reg_clk->clk[i]);
-	for (i = 0; i < reg_clk->nr_reg; i++)
+	for (i = reg_clk->nr_reg - 1; i >= 0; i--)
 		regulator_disable(reg_clk->reg[i]);
 }
 EXPORT_SYMBOL(coresight_disable_reg_clk);

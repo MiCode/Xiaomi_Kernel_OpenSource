@@ -58,6 +58,7 @@
 #define PCIE20_PARF_ATU_BASE_ADDR_HI   0x638
 #define PCIE20_PARF_BUS_DISCONNECT_CTRL          0x648
 #define PCIE20_PARF_BUS_DISCONNECT_STATUS        0x64c
+#define PCIE20_PARF_BDF_TO_SID_CFG		0x2c00
 
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
 #define PCIE20_PARF_EDMA_BASE_ADDR      0x64C
@@ -337,6 +338,7 @@ struct ep_pcie_dev_t {
 	u32                          bus_client;
 	u16                          vendor_id;
 	u16                          device_id;
+	u32                          subsystem_id;
 	u32                          link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;

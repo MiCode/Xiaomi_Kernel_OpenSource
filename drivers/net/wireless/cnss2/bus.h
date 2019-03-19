@@ -24,6 +24,15 @@
 #define QCA6290_DEVICE_ID		0x1100
 #define QCA6390_VENDOR_ID		0x17CB
 #define QCA6390_DEVICE_ID		0x1101
+#define QCN7605_VENDOR_ID               0x17CB
+#define QCN7605_DEVICE_ID               0x1102
+
+#define QCN7605_USB_VENDOR_ID             0x05C6
+#define QCN7605_STANDALONE_PRODUCT_ID    0x9900
+#define QCN7605_COMPOSITE_PRODUCT_ID     0x9901
+
+#define QCN7605_COMPOSITE_DEVICE_ID     QCN7605_COMPOSITE_PRODUCT_ID
+#define QCN7605_STANDALONE_DEVICE_ID    QCN7605_STANDALONE_PRODUCT_ID
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev);
 enum cnss_dev_bus_type cnss_get_bus_type(struct cnss_plat_data *plat_priv);
@@ -52,5 +61,5 @@ int cnss_bus_call_driver_modem_status(struct cnss_plat_data *plat_priv,
 				      int modem_current_status);
 int cnss_bus_update_status(struct cnss_plat_data *plat_priv,
 			   enum cnss_driver_status status);
-
+bool cnss_bus_req_mem_ind_valid(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_BUS_H */

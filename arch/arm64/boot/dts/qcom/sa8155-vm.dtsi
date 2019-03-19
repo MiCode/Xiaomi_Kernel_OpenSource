@@ -334,3 +334,4 @@
 #include "sm8150-slpi-pinctrl.dtsi"
 #include "sa8155-vm-qupv3.dtsi"
 #include "sa8155-vm-usb.dtsi"
+#include "sa8155-vm-audio.dtsi"

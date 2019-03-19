@@ -1157,9 +1157,9 @@ static int qseecom_dmabuf_cache_operations(struct dma_buf *dmabuf,
 		goto exit;
 
 	switch (cache_op) {
-	case QSEECOM_CACHE_CLEAN:
-		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
-		dma_buf_end_cpu_access(dmabuf, DMA_TO_DEVICE);
+	case QSEECOM_CACHE_CLEAN: /* Doing CLEAN and INVALIDATE */
+		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		break;
 	case QSEECOM_CACHE_INVALIDATE:
 		dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
@@ -2119,7 +2119,7 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 	}
 
 	/* find app_id & img_name from list */
-	if (!ptr_app) {
+	if (!ptr_app && data->client.app_arch != ELFCLASSNONE) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 							list) {

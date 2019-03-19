@@ -36,4 +36,13 @@ config AQFWD_QCOM
 	help
 	  Enable support for integration with Qualcomm Technologies, Inc. chipsets.
 
+config AQFWD_QCOM_IPA
+	bool "QTI IPA offload support"
+	depends on IPA_ETH
+	select AQFWD_QCOM
+	select ATLFWD_FWD
+	help
+	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
+	  If unsure, say N.
+
 endif # NET_VENDOR_AQUANTIA

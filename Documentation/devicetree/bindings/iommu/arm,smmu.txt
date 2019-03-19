@@ -137,6 +137,15 @@ conditions.
 		  and end of all mapped buffers to prefetch size boundary, which
 		  is defined by ARM_SMMU_MIN_IOVA_ALIGN.
 
+- qcom,no-dynamic-asid:
+		  Clients that uses the dynamic domains will have an unique asid
+		  per each domain and all domains can share the same context bank.
+		  When ASID based invalidation is used, on some hardware revisions,
+		  as a result of multiple ASID's associated with the same context
+		  bank, TLB entries are not invalidated properly. On such systems,
+		  we can choose to have a single ASID associated with all domains
+		  for a context bank.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
