@@ -155,6 +155,8 @@ static void msm_msi_unmask_irq(struct irq_data *data)
 
 static struct irq_chip msm_msi_irq_chip = {
 	.name = "msm_pci_msi",
+	.irq_enable = msm_msi_unmask_irq,
+	.irq_disable = msm_msi_mask_irq,
 	.irq_mask = msm_msi_mask_irq,
 	.irq_unmask = msm_msi_unmask_irq,
 };
@@ -327,9 +329,6 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 				msi_irq->hwirq,
 				&msm_msi_bottom_irq_chip, msi_irq,
 				handle_simple_irq, NULL, NULL);
-
-		if (msi->type == MSM_MSI_TYPE_QCOM)
-			irq_set_status_flags(msi_irq->virq, IRQ_DISABLE_UNLAZY);
 
 		client->nr_irqs++;
 		pos++;
