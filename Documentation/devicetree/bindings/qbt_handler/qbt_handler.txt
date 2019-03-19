@@ -1,0 +1,35 @@
+Qualcomm Technologies, Inc. QBT_HANDLER Specific Bindings
+
+QBT is a fingerprint sensor ASIC capable of performing fingerprint image scans
+and detecting finger presence on the sensor using programmable firmware.
+
+=======================
+Required Node Structure
+=======================
+
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,qbt_handler".
+
+- qcom,ipc-gpio
+  Usage:      required
+  Value type: <phandle>
+  Definition: phandle for GPIO to be used for IPC.
+
+- qcom,finger-detect-gpio
+  Usage:      required
+  Value type: <phandle>
+  Definition: phandle for GPIO to be used for finger detect.
+
+=======
+Example
+=======
+
+qcom,qbt_handler {
+                compatible = "qcom,qbt_handler";
+                qcom,ipc-gpio = <&tlmm 23 0>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&key_home_default>;
+                qcom,finger-detect-gpio = <&pm8150_gpios 1 0>;
+};
