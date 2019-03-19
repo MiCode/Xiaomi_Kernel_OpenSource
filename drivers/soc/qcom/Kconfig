@@ -102,6 +102,14 @@ config QCOM_SDMMAGPIE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_ATOLL_LLCC
+	tristate "Qualcomm Technologies, Inc. ATOLL LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for ATOLL. This provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_SDXPRAIRIE_LLCC
 	tristate "Qualcomm Technologies, Inc. SDXPRAIRIE LLCC driver"
 	depends on QCOM_LLCC
