@@ -419,22 +419,27 @@
 	kgsl_iommu_test_device {
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x7 0>;
+		qcom,iommu-dma = "disabled";
 	};
 
 	kgsl_iommu_coherent_test_device {
+		status = "disabled";
 		compatible = "iommu-debug-test";
 		iommus = <&kgsl_smmu 0x9 0>;
+		qcom,iommu-dma = "disabled";
 		dma-coherent;
 	};
 
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
 		iommus = <&apps_smmu 0x21 0>;
+		qcom,iommu-dma = "disabled";
 	};
 
 	apps_iommu_coherent_test_device {
 		compatible = "iommu-debug-test";
 		iommus = <&apps_smmu 0x23 0>;
+		qcom,iommu-dma = "disabled";
 		dma-coherent;
 	};
 };
