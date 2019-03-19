@@ -38,6 +38,7 @@ struct cnss_vreg_cfg {
 	u32 max_uv;
 	u32 load_ua;
 	u32 delay_us;
+	u32 need_unvote;
 };
 
 struct cnss_vreg_info {
@@ -371,6 +372,8 @@ int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type);
 int cnss_get_clk(struct cnss_plat_data *plat_priv);
 void cnss_put_clk(struct cnss_plat_data *plat_priv);
+int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
+			  enum cnss_vreg_type type);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);
