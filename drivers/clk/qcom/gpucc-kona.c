@@ -26,6 +26,12 @@
 #include "reset.h"
 #include "vdd-level.h"
 
+#define CX_GMU_CBCR_SLEEP_SHIFT	4
+#define CX_GMU_CBCR_SLEEP_MASK	GENMASK(7, 4)
+#define CX_GMU_CBCR_WAKE_SHIFT	8
+#define CX_GMU_CBCR_WAKE_MASK	GENMASK(11, 8)
+
+
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
@@ -419,6 +425,7 @@ static int gpu_cc_kona_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	struct clk *clk;
+	unsigned int value, mask;
 	int i, ret;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_kona_desc);
@@ -448,6 +455,12 @@ static int gpu_cc_kona_probe(struct platform_device *pdev)
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 	}
+
+	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
+	mask = CX_GMU_CBCR_SLEEP_MASK | CX_GMU_CBCR_WAKE_MASK;
+	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
+	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
+							mask, value);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_kona_desc, regmap);
 	if (ret) {
