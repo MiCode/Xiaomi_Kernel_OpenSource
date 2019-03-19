@@ -485,7 +485,8 @@ int mmc_clk_update_freq(struct mmc_host *host,
 	else
 		pr_err("%s: %s: failed (%d) at freq=%lu\n",
 			mmc_hostname(host), __func__, err, freq);
-
+	mmc_log_string(host, "clock scale state %d freq %lu done with err %d\n",
+			state, freq, err);
 	/*
 	 * CQE would be enabled as part of CQE issueing path
 	 * So no need to unhalt it explicitly
