@@ -24,24 +24,6 @@
 #define DDR_TYPE_LPDDR4Y 0x8
 #define DDR_TYPE_LPDDR5 0x9
 
-#define CODEC_ENTRY(n, p, vsp, vpp, lp) \
-{	\
-	.fourcc = n,		\
-	.session_type = p,	\
-	.vsp_cycles = vsp,	\
-	.vpp_cycles = vpp,	\
-	.low_power_cycles = lp	\
-}
-
-#define EFUSE_ENTRY(sa, s, m, sh, p) \
-{	\
-	.start_address = sa,		\
-	.size = s,	\
-	.mask = m,	\
-	.shift = sh,	\
-	.purpose = p	\
-}
-
 #define UBWC_CONFIG(mco, mlo, hbo, bslo, bso, rs, mc, ml, hbb, bsl, bsp) \
 {	\
 	.override_bit_info.max_channel_override = mco,	\
@@ -56,49 +38,6 @@
 	.bank_swzl_level = bsl,	\
 	.bank_spreading = bsp,	\
 }
-
-/*FIXME: hard coded AXI_REG_START_ADDR???*/
-#define GCC_VIDEO_AXI_REG_START_ADDR	0x10B024
-#define GCC_VIDEO_AXI_REG_SIZE		0xC
-
-static struct msm_cvp_codec_data default_codec_data[] =  {
-	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_CVP_ENCODER, 125, 675, 320),
-	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_CVP_DECODER, 125, 675, 320),
-};
-
-/* Update with 855 data */
-static struct msm_cvp_codec_data sm8150_codec_data[] =  {
-	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_CVP_ENCODER, 10, 675, 320),
-	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_CVP_ENCODER, 10, 675, 320),
-	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_CVP_ENCODER, 10, 675, 320),
-	CODEC_ENTRY(V4L2_PIX_FMT_TME, MSM_CVP_ENCODER, 0, 540, 540),
-	CODEC_ENTRY(V4L2_PIX_FMT_MPEG2, MSM_CVP_DECODER, 10, 200, 200),
-	CODEC_ENTRY(V4L2_PIX_FMT_H264, MSM_CVP_DECODER, 10, 200, 200),
-	CODEC_ENTRY(V4L2_PIX_FMT_HEVC, MSM_CVP_DECODER, 10, 200, 200),
-	CODEC_ENTRY(V4L2_PIX_FMT_VP8, MSM_CVP_DECODER, 10, 200, 200),
-	CODEC_ENTRY(V4L2_PIX_FMT_VP9, MSM_CVP_DECODER, 10, 200, 200),
-};
-
-
-/*
- * Custom conversion coefficients for resolution: 176x144 negative
- * coeffs are converted to s4.9 format
- * (e.g. -22 converted to ((1 << 13) - 22)
- * 3x3 transformation matrix coefficients in s4.9 fixed point format
- */
-static u32 vpe_csc_custom_matrix_coeff[HAL_MAX_MATRIX_COEFFS] = {
-	470, 8170, 8148, 0, 490, 50, 0, 34, 483
-};
-
-/* offset coefficients in s9 fixed point format */
-static u32 vpe_csc_custom_bias_coeff[HAL_MAX_BIAS_COEFFS] = {
-	34, 0, 4
-};
-
-/* clamping value for Y/U/V([min,max] for Y/U/V) */
-static u32 vpe_csc_custom_limit_coeff[HAL_MAX_LIMIT_COEFFS] = {
-	16, 235, 16, 240, 16, 240
-};
 
 static struct msm_cvp_common_data default_common_data[] = {
 	{
@@ -197,15 +136,8 @@ static struct msm_cvp_ubwc_config_data kona_ubwc_data[] = {
 
 
 static struct msm_cvp_platform_data default_data = {
-	.codec_data = default_codec_data,
-	.codec_data_length =  ARRAY_SIZE(default_codec_data),
 	.common_data = default_common_data,
 	.common_data_length =  ARRAY_SIZE(default_common_data),
-	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
-	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
-	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
-	.efuse_data = NULL,
-	.efuse_data_length = 0,
 	.sku_version = 0,
 	.gcc_register_base = 0,
 	.gcc_register_size = 0,
@@ -214,15 +146,8 @@ static struct msm_cvp_platform_data default_data = {
 };
 
 static struct msm_cvp_platform_data sm8250_data = {
-	.codec_data = sm8150_codec_data,
-	.codec_data_length =  ARRAY_SIZE(sm8150_codec_data),
 	.common_data = sm8250_common_data,
 	.common_data_length =  ARRAY_SIZE(sm8250_common_data),
-	.csc_data.vpe_csc_custom_bias_coeff = vpe_csc_custom_bias_coeff,
-	.csc_data.vpe_csc_custom_matrix_coeff = vpe_csc_custom_matrix_coeff,
-	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
-	.efuse_data = NULL,
-	.efuse_data_length = 0,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_5,
 	.ubwc_config = kona_ubwc_data,

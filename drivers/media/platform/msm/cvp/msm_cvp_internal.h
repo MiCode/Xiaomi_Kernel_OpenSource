@@ -146,24 +146,6 @@ struct cvp_freq_data {
 	bool turbo;
 };
 
-struct cvp_input_cr_data {
-	struct list_head list;
-	u32 index;
-	u32 input_cr;
-};
-
-struct recon_buf {
-	struct list_head list;
-	u32 buffer_index;
-	u32 CR;
-	u32 CF;
-};
-
-struct eos_buf {
-	struct list_head list;
-	struct msm_smem smem;
-};
-
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
@@ -172,48 +154,15 @@ struct internal_buf {
 	bool mark_remove;
 };
 
-struct msm_cvp_csc_coeff {
-	u32 *vpe_csc_custom_matrix_coeff;
-	u32 *vpe_csc_custom_bias_coeff;
-	u32 *vpe_csc_custom_limit_coeff;
-};
-
-struct msm_cvp_buf_data {
-	struct list_head list;
-	u32 index;
-	u32 mark_data;
-	u32 mark_target;
-};
-
 struct msm_cvp_common_data {
 	char key[128];
 	int value;
-};
-
-struct msm_cvp_codec_data {
-	u32 fourcc;
-	enum session_type session_type;
-	int vpp_cycles;
-	int vsp_cycles;
-	int low_power_cycles;
-};
-
-enum efuse_purpose {
-	SKU_VERSION = 0,
 };
 
 enum sku_version {
 	SKU_VERSION_0 = 0,
 	SKU_VERSION_1,
 	SKU_VERSION_2,
-};
-
-struct msm_cvp_efuse_data {
-	u32 start_address;
-	u32 size;
-	u32 mask;
-	u32 shift;
-	enum efuse_purpose purpose;
 };
 
 enum vpu_version {
@@ -247,11 +196,6 @@ struct msm_cvp_ubwc_config_data {
 struct msm_cvp_platform_data {
 	struct msm_cvp_common_data *common_data;
 	unsigned int common_data_length;
-	struct msm_cvp_codec_data *codec_data;
-	unsigned int codec_data_length;
-	struct msm_cvp_csc_coeff csc_data;
-	struct msm_cvp_efuse_data *efuse_data;
-	unsigned int efuse_data_length;
 	unsigned int sku_version;
 	phys_addr_t gcc_register_base;
 	uint32_t gcc_register_size;
@@ -268,19 +212,6 @@ struct msm_cvp_format {
 	bool defer_outputs;
 	u32 input_min_count;
 	u32 output_min_count;
-};
-
-struct msm_cvp_format_constraint {
-	u32 fourcc;
-	u32 num_planes;
-	u32 y_stride_multiples;
-	u32 y_max_stride;
-	u32 y_min_plane_buffer_height_multiple;
-	u32 y_buffer_alignment;
-	u32 uv_stride_multiples;
-	u32 uv_max_stride;
-	u32 uv_min_plane_buffer_height_multiple;
-	u32 uv_buffer_alignment;
 };
 
 struct msm_cvp_drv {
@@ -459,27 +390,14 @@ struct msm_cvp_inst {
 	struct msm_cvp_format fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_cvp_list freqs;
-	struct msm_cvp_list input_crs;
-	struct msm_cvp_list scratchbufs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list pending_getpropq;
-	struct msm_cvp_list outputbufs;
-	struct msm_cvp_list reconbufs;
-	struct msm_cvp_list eosbufs;
 	struct msm_cvp_list registeredbufs;
 	struct msm_cvp_list cvpbufs;
-	struct msm_cvp_list etb_data;
-	struct msm_cvp_list fbd_data;
-	struct msm_cvp_list dfs_config;
 	struct buffer_requirements buff_req;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
-	struct v4l2_ctrl **cluster;
 	struct v4l2_fh event_handler;
 	struct msm_smem *extradata_handle;
-	bool in_reconfig;
-	u32 reconfig_width;
-	u32 reconfig_height;
 	struct dentry *debugfs_root;
 	void *priv;
 	struct msm_cvp_debug debug;
@@ -491,48 +409,17 @@ struct msm_cvp_inst {
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	enum multi_stream stream_output_mode;
 	struct v4l2_ctrl **ctrls;
-	int bit_depth;
 	struct kref kref;
-	bool in_flush;
-	u32 pic_struct;
-	u32 colour_space;
-	u32 profile;
-	u32 level;
-	u32 entropy_mode;
-	u32 grid_enable;
-	u32 frame_quality;
 	struct msm_cvp_codec_data *codec_data;
-	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
 };
 
 extern struct msm_cvp_drv *cvp_driver;
 
-struct msm_cvp_ctrl_cluster {
-	struct v4l2_ctrl **cluster;
-	struct list_head list;
-};
-
-struct msm_cvp_ctrl {
-	u32 id;
-	char name[MAX_NAME_LENGTH];
-	enum v4l2_ctrl_type type;
-	s64 minimum;
-	s64 maximum;
-	s64 default_value;
-	u32 step;
-	u32 menu_skip_mask;
-	u32 flags;
-	const char * const *qmenu;
-};
-
 void cvp_handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_cvp_trigger_ssr(struct msm_cvp_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_cvp_noc_error_info(struct msm_cvp_core *core);
-bool heic_encode_session_supported(struct msm_cvp_inst *inst);
-int msm_cvp_check_session_supported(struct msm_cvp_inst *inst);
-int msm_cvp_check_scaling_supported(struct msm_cvp_inst *inst);
 void msm_cvp_queue_v4l2_event(struct msm_cvp_inst *inst, int event_type);
 
 enum msm_cvp_flags {

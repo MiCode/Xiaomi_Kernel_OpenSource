@@ -701,9 +701,6 @@ int cvp_read_platform_resources_from_drv_data(
 	platform_data = core->platform_data;
 	res = &core->resources;
 
-	res->codec_data_count = platform_data->codec_data_length;
-	res->codec_data = platform_data->codec_data;
-
 	res->sku_version = platform_data->sku_version;
 
 	res->fw_name = "cvpss";
@@ -758,8 +755,6 @@ int cvp_read_platform_resources_from_drv_data(
 			"qcom,fw-cycles");
 	res->bus_devfreq_on = find_key_value(platform_data,
 			"qcom,use-devfreq-scale-bus");
-
-	res->csc_coeff_data = &platform_data->csc_data;
 
 	res->gcc_register_base = platform_data->gcc_register_base;
 	res->gcc_register_size = platform_data->gcc_register_size;

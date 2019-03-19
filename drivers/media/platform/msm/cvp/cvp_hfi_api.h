@@ -1469,7 +1469,7 @@ struct hfi_device {
 	int (*session_start)(void *sess);
 	int (*session_continue)(void *sess);
 	int (*session_stop)(void *sess);
-	int (*session_cvp_hfi_send)(void *sess,
+	int (*session_send)(void *sess,
 		struct cvp_kmd_hfi_packet *in_pkt);
 	int (*session_get_buf_req)(void *sess);
 	int (*session_flush)(void *sess, enum hal_flush flush_mode);
@@ -1499,10 +1499,6 @@ struct hfi_device *cvp_hfi_initialize(enum msm_cvp_hfi_type hfi_type,
 		hfi_cmd_response_callback callback);
 void cvp_hfi_deinitialize(enum msm_cvp_hfi_type hfi_type,
 			struct hfi_device *hdev);
-u32 cvp_get_hfi_domain(enum hal_domain hal_domain);
-u32 cvp_get_hfi_codec(enum hal_video_codec hal_codec);
-enum hal_domain cvp_get_hal_domain(u32 hfi_domain);
-enum hal_video_codec cvp_get_hal_codec(u32 hfi_codec);
 
 int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr);
 extern const struct msm_cvp_hfi_defs cvp_hfi_defs[];

@@ -78,25 +78,19 @@ static int msm_cvp_v4l2_close(struct file *filp)
 static int msm_cvp_v4l2_querycap(struct file *filp, void *fh,
 			struct v4l2_capability *cap)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(filp, fh);
-
-	return msm_cvp_querycap((void *)cvp_inst, cap);
+	return -EINVAL;
 }
 
 int msm_cvp_v4l2_enum_fmt(struct file *file, void *fh,
 					struct v4l2_fmtdesc *f)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_enum_fmt((void *)cvp_inst, f);
+	return -EINVAL;
 }
 
 int msm_cvp_v4l2_s_fmt(struct file *file, void *fh,
 					struct v4l2_format *f)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_s_fmt((void *)cvp_inst, f);
+	return 0;
 }
 
 int msm_cvp_v4l2_g_fmt(struct file *file, void *fh,
@@ -112,7 +106,7 @@ int msm_cvp_v4l2_s_ctrl(struct file *file, void *fh,
 {
 	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
 
-	return msm_cvp_s_ctrl((void *)cvp_inst, a);
+	return v4l2_s_ctrl(NULL, &cvp_inst->ctrl_handler, a);
 }
 
 int msm_cvp_v4l2_g_ctrl(struct file *file, void *fh,
@@ -120,23 +114,19 @@ int msm_cvp_v4l2_g_ctrl(struct file *file, void *fh,
 {
 	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
 
-	return msm_cvp_g_ctrl((void *)cvp_inst, a);
+	return v4l2_g_ctrl(&cvp_inst->ctrl_handler, a);
 }
 
 int msm_cvp_v4l2_s_ext_ctrl(struct file *file, void *fh,
 					struct v4l2_ext_controls *a)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_s_ext_ctrl((void *)cvp_inst, a);
+	return -EINVAL;
 }
 
 int msm_cvp_v4l2_g_ext_ctrl(struct file *file, void *fh,
 					struct v4l2_ext_controls *a)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_g_ext_ctrl((void *)cvp_inst, a);
+	return 0;
 }
 
 int msm_cvp_v4l2_reqbufs(struct file *file, void *fh,
@@ -150,29 +140,25 @@ int msm_cvp_v4l2_reqbufs(struct file *file, void *fh,
 int msm_cvp_v4l2_qbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	return msm_cvp_qbuf(get_cvp_inst(file, fh), b);
+	return 0;
 }
 
 int msm_cvp_v4l2_dqbuf(struct file *file, void *fh,
 				struct v4l2_buffer *b)
 {
-	return msm_cvp_dqbuf(get_cvp_inst(file, fh), b);
+	return 0;
 }
 
 int msm_cvp_v4l2_streamon(struct file *file, void *fh,
 				enum v4l2_buf_type i)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_streamon((void *)cvp_inst, i);
+	return 0;
 }
 
 int msm_cvp_v4l2_streamoff(struct file *file, void *fh,
 				enum v4l2_buf_type i)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_streamoff((void *)cvp_inst, i);
+	return 0;
 }
 
 static int msm_cvp_v4l2_subscribe_event(struct v4l2_fh *fh,
@@ -196,24 +182,18 @@ static int msm_cvp_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 static int msm_cvp_v4l2_decoder_cmd(struct file *file, void *fh,
 				struct v4l2_decoder_cmd *dec)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_comm_cmd((void *)cvp_inst, (union msm_v4l2_cmd *)dec);
+	return 0;
 }
 
 static int msm_cvp_v4l2_encoder_cmd(struct file *file, void *fh,
 				struct v4l2_encoder_cmd *enc)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_comm_cmd((void *)cvp_inst, (union msm_v4l2_cmd *)enc);
+	return 0;
 }
 static int msm_cvp_v4l2_s_parm(struct file *file, void *fh,
 			struct v4l2_streamparm *a)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_comm_s_parm(cvp_inst, a);
+	return 0;
 }
 static int msm_cvp_v4l2_g_parm(struct file *file, void *fh,
 		struct v4l2_streamparm *a)
@@ -224,9 +204,7 @@ static int msm_cvp_v4l2_g_parm(struct file *file, void *fh,
 static int msm_cvp_v4l2_g_crop(struct file *file, void *fh,
 			struct v4l2_crop *a)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_g_crop(cvp_inst, a);
+	return -EINVAL;
 }
 
 static int msm_cvp_v4l2_enum_framesizes(struct file *file, void *fh,
@@ -240,9 +218,7 @@ static int msm_cvp_v4l2_enum_framesizes(struct file *file, void *fh,
 static int msm_cvp_v4l2_queryctrl(struct file *file, void *fh,
 	struct v4l2_queryctrl *ctrl)
 {
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_query_ctrl((void *)cvp_inst, ctrl);
+	return -EINVAL;
 }
 
 static long msm_cvp_v4l2_default(struct file *file, void *fh,
@@ -280,9 +256,6 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_g_crop = msm_cvp_v4l2_g_crop,
 	.vidioc_enum_framesizes = msm_cvp_v4l2_enum_framesizes,
 	.vidioc_default = msm_cvp_v4l2_default,
-};
-
-static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {
 };
 
 static unsigned int msm_cvp_v4l2_poll(struct file *filp,
