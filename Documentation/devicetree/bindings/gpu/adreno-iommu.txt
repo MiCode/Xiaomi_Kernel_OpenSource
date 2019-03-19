@@ -25,17 +25,11 @@ Required properties:
 		  is a separate aperture for CP to program context banks.
 
 Optional properties:
-- qcom,micro-mmu-control : Some targets provide an implementation defined
-		  register for blocking translation requests during GPU side
-		  programming.  This property specifies the offset of this
-		  register within the iommu register space.
 - qcom,retention :  A boolean specifying if retention is supported on this target
 - qcom,global_pt :  A boolean specifying if global pagetable should be used.
 		  When not set we use per process pagetables
 - qcom,hyp_secure_alloc : A bool specifying if the hypervisor is used on this target
 		  for secure buffer allocation
-- qcom,secure_align_mask: A mask for determining how secure buffers need to
-		  be aligned
 
 - List of sub nodes, one for each of the translation context banks supported.
   The driver uses the names of these nodes to determine how they are used,
@@ -53,11 +47,6 @@ Optional properties:
 		   defined in iommu device tree. On targets where the msm iommu
 		   driver is used rather than the arm smmu driver, this property
 		   may be absent.
-	- qcom,gpu-offset :  Offset into the GPU register space for accessing
-		   this context bank. On some targets the iommu registers are not
-		   part of the GPU's register space, and a separate register aperture
-		   is used. Otherwise the same register offsets may be used for CPU
-		   or GPU side programming.
 
 Example:
 
@@ -78,7 +67,6 @@ msm_iommu: qcom,kgsl-iommu@2ca0000 {
 		compatible = "qcom,smmu-kgsl-cb";
 		iommus = <&kgsl_smmu 0>,
 			 <&kgsl_smmu 1>;
-		qcom,gpu-offset = <0xa8000>;
 	};
 
 	gfx3d_secure: gfx3d_secure {
