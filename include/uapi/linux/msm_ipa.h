@@ -599,6 +599,7 @@ enum ipa_vlan_bridge_event {
 enum ipa_wlan_fw_ssr_event {
 	WLAN_FWR_SSR_BEFORE_SHUTDOWN = BRIDGE_VLAN_MAPPING_MAX,
 	IPA_WLAN_FW_SSR_EVENT_MAX,
+#define IPA_WLAN_FW_SSR_EVENT_MAX IPA_WLAN_FW_SSR_EVENT_MAX
 };
 
 enum ipa_gsb_event {
