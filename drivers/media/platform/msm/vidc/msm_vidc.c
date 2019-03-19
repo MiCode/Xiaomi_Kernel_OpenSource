@@ -817,7 +817,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 	/* Assign Core and LP mode for current session */
-	rc = msm_vidc_decide_core_and_power_mode(inst);
+	rc = call_core_op(inst->core, decide_core_and_power_mode, inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"This session can't be submitted to HW %pK\n", inst);

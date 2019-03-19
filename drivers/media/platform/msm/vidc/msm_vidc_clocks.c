@@ -27,18 +27,21 @@ struct msm_vidc_core_ops core_ops_ar50 = {
 	.calc_freq = msm_vidc_calc_freq_ar50,
 	.decide_work_route = NULL,
 	.decide_work_mode = msm_vidc_decide_work_mode_ar50,
+	.decide_core_and_power_mode = NULL,
 };
 
 struct msm_vidc_core_ops core_ops_iris1 = {
 	.calc_freq = msm_vidc_calc_freq_iris1,
 	.decide_work_route = msm_vidc_decide_work_route_iris1,
 	.decide_work_mode = msm_vidc_decide_work_mode_iris1,
+	.decide_core_and_power_mode = msm_vidc_decide_core_and_power_mode_iris1,
 };
 
 struct msm_vidc_core_ops core_ops_iris2 = {
 	.calc_freq = msm_vidc_calc_freq_iris2,
 	.decide_work_route = msm_vidc_decide_work_route_iris2,
 	.decide_work_mode = msm_vidc_decide_work_mode_iris2,
+	.decide_core_and_power_mode = msm_vidc_decide_core_and_power_mode_iris2,
 };
 
 static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
@@ -1574,7 +1577,7 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	bool enable)
 {
-	u32 rc = 0, mbs_per_frame;
+	u32 rc = 0, mbs_per_frame, mbs_per_sec;
 	u32 prop_id = 0;
 	void *pdata = NULL;
 	struct hfi_device *hdev = NULL;
@@ -1587,15 +1590,17 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 				__func__);
 		return 0;
 	}
-	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
-	if (mbs_per_frame > inst->core->resources.max_hq_mbs_per_frame ||
-		msm_vidc_get_fps(inst) >
-		(int) inst->core->resources.max_hq_fps) {
-		enable = true;
-	}
+
 	/* Power saving always disabled for CQ RC mode. */
-	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
+	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
+	mbs_per_sec = mbs_per_frame * msm_vidc_get_fps(inst);
+	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ ||
+		(mbs_per_frame <=
+		 inst->core->resources.max_hq_mbs_per_frame &&
+		 mbs_per_sec <=
+		 inst->core->resources.max_hq_mbs_per_sec)) {
 		enable = false;
+	}
 
 	prop_id = HFI_PROPERTY_CONFIG_VENC_PERF_MODE;
 	hfi_perf_mode = enable ? HFI_VENC_PERFMODE_POWER_SAVE :
@@ -1673,7 +1678,7 @@ static u32 get_core_load(struct msm_vidc_core *core,
 	return load;
 }
 
-int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
+int msm_vidc_decide_core_and_power_mode_iris1(struct msm_vidc_inst *inst)
 {
 	int rc = 0, hier_mode = 0;
 	struct hfi_device *hdev;
@@ -1811,6 +1816,14 @@ decision_done:
 	msm_print_core_status(core, VIDC_CORE_ID_2);
 
 	return rc;
+}
+
+int msm_vidc_decide_core_and_power_mode_iris2(struct msm_vidc_inst *inst)
+{
+	inst->clk_data.core_id = VIDC_CORE_ID_1;
+	msm_print_core_status(inst->core, VIDC_CORE_ID_1);
+
+	return msm_vidc_power_save_mode_enable(inst, true);
 }
 
 void msm_vidc_init_core_clk_ops(struct msm_vidc_core *core)
