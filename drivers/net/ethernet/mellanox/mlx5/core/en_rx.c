@@ -553,6 +553,8 @@ static inline bool is_first_ethertype_ip(struct sk_buff *skb)
 	return (ethertype == htons(ETH_P_IP) || ethertype == htons(ETH_P_IPV6));
 }
 
+#define short_frame(size) ((size) <= ETH_ZLEN + ETH_FCS_LEN)
+
 static inline void mlx5e_handle_csum(struct net_device *netdev,
 				     struct mlx5_cqe64 *cqe,
 				     struct mlx5e_rq *rq,
@@ -567,6 +569,17 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
 		return;
 	}
 
+	/* CQE csum doesn't cover padding octets in short ethernet
+	 * frames. And the pad field is appended prior to calculating
+	 * and appending the FCS field.
+	 *
+	 * Detecting these padded frames requires to verify and parse
+	 * IP headers, so we simply force all those small frames to be
+	 * CHECKSUM_UNNECESSARY even if they are not padded.
+	 */
+	if (short_frame(skb->len))
+		goto csum_unnecessary;
+
 	if (is_first_ethertype_ip(skb)) {
 		skb->ip_summed = CHECKSUM_COMPLETE;
 		skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
@@ -574,6 +587,7 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
 		return;
 	}
 
+csum_unnecessary:
 	if (likely((cqe->hds_ip_ext & CQE_L3_OK) &&
 		   (cqe->hds_ip_ext & CQE_L4_OK))) {
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
