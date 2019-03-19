@@ -766,7 +766,7 @@ write_chan_scratch_fail:
 	return result;
 }
 
-static int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
+int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
 	unsigned long chan_hdl)
 {
 	enum gsi_status gsi_res;
