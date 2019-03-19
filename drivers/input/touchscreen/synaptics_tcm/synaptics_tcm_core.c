@@ -627,7 +627,6 @@ static void syna_tcm_dispatch_report(struct syna_tcm_hcd *tcm_hcd)
 		}
 	}
 
-
 	tcm_hcd->async_report_id = tcm_hcd->status_report_code;
 
 	mutex_unlock(&mod_pool.mutex);
@@ -742,7 +741,7 @@ static void syna_tcm_dispatch_message(struct syna_tcm_hcd *tcm_hcd)
 		if (tcm_hcd->wr_chunk_size == 0)
 			tcm_hcd->wr_chunk_size = max_write_size;
 
-		LOGN(tcm_hcd->pdev->dev.parent,
+		LOGD(tcm_hcd->pdev->dev.parent,
 			"Received identify report (firmware mode = 0x%02x)\n",
 			tcm_hcd->id_info.mode);
 
@@ -2673,7 +2672,7 @@ static int syna_tcm_reset(struct syna_tcm_hcd *tcm_hcd, bool hw, bool update_wd)
 	}
 
 get_features:
-	LOGN(tcm_hcd->pdev->dev.parent,
+	LOGD(tcm_hcd->pdev->dev.parent,
 			"Firmware mode = 0x%02x\n",
 			tcm_hcd->id_info.mode);
 
@@ -2842,6 +2841,13 @@ static int syna_tcm_resume(struct device *dev)
 
 	if (!tcm_hcd->init_okay)
 		syna_tcm_deferred_probe(dev);
+	else {
+		if (tcm_hcd->irq_enabled) {
+			tcm_hcd->watchdog.run = false;
+			tcm_hcd->update_watchdog(tcm_hcd, false);
+			tcm_hcd->enable_irq(tcm_hcd, false, false);
+		}
+	}
 
 	if (!tcm_hcd->in_suspend)
 		return 0;
@@ -2948,10 +2954,6 @@ static int syna_tcm_suspend(struct device *dev)
 
 	mutex_unlock(&mod_pool.mutex);
 
-#ifndef WAKEUP_GESTURE
-	tcm_hcd->enable_irq(tcm_hcd, false, true);
-#endif
-
 	tcm_hcd->in_suspend = true;
 
 	return 0;
@@ -3004,6 +3006,10 @@ static int syna_tcm_early_suspend(struct device *dev)
 	}
 
 	mutex_unlock(&mod_pool.mutex);
+
+#ifndef WAKEUP_GESTURE
+	tcm_hcd->enable_irq(tcm_hcd, false, true);
+#endif
 
 	return 0;
 }
