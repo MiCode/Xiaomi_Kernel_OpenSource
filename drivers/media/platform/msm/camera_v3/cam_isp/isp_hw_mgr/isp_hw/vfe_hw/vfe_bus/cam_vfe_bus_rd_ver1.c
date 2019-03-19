@@ -90,9 +90,6 @@ struct cam_vfe_bus_rd_ver1_rm_resource_data {
 	void                *ctx;
 
 	uint32_t             irq_enabled;
-	bool                 init_cfg_done;
-	bool                 hfr_cfg_done;
-
 	uint32_t             offset;
 
 	uint32_t             min_vbi;
@@ -288,8 +285,6 @@ static int cam_vfe_bus_release_rm(void   *bus_priv,
 	rsrc_data->format = 0;
 	rsrc_data->unpacker_cfg = 0;
 	rsrc_data->burst_len = 0;
-	rsrc_data->init_cfg_done = false;
-	rsrc_data->hfr_cfg_done = false;
 	rsrc_data->en_cfg = 0;
 	rsrc_data->is_dual = 0;
 
@@ -366,8 +361,6 @@ static int cam_vfe_bus_stop_rm(struct cam_isp_resource_node *rm_res)
 		common_data->mem_base + rsrc_data->hw_regs->cfg);
 
 	rm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
-	rsrc_data->init_cfg_done = false;
-	rsrc_data->hfr_cfg_done = false;
 
 	return rc;
 }
