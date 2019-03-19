@@ -175,7 +175,7 @@
 
 /*
  * --------------------------------------------------------------------------
- * MODULE: vcodec noc error log registers
+ * MODULE: vcodec noc error log registers (iris1)
  * --------------------------------------------------------------------------
  */
 #define VCODEC_CORE0_VIDEO_NOC_BASE_OFFS		0x00004000
@@ -197,5 +197,24 @@
 #define VIDC_AON_WRAPPER_MVP_NOC_LPI_CONTROL	(VIDC_AON_BASE_OFFS)
 #define VIDC_AON_WRAPPER_MVP_NOC_LPI_STATUS	(VIDC_AON_BASE_OFFS + 0x4)
 
-
+/*
+ * --------------------------------------------------------------------------
+ * MODULE: vcodec noc error log registers (iris2)
+ * --------------------------------------------------------------------------
+ */
+#define VCODEC_NOC_VIDEO_A_NOC_BASE_OFFS		0x00010000
+#define VCODEC_NOC_ERL_MAIN_SWID_LOW			0x00011200
+#define VCODEC_NOC_ERL_MAIN_SWID_HIGH			0x00011204
+#define VCODEC_NOC_ERL_MAIN_MAINCTL_LOW			0x00011208
+#define VCODEC_NOC_ERL_MAIN_ERRVLD_LOW			0x00011210
+#define VCODEC_NOC_ERL_MAIN_ERRCLR_LOW			0x00011218
+#define VCODEC_NOC_ERL_MAIN_ERRLOG0_LOW			0x00011220
+#define VCODEC_NOC_ERL_MAIN_ERRLOG0_HIGH		0x00011224
+#define VCODEC_NOC_ERL_MAIN_ERRLOG1_LOW			0x00011228
+#define VCODEC_NOC_ERL_MAIN_ERRLOG1_HIGH		0x0001122C
+#define VCODEC_NOC_ERL_MAIN_ERRLOG2_LOW			0x00011230
+#define VCODEC_NOC_ERL_MAIN_ERRLOG2_HIGH		0x00011234
+#define VCODEC_NOC_ERL_MAIN_ERRLOG3_LOW			0x00011238
+#define VCODEC_NOC_ERL_MAIN_ERRLOG3_HIGH		0x0001123C
+#
 #endif

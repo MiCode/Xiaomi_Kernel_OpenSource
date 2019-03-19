@@ -109,6 +109,8 @@ static int reset_ahb2axi_bridge(struct venus_hfi_device *device);
 static int __set_ubwc_config(struct venus_hfi_device *device);
 static void power_off_common(struct venus_hfi_device *device);
 static void power_off_iris2(struct venus_hfi_device *device);
+static void noc_error_info_common(struct venus_hfi_device *device);
+static void noc_error_info_iris2(struct venus_hfi_device *device);
 
 struct venus_hfi_vpu_ops vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
@@ -116,6 +118,7 @@ struct venus_hfi_vpu_ops vpu4_ops = {
 	.clock_config_on_enable = NULL,
 	.reset_ahb2axi_bridge = NULL,
 	.power_off = power_off_common,
+	.noc_error_info = noc_error_info_common,
 };
 
 struct venus_hfi_vpu_ops iris1_ops = {
@@ -124,6 +127,7 @@ struct venus_hfi_vpu_ops iris1_ops = {
 	.clock_config_on_enable = clock_config_on_enable_iris1,
 	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
 	.power_off = power_off_common,
+	.noc_error_info = noc_error_info_common,
 };
 
 struct venus_hfi_vpu_ops iris2_ops = {
@@ -132,6 +136,7 @@ struct venus_hfi_vpu_ops iris2_ops = {
 	.clock_config_on_enable = NULL,
 	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
 	.power_off = power_off_iris2,
+	.noc_error_info = noc_error_info_iris2,
 };
 
 /**
@@ -5024,10 +5029,54 @@ static void __noc_error_info(struct venus_hfi_device *device, u32 core_num)
 	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_HIGH: %#x\n", core_num, val);
 }
 
+static void noc_error_info_common(struct venus_hfi_device *device)
+{
+	const u32 core0 = 0, core1 = 1;
+
+	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core0);
+
+	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core1);
+}
+
+static void noc_error_info_iris2(struct venus_hfi_device *device)
+{
+	u32 val = 0;
+
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_SWID_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_SWID_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_SWID_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_SWID_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_MAINCTL_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_MAINCTL_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRVLD_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRVLD_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRCLR_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRCLR_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG0_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG0_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG0_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG0_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG1_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG1_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG1_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG1_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG2_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG2_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG2_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG2_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG3_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG3_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
+}
+
 static int venus_hfi_noc_error_info(void *dev)
 {
 	struct venus_hfi_device *device;
-	const u32 core0 = 0, core1 = 1;
 
 	if (!dev) {
 		dprintk(VIDC_ERR, "%s: null device\n", __func__);
@@ -5038,13 +5087,7 @@ static int venus_hfi_noc_error_info(void *dev)
 	mutex_lock(&device->lock);
 	dprintk(VIDC_ERR, "%s: non error information\n", __func__);
 
-	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core0);
-
-	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core1);
+	call_venus_op(device, noc_error_info, device);
 
 	mutex_unlock(&device->lock);
 
