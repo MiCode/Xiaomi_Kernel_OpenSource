@@ -1463,7 +1463,6 @@ static void cnss_wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi_wlfw,
 	const struct wlfw_qdss_trace_save_ind_msg_v01 *ind_msg = data;
 	struct cnss_qmi_event_qdss_trace_save_data *event_data;
 	int i = 0;
-	u32 total_size = 0;
 
 	cnss_pr_dbg("Received QMI WLFW QDSS trace save indication\n");
 
@@ -1498,11 +1497,6 @@ static void cnss_wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi_wlfw,
 			cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
 				    i, ind_msg->mem_seg[i].addr,
 				    ind_msg->mem_seg[i].size);
-			total_size += ind_msg->mem_seg[i].size;
-		}
-		if (total_size != ind_msg->total_size) {
-			cnss_pr_err("total size mismatch: %u\n", total_size);
-			goto free_event_data;
 		}
 	}
 
