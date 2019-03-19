@@ -22,8 +22,13 @@ SYSTEM_TRUSTED_KEYS_SRCPREFIX := $(srctree)/certs/
 endif
 
 targets += x509_certificate_list
+ifeq ($(VERSION_TYPE),longcheer_factory)
+$(obj)/x509_certificate_list: scripts/extract-cert $(SYSTEM_TRUSTED_KEYS_SRCPREFIX)$(SYSTEM_TRUSTED_KEYS_FILENAME) FORCE
+	$(call if_changed,extract_certs,$(SYSTEM_TRUSTED_KEYS_SRCPREFIX)"verity.factory.x509.pem")
+else
 $(obj)/x509_certificate_list: scripts/extract-cert $(SYSTEM_TRUSTED_KEYS_SRCPREFIX)$(SYSTEM_TRUSTED_KEYS_FILENAME) FORCE
 	$(call if_changed,extract_certs,$(SYSTEM_TRUSTED_KEYS_SRCPREFIX)$(CONFIG_SYSTEM_TRUSTED_KEYS))
+endif
 endif
 
 clean-files := x509_certificate_list .x509.list

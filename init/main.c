@@ -2,6 +2,7 @@
  *  linux/init/main.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  *  GK 2/5/95  -  Changed to support mounting root fs via NFS
  *  Added initrd & change_root: Werner Almesberger & Hans Lermen, Feb '96
@@ -492,11 +493,14 @@ static void __init mm_init(void)
 	ioremap_huge_init();
 	kaiser_init();
 }
+int fpsensor=1;
+bool is_poweroff_charge = false;
 
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 	char *after_dashes;
+	char *p=NULL;
 
 	/*
 	 * Need to run as early as possible, to initialize the
@@ -534,6 +538,20 @@ asmlinkage __visible void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
+	p = NULL;
+	p= strstr(boot_command_line, "androidboot.fpsensor=fpc");
+	if(p){
+		fpsensor = 1;
+	}else{
+		fpsensor = 2;
+	}
+
+	p= NULL;
+	p= strstr(boot_command_line, "androidboot.mode=charger");
+	if(p)
+	{
+		is_poweroff_charge = true;
+	}
 	parse_early_param();
 	after_dashes = parse_args("Booting kernel",
 				  static_command_line, __start___param,

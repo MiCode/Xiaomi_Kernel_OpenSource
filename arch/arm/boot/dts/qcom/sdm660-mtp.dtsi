@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,11 +13,13 @@
 
 #include "sdm660-pinctrl.dtsi"
 #include "sdm660-camera-sensor-mtp.dtsi"
+#include "sdm660-novatek-i2c_d2s.dtsi"
 / {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
-		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
+		#include "fg-gen3-batterydata-l8866sun-3000mah.dtsi"
+		#include "fg-gen3-batterydata-l8866cos-3000mah.dtsi"
+		#include "fg-gen3-batterydata-l8866default-3000mah.dtsi"
 	};
 };
 
@@ -99,16 +102,7 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-	qcom,platform-reset-gpio = <&tlmm 53 0>;
-	qcom,platform-te-gpio = <&tlmm 59 0>;
-};
-
-&mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_truly_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_td4320_boe_fhdplus_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -126,7 +120,35 @@
 };
 
 &pm660l_wled {
-	qcom,led-strings-list = [01 02];
+	qcom,led-strings-list = [00 01];
+};
+
+&dsi_nt36672_tianma_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt36672_jdi_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt36672a_tianma_fhdplus_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_td4320_boe_fhdplus_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_nt35597_truly_video {
@@ -241,7 +263,7 @@
 			1 &intc 0 0 221 0
 			2 &tlmm 54 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 54 0x1>;
+	cd-gpios = <&tlmm 54 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -251,8 +273,47 @@
 };
 
 &soc {
+
+	goodix_fp {
+	compatible = "goodix,fingerprint";
+	interrupt-parent = <&tlmm>;
+	interrupt = <72 0x0>;
+	vcc_spi-supply = <&pm660l_l3>;
+	vcc_ana-supply = <&pm660l_l3>;
+	vdd_io-supply = <&pm660l_l3>;
+	fp-gpio-irq = <&tlmm 72 0x00>;
+	fp-gpio-reset = <&tlmm 20 0x00>;
+	status = "okay";
+	};
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <72 0x0>;
+		fpc,gpio_rst    = <&tlmm 20 0x0>;
+		fpc,gpio_irq    = <&tlmm 72 0x0>;
+		vcc_spi-supply  = <&pm660_l13>;
+		vdd_io-supply   = <&pm660_l13>;
+		vdd_ana-supply  = <&pm660_l13>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_20>;
+		pinctrl-1 = <&msm_gpio_20_output_high>;
+		pinctrl-2 = <&msm_gpio_72>;
+	};
+
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+	};
+	ant_check {
+		compatible = "ant_check";
+	        ant_check_gpio = <&tlmm 74 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ant_check_default>;
 	};
 };
 

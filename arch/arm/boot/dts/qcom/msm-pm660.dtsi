@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,12 +51,25 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
 			};
 
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <114>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <1000>;
+				qcom,s2-type = <1>;
 			};
 		};
 
@@ -158,6 +172,7 @@
 		pm660_coincell: qcom,coincell@2800 {
 			compatible = "qcom,qpnp-coincell";
 			reg = <0x2800 0x100>;
+			qcom,charge-enable = <0>;
 		};
 
 		pm660_rtc: qcom,pm660_rtc {
@@ -266,6 +281,18 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
+			chan@50 {
+				label = "backlight_therm";
+				reg = <0x50>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
 			chan@51 {
 				label = "quiet_therm";
 				reg = <0x51>;
@@ -332,10 +359,16 @@
 
 			qcom,wipower-max-uw = <5000000>;
 			dpdm-supply = <&qusb_phy0>;
+			qcom,usb-icl-ua = <2900000>;
+			qcom,otg-cl-ua = <1500000>;
+			qcom,dc-icl-ua = <2900000>;
+			qcom,fcc-max-ua = <2900000>;
+			qcom,fv-max-uv  = <4400000>;
+			qcom,sw-jeita-enable;
+
 
 			qcom,thermal-mitigation
-					= <3000000 2500000 2000000 1500000
-						1000000 500000>;
+					= <2900000 2000000 1800000 1500000 1000000 500000 100000>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -551,10 +584,16 @@
 			io-channel-names = "rradc_batt_id",
 					   "rradc_die_temp";
 			qcom,rradc-base = <0x4500>;
+			qcom,fg-cutoff-voltage = <3400>;
+			qcom,fg-chg-term-current = <200>;
+			qcom,fg-sys-term-current = <300>;
+			qcom,fg-recharge-voltage = <4340>;
 			qcom,fg-esr-timer-awake = <96 96>;
 			qcom,fg-esr-timer-asleep = <256 256>;
 			qcom,fg-esr-timer-charging = <0 96>;
 			qcom,cycle-counter-en;
+			qcom,fg-jeita-thresholds = <0 15 45 60>;
+			qcom,fg-jeita-hyst-temp = <0>;
 			status = "okay";
 
 			qcom,fg-batt-soc@4000 {
@@ -639,19 +678,24 @@
 			qcom,pmic-misc = <&pm660_misc>;
 			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,actuator-type = "lra";
-			qcom,play-mode = "direct";
-			qcom,vmax-mv = <3200>;
+			qcom,play-mode = "buffer";
+			qcom,vmax-mv = <2204>;
 			qcom,ilim-ma = <800>;
-			qcom,wave-shape = "square";
-			qcom,wave-play-rate-us = <6667>;
-			qcom,int-pwm-freq-khz = <505>;
+			qcom,wave-shape = "sine";
+			qcom,wave-play-rate-us = <4878>;
+			qcom,int-pwm-freq-khz = <253>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,en-brake;
-			qcom,brake-pattern = [03 03 00 00];
-			qcom,lra-high-z = "opt0";
-			qcom,lra-auto-res-mode = "qwd";
+			qcom,brake-pattern = [02 02 01 00];
+			qcom,wave-samples = [3e 3e 3e 00 00 00 00 00];
+			qcom,wave-samples-two = [3e 3e 3e 3e 00 00 00 00];
+			qcom,wave-samples-three = [3e 3e 3e 3e 3e 00 00 00];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
+			qcom,lra-high-z = "opt1";
+			qcom,lra-auto-res-mode = "none";
 			qcom,lra-calibrate-at-eop = <0>;
-			qcom,correct-lra-drive-freq;
+			qcom,lra-hw-auto-resonance;
 		};
 	};
 };

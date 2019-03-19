@@ -11,7 +11,9 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
-source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+#source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/nvt_touch_f7a/Kconfig"
+source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT
@@ -1136,6 +1138,30 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_EXTRA_SYSFS
 	  This does not affect the core or other subsystem attributes.
 
 	  If unsure, say N.
+
+config TOUCHSCREEN_NVT_D2S
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+	 nvt controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
+
+config TOUCHSCREEN_NVT_F7A
+       tristate "novatek touchscreens"
+       help
+         Say Y here if you have a nvt touchscreen.
+	 nvt controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called nvt.
 
 config TOUCHSCREEN_ROHM_BU21023
 	tristate "ROHM BU21023/24 Dual touch support resistive touchscreens"

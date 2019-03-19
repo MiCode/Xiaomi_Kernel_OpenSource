@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +16,8 @@
 
 #include "sdm660.dtsi"
 #include "sdm660-mtp.dtsi"
-#include "sdm660-external-codec.dtsi"
+//#include "sdm660-external-codec.dtsi"
+#include "sdm660-internal-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM 660 PM660 + PM660L MTP";
@@ -30,11 +32,160 @@
 	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
 };
 
-&slim_aud {
-	/delete-node/tasha_codec;
+&int_codec {
+
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+	qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+};
+
+&pm660l_l3 {
+        regulator-always-on;
+};
+&tlmm {
+	hall_int_active:hall_int_active {
+		mux {
+		          pins = "gpio76";
+		          function = "gpio";
+		};
+		config{
+		          pins = "gpio76";
+	                  drive-strength = <6>;
+	                  bias-pull-up;
+	            };
+        };
+	hall_int_suspend: hall_int_suspend {
+		mux {
+		          pins = "gpio76";
+		          function = "gpio";
+		};
+		config{
+		          pins = "gpio76";
+		          drive-strength = <6>;
+		          bias-pull-up;
+		};
+        };
+};
+
+&pm660_gpios {
+	 /* GPIO 12 voice wake clock */
+	 gpio@cb00 {
+		qcom,mode = <1>; /* Output */
+		qcom,pull = <5>; /* No Pull */
+		qcom,vin-sel = <0>; /* VIN0 GPIO_LV */
+		qcom,src-sel = <2>; /* Special Function 1 */
+		qcom,invert = <0>; /* Invert */
+		qcom,master-en = <1>; /* Enable GPIO */
+	        status = "ok";
+	};
+};
+
+&spi_8{
+	status = "ok";
+
+	/*
+	pinctrl-names = "spi_active", "spi_sleep";
+	pinctrl-0 = <&spi_3_active>;
+	pinctrl-1 = <&spi_3_sleep>;*/
+
+
+	dbmd4_spi: dbmd4_interface@0 {
+		compatible = "dspg,dbmd4-spi";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		//spi-cpol; //CPOL bit set for SPI polarity
+		//spi-cpha; //CPHA bit set for SPI Phase
+
+		read-chunk-size  = <0x2000>;    /* 8192 bytes   */
+		write-chunk-size = <0x20000>;   /* 131072 bytes */
+		dma_min_buffer_size = <0>;
+	};
 };
 
 &soc {
-	/delete-node/sound-9335;
+	hall_switch {
+
+	    compatible = "hall-switch,och175";
+	    pinctrl-names = "hall_active","hall_suspend";
+	    pinctrl-0 = <&hall_int_active>;
+	    pinctrl-1 = <&hall_int_suspend>;
+	    //interrupt-parent = <&msm_gpio>;
+	    //interrupts = <0 107 3>;
+	    vdd-io-supply= <&pm660_l8>;
+	    interrupt-names = "hall_irq";
+	    hall,irq-gpio = <&tlmm 76 0x0>;
+	};
+
+	dbmdx {
+		compatible = "dspg,dbmdx-codec";
+#if 0//def CUSTOMER_PLATFORM
+		status = "okay";
+		qcom,use-pinctrl;
+		pinctrl-names = "dbmdx_default", "dbmdx_sleep";
+		pinctrl-0 = <&dbmdx_active>;
+		pinctrl-1 = <&dbmdx_sleep>;
+		sv-gpio = <&tlmm 42 0>; /* VOICE_INT */
+		wakeup-gpio = <&tlmm 132 0>; /* VOICE_WAKE */
+		reset-gpio = <&pm8004_mpps 4 0>; /* VOICE_RST */
+#else
+		status = "okay";
+		reset-gpio = <&tlmm 63 0>; /* sensor header J53 connector */
+		sv-gpio = <&tlmm 65 0>;
+		wakeup-gpio = <&tlmm 0 0>;
+#endif
+		auto_buffering = <1>;
+		multi-interface-support = <1>;
+		cd-interfaces = <&dbmd4_spi >;
+		va-interfaces = <0 0 0 0>;
+		feature-va; /* enable VA */
+		va-firmware-name = "dbmd4_va_fw.bin";
+		va-config = <0x80000000
+			     0x80000000
+			     0x80290020
+			     0x80330019
+			     0x802210e4
+			     0x80158E8E
+			     0x801b0020
+			     0x80230001
+			     0x801A0017
+			     0x80103015
+			     0x80000000
+			     0x80000000
+			     0x80000000>;
+		va-speeds = <0x0000 460800  0 960000
+			     0x0000 2000000 0 4800000
+			     0x0000 3000000 0 4800000>;
+		va-mic-config = <0xf041 0x1044 0x0008>;
+		va-mic-mode = <4>;
+/*
+		digital_mic_digital_gain = <0x14>;
+		analog_mic_analog_gain = <0x3>;
+		analog_mic_digital_gain = <0x14>;
+*/
+		master-clk-rate = <32768>;
+		/* constant-clk-rate = <32768>; */
+		firmware_id = <0xdbd4>;
+		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
+		wakeup_set_value = <0>;  /* Value to write to wakeup gpio */
+		auto_detection = <1>;
+		detection_buffer_channels = <0>;
+		min_samples_chunk_size = <128>;
+		pcm_streaming_mode = <1>;
+		boot_options = <0x200>; /* Verify chip id */
+		amodel_options = <0x4>;
+		send_uevent_on_detection = <1>;
+		send_uevent_after_buffering = <0>;
+		detection_after_buffering = <0>;
+		va_backlog_length = <0x7d0>;
+	};
+
+	dbmdx-snd-soc-platform {
+		compatible = "dspg,dbmdx-snd-soc-platform";
+	};
+
+	snd-dbmdx-mach-drv {
+		compatible = "dspg,snd-dbmdx-mach-drv";
+	};
 };
 

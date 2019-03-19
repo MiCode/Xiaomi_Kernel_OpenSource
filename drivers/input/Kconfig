@@ -187,6 +187,17 @@ config INPUT_APMPOWER
 	  To compile this driver as a module, choose M here: the
 	  module will be called apm-power.
 
+config INPUT_HALL_SENSOR
+       tristate "hall sensor"
+       help
+         Say Y here if you have a hall sensor.
+	 hall sensor support.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called.
+
 config INPUT_KEYRESET
 	bool "Reset key"
 	depends on INPUT
@@ -213,6 +224,12 @@ source "drivers/input/tablet/Kconfig"
 source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
+
+source "drivers/input/fingerprint/Kconfig"
+
+source "drivers/input/fingerprint/gf3208/Kconfig"
+
+source "drivers/input/fingerprint/gf3258/Kconfig"
 
 endif
 

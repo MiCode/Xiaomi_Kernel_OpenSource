@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1071,6 +1072,12 @@ static int32_t msm_flash_get_pmic_source_info(
 				of_node_put(torch_src_node);
 				continue;
 			}
+			#ifdef CONFIG_KERNEL_CUSTOM_F7A
+			if(fctrl->torch_max_current[i] < 1000)
+			{
+				fctrl->torch_max_current[i] = 1000;
+			}
+			#endif
 
 			of_node_put(torch_src_node);
 

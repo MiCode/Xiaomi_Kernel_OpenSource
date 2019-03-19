@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +17,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include <linux/mdss_io_util.h>
+
+#ifdef CONFIG_KERNEL_CUSTOM_F7A
+extern bool enable_gesture_mode;
+extern bool synaptics_gesture_enable_flag;
+#endif
 
 #define MAX_I2C_CMDS  16
 void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
@@ -212,12 +218,24 @@ vreg_get_fail:
 } /* msm_dss_config_vreg */
 EXPORT_SYMBOL(msm_dss_config_vreg);
 
+extern bool ESD_TE_status;
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
 	bool need_sleep;
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
+#ifdef CONFIG_KERNEL_CUSTOM_F7A
+			/* vddio lab ibb continus supply */
+			if(enable_gesture_mode || synaptics_gesture_enable_flag) {
+				if( (strcmp(in_vreg[i].vreg_name, "lab")==0) ||
+						(strcmp(in_vreg[i].vreg_name, "ibb")==0) ||
+						(strcmp(in_vreg[i].vreg_name, "wqhd-vddio")==0) ) {
+					printk(KERN_ERR "[LCD][TP][Gesture][resume] '%s' power continus supply\n", in_vreg[i].vreg_name);
+					continue;
+				}
+			}
+#endif
 			rc = PTR_RET(in_vreg[i].vreg);
 			if (rc) {
 				DEV_ERR("%pS->%s: %s regulator error. rc=%d\n",
@@ -250,6 +268,24 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 		}
 	} else {
 		for (i = num_vreg-1; i >= 0; i--) {
+			if(ESD_TE_status){
+				printk(KERN_ERR "panel esd check recovery \n");
+				if((strcmp(in_vreg[i].vreg_name, "wqhd-vddio")==0) ) {
+						printk(KERN_ERR "panel '%s' power continus supply\n", in_vreg[i].vreg_name);
+						continue;
+				}
+			}
+#ifdef CONFIG_KERNEL_CUSTOM_F7A
+			/* vddio lab ibb continus supply */
+			if(enable_gesture_mode || synaptics_gesture_enable_flag) {
+				if( (strcmp(in_vreg[i].vreg_name, "lab")==0) ||
+						(strcmp(in_vreg[i].vreg_name, "ibb")==0) ||
+						(strcmp(in_vreg[i].vreg_name, "wqhd-vddio")==0) ) {
+					printk(KERN_ERR "[LCD][TP][Gesture][suspend] '%s' power continus supply\n", in_vreg[i].vreg_name);
+					continue;
+				}
+			}
+#endif
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					in_vreg[i].pre_off_sleep * 1000);

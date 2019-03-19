@@ -1,0 +1,32 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "sdm636_e7t.dtsi"
+#include "sdm636-mtp_e7t.dtsi"
+//#include "sdm660-external-codec.dtsi"
+#include "focaltech-ft8719-i2c.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 636 PM660 + PM660L MTP E7T";
+	compatible = "qcom,sdm636-mtp", "qcom,sdm636", "qcom,mtp";
+	qcom,board-id = <0x40008 0>;
+	qcom,pmic-id = <0x0001001b 0x0101011a 0x0 0x0>,
+			<0x0001001b 0x0201011a 0x0 0x0>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+};

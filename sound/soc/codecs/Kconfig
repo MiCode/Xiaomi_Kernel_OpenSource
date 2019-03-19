@@ -994,6 +994,16 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
 
+
+config SND_SOC_TFA98XX
+	tristate "nxp Instruments TFA98XX SmartAmp(R)"
+
+config SND_I2S_PRIMARY
+	bool "Primary I2S Driver support"
+
+config SND_SOC_MAX98937
+	tristate "maxim Instruments 98937 SmartAmp(R)"
+
 source "sound/soc/codecs/sdm660_cdc/Kconfig"
 source "sound/soc/codecs/msm_sdw/Kconfig"
 
