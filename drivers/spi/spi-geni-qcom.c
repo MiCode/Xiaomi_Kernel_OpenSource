@@ -188,7 +188,7 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 
 	res_freq = (sclk_freq / (*clk_div));
 
-	dev_dbg(mas->dev, "%s: req %u resultant %u sclk %lu, idx %d, div %d\n",
+	dev_dbg(mas->dev, "%s: req %u resultant %lu sclk %lu, idx %d, div %d\n",
 		__func__, speed_hz, res_freq, sclk_freq, *clk_idx, *clk_div);
 
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);

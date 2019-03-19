@@ -400,7 +400,7 @@ static int spcom_rx(struct spcom_channel *ch,
 			goto exit_err;
 		}
 	} else {
-		pr_debug("pending data size [%zu], requested size [%zu], ch->txn_id %d\n",
+		pr_debug("pending data size [%zu], requested size [%u], ch->txn_id %d\n",
 			 ch->actual_rx_size, size, ch->txn_id);
 	}
 	if (!ch->rpmsg_rx_buf) {
@@ -895,7 +895,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	}
 
 	if (cmd->arg > (unsigned int)INT_MAX) {
-		pr_err("int overflow [%ld]\n", cmd->arg);
+		pr_err("int overflow [%u]\n", cmd->arg);
 		return -EINVAL;
 	}
 	fd = cmd->arg;
@@ -926,7 +926,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		if (ch->dmabuf_handle_table[i] == NULL) {
 			ch->dmabuf_handle_table[i] = dma_buf;
 			ch->dmabuf_fd_table[i] = fd;
-			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%x\n",
+			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%pK\n",
 				ch->name, i,
 				ch->dmabuf_fd_table[i],
 				ch->dmabuf_handle_table[i]);
@@ -964,7 +964,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 		return -EINVAL;
 	}
 	if (cmd->arg > (unsigned int)INT_MAX) {
-		pr_err("int overflow [%ld]\n", cmd->arg);
+		pr_err("int overflow [%u]\n", cmd->arg);
 		return -EINVAL;
 	}
 	fd = cmd->arg;
@@ -1000,7 +1000,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 			if (!ch->dmabuf_handle_table[i])
 				continue;
 			if (ch->dmabuf_handle_table[i] == dma_buf) {
-				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%x\n",
+				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%pK\n",
 					ch->name, i,
 					ch->dmabuf_fd_table[i],
 					ch->dmabuf_handle_table[i]);
@@ -1369,7 +1369,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->is_busy = false;
 	ch->pid = 0;
 	if (ch->rpmsg_rx_buf) {
-		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%d\n",
+		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%zd\n",
 		       name, ch->actual_rx_size);
 		kfree(ch->rpmsg_rx_buf);
 		ch->rpmsg_rx_buf = NULL;
@@ -1884,7 +1884,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 
 		if (ch->rpmsg_abort) {
 			if (ch->rpmsg_rx_buf) {
-				pr_debug("ch [%s] rx aborted free %d bytes\n",
+				pr_debug("ch [%s] rx aborted free %zd bytes\n",
 					ch->name, ch->actual_rx_size);
 				kfree(ch->rpmsg_rx_buf);
 				ch->actual_rx_size = 0;
@@ -1892,7 +1892,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 			goto rx_aborted;
 		}
 		if (ch->rpmsg_rx_buf) {
-			pr_err("ch [%s] previous buffer not consumed %d bytes\n",
+			pr_err("ch [%s] previous buffer not consumed %zd bytes\n",
 			       ch->name, ch->actual_rx_size);
 			kfree(ch->rpmsg_rx_buf);
 			ch->rpmsg_rx_buf = NULL;
