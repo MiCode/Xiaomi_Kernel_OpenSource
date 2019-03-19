@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
@@ -101,9 +101,6 @@ enum adreno_context_priv {
 	ADRENO_CONTEXT_FENCE_LOG,
 };
 
-/* Flags for adreno_drawctxt_switch() */
-#define ADRENO_CONTEXT_SWITCH_FORCE_GPU BIT(0)
-
 struct kgsl_context *adreno_drawctxt_create(
 			struct kgsl_device_private *dev_priv,
 			uint32_t *flags);
@@ -118,8 +115,7 @@ void adreno_drawctxt_sched(struct kgsl_device *device,
 struct adreno_ringbuffer;
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt,
-				unsigned int flags);
+				struct adreno_context *drawctxt);
 
 int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,

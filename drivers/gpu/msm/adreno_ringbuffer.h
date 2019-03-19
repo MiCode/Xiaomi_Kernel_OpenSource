@@ -199,11 +199,4 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 	return (val + size - sizeof(unsigned int)) % size;
 }
 
-static inline int adreno_ringbuffer_set_pt_ctx(struct adreno_ringbuffer *rb,
-		struct kgsl_pagetable *pt, struct adreno_context *context,
-		unsigned long flags)
-{
-	return adreno_iommu_set_pt_ctx(rb, pt, context, flags);
-}
-
 #endif  /* __ADRENO_RINGBUFFER_H */
