@@ -516,7 +516,9 @@ int synx_generate_secure_key(struct synx_table_row *row)
 	if (!row)
 		return -EINVAL;
 
-	get_random_bytes(&row->secure_key, sizeof(row->secure_key));
+	if (!row->secure_key)
+		get_random_bytes(&row->secure_key, sizeof(row->secure_key));
+
 	return row->secure_key;
 }
 
