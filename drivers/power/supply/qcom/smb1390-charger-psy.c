@@ -124,7 +124,6 @@ struct smb1390 {
 	struct votable		*ilim_votable;
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
-	struct votable		*cp_awake_votable;
 
 	/* power supplies */
 	struct power_supply	*usb_psy;
@@ -138,7 +137,9 @@ struct smb1390 {
 	struct smb1390_iio	iio;
 	int			irq_status;
 	int			taper_entry_fv;
-	bool			switcher_disabled;
+	bool			switcher_enabled;
+	int			die_temp;
+	bool			suspended;
 };
 
 struct smb_irq {
@@ -276,8 +277,8 @@ static irqreturn_t default_irq_handler(int irq, void *data)
 
 	rc = smb1390_get_cp_en_status(chip, SWITCHER_EN, &enable);
 	if (!rc) {
-		if (chip->switcher_disabled == enable) {
-			chip->switcher_disabled = !chip->switcher_disabled;
+		if (chip->switcher_enabled != enable) {
+			chip->switcher_enabled = enable;
 			if (chip->fcc_votable)
 				rerun_election(chip->fcc_votable);
 		}
@@ -424,7 +425,7 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 	struct smb1390 *chip = data;
 	int rc = 0;
 
-	if (!is_psy_voter_available(chip))
+	if (!is_psy_voter_available(chip) || chip->suspended)
 		return -EAGAIN;
 
 	if (disable) {
@@ -432,10 +433,7 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 				   CMD_EN_SWITCHER_BIT, 0);
 		if (rc < 0)
 			return rc;
-
-		vote(chip->cp_awake_votable, CP_VOTER, false, 0);
 	} else {
-		vote(chip->cp_awake_votable, CP_VOTER, true, 0);
 		rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
 				   CMD_EN_SWITCHER_BIT, CMD_EN_SWITCHER_BIT);
 		if (rc < 0)
@@ -454,7 +452,7 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	struct smb1390 *chip = data;
 	int rc = 0;
 
-	if (!is_psy_voter_available(chip))
+	if (!is_psy_voter_available(chip) || chip->suspended)
 		return -EAGAIN;
 
 	/* ILIM should always have at least one active vote */
@@ -481,20 +479,6 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 	}
 
 	return rc;
-}
-
-static int smb1390_awake_vote_cb(struct votable *votable, void *data,
-				int awake, const char *client)
-{
-	struct smb1390 *chip = data;
-
-	if (awake)
-		__pm_stay_awake(chip->cp_ws);
-	else
-		__pm_relax(chip->cp_ws);
-
-	pr_debug("client: %s awake: %d\n", client, awake);
-	return 0;
 }
 
 static int smb1390_notifier_cb(struct notifier_block *nb,
@@ -705,12 +689,26 @@ static int smb1390_get_prop(struct power_supply *psy,
 				!get_effective_result(chip->disable_votable);
 		break;
 	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
-		rc = smb1390_get_cp_en_status(chip, SWITCHER_EN, &enable);
-		if (!rc)
-			val->intval = enable;
+		if (chip->suspended) {
+			val->intval = chip->switcher_enabled;
+		} else {
+			rc = smb1390_get_cp_en_status(chip, SWITCHER_EN,
+					&enable);
+			if (!rc)
+				val->intval = enable;
+		}
 		break;
 	case POWER_SUPPLY_PROP_CP_DIE_TEMP:
-		rc = smb1390_get_die_temp(chip, val);
+		if (chip->suspended) {
+			if (chip->die_temp != -ENODATA)
+				val->intval = chip->die_temp;
+			else
+				rc = -ENODATA;
+		} else {
+			rc = smb1390_get_die_temp(chip, val);
+			if (rc >= 0)
+				chip->die_temp = val->intval;
+		}
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS:
 		rc = smb1390_get_isns(chip, val);
@@ -844,11 +842,6 @@ static void smb1390_release_channels(struct smb1390 *chip)
 
 static int smb1390_create_votables(struct smb1390 *chip)
 {
-	chip->cp_awake_votable = create_votable("CP_AWAKE", VOTE_SET_ANY,
-			smb1390_awake_vote_cb, chip);
-	if (IS_ERR(chip->cp_awake_votable))
-		return PTR_ERR(chip->cp_awake_votable);
-
 	chip->disable_votable = create_votable("CP_DISABLE",
 			VOTE_SET_ANY, smb1390_disable_vote_cb, chip);
 	if (IS_ERR(chip->disable_votable))
@@ -880,7 +873,6 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 {
 	destroy_votable(chip->disable_votable);
 	destroy_votable(chip->ilim_votable);
-	destroy_votable(chip->cp_awake_votable);
 }
 
 static int smb1390_init_hw(struct smb1390 *chip)
@@ -989,7 +981,8 @@ static int smb1390_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	spin_lock_init(&chip->status_change_lock);
 	mutex_init(&chip->die_chan_lock);
-	chip->switcher_disabled = true;
+	chip->die_temp = -ENODATA;
+	platform_set_drvdata(pdev, chip);
 
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
@@ -1071,6 +1064,30 @@ static int smb1390_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int smb1390_suspend(struct device *dev)
+{
+	struct smb1390 *chip = dev_get_drvdata(dev);
+
+	chip->suspended = true;
+	return 0;
+}
+
+static int smb1390_resume(struct device *dev)
+{
+	struct smb1390 *chip = dev_get_drvdata(dev);
+
+	chip->suspended = false;
+	rerun_election(chip->ilim_votable);
+	rerun_election(chip->disable_votable);
+
+	return 0;
+}
+
+static const struct dev_pm_ops smb1390_pm_ops = {
+	.suspend	= smb1390_suspend,
+	.resume		= smb1390_resume,
+};
+
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,smb1390-charger-psy", },
 	{ },
@@ -1079,6 +1096,7 @@ static const struct of_device_id match_table[] = {
 static struct platform_driver smb1390_driver = {
 	.driver	= {
 		.name		= "qcom,smb1390-charger-psy",
+		.pm		= &smb1390_pm_ops,
 		.of_match_table	= match_table,
 	},
 	.probe	= smb1390_probe,

@@ -1423,13 +1423,15 @@ static int smblib_set_moisture_protection(struct smb_charger *chg,
 
 		/* Set 1% duty cycle on ID detection */
 		rc = smblib_masked_write(chg,
-					TYPEC_U_USB_WATER_PROTECTION_CFG_REG,
-					EN_MICRO_USB_WATER_PROTECTION_BIT |
-					MICRO_USB_DETECTION_ON_TIME_CFG_MASK |
-					MICRO_USB_DETECTION_PERIOD_CFG_MASK,
-					EN_MICRO_USB_WATER_PROTECTION_BIT |
-					MICRO_USB_DETECTION_ON_TIME_20_MS |
-					MICRO_USB_DETECTION_PERIOD_X_100);
+				((chg->smb_version == PMI632_SUBTYPE) ?
+				PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+				TYPEC_U_USB_WATER_PROTECTION_CFG_REG),
+				EN_MICRO_USB_WATER_PROTECTION_BIT |
+				MICRO_USB_DETECTION_ON_TIME_CFG_MASK |
+				MICRO_USB_DETECTION_PERIOD_CFG_MASK,
+				EN_MICRO_USB_WATER_PROTECTION_BIT |
+				MICRO_USB_DETECTION_ON_TIME_20_MS |
+				MICRO_USB_DETECTION_PERIOD_X_100);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set 1 percent CC_ID duty cycle rc=%d\n",
 				rc);
@@ -1454,7 +1456,9 @@ static int smblib_set_moisture_protection(struct smb_charger *chg,
 		}
 
 		/* Disable periodic monitoring of CC_ID pin */
-		rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+		rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+				PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+				TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't disable 1 percent CC_ID duty cycle rc=%d\n",
 				rc);
@@ -2730,6 +2734,11 @@ int smblib_get_prop_dc_present(struct smb_charger *chg,
 	int rc;
 	u8 stat;
 
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		val->intval = 0;
+		return 0;
+	}
+
 	rc = smblib_read(chg, DCIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read DCIN_RT_STS rc=%d\n", rc);
@@ -2745,6 +2754,11 @@ int smblib_get_prop_dc_online(struct smb_charger *chg,
 {
 	int rc = 0;
 	u8 stat;
+
+	if (chg->smb_version == PMI632_SUBTYPE) {
+		val->intval = 0;
+		return 0;
+	}
 
 	if (get_client_vote(chg->dc_suspend_votable, USER_VOTER)) {
 		val->intval = false;
@@ -4897,6 +4911,9 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 	u8 stat;
 	int rc;
 
+	if (chg->lpd_disabled)
+		return false;
+
 	rc = smblib_read(chg, TYPE_C_SRC_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_SRC_STATUS_REG rc=%d\n",
@@ -5139,12 +5156,35 @@ static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
 						chg->typec_mode, typec_mode);
 }
 
+static void smblib_lpd_launch_ra_open_work(struct smb_charger *chg)
+{
+	u8 stat;
+	int rc;
+
+	if (chg->lpd_disabled)
+		return;
+
+	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
+			rc);
+		return;
+	}
+
+	if (!(stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)
+			&& chg->lpd_stage == LPD_STAGE_NONE) {
+		chg->lpd_stage = LPD_STAGE_FLOAT;
+		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
+		vote(chg->awake_votable, LPD_VOTER, true, 0);
+		schedule_delayed_work(&chg->lpd_ra_open_work,
+						msecs_to_jiffies(300));
+	}
+}
+
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
-	u8 stat;
-	int rc;
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s\n", irq_data->name);
 
@@ -5176,21 +5216,7 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data)
 	if (chg->pr_swap_in_progress || chg->pd_hard_reset)
 		goto out;
 
-	rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_MISC_STATUS_REG rc=%d\n",
-			rc);
-		goto out;
-	}
-
-	if (!(stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)
-			&& chg->lpd_stage == LPD_STAGE_NONE) {
-		chg->lpd_stage = LPD_STAGE_FLOAT;
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, true, 0);
-		schedule_delayed_work(&chg->lpd_ra_open_work,
-						msecs_to_jiffies(300));
-	}
+	smblib_lpd_launch_ra_open_work(chg);
 
 	if (chg->usb_psy)
 		power_supply_changed(chg->usb_psy);
@@ -5225,6 +5251,16 @@ irqreturn_t typec_state_change_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smblib_lpd_clear_ra_open_work(struct smb_charger *chg)
+{
+	if (chg->lpd_disabled)
+		return;
+
+	cancel_delayed_work_sync(&chg->lpd_detach_work);
+	chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
+	cancel_delayed_work_sync(&chg->lpd_ra_open_work);
+	vote(chg->awake_votable, LPD_VOTER, false, 0);
+}
 
 irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 {
@@ -5243,10 +5279,8 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 	}
 
 	if (stat & TYPEC_ATTACH_DETACH_STATE_BIT) {
-		cancel_delayed_work_sync(&chg->lpd_detach_work);
-		chg->lpd_stage = LPD_STAGE_FLOAT_CANCEL;
-		cancel_delayed_work_sync(&chg->lpd_ra_open_work);
-		vote(chg->awake_votable, LPD_VOTER, false, 0);
+
+		smblib_lpd_clear_ra_open_work(chg);
 
 		rc = smblib_read(chg, TYPE_C_MISC_STATUS_REG, &stat);
 		if (rc < 0) {
@@ -5782,7 +5816,9 @@ static void smblib_moisture_protection_work(struct work_struct *work)
 	 * Disable 1% duty cycle on CC_ID pin and enable uUSB factory mode
 	 * detection to track any change on RID, as interrupts are disable.
 	 */
-	rc = smblib_write(chg, TYPEC_U_USB_WATER_PROTECTION_CFG_REG, 0);
+	rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
+			PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+			TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
 			rc);
