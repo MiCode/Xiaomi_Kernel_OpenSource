@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -28,6 +29,7 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/syscore_ops.h>
+#include <linux/soc/qcom/irq.h>
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/log2.h>
@@ -71,6 +73,7 @@ struct msm_pinctrl {
 
 	DECLARE_BITMAP(dual_edge_irqs, MAX_NR_GPIO);
 	DECLARE_BITMAP(enabled_irqs, MAX_NR_GPIO);
+	DECLARE_BITMAP(wakeup_masked_irqs, MAX_NR_GPIO);
 
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs;
@@ -640,6 +643,13 @@ static void msm_gpio_irq_mask(struct irq_data *d)
 
 	g = &pctrl->soc->groups[d->hwirq];
 
+	if (d->parent_data)
+		irq_chip_mask_parent(d);
+
+	/* Monitored by parent wakeup controller? */
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
 	val = readl(pctrl->regs + g->intr_cfg_reg);
@@ -684,6 +694,13 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 
 	g = &pctrl->soc->groups[d->hwirq];
 
+	if (d->parent_data)
+		irq_chip_unmask_parent(d);
+
+	/* Monitored by parent wakeup controller? Keep masked */
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
 	val = readl(pctrl->regs + g->intr_cfg_reg);
@@ -703,6 +720,10 @@ static void msm_gpio_irq_ack(struct irq_data *d)
 	const struct msm_pingroup *g;
 	unsigned long flags;
 	u32 val;
+
+	/* Handled by parent wakeup controller? Do nothing */
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
 
 	g = &pctrl->soc->groups[d->hwirq];
 
@@ -730,6 +751,13 @@ static int msm_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	u32 val;
 
 	g = &pctrl->soc->groups[d->hwirq];
+
+	if (d->parent_data)
+		irq_chip_set_type_parent(d, type);
+
+	/* Monitored by parent wakeup controller? Keep masked */
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return 0;
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
@@ -821,6 +849,9 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
 	unsigned long flags;
 
+	if (d->parent_data)
+		return irq_chip_set_wake_parent(d, on);
+
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
 	irq_set_irq_wake(pctrl->irq, on);
@@ -904,11 +935,90 @@ static bool msm_gpio_needs_valid_mask(struct msm_pinctrl *pctrl)
 	return device_property_read_u16_array(pctrl->dev, "gpios", NULL, 0) > 0;
 }
 
+static int msm_gpio_domain_translate(struct irq_domain *d,
+				     struct irq_fwspec *fwspec,
+				     unsigned long *hwirq, unsigned int *type)
+{
+	if (is_of_node(fwspec->fwnode)) {
+		if (fwspec->param_count < 2)
+			return -EINVAL;
+		*hwirq = fwspec->param[0];
+		*type = fwspec->param[1] & IRQ_TYPE_SENSE_MASK;
+		return 0;
+	}
+
+	return 0;
+}
+
+static int msm_gpio_domain_alloc(struct irq_domain *domain, unsigned int virq,
+				 unsigned int nr_irqs, void *arg)
+{
+	int ret;
+	irq_hw_number_t hwirq;
+	struct gpio_chip *gc = domain->host_data;
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+	struct irq_fwspec *fwspec = arg;
+	struct qcom_irq_fwspec parent = { };
+	unsigned int type;
+
+	ret = msm_gpio_domain_translate(domain, fwspec, &hwirq, &type);
+	if (ret)
+		return ret;
+
+	ret = irq_domain_set_hwirq_and_chip(domain, virq, hwirq,
+					    &pctrl->irq_chip, gc);
+	if (ret < 0)
+		return ret;
+
+	if (!domain->parent)
+		return 0;
+
+	parent.fwspec.param_count = 2;
+	parent.fwspec.param[0] = GPIO_NO_WAKE_IRQ;
+	parent.fwspec.param[1] = type;
+	ret = of_irq_domain_map(fwspec, &parent.fwspec);
+	if (ret == -ENOMEM)
+		return ret;
+
+	parent.fwspec.fwnode = domain->parent->fwnode;
+
+	ret = irq_domain_alloc_irqs_parent(domain, virq, nr_irqs, &parent);
+	if (ret)
+		return ret;
+
+	if (parent.mask)
+		set_bit(hwirq, pctrl->wakeup_masked_irqs);
+
+	return 0;
+}
+
+/*
+ * TODO: Get rid of this and push it into gpiochip_to_irq()
+ */
+static int msm_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
+{
+	struct irq_fwspec fwspec;
+
+	fwspec.fwnode = of_node_to_fwnode(chip->of_node);
+	fwspec.param[0] = offset;
+	fwspec.param[1] = IRQ_TYPE_NONE;
+	fwspec.param_count = 2;
+
+	return irq_create_fwspec_mapping(&fwspec);
+}
+
+static const struct irq_domain_ops msm_gpio_domain_ops = {
+	.translate = msm_gpio_domain_translate,
+	.alloc     = msm_gpio_domain_alloc,
+	.free      = irq_domain_free_irqs_top,
+};
+
 static int msm_gpio_init(struct msm_pinctrl *pctrl)
 {
 	struct gpio_chip *chip;
 	int ret;
 	unsigned ngpio = pctrl->soc->ngpios;
+	struct device_node *dn;
 
 	if (WARN_ON(ngpio > MAX_NR_GPIO))
 		return -EINVAL;
@@ -923,11 +1033,28 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	chip->need_valid_mask = msm_gpio_needs_valid_mask(pctrl);
 
 	pctrl->irq_chip.name = "msmgpio";
+	pctrl->irq_chip.irq_eoi	= irq_chip_eoi_parent;
 	pctrl->irq_chip.irq_mask = msm_gpio_irq_mask;
 	pctrl->irq_chip.irq_unmask = msm_gpio_irq_unmask;
 	pctrl->irq_chip.irq_ack = msm_gpio_irq_ack;
 	pctrl->irq_chip.irq_set_type = msm_gpio_irq_set_type;
 	pctrl->irq_chip.irq_set_wake = msm_gpio_irq_set_wake;
+
+	chip->irq.chip = &pctrl->irq_chip;
+	chip->irq.handler = handle_edge_irq;
+	chip->irq.default_type = IRQ_TYPE_NONE;
+
+	dn = of_parse_phandle(pctrl->dev->of_node, "wakeup-parent", 0);
+	if (dn) {
+		chip->irq.parent_domain = irq_find_matching_host(dn,
+						 DOMAIN_BUS_WAKEUP);
+		of_node_put(dn);
+		if (!chip->irq.parent_domain)
+			return -EPROBE_DEFER;
+
+		chip->to_irq = msm_gpio_to_irq;
+		chip->irq.domain_ops = &msm_gpio_domain_ops;
+	}
 
 	ret = gpiochip_add_data(&pctrl->chip, pctrl);
 	if (ret) {
@@ -938,8 +1065,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	ret = msm_gpio_init_valid_mask(chip, pctrl);
 	if (ret) {
 		dev_err(pctrl->dev, "Failed to setup irq valid bits\n");
-		gpiochip_remove(&pctrl->chip);
-		return ret;
+		goto fail;
 	}
 
 	/*
@@ -957,26 +1083,17 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 			dev_name(pctrl->dev), 0, 0, chip->ngpio);
 		if (ret) {
 			dev_err(pctrl->dev, "Failed to add pin range\n");
-			gpiochip_remove(&pctrl->chip);
-			return ret;
+			goto fail;
 		}
-	}
-
-	ret = gpiochip_irqchip_add(chip,
-				   &pctrl->irq_chip,
-				   0,
-				   handle_edge_irq,
-				   IRQ_TYPE_NONE);
-	if (ret) {
-		dev_err(pctrl->dev, "Failed to add irqchip to gpiochip\n");
-		gpiochip_remove(&pctrl->chip);
-		return -ENOSYS;
 	}
 
 	gpiochip_set_chained_irqchip(chip, &pctrl->irq_chip, pctrl->irq,
 				     msm_gpio_irq_handler);
 
 	return 0;
+fail:
+	gpiochip_remove(&pctrl->chip);
+	return ret;
 }
 
 static int msm_ps_hold_restart(struct notifier_block *nb, unsigned long action,
