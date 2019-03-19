@@ -172,6 +172,7 @@ struct ipa3_usb_transport_type_ctx {
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *user_data);
 	void *user_data;
 	enum ipa3_usb_state state;
+	bool rwakeup_pending;
 	struct ipa_usb_xdci_chan_params ul_ch_params;
 	struct ipa_usb_xdci_chan_params dl_ch_params;
 	struct ipa3_usb_teth_prot_conn_params teth_conn_params;
@@ -313,10 +314,12 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 	unsigned long flags;
 	int state_legal = false;
 	enum ipa3_usb_state state;
+	bool rwakeup_pending;
 	struct ipa3_usb_rm_context *rm_ctx;
 
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
 	state = ipa3_usb_ctx->ttype_ctx[ttype].state;
+	rwakeup_pending = ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
 	switch (new_state) {
 	case IPA_USB_INVALID:
 		if (state == IPA_USB_INITIALIZED)
@@ -356,8 +359,10 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 			 * In case of failure during resume, state is reverted
 			 * to original, which could be suspended. Allow it
 			 */
-			(err_permit && state == IPA_USB_RESUME_IN_PROGRESS))
+			(err_permit && state == IPA_USB_RESUME_IN_PROGRESS)) {
 			state_legal = true;
+			rwakeup_pending = false;
+		}
 		break;
 	case IPA_USB_SUSPENDED_NO_RWAKEUP:
 		if (state == IPA_USB_CONNECTED)
@@ -379,6 +384,8 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 				ipa3_usb_state_to_string(state),
 				ipa3_usb_state_to_string(new_state));
 			ipa3_usb_ctx->ttype_ctx[ttype].state = new_state;
+			ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+				rwakeup_pending;
 		}
 	} else {
 		IPA_USB_ERR("invalid state change %s -> %s\n",
@@ -562,12 +569,42 @@ static void ipa3_usb_dpl_dummy_prod_notify_cb(void *user_data,
 
 static void ipa3_usb_wq_notify_remote_wakeup(struct work_struct *work)
 {
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_TETH, IPA_USB_REMOTE_WAKEUP);
+	bool rwakeup_pending;
+	unsigned long flags;
+	enum ipa3_usb_transport_type ttype =
+		IPA_USB_TRANSPORT_TETH;
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	rwakeup_pending =
+		ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
+	if (!rwakeup_pending) {
+		rwakeup_pending = true;
+		ipa3_usb_notify_do(ttype,
+			IPA_USB_REMOTE_WAKEUP);
+	}
+	ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+		rwakeup_pending;
+	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 }
 
 static void ipa3_usb_wq_dpl_notify_remote_wakeup(struct work_struct *work)
 {
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_DPL, IPA_USB_REMOTE_WAKEUP);
+	bool rwakeup_pending;
+	unsigned long flags;
+	enum ipa3_usb_transport_type ttype =
+		IPA_USB_TRANSPORT_DPL;
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	rwakeup_pending =
+		ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
+	if (!rwakeup_pending) {
+		rwakeup_pending = true;
+		ipa3_usb_notify_do(ttype,
+			IPA_USB_REMOTE_WAKEUP);
+	}
+	ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+		rwakeup_pending;
+	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 }
 
 static int ipa3_usb_cons_request_resource_cb_do(
