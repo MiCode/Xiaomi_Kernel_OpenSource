@@ -1389,6 +1389,11 @@ static u32 _sde_crtc_get_displays_affected(struct drm_crtc *crtc,
 	u32 disp_bitmask = 0;
 	int i;
 
+	if (!crtc || !state) {
+		pr_err("Invalid crtc or state\n");
+		return 0;
+	}
+
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
 
