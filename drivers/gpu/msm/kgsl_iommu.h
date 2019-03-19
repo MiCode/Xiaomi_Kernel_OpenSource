@@ -43,10 +43,6 @@
 /* TLBSTATUS register fields */
 #define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
 
-/* IMPLDEF_MICRO_MMU_CTRL register fields */
-#define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT  0x00000004
-#define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE  0x00000008
-
 /* SCTLR fields */
 #define KGSL_IOMMU_SCTLR_HUPCF_SHIFT		8
 #define KGSL_IOMMU_SCTLR_CFCFG_SHIFT		7
@@ -115,7 +111,6 @@ struct kgsl_iommu_context {
  * @setstate: Scratch GPU memory for IOMMU operations
  * @clk_enable_count: The ref count of clock enable calls
  * @clks: Array of pointers to IOMMU clocks
- * @micro_mmu_ctrl: GPU register offset of this glob al register
  * @smmu_info: smmu info used in a5xx preemption
  * @protect: register protection settings for the iommu.
  * @pagefault_suppression_count: Total number of pagefaults
@@ -129,9 +124,7 @@ struct kgsl_iommu {
 	struct kgsl_memdesc setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
-	unsigned int micro_mmu_ctrl;
 	struct kgsl_memdesc smmu_info;
-	unsigned int version;
 	struct kgsl_protected_registers protect;
 	u32 pagefault_suppression_count;
 };

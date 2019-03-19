@@ -46,74 +46,6 @@ static unsigned int _wait_reg(struct adreno_device *adreno_dev,
 #define KGSL_MMU(_dev) \
 	((struct kgsl_mmu *) (&(KGSL_DEVICE((_dev))->mmu)))
 
-static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
-				 unsigned int *cmds)
-{
-	unsigned int *start = cmds;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-
-	/*
-	 * If we don't have this register, probe should have forced
-	 * global pagetables and we shouldn't get here.
-	 */
-	if (WARN_ONCE(iommu->micro_mmu_ctrl == UINT_MAX,
-		"invalid GPU IOMMU lock sequence\n"))
-		return 0;
-
-	/*
-	 * glue commands together until next
-	 * WAIT_FOR_ME
-	 */
-	cmds += _wait_reg(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
-
-	/* set the iommu lock bit */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = iommu->micro_mmu_ctrl >> 2;
-	/* AND to unmask the lock bit */
-	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-	/* OR to set the IOMMU lock bit */
-	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
-
-	/* wait for smmu to lock */
-	cmds += _wait_reg(adreno_dev, cmds, iommu->micro_mmu_ctrl >> 2,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
-
-	return cmds - start;
-}
-
-static unsigned int _iommu_unlock(struct adreno_device *adreno_dev,
-				  unsigned int *cmds)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-	unsigned int *start = cmds;
-
-	/*
-	 * If we don't have this register, probe should have forced
-	 * global pagetables and we shouldn't get here.
-	 */
-	if (WARN_ONCE(iommu->micro_mmu_ctrl == UINT_MAX,
-		"invalid GPU IOMMU unlock sequence\n"))
-		return 0;
-
-	/* unlock the IOMMU lock */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = iommu->micro_mmu_ctrl >> 2;
-	/* AND to unmask the lock bit */
-	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-	/* OR with 0 so lock bit is unset */
-	*cmds++ = 0;
-
-	/* release all commands since _iommu_lock() with wait_for_me */
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-
-	return cmds - start;
-}
-
 static unsigned int _vbif_lock(struct adreno_device *adreno_dev,
 			unsigned int *cmds)
 {
@@ -165,8 +97,6 @@ static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 				enum kgsl_iommu_reg_map reg,
 				unsigned int num)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	unsigned int *start = cmds;
 	unsigned int offset;
 
@@ -174,7 +104,7 @@ static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 					  KGSL_IOMMU_CONTEXT_USER, reg) >> 2;
 
 	/* Required for a3x, a4x, a5x families */
-	if (adreno_is_a5xx(adreno_dev) || iommu->version == 1) {
+	if (adreno_is_a5xx(adreno_dev)) {
 		*cmds++ = cp_register(adreno_dev, offset, num);
 	} else if (adreno_is_a3xx(adreno_dev)) {
 		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
@@ -327,144 +257,6 @@ static inline int _adreno_iommu_add_idle_indirect_cmds(
 	return cmds - start;
 }
 
-/**
- * _adreno_mmu_set_pt_update_condition() - Generate commands to setup a
- * flag to indicate whether pt switch is required or not by comparing
- * current pt id and incoming pt id
- * @rb: The RB on which the commands will execute
- * @cmds: The pointer to memory where the commands are placed.
- * @ptname: Incoming pt id to set to
- *
- * Returns number of commands added.
- */
-static unsigned int _adreno_mmu_set_pt_update_condition(
-			struct adreno_ringbuffer *rb,
-			unsigned int *cmds, unsigned int ptname)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	unsigned int *cmds_orig = cmds;
-	/*
-	 * write 1 to switch pt flag indicating that we need to execute the
-	 * pt switch commands
-	 */
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(switch_pt_enable)));
-	*cmds++ = 1;
-	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
-	*cmds++ = 0;
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-	/*
-	 * The current ptname is
-	 * directly compared to the incoming pt id
-	 */
-	*cmds++ = cp_mem_packet(adreno_dev, CP_COND_WRITE, 6, 2);
-	/* write to mem space, when a mem space is equal to ref val */
-	*cmds++ = (1 << 8) | (1 << 4) | 3;
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-	   (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(current_global_ptname)));
-	*cmds++ = ptname;
-	*cmds++ = 0xFFFFFFFF;
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(switch_pt_enable)));
-	*cmds++ = 0;
-	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
-	*cmds++ = 0;
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-
-	return cmds - cmds_orig;
-}
-
-/**
- * _adreno_iommu_pt_update_pid_to_mem() - Add commands to write to memory the
- * pagetable id.
- * @rb: The ringbuffer on which these commands will execute
- * @cmds: Pointer to memory where the commands are copied
- * @ptname: The pagetable id
- */
-static unsigned int _adreno_iommu_pt_update_pid_to_mem(
-				struct adreno_ringbuffer *rb,
-				unsigned int *cmds, int ptname)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	unsigned int *cmds_orig = cmds;
-
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(current_rb_ptname)));
-	*cmds++ = ptname;
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-		(adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(current_global_ptname)));
-	*cmds++ = ptname;
-	/* pagetable switch done, Housekeeping: set the switch_pt_enable to 0 */
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(switch_pt_enable)));
-	*cmds++ = 0;
-	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
-	*cmds++ = 0;
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-
-	return cmds - cmds_orig;
-}
-
-static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
-					unsigned int *cmds_orig,
-					u64 ttbr0, u32 contextidr, u32 ptname)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	unsigned int *cmds = cmds_orig;
-	unsigned int *cond_exec_ptr;
-
-	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
-
-	/* set flag that indicates whether pt switch is required*/
-	cmds += _adreno_mmu_set_pt_update_condition(rb, cmds, ptname);
-	*cmds++ = cp_mem_packet(adreno_dev, CP_COND_EXEC, 4, 2);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(switch_pt_enable)));
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		PT_INFO_OFFSET(switch_pt_enable)));
-	*cmds++ = 1;
-	/* Exec count to be filled later */
-	cond_exec_ptr = cmds;
-	cmds++;
-
-	cmds += cp_wait_for_idle(adreno_dev, cmds);
-
-	cmds += _iommu_lock(adreno_dev, cmds);
-
-	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-	*cmds++ = lower_32_bits(ttbr0);
-	*cmds++ = upper_32_bits(ttbr0);
-	cmds += _cp_smmu_reg(adreno_dev, cmds,
-			KGSL_IOMMU_CTX_CONTEXTIDR, 1);
-	*cmds++ = contextidr;
-
-	/* a3xx doesn't have MEQ space to hold the TLBI commands */
-	if (adreno_is_a3xx(adreno_dev))
-		cmds += _iommu_unlock(adreno_dev, cmds);
-
-	cmds += _tlbiall(adreno_dev, cmds);
-
-	/* unlock or wait for me to finish the TLBI */
-	if (!adreno_is_a3xx(adreno_dev))
-		cmds += _iommu_unlock(adreno_dev, cmds);
-	else
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-
-	/* Exec count ordinal of CP_COND_EXEC packet */
-	*cond_exec_ptr = (cmds - cond_exec_ptr - 1);
-	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
-	cmds += _adreno_iommu_pt_update_pid_to_mem(rb, cmds, ptname);
-
-	return cmds - cmds_orig;
-}
-
-
 static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 					unsigned int *cmds_orig,
 					u64 ttbr0, u32 contextidr)
@@ -587,24 +379,16 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
 		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
-	if (iommu->version >= 2) {
-		if (adreno_is_a6xx(adreno_dev))
-			cmds += _adreno_iommu_set_pt_v2_a6xx(device, cmds,
-						ttbr0, contextidr, rb,
-						ctx->cb_num);
-		else if (adreno_is_a5xx(adreno_dev))
-			cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
-						ttbr0, contextidr, rb);
-		else if (adreno_is_a3xx(adreno_dev))
-			cmds += _adreno_iommu_set_pt_v2_a3xx(device, cmds,
-						ttbr0, contextidr);
-		else
-			WARN_ONCE(1,
-			"GPU IOMMU set pagetable sequence not defined\n");
-	} else {
-		cmds += _adreno_iommu_set_pt_v1(rb, cmds, ttbr0, contextidr,
-						pt->name);
-	}
+	if (adreno_is_a6xx(adreno_dev))
+		cmds += _adreno_iommu_set_pt_v2_a6xx(device, cmds,
+					ttbr0, contextidr, rb,
+					ctx->cb_num);
+	else if (adreno_is_a5xx(adreno_dev))
+		cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
+					ttbr0, contextidr, rb);
+	else if (adreno_is_a3xx(adreno_dev))
+		cmds += _adreno_iommu_set_pt_v2_a3xx(device, cmds,
+					ttbr0, contextidr);
 
 	/* invalidate all base pointers */
 	cmds += cp_invalidate_state(adreno_dev, cmds);
