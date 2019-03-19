@@ -106,23 +106,10 @@ static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit);
  * -------------------------------------------------------------------------
  */
 static const char * const npu_post_clocks[] = {
-	"npu_cpc_clk",
-	"npu_cpc_timer_clk"
 };
 
 static const char * const npu_exclude_rate_clocks[] = {
-	"qdss_clk",
-	"at_clk",
-	"trig_clk",
-	"sleep_clk",
 	"xo_clk",
-	"conf_noc_ahb_clk",
-	"comp_noc_axi_clk",
-	"npu_core_cti_clk",
-	"npu_core_apb_clk",
-	"npu_core_atb_clk",
-	"npu_cpc_timer_clk",
-	"qtimer_core_clk",
 	"bwmon_clk",
 	"bto_core_clk",
 	"llm_xo_clk",
@@ -134,7 +121,14 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"dsp_bwmon_ahb_clk",
 	"cal_hm0_perf_cnt_clk",
 	"cal_hm1_perf_cnt_clk",
-	"dsp_ahbs_clk"
+	"dsp_ahbs_clk",
+	"axi_clk",
+	"ahb_clk",
+	"dma_clk",
+	"llm_temp_clk",
+	"llm_curr_clk",
+	"atb_clk",
+	"s2p_clk",
 };
 
 static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
