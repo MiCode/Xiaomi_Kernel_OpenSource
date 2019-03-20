@@ -1368,7 +1368,6 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 {
 	uint32_t display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
 	u32 value = 0x0;
-	u32 hdr10_hist = 0x0;
 
 	switch (inst->fmts[OUTPUT_PORT].fourcc) {
 	case V4L2_PIX_FMT_H264:
@@ -1393,10 +1392,10 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 	msm_comm_set_extradata(inst, display_info, 0x1);
 	if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9 ||
 		inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
-		hdr10_hist = 0x1;
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_HDR10_HIST_EXTRADATA, 0x1);
 	}
-	msm_comm_set_extradata(inst,
-		HFI_PROPERTY_PARAM_HDR10_HIST_EXTRADATA, hdr10_hist);
+
 	msm_comm_set_extradata(inst,
 		HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB, 0x1);
 	if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
