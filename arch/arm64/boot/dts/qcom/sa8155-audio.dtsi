@@ -441,6 +441,10 @@
 };
 
 &audio_apr {
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+	};
+
 	snd_9360: sound-pahu {
 		status = "disabled";
 	};
@@ -448,7 +452,9 @@
 	snd_934x: sound-tavil {
 		status = "disabled";
 	};
+};
 
+&q6core {
 	sound-adp-star {
 		compatible = "qcom,sa8155-asoc-snd-adp-star";
 		qcom,model = "sa8155-adp-star-snd-card";
@@ -536,6 +542,7 @@
 				"msm-dai-q6-tdm.36935";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 };
 
