@@ -564,17 +564,10 @@ static int smb5_parse_dt(struct smb5 *chip)
 	if (rc < 0)
 		return rc;
 
-	if (!chg->iio.mid_chan) {
-		rc = smblib_get_iio_channel(chg, "usb_in_voltage",
-				&chg->iio.usbin_v_chan);
-		if (rc < 0)
-			return rc;
-
-		if (!chg->iio.usbin_v_chan) {
-			dev_err(chg->dev, "No voltage channel defined");
-			return -EINVAL;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
 	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
 	if (rc < 0)
