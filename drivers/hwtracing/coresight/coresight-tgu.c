@@ -25,6 +25,7 @@
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"
+#include "apss_tgu.h"
 
 #define tgu_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define tgu_readl(drvdata, off)		__raw_readl(drvdata->base + off)
@@ -415,6 +416,7 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_platform_data *pdata;
 	struct tgu_drvdata *drvdata;
 	struct coresight_desc *desc;
+	const char *name;
 
 	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
 	if (IS_ERR(pdata))
@@ -502,6 +504,13 @@ static int tgu_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(drvdata->csdev)) {
 		ret = PTR_ERR(drvdata->csdev);
 		goto err;
+	}
+
+	of_property_read_string(adev->dev.of_node, "coresight-name", &name);
+	if (!strcmp(name, "coresight-tgu-apss")) {
+		ret = register_interrupt_handler(adev->dev.of_node);
+		if (ret)
+			return ret;
 	}
 
 	pm_runtime_put(&adev->dev);
