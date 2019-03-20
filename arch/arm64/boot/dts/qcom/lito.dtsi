@@ -1472,6 +1472,7 @@
 #include "lito-regulators.dtsi"
 #include "lito-smp2p.dtsi"
 #include "lito-usb.dtsi"
+#include "lito-ion.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
