@@ -53,6 +53,7 @@ enum ion_heap_ids {
 #define ION_QSECOM_TA_HEAP_ID		19
 #define ION_AUDIO_HEAP_ID		28
 #define ION_CAMERA_HEAP_ID		20
+#define ION_USER_CONTIG_HEAP_ID		26
 /**
  * Flags to be used when allocating from the secure heap for
  * content protection
@@ -100,15 +101,15 @@ enum ion_heap_ids {
 #define ION_IOC_MSM_MAGIC 'M'
 
 struct ion_prefetch_regions {
+	__u64 sizes;
 	__u32 vmid;
-	__u64 __user *sizes;
 	__u32 nr_sizes;
 };
 
 struct ion_prefetch_data {
-	__u32 heap_id;
 	__u64 len;
-	struct ion_prefetch_regions __user *regions;
+	__u64 regions;
+	__u32 heap_id;
 	__u32 nr_regions;
 };
 

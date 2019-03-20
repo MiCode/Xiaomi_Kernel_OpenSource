@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -30,6 +30,7 @@
 #define ION_MM_HEAP_NAME	"mm"
 #define ION_SPSS_HEAP_NAME	"spss"
 #define ION_SECURE_CARVEOUT_HEAP_NAME	"secure_carveout"
+#define ION_USER_CONTIG_HEAP_NAME	"user_contig"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_QSECOM_TA_HEAP_NAME	"qsecom_ta"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
