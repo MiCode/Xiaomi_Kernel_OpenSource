@@ -8,6 +8,7 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for WSA macro
  - clocks : clock handles defined for WSA  macro
+ - qcom,default-clk-id: Default clk ID used for WSA macro
  - qcom,wsa-swr-gpios: phandle for SWR data and clock GPIOs of WSA macro
  - qcom,wsa-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
 			 required to be configured to receive interrupts
@@ -24,6 +25,7 @@ Example:
 		<&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = &wsa_swr_gpios;
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr_0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
 			wsa881x_1: wsa881x@20170212 {
@@ -43,6 +45,7 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for VA macro
  - clocks : clock handles defined for VA macro
+ - qcom,default-clk-id: Default clk ID used for VA macro
  - va-vdd-micb-supply： phandle of mic bias supply's regulator device tree node
  - qcom,va-vdd-micb-voltage： mic bias supply's voltage level min and max in mV
  - qcom,va-vdd-micb-current： mic bias supply's max current in mA
@@ -61,6 +64,7 @@ Example:
 		reg = <0x0C490000 0x0>;
 		clock-names = "va_core_clk";
 		clocks = <&clock_audio_va 0>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 		va-vdd-micb-supply = <&S4A>;
 		qcom,va-vdd-micb-voltage = <1800000 1800000>;
 		qcom,va-vdd-micb-current = <11200>;
@@ -78,6 +82,7 @@ Required properties:
 	soundwire core registers.
  - clock-names : clock names defined for RX macro
  - clocks : clock handles defined for RX macro
+ - qcom,default-clk-id: Default clk ID used for RX macro
  - qcom,rx-swr-gpios: phandle for SWR data and clock GPIOs of RX macro
  - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
  - qcom,rx-bcl-pmic-params: u8 array of PMIC ID, SID and PPID in same order
@@ -96,6 +101,7 @@ Example:
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x62C25020>;
 		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr_1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			wcd938x_rx_slave: wcd938x-rx-slave {
@@ -219,4 +225,36 @@ wcd938x_codec: wcd938x-codec {
 				   "cdc-vddio";
 	qcom,cdc-on-demand-supplies = "cdc-vdd-buck",
 				      "cdc-vdd-mic-bias";
+};
+
+Bolero Clock Resource Manager
+
+Required Properties:
+ - compatible = "qcom,bolero-clk-rsc-mngr";
+ - qcom,fs-gen-sequence: Register sequence for fs clock generation
+ - clock-names : clock names defined for WSA macro
+ - clocks : clock handles defined for WSA  macro
+
+Optional Properties:
+ - qcom,rx_mclk_mode_muxsel: register address for RX macro MCLK mode mux select
+ - qcom,wsa_mclk_mode_muxsel: register address for WSA macro MCLK mux select
+ - qcom,va_mclk_mode_muxsel: register address for VA macro MCLK mode mux select
+
+Example:
+&bolero {
+	bolero-clock-rsc-manager {
+		compatible = "qcom,bolero-clk-rsc-mngr";
+		qcom,fs-gen-sequence = <0x3000 0x1>,
+				<0x3004 0x1>, <0x3080 0x2>;
+		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
+		qcom,wsa_mclk_mode_muxsel = <0x033220D8>;
+		qcom,va_mclk_mode_muxsel = <0x033A0000>;
+		clock-names = "tx_core_clk", "tx_npl_clk", "rx_core_clk",
+			"rx_npl_clk", "wsa_core_clk", "wsa_npl_clk",
+			"va_core_clk", "va_npl_clk";
+		clocks = <&clock_audio_tx_1 0>, <&clock_audio_tx_2 0>,
+			<&clock_audio_rx_1 0>, <&clock_audio_rx_2 0>,
+			<&clock_audio_wsa_1 0>, <&clock_audio_wsa_2 0>,
+			<&clock_audio_va_1 0>, <&clock_audio_va_2 0>;
+	};
 };
