@@ -1161,7 +1161,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode,
 
 	ctrl->mst_mode = mst_mode;
 	ctrl->fec_mode = fec_mode;
-	rate = ctrl->panel->get_optimal_link_rate(ctrl->panel);
+	rate = ctrl->panel->link_info.rate;
 
 	if (ctrl->link->sink_request & DP_TEST_LINK_PHY_TEST_PATTERN) {
 		pr_debug("using phy test link parameters\n");
