@@ -9,6 +9,7 @@ Required properties :
 - compatible : Shall contain one of the following:
 		"qcom,kona-rpmh-clk",
 		"qcom,sdm845-rpmh-clk"
+		"qcom,lito-rpmh-clk"
 
 - #clock-cells : must contain 1
 
