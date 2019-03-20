@@ -2848,15 +2848,15 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 		rc_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR))
 		return 0;
 
+	/* Firmware supports only random mode */
+	intra_refresh.mode = HFI_INTRA_REFRESH_RANDOM;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_RANDOM);
 	intra_refresh.mbs = 0;
 	if (ctrl->val) {
 		u32 num_mbs_per_frame = 0;
 		u32 width = inst->prop.width[CAPTURE_PORT];
 		u32 height = inst->prop.height[CAPTURE_PORT];
-
-		/* ignore cyclic mode if random mode is set */
-		intra_refresh.mode = HFI_INTRA_REFRESH_RANDOM;
 
 		num_mbs_per_frame = NUM_MBS_PER_FRAME(height, width);
 		intra_refresh.mbs = num_mbs_per_frame / ctrl->val;
@@ -2866,7 +2866,6 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 	} else {
 		ctrl = get_ctrl(inst,
 			V4L2_CID_MPEG_VIDEO_CYCLIC_INTRA_REFRESH_MB);
-		intra_refresh.mode = HFI_INTRA_REFRESH_CYCLIC;
 		intra_refresh.mbs = ctrl->val;
 	}
 	if (!intra_refresh.mbs) {
