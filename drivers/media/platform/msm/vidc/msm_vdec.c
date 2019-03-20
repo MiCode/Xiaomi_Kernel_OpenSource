@@ -904,21 +904,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst->flags |= VIDC_REALTIME;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
-		if (ctrl->val == INT_MAX) {
-			dprintk(VIDC_DBG,
-				"inst(%pK) Request for turbo mode\n", inst);
-			inst->clk_data.turbo_mode = true;
-		} else if (msm_vidc_validate_operating_rate(inst, ctrl->val)) {
-			dprintk(VIDC_ERR, "Failed to set operating rate\n");
-			rc = -ENOTSUPP;
-		} else {
-			dprintk(VIDC_DBG,
-				"inst(%pK) operating rate changed from %d to %d\n",
-				inst, inst->clk_data.operating_rate >> 16,
-					ctrl->val >> 16);
-			inst->clk_data.operating_rate = ctrl->val;
-			inst->clk_data.turbo_mode = false;
-		}
+		inst->clk_data.operating_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
 		inst->clk_data.low_latency_mode = !!ctrl->val;

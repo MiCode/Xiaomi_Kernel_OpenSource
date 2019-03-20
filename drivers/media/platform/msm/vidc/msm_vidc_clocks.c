@@ -888,13 +888,6 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			break;
 		}
 
-		if (temp->clk_data.turbo_mode) {
-			dprintk(VIDC_PROF,
-				"Found an instance with Turbo request\n");
-			freq_core_max = msm_vidc_max_freq(core);
-			decrement = false;
-			break;
-		}
 		/* increment even if one session requested for it */
 		if (temp->clk_data.dcvs_flags & MSM_VIDC_DCVS_INCR)
 			increment = true;
@@ -930,69 +923,6 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 		increment, decrement);
 	rc = call_hfi_op(hdev, scale_clocks,
 			hdev->hfi_device_data, core->curr_freq);
-
-	return rc;
-}
-
-int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
-	u32 operating_rate)
-{
-	struct msm_vidc_inst *temp;
-	struct msm_vidc_core *core;
-	unsigned long max_freq, freq_left, ops_left, load, cycles, freq = 0;
-	unsigned long mbs_per_second;
-	int rc = 0;
-	u32 curr_operating_rate = 0;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
-		return -EINVAL;
-	}
-	core = inst->core;
-	curr_operating_rate = inst->clk_data.operating_rate >> 16;
-
-	mutex_lock(&core->lock);
-	max_freq = msm_vidc_max_freq(core);
-	list_for_each_entry(temp, &core->instances, list) {
-		if (temp == inst ||
-				temp->state < MSM_VIDC_START_DONE ||
-				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
-			continue;
-
-		freq += temp->clk_data.min_freq;
-	}
-
-	freq_left = max_freq - freq;
-
-	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
-		LOAD_CALC_NO_QUIRKS);
-
-	cycles = inst->clk_data.entry->vpp_cycles;
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		cycles = inst->flags & VIDC_LOW_POWER ?
-			inst->clk_data.entry->low_power_cycles :
-			cycles;
-
-	load = cycles * mbs_per_second;
-
-	ops_left = load ? (freq_left / load) : 0;
-
-	operating_rate = operating_rate >> 16;
-
-	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
-			msm_vidc_clock_voting ||
-			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
-		dprintk(VIDC_DBG,
-			"Requestd operating rate is valid %u\n",
-			operating_rate);
-		rc = 0;
-	} else {
-		dprintk(VIDC_DBG,
-			"Current load is high for requested settings. Cannot set operating rate to %u\n",
-			operating_rate);
-		rc = -EINVAL;
-	}
-	mutex_unlock(&core->lock);
 
 	return rc;
 }
