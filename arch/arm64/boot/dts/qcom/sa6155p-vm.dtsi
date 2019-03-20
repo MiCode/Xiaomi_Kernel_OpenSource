@@ -12,6 +12,8 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
@@ -77,6 +79,7 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
@@ -166,3 +169,5 @@
 		qcom,client-id = "7815";
 	};
 };
+#include "sa6155p-vm-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"
