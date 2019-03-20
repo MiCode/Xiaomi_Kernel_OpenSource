@@ -50,6 +50,8 @@ Optional properties:
     supports hevc decoder = 0x0c000000
     supports hevc_hybrid encoder = 0x10000000
     supports hevc_hybrid decoder = 0x30000000
+- disable-dcvs-enc : flag to disable DCVS algorithm for encoders
+- disable-dcvs-dec : flag to disable DCVS algorithm for decoders
 - qcom,dcvs-tbl : specifies the parameter to configure DCVS algorithm. Video
   instance load (in mbs/sec) and corresponding low and high threshold DCVS
   load for supported codec formats.
