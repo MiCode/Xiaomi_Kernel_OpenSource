@@ -286,14 +286,11 @@ static inline u32 calculate_mpeg2d_scratch1_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, u32 min_buf_count, bool split_mode_enabled);
 
 static inline u32 calculate_h264e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes);
+	u32 width, u32 height, u32 num_ref, bool ten_bit);
 static inline u32 calculate_h265e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes);
+	u32 width, u32 height, u32 num_ref, bool ten_bit);
 static inline u32 calculate_vp8e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes);
+	u32 width, u32 height, u32 num_ref, bool ten_bit);
 
 static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, u32 num_ref, bool ten_bit);
@@ -536,8 +533,7 @@ int msm_vidc_get_encoder_internal_buffer_sizes(struct msm_vidc_inst *inst)
 			curr_req->buffer_size =
 				enc_calculators->calculate_scratch1_size(
 					inst, width, height, num_ref,
-					is_tenbit,
-					inst->clk_data.work_route);
+					is_tenbit);
 			valid_buffer_type = true;
 		} else if (curr_req->buffer_type ==
 			HAL_BUFFER_INTERNAL_SCRATCH_2) {
@@ -1244,7 +1240,8 @@ static inline u32 calculate_enc_scratch_size(struct msm_vidc_inst *inst,
 	size_singlePipe = sao_bin_buffer_size + padded_bin_size;
 	size_singlePipe = ALIGN(size_singlePipe, VENUS_DMA_ALIGNMENT);
 	bitbin_size = size_singlePipe * NUM_OF_VPP_PIPES;
-	size = ALIGN(bitbin_size, VENUS_DMA_ALIGNMENT) * total_bitbin_buffers;
+	size = ALIGN(bitbin_size, VENUS_DMA_ALIGNMENT) * total_bitbin_buffers
+			+ 512;
 
 	return size;
 }
@@ -1503,13 +1500,13 @@ static inline u32 calculate_enc_scratch1_size(struct msm_vidc_inst *inst,
 	bse_slice_cmd_buffer_size = ((((8192 << 2) + 7) & (~7)) * 6);
 	bse_reg_buffer_size = ((((512 << 3) + 7) & (~7)) * 4);
 	vpp_reg_buffer_size = ((((HFI_VENUS_VPPSG_MAX_REGISTERS << 3) + 31) &
-		(~31)) * 8);
-	lambda_lut_size = ((((52 << 1) + 7) & (~7)) * 3);
+		(~31)) * 10);
+	lambda_lut_size = ((((52 << 1) + 7) & (~7)) * 11);
 	override_buffer_size = 16 * ((frame_num_lcu + 7) >> 3);
 	override_buffer_size = ALIGN(override_buffer_size,
 		VENUS_DMA_ALIGNMENT) * 2;
 	ir_buffer_size = (((frame_num_lcu << 1) + 7) & (~7)) * 3;
-	vpss_line_buf = ((16 * width_coded) + (16 * height_coded));
+	vpss_line_buf = ((((width_coded + 3) >> 2) << 5) + 256) * 16;
 	topline_bufsize_fe_1stg_sao = (16 * (width_coded >> 5));
 	topline_bufsize_fe_1stg_sao = ALIGN(topline_bufsize_fe_1stg_sao,
 		VENUS_DMA_ALIGNMENT);
@@ -1531,27 +1528,24 @@ static inline u32 calculate_enc_scratch1_size(struct msm_vidc_inst *inst,
 }
 
 static inline u32 calculate_h264e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes)
+	u32 width, u32 height, u32 num_ref, bool ten_bit)
 {
 	return calculate_enc_scratch1_size(inst, width, height, 16,
-		num_ref, ten_bit, num_vpp_pipes, false);
+		num_ref, ten_bit, NUM_OF_VPP_PIPES, false);
 }
 
 static inline u32 calculate_h265e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes)
+	u32 width, u32 height, u32 num_ref, bool ten_bit)
 {
 	return calculate_enc_scratch1_size(inst, width, height, 32,
-		num_ref, ten_bit, num_vpp_pipes, true);
+		num_ref, ten_bit, NUM_OF_VPP_PIPES, true);
 }
 
 static inline u32 calculate_vp8e_scratch1_size(struct msm_vidc_inst *inst,
-	u32 width, u32 height, u32 num_ref, bool ten_bit,
-	u32 num_vpp_pipes)
+	u32 width, u32 height, u32 num_ref, bool ten_bit)
 {
 	return calculate_enc_scratch1_size(inst, width, height, 16,
-		num_ref, ten_bit, num_vpp_pipes, false);
+		num_ref, ten_bit, 1, false);
 }
 
 
@@ -1612,16 +1606,11 @@ static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 			16, HFI_COLOR_FORMAT_YUV420_NV12_UBWC_Y_TILE_HEIGHT);
 		meta_size_y = hfi_ubwc_metadata_plane_buffer_size(
 			metadata_stride, meta_buf_height);
-		metadata_stride = hfi_ubwc_uv_metadata_plane_stride(width,
-			64, HFI_COLOR_FORMAT_YUV420_NV12_UBWC_UV_TILE_WIDTH);
-		meta_buf_height = hfi_ubwc_uv_metadata_plane_bufheight(
-			height, 16,
-			HFI_COLOR_FORMAT_YUV420_NV12_UBWC_UV_TILE_HEIGHT);
 		meta_size_c = hfi_ubwc_metadata_plane_buffer_size(
 			metadata_stride, meta_buf_height);
 		size = (aligned_height + chroma_height) * aligned_width +
 			meta_size_y + meta_size_c;
-		size = (size * ((num_ref)+1)) + 4096;
+		size = (size * ((num_ref)+2)) + 4096;
 	} else {
 		ref_buf_height = (height + (HFI_VENUS_HEIGHT_ALIGNMENT - 1))
 			& (~(HFI_VENUS_HEIGHT_ALIGNMENT - 1));
@@ -1644,13 +1633,6 @@ static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 		metadata_stride = hfi_ubwc_calc_metadata_plane_stride(
 			width,
 			VENUS_METADATA_STRIDE_MULTIPLE,
-			HFI_COLOR_FORMAT_YUV420_NV12_UBWC_Y_TILE_WIDTH);
-		meta_buf_height = hfi_ubwc_metadata_plane_bufheight(height,
-			VENUS_METADATA_HEIGHT_MULTIPLE,
-			HFI_COLOR_FORMAT_YUV420_NV12_UBWC_Y_TILE_HEIGHT);
-		metadata_stride = hfi_ubwc_calc_metadata_plane_stride(
-			width,
-			VENUS_METADATA_STRIDE_MULTIPLE,
 			HFI_COLOR_FORMAT_YUV420_TP10_UBWC_Y_TILE_WIDTH);
 		meta_buf_height = hfi_ubwc_metadata_plane_bufheight(
 			height,
@@ -1661,7 +1643,7 @@ static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 		meta_size_c = hfi_ubwc_metadata_plane_buffer_size(
 			metadata_stride, meta_buf_height);
 		size = ref_buf_size + meta_size_y + meta_size_c;
-		size = (size * ((num_ref)+1)) + 4096;
+		size = (size * ((num_ref)+2)) + 4096;
 	}
 	return size;
 }
