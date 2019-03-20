@@ -23,7 +23,7 @@
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
-#define GSI_MAX_CTRL_PKT_SIZE 4096
+#define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
 
 #define GSI_NUM_IN_RNDIS_BUFFERS 50
