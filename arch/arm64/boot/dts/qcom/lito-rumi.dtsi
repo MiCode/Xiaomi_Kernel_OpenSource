@@ -58,6 +58,11 @@
 	clock-output-names = "rpmh_clocks";
 };
 
+&aopcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "qdss_clocks";
+};
+
 &usb0 {
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
