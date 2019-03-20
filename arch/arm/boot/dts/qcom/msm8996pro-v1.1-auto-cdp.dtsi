@@ -1,0 +1,34 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/msm-clocks-8996.h>
+#include "msm8996-pm8994.dtsi"
+#include "msm8996-auto-cdp.dtsi"
+
+&spi_9 {
+	status = "ok";
+	can-controller@0 {
+		compatible = "renesas,rh850";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0>;
+		spi-max-frequency = <5000000>;
+	};
+};
+
+&pil_modem {
+	pinctrl-names = "default";
+	pinctrl-0 = <&modem_mux>;
+};
+
+/delete-node/ &qcom_pmi8994_3;
+/delete-node/ &qcom_pm8004_5;
