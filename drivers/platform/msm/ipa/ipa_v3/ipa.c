@@ -6685,6 +6685,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;
+	cb->next_addr = cb->va_end;
 
 	return 0;
 }
