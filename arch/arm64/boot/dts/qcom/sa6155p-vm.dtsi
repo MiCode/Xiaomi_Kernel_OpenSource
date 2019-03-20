@@ -161,4 +161,8 @@
 			remote-vmids = <0>;
 		};
 	};
+	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7815";
+	};
 };
