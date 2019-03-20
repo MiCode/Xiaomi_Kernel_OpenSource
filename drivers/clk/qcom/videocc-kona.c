@@ -87,9 +87,9 @@ static struct pll_vco lucid_vco[] = {
 };
 
 static const struct alpha_pll_config video_pll0_config = {
-	.l = 0x14,
+	.l = 0x25,
 	.cal_l = 0x44,
-	.alpha = 0xD555,
+	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
@@ -121,9 +121,9 @@ static struct clk_alpha_pll video_pll0 = {
 };
 
 static const struct alpha_pll_config video_pll1_config = {
-	.l = 0x14,
+	.l = 0x29,
 	.cal_l = 0x44,
-	.alpha = 0xD555,
+	.alpha = 0xFAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
@@ -227,12 +227,10 @@ static struct clk_rcg2 video_cc_ahb_clk_src = {
 };
 
 static const struct freq_tbl ftbl_video_cc_mvs0_clk_src[] = {
-	F(400000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(720000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1014000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1098000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(1332000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
-	F(1599000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
 };
 
@@ -252,22 +250,18 @@ static struct clk_rcg2 video_cc_mvs0_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 400000000,
 			[VDD_LOWER] = 720000000,
 			[VDD_LOW] = 1014000000,
 			[VDD_LOW_L1] = 1098000000,
-			[VDD_NOMINAL] = 1332000000,
-			[VDD_HIGH] = 1599000000},
+			[VDD_NOMINAL] = 1332000000},
 	},
 };
 
 static const struct freq_tbl ftbl_video_cc_mvs1_clk_src[] = {
-	F(400000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(806000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1040000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1098000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	F(1332000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
-	F(1599000000, P_VIDEO_PLL1_OUT_MAIN, 1, 0, 0),
 	{ }
 };
 
@@ -287,12 +281,10 @@ static struct clk_rcg2 video_cc_mvs1_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 400000000,
 			[VDD_LOWER] = 806000000,
 			[VDD_LOW] = 1040000000,
 			[VDD_LOW_L1] = 1098000000,
-			[VDD_NOMINAL] = 1332000000,
-			[VDD_HIGH] = 1599000000},
+			[VDD_NOMINAL] = 1332000000},
 	},
 };
 
@@ -316,7 +308,7 @@ static struct clk_rcg2 video_cc_sleep_clk_src = {
 		.vdd_class = &vdd_mm,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 32000},
+			[VDD_LOWER] = 32000},
 	},
 };
 
