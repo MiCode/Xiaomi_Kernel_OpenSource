@@ -237,6 +237,8 @@ struct venus_hfi_vpu_ops {
 	void (*setup_dsp_uc_memmap)(struct venus_hfi_device *device);
 	void (*clock_config_on_enable)(struct venus_hfi_device *device);
 	int (*reset_ahb2axi_bridge)(struct venus_hfi_device *device);
+	void (*power_off)(struct venus_hfi_device *device);
+	void (*noc_error_info)(struct venus_hfi_device *device);
 };
 
 struct venus_hfi_device {

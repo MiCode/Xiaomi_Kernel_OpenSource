@@ -107,12 +107,18 @@ static void setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device);
 static void clock_config_on_enable_iris1(struct venus_hfi_device *device);
 static int reset_ahb2axi_bridge(struct venus_hfi_device *device);
 static int __set_ubwc_config(struct venus_hfi_device *device);
+static void power_off_common(struct venus_hfi_device *device);
+static void power_off_iris2(struct venus_hfi_device *device);
+static void noc_error_info_common(struct venus_hfi_device *device);
+static void noc_error_info_iris2(struct venus_hfi_device *device);
 
 struct venus_hfi_vpu_ops vpu4_ops = {
 	.interrupt_init = interrupt_init_vpu4,
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
 	.reset_ahb2axi_bridge = NULL,
+	.power_off = power_off_common,
+	.noc_error_info = noc_error_info_common,
 };
 
 struct venus_hfi_vpu_ops iris1_ops = {
@@ -120,6 +126,8 @@ struct venus_hfi_vpu_ops iris1_ops = {
 	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_iris1,
 	.clock_config_on_enable = clock_config_on_enable_iris1,
 	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
+	.power_off = power_off_common,
+	.noc_error_info = noc_error_info_common,
 };
 
 struct venus_hfi_vpu_ops iris2_ops = {
@@ -127,6 +135,8 @@ struct venus_hfi_vpu_ops iris2_ops = {
 	.setup_dsp_uc_memmap = NULL,
 	.clock_config_on_enable = NULL,
 	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
+	.power_off = power_off_iris2,
+	.noc_error_info = noc_error_info_iris2,
 };
 
 /**
@@ -3698,67 +3708,55 @@ err_clk_get:
 }
 
 static int __handle_reset_clk(struct msm_vidc_platform_resources *res,
-			enum reset_state state)
+			int reset_index, enum reset_state state)
 {
-	int rc = 0, i;
+	int rc = 0;
 	struct reset_control *rst;
 	struct reset_set *rst_set = &res->reset_set;
 
 	if (!rst_set->reset_tbl)
 		return 0;
 
-	dprintk(VIDC_DBG, "%s reset_state %d rst_set->count = %d\n",
-		__func__, state, rst_set->count);
+	rst = rst_set->reset_tbl[reset_index].rst;
+	dprintk(VIDC_DBG, "reset_clk: name %s reset_state %d rst %pK\n",
+		rst_set->reset_tbl[reset_index].name, state, rst);
 
-	for (i = 0; i < rst_set->count; i++) {
-		rst = rst_set->reset_tbl[i].rst;
-		switch (state) {
-		case INIT:
-			dprintk(VIDC_DBG, "%s reset_state name = %s %pK\n",
-				__func__, rst_set->reset_tbl[i].name, rst);
+	switch (state) {
+	case INIT:
+		if (rst)
+			goto skip_reset_init;
 
-			if (rst)
-				continue;
-			rst = devm_reset_control_get(&res->pdev->dev,
-				rst_set->reset_tbl[i].name);
-			if (IS_ERR(rst))
-				rc = PTR_ERR(rst);
+		rst = devm_reset_control_get(&res->pdev->dev,
+				rst_set->reset_tbl[reset_index].name);
+		if (IS_ERR(rst))
+			rc = PTR_ERR(rst);
 
-			rst_set->reset_tbl[i].rst = rst;
-			break;
-		case ASSERT:
-			if (!rst) {
-				dprintk(VIDC_DBG,
-					"%s reset_state name = %s %pK\n",
-					__func__, rst_set->reset_tbl[i].name,
-					 rst);
-				 rc = PTR_ERR(rst);
-				goto failed_to_reset;
-			}
-
-			rc = reset_control_assert(rst);
-			break;
-		case DEASSERT:
-			if (!rst) {
-				dprintk(VIDC_DBG,
-					"%s reset_state name = %s %pK\n",
-					__func__, rst_set->reset_tbl[i].name,
-					 rst);
-				 rc = PTR_ERR(rst);
-				goto failed_to_reset;
-			}
-			rc = reset_control_deassert(rst);
-			break;
-		default:
-			dprintk(VIDC_ERR, "Invalid reset request\n");
+		rst_set->reset_tbl[reset_index].rst = rst;
+		break;
+	case ASSERT:
+		if (!rst) {
+			rc = PTR_ERR(rst);
+			goto failed_to_reset;
 		}
 
+		rc = reset_control_assert(rst);
+		break;
+	case DEASSERT:
+		if (!rst) {
+			rc = PTR_ERR(rst);
+			goto failed_to_reset;
+		}
+		rc = reset_control_deassert(rst);
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid reset request\n");
 		if (rc)
 			goto failed_to_reset;
 	}
 
 	return 0;
 
+skip_reset_init:
 failed_to_reset:
 	return rc;
 }
@@ -3794,29 +3792,37 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 
 static int reset_ahb2axi_bridge(struct venus_hfi_device *device)
 {
-	int rc;
+	int rc, i;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "NULL device\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto failed_to_reset;
 	}
 
-	rc = __handle_reset_clk(device->res, ASSERT);
-	if (rc) {
-		dprintk(VIDC_ERR, "failed to assert reset clocks\n");
-		return rc;
-	}
+	for (i = 0; i < device->res->reset_set.count; i++) {
+		rc = __handle_reset_clk(device->res, i, ASSERT);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"failed to assert reset clocks\n");
+			goto failed_to_reset;
+		}
 
-	/* wait for deassert */
-	usleep_range(150, 250);
+		/* wait for deassert */
+		usleep_range(150, 250);
 
-	rc = __handle_reset_clk(device->res, DEASSERT);
-	if (rc) {
-		dprintk(VIDC_ERR, "failed to deassert reset clocks\n");
-		return rc;
+		rc = __handle_reset_clk(device->res, i, DEASSERT);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"failed to deassert reset clocks\n");
+			goto failed_to_reset;
+		}
 	}
 
 	return 0;
+
+failed_to_reset:
+	return rc;
 }
 
 static inline int __prepare_enable_clks(struct venus_hfi_device *device)
@@ -4087,7 +4093,7 @@ err_subcache_get:
 static int __init_resources(struct venus_hfi_device *device,
 				struct msm_vidc_platform_resources *res)
 {
-	int rc = 0;
+	int i, rc = 0;
 
 	rc = __init_regulators(device);
 	if (rc) {
@@ -4102,11 +4108,13 @@ static int __init_resources(struct venus_hfi_device *device,
 		goto err_init_clocks;
 	}
 
-	rc = __handle_reset_clk(res, INIT);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to init reset clocks\n");
-		rc = -ENODEV;
-		goto err_init_reset_clk;
+	for (i = 0; i < device->res->reset_set.count; i++) {
+		rc = __handle_reset_clk(res, i, INIT);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to init reset clocks\n");
+			rc = -ENODEV;
+			goto err_init_reset_clk;
+		}
 	}
 
 	rc = __init_bus(device);
@@ -4598,7 +4606,7 @@ fail_vote_buses:
 	return rc;
 }
 
-static void __venus_power_off(struct venus_hfi_device *device)
+static void power_off_common(struct venus_hfi_device *device)
 {
 	if (!device->power_enabled)
 		return;
@@ -4611,6 +4619,93 @@ static void __venus_power_off(struct venus_hfi_device *device)
 	if (call_venus_op(device, reset_ahb2axi_bridge, device))
 		dprintk(VIDC_ERR, "Failed to reset ahb2axi\n");
 
+	if (__disable_regulators(device))
+		dprintk(VIDC_WARN, "Failed to disable regulators\n");
+
+	if (__unvote_buses(device))
+		dprintk(VIDC_WARN, "Failed to unvote for buses\n");
+	device->power_enabled = false;
+}
+
+static void power_off_iris2(struct venus_hfi_device *device)
+{
+	u32 lpi_status, reg_status = 0, count = 0, max_count = 10;
+
+	if (!device->power_enabled)
+		return;
+
+	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
+		disable_irq_nosync(device->hal_data->irq);
+	device->intr_status = 0;
+
+	/* HPG 6.1.2 Step 1  */
+	__write_register(device, VIDC_CPU_CS_X2RPMh, 0x3);
+
+	/* HPG 6.1.2 Step 2, noc to low power */
+	__write_register(device, VIDC_AON_WRAPPER_MVP_NOC_LPI_CONTROL, 0x1);
+	while (!reg_status && count < max_count) {
+		lpi_status =
+			 __read_register(device,
+				VIDC_AON_WRAPPER_MVP_NOC_LPI_STATUS);
+		reg_status = lpi_status & BIT(0);
+		dprintk(VIDC_DBG,
+			"Noc: lpi_status %d noc_status %d (count %d)\n",
+			lpi_status, reg_status, count);
+		usleep_range(50, 100);
+		count++;
+	}
+	if (count == max_count) {
+		dprintk(VIDC_ERR,
+			"NOC not in qaccept status %d\n", reg_status);
+	}
+
+	/* HPG 6.1.2 Step 3, debug bridge to low power */
+	__write_register(device,
+		VIDC_WRAPPER_DEBUG_BRIDGE_LPI_CONTROL, 0x7);
+	reg_status = 0;
+	count = 0;
+	while ((reg_status != 0x7) && count < max_count) {
+		lpi_status = __read_register(device,
+				 VIDC_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
+		reg_status = lpi_status & 0x7;
+		dprintk(VIDC_DBG,
+			"DBLP Set : lpi_status %d reg_status %d (count %d)\n",
+			lpi_status, reg_status, count);
+		usleep_range(50, 100);
+		count++;
+	}
+	if (count == max_count) {
+		dprintk(VIDC_ERR,
+			"DBLP Set: status %d\n", reg_status);
+	}
+
+	/* HPG 6.1.2 Step 4, debug bridge to lpi release */
+	__write_register(device,
+		VIDC_WRAPPER_DEBUG_BRIDGE_LPI_CONTROL, 0x0);
+	lpi_status = 0x1;
+	count = 0;
+	while (lpi_status && count < max_count) {
+		lpi_status = __read_register(device,
+				 VIDC_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
+		dprintk(VIDC_DBG,
+			"DBLP Release: lpi_status %d(count %d)\n",
+			lpi_status, count);
+		usleep_range(50, 100);
+		count++;
+	}
+	if (count == max_count) {
+		dprintk(VIDC_ERR,
+			"DBLP Release: lpi_status %d\n", lpi_status);
+	}
+
+	/* HPG 6.1.2 Step 6 */
+	__disable_unprepare_clks(device);
+
+	/* HPG 6.1.2 Step 7 & 8 */
+	if (call_venus_op(device, reset_ahb2axi_bridge, device))
+		dprintk(VIDC_ERR, "Failed to reset ahb2axi\n");
+
+	/* HPG 6.1.2 Step 5 */
 	if (__disable_regulators(device))
 		dprintk(VIDC_WARN, "Failed to disable regulators\n");
 
@@ -4645,7 +4740,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 
 	__disable_subcaches(device);
 
-	__venus_power_off(device);
+	call_venus_op(device, power_off, device);
 	dprintk(VIDC_PROF, "Venus power off\n");
 	return rc;
 
@@ -4720,7 +4815,7 @@ exit:
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
-	__venus_power_off(device);
+	call_venus_op(device, power_off, device);
 err_venus_power_on:
 	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
 	return rc;
@@ -4780,7 +4875,7 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
-	__venus_power_off(device);
+	call_venus_op(device, power_off, device);
 fail_venus_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
@@ -4801,7 +4896,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
-	__venus_power_off(device);
+	call_venus_op(device, power_off, device);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
@@ -4934,10 +5029,54 @@ static void __noc_error_info(struct venus_hfi_device *device, u32 core_num)
 	dprintk(VIDC_ERR, "CORE%d_NOC_ERR_ERRLOG3_HIGH: %#x\n", core_num, val);
 }
 
+static void noc_error_info_common(struct venus_hfi_device *device)
+{
+	const u32 core0 = 0, core1 = 1;
+
+	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core0);
+
+	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
+			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
+		__noc_error_info(device, core1);
+}
+
+static void noc_error_info_iris2(struct venus_hfi_device *device)
+{
+	u32 val = 0;
+
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_SWID_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_SWID_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_SWID_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_SWID_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_MAINCTL_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_MAINCTL_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRVLD_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRVLD_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRCLR_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRCLR_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG0_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG0_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG0_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG0_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG1_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG1_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG1_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG1_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG2_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG2_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG2_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG2_HIGH:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG3_LOW);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG3_LOW:     %#x\n", val);
+	val = __read_register(device, VCODEC_NOC_ERL_MAIN_ERRLOG3_HIGH);
+	dprintk(VIDC_ERR, "VCODEC_NOC_ERL_MAIN_ERRLOG3_HIGH:     %#x\n", val);
+}
+
 static int venus_hfi_noc_error_info(void *dev)
 {
 	struct venus_hfi_device *device;
-	const u32 core0 = 0, core1 = 1;
 
 	if (!dev) {
 		dprintk(VIDC_ERR, "%s: null device\n", __func__);
@@ -4948,13 +5087,7 @@ static int venus_hfi_noc_error_info(void *dev)
 	mutex_lock(&device->lock);
 	dprintk(VIDC_ERR, "%s: non error information\n", __func__);
 
-	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core0);
-
-	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core1);
+	call_venus_op(device, noc_error_info, device);
 
 	mutex_unlock(&device->lock);
 
