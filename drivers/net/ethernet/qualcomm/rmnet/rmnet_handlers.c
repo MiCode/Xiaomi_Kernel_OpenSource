@@ -254,6 +254,8 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 		/* We only have the main QMAP header to worry about */
 		pskb_pull(skb, sizeof(*qmap));
 
+		rmnet_set_skb_proto(skb);
+
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
 			if (!rmnet_map_checksum_downlink_packet(skb, len + pad))
 				skb->ip_summed = CHECKSUM_UNNECESSARY;
