@@ -105,6 +105,7 @@ Optional properties:
 - pinctrl-<0..n>:		Lists phandles each pointing to the pin configuration node within a pin
 				controller. These pin configurations are installed in the pinctrl
 				device node. Refer to pinctrl-bindings.txt
+- qcom,max-lclk-frequency-khz:	An integer specifying the max. link clock in KHz supported by Display Port.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on msm_ext_disp. If msm_ext_disp is disabled then
