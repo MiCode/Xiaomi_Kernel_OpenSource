@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@ static
 int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
+	struct device_node *np = ufs_qcom_phy->dev->of_node;
+
 	writel_relaxed(0x01, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* Ensure PHY is in reset before writing PHY calibration data */
 	wmb();
@@ -29,11 +31,21 @@ int ufs_qcom_phy_qmp_v4_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	 * 2. Write 2nd lane configuration if needed.
 	 * 3. Write Rate-B calibration overrides
 	 */
-	ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
-			       ARRAY_SIZE(phy_cal_table_rate_A));
-	if (ufs_qcom_phy->lanes_per_direction == 2)
-		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_2nd_lane,
-				       ARRAY_SIZE(phy_cal_table_2nd_lane));
+	if (of_device_is_compatible(np, "qcom,ufs-phy-qmp-v4")) {
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
+				       ARRAY_SIZE(phy_cal_table_rate_A));
+		if (ufs_qcom_phy->lanes_per_direction == 2)
+			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+					phy_cal_table_2nd_lane,
+					ARRAY_SIZE(phy_cal_table_2nd_lane));
+	} else if (of_device_is_compatible(np, "qcom,ufs-phy-qmp-v4-card")) {
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A_no_g4,
+				       ARRAY_SIZE(phy_cal_table_rate_A_no_g4));
+		if (ufs_qcom_phy->lanes_per_direction == 2)
+			ufs_qcom_phy_write_tbl(ufs_qcom_phy,
+				      phy_cal_table_2nd_lane_no_g4,
+				      ARRAY_SIZE(phy_cal_table_2nd_lane_no_g4));
+	}
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
@@ -221,6 +233,7 @@ out:
 
 static const struct of_device_id ufs_qcom_phy_qmp_v4_of_match[] = {
 	{.compatible = "qcom,ufs-phy-qmp-v4"},
+	{.compatible = "qcom,ufs-phy-qmp-v4-card"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qmp_v4_of_match);
