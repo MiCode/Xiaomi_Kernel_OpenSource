@@ -12741,14 +12741,12 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val_2_0[] = {
 
 static const struct tasha_reg_mask_val tasha_codec_reg_defaults[] = {
 	{WCD9335_CODEC_RPM_CLK_GATE, 0x03, 0x00},
-	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x03, 0x01},
 	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x04, 0x04},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_i2c_defaults[] = {
 	{WCD9335_ANA_CLK_TOP, 0x20, 0x20},
 	{WCD9335_CODEC_RPM_CLK_GATE, 0x03, 0x01},
-	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x03, 0x00},
 	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x05, 0x05},
 	{WCD9335_DATA_HUB_DATA_HUB_RX0_INP_CFG, 0x01, 0x01},
 	{WCD9335_DATA_HUB_DATA_HUB_RX1_INP_CFG, 0x01, 0x01},
@@ -12926,6 +12924,8 @@ static void tasha_update_reg_defaults(struct tasha_priv *tasha)
 	u32 i;
 	struct wcd9xxx *wcd9xxx;
 
+	pr_debug("%s: MCLK Rate = %x\n", __func__, tasha->wcd9xxx->mclk_rate);
+
 	wcd9xxx = tasha->wcd9xxx;
 	for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_defaults); i++)
 		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
@@ -12940,6 +12940,18 @@ static void tasha_update_reg_defaults(struct tasha_priv *tasha)
 				tasha_codec_reg_i2c_defaults[i].reg,
 				tasha_codec_reg_i2c_defaults[i].mask,
 				tasha_codec_reg_i2c_defaults[i].val);
+
+	if (tasha->wcd9xxx->mclk_rate == TASHA_MCLK_CLK_12P288MHZ) {
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_CODEC_RPM_CLK_MCLK_CFG,
+					0x03, 0x00);
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_ANA_CLK_TOP, 0x20, 0x20);
+	} else if (tasha->wcd9xxx->mclk_rate == TASHA_MCLK_CLK_9P6MHZ) {
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_CODEC_RPM_CLK_MCLK_CFG,
+					0x03, 0x01);
+	}
 
 	return;
 }
@@ -13718,15 +13730,6 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	tasha->codec = codec;
 
-	dev_dbg(codec->dev, "%s: MCLK Rate = %x\n",
-		__func__, control->mclk_rate);
-
-	if (control->mclk_rate == TASHA_MCLK_CLK_12P288MHZ)
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x00);
-	else if (control->mclk_rate == TASHA_MCLK_CLK_9P6MHZ)
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x01);
 	tasha_codec_init_reg(codec);
 
 	wcd_resmgr_post_ssr_v2(tasha->resmgr);
@@ -13831,13 +13834,6 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	tasha->spkr_gain_offset = RX_GAIN_OFFSET_0_DB;
 	tasha->intf_type = wcd9xxx_get_intf_type();
 	tasha_update_reg_reset_values(codec);
-	pr_debug("%s: MCLK Rate = %x\n", __func__, control->mclk_rate);
-	if (control->mclk_rate == TASHA_MCLK_CLK_12P288MHZ)
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x00);
-	else if (control->mclk_rate == TASHA_MCLK_CLK_9P6MHZ)
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
-				    0x03, 0x01);
 	tasha_codec_init_reg(codec);
 
 	tasha_enable_efuse_sensing(codec);
