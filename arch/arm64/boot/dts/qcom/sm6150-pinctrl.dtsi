@@ -1798,6 +1798,29 @@
 					drive-strength = <2>;
 				};
 			};
+			emac_rgmii_rxc_suspend: emac_rgmii_rxc_suspend {
+				mux {
+					pins = "gpio102";
+					function = "rgmii_rxc";
+				};
+
+				config {
+					pins = "gpio102";
+					input-disable;
+				};
+			};
+			emac_rgmii_rxc_resume: emac_rgmii_rxc_resume {
+				mux {
+					pins = "gpio102";
+					function = "rgmii_rxc";
+				};
+
+				config {
+					pins = "gpio102";
+					input-enable;
+					bias-disable;/* NO pull */
+				};
+			};
 			emac_rgmii_rx_ctl: emac_rgmii_rx_ctl {
 				mux {
 					pins = "gpio112";
