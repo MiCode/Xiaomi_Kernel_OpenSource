@@ -12,7 +12,9 @@
 		reg = <0x0a600000 0x100000>;
 		reg-names = "core_base";
 
-		qcom,iommu-dma = "disabled";
+		iommus = <&apps_smmu 0xE0 0x0>;
+		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
