@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1917,6 +1917,15 @@ static int ipa3_usb_xdci_connect_internal(
 		goto connect_dl_fail;
 	}
 
+	/* MHIP pipe enablement */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to connect MHIP channel\n");
+			goto connect_dl_fail;
+		}
+	}
+
 	/* Connect tethering protocol */
 	result = ipa3_usb_connect_teth_prot(params->teth_prot);
 	if (result) {
@@ -2410,6 +2419,16 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		if (orig_state != IPA_USB_SUSPENDED) {
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
+
+			/* Stop UL MHIP channel */
+			if (ipa3_is_mhip_offload_enabled()) {
+				result = ipa_mpm_mhip_ul_data_stop(teth_prot);
+				if (result) {
+					IPA_USB_ERR("fail UL MHIPData stop\n");
+					goto bad_params;
+				}
+			}
+
 			/* Stop UL channel */
 			result = ipa3_xdci_disconnect(ul_clnt_hdl,
 				true,
@@ -2429,6 +2448,16 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			teth_prot);
 	if (result)
 		goto bad_params;
+
+	/* Stop UL/DL MHIP channels */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			goto bad_params;
+		}
+	}
+
 
 	/* Disconnect tethering protocol */
 	result = ipa3_usb_disconnect_teth_prot(teth_prot);
@@ -2739,6 +2768,15 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			&ipa3_usb_notify_remote_wakeup_work);
 	}
 	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
+
+	/* Stop MHIP channel */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			goto release_prod_fail;
+		}
+	}
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
