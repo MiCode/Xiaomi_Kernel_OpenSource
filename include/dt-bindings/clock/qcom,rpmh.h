@@ -23,5 +23,7 @@
 #define RPMH_RF_CLKD3_A				15
 #define RPMH_RF_CLKD4				16
 #define RPMH_RF_CLKD4_A				17
+#define RPMH_RF_CLK4				18
+#define RPMH_RF_CLK4_A				19
 
 #endif
