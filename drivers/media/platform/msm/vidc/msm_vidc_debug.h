@@ -60,6 +60,7 @@ extern bool msm_vidc_fw_coverage;
 extern bool msm_vidc_thermal_mitigation_disabled;
 extern int msm_vidc_clock_voting;
 extern bool msm_vidc_syscache_disable;
+extern bool msm_vidc_lossless_encode;
 
 #define dprintk(__level, __fmt, ...)	\
 	do { \

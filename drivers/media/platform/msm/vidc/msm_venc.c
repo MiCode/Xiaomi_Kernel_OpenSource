@@ -1333,6 +1333,14 @@ static int msm_venc_resolve_rc_enable(struct msm_vidc_inst *inst,
 		rc_mode = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
 		inst->rc_type = rc_mode->val;
 	}
+
+	if (msm_vidc_lossless_encode &&
+		(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_H264
+		|| inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_HEVC)) {
+		dprintk(VIDC_DBG,
+			"Reset RC mode to RC_LOSSLESS for HEVC/AVC lossless encoding\n");
+		inst->rc_type = RATE_CONTROL_LOSSLESS;
+	}
 	return 0;
 }
 
@@ -1340,6 +1348,12 @@ static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_ctrl *rc_enable;
+
+	if (inst->rc_type == RATE_CONTROL_LOSSLESS) {
+		dprintk(VIDC_DBG,
+			"Skip RC mode when enabling lossless encoding\n");
+		return 0;
+	}
 
 	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
 	if (!rc_enable->val) {
@@ -1354,7 +1368,6 @@ static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 	inst->rc_type = ctrl->val;
-
 	return 0;
 }
 
@@ -2295,6 +2308,7 @@ int msm_venc_set_rate_control(struct msm_vidc_inst *inst)
 
 	switch (inst->rc_type) {
 	case RATE_CONTROL_OFF:
+	case RATE_CONTROL_LOSSLESS:
 		hfi_rc = HFI_RATE_CONTROL_OFF;
 		break;
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
@@ -3802,6 +3816,30 @@ int msm_venc_set_extradata(struct msm_vidc_inst *inst)
 	return rc;
 }
 
+int msm_venc_set_lossless(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hfi_enable enable;
+
+	hdev = inst->core->device;
+
+	if (inst->rc_type != RATE_CONTROL_LOSSLESS)
+		return 0;
+
+	dprintk(VIDC_DBG, "%s: enable lossless encoding\n", __func__);
+	enable.enable = 1;
+	rc = call_hfi_op(hdev, session_set_property,
+		inst->session,
+		HFI_PROPERTY_PARAM_VENC_LOSSLESS_ENCODING,
+		&enable, sizeof(enable));
+
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to set lossless mode\n");
+
+	return rc;
+}
+
 int msm_venc_set_properties(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -3932,6 +3970,9 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_rotation(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_lossless(inst);
 	if (rc)
 		goto exit;
 
