@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _QDSS_BRIDGE_H
@@ -28,6 +28,12 @@ enum open_status {
 	DISABLE,
 	ENABLE,
 	SSR,
+};
+
+enum mhi_ch {
+	QDSS,
+	QDSS_HW,
+	EMPTY,
 };
 
 struct qdss_bridge_drvdata {
