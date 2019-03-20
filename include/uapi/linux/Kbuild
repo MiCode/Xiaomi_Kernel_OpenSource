@@ -13,6 +13,7 @@ no-export-headers += kvm_para.h
 endif
 
 header-y += nfc/
+header-y += qbt_handler.h
 
 ifneq ($(VSERVICES_SUPPORT), "")
 include include/linux/Kbuild.vservices

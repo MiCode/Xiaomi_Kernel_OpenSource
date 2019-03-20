@@ -68,6 +68,15 @@ config QCOM_RUN_QUEUE_STATS
         This information is exported to usespace via sysfs entries and userspace
         algorithms uses info and decide when to turn on/off the cpu cores.
 
+config MSM_QBT_HANDLER
+	bool "Event Handler for QTI Ultrasonic Fingerprint Sensor"
+	help
+	  This driver acts as a interrupt handler, where the interrupt is generated
+	  by the QTI Ultrasonic Fingerprint Sensor. It queues the events for each
+	  interrupt in an event queue and notifies the userspace to read the events
+	  from the queue. It also creates an input device to send key events such as
+	  KEY_POWER, KEY_HOME.
+
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM
