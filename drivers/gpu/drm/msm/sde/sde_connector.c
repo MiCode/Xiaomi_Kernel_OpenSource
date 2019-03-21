@@ -1189,8 +1189,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
 	int idx, rc;
-	uint64_t fence_user_fd;
-	uint64_t __user prev_user_fd;
+	uint64_t fence_fd;
 
 	if (!connector || !state || !property) {
 		SDE_ERROR("invalid argument(s), conn %pK, state %pK, prp %pK\n",
@@ -1233,42 +1232,23 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		if (!val)
 			goto end;
 
-		rc = copy_from_user(&prev_user_fd, (void __user *)val,
-				sizeof(uint64_t));
+		/*
+		 * update the the offset to a timeline for commit completion
+		 */
+		rc = sde_fence_create(c_conn->retire_fence, &fence_fd, 1);
 		if (rc) {
-			SDE_ERROR("copy from user failed rc:%d\n", rc);
-			rc = -EFAULT;
+			SDE_ERROR("fence create failed rc:%d\n", rc);
 			goto end;
 		}
 
-		/*
-		 * client is expected to reset the property to -1 before
-		 * requesting for the retire fence
-		 */
-		if (prev_user_fd == -1) {
-			/*
-			 * update the offset to a timeline for
-			 * commit completion
-			 */
-			rc = sde_fence_create(c_conn->retire_fence,
-						&fence_user_fd, 1);
-			if (rc) {
-				SDE_ERROR("fence create failed rc:%d\n", rc);
-				goto end;
-			}
-
-			rc = copy_to_user((uint64_t __user *)(uintptr_t)val,
-					&fence_user_fd, sizeof(uint64_t));
-			if (rc) {
-				SDE_ERROR("copy to user failed rc:%d\n", rc);
-				/*
-				 * fence will be released with timeline
-				 * update
-				 */
-				put_unused_fd(fence_user_fd);
-				rc = -EFAULT;
-				goto end;
-			}
+		rc = copy_to_user((uint64_t __user *)(uintptr_t)val, &fence_fd,
+			sizeof(uint64_t));
+		if (rc) {
+			SDE_ERROR("copy to user failed rc:%d\n", rc);
+			/* fence will be released with timeline update */
+			put_unused_fd(fence_fd);
+			rc = -EFAULT;
+			goto end;
 		}
 		break;
 	case CONNECTOR_PROP_ROI_V1:
