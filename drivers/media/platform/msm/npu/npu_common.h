@@ -55,6 +55,15 @@ enum npu_power_level {
 	NPU_PWRLEVEL_OFF = 0xFFFFFFFF,
 };
 
+#define NPU_ERR(fmt, args...)                            \
+	pr_err("NPU_ERR: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_WARN(fmt, args...)                           \
+	pr_warn("NPU_WARN: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_INFO(fmt, args...)                           \
+	pr_info("NPU_INFO: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_DBG(fmt, args...)                           \
+	pr_debug("NPU_DBG: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+
 /* -------------------------------------------------------------------------
  * Data Structures
  * -------------------------------------------------------------------------

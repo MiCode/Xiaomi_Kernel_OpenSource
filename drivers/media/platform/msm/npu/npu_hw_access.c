@@ -3,8 +3,6 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 /* -------------------------------------------------------------------------
  * Includes
  * -------------------------------------------------------------------------
@@ -88,7 +86,7 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t i = 0;
 	uint32_t num = 0;
 
-	pr_debug("write dst_off %zx size %x\n", dst_off, size);
+	NPU_DBG("write dst_off %zx size %x\n", dst_off, size);
 	num = size/4;
 	for (i = 0; i < num; i++) {
 		writel_relaxed(src_ptr32[i], npu_dev->tcm_io.base + dst_off);
@@ -115,7 +113,7 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint32_t i = 0;
 	uint32_t num = 0;
 
-	pr_debug("read src_off %zx size %x\n", src_off, size);
+	NPU_DBG("read src_off %zx size %x\n", src_off, size);
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
@@ -180,7 +178,7 @@ static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
 
 	if (ret_val) {
 		/* mapped already, treat as invalid request */
-		pr_err("ion buf has been mapped\n");
+		NPU_ERR("ion buf has been mapped\n");
 		ret_val = NULL;
 	} else {
 		ret_val = kzalloc(sizeof(*ret_val), GFP_KERNEL);
@@ -247,7 +245,7 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 
 	ion_buf = npu_alloc_npu_ion_buffer(client, buf_hdl, size);
 	if (!ion_buf) {
-		pr_err("%s fail to alloc npu_ion_buffer\n", __func__);
+		NPU_ERR("fail to alloc npu_ion_buffer\n");
 		ret = -ENOMEM;
 		return ret;
 	}
@@ -256,7 +254,7 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 
 	ion_buf->dma_buf = dma_buf_get(ion_buf->fd);
 	if (IS_ERR_OR_NULL(ion_buf->dma_buf)) {
-		pr_err("dma_buf_get failed %d\n", ion_buf->fd);
+		NPU_ERR("dma_buf_get failed %d\n", ion_buf->fd);
 		ret = -ENOMEM;
 		ion_buf->dma_buf = NULL;
 		goto map_end;
@@ -275,7 +273,7 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	ion_buf->table = dma_buf_map_attachment(ion_buf->attachment,
 			DMA_BIDIRECTIONAL);
 	if (IS_ERR(ion_buf->table)) {
-		pr_err("npu dma_buf_map_attachment failed\n");
+		NPU_ERR("npu dma_buf_map_attachment failed\n");
 		ret = -ENOMEM;
 		ion_buf->table = NULL;
 		goto map_end;
@@ -286,9 +284,9 @@ int npu_mem_map(struct npu_client *client, int buf_hdl, uint32_t size,
 	ion_buf->iova = ion_buf->table->sgl->dma_address;
 	ion_buf->size = ion_buf->dma_buf->size;
 	*addr = ion_buf->iova;
-	pr_debug("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+	NPU_DBG("mapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
-	pr_debug("physical address 0x%llx\n", sg_phys(ion_buf->table->sgl));
+	NPU_DBG("physical address 0x%llx\n", sg_phys(ion_buf->table->sgl));
 map_end:
 	if (ret)
 		npu_mem_unmap(client, buf_hdl, 0);
@@ -303,7 +301,7 @@ void npu_mem_invalidate(struct npu_client *client, int buf_hdl)
 		buf_hdl);
 
 	if (!ion_buf)
-		pr_err("%s cant find ion buf\n", __func__);
+		NPU_ERR("cant find ion buf\n");
 	else
 		dma_sync_sg_for_cpu(&(npu_dev->pdev->dev), ion_buf->table->sgl,
 			ion_buf->table->nents, DMA_BIDIRECTIONAL);
@@ -336,12 +334,12 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	/* clear entry and retrieve the corresponding buffer */
 	ion_buf = npu_get_npu_ion_buffer(client, buf_hdl);
 	if (!ion_buf) {
-		pr_err("%s could not find buffer\n", __func__);
+		NPU_ERR("could not find buffer\n");
 		return;
 	}
 
 	if (ion_buf->iova != addr)
-		pr_warn("unmap address %llu doesn't match %llu\n", addr,
+		NPU_WARN("unmap address %llu doesn't match %llu\n", addr,
 			ion_buf->iova);
 
 	if (ion_buf->table)
@@ -353,7 +351,7 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 		dma_buf_put(ion_buf->dma_buf);
 	npu_dev->smmu_ctx.attach_cnt--;
 
-	pr_debug("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
+	NPU_DBG("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
 	npu_free_npu_ion_buffer(client, buf_hdl);
 }

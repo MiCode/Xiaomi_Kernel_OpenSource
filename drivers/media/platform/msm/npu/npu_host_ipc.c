@@ -3,8 +3,6 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 /* -------------------------------------------------------------------------
  * Includes
  * -------------------------------------------------------------------------
@@ -169,9 +167,9 @@ static int npu_host_ipc_send_cmd_hfi(struct npu_device *npu_dev,
 	}
 
 	if (status == 0)
-		pr_debug("Cmd Msg put on Command Queue - SUCCESSS\n");
+		NPU_DBG("Cmd Msg put on Command Queue - SUCCESSS\n");
 	else
-		pr_err("Cmd Msg put on Command Queue - FAILURE\n");
+		NPU_ERR("Cmd Msg put on Command Queue - FAILURE\n");
 
 	return status;
 }
@@ -232,7 +230,7 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 	MEMR(npu_dev, (void *)((size_t)read_ptr), packet, 4);
 	packet_size = *((uint32_t *)packet);
 
-	pr_debug("target_que: %d, packet_size: %d\n",
+	NPU_DBG("target_que: %d, packet_size: %d\n",
 			target_que,
 			packet_size);
 
