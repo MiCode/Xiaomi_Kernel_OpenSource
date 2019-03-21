@@ -361,32 +361,36 @@ int of_irq_domain_map(const struct irq_fwspec *in, struct irq_fwspec *out)
 		map += out_size;
 		map_len -= out_size;
 	}
-	if (match) {
-		/* Get the irqdomain-map-pass-thru property (optional) */
-		pass = of_get_property(cur, pass_name, NULL);
-		if (!pass)
-			pass = dummy_pass;
 
-		/*
-		 * Successfully parsed a irqdomain-map translation; copy new
-		 * specifier into the out structure, keeping the
-		 * bits specified in irqdomain-map-pass-thru.
-		 */
-		match_array = map - out_size;
-		for (i = 0; i < out_size; i++) {
-			__be32 val = *(map - out_size + i);
-
-			out->param[i] = in->param[i];
-			if (i < in_size) {
-				val &= ~pass[i];
-				val |= cpu_to_be32(out->param[i]) & pass[i];
-			}
-
-			out->param[i] = be32_to_cpu(val);
-		}
-		out->param_count = in_size = out_size;
-		out->fwnode = of_node_to_fwnode(new);
+	if (!match) {
+		ret = -EINVAL;
+		goto put;
 	}
+
+	/* Get the irqdomain-map-pass-thru property (optional) */
+	pass = of_get_property(cur, pass_name, NULL);
+	if (!pass)
+		pass = dummy_pass;
+
+	/*
+	 * Successfully parsed a irqdomain-map translation; copy new
+	 * specifier into the out structure, keeping the
+	 * bits specified in irqdomain-map-pass-thru.
+	 */
+	match_array = map - out_size;
+	for (i = 0; i < out_size; i++) {
+		__be32 val = *(map - out_size + i);
+
+		out->param[i] = in->param[i];
+		if (i < in_size) {
+			val &= ~pass[i];
+			val |= cpu_to_be32(out->param[i]) & pass[i];
+		}
+
+		out->param[i] = be32_to_cpu(val);
+	}
+	out->param_count = in_size = out_size;
+	out->fwnode = of_node_to_fwnode(new);
 put:
 	of_node_put(cur);
 	of_node_put(new);
