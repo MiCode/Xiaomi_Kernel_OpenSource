@@ -74,6 +74,7 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 	const struct ipa_gsi_ep_config *gsi_ep_info;
 	int result, len;
 	unsigned long va;
+	uint32_t addr_low, addr_high;
 
 	if (!info || !info_smmu || !ep) {
 		IPAERR("invalid input\n");
@@ -211,21 +212,131 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 		IPAERR("failed to write evt ring scratch\n");
 		goto fail_write_scratch;
 	}
-	/* write event ring db address */
+
+	if (!is_smmu_enabled) {
+		IPADBG("smmu disabled\n");
+		if (info->is_evt_rn_db_pcie_addr == true)
+			IPADBG_LOW("is_evt_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG_LOW("is_evt_rn_db_pcie_addr is DDR addr\n");
+		IPADBG_LOW("LSB 0x%x\n",
+			(u32)info->event_ring_doorbell_pa);
+		IPADBG_LOW("MSB 0x%x\n",
+			(u32)((u64)info->event_ring_doorbell_pa >> 32));
+	} else {
+		IPADBG("smmu enabled\n");
+		if (info_smmu->is_evt_rn_db_pcie_addr == true)
+			IPADBG_LOW("is_evt_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG_LOW("is_evt_rn_db_pcie_addr is DDR addr\n");
+		IPADBG_LOW("LSB 0x%x\n",
+			(u32)info_smmu->event_ring_doorbell_pa);
+		IPADBG_LOW("MSB 0x%x\n",
+			(u32)((u64)info_smmu->event_ring_doorbell_pa >> 32));
+	}
+
+	if (!is_smmu_enabled) {
+		addr_low = (u32)info->event_ring_doorbell_pa;
+		addr_high = (u32)((u64)info->event_ring_doorbell_pa >> 32);
+	} else {
+		if (dir == IPA_WDI3_TX_DIR) {
+			if (ipa_create_gsi_smmu_mapping(IPA_WDI_CE_DB_RES,
+				true, info_smmu->event_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				result = -EFAULT;
+				goto fail_write_scratch;
+			}
+		} else {
+			if (ipa_create_gsi_smmu_mapping(
+				IPA_WDI_RX_COMP_RING_WP_RES,
+				true, info_smmu->event_ring_doorbell_pa,
+				NULL, 4, true, &va)) {
+				IPAERR("failed to get smmu mapping\n");
+				result = -EFAULT;
+				goto fail_write_scratch;
+			}
+		}
+		addr_low = (u32)va;
+		addr_high = (u32)((u64)va >> 32);
+	}
+
+	/*
+	 * Arch specific:
+	 * pcie addr which are not via smmu, use pa directly!
+	 * pcie and DDR via 2 different port
+	 * assert bit 40 to indicate it is pcie addr
+	 * WDI-3.0, MSM --> pcie via smmu
+	 * WDI-3.0, MDM --> pcie not via smmu + dual port
+	 * assert bit 40 in case
+	 */
+	if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+		is_smmu_enabled) {
+		/*
+		 * Ir-respective of smmu enabled don't use IOVA addr
+		 * since pcie not via smmu in MDM's
+		 */
+		if (info_smmu->is_evt_rn_db_pcie_addr == true) {
+			addr_low = (u32)info_smmu->event_ring_doorbell_pa;
+			addr_high =
+				(u32)((u64)info_smmu->event_ring_doorbell_pa
+				>> 32);
+		}
+	}
+
+	/*
+	 * GSI recomendation to set bit-40 for (mdm targets && pcie addr)
+	 * from wdi-3.0 interface document
+	 */
+	if (!is_smmu_enabled) {
+		if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+			info->is_evt_rn_db_pcie_addr)
+			addr_high |= (1 << 8);
+	} else {
+		if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+			info_smmu->is_evt_rn_db_pcie_addr)
+			addr_high |= (1 << 8);
+	}
+
 	gsi_wdi3_write_evt_ring_db(ep->gsi_evt_ring_hdl,
-		(u32)info->event_ring_doorbell_pa,
-		(u32)((u64)info->event_ring_doorbell_pa >> 32));
+			addr_low,
+			addr_high);
 
 	/* write channel scratch */
 	memset(&ch_scratch, 0, sizeof(ch_scratch));
 	ch_scratch.wdi3.update_rp_moderation_threshold =
 		UPDATE_RP_MODERATION_THRESHOLD;
 	if (dir == IPA_WDI3_RX_DIR) {
-		ch_scratch.wdi3.rx_pkt_offset = info->pkt_offset;
+		if (!is_smmu_enabled)
+			ch_scratch.wdi3.rx_pkt_offset = info->pkt_offset;
+		else
+			ch_scratch.wdi3.rx_pkt_offset = info_smmu->pkt_offset;
 		/* this metadata reg offset need to be in words */
 		ch_scratch.wdi3.endp_metadata_reg_offset =
 			ipahal_get_reg_mn_ofst(IPA_ENDP_INIT_HDR_METADATA_n, 0,
 				gsi_ep_info->ipa_ep_num) / 4;
+	}
+
+	if (!is_smmu_enabled) {
+		IPADBG_LOW("smmu disabled\n");
+		if (info->is_txr_rn_db_pcie_addr == true)
+			IPADBG_LOW("is_txr_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG_LOW("is_txr_rn_db_pcie_addr is DDR addr\n");
+		IPADBG_LOW("LSB 0x%x\n",
+			(u32)info->transfer_ring_doorbell_pa);
+		IPADBG_LOW("MSB 0x%x\n",
+			(u32)((u64)info->transfer_ring_doorbell_pa >> 32));
+	} else {
+		IPADBG_LOW("smmu eabled\n");
+		if (info_smmu->is_txr_rn_db_pcie_addr == true)
+			IPADBG_LOW("is_txr_rn_db_pcie_addr is PCIE addr\n");
+		else
+			IPADBG_LOW("is_txr_rn_db_pcie_addr is DDR addr\n");
+		IPADBG_LOW("LSB 0x%x\n",
+			(u32)info_smmu->transfer_ring_doorbell_pa);
+		IPADBG_LOW("MSB 0x%x\n",
+			(u32)((u64)info_smmu->transfer_ring_doorbell_pa >> 32));
 	}
 
 	if (!is_smmu_enabled) {
@@ -262,6 +373,49 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 				(u32)((u64)va >> 32);
 		}
 	}
+
+	/*
+	 * Arch specific:
+	 * pcie addr which are not via smmu, use pa directly!
+	 * pcie and DDR via 2 different port
+	 * assert bit 40 to indicate it is pcie addr
+	 * WDI-3.0, MSM --> pcie via smmu
+	 * WDI-3.0, MDM --> pcie not via smmu + dual port
+	 * assert bit 40 in case
+	 */
+	if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+		is_smmu_enabled) {
+		/*
+		 * Ir-respective of smmu enabled don't use IOVA addr
+		 * since pcie not via smmu in MDM's
+		 */
+		if (info_smmu->is_txr_rn_db_pcie_addr == true) {
+			ch_scratch.wdi3.wifi_rp_address_low =
+				(u32)info_smmu->transfer_ring_doorbell_pa;
+			ch_scratch.wdi3.wifi_rp_address_high =
+				(u32)((u64)info_smmu->transfer_ring_doorbell_pa
+				>> 32);
+		}
+	}
+
+	/*
+	 * GSI recomendation to set bit-40 for (mdm targets && pcie addr)
+	 * from wdi-3.0 interface document
+	 */
+	if (!is_smmu_enabled) {
+		if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+			info->is_txr_rn_db_pcie_addr)
+			ch_scratch.wdi3.wifi_rp_address_high =
+			(u32)((u32)ch_scratch.wdi3.wifi_rp_address_high |
+			(1 << 8));
+	} else {
+		if ((ipa3_ctx->platform_type == IPA_PLAT_TYPE_MDM) &&
+			info_smmu->is_txr_rn_db_pcie_addr)
+			ch_scratch.wdi3.wifi_rp_address_high =
+			(u32)((u32)ch_scratch.wdi3.wifi_rp_address_high |
+			(1 << 8));
+	}
+
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write evt ring scratch\n");
