@@ -7,6 +7,7 @@
 #define MAX_SSR_STRING_LEN 10
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
+#include <linux/of_fdt.h>
 
 int msm_vidc_debug = VIDC_ERR | VIDC_WARN;
 EXPORT_SYMBOL(msm_vidc_debug);
@@ -87,6 +88,8 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	cur += write_str(cur, end - cur,
 		"register_size: %u\n", fw_info.register_size);
 	cur += write_str(cur, end - cur, "irq: %u\n", fw_info.irq);
+	cur += write_str(cur, end - cur,
+		"ddr_type: %d\n", of_fdt_get_ddrtype());
 
 err_fw_info:
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
