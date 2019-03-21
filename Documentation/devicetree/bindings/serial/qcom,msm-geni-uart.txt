@@ -12,9 +12,10 @@ Required properties:
 - reg: Should contain UART register location and length.
 - interrupts: Should contain UART core interrupts.
 - clocks: clocks needed for UART, includes the core and AHB clock.
-- pinctrl-names/pinctrl-0/1: The GPIOs assigned to this core. The names
-  Should be "active" and "sleep" for the pin confuguration when core is active
-  or when entering sleep state.
+- pinctrl-names/pinctrl-0/1/2: The GPIOs assigned to this core. The names
+  should be "default", "active" and "sleep" for the pin confuguration.
+  It should be in "default" for the default pin configuration during probe,
+  in "active" when core is active or in "sleep" when entering in sleep state.
 - qcom,wrapper-core: Wrapper QUPv3 core containing this UART controller.
 
 Optional properties:
@@ -29,9 +30,10 @@ qupv3_uart11: qcom,qup_uart@0xa88000 {
 	clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
 		<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
 		<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&qup_1_uart_3_active>;
-	pinctrl-1 = <&qup_1_uart_3_sleep>;
+	pinctrl-names = "default", "active", "sleep";
+	pinctrl-0 = <&qup_1_uart_3_default>;
+	pinctrl-1 = <&qup_1_uart_3_active>;
+	pinctrl-2 = <&qup_1_uart_3_sleep>;
 	interrupts = <0 355 0>;
 	qcom,wrapper-core = <&qupv3_0>;
 	qcom,wakeup-byte = <0xFF>;

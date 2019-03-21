@@ -15,7 +15,8 @@ First Level Node - CAM IFE CSID device
 - compatible
   Usage: required
   Value type: <string>
-  Definition: Should be "qcom,csid170" or "qcom,csid-lite170".
+  Definition: Should be "qcom,csid170", "qcom,csid175", "qcom,csid175_200",
+		"qcom,csid-lite170" or "qcom,csid-lite175".
 
 - cell-index
   Usage: required

@@ -428,7 +428,7 @@ struct ion_heap *ion_secure_carveout_heap_create(
 	}
 
 	manager->heap.ops = &ion_sc_heap_ops;
-	manager->heap.type = ION_HEAP_TYPE_SECURE_CARVEOUT;
+	manager->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_SECURE_CARVEOUT;
 	return &manager->heap;
 
 err:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +46,16 @@ enum se_protocol_types {
  * @m_ahb_clk:		Handle to the primary AHB clock.
  * @s_ahb_clk:		Handle to the secondary AHB clock.
  * @ab_list:		List Head of Average bus banwidth list.
+ * @ab_list_noc:	List Head of Average DDR path bus
+			bandwidth list.
  * @ab:			Average bus bandwidth request value.
+ * @ab_noc:		Average DDR path bus bandwidth request value.
  * @ib_list:		List Head of Instantaneous bus banwidth list.
+ * @ib_list_noc:	List Head of Instantaneous DDR path bus
+			bandwidth list.
  * @ib:			Instantaneous bus bandwidth request value.
+ * @ib_noc:		Instantaneous DDR path bus bandwidth
+			request value.
  * @geni_pinctrl:	Handle to the pinctrl configuration.
  * @geni_gpio_active:	Handle to the default/active pinctrl state.
  * @geni_gpi_sleep:	Handle to the sleep pinctrl state.
@@ -60,9 +67,13 @@ struct se_geni_rsc {
 	struct clk *m_ahb_clk;
 	struct clk *s_ahb_clk;
 	struct list_head ab_list;
+	struct list_head ab_list_noc;
 	unsigned long ab;
+	unsigned long ab_noc;
 	struct list_head ib_list;
+	struct list_head ib_list_noc;
 	unsigned long ib;
+	unsigned long ib_noc;
 	struct pinctrl *geni_pinctrl;
 	struct pinctrl_state *geni_gpio_active;
 	struct pinctrl_state *geni_gpio_sleep;
@@ -70,6 +81,7 @@ struct se_geni_rsc {
 };
 
 #define PINCTRL_DEFAULT	"default"
+#define PINCTRL_ACTIVE	"active"
 #define PINCTRL_SLEEP	"sleep"
 
 #define KHz(freq) (1000 * (freq))

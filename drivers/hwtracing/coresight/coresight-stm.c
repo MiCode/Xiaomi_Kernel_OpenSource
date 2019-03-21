@@ -297,7 +297,7 @@ static void stm_generic_unlink(struct stm_data *stm_data,
 		return;
 
 	/* If any OST entity is enabled do not disable the device */
-	if (drvdata->entities)
+	if (!bitmap_empty(drvdata->entities, OST_ENTITY_MAX))
 		return;
 
 	coresight_disable(drvdata->csdev);

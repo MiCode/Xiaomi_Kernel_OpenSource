@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,7 @@ struct smem_targ_info_type {
 	/* Identifier is a constant, set to SMEM_TARG_INFO_IDENTIFIER. */
 	uint32_t identifier;
 	uint32_t size;
-	phys_addr_t phys_base_addr;
+	uint64_t phys_base_addr;
 	uint32_t  max_items;
 };
 
@@ -1317,7 +1317,7 @@ static int smem_init_target_info(phys_addr_t info_addr, resource_size_t size)
 		LOG_ERR("%s failed: invalid TARGET INFO magic\n", __func__);
 		return -ENODEV;
 	}
-	smem_ram_phys = smem_targ_info->phys_base_addr;
+	smem_ram_phys = (phys_addr_t)smem_targ_info->phys_base_addr;
 	smem_ram_size = smem_targ_info->size;
 	if (smem_targ_info->max_items)
 		smem_max_items = smem_targ_info->max_items;

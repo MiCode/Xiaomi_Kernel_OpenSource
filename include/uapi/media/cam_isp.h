@@ -84,9 +84,12 @@
 #define CAM_ISP_DSP_MODE_ROUND                  2
 
 /* ISP Generic Cmd Buffer Blob types */
-#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG      0
-#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG    1
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG       2
+#define CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG          0
+#define CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG        1
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG           2
+#define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
+#define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
+#define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
 
 /* Query devices */
 /**
@@ -342,6 +345,15 @@ struct cam_isp_clock_config {
 } __attribute__((packed));
 
 /**
+ * struct cam_isp_csid_clock_config - CSID clock configuration
+ *
+ * @csid_clock                  CSID clock
+ */
+struct cam_isp_csid_clock_config {
+	uint64_t                       csid_clock;
+} __attribute__((packed));
+
+/**
  * struct cam_isp_bw_vote - Bandwidth vote information
  *
  * @resource_id:                Resource ID
@@ -374,5 +386,77 @@ struct cam_isp_bw_config {
 	struct cam_isp_bw_vote         right_pix_vote;
 	struct cam_isp_bw_vote         rdi_vote[1];
 } __attribute__((packed));
+
+/**
+ * struct cam_fe_config - Fetch Engine configuration
+ *
+ * @version:                    fetch engine veriosn
+ * @min_vbi:                    require min vbi
+ * @fs_mode:                    indicates if fs mode enabled
+ * @fs_line_sync_en:            frame level sync or line level
+ *                              sync for fetch engine
+ * @hbi_count:                  hbi count
+ * @fs_sync_enable:             indicates if fetch engine working
+ *                              wokring in sync with write engine
+ * @go_cmd_sel:                 softwrae go_cmd or hw go_cmd
+ * @client_enable:              enable read engine
+ * @source_addr:                adrress of buffer to read from
+ * @width:                      buffer width
+ * @height:                     buffer height
+ * @stride:                     buffer stride (here equal to width)
+ * @format:                     format of image in buffer
+ * @unpacker_cfg:               unpacker config type
+ * @latency_buf_size:           latency buffer for read engine
+ */
+struct cam_fe_config {
+	uint64_t    version;
+	uint32_t    min_vbi;
+	uint32_t    fs_mode;
+	uint32_t    fs_line_sync_en;
+	uint32_t    hbi_count;
+	uint32_t    fs_sync_enable;
+	uint32_t    go_cmd_sel;
+	uint32_t    client_enable;
+	uint32_t    source_addr;
+	uint32_t    width;
+	uint32_t    height;
+	uint32_t    stride;
+	uint32_t    format;
+	uint32_t    unpacker_cfg;
+	uint32_t    latency_buf_size;
+} __attribute__((packed));
+
+/* Acquire Device/HW v2 */
+
+/**
+ * struct cam_isp_acquire_hw_info - ISP acquire HW params
+ *
+ * @common_info_version  : Version of common info struct used
+ * @common_info_size     : Size of common info struct used
+ * @common_info_offset   : Offset of common info from start of data
+ * @num_inputs           : Number of inputs
+ * @input_info_version   : Version of input info struct used
+ * @input_info_size      : Size of input info struct used
+ * @input_info_offset    : Offset of input info from start of data
+ * @data                 : Start of data region
+ */
+struct cam_isp_acquire_hw_info {
+	uint16_t                common_info_version;
+	uint16_t                common_info_size;
+	uint32_t                common_info_offset;
+	uint32_t                num_inputs;
+	uint32_t                input_info_version;
+	uint32_t                input_info_size;
+	uint32_t                input_info_offset;
+	uint64_t                data;
+};
+
+#define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000
+
+#define CAM_ISP_ACQUIRE_COMMON_SIZE_VER0    0x0
+
+#define CAM_ISP_ACQUIRE_INPUT_VER0          0x2000
+
+#define CAM_ISP_ACQUIRE_OUT_VER0            0x3000
 
 #endif /* __UAPI_CAM_ISP_H__ */

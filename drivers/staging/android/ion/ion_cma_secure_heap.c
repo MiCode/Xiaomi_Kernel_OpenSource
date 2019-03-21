@@ -3,7 +3,7 @@
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -869,7 +869,7 @@ struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data)
 	mutex_init(&sheap->chunk_lock);
 	mutex_init(&sheap->alloc_lock);
 	sheap->heap.ops = &ion_secure_cma_ops;
-	sheap->heap.type = ION_HEAP_TYPE_SECURE_DMA;
+	sheap->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_SECURE_DMA;
 	sheap->npages = data->size >> PAGE_SHIFT;
 	sheap->base = data->base;
 	sheap->heap_size = data->size;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -262,8 +262,7 @@ static void dp_display_deinitialize_hdcp(struct dp_display_private *dp)
 
 	sde_dp_hdcp2p2_deinit(dp->hdcp.data);
 	dp_display_destroy_hdcp_workqueue(dp);
-	if (&dp->hdcp_mutex)
-		mutex_destroy(&dp->hdcp_mutex);
+	mutex_destroy(&dp->hdcp_mutex);
 }
 
 static int dp_display_initialize_hdcp(struct dp_display_private *dp)
