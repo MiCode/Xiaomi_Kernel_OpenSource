@@ -32,6 +32,11 @@
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		int result;						\
 									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
+									\
 		mutex_lock(&opts->lock);				\
 		result = gether_get_dev_addr(opts->net, page, PAGE_SIZE); \
 		mutex_unlock(&opts->lock);				\
@@ -44,6 +49,11 @@
 	{								\
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		int ret;						\
+									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
 									\
 		mutex_lock(&opts->lock);				\
 		if (opts->refcnt) {					\
@@ -67,6 +77,11 @@
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		int result;						\
 									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
+									\
 		mutex_lock(&opts->lock);				\
 		result = gether_get_host_addr(opts->net, page, PAGE_SIZE); \
 		mutex_unlock(&opts->lock);				\
@@ -79,6 +94,11 @@
 	{								\
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		int ret;						\
+									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
 									\
 		mutex_lock(&opts->lock);				\
 		if (opts->refcnt) {					\
@@ -102,6 +122,11 @@
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		unsigned qmult;						\
 									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
+									\
 		mutex_lock(&opts->lock);				\
 		qmult = gether_get_qmult(opts->net);			\
 		mutex_unlock(&opts->lock);				\
@@ -114,6 +139,11 @@
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		u8 val;							\
 		int ret;						\
+									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
 									\
 		mutex_lock(&opts->lock);				\
 		if (opts->refcnt) {					\
@@ -140,6 +170,11 @@ out:									\
 	{								\
 		struct f_##_f_##_opts *opts = to_f_##_f_##_opts(item);	\
 		int ret;						\
+									\
+		if (opts->bound == false) {		\
+			pr_err("Gadget function do not bind yet.\n");	\
+			return -ENODEV;			\
+		}							\
 									\
 		mutex_lock(&opts->lock);				\
 		ret = gether_get_ifname(opts->net, page, PAGE_SIZE);	\
