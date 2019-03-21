@@ -39,9 +39,12 @@
 #define VDD_MIN_UV	1028000
 #define VDD_MAX_UV	1028000
 #define VDD_MAX_UA	575000
-#define VDDIO_MIN_UV	1950000
+#define VDDIO_MIN_UV	1824000
 #define VDDIO_MAX_UV	2040000
 #define VDDIO_MAX_UA	70300
+#define VDD_LDO_MIN_UV	1800000
+#define VDD_LDO_MAX_UV	1800000
+#define VDD_LDO_MAX_UA	100000
 
 #define WIGIG_MIN_CPU_BOOST_KBPS	150000
 
@@ -122,6 +125,7 @@ struct msm11ad_ctx {
 	/* external vregs and clocks */
 	struct msm11ad_vreg vdd;
 	struct msm11ad_vreg vddio;
+	struct msm11ad_vreg vdd_ldo;
 	struct msm11ad_clk rf_clk3;
 	struct msm11ad_clk rf_clk3_pin;
 
@@ -256,8 +260,18 @@ static int msm_11ad_init_vregs(struct msm11ad_ctx *ctx)
 	ctx->vddio.min_uV = VDDIO_MIN_UV;
 	ctx->vddio.max_uA = VDDIO_MAX_UA;
 
+	rc = msm_11ad_init_vreg(dev, &ctx->vdd_ldo, "vdd-ldo");
+	if (rc)
+		goto vdd_ldo_fail;
+
+	ctx->vdd_ldo.max_uV = VDD_LDO_MAX_UV;
+	ctx->vdd_ldo.min_uV = VDD_LDO_MIN_UV;
+	ctx->vdd_ldo.max_uA = VDD_LDO_MAX_UA;
+
 	return rc;
 
+vdd_ldo_fail:
+	msm_11ad_release_vreg(dev, &ctx->vddio);
 vddio_fail:
 	msm_11ad_release_vreg(dev, &ctx->vdd);
 out:
@@ -266,6 +280,7 @@ out:
 
 static void msm_11ad_release_vregs(struct msm11ad_ctx *ctx)
 {
+	msm_11ad_release_vreg(ctx->dev, &ctx->vdd_ldo);
 	msm_11ad_release_vreg(ctx->dev, &ctx->vdd);
 	msm_11ad_release_vreg(ctx->dev, &ctx->vddio);
 }
@@ -381,8 +396,14 @@ static int msm_11ad_enable_vregs(struct msm11ad_ctx *ctx)
 	if (rc)
 		goto vddio_fail;
 
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vdd_ldo);
+	if (rc)
+		goto vdd_ldo_fail;
+
 	return rc;
 
+vdd_ldo_fail:
+	msm_11ad_disable_vreg(ctx, &ctx->vddio);
 vddio_fail:
 	msm_11ad_disable_vreg(ctx, &ctx->vdd);
 out:
@@ -391,10 +412,11 @@ out:
 
 static int msm_11ad_disable_vregs(struct msm11ad_ctx *ctx)
 {
-	if (!ctx->vdd.reg && !ctx->vddio.reg)
+	if (!ctx->vdd.reg && !ctx->vddio.reg && !ctx->vdd_ldo.reg)
 		goto out;
 
 	/* ignore errors on disable vreg */
+	msm_11ad_disable_vreg(ctx, &ctx->vdd_ldo);
 	msm_11ad_disable_vreg(ctx, &ctx->vdd);
 	msm_11ad_disable_vreg(ctx, &ctx->vddio);
 
