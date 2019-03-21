@@ -2267,8 +2267,8 @@
 			};
 		};
 
-		cam_sensor_active_front: cam_sensor_active_front {
-			/* RESET FRONT */
+		cam_sensor_active_rst2: cam_sensor_active_rst2 {
+			/* RESET 2 */
 			mux {
 				pins = "gpio78";
 				function = "gpio";
@@ -2281,8 +2281,8 @@
 			};
 		};
 
-		cam_sensor_suspend_front: cam_sensor_suspend_front {
-			/* RESET FRONT */
+		cam_sensor_suspend_rst2: cam_sensor_suspend_rst2 {
+			/* RESET 2 */
 			mux {
 				pins = "gpio78";
 				function = "gpio";
