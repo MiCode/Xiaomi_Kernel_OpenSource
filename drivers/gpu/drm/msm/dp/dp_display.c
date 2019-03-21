@@ -1310,7 +1310,6 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 	const u32 num_components = 3, default_bpp = 24;
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
-	u32 rc;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1335,14 +1334,7 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 			mode->timing.bpp, mode->timing.pixel_clk_khz);
 
 	dp_panel->pinfo = mode->timing;
-	rc = dp_panel->init(dp_panel);
-
-	if (rc == -EAGAIN) {
-		dp->ctrl->off(dp->ctrl);
-		dp->ctrl->on(dp->ctrl, dp->mst.mst_active,
-			dp->panel->fec_en, false);
-	}
-
+	dp_panel->init(dp_panel);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;

@@ -74,9 +74,6 @@ struct dp_panel_private {
 	u8 spd_product_description[16];
 	u8 major;
 	u8 minor;
-	u32 bpp;
-	u32 active_pclk;
-	u32 optimal_link_rate;
 };
 
 static const struct dp_panel_info fail_safe = {
@@ -1767,50 +1764,12 @@ static int dp_panel_set_dpcd(struct dp_panel *dp_panel, u8 *dpcd)
 	return 0;
 }
 
-static u32 dp_panel_get_optimal_link_rate(struct dp_panel *dp_panel)
-{
-	struct dp_panel_private *panel;
-	u32 lrate, rate = 0;
-
-	if (!dp_panel) {
-		pr_err("invalid input\n");
-		goto end;
-	}
-
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-
-	/*
-	 * As MST can support multiple streams,
-	 * do not optimize the link rate for MST.
-	 */
-	if (panel->dp_panel.mst_state) {
-		rate = panel->dp_panel.link_info.rate;
-		goto end;
-	}
-
-	lrate = ((panel->active_pclk / panel->dp_panel.link_info.num_lanes) *
-			panel->bpp) / 8;
-
-	if (lrate <= DP_LINK_RATE_RBR)
-		rate = DP_LINK_RATE_RBR;
-	else if (lrate <= DP_LINK_RATE_HBR)
-		rate = DP_LINK_RATE_HBR;
-	else if (lrate <= DP_LINK_RATE_HBR2)
-		rate = DP_LINK_RATE_HBR2;
-	else
-		rate = DP_LINK_RATE_HBR3;
-end:
-	panel->optimal_link_rate = rate;
-	return rate;
-}
-
 static int dp_panel_read_edid(struct dp_panel *dp_panel,
 	struct drm_connector *connector)
 {
 	int ret = 0;
 	struct dp_panel_private *panel;
 	struct edid *edid;
-	struct drm_display_mode *mode;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -1831,16 +1790,6 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 		ret = -EINVAL;
 		goto end;
 	}
-
-	mutex_lock(&connector->dev->mode_config.mutex);
-	_sde_edid_update_modes(connector, dp_panel->edid_ctrl);
-	mutex_unlock(&connector->dev->mode_config.mutex);
-
-	mode = list_first_entry(&connector->probed_modes,
-				 struct drm_display_mode, head);
-
-	panel->bpp = connector->display_info.bpc * 3;
-	panel->active_pclk = mode->clock;
 end:
 	edid = dp_panel->edid_ctrl->edid;
 	dp_panel->audio_supported = drm_detect_monitor_audio(edid);
@@ -2376,7 +2325,6 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 	int rc = 0;
 	struct dp_panel_private *panel;
 	struct dp_panel_info *pinfo;
-	u32 current_link_rate;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -2400,13 +2348,6 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 		pinfo->refresh_rate, pinfo->bpp, pinfo->pixel_clk_khz,
 		panel->link->link_params.bw_code,
 		panel->link->link_params.lane_count);
-
-	panel->active_pclk = pinfo->pixel_clk_khz;
-	current_link_rate = panel->optimal_link_rate;
-	dp_panel_get_optimal_link_rate(dp_panel);
-
-	if (panel->optimal_link_rate != current_link_rate)
-		rc = -EAGAIN;
 end:
 	return rc;
 }
@@ -2971,31 +2912,33 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 		goto error;
 	}
 
-	dp_panel = &panel->dp_panel;
-
-	if (in->base_panel) {
-		struct dp_panel_private *base_panel_priv =
-			container_of(in->base_panel,
-				struct dp_panel_private, dp_panel);
-
-		memcpy(panel, base_panel_priv, sizeof(*panel));
-
-		goto update;
-	}
-
 	panel->dev = in->dev;
 	panel->aux = in->aux;
 	panel->catalog = in->catalog;
 	panel->link = in->link;
 	panel->parser = in->parser;
 
+	dp_panel = &panel->dp_panel;
 	dp_panel->max_bw_code = DP_LINK_BW_8_1;
 	dp_panel->spd_enabled = true;
 	memcpy(panel->spd_vendor_name, vendor_name, (sizeof(u8) * 8));
 	memcpy(panel->spd_product_description, product_desc, (sizeof(u8) * 16));
+	dp_panel->connector = in->connector;
 
 	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
 	dp_panel->fec_feature_enable = panel->parser->fec_feature_enable;
+
+	if (in->base_panel) {
+		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
+				DP_RECEIVER_CAP_SIZE + 1);
+		memcpy(&dp_panel->link_info, &in->base_panel->link_info,
+				sizeof(dp_panel->link_info));
+		dp_panel->mst_state = in->base_panel->mst_state;
+		dp_panel->widebus_en = in->base_panel->widebus_en;
+		dp_panel->fec_en = in->base_panel->fec_en;
+		dp_panel->dsc_en = in->base_panel->dsc_en;
+		dp_panel->fec_overhead_fp = in->base_panel->fec_overhead_fp;
+	}
 
 	dp_panel->init = dp_panel_init_panel_info;
 	dp_panel->deinit = dp_panel_deinit_panel_info;
@@ -3017,9 +2960,7 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	dp_panel->read_mst_cap = dp_panel_read_mst_cap;
 	dp_panel->convert_to_dp_mode = dp_panel_convert_to_dp_mode;
 	dp_panel->update_pps = dp_panel_update_pps;
-	dp_panel->get_optimal_link_rate = dp_panel_get_optimal_link_rate;
-update:
-	dp_panel->connector = in->connector;
+
 	sde_conn = to_sde_connector(dp_panel->connector);
 	sde_conn->drv_panel = dp_panel;
 

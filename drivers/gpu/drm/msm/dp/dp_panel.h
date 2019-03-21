@@ -18,11 +18,6 @@
 #define DP_RECEIVER_DSC_CAP_SIZE    15
 #define DP_RECEIVER_FEC_STATUS_SIZE 3
 
-#define DP_LINK_RATE_RBR  162000
-#define DP_LINK_RATE_HBR  270000
-#define DP_LINK_RATE_HBR2 540000
-#define DP_LINK_RATE_HBR3 810000
-
 /*
  * A source initiated power down flag is set
  * when the DP is powered off while physical
@@ -168,7 +163,6 @@ struct dp_panel {
 		const struct drm_display_mode *drm_mode,
 		struct dp_display_mode *dp_mode);
 	void (*update_pps)(struct dp_panel *dp_panel, char *pps_cmd);
-	u32 (*get_optimal_link_rate)(struct dp_panel *dp_panel);
 };
 
 struct dp_tu_calc_input {
