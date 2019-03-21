@@ -1645,14 +1645,16 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		 */
 		rotation ^= (DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y);
 
-		if (!psde->pipe_sblk->in_rot_maxdwnscale_rt ||
+		if (!psde->pipe_sblk->in_rot_maxdwnscale_rt_num ||
+			!psde->pipe_sblk->in_rot_maxdwnscale_rt_denom ||
 			!psde->pipe_sblk->in_rot_maxdwnscale_nrt ||
 			!psde->pipe_sblk->in_rot_maxheight ||
 			!psde->pipe_sblk->in_rot_format_list ||
 			!(psde->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1))) {
 			SDE_ERROR_PLANE(psde,
-				"wrong config rt:%d nrt:%d fmt:%d h:%d 0x%x\n",
-				!psde->pipe_sblk->in_rot_maxdwnscale_rt,
+			    "wrong config rt:%d/%d nrt:%d fmt:%d h:%d 0x%x\n",
+				!psde->pipe_sblk->in_rot_maxdwnscale_rt_num,
+				!psde->pipe_sblk->in_rot_maxdwnscale_rt_denom,
 				!psde->pipe_sblk->in_rot_maxdwnscale_nrt,
 				!psde->pipe_sblk->in_rot_format_list,
 				!psde->pipe_sblk->in_rot_maxheight,
@@ -2419,7 +2421,8 @@ static int _sde_atomic_check_decimation_scaler(struct drm_plane_state *state,
 	int ret = 0;
 	uint32_t deci_w, deci_h, src_deci_w, src_deci_h;
 	uint32_t scaler_src_w, scaler_src_h;
-	uint32_t max_upscale, max_downscale, max_linewidth;
+	uint32_t max_downscale_num, max_downscale_denom;
+	uint32_t max_upscale, max_linewidth;
 	bool inline_rotation, rt_client;
 	struct drm_crtc *crtc;
 
@@ -2448,14 +2451,20 @@ static int _sde_atomic_check_decimation_scaler(struct drm_plane_state *state,
 	else
 		rt_client = true;
 
+	max_downscale_denom = 1;
 	/* inline rotation RT clients have a different max downscaling limit */
 	if (inline_rotation) {
-		if (rt_client)
-			max_downscale = psde->pipe_sblk->in_rot_maxdwnscale_rt;
-		else
-			max_downscale = psde->pipe_sblk->in_rot_maxdwnscale_nrt;
+		if (rt_client) {
+			max_downscale_num =
+				psde->pipe_sblk->in_rot_maxdwnscale_rt_num;
+			max_downscale_denom =
+				psde->pipe_sblk->in_rot_maxdwnscale_rt_denom;
+		} else {
+			max_downscale_num =
+				psde->pipe_sblk->in_rot_maxdwnscale_nrt;
+		}
 	} else {
-		max_downscale = psde->pipe_sblk->maxdwnscale;
+		max_downscale_num = psde->pipe_sblk->maxdwnscale;
 	}
 
 	/* decimation validation */
@@ -2488,8 +2497,10 @@ static int _sde_atomic_check_decimation_scaler(struct drm_plane_state *state,
 	/* check max scaler capability */
 	else if (((scaler_src_w * max_upscale) < dst->w) ||
 		((scaler_src_h * max_upscale) < dst->h) ||
-		((dst->w * max_downscale) < scaler_src_w) ||
-		((dst->h * max_downscale) < scaler_src_h)) {
+		(((dst->w * max_downscale_num) / max_downscale_denom)
+			< scaler_src_w) ||
+		(((dst->h * max_downscale_num) / max_downscale_denom)
+			< scaler_src_h)) {
 		SDE_ERROR_PLANE(psde,
 			"too much scaling requested %ux%u->%ux%u rot:%d\n",
 			scaler_src_w, scaler_src_h, dst->w, dst->h,
@@ -3554,8 +3565,16 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		const struct sde_format_extended *inline_rot_fmt_list;
 
 		sde_kms_info_add_keyint(info, "true_inline_rot_rev", 1);
-		sde_kms_info_add_keyint(info, "true_inline_dwnscale_rt",
-			psde->pipe_sblk->in_rot_maxdwnscale_rt);
+		sde_kms_info_add_keyint(info,
+			"true_inline_dwnscale_rt",
+			(int) (psde->pipe_sblk->in_rot_maxdwnscale_rt_num /
+				psde->pipe_sblk->in_rot_maxdwnscale_rt_denom));
+		sde_kms_info_add_keyint(info,
+				"true_inline_dwnscale_rt_numerator",
+				psde->pipe_sblk->in_rot_maxdwnscale_rt_num);
+		sde_kms_info_add_keyint(info,
+				"true_inline_dwnscale_rt_denominator",
+				psde->pipe_sblk->in_rot_maxdwnscale_rt_denom);
 		sde_kms_info_add_keyint(info, "true_inline_dwnscale_nrt",
 			psde->pipe_sblk->in_rot_maxdwnscale_nrt);
 		sde_kms_info_add_keyint(info, "true_inline_max_height",
@@ -4285,10 +4304,14 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 				&psde->debugfs_default_scale);
 
 	if (cfg->features & BIT(SDE_SSPP_TRUE_INLINE_ROT_V1)) {
-		debugfs_create_u32("in_rot_max_downscale_rt",
+		debugfs_create_u32("in_rot_max_downscale_rt_num",
 			0600,
 			psde->debugfs_root,
-			(u32 *) &psde->pipe_sblk->in_rot_maxdwnscale_rt);
+			(u32 *) &psde->pipe_sblk->in_rot_maxdwnscale_rt_num);
+		debugfs_create_u32("in_rot_max_downscale_rt_denom",
+			0600,
+			psde->debugfs_root,
+			(u32 *) &psde->pipe_sblk->in_rot_maxdwnscale_rt_denom);
 		debugfs_create_u32("in_rot_max_downscale_nrt",
 			0600,
 			psde->debugfs_root,

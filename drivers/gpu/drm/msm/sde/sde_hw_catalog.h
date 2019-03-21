@@ -593,7 +593,10 @@ struct sde_qos_lut_tbl {
  * @format_list: Pointer to list of supported formats
  * @virt_format_list: Pointer to list of supported formats for virtual planes
  * @in_rot_format_list: Pointer to list of supported formats for inline rotation
- * @in_rot_maxdwnscale_rt: max downscale ratio for inline rotation rt clients
+ * @in_rot_maxdwnscale_rt_num: max downscale ratio for inline rotation
+ *                                 rt clients - numerator
+ * @in_rot_maxdwnscale_rt_denom: max downscale ratio for inline rotation
+ *                                 rt clients - denominator
  * @in_rot_maxdwnscale_nrt: max downscale ratio for inline rotation nrt clients
  * @in_rot_maxheight: max pre rotated height for inline rotation
  * @in_rot_prefill_fudge_lines: prefill fudge lines for inline rotation
@@ -630,7 +633,8 @@ struct sde_sspp_sub_blks {
 	const struct sde_format_extended *format_list;
 	const struct sde_format_extended *virt_format_list;
 	const struct sde_format_extended *in_rot_format_list;
-	u32 in_rot_maxdwnscale_rt;
+	u32 in_rot_maxdwnscale_rt_num;
+	u32 in_rot_maxdwnscale_rt_denom;
 	u32 in_rot_maxdwnscale_nrt;
 	u32 in_rot_maxheight;
 	u32 in_rot_prefill_fudge_lines;
@@ -1186,7 +1190,10 @@ struct sde_perf_cfg {
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
  * @true_inline_rot_rev	inline rotator feature revision
- * @true_inline_dwnscale_rt    true inline rotator downscale ratio for rt
+ * @true_inline_dwnscale_rt_num    true inline rotator downscale ratio for rt
+ *                                       - numerator
+ * @true_inline_dwnscale_rt_denom    true inline rot downscale ratio for rt
+ *                                       - denominator
  * @true_inline_dwnscale_nrt    true inline rotator downscale ratio for nrt
  * @true_inline_prefill_fudge_lines    true inline rotator prefill fudge lines
  * @true_inline_prefill_lines_nv12    true inline prefill lines for nv12 format
@@ -1244,7 +1251,8 @@ struct sde_mdss_cfg {
 	u32 vbif_qos_nlvl;
 	u32 ts_prefill_rev;
 	u32 true_inline_rot_rev;
-	u32 true_inline_dwnscale_rt;
+	u32 true_inline_dwnscale_rt_num;
+	u32 true_inline_dwnscale_rt_denom;
 	u32 true_inline_dwnscale_nrt;
 	u32 true_inline_prefill_fudge_lines;
 	u32 true_inline_prefill_lines_nv12;
