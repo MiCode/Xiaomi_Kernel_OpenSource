@@ -59,6 +59,8 @@ memory allocation over a PCIe bridge
                                 a pipe reset via the IPA uC is required
 - qcom,ipa-wdi2:		Boolean context flag to indicate whether
 				using wdi-2.0 or not
+- qcom,ipa-wdi3-over-gsi:       Boolean context flag to indicate whether
+                                using wdi-3.0 or not
 - qcom,bandwidth-vote-for-ipa:	Boolean context flag to indicate whether
 				ipa clock voting is done by bandwidth
 				voting via msm-bus-scale driver or not
