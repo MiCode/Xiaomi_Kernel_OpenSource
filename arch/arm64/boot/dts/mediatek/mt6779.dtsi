@@ -78,6 +78,25 @@
 			reg = <0 0x0c53a650 0 0x50>;
 		};
 
+		pio: pinctrl@10005000 {
+			compatible = "mediatek,mt6779-pinctrl";
+			reg = <0 0x10005000 0 0x1000>,
+			      <0 0x11c20000 0 0x1000>,
+			      <0 0x11d10000 0 0x1000>,
+			      <0 0x11e20000 0 0x1000>,
+			      <0 0x11e70000 0 0x1000>,
+			      <0 0x11ea0000 0 0x1000>,
+			      <0 0x11f20000 0 0x1000>,
+			      <0 0x11f30000 0 0x1000>;
+			reg-names = "gpio", "iocfg_rm",
+				"iocfg_br", "iocfg_lm",
+				"iocfg_lb", "iocfg_rt",
+				"iocfg_lt", "iocfg_tl";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pio 0 0 209>;
+		};
+
 		uart0: serial@11002000 {
 			compatible = "mediatek,mt6779-uart",
 				     "mediatek,mt6577-uart";
