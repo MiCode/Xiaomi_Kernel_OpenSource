@@ -80,6 +80,11 @@ static inline bool is_realtime_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_REALTIME);
 }
 
+static inline bool is_secure_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_SECURE);
+}
+
 static inline bool is_decode_session(struct msm_vidc_inst *inst)
 {
 	return inst->session_type == MSM_VIDC_DECODER;

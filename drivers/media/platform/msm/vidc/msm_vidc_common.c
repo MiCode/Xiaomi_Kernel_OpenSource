@@ -5377,6 +5377,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	struct msm_vidc_core *core;
 	u32 output_height, output_width, input_height, input_width;
 	u32 width_min, width_max, height_min, height_max;
+	u32 mbpf_max;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -5398,10 +5399,19 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
-	width_min = capability->cap[CAP_FRAME_WIDTH].min;
-	width_max = capability->cap[CAP_FRAME_WIDTH].max;
-	height_min = capability->cap[CAP_FRAME_HEIGHT].min;
-	height_max = capability->cap[CAP_FRAME_HEIGHT].max;
+	if (is_secure_session(inst)) {
+		width_min = capability->cap[CAP_SECURE_FRAME_WIDTH].min;
+		width_max = capability->cap[CAP_SECURE_FRAME_WIDTH].max;
+		height_min = capability->cap[CAP_SECURE_FRAME_HEIGHT].min;
+		height_max = capability->cap[CAP_SECURE_FRAME_HEIGHT].max;
+		mbpf_max = capability->cap[CAP_SECURE_MBS_PER_FRAME].max;
+	} else {
+		width_min = capability->cap[CAP_FRAME_WIDTH].min;
+		width_max = capability->cap[CAP_FRAME_WIDTH].max;
+		height_min = capability->cap[CAP_FRAME_HEIGHT].min;
+		height_max = capability->cap[CAP_FRAME_HEIGHT].max;
+		mbpf_max = capability->cap[CAP_MBS_PER_FRAME].max;
+	}
 
 	output_height = inst->prop.height[CAPTURE_PORT];
 	output_width = inst->prop.width[CAPTURE_PORT];
@@ -5445,6 +5455,13 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
 			output_width, output_height,
 			width_max, height_max);
+			rc = -ENOTSUPP;
+		}
+		if (!rc && NUM_MBS_PER_FRAME(input_width, input_height) >
+			mbpf_max) {
+			dprintk(VIDC_ERR, "Unsupported mbpf %d, max %d\n",
+				NUM_MBS_PER_FRAME(input_width, input_height),
+				mbpf_max);
 			rc = -ENOTSUPP;
 		}
 	}
