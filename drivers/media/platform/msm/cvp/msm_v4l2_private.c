@@ -19,12 +19,21 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
 		return -EFAULT;
 
-	if (get_pkt_index(pkt_hdr) < 0)
-		return -EINVAL;
+	if (get_pkt_index(pkt_hdr) < 0) {
+		dprintk(CVP_DBG, "user mode provides incorrect hfi\n");
+		goto set_default_pkt_hdr;
+	}
 
-	if (pkt_hdr->size > MAX_HFI_PKT_SIZE*sizeof(unsigned int))
+	if (pkt_hdr->size > MAX_HFI_PKT_SIZE*sizeof(unsigned int)) {
+		dprintk(CVP_ERR, "user HFI packet too large %x\n",
+				pkt_hdr->size);
 		return -EINVAL;
+	}
 
+	return 0;
+
+set_default_pkt_hdr:
+	pkt_hdr->size = sizeof(struct hfi_msg_session_hdr);
 	return 0;
 }
 
@@ -252,6 +261,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	case CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE:
 	case CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE:
 	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
+	case CVP_KMD_RECEIVE_MSG_PKT:
 		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
@@ -266,7 +276,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
-	int i;
+	int i, size = sizeof(struct hfi_msg_session_hdr) >> 2;
 	struct cvp_kmd_arg __user *up = compat_ptr(arg);
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
@@ -280,7 +290,16 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 
 	switch (kp->type) {
 	case CVP_KMD_RECEIVE_MSG_PKT:
+	{
+		struct cvp_kmd_hfi_packet *k, *u;
+
+		k = &kp->data.hfi_pkt;
+		u = &up->data.hfi_pkt;
+		for (i = 0; i < size; i++)
+			if (put_user(k->pkt_data[i], &u->pkt_data[i]))
+				return -EFAULT;
 		break;
+	}
 	case CVP_KMD_GET_SESSION_INFO:
 	{
 		struct cvp_kmd_session_info *k, *u;
@@ -437,8 +456,11 @@ long msm_cvp_v4l2_private(struct file *filp,
 		return -EINVAL;
 	}
 
-	if (convert_to_user(&karg, arg))
+	if (convert_to_user(&karg, arg)) {
+		dprintk(CVP_ERR, "%s: failed to copy to user cmd %x\n",
+			__func__, karg.type);
 		return -EFAULT;
+	}
 
 	return rc;
 }

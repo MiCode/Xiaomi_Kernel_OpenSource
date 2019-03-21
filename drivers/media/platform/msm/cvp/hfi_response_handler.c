@@ -14,6 +14,9 @@
 #include "cvp_hfi_io.h"
 #include "msm_cvp_debug.h"
 #include "cvp_hfi.h"
+#include "msm_cvp_common.h"
+
+extern struct msm_cvp_drv *cvp_driver;
 
 static enum cvp_status hfi_map_err_status(u32 hfi_err)
 {
@@ -823,12 +826,12 @@ static int hfi_process_session_set_buf_done(u32 device_id,
 
 
 static int hfi_process_session_rel_buf_done(u32 device_id,
-		struct hfi_msg_session_cvp_release_buffers_done_packet *pkt,
+		struct hfi_msg_session_hdr *pkt,
 		struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	unsigned int pkt_size =
-		sizeof(struct hfi_msg_session_cvp_release_buffers_done_packet);
+		sizeof(struct hfi_msg_session_hdr);
 
 	if (!pkt || pkt->size < pkt_size) {
 		dprintk(CVP_ERR, "bad packet/packet size %d\n",
@@ -921,6 +924,84 @@ static int hfi_process_session_cvp_dfs(u32 device_id,
 	return 0;
 }
 
+static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
+	void *session_id)
+{
+	struct msm_cvp_inst *inst = NULL;
+	bool match = false;
+
+	if (!core || !session_id)
+		return NULL;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		if (hash32_ptr(inst->session) == (unsigned int)session_id) {
+			match = true;
+			break;
+		}
+	}
+
+	inst = match ? inst : NULL;
+	mutex_unlock(&core->lock);
+
+	return inst;
+
+}
+
+static int hfi_process_session_cvp_msg(u32 device_id,
+	struct hfi_msg_session_hdr *pkt,
+	struct msm_cvp_cb_info *info)
+{
+	struct session_msg *sess_msg;
+	struct msm_cvp_inst *inst = NULL;
+	struct msm_cvp_core *core;
+	void *session_id;
+
+	if (!pkt) {
+		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
+		return -EINVAL;
+	} else if (pkt->size > MAX_HFI_PKT_SIZE * sizeof(unsigned int)) {
+		dprintk(CVP_ERR, "%s: bad_pkt_size %d\n", __func__, pkt->size);
+		return -E2BIG;
+	}
+	session_id = (void *)(uintptr_t)pkt->session_id;
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	inst = cvp_get_inst_from_id(core, session_id);
+
+	if (!inst) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
+		return -EINVAL;
+	}
+
+	sess_msg = kmem_cache_alloc(inst->session_queue.msg_cache, GFP_KERNEL);
+	if (sess_msg == NULL) {
+		dprintk(CVP_ERR, "%s runs out msg cache memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	memcpy(&sess_msg->pkt, pkt, sizeof(struct hfi_msg_session_hdr));
+
+	spin_lock(&inst->session_queue.lock);
+	if (inst->session_queue.msg_count >= MAX_NUM_MSGS_PER_SESSION) {
+		dprintk(CVP_ERR, "Reached session queue size limit\n");
+		goto error_handle_msg;
+	}
+	list_add_tail(&sess_msg->node, &inst->session_queue.msgs);
+	inst->session_queue.msg_count++;
+	spin_unlock(&inst->session_queue.lock);
+
+	wake_up_all(&inst->session_queue.wq);
+
+	info->response_type = HAL_NO_RESP;
+
+	return 0;
+
+error_handle_msg:
+	spin_unlock(&inst->session_queue.lock);
+	kmem_cache_free(inst->session_queue.msg_cache, sess_msg);
+	return -ENOMEM;
+}
+
 static int hfi_process_session_cvp_dme(u32 device_id,
 	struct hfi_msg_session_cvp_dme_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
@@ -930,9 +1011,8 @@ static int hfi_process_session_cvp_dme(u32 device_id,
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
-	} else if (pkt->size < sizeof(*pkt)) {
-		dprintk(CVP_ERR,
-				"%s: bad_pkt_size\n", __func__);
+	} else if (pkt->size > sizeof(*pkt)) {
+		dprintk(CVP_ERR, "%s: bad_pkt_size %d\n", __func__, pkt->size);
 		return -E2BIG;
 	}
 
@@ -1068,7 +1148,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		return -EINVAL;
 	}
 
-	dprintk(CVP_DBG, "Parse response %#x\n", msg_hdr->packet);
+	dprintk(CVP_DBG, "Received HFI MSG with type %d\n", msg_hdr->packet);
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
 		pkt_func = (pkt_func_def)hfi_process_event_notify;
@@ -1095,27 +1175,21 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
-		dprintk(CVP_DBG,
-			"Received HFI_MSG_SESSION_CVP_OPERATION_CONFIG from firmware");
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;
 		break;
 	case HFI_MSG_SESSION_CVP_DFS:
-		dprintk(CVP_DBG,
-			"Received HFI_MSG_SESSION_CVP_DFS from firmware");
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_dfs;
 		break;
 	case HFI_MSG_SESSION_CVP_DME:
-		dprintk(CVP_DBG,
-			"Received HFI_MSG_SESSION_CVP_DME from firmware");
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_dme;
 		break;
 	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
-		dprintk(CVP_DBG,
-			"Received HFI_MSG_SESSION_CVP_PERSIST from firmware");
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_persist;
 		break;
-
+	case HFI_MSG_SESSION_CVP_DS:
+		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
+		break;
 	default:
 		dprintk(CVP_DBG, "Unable to parse message: %#x\n",
 				msg_hdr->packet);

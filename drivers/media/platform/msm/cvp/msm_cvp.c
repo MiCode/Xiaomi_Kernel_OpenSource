@@ -217,6 +217,65 @@ exit:
 	return rc;
 }
 
+static bool _cvp_msg_pending(struct msm_cvp_inst *inst,
+			struct cvp_session_queue *sq,
+			struct session_msg **msg)
+{
+	struct session_msg *mptr = NULL;
+	bool result = false;
+
+	spin_lock(&sq->lock);
+	if (!kref_read(&inst->kref)) {
+		/* The session is being deleted */
+		spin_unlock(&sq->lock);
+		*msg = NULL;
+		return true;
+	}
+	result = list_empty(&sq->msgs);
+	if (!result) {
+		mptr = list_first_entry(&sq->msgs, struct session_msg, node);
+		list_del_init(&mptr->node);
+		sq->msg_count--;
+	}
+	spin_unlock(&sq->lock);
+	*msg = mptr;
+	return !result;
+}
+
+
+static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
+			struct cvp_kmd_hfi_packet *out_pkt)
+{
+	unsigned long wait_time;
+	struct session_msg *msg = NULL;
+	struct cvp_session_queue *sq;
+
+	if (!inst) {
+		dprintk(CVP_ERR, "%s invalid session\n", __func__);
+		return -EINVAL;
+	}
+
+	sq = &inst->session_queue;
+
+	wait_time = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
+
+	if (wait_event_timeout(sq->wq,
+		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
+		dprintk(CVP_ERR, "session queue wait timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	if (msg == NULL) {
+		dprintk(CVP_ERR, "%s: session is deleted, no msg\n", __func__);
+		return -EINVAL;
+	}
+
+	memcpy(out_pkt, &msg->pkt, sizeof(struct hfi_msg_session_hdr));
+	kmem_cache_free(inst->session_queue.msg_cache, msg);
+
+	return 0;
+}
+
 static int msm_cvp_session_process_hfi(
 	struct msm_cvp_inst *inst,
 	struct cvp_kmd_hfi_packet *in_pkt)
@@ -600,11 +659,6 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 	hdev = inst->core->device;
 	print_client_buffer(CVP_DBG, "unregister", inst, buf);
 
-	if (!buf->index) {
-		dprintk(CVP_ERR, "Missing index when unregister buf\n");
-		return 0;
-	}
-
 	mutex_lock(&inst->cvpbufs.lock);
 	found = false;
 	list_for_each_entry(cbuf, &inst->cvpbufs.list, list) {
@@ -688,6 +742,13 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 			(struct cvp_kmd_send_cmd *)&arg->data.send_cmd;
 
 		rc = msm_cvp_send_cmd(inst, send_cmd);
+		break;
+	}
+	case CVP_KMD_RECEIVE_MSG_PKT:
+	{
+		struct cvp_kmd_hfi_packet *out_pkt =
+			(struct cvp_kmd_hfi_packet *)&arg->data.hfi_pkt;
+		rc = msm_cvp_session_receive_hfi(inst, out_pkt);
 		break;
 	}
 	case CVP_KMD_SEND_CMD_PKT:

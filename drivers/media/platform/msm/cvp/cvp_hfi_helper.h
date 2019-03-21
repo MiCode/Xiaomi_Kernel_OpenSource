@@ -1020,7 +1020,7 @@ struct hfi_cmd_session_cvp_release_buffers_packet {
 	u32 buffer_idx;
 };
 
-struct hfi_msg_session_cvp_release_buffers_done_packet {
+struct hfi_msg_session_hdr {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
