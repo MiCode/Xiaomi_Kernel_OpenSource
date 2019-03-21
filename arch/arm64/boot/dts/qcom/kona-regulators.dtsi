@@ -315,9 +315,12 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8150_l14>;
 		L14A: pm8150_l14: regulator-pm8150-l14 {
 			regulator-name = "pm8150_l14";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <62000>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1880000>;
 			qcom,init-voltage = <1800000>;
@@ -683,9 +686,12 @@
 			<RPMH_REGULATOR_MODE_LPM
 			 RPMH_REGULATOR_MODE_HPM>;
 		qcom,mode-threshold-currents = <0 10000>;
+		proxy-supply = <&pm8150a_l11>;
 		L11C: pm8150a_l11: regulator-pm8150a-l11 {
 			regulator-name = "pm8150a_l11";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <857000>;
 			regulator-min-microvolt = <3104000>;
 			regulator-max-microvolt = <3304000>;
 			qcom,init-voltage = <3104000>;
