@@ -2160,7 +2160,7 @@ static void sde_cp_ad_interrupt_cb(void *arg, int irq_idx)
 static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 {
 	uint32_t input_bl = 0, output_bl = 0;
-	uint32_t scale = MAX_AD_BL_SCALE_LEVEL;
+	uint32_t scale = MAX_SV_BL_SCALE_LEVEL;
 	struct sde_hw_mixer *hw_lm = NULL;
 	struct sde_hw_dspp *hw_dspp = NULL;
 	u32 num_mixers;
@@ -2208,7 +2208,7 @@ static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 	if (!input_bl || input_bl < output_bl)
 		return;
 
-	scale = (output_bl * MAX_AD_BL_SCALE_LEVEL) / input_bl;
+	scale = (output_bl * MAX_SV_BL_SCALE_LEVEL) / input_bl;
 	event.length = sizeof(u32);
 	event.type = DRM_EVENT_AD_BACKLIGHT;
 	msm_mode_object_event_notify(&crtc_drm->base, crtc_drm->dev,

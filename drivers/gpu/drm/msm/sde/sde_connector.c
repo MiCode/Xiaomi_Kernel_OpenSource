@@ -539,13 +539,13 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	else
 		bl_config->bl_scale = c_conn->bl_scale;
 
-	if (c_conn->bl_scale_ad > MAX_AD_BL_SCALE_LEVEL)
-		bl_config->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+	if (c_conn->bl_scale_sv > MAX_SV_BL_SCALE_LEVEL)
+		bl_config->bl_scale_sv = MAX_SV_BL_SCALE_LEVEL;
 	else
-		bl_config->bl_scale_ad = c_conn->bl_scale_ad;
+		bl_config->bl_scale_sv = c_conn->bl_scale_sv;
 
-	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
-		bl_config->bl_scale, bl_config->bl_scale_ad,
+	SDE_DEBUG("bl_scale = %u, bl_scale_sv = %u, bl_level = %u\n",
+		bl_config->bl_scale, bl_config->bl_scale_sv,
 		bl_config->bl_level);
 	rc = c_conn->ops.set_backlight(&c_conn->base,
 			dsi_display, bl_config->bl_level);
@@ -615,7 +615,7 @@ static int _sde_connector_update_dirty_properties(
 			mutex_unlock(&c_conn->lock);
 			break;
 		case CONNECTOR_PROP_BL_SCALE:
-		case CONNECTOR_PROP_AD_BL_SCALE:
+		case CONNECTOR_PROP_SV_BL_SCALE:
 			_sde_connector_update_bl_scale(c_conn);
 			break;
 		case CONNECTOR_PROP_HDR_METADATA:
@@ -1257,7 +1257,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		if (rc)
 			SDE_ERROR_CONN(c_conn, "invalid roi_v1, rc: %d\n", rc);
 		break;
-	/* CONNECTOR_PROP_BL_SCALE and CONNECTOR_PROP_AD_BL_SCALE are
+	/* CONNECTOR_PROP_BL_SCALE and CONNECTOR_PROP_SV_BL_SCALE are
 	 * color-processing properties. These two properties require
 	 * special handling since they don't quite fit the current standard
 	 * atomic set property framework.
@@ -1266,8 +1266,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		c_conn->bl_scale = val;
 		c_conn->bl_scale_dirty = true;
 		break;
-	case CONNECTOR_PROP_AD_BL_SCALE:
-		c_conn->bl_scale_ad = val;
+	case CONNECTOR_PROP_SV_BL_SCALE:
+		c_conn->bl_scale_sv = val;
 		c_conn->bl_scale_dirty = true;
 		break;
 	case CONNECTOR_PROP_HDR_METADATA:
@@ -2249,13 +2249,13 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 		0x0, 0, MAX_BL_SCALE_LEVEL, MAX_BL_SCALE_LEVEL,
 		CONNECTOR_PROP_BL_SCALE);
 
-	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
-		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
-		CONNECTOR_PROP_AD_BL_SCALE);
+	msm_property_install_range(&c_conn->property_info, "sv_bl_scale",
+		0x0, 0, MAX_SV_BL_SCALE_LEVEL, MAX_SV_BL_SCALE_LEVEL,
+		CONNECTOR_PROP_SV_BL_SCALE);
 
 	c_conn->bl_scale_dirty = false;
 	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
-	c_conn->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+	c_conn->bl_scale_sv = MAX_SV_BL_SCALE_LEVEL;
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",
