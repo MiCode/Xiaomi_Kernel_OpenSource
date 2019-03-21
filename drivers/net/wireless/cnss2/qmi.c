@@ -13,6 +13,7 @@
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define MAX_BDF_FILE_NAME		13
+#define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
@@ -442,8 +443,9 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				 plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 ELF_BDF_FILE_NAME_PREFIX "%04x",
-				 plat_priv->board_info.board_id);
+				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_BIN:
 		if (plat_priv->board_info.board_id == 0xFF)
@@ -454,8 +456,9 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				 plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 BIN_BDF_FILE_NAME_PREFIX "%04x",
-				 plat_priv->board_info.board_id);
+				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_REGDB:
 		snprintf(filename, sizeof(filename), REGDB_FILE_NAME);
