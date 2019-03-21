@@ -128,6 +128,8 @@ struct f_cdev {
 	unsigned long           nbytes_to_port_bridge;
 	unsigned long		nbytes_from_port_bridge;
 
+	struct dentry		*debugfs_root;
+
 	/* To test remote wakeup using debugfs */
 	u8 debugfs_rw_enable;
 };
@@ -138,12 +140,6 @@ struct f_cdev_opts {
 	char *func_name;
 	u8 port_num;
 };
-
-struct usb_cser_debugfs {
-	struct dentry *debugfs_root;
-};
-
-static struct usb_cser_debugfs debugfs;
 
 static int major, minors;
 struct class *fcdev_classp;
@@ -157,7 +153,7 @@ static int usb_cser_connect(struct f_cdev *port);
 static void usb_cser_disconnect(struct f_cdev *port);
 static struct f_cdev *f_cdev_alloc(char *func_name, int portno);
 static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req);
-static void usb_cser_debugfs_exit(void);
+static void usb_cser_debugfs_exit(struct f_cdev *port);
 
 static struct usb_interface_descriptor cser_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
@@ -858,9 +854,9 @@ static void cser_free_inst(struct usb_function_instance *fi)
 	if (opts->port) {
 		device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
 		cdev_del(&opts->port->fcdev_cdev);
+		usb_cser_debugfs_exit(opts->port);
 	}
 	usb_cser_chardev_deinit();
-	usb_cser_debugfs_exit();
 	kfree(opts->func_name);
 	kfree(opts->port);
 	kfree(opts);
@@ -1638,17 +1634,17 @@ static const struct file_operations cser_rem_wakeup_fops = {
 
 static void usb_cser_debugfs_init(struct f_cdev *port)
 {
-	debugfs.debugfs_root = debugfs_create_dir(port->name, NULL);
-	if (IS_ERR(debugfs.debugfs_root))
+	port->debugfs_root = debugfs_create_dir(port->name, NULL);
+	if (IS_ERR(port->debugfs_root))
 		return;
 
 	debugfs_create_file("remote_wakeup", 0600,
-			debugfs.debugfs_root, port, &cser_rem_wakeup_fops);
+			port->debugfs_root, port, &cser_rem_wakeup_fops);
 }
 
-static void usb_cser_debugfs_exit(void)
+static void usb_cser_debugfs_exit(struct f_cdev *port)
 {
-	debugfs_remove_recursive(debugfs.debugfs_root);
+	debugfs_remove_recursive(port->debugfs_root);
 }
 
 static struct f_cdev *f_cdev_alloc(char *func_name, int portno)
