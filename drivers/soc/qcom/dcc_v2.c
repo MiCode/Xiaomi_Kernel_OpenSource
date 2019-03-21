@@ -145,6 +145,7 @@ struct dcc_drvdata {
 	uint32_t		nr_config[DCC_MAX_LINK_LIST];
 	uint8_t			curr_list;
 	uint8_t			cti_trig;
+	uint8_t			loopoff;
 };
 
 static bool dcc_ready(struct dcc_drvdata *drvdata)
@@ -250,7 +251,6 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 				/* write new offset = 1 to continue
 				 * processing the list
 				 */
-				link |= ((0x1 << 8) & BM(8, 14));
 				dcc_sram_writel(drvdata, link, sram_offset);
 				sram_offset += 4;
 				/* Reset link and prev_off */
@@ -283,7 +283,8 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 
 			if (loop_start) {
 				loop = (sram_offset - loop_off) / 4;
-				loop |= (loop_cnt << 13) & BM(13, 27);
+				loop |= (loop_cnt << drvdata->loopoff) &
+					BM(drvdata->loopoff, 27);
 				loop |= DCC_LOOP_DESCRIPTOR;
 				total_len += (total_len - loop_len) * loop_cnt;
 
@@ -315,7 +316,6 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 				/* write new offset = 1 to continue
 				 * processing the list
 				 */
-				link |= ((0x1 << 8) & BM(8, 14));
 				dcc_sram_writel(drvdata, link, sram_offset);
 				sram_offset += 4;
 				/* Reset link and prev_off */
@@ -1624,6 +1624,8 @@ static int dcc_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
+	drvdata->loopoff = get_bitmask_order((drvdata->ram_size +
+				drvdata->ram_offset) / 4 - 1);
 	mutex_init(&drvdata->mutex);
 
 	for (i = 0; i < DCC_MAX_LINK_LIST; i++) {
