@@ -232,7 +232,6 @@
 			"gpu_cc_ahb";
 
 		qcom,secure_align_mask = <0xfff>;
-		qcom,global_pt;
 		qcom,retention;
 		qcom,hyp_secure_alloc;
 
