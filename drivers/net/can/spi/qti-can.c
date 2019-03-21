@@ -126,6 +126,8 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_END_BOOT_ROM_UPGRADE	0x9B
 #define CMD_END_FW_UPDATE_FILE		0x9C
 #define CMD_UPDATE_TIME_INFO		0x9D
+#define CMD_SUSPEND_EVENT		0x9E
+#define CMD_RESUME_EVENT		0x9F
 
 #define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
 #define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
@@ -172,8 +174,8 @@ struct can_add_filter_resp {
 
 struct can_receive_frame {
 	u8 can_if;
-	u64 ts;
-	u32 mid;
+	__le64 ts;
+	__le32 mid;
 	u8 dlc;
 	u8 data[8];
 } __packed;
@@ -188,7 +190,7 @@ struct can_config_bit_timing {
 } __packed;
 
 struct can_time_info {
-	u64 time;
+	__le64 time;
 } __packed;
 
 static struct can_bittiming_const rh850_bittiming_const = {
@@ -231,7 +233,7 @@ static struct can_bittiming_const qti_can_data_bittiming_const = {
 
 struct vehicle_property {
 	int id;
-	u64 ts;
+	__le64 ts;
 	int zone;
 	int val_type;
 	u32 data_len;
@@ -333,7 +335,8 @@ static void qti_can_receive_frame(struct qti_can *priv_data,
 	for (i = 0; i < cf->can_dlc; i++)
 		cf->data[i] = frame->data[i];
 
-	nsec = ms_to_ktime(le64_to_cpu(frame->ts) + priv_data->time_diff);
+	nsec = ms_to_ktime(le64_to_cpu(frame->ts)
+		+ priv_data->time_diff);
 	skt = skb_hwtstamps(skb);
 	skt->hwtstamp = nsec;
 	skb->tstamp = nsec;
@@ -616,6 +619,30 @@ static int qti_can_query_firmware_version(struct qti_can *priv_data)
 		LOGDI("done waiting");
 		ret = priv_data->cmd_result;
 	}
+
+	return ret;
+}
+
+static int qti_can_notify_power_events(struct qti_can *priv_data, u8 event_type)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = event_type;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = qti_can_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
 
 	return ret;
 }
@@ -1088,6 +1115,11 @@ static int qti_can_do_blocking_ioctl(struct net_device *netdev,
 			return -EFAULT;
 		}
 
+		if (ioctl_data->len < 0) {
+			LOGDE("ioctl_data->len is: %d\n", ioctl_data->len);
+			return -EINVAL;
+		}
+
 		/* Regular NULL check will fail here as ioctl_data is at
 		 * some offset
 		 */
@@ -1097,6 +1129,11 @@ static int qti_can_do_blocking_ioctl(struct net_device *netdev,
 		}
 	}
 	LOGDI("%s len %d\n", __func__, len);
+
+	if (len > 64 || len < 0) {
+		LOGDE("len value[%d] is not correct!!\n", len);
+		return -EINVAL;
+	}
 
 	priv_data->wait_cmd = spi_cmd;
 	priv_data->cmd_result = -1;
@@ -1380,6 +1417,8 @@ static int qti_can_probe(struct spi_device *spi)
 		gpio_direction_output(priv_data->reset, 1);
 		/* wait for controller to come up after reset */
 		msleep(priv_data->reset_delay_msec);
+	} else {
+		msleep(priv_data->reset_delay_msec);
 	}
 
 	priv_data->support_can_fd = of_property_read_bool(spi->dev.of_node,
@@ -1486,19 +1525,47 @@ static int qti_can_remove(struct spi_device *spi)
 static int qti_can_suspend(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
+	struct qti_can *priv_data = NULL;
+	u8 power_event = CMD_SUSPEND_EVENT;
+	int ret = 0;
 
-	enable_irq_wake(spi->irq);
-	return 0;
+	if (spi) {
+		priv_data = spi_get_drvdata(spi);
+		enable_irq_wake(spi->irq);
+	} else {
+		ret = -1;
+	}
+
+	if (priv_data && !(ret < 0))
+		ret = qti_can_notify_power_events(priv_data, power_event);
+
+	return ret;
 }
 
 static int qti_can_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
-	struct qti_can *priv_data = spi_get_drvdata(spi);
+	struct qti_can *priv_data = NULL;
+	int ret = 0;
+	u8 power_event = CMD_RESUME_EVENT;
 
-	disable_irq_wake(spi->irq);
-	qti_can_rx_message(priv_data);
-	return 0;
+	if (spi) {
+		priv_data = spi_get_drvdata(spi);
+		disable_irq_wake(spi->irq);
+
+		if (priv_data)
+			qti_can_rx_message(priv_data);
+		else
+			ret = -1;
+
+	} else {
+		ret = -1;
+	}
+
+	if (priv_data && !(ret < 0))
+		ret = qti_can_notify_power_events(priv_data, power_event);
+
+	return ret;
 }
 
 static const struct dev_pm_ops qti_can_dev_pm_ops = {
@@ -1515,6 +1582,7 @@ static struct spi_driver qti_can_driver = {
 #ifdef CONFIG_PM
 		.pm = &qti_can_dev_pm_ops,
 #endif
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.probe = qti_can_probe,
 	.remove = qti_can_remove,
