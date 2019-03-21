@@ -1037,6 +1037,22 @@ int msm_vdec_set_output_buffer_counts(struct msm_vidc_inst *inst)
 			__func__, buffer_type);
 		return -EINVAL;
 	}
+	if (buffer_type == HAL_BUFFER_OUTPUT2) {
+		/*
+		 * For split mode set DPB count as well
+		 * For DPB actual count is same as min output count
+		 */
+		rc = msm_comm_set_buffer_count(inst,
+			bufreq->buffer_count_min,
+			bufreq->buffer_count_min,
+			HAL_BUFFER_OUTPUT);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: failed to set buffer count(%#x)\n",
+				__func__, buffer_type);
+			return -EINVAL;
+		}
+	}
 	rc = msm_comm_set_buffer_count(inst,
 			bufreq->buffer_count_min,
 			bufreq->buffer_count_actual,
