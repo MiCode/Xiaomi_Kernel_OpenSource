@@ -702,6 +702,20 @@ struct __packed gsi_wdi_channel_scratch {
 };
 
 /**
+* gsi_mhip_channel_scratch - MHI PRIME protocol SW config area of
+* channel scratch
+* @assert_bit_40: Valid only for non-host channels.
+* Set to 1 for MHI channels when running over PCIe.
+* @host_channel: Set to 1 for MHIP channel running on host.
+*
+*/
+struct __packed gsi_mhip_channel_scratch {
+	uint32_t assert_bit_40:1;
+	uint32_t host_channel:1;
+	uint32_t resvd1:30;
+};
+
+/**
  * gsi_11ad_rx_channel_scratch - 11AD protocol SW config area of
  * RX channel scratch
  *
@@ -789,6 +803,7 @@ union __packed gsi_channel_scratch {
 	struct __packed gsi_11ad_rx_channel_scratch rx_11ad;
 	struct __packed gsi_11ad_tx_channel_scratch tx_11ad;
 	struct __packed gsi_wdi3_channel_scratch wdi3;
+	struct __packed gsi_mhip_channel_scratch mhip;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -827,6 +842,22 @@ struct __packed gsi_mhi_evt_scratch {
 	uint32_t resvd1;
 	uint32_t resvd2;
 };
+
+/**
+* gsi_mhip_evt_scratch - MHI PRIME protocol SW config area of
+* event scratch
+*/
+struct __packed gsi_mhip_evt_scratch {
+	uint32_t rp_mod_threshold:8;
+	uint32_t rp_mod_timer:4;
+	uint32_t rp_mod_counter:8;
+	uint32_t rp_mod_timer_id:4;
+	uint32_t rp_mod_timer_running:1;
+	uint32_t resvd1:7;
+	uint32_t fixed_buffer_sz:16;
+	uint32_t resvd2:16;
+};
+
 
 /**
  * gsi_xdci_evt_scratch - xDCI protocol SW config area of
@@ -893,6 +924,7 @@ union __packed gsi_evt_scratch {
 	struct __packed gsi_wdi_evt_scratch wdi;
 	struct __packed gsi_11ad_evt_scratch w11ad;
 	struct __packed gsi_wdi3_evt_scratch wdi3;
+	struct __packed gsi_mhip_evt_scratch mhip;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;

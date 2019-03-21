@@ -1178,6 +1178,7 @@ struct ipa_tz_unlock_reg_info {
 
 enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_AP_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
