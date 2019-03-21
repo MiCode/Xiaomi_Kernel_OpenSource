@@ -945,6 +945,18 @@
 		};
 	};
 
+	bus_proxy_client: qcom,bus_proxy_client {
+		compatible = "qcom,bus-proxy-client";
+		qcom,msm-bus,name = "bus-proxy-client";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>, <23 512 0 0>,
+			<22 512 1500000 1500000>, <23 512 1500000 1500000>;
+		qcom,msm-bus,active-only;
+		status = "ok";
+	};
+
 	keepalive_opp_table: keepalive-opp-table {
 		compatible = "operating-points-v2";
 		opp-1 {
