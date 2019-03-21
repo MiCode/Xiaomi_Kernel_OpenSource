@@ -105,6 +105,7 @@ static struct cam_vfe_top_ver3_reg_offset_common vfe480_top_common_reg = {
 	.diag_config              = 0x00000064,
 	.diag_sensor_status_0     = 0x00000068,
 	.diag_sensor_status_1     = 0x00000098,
+	.bus_overflow_status      = 0x0000AA68,
 };
 
 static struct cam_vfe_camif_lite_ver3_reg vfe480_camif_rdi[3] = {

@@ -36,6 +36,7 @@ struct cam_vfe_top_ver3_reg_offset_common {
 	uint32_t diag_config;
 	uint32_t diag_sensor_status_0;
 	uint32_t diag_sensor_status_1;
+	uint32_t bus_overflow_status;
 };
 
 struct cam_vfe_top_ver3_hw_info {
