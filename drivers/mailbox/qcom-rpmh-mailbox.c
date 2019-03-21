@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -404,7 +404,7 @@ static inline void send_tcs_response(struct tcs_response *resp)
 	list_add_tail(&resp->list, &drv->response_pending);
 	spin_unlock_irqrestore(&drv->drv_lock, flags);
 
-	tasklet_schedule(&drv->tasklet);
+	tasklet_hi_schedule(&drv->tasklet);
 }
 
 static inline void enable_tcs_irq(struct rsc_drv *drv, int m, bool enable)
