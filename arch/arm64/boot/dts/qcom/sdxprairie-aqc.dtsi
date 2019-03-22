@@ -16,7 +16,26 @@
 
 		compatible = "aquantia,aqc-107";
 
-		pci-ids = "1d6a:d107";
+		pci-ids =
+			"1d6a:0001",
+			"1d6a:d107",
+			"1d6a:07b1",
+			"1d6a:87b1",
+			"1d6a:d108",
+			"1d6a:08b1",
+			"1d6a:88b1",
+			"1d6a:d109",
+			"1d6a:09b1",
+			"1d6a:89b1",
+			"1d6a:d100",
+			"1d6a:00b1",
+			"1d6a:80b1",
+			"1d6a:11b1",
+			"1d6a:91b1",
+			"1d6a:51b1",
+			"1d6a:12b1",
+			"1d6a:92b1",
+			"1d6a:52b1";
 
 		qcom,smmu;
 
