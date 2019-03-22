@@ -3,28 +3,21 @@
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
-
-#include <linux/module.h>
-#include "governor.h"
+#include "msm_vidc_debug.h"
 #include "fixedpoint.h"
 #include "msm_vidc_internal.h"
-#include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 #define COMPRESSION_RATIO_MAX 5
 
-enum governor_mode {
-	GOVERNOR_DDR,
-	GOVERNOR_LLCC,
-};
-
-struct governor {
-	enum governor_mode mode;
-	struct devfreq_governor devfreq_gov;
+enum vidc_bus_type {
+	PERF,
+	DDR,
+	LLCC,
 };
 
 /*
- * Minimum dimensions that the governor is willing to calculate
- * bandwidth for.  This means that anything bandwidth(0, 0) ==
+ * Minimum dimensions for which to calculate bandwidth.
+ * This means that anything bandwidth(0, 0) ==
  * bandwidth(BASELINE_DIMENSIONS.width, BASELINE_DIMENSIONS.height)
  */
 static const struct {
@@ -33,15 +26,6 @@ static const struct {
 	.width = 1280,
 	.height = 720,
 };
-
-/*
- * These are hardcoded AB values that the governor votes for in certain
- * situations, where a certain bus frequency is desired.  It isn't exactly
- * scalable since different platforms have different bus widths, but we'll
- * deal with that in the future.
- */
-const unsigned long NOMINAL_BW_MBPS = 6000 /* ideally 320 Mhz */,
-	SVS_BW_MBPS = 2000 /* ideally 100 Mhz */;
 
 /* converts Mbps to bps (the "b" part can be bits or bytes based on context) */
 #define kbps(__mbps) ((__mbps) * 1000)
@@ -207,6 +191,16 @@ static struct lut {
 	},
 };
 
+static u32 get_type_frm_name(char *name)
+{
+	if (!strcmp(name, "venus-llcc"))
+		return LLCC;
+	else if (!strcmp(name, "venus-ddr"))
+		return DDR;
+	else
+		return PERF;
+}
+
 static struct lut const *__lut(int width, int height, int fps)
 {
 	int frame_size = height * width, c = 0;
@@ -277,21 +271,21 @@ static void __dump(struct dump dump[], int len)
 }
 
 static unsigned long __calculate_vpe(struct vidc_bus_vote_data *d,
-		enum governor_mode gm)
+		enum vidc_bus_type type)
 {
 	return 0;
 }
 
 static unsigned long __calculate_cvp(struct vidc_bus_vote_data *d,
-		enum governor_mode gm)
+		enum vidc_bus_type type)
 {
 	unsigned long ret = 0;
 
-	switch (gm) {
-	case GOVERNOR_DDR:
+	switch (type) {
+	case DDR:
 		ret = d->ddr_bw;
 		break;
-	case GOVERNOR_LLCC:
+	case LLCC:
 		ret = d->sys_cache_bw;
 		break;
 	default:
@@ -332,7 +326,7 @@ static int __bpp(enum hal_uncompressed_format f)
 }
 
 static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
-		enum governor_mode gm)
+		enum vidc_bus_type type)
 {
 	/*
 	 * XXX: Don't fool around with any of the hardcoded numbers unless you
@@ -573,11 +567,11 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	switch (gm) {
-	case GOVERNOR_DDR:
+	switch (type) {
+	case DDR:
 		ret = kbps(fp_round(ddr.total));
 		break;
-	case GOVERNOR_LLCC:
+	case LLCC:
 		ret = kbps(fp_round(llc.total));
 		break;
 	default:
@@ -588,7 +582,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 }
 
 static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
-		enum governor_mode gm)
+		enum vidc_bus_type type)
 {
 	/*
 	 * XXX: Don't fool around with any of the hardcoded numbers unless you
@@ -870,11 +864,11 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	switch (gm) {
-	case GOVERNOR_DDR:
+	switch (type) {
+	case DDR:
 		ret = kbps(fp_round(ddr.total));
 		break;
-	case GOVERNOR_LLCC:
+	case LLCC:
 		ret = kbps(fp_round(llc.total));
 		break;
 	default:
@@ -885,41 +879,37 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 }
 
 static unsigned long __calculate(struct vidc_bus_vote_data *d,
-		enum governor_mode gm)
+		enum vidc_bus_type type)
 {
-	unsigned long (*calc[])(struct vidc_bus_vote_data *,
-			enum governor_mode) = {
-		[HAL_VIDEO_DOMAIN_VPE] = __calculate_vpe,
-		[HAL_VIDEO_DOMAIN_ENCODER] = __calculate_encoder,
-		[HAL_VIDEO_DOMAIN_DECODER] = __calculate_decoder,
-		[HAL_VIDEO_DOMAIN_CVP] = __calculate_cvp,
-	};
+	unsigned long value = 0;
 
-	if (d->domain >= ARRAY_SIZE(calc)) {
-		dprintk(VIDC_ERR, "%s: invalid domain %d\n",
-			__func__, d->domain);
-		return 0;
+	switch (d->domain) {
+	case HAL_VIDEO_DOMAIN_VPE:
+		value = __calculate_vpe(d, type);
+		break;
+	case HAL_VIDEO_DOMAIN_ENCODER:
+		value = __calculate_encoder(d, type);
+		break;
+	case HAL_VIDEO_DOMAIN_DECODER:
+		value = __calculate_decoder(d, type);
+		break;
+	case HAL_VIDEO_DOMAIN_CVP:
+		value = __calculate_cvp(d, type);
+		break;
+	default:
+		dprintk(VIDC_ERR, "Unknown Domain");
 	}
-	return calc[d->domain](d, gm);
+
+	return value;
 }
 
-
-static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
+unsigned long __calc_bw(struct bus_info *bus,
+				struct msm_vidc_gov_data *vidc_data)
 {
 	unsigned long ab_kbps = 0, c = 0;
-	struct devfreq_dev_status stats = {0};
-	struct msm_vidc_gov_data *vidc_data = NULL;
-	struct governor *gov = NULL;
+	enum vidc_bus_type type;
 
-	if (!dev || !freq)
-		return -EINVAL;
-
-	gov = container_of(dev->governor,
-			struct governor, devfreq_gov);
-	dev->profile->get_dev_status(dev->dev.parent, &stats);
-	vidc_data = (struct msm_vidc_gov_data *)stats.private_data;
-
-	if (!vidc_data || !vidc_data->data_count)
+	if (!vidc_data || !vidc_data->data_count || !vidc_data->data)
 		goto exit;
 
 	for (c = 0; c < vidc_data->data_count; ++c) {
@@ -929,85 +919,12 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
 		}
 	}
 
+	type = get_type_frm_name(bus->name);
+
 	for (c = 0; c < vidc_data->data_count; ++c)
-		ab_kbps += __calculate(&vidc_data->data[c], gov->mode);
+		ab_kbps += __calculate(&vidc_data->data[c], type);
 
 exit:
-	*freq = clamp(ab_kbps, dev->min_freq, dev->max_freq ?
-		dev->max_freq : UINT_MAX);
-	trace_msm_vidc_perf_bus_vote(gov->devfreq_gov.name, *freq);
-	return 0;
+	trace_msm_vidc_perf_bus_vote(bus->name, ab_kbps);
+	return ab_kbps;
 }
-
-static int __event_handler(struct devfreq *devfreq, unsigned int event,
-		void *data)
-{
-	int rc = 0;
-
-	if (!devfreq)
-		return -EINVAL;
-
-	switch (event) {
-	case DEVFREQ_GOV_START:
-	case DEVFREQ_GOV_RESUME:
-	case DEVFREQ_GOV_SUSPEND:
-		mutex_lock(&devfreq->lock);
-		rc = update_devfreq(devfreq);
-		mutex_unlock(&devfreq->lock);
-		break;
-	}
-
-	return rc;
-}
-
-static struct governor governors[] = {
-	{
-		.mode = GOVERNOR_DDR,
-		.devfreq_gov = {
-			.name = "msm-vidc-ddr",
-			.get_target_freq = __get_target_freq,
-			.event_handler = __event_handler,
-		},
-	},
-	{
-		.mode = GOVERNOR_LLCC,
-		.devfreq_gov = {
-			.name = "msm-vidc-llcc",
-			.get_target_freq = __get_target_freq,
-			.event_handler = __event_handler,
-		},
-	},
-};
-
-static int __init msm_vidc_bw_gov_init(void)
-{
-	int c = 0, rc = 0;
-
-	for (c = 0; c < ARRAY_SIZE(governors); ++c) {
-		dprintk(VIDC_DBG, "Adding governor %s\n",
-				governors[c].devfreq_gov.name);
-
-		rc = devfreq_add_governor(&governors[c].devfreq_gov);
-		if (rc) {
-			dprintk(VIDC_ERR, "Error adding governor %s: %d\n",
-				governors[c].devfreq_gov.name, rc);
-			break;
-		}
-	}
-
-	return rc;
-}
-module_init(msm_vidc_bw_gov_init);
-
-static void __exit msm_vidc_bw_gov_exit(void)
-{
-	int c = 0;
-
-	for (c = 0; c < ARRAY_SIZE(governors); ++c) {
-		dprintk(VIDC_DBG, "Removing governor %s\n",
-				governors[c].devfreq_gov.name);
-		devfreq_remove_governor(&governors[c].devfreq_gov);
-	}
-}
-module_exit(msm_vidc_bw_gov_exit);
-MODULE_LICENSE("GPL v2");

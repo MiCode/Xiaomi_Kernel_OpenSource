@@ -42,6 +42,9 @@
 #define VIDC_MAX_SUBCACHES 4
 #define VIDC_MAX_SUBCACHE_SIZE 52
 
+extern unsigned long __calc_bw(struct bus_info *bus,
+			struct msm_vidc_gov_data *vidc_data);
+
 struct hfi_queue_table_header {
 	u32 qtbl_version;
 	u32 qtbl_size;
