@@ -673,9 +673,11 @@ void msm_isp_process_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 			__msm_isp_axi_stream_update(stream_info, ts);
 			break;
 		case MSM_ISP_COMP_IRQ_EPOCH:
-			if (stream_info->state == ACTIVE)
+			if (stream_info->state == ACTIVE) {
 				msm_isp_update_framedrop_reg(stream_info,
-					vfe_dev->isp_page->drop_reconfig);
+					vfe_dev->common_data->drop_reconfig);
+				vfe_dev->common_data->drop_reconfig = 0;
+			}
 			break;
 		default:
 			WARN(1, "Invalid irq %d\n", irq);
@@ -2775,6 +2777,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 			axi_data->src_info[SRC_TO_INTF(
 				stream_info->stream_src)].frame_id =
 				reset_cmd->frame_id;
+			temp_vfe_dev->irq_sof_id = reset_cmd->frame_id;
 		}
 		msm_isp_reset_burst_count_and_frame_drop(
 			vfe_dev, stream_info);
@@ -3046,6 +3049,7 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PONG_FLAG);
 		stream_info->undelivered_request_cnt = 0;
+		vfe_dev->irq_sof_id = 0;
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
 			if (stream_info->num_planes > 1)
@@ -3209,7 +3213,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 			mutex_unlock(&vfe_dev_ioctl->buf_mgr->lock);
 			goto error;
 		}
-
 		msm_isp_calculate_bandwidth(stream_info);
 		for (k = 0; k < stream_info->num_isp; k++) {
 			msm_isp_get_stream_wm_mask(stream_info->vfe_dev[k],
@@ -3555,16 +3558,25 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	 */
 	if (vfe_dev->axi_data.src_info[frame_src].active &&
 		frame_src == VFE_PIX_0 &&
-		vfe_dev->axi_data.src_info[frame_src].accept_frame == false) {
+		vfe_dev->axi_data.src_info[frame_src].accept_frame == false &&
+		(stream_info->undelivered_request_cnt <=
+			MAX_BUFFERS_IN_HW)
+		) {
 		pr_debug("%s:%d invalid time to request frame %d\n",
 			__func__, __LINE__, frame_id);
 		vfe_dev->isp_page->drop_reconfig = 1;
+		/*keep it in vfe_dev variable also to avoid skip pattern
+		 * programming the variable in page can be overwritten by MCT
+		 */
+		vfe_dev->common_data->drop_reconfig = 1;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active) &&
-			(frame_id ==
-			vfe_dev->axi_data.src_info[frame_src].frame_id) &&
+			((frame_id ==
+			vfe_dev->axi_data.src_info[frame_src].frame_id) ||
+			(frame_id == vfe_dev->irq_sof_id)) &&
 			(stream_info->undelivered_request_cnt <=
 				MAX_BUFFERS_IN_HW)) {
 		vfe_dev->isp_page->drop_reconfig = 1;
+		vfe_dev->common_data->drop_reconfig = 1;
 		pr_debug("%s: vfe_%d request_frame %d cur frame id %d pix %d\n",
 			__func__, vfe_dev->pdev->id, frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
@@ -4304,9 +4316,25 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			ISP_DBG("%s: Error configuring ping_pong\n",
 				__func__);
 	} else if (done_buf && (done_buf->is_drop_reconfig != 1)) {
+		int32_t frame_id_diff;
+		/* irq_sof should be always >= tasklet SOF id
+		 * For dual camera usecase irq_sof could be behind
+		 * as software frameid sync logic epoch event could
+		 * update slave frame id so update if irqsof < tasklet sof
+		 */
+		if (vfe_dev->irq_sof_id < frame_id)
+			vfe_dev->irq_sof_id = frame_id;
+
+		frame_id_diff  =  vfe_dev->irq_sof_id - frame_id;
+		if (stream_info->controllable_output && frame_id_diff > 1) {
+			/*scheduling problem need to do recovery*/
+			spin_unlock_irqrestore(&stream_info->lock, flags);
+			msm_isp_halt_send_error(vfe_dev,
+				ISP_EVENT_PING_PONG_MISMATCH);
+			return;
+		}
 		msm_isp_cfg_stream_scratch(stream_info, pingpong_status);
 	}
-
 	if (!done_buf) {
 		if (stream_info->buf_divert) {
 			vfe_dev->error_info.stream_framedrop_count[
@@ -4355,6 +4383,11 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	 * then dont issue buf-done for current buffer
 	 */
 		done_buf->is_drop_reconfig = 0;
+		if (!stream_info->buf[pingpong_bit]) {
+			/*samebuffer is not re-programeed so program scratch*/
+			msm_isp_cfg_stream_scratch(stream_info,
+				pingpong_status);
+		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	} else {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
