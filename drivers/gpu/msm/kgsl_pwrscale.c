@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/export.h>
@@ -890,6 +890,7 @@ static int opp_notify(struct notifier_block *nb,
 	else
 		dev_pm_opp_put(opp);
 
+	trace_kgsl_opp_notify(min_freq, max_freq);
 	mutex_lock(&device->mutex);
 
 	max_level = pwr->thermal_pwrlevel;
