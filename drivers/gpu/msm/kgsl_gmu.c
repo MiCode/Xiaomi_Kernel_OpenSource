@@ -22,9 +22,6 @@
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
-#define GMU_CONTEXT_USER		0
-#define GMU_CONTEXT_KERNEL		1
-
 #define GMU_CM3_CFG_NONMASKINTR_SHIFT    9
 
 struct gmu_iommu_context {
@@ -363,11 +360,11 @@ static int gmu_iommu_init(struct gmu_device *gmu, struct device_node *node)
 }
 
 /*
- * gmu_kmem_close() - free all kernel memory allocated for GMU and detach GMU
+ * gmu_memory_close() - free all memory allocated for GMU and detach GMU
  * from IOMMU context banks.
  * @gmu: Pointer to GMU device
  */
-static void gmu_kmem_close(struct gmu_device *gmu)
+static void gmu_memory_close(struct gmu_device *gmu)
 {
 	int i;
 	struct gmu_memdesc *md;
@@ -395,19 +392,14 @@ static void gmu_kmem_close(struct gmu_device *gmu)
 		clear_bit(i, &gmu->kmem_bitmap);
 	}
 
-	/* Detach the device from SMMU context bank */
-	iommu_detach_device(ctx->domain, ctx->dev);
+	for (i = 0; i < ARRAY_SIZE(gmu_ctx); i++) {
+		ctx = &gmu_ctx[i];
 
-	/* free kernel mem context */
-	iommu_domain_free(ctx->domain);
-}
-
-static void gmu_memory_close(struct gmu_device *gmu)
-{
-	gmu_kmem_close(gmu);
-	/* Free user memory context */
-	iommu_domain_free(gmu_ctx[GMU_CONTEXT_USER].domain);
-
+		if (ctx->domain) {
+			iommu_detach_device(ctx->domain, ctx->dev);
+			iommu_domain_free(ctx->domain);
+		}
+	}
 }
 
 static enum gmu_mem_type gmu_get_blk_memtype(struct gmu_device *gmu,
@@ -459,38 +451,31 @@ int gmu_memory_probe(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret;
 
 	/* Allocates & maps memory for HFI */
-	gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
-			HFIMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
-	if (IS_ERR(gmu->hfi_mem)) {
-		ret = PTR_ERR(gmu->hfi_mem);
-		goto err_ret;
-	}
+	if (IS_ERR_OR_NULL(gmu->hfi_mem))
+		gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
+				HFIMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
+	if (IS_ERR(gmu->hfi_mem))
+		return PTR_ERR(gmu->hfi_mem);
 
 	/* Allocates & maps GMU crash dump memory */
 	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
-		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
-				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
-		if (IS_ERR(gmu->dump_mem)) {
-			ret = PTR_ERR(gmu->dump_mem);
-			goto err_ret;
-		}
+		if (IS_ERR_OR_NULL(gmu->dump_mem))
+			gmu->dump_mem = allocate_gmu_kmem(gmu,
+					GMU_NONCACHED_KERNEL, 0,
+					DUMPMEM_SIZE,
+					(IOMMU_READ | IOMMU_WRITE));
+		if (IS_ERR(gmu->dump_mem))
+			return PTR_ERR(gmu->dump_mem);
 	}
 
 	/* GMU master log */
-	gmu->gmu_log = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
-			LOGMEM_SIZE, (IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
-	if (IS_ERR(gmu->gmu_log)) {
-		ret = PTR_ERR(gmu->gmu_log);
-		goto err_ret;
-	}
-
-	return 0;
-err_ret:
-	gmu_memory_close(gmu);
-	return ret;
+	if (IS_ERR_OR_NULL(gmu->gmu_log))
+		gmu->gmu_log = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, 0,
+				LOGMEM_SIZE,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	return PTR_ERR_OR_ZERO(gmu->gmu_log);
 }
 
 /*

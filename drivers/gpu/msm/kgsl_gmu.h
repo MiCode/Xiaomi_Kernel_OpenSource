@@ -93,6 +93,11 @@ enum gmu_mem_type {
 	GMU_MEM_TYPE_MAX,
 };
 
+enum gmu_context_index {
+	GMU_CONTEXT_USER = 0,
+	GMU_CONTEXT_KERNEL,
+};
+
 /**
  * struct gmu_memdesc - Gmu shared memory object descriptor
  * @hostptr: Kernel virtual address
@@ -108,7 +113,7 @@ struct gmu_memdesc {
 	phys_addr_t physaddr;
 	uint64_t size;
 	enum gmu_mem_type mem_type;
-	uint32_t ctx_idx;
+	enum gmu_context_index ctx_idx;
 };
 
 struct gmu_bw_votes {
