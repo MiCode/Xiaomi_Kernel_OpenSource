@@ -7083,6 +7083,10 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
 				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
 		break;
+	case IPA_SMMU_AP_CLIENT:
+		is_smmu_enable =
+			!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]);
+		break;
 	default:
 		is_smmu_enable = false;
 		IPAERR("Trying to get illegal clients SMMU status");
