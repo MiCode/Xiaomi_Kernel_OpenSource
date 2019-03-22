@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,35 +97,38 @@ struct cam_ife_hw_mgr_debug {
 /**
  * struct cam_vfe_hw_mgr_ctx - IFE HW manager Context object
  *
- * @list:                   used by the ctx list.
- * @common:                 common acquired context data
- * @ctx_index:              acquired context id.
- * @hw_mgr:                 IFE hw mgr which owns this context
- * @ctx_in_use:             flag to tell whether context is active
- * @res_list_ife_in:        Starting resource(TPG,PHY0, PHY1...) Can only be
- *                          one.
- * @res_list_csid:          CSID resource list
- * @res_list_ife_src:       IFE input resource list
- * @res_list_ife_out:       IFE output resoruces array
- * @free_res_list:          Free resources list for the branch node
- * @res_pool:               memory storage for the free resource list
- * @irq_status0_mask:       irq_status0_mask for the context
- * @irq_status1_mask:       irq_status1_mask for the context
- * @base                    device base index array contain the all IFE HW
- *                          instance associated with this context.
- * @num_base                number of valid base data in the base array
- * @cdm_handle              cdm hw acquire handle
- * @cdm_ops                 cdm util operation pointer for building
- *                          cdm commands
- * @cdm_cmd                 cdm base and length request pointer
- * @sof_cnt                 sof count value per core, used for dual VFE
- * @epoch_cnt               epoch count value per core, used for dual VFE
- * @eof_cnt                 eof count value per core, used for dual VFE
- * @overflow_pending        flat to specify the overflow is pending for the
- *                          context
- * @is_rdi_only_context     flag to specify the context has only rdi resource
- * @config_done_complete    indicator for configuration complete
- * @init_done               indicate whether init hw is done
+ * @list:                       used by the ctx list.
+ * @common:                     common acquired context data
+ * @ctx_index:                  acquired context id.
+ * @hw_mgr:                     IFE hw mgr which owns this context
+ * @ctx_in_use:                 flag to tell whether context is active
+ * @res_list_ife_in:            Starting resource(TPG,PHY0, PHY1...) Can only be
+ *                              one.
+ * @res_list_csid:              CSID resource list
+ * @res_list_ife_src:           IFE input resource list
+ * @res_list_ife_out:           IFE output resoruces array
+ * @free_res_list:              Free resources list for the branch node
+ * @res_pool:                   memory storage for the free resource list
+ * @irq_status0_mask:           irq_status0_mask for the context
+ * @irq_status1_mask:           irq_status1_mask for the context
+ * @base                        device base index array contain the all IFE HW
+ *                              instance associated with this context.
+ * @num_base                    number of valid base data in the base array
+ * @cdm_handle                  cdm hw acquire handle
+ * @cdm_ops                     cdm util operation pointer for building
+ *                              cdm commands
+ * @cdm_cmd                     cdm base and length request pointer
+ * @sof_cnt                     sof count value per core, used for dual VFE
+ * @epoch_cnt                   epoch count value per core, used for dual VFE
+ * @eof_cnt                     eof count value per core, used for dual VFE
+ * @overflow_pending            flag to specify the overflow is pending for the
+ *                              context
+ * @is_rdi_only_context         flag to specify the context has only rdi
+ *                              resource
+ * @config_done_complete        indicator for configuration complete
+ * @init_done                   indicate whether init hw is done
+ * @dual_ife_irq_mismatch_cnt   irq mismatch count value per core, used for
+ *                              dual VFE
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                list;
@@ -160,6 +163,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
 	bool                            init_done;
+	uint32_t                        dual_ife_irq_mismatch_cnt;
 };
 
 /**
