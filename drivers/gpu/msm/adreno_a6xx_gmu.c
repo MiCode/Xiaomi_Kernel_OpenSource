@@ -325,6 +325,10 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 
 	kgsl_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG, 0x0);
 
+	/* Set the log wptr index */
+	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
+			gmu->log_wptr_retention);
+
 	/* Bring GMU out of reset */
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 0);
 	if (timed_poll_check(device,
@@ -422,6 +426,9 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
 	/* Make sure M3 is in reset before going on */
 	wmb();
+
+	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_PWR_COL_CP_RESP,
+			&gmu->log_wptr_retention);
 
 	/* RSC sleep sequence is different on v1 */
 	if (adreno_is_a630v1(adreno_dev))
