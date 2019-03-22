@@ -1175,7 +1175,11 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 cv_estimate:
 	pr_debug("TTF: t_predicted_cc=%d\n", t_predicted);
 
-	iterm = max(100, abs(iterm) + ttf->iterm_delta);
+	if (charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER)
+		iterm = max(100, abs(iterm));
+	else
+		iterm = max(100, abs(iterm) + ttf->iterm_delta);
+
 	pr_debug("TTF: iterm=%d\n", iterm);
 
 	if (charge_type == POWER_SUPPLY_CHARGE_TYPE_TAPER)
