@@ -40,6 +40,8 @@ struct arch_info {
 	async_cookie_t cookie;
 	void *boot_ipc_log;
 	struct mhi_device *boot_dev;
+	struct mhi_link_info current_link_info;
+	struct work_struct bw_scale_work;
 };
 
 /* ipc log markings */
@@ -227,6 +229,74 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 	return 0;
 }
 
+static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
+				   struct pci_dev *pci_dev,
+				   struct mhi_link_info *link_info)
+{
+	int ret, scale;
+
+	ret = msm_pcie_set_link_bandwidth(pci_dev, link_info->target_link_speed,
+					  link_info->target_link_width);
+	if (ret)
+		return ret;
+
+	/* if we switch to low bw release bus scale voting */
+	scale = !(link_info->target_link_speed == PCI_EXP_LNKSTA_CLS_2_5GB);
+	mhi_arch_set_bus_request(mhi_cntrl, scale);
+
+	MHI_VERB("bw changed to speed:0x%x width:0x%x bus_scale:%d\n",
+		 link_info->target_link_speed, link_info->target_link_width,
+		 scale);
+
+	return 0;
+}
+
+static void mhi_arch_pcie_bw_scale_work(struct work_struct *work)
+{
+	struct arch_info *arch_info = container_of(work,
+						   struct arch_info,
+						   bw_scale_work);
+	struct mhi_dev *mhi_dev = arch_info->mhi_dev;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct device *dev = &pci_dev->dev;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+	struct mhi_link_info mhi_link_info;
+	struct mhi_link_info *cur_info = &arch_info->current_link_info;
+	int ret;
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+	if (!mhi_dev->powered_on ||
+	    pm_runtime_status_suspended(dev) || dev->power.is_suspended)
+		goto exit_work;
+
+	/* copy the latest speed change */
+	write_lock_irq(&mhi_cntrl->pm_lock);
+	mhi_link_info = mhi_cntrl->mhi_link_info;
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* link is already set to current settings */
+	if (cur_info->target_link_speed == mhi_link_info.target_link_speed &&
+	    cur_info->target_link_width == mhi_link_info.target_link_width)
+		goto exit_work;
+
+	ret = mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, &mhi_link_info);
+	if (ret)
+		goto exit_work;
+
+	*cur_info = mhi_link_info;
+
+exit_work:
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+}
+
+static void mhi_arch_pcie_bw_scale_cb(struct mhi_controller *mhi_cntrl,
+				      struct mhi_dev *mhi_dev)
+{
+	struct arch_info *arch_info = mhi_dev->arch_info;
+
+	schedule_work(&arch_info->bw_scale_work);
+}
+
 static int mhi_bl_probe(struct mhi_device *mhi_device,
 			const struct mhi_device_id *id)
 {
@@ -335,6 +405,10 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		/* save reference state for pcie config space */
 		arch_info->ref_pcie_state = pci_store_saved_state(
 							mhi_dev->pci_dev);
+
+		INIT_WORK(&arch_info->bw_scale_work,
+			  mhi_arch_pcie_bw_scale_work);
+		mhi_dev->bw_scale = mhi_arch_pcie_bw_scale_cb;
 
 		mhi_driver_register(&mhi_bl_driver);
 	}
@@ -518,14 +592,18 @@ int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct mhi_link_info *cur_info = &arch_info->current_link_info;
+	struct mhi_link_info *updated_info = &mhi_cntrl->mhi_link_info;
 	int ret;
 
 	MHI_LOG("Entered\n");
 
-	/* request resources and establish link trainning */
-	ret = mhi_arch_set_bus_request(mhi_cntrl, 1);
-	if (ret)
-		MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
+	/* request bus scale voting if we're on Gen 2 or higher speed */
+	if (cur_info->target_link_speed != PCI_EXP_LNKSTA_CLS_2_5GB) {
+		ret = mhi_arch_set_bus_request(mhi_cntrl, 1);
+		if (ret)
+			MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
+	}
 
 	ret = msm_pcie_pm_control(MSM_PCIE_RESUME, mhi_cntrl->bus, pci_dev,
 				  NULL, 0);
@@ -552,6 +630,14 @@ int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
 
 	pci_restore_state(pci_dev);
 	pci_set_master(pci_dev);
+
+	/* BW request from device doesn't match current link speed */
+	if (cur_info->target_link_speed != updated_info->target_link_speed ||
+	    cur_info->target_link_width != updated_info->target_link_width) {
+		ret = mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, updated_info);
+		if (!ret)
+			*cur_info = *updated_info;
+	}
 
 	MHI_LOG("Exited\n");
 
