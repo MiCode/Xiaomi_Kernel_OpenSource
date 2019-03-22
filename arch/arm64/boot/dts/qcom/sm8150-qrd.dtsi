@@ -602,6 +602,9 @@
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
+	qcom,thermal-mitigation = <4875000 4000000 3500000
+				3000000 2500000 2000000
+				1500000 1000000 500000>;
 };
 
 &smb1390 {

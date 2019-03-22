@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,6 +189,7 @@ struct msm_vidc_buf_data {
 	u32 index;
 	u32 mark_data;
 	u32 mark_target;
+	u32 filled_length;
 };
 
 struct msm_vidc_common_data {

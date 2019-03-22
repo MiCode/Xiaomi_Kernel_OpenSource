@@ -654,7 +654,6 @@ struct sdhci_host {
 
 	bool sdio_irq_async_status;
 	bool is_crypto_en;
-	bool crypto_reset_reqd;
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;

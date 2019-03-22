@@ -1006,8 +1006,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	entry.cmd_code_lo = (uint16_t)(*(uint16_t *)temp);
 	temp += sizeof(uint16_t);
 
-	pr_debug("diag: In %s, received cmd %02x %02x %02x\n",
-		 __func__, entry.cmd_code, entry.subsys_id, entry.cmd_code_hi);
+	DIAG_LOG(DIAG_DEBUG_CMD_INFO, "diag: received cmd %02x %02x %02x\n",
+		 entry.cmd_code, entry.subsys_id, entry.cmd_code_hi);
 
 	if (*buf == DIAG_CMD_LOG_ON_DMND && driver->log_on_demand_support &&
 	    driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask) {
