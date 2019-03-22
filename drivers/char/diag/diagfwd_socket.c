@@ -797,6 +797,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			info->data_ready--;
 		} else {
 			spin_unlock_irqrestore(&info->lock, flags);
+			mutex_unlock(&info->socket_info_mutex);
 			break;
 		}
 		spin_unlock_irqrestore(&info->lock, flags);
