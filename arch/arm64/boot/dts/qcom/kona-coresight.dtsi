@@ -3436,4 +3436,13 @@
 			};
 		};
 	};
+
+	hwevent {
+		compatible = "qcom,coresight-hwevent";
+
+		coresight-name = "coresight-hwevent";
+		coresight-csr = <&csr>;
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
 };
