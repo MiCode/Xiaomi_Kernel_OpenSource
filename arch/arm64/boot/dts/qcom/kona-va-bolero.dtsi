@@ -8,23 +8,14 @@
 		compatible = "qcom,va-macro";
 		reg = <0x3370000 0x0>;
 		clock-names = "va_core_clk";
-		clocks = <&clock_audio_va 0>;
+		clocks = <&clock_audio_va_1 0>;
 		va-vdd-micb-supply = <&S4A>;
 		qcom,va-vdd-micb-voltage = <1800000 1800000>;
 		qcom,va-vdd-micb-current = <11200>;
 		qcom,va-dmic-sample-rate = <4800000>;
 		qcom,va-clk-mux-select = <1>;
 		qcom,va-island-mode-muxsel = <0x033A0000>;
-	};
-};
-
-&soc {
-	clock_audio_va: va_core_clk  {
-		compatible = "qcom,audio-ref-clk";
-		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK>;
-		qcom,codec-lpass-ext-clk-freq = <19200000>;
-		qcom,codec-lpass-clk-id = <0x30B>;
-		#clock-cells = <1>;
+		qcom,mux0-clk-id = <TX_CORE_CLK>;
 	};
 };
 

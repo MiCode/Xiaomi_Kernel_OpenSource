@@ -4,12 +4,28 @@
  */
 
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
+#include <dt-bindings/sound/qcom,bolero-clk-rsc.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "kona-va-bolero.dtsi"
 
 &bolero {
 	qcom,num-macros = <4>;
+	bolero-clk-rsc-mngr {
+		compatible = "qcom,bolero-clk-rsc-mngr";
+		qcom,fs-gen-sequence = <0x3000 0x1>,
+					<0x3004 0x1>, <0x3080 0x2>;
+	qcom,rx_mclk_mode_muxsel = <0x033240D8>;
+	qcom,wsa_mclk_mode_muxsel = <0x033220D8>;
+	qcom,va_mclk_mode_muxsel = <0x033A0000>;
+	clock-names = "tx_core_clk", "tx_npl_clk", "rx_core_clk", "rx_npl_clk",
+		 "wsa_core_clk", "wsa_npl_clk", "va_core_clk", "va_npl_clk";
+	clocks = <&clock_audio_tx_1 0>, <&clock_audio_tx_2 0>,
+		<&clock_audio_rx_1 0>, <&clock_audio_rx_2 0>,
+		<&clock_audio_wsa_1 0>, <&clock_audio_wsa_2 0>,
+		<&clock_audio_va_1 0>, <&clock_audio_va_2 0>;
+	};
+
 	tx_macro: tx-macro@3220000 {
 		compatible = "qcom,tx-macro";
 		reg = <0x3220000 0x0>;
@@ -55,6 +71,7 @@
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
 		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,mux0-clk-id = <TX_CORE_CLK>;
 		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -87,6 +104,7 @@
 			 <&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,mux0-clk-id = <TX_CORE_CLK>;
 		swr0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -388,6 +406,22 @@
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_7>;
 		qcom,codec-lpass-ext-clk-freq = <19200000>;
 		qcom,codec-lpass-clk-id = <0x30D>;
+		#clock-cells = <1>;
+	};
+
+	clock_audio_va_1: va_core_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK>;
+		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-clk-id = <0x30B>;
+		#clock-cells = <1>;
+	};
+
+	clock_audio_va_2: va_npl_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,codec-ext-clk-src = <AUDIO_LPASS_MCLK_8>;
+		qcom,codec-lpass-ext-clk-freq = <19200000>;
+		qcom,codec-lpass-clk-id = <0x310>;
 		#clock-cells = <1>;
 	};
 };

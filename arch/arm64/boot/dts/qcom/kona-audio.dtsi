@@ -38,6 +38,10 @@
 			compatible = "qcom,bolero-codec";
 			clock-names = "lpass_core_hw_vote";
 			clocks = <&lpass_core_hw_vote 0>;
+			bolero-clk-rsc-mngr {
+				compatible = "qcom,bolero-clk-rsc-mngr";
+			};
+
 			tx_macro: tx-macro@3220000 {
 				swr2: tx_swr_master {
 				};
