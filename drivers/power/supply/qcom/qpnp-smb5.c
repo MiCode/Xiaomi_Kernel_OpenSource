@@ -2446,7 +2446,7 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
-	val |= BITE_WDOG_TIMEOUT_8S;
+	val |= (BITE_WDOG_TIMEOUT_8S | BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
 	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
 			BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
 			BARK_WDOG_TIMEOUT_MASK | BITE_WDOG_TIMEOUT_MASK,
