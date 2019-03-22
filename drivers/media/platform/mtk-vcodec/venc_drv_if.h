@@ -101,6 +101,12 @@ struct venc_enc_param {
 	unsigned int gop_size;
 };
 
+struct venc_frame_info {
+	unsigned int frm_cnt;	   //per frame update
+	unsigned int skip_frm_cnt;  //per frame update
+	unsigned int frm_type;	   //per frame update
+};
+
 /*
  * struct venc_frm_buf - frame buffer information used in venc_if_encode()
  * @fb_addr: plane frame buffer addresses

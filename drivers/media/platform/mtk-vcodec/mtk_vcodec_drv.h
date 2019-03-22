@@ -337,6 +337,17 @@ struct mtk_vcodec_dec_pdata {
 };
 
 /**
+ * struct mtk_vcodec_enc_pdata - compatibler data for each IC
+ *
+ * @uses_ext: whether the encoder uses the extended firmware messaging format
+ * @supports_vp8: whether the encoder supports VP8
+ */
+struct mtk_vcodec_enc_pdata {
+	bool uses_ext;
+	bool supports_vp8;
+};
+
+/**
  * struct mtk_vcodec_dev - driver data
  * @v4l2_dev: V4L2 device to register video devices for.
  * @vfd_dec: Video device for decoder
@@ -386,6 +397,7 @@ struct mtk_vcodec_dev {
 	struct mtk_vcodec_ctx *curr_ctx;
 	void __iomem *reg_base[NUM_MAX_VCODEC_REG_BASE];
 	const struct mtk_vcodec_dec_pdata *vdec_pdata;
+	const struct mtk_vcodec_enc_pdata *venc_pdata;
 
 	struct mtk_vcodec_fw *ipi_msg_handle;
 

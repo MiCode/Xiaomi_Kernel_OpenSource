@@ -33,7 +33,17 @@ static const char h264_filler_marker[] = {0x0, 0x0, 0x0, 0x1, 0xc};
 #define H264_FILLER_MARKER_SIZE ARRAY_SIZE(h264_filler_marker)
 #define VENC_PIC_BITSTREAM_BYTE_CNT 0x0098
 
-/*
+/**
+ * enum venc_h264_frame_type - h264 encoder output bitstream frame type
+ */
+enum venc_h264_frame_type {
+	VENC_H264_IDR_FRM,
+	VENC_H264_I_FRM,
+	VENC_H264_P_FRM,
+	VENC_H264_B_FRM,
+};
+
+/**
  * enum venc_h264_vpu_work_buf - h264 encoder buffer index
  */
 enum venc_h264_vpu_work_buf {
@@ -49,7 +59,7 @@ enum venc_h264_vpu_work_buf {
 	VENC_H264_VPU_WORK_BUF_MAX,
 };
 
-/*
+/**
  * enum venc_h264_bs_mode - for bs_mode argument in h264_enc_vpu_encode
  */
 enum venc_h264_bs_mode {
@@ -147,6 +157,7 @@ struct venc_h264_inst {
 	struct mtk_vcodec_mem pps_buf;
 	bool work_buf_allocated;
 	unsigned int frm_cnt;
+	unsigned int skip_frm_cnt;
 	unsigned int prepend_hdr;
 	struct venc_vpu_inst vpu_inst;
 	struct venc_h264_vsi *vsi;
@@ -330,6 +341,22 @@ static unsigned int h264_enc_wait_venc_done(struct venc_h264_inst *inst)
 	return irq_status;
 }
 
+static int h264_frame_type(struct venc_h264_inst *inst)
+{
+	if ((inst->vsi->config.gop_size != 0 &&
+		(inst->frm_cnt % inst->vsi->config.gop_size) == 0) ||
+		(inst->frm_cnt == 0 && inst->vsi->config.gop_size == 0)) {
+		/* IDR frame */
+		return VENC_H264_IDR_FRM;
+	} else if ((inst->vsi->config.intra_period != 0 &&
+		(inst->frm_cnt % inst->vsi->config.intra_period) == 0) ||
+		(inst->frm_cnt == 0 && inst->vsi->config.intra_period == 0)) {
+		/* I frame */
+		return VENC_H264_I_FRM;
+	} else {
+		return VENC_H264_P_FRM;  //mt8183 only support I and P frame
+	}
+}
 static int h264_encode_sps(struct venc_h264_inst *inst,
 			   struct mtk_vcodec_mem *bs_buf,
 			   unsigned int *bs_size)
@@ -339,8 +366,8 @@ static int h264_encode_sps(struct venc_h264_inst *inst,
 
 	mtk_vcodec_debug_enter(inst);
 
-	ret = vpu_enc_encode(&inst->vpu_inst, H264_BS_MODE_SPS, NULL,
-			     bs_buf, bs_size);
+	ret = vpu_enc_encode(&inst->vpu_inst, H264_BS_MODE_SPS, NULL, bs_buf,
+			     bs_size, NULL);
 	if (ret)
 		return ret;
 
@@ -367,7 +394,7 @@ static int h264_encode_pps(struct venc_h264_inst *inst,
 	mtk_vcodec_debug_enter(inst);
 
 	ret = vpu_enc_encode(&inst->vpu_inst, H264_BS_MODE_PPS, NULL,
-			     bs_buf, bs_size);
+			     bs_buf, bs_size, NULL);
 	if (ret)
 		return ret;
 
@@ -413,13 +440,28 @@ static int h264_encode_frame(struct venc_h264_inst *inst,
 {
 	int ret = 0;
 	unsigned int irq_status;
+	struct venc_frame_info frame_info;
 
 	mtk_vcodec_debug_enter(inst);
-
+	if (inst->frm_cnt == 0xFFFFFFFF) {
+		inst->frm_cnt = 0;
+		mtk_vcodec_debug(inst, "init frm_cnt to %d \n", inst->frm_cnt);
+	} else {
+		inst->frm_cnt++;
+		mtk_vcodec_debug(inst, "frm_cnt++ = %d \n ", inst->frm_cnt);
+	}
+	frame_info.frm_cnt = inst->frm_cnt;
+	frame_info.skip_frm_cnt = inst->skip_frm_cnt;
+	frame_info.frm_type = h264_frame_type(inst);
+	mtk_vcodec_debug(inst, "frm_cnt++ = %d,skip_frm_cnt =%d,frm_type=%d. \n",
+		frame_info.frm_cnt, frame_info.skip_frm_cnt,
+		frame_info.frm_type);
 	ret = vpu_enc_encode(&inst->vpu_inst, H264_BS_MODE_FRAME, frm_buf,
-			     bs_buf, bs_size);
-	if (ret)
+			     bs_buf, bs_size, &frame_info);
+	if (ret) {
+		inst->frm_cnt--;
 		return ret;
+	}
 
 	/*
 	 * skip frame case: The skip frame buffer is composed by vpu side only,
@@ -430,19 +472,19 @@ static int h264_encode_frame(struct venc_h264_inst *inst,
 		memcpy(bs_buf->va,
 		       inst->work_bufs[VENC_H264_VPU_WORK_BUF_SKIP_FRAME].va,
 		       *bs_size);
-		++inst->frm_cnt;
+		++inst->skip_frm_cnt;
 		return ret;
 	}
 
 	irq_status = h264_enc_wait_venc_done(inst);
 	if (irq_status != MTK_VENC_IRQ_STATUS_FRM) {
 		mtk_vcodec_err(inst, "irq_status=%d failed", irq_status);
+		inst->frm_cnt--;
 		return -EIO;
 	}
 
 	*bs_size = h264_read_reg(inst, VENC_PIC_BITSTREAM_BYTE_CNT);
 
-	++inst->frm_cnt;
 	mtk_vcodec_debug(inst, "frm %d bs_size %d key_frm %d <-",
 			 inst->frm_cnt, *bs_size, inst->vpu_inst.is_key_frm);
 
@@ -476,8 +518,10 @@ static int h264_enc_init(struct mtk_vcodec_ctx *ctx)
 
 	inst->ctx = ctx;
 	inst->vpu_inst.ctx = ctx;
-	inst->vpu_inst.id = IPI_VENC_H264;
+	inst->vpu_inst.id = SCP_IPI_VENC_H264;
 	inst->hw_base = mtk_vcodec_get_reg_addr(inst->ctx, VENC_SYS);
+	inst->frm_cnt = 0xFFFFFFFF;
+	mtk_v4l2_err("h264_enc_init =%d!!",IPI_VENC_H264);
 
 	mtk_vcodec_debug_enter(inst);
 
@@ -597,8 +641,6 @@ static int h264_enc_set_param(void *handle,
 	int ret = 0;
 	struct venc_h264_inst *inst = (struct venc_h264_inst *)handle;
 
-	mtk_vcodec_debug(inst, "->type=%d", type);
-
 	switch (type) {
 	case VENC_SET_PARAM_ENC:
 		inst->vsi->config.input_fourcc = enc_prm->input_yuv_fmt;
@@ -632,7 +674,11 @@ static int h264_enc_set_param(void *handle,
 		inst->prepend_hdr = 1;
 		mtk_vcodec_debug(inst, "set prepend header mode");
 		break;
-
+	case VENC_SET_PARAM_FORCE_INTRA:
+	case VENC_SET_PARAM_GOP_SIZE:
+	case VENC_SET_PARAM_INTRA_PERIOD:
+		inst->frm_cnt = 0xFFFFFFFF;
+		inst->skip_frm_cnt = 0;
 	default:
 		ret = vpu_enc_set_param(&inst->vpu_inst, type, enc_prm);
 		break;
