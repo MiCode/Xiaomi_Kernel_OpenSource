@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <soc/qcom/boot_stats.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -2338,6 +2339,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
 	u32 wake_char = 0;
+	char boot_marker[40];
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
 	if (id) {
@@ -2362,6 +2364,15 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	if ((line < 0) || (line >= GENI_UART_NR_PORTS))
 		return -ENXIO;
+
+	if (strcmp(id->compatible, "qcom,msm-geni-console") == 0)
+		snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_UART_%d Init", line);
+	else
+		snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_HS_UART_%d Init", line);
+	place_marker(boot_marker);
+
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
 	if (IS_ERR_OR_NULL(dev_port)) {
@@ -2538,8 +2549,16 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	device_create_file(uport->dev, &dev_attr_xfer_mode);
 	msm_geni_serial_debug_init(uport, is_console);
 	dev_port->port_setup = false;
-	return uart_add_one_port(drv, uport);
-
+	ret = uart_add_one_port(drv, uport);
+	if (!ret) {
+		if (strcmp(id->compatible, "qcom,msm-geni-console") == 0)
+			snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_UART_%d Ready", line);
+		else
+			snprintf(boot_marker, sizeof(boot_marker),
+				"M - DRIVER GENI_HS_UART_%d Ready", line);
+		place_marker(boot_marker);
+	}
 exit_geni_serial_probe:
 	return ret;
 }
