@@ -235,8 +235,8 @@ enum {
 #define IPA_PIPE_MEM_START_OFST (0x0)
 #define IPA_PIPE_MEM_SIZE (0x0)
 #define IPA_MOBILE_AP_MODE(x) (x == IPA_MODE_MOBILE_AP_ETH || \
-			       x == IPA_MODE_MOBILE_AP_WAN || \
-			       x == IPA_MODE_MOBILE_AP_WLAN)
+				   x == IPA_MODE_MOBILE_AP_WAN || \
+				   x == IPA_MODE_MOBILE_AP_WLAN)
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_A5_MUX_HEADER_LENGTH (8)
 
@@ -2735,4 +2735,46 @@ static inline int ipa_reg_save_init(u32 value) { return 0; }
 static inline void ipa_save_registers(void) {};
 static inline void ipa_save_gsi_ver(void) {};
 #endif
+
+#ifdef CONFIG_IPA_ETH
+int ipa_eth_init(void);
+void ipa_eth_exit(void);
+#else
+static inline int ipa_eth_init(void) { return 0; }
+static inline void ipa_eth_exit(void) { }
+#endif // CONFIG_IPA_ETH
+int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
+	unsigned long chan_hdl);
+#ifdef CONFIG_IPA3_MHI_PRIME_MANAGER
+int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot prot);
+int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot);
+int ipa_mpm_notify_wan_state(void);
+int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot);
+int ipa3_is_mhip_offload_enabled(void);
+#else
+static inline int ipa_mpm_mhip_xdci_pipe_enable(
+	enum ipa_usb_teth_prot prot)
+{
+	return 0;
+}
+static inline int ipa_mpm_mhip_xdci_pipe_disable(
+	enum ipa_usb_teth_prot xdci_teth_prot)
+{
+	return 0;
+}
+static inline int ipa_mpm_notify_wan_state(void)
+{
+	return 0;
+}
+static inline int ipa_mpm_mhip_ul_data_stop(
+	enum ipa_usb_teth_prot xdci_teth_prot)
+{
+	return 0;
+}
+static inline int ipa3_is_mhip_offload_enabled(void)
+{
+	return 0;
+}
+#endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
+
 #endif /* _IPA3_I_H_ */

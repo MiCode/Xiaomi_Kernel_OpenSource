@@ -143,6 +143,15 @@ config IPA3_MHI_PROXY
 	  the MHI device without AP involvement, with the exception of
 	  power management.
 
+config IPA3_MHI_PRIME_MANAGER
+	tristate "IPA3_MHI Prime Manager driver"
+	depends on IPA3
+	help
+	  This driver functionality is to setup MHI Prime channels between Host and
+	  modem and enable the ability for MHI Prime communication.
+	  Once the configuration is done modem will communicate directly with
+	  the Host without AP involvement for tethering data offload.
+
 config IPA_UT
 	tristate "IPA Unit-Test Framework and Test Suites"
 	depends on IPA3 && DEBUG_FS
