@@ -55,6 +55,15 @@ enum npu_power_level {
 	NPU_PWRLEVEL_OFF = 0xFFFFFFFF,
 };
 
+#define NPU_ERR(fmt, args...)                            \
+	pr_err("NPU_ERR: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_WARN(fmt, args...)                           \
+	pr_warn("NPU_WARN: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_INFO(fmt, args...)                           \
+	pr_info("NPU_INFO: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+#define NPU_DBG(fmt, args...)                           \
+	pr_debug("NPU_DBG: %s: %d " fmt "\n", __func__,  __LINE__, ##args)
+
 /* -------------------------------------------------------------------------
  * Data Structures
  * -------------------------------------------------------------------------
@@ -159,7 +168,6 @@ struct npu_pwrctrl {
 	uint32_t num_pwrlevels;
 
 	struct device *devbw;
-	uint32_t bwmon_enabled;
 	uint32_t uc_pwrlevel;
 	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
@@ -206,7 +214,6 @@ struct npu_device {
 	struct npu_io_data tcm_io;
 	struct npu_io_data qdsp_io;
 	struct npu_io_data apss_shared_io;
-	struct npu_io_data bwmon_io;
 	struct npu_io_data qfprom_io;
 
 	uint32_t core_clk_num;

@@ -3,8 +3,6 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 /* -------------------------------------------------------------------------
  * Includes
  * -------------------------------------------------------------------------
@@ -24,9 +22,9 @@ void npu_dump_debug_timeout_stats(struct npu_device *npu_dev)
 	uint32_t reg_val;
 
 	reg_val = REGR(npu_dev, REG_FW_JOB_CNT_START);
-	pr_info("fw jobs execute started count = %d\n", reg_val);
+	NPU_INFO("fw jobs execute started count = %d\n", reg_val);
 	reg_val = REGR(npu_dev, REG_FW_JOB_CNT_END);
-	pr_info("fw jobs execute finished count = %d\n", reg_val);
+	NPU_INFO("fw jobs execute finished count = %d\n", reg_val);
 	reg_val = REGR(npu_dev, REG_NPU_FW_DEBUG_DATA);
-	pr_info("fw jobs aco parser debug = %d\n", reg_val);
+	NPU_INFO("fw jobs aco parser debug = %d\n", reg_val);
 }
