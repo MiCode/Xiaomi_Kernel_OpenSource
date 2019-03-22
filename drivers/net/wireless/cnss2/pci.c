@@ -620,7 +620,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
-		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
+		cnss_fatal_err("Failed to start MHI, err = %d\n", ret);
 		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
 		    !pci_priv->pci_link_down_ind && timeout)
 			mod_timer(&plat_priv->fw_boot_timer,
@@ -1658,7 +1658,7 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
-		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
+		cnss_fatal_err("Failed to trigger RDDM, err = %d\n", ret);
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 				       CNSS_REASON_DEFAULT);
 		return ret;
@@ -2149,7 +2149,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	ret = mhi_download_rddm_img(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
-		cnss_pr_err("Failed to download RDDM image, err = %d\n", ret);
+		cnss_fatal_err("Failed to download RDDM image, err = %d\n",
+			       ret);
 		cnss_pci_dump_registers(pci_priv);
 		return;
 	}
