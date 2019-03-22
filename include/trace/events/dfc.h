@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,33 @@ TRACE_EVENT(dfc_qmap_cmd,
 	TP_printk("mux_id=%u bearer_id=%u seq_num=%u type=%u tran=%u",
 		__entry->mid, __entry->bid, __entry->seq,
 		__entry->type, __entry->tran)
+);
+
+TRACE_EVENT(dfc_tx_link_status_ind,
+
+	TP_PROTO(int src, int idx, u8 status, u8 mux_id, u8 bearer_id),
+
+	TP_ARGS(src, idx, status, mux_id, bearer_id),
+
+	TP_STRUCT__entry(
+		__field(int, src)
+		__field(int, idx)
+		__field(u8, status)
+		__field(u8, mid)
+		__field(u8, bid)
+	),
+
+	TP_fast_assign(
+		__entry->src = src;
+		__entry->idx = idx;
+		__entry->status = status;
+		__entry->mid = mux_id;
+		__entry->bid = bearer_id;
+	),
+
+	TP_printk("src=%d [%d]: status=%u mux_id=%u bearer_id=%u",
+		__entry->src, __entry->idx, __entry->status,
+		__entry->mid, __entry->bid)
 );
 
 #endif /* _TRACE_DFC_H */
