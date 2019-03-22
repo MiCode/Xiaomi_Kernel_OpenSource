@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -745,6 +745,7 @@ struct msm_vfe_common_dev_data {
 	/* Irq debug Info */
 	struct msm_vfe_irq_dump vfe_irq_dump;
 	struct msm_vfe_tasklet tasklets[MAX_VFE + 1];
+	uint32_t drop_reconfig;
 };
 
 struct msm_vfe_common_subdev {
@@ -846,6 +847,9 @@ struct vfe_device {
 	/* total bandwidth per vfe */
 	uint64_t total_bandwidth;
 	struct isp_kstate *isp_page;
+
+	/* irq info */
+	uint32_t irq_sof_id;
 };
 
 struct vfe_parent_device {
