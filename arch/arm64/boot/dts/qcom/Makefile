@@ -101,15 +101,18 @@ dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \
 		sdmshrike-cdp-overlay.dtbo \
-		sdmshrike-mtp-overlay.dtbo
+		sdmshrike-mtp-overlay.dtbo \
+		sa8195p-adp-star-overlay.dtbo
 
 sdmshrike-cdp-overlay.dtbo-base := sdmshrike.dtb sdmshrike-v2.dtb
 sdmshrike-mtp-overlay.dtbo-base := sdmshrike.dtb sdmshrike-v2.dtb
+sa8195p-adp-star-overlay.dtbo-base := sa8195p.dtb
 else
 dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 	sdmshrike-mtp.dtb \
 	sdmshrike-cdp.dtb \
-	sdmshrike-v2-mtp.dtb
+	sdmshrike-v2-mtp.dtb \
+	sa8195p-adp-star.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
