@@ -5,13 +5,14 @@
  */
 
 #include "dm.h"
+#include "dm-bufio.h"
 #include "dm-core.h"
 
 #include <linux/crc32.h>
-#include <linux/dm-bufio.h>
 #include <linux/module.h>
 
 #define DM_MSG_PREFIX "bow"
+#define SECTOR_SIZE 512
 
 struct log_entry {
 	u64 source;
@@ -925,7 +926,7 @@ static int handle_sector0(struct bow_context *bc, struct bio *bio)
 		struct bio * split = bio_split(bio,
 					       bc->block_size >> SECTOR_SHIFT,
 					       GFP_NOIO,
-					       &fs_bio_set);
+					       fs_bio_set);
 		if (!split) {
 			DMERR("Failed to split bio");
 			bio->bi_status = BLK_STS_RESOURCE;
@@ -1176,7 +1177,8 @@ static void dm_bow_status(struct dm_target *ti, status_type_t type,
 	}
 }
 
-int dm_bow_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
+int dm_bow_prepare_ioctl(struct dm_target *ti, struct block_device **bdev,
+			 fmode_t *mode)
 {
 	struct bow_context *bc = ti->private;
 	struct dm_dev *dev = bc->dev;
