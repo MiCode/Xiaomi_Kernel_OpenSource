@@ -20,21 +20,6 @@
 /* APIs for early splash handoff functions */
 
 /**
- * edrm_splash_notify_lk_stop_splash.
- *
- * Tell LK to stop display splash.  LK may continue to run until last frame.
- */
-void edrm_splash_notify_lk_stop_splash(struct msm_kms *kms);
-
-
-/**
- * edrm_splash_poll_lk_stop_splash.
- *
- * Wait unitl LK stop the spash at last frame or it exited the splash app.
- */
-void edrm_splash_poll_lk_stop_splash(struct msm_kms *kms);
-
-/**
  * edrm_splash_get_lk_status
  *
  * Get early display status to set the status flag.
