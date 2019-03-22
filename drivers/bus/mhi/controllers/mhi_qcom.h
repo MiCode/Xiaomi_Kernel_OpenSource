@@ -38,6 +38,10 @@ struct mhi_dev {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	bool lpm_disabled;
+
+	/* if set, soc support dynamic bw scaling */
+	void (*bw_scale)(struct mhi_controller *mhi_cntrl,
+			 struct mhi_dev *mhi_dev);
 };
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);

@@ -433,10 +433,18 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 	struct mhi_dev *mhi_dev = priv;
 	struct device *dev = &mhi_dev->pci_dev->dev;
 
-	if (reason == MHI_CB_IDLE) {
-		MHI_LOG("Schedule runtime suspend 1\n");
+	switch (reason) {
+	case MHI_CB_IDLE:
+		MHI_LOG("Schedule runtime suspend\n");
 		pm_runtime_mark_last_busy(dev);
 		pm_request_autosuspend(dev);
+		break;
+	case MHI_CB_BW_REQ:
+		if (mhi_dev->bw_scale)
+			mhi_dev->bw_scale(mhi_cntrl, mhi_dev);
+		break;
+	default:
+		MHI_ERR("Unhandled cb:0x%x\n", reason);
 	}
 }
 
