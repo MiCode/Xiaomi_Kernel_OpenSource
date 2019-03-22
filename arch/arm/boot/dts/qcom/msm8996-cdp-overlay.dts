@@ -11,14 +11,12 @@
  */
 
 /dts-v1/;
+/plugin/;
 
-#include "msm8996pro-v1.1.dtsi"
-#include "msm8996-pm8994-pmi8994-pm8004.dtsi"
+#include "msm8996-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8996pro v1.1 + PMI8994";
-	compatible = "qcom,msm8996";
-	qcom,pmic-id = <0x20009 0x2000A 0x1000C 0x0>;
-	qcom,msm-id = <305 0x10001>;
-	qcom,pmic-name = "PMI8994";
+	model = "Qualcomm Technologies, Inc. MSM 8996 CDP";
+	compatible = "qcom,msm8996-cdp", "qcom,msm8996", "qcom,cdp";
+	qcom,board-id = <1 0>, <0x01000001 0>;
 };
