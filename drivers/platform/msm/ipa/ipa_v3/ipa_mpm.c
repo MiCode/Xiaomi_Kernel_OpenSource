@@ -18,6 +18,7 @@
 #include <linux/mhi.h>
 #include <linux/msm_gsi.h>
 #include <linux/delay.h>
+#include <linux/log2.h>
 #include "../ipa_common_i.h"
 #include "ipa_i.h"
 
@@ -58,16 +59,16 @@
 #define IPA_MPM_FUNC_EXIT() \
 	IPA_MPM_DBG("EXIT\n")
 
-#define ipa_mpm_MAX_MHIP_CHAN 3
-#define ipa_mpm_NUM_ER_BUFF 0x400
-#define ipa_mpm_ER_LEN (ipa_mpm_NUM_ER_BUFF - 10)
-#define ipa_mpm_NUM_TR_BUFF ipa_mpm_ER_LEN
-#define ipa_mpm_MHI_HOST_UL_CHANNEL 4
-#define ipa_mpm_MHI_HOST_DL_CHANNEL  5
+#define IPA_MPM_MAX_MHIP_CHAN 3
+
+#define IPA_MPM_NUM_RING_DESC 0x400
+#define IPA_MPM_RING_LEN (IPA_MPM_NUM_RING_DESC - 10)
+
+#define IPA_MPM_MHI_HOST_UL_CHANNEL 4
+#define IPA_MPM_MHI_HOST_DL_CHANNEL  5
 #define DEFAULT_AGGR_TIME_LIMIT 1000 /* 1ms */
 #define DEFAULT_AGGR_PKT_LIMIT 0
 #define TRE_BUFF_SIZE 32768
-#define ipa_mpm_IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY 0x00000000
 #define IPA_HOLB_TMR_EN 0x1
 #define IPA_HOLB_TMR_DIS 0x0
 #define RNDIS_IPA_DFLT_RT_HDL 0
@@ -81,16 +82,11 @@ enum mhip_re_type {
 	MHIP_RE_NOP = 0x4,
 };
 
-enum ipa_mpm_clk_client_type {
-	ipa_mpm_CLIENT_IPA,
-	ipa_mpm_CLIENT_PCIE
-};
-
 enum ipa_mpm_mhi_ch_id_type {
-	ipa_mpm_MHIP_CH_ID_0,
-	ipa_mpm_MHIP_CH_ID_1,
-	ipa_mpm_MHIP_CH_ID_2,
-	ipa_mpm_MHIP_CH_ID_MAX
+	IPA_MPM_MHIP_CH_ID_0,
+	IPA_MPM_MHIP_CH_ID_1,
+	IPA_MPM_MHIP_CH_ID_2,
+	IPA_MPM_MHIP_CH_ID_MAX,
 };
 
 enum ipa_mpm_dma_data_direction {
@@ -118,12 +114,12 @@ enum ipa_mpm_mhip_client_type {
 
 enum ipa_mpm_start_stop_type {
 	STOP,
-	START
+	START,
 };
 
 enum ipa_mpm_clk_vote_type {
 	CLK_ON,
-	CLK_OFF
+	CLK_OFF,
 };
 
 enum mhip_status_type {
@@ -132,12 +128,14 @@ enum mhip_status_type {
 	MHIP_STATUS_FAIL,
 	MHIP_STATUS_BAD_STATE,
 	MHIP_STATUS_EP_NOT_FOUND,
-	MHIP_STATUS_EP_NOT_READY
+	MHIP_STATUS_EP_NOT_READY,
 };
 
-atomic_t ipa_clk_ref_cnt = ATOMIC_INIT(0);
-atomic_t pcie_clk_ref_cnt = ATOMIC_INIT(0);
-
+enum mhip_smmu_domain_type {
+	MHIP_SMMU_DOMAIN_IPA,
+	MHIP_SMMU_DOMAIN_PCIE,
+	MHIP_SMMU_DOMAIN_NONE,
+};
 
 /* each pair of UL/DL channels are defined below */
 static const struct mhi_device_id mhi_driver_match_table[] = {
@@ -204,97 +202,21 @@ struct ipa_mpm_channel_type {
 	enum ipa_mpm_mhip_client_type mhip_client;
 };
 
-struct ipa_mpm_channel_type ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_MAX];
+static struct ipa_mpm_channel_type ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_MAX];
 
 /* For configuring IPA_CLIENT_MHI_PRIME_TETH_CONS */
 static struct ipa_ep_cfg mhip_dl_teth_ep_cfg = {
 	.mode = {
-	.mode = IPA_BASIC,
-	.dst = IPA_CLIENT_MHI_PRIME_TETH_CONS,
-},
-.hdr = {
-	.hdr_len = 0,
-	.hdr_ofst_metadata_valid = false,
-	.hdr_ofst_metadata = 0,
-	.hdr_additional_const_len = 0,
-	.hdr_ofst_pkt_size_valid = 0,
-	.hdr_ofst_pkt_size = 0,
-	.hdr_a5_mux = false,
-	.hdr_remove_additional = false,
-	.hdr_metadata_reg_valid = false,
-},
-.hdr_ext = {
-	.hdr_pad_to_alignment = 0,
-	.hdr_total_len_or_pad_offset = 0,
-	.hdr_payload_len_inc_padding = false,
-	.hdr_total_len_or_pad = 0,
-	.hdr_total_len_or_pad_valid = false,
-	.hdr_little_endian = 0,
-},
-.aggr = {
-	.aggr_en = IPA_BYPASS_AGGR,
-	.aggr = 0,
-	.aggr_byte_limit = 0,
-	.aggr_time_limit = 0,
-	.aggr_pkt_limit = 0,
-},
-.deaggr = {
-	.deaggr_hdr_len = 0,
-	.packet_offset_valid = 0,
-	.packet_offset_location = 0,
-	.max_packet_len = 0,
-},
-.route = {
-	.rt_tbl_hdl = 0,
-},
-.nat = {
-	.nat_en = IPA_BYPASS_NAT,
-},
+		.mode = IPA_BASIC,
+		.dst = IPA_CLIENT_MHI_PRIME_TETH_CONS,
+	},
 };
 
 static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
 	.mode = {
-	.mode = IPA_BASIC,
-	.dst = IPA_CLIENT_MHI_PRIME_TETH_PROD,
-},
-.hdr = {
-	.hdr_len = 0,
-	.hdr_ofst_metadata_valid = false,
-	.hdr_ofst_metadata = 0,
-	.hdr_additional_const_len = 0,
-	.hdr_ofst_pkt_size_valid = 0,
-	.hdr_ofst_pkt_size = 0,
-	.hdr_a5_mux = false,
-	.hdr_remove_additional = false,
-	.hdr_metadata_reg_valid = false,
-},
-.hdr_ext = {
-	.hdr_pad_to_alignment = 0,
-	.hdr_total_len_or_pad_offset = 0,
-	.hdr_payload_len_inc_padding = false,
-	.hdr_total_len_or_pad = 0,
-	.hdr_total_len_or_pad_valid = false,
-	.hdr_little_endian = 0,
-},
-.aggr = {
-	.aggr_en = IPA_BYPASS_AGGR,
-	.aggr = 0,
-	.aggr_byte_limit = 0,
-	.aggr_time_limit = 0,
-	.aggr_pkt_limit = 0,
-},
-.deaggr = {
-	.deaggr_hdr_len = 0,
-	.packet_offset_valid = 0,
-	.packet_offset_location = 0,
-	.max_packet_len = 0,
-},
-.route = {
-	.rt_tbl_hdl = 0,
-},
-.nat = {
-	.nat_en = IPA_BYPASS_NAT,
-},
+		.mode = IPA_BASIC,
+		.dst = IPA_CLIENT_MHI_PRIME_TETH_PROD,
+	},
 };
 
 /* WARNING!! Temporary for rndis intgration only */
@@ -303,139 +225,25 @@ static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
 /* For configuring IPA_CLIENT_MHIP_RMNET_PROD */
 static struct ipa_ep_cfg mhip_dl_rmnet_ep_cfg = {
 	.mode = {
-	.mode = IPA_DMA,
-	.dst = IPA_CLIENT_USB_CONS,
-},
-.hdr = {
-	.hdr_len = 0,
-	.hdr_ofst_metadata_valid = false,
-	.hdr_ofst_metadata = 0,
-	.hdr_additional_const_len = 0,
-	.hdr_ofst_pkt_size_valid = 0,
-	.hdr_ofst_pkt_size = 0,
-	.hdr_a5_mux = false,
-	.hdr_remove_additional = false,
-	.hdr_metadata_reg_valid = false,
-},
-.hdr_ext = {
-	.hdr_pad_to_alignment = 0,
-	.hdr_total_len_or_pad_offset = 0,
-	.hdr_payload_len_inc_padding = false,
-	.hdr_total_len_or_pad = 0,
-	.hdr_total_len_or_pad_valid = false,
-	.hdr_little_endian = 0,
-},
-.aggr = {
-	.aggr_en = IPA_BYPASS_AGGR,
-	.aggr = 0,
-	.aggr_byte_limit = 0,
-	.aggr_time_limit = 0,
-	.aggr_pkt_limit = 0,
-},
-.deaggr = {
-	.deaggr_hdr_len = 0,
-	.packet_offset_valid = 0,
-	.packet_offset_location = 0,
-	.max_packet_len = 0,
-},
-.route = {
-	.rt_tbl_hdl = 0,
-},
-.nat = {
-	.nat_en = IPA_BYPASS_NAT,
-},
+		.mode = IPA_DMA,
+		.dst = IPA_CLIENT_USB_CONS,
+	},
 };
 
 /* For configuring IPA_CLIENT_MHIP_RMNET_CONS */
 static struct ipa_ep_cfg mhip_ul_rmnet_ep_cfg = {
 	.mode = {
-	.mode = IPA_DMA,
-	.dst = IPA_CLIENT_USB_CONS,
-},
-.hdr = {
-	.hdr_len = 0,
-	.hdr_ofst_metadata_valid = false,
-	.hdr_ofst_metadata = 0,
-	.hdr_additional_const_len = 0,
-	.hdr_ofst_pkt_size_valid = 0,
-	.hdr_ofst_pkt_size = 0,
-	.hdr_a5_mux = false,
-	.hdr_remove_additional = false,
-	.hdr_metadata_reg_valid = false,
-},
-.hdr_ext = {
-	.hdr_pad_to_alignment = 0,
-	.hdr_total_len_or_pad_offset = 0,
-	.hdr_payload_len_inc_padding = false,
-	.hdr_total_len_or_pad = 0,
-	.hdr_total_len_or_pad_valid = false,
-	.hdr_little_endian = 0,
-},
-.aggr = {
-	.aggr_en = IPA_BYPASS_AGGR,
-	.aggr = 0,
-	.aggr_byte_limit = 0,
-	.aggr_time_limit = 0,
-	.aggr_pkt_limit = 0,
-},
-.deaggr = {
-	.deaggr_hdr_len = 0,
-	.packet_offset_valid = 0,
-	.packet_offset_location = 0,
-	.max_packet_len = 0,
-},
-.route = {
-	.rt_tbl_hdl = 0,
-},
-.nat = {
-	.nat_en = IPA_BYPASS_NAT,
-},
+		.mode = IPA_DMA,
+		.dst = IPA_CLIENT_USB_CONS,
+	},
 };
 
 /* For configuring IPA_CLIENT_MHIP_DPL_PROD */
 static struct ipa_ep_cfg mhip_dl_dpl_ep_cfg = {
 	.mode = {
-	.mode = IPA_DMA,
-	.dst = IPA_CLIENT_USB_CONS,
-},
-.hdr = {
-	.hdr_len = 0,
-	.hdr_ofst_metadata_valid = false,
-	.hdr_ofst_metadata = 0,
-	.hdr_additional_const_len = 0,
-	.hdr_ofst_pkt_size_valid = 0,
-	.hdr_ofst_pkt_size = 0,
-	.hdr_a5_mux = false,
-	.hdr_remove_additional = false,
-	.hdr_metadata_reg_valid = false,
-},
-.hdr_ext = {
-	.hdr_pad_to_alignment = 0,
-	.hdr_total_len_or_pad_offset = 0,
-	.hdr_payload_len_inc_padding = false,
-	.hdr_total_len_or_pad = 0,
-	.hdr_total_len_or_pad_valid = false,
-	.hdr_little_endian = 0,
-},
-.aggr = {
-	.aggr_en = IPA_BYPASS_AGGR,
-	.aggr = 0,
-	.aggr_byte_limit = 0,
-	.aggr_time_limit = 0,
-	.aggr_pkt_limit = 0,
-},
-.deaggr = {
-	.deaggr_hdr_len = 0,
-	.packet_offset_valid = 0,
-	.packet_offset_location = 0,
-	.max_packet_len = 0,
-},
-.route = {
-	.rt_tbl_hdl = 0,
-},
-.nat = {
-	.nat_en = IPA_BYPASS_NAT,
-},
+		.mode = IPA_DMA,
+		.dst = IPA_CLIENT_USB_CONS,
+	},
 };
 
 
@@ -497,7 +305,14 @@ struct producer_rings {
 	struct mhi_p_desc *er_va;
 	dma_addr_t tr_pa;
 	dma_addr_t er_pa;
-	void *tre_buff[ipa_mpm_NUM_TR_BUFF];
+	void *tre_buff[IPA_MPM_RING_LEN];
+	/*
+	 * The iova generated for AP CB,
+	 * used only for dma_map_single to flush the cache.
+	 */
+	dma_addr_t ap_iova_er;
+	dma_addr_t ap_iova_tr;
+	dma_addr_t ap_iova_buff[IPA_MPM_RING_LEN];
 };
 
 struct ipa_mpm_mhi_driver {
@@ -515,12 +330,18 @@ struct ipa_mpm_mhi_driver {
 
 struct ipa_mpm_context {
 	struct ipa_mpm_dev_info dev_info;
-	struct ipa_mpm_mhi_driver md[ipa_mpm_MAX_MHIP_CHAN];
+	struct ipa_mpm_mhi_driver md[IPA_MPM_MAX_MHIP_CHAN];
 	struct mutex mutex;
-	bool ipa_mpm_pcie_clock;
-	bool ipa_mpm_ipa_clock;
+	atomic_t ipa_clk_ref_cnt;
+	atomic_t pcie_clk_ref_cnt;
 	struct device *parent_pdev;
+	struct ipa_smmu_cb_ctx carved_smmu_cb;
 };
+
+#define IPA_MPM_DESC_SIZE (sizeof(struct mhi_p_desc))
+#define IPA_MPM_RING_TOTAL_SIZE (IPA_MPM_RING_LEN * IPA_MPM_DESC_SIZE)
+#define IPA_MPM_PAGE_SIZE roundup_pow_of_two(IPA_MPM_RING_TOTAL_SIZE)
+
 
 static struct ipa_mpm_context *ipa_mpm_ctx;
 static struct platform_device *m_pdev;
@@ -572,69 +393,235 @@ static void ipa_mpm_ipa3_ready_cb(void *user_data)
 	schedule_work(&ipa_mpm_ipa3_scheduled_probe);
 }
 
-void ipa_mpm_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *err_data)
+static void ipa_mpm_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *err_data)
 {
 	IPA_MPM_ERR("GSI EVT RING ERROR, not expected..\n");
 	ipa_assert();
 }
 
-void ipa_mpm_gsi_chan_err_cb(struct gsi_chan_err_notify *err_data)
+static void ipa_mpm_gsi_chan_err_cb(struct gsi_chan_err_notify *err_data)
 {
 	IPA_MPM_ERR("GSI CHAN ERROR, not expected..\n");
 	ipa_assert();
 }
 
-dma_addr_t ipa_mpm_smmu_map_ring(void *va_addr, int sz, int dir)
+/**
+ * ipa_mpm_smmu_map() - SMMU maps ring and the buffer pointer.
+ * @va_addr: virtual address that needs to be mapped
+ * @sz: size of the address to be mapped
+ * @dir: ipa_mpm_dma_data_direction
+ * @ap_cb_iova: iova for AP context bank
+ *
+ * This function SMMU maps both ring and the buffer pointer.
+ * The ring pointers will be aligned to ring size and
+ * the buffer pointers should be aligned to buffer size.
+ *
+ * Returns: iova of the mapped address
+ */
+static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
+	int sz,
+	int dir,
+	dma_addr_t *ap_cb_iova)
 {
+	struct iommu_domain *ipa_smmu_domain, *pcie_smmu_domain;
+	phys_addr_t phys_addr;
+	dma_addr_t iova;
+	int smmu_enabled;
+	unsigned long iova_p;
+	phys_addr_t pa_p;
+	u32 size_p;
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	struct ipa_smmu_cb_ctx *cb = &ipa_mpm_ctx->carved_smmu_cb;
+	unsigned long carved_iova = roundup(cb->next_addr, IPA_MPM_PAGE_SIZE);
+	int ret = 0;
+
+	if (carved_iova >= cb->va_end) {
+		IPA_MPM_ERR("running out of carved_iova %x\n", carved_iova);
+		ipa_assert();
+	}
 	/*
 	 * Both Host IPA and PCIE SMMU should be enabled or disabled
 	 * for proceed.
 	 * If SMMU Enabled => iova == pa
 	 * If SMMU Disabled => iova == iommu mapped iova
-	 * dma_map_single ensures cache is flushed and the memoty is not
+	 * dma_map_single ensures cache is flushed and the memory is not
 	 * touched again until dma_unmap_single() is called
 	 */
-	dma_addr_t iova = 0;
-
-	int smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
+	smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
 		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
 
-	if (smmu_enabled)
-		IPA_MPM_DBG("SMMU enabled, returning\n");
-	else
+	if (smmu_enabled) {
+		/* Map the phys addr to both PCIE and IPA AP CB
+		 * from the carved out common iova range.
+		 */
+		ipa_smmu_domain = ipa3_get_smmu_domain();
+
+		if (!ipa_smmu_domain) {
+			IPA_MPM_ERR("invalid IPA smmu domain\n");
+			ipa_assert();
+		}
+
+		if (!ipa_mpm_ctx->md[0].mhi_dev->dev.parent) {
+			IPA_MPM_ERR("invalid PCIE SMMU domain\n");
+			ipa_assert();
+		}
+
+		phys_addr = virt_to_phys((void *) va_addr);
+		IPA_SMMU_ROUND_TO_PAGE(carved_iova, phys_addr, sz,
+					iova_p, pa_p, size_p);
+
+		/* Flush the cache with dma_map_single for IPA AP CB */
+		*ap_cb_iova = dma_map_single(ipa3_ctx->pdev, va_addr,
+						sz, dir);
+		ret = ipa3_iommu_map(ipa_smmu_domain, iova_p,
+					pa_p, size_p, prot);
+		if (ret) {
+			IPA_MPM_ERR("IPA IOMMU returned failure, ret = %d\n",
+					ret);
+			ipa_assert();
+		}
+
+		pcie_smmu_domain = iommu_get_domain_for_dev(
+			ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+		ret = iommu_map(pcie_smmu_domain, iova_p, pa_p, size_p, prot);
+
+		if (ret) {
+			IPA_MPM_ERR("PCIe IOMMU returned failure, ret = %d\n",
+				ret);
+			ipa_assert();
+		}
+
+		iova = iova_p;
+		cb->next_addr = iova_p + size_p;
+	} else {
 		iova = dma_map_single(ipa3_ctx->pdev, va_addr, sz, dir);
+		*ap_cb_iova = iova;
+	}
 	return iova;
 }
 
-void ipa_mpm_smmu_unmap_ring(dma_addr_t iova_addr, int sz, int dir)
+/**
+ * ipa_mpm_smmu_unmap() - SMMU unmaps ring and the buffer pointer.
+ * @va_addr: virtual address that needs to be mapped
+ * @sz: size of the address to be mapped
+ * @dir: ipa_mpm_dma_data_direction
+ * @ap_cb_iova: iova for AP context bank
+ *
+ * This function SMMU unmaps both ring and the buffer pointer.
+ * The ring pointers will be aligned to ring size and
+ * the buffer pointers should be aligned to buffer size.
+ *
+ * Return: none
+ */
+static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
+	dma_addr_t ap_cb_iova)
 {
+	int ret;
+	unsigned long iova_p;
+	unsigned long pa_p;
+	u32 size_p = 0;
+	struct iommu_domain *ipa_smmu_domain, *pcie_smmu_domain;
+	struct ipa_smmu_cb_ctx *cb = &ipa_mpm_ctx->carved_smmu_cb;
 	int smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
 		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
 
-	if (smmu_enabled)
-		return;
-	dma_unmap_single(ipa3_ctx->pdev, iova_addr, sz, dir);
+	if (smmu_enabled) {
+		ipa_smmu_domain = ipa3_get_smmu_domain();
+		if (!ipa_smmu_domain) {
+			IPA_MPM_ERR("invalid IPA smmu domain\n");
+			ipa_assert();
+		}
+
+		if (!ipa_mpm_ctx->md[0].mhi_dev->dev.parent) {
+			IPA_MPM_ERR("invalid PCIE SMMU domain\n");
+			ipa_assert();
+		}
+
+		IPA_SMMU_ROUND_TO_PAGE(carved_iova, carved_iova, sz,
+					iova_p, pa_p, size_p);
+
+		ret = iommu_unmap(ipa_smmu_domain, carved_iova, size_p);
+		if (ret) {
+			IPA_MPM_ERR("IPA IOMMU Unmap failure, ret = %d\n",
+					ret);
+			ipa_assert();
+		}
+		pcie_smmu_domain = iommu_get_domain_for_dev(
+			ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+
+		ret = iommu_unmap(pcie_smmu_domain, carved_iova, size_p);
+
+		if (ret) {
+			IPA_MPM_ERR("PCIe IOMMU Unmap failure, ret = %d\n",
+				ret);
+			ipa_assert();
+		}
+		cb->next_addr -= size_p;
+		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova, size_p, dir);
+	} else {
+		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova, sz, dir);
+	}
 }
 
-u32 ipa_mpm_smmu_map_doorbell(u32 pa_addr)
+static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
+	u32 pa_addr)
 {
 	/*
 	 * Doorbells are already in PA, map these to
-	 * PCIE doman incase SMMU on PCIE is enabled.
+	 * PCIE/IPA doman if SMMUs are enabled.
 	 */
+	struct iommu_domain *ipa_smmu_domain, *pcie_smmu_domain;
+	int smmu_enabled;
+	unsigned long iova_p;
+	phys_addr_t pa_p;
+	u32 size_p;
+	int ret = 0;
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	struct ipa_smmu_cb_ctx *cb = &ipa_mpm_ctx->carved_smmu_cb;
+	unsigned long carved_iova = roundup(cb->next_addr, PAGE_SIZE);
 	u32 iova = 0;
+	u64 offset = 0;
 
-	int smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
+	if (carved_iova >= cb->va_end) {
+		IPA_MPM_ERR("running out of carved_iova %x\n", carved_iova);
+		ipa_assert();
+	}
+
+	smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
 		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
 
-	if (smmu_enabled)
-		return 0;
-	iova = pa_addr;
-
+	if (smmu_enabled) {
+		IPA_SMMU_ROUND_TO_PAGE(carved_iova, pa_addr, PAGE_SIZE,
+					iova_p, pa_p, size_p);
+		if (smmu_domain == MHIP_SMMU_DOMAIN_IPA) {
+			ipa_smmu_domain = ipa3_get_smmu_domain();
+			ret = ipa3_iommu_map(ipa_smmu_domain,
+				iova_p, pa_p, size_p, prot);
+			if (ret) {
+				IPA_MPM_ERR("IPA doorbell mapping failed\n");
+				ipa_assert();
+			}
+			offset = pa_addr - pa_p;
+		} else if (smmu_domain == MHIP_SMMU_DOMAIN_PCIE) {
+			pcie_smmu_domain = iommu_get_domain_for_dev(
+				ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+			 ret = iommu_map(pcie_smmu_domain,
+				iova_p, pa_p, size_p, prot);
+			if (ret) {
+				IPA_MPM_ERR("PCIe doorbell mapping failed\n");
+				ipa_assert();
+			}
+			offset = pa_addr - pa_p;
+		}
+		iova = iova_p + offset;
+		cb->next_addr = iova_p + PAGE_SIZE;
+	} else {
+		iova = pa_addr;
+	}
 	return iova;
 }
 
-int get_idx_from_id(const struct mhi_device_id *id)
+static int get_idx_from_id(const struct mhi_device_id *id)
 {
 	return (id - mhi_driver_match_table);
 }
@@ -645,9 +632,13 @@ static void get_ipa3_client(int id,
 {
 	IPA_MPM_FUNC_ENTRY();
 
-	*ul_prod = ipa_mpm_pipes[id].ul_prod.ipa_client;
-	*dl_cons = ipa_mpm_pipes[id].dl_cons.ipa_client;
-
+	if (id >= IPA_MPM_MHIP_CH_ID_MAX) {
+		*ul_prod = IPA_CLIENT_MAX;
+		*dl_cons = IPA_CLIENT_MAX;
+	} else {
+		*ul_prod = ipa_mpm_pipes[id].ul_prod.ipa_client;
+		*dl_cons = ipa_mpm_pipes[id].dl_cons.ipa_client;
+	}
 	IPA_MPM_FUNC_EXIT();
 }
 
@@ -660,6 +651,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	struct mhi_p_desc *tr_ring;
 	int tr_ring_sz, ev_ring_sz;
 	dma_addr_t ev_ring_iova, tr_ring_iova;
+	dma_addr_t ap_cb_iova;
 	struct ipa_request_gsi_channel_params gsi_params;
 	int dir;
 	int i;
@@ -669,26 +661,35 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	struct ipa3_ep_context *ep;
 
 	if (mhip_client == IPA_CLIENT_MAX)
+		goto fail_gen;
+
+	if (mhi_idx == IPA_MPM_MHIP_CH_ID_MAX)
+		goto fail_gen;
+
+	ipa_ep_idx = ipa3_get_ep_mapping(mhip_client);
+	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+		IPA_MPM_ERR("fail to find channel EP.\n");
+		goto fail_gen;
+	}
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (ep->valid == 1) {
+		IPAERR("EP %d already allocated.\n", ipa_ep_idx);
 		return 0;
+	}
+
+	IPA_MPM_DBG("connecting client %d (ep: %d)\n", mhip_client, ipa_ep_idx);
 
 	IPA_MPM_FUNC_ENTRY();
 
-	/* Allocate TR and ER for producer channels */
-	/* if(IPA_CLIENT_IS_PROD)
-	 *    Host DL Cons Channel
-	 * else
-	 *    Host UL Prod Channel
-	 */
-
-	ev_ring_sz = sizeof(*ev_ring) * (ipa_mpm_NUM_ER_BUFF);
+	ev_ring_sz = IPA_MPM_RING_TOTAL_SIZE;
 	ev_ring = kzalloc(ev_ring_sz, GFP_KERNEL);
 	if (!ev_ring)
-		goto fail_no_mem;
+		goto fail_evt_alloc;
 
-	tr_ring_sz = sizeof(*tr_ring) * (ipa_mpm_NUM_TR_BUFF);
+	tr_ring_sz = IPA_MPM_RING_TOTAL_SIZE;
 	tr_ring = kzalloc(tr_ring_sz, GFP_KERNEL);
 	if (!tr_ring)
-		goto fail_no_mem;
+		goto fail_tr_alloc;
 
 	tr_ring[0].re_type = MHIP_RE_NOP;
 
@@ -696,8 +697,11 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		DMA_TO_HIPA : DMA_FROM_HIPA;
 
 	/* allocate transfer ring elements */
-	for (i = 1, k = 0; i < ipa_mpm_NUM_TR_BUFF; i++, k++) {
+	for (i = 1, k = 0; i < IPA_MPM_RING_LEN; i++, k++) {
 		buff = kzalloc(TRE_BUFF_SIZE, GFP_KERNEL);
+
+		if (!buff)
+			goto fail_buff_alloc;
 
 		if (IPA_CLIENT_IS_PROD(mhip_client))
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[k] =
@@ -707,9 +711,12 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 									buff;
 
 		tr_ring[i].buffer_ptr =
-			ipa_mpm_smmu_map_ring(buff, TRE_BUFF_SIZE, dir);
+			ipa_mpm_smmu_map(buff, TRE_BUFF_SIZE, dir,
+				&ap_cb_iova);
+
 		if (!tr_ring[i].buffer_ptr)
-			goto fail_no_mem;
+			goto fail_smmu_map_ring;
+
 		tr_ring[i].buff_len = TRE_BUFF_SIZE;
 		tr_ring[i].chain = 0;
 		tr_ring[i].ieob = 0;
@@ -717,15 +724,24 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		tr_ring[i].bei = 0;
 		tr_ring[i].sct = 0;
 		tr_ring[i].re_type = MHIP_RE_XFER;
+
+		if (IPA_CLIENT_IS_PROD(mhip_client))
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[k] =
+				ap_cb_iova;
+		else
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[k] =
+				ap_cb_iova;
 	}
 
-	tr_ring_iova = ipa_mpm_smmu_map_ring(tr_ring, tr_ring_sz, dir);
+	tr_ring_iova = ipa_mpm_smmu_map(tr_ring, tr_ring_sz, dir,
+		&ap_cb_iova);
 	if (!tr_ring_iova)
-		goto fail_map_fail;
+		goto fail_smmu_map_ring;
 
-	ev_ring_iova = ipa_mpm_smmu_map_ring(ev_ring, ev_ring_sz, dir);
+	ev_ring_iova = ipa_mpm_smmu_map(ev_ring, ev_ring_sz, dir,
+		&ap_cb_iova);
 	if (!ev_ring_iova)
-		goto fail_map_fail;
+		goto fail_smmu_map_ring;
 
 	/* Store Producer channel rings */
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
@@ -734,12 +750,16 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = tr_ring;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa = ev_ring_iova;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa = tr_ring_iova;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr =
+			ap_cb_iova;
 	} else {
 		/* Host UL */
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = ev_ring;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = tr_ring;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa = ev_ring_iova;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = tr_ring_iova;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr =
+			ap_cb_iova;
 	}
 
 	memset(&gsi_params, 0, sizeof(struct ipa_request_gsi_channel_params));
@@ -752,7 +772,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		ipa_mpm_pipes[mhi_idx].ul_prod.ep_cfg;
 
 	gsi_params.client = mhip_client;
-	gsi_params.skip_ep_cfg = false; //jyothi
+	gsi_params.skip_ep_cfg = false;
 
 	/*
 	 * RP update address = Device channel DB address
@@ -761,14 +781,22 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	 */
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
 		gsi_params.evt_ring_params.rp_update_addr =
-			ipa_mpm_ctx->md[mhi_idx].dl_cons.chan_props.device_db;
+			ipa_mpm_smmu_map_doorbell(
+			MHIP_SMMU_DOMAIN_IPA,
+			ipa_mpm_ctx->md[mhi_idx].dl_cons.chan_props.device_db);
+		if (gsi_params.evt_ring_params.rp_update_addr == 0)
+			goto fail_smmu_map_db;
 		gsi_params.evt_ring_params.ring_base_addr =
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa;
 		gsi_params.chan_params.ring_base_addr =
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa;
 	} else {
 		gsi_params.evt_ring_params.rp_update_addr =
-			ipa_mpm_ctx->md[mhi_idx].ul_prod.chan_props.device_db;
+			ipa_mpm_smmu_map_doorbell(
+			MHIP_SMMU_DOMAIN_IPA,
+			ipa_mpm_ctx->md[mhi_idx].ul_prod.chan_props.device_db);
+		if (gsi_params.evt_ring_params.rp_update_addr == 0)
+			goto fail_smmu_map_db;
 		gsi_params.evt_ring_params.ring_base_addr =
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa;
 		gsi_params.chan_params.ring_base_addr =
@@ -780,7 +808,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	gsi_params.evt_ring_params.intr = GSI_INTR_MSI;
 	gsi_params.evt_ring_params.re_size = GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.evt_ring_params.ring_len =
-		(ipa_mpm_ER_LEN) * GSI_EVT_RING_RE_SIZE_16B;
+		(IPA_MPM_RING_LEN) * GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.evt_ring_params.ring_base_vaddr = NULL;
 	gsi_params.evt_ring_params.int_modt = 0;
 	gsi_params.evt_ring_params.int_modc = 0;
@@ -809,7 +837,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	/* chan_id is set in ipa3_request_gsi_channel() */
 	gsi_params.chan_params.re_size = GSI_CHAN_RE_SIZE_16B;
 	gsi_params.chan_params.ring_len =
-		(ipa_mpm_NUM_TR_BUFF) * GSI_EVT_RING_RE_SIZE_16B;
+		(IPA_MPM_RING_LEN) * GSI_EVT_RING_RE_SIZE_16B;
 	gsi_params.chan_params.ring_base_vaddr = NULL;
 	gsi_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	gsi_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
@@ -829,14 +857,6 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	}
 
 	ipa_mpm_change_gsi_state(mhi_idx, GSI_ALLOCATED);
-
-	ipa_ep_idx = ipa3_get_ep_mapping(mhip_client);
-	if (ipa_ep_idx == -1) {
-		IPA_MPM_ERR("fail to find channel EP.\n");
-		goto fail_start_channel;
-	}
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-	IPA_MPM_DBG("client %d (ep: %d) connected\n", mhip_client, ipa_ep_idx);
 
 	result = ipa3_start_gsi_channel(ipa_ep_idx);
 	if (result) {
@@ -869,13 +889,18 @@ fail_start_channel:
 	ipa3_stop_gsi_channel(ipa_ep_idx);
 fail_alloc_channel:
 	ipa3_release_gsi_channel(ipa_ep_idx);
-fail_map_fail:
-fail_no_mem:
-	ipa_mpm_change_gsi_state(mhi_idx, GSI_INIT);
+fail_smmu_map_db:
+fail_smmu_map_ring:
+fail_tr_alloc:
+fail_evt_alloc:
+fail_buff_alloc:
+	ipa_assert();
+fail_gen:
 	return -EFAULT;
 }
 
-void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
+static void ipa_mpm_clean_mhip_chan(int mhi_idx,
+				enum ipa_client_type mhip_client)
 {
 	int dir;
 	int i;
@@ -889,12 +914,17 @@ void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
 
 	if (mhip_client == IPA_CLIENT_MAX)
 		return;
+	if (mhi_idx == IPA_MPM_MHIP_CH_ID_MAX)
+		return;
+
 	dir = IPA_CLIENT_IS_PROD(mhip_client) ?
 		DMA_TO_HIPA : DMA_FROM_HIPA;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(mhip_client);
-	if (ipa_ep_idx == -1)
+	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 		IPA_MPM_ERR("fail to find channel EP.\n");
+		return;
+	}
 
 	/* Release channel */
 	result = ipa3_release_gsi_channel(ipa_ep_idx);
@@ -907,55 +937,78 @@ void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
 
 
 	/* deallocate transfer ring buffers  */
-	for (i = 0; i < ipa_mpm_NUM_TR_BUFF; i++) {
+	for (i = 0; i < IPA_MPM_RING_LEN; i++) {
 		if (IPA_CLIENT_IS_PROD(mhip_client)) {
-			ipa_mpm_smmu_unmap_ring(
+			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i],
-			TRE_BUFF_SIZE, dir);
+			TRE_BUFF_SIZE, dir,
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]);
 
 			kfree(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i]);
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i]
 								= NULL;
-
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]
+								= 0;
 		} else {
-			ipa_mpm_smmu_unmap_ring(
+			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i],
-			TRE_BUFF_SIZE, dir);
+			TRE_BUFF_SIZE, dir,
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
+			);
+
 			kfree(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i]);
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i]
 								= NULL;
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
+								= 0;
 		}
 	}
 
-	tr_ring_sz = sizeof(*tr_ring) * (ipa_mpm_NUM_TR_BUFF);
-	ev_ring_sz = sizeof(*ev_ring) * (ipa_mpm_NUM_ER_BUFF);
+	tr_ring_sz = sizeof(*tr_ring) * (IPA_MPM_RING_LEN);
+	ev_ring_sz = sizeof(*ev_ring) * (IPA_MPM_RING_LEN);
 
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
-		ipa_mpm_smmu_unmap_ring(
+		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa,
-			ev_ring_sz, dir);
-		ipa_mpm_smmu_unmap_ring(
+			ev_ring_sz, dir,
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er);
+
+		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa,
-			tr_ring_sz, dir);
+			tr_ring_sz, dir,
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
+
 		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va);
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = NULL;
+
 		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va);
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = NULL;
+
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er = 0;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr = 0;
 	} else {
-		ipa_mpm_smmu_unmap_ring(
+		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa,
-			ev_ring_sz, dir);
-		ipa_mpm_smmu_unmap_ring(
+			ev_ring_sz, dir,
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er);
+
+		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa,
-			tr_ring_sz, dir);
+			tr_ring_sz, dir,
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
+
 		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va);
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = NULL;
+
 		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va);
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = NULL;
+
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er = 0;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr = 0;
 	}
 
 	IPA_MPM_FUNC_EXIT();
@@ -978,6 +1031,11 @@ static int __ipa_mpm_configure_mhi_device(struct ipa_mpm_channel *ch,
 	int ret;
 
 	IPA_MPM_FUNC_ENTRY();
+
+	if (ch == NULL) {
+		IPA_MPM_ERR("ch config is NULL\n");
+		return -EINVAL;
+	}
 
 	/* Populate CCA */
 	ch_config[0].buf = &ch->chan_props.ch_ctx;
@@ -1010,7 +1068,7 @@ static void ipa_mpm_mhip_shutdown(void)
 
 	IPA_MPM_FUNC_ENTRY();
 
-	for (mhip_idx = 0; mhip_idx < ipa_mpm_MHIP_CH_ID_MAX; mhip_idx++) {
+	for (mhip_idx = 0; mhip_idx < IPA_MPM_MHIP_CH_ID_MAX; mhip_idx++) {
 		if (ipa_mpm_ctx->md[mhip_idx].gsi_state >= GSI_ALLOCATED) {
 			get_ipa3_client(mhip_idx, &ul_chan, &dl_chan);
 			IPA_MPM_DBG("Stopping chan = %d\n", mhip_idx);
@@ -1047,13 +1105,22 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 {
 	int result = 0;
 
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("probe_id not found\n");
+		return -EINVAL;
+	}
+
+	if (vote > CLK_OFF) {
+		IPA_MPM_ERR("Invalid vote\n");
+		return -EINVAL;
+	}
+
 	if (ipa_mpm_ctx->md[probe_id].mhi_dev == NULL) {
 		IPA_MPM_ERR("MHI not initialized yet\n");
 		return 0;
 	}
 	if (vote == CLK_ON) {
-		if ((ipa_mpm_ctx->ipa_mpm_pcie_clock == false)
-			&& (atomic_read(&pcie_clk_ref_cnt) == 0)) {
+		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 0)) {
 			result = mhi_device_get_sync(
 				ipa_mpm_ctx->md[probe_id].mhi_dev);
 			if (result) {
@@ -1061,17 +1128,15 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 					result);
 				return result;
 			}
-			ipa_mpm_ctx->ipa_mpm_pcie_clock = true;
 			IPA_MPM_DBG("PCIE clock now ON\n");
 		}
-		atomic_inc(&pcie_clk_ref_cnt);
+		atomic_inc(&ipa_mpm_ctx->pcie_clk_ref_cnt);
 	} else {
-		if ((ipa_mpm_ctx->ipa_mpm_pcie_clock == true) &&
-			(atomic_read(&pcie_clk_ref_cnt) == 1)) {
+		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 1)) {
 			mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev);
-			ipa_mpm_ctx->ipa_mpm_pcie_clock = false;
+			IPA_MPM_DBG("PCIE clock off ON\n");
 		}
-		atomic_dec(&pcie_clk_ref_cnt);
+		atomic_dec(&ipa_mpm_ctx->pcie_clk_ref_cnt);
 	}
 
 	return result;
@@ -1082,22 +1147,21 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
  */
 static void ipa_mpm_vote_unvote_ipa_clk(enum ipa_mpm_clk_vote_type vote)
 {
+	if (vote > CLK_OFF)
+		return;
+
 	if (vote == CLK_ON) {
-		if ((ipa_mpm_ctx->ipa_mpm_ipa_clock == false) &&
-			(!atomic_read(&ipa_clk_ref_cnt))) {
+		if ((!atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt))) {
 			IPA_ACTIVE_CLIENTS_INC_SPECIAL("ipa_mpm");
-			ipa_mpm_ctx->ipa_mpm_ipa_clock = true;
 			IPA_MPM_DBG("IPA clock now ON\n");
 		}
-		atomic_inc(&ipa_clk_ref_cnt);
+		atomic_inc(&ipa_mpm_ctx->ipa_clk_ref_cnt);
 	} else {
-		if ((ipa_mpm_ctx->ipa_mpm_ipa_clock == true) &&
-			(atomic_read(&ipa_clk_ref_cnt) == 1)) {
+		if ((atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt) == 1)) {
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("ipa_mpm");
-			ipa_mpm_ctx->ipa_mpm_ipa_clock = false;
 			IPA_MPM_DBG("IPA clock now OFF\n");
 		}
-		atomic_dec(&ipa_clk_ref_cnt);
+		atomic_dec(&ipa_mpm_ctx->ipa_clk_ref_cnt);
 	}
 }
 
@@ -1116,9 +1180,14 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 
 	IPA_MPM_FUNC_ENTRY();
 
-	if (ipa_mpm_ctx->md[probe_id].mhi_dev == NULL) {
+	if (mhip_chan > IPA_MPM_MHIP_CHAN_BOTH) {
 		IPA_MPM_ERR("MHI not initialized yet\n");
-		return MHIP_STATUS_EP_NOT_READY;
+		return MHIP_STATUS_FAIL;
+	}
+
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("MHI not initialized yet\n");
+		return MHIP_STATUS_FAIL;
 	}
 
 	get_ipa3_client(probe_id, &ul_chan, &dl_chan);
@@ -1132,7 +1201,7 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 		ipa_ep_idx = ipa3_get_ep_mapping(dl_chan);
 	}
 
-	if (ipa_ep_idx == -1) {
+	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 		IPA_MPM_ERR("fail to get EP# for idx %d\n", ipa_ep_idx);
 		return MHIP_STATUS_EP_NOT_FOUND;
 	}
@@ -1205,13 +1274,14 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 gsi_chan_fail:
 	ipa3_disable_data_path(ipa_ep_idx);
 	ipa_mpm_change_gsi_state(probe_id, GSI_ERR);
+	ipa_assert();
 
 	return MHIP_STATUS_FAIL;
 }
 
 int ipa_mpm_notify_wan_state(void)
 {
-	int probe_id;
+	int probe_id = IPA_MPM_MHIP_CH_ID_MAX;
 	int i;
 	static enum mhip_status_type status;
 	int ret = 0;
@@ -1221,11 +1291,16 @@ int ipa_mpm_notify_wan_state(void)
 	if (!ipa3_is_mhip_offload_enabled())
 		return -EPERM;
 
-	for (i = 0; i < ipa_mpm_MHIP_CH_ID_MAX; i++) {
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++) {
 		if (ipa_mpm_pipes[i].mhip_client == mhip_client) {
 			probe_id = i;
 			break;
 		}
+	}
+
+	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Unknown probe_id\n");
+		return -EPERM;
 	}
 
 	IPA_MPM_DBG("WAN backhaul available for probe_id = %d\n", probe_id);
@@ -1236,12 +1311,11 @@ int ipa_mpm_notify_wan_state(void)
 
 	if (ret) {
 		IPA_MPM_ERR("Error cloking on PCIe clk, err = %d\n", ret);
-		return -EPERM;
+		return ret;
 	}
 
 	status = ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_MHIP_CHAN_UL, probe_id, START);
-
 	switch (status) {
 	case MHIP_STATUS_SUCCESS:
 	case MHIP_STATUS_NO_OP:
@@ -1251,7 +1325,7 @@ int ipa_mpm_notify_wan_state(void)
 		if (ret) {
 			IPA_MPM_ERR("Couldnt start UL GSI channel");
 			ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
-			return -EPERM;
+			return ret;
 		}
 
 		if (status == MHIP_STATUS_NO_OP) {
@@ -1269,7 +1343,7 @@ int ipa_mpm_notify_wan_state(void)
 	case MHIP_STATUS_EP_NOT_FOUND:
 		IPA_MPM_ERR("UL chan cant be started err =%d\n", status);
 		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
-		ret = -EPERM;
+		ret = -EFAULT;
 		break;
 	default:
 		IPA_MPM_ERR("Err not found\n");
@@ -1282,6 +1356,9 @@ int ipa_mpm_notify_wan_state(void)
 static void ipa_mpm_change_gsi_state(int probe_id,
 	enum ipa_mpm_gsi_state next_state)
 {
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX)
+		return;
+
 	mutex_lock(&ipa_mpm_ctx->md[probe_id].mutex);
 	ipa_mpm_ctx->md[probe_id].gsi_state = next_state;
 	IPA_MPM_DBG("GSI next_state = %d\n",
@@ -1293,6 +1370,11 @@ static void ipa_mpm_change_teth_state(int probe_id,
 	enum ipa_mpm_teth_state next_state)
 {
 	enum ipa_mpm_teth_state curr_state;
+
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Unknown probe_id\n");
+		return;
+	}
 
 	curr_state = ipa_mpm_ctx->md[probe_id].teth_state;
 
@@ -1324,13 +1406,18 @@ static void ipa_mpm_read_channel(enum ipa_client_type chan)
 	struct ipa3_ep_context *ep;
 	int res;
 
-	IPA_MPM_ERR("Reading channel for chan %d, ep = %d\n", chan, ep);
-
 	ipa_ep_idx = ipa3_get_ep_mapping(chan);
+
+	if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAERR("failed to get idx");
+		return;
+	}
+
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-	IPA_MPM_ERR("Reading channel for chan %d, gsi_chan_hdl = %d\n",
-		chan, ep->gsi_chan_hdl);
+	IPA_MPM_ERR("Reading channel for chan %d, ep = %d, gsi_chan_hdl = %d\n",
+		chan, ep, ep->gsi_chan_hdl);
+
 	res = ipa3_get_gsi_chan_info(&chan_info, ep->gsi_chan_hdl);
 	if (res)
 		IPA_MPM_ERR("Reading of channel failed for ep %d\n", ep);
@@ -1343,8 +1430,11 @@ static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 	int res = 0;
 	enum ipa_client_type ul_chan, dl_chan;
 
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Unknown probe_id\n");
+		return 0;
+	}
 	get_ipa3_client(probe_id, &ul_chan, &dl_chan);
-
 	IPA_MPM_DBG("Start/Stop Data Path ? = %d\n", start);
 
 	/* Defensive check to make sure start/stop MHIP channels only if
@@ -1363,11 +1453,17 @@ static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 	 */
 	if (start) {
 		IPA_MPM_DBG("Enabling data path\n");
-		if (ul_chan) {
+		if (ul_chan != IPA_CLIENT_MAX) {
 			/* Remove HOLB on the producer pipe */
 			IPA_MPM_DBG("Removing HOLB on ep = %s\n",
 				__stringify(ul_chan));
 			ipa_ep_idx = ipa3_get_ep_mapping(ul_chan);
+
+			if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+				IPAERR("failed to get idx");
+				return ipa_ep_idx;
+			}
+
 			res = ipa3_enable_data_path(ipa_ep_idx);
 			if (res)
 				IPA_MPM_ERR("Enable data path failed res=%d\n",
@@ -1375,9 +1471,15 @@ static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 		}
 	} else {
 		IPA_MPM_DBG("Disabling data path\n");
-		if (ul_chan) {
+		if (ul_chan != IPA_CLIENT_MAX) {
 			/* Set HOLB on the producer pipe */
 			ipa_ep_idx = ipa3_get_ep_mapping(ul_chan);
+
+			if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+				IPAERR("failed to get idx");
+				return ipa_ep_idx;
+			}
+
 			res = ipa3_disable_data_path(ipa_ep_idx);
 			if (res)
 				IPA_MPM_ERR("disable data path failed res=%d\n",
@@ -1414,7 +1516,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 	probe_id = get_idx_from_id(mhi_id);
 
-	if (probe_id >= ipa_mpm_MHIP_CH_ID_MAX) {
+	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
 		IPA_MPM_ERR("chan=%s is not supported for now\n", mhi_id);
 		return -EPERM;
 	}
@@ -1426,7 +1528,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 	IPA_MPM_DBG("Received probe for id=%d\n", probe_id);
 
-	if (probe_id == ipa_mpm_MHIP_CH_ID_2) {
+	if (probe_id == IPA_MPM_MHIP_CH_ID_2) {
 		/* NOTE :: DPL not supported yet , remove later */
 		IPA_MPM_DBG("DPL not supported yet - returning for DPL..\n");
 		return 0;
@@ -1464,7 +1566,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	 * IPA Device PROD TRE -> IPA HOST CONS EV
 	 * IPA Device PROD EV ->  IPA HOST CONS TRE
 	 */
-	if (probe_id != ipa_mpm_MHIP_CH_ID_2) {
+	if (probe_id != IPA_MPM_MHIP_CH_ID_2) {
 		if (ul_prod != IPA_CLIENT_MAX) {
 			/* store UL properties */
 			ch = &ipa_mpm_ctx->md[probe_id].ul_prod;
@@ -1475,16 +1577,16 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 				ch->chan_props.id * 8;
 			/* Fill Channel Conext to be sent to Device side */
 			ch->chan_props.ch_ctx.chtype =
-				ipa_mpm_MHI_HOST_UL_CHANNEL;
+				IPA_MPM_MHI_HOST_UL_CHANNEL;
 			ch->chan_props.ch_ctx.erindex =
 				mhi_dev->ul_event_id;
-			ch->chan_props.ch_ctx.rlen = (ipa_mpm_NUM_TR_BUFF) *
+			ch->chan_props.ch_ctx.rlen = (IPA_MPM_RING_LEN) *
 				GSI_EVT_RING_RE_SIZE_16B;
 			/* Store Event properties */
 			ch->evt_props.ev_ctx.update_rp_modc = 0;
 			ch->evt_props.ev_ctx.update_rp_intmodt = 0;
 			ch->evt_props.ev_ctx.ertype = 1;
-			ch->evt_props.ev_ctx.rlen = (ipa_mpm_ER_LEN) *
+			ch->evt_props.ev_ctx.rlen = (IPA_MPM_RING_LEN) *
 				GSI_EVT_RING_RE_SIZE_16B;
 			ch->evt_props.ev_ctx.buff_size = TRE_BUFF_SIZE;
 			ch->evt_props.device_db =
@@ -1503,15 +1605,15 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		/* Fill Channel Conext to be be sent to Dev side */
 		ch->chan_props.ch_ctx.chstate = 1;
 		ch->chan_props.ch_ctx.chtype =
-			ipa_mpm_MHI_HOST_DL_CHANNEL;
+			IPA_MPM_MHI_HOST_DL_CHANNEL;
 		ch->chan_props.ch_ctx.erindex = mhi_dev->dl_event_id;
-		ch->chan_props.ch_ctx.rlen = (ipa_mpm_NUM_TR_BUFF) *
+		ch->chan_props.ch_ctx.rlen = (IPA_MPM_RING_LEN) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		/* Store Event properties */
 		ch->evt_props.ev_ctx.update_rp_modc = 0;
 		ch->evt_props.ev_ctx.update_rp_intmodt = 0;
 		ch->evt_props.ev_ctx.ertype = 1;
-		ch->evt_props.ev_ctx.rlen = (ipa_mpm_ER_LEN) *
+		ch->evt_props.ev_ctx.rlen = (IPA_MPM_RING_LEN) *
 			GSI_EVT_RING_RE_SIZE_16B;
 		ch->evt_props.ev_ctx.buff_size = TRE_BUFF_SIZE;
 		ch->evt_props.device_db =
@@ -1519,7 +1621,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			ch->chan_props.ch_ctx.erindex * 8;
 	}
 	/* connect Host GSI pipes with MHI' protocol */
-	if (probe_id != ipa_mpm_MHIP_CH_ID_2)  {
+	if (probe_id != IPA_MPM_MHIP_CH_ID_2)  {
 		ret = ipa_mpm_connect_mhip_gsi_pipe(ul_prod,
 			probe_id, &ul_out_params);
 		if (ret) {
@@ -1534,13 +1636,17 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			dl_cons);
 		goto fail_gsi_setup;
 	}
-	if (probe_id != ipa_mpm_MHIP_CH_ID_2)  {
+	if (probe_id != IPA_MPM_MHIP_CH_ID_2)  {
 		if (ul_prod != IPA_CLIENT_MAX) {
 			ch = &ipa_mpm_ctx->md[probe_id].ul_prod;
 			ch->evt_props.ev_ctx.update_rp_addr =
 				ipa_mpm_smmu_map_doorbell(
-					ul_out_params.db_reg_phs_addr_lsb
-				);
+					MHIP_SMMU_DOMAIN_PCIE,
+					ul_out_params.db_reg_phs_addr_lsb);
+
+			if (ch->evt_props.ev_ctx.update_rp_addr == 0)
+				ipa_assert();
+
 			ret = __ipa_mpm_configure_mhi_device(
 					ch, probe_id, DMA_TO_HIPA);
 			if (ret) {
@@ -1555,7 +1661,12 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		ch = &ipa_mpm_ctx->md[probe_id].dl_cons;
 		ch->evt_props.ev_ctx.update_rp_addr =
 			ipa_mpm_smmu_map_doorbell(
+					MHIP_SMMU_DOMAIN_PCIE,
 					dl_out_params.db_reg_phs_addr_lsb);
+
+		if (ch->evt_props.ev_ctx.update_rp_addr == 0)
+			ipa_assert();
+
 		ret = __ipa_mpm_configure_mhi_device(ch, probe_id,
 					DMA_FROM_HIPA);
 		if (ret) {
@@ -1585,7 +1696,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			(phys_addr_t)(ul_out_params.db_reg_phs_addr_lsb), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.tr_pa +
-			((ipa_mpm_NUM_TR_BUFF - 1) * GSI_CHAN_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN - 1) * GSI_CHAN_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 
@@ -1602,11 +1713,13 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	 */
 	if (ul_prod != IPA_CLIENT_MAX) {
 		ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
-		ep = &ipa3_ctx->ep[ipa_ep_idx];
-		if (ipa_ep_idx == -1) {
+
+		if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 			IPA_MPM_ERR("fail to alloc EP.\n");
 			goto fail_start_channel;
 		}
+
+		ep = &ipa3_ctx->ep[ipa_ep_idx];
 
 		IPA_MPM_DBG("for ep_idx %d , gsi_evt_ring_hdl = %d\n",
 			ipa_ep_idx, ep->gsi_evt_ring_hdl);
@@ -1619,7 +1732,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		db_addr = ioremap((phys_addr_t)(evt_ring_db_addr_low), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.er_pa +
-			((ipa_mpm_ER_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 		IPA_MPM_DBG("Host UL ER  DB = 0X%0x, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 
@@ -1634,7 +1747,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.tr_pa +
-			((ipa_mpm_ER_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 		iounmap(db_addr);
@@ -1647,7 +1760,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
-			((ipa_mpm_NUM_TR_BUFF - 1) * GSI_CHAN_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN - 1) * GSI_CHAN_RE_SIZE_16B);
 
 		IPA_MPM_DBG("Device DL TR  DB = 0X%0X, wp_addr = 0X%0x",
 			db_addr, wp_addr);
@@ -1670,7 +1783,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.er_pa +
-			((ipa_mpm_ER_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
 		IPA_MPM_DBG("Device  UL ER  DB = 0X%0X,wp_addr = 0X%0x",
@@ -1681,11 +1794,12 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	/* Ring DL EVENT RING CONSUMER (DEVICE IPA CONSUMER) Doorbell */
 	if (dl_cons != IPA_CLIENT_MAX) {
 		ipa_ep_idx = ipa3_get_ep_mapping(dl_cons);
-		ep = &ipa3_ctx->ep[ipa_ep_idx];
-		if (ipa_ep_idx == -1) {
+
+		if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 			IPA_MPM_ERR("fail to alloc EP.\n");
 			goto fail_start_channel;
 		}
+		ep = &ipa3_ctx->ep[ipa_ep_idx];
 		gsi_query_evt_ring_db_addr(ep->gsi_evt_ring_hdl,
 			&evt_ring_db_addr_low, &evt_ring_db_addr_high);
 		IPA_MPM_DBG("Host DL ER PA DB = 0X%0x\n",
@@ -1693,7 +1807,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		db_addr = ioremap((phys_addr_t)(evt_ring_db_addr_low), 4);
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
-			((ipa_mpm_ER_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
+			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 		iowrite32(wp_addr, db_addr);
 		IPA_MPM_DBG("Host  DL ER  DB = 0X%0X, wp_addr = 0X%0x",
 			db_addr, wp_addr);
@@ -1743,43 +1857,44 @@ fail_start_channel:
 fail_smmu:
 	if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled)
 		IPA_MPM_DBG("SMMU failed\n");
+	ipa_assert();
 	return ret;
 }
 
 static void ipa_mpm_init_mhip_channel_info(void)
 {
-	/* ipa_mpm_MHIP_CH_ID_0 => MHIP TETH PIPES  */
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_0].dl_cons.ipa_client =
+	/* IPA_MPM_MHIP_CH_ID_0 => MHIP TETH PIPES  */
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].dl_cons.ipa_client =
 		IPA_CLIENT_MHI_PRIME_TETH_PROD;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_0].dl_cons.ep_cfg =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].dl_cons.ep_cfg =
 		mhip_dl_teth_ep_cfg;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_0].ul_prod.ipa_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].ul_prod.ipa_client =
 		IPA_CLIENT_MHI_PRIME_TETH_CONS;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_0].ul_prod.ep_cfg =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].ul_prod.ep_cfg =
 		mhip_ul_teth_ep_cfg;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_0].mhip_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_0].mhip_client =
 		IPA_MPM_MHIP_TETH;
 
-	/* ipa_mpm_MHIP_CH_ID_1 => MHIP RMNET PIPES */
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_1].dl_cons.ipa_client =
+	/* IPA_MPM_MHIP_CH_ID_1 => MHIP RMNET PIPES */
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].dl_cons.ipa_client =
 		IPA_CLIENT_MHI_PRIME_RMNET_PROD;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_1].dl_cons.ep_cfg =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].dl_cons.ep_cfg =
 		mhip_dl_rmnet_ep_cfg;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_1].ul_prod.ipa_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].ul_prod.ipa_client =
 		IPA_CLIENT_MHI_PRIME_RMNET_CONS;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_1].ul_prod.ep_cfg =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].ul_prod.ep_cfg =
 		mhip_ul_rmnet_ep_cfg;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_1].mhip_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_1].mhip_client =
 		IPA_MPM_MHIP_USB_RMNET;
 
-	/* ipa_mpm_MHIP_CH_ID_2 => MHIP ADPL PIPE */
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_2].dl_cons.ipa_client =
+	/* IPA_MPM_MHIP_CH_ID_2 => MHIP ADPL PIPE */
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_2].dl_cons.ipa_client =
 		IPA_CLIENT_MHI_PRIME_DPL_PROD;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_2].dl_cons.ep_cfg =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_2].dl_cons.ep_cfg =
 		mhip_dl_dpl_ep_cfg;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_2].ul_prod.ipa_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_2].ul_prod.ipa_client =
 		IPA_CLIENT_MAX;
-	ipa_mpm_pipes[ipa_mpm_MHIP_CH_ID_2].mhip_client =
+	ipa_mpm_pipes[IPA_MPM_MHIP_CH_ID_2].mhip_client =
 	IPA_MPM_MHIP_USB_DPL;
 }
 
@@ -1798,11 +1913,11 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 
 	IPA_MPM_DBG("%d\n", mhi_cb);
 
-	for (mhip_idx = 0; mhip_idx < ipa_mpm_MHIP_CH_ID_MAX; mhip_idx++) {
+	for (mhip_idx = 0; mhip_idx < IPA_MPM_MHIP_CH_ID_MAX; mhip_idx++) {
 		if (mhi_dev == ipa_mpm_ctx->md[mhip_idx].mhi_dev)
 			break;
 	}
-	if (mhip_idx >= ipa_mpm_MHIP_CH_ID_MAX) {
+	if (mhip_idx >= IPA_MPM_MHIP_CH_ID_MAX) {
 		IPA_MPM_DBG("ignoring secondary callbacks\n");
 		return;
 	}
@@ -1829,7 +1944,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 	}
 }
 
-int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
+static int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe)
 {
 	int result = 0;
@@ -1849,7 +1964,7 @@ int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 	return result;
 }
 
-int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
+static int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe)
 {
 	int result = 0;
@@ -1869,7 +1984,7 @@ int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	return result;
 }
 
-void ipa_mpm_mhip_map_prot(enum ipa_usb_teth_prot prot,
+static void ipa_mpm_mhip_map_prot(enum ipa_usb_teth_prot prot,
 	enum ipa_mpm_mhip_client_type *mhip_client)
 {
 	switch (prot) {
@@ -1892,7 +2007,7 @@ void ipa_mpm_mhip_map_prot(enum ipa_usb_teth_prot prot,
 
 int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 {
-	int probe_id;
+	int probe_id = IPA_MPM_MHIP_CH_ID_MAX;
 	int i;
 	enum ipa_mpm_mhip_client_type mhip_client;
 	enum mhip_status_type status;
@@ -1905,11 +2020,16 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 
 	ipa_mpm_mhip_map_prot(xdci_teth_prot, &mhip_client);
 
-	for (i = 0; i < ipa_mpm_MHIP_CH_ID_MAX; i++) {
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++) {
 		if (ipa_mpm_pipes[i].mhip_client == mhip_client) {
 			probe_id = i;
 			break;
 		}
+	}
+
+	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Unknown probe_id\n");
+		return 0;
 	}
 
 	IPA_MPM_DBG("Connect xdci prot %d -> mhip_client = %d probe_id = %d\n",
@@ -1948,7 +2068,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	case MHIP_STATUS_NO_OP:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
 		ipa_mpm_start_stop_mhip_data_path(probe_id, START);
-		/* Lyft the delay for rmnet USB prod pipe */
+		/* Lift the delay for rmnet USB prod pipe */
 		ipa3_set_reset_client_prod_pipe_delay(false,
 			IPA_CLIENT_USB_PROD);
 		if (status == MHIP_STATUS_NO_OP) {
@@ -1977,7 +2097,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 
 int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot)
 {
-	int probe_id;
+	int probe_id = IPA_MPM_MHIP_CH_ID_MAX;
 	int i;
 	enum ipa_mpm_mhip_client_type mhip_client;
 	int ret = 0;
@@ -1989,11 +2109,16 @@ int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot)
 
 	ipa_mpm_mhip_map_prot(xdci_teth_prot, &mhip_client);
 
-	for (i = 0; i < ipa_mpm_MHIP_CH_ID_MAX; i++) {
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++) {
 		if (ipa_mpm_pipes[i].mhip_client == mhip_client) {
 			probe_id = i;
 			break;
 		}
+	}
+
+	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Invalid probe_id\n");
+		return 0;
 	}
 
 	IPA_MPM_DBG("Map xdci prot %d to mhip_client = %d probe_id = %d\n",
@@ -2009,7 +2134,7 @@ int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot)
 
 int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 {
-	int probe_id;
+	int probe_id = IPA_MPM_MHIP_CH_ID_MAX;
 	int i;
 	enum ipa_mpm_mhip_client_type mhip_client;
 	enum mhip_status_type status;
@@ -2022,11 +2147,16 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 
 	ipa_mpm_mhip_map_prot(xdci_teth_prot, &mhip_client);
 
-	for (i = 0; i < ipa_mpm_MHIP_CH_ID_MAX; i++) {
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++) {
 		if (ipa_mpm_pipes[i].mhip_client == mhip_client) {
 			probe_id = i;
 			break;
 		}
+	}
+
+	if (probe_id == IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_ERR("Invalid probe_id\n");
+		return 0;
 	}
 
 	IPA_MPM_DBG("xdci disconnect prot %d mhip_client = %d probe_id = %d\n",
@@ -2040,7 +2170,6 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	case IPA_MPM_MHIP_TETH:
 	case IPA_MPM_MHIP_USB_DPL:
 		IPA_MPM_DBG("Teth Disconnecting for prot %d\n", mhip_client);
-		IPA_MPM_DBG("not supported yet..\n");
 		return 0;
 	default:
 		IPA_MPM_ERR("mhip_client = %d not supported\n", mhip_client);
@@ -2081,15 +2210,80 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	return ret;
 }
 
+static int ipa_mpm_populate_smmu_info(struct platform_device *pdev)
+{
+	struct ipa_smmu_in_params smmu_in;
+	struct ipa_smmu_out_params smmu_out;
+	u32 carved_iova_ap_mapping[2];
+	struct ipa_smmu_cb_ctx *cb;
+	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	int ret = 0;
+
+	if (ipa_mpm_ctx->carved_smmu_cb.valid) {
+		IPA_MPM_DBG("SMMU Context allocated, returning ..\n");
+		return ret;
+	}
+
+	cb = &ipa_mpm_ctx->carved_smmu_cb;
+
+	/* get IPA SMMU enabled status */
+	smmu_in.smmu_client = IPA_SMMU_AP_CLIENT;
+	if (ipa_get_smmu_params(&smmu_in, &smmu_out))
+		ipa_mpm_ctx->dev_info.ipa_smmu_enabled = false;
+	else
+		ipa_mpm_ctx->dev_info.ipa_smmu_enabled =
+		smmu_out.smmu_enable;
+
+	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iova-mapping",
+		carved_iova_ap_mapping, 2)) {
+		IPA_MPM_ERR("failed to read of_node %s\n",
+			"qcom,mpm-iova-mapping");
+		return -EINVAL;
+	}
+	ipa_mpm_ctx->dev_info.pcie_smmu_enabled = true;
+
+	if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled !=
+		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) {
+		IPA_MPM_DBG("PCIE/IPA SMMU config mismatch\n");
+		return -EINVAL;
+	}
+
+	cb->va_start = carved_iova_ap_mapping[0];
+	cb->va_size = carved_iova_ap_mapping[1];
+	cb->va_end = cb->va_start + cb->va_size;
+
+	if (cb->va_start >= ap_cb->va_start && cb->va_start < ap_cb->va_end) {
+		IPA_MPM_ERR("MPM iommu and AP overlap addr 0x%lx\n",
+				cb->va_start);
+		ipa_assert();
+		return -EFAULT;
+	}
+
+	cb->dev = ipa_mpm_ctx->dev_info.dev;
+	cb->valid = true;
+	cb->next_addr = cb->va_start;
+
+	if (dma_set_mask_and_coherent(ipa_mpm_ctx->dev_info.dev,
+		DMA_BIT_MASK(64))) {
+		IPA_MPM_ERR("setting DMA mask to 64 failed.\n");
+		return -EINVAL;
+	}
+
+	return ret;
+}
 
 static int ipa_mpm_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int i = 0, idx = 0;
-	struct ipa_smmu_in_params smmu_in;
-	struct ipa_smmu_out_params smmu_out;
+	int i = 0;
+	int idx = 0;
 
 	IPA_MPM_FUNC_ENTRY();
+
+	if (ipa_mpm_ctx) {
+		IPA_MPM_DBG("MPM is already probed, returning\n");
+		return 0;
+	}
 
 	ret = ipa_register_ipa_ready_cb(ipa_mpm_ipa3_ready_cb, (void *)pdev);
 	/*
@@ -2107,71 +2301,58 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 	if (!ipa_mpm_ctx)
 		return -ENOMEM;
 
-	for (i = 0; i < ipa_mpm_MHIP_CH_ID_MAX; i++)
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++)
 		mutex_init(&ipa_mpm_ctx->md[i].mutex);
-
-	ipa_mpm_init_mhip_channel_info();
 	ipa_mpm_ctx->dev_info.pdev = pdev;
 	ipa_mpm_ctx->dev_info.dev = &pdev->dev;
 
-	/* get IPA SMMU enabled status */
-	smmu_in.smmu_client = IPA_SMMU_AP_CLIENT;
-	if (ipa_get_smmu_params(&smmu_in, &smmu_out))
-		ipa_mpm_ctx->dev_info.ipa_smmu_enabled = false;
-	else
-		ipa_mpm_ctx->dev_info.ipa_smmu_enabled =
-		smmu_out.smmu_enable;
-
-	/* Bypass SMMUs in first phase */
-	ipa_mpm_ctx->dev_info.ipa_smmu_enabled = false;
-	ipa_mpm_ctx->dev_info.pcie_smmu_enabled = false;
-
-	IPA_MPM_DBG("IPA smmu_enabled=%d\n",
-		ipa_mpm_ctx->dev_info.ipa_smmu_enabled);
-	IPA_MPM_DBG("PCIE smmu_enabled=%d\n",
-		ipa_mpm_ctx->dev_info.pcie_smmu_enabled);
-
-	if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled !=
-		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) {
-		IPA_MPM_DBG("PCIE/IPA SMMU config mismatch\n");
-		return -EINVAL;
-	}
+	ipa_mpm_init_mhip_channel_info();
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,mhi-chdb-base",
 		&ipa_mpm_ctx->dev_info.chdb_base)) {
 		IPA_MPM_ERR("failed to read qcom,mhi-chdb-base\n");
-		return -EINVAL;
+		goto fail_probe;
 	}
 	IPA_MPM_DBG("chdb-base=0x%x\n", ipa_mpm_ctx->dev_info.chdb_base);
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,mhi-erdb-base",
 		&ipa_mpm_ctx->dev_info.erdb_base)) {
 		IPA_MPM_ERR("failed to read qcom,mhi-erdb-base\n");
-		return -EINVAL;
+		goto fail_probe;
 	}
 	IPA_MPM_DBG("erdb-base=0x%x\n", ipa_mpm_ctx->dev_info.erdb_base);
 
-	if (dma_set_mask_and_coherent(ipa_mpm_ctx->dev_info.dev,
-		DMA_BIT_MASK(64))) {
-		IPA_MPM_ERR("setting DMA mask to 64 failed.\n");
-		return -EINVAL;
+	ret = ipa_mpm_populate_smmu_info(pdev);
+
+	if (ret) {
+		IPA_MPM_DBG("SMMU Config failed\n");
+		goto fail_probe;
 	}
 
-	for (idx = 0; idx < ipa_mpm_MHIP_CH_ID_MAX; idx++)
+	atomic_set(&ipa_mpm_ctx->ipa_clk_ref_cnt, 0);
+	atomic_set(&ipa_mpm_ctx->pcie_clk_ref_cnt, 0);
+
+	for (idx = 0; idx < IPA_MPM_MHIP_CH_ID_MAX; idx++)
 		ipa_mpm_ctx->md[idx].gsi_state = GSI_INIT;
 
 	ret = mhi_driver_register(&mhi_driver);
 	if (ret) {
 		IPA_MPM_ERR("mhi_driver_register failed %d\n", ret);
-		return ret;
+		goto fail_probe;
 	}
 	IPA_MPM_FUNC_EXIT();
 	return 0;
+
+fail_probe:
+	kfree(ipa_mpm_ctx);
+	ipa_mpm_ctx = NULL;
+	return -EFAULT;
 }
 
 static int ipa_mpm_remove(struct platform_device *pdev)
 {
 	IPA_MPM_FUNC_ENTRY();
+
 	mhi_driver_unregister(&mhi_driver);
 	IPA_MPM_FUNC_EXIT();
 	return 0;
