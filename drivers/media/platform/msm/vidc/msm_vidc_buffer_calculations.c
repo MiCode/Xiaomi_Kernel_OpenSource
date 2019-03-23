@@ -765,6 +765,18 @@ u32 msm_vidc_calculate_dec_input_frame_size(struct msm_vidc_inst *inst)
 	}
 
 	frame_size = base_res_mbs * MB_SIZE_IN_PIXEL * 3 / 2 / div_factor;
+
+	if (is_secure_session(inst)) {
+		u32 max_bitrate = inst->capability.cap[CAP_SECURE_BITRATE].max;
+
+		/*
+		 * for secure, calc frame_size based on max bitrate,
+		 * peak bitrate can be 10 times more and
+		 * frame rate assumed to be 30 fps at least
+		 */
+		frame_size = (max_bitrate * 10 / 8) / 30;
+	}
+
 	 /* multiply by 10/8 (1.25) to get size for 10 bit case */
 	if ((inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) ||
 		(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC))
