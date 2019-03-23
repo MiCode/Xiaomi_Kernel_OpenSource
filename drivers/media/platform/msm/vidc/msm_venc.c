@@ -28,11 +28,10 @@
 #define QP_ENABLE_P 0x2
 #define QP_ENABLE_B 0x4
 #define MIN_QP 0
-#define MAX_QP 0x33
-#define MAX_QP_PACKED 0x333333
-#define DEFAULT_MIN_QP 0xA
-#define DEFAULT_MIN_QP_PACKED 0xA0A0A
-#define DEFAULT_MAX_QP_PACKED 0x2C2C2C
+#define MAX_QP 0x7F
+#define MAX_QP_PACKED 0x7F7F7F
+#define DEFAULT_QP 0xA
+#define DEFAULT_QP_PACKED 0xA0A0A
 #define MAX_INTRA_REFRESH_MBS ((7680 * 4320) >> 8)
 #define MAX_LTR_FRAME_COUNT 10
 #define MAX_NUM_B_FRAMES 1
@@ -100,7 +99,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_QP,
 		.maximum = MAX_QP,
-		.default_value = DEFAULT_MIN_QP,
+		.default_value = DEFAULT_QP,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -111,7 +110,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_QP,
 		.maximum = MAX_QP,
-		.default_value = DEFAULT_MIN_QP,
+		.default_value = DEFAULT_QP,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -122,7 +121,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_QP,
 		.maximum = MAX_QP,
-		.default_value = DEFAULT_MIN_QP,
+		.default_value = DEFAULT_QP,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -133,7 +132,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_QP,
 		.maximum = MAX_QP_PACKED,
-		.default_value = DEFAULT_MIN_QP_PACKED,
+		.default_value = DEFAULT_QP_PACKED,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -144,7 +143,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_QP,
 		.maximum = MAX_QP_PACKED,
-		.default_value = DEFAULT_MAX_QP_PACKED,
+		.default_value = DEFAULT_QP_PACKED,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -1393,9 +1392,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct msm_vidc_mastering_display_colour_sei_payload *mdisp_sei = NULL;
 	struct msm_vidc_content_light_level_sei_payload *cll_sei = NULL;
 	struct hal_buffer_requirements *buff_req_buffer = NULL;
-	struct v4l2_ctrl *i_qp = NULL;
-	struct v4l2_ctrl *p_qp = NULL;
-	struct v4l2_ctrl *b_qp = NULL;
+	u32 i_qp_min, i_qp_max, p_qp_min, p_qp_max, b_qp_min, b_qp_max;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1620,15 +1617,18 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP:
 	case V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP:
-		i_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP);
-		p_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP);
-		b_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP);
-		if ((ctrl->val & 0xff) < i_qp->minimum ||
-			((ctrl->val >> 8) & 0xff) < p_qp->minimum ||
-			((ctrl->val >> 16) & 0xff) < b_qp->minimum ||
-			(ctrl->val & 0xff) > i_qp->maximum ||
-			((ctrl->val >> 8) & 0xff) > p_qp->maximum ||
-			((ctrl->val >> 16) & 0xff) > b_qp->maximum) {
+		i_qp_min = inst->capability.cap[CAP_I_FRAME_QP].min;
+		i_qp_max = inst->capability.cap[CAP_I_FRAME_QP].max;
+		p_qp_min = inst->capability.cap[CAP_P_FRAME_QP].min;
+		p_qp_max = inst->capability.cap[CAP_P_FRAME_QP].max;
+		b_qp_min = inst->capability.cap[CAP_B_FRAME_QP].min;
+		b_qp_max = inst->capability.cap[CAP_B_FRAME_QP].max;
+		if ((ctrl->val & 0xff) < i_qp_min ||
+			((ctrl->val >> 8) & 0xff) < p_qp_min ||
+			((ctrl->val >> 16) & 0xff) < b_qp_min ||
+			(ctrl->val & 0xff) > i_qp_max ||
+			((ctrl->val >> 8) & 0xff) > p_qp_max ||
+			((ctrl->val >> 16) & 0xff) > b_qp_max) {
 			dprintk(VIDC_ERR, "Invalid QP %#x\n", ctrl->val);
 			return -EINVAL;
 		}
@@ -1638,6 +1638,12 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst->client_set_ctrls |= CLIENT_SET_MAX_QP;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP:
+		i_qp_min = inst->capability.cap[CAP_I_FRAME_QP].min;
+		i_qp_max = inst->capability.cap[CAP_I_FRAME_QP].max;
+		if (ctrl->val < i_qp_min || ctrl->val > i_qp_max) {
+			dprintk(VIDC_ERR, "Invalid I QP %#x\n", ctrl->val);
+			return -EINVAL;
+		}
 		inst->client_set_ctrls |= CLIENT_SET_I_QP;
 		if (inst->state == MSM_VIDC_START_DONE) {
 			rc = msm_venc_set_dyn_qp(inst, ctrl);
@@ -1648,9 +1654,21 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP:
+		p_qp_min = inst->capability.cap[CAP_P_FRAME_QP].min;
+		p_qp_max = inst->capability.cap[CAP_P_FRAME_QP].max;
+		if (ctrl->val < p_qp_min || ctrl->val > p_qp_max) {
+			dprintk(VIDC_ERR, "Invalid P QP %#x\n", ctrl->val);
+			return -EINVAL;
+		}
 		inst->client_set_ctrls |= CLIENT_SET_P_QP;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP:
+		b_qp_min = inst->capability.cap[CAP_B_FRAME_QP].min;
+		b_qp_max = inst->capability.cap[CAP_B_FRAME_QP].max;
+		if (ctrl->val < b_qp_min || ctrl->val > b_qp_max) {
+			dprintk(VIDC_ERR, "Invalid B QP %#x\n", ctrl->val);
+			return -EINVAL;
+		}
 		inst->client_set_ctrls |= CLIENT_SET_B_QP;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_HIER_CODING_LAYER:
