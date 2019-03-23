@@ -2735,7 +2735,7 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *ctrl_t;
 	struct hfi_multi_slice_control multi_slice_control;
 	int temp = 0;
-	u32 mb_per_frame, fps, mbps, bitrate;
+	u32 mb_per_frame, fps, mbps, bitrate, max_slices;
 	u32 slice_val, slice_mode, max_avg_slicesize;
 	u32 rc_mode, output_width, output_height;
 	struct v4l2_ctrl *rc_enable;
@@ -2796,13 +2796,17 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 		if (output_width <= 4096 || output_height <= 4096 ||
 			mb_per_frame <= NUM_MBS_PER_FRAME(4096, 2160) ||
 			mbps <= NUM_MBS_PER_SEC(4096, 2160, 60)) {
-			slice_val = max(slice_val, mb_per_frame / 10);
+			max_slices = inst->capability.cap[CAP_SLICE_MB].max ?
+				inst->capability.cap[CAP_SLICE_MB].max : 1;
+			slice_val = max(slice_val, mb_per_frame / max_slices);
 		}
 	} else {
 		if (output_width <= 1920 || output_height <= 1920 ||
 			mb_per_frame <= NUM_MBS_PER_FRAME(1088, 1920) ||
 			mbps <= NUM_MBS_PER_SEC(1088, 1920, 60)) {
-			max_avg_slicesize = ((bitrate / fps) / 8) / 10;
+			max_slices = inst->capability.cap[CAP_SLICE_BYTE].max ?
+				inst->capability.cap[CAP_SLICE_BYTE].max : 1;
+			max_avg_slicesize = ((bitrate / fps) / 8) / max_slices;
 			slice_val = max(slice_val, max_avg_slicesize);
 		}
 	}
