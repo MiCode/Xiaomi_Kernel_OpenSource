@@ -969,7 +969,9 @@ int ufs_qcom_crytpo_engine_cfg_start(struct ufs_hba *hba, unsigned int task_tag)
 	int err = 0;
 
 	if (!host->ice.pdev ||
-	    !lrbp->cmd || lrbp->command_type != UTP_CMD_TYPE_SCSI)
+	    !lrbp->cmd ||
+		(lrbp->command_type != UTP_CMD_TYPE_SCSI &&
+		 lrbp->command_type != UTP_CMD_TYPE_UFS_STORAGE))
 		goto out;
 
 	err = ufs_qcom_ice_cfg_start(host, lrbp->cmd);
@@ -984,7 +986,8 @@ int ufs_qcom_crytpo_engine_cfg_end(struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
 
-	if (!host->ice.pdev || lrbp->command_type != UTP_CMD_TYPE_SCSI)
+	if (!host->ice.pdev || (lrbp->command_type != UTP_CMD_TYPE_SCSI &&
+		lrbp->command_type != UTP_CMD_TYPE_UFS_STORAGE))
 		goto out;
 
 	err = ufs_qcom_ice_cfg_end(host, req);
