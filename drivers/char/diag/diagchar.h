@@ -480,6 +480,12 @@ struct diag_logging_mode_param_t {
 	int peripheral;
 } __packed;
 
+struct diag_query_pid_t {
+	uint32_t peripheral_mask;
+	uint32_t pd_mask;
+	int pid;
+};
+
 struct diag_md_session_t {
 	int pid;
 	int peripheral_mask;
