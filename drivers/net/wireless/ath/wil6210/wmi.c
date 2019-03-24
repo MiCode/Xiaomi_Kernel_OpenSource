@@ -2587,7 +2587,7 @@ int wmi_rx_chain_add(struct wil6210_priv *wil, struct wil_ring *vring)
 		if (ch)
 			cmd.sniffer_cfg.channel = ch->hw_value - 1;
 		cmd.sniffer_cfg.phy_info_mode =
-			cpu_to_le32(ndev->type == ARPHRD_IEEE80211_RADIOTAP);
+			cpu_to_le32(WMI_SNIFFER_PHY_INFO_DISABLED);
 		cmd.sniffer_cfg.phy_support =
 			cpu_to_le32((wil->monitor_flags & MONITOR_FLAG_CONTROL)
 				    ? WMI_SNIFFER_CP : WMI_SNIFFER_BOTH_PHYS);
