@@ -126,8 +126,8 @@ struct msm11ad_ctx {
 	struct msm11ad_vreg vdd;
 	struct msm11ad_vreg vddio;
 	struct msm11ad_vreg vdd_ldo;
-	struct msm11ad_clk rf_clk3;
-	struct msm11ad_clk rf_clk3_pin;
+	struct msm11ad_clk rf_clk;
+	struct msm11ad_clk rf_clk_pin;
 
 	/* cpu boost support */
 	bool use_cpu_boost;
@@ -468,13 +468,13 @@ static int msm_11ad_enable_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 
-	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk);
 	if (rc)
 		return rc;
 
-	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3_pin);
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk_pin);
 	if (rc)
-		msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+		msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 
 	return rc;
 }
@@ -483,22 +483,22 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 	struct device *dev = ctx->dev;
-	int rf_clk3_pin_idx;
+	int rf_clk_pin_idx;
 
 	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
 		return 0;
 
-	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3, "rf_clk3_clk");
+	rc = msm_11ad_init_clk(dev, &ctx->rf_clk, "rf_clk_clk");
 	if (rc)
 		return rc;
 
-	rf_clk3_pin_idx = of_property_match_string(dev->of_node, "clock-names",
-						   "rf_clk3_pin_clk");
-	if (rf_clk3_pin_idx >= 0) {
-		rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin,
-				       "rf_clk3_pin_clk");
+	rf_clk_pin_idx = of_property_match_string(dev->of_node, "clock-names",
+						   "rf_clk_pin_clk");
+	if (rf_clk_pin_idx >= 0) {
+		rc = msm_11ad_init_clk(dev, &ctx->rf_clk_pin,
+				       "rf_clk_pin_clk");
 		if (rc)
-			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk);
 	}
 
 	return rc;
@@ -506,14 +506,14 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 
 static void msm_11ad_release_clocks(struct msm11ad_ctx *ctx)
 {
-	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3_pin);
-	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk_pin);
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk);
 }
 
 static void msm_11ad_disable_clocks(struct msm11ad_ctx *ctx)
 {
-	msm_11ad_disable_clk(ctx, &ctx->rf_clk3_pin);
-	msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk_pin);
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 }
 
 static int msm_11ad_turn_device_power_off(struct msm11ad_ctx *ctx)
@@ -1609,12 +1609,12 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_PRE_RESET:
 		/*
-		 * Enable rf_clk3 clock before resetting the device to ensure
+		 * Enable rf_clk clock before resetting the device to ensure
 		 * stable ref clock during the device reset
 		 */
 		if (ctx->features &
 		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL)) {
-			rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+			rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk);
 			if (rc) {
 				dev_err(ctx->dev,
 					"failed to enable clk, rc %d\n", rc);
@@ -1624,12 +1624,12 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
 		/*
-		 * Disable rf_clk3 clock after the device is up to allow
+		 * Disable rf_clk clock after the device is up to allow
 		 * the device to control it via its GPIO for power saving
 		 */
 		if (ctx->features &
 		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL))
-			msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+			msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 
 		/*
 		 * Save golden config space for pci linkdown recovery.
