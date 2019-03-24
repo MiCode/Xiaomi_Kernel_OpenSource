@@ -29,6 +29,7 @@ extern bool debug_fw;
 extern bool disable_ap_sme;
 extern bool ftm_mode;
 extern ushort headroom_size;
+extern bool drop_if_ring_full;
 
 struct wil6210_priv;
 struct wil6210_vif;

@@ -2551,6 +2551,7 @@ static const struct dbg_off dbg_statics[] = {
 	{"led_polarity", 0644, (ulong)&led_polarity, doff_u8},
 	{"status_index", 0644, (ulong)&dbg_status_msg_index, doff_u32},
 	{"sring_index",	0644, (ulong)&dbg_sring_index, doff_u32},
+	{"drop_if_ring_full", 0644, (ulong)&drop_if_ring_full, doff_u8},
 	{},
 };
 
