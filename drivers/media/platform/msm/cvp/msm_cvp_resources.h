@@ -186,9 +186,6 @@ struct msm_cvp_platform_resources {
 	bool cache_pagetables;
 	bool decode_batching;
 	bool dcvs;
-	struct msm_cvp_codec_data *codec_data;
-	int codec_data_count;
-	struct msm_cvp_csc_coeff *csc_coeff_data;
 	struct msm_cvp_mem_cdsp mem_cdsp;
 	uint32_t vpu_ver;
 	uint32_t fw_cycles;

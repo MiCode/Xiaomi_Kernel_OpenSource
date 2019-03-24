@@ -83,201 +83,6 @@ static enum cvp_status hfi_map_err_status(u32 hfi_err)
 	return cvp_err;
 }
 
-static int get_hal_pixel_depth(u32 hfi_bit_depth)
-{
-	switch (hfi_bit_depth) {
-	case HFI_BITDEPTH_8: return MSM_CVP_BIT_DEPTH_8;
-	case HFI_BITDEPTH_9:
-	case HFI_BITDEPTH_10: return MSM_CVP_BIT_DEPTH_10;
-	}
-	dprintk(CVP_ERR, "Unsupported bit depth: %d\n", hfi_bit_depth);
-	return MSM_CVP_BIT_DEPTH_UNSUPPORTED;
-}
-
-static int hfi_process_sess_evt_seq_changed(u32 device_id,
-		struct hfi_msg_event_notify_packet *pkt,
-		struct msm_cvp_cb_info *info)
-{
-	struct msm_cvp_cb_event event_notify = {0};
-	int num_properties_changed;
-	struct hfi_frame_size *frame_sz;
-	struct hfi_profile_level *profile_level;
-	struct hfi_bit_depth *pixel_depth;
-	struct hfi_pic_struct *pic_struct;
-	struct hfi_buffer_requirements *buf_req;
-	struct hfi_index_extradata_input_crop_payload *crop_info;
-	u32 entropy_mode = 0;
-	u8 *data_ptr;
-	int prop_id;
-	int luma_bit_depth, chroma_bit_depth;
-	struct hfi_colour_space *colour_info;
-
-	if (sizeof(struct hfi_msg_event_notify_packet) > pkt->size) {
-		dprintk(CVP_ERR,
-				"hal_process_session_init_done: bad_pkt_size\n");
-		return -E2BIG;
-	}
-
-	event_notify.device_id = device_id;
-	event_notify.session_id = (void *)(uintptr_t)pkt->session_id;
-	event_notify.status = CVP_ERR_NONE;
-	num_properties_changed = pkt->event_data2;
-	switch (pkt->event_data1) {
-	case HFI_EVENT_DATA_SEQUENCE_CHANGED_SUFFICIENT_BUFFER_RESOURCES:
-		event_notify.hal_event_type =
-			HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES;
-		break;
-	case HFI_EVENT_DATA_SEQUENCE_CHANGED_INSUFFICIENT_BUFFER_RESOURCES:
-		event_notify.hal_event_type =
-			HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES;
-		break;
-	default:
-		break;
-	}
-
-	if (num_properties_changed) {
-		data_ptr = (u8 *) &pkt->rg_ext_event_data[0];
-		do {
-			prop_id = (int) *((u32 *)data_ptr);
-			switch (prop_id) {
-			case HFI_PROPERTY_PARAM_FRAME_SIZE:
-				data_ptr = data_ptr + sizeof(u32);
-				frame_sz =
-					(struct hfi_frame_size *) data_ptr;
-				event_notify.width = frame_sz->width;
-				event_notify.height = frame_sz->height;
-				dprintk(CVP_DBG, "height: %d width: %d\n",
-					frame_sz->height, frame_sz->width);
-				data_ptr +=
-					sizeof(struct hfi_frame_size);
-				break;
-			case HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT:
-				data_ptr = data_ptr + sizeof(u32);
-				profile_level =
-					(struct hfi_profile_level *) data_ptr;
-				event_notify.profile = profile_level->profile;
-				event_notify.level = profile_level->level;
-				dprintk(CVP_DBG, "profile: %d level: %d\n",
-					profile_level->profile,
-					profile_level->level);
-				data_ptr +=
-					sizeof(struct hfi_profile_level);
-				break;
-			case HFI_PROPERTY_PARAM_VDEC_PIXEL_BITDEPTH:
-				data_ptr = data_ptr + sizeof(u32);
-				pixel_depth = (struct hfi_bit_depth *) data_ptr;
-				/*
-				 * Luma and chroma can have different bitdepths.
-				 * Driver should rely on luma and chroma
-				 * bitdepth for determining output bitdepth
-				 * type.
-				 *
-				 * pixel_depth->bitdepth will include luma
-				 * bitdepth info in bits 0..15 and chroma
-				 * bitdept in bits 16..31.
-				 */
-				luma_bit_depth = get_hal_pixel_depth(
-					pixel_depth->bit_depth &
-					GENMASK(15, 0));
-				chroma_bit_depth = get_hal_pixel_depth(
-					(pixel_depth->bit_depth &
-					GENMASK(31, 16)) >> 16);
-				if (luma_bit_depth == MSM_CVP_BIT_DEPTH_10 ||
-					chroma_bit_depth ==
-						MSM_CVP_BIT_DEPTH_10)
-					event_notify.bit_depth =
-						MSM_CVP_BIT_DEPTH_10;
-				else
-					event_notify.bit_depth = luma_bit_depth;
-				dprintk(CVP_DBG,
-					"bitdepth(%d), luma_bit_depth(%d), chroma_bit_depth(%d)\n",
-					event_notify.bit_depth, luma_bit_depth,
-					chroma_bit_depth);
-				data_ptr += sizeof(struct hfi_bit_depth);
-				break;
-			case HFI_PROPERTY_PARAM_VDEC_PIC_STRUCT:
-				data_ptr = data_ptr + sizeof(u32);
-				pic_struct = (struct hfi_pic_struct *) data_ptr;
-				event_notify.pic_struct =
-					pic_struct->progressive_only;
-				dprintk(CVP_DBG,
-					"Progressive only flag: %d\n",
-						pic_struct->progressive_only);
-				data_ptr +=
-					sizeof(struct hfi_pic_struct);
-				break;
-			case HFI_PROPERTY_PARAM_VDEC_COLOUR_SPACE:
-				data_ptr = data_ptr + sizeof(u32);
-				colour_info =
-					(struct hfi_colour_space *) data_ptr;
-				event_notify.colour_space =
-					colour_info->colour_space;
-				dprintk(CVP_DBG,
-					"Colour space value is: %d\n",
-						colour_info->colour_space);
-				data_ptr +=
-					sizeof(struct hfi_colour_space);
-				break;
-			case HFI_PROPERTY_CONFIG_VDEC_ENTROPY:
-				data_ptr = data_ptr + sizeof(u32);
-				entropy_mode = *(u32 *)data_ptr;
-				event_notify.entropy_mode = entropy_mode;
-				dprintk(CVP_DBG,
-					"Entropy Mode: 0x%x\n", entropy_mode);
-				data_ptr +=
-					sizeof(u32);
-				break;
-			case HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS:
-				data_ptr = data_ptr + sizeof(u32);
-				buf_req =
-					(struct hfi_buffer_requirements *)
-						data_ptr;
-				event_notify.capture_buf_count =
-					buf_req->buffer_count_min;
-				dprintk(CVP_DBG,
-					"Capture Count : 0x%x\n",
-						event_notify.capture_buf_count);
-				data_ptr +=
-					sizeof(struct hfi_buffer_requirements);
-				break;
-			case HFI_INDEX_EXTRADATA_INPUT_CROP:
-				data_ptr = data_ptr + sizeof(u32);
-				crop_info = (struct
-				hfi_index_extradata_input_crop_payload *)
-						data_ptr;
-				event_notify.crop_data.left = crop_info->left;
-				event_notify.crop_data.top = crop_info->top;
-				event_notify.crop_data.width = crop_info->width;
-				event_notify.crop_data.height =
-					crop_info->height;
-				dprintk(CVP_DBG,
-					"CROP info : Left = %d Top = %d\n",
-						crop_info->left,
-						crop_info->top);
-				dprintk(CVP_DBG,
-					"CROP info : Width = %d Height = %d\n",
-						crop_info->width,
-						crop_info->height);
-				data_ptr +=
-					sizeof(struct
-					hfi_index_extradata_input_crop_payload);
-				break;
-			default:
-				dprintk(CVP_ERR,
-					"%s cmd: %#x not supported\n",
-					__func__, prop_id);
-				break;
-			}
-			num_properties_changed--;
-		} while (num_properties_changed > 0);
-	}
-
-	info->response_type = HAL_SESSION_EVENT_CHANGE;
-	info->response.event = event_notify;
-
-	return 0;
-}
-
 static int hfi_process_evt_release_buffer_ref(u32 device_id,
 		struct hfi_msg_event_notify_packet *pkt,
 		struct msm_cvp_cb_info *info)
@@ -377,9 +182,9 @@ static int hfi_process_event_notify(u32 device_id,
 		return hfi_process_session_error(device_id, pkt, info);
 
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
-		dprintk(CVP_INFO, "HFI_EVENT_SESSION_SEQUENCE_CHANGED[%#x]\n",
+		dprintk(CVP_WARN, "HFI_EVENT_SESSION_SEQUENCE_CHANGED [%#x]\n",
 			pkt->session_id);
-		return hfi_process_sess_evt_seq_changed(device_id, pkt, info);
+		return 0;
 
 	case HFI_EVENT_RELEASE_BUFFER_REFERENCE:
 		dprintk(CVP_INFO, "HFI_EVENT_RELEASE_BUFFER_REFERENCE[%#x]\n",
@@ -1113,7 +918,7 @@ static int hfi_process_sys_property_info(u32 device_id,
 				"%s: bad_pkt_size\n", __func__);
 		return -E2BIG;
 	} else if (!pkt->num_properties) {
-		dprintk(CVP_ERR,
+		dprintk(CVP_WARN,
 				"%s: no_properties\n", __func__);
 		return -EINVAL;
 	}

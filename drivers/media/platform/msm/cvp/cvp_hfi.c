@@ -152,18 +152,11 @@ static int __disable_subcaches(struct venus_hfi_device *device);
 static int __power_collapse(struct venus_hfi_device *device, bool force);
 static int venus_hfi_noc_error_info(void *dev);
 
-static void interrupt_init_vpu4(struct venus_hfi_device *device);
 static void interrupt_init_vpu5(struct venus_hfi_device *device);
 static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device);
 static void clock_config_on_enable_vpu5(struct venus_hfi_device *device);
 
 static int __set_ubwc_config(struct venus_hfi_device *device);
-
-struct venus_hfi_vpu_ops cvp_vpu4_ops = {
-	.interrupt_init = interrupt_init_vpu4,
-	.setup_dsp_uc_memmap = NULL,
-	.clock_config_on_enable = NULL,
-};
 
 struct venus_hfi_vpu_ops cvp_vpu5_ops = {
 	.interrupt_init = interrupt_init_vpu5,
@@ -226,96 +219,6 @@ static void __dump_packet(u8 *packet, enum cvp_msg_prio log_level)
 		hex_dump_to_buffer(packet + c * ROW_SIZE, bytes_to_read,
 				ROW_SIZE, 4, row, sizeof(row), false);
 		dprintk(log_level, "%s\n", row);
-	}
-}
-
-static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
-{
-	struct hfi_cmd_sys_session_init_packet *sys_init;
-	struct hal_session *session = NULL;
-	u8 i;
-	phys_addr_t fw_bias = 0;
-
-	if (!device || !packet) {
-		dprintk(CVP_ERR, "Invalid Param\n");
-		return;
-	} else if (!device->hal_data->firmware_base
-			|| is_iommu_present(device->res)) {
-		return;
-	}
-
-	fw_bias = device->hal_data->firmware_base;
-	sys_init = (struct hfi_cmd_sys_session_init_packet *)packet;
-
-	session = __get_session(device, sys_init->session_id);
-	if (!session) {
-		dprintk(CVP_DBG, "%s :Invalid session id: %x\n",
-				__func__, sys_init->session_id);
-		return;
-	}
-
-	switch (sys_init->packet_type) {
-	case HFI_CMD_SESSION_EMPTY_BUFFER:
-		if (session->is_decoder) {
-			struct hfi_cmd_session_empty_buffer_compressed_packet
-			*pkt = (struct
-			hfi_cmd_session_empty_buffer_compressed_packet
-			*) packet;
-			pkt->packet_buffer -= fw_bias;
-		} else {
-			struct
-			hfi_cmd_session_empty_buffer_uncompressed_plane0_packet
-			*pkt = (struct
-			hfi_cmd_session_empty_buffer_uncompressed_plane0_packet
-			*) packet;
-			pkt->packet_buffer -= fw_bias;
-		}
-		break;
-	case HFI_CMD_SESSION_FILL_BUFFER:
-	{
-		struct hfi_cmd_session_fill_buffer_packet *pkt =
-			(struct hfi_cmd_session_fill_buffer_packet *)packet;
-		pkt->packet_buffer -= fw_bias;
-		break;
-	}
-	case HFI_CMD_SESSION_SET_BUFFERS:
-	{
-		struct hfi_cmd_session_set_buffers_packet *pkt =
-			(struct hfi_cmd_session_set_buffers_packet *)packet;
-		if (pkt->buffer_type == HFI_BUFFER_OUTPUT ||
-			pkt->buffer_type == HFI_BUFFER_OUTPUT2) {
-			struct hfi_buffer_info *buff;
-
-			buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
-			buff->buffer_addr -= fw_bias;
-			if (buff->extra_data_addr >= fw_bias)
-				buff->extra_data_addr -= fw_bias;
-		} else {
-			for (i = 0; i < pkt->num_buffers; i++)
-				pkt->rg_buffer_info[i] -= fw_bias;
-		}
-		break;
-	}
-	case HFI_CMD_SESSION_RELEASE_BUFFERS:
-	{
-		struct hfi_cmd_session_release_buffer_packet *pkt =
-			(struct hfi_cmd_session_release_buffer_packet *)packet;
-
-		if (pkt->buffer_type == HFI_BUFFER_OUTPUT ||
-			pkt->buffer_type == HFI_BUFFER_OUTPUT2) {
-			struct hfi_buffer_info *buff;
-
-			buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
-			buff->buffer_addr -= fw_bias;
-			buff->extra_data_addr -= fw_bias;
-		} else {
-			for (i = 0; i < pkt->num_buffers; i++)
-				pkt->rg_buffer_info[i] -= fw_bias;
-		}
-		break;
-	}
-	default:
-		break;
 	}
 }
 
@@ -446,87 +349,16 @@ static int __dsp_shutdown(struct venus_hfi_device *device, u32 flags)
 	return rc;
 }
 
-static int __session_pause(struct venus_hfi_device *device,
-		struct hal_session *session)
-{
-	int rc = 0;
-
-	/* ignore if session paused already */
-	if (session->flags & SESSION_PAUSE)
-		return 0;
-
-	session->flags |= SESSION_PAUSE;
-	dprintk(CVP_DBG, "%s: cvp session %x paused\n", __func__,
-		hash32_ptr(session));
-
-	return rc;
-}
-
-static int __session_resume(struct venus_hfi_device *device,
-		struct hal_session *session)
-{
-	int rc = 0;
-
-	/* ignore if session already resumed */
-	if (!(session->flags & SESSION_PAUSE))
-		return 0;
-
-	session->flags &= ~SESSION_PAUSE;
-	dprintk(CVP_DBG, "%s: cvp session %x resumed\n", __func__,
-		hash32_ptr(session));
-
-	rc = __resume(device);
-	if (rc) {
-		dprintk(CVP_ERR, "%s: resume failed\n", __func__);
-		goto exit;
-	}
-
-	if (device->dsp_flags & DSP_SUSPEND) {
-		dprintk(CVP_ERR, "%s: dsp not resumed\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
-exit:
-	return rc;
-}
-
 static int venus_hfi_session_pause(void *sess)
 {
-	int rc;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	device = session->device;
-
-	mutex_lock(&device->lock);
-	rc = __session_pause(device, session);
-	mutex_unlock(&device->lock);
-
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
+	return -EINVAL;
 }
 
 static int venus_hfi_session_resume(void *sess)
 {
-	int rc;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	device = session->device;
-
-	mutex_lock(&device->lock);
-	rc = __session_resume(device, session);
-	mutex_unlock(&device->lock);
-
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
+	return -EINVAL;
 }
 
 static int __acquire_regulator(struct regulator_info *rinfo,
@@ -684,71 +516,6 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	 */
 	mb();
 	return 0;
-}
-
-static void __hal_sim_modify_msg_packet(u8 *packet,
-					struct venus_hfi_device *device)
-{
-	struct hfi_msg_sys_session_init_done_packet *init_done;
-	struct hal_session *session = NULL;
-	phys_addr_t fw_bias = 0;
-
-	if (!device || !packet) {
-		dprintk(CVP_ERR, "Invalid Param\n");
-		return;
-	} else if (!device->hal_data->firmware_base
-			|| is_iommu_present(device->res)) {
-		return;
-	}
-
-	fw_bias = device->hal_data->firmware_base;
-	init_done = (struct hfi_msg_sys_session_init_done_packet *)packet;
-	session = __get_session(device, init_done->session_id);
-
-	if (!session) {
-		dprintk(CVP_DBG, "%s: Invalid session id: %x\n",
-				__func__, init_done->session_id);
-		return;
-	}
-
-	switch (init_done->packet_type) {
-	case HFI_MSG_SESSION_FILL_BUFFER_DONE:
-		if (session->is_decoder) {
-			struct
-			hfi_msg_session_fbd_uncompressed_plane0_packet
-			*pkt_uc = (struct
-			hfi_msg_session_fbd_uncompressed_plane0_packet
-			*) packet;
-			pkt_uc->packet_buffer += fw_bias;
-		} else {
-			struct
-			hfi_msg_session_fill_buffer_done_compressed_packet
-			*pkt = (struct
-			hfi_msg_session_fill_buffer_done_compressed_packet
-			*) packet;
-			pkt->packet_buffer += fw_bias;
-		}
-		break;
-	case HFI_MSG_SESSION_EMPTY_BUFFER_DONE:
-	{
-		struct hfi_msg_session_empty_buffer_done_packet *pkt =
-		(struct hfi_msg_session_empty_buffer_done_packet *)packet;
-		pkt->packet_buffer += fw_bias;
-		break;
-	}
-	case HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE:
-	{
-		struct
-		hfi_msg_session_get_sequence_header_done_packet
-		*pkt =
-		(struct hfi_msg_session_get_sequence_header_done_packet *)
-		packet;
-		pkt->sequence_header += fw_bias;
-		break;
-	}
-	default:
-		break;
-	}
 }
 
 static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
@@ -1441,7 +1208,6 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 		goto err_q_null;
 	}
 
-	__sim_modify_cmd_packet((u8 *)pkt, device);
 	if (__resume(device)) {
 		dprintk(CVP_ERR, "%s: Power on failed\n", __func__);
 		goto err_q_write;
@@ -1510,7 +1276,6 @@ static int __iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 	}
 
 	if (!__read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
-		__hal_sim_modify_msg_packet((u8 *)pkt, device);
 		if (tx_req_is_set)
 			__write_register(device, CVP_CPU_CS_H2ASOFTINT, 1);
 		rc = 0;
@@ -2607,7 +2372,7 @@ static int venus_hfi_session_set_buffers(void *sess,
 		goto err_create_pkt;
 	}
 
-	dprintk(CVP_INFO, "set buffers: %#x\n", buffer_info->buffer_type);
+	dprintk(CVP_DBG, "set buffers: %#x\n", buffer_info->buffer_type);
 	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 
@@ -2660,49 +2425,19 @@ err_create_pkt:
 static int venus_hfi_session_start(void *session)
 {
 	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
-		return -EINVAL;
+	return -EINVAL;
 }
 
 static int venus_hfi_session_continue(void *session)
 {
-	struct hal_session *sess;
-	struct venus_hfi_device *device;
-	int rc = 0;
-
-	if (!session) {
-		dprintk(CVP_ERR, "Invalid Params %s\n", __func__);
-		return -EINVAL;
-	}
-
-	sess = session;
-	device = sess->device;
-
-	mutex_lock(&device->lock);
-	rc = __send_session_cmd(sess, HFI_CMD_SESSION_CONTINUE);
-	mutex_unlock(&device->lock);
-
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
+	return -EINVAL;
 }
 
 static int venus_hfi_session_stop(void *session)
 {
-	struct hal_session *sess;
-	struct venus_hfi_device *device;
-	int rc = 0;
-
-	if (!session) {
-		dprintk(CVP_ERR, "Invalid Params %s\n", __func__);
-		return -EINVAL;
-	}
-
-	sess = session;
-	device = sess->device;
-
-	mutex_lock(&device->lock);
-	rc = __send_session_cmd(sess, HFI_CMD_SESSION_STOP);
-	mutex_unlock(&device->lock);
-
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
+	return -EINVAL;
 }
 
 static int venus_hfi_session_send(void *sess,
@@ -2725,7 +2460,7 @@ static int venus_hfi_session_send(void *sess,
 		rc = -EINVAL;
 		goto err_send_pkt;
 	}
-	rc = call_hfi_pkt_op(device, session_cvp_hfi_packetize,
+	rc = call_hfi_pkt_op(device, session_send,
 			&pkt, session, in_pkt);
 	if (rc) {
 		dprintk(CVP_ERR,
@@ -2779,35 +2514,8 @@ err_create_pkt:
 
 static int venus_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 {
-	struct hfi_cmd_session_flush_packet pkt;
-	int rc = 0;
-	struct hal_session *session = sess;
-	struct venus_hfi_device *device;
-
-	if (!session || !session->device) {
-		dprintk(CVP_ERR, "invalid session");
-		return -ENODEV;
-	}
-
-	device = session->device;
-	mutex_lock(&device->lock);
-
-	if (!__is_session_valid(device, session, __func__)) {
-		rc = -EINVAL;
-		goto err_create_pkt;
-	}
-	rc = call_hfi_pkt_op(device, session_flush,
-			&pkt, session, flush_mode);
-	if (rc) {
-		dprintk(CVP_ERR, "Session flush: failed to create pkt\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(session->device, &pkt))
-		rc = -ENOTEMPTY;
-err_create_pkt:
-	mutex_unlock(&device->lock);
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
+	return -EINVAL;
 }
 
 static int __check_core_registered(struct hal_device_data core,
@@ -4000,10 +3708,6 @@ static void interrupt_init_vpu5(struct venus_hfi_device *device)
 		CVP_WRAPPER_INTR_MASK, mask_val);
 }
 
-static void interrupt_init_vpu4(struct venus_hfi_device *device)
-{
-}
-
 static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device)
 {
 	/* initialize DSP QTBL & UCREGION with CPU queues */
@@ -4397,85 +4101,9 @@ static int venus_hfi_get_core_capabilities(void *dev)
 	return rc;
 }
 
-static void __noc_error_info(struct venus_hfi_device *device, u32 core_num)
-{
-	u32 vcodec_core_video_noc_base_offs, val;
-
-	if (!device) {
-		dprintk(CVP_ERR, "%s: null device\n", __func__);
-		return;
-	}
-	if (!core_num) {
-		vcodec_core_video_noc_base_offs =
-			VCODEC_CORE0_VIDEO_NOC_BASE_OFFS;
-	} else if (core_num == 1) {
-		vcodec_core_video_noc_base_offs =
-			VCODEC_CORE1_VIDEO_NOC_BASE_OFFS;
-	} else {
-		dprintk(CVP_ERR, "%s: invalid core_num %u\n",
-			__func__, core_num);
-		return;
-	}
-
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_SWID_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_SWID_LOW:     %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_SWID_HIGH_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_SWID_HIGH:    %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_MAINCTL_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_MAINCTL_LOW:  %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG0_LOW:  %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG0_HIGH_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG0_HIGH: %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG1_LOW:  %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG1_HIGH_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG1_HIGH: %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG2_LOW:  %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG2_HIGH_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG2_HIGH: %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_LOW_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG3_LOW:  %#x\n", core_num, val);
-	val = __read_register(device, vcodec_core_video_noc_base_offs +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRLOG3_HIGH_OFFS);
-	dprintk(CVP_ERR, "CORE%d_NOC_ERR_ERRLOG3_HIGH: %#x\n", core_num, val);
-}
-
 static int venus_hfi_noc_error_info(void *dev)
 {
-	struct venus_hfi_device *device;
-	const u32 core0 = 0, core1 = 1;
-
-	if (!dev) {
-		dprintk(CVP_ERR, "%s: null device\n", __func__);
-		return -EINVAL;
-	}
-	device = dev;
-
-	mutex_lock(&device->lock);
-	dprintk(CVP_ERR, "%s: non error information\n", __func__);
-
-	if (__read_register(device, VCODEC_CORE0_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core0);
-
-	if (__read_register(device, VCODEC_CORE1_VIDEO_NOC_BASE_OFFS +
-			VCODEC_COREX_VIDEO_NOC_ERR_ERRVLD_LOW_OFFS))
-		__noc_error_info(device, core1);
-
-	mutex_unlock(&device->lock);
-
+	dprintk(CVP_ERR, "%s not supported yet!\n", __func__);
 	return 0;
 }
 
@@ -4502,10 +4130,7 @@ static int __initialize_packetization(struct venus_hfi_device *device)
 
 void __init_cvp_ops(struct venus_hfi_device *device)
 {
-	if (device->res->vpu_ver == VPU_VERSION_4)
-		device->vpu_ops = &cvp_vpu4_ops;
-	else
-		device->vpu_ops = &cvp_vpu5_ops;
+	device->vpu_ops = &cvp_vpu5_ops;
 }
 
 static struct venus_hfi_device *__add_device(u32 device_id,
@@ -4578,6 +4203,8 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 	return hdevice;
 
 err_cleanup:
+	if (hdevice->venus_pm_workq)
+		destroy_workqueue(hdevice->venus_pm_workq);
 	if (hdevice->cvp_workq)
 		destroy_workqueue(hdevice->cvp_workq);
 	kfree(hdevice->response_pkt);
@@ -4647,7 +4274,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_continue = venus_hfi_session_continue;
 	hdev->session_stop = venus_hfi_session_stop;
 	hdev->session_get_buf_req = venus_hfi_session_get_buf_req;
-	hdev->session_cvp_hfi_send = venus_hfi_session_send;
+	hdev->session_send = venus_hfi_session_send;
 	hdev->session_flush = venus_hfi_session_flush;
 	hdev->session_set_property = venus_hfi_session_set_property;
 	hdev->session_get_property = venus_hfi_session_get_property;

@@ -18,9 +18,6 @@
 
 #define MAX_EVENTS 30
 
-static int try_get_ctrl(struct msm_cvp_inst *inst,
-	struct v4l2_ctrl *ctrl);
-
 static int get_poll_flags(void *instance)
 {
 	struct msm_cvp_inst *inst = instance;
@@ -75,48 +72,6 @@ int msm_cvp_poll(void *instance, struct file *filp,
 }
 EXPORT_SYMBOL(msm_cvp_poll);
 
-int msm_cvp_querycap(void *instance, struct v4l2_capability *cap)
-{
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_cvp_querycap);
-
-int msm_cvp_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
-{
-	struct msm_cvp_inst *inst = instance;
-
-	if (!inst || !f)
-		return -EINVAL;
-
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_cvp_enum_fmt);
-
-int msm_cvp_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
-{
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_cvp_query_ctrl);
-
-int msm_cvp_s_fmt(void *instance, struct v4l2_format *f)
-{
-	int rc = 0;
-	struct msm_cvp_inst *inst = instance;
-
-	if (!inst || !f)
-		return -EINVAL;
-
-	dprintk(CVP_DBG,
-		"s_fmt: %x : type %d wxh %dx%d pixelfmt %#x num_planes %d size[0] %d size[1] %d in_reconfig %d\n",
-		hash32_ptr(inst->session), f->type,
-		f->fmt.pix_mp.width, f->fmt.pix_mp.height,
-		f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.num_planes,
-		f->fmt.pix_mp.plane_fmt[0].sizeimage,
-		f->fmt.pix_mp.plane_fmt[1].sizeimage, inst->in_reconfig);
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_s_fmt);
-
 int msm_cvp_g_fmt(void *instance, struct v4l2_format *f)
 {
 	struct msm_cvp_inst *inst = instance;
@@ -128,10 +83,6 @@ int msm_cvp_g_fmt(void *instance, struct v4l2_format *f)
 		dprintk(CVP_ERR,
 			"Invalid input, inst = %pK, format = %pK\n", inst, f);
 		return -EINVAL;
-	}
-	if (inst->in_reconfig) {
-		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
-		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 	}
 
 	port = f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
@@ -174,90 +125,10 @@ int msm_cvp_g_fmt(void *instance, struct v4l2_format *f)
 			inst->prop.height[port]);
 	f->fmt.pix_mp.plane_fmt[0].sizeimage = VENUS_BUFFER_SIZE(color_format,
 			inst->prop.width[port], inst->prop.height[port]);
-
-	dprintk(CVP_DBG,
-		"g_fmt: %x : type %d wxh %dx%d pixelfmt %#x num_planes %d size[0] %d size[1] %d in_reconfig %d\n",
-		hash32_ptr(inst->session), f->type,
-		f->fmt.pix_mp.width, f->fmt.pix_mp.height,
-		f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.num_planes,
-		f->fmt.pix_mp.plane_fmt[0].sizeimage,
-		f->fmt.pix_mp.plane_fmt[1].sizeimage, inst->in_reconfig);
 exit:
 	return rc;
 }
 EXPORT_SYMBOL(msm_cvp_g_fmt);
-
-int msm_cvp_s_ctrl(void *instance, struct v4l2_control *control)
-{
-	struct msm_cvp_inst *inst = instance;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	return msm_comm_s_ctrl(instance, control);
-}
-EXPORT_SYMBOL(msm_cvp_s_ctrl);
-
-int msm_cvp_g_crop(void *instance, struct v4l2_crop *crop)
-{
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_cvp_g_crop);
-
-int msm_cvp_g_ctrl(void *instance, struct v4l2_control *control)
-{
-	struct msm_cvp_inst *inst = instance;
-	struct v4l2_ctrl *ctrl = NULL;
-	int rc = 0;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	ctrl = v4l2_ctrl_find(&inst->ctrl_handler, control->id);
-	if (ctrl) {
-		rc = try_get_ctrl(inst, ctrl);
-		if (!rc)
-			control->value = ctrl->val;
-	}
-
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_g_ctrl);
-
-int msm_cvp_g_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
-{
-	struct msm_cvp_inst *inst = instance;
-	struct v4l2_ext_control *ext_control;
-	int i = 0, rc = 0;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	ext_control = control->controls;
-
-	for (i = 0; i < control->count; i++) {
-		switch (ext_control[i].id) {
-		default:
-			dprintk(CVP_ERR,
-				"This control %x is not supported yet\n",
-					ext_control[i].id);
-			break;
-		}
-	}
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_g_ext_ctrl);
-
-int msm_cvp_s_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
-{
-	struct msm_cvp_inst *inst = instance;
-
-	if (!inst || !control)
-		return -EINVAL;
-
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_cvp_s_ext_ctrl);
 
 int msm_cvp_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 {
@@ -285,19 +156,6 @@ int msm_cvp_reqbufs(void *instance, struct v4l2_requestbuffers *b)
 }
 EXPORT_SYMBOL(msm_cvp_reqbufs);
 
-static bool valid_v4l2_buffer(struct v4l2_buffer *b,
-		struct msm_cvp_inst *inst)
-{
-	enum cvp_ports port =
-		!V4L2_TYPE_IS_MULTIPLANAR(b->type) ? MAX_PORT_NUM :
-		b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE ? CAPTURE_PORT :
-		b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ? OUTPUT_PORT :
-								MAX_PORT_NUM;
-
-	return port != MAX_PORT_NUM &&
-		inst->bufq[port].num_planes == b->length;
-}
-
 int msm_cvp_release_buffer(void *instance, int type, unsigned int index)
 {
 	int rc = 0;
@@ -307,18 +165,6 @@ int msm_cvp_release_buffer(void *instance, int type, unsigned int index)
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid inst\n", __func__);
 		return -EINVAL;
-	}
-
-	if (!inst->in_reconfig &&
-		inst->state > MSM_CVP_LOAD_RESOURCES &&
-		inst->state < MSM_CVP_RELEASE_RESOURCES_DONE) {
-		rc = msm_cvp_comm_try_state(inst,
-			MSM_CVP_RELEASE_RESOURCES_DONE);
-		if (rc) {
-			dprintk(CVP_ERR,
-				"%s: Failed to move inst: %pK to rel res done\n",
-					__func__, inst);
-		}
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
@@ -345,142 +191,6 @@ int msm_cvp_release_buffer(void *instance, int type, unsigned int index)
 	return rc;
 }
 EXPORT_SYMBOL(msm_cvp_release_buffer);
-
-int msm_cvp_qbuf(void *instance, struct v4l2_buffer *b)
-{
-	struct msm_cvp_inst *inst = instance;
-	int rc = 0, i = 0;
-	struct buf_queue *q = NULL;
-
-	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst)) {
-		dprintk(CVP_ERR, "%s: invalid params, inst %pK\n",
-			__func__, inst);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < b->length; i++) {
-		b->m.planes[i].m.fd = b->m.planes[i].reserved[0];
-		b->m.planes[i].data_offset = b->m.planes[i].reserved[1];
-	}
-
-	q = msm_cvp_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(CVP_ERR,
-			"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
-	rc = vb2_qbuf(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(CVP_ERR, "Failed to qbuf, %d\n", rc);
-
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_qbuf);
-
-int msm_cvp_dqbuf(void *instance, struct v4l2_buffer *b)
-{
-	struct msm_cvp_inst *inst = instance;
-	int rc = 0, i = 0;
-	struct buf_queue *q = NULL;
-
-	if (!inst || !b || !valid_v4l2_buffer(b, inst)) {
-		dprintk(CVP_ERR, "%s: invalid params, inst %pK\n",
-			__func__, inst);
-		return -EINVAL;
-	}
-
-	q = msm_cvp_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(CVP_ERR,
-			"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
-	rc = vb2_dqbuf(&q->vb2_bufq, b, true);
-	mutex_unlock(&q->lock);
-	if (rc == -EAGAIN) {
-		return rc;
-	} else if (rc) {
-		dprintk(CVP_ERR, "Failed to dqbuf, %d\n", rc);
-		return rc;
-	}
-
-	for (i = 0; i < b->length; i++) {
-		b->m.planes[i].reserved[0] = b->m.planes[i].m.fd;
-		b->m.planes[i].reserved[1] = b->m.planes[i].data_offset;
-	}
-
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_dqbuf);
-
-int msm_cvp_streamon(void *instance, enum v4l2_buf_type i)
-{
-	struct msm_cvp_inst *inst = instance;
-	int rc = 0;
-	struct buf_queue *q;
-
-	if (!inst)
-		return -EINVAL;
-
-	q = msm_cvp_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(CVP_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-	dprintk(CVP_DBG, "Calling streamon\n");
-	mutex_lock(&q->lock);
-	rc = vb2_streamon(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc) {
-		dprintk(CVP_ERR, "streamon failed on port: %d\n", i);
-		msm_cvp_comm_kill_session(inst);
-	}
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_streamon);
-
-int msm_cvp_streamoff(void *instance, enum v4l2_buf_type i)
-{
-	struct msm_cvp_inst *inst = instance;
-	int rc = 0;
-	struct buf_queue *q;
-
-	if (!inst)
-		return -EINVAL;
-
-	q = msm_cvp_comm_get_vb2q(inst, i);
-	if (!q) {
-		dprintk(CVP_ERR,
-			"Failed to find buffer queue for type = %d\n", i);
-		return -EINVAL;
-	}
-
-	if (!inst->in_reconfig) {
-		dprintk(CVP_DBG, "%s: inst %pK release resources\n",
-			__func__, inst);
-		rc = msm_cvp_comm_try_state(inst,
-			MSM_CVP_RELEASE_RESOURCES_DONE);
-		if (rc)
-			dprintk(CVP_ERR,
-				"%s: inst %pK move to rel res done failed\n",
-				__func__, inst);
-	}
-
-	dprintk(CVP_DBG, "Calling streamoff\n");
-	mutex_lock(&q->lock);
-	rc = vb2_streamoff(&q->vb2_bufq, i);
-	mutex_unlock(&q->lock);
-	if (rc)
-		dprintk(CVP_ERR, "streamoff failed on port: %d\n", i);
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_streamoff);
 
 int msm_cvp_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 {
@@ -661,85 +371,18 @@ static int msm_cvp_queue_setup(struct vb2_queue *q,
 
 static int msm_cvp_start_streaming(struct vb2_queue *q, unsigned int count)
 {
-	dprintk(CVP_ERR, "Invalid input, q = %pK\n", q);
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
 	return -EINVAL;
 }
 
 static void msm_cvp_stop_streaming(struct vb2_queue *q)
 {
-	dprintk(CVP_INFO, "%s: No streaming use case supported\n",
-		__func__);
-}
-
-static int msm_cvp_queue_buf(struct msm_cvp_inst *inst,
-		struct vb2_buffer *vb2)
-{
-	int rc = 0;
-	struct msm_video_buffer *mbuf;
-
-	if (!inst || !vb2) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	mbuf = msm_cvp_comm_get_video_buffer(inst, vb2);
-	if (IS_ERR_OR_NULL(mbuf)) {
-		/*
-		 * if the buffer has RBR_PENDING flag (-EEXIST) then don't queue
-		 * it now, it will be queued via msm_cvp_comm_qbuf_rbr() as
-		 * part of RBR event processing.
-		 */
-		if (PTR_ERR(mbuf) == -EEXIST)
-			return 0;
-		dprintk(CVP_ERR, "%s: failed to get cvp-buf\n", __func__);
-		return -EINVAL;
-	}
-	if (!kref_cvp_get_mbuf(inst, mbuf)) {
-		dprintk(CVP_ERR, "%s: mbuf not found\n", __func__);
-		return -EINVAL;
-	}
-	rc = msm_cvp_comm_qbuf(inst, mbuf);
-	if (rc)
-		dprintk(CVP_ERR, "%s: failed qbuf\n", __func__);
-	kref_cvp_put_mbuf(mbuf);
-
-	return rc;
-}
-
-static int msm_cvp_queue_buf_batch(struct msm_cvp_inst *inst,
-		struct vb2_buffer *vb2)
-{
-	int rc;
-
-	if (!inst || !vb2) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-
-	rc = msm_cvp_queue_buf(inst, vb2);
-
-	return rc;
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
 }
 
 static void msm_cvp_buf_queue(struct vb2_buffer *vb2)
 {
-	int rc = 0;
-	struct msm_cvp_inst *inst = NULL;
-
-	inst = vb2_get_drv_priv(vb2->vb2_queue);
-	if (!inst) {
-		dprintk(CVP_ERR, "%s: invalid inst\n", __func__);
-		return;
-	}
-
-	if (inst->batch.enable)
-		rc = msm_cvp_queue_buf_batch(inst, vb2);
-	else
-		rc = msm_cvp_queue_buf(inst, vb2);
-	if (rc) {
-		print_cvp_vb2_buffer(CVP_ERR, "failed vb2-qbuf", inst, vb2);
-		msm_cvp_comm_generate_session_error(inst);
-	}
+	dprintk(CVP_ERR, "Deprecated function %s\n", __func__);
 }
 
 static const struct vb2_ops msm_cvp_vb2q_ops = {
@@ -816,19 +459,6 @@ int msm_cvp_unsubscribe_event(void *inst,
 }
 EXPORT_SYMBOL(msm_cvp_unsubscribe_event);
 
-int msm_cvp_dqevent(void *inst, struct v4l2_event *event)
-{
-	int rc = 0;
-	struct msm_cvp_inst *cvp_inst = (struct msm_cvp_inst *)inst;
-
-	if (!inst || !event)
-		return -EINVAL;
-
-	rc = v4l2_event_dequeue(&cvp_inst->event_handler, event, false);
-	return rc;
-}
-EXPORT_SYMBOL(msm_cvp_dqevent);
-
 int msm_cvp_private(void *cvp_inst, unsigned int cmd,
 		struct cvp_kmd_arg *arg)
 {
@@ -876,104 +506,6 @@ static bool msm_cvp_check_for_inst_overload(struct msm_cvp_core *core)
 		overload = true;
 	return overload;
 }
-
-static int msm_cvp_try_set_ctrl(void *instance, struct v4l2_ctrl *ctrl)
-{
-	return -EINVAL;
-}
-
-static int msm_cvp_op_s_ctrl(struct v4l2_ctrl *ctrl)
-{
-
-	int rc = 0, c = 0;
-	struct msm_cvp_inst *inst;
-
-	if (!ctrl) {
-		dprintk(CVP_ERR, "%s invalid parameters for ctrl\n", __func__);
-		return -EINVAL;
-	}
-
-	inst = container_of(ctrl->handler,
-		struct msm_cvp_inst, ctrl_handler);
-	if (!inst) {
-		dprintk(CVP_ERR, "%s invalid parameters for inst\n", __func__);
-		return -EINVAL;
-	}
-
-	for (c = 0; c < ctrl->ncontrols; ++c) {
-		if (ctrl->cluster[c]->is_new) {
-			rc = msm_cvp_try_set_ctrl(inst, ctrl->cluster[c]);
-			if (rc) {
-				dprintk(CVP_ERR, "Failed setting %x\n",
-					ctrl->cluster[c]->id);
-				break;
-			}
-		}
-	}
-	if (rc)
-		dprintk(CVP_ERR, "Failed setting control: Inst = %pK (%s)\n",
-				inst, v4l2_ctrl_get_name(ctrl->id));
-	return rc;
-}
-static int try_get_ctrl(struct msm_cvp_inst *inst, struct v4l2_ctrl *ctrl)
-{
-	switch (ctrl->id) {
-	default:
-		/*
-		 * Other controls aren't really volatile, shouldn't need to
-		 * modify ctrl->value
-		 */
-		break;
-	}
-
-	return 0;
-}
-
-static int msm_cvp_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	int rc = 0, c = 0;
-	struct msm_cvp_inst *inst;
-	struct v4l2_ctrl *master;
-
-	if (!ctrl) {
-		dprintk(CVP_ERR, "%s invalid parameters for ctrl\n", __func__);
-		return -EINVAL;
-	}
-
-	inst = container_of(ctrl->handler,
-		struct msm_cvp_inst, ctrl_handler);
-	if (!inst) {
-		dprintk(CVP_ERR, "%s invalid parameters for inst\n", __func__);
-		return -EINVAL;
-	}
-	master = ctrl->cluster[0];
-	if (!master) {
-		dprintk(CVP_ERR, "%s invalid parameters for master\n",
-			__func__);
-		return -EINVAL;
-	}
-
-	for (c = 0; c < master->ncontrols; ++c) {
-		if (master->cluster[c]->flags & V4L2_CTRL_FLAG_VOLATILE) {
-			rc = try_get_ctrl(inst, master->cluster[c]);
-			if (rc) {
-				dprintk(CVP_ERR, "Failed getting %x\n",
-					master->cluster[c]->id);
-				return rc;
-			}
-		}
-	}
-	if (rc)
-		dprintk(CVP_ERR, "Failed getting control: Inst = %pK (%s)\n",
-				inst, v4l2_ctrl_get_name(ctrl->id));
-	return rc;
-}
-
-static const struct v4l2_ctrl_ops msm_cvp_ctrl_ops = {
-
-	.s_ctrl = msm_cvp_op_s_ctrl,
-	.g_volatile_ctrl = msm_cvp_op_g_volatile_ctrl,
-};
 
 static int _init_session_queue(struct msm_cvp_inst *inst)
 {
@@ -1042,19 +574,10 @@ void *msm_cvp_open(int core_id, int session_type)
 	mutex_init(&inst->lock);
 	mutex_init(&inst->flush_lock);
 
-	INIT_MSM_CVP_LIST(&inst->scratchbufs);
 	INIT_MSM_CVP_LIST(&inst->freqs);
-	INIT_MSM_CVP_LIST(&inst->input_crs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->pending_getpropq);
-	INIT_MSM_CVP_LIST(&inst->outputbufs);
 	INIT_MSM_CVP_LIST(&inst->registeredbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpbufs);
-	INIT_MSM_CVP_LIST(&inst->reconbufs);
-	INIT_MSM_CVP_LIST(&inst->eosbufs);
-	INIT_MSM_CVP_LIST(&inst->etb_data);
-	INIT_MSM_CVP_LIST(&inst->fbd_data);
-	INIT_MSM_CVP_LIST(&inst->dfs_config);
 
 	kref_init(&inst->kref);
 
@@ -1067,12 +590,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = CVP_CORE_ID_DEFAULT;
-	inst->bit_depth = MSM_CVP_BIT_DEPTH_8;
-	inst->pic_struct = MSM_CVP_PIC_STRUCT_PROGRESSIVE;
-	inst->colour_space = MSM_CVP_BT601_6_525;
-	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
-	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -1081,11 +598,6 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	if (session_type == MSM_CVP_CORE) {
 		msm_cvp_session_init(inst);
-		rc = msm_cvp_control_init(inst, &msm_cvp_ctrl_ops);
-	}
-	if (rc) {
-		dprintk(CVP_ERR, "Failed control initialization\n");
-		goto fail_bufq_capture;
 	}
 
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
@@ -1141,7 +653,7 @@ void *msm_cvp_open(int core_id, int session_type)
 				"Failed to move video instance to open done state\n");
 			goto fail_init;
 		}
-		rc = cvp_comm_set_persist_buffers(inst);
+		rc = cvp_comm_set_arp_buffers(inst);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"Failed to set ARP buffers\n");
@@ -1163,25 +675,16 @@ fail_init:
 fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
 fail_bufq_capture:
-	msm_cvp_comm_ctrl_deinit(inst);
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_destroy(&inst->lock);
 	mutex_destroy(&inst->flush_lock);
 
-	DEINIT_MSM_CVP_LIST(&inst->scratchbufs);
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->pending_getpropq);
-	DEINIT_MSM_CVP_LIST(&inst->outputbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpbufs);
 	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
-	DEINIT_MSM_CVP_LIST(&inst->eosbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
-	DEINIT_MSM_CVP_LIST(&inst->input_crs);
-	DEINIT_MSM_CVP_LIST(&inst->etb_data);
-	DEINIT_MSM_CVP_LIST(&inst->fbd_data);
-	DEINIT_MSM_CVP_LIST(&inst->dfs_config);
 
 	kfree(inst);
 	inst = NULL;
@@ -1193,7 +696,6 @@ EXPORT_SYMBOL(msm_cvp_open);
 static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
 	struct msm_video_buffer *temp, *dummy;
-	struct getprop_buf *temp_prop, *dummy_prop;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -1212,46 +714,13 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 
 	msm_cvp_comm_free_freq_table(inst);
 
-	msm_cvp_comm_free_input_cr_table(inst);
-
-	if (msm_cvp_comm_release_scratch_buffers(inst, false))
-		dprintk(CVP_ERR,
-			"Failed to release scratch buffers\n");
-
-	if (msm_cvp_comm_release_recon_buffers(inst))
-		dprintk(CVP_ERR,
-			"Failed to release recon buffers\n");
-
 	if (cvp_comm_release_persist_buffers(inst))
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
 
-	if (msm_cvp_comm_release_mark_data(inst))
-		dprintk(CVP_ERR,
-			"Failed to release mark_data buffers\n");
-
-	msm_cvp_comm_release_eos_buffers(inst);
-
-	if (msm_cvp_comm_release_output_buffers(inst, true))
-		dprintk(CVP_ERR,
-			"Failed to release output buffers\n");
-
+	/* cvp_comm_release_cvp_buffers cvpbufs */
 	if (inst->extradata_handle)
 		msm_cvp_comm_smem_free(inst, inst->extradata_handle);
-
-	mutex_lock(&inst->pending_getpropq.lock);
-	if (!list_empty(&inst->pending_getpropq.list)) {
-		dprintk(CVP_ERR,
-			"pending_getpropq not empty for instance %pK\n",
-			inst);
-		list_for_each_entry_safe(temp_prop, dummy_prop,
-			&inst->pending_getpropq.list, list) {
-			kfree(temp_prop->data);
-			list_del(&temp_prop->list);
-			kfree(temp_prop);
-		}
-	}
-	mutex_unlock(&inst->pending_getpropq.lock);
 }
 
 int msm_cvp_destroy(struct msm_cvp_inst *inst)
@@ -1271,26 +740,16 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
 
-	msm_cvp_comm_ctrl_deinit(inst);
-
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
 
 	for (i = 0; i < MAX_PORT_NUM; i++)
 		vb2_queue_release(&inst->bufq[i].vb2_bufq);
 
-	DEINIT_MSM_CVP_LIST(&inst->scratchbufs);
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->pending_getpropq);
-	DEINIT_MSM_CVP_LIST(&inst->outputbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpbufs);
 	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
-	DEINIT_MSM_CVP_LIST(&inst->eosbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
-	DEINIT_MSM_CVP_LIST(&inst->input_crs);
-	DEINIT_MSM_CVP_LIST(&inst->etb_data);
-	DEINIT_MSM_CVP_LIST(&inst->fbd_data);
-	DEINIT_MSM_CVP_LIST(&inst->dfs_config);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);

@@ -79,7 +79,7 @@ struct hfi_packetization_ops {
 	int (*session_sync_process)(
 		struct hfi_cmd_session_sync_process_packet *pkt,
 		struct hal_session *session);
-	int (*session_cvp_hfi_packetize)(
+	int (*session_send)(
 			struct cvp_kmd_hfi_packet *out_pkt,
 			struct hal_session *session,
 			struct cvp_kmd_hfi_packet *in_pkt);

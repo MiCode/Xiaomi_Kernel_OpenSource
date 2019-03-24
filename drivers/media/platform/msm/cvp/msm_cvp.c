@@ -322,7 +322,7 @@ static int msm_cvp_session_process_hfi(
 			}
 		}
 	}
-	rc = call_hfi_op(hdev, session_cvp_hfi_send,
+	rc = call_hfi_op(hdev, session_send,
 			(void *)inst->session, in_pkt);
 	if (rc) {
 		dprintk(CVP_ERR,
@@ -442,7 +442,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
-		rc = call_hfi_op(hdev, session_cvp_hfi_send,
+		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
 			dprintk(CVP_ERR,
@@ -803,65 +803,6 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	return rc;
 }
 
-static struct msm_cvp_ctrl msm_cvp_ctrls[] = {
-	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
-		.name = "Secure mode",
-		.type = V4L2_CTRL_TYPE_BUTTON,
-		.minimum = 0,
-		.maximum = 1,
-		.default_value = 0,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-};
-
-int msm_cvp_control_init(struct msm_cvp_inst *inst,
-		const struct v4l2_ctrl_ops *ctrl_ops)
-{
-	return msm_cvp_comm_ctrl_init(inst, msm_cvp_ctrls,
-		ARRAY_SIZE(msm_cvp_ctrls), ctrl_ops);
-}
-
-int msm_cvp_session_pause(struct msm_cvp_inst *inst)
-{
-	int rc;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	rc = call_hfi_op(hdev, session_pause, (void *)inst->session);
-	if (rc)
-		dprintk(CVP_ERR, "%s: failed to pause inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
-
-	return rc;
-}
-
-int msm_cvp_session_resume(struct msm_cvp_inst *inst)
-{
-	int rc;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
-
-	rc = call_hfi_op(hdev, session_resume, (void *)inst->session);
-	if (rc)
-		dprintk(CVP_ERR, "%s: failed to resume inst %pK (%#x)\n",
-			__func__, inst, hash32_ptr(inst->session));
-
-	return rc;
-}
-
 int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
@@ -880,7 +821,7 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 
 	mutex_lock(&inst->cvpbufs.lock);
 	list_for_each_entry_safe(cbuf, temp, &inst->cvpbufs.list, list) {
-		print_cvp_internal_buffer(CVP_ERR, "unregistered", inst, cbuf);
+		print_cvp_internal_buffer(CVP_DBG, "unregistered", inst, cbuf);
 		rc = msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 		if (rc)
 			dprintk(CVP_ERR, "%s: unmap failed\n", __func__);
