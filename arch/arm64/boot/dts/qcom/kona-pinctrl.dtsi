@@ -3889,5 +3889,18 @@
 				bias-pull-up;
 			};
 		};
+
+		wil6210_refclk_en_pin: wil6210_refclk_en_pin {
+			mux {
+				pins = "gpio14";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio14";
+				bias-pull-down;         /* PULL DOWN */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
 	};
 };
