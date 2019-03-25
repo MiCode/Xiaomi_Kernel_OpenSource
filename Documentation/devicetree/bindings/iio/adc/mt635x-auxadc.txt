@@ -1,0 +1,54 @@
+* Mediatek PMIC AUXADC(Auxiliary Analog/Digital Converter)
+===============
+
+The PMIC AUXADC is a voltage ADC found in some Mediatek PMICs.
+It provides an IIO interface to clients to read voltage.
+
+Required properties:
+  - compatible: Should be one of:
+    - "mediatek,mt6358-auxadc": For PMIC MT6358 AUXADC
+    - "mediatek,mt6359-auxadc": For PMIC MT6359 AUXADC
+  - #io-channel-cells: Should be 1, see ../iio-bindings.txt
+
+Required properties for supported channel in subnodes:
+  - channel: PMIC AUXADC channel number.
+            See include/dt-bindings/iio/mt635x-auxadc.h
+
+Optional properties for supported channel in subnodes:
+  - resistance-ratio: The mapping ratio from 1.8V domain to real voltage.
+            It's represented by a 2-elements array like <7 2> which means
+            (1.8V domain) * 7 / 2 = (Real voltage domain).
+            If this property is not found, the default ratio is 1.
+
+  - avg-num: Selects AUXADC average sample numbers for this channel.
+            The valid values are 1, 4, 8, 16, 32, 64, 128, 256.
+            If this property is not found, the default number is 8.
+
+Example:
+#include <dt-bindings/iio/mt635x-auxadc.h>
+
+	/* AUXADC node */
+	pmic_auxadc: pmic_auxadc {
+		compatible = "mediatek,mt6359-auxadc";
+		#io-channel-cells = <1>;
+
+		batadc {
+			channel = <AUXADC_BATADC>;
+			resistance-ratio = <7 2>;
+			avg-num = <128>;
+		};
+		bat_temp {
+			channel = <AUXADC_BAT_TEMP>;
+			resistance-ratio = <5 2>;
+		};
+		chip_temp {
+			channel = <AUXADC_CHIP_TEMP>;
+		};
+	};
+
+	/* IIO client node */
+	thermal {
+		io-channels = <&pmic_auxadc AUXADC_CHIP_TEMP>;
+		io-channel-names = "pmic_chip_temp";
+	};
+
