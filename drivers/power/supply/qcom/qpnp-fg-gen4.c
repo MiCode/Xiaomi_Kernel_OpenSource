@@ -8,6 +8,7 @@
 #include <linux/alarmtimer.h>
 #include <linux/irq.h>
 #include <linux/ktime.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
@@ -26,6 +27,12 @@
 #define FG_BATT_INFO_PM8150B		0x11
 #define FG_MEM_IF_PM8150B		0x0D
 #define FG_ADC_RR_PM8150B		0x13
+
+#define SDAM_COOKIE_OFFSET		0x80
+#define SDAM_CYCLE_COUNT_OFFSET		0x81
+#define SDAM_CAP_LEARN_OFFSET		0x91
+#define SDAM_COOKIE			0xA5
+#define SDAM_FG_PARAM_LENGTH		20
 
 #define FG_SRAM_LEN			972
 #define PROFILE_LEN			416
@@ -231,6 +238,7 @@ struct fg_gen4_chip {
 	struct cycle_counter	*counter;
 	struct cap_learning	*cl;
 	struct ttf		*ttf;
+	struct nvmem_device	*fg_nvmem;
 	struct votable		*delta_esr_irq_en_votable;
 	struct votable		*pl_disable_votable;
 	struct votable		*cp_disable_votable;
@@ -589,18 +597,26 @@ static int fg_gen4_get_learned_capacity(void *data, int64_t *learned_cap_uah)
 	struct fg_gen4_chip *chip = data;
 	struct fg_dev *fg;
 	int rc, act_cap_mah;
+	u8 buf[2];
 
 	if (!chip)
 		return -ENODEV;
 
 	fg = &chip->fg;
-	rc = fg_get_sram_prop(fg, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
+	if (chip->fg_nvmem)
+		rc = nvmem_device_read(chip->fg_nvmem, SDAM_CAP_LEARN_OFFSET, 2,
+					buf);
+	else
+		rc = fg_get_sram_prop(fg, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
 	if (rc < 0) {
-		pr_err("Error in getting ACT_BATT_CAP, rc=%d\n", rc);
+		pr_err("Error in getting learned capacity, rc=%d\n", rc);
 		return rc;
 	}
 
-	*learned_cap_uah = act_cap_mah * 1000;
+	if (chip->fg_nvmem)
+		*learned_cap_uah = (buf[0] | buf[1] << 8) * 1000;
+	else
+		*learned_cap_uah = act_cap_mah * 1000;
 
 	fg_dbg(fg, FG_CAP_LEARN, "learned_cap_uah:%lld\n", *learned_cap_uah);
 	return 0;
@@ -951,6 +967,7 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 	struct fg_gen4_chip *chip = data;
 	struct fg_dev *fg;
 	int rc = 0, act_cap_mah, full_soc;
+	u8 buf[2];
 
 	if (!chip)
 		return -ENODEV;
@@ -970,11 +987,19 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 		rc = fg_get_battery_current(fg, val);
 		break;
 	case TTF_FCC:
-		rc = fg_get_sram_prop(fg, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
+		if (chip->fg_nvmem)
+			rc = nvmem_device_read(chip->fg_nvmem,
+					SDAM_CAP_LEARN_OFFSET, 2, buf);
+		else
+			rc = fg_get_sram_prop(fg, FG_SRAM_ACT_BATT_CAP,
+					&act_cap_mah);
 		if (rc < 0) {
 			pr_err("Failed to get ACT_BATT_CAP rc=%d\n", rc);
 			break;
 		}
+
+		if (chip->fg_nvmem)
+			act_cap_mah = buf[0] | buf[1] << 8;
 
 		rc = fg_get_sram_prop(fg, FG_SRAM_FULL_SOC, &full_soc);
 		if (rc < 0) {
@@ -1024,6 +1049,7 @@ static int fg_gen4_store_learned_capacity(void *data, int64_t learned_cap_uah)
 	struct fg_dev *fg;
 	int16_t cc_mah;
 	int rc;
+	u8 cookie = SDAM_COOKIE;
 
 	if (!chip)
 		return -ENODEV;
@@ -1039,6 +1065,23 @@ static int fg_gen4_store_learned_capacity(void *data, int64_t learned_cap_uah)
 	if (rc < 0) {
 		pr_err("Error in writing act_batt_cap_bkup, rc=%d\n", rc);
 		return rc;
+	}
+
+	if (chip->fg_nvmem) {
+		rc = nvmem_device_write(chip->fg_nvmem, SDAM_CAP_LEARN_OFFSET,
+					2, (u8 *)&cc_mah);
+		if (rc < 0) {
+			pr_err("Error in writing learned capacity to SDAM, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		rc = nvmem_device_write(chip->fg_nvmem, SDAM_COOKIE_OFFSET, 1,
+					&cookie);
+		if (rc < 0) {
+			pr_err("Error in writing cookie to SDAM, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	fg_dbg(fg, FG_CAP_LEARN, "learned capacity %llduah/%dmah stored\n",
@@ -1106,9 +1149,13 @@ static int fg_gen4_restore_count(void *data, u16 *buf, int length)
 		return -EINVAL;
 
 	for (id = 0; id < length; id++) {
-		rc = fg_sram_read(&chip->fg, CYCLE_COUNT_WORD + id,
-				CYCLE_COUNT_OFFSET, (u8 *)tmp, 2,
-				FG_IMA_DEFAULT);
+		if (chip->fg_nvmem)
+			rc = nvmem_device_read(chip->fg_nvmem,
+				SDAM_CYCLE_COUNT_OFFSET + (id * 2), 2, tmp);
+		else
+			rc = fg_sram_read(&chip->fg, CYCLE_COUNT_WORD + id,
+					CYCLE_COUNT_OFFSET, (u8 *)tmp, 2,
+					FG_IMA_DEFAULT);
 		if (rc < 0)
 			pr_err("failed to read bucket %d rc=%d\n", id, rc);
 		else
@@ -1130,8 +1177,13 @@ static int fg_gen4_store_count(void *data, u16 *buf, int id, int length)
 		id > BUCKET_COUNT - 1 || ((id * 2) + length) > BUCKET_COUNT * 2)
 		return -EINVAL;
 
-	rc = fg_sram_write(&chip->fg, CYCLE_COUNT_WORD + id, CYCLE_COUNT_OFFSET,
-			(u8 *)buf, length, FG_IMA_DEFAULT);
+	if (chip->fg_nvmem)
+		rc = nvmem_device_write(chip->fg_nvmem,
+			SDAM_CYCLE_COUNT_OFFSET + (id * 2), length, (u8 *)buf);
+	else
+		rc = fg_sram_write(&chip->fg, CYCLE_COUNT_WORD + id,
+				CYCLE_COUNT_OFFSET, (u8 *)buf, length,
+				FG_IMA_DEFAULT);
 	if (rc < 0)
 		pr_err("failed to write bucket %d rc=%d\n", id, rc);
 
@@ -1995,6 +2047,84 @@ static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
 	return 0;
 }
 
+static bool is_sdam_cookie_set(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+	u8 cookie;
+
+	rc = nvmem_device_read(chip->fg_nvmem, SDAM_COOKIE_OFFSET, 1,
+				&cookie);
+	if (rc < 0) {
+		pr_err("Error in reading SDAM_COOKIE rc=%d\n", rc);
+		return false;
+	}
+
+	fg_dbg(fg, FG_STATUS, "cookie: %x\n", cookie);
+	return (cookie == SDAM_COOKIE);
+}
+
+static void fg_gen4_clear_sdam(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	u8 buf[SDAM_FG_PARAM_LENGTH] = { 0 };
+	int rc;
+
+	/*
+	 * Clear all bytes of SDAM used to store FG parameters when it is first
+	 * profile load so that the junk values would not be used.
+	 */
+	rc = nvmem_device_write(chip->fg_nvmem, SDAM_CYCLE_COUNT_OFFSET,
+			SDAM_FG_PARAM_LENGTH, buf);
+	if (rc < 0)
+		pr_err("Error in clearing SDAM rc=%d\n", rc);
+	else
+		fg_dbg(fg, FG_STATUS, "Cleared SDAM\n");
+}
+
+static void fg_gen4_post_profile_load(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc, act_cap_mah;
+	u8 buf[16];
+
+	/* If SDAM cookie is not set, read back from SRAM and load it in SDAM */
+	if (chip->fg_nvmem && !is_sdam_cookie_set(chip)) {
+		fg_gen4_clear_sdam(chip);
+		rc = fg_sram_read(&chip->fg, CYCLE_COUNT_WORD,
+					CYCLE_COUNT_OFFSET, buf, 16,
+					FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in reading cycle counters from SRAM rc=%d\n",
+				rc);
+		} else {
+			rc = nvmem_device_write(chip->fg_nvmem,
+				SDAM_CYCLE_COUNT_OFFSET, 16, (u8 *)buf);
+			if (rc < 0)
+				pr_err("Error in writing cycle counters to SDAM rc=%d\n",
+					rc);
+		}
+
+		rc = fg_get_sram_prop(fg, FG_SRAM_ACT_BATT_CAP, &act_cap_mah);
+		if (rc < 0) {
+			pr_err("Error in getting learned capacity, rc=%d\n",
+				rc);
+		} else {
+			rc = nvmem_device_write(chip->fg_nvmem,
+				SDAM_CAP_LEARN_OFFSET, 2, (u8 *)&act_cap_mah);
+			if (rc < 0)
+				pr_err("Error in writing learned capacity to SDAM, rc=%d\n",
+					rc);
+		}
+	}
+
+	/* Restore the cycle counters so that it would be valid at this point */
+	rc = restore_cycle_count(chip->counter);
+	if (rc < 0)
+		pr_err("Error in restoring cycle_count, rc=%d\n", rc);
+
+}
+
 static void profile_load_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work,
@@ -2028,8 +2158,11 @@ static void profile_load_work(struct work_struct *work)
 	if (!is_profile_load_required(chip))
 		goto done;
 
-	if (!chip->dt.multi_profile_load)
+	if (!chip->dt.multi_profile_load) {
 		clear_cycle_count(chip->counter);
+		if (chip->fg_nvmem && !is_sdam_cookie_set(chip))
+			fg_gen4_clear_sdam(chip);
+	}
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
 
@@ -2054,9 +2187,8 @@ static void profile_load_work(struct work_struct *work)
 		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
 			NOM_CAP_OFFSET, rc);
 	} else {
-		rc = fg_sram_write(fg, fg->sp[FG_SRAM_ACT_BATT_CAP].addr_word,
-			fg->sp[FG_SRAM_ACT_BATT_CAP].addr_byte, buf,
-			fg->sp[FG_SRAM_ACT_BATT_CAP].len, FG_IMA_DEFAULT);
+		nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
+		rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
 		if (rc < 0)
 			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
 	}
@@ -2067,6 +2199,8 @@ done:
 		fg_dbg(fg, FG_STATUS, "First profile load bit is set\n");
 		chip->first_profile_load = true;
 	}
+
+	fg_gen4_post_profile_load(chip);
 
 	rc = fg_gen4_bp_params_config(fg);
 	if (rc < 0)
@@ -4520,12 +4654,6 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 	if (rc < 0)
 		return rc;
 
-	rc = restore_cycle_count(chip->counter);
-	if (rc < 0) {
-		pr_err("Error in restoring cycle_count, rc=%d\n", rc);
-		return rc;
-	}
-
 	chip->batt_age_level = chip->last_batt_age_level = -EINVAL;
 	if (chip->dt.multi_profile_load) {
 		rc = fg_sram_read(fg, BATT_AGE_LEVEL_WORD,
@@ -4766,7 +4894,28 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 	rc = of_property_read_u32(node, "qcom,fg-batt-therm-freq", &temp);
 	if (temp > 0 && temp <= 255)
 		chip->dt.batt_therm_freq = temp;
+}
 
+static int fg_gen4_parse_nvmem_dt(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+
+	if (of_find_property(fg->dev->of_node, "nvmem", NULL)) {
+		chip->fg_nvmem = devm_nvmem_device_get(fg->dev, "fg_sdam");
+		if (IS_ERR_OR_NULL(chip->fg_nvmem)) {
+			rc = PTR_ERR(chip->fg_nvmem);
+			if (rc != -EPROBE_DEFER) {
+				dev_err(fg->dev, "Couldn't get nvmem device, rc=%d\n",
+					rc);
+				return -ENODEV;
+			}
+			chip->fg_nvmem = NULL;
+			return rc;
+		}
+	}
+
+	return 0;
 }
 
 #define DEFAULT_CL_START_SOC		15
@@ -4940,6 +5089,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	}
 
 	rc = fg_gen4_parse_revid_dt(chip);
+	if (rc < 0)
+		return rc;
+
+	rc = fg_gen4_parse_nvmem_dt(chip);
 	if (rc < 0)
 		return rc;
 
