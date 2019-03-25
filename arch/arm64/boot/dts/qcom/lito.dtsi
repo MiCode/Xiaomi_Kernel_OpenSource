@@ -902,11 +902,13 @@
 	};
 
 	gpucc: qcom,gpucc {
-		compatible = "qcom,gpucc-lito", "syscon";
+		compatible = "qcom,lito-gpucc", "syscon";
 		reg = <0x3d90000 0x9000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "xo";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};

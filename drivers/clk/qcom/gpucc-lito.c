@@ -404,8 +404,17 @@ MODULE_DEVICE_TABLE(of, gpu_cc_lito_match_table);
 static int gpu_cc_lito_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	struct clk *clk;
 	unsigned int value, mask;
 	int ret;
+
+	clk = clk_get(&pdev->dev, "xo");
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get ahb clock handle\n");
+		return PTR_ERR(clk);
+	}
+	clk_put(clk);
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_lito_desc);
 	if (IS_ERR(regmap))
