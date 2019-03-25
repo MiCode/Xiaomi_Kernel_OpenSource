@@ -388,8 +388,13 @@ static const struct mtk_vcodec_enc_pdata mt8173_pdata = {
 	.supports_vp8 = true,
 };
 
+static const struct mtk_vcodec_enc_pdata mt8183_pdata = {
+	.uses_ext = true,
+};
+
 static const struct of_device_id mtk_vcodec_enc_match[] = {
 	{.compatible = "mediatek,mt8173-vcodec-enc", .data = &mt8173_pdata},
+	{.compatible = "mediatek,mt8183-vcodec-enc", .data = &mt8183_pdata},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_vcodec_enc_match);

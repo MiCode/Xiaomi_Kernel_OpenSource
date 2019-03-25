@@ -394,9 +394,11 @@ err_res:
 }
 
 extern const struct mtk_vcodec_dec_pdata mtk_frame_8173_pdata;
+extern const struct mtk_vcodec_dec_pdata mtk_req_8183_pdata;
 
 static const struct of_device_id mtk_vcodec_match[] = {
 	{.compatible = "mediatek,mt8173-vcodec-dec", .data = &mtk_frame_8173_pdata},
+	{.compatible = "mediatek,mt8183-vcodec-dec", .data = &mtk_req_8183_pdata},
 	{},
 };
 
