@@ -72,7 +72,7 @@ static bool __written_first_block(struct f2fs_inode *ri)
 {
 	block_t addr = le32_to_cpu(ri->i_addr[offset_in_addr(ri)]);
 
-	if (is_valid_blkaddr(addr))
+	if (addr != NEW_ADDR && addr != NULL_ADDR)
 		return true;
 	return false;
 }
