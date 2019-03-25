@@ -12,6 +12,17 @@
 
 #define CAM_VFE_TOP_VER3_MUX_MAX     6
 
+#define CAM_SHIFT_TOP_CORE_CFG_MUXSEL_PDAF       31
+#define CAM_SHIFT_TOP_CORE_CFG_VID_DS16_R2PD     30
+#define CAM_SHIFT_TOP_CORE_CFG_VID_DS4_R2PD      29
+#define CAM_SHIFT_TOP_CORE_CFG_DISP_DS16_R2PD    28
+#define CAM_SHIFT_TOP_CORE_CFG_DISP_DS4_R2PD     27
+#define CAM_SHIFT_TOP_CORE_CFG_DSP_STREAMING     25
+#define CAM_SHIFT_TOP_CORE_CFG_STATS_IHIST       10
+#define CAM_SHIFT_TOP_CORE_CFG_STATS_HDR_BE       9
+#define CAM_SHIFT_TOP_CORE_CFG_STATS_HDR_BHIST    8
+#define CAM_SHIFT_TOP_CORE_CFG_INPUTMUX_PP        5
+
 struct cam_vfe_top_ver3_reg_offset_common {
 	uint32_t hw_version;
 	uint32_t titan_version;
@@ -37,6 +48,19 @@ struct cam_vfe_top_ver3_reg_offset_common {
 	uint32_t diag_sensor_status_0;
 	uint32_t diag_sensor_status_1;
 	uint32_t bus_overflow_status;
+};
+
+struct cam_vfe_camif_common_cfg {
+	uint32_t     vid_ds16_r2pd;
+	uint32_t     vid_ds4_r2pd;
+	uint32_t     disp_ds16_r2pd;
+	uint32_t     disp_ds4_r2pd;
+	uint32_t     dsp_streaming_tap_point;
+	uint32_t     ihist_src_sel;
+	uint32_t     hdr_be_src_sel;
+	uint32_t     hdr_bhist_src_sel;
+	uint32_t     input_mux_sel_pdaf;
+	uint32_t     input_mux_sel_pp;
 };
 
 struct cam_vfe_top_ver3_hw_info {

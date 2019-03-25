@@ -183,6 +183,17 @@ struct cam_vfe_clock_update_args {
 };
 
 /*
+ * struct cam_vfe_core_config_args:
+ *
+ * @node_res:                Resource to get the time stamp
+ * @core_config:             Core config for IFE
+ */
+struct cam_vfe_core_config_args {
+	struct cam_isp_resource_node      *node_res;
+	struct cam_isp_core_config         core_config;
+};
+
+/*
  * struct cam_vfe_bw_update_args:
  *
  * @node_res:             Resource to get the BW

@@ -26,6 +26,7 @@ struct cam_vfe_mux_camif_lite_data {
 	struct cam_vfe_camif_lite_ver3_reg_data     *reg_data;
 	struct cam_hw_soc_info                      *soc_info;
 	enum cam_isp_hw_sync_mode                    sync_mode;
+	struct cam_vfe_camif_common_cfg              cam_common_cfg;
 
 	cam_hw_mgr_event_cb_func                     event_cb;
 	void                                        *priv;
@@ -266,8 +267,11 @@ static int cam_vfe_camif_lite_resource_start(
 		rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
 		val |= (1 << rsrc_data->reg_data->extern_reg_update_shift);
 
-	if (camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)
+	if (camif_lite_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB) {
 		val |= (1 << rsrc_data->reg_data->operating_mode_shift);
+		val |= (rsrc_data->cam_common_cfg.input_mux_sel_pdaf & 0x1) <<
+			CAM_SHIFT_TOP_CORE_CFG_MUXSEL_PDAF;
+	}
 
 	cam_io_w_mb(val, rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
@@ -383,6 +387,39 @@ static int cam_vfe_camif_lite_resource_stop(
 	return rc;
 }
 
+static int cam_vfe_camif_lite_ver3_core_config(
+	struct cam_isp_resource_node *rsrc_node, void *cmd_args)
+{
+	struct cam_vfe_mux_camif_lite_data *camif_lite_priv;
+	struct cam_vfe_core_config_args *vfe_core_cfg =
+		(struct cam_vfe_core_config_args *)cmd_args;
+
+	camif_lite_priv =
+		(struct cam_vfe_mux_camif_lite_data *)rsrc_node->res_priv;
+	camif_lite_priv->cam_common_cfg.vid_ds16_r2pd =
+		vfe_core_cfg->core_config.vid_ds16_r2pd;
+	camif_lite_priv->cam_common_cfg.vid_ds4_r2pd =
+		vfe_core_cfg->core_config.vid_ds4_r2pd;
+	camif_lite_priv->cam_common_cfg.disp_ds16_r2pd =
+		vfe_core_cfg->core_config.disp_ds16_r2pd;
+	camif_lite_priv->cam_common_cfg.disp_ds4_r2pd =
+		vfe_core_cfg->core_config.disp_ds4_r2pd;
+	camif_lite_priv->cam_common_cfg.dsp_streaming_tap_point =
+		vfe_core_cfg->core_config.dsp_streaming_tap_point;
+	camif_lite_priv->cam_common_cfg.ihist_src_sel =
+		vfe_core_cfg->core_config.ihist_src_sel;
+	camif_lite_priv->cam_common_cfg.hdr_be_src_sel =
+		vfe_core_cfg->core_config.hdr_be_src_sel;
+	camif_lite_priv->cam_common_cfg.hdr_bhist_src_sel =
+		vfe_core_cfg->core_config.hdr_bhist_src_sel;
+	camif_lite_priv->cam_common_cfg.input_mux_sel_pdaf =
+		vfe_core_cfg->core_config.input_mux_sel_pdaf;
+	camif_lite_priv->cam_common_cfg.input_mux_sel_pp =
+		vfe_core_cfg->core_config.input_mux_sel_pp;
+
+	return 0;
+}
+
 static int cam_vfe_camif_lite_process_cmd(
 	struct cam_isp_resource_node *rsrc_node,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
@@ -398,6 +435,9 @@ static int cam_vfe_camif_lite_process_cmd(
 	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = cam_vfe_camif_lite_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_CORE_CONFIG:
+		rc = cam_vfe_camif_lite_ver3_core_config(rsrc_node, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP,

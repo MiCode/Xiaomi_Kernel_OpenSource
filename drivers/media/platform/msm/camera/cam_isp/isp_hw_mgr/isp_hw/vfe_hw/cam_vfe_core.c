@@ -581,6 +581,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
 	case CAM_ISP_HW_CMD_BW_UPDATE:
 	case CAM_ISP_HW_CMD_BW_CONTROL:
+	case CAM_ISP_HW_CMD_CORE_CONFIG:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
