@@ -229,7 +229,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 
 	label = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!label)
-		pr_info("%d: MDSS pll label not specified\n");
+		pr_info("MDSS pll label not specified\n");
 	else
 		pr_info("MDSS pll label = %s\n", label);
 
