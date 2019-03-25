@@ -6423,7 +6423,10 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_wigig_uc_msi_init = ipa3_wigig_uc_msi_init;
 	api_ctrl->ipa_enable_wigig_pipe_i = ipa3_enable_wigig_pipe_i;
 	api_ctrl->ipa_disable_wigig_pipe_i = ipa3_disable_wigig_pipe_i;
-
+	api_ctrl->ipa_register_client_callback =
+		ipa3_register_client_callback;
+	api_ctrl->ipa_deregister_client_callback =
+		ipa3_deregister_client_callback;
 	return 0;
 }
 
