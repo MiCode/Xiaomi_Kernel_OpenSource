@@ -8,6 +8,8 @@
 
 #include <linux/irqdomain.h>
 
+#define GPIO_NO_WAKE_IRQ	~0U
+
 /**
  * struct qcom_irq_fwspec - qcom specific irq fwspec wrapper
  * @fwspec: irq fwspec
