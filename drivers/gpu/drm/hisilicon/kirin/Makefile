@@ -11,5 +11,6 @@ kirin-drm-$(CONFIG_DRM_HISI_KIRIN620) += \
 
 kirin-drm-$(CONFIG_DRM_HISI_KIRIN960) += \
 				kirin960/dw_drm_dsi.o \
+				kirin_drm_dpe.o
 
 obj-$(CONFIG_DRM_HISI_KIRIN) += kirin-drm.o
