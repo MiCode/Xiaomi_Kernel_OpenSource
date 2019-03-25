@@ -2534,6 +2534,9 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 		/* Android platform loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
+	else if (ipa3_ctx->ipa_config_is_mhi)
+		/* LE MHI platform */
+		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_MHI_V01);
 	else
 		/* LE platform not loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_V01);
