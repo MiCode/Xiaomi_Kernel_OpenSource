@@ -787,7 +787,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	static bool patch_reglist;
 
 	/* runtime adjust callbacks based on feature sets */
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		/* Legacy idle management if gmu is disabled */
 		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
@@ -865,7 +865,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
 	/* Turn on GX_MEM retention */
-	if (gmu_core_isenabled(device) && adreno_is_a612(adreno_dev)) {
+	if (gmu_core_gpmu_isenabled(device) && adreno_is_a612(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL, 0x7FB);
 		/* For CP IPC interrupt */
 		kgsl_regwrite(device, A6XX_RBBM_INT_2_MASK, 0x00000010);
@@ -1356,7 +1356,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+	if (!gmu_core_gpmu_isenabled(KGSL_DEVICE(adreno_dev)))
 		return;
 
 	adreno_write_gmureg(adreno_dev,
@@ -1394,7 +1394,8 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, load_firmware))
+	if (gmu_core_gpmu_isenabled(device) &&
+			GMU_DEV_OP_VALID(gmu_dev_ops, load_firmware))
 		return gmu_dev_ops->load_firmware(device);
 
 	return 0;
@@ -1411,7 +1412,7 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (gmu_core_isenabled(device) &&
+	if (gmu_core_gpmu_isenabled(device) &&
 		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
 		return 0;
 
@@ -1506,7 +1507,7 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	int i = 0;
 
 	/* Use the regular reset sequence for No GMU */
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return adreno_reset(device, fault);
 
 	/* Transition from ACTIVE to RESET state */

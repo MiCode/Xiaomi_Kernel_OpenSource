@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -656,7 +656,7 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (gmu_core_isenabled(device) &&
+	else if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return true;
 	else
