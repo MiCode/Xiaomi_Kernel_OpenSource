@@ -19,7 +19,7 @@
 #include "atl_fwd.h"
 #include "atl_qcom_ipa.h"
 
-#define ATL_IPA_DEFAULT_RING_SZ 128
+#define ATL_IPA_DEFAULT_RING_SZ 256
 #define ATL_IPA_DEFAULT_BUFF_SZ 2048
 
 static inline struct atl_fwd_ring *CH_RING(struct ipa_eth_channel *ch)
