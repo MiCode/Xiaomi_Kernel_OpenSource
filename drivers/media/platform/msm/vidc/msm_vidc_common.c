@@ -4509,7 +4509,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	}
 
 	dprintk(VIDC_DBG, "Buffer requirements :\n");
-	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
+	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s %8s\n",
 		"buffer type", "count", "mincount_host", "mincount_fw", "size",
 		"alignment");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
