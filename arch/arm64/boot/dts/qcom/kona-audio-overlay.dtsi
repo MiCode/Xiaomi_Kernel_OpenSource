@@ -71,7 +71,7 @@
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
 		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
-		qcom,mux0-clk-id = <TX_CORE_CLK>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
@@ -104,7 +104,7 @@
 			 <&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
-		qcom,mux0-clk-id = <TX_CORE_CLK>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;

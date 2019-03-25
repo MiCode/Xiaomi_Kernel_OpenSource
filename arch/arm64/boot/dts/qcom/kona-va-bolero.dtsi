@@ -15,7 +15,7 @@
 		qcom,va-dmic-sample-rate = <4800000>;
 		qcom,va-clk-mux-select = <1>;
 		qcom,va-island-mode-muxsel = <0x033A0000>;
-		qcom,mux0-clk-id = <TX_CORE_CLK>;
+		qcom,default-clk-id = <TX_CORE_CLK>;
 	};
 };
 
