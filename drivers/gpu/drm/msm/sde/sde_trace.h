@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,8 +145,9 @@ TRACE_EVENT(sde_encoder_underrun,
 );
 
 TRACE_EVENT(tracing_mark_write,
-	TP_PROTO(char trace_type, int pid, const char *name, int value),
-	TP_ARGS(trace_type, pid, name, value),
+	TP_PROTO(char trace_type, const struct task_struct *task,
+		 const char *name, int value),
+	TP_ARGS(trace_type, task, name, value),
 	TP_STRUCT__entry(
 			__field(char, trace_type)
 			__field(int, pid)
@@ -155,7 +156,7 @@ TRACE_EVENT(tracing_mark_write,
 	),
 	TP_fast_assign(
 			__entry->trace_type = trace_type;
-			__entry->pid = pid;
+			__entry->pid = task ? task->tgid : 0;
 			__assign_str(trace_name, name);
 			__entry->value = value;
 	),
@@ -304,14 +305,13 @@ TRACE_EVENT(sde_perf_calc_crtc,
 			__entry->core_clk_rate)
 );
 
-#define SDE_ATRACE_END(name) \
-		trace_tracing_mark_write('E', current->tgid, name, 0)
-#define SDE_ATRACE_BEGIN(name) \
-		trace_tracing_mark_write('B', current->tgid, name, 0)
+#define sde_atrace trace_tracing_mark_write
+
+#define SDE_ATRACE_END(name) sde_atrace('E', current, name, 0)
+#define SDE_ATRACE_BEGIN(name) sde_atrace('B', current, name, 0)
 #define SDE_ATRACE_FUNC() SDE_ATRACE_BEGIN(__func__)
 
-#define SDE_ATRACE_INT(name, value) \
-		trace_tracing_mark_write('C', current->tgid, name, value)
+#define SDE_ATRACE_INT(name, value) sde_atrace('C', current, name, value)
 
 #endif /* _SDE_TRACE_H_ */
 
