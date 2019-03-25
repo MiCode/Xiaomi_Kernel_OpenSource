@@ -33,16 +33,17 @@ Subsystem properties:
 		are the only acceptable sensor names,
 		1. pa
 		2. pa1
-		3. qfe_pa0
-		4. qfe_wtr0
-		5. modem_tsens
-		6. qfe_mmw0
-		7. qfe_mmw1
-		8. qfe_mmw2
-		9. qfe_mmw3
-		10. xo_therm
-		11. qfe_pa_mdm
-		12. qfe_pa_wtr
+		3. pa2
+		4. qfe_pa0
+		5. qfe_wtr0
+		6. modem_tsens
+		7. qfe_mmw0
+		8. qfe_mmw1
+		9. qfe_mmw2
+		10. qfe_mmw3
+		11. xo_therm
+		12. qfe_pa_mdm
+		13. qfe_pa_wtr
 
 Example:
 
