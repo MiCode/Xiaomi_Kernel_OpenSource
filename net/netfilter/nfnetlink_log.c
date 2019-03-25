@@ -895,7 +895,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
 			goto out_put;
 		default:
 			ret = -ENOTSUPP;
-			break;
+			goto out_put;
 		}
 	} else if (!inst) {
 		ret = -ENODEV;

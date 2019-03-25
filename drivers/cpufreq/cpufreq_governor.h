@@ -48,11 +48,11 @@ enum {OD_NORMAL_SAMPLE, OD_SUB_SAMPLE};
 
 /* Create attributes */
 #define gov_sys_attr_ro(_name)						\
-static struct global_attr _name##_gov_sys =				\
+static struct kobj_attribute _name##_gov_sys =				\
 __ATTR(_name, 0444, show_##_name##_gov_sys, NULL)
 
 #define gov_sys_attr_rw(_name)						\
-static struct global_attr _name##_gov_sys =				\
+static struct kobj_attribute _name##_gov_sys =				\
 __ATTR(_name, 0644, show_##_name##_gov_sys, store_##_name##_gov_sys)
 
 #define gov_pol_attr_ro(_name)						\
@@ -74,7 +74,7 @@ __ATTR(_name, 0644, show_##_name##_gov_pol, store_##_name##_gov_pol)
 /* Create show/store routines */
 #define show_one(_gov, file_name)					\
 static ssize_t show_##file_name##_gov_sys				\
-(struct kobject *kobj, struct attribute *attr, char *buf)		\
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)		\
 {									\
 	struct _gov##_dbs_tuners *tuners = _gov##_dbs_cdata.gdbs_data->tuners; \
 	return sprintf(buf, "%u\n", tuners->file_name);			\
@@ -90,7 +90,7 @@ static ssize_t show_##file_name##_gov_pol				\
 
 #define store_one(_gov, file_name)					\
 static ssize_t store_##file_name##_gov_sys				\
-(struct kobject *kobj, struct attribute *attr, const char *buf, size_t count) \
+(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) \
 {									\
 	struct dbs_data *dbs_data = _gov##_dbs_cdata.gdbs_data;		\
 	return store_##file_name(dbs_data, buf, count);			\
@@ -254,7 +254,7 @@ static inline int delay_for_sampling_rate(unsigned int sampling_rate)
 
 #define declare_show_sampling_rate_min(_gov)				\
 static ssize_t show_sampling_rate_min_gov_sys				\
-(struct kobject *kobj, struct attribute *attr, char *buf)		\
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)		\
 {									\
 	struct dbs_data *dbs_data = _gov##_dbs_cdata.gdbs_data;		\
 	return sprintf(buf, "%u\n", dbs_data->min_sampling_rate);	\
