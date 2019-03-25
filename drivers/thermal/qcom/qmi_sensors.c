@@ -32,6 +32,7 @@
 enum qmi_ts_sensor {
 	QMI_TS_PA,
 	QMI_TS_PA_1,
+	QMI_TS_PA_2,
 	QMI_TS_QFE_PA_0,
 	QMI_TS_QFE_WTR_0,
 	QMI_TS_MODEM_MODEM,
@@ -75,6 +76,7 @@ static atomic_t in_suspend;
 static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
 	{"pa"},
 	{"pa_1"},
+	{"pa_2"},
 	{"qfe_pa0"},
 	{"qfe_wtr0"},
 	{"modem_tsens"},
