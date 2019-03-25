@@ -4,7 +4,7 @@ Qualcomm Technologies, Inc. Graphics Clock & Reset Controller Binding
 Required properties :
 - compatible: shall contain one of the following:
 		"qcom,gpucc-kona"
-		"qcom,gpucc-lito".
+		"qcom,lito-gpucc".
 - reg: shall contain base register offset and size.
 - reg-names: names of registers listed in the same order as in the reg property.
 		Must contain "cc_base".
