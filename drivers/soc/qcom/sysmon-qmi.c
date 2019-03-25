@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -480,7 +480,7 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	shutdown_ack_ret = wait_for_shutdown_ack(dest_desc);
 	if (shutdown_ack_ret < 0) {
 		pr_err("shutdown_ack SMP2P bit for %s not set\n", data->name);
-		if (!&data->ind_recv.done) {
+		if (!completion_done(&data->ind_recv)) {
 			pr_err("QMI shutdown indication not received\n");
 			ret = shutdown_ack_ret;
 		}
