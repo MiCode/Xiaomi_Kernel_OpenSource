@@ -34,7 +34,7 @@ struct ipa3_debugfs_file {
 };
 
 
-const char *ipa3_event_name[] = {
+const char *ipa3_event_name[IPA_EVENT_MAX_NUM] = {
 	__stringify(WLAN_CLIENT_CONNECT),
 	__stringify(WLAN_CLIENT_DISCONNECT),
 	__stringify(WLAN_CLIENT_POWER_SAVE_MODE),
