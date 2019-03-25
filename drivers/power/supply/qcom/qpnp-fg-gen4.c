@@ -4769,12 +4769,6 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 
 }
 
-#define DEFAULT_CUTOFF_VOLT_MV		3100
-#define DEFAULT_EMPTY_VOLT_MV		2812
-#define DEFAULT_SYS_MIN_VOLT_MV		2800
-#define DEFAULT_SYS_TERM_CURR_MA	-125
-#define DEFAULT_CUTOFF_CURR_MA		200
-#define DEFAULT_DELTA_SOC_THR		5	/* 0.5 % */
 #define DEFAULT_CL_START_SOC		15
 #define DEFAULT_CL_MIN_TEMP_DECIDEGC	150
 #define DEFAULT_CL_MAX_TEMP_DECIDEGC	500
@@ -4783,21 +4777,53 @@ static void fg_gen4_parse_batt_temp_dt(struct fg_gen4_chip *chip)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
 #define DEFAULT_CL_DELTA_BATT_SOC	10
-#define DEFAULT_ESR_PULSE_THRESH_MA	47
-#define DEFAULT_ESR_MEAS_CURR_MA	120
 
-static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
+static void fg_gen4_parse_cl_params_dt(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
-	struct device_node *child, *revid_node, *node = fg->dev->of_node;
-	u32 base, temp;
-	u8 subtype;
-	int rc;
+	struct device_node *node = fg->dev->of_node;
 
-	if (!node)  {
-		dev_err(fg->dev, "device tree node missing\n");
-		return -ENXIO;
-	}
+	chip->cl->dt.max_start_soc = DEFAULT_CL_START_SOC;
+	of_property_read_u32(node, "qcom,cl-start-capacity",
+				&chip->cl->dt.max_start_soc);
+
+	chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
+	/* read from DT property and update, if value exists */
+	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
+					&chip->cl->dt.min_delta_batt_soc);
+
+	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
+						"qcom,cl-wt-enable");
+
+	chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
+	of_property_read_u32(node, "qcom,cl-min-temp", &chip->cl->dt.min_temp);
+
+	chip->cl->dt.max_temp = DEFAULT_CL_MAX_TEMP_DECIDEGC;
+	of_property_read_u32(node, "qcom,cl-max-temp", &chip->cl->dt.max_temp);
+
+	chip->cl->dt.max_cap_inc = DEFAULT_CL_MAX_INC_DECIPERC;
+	of_property_read_u32(node, "qcom,cl-max-increment",
+				&chip->cl->dt.max_cap_inc);
+
+	chip->cl->dt.max_cap_dec = DEFAULT_CL_MAX_DEC_DECIPERC;
+	of_property_read_u32(node, "qcom,cl-max-decrement",
+				&chip->cl->dt.max_cap_dec);
+
+	chip->cl->dt.min_cap_limit = DEFAULT_CL_MIN_LIM_DECIPERC;
+	of_property_read_u32(node, "qcom,cl-min-limit",
+				&chip->cl->dt.min_cap_limit);
+
+	chip->cl->dt.max_cap_limit = DEFAULT_CL_MAX_LIM_DECIPERC;
+	of_property_read_u32(node, "qcom,cl-max-limit",
+				&chip->cl->dt.max_cap_limit);
+
+	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+}
+
+static int fg_gen4_parse_revid_dt(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	struct device_node *revid_node, *node = fg->dev->of_node;
 
 	revid_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
 	if (!revid_node) {
@@ -4837,6 +4863,17 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	default:
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int fg_gen4_parse_child_nodes_dt(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	struct device_node *child, *node = fg->dev->of_node;
+	u32 base;
+	u8 subtype;
+	int rc;
 
 	if (of_get_available_child_count(node) == 0) {
 		dev_err(fg->dev, "No child nodes specified!\n");
@@ -4878,36 +4915,58 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		}
 	}
 
+	return 0;
+}
+
+#define DEFAULT_CUTOFF_VOLT_MV		3100
+#define DEFAULT_EMPTY_VOLT_MV		2812
+#define DEFAULT_SYS_MIN_VOLT_MV		2800
+#define DEFAULT_SYS_TERM_CURR_MA	-125
+#define DEFAULT_CUTOFF_CURR_MA		200
+#define DEFAULT_DELTA_SOC_THR		5	/* 0.5 % */
+#define DEFAULT_ESR_PULSE_THRESH_MA	47
+#define DEFAULT_ESR_MEAS_CURR_MA	120
+
+static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
+{
+	struct fg_dev *fg = &chip->fg;
+	struct device_node *node = fg->dev->of_node;
+	u32 temp;
+	int rc;
+
+	if (!node)  {
+		dev_err(fg->dev, "device tree node missing\n");
+		return -ENXIO;
+	}
+
+	rc = fg_gen4_parse_revid_dt(chip);
+	if (rc < 0)
+		return rc;
+
+	rc = fg_gen4_parse_child_nodes_dt(chip);
+	if (rc < 0)
+		return rc;
+
 	/* Read all the optional properties below */
-	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage", &temp);
-	if (rc < 0)
-		chip->dt.cutoff_volt_mv = DEFAULT_CUTOFF_VOLT_MV;
-	else
-		chip->dt.cutoff_volt_mv = temp;
+	chip->dt.cutoff_volt_mv = DEFAULT_CUTOFF_VOLT_MV;
+	of_property_read_u32(node, "qcom,fg-cutoff-voltage",
+				&chip->dt.cutoff_volt_mv);
 
-	rc = of_property_read_u32(node, "qcom,fg-cutoff-current", &temp);
-	if (rc < 0)
-		chip->dt.cutoff_curr_ma = DEFAULT_CUTOFF_CURR_MA;
-	else
-		chip->dt.cutoff_curr_ma = temp;
+	chip->dt.cutoff_curr_ma = DEFAULT_CUTOFF_CURR_MA;
+	of_property_read_u32(node, "qcom,fg-cutoff-current",
+				&chip->dt.cutoff_curr_ma);
 
-	rc = of_property_read_u32(node, "qcom,fg-empty-voltage", &temp);
-	if (rc < 0)
-		chip->dt.empty_volt_mv = DEFAULT_EMPTY_VOLT_MV;
-	else
-		chip->dt.empty_volt_mv = temp;
+	chip->dt.empty_volt_mv = DEFAULT_EMPTY_VOLT_MV;
+	of_property_read_u32(node, "qcom,fg-empty-voltage",
+				&chip->dt.empty_volt_mv);
 
-	rc = of_property_read_u32(node, "qcom,fg-sys-term-current", &temp);
-	if (rc < 0)
-		chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
-	else
-		chip->dt.sys_term_curr_ma = temp;
+	chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
+	of_property_read_u32(node, "qcom,fg-sys-term-current",
+				&chip->dt.sys_term_curr_ma);
 
-	rc = of_property_read_u32(node, "qcom,fg-delta-soc-thr", &temp);
-	if (rc < 0)
-		chip->dt.delta_soc_thr = DEFAULT_DELTA_SOC_THR;
-	else
-		chip->dt.delta_soc_thr = temp;
+	chip->dt.delta_soc_thr = DEFAULT_DELTA_SOC_THR;
+	of_property_read_u32(node, "qcom,fg-delta-soc-thr",
+				&chip->dt.delta_soc_thr);
 
 	chip->dt.esr_timer_chg_fast[TIMER_RETRY] = -EINVAL;
 	chip->dt.esr_timer_chg_fast[TIMER_MAX] = -EINVAL;
@@ -4942,58 +5001,7 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	chip->dt.force_load_profile = of_property_read_bool(node,
 					"qcom,fg-force-load-profile");
 
-	rc = of_property_read_u32(node, "qcom,cl-start-capacity", &temp);
-	if (rc < 0)
-		chip->cl->dt.max_start_soc = DEFAULT_CL_START_SOC;
-	else
-		chip->cl->dt.max_start_soc = temp;
-
-	chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
-	/* read from DT property and update, if value exists */
-	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
-					&chip->cl->dt.min_delta_batt_soc);
-
-	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-						"qcom,cl-wt-enable");
-
-	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
-	if (rc < 0)
-		chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
-	else
-		chip->cl->dt.min_temp = temp;
-
-	rc = of_property_read_u32(node, "qcom,cl-max-temp", &temp);
-	if (rc < 0)
-		chip->cl->dt.max_temp = DEFAULT_CL_MAX_TEMP_DECIDEGC;
-	else
-		chip->cl->dt.max_temp = temp;
-
-	rc = of_property_read_u32(node, "qcom,cl-max-increment", &temp);
-	if (rc < 0)
-		chip->cl->dt.max_cap_inc = DEFAULT_CL_MAX_INC_DECIPERC;
-	else
-		chip->cl->dt.max_cap_inc = temp;
-
-	rc = of_property_read_u32(node, "qcom,cl-max-decrement", &temp);
-	if (rc < 0)
-		chip->cl->dt.max_cap_dec = DEFAULT_CL_MAX_DEC_DECIPERC;
-	else
-		chip->cl->dt.max_cap_dec = temp;
-
-	rc = of_property_read_u32(node, "qcom,cl-min-limit", &temp);
-	if (rc < 0)
-		chip->cl->dt.min_cap_limit = DEFAULT_CL_MIN_LIM_DECIPERC;
-	else
-		chip->cl->dt.min_cap_limit = temp;
-
-	rc = of_property_read_u32(node, "qcom,cl-max-limit", &temp);
-	if (rc < 0)
-		chip->cl->dt.max_cap_limit = DEFAULT_CL_MAX_LIM_DECIPERC;
-	else
-		chip->cl->dt.max_cap_limit = temp;
-
-	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
-
+	fg_gen4_parse_cl_params_dt(chip);
 	fg_gen4_parse_batt_temp_dt(chip);
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
