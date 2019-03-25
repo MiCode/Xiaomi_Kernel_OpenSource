@@ -23,7 +23,10 @@
 #include <linux/cpumask.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/swap.h>
+#include <linux/vmalloc.h>
 #include <linux/cgroupstats.h>
+#include <linux/sysstats.h>
 #include <linux/cgroup.h>
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -56,6 +59,11 @@ static const struct nla_policy taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1
  */
 static const struct nla_policy cgroupstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
 	[CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
+};
+
+static const struct nla_policy
+		sysstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] = {
+	[SYSSTATS_CMD_ATTR_SYSMEM_STATS] = { .type = NLA_U32 },
 };
 
 struct listener {
@@ -400,6 +408,142 @@ err:
 	return NULL;
 }
 
+#define K(x) ((x) << (PAGE_SHIFT - 10))
+#ifndef CONFIG_NUMA
+static void sysstats_fill_zoneinfo(struct sys_memstats *stats)
+{
+	pg_data_t *pgdat;
+	struct zone *zone;
+	struct zone *node_zones;
+	unsigned long zspages = 0;
+
+	pgdat = NODE_DATA(0);
+	node_zones = pgdat->node_zones;
+
+	for (zone = node_zones; zone - node_zones < MAX_NR_ZONES; ++zone) {
+		if (!populated_zone(zone))
+			continue;
+
+		zspages += zone_page_state(zone, NR_ZSPAGES);
+		if (!strcmp(zone->name, "DMA")) {
+			stats->dma_nr_free_pages =
+				K(zone_page_state(zone, NR_FREE_PAGES));
+			stats->dma_nr_active_anon =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_ANON));
+			stats->dma_nr_inactive_anon =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_ANON));
+			stats->dma_nr_active_file =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_FILE));
+			stats->dma_nr_inactive_file =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
+		} else if (!strcmp(zone->name, "Normal")) {
+			stats->normal_nr_free_pages =
+				K(zone_page_state(zone, NR_FREE_PAGES));
+			stats->normal_nr_active_anon =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_ANON));
+			stats->normal_nr_inactive_anon =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_ANON));
+			stats->normal_nr_active_file =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_FILE));
+			stats->normal_nr_inactive_file =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
+		} else if (!strcmp(zone->name, "HighMem")) {
+			stats->highmem_nr_free_pages =
+				K(zone_page_state(zone, NR_FREE_PAGES));
+			stats->highmem_nr_active_anon =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_ANON));
+			stats->highmem_nr_inactive_anon =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_ANON));
+			stats->highmem_nr_active_file =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_FILE));
+			stats->highmem_nr_inactive_file =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
+		} else if (!strcmp(zone->name, "Movable")) {
+			stats->movable_nr_free_pages =
+				K(zone_page_state(zone, NR_FREE_PAGES));
+			stats->movable_nr_active_anon =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_ANON));
+			stats->movable_nr_inactive_anon =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_ANON));
+			stats->movable_nr_active_file =
+				K(zone_page_state(zone, NR_ZONE_ACTIVE_FILE));
+			stats->movable_nr_inactive_file =
+				K(zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
+		}
+	}
+	stats->zram_compressed = K(zspages);
+}
+#elif
+static void sysstats_fill_zoneinfo(struct sys_memstats *stats)
+{
+}
+#endif
+
+static void sysstats_build(struct sys_memstats *stats)
+{
+	struct sysinfo i;
+
+	si_meminfo(&i);
+	si_swapinfo(&i);
+
+	stats->version = SYSSTATS_VERSION;
+	stats->memtotal = K(i.totalram);
+	stats->reclaimable =
+		global_node_page_state(NR_INDIRECTLY_RECLAIMABLE_BYTES) >> 10;
+	stats->swap_used = K(i.totalswap - i.freeswap);
+	stats->swap_total = K(i.totalswap);
+	stats->vmalloc_total = K(vmalloc_nr_pages());
+	stats->unreclaimable =
+		K(global_node_page_state(NR_UNRECLAIMABLE_PAGES));
+	stats->buffer = K(i.bufferram);
+	stats->swapcache = K(total_swapcache_pages());
+	stats->slab_reclaimable =
+		K(global_node_page_state(NR_SLAB_RECLAIMABLE));
+	stats->slab_unreclaimable =
+		K(global_node_page_state(NR_SLAB_UNRECLAIMABLE));
+	stats->free_cma = K(global_zone_page_state(NR_FREE_CMA_PAGES));
+	stats->file_mapped = K(global_node_page_state(NR_FILE_MAPPED));
+	stats->kernelstack = global_zone_page_state(NR_KERNEL_STACK_KB);
+	stats->pagetable = K(global_zone_page_state(NR_PAGETABLE));
+	stats->shmem = K(i.sharedram);
+	sysstats_fill_zoneinfo(stats);
+}
+#undef K
+
+static int sysstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
+{
+	int rc = 0;
+	struct sk_buff *rep_skb;
+	struct sys_memstats *stats;
+	struct nlattr *na;
+	size_t size;
+
+	size = nla_total_size(sizeof(struct sys_memstats));
+
+	rc = prepare_reply(info, SYSSTATS_CMD_NEW, &rep_skb,
+				size);
+	if (rc < 0)
+		goto err;
+
+	na = nla_reserve(rep_skb, SYSSTATS_TYPE_SYSMEM_STATS,
+				sizeof(struct sys_memstats));
+	if (na == NULL) {
+		nlmsg_free(rep_skb);
+		rc = -EMSGSIZE;
+		goto err;
+	}
+
+	stats = nla_data(na);
+	memset(stats, 0, sizeof(*stats));
+
+	sysstats_build(stats);
+
+	rc = send_reply(rep_skb, info);
+
+err:
+	return rc;
+}
+
 static int cgroupstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
 {
 	int rc = 0;
@@ -661,6 +805,11 @@ static const struct genl_ops taskstats_ops[] = {
 		.cmd		= CGROUPSTATS_CMD_GET,
 		.doit		= cgroupstats_user_cmd,
 		.policy		= cgroupstats_cmd_get_policy,
+	},
+	{
+		.cmd		= SYSSTATS_CMD_GET,
+		.doit		= sysstats_user_cmd,
+		.policy		= sysstats_cmd_get_policy,
 	},
 };
 
