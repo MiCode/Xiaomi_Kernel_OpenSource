@@ -278,13 +278,15 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 
 static int msm_cvp_session_process_hfi(
 	struct msm_cvp_inst *inst,
-	struct cvp_kmd_hfi_packet *in_pkt)
+	struct cvp_kmd_hfi_packet *in_pkt,
+	unsigned int in_offset,
+	unsigned int in_buf_num)
 {
 	int i, pkt_idx, rc = 0;
 	struct hfi_device *hdev;
 	struct msm_cvp_internal_buffer *cbuf;
 	struct buf_desc *buf_ptr;
-	unsigned int offset, buf_num;
+	unsigned int offset, buf_num, signal;
 
 	if (!inst || !inst->core || !in_pkt) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -297,10 +299,23 @@ static int msm_cvp_session_process_hfi(
 		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
 				in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-		return pkt_idx;
+		offset = in_offset;
+		buf_num = in_buf_num;
+		signal = HAL_NO_RESP;
+	} else {
+		offset = cvp_hfi_defs[pkt_idx].buf_offset;
+		buf_num = cvp_hfi_defs[pkt_idx].buf_num;
+		signal = cvp_hfi_defs[pkt_idx].resp;
 	}
-	offset = cvp_hfi_defs[pkt_idx].buf_offset;
-	buf_num = cvp_hfi_defs[pkt_idx].buf_num;
+
+	if (in_offset && in_buf_num) {
+		if (offset != in_offset || buf_num != in_buf_num) {
+			dprintk(CVP_ERR, "%s incorrect offset and num %d, %d\n",
+					__func__, in_offset, in_buf_num);
+			offset = in_offset;
+			buf_num = in_buf_num;
+		}
+	}
 
 	if (offset != 0 && buf_num != 0) {
 		buf_ptr = (struct buf_desc *)&in_pkt->pkt_data[offset];
@@ -330,16 +345,15 @@ static int msm_cvp_session_process_hfi(
 			__func__, in_pkt->pkt_data[0], in_pkt->pkt_data[1]);
 	}
 
-	if (cvp_hfi_defs[pkt_idx].resp != HAL_NO_RESP) {
-		rc = wait_for_sess_signal_receipt(inst,
-			cvp_hfi_defs[pkt_idx].resp);
+	if (signal != HAL_NO_RESP) {
+		rc = wait_for_sess_signal_receipt(inst, signal);
 		if (rc)
 			dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d %d, %x %d\n",
 				__func__, rc,
 				in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1],
-				cvp_hfi_defs[pkt_idx].resp);
+				signal);
 
 	}
 
@@ -761,7 +775,8 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		struct cvp_kmd_hfi_packet *in_pkt =
 			(struct cvp_kmd_hfi_packet *)&arg->data.hfi_pkt;
 
-		rc = msm_cvp_session_process_hfi(inst, in_pkt);
+		rc = msm_cvp_session_process_hfi(inst, in_pkt,
+				arg->buf_offset, arg->buf_num);
 		break;
 	}
 	case CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE:

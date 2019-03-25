@@ -20,7 +20,7 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 		return -EFAULT;
 
 	if (get_pkt_index(pkt_hdr) < 0) {
-		dprintk(CVP_DBG, "user mode provides incorrect hfi\n");
+		dprintk(CVP_ERR, "user mode provides incorrect hfi\n");
 		goto set_default_pkt_hdr;
 	}
 
