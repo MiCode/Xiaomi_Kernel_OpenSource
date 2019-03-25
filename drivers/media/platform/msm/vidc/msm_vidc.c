@@ -1348,6 +1348,7 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 				inst, v4l2_ctrl_get_name(ctrl->id));
 	return rc;
 }
+
 static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *ctrl)
 {
@@ -1355,7 +1356,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 	struct hal_buffer_requirements *bufreq = NULL;
 
 	switch (ctrl->id) {
-
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		ctrl->val = msm_comm_hfi_to_v4l2(
 			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
@@ -1384,8 +1384,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 			V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 			inst->level);
 		break;
-
-
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		if (!bufreq) {
@@ -1407,7 +1405,6 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 					HAL_BUFFER_INPUT);
 			return -EINVAL;
 		}
-
 		ctrl->val = bufreq->buffer_count_min_host;
 		dprintk(VIDC_DBG, "g_min: %x : hal_buffer %d min buffers %d\n",
 			hash32_ptr(inst->session), HAL_BUFFER_INPUT, ctrl->val);
@@ -1416,62 +1413,15 @@ static int try_get_ctrl_for_instance(struct msm_vidc_inst *inst,
 		ctrl->val = inst->prop.extradata_ctrls;
 		break;
 	default:
-		/*
-		 * Other controls aren't really volatile, shouldn't need to
-		 * modify ctrl->value
-		 */
 		break;
 	}
 
 	return rc;
 }
 
-static int msm_vidc_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	int rc = 0;
-	unsigned int c = 0;
-	struct msm_vidc_inst *inst;
-	struct v4l2_ctrl *master;
-
-	if (!ctrl) {
-		dprintk(VIDC_ERR, "%s invalid parameters for ctrl\n", __func__);
-		return -EINVAL;
-	}
-
-	inst = container_of(ctrl->handler,
-		struct msm_vidc_inst, ctrl_handler);
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s invalid parameters for inst\n", __func__);
-		return -EINVAL;
-	}
-	master = ctrl->cluster[0];
-	if (!master) {
-		dprintk(VIDC_ERR, "%s invalid parameters for master\n",
-			__func__);
-		return -EINVAL;
-	}
-
-	for (c = 0; c < master->ncontrols; ++c) {
-		if (master->cluster[c]->flags & V4L2_CTRL_FLAG_VOLATILE) {
-			rc = try_get_ctrl_for_instance(inst,
-				master->cluster[c]);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed getting %x\n",
-					master->cluster[c]->id);
-				return rc;
-			}
-		}
-	}
-	if (rc)
-		dprintk(VIDC_ERR, "Failed getting control: Inst = %pK (%s)\n",
-				inst, v4l2_ctrl_get_name(ctrl->id));
-	return rc;
-}
-
 static const struct v4l2_ctrl_ops msm_vidc_ctrl_ops = {
 
 	.s_ctrl = msm_vidc_op_s_ctrl,
-	.g_volatile_ctrl = msm_vidc_op_g_volatile_ctrl,
 };
 
 static struct msm_vidc_inst_smem_ops  msm_vidc_smem_ops = {

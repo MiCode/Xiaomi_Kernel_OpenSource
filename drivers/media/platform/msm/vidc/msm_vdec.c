@@ -71,7 +71,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = 0,
 		.default_value = 0,
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
@@ -95,7 +94,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 				  V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_P |
 				  V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_B),
 		.step = 0,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
@@ -106,7 +104,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.default_value = V4L2_MPEG_MSM_VIDC_DISABLE,
 		.step = 1,
-		},
+	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
 		.name = "Secure mode",
@@ -123,7 +121,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = EXTRADATA_NONE,
 		.maximum = EXTRADATA_DEFAULT | EXTRADATA_ADVANCED,
 		.default_value = EXTRADATA_DEFAULT,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
@@ -136,7 +133,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY,
 		.default_value =
 			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
-		.menu_skip_mask = 0,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -154,7 +150,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_HIGH) |
 		(1 << V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH)
 		),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -186,7 +181,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_1) |
 		(1 << V4L2_MPEG_VIDEO_H264_LEVEL_6_2)
 		),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -201,7 +195,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10)
 		),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -226,7 +219,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2)
 		),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -240,7 +232,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) |
 		(1 << V4L2_MPEG_VIDEO_HEVC_TIER_HIGH)
 		),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -251,7 +242,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
 		.default_value = V4L2_MPEG_VIDEO_VP8_PROFILE_0,
 		.menu_skip_mask = ~(1 << V4L2_MPEG_VIDEO_VP8_PROFILE_0),
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -269,7 +259,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3)
 		),
 		.qmenu = vp8_profile_level,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_VP9_PROFILE,
@@ -284,7 +273,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_VP9_PROFILE_2)
 		),
 		.qmenu = NULL,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP9_LEVEL,
@@ -309,7 +297,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_61)
 		),
 		.qmenu = vp9_level,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE,
@@ -323,7 +310,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN)
 		),
 		.qmenu = mpeg2_profile,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL,
@@ -338,7 +324,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2)
 		),
 		.qmenu = mpeg2_level,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT,
@@ -366,7 +351,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = INT_MAX,
 		.default_value = 0,
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
@@ -377,9 +361,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = MAX_NUM_CAPTURE_BUFFERS,
 		.default_value = MIN_NUM_CAPTURE_BUFFERS,
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
@@ -389,9 +371,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = MAX_NUM_OUTPUT_BUFFERS,
 		.default_value = MIN_NUM_OUTPUT_BUFFERS,
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE,
@@ -401,7 +381,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = (MAXIMUM_FPS << 16),
 		.default_value = (DEFAULT_FPS << 16),
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
@@ -421,7 +400,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = INT_MAX,
 		.default_value =  (DEFAULT_FPS << 16),
 		.step = 1,
-		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
 	{
