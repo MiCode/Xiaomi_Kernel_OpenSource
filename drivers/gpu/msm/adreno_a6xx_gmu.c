@@ -86,7 +86,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	unsigned int cfg_offset, seq_offset;
 
 	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
-	if (adreno_is_a640v2(adreno_dev)) {
+	if ((adreno_is_a640v2(adreno_dev)) || (adreno_is_a680v2(adreno_dev))) {
 		cfg_offset = 0x90000;
 		seq_offset = 0x290000;
 	} else {
