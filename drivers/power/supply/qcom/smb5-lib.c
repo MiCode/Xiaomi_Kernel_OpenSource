@@ -904,7 +904,7 @@ void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable)
 	int rc;
 	u8 mask;
 
-	if (chg->hvdcp_disable)
+	if (chg->hvdcp_disable || chg->pd_not_supported)
 		return;
 
 	mask = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
@@ -3376,7 +3376,7 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
-	int rc = 0;
+	int rc = 0, buck_scale = 1, boost_scale = 1;
 
 	if (chg->iio.usbin_i_chan) {
 		rc = iio_read_channel_processed(chg->iio.usbin_i_chan,
@@ -3389,10 +3389,24 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 		/*
 		 * For PM8150B, scaling factor = reciprocal of
 		 * 0.2V/A in Buck mode, 0.4V/A in Boost mode.
+		 * For PMI632, scaling factor = reciprocal of
+		 * 0.4V/A in Buck mode, 0.8V/A in Boost mode.
 		 */
+		switch (chg->smb_version) {
+		case PMI632_SUBTYPE:
+			buck_scale = 40;
+			boost_scale = 80;
+			break;
+		default:
+			buck_scale = 20;
+			boost_scale = 40;
+			break;
+		}
+
 		if (chg->otg_present || smblib_get_prop_dfp_mode(chg) !=
 				POWER_SUPPLY_TYPEC_NONE) {
-			val->intval = DIV_ROUND_CLOSEST(val->intval * 100, 40);
+			val->intval = DIV_ROUND_CLOSEST(val->intval * 100,
+								boost_scale);
 			return rc;
 		}
 
@@ -3407,7 +3421,8 @@ int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 		if (!pval.intval)
 			val->intval = 0;
 		else
-			val->intval *= 5;
+			val->intval = DIV_ROUND_CLOSEST(val->intval * 100,
+								buck_scale);
 	} else {
 		val->intval = 0;
 		rc = -ENODATA;
