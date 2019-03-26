@@ -372,7 +372,7 @@ struct sde_connector_dyn_hdr_metadata {
  * @esd_status_check: Flag to indicate if ESD thread is scheduled or not
  * @bl_scale_dirty: Flag to indicate PP BL scale value(s) is changed
  * @bl_scale: BL scale value for ABA feature
- * @bl_scale_ad: BL scale value for AD feature
+ * @bl_scale_sv: BL scale value for sunlight visibility feature
  * @unset_bl_level: BL level that needs to be set later
  * @allow_bl_update: Flag to indicate if BL update is allowed currently or not
  * @qsync_mode: Cached Qsync mode, 0=disabled, 1=continuous mode
@@ -423,7 +423,7 @@ struct sde_connector {
 
 	bool bl_scale_dirty;
 	u32 bl_scale;
-	u32 bl_scale_ad;
+	u32 bl_scale_sv;
 	u32 unset_bl_level;
 	bool allow_bl_update;
 
