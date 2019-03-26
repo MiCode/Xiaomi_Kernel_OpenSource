@@ -481,6 +481,8 @@ qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
 		qmi->wda_pending = NULL;
+	} else {
+		qmi_rmnet_flush_ps_wq();
 	}
 
 	__qmi_rmnet_delete_client(port, qmi, idx);
@@ -982,4 +984,10 @@ void qmi_rmnet_set_dl_msg_active(void *port)
 	qmi->dl_msg_active = true;
 }
 EXPORT_SYMBOL(qmi_rmnet_set_dl_msg_active);
+
+void qmi_rmnet_flush_ps_wq(void)
+{
+	if (rmnet_ps_wq)
+		flush_workqueue(rmnet_ps_wq);
+}
 #endif

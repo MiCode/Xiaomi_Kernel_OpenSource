@@ -2105,7 +2105,7 @@
 		qca,bt-vdd-xtal-supply = <&pm6125_l16>;
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
-		qca,bt-vdd-core-voltage-level = <1245000 1350000>; /* RFA */
+		qca,bt-vdd-core-voltage-level = <1304000 1304000>; /* RFA */
 		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
 
@@ -2203,6 +2203,46 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<78 512 0 0>, <1 606 0 0>,
+			/* 400 KB/s*/
+			<78 512 1046 3200>,
+			<1 606 1600 1600>,
+			/* 20 MB/s */
+			<78 512 52286 160000>,
+			<1 606 80000 80000>,
+			/* 25 MB/s */
+			<78 512 65360 200000>,
+			<1 606 100000 100000>,
+			/* 50 MB/s */
+			<78 512 130718 400000>,
+			<1 606 133320 200000>,
+			/* 100 MB/s */
+			<78 512 130718 400000>,
+			<1 606 150000 400000>,
+			/* 200 MB/s */
+			<78 512 261438 800000>,
+			<1 606 300000 800000>,
+			/* 400 MB/s */
+			<78 512 261438 800000>,
+			<1 606 300000 1600000>,
+			/* Max. bandwidth */
+			<78 512 1338562 4096000>,
+			<1 606 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 400000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <40 40>;
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cmdq-latency-us = <40 40>, <40 40>;
+		qcom,pm-qos-legacy-latency-us = <40 40>, <40 40>;
+
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
@@ -2213,7 +2253,7 @@
 		qcom,ice-clk-rates = <300000000 75000000>;
 
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
-		qcom,dll-hsr-list = <0x000F642C 0x0 0x0 0x00010800 0x80040868>;
+		qcom,dll-hsr-list = <0x000f642c 0x0 0x0 0x00010800 0x80040873>;
 
 		qcom,nonremovable;
 		status = "disabled";
@@ -2238,12 +2278,48 @@
 
 		qcom,devfreq,freq-table = <50000000 202000000>;
 
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 3200>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 160000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 200000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 400000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 400000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 800000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <40 40>;
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-legacy-latency-us = <40 40>, <40 40>;
+
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
 		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
-		qcom,dll-hsr-list = <0x0007642C 0x0 0x0 0x00010800 0x80040868>;
+		qcom,dll-hsr-list = <0x0007642c 0x0 0x0 0x00010800 0x80040873>;
 
 		status = "disabled";
 	};
@@ -2435,7 +2511,7 @@
 		compatible = "qcom,bimc-bwmon4";
 		reg = <0x01b8e200 0x100>, <0x01b8e100 0x100>;
 		reg-names = "base", "global_base";
-		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpu_cpu_ddr_bw>;
@@ -2529,6 +2605,15 @@
 
 	demux {
 		compatible = "qcom,demux";
+	};
+
+	qfprom: qfprom@1b46018 {
+		compatible = "qcom,qfprom";
+		reg = <0x1b46018 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
 	};
 };
 
@@ -2885,6 +2970,18 @@
 	};
 };
 
+&pm8008_gpios {
+	gpio1_active {
+		pm8008_gpio1_active: pm8008_gpio1_active {
+			pins = "gpio1";
+			function = "normal";
+			power-source = <1>;
+			bias-disable;
+			input-enable;
+		};
+	};
+};
+
 &pm8008_chip {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pm8008_active>;
@@ -2892,6 +2989,12 @@
 
 &pm8008_regulators {
 	vdd_l1_l2-supply = <&S6A>;
+};
+
+&pm8008_9 {
+	/* GPIO1 pinctrl config */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm8008_gpio1_active>;
 };
 
 &L1P {

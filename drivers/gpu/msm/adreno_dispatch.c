@@ -2182,6 +2182,15 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 				adreno_dev->cur_rb = hung_rb;
 			}
 		}
+
+		/*
+		 * Make sure to unhalt the dispatcher in case if it is halted
+		 * because of starved ringbuffer.
+		 */
+		if (rb->starve_state == ADRENO_STARVE_EXPIRED) {
+			adreno_put_gpu_halt(adreno_dev);
+			rb->starve_state = ADRENO_STARVE_OFF;
+		}
 	}
 
 	if (dispatch_q && !adreno_drawqueue_is_empty(dispatch_q)) {

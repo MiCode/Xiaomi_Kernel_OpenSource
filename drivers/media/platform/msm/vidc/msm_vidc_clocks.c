@@ -727,7 +727,9 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	struct hfi_device *hdev;
 	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;
 	unsigned long freq_core_max = 0;
-	struct msm_vidc_inst *temp = NULL;
+	struct msm_vidc_inst *inst = NULL;
+	struct msm_vidc_buffer *temp, *next;
+	u32 device_addr, filled_len;
 	int rc = 0, i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	bool increment, decrement;
@@ -743,15 +745,34 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 	mutex_lock(&core->lock);
 	increment = false;
 	decrement = true;
-	list_for_each_entry(temp, &core->instances, list) {
+	list_for_each_entry(inst, &core->instances, list) {
+		device_addr = 0;
+		filled_len = 0;
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry_safe(temp, next,
+				&inst->registeredbufs.list, list) {
+			if (temp->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				filled_len = max(filled_len,
+					temp->vvb.vb2_buf.planes[0].bytesused);
+				device_addr = temp->smem[0].device_addr;
+			}
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
 
-		if (temp->clk_data.core_id == VIDC_CORE_ID_1)
-			freq_core_1 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
-			freq_core_2 += temp->clk_data.min_freq;
-		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
-			freq_core_1 += temp->clk_data.min_freq;
-			freq_core_2 += temp->clk_data.min_freq;
+		if (!filled_len || !device_addr) {
+			dprintk(VIDC_DBG, "%s no input for session %x\n",
+				__func__, hash32_ptr(inst->session));
+			continue;
+		}
+
+		if (inst->clk_data.core_id == VIDC_CORE_ID_1)
+			freq_core_1 += inst->clk_data.min_freq;
+		else if (inst->clk_data.core_id == VIDC_CORE_ID_2)
+			freq_core_2 += inst->clk_data.min_freq;
+		else if (inst->clk_data.core_id == VIDC_CORE_ID_3) {
+			freq_core_1 += inst->clk_data.min_freq;
+			freq_core_2 += inst->clk_data.min_freq;
 		}
 
 		freq_core_max = max_t(unsigned long, freq_core_1, freq_core_2);
@@ -765,7 +786,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			break;
 		}
 
-		if (temp->clk_data.turbo_mode) {
+		if (inst->clk_data.turbo_mode) {
 			dprintk(VIDC_PROF,
 				"Found an instance with Turbo request\n");
 			freq_core_max = msm_vidc_max_freq(core);
@@ -773,10 +794,10 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 			break;
 		}
 		/* increment even if one session requested for it */
-		if (temp->clk_data.dcvs_flags & MSM_VIDC_DCVS_INCR)
+		if (inst->clk_data.dcvs_flags & MSM_VIDC_DCVS_INCR)
 			increment = true;
 		/* decrement only if all sessions requested for it */
-		if (!(temp->clk_data.dcvs_flags & MSM_VIDC_DCVS_DECR))
+		if (!(inst->clk_data.dcvs_flags & MSM_VIDC_DCVS_DECR))
 			decrement = false;
 	}
 
@@ -816,8 +837,8 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 {
 	struct msm_vidc_inst *temp;
 	struct msm_vidc_core *core;
-	unsigned long max_freq, freq_left, ops_left, load, cycles, freq = 0;
-	unsigned long mbs_per_second;
+	unsigned long max_freq, freq_left, op_rate_possible, load, cycles;
+	unsigned long mbs_per_second, freq_core0 = 0, freq_core1 = 0, freq;
 	int rc = 0;
 	u32 curr_operating_rate = 0;
 
@@ -826,7 +847,13 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 	core = inst->core;
-	curr_operating_rate = inst->clk_data.operating_rate >> 16;
+	curr_operating_rate =
+		max(inst->clk_data.operating_rate >> 16, inst->prop.fps);
+	operating_rate = operating_rate >> 16;
+
+	/* always allow decreasing operating rate*/
+	if (curr_operating_rate >= operating_rate)
+		return 0;
 
 	mutex_lock(&core->lock);
 	max_freq = msm_vidc_max_freq(core);
@@ -836,10 +863,24 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
 			continue;
 
-		freq += temp->clk_data.min_freq;
+		if (temp->clk_data.core_id == VIDC_CORE_ID_1)
+			freq_core0 += temp->clk_data.min_freq;
+		else if (temp->clk_data.core_id == VIDC_CORE_ID_2)
+			freq_core1 += temp->clk_data.min_freq;
+		else if (temp->clk_data.core_id == VIDC_CORE_ID_3) {
+			freq_core0 += temp->clk_data.min_freq;
+			freq_core1 += temp->clk_data.min_freq;
+		}
 	}
 
-	freq_left = max_freq - freq;
+	if (inst->clk_data.core_id == VIDC_CORE_ID_1)
+		freq = freq_core0;
+	else if (inst->clk_data.core_id == VIDC_CORE_ID_2)
+		freq = freq_core1;
+	else
+		freq = max(freq_core0, freq_core1);
+
+	freq_left = max_freq > freq ? max_freq - freq : 0;
 
 	mbs_per_second = msm_comm_get_inst_load_per_core(inst,
 		LOAD_CALC_NO_QUIRKS);
@@ -850,13 +891,15 @@ int msm_vidc_validate_operating_rate(struct msm_vidc_inst *inst,
 			inst->clk_data.entry->low_power_cycles :
 			cycles;
 
+	if (inst->clk_data.work_route)
+		cycles /= inst->clk_data.work_route;
+
 	load = cycles * mbs_per_second;
 
-	ops_left = load ? (freq_left / load) : 0;
+	op_rate_possible = load ? (freq_left * curr_operating_rate / load) : 0;
 
-	operating_rate = operating_rate >> 16;
 
-	if ((curr_operating_rate * (1 + ops_left)) >= operating_rate ||
+	if (op_rate_possible >= operating_rate ||
 			msm_vidc_clock_voting ||
 			inst->clk_data.buffer_counter < DCVS_FTB_WINDOW) {
 		dprintk(VIDC_DBG,
@@ -896,7 +939,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			if (inst->session_type == MSM_VIDC_ENCODER &&
 				(temp->vvb.flags &
-				 V4L2_QCOM_BUF_FLAG_PERF_MODE)) {
+				V4L2_QCOM_BUF_FLAG_PERF_MODE)) {
 				is_turbo = true;
 			}
 			device_addr = temp->smem[0].device_addr;
@@ -907,7 +950,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	if (!filled_len || !device_addr) {
 		dprintk(VIDC_DBG, "%s no input for session %x\n",
 			__func__, hash32_ptr(inst->session));
-		goto no_clock_change;
+		return 0;
 	}
 
 	freq = call_core_op(inst->core, calc_freq, inst, filled_len);
@@ -925,7 +968,6 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 
 	msm_vidc_set_clocks(inst->core);
 
-no_clock_change:
 	return 0;
 }
 

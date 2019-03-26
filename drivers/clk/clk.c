@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,6 +49,17 @@ struct clk_handoff_vdd {
 };
 
 static LIST_HEAD(clk_handoff_vdd_list);
+static bool vdd_class_handoff_completed;
+static DEFINE_MUTEX(vdd_class_list_lock);
+/*
+ * clk_rate_change_list is used during clk_core_set_rate_nolock() calls to
+ * handle vdd_class vote tracking.  core->rate_change_node is added to
+ * clk_rate_change_list when core->new_rate requires a different voltage level
+ * (core->new_vdd_class_vote) than core->vdd_class_vote.  Elements are removed
+ * from the list after unvoting core->vdd_class_vote immediately before
+ * returning from clk_core_set_rate_nolock().
+ */
+static LIST_HEAD(clk_rate_change_list);
 
 /***    private data structures    ***/
 
@@ -65,9 +76,7 @@ struct clk_core {
 	unsigned long		rate;
 	unsigned long		req_rate;
 	unsigned long		new_rate;
-	unsigned long		old_rate;
 	struct clk_core		*new_parent;
-	struct clk_core		*old_parent;
 	struct clk_core		*new_child;
 	unsigned long		flags;
 	bool			orphan;
@@ -90,6 +99,9 @@ struct clk_core {
 #endif
 	struct kref		ref;
 	struct clk_vdd_class	*vdd_class;
+	int			vdd_class_vote;
+	int			new_vdd_class_vote;
+	struct list_head	rate_change_node;
 	unsigned long		*rate_max;
 	int			num_rate_max;
 };
@@ -634,9 +646,11 @@ static int clk_unvote_vdd_level(struct clk_vdd_class *vdd_class, int level)
 	mutex_lock(&vdd_class->lock);
 
 	if (WARN(!vdd_class->level_votes[level],
-				"Reference counts are incorrect for %s level %d\n",
-				vdd_class->class_name, level))
+			"Reference counts are incorrect for %s level %d\n",
+			vdd_class->class_name, level)) {
+		rc = -EINVAL;
 		goto out;
+	}
 
 	vdd_class->level_votes[level]--;
 
@@ -700,29 +714,43 @@ static bool clk_is_rate_level_valid(struct clk_core *core, unsigned long rate)
 static int clk_vdd_class_init(struct clk_vdd_class *vdd)
 {
 	struct clk_handoff_vdd *v;
+	int ret = 0;
 
 	if (vdd->skip_handoff)
 		return 0;
 
+	mutex_lock(&vdd_class_list_lock);
+
 	list_for_each_entry(v, &clk_handoff_vdd_list, list) {
 		if (v->vdd_class == vdd)
-			return 0;
+			goto done;
 	}
 
-	pr_debug("voting for vdd_class %s\n", vdd->class_name);
+	if (!vdd_class_handoff_completed) {
+		pr_debug("voting for vdd_class %s\n", vdd->class_name);
 
-	if (clk_vote_vdd_level(vdd, vdd->num_levels - 1))
-		pr_err("failed to vote for %s\n", vdd->class_name);
+		ret = clk_vote_vdd_level(vdd, vdd->num_levels - 1);
+		if (ret) {
+			pr_err("failed to vote for %s, ret=%d\n",
+				vdd->class_name, ret);
+			goto done;
+		}
+	}
 
 	v = kmalloc(sizeof(*v), GFP_KERNEL);
-	if (!v)
-		return -ENOMEM;
+	if (!v) {
+		ret = -ENOMEM;
+		goto done;
+	}
 
 	v->vdd_class = vdd;
 
 	list_add_tail(&v->list, &clk_handoff_vdd_list);
 
-	return 0;
+done:
+	mutex_unlock(&vdd_class_list_lock);
+
+	return ret;
 }
 
 /***        clk api        ***/
@@ -752,7 +780,11 @@ static void clk_core_unprepare(struct clk_core *core)
 
 	trace_clk_unprepare_complete(core);
 
-	clk_unvote_rate_vdd(core, core->rate);
+	if (core->vdd_class) {
+		clk_unvote_vdd_level(core->vdd_class, core->vdd_class_vote);
+		core->vdd_class_vote = 0;
+		core->new_vdd_class_vote = 0;
+	}
 
 	clk_core_unprepare(core->parent);
 }
@@ -805,6 +837,11 @@ static int clk_core_prepare(struct clk_core *core)
 			clk_core_unprepare(core->parent);
 			return ret;
 		}
+		if (core->vdd_class) {
+			core->vdd_class_vote
+				= clk_find_vdd_level(core, core->rate);
+			core->new_vdd_class_vote = core->vdd_class_vote;
+		}
 
 		if (core->ops->prepare)
 			ret = core->ops->prepare(core->hw);
@@ -813,6 +850,8 @@ static int clk_core_prepare(struct clk_core *core)
 
 		if (ret) {
 			clk_unvote_rate_vdd(core, core->rate);
+			core->vdd_class_vote = 0;
+			core->new_vdd_class_vote = 0;
 			clk_core_unprepare(core->parent);
 			return ret;
 		}
@@ -1127,12 +1166,15 @@ static int clk_disable_unused(void)
 	hlist_for_each_entry(core, &clk_orphan_list, child_node)
 		clk_unprepare_unused_subtree(core);
 
+	mutex_lock(&vdd_class_list_lock);
 	list_for_each_entry_safe(v, v_temp, &clk_handoff_vdd_list, list) {
 		clk_unvote_vdd_level(v->vdd_class,
 				v->vdd_class->num_levels - 1);
 		list_del(&v->list);
 		kfree(v);
 	};
+	vdd_class_handoff_completed = true;
+	mutex_unlock(&vdd_class_list_lock);
 
 	clk_prepare_unlock();
 
@@ -1616,12 +1658,59 @@ out:
 	return ret;
 }
 
-static void clk_calc_subtree(struct clk_core *core, unsigned long new_rate,
+/*
+ * Vote for the voltage level required for core->new_rate.  Keep track of all
+ * clocks with a changed voltage level in clk_rate_change_list.
+ */
+static int clk_vote_new_rate_vdd(struct clk_core *core)
+{
+	int cur_level, next_level;
+	int ret;
+
+	if (IS_ERR_OR_NULL(core) || !core->vdd_class)
+		return 0;
+
+	if (!clk_core_is_prepared(core))
+		return 0;
+
+	cur_level = core->new_vdd_class_vote;
+	next_level = clk_find_vdd_level(core, core->new_rate);
+	if (cur_level == next_level)
+		return 0;
+
+	ret = clk_vote_vdd_level(core->vdd_class, next_level);
+	if (ret)
+		return ret;
+
+	core->new_vdd_class_vote = next_level;
+
+	if (list_empty(&core->rate_change_node)) {
+		list_add(&core->rate_change_node, &clk_rate_change_list);
+	} else {
+		/*
+		 * A different new_rate has been determined for a clock that
+		 * was already encountered in the clock tree traversal so the
+		 * level that was previously voted for it should be removed.
+		 */
+		ret = clk_unvote_vdd_level(core->vdd_class, cur_level);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int clk_calc_subtree(struct clk_core *core, unsigned long new_rate,
 			     struct clk_core *new_parent, u8 p_index)
 {
 	struct clk_core *child;
+	int ret;
 
 	core->new_rate = new_rate;
+	ret = clk_vote_new_rate_vdd(core);
+	if (ret)
+		return ret;
+
 	core->new_parent = new_parent;
 	core->new_parent_index = p_index;
 	/* include clk in new parent's PRE_RATE_CHANGE notifications */
@@ -1631,8 +1720,12 @@ static void clk_calc_subtree(struct clk_core *core, unsigned long new_rate,
 
 	hlist_for_each_entry(child, &core->children, child_node) {
 		child->new_rate = clk_recalc(child, new_rate);
-		clk_calc_subtree(child, child->new_rate, NULL, 0);
+		ret = clk_calc_subtree(child, child->new_rate, NULL, 0);
+		if (ret)
+			return ret;
 	}
+
+	return 0;
 }
 
 /*
@@ -1736,7 +1829,9 @@ out:
 	if (!clk_is_rate_level_valid(core, rate))
 		return NULL;
 
-	clk_calc_subtree(core, new_rate, parent, p_index);
+	ret = clk_calc_subtree(core, new_rate, parent, p_index);
+	if (ret)
+		return NULL;
 
 	return top;
 }
@@ -1795,7 +1890,7 @@ static int clk_change_rate(struct clk_core *core)
 	struct clk_core *parent = NULL;
 	int rc = 0;
 
-	core->old_rate = old_rate = core->rate;
+	old_rate = core->rate;
 
 	if (core->new_parent) {
 		parent = core->new_parent;
@@ -1804,8 +1899,6 @@ static int clk_change_rate(struct clk_core *core)
 		parent = core->parent;
 		best_parent_rate = core->parent->rate;
 	}
-
-	core->old_parent = core->parent;
 
 	if (core->flags & CLK_SET_RATE_UNGATE) {
 		unsigned long flags;
@@ -1820,7 +1913,6 @@ static int clk_change_rate(struct clk_core *core)
 
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
-		core->old_parent = old_parent;
 		trace_clk_set_parent(core, core->new_parent);
 
 		if (core->ops->set_rate_and_parent) {
@@ -1893,72 +1985,68 @@ err_set_rate:
 	return rc;
 }
 
-static int vote_vdd_up(struct clk_core *core)
+/*
+ * Unvote for the voltage level required for each core->new_vdd_class_vote in
+ * clk_rate_change_list.  This is used when undoing voltage requests after an
+ * error is encountered before any physical rate changing.
+ */
+static void clk_unvote_new_rate_vdd(void)
 {
-	struct clk_core *parent = NULL;
-	int ret, cur_level, next_level;
+	struct clk_core *core;
 
-	/* sanity */
-	if (IS_ERR_OR_NULL(core))
-		return 0;
-
-	if (core->vdd_class) {
-		cur_level = clk_find_vdd_level(core, core->rate);
-		next_level = clk_find_vdd_level(core, core->new_rate);
-		if (cur_level == next_level)
-			return 0;
+	list_for_each_entry(core, &clk_rate_change_list, rate_change_node) {
+		clk_unvote_vdd_level(core->vdd_class, core->new_vdd_class_vote);
+		core->new_vdd_class_vote = core->vdd_class_vote;
 	}
+}
 
-	/* save parent rate, if it exists */
-	if (core->new_parent)
-		parent = core->new_parent;
-	else if (core->parent)
-		parent = core->parent;
+/*
+ * Unvote for the voltage level required for each core->vdd_class_vote in
+ * clk_rate_change_list.
+ */
+static int clk_unvote_old_rate_vdd(void)
+{
+	struct clk_core *core;
+	int ret;
 
-	if (core->prepare_count && core->new_rate) {
-		ret = clk_vote_rate_vdd(core, core->new_rate);
+	list_for_each_entry(core, &clk_rate_change_list, rate_change_node) {
+		ret = clk_unvote_vdd_level(core->vdd_class,
+					   core->vdd_class_vote);
 		if (ret)
 			return ret;
 	}
 
-	vote_vdd_up(parent);
-
 	return 0;
 }
 
-static int vote_vdd_down(struct clk_core *core)
+/*
+ * In the case that rate setting fails, apply the max voltage level needed
+ * by either the old or new rate for each changed clock.
+ */
+static void clk_vote_safe_vdd(void)
 {
-	struct clk_core *parent;
-	unsigned long rate;
-	int cur_level, old_level;
+	struct clk_core *core;
 
-	/* sanity */
-	if (IS_ERR_OR_NULL(core))
-		return 0;
-
-	rate = core->old_rate;
-
-	/* New rate set was a failure */
-	if (DIV_ROUND_CLOSEST(core->rate, 1000) !=
-		DIV_ROUND_CLOSEST(core->new_rate, 1000))
-		rate = core->new_rate;
-
-	if (core->vdd_class) {
-		cur_level = clk_find_vdd_level(core, core->rate);
-		old_level = clk_find_vdd_level(core, core->old_rate);
-		if ((cur_level == old_level)
-			|| !core->vdd_class->level_votes[old_level])
-			return 0;
+	list_for_each_entry(core, &clk_rate_change_list, rate_change_node) {
+		if (core->vdd_class_vote > core->new_vdd_class_vote) {
+			clk_vote_vdd_level(core->vdd_class,
+						core->vdd_class_vote);
+			clk_unvote_vdd_level(core->vdd_class,
+						core->new_vdd_class_vote);
+			core->new_vdd_class_vote = core->vdd_class_vote;
+		}
 	}
+}
 
-	parent = core->old_parent;
+static void clk_cleanup_vdd_votes(void)
+{
+	struct clk_core *core, *temp;
 
-	if (core->prepare_count && rate)
-		clk_unvote_rate_vdd(core, rate);
-
-	vote_vdd_down(parent);
-
-	return 0;
+	list_for_each_entry_safe(core, temp, &clk_rate_change_list,
+				 rate_change_node) {
+		core->vdd_class_vote = core->new_vdd_class_vote;
+		list_del_init(&core->rate_change_node);
+	}
 }
 static int clk_core_set_rate_nolock(struct clk_core *core,
 				    unsigned long req_rate)
@@ -1966,6 +2054,15 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	struct clk_core *top, *fail_clk;
 	unsigned long rate = req_rate;
 	int ret = 0;
+	/*
+	 * The prepare lock ensures mutual exclusion with other tasks.
+	 * set_rate_nesting_count is a static so that it can be incremented in
+	 * the case of reentrancy caused by a set_rate() ops callback itself
+	 * calling clk_set_rate().  That way, the voltage level votes for the
+	 * old rates are safely removed when the original invocation of this
+	 * function completes.
+	 */
+	static unsigned int set_rate_nesting_count;
 
 	if (!core)
 		return 0;
@@ -1979,8 +2076,10 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 
 	/* calculate new rates and get the topmost changed clock */
 	top = clk_calc_new_rates(core, rate);
-	if (!top)
-		return -EINVAL;
+	if (!top) {
+		ret = -EINVAL;
+		goto pre_rate_change_err;
+	}
 
 	/* notify that we are about to change rates */
 	fail_clk = clk_propagate_rate_change(top, PRE_RATE_CHANGE);
@@ -1988,29 +2087,42 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 		pr_debug("%s: failed to set %s clock to run at %lu\n", __func__,
 				fail_clk->name, req_rate);
 		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto pre_rate_change_err;
 	}
 
-	/* Enforce the VDD for new frequency */
-	ret = vote_vdd_up(core);
-	if (ret)
-		return ret;
 
 	/* change the rates */
+	set_rate_nesting_count++;
 	ret = clk_change_rate(top);
+	set_rate_nesting_count--;
 	if (ret) {
 		pr_err("%s: failed to set %s clock to run at %lu\n", __func__,
 				top->name, req_rate);
 		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
-		/* Release vdd requirements for new frequency. */
-		vote_vdd_down(core);
-		return ret;
+		clk_vote_safe_vdd();
+		goto post_rate_change_err;
 	}
 
 	core->req_rate = req_rate;
 
-	/* Release vdd requirements for old frequency. */
-	vote_vdd_down(core);
+post_rate_change_err:
+	/*
+	 * Only remove vdd_class level votes for old clock rates after all
+	 * nested clk_set_rate() calls have completed.
+	 */
+	if (set_rate_nesting_count == 0) {
+		ret |= clk_unvote_old_rate_vdd();
+		clk_cleanup_vdd_votes();
+	}
+
+	return ret;
+
+pre_rate_change_err:
+	if (set_rate_nesting_count == 0) {
+		clk_unvote_new_rate_vdd();
+		clk_cleanup_vdd_votes();
+	}
 
 	return ret;
 }
@@ -3756,6 +3868,7 @@ struct clk *clk_register(struct device *dev, struct clk_hw *hw)
 	};
 
 	INIT_HLIST_HEAD(&core->clks);
+	INIT_LIST_HEAD(&core->rate_change_node);
 
 	hw->clk = __clk_create_clk(hw, NULL, NULL);
 	if (IS_ERR(hw->clk)) {

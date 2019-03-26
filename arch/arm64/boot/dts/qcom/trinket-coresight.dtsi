@@ -2032,7 +2032,7 @@
 		tgu-conditions = <4>;
 		tgu-regs = <8>;
 		tgu-timer-counters = <8>;
-
+		interrupts = <0 53 1>, <0 54 1>, <0 55 1>, <0 56 1>;
 		coresight-name = "coresight-tgu-apss";
 
 		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>;

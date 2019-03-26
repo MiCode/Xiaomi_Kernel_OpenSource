@@ -32,6 +32,7 @@
 #include <linux/kthread.h>
 
 #include <asm/switch_to.h>
+#include <linux/msm_rtb.h>
 #include <asm/tlb.h>
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
@@ -2916,7 +2917,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	 */
 	rq_unpin_lock(rq, rf);
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
-
+	uncached_logk(LOGK_CTXID, (void *)(u64)next->pid);
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 	barrier();

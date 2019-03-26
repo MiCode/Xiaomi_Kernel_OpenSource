@@ -28,6 +28,7 @@
 		#global-interrupts = <1>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
+		qcom,deferred-regulator-disable-delay = <80>;
 		clocks = <&clock_gcc GCC_GPU_MEMNOC_GFX_CLK>,
 			 <&clock_gcc GCC_GPU_SNOC_DVM_GFX_CLK>,
 			 <&clock_gpucc GPU_CC_AHB_CLK>,

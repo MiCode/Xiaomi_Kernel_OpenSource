@@ -329,11 +329,14 @@ static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
 		val.intval = ((prop_val.intval == 2) ? 1 : 0);
 		extcon_set_property(chg->extcon, id,
 				EXTCON_PROP_USB_TYPEC_POLARITY, val);
-	}
-
-	val.intval = true;
-	extcon_set_property(chg->extcon, id,
+		val.intval = true;
+		extcon_set_property(chg->extcon, id,
 				EXTCON_PROP_USB_SS, val);
+	} else if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		val.intval = false;
+		extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_SS, val);
+	}
 }
 
 static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
@@ -3718,12 +3721,12 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				 * Confiugure USB500 mode if Float charger is
 				 * configured for SDP mode.
 				 */
-				rc = set_sdp_current(chg, USBIN_500MA);
+				rc = vote(chg->usb_icl_votable,
+					SW_ICL_MAX_VOTER, true, USBIN_500MA);
 				if (rc < 0)
 					smblib_err(chg,
 						"Couldn't set SDP ICL rc=%d\n",
 						rc);
-
 				return rc;
 			}
 

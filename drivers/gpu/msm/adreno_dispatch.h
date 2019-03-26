@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,44 @@
 #define ____ADRENO_DISPATCHER_H
 
 extern unsigned int adreno_drawobj_timeout;
+
+/**
+ * State machine to address starvation for low priority ringbuffers:
+ *
+ * By default all ringbuffers are at STARVE_OFF state.
+ *
+ * Whenever there is a switch to high priority ringbuffer while the current
+ * low priority ringbuffer is not empty, change the current rb's starve
+ * state to STARVE_PENDING and set the starvation timeout value so that this
+ * ringbuffer can be monitored for starvation.
+ *
+ * If low priority ringbuffer's starve timeout expires then change the state to
+ * STARVE_EXPIRED and select this ringbuffer as next available ringbuffer.
+ *
+ * Once the starved ringbuffer is switched in, change the starve state to
+ * STARVE_RUNNING  and set the timeout value to minimum time slice so that low
+ * priority ringbuffer gets guaranteed time for its job.
+ *
+ * Once it crosses the minimum time slice then give a chance next available rb
+ * and change the starve state back to STARVE_OFF.
+ */
+
+/**
+ * enum adreno_rb_starve_states - Starvation control states of a ringbuffer
+ * @ADRENO_STARVE_OFF: Starvation control is not operating.
+ * @ADRENO_STARVE_PENDING: Starvation timeout for this ringbuffer is set
+ * and started monitoring.
+ * @ADRENO_STARVE_EXPIRED: Starvation timeout has expired and ready for
+ * scheduling.
+ * @ADRENO_STARVE_RUNNING: Ringbuffer is currently running on the device
+ * and will remain scheduled for a minimum time slice when in this state.
+ */
+enum adreno_rb_starve_states {
+	ADRENO_STARVE_OFF = 0,
+	ADRENO_STARVE_PENDING,
+	ADRENO_STARVE_EXPIRED,
+	ADRENO_STARVE_RUNNING,
+};
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be

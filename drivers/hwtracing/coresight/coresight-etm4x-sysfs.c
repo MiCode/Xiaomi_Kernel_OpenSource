@@ -2074,7 +2074,7 @@ static u32 etmv4_cross_read(const struct device *dev, u32 offset)
 			      name, offset)
 
 coresight_etm4x_reg(trcpdcr, TRCPDCR);
-coresight_etm4x_reg(trcpdsr, TRCPDSR);
+coresight_etm4x_cross_read(trcpdsr, TRCPDSR);
 coresight_etm4x_reg(trclsr, TRCLSR);
 coresight_etm4x_reg(trcauthstatus, TRCAUTHSTATUS);
 coresight_etm4x_reg(trcdevid, TRCDEVID);

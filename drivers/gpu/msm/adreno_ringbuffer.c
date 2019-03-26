@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -260,6 +260,7 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 		rb->wptr = 0;
 		rb->_wptr = 0;
 		rb->wptr_preempt_end = 0xFFFFFFFF;
+		rb->starve_state = ADRENO_STARVE_OFF;
 	}
 
 	/* start is specific GPU rb */

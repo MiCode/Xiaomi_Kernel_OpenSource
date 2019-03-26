@@ -19,7 +19,7 @@
 		va-vdd-micb-supply = <&pms405_l7>;
 		qcom,va-vdd-micb-voltage = <1800000 1800000>;
 		qcom,va-vdd-micb-current = <11200>;
-		qcom,va-dmic-sample-rate = <600000>;
+		qcom,va-dmic-sample-rate = <2400000>;
 	};
 };
 

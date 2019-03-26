@@ -803,7 +803,7 @@ int ipa3_qmi_ul_filter_request_send(
 {
 	struct ipa_configure_ul_firewall_rules_resp_msg_v01 resp;
 	struct ipa_msg_desc req_desc, resp_desc;
-	int rc;
+	int rc, i;
 
 	IPAWANDBG("IPACM pass %u rules to Q6\n",
 		req->firewall_rules_list_len);
@@ -823,6 +823,37 @@ int ipa3_qmi_ul_filter_request_send(
 	}
 	mutex_unlock(&ipa3_qmi_lock);
 
+	/* check if modem is up */
+	if (!ipa3_qmi_indication_fin ||
+		!ipa3_qmi_modem_init_fin ||
+		!ipa_q6_clnt) {
+		IPAWANDBG("modem QMI service is not up yet\n");
+		return -EINVAL;
+	}
+
+	/* Passing 0 rules means that firewall is disabled */
+	if (req->firewall_rules_list_len == 0)
+		IPAWANDBG("IPACM passed 0 rules to Q6\n");
+
+	if (req->firewall_rules_list_len >= QMI_IPA_MAX_UL_FIREWALL_RULES_V01) {
+		IPAWANERR(
+		"Number of rules passed by IPACM, %d, exceed limit %d\n",
+			req->firewall_rules_list_len,
+			QMI_IPA_MAX_UL_FIREWALL_RULES_V01);
+		return -EINVAL;
+	}
+
+	/* Check for valid IP type */
+	for (i = 0; i < req->firewall_rules_list_len; i++) {
+		if (req->firewall_rules_list[i].ip_type !=
+				QMI_IPA_IP_TYPE_V4_V01 &&
+			req->firewall_rules_list[i].ip_type !=
+				QMI_IPA_IP_TYPE_V6_V01)
+			IPAWANERR("Invalid IP type %d\n",
+					req->firewall_rules_list[i].ip_type);
+		return -EINVAL;
+	}
+
 	req_desc.max_msg_len =
 		QMI_IPA_INSTALL_UL_FIREWALL_RULES_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_INSTALL_UL_FIREWALL_RULES_REQ_V01;
@@ -836,7 +867,6 @@ int ipa3_qmi_ul_filter_request_send(
 	resp_desc.msg_id = QMI_IPA_INSTALL_UL_FIREWALL_RULES_RESP_V01;
 	resp_desc.ei_array =
 		ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei;
-
 	rc = ipa3_qmi_send_req_wait(ipa_q6_clnt,
 		&req_desc, req,
 		&resp_desc, &resp,

@@ -40,7 +40,7 @@
 
 /* #define RESUME_EARLY_UNBLANK */
 
-#define RESET_ON_RESUME_DELAY_MS 20
+#define RESET_ON_RESUME_DELAY_MS 50
 
 #define PREDICTIVE_READING
 
@@ -48,7 +48,7 @@
 
 #define KEEP_DRIVER_ON_ERROR
 
-#define FORCE_RUN_APPLICATION_FIRMWARE
+/* #define FORCE_RUN_APPLICATION_FIRMWARE */
 
 #define NOTIFIER_PRIORITY 2
 
@@ -68,7 +68,7 @@
 
 #define WATCHDOG_TRIGGER_COUNT 2
 
-#define WATCHDOG_DELAY_MS 1000
+#define WATCHDOG_DELAY_MS 5000
 
 #define MODE_SWITCH_DELAY_MS 100
 
@@ -518,6 +518,7 @@ static void syna_tcm_module_work(struct work_struct *work)
 	struct syna_tcm_hcd *tcm_hcd = mod_pool.tcm_hcd;
 
 	mutex_lock(&mod_pool.mutex);
+	mod_pool.reconstructing = true;
 
 	if (!list_empty(&mod_pool.list)) {
 		list_for_each_entry_safe(mod_handler,
@@ -538,6 +539,7 @@ static void syna_tcm_module_work(struct work_struct *work)
 		}
 	}
 
+	mod_pool.reconstructing = false;
 	mutex_unlock(&mod_pool.mutex);
 }
 
@@ -568,6 +570,7 @@ static int syna_tcm_report_notifier(void *data)
 		set_current_state(TASK_RUNNING);
 
 		mutex_lock(&mod_pool.mutex);
+		mod_pool.reconstructing = true;
 
 		if (!list_empty(&mod_pool.list)) {
 			list_for_each_entry(mod_handler, &mod_pool.list, link) {
@@ -578,6 +581,7 @@ static int syna_tcm_report_notifier(void *data)
 			}
 		}
 
+		mod_pool.reconstructing = false;
 		mutex_unlock(&mod_pool.mutex);
 
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -780,10 +784,15 @@ static void syna_tcm_dispatch_message(struct syna_tcm_hcd *tcm_hcd)
 #endif
 	}
 
-	if (tcm_hcd->status_report_code >= REPORT_IDENTIFY)
+	if (tcm_hcd->status_report_code >= REPORT_IDENTIFY) {
+		if ((mod_pool.reconstructing)
+			&& (tcm_hcd->status_report_code == REPORT_TOUCH))
+			return;
 		syna_tcm_dispatch_report(tcm_hcd);
-	else
+
+	} else
 		syna_tcm_dispatch_response(tcm_hcd);
+
 }
 
 /**
@@ -1291,9 +1300,13 @@ check_padding:
 		tcm_hcd->read_length = total_length;
 #endif
 
+	mutex_unlock(&tcm_hcd->rw_ctrl_mutex);
+
 	syna_tcm_dispatch_message(tcm_hcd);
 
 	retval = 0;
+
+	return retval;
 
 exit:
 	if (retval < 0) {
@@ -2704,6 +2717,7 @@ get_features:
 
 dispatch_reset:
 	mutex_lock(&mod_pool.mutex);
+	mod_pool.reconstructing = true;
 
 	if (!list_empty(&mod_pool.list)) {
 		list_for_each_entry(mod_handler, &mod_pool.list, link) {
@@ -2714,6 +2728,7 @@ dispatch_reset:
 		}
 	}
 
+	mod_pool.reconstructing = false;
 	mutex_unlock(&mod_pool.mutex);
 
 	retval = 0;
@@ -3005,29 +3020,45 @@ static int syna_tcm_fb_notifier_cb(struct notifier_block *nb,
 	if (!evdata || (evdata->id != 0))
 		return 0;
 
-	if (evdata && evdata->data && tcm_hcd) {
-		transition = (int *) evdata->data;
-		if (action == MSM_DRM_EARLY_EVENT_BLANK &&
-				*transition == MSM_DRM_BLANK_POWERDOWN)
-			retval = syna_tcm_early_suspend(&tcm_hcd->pdev->dev);
-		else if (action == MSM_DRM_EVENT_BLANK) {
-			if (*transition == MSM_DRM_BLANK_POWERDOWN) {
-				retval = syna_tcm_suspend(&tcm_hcd->pdev->dev);
-				tcm_hcd->fb_ready = 0;
-			} else if (*transition == MSM_DRM_BLANK_UNBLANK) {
+	if (!evdata->data || !tcm_hcd)
+		return 0;
+
+	transition = (int *) evdata->data;
+
+	if (atomic_read(&tcm_hcd->firmware_flashing)
+		&& *transition == MSM_DRM_BLANK_POWERDOWN) {
+		retval = wait_event_interruptible_timeout(tcm_hcd->reflash_wq,
+				!atomic_read(&tcm_hcd->firmware_flashing),
+				msecs_to_jiffies(RESPONSE_TIMEOUT_MS));
+		if (retval == 0) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+				"Timed out waiting for flashing firmware\n");
+			atomic_set(&tcm_hcd->firmware_flashing, 0);
+			return -EIO;
+		}
+	}
+
+	if (action == MSM_DRM_EARLY_EVENT_BLANK &&
+			*transition == MSM_DRM_BLANK_POWERDOWN)
+		retval = syna_tcm_early_suspend(&tcm_hcd->pdev->dev);
+	else if (action == MSM_DRM_EVENT_BLANK) {
+		if (*transition == MSM_DRM_BLANK_POWERDOWN) {
+			retval = syna_tcm_suspend(&tcm_hcd->pdev->dev);
+			tcm_hcd->fb_ready = 0;
+		} else if (*transition == MSM_DRM_BLANK_UNBLANK) {
 #ifndef RESUME_EARLY_UNBLANK
-				retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
-				tcm_hcd->fb_ready++;
-#endif
-			}
-		} else if (action == MSM_DRM_EARLY_EVENT_BLANK &&
-				*transition == MSM_DRM_BLANK_UNBLANK) {
-#ifdef RESUME_EARLY_UNBLANK
 			retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
 			tcm_hcd->fb_ready++;
 #endif
 		}
+	} else if (action == MSM_DRM_EARLY_EVENT_BLANK &&
+			*transition == MSM_DRM_BLANK_UNBLANK) {
+#ifdef RESUME_EARLY_UNBLANK
+		retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
+		tcm_hcd->fb_ready++;
+#endif
 	}
+
 
 	return 0;
 }
@@ -3083,36 +3114,49 @@ static int syna_tcm_early_suspend(struct device *dev)
 static int syna_tcm_fb_notifier_cb(struct notifier_block *nb,
 		unsigned long action, void *data)
 {
-	int retval;
+	int retval = 0;
 	int *transition;
 	struct fb_event *evdata = data;
 	struct syna_tcm_hcd *tcm_hcd =
 			container_of(nb, struct syna_tcm_hcd, fb_notifier);
 
-	retval = 0;
+	if (!evdata || !evdata->data || !tcm_hcd)
+		return 0;
 
-	if (evdata && evdata->data && tcm_hcd) {
-		transition = (int *)evdata->data;
-		if (action == FB_EARLY_EVENT_BLANK &&
-				*transition == FB_BLANK_POWERDOWN)
-			retval = syna_tcm_early_suspend(&tcm_hcd->pdev->dev);
-		else if (action == FB_EVENT_BLANK) {
-			if (*transition == FB_BLANK_POWERDOWN) {
-				retval = syna_tcm_suspend(&tcm_hcd->pdev->dev);
-				tcm_hcd->fb_ready = 0;
-			} else if (*transition == FB_BLANK_UNBLANK) {
+	transition = (int *)evdata->data;
+
+	if (atomic_read(&tcm_hcd->firmware_flashing)
+		&& *transition == FB_BLANK_POWERDOWN) {
+		retval = wait_event_interruptible_timeout(tcm_hcd->reflash_wq,
+				!atomic_read(&tcm_hcd->firmware_flashing),
+				msecs_to_jiffies(RESPONSE_TIMEOUT_MS));
+		if (retval == 0) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+				"Timed out waiting for flashing firmware\n");
+			atomic_set(&tcm_hcd->firmware_flashing, 0);
+			return -EIO;
+		}
+	}
+
+	if (action == FB_EARLY_EVENT_BLANK &&
+			*transition == FB_BLANK_POWERDOWN)
+		retval = syna_tcm_early_suspend(&tcm_hcd->pdev->dev);
+	else if (action == FB_EVENT_BLANK) {
+		if (*transition == FB_BLANK_POWERDOWN) {
+			retval = syna_tcm_suspend(&tcm_hcd->pdev->dev);
+			tcm_hcd->fb_ready = 0;
+		} else if (*transition == FB_BLANK_UNBLANK) {
 #ifndef RESUME_EARLY_UNBLANK
-				retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
-				tcm_hcd->fb_ready++;
-#endif
-			}
-		} else if (action == FB_EARLY_EVENT_BLANK &&
-				*transition == FB_BLANK_UNBLANK) {
-#ifdef RESUME_EARLY_UNBLANK
 			retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
 			tcm_hcd->fb_ready++;
 #endif
 		}
+	} else if (action == FB_EARLY_EVENT_BLANK &&
+			*transition == FB_BLANK_UNBLANK) {
+#ifdef RESUME_EARLY_UNBLANK
+		retval = syna_tcm_resume(&tcm_hcd->pdev->dev);
+		tcm_hcd->fb_ready++;
+#endif
 	}
 
 	return 0;
@@ -3216,6 +3260,9 @@ static int syna_tcm_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 
 	init_waitqueue_head(&tcm_hcd->hdl_wq);
+
+	init_waitqueue_head(&tcm_hcd->reflash_wq);
+	atomic_set(&tcm_hcd->firmware_flashing, 0);
 
 	if (!mod_pool.initialized) {
 		mutex_init(&mod_pool.mutex);
@@ -3327,6 +3374,7 @@ static int syna_tcm_probe(struct platform_device *pdev)
 	INIT_WORK(&mod_pool.work, syna_tcm_module_work);
 	mod_pool.tcm_hcd = tcm_hcd;
 	mod_pool.queue_work = true;
+	mod_pool.reconstructing = false;
 
 	return 0;
 
@@ -3429,13 +3477,15 @@ static int syna_tcm_remove(struct platform_device *pdev)
 {
 	int idx;
 	struct syna_tcm_module_handler *mod_handler;
+	struct syna_tcm_module_handler *tmp_handler;
 	struct syna_tcm_hcd *tcm_hcd = platform_get_drvdata(pdev);
 	const struct syna_tcm_board_data *bdata = tcm_hcd->hw_if->bdata;
 
 	mutex_lock(&mod_pool.mutex);
 
 	if (!list_empty(&mod_pool.list)) {
-		list_for_each_entry(mod_handler, &mod_pool.list, link) {
+		list_for_each_entry_safe(mod_handler, tmp_handler,
+				&mod_pool.list, link) {
 			if (mod_handler->mod_cb->remove)
 				mod_handler->mod_cb->remove(tcm_hcd);
 			list_del(&mod_handler->link);
@@ -3514,6 +3564,11 @@ static int syna_tcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void syna_tcm_shutdown(struct platform_device *pdev)
+{
+	syna_tcm_remove(pdev);
+}
+
 #ifdef CONFIG_PM
 static const struct dev_pm_ops syna_tcm_dev_pm_ops = {
 #if !defined(CONFIG_DRM) && !defined(CONFIG_FB)
@@ -3533,6 +3588,7 @@ static struct platform_driver syna_tcm_driver = {
 	},
 	.probe = syna_tcm_probe,
 	.remove = syna_tcm_remove,
+	.shutdown = syna_tcm_shutdown,
 };
 
 static int __init syna_tcm_module_init(void)

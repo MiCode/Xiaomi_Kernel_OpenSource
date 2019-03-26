@@ -1070,7 +1070,8 @@ static int touch_remove(struct syna_tcm_hcd *tcm_hcd)
 
 	tcm_hcd->report_touch = NULL;
 
-	input_unregister_device(touch_hcd->input_dev);
+	if (touch_hcd->input_dev)
+		input_unregister_device(touch_hcd->input_dev);
 
 	kfree(touch_hcd->touch_data.object_data);
 	kfree(touch_hcd->prev_status);
@@ -1164,7 +1165,11 @@ static int touch_early_suspend(struct syna_tcm_hcd *tcm_hcd)
 	if (!touch_hcd)
 		return 0;
 
+#ifdef WAKEUP_GESTURE
+	touch_hcd->suspend_touch = false;
+#else
 	touch_hcd->suspend_touch = true;
+#endif
 
 	touch_free_objects();
 
@@ -1189,6 +1194,8 @@ static int touch_suspend(struct syna_tcm_hcd *tcm_hcd)
 		enable_irq_wake(tcm_hcd->irq);
 		touch_hcd->irq_wake = true;
 	}
+
+	touch_hcd->suspend_touch = false;
 
 	retval = tcm_hcd->set_dynamic_config(tcm_hcd,
 			DC_IN_WAKEUP_GESTURE_MODE,

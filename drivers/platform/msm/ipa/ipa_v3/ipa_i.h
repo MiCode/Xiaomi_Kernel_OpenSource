@@ -812,8 +812,6 @@ struct ipa3_ep_context {
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
-	int (*client_lock_unlock)(bool is_lock);
-
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
 };
@@ -1442,6 +1440,12 @@ enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_MAX
 };
 
+enum ipa_client_cb_type {
+	IPA_USB_CLNT,
+	IPA_MHI_CLNT,
+	IPA_MAX_CLNT
+};
+
 /**
  * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
@@ -1701,6 +1705,9 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
+	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
+	atomic_t is_ssr;
+	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
 };
 
 struct ipa3_plat_drv_res {
@@ -2022,8 +2029,9 @@ int ipa3_xdci_connect(u32 clnt_hdl);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
+void ipa3_register_client_callback(int (*client_cb)(bool),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+void ipa3_deregister_client_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
 int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
@@ -2563,6 +2571,7 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 
 void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
+void ipa3_update_ssr_state(bool is_ssr);
 int ipa3_init_q6_smem(void);
 
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);

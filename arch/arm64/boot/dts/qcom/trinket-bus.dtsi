@@ -95,10 +95,10 @@
 			qcom,bus-type = <3>;
 			qcom,base-offset = <0x15000>;
 			qcom,qos-off = <0x1000>;
-			qcom,util-fact = <153>;
+			qcom,util-fact = <142>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_rpmcc RPM_SMD_MMNRT_CLK>,
-				<&clock_rpmcc RPM_SMD_MMNRT_A_CLK>;
+			clocks = <&clock_rpmcc CPP_MMNRT_MSMBUS_CLK>,
+				<&clock_rpmcc CPP_MMNRT_MSMBUS_A_CLK>;
 		};
 
 		fab_mmrt_virt: fab-mmrt_virt {
@@ -109,10 +109,10 @@
 			qcom,bus-type = <3>;
 			qcom,base-offset = <0x15000>;
 			qcom,qos-off = <0x1000>;
-			qcom,util-fact = <153>;
+			qcom,util-fact = <142>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_rpmcc RPM_SMD_MMRT_CLK>,
-				<&clock_rpmcc RPM_SMD_MMRT_A_CLK>;
+			clocks = <&clock_rpmcc MDP_MMRT_MSMBUS_CLK>,
+				<&clock_rpmcc MDP_MMRT_MSMBUS_A_CLK>;
 		};
 
 		/*Masters*/

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +107,9 @@ struct adreno_ringbuffer_pagetable_info {
  * at the right rptr
  * @gpr11: The gpr11 value of this RB
  * @preempted_midway: Indicates that the RB was preempted before rptr = wptr
+ * @starve_expires: The jiffies value at which this starved RB expires or
+ * how long it is guaranteed to run after preempting in
+ * @starve_state: Indicates the starvation state of the ringbuffer.
  * @preempt_lock: Lock to protect the wptr pointer while it is being updated
  * @skip_inline_wptr: Used during preemption to make sure wptr is updated in
  * hardware
@@ -131,6 +134,8 @@ struct adreno_ringbuffer {
 	unsigned int wptr_preempt_end;
 	unsigned int gpr11;
 	int preempted_midway;
+	unsigned long starve_expires;
+	enum adreno_rb_starve_states starve_state;
 	spinlock_t preempt_lock;
 	bool skip_inline_wptr;
 };

@@ -1877,6 +1877,8 @@ static int reflash_do_reflash(void)
 	LOGN(tcm_hcd->pdev->dev.parent,
 			"Start of reflash\n");
 
+	atomic_set(&tcm_hcd->firmware_flashing, 1);
+
 	update_area = reflash_compare_id_info();
 
 	switch (update_area) {
@@ -1930,6 +1932,8 @@ exit:
 		reflash_hcd->image_size = 0;
 	}
 
+	atomic_set(&tcm_hcd->firmware_flashing, 0);
+	wake_up_interruptible(&tcm_hcd->reflash_wq);
 	return retval;
 }
 

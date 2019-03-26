@@ -2060,6 +2060,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 			"Failed to release mark_data buffers\n");
 
+	msm_comm_free_buffer_tags(inst);
+
 	msm_comm_release_eos_buffers(inst);
 
 	if (msm_comm_release_output_buffers(inst, true))

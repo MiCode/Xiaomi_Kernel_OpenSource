@@ -118,6 +118,8 @@ static void get_next_update_time(struct qpnp_qg *chip)
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
+	bool input_present = is_input_present(chip);
+
 	if (!chip->profile_loaded)
 		return false;
 
@@ -134,8 +136,14 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 		return false;
 
 
-	if (chip->catch_up_soc > chip->msoc && !is_input_present(chip))
+	if (chip->catch_up_soc > chip->msoc && !input_present)
 		/* input is not present and SOC has increased */
+		return false;
+
+	if (chip->catch_up_soc > chip->msoc && input_present &&
+			(chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
+			chip->charge_status != POWER_SUPPLY_STATUS_FULL))
+		/* USB is present, but not charging */
 		return false;
 
 	return true;

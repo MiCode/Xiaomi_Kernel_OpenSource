@@ -434,10 +434,10 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	device_remove_file(&dev->dev, &dev_attr_config_imod);
 	usb_remove_hcd(shared_hcd);
-	xhci->shared_hcd = NULL;
 	usb_phy_shutdown(hcd->usb_phy);
 
 	usb_remove_hcd(hcd);
+	xhci->shared_hcd = NULL;
 	usb_put_hcd(shared_hcd);
 
 	if (!IS_ERR(clk))

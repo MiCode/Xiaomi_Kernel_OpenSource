@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,17 @@
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
 #include "kgsl_gmu_core.h"
+
+/*
+ * Time in ms after which dispatcher tries to schedule starved ringbuffer
+ */
+#define ADRENO_RB_STARVATION_TIME 500
+
+/*
+ * Time in ms that a starved ringbuffer is guaranteed at least this amount
+ * of time
+ */
+#define ADRENO_RB_TIME_SLICE 25
 
 #define PREEMPT_RECORD(_field) \
 		offsetof(struct a6xx_cp_preemption_record, _field)
@@ -85,6 +96,35 @@ static inline bool adreno_move_preempt_state(struct adreno_device *adreno_dev,
 	return (atomic_cmpxchg(&adreno_dev->preempt.state, old, new) == old);
 }
 
+static void _update_rb_starve_state(struct adreno_device *adreno_dev)
+{
+	unsigned long flags;
+	bool empty;
+
+	/* starved ringbuffer is now scheduled so unhalt dispatcher */
+	if (adreno_dev->cur_rb->starve_state == ADRENO_STARVE_EXPIRED)
+		adreno_put_gpu_halt(adreno_dev);
+	adreno_dev->cur_rb->starve_state = ADRENO_STARVE_RUNNING;
+	adreno_dev->cur_rb->starve_expires = jiffies +
+			msecs_to_jiffies(ADRENO_RB_TIME_SLICE);
+
+	/*
+	 * If the outgoing ringbuffer has commands then set the
+	 * starve state to PENDING and update timeout value.
+	 */
+	spin_lock_irqsave(&adreno_dev->prev_rb->preempt_lock, flags);
+	empty = adreno_rb_empty(adreno_dev->prev_rb);
+	spin_unlock_irqrestore(&adreno_dev->prev_rb->preempt_lock,
+		flags);
+
+	if (!empty) {
+		adreno_dev->prev_rb->starve_state = ADRENO_STARVE_PENDING;
+		adreno_dev->prev_rb->starve_expires = jiffies +
+			msecs_to_jiffies(ADRENO_RB_STARVATION_TIME);
+	} else {
+		adreno_dev->prev_rb->starve_state = ADRENO_STARVE_OFF;
+	}
+}
 static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -129,6 +169,8 @@ static void _a6xx_preemption_done(struct adreno_device *adreno_dev)
 	adreno_dev->prev_rb = adreno_dev->cur_rb;
 	adreno_dev->cur_rb = adreno_dev->next_rb;
 	adreno_dev->next_rb = NULL;
+
+	_update_rb_starve_state(adreno_dev);
 
 	/* Update the wptr for the new command queue */
 	_update_wptr(adreno_dev, true);
@@ -208,7 +250,7 @@ static void _a6xx_preemption_timer(unsigned long data)
 static struct adreno_ringbuffer *a6xx_next_ringbuffer(
 		struct adreno_device *adreno_dev)
 {
-	struct adreno_ringbuffer *rb;
+	struct adreno_ringbuffer *rb, *next = NULL;
 	unsigned long flags;
 	unsigned int i;
 
@@ -219,11 +261,69 @@ static struct adreno_ringbuffer *a6xx_next_ringbuffer(
 		empty = adreno_rb_empty(rb);
 		spin_unlock_irqrestore(&rb->preempt_lock, flags);
 
-		if (empty == false)
-			return rb;
+		if (empty) {
+			/*
+			 * Set starve state to STARVE_OFF if ringbuffer is empty
+			 */
+			rb->starve_state = ADRENO_STARVE_OFF;
+			continue;
+		}
+
+		if (!next) {
+			/*
+			 * Start with highest priority ringbuffer as default
+			 * choice and continue to see if any low priority rb
+			 * needs to be handled to avoid starvation.
+			 */
+			next = rb;
+			continue;
+		}
+
+		switch (rb->starve_state) {
+		case ADRENO_STARVE_OFF:
+			/*
+			 * If this is not the current ringbuffer then change
+			 * the starve state to PENDING and update timeout value.
+			 * So that this can be monitored for starvation.
+			 */
+			if (adreno_dev->cur_rb != rb) {
+				rb->starve_state = ADRENO_STARVE_PENDING;
+				rb->starve_expires = jiffies + msecs_to_jiffies(
+					ADRENO_RB_STARVATION_TIME);
+			}
+			break;
+		case ADRENO_STARVE_PENDING:
+			/*
+			 * Check whether the ringbuffer is starved too long, if
+			 * it is then change the starve state to EXPIRED
+			 */
+			if (time_after(jiffies, rb->starve_expires)) {
+				rb->starve_state = ADRENO_STARVE_EXPIRED;
+				/* halt dispatcher to remove starvation */
+				adreno_get_gpu_halt(adreno_dev);
+				return rb;
+			}
+			break;
+		case ADRENO_STARVE_RUNNING:
+			/*
+			 * If the starved ringbuffer has not been running for
+			 * minimum time slice then allow it to run
+			 */
+			if (time_before(jiffies, rb->starve_expires))
+				return rb;
+
+			/*
+			 * If the low priority ringbuffer exceeds the time slice
+			 * then try to give a chance for next best ringbuffer
+			 */
+			rb->starve_state = ADRENO_STARVE_OFF;
+			break;
+		default:
+			break;
+		}
 	}
 
-	return NULL;
+	return next;
 }
 
 void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
@@ -436,6 +536,9 @@ void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dev->prev_rb = adreno_dev->cur_rb;
 	adreno_dev->cur_rb = adreno_dev->next_rb;
 	adreno_dev->next_rb = NULL;
+
+	_update_rb_starve_state(adreno_dev);
+
 
 	/* Update the wptr if it changed while preemption was ongoing */
 	_update_wptr(adreno_dev, true);

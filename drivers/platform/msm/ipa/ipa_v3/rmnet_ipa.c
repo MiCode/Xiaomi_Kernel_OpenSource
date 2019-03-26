@@ -2628,6 +2628,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -4148,6 +4149,15 @@ int rmnet_ipa3_send_lan_client_msg(
 		IPAWANERR("Can't allocate memory for tether_info\n");
 		return -ENOMEM;
 	}
+
+	if (data->client_event != IPA_PER_CLIENT_STATS_CONNECT_EVENT &&
+		data->client_event != IPA_PER_CLIENT_STATS_DISCONNECT_EVENT) {
+		IPAWANERR("Wrong event given. Event:- %d\n",
+			data->client_event);
+		kfree(lan_client);
+		return -EINVAL;
+	}
+	data->lan_client.lanIface[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 	memcpy(lan_client, &data->lan_client,
 		sizeof(struct ipa_lan_client_msg));

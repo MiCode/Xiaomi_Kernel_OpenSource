@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,12 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/irqreturn.h>
+#include <soc/qcom/scm.h>
 #include "msm_csid.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
+#include "msm_camera_tz_util.h"
 #include "include/msm_csid_2_0_hwreg.h"
 #include "include/msm_csid_2_2_hwreg.h"
 #include "include/msm_csid_3_0_hwreg.h"
@@ -59,6 +61,9 @@
 #define SOF_DEBUG_ENABLE                     1
 #define SOF_DEBUG_DISABLE                    0
 
+#define SCM_SVC_CAMERASS                     0x18
+#define SECURE_SYSCALL_ID                    0x6
+
 #define TRUE   1
 #define FALSE  0
 
@@ -75,6 +80,24 @@ static struct camera_vreg_t csid_vreg_info[] = {
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_csid_v4l2_subdev_fops;
 #endif
+
+static inline uint32_t msm_camera_vio_r(
+	void __iomem *base_addr, uint32_t offset, uint32_t dev_id) {
+	return msm_camera_tz_r(base_addr, offset,
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + dev_id);
+}
+
+static inline void msm_camera_vio_w(uint32_t data,
+	void __iomem *base_addr, uint32_t offset, uint32_t dev_id) {
+	msm_camera_tz_w(data, base_addr, offset,
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + dev_id);
+}
+
+static inline void msm_camera_vio_w_def(uint32_t data,
+	void __iomem *base_addr, uint32_t offset, uint32_t dev_id) {
+	msm_camera_tz_w_deferred(data, base_addr, offset,
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + dev_id);
+}
 
 static int msm_csid_cid_lut(
 	struct msm_camera_csid_lut_params *csid_lut_params,
@@ -111,21 +134,24 @@ static int msm_csid_cid_lut(
 				 __func__, csid_lut_params->vc_cfg[i]->dt);
 			return rc;
 		}
-		val = msm_camera_io_r(csid_dev->base +
+		val = msm_camera_vio_r(csid_dev->base,
 			csid_dev->ctrl_reg->csid_reg.csid_cid_lut_vc_0_addr +
-			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4)
+			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4,
+			csid_dev->pdev->id)
 			& ~(0xFF << ((csid_lut_params->vc_cfg[i]->cid % 4) *
 			8));
 		val |= (csid_lut_params->vc_cfg[i]->dt <<
 			((csid_lut_params->vc_cfg[i]->cid % 4) * 8));
-		msm_camera_io_w(val, csid_dev->base +
+		msm_camera_vio_w(val, csid_dev->base,
 			csid_dev->ctrl_reg->csid_reg.csid_cid_lut_vc_0_addr +
-			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4);
+			(csid_lut_params->vc_cfg[i]->cid >> 2) * 4,
+			csid_dev->pdev->id);
 
 		val = (csid_lut_params->vc_cfg[i]->decode_format << 4) | 0x3;
-		msm_camera_io_w(val, csid_dev->base +
+		msm_camera_vio_w(val, csid_dev->base,
 			csid_dev->ctrl_reg->csid_reg.csid_cid_n_cfg_addr +
-			(csid_lut_params->vc_cfg[i]->cid * 4));
+			(csid_lut_params->vc_cfg[i]->cid * 4),
+			csid_dev->pdev->id);
 	}
 	return rc;
 }
@@ -139,10 +165,12 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	if ((csid_dev->hw_dts_version == CSID_VERSION_V34_1) ||
 		(csid_dev->hw_dts_version == CSID_VERSION_V36)) {
 		val = ((1 << csid_params->lane_cnt) - 1) << 20;
-		msm_camera_io_w(0x7f010800 | val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-		msm_camera_io_w(0x7f010800 | val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_vio_w(0x7f010800 | val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr,
+			csid_dev->pdev->id);
+		msm_camera_vio_w(0x7f010800 | val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr,
+			csid_dev->pdev->id);
 	} else {
 		if (csid_dev->csid_3p_enabled == 1) {
 			val = ((1 << csid_params->lane_cnt) - 1) <<
@@ -154,10 +182,12 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 				.csid_err_lane_overflow_offset_2p;
 		}
 		val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
-		msm_camera_io_w(val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-		msm_camera_io_w(val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_vio_w(val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr,
+			csid_dev->pdev->id);
+		msm_camera_vio_w(val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr,
+			csid_dev->pdev->id);
 	}
 }
 #elif(SHORT_PKT_CAPTURE)
@@ -169,10 +199,12 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	if ((csid_dev->hw_dts_version == CSID_VERSION_V34_1) ||
 		(csid_dev->hw_dts_version == CSID_VERSION_V36)) {
 		val = ((1 << csid_params->lane_cnt) - 1) << 20;
-		msm_camera_io_w(0x7f010a00 | val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-		msm_camera_io_w(0x7f010a00 | val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_vio_w(0x7f010a00 | val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr,
+			csid_dev->pdev->id);
+		msm_camera_vio_w(0x7f010a00 | val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr,
+			csid_dev->pdev->id);
 	} else {
 		if (csid_dev->csid_3p_enabled == 1) {
 			val = ((1 << csid_params->lane_cnt) - 1) <<
@@ -185,10 +217,12 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 		}
 		val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
 		val |= SHORT_PKT_OFFSET;
-		msm_camera_io_w(val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-		msm_camera_io_w(val, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+		msm_camera_vio_w(val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr,
+			csid_dev->pdev->id);
+		msm_camera_vio_w(val, csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr,
+			csid_dev->pdev->id);
 	}
 }
 #else
@@ -202,6 +236,14 @@ static void msm_csid_set_sof_freeze_debug_reg(
 	struct csid_device *csid_dev, uint8_t irq_enable)
 {
 	uint32_t val = 0;
+
+	if (csid_dev && msm_camera_tz_is_secured(
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 +
+			csid_dev->pdev->id)) {
+		CDBG("%s, Skip set_sof_freeze_debug_reg in secure mode\n",
+			__func__);
+		return;
+	}
 
 	if (!irq_enable) {
 		val = msm_camera_io_r(csid_dev->base +
@@ -235,12 +277,23 @@ static int msm_csid_reset(struct csid_device *csid_dev)
 	int32_t rc = 0;
 	uint32_t irq = 0, irq_bitshift;
 
-	irq_bitshift = csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift;
-	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
-		csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
-	rc = wait_for_completion_timeout(&csid_dev->reset_complete,
-		CSID_TIMEOUT);
+	CDBG("%s: id %d\n", __func__, csid_dev->pdev->id);
+
+	if (msm_camera_tz_is_secured(
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + csid_dev->pdev->id)) {
+		msm_camera_enable_irq(csid_dev->irq, false);
+		rc = msm_camera_tz_reset_hw_block(
+			csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
+			MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + csid_dev->pdev->id);
+	} else {
+		irq_bitshift =
+		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift;
+		msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
+			csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
+		rc = wait_for_completion_timeout(&csid_dev->reset_complete,
+			CSID_TIMEOUT);
+	}
 	if (rc < 0) {
 		pr_err("wait_for_completion in %s fail rc = %d\n",
 			__func__, rc);
@@ -317,6 +370,24 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		return -EINVAL;
 	}
 
+	if (csid_params->is_secure == 1) {
+		struct scm_desc desc = {0};
+
+		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+		desc.args[0] = csid_params->is_secure;
+		desc.args[1] = csid_params->phy_sel;
+
+		CDBG("phy_sel : %d, secure : %d\n",
+			csid_params->phy_sel, csid_params->is_secure);
+		if (scm_call2(SCM_SIP_FNID(SCM_SVC_CAMERASS,
+			SECURE_SYSCALL_ID), &desc)) {
+			pr_err("%s:%d scm call to hypervisor failed\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		msm_camera_tz_clear_tzbsp_status();
+	}
+
 	csid_dev->csid_lane_cnt = csid_params->lane_cnt;
 	rc = msm_csid_reset(csid_dev);
 	if (rc < 0) {
@@ -344,27 +415,31 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		/* 31:24 V blank, 23:13 H blank, 3:2 num of active DT, 1:0 VC */
 		val = ((tm->v_blanking_count & 0xFF) << 24) |
 			((tm->h_blanking_count & 0x7FF) << 13);
-		msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_tg_vc_cfg_addr);
+		msm_camera_vio_w_def(val, csidbase,
+			csid_dev->ctrl_reg->csid_reg.csid_tg_vc_cfg_addr,
+			csid_dev->pdev->id);
 		CDBG("[TG] CSID_TG_VC_CFG_ADDR 0x%08x\n", val);
 
 		/* 28:16 bytes per lines, 12:0 num of lines */
 		val = ((tm->num_bytes_per_line & 0x1FFF) << 16) |
 			(tm->num_lines & 0x1FFF);
-		msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_0_addr);
+		msm_camera_vio_w_def(val, csidbase,
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_0_addr,
+			csid_dev->pdev->id);
 		CDBG("[TG] CSID_TG_DT_n_CFG_0_ADDR 0x%08x\n", val);
 
 		/* 5:0 data type */
 		val = csid_params->lut_params.vc_cfg[0]->dt;
-		msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_1_addr);
+		msm_camera_vio_w_def(val, csidbase,
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_1_addr,
+			csid_dev->pdev->id);
 		CDBG("[TG] CSID_TG_DT_n_CFG_1_ADDR 0x%08x\n", val);
 
 		/* 2:0 output random */
-		msm_camera_io_w(csid_dev->testmode_params.payload_mode,
-			csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_2_addr);
+		msm_camera_vio_w(csid_dev->testmode_params.payload_mode,
+			csidbase,
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_2_addr,
+			csid_dev->pdev->id);
 	} else {
 		val = csid_params->lane_cnt - 1;
 
@@ -398,16 +473,19 @@ static int msm_csid_config(struct csid_device *csid_dev,
 			csid_dev->ctrl_reg->csid_reg.csid_dl_input_sel_shift;
 		if (csid_dev->hw_version < CSID_VERSION_V30) {
 			val |= (0xF << 10);
-			msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+			msm_camera_vio_w(val, csidbase,
+			    csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr,
+			    csid_dev->pdev->id);
 		} else {
-			msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+			msm_camera_vio_w(val, csidbase,
+			    csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr,
+				csid_dev->pdev->id);
 			val = csid_params->phy_sel <<
 			    csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift;
 			val |= 0xF;
-			msm_camera_io_w(val, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr);
+			msm_camera_vio_w(val, csidbase,
+			    csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr,
+				csid_dev->pdev->id);
 		}
 		if (csid_dev->hw_version >= CSID_VERSION_V35 &&
 			csid_params->csi_3p_sel == 1) {
@@ -423,8 +501,9 @@ static int msm_csid_config(struct csid_device *csid_dev,
 			val |= csid_params->phy_sel <<
 			    csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift_3p;
 			val |= ENABLE_3P_BIT;
-			msm_camera_io_w(val, csidbase + csid_dev->ctrl_reg
-				->csid_reg.csid_3p_ctrl_0_addr);
+			msm_camera_vio_w(val, csidbase,
+			    csid_dev->ctrl_reg->csid_reg.csid_3p_ctrl_0_addr,
+				csid_dev->pdev->id);
 		}
 	}
 
@@ -436,8 +515,9 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	msm_csid_set_debug_reg(csid_dev, csid_params);
 
 	if (csid_dev->is_testmode == 1)
-		msm_camera_io_w(0x00A06437, csidbase +
-			csid_dev->ctrl_reg->csid_reg.csid_tg_ctrl_addr);
+		msm_camera_vio_w(0x00A06437, csidbase,
+			csid_dev->ctrl_reg->csid_reg.csid_tg_ctrl_addr,
+			csid_dev->pdev->id);
 
 	return rc;
 }
@@ -484,6 +564,13 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 
 	if (!csid_dev) {
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
+		return IRQ_HANDLED;
+	}
+
+	/* In secure mode interrupt is handeled by the TZ */
+	if (csid_dev && msm_camera_tz_is_secured(
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + csid_dev->pdev->id)) {
+		CDBG("%s, skip\n", __func__);
 		return IRQ_HANDLED;
 	}
 
@@ -591,8 +678,9 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	csid_dev->hw_version =
-		msm_camera_io_r(csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_hw_version_addr);
+		msm_camera_vio_r(csid_dev->base,
+			csid_dev->ctrl_reg->csid_reg.csid_hw_version_addr,
+			csid_dev->pdev->id);
 	CDBG("%s:%d called csid_dev->hw_version %x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 	*csid_version = csid_dev->hw_version;
@@ -601,10 +689,18 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	csid_dev->is_testmode = 0;
 
 	init_completion(&csid_dev->reset_complete);
-
-	rc = msm_camera_enable_irq(csid_dev->irq, true);
-	if (rc < 0)
-		pr_err("%s: irq enable failed\n", __func__);
+	if (msm_camera_tz_is_secured(
+		MSM_CAMERA_TZ_IO_REGION_CSIDCORE0 + csid_dev->pdev->id)) {
+		/* TEE is not accesible from IRQ handler context.
+		 * Switch IRQ off and rely on TEE to handle interrupt in
+		 * polling mode
+		 */
+		rc = msm_camera_enable_irq(csid_dev->irq, false);
+	} else {
+		rc = msm_camera_enable_irq(csid_dev->irq, true);
+		if (rc < 0)
+			pr_err("%s: irq enable failed\n", __func__);
+	}
 	rc = msm_csid_reset(csid_dev);
 	if (rc < 0) {
 		pr_err("%s:%d msm_csid_reset failed\n", __func__, __LINE__);
@@ -654,12 +750,15 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	CDBG("%s:%d, hw_version = 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 
-	irq = msm_camera_io_r(csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-	msm_camera_io_w(irq, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
-	msm_camera_io_w(0, csid_dev->base +
-		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+	irq = msm_camera_vio_r(csid_dev->base,
+		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr,
+		csid_dev->pdev->id);
+	msm_camera_vio_w(irq, csid_dev->base,
+		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr,
+		csid_dev->pdev->id);
+	msm_camera_vio_w(0, csid_dev->base,
+		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr,
+		csid_dev->pdev->id);
 
 	msm_camera_enable_irq(csid_dev->irq, false);
 
@@ -690,6 +789,22 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	}
 
 	csid_dev->csid_state = CSID_POWER_DOWN;
+
+	if (csid_dev->current_csid_params.is_secure == 1) {
+		struct scm_desc desc = {0};
+
+		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+		desc.args[0] = 0;
+		desc.args[1] = csid_dev->current_csid_params.phy_sel;
+
+		if (scm_call2(SCM_SIP_FNID(SCM_SVC_CAMERASS,
+			SECURE_SYSCALL_ID), &desc)) {
+			pr_err("%s:%d scm call to hyp with protect 0 failed\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		msm_camera_tz_clear_tzbsp_status();
+	}
 
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSID,
 		CAM_AHB_SUSPEND_VOTE) < 0)
@@ -894,6 +1009,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void *arg)
 		csid_params.phy_sel = csid_params32.phy_sel;
 		csid_params.csi_clk = csid_params32.csi_clk;
 		csid_params.csi_3p_sel = csid_params32.csi_3p_sel;
+		csid_params.is_secure = csid_params32.is_secure;
 
 		lut_par32 = csid_params32.lut_params;
 		csid_params.lut_params.num_cid = lut_par32.num_cid;
