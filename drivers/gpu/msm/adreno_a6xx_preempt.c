@@ -325,35 +325,41 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * Fenced writes on this path will make sure the GPU is woken up
 	 * in case it was power collapsed by the GMU.
 	 */
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_LO,
 		lower_32_bits(next->preemption_desc.gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->preemption_desc.gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
 		lower_32_bits(next->secure_preemption_desc.gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->secure_preemption_desc.gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
 		lower_32_bits(gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
-	adreno_gmu_fenced_write(adreno_dev,
+	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
 		upper_32_bits(gpuaddr),
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+		FENCE_STATUS_WRITEDROPPED1_MASK))
+		goto err;
 
 	/*
 	 * Above fence writes will make sure GMU comes out of
@@ -364,16 +370,9 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	 * preemption. This is require to make sure CP doesn't
 	 * interrupt GMU during wake-up from IFPC.
 	 */
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, wait_for_active_transition)) {
-		if (gmu_dev_ops->wait_for_active_transition(adreno_dev)) {
-			adreno_set_preempt_state(adreno_dev,
-				ADRENO_PREEMPT_NONE);
-
-			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
-			adreno_dispatcher_schedule(device);
-			return;
-		}
-	}
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, wait_for_active_transition))
+		if (gmu_dev_ops->wait_for_active_transition(adreno_dev))
+			goto err;
 
 	adreno_dev->next_rb = next;
 
@@ -381,14 +380,28 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	mod_timer(&adreno_dev->preempt.timer,
 		jiffies + msecs_to_jiffies(ADRENO_PREEMPT_TIMEOUT));
 
-	trace_adreno_preempt_trigger(adreno_dev->cur_rb, adreno_dev->next_rb,
-		cntl);
-
 	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_TRIGGERED);
 
 	/* Trigger the preemption */
-	adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
-		FENCE_STATUS_WRITEDROPPED1_MASK);
+	if (adreno_gmu_fenced_write(adreno_dev, ADRENO_REG_CP_PREEMPT, cntl,
+				FENCE_STATUS_WRITEDROPPED1_MASK)) {
+		adreno_dev->next_rb = NULL;
+		del_timer(&adreno_dev->preempt.timer);
+		goto err;
+	}
+
+	trace_adreno_preempt_trigger(adreno_dev->cur_rb, adreno_dev->next_rb,
+		cntl);
+
+	return;
+err:
+
+	/* If fenced write fails, set the fault and trigger recovery */
+	adreno_set_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE);
+	adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+	adreno_dispatcher_schedule(device);
+	/* Clear the keep alive */
+	gmu_core_regrmw(device, A6XX_GMU_AO_SPARE_CNTL, 0x2, 0x0);
 }
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit)
