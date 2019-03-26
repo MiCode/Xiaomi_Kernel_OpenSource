@@ -3185,45 +3185,6 @@ end:
 	return rc;
 }
 
-static uint32_t cam_vfe_bus_ver3_convert_bytes_to_pixels(uint32_t packer_fmt,
-	uint32_t width)
-{
-	int pixels = 0;
-
-	switch (packer_fmt) {
-	case PACKER_FMT_VER3_PLAIN_128:
-		pixels = width / 16;
-		break;
-	case PACKER_FMT_VER3_PLAIN_8:
-	case PACKER_FMT_VER3_PLAIN_8_ODD_EVEN:
-	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10:
-	case PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN:
-		pixels = width;
-		break;
-	case PACKER_FMT_VER3_PLAIN_16_10BPP:
-	case PACKER_FMT_VER3_PLAIN_16_12BPP:
-	case PACKER_FMT_VER3_PLAIN_16_14BPP:
-	case PACKER_FMT_VER3_PLAIN_16_16BPP:
-		pixels = width / 2;
-		break;
-	case PACKER_FMT_VER3_PLAIN_32:
-		pixels = width / 4;
-		break;
-	case PACKER_FMT_VER3_PLAIN_64:
-		pixels = width / 8;
-		break;
-	case PACKER_FMT_VER3_TP_10:
-		pixels = width * 3 / 4;
-		break;
-	case PACKER_FMT_VER3_MAX:
-	default:
-		CAM_ERR(CAM_ISP, "Invalid packer cfg 0x%x", packer_fmt);
-		break;
-	}
-
-	return pixels;
-}
-
 static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
 	uint32_t arg_size)
 {
@@ -3257,8 +3218,7 @@ static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 		stripe_config = (struct cam_isp_dual_stripe_config  *)
 			&stripe_args->dual_cfg->stripes[ports_plane_idx + i];
-		wm_data->width = cam_vfe_bus_ver3_convert_bytes_to_pixels(
-			wm_data->pack_fmt, stripe_config->width);
+		wm_data->width = stripe_config->width;
 		wm_data->offset = stripe_config->offset;
 		CAM_DBG(CAM_ISP, "id:%x WM:%d width:0x%x offset:%x",
 			stripe_args->res->res_id, wm_data->index,
