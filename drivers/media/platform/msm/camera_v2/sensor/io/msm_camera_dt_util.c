@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1460,9 +1460,10 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 		switch (power_setting->seq_type) {
 		case SENSOR_CLK:
 			if (power_setting->seq_val >= ctrl->clk_info_size) {
-				pr_err_ratelimited("%s clk index %d >= max %zu\n",
-				  __func__, power_setting->seq_val,
-				ctrl->clk_info_size);
+				pr_err_ratelimited("%s clk %d >=max %zu\n"
+					, __func__,
+					power_setting->seq_val,
+					ctrl->clk_info_size);
 				goto power_up_failed;
 			}
 			if (power_setting->config_val)
@@ -1473,7 +1474,7 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 				ctrl->clk_info_size, true);
 			if (rc < 0) {
 				pr_err_ratelimited("%s: clk enable failed\n",
-				 __func__);
+					__func__);
 				goto power_up_failed;
 			}
 			break;
