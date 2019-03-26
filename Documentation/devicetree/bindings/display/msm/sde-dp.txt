@@ -100,6 +100,7 @@ Optional properties:
 - compatible:			Must be "qcom,msm-ext-disp"
 - qcom,dp-low-power-hw-hpd:	Low power hardware HPD feature enable control node
 - qcom,phy-version:		Phy version
+- qcom,pn-swap-lane-map:	P/N swap configuration of each lane
 - pinctrl-names:		List of names to assign mdss pin states defined in pinctrl device node
 				Refer to pinctrl-bindings.txt
 - pinctrl-<0..n>:		Lists phandles each pointing to the pin configuration node within a pin
