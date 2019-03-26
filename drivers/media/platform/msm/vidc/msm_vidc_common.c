@@ -3551,7 +3551,7 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 	int rc = 0;
 	struct internal_buf *binfo = NULL;
 	u32 smem_flags = SMEM_UNCACHED, buffer_size, num_buffers, hfi_fmt;
-	struct hal_buffer_requirements *output_buf, *extradata_buf;
+	struct hal_buffer_requirements *output_buf;
 	unsigned int i;
 	struct hfi_device *hdev;
 	struct hfi_buffer_size_minimum b;
@@ -3564,6 +3564,17 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 			"This output buffer not required, buffer_type: %x\n",
 			buffer_type);
 		return 0;
+	}
+
+	/* Set DPB buffer count to firmware */
+	rc = msm_comm_set_buffer_count(inst,
+			output_buf->buffer_count_min,
+			output_buf->buffer_count_min,
+			HAL_BUFFER_OUTPUT);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: failed to set bufreqs(%#x)\n",
+			__func__, buffer_type);
+		return -EINVAL;
 	}
 
 	/* For DPB buffers, Always use FW count */
@@ -3585,12 +3596,15 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 		inst->session, HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM,
 		&b, sizeof(b));
 
-	extradata_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
-	if (extradata_buf) {
+	if (inst->bufq[CAPTURE_PORT].num_planes == 1 ||
+		!inst->bufq[CAPTURE_PORT].plane_sizes[1]) {
 		dprintk(VIDC_DBG,
-			"extradata: num = %d, size = %d\n",
-			extradata_buf->buffer_count_actual,
-			extradata_buf->buffer_size);
+			"This extradata buffer not required, buffer_type: %x\n",
+			buffer_type);
+	} else {
+		dprintk(VIDC_DBG,
+			"extradata: num = 1, size = %d\n",
+			inst->bufq[CAPTURE_PORT].plane_sizes[1]);
 		inst->dpb_extra_binfo = NULL;
 		inst->dpb_extra_binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 		if (!inst->dpb_extra_binfo) {
@@ -3599,17 +3613,13 @@ static int set_dpb_only_buffers(struct msm_vidc_inst *inst,
 			goto fail_kzalloc;
 		}
 		rc = msm_comm_smem_alloc(inst,
-			extradata_buf->buffer_size, 1, smem_flags,
+			inst->bufq[CAPTURE_PORT].plane_sizes[1], 1, smem_flags,
 			buffer_type, 0, &inst->dpb_extra_binfo->smem);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to allocate output memory\n");
 			goto err_no_mem;
 		}
-	} else {
-		dprintk(VIDC_DBG,
-			"This extradata buffer not required, buffer_type: %x\n",
-			buffer_type);
 	}
 
 	if (inst->flags & VIDC_SECURE)
