@@ -443,15 +443,13 @@ long msm_cvp_v4l2_private(struct file *filp,
 		return -EINVAL;
 	}
 
-	inst = container_of(filp->private_data, struct msm_cvp_inst,
-			event_handler);
+	/* Only handle VIDIOC_CVP_CMD as of now */
+	if (cmd != VIDIOC_CVP_CMD)
+		return 0;
+
+	inst = filp->private_data;
 	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 
-	/*
-	 * the arg points to user space memory and needs
-	 * to be converted to kernel space before using it.
-	 * Check do_video_ioctl() for more details.
-	 */
 	if (convert_from_user(&karg, arg, inst)) {
 		dprintk(CVP_ERR, "%s: failed to get from user cmd %x\n",
 			__func__, karg.type);

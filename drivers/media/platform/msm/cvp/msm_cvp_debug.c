@@ -253,7 +253,7 @@ static int inst_info_open(struct inode *inode, struct file *file)
 static int publish_unreleased_reference(struct msm_cvp_inst *inst,
 		char **dbuf, char *end)
 {
-	struct msm_video_buffer *temp = NULL;
+	struct msm_cvp_internal_buffer *temp = NULL;
 	char *cur = *dbuf;
 
 	if (!inst) {
@@ -261,24 +261,17 @@ static int publish_unreleased_reference(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
-		cur += write_str(cur, end - cur, "Pending buffer references\n");
+	cur += write_str(cur, end - cur, "Pending buffer references\n");
 
-		mutex_lock(&inst->registeredbufs.lock);
-		list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-			struct vb2_buffer *vb2 = &temp->vvb.vb2_buf;
-
-			if (vb2->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				cur += write_str(cur, end - cur,
-				"\tbuffer: %#x fd[0] = %d size %d refcount = %d\n",
-				temp->smem[0].device_addr,
-				vb2->planes[0].m.fd,
-				vb2->planes[0].length,
-				temp->smem[0].refcount);
-			}
-		}
-		mutex_unlock(&inst->registeredbufs.lock);
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
+		cur += write_str(cur, end - cur,
+		"\tbuffer: %#x fd[0] = %d size %d\n",
+		temp->smem.device_addr,
+		temp->smem.fd,
+		temp->smem.size);
 	}
+	mutex_unlock(&inst->registeredbufs.lock);
 
 	*dbuf = cur;
 	return 0;
@@ -299,7 +292,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	struct msm_cvp_core *core;
 	struct msm_cvp_inst *inst, *temp = NULL;
 	char *dbuf, *cur, *end;
-	int i, j;
+	int i;
 	ssize_t len = 0;
 
 	if (!idata || !idata->core || !idata->inst) {
@@ -346,52 +339,11 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	cur += write_str(cur, end - cur, "state: %d\n", inst->state);
 	cur += write_str(cur, end - cur, "secure: %d\n",
 		!!(inst->flags & CVP_SECURE));
-	cur += write_str(cur, end - cur, "-----------Formats-------------\n");
-	for (i = 0; i < MAX_PORT_NUM; i++) {
-		cur += write_str(cur, end - cur, "capability: %s\n",
-			i == OUTPUT_PORT ? "Output" : "Capture");
-		cur += write_str(cur, end - cur, "name : %s\n",
-			inst->fmts[i].name);
-		cur += write_str(cur, end - cur, "planes : %d\n",
-			inst->bufq[i].num_planes);
-		cur += write_str(cur, end - cur,
-			"type: %s\n", inst->fmts[i].type == OUTPUT_PORT ?
-			"Output" : "Capture");
-		switch (inst->buffer_mode_set[i]) {
-		case HAL_BUFFER_MODE_STATIC:
-			cur += write_str(cur, end - cur,
-				"buffer mode : %s\n", "static");
-			break;
-		case HAL_BUFFER_MODE_DYNAMIC:
-			cur += write_str(cur, end - cur,
-				"buffer mode : %s\n", "dynamic");
-			break;
-		default:
-			cur += write_str(cur, end - cur,
-				"buffer mode : unsupported\n");
-		}
-
-		cur += write_str(cur, end - cur, "count: %u\n",
-				inst->bufq[i].vb2_bufq.num_buffers);
-
-		for (j = 0; j < inst->bufq[i].num_planes; j++)
-			cur += write_str(cur, end - cur,
-				"size for plane %d: %u\n",
-				j, inst->bufq[i].plane_sizes[j]);
-
-		if (i < MAX_PORT_NUM - 1)
-			cur += write_str(cur, end - cur, "\n");
-	}
-	cur += write_str(cur, end - cur, "-------------------------------\n");
 	for (i = SESSION_MSG_START; i < SESSION_MSG_END; i++) {
 		cur += write_str(cur, end - cur, "completions[%d]: %s\n", i,
 		completion_done(&inst->completions[SESSION_MSG_INDEX(i)]) ?
 		"pending" : "done");
 	}
-	cur += write_str(cur, end - cur, "ETB Count: %d\n", inst->count.etb);
-	cur += write_str(cur, end - cur, "EBD Count: %d\n", inst->count.ebd);
-	cur += write_str(cur, end - cur, "FTB Count: %d\n", inst->count.ftb);
-	cur += write_str(cur, end - cur, "FBD Count: %d\n", inst->count.fbd);
 
 	publish_unreleased_reference(inst, &cur, end);
 	len = simple_read_from_buffer(buf, count, ppos,
@@ -480,52 +432,3 @@ void msm_cvp_debugfs_deinit_inst(struct msm_cvp_inst *inst)
 	debugfs_remove_recursive(dentry);
 	inst->debugfs_root = NULL;
 }
-
-void msm_cvp_debugfs_update(struct msm_cvp_inst *inst,
-	enum msm_cvp_debugfs_event e)
-{
-	struct msm_cvp_debug *d = &inst->debug;
-	char a[64] = "Frame processing";
-
-	switch (e) {
-	case MSM_CVP_DEBUGFS_EVENT_ETB:
-		inst->count.etb++;
-		if (inst->count.ebd && inst->count.ftb > inst->count.fbd) {
-			d->pdata[FRAME_PROCESSING].name[0] = '\0';
-			tic(inst, FRAME_PROCESSING, a);
-		}
-	break;
-	case MSM_CVP_DEBUGFS_EVENT_EBD:
-		inst->count.ebd++;
-		if (inst->count.ebd && inst->count.ebd == inst->count.etb) {
-			toc(inst, FRAME_PROCESSING);
-			dprintk(CVP_PROF, "EBD: FW needs input buffers\n");
-		}
-		if (inst->count.ftb == inst->count.fbd)
-			dprintk(CVP_PROF, "EBD: FW needs output buffers\n");
-	break;
-	case MSM_CVP_DEBUGFS_EVENT_FTB: {
-		inst->count.ftb++;
-		if (inst->count.ebd && inst->count.etb > inst->count.ebd) {
-			d->pdata[FRAME_PROCESSING].name[0] = '\0';
-			tic(inst, FRAME_PROCESSING, a);
-		}
-	}
-	break;
-	case MSM_CVP_DEBUGFS_EVENT_FBD:
-		inst->count.fbd++;
-		inst->debug.samples++;
-		if (inst->count.fbd &&
-			inst->count.fbd == inst->count.ftb) {
-			toc(inst, FRAME_PROCESSING);
-			dprintk(CVP_PROF, "FBD: FW needs output buffers\n");
-		}
-		if (inst->count.etb == inst->count.ebd)
-			dprintk(CVP_PROF, "FBD: FW needs input buffers\n");
-		break;
-	default:
-		dprintk(CVP_ERR, "Invalid state in debugfs: %d\n", e);
-		break;
-	}
-}
-

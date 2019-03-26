@@ -279,7 +279,5 @@ void cvp_venus_hfi_delete_device(void *device);
 int cvp_venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		struct msm_cvp_platform_resources *res,
 		hfi_cmd_response_callback callback);
-bool cvp_venus_hfi_is_session_supported(unsigned long sessions_supported,
-		enum cvp_vote_data_session session_type);
 
 #endif

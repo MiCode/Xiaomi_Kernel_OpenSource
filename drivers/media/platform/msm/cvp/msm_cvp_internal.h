@@ -111,11 +111,6 @@ enum instance_state {
 	MSM_CVP_CORE_INVALID
 };
 
-struct buf_info {
-	struct list_head list;
-	struct vb2_buffer *buf;
-};
-
 struct msm_cvp_list {
 	struct list_head list;
 	struct mutex lock;
@@ -223,33 +218,6 @@ struct msm_cvp_drv {
 	u32 sku_version;
 };
 
-struct msm_video_device {
-	int type;
-	struct video_device vdev;
-};
-
-struct session_crop {
-	u32 left;
-	u32 top;
-	u32 width;
-	u32 height;
-};
-
-struct session_prop {
-	u32 width[MAX_PORT_NUM];
-	u32 height[MAX_PORT_NUM];
-	struct session_crop crop_info;
-	u32 fps;
-	u32 bitrate;
-};
-
-struct buf_queue {
-	struct vb2_queue vb2_bufq;
-	struct mutex lock;
-	unsigned int plane_sizes[VB2_MAX_PLANES];
-	int num_planes;
-};
-
 enum profiling_points {
 	SYS_INIT = 0,
 	SESSION_INIT,
@@ -257,18 +225,6 @@ enum profiling_points {
 	FRAME_PROCESSING,
 	FW_IDLE,
 	MAX_PROFILING_POINTS,
-};
-
-struct buf_count {
-	int etb;
-	int ftb;
-	int fbd;
-	int ebd;
-};
-
-struct batch_mode {
-	bool enable;
-	u32 size;
 };
 
 enum dcvs_flags {
@@ -294,7 +250,6 @@ struct clock_data {
 	u32 ddr_bw;
 	u32 sys_cache_bw;
 	u32 operating_rate;
-	struct msm_cvp_codec_data *entry;
 	u32 core_id;
 	u32 dpb_fourcc;
 	u32 opb_fourcc;
@@ -350,23 +305,38 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
+
+struct session_crop {
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+};
+
+struct session_prop {
+	u32 width[MAX_PORT_NUM];
+	u32 height[MAX_PORT_NUM];
+	struct session_crop crop_info;
+	u32 fps;
+	u32 bitrate;
+};
+
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
 	int id;
+	dev_t dev_num;
+	struct cdev cdev;
+	struct class *class;
+	struct device *dev;
 	struct hfi_device *device;
 	struct msm_cvp_platform_data *platform_data;
-	struct msm_video_device vdev[MSM_CVP_MAX_DEVICES];
-	struct v4l2_device v4l2_dev;
 	struct list_head instances;
 	struct dentry *debugfs_root;
 	enum cvp_core_state state;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 	enum msm_cvp_hfi_type hfi_type;
 	struct msm_cvp_platform_resources resources;
-	u32 enc_codec_supported;
-	u32 dec_codec_supported;
-	u32 codec_count;
 	struct msm_cvp_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	struct work_struct ssr_work;
@@ -380,39 +350,27 @@ struct msm_cvp_core {
 
 struct msm_cvp_inst {
 	struct list_head list;
-	struct mutex sync_lock, lock, flush_lock;
+	struct mutex sync_lock, lock;
 	struct msm_cvp_core *core;
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
 	void *session;
 	struct session_prop prop;
 	enum instance_state state;
-	struct msm_cvp_format fmts[MAX_PORT_NUM];
-	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
 	struct msm_cvp_list registeredbufs;
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
 	struct buffer_requirements buff_req;
-	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
-	struct v4l2_fh event_handler;
 	struct msm_smem *extradata_handle;
 	struct dentry *debugfs_root;
-	void *priv;
 	struct msm_cvp_debug debug;
-	struct buf_count count;
 	struct clock_data clk_data;
 	enum msm_cvp_modes flags;
 	struct msm_cvp_capability capability;
-	u32 buffer_size_limit;
-	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
-	enum multi_stream stream_output_mode;
-	struct v4l2_ctrl **ctrls;
 	struct kref kref;
-	struct msm_cvp_codec_data *codec_data;
-	struct batch_mode batch;
 	unsigned long deprecate_bitmask;
 };
 
@@ -428,14 +386,6 @@ enum msm_cvp_flags {
 	MSM_CVP_FLAG_DEFERRED            = BIT(0),
 	MSM_CVP_FLAG_RBR_PENDING         = BIT(1),
 	MSM_CVP_FLAG_QUEUED              = BIT(2),
-};
-
-struct msm_video_buffer {
-	struct list_head list;
-	struct kref kref;
-	struct msm_smem smem[VIDEO_MAX_PLANES];
-	struct vb2_v4l2_buffer vvb;
-	enum msm_cvp_flags flags;
 };
 
 struct msm_cvp_internal_buffer {

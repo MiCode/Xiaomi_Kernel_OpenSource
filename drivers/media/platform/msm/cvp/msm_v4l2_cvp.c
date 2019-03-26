@@ -26,258 +26,52 @@
 #include "msm_cvp_clocks.h"
 
 #define BASE_DEVICE_NUMBER 32
+#define CLASS_NAME              "cvp"
+#define DRIVER_NAME             "video37"
 
 struct msm_cvp_drv *cvp_driver;
 
-
-static inline struct msm_cvp_inst *get_cvp_inst(struct file *filp, void *fh)
+static int cvp_open(struct inode *inode, struct file *filp)
 {
-	if (!filp->private_data)
-		return NULL;
-	return container_of(filp->private_data,
-					struct msm_cvp_inst, event_handler);
-}
-
-static int msm_cvp_v4l2_open(struct file *filp)
-{
-	struct video_device *vdev = video_devdata(filp);
-	struct msm_video_device *vid_dev =
-		container_of(vdev, struct msm_video_device, vdev);
-	struct msm_cvp_core *core = video_drvdata(filp);
-	struct msm_cvp_inst *cvp_inst;
+	struct msm_cvp_core *core = container_of(inode->i_cdev,
+		struct msm_cvp_core, cdev);
+	struct msm_cvp_inst *inst;
 
 	dprintk(CVP_DBG, "%s: Enter\n", __func__);
-	trace_msm_v4l2_cvp_open_start("msm v4l2_open start");
-	cvp_inst = msm_cvp_open(core->id, vid_dev->type);
-	if (!cvp_inst) {
+
+	inst = msm_cvp_open(core->id, MSM_CVP_CORE);
+	if (!inst) {
 		dprintk(CVP_ERR,
-		"Failed to create video instance, core: %d, type = %d\n",
-		core->id, vid_dev->type);
+		"Failed to create cvp instance\n");
 		return -ENOMEM;
 	}
-	clear_bit(V4L2_FL_USES_V4L2_FH, &vdev->flags);
-	filp->private_data = &(cvp_inst->event_handler);
-	trace_msm_v4l2_cvp_open_end("msm v4l2_open end");
+	filp->private_data = inst;
 	return 0;
 }
 
-static int msm_cvp_v4l2_close(struct file *filp)
+static int cvp_close(struct inode *inode, struct file *filp)
 {
 	int rc = 0;
-	struct msm_cvp_inst *cvp_inst;
+	struct msm_cvp_inst *inst = filp->private_data;
 
-	trace_msm_v4l2_cvp_close_start("msm v4l2_close start");
-	cvp_inst = get_cvp_inst(filp, NULL);
-
-	rc = msm_cvp_close(cvp_inst);
+	rc = msm_cvp_close(inst);
 	filp->private_data = NULL;
-	trace_msm_v4l2_cvp_close_end("msm v4l2_close end");
-	return 0;
+	return rc;
 }
 
-static int msm_cvp_v4l2_querycap(struct file *filp, void *fh,
-			struct v4l2_capability *cap)
-{
-	return -EINVAL;
-}
-
-int msm_cvp_v4l2_enum_fmt(struct file *file, void *fh,
-					struct v4l2_fmtdesc *f)
-{
-	return -EINVAL;
-}
-
-int msm_cvp_v4l2_s_fmt(struct file *file, void *fh,
-					struct v4l2_format *f)
+static unsigned int cvp_poll(struct file *filp, struct poll_table_struct *p)
 {
 	return 0;
 }
 
-int msm_cvp_v4l2_g_fmt(struct file *file, void *fh,
-					struct v4l2_format *f)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_g_fmt((void *)cvp_inst, f);
-}
-
-int msm_cvp_v4l2_s_ctrl(struct file *file, void *fh,
-					struct v4l2_control *a)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return v4l2_s_ctrl(NULL, &cvp_inst->ctrl_handler, a);
-}
-
-int msm_cvp_v4l2_g_ctrl(struct file *file, void *fh,
-					struct v4l2_control *a)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return v4l2_g_ctrl(&cvp_inst->ctrl_handler, a);
-}
-
-int msm_cvp_v4l2_s_ext_ctrl(struct file *file, void *fh,
-					struct v4l2_ext_controls *a)
-{
-	return -EINVAL;
-}
-
-int msm_cvp_v4l2_g_ext_ctrl(struct file *file, void *fh,
-					struct v4l2_ext_controls *a)
-{
-	return 0;
-}
-
-int msm_cvp_v4l2_reqbufs(struct file *file, void *fh,
-				struct v4l2_requestbuffers *b)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_reqbufs((void *)cvp_inst, b);
-}
-
-int msm_cvp_v4l2_qbuf(struct file *file, void *fh,
-				struct v4l2_buffer *b)
-{
-	return 0;
-}
-
-int msm_cvp_v4l2_dqbuf(struct file *file, void *fh,
-				struct v4l2_buffer *b)
-{
-	return 0;
-}
-
-int msm_cvp_v4l2_streamon(struct file *file, void *fh,
-				enum v4l2_buf_type i)
-{
-	return 0;
-}
-
-int msm_cvp_v4l2_streamoff(struct file *file, void *fh,
-				enum v4l2_buf_type i)
-{
-	return 0;
-}
-
-static int msm_cvp_v4l2_subscribe_event(struct v4l2_fh *fh,
-				const struct v4l2_event_subscription *sub)
-{
-	struct msm_cvp_inst *cvp_inst = container_of(fh,
-			struct msm_cvp_inst, event_handler);
-
-	return msm_cvp_subscribe_event((void *)cvp_inst, sub);
-}
-
-static int msm_cvp_v4l2_unsubscribe_event(struct v4l2_fh *fh,
-				const struct v4l2_event_subscription *sub)
-{
-	struct msm_cvp_inst *cvp_inst = container_of(fh,
-			struct msm_cvp_inst, event_handler);
-
-	return msm_cvp_unsubscribe_event((void *)cvp_inst, sub);
-}
-
-static int msm_cvp_v4l2_decoder_cmd(struct file *file, void *fh,
-				struct v4l2_decoder_cmd *dec)
-{
-	return 0;
-}
-
-static int msm_cvp_v4l2_encoder_cmd(struct file *file, void *fh,
-				struct v4l2_encoder_cmd *enc)
-{
-	return 0;
-}
-static int msm_cvp_v4l2_s_parm(struct file *file, void *fh,
-			struct v4l2_streamparm *a)
-{
-	return 0;
-}
-static int msm_cvp_v4l2_g_parm(struct file *file, void *fh,
-		struct v4l2_streamparm *a)
-{
-	return 0;
-}
-
-static int msm_cvp_v4l2_g_crop(struct file *file, void *fh,
-			struct v4l2_crop *a)
-{
-	return -EINVAL;
-}
-
-static int msm_cvp_v4l2_enum_framesizes(struct file *file, void *fh,
-				struct v4l2_frmsizeenum *fsize)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_enum_framesizes((void *)cvp_inst, fsize);
-}
-
-static int msm_cvp_v4l2_queryctrl(struct file *file, void *fh,
-	struct v4l2_queryctrl *ctrl)
-{
-	return -EINVAL;
-}
-
-static long msm_cvp_v4l2_default(struct file *file, void *fh,
-	bool valid_prio, unsigned int cmd, void *arg)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(file, fh);
-
-	return msm_cvp_private((void *)cvp_inst, cmd, arg);
-}
-
-static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
-	.vidioc_querycap = msm_cvp_v4l2_querycap,
-	.vidioc_enum_fmt_vid_cap_mplane = msm_cvp_v4l2_enum_fmt,
-	.vidioc_enum_fmt_vid_out_mplane = msm_cvp_v4l2_enum_fmt,
-	.vidioc_s_fmt_vid_cap_mplane = msm_cvp_v4l2_s_fmt,
-	.vidioc_s_fmt_vid_out_mplane = msm_cvp_v4l2_s_fmt,
-	.vidioc_g_fmt_vid_cap_mplane = msm_cvp_v4l2_g_fmt,
-	.vidioc_g_fmt_vid_out_mplane = msm_cvp_v4l2_g_fmt,
-	.vidioc_reqbufs = msm_cvp_v4l2_reqbufs,
-	.vidioc_qbuf = msm_cvp_v4l2_qbuf,
-	.vidioc_dqbuf = msm_cvp_v4l2_dqbuf,
-	.vidioc_streamon = msm_cvp_v4l2_streamon,
-	.vidioc_streamoff = msm_cvp_v4l2_streamoff,
-	.vidioc_s_ctrl = msm_cvp_v4l2_s_ctrl,
-	.vidioc_g_ctrl = msm_cvp_v4l2_g_ctrl,
-	.vidioc_queryctrl = msm_cvp_v4l2_queryctrl,
-	.vidioc_s_ext_ctrls = msm_cvp_v4l2_s_ext_ctrl,
-	.vidioc_g_ext_ctrls = msm_cvp_v4l2_g_ext_ctrl,
-	.vidioc_subscribe_event = msm_cvp_v4l2_subscribe_event,
-	.vidioc_unsubscribe_event = msm_cvp_v4l2_unsubscribe_event,
-	.vidioc_decoder_cmd = msm_cvp_v4l2_decoder_cmd,
-	.vidioc_encoder_cmd = msm_cvp_v4l2_encoder_cmd,
-	.vidioc_s_parm = msm_cvp_v4l2_s_parm,
-	.vidioc_g_parm = msm_cvp_v4l2_g_parm,
-	.vidioc_g_crop = msm_cvp_v4l2_g_crop,
-	.vidioc_enum_framesizes = msm_cvp_v4l2_enum_framesizes,
-	.vidioc_default = msm_cvp_v4l2_default,
-};
-
-static unsigned int msm_cvp_v4l2_poll(struct file *filp,
-	struct poll_table_struct *pt)
-{
-	struct msm_cvp_inst *cvp_inst = get_cvp_inst(filp, NULL);
-
-	return msm_cvp_poll((void *)cvp_inst, filp, pt);
-}
-
-static const struct v4l2_file_operations msm_v4l2_cvp_fops = {
+static const struct file_operations cvp_fops = {
 	.owner = THIS_MODULE,
-	.open = msm_cvp_v4l2_open,
-	.release = msm_cvp_v4l2_close,
-	.unlocked_ioctl = video_ioctl2,
-	.compat_ioctl32 = msm_cvp_v4l2_private,
-	.poll = msm_cvp_v4l2_poll,
+	.open = cvp_open,
+	.release = cvp_close,
+	.unlocked_ioctl = msm_cvp_v4l2_private,
+	.compat_ioctl = msm_cvp_v4l2_private,
+	.poll = cvp_poll,
 };
-
-void msm_cvp_release_video_device(struct video_device *pvdev)
-{
-}
 
 static int read_platform_resources(struct msm_cvp_core *core,
 		struct platform_device *pdev)
@@ -340,8 +134,8 @@ static ssize_t link_name_show(struct device *dev,
 	struct msm_cvp_core *core = dev_get_drvdata(dev);
 
 	if (core)
-		if (dev == &core->vdev[MSM_CVP_CORE].vdev.dev)
-			return snprintf(buf, PAGE_SIZE, "venus_cvp");
+		if (dev == core->dev)
+			return snprintf(buf, PAGE_SIZE, "msm_cvp\n");
 		else
 			return 0;
 	else
@@ -446,40 +240,11 @@ static const struct of_device_id msm_cvp_dt_match[] = {
 	{.compatible = "qcom,msm-cvp,mem-cdsp"},
 	{}
 };
-static int msm_cvp_register_video_device(enum session_type sess_type,
-		int nr, struct msm_cvp_core *core, struct device *dev)
-{
-	int rc = 0;
 
-	core->vdev[sess_type].vdev.release =
-		msm_cvp_release_video_device;
-	core->vdev[sess_type].vdev.fops = &msm_v4l2_cvp_fops;
-	core->vdev[sess_type].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
-	core->vdev[sess_type].vdev.vfl_dir = VFL_DIR_M2M;
-	core->vdev[sess_type].type = sess_type;
-	core->vdev[sess_type].vdev.v4l2_dev = &core->v4l2_dev;
-	rc = video_register_device(&core->vdev[sess_type].vdev,
-					VFL_TYPE_GRABBER, nr + 3);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to register the video device\n");
-		return rc;
-	}
-	video_set_drvdata(&core->vdev[sess_type].vdev, core);
-	dev = &core->vdev[sess_type].vdev.dev;
-	rc = device_create_file(dev, &dev_attr_link_name);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to create video device file\n");
-		video_unregister_device(&core->vdev[sess_type].vdev);
-		return rc;
-	}
-	return 0;
-}
 static int msm_probe_cvp_device(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_cvp_core *core;
-	struct device *dev;
-	int nr = BASE_DEVICE_NUMBER;
 
 	if (!cvp_driver) {
 		dprintk(CVP_ERR, "Invalid cvp driver\n");
@@ -506,25 +271,43 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 
 	core->id = MSM_CORE_CVP;
 
-	rc = v4l2_device_register(&pdev->dev, &core->v4l2_dev);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to register v4l2 device\n");
-		goto err_v4l2_register;
+	rc = alloc_chrdev_region(&core->dev_num, 0, 1, DRIVER_NAME);
+	if (rc < 0) {
+		dprintk(CVP_ERR, "alloc_chrdev_region failed: %d\n",
+				rc);
+		goto err_alloc_chrdev;
 	}
 
-	/* setup the cvp device */
-	if (core->resources.domain_cvp) {
-		rc = msm_cvp_register_video_device(MSM_CVP_CORE,
-				nr + 2, core, dev);
-		if (rc) {
-			dprintk(CVP_ERR, "Failed to register video CVP\n");
-			goto err_cvp;
-		}
+	core->class = class_create(THIS_MODULE, CLASS_NAME);
+	if (IS_ERR(core->class)) {
+		rc = PTR_ERR(core->class);
+		dprintk(CVP_ERR, "class_create failed: %d\n",
+				rc);
+		goto err_class_create;
+	}
+
+	core->dev = device_create(core->class, NULL,
+		core->dev_num, NULL, DRIVER_NAME);
+	if (IS_ERR(core->dev)) {
+		rc = PTR_ERR(core->dev);
+		dprintk(CVP_ERR, "device_create failed: %d\n",
+				rc);
+		goto err_device_create;
+	}
+	dev_set_drvdata(core->dev, core);
+
+	cdev_init(&core->cdev, &cvp_fops);
+	rc = cdev_add(&core->cdev,
+			MKDEV(MAJOR(core->dev_num), 0), 1);
+	if (rc < 0) {
+		dprintk(CVP_ERR, "cdev_add failed: %d\n",
+				rc);
+		goto error_cdev_add;
 	}
 
 	/* finish setting up the 'core' */
 	mutex_lock(&cvp_driver->lock);
-	if (cvp_driver->num_cores  + 1 > MSM_CVP_CORES_MAX) {
+	if (cvp_driver->num_cores + 1 > MSM_CVP_CORES_MAX) {
 		mutex_unlock(&cvp_driver->lock);
 		dprintk(CVP_ERR, "Maximum cores already exist, core_no = %d\n",
 				cvp_driver->num_cores);
@@ -532,6 +315,12 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 	}
 	cvp_driver->num_cores++;
 	mutex_unlock(&cvp_driver->lock);
+
+	rc = device_create_file(core->dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(CVP_ERR, "Failed to create cvp device file\n");
+		goto err_cores_exceeded;
+	}
 
 	core->device = cvp_hfi_initialize(core->hfi_type, core->id,
 				&core->resources, &cvp_handle_cmd_response);
@@ -545,7 +334,7 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 			dprintk(CVP_ERR, "Failed to create HFI device\n");
 		else
 			dprintk(CVP_DBG, "msm_cvp: request probe defer\n");
-		goto err_cores_exceeded;
+		goto err_hfi_initialize;
 	}
 
 	mutex_lock(&cvp_driver->lock);
@@ -575,15 +364,17 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 
 err_fail_sub_device_probe:
 	cvp_hfi_deinitialize(core->hfi_type, core->device);
+err_hfi_initialize:
+	device_remove_file(core->dev, &dev_attr_link_name);
 err_cores_exceeded:
-	if (core->resources.domain_cvp) {
-		device_remove_file(&core->vdev[MSM_CVP_CORE].vdev.dev,
-			&dev_attr_link_name);
-		video_unregister_device(&core->vdev[MSM_CVP_CORE].vdev);
-	}
-err_cvp:
-	v4l2_device_unregister(&core->v4l2_dev);
-err_v4l2_register:
+	cdev_del(&core->cdev);
+error_cdev_add:
+	device_destroy(core->class, core->dev_num);
+err_device_create:
+	class_destroy(core->class);
+err_class_create:
+	unregister_chrdev_region(core->dev_num, 1);
+err_alloc_chrdev:
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
 err_core_init:
 	dev_set_drvdata(&pdev->dev, NULL);
@@ -648,12 +439,7 @@ static int msm_cvp_remove(struct platform_device *pdev)
 	}
 
 	cvp_hfi_deinitialize(core->hfi_type, core->device);
-	if (core->resources.domain_cvp) {
-		device_remove_file(&core->vdev[MSM_CVP_CORE].vdev.dev,
-				&dev_attr_link_name);
-		video_unregister_device(&core->vdev[MSM_CVP_CORE].vdev);
-	}
-	v4l2_device_unregister(&core->v4l2_dev);
+	device_remove_file(core->dev, &dev_attr_link_name);
 
 	msm_cvp_free_platform_resources(&core->resources);
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
