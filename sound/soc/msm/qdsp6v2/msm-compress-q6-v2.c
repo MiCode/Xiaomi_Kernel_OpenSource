@@ -106,6 +106,7 @@ struct msm_compr_pdata {
 	struct msm_compr_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
 	int32_t ion_fd[MSM_FRONTEND_DAI_MAX];
 	bool is_in_use[MSM_FRONTEND_DAI_MAX];
+	bool avs_ver;
 };
 
 struct msm_compr_audio {
@@ -1017,7 +1018,18 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			sample_word_size = 16;
 			break;
 		}
-		ret = q6asm_media_format_block_pcm_format_support_v4(
+		if (pdata->avs_ver &&
+			(q6core_get_avs_version() == Q6_SUBSYS_AVS2_7))
+			ret = q6asm_media_format_block_pcm_format_support_v3(
+							prtd->audio_client,
+							prtd->sample_rate,
+							prtd->num_channels,
+							bit_width, stream_id,
+							use_default_chmap,
+							chmap,
+							sample_word_size);
+		else
+			ret = q6asm_media_format_block_pcm_format_support_v4(
 							prtd->audio_client,
 							prtd->sample_rate,
 							prtd->num_channels,
@@ -1273,6 +1285,8 @@ static int msm_compr_configure_dsp_for_playback
 	uint16_t bits_per_sample = 16;
 	int dir = IN, ret = 0;
 	struct audio_client *ac = prtd->audio_client;
+	struct msm_compr_pdata *pdata =
+			snd_soc_platform_get_drvdata(soc_prtd->platform);
 	uint32_t stream_index;
 	struct asm_softpause_params softpause = {
 		.enable = SOFT_PAUSE_ENABLE,
@@ -1323,7 +1337,14 @@ static int msm_compr_configure_dsp_for_playback
 	} else {
 		pr_debug("%s: stream_id %d bits_per_sample %d\n",
 				__func__, ac->stream_id, bits_per_sample);
-		ret = q6asm_stream_open_write_v4(ac,
+		if (pdata->avs_ver &&
+			(q6core_get_avs_version() == Q6_SUBSYS_AVS2_7))
+			ret = q6asm_stream_open_write_v3(ac,
+				prtd->codec, bits_per_sample,
+				ac->stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
+		else
+			ret = q6asm_stream_open_write_v4(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
@@ -2639,7 +2660,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		pr_debug("%s: open_write stream_id %d bits_per_sample %d",
 				__func__, stream_id, bits_per_sample);
-		rc = q6asm_stream_open_write_v4(prtd->audio_client,
+		if (pdata->avs_ver &&
+			(q6core_get_avs_version() == Q6_SUBSYS_AVS2_7))
+			rc = q6asm_stream_open_write_v3(prtd->audio_client,
+				prtd->codec, bits_per_sample,
+				stream_id,
+				prtd->gapless_state.use_dsp_gapless_mode);
+		else
+			rc = q6asm_stream_open_write_v4(prtd->audio_client,
 				prtd->codec, bits_per_sample,
 				stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
@@ -4091,6 +4119,15 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 		pdata->use_legacy_api = false;
 
 	pr_debug("%s: use legacy api %d\n", __func__, pdata->use_legacy_api);
+
+	if (of_property_read_bool(platform->dev->of_node,
+				"qcom,avs-version"))
+		pdata->avs_ver = true;
+	else
+		pdata->avs_ver = false;
+
+	pr_debug("%s: avs_ver = %d\n", __func__, pdata->avs_ver);
+
 	/*
 	 * use_dsp_gapless_mode part of platform data(pdata) is updated from HAL
 	 * through a mixer control before compress driver is opened. The mixer
