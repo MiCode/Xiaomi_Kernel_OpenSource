@@ -1249,11 +1249,12 @@ int ttf_get_time_to_full(struct ttf *ttf, int *val)
 	return rc;
 }
 
+#define DELTA_TTF_IBATT_UA      500000
 static void ttf_work(struct work_struct *work)
 {
 	struct ttf *ttf = container_of(work,
 				struct ttf, ttf_work.work);
-	int rc, ibatt_now, vbatt_now, ttf_now, charge_status;
+	int rc, ibatt_now, vbatt_now, ttf_now, charge_status, ibatt_avg;
 	ktime_t ktime_now;
 
 	mutex_lock(&ttf->lock);
@@ -1282,6 +1283,24 @@ static void ttf_work(struct work_struct *work)
 	ttf_circ_buf_add(&ttf->vbatt, vbatt_now);
 
 	if (charge_status == POWER_SUPPLY_STATUS_CHARGING) {
+		rc = ttf_circ_buf_median(&ttf->ibatt, &ibatt_avg);
+		if (rc < 0) {
+			pr_err("failed to get IBATT AVG rc=%d\n", rc);
+			goto end_work;
+		}
+
+		/*
+		 * While Charging, if Ibatt_now differ from Ibatt_avg by 500mA,
+		 * clear Ibatt buffer and refill with settled Ibatt values, to
+		 * calculate accurate TTF
+		 */
+		if (ibatt_now < 0 && (abs(ibatt_now -
+					ibatt_avg) >= DELTA_TTF_IBATT_UA)) {
+			pr_debug("Clear Ibatt buffer, Ibatt_avg=%d Ibatt_now=%d\n",
+					ibatt_avg, ibatt_now);
+			ttf_circ_buf_clr(&ttf->ibatt);
+		}
+
 		rc = get_time_to_full_locked(ttf, &ttf_now);
 		if (rc < 0) {
 			pr_err("failed to get ttf, rc=%d\n", rc);
