@@ -895,6 +895,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				DMA_ATTR_SKIP_CPU_SYNC;
 		else if (map->attr & FASTRPC_ATTR_COHERENT)
 			map->attach->dma_map_attrs |= DMA_ATTR_FORCE_COHERENT;
+		/*
+		 * Skip CPU sync if IO Cohernecy is not supported
+		 * as we flush later
+		 */
+		else if (!sess->smmu.coherent)
+			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 			dma_buf_map_attachment(map->attach,
@@ -1641,9 +1647,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 					uint64_to_ptr(rpra[i].buf.pv
@@ -1747,9 +1753,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
@@ -1761,9 +1767,9 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_BIDIRECTIONAL);
+					DMA_TO_DEVICE);
 			} else
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
@@ -1798,9 +1804,9 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 		}
 		if (map && map->buf) {
 			dma_buf_begin_cpu_access(map->buf,
-				DMA_BIDIRECTIONAL);
+				DMA_FROM_DEVICE);
 			dma_buf_end_cpu_access(map->buf,
-				DMA_BIDIRECTIONAL);
+				DMA_FROM_DEVICE);
 		} else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
 				(char *)uint64_to_ptr(rpra[i].buf.pv
