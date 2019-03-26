@@ -3105,9 +3105,9 @@ static int cam_vfe_bus_ver3_update_ubwc_config_v2(void *cmd_args)
 		CAM_ERR(CAM_ISP, "num_wm %d h_init 0x%x",
 			vfe_out_data->num_wm,
 			ubwc_generic_plane_cfg->h_init);
-		if ((!wm_data->is_dual) && ((wm_data->ubwc_meta_cfg !=
-			ubwc_generic_plane_cfg->meta_stride) ||
-			!wm_data->init_cfg_done)) {
+		if (wm_data->ubwc_meta_cfg !=
+			ubwc_generic_plane_cfg->meta_stride ||
+			!wm_data->init_cfg_done) {
 			wm_data->ubwc_meta_cfg =
 				ubwc_generic_plane_cfg->meta_stride;
 			wm_data->ubwc_updated = true;
