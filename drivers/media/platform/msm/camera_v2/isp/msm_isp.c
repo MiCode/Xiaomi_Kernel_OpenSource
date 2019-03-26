@@ -707,7 +707,8 @@ int vfe_hw_probe(struct platform_device *pdev)
 	spin_lock_init(&vfe_dev->shared_data_lock);
 	spin_lock_init(&vfe_dev->reg_update_lock);
 	spin_lock_init(&req_history_lock);
-	spin_lock_init(&vfe_dev->completion_lock);
+	spin_lock_init(&vfe_dev->reset_completion_lock);
+	spin_lock_init(&vfe_dev->halt_completion_lock);
 	media_entity_pads_init(&vfe_dev->subdev.sd.entity, 0, NULL);
 	vfe_dev->subdev.sd.entity.function = MSM_CAMERA_SUBDEV_VFE;
 	//vfe_dev->subdev.sd.entity.group_id = MSM_CAMERA_SUBDEV_VFE;
