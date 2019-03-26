@@ -2113,7 +2113,7 @@
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
 		qca,bt-vdd-core-voltage-level = <1304000 1304000>; /* RFA */
-		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
+		qca,bt-vdd-pa-voltage-level =  <3000000 3400000>;  /*chain0 */
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
