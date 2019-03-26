@@ -252,14 +252,14 @@ static int publish_unreleased_reference(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 
-	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
+	if (inst->buffer_mode_set[OUTPUT_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
 		cur += write_str(cur, end - cur, "Pending buffer references\n");
 
 		mutex_lock(&inst->registeredbufs.lock);
 		list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 			struct vb2_buffer *vb2 = &temp->vvb.vb2_buf;
 
-			if (vb2->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			if (vb2->type == OUTPUT_MPLANE) {
 				cur += write_str(cur, end - cur,
 				"\tbuffer: %#x fd[0] = %d size %d refcount = %d\n",
 				temp->smem[0].device_addr,
@@ -292,6 +292,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	char *dbuf, *cur, *end;
 	int i, j;
 	ssize_t len = 0;
+	struct v4l2_format *f;
 
 	if (!idata || !idata->core || !idata->inst) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
@@ -324,15 +325,14 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	cur = dbuf;
 	end = cur + MAX_DBG_BUF_SIZE;
 
+	f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "INSTANCE: %pK (%s)\n", inst,
 		inst->session_type == MSM_VIDC_ENCODER ? "Encoder" : "Decoder");
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "core: %pK\n", inst->core);
-	cur += write_str(cur, end - cur, "height: %d\n",
-		inst->prop.height[CAPTURE_PORT]);
-	cur += write_str(cur, end - cur, "width: %d\n",
-		inst->prop.width[CAPTURE_PORT]);
+	cur += write_str(cur, end - cur, "height: %d\n", f->fmt.pix_mp.height);
+	cur += write_str(cur, end - cur, "width: %d\n", f->fmt.pix_mp.width);
 	cur += write_str(cur, end - cur, "fps: %d\n",
 			inst->clk_data.frame_rate >> 16);
 	cur += write_str(cur, end - cur, "state: %d\n", inst->state);
@@ -340,14 +340,15 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		!!(inst->flags & VIDC_SECURE));
 	cur += write_str(cur, end - cur, "-----------Formats-------------\n");
 	for (i = 0; i < MAX_PORT_NUM; i++) {
+		f = &inst->fmts[i].v4l2_fmt;
 		cur += write_str(cur, end - cur, "capability: %s\n",
-			i == OUTPUT_PORT ? "Output" : "Capture");
+			i == INPUT_PORT ? "Output" : "Capture");
 		cur += write_str(cur, end - cur, "name : %s\n",
 			inst->fmts[i].name);
 		cur += write_str(cur, end - cur, "planes : %d\n",
-			inst->bufq[i].num_planes);
+			f->fmt.pix_mp.num_planes);
 		cur += write_str(cur, end - cur,
-			"type: %s\n", inst->fmts[i].type == OUTPUT_PORT ?
+			"type: %s\n", i == INPUT_PORT ?
 			"Output" : "Capture");
 		switch (inst->buffer_mode_set[i]) {
 		case HAL_BUFFER_MODE_STATIC:
@@ -366,10 +367,10 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		cur += write_str(cur, end - cur, "count: %u\n",
 				inst->bufq[i].vb2_bufq.num_buffers);
 
-		for (j = 0; j < inst->bufq[i].num_planes; j++)
+		for (j = 0; j < f->fmt.pix_mp.num_planes; j++)
 			cur += write_str(cur, end - cur,
 				"size for plane %d: %u\n",
-				j, inst->bufq[i].plane_sizes[j]);
+				j, f->fmt.pix_mp.plane_fmt[j].sizeimage);
 
 		if (i < MAX_PORT_NUM - 1)
 			cur += write_str(cur, end - cur, "\n");

@@ -75,6 +75,17 @@ static inline struct v4l2_ctrl *get_ctrl(struct msm_vidc_inst *inst,
 	return inst->ctrls[0];
 }
 
+static inline u32 get_v4l2_codec(struct msm_vidc_inst *inst)
+{
+	struct v4l2_format *f;
+	u32 port;
+
+	port = (inst->session_type == MSM_VIDC_DECODER) ? INPUT_PORT :
+		OUTPUT_PORT;
+	f = &inst->fmts[port].v4l2_fmt;
+	return f->fmt.pix_mp.pixelformat;
+}
+
 static inline bool is_realtime_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_REALTIME);
@@ -107,7 +118,7 @@ static inline bool is_secondary_output_mode(struct msm_vidc_inst *inst)
 
 static inline bool in_port_reconfig(struct msm_vidc_inst *inst)
 {
-	return inst->in_reconfig && inst->bufq[OUTPUT_PORT].vb2_bufq.streaming;
+	return inst->in_reconfig && inst->bufq[INPUT_PORT].vb2_bufq.streaming;
 }
 
 static inline int msm_comm_g_ctrl(struct msm_vidc_inst *inst,
@@ -129,10 +140,10 @@ struct msm_vidc_inst *get_inst(struct msm_vidc_core *core,
 		void *session_id);
 void change_inst_state(struct msm_vidc_inst *inst, enum instance_state state);
 struct msm_vidc_core *get_vidc_core(int core_id);
-const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
-	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);
-struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
-	struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type);
+const struct msm_vidc_format_desc *msm_comm_get_pixel_fmt_index(
+	const struct msm_vidc_format_desc fmt[], int size, int index);
+struct msm_vidc_format_desc *msm_comm_get_pixel_fmt_fourcc(
+	struct msm_vidc_format_desc fmt[], int size, int fourcc);
 struct msm_vidc_format_constraint *msm_comm_get_pixel_fmt_constraints(
 	struct msm_vidc_format_constraint fmt[], int size, int fourcc);
 int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
@@ -165,10 +176,6 @@ int msm_comm_release_dpb_only_buffers(struct msm_vidc_inst *inst,
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 int msm_comm_suspend(int core_id);
-int msm_comm_reset_bufreqs(struct msm_vidc_inst *inst,
-	enum hal_buffer buf_type);
-int msm_comm_copy_bufreqs(struct msm_vidc_inst *inst,
-	enum hal_buffer src_type, enum hal_buffer dst_type);
 struct hal_buffer_requirements *get_buff_req_buffer(
 			struct msm_vidc_inst *inst, u32 buffer_type);
 #define IS_PRIV_CTRL(idx) (\

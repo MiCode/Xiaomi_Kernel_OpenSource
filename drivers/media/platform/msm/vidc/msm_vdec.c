@@ -357,9 +357,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
 		.name = "CAPTURE Count",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_NUM_CAPTURE_BUFFERS,
-		.maximum = MAX_NUM_CAPTURE_BUFFERS,
-		.default_value = MIN_NUM_CAPTURE_BUFFERS,
+		.minimum = MIN_NUM_OUTPUT_BUFFERS,
+		.maximum = MAX_NUM_OUTPUT_BUFFERS,
+		.default_value = MIN_NUM_OUTPUT_BUFFERS,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -367,9 +367,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.id = V4L2_CID_MIN_BUFFERS_FOR_OUTPUT,
 		.name = "OUTPUT Count",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = MIN_NUM_OUTPUT_BUFFERS,
-		.maximum = MAX_NUM_OUTPUT_BUFFERS,
-		.default_value = MIN_NUM_OUTPUT_BUFFERS,
+		.minimum = MIN_NUM_INPUT_BUFFERS,
+		.maximum = MAX_NUM_INPUT_BUFFERS,
+		.default_value = MIN_NUM_INPUT_BUFFERS,
 		.step = 1,
 		.qmenu = NULL,
 	},
@@ -415,75 +415,55 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
-struct msm_vidc_format vdec_formats[] = {
+
+struct msm_vidc_format_desc vdec_output_formats[] = {
 	{
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
-		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "YCbCr Semiplanar 4:2:0 10bit",
 		.description = "Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS,
-		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0",
 		.description = "UBWC Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
-		.type = CAPTURE_PORT,
 	},
 	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
 		.description = "UBWC Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-		.type = CAPTURE_PORT,
 	},
+};
+
+struct msm_vidc_format_desc vdec_input_formats[] = {
 	{
 		.name = "Mpeg2",
 		.description = "Mpeg2 compressed format",
 		.fourcc = V4L2_PIX_FMT_MPEG2,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-		.input_min_count = 4,
-		.output_min_count = 6,
 	},
 	{
 		.name = "H264",
 		.description = "H264 compressed format",
 		.fourcc = V4L2_PIX_FMT_H264,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-		.input_min_count = 4,
-		.output_min_count = 8,
 	},
 	{
 		.name = "HEVC",
 		.description = "HEVC compressed format",
 		.fourcc = V4L2_PIX_FMT_HEVC,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-		.input_min_count = 4,
-		.output_min_count = 8,
 	},
 	{
 		.name = "VP8",
 		.description = "VP8 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP8,
-		.type = OUTPUT_PORT,
-		.defer_outputs = false,
-		.input_min_count = 4,
-		.output_min_count = 6,
 	},
 	{
 		.name = "VP9",
 		.description = "VP9 compressed format",
 		.fourcc = V4L2_PIX_FMT_VP9,
-		.type = OUTPUT_PORT,
-		.defer_outputs = true,
-		.input_min_count = 4,
-		.output_min_count = 11,
 	},
 };
 
@@ -514,7 +494,7 @@ static bool msm_vidc_check_for_vp9d_overload(struct msm_vidc_core *core)
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst->session_type == MSM_VIDC_DECODER &&
-			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9)
+			get_v4l2_codec(inst) == V4L2_PIX_FMT_VP9)
 			vp9d_instance_count++;
 	}
 	mutex_unlock(&core->lock);
@@ -526,6 +506,7 @@ static bool msm_vidc_check_for_vp9d_overload(struct msm_vidc_core *core)
 
 int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
 {
+	struct v4l2_format *f;
 	u32 format;
 	u32 stream_output_mode;
 	u32 fourcc;
@@ -535,7 +516,8 @@ int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	format = inst->fmts[CAPTURE_PORT].fourcc;
+	f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+	format = f->fmt.pix_mp.pixelformat;
 	stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
 	if ((format == V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS) ||
 		(format == V4L2_PIX_FMT_NV12)) {
@@ -557,39 +539,55 @@ int msm_vdec_update_stream_output_mode(struct msm_vidc_inst *inst)
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
-	unsigned int extra_idx = 0;
+	struct msm_vidc_format_desc *fmt_desc = NULL;
+	struct v4l2_pix_format_mplane *mplane = NULL;
 	int rc = 0;
-	int i;
-	u32 max_input_size = 0;
+	u32 color_format;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
-	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
-			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
-			CAPTURE_PORT);
-		if (!fmt || fmt->type != CAPTURE_PORT) {
-			dprintk(VIDC_ERR,
-				"Format: %d not supported on CAPTURE port\n",
+	/*
+	 * First update inst format with new width/height/format
+	 * Recalculate sizes/strides etc
+	 * Perform necessary checks to continue with session
+	 * Copy recalculated info into user format
+	 */
+	if (f->type == OUTPUT_MPLANE) {
+		fmt = &inst->fmts[OUTPUT_PORT];
+		fmt_desc = msm_comm_get_pixel_fmt_fourcc(vdec_output_formats,
+			ARRAY_SIZE(vdec_output_formats),
+			f->fmt.pix_mp.pixelformat);
+		if (!fmt_desc) {
+			dprintk(VIDC_ERR, "Invalid fmt set : %x\n",
 				f->fmt.pix_mp.pixelformat);
-			rc = -EINVAL;
-			goto err_invalid_fmt;
+			return -EINVAL;
 		}
+		strlcpy(fmt->name, fmt_desc->name, sizeof(fmt->name));
+		strlcpy(fmt->description, fmt_desc->description,
+			sizeof(fmt->description));
 
 		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
-		if (inst->fmts[fmt->type].fourcc == f->fmt.pix_mp.pixelformat &&
-			inst->prop.width[CAPTURE_PORT] == f->fmt.pix_mp.width &&
-			inst->prop.height[CAPTURE_PORT] ==
-				f->fmt.pix_mp.height) {
-			dprintk(VIDC_DBG, "No change in CAPTURE port params\n");
-			return 0;
-		}
-		memcpy(&inst->fmts[fmt->type], fmt,
-				sizeof(struct msm_vidc_format));
 
+		fmt->v4l2_fmt.type = f->type;
+		mplane = &fmt->v4l2_fmt.fmt.pix_mp;
+		mplane->width = f->fmt.pix_mp.width;
+		mplane->height = f->fmt.pix_mp.height;
+		mplane->pixelformat = f->fmt.pix_mp.pixelformat;
+		mplane->plane_fmt[0].sizeimage =
+			msm_vidc_calculate_dec_output_frame_size(inst);
+
+		if (mplane->num_planes > 1)
+			mplane->plane_fmt[1].sizeimage =
+				msm_vidc_calculate_dec_output_extra_size(inst);
+		color_format = msm_comm_convert_color_fmt(
+			f->fmt.pix_mp.pixelformat);
+		mplane->plane_fmt[0].bytesperline =
+			VENUS_Y_STRIDE(color_format, f->fmt.pix_mp.width);
+		mplane->plane_fmt[0].reserved[0] =
+			VENUS_Y_SCANLINES(color_format, f->fmt.pix_mp.height);
 		inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 		if ((f->fmt.pix_mp.pixelformat ==
 			V4L2_PIX_FMT_NV12_TP10_UBWC) ||
@@ -597,30 +595,12 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS)) {
 			inst->bit_depth = MSM_VIDC_BIT_DEPTH_10;
 		}
-		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
-		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: session not supported\n", __func__);
 			goto err_invalid_fmt;
-		}
-
-		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			msm_vidc_calculate_dec_output_frame_size(inst);
-
-		extra_idx = EXTRADATA_IDX(inst->bufq[fmt->type].num_planes);
-		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
-			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
-				VENUS_EXTRADATA_SIZE(
-					inst->prop.height[CAPTURE_PORT],
-					inst->prop.width[CAPTURE_PORT]);
-		}
-
-		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
-		for (i = 0; i < inst->bufq[fmt->type].num_planes; i++) {
-			inst->bufq[CAPTURE_PORT].plane_sizes[i] =
-				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
 
 		rc = msm_vdec_update_stream_output_mode(inst);
@@ -630,23 +610,23 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				__func__);
 			goto err_invalid_fmt;
 		}
-	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 
-		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
-				ARRAY_SIZE(vdec_formats),
-				f->fmt.pix_mp.pixelformat,
-				OUTPUT_PORT);
-		if (!fmt || fmt->type != OUTPUT_PORT) {
-			dprintk(VIDC_ERR,
-			"Format: %d not supported on OUTPUT port\n",
+		memcpy(f, &fmt->v4l2_fmt, sizeof(struct v4l2_format));
+	} else if (f->type == INPUT_MPLANE) {
+		fmt = &inst->fmts[INPUT_PORT];
+		fmt_desc = msm_comm_get_pixel_fmt_fourcc(vdec_input_formats,
+			ARRAY_SIZE(vdec_input_formats),
 			f->fmt.pix_mp.pixelformat);
-			rc = -EINVAL;
-			goto err_invalid_fmt;
+		if (!fmt_desc) {
+			dprintk(VIDC_ERR, "Invalid fmt set : %x\n",
+				f->fmt.pix_mp.pixelformat);
+			return -EINVAL;
 		}
-		memcpy(&inst->fmts[fmt->type], fmt,
-				sizeof(struct msm_vidc_format));
+		strlcpy(fmt->name, fmt_desc->name, sizeof(fmt->name));
+		strlcpy(fmt->description, fmt_desc->description,
+			sizeof(fmt->description));
 
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) {
+		if (f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_VP9) {
 			if (msm_vidc_check_for_vp9d_overload(inst->core)) {
 				dprintk(VIDC_ERR, "VP9 Decode overload\n");
 				rc = -ENOTSUPP;
@@ -654,21 +634,20 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			}
 		}
 
+		fmt->v4l2_fmt.type = f->type;
+		mplane = &fmt->v4l2_fmt.fmt.pix_mp;
+		mplane->width = f->fmt.pix_mp.width;
+		mplane->height = f->fmt.pix_mp.height;
+		mplane->pixelformat = f->fmt.pix_mp.pixelformat;
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
 			goto err_invalid_fmt;
 		}
 
-		if (inst->fmts[fmt->type].fourcc == f->fmt.pix_mp.pixelformat &&
-			inst->prop.width[OUTPUT_PORT] == f->fmt.pix_mp.width &&
-			inst->prop.height[OUTPUT_PORT] ==
-				f->fmt.pix_mp.height) {
-			dprintk(VIDC_DBG, "No change in OUTPUT port params\n");
-			return 0;
-		}
-		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
-		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		mplane->plane_fmt[0].sizeimage =
+			msm_vidc_calculate_dec_input_frame_size(inst);
+
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -676,25 +655,46 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 
-		max_input_size = msm_vidc_calculate_dec_input_frame_size(inst);
-		if (f->fmt.pix_mp.plane_fmt[0].sizeimage > max_input_size ||
-			!f->fmt.pix_mp.plane_fmt[0].sizeimage) {
-			f->fmt.pix_mp.plane_fmt[0].sizeimage = max_input_size;
-		}
-
-		f->fmt.pix_mp.num_planes = inst->bufq[fmt->type].num_planes;
-		for (i = 0; i < inst->bufq[fmt->type].num_planes; ++i) {
-			inst->bufq[OUTPUT_PORT].plane_sizes[i] =
-				f->fmt.pix_mp.plane_fmt[i].sizeimage;
-		}
+		memcpy(f, &fmt->v4l2_fmt, sizeof(struct v4l2_format));
 	}
+
 err_invalid_fmt:
 	return rc;
 }
 
+int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
+{
+	struct v4l2_format *fmt;
+
+	if (f->type == OUTPUT_MPLANE) {
+		fmt = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+			msm_vidc_calculate_dec_output_frame_size(inst);
+		if (fmt->fmt.pix_mp.num_planes > 1)
+			fmt->fmt.pix_mp.plane_fmt[1].sizeimage =
+				msm_vidc_calculate_dec_output_extra_size(inst);
+		memcpy(f, fmt, sizeof(struct v4l2_format));
+	} else if (f->type == INPUT_MPLANE) {
+		fmt = &inst->fmts[INPUT_PORT].v4l2_fmt;
+		if (inst->in_reconfig) {
+			fmt->fmt.pix_mp.width = inst->reconfig_width;
+			fmt->fmt.pix_mp.height = inst->reconfig_height;
+		}
+		fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+			msm_vidc_calculate_dec_input_frame_size(inst);
+		memcpy(f, fmt, sizeof(struct v4l2_format));
+	} else {
+		dprintk(VIDC_ERR, "%s - Unsupported buf type: %d\n",
+			__func__, f->type);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 {
-	const struct msm_vidc_format *fmt = NULL;
+	const struct msm_vidc_format_desc *fmt_desc = NULL;
 	int rc = 0;
 
 	if (!inst || !f) {
@@ -702,20 +702,20 @@ int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 			"Invalid input, inst = %pK, f = %pK\n", inst, f);
 		return -EINVAL;
 	}
-	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		fmt = msm_comm_get_pixel_fmt_index(vdec_formats,
-			ARRAY_SIZE(vdec_formats), f->index, CAPTURE_PORT);
-	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		fmt = msm_comm_get_pixel_fmt_index(vdec_formats,
-			ARRAY_SIZE(vdec_formats), f->index, OUTPUT_PORT);
+	if (f->type == OUTPUT_MPLANE) {
+		fmt_desc = msm_comm_get_pixel_fmt_index(vdec_output_formats,
+			ARRAY_SIZE(vdec_output_formats), f->index);
+	} else if (f->type == INPUT_MPLANE) {
+		fmt_desc = msm_comm_get_pixel_fmt_index(vdec_input_formats,
+			ARRAY_SIZE(vdec_input_formats), f->index);
 		f->flags = V4L2_FMT_FLAG_COMPRESSED;
 	}
 
 	memset(f->reserved, 0, sizeof(f->reserved));
-	if (fmt) {
-		strlcpy(f->description, fmt->description,
+	if (fmt_desc) {
+		strlcpy(f->description, fmt_desc->description,
 				sizeof(f->description));
-		f->pixelformat = fmt->fourcc;
+		f->pixelformat = fmt_desc->fourcc;
 	} else {
 		dprintk(VIDC_DBG, "No more formats found\n");
 		rc = -EINVAL;
@@ -727,43 +727,63 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct msm_vidc_core *core;
-	struct msm_vidc_format *fmt = NULL;
+	struct msm_vidc_format_desc *fmt_desc = NULL;
+	struct v4l2_format *f = NULL;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "Invalid input = %pK\n", inst);
 		return -EINVAL;
 	}
 	core = inst->core;
-	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
-	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
-	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
-	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
+
 	inst->prop.extradata_ctrls = EXTRADATA_DEFAULT;
-	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
-	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_DYNAMIC;
-	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
-	/* To start with, in port is 1 plane and out is 2 */
-	inst->bufq[OUTPUT_PORT].num_planes = 1;
-	inst->bufq[CAPTURE_PORT].num_planes = 2;
-	inst->bufq[CAPTURE_PORT].plane_sizes[1] =
+	f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+	f->fmt.pix_mp.height = DEFAULT_HEIGHT;
+	f->fmt.pix_mp.width = DEFAULT_WIDTH;
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12_UBWC;
+	f->fmt.pix_mp.num_planes = 2;
+	f->fmt.pix_mp.plane_fmt[0].sizeimage =
+		msm_vidc_calculate_dec_output_frame_size(inst);
+	f->fmt.pix_mp.plane_fmt[1].sizeimage =
 		msm_vidc_calculate_dec_output_extra_size(inst);
+	fmt_desc = msm_comm_get_pixel_fmt_fourcc(vdec_output_formats,
+		ARRAY_SIZE(vdec_output_formats), f->fmt.pix_mp.pixelformat);
+	if (!fmt_desc) {
+		dprintk(VIDC_ERR, "Invalid fmt set : %x\n",
+			f->fmt.pix_mp.pixelformat);
+		return -EINVAL;
+	}
+	strlcpy(inst->fmts[OUTPUT_PORT].name, fmt_desc->name,
+		sizeof(inst->fmts[OUTPUT_PORT].name));
+	strlcpy(inst->fmts[OUTPUT_PORT].description, fmt_desc->description,
+		sizeof(inst->fmts[OUTPUT_PORT].description));
+	f = &inst->fmts[INPUT_PORT].v4l2_fmt;
+	f->fmt.pix_mp.height = DEFAULT_HEIGHT;
+	f->fmt.pix_mp.width = DEFAULT_WIDTH;
+	f->fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+	f->fmt.pix_mp.num_planes = 1;
+	f->fmt.pix_mp.plane_fmt[0].sizeimage =
+		msm_vidc_calculate_dec_input_frame_size(inst);
+	fmt_desc = msm_comm_get_pixel_fmt_fourcc(vdec_input_formats,
+		ARRAY_SIZE(vdec_input_formats), f->fmt.pix_mp.pixelformat);
+	if (!fmt_desc) {
+		dprintk(VIDC_ERR, "Invalid fmt set : %x\n",
+			f->fmt.pix_mp.pixelformat);
+		return -EINVAL;
+	}
+	strlcpy(inst->fmts[INPUT_PORT].name, fmt_desc->name,
+		sizeof(inst->fmts[INPUT_PORT].name));
+	strlcpy(inst->fmts[INPUT_PORT].description, fmt_desc->description,
+		sizeof(inst->fmts[INPUT_PORT].description));
+	inst->buffer_mode_set[INPUT_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_DYNAMIC;
+	inst->stream_output_mode = HAL_VIDEO_DECODER_PRIMARY;
+
 
 	inst->clk_data.frame_rate = (DEFAULT_FPS << 16);
 	inst->clk_data.operating_rate = (DEFAULT_FPS << 16);
 	if (core->resources.decode_batching)
 		inst->batch.size = MAX_DEC_BATCH_SIZE;
-
-	/* By default, initialize CAPTURE port to UBWC YUV format */
-	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
-		ARRAY_SIZE(vdec_formats), V4L2_PIX_FMT_NV12_UBWC,
-			CAPTURE_PORT);
-	if (!fmt || fmt->type != CAPTURE_PORT) {
-		dprintk(VIDC_ERR,
-			"vdec_formats corrupted\n");
-		return -EINVAL;
-	}
-	memcpy(&inst->fmts[fmt->type], fmt,
-			sizeof(struct msm_vidc_format));
 
 	inst->buff_req.buffer[1].buffer_type = HAL_BUFFER_INPUT;
 	inst->buff_req.buffer[1].buffer_count_min_host =
@@ -788,18 +808,6 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
 	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
 	msm_vidc_init_buffer_size_calculators(inst);
-
-	/* By default, initialize OUTPUT port to H264 decoder */
-	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
-		ARRAY_SIZE(vdec_formats), V4L2_PIX_FMT_H264,
-			OUTPUT_PORT);
-	if (!fmt || fmt->type != OUTPUT_PORT) {
-		dprintk(VIDC_ERR,
-			"vdec_formats corrupted\n");
-		return -EINVAL;
-	}
-	memcpy(&inst->fmts[fmt->type], fmt,
-			sizeof(struct msm_vidc_format));
 
 	return rc;
 }
@@ -868,8 +876,8 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		else
 			inst->prop.extradata_ctrls |= ctrl->val;
 		/*
-		 * nothing to do here as inst->bufq[CAPTURE_PORT].num_planes
-		 * and inst->bufq[CAPTURE_PORT].plane_sizes[1] are already
+		 * nothing to do here as inst->bufq[OUTPUT_PORT].num_planes
+		 * and inst->bufq[OUTPUT_PORT].plane_sizes[1] are already
 		 * initialized to proper values
 		 */
 		break;
@@ -901,6 +909,7 @@ int msm_vdec_set_frame_size(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hfi_frame_size frame_size;
+	struct v4l2_format *f;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -908,9 +917,10 @@ int msm_vdec_set_frame_size(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
+	f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 	frame_size.buffer_type = HFI_BUFFER_INPUT;
-	frame_size.width = inst->prop.width[OUTPUT_PORT];
-	frame_size.height = inst->prop.height[OUTPUT_PORT];
+	frame_size.width = f->fmt.pix_mp.width;
+	frame_size.height = f->fmt.pix_mp.height;
 	dprintk(VIDC_DBG, "%s: input wxh %dx%d\n", __func__,
 		frame_size.width, frame_size.height);
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
@@ -965,7 +975,7 @@ int msm_vdec_set_input_buffer_counts(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_buffer_requirements *bufreq;
+	struct msm_vidc_format *fmt;
 	enum hal_buffer buffer_type;
 
 	if (!inst || !inst->core) {
@@ -975,15 +985,10 @@ int msm_vdec_set_input_buffer_counts(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	buffer_type = HAL_BUFFER_INPUT;
-	bufreq = get_buff_req_buffer(inst, buffer_type);
-	if (!bufreq) {
-		dprintk(VIDC_ERR, "%s: failed to get bufreqs(%#x)\n",
-			__func__, buffer_type);
-		return -EINVAL;
-	}
+	fmt = &inst->fmts[INPUT_PORT];
 	rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_actual,
+			fmt->count_min,
+			fmt->count_actual,
 			buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: failed to set bufreqs(%#x)\n",
@@ -998,7 +1003,7 @@ int msm_vdec_set_output_buffer_counts(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_buffer_requirements *bufreq;
+	struct msm_vidc_format *fmt;
 	enum hal_buffer buffer_type;
 
 	if (!inst || !inst->core) {
@@ -1009,20 +1014,15 @@ int msm_vdec_set_output_buffer_counts(struct msm_vidc_inst *inst)
 
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	/* Correct buffer counts is always stored in HAL_BUFFER_OUTPUT */
-	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-	if (!bufreq) {
-		dprintk(VIDC_ERR, "%s: failed to set bufreqs(%#x)\n",
-			__func__, buffer_type);
-		return -EINVAL;
-	}
+	fmt = &inst->fmts[OUTPUT_PORT];
 	if (buffer_type == HAL_BUFFER_OUTPUT2) {
 		/*
 		 * For split mode set DPB count as well
 		 * For DPB actual count is same as min output count
 		 */
 		rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_min,
+			fmt->count_min,
+			fmt->count_min,
 			HAL_BUFFER_OUTPUT);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -1032,8 +1032,8 @@ int msm_vdec_set_output_buffer_counts(struct msm_vidc_inst *inst)
 		}
 	}
 	rc = msm_comm_set_buffer_count(inst,
-			bufreq->buffer_count_min,
-			bufreq->buffer_count_actual,
+			fmt->count_min,
+			fmt->count_actual,
 			buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: failed to set bufreqs(%#x)\n",
@@ -1156,6 +1156,7 @@ int msm_vdec_set_secure_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl;
+	u32 codec;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1165,11 +1166,12 @@ int msm_vdec_set_secure_mode(struct msm_vidc_inst *inst)
 
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_SECURE);
 
+	codec = get_v4l2_codec(inst);
 	if (ctrl->val) {
-		if (!(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
-			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_H264 ||
-			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9 ||
-			inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2)) {
+		if (!(codec == V4L2_PIX_FMT_HEVC ||
+			codec == V4L2_PIX_FMT_H264 ||
+			codec == V4L2_PIX_FMT_VP9 ||
+			codec == V4L2_PIX_FMT_MPEG2)) {
 			dprintk(VIDC_ERR,
 				"%s: Secure allowed for HEVC/H264/VP9/MPEG2\n",
 				__func__);
@@ -1192,6 +1194,7 @@ int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hfi_multi_stream multi_stream;
 	struct hfi_frame_size frame_sz;
+	struct v4l2_format *f;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -1251,8 +1254,9 @@ int msm_vdec_set_output_stream_mode(struct msm_vidc_inst *inst)
 			return rc;
 		}
 		frame_sz.buffer_type = HFI_BUFFER_OUTPUT2;
-		frame_sz.width = inst->prop.width[CAPTURE_PORT];
-		frame_sz.height = inst->prop.height[CAPTURE_PORT];
+		f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		frame_sz.width = f->fmt.pix_mp.width;
+		frame_sz.height = f->fmt.pix_mp.height;
 		dprintk(VIDC_DBG,
 			"frame_size: hal buffer type %d, width %d, height %d\n",
 			frame_sz.buffer_type, frame_sz.width, frame_sz.height);
@@ -1362,8 +1366,10 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 {
 	uint32_t display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
 	u32 value = 0x0;
+	u32 codec;
 
-	switch (inst->fmts[OUTPUT_PORT].fourcc) {
+	codec = get_v4l2_codec(inst);
+	switch (codec) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_HEVC:
 		display_info = HFI_PROPERTY_PARAM_VUI_DISPLAY_INFO_EXTRADATA;
@@ -1384,15 +1390,15 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 	msm_comm_set_extradata(inst,
 		HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA, 0x1);
 	msm_comm_set_extradata(inst, display_info, 0x1);
-	if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9 ||
-		inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
+
+	if (codec == V4L2_PIX_FMT_VP9 || codec == V4L2_PIX_FMT_HEVC) {
 		msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_HDR10_HIST_EXTRADATA, 0x1);
 	}
 
 	msm_comm_set_extradata(inst,
 		HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB, 0x1);
-	if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC) {
+	if (codec == V4L2_PIX_FMT_HEVC) {
 		msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_VDEC_MASTER_DISP_COL_SEI_EXTRADATA,
 			0x1);

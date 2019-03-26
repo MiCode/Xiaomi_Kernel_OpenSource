@@ -16,6 +16,8 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst,
 		struct v4l2_fmtdesc *f);
 int msm_venc_s_fmt(struct msm_vidc_inst *inst,
 		struct v4l2_format *f);
+int msm_venc_g_fmt(struct msm_vidc_inst *inst,
+		struct v4l2_format *f);
 int msm_venc_s_ctrl(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl);
 int msm_venc_set_properties(struct msm_vidc_inst *inst);

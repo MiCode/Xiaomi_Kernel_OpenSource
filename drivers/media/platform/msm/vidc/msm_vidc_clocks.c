@@ -118,12 +118,16 @@ bool res_is_greater_than(u32 width, u32 height,
 int msm_vidc_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int height, width;
+	struct v4l2_format *out_f;
+	struct v4l2_format *inp_f;
 
+	out_f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+	inp_f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 	if (!inst->in_reconfig) {
-		height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-		width = max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
+		height = max(out_f->fmt.pix_mp.height,
+			inp_f->fmt.pix_mp.height);
+		width = max(out_f->fmt.pix_mp.width,
+			inp_f->fmt.pix_mp.width);
 	} else {
 		height = inst->reconfig_height;
 		width = inst->reconfig_width;
@@ -240,6 +244,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 	struct msm_vidc_inst *inst = NULL;
 	struct vidc_bus_vote_data *vote_data = NULL;
 	bool is_turbo = false;
+	struct v4l2_format *out_f;
+	struct v4l2_format *inp_f;
 
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, core);
@@ -271,8 +277,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		mutex_lock(&inst->registeredbufs.lock);
 		list_for_each_entry_safe(temp, next,
 				&inst->registeredbufs.list, list) {
-			if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			if (temp->vvb.vb2_buf.type == INPUT_MPLANE) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -294,12 +299,14 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		++vote_data_count;
 
+		out_f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		inp_f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 		switch (inst->session_type) {
 		case MSM_VIDC_DECODER:
-			codec = inst->fmts[OUTPUT_PORT].fourcc;
+			codec = inp_f->fmt.pix_mp.pixelformat;
 			break;
 		case MSM_VIDC_ENCODER:
-			codec = inst->fmts[CAPTURE_PORT].fourcc;
+			codec = out_f->fmt.pix_mp.pixelformat;
 			break;
 		case MSM_VIDC_CVP:
 			codec = V4L2_PIX_FMT_CVP;
@@ -314,10 +321,10 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].input_width = inst->prop.width[OUTPUT_PORT];
-		vote_data[i].input_height = inst->prop.height[OUTPUT_PORT];
-		vote_data[i].output_width = inst->prop.width[CAPTURE_PORT];
-		vote_data[i].output_height = inst->prop.height[CAPTURE_PORT];
+		vote_data[i].input_width = inp_f->fmt.pix_mp.width;
+		vote_data[i].input_height = inp_f->fmt.pix_mp.height;
+		vote_data[i].output_width = out_f->fmt.pix_mp.width;
+		vote_data[i].output_height = out_f->fmt.pix_mp.height;
 		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
 				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
 
@@ -391,7 +398,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	int rc = 0;
 	int bufs_with_fw = 0;
 	int bufs_with_client = 0;
-	struct hal_buffer_requirements *buf_reqs;
+	struct msm_vidc_format *fmt;
 	struct clock_data *dcvs;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -412,22 +419,16 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 
 	dcvs = &inst->clk_data;
 
-	if (is_decode_session(inst))
-		bufs_with_fw = msm_comm_num_queued_bufs(inst,
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	else
-		bufs_with_fw = msm_comm_num_queued_bufs(inst,
-			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+	if (is_decode_session(inst)) {
+		bufs_with_fw = msm_comm_num_queued_bufs(inst, OUTPUT_MPLANE);
+		fmt = &inst->fmts[OUTPUT_PORT];
+	} else {
+		bufs_with_fw = msm_comm_num_queued_bufs(inst, INPUT_MPLANE);
+		fmt = &inst->fmts[INPUT_PORT];
+	}
 	/* +1 as one buffer is going to be queued after the function */
 	bufs_with_fw += 1;
-
-	buf_reqs = get_buff_req_buffer(inst, dcvs->buffer_type);
-	if (!buf_reqs) {
-		dprintk(VIDC_ERR, "%s: invalid buf type %d\n",
-			__func__, dcvs->buffer_type);
-		return -EINVAL;
-	}
-	bufs_with_client = buf_reqs->buffer_count_actual - bufs_with_fw;
+	bufs_with_client = fmt->count_actual - bufs_with_fw;
 
 	/*
 	 * PMS decides clock level based on below algo
@@ -450,7 +451,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 	if (bufs_with_client <= dcvs->max_threshold) {
 		dcvs->load = dcvs->load_high;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_INCR;
-	} else if (bufs_with_fw < (int) buf_reqs->buffer_count_min) {
+	} else if (bufs_with_fw < (int) fmt->count_min) {
 		dcvs->load = dcvs->load_low;
 		dcvs->dcvs_flags |= MSM_VIDC_DCVS_DECR;
 	} else {
@@ -460,9 +461,9 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst,
 
 	dprintk(VIDC_PROF,
 		"DCVS: %x : total bufs %d outside fw %d max threshold %d with fw %d min bufs %d flags %#x\n",
-		hash32_ptr(inst->session), buf_reqs->buffer_count_actual,
+		hash32_ptr(inst->session), fmt->count_actual,
 		bufs_with_client, dcvs->max_threshold, bufs_with_fw,
-		buf_reqs->buffer_count_min, dcvs->dcvs_flags);
+		fmt->count_min, dcvs->dcvs_flags);
 	return rc;
 }
 
@@ -874,8 +875,7 @@ int msm_vidc_set_clocks(struct msm_vidc_core *core)
 		mutex_lock(&inst->registeredbufs.lock);
 		list_for_each_entry_safe(temp, next,
 				&inst->registeredbufs.list, list) {
-			if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			if (temp->vvb.vb2_buf.type == INPUT_MPLANE) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -964,8 +964,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
-		if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (temp->vvb.vb2_buf.type == INPUT_MPLANE) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			if (inst->session_type == MSM_VIDC_ENCODER &&
@@ -1063,9 +1062,7 @@ int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 	}
 
 	count = inst->core->resources.codec_data_count;
-	fourcc = inst->session_type == MSM_VIDC_DECODER ?
-		inst->fmts[OUTPUT_PORT].fourcc :
-		inst->fmts[CAPTURE_PORT].fourcc;
+	fourcc = get_v4l2_codec(inst);
 
 	for (j = 0; j < count; j++) {
 		if (inst->core->resources.codec_data[j].session_type ==
@@ -1094,7 +1091,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 	u64 total_freq = 0, rate = 0, load;
 	int cycles;
 	struct clock_data *dcvs;
-	struct hal_buffer_requirements *buf_req;
+	struct msm_vidc_format *fmt;
 
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
@@ -1117,27 +1114,14 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 		dcvs->buffer_type = HAL_BUFFER_INPUT;
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
-		buf_req = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
-		if (buf_req)
-			dcvs->max_threshold =
-				buf_req->buffer_count_actual -
-				buf_req->buffer_count_min_host + 2;
-		else
-			dprintk(VIDC_ERR,
-				"%s: No bufer req for buffer type %x\n",
-				__func__, HAL_BUFFER_INPUT);
-
+		fmt = &inst->fmts[INPUT_PORT];
+		dcvs->max_threshold =
+			fmt->count_actual - fmt->count_min_host + 2;
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		dcvs->buffer_type = HAL_BUFFER_OUTPUT;
-		buf_req = get_buff_req_buffer(inst, dcvs->buffer_type);
-		if (buf_req)
-			dcvs->max_threshold =
-				buf_req->buffer_count_actual -
-				buf_req->buffer_count_min_host + 2;
-		else
-			dprintk(VIDC_ERR,
-				"%s: No bufer req for buffer type %x\n",
-				__func__, dcvs->buffer_type);
+		fmt = &inst->fmts[OUTPUT_PORT];
+		dcvs->max_threshold =
+			fmt->count_actual - fmt->count_min_host + 2;
 
 		dcvs->min_threshold =
 			msm_vidc_get_extra_buff_count(inst, dcvs->buffer_type);
@@ -1178,6 +1162,8 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hfi_video_work_route pdata;
+	struct v4l2_format *f;
+	u32 codec;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1189,8 +1175,9 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 
 	pdata.video_work_route = 2;
+	codec = get_v4l2_codec(inst);
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		switch (codec) {
 		case V4L2_PIX_FMT_MPEG2:
 			pdata.video_work_route = 1;
 			break;
@@ -1204,7 +1191,7 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 		u32 slice_mode = 0;
 		u32 output_width, output_height, fps, mbps;
 
-		switch (inst->fmts[CAPTURE_PORT].fourcc) {
+		switch (codec) {
 		case V4L2_PIX_FMT_VP8:
 		case V4L2_PIX_FMT_TME:
 			pdata.video_work_route = 1;
@@ -1217,8 +1204,9 @@ int msm_vidc_decide_work_route_iris1(struct msm_vidc_inst *inst)
 		}
 		slice_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		output_height = inst->prop.height[CAPTURE_PORT];
-		output_width = inst->prop.width[CAPTURE_PORT];
+		f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		output_height = f->fmt.pix_mp.height;
+		output_width = f->fmt.pix_mp.width;
 		fps = inst->clk_data.frame_rate >> 16;
 		mbps = NUM_MBS_PER_SEC(output_height, output_width, fps);
 		if (slice_mode ==
@@ -1254,6 +1242,7 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hfi_video_work_route pdata;
 	bool cbr_plus;
+	u32 codec;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1266,23 +1255,26 @@ int msm_vidc_decide_work_route_iris2(struct msm_vidc_inst *inst)
 	cbr_plus = inst->clk_data.is_cbr_plus;
 	pdata.video_work_route = 4;
 
+	codec  = get_v4l2_codec(inst);
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2 ||
+		if (codec == V4L2_PIX_FMT_MPEG2 ||
 			inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE)
 			pdata.video_work_route = 1;
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
 		u32 slice_mode, width, height;
 		bool is_1080p_above;
+		struct v4l2_format *f;
 
 		slice_mode =  msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		height = inst->prop.height[OUTPUT_PORT];
-		width = inst->prop.width[OUTPUT_PORT];
+		f = &inst->fmts[INPUT_PORT].v4l2_fmt;
+		height = f->fmt.pix_mp.height;
+		width = f->fmt.pix_mp.width;
 
 		is_1080p_above = res_is_greater_than(width, height, 1920, 1088);
 
 		if (slice_mode == V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES ||
-			inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8 ||
+			codec == V4L2_PIX_FMT_VP8 ||
 			(!is_1080p_above && !cbr_plus)) {
 			pdata.video_work_route = 1;
 		}
@@ -1311,6 +1303,7 @@ static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct hfi_video_work_mode pdata;
 	struct hfi_enable latency;
+	struct v4l2_format *f;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1325,17 +1318,17 @@ static int msm_vidc_decide_work_mode_ar50(struct msm_vidc_inst *inst)
 		goto decision_done;
 	}
 
+	f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 	if (inst->session_type == MSM_VIDC_DECODER) {
 		pdata.video_work_mode = HFI_WORKMODE_2;
-		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		switch (f->fmt.pix_mp.pixelformat) {
 		case V4L2_PIX_FMT_MPEG2:
 			pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_HEVC:
-			if (inst->prop.height[OUTPUT_PORT] *
-				inst->prop.width[OUTPUT_PORT] <=
-					1280 * 720)
+			if (f->fmt.pix_mp.height *
+				f->fmt.pix_mp.width <= 1280 * 720)
 				pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
 		}
@@ -1378,6 +1371,8 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 	struct hfi_video_work_mode pdata;
 	struct hfi_enable latency;
 	u32 yuv_size = 0;
+	struct v4l2_format *f;
+	u32 codec;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1394,9 +1389,11 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 		goto decision_done;
 	}
 
+	codec = get_v4l2_codec(inst);
 	if (inst->session_type == MSM_VIDC_DECODER) {
+		f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 		pdata.video_work_mode = HFI_WORKMODE_2;
-		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		switch (codec) {
 		case V4L2_PIX_FMT_MPEG2:
 			pdata.video_work_mode = HFI_WORKMODE_1;
 			break;
@@ -1404,8 +1401,7 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 		case V4L2_PIX_FMT_HEVC:
 		case V4L2_PIX_FMT_VP8:
 		case V4L2_PIX_FMT_VP9:
-			yuv_size = inst->prop.height[OUTPUT_PORT] *
-				inst->prop.width[OUTPUT_PORT];
+			yuv_size = f->fmt.pix_mp.height * f->fmt.pix_mp.width;
 			if ((inst->pic_struct !=
 				 MSM_VIDC_PIC_STRUCT_PROGRESSIVE) ||
 				(yuv_size  <= 1280 * 720))
@@ -1413,8 +1409,6 @@ int msm_vidc_decide_work_mode_iris1(struct msm_vidc_inst *inst)
 			break;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
-		u32 codec = inst->fmts[CAPTURE_PORT].fourcc;
-
 		pdata.video_work_mode = HFI_WORKMODE_2;
 
 		switch (codec) {
@@ -1460,6 +1454,8 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	struct hfi_enable latency;
 	u32 width, height;
 	bool res_ok = false;
+	struct v4l2_format *out_f;
+	struct v4l2_format *inp_f;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1471,22 +1467,23 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 	pdata.video_work_mode = HFI_WORKMODE_2;
 	latency.enable = inst->clk_data.low_latency_mode;
-
+	out_f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+	inp_f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 	if (inst->session_type == MSM_VIDC_DECODER) {
-		height = inst->prop.height[CAPTURE_PORT];
-		width = inst->prop.width[CAPTURE_PORT];
+		height = out_f->fmt.pix_mp.height;
+		width = out_f->fmt.pix_mp.width;
 		res_ok = res_is_less_than(width, height, 1280, 720);
-		if (inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_MPEG2 ||
+		if (inp_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_MPEG2 ||
 			inst->pic_struct != MSM_VIDC_PIC_STRUCT_PROGRESSIVE ||
 			inst->clk_data.low_latency_mode || res_ok) {
 			pdata.video_work_mode = HFI_WORKMODE_1;
 		}
 	} else if (inst->session_type == MSM_VIDC_ENCODER) {
-		height = inst->prop.height[OUTPUT_PORT];
-		width = inst->prop.width[OUTPUT_PORT];
+		height = inp_f->fmt.pix_mp.height;
+		width = inp_f->fmt.pix_mp.width;
 		res_ok = !res_is_greater_than(width, height, 4096, 2160);
 		if (res_ok &&
-			(inst->fmts[CAPTURE_PORT].fourcc == V4L2_PIX_FMT_VP8 ||
+			(out_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_VP8 ||
 			  inst->clk_data.low_latency_mode)) {
 			pdata.video_work_mode = HFI_WORKMODE_1;
 			/* For WORK_MODE_1, set Low Latency mode by default */
@@ -1793,6 +1790,8 @@ void msm_vidc_init_core_clk_ops(struct msm_vidc_core *core)
 void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 {
 	struct msm_vidc_inst *inst = NULL;
+	struct v4l2_format *out_f;
+	struct v4l2_format *inp_f;
 
 	dprintk(VIDC_PROF, "Instances running on core %u", core_id);
 	mutex_lock(&core->lock);
@@ -1801,14 +1800,15 @@ void msm_print_core_status(struct msm_vidc_core *core, u32 core_id)
 		if ((inst->clk_data.core_id != core_id) &&
 			(inst->clk_data.core_id != VIDC_CORE_ID_3))
 			continue;
-
+		out_f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		inp_f = &inst->fmts[INPUT_PORT].v4l2_fmt;
 		dprintk(VIDC_PROF,
 			"inst %pK (%4ux%4u) to (%4ux%4u) %3u %s %s %s %s %lu\n",
 			inst,
-			inst->prop.width[OUTPUT_PORT],
-			inst->prop.height[OUTPUT_PORT],
-			inst->prop.width[CAPTURE_PORT],
-			inst->prop.height[CAPTURE_PORT],
+			inp_f->fmt.pix_mp.width,
+			inp_f->fmt.pix_mp.height,
+			out_f->fmt.pix_mp.width,
+			out_f->fmt.pix_mp.height,
 			inst->clk_data.frame_rate >> 16,
 			inst->session_type == MSM_VIDC_ENCODER ? "ENC" : "DEC",
 			inst->clk_data.work_mode == HFI_WORKMODE_1 ?

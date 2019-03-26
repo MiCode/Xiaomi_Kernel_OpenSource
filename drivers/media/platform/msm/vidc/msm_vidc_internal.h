@@ -42,10 +42,10 @@
 #define DEFAULT_FPS 30
 #define MINIMUM_FPS 1
 #define MAXIMUM_FPS 960
+#define MIN_NUM_INPUT_BUFFERS 1
 #define MIN_NUM_OUTPUT_BUFFERS 1
-#define MIN_NUM_CAPTURE_BUFFERS 1
+#define MAX_NUM_INPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
-#define MAX_NUM_CAPTURE_BUFFERS VIDEO_MAX_FRAME // same as VB2_MAX_FRAME
 
 #define MAX_SUPPORTED_INSTANCES 16
 
@@ -53,6 +53,8 @@
 #define DCVS_FTB_WINDOW 16
 
 #define V4L2_EVENT_VIDC_BASE  10
+#define INPUT_MPLANE V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
+#define OUTPUT_MPLANE V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
 
 #define RATE_CONTROL_OFF (V4L2_MPEG_VIDEO_BITRATE_MODE_CQ + 1)
 #define RATE_CONTROL_LOSSLESS (V4L2_MPEG_VIDEO_BITRATE_MODE_CQ + 2)
@@ -63,10 +65,7 @@
 #define SYS_MSG_INDEX(__msg) (__msg - SYS_MSG_START)
 #define SESSION_MSG_INDEX(__msg) (__msg - SESSION_MSG_START)
 
-
 #define MAX_NAME_LENGTH 64
-
-#define EXTRADATA_IDX(__num_planes) ((__num_planes) ? (__num_planes) - 1 : 0)
 
 #define NUM_MBS_PER_SEC(__height, __width, __fps) \
 	(NUM_MBS_PER_FRAME(__height, __width) * __fps)
@@ -81,8 +80,8 @@
 struct msm_vidc_inst;
 
 enum vidc_ports {
+	INPUT_PORT,
 	OUTPUT_PORT,
-	CAPTURE_PORT,
 	MAX_PORT_NUM
 };
 
@@ -277,14 +276,20 @@ struct msm_vidc_platform_data {
 	struct msm_vidc_ubwc_config_data *ubwc_config;
 };
 
-struct msm_vidc_format {
+struct msm_vidc_format_desc {
 	char name[MAX_NAME_LENGTH];
 	u8 description[32];
 	u32 fourcc;
-	int type;
+};
+
+struct msm_vidc_format {
+	char name[MAX_NAME_LENGTH];
+	u8 description[32];
 	bool defer_outputs;
-	u32 input_min_count;
-	u32 output_min_count;
+	u32 count_min;
+	u32 count_min_host;
+	u32 count_actual;
+	struct v4l2_format v4l2_fmt;
 };
 
 struct msm_vidc_format_constraint {
@@ -318,8 +323,6 @@ struct session_crop {
 };
 
 struct session_prop {
-	u32 width[MAX_PORT_NUM];
-	u32 height[MAX_PORT_NUM];
 	struct session_crop crop_info;
 	u32 fps;
 	u32 bitrate;
@@ -330,8 +333,6 @@ struct session_prop {
 struct buf_queue {
 	struct vb2_queue vb2_bufq;
 	struct mutex lock;
-	unsigned int plane_sizes[VB2_MAX_PLANES];
-	int num_planes;
 };
 
 enum profiling_points {
