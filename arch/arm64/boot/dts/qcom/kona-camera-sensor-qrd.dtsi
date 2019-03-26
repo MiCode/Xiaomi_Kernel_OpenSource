@@ -221,9 +221,9 @@
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
-				 &cam_sensor_active_front>;
+				 &cam_sensor_active_rst2>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
-				 &cam_sensor_suspend_front>;
+				 &cam_sensor_suspend_rst2>;
 		gpios = <&tlmm 96 0>,
 			<&tlmm 78 0>;
 		gpio-reset = <1>;
@@ -264,9 +264,9 @@
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
-				 &cam_sensor_active_front>;
+				 &cam_sensor_active_rst2>;
 		pinctrl-1 = <&cam_sensor_mclk2_suspend
-				 &cam_sensor_suspend_front>;
+				 &cam_sensor_suspend_rst2>;
 		gpios = <&tlmm 96 0>,
 			<&tlmm 78 0>;
 		gpio-reset = <1>;
