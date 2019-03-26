@@ -155,6 +155,9 @@ struct cam_vfe_bus_ver3_vfe_out_data {
 	uint32_t                         dual_hw_alternate_vfe_id;
 	struct list_head                 vfe_out_list;
 
+	uint32_t                         is_master;
+	uint32_t                         is_dual;
+
 	uint32_t                         format;
 	uint32_t                         max_width;
 	uint32_t                         max_height;
@@ -1663,25 +1666,34 @@ static int cam_vfe_bus_ver3_start_comp_grp(
 		if (rsrc_data->is_master) {
 			val = cam_io_r_mb(common_data->mem_base +
 				common_data->common_reg->comp_cfg_0);
+
 			val |= (0x1 << (rsrc_data->comp_grp_type + 14));
+
 			cam_io_w_mb(val, common_data->mem_base +
 				common_data->common_reg->comp_cfg_0);
 
 			val = cam_io_r_mb(common_data->mem_base +
 				common_data->common_reg->comp_cfg_1);
+
 			val |= (0x1 << rsrc_data->comp_grp_type);
+
 			cam_io_w_mb(val, common_data->mem_base +
 				common_data->common_reg->comp_cfg_1);
 		} else {
 			val = cam_io_r_mb(common_data->mem_base +
 				common_data->common_reg->comp_cfg_0);
+
 			val |= (0x1 << rsrc_data->comp_grp_type);
+			val |= (0x1 << (rsrc_data->comp_grp_type + 14));
+
 			cam_io_w_mb(val, common_data->mem_base +
 				common_data->common_reg->comp_cfg_0);
 
 			val = cam_io_r_mb(common_data->mem_base +
 				common_data->common_reg->comp_cfg_1);
+
 			val |= (0x1 << rsrc_data->comp_grp_type);
+
 			cam_io_w_mb(val, common_data->mem_base +
 				common_data->common_reg->comp_cfg_1);
 		}
@@ -1967,6 +1979,9 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 		return rc;
 	}
 
+	rsrc_data->is_dual = out_acquire_args->is_dual;
+	rsrc_data->is_master = out_acquire_args->is_master;
+
 	cam_vfe_bus_ver3_add_wm_to_comp_grp(rsrc_data->comp_grp,
 		client_done_mask);
 
@@ -2087,6 +2102,9 @@ static int cam_vfe_bus_ver3_start_vfe_out(
 	rc = cam_vfe_bus_ver3_start_comp_grp(rsrc_data->comp_grp,
 		bus_irq_reg_mask);
 
+	if (rsrc_data->is_dual && !rsrc_data->is_master)
+		goto end;
+
 	vfe_out->irq_handle = cam_irq_controller_subscribe_irq(
 		common_data->bus_irq_controller,
 		CAM_IRQ_PRIORITY_1,
@@ -2130,6 +2148,7 @@ static int cam_vfe_bus_ver3_start_vfe_out(
 		}
 	}
 
+end:
 	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 	return rc;
 }
