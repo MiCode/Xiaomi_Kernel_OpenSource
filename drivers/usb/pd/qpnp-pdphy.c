@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,14 +183,14 @@ static void pdphy_create_debugfs_entries(struct usb_pdphy *pdphy)
 
 	pdphy->debug_root = debugfs_create_dir("usb-pdphy", NULL);
 	if (!pdphy->debug_root) {
-		dev_warn(pdphy->dev, "Couldn't create debug dir\n");
+		dev_err(pdphy->dev, "Couldn't create debug dir\n");
 		return;
 	}
 
 	ent = debugfs_create_file("status", 0400, pdphy->debug_root, pdphy,
 				  &status_ops);
 	if (!ent) {
-		dev_warn(pdphy->dev, "Couldn't create status file\n");
+		dev_err(pdphy->dev, "Couldn't create status file\n");
 		debugfs_remove(pdphy->debug_root);
 	}
 }
@@ -198,7 +199,7 @@ static int pdphy_enable_power(struct usb_pdphy *pdphy, bool on)
 {
 	int ret = 0;
 
-	dev_dbg(pdphy->dev, "%s turn %s regulator.\n", __func__,
+	dev_err(pdphy->dev, "%s turn %s regulator.\n", __func__,
 		on ? "on" : "off");
 
 	if (!on)
@@ -224,7 +225,7 @@ static int pdphy_enable_power(struct usb_pdphy *pdphy, bool on)
 		goto unset_pdphy_vdd;
 	}
 
-	dev_dbg(pdphy->dev, "%s: PD PHY regulator turned ON.\n", __func__);
+	dev_err(pdphy->dev, "%s: PD PHY regulator turned ON.\n", __func__);
 	return ret;
 
 disable_pdphy_vdd:
@@ -377,7 +378,7 @@ int pd_phy_open(struct pd_phy_params *params)
 	pdphy->power_role = params->power_role;
 	pdphy->frame_filter_val = params->frame_filter_val;
 
-	dev_dbg(pdphy->dev, "%s: DR %x PR %x frame filter val %x\n", __func__,
+	dev_err(pdphy->dev, "%s: DR %x PR %x frame filter val %x\n", __func__,
 		pdphy->data_role, pdphy->power_role, pdphy->frame_filter_val);
 
 	ret = pdphy_enable_power(pdphy, true);
@@ -427,7 +428,7 @@ int pd_phy_signal(enum pd_sig_type sig)
 	int ret;
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: type %d\n", __func__, sig);
+	dev_err(pdphy->dev, "%s: type %d\n", __func__, sig);
 
 	if (!pdphy) {
 		pr_err("%s: pdphy not found\n", __func__);
@@ -435,7 +436,7 @@ int pd_phy_signal(enum pd_sig_type sig)
 	}
 
 	if (!pdphy->is_opened) {
-		dev_dbg(pdphy->dev, "%s: pdphy disabled\n", __func__);
+		dev_err(pdphy->dev, "%s: pdphy disabled\n", __func__);
 		return -ENODEV;
 	}
 
@@ -483,7 +484,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 	struct usb_pdphy *pdphy = __pdphy;
 	unsigned int msg_rx_cnt;
 
-	dev_dbg(pdphy->dev, "%s: hdr %x frame sop_type %d\n",
+	dev_err(pdphy->dev, "%s: hdr %x frame sop_type %d\n",
 			__func__, hdr, sop);
 
 	if (data && data_len)
@@ -498,7 +499,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 	msg_rx_cnt = pdphy->msg_rx_cnt;
 
 	if (!pdphy->is_opened) {
-		dev_dbg(pdphy->dev, "%s: pdphy disabled\n", __func__);
+		dev_err(pdphy->dev, "%s: pdphy disabled\n", __func__);
 		return -ENODEV;
 	}
 
@@ -696,7 +697,7 @@ static int pd_phy_bist_mode(u8 bist_mode)
 {
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: enter BIST mode %d\n", __func__, bist_mode);
+	dev_err(pdphy->dev, "%s: enter BIST mode %d\n", __func__, bist_mode);
 
 	pdphy_reg_write(pdphy, USB_PDPHY_BIST_MODE, 0);
 

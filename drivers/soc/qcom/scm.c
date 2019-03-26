@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +46,7 @@ static DEFINE_MUTEX(scm_lock);
  */
 DEFINE_MUTEX(scm_lmh_lock);
 
-#define SCM_EBUSY_WAIT_MS 30
+#define SCM_EBUSY_WAIT_MS 60
 #define SCM_EBUSY_MAX_RETRY 67
 
 #define N_EXT_SCM_ARGS 7

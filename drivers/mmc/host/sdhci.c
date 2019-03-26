@@ -158,7 +158,7 @@ void sdhci_dumpregs(struct sdhci_host *host)
 	sdhci_dump_state(host);
 	SDHCI_DUMP("============================================\n");
 	/* crash the system upon setting this debugfs. */
-	if (host->mmc->crash_on_err)
+	//if (host->mmc->crash_on_err)
 		BUG_ON(1);
 }
 EXPORT_SYMBOL_GPL(sdhci_dumpregs);
@@ -878,6 +878,10 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 		}
 	}
 
+	if(data && cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		count = 0xE;
+	}
+
 	return count;
 }
 
@@ -1575,7 +1579,8 @@ void sdhci_enable_clk(struct sdhci_host *host, u16 clk)
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 	/* Wait max 20 ms */
-	timeout = ktime_add_ms(ktime_get(), 20);
+	//timeout = ktime_add_ms(ktime_get(), 20);
+	timeout = ktime_add_ms(ktime_get(), 200);
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
 		& SDHCI_CLOCK_INT_STABLE)) {
 		if (ktime_after(ktime_get(), timeout)) {

@@ -1,5 +1,6 @@
 # export-to-sqlite.py: export perf data to a sqlite3 database
 # Copyright (c) 2017, Intel Corporation.
+# Copyright (C) 2019 XiaoMi, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,

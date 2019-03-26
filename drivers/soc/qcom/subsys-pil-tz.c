@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,12 +34,18 @@
 #include <linux/soc/qcom/smem_state.h>
 
 #include "peripheral-loader.h"
-
 #define XO_FREQ			19200000
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	256U
 #define STOP_ACK_TIMEOUT_MS	1000
 #define CRASH_STOP_ACK_TO_MS	200
+#define CHECK_NV_DESTROYED_MI
+#ifdef CHECK_NV_DESTROYED_MI
+#include <linux/workqueue.h>
+#include <linux/slab.h>
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+#endif
 
 #define ERR_READY	0
 #define PBL_DONE	1
@@ -163,6 +170,75 @@ static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
 	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
 	.name = "scm_pas",
 };
+#ifdef CHECK_NV_DESTROYED_MI
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+
+	checknv_kobj->kset = checknv_kset;
+
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+
+free_kobj:
+	kfree(checknv_kobj);
+}
+
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+#endif
 
 static uint32_t scm_perf_client;
 static int scm_pas_bw_count;
@@ -799,7 +875,11 @@ static struct pil_reset_ops pil_ops_trusted = {
 static void log_failure_reason(const struct pil_tz_data *d)
 {
 	size_t size;
+	#ifdef CHECK_NV_DESTROYED_MI
+	char *smem_reason;//, reason[MAX_SSR_REASON_LEN];
+	#else
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+	#endif
 	const char *name = d->subsys_desc.name;
 
 	if (d->smem_id == -1)
@@ -815,9 +895,13 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		pr_err("%s SFR: (unknown, empty string found).\n", name);
 		return;
 	}
-
+	#ifdef CHECK_NV_DESTROYED_MI
+	strlcpy(last_modem_sfr_reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
+	pr_err("%s subsystem failure reason: %s.\n", name, last_modem_sfr_reason);
+	#else
 	strlcpy(reason, smem_reason, min(size, (size_t)MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
+	#endif
 }
 
 static int subsys_shutdown(const struct subsys_desc *subsys, bool force_stop)
@@ -899,7 +983,12 @@ static irqreturn_t subsys_err_fatal_intr_handler (int irq, void *dev_id)
 	subsys_set_crash_status(d->subsys, CRASH_STATUS_ERR_FATAL);
 	log_failure_reason(d);
 	subsystem_restart_dev(d->subsys);
-
+	#ifdef CHECK_NV_DESTROYED_MI
+	if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+		pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+		schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+	}
+	#endif
 	return IRQ_HANDLED;
 }
 
@@ -1034,7 +1123,6 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	struct device_node *crypto_node;
 	u32 proxy_timeout, crypto_id;
 	int len, rc;
-
 	d = devm_kzalloc(&pdev->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
 		return -ENOMEM;
@@ -1256,6 +1344,9 @@ module_init(pil_tz_init);
 
 static void __exit pil_tz_exit(void)
 {
+	#ifdef CHECK_NV_DESTROYED_MI
+	schedule_work(&clean_kobj_work);
+	#endif
 	platform_driver_unregister(&pil_tz_driver);
 }
 module_exit(pil_tz_exit);

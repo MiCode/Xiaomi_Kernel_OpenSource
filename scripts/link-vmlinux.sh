@@ -249,7 +249,7 @@ rtic_mp()
 	cat rtic_mp.c | ${CC} ${aflags} -c -o ${2} -x c - && \
 	cp rtic_mp.c ${4} && \
 	${NM} --print-size --size-sort ${2} > ${3} && \
-	RTIC_MP_O=${2} || echo â€œRTIC MP generation has failedâ€
+	RTIC_MP_O=${2} || echo “RTIC MP generation has failed”
 	# NM - save generated variable sizes for verification
 	# RTIC_MP_O is our retval - great success if set to generated .o file
 	# Echo statement above prints the error message in case any of the

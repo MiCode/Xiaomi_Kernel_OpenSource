@@ -3,6 +3,7 @@
  * 
  * System call entry code / Linux gateway page
  * Copyright (c) Matthew Wilcox 1999 <willy@bofh.ai>
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Licensed under the GNU GPL.
  * thanks to Philipp Rumpf, Mike Shaver and various others
  * sorry about the wall, puffin..

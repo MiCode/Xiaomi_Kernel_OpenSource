@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,19 @@
 #include "cam_eeprom_soc.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
+
+//sdg add arcsoft Calibration 2018.12.07
+#ifdef LC_ARCSOFT_CALIBRATION
+static struct kobject *msm_eepromrw_device=NULL;
+#define IMX586_ARCSOFT_START 				0x1363
+#define IMX586_ARCSOFT_DUAL_START 		0x1364
+#define IMX586_ARCSOFT_DUAL_CHECKSUM 	0x1B64
+#define IMX586_ARCSOFT_DUAL_DATA_NUM 	2048
+#define IMX586_EEPROM_PROTECTION_ADDR 	0x8000
+bool imx586_Rewrite_enable = false;
+static bool imx586_power_save = false;
+#endif
+///end sdg
 
 /**
  * cam_eeprom_read_memory() - read map data into buffer
@@ -708,7 +722,6 @@ static int32_t cam_eeprom_get_cal_data(struct cam_eeprom_ctrl_t *e_ctrl,
 			rc = -EINVAL;
 		}
 	}
-
 	return rc;
 
 rel_cmd_buf:
@@ -718,6 +731,496 @@ rel_cmd_buf:
 
 	return rc;
 }
+
+//sdg add arcsoft Calibration 2018.12.07
+#ifdef LC_ARCSOFT_CALIBRATION
+static int cam_eeprom_write_memory(struct cam_eeprom_ctrl_t *e_ctrl,
+	struct cam_eeprom_memory_block_t *block)
+{
+       int rc = 0;
+	int j = 0;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_settings = {0};
+	struct cam_sensor_i2c_reg_array    i2c_reg_array = {0};
+	struct cam_eeprom_memory_map_t    *emap = block->map;
+	struct cam_eeprom_soc_private     *eb_info = NULL;
+
+	if (!e_ctrl) {
+		CAM_ERR(CAM_EEPROM, "e_ctrl is NULL");
+		return -EINVAL;
+	}
+	eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+
+	for (j = 0; j < block->num_map; j++) {
+		if (emap[j].saddr) {
+			eb_info->i2c_info.slave_addr = emap[j].saddr;
+			rc = cam_eeprom_update_i2c_info(e_ctrl,
+				&eb_info->i2c_info);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM,
+					"sdg++ failed: to update i2c info rc %d",
+					rc);
+				return rc;
+			}
+		}
+
+		if (emap[j].page.valid_size) {
+			i2c_reg_settings.addr_type = emap[j].page.addr_type;
+			i2c_reg_settings.data_type = emap[j].page.data_type;
+			i2c_reg_settings.size = 1;
+			i2c_reg_array.reg_addr = emap[j].page.addr;
+			i2c_reg_array.reg_data = emap[j].page.data;
+			i2c_reg_array.delay = emap[j].page.delay;
+			i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+			rc = camera_io_dev_write(&e_ctrl->io_master_info,
+				&i2c_reg_settings);
+			msleep(2);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "page write failed rc %d",
+					rc);
+				return rc;
+			}
+		}
+	}
+	return rc;
+}
+
+static int eeprom_write_dualcam_cal_data(struct cam_eeprom_ctrl_t *e_ctrl, uint8_t *sumbuf)
+{
+	int rc = 0;
+	int j = 0;
+	uint32_t addr = IMX586_ARCSOFT_DUAL_START;
+
+	unsigned char *buf = NULL;
+	struct cam_eeprom_memory_block_t block;
+	struct cam_eeprom_memory_map_t *map = NULL;
+
+	mm_segment_t fs;
+	loff_t pos;
+	struct file *fp = NULL;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open("/data/vendor/camera/rewrite_arcsoft_calibration_data.bin", O_RDWR, 0777);
+
+	if (IS_ERR(fp))
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++ Brave open file fail,Not need rewrite!");
+		set_fs(fs);
+		return -EINVAL;
+	}
+	CAM_ERR(CAM_EEPROM, "sdg++Brave open file succeed,need rewrite!");
+
+	buf = vzalloc(sizeof(unsigned char) * IMX586_ARCSOFT_DUAL_DATA_NUM);
+	if(!buf)
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++vzalloc buf fail");
+	}
+	pos = 0;
+	vfs_read(fp, buf, sizeof(*buf) * IMX586_ARCSOFT_DUAL_DATA_NUM, &pos);
+	set_fs(fs);
+	filp_close(fp, NULL);
+
+	map = vzalloc(sizeof(struct cam_eeprom_memory_map_t) * IMX586_ARCSOFT_DUAL_DATA_NUM);
+	if(!map)
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++vzalloc map fail");
+	}
+
+	block.map = map;
+	block.num_map = IMX586_ARCSOFT_DUAL_DATA_NUM;
+
+	for (j= 0 ;j < IMX586_ARCSOFT_DUAL_DATA_NUM;j++)
+	{
+		map[j].page.data = buf[j];
+		map[j].page.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+		map[j].page.addr = addr;
+		map[j].page.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+		map[j].page.valid_size = 1;
+		map[j].page.delay = 1;
+		addr += 1;
+		sumbuf[0] += map[j].page.data;
+	}
+
+	rc = cam_eeprom_write_memory(e_ctrl,&block);
+	if(rc)
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++ cam_eeprom_write_memory fail");
+	}
+
+	vfree(map);
+	vfree(buf);
+	map = NULL;
+	buf = NULL;
+
+	return rc;
+}
+
+static ssize_t cam_eeprom_rw_power_save(struct cam_eeprom_ctrl_t *e_ctrl, struct cam_eeprom_soc_private  *soc_private)
+{
+	struct file *fp = NULL;
+	uint16_t i = 0;
+	mm_segment_t fs;
+	loff_t pos;
+
+	fp = filp_open("/data/vendor/camera/imx586_arcsoft_poweron_data.bin", O_RDWR | O_CREAT , 0777);
+	if (IS_ERR(fp))
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++ Power-on save file creation failed!");
+		return -EINVAL;
+	} else {
+		CAM_ERR(CAM_EEPROM, "sdg++ The power-on save file is created successfully!");
+	}
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = fp->f_pos;
+       vfs_write(fp, (unsigned char *)e_ctrl, sizeof(struct cam_eeprom_ctrl_t), &pos);
+       fp->f_pos = pos;
+
+       pos = fp->f_pos;
+       vfs_write(fp, (unsigned char *)(&soc_private->power_info), sizeof(struct cam_sensor_power_ctrl_t), &pos);
+       fp->f_pos = pos;
+
+	for (i = 0;i < (soc_private->power_info.power_setting_size); i++) {
+	pos = fp->f_pos;
+	vfs_write(fp, (unsigned char *)(&(soc_private->power_info.power_setting[i])), sizeof(struct cam_sensor_power_setting) , &pos);
+	fp->f_pos = pos;
+	}
+
+	for (i = 0;i < (soc_private->power_info.power_down_setting_size); i++) {
+	pos = fp->f_pos;
+	vfs_write(fp, (unsigned char *)(&(soc_private->power_info.power_down_setting[i])), sizeof(struct cam_sensor_power_setting), &pos);
+	fp->f_pos = pos;
+	}
+
+	pos = fp->f_pos;
+	vfs_write(fp, (unsigned char *)(&soc_private->power_info.gpio_num_info), sizeof(struct msm_camera_gpio_num_info), &pos);
+	fp->f_pos = pos;
+
+	CAM_ERR(CAM_EEPROM, "sdg++ The power-on write file is successfully!");
+
+	set_fs(fs);
+	filp_close(fp, NULL);
+
+	return 0;
+}
+
+static int update_power_config(struct cam_eeprom_ctrl_t *e_ctrl, struct cam_eeprom_soc_private  *soc_private)
+{
+	struct file *fp = NULL;
+	mm_segment_t fs;
+	loff_t pos;
+	uint16_t i = 0;
+	static struct cam_sensor_power_setting *power_setting = NULL;
+	static struct cam_sensor_power_setting *power_down_setting = NULL;
+	static struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+
+	fp = filp_open("/data/vendor/camera/imx586_arcsoft_poweron_data.bin", O_RDWR, 0777);
+	if (IS_ERR(fp))
+	{
+		CAM_ERR(CAM_EEPROM, "sdg++ open Power-on file creation failed!");
+		return -EINVAL;
+	} else {
+		CAM_ERR(CAM_EEPROM, "sdg++ open The power-on file is created successfully!");
+	}
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = fp->f_pos;
+       vfs_read(fp, (unsigned char *)e_ctrl, sizeof(struct cam_eeprom_ctrl_t), &pos);
+       fp->f_pos = pos;
+
+       pos = fp->f_pos;
+       vfs_read(fp, (unsigned char *)(&soc_private->power_info), sizeof(struct cam_sensor_power_ctrl_t), &pos);
+       fp->f_pos = pos;
+	CAM_ERR(CAM_EEPROM, "sdg++ pos = %d power_setting_size = %d %d",pos,soc_private->power_info.power_setting_size,soc_private->power_info.power_down_setting_size);
+
+	gpio_num_info = vzalloc(sizeof(struct msm_camera_gpio_num_info));
+	if (!gpio_num_info) {
+		CAM_ERR(CAM_EEPROM, "sdg++ failed");
+		goto error;
+	}
+	power_setting = vzalloc(sizeof(struct cam_sensor_power_setting) * (soc_private->power_info.power_setting_size));
+	if (!power_setting) {
+		CAM_ERR(CAM_EEPROM, "sdg++ failed");
+		vfree(gpio_num_info);
+		gpio_num_info = NULL;
+		goto error;
+	}
+
+	power_down_setting = vzalloc(sizeof(struct cam_sensor_power_setting)* (soc_private->power_info.power_down_setting_size));
+	if (!power_down_setting) {
+		CAM_ERR(CAM_EEPROM, "sdg++ failed");
+		vfree(gpio_num_info);
+		vfree(power_setting);
+		gpio_num_info = NULL;
+		power_setting = NULL;
+		goto error;
+	}
+
+	for (i = 0;i < (soc_private->power_info.power_setting_size); i++) {
+	pos = fp->f_pos;
+	vfs_read(fp, (unsigned char *)(&power_setting[i]), sizeof(struct cam_sensor_power_setting) , &pos);
+	fp->f_pos = pos;
+	}
+
+	for (i = 0;i < (soc_private->power_info.power_down_setting_size); i++) {
+	pos = fp->f_pos;
+	vfs_read(fp, (unsigned char *)(&power_down_setting[i]), sizeof(struct cam_sensor_power_setting), &pos);
+	fp->f_pos = pos;
+	}
+
+	pos = fp->f_pos;
+	vfs_read(fp, (unsigned char *)gpio_num_info, sizeof(struct msm_camera_gpio_num_info), &pos);
+	fp->f_pos = pos;
+
+	set_fs(fs);
+	filp_close(fp, NULL);
+
+	soc_private->power_info.gpio_num_info = gpio_num_info;
+	soc_private->power_info.power_setting = power_setting;
+	soc_private->power_info.power_down_setting = power_down_setting;
+	e_ctrl->soc_info.soc_private = (void *)soc_private;
+	CAM_ERR(CAM_EEPROM, "sdg++ The power-on update is successfully!");
+
+	return 0;
+error:
+	set_fs(fs);
+	filp_close(fp, NULL);
+	return -EINVAL;
+}
+
+static ssize_t cam_eeprom_rw_state(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	if (strtobool(buf, &imx586_Rewrite_enable) < 0)
+		return -EINVAL;
+
+	 CAM_ERR(CAM_EEPROM, "sdg++  imx586 Rewrite enable = %d",imx586_Rewrite_enable);
+	 return count;
+}
+
+static ssize_t cam_eeprom_rw_show(struct device *dev,
+							struct device_attribute *attr, char *buf)
+{
+	int rc = 0;
+	//int i = 0;
+	uint8_t *eeprombuf = NULL;
+	uint32_t arcsoft_rw_start_addr =IMX586_ARCSOFT_START;
+	static struct cam_eeprom_ctrl_t *g_ectrl = NULL;
+	static struct cam_eeprom_soc_private  *s_soc_private = NULL;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_settings = {0};
+	struct cam_sensor_i2c_reg_array    i2c_reg_array = {0};
+	struct cam_eeprom_soc_private  *soc_private = NULL;
+	bool rw_success = FALSE;
+
+	if (!imx586_Rewrite_enable)
+		goto disable_free;
+
+	g_ectrl = vzalloc(sizeof(struct cam_eeprom_ctrl_t));
+	if (!g_ectrl) {
+		CAM_ERR(CAM_EEPROM, "sdg++ 11 failed xxx");
+		goto disable_free;
+	}
+	s_soc_private = vzalloc(sizeof(struct cam_eeprom_soc_private));
+	if (!s_soc_private) {
+		CAM_ERR(CAM_EEPROM, "sdg++ 22 failed xxxxxx");
+		vfree(g_ectrl);
+		g_ectrl = NULL;
+		goto disable_free;
+	}
+
+	rc = update_power_config(g_ectrl,s_soc_private);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "sdg++ The power-on update is failed!");
+		vfree(g_ectrl);
+		vfree(s_soc_private);
+		g_ectrl = NULL;
+		s_soc_private = NULL;
+		goto disable_free;
+	}
+
+	soc_private = (struct cam_eeprom_soc_private *)g_ectrl->soc_info.soc_private;
+	CAM_ERR(CAM_EEPROM, "sdg++ power start ");
+	rc = cam_eeprom_power_up(g_ectrl,
+			&soc_private->power_info);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "sdg++ power up failed rc %d", rc);
+		goto memdata_free;
+	}
+	g_ectrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+
+	eeprombuf = vzalloc(sizeof(uint8_t) * 10);
+	if(!eeprombuf){
+		rc = -ENOMEM;
+		CAM_ERR(CAM_EEPROM, "sdg++ vzalloc failed ");
+		goto memdata_free;
+		}
+
+	rc = camera_io_dev_read_seq(
+		&g_ectrl->io_master_info,arcsoft_rw_start_addr,
+		&eeprombuf[0], CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_BYTE,1);
+		if (rc)
+		{
+			CAM_ERR(CAM_EEPROM, "sdg++ read failed rc %d",rc);
+			goto memdata_free;
+		}
+		msleep(5);
+		rc = camera_io_dev_read_seq(
+		&g_ectrl->io_master_info,IMX586_EEPROM_PROTECTION_ADDR,
+		&eeprombuf[1], CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_BYTE,1);
+		if (rc)
+		{
+			CAM_ERR(CAM_EEPROM, "sdg++ read failed rc %d",rc);
+			goto memdata_free;
+		}
+	CAM_ERR(CAM_EEPROM, "sdg++ arcsoft_rw_start_addr = 0x%x eeprombuf[0] = 0x%x",arcsoft_rw_start_addr,eeprombuf[0]);
+	CAM_ERR(CAM_EEPROM, "sdg++ arcsoft_rw_start_addr = 0x%x eeprombuf[1] = 0x%x",arcsoft_rw_start_addr,eeprombuf[1]);
+	CAM_ERR(CAM_EEPROM, "sdg++  imx586_Rewrite = %d",imx586_Rewrite_enable);
+	msleep(5);
+	i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_reg_settings.size = 1;
+	i2c_reg_array.reg_addr = IMX586_EEPROM_PROTECTION_ADDR;
+	i2c_reg_array.reg_data = 0x10;
+	i2c_reg_array.delay = 1;
+	i2c_reg_settings.reg_setting = &i2c_reg_array;
+	rc = camera_io_dev_write(&g_ectrl->io_master_info, &i2c_reg_settings);
+	msleep(5);
+
+	rc = eeprom_write_dualcam_cal_data(g_ectrl,eeprombuf);
+	msleep(5);
+
+	if (!rc) {
+	i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_reg_settings.size = 1;
+	i2c_reg_array.reg_addr = IMX586_ARCSOFT_DUAL_CHECKSUM;
+	i2c_reg_array.reg_data = (eeprombuf[0])%0xFF +1;
+	i2c_reg_array.delay = 1;
+	i2c_reg_settings.reg_setting = &i2c_reg_array;
+	rc = camera_io_dev_write(&g_ectrl->io_master_info, &i2c_reg_settings);
+	CAM_ERR(CAM_EEPROM, "sdg++ checksum = 0x%x ",((eeprombuf[0])%0xFF +1));
+	msleep(5);
+	rw_success = TRUE;
+	}
+
+	i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_reg_settings.size = 1;
+	i2c_reg_array.reg_addr = IMX586_EEPROM_PROTECTION_ADDR;
+	i2c_reg_array.reg_data = 0x1e;
+	i2c_reg_array.delay = 1;
+	i2c_reg_settings.reg_setting = &i2c_reg_array;
+	rc = camera_io_dev_write(&g_ectrl->io_master_info, &i2c_reg_settings);
+	msleep(5);
+	//arcsoft_rw_start_addr += 0x7f0;
+       /*
+		for (i=0; i<10; i++)
+		{
+		rc = camera_io_dev_read_seq(
+			&g_ectrl->io_master_info,arcsoft_rw_start_addr,
+			&eeprombuf[i], CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_BYTE,1);
+
+		if (rc)
+		{
+			CAM_ERR(CAM_EEPROM, "sdg++ read failed rc %d",rc);
+			return rc;
+		}
+			CAM_ERR(CAM_EEPROM,"sdg++ read from eeprom reg_addr 0x%x eeprombuf[%d]=0x%x",arcsoft_rw_start_addr,i,eeprombuf[i]);
+			arcsoft_rw_start_addr += 1;
+		}
+	 */
+	if (rc < 0) {
+		CAM_ERR(CAM_EEPROM, "sdg++ camera_io_dev_write failed rc %d", rc);
+		goto memdata_free;
+	}
+
+	rc = cam_eeprom_power_down(g_ectrl);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM, "sdg++ power down failed rc %d", rc);
+		goto memdata_free;
+	}
+	g_ectrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+
+	vfree(eeprombuf);
+	eeprombuf = NULL;
+	vfree(s_soc_private->power_info.gpio_num_info);
+	s_soc_private->power_info.gpio_num_info = NULL;
+	vfree(s_soc_private->power_info.power_setting);
+	s_soc_private->power_info.power_setting = NULL;
+	vfree(s_soc_private->power_info.power_down_setting);
+	s_soc_private->power_info.power_down_setting = NULL;
+	vfree(s_soc_private);
+	s_soc_private = NULL;
+	vfree(g_ectrl);
+	g_ectrl = NULL;
+	imx586_Rewrite_enable = FALSE;
+
+	if(!rc && rw_success)
+		{
+		sprintf(buf, "%s", "EEPROM RW OK,PLS REBOOT!!!\n");
+		rc = strlen(buf) + 1;
+		}
+	else
+		{
+		sprintf(buf, "%s", "EEPROM RW FAILED,PLS REBOOT AND RETRY!!!\n");
+		rc = strlen(buf) + 1;
+		}
+	return rc;
+
+memdata_free:
+
+	vfree(eeprombuf);
+	eeprombuf = NULL;
+	vfree(s_soc_private->power_info.gpio_num_info);
+	s_soc_private->power_info.gpio_num_info = NULL;
+	vfree(s_soc_private->power_info.power_setting);
+	s_soc_private->power_info.power_setting = NULL;
+	vfree(s_soc_private->power_info.power_down_setting);
+	s_soc_private->power_info.power_down_setting = NULL;
+	vfree(s_soc_private);
+	s_soc_private = NULL;
+	vfree(g_ectrl);
+	g_ectrl = NULL;
+	imx586_Rewrite_enable = FALSE;
+	sprintf(buf, "%s", "EEPROM RW FAILED,PLS REBOOT AND RETRY!!!\n");
+	rc = strlen(buf) + 1;
+
+	return rc;
+disable_free:
+	sprintf(buf, "%s", "Calibration is not enabled Or other questions!!!\n");
+	rc = strlen(buf) + 1;
+	return rc;
+}
+
+static DEVICE_ATTR(eepromrw, 0644, cam_eeprom_rw_show, cam_eeprom_rw_state);
+int32_t msm_eepromrw_init_device_name(void)
+{
+	int32_t rc = 0;
+	CAM_ERR(CAM_EEPROM,"%s %d\n");
+	if(msm_eepromrw_device != NULL){
+		CAM_ERR(CAM_EEPROM,"sdg++ Macle android_camera already created");
+		return 0;
+	}
+	msm_eepromrw_device = kobject_create_and_add("camera_eepromrw", NULL);
+	if (msm_eepromrw_device == NULL) {
+		CAM_ERR(CAM_EEPROM,"sdg++ subsystem_register failed");
+		rc = -ENOMEM;
+		return rc ;
+	}
+	rc = sysfs_create_file(msm_eepromrw_device, &dev_attr_eepromrw.attr);
+	if (rc) {
+		CAM_ERR(CAM_EEPROM,"sdg++ sysfs_create_file failed");
+		kobject_del(msm_eepromrw_device);
+	}
+	return 0 ;
+}
+#endif
+///end sdg
 
 /**
  * cam_eeprom_pkt_parse - Parse csl packet
@@ -794,6 +1297,15 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			CAM_ERR(CAM_EEPROM, "failed");
 			goto error;
 		}
+
+		//sdg add arcsoft Calibration 2018.12.07
+		#ifdef LC_ARCSOFT_CALIBRATION
+		if((soc_private->i2c_info.slave_addr==0xA2) && (!imx586_power_save)){
+			cam_eeprom_rw_power_save(e_ctrl,soc_private);
+			imx586_power_save = true;
+		}
+		#endif
+		///end sdg
 
 		rc = cam_eeprom_power_up(e_ctrl,
 			&soc_private->power_info);
@@ -969,6 +1481,11 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 		break;
 	case CAM_CONFIG_DEV:
+		//sdg add arcsoft Calibration 2018.12.07
+		#ifdef LC_ARCSOFT_CALIBRATION
+		msm_eepromrw_init_device_name();
+		#endif
+		///end sdg
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing");

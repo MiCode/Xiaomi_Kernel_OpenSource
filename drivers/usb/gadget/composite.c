@@ -2,6 +2,7 @@
  * composite.c - infrastructure for Composite USB Gadgets
  *
  * Copyright (C) 2006-2008 David Brownell
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +24,14 @@
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
-
+#undef INFO
+#undef DBG
+#undef VDBG
+#undef pr_debug
+#define INFO ERROR
+#define DBG ERROR
+#define VDBG ERROR
+#define pr_debug pr_err
 /**
  * struct usb_os_string - represents OS String to be reported by a gadget
  * @bLength: total length of the entire descritor, always 0x12

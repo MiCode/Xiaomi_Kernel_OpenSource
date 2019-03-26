@@ -428,6 +428,8 @@ struct mm_struct {
 	unsigned long pinned_vm;	/* Refcount permanently increased */
 	unsigned long data_vm;		/* VM_WRITE & ~VM_SHARED & ~VM_STACK */
 	unsigned long exec_vm;		/* VM_EXEC & ~VM_WRITE & ~VM_STACK */
+
+	spinlock_t arg_lock; /* protect the below fields */
 	unsigned long stack_vm;		/* VM_STACK */
 	unsigned long def_flags;
 	unsigned long start_code, end_code, start_data, end_data;

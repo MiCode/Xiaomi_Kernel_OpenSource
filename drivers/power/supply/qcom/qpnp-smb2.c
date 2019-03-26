@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -477,7 +478,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	}
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 	return 0;
@@ -629,7 +630,7 @@ static int smb2_usb_port_get_prop(struct power_supply *psy,
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 
@@ -730,12 +731,12 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 		rc = smblib_get_icl_current(chg, &val->intval);
 		break;
 	default:
-		pr_debug("get prop %d is not supported in usb-main\n", psp);
+		pr_err("get prop %d is not supported in usb-main\n", psp);
 		rc = -EINVAL;
 		break;
 	}
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 	return 0;
@@ -835,7 +836,7 @@ static int smb2_dc_get_prop(struct power_supply *psy,
 		return -EINVAL;
 	}
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 	return 0;
@@ -1062,7 +1063,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	}
 
 	if (rc < 0) {
-		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		pr_err("Couldn't get prop %d rc = %d\n", psp, rc);
 		return -ENODATA;
 	}
 

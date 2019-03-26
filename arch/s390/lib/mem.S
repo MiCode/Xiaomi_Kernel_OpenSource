@@ -3,6 +3,7 @@
  * String handling functions.
  *
  * Copyright IBM Corp. 2012
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #include <linux/linkage.h>

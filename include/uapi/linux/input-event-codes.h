@@ -695,6 +695,10 @@
 #define KEY_FP_GESTURE_LONG_PRESS	0x2ec
 #define KEY_FP_GESTURE_TAP		0x2ed
 
+/* ANT CHECK keys */
+#define KEY_ANT_CONNECT			0x292
+#define KEY_ANT_UNCONNECT		0x293
+
 /* We avoid low common keys in module aliases so they don't get huge. */
 #define KEY_MIN_INTERESTING	KEY_MUTE
 #define KEY_MAX			0x2ff

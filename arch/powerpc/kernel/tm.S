@@ -4,6 +4,7 @@
  * transactional process state.
  *
  * Copyright 2012 Matt Evans & Michael Neuling, IBM Corporation.
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #include <asm/asm-offsets.h>

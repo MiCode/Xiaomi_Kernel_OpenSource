@@ -1,0 +1,15 @@
+
+if SND_SOC_TAS2563
+config TAS2563_REGMAP
+    bool "Use of RegMap API"
+    default y
+
+config TAS2563_CODEC
+    bool "Codec Driver support"
+    default y
+
+config TAS2563_MISC
+    bool "Misc Driver support"
+    default y
+	
+endif # SND_SOC_TAS2563

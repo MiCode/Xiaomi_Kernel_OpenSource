@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +20,9 @@
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include "fg-alg.h"
+
+#undef pr_debug 
+#define pr_debug pr_err 
 
 #define FULL_SOC_RAW		255
 #define CAPACITY_DELTA_DECIPCT	500

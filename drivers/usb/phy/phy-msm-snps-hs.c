@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -850,6 +851,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
+	msm_hsphy_enable_power(phy, true);
 	mutex_init(&phy->phy_lock);
 	platform_set_drvdata(pdev, phy);
 
@@ -873,6 +875,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	}
 
 	msm_hsphy_create_debugfs(phy);
+	msm_hsphy_enable_power(phy, false);
 
 	return 0;
 

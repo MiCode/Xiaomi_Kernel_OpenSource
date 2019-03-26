@@ -2,6 +2,7 @@
  * fs/f2fs/namei.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *             http://www.samsung.com/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -53,6 +54,9 @@ static struct inode *f2fs_new_inode(struct inode *dir, umode_t mode)
 	inode->i_mtime = inode->i_atime = inode->i_ctime =
 			F2FS_I(inode)->i_crtime = current_time(inode);
 	inode->i_generation = sbi->s_next_generation++;
+
+	if (S_ISDIR(inode->i_mode))
+		F2FS_I(inode)->i_current_depth = 1;
 
 	err = insert_inode_locked(inode);
 	if (err) {

@@ -225,6 +225,12 @@ config GENERIC_HWEIGHT
 config GENERIC_CSUM
         def_bool y
 
+config THERMAL_SWITCH
+    default n
+        bool "Support themral config switch"
+	    help
+	        Support themral config switch.
+
 config GENERIC_CALIBRATE_DELAY
 	def_bool y
 
@@ -257,6 +263,12 @@ config HOTPLUG_SIZE_BITS
 	 of 2.
 	 If unsure, stick with default value.
 
+config KERNEL_CUSTOM_FACTORY
+        default n
+        bool "Custom for hardware FACTORY_pcb"
+	    help
+	            Custom for FACTORY_pcb.
+
 config SWIOTLB
 	def_bool y
 
@@ -284,6 +296,13 @@ config ARCH_SUPPORTS_UPROBES
 config ARCH_PROC_KCORE_TEXT
 	def_bool y
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+	
 config QTI_GVM
 	bool "Enable virtualization Support for MSM kernel"
 	help

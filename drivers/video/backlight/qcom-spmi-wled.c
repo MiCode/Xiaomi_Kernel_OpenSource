@@ -2061,6 +2061,9 @@ static int wled_flash_setup(struct wled *wled)
 			wled->num_strings++;
 		}
 	}
+// add start by zhongjiaqian for wled current_limit 2018-11-19
+        wled_flash_set_fsc(wled, wled->brightness, wled->cfg.fs_current);
+// add start by zhongjiaqian for wled current_limit 2018-11-19
 
 	/* Enable current sinks for flash */
 	rc = regmap_update_bits(wled->regmap,

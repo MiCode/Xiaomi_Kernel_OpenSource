@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3273,6 +3274,9 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 			 */
 			if (fl->apps->channel[cid].secure == SECURE_CHANNEL) {
 				err = -EACCES;
+				pr_err("adsprpc: GetInfo failed dev %d, cid %d, secure %d\n",
+				  fl->dev_minor, cid,
+					fl->apps->channel[cid].secure);
 				goto bail;
 			}
 		}

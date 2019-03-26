@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +54,10 @@
 #include "dbm.h"
 #include "debug.h"
 #include "xhci.h"
-
+#undef dev_dbg 
+#undef pr_debug 
+#define dev_dbg dev_err 
+#define pr_debug pr_err 
 #define SDP_CONNETION_CHECK_TIME 10000 /* in ms */
 
 /* time out to wait for USB cable status notification (in ms)*/
@@ -4348,6 +4352,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else {
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
+			mdwc->max_power = 0;
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
 		}
 		break;

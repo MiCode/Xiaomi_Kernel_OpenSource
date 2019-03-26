@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +78,7 @@ struct step_chg_info {
 	struct delayed_work	status_change_work;
 	struct delayed_work	get_config_work;
 	struct notifier_block	nb;
+	int last_vol;
 };
 
 static struct step_chg_info *the_chip;
@@ -369,6 +371,14 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 
 	*new_index = -EINVAL;
 
+			/*
+		 * As battery temperature may be below 0, range.xxx is a unsigned int, but battery
+		 * temperature is a signed int, so cannot compare them when battery temp is below 0,
+		 * we treat it as 0 degree when the parameter threshold(battery temp) is below 0.
+		 */
+	if (threshold <= 0)
+			threshold = 0;
+
 	/*
 	 * If the threshold is lesser than the minimum allowed range,
 	 * return -ENODATA.
@@ -498,7 +508,7 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 
 	vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
 
-	pr_debug("%s = %d Step-FCC = %duA\n",
+	pr_info("%s = %d Step-FCC = %duA\n",
 		chip->step_chg_config->param.prop_name, pval.intval, fcc_ua);
 
 update_time:
@@ -511,6 +521,9 @@ reschedule:
 }
 
 #define JEITA_SUSPEND_HYST_UV		50000
+#define JEITA_WARM_VOL		4100000
+#define JEITA_GOOD_VOL		4400000
+
 static int handle_jeita(struct step_chg_info *chip)
 {
 	union power_supply_propval pval = {0, };
@@ -610,10 +623,16 @@ static int handle_jeita(struct step_chg_info *chip)
 		else if (pval.intval < (fv_uv - JEITA_SUSPEND_HYST_UV))
 			vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
 	}
-
 set_jeita_fv:
+	pr_info(" jeita vote fv_uv:%d last_vol:%d",fv_uv,chip->last_vol);
 	vote(chip->fv_votable, JEITA_VOTER, fv_uv ? true : false, fv_uv);
-
+	if(fv_uv == JEITA_GOOD_VOL &&chip->last_vol == JEITA_WARM_VOL) {
+		rc = power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_FORCE_RECHARGE, &pval);
+		if(rc < 0)
+			pr_err("Can't force recharge from batt warm to good ,rc=%d\n", rc);
+	}
+chip->last_vol = fv_uv;
 update_time:
 	chip->jeita_last_update_time = ktime_get();
 

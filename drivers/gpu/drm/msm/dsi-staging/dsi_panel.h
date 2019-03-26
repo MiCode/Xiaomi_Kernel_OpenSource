@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -268,6 +269,8 @@ int dsi_panel_post_enable(struct dsi_panel *panel);
 int dsi_panel_pre_disable(struct dsi_panel *panel);
 
 int dsi_panel_disable(struct dsi_panel *panel);
+
+int dsi_panel_set_feature(struct dsi_panel *panel,enum dsi_cmd_set_type type);
 
 int dsi_panel_unprepare(struct dsi_panel *panel);
 

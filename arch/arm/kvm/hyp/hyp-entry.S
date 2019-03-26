@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 - Virtual Open Systems and Columbia University
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Christoffer Dall <c.dall@virtualopensystems.com>
  *
  * This program is free software; you can redistribute it and/or modify

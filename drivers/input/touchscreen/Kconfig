@@ -1268,14 +1268,29 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
 
-config TOUCHSCREEN_SYNAPTICS_DSX
-        bool "Synaptics Touchscreen Driver"
-        depends on I2C
-        help
-          Say Y here if you have a Synaptics Touchscreen.
+config TOUCHSCREEN_NVT_F7B
+	tristate "novatek touchscreens"
+	help
+	  Say Y here if you have a nvt touchscreen.
+	  nvt controllers are multi touch controllers which can
+	  report 5 touches at a time.
 
-          If unsure, say N.
+	  If unsure, say N.
 
-source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+	  To compile this driver as a module, choose M here: the
+	  module will be called nvt.
+
+source "drivers/input/touchscreen/nvt_touch_f7b/Kconfig"
+source "drivers/input/touchscreen/ft8719_touch_f7b/Kconfig"
+
+#config TOUCHSCREEN_SYNAPTICS_DSX
+#        bool "Synaptics Touchscreen Driver"
+#        depends on I2C
+#        help
+#          Say Y here if you have a Synaptics Touchscreen.
+
+#          If unsure, say N.
+
+#source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 endif

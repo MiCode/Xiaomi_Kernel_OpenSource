@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,7 @@
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
+#include <linux/clk.h> 
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
 #include <soc/qcom/scm.h>
@@ -75,7 +77,9 @@ struct eud_chip {
 	struct work_struct		eud_work;
 	struct power_supply		*batt_psy;
 	bool				secure_eud_en;
+	bool	need_phy_clk_vote;
 	phys_addr_t			eud_mode_mgr2_phys_base;
+	struct clk	*eud_ahb2phy_clk;
 };
 
 static const unsigned int eud_extcon_cable[] = {
@@ -505,6 +509,31 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int msm_eud_suspend(struct device *dev)
+{
+	struct eud_chip *chip = (struct eud_chip *)dev_get_drvdata(dev);
+
+	if (chip->need_phy_clk_vote && chip->eud_ahb2phy_clk)
+		clk_disable_unprepare(chip->eud_ahb2phy_clk);
+
+	return 0;
+}
+
+static int msm_eud_resume(struct device *dev)
+{
+	struct eud_chip *chip = (struct eud_chip *)dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (chip->need_phy_clk_vote && chip->eud_ahb2phy_clk) {
+		ret = clk_prepare_enable(chip->eud_ahb2phy_clk);
+	if (ret)
+		dev_err(chip->dev, "%s failed to vote ahb2phy clk %d\n",
+				__func__, ret);
+	}
+
+	return 0;
+}
+
 static int msm_eud_probe(struct platform_device *pdev)
 {
 	struct eud_chip *chip;
@@ -562,11 +591,26 @@ static int msm_eud_probe(struct platform_device *pdev)
 		chip->eud_mode_mgr2_phys_base = res->start;
 	}
 
+	chip->need_phy_clk_vote = of_property_read_bool(pdev->dev.of_node,
+										"qcom,eud-clock-vote-req");
+	if (chip->need_phy_clk_vote) {
+		chip->eud_ahb2phy_clk = devm_clk_get(&pdev->dev,
+									"eud_ahb2phy_clk");
+		if (IS_ERR(chip->eud_ahb2phy_clk)) {
+			ret = PTR_ERR(chip->eud_ahb2phy_clk);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(chip->eud_ahb2phy_clk);
+		if (ret)
+			return ret;
+	}
+
 	ret = devm_request_irq(&pdev->dev, chip->eud_irq, handle_eud_irq,
 				IRQF_TRIGGER_HIGH, "eud_irq", chip);
 	if (ret) {
 		dev_err(chip->dev, "request failed for eud irq\n");
-		return ret;
+		goto error;
 	}
 
 	device_init_wakeup(&pdev->dev, true);
@@ -588,7 +632,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 	ret = uart_add_one_port(&eud_uart_driver, port);
 	if (!ret) {
 		dev_err(chip->dev, "failed to add uart port!\n");
-		return ret;
+		goto error;
 	}
 
 	eud_private = pdev;
@@ -599,6 +643,12 @@ static int msm_eud_probe(struct platform_device *pdev)
 		enable_eud(pdev);
 
 	return 0;
+
+error:
+	if (chip->need_phy_clk_vote && chip->eud_ahb2phy_clk)
+		clk_disable_unprepare(chip->eud_ahb2phy_clk);
+ 
+	return ret;
 }
 
 static int msm_eud_remove(struct platform_device *pdev)
@@ -618,12 +668,18 @@ static const struct of_device_id msm_eud_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, msm_eud_dt_match);
 
+static const struct dev_pm_ops msm_eud_dev_pm_ops = {
+	.suspend = msm_eud_suspend,
+	.resume = msm_eud_resume,
+};
+
 static struct platform_driver msm_eud_driver = {
 	.probe		= msm_eud_probe,
 	.remove		= msm_eud_remove,
 	.driver		= {
 		.name		= "msm-eud",
 		.owner		= THIS_MODULE,
+		.pm = &msm_eud_dev_pm_ops,
 		.of_match_table = msm_eud_dt_match,
 	},
 };

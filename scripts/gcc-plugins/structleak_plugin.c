@@ -1,5 +1,6 @@
 /*
  * Copyright 2013-2017 by PaX Team <pageexec@freemail.hu>
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is

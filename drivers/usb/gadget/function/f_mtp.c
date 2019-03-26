@@ -2,6 +2,7 @@
  * Gadget Function Driver for MTP
  *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -41,7 +42,10 @@
 #include <linux/usb/composite.h>
 
 #include "configfs.h"
-
+#undef ALOGV 
+#undef ALOGD 
+#define ALOGV ALOGE 
+#define ALOGD ALOGE
 #define MTP_RX_BUFFER_INIT_SIZE    1048576
 #define MTP_TX_BUFFER_INIT_SIZE    1048576
 #define MTP_BULK_BUFFER_SIZE       16384

@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) IBM Corporation, 2011
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: Anton Blanchard <anton@au.ibm.com>
  */

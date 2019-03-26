@@ -15,6 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -699,6 +700,19 @@ static int arm_smmu_arch_device_group(struct device *dev,
 	return smmu->arch_ops->device_group(dev, group);
 }
 
+static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu) {
+	u32 id;
+
+	if (!smmu)
+		return;
+
+	/* Read to complete prior write transcations */
+	id = readl_relaxed(ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_ID0);
+
+	/* Wait for read to complete before off */
+	rmb();
+}
+
 static struct device_node *dev_get_dev_node(struct device *dev)
 {
 	if (dev_is_pci(dev)) {
@@ -946,6 +960,9 @@ static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 static void arm_smmu_power_off_atomic(struct arm_smmu_power_resources *pwr)
 {
 	unsigned long flags;
+	struct arm_smmu_device *smmu = pwr->dev->driver_data;
+
+	arm_smmu_arch_write_sync(smmu);
 
 	/* Wait for writes to complete before off */
 	wmb();
@@ -2436,10 +2453,13 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		if (WARN_ON(s2cr[idx].attach_count == 0)) {
+		/* begin add qualcomm patch from case 3755398 for smmu deadlocked problem */
+		//WARN_ON(s2cr[idx].attach_count == 0);
+		if(WARN_ON(s2cr[idx].attach_count == 0)) {
 			mutex_unlock(&smmu->stream_map_mutex);
 			return;
 		}
+		/* end add qualcomm patch from case 3755398 for smmu deadlocked problem */
 		s2cr[idx].attach_count -= 1;
 
 		if (s2cr[idx].attach_count > 0)
@@ -5380,6 +5400,12 @@ out_resume:
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:
+	/* Read to complete prior write transcations */
+	val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+
+	/* Wait for read to complete before off */
+	rmb();
+
 	arm_smmu_power_off(tbu->pwr);
 
 	return phys;

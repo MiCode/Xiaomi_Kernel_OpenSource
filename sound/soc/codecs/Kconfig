@@ -8,6 +8,13 @@ config SND_SOC_I2C_AND_SPI
 	default y if I2C=y
 	default y if SPI_MASTER=y
 
+# add by dzy for smartpa 
+config SND_SOC_TAS2563
+        bool
+        default y
+source "sound/soc/codecs/tas2563/Kconfig"
+# add end by dzy
+
 menu "CODEC drivers"
 
 config SND_SOC_ALL_CODECS

@@ -1,5 +1,6 @@
 /*
  * Copyright 2014-2016 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
+ * Copyright (C) 2019 XiaoMi, Inc.
  *                   and PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *

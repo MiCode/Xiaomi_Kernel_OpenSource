@@ -34,7 +34,10 @@
 #include <linux/mmu_context.h>
 #include <linux/poll.h>
 #include <linux/eventfd.h>
-
+#undef dev_dbg 
+#undef pr_debug 
+#define dev_dbg dev_err 
+#define pr_debug pr_err 
 #include "u_fs.h"
 #include "u_f.h"
 #include "u_os_desc.h"

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +146,7 @@
 	/delete-node/ conn-therm;
 	/delete-node/ emmc_ufs-therm;
 	/delete-node/ rf_pa0_therm-therm;
+	/delete-node/ backlight_therm;
 	/delete-node/ camera_flash-therm;
 	/delete-node/ quiet-therm;
 	/delete-node/ quiet-therm-step;

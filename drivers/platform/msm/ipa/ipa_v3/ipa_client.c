@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -372,66 +373,80 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	return 0;
 }
 
+static enum ipa_client_cb_type ipa_get_client_cb_type(u32 ipa_ep_idx)
+{
+	enum ipa_client_type client_type;
+	enum ipa_client_cb_type client_cb;
+
+	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
+
+	if (client_type == IPA_CLIENT_USB_PROD ||
+			client_type == IPA_CLIENT_USB_CONS) {
+		IPADBG("USB Client registered\n");
+		client_cb = IPA_USB_CLNT;
+	} else if (client_type == IPA_CLIENT_MHI_PROD ||
+			client_type == IPA_CLIENT_MHI_CONS) {
+		IPADBG("MHI Client registered\n");
+		client_cb = IPA_MHI_CLNT;
+	} else {
+		IPAERR("Invalid IPA client\n");
+		client_cb = IPA_MAX_CLNT;
+	}
+
+	return client_cb;
+}
 void ipa3_register_lock_unlock_callback(int (*client_cb)(bool is_lock),
 						u32 ipa_ep_idx)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client = ipa_get_client_cb_type(ipa_ep_idx);
+	if (client == IPA_MAX_CLNT)
 		return;
-	}
 
 	if (client_cb == NULL) {
 		IPAERR("Bad Param");
 		return;
 	}
 
-	ep->client_lock_unlock = client_cb;
+	if (!ipa3_ctx->client_lock_unlock[client])
+		ipa3_ctx->client_lock_unlock[client] = client_cb;
 	IPADBG("exit\n");
 }
 
 void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client_cb;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client_cb = ipa_get_client_cb_type(ipa_ep_idx);
+	if (client_cb == IPA_MAX_CLNT)
 		return;
-	}
 
-	if (ep->client_lock_unlock == NULL) {
+	if (ipa3_ctx->client_lock_unlock[client_cb] == NULL) {
 		IPAERR("client_lock_unlock is already NULL");
 		return;
 	}
 
-	ep->client_lock_unlock = NULL;
+	ipa3_ctx->client_lock_unlock[client_cb] = NULL;
 	IPADBG("exit\n");
 }
 
 static void client_lock_unlock_cb(u32 ipa_ep_idx, bool is_lock)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client_cb;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client_cb = ipa_get_client_cb_type(ipa_ep_idx);
+	if (client_cb == IPA_MAX_CLNT)
 		return;
-	}
 
-	if (ep->client_lock_unlock)
-		ep->client_lock_unlock(is_lock);
+	if (ipa3_ctx->client_lock_unlock[client_cb])
+		ipa3_ctx->client_lock_unlock[client_cb](is_lock);
 
 	IPADBG("exit\n");
 }

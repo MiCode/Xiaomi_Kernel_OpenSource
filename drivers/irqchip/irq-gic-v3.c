@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013-2017 ARM Limited, All Rights Reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,6 +44,8 @@
 #include <linux/syscore_ops.h>
 
 #include "irq-gic-common.h"
+
+#include <linux/wakeup_reason.h> /*HTH-47876*/
 
 struct redist_region {
 	void __iomem		*redist_base;
@@ -369,6 +372,9 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 			name = desc->action->name;
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		/*Add-begin-HTH-47876  Comment:Logging kernel wakeup reson*/
+		log_wakeup_reason(irq);
+		/*Add-end-HTH-47876*/
 	}
 }
 

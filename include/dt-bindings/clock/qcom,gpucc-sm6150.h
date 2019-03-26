@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,5 +37,6 @@
 #define GPU_CC_GX_GFX3D_CLK			16
 #define GPU_CC_GX_GFX3D_CLK_SRC			17
 #define GPU_CC_AHB_CLK				18
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK		19
 
 #endif

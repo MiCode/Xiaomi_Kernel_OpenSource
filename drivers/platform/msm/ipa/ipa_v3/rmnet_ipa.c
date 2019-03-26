@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2612,7 +2613,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 {
 	int ret;
 
-	IPAWANINFO("rmnet_ipa started deinitialization\n");
+	IPAWANERR("rmnet_ipa started deinitialization\n");
 	mutex_lock(&rmnet_ipa3_ctx->pipe_handle_guard);
 	ret = ipa3_teardown_sys_pipe(rmnet_ipa3_ctx->ipa3_to_apps_hdl);
 	if (ret < 0)
@@ -2624,18 +2625,24 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 		IPAWANERR("Failed to teardown APPS->IPA pipe\n");
 	else
 		rmnet_ipa3_ctx->apps_to_ipa3_hdl = -1;
+	IPAWANERR("Started napi delete\n"); 
 	if (ipa3_rmnet_res.ipa_napi_enable)
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
+	IPAWANERR("end of napi delete\n");
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+	IPAWANERR("started unregister netdev\n");
 	unregister_netdev(IPA_NETDEV());
+	IPAWANERR("end unregister netdev\n");
 	if (ipa3_ctx->use_ipa_pm)
 		ipa3_wwan_deregister_netdev_pm_client();
 	else
 		ipa3_wwan_delete_wwan_rm_resource();
 	cancel_work_sync(&ipa3_tx_wakequeue_work);
 	cancel_delayed_work(&ipa_tether_stats_poll_wakequeue_work);
+	IPAWANERR("start of free netdev\n");
 	if (IPA_NETDEV())
 		free_netdev(IPA_NETDEV());
+	IPAWANERR("end of free netdev\n");
 	rmnet_ipa3_ctx->wwan_priv = NULL;
 	/* No need to remove wwan_ioctl during SSR */
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
@@ -2650,7 +2657,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 		ipa3_wwan_del_ul_flt_rule_to_ipa();
 	ipa3_cleanup_deregister_intf();
 	atomic_set(&rmnet_ipa3_ctx->is_initialized, 0);
-	IPAWANINFO("rmnet_ipa completed deinitialization\n");
+	IPAWANERR("rmnet_ipa completed deinitialization\n");
 	return 0;
 }
 
@@ -2800,17 +2807,23 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		rmnet_ipa_send_ssr_notification(false);
 		atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
 		ipa3_q6_pre_shutdown_cleanup();
+		IPAWANINFO("Started netif stop queue\n");
 		if (IPA_NETDEV())
 			netif_stop_queue(IPA_NETDEV());
+		IPAWANINFO("end of netif stop queue\n");
 		ipa3_qmi_stop_workqueues();
 		ipa3_wan_ioctl_stop_qmi_messages();
 		ipa_stop_polling_stats();
+		IPAWANINFO("Started unregister netdevice\n");
 		if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
 			platform_driver_unregister(&rmnet_ipa_driver);
+		IPAWANINFO("End unregister netdevice\n");
 		imp_handle_modem_shutdown();
+		IPAWANINFO("Started Q6 post shutdown cleanup\n");
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
+		IPAWANINFO("end of Q6 post shutdown cleanup\n");
 		ipa3_odl_pipe_cleanup(true);
 		IPAWANINFO("IPA BEFORE_SHUTDOWN handling is complete\n");
 		break;

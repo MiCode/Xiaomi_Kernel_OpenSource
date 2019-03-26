@@ -101,7 +101,8 @@ static void dump_instr(const char *lvl, struct pt_regs *regs)
 void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
-	int skip;
+	int skip, count = 0;
+	unsigned long old_pc = 0;
 
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
@@ -131,6 +132,11 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(frame.pc);
+			if(old_pc != frame.pc) {
+				old_pc = frame.pc;
+				count = 0;
+			} else
+				count++;
 		} else if (frame.fp == regs->regs[29]) {
 			skip = 0;
 			/*
@@ -141,6 +147,10 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 			 * instead.
 			 */
 			dump_backtrace_entry(regs->pc);
+		}
+		if(count > 64) {
+			printk(" the task stack frame pc are the same limit dump stack time\n");
+			break;
 		}
 	} while (!unwind_frame(tsk, &frame));
 

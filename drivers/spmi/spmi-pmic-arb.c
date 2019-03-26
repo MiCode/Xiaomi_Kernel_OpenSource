@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/spmi.h>
 
+#include <linux/wakeup_reason.h> /*Add-HTH-47876*/
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_VERSION_V2_MIN		0x20010000
@@ -519,6 +521,9 @@ static void periph_interrupt(struct spmi_pmic_arb *pmic_arb, u16 apid)
 			cleanup_irq(pmic_arb, apid, id);
 			continue;
 		}
+		/*Add-begin-HTH-47876  Comment:Logging kernel wakeup reson*/
+		log_wakeup_reason(irq);
+		/*Add-end-HTH-47876*/
 		generic_handle_irq(irq);
 	}
 }
