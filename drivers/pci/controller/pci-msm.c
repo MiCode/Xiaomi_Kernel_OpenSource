@@ -551,6 +551,7 @@ struct msm_pcie_dev_t {
 	uint32_t wr_halt_size;
 	uint32_t slv_addr_space_size;
 	uint32_t phy_status_offset;
+	uint32_t phy_status_bit;
 	uint32_t phy_power_down_offset;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
@@ -1197,6 +1198,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->slv_addr_space_size);
 	PCIE_DBG_FS(dev, "phy_status_offset: 0x%x\n",
 		dev->phy_status_offset);
+	PCIE_DBG_FS(dev, "phy_status_bit: %u\n",
+		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -3217,7 +3220,8 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 	if (dev->rumi)
 		return true;
 
-	if (readl_relaxed(dev->phy + dev->phy_status_offset) & BIT(6))
+	if (readl_relaxed(dev->phy + dev->phy_status_offset) &
+		BIT(dev->phy_status_bit))
 		return false;
 	else
 		return true;
@@ -5716,6 +5720,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->phy_status_offset);
 	PCIE_DBG(pcie_dev, "RC%d: phy-status-offset: 0x%x.\n", pcie_dev->rc_idx,
 		pcie_dev->phy_status_offset);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,phy-status-bit",
+				&pcie_dev->phy_status_bit);
+	PCIE_DBG(pcie_dev, "RC%d: phy-status-bit: %u.\n", pcie_dev->rc_idx,
+		pcie_dev->phy_status_bit);
 
 	of_property_read_u32(of_node, "qcom,phy-power-down-offset",
 				&pcie_dev->phy_power_down_offset);
