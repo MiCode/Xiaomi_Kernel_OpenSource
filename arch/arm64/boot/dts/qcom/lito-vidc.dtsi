@@ -45,7 +45,7 @@
 			label = "cnoc";
 			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
-			qcom,bus-governor = "performance";
+			qcom,mode = "performance";
 			qcom,bus-range-kbps = <1000 1000>;
 		};
 
@@ -54,7 +54,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,mode = "venus-ddr";
 			qcom,bus-range-kbps = <1000 6533000>;
 		};
 
@@ -63,7 +63,7 @@
 			label = "venus-arm9-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "performance";
+			qcom,mode = "performance";
 			qcom,bus-range-kbps = <1000 1000>;
 		};
 
@@ -152,7 +152,7 @@
 			label = "cnoc";
 			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
-			qcom,bus-governor = "performance";
+			qcom,mode = "performance";
 			qcom,bus-range-kbps = <1000 1000>;
 		};
 
@@ -161,7 +161,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,mode = "venus-ddr";
 			qcom,bus-range-kbps = <1000 6533000>;
 		};
 
@@ -170,7 +170,7 @@
 			label = "venus-arm9-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "performance";
+			qcom,mode = "performance";
 			qcom,bus-range-kbps = <1000 1000>;
 		};
 
