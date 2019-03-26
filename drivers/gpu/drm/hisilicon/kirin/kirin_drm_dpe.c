@@ -76,9 +76,6 @@ struct dpe_hw_ctx {
 	bool power_on;
 	int irq;
 
-	wait_queue_head_t vactive0_end_wq;
-	u32 vactive0_end_flag;
-
 	struct drm_crtc *crtc;
 
 	u32 hdisplay;
@@ -278,7 +275,7 @@ static void dpe_interrupt_unmask(struct dpe_hw_ctx *ctx)
 	writel(unmask, base + GLB_CPU_PDP_INT_MSK);
 
 	unmask = ~0;
-	unmask &= ~(BIT_VSYNC | BIT_VACTIVE0_END | BIT_LDI_UNFLOW);
+	unmask &= ~(BIT_VSYNC | BIT_LDI_UNFLOW);
 	writel(unmask, base + DPE_LDI0_OFFSET + LDI_CPU_ITF_INT_MSK);
 }
 
@@ -770,35 +767,6 @@ const struct drm_crtc_funcs dpe_crtc_funcs = {
 	.disable_vblank	= dpe_disable_vblank,
 };
 
-static int dpe_wait_for_complete(struct dpe_hw_ctx *ctx)
-{
-	int ret = 0;
-	u32 times = 0;
-	u32 prev_vactive0_end = ctx->vactive0_end_flag;
-
-REDO:
-	ret = wait_event_interruptible_timeout(ctx->vactive0_end_wq,
-				(prev_vactive0_end != ctx->vactive0_end_flag),
-				msecs_to_jiffies(300));
-	if (ret == -ERESTARTSYS) {
-		if (times < 50) {
-			times++;
-			mdelay(10);
-			goto REDO;
-		}
-	}
-
-	if (ret <= 0) {
-		DRM_ERROR("wait_for vactive0_end_flag timeout! ret=%d.\n", ret);
-
-		ret = -ETIMEDOUT;
-	} else {
-		ret = 0;
-	}
-
-	return ret;
-}
-
 static void dpe_unflow_handler(struct dpe_hw_ctx *ctx)
 {
 	void __iomem *base = ctx->base;
@@ -991,7 +959,6 @@ static void dpe_update_channel(struct kirin_plane *kplane,
 	dpe_unflow_handler(ctx);
 
 	dpe_enable_ldi(ctx);
-	dpe_wait_for_complete(ctx);
 }
 
 static void dpe_plane_atomic_update(struct drm_plane *plane,
@@ -1097,11 +1064,6 @@ static irqreturn_t dpe_irq_handler(int irq, void *data)
 	isr_s2 &= ~(readl(base + DPE_LDI0_OFFSET + LDI_CPU_ITF_INT_MSK));
 	isr_s2_dpp &= ~(readl(base + DPE_DPP_OFFSET + DPP_INT_MSK));
 
-	if (isr_s2 & BIT_VACTIVE0_END) {
-		ctx->vactive0_end_flag++;
-		wake_up_interruptible_all(&ctx->vactive0_end_wq);
-	}
-
 	if (isr_s2 & BIT_VSYNC)
 		drm_crtc_handle_vblank(crtc);
 
@@ -1201,9 +1163,6 @@ static void *dpe_hw_ctx_alloc(struct platform_device *pdev,
 		return ERR_PTR(-EIO);
 
 	disable_irq(ctx->irq);
-
-	ctx->vactive0_end_flag = 0;
-	init_waitqueue_head(&ctx->vactive0_end_wq);
 
 	return ctx;
 }
