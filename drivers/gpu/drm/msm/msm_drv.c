@@ -241,7 +241,8 @@ void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	if (!res) {
-		dev_err(&pdev->dev, "failed to get memory resource: %s\n", name);
+		dev_dbg(&pdev->dev, "failed to get memory resource: %s\n",
+									name);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -270,7 +271,7 @@ unsigned long msm_iomap_size(struct platform_device *pdev, const char *name)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	if (!res) {
-		dev_err(&pdev->dev, "failed to get memory resource: %s\n",
+		dev_dbg(&pdev->dev, "failed to get memory resource: %s\n",
 									name);
 		return 0;
 	}
