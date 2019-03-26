@@ -905,7 +905,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -1022,7 +1024,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -1802,6 +1806,7 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_P16GBRG12:
 	case V4L2_PIX_FMT_P16GRBG12:
 	case V4L2_PIX_FMT_P16RGGB12:
+	case MSM_V4L2_PIX_FMT_META12:
 		return 12;
 	case V4L2_PIX_FMT_SBGGR14:
 	case V4L2_PIX_FMT_SGBRG14:
