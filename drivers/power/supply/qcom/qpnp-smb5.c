@@ -2759,7 +2759,6 @@ static int smb5_post_init(struct smb5 *chip)
 		return rc;
 	}
 
-	rerun_election(chg->usb_irq_enable_votable);
 
 	return 0;
 }
@@ -3099,6 +3098,7 @@ static int smb5_request_interrupt(struct smb5 *chip,
 	irq_data->storm_data = smb5_irqs[irq_index].storm_data;
 	mutex_init(&irq_data->storm_data.storm_lock);
 
+	smb5_irqs[irq_index].enabled = true;
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
 					smb5_irqs[irq_index].handler,
 					IRQF_ONESHOT, irq_name, irq_data);
@@ -3132,8 +3132,6 @@ static int smb5_request_interrupts(struct smb5 *chip)
 				return rc;
 		}
 	}
-	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
-		chg->usb_icl_change_irq_enabled = true;
 
 	/*
 	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA. In case
@@ -3147,6 +3145,9 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 	}
+
+	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
+	vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
 
 	return rc;
 }
