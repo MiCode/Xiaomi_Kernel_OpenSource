@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -170,8 +170,8 @@ static int hwevent_init_hmux(struct hwevent_drvdata *drvdata,
 	drvdata->nr_hmux = of_property_count_strings(node,
 						     "reg-names");
 
-	if (!drvdata->nr_hmux)
-		return -ENODEV;
+	if (drvdata->nr_hmux < 0)
+		drvdata->nr_hmux = 0;
 
 	if (drvdata->nr_hmux > 0) {
 		drvdata->hmux = devm_kzalloc(drvdata->dev, drvdata->nr_hmux *
@@ -191,9 +191,8 @@ static int hwevent_init_hmux(struct hwevent_drvdata *drvdata,
 				return -ENODEV;
 			drvdata->hmux[i].start = res->start;
 			drvdata->hmux[i].end = res->end;
+
 		}
-	} else {
-		return drvdata->nr_hmux;
 	}
 
 	return 0;
