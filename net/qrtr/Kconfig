@@ -47,4 +47,12 @@ config QRTR_USB
 	  transport provides bulk endpoints to facilitate sending and receiving
 	  IPC Router data packets.
 
+config QRTR_FIFO
+	tristate "FIFO IPC Router channels"
+	help
+	Say Y here to support FIFO based ipcrouter channels. FIFO Transport
+	Layer enables IPC Router communication between two virtual machines.
+	The shared memory between virtual machines will be allocated by the
+	hypervisor and signal other VMs through virtualized interrupts.
+
 endif # QRTR
