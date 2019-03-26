@@ -415,6 +415,8 @@ int cnss_usb_init(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	usb_priv = plat_priv->bus_priv;
+	usb_priv->plat_priv = plat_priv;
 	ret = usb_register(&cnss_usb_driver);
 	if (ret) {
 		cnss_pr_err("Failed to register to Linux USB framework, err = %d\n",
