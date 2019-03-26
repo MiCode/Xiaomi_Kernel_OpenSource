@@ -34,6 +34,7 @@
 #include <net/genetlink.h>
 #include <linux/atomic.h>
 #include <linux/sched/cputime.h>
+#include <linux/oom.h>
 
 /*
  * Maximum length of a cpumask that can be specified in
@@ -51,7 +52,8 @@ static const struct nla_policy taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1
 	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
 	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
 	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
-	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
+	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },
+	[TASKSTATS_CMD_ATTR_FOREACH] = { .type = NLA_U32 },};
 
 /*
  * We have to use TASKSTATS_CMD_ATTR_MAX here, it is the maxattr in the family.
@@ -77,6 +79,11 @@ struct listener_list {
 	struct list_head list;
 };
 static DEFINE_PER_CPU(struct listener_list, listener_array);
+
+struct tgid_iter {
+	unsigned int tgid;
+	struct task_struct *task;
+};
 
 enum actions {
 	REGISTER,
@@ -637,6 +644,65 @@ static size_t taskstats_packet_size(void)
 	return size;
 }
 
+static int taskstats2_cmd_attr_pid(struct genl_info *info)
+{
+	struct taskstats2 *stats;
+	struct sk_buff *rep_skb;
+	struct nlattr *ret;
+	struct task_struct *tsk;
+	struct task_struct *p;
+	size_t size;
+	u32 pid;
+	int rc;
+
+	size = nla_total_size_64bit(sizeof(struct taskstats2));
+
+	rc = prepare_reply(info, TASKSTATS_CMD_NEW, &rep_skb, size);
+	if (rc < 0)
+		return rc;
+
+	rc = -EINVAL;
+	pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
+
+	ret = nla_reserve_64bit(rep_skb, TASKSTATS_TYPE_STATS,
+				sizeof(struct taskstats2), TASKSTATS_TYPE_NULL);
+	if (!ret)
+		goto err;
+
+	stats = nla_data(ret);
+
+	rcu_read_lock();
+	tsk = find_task_by_vpid(pid);
+	if (tsk)
+		get_task_struct(tsk);
+	rcu_read_unlock();
+	if (!tsk) {
+		rc = -ESRCH;
+		goto err;
+	}
+	memset(stats, 0, sizeof(*stats));
+	stats->version = TASKSTATS2_VERSION;
+	stats->pid = task_pid_nr_ns(tsk, task_active_pid_ns(current));
+	p = find_lock_task_mm(tsk);
+	if (p) {
+#define K(x) ((x) << (PAGE_SHIFT - 10))
+		stats->anon_rss = K(get_mm_counter(p->mm, MM_ANONPAGES));
+		stats->file_rss = K(get_mm_counter(p->mm, MM_FILEPAGES));
+		stats->shmem_rss = K(get_mm_counter(p->mm, MM_SHMEMPAGES));
+		stats->swap_rss = K(get_mm_counter(p->mm, MM_SWAPENTS));
+		stats->unreclaimable =
+				K(get_mm_counter(p->mm, MM_UNRECLAIMABLE));
+#undef K
+		task_unlock(p);
+	}
+	put_task_struct(tsk);
+
+	return send_reply(rep_skb, info);
+err:
+	nlmsg_free(rep_skb);
+	return rc;
+}
+
 static int cmd_attr_pid(struct genl_info *info)
 {
 	struct taskstats *stats;
@@ -693,6 +759,114 @@ static int cmd_attr_tgid(struct genl_info *info)
 err:
 	nlmsg_free(rep_skb);
 	return rc;
+}
+
+static struct tgid_iter next_tgid(struct pid_namespace *ns,
+					struct tgid_iter iter)
+{
+	struct pid *pid;
+
+	if (iter.task)
+		put_task_struct(iter.task);
+	rcu_read_lock();
+retry:
+	iter.task = NULL;
+	pid = find_ge_pid(iter.tgid, ns);
+	if (pid) {
+		iter.tgid = pid_nr_ns(pid, ns);
+		iter.task = pid_task(pid, PIDTYPE_PID);
+		if (!iter.task || !has_group_leader_pid(iter.task)) {
+			iter.tgid += 1;
+			goto retry;
+		}
+		get_task_struct(iter.task);
+	}
+	rcu_read_unlock();
+	return iter;
+}
+
+static int taskstats2_foreach(struct sk_buff *skb, struct netlink_callback *cb)
+{
+	struct pid_namespace *ns = task_active_pid_ns(current);
+	struct tgid_iter iter;
+	void *reply;
+	struct nlattr *attr;
+	struct nlattr *nla;
+	struct taskstats2 *stats;
+	struct task_struct *p;
+	short oom_score;
+	short oom_score_min;
+	short oom_score_max;
+	u32 buf;
+
+	nla = nla_find(nlmsg_attrdata(cb->nlh, GENL_HDRLEN),
+			nlmsg_attrlen(cb->nlh, GENL_HDRLEN),
+			TASKSTATS_TYPE_FOREACH);
+	buf  = nla_get_u32(nla);
+	oom_score_min = (short) (buf & 0xFFFF);
+	oom_score_max = (short) ((buf >> 16) & 0xFFFF);
+
+	iter.tgid = cb->args[0];
+	iter.task = NULL;
+	for (iter = next_tgid(ns, iter); iter.task;
+			iter.tgid += 1, iter = next_tgid(ns, iter)) {
+
+		if (iter.task->flags & PF_KTHREAD)
+			continue;
+
+		oom_score = iter.task->signal->oom_score_adj;
+		if ((oom_score < oom_score_min)
+			|| (oom_score > oom_score_max))
+			continue;
+
+		reply = genlmsg_put(skb, NETLINK_CB(cb->skb).portid,
+			cb->nlh->nlmsg_seq, &family, 0, TASKSTATS2_CMD_GET);
+		if (reply == NULL) {
+			put_task_struct(iter.task);
+			break;
+		}
+		attr = nla_reserve(skb, TASKSTATS_TYPE_FOREACH,
+				sizeof(struct taskstats2));
+		if (!attr) {
+			put_task_struct(iter.task);
+			genlmsg_cancel(skb, reply);
+			break;
+		}
+		stats = nla_data(attr);
+		memset(stats, 0, sizeof(struct taskstats2));
+		stats->version = TASKSTATS2_VERSION;
+		rcu_read_lock();
+		stats->pid = task_pid_nr_ns(iter.task,
+						task_active_pid_ns(current));
+		stats->oom_score = iter.task->signal->oom_score_adj;
+		rcu_read_unlock();
+		p = find_lock_task_mm(iter.task);
+		if (p) {
+#define K(x) ((x) << (PAGE_SHIFT - 10))
+			stats->anon_rss =
+				K(get_mm_counter(p->mm, MM_ANONPAGES));
+			stats->file_rss =
+				K(get_mm_counter(p->mm, MM_FILEPAGES));
+			stats->shmem_rss =
+				K(get_mm_counter(p->mm, MM_SHMEMPAGES));
+			stats->swap_rss =
+				K(get_mm_counter(p->mm, MM_SWAPENTS));
+			task_unlock(p);
+#undef K
+		}
+		genlmsg_end(skb, reply);
+	}
+
+	cb->args[0] = iter.tgid;
+	return skb->len;
+}
+
+static int taskstats2_user_cmd(struct sk_buff *skb, struct genl_info *info)
+{
+	if (info->attrs[TASKSTATS_CMD_ATTR_PID])
+		return taskstats2_cmd_attr_pid(info);
+	else
+		return -EINVAL;
 }
 
 static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
@@ -800,6 +974,12 @@ static const struct genl_ops taskstats_ops[] = {
 		.doit		= taskstats_user_cmd,
 		.policy		= taskstats_cmd_get_policy,
 		.flags		= GENL_ADMIN_PERM,
+	},
+	{
+		.cmd		= TASKSTATS2_CMD_GET,
+		.doit		= taskstats2_user_cmd,
+		.dumpit		= taskstats2_foreach,
+		.policy		= taskstats_cmd_get_policy,
 	},
 	{
 		.cmd		= CGROUPSTATS_CMD_GET,
