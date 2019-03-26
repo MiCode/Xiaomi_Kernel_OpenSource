@@ -255,6 +255,7 @@
 #define NUM_MBS_4k (((4096 + 15) >> 4) * ((2304 + 15) >> 4))
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define HDR10PLUS_PAYLOAD_SIZE 1024
+#define HDR10_HIST_EXTRADATA_SIZE 4096
 
 static inline u32 calculate_h264d_scratch_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, bool is_interlaced);
@@ -1304,7 +1305,8 @@ static inline u32 calculate_h265d_scratch1_size(struct msm_vidc_inst *inst,
 	if (split_mode_enabled)
 		vpss_lb_size = size_vpss_lb(width, height);
 
-	size = co_mv_size + nonco_mv_size + vpss_lb_size;
+	size = co_mv_size + nonco_mv_size + vpss_lb_size +
+			HDR10_HIST_EXTRADATA_SIZE;
 	return size;
 }
 
@@ -1369,7 +1371,7 @@ static inline u32 calculate_vp9d_scratch1_size(struct msm_vidc_inst *inst,
 	if (split_mode_enabled)
 		vpss_lb_size = size_vpss_lb(width, height);
 
-	size += vpss_lb_size;
+	size += vpss_lb_size + HDR10_HIST_EXTRADATA_SIZE;
 	return size;
 }
 
