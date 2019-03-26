@@ -2927,13 +2927,11 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
 
-		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_cx-supply = <&L11A_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
-		vdd_mx-supply = <&VDD_MX_LEVEL>;
+		vdd_mx-supply = <&L4A_LEVEL>;
 		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
-
 		qcom,proxy-reg-names = "vdd_cx", "vdd_mx";
-		qcom,keep-proxy-regs-on;
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "xo";
@@ -2948,6 +2946,7 @@
 		status = "ok";
 		memory-region = <&pil_slpi_mem>;
 		qcom,complete-ramdump;
+		qcom,signal-aop;
 
 		/* Inputs from ssc */
 		interrupts-extended = <&pdc 9 IRQ_TYPE_LEVEL_HIGH>,
@@ -2966,6 +2965,7 @@
 		qcom,smem-states = <&dsps_smp2p_out 0>;
 		qcom,smem-state-names = "qcom,force-stop";
 
+		mboxes = <&qmp_aop 0>;
 		mbox-names = "slpi-pil";
 	};
 
