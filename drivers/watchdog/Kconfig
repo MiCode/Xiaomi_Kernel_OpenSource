@@ -631,6 +631,18 @@ config QCOM_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called qcom_wdt.
 
+config QCOM_VM_WDT
+	tristate "QCOM VM watchdog"
+	depends on HAS_IOMEM
+	select WATCHDOG_CORE
+	help
+	  Say Y here to include Watchdog timer support for the watchdog found
+	  on QCOM chipsets, for enviroments where hypervisor supports
+	  virtualized watchdog register space for each VM.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qcom_vm_watchdog.
+
 config MESON_GXBB_WATCHDOG
 	tristate "Amlogic Meson GXBB SoCs watchdog support"
 	depends on ARCH_MESON

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2016,2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,10 +49,10 @@ struct prefetch_info {
 
 static bool is_cp_flag_present(unsigned long flags)
 {
-	return flags && (ION_FLAG_CP_TOUCH ||
-			ION_FLAG_CP_BITSTREAM ||
-			ION_FLAG_CP_PIXEL ||
-			ION_FLAG_CP_NON_PIXEL ||
+	return flags & (ION_FLAG_CP_TOUCH |
+			ION_FLAG_CP_BITSTREAM |
+			ION_FLAG_CP_PIXEL |
+			ION_FLAG_CP_NON_PIXEL |
 			ION_FLAG_CP_CAMERA);
 }
 
@@ -118,7 +118,7 @@ static int ion_system_secure_heap_allocate(
 						heap);
 
 	if (!ion_heap_is_system_secure_heap_type(secure_heap->heap.type) ||
-	    !is_cp_flag_present(flags)) {
+	    !(is_cp_flag_present(flags) || (flags & ION_FLAG_SECURE))) {
 		pr_info("%s: Incorrect heap type or incorrect flags\n",
 			__func__);
 		return -EINVAL;
@@ -393,7 +393,7 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	if (!heap)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.ops = &system_secure_heap_ops;
-	heap->heap.type = ION_HEAP_TYPE_SYSTEM_SECURE;
+	heap->heap.type = (enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE;
 	heap->sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
 
 	heap->destroy_heap = false;

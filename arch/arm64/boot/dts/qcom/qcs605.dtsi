@@ -125,6 +125,23 @@
 			};
 		};
 	};
+
+	pop-mem-step {
+		status = "disabled";
+	};
+
+	xo-therm-step {
+		status = "disabled";
+	};
+
+	xo-therm-605-step {
+		polling-delay-passive = <2000>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm660_adc_tm 0x4c>;
+		wake-capable-sensor;
+		thermal-governor = "step_wise";
+		status = "ok";
+	};
 };
 
 &msm_gpu {
@@ -405,4 +422,8 @@
 
 &apps_smmu {
 	/delete-property/ qcom,actlr;
+};
+
+&kgsl_smmu {
+	/delete-property/qcom,deferred-regulator-disable-delay;
 };

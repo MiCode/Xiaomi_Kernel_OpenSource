@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,14 +22,14 @@
  * Also should be normally typedef'ed to intmax_t but that doesn't seem to be
  * available in the kernel
  */
-#define fp_t size_t
+#define fp_t uint64_t
 
 /* (Arbitrarily) make the first 25% of the bits to be the fractional bits */
 #define FP_FRACTIONAL_BITS ((sizeof(fp_t) * 8) / 4)
 
 #define FP(__i, __f_n, __f_d) \
 	((((fp_t)(__i)) << FP_FRACTIONAL_BITS) + \
-	(((__f_n) << FP_FRACTIONAL_BITS) / (__f_d)))
+	div64_u64(((__f_n) << FP_FRACTIONAL_BITS), (__f_d)))
 
 #define FP_INT(__i) FP(__i, 0, 1)
 #define FP_ONE FP_INT(1)
@@ -66,7 +66,7 @@ static inline fp_t fp_mult(fp_t a, fp_t b)
 
 static inline fp_t fp_div(fp_t a, fp_t b)
 {
-	return (a << FP_FRACTIONAL_BITS) / b;
+	return div64_u64(a << FP_FRACTIONAL_BITS,  b);
 }
 
 #endif

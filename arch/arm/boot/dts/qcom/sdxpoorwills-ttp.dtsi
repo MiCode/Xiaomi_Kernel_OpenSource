@@ -76,10 +76,27 @@
 
 &spi_2 {
 	status = "okay";
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <97 0>;
+		qcom,reset-delay-msec = <200>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
 };
 
 &tlmm {
 	/* Set these up as hogs */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pmx_can_reset>;
+};
+
+&emac_hw {
+	early-ethernet-en;
 };

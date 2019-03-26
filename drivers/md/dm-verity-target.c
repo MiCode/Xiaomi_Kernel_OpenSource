@@ -17,6 +17,7 @@
 #include "dm-verity.h"
 #include "dm-verity-fec.h"
 
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/reboot.h>
 #include <linux/vmalloc.h>
@@ -30,16 +31,19 @@
 
 #define DM_VERITY_MAX_CORRUPTED_ERRS	100
 
+#define DM_VERITY_OPT_DEVICE_WAIT	"device_wait"
 #define DM_VERITY_OPT_LOGGING		"ignore_corruption"
 #define DM_VERITY_OPT_RESTART		"restart_on_corruption"
 #define DM_VERITY_OPT_IGN_ZEROES	"ignore_zero_blocks"
 #define DM_VERITY_OPT_AT_MOST_ONCE	"check_at_most_once"
 
-#define DM_VERITY_OPTS_MAX		(2 + DM_VERITY_OPTS_FEC)
+#define DM_VERITY_OPTS_MAX		(3 + DM_VERITY_OPTS_FEC)
 
 static unsigned dm_verity_prefetch_cluster = DM_VERITY_DEFAULT_PREFETCH_SIZE;
 
 module_param_named(prefetch_cluster, dm_verity_prefetch_cluster, uint, S_IRUGO | S_IWUSR);
+
+static int dm_device_wait;
 
 struct dm_verity_prefetch_work {
 	struct work_struct work;
@@ -810,6 +814,38 @@ out:
 	return r;
 }
 
+static int verity_parse_pre_opt_args(struct dm_arg_set *as,
+					struct dm_verity *v)
+{
+	int r;
+	unsigned int argc;
+	const char *arg_name;
+	struct dm_target *ti = v->ti;
+	static struct dm_arg _args[] = {
+		{0, DM_VERITY_OPTS_MAX, "Invalid number of feature args"},
+	};
+
+	r = dm_read_arg_group(_args, as, &argc, &ti->error);
+	if (r)
+		return -EINVAL;
+
+	if (!argc)
+		return 0;
+
+	do {
+		arg_name = dm_shift_arg(as);
+		argc--;
+
+		if (!strcasecmp(arg_name, DM_VERITY_OPT_DEVICE_WAIT)) {
+			dm_device_wait = 1;
+			continue;
+		}
+
+	} while (argc);
+
+	return 0;
+}
+
 static int verity_parse_opt_args(struct dm_arg_set *as, struct dm_verity *v)
 {
 	int r;
@@ -858,6 +894,8 @@ static int verity_parse_opt_args(struct dm_arg_set *as, struct dm_verity *v)
 			r = verity_fec_parse_opt_args(as, v, &argc, arg_name);
 			if (r)
 				return r;
+			continue;
+		} else if (!strcasecmp(arg_name, DM_VERITY_OPT_DEVICE_WAIT)) {
 			continue;
 		}
 
@@ -917,6 +955,15 @@ int verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		goto bad;
 	}
 
+	/* Optional parameters which are parsed pre required args. */
+	if ((argc - 10)) {
+		as.argc = argc - 10;
+		as.argv = argv + 10;
+		r = verity_parse_pre_opt_args(&as, v);
+		if (r < 0)
+			goto bad;
+	}
+
 	if (sscanf(argv[0], "%u%c", &num, &dummy) != 1 ||
 	    num > 1) {
 		ti->error = "Invalid version";
@@ -925,14 +972,24 @@ int verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	}
 	v->version = num;
 
+retry_dev1:
 	r = dm_get_device(ti, argv[1], FMODE_READ, &v->data_dev);
 	if (r) {
+		if (r == -ENODEV && dm_device_wait) {
+			msleep(100);
+			goto retry_dev1;
+		}
 		ti->error = "Data device lookup failed";
 		goto bad;
 	}
 
+retry_dev2:
 	r = dm_get_device(ti, argv[2], FMODE_READ, &v->hash_dev);
 	if (r) {
+		if (r == -ENODEV && dm_device_wait) {
+			msleep(100);
+			goto retry_dev2;
+		}
 		ti->error = "Data device lookup failed";
 		goto bad;
 	}

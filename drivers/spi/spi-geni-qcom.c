@@ -170,27 +170,32 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 			int *clk_idx, int *clk_div)
 {
 	unsigned long sclk_freq;
+	unsigned long res_freq;
 	struct se_geni_rsc *rsc = &mas->spi_rsc;
 	int ret = 0;
 
 	ret = geni_se_clk_freq_match(&mas->spi_rsc,
 				(speed_hz * mas->oversampling), clk_idx,
-				&sclk_freq, true);
+				&sclk_freq, false);
 	if (ret) {
 		dev_err(mas->dev, "%s: Failed(%d) to find src clk for 0x%x\n",
 						__func__, ret, speed_hz);
 		return ret;
 	}
 
-	*clk_div = ((sclk_freq / mas->oversampling) / speed_hz);
+	*clk_div = DIV_ROUND_UP(sclk_freq,  (mas->oversampling*speed_hz));
+
 	if (!(*clk_div)) {
 		dev_err(mas->dev, "%s:Err:sclk:%lu oversampling:%d speed:%u\n",
 			__func__, sclk_freq, mas->oversampling, speed_hz);
 		return -EINVAL;
 	}
 
-	dev_dbg(mas->dev, "%s: req %u sclk %lu, idx %d, div %d\n", __func__,
-				speed_hz, sclk_freq, *clk_idx, *clk_div);
+	res_freq = (sclk_freq / (*clk_div));
+
+	dev_dbg(mas->dev, "%s: req %u resultant %lu sclk %lu, idx %d, div %d\n",
+		__func__, speed_hz, res_freq, sclk_freq, *clk_idx, *clk_div);
+
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
 	if (ret)
 		dev_err(mas->dev, "%s: clk_set_rate failed %d\n",

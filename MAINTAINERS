@@ -13057,6 +13057,7 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/watchdog/
 F:	Documentation/watchdog/
 F:	drivers/watchdog/
+F:	drivers/watchdog/qcom-vm-wdt.c
 F:	include/linux/watchdog.h
 F:	include/uapi/linux/watchdog.h
 

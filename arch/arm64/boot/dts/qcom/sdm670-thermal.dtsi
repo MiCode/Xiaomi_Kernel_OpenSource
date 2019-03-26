@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,6 +82,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&tsens0 0>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -96,6 +97,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&tsens0 1>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -110,6 +112,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&tsens0 2>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -124,6 +127,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&tsens0 3>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -137,6 +141,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 4>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -151,6 +156,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 5>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -165,6 +171,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 6>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -179,6 +186,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 7>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -193,6 +201,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 8>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -207,6 +216,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 9>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -221,6 +231,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 10>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -235,6 +246,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 11>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -250,6 +262,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&tsens0 12>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -263,6 +276,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 0>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -277,6 +291,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 1>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -291,6 +306,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 2>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -305,6 +321,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 3>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -319,6 +336,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 4>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -333,6 +351,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 5>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -347,6 +366,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 6>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -361,6 +381,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 7>;
+		wake-capable-sensor;
 		thermal-governor = "user_space";
 		trips {
 			active-config0 {
@@ -375,6 +396,7 @@
 		polling-delay-passive = <10>;
 		polling-delay = <100>;
 		thermal-governor = "step_wise";
+		wake-capable-sensor;
 		trips {
 			gpu_trip0: gpu-trip0 {
 				temperature = <95000>;
@@ -396,6 +418,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
+		wake-capable-sensor;
 		trips {
 			silver-trip {
 				temperature = <120000>;
@@ -409,6 +432,7 @@
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
+		wake-capable-sensor;
 		trips {
 			gold-trip {
 				temperature = <120000>;
@@ -422,6 +446,7 @@
 		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 2>;
+		wake-capable-sensor;
 		thermal-governor = "step_wise";
 		trips {
 			pop_trip: pop-trip {
@@ -451,6 +476,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
 		thermal-sensors = <&tsens0 0>;
+		wake-capable-sensor;
 		tracks-low;
 		trips {
 			aoss0_trip: aoss0-trip {
@@ -503,6 +529,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_floor";
 		thermal-sensors = <&tsens1 0>;
+		wake-capable-sensor;
 		tracks-low;
 		trips {
 			aoss1_trip: aoss1-trip {
@@ -555,6 +582,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&lmh_dcvs1>;
+		wake-capable-sensor;
 
 		trips {
 			active-config {
@@ -570,6 +598,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&lmh_dcvs0>;
+		wake-capable-sensor;
 
 		trips {
 			active-config {
@@ -584,6 +613,7 @@
 		polling-delay-passive = <2000>;
 		polling-delay = <0>;
 		thermal-sensors = <&pm660_adc_tm 0x4c>;
+		wake-capable-sensor;
 		thermal-governor = "step_wise";
 
 		trips {
@@ -679,6 +709,10 @@
 				cooling-device = <&modem_proc 3 3>;
 			};
 		};
+	};
+
+	xo-therm-605-step {
+		status = "disabled";
 	};
 
 	vbat_adc {

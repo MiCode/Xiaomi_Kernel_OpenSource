@@ -31,7 +31,10 @@
 #include <vservices/wait.h>
 
 #define VS_BLOCK_BLKDEV_DEFAULT_MODE FMODE_READ
+/* Must match Linux bio sector_size (512 bytes) */
 #define VS_BLOCK_BLK_DEF_SECTOR_SIZE 512
+/* XXX should lookup block device physical_block_size */
+#define VS_BLOCK_BLK_DEF_MIN_SECTORS 8
 
 /*
  * Metadata for a request. Note that the bio must be embedded at the end of
@@ -1035,12 +1038,15 @@ vs_block_server_attach_block_device(struct block_server *server)
 	if (IS_ERR(bdev))
 		return bdev;
 
+	// XXX get block device physical block size
 	server->sector_size		= VS_BLOCK_BLK_DEF_SECTOR_SIZE;
 	server->server.segment_size	= round_down(
 		vs_service_max_mbuf_size(server->service) -
 		sizeof(vs_message_id_t), server->sector_size);
-	server->server.sector_size	= server->sector_size;
-	server->server.device_sectors	= bdev->bd_part->nr_sects;
+	server->server.sector_size	= server->sector_size *
+						VS_BLOCK_BLK_DEF_MIN_SECTORS;
+	server->server.device_sectors	= bdev->bd_part->nr_sects /
+						VS_BLOCK_BLK_DEF_MIN_SECTORS;
 	if (bdev_read_only(bdev))
 		server->server.readonly = true;
 	server->server.flushable = true;

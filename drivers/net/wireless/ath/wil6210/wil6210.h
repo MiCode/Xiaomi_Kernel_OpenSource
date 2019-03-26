@@ -36,6 +36,7 @@ extern bool rx_align_2;
 extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
+extern bool drop_if_ring_full;
 
 #define WIL_NAME "wil6210"
 
@@ -51,6 +52,8 @@ extern bool disable_ap_sme;
 #define WIL_MAX_BUS_REQUEST_KBPS 800000 /* ~6.1Gbps */
 
 #define WIL_BRD_SUFFIX_LEN 4 /* max 3 letters + terminating null */
+
+#define WIL_NUM_LATENCY_BINS 200
 
 /**
  * extract bits [@b0:@b1] (inclusive) from the value @x
@@ -569,6 +572,9 @@ struct wil_net_stats {
 	unsigned long	rx_bytes;
 	unsigned long	tx_bytes;
 	unsigned long	tx_errors;
+	u32 tx_latency_min_us;
+	u32 tx_latency_max_us;
+	u64 tx_latency_total_us;
 	unsigned long	rx_dropped;
 	unsigned long	rx_non_data_frame;
 	unsigned long	rx_short_frame;
@@ -590,6 +596,13 @@ struct wil_sta_info {
 	u8 addr[ETH_ALEN];
 	enum wil_sta_status status;
 	struct wil_net_stats stats;
+	/**
+	 * 20 latency bins. 1st bin counts packets with latency
+	 * of 0..tx_latency_res, last bin counts packets with latency
+	 * of 19*tx_latency_res and above.
+	 * tx_latency_res is configured from "tx_latency" debug-fs.
+	 */
+	u64 *tx_latency_bins;
 	/* Rx BACK */
 	struct wil_tid_ampdu_rx *tid_rx[WIL_STA_TID_NUM];
 	spinlock_t tid_rx_lock; /* guarding tid_rx array */
@@ -769,6 +782,8 @@ struct wil6210_priv {
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
+	bool tx_latency; /* collect TX latency measurements */
+	size_t tx_latency_res; /* bin resolution in usec */
 
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
@@ -798,6 +813,9 @@ struct wil6210_priv {
 		short omni;
 		short direct;
 	} snr_thresh;
+
+	/* VR profile, VR is disabled on profile 0 */
+	u8 vr_profile;
 
 	int fw_calib_result;
 	/* current reg domain configured in kernel */
@@ -944,6 +962,7 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil);
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r);
 int wil_find_cid(struct wil6210_priv *wil, const u8 *mac);
 void wil_set_ethtoolops(struct net_device *ndev);
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile);
 
 struct fw_map *wil_find_fw_mapping(const char *section);
 void __iomem *wmi_buffer_block(struct wil6210_priv *wil, __le32 ptr, u32 size);
@@ -1110,6 +1129,10 @@ void wil_halp_vote(struct wil6210_priv *wil);
 void wil_halp_unvote(struct wil6210_priv *wil);
 void wil6210_set_halp(struct wil6210_priv *wil);
 void wil6210_clear_halp(struct wil6210_priv *wil);
+
+int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile);
+const char *
+wil_get_vr_profile_name(enum wmi_vr_profile profile);
 
 void wil_ftm_init(struct wil6210_priv *wil);
 void wil_ftm_deinit(struct wil6210_priv *wil);

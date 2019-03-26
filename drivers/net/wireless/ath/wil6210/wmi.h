@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  * Copyright (c) 2006-2012 Wilocity
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -224,6 +225,7 @@ enum wmi_command_id {
 	WMI_ENABLE_FIXED_SCHEDULING_CMDID		= 0xA03,
 	WMI_SET_MULTI_DIRECTED_OMNIS_CONFIG_CMDID	= 0xA04,
 	WMI_SET_LONG_RANGE_CONFIG_CMDID			= 0xA05,
+	WMI_SET_VR_PROFILE_CMDID			= 0xA09,
 	WMI_SET_MAC_ADDRESS_CMDID			= 0xF003,
 	WMI_ABORT_SCAN_CMDID				= 0xF007,
 	WMI_SET_PROMISCUOUS_MODE_CMDID			= 0xF041,
@@ -1386,6 +1388,7 @@ enum wmi_event_id {
 	WMI_ENABLE_FIXED_SCHEDULING_COMPLETE_EVENTID	= 0x1A03,
 	WMI_SET_MULTI_DIRECTED_OMNIS_CONFIG_EVENTID	= 0x1A04,
 	WMI_SET_LONG_RANGE_CONFIG_COMPLETE_EVENTID	= 0x1A05,
+	WMI_SET_VR_PROFILE_EVENTID			= 0x1A09,
 	WMI_SET_CHANNEL_EVENTID				= 0x9000,
 	WMI_ASSOC_REQ_EVENTID				= 0x9001,
 	WMI_EAPOL_RX_EVENTID				= 0x9002,
@@ -2935,6 +2938,32 @@ struct wmi_command_not_supported_event {
 	/* for UT command only, otherwise reserved */
 	__le16 command_subtype;
 	__le16 reserved1;
+} __packed;
+
+enum wmi_vr_profile {
+	WMI_VR_PROFILE_DISABLED		= 0,
+	WMI_VR_PROFILE_COMMON_AP	= 1,
+	WMI_VR_PROFILE_COMMON_STA	= 2,
+	WMI_VR_PROFILE_RESERVED0	= 250,
+	WMI_VR_PROFILE_RESERVED1	= 251,
+	WMI_VR_PROFILE_RESERVED2	= 252,
+	WMI_VR_PROFILE_RESERVED3	= 253,
+	WMI_VR_PROFILE_RESERVED4	= 254,
+	WMI_VR_PROFILE_RESERVED5	= 255,
+};
+
+/* WMI_SET_VR_PROFILE_CMDID */
+struct wmi_set_vr_profile_cmd {
+	/* enum wmi_vr_profile */
+	u8 profile;
+	u8 reserved[3];
+} __packed;
+
+/* WMI_SET_VR_PROFILE_EVENTID */
+struct wmi_set_vr_profile_event {
+	/* enum wmi_fw_status */
+	u8 status;
+	u8 reserved[3];
 } __packed;
 
 #endif /* __WILOCITY_WMI_H__ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3005,7 +3005,7 @@ int cam_smmu_destroy_handle(int handle)
 		cam_smmu_clean_kernel_buffer_list(idx);
 	}
 
-	if (&iommu_cb_set.cb_info[idx].is_secure) {
+	if (iommu_cb_set.cb_info[idx].is_secure) {
 		if (iommu_cb_set.cb_info[idx].secure_count == 0) {
 			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			return -EPERM;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@ enum ion_permission_type {
 	IPT_TYPE_MDP_WRITEBACK = 2,
 };
 
-#define ION_FLAGS_CP_MASK	0x7FFF0000
+#define ION_FLAGS_CP_MASK	0x6FFE0000
 
 /*
  * This flag allows clients when mapping into the IOMMU to specify to

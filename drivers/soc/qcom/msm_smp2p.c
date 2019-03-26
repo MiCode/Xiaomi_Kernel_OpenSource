@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p.c
  *
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -989,17 +989,29 @@ void smp2p_init_header(struct smp2p_smem __iomem *header_ptr,
 		int local_pid, int remote_pid,
 		uint32_t features, uint32_t version)
 {
-	header_ptr->magic = SMP2P_MAGIC;
-	SMP2P_SET_LOCAL_PID(header_ptr->rem_loc_proc_id, local_pid);
-	SMP2P_SET_REMOTE_PID(header_ptr->rem_loc_proc_id, remote_pid);
-	SMP2P_SET_FEATURES(header_ptr->feature_version, features);
-	SMP2P_SET_ENT_TOTAL(header_ptr->valid_total_ent, SMP2P_MAX_ENTRY);
-	SMP2P_SET_ENT_VALID(header_ptr->valid_total_ent, 0);
-	header_ptr->flags = 0;
+	uint32_t rem_loc_proc_id = 0;
+	uint32_t valid_total_ent = 0;
+	uint32_t feature_version = 0;
+
+	writel_relaxed(SMP2P_MAGIC, &header_ptr->magic);
+
+	SMP2P_SET_LOCAL_PID(rem_loc_proc_id, local_pid);
+	SMP2P_SET_REMOTE_PID(rem_loc_proc_id, remote_pid);
+	writel_relaxed(rem_loc_proc_id, &header_ptr->rem_loc_proc_id);
+
+	SMP2P_SET_FEATURES(feature_version, features);
+	writel_relaxed(feature_version, &header_ptr->feature_version);
+
+	SMP2P_SET_ENT_TOTAL(valid_total_ent, SMP2P_MAX_ENTRY);
+	SMP2P_SET_ENT_VALID(valid_total_ent, 0);
+	writel_relaxed(valid_total_ent, &header_ptr->valid_total_ent);
+
+	writel_relaxed(0, &header_ptr->flags);
 
 	/* ensure that all fields are valid before version is written */
 	wmb();
-	SMP2P_SET_VERSION(header_ptr->feature_version, version);
+	SMP2P_SET_VERSION(feature_version, version);
+	writel_relaxed(feature_version, &header_ptr->feature_version);
 }
 
 /**

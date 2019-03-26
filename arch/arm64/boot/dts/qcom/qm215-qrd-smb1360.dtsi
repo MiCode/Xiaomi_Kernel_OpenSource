@@ -72,6 +72,13 @@
 		qcom,fg-iterm-ma = <130>;
 		qcom,fg-delta-soc = <1>;
 		qcom,usb-id-gpio = <&pm8916_gpios 4 0>;
+		qcom,soft-jeita-supported;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-decidegc = <150>;
+		qcom,warm-bat-mv = <4200>;
+		qcom,cool-bat-mv = <4200>;
+		qcom,warm-bat-ma = <1000>;
+		qcom,cool-bat-ma = <1000>;
 		status= "okay";
 	};
 };

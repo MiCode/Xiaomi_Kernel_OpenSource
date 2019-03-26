@@ -703,7 +703,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
 
 		/* Set Subsystem ID and Subsystem Vendor ID */
-		ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
+		if (ep_pcie_dev.subsystem_id)
+			ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM,
+					ep_pcie_dev.subsystem_id);
 
 		/* Set the PMC Register - to support PME in D0/D3hot/D3cold */
 		ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
@@ -1385,6 +1387,13 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				EP_PCIE_INFO(dev,
 					"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
 					dev->rev);
+				/*
+				 * Read and save the subsystem id set in PBL
+				 * (needed for restore during D3->D0)
+				 */
+				ep_pcie_dev.subsystem_id =
+					readl_relaxed(dev->dm_core +
+							PCIE20_SUBSYSTEM);
 				/*
 				 * Skip mhi mmio config for host reboot case
 				 * with bios-locking enabled.

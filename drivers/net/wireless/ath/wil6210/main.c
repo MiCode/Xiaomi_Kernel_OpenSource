@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,6 +27,8 @@
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
 #define WIL_BOARD_FILE_MAX_NAMELEN 128
+#define WIL6210_ITR_VR_RX_MAX_BURST_DURATION (5) /* usec */
+#define WIL6210_VR_TX_RING_ORDER 10
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -216,6 +218,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	}
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
+	sta->stats.tx_latency_min_us = U32_MAX;
 }
 
 static bool wil_is_connected(struct wil6210_priv *wil)
@@ -1145,6 +1148,39 @@ int wil_ps_update(struct wil6210_priv *wil, enum wmi_ps_profile_type ps_profile)
 	return rc;
 }
 
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
+{
+	int rc;
+
+	if (profile == WMI_VR_PROFILE_DISABLED) {
+		/* Switch from VR mode to normal (non-VR) mode is not
+		 * supported at runtime - it requires FW re-loading.
+		 * It is assumed here that FW is not running when VR disable
+		 * is requested
+		 */
+		wil->ps_profile = WMI_PS_PROFILE_TYPE_DEFAULT;
+		tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+		drop_if_ring_full = false;
+		wil->rx_max_burst_duration =
+			WIL6210_ITR_RX_MAX_BURST_DURATION_DEFAULT;
+
+		return 0;
+	}
+
+	rc = wmi_set_vr_profile(wil, profile);
+	if (rc)
+		return rc;
+
+	/* VR default configuration */
+	wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
+	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
+	drop_if_ring_full = true;
+
+	wil->rx_max_burst_duration = WIL6210_ITR_VR_RX_MAX_BURST_DURATION;
+
+	return 0;
+}
+
 static void wil_pre_fw_config(struct wil6210_priv *wil)
 {
 	/* Mark FW as loaded from host */
@@ -1321,7 +1357,6 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	clear_bit(wil_status_resetting, wil->status);
 
 	if (load_fw) {
-		wil_configure_interrupt_moderation(wil);
 		wil_unmask_irq(wil);
 
 		/* we just started MAC, wait for FW ready */
@@ -1336,6 +1371,11 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			return rc;
 		}
 
+		/* Update VR mode before configuring interrupt moderation */
+		if (wil->vr_profile != WMI_VR_PROFILE_DISABLED)
+			wil_vr_update_profile(wil, wil->vr_profile);
+
+		wil_configure_interrupt_moderation(wil);
 		wil_collect_fw_info(wil);
 
 		if (wil->ps_profile != WMI_PS_PROFILE_TYPE_DEFAULT)

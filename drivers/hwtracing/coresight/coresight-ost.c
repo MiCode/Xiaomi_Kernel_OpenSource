@@ -14,6 +14,7 @@
 #include <linux/bitmap.h>
 #include <linux/io.h>
 #include "coresight-ost.h"
+#include <linux/coresight-stm.h>
 
 #define STM_USERSPACE_HEADER_SIZE	(8)
 #define STM_USERSPACE_MAGIC1_VAL	(0xf0)
@@ -139,7 +140,7 @@ static int stm_trace_data_header(void __iomem *addr)
 }
 
 static int stm_trace_data(void __iomem *ch_addr, uint32_t flags,
-			  const void *data, uint32_t size)
+			uint32_t entity_id, const void *data, uint32_t size)
 {
 	void __iomem *addr;
 	int len = 0;
@@ -148,8 +149,10 @@ static int stm_trace_data(void __iomem *ch_addr, uint32_t flags,
 	addr = (void __iomem *)(ch_addr +
 		stm_channel_off(STM_PKT_TYPE_DATA, flags));
 
-	/* send the data header */
-	len += stm_trace_data_header(addr);
+	/* OST_ENTITY_DIAG no need to send the data header */
+	if (entity_id != OST_ENTITY_DIAG)
+		len += stm_trace_data_header(addr);
+
 	/* send the actual data */
 	len += stm_ost_send(addr, data, size);
 
@@ -192,7 +195,7 @@ static inline int __stm_trace(uint32_t flags, uint8_t entity_id,
 				    proto_id);
 
 	/* send the payload data */
-	len += stm_trace_data(ch_addr, flags, data, size);
+	len += stm_trace_data(ch_addr, flags, entity_id, data, size);
 
 	/* send the ost tail */
 	len += stm_trace_ost_tail(ch_addr, flags);
