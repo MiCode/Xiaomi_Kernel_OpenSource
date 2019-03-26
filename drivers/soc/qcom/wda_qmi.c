@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/rtnetlink.h>
 #include <linux/soc/qcom/qmi.h>
 #include <soc/qcom/rmnet_qmi.h>
 #define CREATE_TRACE_POINTS
@@ -15,13 +16,14 @@ struct wda_qmi_data {
 	struct work_struct svc_arrive;
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
+	struct svc_info svc;
 };
 
 static void wda_svc_config(struct work_struct *work);
 /* **************************************************** */
 #define WDA_SERVICE_ID_V01 0x1A
 #define WDA_SERVICE_VERS_V01 0x01
-#define WDA_TIMEOUT_MS  20
+#define WDA_TIMEOUT_JF  msecs_to_jiffies(1000)
 
 #define QMI_WDA_SET_POWERSAVE_CONFIG_REQ_V01 0x002D
 #define QMI_WDA_SET_POWERSAVE_CONFIG_RESP_V01 0x002D
@@ -231,7 +233,7 @@ static int wda_set_powersave_mode_req(void *wda_data, uint8_t enable)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);
@@ -247,8 +249,7 @@ out:
 	return ret;
 }
 
-static int wda_set_powersave_config_req(struct qmi_handle *wda_handle,
-					struct qmi_info *qmi)
+static int wda_set_powersave_config_req(struct qmi_handle *wda_handle)
 {
 	struct wda_qmi_data *data = container_of(wda_handle,
 						 struct wda_qmi_data, handle);
@@ -275,8 +276,8 @@ static int wda_set_powersave_config_req(struct qmi_handle *wda_handle,
 		goto out;
 	}
 
-	req->ep_id.ep_type = qmi->fc_info[0].svc.ep_type;
-	req->ep_id.iface_id = qmi->fc_info[0].svc.iface_id;
+	req->ep_id.ep_type = data->svc.ep_type;
+	req->ep_id.iface_id = data->svc.iface_id;
 	req->req_data_cfg_valid = 1;
 	req->req_data_cfg = WDA_DATA_POWERSAVE_CONFIG_ALL_MASK_V01;
 	ret = qmi_send_request(wda_handle, &data->ssctl, &txn,
@@ -289,7 +290,7 @@ static int wda_set_powersave_config_req(struct qmi_handle *wda_handle,
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);
@@ -310,28 +311,30 @@ static void wda_svc_config(struct work_struct *work)
 	struct wda_qmi_data *data = container_of(work, struct wda_qmi_data,
 						 svc_arrive);
 	struct qmi_info *qmi;
+	int rc;
 
-	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
-	if (!qmi)
-		goto clean_out;
-
-	if (wda_set_powersave_config_req(&data->handle, qmi) < 0) {
-		pr_err("%s() failed, qmi handle pt: %p\n",
-			__func__, &data->handle);
-		goto clean_out;
+	rc = wda_set_powersave_config_req(&data->handle);
+	if (rc < 0) {
+		pr_err("%s Failed to init service, err[%d]\n", __func__, rc);
+		return;
 	}
 
-	trace_wda_client_state_up(qmi->fc_info[0].svc.instance,
-				  qmi->fc_info[0].svc.ep_type,
-				  qmi->fc_info[0].svc.iface_id);
-	qmi->wda_client = (void *)data;
-	pr_info("Connection established with the WDA Service\n");
-	return;
+	rtnl_lock();
+	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
+	if (!qmi) {
+		rtnl_unlock();
+		return;
+	}
 
-clean_out:
-	qmi_handle_release(&data->handle);
-	destroy_workqueue(data->wda_wq);
-	kfree(data);
+	qmi->wda_pending = NULL;
+	qmi->wda_client = (void *)data;
+	trace_wda_client_state_up(data->svc.instance,
+				  data->svc.ep_type,
+				  data->svc.iface_id);
+
+	rtnl_unlock();
+
+	pr_info("Connection established with the WDA Service\n");
 }
 
 static int wda_svc_arrive(struct qmi_handle *qmi, struct qmi_service *svc)
@@ -362,15 +365,14 @@ static struct qmi_ops server_ops = {
 	.del_server = wda_svc_exit,
 };
 
-int wda_qmi_client_init(void *port, uint32_t instance)
+int
+wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi)
 {
 	struct wda_qmi_data *data;
-	int rc = 0;
+	int rc = -ENOMEM;
 
-	if (!port)
+	if (!port || !qmi)
 		return -EINVAL;
-
-	pr_info("%s\n", __func__);
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -379,11 +381,11 @@ int wda_qmi_client_init(void *port, uint32_t instance)
 	data->wda_wq = create_singlethread_workqueue("wda_wq");
 	if (!data->wda_wq) {
 		pr_err("%s Could not create workqueue\n", __func__);
-		kfree(data);
-		return -ENOMEM;
+		goto err0;
 	}
 
 	data->rmnet_port = port;
+	memcpy(&data->svc, psvc, sizeof(data->svc));
 	INIT_WORK(&data->svc_arrive, wda_svc_config);
 
 	rc = qmi_handle_init(&data->handle,
@@ -391,19 +393,25 @@ int wda_qmi_client_init(void *port, uint32_t instance)
 			     &server_ops, NULL);
 	if (rc < 0) {
 		pr_err("%s: Failed qmi_handle_init, err: %d\n", __func__, rc);
-		kfree(data);
-		return rc;
+		goto err1;
 	}
 
 	rc = qmi_add_lookup(&data->handle, WDA_SERVICE_ID_V01,
-			    WDA_SERVICE_VERS_V01, instance);
+			    WDA_SERVICE_VERS_V01, psvc->instance);
 	if (rc < 0) {
 		pr_err("%s(): Failed qmi_add_lookup, err: %d\n", __func__, rc);
-		qmi_handle_release(&data->handle);
-		destroy_workqueue(data->wda_wq);
-		kfree(data);
+		goto err2;
 	}
 
+	qmi->wda_pending = (void *)data;
+	return 0;
+
+err2:
+	qmi_handle_release(&data->handle);
+err1:
+	destroy_workqueue(data->wda_wq);
+err0:
+	kfree(data);
 	return rc;
 }
 

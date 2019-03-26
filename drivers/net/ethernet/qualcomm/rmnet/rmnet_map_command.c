@@ -136,15 +136,6 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 	port->stats.dl_hdr_total_pkts += port->stats.dl_hdr_last_pkts;
 	port->stats.dl_hdr_count++;
 
-	if (unlikely(!(port->stats.dl_hdr_count)))
-		port->stats.dl_hdr_count = 1;
-
-	port->stats.dl_hdr_avg_bytes = port->stats.dl_hdr_total_bytes /
-				       port->stats.dl_hdr_count;
-
-	port->stats.dl_hdr_avg_pkts = port->stats.dl_hdr_total_pkts /
-				      port->stats.dl_hdr_count;
-
 	rmnet_map_dl_hdr_notify(port, dlhdr);
 	if (rmnet_perf) {
 		unsigned int pull_size;
@@ -261,11 +252,38 @@ void rmnet_map_cmd_init(struct rmnet_port *port)
 int rmnet_map_dl_ind_register(struct rmnet_port *port,
 			      struct rmnet_map_dl_ind *dl_ind)
 {
+	struct rmnet_map_dl_ind *dl_ind_iterator;
+	bool empty_ind_list = true;
+
 	if (!port || !dl_ind || !dl_ind->dl_hdr_handler ||
 	    !dl_ind->dl_trl_handler)
 		return -EINVAL;
 
-	list_add_rcu(&dl_ind->list, &port->dl_list);
+	list_for_each_entry_rcu(dl_ind_iterator, &port->dl_list, list) {
+		empty_ind_list = false;
+		if (dl_ind_iterator->priority < dl_ind->priority) {
+			if (dl_ind_iterator->list.next) {
+				if (dl_ind->priority
+				    < list_entry_rcu(dl_ind_iterator->list.next,
+				    typeof(*dl_ind_iterator), list)->priority) {
+					list_add_rcu(&dl_ind->list,
+						     &dl_ind_iterator->list);
+					break;
+				}
+			} else {
+				list_add_rcu(&dl_ind->list,
+					     &dl_ind_iterator->list);
+				break;
+			}
+		} else {
+			list_add_tail_rcu(&dl_ind->list,
+					  &dl_ind_iterator->list);
+			break;
+		}
+	}
+
+	if (empty_ind_list)
+		list_add_rcu(&dl_ind->list, &port->dl_list);
 
 	return 0;
 }

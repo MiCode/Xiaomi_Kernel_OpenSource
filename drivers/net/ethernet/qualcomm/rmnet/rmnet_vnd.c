@@ -16,6 +16,7 @@
 #include "rmnet_vnd.h"
 
 #include <soc/qcom/qmi_rmnet.h>
+#include <soc/qcom/rmnet_qmi.h>
 #include <trace/events/rmnet.h>
 
 /* RX/TX Fixup */
@@ -65,6 +66,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 		trace_rmnet_xmit_skb(skb);
 		rmnet_egress_handler(skb);
 		qmi_rmnet_burst_fc_check(dev, ip_type, mark, len);
+		qmi_rmnet_work_maybe_restart(rmnet_get_rmnet_port(dev));
 	} else {
 		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
 		kfree_skb(skb);
@@ -219,8 +221,6 @@ static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"DL header pkts received",
 	"DL header total bytes received",
 	"DL header total pkts received",
-	"DL header average bytes",
-	"DL header average packets",
 	"DL trailer last seen sequence",
 	"DL trailer pkts received",
 };
@@ -311,10 +311,6 @@ void rmnet_vnd_setup(struct net_device *rmnet_dev)
 
 	rmnet_dev->needs_free_netdev = true;
 	rmnet_dev->ethtool_ops = &rmnet_ethtool_ops;
-
-	/* This perm addr will be used as interface identifier by IPv6 */
-	rmnet_dev->addr_assign_type = NET_ADDR_RANDOM;
-	eth_random_addr(rmnet_dev->perm_addr);
 }
 
 /* Exposed API */

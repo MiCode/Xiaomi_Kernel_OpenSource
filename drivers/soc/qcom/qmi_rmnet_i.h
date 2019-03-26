@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_QMI_I_H
@@ -14,7 +14,8 @@
 
 #define MAX_CLIENT_NUM 2
 #define MAX_FLOW_NUM 32
-#define DEFAULT_GRANT 10240
+#define DEFAULT_GRANT 1
+#define DFC_MAX_BEARERS_V01 16
 
 struct rmnet_flow_map {
 	struct list_head list;
@@ -32,20 +33,16 @@ struct rmnet_bearer_map {
 	u32 grant_thresh;
 	u16 seq;
 	u8  ack_req;
-	u32 grant_before_ps;
-	u16 seq_before_ps;
-	u32 ancillary;
+	u32 last_grant;
+	u16 last_seq;
+	bool tcp_bidir;
+	bool rat_switch;
 };
 
 struct svc_info {
 	u32 instance;
 	u32 ep_type;
 	u32 iface_id;
-};
-
-struct fc_info {
-	struct svc_info svc;
-	void *dfc_client;
 };
 
 struct qos_info {
@@ -66,9 +63,12 @@ struct flow_info {
 struct qmi_info {
 	int flag;
 	void *wda_client;
-	struct fc_info fc_info[MAX_CLIENT_NUM];
+	void *wda_pending;
+	void *dfc_clients[MAX_CLIENT_NUM];
+	void *dfc_pending[MAX_CLIENT_NUM];
 	unsigned long ps_work_active;
-	int ps_enabled;
+	bool ps_enabled;
+	bool dl_msg_active;
 };
 
 enum data_ep_type_enum_v01 {
@@ -101,7 +101,8 @@ qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id);
 
 unsigned int qmi_rmnet_grant_per(unsigned int grant);
 
-int dfc_qmi_client_init(void *port, int index, struct qmi_info *qmi);
+int dfc_qmi_client_init(void *port, int index, struct svc_info *psvc,
+			struct qmi_info *qmi);
 
 void dfc_qmi_client_exit(void *dfc_data);
 
@@ -112,6 +113,7 @@ int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
 
 void dfc_qmi_wq_flush(struct qmi_info *qmi);
 
+void dfc_qmi_query_flow(void *dfc_data);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,
@@ -121,13 +123,14 @@ qmi_rmnet_get_flow_map(struct qos_info *qos_info,
 }
 
 static inline struct rmnet_bearer_map *
-qmi_rmnet_get_bearer_map(struct qos_info *qos_info, uint8_t bearer_id)
+qmi_rmnet_get_bearer_map(struct qos_info *qos_info, u8 bearer_id)
 {
 	return NULL;
 }
 
 static inline int
-dfc_qmi_client_init(void *port, int modem, struct qmi_info *qmi)
+dfc_qmi_client_init(void *port, int index, struct svc_info *psvc,
+		    struct qmi_info *qmi)
 {
 	return -EINVAL;
 }
@@ -146,14 +149,21 @@ static inline void
 dfc_qmi_wq_flush(struct qmi_info *qmi)
 {
 }
+
+static inline void
+dfc_qmi_query_flow(void *dfc_data)
+{
+}
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
-int wda_qmi_client_init(void *port, uint32_t instance);
+int
+wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi);
 void wda_qmi_client_exit(void *wda_data);
-int wda_set_powersave_mode(void *wda_data, uint8_t enable);
+int wda_set_powersave_mode(void *wda_data, u8 enable);
 #else
-static inline int wda_qmi_client_init(void *port, uint32_t instance)
+static inline int
+wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi)
 {
 	return -EINVAL;
 }
@@ -162,7 +172,7 @@ static inline void wda_qmi_client_exit(void *wda_data)
 {
 }
 
-static inline int wda_set_powersave_mode(void *wda_data, uint8_t enable)
+static inline int wda_set_powersave_mode(void *wda_data, u8 enable)
 {
 	return -EINVAL;
 }

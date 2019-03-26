@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <soc/qcom/qmi_rmnet.h>
@@ -25,13 +25,16 @@
 #define FLAG_POWERSAVE_MASK 0x0010
 #define DFC_MODE_MULTIQ 2
 
-unsigned int rmnet_wq_frequency __read_mostly = 4;
+unsigned int rmnet_wq_frequency __read_mostly = 1000;
 
 #define PS_WORK_ACTIVE_BIT 0
-#define PS_INTERVAL (((!rmnet_wq_frequency) ? 1 : rmnet_wq_frequency) * HZ)
+#define PS_INTERVAL (((!rmnet_wq_frequency) ?                             \
+					1 : rmnet_wq_frequency/10) * (HZ/100))
 #define NO_DELAY (0x0000 * HZ)
 
+#ifdef CONFIG_QCOM_QMI_DFC
 static unsigned int qmi_rmnet_scale_factor = 5;
+#endif
 
 struct qmi_elem_info data_ep_id_type_v01_ei[] = {
 	{
@@ -74,8 +77,8 @@ void *qmi_rmnet_has_dfc_client(struct qmi_info *qmi)
 		return NULL;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		if (qmi->fc_info[i].dfc_client)
-			return qmi->fc_info[i].dfc_client;
+		if (qmi->dfc_clients[i])
+			return qmi->dfc_clients[i];
 	}
 
 	return NULL;
@@ -88,6 +91,22 @@ qmi_rmnet_has_client(struct qmi_info *qmi)
 		return 1;
 
 	return qmi_rmnet_has_dfc_client(qmi) ? 1 : 0;
+}
+
+static int
+qmi_rmnet_has_pending(struct qmi_info *qmi)
+{
+	int i;
+
+	if (qmi->wda_pending)
+		return 1;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		if (qmi->dfc_pending[i])
+			return 1;
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_QCOM_QMI_DFC
@@ -295,6 +314,17 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 
 	return 0;
 }
+
+static void qmi_rmnet_query_flows(struct qmi_info *qmi)
+{
+	int i;
+
+	for (i = 0; i < MAX_CLIENT_NUM; i++) {
+		if (qmi->dfc_clients[i])
+			dfc_qmi_query_flow(qmi->dfc_clients[i]);
+	}
+}
+
 #else
 static inline void
 qmi_rmnet_update_flow_link(struct qmi_info *qmi, struct net_device *dev,
@@ -325,12 +355,17 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 {
 	return -EINVAL;
 }
+
+static inline void qmi_rmnet_query_flows(struct qmi_info *qmi)
+{
+}
 #endif
 
 static int
 qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
 	int idx, rc, err = 0;
+	struct svc_info svc;
 
 	ASSERT_RTNL();
 
@@ -341,7 +376,7 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	idx = (tcm->tcm_handle == 0) ? 0 : 1;
 
 	if (!qmi) {
-		qmi = kzalloc(sizeof(struct qmi_info), GFP_KERNEL);
+		qmi = kzalloc(sizeof(struct qmi_info), GFP_ATOMIC);
 		if (!qmi)
 			return -ENOMEM;
 
@@ -349,20 +384,20 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 	}
 
 	qmi->flag = tcm->tcm_ifindex;
-	qmi->fc_info[idx].svc.instance = tcm->tcm_handle;
-	qmi->fc_info[idx].svc.ep_type = tcm->tcm_info;
-	qmi->fc_info[idx].svc.iface_id = tcm->tcm_parent;
+	svc.instance = tcm->tcm_handle;
+	svc.ep_type = tcm->tcm_info;
+	svc.iface_id = tcm->tcm_parent;
 
 	if (((tcm->tcm_ifindex & FLAG_DFC_MASK) == DFC_MODE_MULTIQ) &&
-	    (qmi->fc_info[idx].dfc_client == NULL)) {
-		rc = dfc_qmi_client_init(port, idx, qmi);
+	    !qmi->dfc_clients[idx] && !qmi->dfc_pending[idx]) {
+		rc = dfc_qmi_client_init(port, idx, &svc, qmi);
 		if (rc < 0)
 			err = rc;
 	}
 
 	if ((tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) &&
-	    (idx == 0) && (qmi->wda_client == NULL)) {
-		rc = wda_qmi_client_init(port, tcm->tcm_handle);
+	    (idx == 0) && !qmi->wda_client && !qmi->wda_pending) {
+		rc = wda_qmi_client_init(port, &svc, qmi);
 		if (rc < 0)
 			err = rc;
 	}
@@ -373,15 +408,22 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 static int
 __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 {
+	void *data = NULL;
 
 	ASSERT_RTNL();
 
-	if (qmi->fc_info[idx].dfc_client) {
-		dfc_qmi_client_exit(qmi->fc_info[idx].dfc_client);
-		qmi->fc_info[idx].dfc_client = NULL;
+	if (qmi->dfc_clients[idx])
+		data = qmi->dfc_clients[idx];
+	else if (qmi->dfc_pending[idx])
+		data = qmi->dfc_pending[idx];
+
+	if (data) {
+		dfc_qmi_client_exit(data);
+		qmi->dfc_clients[idx] = NULL;
+		qmi->dfc_pending[idx] = NULL;
 	}
 
-	if (!qmi_rmnet_has_client(qmi)) {
+	if (!qmi_rmnet_has_client(qmi) && !qmi_rmnet_has_pending(qmi)) {
 		rmnet_reset_qmi_pt(port);
 		kfree(qmi);
 		return 0;
@@ -394,15 +436,21 @@ static void
 qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 {
 	int idx;
+	void *data = NULL;
 
 	/* client delete: tcm->tcm_handle - instance*/
 	idx = (tcm->tcm_handle == 0) ? 0 : 1;
 
 	ASSERT_RTNL();
+	if (qmi->wda_client)
+		data = qmi->wda_client;
+	else if (qmi->wda_pending)
+		data = qmi->wda_pending;
 
-	if ((idx == 0) && qmi->wda_client) {
-		wda_qmi_client_exit(qmi->wda_client);
+	if ((idx == 0) && data) {
+		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
+		qmi->wda_pending = NULL;
 	}
 
 	__qmi_rmnet_delete_client(port, qmi, idx);
@@ -433,12 +481,15 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 			return;
 
 		if (qmi_rmnet_setup_client(port, qmi, tcm) < 0) {
-			if (!qmi_rmnet_has_client(qmi)) {
-				kfree(qmi);
+			/* retrieve qmi again as it could have been changed */
+			qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
+			if (qmi &&
+			    !qmi_rmnet_has_client(qmi) &&
+			    !qmi_rmnet_has_pending(qmi)) {
 				rmnet_reset_qmi_pt(port);
+				kfree(qmi);
 			}
-		}
-		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+		} else if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
 			qmi_rmnet_work_init(port);
 			rmnet_set_powersave_format(port);
 		}
@@ -446,7 +497,7 @@ void qmi_rmnet_change_link(struct net_device *dev, void *port, void *tcm_pt)
 	case NLMSG_CLIENT_DELETE:
 		if (!qmi)
 			return;
-		if (tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) {
+		if (tcm->tcm_handle == 0) { /* instance 0 */
 			rmnet_clear_powersave_format(port);
 			qmi_rmnet_work_exit(port);
 		}
@@ -471,6 +522,7 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 {
 	struct qmi_info *qmi = (struct qmi_info *)qmi_pt;
 	int i;
+	void *data = NULL;
 
 	if (!qmi)
 		return;
@@ -479,9 +531,15 @@ void qmi_rmnet_qmi_exit(void *qmi_pt, void *port)
 
 	qmi_rmnet_work_exit(port);
 
-	if (qmi->wda_client) {
-		wda_qmi_client_exit(qmi->wda_client);
+	if (qmi->wda_client)
+		data = qmi->wda_client;
+	else if (qmi->wda_pending)
+		data = qmi->wda_pending;
+
+	if (data) {
+		wda_qmi_client_exit(data);
 		qmi->wda_client = NULL;
+		qmi->wda_pending = NULL;
 	}
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
@@ -495,7 +553,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 {
 	struct qos_info *qos;
 	struct rmnet_bearer_map *bearer;
-	int do_wake = 0;
+	bool do_wake = false;
 
 	qos = (struct qos_info *)rmnet_get_qos_pt(dev);
 	if (!qos)
@@ -504,14 +562,14 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 	spin_lock_bh(&qos->qos_lock);
 
 	list_for_each_entry(bearer, &qos->bearer_head, list) {
-		bearer->grant_before_ps = bearer->grant_size;
-		bearer->seq_before_ps = bearer->seq;
+		if (!bearer->grant_size)
+			do_wake = true;
 		bearer->grant_size = DEFAULT_GRANT;
-		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
+		bearer->grant_thresh = DEFAULT_GRANT;
 		bearer->seq = 0;
 		bearer->ack_req = 0;
-		bearer->ancillary = 0;
-		do_wake = 1;
+		bearer->tcp_bidir = false;
+		bearer->rat_switch = false;
 	}
 
 	if (do_wake) {
@@ -522,6 +580,31 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 	spin_unlock_bh(&qos->qos_lock);
 }
 EXPORT_SYMBOL(qmi_rmnet_enable_all_flows);
+
+bool qmi_rmnet_all_flows_enabled(struct net_device *dev)
+{
+	struct qos_info *qos;
+	struct rmnet_bearer_map *bearer;
+	bool ret = true;
+
+	qos = (struct qos_info *)rmnet_get_qos_pt(dev);
+	if (!qos)
+		return true;
+
+	spin_lock_bh(&qos->qos_lock);
+
+	list_for_each_entry(bearer, &qos->bearer_head, list) {
+		if (!bearer->grant_size) {
+			ret = false;
+			break;
+		}
+	}
+
+	spin_unlock_bh(&qos->qos_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(qmi_rmnet_all_flows_enabled);
 
 #ifdef CONFIG_QCOM_QMI_DFC
 void qmi_rmnet_burst_fc_check(struct net_device *dev,
@@ -633,7 +716,7 @@ EXPORT_SYMBOL(qmi_rmnet_qos_exit);
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
 static struct workqueue_struct  *rmnet_ps_wq;
 static struct rmnet_powersave_work *rmnet_work;
-static struct list_head ps_list;
+static LIST_HEAD(ps_list);
 
 struct rmnet_powersave_work {
 	struct delayed_work work;
@@ -711,18 +794,19 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 
 	if (enable)
 		dfc_qmi_wq_flush(qmi);
+	else
+		qmi_rmnet_query_flows(qmi);
 
 	return 0;
 }
 EXPORT_SYMBOL(qmi_rmnet_set_powersave_mode);
 
-void qmi_rmnet_work_restart(void *port)
+static void qmi_rmnet_work_restart(void *port)
 {
 	if (!rmnet_ps_wq || !rmnet_work)
 		return;
 	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, NO_DELAY);
 }
-EXPORT_SYMBOL(qmi_rmnet_work_restart);
 
 static void qmi_rmnet_check_stats(struct work_struct *work)
 {
@@ -730,6 +814,7 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 	struct qmi_info *qmi;
 	u64 rxd, txd;
 	u64 rx, tx;
+	bool dl_msg_active;
 
 	real_work = container_of(to_delayed_work(work),
 				 struct rmnet_powersave_work, work);
@@ -742,17 +827,15 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		return;
 
 	if (qmi->ps_enabled) {
-		/* Retry after small delay if qmi error
-		 * This resumes UL grants by disabling
-		 * powersave mode if successful.
-		 */
+		/* Register to get QMI DFC and DL marker */
 		if (qmi_rmnet_set_powersave_mode(real_work->port, 0) < 0) {
+			/* If this failed need to retry quickly */
 			queue_delayed_work(rmnet_ps_wq,
 					   &real_work->work, HZ / 50);
 			return;
 
 		}
-		qmi->ps_enabled = 0;
+		qmi->ps_enabled = false;
 
 		if (rmnet_get_powersave_notif(real_work->port))
 			qmi_rmnet_ps_off_notify(real_work->port);
@@ -767,18 +850,29 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 	real_work->old_rx_pkts = rx;
 	real_work->old_tx_pkts = tx;
 
+	dl_msg_active = qmi->dl_msg_active;
+	qmi->dl_msg_active = false;
+
 	if (!rxd && !txd) {
+		/* If no DL msg received and there is a flow disabled,
+		 * (likely in RLF), no need to enter powersave
+		 */
+		if (!dl_msg_active &&
+		    !rmnet_all_flows_enabled(real_work->port))
+			goto end;
+
+		/* Deregister to suppress QMI DFC and DL marker */
 		if (qmi_rmnet_set_powersave_mode(real_work->port, 1) < 0) {
 			queue_delayed_work(rmnet_ps_wq,
 					   &real_work->work, PS_INTERVAL);
 			return;
 		}
-		qmi->ps_enabled = 1;
-		clear_bit(PS_WORK_ACTIVE_BIT, &qmi->ps_work_active);
+		qmi->ps_enabled = true;
 
-		/* Enable flow after clear the bit so a new
-		 * work can be triggered.
+		/* Clear the bit before enabling flow so pending packets
+		 * can trigger the work again
 		 */
+		clear_bit(PS_WORK_ACTIVE_BIT, &qmi->ps_work_active);
 		rmnet_enable_all_flows(real_work->port);
 
 		if (rmnet_get_powersave_notif(real_work->port))
@@ -818,7 +912,6 @@ void qmi_rmnet_work_init(void *port)
 		rmnet_ps_wq = NULL;
 		return;
 	}
-	INIT_LIST_HEAD(&ps_list);
 	INIT_DEFERRABLE_WORK(&rmnet_work->work, qmi_rmnet_check_stats);
 	rmnet_work->port = port;
 	rmnet_get_packets(rmnet_work->port, &rmnet_work->old_rx_pkts,
@@ -854,4 +947,16 @@ void qmi_rmnet_work_exit(void *port)
 	rmnet_work = NULL;
 }
 EXPORT_SYMBOL(qmi_rmnet_work_exit);
+
+void qmi_rmnet_set_dl_msg_active(void *port)
+{
+	struct qmi_info *qmi;
+
+	qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
+	if (unlikely(!qmi))
+		return;
+
+	qmi->dl_msg_active = true;
+}
+EXPORT_SYMBOL(qmi_rmnet_set_dl_msg_active);
 #endif
