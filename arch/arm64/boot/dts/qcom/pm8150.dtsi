@@ -76,14 +76,15 @@
 			interrupts = <0x0 0xc0 0x0 IRQ_TYPE_NONE>,
 					<0x0 0xc2 0x0 IRQ_TYPE_NONE>,
 					<0x0 0xc5 0x0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0x0 IRQ_TYPE_NONE>,
 					<0x0 0xc8 0x0 IRQ_TYPE_NONE>,
 					<0x0 0xc9 0x0 IRQ_TYPE_NONE>;
 			interrupt-names = "pm8150_gpio1", "pm8150_gpio3",
-					"pm8150_gpio6", "pm8150_gpio9",
-					"pm8150_gpio10";
+					"pm8150_gpio6", "pm8150_gpio7",
+					"pm8150_gpio9", "pm8150_gpio10";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <2 4 5 7 8>;
+			qcom,gpios-disallowed = <2 4 5 8>;
 		};
 
 		pm8150_rtc: qcom,pm8150_rtc {
