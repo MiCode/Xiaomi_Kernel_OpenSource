@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,6 +545,12 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 	if (phys_enc->split_role == ENC_ROLE_SOLO &&
 			(topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE ||
 			 topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC))
+		return BLEND_3D_H_ROW_INT;
+
+	if ((phys_enc->split_role == ENC_ROLE_MASTER ||
+		phys_enc->split_role == ENC_ROLE_SLAVE) &&
+		 ((topology == SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE) ||
+		 (topology == SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC)))
 		return BLEND_3D_H_ROW_INT;
 
 	return BLEND_3D_NONE;
