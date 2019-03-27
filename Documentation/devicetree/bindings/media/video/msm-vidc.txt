@@ -120,17 +120,15 @@ Required properties:
   boot/dts/include/dt-bindings/msm/msm-bus-ids.h for list of acceptable slaves
 
 Optional properties:
-- qcom,bus-governor : governor to use when scaling bus, generally any commonly
-  found devfreq governor might be used.  In addition to those governors, the
-  custom Venus governors, "msm-vidc-ddr" or "msm-vidc-llcc" are also
-  acceptable values.
-  In the absence of this property the "performance" governor is used.
-- qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the
+- qcom,bus-range-kbps : an array of two items (<min max>) that indicate the
   minimum and maximum acceptable votes for the bus.
   In the absence of this property <0 INT_MAX> is used.
 - qcom,ubwc-10bit : UBWC 10 bit content has different bus requirements,
   this tag will be used to pick the appropriate bus as per the session profile
   as shown below in example.
+- qcom,mode : Type of BW calculations to use.
+		"performance" - Use highest valid BW vote.
+		"venus-ddr", "venus-llcc" - Calculate for DDR, LLCC path.
 
 Memory Heaps
 ============
