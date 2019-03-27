@@ -2455,6 +2455,16 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	} else
 		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 
+	if (teth_prot == IPA_USB_RMNET) {
+		IPA_USB_DBG("USB suspend resetting dma mode\n");
+		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
+			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
+		if (result) {
+			IPA_USB_ERR("failed to reset dma mode\n");
+			goto bad_params;
+		}
+	}
+
 	result = ipa_usb_xdci_dismiss_channels(ul_clnt_hdl, dl_clnt_hdl,
 			teth_prot);
 	if (result)
@@ -2729,6 +2739,16 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			"fail changing state to suspend_req\n");
 		result = -EFAULT;
 		goto bad_params;
+	}
+
+	if (teth_prot == IPA_USB_RMNET) {
+		IPA_USB_DBG("USB suspend resetting dma mode\n");
+		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
+			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
+		if (result) {
+			IPA_USB_ERR("failed to reset dma mode\n");
+			goto bad_params;
+		}
 	}
 
 	/* Stop UL channel & suspend DL/DPL EP */
