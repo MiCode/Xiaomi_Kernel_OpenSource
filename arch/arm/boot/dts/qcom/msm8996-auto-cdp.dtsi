@@ -10,12 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-auto-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 #include "msm8996-sde.dtsi"
 
-/ {
+&vendor {
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */
@@ -181,17 +180,6 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
-
-	chan@7c {
-		label = "xo_therm_buf";
-		reg = <0x7c>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
@@ -526,7 +514,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-itech-3000mah.dtsi"
@@ -1378,7 +1366,7 @@
 	status = "disabled";
 };
 
-/delete-node/  &led_flash0;
+/delete-node/ &led_flash0;
 
 &mdss_dsi0 {
 	/delete-property/ lab-supply;
@@ -1394,10 +1382,10 @@
 	qcom,camera@0 {
 		/delete-property/ qcom,led-flash-src;
 	};
+};
 
-	qcom,camera@1 {
-		/delete-property/ cam_vana-supply;
-	};
+&qcom_camera_1 {
+	/delete-property/ cam_vana-supply;
 };
 
 &usb_otg_switch {
@@ -1455,16 +1443,14 @@
 	qcom,no-smr-check;
 };
 
-/ {
-	reserved-memory {
-		early_camera_mem: early_camera_mem@b3fff000 {
-			reg = <0 0xb3fff000 0 0x800000>;
-			label = "early_camera_mem";
-		};
-		early_audio_mem: early_audio_mem@0xb5fff000 {
-			reg = <0x0 0xb5fff000 0x0 0x3FFFFC>;
-			label = "early_audio_mem";
-		};
+&reserved_memory {
+	early_camera_mem: early_camera_mem@b3fff000 {
+		reg = <0 0xb3fff000 0 0x800000>;
+		label = "early_camera_mem";
+	};
+	early_audio_mem: early_audio_mem@0xb5fff000 {
+		reg = <0x0 0xb5fff000 0x0 0x3FFFFC>;
+		label = "early_audio_mem";
 	};
 };
 

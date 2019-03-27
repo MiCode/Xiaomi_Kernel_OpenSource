@@ -1,0 +1,72 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "apq8096pro.dtsi"
+#include "msm8996pro-auto.dtsi"
+#include "msm8996-auto.dtsi"
+
+&spmi_bus {
+	/delete-node/ qcom,pmi8994@2;
+	/delete-node/ qcom,pmi8994@3;
+	/delete-node/ qcom,pm8004@5;
+};
+
+&rpm_bus {
+	/delete-node/ rpm-regulator-bstb;
+	/delete-node/ rpm-regulator-bbyb;
+	/delete-node/ rpm-regulator-smpb1;
+};
+
+&slim_msm {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+};
+
+&mdss_dsi1 {
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+};
+
+&usb_otg_switch {
+	/delete-property/ vin-supply;
+	/delete-property/ gpio;
+};
+
+&usb3 {
+	/delete-property/ vbus_dwc3-supply;
+};
+
+&pcie0 {
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
+};
+
+&pcie1 {
+	/delete-property/ qcom,boot-option;
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
+	/delete-property/ qcom,ep-wakeirq;
+};
+
+&pcie2 {
+	/delete-property/ qcom,boot-option;
+	/delete-property/ qcom,l1-supported;
+	/delete-property/ qcom,l1ss-supported;
+	/delete-property/ qcom,aux-clk-sync;
+	/delete-property/ qcom,ep-wakeirq;
+};

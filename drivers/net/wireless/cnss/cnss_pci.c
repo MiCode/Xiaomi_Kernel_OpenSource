@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1526,15 +1526,22 @@ struct pci_saved_state *cnss_pci_store_saved_state(struct pci_dev *dev)
 	return pci_store_saved_state(dev);
 }
 
-#ifndef CONFIG_GHS_VMM
 int cnss_msm_pcie_pm_control(
 		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
 		struct pci_dev *pdev, u32 options)
 {
 	return msm_pcie_pm_control(pm_opt, bus_num, pdev, NULL, options);
 }
+
+#ifndef CONFIG_GHS_VMM
+static int cnss_msm_pcie_suspend_resume(
+		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
+		struct pci_dev *pdev, u32 options)
+{
+	return msm_pcie_pm_control(pm_opt, bus_num, pdev, NULL, options);
+}
 #else
-int cnss_msm_pcie_pm_control(
+static inline int cnss_msm_pcie_suspend_resume(
 		enum msm_pcie_pm_opt pm_opt, u32 bus_num,
 		struct pci_dev *pdev, u32 options)
 {
@@ -1669,7 +1676,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		pci_save_state(pdev);
 		penv->saved_state = cnss_pci_store_saved_state(pdev);
 
-		ret = cnss_msm_pcie_pm_control(
+		ret = cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS);
 		if (ret) {
@@ -2354,7 +2361,7 @@ again:
 		pr_err("%s: PCIe event register failed! %d\n", __func__, ret);
 
 	if (!penv->pcie_link_state && !penv->pcie_link_down_ind) {
-		ret = cnss_msm_pcie_pm_control(
+		ret = cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_RESUME, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS);
 		if (ret) {
@@ -2363,11 +2370,9 @@ again:
 		}
 		penv->pcie_link_state = PCIE_LINK_UP;
 	} else if (!penv->pcie_link_state && penv->pcie_link_down_ind) {
-
-		ret = cnss_msm_pcie_pm_control(
+		ret = cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_RESUME, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS_RESUME_LINK_DOWN);
-
 		if (ret) {
 			pr_err("PCIe link bring-up failed (link down option)\n");
 			goto err_pcie_link_up;
@@ -2404,7 +2409,7 @@ again:
 			pci_save_state(pdev);
 			penv->saved_state = cnss_pci_store_saved_state(pdev);
 			cnss_msm_pcie_deregister_event(&penv->event_reg);
-			cnss_msm_pcie_pm_control(
+			cnss_msm_pcie_suspend_resume(
 				MSM_PCIE_SUSPEND,
 				cnss_get_pci_dev_bus_number(pdev),
 				pdev, PM_OPTIONS);
@@ -2429,7 +2434,7 @@ err_wlan_probe:
 err_pcie_link_up:
 	cnss_msm_pcie_deregister_event(&penv->event_reg);
 	if (penv->pcie_link_state) {
-		cnss_msm_pcie_pm_control(
+		cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS);
 		penv->pcie_link_state = PCIE_LINK_DOWN;
@@ -2492,8 +2497,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	if (penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		pci_save_state(pdev);
 		penv->saved_state = cnss_pci_store_saved_state(pdev);
-
-		if (cnss_msm_pcie_pm_control(
+		if (cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 			pdev, PM_OPTIONS)) {
 			pr_err("Failed to shutdown PCIe link\n");
@@ -2501,8 +2505,7 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 		}
 	} else if (penv->pcie_link_state && penv->pcie_link_down_ind) {
 		penv->saved_state = NULL;
-
-		if (cnss_msm_pcie_pm_control(
+		if (cnss_msm_pcie_suspend_resume(
 			MSM_PCIE_SUSPEND, cnss_get_pci_dev_bus_number(pdev),
 				pdev, PM_OPTIONS_SUSPEND_LINK_DOWN)) {
 			pr_err("Failed to shutdown PCIe link (with linkdown option)\n");

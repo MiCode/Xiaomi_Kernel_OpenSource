@@ -10,12 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-adp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 #include "msm8996-sde.dtsi"
 
-/ {
+&vendor {
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */
@@ -436,17 +435,6 @@
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
-
-	chan@7c {
-		label = "xo_therm_buf";
-		reg = <0x7c>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <4>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
 };
 
 &pm8994_adc_tm {
@@ -780,7 +768,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-itech-3000mah.dtsi"
@@ -1164,6 +1152,10 @@
 		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
 			36902 36904 36906>;
 
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tert_tdm_dout_active>;
+		pinctrl-1 = <&tert_tdm_dout_sleep>;
+
 		dai_tert_tdm_rx_5: qcom,msm-dai-q6-tdm-tert-rx-5 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36906>;
@@ -1240,16 +1232,12 @@
 		};
 
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
 			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep>;
 		};
-	};
-
-	qcom,msm-dai-tdm-tert-rx {
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&tert_tdm_dout_active>;
-		pinctrl-1 = <&tert_tdm_dout_sleep>;
 	};
 
 	qcom,msm-dai-tdm-quat-rx {
@@ -1560,7 +1548,7 @@
 	status = "disabled";
 };
 
-/delete-node/  &led_flash0;
+/delete-node/ &led_flash0;
 
 &mdss_dsi0 {
 	/delete-property/ lab-supply;
@@ -1572,14 +1560,12 @@
 	/delete-property/ ibb-supply;
 };
 
-&cci {
-	qcom,camera@0 {
-		/delete-property/ qcom,led-flash-src;
-	};
+&qcom_camera_0 {
+	/delete-property/ qcom,led-flash-src;
+};
 
-	qcom,camera@1 {
-		/delete-property/ cam_vana-supply;
-	};
+&qcom_camera_1 {
+	/delete-property/ cam_vana-supply;
 };
 
 &usb_otg_switch {
@@ -1630,16 +1616,15 @@
 	qcom,no-smr-check;
 };
 
-/ {
-	reserved-memory {
-		early_camera_mem: early_camera_mem@b3fff000 {
-			reg = <0 0xb3fff000 0 0x800000>;
-			label = "early_camera_mem";
-		};
-		early_audio_mem: early_audio_mem@0xb5fff000 {
-			reg = <0x0 0xb5fff000 0x0 0x3FFFFC>;
-			label = "early_audio_mem";
-		};
+&reserved_memory {
+	early_camera_mem: early_camera_mem@b3fff000 {
+		reg = <0 0xb3fff000 0 0x800000>;
+		label = "early_camera_mem";
+	};
+
+	early_audio_mem: early_audio_mem@0xb5fff000 {
+		reg = <0x0 0xb5fff000 0x0 0x3FFFFC>;
+		label = "early_audio_mem";
 	};
 };
 

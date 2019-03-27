@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,10 +25,8 @@
 	status = "disabled";
 };
 
-&spmi_bus {
-	/delete-node/ qcom,pm8004@4;
-	/delete-node/ qcom,pm8004@5;
-};
+/delete-node/ &qcom_pm8004_4;
+/delete-node/ &qcom_pm8004_5;
 
 &gfx_cpr {
 	/delete-property/ vdd-supply;

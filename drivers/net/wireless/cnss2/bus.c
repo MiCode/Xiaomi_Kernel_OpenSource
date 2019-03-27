@@ -41,6 +41,8 @@ enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id)
 		return CNSS_BUS_PCI;
 	case QCN7605_COMPOSITE_DEVICE_ID:
 	case QCN7605_STANDALONE_DEVICE_ID:
+	case QCN7605_VER20_STANDALONE_DEVICE_ID:
+	case QCN7605_VER20_COMPOSITE_DEVICE_ID:
 		return CNSS_BUS_USB;
 	default:
 		cnss_pr_err("Unknown device_id: 0x%lx\n", device_id);

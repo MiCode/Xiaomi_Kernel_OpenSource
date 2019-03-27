@@ -13,7 +13,7 @@
 /dts-v1/;
 
 #include "msm8996pro-v1.1.dtsi"
-#include "msm-pm8004.dtsi"
+#include "msm8996-pm8994-pmi8994-pm8004.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro v1.1 + PMI8994";
@@ -21,20 +21,4 @@
 	qcom,pmic-id = <0x20009 0x2000A 0x1000C 0x0>;
 	qcom,msm-id = <305 0x10001>;
 	qcom,pmic-name = "PMI8994";
-};
-
-/*
- * Override PMI8994 resources with proper PM8004 resources for MSM8996 with
- * PM8004.
- */
-&pmi8994_s2 {
-	status = "disabled";
-};
-
-&pm8004_s2 {
-	status = "ok";
-};
-
-&gfx_cpr {
-	vdd-supply = <&pm8004_s2>;
 };

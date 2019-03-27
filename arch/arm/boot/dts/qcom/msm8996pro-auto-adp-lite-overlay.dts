@@ -1,0 +1,23 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "msm8996pro-auto-adp-lite.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996pro AUTO ADP LITE";
+	compatible = "qcom,msm8996-adp", "qcom,msm8996", "qcom,adp";
+	qcom,msm-id = <315 0x10000>;
+	qcom,board-id = <0x03010019 0>;
+};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,7 @@ int physical_channel_send(struct physical_channel *pchan,
 		struct hab_header *header,
 		void *payload)
 {
-	int sizebytes = HAB_HEADER_GET_SIZE(*header);
+	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
 	uint8_t *msg;
