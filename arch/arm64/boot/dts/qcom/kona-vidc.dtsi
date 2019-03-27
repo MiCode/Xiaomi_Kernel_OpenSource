@@ -49,9 +49,8 @@
 			label = "cnoc";
 			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
-			qcom,bus-governor = "performance";
+			qcom,mode = "performance";
 			qcom,bus-range-kbps = <762 762>;
-			operating-points-v2 = <&venus_bus_cnoc_bw_table>;
 		};
 
 		venus_bus_ddr {
@@ -59,9 +58,8 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_LLCC>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,mode = "venus-ddr";
 			qcom,bus-range-kbps = <762 6533000>;
-			operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
 		};
 
 		venus_bus_llcc {
@@ -69,9 +67,8 @@
 			label = "venus-llcc";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
-			qcom,bus-governor = "msm-vidc-llcc";
+			qcom,mode = "venuc-llcc";
 			qcom,bus-range-kbps = <2288 6533000>;
-			operating-points-v2 = <&suspendable_llcc_bw_opp_table>;
 		};
 
 		/* MMUs */

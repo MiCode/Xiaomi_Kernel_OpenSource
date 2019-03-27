@@ -974,11 +974,6 @@
 		operating-points-v2 = <&keepalive_opp_table>;
 	};
 
-	venus_bus_cnoc_bw_table: bus-cnoc-bw-table {
-		compatible = "operating-points-v2";
-		BW_OPP_ENTRY( 200, 4);
-	};
-
 	llcc_bw_opp_table: llcc-bw-opp-table {
 		compatible = "operating-points-v2";
 		BW_OPP_ENTRY(  150, 16); /*  2288 MB/s */
