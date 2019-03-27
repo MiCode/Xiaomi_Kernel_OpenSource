@@ -1530,12 +1530,14 @@ static int dp_panel_dsc_prepare_basic_params(
 	struct dp_dsc_slices_per_line *rec;
 	int slice_width;
 	u32 ppr = dp_mode->timing.pixel_clk_khz/1000;
+	int max_slice_width;
 
 	comp_info->dsc_info.slice_per_pkt = 0;
 	for (i = 0; i < ARRAY_SIZE(slice_per_line_tbl); i++) {
 		rec = &slice_per_line_tbl[i];
 		if ((ppr > rec->min_ppr) && (ppr <= rec->max_ppr)) {
 			comp_info->dsc_info.slice_per_pkt = rec->num_slices;
+			i++;
 			break;
 		}
 	}
@@ -1543,8 +1545,20 @@ static int dp_panel_dsc_prepare_basic_params(
 	if (comp_info->dsc_info.slice_per_pkt == 0)
 		return -EINVAL;
 
+	max_slice_width = dp_panel->dsc_dpcd[12] * 320;
 	slice_width = (dp_mode->timing.h_active /
 				comp_info->dsc_info.slice_per_pkt);
+
+	while (slice_width >= max_slice_width) {
+		if (i == ARRAY_SIZE(slice_per_line_tbl))
+			return -EINVAL;
+
+		rec = &slice_per_line_tbl[i];
+		comp_info->dsc_info.slice_per_pkt = rec->num_slices;
+		slice_width = (dp_mode->timing.h_active /
+				comp_info->dsc_info.slice_per_pkt);
+		i++;
+	}
 
 	comp_info->dsc_info.block_pred_enable =
 			dp_panel->sink_dsc_caps.block_pred_en;
@@ -1657,8 +1671,8 @@ skip_dpcd_read:
 	panel->minor = link_info->revision & 0x0f;
 	pr_debug("version: %d.%d\n", panel->major, panel->minor);
 
-	link_info->rate =
-		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
+	link_info->rate = min_t(unsigned long, panel->parser->max_lclk_khz,
+		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]));
 	pr_debug("link_rate=%d\n", link_info->rate);
 
 	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
@@ -2305,13 +2319,14 @@ static void dp_panel_edid_deregister(struct dp_panel_private *panel)
 
 static int dp_panel_set_stream_info(struct dp_panel *dp_panel,
 		enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots, u32 pbn)
+			u32 ch_tot_slots, u32 pbn, int vcpi)
 {
 	if (!dp_panel || stream_id > DP_STREAM_MAX) {
 		pr_err("invalid input. stream_id: %d\n", stream_id);
 		return -EINVAL;
 	}
 
+	dp_panel->vcpi = vcpi;
 	dp_panel->stream_id = stream_id;
 	dp_panel->channel_start_slot = ch_start_slot;
 	dp_panel->channel_total_slots = ch_tot_slots;
@@ -2376,7 +2391,7 @@ static int dp_panel_deinit_panel_info(struct dp_panel *dp_panel, u32 flags)
 	if (!panel->custom_edid && dp_panel->edid_ctrl->edid)
 		sde_free_edid((void **)&dp_panel->edid_ctrl);
 
-	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0);
+	dp_panel_set_stream_info(dp_panel, DP_STREAM_MAX, 0, 0, 0, 0);
 	memset(&dp_panel->pinfo, 0, sizeof(dp_panel->pinfo));
 	memset(&hdr->hdr_meta, 0, sizeof(hdr->hdr_meta));
 	panel->panel_on = false;
@@ -2931,6 +2946,8 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in)
 	if (in->base_panel) {
 		memcpy(dp_panel->dpcd, in->base_panel->dpcd,
 				DP_RECEIVER_CAP_SIZE + 1);
+		memcpy(dp_panel->dsc_dpcd, in->base_panel->dsc_dpcd,
+				DP_RECEIVER_DSC_CAP_SIZE + 1);
 		memcpy(&dp_panel->link_info, &in->base_panel->link_info,
 				sizeof(dp_panel->link_info));
 		dp_panel->mst_state = in->base_panel->mst_state;

@@ -151,10 +151,21 @@ static int dp_parser_misc(struct dp_parser *parser)
 			parser->l_map[i] = data[i];
 	}
 
+	data = of_get_property(of_node, "qcom,pn-swap-lane-map", &len);
+	if (data && (len == DP_MAX_PHY_LN)) {
+		for (i = 0; i < len; i++)
+			parser->l_pnswap |= (data[i] & 0x01) << i;
+	}
+
 	rc = of_property_read_u32(of_node,
 		"qcom,max-pclk-frequency-khz", &parser->max_pclk_khz);
 	if (rc)
 		parser->max_pclk_khz = DP_MAX_PIXEL_CLK_KHZ;
+
+	rc = of_property_read_u32(of_node,
+		"qcom,max-lclk-frequency-khz", &parser->max_lclk_khz);
+	if (rc)
+		parser->max_lclk_khz = DP_MAX_LINK_CLK_KHZ;
 
 	return 0;
 }
@@ -692,12 +703,19 @@ static int dp_parser_catalog(struct dp_parser *parser)
 static int dp_parser_mst(struct dp_parser *parser)
 {
 	struct device *dev = &parser->pdev->dev;
+	int i;
 
 	parser->has_mst = of_property_read_bool(dev->of_node,
 			"qcom,mst-enable");
 	parser->has_mst_sideband = parser->has_mst;
 
 	pr_debug("mst parsing successful. mst:%d\n", parser->has_mst);
+
+	for (i = 0; i < MAX_DP_MST_STREAMS; i++) {
+		of_property_read_u32_index(dev->of_node,
+				"qcom,mst-fixed-topology-ports", i,
+				&parser->mst_fixed_port[i]);
+	}
 
 	return 0;
 }

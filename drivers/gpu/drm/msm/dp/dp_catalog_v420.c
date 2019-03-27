@@ -266,6 +266,30 @@ static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
 	}
 }
 
+static void dp_catalog_ctrl_lane_pnswap_v420(struct dp_catalog_ctrl *ctrl,
+						u8 ln_pnswap)
+{
+	struct dp_catalog_private_v420 *catalog;
+	struct dp_io_data *io_data;
+	u32 cfg0, cfg1;
+
+	catalog = dp_catalog_get_priv_v420(ctrl);
+
+	cfg0 = 0x0a;
+	cfg1 = 0x0a;
+
+	cfg0 |= ((ln_pnswap >> 0) & 0x1) << 0;
+	cfg0 |= ((ln_pnswap >> 1) & 0x1) << 2;
+	cfg1 |= ((ln_pnswap >> 2) & 0x1) << 0;
+	cfg1 |= ((ln_pnswap >> 3) & 0x1) << 2;
+
+	io_data = catalog->io->dp_ln_tx0;
+	dp_write(catalog->exe_mode, io_data, TXn_TX_POL_INV_V420, cfg0);
+
+	io_data = catalog->io->dp_ln_tx1;
+	dp_write(catalog->exe_mode, io_data, TXn_TX_POL_INV_V420, cfg1);
+}
+
 static void dp_catalog_put_v420(struct dp_catalog *catalog)
 {
 	struct dp_catalog_private_v420 *catalog_priv;
@@ -316,6 +340,7 @@ int dp_catalog_get_v420(struct device *dev, struct dp_catalog *catalog,
 	catalog->panel.config_msa  = dp_catalog_panel_config_msa_v420;
 	catalog->ctrl.phy_lane_cfg = dp_catalog_ctrl_phy_lane_cfg_v420;
 	catalog->ctrl.update_vx_px = dp_catalog_ctrl_update_vx_px_v420;
+	catalog->ctrl.lane_pnswap = dp_catalog_ctrl_lane_pnswap_v420;
 
 	/* Set the default execution mode to hardware mode */
 	dp_catalog_set_exe_mode_v420(catalog, "hw");

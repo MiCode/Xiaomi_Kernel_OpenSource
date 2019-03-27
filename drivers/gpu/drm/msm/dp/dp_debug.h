@@ -7,6 +7,7 @@
 #define _DP_DEBUG_H_
 
 #include "dp_panel.h"
+#include "dp_ctrl.h"
 #include "dp_link.h"
 #include "dp_usbpd.h"
 #include "dp_aux.h"
@@ -63,6 +64,7 @@ struct dp_debug_in {
 	struct drm_connector **connector;
 	struct dp_catalog *catalog;
 	struct dp_parser *parser;
+	struct dp_ctrl *ctrl;
 };
 
 /**

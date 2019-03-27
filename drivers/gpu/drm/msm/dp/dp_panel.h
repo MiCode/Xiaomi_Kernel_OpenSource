@@ -110,6 +110,7 @@ struct dp_panel {
 	 * Client sets the stream id value using set_stream_id interface.
 	 */
 	enum dp_stream_id stream_id;
+	int vcpi;
 
 	u32 channel_start_slot;
 	u32 channel_total_slots;
@@ -154,7 +155,7 @@ struct dp_panel {
 
 	int (*set_stream_info)(struct dp_panel *dp_panel,
 			enum dp_stream_id stream_id, u32 ch_start_slot,
-			u32 ch_tot_slots, u32 pbn);
+			u32 ch_tot_slots, u32 pbn, int vcpi);
 
 	int (*read_sink_status)(struct dp_panel *dp_panel, u8 *sts, u32 size);
 	int (*update_edid)(struct dp_panel *dp_panel, struct edid *edid);

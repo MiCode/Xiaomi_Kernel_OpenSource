@@ -11,6 +11,8 @@
 #define DP_LABEL "MDSS DP DISPLAY"
 #define AUX_CFG_LEN	10
 #define DP_MAX_PIXEL_CLK_KHZ	675000
+#define DP_MAX_LINK_CLK_KHZ	810000
+#define MAX_DP_MST_STREAMS	2
 
 enum dp_pm_type {
 	DP_CORE_PM,
@@ -181,6 +183,9 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @mp: gpio, regulator and clock related data
  * @pinctrl: pin-control related data
  * @disp_data: controller's display related data
+ * @l_pnswap: P/N swap status on each lane
+ * @max_pclk_khz: maximum pixel clock supported for the platform
+ * @max_lclk_khz: maximum link clock supported for the platform
  * @hw_cfg: DP HW specific settings
  * @has_mst: MST feature enable status
  * @has_mst_sideband: MST sideband feature enable status
@@ -191,6 +196,7 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @max_dp_dsc_blks: maximum DSC blks for DP interface
  * @max_dp_dsc_input_width_pixs: Maximum input width for DSC block
  * @has_widebus: widebus (2PPC) feature eanble status
+  *@mst_fixed_port: mst port_num reserved for fixed topology
  * @parse: function to be called by client to parse device tree.
  * @get_io: function to be called by client to get io data.
  * @get_io_buf: function to be called by client to get io buffers.
@@ -205,8 +211,10 @@ struct dp_parser {
 	struct dp_display_data disp_data;
 
 	u8 l_map[4];
+	u8 l_pnswap;
 	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
+	u32 max_lclk_khz;
 	struct dp_hw_cfg hw_cfg;
 	bool has_mst;
 	bool has_mst_sideband;
@@ -218,6 +226,7 @@ struct dp_parser {
 	u32 max_dp_dsc_blks;
 	u32 max_dp_dsc_input_width_pixs;
 	bool lphw_hpd;
+	u32 mst_fixed_port[MAX_DP_MST_STREAMS];
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);
