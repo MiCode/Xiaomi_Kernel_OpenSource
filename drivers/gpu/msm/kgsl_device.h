@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -913,6 +913,21 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
 	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
+
+/**
+ * kgsl_get_bus_scale_table() - Get the bus scaling table from devicetree
+ * @device: kgsl device handle
+ *
+ * This function will try to find the correct bus table data from the device
+ * tree based on the the underlying ddr type. If no matching child is found,
+ * it will fallback to the first child node containing the bus scaling data.
+ * If no child is found, it will pass the current device node, hoping that
+ * bus scaling data is provided as properties of the current device node.
+ *
+ * Return: Pointer to the structure containing the parsed bus scaling data
+ */
+struct msm_bus_scale_pdata *kgsl_get_bus_scale_table(
+	struct kgsl_device *device);
 
 /**
  * struct kgsl_pwr_limit - limit structure for each client
