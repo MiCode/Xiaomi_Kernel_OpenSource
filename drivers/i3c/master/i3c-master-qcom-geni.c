@@ -599,7 +599,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		dev_dbg(gi3c->se.dev, "i3c entdaa read\n");
 
 		xfer.m_cmd = I2C_READ;
-		xfer.m_param = STOP_STRETCH | CONTINUOUS_MODE_DAA | USE_7E;
+		xfer.m_param = STOP_STRETCH | CONTINUOUS_MODE_DAA | USE_7E |
+				IBI_NACK_TBL_CTRL;
 
 		ret = i3c_geni_execute_read_command(gi3c, &xfer, rx_buf, 8);
 		if (ret)
@@ -641,7 +642,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		dev_dbg(gi3c->se.dev, "i3c entdaa write\n");
 
 		xfer.m_cmd = I2C_WRITE;
-		xfer.m_param = STOP_STRETCH | BYPASS_ADDR_PHASE | USE_7E;
+		xfer.m_param = STOP_STRETCH | BYPASS_ADDR_PHASE | USE_7E |
+				IBI_NACK_TBL_CTRL;
 
 		ret = i3c_geni_execute_write_command(gi3c, &xfer, tx_buf, 1);
 		if (ret)
