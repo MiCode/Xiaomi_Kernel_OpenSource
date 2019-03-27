@@ -852,3 +852,4 @@
 };
 
 #include "atoll-pinctrl.dtsi"
+#include "atoll-pm.dtsi"
