@@ -9,11 +9,6 @@ bus-scaling and SMMU initialization by the driver.
 Required properties:
 
 - compatible: "qcom,wil6210"
-- qcom,smmu-support: Boolean flag indicating whether PCIe has SMMU support
-- qcom,smmu-s1-en: Boolean flag indicating whether SMMU stage1 should be enabled
-- qcom,smmu-fast-map: Boolean flag indicating whether SMMU fast mapping should be enabled
-- qcom,smmu-coherent: Boolean flag indicating SMMU dma and page table coherency
-- qcom,smmu-mapping: specifies the base address and size of SMMU space
 - qcom,pcie-parent: phandle for the PCIe root complex to which 11ad card is connected
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   the below optional properties:
@@ -29,6 +24,7 @@ Optional properties:
 - qcom,use-ext-supply: Boolean flag to indicate if 11ad SIP uses external power supply
 - vdd-supply: phandle to 11ad VDD regulator node
 - vddio-supply: phandle to 11ad VDDIO regulator node
+- vdd-ldo-supply: phandle to 11ad VDD LDO regulator node
 - qcom,use-ext-clocks: Boolean flag to indicate if 11ad SIP uses external clocks
 - clocks	    : List of phandle and clock specifier pairs
 - clock-names       : List of clock input name strings sorted in the same
@@ -39,11 +35,6 @@ Optional properties:
 Example:
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
-		qcom,smmu-support;
-		qcom,smmu-s1-en;
-		qcom,smmu-fast-map;
-		qcom,smmu-coherent;
-		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		qcom,pcie-parent = <&pcie1>;
 		qcom,wigig-en = <&tlmm 94 0>;
 		qcom,wigig-dc = <&tlmm 81 0>;
@@ -56,6 +47,7 @@ Example:
 		qcom,use-ext-supply;
 		vdd-supply= <&pm8998_s7>;
 		vddio-supply= <&pm8998_s5>;
+		vdd-ldo-supply = <&pm8150_l15>;
 		qcom,use-ext-clocks;
 		clocks = <&clock_gcc clk_rf_clk3>,
 			 <&clock_gcc clk_rf_clk3_pin>;
@@ -63,3 +55,32 @@ Example:
 		qcom,keep-radio-on-during-sleep;
 	};
 
+Wil6210 client node under PCIe RP node needed for SMMU initialization by
+PCI framework when devices are discovered.
+
+Required properties:
+
+- qcom,iommu-dma-addr-pool: specifies the base address and size of SMMU space
+- qcom,iommu-dma: define the SMMU mode - bypass/fastmap/disabled
+- qcom,iommu-pagetable: indicating SMMU dma and page table coherency
+
+Example:
+&pcie1_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	wil6210_pci: wil6210_pci {
+		reg = <0 0 0 0 0>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,iommu-group = <&wil6210_pci_iommu_group>;
+
+		wil6210_pci_iommu_group: wil6210_pci_iommu_group {
+				qcom,iommu-dma-addr-pool = <0x20000000 0xe0000000>;
+				qcom,iommu-dma = "fastmap";
+				qcom,iommu-pagetable = "coherent";
+		};
+       };
+};

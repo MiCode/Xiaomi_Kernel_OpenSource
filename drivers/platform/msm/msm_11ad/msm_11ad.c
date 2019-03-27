@@ -26,9 +26,6 @@
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
-#define SMMU_BASE	0x20000000 /* Device address range base */
-#define SMMU_SIZE	((SZ_1G * 4ULL) - SMMU_BASE)
-
 #define WIGIG_ENABLE_DELAY	50
 
 #define WIGIG_SUBSYS_NAME	"WIGIG"
@@ -39,9 +36,12 @@
 #define VDD_MIN_UV	1028000
 #define VDD_MAX_UV	1028000
 #define VDD_MAX_UA	575000
-#define VDDIO_MIN_UV	1950000
+#define VDDIO_MIN_UV	1824000
 #define VDDIO_MAX_UV	2040000
 #define VDDIO_MAX_UA	70300
+#define VDD_LDO_MIN_UV	1800000
+#define VDD_LDO_MAX_UV	1800000
+#define VDD_LDO_MAX_UA	100000
 
 #define WIGIG_MIN_CPU_BOOST_KBPS	150000
 
@@ -92,15 +92,6 @@ struct msm11ad_ctx {
 	struct pci_saved_state *golden_state;
 	struct msm_pcie_register_event pci_event;
 
-	/* SMMU */
-	bool use_smmu; /* have SMMU enabled? */
-	int smmu_s1_en;
-	int smmu_fast_map;
-	int smmu_coherent;
-	struct dma_iommu_mapping *mapping;
-	u32 smmu_base;
-	u32 smmu_size;
-
 	/* bus frequency scaling */
 	struct msm_bus_scale_pdata *bus_scale;
 	u32 msm_bus_handle;
@@ -122,8 +113,9 @@ struct msm11ad_ctx {
 	/* external vregs and clocks */
 	struct msm11ad_vreg vdd;
 	struct msm11ad_vreg vddio;
-	struct msm11ad_clk rf_clk3;
-	struct msm11ad_clk rf_clk3_pin;
+	struct msm11ad_vreg vdd_ldo;
+	struct msm11ad_clk rf_clk;
+	struct msm11ad_clk rf_clk_pin;
 
 	/* cpu boost support */
 	bool use_cpu_boost;
@@ -256,8 +248,18 @@ static int msm_11ad_init_vregs(struct msm11ad_ctx *ctx)
 	ctx->vddio.min_uV = VDDIO_MIN_UV;
 	ctx->vddio.max_uA = VDDIO_MAX_UA;
 
+	rc = msm_11ad_init_vreg(dev, &ctx->vdd_ldo, "vdd-ldo");
+	if (rc)
+		goto vdd_ldo_fail;
+
+	ctx->vdd_ldo.max_uV = VDD_LDO_MAX_UV;
+	ctx->vdd_ldo.min_uV = VDD_LDO_MIN_UV;
+	ctx->vdd_ldo.max_uA = VDD_LDO_MAX_UA;
+
 	return rc;
 
+vdd_ldo_fail:
+	msm_11ad_release_vreg(dev, &ctx->vddio);
 vddio_fail:
 	msm_11ad_release_vreg(dev, &ctx->vdd);
 out:
@@ -266,6 +268,7 @@ out:
 
 static void msm_11ad_release_vregs(struct msm11ad_ctx *ctx)
 {
+	msm_11ad_release_vreg(ctx->dev, &ctx->vdd_ldo);
 	msm_11ad_release_vreg(ctx->dev, &ctx->vdd);
 	msm_11ad_release_vreg(ctx->dev, &ctx->vddio);
 }
@@ -381,8 +384,14 @@ static int msm_11ad_enable_vregs(struct msm11ad_ctx *ctx)
 	if (rc)
 		goto vddio_fail;
 
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vdd_ldo);
+	if (rc)
+		goto vdd_ldo_fail;
+
 	return rc;
 
+vdd_ldo_fail:
+	msm_11ad_disable_vreg(ctx, &ctx->vddio);
 vddio_fail:
 	msm_11ad_disable_vreg(ctx, &ctx->vdd);
 out:
@@ -391,10 +400,11 @@ out:
 
 static int msm_11ad_disable_vregs(struct msm11ad_ctx *ctx)
 {
-	if (!ctx->vdd.reg && !ctx->vddio.reg)
+	if (!ctx->vdd.reg && !ctx->vddio.reg && !ctx->vdd_ldo.reg)
 		goto out;
 
 	/* ignore errors on disable vreg */
+	msm_11ad_disable_vreg(ctx, &ctx->vdd_ldo);
 	msm_11ad_disable_vreg(ctx, &ctx->vdd);
 	msm_11ad_disable_vreg(ctx, &ctx->vddio);
 
@@ -446,13 +456,13 @@ static int msm_11ad_enable_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 
-	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk);
 	if (rc)
 		return rc;
 
-	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3_pin);
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk_pin);
 	if (rc)
-		msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+		msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 
 	return rc;
 }
@@ -461,22 +471,22 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 {
 	int rc;
 	struct device *dev = ctx->dev;
-	int rf_clk3_pin_idx;
+	int rf_clk_pin_idx;
 
 	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
 		return 0;
 
-	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3, "rf_clk3_clk");
+	rc = msm_11ad_init_clk(dev, &ctx->rf_clk, "rf_clk_clk");
 	if (rc)
 		return rc;
 
-	rf_clk3_pin_idx = of_property_match_string(dev->of_node, "clock-names",
-						   "rf_clk3_pin_clk");
-	if (rf_clk3_pin_idx >= 0) {
-		rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin,
-				       "rf_clk3_pin_clk");
+	rf_clk_pin_idx = of_property_match_string(dev->of_node, "clock-names",
+						   "rf_clk_pin_clk");
+	if (rf_clk_pin_idx >= 0) {
+		rc = msm_11ad_init_clk(dev, &ctx->rf_clk_pin,
+				       "rf_clk_pin_clk");
 		if (rc)
-			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+			msm_11ad_release_clk(ctx->dev, &ctx->rf_clk);
 	}
 
 	return rc;
@@ -484,14 +494,14 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 
 static void msm_11ad_release_clocks(struct msm11ad_ctx *ctx)
 {
-	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3_pin);
-	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk_pin);
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk);
 }
 
 static void msm_11ad_disable_clocks(struct msm11ad_ctx *ctx)
 {
-	msm_11ad_disable_clk(ctx, &ctx->rf_clk3_pin);
-	msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk_pin);
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 }
 
 static int msm_11ad_turn_device_power_off(struct msm11ad_ctx *ctx)
@@ -769,86 +779,6 @@ out:
 	return rc;
 }
 
-static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
-{
-	int atomic_ctx = 1;
-	int rc;
-	int force_pt_coherent = 1;
-	int smmu_bypass = !ctx->smmu_s1_en;
-
-	if (!ctx->use_smmu)
-		return 0;
-
-	dev_info(ctx->dev, "Initialize SMMU, bypass=%d, fastmap=%d, coherent=%d\n",
-		 smmu_bypass, ctx->smmu_fast_map, ctx->smmu_coherent);
-
-	ctx->mapping = __depr_arm_iommu_create_mapping(&platform_bus_type,
-						ctx->smmu_base, ctx->smmu_size);
-	if (IS_ERR_OR_NULL(ctx->mapping)) {
-		rc = PTR_ERR(ctx->mapping) ?: -ENODEV;
-		dev_err(ctx->dev, "Failed to create IOMMU mapping (%d)\n", rc);
-		return rc;
-	}
-
-	rc = iommu_domain_set_attr(ctx->mapping->domain,
-				   DOMAIN_ATTR_ATOMIC,
-				   &atomic_ctx);
-	if (rc) {
-		dev_err(ctx->dev, "Set atomic attribute to SMMU failed (%d)\n",
-			rc);
-		goto release_mapping;
-	}
-
-	if (smmu_bypass) {
-		rc = iommu_domain_set_attr(ctx->mapping->domain,
-					   DOMAIN_ATTR_S1_BYPASS,
-					   &smmu_bypass);
-		if (rc) {
-			dev_err(ctx->dev, "Set bypass attribute to SMMU failed (%d)\n",
-				rc);
-			goto release_mapping;
-		}
-	} else {
-		/* Set dma-coherent and page table coherency */
-		if (ctx->smmu_coherent) {
-			arch_setup_dma_ops(&ctx->pcidev->dev, 0, 0, NULL, true);
-			rc = iommu_domain_set_attr(ctx->mapping->domain,
-				   DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				   &force_pt_coherent);
-			if (rc) {
-				dev_err(ctx->dev,
-					"Set SMMU PAGE_TABLE_FORCE_COHERENT attr failed (%d)\n",
-					rc);
-				goto release_mapping;
-			}
-		}
-
-		if (ctx->smmu_fast_map) {
-			rc = iommu_domain_set_attr(ctx->mapping->domain,
-						   DOMAIN_ATTR_FAST,
-						   &ctx->smmu_fast_map);
-			if (rc) {
-				dev_err(ctx->dev, "Set fast attribute to SMMU failed (%d)\n",
-					rc);
-				goto release_mapping;
-			}
-		}
-	}
-
-	rc = __depr_arm_iommu_attach_device(&ctx->pcidev->dev, ctx->mapping);
-	if (rc) {
-		dev_err(ctx->dev, "arm_iommu_attach_device failed (%d)\n", rc);
-		goto release_mapping;
-	}
-	dev_dbg(ctx->dev, "attached to IOMMU\n");
-
-	return 0;
-release_mapping:
-	__depr_arm_iommu_release_mapping(ctx->mapping);
-	ctx->mapping = NULL;
-	return rc;
-}
-
 static int msm_11ad_ssr_shutdown(const struct subsys_desc *subsys,
 				 bool force_stop)
 {
@@ -1091,7 +1021,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	struct device_node *of_node = dev->of_node;
 	struct device_node *rc_node;
 	struct pci_dev *pcidev = NULL;
-	u32 smmu_mapping[2];
 	int rc, i;
 	bool pcidev_found = false;
 	struct msm_pcie_register_event *pci_event;
@@ -1118,7 +1047,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 *	qcom,msm-bus,vectors-KBps =
 	 *		<100 512 0 0>,
 	 *		<100 512 600000 800000>;
-	 *	qcom,smmu-support;
 	 *};
 	 * rc_node stands for "qcom,pcie", selected entries:
 	 * cell-index = <1>; (ctx->rc_index)
@@ -1149,7 +1077,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		dev_err(ctx->dev, "Parent PCIE device index not found\n");
 		return -EINVAL;
 	}
-	ctx->use_smmu = of_property_read_bool(of_node, "qcom,smmu-support");
 	ctx->keep_radio_on_during_sleep = of_property_read_bool(of_node,
 		"qcom,keep-radio-on-during-sleep");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
@@ -1157,28 +1084,6 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		dev_err(ctx->dev, "Unable to read bus-scaling from DT\n");
 		return -EINVAL;
 	}
-
-	ctx->smmu_s1_en = of_property_read_bool(of_node, "qcom,smmu-s1-en");
-	if (ctx->smmu_s1_en) {
-		ctx->smmu_fast_map = of_property_read_bool(
-						of_node, "qcom,smmu-fast-map");
-		ctx->smmu_coherent = of_property_read_bool(
-						of_node, "qcom,smmu-coherent");
-	}
-	rc = of_property_read_u32_array(dev->of_node, "qcom,smmu-mapping",
-			smmu_mapping, 2);
-	if (rc) {
-		dev_err(ctx->dev,
-			"Failed to read base/size smmu addresses %d, fallback to default\n",
-			rc);
-		ctx->smmu_base = SMMU_BASE;
-		ctx->smmu_size = SMMU_SIZE;
-	} else {
-		ctx->smmu_base = smmu_mapping[0];
-		ctx->smmu_size = smmu_mapping[1];
-	}
-	dev_dbg(ctx->dev, "smmu_base=0x%x smmu_sise=0x%x\n",
-		ctx->smmu_base, ctx->smmu_size);
 
 	/*== execute ==*/
 	/* turn device on */
@@ -1310,10 +1215,9 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		 "  gpio_dc = %d\n"
 		 "  sleep_clk_en = %d\n"
 		 "  rc_index = %d\n"
-		 "  use_smmu = %d\n"
 		 "  pcidev = %pK\n"
 		 "}\n", ctx, ctx->gpio_en, ctx->gpio_dc, ctx->sleep_clk_en,
-		 ctx->rc_index, ctx->use_smmu, ctx->pcidev);
+		 ctx->rc_index, ctx->pcidev);
 
 	platform_set_drvdata(pdev, ctx);
 	device_disable_async_suspend(&pcidev->dev);
@@ -1543,12 +1447,6 @@ static void ops_uninit(void *handle)
 		ctx->msm_bus_handle = 0;
 	}
 
-	if (ctx->use_smmu) {
-		__depr_arm_iommu_detach_device(&ctx->pcidev->dev);
-		__depr_arm_iommu_release_mapping(ctx->mapping);
-		ctx->mapping = NULL;
-	}
-
 	memset(&ctx->rops, 0, sizeof(ctx->rops));
 	ctx->wil_handle = NULL;
 
@@ -1587,12 +1485,12 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_PRE_RESET:
 		/*
-		 * Enable rf_clk3 clock before resetting the device to ensure
+		 * Enable rf_clk clock before resetting the device to ensure
 		 * stable ref clock during the device reset
 		 */
 		if (ctx->features &
 		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL)) {
-			rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+			rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk);
 			if (rc) {
 				dev_err(ctx->dev,
 					"failed to enable clk, rc %d\n", rc);
@@ -1602,12 +1500,12 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
 		/*
-		 * Disable rf_clk3 clock after the device is up to allow
+		 * Disable rf_clk clock after the device is up to allow
 		 * the device to control it via its GPIO for power saving
 		 */
 		if (ctx->features &
 		    BIT(WIL_PLATFORM_FEATURE_FW_EXT_CLK_CONTROL))
-			msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+			msm_11ad_disable_clk(ctx, &ctx->rf_clk);
 
 		/*
 		 * Save golden config space for pci linkdown recovery.
@@ -1659,6 +1557,10 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 {
 	struct pci_dev *pcidev = to_pci_dev(dev);
 	struct msm11ad_ctx *ctx = pcidev2ctx(pcidev);
+	struct iommu_domain *domain;
+	int bypass = 0;
+	int fastmap = 0;
+	int coherent = 0;
 
 	if (!ctx) {
 		pr_err("Context not found for pcidev %pK\n", pcidev);
@@ -1673,11 +1575,19 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 		return NULL;
 	}
 	dev_info(ctx->dev, "msm_bus handle 0x%x\n", ctx->msm_bus_handle);
-	/* smmu */
-	if (msm_11ad_smmu_init(ctx)) {
-		msm_bus_scale_unregister_client(ctx->msm_bus_handle);
-		ctx->msm_bus_handle = 0;
-		return NULL;
+
+	domain = iommu_get_domain_for_dev(&pcidev->dev);
+	if (domain) {
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &bypass);
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &fastmap);
+		iommu_domain_get_attr(domain,
+				      DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT,
+				      &coherent);
+
+		dev_info(ctx->dev, "SMMU initialized, bypass=%d, fastmap=%d, coherent=%d\n",
+			 bypass, fastmap, coherent);
+	} else {
+		dev_warn(ctx->dev, "Unable to get iommu domain\n");
 	}
 
 	/* subsystem restart */
