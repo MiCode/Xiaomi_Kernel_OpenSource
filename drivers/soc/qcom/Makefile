@@ -29,6 +29,7 @@ obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o
+obj-$(CONFIG_QCOM_SCM_QCPE)  += scm_qcpe.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
 obj-$(CONFIG_SOC_BUS) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
