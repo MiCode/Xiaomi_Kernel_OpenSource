@@ -18,6 +18,7 @@
 #include <linux/mhi.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/of.h>
+#include <linux/delay.h>
 #include "qdss_bridge.h"
 
 #define MODULE_NAME "qdss_bridge"
@@ -142,6 +143,20 @@ struct qdss_buf_tbl_lst *qdss_get_buf_tbl_entry(
 	return NULL;
 }
 
+static int qdss_check_entry(struct qdss_bridge_drvdata *drvdata)
+{
+	struct qdss_buf_tbl_lst *entry;
+	int ret = 0;
+
+	list_for_each_entry(entry, &drvdata->buf_tbl, link) {
+		if (atomic_read(&entry->available) == 0) {
+			ret = 1;
+			return ret;
+		}
+	}
+
+	return ret;
+}
 
 static void qdss_del_buf_tbl_entry(struct qdss_bridge_drvdata *drvdata,
 				void *buf)
@@ -808,9 +823,11 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 			spin_unlock_bh(&drvdata->lock);
 			if (drvdata->usb_ch && drvdata->usb_ch->priv_usb)
 				usb_qdss_close(drvdata->usb_ch);
+			do {
+				msleep(20);
+			} while (qdss_check_entry(drvdata));
 		}
 		mhi_ch_close(drvdata);
-
 	} else
 		spin_unlock_bh(&drvdata->lock);
 
