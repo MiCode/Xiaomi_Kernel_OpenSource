@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -5611,7 +5611,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 					lrbp, cmd->request);
 			}
 
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			req = cmd->request;
 			if (req) {
 				/* Update IO svc time latency histogram */
