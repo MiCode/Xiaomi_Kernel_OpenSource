@@ -245,6 +245,8 @@ source "drivers/gpu/drm/msm/Kconfig"
 
 source "drivers/gpu/drm/msm-hyp/Kconfig"
 
+source "drivers/gpu/drm/msm-lease/Kconfig"
+
 source "drivers/gpu/drm/fsl-dcu/Kconfig"
 
 source "drivers/gpu/drm/tegra/Kconfig"
