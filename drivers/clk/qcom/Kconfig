@@ -392,3 +392,12 @@ config SM_GPUCC_LITO
 	 Support for the graphics clock controller on Qualcomm Technologies, Inc.
 	 LITO devices.
 	 Say Y if you want to support graphics controller devices.
+
+config SM_NPUCC_LITO
+        tristate "LITO NPU Clock Controller"
+        depends on COMMON_CLK_QCOM
+        help
+          Support for the NPU clock controller on Qualcomm Technologies, Inc.
+          LITO devices.
+          Say Y if you want to enable use of the Network Processing Unit in
+          order to speed up certain types of calculations.

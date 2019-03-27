@@ -71,8 +71,8 @@ static const struct parent_map video_cc_parent_map_2[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const char * const video_cc_parent_names_2[] = {
-	"bi_tcxo",
+static const char * const video_cc_parent_names_2_ao[] = {
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 
@@ -183,7 +183,7 @@ static struct clk_rcg2 video_cc_xo_clk_src = {
 	.freq_tbl = ftbl_video_cc_xo_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "video_cc_xo_clk_src",
-		.parent_names = video_cc_parent_names_2,
+		.parent_names = video_cc_parent_names_2_ao,
 		.num_parents = 2,
 		.ops = &clk_rcg2_ops,
 	},

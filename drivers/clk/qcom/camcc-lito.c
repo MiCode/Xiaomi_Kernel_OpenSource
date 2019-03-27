@@ -178,8 +178,8 @@ static const struct parent_map cam_cc_parent_map_9[] = {
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
-static const char * const cam_cc_parent_names_9[] = {
-	"bi_tcxo",
+static const char * const cam_cc_parent_names_9_ao[] = {
+	"bi_tcxo_ao",
 	"core_bi_pll_test_se",
 };
 
@@ -198,7 +198,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00003101,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -274,7 +274,7 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000101,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -403,7 +403,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000101,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -458,7 +458,7 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000101,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -1242,7 +1242,7 @@ static struct clk_rcg2 cam_cc_xo_clk_src = {
 	.freq_tbl = ftbl_cam_cc_xo_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_xo_clk_src",
-		.parent_names = cam_cc_parent_names_9,
+		.parent_names = cam_cc_parent_names_9_ao,
 		.num_parents = 2,
 		.ops = &clk_rcg2_ops,
 	},
