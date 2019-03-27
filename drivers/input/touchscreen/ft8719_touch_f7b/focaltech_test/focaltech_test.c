@@ -1366,6 +1366,7 @@ static int lct_fts_tp_selftest(void)
 		return 2;
 	} else {
 		FTS_TEST_INFO("Maininit=%d, Testparams=%d, Start=%d, Workmode=%d, Mainexit=%d, Fail!\n",
+				TestResult_Maininit, TestResult_Testparams, TestResult_Start, TestResult_Workmode, TestResult_Mainexit);
 		FTS_TEST_INFO("Fail\n");
 		return 1;
 	}
