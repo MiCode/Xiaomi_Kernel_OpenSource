@@ -2288,7 +2288,8 @@ u32 sde_crtc_get_fps_mode(struct drm_crtc *crtc)
 	}
 
 	drm_for_each_encoder(encoder, crtc->dev)
-		if (encoder->crtc == crtc)
+		if ((encoder->crtc == crtc)
+				&& !sde_encoder_in_cont_splash(encoder))
 			return sde_encoder_get_fps(encoder);
 
 	return 0;
@@ -3341,7 +3342,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
-	if (sde_kms && enc)
+	if (sde_kms && enc && !sde_encoder_in_cont_splash(enc))
 		sde_rm_release(&sde_kms->rm, enc, true);
 
 	__drm_atomic_helper_crtc_destroy_state(state);
