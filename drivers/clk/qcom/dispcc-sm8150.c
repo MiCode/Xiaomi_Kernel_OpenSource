@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1546,6 +1546,7 @@ static const struct qcom_cc_desc disp_cc_sm8150_desc = {
 static const struct of_device_id disp_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,dispcc-sm8150" },
 	{ .compatible = "qcom,dispcc-sm8150-v2" },
+	{ .compatible = "qcom,dispcc-sdmshrike-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_sm8150_match_table);
@@ -1576,6 +1577,18 @@ static void disp_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 		675000000;
 }
 
+static void disp_cc_sm8150_fixup_sdmshrikev2(struct regmap *regmap)
+{
+	disp_cc_sm8150_fixup_sm8150v2(regmap);
+
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOWER] =
+		337500000;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		371500000;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		675000000;
+}
+
 static int disp_cc_sm8150_fixup(struct platform_device *pdev,
 	struct regmap *regmap)
 {
@@ -1588,6 +1601,8 @@ static int disp_cc_sm8150_fixup(struct platform_device *pdev,
 
 	if (!strcmp(compat, "qcom,dispcc-sm8150-v2"))
 		disp_cc_sm8150_fixup_sm8150v2(regmap);
+	else if (!strcmp(compat, "qcom,dispcc-sdmshrike-v2"))
+		disp_cc_sm8150_fixup_sdmshrikev2(regmap);
 
 	return 0;
 }
