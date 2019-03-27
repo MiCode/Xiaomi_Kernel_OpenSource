@@ -207,7 +207,7 @@ to_geni_i3c_master(struct i3c_master_controller *master)
 static const struct geni_i3c_clk_fld geni_i3c_clk_map[] = {
 	{ KHZ(100),    19200, 7, 10, 11, 26, 0, 0 },
 	{ KHZ(400),    19200, 2,  5, 12, 24, 0, 0 },
-	{ KHZ(1000),   19200, 1,  3,  9, 18, 0, 0 },
+	{ KHZ(1000),   19200, 1,  3,  9, 18, 7, 0 },
 	{ KHZ(12500), 100000, 1, 60, 140, 250, 8, 16 },
 };
 
