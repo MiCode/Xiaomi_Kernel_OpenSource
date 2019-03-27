@@ -29,6 +29,8 @@
 
 #define MAXIMUM_LINKS_PER_SESSION  4
 
+#define MAXIMUM_RETRY_ATTEMPTS 3
+
 /**
  * enum crm_workq_task_type
  * @codes: to identify which type of task is present
@@ -310,6 +312,8 @@ struct cam_req_mgr_connected_device {
  * @in_msync_mode        : Flag to determine if a link is in master-slave mode
  * @initial_sync_req     : The initial req which is required to sync with the
  *                         other link
+ * @retry_cnt            : Counter that tracks number of attempts to apply
+ *                         the same req
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -336,6 +340,7 @@ struct cam_req_mgr_core_link {
 	bool                                 initial_skip;
 	bool                                 in_msync_mode;
 	int64_t                              initial_sync_req;
+	uint32_t                             retry_cnt;
 };
 
 /**
