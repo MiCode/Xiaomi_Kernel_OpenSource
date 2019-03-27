@@ -24,7 +24,7 @@
 #define INIT_RATE    -2
 
 /* maximum number of device block */
-#define CAM_SOC_MAX_BLOCK           4
+#define CAM_SOC_MAX_BLOCK           7
 
 /* maximum number of device base */
 #define CAM_SOC_MAX_BASE            CAM_SOC_MAX_BLOCK
