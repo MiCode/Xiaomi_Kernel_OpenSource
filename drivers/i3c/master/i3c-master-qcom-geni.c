@@ -309,6 +309,8 @@ static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
 
 	dev_dbg(gi3c->se.dev, "%s\n", gi3c_log[err].msg);
 	gi3c->err = gi3c_log[err].err;
+
+	geni_se_dump_dbg_regs(&gi3c->se.i3c_rsc, gi3c->se.base, gi3c->ipcl);
 }
 
 static irqreturn_t geni_i3c_irq(int irq, void *dev)
