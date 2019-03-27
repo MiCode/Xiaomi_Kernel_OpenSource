@@ -613,6 +613,10 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			((u64)rx_buf[5]);
 
 		i3c_bus_for_each_i3cdev(bus, i3cdev) {
+
+			if (!i3cdev->dev)
+				continue;
+
 			i3c_device_get_info(i3cdev->dev, &info);
 			if (pid == info.pid &&
 				dcr == info.dcr &&
