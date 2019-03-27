@@ -177,6 +177,7 @@ struct clk_hw *clk_hw_register_mux_table(struct device *dev, const char *name,
 
 	hw = &mux->hw;
 	ret = clk_hw_register(dev, hw);
+	hw->init = NULL;
 	if (ret) {
 		kfree(mux);
 		hw = ERR_PTR(ret);

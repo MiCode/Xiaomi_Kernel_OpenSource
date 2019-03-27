@@ -123,7 +123,7 @@ static struct clk_hw *clk_register_gpio(struct device *dev, const char *name,
 		err = devm_clk_hw_register(dev, hw);
 	else
 		err = clk_hw_register(NULL, hw);
-
+	hw->init = NULL;
 	if (!err)
 		return hw;
 
