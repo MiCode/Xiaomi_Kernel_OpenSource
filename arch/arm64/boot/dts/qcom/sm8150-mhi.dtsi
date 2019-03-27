@@ -530,7 +530,7 @@
 				reg = <0x0>;
 				mhi,chan = "IP_HW0";
 				mhi,interface-name = "rmnet_mhi";
-				mhi,mru = <0x4000>;
+				mhi,mru = <0x8000>;
 				mhi,chan-skb;
 			};
 
@@ -1070,7 +1070,7 @@
 				reg = <0x0>;
 				mhi,chan = "IP_HW0";
 				mhi,interface-name = "rmnet_mhi";
-				mhi,mru = <0x4000>;
+				mhi,mru = <0x8000>;
 				mhi,chan-skb;
 			};
 
