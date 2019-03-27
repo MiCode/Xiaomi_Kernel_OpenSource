@@ -2154,9 +2154,6 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 
 	switch (mhip_client) {
 	case IPA_MPM_MHIP_USB_RMNET:
-		ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
-			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
-		break;
 	case IPA_MPM_MHIP_TETH:
 	case IPA_MPM_MHIP_USB_DPL:
 		IPA_MPM_DBG("Teth Disconnecting for prot %d\n", mhip_client);

@@ -2234,6 +2234,13 @@
 		memory-region = <&pil_ipa_fw_mem>;
 	};
 
+	qcom,ipa-mpm {
+		compatible = "qcom,ipa-mpm";
+		qcom,mhi-chdb-base = <0x64300300>;
+		qcom,mhi-erdb-base = <0x64300700>;
+		qcom,iova-mapping = <0x10000000 0x1FFFFFFF>;
+	};
+
 	ipa_hw: qcom,ipa@1e00000 {
 		compatible = "qcom,ipa";
 		mboxes = <&qmp_aop 0>;
