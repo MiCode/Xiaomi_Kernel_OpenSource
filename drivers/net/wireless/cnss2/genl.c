@@ -143,11 +143,11 @@ static int cnss_genl_send_data(u8 type, char *file_name, u32 total_size,
 	genlmsg_end(skb, msg_header);
 	ret = genlmsg_multicast(&cnss_genl_family, skb, 0, 0, GFP_KERNEL);
 	if (ret < 0)
-		goto fail;
+		cnss_pr_err("Fail to send genl msg: %d\n", ret);
 
 	return ret;
 fail:
-	cnss_pr_err("genl msg send fail: %d\n", ret);
+	cnss_pr_err("Fail to generate genl msg: %d\n", ret);
 	if (skb)
 		nlmsg_free(skb);
 	return ret;
