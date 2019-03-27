@@ -662,6 +662,7 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
+	int signal;
 
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
@@ -681,21 +682,14 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 		"%s: device_id=%d status=%d, sessionid=%x config=%x\n",
 		__func__, device_id, cmd_done.status,
 		cmd_done.session_id, pkt->op_conf_id);
-	switch (pkt->op_conf_id) {
-	case HFI_CMD_SESSION_CVP_DFS_CONFIG:
-	info->response_type = HAL_SESSION_DFS_CONFIG_CMD_DONE;
-		break;
-	case HFI_CMD_SESSION_CVP_DME_CONFIG:
-		info->response_type = HAL_SESSION_DME_CONFIG_CMD_DONE;
-		break;
-	case HFI_CMD_SESSION_CVP_DME_BASIC_CONFIG:
-		info->response_type = HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE;
-		break;
-	default:
+
+	signal = get_signal_from_pkt_type(pkt->op_conf_id);
+	if (signal < 0) {
 		dprintk(CVP_ERR, "%s Invalid op config id\n", __func__);
 		return -EINVAL;
 	}
 
+	info->response_type = signal;
 	info->response.cmd = cmd_done;
 	return 0;
 }
@@ -998,6 +992,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 	default:
 		dprintk(CVP_DBG, "Unable to parse message: %#x\n",
 				msg_hdr->packet);
+		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
 		break;
 	}
 

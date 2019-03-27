@@ -87,6 +87,118 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 		.buf_num = HFI_DS_BUF_NUM,
 		.resp = HAL_NO_RESP,
 	},
+	{
+		.size = HFI_OF_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_TME_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_TME_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_OF_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_TME_FRAME,
+		.buf_offset = HFI_OF_BUFFERS_OFFSET,
+		.buf_num = HFI_OF_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_ODT_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_ODT_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_ODT_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_ODT_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_ODT_FRAME,
+		.buf_offset = HFI_ODT_BUFFERS_OFFSET,
+		.buf_num = HFI_ODT_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_OD_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_OD_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_OD_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_OD_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_CV_OD_FRAME,
+		.buf_offset = HFI_OD_BUFFERS_OFFSET,
+		.buf_num = HFI_OD_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_NCC_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_NCC_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_NCC_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_NCC_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_NCC_FRAME,
+		.buf_offset = HFI_NCC_BUFFERS_OFFSET,
+		.buf_num = HFI_NCC_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_ICA_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_ICA_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_ICA_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_ICA_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_ICA_FRAME,
+		.buf_offset = HFI_ICA_BUFFERS_OFFSET,
+		.buf_num = HFI_ICA_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_HCD_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_HCD_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_HCD_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_HCD_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_HCD_FRAME,
+		.buf_offset = HFI_HCD_BUFFERS_OFFSET,
+		.buf_num = HFI_HCD_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_DCM_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DCM_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_DCM_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_DCM_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DCM_FRAME,
+		.buf_offset = HFI_DCM_BUFFERS_OFFSET,
+		.buf_num = HFI_DCM_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_PYS_HCD_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_PYS_HCD_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_PYS_HCD_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_PYS_HCD_FRAME,
+		.buf_offset = HFI_PYS_HCD_BUFFERS_OFFSET,
+		.buf_num = HFI_PYS_HCD_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
 };
 
 static struct hal_device_data hal_ctxt;
@@ -200,6 +312,17 @@ int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr)
 		if ((cvp_hfi_defs[i].size*sizeof(unsigned int) == hdr->size) &&
 			(cvp_hfi_defs[i].type == hdr->packet_type))
 			return i;
+
+	return -EINVAL;
+}
+
+int get_signal_from_pkt_type(unsigned int type)
+{
+	int i, pkt_num = ARRAY_SIZE(cvp_hfi_defs);
+
+	for (i = 0; i < pkt_num; i++)
+		if (cvp_hfi_defs[i].type == type)
+			return cvp_hfi_defs[i].resp;
 
 	return -EINVAL;
 }
