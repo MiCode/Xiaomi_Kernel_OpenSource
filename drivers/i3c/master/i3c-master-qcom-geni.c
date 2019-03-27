@@ -116,6 +116,7 @@ enum i3c_trans_dir {
 
 struct geni_se {
 	void __iomem *base;
+	void __iomem *ibi_base;
 	struct device *dev;
 	struct se_geni_rsc i3c_rsc;
 };
@@ -298,6 +299,7 @@ static void qcom_geni_i3c_conf(struct geni_i3c_dev *gi3c)
 	writel_relaxed(val, gi3c->se.base + SE_GENI_HW_IRQ_CMD_PARAM_0);
 
 	writel_relaxed(1, gi3c->se.base + SE_GENI_HW_IRQ_EN);
+	geni_write_reg(1, gi3c->se.ibi_base, 0x2C);
 }
 
 static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
@@ -1108,6 +1110,7 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 	struct device_node *wrapper_ph_node;
 	int ret;
 
+	/* base register address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
@@ -1115,6 +1118,15 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 	gi3c->se.base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(gi3c->se.base))
 		return PTR_ERR(gi3c->se.base);
+
+	/* IBI register address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+
+	gi3c->se.ibi_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(gi3c->se.ibi_base))
+		return PTR_ERR(gi3c->se.ibi_base);
 
 	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,wrapper-core", 0);
