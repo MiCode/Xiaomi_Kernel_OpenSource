@@ -898,7 +898,7 @@ static int get_step_chg_current_window(struct ttf *ttf)
 	struct range_data *step_chg_cfg = ttf->step_chg_cfg;
 	int i, rc, curr_window, vbatt;
 
-	if (ttf->mode == TTF_MODE_V_STEP_CHG) {
+	if (ttf->mode == TTF_MODE_VBAT_STEP_CHG) {
 		rc =  ttf->get_ttf_param(ttf->data, TTF_VBAT, &vbatt);
 		if (rc < 0) {
 			pr_err("failed to get battery voltage, rc=%d\n", rc);
@@ -1024,7 +1024,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 	/* estimated battery current at the CC to CV transition */
 	switch (ttf->mode) {
 	case TTF_MODE_NORMAL:
-	case TTF_MODE_V_STEP_CHG:
+	case TTF_MODE_VBAT_STEP_CHG:
 	case TTF_MODE_OCV_STEP_CHG:
 		i_cc2cv = ibatt_avg * vbatt_avg /
 			max(MILLI_UNIT, float_volt_uv / MILLI_UNIT);
@@ -1082,7 +1082,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 				ibatt_this_step, t_predicted_this_step);
 		}
 		break;
-	case TTF_MODE_V_STEP_CHG:
+	case TTF_MODE_VBAT_STEP_CHG:
 	case TTF_MODE_OCV_STEP_CHG:
 		if (!step_chg_data || !step_chg_cfg)
 			break;
@@ -1123,7 +1123,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 							MILLI_UNIT);
 			}
 
-			if (ttf->mode == TTF_MODE_V_STEP_CHG)
+			if (ttf->mode == TTF_MODE_VBAT_STEP_CHG)
 				step_chg_data[i].ocv =
 					step_chg_cfg[i].high_threshold -
 					(rbatt * i_step);
