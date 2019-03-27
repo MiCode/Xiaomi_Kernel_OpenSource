@@ -29,10 +29,10 @@
 		pm8009_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0x400>;
-			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
-				     <0x0 0xc1 0 IRQ_TYPE_NONE>,
-				     <0x0 0xc2 0 IRQ_TYPE_NONE>,
-				     <0x0 0xc3 0 IRQ_TYPE_NONE>;
+			interrupts = <0xa 0xc0 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc1 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc2 0 IRQ_TYPE_NONE>,
+				     <0xa 0xc3 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pm8009_gpio1", "pm8009_gpio2",
 					  "pm8009_gpio3", "pm8009_gpio4";
 			gpio-controller;
