@@ -28,6 +28,11 @@
 	};
 };
 
+&msm_vidc {
+	disable-dcvs-enc;
+	disable-dcvs-dec;
+};
+
 &ufs_ice {
 	status = "ok";
 };
