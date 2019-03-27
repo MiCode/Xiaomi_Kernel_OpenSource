@@ -1280,6 +1280,16 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 			flash_operation_info =
 				(struct cam_flash_set_on_off *) cmd_buf;
+			if (!flash_operation_info) {
+				CAM_ERR(CAM_FLASH,
+					"flash_operation_info Null");
+				return -EINVAL;
+			}
+			if (flash_operation_info->count >
+				CAM_FLASH_MAX_LED_TRIGGERS) {
+				CAM_ERR(CAM_FLASH, "led count out of limit");
+				return -EINVAL;
+			}
 			fctrl->nrt_info.cmn_attr.count =
 				flash_operation_info->count;
 			fctrl->nrt_info.cmn_attr.request_id = 0;
@@ -1355,6 +1365,11 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 					"flash_operation_info Null");
 				return -EINVAL;
 			}
+			if (flash_operation_info->count >
+				CAM_FLASH_MAX_LED_TRIGGERS) {
+				CAM_ERR(CAM_FLASH, "led count out of limit");
+				return -EINVAL;
+			}
 
 			flash_data->opcode = flash_operation_info->opcode;
 			flash_data->cmn_attr.count =
@@ -1387,6 +1402,17 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 			CAM_DBG(CAM_FLASH, "Widget Flash Operation");
 			flash_operation_info =
 				(struct cam_flash_set_on_off *) cmd_buf;
+			if (!flash_operation_info) {
+				CAM_ERR(CAM_FLASH,
+					"flash_operation_info Null");
+				return -EINVAL;
+			}
+			if (flash_operation_info->count >
+				CAM_FLASH_MAX_LED_TRIGGERS) {
+				CAM_ERR(CAM_FLASH, "led count out of limit");
+				return -EINVAL;
+			}
+
 			fctrl->nrt_info.cmn_attr.count =
 				flash_operation_info->count;
 			fctrl->nrt_info.cmn_attr.request_id = 0;
@@ -1426,6 +1452,17 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 		case CAMERA_SENSOR_FLASH_CMD_TYPE_RER: {
 			rc = 0;
 			flash_rer_info = (struct cam_flash_set_rer *)cmd_buf;
+			if (!flash_rer_info) {
+				CAM_ERR(CAM_FLASH,
+					"flash_rer_info Null");
+				return -EINVAL;
+			}
+			if (flash_rer_info->count >
+				CAM_FLASH_MAX_LED_TRIGGERS) {
+				CAM_ERR(CAM_FLASH, "led count out of limit");
+				return -EINVAL;
+			}
+
 			fctrl->nrt_info.cmn_attr.cmd_type =
 				CAMERA_SENSOR_FLASH_CMD_TYPE_RER;
 			fctrl->nrt_info.opcode = flash_rer_info->opcode;
