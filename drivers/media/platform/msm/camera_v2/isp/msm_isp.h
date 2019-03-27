@@ -762,7 +762,6 @@ struct msm_vfe_common_dev_data {
 	/* Irq debug Info */
 	struct msm_vfe_irq_dump vfe_irq_dump;
 	struct msm_vfe_tasklet tasklets[MAX_VFE + 1];
-	uint32_t drop_reconfig;
 };
 
 struct msm_vfe_common_subdev {
