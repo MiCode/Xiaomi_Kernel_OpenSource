@@ -74,6 +74,8 @@ struct pid_link
 	struct pid *pid;
 };
 
+extern const struct file_operations pidfd_fops;
+
 static inline struct pid *get_pid(struct pid *pid)
 {
 	if (pid)
