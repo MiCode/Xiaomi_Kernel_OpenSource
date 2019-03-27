@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,8 @@ static void get_next_update_time(struct qpnp_qg *chip)
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
+	bool usb_present = is_usb_present(chip);
+
 	if (!chip->profile_loaded)
 		return false;
 
@@ -133,9 +135,14 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 		/* SOC has not changed */
 		return false;
 
-
-	if (chip->catch_up_soc > chip->msoc && !is_usb_present(chip))
+	if (chip->catch_up_soc > chip->msoc && !usb_present)
 		/* USB is not present and SOC has increased */
+		return false;
+
+	if (chip->catch_up_soc > chip->msoc && usb_present &&
+			(chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
+			chip->charge_status != POWER_SUPPLY_STATUS_FULL))
+		/* USB is present, but not charging */
 		return false;
 
 	return true;
