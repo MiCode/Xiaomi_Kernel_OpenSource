@@ -7,6 +7,7 @@
 #include <dt-bindings/sound/qcom,bolero-clk-rsc.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "kona-lpi.dtsi"
 #include "kona-va-bolero.dtsi"
 
 &bolero {
@@ -70,7 +71,7 @@
 			 <&clock_audio_rx_2 0>;
 		qcom,rx-swr-gpios = <&rx_swr_gpios>;
 		qcom,rx_mclk_mode_muxsel = <0x033240D8>;
-		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,rx-bcl-pmic-params = /bits/ 8 <0x00 0x04 0x3E>;
 		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr1: rx_swr_master {
 			compatible = "qcom,swr-mstr";
@@ -103,7 +104,7 @@
 		clocks = <&clock_audio_wsa_1 0>,
 			 <&clock_audio_wsa_2 0>;
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
-		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
+		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x04 0x3E>;
 		qcom,default-clk-id = <TX_CORE_CLK>;
 		swr0: wsa_swr_master {
 			compatible = "qcom,swr-mstr";
@@ -287,7 +288,7 @@
 				  <&lpi_tlmm>;
 };
 
-&soc {
+&q6core {
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -339,7 +340,9 @@
 			    &tx_swr_data2_sleep>;
 		qcom,lpi-gpios;
 	};
+};
 
+&soc {
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
