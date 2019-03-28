@@ -252,6 +252,7 @@ static int sde_hdcp_2x_get_next_message(struct sde_hdcp_2x_ctrl *hdcp,
 	case REP_SEND_RECV_ID_LIST:
 		return REP_SEND_ACK;
 	case REP_STREAM_MANAGE:
+		hdcp->resend_stream_manage = false;
 		return REP_STREAM_READY;
 	default:
 		pr_err("Uknown message ID (%d)", hdcp->last_msg);
@@ -734,7 +735,15 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 			sde_hdcp_2x_message_name(out_msg));
 
 	if (msg[0] == REP_STREAM_READY && out_msg != REP_STREAM_MANAGE) {
-		if (!hdcp->authenticated) {
+		if (hdcp->resend_stream_manage) {
+			pr_debug("resend stream management\n");
+			rc = hdcp2_app_comm(hdcp->hdcp2_ctx,
+					HDCP2_CMD_QUERY_STREAM,
+					&hdcp->app_data);
+			if (!rc)
+				sde_hdcp_2x_send_message(hdcp);
+			goto exit;
+		} else if (!hdcp->authenticated) {
 			rc = hdcp2_app_comm(hdcp->hdcp2_ctx,
 					HDCP2_CMD_EN_ENCRYPTION,
 					&hdcp->app_data);
@@ -887,8 +896,14 @@ static void sde_hdcp_2x_manage_stream_work(struct kthread_work *work)
 		}
 	}
 
-	if (query_streams && hdcp->authenticated)
-		HDCP_2X_EXECUTE(stream);
+	if (query_streams) {
+		if (hdcp->authenticated) {
+			HDCP_2X_EXECUTE(stream);
+		} else if (hdcp->last_msg == REP_STREAM_MANAGE ||
+				hdcp->last_msg == REP_STREAM_READY) {
+			hdcp->resend_stream_manage = true;
+		}
+	}
 }
 
 static bool sde_remove_streams(struct sde_hdcp_2x_ctrl *hdcp,
