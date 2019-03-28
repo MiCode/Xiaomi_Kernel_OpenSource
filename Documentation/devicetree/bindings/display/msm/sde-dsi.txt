@@ -65,9 +65,12 @@ Optional properties:
 - qcom,panel-te-source:  Specifies the source pin for Vsync from panel or WD Timer.
 - qcom,dsi-ctrl: handle to dsi controller device
 - qcom,dsi-phy: handle to dsi phy device
-- qcom,dsi-ctrl-num:		Specifies the DSI controllers to use
-- qcom,dsi-phy-num:		Specifies the DSI PHYs to use
-- qcom,dsi-select-clocks:	Specifies the required clocks to use
+- qcom,dsi-ctrl-num:		Specifies the DSI controllers to use for primary panel
+- qcom,dsi-sec-ctrl-num:	Specifies the DSI controllers to use for secondary panel
+- qcom,dsi-phy-num:		Specifies the DSI PHYs to use for primary panel
+- qcom,dsi-sec-phy-num:		Specifies the DSI PHYs to use for secondary panel
+- qcom,dsi-select-clocks:	Specifies the required clocks to use for primary panel
+- qcom,dsi-select-sec-clocks:	Specifies the required clocks to use for secondary  panel
 - qcom,dsi-display-list:	Specifies the list of supported displays.
 - qcom,dsi-manager:       Specifies dsi manager is present
 - qcom,dsi-display:       Specifies dsi display is present
