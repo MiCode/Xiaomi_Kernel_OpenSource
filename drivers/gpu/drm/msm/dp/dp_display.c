@@ -375,7 +375,6 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 				dp_display_update_hdcp_status(dp, true);
 				return;
 			}
-			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 		} else {
 			dp_display_update_hdcp_status(dp, true);
 			return;
@@ -400,10 +399,12 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		ops->force_encryption(data, dp->debug->force_encryption);
 
 	switch (status->hdcp_state) {
-	case HDCP_STATE_AUTHENTICATING:
+	case HDCP_STATE_INACTIVE:
 		dp_display_hdcp_register_streams(dp);
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(data);
+		if (!rc)
+			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		if (dp_display_is_ready(dp) && dp->power_on) {
