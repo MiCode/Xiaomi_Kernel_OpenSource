@@ -302,6 +302,24 @@
 	};
 };
 
+&qupv3_se15_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	#include "smb1390.dtsi"
+};
+
+&smb1390 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_stat_default>;
+	status = "ok";
+};
+
+&smb1390_charger {
+	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
+	io-channel-names = "cp_die_temp";
+	status = "ok";
+};
+
 &pm8150b_charger {
 	status = "ok";
 	qcom,auto-recharge-soc = <98>;
