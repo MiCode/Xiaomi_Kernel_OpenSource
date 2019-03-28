@@ -405,8 +405,9 @@ static int shd_crtc_validate_shared_display(struct drm_crtc *crtc,
 	/* check z-pos for all planes */
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
 		sde_pstate = to_sde_plane_state(pstate);
-		if (sde_pstate->stage >= shd_crtc->display->stage_range.size) {
-			SDE_ERROR("plane stage %d is larger than maximum %d\n",
+		if (sde_pstate->stage >=
+			shd_crtc->display->stage_range.size + SDE_STAGE_0) {
+			SDE_DEBUG("plane stage %d is larger than maximum %d\n",
 				sde_pstate->stage,
 				shd_crtc->display->stage_range.size);
 			return -EINVAL;
@@ -417,7 +418,7 @@ static int shd_crtc_validate_shared_display(struct drm_crtc *crtc,
 	for (i = 0; i < sde_crtc_state->num_dim_layers; i++) {
 		if (sde_crtc_state->dim_layer[i].stage >=
 			shd_crtc->display->stage_range.size + SDE_STAGE_0) {
-			SDE_ERROR("dim stage %d is larger than maximum %d\n",
+			SDE_DEBUG("dim stage %d is larger than maximum %d\n",
 				sde_crtc_state->dim_layer[i].stage,
 				shd_crtc->display->stage_range.size);
 			return -EINVAL;

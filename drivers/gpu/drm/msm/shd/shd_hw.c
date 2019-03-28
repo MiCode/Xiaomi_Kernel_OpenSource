@@ -188,9 +188,7 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	int i, j;
-	int stages;
 	int pipes_per_stage;
-	int stage_offset = 0;
 	u32 pipe_idx, rect_idx;
 	const struct ctl_sspp_stage_reg_map *sspp_cfg;
 	u32 mixercfg[CTL_NUM_EXT] = {CTL_MIXER_BORDER_OUT, 0, 0, 0};
@@ -201,10 +199,6 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		return;
 
 	hw_ctl = container_of(ctx, struct sde_shd_hw_ctl, base);
-
-	stages = hw_ctl->range.size - 1;
-	if (stages < 0)
-		return;
 
 	if (test_bit(SDE_MIXER_SOURCESPLIT,
 		&ctx->mixer_hw_caps->features))
@@ -217,9 +211,7 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	if (!stage_cfg)
 		goto exit;
 
-	stage_offset = hw_ctl->range.start;
-
-	for (i = 0; i <= stages; i++) {
+	for (i = SDE_STAGE_0; i <= hw_ctl->range.size; i++) {
 		for (j = 0 ; j < pipes_per_stage; j++) {
 			pipe_idx = stage_cfg->stage[i][j];
 			if (!pipe_idx || pipe_idx >= SSPP_MAX)
@@ -232,7 +224,7 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 			if (!sspp_cfg->bits)
 				continue;
 
-			stage_value = i + stage_offset + 1;
+			stage_value = i + hw_ctl->range.start + 1;
 			mask = (1 << sspp_cfg->bits) - 1;
 			value = mask & stage_value;
 			mixercfg[sspp_cfg->ext] |= (value << sspp_cfg->start);
