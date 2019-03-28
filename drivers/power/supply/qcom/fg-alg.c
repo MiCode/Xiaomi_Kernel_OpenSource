@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -893,6 +893,36 @@ static int ttf_lerp(const struct ttf_pt *pts, size_t tablesize,
 	return -EINVAL;
 }
 
+static int get_step_chg_current_window(struct ttf *ttf)
+{
+	struct range_data *step_chg_cfg = ttf->step_chg_cfg;
+	int i, rc, curr_window, vbatt;
+
+	if (ttf->mode == TTF_MODE_V_STEP_CHG) {
+		rc =  ttf->get_ttf_param(ttf->data, TTF_VBAT, &vbatt);
+		if (rc < 0) {
+			pr_err("failed to get battery voltage, rc=%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = ttf->get_ttf_param(ttf->data, TTF_OCV, &vbatt);
+		if (rc < 0) {
+			pr_err("failed to get battery OCV, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	curr_window = ttf->step_chg_num_params - 1;
+	for (i = 0; i < ttf->step_chg_num_params; i++) {
+		if (is_between(step_chg_cfg[i].low_threshold,
+			       step_chg_cfg[i].high_threshold,
+			       vbatt))
+			curr_window = i;
+	}
+
+	return curr_window;
+}
+
 static int get_time_to_full_locked(struct ttf *ttf, int *val)
 {
 	struct step_chg_data *step_chg_data = ttf->step_chg_data;
@@ -903,7 +933,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		ibatt_this_step, t_predicted_this_step, ttf_slope,
 		t_predicted_cv, t_predicted = 0, charge_type = 0, i_step,
 		float_volt_uv = 0;
-	int vbatt_now, multiplier, curr_window = 0, pbatt_avg;
+	int multiplier, curr_window = 0, pbatt_avg;
 	bool power_approx = false;
 	s64 delta_ms;
 
@@ -995,6 +1025,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 	switch (ttf->mode) {
 	case TTF_MODE_NORMAL:
 	case TTF_MODE_V_STEP_CHG:
+	case TTF_MODE_OCV_STEP_CHG:
 		i_cc2cv = ibatt_avg * vbatt_avg /
 			max(MILLI_UNIT, float_volt_uv / MILLI_UNIT);
 		break;
@@ -1052,23 +1083,15 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		}
 		break;
 	case TTF_MODE_V_STEP_CHG:
+	case TTF_MODE_OCV_STEP_CHG:
 		if (!step_chg_data || !step_chg_cfg)
 			break;
 
 		pbatt_avg = vbatt_avg * ibatt_avg;
-
-		rc =  ttf->get_ttf_param(ttf->data, TTF_VBAT, &vbatt_now);
-		if (rc < 0) {
-			pr_err("failed to get battery voltage, rc=%d\n", rc);
-			return rc;
-		}
-
-		curr_window = ttf->step_chg_num_params - 1;
-		for (i = 0; i < ttf->step_chg_num_params; i++) {
-			if (is_between(step_chg_cfg[i].low_threshold,
-					step_chg_cfg[i].high_threshold,
-					vbatt_now))
-				curr_window = i;
+		curr_window = get_step_chg_current_window(ttf);
+		if (curr_window < 0) {
+			pr_err("Failed to get step charging window\n");
+			return curr_window;
 		}
 
 		pr_debug("TTF: curr_window: %d pbatt_avg: %d\n", curr_window,
@@ -1100,8 +1123,13 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 							MILLI_UNIT);
 			}
 
-			step_chg_data[i].ocv = step_chg_cfg[i].high_threshold -
-						(rbatt * i_step);
+			if (ttf->mode == TTF_MODE_V_STEP_CHG)
+				step_chg_data[i].ocv =
+					step_chg_cfg[i].high_threshold -
+					(rbatt * i_step);
+			else
+				step_chg_data[i].ocv =
+					step_chg_cfg[i].high_threshold;
 
 			/* Calculate SOC for each window */
 			step_chg_data[i].soc = (float_volt_uv -
