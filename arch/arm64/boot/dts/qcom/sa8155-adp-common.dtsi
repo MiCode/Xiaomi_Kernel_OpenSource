@@ -72,14 +72,9 @@
 	};
 };
 
-&qupv3_se20_i2c {
-	status = "ok";
-};
-
 &pil_modem {
 	status = "disabled";
 };
-
 
 &soc {
 	qcom,lpass@17300000 {
