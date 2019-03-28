@@ -376,6 +376,16 @@ void dsi_display_put_mode(struct dsi_display *display,
 	struct dsi_display_mode *mode);
 
 /**
+ * dsi_display_get_default_lms() - retrieve max number of lms used
+ *             for dsi display by traversing through all topologies
+ * @display:            Handle to display.
+ * @num_lm:             Number of LMs used
+ *
+ * Return: error code.
+ */
+int dsi_display_get_default_lms(void *dsi_display, u32 *num_lm);
+
+/**
  * dsi_display_find_mode() - retrieve cached DSI mode given relevant params
  * @display:            Handle to display.
  * @cmp:                Mode to use as comparison to find original
