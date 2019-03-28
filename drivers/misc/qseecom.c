@@ -2832,6 +2832,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 	bool unload = false;
 	bool found_app = false;
 	bool found_dead_app = false;
+	bool scm_called = false;
 
 	if (!data) {
 		pr_err("Invalid/uninitialized device handle\n");
@@ -2890,11 +2891,12 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &req,
 				sizeof(struct qseecom_unload_app_ireq),
 				&resp, sizeof(resp));
+		scm_called = true;
 		if (ret) {
 			pr_err("scm_call to unload app (id = %d) failed\n",
 								req.app_id);
 			ret = -EFAULT;
-			goto unload_exit;
+			goto scm_exit;
 		} else {
 			pr_warn("App id %d now unloaded\n", req.app_id);
 		}
@@ -2902,7 +2904,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			pr_err("app (%d) unload_failed!!\n",
 					data->client.app_id);
 			ret = -EFAULT;
-			goto unload_exit;
+			goto scm_exit;
 		}
 		if (resp.result == QSEOS_RESULT_SUCCESS)
 			pr_debug("App (%d) is unloaded!!\n",
@@ -2912,11 +2914,35 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			if (ret) {
 				pr_err("process_incomplete_cmd fail err: %d\n",
 									ret);
-				goto unload_exit;
+				goto scm_exit;
 			}
 		}
 	}
 
+scm_exit:
+	if (scm_called) {
+		/* double check if this app_entry still exists */
+		bool doublecheck = false;
+
+		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
+		list_for_each_entry(ptr_app,
+			&qseecom.registered_app_list_head, list) {
+			if ((ptr_app->app_id == data->client.app_id) &&
+				(!strcmp((void *)ptr_app->app_name,
+				(void *)data->client.app_name))) {
+				doublecheck = true;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
+								flags1);
+		if (!doublecheck) {
+			pr_warn("app %d(%s) entry is already removed\n",
+				data->client.app_id,
+				(char *)data->client.app_name);
+			found_app = false;
+		}
+	}
 unload_exit:
 	if (found_app) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
