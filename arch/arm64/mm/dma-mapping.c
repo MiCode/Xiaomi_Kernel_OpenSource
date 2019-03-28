@@ -1241,13 +1241,14 @@ int __depr_arm_iommu_attach_device(struct device *dev,
 {
 	int err;
 	struct iommu_domain *domain;
-	struct iommu_group *group = dev->iommu_group;
+	struct iommu_group *group;
 
 	if (!dev || !mapping) {
 		pr_err("%s: Error input is NULL\n", __func__);
 		return -EINVAL;
 	}
 
+	group = dev->iommu_group;
 	if (!group) {
 		dev_err(dev, "No iommu associated with device\n");
 		return -EINVAL;
