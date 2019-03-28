@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,7 @@ struct cnss_usb_wlan_driver {
 	int  (*suspend)(struct usb_interface *pintf, pm_message_t state);
 	int  (*resume)(struct usb_interface *pintf);
 	int  (*reset_resume)(struct usb_interface *pintf);
+	void (*update_status)(struct usb_interface *pintf, uint32_t status);
 	const struct usb_device_id *id_table;
 };
 
