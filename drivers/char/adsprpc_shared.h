@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,6 +241,8 @@ struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t keys;
 };
 
+#define FASTRPC_MAX_DSP_ATTRIBUTES	(7)
+
 #define FASTRPC_CONTROL_LATENCY	(1)
 struct fastrpc_ctrl_latency {
 	uint32_t enable;	/* latency control enable */
@@ -252,11 +254,21 @@ struct fastrpc_ctrl_kalloc {
 	uint32_t kalloc_support;  /* Remote memory allocation from kernel */
 };
 /* FASTRPC_CONTROL value 2 is reserved in user space */
+
+#define FASTRPC_GET_DSP_INFO	(4)
+struct fastrpc_dsp_capabilities {
+	union {
+		uint32_t is_cached;	//! Flag if dsp attributes are cached
+		uint32_t domain;	//! DSP domain to query capabilities
+	};
+	uint32_t dsp_attributes[FASTRPC_MAX_DSP_ATTRIBUTES];
+};
 struct fastrpc_ioctl_control {
 	uint32_t req;
 	union {
 		struct fastrpc_ctrl_latency lp;
 		struct fastrpc_ctrl_kalloc kalloc;
+		struct fastrpc_dsp_capabilities dsp_cap;
 	};
 };
 
