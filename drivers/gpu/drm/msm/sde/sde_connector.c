@@ -146,7 +146,7 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	display = (struct dsi_display *) c_conn->display;
 	bl_config = &display->panel->bl_config;
 	props.max_brightness = bl_config->brightness_max_level;
-	props.brightness = bl_config->brightness_max_level;
+	props.brightness = bl_config->brightness_default_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
 	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev,
