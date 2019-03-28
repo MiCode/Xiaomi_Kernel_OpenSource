@@ -83,6 +83,7 @@ struct clk_hw *clk_hw_register_fixed_rate_with_accuracy(struct device *dev,
 	/* register the clock */
 	hw = &fixed->hw;
 	ret = clk_hw_register(dev, hw);
+	hw->init = NULL;
 	if (ret) {
 		kfree(fixed);
 		hw = ERR_PTR(ret);

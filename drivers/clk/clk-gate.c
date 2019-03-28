@@ -158,6 +158,7 @@ struct clk_hw *clk_hw_register_gate(struct device *dev, const char *name,
 
 	hw = &gate->hw;
 	ret = clk_hw_register(dev, hw);
+	hw->init = NULL;
 	if (ret) {
 		kfree(gate);
 		hw = ERR_PTR(ret);
