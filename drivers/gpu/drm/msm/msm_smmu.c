@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -59,6 +59,7 @@ struct msm_smmu_domain {
 
 #define to_msm_smmu(x) container_of(x, struct msm_smmu, base)
 #define msm_smmu_to_client(smmu) (smmu->client)
+#define NON_FATAL_FAULTS 1
 
 static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain);
@@ -466,6 +467,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 {
 	int rc;
 	int mdphtw_llc_enable = 1;
+	int data = NON_FATAL_FAULTS;
 
 	client->mmu_mapping = arm_iommu_create_mapping(&platform_bus_type,
 			domain->va_start, domain->va_size);
@@ -509,6 +511,19 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	DRM_INFO("Created domain %s [%zx,%zx] secure=%d\n",
 			domain->label, domain->va_start, domain->va_size,
 			domain->secure);
+
+	/**
+	 * Stage 1 smmu faults can be treated non-fatal.
+	 * So, register smmu client with non-fatal-faults
+	 * attribute to the iommu domain.
+	 */
+	rc = iommu_domain_set_attr(client->mmu_mapping->domain,
+			DOMAIN_ATTR_NON_FATAL_FAULTS, &data);
+	if (rc) {
+		dev_err(client->dev, "couldn't set attr:non_fatal_faults: %d\n",
+				rc);
+		goto error;
+	}
 
 	return 0;
 
