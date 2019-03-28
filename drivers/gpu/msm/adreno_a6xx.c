@@ -693,10 +693,6 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	unsigned int value;
 	int i, j;
 
-	/* A650 doesn't support hwcg yet so return early */
-	if (adreno_is_a650(adreno_dev))
-		return;
-
 	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
 		on = false;
 
