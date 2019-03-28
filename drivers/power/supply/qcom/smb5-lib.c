@@ -5126,6 +5126,8 @@ enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				pval.intval, rc);
 			return ALARMTIMER_NORESTART;
 		}
+		chg->moisture_present = false;
+		power_supply_changed(chg->usb_psy);
 	} else {
 		rc = smblib_masked_write(chg, TYPE_C_INTERRUPT_EN_CFG_2_REG,
 					TYPEC_WATER_DETECTION_INT_EN_BIT,
@@ -5181,8 +5183,10 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't write 0x%02x to TYPE_C_INTRPT_ENB_SOFTWARE_CTRL rc=%d\n",
 				pval.intval, rc);
 		chg->lpd_reason = LPD_MOISTURE_DETECTED;
+		chg->moisture_present =  true;
 		alarm_start_relative(&chg->lpd_recheck_timer,
 						ms_to_ktime(60000));
+		power_supply_changed(chg->usb_psy);
 	} else {
 		chg->lpd_reason = LPD_NONE;
 		chg->typec_mode = smblib_get_prop_typec_mode(chg);
@@ -6447,6 +6451,7 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 		}
 
 		chg->lpd_reason = LPD_MOISTURE_DETECTED;
+		chg->moisture_present =  true;
 
 	} else {
 		/* Floating cable, disable water detection irq temporarily */
