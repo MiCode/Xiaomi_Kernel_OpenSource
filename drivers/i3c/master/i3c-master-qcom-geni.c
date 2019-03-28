@@ -18,6 +18,7 @@
 #include <linux/qcom-geni-se.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/ipc_logging.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 #define SE_I3C_SCL_HIGH			0x268
 #define SE_I3C_TX_TRANS_LEN		0x26C
@@ -1299,6 +1300,7 @@ static int geni_i3c_runtime_suspend(struct device *dev)
 
 	disable_irq(gi3c->irq);
 	se_geni_resources_off(&gi3c->se.i3c_rsc);
+	msm_qup_write(0, 0x0);
 	return 0;
 }
 
@@ -1313,6 +1315,8 @@ static int geni_i3c_runtime_resume(struct device *dev)
 
 	enable_irq(gi3c->irq);
 
+	/* Enable TLMM I3C MODE registers */
+	msm_qup_write(0, 0x24);
 	return 0;
 }
 #else
