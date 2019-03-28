@@ -1420,7 +1420,10 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		msm_isp_start_avtimer();
 	}
 
-	if (stream_info->num_planes > 1)
+	if (vfe_dev->dual_vfe_sync_mode &&
+		SRC_TO_INTF(stream_info->stream_src) == VFE_PIX_0)
+		msm_isp_axi_reserve_comp_mask(vfe_dev, stream_info);
+	else if (stream_info->num_planes > 1)
 		msm_isp_axi_reserve_comp_mask(vfe_dev, stream_info);
 
 	for (i = 0; i < stream_info->num_planes; i++) {
@@ -1487,7 +1490,10 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			stream_info, i);
 	}
 
-	if (stream_info->num_planes > 1)
+	if (vfe_dev->dual_vfe_sync_mode &&
+		SRC_TO_INTF(stream_info->stream_src) == VFE_PIX_0)
+		msm_isp_axi_free_comp_mask(vfe_dev, stream_info);
+	else if (stream_info->num_planes > 1)
 		msm_isp_axi_free_comp_mask(vfe_dev, stream_info);
 
 	vfe_dev->hw_info->vfe_ops.axi_ops.clear_framedrop(vfe_dev, stream_info);
@@ -2827,14 +2833,22 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 					stream_info->vfe_dev[k];
 			vfe_idx = msm_isp_get_vfe_idx_for_stream(
 					temp_vfe_dev, stream_info);
-			if (stream_info->num_planes > 1) {
+			if (vfe_dev->dual_vfe_sync_mode &&
+				(SRC_TO_INTF(stream_info->stream_src) ==
+							VFE_PIX_0)) {
 				temp_vfe_dev->hw_info->vfe_ops.axi_ops
 					.cfg_comp_mask(temp_vfe_dev,
 					stream_info);
 			} else {
-				temp_vfe_dev->hw_info->vfe_ops.axi_ops
+				if (stream_info->num_planes > 1) {
+					temp_vfe_dev->hw_info->vfe_ops.axi_ops
+						.cfg_comp_mask(temp_vfe_dev,
+							stream_info);
+				} else {
+					temp_vfe_dev->hw_info->vfe_ops.axi_ops
 						.cfg_wm_irq_mask(temp_vfe_dev,
-						stream_info);
+							stream_info);
+				}
 			}
 			axi_data = &temp_vfe_dev->axi_data;
 			axi_data->src_info[SRC_TO_INTF(
@@ -3121,13 +3135,22 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		}
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
-			if (stream_info->num_planes > 1)
+			if (vfe_dev->dual_vfe_sync_mode &&
+				(SRC_TO_INTF(stream_info->stream_src) ==
+							VFE_PIX_0)) {
 				vfe_dev->hw_info->vfe_ops.axi_ops
 					.clear_comp_mask(vfe_dev, stream_info);
-			else
-				vfe_dev->hw_info->vfe_ops.axi_ops
-					.clear_wm_irq_mask(vfe_dev,
-						stream_info);
+			} else {
+				if (stream_info->num_planes > 1) {
+					vfe_dev->hw_info->vfe_ops.axi_ops
+						.clear_comp_mask(vfe_dev,
+							stream_info);
+				} else {
+					vfe_dev->hw_info->vfe_ops.axi_ops
+						.clear_wm_irq_mask(vfe_dev,
+							stream_info);
+				}
+			}
 		}
 		init_completion(&stream_info->inactive_comp);
 		stream_info->state = STOP_PENDING;
@@ -3306,12 +3329,20 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev_ioctl,
 		}
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
-			if (stream_info->num_planes > 1) {
+			if (vfe_dev->dual_vfe_sync_mode &&
+				(SRC_TO_INTF(stream_info->stream_src)
+							== VFE_PIX_0)) {
 				vfe_dev->hw_info->vfe_ops.axi_ops.cfg_comp_mask(
 					vfe_dev, stream_info);
 			} else {
-				vfe_dev->hw_info->vfe_ops.axi_ops
-					.cfg_wm_irq_mask(vfe_dev, stream_info);
+				if (stream_info->num_planes > 1) {
+					vfe_dev->hw_info->vfe_ops.axi_ops
+					.cfg_comp_mask(vfe_dev, stream_info);
+				} else {
+					vfe_dev->hw_info->vfe_ops.axi_ops
+						.cfg_wm_irq_mask(vfe_dev,
+							stream_info);
+				}
 			}
 		}
 		intf = SRC_TO_INTF(stream_info->stream_src);
@@ -4328,12 +4359,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		return;
 	}
 	if (vfe_dev->dual_vfe_sync_mode)
-		if (stream_info->num_planes == 1)
-			/* composite the irq for dual vfe */
-			rc = msm_isp_composite_irq(vfe_dev, stream_info,
-				MSM_ISP_COMP_IRQ_PING_BUFDONE + pingpong_bit);
-		else
-			rc = 0;
+		rc = 0;
 	else
 		rc = msm_isp_composite_irq(vfe_dev, stream_info,
 			MSM_ISP_COMP_IRQ_PING_BUFDONE + pingpong_bit);
