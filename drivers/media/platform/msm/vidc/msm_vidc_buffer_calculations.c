@@ -585,7 +585,7 @@ void msm_vidc_init_buffer_size_calculators(struct msm_vidc_inst *inst)
 	core = inst->core;
 
 	/* Change this to IRIS2 when ready */
-	if (core->platform_data->vpu_ver == VPU_VERSION_AR50)
+	if (core->platform_data->vpu_ver == VPU_VERSION_IRIS2)
 		inst->buffer_size_calculators =
 			msm_vidc_calculate_internal_buffer_sizes;
 }
