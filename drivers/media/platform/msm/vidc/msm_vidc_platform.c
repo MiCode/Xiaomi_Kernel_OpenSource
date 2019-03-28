@@ -255,11 +255,11 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 3916800,       /*
-					 * 1920x1088/256 MB's@480fps. It is more
-					 * than any other usecases (ex:
-					 * 3840x2160@120fps, 4096x2160@96ps,
-					 * 7680x4320@30fps)
+		.value = 7833600,       /*
+					 * 1920x1088/256 MB's@960fps.
+					 * Greater than any other usecases (ex:
+					 *  3840x2160@240fps, 4096x2160@120fps,
+					 *  7680x4320@60fps, 8192x4320@48fps)
 					 */
 	},
 	{
