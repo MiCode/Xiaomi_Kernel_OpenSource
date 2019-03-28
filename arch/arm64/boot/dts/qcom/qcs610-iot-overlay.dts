@@ -11,6 +11,7 @@
  */
 
 /dts-v1/;
+/plugin/;
 
 #include "qcs610-iot.dtsi"
 
