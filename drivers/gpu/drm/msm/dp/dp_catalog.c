@@ -371,18 +371,14 @@ static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
 	return dp_read(catalog->exe_mode, io_data, DP_HDCP_STATUS);
 }
 
-static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
+static void dp_catalog_panel_setup_vsif_infoframe_sdp(
+		struct dp_catalog_panel *panel)
 {
 	struct dp_catalog_private *catalog;
 	struct drm_msm_ext_hdr_metadata *hdr;
 	struct dp_io_data *io_data;
 	u32 header, parity, data, mst_offset = 0;
-	u8 buf[SZ_128], off = 0;
-
-	if (!panel) {
-		pr_err("invalid input\n");
-		return;
-	}
+	u8 buf[SZ_64], off = 0;
 
 	if (panel->stream_id >= DP_STREAM_MAX) {
 		pr_err("invalid stream_id:%d\n", panel->stream_id);
@@ -426,10 +422,65 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
+	print_hex_dump(KERN_DEBUG, "[drm-dp] VSCEXT: ",
+			DUMP_PREFIX_NONE, 16, 4, buf, off, false);
+}
+
+static void dp_catalog_panel_setup_hdr_infoframe_sdp(
+		struct dp_catalog_panel *panel)
+{
+	struct dp_catalog_private *catalog;
+	struct drm_msm_ext_hdr_metadata *hdr;
+	struct dp_io_data *io_data;
+	u32 header, parity, data, mst_offset = 0;
+	u8 buf[SZ_64], off = 0;
+
+	if (panel->stream_id >= DP_STREAM_MAX) {
+		pr_err("invalid stream_id:%d\n", panel->stream_id);
+		return;
+	}
+
+	if (panel->stream_id == DP_STREAM_1)
+		mst_offset = MMSS_DP1_GENERIC2_0 - MMSS_DP_GENERIC2_0;
+
+	catalog = dp_catalog_get_priv(panel);
+	hdr = &panel->hdr_data.hdr_meta;
+	io_data = catalog->io.dp_link;
+
+	/* HEADER BYTE 1 */
+	header = panel->hdr_data.shdr_header_byte1;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_1_BIT)
+			| (parity << PARITY_BYTE_1_BIT));
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_0 + mst_offset,
+			data);
+	memcpy(buf + off, &data, sizeof(data));
+	off += sizeof(data);
+
+	/* HEADER BYTE 2 */
+	header = panel->hdr_data.shdr_header_byte2;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_2_BIT)
+			| (parity << PARITY_BYTE_2_BIT));
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_1 + mst_offset,
+			data);
+
+	/* HEADER BYTE 3 */
+	header = panel->hdr_data.shdr_header_byte3;
+	parity = dp_header_get_parity(header);
+	data   = ((header << HEADER_BYTE_3_BIT)
+			| (parity << PARITY_BYTE_3_BIT));
+	data |= dp_read(catalog->exe_mode, io_data,
+			MMSS_DP_VSCEXT_1 + mst_offset);
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_1 + mst_offset,
+			data);
+	memcpy(buf + off, &data, sizeof(data));
+	off += sizeof(data);
+
 	data = panel->hdr_data.version;
 	data |= panel->hdr_data.length << 8;
 	data |= hdr->eotf << 16;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_2 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_2 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -438,7 +489,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[0]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[0]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[0]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_3 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_3 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -447,7 +498,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[1]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[1]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[1]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_4 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_4 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -456,7 +507,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->display_primaries_x[2]) << 8) |
 		(DP_GET_LSB(hdr->display_primaries_y[2]) << 16) |
 		(DP_GET_MSB(hdr->display_primaries_y[2]) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_5 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_5 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -465,7 +516,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->white_point_x) << 8) |
 		(DP_GET_LSB(hdr->white_point_y) << 16) |
 		(DP_GET_MSB(hdr->white_point_y) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_6 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_6 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -474,7 +525,7 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->max_luminance) << 8) |
 		(DP_GET_LSB(hdr->min_luminance) << 16) |
 		(DP_GET_MSB(hdr->min_luminance) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_7 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_7 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
@@ -483,18 +534,18 @@ static void dp_catalog_panel_setup_infoframe_sdp(struct dp_catalog_panel *panel)
 		(DP_GET_MSB(hdr->max_content_light_level) << 8) |
 		(DP_GET_LSB(hdr->max_average_light_level) << 16) |
 		(DP_GET_MSB(hdr->max_average_light_level) << 24));
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_8 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_8 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
 	data = 0;
-	dp_write(catalog->exe_mode, io_data, MMSS_DP_VSCEXT_9 + mst_offset,
+	dp_write(catalog->exe_mode, io_data, MMSS_DP_GENERIC2_9 + mst_offset,
 			data);
 	memcpy(buf + off, &data, sizeof(data));
 	off += sizeof(data);
 
-	print_hex_dump(KERN_DEBUG, "[drm-dp] VSCEXT: ",
+	print_hex_dump(KERN_DEBUG, "[drm-dp] HDR: ",
 			DUMP_PREFIX_NONE, 16, 4, buf, off, false);
 }
 
@@ -658,25 +709,28 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en,
 				DP_MISC1_MISC0 + misc1_misc0_off);
 
 	if (en) {
-		/* VSCEXT_SDP_EN, GEN0_SDP_EN */
-		cfg |= BIT(16) | BIT(17);
-		dp_write(catalog->exe_mode, io_data,
-				MMSS_DP_SDP_CFG + sdp_cfg_off, cfg);
-
-		/* EXTN_SDPSIZE GENERIC0_SDPSIZE */
-		cfg2 |= BIT(15) | BIT(16);
-		dp_write(catalog->exe_mode, io_data,
-				MMSS_DP_SDP_CFG2 + sdp_cfg2_off, cfg2);
-
-		/* DHDR_EN, DHDR_PACKET_LIMIT */
 		if (dhdr_max_pkts) {
+			/* VSCEXT_SDP_EN */
+			cfg |= BIT(16);
+			/* DHDR_EN, DHDR_PACKET_LIMIT */
 			cfg4 = (dhdr_max_pkts << 1) | BIT(0);
 			dp_write(catalog->exe_mode, io_data, MMSS_DP_SDP_CFG4
 					+ sdp_cfg4_off, cfg4);
+			dp_catalog_panel_setup_vsif_infoframe_sdp(panel);
 		}
 
+		/* GEN0_SDP_EN, GEN2_SDP_EN */
+		cfg |= BIT(17) | BIT(19);
+		dp_write(catalog->exe_mode, io_data,
+				MMSS_DP_SDP_CFG + sdp_cfg_off, cfg);
+
+		/* GENERIC0_SDPSIZE GENERIC2_SDPSIZE */
+		cfg2 |= BIT(16) | BIT(20);
+		dp_write(catalog->exe_mode, io_data,
+				MMSS_DP_SDP_CFG2 + sdp_cfg2_off, cfg2);
+
 		dp_catalog_panel_setup_vsc_sdp(panel);
-		dp_catalog_panel_setup_infoframe_sdp(panel);
+		dp_catalog_panel_setup_hdr_infoframe_sdp(panel);
 
 		/* indicates presence of VSC (BIT(6) of MISC1) */
 		misc |= BIT(14);
@@ -687,12 +741,12 @@ static void dp_catalog_panel_config_hdr(struct dp_catalog_panel *panel, bool en,
 			pr_debug("Reset\n");
 	} else {
 		/* VSCEXT_SDP_EN, GEN0_SDP_EN */
-		cfg &= ~BIT(16) & ~BIT(17);
+		cfg &= ~BIT(16) & ~BIT(17) & ~BIT(19);
 		dp_write(catalog->exe_mode, io_data,
 				MMSS_DP_SDP_CFG + sdp_cfg_off, cfg);
 
-		/* EXTN_SDPSIZE GENERIC0_SDPSIZE */
-		cfg2 &= ~BIT(15) & ~BIT(16);
+		/* GENERIC0_SDPSIZE GENERIC2_SDPSIZE */
+		cfg2 &= ~BIT(16) & ~BIT(20);
 		dp_write(catalog->exe_mode, io_data,
 				MMSS_DP_SDP_CFG2 + sdp_cfg2_off, cfg2);
 

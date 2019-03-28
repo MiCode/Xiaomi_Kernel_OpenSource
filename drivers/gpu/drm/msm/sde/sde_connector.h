@@ -17,7 +17,7 @@
 #include "sde_fence.h"
 
 #define SDE_CONNECTOR_NAME_SIZE	16
-#define SDE_CONNECTOR_DHDR_MEMPOOL_MAX_SIZE	SZ_2K
+#define SDE_CONNECTOR_DHDR_MEMPOOL_MAX_SIZE	SZ_32
 
 struct sde_connector;
 struct sde_connector_state;

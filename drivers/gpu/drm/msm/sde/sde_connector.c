@@ -18,6 +18,7 @@
 #include "sde_rm.h"
 
 #define BL_NODE_NAME_SIZE 32
+#define HDR10_PLUS_VSIF_TYPE_CODE      0x81
 
 /* Autorefresh will occur after FRAME_CNT frames. Large values are unlikely */
 #define AUTOREFRESH_MAX_FRAME_CNT 6
@@ -1148,6 +1149,14 @@ static int _sde_connector_set_ext_hdr_info(
 			payload_size)) {
 		SDE_ERROR_CONN(c_conn, "failed to copy dhdr metadata\n");
 		rc = -EFAULT;
+		goto end;
+	}
+
+	/* verify 1st header byte, programmed in DP Infoframe SDP header */
+	if (payload_size < 1 || (payload[0] != HDR10_PLUS_VSIF_TYPE_CODE)) {
+		SDE_ERROR_CONN(c_conn, "invalid payload detected, size: %d\n",
+				payload_size);
+		rc = -EINVAL;
 		goto end;
 	}
 
