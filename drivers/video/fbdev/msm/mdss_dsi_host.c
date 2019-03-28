@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,13 +118,15 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 	init_completion(&ctrl->video_comp);
 	init_completion(&ctrl->dynamic_comp);
 	init_completion(&ctrl->bta_comp);
+	init_completion(&ctrl->db_mode_wait);
 	spin_lock_init(&ctrl->irq_lock);
 	spin_lock_init(&ctrl->mdp_lock);
 	mutex_init(&ctrl->mutex);
 	mutex_init(&ctrl->cmd_mutex);
 	mutex_init(&ctrl->clk_lane_mutex);
 	mutex_init(&ctrl->cmdlist_mutex);
-	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->tx_buf, SZ_4K);
+	mutex_init(&ctrl->dsi_ctrl_mutex);
+	spin_lock_init(&ctrl->db_mode_mutex);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->rx_buf, SZ_4K);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->status_buf, SZ_4K);
 	ctrl->cmdlist_commit = mdss_dsi_cmdlist_commit;
@@ -2177,11 +2180,42 @@ end:
 	return rp->read_cnt;
 }
 
+static int mdss_dsi_cmd_buff_offset(struct mdss_dsi_ctrl_pdata *ctrl,
+		dma_addr_t dma_addr, int len)
+{
+	u32 reg_val;
+	int ret = 0;
+
+	reg_val = MIPI_INP((ctrl->ctrl_base) + 0x1e8);
+	pr_debug("%s DB_MODE %x\n", __func__, reg_val);
+
+	/* if db mode is 1 wait for it to become 0 */
+	if (reg_val) {
+		ret = wait_for_completion_timeout(&ctrl->db_mode_wait,
+							DMA_TX_TIMEOUT);
+			MDSS_XLOG(reg_val, ret);
+	}
+
+	if (!ret) {
+		spin_lock(&ctrl->db_mode_mutex);
+		MIPI_OUTP((ctrl->ctrl_base) + 0x048, dma_addr);
+		MIPI_OUTP((ctrl->ctrl_base) + 0x04c, len);
+		/* ensure that buffer offset is programmed properly */
+		wmb();
+		spin_unlock(&ctrl->db_mode_mutex);
+
+		MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);
+		/* ensure cmd is triggered */
+		wmb();
+		}
+
+		return ret;
+}
+
 static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					struct dsi_buf *tp)
 {
 	int len, ret = 0;
-	int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 	char *bp;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 	int ignored = 0;	/* overflow ignored */
@@ -2190,20 +2224,6 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	len = ALIGN(tp->len, 4);
 	ctrl->dma_size = ALIGN(tp->len, SZ_4K);
-
-	ctrl->mdss_util->iommu_lock();
-	if (ctrl->mdss_util->iommu_attached()) {
-		ret = mdss_smmu_dsi_map_buffer(tp->dmap, domain, ctrl->dma_size,
-			&(ctrl->dma_addr), tp->start, DMA_TO_DEVICE);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("unable to map dma memory to iommu(%d)\n", ret);
-			ctrl->mdss_util->iommu_unlock();
-			return -ENOMEM;
-		}
-		ctrl->dmap_iommu_map = true;
-	} else {
-		ctrl->dma_addr = tp->dmap;
-	}
 
 	reinit_completion(&ctrl->dma_comp);
 
@@ -2219,9 +2239,10 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 				mdss_dsi_set_reg(mctrl, 0x10c,
 						0x0f0000, 0x0f0000);
 			}
-			MIPI_OUTP(mctrl->ctrl_base + 0x048, ctrl->dma_addr);
-			MIPI_OUTP(mctrl->ctrl_base + 0x04c, len);
-			MIPI_OUTP(mctrl->ctrl_base + 0x090, 0x01); /* trigger */
+			ret = mdss_dsi_cmd_buff_offset(mctrl,
+					ctrl->dma_addr, len);
+			if (ret)
+				goto end;
 		}
 	}
 
@@ -2231,9 +2252,9 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	/* send cmd to its panel */
-	MIPI_OUTP((ctrl->ctrl_base) + 0x048, ctrl->dma_addr);
-	MIPI_OUTP((ctrl->ctrl_base) + 0x04c, len);
-	wmb();
+	ret = mdss_dsi_cmd_buff_offset(ctrl, ctrl->dma_addr, len);
+	if (ret)
+		goto end;
 
 	/* schedule dma cmds at start of blanking region */
 	mdss_dsi_schedule_dma_cmd(ctrl);
@@ -2283,19 +2304,6 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			/* restore overflow isr */
 			mdss_dsi_set_reg(mctrl, 0x10c, 0x0f0000, 0);
 		}
-		if (mctrl->dmap_iommu_map) {
-			mdss_smmu_dsi_unmap_buffer(mctrl->dma_addr, domain,
-				mctrl->dma_size, DMA_TO_DEVICE);
-			mctrl->dmap_iommu_map = false;
-		}
-		mctrl->dma_addr = 0;
-		mctrl->dma_size = 0;
-	}
-
-	if (ctrl->dmap_iommu_map) {
-		mdss_smmu_dsi_unmap_buffer(ctrl->dma_addr, domain,
-			ctrl->dma_size, DMA_TO_DEVICE);
-		ctrl->dmap_iommu_map = false;
 	}
 
 	if (ignored) {
@@ -2304,10 +2312,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		/* restore overflow isr */
 		mdss_dsi_set_reg(ctrl, 0x10c, 0x0f0000, 0);
 	}
-	ctrl->dma_addr = 0;
-	ctrl->dma_size = 0;
+
 end:
-	ctrl->mdss_util->iommu_unlock();
 	return ret;
 }
 

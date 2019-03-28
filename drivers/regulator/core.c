@@ -57,8 +57,12 @@ static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
 static bool has_full_constraints;
+static u32 consumers_printing;
+static u32 only_enabled_regulator;
+static u32 debug_suspend;
 
 static struct dentry *debugfs_root;
+static struct dentry *print_debug;
 
 static struct class regulator_class;
 
@@ -4759,6 +4763,107 @@ static int regulator_summary_show(struct seq_file *s, void *data)
 	return 0;
 }
 
+static void regulator_print_subtree(struct regulator_dev *rdev, int levels);
+
+static int regulator_print_children(struct device *dev, void *data)
+{
+	struct regulator_dev *rdev = dev_to_rdev(dev);
+	struct summary_data *summary_data = data;
+
+	if (rdev->supply && rdev->supply->rdev == summary_data->parent)
+		regulator_print_subtree(rdev, summary_data->level + 1);
+
+	return 0;
+}
+
+static void regulator_print_subtree(struct regulator_dev *rdev, int level)
+{
+	struct regulation_constraints *c;
+	struct regulator *consumer;
+	struct summary_data summary_data;
+
+	if (!rdev)
+		return;
+
+	if (!_regulator_is_enabled(rdev) && only_enabled_regulator)
+		return;
+
+	c = rdev->constraints;
+	if (c) {
+		switch (rdev->desc->type) {
+		case REGULATOR_VOLTAGE:
+			pr_info("%*s%-*s%-15s %3d %4d %6d %5dmV %5dmA %5dmV %5dmV",
+				level * 3 + 1, "",
+				40 - level * 3, rdev_get_name(rdev),
+				_regulator_is_enabled(rdev) ? "enable" : "disabled",
+				rdev->use_count, rdev->open_count,
+				rdev->bypass_count,
+				_regulator_get_voltage(rdev) / 1000,
+				_regulator_get_current_limit(rdev) / 1000,
+				c->min_uV / 1000, c->max_uV / 1000);
+			break;
+		case REGULATOR_CURRENT:
+			pr_info("%*s%-*s%-15s %3d %4d %6d %5dmV %5dmA %5dmA %5dmA",
+				level * 3 + 1, "",
+				40 - level * 3, rdev_get_name(rdev),
+				_regulator_is_enabled(rdev) ? "enable" : "disabled",
+				rdev->use_count, rdev->open_count, rdev->bypass_count,
+				_regulator_get_voltage(rdev) / 1000,
+				_regulator_get_current_limit(rdev) / 1000,
+				c->min_uA / 1000, c->max_uA / 1000);
+			break;
+		}
+	}
+
+	if (consumers_printing) {
+		list_for_each_entry(consumer, &rdev->consumer_list, list) {
+			if (consumer->dev &&
+					consumer->dev->class == &regulator_class)
+				continue;
+			switch (rdev->desc->type) {
+			case REGULATOR_VOLTAGE:
+				pr_info("%*s%-*s %37dmV %5dmV",
+					(level + 1) * 3 + 1, "",
+					40 - (level + 1) * 3,
+					consumer->dev ? dev_name(consumer->dev) : "deviceless",
+					consumer->min_uV / 1000,
+					consumer->max_uV / 1000);
+				break;
+			case REGULATOR_CURRENT:
+				break;
+			}
+		}
+	}
+
+	summary_data.s = NULL;
+	summary_data.level = level;
+	summary_data.parent = rdev;
+
+	class_for_each_device(&regulator_class, NULL, &summary_data,
+			      regulator_print_children);
+}
+static int regulator_print_roots(struct device *dev, void *data)
+{
+	struct regulator_dev *rdev = dev_to_rdev(dev);
+
+	if (!rdev->supply)
+		regulator_print_subtree(rdev, 0);
+
+	return 0;
+}
+void regulator_print_stats(void)
+{
+	if (likely(!debug_suspend))
+		return;
+	pr_info(" regulator                               status \
+			use open bypass voltage current     min     max\n");
+	pr_info("----------------------------------------------- \
+			--------------------------------\n");
+
+	class_for_each_device(&regulator_class, NULL, NULL,
+				regulator_print_roots);
+}
+
 static int regulator_summary_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, regulator_summary_show, inode->i_private);
@@ -4789,6 +4894,19 @@ static int __init regulator_init(void)
 
 	debugfs_create_file("regulator_summary", 0444, debugfs_root,
 			    NULL, &regulator_summary_fops);
+
+	print_debug = debugfs_create_dir("print_debug", debugfs_root);
+	if (!print_debug)
+		pr_warn("regulator: Failed to create print_debug directory\n");
+
+	debugfs_create_u32("consumers_printing", 0660, print_debug,
+						&consumers_printing);
+
+	debugfs_create_u32("only_enabled_regulator", 0660,
+						print_debug, &only_enabled_regulator);
+
+	debugfs_create_u32("debug_suspend", 0660,
+						print_debug, &debug_suspend);
 
 	regulator_dummy_init();
 

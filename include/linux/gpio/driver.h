@@ -120,6 +120,7 @@ struct gpio_chip {
 
 	void			(*dbg_show)(struct seq_file *s,
 						struct gpio_chip *chip);
+	void			(*print_stats)(struct gpio_chip *chip);
 	int			base;
 	u16			ngpio;
 	struct gpio_desc	*desc;

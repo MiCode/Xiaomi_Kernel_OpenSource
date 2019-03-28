@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009-2011 Red Hat, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: Mikulas Patocka <mpatocka@redhat.com>
  *
@@ -1575,8 +1576,8 @@ static unsigned long
 dm_bufio_shrink_count(struct shrinker *shrink, struct shrink_control *sc)
 {
 	struct dm_bufio_client *c = container_of(shrink, struct dm_bufio_client, shrinker);
-	unsigned long count = READ_ONCE(c->n_buffers[LIST_CLEAN]) +
-			      READ_ONCE(c->n_buffers[LIST_DIRTY]);
+	unsigned long count = ACCESS_ONCE(c->n_buffers[LIST_CLEAN]) +
+			      ACCESS_ONCE(c->n_buffers[LIST_DIRTY]);
 	unsigned long retain_target = get_retain_buffers(c);
 
 	return (count < retain_target) ? 0 : (count - retain_target);

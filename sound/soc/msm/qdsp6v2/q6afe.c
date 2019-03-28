@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3775,6 +3776,8 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 	struct afe_loopback_cfg_v1 lb_param = {0};
 	struct param_hdr_v3 param_hdr = {0};
 	int ret = 0;
+	pr_debug("%s:  enter !!!rx_port[0x%x],    tx_port id[0x%x]\n",
+		__func__, rx_port, tx_port);
 
 	if (rx_port == MI2S_RX)
 		rx_port = AFE_PORT_ID_PRIMARY_MI2S_RX;

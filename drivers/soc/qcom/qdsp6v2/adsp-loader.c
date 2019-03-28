@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +129,7 @@ load_adsp:
 			}
 
 			priv->pil_h = subsystem_get("adsp");
+
 			if (IS_ERR(priv->pil_h)) {
 				dev_err(&pdev->dev, "%s: pil get failed,\n",
 					__func__);
@@ -232,6 +234,7 @@ static int adsp_loader_init_sysfs(struct platform_device *pdev)
 							__func__, ret);
 		goto error_return;
 	}
+
 
 	adsp_private = pdev;
 

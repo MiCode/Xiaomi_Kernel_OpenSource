@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +19,6 @@
 #include <linux/interrupt.h>
 
 struct subsys_device;
-extern struct bus_type subsys_bus_type;
 
 enum {
 	RESET_SOC = 0,

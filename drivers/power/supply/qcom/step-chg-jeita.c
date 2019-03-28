@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,25 +119,28 @@ static struct step_chg_cfg step_chg_config = {
 static struct jeita_fcc_cfg jeita_fcc_config = {
 	.psy_prop	= POWER_SUPPLY_PROP_TEMP,
 	.prop_name	= "BATT_TEMP",
-	.hysteresis	= 10, /* 1degC hysteresis */
+	.hysteresis	= 5, /* 0.5 degC hysteresis */
 	.fcc_cfg	= {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
-		{0,		100,		600000},
-		{101,		200,		2000000},
-		{201,		450,		3000000},
-		{451,		550,		600000},
+		{0,		50,		325000},
+		{51,		100,		1000000},
+		{101,		150,		1000000},
+		{151,		450,		3300000},
+		{451,		580,		1700000},
 	},
 };
 
 static struct jeita_fv_cfg jeita_fv_config = {
 	.psy_prop	= POWER_SUPPLY_PROP_TEMP,
 	.prop_name	= "BATT_TEMP",
-	.hysteresis	= 10, /* 1degC hysteresis */
+	.hysteresis	= 5, /* 0.5 degC hysteresis */
 	.fv_cfg		= {
 		/* TEMP_LOW	TEMP_HIGH	FCC */
-		{0,		100,		4200000},
-		{101,		450,		4400000},
-		{451,		550,		4200000},
+		{0,		50,		4400000},
+		{51,		100,		4400000},
+		{101,		150,		4400000},
+		{151,		450,		4400000},
+		{451,		580,		4100000},
 	},
 };
 
@@ -334,9 +338,10 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (!chip->fv_votable)
 		goto update_time;
 
-	vote(chip->fv_votable, JEITA_VOTER, true, fv_uv);
+	if (fv_uv > 0)
+		vote(chip->fv_votable, JEITA_VOTER, true, fv_uv);
 
-	pr_debug("%s = %d FCC = %duA FV = %duV\n",
+	pr_info("%s = %d FCC = %duA FV = %duV\n",
 		step_chg_config.prop_name, pval.intval, fcc_ua, fv_uv);
 
 update_time:
@@ -417,6 +422,34 @@ static int step_chg_register_notifier(struct step_chg_info *chip)
 	if (rc < 0) {
 		pr_err("Couldn't register psy notifier rc = %d\n", rc);
 		return rc;
+	}
+
+	return 0;
+}
+
+int qcom_soft_jeita_fcc_init(int critical_low_fcc, int cool_fcc, int normal_cool_fcc, int normal_fcc, int warm_fcc)
+{
+	if (the_chip == NULL) {
+		pr_err("Qcom soft jeita chip info is not initialized\n");
+		return -EINVAL;
+	}
+	if (the_chip->sw_jeita_enable) {
+		jeita_fcc_config.fcc_cfg[0].value = critical_low_fcc;
+		jeita_fcc_config.fcc_cfg[1].value = cool_fcc;
+		jeita_fcc_config.fcc_cfg[2].value = normal_cool_fcc;
+		jeita_fcc_config.fcc_cfg[3].value = normal_fcc;
+		jeita_fcc_config.fcc_cfg[4].value = warm_fcc;
+
+		pr_info("jeita_fcc_config.fcc_cfg[0].value: %d "
+				"jeita_fcc_config.fcc_cfg[1].value: %d "
+				"jeita_fcc_config.fcc_cfg[2].value: %d "
+				"jeita_fcc_config.fcc_cfg[3].value: %d "
+				"jeita_fcc_config.fcc_cfg[4].value: %d\n",
+				jeita_fcc_config.fcc_cfg[0].value,
+				jeita_fcc_config.fcc_cfg[1].value,
+				jeita_fcc_config.fcc_cfg[2].value,
+				jeita_fcc_config.fcc_cfg[3].value,
+				jeita_fcc_config.fcc_cfg[4].value);
 	}
 
 	return 0;
