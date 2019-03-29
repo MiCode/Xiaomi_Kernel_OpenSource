@@ -3453,6 +3453,7 @@
 #include "kona-cvp.dtsi"
 #include "kona-npu.dtsi"
 #include "kona-gpu.dtsi"
+#include "msm-qvr-external.dtsi"
 
 &qupv3_se15_i2c {
 	status = "ok";
