@@ -63,6 +63,7 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a650, a650_gbif },
 	{ adreno_is_a680, a640_gbif },
 	{ adreno_is_a612, a640_gbif },
+	{ adreno_is_a620, a650_gbif },
 };
 
 struct kgsl_hwcg_reg {
@@ -347,6 +348,57 @@ static const struct kgsl_hwcg_reg a650_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555},
 };
 
+static const struct kgsl_hwcg_reg a620_hwcg_regs[] = {
+	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x02222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP0, 0x00022222},
+	{A6XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP0, 0x00011111},
+	{A6XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
+	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x01002222},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU0, 0x00040F00},
+	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x25222022},
+	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005555},
+	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00000011},
+	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
+	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
+	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x00222222},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ_2, 0x00000002},
+	{A6XX_RBBM_CLOCK_MODE_HLSQ, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
+	{A6XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
+	{A6XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_TEX_FCHE, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_TEX_FCHE, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_TEX_FCHE, 0x00000777},
+	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
+	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
+	{A6XX_RBBM_ISDB_CNT, 0x00000182},
+	{A6XX_RBBM_RAC_THRESHOLD_CNT, 0x00000000},
+	{A6XX_RBBM_SP_HYST_CNT, 0x00000000},
+	{A6XX_RBBM_CLOCK_CNTL_GMU_GX, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_GMU_GX, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555},
+};
 
 static const struct kgsl_hwcg_reg a612_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
@@ -408,6 +460,7 @@ static const struct {
 	{adreno_is_a650, a650_hwcg_regs, ARRAY_SIZE(a650_hwcg_regs)},
 	{adreno_is_a680, a640_hwcg_regs, ARRAY_SIZE(a640_hwcg_regs)},
 	{adreno_is_a612, a612_hwcg_regs, ARRAY_SIZE(a612_hwcg_regs)},
+	{adreno_is_a620, a620_hwcg_regs, ARRAY_SIZE(a620_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
@@ -872,18 +925,17 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
 
 	/*
-	 * Program the GMEM VA range for the UCHE path.
-	 * From Kona onwards the GMEM VA address is 0, and
-	 * UCHE_GMEM_RANGE registers are no longer used, so we don't
-	 * have to program them.
+	 * Some A6xx targets no longer use a programmed GMEM base address
+	 * so only write the registers if a non zero address is given
+	 * in the GPU list
 	 */
-	if (!adreno_is_a650(adreno_dev)) {
+	if (adreno_dev->gpucore->gmem_base) {
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_LO,
-					ADRENO_UCHE_GMEM_BASE);
+				adreno_dev->gpucore->gmem_base);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_LO,
-					ADRENO_UCHE_GMEM_BASE +
-					adreno_dev->gmem_size - 1);
+				adreno_dev->gpucore->gmem_base +
+				adreno_dev->gpucore->gmem_size - 1);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 	}
 
@@ -970,7 +1022,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	mal = (mal == 64) ? 1 : 0;
 
-	uavflagprd_inv = (adreno_is_a650(adreno_dev)) ? 2 : 0;
+	uavflagprd_inv = (adreno_is_a650_family(adreno_dev)) ? 2 : 0;
 
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (rgb565_predicator << 11)|
 				(upper_bit << 10) | (amsbc << 4) | (mal << 3) |
@@ -989,8 +1041,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Set hang detection threshold to 0x3FFFFF * 16 cycles */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					(1 << 30) | 0x3fffff);
-	if (adreno_is_a650(adreno_dev))
-		kgsl_regwrite(device, A6XX_RBBM_NC_MODE_CNTL, 1);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
@@ -1292,7 +1342,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	 * so we can come out of secure mode and CP does not drop
 	 * the packet.
 	 */
-	if (adreno_is_a650(adreno_dev))
+	if (adreno_is_a650_family(adreno_dev))
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, (1 << 2));
 
 	/* Clear the SQE_HALT to start the CP engine */
@@ -1705,7 +1755,9 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 		gpu_cntl1_val = (gpu_cntl1_val << A6XX_GPU_LLC_SCID_NUM_BITS)
 			| gpu_scid;
 
-	if (adreno_is_a640_family(adreno_dev) || adreno_is_a612(adreno_dev)) {
+	if (adreno_is_a640_family(adreno_dev) ||
+			adreno_is_a612(adreno_dev) ||
+			adreno_is_a650_family(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {

@@ -67,7 +67,6 @@ static struct adreno_device device_3d0 = {
 		.shadermemname = "kgsl_3d0_shader_memory",
 		.ftbl = &adreno_functable,
 	},
-	.gmem_size = SZ_256K,
 	.ft_policy = KGSL_FT_DEFAULT_POLICY,
 	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
 	.long_ib_detect = 1,
@@ -799,13 +798,6 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 			adreno_dev->gpucore->patchid);
 		return -ENODEV;
 	}
-
-	/*
-	 * The gmem size might be dynamic when ocmem is involved so copy it out
-	 * of the gpu device
-	 */
-
-	adreno_dev->gmem_size = adreno_dev->gpucore->gmem_size;
 
 	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
@@ -2284,8 +2276,8 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 		.device_id = device->id + 1,
 		.chip_id = adreno_dev->chipid,
 		.mmu_enabled = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED),
-		.gmem_gpubaseaddr = adreno_dev->gmem_base,
-		.gmem_sizebytes = adreno_dev->gmem_size,
+		.gmem_gpubaseaddr = adreno_dev->gpucore->gmem_base,
+		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
 
 	return copy_prop(value, count, &devinfo, sizeof(devinfo));
@@ -2358,12 +2350,7 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 		u32 type, void __user *value, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	u64 vaddr;
-
-	if (ADRENO_GPUREV(adreno_dev) >= 500 && !(adreno_is_a650(adreno_dev)))
-		vaddr = ADRENO_UCHE_GMEM_BASE;
-	else
-		vaddr = 0;
+	u64 vaddr = adreno_dev->gpucore->gmem_base;
 
 	return copy_prop(value, count, &vaddr, sizeof(vaddr));
 }

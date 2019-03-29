@@ -93,7 +93,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 		seq_offset = 0x280000;
 	}
 
-	if (adreno_is_a650(adreno_dev))
+	if (adreno_is_a650_family(adreno_dev))
 		rscc = adreno_dev->rscc_virt;
 	else
 		rscc = device->gmu_core.reg_virt + 0x23000;
@@ -163,7 +163,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(rscc, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
 	/* Load RSC sequencer uCode for sleep and wakeup */
-	if (adreno_is_a650(adreno_dev)) {
+	if (adreno_is_a650_family(adreno_dev)) {
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xEAAAE5A0);
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 1, 0xE1A1EBAB);
 		_regwrite(rscc, A6XX_RSCC_SEQ_MEM_0_DRV0 + 2, 0xA2E0A581);

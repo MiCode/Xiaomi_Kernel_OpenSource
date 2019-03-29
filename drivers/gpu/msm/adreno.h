@@ -174,8 +174,6 @@
  */
 #define ADRENO_IDLE_TIMEOUT (20 * 1000)
 
-#define ADRENO_UCHE_GMEM_BASE	0x100000
-
 #define ADRENO_FW_PFP 0
 #define ADRENO_FW_SQE 0
 #define ADRENO_FW_PM4 1
@@ -206,6 +204,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A616 = 616,
 	ADRENO_REV_A618 = 618,
+	ADRENO_REV_A620 = 620,
 	ADRENO_REV_A630 = 630,
 	ADRENO_REV_A640 = 640,
 	ADRENO_REV_A650 = 650,
@@ -349,6 +348,7 @@ struct adreno_device_private {
  * @pfpfw_name: Filename for the PFP firmware
  * @zap_name: Filename for the Zap Shader ucode
  * @gpudev: Pointer to the GPU family specific functions for this core
+ * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @shader_offset: Offset of shader from gpu reg base
  * @shader_size: Shader size
@@ -373,6 +373,7 @@ struct adreno_gpu_core {
 	const char *sqefw_name;
 	const char *zap_name;
 	struct adreno_gpudev *gpudev;
+	unsigned long gmem_base;
 	size_t gmem_size;
 	unsigned long shader_offset;
 	unsigned int shader_size;
@@ -402,8 +403,6 @@ enum gpu_coresight_sources {
  * @dev: Reference to struct kgsl_device
  * @priv: Holds the private flags specific to the adreno_device
  * @chipid: Chip ID specific to the GPU
- * @gmem_base: Base physical address of GMEM
- * @gmem_size: GMEM size
  * @cx_misc_len: Length of the CX MISC register block
  * @cx_misc_virt: Pointer where the CX MISC block is mapped
  * @rscc_base: Base physical address of the RSCC
@@ -484,8 +483,6 @@ struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
 	unsigned int chipid;
-	unsigned long gmem_base;
-	unsigned long gmem_size;
 	unsigned long cx_dbgc_base;
 	unsigned int cx_dbgc_len;
 	void __iomem *cx_dbgc_virt;
@@ -1231,6 +1228,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
+ADRENO_TARGET(a620, ADRENO_REV_A620)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a650, ADRENO_REV_A650)
@@ -1248,12 +1246,29 @@ static inline int adreno_is_a615_family(struct adreno_device *adreno_dev)
 			rev == ADRENO_REV_A618);
 }
 
+/*
+ * Derived GPUs from A640 needs to be added to this list.
+ * A640 and A680 belongs to this family.
+ */
 static inline int adreno_is_a640_family(struct adreno_device *adreno_dev)
 {
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
-	return (rev == ADRENO_REV_A640 || rev == ADRENO_REV_A650 ||
-			rev == ADRENO_REV_A680);
+	return (rev == ADRENO_REV_A640 || rev == ADRENO_REV_A680);
+}
+
+/*
+ * Derived GPUs from A650 needs to be added to this list.
+ * A650 is derived from A640 but register specs has been
+ * changed hence do not belongs to A640 family. A620,
+ * A660, A690 follows the register specs of A650.
+ *
+ */
+static inline int adreno_is_a650_family(struct adreno_device *adreno_dev)
+{
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	return (rev == ADRENO_REV_A650 || rev == ADRENO_REV_A620);
 }
 
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
