@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -626,7 +626,14 @@ static inline enum sde_crtc_client_type sde_crtc_get_client_type(
  */
 static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
 {
-	return crtc ? crtc->enabled : false;
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return false;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	return sde_crtc->enabled;
 }
 
 /**
