@@ -7,6 +7,7 @@ Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
         - "qcom,kona-vidc" : Invokes driver specific data for KONA.
+        - "qcom,lito-vidc" : Invokes driver specific data for LITO.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
