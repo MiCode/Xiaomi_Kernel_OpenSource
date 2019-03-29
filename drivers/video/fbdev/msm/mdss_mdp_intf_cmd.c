@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3232,6 +3232,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
 	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct mdss_panel_data *pdata;
 	bool panel_off = false;
 	bool turn_off_clocks = false;
 	bool send_panel_events = false;
@@ -3242,6 +3243,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		return -ENODEV;
 	}
 
+	pdata = ctl->panel_data;
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx)) {
 		pr_debug("%s: panel already off\n", __func__);
 		return 0;
@@ -3278,7 +3280,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		send_panel_events = true;
 		if (mdss_panel_is_power_on_ulp(panel_power_state)) {
 			turn_off_clocks = true;
-		} else if (atomic_read(&ctx->koff_cnt)) {
+		} else if (atomic_read(&ctx->koff_cnt) &&
+				!pdata->panel_info.panel_dead) {
 			/*
 			 * Transition from interactive to low power
 			 * Wait for kickoffs to finish
