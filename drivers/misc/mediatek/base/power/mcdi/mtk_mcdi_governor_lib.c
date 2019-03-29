@@ -34,24 +34,38 @@
 #define mdelay_and_update_wait_time(dur, t) \
 		{ mdelay(t); (dur) += (1000 * (t)); }
 
-static void __release_last_core_prot(void)
+static void __release_last_core_prot(unsigned int clr)
 {
 	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
 			MCDI_SMC_EVENT_LAST_CORE_CLR,
-			0, 0, 0);
+			clr, 0, 0);
 }
 
 void release_last_core_prot(void)
 {
-	__release_last_core_prot();
+	__release_last_core_prot(1U << 9);
+	mcdi_cpc_auto_off_counter_resume();
 }
 
 void release_cluster_last_core_prot(void)
 {
+	if (cpc_cpusys_off_hw_prot())
+		return;
+
 	/* Avoid the mask was not cleared while ATF abort */
 	if (mcdi_read(CPC_PWR_ON_MASK))
-		__release_last_core_prot();
+		__release_last_core_prot(1U << 8);
 }
+
+#ifdef NON_SECURE_REQ
+#define last_core_req(req)	mcdi_write(CPC_LAST_CORE_REQ, req)
+#else
+#define last_core_req(req)					\
+		mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,	\
+				MCDI_SMC_EVENT_LAST_CORE_REQ,	\
+				req,				\
+				0, 0)
+#endif
 
 int acquire_last_core_prot(int cpu)
 {
@@ -59,14 +73,12 @@ int acquire_last_core_prot(int cpu)
 	unsigned int dur_us = 0;
 
 	do {
-		mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
-				MCDI_SMC_EVENT_LAST_CORE_REQ,
-				mcusys_last_core_req,
-				0, 0);
+		last_core_req(mcusys_last_core_req);
 
 		udelay_and_update_wait_time(dur_us, 2);
 
 		if (!is_last_core_in_mcusys(cpu) || dur_us > 1000) {
+			__release_last_core_prot(1U << 9);
 			ret = CPC_RET_GIVE_UP;
 			break;
 		}
@@ -76,10 +88,14 @@ int acquire_last_core_prot(int cpu)
 
 	} while (ret == CPC_RET_RETRY);
 
-	if (ret == CPC_RET_GIVE_UP)
+	if (ret == CPC_RET_SUCCESS) {
+		mcdi_cpc_auto_off_counter_suspend();
+		return 0;
+	} else if (ret == CPC_RET_GIVE_UP) {
 		any_core_cpu_cond_inc(MULTI_CORE_CNT);
+	}
 
-	return ret == CPC_RET_SUCCESS ? 0 : -1;
+	return -1;
 }
 
 int acquire_cluster_last_core_prot(int cpu)
@@ -87,15 +103,16 @@ int acquire_cluster_last_core_prot(int cpu)
 	unsigned int ret;
 	unsigned int dur_us = 0;
 
+	if (cpc_cpusys_off_hw_prot())
+		return 0;
+
 	do {
-		mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
-				MCDI_SMC_EVENT_LAST_CORE_REQ,
-				cpusys_last_core_req,
-				0, 0);
+		last_core_req(cpusys_last_core_req);
 
 		udelay_and_update_wait_time(dur_us, 2);
 
 		if (!is_last_core_in_cluster(cpu) || dur_us > 1000) {
+			__release_last_core_prot(1U << 8);
 			ret = CPC_RET_GIVE_UP;
 			break;
 		}

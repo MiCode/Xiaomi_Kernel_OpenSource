@@ -35,7 +35,7 @@ struct mtk_mcdi_buf {
 #define reset_mcdi_buf(mcdi) ((mcdi).p_idx = (mcdi).buf)
 #define get_mcdi_buf(mcdi)   ((mcdi).buf)
 #define mcdi_buf_append(mcdi, fmt, args...)           \
-	((mcdi).p_idx += snprintf((mcdi).p_idx,           \
+	((mcdi).p_idx += scnprintf((mcdi).p_idx,           \
 					LOG_BUF_LEN - strlen((mcdi).buf), \
 					fmt, ##args))
 
@@ -56,6 +56,12 @@ static const struct file_operations mcdi_ ## name ## _fops = {		\
 	.llseek	= seq_lseek,						\
 	.release = single_release,					\
 }
+#define PROC_CREATE_MCDI(parent, name)					\
+do {									\
+	if (!proc_create(#name, 0644, parent, &mcdi_ ## name ## _fops))	\
+		pr_notice("%s(), create /proc/mcdi/%s failed\n",	\
+			__func__, #name);				\
+} while (0)
 
 unsigned int mcdi_mbox_read(int id);
 void mcdi_mbox_write(int id, unsigned int val);
