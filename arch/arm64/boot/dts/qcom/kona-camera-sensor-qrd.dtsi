@@ -41,6 +41,18 @@
 		rgltr-load-current = <100000>;
 	};
 
+	actuator_rear_aux: qcom,actuator1 {
+		cell-index = <1>;
+		compatible = "qcom,actuator";
+		cci-master = <1>;
+		cam_vaf-supply = <&pm8150a_l7>;
+		regulator-names = "cam_vaf";
+		rgltr-cntrl-support;
+		rgltr-min-voltage = <2856000>;
+		rgltr-max-voltage = <3104000>;
+		rgltr-load-current = <100000>;
+	};
+
 	eeprom_rear: qcom,eeprom0 {
 		cell-index = <0>;
 		compatible = "qcom,eeprom";
@@ -168,6 +180,7 @@
 		sensor-position-yaw = <180>;
 		eeprom-src = <&eeprom_rear_aux>;
 		led-flash-src = <&led_flash_rear_aux>;
+		actuator-src = <&actuator_rear_aux>;
 		cam_bob-supply = <&pm8150a_bob>;
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_vio-supply = <&pm8009_l7>;
