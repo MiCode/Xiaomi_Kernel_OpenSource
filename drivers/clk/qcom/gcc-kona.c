@@ -3891,13 +3891,12 @@ static struct clk_branch gcc_video_ahb_clk = {
 
 static struct clk_branch gcc_video_axi0_clk = {
 	.halt_reg = 0xb024,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb024,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi0_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3905,13 +3904,12 @@ static struct clk_branch gcc_video_axi0_clk = {
 
 static struct clk_branch gcc_video_axi1_clk = {
 	.halt_reg = 0xb028,
-	.halt_check = BRANCH_HALT_SKIP,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb028,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi1_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
