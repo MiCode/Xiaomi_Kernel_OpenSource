@@ -38,10 +38,6 @@ __weak void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp)
 {
 }
 
-__weak void aee_trigger_kdb(void)
-{
-}
-
 __weak struct aee_oops *aee_oops_create(enum AE_DEFECT_ATTR attr,
 				enum AE_EXP_CLASS clazz, const char *module)
 {
