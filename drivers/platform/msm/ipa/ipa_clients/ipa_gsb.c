@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -62,7 +62,7 @@ static char dbg_buff[IPA_GSB_MAX_MSG_LEN];
 #define IPA_GSB_SKB_HEADROOM 256
 #define IPA_GSB_SKB_DUMMY_HEADER 42
 #define IPA_GSB_AGGR_BYTE_LIMIT 14
-#define IPA_GSB_AGGR_TIME_LIMIT 1
+#define IPA_GSB_AGGR_TIME_LIMIT 1000 /* 1000 us */
 
 static struct dentry *dent;
 static struct dentry *dfile_stats;
