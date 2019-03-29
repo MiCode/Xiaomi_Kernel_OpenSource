@@ -620,6 +620,8 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 {
 	bool is_mst_receiver;
 	struct dp_mst_hpd_info info;
+	const int clear_mstm_ctrl_timeout = 100000;
+	u8 old_mstm_ctrl;
 	int ret;
 
 	if (!dp->parser->has_mst || !dp->mst.drm_registered) {
@@ -639,7 +641,17 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 		}
 
 		/* clear sink mst state */
+		drm_dp_dpcd_readb(dp->aux->drm_aux, DP_MSTM_CTRL,
+				&old_mstm_ctrl);
 		drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
+
+		/* add extra delay if MST state is not cleared */
+		if (old_mstm_ctrl) {
+			DP_MST_DEBUG("MSTM_CTRL is not cleared, wait %dus\n",
+					clear_mstm_ctrl_timeout);
+			usleep_range(clear_mstm_ctrl_timeout,
+				clear_mstm_ctrl_timeout + 1000);
+		}
 
 		ret = drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL,
 				 DP_MST_EN | DP_UP_REQ_EN | DP_UPSTREAM_IS_SRC);
