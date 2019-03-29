@@ -315,7 +315,8 @@ int sched_get_nr_running_avg(int *avg, int *iowait_avg)
 
 	if (!diff)
 		return 0;
-	WARN(diff < 0, "[%s] time last:%llu curr:%llu ",
+	if (diff < 0)
+		printk_deferred("[%s] time last:%llu curr:%llu ",
 		__func__, last_get_time, curr_time);
 
 	old_lgt = last_get_time;
@@ -348,24 +349,26 @@ int sched_get_nr_running_avg(int *avg, int *iowait_avg)
 	if (clk_faulty) {
 		*avg = 0;
 		*iowait_avg = 0;
-		pr_info("[%s] **** CPU (0x%08x)clock may unstable !!\n",
-					__func__, cpumask);
+		printk_deferred("[%s] **** CPU (0x%08x)clock may unstable !!\n",
+		__func__, cpumask);
 		return 0;
 	}
 
 	*avg = (int)div64_u64(tmp_avg * 100, (u64) diff);
 	*iowait_avg = (int)div64_u64(tmp_iowait * 100, (u64) diff);
 
-	WARN(*avg < 0,
-		"[%s] avg:%d(%llu/%lld), time last:%llu curr:%llu ",
-		__func__, *avg, tmp_avg, diff, old_lgt, curr_time);
-	if (unlikely(*avg < 0))
+	if (unlikely(*avg < 0)) {
+		printk_deferred("[%s] avg:%d(%llu/%lld), time last:%llu curr:%llu ",
+		__func__,
+		*avg, tmp_avg, diff, old_lgt, curr_time);
 		*avg = 0;
-	WARN(*iowait_avg < 0,
-		"[%s] iowait_avg:%d(%llu/%lld) time last:%llu curr:%llu ",
-		__func__, *iowait_avg, tmp_iowait, diff, old_lgt, curr_time);
-	if (unlikely(*iowait_avg < 0))
+	}
+	if (unlikely(*iowait_avg < 0)) {
+		printk_deferred("[%s] iowait_avg:%d(%llu/%lld) time last:%llu curr:%llu ",
+		__func__,
+		*iowait_avg, tmp_iowait, diff, old_lgt, curr_time);
 		*iowait_avg = 0;
+	}
 
 	return scaled_tlp*100;
 }
@@ -382,14 +385,15 @@ int reset_heavy_task_stats(int cpu)
 	spin_lock_irqsave(&per_cpu(nr_heavy_lock, cpu), flags);
 	nr_heavy_tasks = per_cpu(nr_heavy, cpu);
 	if (nr_heavy_tasks) {
-		pr_info(
+		printk_deferred(
 		"[heavy_task] %s: nr_heavy_tasks=%d in cpu%d\n", __func__,
 		nr_heavy_tasks, cpu);
 		per_cpu(nr_heavy, cpu) = 0;
 	}
 	if (cpu_overutil->nr_overutil_l != 0 ||
 		cpu_overutil->nr_overutil_h != 0) {
-		pr_info("[over-utiled task] %s: nr_overutil_l=%d nr_overutil_h=%d\n",
+		printk_deferred(
+			"[over-utiled task] %s: nr_overutil_l=%d nr_overutil_h=%d\n",
 			__func__,
 			cpu_overutil->nr_overutil_l,
 			cpu_overutil->nr_overutil_h);
@@ -491,8 +495,9 @@ void overutil_thresh_chg_notify(void)
 					overutil_threshold)/100;
 			cpu_overutil->overutil_thresh_h = INT_MAX;
 		} else
-			pr_info("%s: cid=%d is out of nr=%d\n", __func__,
-				cid, cluster_nr);
+			printk_deferred("%s: cid=%d is out of nr=%d\n",
+			__func__,
+			cid, cluster_nr);
 		spin_unlock(&per_cpu(nr_heavy_lock, cpu)); /* heavy-unlock */
 
 		/* pick next cpu if not online */
@@ -556,7 +561,8 @@ int sched_get_nr_heavy_running_avg(int cluster_id, int *avg)
 	/* cluster_id  need reasonale. */
 	cluster_nr = arch_get_nr_clusters();
 	if (cluster_id < 0 || cluster_id >= cluster_nr) {
-		pr_info("[%s] invalid cluster id %d\n", __func__, cluster_id);
+		printk_deferred("[%s] invalid cluster id %d\n",
+			__func__, cluster_id);
 		return -1;
 	}
 
@@ -695,7 +701,8 @@ int sched_get_nr_overutil_avg(int cluster_id, int *l_avg, int *h_avg)
 	/* cluster_id  need reasonale. */
 	cluster_nr = arch_get_nr_clusters();
 	if (cluster_id < 0 || cluster_id >= cluster_nr) {
-		pr_info("[%s] invalid cluster id %d\n", __func__, cluster_id);
+		printk_deferred("[%s] invalid cluster id %d\n",
+		__func__, cluster_id);
 		return -1;
 	}
 
@@ -923,7 +930,10 @@ void sched_update_nr_prod(int cpu, unsigned long nr_running, int inc)
 	per_cpu(last_time, cpu) = curr_time;
 	per_cpu(nr, cpu) = nr_running + inc;
 
-	WARN_ON(per_cpu(nr, cpu) < 0);
+	if (per_cpu(nr, cpu) < 0)
+		printk_deferred("assertion failed at %s:%d\n",
+		__FILE__,
+		__LINE__);
 
 	per_cpu(nr_prod_sum, cpu) += nr_running * diff;
 	per_cpu(iowait_prod_sum, cpu) += nr_iowait_cpu(cpu) * diff;
@@ -975,7 +985,9 @@ void sched_update_nr_heavy_prod(int invoker, struct task_struct *p,
 	if (!init_heavy) {
 		init_heavy_tlb();
 		if (!init_heavy) {
-			WARN_ON(!init_heavy);
+			printk_deferred("assertion failed at %s:%d\n",
+			__FILE__,
+			__LINE__);
 			return;
 		}
 	}
@@ -1073,7 +1085,7 @@ static int init_heavy_tlb(void)
 #else
 		int overutil_threshold = 1024;
 #endif
-		pr_info("%s start.\n", __func__);
+		printk_deferred("%s start.\n", __func__);
 
 		gb_task_util = 0;
 		gb_task_pid = 0;
@@ -1134,10 +1146,10 @@ static int init_heavy_tlb(void)
 					overutil_threshold)/100;
 				cpu_overutil->overutil_thresh_h = INT_MAX;
 			} else
-				pr_info("%s: cid=%d is out of nr=%d\n",
+				printk_deferred("%s: cid=%d is out of nr=%d\n",
 					__func__, cid, cluster_nr);
 
-			pr_info("%s: cpu=%d thresh_l=%d thresh_h=%d max_capaicy=%lu\n",
+			printk_deferred("%s: cpu=%d thresh_l=%d thresh_h=%d max_capaicy=%lu\n",
 				__func__, tmp_cpu,
 				cpu_overutil->overutil_thresh_l,
 				cpu_overutil->overutil_thresh_h,
