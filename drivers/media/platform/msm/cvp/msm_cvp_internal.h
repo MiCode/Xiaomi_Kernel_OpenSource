@@ -412,6 +412,7 @@ struct msm_cvp_inst {
 	struct kref kref;
 	struct msm_cvp_codec_data *codec_data;
 	struct batch_mode batch;
+	unsigned long deprecate_bitmask;
 };
 
 extern struct msm_cvp_drv *cvp_driver;

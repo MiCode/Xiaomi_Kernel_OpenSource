@@ -130,10 +130,12 @@ static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
-static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
+static int convert_from_user(struct cvp_kmd_arg *kp,
+		unsigned long arg,
+		struct msm_cvp_inst *inst)
 {
 	int rc = 0;
-	int i;
+	int i, bit_offset;
 	struct cvp_kmd_arg __user *up = compat_ptr(arg);
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
@@ -144,6 +146,13 @@ static int convert_from_user(struct cvp_kmd_arg *kp, unsigned long arg)
 
 	if (get_user(kp->type, &up->type))
 		return -EFAULT;
+
+	if (kp->type == CVP_KMD_HFI_DFS_FRAME_CMD ||
+			kp->type == CVP_KMD_HFI_DME_FRAME_CMD ||
+			kp->type == CVP_KMD_HFI_PERSIST_CMD) {
+		bit_offset = kp->type - CVP_KMD_CMD_START;
+		set_bit(bit_offset, &inst->deprecate_bitmask);
+	}
 
 	switch (kp->type) {
 	case CVP_KMD_GET_SESSION_INFO:
@@ -443,7 +452,7 @@ long msm_cvp_v4l2_private(struct file *filp,
 	 * to be converted to kernel space before using it.
 	 * Check do_video_ioctl() for more details.
 	 */
-	if (convert_from_user(&karg, arg)) {
+	if (convert_from_user(&karg, arg, inst)) {
 		dprintk(CVP_ERR, "%s: failed to get from user cmd %x\n",
 			__func__, karg.type);
 		return -EFAULT;

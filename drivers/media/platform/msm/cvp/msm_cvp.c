@@ -520,7 +520,7 @@ static int msm_cvp_session_process_hfi_fence(
 	int rc = 0;
 	char thread_fence_name[32];
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
 	if (!inst || !inst->core || !arg) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
@@ -567,7 +567,7 @@ static int msm_cvp_session_cvp_dme_frame_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
 
 	if (!inst || !inst->core || !dme_frame) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -588,7 +588,7 @@ static int msm_cvp_session_cvp_persist_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %d", __func__, inst);
+	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
 
 	if (!inst || !inst->core || !pbuf_cmd) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
