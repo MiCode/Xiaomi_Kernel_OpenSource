@@ -42,6 +42,7 @@
 #define DEFAULT_PANEL_JITTER_ARRAY_SIZE		2
 #define MAX_PANEL_JITTER		10
 #define DEFAULT_PANEL_PREFILL_LINES	25
+#define TICKS_IN_MICRO_SECOND		1000000
 
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
@@ -2431,12 +2432,15 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 
 
 static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
-				struct dsi_parser_utils *utils)
+		struct dsi_parser_utils *utils, enum dsi_op_mode panel_mode)
 {
 	const char *data;
 	u32 len, i;
 	int rc = 0;
 	struct dsi_display_mode_priv_info *priv_info;
+	u64 h_period, v_period;
+	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
+	struct dsi_mode_info *timing = NULL;
 
 	priv_info = mode->priv_info;
 
@@ -2456,9 +2460,24 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 		priv_info->phy_timing_len = len;
 	};
 
-	mode->pixel_clk_khz = (DSI_H_TOTAL_DSC(&mode->timing) *
-			DSI_V_TOTAL(&mode->timing) *
-			mode->timing.refresh_rate) / 1000;
+	timing = &mode->timing;
+	if (!timing) {
+		pr_err("timing is null\n");
+		return -EINVAL;
+	}
+
+	if (panel_mode == DSI_OP_CMD_MODE) {
+		h_period = DSI_H_ACTIVE_DSC(timing);
+		v_period = timing->v_active;
+		do_div(refresh_rate, timing->mdp_transfer_time_us);
+	} else {
+		h_period = DSI_H_TOTAL_DSC(timing);
+		v_period = DSI_V_TOTAL(timing);
+		refresh_rate = timing->refresh_rate;
+	}
+
+	mode->pixel_clk_khz = (h_period * v_period * refresh_rate) / 1000;
+
 	return rc;
 }
 
@@ -3497,7 +3516,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			pr_err(
 			"failed to parse panel jitter config, rc=%d\n", rc);
 
-		rc = dsi_panel_parse_phy_timing(mode, utils);
+		rc = dsi_panel_parse_phy_timing(mode, utils, panel->panel_mode);
 		if (rc) {
 			pr_err(
 			"failed to parse panel phy timings, rc=%d\n", rc);
