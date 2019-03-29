@@ -11300,8 +11300,10 @@ out_unlock:
 	busiest_rq->active_balance = 0;
 	rq_unlock(busiest_rq, &rf);
 
-	if (p)
+	if (p) {
 		attach_one_task(target_rq, p);
+		clear_reserved(target_cpu);
+	}
 
 	local_irq_enable();
 
@@ -11862,10 +11864,11 @@ static void rq_offline_fair(struct rq *rq)
 }
 
 static DEFINE_RAW_SPINLOCK(migration_lock);
-void check_for_rotation(struct rq *rq, struct task_struct *p)
+void check_for_migration(struct rq *rq, struct task_struct *p)
 {
 	int new_cpu;
 	int cpu = task_cpu(p);
+	int force = 0;
 
 	if (rq->misfit_task_load) {
 		if (rq->curr->state != TASK_RUNNING ||
@@ -11876,7 +11879,17 @@ void check_for_rotation(struct rq *rq, struct task_struct *p)
 		rcu_read_lock();
 		new_cpu = select_task_rq_fair(p, cpu, SD_BALANCE_WAKE, 0, 1);
 		rcu_read_unlock();
-		if (capacity_orig_of(new_cpu) <= capacity_orig_of(cpu))
+		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu) &&
+				!should_hmp(cpu)) {
+#if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
+			mark_reserved(new_cpu);
+			raw_spin_unlock(&migration_lock);
+			get_task_struct(p);
+			force = migrate_running_task(new_cpu, p, rq);
+			put_task_struct(p);
+			return;
+#endif
+		} else if (capacity_orig_of(new_cpu) <=  capacity_orig_of(cpu))
 			task_check_for_rotation(rq);
 		raw_spin_unlock(&migration_lock);
 	}

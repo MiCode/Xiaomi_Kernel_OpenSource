@@ -60,7 +60,7 @@ inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p);
 #define HEAVY_TASK_NUM  4
 
 extern void task_rotate_work_init(void);
-extern void check_for_rotation(struct rq *rq, struct task_struct *p);
+extern void check_for_migration(struct rq *rq, struct task_struct *p);
 extern void task_check_for_rotation(struct rq *rq);
 extern void set_sched_rotation_enable(bool enable);
 
