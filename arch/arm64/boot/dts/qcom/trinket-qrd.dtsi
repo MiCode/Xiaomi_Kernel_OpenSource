@@ -306,7 +306,6 @@
 	qcom,bl-pmic-pwm-period-usecs = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-bl-default-level = <102>;
 	qcom,platform-te-gpio = <&tlmm 89 0>;
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
@@ -318,7 +317,6 @@
 	qcom,bl-pmic-pwm-period-usecs = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-bl-default-level = <102>;
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
 
