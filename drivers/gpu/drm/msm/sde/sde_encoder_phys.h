@@ -287,6 +287,7 @@ struct sde_encoder_irq {
  * @pending_retire_fence_cnt:   Atomic counter tracking the pending retire
  *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
+ * @ctlstart_timeout:		Indicates if ctl start timeout occurred
  * @irq:			IRQ tracking structures
  * @has_intf_te:		Interface TE configuration support
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
@@ -328,6 +329,7 @@ struct sde_encoder_phys {
 	atomic_t pending_ctlstart_cnt;
 	atomic_t pending_kickoff_cnt;
 	atomic_t pending_retire_fence_cnt;
+	atomic_t ctlstart_timeout;
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 	bool has_intf_te;
