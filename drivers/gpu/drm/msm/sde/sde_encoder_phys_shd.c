@@ -132,7 +132,14 @@ static void sde_encoder_phys_shd_vblank_irq(void *arg, int irq_idx)
 
 	shd_ctl = container_of(hw_ctl, struct sde_shd_hw_ctl, base);
 
-	if ((flush_register & shd_ctl->flush_mask) == 0)
+	/*
+	 * When bootloader's splash is presented, as bootloader is concurrently
+	 * flushing hardware pipes, so when checking flush_register, we need
+	 * to care if the active bit in the flush_register matches with the
+	 * bootloader's splash pipe flush bits.
+	 */
+	if ((flush_register & shd_ctl->flush_mask &
+		~phys_enc->splash_flush_bits) == 0)
 		new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt,
 				-1, 0);
 
@@ -198,14 +205,12 @@ static int _sde_encoder_phys_shd_unregister_irq(
 
 static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 	struct sde_shd_hw_ctl *hw_ctl, enum sde_lm lm,
-	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
-	u32 resv_pipes_length)
+	bool handoff, u32 splash_mask, u32 splash_ext_mask)
 {
 	struct sde_hw_blk_reg_map *c = &hw_ctl->base.hw;
 	u32 mixercfg, mixercfg_ext;
 	u32 mixercfg_ext2;
 	u32 mask = 0, ext_mask = 0, ext2_mask = 0;
-	u32 splash_mask = 0, splash_ext_mask = 0;
 	u32 start = hw_ctl->range.start + SDE_STAGE_0;
 	u32 end = start + hw_ctl->range.size;
 	u32 i;
@@ -218,8 +223,6 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 		goto end;
 
 	if (handoff) {
-		sde_splash_get_mixer_mask(resv_pipes,
-			resv_pipes_length, &splash_mask, &splash_ext_mask);
 		mask |= splash_mask;
 		ext_mask |= splash_ext_mask;
 	}
@@ -321,8 +324,7 @@ end:
 }
 
 static void _sde_shd_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
-	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
-	u32 resv_pipes_length)
+	bool handoff, u32 splash_mask, u32 splash_ext_mask)
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	int i;
@@ -336,8 +338,7 @@ static void _sde_shd_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx,
 		int mixer_id = ctx->mixer_hw_caps[i].id;
 
 		_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, mixer_id,
-							handoff, resv_pipes,
-							resv_pipes_length);
+				handoff, splash_mask, splash_ext_mask);
 	}
 }
 
@@ -358,12 +359,10 @@ static inline int _stage_offset(struct sde_hw_mixer *ctx, enum sde_stage stage)
 
 static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index,
-	bool handoff, const struct splash_reserved_pipe_info *resv_pipes,
-	u32 resv_pipes_length)
+	bool handoff, u32 splash_mask, u32 splash_ext_mask)
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	u32 mixercfg = 0, mixercfg_ext = 0, mix, ext, full, mixercfg_ext2;
-	u32 splash_mask = 0, splash_ext_mask = 0;
 	u32 mask = 0, ext_mask = 0, ext2_mask = 0;
 	int i, j;
 	int stages;
@@ -383,7 +382,7 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 		pipes_per_stage = 1;
 
 	_sde_shd_hw_ctl_clear_blendstages_in_range(hw_ctl, lm, handoff,
-			resv_pipes, resv_pipes_length);
+			splash_mask, splash_ext_mask);
 
 	if (!stage_cfg)
 		goto exit;
@@ -396,8 +395,6 @@ static void _sde_shd_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	if (handoff) {
 		mixercfg = SDE_REG_READ(c, CTL_LAYER(lm));
 		mixercfg_ext = SDE_REG_READ(c, CTL_LAYER_EXT(lm));
-		sde_splash_get_mixer_mask(resv_pipes,
-			resv_pipes_length, &splash_mask, &splash_ext_mask);
 
 		mixercfg &= splash_mask;
 		mixercfg_ext &= splash_ext_mask;
@@ -610,6 +607,7 @@ static void _sde_shd_trigger_flush(struct sde_hw_ctl *ctx)
 {
 	struct sde_shd_hw_ctl *hw_ctl;
 	struct sde_encoder_phys_shd *shd_enc;
+	struct sde_encoder_phys *phys;
 	struct sde_hw_blk_reg_map *c;
 	unsigned long lock_flags;
 	int i;
@@ -620,6 +618,9 @@ static void _sde_shd_trigger_flush(struct sde_hw_ctl *ctx)
 	c = &ctx->hw;
 
 	spin_lock_irqsave(&hw_ctl_lock, lock_flags);
+
+	phys = &shd_enc->base;
+	phys->splash_flush_bits = phys->sde_kms->splash_info.flush_bits;
 
 	_sde_shd_hw_ctl_trigger_flush(ctx);
 
@@ -903,6 +904,8 @@ static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_connector *sde_conn;
 	struct shd_display *display;
+	bool splash_enabled = false;
+	u32 mixer_mask = 0, mixer_ext_mask = 0;
 
 	SHD_DEBUG("%d\n", phys_enc->parent->base.id);
 
@@ -917,10 +920,11 @@ static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
 		return;
 	}
 
+	sde_splash_get_mixer_mask(&phys_enc->sde_kms->splash_info,
+				&splash_enabled, &mixer_mask, &mixer_ext_mask);
+
 	_sde_shd_hw_ctl_clear_all_blendstages(phys_enc->hw_ctl,
-		phys_enc->sde_kms->splash_info.handoff,
-		phys_enc->sde_kms->splash_info.reserved_pipe_info,
-		MAX_BLOCKS);
+			splash_enabled, mixer_mask, mixer_ext_mask);
 
 	_sde_shd_trigger_flush(phys_enc->hw_ctl);
 
@@ -1019,6 +1023,7 @@ struct sde_encoder_phys *sde_encoder_phys_shd_init(
 		INIT_LIST_HEAD(&shd_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	phys_enc->splash_flush_bits = 0;
 	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 

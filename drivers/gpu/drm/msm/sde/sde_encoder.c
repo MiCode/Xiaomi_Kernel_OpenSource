@@ -796,6 +796,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
 
+	phys->splash_flush_bits = phys->sde_kms->splash_info.flush_bits;
+
 	ctl->ops.trigger_flush(ctl);
 	SDE_EVT32(DRMID(drm_enc), ctl->idx);
 }
