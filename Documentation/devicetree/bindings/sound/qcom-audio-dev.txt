@@ -1838,6 +1838,7 @@ Optional properties:
 - qcom,auxpcm-audio-intf: Property to specify if Aux PCM interface is used for the target
 - qcom,cdc-dmic-gpios : phandle for Digital mic clk and data gpios.
 - qcom,msm_audio_ssr_devs: List the snd event framework clients
+- qcom,afe-rxtx-lb: AFE RX to TX loopback.
 
 Example:
 	kona_snd: sound {
@@ -1847,6 +1848,7 @@ Example:
 		qcom,wcn-btfm = <1>;
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
+		qcom,afe-rxtx-lb = <1>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
