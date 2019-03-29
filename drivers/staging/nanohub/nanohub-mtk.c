@@ -37,6 +37,15 @@ struct nanohub_ipi_data {
 	/* todo */
 };
 
+/*
+ *Add the function weak defination, to avoid the build error
+ *when the TINYSYS_SCP_SUPPORT is not set.
+ */
+void __attribute__((weak))
+scp_A_register_notify(struct notifier_block *nb)
+{
+}
+
 /* scp_nano_ipi_status: 1 :ready to ipi  0:not ready*/
 int scp_nano_ipi_status;
 
