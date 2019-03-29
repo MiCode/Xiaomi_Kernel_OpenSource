@@ -492,17 +492,22 @@ static int proc_pid_schedstat(struct seq_file *m, struct pid_namespace *ns,
 
 #ifdef CONFIG_UCLAMP_TASK
 /*
- * Provides /proc/PID/tasks/TID/util_min
+ * Provides /proc/PID/tasks/TID/util_clamp
  */
-static int proc_pid_util_min(struct seq_file *m, struct pid_namespace *ns,
+static int proc_pid_util_clamp(struct seq_file *m, struct pid_namespace *ns,
 			      struct pid *pid, struct task_struct *task)
 {
 	unsigned int util_min, effective_util_min;
+	unsigned int util_max, effective_util_max;
 
 	util_min = uclamp_task_util(task, UCLAMP_MIN);
+	util_max = uclamp_task_util(task, UCLAMP_MAX);
 	effective_util_min = uclamp_task_effective_util(task, UCLAMP_MIN);
+	effective_util_max = uclamp_task_effective_util(task, UCLAMP_MAX);
 
-	seq_printf(m, "%u %u\n", util_min, effective_util_min);
+	seq_printf(m, "min: %u min_eff: %u\nmax: %u max_eff: %u\n",
+			util_min, effective_util_min,
+			util_max, effective_util_max);
 
 	return 0;
 }
@@ -3411,7 +3416,7 @@ static const struct pid_entry tid_base_stuff[] = {
 	ONE("schedstat", S_IRUGO, proc_pid_schedstat),
 #endif
 #ifdef CONFIG_UCLAMP_TASK
-	ONE("util_min",  0444, proc_pid_util_min),
+	ONE("util_clamp",  0444, proc_pid_util_clamp),
 #endif
 #ifdef CONFIG_LATENCYTOP
 	REG("latency",  S_IRUGO, proc_lstats_operations),
