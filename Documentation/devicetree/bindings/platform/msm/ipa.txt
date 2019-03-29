@@ -35,6 +35,9 @@ Optional:
 	compatible "qcom,ipa-smmu-wlan-cb"
 - ipa_smmu_uc: uc SMMU device
 	compatible "qcom,ipa-smmu-uc-cb"
+- ipa_smmu_11ad: 11AD SMMU device
+	compatible "qcom,ipa-smmu-11ad-cb"
+- qcom,shared-cb: context bank page tables sharing with other hw
 - qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
 - qcom,use-ipa-in-mhi-mode: Boolean context flag to indicate whether
 				device booting in MHI config or not.
