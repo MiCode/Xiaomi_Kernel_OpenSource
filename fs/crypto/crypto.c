@@ -162,12 +162,8 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 	}
 
 	req = skcipher_request_alloc(tfm, gfp_flags);
-	if (!req) {
-		printk_ratelimited(KERN_ERR
-				"%s: crypto_request_alloc() failed\n",
-				__func__);
+	if (!req)
 		return -ENOMEM;
-	}
 
 	skcipher_request_set_callback(
 		req, CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
@@ -184,9 +180,10 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 		res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
 	skcipher_request_free(req);
 	if (res) {
-		printk_ratelimited(KERN_ERR
-			"%s: crypto_skcipher_encrypt() returned %d\n",
-			__func__, res);
+		fscrypt_err(inode->i_sb,
+			    "%scryption failed for inode %lu, block %llu: %d",
+			    (rw == FS_DECRYPT ? "de" : "en"),
+			    inode->i_ino, lblk_num, res);
 		return res;
 	}
 	return 0;
@@ -332,7 +329,6 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return 0;
 	}
 
-	/* this should eventually be an flag in d_flags */
 	spin_lock(&dentry->d_lock);
 	cached_with_key = dentry->d_flags & DCACHE_ENCRYPTED_WITH_KEY;
 	spin_unlock(&dentry->d_lock);
@@ -359,7 +355,6 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 const struct dentry_operations fscrypt_d_ops = {
 	.d_revalidate = fscrypt_d_revalidate,
 };
-EXPORT_SYMBOL(fscrypt_d_ops);
 
 void fscrypt_restore_control_page(struct page *page)
 {
@@ -426,6 +421,27 @@ fail:
 	fscrypt_destroy();
 	mutex_unlock(&fscrypt_init_mutex);
 	return res;
+}
+
+void fscrypt_msg(struct super_block *sb, const char *level,
+		 const char *fmt, ...)
+{
+	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+	struct va_format vaf;
+	va_list args;
+
+	if (!__ratelimit(&rs))
+		return;
+
+	va_start(args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &args;
+	if (sb)
+		printk("%sfscrypt (%s): %pV\n", level, sb->s_id, &vaf);
+	else
+		printk("%sfscrypt: %pV\n", level, &vaf);
+	va_end(args);
 }
 
 /**
