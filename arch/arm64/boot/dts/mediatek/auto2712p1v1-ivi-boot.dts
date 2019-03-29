@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+/dts-v1/;
+#include "mt2712e.dtsi"
+#include "auto2712p1v1-common.dtsi"
+
+/ {
+	chosen {
+		bootargs = "console=ttyS0,921600n1 root=/dev/mmcblk0p7 \
+rootwait earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0 0x40000000 0 0x80000000>;
+	};
+};
+
+&mmc0 {
+	pinctrl-names = "default", "state_uhs";
+	pinctrl-0 = <&mmc0_pins_default>;
+	pinctrl-1 = <&mmc0_pins_uhs>;
+	status = "okay";
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	no-sd;
+	no-sdio;
+	cap-mmc-hw-reset;
+	hs400-ds-delay = <0x14029>;
+	r_smpl = <0>;
+	vmmc-supply = <&mmc_fixed_3v3>;
+	vqmmc-supply = <&mmc_fixed_1v8_io>;
+	assigned-clocks = <&topckgen CLK_TOP_MSDC50_0_SEL>;
+	assigned-clock-parents = <&topckgen CLK_TOP_MSDCPLL>;
+	non-removable;
+};
+
+&di {
+	status = "okay";
+};
+
+&nr {
+	status = "okay";
+};
+
+&tvd0 {
+	status = "okay";
+};

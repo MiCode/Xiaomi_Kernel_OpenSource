@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+energy-costs {
+	MT2712E_CPU_COST_0: mt2712e-core-cost0 {
+		busy-cost-data = <
+			334	40
+			392	41
+			443	44
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712E_CPU_COST_1: mt2712e-core-cost1 {
+		busy-cost-data = <
+			610	218
+			716	252
+			810	282
+			915	315
+			1024	349
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712E_CLUSTER_COST_0: mt2712e-cluster-cost0 {
+		busy-cost-data = <
+			334	111
+			392	122
+			443	130
+		>;
+		idle-cost-data = <
+			71
+			71
+			71
+			50
+		>;
+	};
+	MT2712E_CLUSTER_COST_1: mt2712e-cluster-cost1 {
+		busy-cost-data = <
+			610	23
+			716	27
+			810	30
+			915	34
+			1024	39
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+
+	MT2712H_CPU_COST_0: mt2712h-core-cost0 {
+		busy-cost-data = <
+			240	40
+			282	41
+			318	44
+			360	48
+			403	54
+			445	61
+			482	69
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712H_CPU_COST_1: mt2712h-core-cost1 {
+		busy-cost-data = <
+			438	218
+			515	252
+			583	282
+			658	315
+			737	349
+			812	382
+			878	411
+			955	443
+			1024	472
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712H_CLUSTER_COST_0: mt2712h-cluster-cost0 {
+		busy-cost-data = <
+			240	111
+			282	122
+			318	130
+			360	138
+			406	145
+			445	150
+			482	154
+		>;
+		idle-cost-data = <
+			71
+			71
+			71
+			50
+		>;
+	};
+	MT2712H_CLUSTER_COST_1: mt2712h-cluster-cost1 {
+		busy-cost-data = <
+			438	23
+			515	27
+			583	30
+			658	34
+			737	39
+			812	44
+			878	49
+			955	56
+			1024	62
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+
+	MT2712M_CPU_COST_0: mt2712m-core-cost0 {
+		busy-cost-data = <
+			280 40
+			329 41
+			371 44
+			420 48
+			470 54
+			519 61
+			562 69
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712M_CPU_COST_1: mt2712m-core-cost1 {
+		busy-cost-data = <
+			511 218
+			601 252
+			680 282
+			768 315
+			859 349
+			947 382
+			1024 411
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712M_CLUSTER_COST_0: mt2712m-cluster-cost0 {
+		busy-cost-data = <
+			280 111
+			329 122
+			371 130
+			420 138
+			470 145
+			519 150
+			562 154
+		>;
+		idle-cost-data = <
+			71
+			71
+			71
+			50
+		>;
+	};
+	MT2712M_CLUSTER_COST_1: mt2712m-cluster-cost1 {
+		busy-cost-data = <
+			511 23
+			601 27
+			680 30
+			768 34
+			859 39
+			947 44
+			1024 49
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+
+	MT2712P_CPU_COST_0: mt2712p-core-cost0 {
+		busy-cost-data = <
+			209	40
+			245	41
+			277	44
+			314	48
+			351	54
+			388	61
+			419	69
+		>;
+		idle-cost-data = <
+			5
+			5
+			0
+			0
+		>;
+	};
+	MT2712P_CPU_COST_1: mt2712p-core-cost1 {
+		busy-cost-data = <
+			382	218
+			449	252
+			507	282
+			573	315
+			641	349
+			707	382
+			764	411
+			831	443
+			891	472
+			958	493
+			1024	514
+		>;
+		idle-cost-data = <
+			19
+			19
+			0
+			0
+		>;
+	};
+	MT2712P_CLUSTER_COST_0: mt2712p-cluster-cost0 {
+		busy-cost-data = <
+			209	111
+			245	122
+			277	130
+			314	138
+			351	145
+			388	150
+			419	154
+		>;
+		idle-cost-data = <
+			71
+			71
+			71
+			50
+		>;
+	};
+	MT2712P_CLUSTER_COST_1: mt2712p-cluster-cost1 {
+		busy-cost-data = <
+			382	23
+			449	27
+			507	30
+			573	34
+			641	39
+			707	44
+			764	49
+			831	56
+			891	62
+			958	68
+			1024	75
+		>;
+		idle-cost-data = <
+			33
+			33
+			33
+			3
+		>;
+	};
+};
