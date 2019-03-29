@@ -1274,6 +1274,9 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DC_RESET:
 		val->intval = 0;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		rc = smblib_get_prop_voltage_wls_output(chg, val);
+		break;
 	default:
 		return -EINVAL;
 	}
