@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/memory/mt6779-larb-port.h>
+#include <dt-bindings/gce/mt6779-gce.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -254,6 +255,15 @@
 			reg = <0 0x10220000 0 0x1000>;
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
 			#iommu-cells = <1>;
+		};
+
+		gce: gce@10228000 {
+			compatible = "mediatek,mt6779-gce";
+			reg = <0 0x10228000 0 0x4000>;
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>;
+			#mbox-cells = <3>;
+			#event-cells = <1>;
+			#subsys-cells = <3>;
 		};
 
 		iommu1: iommu@1024f000 {
