@@ -231,14 +231,6 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs);
 
 #if defined(CONFIG_MTK_AEE_IPANIC)
-void mrdump_rsvmem(void);
-#else
-static inline void mrdump_rsvmem(void)
-{
-}
-#endif
-
-#if defined(CONFIG_MTK_AEE_IPANIC)
 void mrdump_mini_reserve_memory(void);
 #else
 

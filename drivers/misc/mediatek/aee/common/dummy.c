@@ -30,10 +30,6 @@ __weak void aee_sram_printk(const char *fmt, ...)
 }
 EXPORT_SYMBOL(aee_sram_printk);
 
-__weak void aee_wdt_irq_info(void)
-{
-}
-
 __weak void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp)
 {
 }
