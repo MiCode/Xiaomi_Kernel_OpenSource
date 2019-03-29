@@ -209,12 +209,20 @@ static int qpnp_ab_ibb_regulator_get_voltage(struct regulator_dev *rdev)
 }
 
 #define AB_VREG_OK_POLL_TRIES		50
+#define AB_VREG_OK_POLL_TIME_US		2000
+#define AB_VREG_OK_POLL_HIGH_TRIES	8
+#define AB_VREG_OK_POLL_HIGH_TIME_US	10000
+#define AB_VREG_OK_POLL_AGAIN_TRIES	10
+
 static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status)
 {
-	u32 i = AB_VREG_OK_POLL_TRIES, poll_us = 2000;
+	u32 i = AB_VREG_OK_POLL_TRIES, poll_us = AB_VREG_OK_POLL_TIME_US;
+	bool swire_high = false, poll_again = false, monitor = false;
+	u32 wait_time_us = 0;
 	int rc;
 	u8 val;
 
+loop:
 	while (i--) {
 		/* Write a dummy value before reading AB_STATUS1 */
 		rc = qpnp_amoled_write(chip, AB_STATUS1(chip), &val, 1);
@@ -225,13 +233,68 @@ static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status)
 		if (rc < 0)
 			return rc;
 
+		wait_time_us += poll_us;
 		if (((val & VREG_OK_BIT) >> VREG_OK_SHIFT) == status) {
-			pr_debug("Waited for %d us\n",
-				(AB_VREG_OK_POLL_TRIES - i) * poll_us);
-			return 0;
+			pr_debug("Waited for %d us\n", wait_time_us);
+
+			/*
+			 * Return if we're polling for VREG_OK low. Else, poll
+			 * for VREG_OK high for at least 80 ms. IF VREG_OK stays
+			 * high, then consider it as a valid SWIRE pulse.
+			 */
+
+			if (status) {
+				swire_high = true;
+				if (!poll_again && !monitor) {
+					pr_debug("SWIRE is high, start monitoring\n");
+					i = AB_VREG_OK_POLL_HIGH_TRIES;
+					poll_us = AB_VREG_OK_POLL_HIGH_TIME_US;
+					wait_time_us = 0;
+					monitor = true;
+				}
+
+				if (poll_again)
+					poll_again = false;
+			} else {
+				return 0;
+			}
+		} else {
+			/*
+			 * If we're here when polling for VREG_OK high, then it
+			 * is possibly because of an intermittent SWIRE pulse.
+			 * Ignore it and poll for valid SWIRE pulse again.
+			 */
+			if (status && swire_high && monitor) {
+				pr_debug("SWIRE is low\n");
+				poll_again = true;
+				swire_high = false;
+				break;
+			}
+
+			if (poll_again)
+				poll_again = false;
 		}
 
 		usleep_range(poll_us, poll_us + 1);
+	}
+
+	/*
+	 * If poll_again is set, then VREG_OK should be polled for another
+	 * 100 ms for valid SWIRE signal.
+	 */
+
+	if (poll_again) {
+		pr_debug("polling again for SWIRE\n");
+		i = AB_VREG_OK_POLL_AGAIN_TRIES;
+		poll_us = AB_VREG_OK_POLL_HIGH_TIME_US;
+		wait_time_us = 0;
+		goto loop;
+	}
+
+	/* If swire_high is set, then it's a valid SWIRE signal, return 0. */
+	if (swire_high) {
+		pr_debug("SWIRE is high\n");
+		return 0;
 	}
 
 	pr_err("AB_STATUS1: %x poll for VREG_OK %d timed out\n", val, status);
