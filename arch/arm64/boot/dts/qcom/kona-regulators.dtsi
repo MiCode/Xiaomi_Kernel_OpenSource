@@ -421,6 +421,7 @@
 	rpmh-regulator-mmcxlvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "mmcx.lvl";
+		proxy-supply = <&VDD_MMCX_LEVEL>;
 
 		VDD_MMCX_LEVEL: S4C_LEVEL:
 		pm8150a_s4_level: regulator-pm8150a-s4-level {
@@ -432,6 +433,10 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-voltage
+				= <RPMH_REGULATOR_LEVEL_TURBO
+				   RPMH_REGULATOR_LEVEL_MAX>;
 		};
 
 		VDD_MMCX_LEVEL_AO: S4C_LEVEL_AO:
