@@ -2044,6 +2044,10 @@
 		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
 		qcom,pm-qos-legacy-latency-us = <44 44>, <44 44>;
 
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0xA800 0x10
+					0x2C010800 0x80040868>;
+
 		status = "disabled";
 	};
 
