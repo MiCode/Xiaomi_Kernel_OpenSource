@@ -34,15 +34,15 @@
 			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x3fd00000>;
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4>;
-		interrupt-names = "int_a", "int_b", "int_c", "int_d",
-				"int_global_int";
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 141 0
-				0 0 0 1 &intc 0 142 0
-				0 0 0 2 &intc 0 143 0
-				0 0 0 3 &intc 0 144 0
-				0 0 0 4 &intc 0 140 0>;
+		interrupt-map = <0 0 0 0 &intc 0 140 0
+				0 0 0 1 &intc 0 141 0
+				0 0 0 2 &intc 0 142 0
+				0 0 0 3 &intc 0 143 0
+				0 0 0 4 &intc 0 144 0>;
 
 		qcom,phy-sequence = <0x1240 0x03 0x0
 				0x1010 0x00 0x0
