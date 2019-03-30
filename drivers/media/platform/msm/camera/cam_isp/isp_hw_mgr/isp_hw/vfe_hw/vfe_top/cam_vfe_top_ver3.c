@@ -782,7 +782,8 @@ int cam_vfe_top_ver3_init(
 	top_priv->last_counter[0] = 0;
 	top_priv->last_counter[1] = 0;
 
-	for (i = 0, j = 0; i < CAM_VFE_TOP_VER3_MUX_MAX; i++) {
+	for (i = 0, j = 0; i < CAM_VFE_TOP_VER3_MUX_MAX &&
+		j < CAM_VFE_RDI_VER2_MAX; i++) {
 		top_priv->mux_rsrc[i].res_type = CAM_ISP_RESOURCE_VFE_IN;
 		top_priv->mux_rsrc[i].hw_intf = hw_intf;
 		top_priv->mux_rsrc[i].res_state =
