@@ -269,6 +269,7 @@ struct fg_gen4_chip {
 	bool			rslow_low;
 	bool			rapid_soc_dec_en;
 	bool			vbatt_low;
+	bool			chg_term_good;
 };
 
 struct bias_config {
@@ -2231,8 +2232,16 @@ static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
 				new_recharge_soc = msoc - (FULL_CAPACITY -
 								recharge_soc);
 				fg->recharge_soc_adjusted = true;
+				if (fg->health == POWER_SUPPLY_HEALTH_GOOD)
+					chip->chg_term_good = true;
 			} else {
-				/* adjusted already, do nothing */
+				/*
+				 * If charge termination happened properly then
+				 * do nothing.
+				 */
+				if (chip->chg_term_good)
+					return 0;
+
 				if (fg->health != POWER_SUPPLY_HEALTH_GOOD)
 					return 0;
 
@@ -2243,7 +2252,7 @@ static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
 
 				new_recharge_soc = recharge_soc;
 				fg->recharge_soc_adjusted = false;
-				return 0;
+				chip->chg_term_good = false;
 			}
 		} else {
 			if (!fg->recharge_soc_adjusted)
@@ -2262,11 +2271,13 @@ static int fg_gen4_adjust_recharge_soc(struct fg_gen4_chip *chip)
 			/* Restore the default value */
 			new_recharge_soc = recharge_soc;
 			fg->recharge_soc_adjusted = false;
+			chip->chg_term_good = false;
 		}
 	} else {
 		/* Restore the default value */
 		new_recharge_soc = recharge_soc;
 		fg->recharge_soc_adjusted = false;
+		chip->chg_term_good = false;
 	}
 
 	if (recharge_soc_status == fg->recharge_soc_adjusted)
@@ -3524,6 +3535,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_gen4_get_charge_raw(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		pval->intval = chip->cl->init_cap_uah;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		rc = fg_gen4_get_learned_capacity(chip, &temp);
 		if (!rc)
@@ -3718,6 +3732,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,

@@ -454,6 +454,7 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 	struct sockaddr_qrtr sq;
 	struct qmi_service *svc;
 	struct socket *sock;
+	long timeo = qmi->sock->sk->sk_sndtimeo;
 
 	sock = qmi_sock_create(qmi, &sq);
 	if (IS_ERR(sock))
@@ -473,6 +474,7 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 	sock_release(qmi->sock);
 	qmi->sock = sock;
 	qmi->sq = sq;
+	qmi->sock->sk->sk_sndtimeo = timeo;
 	mutex_unlock(&qmi->sock_lock);
 
 	list_for_each_entry(svc, &qmi->lookups, list_node)
@@ -622,6 +624,21 @@ static struct socket *qmi_sock_create(struct qmi_handle *qmi,
 
 	return sock;
 }
+
+/**
+ * qmi_set_sndtimeo() - set the sk_sndtimeo of the qmi handle
+ * @qmi:	QMI client handle
+ * @timeo:	timeout in jiffies.
+ *
+ * This sets the timeout for the blocking socket send in qmi send.
+ */
+void qmi_set_sndtimeo(struct qmi_handle *qmi, long timeo)
+{
+	mutex_lock(&qmi->sock_lock);
+	qmi->sock->sk->sk_sndtimeo = timeo;
+	mutex_unlock(&qmi->sock_lock);
+}
+EXPORT_SYMBOL(qmi_set_sndtimeo);
 
 /**
  * qmi_handle_init() - initialize a QMI client handle

@@ -2831,7 +2831,7 @@ static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 
-	if (!ops)
+	if (!ops || !ops->iova_to_pte)
 		return 0;
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
