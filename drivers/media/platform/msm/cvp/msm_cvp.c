@@ -398,7 +398,8 @@ static int msm_cvp_thread_fence_run(void *data)
 		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
 			in_pkt->pkt_data[0],
 			in_pkt->pkt_data[1]);
-		do_exit(pkt_idx);
+		rc = pkt_idx;
+		goto exit;
 	}
 
 	offset = cvp_hfi_defs[pkt_idx].buf_offset;
@@ -420,7 +421,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				dprintk(CVP_ERR,
 					"%s: buf %d unregistered. rc=%d\n",
 					__func__, i, rc);
-				do_exit(rc);
+				goto exit;
 			}
 		}
 	}
@@ -437,21 +438,21 @@ static int msm_cvp_thread_fence_run(void *data)
 					dprintk(CVP_ERR,
 						"%s: synx_import failed\n",
 						__func__);
-					do_exit(rc);
+					goto exit;
 				}
 				rc = synx_wait(synx_obj, timeout_ms);
 				if (rc) {
 					dprintk(CVP_ERR,
 						"%s: synx_wait failed\n",
 						__func__);
-					do_exit(rc);
+					goto exit;
 				}
 				rc = synx_release(synx_obj);
 				if (rc) {
 					dprintk(CVP_ERR,
 						"%s: synx_release failed\n",
 						__func__);
-					do_exit(rc);
+					goto exit;
 				}
 			}
 		}
@@ -463,7 +464,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-			do_exit(rc);
+			goto exit;
 		}
 
 		rc = wait_for_sess_signal_receipt(inst,
@@ -471,29 +472,29 @@ static int msm_cvp_thread_fence_run(void *data)
 		if (rc)	{
 			dprintk(CVP_ERR, "%s: wait for signal failed, rc %d\n",
 			__func__, rc);
-			do_exit(rc);
+			goto exit;
 		}
 		rc = synx_import(fence[((HFI_DME_BUF_NUM-1)<<1)],
 				fence[((HFI_DME_BUF_NUM-1)<<1)+1],
 				&synx_obj);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
-			do_exit(rc);
+			goto exit;
 		}
 		rc = synx_signal(synx_obj, SYNX_STATE_SIGNALED_SUCCESS);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_signal failed\n", __func__);
-			do_exit(rc);
+			goto exit;
 		}
 		if (synx_get_status(synx_obj) != SYNX_STATE_SIGNALED_SUCCESS) {
 			dprintk(CVP_ERR, "%s: synx_get_status failed\n",
 					__func__);
-			do_exit(rc);
+			goto exit;
 		}
 		rc = synx_release(synx_obj);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_release failed\n", __func__);
-			do_exit(rc);
+			goto exit;
 		}
 		break;
 	}
@@ -501,14 +502,16 @@ static int msm_cvp_thread_fence_run(void *data)
 		dprintk(CVP_ERR, "%s: unknown hfi cmd type 0x%x\n",
 			__func__, fence_thread_data->arg_type);
 		rc = -EINVAL;
-		do_exit(rc);
+		goto exit;
 		break;
 	}
 
-	do_exit(0);
+exit:
+	cvp_put_inst(inst);
+	do_exit(rc);
 }
 
-static int msm_cvp_session_process_hfifence(
+static int msm_cvp_session_process_hfi_fence(
 	struct msm_cvp_inst *inst,
 	struct cvp_kmd_arg *arg)
 {
@@ -805,7 +808,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	}
 	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
 	{
-		rc = msm_cvp_session_process_hfifence(inst, arg);
+		rc = msm_cvp_session_process_hfi_fence(inst, arg);
 		break;
 	}
 	default:
