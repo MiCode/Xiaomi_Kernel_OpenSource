@@ -13,6 +13,7 @@ obj-$(CONFIG_DEVFREQ_GOV_QCOM_CACHE_HWMON)	+= governor_cache_hwmon.o
 obj-$(CONFIG_DEVFREQ_GOV_MEMLAT)       += governor_memlat.o
 obj-$(CONFIG_DEVFREQ_GOV_QCOM_ADRENO_TZ) += governor_msm_adreno_tz.o
 obj-$(CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON) += governor_bw_vbif.o
+obj-$(CONFIG_DEVFREQ_GOV_CDSPL3)	+= governor_cdsp_l3.o
 
 # DEVFREQ Drivers
 obj-$(CONFIG_ARM_EXYNOS_BUS_DEVFREQ)	+= exynos-bus.o

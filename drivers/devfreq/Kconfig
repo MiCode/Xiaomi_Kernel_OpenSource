@@ -120,6 +120,15 @@ config DEVFREQ_GOV_MEMLAT
 	  this uses target specific counters it can conflict with existing profiling
 	  tools.
 
+config DEVFREQ_GOV_CDSPL3
+	tristate "QTI DEVFREQ governor for CDSP L3 requests"
+	depends on QCOM_CDSP_RM
+	help
+	  CDSP resource manager will use this governor to vote for L3 clock
+	  for IO-coherent traffic generated from CDSP. The driver implements
+	  a callback routine for CDSP resource manager to register a CPU L3
+	  clock frequency level.
+
 comment "DEVFREQ Drivers"
 
 config DEVFREQ_GOV_QCOM_ADRENO_TZ
