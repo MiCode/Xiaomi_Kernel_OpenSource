@@ -72,6 +72,8 @@ struct btfmslim {
 		uint8_t rxport, uint8_t enable);
 };
 
+extern int btfm_feedback_ch_setting;
+
 /**
  * btfm_slim_hw_init: Initialize slimbus slave device
  * Returns:
