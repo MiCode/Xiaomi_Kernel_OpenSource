@@ -507,6 +507,11 @@ static ssize_t attr_show_buffers(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
+	if (dev == NULL) {
+		pr_err("\ndev value is null\n");
+		return -EINVAL;
+	}
+
 	return snprintf(buf, sizeof(dev->used_buffers), "%d\n",
 			dev->used_buffers);
 }
@@ -517,6 +522,11 @@ static ssize_t attr_show_maxopeners(struct device *cd,
 		struct device_attribute *attr, char *buf)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+
+	if (dev == NULL) {
+		pr_err("\ndev value is null\n");
+		return -EINVAL;
+	}
 
 	return snprintf(buf, sizeof(dev->max_openers), "%d\n",
 			dev->max_openers);
@@ -532,6 +542,11 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 		return -EINVAL;
 
 	dev = v4l2loopback_cd2dev(cd);
+
+	if (dev == NULL) {
+		pr_err("\ndev value is null\n");
+		return -EINVAL;
+	}
 
 	if (dev->max_openers == curr)
 		return len;
@@ -593,7 +608,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 }
 
 /* global module data */
-struct v4l2_loopback_device *devs[MAX_DEVICES];
+static struct v4l2_loopback_device *devs[MAX_DEVICES];
 
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 {
@@ -1172,7 +1187,7 @@ static int vidioc_querystd(struct file *file, void *private_data,
 static int vidioc_queryctrl(struct file *file, void *fh,
 		struct v4l2_queryctrl *q)
 {
-	const struct v4l2_ctrl_config *cnf = 0;
+	const struct v4l2_ctrl_config *cnf = NULL;
 
 	switch (q->id) {
 	case CID_KEEP_FORMAT:
@@ -1964,6 +1979,11 @@ static int v4l2_loopback_open(struct file *file)
 	MARK();
 	dev = v4l2loopback_getdevice(file);
 
+	if (dev == NULL) {
+		pr_err("\ndev value is null\n");
+		return -EINVAL;
+	}
+
 	if (dev->open_count.counter >= dev->max_openers)
 		return -EBUSY;
 	/* kfree on close */
@@ -1984,7 +2004,8 @@ static int v4l2_loopback_open(struct file *file)
 			return r;
 		}
 	}
-	pr_debug("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
+	pr_debug("opened dev:%pK with image:%pK\n",
+			dev, dev ? dev->image : NULL);
 	MARK();
 	return 0;
 }
@@ -2039,7 +2060,7 @@ static ssize_t v4l2_loopback_read(struct file *file,
 	b = &dev->buffers[read_index].buffer;
 	if (count > b->bytesused)
 		count = b->bytesused;
-	if (copy_to_user((void *)buf,
+	if (copy_to_user((void __user *)buf,
 				(void *)(dev->image + b->m.offset), count)) {
 		pr_debug("v4l2-loopback: failed copy_to_user() in read buf\n");
 		return -EFAULT;
@@ -2080,7 +2101,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 	b = &dev->buffers[write_index].buffer;
 
 	if (copy_from_user((void *)(dev->image + b->m.offset),
-				(void *)buf, count)) {
+				(void __user *)buf, count)) {
 		pr_err("v4l2-loopback: failed copy_from_user() in write buf, could not write %zu\n",
 			count);
 		return -EFAULT;
@@ -2099,7 +2120,14 @@ static ssize_t v4l2_loopback_write(struct file *file,
 static int free_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
-	pr_debug("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
+	pr_debug("freeing image@%pK for dev:%pK\n"
+			, dev ? dev->image : NULL, dev);
+
+	if (dev == NULL) {
+		pr_err("\ndev value is null\n");
+		return -EINVAL;
+	}
+
 	if (dev->image) {
 		vfree(dev->image);
 		dev->image = NULL;
