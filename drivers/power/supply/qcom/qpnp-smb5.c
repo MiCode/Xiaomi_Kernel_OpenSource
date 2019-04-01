@@ -213,6 +213,7 @@ struct smb_dt_props {
 	bool			no_battery;
 	bool			hvdcp_disable;
 	bool			hvdcp_autonomous;
+	bool			adc_based_aicl;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
@@ -558,6 +559,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->connector_pull_up = -EINVAL;
 	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
 					&chg->connector_pull_up);
+
+	chip->dt.adc_based_aicl = of_property_read_bool(node,
+					"qcom,adc-based-aicl");
 
 	/* Extract ADC channels */
 	rc = smblib_get_iio_channel(chg, "mid_voltage", &chg->iio.mid_chan);
@@ -2077,13 +2081,16 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
-		0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
-		return rc;
+	if (chg->smb_version != PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				USBIN_IN_COLLAPSE_GF_SEL_MASK |
+				USBIN_AICL_STEP_TIMING_SEL_MASK,
+				0);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* Set CC threshold to 1.6 V in source mode */
@@ -2476,22 +2483,22 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 
 	/*
-	 * AICL configuration:
-	 * start from min and AICL ADC disable, and enable aicl rerun
+	 * AICL configuration: enable aicl and aicl rerun and based on DT
+	 * configuration enable/disable ADB based AICL and Suspend on collapse.
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
-		mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
+	mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
 			| USBIN_AICL_EN_BIT | SUSPEND_ON_COLLAPSE_USBIN_BIT;
-		val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
-		if (!chip->dt.disable_suspend_on_collapse)
-			val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
+	if (!chip->dt.disable_suspend_on_collapse)
+		val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	if (chip->dt.adc_based_aicl)
+		val |= USBIN_AICL_ADC_EN_BIT;
 
-		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				mask, val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
-			return rc;
-		}
+	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			mask, val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,
