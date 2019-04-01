@@ -694,7 +694,7 @@ unsigned long dp_vco_recalc_rate_7nm(struct clk_hw *hw,
 			vco_rate = DP_VCO_HSCLK_RATE_8100MHZDIV1000;
 	}
 
-	pr_debug("hsclk: sel=0x%x, div=0x%x; lclk: sel=%lu, div=%lu, rate=%lu\n",
+	pr_debug("hsclk: sel=0x%x, div=0x%x; lclk: sel=%u, div=%u, rate=%lu\n",
 		hsclk_sel, hsclk_div, link_clk_divsel, link_clk_div, vco_rate);
 
 	mdss_pll_resource_enable(dp_res, false);
