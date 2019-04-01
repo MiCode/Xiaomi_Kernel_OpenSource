@@ -27,7 +27,7 @@
 	compatible = "qcom,atoll";
 	qcom,msm-name = "ATOLL";
 	qcom,msm-id = <407 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	cpus {
 		#address-cells = <2>;
@@ -485,6 +485,14 @@
 			<0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&intc>;
+	};
+
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,pdc-atoll";
+		reg = <0xb220000 0x400>;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
 	};
 
 	timer {
