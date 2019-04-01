@@ -1289,10 +1289,15 @@ static int cam_ife_mgr_acquire_cid_res(
 			if (!cid_res_iterator->hw_res[i])
 				continue;
 
-			if (cid_res_iterator->is_secure == 1 ||
+			if (in_port->num_out_res &&
+				((cid_res_iterator->is_secure == 1 &&
+				out_port->secure_mode == 0) ||
 				(cid_res_iterator->is_secure == 0 &&
-				in_port->num_out_res &&
-				out_port->secure_mode == 1))
+				out_port->secure_mode == 1)))
+				continue;
+
+			if (!in_port->num_out_res &&
+				cid_res_iterator->is_secure == 1)
 				continue;
 
 			hw_intf = cid_res_iterator->hw_res[i]->hw_intf;
