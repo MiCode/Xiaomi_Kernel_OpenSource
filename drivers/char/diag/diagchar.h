@@ -96,6 +96,7 @@
 #define DIAG_CMD_ADD		1
 #define DIAG_CMD_REMOVE		0
 
+#define DIAG_SS_CMD_OFFSET	2
 #define DIAG_CMD_VERSION	0
 #define DIAG_CMD_ERROR		0x13
 #define DIAG_CMD_DOWNLOAD	0x3A

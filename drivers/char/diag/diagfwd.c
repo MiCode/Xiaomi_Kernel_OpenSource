@@ -1036,6 +1036,117 @@ void diag_send_error_rsp(unsigned char *buf, int len,
 	diag_send_rsp(driver->apps_rsp_buf, len + 1, pid);
 }
 
+static int diag_process_ss_diag_cmd(unsigned char *buf, int len, int pid)
+{
+	int ret = 0, write_len = 0, i;
+
+	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
+	case DIAG_DIAG_MAX_PKT_SZ:
+		/*
+		 * Check for the command/respond msg
+		 * for the maximum packet length
+		 */
+		for (i = 0; i < 4; i++)
+			*(driver->apps_rsp_buf+i) = *(buf+i);
+		*(uint32_t *)(driver->apps_rsp_buf+4) = DIAG_MAX_REQ_SIZE;
+		diag_send_rsp(driver->apps_rsp_buf, 8, pid);
+		ret = 0;
+		break;
+	case DIAG_DIAG_STM:
+		/* Check for STM command */
+		len = diag_process_stm_cmd(buf, driver->apps_rsp_buf);
+		if (len > 0) {
+			diag_send_rsp(driver->apps_rsp_buf, len, pid);
+			ret = 0;
+		} else {
+			ret = len;
+		}
+		break;
+	case DIAG_GET_TIME_API:
+		/* Check for time sync query command */
+		write_len = diag_process_time_sync_query_cmd(buf, len,
+						driver->apps_rsp_buf,
+						DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		ret = 0;
+		break;
+	case DIAG_SET_TIME_API:
+		/* Check for time sync switch command */
+		write_len = diag_process_time_sync_switch_cmd(buf, len,
+						driver->apps_rsp_buf,
+						DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		ret = 0;
+		break;
+	case DIAG_GET_DIAG_ID:
+		/* Check for diag id command */
+		write_len = diag_process_diag_id_query_cmd(buf, len,
+						driver->apps_rsp_buf,
+						DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		ret = 0;
+		break;
+	case DIAG_FEATURE_QUERY:
+		/* Check for Diag Feature Query command */
+		write_len = diag_cmd_feature_query(buf, len,
+						driver->apps_rsp_buf,
+						DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		ret = 0;
+		break;
+	default:
+		ret = 0;
+		break;
+	}
+	return ret;
+}
+
+static int diag_process_ss_diag_params(unsigned char *buf, int len, int pid)
+{
+	int write_len = 0, i;
+
+	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
+	case DIAG_DIAG_POLL:
+		/* Check for polling for Apps only DIAG */
+		if (chk_polling_response()) {
+			/* Respond to polling for Apps only DIAG */
+			for (i = 0; i < 3; i++)
+				driver->apps_rsp_buf[i] = *(buf+i);
+			for (i = 0; i < 13; i++)
+				driver->apps_rsp_buf[i+3] = 0;
+			diag_send_rsp(driver->apps_rsp_buf, 16, pid);
+		}
+		break;
+	case DIAG_DEL_RSP_WRAP:
+		/* Return the Delayed Response Wrap Status */
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_enabled;
+		diag_send_rsp(driver->apps_rsp_buf, 5, pid);
+		break;
+	case DIAG_DEL_RSP_WRAP_CNT:
+		/* Wrap the Delayed Rsp ID */
+		wrap_enabled = true;
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_count;
+		diag_send_rsp(driver->apps_rsp_buf, 6, pid);
+		break;
+	case DIAG_EXT_MOBILE_ID:
+		/* Mobile ID Rsp */
+		write_len = diag_cmd_get_mobile_id(buf, len,
+		   driver->apps_rsp_buf, DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 {
 	int i, p_mask = 0;
@@ -1112,69 +1223,11 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	mutex_unlock(&driver->cmd_reg_mutex);
 
 #if defined(CONFIG_DIAG_OVER_USB)
-	/* Check for the command/respond msg for the maximum packet length */
-	if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
-		(*(uint16_t *)(buf+2) == 0x0055)) {
-		for (i = 0; i < 4; i++)
-			*(driver->apps_rsp_buf+i) = *(buf+i);
-		*(uint32_t *)(driver->apps_rsp_buf+4) = DIAG_MAX_REQ_SIZE;
-		diag_send_rsp(driver->apps_rsp_buf, 8, pid);
-		return 0;
-	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
-		(*(uint16_t *)(buf+2) == DIAG_DIAG_STM)) {
-		len = diag_process_stm_cmd(buf, driver->apps_rsp_buf);
-		if (len > 0) {
-			diag_send_rsp(driver->apps_rsp_buf, len, pid);
-			return 0;
-		}
-		return len;
-	}
-	/* Check for time sync query command */
-	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
-		(*(buf+1) == DIAG_SS_DIAG) &&
-		(*(uint16_t *)(buf+2) == DIAG_GET_TIME_API)) {
-		write_len = diag_process_time_sync_query_cmd(buf, len,
-							driver->apps_rsp_buf,
-							DIAG_MAX_RSP_SIZE);
-		if (write_len > 0)
-			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
-		return 0;
-	}
-	/* Check for time sync switch command */
-	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
-		(*(buf+1) == DIAG_SS_DIAG) &&
-		(*(uint16_t *)(buf+2) == DIAG_SET_TIME_API)) {
-		write_len = diag_process_time_sync_switch_cmd(buf, len,
-							driver->apps_rsp_buf,
-							DIAG_MAX_RSP_SIZE);
-		if (write_len > 0)
-			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
-		return 0;
-	}
-	/* Check for diag id command */
-	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
-		(*(buf+1) == DIAG_SS_DIAG) &&
-		(*(uint16_t *)(buf+2) == DIAG_GET_DIAG_ID)) {
-		write_len = diag_process_diag_id_query_cmd(buf, len,
-							driver->apps_rsp_buf,
-							DIAG_MAX_RSP_SIZE);
-		if (write_len > 0)
-			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
-		return 0;
-	}
-	/* Check for Diag Feature Query command */
-	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
-		(*(buf+1) == DIAG_SS_DIAG) &&
-		(*(uint16_t *)(buf+2) == DIAG_FEATURE_QUERY)) {
-		write_len = diag_cmd_feature_query(buf, len,
-							driver->apps_rsp_buf,
-							DIAG_MAX_RSP_SIZE);
-		if (write_len > 0)
-			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
-		return 0;
-	}
-	/* Check for download command */
-	else if ((chk_apps_master()) && (*buf == 0x3A)) {
+	if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+			(*(buf+1) == DIAG_SS_DIAG)) {
+		return diag_process_ss_diag_cmd(buf, len, pid);
+	} else if ((chk_apps_master()) && (*buf == 0x3A)) {
+		/* Check for download command */
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
 		diag_send_rsp(driver->apps_rsp_buf, 1, pid);
@@ -1185,50 +1238,9 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		kernel_restart(NULL);
 		/* Not required, represents that command isn't sent to modem */
 		return 0;
-	}
-	/* Check for polling for Apps only DIAG */
-	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
-		(*(buf+2) == 0x03)) {
-		/* If no one has registered for polling */
-		if (chk_polling_response()) {
-			/* Respond to polling for Apps only DIAG */
-			for (i = 0; i < 3; i++)
-				driver->apps_rsp_buf[i] = *(buf+i);
-			for (i = 0; i < 13; i++)
-				driver->apps_rsp_buf[i+3] = 0;
-
-			diag_send_rsp(driver->apps_rsp_buf, 16, pid);
-			return 0;
-		}
-	}
-	/* Return the Delayed Response Wrap Status */
-	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
-		(*(buf+2) == 0x04) && (*(buf+3) == 0x0)) {
-		memcpy(driver->apps_rsp_buf, buf, 4);
-		driver->apps_rsp_buf[4] = wrap_enabled;
-		diag_send_rsp(driver->apps_rsp_buf, 5, pid);
-		return 0;
-	}
-	/* Wrap the Delayed Rsp ID */
-	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
-		(*(buf+2) == 0x05) && (*(buf+3) == 0x0)) {
-		wrap_enabled = true;
-		memcpy(driver->apps_rsp_buf, buf, 4);
-		driver->apps_rsp_buf[4] = wrap_count;
-		diag_send_rsp(driver->apps_rsp_buf, 6, pid);
-		return 0;
-	}
-	/* Mobile ID Rsp */
-	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
-			(*(buf+1) == DIAG_SS_PARAMS) &&
-			(*(buf+2) == DIAG_EXT_MOBILE_ID) && (*(buf+3) == 0x0)) {
-		write_len = diag_cmd_get_mobile_id(buf, len,
-						   driver->apps_rsp_buf,
-						   DIAG_MAX_RSP_SIZE);
-		if (write_len > 0) {
-			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
-			return 0;
-		}
+	} else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+			(*(buf+1) == DIAG_SS_PARAMS)) {
+		return diag_process_ss_diag_params(buf, len, pid);
 	}
 	 /*
 	  * If the apps processor is master and no other
