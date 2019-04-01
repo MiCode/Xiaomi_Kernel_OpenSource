@@ -620,6 +620,8 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 {
 	bool is_mst_receiver;
 	struct dp_mst_hpd_info info;
+	const int clear_mstm_ctrl_timeout = 100000;
+	u8 old_mstm_ctrl;
 	int ret;
 
 	if (!dp->parser->has_mst || !dp->mst.drm_registered) {
@@ -639,7 +641,17 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 		}
 
 		/* clear sink mst state */
+		drm_dp_dpcd_readb(dp->aux->drm_aux, DP_MSTM_CTRL,
+				&old_mstm_ctrl);
 		drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
+
+		/* add extra delay if MST state is not cleared */
+		if (old_mstm_ctrl) {
+			DP_MST_DEBUG("MSTM_CTRL is not cleared, wait %dus\n",
+					clear_mstm_ctrl_timeout);
+			usleep_range(clear_mstm_ctrl_timeout,
+				clear_mstm_ctrl_timeout + 1000);
+		}
 
 		ret = drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL,
 				 DP_MST_EN | DP_UP_REQ_EN | DP_UPSTREAM_IS_SRC);
@@ -709,7 +721,7 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 
 	mutex_lock(&dp->session_lock);
 
@@ -721,7 +733,6 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	}
 
 	dp->is_connected = true;
-	mutex_unlock(&dp->session_lock);
 
 	dp->dp_display.max_pclk_khz = min(dp->parser->max_pclk_khz,
 					dp->debug->max_pclk_khz);
@@ -743,9 +754,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	 * ENOTCONN --> no downstream device connected
 	 */
 	if (rc == -ETIMEDOUT || rc == -ENOTCONN) {
-		mutex_lock(&dp->session_lock);
 		dp->is_connected = false;
-		mutex_unlock(&dp->session_lock);
 		goto end;
 	}
 
@@ -754,20 +763,21 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp_display_process_mst_hpd_high(dp, false);
 
-	mutex_lock(&dp->session_lock);
 	rc = dp->ctrl->on(dp->ctrl, dp->mst.mst_active,
 				dp->panel->fec_en, false);
 	if (rc) {
 		dp->is_connected = false;
-		mutex_unlock(&dp->session_lock);
 		goto end;
 	}
-	mutex_unlock(&dp->session_lock);
 
 	dp->process_hpd_connect = false;
 	dp_display_process_mst_hpd_high(dp, true);
-	dp_display_send_hpd_notification(dp);
 end:
+	mutex_unlock(&dp->session_lock);
+
+	if (!rc)
+		dp_display_send_hpd_notification(dp);
+
 	return rc;
 }
 
@@ -860,6 +870,7 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 			goto end;
 	}
 
+	mutex_lock(&dp->session_lock);
 	dp_display_host_init(dp);
 
 	/* check for hpd high */
@@ -867,7 +878,7 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		queue_work(dp->wq, &dp->connect_work);
 	else
 		dp->process_hpd_connect = true;
-
+	mutex_unlock(&dp->session_lock);
 end:
 	return rc;
 }
@@ -988,8 +999,10 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
-	if (dp->debug->psm_enabled)
+	mutex_lock(&dp->session_lock);
+	if (dp->debug->psm_enabled && dp->core_initialized)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
+	mutex_unlock(&dp->session_lock);
 
 	dp_display_disconnect_sync(dp);
 
@@ -1038,11 +1051,19 @@ static void dp_display_attention_work(struct work_struct *work)
 	struct dp_display_private *dp = container_of(work,
 			struct dp_display_private, attention_work);
 
-	if (dp->debug->mst_hpd_sim)
-		goto mst_attention;
+	mutex_lock(&dp->session_lock);
 
-	if (dp->link->process_request(dp->link))
+	if (dp->debug->mst_hpd_sim || !dp->core_initialized) {
+		mutex_unlock(&dp->session_lock);
+		goto mst_attention;
+	}
+
+	if (dp->link->process_request(dp->link)) {
+		mutex_unlock(&dp->session_lock);
 		goto cp_irq;
+	}
+
+	mutex_unlock(&dp->session_lock);
 
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
 		if (dp_display_is_sink_count_zero(dp)) {
