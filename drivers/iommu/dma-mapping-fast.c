@@ -398,7 +398,7 @@ static void fast_smmu_sync_sg_for_cpu(struct device *dev,
 {
 	struct scatterlist *sg;
 	dma_addr_t iova = sg_dma_address(sgl);
-	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	int i;
 
 	if (av8l_fast_iova_coherent_public(mapping->pgtbl_ops, iova))
@@ -414,7 +414,7 @@ static void fast_smmu_sync_sg_for_device(struct device *dev,
 {
 	struct scatterlist *sg;
 	dma_addr_t iova = sg_dma_address(sgl);
-	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
 	int i;
 
 	if (av8l_fast_iova_coherent_public(mapping->pgtbl_ops, iova))
