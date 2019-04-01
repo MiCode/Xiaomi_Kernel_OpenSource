@@ -97,6 +97,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
+#define CAM_ISP_GENERIC_BLOB_TYPE_VFE_OUT_CONFIG      8
 
 /* Query devices */
 /**
@@ -487,6 +488,55 @@ struct cam_isp_acquire_hw_info {
 	uint32_t                input_info_size;
 	uint32_t                input_info_offset;
 	uint64_t                data;
+};
+
+/**
+ * struct cam_isp_vfe_wm_config  -  VFE write master config per port
+ *
+ * @port_type        : Unique ID of output port
+ * @wm_mode          : Write master mode
+ *                     0x0 - Line based mode
+ *                     0x1 - Frame based mode
+ *                     0x2 - Index based mode, valid for BAF only
+ * @h_init           : Horizontal starting coordinate in pixels. Must be a
+ *                     multiple of 3 for TP10 format
+ * @height           : Height in pixels
+ * @width            : Width in pixels
+ * @virtual_frame_en : Enabling virtual frame will prevent actual request from
+ *                     being sent to NOC
+ * @stride           : Write master stride
+ * @offset           : Write master offset
+ * @reserved_1       : Reserved field for Write master config
+ * @reserved_2       : Reserved field for Write master config
+ * @reserved_3       : Reserved field for Write master config
+ * @reserved_4       : Reserved field for Write master config
+ */
+struct cam_isp_vfe_wm_config {
+	uint32_t                      port_type;
+	uint32_t                      wm_mode;
+	uint32_t                      h_init;
+	uint32_t                      height;
+	uint32_t                      width;
+	uint32_t                      virtual_frame_en;
+	uint32_t                      stride;
+	uint32_t                      offset;
+	uint32_t                      reserved_1;
+	uint32_t                      reserved_2;
+	uint32_t                      reserved_3;
+	uint32_t                      reserved_4;
+};
+
+/**
+ * struct cam_isp_vfe_out_config  -  VFE write master config
+ *
+ * @num_ports      : Number of ports
+ * @reserved       : Reserved field
+ * @wm_config      : VFE out config
+ */
+struct cam_isp_vfe_out_config {
+	uint32_t                      num_ports;
+	uint32_t                      reserved;
+	struct cam_isp_vfe_wm_config  wm_config[1];
 };
 
 #define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000

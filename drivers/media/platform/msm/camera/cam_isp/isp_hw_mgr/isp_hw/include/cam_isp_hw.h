@@ -99,6 +99,7 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD,
 	CAM_ISP_HW_CMD_UBWC_UPDATE_V2,
 	CAM_ISP_HW_CMD_CORE_CONFIG,
+	CAM_ISP_HW_CMD_WM_CONFIG_UPDATE,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -227,6 +228,7 @@ struct cam_isp_hw_get_cmd_update {
 		struct cam_ubwc_plane_cfg_v1         *ubwc_update;
 		struct cam_fe_config                 *fe_update;
 		struct cam_vfe_generic_ubwc_config   *ubwc_config;
+		struct cam_isp_vfe_wm_config         *wm_config;
 	};
 };
 
