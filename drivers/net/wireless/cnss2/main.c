@@ -1228,7 +1228,7 @@ static int cnss_qdss_trace_save_hdlr(struct cnss_plat_data *plat_priv,
 						      size, &seg_id);
 			if (!va) {
 				cnss_pr_err("Fail to find matching va for pa %pa\n",
-					    pa);
+					    &pa);
 				ret = -EINVAL;
 				break;
 			}
