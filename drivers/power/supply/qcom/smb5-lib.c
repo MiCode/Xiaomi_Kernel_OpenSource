@@ -2742,6 +2742,27 @@ exit:
  * DC PSY GETTERS *
  *******************/
 
+int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->wls_psy) {
+		chg->wls_psy = power_supply_get_by_name("wireless");
+		if (!chg->wls_psy)
+			return -ENODEV;
+	}
+
+	rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+				val);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't get POWER_SUPPLY_PROP_VOLTAGE_REGULATION, rc=%d\n",
+				rc);
+
+	return rc;
+}
+
 int smblib_get_prop_dc_present(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
