@@ -341,7 +341,7 @@ static int qrtr_fifo_xprt_probe(struct platform_device *pdev)
 	qrtr_fifo_config_init(xprtp);
 
 	xprtp->ep.xmit = xprt_write;
-	ret = qrtr_endpoint_register(&xprtp->ep, QRTR_EP_NID_AUTO);
+	ret = qrtr_endpoint_register(&xprtp->ep, QRTR_EP_NID_AUTO, false);
 	if (ret)
 		return ret;
 
