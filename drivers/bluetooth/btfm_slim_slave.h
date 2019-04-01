@@ -5,7 +5,7 @@
 
 #ifndef BTFM_SLIM_SLAVE_H
 #define BTFM_SLIM_SLAVE_H
-#include <btfm_slim.h>
+#include "btfm_slim.h"
 
 /* Registers Address */
 #define SLAVE_SB_COMP_TEST			0x00000000

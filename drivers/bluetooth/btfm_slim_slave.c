@@ -4,8 +4,8 @@
  */
 
 #include <linux/slimbus/slimbus.h>
-#include <btfm_slim.h>
-#include <btfm_slim_slave.h>
+#include "btfm_slim.h"
+#include "btfm_slim_slave.h"
 
 /* SLAVE (WCN3990/QCA6390) Port assignment */
 struct btfmslim_ch slave_rxport[] = {

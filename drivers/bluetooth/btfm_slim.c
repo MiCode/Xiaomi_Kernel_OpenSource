@@ -17,8 +17,8 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
-#include <btfm_slim.h>
-#include <btfm_slim_slave.h>
+#include "btfm_slim.h"
+#include "btfm_slim_slave.h"
 #include <linux/bluetooth-power.h>
 
 int btfm_slim_write(struct btfmslim *btfmslim,
