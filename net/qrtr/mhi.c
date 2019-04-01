@@ -81,7 +81,7 @@ free_skb:
 }
 
 static void qrtr_mhi_of_parse(struct mhi_device *mhi_dev,
-			      u32 *net_id)
+			      u32 *net_id, bool *rt)
 {
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct device_node *np = NULL;
@@ -102,6 +102,7 @@ static void qrtr_mhi_of_parse(struct mhi_device *mhi_dev,
 			rc = of_property_read_u32(np, "qcom,net-id", &nid);
 			if (!rc)
 				*net_id = nid;
+			*rt = of_property_read_bool(np, "qcom,low-latency");
 		}
 	}
 	of_node_put(np);
@@ -112,6 +113,7 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 {
 	struct qrtr_mhi_dev *qdev;
 	u32 net_id;
+	bool rt;
 	int rc;
 
 	qdev = devm_kzalloc(&mhi_dev->dev, sizeof(*qdev), GFP_KERNEL);
@@ -125,9 +127,9 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 
 	dev_set_drvdata(&mhi_dev->dev, qdev);
 
-	qrtr_mhi_of_parse(mhi_dev, &net_id);
+	qrtr_mhi_of_parse(mhi_dev, &net_id, &rt);
 
-	rc = qrtr_endpoint_register(&qdev->ep, net_id);
+	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt);
 	if (rc)
 		return rc;
 
