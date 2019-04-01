@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -1270,6 +1270,27 @@ DEFINE_EVENT(hfi_msg_template, kgsl_hfi_receive,
 	TP_ARGS(id, size, seqnum)
 );
 
+TRACE_EVENT(kgsl_opp_notify,
+	TP_PROTO(
+		unsigned long min_freq,
+		unsigned long max_freq
+	),
+	TP_ARGS(
+		min_freq,
+		max_freq
+	),
+	TP_STRUCT__entry(
+		__field(unsigned long, min_freq)
+		__field(unsigned long, max_freq)
+	),
+	TP_fast_assign(
+		__entry->min_freq = min_freq;
+		__entry->max_freq = max_freq;
+	),
+	TP_printk("min freq=%ld max freq=%ld",
+		__entry->min_freq, __entry->max_freq
+	)
+);
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
