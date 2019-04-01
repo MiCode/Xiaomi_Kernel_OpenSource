@@ -383,7 +383,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		((size_t)cmd->offset >= len - sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_CTXT, "invalid buff length: %zu or offset", len);
 		rc = -EINVAL;
-		goto free_cpu_buf;
+		goto free_req;
 	}
 
 	remain_len -= (size_t)cmd->offset;
@@ -395,7 +395,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
-		goto free_cpu_buf;
+		goto free_req;
 	}
 
 	if (packet->header.request_id > ctx->last_flush_req)
@@ -422,7 +422,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 			"[%s][%d] Prepare config packet failed in HW layer",
 			ctx->dev_name, ctx->ctx_id);
 		rc = -EFAULT;
-		goto free_cpu_buf;
+		goto free_req;
 	}
 	req->num_hw_update_entries = cfg.num_hw_update_entries;
 	req->num_out_map_entries = cfg.num_out_map_entries;
@@ -480,10 +480,6 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		}
 	}
 
-	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
-		CAM_WARN(CAM_CTXT, "[%s][%d] Can not put packet address",
-			ctx->dev_name, ctx->ctx_id);
-
 	return rc;
 
 put_ref:
@@ -492,10 +488,6 @@ put_ref:
 			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
 				req->out_map_entries[i].sync_id);
 	}
-free_cpu_buf:
-	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
-		CAM_WARN(CAM_CTXT, "[%s][%d] Can not put packet address",
-			ctx->dev_name, ctx->ctx_id);
 free_req:
 	spin_lock(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);

@@ -127,16 +127,14 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 		((size_t)cmd_desc->size > (len - (size_t)cmd_desc->offset))) {
 		CAM_ERR(CAM_UTIL, "invalid memory len:%zd and cmd desc size:%d",
 			len, cmd_desc->size);
-		rc = -EINVAL;
-		goto rel_kmd_buf;
+		return -EINVAL;
 	}
 
 	remain_len -= (size_t)cmd_desc->offset;
 	if ((size_t)packet->kmd_cmd_buf_offset >= remain_len) {
 		CAM_ERR(CAM_UTIL, "Invalid kmd cmd buf offset: %zu",
 			(size_t)packet->kmd_cmd_buf_offset);
-		rc = -EINVAL;
-		goto rel_kmd_buf;
+		return -EINVAL;
 	}
 
 	cpu_addr += (cmd_desc->offset / 4) + (packet->kmd_cmd_buf_offset / 4);
@@ -152,11 +150,6 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 	kmd_buf->offset     = cmd_desc->offset + packet->kmd_cmd_buf_offset;
 	kmd_buf->size       = cmd_desc->size - cmd_desc->length;
 	kmd_buf->used_bytes = 0;
-
-rel_kmd_buf:
-	if (cam_mem_put_cpu_buf(cmd_desc->mem_handle))
-		CAM_WARN(CAM_UTIL, "Put KMD Buf failed for: 0x%x",
-			cmd_desc->mem_handle);
 
 	return rc;
 }
@@ -232,9 +225,6 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 			"patch is done for dst %pK with src %pK value %llx",
 			dst_cpu_addr, src_buf_iova_addr,
 			*((uint64_t *)dst_cpu_addr));
-		if (cam_mem_put_cpu_buf(patch_desc[i].dst_buf_hdl))
-			CAM_WARN(CAM_UTIL, "unable to put dst buf address:0x%x",
-				patch_desc[i].dst_buf_hdl);
 	}
 
 	return rc;
@@ -244,7 +234,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 	struct cam_cmd_buf_desc *cmd_buf,
 	cam_packet_generic_blob_handler blob_handler_cb, void *user_data)
 {
-	int       rc;
+	int       rc = 0;
 	uintptr_t  cpu_addr = 0;
 	size_t    buf_size;
 	size_t    remain_len = 0;
@@ -275,14 +265,14 @@ int cam_packet_util_process_generic_cmd_buffer(
 		((size_t)cmd_buf->offset > (buf_size - sizeof(uint32_t)))) {
 		CAM_ERR(CAM_UTIL, "Invalid offset for cmd buf: %zu",
 			(size_t)cmd_buf->offset);
-		goto rel_cmd_buf;
+		return -EINVAL;
 	}
 	remain_len -= (size_t)cmd_buf->offset;
 
 	if (remain_len < (size_t)cmd_buf->length) {
 		CAM_ERR(CAM_UTIL, "Invalid length for cmd buf: %zu",
 			(size_t)cmd_buf->length);
-		goto rel_cmd_buf;
+		return -EINVAL;
 	}
 
 	blob_ptr = (uint32_t *)(((uint8_t *)cpu_addr) +
@@ -315,7 +305,7 @@ int cam_packet_util_process_generic_cmd_buffer(
 				blob_type, blob_size, len_read,
 				cmd_buf->length);
 			rc = -EINVAL;
-			goto rel_cmd_buf;
+			goto end;
 		}
 
 		len_read += blob_block_size;
@@ -325,16 +315,12 @@ int cam_packet_util_process_generic_cmd_buffer(
 		if (rc) {
 			CAM_ERR(CAM_UTIL, "Error in handling blob type %d %d",
 				blob_type, blob_size);
-			goto rel_cmd_buf;
+			goto end;
 		}
 
 		blob_ptr += (blob_block_size / sizeof(uint32_t));
 	}
 
-rel_cmd_buf:
-	if (cam_mem_put_cpu_buf(cmd_buf->mem_handle))
-		CAM_WARN(CAM_UTIL, "unable to put dst buf address: 0x%x",
-			cmd_buf->mem_handle);
-
+end:
 	return rc;
 }

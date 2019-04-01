@@ -171,10 +171,6 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 
 	list_add_tail(&p_cfg_req->list, &hw_mgr->free_req_list);
-
-	if (cam_mem_put_cpu_buf(mem_hdl))
-		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
-			mem_hdl);
 	return rc;
 }
 
@@ -463,13 +459,13 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 		hw_mgr->cdm_info[dev_type][0].cdm_handle, cdm_cmd);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to apply the configs %d", rc);
-		goto rel_cpu_buf;
+		goto end_callcb;
 	}
 
 	if (!hw_mgr->devices[dev_type][0]->hw_ops.start) {
 		CAM_ERR(CAM_JPEG, "op start null ");
 		rc = -EINVAL;
-		goto rel_cpu_buf;
+		goto end_callcb;
 	}
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.start(
 		hw_mgr->devices[dev_type][0]->hw_priv,
@@ -477,22 +473,12 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Failed to start hw %d",
 			rc);
-		goto rel_cpu_buf;
+		goto end_callcb;
 	}
-
-	if (cam_mem_put_cpu_buf(
-		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
-		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
-			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	return rc;
 
-rel_cpu_buf:
-	if (cam_mem_put_cpu_buf(
-		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
-		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
-			config_args->hw_update_entries[CAM_JPEG_CHBASE].handle);
 end_callcb:
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	if (p_cfg_req) {
