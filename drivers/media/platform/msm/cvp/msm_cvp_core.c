@@ -577,7 +577,8 @@ void *msm_cvp_open(int core_id, int session_type)
 	INIT_MSM_CVP_LIST(&inst->freqs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
 	INIT_MSM_CVP_LIST(&inst->registeredbufs);
-	INIT_MSM_CVP_LIST(&inst->cvpbufs);
+	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 
 	kref_init(&inst->kref);
 
@@ -683,7 +684,8 @@ fail_bufq_capture:
 	mutex_destroy(&inst->flush_lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cvpbufs);
+	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
@@ -696,22 +698,49 @@ EXPORT_SYMBOL(msm_cvp_open);
 
 static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
-	struct msm_video_buffer *temp, *dummy;
+	int rc = 0;
+	struct msm_cvp_internal_buffer *cbuf, *dummy;
+	struct hal_session *session;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return;
 	}
 
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry_safe(temp, dummy, &inst->registeredbufs.list,
-			list) {
-		print_video_buffer(CVP_ERR, "undequeud buf", inst, temp);
-		msm_cvp_comm_unmap_video_buffer(inst, temp);
-		list_del(&temp->list);
-		kref_cvp_put_mbuf(temp);
+	session = (struct hal_session *)inst->session;
+	if (!session) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
+		return;
 	}
-	mutex_unlock(&inst->registeredbufs.lock);
+
+	mutex_lock(&inst->cvpcpubufs.lock);
+	list_for_each_entry_safe(cbuf, dummy, &inst->cvpcpubufs.list,
+			list) {
+		print_client_buffer(CVP_DBG, "remove from cvpcpubufs",
+				inst, &cbuf->buf);
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+		list_del(&cbuf->list);
+	}
+	mutex_unlock(&inst->cvpcpubufs.lock);
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	list_for_each_entry_safe(cbuf, dummy, &inst->cvpdspbufs.list,
+			list) {
+		print_client_buffer(CVP_DBG, "remove from cvpdspbufs",
+				inst, &cbuf->buf);
+		rc = cvp_dsp_deregister_buffer(
+			(uint32_t)cbuf->smem.device_addr,
+			cbuf->buf.index, cbuf->buf.size,
+			hash32_ptr(session));
+		if (rc)
+			dprintk(CVP_ERR,
+				"%s: failed dsp deregistration fd=%d rc=%d",
+				__func__, cbuf->buf.fd, rc);
+
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+		list_del(&cbuf->list);
+	}
+	mutex_unlock(&inst->cvpdspbufs.lock);
 
 	msm_cvp_comm_free_freq_table(inst);
 
@@ -719,7 +748,6 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 		dprintk(CVP_ERR,
 			"Failed to release persist buffers\n");
 
-	/* cvp_comm_release_cvp_buffers cvpbufs */
 	if (inst->extradata_handle)
 		msm_cvp_comm_smem_free(inst, inst->extradata_handle);
 }
@@ -748,7 +776,8 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 		vb2_queue_release(&inst->bufq[i].vb2_bufq);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
-	DEINIT_MSM_CVP_LIST(&inst->cvpbufs);
+	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
+	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
@@ -786,15 +815,7 @@ int msm_cvp_close(void *instance)
 	}
 
 	msm_cvp_cleanup_instance(inst);
-
-	/*
-	 * deinit instance after REL_RES_DONE to ensure hardware
-	 * released all buffers.
-	 */
-	if (inst->session_type == MSM_CVP_CORE)
-		msm_cvp_session_deinit(inst);
-
-
+	msm_cvp_session_deinit(inst);
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
 	if (rc) {
 		dprintk(CVP_ERR,
