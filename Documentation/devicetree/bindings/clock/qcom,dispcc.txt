@@ -8,7 +8,8 @@ Required properties :
 		"qcom,dispcc-sm6150",
 		"qcom,dispcc-sdmmagpie",
 		"qcom,dispcc-trinket",
-		"qcom,dispcc-sdmshrike-v2".
+		"qcom,dispcc-sdmshrike-v2",
+		"qcom,dispcc-sa6155".
 - reg : Shall contain base register location and length.
 - reg-names: Address name. Must be "cc_base".
 - vdd_mm-supply: phandle to the MM_CX rail that needs to be voted on behalf

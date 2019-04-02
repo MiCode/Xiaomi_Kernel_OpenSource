@@ -7,7 +7,8 @@ Required properties :
 		"qcom,camcc-sm8150-v2",
 		"qcom,camcc-sdmshrike",
 		"qcom,camcc-sm6150",
-		"qcom,camcc-sdmmagpie".
+		"qcom,camcc-sdmmagpie",
+		"qcom,camcc-sa6155".
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
