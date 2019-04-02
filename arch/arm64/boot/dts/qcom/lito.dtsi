@@ -1880,3 +1880,4 @@
 };
 
 #include "lito-qupv3.dtsi"
+#include "lito-coresight.dtsi"
