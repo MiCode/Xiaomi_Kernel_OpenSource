@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -533,7 +533,7 @@ static void glink_spi_rx_advance(struct glink_spi *glink, size_t count)
 	pipe->local_addr = tail;
 	ret = glink_spi_reg_write(glink, pipe->tail_addr, tail);
 	if (ret)
-		GLINK_ERR(glink, "Error writing rx tail\n", ret);
+		GLINK_ERR(glink, "Error writing rx tail\n");
 }
 
 static size_t glink_spi_tx_avail(struct glink_spi *glink)
@@ -890,7 +890,7 @@ static int glink_spi_request_intent(struct glink_spi *glink,
 	req.param1 = cpu_to_le16(channel->lcid);
 	req.param2 = cpu_to_le32(size);
 
-	CH_INFO(channel, "size:%d\n", size);
+	CH_INFO(channel, "size:%zd\n", size);
 
 	ret = glink_spi_tx(glink, &req, sizeof(req), NULL, 0, true);
 	if (ret)
@@ -951,7 +951,8 @@ static int glink_spi_handle_intent(struct glink_spi *glink,
 		intent->size = le32_to_cpu(intents[i].size);
 		intent->addr = (u32)le64_to_cpu(intents[i].addr);
 
-		CH_INFO(channel, "riid:%d size:%d\n", intent->id, intent->size);
+		CH_INFO(channel, "riid:%d size:%zd\n", intent->id,
+			intent->size);
 
 		spin_lock_irqsave(&channel->intent_lock, flags);
 		ret = idr_alloc(&channel->riids, intent,
@@ -1076,7 +1077,7 @@ static int glink_spi_advertise_intent(struct glink_spi *glink,
 	cmd.size = cpu_to_le32(intent->size);
 	cmd.liid = cpu_to_le32(intent->id);
 
-	CH_INFO(channel, "count:%d size:%d liid:%d\n", 1,
+	CH_INFO(channel, "count:%d size:%zd liid:%d\n", 1,
 		intent->size, intent->id);
 
 	glink_spi_tx(glink, &cmd, sizeof(cmd), NULL, 0, true);
