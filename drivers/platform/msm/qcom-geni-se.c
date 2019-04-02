@@ -1733,7 +1733,7 @@ static int geni_se_probe(struct platform_device *pdev)
 	}
 
 	geni_se_dev->dev = dev;
-
+	geni_se_dev->cb_dev = dev;
 	ret = of_property_read_u32(dev->of_node, "qcom,msm-bus,num-paths",
 					&geni_se_dev->num_paths);
 	if (!ret) {
