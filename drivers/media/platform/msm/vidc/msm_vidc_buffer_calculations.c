@@ -851,6 +851,9 @@ u32 msm_vidc_calculate_enc_output_frame_size(struct msm_vidc_inst *inst)
 		(inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ))
 		frame_size = frame_size << 1;
 
+	if (inst->rc_type == RATE_CONTROL_LOSSLESS)
+		frame_size = (width * height * 6);
+
 	return ALIGN(frame_size, SZ_4K);
 }
 

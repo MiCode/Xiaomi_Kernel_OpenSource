@@ -34,4 +34,5 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst);
 int msm_venc_set_hp_max_layer(struct msm_vidc_inst *inst);
 int msm_venc_set_hp_layer(struct msm_vidc_inst *inst);
 int msm_venc_set_base_layer_priority_id(struct msm_vidc_inst *inst);
+int msm_venc_set_lossless(struct msm_vidc_inst *inst);
 #endif

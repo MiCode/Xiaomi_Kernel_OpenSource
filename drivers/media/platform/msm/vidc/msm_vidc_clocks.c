@@ -1541,10 +1541,11 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 		return 0;
 	}
 
-	/* Power saving always disabled for CQ RC mode. */
+	/* Power saving always disabled for CQ and LOSSLESS RC modes. */
 	mbs_per_frame = msm_vidc_get_mbs_per_frame(inst);
 	mbs_per_sec = mbs_per_frame * msm_vidc_get_fps(inst);
 	if (inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ ||
+		inst->rc_type == RATE_CONTROL_LOSSLESS ||
 		(mbs_per_frame <=
 		 inst->core->resources.max_hq_mbs_per_frame &&
 		 mbs_per_sec <=

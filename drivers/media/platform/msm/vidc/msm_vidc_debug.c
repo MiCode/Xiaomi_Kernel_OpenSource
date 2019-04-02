@@ -15,6 +15,9 @@ EXPORT_SYMBOL(msm_vidc_debug);
 int msm_vidc_debug_out = VIDC_OUT_PRINTK;
 EXPORT_SYMBOL(msm_vidc_debug_out);
 
+bool msm_vidc_lossless_encode = !true;
+EXPORT_SYMBOL(msm_vidc_lossless_encode);
+
 int msm_vidc_fw_debug = 0x18;
 int msm_vidc_fw_debug_mode = 1;
 bool msm_vidc_fw_coverage = !true;
@@ -183,7 +186,9 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(u32, "core_clock_voting",
 			&msm_vidc_clock_voting) &&
 	__debugfs_create(bool, "disable_video_syscache",
-			&msm_vidc_syscache_disable);
+			&msm_vidc_syscache_disable) &&
+	__debugfs_create(bool, "lossless_encoding",
+			&msm_vidc_lossless_encode);
 
 #undef __debugfs_create
 
