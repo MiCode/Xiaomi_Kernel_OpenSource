@@ -520,6 +520,7 @@ struct smb_charger {
 	int			cc_soc_ref;
 	int			dr_mode;
 	int			usbin_forced_max_uv;
+	int			init_thermal_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
