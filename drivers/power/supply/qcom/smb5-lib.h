@@ -508,6 +508,7 @@ struct smb_charger {
 	int			default_aicl_cont_threshold_mv;
 	bool			aicl_max_reached;
 	int			usbin_forced_max_uv;
+	int			init_thermal_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
