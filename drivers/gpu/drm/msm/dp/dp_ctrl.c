@@ -575,7 +575,7 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 	catalog->phy_lane_cfg(catalog, ctrl->orientation,
 				link_params->lane_count);
 
-	do {
+	while (1) {
 		pr_debug("bw_code=%d, lane_count=%d\n",
 			link_params->bw_code, link_params->lane_count);
 
@@ -601,6 +601,9 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 			break;
 		}
 
+		if (!link_train_max_retries-- || atomic_read(&ctrl->aborted))
+			break;
+
 		dp_ctrl_link_rate_down_shift(ctrl);
 
 		dp_ctrl_configure_source_link_params(ctrl, false);
@@ -608,7 +611,7 @@ static int dp_ctrl_link_setup(struct dp_ctrl_private *ctrl, bool shallow)
 
 		/* hw recommended delays before retrying link training */
 		msleep(20);
-	} while (--link_train_max_retries && !atomic_read(&ctrl->aborted));
+	}
 
 	return rc;
 }
@@ -1156,11 +1159,6 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode,
 	if (ctrl->power_on)
 		goto end;
 
-	if (atomic_read(&ctrl->aborted)) {
-		rc = -EPERM;
-		goto end;
-	}
-
 	ctrl->mst_mode = mst_mode;
 	ctrl->fec_mode = fec_mode;
 	rate = ctrl->panel->link_info.rate;
@@ -1179,9 +1177,6 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool mst_mode,
 		ctrl->link->link_params.lane_count);
 
 	rc = dp_ctrl_link_setup(ctrl, shallow);
-	if (rc)
-		goto end;
-
 	ctrl->power_on = true;
 end:
 	return rc;
