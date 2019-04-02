@@ -4965,10 +4965,31 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 	return 0;
 }
 
+static uint32_t cam_icp_unify_dev_type(
+	uint32_t dev_type)
+{
+	switch (dev_type) {
+	case CAM_ICP_RES_TYPE_BPS:
+		return CAM_ICP_RES_TYPE_BPS;
+	case CAM_ICP_RES_TYPE_BPS_RT:
+		return CAM_ICP_RES_TYPE_BPS;
+	case CAM_ICP_RES_TYPE_BPS_SEMI_RT:
+		return CAM_ICP_RES_TYPE_BPS;
+	case CAM_ICP_RES_TYPE_IPE:
+		return CAM_ICP_RES_TYPE_IPE;
+	case CAM_ICP_RES_TYPE_IPE_RT:
+		return CAM_ICP_RES_TYPE_IPE;
+	case CAM_ICP_RES_TYPE_IPE_SEMI_RT:
+		return CAM_ICP_RES_TYPE_IPE;
+	default:
+		return CAM_ICP_RES_TYPE_MAX;
+	}
+}
+
 static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 {
 	int rc = 0, bitmap_size = 0;
-	uint32_t ctx_id = 0;
+	uint32_t ctx_id = 0, dev_type;
 	uint64_t io_buf_addr;
 	size_t io_buf_size;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
@@ -5061,6 +5082,10 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto create_handle_failed;
 	}
 
+	CAM_DBG(CAM_ICP,
+		"created stream handle for dev_type %u",
+		icp_dev_acquire_info->dev_type);
+
 	cmd_mem_region.num_regions = 1;
 	cmd_mem_region.map_info_array[0].mem_handle =
 		icp_dev_acquire_info->io_config_cmd_handle;
@@ -5120,10 +5145,12 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	/* Start context timer*/
 	cam_icp_ctx_timer_start(ctx_data);
 	hw_mgr->ctxt_cnt++;
+	dev_type = cam_icp_unify_dev_type(icp_dev_acquire_info->dev_type);
+	icp_dev_acquire_info->dev_type = dev_type;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-	CAM_DBG(CAM_ICP, "Acquire Done for ctx_id %u dev name %s dev type %d",
-		ctx_data->ctx_id, cam_icp_dev_type_to_name(
-		icp_dev_acquire_info->dev_type),
+
+	CAM_DBG(CAM_ICP, "Acquire Done for ctx_id %u dev type %d",
+		ctx_data->ctx_id,
 		icp_dev_acquire_info->dev_type);
 
 	return 0;

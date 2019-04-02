@@ -18,10 +18,13 @@
 #define CAM_ICP_DEV_TYPE_MAX     5
 
 /* definitions needed for icp aquire device */
-#define CAM_ICP_RES_TYPE_BPS        1
-#define CAM_ICP_RES_TYPE_IPE_RT     2
-#define CAM_ICP_RES_TYPE_IPE        3
-#define CAM_ICP_RES_TYPE_MAX        4
+#define CAM_ICP_RES_TYPE_BPS         1
+#define CAM_ICP_RES_TYPE_IPE_RT      2
+#define CAM_ICP_RES_TYPE_IPE         3
+#define CAM_ICP_RES_TYPE_IPE_SEMI_RT 4
+#define CAM_ICP_RES_TYPE_BPS_RT      5
+#define CAM_ICP_RES_TYPE_BPS_SEMI_RT 6
+#define CAM_ICP_RES_TYPE_MAX         7
 
 /* packet opcode types */
 #define CAM_ICP_OPCODE_IPE_UPDATE   0
