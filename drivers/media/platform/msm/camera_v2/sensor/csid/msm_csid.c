@@ -750,6 +750,22 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	CDBG("%s:%d, hw_version = 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 
+	if (csid_dev->current_csid_params.is_secure == 1) {
+		struct scm_desc desc = {0};
+
+		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+		desc.args[0] = 0;
+		desc.args[1] = csid_dev->current_csid_params.phy_sel;
+
+		if (scm_call2(SCM_SIP_FNID(SCM_SVC_CAMERASS,
+			SECURE_SYSCALL_ID), &desc)) {
+			pr_err("%s:%d scm call to hyp with protect 0 failed\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		msm_camera_tz_clear_tzbsp_status();
+	}
+
 	irq = msm_camera_vio_r(csid_dev->base,
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr,
 		csid_dev->pdev->id);
@@ -789,22 +805,6 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	}
 
 	csid_dev->csid_state = CSID_POWER_DOWN;
-
-	if (csid_dev->current_csid_params.is_secure == 1) {
-		struct scm_desc desc = {0};
-
-		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
-		desc.args[0] = 0;
-		desc.args[1] = csid_dev->current_csid_params.phy_sel;
-
-		if (scm_call2(SCM_SIP_FNID(SCM_SVC_CAMERASS,
-			SECURE_SYSCALL_ID), &desc)) {
-			pr_err("%s:%d scm call to hyp with protect 0 failed\n",
-				__func__, __LINE__);
-			return -EINVAL;
-		}
-		msm_camera_tz_clear_tzbsp_status();
-	}
 
 	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSID,
 		CAM_AHB_SUSPEND_VOTE) < 0)
