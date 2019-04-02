@@ -217,7 +217,12 @@
 #define CHIP_VEN_MT6360				(0x50)
 #define CHIP_REV_MASK				(0x0F)
 
-/* TODO: add irq struct and macro define */
+/* IRQ definitions */
+struct mt6360_pmu_irq_desc {
+	const char *name;
+	irq_handler_t irq_handler;
+};
+
 /* TODO: add parse and apply dts node function and define for sub-device */
 
 #endif /* __MT6360_PRIVATE_H__ */
