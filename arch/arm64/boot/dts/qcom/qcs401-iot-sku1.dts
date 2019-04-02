@@ -20,7 +20,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. QCS401 EVB2 1000 IOT";
 	compatible = "qcom,qcs401-iot", "qcom,qcs401", "qcom,iot";
-	qcom,board-id = <0x010020 0x3>;
+	qcom,board-id = <0x010020 0x2>;
 
 	cpus {
 		/delete-node/ cpu@102;

@@ -16,7 +16,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. QCS401";
 	qcom,msm-name = "QCS401";
-	qcom,msm-id = <371 0x0>;
+	qcom,msm-id = <372 0x0>;
 };
 
 &soc {
