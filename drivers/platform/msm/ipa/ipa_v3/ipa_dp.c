@@ -447,7 +447,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	result = gsi_queue_xfer(sys->ep->gsi_chan_hdl, num_desc,
 			gsi_xfer, true);
 	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("GSI xfer failed.\n");
+		IPAERR_RL("GSI xfer failed.\n");
 		result = -EFAULT;
 		goto failure;
 	}
@@ -1722,7 +1722,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		}
 
 		if (ipa3_send(sys, num_frags + data_idx, desc, true)) {
-			IPAERR("fail to send skb %pK num_frags %u SWP\n",
+			IPAERR_RL("fail to send skb %pK num_frags %u SWP\n",
 				skb, num_frags);
 			goto fail_send;
 		}

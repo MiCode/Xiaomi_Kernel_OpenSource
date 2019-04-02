@@ -63,6 +63,9 @@ struct ipa_wigig_context {
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu
 		tx_buff_smmu[IPA_WIGIG_TX_PIPE_NUM];
 	char clients_mac[IPA_WIGIG_TX_PIPE_NUM][IPA_MAC_ADDR_SIZE];
+	bool smmu_en;
+	bool shared_cb;
+	bool rx_connected;
 };
 
 static struct ipa_wigig_context *ipa_wigig_ctx;
@@ -155,8 +158,7 @@ bool ipa_wigig_is_smmu_enabled(void)
 
 	IPA_WIGIG_DBG("\n");
 
-	in.smmu_client = IPA_SMMU_WLAN_CLIENT;
-
+	in.smmu_client = IPA_SMMU_WIGIG_CLIENT;
 	ipa_get_smmu_params(&in, &out);
 
 	IPA_WIGIG_DBG("exit (%d)\n", out.smmu_enable);
@@ -164,6 +166,29 @@ bool ipa_wigig_is_smmu_enabled(void)
 	return out.smmu_enable;
 }
 EXPORT_SYMBOL(ipa_wigig_is_smmu_enabled);
+
+static int ipa_wigig_init_smmu_params(void)
+{
+	struct ipa_smmu_in_params in;
+	struct ipa_smmu_out_params out;
+	int ret;
+
+	IPA_WIGIG_DBG("\n");
+
+	in.smmu_client = IPA_SMMU_WIGIG_CLIENT;
+	ret = ipa_get_smmu_params(&in, &out);
+	if (ret) {
+		IPA_WIGIG_ERR("couldn't get SMMU params %d\n", ret);
+		return ret;
+	}
+	ipa_wigig_ctx->smmu_en = out.smmu_enable;
+	ipa_wigig_ctx->shared_cb = out.shared_cb;
+	IPA_WIGIG_DBG("SMMU (%s), 11ad CB (%s)\n",
+		out.smmu_enable ? "enabled" : "disabled",
+		out.shared_cb ? "shared" : "not shared");
+
+	return 0;
+}
 
 static int ipa_wigig_commit_partial_hdr(
 	struct ipa_ioc_add_hdr *hdr,
@@ -550,15 +575,18 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		return -EPERM;
 	}
 
-	if (ipa_wigig_is_smmu_enabled()) {
-		IPA_WIGIG_ERR("IPA SMMU is enabled, wrong API used\n");
-		return -EFAULT;
-	}
-
 	ret = ipa_uc_state_check();
 	if (ret) {
 		IPA_WIGIG_ERR("uC not ready\n");
 		return ret;
+	}
+
+	if (ipa_wigig_init_smmu_params())
+		return -EINVAL;
+
+	if (ipa_wigig_ctx->smmu_en) {
+		IPA_WIGIG_ERR("IPA SMMU is enabled, wrong API used\n");
+		return -EFAULT;
 	}
 
 	memset(&pm_params, 0, sizeof(pm_params));
@@ -590,6 +618,8 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		ret = -EFAULT;
 		goto fail_connect_pipe;
 	}
+
+	ipa_wigig_ctx->rx_connected = true;
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -641,8 +671,9 @@ static int ipa_wigig_clean_pipe_smmu_info(unsigned int idx)
 		IPA_WIGIG_ERR("invalid index %d\n", idx);
 		return -EINVAL;
 	}
-	kfree(ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base.sgl);
-	kfree(ipa_wigig_ctx->pipes_smmu[idx].status_ring_base.sgl);
+
+	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
+	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].status_ring_base);
 
 	memset(ipa_wigig_ctx->pipes_smmu + idx,
 		0,
@@ -653,11 +684,30 @@ static int ipa_wigig_clean_pipe_smmu_info(unsigned int idx)
 	return 0;
 }
 
+static int ipa_wigig_clone_sg_table(struct sg_table *source,
+	struct sg_table *dst)
+{
+	struct scatterlist *next, *s, *sglist;
+	int i, nents = source->nents;
+
+	if (sg_alloc_table(dst, nents, GFP_KERNEL))
+		return -EINVAL;
+	next = dst->sgl;
+	sglist = source->sgl;
+	for_each_sg(sglist, s, nents, i) {
+		*next = *s;
+		next = sg_next(next);
+	}
+
+	dst->nents = nents;
+	dst->orig_nents = source->orig_nents;
+
+	return 0;
+}
+
 static int ipa_wigig_store_pipe_smmu_info
 	(struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu, unsigned int idx)
 {
-	unsigned int nents;
-	struct scatterlist *sgl;
 	int ret;
 
 	IPA_WIGIG_DBG("\n");
@@ -680,37 +730,21 @@ static int ipa_wigig_store_pipe_smmu_info
 		pipe_smmu->status_ring_base_iova;
 
 	/* copy sgt */
-	nents = pipe_smmu->desc_ring_base.nents;
-	sgl = kmemdup(pipe_smmu->desc_ring_base.sgl,
-		nents * sizeof(struct scatterlist),
-		GFP_KERNEL);
-	if (sgl == NULL) {
-		ret = -ENOMEM;
+	ret = ipa_wigig_clone_sg_table(&pipe_smmu->desc_ring_base,
+		&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
+	if (ret)
 		goto fail_desc;
-	}
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base.sgl = sgl;
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base.nents = nents;
-	ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base.orig_nents =
-		pipe_smmu->desc_ring_base.orig_nents;
 
-	nents = pipe_smmu->status_ring_base.nents;
-	sgl = kmemdup(pipe_smmu->status_ring_base.sgl,
-		nents * sizeof(struct scatterlist),
-		GFP_KERNEL);
-	if (sgl == NULL) {
-		ret = -ENOMEM;
+	ret = ipa_wigig_clone_sg_table(&pipe_smmu->status_ring_base,
+		&ipa_wigig_ctx->pipes_smmu[idx].status_ring_base);
+	if (ret)
 		goto fail_stat;
-	}
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_base.sgl = sgl;
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_base.nents = nents;
-	ipa_wigig_ctx->pipes_smmu[idx].status_ring_base.orig_nents =
-		pipe_smmu->status_ring_base.orig_nents;
 
 	IPA_WIGIG_DBG("exit\n");
 
 	return 0;
 fail_stat:
-	kfree(ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base.sgl);
+	sg_free_table(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base);
 	memset(&ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base,
 		0, sizeof(ipa_wigig_ctx->pipes_smmu[idx].desc_ring_base));
 fail_desc:
@@ -734,7 +768,7 @@ static void  ipa_wigig_clean_rx_buff_smmu_info(void)
 {
 	IPA_WIGIG_DBG("clearing rx buff smmu info\n");
 
-	kfree(ipa_wigig_ctx->rx_buff_smmu.data_buffer_base.sgl);
+	sg_free_table(&ipa_wigig_ctx->rx_buff_smmu.data_buffer_base);
 	memset(&ipa_wigig_ctx->rx_buff_smmu,
 		0,
 		sizeof(ipa_wigig_ctx->rx_buff_smmu));
@@ -748,22 +782,11 @@ static void  ipa_wigig_clean_rx_buff_smmu_info(void)
 static int ipa_wigig_store_rx_buff_smmu_info(
 	struct ipa_wigig_rx_pipe_data_buffer_info_smmu *dbuff_smmu)
 {
-	unsigned int nents;
-	struct scatterlist *sgl;
-
 	IPA_WIGIG_DBG("\n");
+	if (ipa_wigig_clone_sg_table(&dbuff_smmu->data_buffer_base,
+		&ipa_wigig_ctx->rx_buff_smmu.data_buffer_base))
+		return -EINVAL;
 
-	nents = dbuff_smmu->data_buffer_base.nents;
-	sgl = kmemdup(dbuff_smmu->data_buffer_base.sgl,
-		nents * sizeof(struct scatterlist),
-		GFP_KERNEL);
-	if (sgl == NULL)
-		return -ENOMEM;
-
-	ipa_wigig_ctx->rx_buff_smmu.data_buffer_base.sgl = sgl;
-	ipa_wigig_ctx->rx_buff_smmu.data_buffer_base.nents = nents;
-	ipa_wigig_ctx->rx_buff_smmu.data_buffer_base.orig_nents =
-		dbuff_smmu->data_buffer_base.orig_nents;
 	ipa_wigig_ctx->rx_buff_smmu.data_buffer_base_iova =
 		dbuff_smmu->data_buffer_base_iova;
 	ipa_wigig_ctx->rx_buff_smmu.data_buffer_size =
@@ -790,8 +813,6 @@ static int ipa_wigig_store_tx_buff_smmu_info(
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu *dbuff_smmu,
 	unsigned int idx)
 {
-	unsigned int nents;
-	struct scatterlist *sgl;
 	int result, i;
 	struct ipa_wigig_tx_pipe_data_buffer_info_smmu *tx_buff_smmu;
 
@@ -819,21 +840,12 @@ static int ipa_wigig_store_tx_buff_smmu_info(
 	}
 
 	for (i = 0; i < dbuff_smmu->num_buffers; i++) {
-		nents = dbuff_smmu->data_buffer_base[i].nents;
-		sgl = kmemdup(dbuff_smmu->data_buffer_base[i].sgl,
-			nents * sizeof(struct scatterlist),
-			GFP_KERNEL);
-		if (sgl == NULL) {
-			result = -ENOMEM;
-			goto fail_sgl;
-		}
+		result = ipa_wigig_clone_sg_table(
+			dbuff_smmu->data_buffer_base + i,
+			tx_buff_smmu->data_buffer_base + i);
+		if (result)
+			goto fail_sg_clone;
 
-		tx_buff_smmu->data_buffer_base[i].sgl =
-			sgl;
-		tx_buff_smmu->data_buffer_base[i].nents =
-			nents;
-		tx_buff_smmu->data_buffer_base[i].orig_nents =
-			dbuff_smmu->data_buffer_base[i].orig_nents;
 		tx_buff_smmu->data_buffer_base_iova[i] =
 			dbuff_smmu->data_buffer_base_iova[i];
 	}
@@ -844,11 +856,10 @@ static int ipa_wigig_store_tx_buff_smmu_info(
 	IPA_WIGIG_DBG("exit\n");
 
 	return 0;
-
-fail_sgl:
+fail_sg_clone:
 	i--;
 	for (; i >= 0; i--)
-		kfree(tx_buff_smmu->data_buffer_base[i].sgl);
+		sg_free_table(tx_buff_smmu->data_buffer_base + i);
 	kfree(tx_buff_smmu->data_buffer_base_iova);
 	tx_buff_smmu->data_buffer_base_iova = NULL;
 fail_iova:
@@ -877,7 +888,7 @@ static int ipa_wigig_clean_tx_buff_smmu_info(unsigned int idx)
 	}
 
 	for (i = 0; i < dbuff_smmu->num_buffers; i++)
-		kfree(dbuff_smmu->data_buffer_base[i].sgl);
+		sg_free_table(dbuff_smmu->data_buffer_base + i);
 
 	kfree(dbuff_smmu->data_buffer_base);
 	dbuff_smmu->data_buffer_base = NULL;
@@ -919,9 +930,11 @@ static int ipa_wigig_store_rx_smmu_info
 	if (ret)
 		return ret;
 
-	ret = ipa_wigig_store_rx_buff_smmu_info(&in->dbuff_smmu);
-	if (ret)
-		goto fail_buff;
+	if (!ipa_wigig_ctx->shared_cb) {
+		ret = ipa_wigig_store_rx_buff_smmu_info(&in->dbuff_smmu);
+		if (ret)
+			goto fail_buff;
+	}
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -948,9 +961,12 @@ static int ipa_wigig_store_client_smmu_info
 	if (ret)
 		return ret;
 
-	ret = ipa_wigig_store_tx_buff_smmu_info(&in->dbuff_smmu, idx - 1);
-	if (ret)
-		goto fail_buff;
+	if (!ipa_wigig_ctx->shared_cb) {
+		ret = ipa_wigig_store_tx_buff_smmu_info(
+			&in->dbuff_smmu, idx - 1);
+		if (ret)
+			goto fail_buff;
+	}
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -1009,7 +1025,8 @@ static int ipa_wigig_clean_smmu_info(enum ipa_client_type client)
 		ret = ipa_wigig_clean_pipe_smmu_info(IPA_WIGIG_RX_PIPE_IDX);
 		if (ret)
 			return ret;
-		ipa_wigig_clean_rx_buff_smmu_info();
+		if (!ipa_wigig_ctx->shared_cb)
+			ipa_wigig_clean_rx_buff_smmu_info();
 	} else {
 		unsigned int idx;
 
@@ -1021,13 +1038,15 @@ static int ipa_wigig_clean_smmu_info(enum ipa_client_type client)
 		if (ret)
 			return ret;
 
-		ret = ipa_wigig_clean_tx_buff_smmu_info(idx - 1);
-		if (ret) {
-			IPA_WIGIG_ERR(
-				"cleaned tx pipe info but wasn't able to clean buff info, client %d\n"
-			, client);
-			WARN_ON(1);
-			return ret;
+		if (!ipa_wigig_ctx->shared_cb) {
+			ret = ipa_wigig_clean_tx_buff_smmu_info(idx - 1);
+			if (ret) {
+				IPA_WIGIG_ERR(
+					"cleaned tx pipe info but wasn't able to clean buff info, client %d\n"
+					, client);
+				WARN_ON(1);
+				return ret;
+			}
 		}
 	}
 
@@ -1052,15 +1071,18 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		return -EPERM;
 	}
 
-	if (!ipa_wigig_is_smmu_enabled()) {
-		IPA_WIGIG_ERR("IPA SMMU is disabled, wrong API used\n");
-		return -EFAULT;
-	}
-
 	ret = ipa_uc_state_check();
 	if (ret) {
 		IPA_WIGIG_ERR("uC not ready\n");
 		return ret;
+	}
+
+	if (ipa_wigig_init_smmu_params())
+		return -EINVAL;
+
+	if (!ipa_wigig_ctx->smmu_en) {
+		IPA_WIGIG_ERR("IPA SMMU is disabled, wrong API used\n");
+		return -EFAULT;
 	}
 
 	memset(&pm_params, 0, sizeof(pm_params));
@@ -1097,6 +1119,8 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		ret = -EFAULT;
 		goto fail_smmu_store;
 	}
+
+	ipa_wigig_ctx->rx_connected = true;
 
 	IPA_WIGIG_DBG("exit\n");
 
@@ -1190,7 +1214,14 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EPERM;
 	}
 
-	if (ipa_wigig_is_smmu_enabled()) {
+	if (!ipa_wigig_ctx->rx_connected) {
+		IPA_WIGIG_ERR(
+			"must connect rx pipe before connecting any client\n"
+		);
+		return -EINVAL;
+	}
+
+	if (ipa_wigig_ctx->smmu_en) {
 		IPA_WIGIG_ERR("IPA SMMU is enabled, wrong API used\n");
 		return -EFAULT;
 	}
@@ -1249,7 +1280,14 @@ int ipa_wigig_conn_client_smmu(
 		return -EPERM;
 	}
 
-	if (!ipa_wigig_is_smmu_enabled()) {
+	if (!ipa_wigig_ctx->rx_connected) {
+		IPA_WIGIG_ERR(
+			"must connect rx pipe before connecting any client\n"
+		);
+		return -EINVAL;
+	}
+
+	if (!ipa_wigig_ctx->smmu_en) {
 		IPA_WIGIG_ERR("IPA SMMU is disabled, wrong API used\n");
 		return -EFAULT;
 	}
@@ -1400,6 +1438,8 @@ int ipa_wigig_disconn_pipe(enum ipa_client_type client)
 			IPA_WIGIG_ERR("failed dereg pm\n");
 			WARN_ON(1);
 		}
+
+		ipa_wigig_ctx->rx_connected = false;
 	} else {
 		/*
 		 * wigig clients are disconnected with legacy message since

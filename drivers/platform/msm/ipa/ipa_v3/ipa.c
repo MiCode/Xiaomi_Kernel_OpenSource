@@ -381,11 +381,22 @@ struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 	return NULL;
 }
 
+struct iommu_domain *ipa3_get_11ad_smmu_domain(void)
+{
+	if (smmu_cb[IPA_SMMU_CB_11AD].valid)
+		return smmu_cb[IPA_SMMU_CB_11AD].iommu;
+
+	IPAERR("CB not valid\n");
+
+	return NULL;
+}
+
 struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
 {
 
-	if (cb_type == IPA_SMMU_CB_WLAN && smmu_cb[IPA_SMMU_CB_WLAN].valid)
-		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
+	if ((cb_type == IPA_SMMU_CB_WLAN || cb_type == IPA_SMMU_CB_11AD)
+		&& smmu_cb[cb_type].valid)
+		return smmu_cb[cb_type].iommu;
 
 	if (smmu_cb[cb_type].valid)
 		return smmu_cb[cb_type].mapping->domain;
@@ -6690,6 +6701,54 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return 0;
 }
 
+static int ipa_smmu_11ad_cb_probe(struct device *dev)
+{
+	int ret;
+	int s1_bypass = 0;
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
+
+	IPADBG("11ad CB probe: sub dev=%pK\n", dev);
+
+	if (!smmu_info.present[IPA_SMMU_CB_11AD]) {
+		IPAERR("11ad SMMU is disabled");
+		return 0;
+	}
+
+	cb->dev = dev;
+	cb->iommu = iommu_get_domain_for_dev(dev);
+	if (!cb->iommu) {
+		IPAERR("could not get iommu domain\n");
+		/* assume this failure is because iommu driver is not ready */
+		return -EPROBE_DEFER;
+	}
+	cb->valid = true;
+
+	ret = iommu_domain_get_attr(
+		cb->iommu, DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (ret) {
+		IPAERR("can't get DOMAIN_ATTR_S1_BYPASS\n");
+		return ret;
+	}
+
+	if (s1_bypass) {
+		IPADBG("11AD SMMU S1 BYPASS\n");
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_11AD] = true;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] = true;
+	} else {
+		IPADBG("11AD SMMU S1 enabled\n");
+		smmu_info.s1_bypass_arr[IPA_SMMU_CB_11AD] = false;
+		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] = false;
+	}
+
+	if (of_property_read_bool(dev->of_node, "qcom,shared-cb")) {
+		IPADBG("using shared CB\n");
+		cb->shared = true;
+	}
+
+	return 0;
+	IPADBG("exit\n");
+}
+
 static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)
 {
 	switch (cb_type) {
@@ -6699,6 +6758,8 @@ static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)
 		return ipa_smmu_wlan_cb_probe(dev);
 	case IPA_SMMU_CB_UC:
 		return ipa_smmu_uc_cb_probe(dev);
+	case IPA_SMMU_CB_11AD:
+		return ipa_smmu_11ad_cb_probe(dev);
 	case IPA_SMMU_CB_MAX:
 		IPAERR("Invalid cb_type\n");
 	}
@@ -6814,6 +6875,14 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;
+
+		return 0;
+	}
+
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-11ad-cb")) {
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
+		cb->dev = dev;
+		smmu_info.present[IPA_SMMU_CB_11AD] = true;
 
 		return 0;
 	}
@@ -7037,8 +7106,9 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 			ipa_assert();
 			return -EFAULT;
 		}
-	} else if (domain == ipa3_get_wlan_smmu_domain()) {
-		/* wlan is one time map */
+	} else if (domain == ipa3_get_wlan_smmu_domain() ||
+		domain == ipa3_get_11ad_smmu_domain()) {
+		/* wlan\11ad is one time map */
 	} else if (domain == ipa3_get_uc_smmu_domain()) {
 		if (iova >= uc_cb->va_start && iova < uc_cb->va_end) {
 			IPAERR("iommu uC overlap addr 0x%lx\n", iova);
@@ -7072,16 +7142,47 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 		return -EINVAL;
 	}
 
+	out->shared_cb = false;
+
 	switch (in->smmu_client) {
 	case IPA_SMMU_WLAN_CLIENT:
 		if (ipa3_ctx->ipa_wdi3_over_gsi)
 			is_smmu_enable =
-				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] |
+				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] ||
 				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
 		else
 			is_smmu_enable =
-				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
-				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+			!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] ||
+			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		break;
+	case IPA_SMMU_WIGIG_CLIENT:
+		is_smmu_enable = !(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] ||
+			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] ||
+			ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]);
+		if (is_smmu_enable) {
+			if (ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] ||
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] ||
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]) {
+				IPAERR("11AD SMMU Discrepancy (%d %d %d)\n",
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC],
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP],
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD]);
+				WARN_ON(1);
+				return -EINVAL;
+			}
+		} else {
+			if (!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] ||
+				!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] ||
+				!ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]) {
+				IPAERR("11AD SMMU Discrepancy (%d %d %d)\n",
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC],
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP],
+				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD]);
+				WARN_ON(1);
+				return -EINVAL;
+			}
+		}
+		out->shared_cb = (ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD))->shared;
 		break;
 	case IPA_SMMU_AP_CLIENT:
 		is_smmu_enable =
