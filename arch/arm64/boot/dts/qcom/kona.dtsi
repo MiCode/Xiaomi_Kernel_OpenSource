@@ -1637,6 +1637,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "bps_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1649,6 +1655,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "ife_0_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1660,6 +1672,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "ife_1_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1671,6 +1689,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "ipe_0_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1683,6 +1707,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "sbi_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1694,6 +1724,12 @@
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "titan_top_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_CAMERA_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1706,6 +1742,12 @@
 		clocks = <&clock_gcc GCC_DISP_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "mdss_core_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_DISPLAY_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_DISPLAY_CFG 0 1>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1774,6 +1816,12 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "mvs0_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1785,6 +1833,12 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "mvs0c_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
@@ -1796,6 +1850,12 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "mvs1_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 1>;
 		qcom,support-hw-trigger;
 		qcom,retain-regs;
 	};
@@ -1808,6 +1868,12 @@
 		clocks = <&clock_gcc GCC_VIDEO_AHB_CLK>;
 		parent-supply = <&VDD_MMCX_LEVEL>;
 		vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+		qcom,msm-bus,name = "mvs1c_gdsc_ahb";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VENUS_CFG 0 1>;
 		qcom,retain-regs;
 	};
 
