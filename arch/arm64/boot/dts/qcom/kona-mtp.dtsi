@@ -593,3 +593,7 @@
 &usb1 {
 	extcon = <&extcon_usb1>;
 };
+
+&wil6210 {
+	status = "ok";
+};

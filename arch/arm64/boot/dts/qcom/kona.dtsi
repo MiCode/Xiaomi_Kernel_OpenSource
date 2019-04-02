@@ -2342,6 +2342,13 @@
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 			qcom,iommu-dma = "disabled";
 		};
+
+		ipa_smmu_11ad: ipa_smmu_11ad {
+			compatible = "qcom,ipa-smmu-11ad-cb";
+			iommus = <&apps_smmu 0x5C3 0x0>;
+			qcom,shared-cb;
+			qcom,iommu-groups = <&wil6210_pci_iommu_group>;
+		};
 	};
 
 	qcom,glink {
@@ -3413,6 +3420,26 @@
 			};
 		};
 	};
+
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,pcie-parent = <&pcie1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wil6210_refclk_en_pin>;
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+		qcom,use-ext-supply;
+		vdd-ldo-supply = <&pm8150_l15>;
+		vddio-supply = <&pm8150_s5>;
+		qcom,use-ext-clocks;
+		clocks = <&clock_rpmh RPMH_RF_CLK1>;
+		clock-names = "rf_clk";
+		status = "disabled";
+	};
 };
 
 #include "kona-regulators.dtsi"
@@ -3434,6 +3461,26 @@
 
 		cnss_pci_iommu_group: cnss_pci_iommu_group {
 			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+		};
+	};
+};
+
+&pcie1_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	wil6210_pci: wil6210_pci {
+		reg = <0 0 0 0 0>;
+		qcom,iommu-group = <&wil6210_pci_iommu_group>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		wil6210_pci_iommu_group: wil6210_pci_iommu_group {
+			reg = <0 0>;
+			qcom,iommu-dma-addr-pool = <0x60000000 0xa0000000>;
 			qcom,iommu-dma = "fastmap";
 			qcom,iommu-pagetable = "coherent";
 		};
