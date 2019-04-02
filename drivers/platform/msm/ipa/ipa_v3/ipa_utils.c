@@ -4437,6 +4437,11 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 		return -EPERM;
 	}
 
+	if (ipa3_ctx->ipa_endp_delay_wa) {
+		IPAERR("pipe setting delay is not supported\n");
+		return 0;
+	}
+
 	IPADBG("pipe=%d ep_suspend=%d, ep_delay=%d\n",
 		clnt_hdl,
 		ep_ctrl->ipa_ep_suspend,
