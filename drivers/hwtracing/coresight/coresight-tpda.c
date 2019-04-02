@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -59,6 +59,7 @@ struct tpda_drvdata {
 	bool			freq_ts;
 	uint32_t		freq_req_val;
 	bool			freq_req;
+	bool			cmbchan_mode;
 };
 
 static void __tpda_enable_pre_port(struct tpda_drvdata *drvdata)
@@ -86,6 +87,10 @@ static void __tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 		val = val | BIT(2);
 	else
 		val = val & ~BIT(2);
+	if (drvdata->cmbchan_mode)
+		val = val | BIT(20);
+	else
+		val = val & ~BIT(20);
 	tpda_writel(drvdata, val, TPDA_CR);
 
 	/*
@@ -507,6 +512,37 @@ static ssize_t port_flush_req_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(port_flush_req);
 
+static ssize_t cmbchan_mode_show(struct device *dev,
+					     struct device_attribute *attr,
+					     char *buf)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->cmbchan_mode);
+}
+
+static ssize_t cmbchan_mode_store(struct device *dev,
+					      struct device_attribute *attr,
+					      const char *buf,
+					      size_t size)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	bool val;
+
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+	if (val)
+		drvdata->cmbchan_mode = true;
+	else
+		drvdata->cmbchan_mode = false;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmbchan_mode);
+
 static struct attribute *tpda_attrs[] = {
 	&dev_attr_trig_async_enable.attr,
 	&dev_attr_trig_flag_ts_enable.attr,
@@ -516,6 +552,7 @@ static struct attribute *tpda_attrs[] = {
 	&dev_attr_freq_req.attr,
 	&dev_attr_global_flush_req.attr,
 	&dev_attr_port_flush_req.attr,
+	&dev_attr_cmbchan_mode.attr,
 	NULL,
 };
 
