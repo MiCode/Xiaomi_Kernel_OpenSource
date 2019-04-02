@@ -354,7 +354,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	[373] = {MSM_CPU_QCS403, "QCS403"},
 
 	/* qcs401 ID */
-	[371] = {MSM_CPU_QCS401, "QCS401"},
+	[372] = {MSM_CPU_QCS401, "QCS401"},
 
 	/* sdxprairie ID */
 	[357] = {SDX_CPU_SDXPRAIRIE, "SDXPRAIRIE"},
@@ -1275,7 +1275,7 @@ static void * __init setup_dummy_socinfo(void)
 		strlcpy(dummy_socinfo.build_id, "qcs403 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_qcs401()) {
-		dummy_socinfo.id = 371;
+		dummy_socinfo.id = 372;
 		strlcpy(dummy_socinfo.build_id, "qcs401 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdxprairie()) {
