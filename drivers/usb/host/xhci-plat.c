@@ -246,6 +246,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!hcd)
 		return -ENOMEM;
 
+	hcd_to_bus(hcd)->skip_resume = true;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hcd->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(hcd->regs)) {
@@ -310,6 +312,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto disable_clk;
 	}
+
+	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 
 	/* imod_interval is the interrupt moderation value in nanoseconds. */
 	xhci->imod_interval = 40000;
