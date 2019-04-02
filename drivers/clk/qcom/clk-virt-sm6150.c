@@ -118,6 +118,13 @@ static struct clk_virt gcc_qupv3_wrap_0_m_ahb_clk = {
 	},
 };
 
+static struct clk_virt gcc_ahb2phy_west_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_ahb2phy_west_clk",
+	},
+};
+
 static struct clk_virt gcc_qupv3_wrap_0_s_ahb_clk = {
 	.hw.init = &(struct clk_init_data) {
 		.ops = &clk_virt_ops,
@@ -136,6 +143,13 @@ static struct clk_virt gcc_qupv3_wrap_1_s_ahb_clk = {
 	.hw.init = &(struct clk_init_data) {
 		.ops = &clk_virt_ops,
 		.name = "gcc_qupv3_wrap_1_s_ahb_clk",
+	},
+};
+
+static struct clk_virt gcc_usb30_prim_master_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_usb30_prim_master_clk",
 	},
 };
 
@@ -219,6 +233,7 @@ static struct clk_hw *sm6150_gcc_virt_clocks[] = {
 	[GCC_QUPV3_WRAP_0_S_AHB_CLK] = &gcc_qupv3_wrap_0_s_ahb_clk.hw,
 	[GCC_QUPV3_WRAP_1_M_AHB_CLK] = &gcc_qupv3_wrap_1_m_ahb_clk.hw,
 	[GCC_QUPV3_WRAP_1_S_AHB_CLK] = &gcc_qupv3_wrap_1_s_ahb_clk.hw,
+	[GCC_USB30_PRIM_MASTER_CLK] = &gcc_usb30_prim_master_clk.hw,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.hw,
 	[GCC_AGGRE_USB3_PRIM_AXI_CLK] = &gcc_aggre_usb3_prim_axi_clk.hw,
 	[GCC_USB30_PRIM_MOCK_UTMI_CLK] = &gcc_usb30_prim_mock_utmi_clk.hw,
@@ -228,6 +243,7 @@ static struct clk_hw *sm6150_gcc_virt_clocks[] = {
 	[GCC_USB3_PRIM_PHY_PIPE_CLK] = &gcc_usb3_prim_phy_pipe_clk.hw,
 	[GCC_USB3_PRIM_CLKREF_CLK] = &gcc_usb3_prim_clkref_clk.hw,
 	[GCC_USB3_PRIM_PHY_COM_AUX_CLK] = &gcc_usb3_prim_phy_com_aux_clk.hw,
+	[GCC_AHB2PHY_WEST_CLK] = &gcc_ahb2phy_west_clk.hw,
 };
 
 const struct clk_virt_desc clk_virt_sm6150_gcc = {
