@@ -378,6 +378,8 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[17].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 18), \
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[18].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 19), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[19].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 1),	\
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[0].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 3), \
