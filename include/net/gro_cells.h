@@ -19,22 +19,30 @@ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *s
 	struct gro_cell *cell;
 	struct net_device *dev = skb->dev;
 
+	rcu_read_lock();
+	if (unlikely(!(dev->flags & IFF_UP)))
+		goto drop;
+
 	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
 		netif_rx(skb);
-		return;
+		goto unlock;
 	}
 
 	cell = this_cpu_ptr(gcells->cells);
 
 	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
+drop:
 		atomic_long_inc(&dev->rx_dropped);
 		kfree_skb(skb);
-		return;
+		goto unlock;
 	}
 
 	__skb_queue_tail(&cell->napi_skbs, skb);
 	if (skb_queue_len(&cell->napi_skbs) == 1)
 		napi_schedule(&cell->napi);
+
+unlock:
+	rcu_read_unlock();
 }
 
 /* called under BH context */
