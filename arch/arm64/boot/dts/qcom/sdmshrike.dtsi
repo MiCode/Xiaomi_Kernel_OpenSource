@@ -15,6 +15,7 @@
 #include <dt-bindings/clock/qcom,gcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,npucc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-sm8150.h>
+#include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,gpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,camcc-sdmshrike.h>
@@ -1305,6 +1306,13 @@
 		vdd_mx-supply = <&VDD_MX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_scc: qcom,scc@2b10000 {
+		compatible = "qcom,scc-sm8150-v2";
+		reg = <0x2b10000 0x30000>;
+		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	tsens0: tsens@c222000 {
