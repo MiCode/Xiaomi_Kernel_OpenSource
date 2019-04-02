@@ -4134,6 +4134,8 @@ void sdhci_msm_pm_qos_irq_vote(struct sdhci_host *host)
 
 	if (!msm_host->pm_qos_irq.enabled)
 		return;
+	if (host->power_policy > SDHCI_POWER_SAVE_MODE)
+		return;
 
 	counter = atomic_inc_return(&msm_host->pm_qos_irq.counter);
 	/* Make sure to update the voting in case power policy has changed */

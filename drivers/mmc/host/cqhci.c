@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015, 2019, The Linux Foundation.
- * All rights reserved.
+/*
+ * Copyright (c) 2015,2019  The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -18,6 +18,7 @@
 #include <linux/mmc/card.h>
 
 #include "cqhci.h"
+#include "sdhci-msm.h"
 
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
@@ -551,14 +552,35 @@ static void cqhci_prep_dcmd_desc(struct mmc_host *mmc,
 
 }
 
+static void cqhci_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	sdhci_msm_pm_qos_cpu_vote(host,
+		msm_host->pdata->pm_qos_data.cmdq_latency, mrq->req->cpu);
+}
+
+static void cqhci_pm_qos_unvote(struct sdhci_host *host,
+						struct mmc_request *mrq)
+{
+	/* use async as we're inside an atomic context (soft-irq) */
+	sdhci_msm_pm_qos_cpu_unvote(host, mrq->req->cpu, true);
+}
+
 static void cqhci_post_req(struct mmc_host *host, struct mmc_request *mrq)
 {
 	struct mmc_data *data = mrq->data;
+	struct sdhci_host *sdhci_host = mmc_priv(host);
 
 	if (data) {
 		dma_unmap_sg(mmc_dev(host), data->sg, data->sg_len,
 			     (data->flags & MMC_DATA_READ) ?
 			     DMA_FROM_DEVICE : DMA_TO_DEVICE);
+
+		/* we're in atomic context (soft-irq) so unvote async. */
+		sdhci_msm_pm_qos_irq_unvote(sdhci_host, true);
+		cqhci_pm_qos_unvote(sdhci_host, mrq);
 	}
 }
 
@@ -599,6 +621,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	int tag = cqhci_tag(mrq);
 	struct cqhci_host *cq_host = mmc->cqe_private;
 	unsigned long flags;
+	struct sdhci_host *host = mmc_priv(mmc);
 	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
@@ -642,6 +665,9 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			       mmc_hostname(mmc), err);
 			return err;
 		}
+		/* PM QoS */
+		sdhci_msm_pm_qos_irq_vote(host);
+		cqhci_pm_qos_vote(host, mrq);
 	} else {
 		cqhci_prep_dcmd_desc(mmc, mrq);
 	}

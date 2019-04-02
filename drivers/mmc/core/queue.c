@@ -374,6 +374,9 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 	if (host->inlinecrypt_support)
 		queue_flag_set_unlocked(QUEUE_FLAG_INLINECRYPT, mq->queue);
 
+	if (host->ops->init)
+		host->ops->init(host);
+
 	INIT_WORK(&mq->recovery_work, mmc_mq_recovery_handler);
 	INIT_WORK(&mq->complete_work, mmc_blk_mq_complete_work);
 
