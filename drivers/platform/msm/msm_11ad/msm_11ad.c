@@ -476,7 +476,7 @@ static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
 	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
 		return 0;
 
-	rc = msm_11ad_init_clk(dev, &ctx->rf_clk, "rf_clk_clk");
+	rc = msm_11ad_init_clk(dev, &ctx->rf_clk, "rf_clk");
 	if (rc)
 		return rc;
 
