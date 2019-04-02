@@ -736,6 +736,17 @@ config QMP_DEBUGFS_CLIENT
 	help
 	  This options enables a driver which allows clients to send messages
 	  to Alway On processor using QMP transport.
+
+config QCOM_CDSP_RM
+	bool "CDSP request manager"
+	depends on QCOM_GLINK
+	help
+	  This driver serves CDSP requests for CPU L3 clock and CPU QoS thus
+	  improving CDSP performance. Using this driver, CDSP can set appropriate
+	  CPU L3 clock for improving IO-Coherent throughput and opt for QoS mode
+	  to improve RPC latency. The driver also registers cooling devices for
+	  CDSP subsystem and implements Cx ipeak limit management.
+
 endmenu
 
 config QCOM_HYP_CORE_CTL
