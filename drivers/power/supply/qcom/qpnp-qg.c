@@ -2894,11 +2894,13 @@ use_pon_ocv:
 			goto done;
 		}
 
-		if ((full_soc > cutoff_soc) && (pon_soc > cutoff_soc))
+		if ((full_soc > cutoff_soc) && (pon_soc > cutoff_soc)) {
 			soc = DIV_ROUND_UP(((pon_soc - cutoff_soc) * 100),
 						(full_soc - cutoff_soc));
-		else
+			soc = CAP(0, 100, soc);
+		} else {
 			soc = pon_soc;
+		}
 
 		qg_dbg(chip, QG_DEBUG_PON, "v_float=%d v_cutoff=%d FULL_SOC=%d CUTOFF_SOC=%d PON_SYS_SOC=%d pon_soc=%d\n",
 			chip->bp.float_volt_uv, chip->dt.vbatt_cutoff_mv * 1000,
