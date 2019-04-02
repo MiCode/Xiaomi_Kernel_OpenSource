@@ -1179,6 +1179,7 @@ struct ipa_tz_unlock_reg_info {
 enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
 	IPA_SMMU_AP_CLIENT,
+	IPA_SMMU_WIGIG_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
@@ -1188,10 +1189,12 @@ struct ipa_smmu_in_params {
 
 /**
  * struct  ipa_smmu_out_params - information provided to IPA client
- * @ipa_smmu_s1_enable: IPA S1 SMMU enable/disable status
+ * @smmu_enable: IPA S1 SMMU enable/disable status
+ * @shared_cb: is client CB shared (mappings should be done by client only)
  */
 struct ipa_smmu_out_params {
 	bool smmu_enable;
+	bool shared_cb;
 };
 
 #if defined CONFIG_IPA || defined CONFIG_IPA3
