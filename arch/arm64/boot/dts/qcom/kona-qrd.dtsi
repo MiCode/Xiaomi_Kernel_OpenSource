@@ -634,3 +634,7 @@
 		maximum-speed = "high-speed";
 	};
 };
+
+&wil6210 {
+	status = "ok";
+};
