@@ -237,11 +237,6 @@ Property added to the cpu node:
 
 	Any other configuration is invalid.
 
-- freq-energy-model
-	Description: Optional. Must be declared if the energy model
-	represents frequency/power values. If absent, energy model is
-	by default considered as capacity/power.
-
 ===========================================================
 5 - Example dts
 ===========================================================
