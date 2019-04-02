@@ -131,8 +131,12 @@ config QCOM_SDM845_LLCC
 	  LLCC slices.
 
 config QCOM_MDT_LOADER
-	tristate
+	tristate "Qualcomm Technologies, Inc. Firmware parser for MDT format"
 	select QCOM_SCM
+	help
+	   Firmware parser driver parsers the MDT format and loads peripheral
+	   images into pre-allocated buffers. It uses the firmware loader
+	   framework available for loading firmware.
 
 config QPNP_PBS
 	tristate "PBS trigger support for QPNP PMIC"
