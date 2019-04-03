@@ -280,30 +280,6 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_dpm_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_EVEN, 1.5, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 gcc_dpm_clk_src = {
-	.cmd_rcgr = 0x4600c,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_dpm_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "gcc_dpm_clk_src",
-		.parent_names = gcc_parent_names_0,
-		.num_parents = 4,
-		.flags = CLK_SET_RATE_PARENT,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 200000000},
-	},
-};
-
 static const struct freq_tbl ftbl_gcc_gp1_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
@@ -1788,39 +1764,6 @@ static struct clk_branch gcc_disp_xo_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_xo_clk",
 			.flags = CLK_IS_CRITICAL,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_dpm_ahb_clk = {
-	.halt_reg = 0x46008,
-	.halt_check = BRANCH_HALT,
-	.hwcg_reg = 0x46008,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x46008,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_dpm_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_dpm_clk = {
-	.halt_reg = 0x46004,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x46004,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_dpm_clk",
-			.parent_names = (const char *[]){
-				"gcc_dpm_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3990,9 +3933,6 @@ static struct clk_regmap *gcc_kona_clocks[] = {
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
 	[GCC_DISP_SF_AXI_CLK] = &gcc_disp_sf_axi_clk.clkr,
 	[GCC_DISP_XO_CLK] = &gcc_disp_xo_clk.clkr,
-	[GCC_DPM_AHB_CLK] = &gcc_dpm_ahb_clk.clkr,
-	[GCC_DPM_CLK] = &gcc_dpm_clk.clkr,
-	[GCC_DPM_CLK_SRC] = &gcc_dpm_clk_src.clkr,
 	[GCC_GP1_CLK] = &gcc_gp1_clk.clkr,
 	[GCC_GP1_CLK_SRC] = &gcc_gp1_clk_src.clkr,
 	[GCC_GP2_CLK] = &gcc_gp2_clk.clkr,
@@ -4189,7 +4129,6 @@ static struct clk_regmap *gcc_kona_clocks[] = {
 };
 
 static const struct qcom_reset_map gcc_kona_resets[] = {
-	[GCC_DPM_BCR] = { 0x46000 },
 	[GCC_GPU_BCR] = { 0x71000 },
 	[GCC_MMSS_BCR] = { 0xb000 },
 	[GCC_NPU_BWMON_BCR] = { 0x73000 },
