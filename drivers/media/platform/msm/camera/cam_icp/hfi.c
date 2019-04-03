@@ -43,7 +43,7 @@
 #define HFI_MAX_POLL_TRY 5
 
 #define HFI_MAX_PC_POLL_TRY 150
-#define HFI_POLL_TRY_SLEEP 2
+#define HFI_POLL_TRY_SLEEP 1
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
@@ -526,7 +526,8 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 		 * and Host can the proceed. No interrupt is expected from FW
 		 * at this time.
 		 */
-		msleep_interruptible(HFI_POLL_TRY_SLEEP);
+		usleep_range(HFI_POLL_TRY_SLEEP * 1000,
+			(HFI_POLL_TRY_SLEEP * 1000) + 1000);
 		try++;
 	}
 
