@@ -1851,6 +1851,24 @@ static bool gmu_regulator_isenabled(struct kgsl_device *device)
 	return (gmu->gx_gdsc &&	regulator_is_enabled(gmu->gx_gdsc));
 }
 
+static bool gmu_is_initialized(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	bool ret;
+
+	gmu_enable_gdsc(gmu);
+	gmu_enable_clks(device);
+
+	ret = gmu_dev_ops->is_initialized(adreno_dev);
+
+	gmu_disable_clks(device);
+	gmu_disable_gdsc(gmu);
+
+	return ret;
+}
+
 struct gmu_core_ops gmu_ops = {
 	.probe = gmu_probe,
 	.remove = gmu_remove,
@@ -1861,4 +1879,5 @@ struct gmu_core_ops gmu_ops = {
 	.regulator_isenabled = gmu_regulator_isenabled,
 	.suspend = gmu_suspend,
 	.acd_set = gmu_acd_set,
+	.is_initialized = gmu_is_initialized,
 };
