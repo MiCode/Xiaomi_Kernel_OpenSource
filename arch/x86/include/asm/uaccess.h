@@ -712,6 +712,9 @@ extern struct movsl_mask {
 #define user_access_begin()	__uaccess_begin()
 #define user_access_end()	__uaccess_end()
 
+#define user_access_save()	smap_save()
+#define user_access_restore(x)	smap_restore(x)
+
 #define unsafe_put_user(x, ptr, err_label)					\
 do {										\
 	int __pu_err;								\
