@@ -2,8 +2,59 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+#include <dt-bindings/iio/mt635x-auxadc.h>
 
 &pmic {
+	pmic_auxadc: pmic_auxadc {
+		compatible = "mediatek,mt6359-auxadc";
+		#io-channel-cells = <1>;
+
+		batadc {
+			channel = <AUXADC_BATADC>;
+			resistance-ratio = <7 2>;
+			avg-num = <128>;
+		};
+		bat_temp {
+			channel = <AUXADC_BAT_TEMP>;
+			resistance-ratio = <5 2>;
+		};
+		chip_temp {
+			channel = <AUXADC_CHIP_TEMP>;
+		};
+		vcore_temp {
+			channel = <AUXADC_VCORE_TEMP>;
+		};
+		vproc_temp {
+			channel = <AUXADC_VPROC_TEMP>;
+		};
+		vgpu_temp {
+			channel = <AUXADC_VGPU_TEMP>;
+		};
+		accdet {
+			channel = <AUXADC_ACCDET>;
+		};
+		dcxo_volt {
+			channel = <AUXADC_VDCXO>;
+			resistance-ratio = <3 2>;
+		};
+		tsx_temp {
+			channel = <AUXADC_TSX_TEMP>;
+			avg-num = <128>;
+		};
+		hpofs_cal {
+			channel = <AUXADC_HPOFS_CAL>;
+			avg-num = <256>;
+		};
+		dcxo_temp {
+			channel = <AUXADC_DCXO_TEMP>;
+			avg-num = <16>;
+		};
+		vbif {
+			channel = <AUXADC_VBIF>;
+			resistance-ratio = <5 2>;
+		};
+	};
+
 	mt6359regulator: mt6359regulator {
 		compatible = "mediatek,mt6359-regulator";
 		mt6359_vs1_buck_reg: buck_vs1 {
