@@ -272,7 +272,7 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 {
 	const struct inode *inode;
 	enum pfe_type which_pfe;
-	const struct blk_encryption_key *key;
+	const struct blk_encryption_key *key = NULL;
 	char *s_type = NULL;
 
 	inode = pfk_bio_get_inode(bio);
@@ -304,7 +304,9 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 	 * bio is not for an encrypted file.  Use ->bi_crypt_key if it was set.
 	 * Otherwise, don't encrypt/decrypt the bio.
 	 */
+#ifdef CONFIG_DM_DEFAULT_KEY
 	key = bio->bi_crypt_key;
+#endif
 	if (!key) {
 		*is_pfe = false;
 		return -EINVAL;
@@ -465,8 +467,8 @@ int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
  */
 bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 {
-	const struct blk_encryption_key *key1;
-	const struct blk_encryption_key *key2;
+	const struct blk_encryption_key *key1 = NULL;
+	const struct blk_encryption_key *key2 = NULL;
 	const struct inode *inode1;
 	const struct inode *inode2;
 	enum pfe_type which_pfe1;
@@ -481,8 +483,10 @@ bool pfk_allow_merge_bio(const struct bio *bio1, const struct bio *bio2)
 	if (bio1 == bio2)
 		return true;
 
+#ifdef CONFIG_DM_DEFAULT_KEY
 	key1 = bio1->bi_crypt_key;
 	key2 = bio2->bi_crypt_key;
+#endif
 
 	inode1 = pfk_bio_get_inode(bio1);
 	inode2 = pfk_bio_get_inode(bio2);
