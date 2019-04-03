@@ -16,7 +16,16 @@
 #include "cvp_hfi.h"
 #include "msm_cvp_common.h"
 
+#define DFS_BIT_OFFSET (CVP_KMD_HFI_DFS_FRAME_CMD - CVP_KMD_CMD_START)
+#define DME_BIT_OFFSET (CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START)
+#define PERSIST_BIT_OFFSET (CVP_KMD_HFI_PERSIST_CMD - CVP_KMD_CMD_START)
+
 extern struct msm_cvp_drv *cvp_driver;
+
+static int _deprecated_hfi_msg_process(u32 device_id,
+	struct hfi_msg_session_hdr *pkt,
+	struct msm_cvp_cb_info *info,
+	struct msm_cvp_inst *inst);
 
 static enum cvp_status hfi_map_err_status(u32 hfi_err)
 {
@@ -215,9 +224,8 @@ static int hfi_process_sys_init_done(u32 device_id,
 		return -E2BIG;
 	}
 	if (!pkt->num_properties) {
-		dprintk(CVP_ERR,
+		dprintk(CVP_DBG,
 				"hal_process_sys_init_done: no_properties\n");
-		status = CVP_ERR_FAIL;
 		goto err_no_prop;
 	}
 
@@ -679,11 +687,16 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d status=%d, sessionid=%x config=%x\n",
+		"%s: device_id=%d status=%d, sessionid=%pK config=%x\n",
 		__func__, device_id, cmd_done.status,
 		cmd_done.session_id, pkt->op_conf_id);
 
-	signal = get_signal_from_pkt_type(pkt->op_conf_id);
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
+		signal = get_signal_from_pkt_type(
+				HFI_CMD_SESSION_CVP_SET_PERSIST_BUFFERS);
+	else
+		signal = get_signal_from_pkt_type(pkt->op_conf_id);
+
 	if (signal < 0) {
 		dprintk(CVP_ERR, "%s Invalid op config id\n", __func__);
 		return -EINVAL;
@@ -715,7 +728,7 @@ static int hfi_process_session_cvp_dfs(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d cmd_done.status=%d sessionid=%x\n",
+		"%s: device_id=%d cmd_done.status=%d sessionid=%pK\n",
 		__func__, device_id, cmd_done.status, cmd_done.session_id);
 	info->response_type = HAL_SESSION_DFS_FRAME_CMD_DONE;
 	info->response.cmd = cmd_done;
@@ -724,7 +737,7 @@ static int hfi_process_session_cvp_dfs(u32 device_id,
 }
 
 static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
-	void *session_id)
+	unsigned int session_id)
 {
 	struct msm_cvp_inst *inst = NULL;
 	bool match = false;
@@ -734,7 +747,7 @@ static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		if (hash32_ptr(inst->session) == (unsigned int)session_id) {
+		if (hash32_ptr(inst->session) == session_id) {
 			match = true;
 			break;
 		}
@@ -765,11 +778,23 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 	}
 	session_id = (void *)(uintptr_t)pkt->session_id;
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
-	inst = cvp_get_inst_from_id(core, session_id);
+	inst = cvp_get_inst_from_id(core, (unsigned int)session_id);
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return -EINVAL;
+	}
+
+	if (inst->deprecate_bitmask) {
+		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS
+			|| pkt->packet_type == HFI_MSG_SESSION_CVP_DME
+			|| pkt->packet_type ==
+				HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
+			return _deprecated_hfi_msg_process(device_id,
+				pkt, info, inst);
+
+		dprintk(CVP_ERR, "Invalid deprecate_bitmask %lx\n",
+					inst->deprecate_bitmask);
 	}
 
 	sess_msg = kmem_cache_alloc(inst->session_queue.msg_cache, GFP_KERNEL);
@@ -779,6 +804,11 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 	}
 
 	memcpy(&sess_msg->pkt, pkt, sizeof(struct hfi_msg_session_hdr));
+
+	dprintk(CVP_DBG,
+		"%s: Received msg %x cmd_done.status=%d sessionid=%x\n",
+		__func__, pkt->packet_type,
+		hfi_map_err_status(pkt->error_type), session_id);
 
 	spin_lock(&inst->session_queue.lock);
 	if (inst->session_queue.msg_count >= MAX_NUM_MSGS_PER_SESSION) {
@@ -821,7 +851,7 @@ static int hfi_process_session_cvp_dme(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d cmd_done.status=%d sessionid=%x\n",
+		"%s: device_id=%d cmd_done.status=%d sessionid=%pK\n",
 		__func__, device_id, cmd_done.status, cmd_done.session_id);
 	info->response_type = HAL_SESSION_DME_FRAME_CMD_DONE;
 	info->response.cmd = cmd_done;
@@ -850,12 +880,40 @@ static int hfi_process_session_cvp_persist(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d cmd_done.status=%d sessionid=%x\n",
+		"%s: device_id=%d cmd_done.status=%d sessionid=%pK\n",
 		__func__, device_id, cmd_done.status, cmd_done.session_id);
 	info->response_type = HAL_SESSION_PERSIST_CMD_DONE,
 	info->response.cmd = cmd_done;
 
 	return 0;
+}
+
+static int _deprecated_hfi_msg_process(u32 device_id,
+	struct hfi_msg_session_hdr *pkt,
+	struct msm_cvp_cb_info *info,
+	struct msm_cvp_inst *inst)
+{
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS)
+		if (test_and_clear_bit(DFS_BIT_OFFSET,
+				&inst->deprecate_bitmask))
+			return hfi_process_session_cvp_dfs(
+					device_id, (void *)pkt, info);
+
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_DME)
+		if (test_and_clear_bit(DME_BIT_OFFSET,
+				&inst->deprecate_bitmask))
+			return hfi_process_session_cvp_dme(
+					device_id, (void *)pkt, info);
+
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
+		if (test_and_clear_bit(PERSIST_BIT_OFFSET,
+				&inst->deprecate_bitmask))
+			return hfi_process_session_cvp_persist(
+					device_id, (void *)pkt, info);
+
+	dprintk(CVP_ERR, "Deprecatd MSG doesn't match bitmask %x %lx\n",
+			pkt->packet_type, inst->deprecate_bitmask);
+	return -EINVAL;
 }
 
 static void hfi_process_sys_get_prop_image_version(
@@ -974,19 +1032,13 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;
 		break;
 	case HFI_MSG_SESSION_CVP_OPERATION_CONFIG:
+	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
 		pkt_func =
 			(pkt_func_def)hfi_process_session_cvp_operation_config;
 		break;
-	case HFI_MSG_SESSION_CVP_DFS:
-		pkt_func = (pkt_func_def)hfi_process_session_cvp_dfs;
-		break;
-	case HFI_MSG_SESSION_CVP_DME:
-		pkt_func = (pkt_func_def)hfi_process_session_cvp_dme;
-		break;
-	case HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS:
-		pkt_func = (pkt_func_def)hfi_process_session_cvp_persist;
-		break;
 	case HFI_MSG_SESSION_CVP_DS:
+	case HFI_MSG_SESSION_CVP_DFS:
+	case HFI_MSG_SESSION_CVP_DME:
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
 		break;
 	default:

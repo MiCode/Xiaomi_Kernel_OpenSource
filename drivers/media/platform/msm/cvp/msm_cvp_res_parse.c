@@ -966,12 +966,11 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 	}
 
 	if (core->smmu_fault_handled) {
-		if (core->resources.non_fatal_pagefaults) {
+		if (core->resources.non_fatal_pagefaults)
 			dprintk(CVP_ERR,
 					"%s: non-fatal pagefault address: %lx\n",
 					__func__, iova);
 			return 0;
-		}
 	}
 
 	dprintk(CVP_ERR, "%s - faulting address: %lx\n", __func__, iova);
