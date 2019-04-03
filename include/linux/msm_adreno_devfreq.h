@@ -79,4 +79,13 @@ int devfreq_vbif_update_bw(unsigned long ib, unsigned long ab);
 int devfreq_vbif_register_callback(void *callback);
 #endif
 
+#ifdef CONFIG_DEVFREQ_GOV_QCOM_ADRENO_TZ
+int msm_adreno_devfreq_init_tz(struct devfreq *devfreq);
+#else
+static inline int msm_adreno_devfreq_init_tz(struct devfreq *devfreq)
+{
+	return 0;
+}
+#endif
+
 #endif

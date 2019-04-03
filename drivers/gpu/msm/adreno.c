@@ -4083,6 +4083,13 @@ static int adreno_resume_device(struct kgsl_device *device,
 						&device->gmu_core.flags);
 			}
 		}
+
+		if (device->pwrscale.devfreqptr) {
+			ret = msm_adreno_devfreq_init_tz(
+					device->pwrscale.devfreqptr);
+			if (ret)
+				return ret;
+		}
 	}
 
 	if (device->state == KGSL_STATE_SUSPEND)
