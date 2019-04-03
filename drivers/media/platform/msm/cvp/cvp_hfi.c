@@ -173,6 +173,20 @@ const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 	},
 	{
 		.size = HFI_DCM_CONFIG_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DC_CONFIG,
+		.buf_offset = 0,
+		.buf_num = 0,
+		.resp = HAL_SESSION_DC_CONFIG_CMD_DONE,
+	},
+	{
+		.size = HFI_DCM_FRAME_CMD_SIZE,
+		.type = HFI_CMD_SESSION_CVP_DC_FRAME,
+		.buf_offset = HFI_DCM_BUFFERS_OFFSET,
+		.buf_num = HFI_DCM_BUF_NUM,
+		.resp = HAL_NO_RESP,
+	},
+	{
+		.size = HFI_DCM_CONFIG_CMD_SIZE,
 		.type = HFI_CMD_SESSION_CVP_DCM_CONFIG,
 		.buf_offset = 0,
 		.buf_num = 0,
@@ -3038,6 +3052,7 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_ICA_CONFIG_CMD_DONE:
 	case HAL_SESSION_HCD_CONFIG_CMD_DONE:
 	case HAL_SESSION_DCM_CONFIG_CMD_DONE:
+	case HAL_SESSION_DC_CONFIG_CMD_DONE:
 	case HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE:
 	case HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE:
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:

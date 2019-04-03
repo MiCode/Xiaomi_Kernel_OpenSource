@@ -813,6 +813,7 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_ICA_CONFIG_CMD_DONE:
 	case HAL_SESSION_HCD_CONFIG_CMD_DONE:
 	case HAL_SESSION_DCM_CONFIG_CMD_DONE:
+	case HAL_SESSION_DC_CONFIG_CMD_DONE:
 	case HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE:
 		cvp_handle_session_cmd_done(cmd, data);
 		break;
