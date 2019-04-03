@@ -2722,15 +2722,19 @@ static void usbpd_sm(struct work_struct *w)
 		if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
 			pd->current_state = PE_SRC_SEND_CAPABILITIES;
 			kick_sm(pd, 0);
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 					pd->sink_caps, pd->num_sink_caps,
 					SOP_MSG);
-			if (ret)
+			if (ret) {
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
+				break;
+			}
 		} else if (IS_DATA(rx_msg, MSG_REQUEST)) {
 			pd->rdo = *(u32 *)rx_msg->payload;
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
+			break;
 		} else if (IS_CTRL(rx_msg, MSG_DR_SWAP)) {
 			if (pd->vdm_state == MODE_ENTERED) {
 				usbpd_set_state(pd, PE_SRC_HARD_RESET);
@@ -2764,6 +2768,8 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+			if (pd->vdm_tx) /* response sent after delay */
+				break;
 		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP_EXTENDED)) {
 			handle_get_src_cap_extended(pd);
 		} else if (IS_EXT(rx_msg, MSG_GET_BATTERY_CAP)) {
@@ -2784,7 +2790,13 @@ static void usbpd_sm(struct work_struct *w)
 			if (ret)
 				usbpd_set_state(pd, PE_SEND_SOFT_RESET);
 			break;
-		} else if (pd->send_pr_swap) {
+		}
+
+		if (pd->current_state != PE_SRC_READY)
+			break;
+
+		/* handle outgoing requests */
+		if (pd->send_pr_swap) {
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
 			if (ret) {
@@ -2809,6 +2821,7 @@ static void usbpd_sm(struct work_struct *w)
 		} else {
 			start_src_ams(pd, false);
 		}
+
 		break;
 
 	case PE_SRC_TRANSITION_TO_DEFAULT:
@@ -3053,7 +3066,8 @@ static void usbpd_sm(struct work_struct *w)
 			break;
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
-			break;
+			if (pd->vdm_tx) /* response sent after delay */
+				break;
 		} else if (IS_DATA(rx_msg, MSG_ALERT)) {
 			u32 ado;
 
@@ -3188,7 +3202,13 @@ static void usbpd_sm(struct work_struct *w)
 			} else if (pd->send_request) {
 				pd->send_request = false;
 				usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
-			} else if (pd->send_pr_swap) {
+			}
+
+			if (pd->current_state != PE_SNK_READY)
+				break;
+
+			/* handle outgoing requests */
+			if (pd->send_pr_swap) {
 				pd->send_pr_swap = false;
 				ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0,
 						SOP_MSG);
