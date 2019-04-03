@@ -706,12 +706,13 @@ static void sde_connector_update_hdr_props(struct drm_connector *connector)
 		  connector->hdr_avg_luminance;
 		hdr_prop.hdr_min_luminance =
 		  connector->hdr_min_luminance;
+
+		msm_property_set_blob(&c_conn->property_info,
+				&c_conn->blob_hdr,
+				&hdr_prop,
+				sizeof(hdr_prop),
+				CONNECTOR_PROP_HDR_INFO);
 	}
-	msm_property_set_blob(&c_conn->property_info,
-			      &c_conn->blob_hdr,
-			      &hdr_prop,
-			      sizeof(hdr_prop),
-			      CONNECTOR_PROP_HDR_INFO);
 }
 
 static enum drm_connector_status
