@@ -3233,6 +3233,72 @@ static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+/*
+ * Secure buffers cannot be preserved during hibernation.
+ * Issue hyp_assign call to assign non-used internal secure
+ * buffers to kernel.
+ * This function will fail if there is an active secure context
+ * since we cannot remove the content from user secure buffer.
+ */
+static int a6xx_secure_pt_hibernate(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i = 0;
+	int ret;
+
+	if (adreno_drawctxt_has_secure(device)) {
+		KGSL_DRV_ERR(device,
+		    "Secure context is active, cannot hibernate secure PT\n");
+		goto fail;
+	}
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_unlock_sgt(rb->secure_preemption_desc.sgt);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_unlock_sgt failed ret %d\n", ret);
+				goto fail;
+			}
+		}
+	}
+
+	return 0;
+
+fail:
+	while (i > 0) {
+		rb = &(adreno_dev->ringbuffers[i - 1]);
+		if (rb->secure_preemption_desc.sgt)
+			kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+		i--;
+	}
+	return -EBUSY;
+}
+
+static int a6xx_secure_pt_restore(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i;
+	int ret;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_lock_sgt failed ret %d\n", ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3274,4 +3340,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.clk_set_options = a6xx_clk_set_options,
 	.snapshot_preemption = a6xx_snapshot_preemption,
 	.zap_shader_unload = a6xx_zap_shader_unload,
+	.secure_pt_hibernate = a6xx_secure_pt_hibernate,
+	.secure_pt_restore = a6xx_secure_pt_restore,
 };

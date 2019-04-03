@@ -191,7 +191,7 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
-	void (*suspend_device)(struct kgsl_device *device,
+	int (*suspend_device)(struct kgsl_device *device,
 		pm_message_t pm_state);
 	int (*resume_device)(struct kgsl_device *device,
 		pm_message_t pm_state);

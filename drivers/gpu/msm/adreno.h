@@ -1039,6 +1039,8 @@ struct adreno_gpudev {
 	size_t (*snapshot_preemption)(struct kgsl_device *, u8 *,
 				 size_t, void *);
 	void (*zap_shader_unload)(struct adreno_device *);
+	int (*secure_pt_hibernate)(struct adreno_device *);
+	int (*secure_pt_restore)(struct adreno_device *);
 };
 
 /**

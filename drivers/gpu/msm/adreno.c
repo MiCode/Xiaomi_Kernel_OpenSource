@@ -4031,12 +4031,13 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
-static void adreno_suspend_device(struct kgsl_device *device,
+static int adreno_suspend_device(struct kgsl_device *device,
 				pm_message_t pm_state)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int pm_event = pm_state.event;
+	int ret = 0;
 
 	if (device->state == KGSL_STATE_SUSPEND)
 		adreno_dispatcher_halt(device);
@@ -4050,22 +4051,35 @@ static void adreno_suspend_device(struct kgsl_device *device,
 			clear_bit(GMU_RSCC_SLEEP_SEQ_DONE,
 						&device->gmu_core.flags);
 		}
+
+		if (gpudev->secure_pt_hibernate != NULL)
+			ret = gpudev->secure_pt_hibernate(adreno_dev);
 	}
+
+	return ret;
 }
 
 static int adreno_resume_device(struct kgsl_device *device,
 				pm_message_t pm_state)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int pm_event = pm_state.event;
 	int ret;
 
-	if ((pm_event != PM_EVENT_RESUME) &&
-		!adreno_is_a640v1(adreno_dev) &&
-		kgsl_mmu_is_perprocess(&device->mmu)) {
-		ret = adreno_program_smmu_aperture(device);
-		if (ret)
-			return ret;
+	if (pm_event != PM_EVENT_RESUME) {
+		if (gpudev->secure_pt_restore != NULL) {
+			ret = gpudev->secure_pt_restore(adreno_dev);
+			if (ret)
+				return ret;
+		}
+
+		if (!adreno_is_a640v1(adreno_dev) &&
+			kgsl_mmu_is_perprocess(&device->mmu)) {
+			ret = adreno_program_smmu_aperture(device);
+			if (ret)
+				return ret;
+		}
 	}
 
 	if (device->state == KGSL_STATE_SUSPEND)
