@@ -3878,6 +3878,8 @@ static int usbpd_typec_port_type_set(const struct typec_capability *cap,
 				enum typec_port_type type)
 {
 	struct usbpd *pd = container_of(cap, struct usbpd, typec_caps);
+	union power_supply_propval value;
+	int wait_count = 5;
 
 	usbpd_dbg(&pd->dev, "Setting mode to %d\n", type);
 
@@ -3897,10 +3899,31 @@ static int usbpd_typec_port_type_set(const struct typec_capability *cap,
 	set_power_role(pd, PR_NONE);
 
 	/* wait until it takes effect */
-	while (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
+	while (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE && --wait_count)
 		msleep(20);
 
+	if (!wait_count)
+		goto reset_drp;
+
+	/* if we cannot have a valid connection, fallback to old role */
+	wait_count = 5;
+	while (pd->current_pr == PR_NONE && --wait_count)
+		msleep(300);
+
+	if (!wait_count)
+		goto reset_drp;
+
 	return 0;
+
+reset_drp:
+	usbpd_err(&pd->dev, "setting mode timed out\n");
+
+	/* Setting it to DRP. HW can figure out new mode */
+	value.intval = POWER_SUPPLY_TYPEC_PR_DUAL;
+	power_supply_set_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &value);
+
+	return -ETIMEDOUT;
 }
 
 static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
