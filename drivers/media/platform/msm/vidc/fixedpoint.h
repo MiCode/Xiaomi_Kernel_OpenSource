@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifdef _FIXP_ARITH_H
@@ -9,6 +9,9 @@
 
 #ifndef _FIXEDPOINT_H_
 #define _FIXEDPOINT_H_
+
+#include <linux/types.h>
+#include <linux/bits.h>
 
 /*
  * Normally would typedef'ed, but checkpatch doesn't like typedef.

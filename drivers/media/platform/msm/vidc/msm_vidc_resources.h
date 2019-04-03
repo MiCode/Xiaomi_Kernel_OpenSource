@@ -95,7 +95,7 @@ struct bus_info {
 	unsigned int range[2];
 	struct device *dev;
 	struct msm_bus_client_handle *client;
-	bool is_prfm_gov_used;
+	bool is_prfm_mode;
 	const char *mode;
 };
 

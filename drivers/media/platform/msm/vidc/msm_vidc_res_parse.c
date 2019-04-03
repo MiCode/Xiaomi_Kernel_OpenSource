@@ -18,8 +18,6 @@ enum clock_properties {
 	CLOCK_PROP_HAS_MEM_RETENTION    = 1 << 1,
 };
 
-#define PERF_GOV "performance"
-
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
 	return NULL;
@@ -423,8 +421,8 @@ static int msm_vidc_populate_bus(struct device *dev,
 	rc = of_property_read_string(dev->of_node, "qcom,mode",
 			&bus->mode);
 
-	if (!rc && !strcmp(bus->mode, PERF_GOV))
-		bus->is_prfm_gov_used = true;
+	if (!rc && !strcmp(bus->mode, "performance"))
+		bus->is_prfm_mode = true;
 
 	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
 			range, ARRAY_SIZE(range));

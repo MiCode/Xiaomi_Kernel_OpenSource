@@ -17,6 +17,7 @@
 #include "vidc_hfi.h"
 #include "msm_vidc_resources.h"
 #include "hfi_packetization.h"
+#include "msm_vidc_bus.h"
 
 #define HFI_MASK_QHDR_TX_TYPE			0xFF000000
 #define HFI_MASK_QHDR_RX_TYPE			0x00FF0000
@@ -41,9 +42,6 @@
 #define VIDC_MAX_PC_SKIP_COUNT 10
 #define VIDC_MAX_SUBCACHES 4
 #define VIDC_MAX_SUBCACHE_SIZE 52
-
-extern unsigned long __calc_bw(struct bus_info *bus,
-			struct msm_vidc_gov_data *vidc_data);
 
 struct hfi_queue_table_header {
 	u32 qtbl_version;
@@ -253,7 +251,7 @@ struct venus_hfi_device {
 	u32 last_packet_type;
 	unsigned long clk_bitrate;
 	unsigned long scaled_rate;
-	struct msm_vidc_gov_data bus_vote;
+	struct msm_vidc_bus_data bus_vote;
 	bool power_enabled;
 	struct mutex lock;
 	msm_vidc_callback callback;

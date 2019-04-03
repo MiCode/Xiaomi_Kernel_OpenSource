@@ -66,7 +66,7 @@ struct tzbsp_video_set_state_req {
 	u32 spare; /* reserved for future, should be zero */
 };
 
-const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
+const struct msm_vidc_bus_data DEFAULT_BUS_VOTE = {
 	.data = NULL,
 	.data_count = 0,
 };
@@ -1015,8 +1015,8 @@ static int __unvote_buses(struct venus_hfi_device *device)
 	device->bus_vote.data_count = 0;
 
 	venus_hfi_for_each_bus(device, bus) {
-		if (!bus->is_prfm_gov_used) {
-			freq = __calc_bw(bus, &device->bus_vote);
+		if (!bus->is_prfm_mode) {
+			freq = device->bus_vote.calc_bw(bus, &device->bus_vote);
 			rc = __vote_bandwidth(bus, &freq);
 		}
 		else
@@ -1060,14 +1060,12 @@ no_data_count:
 
 	venus_hfi_for_each_bus(device, bus) {
 		if (bus) {
-			if (!bus->is_prfm_gov_used) {
-				freq = __calc_bw(bus, &device->bus_vote);
-			} else {
+			if (!bus->is_prfm_mode)
+				freq = device->bus_vote.calc_bw
+					(bus, &device->bus_vote);
+			else
 				freq = bus->range[1];
-				dprintk(VIDC_ERR, "%s %s perf Vote %u\n",
-						__func__, bus->name,
-						bus->range[1]);
-			}
+
 			rc = __vote_bandwidth(bus, &freq);
 		} else {
 			dprintk(VIDC_ERR, "No BUS to Vote\n");
@@ -3868,6 +3866,11 @@ static int __init_bus(struct venus_hfi_device *device)
 			goto err_add_dev;
 		}
 	}
+
+	if (device->res->vpu_ver == VPU_VERSION_IRIS1)
+		device->bus_vote.calc_bw = calc_bw_iris1;
+	else
+		device->bus_vote.calc_bw = calc_bw_iris2;
 
 	return 0;
 
