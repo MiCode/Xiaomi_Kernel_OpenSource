@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -991,9 +991,8 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 	 * Invalidate any reconfig of CSC block on staged pipe.
 	 */
 	if (!is_csc_db &&
-		((!!pipe->src_fmt->is_yuv != !!layer_src_fmt->is_yuv) ||
 		(pipe->src_fmt->is_yuv && layer_src_fmt->is_yuv &&
-		pipe->csc_coeff_set != layer->color_space))) {
+		pipe->csc_coeff_set != layer->color_space)) {
 		pr_err("CSC reconfig not allowed on staged pipe\n");
 		status = -EINVAL;
 		goto err_exit;
