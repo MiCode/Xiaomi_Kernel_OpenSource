@@ -404,6 +404,8 @@
 
 #define A6XX_RBBM_VBIF_CLIENT_QOS_CNTL   0x00010
 #define A6XX_RBBM_GBIF_CLIENT_QOS_CNTL   0x00011
+#define A6XX_RBBM_GBIF_HALT              0x00016
+#define A6XX_RBBM_GBIF_HALT_ACK          0x00017
 #define A6XX_RBBM_GPR0_CNTL              0x00018
 #define A6XX_RBBM_INTERFACE_HANG_INT_CNTL 0x0001f
 #define A6XX_RBBM_INT_CLEAR_CMD          0x00037
@@ -828,6 +830,7 @@
 
 #define A6XX_GBIF_CLIENT_HALT_MASK        BIT(0)
 #define A6XX_GBIF_ARB_HALT_MASK           BIT(1)
+#define A6XX_GBIF_GX_HALT_MASK            BIT(0)
 
 #define A6XX_GBIF_PERF_PWR_CNT_EN         0x3cc0
 #define A6XX_GBIF_PERF_CNT_SEL            0x3cc2
