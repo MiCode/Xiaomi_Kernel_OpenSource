@@ -145,3 +145,12 @@
 
 	status = "ok";
 };
+
+&usb2_phy1 {
+	status = "ok";
+};
+
+&usb1 {
+	qcom,default-mode-host;
+	status ="ok";
+};
