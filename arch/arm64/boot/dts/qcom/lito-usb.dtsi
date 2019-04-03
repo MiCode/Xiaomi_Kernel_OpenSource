@@ -20,7 +20,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <&pdc 14 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&pdc 14 IRQ_TYPE_LEVEL_HIGH>,
 			     <&intc GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>,
 			     <&pdc 9 IRQ_TYPE_LEVEL_HIGH>,
 			     <&pdc 15 IRQ_TYPE_LEVEL_HIGH>;
