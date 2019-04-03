@@ -289,6 +289,13 @@ void *perf_aux_output_begin(struct perf_output_handle *handle,
 		goto err;
 
 	/*
+	 * If rb::aux_mmap_count is zero (and rb_has_aux() above went through),
+	 * the aux buffer is in perf_mmap_close(), about to get freed.
+	 */
+	if (!atomic_read(&rb->aux_mmap_count))
+		goto err;
+
+	/*
 	 * Nesting is not supported for AUX area, make sure nested
 	 * writers are caught early
 	 */
@@ -468,6 +475,25 @@ static void rb_free_aux_page(struct ring_buffer *rb, int idx)
 	__free_page(page);
 }
 
+static void __rb_free_aux(struct ring_buffer *rb)
+{
+	int pg;
+
+	if (rb->aux_priv) {
+		rb->free_aux(rb->aux_priv);
+		rb->free_aux = NULL;
+		rb->aux_priv = NULL;
+	}
+
+	if (rb->aux_nr_pages) {
+		for (pg = 0; pg < rb->aux_nr_pages; pg++)
+			rb_free_aux_page(rb, pg);
+
+		kfree(rb->aux_pages);
+		rb->aux_nr_pages = 0;
+	}
+}
+
 int rb_alloc_aux(struct ring_buffer *rb, struct perf_event *event,
 		 pgoff_t pgoff, int nr_pages, long watermark, int flags)
 {
@@ -556,28 +582,9 @@ out:
 	if (!ret)
 		rb->aux_pgoff = pgoff;
 	else
-		rb_free_aux(rb);
+		__rb_free_aux(rb);
 
 	return ret;
-}
-
-static void __rb_free_aux(struct ring_buffer *rb)
-{
-	int pg;
-
-	if (rb->aux_priv) {
-		rb->free_aux(rb->aux_priv);
-		rb->free_aux = NULL;
-		rb->aux_priv = NULL;
-	}
-
-	if (rb->aux_nr_pages) {
-		for (pg = 0; pg < rb->aux_nr_pages; pg++)
-			rb_free_aux_page(rb, pg);
-
-		kfree(rb->aux_pages);
-		rb->aux_nr_pages = 0;
-	}
 }
 
 void rb_free_aux(struct ring_buffer *rb)
