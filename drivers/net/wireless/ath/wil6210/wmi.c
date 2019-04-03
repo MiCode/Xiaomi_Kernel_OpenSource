@@ -2845,8 +2845,8 @@ int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid, u8 tid,
 		.ba_param_set = cpu_to_le16((amsdu ? 1 : 0) | (tid << 2) |
 					    (agg_wsize << 6)),
 		.ba_timeout = cpu_to_le16(timeout),
-		/* route all the connections to status ring 0 */
-		.status_ring_id = WIL_DEFAULT_RX_STATUS_RING_ID,
+		/* route all the connections to same Rx status ring */
+		.status_ring_id = wil->rx_sring_idx,
 	};
 	struct {
 		struct wmi_cmd_hdr wmi;
@@ -2858,7 +2858,7 @@ int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid, u8 tid,
 	wil_dbg_wmi(wil,
 		    "ADDBA response for CID %d TID %d size %d timeout %d status %d AMSDU%s, sring_id %d\n",
 		    cid, tid, agg_wsize, timeout, status, amsdu ? "+" : "-",
-		    WIL_DEFAULT_RX_STATUS_RING_ID);
+		    cmd.status_ring_id);
 
 	rc = wmi_call(wil, WMI_RCP_ADDBA_RESP_EDMA_CMDID, mid, &cmd,
 		      sizeof(cmd), WMI_RCP_ADDBA_RESP_SENT_EVENTID, &reply,
@@ -3799,7 +3799,7 @@ int wmi_mgmt_tx_ext(struct wil6210_vif *vif, const u8 *buf, size_t len,
 	return rc;
 }
 
-int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id)
+int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id, u8 irq_mode)
 {
 	int rc;
 	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
@@ -3808,7 +3808,8 @@ int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id)
 		.ring_cfg = {
 			.ring_size = cpu_to_le16(sring->size),
 		},
-		.irq_index = WIL_TX_STATUS_IRQ_IDX
+		.irq_index = WIL_TX_STATUS_IRQ_IDX,
+		.irq_mode = irq_mode,
 	};
 	struct {
 		struct wmi_cmd_hdr hdr;
@@ -3839,7 +3840,8 @@ int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id)
 	return 0;
 }
 
-int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil, u16 max_rx_pl_per_desc)
+int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
+			       u16 max_rx_pl_per_desc, bool checksum)
 {
 	struct net_device *ndev = wil->main_ndev;
 	struct wil6210_vif *vif = ndev_to_vif(ndev);
@@ -3849,7 +3851,8 @@ int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil, u16 max_rx_pl_per_desc)
 		.max_rx_pl_per_desc = cpu_to_le16(max_rx_pl_per_desc),
 		.decap_trans_type = WMI_DECAP_TYPE_802_3,
 		.l2_802_3_offload_ctrl = 0,
-		.l3_l4_ctrl = 1 << L3_L4_CTRL_TCPIP_CHECKSUM_EN_POS,
+		.l3_l4_ctrl =
+			(checksum ? 1 << L3_L4_CTRL_TCPIP_CHECKSUM_EN_POS : 0),
 	};
 	struct {
 		struct wmi_cmd_hdr hdr;
@@ -3961,10 +3964,9 @@ int wil_wmi_rx_desc_ring_add(struct wil6210_priv *wil, int status_ring_id)
 }
 
 int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
-			     int tid)
+			     int tid, int sring_id, u8 irq_mode)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
-	int sring_id = wil->tx_sring_idx; /* there is only one TX sring */
 	int rc;
 	struct wil_ring *ring = &wil->ring_tx[ring_id];
 	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[ring_id];
@@ -3981,7 +3983,9 @@ int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
 		.schd_params = {
 			.priority = cpu_to_le16(0),
 			.timeslot_us = cpu_to_le16(0xfff),
-		}
+		},
+		.irq_index = ring_id,
+		.irq_mode = irq_mode,
 	};
 	struct {
 		struct wmi_cmd_hdr hdr;
@@ -4014,7 +4018,8 @@ int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
 	return 0;
 }
 
-int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id)
+int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id,
+				int sring_id)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
 	struct wil_ring *ring = &wil->ring_tx[ring_id];
@@ -4024,7 +4029,7 @@ int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id)
 			.ring_size = cpu_to_le16(ring->size),
 			.ring_id = ring_id,
 		},
-		.status_ring_id = wil->tx_sring_idx,
+		.status_ring_id = sring_id,
 		.encap_trans_type = WMI_VRING_ENC_TYPE_802_3,
 	};
 	struct {

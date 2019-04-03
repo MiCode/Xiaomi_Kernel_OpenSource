@@ -634,6 +634,12 @@ static inline void wil_skb_set_cid(struct sk_buff *skb, u8 cid)
 	skb_rx_info->rx_info.cid = cid;
 }
 
+static inline
+void wil_tx_desc_set_nr_frags(struct vring_tx_desc *d, int nr_frags)
+{
+	d->mac.d[2] |= (nr_frags << MAC_CFG_DESC_TX_2_NUM_OF_DESCRIPTORS_POS);
+}
+
 void wil_netif_rx_any(struct sk_buff *skb, struct net_device *ndev);
 void wil_netif_rx(struct sk_buff *skb, struct net_device *ndev, int cid,
 		  struct wil_net_stats *stats, bool gro);

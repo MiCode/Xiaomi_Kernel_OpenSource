@@ -334,8 +334,7 @@ struct RGF_ICR {
 
 #define RGF_INT_COUNT_ON_SPECIAL_EVT	(0x8b62d8)
 
-#define RGF_INT_CTRL_INT_GEN_CFG_0	(0x8bc000)
-#define RGF_INT_CTRL_INT_GEN_CFG_1	(0x8bc004)
+#define RGF_INT_CTRL_INT_GEN_CFG	(0x8bc000)
 #define RGF_INT_GEN_TIME_UNIT_LIMIT	(0x8bc0c8)
 
 #define RGF_INT_GEN_CTRL		(0x8bc0ec)
@@ -987,6 +986,7 @@ struct wil6210_priv {
 	struct wil_status_ring srings[WIL6210_MAX_STATUS_RINGS];
 	u8 num_rx_status_rings;
 	int tx_sring_idx;
+	int rx_sring_idx;
 	u8 ring2cid_tid[WIL6210_MAX_TX_RINGS][2]; /* [0] - CID, [1] - TID */
 	struct wil_sta_info sta[WIL6210_MAX_CID];
 	u32 ring_idle_trsh; /* HW fetches up to 16 descriptors at once  */
@@ -1452,14 +1452,15 @@ int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 
 /* WMI for enhanced DMA */
-int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id);
+int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id, u8 irq_mode);
 int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
-			       u16 max_rx_pl_per_desc);
+			       u16 max_rx_pl_per_desc, bool checksum);
 int wil_wmi_rx_sring_add(struct wil6210_priv *wil, u16 ring_id);
 int wil_wmi_rx_desc_ring_add(struct wil6210_priv *wil, int status_ring_id);
 int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
-			     int tid);
-int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id);
+			     int tid, int sring_id, u8 irq_mode);
+int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id,
+				int sring_id);
 int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u8 tid, u8 token, u16 status, bool amsdu,
 			   u16 agg_wsize, u16 timeout);
