@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+pm8008_8: qcom,pm8008@8 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x8>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pm8008_chip: qcom,pm8008-chip@900 {
+		compatible = "qcom,pm8008-chip";
+		reg = <0x900>;
+		PM8008_EN: qcom,pm8008-chip-en {
+			regulator-name = "pm8008-chip-en";
+		};
+	};
+
+	qcom,revid@100 {
+		compatible = "qcom,qpnp-revid";
+		reg = <0x100>;
+	};
+
+	pm8008_gpios: pinctrl@c000 {
+		compatible = "qcom,spmi-gpio";
+		reg = <0xc000 0x200>;
+		interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+				<0x0 0xc1 0 IRQ_TYPE_NONE>;
+		interrupt-names = "pm8008_gpio1", "pm8008_gpio2";
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+pm8008_9: qcom,pm8008@9 {
+	compatible = "qcom,i2c-pmic";
+	reg = <0x9>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pm8008_regulators: qcom,pm8008-regulator {
+		compatible = "qcom,pm8008-regulator";
+		pm8008_en-supply = <&PM8008_EN>;
+		L1P: qcom,pm8008-l1@4000 {
+			reg = /bits/ 16 <0x4000>;
+			regulator-name = "pm8008_l1";
+			regulator-min-microvolt = <528000>;
+			regulator-max-microvolt = <1504000>;
+			qcom,min-dropout-voltage = <225000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L2P: qcom,pm8008-l2@4100 {
+			reg = /bits/ 16 <0x4100>;
+			regulator-name = "pm8008_l2";
+			regulator-min-microvolt = <528000>;
+			regulator-max-microvolt = <1504000>;
+			qcom,min-dropout-voltage = <225000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L3P: qcom,pm8008-l3@4200 {
+			reg = /bits/ 16 <0x4200>;
+			regulator-name = "pm8008_l3";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,min-dropout-voltage = <200000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L4P: qcom,pm8008-l4@4300 {
+			reg = /bits/ 16 <0x4300>;
+			regulator-name = "pm8008_l4";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,min-dropout-voltage = <200000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L5P: qcom,pm8008-l5@4400 {
+			reg = /bits/ 16 <0x4400>;
+			regulator-name = "pm8008_l5";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,min-dropout-voltage = <300000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L6P: qcom,pm8008-l6@4400 {
+			reg = /bits/ 16 <0x4500>;
+			regulator-name = "pm8008_l6";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,min-dropout-voltage = <300000>;
+			qcom,hpm-min-load = <10000>;
+		};
+
+		L7P: qcom,pm8008-l7@4400 {
+			reg = /bits/ 16 <0x4600>;
+			regulator-name = "pm8008_l7";
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,min-dropout-voltage = <300000>;
+			qcom,hpm-min-load = <10000>;
+		};
+	};
+};
