@@ -125,6 +125,7 @@ struct cvp_mem_addr {
 };
 
 struct cvp_iface_q_info {
+	spinlock_t hfi_lock;
 	void *q_hdr;
 	struct cvp_mem_addr q_array;
 };

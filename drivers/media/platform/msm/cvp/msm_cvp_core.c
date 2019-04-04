@@ -635,7 +635,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	}
 
 	msm_cvp_dcvs_try_enable(inst);
-	core->resources.max_inst_count = 1;
+	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
 	if (msm_cvp_check_for_inst_overload(core)) {
 		dprintk(CVP_ERR,
 			"Instance count reached Max limit, rejecting session");
