@@ -693,6 +693,10 @@ static int ipip6_rcv(struct sk_buff *skb)
 		if (iptunnel_pull_header(skb, 0, htons(ETH_P_IPV6)))
 			goto out;
 
+		/* skb can be uncloned in iptunnel_pull_header, so
+		 * old iph is no longer valid
+		 */
+		iph = (const struct iphdr *)skb_mac_header(skb);
 		err = IP_ECN_decapsulate(iph, skb);
 		if (unlikely(err)) {
 			if (log_ecn_error)
