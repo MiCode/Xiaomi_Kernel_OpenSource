@@ -787,7 +787,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[11].buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
 	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
 	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
-	inst->buffer_size_calculators = NULL;
+	msm_vidc_init_buffer_size_calculators(inst);
 
 	/* By default, initialize OUTPUT port to H264 decoder */
 	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
