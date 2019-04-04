@@ -2192,8 +2192,9 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
 			if (ret)
-				dev_err_once(device->dev,
-					"Device soft reset failed\n");
+				dev_err(device->dev,
+					"Device soft reset failed: ret=%d\n",
+					ret);
 		}
 	}
 	if (ret) {
