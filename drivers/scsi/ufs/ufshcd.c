@@ -477,7 +477,6 @@ static int ufshcd_config_vreg(struct device *dev,
 				struct ufs_vreg *vreg, bool on);
 static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
 static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
-static bool ufshcd_is_g4_supported(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -8193,7 +8192,7 @@ static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
 	struct ufs_vreg *vreg = hba->vreg_info.vcc;
 
 	/* Check if device supports the low voltage VCC feature */
-	if (dev_desc->wspecversion < 0x300 && !ufshcd_is_g4_supported(hba))
+	if (dev_desc->wspecversion < 0x300)
 		return 0;
 
 	/*
@@ -8726,34 +8725,6 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
 
 	return 0;
-}
-
-/**
- * ufshcd_is_g4_supported - check if device supports HS-G4
- * @hba: per-adapter instance
- *
- * Returns True if device supports HS-G4, False otherwise.
- */
-static bool ufshcd_is_g4_supported(struct ufs_hba *hba)
-{
-	int ret;
-	u32 tx_hsgear = 0;
-
-	/* check device capability */
-	ret = ufshcd_dme_peer_get(hba,
-			UIC_ARG_MIB_SEL(TX_HSGEAR_CAPABILITY,
-			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
-			&tx_hsgear);
-	if (ret) {
-		dev_err(hba->dev, "%s: Failed getting peer TX_HSGEAR_CAPABILITY. err = %d\n",
-			__func__, ret);
-		return false;
-	}
-
-	if (tx_hsgear == UFS_HS_G4)
-		return true;
-	else
-		return false;
 }
 
 /**
