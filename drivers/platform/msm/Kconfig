@@ -147,6 +147,27 @@ config IPA_WDI_UNIFIED_API
 	  The IPA WDI unified API supports all WDI versions through a unified
 	  interface.
 
+config IPA_ETH
+	bool "IPA Ethernet Offload Sub-system support"
+	depends on IPA3
+	help
+	  Enables IPA Ethernet Offload Subsystem for offloading PCI based
+	  ethernet devices to IPA. The offload subsystem still require a
+	  compatible network driver to register with it and a corresponding
+	  offload driver to manage one of more offload data paths that uses
+	  the network device.
+
+config IPA_ETH_NOAUTO
+	bool "Disable automatic offload initialization of interfaces"
+	depends on IPA_ETH
+	help
+	  Enabling this option prevents automatic initialization of offload on
+	  ethernet interfaces. Debugfs control interface will instead be used
+	  to enable offloading. This feature is meant only for debugging.
+	  If unsure, say N.
+
+source "drivers/platform/msm/ipa/ipa_v3/ethernet/aquantia/Kconfig"
+
 config RMNET_IPA3
 	tristate "IPA3 RMNET WWAN Network Device"
 	depends on IPA3 && QCOM_QMI_HELPERS

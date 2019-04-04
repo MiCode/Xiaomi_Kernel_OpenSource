@@ -13,6 +13,8 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 
+#include "atl_qcom_ipa.h"
+
 #include "atl_of.h"
 
 const char atl_driver_name[] = "atlantic-fwd";
@@ -595,8 +597,17 @@ static int __init atl_module_init(void)
 		return -ENOMEM;
 	}
 
+	ret = atl_qcom_ipa_register(&atl_pci_ops);
+	if (ret) {
+		pr_err("%s: Failed to register driver with IPA\n",
+		       atl_driver_name);
+		destroy_workqueue(atl_wq);
+		return ret;
+	}
+
 	ret = pci_register_driver(&atl_pci_ops);
 	if (ret) {
+		atl_qcom_ipa_unregister(&atl_pci_ops);
 		destroy_workqueue(atl_wq);
 		return ret;
 	}
@@ -608,6 +619,8 @@ module_init(atl_module_init);
 static void __exit atl_module_exit(void)
 {
 	pci_unregister_driver(&atl_pci_ops);
+
+	atl_qcom_ipa_unregister(&atl_pci_ops);
 
 	if (atl_wq) {
 		destroy_workqueue(atl_wq);

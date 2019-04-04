@@ -567,13 +567,6 @@ static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
 		.parent_names = gcc_parent_names_0_ao,
 		.num_parents = 4,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx_ao,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
-			[VDD_LOWER] = 50000000,
-			[VDD_NOMINAL] = 100000000,
-			[VDD_HIGH] = 133333333},
 	},
 };
 
@@ -1932,6 +1925,9 @@ static int gcc_sdxprairie_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
 		return ret;
 	}
+
+	clk_set_rate(gcc_cpuss_ahb_clk.clkr.hw.clk, 19200000);
+	clk_set_rate(gcc_sys_noc_cpuss_ahb_clk.clkr.hw.clk, 19200000);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 

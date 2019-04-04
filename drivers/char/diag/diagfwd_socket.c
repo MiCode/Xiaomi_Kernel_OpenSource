@@ -331,6 +331,7 @@ static void diag_state_open_socket(void *ctxt);
 static void diag_state_close_socket(void *ctxt);
 static int diag_socket_write(void *ctxt, unsigned char *buf, int len);
 static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len);
+static void diag_socket_drop_data(struct diag_socket_info *info);
 static void diag_socket_queue_read(void *ctxt);
 
 static struct diag_peripheral_ops socket_ops = {
@@ -593,6 +594,9 @@ static void socket_read_work_fn(struct work_struct *work)
 		return;
 	}
 
+	if (!info->fwd_ctxt && info->port_type == PORT_TYPE_SERVER)
+		diag_socket_drop_data(info);
+
 	if (!atomic_read(&info->opened) && info->port_type == PORT_TYPE_SERVER)
 		diagfwd_buffers_init(info->fwd_ctxt);
 
@@ -663,6 +667,41 @@ static void handle_ctrl_pkt(struct diag_socket_info *info, void *buf, int len)
 	}
 }
 
+static void diag_socket_drop_data(struct diag_socket_info *info)
+{
+	int err = 0;
+	int pkt_len = 0;
+	int read_len = 0;
+	unsigned char *temp = NULL;
+	struct kvec iov;
+	struct msghdr read_msg = {NULL, 0};
+	struct sockaddr_qrtr src_addr = {0};
+	unsigned long flags;
+
+	temp = vzalloc(PERIPHERAL_BUF_SZ);
+	if (!temp)
+		return;
+
+	while (info->data_ready > 0) {
+		iov.iov_base = temp;
+		iov.iov_len = PERIPHERAL_BUF_SZ;
+		read_msg.msg_name = &src_addr;
+		read_msg.msg_namelen = sizeof(src_addr);
+		err = kernel_sock_ioctl(info->hdl, TIOCINQ,
+					(unsigned long)&pkt_len);
+		if (err || pkt_len < 0)
+			break;
+		spin_lock_irqsave(&info->lock, flags);
+		info->data_ready--;
+		spin_unlock_irqrestore(&info->lock, flags);
+		read_len = kernel_recvmsg(info->hdl, &read_msg, &iov, 1,
+					  pkt_len, MSG_DONTWAIT);
+		pr_debug("%s : %s drop total bytes: %d\n", __func__,
+			info->name, read_len);
+	}
+	vfree(temp);
+}
+
 static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 {
 	int err = 0;
@@ -673,8 +712,8 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	int qrtr_ctrl_recd = 0;
 	uint8_t buf_full = 0;
 	unsigned char *temp = NULL;
-	struct kvec iov = {0};
-	struct msghdr read_msg = {0};
+	struct kvec iov;
+	struct msghdr read_msg = {NULL, 0};
 	struct sockaddr_qrtr src_addr = {0};
 	struct diag_socket_info *info;
 	struct mutex *channel_mutex;

@@ -258,6 +258,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_STATIC_CB		(1 << 6)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 7)
 #define ARM_SMMU_OPT_MIN_IOVA_ALIGN	(1 << 8)
+#define ARM_SMMU_OPT_NO_DYNAMIC_ASID	(1 << 9)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -398,6 +399,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ ARM_SMMU_OPT_MIN_IOVA_ALIGN, "qcom,min-iova-align" },
+	{ ARM_SMMU_OPT_NO_DYNAMIC_ASID, "qcom,no-dynamic-asid" },
 	{ 0, NULL},
 };
 
@@ -1550,15 +1552,14 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		resume = RESUME_TERMINATE;
 	} else {
 		if (__ratelimit(&_rs)) {
-			phys_addr_t phys_atos = arm_smmu_verify_fault(domain,
-								      iova,
-								      fsr);
+			phys_addr_t phys_atos;
 
+			print_ctx_regs(smmu, cfg, fsr);
+			phys_atos = arm_smmu_verify_fault(domain, iova, fsr);
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
 
-			print_ctx_regs(smmu, cfg, fsr);
 
 			dev_err(smmu->dev,
 				"soft iova-to-phys=%pa\n", &phys_soft);
@@ -1844,7 +1845,7 @@ static int arm_smmu_init_asid(struct iommu_domain *domain,
 	bool dynamic = is_dynamic_domain(domain);
 	int ret;
 
-	if (!dynamic) {
+	if (!dynamic || (smmu->options & ARM_SMMU_OPT_NO_DYNAMIC_ASID)) {
 		cfg->asid = cfg->cbndx + 1;
 	} else {
 		mutex_lock(&smmu->idr_mutex);

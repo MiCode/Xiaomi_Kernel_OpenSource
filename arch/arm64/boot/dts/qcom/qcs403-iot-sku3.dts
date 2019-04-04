@@ -117,7 +117,8 @@
 };
 
 &usb_ss_phy {
-	status = "disabled";
+	status = "ok";
+	qcom,keep-powerdown;
 };
 
 &usb2_phy1 {

@@ -56,6 +56,9 @@
 
 #define SND_DEC_DDP_MAX_PARAMS 18
 
+/* Maximum PCM channels */
+#define MAX_PCM_DECODE_CHANNELS 32
+
 /* AUDIO CODECS SUPPORTED */
 #define MAX_NUM_CODECS 32
 #define MAX_NUM_CODEC_DESCRIPTORS 32
@@ -75,6 +78,11 @@
 /* Bit-0 - 1 : Enable Timestamp mode */
 /* Bit-0 - 0 : Disable Timestamp mode */
 #define COMPRESSED_TIMESTAMP_FLAG 0x0001
+
+/* Perf mode flag */
+/* Bit-1 - 1 : Enable perf mode */
+/* Bit-1 - 0 : Disable perf mode */
+#define COMPRESSED_PERF_MODE_FLAG 0x0002
 
 /* Codecs are listed linearly to allow for extensibility */
 #define SND_AUDIOCODEC_PCM                   ((__u32) 0x00000001)
@@ -416,6 +424,15 @@ struct snd_dec_aptx {
 	__u32 nap;
 };
 
+/** struct snd_dec_pcm - codec options for PCM format
+ * @num_channels: Number of channels
+ * @ch_map: Channel map for the above corresponding channels
+ */
+struct snd_dec_pcm {
+	__u32 num_channels;
+	__u8 ch_map[MAX_PCM_DECODE_CHANNELS];
+} __attribute__((packed, aligned(4)));
+
 union snd_codec_options {
 	struct snd_enc_wma wma;
 	struct snd_enc_vorbis vorbis;
@@ -429,6 +446,7 @@ union snd_codec_options {
 	struct snd_dec_ape ape;
 	struct snd_dec_aptx aptx_dec;
 	struct snd_dec_thd truehd;
+	struct snd_dec_pcm pcm_dec;
 };
 
 /** struct snd_codec_desc - description of codec capabilities

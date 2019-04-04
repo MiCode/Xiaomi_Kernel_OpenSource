@@ -39,6 +39,7 @@
 enum cnss_dev_bus_type {
 	CNSS_BUS_NONE = -1,
 	CNSS_BUS_PCI,
+	CNSS_BUS_USB,
 };
 
 struct cnss_vreg_cfg {
@@ -173,6 +174,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
+	CNSS_DRIVER_EVENT_CAL_UPDATE,
+	CNSS_DRIVER_EVENT_CAL_DOWNLOAD,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -228,6 +231,7 @@ enum cnss_debug_quirks {
 enum cnss_bdf_type {
 	CNSS_BDF_BIN,
 	CNSS_BDF_ELF,
+	CNSS_BDF_REGDB = 4,
 	CNSS_BDF_DUMMY = 255,
 };
 

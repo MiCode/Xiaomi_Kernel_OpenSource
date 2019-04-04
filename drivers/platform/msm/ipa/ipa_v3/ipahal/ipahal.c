@@ -890,13 +890,15 @@ static void ipa_pkt_status_parse(
 	status->flt_hash = hw_status->flt_hash;
 	status->flt_global = hw_status->flt_hash;
 	status->flt_ret_hdr = hw_status->flt_ret_hdr;
-	status->flt_miss = ~(hw_status->flt_rule_id) ? false : true;
+	status->flt_miss = (hw_status->rt_rule_id ==
+		IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
 	status->flt_rule_id = hw_status->flt_rule_id;
 	status->rt_local = hw_status->rt_local;
 	status->rt_hash = hw_status->rt_hash;
 	status->ucp = hw_status->ucp;
 	status->rt_tbl_idx = hw_status->rt_tbl_idx;
-	status->rt_miss = ~(hw_status->rt_rule_id) ? false : true;
+	status->rt_miss = (hw_status->rt_rule_id ==
+		IPAHAL_PKT_STATUS_FLTRT_RULE_MISS_ID);
 	status->rt_rule_id = hw_status->rt_rule_id;
 	status->nat_hit = hw_status->nat_hit;
 	status->nat_entry_idx = hw_status->nat_entry_idx;

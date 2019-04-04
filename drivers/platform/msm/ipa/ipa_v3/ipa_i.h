@@ -306,6 +306,19 @@ enum {
 #define IPA_FWS_PATH_3_5_1   "ipa/3.5.1/ipa_fws.elf"
 #define IPA_FWS_PATH_4_5     "ipa/4.5/ipa_fws.elf"
 
+/*
+ * The following will be used for determining/using access control
+ * policy.
+ */
+#define USE_SCM            0 /* use scm call to determine policy */
+#define OVERRIDE_SCM_TRUE  1 /* override scm call with true */
+#define OVERRIDE_SCM_FALSE 2 /* override scm call with false */
+
+#define SD_ENABLED  0 /* secure debug enabled. */
+#define SD_DISABLED 1 /* secure debug disabled. */
+
+#define IPA_MEM_INIT_VAL 0xFFFFFFFF
+
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
@@ -811,8 +824,6 @@ struct ipa3_ep_context {
 	u32 qmi_request_sent;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
-
-	int (*client_lock_unlock)(bool is_lock);
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -1442,6 +1453,12 @@ enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_MAX
 };
 
+enum ipa_client_cb_type {
+	IPA_USB_CLNT,
+	IPA_MHI_CLNT,
+	IPA_MAX_CLNT
+};
+
 /**
  * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
@@ -1544,7 +1561,6 @@ struct ipa3_char_device_context {
  * @init_completion_obj: Completion object to be used in case IPA driver hasn't
  * @mhi_evid_limits: MHI event rings start and end ids
  *  finished initializing. Example of use - IOCTLs to /dev/ipa
- * @dl_csum_offload_enabled: IPA will do dl csum offload
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
@@ -1694,6 +1710,8 @@ struct ipa3_context {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	u32 secure_debug_check_action;
+	u32 sd_state;
 	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
@@ -1702,7 +1720,7 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
-	bool dl_csum_offload_enabled;
+	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 };
 
 struct ipa3_plat_drv_res {
@@ -1747,6 +1765,7 @@ struct ipa3_plat_drv_res {
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
 	bool ipa_endp_delay_wa;
+	u32 secure_debug_check_action;
 };
 
 /**
@@ -2752,10 +2771,21 @@ int ipa3_get_transport_info(
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
 #if defined(CONFIG_IPA3_REGDUMP)
-int ipa_reg_save_init(uint8_t value);
+int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);
+void ipa_save_gsi_ver(void);
 #else
-static inline int ipa_reg_save_init(uint8_t value) { return 0; }
+static inline int ipa_reg_save_init(u32 value) { return 0; }
 static inline void ipa_save_registers(void) {};
+static inline void ipa_save_gsi_ver(void) {};
 #endif
+
+#ifdef CONFIG_IPA_ETH
+int ipa_eth_init(void);
+void ipa_eth_exit(void);
+#else
+static inline int ipa_eth_init(void) { return 0; }
+static inline void ipa_eth_exit(void) { }
+#endif // CONFIG_IPA_ETH
+
 #endif /* _IPA3_I_H_ */

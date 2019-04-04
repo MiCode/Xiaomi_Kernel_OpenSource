@@ -109,11 +109,11 @@
 	};
 
 	qcom,rmnet-ipa {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,ipa_fws {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qcom,msm-cdsp-loader {
@@ -125,7 +125,7 @@
 	};
 
 	ipa_hw: qcom,ipa@1e00000 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	gpio_keys {

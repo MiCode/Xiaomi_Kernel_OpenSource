@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,15 @@
 #define MSM_CAMERA_TZ_HW_BLOCK_ISP      0x0000000008
 #define MSM_CAMERA_TZ_HW_BLOCK_CPP      0x0000000010
 
+enum msm_camera_tz_io_region_t {
+	MSM_CAMERA_TZ_IO_REGION_CSIDCORE0,
+	MSM_CAMERA_TZ_IO_REGION_CSIDCORE1,
+	MSM_CAMERA_TZ_IO_REGION_CSIDCORE2,
+	MSM_CAMERA_TZ_IO_REGION_CSIDCORE3,
+
+	MSM_CAMERA_TZ_IO_REGION_LAST
+};
+
 enum msm_camera_tz_cmd_id_t {
 	MSM_CAMERA_TZ_CMD_NONE,
 	MSM_CAMERA_TZ_CMD_GET_IF_VERSION,
@@ -49,6 +58,10 @@ enum msm_camera_tz_cmd_id_t {
 	MSM_CAMERA_TZ_CMD_CCI_UTIL,
 	MSM_CAMERA_TZ_CMD_SET_MODE,
 	MSM_CAMERA_TZ_CMD_FRAME_NOTIFICATION,
+	MSM_CAMERA_TZ_CMD_REG_READ,
+	MSM_CAMERA_TZ_CMD_REG_WRITE,
+	MSM_CAMERA_TZ_CMD_REG_WRITE_BULK,
+	MSM_CAMERA_TZ_CMD_RESET_HW_BLOCK,
 };
 
 enum msm_camera_tz_status_t {
@@ -75,9 +88,37 @@ struct msm_camera_tz_generic_rsp_t {
 
 #pragma pack(pop, msm_camera_tz)
 
+/* Register IO virtualization IF */
+uint32_t msm_camera_tz_is_secured(
+	enum msm_camera_tz_io_region_t region);
+uint32_t msm_camera_tz_secure(uint32_t is_secure);
+uint32_t msm_camera_tz_region_to_hw_block(
+	enum msm_camera_tz_io_region_t region);
+
+int32_t msm_camera_tz_reset_hw_block(
+	uint32_t mask,
+	enum msm_camera_tz_io_region_t region);
+uint32_t msm_camera_tz_r(void __iomem *base_addr, uint32_t offset,
+	enum msm_camera_tz_io_region_t region);
+void msm_camera_tz_w_mb(uint32_t data,
+	void __iomem *base_addr, uint32_t offset,
+	enum msm_camera_tz_io_region_t region);
+void msm_camera_tz_w(uint32_t data,
+	void __iomem *base_addr, uint32_t offset,
+	enum msm_camera_tz_io_region_t region);
+void msm_camera_tz_w_deferred(uint32_t data,
+	void __iomem *base_addr, uint32_t offset,
+	enum msm_camera_tz_io_region_t region);
+void msm_camera_tz_clear_tzbsp_status(void);
+
+void msm_camera_tz_dump(void __iomem *base_addr, int size, int enable,
+	enum msm_camera_tz_io_region_t region);
+
+/* Security Mode IF */
 uint32_t msm_camera_tz_set_mode(
 	uint32_t mode, uint32_t hw_block);
 
+/* Common TZ IF */
 struct qseecom_handle *msm_camera_tz_get_ta_handle(void);
 int32_t get_cmd_rsp_buffers(
 	struct qseecom_handle *ta_qseecom_handle,
@@ -88,4 +129,4 @@ int32_t msm_camera_tz_unload_ta(void);
 void msm_camera_tz_lock(void);
 void msm_camera_tz_unlock(void);
 
-#endif /* __MSM_CAMERA_TZ_UTIL_H */
+#endif

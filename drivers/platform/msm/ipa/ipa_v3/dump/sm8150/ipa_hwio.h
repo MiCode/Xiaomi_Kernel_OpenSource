@@ -966,6 +966,27 @@
 		IPA_GSI_TOP_GSI_REG_BASE_PHYS + 0x00004000 + 0x4 * (n))
 #define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_OFFS(n) ( \
 		IPA_GSI_TOP_GSI_REG_BASE_OFFS + 0x00004000 + 0x4 * (n))
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_RMSK 0xffffffff
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_MAXn 6143
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_ATTR 0x3
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_INI(n) \
+	in_dword_masked( \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_ADDR(n), \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_RMSK)
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_INMI(n, mask) \
+	in_dword_masked( \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_ADDR(n), \
+		mask)
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_OUTI(n, val) \
+	out_dword( \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_ADDR(n), \
+		val)
+#define HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_OUTMI(n, mask, val) \
+	out_dword_masked_ns( \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_ADDR(n), \
+		mask, \
+		val, \
+		HWIO_IPA_GSI_TOP_GSI_INST_RAM_n_INI(n))
 #define HWIO_IPA_GSI_TOP_GSI_SHRAM_n_ADDR(n) (IPA_GSI_TOP_GSI_REG_BASE + \
 					      0x00002000 + 0x4 * (n))
 #define HWIO_IPA_GSI_TOP_GSI_SHRAM_n_PHYS(n) ( \

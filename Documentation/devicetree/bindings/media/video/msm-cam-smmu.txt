@@ -32,6 +32,11 @@ First Level Node - CAM SMMU device
   Value type: <string>
   Definition: Should be "qcom,msm-cam-smmu".
 
+- qcom,camera-secure-sid
+  Usage: optional
+  Value type: boolean
+  Definition: Specifies if the sensor stream is a secure stream.
+
 ===================================================================
 Second Level Node - CAM SMMU context bank device or firmware device
 ===================================================================
@@ -98,6 +103,7 @@ Third Level Node - CAM SMMU memory map device
 Example:
 	qcom,cam_smmu@0 {
 		compatible = "qcom,msm-cam-smmu";
+		qcom,camera-secure-sid;
 
 		msm_cam_smmu_icp {
 			compatible = "qcom,msm-cam-smmu-cb";

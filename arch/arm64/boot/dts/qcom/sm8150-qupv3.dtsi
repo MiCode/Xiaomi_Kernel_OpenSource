@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -420,10 +420,11 @@
 		clocks = <&clock_gcc GCC_QUPV3_WRAP2_S3_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_2_M_AHB_CLK>,
 			<&clock_gcc GCC_QUPV3_WRAP_2_S_AHB_CLK>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&qupv3_se13_ctsrx>, <&qupv3_se13_rts>,
-						<&qupv3_se13_tx>;
+		pinctrl-names = "default", "active", "sleep";
+		pinctrl-0 = <&qupv3_se13_pins_default>;
 		pinctrl-1 = <&qupv3_se13_ctsrx>, <&qupv3_se13_rts>,
+						<&qupv3_se13_tx>;
+		pinctrl-2 = <&qupv3_se13_ctsrx>, <&qupv3_se13_rts>,
 						<&qupv3_se13_tx>;
 		interrupts-extended = <&pdc GIC_SPI 585 0>,
 				<&tlmm 46 0>;
@@ -1073,6 +1074,7 @@
 		pinctrl-1 = <&qupv3_se22_spi_sleep>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_3>;
+		qcom,disable-dma;
 		status = "disabled";
 	};
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,7 +85,7 @@
 				  39 01 00 00 00 00 06 b9 bf 11 40 00 30
 				  39 01 00 00 00 00 09 F8 00 08 10 08 2D
 					   00 00 2D
-				  15 01 00 00 00 00 02 55 0c
+				  15 01 00 00 00 00 02 55 00
 				  05 01 00 00 1e 00 02 11 00
 				  15 01 00 00 78 00 02 3d 01
 				  39 01 00 00 00 00 03 b0 a5 00

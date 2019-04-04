@@ -206,7 +206,7 @@
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
-			qcom,panel-roi-alignment = <16 16 8 2 16 16>;
+			qcom,panel-roi-alignment = <40 40 40 40 40 40>;
 		};
 	};
 };
@@ -227,7 +227,7 @@
 	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,dsi-dyn-clk-enable;
 	qcom,dsi-dyn-clk-list =
-		<1048269600 1030798440 1035166232 1039534024 1043901816>;
+		<1005903360 989138304 993329568 997520832 1001712096>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =

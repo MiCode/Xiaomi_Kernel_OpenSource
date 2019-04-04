@@ -324,7 +324,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 {
 	struct rmnet_map_header *maph;
 	struct sk_buff *skbn;
-	unsigned char *data = rmnet_map_data_ptr(skb);
+	unsigned char *data = rmnet_map_data_ptr(skb), *next_hdr = NULL;
 	u32 packet_len;
 
 	if (skb->len == 0)
@@ -335,8 +335,14 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 
 	if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4)
 		packet_len += sizeof(struct rmnet_map_dl_csum_trailer);
-	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5)
-		packet_len += sizeof(struct rmnet_map_v5_csum_header);
+	else if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV5) {
+		if (!maph->cd_bit) {
+			packet_len += sizeof(struct rmnet_map_v5_csum_header);
+
+			/* Coalescing headers require MAPv5 */
+			next_hdr = data + sizeof(*maph);
+		}
+	}
 
 	if (((int)skb->len - (int)packet_len) < 0)
 		return NULL;
@@ -344,6 +350,11 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	/* Some hardware can send us empty frames. Catch them */
 	if (ntohs(maph->pkt_len) == 0)
 		return NULL;
+
+	if (next_hdr &&
+	    ((struct rmnet_map_v5_coal_header *)next_hdr)->header_type ==
+	     RMNET_MAP_HEADER_TYPE_COALESCING)
+		return skb;
 
 	if (skb_is_nonlinear(skb)) {
 		skb_frag_t *frag0 = skb_shinfo(skb)->frags;
@@ -787,9 +798,30 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	if (iph->version == 4) {
 		protocol = iph->protocol;
 		ip_len = iph->ihl * 4;
+
+		/* Don't allow coalescing of any packets with IP options */
+		if (iph->ihl != 5)
+			gro = false;
 	} else if (iph->version == 6) {
+		__be16 frag_off;
+
 		protocol = ((struct ipv6hdr *)iph)->nexthdr;
-		ip_len = sizeof(struct ipv6hdr);
+		ip_len = ipv6_skip_exthdr(coal_skb, sizeof(struct ipv6hdr),
+					  &protocol, &frag_off);
+
+		/* If we run into a problem, or this has a fragment header
+		 * (which should technically not be possible, if the HW
+		 * works as intended...), bail.
+		 */
+		if (ip_len < 0 || frag_off) {
+			priv->stats.coal.coal_ip_invalid++;
+			return;
+		} else if (ip_len > sizeof(struct ipv6hdr)) {
+			/* Don't allow coalescing of any packets with IPv6
+			 * extension headers.
+			 */
+			gro = false;
+		}
 	} else {
 		priv->stats.coal.coal_ip_invalid++;
 		return;
@@ -826,6 +858,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 						return;
 
 					__skb_queue_tail(list, new_skb);
+					start += pkt_len * gro_count;
 					gro_count = 0;
 				}
 
@@ -866,7 +899,7 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 
 			__skb_queue_tail(list, new_skb);
 
-			start += pkt_len;
+			start += pkt_len * gro_count;
 			start_pkt_num = total_pkt + 1;
 			gro_count = 0;
 		}
@@ -976,7 +1009,8 @@ static int rmnet_map_data_check_coal_header(struct sk_buff *skb,
 
 /* Process a QMAPv5 packet header */
 int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
-				      struct sk_buff_head *list)
+				      struct sk_buff_head *list,
+				      u16 len)
 {
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 	u64 nlo_err_mask;
@@ -1003,6 +1037,11 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 		pskb_pull(skb,
 			  (sizeof(struct rmnet_map_header) +
 			   sizeof(struct rmnet_map_v5_csum_header)));
+
+		/* Remove padding only for csum offload packets.
+		 * Coalesced packets should never have padding.
+		 */
+		pskb_trim(skb, len);
 		__skb_queue_tail(list, skb);
 		break;
 	default:
@@ -1097,15 +1136,16 @@ new_packet:
 		 * sparse, don't aggregate. We will need to tune this later
 		 */
 		diff = timespec_sub(port->agg_last, last);
+		size = port->egress_agg_size - skb->len;
 
-		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time) {
+		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time ||
+		    size <= 0) {
 			spin_unlock_irqrestore(&port->agg_lock, flags);
 			skb->protocol = htons(ETH_P_MAP);
 			dev_queue_xmit(skb);
 			return;
 		}
 
-		size = port->egress_agg_size - skb->len;
 		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -390,7 +390,7 @@ static void events_debugfs_print_group(struct seq_file *s,
 		group->readtimestamp(event->device, group->priv,
 			KGSL_TIMESTAMP_RETIRED, &retired);
 
-		seq_printf(s, "\t%d:%d age=%lu func=%ps [retired=%d]\n",
+		seq_printf(s, "\t%u:%u age=%lu func=%ps [retired=%u]\n",
 			group->context ? group->context->id :
 						KGSL_MEMSTORE_GLOBAL,
 			event->timestamp, jiffies  - event->created,

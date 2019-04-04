@@ -224,6 +224,17 @@ union ipa_hwio_def_ipa_gsi_top_gsi_iram_ptr_int_mod_stopped_u {
 		def;
 	u32 value;
 };
+struct ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_s {
+	u32 inst_byte_0 : 8;
+	u32 inst_byte_1 : 8;
+	u32 inst_byte_2 : 8;
+	u32 inst_byte_3 : 8;
+};
+union ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_u {
+	struct ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_s
+		def;
+	u32 value;
+};
 struct ipa_hwio_def_ipa_gsi_top_gsi_shram_n_s {
 	u32 shram : 32;
 };
