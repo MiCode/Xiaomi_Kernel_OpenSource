@@ -125,3 +125,7 @@
 	io-channel-names = "cp_die_temp";
 	status = "ok";
 };
+
+&qupv3_se0_2uart {
+	status = "ok";
+};
