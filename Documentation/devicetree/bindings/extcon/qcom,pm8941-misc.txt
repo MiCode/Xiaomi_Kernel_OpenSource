@@ -8,7 +8,7 @@ PROPERTIES
 - compatible:
     Usage: required
     Value type: <string>
-    Definition: Should contain "qcom,pm8941-misc";
+    Definition: Should contain "qcom,pm8941-misc" or "qcom,pmd-vbus-det";
 
 - reg:
     Usage: required
