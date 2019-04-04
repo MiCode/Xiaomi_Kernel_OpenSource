@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,7 @@
 #define ATEST1_SEL_MASK			GENMASK(6, 0)
 #define ISNS_INT_VAL			0x09
 
+#define BATT_PROFILE_VOTER	"BATT_PROFILE_VOTER"
 #define CP_VOTER		"CP_VOTER"
 #define USER_VOTER		"USER_VOTER"
 #define ILIM_VOTER		"ILIM_VOTER"
@@ -544,7 +545,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 	struct smb1390 *chip = container_of(work, struct smb1390,
 					    status_change_work);
 	union power_supply_propval pval = {0, };
-	int rc;
+	int max_fcc_ma, rc;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
@@ -621,7 +622,10 @@ static void smb1390_status_change_work(struct work_struct *work)
 		}
 	} else {
 		vote(chip->disable_votable, SRC_VOTER, true, 0);
-		vote(chip->fcc_votable, CP_VOTER, false, 0);
+		max_fcc_ma = get_client_vote(chip->fcc_votable,
+				BATT_PROFILE_VOTER);
+		vote(chip->fcc_votable, CP_VOTER,
+				max_fcc_ma > 0 ? true : false, max_fcc_ma);
 	}
 
 out:
@@ -639,9 +643,15 @@ static void smb1390_taper_work(struct work_struct *work)
 		goto out;
 
 	do {
-		fcc_uA = get_effective_result(chip->fcc_votable) - 100000;
+		fcc_uA = get_effective_result(chip->fcc_votable);
+		if (fcc_uA < 2000000)
+			break;
+
+		fcc_uA = get_client_vote(chip->fcc_votable, CP_VOTER) - 100000;
 		pr_debug("taper work reducing FCC to %duA\n", fcc_uA);
 		vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
+
+		msleep(500);
 
 		rc = power_supply_get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
@@ -650,9 +660,7 @@ static void smb1390_taper_work(struct work_struct *work)
 			goto out;
 		}
 
-		msleep(500);
-	} while (fcc_uA >= 2000000
-		 && pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER);
+	} while (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER);
 
 out:
 	pr_debug("taper work exit\n");

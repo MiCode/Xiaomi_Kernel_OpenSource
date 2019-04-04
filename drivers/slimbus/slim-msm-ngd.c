@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2098,7 +2098,18 @@ static int ngd_slim_runtime_suspend(struct device *device)
 	int ret = 0;
 
 	mutex_lock(&dev->tx_lock);
-	ret = ngd_slim_power_down(dev);
+	if (dev->qmi.handle != NULL) {
+		ret = ngd_slim_power_down(dev);
+	} else {
+		if (dev->state == MSM_CTRL_DOWN)
+			SLIM_INFO(dev, "SB rt suspend in SSR: %d\n",
+								dev->state);
+		else
+			SLIM_INFO(dev, "SB rt suspend bad state: %d\n",
+								dev->state);
+		mutex_unlock(&dev->tx_lock);
+		return ret;
+	}
 	if (ret && ret != -EBUSY)
 		SLIM_INFO(dev, "slim resource not idle:%d\n", ret);
 	if (!ret || ret == -ETIMEDOUT)
