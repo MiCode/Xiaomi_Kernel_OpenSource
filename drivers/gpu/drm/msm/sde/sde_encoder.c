@@ -908,6 +908,10 @@ void sde_encoder_helper_split_config(
 	else
 		cfg->pp_split_slave = INTF_MAX;
 
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT
+			&& phys_enc->split_role == ENC_ROLE_SLAVE)
+		cfg->pp_slave_intf = true;
+
 	if (phys_enc->split_role == ENC_ROLE_MASTER) {
 		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg->en);
 
