@@ -2030,8 +2030,9 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
 void ipa3_register_client_callback(int (*client_cb)(bool),
-		bool (*teth_port_state)(void), u32 ipa_ep_idx);
-void ipa3_deregister_client_callback(u32 ipa_ep_idx);
+		bool (*teth_port_state)(void),
+		enum ipa_client_type client_type);
+void ipa3_deregister_client_callback(enum ipa_client_type client_type);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
 int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
