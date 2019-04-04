@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1229,6 +1229,42 @@ struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[] = {
 		.tlv_type       = 0x15,
 		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
 					   num_macs),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x16,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   voltage_mv_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x16,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   voltage_mv),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x17,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   time_freq_hz_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = 0x17,
+		.offset         = offsetof(struct wlfw_cap_resp_msg_v01,
+					   time_freq_hz),
 	},
 	{
 		.data_type      = QMI_EOTI,
