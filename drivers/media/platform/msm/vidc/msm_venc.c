@@ -1086,7 +1086,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->buff_req.buffer[11].buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
 	inst->buff_req.buffer[12].buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
 	inst->buff_req.buffer[13].buffer_type = HAL_BUFFER_INTERNAL_RECON;
-	inst->buffer_size_calculators = NULL;
+	msm_vidc_init_buffer_size_calculators(inst);
 
 	buff_req_buffer = get_buff_req_buffer(inst,
 		HAL_BUFFER_EXTRADATA_INPUT);
