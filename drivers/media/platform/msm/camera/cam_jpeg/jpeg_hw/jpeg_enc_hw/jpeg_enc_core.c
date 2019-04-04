@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,7 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = JPEG_VOTE;
+	axi_vote.compressed_bw_ab = JPEG_VOTE;
 	axi_vote.uncompressed_bw = JPEG_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
