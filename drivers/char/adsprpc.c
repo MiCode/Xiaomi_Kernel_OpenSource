@@ -3552,6 +3552,8 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
+		pr_debug("adsprpc: %s: received RAMDUMP notification for %s\n",
+			__func__, gcinfo[cid].subsys);
 	} else if (code == SUBSYS_AFTER_POWERUP) {
 		pr_debug("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
@@ -3570,8 +3572,9 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
-		pr_debug("adsprpc: %s: %s (%s) is down for PDR\n",
-			__func__, spd->spdname, spd->servloc_name);
+		pr_debug("adsprpc: %s: %s (%s) is down for PDR on %s\n",
+			__func__, spd->spdname, spd->servloc_name,
+			gcinfo[spd->cid].subsys);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
 		spd->pdrcount++;
 		spd->ispdup = 0;
@@ -3587,9 +3590,13 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
+		pr_debug("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
+			__func__, gcinfo[spd->cid].subsys,
+			spd->spdname, spd->servloc_name);
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_debug("adsprpc: %s: %s (%s) is up\n",
-			__func__, spd->spdname, spd->servloc_name);
+		pr_debug("adsprpc: %s: %s (%s) is up on %s\n",
+			__func__, spd->spdname, spd->servloc_name,
+			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
 	}
 
@@ -3605,8 +3612,9 @@ static int fastrpc_get_service_location_notify(struct notifier_block *nb,
 
 	spd = container_of(nb, struct fastrpc_static_pd, get_service_nb);
 	if (opcode == LOCATOR_DOWN) {
-		pr_warn("adsprpc: %s: PDR notifier locator is down for %s\n",
-				__func__, spd->servloc_name);
+		pr_warn("adsprpc: %s: PDR notifier locator for %s is down for %s\n",
+				__func__, gcinfo[spd->cid].subsys,
+				spd->servloc_name);
 		return NOTIFY_DONE;
 	}
 	for (i = 0; i < pdr->total_domains; i++) {
@@ -3632,23 +3640,29 @@ pdr_register:
 			pdr->domain_list[i].instance_id,
 			&spd->pdrnb, &curr_state);
 		if (IS_ERR_OR_NULL(spd->pdrhandle))
-			pr_warn("adsprpc: %s: PDR notifier register failed for %s (%s) with err %d\n",
-				__func__, pdr->domain_list[i].name,
-				spd->servloc_name, PTR_ERR(spd->pdrhandle));
+			pr_warn("adsprpc: %s: PDR notifier for %s register failed for %s (%s) with err %ld\n",
+				__func__, gcinfo[spd->cid].subsys,
+				pdr->domain_list[i].name, spd->servloc_name,
+				PTR_ERR(spd->pdrhandle));
 		else
-			pr_info("adsprpc: %s: PDR notifier registered for %s (%s)\n",
-			__func__, pdr->domain_list[i].name, spd->servloc_name);
+			pr_info("adsprpc: %s: PDR notifier for %s registered for %s (%s)\n",
+			__func__, gcinfo[spd->cid].subsys,
+			pdr->domain_list[i].name, spd->servloc_name);
 	} else {
-		pr_warn("adsprpc: %s: %s (%s) notifier is already registered\n",
-			__func__, pdr->domain_list[i].name, spd->servloc_name);
+		pr_warn("adsprpc: %s: %s (%s) notifier is already registered for %s\n",
+			__func__, pdr->domain_list[i].name,
+			spd->servloc_name, gcinfo[spd->cid].subsys);
 	}
 
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_debug("adsprpc: %s: %s (%s) PDR service is up\n",
-			__func__, spd->servloc_name, pdr->domain_list[i].name);
+		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is up\n",
+			__func__, spd->servloc_name, pdr->domain_list[i].name,
+			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		spd->ispdup = 0;
+		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
+			__func__, spd->servloc_name, pdr->domain_list[i].name,
+			gcinfo[spd->cid].subsys);
 	}
 	return NOTIFY_DONE;
 }
