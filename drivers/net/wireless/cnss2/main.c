@@ -1079,6 +1079,12 @@ int cnss_force_collect_rddm(struct device *dev)
 		return 0;
 	}
 
+	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_info("Loading/Unloading is in progress, ignore forced collect rddm\n");
+		return 0;
+	}
+
 	ret = cnss_bus_force_fw_assert_hdlr(plat_priv);
 	if (ret)
 		return ret;
