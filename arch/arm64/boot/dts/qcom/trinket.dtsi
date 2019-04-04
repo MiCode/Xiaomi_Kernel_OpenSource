@@ -35,6 +35,13 @@
 	qcom,pmic-name = "pm6125 + pmi632";
 	interrupt-parent = <&wakegic>;
 
+	mem-offline {
+		compatible = "qcom,mem-offline";
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
+				<0x1 0xc0000000 0x0 0x80000000>;
+		granule = <512>;
+	};
+
 	aliases {
 		serial0 = &qupv3_se4_2uart;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
@@ -2106,7 +2113,7 @@
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
 		qca,bt-vdd-core-voltage-level = <1304000 1304000>; /* RFA */
-		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
+		qca,bt-vdd-pa-voltage-level =  <3000000 3400000>;  /*chain0 */
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
@@ -2220,16 +2227,16 @@
 			<1 606 100000 100000>,
 			/* 50 MB/s */
 			<78 512 130718 400000>,
-			<1 606 133320 200000>,
+			<1 606 133320 133320>,
 			/* 100 MB/s */
 			<78 512 130718 400000>,
-			<1 606 150000 400000>,
+			<1 606 150000 150000>,
 			/* 200 MB/s */
 			<78 512 261438 800000>,
-			<1 606 300000 800000>,
+			<1 606 300000 300000>,
 			/* 400 MB/s */
 			<78 512 261438 800000>,
-			<1 606 300000 1600000>,
+			<1 606 300000 300000>,
 			/* Max. bandwidth */
 			<78 512 1338562 4096000>,
 			<1 606 1338562 4096000>;

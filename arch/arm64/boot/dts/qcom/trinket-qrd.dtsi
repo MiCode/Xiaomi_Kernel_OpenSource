@@ -32,6 +32,24 @@
 		#include "qg-batterydata-ascent-3450mah.dtsi"
 		#include "qg-batterydata-mlp356477-2800mah.dtsi"
 	};
+
+	fingerprint: fpc1020 {
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <92 0>;
+		fpc,gpio_rst = <&tlmm 93 0>;
+		fpc,gpio_irq = <&tlmm 92 0>;
+		vcc_spi-supply = <&pm6125_l9>;
+		vdd_io-supply  = <&pm6125_l9>;
+		vdd_ana-supply = <&pm6125_l9>;
+		fpc,enable-on-boot;
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+		pinctrl-0 = <&fpc_reset_low>;
+		pinctrl-1 = <&fpc_reset_high>;
+		pinctrl-2 = <&fpc_int_low>;
+	};
 };
 
 &pmi632_qg {

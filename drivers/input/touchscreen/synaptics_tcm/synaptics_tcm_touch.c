@@ -996,7 +996,7 @@ static int touch_set_input_reporting(void)
 				"Failed to check input parameters\n");
 		goto exit;
 	} else if (retval == 0) {
-		LOGN(tcm_hcd->pdev->dev.parent,
+		LOGD(tcm_hcd->pdev->dev.parent,
 				"Input parameters unchanged\n");
 		goto exit;
 	}
