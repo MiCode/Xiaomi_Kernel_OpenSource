@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include "cam_debug_util.h"
 #include "cam_lrme_context.h"
 
-static const char lrme_dev_name[] = "lrme";
+static const char lrme_dev_name[] = "cam-lrme";
 
 static int __cam_lrme_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
