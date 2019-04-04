@@ -385,24 +385,14 @@ enum ipa_hw_irq_srcs_e {
 #define IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_A7          15
 
 /*
- * Total number of channel contexts that need to be saved for Q6
- */
-#define IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6          6
-
-/*
  * Total number of channel contexts that need to be saved for UC
  */
-#define IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC          2
+#define IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC          4
 
 /*
  * Total number of event ring contexts that need to be saved for APPS
  */
 #define IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_A7         12
-
-/*
- * Total number of event ring contexts that need to be saved for Q6
- */
-#define IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_Q6         4
 
 /*
  * Total number of event ring contexts that need to be saved for UC

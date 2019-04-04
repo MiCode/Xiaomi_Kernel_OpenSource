@@ -259,6 +259,12 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 	GEN_SRC_DST_ADDR_MAP(IPA_ACKMNGR_CMDQ_STATUS_EMPTY,
 			     ipa.dbg,
 			     ipa_ackmngr_cmdq_status_empty),
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_WR,
+			     ipa.dbg,
+			     ipa_rx_hps_cmdq_cfg_wr),
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_RD,
+			     ipa.dbg,
+			     ipa_rx_hps_cmdq_cfg_rd),
 
 	/*
 	 * NOTE: That GEN_SRC_DST_ADDR_MAP() not used below.  This is
@@ -845,27 +851,6 @@ void ipa_save_registers(void)
 				GSI_SHRAM_n,
 				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
 		ipa_reg_save.gsi.ch_cntxt.a7[
-			i].mcs_channel_scratch.scratch5.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
-	}
-
-	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6; i++) {
-		u32 phys_ch_idx =
-			ipa_reg_save.gsi.ch_cntxt.q6[
-			    i].gsi_debug_ee_n_ch_k_vp_table.phy_ch;
-		u32 n = phys_ch_idx * IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
-
-		if (!ipa_reg_save.gsi.ch_cntxt.q6[
-			i].gsi_debug_ee_n_ch_k_vp_table.valid)
-			continue;
-		ipa_reg_save.gsi.ch_cntxt.q6[
-			i].mcs_channel_scratch.scratch4.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
-		ipa_reg_save.gsi.ch_cntxt.q6[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
