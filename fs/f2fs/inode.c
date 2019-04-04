@@ -124,7 +124,7 @@ static bool f2fs_enable_inode_chksum(struct f2fs_sb_info *sbi, struct page *page
 	if (!f2fs_sb_has_inode_chksum(sbi->sb))
 		return false;
 
-	if (!RAW_IS_INODE(F2FS_NODE(page)) || !(ri->i_inline & F2FS_EXTRA_ATTR))
+	if (!IS_INODE(page) || !(ri->i_inline & F2FS_EXTRA_ATTR))
 		return false;
 
 	if (!F2FS_FITS_IN_INODE(ri, le16_to_cpu(ri->i_extra_isize),
@@ -162,8 +162,15 @@ bool f2fs_inode_chksum_verify(struct f2fs_sb_info *sbi, struct page *page)
 	struct f2fs_inode *ri;
 	__u32 provided, calculated;
 
+	if (unlikely(is_sbi_flag_set(sbi, SBI_IS_SHUTDOWN)))
+		return true;
+
+#ifdef CONFIG_F2FS_CHECK_FS
+	if (!f2fs_enable_inode_chksum(sbi, page))
+#else
 	if (!f2fs_enable_inode_chksum(sbi, page) ||
 			PageDirty(page) || PageWriteback(page))
+#endif
 		return true;
 
 	ri = &F2FS_NODE(page)->i;
@@ -260,6 +267,26 @@ static bool sanity_check_inode(struct inode *inode, struct page *node_page)
 			return false;
 		}
 	}
+
+	if (f2fs_has_inline_data(inode) &&
+			(!S_ISREG(inode->i_mode) && !S_ISLNK(inode->i_mode))) {
+		set_sbi_flag(sbi, SBI_NEED_FSCK);
+		f2fs_msg(sbi->sb, KERN_WARNING,
+			"%s: inode (ino=%lx, mode=%u) should not have "
+			"inline_data, run fsck to fix",
+			__func__, inode->i_ino, inode->i_mode);
+		return false;
+	}
+
+	if (f2fs_has_inline_dentry(inode) && !S_ISDIR(inode->i_mode)) {
+		set_sbi_flag(sbi, SBI_NEED_FSCK);
+		f2fs_msg(sbi->sb, KERN_WARNING,
+			"%s: inode (ino=%lx, mode=%u) should not have "
+			"inline_dentry, run fsck to fix",
+			__func__, inode->i_ino, inode->i_mode);
+		return false;
+	}
+
 	return true;
 }
 
@@ -344,13 +371,15 @@ static int do_read_inode(struct inode *inode)
 	/* get rdev by using inline_info */
 	__get_inode_rdev(inode, ri);
 
-	err = __written_first_block(sbi, ri);
-	if (err < 0) {
-		f2fs_put_page(node_page, 1);
-		return err;
+	if (S_ISREG(inode->i_mode)) {
+		err = __written_first_block(sbi, ri);
+		if (err < 0) {
+			f2fs_put_page(node_page, 1);
+			return err;
+		}
+		if (!err)
+			set_inode_flag(inode, FI_FIRST_BLOCK_WRITTEN);
 	}
-	if (!err)
-		set_inode_flag(inode, FI_FIRST_BLOCK_WRITTEN);
 
 	if (!f2fs_need_inode_block_update(sbi, inode->i_ino))
 		fi->last_disk_size = inode->i_size;
@@ -544,6 +573,10 @@ void f2fs_update_inode(struct inode *inode, struct page *node_page)
 	F2FS_I(inode)->i_disk_time[1] = inode->i_ctime;
 	F2FS_I(inode)->i_disk_time[2] = inode->i_mtime;
 	F2FS_I(inode)->i_disk_time[3] = F2FS_I(inode)->i_crtime;
+
+#ifdef CONFIG_F2FS_CHECK_FS
+	f2fs_inode_chksum_set(F2FS_I_SB(inode), node_page);
+#endif
 }
 
 void f2fs_update_inode_page(struct inode *inode)
@@ -628,12 +661,11 @@ retry:
 	if (F2FS_HAS_BLOCKS(inode))
 		err = f2fs_truncate(inode);
 
-#ifdef CONFIG_F2FS_FAULT_INJECTION
 	if (time_to_inject(sbi, FAULT_EVICT_INODE)) {
 		f2fs_show_injection_info(FAULT_EVICT_INODE);
 		err = -EIO;
 	}
-#endif
+
 	if (!err) {
 		f2fs_lock_op(sbi);
 		err = f2fs_remove_inode_page(inode);

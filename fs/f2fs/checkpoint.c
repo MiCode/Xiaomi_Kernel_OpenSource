@@ -28,6 +28,7 @@ struct kmem_cache *f2fs_inode_entry_slab;
 
 void f2fs_stop_checkpoint(struct f2fs_sb_info *sbi, bool end_io)
 {
+	f2fs_build_fault_attr(sbi, 0, 0);
 	set_ckpt_flags(sbi, CP_ERROR_FLAG);
 	if (!end_io)
 		f2fs_flush_merged_writes(sbi);
@@ -267,11 +268,8 @@ static int __f2fs_write_meta_page(struct page *page,
 
 	trace_f2fs_writepage(page, META);
 
-	if (unlikely(f2fs_cp_error(sbi))) {
-		dec_page_count(sbi, F2FS_DIRTY_META);
-		unlock_page(page);
-		return 0;
-	}
+	if (unlikely(f2fs_cp_error(sbi)))
+		goto redirty_out;
 	if (unlikely(is_sbi_flag_set(sbi, SBI_POR_DOING)))
 		goto redirty_out;
 	if (wbc->for_reclaim && page->index < GET_SUM_BLOCK(sbi, 0))
@@ -554,13 +552,12 @@ int f2fs_acquire_orphan_inode(struct f2fs_sb_info *sbi)
 
 	spin_lock(&im->ino_lock);
 
-#ifdef CONFIG_F2FS_FAULT_INJECTION
 	if (time_to_inject(sbi, FAULT_ORPHAN)) {
 		spin_unlock(&im->ino_lock);
 		f2fs_show_injection_info(FAULT_ORPHAN);
 		return -ENOSPC;
 	}
-#endif
+
 	if (unlikely(im->ino_num >= sbi->max_orphans))
 		err = -ENOSPC;
 	else
@@ -597,12 +594,7 @@ static int recover_orphan_inode(struct f2fs_sb_info *sbi, nid_t ino)
 {
 	struct inode *inode;
 	struct node_info ni;
-	int err = f2fs_acquire_orphan_inode(sbi);
-
-	if (err)
-		goto err_out;
-
-	__add_ino_entry(sbi, ino, 0, ORPHAN_INO);
+	int err;
 
 	inode = f2fs_iget_retry(sbi->sb, ino);
 	if (IS_ERR(inode)) {
@@ -634,7 +626,6 @@ static int recover_orphan_inode(struct f2fs_sb_info *sbi, nid_t ino)
 		err = -EIO;
 		goto err_out;
 	}
-	__remove_ino_entry(sbi, ino, ORPHAN_INO);
 	return 0;
 
 err_out:
@@ -666,7 +657,10 @@ int f2fs_recover_orphan_inodes(struct f2fs_sb_info *sbi)
 	/* Needed for iput() to work correctly and not trash data */
 	sbi->sb->s_flags |= MS_ACTIVE;
 
-	/* Turn on quotas so that they are updated correctly */
+	/*
+	 * Turn on quotas which were not enabled for read-only mounts if
+	 * filesystem has quota feature, so that they are updated correctly.
+	 */
 	quota_enabled = f2fs_enable_quota_files(sbi, s_flags & MS_RDONLY);
 #endif
 
@@ -1027,12 +1021,10 @@ retry:
 
 		iput(inode);
 		/* We need to give cpu to another writers. */
-		if (ino == cur_ino) {
-			congestion_wait(BLK_RW_ASYNC, HZ/50);
+		if (ino == cur_ino)
 			cond_resched();
-		} else {
+		else
 			ino = cur_ino;
-		}
 	} else {
 		/*
 		 * We should submit bio, since it exists several
@@ -1166,7 +1158,7 @@ static void unblock_operations(struct f2fs_sb_info *sbi)
 	f2fs_unlock_all(sbi);
 }
 
-static void wait_on_all_pages_writeback(struct f2fs_sb_info *sbi)
+void f2fs_wait_on_all_pages_writeback(struct f2fs_sb_info *sbi)
 {
 	DEFINE_WAIT(wait);
 
@@ -1174,6 +1166,9 @@ static void wait_on_all_pages_writeback(struct f2fs_sb_info *sbi)
 		prepare_to_wait(&sbi->cp_wait, &wait, TASK_UNINTERRUPTIBLE);
 
 		if (!get_pages(sbi, F2FS_WB_CP_DATA))
+			break;
+
+		if (unlikely(f2fs_cp_error(sbi)))
 			break;
 
 		io_schedule_timeout(5*HZ);
@@ -1249,8 +1244,12 @@ static void commit_checkpoint(struct f2fs_sb_info *sbi,
 
 	/* writeout cp pack 2 page */
 	err = __f2fs_write_meta_page(page, &wbc, FS_CP_META_IO);
-	f2fs_bug_on(sbi, err);
+	if (unlikely(err && f2fs_cp_error(sbi))) {
+		f2fs_put_page(page, 1);
+		return;
+	}
 
+	f2fs_bug_on(sbi, err);
 	f2fs_put_page(page, 0);
 
 	/* submit checkpoint (with barrier if NOBARRIER is not set) */
@@ -1276,7 +1275,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	while (get_pages(sbi, F2FS_DIRTY_META)) {
 		f2fs_sync_meta_pages(sbi, META, LONG_MAX, FS_CP_META_IO);
 		if (unlikely(f2fs_cp_error(sbi)))
-			return -EIO;
+			break;
 	}
 
 	/*
@@ -1356,7 +1355,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 			f2fs_sync_meta_pages(sbi, META, LONG_MAX,
 							FS_CP_META_IO);
 			if (unlikely(f2fs_cp_error(sbi)))
-				return -EIO;
+				break;
 		}
 	}
 
@@ -1395,10 +1394,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	f2fs_sync_meta_pages(sbi, META, LONG_MAX, FS_CP_META_IO);
 
 	/* wait for previous submitted meta pages writeback */
-	wait_on_all_pages_writeback(sbi);
-
-	if (unlikely(f2fs_cp_error(sbi)))
-		return -EIO;
+	f2fs_wait_on_all_pages_writeback(sbi);
 
 	/* flush all device cache */
 	err = f2fs_flush_device_cache(sbi);
@@ -1407,12 +1403,19 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 
 	/* barrier and flush checkpoint cp pack 2 page if it can */
 	commit_checkpoint(sbi, ckpt, start_blk);
-	wait_on_all_pages_writeback(sbi);
+	f2fs_wait_on_all_pages_writeback(sbi);
+
+	/*
+	 * invalidate intermediate page cache borrowed from meta inode
+	 * which are used for migration of encrypted inode's blocks.
+	 */
+	if (f2fs_sb_has_encrypt(sbi->sb))
+		invalidate_mapping_pages(META_MAPPING(sbi),
+				MAIN_BLKADDR(sbi), MAX_BLKADDR(sbi) - 1);
 
 	f2fs_release_ino_entry(sbi, false);
 
-	if (unlikely(f2fs_cp_error(sbi)))
-		return -EIO;
+	f2fs_reset_fsync_node_info(sbi);
 
 	clear_sbi_flag(sbi, SBI_IS_DIRTY);
 	clear_sbi_flag(sbi, SBI_NEED_CP);
@@ -1428,7 +1431,7 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 
 	f2fs_bug_on(sbi, get_pages(sbi, F2FS_DIRTY_DENTS));
 
-	return 0;
+	return unlikely(f2fs_cp_error(sbi)) ? -EIO : 0;
 }
 
 /*

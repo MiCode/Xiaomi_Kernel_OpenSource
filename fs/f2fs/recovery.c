@@ -242,8 +242,8 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 	struct page *page = NULL;
 	block_t blkaddr;
 	unsigned int loop_cnt = 0;
-	unsigned int free_blocks = sbi->user_block_count -
-					valid_user_blocks(sbi);
+	unsigned int free_blocks = MAIN_SEGS(sbi) * sbi->blocks_per_seg -
+						valid_user_blocks(sbi);
 	int err = 0;
 
 	/* get node pages in the current segment */
@@ -521,10 +521,9 @@ retry_dn:
 
 			if (src == NULL_ADDR) {
 				err = f2fs_reserve_new_block(&dn);
-#ifdef CONFIG_F2FS_FAULT_INJECTION
-				while (err)
+				while (err &&
+				       IS_ENABLED(CONFIG_F2FS_FAULT_INJECTION))
 					err = f2fs_reserve_new_block(&dn);
-#endif
 				/* We should not get -ENOSPC */
 				f2fs_bug_on(sbi, err);
 				if (err)
@@ -642,7 +641,8 @@ int f2fs_recover_fsync_data(struct f2fs_sb_info *sbi, bool check_only)
 #endif
 
 	if (s_flags & MS_RDONLY) {
-		f2fs_msg(sbi->sb, KERN_INFO, "orphan cleanup on readonly fs");
+		f2fs_msg(sbi->sb, KERN_INFO,
+				"recover fsync data on readonly fs");
 		sbi->sb->s_flags &= ~MS_RDONLY;
 	}
 
