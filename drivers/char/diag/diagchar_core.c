@@ -153,14 +153,8 @@ static int timer_in_progress;
 static int diag_mask_clear_param = 1;
 module_param(diag_mask_clear_param, int, 0644);
 
-struct diag_apps_data_t {
-	void *buf;
-	uint32_t len;
-	int ctxt;
-};
-
-static struct diag_apps_data_t hdlc_data;
-static struct diag_apps_data_t non_hdlc_data;
+struct diag_apps_data_t hdlc_data;
+struct diag_apps_data_t non_hdlc_data;
 static struct mutex apps_data_mutex;
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
@@ -229,6 +223,7 @@ static void diag_drain_apps_data(struct diag_apps_data_t *data)
 		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
 	data->buf = NULL;
 	data->len = 0;
+	data->allocated = 0;
 	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 }
 
@@ -2905,13 +2900,18 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 	send.last = (void *)(buf + len - 1);
 	send.terminate = 1;
 
-	if (!data->buf)
+	if (!data->buf) {
+		spin_lock_irqsave(&driver->diagmem_lock, flags);
 		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
 					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
-	if (!data->buf) {
-		ret = PKT_DROP;
-		goto fail_ret;
+		if (!data->buf) {
+			ret = PKT_DROP;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
+			goto fail_ret;
+		}
+		data->allocated = 1;
+		spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 	}
 
 	if ((DIAG_MAX_HDLC_BUF_SIZE - data->len) <= max_encoded_size) {
@@ -2923,13 +2923,17 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
+		spin_lock_irqsave(&driver->diagmem_lock, flags);
 		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
 					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 			goto fail_ret;
 		}
+		data->allocated = 1;
+		spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 	}
 
 	enc.dest = data->buf + data->len;
@@ -2952,13 +2956,17 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
+		spin_lock_irqsave(&driver->diagmem_lock, flags);
 		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
 					APF_DIAG_PADDING,
 					 POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 			goto fail_ret;
 		}
+		data->allocated = 1;
+		spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 
 		enc.dest = data->buf + data->len;
 		enc.dest_last = (void *)(data->buf + data->len +
@@ -2986,9 +2994,11 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 
 fail_free_buf:
 	spin_lock_irqsave(&driver->diagmem_lock, flags);
-	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
+	if (data->allocated)
+		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
 	data->buf = NULL;
 	data->len = 0;
+	data->allocated = 0;
 	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 fail_ret:
 	return ret;
@@ -3016,13 +3026,17 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	}
 
 	if (!data->buf) {
+		spin_lock_irqsave(&driver->diagmem_lock, flags);
 		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
 					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 			goto fail_ret;
 		}
+		data->allocated = 1;
+		spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 	}
 
 	if ((DIAG_MAX_HDLC_BUF_SIZE - data->len) <= max_pkt_size) {
@@ -3034,13 +3048,17 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
+		spin_lock_irqsave(&driver->diagmem_lock, flags);
 		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
 					APF_DIAG_PADDING,
-					  POOL_TYPE_HDLC);
+					POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
+			spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 			goto fail_ret;
 		}
+		data->allocated = 1;
+		spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 	}
 
 	header.start = CONTROL_CHAR;
@@ -3067,9 +3085,11 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 
 fail_free_buf:
 	spin_lock_irqsave(&driver->diagmem_lock, flags);
-	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
+	if (data->allocated)
+		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
 	data->buf = NULL;
 	data->len = 0;
+	data->allocated = 0;
 	spin_unlock_irqrestore(&driver->diagmem_lock, flags);
 fail_ret:
 	return ret;
@@ -4132,8 +4152,10 @@ static int __init diagchar_init(void)
 	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, TYPE_CMD);
 	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	hdlc_data.len = 0;
+	hdlc_data.allocated = 0;
 	non_hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	non_hdlc_data.len = 0;
+	non_hdlc_data.allocated = 0;
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
 	mutex_init(&driver->diag_notifier_mutex);
