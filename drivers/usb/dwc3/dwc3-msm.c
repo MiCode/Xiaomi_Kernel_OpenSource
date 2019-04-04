@@ -3747,7 +3747,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		 * if dpdm is not present controller can be reset
 		 * as this controller may not be used for charger detection.
 		 */
-		mdwc->dpdm_reg = devm_regulator_get(&pdev->dev, "dpdm");
+		mdwc->dpdm_reg = devm_regulator_get_optional(&pdev->dev,
+				"dpdm");
 		if (IS_ERR(mdwc->dpdm_reg)) {
 			dev_dbg(mdwc->dev, "assume cable is not connected\n");
 			mdwc->dpdm_reg = NULL;
