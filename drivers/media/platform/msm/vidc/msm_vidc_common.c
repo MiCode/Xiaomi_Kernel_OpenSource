@@ -363,7 +363,7 @@ unknown_value:
 	return -EINVAL;
 }
 
-static int vp9_level_v4l2_to_hfi(value)
+static int vp9_level_v4l2_to_hfi(int value)
 {
 	switch (value) {
 	case V4L2_MPEG_VIDC_VIDEO_VP9_LEVEL_1:

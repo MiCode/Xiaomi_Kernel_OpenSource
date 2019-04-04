@@ -429,7 +429,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 	int ret = 0;
 
 	if (carved_iova >= cb->va_end) {
-		IPA_MPM_ERR("running out of carved_iova %x\n", carved_iova);
+		IPA_MPM_ERR("running out of carved_iova %lx\n", carved_iova);
 		ipa_assert();
 	}
 	/*
@@ -576,7 +576,7 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 	u64 offset = 0;
 
 	if (carved_iova >= cb->va_end) {
-		IPA_MPM_ERR("running out of carved_iova %x\n", carved_iova);
+		IPA_MPM_ERR("running out of carved_iova %lx\n", carved_iova);
 		ipa_assert();
 	}
 
@@ -1407,12 +1407,12 @@ static void ipa_mpm_read_channel(enum ipa_client_type chan)
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-	IPA_MPM_ERR("Reading channel for chan %d, ep = %d, gsi_chan_hdl = %d\n",
+	IPA_MPM_ERR("Reading channel for chan %d, ep = %pK, gsi_chan_hdl = %ld\n",
 		chan, ep, ep->gsi_chan_hdl);
 
 	res = ipa3_get_gsi_chan_info(&chan_info, ep->gsi_chan_hdl);
 	if (res)
-		IPA_MPM_ERR("Reading of channel failed for ep %d\n", ep);
+		IPA_MPM_ERR("Reading of channel failed for ep %pK\n", ep);
 }
 
 static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
@@ -1509,7 +1509,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	probe_id = get_idx_from_id(mhi_id);
 
 	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX) {
-		IPA_MPM_ERR("chan=%s is not supported for now\n", mhi_id);
+		IPA_MPM_ERR("chan=%pK is not supported for now\n", mhi_id);
 		return -EPERM;
 	}
 
@@ -1692,7 +1692,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 		iowrite32(wp_addr, db_addr);
 
-		IPA_MPM_DBG("Host UL TR  DB = 0X%0x, wp_addr = 0X%0x",
+		IPA_MPM_DBG("Host UL TR  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 
 		iounmap(db_addr);
@@ -1711,7 +1711,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		}
 		ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-		IPA_MPM_DBG("for ep_idx %d , gsi_evt_ring_hdl = %d\n",
+		IPA_MPM_DBG("for ep_idx %d , gsi_evt_ring_hdl = %ld\n",
 			ipa_ep_idx, ep->gsi_evt_ring_hdl);
 		gsi_query_evt_ring_db_addr(ep->gsi_evt_ring_hdl,
 			&evt_ring_db_addr_low, &evt_ring_db_addr_high);
@@ -1723,7 +1723,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 		wp_addr = ipa_mpm_ctx->md[probe_id].ul_prod_ring.er_pa +
 			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
-		IPA_MPM_DBG("Host UL ER  DB = 0X%0x, wp_addr = 0X%0x",
+		IPA_MPM_DBG("Host UL ER  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 
 		iowrite32(wp_addr, db_addr);
@@ -1752,7 +1752,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
 			((IPA_MPM_RING_LEN - 1) * GSI_CHAN_RE_SIZE_16B);
 
-		IPA_MPM_DBG("Device DL TR  DB = 0X%0X, wp_addr = 0X%0x",
+		IPA_MPM_DBG("Device DL TR  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 
 		iowrite32(wp_addr, db_addr);
@@ -1776,7 +1776,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 
 		iowrite32(wp_addr, db_addr);
-		IPA_MPM_DBG("Device  UL ER  DB = 0X%0X,wp_addr = 0X%0x",
+		IPA_MPM_DBG("Device  UL ER  DB = 0X%pK,wp_addr = 0X%0x",
 			db_addr, wp_addr);
 		iounmap(db_addr);
 	}
@@ -1799,7 +1799,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		wp_addr = ipa_mpm_ctx->md[probe_id].dl_prod_ring.tr_pa +
 			((IPA_MPM_RING_LEN + 1) * GSI_EVT_RING_RE_SIZE_16B);
 		iowrite32(wp_addr, db_addr);
-		IPA_MPM_DBG("Host  DL ER  DB = 0X%0X, wp_addr = 0X%0x",
+		IPA_MPM_DBG("Host  DL ER  DB = 0X%pK, wp_addr = 0X%0x",
 			db_addr, wp_addr);
 		iounmap(db_addr);
 	}
@@ -1835,7 +1835,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			IPA_CLIENT_USB_PROD);
 		break;
 	default:
-		IPA_MPM_DBG("No op for UL channel, in teth state = %d");
+		IPA_MPM_DBG("No op for UL channel, in teth state = %d",
+			ipa_mpm_ctx->md[probe_id].teth_state);
 		break;
 	}
 
@@ -2240,7 +2241,7 @@ static int ipa_mpm_populate_smmu_info(struct platform_device *pdev)
 	cb->va_end = cb->va_start + cb->va_size;
 
 	if (cb->va_start >= ap_cb->va_start && cb->va_start < ap_cb->va_end) {
-		IPA_MPM_ERR("MPM iommu and AP overlap addr 0x%lx\n",
+		IPA_MPM_ERR("MPM iommu and AP overlap addr 0x%x\n",
 				cb->va_start);
 		ipa_assert();
 		return -EFAULT;
