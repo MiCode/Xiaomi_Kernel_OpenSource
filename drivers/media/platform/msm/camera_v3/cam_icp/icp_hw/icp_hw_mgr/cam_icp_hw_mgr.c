@@ -4483,8 +4483,9 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 		return -EINVAL;
 	}
 
-	if (icp_dev_acquire_info.num_out_res > ICP_MAX_OUTPUT_SUPPORTED) {
-		CAM_ERR(CAM_ICP, "num of out resources exceeding : %u",
+	if ((icp_dev_acquire_info.num_out_res > ICP_MAX_OUTPUT_SUPPORTED) ||
+		(icp_dev_acquire_info.num_out_res <= 0)) {
+		CAM_ERR(CAM_ICP, "Invalid num of out resources: %u",
 			icp_dev_acquire_info.num_out_res);
 		return -EINVAL;
 	}
