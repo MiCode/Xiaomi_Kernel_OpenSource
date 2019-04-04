@@ -250,13 +250,7 @@ retry:
 				err = -EAGAIN;
 				goto next;
 			}
-
-			err = f2fs_get_node_info(sbi, dn.nid, &ni);
-			if (err) {
-				f2fs_put_dnode(&dn);
-				return err;
-			}
-
+			f2fs_get_node_info(sbi, dn.nid, &ni);
 			if (cur->old_addr == NEW_ADDR) {
 				f2fs_invalidate_blocks(sbi, dn.data_blkaddr);
 				f2fs_update_data_blkaddr(&dn, NEW_ADDR);
@@ -2163,7 +2157,7 @@ int f2fs_npages_for_summary_flush(struct f2fs_sb_info *sbi, bool for_ra)
  */
 struct page *f2fs_get_sum_page(struct f2fs_sb_info *sbi, unsigned int segno)
 {
-	return f2fs_get_meta_page_nofail(sbi, GET_SUM_BLOCK(sbi, segno));
+	return f2fs_get_meta_page(sbi, GET_SUM_BLOCK(sbi, segno));
 }
 
 void f2fs_update_meta_page(struct f2fs_sb_info *sbi,
@@ -3038,9 +3032,11 @@ void f2fs_outplace_write_data(struct dnode_of_data *dn,
 {
 	struct f2fs_sb_info *sbi = fio->sbi;
 	struct f2fs_summary sum;
+	struct node_info ni;
 
 	f2fs_bug_on(sbi, dn->data_blkaddr == NULL_ADDR);
-	set_summary(&sum, dn->nid, dn->ofs_in_node, fio->version);
+	f2fs_get_node_info(sbi, dn->nid, &ni);
+	set_summary(&sum, dn->nid, dn->ofs_in_node, ni.version);
 	do_write_page(&sum, fio);
 	f2fs_update_data_blkaddr(dn, fio->new_blkaddr);
 
@@ -3205,7 +3201,7 @@ void f2fs_wait_on_block_writeback(struct f2fs_sb_info *sbi, block_t blkaddr)
 	}
 }
 
-static int read_compacted_summaries(struct f2fs_sb_info *sbi)
+static void read_compacted_summaries(struct f2fs_sb_info *sbi)
 {
 	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
 	struct curseg_info *seg_i;
@@ -3217,8 +3213,6 @@ static int read_compacted_summaries(struct f2fs_sb_info *sbi)
 	start = start_sum_block(sbi);
 
 	page = f2fs_get_meta_page(sbi, start++);
-	if (IS_ERR(page))
-		return PTR_ERR(page);
 	kaddr = (unsigned char *)page_address(page);
 
 	/* Step 1: restore nat cache */
@@ -3259,14 +3253,11 @@ static int read_compacted_summaries(struct f2fs_sb_info *sbi)
 			page = NULL;
 
 			page = f2fs_get_meta_page(sbi, start++);
-			if (IS_ERR(page))
-				return PTR_ERR(page);
 			kaddr = (unsigned char *)page_address(page);
 			offset = 0;
 		}
 	}
 	f2fs_put_page(page, 1);
-	return 0;
 }
 
 static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
@@ -3278,7 +3269,6 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 	unsigned short blk_off;
 	unsigned int segno = 0;
 	block_t blk_addr = 0;
-	int err = 0;
 
 	/* get segment number and block addr */
 	if (IS_DATASEG(type)) {
@@ -3302,8 +3292,6 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 	}
 
 	new = f2fs_get_meta_page(sbi, blk_addr);
-	if (IS_ERR(new))
-		return PTR_ERR(new);
 	sum = (struct f2fs_summary_block *)page_address(new);
 
 	if (IS_NODESEG(type)) {
@@ -3315,9 +3303,7 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 				ns->ofs_in_node = 0;
 			}
 		} else {
-			err = f2fs_restore_node_summary(sbi, segno, sum);
-			if (err)
-				goto out;
+			f2fs_restore_node_summary(sbi, segno, sum);
 		}
 	}
 
@@ -3337,9 +3323,8 @@ static int read_normal_summaries(struct f2fs_sb_info *sbi, int type)
 	curseg->alloc_type = ckpt->alloc_type[type];
 	curseg->next_blkoff = blk_off;
 	mutex_unlock(&curseg->curseg_mutex);
-out:
 	f2fs_put_page(new, 1);
-	return err;
+	return 0;
 }
 
 static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
@@ -3357,9 +3342,7 @@ static int restore_curseg_summaries(struct f2fs_sb_info *sbi)
 							META_CP, true);
 
 		/* restore for compacted data summary */
-		err = read_compacted_summaries(sbi);
-		if (err)
-			return err;
+		read_compacted_summaries(sbi);
 		type = CURSEG_HOT_NODE;
 	}
 
@@ -3490,7 +3473,7 @@ int f2fs_lookup_journal_in_cursum(struct f2fs_journal *journal, int type,
 static struct page *get_current_sit_page(struct f2fs_sb_info *sbi,
 					unsigned int segno)
 {
-	return f2fs_get_meta_page_nofail(sbi, current_sit_addr(sbi, segno));
+	return f2fs_get_meta_page(sbi, current_sit_addr(sbi, segno));
 }
 
 static struct page *get_next_sit_page(struct f2fs_sb_info *sbi,
