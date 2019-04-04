@@ -1200,6 +1200,12 @@ struct ipa_regs_save_hierarchy_s {
 		src_rsrc_cnt[IPA_HW_SRC_RSRP_TYPE_MAX];
 	struct ipa_reg_save_dst_rsrc_cnt_s
 		dst_rsrc_cnt[IPA_HW_DST_RSRP_TYPE_MAX];
+	u32 *ipa_iu_ptr;
+	u32 *ipa_sram_ptr;
+	u32 *ipa_mbox_ptr;
+	u32 *ipa_hram_ptr;
+	u32 *ipa_seq_ptr;
+	u32 *ipa_gsi_ptr;
 };
 
 /* Top level GSI register save data struct */

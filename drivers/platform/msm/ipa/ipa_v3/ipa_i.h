@@ -1694,6 +1694,7 @@ struct ipa3_context {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
 	u32 sd_state;
 	void __iomem *reg_collection_base;
@@ -1747,6 +1748,7 @@ struct ipa3_plat_drv_res {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
 	bool ipa_endp_delay_wa;
 };
@@ -2808,5 +2810,15 @@ static inline int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 }
 
 #endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
+
+static inline void *alloc_and_init(u32 size, u32 init_val)
+{
+	void *ptr = kmalloc(size, GFP_KERNEL);
+
+	if (ptr)
+		memset(ptr, init_val, size);
+
+	return ptr;
+}
 
 #endif /* _IPA3_I_H_ */
