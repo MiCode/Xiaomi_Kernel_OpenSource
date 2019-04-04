@@ -978,6 +978,12 @@
 			< 2054400 MHZ_TO_MBPS(2092, 4) >;
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 5 4>;
+	};
+
 	qcom,chd_silver {
 		compatible = "qcom,core-hang-detect";
 		label = "silver";
