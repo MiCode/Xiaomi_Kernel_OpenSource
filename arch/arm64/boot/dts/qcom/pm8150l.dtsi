@@ -432,7 +432,7 @@
 
 &thermal_zones {
 	pm8150l_temp_alarm: pm8150l_tz {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <100>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150l_tz>;
