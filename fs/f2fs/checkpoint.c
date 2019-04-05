@@ -119,8 +119,11 @@ retry:
 		if (PTR_ERR(page) == -EIO &&
 				++count <= DEFAULT_RETRY_IO_COUNT)
 			goto retry;
+
 		f2fs_stop_checkpoint(sbi, false);
+		f2fs_bug_on(sbi, 1);
 	}
+
 	return page;
 }
 
@@ -1558,10 +1561,7 @@ int f2fs_write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	ckpt->checkpoint_ver = cpu_to_le64(++ckpt_ver);
 
 	/* write cached NAT/SIT entries to NAT/SIT area */
-	err = f2fs_flush_nat_entries(sbi, cpc);
-	if (err)
-		goto stop;
-
+	f2fs_flush_nat_entries(sbi, cpc);
 	f2fs_flush_sit_entries(sbi, cpc);
 
 	/* unlock all the fs_lock[] in do_checkpoint() */
@@ -1570,7 +1570,7 @@ int f2fs_write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 		f2fs_release_discard_addrs(sbi);
 	else
 		f2fs_clear_prefree_segments(sbi, cpc);
-stop:
+
 	unblock_operations(sbi);
 	stat_inc_cp_count(sbi->stat_info);
 
