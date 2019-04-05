@@ -141,7 +141,7 @@ static int cam_vfe_top_ver3_set_axi_bw_vote(
 	for (cpashdl_type = 0; cpashdl_type < CAM_CPAS_HANDLE_MAX;
 		cpashdl_type++) {
 
-		if ((soc_private->cpas_version != CAM_CPAS_TITAN_480_V100)
+		if ((soc_private->cpas_version != CAM_CPAS_TITAN_175_V120)
 			&& cpashdl_type)
 			continue;
 
