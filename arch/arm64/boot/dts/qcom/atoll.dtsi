@@ -1500,6 +1500,11 @@
 		compatible = "qcom,system-pm";
 		mboxes = <&apps_rsc 0>;
 	};
+
+	cmd_db: qcom,cmd-db@c3f000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc3f000c 8>;
+	};
 };
 
 #include "atoll-gdsc.dtsi"
