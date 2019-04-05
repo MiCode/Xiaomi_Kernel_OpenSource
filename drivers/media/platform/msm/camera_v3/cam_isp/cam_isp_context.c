@@ -153,6 +153,10 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 			}
 put:
 			if (need_put) {
+				if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+					CAM_WARN(CAM_ISP,
+						"Failed to put cpu buf: 0x%x",
+						req_isp->cfg[i].handle);
 				need_put = false;
 				continue;
 			}
@@ -162,6 +166,9 @@ put:
 			buf_end = (uint32_t *)((uint8_t *) buf_start +
 				req_isp->cfg[i].len - 1);
 			cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
+			if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
+				CAM_WARN(CAM_ISP, "Failed to put cpu buf: 0x%x",
+					req_isp->cfg[i].handle);
 		}
 	}
 }
@@ -1856,7 +1863,9 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_req_mgr_flush_request *flush_req)
 {
 	int rc = 0;
+	struct cam_isp_context *ctx_isp;
 
+	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		CAM_INFO(CAM_ISP, "Last request id to flush is %lld",
 			flush_req->req_id);
@@ -1868,6 +1877,7 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 	spin_unlock_bh(&ctx->lock);
 
+	atomic_set(&ctx_isp->process_bubble, 0);
 	return rc;
 }
 
@@ -2584,8 +2594,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 
 	if (!req) {
 		CAM_ERR(CAM_ISP, "No more request obj free");
-		rc = -ENOMEM;
-		goto end;
+		return -ENOMEM;
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -2604,7 +2613,8 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if ((len < sizeof(struct cam_packet)) ||
 		((size_t)cmd->offset >= len - sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_ISP, "invalid buff length: %zu or offset", len);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto free_cpu_buf;
 	}
 
 	remain_len -= (size_t)cmd->offset;
@@ -2624,7 +2634,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			"request %lld has been flushed, reject packet",
 			packet->header.request_id);
 		rc = -EINVAL;
-		goto free_req;
+		goto free_cpu_buf;
 	}
 
 	/* preprocess the configuration */
@@ -2648,7 +2658,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc != 0) {
 		CAM_ERR(CAM_ISP, "Prepare config packet failed in HW layer");
 		rc = -EFAULT;
-		goto free_req;
+		goto free_cpu_buf;
 	}
 	req_isp->num_cfg = cfg.num_hw_update_entries;
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
@@ -2709,6 +2719,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	if (rc)
 		goto put_ref;
 
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address : %llu",
+			cmd->packet_handle);
+
 	CAM_DBG(CAM_REQ,
 		"Preprocessing Config req_id %lld successful on ctx %u",
 		req->request_id, ctx->ctx_id);
@@ -2721,11 +2735,15 @@ put_ref:
 			CAM_ERR(CAM_CTXT, "Failed to put ref of fence %d",
 				req_isp->fence_map_out[i].sync_id);
 	}
+free_cpu_buf:
+	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
+		CAM_WARN(CAM_ISP, "Can not put packet address: %llu",
+			cmd->packet_handle);
 free_req:
 	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
 	spin_unlock_bh(&ctx->lock);
-end:
+
 	return rc;
 }
 
@@ -3146,6 +3164,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	start_isp.hw_config.init_packet = 1;
 	start_isp.start_only = false;
 
+	atomic_set(&ctx_isp->process_bubble, 0);
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
@@ -3281,6 +3300,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	atomic_set(&ctx_isp->process_bubble, 0);
 
 	CAM_DBG(CAM_ISP, "Stop device success next state %d on ctx %u",
 		ctx->state, ctx->ctx_id);

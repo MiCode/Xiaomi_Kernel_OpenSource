@@ -289,54 +289,62 @@ static struct cam_irq_register_set vfe175_130_bus_irq_reg[3] = {
 
 static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_130_ubwc_regs_client_3 = {
-	.tile_cfg         = 0x0000252C,
-	.h_init           = 0x00002530,
-	.v_init           = 0x00002534,
-	.meta_addr        = 0x00002538,
-	.meta_offset      = 0x0000253C,
-	.meta_stride      = 0x00002540,
-	.mode_cfg_0       = 0x00002544,
-	.mode_cfg_1       = 0x000025A4,
-	.bw_limit         = 0x000025A0,
+	.tile_cfg          = 0x0000252C,
+	.h_init            = 0x00002530,
+	.v_init            = 0x00002534,
+	.meta_addr         = 0x00002538,
+	.meta_offset       = 0x0000253C,
+	.meta_stride       = 0x00002540,
+	.mode_cfg_0        = 0x00002544,
+	.mode_cfg_1        = 0x000025A4,
+	.bw_limit          = 0x000025A0,
+	.threshlod_lossy_0 = 0x000025A8,
+	.threshlod_lossy_1 = 0x000025AC,
 };
 
 static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_130_ubwc_regs_client_4 = {
-	.tile_cfg         = 0x0000262C,
-	.h_init           = 0x00002630,
-	.v_init           = 0x00002634,
-	.meta_addr        = 0x00002638,
-	.meta_offset      = 0x0000263C,
-	.meta_stride      = 0x00002640,
-	.mode_cfg_0       = 0x00002644,
-	.mode_cfg_1       = 0x000026A4,
-	.bw_limit         = 0x000026A0,
+	.tile_cfg          = 0x0000262C,
+	.h_init            = 0x00002630,
+	.v_init            = 0x00002634,
+	.meta_addr         = 0x00002638,
+	.meta_offset       = 0x0000263C,
+	.meta_stride       = 0x00002640,
+	.mode_cfg_0        = 0x00002644,
+	.mode_cfg_1        = 0x000026A4,
+	.bw_limit          = 0x000026A0,
+	.threshlod_lossy_0 = 0x000026A8,
+	.threshlod_lossy_1 = 0x000026AC,
 };
 
 static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_130_ubwc_regs_client_20 = {
-	.tile_cfg         = 0x0000362C,
-	.h_init           = 0x00003630,
-	.v_init           = 0x00003634,
-	.meta_addr        = 0x00003638,
-	.meta_offset      = 0x0000363C,
-	.meta_stride      = 0x00003640,
-	.mode_cfg_0       = 0x00003644,
-	.mode_cfg_1       = 0x000036A4,
-	.bw_limit         = 0x000036A0,
+	.tile_cfg          = 0x0000362C,
+	.h_init            = 0x00003630,
+	.v_init            = 0x00003634,
+	.meta_addr         = 0x00003638,
+	.meta_offset       = 0x0000363C,
+	.meta_stride       = 0x00003640,
+	.mode_cfg_0        = 0x00003644,
+	.mode_cfg_1        = 0x000036A4,
+	.bw_limit          = 0x000036A0,
+	.threshlod_lossy_0 = 0x000036A8,
+	.threshlod_lossy_1 = 0x000036AC,
 };
 
 static struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 	vfe175_130_ubwc_regs_client_21 = {
-	.tile_cfg         = 0x0000372C,
-	.h_init           = 0x00003730,
-	.v_init           = 0x00003734,
-	.meta_addr        = 0x00003738,
-	.meta_offset      = 0x0000373C,
-	.meta_stride      = 0x00003740,
-	.mode_cfg_0       = 0x00003744,
-	.mode_cfg_1       = 0x000037A4,
-	.bw_limit         = 0x000037A0,
+	.tile_cfg          = 0x0000372C,
+	.h_init            = 0x00003730,
+	.v_init            = 0x00003734,
+	.meta_addr         = 0x00003738,
+	.meta_offset       = 0x0000373C,
+	.meta_stride       = 0x00003740,
+	.mode_cfg_0        = 0x00003744,
+	.mode_cfg_1        = 0x000037A4,
+	.bw_limit          = 0x000037A0,
+	.threshlod_lossy_0 = 0x000037A8,
+	.threshlod_lossy_1 = 0x000037AC,
 };
 
 static struct cam_vfe_bus_rd_ver1_hw_info vfe175_130_bus_rd_hw_info = {
@@ -1091,6 +1099,12 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_130_bus_hw_info = {
 			.max_width     = 1920,
 			.max_height    = 1080,
 		},
+	},
+	.reg_data = {
+		.ubwc_10bit_threshold_lossy_0 = 0x8330002,
+		.ubwc_10bit_threshold_lossy_1 = 0x20204,
+		.ubwc_8bit_threshold_lossy_0 = 0x6210022,
+		.ubwc_8bit_threshold_lossy_1 = 0xE0E,
 	},
 };
 

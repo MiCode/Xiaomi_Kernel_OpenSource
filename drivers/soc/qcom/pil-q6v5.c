@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,7 +169,7 @@ err_vreg_pll:
 err_cx_enable:
 	regulator_set_load(drv->vreg_cx, 0);
 err_cx_mode:
-	regulator_set_voltage(drv->vreg_cx, 0, uv);
+	regulator_set_voltage(drv->vreg_cx, 0, INT_MAX);
 err_cx_voltage:
 	clk_disable_unprepare(drv->axis2_clk);
 err_axis2_vote:
@@ -203,7 +203,7 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	}
 	regulator_disable(drv->vreg_cx);
 	regulator_set_load(drv->vreg_cx, 0);
-	regulator_set_voltage(drv->vreg_cx, 0, uv);
+	regulator_set_voltage(drv->vreg_cx, 0, INT_MAX);
 	clk_disable_unprepare(drv->xo);
 	clk_disable_unprepare(drv->pnoc_clk);
 	clk_disable_unprepare(drv->qdss_clk);
