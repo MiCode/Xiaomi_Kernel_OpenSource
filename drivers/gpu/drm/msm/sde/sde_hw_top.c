@@ -134,6 +134,8 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 	} else if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
 		ppb_config |= (cfg->pp_split_slave - INTF_0 + 1) << 20;
 		ppb_config |= BIT(16); /* split enable */
+		/* overlap pixel width */
+		ppb_config |= ((cfg->overlap_pixel_width & 0x1F) << 24);
 		ppb_control = BIT(5); /* horz split*/
 	}
 
