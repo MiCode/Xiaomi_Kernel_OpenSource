@@ -557,6 +557,7 @@
 		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm8150b_adc_tm ADC_AMUX_THM2_PU2>;
+		wake-capable-sensor;
 		trips {
 			active-config0 {
 				temperature = <125000>;
@@ -571,6 +572,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150b_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pm8150b_trip0: trip0 {
@@ -596,6 +598,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150b_bcl 0>;
+		wake-capable-sensor;
 
 		trips {
 			ibat_lvl0:ibat-lvl0 {
@@ -611,6 +614,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150b_bcl 1>;
+		wake-capable-sensor;
 
 		trips {
 			ibat_lvl1:ibat-lvl1 {
@@ -626,6 +630,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 2>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -642,6 +647,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 3>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -658,6 +664,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150b_bcl 4>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -674,6 +681,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_soc>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
