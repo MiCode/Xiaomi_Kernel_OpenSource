@@ -259,9 +259,7 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 	if (status == SYNX_STATE_SIGNALED_ERROR)
 		dma_fence_set_error(row->fence, -EINVAL);
 
-	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
-
-	rc = dma_fence_signal(row->fence);
+	rc = dma_fence_signal_locked(row->fence);
 	if (rc < 0) {
 		pr_err("unable to signal synx 0x%x, err: %d\n",
 			row->synx_obj, rc);
@@ -270,8 +268,6 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 			status = SYNX_STATE_SIGNALED_ERROR;
 		}
 	}
-
-	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 
 	synx_callback_dispatch(row);
 
