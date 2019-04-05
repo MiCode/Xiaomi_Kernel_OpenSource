@@ -128,16 +128,31 @@
 	status = "ok";
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-sa6155", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,videocc-sa6155", "syscon";
+};
+
+&clock_dispcc {
+	compatible = "qcom,dispcc-sa6155", "syscon";
+};
+
 &clock_scc {
+	compatible = "qcom,scc-sa6155", "syscon";
 	vdd_scc_cx-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &clock_camcc {
+	compatible = "qcom,camcc-sa6155", "syscon";
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
 };
 
 &clock_gpucc {
+	compatible = "qcom,gpucc-sa6155", "syscon";
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
 };
 
