@@ -357,6 +357,11 @@ static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("PCIe link is suspended\n");
+		return -EIO;
+	}
+
 	if (pci_priv->pci_link_down_ind) {
 		cnss_pr_err("PCIe link is down\n");
 		return -EIO;
@@ -2158,6 +2163,9 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 		cnss_pr_dbg("RAM dump is already collected, skip\n");
 		return;
 	}
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
 
 	cnss_pci_dump_qdss_reg(pci_priv);
 
