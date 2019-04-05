@@ -274,6 +274,7 @@ static void __unload_fw(struct venus_hfi_device *device);
 static int __tzbsp_set_video_state(enum tzbsp_video_state state);
 static int __enable_subcaches(struct venus_hfi_device *device);
 static int __set_subcaches(struct venus_hfi_device *device);
+static int __release_subcaches(struct venus_hfi_device *device);
 static int __disable_subcaches(struct venus_hfi_device *device);
 static int __power_collapse(struct venus_hfi_device *device, bool force);
 static int venus_hfi_noc_error_info(void *dev);
@@ -1114,6 +1115,65 @@ static int venus_hfi_vote_buses(void *dev, struct cvp_bus_vote_data *d, int n)
 
 	return rc;
 
+}
+
+static int __core_set_resource(struct venus_hfi_device *device,
+		struct cvp_resource_hdr *resource_hdr, void *resource_value)
+{
+	struct hfi_cmd_sys_set_resource_packet *pkt;
+	u8 packet[CVP_IFACEQ_VAR_SMALL_PKT_SIZE];
+	int rc = 0;
+
+	if (!device || !resource_hdr || !resource_value) {
+		dprintk(CVP_ERR, "set_res: Invalid Params\n");
+		return -EINVAL;
+	}
+
+	pkt = (struct hfi_cmd_sys_set_resource_packet *) packet;
+
+	rc = call_hfi_pkt_op(device, sys_set_resource,
+			pkt, resource_hdr, resource_value);
+	if (rc) {
+		dprintk(CVP_ERR, "set_res: failed to create packet\n");
+		goto err_create_pkt;
+	}
+
+	rc = __iface_cmdq_write(device, pkt);
+	if (rc)
+		rc = -ENOTEMPTY;
+
+err_create_pkt:
+	return rc;
+}
+
+static int __core_release_resource(struct venus_hfi_device *device,
+		struct cvp_resource_hdr *resource_hdr)
+{
+	struct hfi_cmd_sys_release_resource_packet *pkt;
+	u8 packet[CVP_IFACEQ_VAR_SMALL_PKT_SIZE];
+	int rc = 0;
+
+	if (!device || !resource_hdr) {
+		dprintk(CVP_ERR, "release_res: Invalid Params\n");
+		return -EINVAL;
+	}
+
+	pkt = (struct hfi_cmd_sys_release_resource_packet *) packet;
+
+	rc = call_hfi_pkt_op(device, sys_release_resource,
+			pkt, resource_hdr);
+
+	if (rc) {
+		dprintk(CVP_ERR, "release_res: failed to create packet\n");
+		goto err_create_pkt;
+	}
+
+	rc = __iface_cmdq_write(device, pkt);
+	if (rc)
+		rc = -ENOTEMPTY;
+
+err_create_pkt:
+	return rc;
 }
 
 static int __tzbsp_set_video_state(enum tzbsp_video_state state)
@@ -3611,11 +3671,71 @@ err_reg_get:
 
 static void __deinit_subcaches(struct venus_hfi_device *device)
 {
+	struct subcache_info *sinfo = NULL;
+
+	if (!device) {
+		dprintk(CVP_ERR, "deinit_subcaches: invalid device %pK\n",
+			device);
+		goto exit;
+	}
+
+	if (!is_sys_cache_present(device))
+		goto exit;
+
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->subcache) {
+			dprintk(CVP_DBG, "deinit_subcaches: %s\n",
+				sinfo->name);
+			llcc_slice_putd(sinfo->subcache);
+			sinfo->subcache = NULL;
+		}
+	}
+
+exit:
+	return;
 }
 
 static int __init_subcaches(struct venus_hfi_device *device)
 {
+	int rc = 0;
+	struct subcache_info *sinfo = NULL;
+
+	if (!device) {
+		dprintk(CVP_ERR, "init_subcaches: invalid device %pK\n",
+			device);
+		return -EINVAL;
+	}
+
+	if (!is_sys_cache_present(device))
+		return 0;
+
+	venus_hfi_for_each_subcache(device, sinfo) {
+		if (!strcmp("cvp", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_CVP);
+		} else if (!strcmp("cvpfw", sinfo->name)) {
+			sinfo->subcache = llcc_slice_getd(LLCC_CVPFW);
+		} else {
+			dprintk(CVP_ERR, "Invalid subcache name %s\n",
+					sinfo->name);
+		}
+		if (IS_ERR_OR_NULL(sinfo->subcache)) {
+			rc = PTR_ERR(sinfo->subcache) ?
+				PTR_ERR(sinfo->subcache) : -EBADHANDLE;
+			dprintk(CVP_ERR,
+				 "init_subcaches: invalid subcache: %s rc %d\n",
+				sinfo->name, rc);
+			sinfo->subcache = NULL;
+			goto err_subcache_get;
+		}
+		dprintk(CVP_DBG, "init_subcaches: %s\n",
+			sinfo->name);
+	}
+
 	return 0;
+
+err_subcache_get:
+	__deinit_subcaches(device);
+	return rc;
 }
 
 static int __init_resources(struct venus_hfi_device *device,
@@ -3826,16 +3946,165 @@ static int __disable_regulators(struct venus_hfi_device *device)
 
 static int __enable_subcaches(struct venus_hfi_device *device)
 {
+	int rc = 0;
+	u32 c = 0;
+	struct subcache_info *sinfo;
+
+	if (msm_cvp_syscache_disable || !is_sys_cache_present(device))
+		return 0;
+
+	/* Activate subcaches */
+	venus_hfi_for_each_subcache(device, sinfo) {
+		rc = llcc_slice_activate(sinfo->subcache);
+		if (rc) {
+			dprintk(CVP_WARN, "Failed to activate %s: %d\n",
+				sinfo->name, rc);
+			msm_cvp_res_handle_fatal_hw_error(device->res, true);
+			goto err_activate_fail;
+		}
+		sinfo->isactive = true;
+		dprintk(CVP_DBG, "Activated subcache %s\n", sinfo->name);
+		c++;
+	}
+
+	dprintk(CVP_DBG, "Activated %d Subcaches to CVP\n", c);
+
+	return 0;
+
+err_activate_fail:
+	__release_subcaches(device);
+	__disable_subcaches(device);
 	return 0;
 }
 
 static int __set_subcaches(struct venus_hfi_device *device)
 {
+	int rc = 0;
+	u32 c = 0;
+	struct subcache_info *sinfo;
+	u32 resource[CVP_MAX_SUBCACHE_SIZE];
+	struct hfi_resource_syscache_info_type *sc_res_info;
+	struct hfi_resource_subcache_type *sc_res;
+	struct cvp_resource_hdr rhdr;
+
+	if (device->res->sys_cache_res_set) {
+		dprintk(CVP_DBG, "Subcaches already set to CVP\n");
+		return 0;
+	}
+
+	memset((void *)resource, 0x0, (sizeof(u32) * CVP_MAX_SUBCACHE_SIZE));
+
+	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
+	sc_res = &(sc_res_info->rg_subcache_entries[0]);
+
+	venus_hfi_for_each_subcache(device, sinfo) {
+		if (sinfo->isactive) {
+			sc_res[c].size = sinfo->subcache->slice_size;
+			sc_res[c].sc_id = sinfo->subcache->slice_id;
+			c++;
+		}
+	}
+
+	/* Set resource to CVP for activated subcaches */
+	if (c) {
+		dprintk(CVP_DBG, "Setting %d Subcaches\n", c);
+
+		rhdr.resource_handle = sc_res_info; /* cookie */
+		rhdr.resource_id = CVP_RESOURCE_SYSCACHE;
+
+		sc_res_info->num_entries = c;
+
+		rc = __core_set_resource(device, &rhdr, (void *)sc_res_info);
+		if (rc) {
+			dprintk(CVP_WARN, "Failed to set subcaches %d\n", rc);
+			goto err_fail_set_subacaches;
+		}
+
+		venus_hfi_for_each_subcache(device, sinfo) {
+			if (sinfo->isactive)
+				sinfo->isset = true;
+		}
+
+		dprintk(CVP_DBG, "Set Subcaches done to CVP\n");
+		device->res->sys_cache_res_set = true;
+	}
+
+	return 0;
+
+err_fail_set_subacaches:
+	__disable_subcaches(device);
+
+	return 0;
+}
+
+static int __release_subcaches(struct venus_hfi_device *device)
+{
+	struct subcache_info *sinfo;
+	int rc = 0;
+	u32 c = 0;
+	u32 resource[CVP_MAX_SUBCACHE_SIZE];
+	struct hfi_resource_syscache_info_type *sc_res_info;
+	struct hfi_resource_subcache_type *sc_res;
+	struct cvp_resource_hdr rhdr;
+
+	if (msm_cvp_syscache_disable || !is_sys_cache_present(device))
+		return 0;
+
+	memset((void *)resource, 0x0, (sizeof(u32) * CVP_MAX_SUBCACHE_SIZE));
+
+	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
+	sc_res = &(sc_res_info->rg_subcache_entries[0]);
+
+	/* Release resource command to Venus */
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->isset) {
+			/* Update the entry */
+			sc_res[c].size = sinfo->subcache->slice_size;
+			sc_res[c].sc_id = sinfo->subcache->slice_id;
+			c++;
+			sinfo->isset = false;
+		}
+	}
+
+	if (c > 0) {
+		dprintk(CVP_DBG, "Releasing %d subcaches\n", c);
+		rhdr.resource_handle = sc_res_info; /* cookie */
+		rhdr.resource_id = CVP_RESOURCE_SYSCACHE;
+
+		rc = __core_release_resource(device, &rhdr);
+		if (rc)
+			dprintk(CVP_WARN,
+				"Failed to release %d subcaches\n", c);
+	}
+
+	device->res->sys_cache_res_set = false;
+
 	return 0;
 }
 
 static int __disable_subcaches(struct venus_hfi_device *device)
 {
+	struct subcache_info *sinfo;
+	int rc = 0;
+
+	if (msm_cvp_syscache_disable || !is_sys_cache_present(device))
+		return 0;
+
+	/* De-activate subcaches */
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->isactive) {
+			dprintk(CVP_DBG, "De-activate subcache %s\n",
+				sinfo->name);
+			rc = llcc_slice_deactivate(sinfo->subcache);
+			if (rc) {
+				dprintk(CVP_WARN,
+					"Failed to de-activate %s: %d\n",
+					sinfo->name, rc);
+			}
+			sinfo->isactive = false;
+		}
+	}
+
 	return 0;
 }
 
