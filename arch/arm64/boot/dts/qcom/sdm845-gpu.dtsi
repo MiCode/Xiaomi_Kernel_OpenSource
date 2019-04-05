@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,6 +78,8 @@
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 		#cooling-cells = <2>;
+
+		tzone-names = "gpu0-usr", "gpu1-usr";
 
 		qcom,pm-qos-active-latency = <460>;
 
