@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "kgsl.h"
@@ -333,16 +333,12 @@ static int ib_add_type0_entries(struct kgsl_device *device,
 	struct adreno_ib_object_list *ib_obj_list,
 	struct ib_parser_variables *ib_parse_vars)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret = 0;
 	int i;
 	int vfd_end;
 	unsigned int mask;
 	/* First up the visiblity stream buffer */
-	if (adreno_is_a4xx(adreno_dev))
-		mask = 0xFFFFFFFC;
-	else
-		mask = 0xFFFFFFFF;
+	mask = 0xFFFFFFFF;
 	for (i = ADRENO_CP_ADDR_VSC_PIPE_DATA_ADDRESS_0;
 		i < ADRENO_CP_ADDR_VSC_PIPE_DATA_LENGTH_7; i++) {
 		if (ib_parse_vars->cp_addr_regs[i]) {
@@ -358,9 +354,7 @@ static int ib_add_type0_entries(struct kgsl_device *device,
 		}
 	}
 
-	vfd_end = adreno_is_a4xx(adreno_dev) ?
-		ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_31 :
-		ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15;
+	vfd_end = ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_15;
 	for (i = ADRENO_CP_ADDR_VFD_FETCH_INSTR_1_0;
 		i <= vfd_end; i++) {
 		if (ib_parse_vars->cp_addr_regs[i]) {

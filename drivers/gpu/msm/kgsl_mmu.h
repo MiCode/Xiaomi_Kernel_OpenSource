@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
@@ -61,8 +61,6 @@ struct kgsl_mmu_ops {
 	void (*mmu_clear_fsr)(struct kgsl_mmu *mmu);
 	void (*mmu_enable_clk)(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk)(struct kgsl_mmu *mmu);
-	unsigned int (*mmu_get_reg_ahbaddr)(struct kgsl_mmu *mmu,
-			int ctx_id, unsigned int reg);
 	bool (*mmu_pt_equal)(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt, u64 ttbr0);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
@@ -135,8 +133,6 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_NEED_GUARD_PAGE BIT(9)
 /* The device supports IO coherency */
 #define KGSL_MMU_IO_COHERENT BIT(10)
-/* The device requires VA mappings padded up to a given size */
-#define KGSL_MMU_PAD_VA BIT(11)
 
 /**
  * struct kgsl_mmu - Master definition for KGSL MMU devices
@@ -148,7 +144,6 @@ struct kgsl_mmu_pt_ops {
  * @secured: True if the MMU needs to be secured
  * @feature: Static list of MMU features
  * @secure_aligned_mask: Mask that secure buffers need to be aligned to
- * @va_padding: Size to pad VA mappings to
  * @priv: Union of sub-device specific members
  */
 struct kgsl_mmu {
@@ -160,7 +155,6 @@ struct kgsl_mmu {
 	bool secured;
 	unsigned long features;
 	unsigned int secure_align_mask;
-	uint64_t va_padding;
 	union {
 		struct kgsl_iommu iommu;
 	} priv;
@@ -311,24 +305,6 @@ static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
 {
 	if (MMU_OP_VALID(mmu, mmu_disable_clk))
 		mmu->mmu_ops->mmu_disable_clk(mmu);
-}
-
-/*
- * kgsl_mmu_get_reg_ahbaddr() - Calls the mmu specific function pointer to
- * return the address that GPU can use to access register
- * @mmu:		Pointer to the device mmu
- * @ctx_id:		The MMU HW context ID
- * @reg:		Register whose address is to be returned
- *
- * Returns the ahb address of reg else 0
- */
-static inline unsigned int kgsl_mmu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
-				int ctx_id, unsigned int reg)
-{
-	if (MMU_OP_VALID(mmu, mmu_get_reg_ahbaddr))
-		return mmu->mmu_ops->mmu_get_reg_ahbaddr(mmu, ctx_id, reg);
-
-	return 0;
 }
 
 static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,

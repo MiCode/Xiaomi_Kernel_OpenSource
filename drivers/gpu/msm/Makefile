@@ -32,14 +32,11 @@ msm_adreno-y += \
 	adreno_coresight.o \
 	adreno_trace.o \
 	adreno_a3xx.o \
-	adreno_a4xx.o \
 	adreno_a5xx.o \
 	adreno_a6xx.o \
 	adreno_a3xx_snapshot.o \
-	adreno_a4xx_snapshot.o \
 	adreno_a5xx_snapshot.o \
 	adreno_a6xx_snapshot.o \
-	adreno_a4xx_preempt.o \
 	adreno_a5xx_preempt.o \
 	adreno_a6xx_preempt.o \
 	adreno_a6xx_gmu.o \

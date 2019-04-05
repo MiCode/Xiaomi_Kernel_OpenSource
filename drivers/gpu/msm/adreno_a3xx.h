@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, 2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __A3XX_H
 #define __A3XX_H
@@ -34,16 +34,6 @@
 	{ BIT(A3XX_INT_UCHE_OOB_ACCESS), "UCHE_OOB_ACCESS" }
 
 unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
-
-int a3xx_microcode_read(struct adreno_device *adreno_dev);
-int a3xx_microcode_load(struct adreno_device *adreno_dev,
-				unsigned int start_type);
-int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
-	unsigned int group, unsigned int counter, unsigned int countable);
-uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
-	unsigned int group, unsigned int counter);
-
-void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit);
 
 void a3xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);

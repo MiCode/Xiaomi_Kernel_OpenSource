@@ -293,14 +293,6 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	/* buslevel is the IB vote, update the AB */
 	_ab_buslevel_update(pwr, &ab);
 
-	/**
-	 * vote for ocmem if target supports ocmem scaling,
-	 * shut down based on "on" parameter
-	 */
-	if (pwr->ocmem_pcl)
-		msm_bus_scale_client_update_request(pwr->ocmem_pcl,
-			on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
-
 	kgsl_bus_scale_request(device, buslevel);
 
 	kgsl_pwrctrl_vbif_update(ab);
@@ -1391,35 +1383,35 @@ static DEVICE_ATTR_RO(clock_mhz);
 static DEVICE_ATTR_RO(freq_table_mhz);
 static DEVICE_ATTR_RW(pwrscale);
 
-static const struct device_attribute *pwrctrl_attr_list[] = {
-	&dev_attr_gpuclk,
-	&dev_attr_max_gpuclk,
-	&dev_attr_idle_timer,
-	&dev_attr_gpubusy,
-	&dev_attr_gpu_available_frequencies,
-	&dev_attr_gpu_clock_stats,
-	&dev_attr_max_pwrlevel,
-	&dev_attr_min_pwrlevel,
-	&dev_attr_thermal_pwrlevel,
-	&dev_attr_num_pwrlevels,
-	&dev_attr_pmqos_active_latency,
-	&dev_attr_reset_count,
-	&dev_attr_force_clk_on,
-	&dev_attr_force_bus_on,
-	&dev_attr_force_rail_on,
-	&dev_attr_force_no_nap,
-	&dev_attr_bus_split,
-	&dev_attr_default_pwrlevel,
-	&dev_attr_popp,
-	&dev_attr_gpu_model,
-	&dev_attr_gpu_busy_percentage,
-	&dev_attr_min_clock_mhz,
-	&dev_attr_max_clock_mhz,
-	&dev_attr_clock_mhz,
-	&dev_attr_freq_table_mhz,
-	&dev_attr_temp,
-	&dev_attr_pwrscale,
-	NULL
+static const struct attribute *pwrctrl_attr_list[] = {
+	&dev_attr_gpuclk.attr,
+	&dev_attr_max_gpuclk.attr,
+	&dev_attr_idle_timer.attr,
+	&dev_attr_gpubusy.attr,
+	&dev_attr_gpu_available_frequencies.attr,
+	&dev_attr_gpu_clock_stats.attr,
+	&dev_attr_max_pwrlevel.attr,
+	&dev_attr_min_pwrlevel.attr,
+	&dev_attr_thermal_pwrlevel.attr,
+	&dev_attr_num_pwrlevels.attr,
+	&dev_attr_pmqos_active_latency.attr,
+	&dev_attr_reset_count.attr,
+	&dev_attr_force_clk_on.attr,
+	&dev_attr_force_bus_on.attr,
+	&dev_attr_force_rail_on.attr,
+	&dev_attr_force_no_nap.attr,
+	&dev_attr_bus_split.attr,
+	&dev_attr_default_pwrlevel.attr,
+	&dev_attr_popp.attr,
+	&dev_attr_gpu_model.attr,
+	&dev_attr_gpu_busy_percentage.attr,
+	&dev_attr_min_clock_mhz.attr,
+	&dev_attr_max_clock_mhz.attr,
+	&dev_attr_clock_mhz.attr,
+	&dev_attr_freq_table_mhz.attr,
+	&dev_attr_temp.attr,
+	&dev_attr_pwrscale.attr,
+	NULL,
 };
 
 struct sysfs_link {
@@ -1441,7 +1433,7 @@ int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 {
 	int i, ret;
 
-	ret = kgsl_create_device_sysfs_files(device->dev, pwrctrl_attr_list);
+	ret = sysfs_create_files(&device->dev->kobj, pwrctrl_attr_list);
 	if (ret)
 		return ret;
 
@@ -1460,7 +1452,7 @@ int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device)
 {
-	kgsl_remove_device_sysfs_files(device->dev, pwrctrl_attr_list);
+	sysfs_remove_files(&device->dev->kobj, pwrctrl_attr_list);
 }
 
 /*
@@ -1957,14 +1949,6 @@ static inline void _close_pcl(struct kgsl_pwrctrl *pwr)
 	pwr->pcl = 0;
 }
 
-static inline void _close_ocmem_pcl(struct kgsl_pwrctrl *pwr)
-{
-	if (pwr->ocmem_pcl)
-		msm_bus_scale_unregister_client(pwr->ocmem_pcl);
-
-	pwr->ocmem_pcl = 0;
-}
-
 static inline void _close_regulators(struct kgsl_pwrctrl *pwr)
 {
 	int i;
@@ -2038,8 +2022,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	int i, k, m, n = 0, result, freq;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct device_node *ocmem_bus_node;
-	struct msm_bus_scale_pdata *ocmem_scale_table = NULL;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct device_node *gpubw_dev_node = NULL;
 	struct platform_device *p2dev;
@@ -2117,23 +2099,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	ocmem_bus_node = of_find_node_by_name(
-				device->pdev->dev.of_node,
-				"qcom,ocmem-bus-client");
-	/* If platform has split ocmem bus client - use it */
-	if (ocmem_bus_node) {
-		ocmem_scale_table = msm_bus_pdata_from_node
-				(device->pdev, ocmem_bus_node);
-		if (ocmem_scale_table)
-			pwr->ocmem_pcl = msm_bus_scale_register_client
-					(ocmem_scale_table);
-
-		if (!pwr->ocmem_pcl) {
-			result = -EINVAL;
-			goto error_disable_pm;
-		}
-	}
-
 	/* Bus width in bytes, set it to zero if not found */
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
 		&pwr->bus_width))
@@ -2163,7 +2128,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		pwr->pcl = msm_bus_scale_register_client(bus_scale_table);
 		if (pwr->pcl == 0) {
 			result = -EINVAL;
-			goto error_cleanup_ocmem_pcl;
+			goto error_disable_pm;
 		}
 	}
 
@@ -2231,8 +2196,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 error_cleanup_pcl:
 	_close_pcl(pwr);
-error_cleanup_ocmem_pcl:
-	_close_ocmem_pcl(pwr);
 error_disable_pm:
 	pm_runtime_disable(&pdev->dev);
 error_cleanup_regulators:
@@ -2256,8 +2219,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	kfree(pwr->bus_ib);
 
 	_close_pcl(pwr);
-
-	_close_ocmem_pcl(pwr);
 
 	pm_runtime_disable(&device->pdev->dev);
 

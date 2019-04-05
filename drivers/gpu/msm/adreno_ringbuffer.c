@@ -232,10 +232,8 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 /**
  * adreno_ringbuffer_start() - Ringbuffer start
  * @adreno_dev: Pointer to adreno device
- * @start_type: Warm or cold start
  */
-int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
-	unsigned int start_type)
+int adreno_ringbuffer_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -255,7 +253,7 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 	}
 
 	/* start is specific GPU rb */
-	return gpudev->rb_start(adreno_dev, start_type);
+	return gpudev->rb_start(adreno_dev);
 }
 
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
@@ -376,37 +374,12 @@ int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds,
 {
 	uint *start = cmds;
 
-	if (adreno_is_a4xx(adreno_dev)) {
-		cmds += cp_wait_for_idle(adreno_dev, cmds);
-		/*
-		 * The two commands will stall the PFP until the PFP-ME-AHB
-		 * is drained and the GPU is idle. As soon as this happens,
-		 * the PFP will start moving again.
-		 */
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-
-		/*
-		 * Below commands are processed by ME. GPU will be
-		 * idle when they are processed. But the PFP will continue
-		 * to fetch instructions at the same time.
-		 */
-		cmds += cp_protected_mode(adreno_dev, cmds, 0);
-		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-		*cmds++ = adreno_getreg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONTROL);
-		*cmds++ = set;
-		cmds += cp_protected_mode(adreno_dev, cmds, 1);
-
-		/* Stall PFP until all above commands are complete */
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-	} else {
-		/*
-		 * A5xx has a separate opcode specifically to put the GPU
-		 * in and out of secure mode.
-		 */
-		*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
-		*cmds++ = set;
-	}
+	/*
+	 * A5xx has a separate opcode specifically to put the GPU
+	 * in and out of secure mode.
+	 */
+	*cmds++ = cp_packet(adreno_dev, CP_SET_SECURE_MODE, 1);
+	*cmds++ = set;
 
 	return cmds - start;
 }
@@ -505,7 +478,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 3;
 
 	/* For HLSQ updates below */
-	if (adreno_is_a4xx(adreno_dev) || adreno_is_a3xx(adreno_dev))
+	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 4;
 
 	if (gpudev->preemption_pre_ibsubmit &&
@@ -625,7 +598,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * Flush HLSQ lazy updates to make sure there are no
 	 * resources pending for indirect loads after the timestamp
 	 */
-	if (adreno_is_a4xx(adreno_dev) || adreno_is_a3xx(adreno_dev)) {
+	if (adreno_is_a3xx(adreno_dev)) {
 		*ringcmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
 		*ringcmds++ = 0x07; /* HLSQ_FLUSH */
 		ringcmds += cp_wait_for_idle(adreno_dev, ringcmds);
@@ -1046,8 +1019,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	cmds += cp_identifier(adreno_dev, cmds, END_IB_IDENTIFIER);
 
 	/* Context switches commands should *always* be on the GPU */
-	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt,
-		ADRENO_CONTEXT_SWITCH_FORCE_GPU);
+	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,

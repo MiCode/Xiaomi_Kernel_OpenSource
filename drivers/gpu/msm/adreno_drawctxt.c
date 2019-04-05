@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -589,15 +589,13 @@ static void _drawctxt_switch_wait_callback(struct kgsl_device *device,
  * @adreno_dev - The 3D device that owns the context
  * @rb: The ringubffer pointer on which the current context is being changed
  * @drawctxt - the 3D context to switch to
- * @flags: Control flags for the switch
  *
  * Switch the current draw context in given RB
  */
 
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt,
-				unsigned int flags)
+				struct adreno_context *drawctxt)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pagetable *new_pt;
@@ -632,7 +630,8 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		 /* No context - set the default pagetable and thats it. */
 		new_pt = device->mmu.defaultpagetable;
 	}
-	ret = adreno_ringbuffer_set_pt_ctx(rb, new_pt, drawctxt, flags);
+
+	ret = adreno_iommu_set_pt_ctx(rb, new_pt, drawctxt);
 	if (ret)
 		return ret;
 

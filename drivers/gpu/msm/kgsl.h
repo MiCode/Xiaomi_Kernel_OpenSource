@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_H
 #define __KGSL_H
@@ -203,7 +203,6 @@ struct kgsl_memdesc_ops {
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
  * @mapsize: Size of memory mapped in userspace
- * @pad_to: Size that we pad the memdesc to
  * @priv: Internal flags and settings
  * @sgt: Scatter gather table for allocated pages
  * @ops: Function hooks for the memdesc memory type
@@ -223,7 +222,6 @@ struct kgsl_memdesc {
 	phys_addr_t physaddr;
 	uint64_t size;
 	uint64_t mapsize;
-	uint64_t pad_to;
 	unsigned int priv;
 	struct sg_table *sgt;
 	struct kgsl_memdesc_ops *ops;

@@ -106,7 +106,6 @@ static int global_pt_count;
 uint64_t global_pt_alloc;
 static struct kgsl_memdesc gpu_qdss_desc;
 static struct kgsl_memdesc gpu_qtimer_desc;
-static unsigned int context_bank_number;
 void kgsl_print_global_pt_entries(struct seq_file *s)
 {
 	int i;
@@ -1192,20 +1191,6 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		"System cache not enabled for GPU pagetable walks: %d\n", ret);
 }
 
-int kgsl_program_smmu_aperture(void)
-{
-	struct scm_desc desc = {0};
-
-	desc.args[0] = 0xFFFF0000 | ((CP_APERTURE_REG & 0xff) << 8) |
-			(context_bank_number & 0xff);
-	desc.args[1] = 0xFFFFFFFF;
-	desc.args[2] = 0xFFFFFFFF;
-	desc.args[3] = 0xFFFFFFFF;
-	desc.arginfo = SCM_ARGS(4);
-
-	return scm_call2(SCM_SIP_FNID(SCM_SVC_MP, CP_SMMU_APERTURE_ID), &desc);
-}
-
 static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
@@ -1248,10 +1233,22 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 			ret);
 		goto done;
 	}
-	context_bank_number = cb_num;
+
 	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) &&
 		scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-		ret = kgsl_program_smmu_aperture();
+		struct scm_desc desc = {0};
+
+		desc.args[0] = 0xFFFF0000 | ((CP_APERTURE_REG & 0xff) << 8) |
+			(cb_num & 0xff);
+
+		desc.args[1] = 0xFFFFFFFF;
+		desc.args[2] = 0xFFFFFFFF;
+		desc.args[3] = 0xFFFFFFFF;
+		desc.arginfo = SCM_ARGS(4);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, CP_SMMU_APERTURE_ID),
+			&desc);
+
 		if (ret) {
 			dev_err(device->dev,
 				"SMMU aperture programming call failed with error %d\n",
@@ -1449,23 +1446,6 @@ static struct kgsl_pagetable *kgsl_iommu_getpagetable(struct kgsl_mmu *mmu,
 	return pt;
 }
 
-/*
- * kgsl_iommu_get_reg_ahbaddr - Returns the ahb address of the register
- * @mmu - Pointer to mmu structure
- * @id - The context ID of the IOMMU ctx
- * @reg - The register for which address is required
- *
- * Return - The address of register which can be used in type0 packet
- */
-static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
-		int id, unsigned int reg)
-{
-	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[id];
-
-	return ctx->gpu_offset + kgsl_iommu_reg_list[reg];
-}
-
 static void _detach_context(struct kgsl_iommu_context *ctx)
 {
 	struct kgsl_iommu_pt *iommu_pt;
@@ -1552,19 +1532,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	status = _setstate_alloc(device, iommu);
 	if (status)
 		return status;
-
-	/* check requirements for per process pagetables */
-	if (ctx->gpu_offset == UINT_MAX) {
-		dev_err(device->dev,
-			"missing qcom,gpu-offset forces global pt\n");
-		mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
-	}
-
-	if (iommu->version == 1 && iommu->micro_mmu_ctrl == UINT_MAX) {
-		dev_err(device->dev,
-			"missing qcom,micro-mmu-control forces global pt\n");
-		mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
-	}
 
 	/* Check to see if we need to do the IOMMU sync dance */
 	need_iommu_sync = of_property_read_bool(device->pdev->dev.of_node,
@@ -1809,8 +1776,7 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 		physaddr = page_to_phys(kgsl_guard_page);
 	}
 
-	if (!MMU_FEATURE(pt->mmu, KGSL_MMU_PAD_VA))
-		protflags &= ~IOMMU_WRITE;
+	protflags &= ~IOMMU_WRITE;
 
 	return _iommu_map_single_page_sync_pc(pt, gpuaddr, physaddr,
 			pad_size >> PAGE_SHIFT, protflags);
@@ -1905,9 +1871,7 @@ static int kgsl_iommu_sparse_dummy_map(struct kgsl_pagetable *pt,
 			return -ENOMEM;
 	}
 
-	map_flags = MMU_FEATURE(pt->mmu, KGSL_MMU_PAD_VA) ?
-				_get_protection_flags(pt, memdesc) :
-				IOMMU_READ | IOMMU_NOEXEC;
+	map_flags = IOMMU_READ | IOMMU_NOEXEC;
 
 	pages = kcalloc(count, sizeof(struct page *), GFP_KERNEL);
 	if (pages == NULL)
@@ -2504,7 +2468,7 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	size = kgsl_memdesc_footprint(memdesc);
 
 	align = max_t(uint64_t, 1 << kgsl_memdesc_get_align(memdesc),
-			memdesc->pad_to);
+			PAGE_SIZE);
 
 	if (memdesc->flags & KGSL_MEMFLAGS_FORCE_32BIT) {
 		start = pt->compat_va_start;
@@ -2633,10 +2597,6 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 	if (ctx->id == KGSL_IOMMU_CONTEXT_SECURE)
 		device->mmu.secured = true;
 
-	/* this property won't be found for all context banks */
-	if (of_property_read_u32(node, "qcom,gpu-offset", &ctx->gpu_offset))
-		ctx->gpu_offset = UINT_MAX;
-
 	ctx->kgsldev = device;
 
 	/* arm-smmu driver we'll have the right device pointer here. */
@@ -2675,11 +2635,6 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	struct platform_device *pdev = of_find_device_by_node(node);
 
 	memset(iommu, 0, sizeof(*iommu));
-
-	if (of_device_is_compatible(node, "qcom,kgsl-smmu-v1"))
-		iommu->version = 1;
-	else
-		iommu->version = 2;
 
 	if (of_property_read_u32_array(node, "reg", reg_val, 2)) {
 		dev_err(device->dev,
@@ -2720,10 +2675,6 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 			device->mmu.features |= kgsl_iommu_features[i].bit;
 	}
 
-	if (of_property_read_u32(node, "qcom,micro-mmu-control",
-		&iommu->micro_mmu_ctrl))
-		iommu->micro_mmu_ctrl = UINT_MAX;
-
 	if (of_property_read_u32(node, "qcom,secure_align_mask",
 		&device->mmu.secure_align_mask))
 		device->mmu.secure_align_mask = 0xfff;
@@ -2749,7 +2700,6 @@ static const struct {
 	char *compat;
 	int (*probe)(struct kgsl_device *device, struct device_node *node);
 } kgsl_dt_devices[] = {
-	{ "qcom,kgsl-smmu-v1", _kgsl_iommu_probe },
 	{ "qcom,kgsl-smmu-v2", _kgsl_iommu_probe },
 };
 
@@ -2780,7 +2730,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_get_current_ttbr0 = kgsl_iommu_get_current_ttbr0,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk = kgsl_iommu_disable_clk,
-	.mmu_get_reg_ahbaddr = kgsl_iommu_get_reg_ahbaddr,
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
 	.mmu_set_pf_policy = kgsl_iommu_set_pf_policy,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
