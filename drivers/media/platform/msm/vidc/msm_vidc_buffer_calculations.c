@@ -941,11 +941,11 @@ static inline u32 size_vpss_lb(u32 width, u32 height)
 		(32 * ALIGN(height, 8)));
 	opb_wr_top_line_chroma_buf_size = opb_wr_top_line_luma_buf_size;
 	opb_lb_wr_llb_uv_buffer_size = opb_lb_wr_llb_y_buffer_size =
-		ALIGN((ALIGN(height, 8) / 4 / 2) *
+		ALIGN((ALIGN(height, 8) / 2) *
 			64, BUFFER_ALIGNMENT_SIZE(32));
-	size = 2 * (vpss_4tap_top_buffer_size +
-		vpss_div2_top_buffer_size +
-		vpss_4tap_left_buffer_size +
+	size = NUM_OF_VPP_PIPES * 2 * (vpss_4tap_top_buffer_size +
+		vpss_div2_top_buffer_size) +
+		2 * (vpss_4tap_left_buffer_size +
 		vpss_div2_left_buffer_size) +
 	opb_wr_top_line_luma_buf_size +
 	opb_wr_top_line_chroma_buf_size +
