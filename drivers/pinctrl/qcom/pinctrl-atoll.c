@@ -53,6 +53,8 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == NORTH) ? base + 0x87000 : \
+			((base == SOUTH) ? base + 0x88000 : base + 0x81000), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -67,6 +69,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,           \
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -1418,6 +1421,79 @@ static const struct msm_pingroup atoll_groups[] = {
 	[126] = UFS_RESET(ufs_reset, 0x97f000),
 };
 
+static struct msm_dir_conn atoll_dir_conn[] = {
+	{0, 520},
+	{3, 530},
+	{4, 522},
+	{5, 550},
+	{6, 521},
+	{9, 515},
+	{10, 560},
+	{11, 531},
+	{16, 500},
+	{21, 535},
+	{22, 570},
+	{23, 501},
+	{24, 541},
+	{26, 532},
+	{28, 516},
+	{30, 615},
+	{31, 513},
+	{32, 561},
+	{34, 523}, /* GPIO 34 mapped to 637 SPI as well */
+	{36, 571},
+	{37, 533},
+	{39, 552},
+	{41, 616},
+	{42, 487},
+	{43, 514},
+	{45, 553},
+	{47, 562},
+	{49, 497},
+	{52, 624},
+	{53, 617},
+	{55, 572},
+	{56, 536},
+	{57, 537},
+	{58, 563},
+	{59, 517}, /* GPIO 59 mapped to 639 SPI as well */
+	{62, 625},
+	{63, 626},
+	{64, 554},
+	{65, 524},
+	{66, 573},
+	{67, 538},
+	{68, 627},
+	{69, 512},
+	{70, 534},
+	{72, 539},
+	{74, 551},
+	{86, 518},
+	{87, 519},
+	{88, 525},
+	{89, 526},
+	{90, 527},
+	{91, 528},
+	{92, 540},
+	{93, 529},
+	{94, 564},
+	{95, 609},
+	{109, 619},
+	{114, 628},
+	{115, 623},
+	{116, 636},
+	{117, 629},
+	{118, 634},
+	{-1, 216},
+	{-1, 215},
+	{-1, 214},
+	{-1, 213},
+	{-1, 212},
+	{-1, 211},
+	{-1, 210},
+	{-1, 209},
+};
+
 static const struct msm_pinctrl_soc_data atoll_pinctrl = {
 	.pins = atoll_pins,
 	.npins = ARRAY_SIZE(atoll_pins),
@@ -1426,6 +1502,9 @@ static const struct msm_pinctrl_soc_data atoll_pinctrl = {
 	.groups = atoll_groups,
 	.ngroups = ARRAY_SIZE(atoll_groups),
 	.ngpios = 119,
+	.dir_conn = atoll_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(atoll_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int atoll_pinctrl_probe(struct platform_device *pdev)
