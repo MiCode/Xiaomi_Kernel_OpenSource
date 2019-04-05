@@ -7,6 +7,7 @@
 #include <linux/sched.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_fdt.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/io.h>
@@ -189,7 +190,7 @@ static inline int adreno_of_read_property(struct device *dev,
 	int ret = of_property_read_u32(node, prop, ptr);
 
 	if (ret)
-		dev_err(dev, "Unable to read '%s'\n", prop);
+		dev_err(dev, "%pOF: Unable to read '%s'\n", node, prop);
 	return ret;
 }
 
@@ -890,6 +891,32 @@ static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
 	}
 }
 
+static int _of_property_read_ddrtype(struct device_node *node, const char *base,
+		u32 *ptr)
+{
+	char str[32];
+	int ddr = of_fdt_get_ddrtype();
+
+	/* of_fdt_get_ddrtype returns error if the DDR type isn't determined */
+	if (ddr >= 0) {
+		int ret;
+
+		/* Construct expanded string for the DDR type  */
+		ret = snprintf(str, sizeof(str), "%s-ddr%d", base, ddr);
+
+		/* WARN_ON() if the array size was too small for the string */
+		if (WARN_ON(ret > sizeof(str)))
+			return -ENOMEM;
+
+		/* Read the expanded string */
+		if (!of_property_read_u32(node, str, ptr))
+			return 0;
+	}
+
+	/* Read the default string */
+	return of_property_read_u32(node, base, ptr);
+}
+
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *node)
 {
@@ -920,7 +947,8 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 
 		if (index >= KGSL_MAX_PWRLEVELS) {
 			dev_err(device->dev,
-				"Pwrlevel index %d is out of range\n", index);
+				"%pOF: Pwrlevel index %d is out of range\n",
+					child, index);
 			continue;
 		}
 
@@ -933,22 +961,26 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 			&level->gpu_freq))
 			return -EINVAL;
 
-		if (adreno_of_read_property(device->dev, child, "qcom,bus-freq",
-			&level->bus_freq))
-			return -EINVAL;
+		ret = _of_property_read_ddrtype(child,
+			"qcom,bus-freq", &level->bus_freq);
+		if (ret) {
+			dev_err(device->dev,
+				"%pOF: Couldn't read the bus frequency for power level %d\n",
+				child, index);
+			return ret;
+		}
 
-		if (of_property_read_u32(child, "qcom,bus-min",
-			&level->bus_min))
-			level->bus_min = level->bus_freq;
+		level->bus_min = level->bus_freq;
+		_of_property_read_ddrtype(child,
+			"qcom,bus-min", &level->bus_min);
 
-		if (of_property_read_u32(child, "qcom,bus-max",
-			&level->bus_max))
-			level->bus_max = level->bus_freq;
+		level->bus_max = level->bus_freq;
+		_of_property_read_ddrtype(child,
+			"qcom,bus-max", &level->bus_max);
 	}
 
 	return 0;
 }
-
 
 static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 		struct device_node *node)
