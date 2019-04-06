@@ -125,7 +125,6 @@ struct cam_iommu_cb_set {
 	struct work_struct smmu_work;
 	struct mutex payload_list_lock;
 	struct list_head payload_list;
-	u32 non_fatal_fault;
 };
 
 static const struct of_device_id msm_cam_smmu_dt_match[] = {
@@ -251,10 +250,10 @@ static void cam_smmu_print_list(int idx)
 {
 	struct cam_dma_buff_info *mapping;
 
-	trace_printk("index = %d \n", idx);
+	pr_err("index = %d ", idx);
 	list_for_each_entry(mapping,
 		&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
-		trace_printk("ion_fd = %d, paddr= 0x%p, len = %u\n",
+		pr_err("ion_fd = %d, paddr= 0x%pK, len = %u\n",
 			 mapping->ion_fd, (void *)mapping->paddr,
 			 (unsigned int)mapping->len);
 	}
@@ -265,10 +264,10 @@ static void cam_smmu_print_table(void)
 	int i;
 
 	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		pr_err("i= %d, handle= %d, name_addr=%p\n", i,
+		pr_err("i= %d, handle= %d, name_addr=%pK\n", i,
 			   (int)iommu_cb_set.cb_info[i].handle,
 			   (void *)iommu_cb_set.cb_info[i].name);
-		pr_err("dev = %p\n ", iommu_cb_set.cb_info[i].dev);
+		pr_err("dev = %pK ", iommu_cb_set.cb_info[i].dev);
 	}
 }
 
@@ -284,29 +283,22 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 		end_addr = (unsigned long)mapping->paddr + mapping->len;
 
 		if (start_addr <= current_addr && current_addr < end_addr) {
-			trace_printk("Error: va %p is valid: range:%p-%p, fd = %d cb: %s\n",
-				vaddr, (void *)start_addr, (void *)end_addr,
-				mapping->ion_fd,
-				iommu_cb_set.cb_info[idx].name);
-			pr_info("Error: va %p is valid: range:%p-%p, fd = %d cb: %s\n",
+			pr_err("Error: va %pK is valid: range:%pK-%pK, fd = %d cb: %s\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd,
 				iommu_cb_set.cb_info[idx].name);
 			return;
 		}
-			trace_printk("va %p is not in this range: %p-%p, fd = %d\n",
-			vaddr, (void *)start_addr, (void *)end_addr,
-				mapping->ion_fd);
-			pr_info("va %p is not in this range: %p-%p, fd = %d\n",
+			CDBG("va %pK is not in this range: %pK-%pK, fd = %d\n",
 			vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd);
 	}
 	if (!strcmp(iommu_cb_set.cb_info[idx].name, "vfe"))
-		pr_info("Cannot find vaddr:%p in SMMU.\n"
+		pr_err_ratelimited("Cannot find vaddr:%pK in SMMU.\n"
 			" %s uses invalid virtual address\n",
 			vaddr, iommu_cb_set.cb_info[idx].name);
 	else
-		pr_info("Cannot find vaddr:%p in SMMU.\n"
+		pr_err("Cannot find vaddr:%pK in SMMU.\n"
 			" %s uses invalid virtual address\n",
 			vaddr, iommu_cb_set.cb_info[idx].name);
 }
@@ -317,6 +309,7 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 		void *token)
 {
 	int idx, i = 0;
+
 	if (!token) {
 		pr_err("Error: token is NULL\n");
 		return;
@@ -340,8 +333,6 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 	if (page_fault_handler) {
 		if (iommu_cb_set.cb_info[idx].cb_count == CAM_SMMU_CB_MAX) {
 			pr_err("%s Should not regiester more handlers\n",
-				iommu_cb_set.cb_info[idx].name);
-			trace_printk("%s Should not regiester more handlers\n",
 				iommu_cb_set.cb_info[idx].name);
 			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			return;
@@ -371,7 +362,6 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 			pr_err("Error: hdl %x no matching tokens: %s\n",
 				handle, iommu_cb_set.cb_info[idx].name);
 	}
-trace_printk("%s:X\n",__func__);
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 }
 
@@ -383,12 +373,12 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	int idx;
 	int j;
 	struct cam_smmu_work_payload *payload;
-	trace_printk(":%s: %d \n", __func__, __LINE__);
+
 	if (!token) {
 		pr_err("Error: token is NULL\n");
-		pr_err("Error: domain = %p, device = %p\n", domain, dev);
+		pr_err("Error: domain = %pK, device = %pK\n", domain, dev);
 		pr_err("iova = %lX, flags = %d\n", iova, flags);
-		return -1;
+		return 0;
 	}
 
 	cb_name = (char *)token;
@@ -399,15 +389,14 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	}
 
 	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
-		trace_printk("Error: index is not valid, index = %d, token = %s\n",
+		pr_err("Error: index is not valid, index = %d, token = %s\n",
 			idx, cb_name);
-		return -1;
+		return 0;
 	}
-	trace_printk("%s: %d \n", __func__, __LINE__);
 
 	payload = kzalloc(sizeof(struct cam_smmu_work_payload), GFP_ATOMIC);
 	if (!payload)
-		return -1;
+		return 0;
 
 	payload->domain = domain;
 	payload->dev = dev;
@@ -416,7 +405,6 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	payload->token = token;
 	payload->idx = idx;
 
-	trace_printk("%s: %d \n", __func__, __LINE__);
 	/* trigger hw reset handler */
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	for (j = 0; j < CAM_SMMU_CB_MAX; j++) {
@@ -433,11 +421,9 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	list_add_tail(&payload->list, &iommu_cb_set.payload_list);
 	mutex_unlock(&iommu_cb_set.payload_list_lock);
 
-	trace_printk("%s: %d \n", __func__, __LINE__);
-	//schedule_work(&iommu_cb_set.smmu_work);
-	cam_smmu_page_fault_work(&iommu_cb_set.smmu_work); 
+	schedule_work(&iommu_cb_set.smmu_work);
 
-	return -1;
+	return 0;
 }
 
 static int cam_smmu_translate_dir_to_iommu_dir(
@@ -742,7 +728,7 @@ static void cam_smmu_clean_buffer_list(int idx)
 
 	list_for_each_entry_safe(mapping_info, temp,
 			&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
-		trace_printk("Free mapping address %p, i = %d, fd = %d\n",
+		CDBG("Free mapping address %pK, i = %d, fd = %d\n",
 			 (void *)mapping_info->paddr, idx,
 			mapping_info->ion_fd);
 
@@ -1084,13 +1070,6 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 			ion_fd,
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)*paddr_ptr, (unsigned int)*len_ptr);
-	trace_printk("name %s ion_fd = %d, dev = %p, paddr= %p, len = %u, Attach_name: %s, cb)_dev: %s\n",
-			iommu_cb_set.cb_info[idx].name,
- 			ion_fd,
- 			(void *)iommu_cb_set.cb_info[idx].dev,
-			(void *)*paddr_ptr, (unsigned int)*len_ptr,
-			dev_name(attach->dev),
-			dev_name(iommu_cb_set.cb_info[idx].dev));
 
 	/* add to the list */
 	list_add(&mapping_info->list, &iommu_cb_set.cb_info[idx].smmu_buf_list);
@@ -1114,17 +1093,15 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 {
 	if ((!mapping_info->buf) || (!mapping_info->table) ||
 		(!mapping_info->attach)) {
-		pr_err("Error: Invalid params dev = %p, table = %p",
+		pr_err("Error: Invalid params dev = %pK, table = %pK",
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)mapping_info->table);
-		pr_err("Error:dma_buf = %p, attach = %p\n",
+		pr_err("Error:dma_buf = %pK, attach = %pK\n",
 			(void *)mapping_info->buf,
 			(void *)mapping_info->attach);
 		return -EINVAL;
 	}
-	trace_printk("Removing buffer: ion_fd = %d paddr = %p len = %u\n",
-		mapping_info->ion_fd,  mapping_info->paddr,
-		mapping_info->len);
+
 	/* iommu buffer clean up */
 	dma_buf_unmap_attachment(mapping_info->attach,
 		mapping_info->table, mapping_info->dir);
@@ -1428,7 +1405,7 @@ static int cam_smmu_free_scratch_buffer_remove_from_list(
 		&iommu_cb_set.cb_info[idx].scratch_map;
 
 	if (!mapping_info->table) {
-		pr_err("Error: Invalid params: dev = %p, table = %p, ",
+		pr_err("Error: Invalid params: dev = %pK, table = %pK, ",
 				(void *)iommu_cb_set.cb_info[idx].dev,
 				(void *)mapping_info->table);
 		return -EINVAL;
@@ -2095,14 +2072,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 		rc = -ENODEV;
 		goto end;
 	}
- iommu_cb_set.non_fatal_fault = 1;
 
- pr_err("%s: setting the DOMAIN_ATTR_NON_FATAL_FAULTS cb: %s\n",__func__, cb->name);
- if (iommu_domain_set_attr(cb->mapping->domain,
- DOMAIN_ATTR_NON_FATAL_FAULTS,
- &iommu_cb_set.non_fatal_fault) < 0) {
- pr_err("%s:Error: failed to set DOMAIN_ATTR_NON_FATAL_FAULTS\n", __func__); 
- }
 	return 0;
 end:
 	return rc;
@@ -2220,7 +2190,7 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 	else
 		cb->is_secure = false;
 
-	pr_err("cb->name :%s, cb->is_secure :%d, cb->scratch_support :%d\n",
+	CDBG("cb->name :%s, cb->is_secure :%d, cb->scratch_support :%d\n",
 			cb->name, cb->is_secure, cb->scratch_buf_support);
 
 	/* set up the iommu mapping for the  context bank */
