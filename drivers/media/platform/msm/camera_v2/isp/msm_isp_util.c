@@ -996,10 +996,6 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
 				*((enum msm_vfe_input_src *)arg);
-			trace_printk("VIDIOC_MSM_ISP_REG_UPDATE_CMD: vfeid: %d framesrc: %d frmid: %d\n",
-				 vfe_dev->pdev->id,
-				 frame_src,
-				 vfe_dev->axi_data.src_info[frame_src].frame_id);
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				frame_src);
 		}
@@ -2001,7 +1997,6 @@ int msm_isp_process_overflow_irq(
 			temp_vfe->recovery_irq1_mask = temp_vfe->irq1_mask;
 			temp_vfe->hw_info->vfe_ops.core_ops
 				.set_halt_restart_mask(temp_vfe);
-			trace_printk("calling halt for overflow: vfeid: %d", other_vfe_id);
 			temp_vfe->hw_info->vfe_ops.axi_ops.halt(temp_vfe, 0);
 		}
 
@@ -2130,19 +2125,12 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 		return;
 	}
 	atomic_add(1, &vfe_dev->irq_cnt);
-	trace_printk("VFE%d frmid: %d [%s] [%s] [%s] [%s] [%s] irq0: 0x%x irq1: 0x%x\n",
-		vfe_dev->pdev->id,
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
-		(irq_status0 & (1 << 0))?"SOF":"",
-		(irq_status0 & (1 << 2))?"EPOCH0":"",
-		(irq_status0 & (1 << 4))?"REGUPDATE":"",
-		(irq_status0 & (1 << 3))?"EPOCH1":"",
-		(irq_status0 & (1 << 1))?"EOF":"",
-		irq_status0, irq_status1);
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
 	queue_cmd->vfe_pingpong_status = ping_pong_status;
 	queue_cmd->dualvfeInterruptstatus = dual_irq_status;
+	trace_printk("vfe %d, status0 %x, status1 %x pingpong %d\n", vfe_dev->pdev->id,
+		irq_status0, irq_status1, ping_pong_status);
 	msm_isp_get_timestamp(&queue_cmd->ts, vfe_dev);
 	queue_cmd->cmd_used = 1;
 	queue_cmd->vfe_dev = vfe_dev;
@@ -2376,8 +2364,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->isp_raw0_debug = 0;
 	vfe_dev->isp_raw1_debug = 0;
 	vfe_dev->isp_raw2_debug = 0;
-	vfe_dev->irq_sof_id = 0;
-	vfe_dev->common_data->drop_reconfig = 0;
+
 	if (vfe_dev->hw_info->vfe_ops.core_ops.init_hw(vfe_dev) < 0) {
 		pr_err("%s: init hardware failed\n", __func__);
 		vfe_dev->vfe_open_cnt--;
