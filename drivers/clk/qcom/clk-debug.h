@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved. */
 
 #ifndef __QCOM_CLK_DEBUG_H__
 #define __QCOM_CLK_DEBUG_H__
@@ -35,6 +35,7 @@ enum debug_cc {
 	GPU_CC,
 	VIDEO_CC,
 	CPU_CC,
+	MC_CC,
 	MAX_NUM_CC,
 };
 
@@ -88,6 +89,8 @@ struct clk_src {
  * @num_parents:	number of parents
  * @regmap:		regmaps of debug mux
  * @priv:		private measure_clk_data to be used by debug mux
+ * @en_mask:		indicates the enable bit mask at global clock
+ *			controller debug mux.
  * @debug_offset:	debug mux offset.
  * @post_div_offset:	register with post-divider settings for the debug mux.
  * @cbcr_offset:	branch register to turn on debug mux.
@@ -99,6 +102,8 @@ struct clk_src {
 			mux.
  * @post_div_shift:	indicates the shift required for post divider
 			selection in primary mux.
+ * @period_offset:	offset of the period register used to read to determine
+			the mc clock period
  * @hw:			handle between common and hardware-specific interfaces.
  */
 struct clk_debug_mux {
@@ -106,6 +111,7 @@ struct clk_debug_mux {
 	int num_parents;
 	struct regmap **regmap;
 	void *priv;
+	u32 en_mask;
 	u32 debug_offset;
 	u32 post_div_offset;
 	u32 cbcr_offset;
@@ -113,6 +119,7 @@ struct clk_debug_mux {
 	u32 src_sel_shift;
 	u32 post_div_mask;
 	u32 post_div_shift;
+	u32 period_offset;
 	struct clk_hw hw;
 };
 
