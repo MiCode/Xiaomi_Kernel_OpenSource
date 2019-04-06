@@ -18,7 +18,8 @@ EXPORT_SYMBOL(msm_vidc_debug_out);
 bool msm_vidc_lossless_encode = !true;
 EXPORT_SYMBOL(msm_vidc_lossless_encode);
 
-int msm_vidc_fw_debug = 0x18;
+int msm_vidc_fw_debug = HFI_DEBUG_MSG_HIGH |
+	HFI_DEBUG_MSG_ERROR | HFI_DEBUG_MSG_FATAL;
 int msm_vidc_fw_debug_mode = 1;
 bool msm_vidc_fw_coverage = !true;
 bool msm_vidc_thermal_mitigation_disabled = !true;
