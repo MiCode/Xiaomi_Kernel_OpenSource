@@ -68,6 +68,10 @@
 			};
 		};
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
 
 &qupv3_se1_i2c {
@@ -151,6 +155,7 @@
 	qcom,hw-die-temp-mitigation;
 	qcom,hw-connector-mitigation;
 	qcom,connector-internal-pull-kohm = <100>;
+	qcom,float-option = <1>;
 	qcom,thermal-mitigation = <3000000 2500000
 			2000000 1500000 1000000 500000>;
 };
@@ -312,6 +317,17 @@
 };
 
 &dsi_hx83112a_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	pwms = <&pm6125_pwm 0 0>;
+	qcom,bl-pmic-pwm-period-usecs = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-reset-gpio = <&tlmm 90 0>;
+	qcom,platform-bklight-en-gpio = <&pmi632_gpios 6 0>;
+};
+
+&dsi_nt36672_truly_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	pwms = <&pm6125_pwm 0 0>;

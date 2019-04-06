@@ -32,6 +32,7 @@
 #include <linux/kthread.h>
 
 #include <asm/switch_to.h>
+#include <linux/msm_rtb.h>
 #include <asm/tlb.h>
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
@@ -2916,7 +2917,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	 */
 	rq_unpin_lock(rq, rf);
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
-
+	uncached_logk(LOGK_CTXID, (void *)(u64)next->pid);
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 	barrier();
@@ -4899,9 +4900,8 @@ out_put_task:
 }
 
 char sched_lib_name[LIB_PATH_LENGTH];
-unsigned int sched_lib_mask_check;
 unsigned int sched_lib_mask_force;
-static inline bool is_sched_lib_based_app(pid_t pid)
+bool is_sched_lib_based_app(pid_t pid)
 {
 	const char *name = NULL;
 	struct vm_area_struct *vma;
@@ -4953,19 +4953,6 @@ put_task_struct:
 	return found;
 }
 
-long msm_sched_setaffinity(pid_t pid, struct cpumask *new_mask)
-{
-	if (sched_lib_mask_check != 0 && sched_lib_mask_force != 0 &&
-		(cpumask_bits(new_mask)[0] == sched_lib_mask_check) &&
-		is_sched_lib_based_app(pid)) {
-
-		cpumask_t forced_mask = { {sched_lib_mask_force} };
-
-		cpumask_copy(new_mask, &forced_mask);
-	}
-	return sched_setaffinity(pid, new_mask);
-}
-
 static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
 			     struct cpumask *new_mask)
 {
@@ -4996,7 +4983,7 @@ SYSCALL_DEFINE3(sched_setaffinity, pid_t, pid, unsigned int, len,
 
 	retval = get_user_cpu_mask(user_mask_ptr, len, new_mask);
 	if (retval == 0)
-		retval = msm_sched_setaffinity(pid, new_mask);
+		retval = sched_setaffinity(pid, new_mask);
 	free_cpumask_var(new_mask);
 	return retval;
 }

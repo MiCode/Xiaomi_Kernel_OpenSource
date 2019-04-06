@@ -1024,16 +1024,14 @@ static enum update_area reflash_compare_id_info(void)
 	update_area = NONE;
 
 exit:
-	if (update_area == NONE) {
-		LOGN(tcm_hcd->pdev->dev.parent,
-				"No need to do reflash\n");
-	} else {
+	if (update_area == NONE)
+		LOGD(tcm_hcd->pdev->dev.parent, "No need to do reflash\n");
+	else
 		LOGD(tcm_hcd->pdev->dev.parent,
 				"Updating %s\n",
 				update_area == FIRMWARE_CONFIG ?
 				"firmware and config" :
 				"config only");
-	}
 
 	return update_area;
 }

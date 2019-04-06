@@ -213,6 +213,7 @@ struct smb_dt_props {
 	bool			no_battery;
 	bool			hvdcp_disable;
 	bool			hvdcp_autonomous;
+	bool			adc_based_aicl;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
@@ -559,6 +560,9 @@ static int smb5_parse_dt(struct smb5 *chip)
 	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
 					&chg->connector_pull_up);
 
+	chip->dt.adc_based_aicl = of_property_read_bool(node,
+					"qcom,adc-based-aicl");
+
 	/* Extract ADC channels */
 	rc = smblib_get_iio_channel(chg, "mid_voltage", &chg->iio.mid_chan);
 	if (rc < 0)
@@ -642,6 +646,8 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_CONNECTOR_TYPE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
 	POWER_SUPPLY_PROP_SCOPE,
@@ -681,8 +687,17 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		if (chg->real_charger_type == POWER_SUPPLY_TYPE_UNKNOWN)
 			val->intval = 0;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		rc = smblib_get_prop_usb_voltage_max_design(chg, val);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_prop_usb_voltage_max(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
+		if (chg->usbin_forced_max_uv)
+			val->intval = chg->usbin_forced_max_uv;
+		else
+			smblib_get_prop_usb_voltage_max_design(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		rc = smblib_get_prop_usb_voltage_now(chg, val);
@@ -884,6 +899,9 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		else
 			rc = -EINVAL;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
+		smblib_set_prop_usb_voltage_max_limit(chg, val);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -900,6 +918,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 		return 1;
 	default:
 		break;
@@ -2077,13 +2096,16 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
-		0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
-		return rc;
+	if (chg->smb_version != PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				USBIN_IN_COLLAPSE_GF_SEL_MASK |
+				USBIN_AICL_STEP_TIMING_SEL_MASK,
+				0);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* Set CC threshold to 1.6 V in source mode */
@@ -2476,22 +2498,22 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 
 	/*
-	 * AICL configuration:
-	 * start from min and AICL ADC disable, and enable aicl rerun
+	 * AICL configuration: enable aicl and aicl rerun and based on DT
+	 * configuration enable/disable ADB based AICL and Suspend on collapse.
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
-		mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
+	mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
 			| USBIN_AICL_EN_BIT | SUSPEND_ON_COLLAPSE_USBIN_BIT;
-		val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
-		if (!chip->dt.disable_suspend_on_collapse)
-			val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
+	if (!chip->dt.disable_suspend_on_collapse)
+		val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	if (chip->dt.adc_based_aicl)
+		val |= USBIN_AICL_ADC_EN_BIT;
 
-		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				mask, val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
-			return rc;
-		}
+	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			mask, val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,

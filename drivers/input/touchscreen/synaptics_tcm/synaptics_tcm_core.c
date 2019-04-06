@@ -64,7 +64,7 @@
 
 #define POLLING_DELAY_MS 5
 
-#define RUN_WATCHDOG false
+#define RUN_WATCHDOG true
 
 #define WATCHDOG_TRIGGER_COUNT 2
 
@@ -2842,8 +2842,11 @@ static int syna_tcm_resume(struct device *dev)
 	if (!tcm_hcd->init_okay)
 		syna_tcm_deferred_probe(dev);
 	else {
-		if (tcm_hcd->irq_enabled)
+		if (tcm_hcd->irq_enabled) {
+			tcm_hcd->watchdog.run = false;
+			tcm_hcd->update_watchdog(tcm_hcd, false);
 			tcm_hcd->enable_irq(tcm_hcd, false, false);
+		}
 	}
 
 	if (!tcm_hcd->in_suspend)
@@ -3007,6 +3010,7 @@ static int syna_tcm_early_suspend(struct device *dev)
 #ifndef WAKEUP_GESTURE
 	tcm_hcd->enable_irq(tcm_hcd, false, true);
 #endif
+
 	return 0;
 }
 

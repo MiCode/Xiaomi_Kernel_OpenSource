@@ -152,7 +152,7 @@ config QCOM_PM
 
 config QCOM_QMI_HELPERS
 	bool "Qualcomm QMI Helpers"
-	depends on QRTR
+	depends on QRTR || QTI_QRTR
 	help
 	  Helper library for handling QMI encoded messages.  QMI encoded
 	  messages are used in communication between the majority of QRTR

@@ -14,6 +14,7 @@
 #include "dsi-panel-td4330-truly-singlemipi-fhd-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-hx83112a-truly-singlemipi-fhd-video.dtsi"
+#include "dsi-panel-nt36672-truly-fhd-video.dtsi"
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
 
 &soc {
@@ -136,6 +137,17 @@
 		qcom,dsi-panel = <&dsi_hx83112a_truly_video>;
 	};
 
+	dsi_nt36672_truly_vid_display: qcom,dsi-display@4 {
+		label = "dsi_nt36672_truly_vid_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_nt36672_truly_video>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -165,7 +177,8 @@
 			<&dsi_td4330_truly_vid_display
 			&dsi_td4330_truly_cmd_display
 			&dsi_sim_vid_display
-			&dsi_hx83112a_truly_vid_display>;
+			&dsi_hx83112a_truly_vid_display
+			&dsi_nt36672_truly_vid_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -283,6 +296,24 @@
 				24 1f 08 09 05 02 04 a0
 				24 1f 08 09 05 02 04 a0
 				24 1c 08 09 05 02 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt36672_truly_video {
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x30>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[24 1F 08 09 05 02 04 a0
+				24 1F 08 09 05 02 04 a0
+				24 1F 08 09 05 02 04 a0
+				24 1F 08 09 05 02 04 a0
+				24 1B 08 09 05 02 04 a0];
 
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;

@@ -1138,6 +1138,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	int ret = 0;
 	bool qmap_check;
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+	unsigned long flags;
 
 	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
 		IPAWANERR_RL("IPA embedded data on APQ platform\n");
@@ -1183,6 +1184,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 send:
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* IPA_RM checking start */
 	if (ipa3_ctx->use_ipa_pm) {
 		/* activate the modem pm for clock scaling */
@@ -1194,6 +1196,7 @@ send:
 	}
 	if (ret == -EINPROGRESS) {
 		netif_stop_queue(dev);
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return NETDEV_TX_BUSY;
 	}
 	if (ret) {
@@ -1201,6 +1204,7 @@ send:
 		       dev->name, ret);
 		dev_kfree_skb_any(skb);
 		dev->stats.tx_dropped++;
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return -EFAULT;
 	}
 	/* IPA_RM checking end */
@@ -1229,6 +1233,7 @@ out:
 				IPA_RM_RESOURCE_WWAN_0_PROD);
 		}
 	}
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
 }
 
@@ -2628,6 +2633,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2727,6 +2733,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	struct net_device *netdev = IPA_NETDEV();
 	struct ipa3_wwan_private *wwan_ptr;
 	int ret;
+	unsigned long flags;
 
 	IPAWANDBG("Enter...\n");
 
@@ -2736,20 +2743,19 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		goto bail;
 	}
 
-	netif_tx_lock_bh(netdev);
 	wwan_ptr = netdev_priv(netdev);
 	if (wwan_ptr == NULL) {
 		IPAWANERR("wwan_ptr is NULL.\n");
 		ret = 0;
-		netif_tx_unlock_bh(netdev);
 		goto bail;
 	}
 
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* Do not allow A7 to suspend in case there are outstanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
 		IPAWANDBG("Outstanding packets, postponing AP suspend.\n");
 		ret = -EAGAIN;
-		netif_tx_unlock_bh(netdev);
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		goto bail;
 	}
 
@@ -2758,7 +2764,8 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	/* Stoppig Watch dog timer when pipe was in suspend state */
 	if (del_timer(&netdev->watchdog_timer))
 		dev_put(netdev);
-	netif_tx_unlock_bh(netdev);
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	else
@@ -4148,6 +4155,15 @@ int rmnet_ipa3_send_lan_client_msg(
 		IPAWANERR("Can't allocate memory for tether_info\n");
 		return -ENOMEM;
 	}
+
+	if (data->client_event != IPA_PER_CLIENT_STATS_CONNECT_EVENT &&
+		data->client_event != IPA_PER_CLIENT_STATS_DISCONNECT_EVENT) {
+		IPAWANERR("Wrong event given. Event:- %d\n",
+			data->client_event);
+		kfree(lan_client);
+		return -EINVAL;
+	}
+	data->lan_client.lanIface[IPA_RESOURCE_NAME_MAX-1] = '\0';
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 	memcpy(lan_client, &data->lan_client,
 		sizeof(struct ipa_lan_client_msg));
