@@ -12,6 +12,8 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
@@ -24,8 +26,7 @@
 	};
 
 	chosen {
-		bootargs = "rcupdate.rcu_expedited=1
-			rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
+		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
 	};
 
 	soc: soc { };
@@ -62,8 +63,7 @@
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
-					dev="/dev/block/platform/vdevs
-						/1c0f0000.virtio_blk/vdc";
+					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait";
@@ -77,6 +77,7 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
@@ -161,4 +162,10 @@
 			remote-vmids = <0>;
 		};
 	};
+	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7815";
+	};
 };
+#include "sa6155p-vm-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"

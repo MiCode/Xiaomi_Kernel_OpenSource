@@ -102,17 +102,33 @@ enum {
 };
 
 enum {
-	PLATFORM_SUBTYPE_ADP_V1 = 0x0,
-	PLATFORM_SUBTYPE_ADP_V2 = 0x1,
-	PLATFORM_SUBTYPE_ADP_AIR_V1 = 0x2,
-	PLATFORM_SUBTYPE_ADP_INVALID,
+	PLATFORM_SUBTYPE_SA8155_ADP_STAR = 0x0,
+	PLATFORM_SUBTYPE_SA8155_ADP_AIR = 0x1,
+	PLATFORM_SUBTYPE_SA8155_ADP_ALCOR = 0x2,
+	PLATFORM_SUBTYPE_SA8155_ADP_INVALID,
 };
 
-const char *adp_hw_platform_subtype[] = {
-	[PLATFORM_SUBTYPE_ADP_V1] = "ADP_V1",
-	[PLATFORM_SUBTYPE_ADP_V2] = "ADP_V2",
-	[PLATFORM_SUBTYPE_ADP_AIR_V1] = "ADP_AIR_V1",
-	[PLATFORM_SUBTYPE_ADP_INVALID] = "INVALID",
+static const char * const sa8155adp_hw_platform_subtype[] = {
+	[PLATFORM_SUBTYPE_SA8155_ADP_STAR] = "ADP_STAR",
+	[PLATFORM_SUBTYPE_SA8155_ADP_AIR] = "ADP_AIR",
+	[PLATFORM_SUBTYPE_SA8155_ADP_ALCOR] = "ADP_ALCOR",
+	[PLATFORM_SUBTYPE_SA8155_ADP_INVALID] = "INVALID",
+};
+
+enum {
+	PLATFORM_SUBTYPE_SA6155_ADP_STAR = 0x0,
+	PLATFORM_SUBTYPE_SA6155_ADP_STAR_EMACPPO = 0x1,
+	PLATFORM_SUBTYPE_SA6155_ADP_STAR_AUDREFCLK = 0x2,
+	PLATFORM_SUBTYPE_SA6155_ADP_AIR = 0x3,
+	PLATFORM_SUBTYPE_SA6155_ADP_INVALID,
+};
+
+static const char * const sa6155adp_hw_platform_subtype[] = {
+	[PLATFORM_SUBTYPE_SA6155_ADP_STAR] = "ADP_STAR",
+	[PLATFORM_SUBTYPE_SA6155_ADP_STAR_EMACPPO] = "ADP_STAR_EMACPPO",
+	[PLATFORM_SUBTYPE_SA6155_ADP_STAR_AUDREFCLK] = "ADP_STAR_AUDREFCLK",
+	[PLATFORM_SUBTYPE_SA6155_ADP_AIR] = "ADP_AIR",
+	[PLATFORM_SUBTYPE_SA6155_ADP_INVALID] = "INVALID",
 };
 
 enum {
@@ -354,7 +370,7 @@ static struct msm_soc_info cpu_of_id[] = {
 	[373] = {MSM_CPU_QCS403, "QCS403"},
 
 	/* qcs401 ID */
-	[371] = {MSM_CPU_QCS401, "QCS401"},
+	[372] = {MSM_CPU_QCS401, "QCS401"},
 
 	/* sdxprairie ID */
 	[357] = {SDX_CPU_SDXPRAIRIE, "SDXPRAIRIE"},
@@ -383,6 +399,9 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* qcs410 ID */
 	[406] = {MSM_CPU_QCS410, "QCS410"},
+
+	/* atoll ID */
+	[407] = {MSM_CPU_ATOLL, "ATOLL"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -745,6 +764,7 @@ msm_get_platform_subtype(struct device *dev,
 			char *buf)
 {
 	uint32_t hw_subtype;
+	const char *machine_name;
 
 	hw_subtype = socinfo_get_platform_subtype();
 	if (socinfo_get_platform_type() == HW_PLATFORM_QRD) {
@@ -756,12 +776,33 @@ msm_get_platform_subtype(struct device *dev,
 					qrd_hw_platform_subtype[hw_subtype]);
 	}
 	if (socinfo_get_platform_type() == HW_PLATFORM_ADP) {
-		if (hw_subtype >= PLATFORM_SUBTYPE_ADP_INVALID) {
-			pr_err("Invalid hardware platform sub type for adp found\n");
-			hw_subtype = PLATFORM_SUBTYPE_ADP_INVALID;
+		machine_name = socinfo_get_id_string();
+		if (machine_name) {
+			if ((strcmp(machine_name, "SA8155") == 0) ||
+				(strcmp(machine_name, "SA8155P") == 0)) {
+				if (hw_subtype >=
+					PLATFORM_SUBTYPE_SA8155_ADP_INVALID) {
+					pr_err("Invalid hardware platform sub type for adp found\n");
+					hw_subtype =
+					PLATFORM_SUBTYPE_SA8155_ADP_INVALID;
+				}
+				return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+				sa8155adp_hw_platform_subtype[hw_subtype]);
+			} else if ((strcmp(machine_name, "SA6155") == 0) ||
+				(strcmp(machine_name, "SA6155P") == 0)) {
+				if (hw_subtype >=
+					PLATFORM_SUBTYPE_SA6155_ADP_INVALID) {
+					pr_err("Invalid hardware platform sub type for adp found\n");
+					hw_subtype =
+					PLATFORM_SUBTYPE_SA6155_ADP_INVALID;
+				}
+			return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+				sa6155adp_hw_platform_subtype[hw_subtype]);
+			} else {
+				pr_err("Invalid machine name for ADP platform\n");
+				return 0;
+			}
 		}
-		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-					adp_hw_platform_subtype[hw_subtype]);
 	} else {
 		if (hw_subtype >= PLATFORM_SUBTYPE_INVALID) {
 			pr_err("Invalid hardware platform subtype\n");
@@ -770,6 +811,7 @@ msm_get_platform_subtype(struct device *dev,
 		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 			hw_platform_subtype[hw_subtype]);
 	}
+	return 0;
 }
 
 static ssize_t
@@ -1281,7 +1323,7 @@ static void * __init setup_dummy_socinfo(void)
 		strlcpy(dummy_socinfo.build_id, "qcs403 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_qcs401()) {
-		dummy_socinfo.id = 371;
+		dummy_socinfo.id = 372;
 		strlcpy(dummy_socinfo.build_id, "qcs401 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdxprairie()) {
@@ -1319,6 +1361,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_qcs410()) {
 		dummy_socinfo.id = 406;
 		strlcpy(dummy_socinfo.build_id, "qcs410 - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_atoll()) {
+		dummy_socinfo.id = 407;
+		strlcpy(dummy_socinfo.build_id, "atoll - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",

@@ -111,10 +111,15 @@ enum ipa_platform_type_enum_v01 {
 	QMI_IPA_PLATFORM_TYPE_MSM_WINDOWS_V01 = 4,
 	/*  Platform identifier -	MSM device with Windows HLOS */
 	QMI_IPA_PLATFORM_TYPE_MSM_QNX_V01 = 5,
+	/* Platform identifier - MDM device with LE HLOS, MHI data router */
+	QMI_IPA_PLATFORM_TYPE_LE_MHI_V01 = 6,
 	/*  Platform identifier -	MSM device with QNX HLOS */
 	IPA_PLATFORM_TYPE_ENUM_MAX_ENUM_VAL_V01 = 2147483647
 	/* To force a 32 bit signed enum.  Do not change or use */
 };
+
+#define QMI_IPA_PLATFORM_TYPE_LE_MHI_V01 \
+			QMI_IPA_PLATFORM_TYPE_LE_MHI_V01
 
 struct ipa_hdr_tbl_info_type_v01 {
 	uint32_t modem_offset_start;

@@ -99,7 +99,8 @@ compatible devices:
 		qcom,sdmshrike-llcc,
 		qcom,sm6150-llcc,
 		qcom,sdmmagpie-llcc,
-		qcom,sdxprairie-llcc
+		qcom,sdxprairie-llcc,
+		qcom,atoll-llcc
 
 Example:
 

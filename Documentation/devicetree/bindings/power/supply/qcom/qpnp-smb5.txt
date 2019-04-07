@@ -321,6 +321,11 @@ Charger specific properties:
 		4 = 1s, 5 = 2s, 6 = 4s and 7 = 8s. If not defined, wdog-snarl
 		irq is disabled by default.
 
+- qcom,adc-based-aicl
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables ADC based AICL.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

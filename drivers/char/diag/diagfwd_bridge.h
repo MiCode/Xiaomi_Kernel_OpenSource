@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,8 +18,7 @@
  * bottom half of this list.
  */
 #define DIAGFWD_MDM		0
-#define DIAGFWD_SMUX		1
-#define NUM_REMOTE_DATA_DEV	2
+#define NUM_REMOTE_DATA_DEV	1
 #define DIAGFWD_MDM_DCI		NUM_REMOTE_DATA_DEV
 #define NUM_REMOTE_DCI_DEV	(DIAGFWD_MDM_DCI - NUM_REMOTE_DATA_DEV + 1)
 #define NUM_REMOTE_DEV		(NUM_REMOTE_DATA_DEV + NUM_REMOTE_DCI_DEV)
@@ -52,8 +51,6 @@ struct diagfwd_bridge_info {
 };
 
 extern struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV];
-int diagfwd_bridge_init(void);
-void diagfwd_bridge_exit(void);
 int diagfwd_bridge_close(int id);
 int diagfwd_bridge_write(int id, unsigned char *buf, int len);
 uint16_t diag_get_remote_device_mask(void);
@@ -66,4 +63,6 @@ int diag_remote_dev_read_done(int id, unsigned char *buf, int len);
 int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt);
 int diag_remote_init(void);
 void diag_remote_exit(void);
+void diag_register_with_bridge(void);
+void diag_unregister_bridge(void);
 #endif

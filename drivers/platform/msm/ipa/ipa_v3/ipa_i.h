@@ -252,8 +252,8 @@ enum {
 #define IPA_PIPE_MEM_START_OFST (0x0)
 #define IPA_PIPE_MEM_SIZE (0x0)
 #define IPA_MOBILE_AP_MODE(x) (x == IPA_MODE_MOBILE_AP_ETH || \
-			       x == IPA_MODE_MOBILE_AP_WAN || \
-			       x == IPA_MODE_MOBILE_AP_WLAN)
+				   x == IPA_MODE_MOBILE_AP_WAN || \
+				   x == IPA_MODE_MOBILE_AP_WLAN)
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_A5_MUX_HEADER_LENGTH (8)
 
@@ -305,6 +305,19 @@ enum {
 #define IPA_FWS_PATH_4_0     "ipa/4.0/ipa_fws.elf"
 #define IPA_FWS_PATH_3_5_1   "ipa/3.5.1/ipa_fws.elf"
 #define IPA_FWS_PATH_4_5     "ipa/4.5/ipa_fws.elf"
+
+/*
+ * The following will be used for determining/using access control
+ * policy.
+ */
+#define USE_SCM            0 /* use scm call to determine policy */
+#define OVERRIDE_SCM_TRUE  1 /* override scm call with true */
+#define OVERRIDE_SCM_FALSE 2 /* override scm call with false */
+
+#define SD_ENABLED  0 /* secure debug enabled. */
+#define SD_DISABLED 1 /* secure debug disabled. */
+
+#define IPA_MEM_INIT_VAL 0xFFFFFFFF
 
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
@@ -811,8 +824,6 @@ struct ipa3_ep_context {
 	u32 qmi_request_sent;
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
-
-	int (*client_lock_unlock)(bool is_lock);
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -1442,6 +1453,12 @@ enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_MAX
 };
 
+enum ipa_client_cb_type {
+	IPA_USB_CLNT,
+	IPA_MHI_CLNT,
+	IPA_MAX_CLNT
+};
+
 /**
  * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
@@ -1693,6 +1710,8 @@ struct ipa3_context {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	u32 secure_debug_check_action;
+	u32 sd_state;
 	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
 	struct mbox_client mbox_client;
@@ -1701,6 +1720,9 @@ struct ipa3_context {
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;
 	int uc_mailbox17_mismatch;
+	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
+	atomic_t is_ssr;
+	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
 };
 
 struct ipa3_plat_drv_res {
@@ -1745,6 +1767,7 @@ struct ipa3_plat_drv_res {
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
 	bool ipa_endp_delay_wa;
+	u32 secure_debug_check_action;
 };
 
 /**
@@ -2022,8 +2045,9 @@ int ipa3_xdci_connect(u32 clnt_hdl);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
+void ipa3_register_client_callback(int (*client_cb)(bool),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+void ipa3_deregister_client_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
 int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
@@ -2563,6 +2587,8 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 
 void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
+void ipa3_update_ssr_state(bool is_ssr);
+void ipa3_q6_pre_powerup_cleanup(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
@@ -2750,11 +2776,13 @@ int ipa3_get_transport_info(
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
 #if defined(CONFIG_IPA3_REGDUMP)
-int ipa_reg_save_init(uint8_t value);
+int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);
+void ipa_save_gsi_ver(void);
 #else
-static inline int ipa_reg_save_init(uint8_t value) { return 0; }
+static inline int ipa_reg_save_init(u32 value) { return 0; }
 static inline void ipa_save_registers(void) {};
+static inline void ipa_save_gsi_ver(void) {};
 #endif
 
 #ifdef CONFIG_IPA_ETH
@@ -2764,5 +2792,46 @@ void ipa_eth_exit(void);
 static inline int ipa_eth_init(void) { return 0; }
 static inline void ipa_eth_exit(void) { }
 #endif // CONFIG_IPA_ETH
+int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
+	unsigned long chan_hdl);
+#ifdef CONFIG_IPA3_MHI_PRIME_MANAGER
+int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot prot);
+int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot);
+int ipa_mpm_notify_wan_state(void);
+int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot);
+int ipa3_is_mhip_offload_enabled(void);
+int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
+	enum ipa_client_type dst_pipe);
+#else
+static inline int ipa_mpm_mhip_xdci_pipe_enable(
+	enum ipa_usb_teth_prot prot)
+{
+	return 0;
+}
+static inline int ipa_mpm_mhip_xdci_pipe_disable(
+	enum ipa_usb_teth_prot xdci_teth_prot)
+{
+	return 0;
+}
+static inline int ipa_mpm_notify_wan_state(void)
+{
+	return 0;
+}
+static inline int ipa_mpm_mhip_ul_data_stop(
+	enum ipa_usb_teth_prot xdci_teth_prot)
+{
+	return 0;
+}
+static inline int ipa3_is_mhip_offload_enabled(void)
+{
+	return 0;
+}
+static inline int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
+	enum ipa_client_type dst_pipe)
+{
+	return 0;
+}
+
+#endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
 
 #endif /* _IPA3_I_H_ */

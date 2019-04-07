@@ -102,6 +102,14 @@ config QCOM_SDMMAGPIE_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_ATOLL_LLCC
+	tristate "Qualcomm Technologies, Inc. ATOLL LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  Say yes here to enable the LLCC driver for ATOLL. This provides
+	  data required to configure LLCC so that clients can start using the
+	  LLCC slices.
+
 config QCOM_SDXPRAIRIE_LLCC
 	tristate "Qualcomm Technologies, Inc. SDXPRAIRIE LLCC driver"
 	depends on QCOM_LLCC
@@ -152,7 +160,7 @@ config QCOM_PM
 
 config QCOM_QMI_HELPERS
 	bool "Qualcomm QMI Helpers"
-	depends on QRTR
+	depends on QRTR || QTI_QRTR
 	help
 	  Helper library for handling QMI encoded messages.  QMI encoded
 	  messages are used in communication between the majority of QRTR
@@ -236,6 +244,15 @@ config QCOM_SCM
 	 SCM provides communication channel to communicate with secure
 	 world(EL2 and EL3) by using smc call.
 	 SCM driver provides the support for atomic scm calls also.
+
+config QCOM_SCM_QCPE
+	bool "Para-Virtualized Secure Channel Manager (SCM) support over QCPE"
+	default n
+        help
+	 Say y here to enable Secure Channel Mananger(SCM) support for SoC
+	 in virtualized Linux, where SCM backend is QCPE (QCOM Protected
+	 environment). The SCM channel will use QCOM HAB interface for
+	 fronet-end to back-end communication.
 
 config QCOM_MEMORY_DUMP_V2
 	bool "QCOM Memory Dump V2 Support"

@@ -269,6 +269,7 @@ static struct notifier_block ipa3_active_clients_panic_blk = {
 	.notifier_call  = ipa3_active_clients_panic_notifier,
 };
 
+#ifdef CONFIG_IPA_DEBUG
 static int ipa3_active_clients_log_insert(const char *string)
 {
 	int head;
@@ -293,6 +294,7 @@ static int ipa3_active_clients_log_insert(const char *string)
 
 	return 0;
 }
+#endif
 
 static int ipa3_active_clients_log_init(void)
 {
@@ -2632,6 +2634,19 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 	return retval;
 }
 
+/*
+ * ipa3_update_ssr_state() - updating current SSR state
+ * @is_ssr:	[in] Current SSR state
+ */
+
+void ipa3_update_ssr_state(bool is_ssr)
+{
+	if (is_ssr)
+		atomic_set(&ipa3_ctx->is_ssr, 1);
+	else
+		atomic_set(&ipa3_ctx->is_ssr, 0);
+}
+
 /**
  * ipa3_q6_pre_shutdown_cleanup() - A cleanup for all Q6 related configuration
  *                    in IPA HW. This is performed in case of SSR.
@@ -2645,6 +2660,7 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+	ipa3_update_ssr_state(true);
 	if (!ipa3_ctx->ipa_endp_delay_wa)
 		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
@@ -2674,15 +2690,9 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 		ipa3_q6_pipe_delay(false);
 		ipa3_set_reset_client_prod_pipe_delay(true,
 			IPA_CLIENT_USB_PROD);
-		if (ipa3_ctx->ipa_config_is_mhi)
-			ipa3_set_reset_client_prod_pipe_delay(true,
-				IPA_CLIENT_MHI_PROD);
 	} else {
 		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD,
 						false);
-		if (ipa3_ctx->ipa_config_is_mhi)
-			ipa3_start_stop_client_prod_gsi_chnl(
-					IPA_CLIENT_MHI_PROD, false);
 	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -2746,6 +2756,27 @@ void ipa3_q6_post_shutdown_cleanup(void)
 	IPADBG_LOW("Exit with success\n");
 }
 
+/**
+ * ipa3_q6_pre_powerup_cleanup() - A cleanup routine for pheripheral
+ * configuration in IPA HW. This is performed in case of SSR.
+ *
+ * This is a mandatory procedure, in case one of the steps fails, the
+ * AP needs to restart.
+ */
+void ipa3_q6_pre_powerup_cleanup(void)
+{
+	IPADBG_LOW("ENTER\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_ctx->ipa_config_is_mhi)
+		ipa3_set_reset_client_prod_pipe_delay(true,
+			IPA_CLIENT_MHI_PROD);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG_LOW("Exit with success\n");
+}
+
 /*
  * ipa3_client_prod_post_shutdown_cleanup () - As part of this function
  * set end point delay client producer pipes and starting corresponding
@@ -2761,12 +2792,6 @@ void ipa3_client_prod_post_shutdown_cleanup(void)
 	ipa3_set_reset_client_prod_pipe_delay(true,
 				IPA_CLIENT_USB_PROD);
 	ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD, true);
-
-	if (ipa3_ctx->ipa_config_is_mhi) {
-		ipa3_set_reset_client_prod_pipe_delay(true,
-						IPA_CLIENT_MHI_PROD);
-		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_MHI_PROD, true);
-	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -3766,6 +3791,9 @@ void ipa3_disable_clks(void)
 
 	ipa3_ctx->ctrl->ipa3_disable_clks();
 
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_set_clock_index(0);
+
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
 	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
@@ -3819,7 +3847,9 @@ static void ipa3_start_tag_process(struct work_struct *work)
  * - Remove and deallocate unneeded data structure
  * - Log the call in the circular history buffer (unless it is a simple call)
  */
-void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
+#ifdef CONFIG_IPA_DEBUG
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
 		bool inc, bool int_ctx)
 {
 	char temp_str[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN];
@@ -3881,6 +3911,13 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
 }
+#else
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
+		bool inc, bool int_ctx)
+{
+}
+#endif
 
 void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx)
@@ -4711,6 +4748,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
 
+	/* The following will retrieve and save the gsi fw version */
+	ipa_save_gsi_ver();
+
 	/*
 	 * In Virtual and Emulation mode, IPAHAL initialized at
 	 * pre_init as there is no SMMU. In normal mode need to wait
@@ -5305,6 +5345,32 @@ static int ipa3_alloc_pkt_init(void)
 	return 0;
 }
 
+/*
+ * SCM call to check if secure dump is allowed.
+ *
+ * Returns true in secure dump allowed.
+ * Return false when secure dump not allowed.
+ */
+#define TZ_UTIL_GET_SEC_DUMP_STATE  0x10
+static bool ipa_is_mem_dump_allowed(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+
+	ret = scm_call2(
+		SCM_SIP_FNID(SCM_SVC_UTIL, TZ_UTIL_GET_SEC_DUMP_STATE),
+		&desc);
+	if (ret) {
+		IPAERR("SCM DUMP_STATE call failed\n");
+		return false;
+	}
+
+	return (desc.ret[0] == 1);
+}
+
 /**
  * ipa3_pre_init() - Initialize the IPA Driver.
  * This part contains all initialization which doesn't require IPA HW, such
@@ -5397,6 +5463,30 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->do_non_tn_collection_on_crash =
 	    resource_p->do_non_tn_collection_on_crash;
 	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
+	ipa3_ctx->secure_debug_check_action =
+	    resource_p->secure_debug_check_action;
+
+	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
+		if (ipa_is_mem_dump_allowed())
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			ipa3_ctx->sd_state = SD_DISABLED;
+	} else {
+		if (ipa3_ctx->secure_debug_check_action == OVERRIDE_SCM_TRUE)
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			/* secure_debug_check_action == OVERRIDE_SCM_FALSE */
+			ipa3_ctx->sd_state = SD_DISABLED;
+	}
+
+	if (ipa3_ctx->sd_state == SD_ENABLED) {
+		/* secure debug is enabled. */
+		IPADBG("secure debug enabled\n");
+	} else {
+		/* secure debug is disabled. */
+		IPADBG("secure debug disabled\n");
+		ipa3_ctx->do_testbus_collection_on_crash = false;
+	}
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5518,7 +5608,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/*
 	 * Setup access for register collection/dump on crash
 	 */
-	if (ipa_reg_save_init(0xFF) != 0) {
+	if (ipa_reg_save_init(IPA_MEM_INIT_VAL) != 0) {
 		result = -EFAULT;
 		goto fail_gsi_map;
 	}
@@ -6393,6 +6483,19 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": doing register collection on crash = %s\n",
 	       ipa_drv_res->do_register_collection_on_crash ? "True":"False");
 
+	result = of_property_read_u32(
+		pdev->dev.of_node,
+		"qcom,secure-debug-check-action",
+		&ipa_drv_res->secure_debug_check_action);
+	if (result ||
+		(ipa_drv_res->secure_debug_check_action != 0 &&
+		 ipa_drv_res->secure_debug_check_action != 1 &&
+		 ipa_drv_res->secure_debug_check_action != 2))
+		ipa_drv_res->secure_debug_check_action = USE_SCM;
+
+	IPADBG(": secure-debug-check-action = %d\n",
+		   ipa_drv_res->secure_debug_check_action);
+
 	return 0;
 }
 
@@ -6820,6 +6923,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;
+	cb->next_addr = cb->va_end;
 
 	return 0;
 }
@@ -7227,6 +7331,10 @@ int ipa3_get_smmu_params(struct ipa_smmu_in_params *in,
 			is_smmu_enable =
 				!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] |
 				ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN]);
+		break;
+	case IPA_SMMU_AP_CLIENT:
+		is_smmu_enable =
+			!(ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP]);
 		break;
 	default:
 		is_smmu_enable = 0;

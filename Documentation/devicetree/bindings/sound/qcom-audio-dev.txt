@@ -1707,6 +1707,7 @@ Optional properties:
 - qcom,mi2s-audio-intf : Property to specify if MI2S interface is used for the target
 - qcom,auxpcm-audio-intf : Property to specify if AUX PCM interface is used for the target
 - qcom,msm-mi2s-master : List of master/slave configuration for MI2S interfaces
+- qcom,msm_audio_ssr_devs: List the snd event framework clients
 
 Example:
 
@@ -1795,6 +1796,7 @@ Example:
 				"msm-dai-q6-tdm.36935";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 
 * SDX ASoC Machine driver

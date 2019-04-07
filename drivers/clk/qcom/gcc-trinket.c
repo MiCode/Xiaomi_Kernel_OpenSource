@@ -976,31 +976,6 @@ static struct clk_rcg2 gcc_camss_vfe1_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
-	F(19200000, P_BI_TCXO, 1, 0, 0),
-	{ }
-};
-
-static struct clk_rcg2 gcc_cpuss_ahb_clk_src = {
-	.cmd_rcgr = 0x2b13c,
-	.mnd_width = 0,
-	.hid_width = 5,
-	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_cpuss_ahb_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
-		.name = "gcc_cpuss_ahb_clk_src",
-		.parent_names = gcc_parent_names_0_ao,
-		.num_parents = 4,
-		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx_ao,
-		.num_rate_max = VDD_NUM,
-		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 19200000,
-			[VDD_LOW] = 50000000,
-			[VDD_NOMINAL] = 100000000},
-	},
-};
-
 static const struct freq_tbl ftbl_gcc_gp1_clk_src[] = {
 	F(25000000, P_GPLL0_OUT_AUX2, 12, 0, 0),
 	F(50000000, P_GPLL0_OUT_AUX2, 6, 0, 0),
@@ -2877,24 +2852,6 @@ static struct clk_branch gcc_cfg_noc_usb3_prim_axi_clk = {
 	},
 };
 
-static struct clk_branch gcc_cpuss_ahb_clk = {
-	.halt_reg = 0x2b000,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_ahb_clk",
-			.parent_names = (const char *[]){
-				"gcc_cpuss_ahb_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_IS_CRITICAL | CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_cpuss_gnoc_clk = {
 	.halt_reg = 0x2b004,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -2906,34 +2863,6 @@ static struct clk_branch gcc_cpuss_gnoc_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_cpuss_gnoc_clk",
 			.flags = CLK_IS_CRITICAL,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_cpuss_throttle_core_clk = {
-	.halt_reg = 0x2b180,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x2b180,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(30),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_throttle_core_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_cpuss_throttle_xo_clk = {
-	.halt_reg = 0x2b17c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x2b17c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_throttle_xo_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3269,21 +3198,6 @@ static struct clk_branch gcc_qmip_camera_rt_ahb_clk = {
 		.enable_mask = BIT(2),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_qmip_camera_rt_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qmip_cpuss_cfg_ahb_clk = {
-	.halt_reg = 0x2b178,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x2b178,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(18),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qmip_cpuss_cfg_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4312,11 +4226,7 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_CE1_AXI_CLK] = &gcc_ce1_axi_clk.clkr,
 	[GCC_CE1_CLK] = &gcc_ce1_clk.clkr,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.clkr,
-	[GCC_CPUSS_AHB_CLK] = &gcc_cpuss_ahb_clk.clkr,
-	[GCC_CPUSS_AHB_CLK_SRC] = &gcc_cpuss_ahb_clk_src.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
-	[GCC_CPUSS_THROTTLE_CORE_CLK] = &gcc_cpuss_throttle_core_clk.clkr,
-	[GCC_CPUSS_THROTTLE_XO_CLK] = &gcc_cpuss_throttle_xo_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
 	[GCC_DISP_GPLL0_DIV_CLK_SRC] = &gcc_disp_gpll0_div_clk_src.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
@@ -4343,7 +4253,6 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_PRNG_AHB_CLK] = &gcc_prng_ahb_clk.clkr,
 	[GCC_QMIP_CAMERA_NRT_AHB_CLK] = &gcc_qmip_camera_nrt_ahb_clk.clkr,
 	[GCC_QMIP_CAMERA_RT_AHB_CLK] = &gcc_qmip_camera_rt_ahb_clk.clkr,
-	[GCC_QMIP_CPUSS_CFG_AHB_CLK] = &gcc_qmip_cpuss_cfg_ahb_clk.clkr,
 	[GCC_QMIP_DISP_AHB_CLK] = &gcc_qmip_disp_ahb_clk.clkr,
 	[GCC_QMIP_GPU_CFG_AHB_CLK] = &gcc_qmip_gpu_cfg_ahb_clk.clkr,
 	[GCC_QMIP_VIDEO_VCODEC_AHB_CLK] = &gcc_qmip_video_vcodec_ahb_clk.clkr,

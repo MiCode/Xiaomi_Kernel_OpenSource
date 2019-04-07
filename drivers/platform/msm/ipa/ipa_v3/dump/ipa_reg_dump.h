@@ -26,21 +26,9 @@
  */
 #define my_in_dword(addr) \
 	(readl(addr))
-#define in_dword(addr) \
-	my_in_dword((u8 *) ipa3_ctx->reg_collection_base + \
-		    (u32)(addr))
-
-#define my_in_dword_masked(addr, mask) \
-	(my_in_dword(addr) & (mask))
-#define in_dword_masked(addr, mask) \
-	my_in_dword_masked((u8 *) ipa3_ctx->reg_collection_base + \
-			   (u32)(addr), (mask))
 
 #define my_out_dword(addr, val) \
 	({ __iowmb(); writel_relaxed((val), (addr)); })
-#define out_dword(addr, val) \
-	my_out_dword((u8 *) ipa3_ctx->reg_collection_base + \
-		     (u32)(addr), (val))
 
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
@@ -113,8 +101,6 @@
 
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_BIT_MASK 0x7E000
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT    13
-
-#define IPA_REG_SAVE_HWP_GSI_EE                  2
 
 /*
  * A structure used to map a source address to destination address...
@@ -238,6 +224,12 @@ struct map_src_dst_addr_s {
 		ipa_reg_save.ipa.testbus->ep_rsrc[rsrc_type].entry_ep \
 		[rsrc_grp].testbus_data.value)
 
+/*
+ * Macro to pluck the gsi version from ram.
+ */
+#define IPA_REG_SAVE_GSI_VER(reg_name, var_name)	\
+	{ GEN_1xVECTOR_REG_OFST(reg_name, 0), \
+		(u32 *)&ipa_reg_save.gsi.gen.var_name }
 /*
  * Macro to define a particular register cfg entry for all 3 EE
  * indexed register
@@ -386,27 +378,14 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_A7_EE].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE), \
 		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_Q6_EE].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE), \
-		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_REG_SAVE_HWP_GSI_EE].\
-			var_name }
+	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE), \
+		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_UC_EE].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all GSI EE
  * register
  */
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_CH_CNTXT(reg_name, var_name) \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 0), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 1), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[1].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 2), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[2].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[3].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 4), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[4].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 5), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[5].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[0].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 1), \
@@ -435,20 +414,18 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[12].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 13), \
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[13].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 1), \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 14), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[14].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 0),	\
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[1].var_name }
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 1), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[1].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 2),	\
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[2].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 3), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[3].var_name }
 
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_EVT_CNTXT(reg_name, var_name) \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 0), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 1), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[1].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 2), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[2].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[3].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[0].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 1), \
@@ -473,7 +450,7 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[10].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 11), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[11].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 1), \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.uc[0].var_name }
 
 /*
@@ -496,6 +473,7 @@ struct map_src_dst_addr_s {
 enum ipa_hw_ee_e {
 	IPA_HW_A7_EE  = 0, /* A7's execution environment */
 	IPA_HW_Q6_EE  = 1, /* Q6's execution environment */
+	IPA_HW_UC_EE  = 2, /* UC's execution environment */
 	IPA_HW_HWP_EE = 3, /* HWP's execution environment */
 	IPA_HW_EE_MAX,     /* Max EE to support */
 };
@@ -823,7 +801,11 @@ struct ipa_reg_save_dbg_s {
 	union ipa_hwio_def_ipa_hps_dps_cmdq_status_u
 		ipa_hps_dps_cmdq_status_arr[IPA_TESTBUS_SEL_EP_MAX + 1];
 	struct ipa_hwio_def_ipa_hps_dps_cmdq_status_empty_s
-	  ipa_hps_dps_cmdq_status_empty;
+		ipa_hps_dps_cmdq_status_empty;
+	union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_u
+		ipa_rx_hps_cmdq_cfg_wr;
+	union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_u
+		ipa_rx_hps_cmdq_cfg_rd;
 
 	struct ipa_hwio_def_ipa_dps_tx_cmdq_cmd_s
 	  ipa_dps_tx_cmdq_cmd;
@@ -916,6 +898,8 @@ struct ipa_reg_save_gsi_gen_s {
 	  gsi_cfg;
 	struct gsi_hwio_def_gsi_ree_cfg_s
 	  gsi_ree_cfg;
+	struct ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_s
+	  ipa_gsi_top_gsi_inst_ram_n;
 };
 
 /* GSI General EE register save data struct */
@@ -1191,8 +1175,6 @@ struct ipa_reg_save_gsi_ch_cntxt_s {
 	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
 		a7[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_A7];
 	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
-		q6[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6];
-	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
 		uc[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC];
 };
 
@@ -1201,15 +1183,13 @@ struct ipa_reg_save_gsi_evt_cntxt_s {
 	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
 		a7[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_A7];
 	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
-		q6[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_Q6];
-	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
 		uc[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_UC];
 };
 
 /* Top level IPA register save data struct */
 struct ipa_regs_save_hierarchy_s {
 	struct ipa_gen_regs_s			gen;
-	struct ipa_reg_save_gen_ee_s		gen_ee[IPA_HW_EE_MAX];
+	struct ipa_reg_save_gen_ee_s	gen_ee[IPA_HW_EE_MAX];
 	struct ipa_reg_save_hwp_s		hwp;
 	struct ipa_reg_save_dbg_s		dbg;
 	struct ipa_reg_save_ipa_testbus_s	*testbus;
@@ -1226,6 +1206,7 @@ struct ipa_regs_save_hierarchy_s {
 
 /* Top level GSI register save data struct */
 struct gsi_regs_save_hierarchy_s {
+	u32 fw_ver;
 	struct ipa_reg_save_gsi_gen_s		gen;
 	struct ipa_reg_save_gsi_gen_ee_s	gen_ee[IPA_REG_SAVE_GSI_NUM_EE];
 	struct ipa_reg_save_gsi_ch_cntxt_s	ch_cntxt;
@@ -1268,17 +1249,121 @@ struct ipa_reg_save_rsrc_cnts_s {
 
 /* Top level IPA and GSI registers save data struct */
 struct regs_save_hierarchy_s {
-	struct ipa_regs_save_hierarchy_s	ipa;
-	struct gsi_regs_save_hierarchy_s	gsi;
-	bool pkt_ctntx_active[IPA_HW_PKT_CTNTX_MAX];
-	union ipa_hwio_def_ipa_ctxh_ctrl_u	pkt_ctntxt_lock;
+	struct ipa_regs_save_hierarchy_s
+		ipa;
+	struct gsi_regs_save_hierarchy_s
+		gsi;
+	bool
+		pkt_ctntx_active[IPA_HW_PKT_CTNTX_MAX];
+	union ipa_hwio_def_ipa_ctxh_ctrl_u
+		pkt_ctntxt_lock;
 	enum ipa_hw_pkt_cntxt_state_e
-	  pkt_cntxt_state[IPA_HW_PKT_CTNTX_MAX];
+		pkt_cntxt_state[IPA_HW_PKT_CTNTX_MAX];
 	struct ipa_pkt_ctntx_s
-	  pkt_ctntx[IPA_HW_PKT_CTNTX_MAX];
-	struct ipa_reg_save_rsrc_cnts_s		rsrc_cnts;
+		pkt_ctntx[IPA_HW_PKT_CTNTX_MAX];
+	struct ipa_reg_save_rsrc_cnts_s
+		rsrc_cnts;
 	struct ipa_reg_save_gsi_fifo_status_s
-	  gsi_fifo_status[IPA_HW_PIPE_ID_MAX];
+		gsi_fifo_status[IPA_HW_PIPE_ID_MAX];
+};
+
+/*
+ * The following section deals with handling IPA registers' memory
+ * access relative to pre-defined memory protection schemes
+ * (ie. "access control").
+ *
+ * In a nut shell, the intent of the data stuctures below is to allow
+ * higher level register accessors to be unaware of what really is
+ * going on at the lowest level (ie. real vs non-real access).  This
+ * methodology is also designed to allow for platform specific "access
+ * maps."
+ */
+
+/*
+ * Function for doing an actual read
+ */
+static inline u32
+act_read(void __iomem *addr)
+{
+	u32 val = my_in_dword(addr);
+
+	return val;
+}
+
+/*
+ * Function for doing an actual write
+ */
+static inline void
+act_write(void __iomem *addr, u32 val)
+{
+	my_out_dword(addr, val);
+}
+
+/*
+ * Function that pretends to do a read
+ */
+static inline u32
+nop_read(void __iomem *addr)
+{
+	return IPA_MEM_INIT_VAL;
+}
+
+/*
+ * Function that pretends to do a write
+ */
+static inline void
+nop_write(void __iomem *addr, u32 val)
+{
+}
+
+/*
+ * The following are used to define struct reg_access_funcs_s below...
+ */
+typedef u32 (*reg_read_func_t)(
+	void __iomem *addr);
+typedef void (*reg_write_func_t)(
+	void __iomem *addr,
+	u32 val);
+
+/*
+ * The following in used to define io_matrix[] below...
+ */
+struct reg_access_funcs_s {
+	reg_read_func_t  read;
+	reg_write_func_t write;
+};
+
+/*
+ * The following will be used to appropriately index into the
+ * read/write combos defined in io_matrix[] below...
+ */
+#define AA_COMBO 0 /* actual read, actual write */
+#define AN_COMBO 1 /* actual read, no-op write  */
+#define NA_COMBO 2 /* no-op read,  actual write */
+#define NN_COMBO 3 /* no-op read,  no-op write  */
+
+/*
+ * The following will be used to dictate registers' access methods
+ * relative to the state of secure debug...whether it's enabled or
+ * disabled.
+ *
+ * NOTE: The table below defines all access combinations.
+ */
+static struct reg_access_funcs_s io_matrix[] = {
+	{ act_read, act_write }, /* the AA_COMBO */
+	{ act_read, nop_write }, /* the AN_COMBO */
+	{ nop_read, act_write }, /* the NA_COMBO */
+	{ nop_read, nop_write }, /* the NN_COMBO */
+};
+
+/*
+ * The following will be used to define and drive IPA's register
+ * access rules.
+ */
+struct reg_mem_access_map_t {
+	u32 addr_range_begin;
+	u32 addr_range_end;
+	struct reg_access_funcs_s *access[2];
 };
 
 #endif /* #if !defined(_IPA_REG_DUMP_H_) */

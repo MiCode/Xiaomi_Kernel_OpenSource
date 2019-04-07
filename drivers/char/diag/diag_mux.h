@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +39,7 @@ struct diag_mux_ops {
 #define DIAG_MUX_BRIDGE_BASE	DIAG_MUX_LOCAL_LAST
 #define DIAG_MUX_MDM		(DIAG_MUX_BRIDGE_BASE)
 #define DIAG_MUX_MDM2		(DIAG_MUX_BRIDGE_BASE + 1)
-#define DIAG_MUX_SMUX		(DIAG_MUX_BRIDGE_BASE + 2)
-#define DIAG_MUX_BRIDGE_LAST	(DIAG_MUX_BRIDGE_BASE + 3)
+#define DIAG_MUX_BRIDGE_LAST	(DIAG_MUX_BRIDGE_BASE + 2)
 
 #ifndef CONFIG_DIAGFWD_BRIDGE_CODE
 #define NUM_MUX_PROC		DIAG_MUX_LOCAL_LAST

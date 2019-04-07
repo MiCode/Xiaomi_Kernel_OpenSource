@@ -22,12 +22,15 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include "leds-pca9956b.h"
+#include <linux/gpio.h>
+#include <linux/delay.h>
 
 #define PCA9956B_LED_NUM	24
 #define MAX_DEVICES		32
 
 #define DRIVER_NAME		"nxp-ledseg"
 #define DRIVER_VERSION		"17.11.28"
+#define LED_RESET_GPIO          95
 
 struct pca9956b_chip {
 	struct i2c_client *client;
@@ -43,6 +46,7 @@ struct pca9956b_led {
 };
 
 static struct device *pca9956b_dev;
+static int pca9956b_setup(struct pca9956b_chip *chip);
 
 /*
  * Read one byte from given register address.
@@ -229,19 +233,67 @@ static void pca9956b_brightness_set(struct led_classdev *led_cdev,
 	struct pca9956b_led *pca9956b;
 	struct pca9956b_chip *chip;
 	int ret;
+	uint8_t reg_value;
 
 	pca9956b = container_of(led_cdev, struct pca9956b_led, led_cdev);
 	chip = pca9956b->chip;
 
 	mutex_lock(&chip->lock);
+	ret = pca9956b_read_reg(chip, PCA9956B_IREF0, &reg_value);
+	mutex_unlock(&chip->lock);
+	if (ret != 0)
+		dev_err(&chip->client->dev,
+			"[%s] Reading PCA9956B_IREF0 reg is failed\n",
+			__func__);
+	else if (reg_value != 0x2f) {
+		ret = pca9956b_setup(chip);
+		if (ret != 0)
+			dev_err(&chip->client->dev,
+				"[%s] pca9956b_setup = %d\n", __func__, ret);
+	}
+
+	mutex_lock(&chip->lock);
 	ret = pca9956b_write_reg(chip,
 				PCA9956B_PWM0 + pca9956b->led_num,
 				value);
+	mutex_unlock(&chip->lock);
 	if (ret != 0)
+		dev_err(&chip->client->dev,
+			"[%s] pca9956b_write_reg failed = %d\n",
+			__func__, ret);
+
+	if (ret == -2) {
 		dev_err(&chip->client->dev, "[%s] is failed = %d.\n",
 			__func__, ret);
 
-	mutex_unlock(&chip->lock);
+		ret = gpio_request(LED_RESET_GPIO, "LED RESET GPIO");
+		if (ret < 0) {
+			dev_err(&chip->client->dev,
+				"failed opening GPIO %d\n", ret);
+			return;
+		}
+
+		gpio_export(LED_RESET_GPIO, 1);
+		usleep_range(200000, 400000);
+		ret = gpio_direction_output(LED_RESET_GPIO, 0);
+		if (ret < 0) {
+			dev_err(&chip->client->dev,
+				"failed setting GPIO direction %d\n", ret);
+			gpio_free(LED_RESET_GPIO);
+			return;
+		}
+		usleep_range(200000, 400000);
+
+		ret = gpio_direction_output(LED_RESET_GPIO, 1);
+		gpio_set_value(LED_RESET_GPIO, 1);
+		usleep_range(200000, 400000);
+
+		ret = pca9956b_setup(chip);
+		if (ret < 0)
+			dev_err(&chip->client->dev, "failed pca9956b_setup\n");
+
+		gpio_free(LED_RESET_GPIO);
+	}
 }
 
 /*

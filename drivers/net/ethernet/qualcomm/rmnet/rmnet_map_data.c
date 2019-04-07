@@ -1136,7 +1136,7 @@ new_packet:
 		 * sparse, don't aggregate. We will need to tune this later
 		 */
 		diff = timespec_sub(port->agg_last, last);
-		size = port->egress_agg_size - skb->len;
+		size = port->egress_agg_params.agg_size - skb->len;
 
 		if (diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_bypass_time ||
 		    size <= 0) {
@@ -1163,9 +1163,10 @@ new_packet:
 		goto schedule;
 	}
 	diff = timespec_sub(port->agg_last, port->agg_time);
+	size = port->egress_agg_params.agg_size - port->agg_skb->len;
 
-	if (skb->len > (port->egress_agg_size - port->agg_skb->len) ||
-	    port->agg_count >= port->egress_agg_count ||
+	if (skb->len > size ||
+	    port->agg_count >= port->egress_agg_params.agg_count ||
 	    diff.tv_sec > 0 || diff.tv_nsec > rmnet_agg_time_limit) {
 		agg_skb = port->agg_skb;
 		agg_count = port->agg_count;
@@ -1187,7 +1188,8 @@ new_packet:
 schedule:
 	if (port->agg_state != -EINPROGRESS) {
 		port->agg_state = -EINPROGRESS;
-		hrtimer_start(&port->hrtimer, ns_to_ktime(3000000),
+		hrtimer_start(&port->hrtimer,
+			      ns_to_ktime(port->egress_agg_params.agg_time),
 			      HRTIMER_MODE_REL);
 	}
 	spin_unlock_irqrestore(&port->agg_lock, flags);
@@ -1197,8 +1199,9 @@ void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 {
 	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
-	port->egress_agg_size = 8192;
-	port->egress_agg_count = 20;
+	port->egress_agg_params.agg_size = 8192;
+	port->egress_agg_params.agg_count = 20;
+	port->egress_agg_params.agg_time = 3000000;
 	spin_lock_init(&port->agg_lock);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);

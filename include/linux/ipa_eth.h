@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/ipc_logging.h>
 
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
@@ -141,8 +142,12 @@ struct ipa_eth_resource {
  * @features: Features enabled in the channel
  * @direction: Channel direction
  * @queue: Network device queue/ring number
- * @desc_mem: Descriptor ring memory
- * @buff_mem: Buffer memory pointed to by descriptors
+ * @desc_size: Size of each descriptor
+ * @desc_count: Number of descriptors in the ring
+ * @desc_mem: Descriptor ring memory base
+ * @buff_size: Size of each data buffer
+ * @buff_count: Number of data buffers
+ * @buff_mem: Data buffer memory base
  * @od_priv: Private field for use by offload driver
  * @eth_dev: Associated ipa_eth_device
  * @ipa_client: IPA client type enum to be used for the channel
@@ -164,7 +169,13 @@ struct ipa_eth_channel {
 	enum ipa_eth_channel_dir direction;
 
 	int queue;
+
+	u16 desc_size;
+	u32 desc_count;
 	struct ipa_eth_resource desc_mem;
+
+	u16 buff_size;
+	u32 buff_count;
 	struct ipa_eth_resource buff_mem;
 
 	/* fields managed by offload driver */
@@ -706,5 +717,29 @@ int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
 int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
 	size_t size, int prot, bool split);
 int ipa_eth_uc_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
+
+/* IPC logging interface */
+
+#define ipa_eth_ipc_do_log(ipcbuf, fmt, args...) \
+	do { \
+		void *__buf = (ipcbuf); \
+		if (__buf) \
+			ipc_log_string(__buf, " %s:%d " fmt "\n", \
+				__func__, __LINE__, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_log(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf(), \
+					fmt, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_dbg(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf_dbg(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf_dbg(), \
+					fmt, ## args); \
+	} while (0)
 
 #endif // _IPA_ETH_H_

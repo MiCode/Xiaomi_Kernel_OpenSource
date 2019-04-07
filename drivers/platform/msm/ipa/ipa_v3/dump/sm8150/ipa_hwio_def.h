@@ -224,6 +224,17 @@ union ipa_hwio_def_ipa_gsi_top_gsi_iram_ptr_int_mod_stopped_u {
 		def;
 	u32 value;
 };
+struct ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_s {
+	u32 inst_byte_0 : 8;
+	u32 inst_byte_1 : 8;
+	u32 inst_byte_2 : 8;
+	u32 inst_byte_3 : 8;
+};
+union ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_u {
+	struct ipa_hwio_def_ipa_gsi_top_gsi_inst_ram_n_s
+		def;
+	u32 value;
+};
 struct ipa_hwio_def_ipa_gsi_top_gsi_shram_n_s {
 	u32 shram : 32;
 };
@@ -1862,6 +1873,22 @@ struct ipa_hwio_def_ipa_rx_hps_cmdq_cmd_s {
 union ipa_hwio_def_ipa_rx_hps_cmdq_cmd_u {
 	struct ipa_hwio_def_ipa_rx_hps_cmdq_cmd_s	def;
 	u32					value;
+};
+struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_s {
+	u32	block_wr : 4;
+	u32	reserved0 : 28;
+};
+union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_u {
+	struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_s	def;
+	u32						value;
+};
+struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_s {
+	u32	block_rd : 4;
+	u32	reserved0 : 28;
+};
+union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_u {
+	struct ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_s	def;
+	u32						value;
 };
 struct ipa_hwio_def_ipa_rx_hps_cmdq_data_rd_0_s {
 	u32	cmdq_packet_len_f : 16;

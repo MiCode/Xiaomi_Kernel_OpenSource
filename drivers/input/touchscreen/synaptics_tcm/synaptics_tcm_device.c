@@ -257,10 +257,13 @@ static int device_ioctl(struct inode *inp, struct file *filp, unsigned int cmd,
 			retval = tcm_hcd->enable_irq(tcm_hcd, true, NULL);
 		break;
 	case DEVICE_IOC_RAW:
-		if (arg == 0)
+		if (arg == 0) {
 			device_hcd->raw_mode = false;
-		else if (arg == 1)
+			tcm_hcd->update_watchdog(tcm_hcd, true);
+		} else if (arg == 1) {
 			device_hcd->raw_mode = true;
+			tcm_hcd->update_watchdog(tcm_hcd, false);
+		}
 		break;
 	case DEVICE_IOC_CONCURRENT:
 		if (arg == 0)

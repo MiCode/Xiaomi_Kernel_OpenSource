@@ -30,9 +30,13 @@ static LIST_HEAD(ipa_eth_devices);
 static DEFINE_MUTEX(ipa_eth_devices_lock);
 
 static bool ipa_eth_noauto = IPA_ETH_NOAUTO_DEFAULT;
-module_param(ipa_eth_noauto, bool, 0644);
+module_param(ipa_eth_noauto, bool, 0444);
 MODULE_PARM_DESC(ipa_eth_noauto,
 	"Disable automatic offload initialization of interfaces");
+
+static bool ipa_eth_ipc_logdbg = IPA_ETH_IPC_LOGDBG_DEFAULT;
+module_param(ipa_eth_ipc_logdbg, bool, 0444);
+MODULE_PARM_DESC(ipa_eth_ipc_logdbg, "Log debug IPC messages");
 
 static inline bool ipa_eth_ready(void)
 {
@@ -570,6 +574,8 @@ int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 
 	list_add(&eth_dev->device_list, &ipa_eth_devices);
 
+	ipa_eth_dev_log(eth_dev, "Registered new device");
+
 	(void) __ipa_eth_pair_device(eth_dev);
 
 	mutex_unlock(&ipa_eth_devices_lock);
@@ -583,6 +589,8 @@ void ipa_eth_unregister_device(struct ipa_eth_device *eth_dev)
 
 	__ipa_eth_unpair_device(eth_dev);
 	list_del(&eth_dev->device_list);
+
+	ipa_eth_dev_log(eth_dev, "Unregistered device");
 
 	mutex_unlock(&ipa_eth_devices_lock);
 }
@@ -727,7 +735,15 @@ int ipa_eth_iommu_unmap(struct iommu_domain *domain,
  */
 int ipa_eth_register_net_driver(struct ipa_eth_net_driver *nd)
 {
-	return ipa_eth_bus_register_driver(nd);
+	int rc;
+
+	rc = ipa_eth_bus_register_driver(nd);
+	if (rc)
+		ipa_eth_err("Failed to register network driver %s", nd->name);
+	else
+		ipa_eth_log("Registered network driver %s", nd->name);
+
+	return rc;
 }
 EXPORT_SYMBOL(ipa_eth_register_net_driver);
 
@@ -737,7 +753,7 @@ EXPORT_SYMBOL(ipa_eth_register_net_driver);
  */
 void ipa_eth_unregister_net_driver(struct ipa_eth_net_driver *nd)
 {
-	return ipa_eth_bus_unregister_driver(nd);
+	ipa_eth_bus_unregister_driver(nd);
 }
 EXPORT_SYMBOL(ipa_eth_unregister_net_driver);
 
@@ -758,6 +774,8 @@ int ipa_eth_register_offload_driver(struct ipa_eth_offload_driver *od)
 		return rc;
 	}
 
+	ipa_eth_log("Registered offload driver %s", od->name);
+
 	ipa_eth_pair_devices();
 
 	return 0;
@@ -772,6 +790,8 @@ void ipa_eth_unregister_offload_driver(struct ipa_eth_offload_driver *od)
 {
 	ipa_eth_unpair_devices(od);
 	ipa_eth_offload_unregister_driver(od);
+
+	ipa_eth_log("Unregistered offload driver %s", od->name);
 }
 EXPORT_SYMBOL(ipa_eth_unregister_offload_driver);
 
@@ -826,6 +846,12 @@ static int ipa_eth_debugfs_init(void)
 	(void) debugfs_create_bool("uc_ready", 0444,
 				   ipa_eth_debugfs, &ipa_eth_ipa_uc_is_ready);
 
+	(void) debugfs_create_bool("no_auto", 0644,
+				   ipa_eth_debugfs, &ipa_eth_noauto);
+
+	(void) debugfs_create_bool("ipc_logdbg", 0644,
+				   ipa_eth_debugfs, &ipa_eth_ipc_logdbg);
+
 	return 0;
 
 err_exit:
@@ -833,11 +859,52 @@ err_exit:
 	return rc;
 }
 
+static void *ipa_eth_ipc_logbuf;
+
+void *ipa_eth_get_ipc_logbuf(void)
+{
+	return ipa_eth_ipc_logbuf;
+}
+EXPORT_SYMBOL(ipa_eth_get_ipc_logbuf);
+
+void *ipa_eth_get_ipc_logbuf_dbg(void)
+{
+	return ipa_eth_ipc_logdbg ? ipa_eth_ipc_logbuf : NULL;
+}
+EXPORT_SYMBOL(ipa_eth_get_ipc_logbuf_dbg);
+
+#define IPA_ETH_IPC_LOG_PAGES 50
+
+static int ipa_eth_ipc_log_init(void)
+{
+	if (ipa_eth_ipc_logbuf)
+		return 0;
+
+	ipa_eth_ipc_logbuf = ipc_log_context_create(
+				IPA_ETH_IPC_LOG_PAGES, IPA_ETH_SUBSYS, 0);
+
+	return ipa_eth_ipc_logbuf ? 0 : -EFAULT;
+}
+
+static void ipa_eth_ipc_log_cleanup(void)
+{
+	if (ipa_eth_ipc_logbuf) {
+		ipc_log_context_destroy(ipa_eth_ipc_logbuf);
+		ipa_eth_ipc_logbuf = NULL;
+	}
+}
+
 int ipa_eth_init(void)
 {
 	int rc;
 
 	ipa_eth_dbg("Initializing IPA Ethernet Offload Sub-System");
+
+	rc = ipa_eth_ipc_log_init();
+	if (rc) {
+		ipa_eth_err("Failed to initialize IPC logging");
+		goto err_ipclog;
+	}
 
 	rc = ipa_eth_debugfs_init();
 	if (rc) {
@@ -884,6 +951,8 @@ err_offload:
 err_bus:
 	ipa_eth_debugfs_cleanup();
 err_dbgfs:
+	ipa_eth_ipc_log_cleanup();
+err_ipclog:
 	return rc;
 }
 
@@ -899,4 +968,5 @@ void ipa_eth_exit(void)
 	ipa_eth_offload_modexit();
 	ipa_eth_bus_modexit();
 	ipa_eth_debugfs_cleanup();
+	ipa_eth_ipc_log_cleanup();
 }

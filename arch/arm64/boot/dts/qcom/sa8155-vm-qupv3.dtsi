@@ -952,6 +952,7 @@
 		pinctrl-1 = <&qupv3_se22_spi_sleep>;
 		spi-max-frequency = <50000000>;
 		qcom,wrapper-core = <&qupv3_3>;
+		qcom,disable-dma;
 		status = "disabled";
 	};
 };

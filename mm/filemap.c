@@ -2275,6 +2275,12 @@ static struct file *maybe_unlock_mmap_for_io(struct vm_fault *vmf,
 	int flags = vmf->flags;
 	if (fpin)
 		return fpin;
+
+	/*
+	 * FAULT_FLAG_RETRY_NOWAIT means we don't want to wait on page locks or
+	 * anything, so we only pin the file and drop the mmap_sem if only
+	 * FAULT_FLAG_ALLOW_RETRY is set.
+	 */
 	if ((flags & (FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_RETRY_NOWAIT)) ==
 	    FAULT_FLAG_ALLOW_RETRY) {
 		fpin = get_file(vmf->vma->vm_file);
@@ -2284,10 +2290,15 @@ static struct file *maybe_unlock_mmap_for_io(struct vm_fault *vmf,
 }
 
 /*
- * Works similar to lock_page_or_retry, except it will pin the file and drop the
- * mmap_sem if necessary and then lock the page, and return 1 in this case.
- * This means the caller needs to deal with the fpin appropriately.  0 return is
- * the same as in lock_page_or_retry.
+ * lock_page_maybe_drop_mmap - lock the page, possibly dropping the mmap_sem
+ * @vmf - the vm_fault for this fault.
+ * @page - the page to lock.
+ * @fpin - the pointer to the file we may pin (or is already pinned).
+ *
+ * This works similar to lock_page_or_retry in that it can drop the mmap_sem.
+ * It differs in that it actually returns the page locked if it returns 1 and 0
+ * if it couldn't lock the page.  If we did have to drop the mmap_sem then fpin
+ * will point to the pinned file and needs to be fput()'ed at a later point.
  */
 static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 				     struct file **fpin)
@@ -2295,9 +2306,10 @@ static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 	if (trylock_page(page))
 		return 1;
 
-	*fpin = maybe_unlock_mmap_for_io(vmf, *fpin);
 	if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT)
 		return 0;
+
+	*fpin = maybe_unlock_mmap_for_io(vmf, *fpin);
 	if (vmf->flags & FAULT_FLAG_KILLABLE) {
 		if (__lock_page_killable(page)) {
 			/*
@@ -2317,8 +2329,11 @@ static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 
 
 /*
- * Synchronous readahead happens when we don't even find
- * a page in the page cache at all.
+ * Synchronous readahead happens when we don't even find a page in the page
+ * cache at all.  We don't want to perform IO under the mmap sem, so if we have
+ * to drop the mmap sem we return the file that was pinned in order for us to do
+ * that.  If we didn't pin a file then we return NULL.  The file that is
+ * returned needs to be fput()'ed when we're done with it.
  */
 static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 {
@@ -2365,7 +2380,8 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 
 /*
  * Asynchronous readahead happens when we find the page and PG_readahead,
- * so we want to possibly extend the readahead further..
+ * so we want to possibly extend the readahead further.  We return the file that
+ * was pinned if we have to drop the mmap_sem in order to do IO.
  */
 static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 					    struct page *page)
@@ -2441,22 +2457,23 @@ int filemap_fault(struct vm_fault *vmf)
 		fpin = do_async_mmap_readahead(vmf, page);
 	} else if (!page) {
 		/* No page in the page cache at all */
-		fpin = do_sync_mmap_readahead(vmf);
 		count_vm_event(PGMAJFAULT);
 		count_memcg_event_mm(vmf->vma->vm_mm, PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
+		fpin = do_sync_mmap_readahead(vmf);
 retry_find:
 		page = pagecache_get_page(mapping, offset,
 					  FGP_CREAT|FGP_FOR_MMAP,
 					  vmf->gfp_mask);
-		if (!page)
+		if (!page) {
+			if (fpin)
+				goto out_retry;
 			return VM_FAULT_OOM;
+		}
 	}
 
-	if (!lock_page_maybe_drop_mmap(vmf, page, &fpin)) {
-		put_page(page);
-		return ret | VM_FAULT_RETRY;
-	}
+	if (!lock_page_maybe_drop_mmap(vmf, page, &fpin))
+		goto out_retry;
 
 	/* Did it get truncated? */
 	if (unlikely(page->mapping != mapping)) {
