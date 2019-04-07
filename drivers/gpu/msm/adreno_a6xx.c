@@ -2890,7 +2890,6 @@ static const struct {
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
-	{ adreno_is_a610, a6xx_efuse_speed_bin },
 	{ adreno_is_a610, a6xx_efuse_gaming_bin },
 	{ adreno_is_a640, a6xx_efuse_power_features },
 };
