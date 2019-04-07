@@ -2413,7 +2413,7 @@
 			compatible = "qcom,ipa-smmu-11ad-cb";
 			iommus = <&apps_smmu 0x5C3 0x0>;
 			qcom,shared-cb;
-			qcom,iommu-groups = <&wil6210_pci_iommu_group>;
+			qcom,iommu-group = <&wil6210_pci_iommu_group>;
 		};
 	};
 
