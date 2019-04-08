@@ -197,7 +197,7 @@ static struct npu_ion_buf *npu_alloc_npu_ion_buffer(struct npu_client
 
 	if (ret_val) {
 		/* mapped already, treat as invalid request */
-		pr_err("ion buf %x has been mapped\n");
+		pr_err("ion buf has been mapped\n");
 		ret_val = NULL;
 	} else {
 		ret_val = kzalloc(sizeof(*ret_val), GFP_KERNEL);
@@ -357,7 +357,7 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	}
 
 	if (ion_buf->iova != addr)
-		pr_warn("unmap address %lu doesn't match %lu\n", addr,
+		pr_warn("unmap address %llu doesn't match %llu\n", addr,
 			ion_buf->iova);
 
 	if (ion_buf->table)

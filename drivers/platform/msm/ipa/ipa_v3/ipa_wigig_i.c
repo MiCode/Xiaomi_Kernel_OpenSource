@@ -38,7 +38,7 @@
 static int ipa3_wigig_uc_loaded_handler(struct notifier_block *self,
 	unsigned long val, void *data)
 {
-	IPADBG("val %d\n", val);
+	IPADBG("val %lu\n", val);
 
 	if (!ipa3_ctx) {
 		IPAERR("IPA ctx is null\n");

@@ -372,7 +372,7 @@ int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 			msecs_to_jiffies(MMC_CMDQ_WAIT_EVENT_TIMEOUT_MS));
 
 	if (WARN_ON(!err && host->cmdq_ctx.active_reqs)) {
-		pr_err("%s: %s: timeout case? host-claimed(%d), claim-cnt(%d), claim-comm(%s), active-reqs(0x%x)\n",
+		pr_err("%s: %s: timeout case? host-claimed(%d), claim-cnt(%d), claim-comm(%s), active-reqs(0x%lx)\n",
 			mmc_hostname(host), __func__, host->claimed,
 			host->claim_cnt, host->claimer->comm,
 			host->cmdq_ctx.active_reqs);

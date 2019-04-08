@@ -6882,10 +6882,10 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	ret = of_property_read_u32(dev->of_node, "qcom,ipa-q6-smem-size",
 					&ipa_smem_size);
 	if (ret) {
-		IPADBG("ipa q6 smem size (default) = %zu\n", IPA_SMEM_SIZE);
+		IPADBG("ipa q6 smem size (default) = %u\n", IPA_SMEM_SIZE);
 		ipa_smem_size = IPA_SMEM_SIZE;
 	} else {
-		IPADBG("ipa q6 smem size = %zu\n", ipa_smem_size);
+		IPADBG("ipa q6 smem size = %u\n", ipa_smem_size);
 	}
 
 	/* map SMEM memory for IPA table accesses */
@@ -6907,7 +6907,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		return -EFAULT;
 	}
 	if (smem_size != ipa_smem_size)
-		IPAERR("unexpected read q6 smem size %zu %zu\n",
+		IPAERR("unexpected read q6 smem size %zu %u\n",
 			smem_size, ipa_smem_size);
 
 	iova = qcom_smem_virt_to_phys(smem_addr);

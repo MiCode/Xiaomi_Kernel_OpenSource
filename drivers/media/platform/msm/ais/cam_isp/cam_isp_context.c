@@ -144,7 +144,7 @@ static void cam_isp_ctx_dump_req(struct cam_isp_ctx_req *req_isp)
 				req_isp->cfg[i].len - 1);
 			if (len < (buf_end - buf_start + 1)) {
 				CAM_ERR(CAM_ISP,
-					"Invalid len %lld buf_start-end=%d",
+					"Invalid len %lu buf_start-end=%ld",
 					len, (buf_end - buf_start + 1));
 				if (cam_mem_put_cpu_buf(req_isp->cfg[i].handle))
 					CAM_WARN(CAM_ISP,
@@ -2298,7 +2298,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		goto put_ref;
 
 	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
-		CAM_WARN(CAM_ISP, "Can not put packet address : 0x%x",
+		CAM_WARN(CAM_ISP, "Can not put packet address : 0x%llx",
 			cmd->packet_handle);
 
 	CAM_DBG(CAM_REQ,
@@ -2315,7 +2315,7 @@ put_ref:
 	}
 free_cpu_buf:
 	if (cam_mem_put_cpu_buf((int32_t) cmd->packet_handle))
-		CAM_WARN(CAM_ISP, "Can not put packet address: 0x%x",
+		CAM_WARN(CAM_ISP, "Can not put packet address: 0x%llx",
 			cmd->packet_handle);
 free_req:
 	spin_lock_bh(&ctx->lock);

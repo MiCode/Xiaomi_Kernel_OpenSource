@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1223,7 +1223,7 @@ TRACE_EVENT(kgsl_clock_throttling,
 		__entry->crc_less50pct = crc_less50pct;
 		__entry->adj = adj;
 	),
-	TP_printk("idle_10=%d crc_50=%d crc_more50=%d crc_less50=%d adj=%d",
+	TP_printk("idle_10=%d crc_50=%d crc_more50=%d crc_less50=%d adj=%lld",
 		__entry->idle_10pct, __entry->crc_50pct, __entry->crc_more50pct,
 		__entry->crc_less50pct, __entry->adj
 	)

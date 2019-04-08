@@ -2871,7 +2871,7 @@ static void mmc_blk_cmdq_reset_all(struct mmc_host *host, int err)
 			dcmd_mrq = &cmdq_req->mrq;
 			WARN_ON(!test_and_clear_bit(CMDQ_STATE_DCMD_ACTIVE,
 					&ctx_info->curr_state));
-			pr_debug("%s: cmd(%u), req_op(%llu)\n", __func__,
+			pr_debug("%s: cmd(%u), req_op(%u)\n", __func__,
 				 dcmd_mrq->cmd->opcode, req_op(dcmd_mrq->req));
 			if (!is_err_mrq_dcmd && !dcmd_mrq->cmd->error &&
 				(req_op(dcmd_mrq->req) == REQ_OP_SECURE_ERASE ||

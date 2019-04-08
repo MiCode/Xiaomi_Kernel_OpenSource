@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -496,7 +496,7 @@ static int validate_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 				(WRITE_TRIGGER);
 
 	if (cfg->dma_buf->iova & GUARD_BYTES) {
-		DRM_ERROR("Address is not aligned to %zx iova %x",
+		DRM_ERROR("Address is not aligned to %zx iova %llu",
 				(size_t)ADDR_ALIGN, cfg->dma_buf->iova);
 		return -EINVAL;
 	}

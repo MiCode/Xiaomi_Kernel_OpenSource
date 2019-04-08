@@ -1971,7 +1971,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("core phy address=0x%x virt=%pK\n",
+	pr_debug("core phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->core_io.base);
 
 	res = platform_get_resource_byname(pdev,
@@ -1989,7 +1989,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("core phy address=0x%x virt=%pK\n",
+	pr_debug("core phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->tcm_io.base);
 
 	res = platform_get_resource_byname(pdev,
@@ -2007,7 +2007,7 @@ static int npu_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto error_get_dev_num;
 	}
-	pr_debug("bwmon phy address=0x%x virt=%pK\n",
+	pr_debug("bwmon phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->bwmon_io.base);
 
 	res = platform_get_resource_byname(pdev,
@@ -2023,7 +2023,7 @@ static int npu_probe(struct platform_device *pdev)
 			rc = -ENOMEM;
 			goto error_get_dev_num;
 		}
-		pr_debug("qfprom_physical phy address=0x%x virt=%pK\n",
+		pr_debug("qfprom_physical phy address=0x%llx virt=%pK\n",
 			res->start, npu_dev->qfprom_io.base);
 	}
 
