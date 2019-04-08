@@ -98,7 +98,7 @@ static void cnss_put_vreg_single(struct cnss_plat_data *plat_priv,
 	devm_kfree(dev, vreg);
 }
 
-static cnss_vreg_on_single(struct cnss_vreg_info *vreg)
+static int cnss_vreg_on_single(struct cnss_vreg_info *vreg)
 {
 	int ret = 0;
 

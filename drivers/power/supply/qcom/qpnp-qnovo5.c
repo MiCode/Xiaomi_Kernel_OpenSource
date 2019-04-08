@@ -306,7 +306,7 @@ static int qnovo5_parse_dt(struct qnovo *chip)
 
 	chip->pinctrl = devm_pinctrl_get(chip->dev);
 	if (IS_ERR(chip->pinctrl)) {
-		pr_err("Couldn't get pinctrl rc=%d\n", PTR_ERR(chip->pinctrl));
+		pr_err("Couldn't get pinctrl rc=%ld\n", PTR_ERR(chip->pinctrl));
 		chip->pinctrl = NULL;
 	}
 
