@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -866,7 +866,7 @@ static ssize_t ipa_ut_dbgfs_enable_write(struct file *file,
 		return -E2BIG;
 	}
 
-	if (copy_from_user(lcl_buf, buf, count)) {
+	if (copy_from_user(lcl_buf, buf, min(sizeof(lcl_buf), count))) {
 		IPA_UT_ERR("fail to copy buf from user space\n");
 		return -EFAULT;
 	}

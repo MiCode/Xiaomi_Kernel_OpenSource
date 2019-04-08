@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ static int remote_etm_enable(struct coresight_device *csdev,
 	struct coresight_set_etm_req_msg_v01 req;
 	struct coresight_set_etm_resp_msg_v01 resp = { { 0, 0 } };
 	struct qmi_txn txn;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&drvdata->mutex);
 
