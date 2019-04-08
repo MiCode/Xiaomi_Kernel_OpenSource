@@ -23,19 +23,7 @@ struct msm_cvp_fence_thread_data {
 
 static struct msm_cvp_fence_thread_data fence_thread_data;
 
-static void print_client_buffer(u32 tag, const char *str,
-		struct msm_cvp_inst *inst, struct cvp_kmd_buffer *cbuf)
-{
-	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
-		return;
-
-	dprintk(tag,
-		"%s: %x : idx %2d fd %d off %d size %d type %d flags 0x%x\n",
-		str, hash32_ptr(inst->session), cbuf->index, cbuf->fd,
-		cbuf->offset, cbuf->size, cbuf->type, cbuf->flags);
-}
-
-static void print_cvp_internal_buffer(u32 tag, const char *str,
+void print_cvp_internal_buffer(u32 tag, const char *str,
 		struct msm_cvp_inst *inst, struct msm_cvp_internal_buffer *cbuf)
 {
 	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
@@ -114,36 +102,51 @@ static int msm_cvp_get_session_info(struct msm_cvp_inst *inst,
 
 static int msm_cvp_session_get_iova_addr(
 	struct msm_cvp_inst *inst,
-	struct msm_cvp_internal_buffer *cbuf,
+	struct msm_cvp_internal_buffer **cbuf_ptr,
 	unsigned int search_fd, unsigned int search_size,
 	unsigned int *iova,
 	unsigned int *iova_size)
 {
 	bool found = false;
+	struct msm_cvp_internal_buffer *cbuf;
 
-	mutex_lock(&inst->cvpbufs.lock);
-	list_for_each_entry(cbuf, &inst->cvpbufs.list, list) {
+	mutex_lock(&inst->cvpcpubufs.lock);
+	list_for_each_entry(cbuf, &inst->cvpcpubufs.list, list) {
 		if (cbuf->buf.fd == search_fd) {
 			found = true;
 			break;
 		}
 	}
-	mutex_unlock(&inst->cvpbufs.lock);
+	mutex_unlock(&inst->cvpcpubufs.lock);
+	if (!found) {
+		mutex_lock(&inst->cvpdspbufs.lock);
+		list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list) {
+			if (cbuf->buf.fd == search_fd) {
+				found = true;
+				break;
+			}
+		}
+		mutex_unlock(&inst->cvpdspbufs.lock);
+	}
 	if (!found)
-		return -EINVAL;
+		return -ENOENT;
 
-	*iova = cbuf->smem.device_addr;
 	if (search_size != cbuf->buf.size) {
 		dprintk(CVP_ERR,
-			"%s:: invalid size received fd = %d\n",
+			"%s: invalid size received fd = %d\n",
 			__func__, search_fd);
 		return -EINVAL;
 	}
+	*iova = cbuf->smem.device_addr;
 	*iova_size = cbuf->buf.size;
+
+	if (cbuf_ptr)
+		*cbuf_ptr = cbuf;
+
 	return 0;
 }
 
-static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
+static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 	struct cvp_kmd_buffer *buf)
 {
 	int rc = 0;
@@ -156,17 +159,29 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
+	if (!buf->offset) {
+		dprintk(CVP_ERR,
+			"%s: offset is deprecated, set to 0.\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	session = (struct hal_session *)inst->session;
-	mutex_lock(&inst->cvpbufs.lock);
+	mutex_lock(&inst->cvpdspbufs.lock);
 	found = false;
-	list_for_each_entry(cbuf, &inst->cvpbufs.list, list) {
-		if (cbuf->buf.fd == buf->fd &&
-			cbuf->buf.offset == buf->offset) {
+	list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list) {
+		if (cbuf->buf.fd == buf->fd) {
+			if (cbuf->buf.size != buf->size) {
+				dprintk(CVP_ERR, "%s: buf size mismatch\n",
+					__func__);
+				mutex_unlock(&inst->cvpdspbufs.lock);
+				return -EINVAL;
+			}
 			found = true;
 			break;
 		}
 	}
-	mutex_unlock(&inst->cvpbufs.lock);
+	mutex_unlock(&inst->cvpdspbufs.lock);
 	if (found) {
 		print_client_buffer(CVP_ERR, "duplicate", inst, buf);
 		return -EINVAL;
@@ -177,9 +192,6 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "%s: cbuf alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-	mutex_lock(&inst->cvpbufs.lock);
-	list_add_tail(&cbuf->list, &inst->cvpbufs.list);
-	mutex_unlock(&inst->cvpbufs.lock);
 
 	memcpy(&cbuf->buf, buf, sizeof(struct cvp_kmd_buffer));
 	cbuf->smem.buffer_type = get_hal_buftype(__func__, buf->type);
@@ -202,15 +214,142 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 				__func__, buf->fd, rc);
 			goto exit;
 		}
+	} else {
+		dprintk(CVP_ERR, "%s: buf index is 0 fd=%d",
+				__func__, buf->fd);
+		rc = -EINVAL;
+		goto exit;
 	}
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	list_add_tail(&cbuf->list, &inst->cvpdspbufs.list);
+	mutex_unlock(&inst->cvpdspbufs.lock);
+
 	return rc;
 
 exit:
 	if (cbuf->smem.device_addr)
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-	mutex_lock(&inst->cvpbufs.lock);
+	kfree(cbuf);
+	cbuf = NULL;
+
+	return rc;
+}
+
+static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
+	struct cvp_kmd_buffer *buf)
+{
+	int rc = 0;
+	bool found;
+	struct msm_cvp_internal_buffer *cbuf;
+	struct hal_session *session;
+
+	if (!inst || !inst->core || !buf) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	session = (struct hal_session *)inst->session;
+	if (!session) {
+		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	found = false;
+	list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list) {
+		if (cbuf->buf.fd == buf->fd) {
+			found = true;
+			break;
+		}
+	}
+	mutex_unlock(&inst->cvpdspbufs.lock);
+	if (!found) {
+		print_client_buffer(CVP_ERR, "invalid", inst, buf);
+		return -EINVAL;
+	}
+
+	if (buf->index) {
+		rc = cvp_dsp_deregister_buffer((uint32_t)cbuf->smem.device_addr,
+			buf->index, buf->size, hash32_ptr(session));
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: failed dsp deregistration fd=%d rc=%d",
+				__func__, buf->fd, rc);
+			return rc;
+		}
+	}
+
+	if (cbuf->smem.device_addr)
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+
+	mutex_lock(&inst->cvpdspbufs.lock);
 	list_del(&cbuf->list);
-	mutex_unlock(&inst->cvpbufs.lock);
+	mutex_unlock(&inst->cvpdspbufs.lock);
+
+	kfree(cbuf);
+	return rc;
+}
+
+static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
+	unsigned int fd,
+	unsigned int size,
+	struct msm_cvp_internal_buffer **cbuf_ptr)
+{
+	int rc = 0;
+	bool found;
+	struct msm_cvp_internal_buffer *cbuf;
+
+	if (!inst || !inst->core || !cbuf_ptr) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->cvpcpubufs.lock);
+	found = false;
+	list_for_each_entry(cbuf, &inst->cvpcpubufs.list, list) {
+		if (cbuf->buf.fd == fd) {
+			found = true;
+			break;
+		}
+	}
+	mutex_unlock(&inst->cvpcpubufs.lock);
+	if (found) {
+		print_client_buffer(CVP_ERR, "duplicate", inst, &cbuf->buf);
+		return -EINVAL;
+	}
+
+	cbuf = kzalloc(sizeof(struct msm_cvp_internal_buffer), GFP_KERNEL);
+	if (!cbuf)
+		return -ENOMEM;
+
+	memset(cbuf, 0, sizeof(struct msm_cvp_internal_buffer));
+
+	cbuf->buf.fd = fd;
+	cbuf->buf.size = size;
+	/* HFI doesn't have buffer type, set it as HAL_BUFFER_INPUT */
+	cbuf->smem.buffer_type = HAL_BUFFER_INPUT;
+	cbuf->smem.fd = cbuf->buf.fd;
+	cbuf->smem.size = cbuf->buf.size;
+	cbuf->smem.flags = 0;
+	cbuf->smem.offset = 0;
+	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
+	if (rc) {
+		print_client_buffer(CVP_ERR, "map failed", inst, &cbuf->buf);
+		goto exit;
+	}
+
+	mutex_lock(&inst->cvpcpubufs.lock);
+	list_add_tail(&cbuf->list, &inst->cvpcpubufs.list);
+	mutex_unlock(&inst->cvpcpubufs.lock);
+
+	*cbuf_ptr = cbuf;
+
+	return rc;
+
+exit:
+	if (cbuf->smem.device_addr)
+		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 	kfree(cbuf);
 	cbuf = NULL;
 
@@ -284,7 +423,7 @@ static int msm_cvp_session_process_hfi(
 {
 	int i, pkt_idx, rc = 0;
 	struct hfi_device *hdev;
-	struct msm_cvp_internal_buffer *cbuf;
+	struct msm_cvp_internal_buffer *cbuf = NULL;
 	struct buf_desc *buf_ptr;
 	unsigned int offset, buf_num, signal;
 
@@ -324,17 +463,34 @@ static int msm_cvp_session_process_hfi(
 			if (!buf_ptr[i].fd)
 				continue;
 
-			rc = msm_cvp_session_get_iova_addr(inst, cbuf,
+			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
 						buf_ptr[i].fd,
 						buf_ptr[i].size,
 						&buf_ptr[i].fd,
 						&buf_ptr[i].size);
-			if (rc) {
-				dprintk(CVP_ERR,
-					"%s: buf %d unregistered. rc=%d\n",
+			if (rc == -ENOENT) {
+				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
+					__func__, buf_ptr[i].fd,
+					buf_ptr[i].size);
+				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
+						buf_ptr[i].size, &cbuf);
+				if (rc || !cbuf) {
+					dprintk(CVP_ERR,
+					"%s: buf %d register failed. rc=%d\n",
 					__func__, i, rc);
+					return rc;
+				}
+				buf_ptr[i].fd = cbuf->smem.device_addr;
+				buf_ptr[i].size = cbuf->buf.size;
+			} else if (rc) {
+				dprintk(CVP_ERR,
+				"%s: buf %d register failed. rc=%d\n",
+				__func__, i, rc);
 				return rc;
 			}
+			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
+						SMEM_CACHE_CLEAN_INVALIDATE,
+						0, buf_ptr[i].size);
 		}
 	}
 	rc = call_hfi_op(hdev, session_send,
@@ -371,7 +527,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	struct cvp_kmd_hfi_packet *in_pkt;
 	struct msm_cvp_inst *inst;
 	int *fence;
-	struct msm_cvp_internal_buffer *cbuf;
+	struct msm_cvp_internal_buffer *cbuf = NULL;
 	struct buf_desc *buf_ptr;
 	unsigned int offset, buf_num;
 
@@ -412,17 +568,35 @@ static int msm_cvp_thread_fence_run(void *data)
 			if (!buf_ptr[i].fd)
 				continue;
 
-			rc = msm_cvp_session_get_iova_addr(inst, cbuf,
+			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
 				buf_ptr[i].fd,
 				buf_ptr[i].size,
 				&buf_ptr[i].fd,
 				&buf_ptr[i].size);
-			if (rc) {
-				dprintk(CVP_ERR,
-					"%s: buf %d unregistered. rc=%d\n",
+
+			if (rc == -ENOENT) {
+				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
+					__func__, buf_ptr[i].fd,
+					buf_ptr[i].size);
+				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
+						buf_ptr[i].size, &cbuf);
+				if (rc || !cbuf) {
+					dprintk(CVP_ERR,
+					"%s: buf %d register failed. rc=%d\n",
 					__func__, i, rc);
-				goto exit;
+					do_exit(rc);
+				}
+				buf_ptr[i].fd = cbuf->smem.device_addr;
+				buf_ptr[i].size = cbuf->buf.size;
+			} else if (rc) {
+				dprintk(CVP_ERR,
+				"%s: buf %d register failed. rc=%d\n",
+				__func__, i, rc);
+				do_exit(rc);
 			}
+			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
+						SMEM_CACHE_CLEAN_INVALIDATE,
+						0, buf_ptr[i].size);
 		}
 	}
 
@@ -520,7 +694,8 @@ static int msm_cvp_session_process_hfi_fence(
 	int rc = 0;
 	char thread_fence_name[32];
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
+	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
+
 	if (!inst || !inst->core || !arg) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
@@ -546,7 +721,7 @@ static int msm_cvp_session_cvp_dfs_frame_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %pK\n", __func__, inst);
+	dprintk(CVP_DBG, "%s: Enter inst = %pK\n", __func__, inst);
 
 	if (!inst || !inst->core || !dfs_frame) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -567,7 +742,7 @@ static int msm_cvp_session_cvp_dme_frame_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
+	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
 
 	if (!inst || !inst->core || !dme_frame) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -588,7 +763,7 @@ static int msm_cvp_session_cvp_persist_response(
 {
 	int rc = 0;
 
-	dprintk(CVP_DBG, "%s:: Enter inst = %pK", __func__, inst);
+	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
 
 	if (!inst || !inst->core || !pbuf_cmd) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -650,64 +825,32 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 	hdev = inst->core->device;
 	print_client_buffer(CVP_DBG, "register", inst, buf);
 
-	return msm_cvp_map_buf(inst, buf);
-
+	if (!buf->index) {
+		dprintk(CVP_WARN,
+			"%s: CPU path register buffer is deprecated!",
+			__func__);
+		return 0;
+	}
+	return msm_cvp_map_buf_dsp(inst, buf);
 }
 
 static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 		struct cvp_kmd_buffer *buf)
 {
-	int rc = 0;
-	bool found;
-	struct hfi_device *hdev;
-	struct msm_cvp_internal_buffer *cbuf;
-	struct hal_session *session;
-
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
-	session = (struct hal_session *)inst->session;
-	if (!session) {
-		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
-		return -EINVAL;
-	}
-	hdev = inst->core->device;
 	print_client_buffer(CVP_DBG, "unregister", inst, buf);
 
-	mutex_lock(&inst->cvpbufs.lock);
-	found = false;
-	list_for_each_entry(cbuf, &inst->cvpbufs.list, list) {
-		if (cbuf->buf.fd == buf->fd &&
-			cbuf->buf.offset == buf->offset) {
-			found = true;
-			break;
-		}
+	if (!buf->index) {
+		dprintk(CVP_WARN,
+			"%s CPU path unregister buffer is deprecated!\n",
+			__func__);
+		return 0;
 	}
-	mutex_unlock(&inst->cvpbufs.lock);
-	if (!found) {
-		print_client_buffer(CVP_ERR, "invalid", inst, buf);
-		return -EINVAL;
-	}
-
-	if (buf->index) {
-		rc = cvp_dsp_deregister_buffer((uint32_t)cbuf->smem.device_addr,
-			buf->index, buf->size, hash32_ptr(session));
-		if (rc) {
-			dprintk(CVP_ERR,
-				"%s: failed dsp registration for fd = %d rc=%d",
-				__func__, buf->fd, rc);
-		}
-	}
-
-	if (cbuf->smem.device_addr)
-		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-
-	list_del(&cbuf->list);
-	kfree(cbuf);
-
-	return rc;
+	return msm_cvp_unmap_buf_dsp(inst, buf);
 }
 
 int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
@@ -718,7 +861,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		dprintk(CVP_ERR, "%s: invalid args\n", __func__);
 		return -EINVAL;
 	}
-	dprintk(CVP_DBG, "%s:: arg->type = %x", __func__, arg->type);
+	dprintk(CVP_DBG, "%s: arg->type = %x", __func__, arg->type);
 
 	switch (arg->type) {
 	case CVP_KMD_GET_SESSION_INFO:
@@ -824,7 +967,6 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
-	struct msm_cvp_internal_buffer *cbuf, *temp;
 
 	if (!inst || !inst->core) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -836,17 +978,6 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CLOSE_DONE);
 	if (rc)
 		dprintk(CVP_ERR, "%s: close failed\n", __func__);
-
-	mutex_lock(&inst->cvpbufs.lock);
-	list_for_each_entry_safe(cbuf, temp, &inst->cvpbufs.list, list) {
-		print_cvp_internal_buffer(CVP_DBG, "unregistered", inst, cbuf);
-		rc = msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-		if (rc)
-			dprintk(CVP_ERR, "%s: unmap failed\n", __func__);
-		list_del(&cbuf->list);
-		kfree(cbuf);
-	}
-	mutex_unlock(&inst->cvpbufs.lock);
 
 	inst->clk_data.min_freq = 0;
 	inst->clk_data.ddr_bw = 0;

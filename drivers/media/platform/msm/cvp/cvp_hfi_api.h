@@ -1482,7 +1482,7 @@ struct hal_vbv_hdr_buf_size {
 	(((q) && (q)->op) ? ((q)->op(args)) : 0)
 
 /* DFS related structures */
-struct	buf_desc {
+struct buf_desc {
 	u32 fd;
 	u32 size;
 };

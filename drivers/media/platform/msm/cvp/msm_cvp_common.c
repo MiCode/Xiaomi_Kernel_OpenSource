@@ -1985,3 +1985,15 @@ int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst)
 	mutex_unlock(&inst->persistbufs.lock);
 	return rc;
 }
+
+void print_client_buffer(u32 tag, const char *str,
+		struct msm_cvp_inst *inst, struct cvp_kmd_buffer *cbuf)
+{
+	if (!(tag & msm_cvp_debug) || !inst || !cbuf)
+		return;
+
+	dprintk(tag,
+		"%s: %x : idx %2d fd %d off %d size %d type %d flags 0x%x\n",
+		str, hash32_ptr(inst->session), cbuf->index, cbuf->fd,
+		cbuf->offset, cbuf->size, cbuf->type, cbuf->flags);
+}

@@ -392,7 +392,8 @@ struct msm_cvp_inst {
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
 	struct msm_cvp_list registeredbufs;
-	struct msm_cvp_list cvpbufs;
+	struct msm_cvp_list cvpcpubufs;
+	struct msm_cvp_list cvpdspbufs;
 	struct buffer_requirements buff_req;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];

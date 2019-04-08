@@ -229,7 +229,7 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst, struct msm_smem *smem)
 	buffer_size = smem->size;
 
 	rc = msm_dma_get_device_address(dbuf, align, &iova, &buffer_size,
-			smem->flags, smem->buffer_type,	inst->session_type,
+			smem->flags, smem->buffer_type, inst->session_type,
 			&(inst->core->resources), &smem->mapping_info);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to get device address: %d\n", rc);
