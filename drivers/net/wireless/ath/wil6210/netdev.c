@@ -186,10 +186,18 @@ static int wil6210_netdev_poll_tx_edma(struct napi_struct *napi, int budget)
 						napi_tx);
 	int tx_done;
 	/* There is only one status TX ring */
-	struct wil_status_ring *sring = &wil->srings[wil->tx_sring_idx];
+	struct wil_status_ring *sring;
 
-	if (!sring->va)
+	if (wil->tx_sring_idx >= WIL6210_MAX_STATUS_RINGS) {
+		napi_complete(napi);
 		return 0;
+	}
+
+	sring = &wil->srings[wil->tx_sring_idx];
+	if (!sring->va) {
+		napi_complete(napi);
+		return 0;
+	}
 
 	tx_done = wil_tx_sring_handler(wil, sring);
 
