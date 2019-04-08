@@ -612,6 +612,7 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 		return -ENODATA;
 	}
 
+	spin_lock(&qinfo->hfi_lock);
 	read_idx = queue->qhdr_read_idx;
 
 	empty_space = (queue->qhdr_write_idx >=  read_idx) ?
@@ -619,6 +620,7 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 		(read_idx - queue->qhdr_write_idx);
 	if (empty_space <= packet_size_in_words) {
 		queue->qhdr_tx_req =  1;
+		spin_unlock(&qinfo->hfi_lock);
 		dprintk(CVP_ERR, "Insufficient size (%d) to write (%d)\n",
 					  empty_space, packet_size_in_words);
 		return -ENOTEMPTY;
@@ -653,6 +655,7 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	 * interrupt is raised on venus.
 	 */
 	mb();
+	spin_unlock(&qinfo->hfi_lock);
 	return 0;
 }
 
@@ -693,6 +696,7 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	 * is being emptied out for every interrupt from Venus.
 	 * Venus will anyway generates interrupt if it is full.
 	 */
+	spin_lock(&qinfo->hfi_lock);
 	if (queue->qhdr_type & HFI_Q_ID_CTRL_TO_HOST_MSG_Q)
 		receive_request = 1;
 
@@ -704,6 +708,7 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 		 */
 		mb();
 		*pb_tx_req_is_set = 0;
+		spin_unlock(&qinfo->hfi_lock);
 		dprintk(CVP_DBG,
 			"%s queue is empty, rx_req = %u, tx_req = %u, read_idx = %u\n",
 			receive_request ? "message" : "debug",
@@ -716,6 +721,7 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 				(queue->qhdr_read_idx << 2));
 	packet_size_in_words = (*read_ptr) >> 2;
 	if (!packet_size_in_words) {
+		spin_unlock(&qinfo->hfi_lock);
 		dprintk(CVP_ERR, "Zero packet size\n");
 		return -ENODATA;
 	}
@@ -757,6 +763,8 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	mb();
 
 	*pb_tx_req_is_set = (queue->qhdr_tx_req == 1) ? 1 : 0;
+
+	spin_unlock(&qinfo->hfi_lock);
 
 	if ((msm_cvp_debug & CVP_PKT) &&
 		!(queue->qhdr_type & HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q)) {
@@ -1623,6 +1631,7 @@ static int __interface_dsp_queues_init(struct venus_hfi_device *dev)
 		iface_q->q_hdr = CVP_IFACEQ_GET_QHDR_START_ADDR(
 			dev->dsp_iface_q_table.align_virtual_addr, i);
 		__set_queue_hdr_defaults(iface_q->q_hdr);
+		spin_lock_init(&iface_q->hfi_lock);
 	}
 
 	q_tbl_hdr = (struct hfi_queue_table_header *)
@@ -1842,6 +1851,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		iface_q->q_hdr = CVP_IFACEQ_GET_QHDR_START_ADDR(
 				dev->iface_q_table.align_virtual_addr, i);
 		__set_queue_hdr_defaults(iface_q->q_hdr);
+		spin_lock_init(&iface_q->hfi_lock);
 	}
 
 	if ((msm_cvp_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
