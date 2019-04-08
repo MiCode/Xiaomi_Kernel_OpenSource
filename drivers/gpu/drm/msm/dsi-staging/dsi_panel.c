@@ -2469,7 +2469,7 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	if (panel_mode == DSI_OP_CMD_MODE) {
 		h_period = DSI_H_ACTIVE_DSC(timing);
 		v_period = timing->v_active;
-		do_div(refresh_rate, timing->mdp_transfer_time_us);
+		do_div(refresh_rate, priv_info->mdp_transfer_time_us);
 	} else {
 		h_period = DSI_H_TOTAL_DSC(timing);
 		v_period = DSI_V_TOTAL(timing);
