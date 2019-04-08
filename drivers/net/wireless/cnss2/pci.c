@@ -221,6 +221,8 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
 
+	cnss_pr_dbg("%s PCI link\n", link_up ? "Resuming" : "Suspending");
+
 	ret = msm_pcie_pm_control(link_up ? MSM_PCIE_RESUME :
 				  MSM_PCIE_SUSPEND,
 				  pci_dev->bus->number,
@@ -242,9 +244,8 @@ int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	cnss_pr_dbg("Suspending PCI link\n");
-	if (!pci_priv->pci_link_state) {
-		cnss_pr_info("PCI link is already suspended!\n");
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_info("PCI link is already suspended\n");
 		goto out;
 	}
 
@@ -279,9 +280,8 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	cnss_pr_dbg("Resuming PCI link\n");
-	if (pci_priv->pci_link_state) {
-		cnss_pr_info("PCI link is already resumed!\n");
+	if (pci_priv->pci_link_state == PCI_LINK_UP) {
+		cnss_pr_info("PCI link is already resumed\n");
 		goto out;
 	}
 
@@ -1349,7 +1349,7 @@ int cnss_auto_suspend(struct device *dev)
 	if (!plat_priv)
 		return -ENODEV;
 
-	if (pci_priv->pci_link_state) {
+	if (pci_priv->pci_link_state == PCI_LINK_UP) {
 		if (cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND)) {
 			ret = -EAGAIN;
 			goto out;
@@ -1363,9 +1363,7 @@ int cnss_auto_suspend(struct device *dev)
 		if (ret)
 			cnss_pr_err("Failed to set D3Hot, err =  %d\n", ret);
 
-		cnss_pr_dbg("Suspending PCI link\n");
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_DOWN)) {
-			cnss_pr_err("Failed to suspend PCI link!\n");
 			ret = -EAGAIN;
 			goto resume_mhi;
 		}
@@ -1406,10 +1404,8 @@ int cnss_auto_resume(struct device *dev)
 	if (!plat_priv)
 		return -ENODEV;
 
-	if (!pci_priv->pci_link_state) {
-		cnss_pr_dbg("Resuming PCI link\n");
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
-			cnss_pr_err("Failed to resume PCI link!\n");
 			ret = -EAGAIN;
 			goto out;
 		}
