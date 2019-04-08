@@ -30,11 +30,20 @@ dtb-$(CONFIG_ARCH_KONA)	+= kona-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-dtbo-$(CONFIG_ARCH_LITO) += lito-rumi-overlay.dtbo
+dtbo-$(CONFIG_ARCH_LITO) += lito-rumi-overlay.dtbo \
+		lito-mtp-overlay.dtbo \
+		lito-cdp-overlay.dtbo \
+		lito-atp-overlay.dtbo
 
 lito-rumi-overlay.dtbo-base := lito.dtb
+lito-mtp-overlay.dtbo-base := lito.dtb
+lito-cdp-overlay.dtbo-base := lito.dtb
+lito-atp-overlay.dtbo-base := lito.dtb
 else
-dtb-$(CONFIG_ARCH_LITO) += lito-rumi.dtb
+dtb-$(CONFIG_ARCH_LITO) += lito-rumi.dtb \
+		lito-mtp.dtb \
+		lito-cdp.dtb \
+		lito-atp.dtb
 endif
 
 always		:= $(dtb-y)
