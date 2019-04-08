@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -733,6 +733,11 @@ int cam_lrme_hw_process_irq(void *priv, void *data)
 	CAM_DBG(CAM_LRME, "Current state %d", lrme_core->state);
 
 	mutex_lock(&lrme_hw->hw_mutex);
+
+	if (lrme_hw->hw_state == CAM_HW_STATE_POWER_DOWN) {
+		CAM_DBG(CAM_LRME, "LRME HW is in off state");
+		goto end;
+	}
 
 	if (top_irq_status & (1 << 3)) {
 		CAM_DBG(CAM_LRME, "Error");
