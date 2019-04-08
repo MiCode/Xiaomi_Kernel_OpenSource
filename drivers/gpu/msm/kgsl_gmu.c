@@ -22,8 +22,6 @@
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
-#define GMU_CM3_CFG_NONMASKINTR_SHIFT    9
-
 struct gmu_iommu_context {
 	const char *name;
 	struct device *dev;
@@ -883,25 +881,6 @@ static int gmu_rpmh_init(struct kgsl_device *device,
 	return rpmh_arc_votes_init(device, gmu, &cx_arc, &mx_arc, GMU_ARC_VOTE);
 }
 
-static void send_nmi_to_gmu(struct adreno_device *adreno_dev)
-{
-	/* Mask so there's no interrupt caused by NMI */
-	adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
-
-	/* Make sure the interrupt is masked before causing it */
-	wmb();
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-		adreno_write_gmureg(adreno_dev,
-			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
-	adreno_write_gmureg(adreno_dev,
-		ADRENO_REG_GMU_CM3_CFG,
-		(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));
-
-	/* Make sure the NMI is invoked before we proceed*/
-	wmb();
-}
-
 static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
 	struct kgsl_device *device = data;
@@ -923,7 +902,7 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 				ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 				(mask | GMU_INT_WDOG_BITE));
 
-		send_nmi_to_gmu(adreno_dev);
+		adreno_gmu_send_nmi(adreno_dev);
 		/*
 		 * There is sufficient delay for the GMU to have finished
 		 * handling the NMI before snapshot is taken, as the fault
@@ -1545,7 +1524,7 @@ static void gmu_snapshot(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	send_nmi_to_gmu(adreno_dev);
+	adreno_gmu_send_nmi(adreno_dev);
 	/* Wait for the NMI to be handled */
 	udelay(100);
 	kgsl_device_snapshot(device, NULL, true);
