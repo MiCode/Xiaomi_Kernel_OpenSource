@@ -479,7 +479,6 @@ int msm_vidc_get_encoder_internal_buffer_sizes(struct msm_vidc_inst *inst)
 	u32 width, height, i, num_ref;
 	bool is_tenbit = false;
 	int num_bframes;
-	u32 inp_fmt;
 	struct v4l2_ctrl *bframe;
 	struct v4l2_format *f;
 
@@ -518,10 +517,7 @@ int msm_vidc_get_encoder_internal_buffer_sizes(struct msm_vidc_inst *inst)
 	}
 
 	num_ref = msm_vidc_get_num_ref_frames(inst);
-	inp_fmt = f->fmt.pix_mp.pixelformat;
-	if ((inp_fmt == V4L2_PIX_FMT_NV12_TP10_UBWC) ||
-		(inp_fmt == V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS))
-		is_tenbit = true;
+	is_tenbit = (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10);
 
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		struct hal_buffer_requirements *curr_req;
@@ -845,6 +841,12 @@ u32 msm_vidc_calculate_enc_output_frame_size(struct msm_vidc_inst *inst)
 
 	if (inst->rc_type == RATE_CONTROL_LOSSLESS)
 		frame_size = (width * height * 6);
+
+	/* For 10-bit cases size = size * 1.25 */
+	if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10) {
+		frame_size *= 5;
+		frame_size /= 4;
+	}
 
 	return ALIGN(frame_size, SZ_4K);
 }
