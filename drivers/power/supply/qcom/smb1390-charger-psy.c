@@ -62,6 +62,10 @@
 #define CORE_FTRIM_ILIM_REG		0x1030
 #define CFG_ILIM_MASK			GENMASK(4, 0)
 
+#define CORE_FTRIM_CTRL_REG		0x1031
+#define TEMP_ALERT_LVL_MASK		GENMASK(6, 5)
+#define TEMP_ALERT_LVL_SHIFT		5
+
 #define CORE_FTRIM_LVL_REG		0x1033
 #define CFG_WIN_HI_MASK			GENMASK(3, 2)
 #define WIN_OV_LVL_1000MV		0x08
@@ -164,6 +168,7 @@ struct smb1390 {
 	bool			suspended;
 	u32			debug_mask;
 	u32			min_ilim_ua;
+	u32			max_temp_alarm_degc;
 };
 
 struct smb_irq {
@@ -870,6 +875,10 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	of_property_read_u32(chip->dev->of_node, "qcom,min-ilim-ua",
 			&chip->min_ilim_ua);
 
+	chip->max_temp_alarm_degc = 110;
+	of_property_read_u32(chip->dev->of_node, "qcom,max-temp-alarm-degc",
+			&chip->max_temp_alarm_degc);
+
 	return 0;
 }
 
@@ -916,7 +925,7 @@ static void smb1390_destroy_votables(struct smb1390 *chip)
 
 static int smb1390_init_hw(struct smb1390 *chip)
 {
-	int rc;
+	int rc = 0, val;
 
 	/*
 	 * Improve ILIM accuracy:
@@ -933,8 +942,25 @@ static int smb1390_init_hw(struct smb1390 *chip)
 	if (rc < 0)
 		return rc;
 
+	switch (chip->max_temp_alarm_degc) {
+	case 125:
+		val = 0x00;
+		break;
+	case 95:
+		val = 0x02;
+		break;
+	case 85:
+		val = 0x03;
+		break;
+	case 110:
+	default:
+		val = 0x01;
+		break;
+	}
+	rc = smb1390_masked_write(chip, CORE_FTRIM_CTRL_REG,
+			TEMP_ALERT_LVL_MASK, val << TEMP_ALERT_LVL_SHIFT);
 
-	return 0;
+	return rc;
 }
 
 static int smb1390_get_irq_index_byname(const char *irq_name)
