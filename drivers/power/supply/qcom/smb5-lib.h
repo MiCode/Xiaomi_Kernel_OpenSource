@@ -77,6 +77,9 @@ enum print_reason {
 #define THERMAL_THROTTLE_VOTER		"THERMAL_THROTTLE_VOTER"
 #define VOUT_VOTER			"VOUT_VOTER"
 #define DR_SWAP_VOTER			"DR_SWAP_VOTER"
+#define USB_SUSPEND_VOTER		"USB_SUSPEND_VOTER"
+#define CHARGER_TYPE_VOTER		"CHARGER_TYPE_VOTER"
+#define HDC_IRQ_VOTER			"HDC_IRQ_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -232,6 +235,7 @@ struct smb_irq_info {
 	const struct storm_watch	storm_data;
 	struct smb_irq_data		*irq_data;
 	int				irq;
+	bool				enabled;
 };
 
 static const unsigned int smblib_extcon_cable[] = {
@@ -406,9 +410,11 @@ struct smb_charger {
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
-	struct votable		*usb_irq_enable_votable;
 	struct votable		*cp_disable_votable;
 	struct votable		*smb_override_votable;
+	struct votable		*icl_irq_disable_votable;
+	struct votable		*limited_irq_disable_votable;
+	struct votable		*hdc_irq_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
