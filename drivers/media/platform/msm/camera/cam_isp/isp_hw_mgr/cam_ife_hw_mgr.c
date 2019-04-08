@@ -3709,10 +3709,33 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2: {
-		struct cam_isp_bw_config_ab    *bw_config_ab =
-			(struct cam_isp_bw_config_ab *)blob_data;
+		struct cam_isp_bw_config_ab    *bw_config_ab;
+
 		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
+		if (blob_size < sizeof(struct cam_isp_bw_config_ab)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
+			return -EINVAL;
+		}
+
+		bw_config_ab = (struct cam_isp_bw_config_ab *)blob_data;
+
+		if (bw_config_ab->num_rdi > CAM_IFE_RDI_NUM_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_rdi %u in bw config ab",
+				bw_config_ab->num_rdi);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2
+			+ (bw_config_ab->num_rdi + 2)
+			* sizeof(struct cam_isp_bw_vote))) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %u",
+				blob_size,
+				sizeof(uint32_t) * 2
+				+ (bw_config_ab->num_rdi + 2)
+				* sizeof(struct cam_isp_bw_vote));
+			return -EINVAL;
+		}
 		CAM_DBG(CAM_ISP, "AB L:%lld R:%lld usage_type %d",
 			bw_config_ab->left_pix_vote_ab,
 			bw_config_ab->right_pix_vote_ab,
