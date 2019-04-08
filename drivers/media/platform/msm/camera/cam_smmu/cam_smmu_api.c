@@ -1376,6 +1376,42 @@ end:
 }
 EXPORT_SYMBOL(cam_smmu_dealloc_qdss);
 
+int cam_smmu_get_io_region_info(int32_t smmu_hdl,
+	dma_addr_t *iova, size_t *len)
+{
+	int32_t idx;
+
+	if (!iova || !len || (smmu_hdl == HANDLE_INIT)) {
+		CAM_ERR(CAM_SMMU, "Error: Input args are invalid");
+		return -EINVAL;
+	}
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		CAM_ERR(CAM_SMMU,
+			"Error: handle or index invalid. idx = %d hdl = %x",
+			idx, smmu_hdl);
+		return -EINVAL;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].io_support) {
+		CAM_ERR(CAM_SMMU,
+			"I/O memory not supported for this SMMU handle");
+		return -EINVAL;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	*iova = iommu_cb_set.cb_info[idx].io_info.iova_start;
+	*len = iommu_cb_set.cb_info[idx].io_info.iova_len;
+
+	CAM_DBG(CAM_SMMU,
+		"I/O area for hdl = %x start addr = %pK len = %zu",
+		smmu_hdl, *iova, *len);
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	return 0;
+}
+
 int cam_smmu_get_region_info(int32_t smmu_hdl,
 	enum cam_smmu_region_id region_id,
 	struct cam_smmu_region_info *region_info)
