@@ -1352,10 +1352,9 @@ static int msm_venc_resolve_rc_enable(struct msm_vidc_inst *inst,
 	}
 
 	codec = get_v4l2_codec(inst);
-	if (msm_vidc_lossless_encode &&
-		(codec == V4L2_PIX_FMT_H264 || codec == V4L2_PIX_FMT_HEVC)) {
+	if (msm_vidc_lossless_encode && codec == V4L2_PIX_FMT_HEVC) {
 		dprintk(VIDC_DBG,
-			"Reset RC mode to RC_LOSSLESS for HEVC/AVC lossless encoding\n");
+			"Reset RC mode to RC_LOSSLESS for HEVC lossless encoding\n");
 		inst->rc_type = RATE_CONTROL_LOSSLESS;
 	}
 	return 0;
