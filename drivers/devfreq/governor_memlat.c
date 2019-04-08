@@ -147,7 +147,8 @@ static int start_monitor(struct devfreq *df)
 		return ret;
 	}
 
-	devfreq_monitor_start(df);
+	if (!hw->should_ignore_df_monitor)
+		devfreq_monitor_start(df);
 
 	node->mon_started = true;
 
@@ -161,7 +162,9 @@ static void stop_monitor(struct devfreq *df)
 
 	node->mon_started = false;
 
-	devfreq_monitor_stop(df);
+	if (!hw->should_ignore_df_monitor)
+		devfreq_monitor_stop(df);
+
 	hw->stop_hwmon(hw);
 }
 
@@ -341,13 +344,15 @@ static struct attribute_group compute_dev_attr_group = {
 	.attrs = compute_dev_attr,
 };
 
-#define MIN_MS	10U
+#define MIN_MS	0U
 #define MAX_MS	500U
 static int devfreq_memlat_ev_handler(struct devfreq *df,
 					unsigned int event, void *data)
 {
 	int ret;
 	unsigned int sample_ms;
+	struct memlat_node *node;
+	struct memlat_hwmon *hw;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
@@ -395,10 +400,15 @@ static int devfreq_memlat_ev_handler(struct devfreq *df,
 		break;
 
 	case DEVFREQ_GOV_INTERVAL:
+		node = df->data;
+		hw = node->hw;
 		sample_ms = *(unsigned int *)data;
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
-		devfreq_interval_update(df, &sample_ms);
+		if (hw->request_update_ms)
+			hw->request_update_ms(hw, sample_ms);
+		if (!hw->should_ignore_df_monitor)
+			devfreq_interval_update(df, &sample_ms);
 		break;
 	}
 
