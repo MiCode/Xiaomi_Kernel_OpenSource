@@ -1020,9 +1020,6 @@ static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
 		return -ENXIO;
 	}
 
-	if (!node_dev->node_info->num_disable_ports)
-		return 0;
-
 	if ((node_dev->node_bw[DUAL_CTX].sum_ab ||
 		node_dev->node_bw[DUAL_CTX].max_ib ||
 		!node_dev->is_connected) && !enable)
@@ -1051,21 +1048,23 @@ static int msm_bus_dev_sbm_config(struct device *dev, bool enable)
 		node_dev->is_connected = true;
 	}
 
-	fab_dev = to_msm_bus_node(node_dev->node_info->bus_device);
-	if (!fab_dev) {
-		MSM_BUS_ERR("%s: Unable to get bus device info for %d",
-			__func__,
-			node_dev->node_info->id);
-		return -ENXIO;
-	}
+	if (node_dev->node_info->num_disable_ports) {
+		fab_dev = to_msm_bus_node(node_dev->node_info->bus_device);
+		if (!fab_dev) {
+			MSM_BUS_ERR("%s: Unable to get bus device info for %d",
+				__func__,
+				node_dev->node_info->id);
+			return -ENXIO;
+		}
 
-	if (fab_dev->fabdev &&
-			fab_dev->fabdev->noc_ops.sbm_config) {
-		ret = fab_dev->fabdev->noc_ops.sbm_config(
-			node_dev,
-			fab_dev->fabdev->qos_base,
-			fab_dev->fabdev->sbm_offset,
-			enable);
+		if (fab_dev->fabdev &&
+				fab_dev->fabdev->noc_ops.sbm_config) {
+			ret = fab_dev->fabdev->noc_ops.sbm_config(
+				node_dev,
+				fab_dev->fabdev->qos_base,
+				fab_dev->fabdev->sbm_offset,
+				enable);
+		}
 	}
 
 	if (!enable) {
