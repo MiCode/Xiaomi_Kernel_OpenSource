@@ -2072,6 +2072,10 @@
 			 <&apps_smmu 0x01B6 0x0011>;
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1b20000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1b20000 0x20000>,

@@ -1255,6 +1255,60 @@
 			};
 		};
 
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio102";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio102";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio102";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio102";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_ctrl: sde_dp_hotplug_ctrl {
+			mux {
+				pins = "gpio100";
+				function = "dp_hot";
+			};
+
+			config {
+				pins = "gpio100";
+				bias-disable;
+				input-enable;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_tlmm: sde_dp_hotplug_tlmm {
+			mux {
+				pins = "gpio100";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio100";
+				bias-disable;
+				input-enable;
+				drive-strength = <2>;
+			};
+		};
+
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
 			config {
