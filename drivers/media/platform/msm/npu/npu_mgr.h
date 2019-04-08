@@ -72,7 +72,7 @@ struct npu_host_ctx {
 	int32_t power_vote_num;
 	struct work_struct irq_work;
 	struct workqueue_struct *wq;
-	struct completion loopback_done;
+	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
@@ -86,6 +86,8 @@ struct npu_host_ctx {
 	uint32_t wdg_irq_sts;
 	bool fw_error;
 	bool cancel_work;
+	bool misc_cmd_pending;
+	uint32_t misc_cmd_result;
 };
 
 struct npu_device;
@@ -126,6 +128,8 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 void npu_host_cleanup_networks(struct npu_client *client);
+int npu_host_notify_fw_pwr_state(struct npu_device *npu_dev,
+	uint32_t pwr_level, bool post);
 
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 

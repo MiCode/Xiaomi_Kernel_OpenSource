@@ -31,6 +31,8 @@
 #define NPU_IPC_CMD_LOAD_V2             0x00000009
 /* ipc_cmd_execute_packet_v2 */
 #define NPU_IPC_CMD_EXECUTE_V2          0x0000000A
+/* npu_ipc_cmd_notify_pwr_packet_t */
+#define NPU_IPC_CMD_NOTIFY_PWR          0x0000000B
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -48,6 +50,8 @@
 #define NPU_IPC_MSG_LOOPBACK_DONE       0x00010005
 /* ipc_msg_execute_pkt_v2 */
 #define NPU_IPC_MSG_EXECUTE_V2_DONE     0x00010006
+/* struct ipc_msg_notify_pwr_pkt */
+#define NPU_IPC_MSG_NOTIFY_PWR_DONE     0x00010007
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -408,6 +412,29 @@ struct ipc_msg_performance_counters {
 struct ipc_cmd_shutdown_pkt {
 	struct ipc_cmd_header_pkt header;
 	uint32_t shutdown_flags;
+};
+
+/*
+ * Power state notification packet definition
+ */
+enum npu_pwr_notification_type {
+	NPU_POWER_PRE_NOTIFY   = 0x00000001,
+	NPU_POWER_POST_NOTIFY  = 0x00000002,
+};
+
+struct ipc_cmd_notify_pwr_pkt {
+	struct ipc_cmd_header_pkt header;
+	/* enum npu_power_level */
+	uint32_t pwr_level;
+	/* enum npu_pwr_notification_type */
+	uint32_t notify_type;
+};
+
+/*
+ * NOTIFY_PWR cmd response packet definition
+ */
+struct ipc_msg_notify_pwr_pkt {
+	struct ipc_msg_header_pkt header;
 };
 
 #endif /* NPU_HOST_IPC_H */
