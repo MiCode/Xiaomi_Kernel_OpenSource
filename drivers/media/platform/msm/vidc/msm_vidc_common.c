@@ -6730,3 +6730,29 @@ int msm_comm_set_extradata(struct msm_vidc_inst *inst,
 	return rc;
 }
 
+bool msm_comm_check_for_inst_overload(struct msm_vidc_core *core)
+{
+	u32 instance_count = 0;
+	u32 secure_instance_count = 0;
+	struct msm_vidc_inst *inst = NULL;
+	bool overload = false;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		instance_count++;
+		if (inst->flags & VIDC_SECURE)
+			secure_instance_count++;
+	}
+	mutex_unlock(&core->lock);
+
+	if (instance_count > core->resources.max_inst_count ||
+		secure_instance_count > core->resources.max_secure_inst_count) {
+		overload = true;
+		dprintk(VIDC_ERR,
+			"%s: inst_count:%u max_inst:%u sec_inst_count:%u max_sec_inst:%u\n",
+			__func__, instance_count,
+			core->resources.max_inst_count, secure_instance_count,
+			core->resources.max_secure_inst_count);
+	}
+	return overload;
+}
