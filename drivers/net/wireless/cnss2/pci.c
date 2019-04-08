@@ -701,6 +701,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
 		cnss_fatal_err("Failed to start MHI, err = %d\n", ret);
+		CNSS_ASSERT(0);
 		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
 		    !pci_priv->pci_link_down_ind && timeout)
 			mod_timer(&plat_priv->fw_boot_timer,
