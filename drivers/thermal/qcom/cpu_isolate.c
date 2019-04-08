@@ -272,7 +272,7 @@ static void cpu_isolate_register_cdev(struct work_struct *work)
 					&cpu_isolate_cooling_ops);
 	if (IS_ERR(cpu_isolate_cdev->cdev)) {
 		ret = PTR_ERR(cpu_isolate_cdev->cdev);
-		pr_err("Cooling register failed for %s, ret:%ld\n",
+		pr_err("Cooling register failed for %s, ret:%d\n",
 			cdev_name, ret);
 		cpu_isolate_cdev->cdev = NULL;
 		return;
