@@ -2804,6 +2804,27 @@ exit:
  * DC PSY GETTERS *
  *******************/
 
+int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
+				    union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->wls_psy) {
+		chg->wls_psy = power_supply_get_by_name("wireless");
+		if (!chg->wls_psy)
+			return -ENODEV;
+	}
+
+	rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+				val);
+	if (rc < 0)
+		dev_err(chg->dev, "Couldn't get POWER_SUPPLY_PROP_VOLTAGE_REGULATION, rc=%d\n",
+				rc);
+
+	return rc;
+}
+
 int smblib_get_prop_dc_present(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
@@ -2925,6 +2946,57 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 
 	smblib_dbg(chg, PR_WLS, "Set WLS output voltage %d\n", val->intval);
 
+	return rc;
+}
+
+int smblib_set_prop_dc_reset(struct smb_charger *chg)
+{
+	int rc;
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, true, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't suspend DC rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK,
+				DCIN_EN_OVERRIDE_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, DCIN_PON_BIT | MID_CHG_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write %d to DCIN_CMD_PON_REG rc=%d\n",
+			DCIN_PON_BIT | MID_CHG_BIT, rc);
+		return rc;
+	}
+
+	/* Wait for 10ms to allow the charge to get drained */
+	usleep_range(10000, 10010);
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_CMD_PON_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, false, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't unsuspend  DC rc=%d\n", rc);
+		return rc;
+	}
+
+	smblib_dbg(chg, PR_MISC, "Wireless charger removal detection successful\n");
 	return rc;
 }
 
