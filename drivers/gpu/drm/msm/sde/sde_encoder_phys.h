@@ -267,6 +267,7 @@ struct sde_encoder_irq {
  * @pending_retire_fence_cnt:   Atomic counter tracking the pending retire
  *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
+ * @ctlstart_timeout:		Indicates if ctl start timeout occurred
  * @irq:			IRQ tracking structures
  * @cont_splash_single_flush	Variable to check if single flush is enabled.
  * @cont_splash_settings	Variable to store continuous splash settings.
@@ -301,6 +302,7 @@ struct sde_encoder_phys {
 	atomic_t pending_kickoff_cnt;
 	atomic_t pending_retire_fence_cnt;
 	wait_queue_head_t pending_kickoff_wq;
+	atomic_t ctlstart_timeout;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 	u32 cont_splash_single_flush;
 	bool cont_splash_settings;
