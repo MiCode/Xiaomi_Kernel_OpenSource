@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@ static inline bool adreno_llc_supported(void)
 static inline void *adreno_llc_getd(struct device *dev,
 		const char *name)
 {
-	return NULL;
+	return ERR_PTR(-ENODEV);
 }
 
 static inline void adreno_llc_putd(void *desc)

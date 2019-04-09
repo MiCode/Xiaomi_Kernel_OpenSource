@@ -1032,6 +1032,13 @@ Optional properties:
                                           0 - Unsupported
                                           1 - Supported
 
+ - qcom,msm-cpudai-tdm-lane-mask: tdm lane mask for multi lane configuration.
+				Lane bit mask value:
+				MSM_TDM_LANE0 (1 << 0)
+				MSM_TDM_LANE1 (1 << 1)
+				MSM_TDM_LANE2 (1 << 2)
+				MSM_TDM_LANE3 (1 << 3)
+
 Example:
 
 	qcom,msm-dai-tdm-quat-rx {

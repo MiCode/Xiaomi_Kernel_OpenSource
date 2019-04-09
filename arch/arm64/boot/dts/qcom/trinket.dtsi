@@ -1173,6 +1173,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,pas-id = <4>;
 		qcom,smem-id = <421>;
+		qcom,minidump-id = <3>;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -2104,7 +2105,7 @@
 		qca,bt-vdd-xtal-supply = <&pm6125_l16>;
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>; /* IO */
-		qca,bt-vdd-core-voltage-level = <1245000 1350000>; /* RFA */
+		qca,bt-vdd-core-voltage-level = <1304000 1304000>; /* RFA */
 		qca,bt-vdd-pa-voltage-level =  <3200000 3400000>;  /*chain0 */
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>; /* XO */
 
@@ -2202,6 +2203,46 @@
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<78 512 0 0>, <1 606 0 0>,
+			/* 400 KB/s*/
+			<78 512 1046 3200>,
+			<1 606 1600 1600>,
+			/* 20 MB/s */
+			<78 512 52286 160000>,
+			<1 606 80000 80000>,
+			/* 25 MB/s */
+			<78 512 65360 200000>,
+			<1 606 100000 100000>,
+			/* 50 MB/s */
+			<78 512 130718 400000>,
+			<1 606 133320 200000>,
+			/* 100 MB/s */
+			<78 512 130718 400000>,
+			<1 606 150000 400000>,
+			/* 200 MB/s */
+			<78 512 261438 800000>,
+			<1 606 300000 800000>,
+			/* 400 MB/s */
+			<78 512 261438 800000>,
+			<1 606 300000 1600000>,
+			/* Max. bandwidth */
+			<78 512 1338562 4096000>,
+			<1 606 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 400000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <40 40>;
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cmdq-latency-us = <40 40>, <40 40>;
+		qcom,pm-qos-legacy-latency-us = <40 40>, <40 40>;
+
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
 
 		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
@@ -2236,6 +2277,42 @@
 				      "SDR104";
 
 		qcom,devfreq,freq-table = <50000000 202000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 3200>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 160000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 200000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 400000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 400000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 800000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <40 40>;
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-legacy-latency-us = <40 40>, <40 40>;
 
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
@@ -2273,6 +2350,7 @@
 		qcom,modem-cfg-emb-pipe-flt;
 		qcom,ipa-wdi2;
 		qcom,ipa-wdi2_over_gsi;
+		qcom,ipa-endp-delay-wa;
 		qcom,ipa-fltrt-not-hashable;
 		qcom,use-64-bit-dma-mask;
 		qcom,arm-smmu;
@@ -2433,7 +2511,7 @@
 		compatible = "qcom,bimc-bwmon4";
 		reg = <0x01b8e200 0x100>, <0x01b8e100 0x100>;
 		reg-names = "base", "global_base";
-		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpu_cpu_ddr_bw>;
@@ -2527,6 +2605,15 @@
 
 	demux {
 		compatible = "qcom,demux";
+	};
+
+	qfprom: qfprom@1b46018 {
+		compatible = "qcom,qfprom";
+		reg = <0x1b46018 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
 	};
 };
 
@@ -2849,6 +2936,7 @@
 		vdd-1.3-rfa-supply = <&L17A>;
 		vdd-3.3-ch0-supply = <&L23A>;
 		qcom,vdd-cx-mx-config = <640000 640000>;
+		qcom,vdd-3.3-ch0-config = <3000000 3312000>;
 		qcom,icnss-adc_tm = <&pmi632_adc_tm>;
 		io-channels = <&pmi632_vadc ADC_VBAT_SNS>;
 		io-channel-names = "icnss";

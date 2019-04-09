@@ -1197,6 +1197,114 @@
 			};
 		};
 
+		pri_aux_pcm_sck {
+			pri_aux_pcm_sck_sleep: pri_aux_pcm_sck_sleep {
+				mux {
+					pins = "gpio108";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio108";
+					drive-strength = <2>;   /* 2 mA */
+				};
+			};
+
+			pri_aux_pcm_sck_active: pri_aux_pcm_sck_active {
+				mux {
+					pins = "gpio108";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio108";
+					drive-strength = <8>;   /* 8 mA */
+					input-enable;
+				};
+			};
+		};
+
+		pri_aux_pcm_ws {
+			pri_aux_pcm_ws_sleep: pri_aux_pcm_ws_sleep {
+				mux {
+					pins = "gpio109";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio109";
+					drive-strength = <2>;   /* 2 mA */
+				};
+			};
+
+			pri_aux_pcm_ws_active: pri_aux_pcm_ws_active {
+				mux {
+					pins = "gpio109";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio109";
+					drive-strength = <8>;   /* 8 mA */
+					input-enable;
+				};
+			};
+		};
+
+		pri_aux_pcm_data0 {
+			pri_aux_pcm_data0_sleep: pri_aux_pcm_data0_sleep {
+				mux {
+					pins = "gpio110";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio110";
+					drive-strength = <2>;   /* 2 mA */
+				};
+			};
+
+			pri_aux_pcm_data0_active: pri_aux_pcm_data0_active {
+				mux {
+					pins = "gpio110";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio110";
+					drive-strength = <8>;   /* 8 mA */
+					input-enable;
+				};
+			};
+		};
+
+		pri_aux_pcm_data1 {
+			pri_aux_pcm_data1_sleep: pri_aux_pcm_data1_sleep {
+				mux {
+					pins = "gpio111";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio111";
+					drive-strength = <2>;   /* 2 mA */
+				};
+			};
+
+			pri_aux_pcm_data1_active: pri_aux_pcm_data1_active {
+				mux {
+					pins = "gpio111";
+					function = "mi2s_1";
+				};
+
+				config {
+					pins = "gpio111";
+					drive-strength = <8>;   /* 8 mA */
+					output-high;
+				};
+			};
+		};
+
 		pmx_ts_int_active {
 			ts_int_active: ts_int_active {
 				mux {
@@ -1781,6 +1889,7 @@
 	};
 };
 
+
 &pm6150_gpios {
 	wcd934x_mclk {
 		wcd934x_mclk_default: wcd934x_mclk_default{
@@ -1826,3 +1935,4 @@
 
 	};
 };
+

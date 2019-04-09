@@ -131,6 +131,7 @@
 			compatible = "arm,cortex-a7";
 			reg = <0x0>;
 			enable-method = "psci";
+			#cooling-cells = <2>;
 		};
 	};
 
@@ -326,9 +327,9 @@
 
 	clock_debugcc: qcom,cc-debug {
 		compatible = "qcom,debugcc-sdxprairie";
-		qcom,cc-count = <2>;
 		qcom,gcc = <&clock_gcc>;
 		qcom,cpucc = <&cpucc_debug>;
+		qcom,mccc = <&mccc_debug>;
 		clock-names = "xo_clk_src";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
 		#clock-cells = <1>;
@@ -336,9 +337,8 @@
 
 	clock_cpu: qcom,clock-cpu@17808100 {
 		compatible = "qcom,cpu-sdxprairie";
-		clocks = <&clock_rpmh RPMH_CXO_CLK>,
-			 <&clock_gcc GPLL0>;
-		clock-names = "bi_tcxo", "gpll0";
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "bi_tcxo";
 		reg = <0x17810008 0x8>,
 			<0x17808100 0x44>;
 		reg-names = "apcs_cmd" , "apcs_pll";
@@ -349,13 +349,18 @@
 			<  345600000 RPMH_REGULATOR_LEVEL_LOW_SVS>,
 			<  576000000 RPMH_REGULATOR_LEVEL_SVS>,
 			< 1094400000 RPMH_REGULATOR_LEVEL_NOM>,
-			< 1497600000 RPMH_REGULATOR_LEVEL_TURBO>;
+			< 1555200000 RPMH_REGULATOR_LEVEL_TURBO>;
 		#clock-cells = <1>;
 	};
 
 	cpucc_debug: syscon@1781101c {
 		compatible = "syscon";
 		reg = <0x1781101c 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x800>;
 	};
 
 	spmi_bus: qcom,spmi@c440000 {
@@ -993,7 +998,7 @@
 				<  345600 >,
 				<  576000 >,
 				< 1094400 >,
-				< 1497600 >;
+				< 1555200 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1029,7 +1034,7 @@
 				< 1497600 MHZ_TO_MBPS(1804, 4)>;
 	};
 
-	qcom,cnss-qca6390@a0000000 {
+	cnss_qca6390: qcom,cnss-qca6390@a0000000 {
 		compatible = "qcom,cnss-qca6390";
 		reg = <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
@@ -1138,6 +1143,161 @@
 
 		mhi_devices {
 		};
+
+	};
+
+	pcie_ep: qcom,pcie@40002000 {
+		compatible = "qcom,pcie-ep";
+
+		reg = <0x40002000 0x1000>,
+			<0x40000000 0xf1d>,
+			<0x40000f20 0xa8>,
+			<0x40001000 0x1000>,
+			<0x40002000 0x2000>,
+			<0x01c00000 0x3000>,
+			<0x01c06000 0x2000>,
+			<0x01c03000 0x1000>,
+			<0x01fcb000 0x1000>;
+		reg-names = "msi", "dm_core", "elbi", "iatu", "edma", "parf",
+				"phy", "mmio", "tcsr_pcie_perst_en";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie_ep>;
+		interrupts = <0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 140 0>;
+		interrupt-names = "int_global";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie_ep_clkreq_default &pcie_ep_perst_default
+			&pcie_ep_wake_default>;
+
+		clkreq-gpio = <&tlmm 56 0>;
+		perst-gpio = <&tlmm 57 0>;
+		wake-gpio = <&tlmm 53 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie>;
+		vreg-1.8-supply = <&pmxprairie_l1>;
+		vreg-0.9-supply = <&pmxprairie_l4>;
+
+		qcom,vreg-1.8-voltage-level = <1200000 1200000 24000>;
+		qcom,vreg-0.9-voltage-level = <872000 872000 24000>;
+
+		clocks = <&clock_gcc GCC_PCIE_PIPE_CLK>,
+			<&clock_gcc GCC_PCIE_CFG_AHB_CLK>,
+			<&clock_gcc GCC_PCIE_MSTR_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_SLV_AXI_CLK>,
+			<&clock_gcc GCC_PCIE_AUX_CLK>,
+			<&clock_gcc GCC_PCIE_0_CLKREF_CLK>,
+			<&clock_gcc GCC_PCIE_SLEEP_CLK>,
+			<&clock_gcc GCC_PCIE_SLV_Q2A_AXI_CLK>;
+
+		clock-names = "pcie_pipe_clk", "pcie_cfg_ahb_clk",
+				"pcie_mstr_axi_clk", "pcie_slv_axi_clk",
+				"pcie_aux_clk", "pcie_ldo",
+				"pcie_sleep_clk",
+				"pcie_slv_q2a_axi_clk";
+
+		resets = <&clock_gcc GCC_PCIE_BCR>,
+			<&clock_gcc GCC_PCIE_PHY_BCR>;
+
+		reset-names = "pcie_core_reset",
+				"pcie_phy_reset";
+
+		qcom,msm-bus,name = "pcie-ep";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		qcom,pcie-vendor-id = /bits/ 16 <0x17cb>;
+		qcom,pcie-device-id = /bits/ 16 <0x0306>;
+		qcom,pcie-link-speed = <2>;
+		qcom,pcie-phy-ver = <6>;
+		qcom,pcie-active-config;
+		qcom,pcie-aggregated-irq;
+		qcom,pcie-mhi-a7-irq;
+		qcom,phy-status-reg = <0x814>;
+
+		qcom,phy-init = <0x1240 0x001 0x0 0x1
+				0x100c 0x002 0x0 0x1
+				0x1044 0x018 0x0 0x1
+				0x104c 0x007 0x0 0x1
+				0x1058 0x00f 0x0 0x1
+				0x1074 0x006 0x0 0x1
+				0x1078 0x028 0x0 0x1
+				0x107c 0x016 0x0 0x1
+				0x1080 0x00d 0x0 0x1
+				0x1084 0x036 0x0 0x1
+				0x1088 0x000 0x0 0x1
+				0x1094 0x000 0x0 0x1
+				0x10a4 0x046 0x0 0x1
+				0x10a8 0x004 0x0 0x1
+				0x10ac 0x07f 0x0 0x1
+				0x10b0 0x002 0x0 0x1
+				0x10b4 0x0ff 0x0 0x1
+				0x10b8 0x004 0x0 0x1
+				0x10bc 0x025 0x0 0x1
+				0x10c4 0x028 0x0 0x1
+				0x10d4 0x008 0x0 0x1
+				0x10f4 0x0fb 0x0 0x1
+				0x10f8 0x003 0x0 0x1
+				0x110c 0x002 0x0 0x1
+				0x1158 0x012 0x0 0x1
+				0x115c 0x000 0x0 0x1
+				0x1168 0x005 0x0 0x1
+				0x116c 0x004 0x0 0x1
+				0x119c 0x088 0x0 0x1
+				0x11a0 0x003 0x0 0x1
+				0x11ac 0x056 0x0 0x1
+				0x11b0 0x01d 0x0 0x1
+				0x11b4 0x04b 0x0 0x1
+				0x11b8 0x01f 0x0 0x1
+				0x11bc 0x022 0x0 0x1
+				0x0258 0x016 0x0 0x1
+				0x0378 0x083 0x0 0x1
+				0x0360 0x0e2 0x0 0x1
+				0x0364 0x004 0x0 0x1
+				0x0368 0x030 0x0 0x1
+				0x0370 0x0ff 0x0 0x1
+				0x0a58 0x016 0x0 0x1
+				0x0b78 0x083 0x0 0x1
+				0x0b60 0x0e2 0x0 0x1
+				0x0b64 0x004 0x0 0x1
+				0x0b68 0x030 0x0 0x1
+				0x0b70 0x0ff 0x0 0x1
+				0x13e4 0x003 0x0 0x1
+				0x1708 0x003 0x0 0x1
+				0x13e0 0x016 0x0 0x1
+				0x13d8 0x001 0x0 0x1
+				0x16fc 0x001 0x0 0x1
+				0x13dc 0x000 0x0 0x1
+				0x1700 0x000 0x0 0x1
+				0x1828 0x050 0x0 0x1
+				0x1c28 0x050 0x0 0x1
+				0x1200 0x000 0x0 0x1
+				0x1244 0x003 0x0 0x1>;
+
+		status = "disabled";
+	};
+
+	mhi_device: mhi_dev@1c03000 {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0x1c03000 0x1000>,
+			<0x1e15000 0x4>,
+			<0x1e15148 0x4>;
+			reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+			"ipa_uc_mbox_erdb";
+			qcom,mhi-ep-msi = <0>;
+			qcom,mhi-version = <0x1000000>;
+			qcom,use-ipa-software-channel;
+			interrupts = <0 145 0>;
+			interrupt-names = "mhi-device-inta";
+			qcom,mhi-ifc-id = <0x030617cb>;
+			qcom,mhi-interrupt;
+		status = "disabled";
 	};
 
 	sdhc_1: sdhci@8804000 {
@@ -1253,6 +1413,7 @@
 #include "sdxprairie-pcie.dtsi"
 #include "sdxprairie-coresight.dtsi"
 #include "sdxprairie-aqc.dtsi"
+#include "sdxprairie-thermal.dtsi"
 
 &gdsc_usb30 {
 	status = "ok";
@@ -1264,106 +1425,6 @@
 
 &gdsc_pcie {
 	status = "ok";
-};
-
-&thermal_zones {
-	aoss0-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&tsens0 0>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	mdm-q6-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&tsens0 1>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	ipa-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&tsens0 2>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	cpu0-a7-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-governor = "user_space";
-		thermal-sensors = <&tsens0 3>;
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	mdm-5g-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens0 4>;
-		thermal-governor = "user_space";
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	mdm-vpe-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens0 5>;
-		thermal-governor = "user_space";
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
-
-	mdm-core-usr {
-		polling-delay-passive = <0>;
-		polling-delay = <0>;
-		thermal-sensors = <&tsens0 6>;
-		thermal-governor = "user_space";
-		trips {
-			active-config0 {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-		};
-	};
 };
 
 &pcie0_rp {

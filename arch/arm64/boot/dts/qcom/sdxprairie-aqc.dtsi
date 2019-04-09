@@ -19,10 +19,51 @@
 		pci-ids = "1d6a:d107";
 
 		qcom,smmu;
-		qcom,smmu-iova-base = /bits/ 64 <0x0>;
-		qcom,smmu-iova-size = /bits/ 64 <0x80000000>;
 
-		qcom,smmu-attr-s1-bypass;
+		/* IOVA range is restricted to avoid conflicts with PCI BAR
+		 * space and IOVA spaces used by peripherals that are currently
+		 * attached to IPA.
+		 */
+		qcom,smmu-iova-base = /bits/ 64 <0x80000000>;
+		qcom,smmu-iova-size = /bits/ 64 <0x10000000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+
+		/* AQC IPA offload driver */
+
+		qcom,rx-proxy = <&atd_proxy_host>,
+				<&atd_proxy_uc>;
+
+		qcom,rx-gsi-mod-count = <250>;
+		qcom,rx-gsi-mod-timer = <5000>;
+
+		qcom,tx-gsi-mod-count = <250>;
+		qcom,tx-gsi-mod-timer = <5000>;
+
+		qcom,rx-mod-usecs = <50>;
+
+		qcom,use-pci-direct;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		atd_proxy_host: host_proxy@17a00040 {
+			reg = <0x17800200 0>;
+			reg-names = "intc-ispendr-n";
+
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 292 IRQ_TYPE_EDGE_RISING>;
+
+			qcom,proxy-agent = "host";
+			qcom,proxy-method = "msi";
+		};
+
+		atd_proxy_uc: uc_proxy@1ec2080 {
+			qcom,proxy-agent = "uc";
+			qcom,proxy-method = "msi";
+			qcom,proxy-msi-addr = /bits/ 64 <0x01ec2080>;
+			qcom,proxy-msi-data = /bits/ 32 <0x636f6d6d>;
+		};
 	};
 };
-

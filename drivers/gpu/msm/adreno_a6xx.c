@@ -918,9 +918,17 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
 						(mal << 23) | (bit << 21));
 
-	/* Set hang detection threshold to 0xCFFFFF * 16 cycles */
-	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					(1 << 30) | 0xcfffff);
+	if (adreno_is_a610(adreno_dev))
+		/*
+		 * Set hang detection threshold to 4 million
+		 * cycles (0x3FFFF*16).
+		 */
+		kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
+						(1 << 30) | 0x3ffff);
+	else
+		/* Set hang detection threshold to 0xCFFFFF * 16 cycles */
+		kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
+						(1 << 30) | 0xcfffff);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
@@ -2836,6 +2844,22 @@ static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static void a6xx_efuse_gaming_bin(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+	unsigned int gaming_bin[3];
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		"qcom,gpu-gaming-bin", gaming_bin, 3))
+		return;
+
+	adreno_efuse_read_u32(adreno_dev, gaming_bin[0], &val);
+
+	/* If fuse bit is set that means its not a gaming bin */
+	adreno_dev->gaming_bin = !((val & gaming_bin[1]) >> gaming_bin[2]);
+}
+
 static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
@@ -2858,6 +2882,7 @@ static const struct {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
 	{ adreno_is_a610, a6xx_efuse_speed_bin },
+	{ adreno_is_a610, a6xx_efuse_gaming_bin },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)
@@ -3230,4 +3255,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounter_update = a6xx_perfcounter_update,
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 	.clk_set_options = a6xx_clk_set_options,
+	.snapshot_preemption = a6xx_snapshot_preemption,
 };

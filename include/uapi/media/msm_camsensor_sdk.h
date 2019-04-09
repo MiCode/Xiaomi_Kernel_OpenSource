@@ -52,6 +52,8 @@
 
 #define SENSOR_PROBE_WRITE
 
+#define SECURE_CAMERA
+
 enum msm_sensor_camera_id_t {
 	CAMERA_0,
 	CAMERA_1,
@@ -352,6 +354,7 @@ struct msm_camera_csid_params {
 	unsigned int csi_clk;
 	struct msm_camera_csid_lut_params lut_params;
 	unsigned char csi_3p_sel;
+	unsigned char is_secure;
 };
 
 struct msm_camera_csid_testmode_parms {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014,2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,12 +24,19 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
+#include <linux/iopoll.h>
 
 /* SSPHY control registers */
 #define SS_PHY_CTRL0			0x6C
 #define SS_PHY_CTRL1			0x70
 #define SS_PHY_CTRL2			0x74
 #define SS_PHY_CTRL4			0x7C
+#define PHY_CR_REG_CTRL1		0x60
+#define PHY_CR_REG_CTRL2		0x64
+#define PHY_CR_REG_CTRL3		0x68
+#define PHY_CR_DATA_STATUS0		0x30
+#define PHY_CR_DATA_STATUS1		0x34
+#define PHY_CR_DATA_STATUS2		0x38
 
 #define PHY_HOST_MODE			BIT(2)
 #define PHY_VBUS_VALID_OVERRIDE		BIT(4)
@@ -46,6 +53,8 @@
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
+#define SS_OVRD_EN			0x0013
+#define SS_OVRD_VAL			0x0C00
 struct msm_ssphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -192,6 +201,94 @@ static void msm_usb_write_readback(void *base, u32 offset,
 			__func__, val, offset);
 }
 
+static int __maybe_unused msm_ssphy_control_reg_read(struct usb_phy *uphy,
+								u16 address)
+{
+	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
+	u16 val;
+	int ret;
+
+	/* Write address */
+	writeb_relaxed((address & 0xFF), phy->base + PHY_CR_REG_CTRL2);
+	writeb_relaxed(((address >> 0x8) & 0xFF), phy->base + PHY_CR_REG_CTRL3);
+	/* Set CR_ADDR */
+	writeb_relaxed(0x1, phy->base + PHY_CR_REG_CTRL1);
+	/* Do a polled read up to 1ms */
+	ret = readl_poll_timeout(phy->base + PHY_CR_DATA_STATUS2, val,
+							val, 1000, 0);
+	if (ret) {
+		dev_err(phy->phy.dev, "Write address failed:%d\n", ret);
+		return ret;
+	}
+	/* Clear CR_ADDR */
+	writeb_relaxed(0x0, phy->base + PHY_CR_REG_CTRL1);
+
+	/* Set CR_READ */
+	writeb_relaxed(0x4, phy->base + PHY_CR_REG_CTRL1);
+	ret = readl_poll_timeout(phy->base + PHY_CR_DATA_STATUS2, val,
+							val, 1000, 0);
+	if (ret) {
+		dev_err(phy->phy.dev, "Read from address failed:%d\n", ret);
+		return ret;
+	}
+	/* Clear CR_READ */
+	writeb_relaxed(0x0, phy->base + PHY_CR_REG_CTRL1);
+
+	/* Read Data */
+	val = readb_relaxed(phy->base + PHY_CR_DATA_STATUS0);
+	val |= (readb_relaxed(phy->base + PHY_CR_DATA_STATUS1) << 0x8);
+
+	return val;
+}
+
+static int msm_ssphy_control_reg_write(struct usb_phy *uphy,
+						u16 address, u16 value)
+{
+	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
+	u16 val;
+	int ret;
+
+	/* Write address */
+	writeb_relaxed((address & 0xFF), phy->base + PHY_CR_REG_CTRL2);
+	writeb_relaxed(((address >> 0x8) & 0xFF), phy->base + PHY_CR_REG_CTRL3);
+	/* Set CR_ADDR */
+	writeb_relaxed(0x1, phy->base + PHY_CR_REG_CTRL1);
+	ret = readl_poll_timeout(phy->base + PHY_CR_DATA_STATUS2, val,
+							val, 1000, 0);
+	if (ret) {
+		dev_err(phy->phy.dev, "Write address failed:%d\n", ret);
+		return ret;
+	}
+	/* Clear CR_ADDR */
+	writeb_relaxed(0x0, phy->base + PHY_CR_REG_CTRL1);
+
+	/* Write data */
+	writeb_relaxed((value & 0xFF), phy->base + PHY_CR_REG_CTRL2);
+	writeb_relaxed(((value >> 0x8) & 0xFF), phy->base + PHY_CR_REG_CTRL3);
+	/* Set CR_DATA */
+	writeb_relaxed(0x2, phy->base + PHY_CR_REG_CTRL1);
+	ret = readl_poll_timeout(phy->base + PHY_CR_DATA_STATUS2, val,
+							val, 1000, 0);
+	if (ret) {
+		dev_err(phy->phy.dev, "Write data failed:%d\n", ret);
+		return ret;
+	}
+	/* Clear CR_DATA */
+	writeb_relaxed(0x0, phy->base + PHY_CR_REG_CTRL1);
+
+	/* Set CR_WRITE */
+	writeb_relaxed(0x8, phy->base + PHY_CR_REG_CTRL1);
+	ret = readl_poll_timeout(phy->base + PHY_CR_DATA_STATUS2, val,
+							val, 1000, 0);
+	if (ret) {
+		dev_err(phy->phy.dev, "Write data to address failed:%d\n", ret);
+		return ret;
+	}
+	/* Clear CR_WRITE */
+	writeb_relaxed(0x0, phy->base + PHY_CR_REG_CTRL1);
+	return 0;
+}
+
 /* SSPHY Initialization */
 static int msm_ssphy_init(struct usb_phy *uphy)
 {
@@ -229,6 +326,11 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 					LANE0_PWR_PRESENT, LANE0_PWR_PRESENT);
 
 	writeb_relaxed(REF_SS_PHY_EN, phy->base + SS_PHY_CTRL2);
+
+	/* Enable SSC override in SSC_OVRD_IN register */
+	rc = msm_ssphy_control_reg_write(uphy, SS_OVRD_EN, SS_OVRD_VAL);
+	if (rc)
+		dev_err(phy->phy.dev, "Write to PHY reg failed: %d\n", rc);
 
 	return 0;
 }
@@ -401,6 +503,17 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
+
+	/* Power down PHY to avoid leakage at 1.8V LDO */
+	if (of_property_read_bool(dev->of_node, "qcom,keep-powerdown")) {
+		msm_ssusb_ldo_enable(phy, 1);
+		msm_ssusb_enable_clocks(phy);
+		msm_usb_write_readback(phy->base, SS_PHY_CTRL4,
+					TEST_POWERDOWN, TEST_POWERDOWN);
+		msm_ssusb_disable_clocks(phy);
+		msm_ssusb_ldo_enable(phy, 0);
+		msm_ssusb_config_vdd(phy, 0);
+	}
 
 	phy->phy.init			= msm_ssphy_init;
 	phy->phy.set_suspend		= msm_ssphy_set_suspend;

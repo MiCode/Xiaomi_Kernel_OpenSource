@@ -20,9 +20,12 @@
 			<0x4480000 0x80000>,
 			<0x1900000 0x8200>,
 			<0x1880000 0x60200>,
+			<0x1880000 0x60200>,
+			<0x1880000 0x60200>,
 			<0x1880000 0x60200>;
 		reg-names = "sys_noc-base", "bimc-base", "config_noc-base",
-				"qup_virt-base", "fab-gpu_vert-base";
+				"qup_virt-base", "fab-gpu_vert-base",
+				"mmnrt_virt-base", "mmrt_virt-base";
 
 		/*Buses*/
 
@@ -82,6 +85,34 @@
 			qcom,base-name = "fab-gpu_vert-base";
 			qcom,bypass-qos-prg;
 			qcom,bus-type = <3>;
+		};
+
+		fab_mmnrt_virt: fab-mmnrt_virt {
+			cell-id = <MSM_BUS_FAB_MMNRT_VIRT>;
+			label = "fab-mmnrt_virt";
+			qcom,fab-dev;
+			qcom,base-name = "mmnrt_virt-base";
+			qcom,bus-type = <3>;
+			qcom,base-offset = <0x15000>;
+			qcom,qos-off = <0x1000>;
+			qcom,util-fact = <142>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc CPP_MMNRT_MSMBUS_CLK>,
+				<&clock_rpmcc CPP_MMNRT_MSMBUS_A_CLK>;
+		};
+
+		fab_mmrt_virt: fab-mmrt_virt {
+			cell-id = <MSM_BUS_FAB_MMRT_VIRT>;
+			label = "fab-mmrt_virt";
+			qcom,fab-dev;
+			qcom,base-name = "mmrt_virt-base";
+			qcom,bus-type = <3>;
+			qcom,base-offset = <0x15000>;
+			qcom,qos-off = <0x1000>;
+			qcom,util-fact = <142>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpmcc MDP_MMRT_MSMBUS_CLK>,
+				<&clock_rpmcc MDP_MMRT_MSMBUS_A_CLK>;
 		};
 
 		/*Masters*/
@@ -282,11 +313,7 @@
 			qcom,qos-mode = "fixed";
 			qcom,prio = <3>;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc CPP_MMNRT_MSMBUS_CLK>,
-				<&clock_rpmcc CPP_MMNRT_MSMBUS_A_CLK>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CPP>;
 		};
 
@@ -300,11 +327,7 @@
 			qcom,qos-mode = "fixed";
 			qcom,prio = <1>;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc JPEG_MMNRT_MSMBUS_CLK>,
-				<&clock_rpmcc JPEG_MMNRT_MSMBUS_A_CLK>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_JPEG>;
 		};
 
@@ -317,12 +340,8 @@
 			qcom,qport = <5>;
 			qcom,qos-mode = "bypass";
 			qcom,forwarding;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc MDP_MMRT_MSMBUS_CLK>,
-				<&clock_rpmcc MDP_MMRT_MSMBUS_A_CLK>;
 			qcom,connections = <&slv_snoc_bimc_rt>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
 		};
 
@@ -350,11 +369,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc VENUS_MMNRT_MSMBUS_CLK>,
-				<&clock_rpmcc VENUS_MMNRT_MSMBUS_A_CLK>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO_P0>;
 		};
 
@@ -368,11 +383,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc ARM9_MMNRT_MSMBUS_CLK>,
-				<&clock_rpmcc ARM9_MMNRT_MSMBUS_A_CLK>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO_PROC>;
 
 		};
@@ -387,11 +398,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_rt>;
-			qcom,util-fact = <153>;
-			clock-names = "node_clk", "node_a_clk";
-			clocks = <&clock_rpmcc VFE_MMRT_MSMBUS_CLK>,
-				<&clock_rpmcc VFE_MMRT_MSMBUS_A_CLK>;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmrt_virt>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE0>;
 		};
 
@@ -1002,7 +1009,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmnrt_virt>;
 			qcom,connections = <&mas_snoc_bimc_nrt>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_NRT>;
 		};
@@ -1013,7 +1020,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_sys_noc>;
+			qcom,bus-dev = <&fab_mmrt_virt>;
 			qcom,connections = <&mas_snoc_bimc_rt>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_RT>;
 		};

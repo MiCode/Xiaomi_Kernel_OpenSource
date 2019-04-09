@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,9 @@ extern void *cnss_ipc_log_context;
 		}							\
 	} while (0)
 #endif
+
+#define cnss_fatal_err(_fmt, ...)					\
+	cnss_pr_err("fatal: " _fmt, ##__VA_ARGS__)
 
 int cnss_debug_init(void);
 void cnss_debug_deinit(void);

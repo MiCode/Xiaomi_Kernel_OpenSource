@@ -230,6 +230,7 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm8150_l5>;
+	vdda-phy-always-on;
 	vdda-pll-supply = <&pm8150l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
@@ -614,6 +615,8 @@
 };
 
 &smb1390_charger {
+	/delete-property/ compatible;
+	compatible = "qcom,smb1390-charger-psy";
 	io-channels = <&pm8150b_vadc ADC_AMUX_THM2>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";

@@ -190,7 +190,7 @@ int mhi_dev_mmio_disable_erdb_a7(struct mhi_dev *dev, uint32_t erdb_id)
 EXPORT_SYMBOL(mhi_dev_mmio_disable_erdb_a7);
 
 int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
-						bool *mhi_reset)
+						u32 *mhi_reset)
 {
 	uint32_t reg_value = 0;
 
@@ -203,9 +203,12 @@ int mhi_dev_mmio_get_mhi_state(struct mhi_dev *dev, enum mhi_dev_state *state,
 	mhi_dev_mmio_read(dev, MHICTRL, &reg_value);
 
 	if (reg_value & MHICTRL_RESET_MASK)
-		*mhi_reset = true;
+		*mhi_reset = 1;
+	else
+		*mhi_reset = 0;
 
-	pr_debug("MHICTRL is 0x%x\n", reg_value);
+	mhi_log(MHI_MSG_VERBOSE, "MHICTRL is 0x%x, reset:%d\n",
+			reg_value, *mhi_reset);
 
 	return 0;
 }
@@ -389,7 +392,7 @@ int mhi_dev_mmio_disable_cmdb_interrupt(struct mhi_dev *dev)
 }
 EXPORT_SYMBOL(mhi_dev_mmio_disable_cmdb_interrupt);
 
-static void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
+void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
 {
 	mhi_dev_mmio_disable_ctrl_interrupt(dev);
 
@@ -399,6 +402,7 @@ static void mhi_dev_mmio_mask_interrupts(struct mhi_dev *dev)
 
 	mhi_dev_mmio_mask_erdb_interrupts(dev);
 }
+EXPORT_SYMBOL(mhi_dev_mmio_mask_interrupts);
 
 int mhi_dev_mmio_clear_interrupts(struct mhi_dev *dev)
 {

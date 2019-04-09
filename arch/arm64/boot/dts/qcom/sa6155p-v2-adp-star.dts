@@ -18,5 +18,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P ADP-STAR V2";
 	compatible = "qcom,sa6155p-adp-star", "qcom,sa6155p", "qcom,adp-star";
-	qcom,board-id = <0x010019 0>;
+	qcom,board-id = <0x020019 0>;
 };

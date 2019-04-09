@@ -4711,6 +4711,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_vote();
 
+	/* The following will retrieve and save the gsi fw version */
+	ipa_save_gsi_ver();
+
 	/*
 	 * In Virtual and Emulation mode, IPAHAL initialized at
 	 * pre_init as there is no SMMU. In normal mode need to wait
@@ -5305,6 +5308,32 @@ static int ipa3_alloc_pkt_init(void)
 	return 0;
 }
 
+/*
+ * SCM call to check if secure dump is allowed.
+ *
+ * Returns true in secure dump allowed.
+ * Return false when secure dump not allowed.
+ */
+#define TZ_UTIL_GET_SEC_DUMP_STATE  0x10
+static bool ipa_is_mem_dump_allowed(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+
+	ret = scm_call2(
+		SCM_SIP_FNID(SCM_SVC_UTIL, TZ_UTIL_GET_SEC_DUMP_STATE),
+		&desc);
+	if (ret) {
+		IPAERR("SCM DUMP_STATE call failed\n");
+		return false;
+	}
+
+	return (desc.ret[0] == 1);
+}
+
 /**
  * ipa3_pre_init() - Initialize the IPA Driver.
  * This part contains all initialization which doesn't require IPA HW, such
@@ -5397,6 +5426,30 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->do_non_tn_collection_on_crash =
 	    resource_p->do_non_tn_collection_on_crash;
 	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
+	ipa3_ctx->secure_debug_check_action =
+	    resource_p->secure_debug_check_action;
+
+	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
+		if (ipa_is_mem_dump_allowed())
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			ipa3_ctx->sd_state = SD_DISABLED;
+	} else {
+		if (ipa3_ctx->secure_debug_check_action == OVERRIDE_SCM_TRUE)
+			ipa3_ctx->sd_state = SD_ENABLED;
+		else
+			/* secure_debug_check_action == OVERRIDE_SCM_FALSE */
+			ipa3_ctx->sd_state = SD_DISABLED;
+	}
+
+	if (ipa3_ctx->sd_state == SD_ENABLED) {
+		/* secure debug is enabled. */
+		IPADBG("secure debug enabled\n");
+	} else {
+		/* secure debug is disabled. */
+		IPADBG("secure debug disabled\n");
+		ipa3_ctx->do_testbus_collection_on_crash = false;
+	}
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5518,7 +5571,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/*
 	 * Setup access for register collection/dump on crash
 	 */
-	if (ipa_reg_save_init(0xFF) != 0) {
+	if (ipa_reg_save_init(IPA_MEM_INIT_VAL) != 0) {
 		result = -EFAULT;
 		goto fail_gsi_map;
 	}
@@ -5760,6 +5813,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_ipa_dma_setup;
 	}
 
+	result = ipa_eth_init();
+	if (result) {
+		IPAERR("Failed to initialize Ethernet Offload Subsystem\n");
+		result = -ENODEV;
+		goto fail_eth_init;
+	}
+
 	/*
 	 * We can't register the GSI driver yet, as it expects
 	 * the GSI FW to be up and running before the registration.
@@ -5814,6 +5874,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
+	ipa_eth_exit();
+fail_eth_init:
 	ipa3_dma_shutdown();
 fail_ipa_dma_setup:
 	if (ipa3_ctx->use_ipa_pm)
@@ -6383,6 +6445,19 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	IPADBG(": doing register collection on crash = %s\n",
 	       ipa_drv_res->do_register_collection_on_crash ? "True":"False");
+
+	result = of_property_read_u32(
+		pdev->dev.of_node,
+		"qcom,secure-debug-check-action",
+		&ipa_drv_res->secure_debug_check_action);
+	if (result ||
+		(ipa_drv_res->secure_debug_check_action != 0 &&
+		 ipa_drv_res->secure_debug_check_action != 1 &&
+		 ipa_drv_res->secure_debug_check_action != 2))
+		ipa_drv_res->secure_debug_check_action = USE_SCM;
+
+	IPADBG(": secure-debug-check-action = %d\n",
+		   ipa_drv_res->secure_debug_check_action);
 
 	return 0;
 }

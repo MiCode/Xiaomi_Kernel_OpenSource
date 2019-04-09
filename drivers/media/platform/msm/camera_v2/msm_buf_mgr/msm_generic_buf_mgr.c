@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -277,13 +277,14 @@ static void msm_buf_mngr_contq_listdel(struct msm_buf_mngr_device *dev,
 	int rc;
 	struct msm_buf_mngr_user_buf_cont_info *cont_bufs, *cont_save;
 
-	list_for_each_entry_safe(cont_bufs,
+	list_for_each_entry_safe_reverse(cont_bufs,
 		cont_save, &dev->cont_qhead, entry) {
 		if ((cont_bufs->sessid == session) &&
 		(cont_bufs->strid == stream)) {
 			if (cnt == 1 && unmap == 1) {
 				/* dma_buf_vunmap ignored vaddr(2nd argument) */
-				dma_buf_vunmap(cont_bufs->dmabuf, NULL);
+				dma_buf_vunmap(cont_bufs->dmabuf,
+					cont_bufs->paddr);
 				rc = dma_buf_end_cpu_access(cont_bufs->dmabuf,
 					DMA_BIDIRECTIONAL);
 				if (rc) {

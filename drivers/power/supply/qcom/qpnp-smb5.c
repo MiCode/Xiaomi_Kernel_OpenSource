@@ -1233,6 +1233,7 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_DC_RESET,
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1265,6 +1266,9 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_REAL_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_WIPOWER;
 		break;
+	case POWER_SUPPLY_PROP_DC_RESET:
+		val->intval = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1293,6 +1297,9 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_set_prop_voltage_wls_output(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_DC_RESET:
+		rc = smblib_set_prop_dc_reset(chg);
 		break;
 	default:
 		return -EINVAL;
@@ -1666,6 +1673,209 @@ static int smb5_init_batt_psy(struct smb5 *chip)
 	if (IS_ERR(chg->batt_psy)) {
 		pr_err("Couldn't register battery power supply\n");
 		return PTR_ERR(chg->batt_psy);
+	}
+
+	return rc;
+}
+
+/********************************
+ * DUAL-ROLE CLASS REGISTRATION *
+ ********************************/
+static enum dual_role_property smb5_dr_properties[] = {
+	DUAL_ROLE_PROP_SUPPORTED_MODES,
+	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
+};
+
+static int smb5_dr_get_property(struct dual_role_phy_instance *dual_role,
+			enum dual_role_property prop, unsigned int *val)
+{
+	struct smb_charger *chg = dual_role_get_drvdata(dual_role);
+	union power_supply_propval pval = {0, };
+	/* Initializing pr, dr and mode to value 2 corresponding to NONE case */
+	int mode = 2, pr = 2, dr = 2, rc = 0;
+
+	if (!chg)
+		return -ENODEV;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb present status, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_TYPEC) {
+		if (chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			mode = DUAL_ROLE_PROP_MODE_NONE;
+			pr = DUAL_ROLE_PROP_PR_NONE;
+			dr = DUAL_ROLE_PROP_DR_NONE;
+		} else if (chg->typec_mode <
+				POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+			mode = DUAL_ROLE_PROP_MODE_DFP;
+			pr = DUAL_ROLE_PROP_PR_SRC;
+			dr = DUAL_ROLE_PROP_DR_HOST;
+		} else if (chg->typec_mode >=
+				POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+			mode = DUAL_ROLE_PROP_MODE_UFP;
+			pr = DUAL_ROLE_PROP_PR_SNK;
+			dr = DUAL_ROLE_PROP_DR_DEVICE;
+		}
+	} else if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		pr = DUAL_ROLE_PROP_PR_NONE;
+
+		if (chg->otg_present) {
+			mode = DUAL_ROLE_PROP_MODE_DFP;
+			dr = DUAL_ROLE_PROP_DR_HOST;
+		} else if (pval.intval) {
+			mode = DUAL_ROLE_PROP_MODE_UFP;
+			dr = DUAL_ROLE_PROP_DR_DEVICE;
+		} else {
+			mode = DUAL_ROLE_PROP_MODE_NONE;
+			dr = DUAL_ROLE_PROP_DR_NONE;
+		}
+	}
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		*val = mode;
+		break;
+	case DUAL_ROLE_PROP_PR:
+		*val = pr;
+		break;
+	case DUAL_ROLE_PROP_DR:
+		*val = dr;
+		break;
+	default:
+		pr_err("dual role class get property %d not supported\n", prop);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int smb5_dr_set_property(struct dual_role_phy_instance *dual_role,
+			enum dual_role_property prop, const unsigned int *val)
+{
+	struct smb_charger *chg = dual_role_get_drvdata(dual_role);
+	int rc = 0;
+
+	if (!chg)
+		return -ENODEV;
+
+	mutex_lock(&chg->dr_lock);
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		if (chg->pr_swap_in_progress) {
+			pr_debug("Already in mode transition. Skipping request\n");
+			mutex_unlock(&chg->dr_lock);
+			return 0;
+		}
+
+		switch (*val) {
+		case DUAL_ROLE_PROP_MODE_UFP:
+			if (chg->typec_mode >=
+					POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+				chg->dr_mode = DUAL_ROLE_PROP_MODE_UFP;
+			} else {
+				chg->pr_swap_in_progress = true;
+				rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_UFP);
+				if (rc < 0) {
+					chg->pr_swap_in_progress = false;
+					pr_err("Failed to force UFP mode, rc=%d\n",
+						rc);
+				}
+			}
+			break;
+		case DUAL_ROLE_PROP_MODE_DFP:
+			if (chg->typec_mode < POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+				&& chg->typec_mode != POWER_SUPPLY_TYPEC_NONE) {
+				chg->dr_mode = DUAL_ROLE_PROP_MODE_DFP;
+			} else {
+				chg->pr_swap_in_progress = true;
+				rc = smblib_force_dr_mode(chg,
+						DUAL_ROLE_PROP_MODE_DFP);
+				if (rc < 0) {
+					chg->pr_swap_in_progress = false;
+					pr_err("Failed to force DFP mode, rc=%d\n",
+						rc);
+				}
+			}
+			break;
+		default:
+			pr_err("Invalid role (not DFP/UFP): %d\n", *val);
+			rc = -EINVAL;
+		}
+
+		/*
+		 * Schedule delayed work to check if the device latched to
+		 * the requested mode.
+		 */
+		if (chg->pr_swap_in_progress && !rc) {
+			cancel_delayed_work_sync(&chg->role_reversal_check);
+			vote(chg->awake_votable, DR_SWAP_VOTER, true, 0);
+			schedule_delayed_work(&chg->role_reversal_check,
+				msecs_to_jiffies(ROLE_REVERSAL_DELAY_MS));
+		}
+		break;
+	default:
+		pr_err("dual role class set property %d not supported\n", prop);
+		rc = -EINVAL;
+	}
+
+	mutex_unlock(&chg->dr_lock);
+	return rc;
+}
+
+static int smb5_dr_prop_writeable(struct dual_role_phy_instance *dual_role,
+			enum dual_role_property prop)
+{
+	struct smb_charger *chg = dual_role_get_drvdata(dual_role);
+
+	if (!chg)
+		return -ENODEV;
+
+	/* uUSB connector does not support role switch */
+	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
+		return 0;
+
+	switch (prop) {
+	case DUAL_ROLE_PROP_MODE:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static const struct dual_role_phy_desc dr_desc = {
+	.name = "otg_default",
+	.supported_modes = DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP,
+	.properties = smb5_dr_properties,
+	.num_properties = ARRAY_SIZE(smb5_dr_properties),
+	.get_property = smb5_dr_get_property,
+	.set_property = smb5_dr_set_property,
+	.property_is_writeable = smb5_dr_prop_writeable,
+};
+
+static int smb5_init_dual_role_class(struct smb5 *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	/* Register dual role class for only non-PD TypeC and uUSB designs */
+	if (!chg->pd_not_supported)
+		return rc;
+
+	mutex_init(&chg->dr_lock);
+	chg->dual_role = devm_dual_role_instance_register(chg->dev, &dr_desc);
+	if (IS_ERR(chg->dual_role)) {
+		pr_err("Couldn't register dual role class\n");
+		rc = PTR_ERR(chg->dual_role);
+	} else {
+		chg->dual_role->drv_data = chg;
 	}
 
 	return rc;
@@ -2349,36 +2559,27 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/* configure float charger options */
 	switch (chip->dt.float_option) {
-	case FLOAT_DCP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, 0);
-		break;
 	case FLOAT_SDP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		val = FORCE_FLOAT_SDP_CFG_BIT;
 		break;
 	case DISABLE_CHARGING:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		val = FLOAT_DIS_CHGING_CFG_BIT;
 		break;
 	case SUSPEND_INPUT:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		val = SUSPEND_FLOAT_CFG_BIT;
 		break;
+	case FLOAT_DCP:
 	default:
-		rc = 0;
+		val = 0;
 		break;
 	}
 
+	chg->float_cfg = val;
+	/* Update float charger setting and set DCD timeout 300ms */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK | DCD_TIMEOUT_SEL_BIT, val);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+		dev_err(chg->dev, "Couldn't change float charger setting rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -3217,6 +3418,14 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	/* Register android dual-role class */
+	rc = smb5_init_dual_role_class(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize dual role class, rc=%d\n",
+			rc);
+		goto cleanup;
+	}
+
 	rc = smb5_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
@@ -3287,14 +3496,9 @@ static void smb5_shutdown(struct platform_device *pdev)
 		smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
 				TYPEC_POWER_ROLE_CMD_MASK, EN_SNK_ONLY_BIT);
 
-	/* force HVDCP to 5V */
-	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT, 0);
-	smblib_write(chg, CMD_HVDCP_2_REG, FORCE_5V_BIT);
-
 	/* force enable and rerun APSD */
 	smblib_apsd_enable(chg, true);
-	smblib_masked_write(chg, CMD_APSD_REG, APSD_RERUN_BIT, APSD_RERUN_BIT);
+	smblib_hvdcp_exit_config(chg);
 }
 
 static const struct of_device_id match_table[] = {

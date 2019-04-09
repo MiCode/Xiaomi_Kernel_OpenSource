@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -137,7 +137,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG &&
 		csl_packet->header.request_id <= s_ctrl->last_flush_req
 		&& s_ctrl->last_flush_req != 0) {
-		CAM_DBG(CAM_SENSOR,
+		CAM_ERR(CAM_SENSOR,
 			"reject request %lld, last request to flush %lld",
 			csl_packet->header.request_id, s_ctrl->last_flush_req);
 		rc = -EINVAL;
@@ -615,9 +615,7 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 
 	cam_sensor_release_stream_rsc(s_ctrl);
 	cam_sensor_release_per_frame_resource(s_ctrl);
-
-	if (s_ctrl->sensor_state != CAM_SENSOR_INIT)
-		cam_sensor_power_down(s_ctrl);
+	cam_sensor_power_down(s_ctrl);
 
 	rc = cam_destroy_device_hdl(s_ctrl->bridge_intf.device_hdl);
 	if (rc < 0)
@@ -1316,7 +1314,7 @@ free_probe_cmd:
 	case CAM_CONFIG_DEV: {
 		rc = cam_sensor_i2c_pkt_parse(s_ctrl, arg);
 		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed CCI Config: %d", rc);
+			CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
 			goto release_mutex;
 		}
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
@@ -1693,12 +1691,19 @@ int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
 		return -EINVAL;
 	}
 
+	mutex_lock(&(s_ctrl->cam_sensor_mutex));
+	if (s_ctrl->sensor_state != CAM_SENSOR_START ||
+		s_ctrl->sensor_state != CAM_SENSOR_CONFIG) {
+		mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+		return rc;
+	}
+
 	if (s_ctrl->i2c_data.per_frame == NULL) {
 		CAM_ERR(CAM_SENSOR, "i2c frame data is NULL");
+		mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 		return -EINVAL;
 	}
 
-	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
 		s_ctrl->last_flush_req = flush_req->req_id;
 		CAM_DBG(CAM_SENSOR, "last reqest to flush is %lld",

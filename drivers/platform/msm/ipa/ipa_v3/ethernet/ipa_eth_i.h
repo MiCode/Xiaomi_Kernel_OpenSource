@@ -1,0 +1,134 @@
+/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _IPA_ETH_I_H_
+#define _IPA_ETH_I_H_
+
+#include <linux/pci.h>
+#include <linux/ipa_eth.h>
+
+#include "../ipa_i.h"
+
+#ifdef CONFIG_IPA_ETH_NOAUTO
+#define IPA_ETH_NOAUTO_DEFAULT true
+#else
+#define IPA_ETH_NOAUTO_DEFAULT false
+#endif
+
+#define IPA_ETH_PFDEV (ipa3_ctx ? ipa3_ctx->pdev : NULL)
+#define IPA_ETH_SUBSYS "ipa_eth"
+
+#define ipa_eth_err(fmt, args...) \
+	do { \
+		dev_err(IPA_ETH_PFDEV, \
+			IPA_ETH_SUBSYS " %s:%d ERROR: " fmt "\n", \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_ETH_SUBSYS " %s:%d ERROR: " fmt "\n", ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_ETH_SUBSYS " %s:%d ERROR: " fmt "\n", ## args); \
+	} while (0)
+
+#define ipa_eth_log(fmt, args...) \
+	do { \
+		dev_dbg(IPA_ETH_PFDEV, \
+			IPA_ETH_SUBSYS " %s:%d " fmt "\n", \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_ETH_SUBSYS " %s:%d " fmt "\n", ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_ETH_SUBSYS " %s:%d " fmt "\n", ## args); \
+	} while (0)
+
+#define ipa_eth_dbg(fmt, args...) \
+	do { \
+		dev_dbg(IPA_ETH_PFDEV, \
+			IPA_ETH_SUBSYS " %s:%d " fmt "\n", \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_ETH_SUBSYS " %s:%d DEBUG: " fmt "\n", ## args); \
+	} while (0)
+
+#define ipa_eth_dev_err(edev, fmt, args...) \
+	ipa_eth_err("(%s) " fmt, \
+		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
+
+#define ipa_eth_dev_dbg(edev, fmt, args...) \
+	ipa_eth_dbg("(%s) " fmt, \
+		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
+
+#define ipa_eth_dev_log(edev, fmt, args...) \
+	ipa_eth_log("(%s) " fmt, \
+		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
+
+
+struct ipa_eth_bus {
+	struct list_head bus_list;
+
+	struct bus_type *bus;
+
+	int (*register_net_driver)(struct ipa_eth_net_driver *nd);
+	void (*unregister_net_driver)(struct ipa_eth_net_driver *nd);
+};
+
+extern struct ipa_eth_bus ipa_eth_pci_bus;
+
+int ipa_eth_register_device(struct ipa_eth_device *eth_dev);
+void ipa_eth_unregister_device(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_iommu_map(struct iommu_domain *domain,
+	dma_addr_t daddr, void *addr, bool is_va,
+	size_t size, int prot, bool split);
+int ipa_eth_iommu_unmap(struct iommu_domain *domain,
+	dma_addr_t daddr, size_t size, bool split);
+
+int ipa_eth_pci_modinit(struct dentry *dbgfs_root);
+void ipa_eth_pci_modexit(void);
+
+int ipa_eth_bus_modinit(struct dentry *dbgfs_root);
+void ipa_eth_bus_modexit(void);
+
+int ipa_eth_bus_register_driver(struct ipa_eth_net_driver *nd);
+void ipa_eth_bus_unregister_driver(struct ipa_eth_net_driver *nd);
+
+int ipa_eth_offload_modinit(struct dentry *dbgfs_root);
+void ipa_eth_offload_modexit(void);
+
+int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od);
+void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od);
+
+static inline bool ipa_eth_offload_device_paired(struct ipa_eth_device *eth_dev)
+{
+	return eth_dev->od != NULL;
+}
+
+int ipa_eth_offload_pair_device(struct ipa_eth_device *eth_dev);
+void ipa_eth_offload_unpair_device(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_offload_init(struct ipa_eth_device *eth_dev);
+int ipa_eth_offload_deinit(struct ipa_eth_device *eth_dev);
+int ipa_eth_offload_start(struct ipa_eth_device *eth_dev);
+int ipa_eth_offload_stop(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev);
+int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev);
+int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_pm_register(struct ipa_eth_device *eth_dev);
+int ipa_eth_pm_unregister(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_pm_activate(struct ipa_eth_device *eth_dev);
+int ipa_eth_pm_deactivate(struct ipa_eth_device *eth_dev);
+
+int ipa_eth_pm_vote_bw(struct ipa_eth_device *eth_dev);
+
+#endif // _IPA_ETH_I_H_

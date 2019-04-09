@@ -68,11 +68,14 @@
 			};
 		};
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
 
 &qupv3_se1_i2c {
 	status = "ok";
-	qcom,clk-freq-out = <1000000>;
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
@@ -152,6 +155,7 @@
 	qcom,hw-die-temp-mitigation;
 	qcom,hw-connector-mitigation;
 	qcom,connector-internal-pull-kohm = <100>;
+	qcom,float-option = <1>;
 	qcom,thermal-mitigation = <3000000 2500000
 			2000000 1500000 1000000 500000>;
 };

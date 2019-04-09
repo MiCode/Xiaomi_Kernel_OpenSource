@@ -476,6 +476,7 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	channel_props.prefetch_mode = ep_gsi->prefetch_mode;
+	channel_props.empty_lvl_threshold = ep_gsi->prefetch_threshold;
 	channel_props.low_weight = 1;
 	channel_props.err_cb = ipa_gsi_chan_err_cb;
 

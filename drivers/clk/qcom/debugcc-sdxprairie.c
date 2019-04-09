@@ -103,6 +103,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 	.src_sel_shift = 0,
 	.post_div_mask = 0xF,
 	.post_div_shift = 0,
+	.period_offset = 0x50,
 	MUX_SRC_LIST(
 		{ "gcc_ahb_pcie_link_clk", 0xCF, 4, GCC,
 			0xCF, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
@@ -214,7 +215,7 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x63, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
 		{ "gcc_xo_pcie_link_clk", 0x77, 4, GCC,
 			0x77, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
-		{ "measure_only_bimc_clk", 0x73, 4, GCC,
+		{ "measure_only_bimc_clk", 0x73, 4, MC_CC,
 			0x73, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
 		{ "measure_only_ipa_2x_clk", 0xAC, 4, GCC,
 			0xAC, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
@@ -277,6 +278,10 @@ static int clk_debug_sdxprairie_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
 	if (ret)
 		return ret;
 

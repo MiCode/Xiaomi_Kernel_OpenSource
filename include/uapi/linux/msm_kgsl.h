@@ -336,6 +336,8 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_SECURE_BUFFER_ALIGNMENT 0x23
 #define KGSL_PROP_SECURE_CTXT_SUPPORT 0x24
 #define KGSL_PROP_SPEED_BIN		0x25
+#define KGSL_PROP_GAMING_BIN		0x26
+
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;

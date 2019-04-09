@@ -12,6 +12,10 @@ obj-$(CONFIG_RMNET_IPA3) += rmnet_ipa.o ipa_qmi_service_v01.o ipa_qmi_service.o 
 
 obj-$(CONFIG_IPA3_MHI_PROXY) += ipa_mhi_proxy.o
 
+obj-$(CONFIG_IPA_ETH) += ethernet/
+
 ipat-$(CONFIG_IPA3_REGDUMP) += dump/ipa_reg_dump.o
+
+ccflags-$(CONFIG_IPA3_REGDUMP) += -Idrivers/platform/msm/ipa/ipa_v3/dump
 
 ccflags-$(CONFIG_IPA3_REGDUMP_SM8150) += -Idrivers/platform/msm/ipa/ipa_v3/dump/sm8150

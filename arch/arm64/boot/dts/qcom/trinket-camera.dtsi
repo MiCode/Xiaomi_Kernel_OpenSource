@@ -254,6 +254,7 @@
 	qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
+		qcom,camera-secure-sid;
 
 		msm_cam_smmu_cb1 {
 			compatible = "qcom,msm-cam-smmu-cb";
