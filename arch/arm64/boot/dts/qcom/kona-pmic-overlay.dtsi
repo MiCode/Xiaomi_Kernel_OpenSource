@@ -176,5 +176,5 @@
 };
 
 &usb0 {
-	extcon = <&pm8150b_pdphy>;
+	extcon = <&pm8150b_pdphy>, <&eud>;
 };

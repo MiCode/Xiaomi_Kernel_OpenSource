@@ -2625,7 +2625,7 @@
 		mbox-names = "aop";
 	};
 
-	qcom,msm-eud@ff0000 {
+	eud: qcom,msm-eud@ff0000 {
 		compatible = "qcom,msm-eud";
 		interrupt-names = "eud_irq";
 		interrupt-parent = <&pdc>;
