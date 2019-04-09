@@ -577,7 +577,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 {
 	struct qos_info *qos;
 	struct rmnet_bearer_map *bearer;
-	bool do_wake = false;
+	bool do_wake;
 
 	qos = (struct qos_info *)rmnet_get_qos_pt(dev);
 	if (!qos)
@@ -586,19 +586,18 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 	spin_lock_bh(&qos->qos_lock);
 
 	list_for_each_entry(bearer, &qos->bearer_head, list) {
-		if (!bearer->grant_size)
-			do_wake = true;
+		if (bearer->tx_off)
+			continue;
+		do_wake = !bearer->grant_size;
 		bearer->grant_size = DEFAULT_GRANT;
 		bearer->grant_thresh = DEFAULT_GRANT;
 		bearer->seq = 0;
 		bearer->ack_req = 0;
 		bearer->tcp_bidir = false;
 		bearer->rat_switch = false;
-	}
 
-	if (do_wake) {
-		netif_tx_wake_all_queues(dev);
-		trace_dfc_qmi_tc(dev->name, 0xFF, 0, DEFAULT_GRANT, 0, 0, 1);
+		if (do_wake)
+			dfc_bearer_flow_ctl(dev, bearer, qos);
 	}
 
 	spin_unlock_bh(&qos->qos_lock);
