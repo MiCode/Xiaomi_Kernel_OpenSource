@@ -25,6 +25,8 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include <soc/qcom/rpm-smd.h>
+#include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
 
 #define RPM_DDR_REQ 0x726464
 #define AOP_MSG_ADDR_MASK		0xffffffff
@@ -70,6 +72,43 @@ struct memory_refresh_request {
 
 static struct section_stat *mem_info;
 
+static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
+{
+	unsigned long size = end - start;
+	unsigned long virt = (unsigned long)phys_to_virt(start);
+	unsigned long addr_end = virt + size;
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+
+	pgd = pgd_offset_k(virt);
+
+	while (virt < addr_end) {
+
+		/* Check if we have PUD section mapping */
+		pud = pud_offset(pgd, virt);
+		if (pud_sect(*pud)) {
+			pud_clear(pud);
+			virt += PUD_SIZE;
+			continue;
+		}
+
+		/* Check if we have PMD section mapping */
+		pmd = pmd_offset(pud, virt);
+		if (pmd_sect(*pmd)) {
+			pmd_clear(pmd);
+			virt += PMD_SIZE;
+			continue;
+		}
+
+		/* Clear mapping for page entry */
+		set_memory_valid(virt, 1, (int)false);
+		virt += PAGE_SIZE;
+	}
+
+	virt = (unsigned long)phys_to_virt(start);
+	flush_tlb_kernel_range(virt, addr_end);
+}
 void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -188,6 +227,10 @@ static int mem_event_callback(struct notifier_block *self,
 			pr_err("PASR: %s online request addr:0x%llx failed\n",
 			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
+		if (!debug_pagealloc_enabled()) {
+			/* Create kernel page-tables */
+			create_pgtable_mapping(start_addr, end_addr);
+		}
 
 		break;
 	case MEM_ONLINE:
@@ -205,6 +248,10 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
+		if (!debug_pagealloc_enabled()) {
+			/* Clear kernel page-tables */
+			clear_pgtable_mapping(start_addr, end_addr);
+		}
 		if (send_msg(mn, false))
 			pr_err("PASR: %s offline request addr:0x%llx failed\n",
 			       is_rpm_controller ? "RPM" : "AOP",
