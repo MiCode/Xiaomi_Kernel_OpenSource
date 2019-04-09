@@ -370,6 +370,14 @@
 		qcom,no-clock-support;
 		qcom,qsee-reentrancy-support = <2>;
 	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		status = "ok";
+	};
 };
 
 #include "sm8150-pinctrl.dtsi"
