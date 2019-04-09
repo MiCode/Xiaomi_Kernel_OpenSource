@@ -2948,6 +2948,7 @@ static int __cam_isp_ctx_acquire_hw_v1(struct cam_context *ctx,
 		goto free_res;
 	}
 
+	memset(&param, 0, sizeof(param));
 	param.context_data = ctx;
 	param.event_cb = ctx->irq_cb_intf;
 	param.num_acq = CAM_API_COMPAT_CONSTANT;
@@ -3022,6 +3023,147 @@ end:
 	return rc;
 }
 
+static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
+	void *args)
+{
+	int rc = 0, i, j;
+	struct cam_acquire_hw_cmd_v2 *cmd =
+		(struct cam_acquire_hw_cmd_v2 *)args;
+	struct cam_hw_acquire_args       param;
+	struct cam_hw_release_args       release;
+	struct cam_isp_context          *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_hw_cmd_args           hw_cmd_args;
+	struct cam_isp_hw_cmd_args       isp_hw_cmd_args;
+	struct cam_isp_acquire_hw_info  *acquire_hw_info = NULL;
+
+	if (!ctx->hw_mgr_intf) {
+		CAM_ERR(CAM_ISP, "HW interface is not ready");
+		rc = -EFAULT;
+		goto end;
+	}
+
+	CAM_DBG(CAM_ISP,
+		"session_hdl 0x%x, hdl type %d, res %lld",
+		cmd->session_handle, cmd->handle_type, cmd->resource_hdl);
+
+	/* for now we only support user pointer */
+	if (cmd->handle_type != 1)  {
+		CAM_ERR(CAM_ISP, "Only user pointer is supported");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (cmd->data_size < sizeof(*acquire_hw_info)) {
+		CAM_ERR(CAM_ISP, "data_size is not a valid value");
+		goto end;
+	}
+
+	acquire_hw_info = kzalloc(cmd->data_size, GFP_KERNEL);
+	if (!acquire_hw_info) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	CAM_DBG(CAM_ISP, "start copy resources from user");
+
+	if (copy_from_user(acquire_hw_info, (void __user *)cmd->resource_hdl,
+		cmd->data_size)) {
+		rc = -EFAULT;
+		goto free_res;
+	}
+
+	memset(&param, 0, sizeof(param));
+	param.context_data = ctx;
+	param.event_cb = ctx->irq_cb_intf;
+	param.num_acq = CAM_API_COMPAT_CONSTANT;
+	param.acquire_info_size = cmd->data_size;
+	param.acquire_info = (uint64_t) acquire_hw_info;
+
+	/* call HW manager to reserve the resource */
+	rc = ctx->hw_mgr_intf->hw_acquire(ctx->hw_mgr_intf->hw_mgr_priv,
+		&param);
+	if (rc != 0) {
+		CAM_ERR(CAM_ISP, "Acquire device failed");
+		goto free_res;
+	}
+
+	/* Query the context has rdi only resource */
+	hw_cmd_args.ctxt_to_hw_map = param.ctxt_to_hw_map;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_CTX_TYPE;
+	hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+				&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "HW command failed");
+		goto free_hw;
+	}
+
+	if (param.valid_acquired_hw) {
+		for (i = 0; i < CAM_MAX_ACQ_RES; i++)
+			cmd->hw_info.acquired_hw_id[i] =
+				param.acquired_hw_id[i];
+
+		for (i = 0; i < CAM_MAX_ACQ_RES; i++)
+			for (j = 0; j < CAM_MAX_HW_SPLIT; j++)
+				cmd->hw_info.acquired_hw_path[i][j] =
+					param.acquired_hw_path[i][j];
+	}
+	cmd->hw_info.valid_acquired_hw =
+		param.valid_acquired_hw;
+
+	cmd->hw_info.valid_acquired_hw = param.valid_acquired_hw;
+
+	if (isp_hw_cmd_args.u.ctx_type == CAM_ISP_CTX_RDI) {
+		/*
+		 * this context has rdi only resource assign rdi only
+		 * state machine
+		 */
+		CAM_DBG(CAM_ISP, "RDI only session Context");
+
+		ctx_isp->substate_machine_irq =
+			cam_isp_ctx_rdi_only_activated_state_machine_irq;
+		ctx_isp->substate_machine =
+			cam_isp_ctx_rdi_only_activated_state_machine;
+		ctx_isp->rdi_only_context = true;
+	} else if (isp_hw_cmd_args.u.ctx_type == CAM_ISP_CTX_FS2) {
+		CAM_DBG(CAM_ISP, "FS2 Session has PIX ,RD and RDI");
+		ctx_isp->substate_machine_irq =
+			cam_isp_ctx_fs2_state_machine_irq;
+		ctx_isp->substate_machine =
+			cam_isp_ctx_fs2_state_machine;
+	} else {
+		CAM_DBG(CAM_ISP, "Session has PIX or PIX and RDI resources");
+		ctx_isp->substate_machine_irq =
+			cam_isp_ctx_activated_state_machine_irq;
+		ctx_isp->substate_machine =
+			cam_isp_ctx_activated_state_machine;
+	}
+
+	ctx_isp->hw_ctx = param.ctxt_to_hw_map;
+	ctx_isp->hw_acquired = true;
+	ctx->ctxt_to_hw_map = param.ctxt_to_hw_map;
+
+	trace_cam_context_state("ISP", ctx);
+	CAM_DBG(CAM_ISP,
+		"Acquire success on session_hdl 0x%xs ctx_type %d ctx_id %u",
+		ctx->session_hdl, isp_hw_cmd_args.u.ctx_type, ctx->ctx_id);
+	kfree(acquire_hw_info);
+	return rc;
+
+free_hw:
+	release.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv, &release);
+	ctx_isp->hw_ctx = NULL;
+	ctx_isp->hw_acquired = false;
+free_res:
+	kfree(acquire_hw_info);
+end:
+	return rc;
+}
+
+
 static int __cam_isp_ctx_acquire_hw_in_acquired(struct cam_context *ctx,
 	void *args)
 {
@@ -3036,6 +3178,8 @@ static int __cam_isp_ctx_acquire_hw_in_acquired(struct cam_context *ctx,
 	api_version = *((uint32_t *)args);
 	if (api_version == 1)
 		rc = __cam_isp_ctx_acquire_hw_v1(ctx, args);
+	else if (api_version == 2)
+		rc = __cam_isp_ctx_acquire_hw_v2(ctx, args);
 	else
 		CAM_ERR(CAM_ISP, "Unsupported api version %d", api_version);
 

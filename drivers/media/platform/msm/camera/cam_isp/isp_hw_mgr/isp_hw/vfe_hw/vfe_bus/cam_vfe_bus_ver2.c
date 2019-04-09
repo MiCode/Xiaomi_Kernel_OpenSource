@@ -919,7 +919,7 @@ static enum cam_vfe_bus_packer_format
 
 static int cam_vfe_bus_acquire_wm(
 	struct cam_vfe_bus_ver2_priv          *ver2_bus_priv,
-	struct cam_isp_out_port_info          *out_port_info,
+	struct cam_isp_out_port_generic_info  *out_port_info,
 	void                                  *tasklet,
 	enum cam_vfe_bus_ver2_vfe_out_type     vfe_out_res_id,
 	enum cam_vfe_bus_plane_type            plane,
@@ -1532,7 +1532,7 @@ static void cam_vfe_bus_match_comp_grp(
 
 static int cam_vfe_bus_acquire_comp_grp(
 	struct cam_vfe_bus_ver2_priv        *ver2_bus_priv,
-	struct cam_isp_out_port_info        *out_port_info,
+	struct cam_isp_out_port_generic_info        *out_port_info,
 	void                                *tasklet,
 	uint32_t                             unique_id,
 	uint32_t                             is_dual,

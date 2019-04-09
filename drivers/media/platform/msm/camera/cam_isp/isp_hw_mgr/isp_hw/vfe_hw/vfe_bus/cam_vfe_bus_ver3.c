@@ -1055,7 +1055,7 @@ static int cam_vfe_bus_ver3_handle_rup_bottom_half(void *handler_priv,
 
 static int cam_vfe_bus_ver3_acquire_wm(
 	struct cam_vfe_bus_ver3_priv          *ver3_bus_priv,
-	struct cam_isp_out_port_info          *out_port_info,
+	struct cam_isp_out_port_generic_info  *out_port_info,
 	void                                  *tasklet,
 	enum cam_vfe_bus_ver3_vfe_out_type     vfe_out_res_id,
 	enum cam_vfe_bus_plane_type            plane,
@@ -1518,8 +1518,8 @@ static bool cam_vfe_bus_ver3_match_comp_grp(
 }
 
 static int cam_vfe_bus_ver3_acquire_comp_grp(
-	struct cam_vfe_bus_ver3_priv        *ver3_bus_priv,
-	struct cam_isp_out_port_info        *out_port_info,
+	struct cam_vfe_bus_ver3_priv         *ver3_bus_priv,
+	struct cam_isp_out_port_generic_info *out_port_info,
 	void                                *tasklet,
 	uint32_t                             is_dual,
 	uint32_t                             is_master,

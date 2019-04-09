@@ -56,6 +56,48 @@ struct cam_ife_csid_hw_caps {
 	uint32_t      version_incr;
 };
 
+struct cam_isp_out_port_generic_info {
+	uint32_t                res_type;
+	uint32_t                format;
+	uint32_t                width;
+	uint32_t                height;
+	uint32_t                comp_grp_id;
+	uint32_t                split_point;
+	uint32_t                secure_mode;
+	uint32_t                reserved;
+};
+
+struct cam_isp_in_port_generic_info {
+	uint32_t                        major_ver;
+	uint32_t                        minor_ver;
+	uint32_t                        res_type;
+	uint32_t                        lane_type;
+	uint32_t                        lane_num;
+	uint32_t                        lane_cfg;
+	uint32_t                        vc[CAM_ISP_VC_DT_CFG];
+	uint32_t                        dt[CAM_ISP_VC_DT_CFG];
+	uint32_t                        num_valid_vc_dt;
+	uint32_t                        format;
+	uint32_t                        test_pattern;
+	uint32_t                        usage_type;
+	uint32_t                        left_start;
+	uint32_t                        left_stop;
+	uint32_t                        left_width;
+	uint32_t                        right_start;
+	uint32_t                        right_stop;
+	uint32_t                        right_width;
+	uint32_t                        line_start;
+	uint32_t                        line_stop;
+	uint32_t                        height;
+	uint32_t                        pixel_clk;
+	uint32_t                        batch_size;
+	uint32_t                        dsp_mode;
+	uint32_t                        hbi_cnt;
+	uint32_t                        cust_node;
+	uint32_t                        num_out_res;
+	struct cam_isp_out_port_generic_info    *data;
+};
+
 /**
  * struct cam_csid_hw_reserve_resource- hw reserve
  * @res_type :    Reource type CID or PATH
@@ -77,8 +119,8 @@ struct cam_ife_csid_hw_caps {
 struct cam_csid_hw_reserve_resource_args {
 	enum cam_isp_resource_type                res_type;
 	uint32_t                                  res_id;
-	struct cam_isp_in_port_info              *in_port;
-	struct cam_isp_out_port_info             *out_port;
+	struct cam_isp_in_port_generic_info      *in_port;
+	struct cam_isp_out_port_generic_info     *out_port;
 	enum cam_isp_hw_sync_mode                 sync_mode;
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;

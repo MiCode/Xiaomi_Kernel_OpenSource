@@ -218,7 +218,7 @@ static int cam_vfe_bus_get_rm_idx(
 
 static int cam_vfe_bus_acquire_rm(
 	struct cam_vfe_bus_rd_ver1_priv          *ver1_bus_rd_priv,
-	struct cam_isp_out_port_info             *out_port_info,
+	struct cam_isp_out_port_generic_info     *out_port_info,
 	void                                     *tasklet,
 	void                                     *ctx,
 	enum cam_vfe_bus_rd_ver1_vfe_bus_rd_type  vfe_bus_rd_res_id,
