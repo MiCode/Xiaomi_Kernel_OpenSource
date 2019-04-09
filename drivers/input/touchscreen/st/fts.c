@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * fts.c
- *
- * FTS Capacitive touch screen controller (FingerTipS)
- *
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group)
  *
@@ -47,6 +43,7 @@
 #include <linux/input/mt.h>
 #endif
 
+#include <linux/input/touch_event_notify.h>
 
 #include "fts.h"
 #include "fts_lib/ftsCompensation.h"
@@ -60,8 +57,6 @@
 #include "fts_lib/ftsTool.h"
 #include "linux/moduleparam.h"
 
-
-
 #define LINK_KOBJ_NAME "tp"
 
 /*
@@ -69,7 +64,6 @@
  *
  */
 // #define FTS_USE_POLLING_MODE
-
 
 /*
  * Event installer helpers
@@ -79,7 +73,6 @@
 
 #define install_handler(_i, _evt, _hnd) \
 	(_i->event_dispatch_table[event_id(_evt)].handler = handler_name(_hnd))
-
 
 /*
  * Asyncronouns command helper
@@ -99,7 +92,6 @@ do { \
 #if defined(SCRIPTLESS) || defined(DRIVER_TEST)
 static struct class *fts_cmd_class;
 #endif
-
 
 //struct chipInfo ftsInfo;
 
@@ -139,7 +131,7 @@ static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 void touch_callback(unsigned int status)
 {
-    /* Empty */
+	/* Empty */
 }
 
 unsigned int le_to_uint(const unsigned char *ptr)
@@ -256,7 +248,6 @@ static ssize_t fts_fwupdate_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "AA%08XBB\n", info->fwupdate_stat);
 }
 
-
 /****UTILITIES (current fw_ver/conf_id, active mode, file fw_ver/conf_id)****/
 /**
  * cat appid show on the terminal fw_version.config_id of
@@ -288,7 +279,6 @@ static ssize_t fts_mode_active_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "AA%08XBB\n", info->mode);
 }
 
-
 /**
  * cat fw_file_test show on the terminal fw_version and config_id of the FW
  * stored in the fw file/header file
@@ -314,7 +304,6 @@ static ssize_t fts_fw_test_show(struct device *dev,
 	kfree(fw.data);
 	return 0;
 }
-
 
 /**
  * cat lockdown_info to show the lockdown info on the terminal
@@ -388,7 +377,6 @@ static ssize_t fts_strength_frame_store(struct device *dev,
 		__func__, typeOfComand[0]);
 	return count;
 }
-
 
 static ssize_t fts_strength_frame_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -735,7 +723,6 @@ static ssize_t fts_feature_enable_show(struct device *dev,
 			tag, __func__, feature_feasibility);
 	}
 
-
 	all_strbuff = kmalloc(size, GFP_KERNEL);
 	if (all_strbuff != NULL) {
 		memset(all_strbuff, 0, size);
@@ -809,7 +796,6 @@ static ssize_t fts_edge_rej_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_edge_rej_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -818,7 +804,6 @@ static ssize_t fts_edge_rej_store(struct device *dev,
 	int res;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct fts_ts_info *info = i2c_get_clientdata(client);
-
 
 	/**
 	 * in case of a different elaboration of the input,
@@ -907,7 +892,6 @@ static ssize_t fts_corner_rej_show(struct device *dev,
 
 	return count;
 }
-
 
 static ssize_t fts_corner_rej_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -1015,7 +999,6 @@ static ssize_t fts_edge_palm_rej_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_edge_palm_rej_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1113,7 +1096,6 @@ static ssize_t fts_charger_mode_show(struct device *dev,
 
 	return count;
 }
-
 
 static ssize_t fts_charger_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -1216,7 +1198,6 @@ static ssize_t fts_glove_mode_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_glove_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1315,7 +1296,6 @@ static ssize_t fts_vr_mode_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_vr_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1324,7 +1304,6 @@ static ssize_t fts_vr_mode_store(struct device *dev,
 	int res;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct fts_ts_info *info = i2c_get_clientdata(client);
-
 
 	/**
 	 * in case of a different elaboration of the input,
@@ -1417,7 +1396,6 @@ static ssize_t fts_cover_mode_show(struct device *dev,
 
 	return count;
 }
-
 
 static ssize_t fts_cover_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -1517,7 +1495,6 @@ static ssize_t fts_stylus_mode_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_stylus_mode_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1526,7 +1503,6 @@ static ssize_t fts_stylus_mode_store(struct device *dev,
 	int res;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct fts_ts_info *info = i2c_get_clientdata(client);
-
 
 	/**
 	 * in case of a different elaboration of the input,
@@ -1561,7 +1537,6 @@ static ssize_t fts_stylus_mode_store(struct device *dev,
 				tag, __func__, res);
 		}
 	}
-
 
 	return count;
 }
@@ -1756,7 +1731,6 @@ static ssize_t fts_gesture_mask_show(struct device *dev,
 	return count;
 }
 
-
 static ssize_t fts_gesture_mask_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1880,7 +1854,6 @@ static ssize_t fts_add_custom_gesture_show(struct device *dev,
 
 	return count;
 }
-
 
 static ssize_t fts_add_custom_gesture_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -2161,8 +2134,6 @@ static ssize_t fts_gesture_coordinates_store(struct device *dev,
 	return 0;
 }
 #endif
-
-
 
 /***************** PRODUCTION TEST ****************/
 static ssize_t fts_stm_cmd_store(struct device *dev,
@@ -2519,7 +2490,6 @@ END:
 				strlcat(all_strbuff, buff, 4);
 			}
 
-
 			/* Copying self raw data Sense */
 			for (j = 0; j < frameSS.header.sense_node; j++) {
 				snprintf(buff, sizeof(buff), "%04X",
@@ -2751,7 +2721,6 @@ static int fts_command(struct fts_ts_info *info, unsigned char cmd)
 	return ret;
 }
 
-
 void fts_input_report_key(struct fts_ts_info *info, int key_code)
 {
 	mutex_lock(&info->input_report_mutex);
@@ -2761,7 +2730,6 @@ void fts_input_report_key(struct fts_ts_info *info, int key_code)
 	input_sync(info->input_dev);
 	mutex_unlock(&info->input_report_mutex);
 }
-
 
 /*
  * New Interrupt handle implementation
@@ -2798,6 +2766,7 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	int minor;
 	int major, distance;
 	u8 touchsize;
+	struct touch_event *touch = NULL;
 
 	distance = 0;
 	if (!info->resume_bit)
@@ -2828,9 +2797,6 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	input_mt_slot(info->input_dev, touchId);
 	input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);
 
-	logError(0, "%s %s : TouchID = %d,Touchcount = %d,minor:%d,major:%d\n",
-		tag, __func__, touchId, touchcount, minor, major);
-
 	if (touchcount == 1) {
 		input_report_key(info->input_dev, BTN_TOUCH, 1);
 		input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
@@ -2840,6 +2806,40 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, major);
 	input_report_abs(info->input_dev, ABS_MT_TOUCH_MINOR, minor);
 	input_report_abs(info->input_dev, ABS_MT_DISTANCE, distance);
+
+	if (!info->aoi_notify_enabled)
+		goto no_report;
+
+	if ((x >= info->aoi_left && x < info->aoi_right)
+		&& (y >= info->aoi_top && y < info->aoi_bottom)) {
+
+		touch = &info->event[touchId];
+		touch->x = x;
+		touch->y = y;
+		touch->fid = touchId;
+		touch->type = 'M';
+		do_gettimeofday(&touch->time);
+
+		if (!test_bit(touchId, &info->finger_pressed)) {
+			touch->type = 'D';
+			__set_bit(touchId, &info->finger_pressed);
+		}
+		__set_bit(touchId, &info->event_mask);
+	} else {
+		if (test_bit(touchId, &info->finger_pressed)) {
+
+			touch = &info->event[touchId];
+			touch->x = 0;
+			touch->y = 0;
+			touch->fid = touchId;
+			touch->type = 'U';
+			do_gettimeofday(&touch->time);
+
+			__clear_bit(touchId, &info->finger_pressed);
+			__set_bit(touchId, &info->event_mask);
+		}
+	}
+
 no_report:
 	return;
 
@@ -2849,9 +2849,9 @@ no_report:
 static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 			unsigned char *event)
 {
-
 	unsigned char touchId, touchcount;
 	u8 touchsize;
+	struct touch_event *touch = NULL;
 
 	touchId = event[1] & 0x0F;
 	touchcount = (event[1] & 0xF0) >> 4;
@@ -2869,6 +2869,20 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 
 	input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, -1);
 
+	if (!info->aoi_notify_enabled)
+		return;
+
+	if (test_bit(touchId, &info->finger_pressed)) {
+		touch = &info->event[touchId];
+		touch->x = 0;
+		touch->y = 0;
+		touch->fid = touchId;
+		touch->type = 'U';
+		do_gettimeofday(&touch->time);
+
+		__clear_bit(touchId, &info->finger_pressed);
+		__set_bit(touchId, &info->event_mask);
+	}
 }
 
 /* EventId : 0x05 */
@@ -3225,9 +3239,7 @@ static void fts_event_handler(struct work_struct *work)
 	 * read all the FIFO and parsing events
 	 */
 
-	/* wake_lock_timeout(&info->wakelock, HZ); */
 	__pm_wakeup_event(&info->wakeup_source, HZ);
-	/* logError(1, "%s %s: begin\n", tag, __func__); */
 	regAdd = FIFO_CMD_READONE;
 
 	for (count = 0; count < FIFO_DEPTH; count++) {
@@ -3237,9 +3249,6 @@ static void fts_event_handler(struct work_struct *work)
 			eventId = data[0];
 		else
 			break;
-		/* if(data[7]&0x20) */
-		/* logError(1, "%s %s overflow ID = %02X  Last = %02X\n",*/
-		/* tag, __func__, data[0], data[7]);*/
 
 		if (eventId < EVENTID_LAST) {
 			event_handler = info->event_dispatch_table[eventId];
@@ -3248,8 +3257,13 @@ static void fts_event_handler(struct work_struct *work)
 	}
 	input_sync(info->input_dev);
 
-	/* re-enable interrupts */
 	fts_interrupt_enable(info);
+
+	if (info->event_mask) {
+		touch_event_call_notifier(info->event_mask,
+				(void *)&info->event[0]);
+		info->event_mask = 0;
+	}
 }
 
 static int cx_crc_check(void)
@@ -3538,7 +3552,6 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 
 static void fts_interrupt_uninstall(struct fts_ts_info *info)
 {
-
 	fts_disableInterrupt();
 
 	kfree(info->event_dispatch_table);
@@ -3654,7 +3667,6 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 	/* time needed by the regulators for reaching the regime values */
 	msleep(20);
 
-
 	if (info->bdata->reset_gpio != GPIO_NOT_DEFINED) {
 		/* time to wait before bring up the reset */
 		/* gpio after the power up of the regulators */
@@ -3717,7 +3729,6 @@ int fts_chip_powercycle2(struct fts_ts_info *info, unsigned long sleep)
 	}
 	/* time needed by the regulators for reaching the regime values */
 	msleep(500);
-
 
 	if (info->bdata->reset_gpio != GPIO_NOT_DEFINED) {
 		/*
@@ -4045,7 +4056,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	return res;
 }
 
-
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_info *info;
@@ -4087,7 +4097,6 @@ static void fts_resume_work(struct work_struct *work)
 	fts_interrupt_enable(info);
 }
 
-
 static void fts_suspend_work(struct work_struct *work)
 {
 	struct fts_ts_info *info;
@@ -4119,12 +4128,10 @@ static void fts_suspend_work(struct work_struct *work)
 
 }
 
-
 #if defined(CONFIG_FB_MSM)
 static int fts_fb_state_chg_callback(struct notifier_block *nb,
 			unsigned long val, void *data)
 {
-
 	struct fts_ts_info *info = container_of(nb,
 			struct fts_ts_info, notifier);
 	struct fb_event *evdata = data;
@@ -4193,17 +4200,28 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 		case MSM_DRM_BLANK_POWERDOWN:
 			if (info->sensor_sleep)
 				break;
-			logError(0, "%s %s: MSM_DRM_BLANK_UNBLANK\n",
-					tag, __func__);
-			queue_work(info->event_wq, &info->suspend_work);
+
+			if (info->aoi_notify_enabled)
+				info->aoi_wake_on_suspend = true;
+			else
+				info->aoi_wake_on_suspend = false;
+
+			if (info->aoi_wake_on_suspend)
+				info->sensor_sleep = true;
+			else
+				queue_work(info->event_wq, &info->suspend_work);
 			break;
 
 		case MSM_DRM_BLANK_UNBLANK:
 			if (!info->sensor_sleep)
 				break;
-			logError(0, "%s %s: MSM_DRM_BLANK_UNBLANK\n",
-					tag, __func__);
-			queue_work(info->event_wq, &info->resume_work);
+
+			if (!info->resume_bit)
+				queue_work(info->event_wq, &info->resume_work);
+
+			if (info->aoi_wake_on_suspend)
+				info->sensor_sleep = false;
+
 			break;
 		default:
 			break;
@@ -4661,7 +4679,6 @@ static int fts_probe(struct i2c_client *client,
 
 	mutex_init(&(info->input_report_mutex));
 
-
 #ifdef PHONE_GESTURE
 	mutex_init(&gestureMask_mutex);
 #endif
@@ -4742,7 +4759,6 @@ static int fts_probe(struct i2c_client *client,
 	}
 #endif
 
-
 #ifdef DRIVER_TEST
 	if (fts_cmd_class == NULL)
 		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
@@ -4764,9 +4780,33 @@ static int fts_probe(struct i2c_client *client,
 		goto ProbeErrorExit_11;
 	}
 #endif
+
+	if (fts_cmd_class == NULL)
+		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
+	info->aoi_cmd_dev = device_create(fts_cmd_class,
+			NULL, DCHIP_ID_0, info, "touch_aoi");
+	if (IS_ERR(info->aoi_cmd_dev)) {
+		logError(1,
+			"%s ERROR: Failed to create device for the sysfs\n",
+			tag);
+		goto ProbeErrorExit_10;
+	}
+
+	dev_set_drvdata(info->aoi_cmd_dev, info);
+
+	error = sysfs_create_group(&info->aoi_cmd_dev->kobj,
+			&aoi_cmd_attr_group);
+	if (error) {
+		logError(1, "%s ERROR: Failed to create sysfs group\n", tag);
+		goto ProbeErrorExit_11;
+	}
+
 	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
 			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 	logError(1, "%s Probe Finished!\n", tag);
+
+	info->event_mask = 0;
+
 	return OK;
 
 	/* error exit path */
@@ -4934,7 +4974,6 @@ static void __exit fts_driver_exit(void)
 {
 	i2c_del_driver(&fts_i2c_driver);
 }
-
 
 late_initcall(fts_driver_init);
 module_exit(fts_driver_exit);
