@@ -1286,7 +1286,6 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 		return -EINVAL;
 	}
 
-
 	hw_ctl = enc_master->hw_ctl;
 
 	memset(&cfg, 0, sizeof(cfg));
@@ -1344,9 +1343,14 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	struct sde_hw_pingpong *hw_dsc_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info dsc[MAX_CHANNELS_PER_ENC];
 	bool half_panel_partial_update;
-	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_hw_ctl *hw_ctl = NULL;
 	struct sde_ctl_dsc_cfg cfg;
 	int i;
+
+	if (!enc_master) {
+		SDE_ERROR_ENC(sde_enc, "invalid encoder master for DSC\n");
+		return -EINVAL;
+	}
 
 	memset(&cfg, 0, sizeof(cfg));
 
@@ -1360,6 +1364,8 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 			return -EINVAL;
 		}
 	}
+
+	hw_ctl = enc_master->hw_ctl;
 
 	half_panel_partial_update =
 			hweight_long(params->affected_displays) == 1;
@@ -1460,9 +1466,14 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	struct sde_hw_pingpong *hw_dsc_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info *dsc = NULL;
 	bool half_panel_partial_update;
-	struct sde_hw_ctl *hw_ctl = enc_master->hw_ctl;
+	struct sde_hw_ctl *hw_ctl = NULL;
 	struct sde_ctl_dsc_cfg cfg;
 	int i;
+
+	if (!enc_master) {
+		SDE_ERROR_ENC(sde_enc, "invalid encoder master for DSC\n");
+		return -EINVAL;
+	}
 
 	memset(&cfg, 0, sizeof(cfg));
 
@@ -1476,6 +1487,8 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 			return -EINVAL;
 		}
 	}
+
+	hw_ctl = enc_master->hw_ctl;
 
 	dsc = &sde_enc->mode_info.comp_info.dsc_info;
 
@@ -3029,9 +3042,12 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
-			sizeof(sde_enc->cur_master->intf_cfg_v1));
+
+	if (sde_enc->cur_master)
+		memset(&sde_enc->cur_master->intf_cfg_v1, 0,
+				sizeof(sde_enc->cur_master->intf_cfg_v1));
 	sde_enc->idle_pc_restore = true;
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -4225,6 +4241,11 @@ static int _sde_encoder_wakeup_time(struct drm_encoder *drm_enc,
 	ktime_t cur_time;
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc || !sde_enc->cur_master) {
+		SDE_ERROR("invalid sde encoder/master\n");
+		return -EINVAL;
+	}
+
 	mode = &sde_enc->cur_master->cached_mode;
 
 	line_time = _sde_encoder_calculate_linetime(sde_enc, mode);
