@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, Linaro Ltd
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,7 +354,7 @@ static int qrtr_fifo_xprt_probe(struct platform_device *pdev)
 	}
 
 	xprtp->ep.xmit = xprt_write;
-	ret = qrtr_endpoint_register(&xprtp->ep, QRTR_EP_NID_AUTO);
+	ret = qrtr_endpoint_register(&xprtp->ep, QRTR_EP_NID_AUTO, false);
 	if (ret)
 		return ret;
 
