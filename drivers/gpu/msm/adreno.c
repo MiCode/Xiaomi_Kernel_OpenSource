@@ -2320,8 +2320,9 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
 			if (ret)
-				KGSL_DEV_ERR_ONCE(device,
-					"Device soft reset failed\n");
+				KGSL_DRV_ERR(device,
+					"Device soft reset failed: ret=%d\n",
+					ret);
 		}
 	}
 	if (ret) {
@@ -3745,7 +3746,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
 			if (adj < 0 && -adj > gpu_busy)
-				adj = -gpu_busy;
+				adj = 0;
 
 			gpu_busy += adj;
 		}

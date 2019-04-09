@@ -425,6 +425,19 @@ static int qusb_phy_init(struct usb_phy *phy)
 	u8 reg;
 	bool pll_lock_fail = false;
 
+	/*
+	 * If eud is enabled eud_connected parameter will be set to true.
+	 * Phy init will be called when spoof attach is done but it will
+	 * break the eud functionality by powering down the phy and
+	 * re-initializing it. Hence, bail out early from phy init when
+	 * eud_connected param is set to true.
+	 */
+	if (eud_connected) {
+		pr_debug("eud_connected is true so bailing out early from %s\n",
+				__func__);
+		return 0;
+	}
+
 	dev_dbg(phy->dev, "%s\n", __func__);
 
 	/*
