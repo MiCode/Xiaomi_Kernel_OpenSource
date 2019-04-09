@@ -408,21 +408,11 @@ static int hfi_process_sys_init_done(u32 device_id,
 				pkt->size);
 		return -E2BIG;
 	}
-	if (!pkt->num_properties) {
-		dprintk(VIDC_ERR,
-				"hal_process_sys_init_done: no_properties\n");
-		status = VIDC_ERR_FAIL;
-		goto err_no_prop;
-	}
-
 	status = hfi_map_err_status(pkt->error_type);
-	if (status) {
+	if (status)
 		dprintk(VIDC_ERR, "%s: status %#x\n",
 			__func__, status);
-		goto err_no_prop;
-	}
 
-err_no_prop:
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = NULL;
 	cmd_done.status = (u32)status;
