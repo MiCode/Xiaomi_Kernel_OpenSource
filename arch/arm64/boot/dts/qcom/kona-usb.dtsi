@@ -156,7 +156,7 @@
 		reg-names = "qmp_phy_base";
 
 		vdd-supply = <&pm8150_l18>;
-		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-voltage-level = <0 912000 912000>;
 		qcom,vdd-max-load-uA = <47000>;
 		core-supply = <&pm8150_l9>;
 		qcom,vbus-valid-override;
@@ -462,7 +462,7 @@
 			"pcs_clamp_enable_reg";
 
 		vdd-supply = <&pm8150_l18>;
-		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdd-voltage-level = <0 912000 912000>;
 		qcom,vdd-max-load-uA = <47000>;
 		core-supply = <&pm8150_l9>;
 		qcom,vbus-valid-override;
