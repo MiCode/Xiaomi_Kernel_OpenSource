@@ -141,8 +141,13 @@
 	};
 };
 
+&sde_dsi {
+	lab-supply = &ab_vreg;
+	ibb-supply = &ibb_vreg;
+};
+
 &dsi_sw43404_amoled_cmd {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_no_labibb>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_vdd_labibb>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <1023>;
