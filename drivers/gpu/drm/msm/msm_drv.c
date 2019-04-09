@@ -41,6 +41,7 @@
 #include <linux/kthread.h>
 #include <uapi/linux/sched/types.h>
 #include <drm/drm_of.h>
+#include <soc/qcom/boot_stats.h>
 #include "msm_drv.h"
 #include "msm_debugfs.h"
 #include "msm_fence.h"
@@ -767,6 +768,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	}
 
 	drm_kms_helper_poll_init(ddev);
+	place_marker("M - DISPLAY Driver Ready");
 
 	return 0;
 
