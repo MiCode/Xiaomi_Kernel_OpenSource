@@ -79,6 +79,10 @@ then 3 options can be tried.
 
 Optional properties:
 - qcom,mdss-dsi-panel-name:		A string used as a descriptive name of the panel
+- qcom,mdss-dsi-physical-type:		A string used as a decriptive type of the panel.
+					"oled" : That indicate it's an OLED panel.
+					"lcd" : That indicate it's an LCD panel.
+					If it is not set, consider it is a LCD panel as default.
 - qcom,mdss-dsi-panel-phy-timings:	An array of length 'n' char that specifies the DSI PHY lane
 					timing settings for the panel. This is specific to SDE DRM driver.
 					The value of 'n' depends on the DSI PHY h/w revision and parsing this
