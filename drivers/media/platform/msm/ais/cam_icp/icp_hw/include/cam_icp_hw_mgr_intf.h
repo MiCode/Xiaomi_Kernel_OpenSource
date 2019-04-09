@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 
 #define CAM_ICP_A5_BW_BYTES_VOTE 40000000
 
-#define CAM_ICP_CTX_MAX          36
+#define CAM_ICP_CTX_MAX          54
 
 #define CPAS_IPE1_BIT            0x2000
 

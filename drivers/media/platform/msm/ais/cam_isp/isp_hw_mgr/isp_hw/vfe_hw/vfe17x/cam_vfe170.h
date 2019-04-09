@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -827,6 +827,12 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 			.max_width     = -1,
 			.max_height    = -1,
 		},
+	},
+	.reg_data = {
+		.ubwc_10bit_threshold_lossy_0 = 0,
+		.ubwc_10bit_threshold_lossy_1 = 0,
+		.ubwc_8bit_threshold_lossy_0 = 0,
+		.ubwc_8bit_threshold_lossy_1 = 0,
 	},
 };
 
