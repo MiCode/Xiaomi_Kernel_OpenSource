@@ -39,6 +39,8 @@
 #define GENI_SE_DMA_PTR_H(ptr) 0
 #endif
 
+/* Convert BCM threshold to actual frequency x 4 */
+#define CONV_TO_BW(x) (x*20000*4)
 #define NUM_LOG_PAGES 2
 #define MAX_CLK_PERF_LEVEL 32
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000,
@@ -732,20 +734,20 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[1].vectors[0].ab  =
-			geni_se_dev->cur_ab;
+			CONV_TO_BW(geni_se_dev->cur_ab);
 		geni_se_dev->pdata->usecase[1].vectors[0].ib  =
-			geni_se_dev->cur_ib;
+			CONV_TO_BW(geni_se_dev->cur_ib);
 	}
 
-	if (bus_bw_update && geni_se_dev->num_paths != 2) {
+	if (bus_bw_update && geni_se_dev->num_paths != 2)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-			"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
-			__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
-			geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
-	}
+	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+		__func__, dev_name(rsc->ctrl_dev), geni_se_dev->cur_ab,
+		geni_se_dev->cur_ib, rsc->ab, rsc->ib, bus_bw_update);
+
 
 	if (geni_se_dev->num_paths == 2) {
 		if (unlikely(list_empty(&rsc->ab_list_noc) ||
@@ -773,6 +775,11 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 		if (bus_bw_update_noc || bus_bw_update)
 			ret = msm_bus_scale_client_update_request
 						(geni_se_dev->bus_bw_noc, 1);
+		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev),
+			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
+			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
@@ -874,20 +881,21 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[1].vectors[0].ab  =
-			geni_se_dev->cur_ab;
+			CONV_TO_BW(geni_se_dev->cur_ab);
 		geni_se_dev->pdata->usecase[1].vectors[0].ib  =
-			geni_se_dev->cur_ib;
+			CONV_TO_BW(geni_se_dev->cur_ib);
 	}
 
-	if (bus_bw_update && geni_se_dev->num_paths != 2) {
+	if (bus_bw_update && geni_se_dev->num_paths != 2)
 		ret = msm_bus_scale_update_bw(geni_se_dev->bus_bw,
 						geni_se_dev->cur_ab,
 						geni_se_dev->cur_ib);
-		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
-			"%s: %lu:%lu (%lu:%lu) %d\n", __func__,
-			geni_se_dev->cur_ab, geni_se_dev->cur_ib,
-			rsc->ab, rsc->ib, bus_bw_update);
-	}
+	GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+		"%s: %s: cur_ab_ib(%lu:%lu) req_ab_ib(%lu:%lu) %d\n",
+		__func__, dev_name(rsc->ctrl_dev),
+		geni_se_dev->cur_ab, geni_se_dev->cur_ib,
+		rsc->ab, rsc->ib, bus_bw_update);
+
 
 	if (geni_se_dev->num_paths == 2) {
 
@@ -915,6 +923,11 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		if (bus_bw_update_noc || bus_bw_update)
 			ret = msm_bus_scale_client_update_request
 						(geni_se_dev->bus_bw_noc, 1);
+		GENI_SE_DBG(geni_se_dev->log_ctx, false, NULL,
+			"%s: %s: cur_ab_ib_noc(%lu:%lu) req_ab_ib_noc(%lu:%lu) %d\n",
+			__func__, dev_name(rsc->ctrl_dev),
+			geni_se_dev->cur_ab_noc, geni_se_dev->cur_ib_noc,
+			rsc->ab_noc, rsc->ib_noc, bus_bw_update_noc);
 	}
 	mutex_unlock(&geni_se_dev->geni_dev_lock);
 	return ret;
@@ -1696,6 +1709,15 @@ static int geni_se_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct geni_se_device *geni_se_dev;
+
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_err(&pdev->dev, "could not set DMA mask\n");
+			return ret;
+		}
+	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,qupv3-geni-se-cb"))
 		return geni_se_iommu_probe(dev);

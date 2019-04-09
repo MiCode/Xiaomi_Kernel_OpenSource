@@ -1,6 +1,16 @@
 #
 # Makefile for Bosch sensors driver.
 #
+menuconfig SMI130
+	bool "Enable smi130 drivers"
+	help
+	Say Y here, and a list of smi130 drivers will be displayed.
+	 This option does not affect the kernel.
+
+	If unsure, say N.
+
+if SMI130
+
 config BOSCH_DRIVER_LOG_FUNC
 	tristate "Bosch Sensortec driver smart log function support"
 	depends on (I2C || SPI_MASTER) && SYSFS
@@ -116,6 +126,4 @@ depends on SENSORS_SMI_ACC4XY
 	help
 	 If you say yes here, you get support for Bosch Sensortec's
 	 sensor driver of SMI_ACC4XY with mag sensor support.
-
-
-
+endif

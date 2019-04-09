@@ -262,6 +262,7 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	ctx->session_hdl = -1;
 	ctx->dev_hdl = -1;
 	ctx->link_hdl = -1;
+	ctx->last_flush_req = 0;
 
 	return 0;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,8 @@ struct sde_hw_ctl;
 struct sde_hw_stage_cfg {
 	enum sde_sspp stage[SDE_STAGE_MAX][PIPES_PER_STAGE];
 	enum sde_sspp_multirect_index multirect_index
+					[SDE_STAGE_MAX][PIPES_PER_STAGE];
+	enum sde_sspp_layout_index layout_index
 					[SDE_STAGE_MAX][PIPES_PER_STAGE];
 };
 
@@ -246,7 +248,7 @@ struct sde_hw_ctl_ops {
 	 * @cfg       : blend stage configuration
 	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
-		enum sde_lm lm, struct sde_hw_stage_cfg *cfg);
+		enum sde_lm lm, int flags, struct sde_hw_stage_cfg *cfg);
 
 	void (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_sbuf_cfg *cfg);
