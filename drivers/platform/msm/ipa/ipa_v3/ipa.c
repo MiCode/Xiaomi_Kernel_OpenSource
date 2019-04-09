@@ -3818,10 +3818,10 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	}
 
 	ipa3_enable_clks();
+	ipa3_suspend_apps_pipes(false);
 	atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
 	IPADBG_LOW("active clients = %d\n",
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
-	ipa3_suspend_apps_pipes(false);
 	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 }
 
