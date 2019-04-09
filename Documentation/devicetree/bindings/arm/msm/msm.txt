@@ -79,8 +79,8 @@ Generic board variants:
 - MTP device:
   compatible = "qcom,mtp"
 
-- IDP device:
-  compatible = "qcom,idp"
+- ATP device:
+  compatible = "qcom,atp"
 
 - FLUID device:
   compatible = "qcom,fluid"
@@ -163,6 +163,9 @@ compatible = "qcom,kona-mtp"
 compatible = "qcom,kona-cdp"
 compatible = "qcom,kona-qrd"
 compatible = "qcom,lito-rumi"
+compatible = "qcom,lito-mtp"
+compatible = "qcom,lito-cdp"
+compatible = "qcom,lito-atp"
 compatible = "qcom,sdmshrike-rumi"
 compatible = "qcom,sdmshrike-mtp"
 compatible = "qcom,sdmshrike-cdp"
