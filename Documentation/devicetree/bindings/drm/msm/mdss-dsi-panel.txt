@@ -191,6 +191,8 @@ Optional properties:
 					255 = default value.
 - qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
 					255 = default value.
+- qcom,mdss-dsi-bl-default-level:	Specifies the default brightness level supported.
+					"brightness_max_level" = default value.
 - qcom,bl-update-flag:			A string that specifies controls for backlight update of the panel.
 					"delay_until_first_frame" = Delay backlight update of the panel
 					until the first frame is received from the HW.
