@@ -7,6 +7,7 @@
 
 /dts-v1/;
 #include "mt6779.dtsi"
+#include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 
 / {
 	model = "MediaTek MT6779 EVB";
@@ -35,3 +36,69 @@
 &uart0 {
 	status = "okay";
 };
+
+/* DISPSYS GPIO standardization */
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO44__FUNC_GPIO44>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO44__FUNC_GPIO44>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	status = "okay";
+};
+
+/* DISPSYS GPIO standardization end */
