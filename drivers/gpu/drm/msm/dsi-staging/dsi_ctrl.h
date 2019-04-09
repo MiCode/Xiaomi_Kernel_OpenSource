@@ -84,6 +84,23 @@ enum dsi_engine_state {
 	DSI_CTRL_ENGINE_MAX,
 };
 
+
+/**
+ * enum dsi_ctrl_driver_ops - controller driver ops
+ */
+enum dsi_ctrl_driver_ops {
+	DSI_CTRL_OP_POWER_STATE_CHANGE,
+	DSI_CTRL_OP_CMD_ENGINE,
+	DSI_CTRL_OP_VID_ENGINE,
+	DSI_CTRL_OP_HOST_ENGINE,
+	DSI_CTRL_OP_CMD_TX,
+	DSI_CTRL_OP_HOST_INIT,
+	DSI_CTRL_OP_TPG,
+	DSI_CTRL_OP_PHY_SW_RESET,
+	DSI_CTRL_OP_ASYNC_TIMING,
+	DSI_CTRL_OP_MAX
+};
+
 /**
  * struct dsi_ctrl_power_info - digital and analog power supplies for dsi host
  * @digital:  Digital power supply required to turn on DSI controller hardware.
@@ -790,9 +807,10 @@ int dsi_ctrl_get_host_engine_init_state(struct dsi_ctrl *dsi_ctrl,
  */
 int dsi_ctrl_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl *dsi_ctrl);
 /**
- * dsi_ctrl_update_host_init_state() - Set the host initialization state
+ * dsi_ctrl_update_host_state() - Set the host state
  */
-int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool en);
+int dsi_ctrl_update_host_state(struct dsi_ctrl *dsi_ctrl,
+			       enum dsi_ctrl_driver_ops op, bool en);
 
 /**
  * dsi_ctrl_pixel_format_to_bpp() - returns number of bits per pxl

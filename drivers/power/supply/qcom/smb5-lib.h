@@ -499,6 +499,7 @@ struct smb_charger {
 	int			aicl_cont_threshold_mv;
 	int			default_aicl_cont_threshold_mv;
 	bool			aicl_max_reached;
+	int			usbin_forced_max_uv;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -641,6 +642,10 @@ int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_usb_voltage_max_limit(struct smb_charger *chg,
+				const union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_low_power(struct smb_charger *chg,

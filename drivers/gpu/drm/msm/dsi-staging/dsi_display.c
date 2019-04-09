@@ -2380,7 +2380,9 @@ static int dsi_display_ctrl_init(struct dsi_display *display)
 	} else {
 		display_for_each_ctrl(i, display) {
 			ctrl = &display->ctrl[i];
-			rc = dsi_ctrl_update_host_init_state(ctrl->ctrl, true);
+			rc = dsi_ctrl_update_host_state(ctrl->ctrl,
+							DSI_CTRL_OP_HOST_INIT,
+							true);
 			if (rc)
 				pr_debug("host init update failed rc=%d\n", rc);
 		}
@@ -2464,6 +2466,25 @@ static int dsi_display_ctrl_host_disable(struct dsi_display *display)
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
+	/*
+	 * For platforms where ULPS is controlled by DSI controller block,
+	 * do not disable dsi controller block if lanes are to be
+	 * kept in ULPS during suspend. So just update the SW state
+	 * and return early.
+	 */
+	if (display->panel->ulps_suspend_enabled &&
+	    !m_ctrl->phy->hw.ops.ulps_ops.ulps_request) {
+		display_for_each_ctrl(i, display) {
+			ctrl = &display->ctrl[i];
+			rc = dsi_ctrl_update_host_state(ctrl->ctrl,
+							DSI_CTRL_OP_HOST_ENGINE,
+							false);
+			if (rc)
+				pr_debug("host state update failed %d\n", rc);
+		}
+		return rc;
+	}
+
 	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
 		if (!ctrl->ctrl || (ctrl == m_ctrl))
@@ -6791,7 +6812,8 @@ int dsi_display_prepare(struct dsi_display *display)
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled) {
 			pr_err("DMS is not supposed to be set on first frame\n");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto error;
 		}
 		/* update dsi ctrl for new mode */
 		rc = dsi_display_pre_switch(display);
