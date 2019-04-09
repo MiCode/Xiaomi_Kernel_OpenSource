@@ -5922,10 +5922,19 @@ struct energy_env {
 };
 
 /*
- * cpu_util_wake: Compute CPU utilization with any contributions from
- * the waking task p removed.
+ * cpu_util_without: compute cpu utilization without any contributions from *p
+ * @cpu: the CPU which utilization is requested
+ * @p: the task which utilization should be discounted
+ *
+ * The utilization of a CPU is defined by the utilization of tasks currently
+ * enqueued on that CPU as well as tasks which are currently sleeping after an
+ * execution on that CPU.
+ *
+ * This method returns the utilization of the specified CPU by discounting the
+ * utilization of the specified task, whenever the task is currently
+ * contributing to the CPU utilization.
  */
-static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
+static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	unsigned int util;
 
@@ -5953,7 +5962,7 @@ static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 	cfs_rq = &cpu_rq(cpu)->cfs;
 	util = READ_ONCE(cfs_rq->avg.util_avg);
 
-	/* Discount task's blocked util from CPU's util */
+	/* Discount task's util from CPU's util */
 	util -= min_t(unsigned int, util, task_util(p));
 
 	/*
@@ -5962,14 +5971,14 @@ static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 	 * a) if *p is the only task sleeping on this CPU, then:
 	 *      cpu_util (== task_util) > util_est (== 0)
 	 *    and thus we return:
-	 *      cpu_util_wake = (cpu_util - task_util) = 0
+	 *      cpu_util_without = (cpu_util - task_util) = 0
 	 *
 	 * b) if other tasks are SLEEPING on this CPU, which is now exiting
 	 *    IDLE, then:
 	 *      cpu_util >= task_util
 	 *      cpu_util > util_est (== 0)
 	 *    and thus we discount *p's blocked utilization to return:
-	 *      cpu_util_wake = (cpu_util - task_util) >= 0
+	 *      cpu_util_without = (cpu_util - task_util) >= 0
 	 *
 	 * c) if other tasks are RUNNABLE on that CPU and
 	 *      util_est > cpu_util
@@ -5982,8 +5991,33 @@ static unsigned long cpu_util_wake(int cpu, struct task_struct *p)
 	 * covered by the following code when estimated utilization is
 	 * enabled.
 	 */
-	if (sched_feat(UTIL_EST))
-		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
+	if (sched_feat(UTIL_EST)) {
+		unsigned int estimated =
+			READ_ONCE(cfs_rq->avg.util_est.enqueued);
+
+		/*
+		 * Despite the following checks we still have a small window
+		 * for a possible race, when an execl's select_task_rq_fair()
+		 * races with LB's detach_task():
+		 *
+		 *   detach_task()
+		 *     p->on_rq = TASK_ON_RQ_MIGRATING;
+		 *     ---------------------------------- A
+		 *     deactivate_task()                   \
+		 *       dequeue_task()                     + RaceTime
+		 *         util_est_dequeue()              /
+		 *     ---------------------------------- B
+		 *
+		 * The additional check on "current == p" it's required to
+		 * properly fix the execl regression and it helps in further
+		 * reducing the chances for the above race.
+		 */
+		if (unlikely(task_on_rq_queued(p) || current == p)) {
+			estimated -= min_t(unsigned int, estimated,
+					   (_task_util_est(p) | UTIL_AVG_UNCHANGED));
+		}
+		util = max(util, estimated);
+	}
 #endif
 
 	/*
@@ -6001,7 +6035,7 @@ static unsigned long group_max_util(struct energy_env *eenv, int cpu_idx)
 	int cpu;
 
 	for_each_cpu(cpu, sched_group_span(eenv->sg_cap)) {
-		util = cpu_util_wake(cpu, eenv->p);
+		util = cpu_util_without(cpu, eenv->p);
 
 		/*
 		 * If we are looking at the target CPU specified by the eenv,
@@ -6034,7 +6068,7 @@ long group_norm_util(struct energy_env *eenv, int cpu_idx)
 	int cpu;
 
 	for_each_cpu(cpu, sched_group_span(eenv->sg)) {
-		util = cpu_util_wake(cpu, eenv->p);
+		util = cpu_util_without(cpu, eenv->p);
 
 		/*
 		 * If we are looking at the target CPU specified by the eenv,
@@ -6716,9 +6750,11 @@ boosted_task_util(struct task_struct *task)
 	return util + margin;
 }
 
-static unsigned long capacity_spare_wake(int cpu, struct task_struct *p)
+static unsigned long cpu_util_without(int cpu, struct task_struct *p);
+
+static unsigned long capacity_spare_without(int cpu, struct task_struct *p)
 {
-	return max_t(long, capacity_of(cpu) - cpu_util_wake(cpu, p), 0);
+	return max_t(long, capacity_of(cpu) - cpu_util_without(cpu, p), 0);
 }
 
 /*
@@ -6778,7 +6814,7 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 
 			avg_load += cfs_rq_load_avg(&cpu_rq(i)->cfs);
 
-			spare_cap = capacity_spare_wake(i, p);
+			spare_cap = capacity_spare_without(i, p);
 
 			if (spare_cap > max_spare_cap)
 				max_spare_cap = spare_cap;
@@ -7463,7 +7499,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * so prev_cpu will receive a negative bias due to the double
 			 * accounting. However, the blocked utilization may be zero.
 			 */
-			wake_util = cpu_util_wake(i, p);
+			wake_util = cpu_util_without(i, p);
 			new_util = wake_util + task_util_est(p);
 			spare_wake_cap = capacity_orig_of(i) - wake_util;
 
@@ -8085,7 +8121,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 			 * Consider only CPUs where the task is expected to
 			 * fit without making the CPU overutilized.
 			 */
-			spare = capacity_spare_wake(cpu_iter, p);
+			spare = capacity_spare_without(cpu_iter, p);
 			if (spare * 1024 < sched_capacity_margin_up[cpu_iter] *
 							task_util_est(p))
 				continue;
@@ -8314,7 +8350,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 	if (sd && !(sd_flag & SD_BALANCE_FORK)) {
 		/*
-		 * We're going to need the task's util for capacity_spare_wake
+		 * We're going to need the task's util for capacity_spare_without
 		 * in find_idlest_group. Sync it up to prev_cpu's
 		 * last_update_time.
 		 */
