@@ -1653,6 +1653,54 @@
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
 	};
+
+	gpi_dma0: qcom,gpi-dma@800000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x800000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,max-num-gpii = <10>;
+		qcom,gpii-mask = <0x1f>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x4f6 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@900000 {
+		#dma-cells = <5>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x900000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 280 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 282 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 284 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,max-num-gpii = <10>;
+		qcom,gpii-mask = <0x3f>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x36 0x0>;
+		qcom,smmu-cfg = <0x1>;
+		qcom,iova-range = <0x0 0x100000 0x0 0x100000>;
+		status = "ok";
+	};
 };
 
 #include "lito-pinctrl.dtsi"
