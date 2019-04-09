@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,11 +348,18 @@ uint32_t msm_vfe48_get_ub_size(struct vfe_device *vfe_dev)
 	return MSM_ISP48_TOTAL_IMAGE_UB_VFE;
 }
 
-#ifdef CONFIG_MSM_DUAL_ISP_SYNC
-
 int msm_vfe48_get_dual_sync_platform_data(struct vfe_device *vfe_dev)
 {
 	int rc = 0;
+
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		vfe_dev->dual_vfe_irq =
+			msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
+		if (!vfe_dev->dual_vfe_irq) {
+			pr_err("%s: dual-vfe-irq not supported !\n", __func__);
+			return rc;
+		}
+	}
 
 	vfe_dev->camss_base =
 		msm_camera_get_reg_base(vfe_dev->pdev, "msm-cam", 0);
@@ -360,18 +367,15 @@ int msm_vfe48_get_dual_sync_platform_data(struct vfe_device *vfe_dev)
 	if (!vfe_dev->camss_base)
 		return -ENOMEM;
 
-	vfe_dev->dual_vfe_irq =
-		msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
-	if (!vfe_dev->dual_vfe_irq) {
-		rc = -ENODEV;
-		goto dual_vfe_irq_fail;
-	}
-
-	rc = msm_camera_register_irq(vfe_dev->pdev, vfe_dev->dual_vfe_irq,
-			msm_isp_process_irq,
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		rc = msm_camera_register_irq(vfe_dev->pdev,
+		vfe_dev->dual_vfe_irq, msm_isp_process_irq_dual_sync,
 			IRQF_TRIGGER_RISING, "dual-vfe-irq", vfe_dev);
-	if (rc < 0)
-		goto dual_vfe_irq_fail;
+		if (rc < 0)
+			goto dual_vfe_irq_fail;
+
+		msm_camera_enable_irq(vfe_dev->dual_vfe_irq, 0);
+	}
 
 	return 0;
 dual_vfe_irq_fail:
@@ -382,134 +386,124 @@ dual_vfe_irq_fail:
 
 void msm_vfe48_set_dual_vfe_mode(struct vfe_device *vfe_dev)
 {
-	uint32_t val;
 
-	/* Enable the dual vfe IRQ */
-	msm_camera_enable_irq(vfe_dev->dual_vfe_irq, 1);
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		vfe_dev->dual_vfe_irq =
+			msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
+		if (!vfe_dev->dual_vfe_irq) {
+			pr_err("%s: dual-vfe-irq not supported !\n", __func__);
+			return;
+		}
+	}
 
 	/* Enable external camss control */
 	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0xC88);
-
-	/* Reset composite IRQ control for vfe0*/
-	msm_camera_io_w(0x100, vfe_dev->camss_base + 0x60);
-
-	/* program composite mask to read dual irq status */
-	val = msm_camera_io_r(vfe_dev->camss_base + 0x84);
-	val |= 0x80000;
-	msm_camera_io_w(val, vfe_dev->camss_base + 0x84);
-
-	/* Enable dual vfe IRQ */
-	msm_camera_io_w(1, vfe_dev->camss_base + 0x130);
+	if (vfe_dev->pdev->id == ISP_VFE0 &&
+		!(vfe_dev->dual_isp_sync_irq_enabled)) {
+		/* Enable the dual vfe IRQ */
+		msm_camera_enable_irq(vfe_dev->dual_vfe_irq, 1);
+		msm_camera_io_w(1, vfe_dev->camss_base + 0x130);
+		vfe_dev->dual_isp_sync_irq_enabled =  1;
+	}
 }
 
 void msm_vfe48_clear_dual_vfe_mode(struct vfe_device *vfe_dev)
 {
-	uint32_t val;
-
-	/* Disable the dual vfe IRQ */
-	msm_camera_enable_irq(vfe_dev->dual_vfe_irq, 1);
-
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		vfe_dev->dual_vfe_irq =
+			msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
+		if (!vfe_dev->dual_vfe_irq) {
+			pr_err("%s: dual-vfe-irq not supported !\n", __func__);
+			return;
+		}
+	}
 	/* Disable external camss control */
-	msm_camera_io_w(0x0,
-		vfe_dev->vfe_base + 0xC88);
+	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0xC88);
 
-	/* program composite mask to unread dual irq status */
-	val = msm_camera_io_r(vfe_dev->camss_base + 0x84);
-	val &= ~(0x80000);
-	msm_camera_io_w(val,
-		vfe_dev->camss_base + 0x84);
-
-	/* Disable dual vfe IRQ */
-	msm_camera_io_w(0, vfe_dev->camss_base + 0x130);
+	if (vfe_dev->pdev->id == ISP_VFE0 &&
+		vfe_dev->dual_isp_sync_irq_enabled) {
+		/* Disable the dual vfe IRQ */
+		msm_camera_enable_irq(vfe_dev->dual_vfe_irq, 0);
+		msm_camera_io_w(0, vfe_dev->camss_base + 0x130);
+		vfe_dev->dual_isp_sync_irq_enabled = 0;
+	}
 }
 
-void msm_vfe48_read_and_clear_dual_irq_status(struct vfe_device *vfe_dev,
+void msm_vfe48_clear_dual_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *dual_irq_status)
 {
-	uint32_t count = 0;
-	*dual_irq_status = msm_camera_io_r(vfe_dev->camss_base + 0x140);
+	uint32_t count = 0 /*, irq_status0, irq_status1*/;
 
-	/* Mask off bits that are not enabled */
-	msm_camera_io_w(*dual_irq_status, vfe_dev->camss_base + 0x13C);
-	msm_camera_io_w_mb(1, vfe_dev->camss_base + 0x134);
-
-	while (*dual_irq_status &&
-		(*dual_irq_status &
-		msm_camera_io_r(vfe_dev->camss_base + 0x140)) &&
-		(count < MAX_RECOVERY_THRESHOLD)) {
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		vfe_dev->dual_vfe_irq =
+			msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
+		if (!vfe_dev->dual_vfe_irq) {
+			pr_err("%s: dual-vfe-irq not supported !\n", __func__);
+			return;
+		}
+		*dual_irq_status = msm_camera_io_r(vfe_dev->camss_base + 0x140);
+		/* Mask off bits that are not enabled */
+		*dual_irq_status &= vfe_dev->dual_irq_mask;
+		/*clear the mask and issue cmd*/
 		msm_camera_io_w(*dual_irq_status, vfe_dev->camss_base + 0x13C);
 		msm_camera_io_w_mb(1, vfe_dev->camss_base + 0x134);
-		count++;
+		while (*dual_irq_status &&
+			(*dual_irq_status &
+			msm_camera_io_r(vfe_dev->camss_base + 0x140)) &&
+			(count < MAX_RECOVERY_THRESHOLD)) {
+			pr_err("%s: problem with clear try again status %x\n",
+			__func__, msm_camera_io_r(vfe_dev->camss_base + 0x140));
+			msm_camera_io_w(*dual_irq_status,
+				vfe_dev->camss_base + 0x13C);
+			msm_camera_io_w_mb(1, vfe_dev->camss_base + 0x134);
+			count++;
+		}
 	}
 }
-
 void msm_vfe48_dual_config_irq(struct vfe_device *vfe_dev,
 		uint32_t irq0_mask, uint32_t irq1_mask,
 		enum msm_isp_irq_operation oper)
 {
-	switch (oper) {
-	case MSM_ISP_IRQ_ENABLE:
-		vfe_dev->dual_irq_mask |= irq0_mask;
-		vfe_dev->irq1_mask |= irq1_mask;
-		/* Clear the DUAL_VFE_IRQ_CLEAR,
-		 * VFE_IRQ_CLEAR_1, DUAL_VFE_IRQ_CMD
-		 */
-		msm_camera_io_w_mb(irq0_mask,
-			vfe_dev->camss_base + 0x13C);
-		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
-		msm_camera_io_w_mb(0x1, vfe_dev->camss_base + 0x134);
-		break;
-	case MSM_ISP_IRQ_DISABLE:
-		vfe_dev->dual_irq_mask &= ~irq0_mask;
-		vfe_dev->irq1_mask &= ~irq1_mask;
-		break;
-	case MSM_ISP_IRQ_SET:
-		vfe_dev->dual_irq_mask = irq0_mask;
-		vfe_dev->irq1_mask = irq1_mask;
-		msm_camera_io_w_mb(irq0_mask,
-			vfe_dev->camss_base + 0x13C);
-		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
-		msm_camera_io_w_mb(0x1,
-			vfe_dev->camss_base + 0x134);
-		break;
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		vfe_dev->dual_vfe_irq =
+			msm_camera_get_irq(vfe_dev->pdev, "dual-vfe-irq");
+		if (!vfe_dev->dual_vfe_irq) {
+			pr_err("%s: dual-vfe-irq not supported !\n", __func__);
+			return;
+		}
+		switch (oper) {
+		case MSM_ISP_IRQ_ENABLE:
+			vfe_dev->dual_irq_mask |= irq0_mask;
+			vfe_dev->irq1_mask |= irq1_mask;
+			/* Clear the DUAL_VFE_IRQ_CLEAR,
+			 * VFE_IRQ_CLEAR_1, DUAL_VFE_IRQ_CMD
+			 */
+			msm_camera_io_w_mb(irq0_mask,
+				vfe_dev->camss_base + 0x13C);
+			msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+			msm_camera_io_w_mb(0x1, vfe_dev->camss_base + 0x134);
+			break;
+		case MSM_ISP_IRQ_DISABLE:
+			vfe_dev->dual_irq_mask &= ~irq0_mask;
+			vfe_dev->irq1_mask &= ~irq1_mask;
+			break;
+		case MSM_ISP_IRQ_SET:
+			vfe_dev->dual_irq_mask = irq0_mask;
+			vfe_dev->irq1_mask = irq1_mask;
+			msm_camera_io_w_mb(irq0_mask,
+				vfe_dev->camss_base + 0x13C);
+			msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
+			msm_camera_io_w_mb(0x1,
+				vfe_dev->camss_base + 0x134);
+			break;
+		}
+		/* Program the DUAL_VFE_IRQ_MASK and VFE_IRQ_MASK_1 */
+		msm_camera_io_w_mb(vfe_dev->dual_irq_mask,
+					vfe_dev->camss_base + 0x138);
+		msm_camera_io_w_mb(vfe_dev->irq1_mask,
+					vfe_dev->vfe_base + 0x60);
 	}
-
-	/* Program the DUAL_VFE_IRQ_MASK and VFE_IRQ_MASK_1 */
-	msm_camera_io_w_mb(vfe_dev->dual_irq_mask,
-				vfe_dev->camss_base + 0x138);
-	msm_camera_io_w_mb(vfe_dev->irq1_mask,
-				vfe_dev->vfe_base + 0x60);
 }
-
-#else
-int msm_vfe48_get_dual_sync_platform_data(struct vfe_device *vfe_dev)
-{
-	return 0;
-}
-
-void msm_vfe48_set_dual_vfe_mode(struct vfe_device *vfe_dev)
-{
-	pr_err("%s: No Dual vfe sync implementation\n", __func__);
-}
-
-void msm_vfe48_clear_dual_vfe_mode(struct vfe_device *vfe_dev)
-{
-	pr_err("%s: No Dual vfe sync implementation\n", __func__);
-}
-
-void msm_vfe48_read_and_clear_dual_irq_status(struct vfe_device *vfe_dev,
-	uint32_t *dual_irq_status)
-{
-	pr_err("%s: No Dual vfe sync implementation\n", __func__);
-}
-
-void msm_vfe48_dual_config_irq(struct vfe_device *vfe_dev,
-		uint32_t irq0_mask, uint32_t irq1_mask,
-		enum msm_isp_irq_operation oper)
-{
-	pr_err("%s: No Dual vfe sync implementation\n", __func__);
-}
-#endif
 
 struct msm_vfe_hardware_info vfe48_hw_info = {
 	.num_iommu_ctx = 1,
@@ -533,8 +527,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.config_irq = msm_vfe47_config_irq,
 			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 			.dual_config_irq = msm_vfe48_dual_config_irq,
-			.read_and_clear_dual_irq_status =
-				msm_vfe48_read_and_clear_dual_irq_status,
+			.clear_dual_irq_status =
+				msm_vfe48_clear_dual_irq_status,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe47_axi_reload_wm,
@@ -646,9 +640,7 @@ static const struct of_device_id msm_vfe48_dt_match[] = {
 	},
 	{}
 };
-
 MODULE_DEVICE_TABLE(of, msm_vfe48_dt_match);
-
 static struct platform_driver vfe48_driver = {
 	.probe = vfe_hw_probe,
 	.driver = {
