@@ -620,6 +620,8 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 {
 	bool is_mst_receiver;
 	struct dp_mst_hpd_info info;
+	const int clear_mstm_ctrl_timeout = 100000;
+	u8 old_mstm_ctrl;
 	int ret;
 
 	if (!dp->parser->has_mst || !dp->mst.drm_registered) {
@@ -639,7 +641,17 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 		}
 
 		/* clear sink mst state */
+		drm_dp_dpcd_readb(dp->aux->drm_aux, DP_MSTM_CTRL,
+				&old_mstm_ctrl);
 		drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL, 0);
+
+		/* add extra delay if MST state is not cleared */
+		if (old_mstm_ctrl) {
+			DP_MST_DEBUG("MSTM_CTRL is not cleared, wait %dus\n",
+					clear_mstm_ctrl_timeout);
+			usleep_range(clear_mstm_ctrl_timeout,
+				clear_mstm_ctrl_timeout + 1000);
+		}
 
 		ret = drm_dp_dpcd_writeb(dp->aux->drm_aux, DP_MSTM_CTRL,
 				 DP_MST_EN | DP_UP_REQ_EN | DP_UPSTREAM_IS_SRC);
@@ -679,6 +691,7 @@ static void dp_display_host_init(struct dp_display_private *dp)
 	dp->ctrl->init(dp->ctrl, flip, reset);
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
 	enable_irq(dp->irq);
+	dp->panel->init(dp->panel);
 	dp->core_initialized = true;
 
 	/* log this as it results from user action of cable connection */
@@ -727,10 +740,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp_display_host_init(dp);
 
-	if (dp->debug->psm_enabled) {
-		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
-		dp->debug->psm_enabled = false;
-	}
+	dp->link->psm_config(dp->link, &dp->panel->link_info, false);
+	dp->debug->psm_enabled = false;
 
 	if (!dp->dp_display.base_connector)
 		goto end;
@@ -1447,7 +1458,6 @@ static int dp_display_set_mode(struct dp_display *dp_display, void *panel,
 			mode->timing.bpp, mode->timing.pixel_clk_khz);
 
 	dp_panel->pinfo = mode->timing;
-	dp_panel->init(dp_panel);
 	mutex_unlock(&dp->session_lock);
 
 	return 0;

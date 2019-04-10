@@ -1569,7 +1569,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		goto exit;
 	}
 
-	if (sde_encoder_helper_reset_mixers(phys_enc, wb_enc->fb_disable))
+	if (sde_encoder_helper_reset_mixers(phys_enc, NULL))
 		goto exit;
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;

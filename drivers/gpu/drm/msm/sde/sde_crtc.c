@@ -941,6 +941,26 @@ static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 	return true;
 }
 
+static int _sde_crtc_get_ctlstart_timeout(struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+	int rc = 0;
+
+	if (!crtc || !crtc->dev)
+		return 0;
+
+	list_for_each_entry(encoder,
+			&crtc->dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+
+		if (sde_encoder_get_intf_mode(encoder) == INTF_MODE_CMD)
+			rc += sde_encoder_get_ctlstart_timeout_state(encoder);
+	}
+
+	return rc;
+}
+
 static void _sde_crtc_setup_blend_cfg(struct sde_crtc_mixer *mixer,
 	struct sde_plane_state *pstate, struct sde_format *format)
 {
@@ -1389,6 +1409,11 @@ static u32 _sde_crtc_get_displays_affected(struct drm_crtc *crtc,
 	struct sde_crtc_state *crtc_state;
 	u32 disp_bitmask = 0;
 	int i;
+
+	if (!crtc || !state) {
+		pr_err("Invalid crtc or state\n");
+		return 0;
+	}
 
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
@@ -3709,7 +3734,13 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		goto end;
 
-	_sde_crtc_blend_setup(crtc, old_state, true);
+	if (_sde_crtc_get_ctlstart_timeout(crtc)) {
+		_sde_crtc_blend_setup(crtc, old_state, false);
+		SDE_ERROR("border fill only commit after ctlstart timeout\n");
+	} else {
+		_sde_crtc_blend_setup(crtc, old_state, true);
+	}
+
 	_sde_crtc_dest_scaler_setup(crtc);
 
 	/* cancel the idle notify delayed work */
@@ -5736,28 +5767,18 @@ static int _sde_crtc_get_output_fence(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
-	uint32_t offset, i;
-	struct drm_connector_state *old_conn_state, *new_conn_state;
-	struct drm_connector *conn;
-	struct sde_connector *sde_conn = NULL;
-	struct msm_display_info disp_info;
+	uint32_t offset;
 	bool is_vid = false;
+	struct drm_encoder *encoder;
 
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(state);
 
-	for_each_oldnew_connector_in_state(state->state, conn, old_conn_state,
-							new_conn_state, i) {
-		if (!new_conn_state || new_conn_state->crtc != crtc)
-			continue;
-
-		sde_conn = to_sde_connector(new_conn_state->connector);
-		if (sde_conn->display && sde_conn->ops.get_info) {
-			sde_conn->ops.get_info(conn, &disp_info,
-							sde_conn->display);
-			is_vid |= disp_info.capabilities &
-						MSM_DISPLAY_CAP_VID_MODE;
-		}
+	drm_for_each_encoder_mask(encoder, crtc->dev, state->encoder_mask) {
+		is_vid |= sde_encoder_check_mode(encoder,
+						MSM_DISPLAY_CAP_VID_MODE);
+		if (is_vid)
+			break;
 	}
 
 	offset = sde_crtc_get_property(cstate, CRTC_PROP_OUTPUT_FENCE_OFFSET);

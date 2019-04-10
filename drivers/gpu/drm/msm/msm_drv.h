@@ -74,11 +74,11 @@ struct msm_gem_vma;
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
 
 struct msm_file_private {
-	/* currently we don't do anything useful with this.. but when
-	 * per-context address spaces are supported we'd keep track of
-	 * the context's page-tables here.
-	 */
-	int dummy;
+	/* update the refcount when user driver calls power_ctrl IOCTL */
+	unsigned short enable_refcnt;
+
+	/* protects enable_refcnt */
+	struct mutex power_lock;
 };
 
 enum msm_mdp_plane_property {
