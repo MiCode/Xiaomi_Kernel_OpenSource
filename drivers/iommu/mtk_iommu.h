@@ -26,11 +26,13 @@ struct mtk_iommu_suspend_reg {
 	u32				int_main_control;
 	u32				ivrp_paddr;
 	u32				vld_pa_rng;
+	u32				wr_len;
 };
 
 enum mtk_iommu_plat {
 	M4U_MT2701,
 	M4U_MT2712,
+	M4U_MT6779,
 	M4U_MT8173,
 	M4U_MT8183,
 };
@@ -44,6 +46,7 @@ struct mtk_iommu_plat_data {
 	bool                reset_axi;
 	bool                has_vld_pa_rng;
 	unsigned char       larbid_remap[MTK_LARB_NR_MAX];
+	unsigned char	    iommu_id;
 };
 
 struct mtk_iommu_domain;
@@ -55,6 +58,10 @@ struct mtk_iommu_data {
 	struct clk			*bclk;
 	phys_addr_t			protect_base; /* protect memory base */
 	struct mtk_iommu_suspend_reg	reg;
+
+	struct mtk_iommu_pgtable	*pgtable;
+	struct list_head		m4u_dom_v2;
+
 	struct mtk_iommu_domain		*m4u_dom;
 	struct iommu_group		*m4u_group;
 	struct mtk_smi_iommu		smi_imu;      /* SMI larb iommu info */
@@ -65,6 +72,10 @@ struct mtk_iommu_data {
 	const struct mtk_iommu_plat_data *plat_data;
 
 	struct list_head		list;
+
+	spinlock_t			domain_lock; /* lock for page table */
+	unsigned int			domain_count;
+	unsigned int			init_domain_id;
 };
 
 static inline int compare_of(struct device *dev, void *data)
