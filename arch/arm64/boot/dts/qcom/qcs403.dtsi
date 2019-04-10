@@ -46,6 +46,10 @@
 	};
 };
 
+&adsp_fw_mem {
+	reg = <0x0 0x87300000 0x0 0x1200000>;
+};
+
 &reserved_mem {
 	linux,cma {
 		size = <0 0x400000>;
