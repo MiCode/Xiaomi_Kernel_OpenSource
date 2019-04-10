@@ -18,7 +18,7 @@
 		clocks = <&clock_audio_va 0>;
 		va-vdd-micb-supply = <&pms405_l7>;
 		qcom,va-vdd-micb-voltage = <1800000 1800000>;
-		qcom,va-vdd-micb-current = <11200>;
+		qcom,va-vdd-micb-current = <9000>;
 		qcom,va-dmic-sample-rate = <600000>;
 	};
 };
