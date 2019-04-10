@@ -1280,6 +1280,13 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			VENUS_Y_STRIDE(color_format, f->fmt.pix_mp.width);
 		mplane->plane_fmt[0].reserved[0] =
 			VENUS_Y_SCANLINES(color_format, f->fmt.pix_mp.height);
+		inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
+		if ((f->fmt.pix_mp.pixelformat ==
+			V4L2_PIX_FMT_NV12_TP10_UBWC) ||
+			(f->fmt.pix_mp.pixelformat ==
+			V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010_VENUS)) {
+			inst->bit_depth = MSM_VIDC_BIT_DEPTH_10;
+		}
 
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
