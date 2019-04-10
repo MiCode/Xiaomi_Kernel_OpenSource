@@ -293,6 +293,17 @@ struct synaptics_rmi4_device_info {
 	struct list_head support_fn_list;
 };
 
+struct synaptics_rmi4_f01_device_status {
+	union {
+		struct {
+			unsigned char status_code:4;
+			unsigned char reserved:2;
+			unsigned char flash_prog:1;
+			unsigned char unconfigured:1;
+		} __packed;
+		unsigned char data[1];
+	};
+};
 /*
  * struct synaptics_rmi4_data - RMI4 device instance data
  * @pdev: pointer to platform device
@@ -367,6 +378,9 @@ struct synaptics_rmi4_data {
 	const struct synaptics_dsx_hw_interface *hw_if;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
 	struct synaptics_rmi4_input_settings input_settings;
+	struct synaptics_rmi4_fn_desc rmi_fd;
+	struct synaptics_rmi4_fn_desc fd;
+	struct synaptics_rmi4_f01_device_status status;
 	struct kobject *board_prop_dir;
 	struct regulator *pwr_reg;
 	struct regulator *bus_reg;
