@@ -451,7 +451,7 @@ config MMC_ATMELMCI
 
 config MMC_SDHCI_MSM
 	tristate "Qualcomm Technologies, Inc. SDHCI Controller Support"
-	depends on ARCH_QCOM || ARCH_MSM || (ARM && COMPILE_TEST)
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
 	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
 	help

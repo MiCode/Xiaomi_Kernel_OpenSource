@@ -206,12 +206,8 @@ static int __mmc_init_request(struct mmc_queue *mq, struct request *req,
 			      gfp_t gfp)
 {
 	struct mmc_queue_req *mq_rq = req_to_mmc_queue_req(req);
-	struct mmc_host *host;
-
-	if (!mq)
-		return -ENODEV;
-
-	host = mq->card->host;
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host = card->host;
 
 	mq_rq->sg = mmc_alloc_sg(host->max_segs, gfp);
 	if (!mq_rq->sg)
@@ -497,8 +493,7 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	if (blk_queue_quiesced(q))
 		blk_mq_unquiesce_queue(q);
 
-	if (likely(!blk_queue_dead(q)))
-		blk_cleanup_queue(q);
+	blk_cleanup_queue(q);
 
 	/*
 	 * A request can be completed before the next request, potentially
