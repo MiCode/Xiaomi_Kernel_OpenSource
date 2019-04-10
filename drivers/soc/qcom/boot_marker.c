@@ -24,7 +24,7 @@
 #include <linux/list.h>
 #include <linux/export.h>
 #include <linux/types.h>
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/mm.h>
 #include <soc/qcom/boot_stats.h>
 
@@ -35,7 +35,7 @@ struct boot_marker {
 	char marker_name[BOOT_MARKER_MAX_LEN];
 	unsigned long long int timer_value;
 	struct list_head list;
-	struct mutex lock;
+	spinlock_t slock;
 };
 
 static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
@@ -51,7 +51,7 @@ static void _create_boot_marker(const char *name,
 			((timer_value % TIMER_KHZ)
 			 * 1000) / TIMER_KHZ);
 
-	new_boot_marker = kmalloc(sizeof(*new_boot_marker), GFP_KERNEL);
+	new_boot_marker = kmalloc(sizeof(*new_boot_marker), GFP_ATOMIC);
 	if (!new_boot_marker)
 		return;
 
@@ -59,9 +59,9 @@ static void _create_boot_marker(const char *name,
 			sizeof(new_boot_marker->marker_name));
 	new_boot_marker->timer_value = timer_value;
 
-	mutex_lock(&boot_marker_list.lock);
+	spin_lock(&boot_marker_list.slock);
 	list_add_tail(&(new_boot_marker->list), &(boot_marker_list.list));
-	mutex_unlock(&boot_marker_list.lock);
+	spin_unlock(&boot_marker_list.slock);
 }
 
 static void set_bootloader_stats(void)
@@ -98,7 +98,7 @@ static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 	if (!buf)
 		return -ENOMEM;
 
-	mutex_lock(&boot_marker_list.lock);
+	spin_lock(&boot_marker_list.slock);
 	list_for_each_entry(marker, &boot_marker_list.list, list) {
 		temp += scnprintf(buf + temp, PAGE_SIZE - temp,
 				"%-41s:%llu.%03llu seconds\n",
@@ -107,7 +107,7 @@ static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 				(((marker->timer_value % TIMER_KHZ)
 				  * 1000) / TIMER_KHZ));
 	}
-	mutex_unlock(&boot_marker_list.lock);
+	spin_unlock(&boot_marker_list.slock);
 	rc = simple_read_from_buffer(user_buffer, count, position, buf, temp);
 	kfree(buf);
 	return rc;
@@ -211,7 +211,7 @@ static int __init init_bootkpi(void)
 	}
 
 	INIT_LIST_HEAD(&boot_marker_list.list);
-	mutex_init(&boot_marker_list.lock);
+	spin_lock_init(&boot_marker_list.slock);
 	set_bootloader_stats();
 	return 0;
 }
@@ -223,13 +223,13 @@ static void __exit exit_bootkpi(void)
 	struct boot_marker *temp_addr;
 
 	debugfs_remove_recursive(dent_bkpi);
-	mutex_lock(&boot_marker_list.lock);
+	spin_lock(&boot_marker_list.slock);
 	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
 			list) {
 		list_del(&marker->list);
 		kfree(marker);
 	}
-	mutex_unlock(&boot_marker_list.lock);
+	spin_unlock(&boot_marker_list.slock);
 	boot_stats_exit();
 }
 module_exit(exit_bootkpi);
