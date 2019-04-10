@@ -238,6 +238,8 @@
 				"pcie_0_phy_reset";
 
 		pcie_rc0: pcie_rc0 {
+			#address-cells = <5>;
+			#size-cells = <0>;
 			reg = <0 0 0 0 0>;
 			pci-ids = "17cb:0108";
 		};
@@ -556,6 +558,8 @@
 				"pcie_1_phy_reset";
 
 		pcie_rc1: pcie_rc1 {
+			#address-cells = <5>;
+			#size-cells = <0>;
 			reg = <0 0 0 0 0>;
 			pci-ids = "17cb:0108";
 		};

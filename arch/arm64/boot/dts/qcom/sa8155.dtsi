@@ -562,6 +562,8 @@
 			mhi,timeout = <10000>;
 
 			mhi_channels {
+				#address-cells = <1>;
+				#size-cells = <0>;
 				mhi_chan@0 {
 					reg = <0>;
 					label = "LOOPBACK";

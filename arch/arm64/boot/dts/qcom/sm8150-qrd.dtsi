@@ -19,6 +19,9 @@
 #include "sm8150-thermal-overlay.dtsi"
 
 &qupv3_se4_i2c {
+#address-cells = <1>;
+#size-cells = <0>;
+
 #include "smb1390.dtsi"
 #include "smb1355.dtsi"
 };
@@ -97,6 +100,9 @@
 &qupv3_se17_i2c {
 	status = "ok";
 
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	st_fts@49 {
 		compatible = "st,fts";
 		reg = <0x49>;
@@ -116,6 +122,10 @@
 
 &qupv3_se9_i2c {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
@@ -199,6 +209,10 @@
 
 &qupv3_se4_i2c {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	redriver@19 {
 		compatible = "onnn,redriver";
 		reg = <0x19>;

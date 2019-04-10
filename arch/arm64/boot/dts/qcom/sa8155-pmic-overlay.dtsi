@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@ pm8150_1_gpios: &pm8150_gpios {
 
 /* PM8150_2: */
 &spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+
 	qcom,pm8150@4 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x4 SPMI_USID>;
