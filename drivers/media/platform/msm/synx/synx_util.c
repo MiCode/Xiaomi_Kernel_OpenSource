@@ -356,8 +356,10 @@ void synx_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 
 bool is_merged_synx(struct synx_table_row *row)
 {
-	if (!row)
+	if (!row || !row->fence) {
+		pr_err("invalid row argument\n");
 		return false;
+	}
 
 	if (dma_fence_is_array(row->fence))
 		return true;
@@ -369,6 +371,11 @@ u32 __fence_state(struct dma_fence *fence, bool locked)
 {
 	s32 status;
 	u32 state = SYNX_STATE_INVALID;
+
+	if (!fence) {
+		pr_err("invalid dma fence addr\n");
+		return SYNX_STATE_INVALID;
+	}
 
 	if (locked)
 		status = dma_fence_get_status_locked(fence);
@@ -394,11 +401,16 @@ u32 __fence_group_state(struct dma_fence *fence, bool locked)
 {
 	u32 i = 0;
 	u32 state = SYNX_STATE_INVALID;
-	struct dma_fence_array *array = to_dma_fence_array(fence);
+	struct dma_fence_array *array = NULL;
 	u32 intr, actv_cnt, sig_cnt, err_cnt;
 
-	actv_cnt = sig_cnt = err_cnt = 0;
+	if (!fence) {
+		pr_err("invalid dma fence addr\n");
+		return SYNX_STATE_INVALID;
+	}
 
+	actv_cnt = sig_cnt = err_cnt = 0;
+	array = to_dma_fence_array(fence);
 	if (!array)
 		return SYNX_STATE_INVALID;
 
