@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -436,6 +436,18 @@ int cnss_common_register_tsf_captured_handler(struct device *dev,
 		return -EINVAL;
 }
 EXPORT_SYMBOL(cnss_common_register_tsf_captured_handler);
+
+int cnss_common_set_sleep_power_mode(struct device *dev,
+				     enum cnss_sleep_power_mode mode)
+{
+	struct cnss_dev_platform_ops *pf_ops = cnss_get_platform_ops(dev);
+
+	if (pf_ops && pf_ops->set_sleep_power_mode)
+		return pf_ops->set_sleep_power_mode(mode);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_common_set_sleep_power_mode);
 
 int cnss_common_unregister_tsf_captured_handler(struct device *dev,
 						void *ctx)
