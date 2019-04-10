@@ -41,8 +41,6 @@
 
 #define CEIL(x, y)              (((x) + ((y)-1)) / (y))
 
-#define TICKS_IN_MICRO_SECOND    1000000
-
 struct dsi_ctrl_list_item {
 	struct dsi_ctrl *ctrl;
 	struct list_head list;
@@ -817,7 +815,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	u32 num_of_lanes = 0;
-	u32 bpp, refresh_rate = TICKS_IN_MICRO_SECOND;
+	u32 bpp;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
@@ -842,13 +840,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (config->bit_clk_rate_hz_override == 0) {
 		h_period = DSI_H_TOTAL_DSC(timing);
 		v_period = DSI_V_TOTAL(timing);
-
-		if (config->panel_mode == DSI_OP_CMD_MODE)
-			do_div(refresh_rate, timing->mdp_transfer_time_us);
-		else
-			refresh_rate = timing->refresh_rate;
-
-		bit_rate = h_period * v_period * refresh_rate * bpp;
+		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}
