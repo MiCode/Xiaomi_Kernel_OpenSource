@@ -363,7 +363,6 @@ static struct wiphy *virt_wifi_make_wiphy(void)
 	wiphy->bands[IEEE80211_BAND_5GHZ] = &band_5ghz;
 	wiphy->bands[IEEE80211_BAND_60GHZ] = NULL;
 
-	wiphy->regulatory_flags = REGULATORY_WIPHY_SELF_MANAGED;
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
 
 	priv = wiphy_priv(wiphy);
