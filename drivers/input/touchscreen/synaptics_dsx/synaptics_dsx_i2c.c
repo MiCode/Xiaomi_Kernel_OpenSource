@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -461,10 +461,73 @@ exit:
 	return retval;
 }
 
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX)
+static int synaptics_rmi4_clk_prepare_enable(
+		struct synaptics_rmi4_data *rmi4_data)
+{
+	int ret;
+
+	ret = clk_prepare_enable(rmi4_data->iface_clk);
+	if (ret) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"error on clk_prepare_enable(iface_clk):%d\n",
+				ret);
+		return ret;
+	}
+	ret = clk_prepare_enable(rmi4_data->core_clk);
+	if (ret) {
+		clk_disable_unprepare(rmi4_data->iface_clk);
+		dev_err(rmi4_data->pdev->dev.parent,
+				"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void synaptics_rmi4_clk_disable_unprepare(
+		struct synaptics_rmi4_data *rmi4_data)
+{
+	clk_disable_unprepare(rmi4_data->core_clk);
+	clk_disable_unprepare(rmi4_data->iface_clk);
+}
+
+static int synaptics_rmi4_i2c_get(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
+
+	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
+	retval = pm_runtime_get_sync(i2c->adapter->dev.parent);
+	if (retval >= 0 && rmi4_data->core_clk != NULL &&
+			rmi4_data->iface_clk != NULL) {
+		retval = synaptics_rmi4_clk_prepare_enable(rmi4_data);
+		if (retval)
+			pm_runtime_put_sync(i2c->adapter->dev.parent);
+	}
+	mutex_unlock(&rmi4_data->rmi4_io_ctrl_mutex);
+
+	return retval;
+}
+
+static void synaptics_rmi4_i2c_put(struct synaptics_rmi4_data *rmi4_data)
+{
+	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
+
+	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
+	if (rmi4_data->core_clk != NULL && rmi4_data->iface_clk != NULL)
+		synaptics_rmi4_clk_disable_unprepare(rmi4_data);
+	pm_runtime_put_sync(i2c->adapter->dev.parent);
+	mutex_unlock(&rmi4_data->rmi4_io_ctrl_mutex);
+}
+#endif
+
 static struct synaptics_dsx_bus_access bus_access = {
 	.type = BUS_I2C,
 	.read = synaptics_rmi4_i2c_read,
 	.write = synaptics_rmi4_i2c_write,
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX)
+	.get = synaptics_rmi4_i2c_get,
+	.put = synaptics_rmi4_i2c_put,
+#endif
 };
 
 static void synaptics_rmi4_i2c_dev_release(struct device *dev)
