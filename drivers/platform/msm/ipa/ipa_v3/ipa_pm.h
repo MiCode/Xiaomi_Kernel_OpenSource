@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_PM_H_
@@ -100,6 +100,7 @@ int ipa_pm_handle_suspend(u32 pipe_bitmask);
 int ipa_pm_deactivate_all_deferred(void);
 int ipa_pm_stat(char *buf, int size);
 int ipa_pm_exceptions_stat(char *buf, int size);
+void ipa_pm_set_clock_index(int index);
 
 #else
 
