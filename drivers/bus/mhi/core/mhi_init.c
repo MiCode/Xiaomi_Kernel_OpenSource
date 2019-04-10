@@ -549,6 +549,7 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 		return -ENOMEM;
 
 	spin_lock_init(&mhi_tsync->lock);
+	mutex_init(&mhi_tsync->lpm_mutex);
 	INIT_LIST_HEAD(&mhi_tsync->head);
 	init_completion(&mhi_tsync->completion);
 
