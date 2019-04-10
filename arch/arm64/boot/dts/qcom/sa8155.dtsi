@@ -84,6 +84,11 @@
 		qca,bt-vdd-5c-voltage-level = <2040000 2040000>;
 		qca,bt-vdd-vh-voltage-level = <1900000 1900000>;
 
+		qca,bt-vdd-vl-current-level = <0>;
+		qca,bt-vdd-vm-current-level = <0>;
+		qca,bt-vdd-5c-current-level = <0>;
+		qca,bt-vdd-vh-current-level = <450000>;
+
 		status = "disabled";
 	};
 };
