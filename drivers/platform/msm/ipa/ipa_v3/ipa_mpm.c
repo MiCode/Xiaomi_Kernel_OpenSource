@@ -268,17 +268,18 @@ struct ipa_mpm_channel_props {
 	struct ipa_mpm_channel_context_type ch_ctx;
 };
 
-struct ipa_mpm_channel {
-	struct ipa_mpm_channel_props chan_props;
-	struct ipa_mpm_event_props evt_props;
-};
-
 enum ipa_mpm_gsi_state {
 	GSI_ERR,
 	GSI_INIT,
 	GSI_ALLOCATED,
 	GSI_STARTED,
 	GSI_STOPPED,
+};
+
+struct ipa_mpm_channel {
+	struct ipa_mpm_channel_props chan_props;
+	struct ipa_mpm_event_props evt_props;
+	enum ipa_mpm_gsi_state gsi_state;
 };
 
 enum ipa_mpm_teth_state {
@@ -315,7 +316,6 @@ struct ipa_mpm_mhi_driver {
 	struct ipa_mpm_channel ul_prod;
 	struct ipa_mpm_channel dl_cons;
 	enum ipa_mpm_mhip_client_type mhip_client;
-	enum ipa_mpm_gsi_state gsi_state;
 	enum ipa_mpm_teth_state teth_state;
 	struct mutex mutex;
 	bool init_complete;
@@ -345,6 +345,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *, enum MHI_CB);
 static void ipa_mpm_change_teth_state(int probe_id,
 	enum ipa_mpm_teth_state ip_state);
 static void ipa_mpm_change_gsi_state(int probe_id,
+	enum ipa_mpm_mhip_chan mhip_chan,
 	enum ipa_mpm_gsi_state next_state);
 static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 	enum ipa_mpm_start_stop_type start);
@@ -849,15 +850,32 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		goto fail_alloc_channel;
 	}
 
-	ipa_mpm_change_gsi_state(mhi_idx, GSI_ALLOCATED);
+	if (IPA_CLIENT_IS_PROD(mhip_client))
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_DL,
+			GSI_ALLOCATED);
+	else
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_UL,
+			GSI_ALLOCATED);
 
 	result = ipa3_start_gsi_channel(ipa_ep_idx);
 	if (result) {
 		IPA_MPM_ERR("start MHIP channel %d failed\n", mhip_client);
-		ipa_mpm_ctx->md[mhi_idx].gsi_state = GSI_ERR;
+		if (IPA_CLIENT_IS_PROD(mhip_client))
+			ipa_mpm_change_gsi_state(mhi_idx,
+				IPA_MPM_MHIP_CHAN_DL, GSI_ERR);
+		else
+			ipa_mpm_change_gsi_state(mhi_idx,
+				IPA_MPM_MHIP_CHAN_UL, GSI_ERR);
 		goto fail_start_channel;
 	}
-	ipa_mpm_change_gsi_state(mhi_idx, GSI_STARTED);
+	if (IPA_CLIENT_IS_PROD(mhip_client))
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_DL, GSI_STARTED);
+	else
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_UL, GSI_STARTED);
 
 	/* Fill in the Device Context params */
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
@@ -922,10 +940,19 @@ void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
 	result = ipa3_release_gsi_channel(ipa_ep_idx);
 	if (result) {
 		IPA_MPM_ERR("start MHIP channel %d failed\n", mhip_client);
-		ipa_mpm_ctx->md[mhi_idx].gsi_state = GSI_ERR;
+		if (IPA_CLIENT_IS_PROD(mhip_client))
+			ipa_mpm_change_gsi_state(mhi_idx,
+				IPA_MPM_MHIP_CHAN_DL, GSI_ERR);
+		else
+			ipa_mpm_change_gsi_state(mhi_idx,
+				IPA_MPM_MHIP_CHAN_UL, GSI_ERR);
 	}
-
-	ipa_mpm_change_gsi_state(mhi_idx, GSI_INIT);
+	if (IPA_CLIENT_IS_PROD(mhip_client))
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_DL, GSI_INIT);
+	else
+		ipa_mpm_change_gsi_state(mhi_idx,
+			IPA_MPM_MHIP_CHAN_UL, GSI_INIT);
 
 
 	/* deallocate transfer ring buffers  */
@@ -1055,36 +1082,15 @@ static int __ipa_mpm_configure_mhi_device(struct ipa_mpm_channel *ch,
 
 static void ipa_mpm_mhip_shutdown(void)
 {
-	int mhip_idx;
-	enum ipa_client_type ul_chan, dl_chan;
+	enum ipa_client_type ul_prod_chan, dl_cons_chan;
+	int mhip_idx = 0;
 
 	IPA_MPM_FUNC_ENTRY();
+	get_ipa3_client(mhip_idx, &ul_prod_chan, &dl_cons_chan);
 
-	for (mhip_idx = 0; mhip_idx < IPA_MPM_MHIP_CH_ID_MAX; mhip_idx++) {
-		if (ipa_mpm_ctx->md[mhip_idx].gsi_state >= GSI_ALLOCATED) {
-			get_ipa3_client(mhip_idx, &ul_chan, &dl_chan);
-			IPA_MPM_DBG("Stopping chan = %d\n", mhip_idx);
-			/* MHIP PROD: Enable HOLB and Stop the GSI UL channel */
-			ipa_mpm_start_stop_mhip_data_path(mhip_idx, STOP);
-			ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
-							mhip_idx, STOP);
-			ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_DL,
-							mhip_idx, STOP);
+	ipa_mpm_clean_mhip_chan(mhip_idx, ul_prod_chan);
+	ipa_mpm_clean_mhip_chan(mhip_idx, dl_cons_chan);
 
-			/* Clean up the GSI UL and DL channels */
-			if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
-				ipa_mpm_ctx->dev_info.pcie_smmu_enabled) {
-				IPA_MPM_DBG("Cleaning SMMU entries..\n");
-			}
-
-			ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, mhip_idx);
-			ipa_mpm_vote_unvote_ipa_clk(CLK_OFF);
-			if (ul_chan != IPA_CLIENT_MAX)
-				ipa_mpm_clean_mhip_chan(mhip_idx, ul_chan);
-			if (dl_chan != IPA_CLIENT_MAX)
-				ipa_mpm_clean_mhip_chan(mhip_idx, dl_chan);
-		}
-	}
 	IPA_MPM_FUNC_EXIT();
 }
 
@@ -1199,22 +1205,44 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 	}
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-	IPA_MPM_DBG("current GSI state = %d, action = %d\n",
-		ipa_mpm_ctx->md[probe_id].gsi_state, start_stop);
-
-	if (ipa_mpm_ctx->md[probe_id].gsi_state < GSI_ALLOCATED) {
-		IPA_MPM_ERR("GSI chan is not allocated yet..\n");
-		return MHIP_STATUS_EP_NOT_READY;
+	if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
+		IPA_MPM_DBG("current GSI state = %d, action = %d\n",
+			ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state,
+			start_stop);
+		if (ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state <
+			GSI_ALLOCATED) {
+			IPA_MPM_ERR("GSI chan is not allocated yet\n");
+			return MHIP_STATUS_EP_NOT_READY;
+		}
+	} else if (mhip_chan == IPA_MPM_MHIP_CHAN_DL) {
+		IPA_MPM_DBG("current GSI state = %d, action = %d\n",
+			ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state,
+			start_stop);
+		if (ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state <
+			GSI_ALLOCATED) {
+			IPA_MPM_ERR("GSI chan is not allocated yet\n");
+			return MHIP_STATUS_EP_NOT_READY;
+		}
 	}
 
 	is_start = (start_stop == START) ? true : false;
 
 	if (is_start) {
-		if (ipa_mpm_ctx->md[probe_id].gsi_state == GSI_STARTED) {
-			IPA_MPM_ERR("GSI chan is already started\n");
-			return MHIP_STATUS_NO_OP;
+		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
+			if (ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state ==
+				GSI_STARTED) {
+				IPA_MPM_ERR("GSI chan is already started\n");
+				return MHIP_STATUS_NO_OP;
+			}
 		}
 
+		if (mhip_chan == IPA_MPM_MHIP_CHAN_DL) {
+			if (ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state ==
+				GSI_STARTED) {
+				IPA_MPM_ERR("GSI chan is already started\n");
+				return MHIP_STATUS_NO_OP;
+			}
+		}
 		/* Start GSI channel */
 		gsi_res = ipa3_start_gsi_channel(ipa_ep_idx);
 		if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -1222,16 +1250,32 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 					gsi_res);
 			goto gsi_chan_fail;
 		} else {
-			ipa_mpm_change_gsi_state(probe_id, GSI_STARTED);
+			ipa_mpm_change_gsi_state(probe_id, mhip_chan,
+				 GSI_STARTED);
 		}
 	} else {
-		if (ipa_mpm_ctx->md[probe_id].gsi_state == GSI_STOPPED) {
-			IPA_MPM_ERR("GSI chan is already stopped\n");
-			return MHIP_STATUS_NO_OP;
-		} else if (ipa_mpm_ctx->md[probe_id].gsi_state !=
-							GSI_STARTED) {
-			IPA_MPM_ERR("GSI chan is not previously started\n");
-			return MHIP_STATUS_BAD_STATE;
+		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
+			if (ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state ==
+				GSI_STOPPED) {
+				IPA_MPM_ERR("GSI chan is already stopped\n");
+				return MHIP_STATUS_NO_OP;
+			} else if (ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state
+				!= GSI_STARTED) {
+				IPA_MPM_ERR("GSI chan isn't already started\n");
+				return MHIP_STATUS_NO_OP;
+			}
+		}
+
+		if (mhip_chan == IPA_MPM_MHIP_CHAN_DL) {
+			if (ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state ==
+				GSI_STOPPED) {
+				IPA_MPM_ERR("GSI chan is already stopped\n");
+				return MHIP_STATUS_NO_OP;
+			} else if (ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state
+				!= GSI_STARTED) {
+				IPA_MPM_ERR("GSI chan isn't already started\n");
+				return MHIP_STATUS_NO_OP;
+			}
 		}
 
 		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
@@ -1245,8 +1289,8 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_ERR("UL chan stop failed\n");
 				goto gsi_chan_fail;
 			} else {
-				ipa_mpm_change_gsi_state(probe_id,
-							GSI_STARTED);
+				ipa_mpm_change_gsi_state(probe_id, mhip_chan,
+							GSI_STOPPED);
 			}
 		}
 
@@ -1256,7 +1300,8 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_ERR("Fail to stop DL channel\n");
 				goto gsi_chan_fail;
 			} else {
-				ipa_mpm_change_gsi_state(probe_id, GSI_STOPPED);
+				ipa_mpm_change_gsi_state(probe_id, mhip_chan,
+							GSI_STOPPED);
 			}
 		}
 	}
@@ -1265,9 +1310,8 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 	return MHIP_STATUS_SUCCESS;
 gsi_chan_fail:
 	ipa3_disable_data_path(ipa_ep_idx);
-	ipa_mpm_change_gsi_state(probe_id, GSI_ERR);
+	ipa_mpm_change_gsi_state(probe_id, mhip_chan, GSI_ERR);
 	ipa_assert();
-
 	return MHIP_STATUS_FAIL;
 }
 
@@ -1334,10 +1378,10 @@ int ipa_mpm_notify_wan_state(void)
 	case MHIP_STATUS_BAD_STATE:
 	case MHIP_STATUS_EP_NOT_FOUND:
 		IPA_MPM_ERR("UL chan cant be started err =%d\n", status);
-		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
-		ret = -EFAULT;
-		break;
+		ret = ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
+		return -EFAULT;
 	default:
+		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		IPA_MPM_ERR("Err not found\n");
 		break;
 	}
@@ -1346,16 +1390,27 @@ int ipa_mpm_notify_wan_state(void)
 }
 
 static void ipa_mpm_change_gsi_state(int probe_id,
+	enum ipa_mpm_mhip_chan mhip_chan,
 	enum ipa_mpm_gsi_state next_state)
 {
 	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX)
 		return;
 
-	mutex_lock(&ipa_mpm_ctx->md[probe_id].mutex);
-	ipa_mpm_ctx->md[probe_id].gsi_state = next_state;
-	IPA_MPM_DBG("GSI next_state = %d\n",
-		ipa_mpm_ctx->md[probe_id].gsi_state);
-	mutex_unlock(&ipa_mpm_ctx->md[probe_id].mutex);
+	if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
+		mutex_lock(&ipa_mpm_ctx->md[probe_id].mutex);
+		ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state = next_state;
+		IPA_MPM_DBG("GSI next_state = %d\n",
+			ipa_mpm_ctx->md[probe_id].ul_prod.gsi_state);
+		 mutex_unlock(&ipa_mpm_ctx->md[probe_id].mutex);
+	}
+
+	if (mhip_chan == IPA_MPM_MHIP_CHAN_DL) {
+		mutex_lock(&ipa_mpm_ctx->md[probe_id].mutex);
+		ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state = next_state;
+		IPA_MPM_DBG("GSI next_state = %d\n",
+			ipa_mpm_ctx->md[probe_id].dl_cons.gsi_state);
+		 mutex_unlock(&ipa_mpm_ctx->md[probe_id].mutex);
+	}
 }
 
 static void ipa_mpm_change_teth_state(int probe_id,
@@ -1429,15 +1484,6 @@ static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 	get_ipa3_client(probe_id, &ul_chan, &dl_chan);
 	IPA_MPM_DBG("Start/Stop Data Path ? = %d\n", start);
 
-	/* Defensive check to make sure start/stop MHIP channels only if
-	 *  MHIP channels are allocated.
-	 */
-
-	if (ipa_mpm_ctx->md[probe_id].gsi_state < GSI_ALLOCATED) {
-		IPA_MPM_ERR("Cant start/stop data, GSI state = %d\n",
-			ipa_mpm_ctx->md[probe_id].gsi_state);
-		return -EFAULT;
-	}
 
 	/* MHIP Start Data path:
 	 * IPA MHIP Producer: remove HOLB
@@ -1538,8 +1584,6 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	ipa_mpm_ctx->md[probe_id].mhi_dev = mhi_dev;
 
 	ipa_mpm_vote_unvote_pcie_clk(CLK_ON, probe_id);
-	ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
-	/* NOTE :: Duplicate IPA vote - just for BU, remove later */
 	ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
 
 	IPA_MPM_DBG("ul chan = %d, dl_chan = %d\n", ul_prod, dl_cons);
@@ -1804,8 +1848,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		iounmap(db_addr);
 	}
 
-	/* Check if TETH connection is in progress, no op
-	 * if no then Stop UL channel.
+	/* Check if TETH connection is in progress.
+	 * If teth isn't started by now, then Stop UL channel.
 	 */
 	switch (ipa_mpm_ctx->md[probe_id].teth_state) {
 	case IPA_MPM_TETH_INIT:
@@ -1818,6 +1862,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			IPA_MPM_ERR("MHIP Enable data path failed\n");
 			goto fail_start_channel;
 		}
+		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		break;
 	case IPA_MPM_TETH_INPROGRESS:
 	case IPA_MPM_TETH_CONNECTED:
@@ -1848,6 +1893,8 @@ fail_start_channel:
 fail_smmu:
 	if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled)
 		IPA_MPM_DBG("SMMU failed\n");
+	ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
+	ipa_mpm_vote_unvote_ipa_clk(CLK_OFF);
 	ipa_assert();
 	return ret;
 }
@@ -1922,9 +1969,10 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 		ipa_mpm_vote_unvote_ipa_clk(CLK_OFF);
 		break;
 	case MHI_CB_LPM_EXIT:
+		ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
 		status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_DL,
 							mhip_idx, START);
-		ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
+		IPA_MPM_DBG("status = %d\n", status);
 		break;
 	case MHI_CB_EE_RDDM:
 	case MHI_CB_PENDING_DATA:
@@ -2070,6 +2118,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		}
 		break;
 	case MHIP_STATUS_EP_NOT_READY:
+		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_INPROGRESS);
 		break;
 	case MHIP_STATUS_FAIL:
@@ -2080,6 +2129,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		ret = -EFAULT;
 		break;
 	default:
+		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		IPA_MPM_ERR("Err not found\n");
 		break;
 	}
@@ -2156,8 +2206,10 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	switch (mhip_client) {
 	case IPA_MPM_MHIP_USB_RMNET:
 	case IPA_MPM_MHIP_TETH:
-	case IPA_MPM_MHIP_USB_DPL:
 		IPA_MPM_DBG("Teth Disconnecting for prot %d\n", mhip_client);
+		break;
+	case IPA_MPM_MHIP_USB_DPL:
+		IPA_MPM_DBG("Teth Disconnecting for DPL, return\n");
 		return 0;
 	default:
 		IPA_MPM_ERR("mhip_client = %d not supported\n", mhip_client);
@@ -2179,8 +2231,7 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	case MHIP_STATUS_EP_NOT_FOUND:
 		IPA_MPM_ERR("UL chan cant be started err =%d\n", status);
 		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
-		ret = -EFAULT;
-		break;
+		return -EFAULT;
 	default:
 		IPA_MPM_ERR("Err not found\n");
 		break;
@@ -2320,8 +2371,11 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 	atomic_set(&ipa_mpm_ctx->ipa_clk_ref_cnt, 0);
 	atomic_set(&ipa_mpm_ctx->pcie_clk_ref_cnt, 0);
 
-	for (idx = 0; idx < IPA_MPM_MHIP_CH_ID_MAX; idx++)
-		ipa_mpm_ctx->md[idx].gsi_state = GSI_INIT;
+	for (idx = 0; idx < IPA_MPM_MHIP_CH_ID_MAX; idx++) {
+		ipa_mpm_ctx->md[idx].ul_prod.gsi_state = GSI_INIT;
+		ipa_mpm_ctx->md[idx].dl_cons.gsi_state = GSI_INIT;
+	}
+
 
 	ret = mhi_driver_register(&mhi_driver);
 	if (ret) {
