@@ -868,6 +868,42 @@ static void dwc3_stop_active_transfers(struct dwc3 *dwc)
 	dbg_log_string("DONE");
 }
 
+static void dwc3_stop_active_transfers_to_halt(struct dwc3 *dwc)
+{
+	u32 epnum;
+	struct dwc3_request *req;
+	struct dwc3_ep *dep;
+
+	dbg_log_string("START");
+	for (epnum = 2; epnum < DWC3_ENDPOINTS_NUM; epnum++) {
+		dep = dwc->eps[epnum];
+		if (!dep)
+			continue;
+
+		if (!(dep->flags & DWC3_EP_ENABLED))
+			continue;
+
+		dwc3_stop_active_transfer_noioc(dwc, dep->number, true);
+
+		/* - giveback all requests to gadget driver */
+		while (!list_empty(&dep->started_list)) {
+			req = next_request(&dep->started_list);
+			if (req)
+				dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		}
+
+		while (!list_empty(&dep->pending_list)) {
+			req = next_request(&dep->pending_list);
+			if (req)
+				dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		}
+	}
+
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
+
+	dbg_log_string("DONE");
+}
+
 /**
  * __dwc3_gadget_ep_disable - disables a hw endpoint
  * @dep: the endpoint to disable
@@ -2138,7 +2174,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * call dwc3_stop_active_transfers() API before stopping USB
 		 * device controller.
 		 */
-		dwc3_stop_active_transfers(dwc);
+		dwc3_stop_active_transfers_to_halt(dwc);
 
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
@@ -2152,6 +2188,9 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 		reg &= DWC3_DSTS_DEVCTRLHLT;
 	} while (--timeout && !(!is_on ^ !reg));
+
+	if (!is_on)
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
 
 	if (!timeout) {
 		dev_err(dwc->dev, "failed to %s controller\n",
@@ -3091,6 +3130,34 @@ void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 			dep->flags |= DWC3_EP_END_TRANSFER_PENDING;
 		udelay(100);
 	}
+	dbg_log_string("%s(%d): endxfer ret:%d)",
+			dep->name, dep->number, ret);
+}
+
+void dwc3_stop_active_transfer_noioc(struct dwc3 *dwc, u32 epnum, bool force)
+{
+	struct dwc3_ep *dep;
+	struct dwc3_gadget_ep_cmd_params params;
+	u32 cmd;
+	int ret;
+
+	dep = dwc->eps[epnum];
+
+	if (!dep->resource_index)
+		return;
+
+	if (dep->endpoint.endless)
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+								dep->number);
+
+	cmd = DWC3_DEPCMD_ENDTRANSFER;
+	cmd |= force ? DWC3_DEPCMD_HIPRI_FORCERM : 0;
+	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
+	memset(&params, 0, sizeof(params));
+	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
+	WARN_ON_ONCE(ret);
+	dep->resource_index = 0;
+
 	dbg_log_string("%s(%d): endxfer ret:%d)",
 			dep->name, dep->number, ret);
 }
