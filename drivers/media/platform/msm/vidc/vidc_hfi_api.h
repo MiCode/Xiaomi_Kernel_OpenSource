@@ -58,6 +58,8 @@
 /* 16 video sessions */
 #define VIDC_MAX_SESSIONS               16
 
+struct vidc_bus_vote_data;
+
 enum vidc_status {
 	VIDC_ERR_NONE = 0x0,
 	VIDC_ERR_FAIL = 0x80000000,
@@ -658,37 +660,10 @@ enum msm_vidc_thermal_level {
 	VIDC_THERMAL_CRITICAL
 };
 
-struct msm_vidc_gov_data {
-	struct vidc_bus_vote_data *data;
-	u32 data_count;
-};
-
 enum msm_vidc_power_mode {
 	VIDC_POWER_NORMAL = 0,
 	VIDC_POWER_LOW,
 	VIDC_POWER_TURBO
-};
-
-struct vidc_bus_vote_data {
-	enum hal_domain domain;
-	enum hal_video_codec codec;
-	enum hal_uncompressed_format color_formats[2];
-	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
-	int input_height, input_width, bitrate;
-	int output_height, output_width;
-	int rotation;
-	int compression_ratio;
-	int complexity_factor;
-	int input_cr;
-	u32 ddr_bw;
-	u32 sys_cache_bw;
-	bool use_dpb_read;
-	unsigned int lcu_size;
-	unsigned int fps;
-	enum msm_vidc_power_mode power_mode;
-	u32 work_mode;
-	bool use_sys_cache;
-	bool b_frames_enabled;
 };
 
 struct hal_cmd_sys_get_property_packet {
