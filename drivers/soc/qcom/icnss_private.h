@@ -153,6 +153,7 @@ enum icnss_driver_state {
 	ICNSS_REJUVENATE,
 	ICNSS_MODE_ON,
 	ICNSS_BLOCK_SHUTDOWN,
+	ICNSS_PDR,
 };
 
 struct ce_irq_list {
@@ -361,6 +362,7 @@ struct icnss_priv {
 	uint64_t vph_pwr;
 	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
+	bool is_ssr;
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,
