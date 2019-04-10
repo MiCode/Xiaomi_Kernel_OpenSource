@@ -708,6 +708,49 @@ static size_t a6xx_snapshot_pre_crashdump_regs(struct kgsl_device *device,
 	return kgsl_snapshot_dump_registers(device, buf, remain, &pre_cdregs);
 }
 
+static size_t a6xx_legacy_snapshot_shader(struct kgsl_device *device,
+				u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_shader *header =
+		(struct kgsl_snapshot_shader *) buf;
+	struct a6xx_shader_block_info *info =
+		(struct a6xx_shader_block_info *) priv;
+	struct a6xx_shader_block *block = info->block;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	unsigned int read_sel, val;
+	int i;
+
+	if (!device->snapshot_legacy)
+		return 0;
+
+	if (remain < SHADER_SECTION_SZ(block->sz)) {
+		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
+		return 0;
+	}
+
+	header->type = block->statetype;
+	header->index = info->bank;
+	header->size = block->sz;
+
+	read_sel = (block->statetype << A6XX_SHADER_STATETYPE_SHIFT) |
+		info->bank;
+	kgsl_regwrite(device, A6XX_HLSQ_DBG_READ_SEL, read_sel);
+
+	/*
+	 * An explicit barrier is needed so that reads do not happen before
+	 * the register write.
+	 */
+	mb();
+
+	for (i = 0; i < block->sz; i++) {
+		kgsl_regread(device, (A6XX_HLSQ_DBG_AHB_READ_APERTURE + i),
+			&val);
+		*data++ = val;
+	}
+
+	return SHADER_SECTION_SZ(block->sz);
+}
+
 static size_t a6xx_snapshot_shader_memory(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
@@ -717,6 +760,9 @@ static size_t a6xx_snapshot_shader_memory(struct kgsl_device *device,
 		(struct a6xx_shader_block_info *) priv;
 	struct a6xx_shader_block *block = info->block;
 	unsigned int *data = (unsigned int *) (buf + sizeof(*header));
+
+	if (!crash_dump_valid)
+		return a6xx_legacy_snapshot_shader(device, buf, remain, priv);
 
 	if (remain < SHADER_SECTION_SZ(block->sz)) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
@@ -738,10 +784,6 @@ static void a6xx_snapshot_shader(struct kgsl_device *device,
 {
 	unsigned int i, j;
 	struct a6xx_shader_block_info info;
-
-	/* Shader blocks can only be read by the crash dumper */
-	if (!crash_dump_valid)
-		return;
 
 	for (i = 0; i < ARRAY_SIZE(a6xx_shader_blocks); i++) {
 		for (j = 0; j < A6XX_NUM_SHADER_BANKS; j++) {
