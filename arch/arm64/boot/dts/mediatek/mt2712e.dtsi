@@ -79,9 +79,9 @@
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 			clocks = <&mcucfg CLK_MCU_MP0_SEL>,
-				<&topckgen CLK_TOP_ARMCA35PLL>,
-				<&topckgen CLK_TOP_F_MP0_PLL1>,
-				<&clk26m>;
+				 <&topckgen CLK_TOP_ARMCA35PLL>,
+				 <&topckgen CLK_TOP_F_MP0_PLL1>,
+				 <&clk26m>;
 			clock-names = "cpu", "armpll", "intermediate", "ref_ck";
 			operating-points-v2 = <&cluster0_opp>;
 			#cooling-cells = <2>;
@@ -97,9 +97,9 @@
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 			clocks = <&mcucfg CLK_MCU_MP0_SEL>,
-				<&topckgen CLK_TOP_ARMCA35PLL>,
-				<&topckgen CLK_TOP_F_MP0_PLL1>,
-				<&clk26m>;
+				 <&topckgen CLK_TOP_ARMCA35PLL>,
+				 <&topckgen CLK_TOP_F_MP0_PLL1>,
+				 <&clk26m>;
 			clock-names = "cpu", "armpll", "intermediate", "ref_ck";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <222>;
@@ -114,9 +114,9 @@
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0>;
 			clocks = <&mcucfg CLK_MCU_MP2_SEL>,
-				<&topckgen CLK_TOP_ARMCA72PLL>,
-				<&topckgen CLK_TOP_F_BIG_PLL1>,
-				<&clk26m>;
+				 <&topckgen CLK_TOP_ARMCA72PLL>,
+				 <&topckgen CLK_TOP_F_BIG_PLL1>,
+				 <&clk26m>;
 			clock-names = "cpu", "armpll", "intermediate", "ref_ck";
 			operating-points-v2 = <&cluster1_opp>;
 			#cooling-cells = <2>;
@@ -154,7 +154,6 @@
 		cpu_thermal: cpu_thermal {
 			polling-delay-passive = <1000>; /* milliseconds */
 			polling-delay = <1000>; /* milliseconds */
-
 			thermal-sensors = <&thermal>;
 			sustainable-power = <1500>; /* milliwatts */
 
@@ -181,20 +180,17 @@
 			cooling-maps {
 				map@0 {
 					trip = <&target>;
-					cooling-device = <&cpu0
-					   THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 					contribution = <3072>;
 				};
 				map@1 {
 					trip = <&target>;
-					cooling-device = <&cpu2
-					    THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 					contribution = <1024>;
 				};
 				map@2 {
 					trip = <&target>;
-					cooling-device = <&gpu
-					    THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 					contribution = <2048>;
 				};
 			};
@@ -205,8 +201,8 @@
 		compatible = "arm,mali-midgard";
 		reg = <0 0x13040000 0 0x4000>, <0 0x13000000 0 0x20>;
 		interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_SPI 226 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_SPI 227 IRQ_TYPE_LEVEL_LOW>;
+			     <GIC_SPI 226 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 227 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "GPU", "MMU", "JOB";
 		clocks = <&topckgen CLK_TOP_MFG_SEL>,
 			 <&topckgen CLK_TOP_MMPLL>,
@@ -214,11 +210,9 @@
 		clock-names = "mfg_sel", "mfg_pll", "mfg_bg3d";
 		power-domains = <&scpsys MT2712_POWER_DOMAIN_MFG_SC1>;
 		mp=<2>;
-
 		#cooling-cells = <2>;
 		#cooling-min-level = <0>;
 		#cooling-max-level = <5>;
-
 		operating-points = <
 			520000 1000000
 			494000 1000000
