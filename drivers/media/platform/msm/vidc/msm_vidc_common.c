@@ -1896,11 +1896,12 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 	}
 	mutex_unlock(&inst->outputbufs.lock);
 
-	if (buffers_owned_by_driver != fmt->count_actual) {
+	/* Only minimum number of DPBs are allocated */
+	if (buffers_owned_by_driver != fmt->count_min) {
 		dprintk(VIDC_WARN,
 			"OUTPUT Buffer count mismatch %d of %d\n",
 			buffers_owned_by_driver,
-			fmt->count_actual);
+			fmt->count_min);
 		msm_vidc_handle_hw_error(inst->core);
 	}
 }
@@ -1970,7 +1971,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 
-		if (!(inst->fmts[INPUT_PORT].defer_outputs &&
+		if (!(get_v4l2_codec(inst) == V4L2_PIX_FMT_VP9 &&
 				inst->in_reconfig))
 			msm_comm_validate_output_buffers(inst);
 
@@ -4860,7 +4861,7 @@ int msm_comm_set_dpb_only_buffers(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (inst->fmts[INPUT_PORT].defer_outputs)
+	if (get_v4l2_codec(inst) == V4L2_PIX_FMT_VP9)
 		force_release = false;
 
 	if (msm_comm_release_dpb_only_buffers(inst, force_release))

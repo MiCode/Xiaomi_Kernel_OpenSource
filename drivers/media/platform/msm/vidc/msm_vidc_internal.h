@@ -285,7 +285,6 @@ struct msm_vidc_format_desc {
 struct msm_vidc_format {
 	char name[MAX_NAME_LENGTH];
 	u8 description[32];
-	bool defer_outputs;
 	u32 count_min;
 	u32 count_min_host;
 	u32 count_actual;
