@@ -32,7 +32,7 @@
 		clock-max-rate = <0 0 0 0 460000000 19200000 460000000
 					460000000>;
 
-		sde-vdd-supply = <&mdss_core_gdsc>;
+		mmcx-supply = <&VDD_MMCX_LEVEL>;
 
 		/* interrupt config */
 		interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
@@ -256,7 +256,7 @@
 
 			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "sde-vdd";
+				qcom,supply-name = "mmcx";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -282,23 +282,13 @@
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
-			qcom,msm-bus,name = "mdss_sde_mnoc_llcc";
+			qcom,msm-bus,name = "mdss_sde";
 			qcom,msm-bus,num-cases = <3>;
 			qcom,msm-bus,num-paths = <2>;
 			qcom,msm-bus,vectors-KBps =
-				<22 770 0 0>, <23 770 0 0>,
-				<22 770 0 6400000>, <23 770 0 6400000>,
-				<22 770 0 6400000>, <23 770 0 6400000>;
-		};
-
-		qcom,sde-ebi-bus  {
-			qcom,msm-bus,name = "mdss_sde_ebi";
-			qcom,msm-bus,num-cases = <3>;
-			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,vectors-KBps =
-				<129 512 0 0>,
-				<129 512 0 6400000>,
-				<129 512 0 6400000>;
+				<22 512 0 0>, <23 512 0 0>,
+				<22 512 0 6400000>, <23 512 0 6400000>,
+				<22 512 0 6400000>, <23 512 0 6400000>;
 		};
 
 		qcom,sde-reg-bus {
@@ -430,7 +420,6 @@
 			<0xaf30000 0x3fd4>;
 		reg-names = "drv", "wrapper";
 		qcom,sde-rsc-version = <3>;
-		status = "disabled";
 
 		qcom,sde-dram-channels = <2>;
 
@@ -442,25 +431,14 @@
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
-			qcom,msm-bus,name = "disp_rsc_mnoc";
+			qcom,msm-bus,name = "disp_rsc_mnoc_llcc";
 			qcom,msm-bus,active-only;
 			qcom,msm-bus,num-cases = <3>;
 			qcom,msm-bus,num-paths = <2>;
 			qcom,msm-bus,vectors-KBps =
-			    <20003 20515 0 0>, <20004 20515 0 0>,
-			    <20003 20515 0 6400000>, <20004 20515 0 6400000>,
-			    <20003 20515 0 6400000>, <20004 20515 0 6400000>;
-		};
-
-		qcom,sde-llcc-bus {
-			qcom,msm-bus,name = "disp_rsc_llcc";
-			qcom,msm-bus,active-only;
-			qcom,msm-bus,num-cases = <3>;
-			qcom,msm-bus,num-paths = <1>;
-			qcom,msm-bus,vectors-KBps =
-			    <20001 20513 0 0>,
-			    <20001 20513 0 6400000>,
-			    <20001 20513 0 6400000>;
+			    <20003 20513 0 0>, <20004 20513 0 0>,
+			    <20003 20513 0 6400000>, <20004 20513 0 6400000>,
+			    <20003 20513 0 6400000>, <20004 20513 0 6400000>;
 		};
 
 		qcom,sde-ebi-bus {
