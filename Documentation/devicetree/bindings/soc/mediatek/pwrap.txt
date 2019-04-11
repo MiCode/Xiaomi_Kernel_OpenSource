@@ -29,7 +29,6 @@ Required properties in pwrap device node.
   "pwrap-bridge": bridge base (IP Pairing)
 - reg: Must contain an entry for each entry in reg-names.
 - reset-names: Must include the following entries:
-  "pwrap"
   "pwrap-bridge" (IP Pairing)
 - resets: Must contain an entry for each entry in reset-names.
 - clock-names: Must include the following entries:
@@ -44,6 +43,8 @@ Optional properities:
   or the regulator-only device as the child device of pwrap, such as MT6380.
   See the following definitions for such kinds of devices.
   Documentation/devicetree/bindings/regulator/mt6380-regulator.txt
+- reset-names:
+  "pwrap"
 
 Example:
 	pwrap: pwrap@1000f000 {
