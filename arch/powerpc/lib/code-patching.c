@@ -14,11 +14,19 @@
 #include <asm/page.h>
 #include <asm/code-patching.h>
 #include <asm/uaccess.h>
+#include <asm/setup.h>
+#include <asm/sections.h>
 
 
 int patch_instruction(unsigned int *addr, unsigned int instr)
 {
 	int err;
+
+	/* Make sure we aren't patching a freed init section */
+	if (init_mem_is_free && init_section_contains(addr, 4)) {
+		pr_debug("Skipping init section patching addr: 0x%px\n", addr);
+		return 0;
+	}
 
 	__put_user_size(instr, addr, 4, err);
 	if (err)
