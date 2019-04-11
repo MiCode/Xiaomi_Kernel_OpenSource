@@ -40,21 +40,8 @@
 #define TO_ON_OFF(x) ((x) ? "ON" : "OFF")
 
 #define CEIL(x, y)              (((x) + ((y)-1)) / (y))
-/**
- * enum dsi_ctrl_driver_ops - controller driver ops
- */
-enum dsi_ctrl_driver_ops {
-	DSI_CTRL_OP_POWER_STATE_CHANGE,
-	DSI_CTRL_OP_CMD_ENGINE,
-	DSI_CTRL_OP_VID_ENGINE,
-	DSI_CTRL_OP_HOST_ENGINE,
-	DSI_CTRL_OP_CMD_TX,
-	DSI_CTRL_OP_HOST_INIT,
-	DSI_CTRL_OP_TPG,
-	DSI_CTRL_OP_PHY_SW_RESET,
-	DSI_CTRL_OP_ASYNC_TIMING,
-	DSI_CTRL_OP_MAX
-};
+
+#define TICKS_IN_MICRO_SECOND    1000000
 
 struct dsi_ctrl_list_item {
 	struct dsi_ctrl *ctrl;
@@ -831,6 +818,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	u32 num_of_lanes = 0;
 	u32 bpp;
+	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
@@ -853,9 +841,17 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		num_of_lanes = split_link->lanes_per_sublink;
 
 	if (config->bit_clk_rate_hz_override == 0) {
-		h_period = DSI_H_TOTAL_DSC(timing);
-		v_period = DSI_V_TOTAL(timing);
-		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
+		if (config->panel_mode == DSI_OP_CMD_MODE) {
+			h_period = DSI_H_ACTIVE_DSC(timing);
+			v_period = timing->v_active;
+
+			do_div(refresh_rate, timing->mdp_transfer_time_us);
+		} else {
+			h_period = DSI_H_TOTAL_DSC(timing);
+			v_period = DSI_V_TOTAL(timing);
+			refresh_rate = timing->refresh_rate;
+		}
+		bit_rate = h_period * v_period * refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}
@@ -1588,6 +1584,18 @@ static int dsi_disable_ulps(struct dsi_ctrl *dsi_ctrl)
 	return rc;
 }
 
+static void dsi_ctrl_enable_error_interrupts(struct dsi_ctrl *dsi_ctrl)
+{
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE &&
+			!dsi_ctrl->host_config.u.video_engine.bllp_lp11_en &&
+			!dsi_ctrl->host_config.u.video_engine.eof_bllp_lp11_en)
+		dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw,
+				0xFF00A0);
+	else
+		dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw,
+				0xFF00E0);
+}
+
 static int dsi_ctrl_drv_state_init(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
@@ -2198,7 +2206,9 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
+
+	dsi_ctrl_enable_error_interrupts(dsi_ctrl);
+
 	dsi_ctrl->hw.ops.ctrl_en(&dsi_ctrl->hw, true);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2320,6 +2330,12 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 	/* DTLN PHY error */
 	if (error & 0x3000E00)
 		pr_err("dsi PHY contention error: 0x%lx\n", error);
+
+	/* ignore TX timeout if blpp_lp11 is disabled */
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE &&
+			!dsi_ctrl->host_config.u.video_engine.bllp_lp11_en &&
+			!dsi_ctrl->host_config.u.video_engine.eof_bllp_lp11_en)
+		error &= ~DSI_HS_TX_TIMEOUT;
 
 	/* TX timeout error */
 	if (error & 0xE0) {
@@ -2618,27 +2634,37 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 }
 
 /**
- * dsi_ctrl_update_host_init_state() - Update the host initialization state.
+ * dsi_ctrl_update_host_state() - Update the host state.
  * @dsi_ctrl:        DSI controller handle.
+ * @op:            ctrl driver ops
  * @enable:        boolean signifying host state.
  *
- * Update the host initialization status only while exiting from ulps during
+ * Update the host status only while exiting from ulps during
  * suspend state.
  *
  * Return: error code.
  */
-int dsi_ctrl_update_host_init_state(struct dsi_ctrl *dsi_ctrl, bool enable)
+int dsi_ctrl_update_host_state(struct dsi_ctrl *dsi_ctrl,
+			       enum dsi_ctrl_driver_ops op, bool enable)
 {
 	int rc = 0;
 	u32 state = enable ? 0x1 : 0x0;
 
-	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+	if (!dsi_ctrl)
+		return rc;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl_check_state(dsi_ctrl, op, state);
 	if (rc) {
 		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
 		       dsi_ctrl->cell_index, rc);
+		mutex_unlock(&dsi_ctrl->ctrl_lock);
 		return rc;
 	}
-	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, state);
+
+	dsi_ctrl_update_state(dsi_ctrl, op, state);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
 	return rc;
 }
 
@@ -2701,7 +2727,8 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 	}
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
+
+	dsi_ctrl_enable_error_interrupts(dsi_ctrl);
 
 	pr_debug("[DSI_%d]Host initialization complete, continuous splash status:%d\n",
 		dsi_ctrl->cell_index, is_splash_enabled);

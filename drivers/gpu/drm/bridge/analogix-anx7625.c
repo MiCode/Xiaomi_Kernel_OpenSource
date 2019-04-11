@@ -728,7 +728,7 @@ static int anx7625_poweron(struct anx7625 *anx7625)
 	usleep_range(10000, 11000);
 
 	gpiod_set_value_cansleep(pdata->gpiod_reset, 1);
-	usleep_range(10000, 11000);
+	usleep_range(1000, 1100);
 
 	/* setup clock */
 	WriteReg(RX_P0, XTAL_FRQ_SEL, XTAL_FRQ_27M);
@@ -1050,7 +1050,6 @@ static void API_DSI_Configuration(struct anx7625 *anx7625,
 	/*power on MIPI RX*/
 	WriteReg(RX_P1, MIPI_LANE_CTRL_10, 0x00);
 	WriteReg(RX_P1, MIPI_LANE_CTRL_10, 0x80);
-	usleep_range(10000, 11000);
 }
 
 static void DSI_Configuration(struct anx7625 *anx7625, unsigned char table_id)
@@ -1099,7 +1098,7 @@ static int anx7625_start(struct anx7625 *anx7625)
 	/* interrupt for DRM*/
 	sp_write_reg_or(RX_P1, 0xff, 0x01);
 
-	if (anx7625->mode_idx < 10)
+	if (!mipi_compress_ratio(anx7625->mode_idx))
 		DSI_Configuration(anx7625, anx7625->mode_idx);
 	else
 		DSI_DSC_Configuration(anx7625, anx7625->mode_idx);
@@ -1521,7 +1520,7 @@ MODULE_DEVICE_TABLE(of, anx7625_id_match_table);
 #endif
 
 #ifdef CONFIG_PM_SLEEP
-static int anx7625_suspend(struct device *dev)
+static int anx7625_freeze(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct anx7625 *anx7625 = i2c_get_clientdata(client);
@@ -1535,7 +1534,7 @@ static int anx7625_suspend(struct device *dev)
 	return 0;
 }
 
-static int anx7625_resume(struct device *dev)
+static int anx7625_restore(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct anx7625 *anx7625 = i2c_get_clientdata(client);
@@ -1546,22 +1545,32 @@ static int anx7625_resume(struct device *dev)
 
 	anx7625_poweron(anx7625);
 
-	if (anx7625->enabled)
+	if (anx7625->enabled) {
+		/* wait until ocm is initialized */
+		usleep_range(10000, 11000);
+
 		anx7625_start(anx7625);
+	}
 
 	mutex_unlock(&anx7625->lock);
 
 	return 0;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(anx7625_pm, anx7625_suspend, anx7625_resume);
+static const struct dev_pm_ops anx7625_pm = {
+	.freeze = anx7625_freeze,
+	.restore = anx7625_restore,
+	.thaw = anx7625_restore,
+};
+#endif
 
 static struct i2c_driver anx7625_driver = {
 	.driver = {
 		.name = "anx7625",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
 		.pm = &anx7625_pm,
+#endif
 #ifdef CONFIG_OF
 		.of_match_table = anx7625_id_match_table,
 #endif
