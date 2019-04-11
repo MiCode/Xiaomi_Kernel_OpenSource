@@ -77,8 +77,6 @@ struct dentry *msm_cvp_debugfs_init_core(struct msm_cvp_core *core,
 struct dentry *msm_cvp_debugfs_init_inst(struct msm_cvp_inst *inst,
 		struct dentry *parent);
 void msm_cvp_debugfs_deinit_inst(struct msm_cvp_inst *inst);
-void msm_cvp_debugfs_update(struct msm_cvp_inst *inst,
-		enum msm_cvp_debugfs_event e);
 
 static inline char *get_debug_level_str(int level)
 {

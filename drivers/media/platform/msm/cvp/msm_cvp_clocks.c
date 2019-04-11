@@ -114,26 +114,8 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0;
-		struct msm_video_buffer *temp, *next;
 		u32 filled_len = 0;
 		u32 device_addr = 0;
-
-		mutex_lock(&inst->registeredbufs.lock);
-		list_for_each_entry_safe(temp, next,
-				&inst->registeredbufs.list, list) {
-			if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				filled_len = max(filled_len,
-					temp->vvb.vb2_buf.planes[0].bytesused);
-				device_addr = temp->smem[0].device_addr;
-			}
-			if (inst->session_type == MSM_CVP_ENCODER &&
-				(temp->vvb.flags &
-				V4L2_BUF_FLAG_PERF_MODE)) {
-				is_turbo = true;
-			}
-		}
-		mutex_unlock(&inst->registeredbufs.lock);
 
 		if ((!filled_len || !device_addr) &&
 			(inst->session_type != MSM_CVP_CORE)) {
@@ -144,11 +126,7 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 
 		++vote_data_count;
 
-		switch (inst->session_type) {
-		case MSM_CVP_CORE:
-			codec = V4L2_PIX_FMT_CVP;
-			break;
-		default:
+		if (inst->session_type != MSM_CVP_CORE) {
 			dprintk(CVP_ERR, "%s: invalid session_type %#x\n",
 				__func__, inst->session_type);
 			break;
@@ -156,8 +134,8 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 
 		memset(&(vote_data[i]), 0x0, sizeof(struct cvp_bus_vote_data));
 
-		vote_data[i].domain = get_cvp_hal_domain(inst->session_type);
-		vote_data[i].codec = get_cvp_hal_codec(codec);
+		vote_data[i].domain = HAL_VIDEO_DOMAIN_CVP;
+		vote_data[i].codec = HAL_VIDEO_CODEC_CVP;
 		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
 				inst->prop.width[OUTPUT_PORT]);
 		vote_data[i].input_height = max(inst->prop.height[OUTPUT_PORT],
@@ -204,8 +182,7 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 			vote_data[i].use_sys_cache = true;
 
 		if (inst->session_type == MSM_CVP_CORE) {
-			vote_data[i].domain =
-				get_cvp_hal_domain(inst->session_type);
+			vote_data[i].domain = HAL_VIDEO_DOMAIN_CVP;
 			vote_data[i].ddr_bw = inst->clk_data.ddr_bw;
 			vote_data[i].sys_cache_bw =
 				inst->clk_data.sys_cache_bw;
@@ -239,22 +216,15 @@ static int msm_dcvs_scale_clocks(struct msm_cvp_inst *inst,
 	/* assume no increment or decrement is required initially */
 	inst->clk_data.dcvs_flags = 0;
 
-	if (!inst->clk_data.dcvs_mode || inst->batch.enable) {
-		dprintk(CVP_DBG, "Skip DCVS (dcvs %d, batching %d)\n",
-			inst->clk_data.dcvs_mode, inst->batch.enable);
+	if (!inst->clk_data.dcvs_mode) {
+		dprintk(CVP_DBG, "Skip DCVS (dcvs %d)\n",
+			inst->clk_data.dcvs_mode);
 		/* update load (freq) with normal value */
 		inst->clk_data.load = inst->clk_data.load_norm;
 		return 0;
 	}
 
 	dcvs = &inst->clk_data;
-
-	if (is_decode_session(inst))
-		bufs_with_fw = msm_cvp_comm_num_queued_bufs(inst,
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	else
-		bufs_with_fw = msm_cvp_comm_num_queued_bufs(inst,
-			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 	/* +1 as one buffer is going to be queued after the function */
 	bufs_with_fw += 1;
 
@@ -493,7 +463,6 @@ int msm_cvp_set_clocks(struct msm_cvp_core *core)
 
 int msm_cvp_comm_scale_clocks(struct msm_cvp_inst *inst)
 {
-	struct msm_video_buffer *temp, *next;
 	unsigned long freq = 0;
 	u32 filled_len = 0;
 	u32 device_addr = 0;
@@ -509,22 +478,6 @@ int msm_cvp_comm_scale_clocks(struct msm_cvp_inst *inst)
 		dprintk(CVP_WARN, "%s is not enabled for CVP!\n", __func__);
 		return 0;
 	}
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
-		if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			filled_len = max(filled_len,
-				temp->vvb.vb2_buf.planes[0].bytesused);
-			if (inst->session_type == MSM_CVP_ENCODER &&
-				(temp->vvb.flags &
-				 V4L2_BUF_FLAG_PERF_MODE)) {
-				is_turbo = true;
-			}
-			device_addr = temp->smem[0].device_addr;
-		}
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
 
 	if (!filled_len || !device_addr) {
 		dprintk(CVP_DBG, "%s no input for session %x\n",
@@ -583,8 +536,7 @@ int msm_cvp_dcvs_try_enable(struct msm_cvp_inst *inst)
 
 	if (msm_cvp_clock_voting ||
 			inst->flags & CVP_THUMBNAIL ||
-			inst->clk_data.low_latency_mode ||
-			inst->batch.enable) {
+			inst->clk_data.low_latency_mode) {
 		dprintk(CVP_PROF, "DCVS disabled: %pK\n", inst);
 		inst->clk_data.dcvs_mode = false;
 		return false;
@@ -609,58 +561,6 @@ int msm_cvp_comm_init_clocks_and_bus_data(struct msm_cvp_inst *inst)
 	}
 
 	return 0;
-}
-
-static bool is_output_buffer(struct msm_cvp_inst *inst,
-	enum hal_buffer buffer_type)
-{
-	if (msm_cvp_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-		return buffer_type == HAL_BUFFER_OUTPUT2;
-	} else {
-		return buffer_type == HAL_BUFFER_OUTPUT;
-	}
-}
-
-int msm_cvp_get_extra_buff_count(struct msm_cvp_inst *inst,
-	enum hal_buffer buffer_type)
-{
-	int count = 0;
-
-	if (!inst || !inst->core) {
-		dprintk(CVP_ERR, "%s Invalid args\n", __func__);
-		return 0;
-	}
-	/*
-	 * no extra buffers for thumbnail session because
-	 * neither dcvs nor batching will be enabled
-	 */
-	if (is_thumbnail_session(inst))
-		return 0;
-
-	/* Add DCVS extra buffer count */
-	if (inst->core->resources.dcvs) {
-		if (is_decode_session(inst) &&
-			is_output_buffer(inst, buffer_type)) {
-			count += DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
-		} else if ((is_encode_session(inst) &&
-			buffer_type == HAL_BUFFER_INPUT)) {
-			count += DCVS_ENC_EXTRA_INPUT_BUFFERS;
-		}
-	}
-
-	/*
-	 * if platform supports decode batching ensure minimum
-	 * batch size count of extra buffers added on output port
-	 */
-	if (is_output_buffer(inst, buffer_type)) {
-		if (inst->core->resources.decode_batching &&
-			is_decode_session(inst) &&
-			count < inst->batch.size)
-			count = inst->batch.size;
-	}
-
-	return count;
 }
 
 int msm_cvp_decide_work_route(struct msm_cvp_inst *inst)

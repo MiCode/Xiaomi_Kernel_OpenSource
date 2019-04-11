@@ -97,18 +97,8 @@ union msm_v4l2_cmd {
 void *msm_cvp_open(int core_id, int session_type);
 int msm_cvp_close(void *instance);
 int msm_cvp_suspend(int core_id);
-int msm_cvp_g_fmt(void *instance, struct v4l2_format *f);
-int msm_cvp_reqbufs(void *instance, struct v4l2_requestbuffers *b);
-int msm_cvp_release_buffer(void *instance, int buffer_type,
-		unsigned int buffer_index);
-int msm_cvp_comm_cmd(void *instance, union msm_v4l2_cmd *cmd);
 int msm_cvp_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
-int msm_cvp_subscribe_event(void *instance,
-		const struct v4l2_event_subscription *sub);
-int msm_cvp_unsubscribe_event(void *instance,
-		const struct v4l2_event_subscription *sub);
-int msm_cvp_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
 int msm_cvp_private(void *cvp_inst, unsigned int cmd,
 		struct cvp_kmd_arg *arg);
 #endif

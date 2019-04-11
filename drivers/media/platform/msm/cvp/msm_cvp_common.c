@@ -22,23 +22,6 @@
 
 static void handle_session_error(enum hal_command_response cmd, void *data);
 
-enum multi_stream msm_cvp_comm_get_stream_output_mode(struct msm_cvp_inst *inst)
-{
-	if (!inst) {
-		dprintk(CVP_ERR, "%s: invalid params, return default mode\n",
-			__func__);
-		return HAL_VIDEO_DECODER_PRIMARY;
-	}
-
-	if (!is_decode_session(inst))
-		return HAL_VIDEO_DECODER_PRIMARY;
-
-	if (inst->stream_output_mode == HAL_VIDEO_DECODER_SECONDARY)
-		return HAL_VIDEO_DECODER_SECONDARY;
-	else
-		return HAL_VIDEO_DECODER_PRIMARY;
-}
-
 int msm_cvp_comm_get_inst_load(struct msm_cvp_inst *inst,
 		enum load_calc_quirks quirks)
 {
@@ -54,40 +37,6 @@ int msm_cvp_comm_get_inst_load_per_core(struct msm_cvp_inst *inst,
 		load = load / 2;
 
 	return load;
-}
-
-enum hal_domain get_cvp_hal_domain(int session_type)
-{
-	enum hal_domain domain;
-
-	switch (session_type) {
-	case MSM_CVP_CORE:
-		domain = HAL_VIDEO_DOMAIN_CVP;
-		break;
-	default:
-		dprintk(CVP_ERR, "Wrong domain %d\n", session_type);
-		domain = HAL_UNUSED_DOMAIN;
-		break;
-	}
-
-	return domain;
-}
-
-enum hal_video_codec get_cvp_hal_codec(int fourcc)
-{
-	enum hal_video_codec codec;
-
-	switch (fourcc) {
-	case V4L2_PIX_FMT_CVP:
-		codec = HAL_VIDEO_CODEC_CVP;
-		break;
-	default:
-		dprintk(CVP_ERR, "Wrong codec: %#x\n", fourcc);
-		codec = HAL_UNUSED_CODEC;
-		break;
-	}
-
-	return codec;
 }
 
 struct msm_cvp_core *get_cvp_core(int core_id)
@@ -110,16 +59,6 @@ struct msm_cvp_core *get_cvp_core(int core_id)
 	mutex_unlock(&cvp_driver->lock);
 	if (found)
 		return core;
-	return NULL;
-}
-
-struct buf_queue *msm_cvp_comm_get_vb2q(
-		struct msm_cvp_inst *inst, enum v4l2_buf_type type)
-{
-	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		return &inst->bufq[CAPTURE_PORT];
-	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-		return &inst->bufq[OUTPUT_PORT];
 	return NULL;
 }
 
@@ -153,9 +92,6 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		return;
 	}
 
-	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
-	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
-
 	/* This should come from sys_init_done */
 	core->resources.max_inst_count =
 		sys_init_msg->max_sessions_supported ?
@@ -167,19 +103,13 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		core->resources.max_secure_inst_count :
 		core->resources.max_inst_count;
 
-	if (core->id == MSM_CORE_CVP &&
-		(core->dec_codec_supported & HAL_VIDEO_CODEC_H264))
-		core->dec_codec_supported |=
-			HAL_VIDEO_CODEC_MVC;
-
-	core->codec_count = sys_init_msg->codec_count;
 	memcpy(core->capabilities, sys_init_msg->capabilities,
 		sys_init_msg->codec_count * sizeof(struct msm_cvp_capability));
 
 	dprintk(CVP_DBG,
-		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
-		__func__, core->codec_count, core->enc_codec_supported,
-		core->dec_codec_supported);
+		"%s: max_inst_count %d, max_secure_inst_count %d\n",
+		__func__, core->resources.max_inst_count,
+		core->resources.max_secure_inst_count);
 
 	complete(&(core->completions[index]));
 }
@@ -455,9 +385,6 @@ err_same_state:
 
 void msm_cvp_queue_v4l2_event(struct msm_cvp_inst *inst, int event_type)
 {
-	struct v4l2_event event = {.id = 0, .type = event_type};
-
-	v4l2_event_queue_fh(&inst->event_handler, &event);
 }
 
 static void msm_cvp_comm_generate_max_clients_error(struct msm_cvp_inst *inst)
@@ -747,15 +674,6 @@ static void handle_operation_config(enum hal_command_response cmd, void *data)
 	dprintk(CVP_ERR,
 			"%s: is called\n",
 			__func__);
-}
-
-enum hal_buffer msm_cvp_comm_get_hal_output_buffer(struct msm_cvp_inst *inst)
-{
-	if (msm_cvp_comm_get_stream_output_mode(inst) ==
-		HAL_VIDEO_DECODER_SECONDARY)
-		return HAL_BUFFER_OUTPUT2;
-	else
-		return HAL_BUFFER_OUTPUT;
 }
 
 void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
@@ -1094,7 +1012,7 @@ static int msm_cvp_deinit_core(struct msm_cvp_inst *inst)
 
 	mutex_lock(&core->lock);
 	if (core->state == CVP_CORE_UNINIT) {
-		dprintk(CVP_INFO, "Video core: %d is already in state: %d\n",
+		dprintk(CVP_INFO, "CVP core: %d is already in state: %d\n",
 				core->id, core->state);
 		goto core_already_uninited;
 	}
@@ -1155,7 +1073,6 @@ static int msm_comm_session_init(int flipped_state,
 	struct msm_cvp_inst *inst)
 {
 	int rc = 0;
-	int fourcc = 0;
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1169,9 +1086,7 @@ static int msm_comm_session_init(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-	if (inst->session_type == MSM_CVP_CORE) {
-		fourcc = V4L2_PIX_FMT_CVP;
-	} else {
+	if (inst->session_type != MSM_CVP_CORE) {
 		dprintk(CVP_ERR, "Invalid session\n");
 		return -EINVAL;
 	}
@@ -1184,15 +1099,14 @@ static int msm_comm_session_init(int flipped_state,
 
 	dprintk(CVP_DBG, "%s: inst %pK\n", __func__, inst);
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
-			inst, get_cvp_hal_domain(inst->session_type),
-			get_cvp_hal_codec(fourcc),
+			inst, HAL_VIDEO_DOMAIN_CVP,
+			HAL_VIDEO_CODEC_CVP,
 			&inst->session);
 
 	if (rc || !inst->session) {
 		dprintk(CVP_ERR,
-			"Failed to call session init for: %pK, %pK, %d, %d\n",
-			inst->core->device, inst,
-			inst->session_type, fourcc);
+			"Failed to call session init for: %pK, %pK, %d\n",
+			inst->core->device, inst, inst->session_type);
 		rc = -EINVAL;
 		goto exit;
 	}
@@ -1384,71 +1298,6 @@ exit:
 		trace_msm_cvp_common_state_change((void *)inst,
 				inst->state, state);
 	}
-	return rc;
-}
-
-enum hal_buffer cvp_get_hal_buffer_type(unsigned int type,
-		unsigned int plane_num)
-{
-	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (plane_num == 0)
-			return HAL_BUFFER_INPUT;
-		else
-			return HAL_BUFFER_EXTRADATA_INPUT;
-	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		if (plane_num == 0)
-			return HAL_BUFFER_OUTPUT;
-		else
-			return HAL_BUFFER_EXTRADATA_OUTPUT;
-	} else {
-		return -EINVAL;
-	}
-}
-
-int msm_cvp_comm_num_queued_bufs(struct msm_cvp_inst *inst, u32 type)
-{
-	int count = 0;
-	struct msm_video_buffer *mbuf;
-
-	if (!inst) {
-		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
-		return 0;
-	}
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (mbuf->vvb.vb2_buf.type != type)
-			continue;
-		if (!(mbuf->flags & MSM_CVP_FLAG_QUEUED))
-			continue;
-		count++;
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
-
-	return count;
-}
-
-int msm_cvp_comm_set_buffer_count(struct msm_cvp_inst *inst,
-	int host_count, int act_count, enum hal_buffer type)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct hal_buffer_count_actual buf_count;
-
-	hdev = inst->core->device;
-
-	buf_count.buffer_type = type;
-	buf_count.buffer_count_actual = act_count;
-	buf_count.buffer_count_min_host = host_count;
-	dprintk(CVP_DBG, "%s: %x : hal_buffer %d min_host %d actual %d\n",
-		__func__, hash32_ptr(inst->session), type,
-		host_count, act_count);
-	rc = call_hfi_op(hdev, session_set_property,
-		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
-	if (rc)
-		dprintk(CVP_ERR,
-			"Failed to set actual buffer count %d for buffer type %d\n",
-			act_count, type);
 	return rc;
 }
 
@@ -1661,10 +1510,8 @@ void msm_cvp_fw_unload_handler(struct work_struct *work)
 
 void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 {
-	struct msm_video_buffer *mbuf;
+	struct msm_cvp_internal_buffer *cbuf;
 	struct internal_buf *buf;
-	bool is_decode = false;
-	enum cvp_ports port;
 	bool is_secure = false;
 
 	if (!inst) {
@@ -1673,16 +1520,14 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 		return;
 	}
 
-	is_decode = inst->session_type == MSM_CVP_DECODER;
-	port = is_decode ? OUTPUT_PORT : CAPTURE_PORT;
 	is_secure = inst->flags & CVP_SECURE;
 	dprintk(CVP_ERR,
 			"---Buffer details for inst: %pK of type: %d---\n",
 			inst, inst->session_type);
 	mutex_lock(&inst->registeredbufs.lock);
 	dprintk(CVP_ERR, "registered buffer list:\n");
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list)
-		print_video_buffer(CVP_ERR, "buf", inst, mbuf);
+	list_for_each_entry(cbuf, &inst->registeredbufs.list, list)
+		print_cvp_buffer(CVP_ERR, "buf", inst, cbuf);
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
@@ -1694,107 +1539,29 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 	mutex_unlock(&inst->persistbufs.lock);
 }
 
-void print_video_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
-		struct msm_video_buffer *mbuf)
+void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
+		struct msm_cvp_internal_buffer *cbuf)
 {
-	struct vb2_buffer *vb2 = NULL;
-
-	if (!(tag & msm_cvp_debug) || !inst || !mbuf)
-		return;
-
-	vb2 = &mbuf->vvb.vb2_buf;
-
-	if (vb2->num_planes == 1)
-		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d mflags 0x%x\n",
-			str, vb2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
-			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
-			vb2->index, vb2->planes[0].m.fd,
-			vb2->planes[0].data_offset, mbuf->smem[0].device_addr,
-			vb2->planes[0].length, vb2->planes[0].bytesused,
-			mbuf->vvb.flags, mbuf->vvb.vb2_buf.timestamp,
-			mbuf->smem[0].refcount, mbuf->flags);
-	else
-		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d mflags 0x%x, extradata: fd %d off %d daddr %x size %d filled %d refcnt %d\n",
-			str, vb2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
-			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
-			vb2->index, vb2->planes[0].m.fd,
-			vb2->planes[0].data_offset, mbuf->smem[0].device_addr,
-			vb2->planes[0].length, vb2->planes[0].bytesused,
-			mbuf->vvb.flags, mbuf->vvb.vb2_buf.timestamp,
-			mbuf->smem[0].refcount, mbuf->flags,
-			vb2->planes[1].m.fd, vb2->planes[1].data_offset,
-			mbuf->smem[1].device_addr, vb2->planes[1].length,
-			vb2->planes[1].bytesused, mbuf->smem[1].refcount);
 }
 
-int msm_cvp_comm_unmap_video_buffer(struct msm_cvp_inst *inst,
-		struct msm_video_buffer *mbuf)
+int msm_cvp_comm_unmap_cvp_buffer(struct msm_cvp_inst *inst,
+		struct msm_cvp_internal_buffer *cbuf)
 {
-	int rc = 0, i;
+	int rc = 0;
 
-	if (!inst || !mbuf) {
+	if (!inst || !cbuf) {
 		dprintk(CVP_ERR, "%s: invalid params %pK %pK\n",
-			__func__, inst, mbuf);
-		return -EINVAL;
-	}
-	if (mbuf->vvb.vb2_buf.num_planes > VIDEO_MAX_PLANES) {
-		dprintk(CVP_ERR, "%s: invalid num_planes %d\n", __func__,
-			mbuf->vvb.vb2_buf.num_planes);
+			__func__, inst, cbuf);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
-		u32 refcount = mbuf->smem[i].refcount;
-
-		while (refcount) {
-			if (msm_cvp_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
-				print_video_buffer(CVP_ERR,
-					"unmap failed for buf", inst, mbuf);
-			refcount--;
-		}
+	rc = msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
+	if (rc) {
+		print_cvp_buffer(CVP_ERR,
+			"unmap failed for buf", inst, cbuf);
 	}
 
 	return rc;
-}
-
-static void kref_free_mbuf(struct kref *kref)
-{
-	struct msm_video_buffer *mbuf = container_of(kref,
-			struct msm_video_buffer, kref);
-
-	kfree(mbuf);
-}
-
-void kref_cvp_put_mbuf(struct msm_video_buffer *mbuf)
-{
-	if (!mbuf)
-		return;
-
-	kref_put(&mbuf->kref, kref_free_mbuf);
-}
-
-bool kref_cvp_get_mbuf(struct msm_cvp_inst *inst, struct msm_video_buffer *mbuf)
-{
-	struct msm_video_buffer *temp;
-	bool matches = false;
-	bool ret = false;
-
-	if (!inst || !mbuf)
-		return false;
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		if (temp == mbuf) {
-			matches = true;
-			break;
-		}
-	}
-	ret = (matches && kref_get_unless_zero(&mbuf->kref)) ? true : false;
-	mutex_unlock(&inst->registeredbufs.lock);
-
-	return ret;
 }
 
 static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
