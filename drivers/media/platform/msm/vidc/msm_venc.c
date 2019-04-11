@@ -1515,9 +1515,11 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->clk_data.low_latency_mode = !!ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VENC_HDR_INFO: {
-		u32 info_type = (ctrl->val >> 28);
+		u32 info_type = ((u32)ctrl->val >> 28) & 0xF;
 		u32 val = (ctrl->val & 0xFFFFFFF);
 
+		dprintk(VIDC_DBG, "Ctrl:%d, HDR Info with value %u (%#X)",
+				info_type, val, ctrl->val);
 		switch (info_type) {
 		case MSM_VIDC_RGB_PRIMARY_00:
 			mdisp_sei->nDisplayPrimariesX[0] = val;
@@ -1557,8 +1559,8 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		default:
 			dprintk(VIDC_ERR,
-				"Unknown Ctrl:%d, not part of HDR Info",
-					info_type);
+				"Unknown Ctrl:%d, not part of HDR Info with value %u",
+					info_type, val);
 			}
 		}
 		break;
