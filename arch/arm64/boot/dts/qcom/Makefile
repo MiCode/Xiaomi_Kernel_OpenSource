@@ -33,17 +33,20 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_LITO) += lito-rumi-overlay.dtbo \
 		lito-mtp-overlay.dtbo \
 		lito-cdp-overlay.dtbo \
-		lito-atp-overlay.dtbo
+		lito-atp-overlay.dtbo \
+		lito-qrd-overlay.dtbo
 
 lito-rumi-overlay.dtbo-base := lito.dtb
 lito-mtp-overlay.dtbo-base := lito.dtb
 lito-cdp-overlay.dtbo-base := lito.dtb
 lito-atp-overlay.dtbo-base := lito.dtb
+lito-qrd-overlay.dtbo-base := lito.dtb
 else
 dtb-$(CONFIG_ARCH_LITO) += lito-rumi.dtb \
 		lito-mtp.dtb \
 		lito-cdp.dtb \
-		lito-atp.dtb
+		lito-atp.dtb \
+		lito-qrd.dtb
 endif
 
 always		:= $(dtb-y)
