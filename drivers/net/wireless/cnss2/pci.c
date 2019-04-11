@@ -689,7 +689,8 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) &&
+	if ((test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	     test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_pci_collect_dump(pci_priv);
