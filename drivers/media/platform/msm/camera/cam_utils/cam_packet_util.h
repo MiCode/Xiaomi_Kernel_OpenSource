@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,10 +59,13 @@ int cam_packet_util_get_cmd_mem_addr(int handle, uint32_t **buf_addr,
  *
  * @packet:                Packet to be validated
  *
+ * @remain_len:            CPU buff length after config offset
+ *
  * @return:                0 for success
  *                         -EINVAL for Fail
  */
-int cam_packet_util_validate_packet(struct cam_packet *packet);
+int cam_packet_util_validate_packet(struct cam_packet *packet,
+	size_t remain_len);
 
 /**
  * cam_packet_util_validate_cmd_desc()

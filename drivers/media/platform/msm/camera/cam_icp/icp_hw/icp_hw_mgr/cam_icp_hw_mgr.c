@@ -3731,6 +3731,9 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	packet = prepare_args->packet;
 
+	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len))
+		return -EINVAL;
+
 	rc = cam_icp_mgr_pkt_validation(packet);
 	if (rc) {
 		mutex_unlock(&ctx_data->ctx_mutex);
