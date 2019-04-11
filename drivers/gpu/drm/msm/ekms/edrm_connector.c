@@ -33,6 +33,10 @@ edrm_connector_get_modes(struct drm_connector *connector)
 	struct drm_display_mode *m;
 
 	m = drm_mode_duplicate(connector->dev, &edrm_conn->display->mode);
+	if (m == NULL) {
+		pr_err("edrm drm_mode_duplicate failed\n");
+		return 0;
+	}
 	drm_mode_set_name(m);
 	drm_mode_probed_add(connector, m);
 
