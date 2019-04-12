@@ -487,6 +487,7 @@ struct msm_vidc_inst {
 	struct batch_mode batch;
 	struct timer_list batch_timer;
 	struct work_struct batch_work;
+	bool decode_batching;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
