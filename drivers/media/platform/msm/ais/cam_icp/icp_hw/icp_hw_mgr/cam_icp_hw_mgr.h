@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,8 @@
  * @fw_buf: Memory info of firmware
  * @qdss_buf: Memory info of qdss
  * @sfr_buf: Memory info for sfr buffer
+ * @shmem: Memory info for shared region
+ * @io_mem: Memory info for io region
  */
 struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qtbl;
@@ -91,6 +93,7 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qdss_buf;
 	struct cam_mem_mgr_memory_desc sfr_buf;
 	struct cam_smmu_region_info shmem;
+	struct cam_smmu_region_info io_mem;
 };
 
 /**

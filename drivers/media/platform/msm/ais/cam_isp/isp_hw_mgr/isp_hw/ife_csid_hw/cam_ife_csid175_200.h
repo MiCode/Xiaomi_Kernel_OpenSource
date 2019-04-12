@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -331,6 +331,7 @@ static struct cam_ife_csid_common_reg_offset
 	.num_rdis                                     = 3,
 	.num_pix                                      = 1,
 	.num_ppp                                      = 1,
+	.csid_reg_rst_stb                             = 1,
 	.csid_rst_stb                                 = 0x1e,
 	.csid_rst_stb_sw_all                          = 0x1f,
 	.path_rst_stb_all                             = 0x7f,
