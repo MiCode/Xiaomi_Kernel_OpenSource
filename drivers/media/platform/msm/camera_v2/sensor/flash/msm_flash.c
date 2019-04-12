@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -727,7 +727,7 @@ static int32_t msm_flash_query_current(
 
 	if (flash_ctrl->switch_trigger) {
 		ret = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
-					QUERY_MAX_CURRENT, &max_current);
+					QUERY_MAX_AVAIL_CURRENT, &max_current);
 		if (ret < 0) {
 			pr_err("%s:%d Query max_avail_curr failed ret = %d\n",
 				__func__, __LINE__, ret);

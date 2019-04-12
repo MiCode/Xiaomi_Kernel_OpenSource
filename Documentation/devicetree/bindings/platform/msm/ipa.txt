@@ -61,6 +61,8 @@ memory allocation over a PCIe bridge
                                 a pipe reset via the IPA uC is required
 - qcom,ipa-wdi2:		Boolean context flag to indicate whether
 				using wdi-2.0 or not
+- qcom,ipa-wdi3-over-gsi:       Boolean context flag to indicate whether
+                                using wdi-3.0 or not
 - qcom,bandwidth-vote-for-ipa:	Boolean context flag to indicate whether
 				ipa clock voting is done by bandwidth
 				voting via msm-bus-scale driver or not
@@ -106,6 +108,10 @@ memory allocation over a PCIe bridge
 				registers, collected upon crash, reside.
 - qcom,ipa-endp-delay-wa: Boolean context flag to indicate end point delay work around
 				supported or not.
+- qcom,secure-debug-check-action: Drives secure memory debug check. Three values allowed:
+				0 (use scm call),
+				1 (override scm call as though it returned true), and
+				2 (override scm call as though it returned false)
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

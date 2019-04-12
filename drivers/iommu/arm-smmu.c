@@ -1105,7 +1105,7 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 				void __iomem *sync, void __iomem *status)
 {
 	unsigned int spin_cnt, delay;
-	u32 sync_inv_ack, tbu_pwr_status;
+	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
 
 	writel_relaxed(0, sync);
 	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
@@ -1120,10 +1120,12 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 				     ARM_SMMU_STATS_SYNC_INV_TBU_ACK));
 	tbu_pwr_status = scm_io_read((unsigned long)(smmu->phys_addr +
 				     ARM_SMMU_TBU_PWR_STATUS));
+	sync_inv_progress = scm_io_read((unsigned long)(smmu->phys_addr +
+					ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR));
 	trace_tlbsync_timeout(smmu->dev, 0);
 	dev_err_ratelimited(smmu->dev,
-			    "TLB sync timed out -- SMMU may be deadlocked ack 0x%x pwr 0x%x\n",
-			    sync_inv_ack, tbu_pwr_status);
+			    "TLB sync timed out -- SMMU may be deadlocked ack 0x%x pwr 0x%x sync and invalidation progress 0x%x\n",
+			    sync_inv_ack, tbu_pwr_status, sync_inv_progress);
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 	return -EINVAL;
 }
@@ -1552,15 +1554,14 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		resume = RESUME_TERMINATE;
 	} else {
 		if (__ratelimit(&_rs)) {
-			phys_addr_t phys_atos = arm_smmu_verify_fault(domain,
-								      iova,
-								      fsr);
+			phys_addr_t phys_atos;
 
+			print_ctx_regs(smmu, cfg, fsr);
+			phys_atos = arm_smmu_verify_fault(domain, iova, fsr);
 			dev_err(smmu->dev,
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
 
-			print_ctx_regs(smmu, cfg, fsr);
 
 			dev_err(smmu->dev,
 				"soft iova-to-phys=%pa\n", &phys_soft);
@@ -2835,7 +2836,7 @@ static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 
-	if (!ops)
+	if (!ops || !ops->iova_to_pte)
 		return 0;
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);

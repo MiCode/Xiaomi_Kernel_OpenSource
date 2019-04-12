@@ -764,17 +764,21 @@ void diag_register_with_mhi(void)
 	int ret = 0;
 
 	ret = diag_remote_init();
-	if (ret) {
-		diag_remote_exit();
+	if (ret)
 		return;
-	}
 
-	ret = diagfwd_bridge_init();
+	ret = diag_mhi_init();
 	if (ret) {
-		diagfwd_bridge_exit();
 		diag_remote_exit();
 		return;
 	}
 
 	mhi_driver_register(&diag_mhi_driver);
+}
+
+void diag_unregister_mhi(void)
+{
+	mhi_driver_unregister(&diag_mhi_driver);
+	diag_mhi_exit();
+	diag_remote_exit();
 }

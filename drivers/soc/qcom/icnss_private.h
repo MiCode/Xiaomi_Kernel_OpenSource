@@ -15,6 +15,7 @@
 
 #include <linux/adc-tm-clients.h>
 #include <linux/iio/consumer.h>
+#include <linux/kobject.h>
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -368,6 +369,9 @@ struct icnss_priv {
 	uint64_t vph_pwr;
 	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
+	struct kobject *icnss_kobject;
+	atomic_t is_shutdown;
+
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,

@@ -210,6 +210,11 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_WIGIG4_CONS),
 	__stringify(IPA_CLIENT_AQC_ETHERNET_PROD),
 	__stringify(IPA_CLIENT_AQC_ETHERNET_CONS),
+	__stringify(IPA_CLIENT_MHI_PRIME_RMNET_PROD),
+	__stringify(IPA_CLIENT_MHI_PRIME_RMNET_CONS),
+	__stringify(IPA_CLIENT_MHI_PRIME_TETH_PROD),
+	__stringify(IPA_CLIENT_MHI_PRIME_TETH_CONS),
+	__stringify(IPA_CLIENT_MHI_PRIME_DPL_PROD),
 };
 
 /**
@@ -3512,6 +3517,20 @@ int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 
 	return ret;
 }
+
+void ipa_register_client_callback(int (*client_cb)(bool is_lock),
+				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+{
+	IPA_API_DISPATCH(ipa_register_client_callback,
+		client_cb, teth_port_state, ipa_ep_idx);
+}
+
+void ipa_deregister_client_callback(u32 ipa_ep_idx)
+{
+	IPA_API_DISPATCH(ipa_deregister_client_callback,
+		ipa_ep_idx);
+}
+
 
 /**
  * ipa_pm_is_used() - Returns if IPA PM framework is used

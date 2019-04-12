@@ -514,7 +514,9 @@ static __latent_entropy void tasklet_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
+				trace_tasklet_entry(t->func);
 				t->func(t->data);
+				trace_tasklet_exit(t->func);
 				tasklet_unlock(t);
 				continue;
 			}
@@ -550,7 +552,9 @@ static __latent_entropy void tasklet_hi_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
+				trace_tasklet_hi_entry(t->func);
 				t->func(t->data);
+				trace_tasklet_hi_exit(t->func);
 				tasklet_unlock(t);
 				continue;
 			}

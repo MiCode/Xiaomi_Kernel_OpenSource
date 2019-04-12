@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -365,6 +365,14 @@
 			};
 		};
 
+		pm8150l_pwm: qcom,pwms@bc00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x200>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
+		};
+
 		pm8150l_rgb_led: qcom,leds@d000 {
 			compatible = "qcom,tri-led";
 			reg = <0xd000 0x100>;
@@ -428,6 +436,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm8150l_tz>;
+		wake-capable-sensor;
 
 		trips {
 			trip0 {
@@ -453,6 +462,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150l_bcl 2>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -469,6 +479,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150l_bcl 3>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -485,6 +496,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm8150l_bcl 4>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {

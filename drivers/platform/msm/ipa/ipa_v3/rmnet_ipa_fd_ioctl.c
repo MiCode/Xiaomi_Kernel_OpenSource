@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/rmnet_ipa_fd_ioctl.h>
 #include "ipa_qmi_service.h"
+#include "ipa_i.h"
 
 #define DRIVER_NAME "wwan_ioctl"
 
@@ -389,6 +390,10 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 
+		if (ipa_mpm_notify_wan_state()) {
+			IPAWANERR("WAN_IOC_NOTIFY_WAN_STATE failed\n");
+			retval = -EPERM;
+		}
 		break;
 	case WAN_IOC_ENABLE_PER_CLIENT_STATS:
 		IPAWANDBG_LOW("got WAN_IOC_ENABLE_PER_CLIENT_STATS :>>>\n");

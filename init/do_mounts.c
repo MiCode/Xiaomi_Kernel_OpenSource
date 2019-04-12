@@ -32,6 +32,7 @@
 #include <linux/nfs_fs.h>
 #include <linux/nfs_fs_sb.h>
 #include <linux/nfs_mount.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "do_mounts.h"
 
@@ -363,7 +364,13 @@ static void __init get_fs_names(char *page)
 static int __init do_mount_root(char *name, char *fs, int flags, void *data)
 {
 	struct super_block *s;
-	int err = sys_mount(name, "/root", fs, flags, data);
+	int err;
+
+	place_marker("M - DRIVER F/S Init");
+
+	err = sys_mount((char __user *)name, (char __user *)"/root",
+			(char __user *)fs, (unsigned long)flags,
+						(void __user *)data);
 	if (err)
 		return err;
 
@@ -375,6 +382,9 @@ static int __init do_mount_root(char *name, char *fs, int flags, void *data)
 	       s->s_type->name,
 	       sb_rdonly(s) ? " readonly" : "",
 	       MAJOR(ROOT_DEV), MINOR(ROOT_DEV));
+
+	place_marker("M - DRIVER F/S Ready");
+
 	return 0;
 }
 

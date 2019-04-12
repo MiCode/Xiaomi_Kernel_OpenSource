@@ -3,7 +3,9 @@ Qualcomm Technologies, Inc. Virtual Clocks
 Required properties:
 - compatible:	Shall contain one of the following:
 		"qcom,virt-clk-sm8150-gcc",
-		"qcom,virt-clk-sm8150-scc".
+		"qcom,virt-clk-sm8150-scc",
+		"qcom,virt-clk-sm6150-gcc",
+		"qcom,virt-clk-sm6150-scc".
 
 - #clock-cells:	Shall contain 1.
 - #reset-cells:	Shall contain 1.

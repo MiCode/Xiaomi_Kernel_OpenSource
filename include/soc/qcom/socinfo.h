@@ -95,6 +95,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs610")
 #define early_machine_is_qcs410()      \
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs410")
+#define early_machine_is_atoll()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,atoll")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -132,6 +134,7 @@
 #define early_machine_is_trinket()	0
 #define early_machine_is_qcs610()       0
 #define early_machine_is_qcs410()       0
+#define early_machine_is_atoll()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -171,6 +174,7 @@ enum msm_cpu {
 	MSM_CPU_TRINKET,
 	MSM_CPU_QCS610,
 	MSM_CPU_QCS410,
+	MSM_CPU_ATOLL,
 };
 
 struct msm_soc_info {

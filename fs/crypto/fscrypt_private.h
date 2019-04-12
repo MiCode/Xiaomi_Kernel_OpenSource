@@ -21,15 +21,7 @@
 
 /* Encryption parameters */
 #define FS_IV_SIZE			16
-#define FS_AES_128_ECB_KEY_SIZE		16
-#define FS_AES_128_CBC_KEY_SIZE		16
-#define FS_AES_128_CTS_KEY_SIZE		16
-#define FS_AES_256_GCM_KEY_SIZE		32
-#define FS_AES_256_CBC_KEY_SIZE		32
-#define FS_AES_256_CTS_KEY_SIZE		32
-#define FS_AES_256_XTS_KEY_SIZE		64
-
-#define FS_KEY_DERIVATION_NONCE_SIZE		16
+#define FS_KEY_DERIVATION_NONCE_SIZE	16
 
 /**
  * Encryption context for inode
@@ -61,12 +53,6 @@ struct fscrypt_symlink_data {
 	__le16 len;
 	char encrypted_path[1];
 } __packed;
-
-enum ci_mode_info {
-	CI_NONE_MODE = 0,
-	CI_DATA_MODE,
-	CI_FNAME_MODE,
-};
 
 /*
  * A pointer to this structure is stored in the file system's in-core
@@ -113,10 +99,9 @@ static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 	return false;
 }
 
-static inline bool is_private_data_mode(struct fscrypt_info *ci)
+static inline bool is_private_data_mode(const struct fscrypt_context *ctx)
 {
-	return ci->ci_mode == CI_DATA_MODE &&
-		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
+	return ctx->contents_encryption_mode == FS_ENCRYPTION_MODE_PRIVATE;
 }
 
 /* crypto.c */
@@ -130,6 +115,15 @@ extern int fscrypt_do_page_crypto(const struct inode *inode,
 				  gfp_t gfp_flags);
 extern struct page *fscrypt_alloc_bounce_page(struct fscrypt_ctx *ctx,
 					      gfp_t gfp_flags);
+extern const struct dentry_operations fscrypt_d_ops;
+
+extern void __printf(3, 4) __cold
+fscrypt_msg(struct super_block *sb, const char *level, const char *fmt, ...);
+
+#define fscrypt_warn(sb, fmt, ...)		\
+	fscrypt_msg(sb, KERN_WARNING, fmt, ##__VA_ARGS__)
+#define fscrypt_err(sb, fmt, ...)		\
+	fscrypt_msg(sb, KERN_ERR, fmt, ##__VA_ARGS__)
 
 /* fname.c */
 extern int fname_encrypt(struct inode *inode, const struct qstr *iname,
