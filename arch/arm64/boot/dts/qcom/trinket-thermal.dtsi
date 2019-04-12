@@ -1855,6 +1855,11 @@
 		thermal-sensors = <&pm6125_adc_tm ADC_AMUX_THM2_PU2>;
 		wake-capable-sensor;
 		trips {
+			batt_trip0: batt-trip0 {
+				temperature = <45000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
 			gold_trip: gold-trip {
 				temperature = <46000>;
 				hysteresis = <0>;
@@ -1863,6 +1868,11 @@
 			modem_trip0: modem-trip0 {
 				temperature = <46000>;
 				hysteresis = <4000>;
+				type = "passive";
+			};
+			batt_trip1: batt-trip1 {
+				temperature = <47000>;
+				hysteresis = <2000>;
 				type = "passive";
 			};
 			modem_trip1: modem-trip1 {
@@ -1875,14 +1885,19 @@
 				hysteresis = <0>;
 				type = "passive";
 			};
+			batt_trip2: batt-trip2 {
+				temperature = <49000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
 			modem_trip2: modem-trip2 {
 				temperature = <50000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
-			batt_trip0: batt-trip0 {
-				temperature = <50000>;
-				hysteresis = <4000>;
+			batt_trip3: batt-trip3 {
+				temperature = <51000>;
+				hysteresis = <2000>;
 				type = "passive";
 			};
 			silver_trip: silver-trip {
@@ -1890,7 +1905,7 @@
 				hysteresis = <0>;
 				type = "passive";
 			};
-			modem_trip3_batt_trip1: modem-trip3 {
+			modem_trip3: modem-trip3 {
 				temperature = <52000>;
 				hysteresis = <2000>;
 				type = "passive";
@@ -1898,16 +1913,6 @@
 			cx_emer_trip: cx-emer-trip {
 				temperature = <52000>;
 				hysteresis = <4000>;
-				type = "passive";
-			};
-			batt_trip2: batt-trip2 {
-				temperature = <54000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
-			batt_trip3: batt-trip3 {
-				temperature = <56000>;
-				hysteresis = <2000>;
 				type = "passive";
 			};
 		};
@@ -1969,7 +1974,7 @@
 				cooling-device = <&modem_pa 2 2>;
 			};
 			modem_lvl3 {
-				trip = <&modem_trip3_batt_trip1>;
+				trip = <&modem_trip3>;
 				cooling-device = <&modem_pa 3 3>;
 			};
 			modem_proc_lvl1 {
@@ -1977,7 +1982,7 @@
 				cooling-device = <&modem_proc 1 1>;
 			};
 			modem_proc_lvl3 {
-				trip = <&modem_trip3_batt_trip1>;
+				trip = <&modem_trip3>;
 				cooling-device = <&modem_proc 3 3>;
 			};
 			battery_lvl0 {
@@ -1985,7 +1990,7 @@
 				cooling-device = <&pmi632_charger 1 1>;
 			};
 			battery_lvl1 {
-				trip = <&modem_trip3_batt_trip1>;
+				trip = <&batt_trip1>;
 				cooling-device = <&pmi632_charger 2 2>;
 			};
 			battery_lvl2 {
@@ -2007,5 +2012,4 @@
 			};
 		};
 	};
-
 };
