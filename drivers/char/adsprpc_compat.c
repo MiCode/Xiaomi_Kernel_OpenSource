@@ -137,18 +137,11 @@ struct compat_fastrpc_ctrl_kalloc {
 	compat_uint_t kalloc_support; /* Remote memory allocation from kernel */
 };
 
-#define FASTRPC_GET_DSP_INFO		(4)
-struct compat_fastrpc_dsp_capabilities {
-	compat_uint_t domain;	/* DSP domain to query capabilities */
-	compat_uint_t dsp_attributes[FASTRPC_MAX_DSP_ATTRIBUTES];
-};
-
 struct compat_fastrpc_ioctl_control {
 	compat_uint_t req;
 	union {
 		struct compat_fastrpc_ctrl_latency lp;
 		struct compat_fastrpc_ctrl_kalloc kalloc;
-		struct compat_fastrpc_dsp_capabilities dsp_cap;
 	};
 };
 
@@ -345,9 +338,6 @@ static int compat_get_fastrpc_ioctl_control(
 		err |= put_user(p, &ctrl->lp.enable);
 		err |= get_user(p, &ctrl32->lp.level);
 		err |= put_user(p, &ctrl->lp.level);
-	} else if (p == FASTRPC_GET_DSP_INFO) {
-		err |= get_user(p, &ctrl32->dsp_cap.domain);
-		err |= put_user(p, &ctrl->dsp_cap.domain);
 	}
 
 	return err;
@@ -388,23 +378,6 @@ static int compat_get_fastrpc_ioctl_init(
 	if (cmd == COMPAT_FASTRPC_IOCTL_INIT_ATTRS) {
 		err |= get_user(i, &init32->siglen);
 		err |= put_user(i, (compat_uptr_t *)&init->siglen);
-	}
-
-	return err;
-}
-
-static int compat_put_fastrpc_get_dsp_info(
-		struct compat_fastrpc_ioctl_control __user *ctrl32,
-		struct fastrpc_ioctl_control __user *ctrl)
-{
-	compat_uint_t u, *dsp_attr, *dsp_attr_32;
-	int err, ii;
-
-	dsp_attr = ctrl->dsp_cap.dsp_attributes;
-	dsp_attr_32 = ctrl32->dsp_cap.dsp_attributes;
-	for (ii = 0, err = 0; ii < FASTRPC_MAX_DSP_ATTRIBUTES; ii++) {
-		err |= get_user(u, dsp_attr++);
-		err |= put_user(u, dsp_attr_32++);
 	}
 
 	return err;
@@ -582,9 +555,7 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 		if (p == FASTRPC_CONTROL_KALLOC) {
 			err = get_user(p, &ctrl->kalloc.kalloc_support);
 			err |= put_user(p, &ctrl32->kalloc.kalloc_support);
-		} else if (p == FASTRPC_GET_DSP_INFO)
-			err |= compat_put_fastrpc_get_dsp_info(ctrl32, ctrl);
-
+		}
 		return err;
 	}
 	case COMPAT_FASTRPC_IOCTL_GETPERF:
