@@ -1,0 +1,14 @@
+
+menu "MTK MET configs"
+
+config MTK_MET
+	bool "Mediatek Embedded Technology"
+	depends on FTRACE && TRACING
+	help
+	  For Mediatek Embedded Technology features.
+	  It depends on FTRACE and TRACING.
+          Select "Y" if you want to use.
+          Select "N" if you are not sure.
+
+source "drivers/misc/mediatek/met_drv/Kconfig"
+endmenu

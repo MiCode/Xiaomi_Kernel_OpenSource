@@ -1,0 +1,9 @@
+
+config MTK_MET_CORE
+	bool "MET CORE"
+	default y if MTK_MET
+	help
+	  This selects the MET wrapper function for MET device.
+	  If you want MET feature, say Y here.
+	  This is needed if support for MET devices is required.
+	  If unsure, say N.
