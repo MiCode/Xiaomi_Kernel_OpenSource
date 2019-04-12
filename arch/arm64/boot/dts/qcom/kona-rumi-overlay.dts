@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 /dts-v1/;
@@ -14,7 +14,7 @@
 #include "kona-rumi.dtsi"
 
 / {
-	model = "RUMI";
+	model = "Qualcomm Technologies, Inc. kona RUMI";
 	compatible = "qcom,kona-rumi", "qcom,kona", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };

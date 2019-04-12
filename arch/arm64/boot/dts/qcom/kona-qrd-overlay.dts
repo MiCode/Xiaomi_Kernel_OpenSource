@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 /dts-v1/;
@@ -14,7 +14,7 @@
 #include "kona-qrd.dtsi"
 
 / {
-	model = "QRD";
+	model = "Qualcomm Technologies, Inc. kona QRD";
 	compatible = "qcom,kona-qrd", "qcom,kona", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
