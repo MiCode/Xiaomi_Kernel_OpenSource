@@ -445,27 +445,31 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	MHI_LOG("Processing Mission Mode Transition\n");
 
-	/* force MHI to be in M0 state before continuing */
-	ret = __mhi_device_get_sync(mhi_cntrl);
-	if (ret)
-		return ret;
-
-	ret = -EIO;
-
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-		goto error_mission_mode;
+		return -EIO;
 
 	wake_up_all(&mhi_cntrl->state_event);
 
+	mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+			     MHI_CB_EE_MISSION_MODE);
+
+	/* force MHI to be in M0 state before continuing */
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (ret)
+		return ret;
+
+	read_lock_bh(&mhi_cntrl->pm_lock);
+
 	/* add elements to all HW event rings */
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+		ret = -EIO;
 		goto error_mission_mode;
+	}
 
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
@@ -498,8 +502,6 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	/* setup sysfs nodes for userspace votes */
 	mhi_create_vote_sysfs(mhi_cntrl);
-
-	ret = 0;
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 

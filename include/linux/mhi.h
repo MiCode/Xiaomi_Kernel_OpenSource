@@ -28,6 +28,7 @@ struct mhi_buf_info;
  * @MHI_CB_LPM_ENTER: MHI host entered low power mode
  * @MHI_CB_LPM_EXIT: MHI host about to exit low power mode
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
+ * @MHI_CB_EE_MISSION_MODE: MHI device entered Mission Mode ee
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
  * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
@@ -38,6 +39,7 @@ enum MHI_CB {
 	MHI_CB_LPM_ENTER,
 	MHI_CB_LPM_EXIT,
 	MHI_CB_EE_RDDM,
+	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
 	MHI_CB_BW_REQ,
