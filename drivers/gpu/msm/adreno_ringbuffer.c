@@ -396,6 +396,12 @@ static inline int cp_mem_write(struct adreno_device *adreno_dev,
 	return dwords;
 }
 
+static bool _check_secured(struct adreno_context *drawctxt, unsigned int flags)
+{
+	return ((drawctxt->base.flags & KGSL_CONTEXT_SECURE) &&
+		!is_internal_cmds(flags));
+}
+
 static int
 adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				unsigned int flags, unsigned int *cmds,
@@ -441,8 +447,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 */
 	if (drawctxt) {
 		drawctxt->internal_timestamp = rb->timestamp;
-		if (drawctxt->base.flags & KGSL_CONTEXT_SECURE)
-			secured_ctxt = true;
+		secured_ctxt = _check_secured(drawctxt, flags);
 	}
 
 	/*
