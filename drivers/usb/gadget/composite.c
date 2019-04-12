@@ -1958,13 +1958,19 @@ unknown:
 		/*
 		 * OS descriptors handling
 		 */
-		if (cdev->use_os_string && cdev->os_desc_config &&
-		    (ctrl->bRequestType & USB_TYPE_VENDOR) &&
-		    ctrl->bRequest == cdev->b_vendor_code) {
+		if ((ctrl->bRequestType & USB_TYPE_VENDOR)) {
 			struct usb_configuration	*os_desc_cfg;
 			u8				*buf;
 			int				interface;
 			int				count = 0;
+
+			/* If os descriptor config is not enable, stall ep0 */
+			if (!cdev->use_os_string || !cdev->os_desc_config)
+				return -EINVAL;
+
+			/* Stall ep0 if bRequest is not same as b_vendor_code */
+			if (ctrl->bRequest != cdev->b_vendor_code)
+				return -EINVAL;
 
 			req = cdev->os_desc_req;
 			req->context = cdev;
