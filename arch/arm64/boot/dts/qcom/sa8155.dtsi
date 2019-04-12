@@ -453,7 +453,8 @@
 			"dev-emac-rgmii_rxc_state",
 			"dev-emac-rgmii_rx_ctl_state",
 			"dev-emac-phy_intr",
-			"dev-emac-phy_reset_state";
+			"dev-emac-phy_reset_state",
+			"dev-emac_pin_pps_0";
 
 		pinctrl-0 = <&emac_mdc>;
 		pinctrl-1 = <&emac_mdio>;
@@ -473,6 +474,7 @@
 		pinctrl-13 = <&emac_rgmii_rx_ctl>;
 		pinctrl-14 = <&emac_phy_intr>;
 		pinctrl-15 = <&emac_phy_reset_state>;
+		pinctrl-16 = <&emac_pin_pps_0>;
 
 		io-macro-info {
 			io-macro-bypass-mode = <0>;
