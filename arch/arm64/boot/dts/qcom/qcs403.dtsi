@@ -55,3 +55,7 @@
 		size = <0 0x400000>;
 	};
 };
+
+&qcom_seecom {
+	/delete-property/ qcom,appsbl-qseecom-support;
+};
