@@ -13,6 +13,7 @@
 #include "bus.h"
 #include "debug.h"
 #include "pci.h"
+#include "usb.h"
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
 {
@@ -35,10 +36,31 @@ enum cnss_dev_bus_type cnss_get_bus_type(unsigned long device_id)
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 		return CNSS_BUS_PCI;
+	case QCN7605_COMPOSITE_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
+		return CNSS_BUS_USB;
 	default:
 		cnss_pr_err("Unknown device_id: 0x%lx\n", device_id);
 		return CNSS_BUS_NONE;
 	}
+}
+
+bool cnss_bus_req_mem_ind_valid(struct cnss_plat_data *plat_priv)
+{
+	if (cnss_get_bus_type(plat_priv->device_id) == CNSS_BUS_USB)
+		return false;
+	else
+		return true;
+}
+
+bool cnss_bus_dev_cal_rep_valid(struct cnss_plat_data *plat_priv)
+{
+	bool ret = false;
+
+	if (cnss_get_bus_type(plat_priv->device_id) == CNSS_BUS_USB)
+		ret = true;
+
+	return ret;
 }
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev)
@@ -68,6 +90,8 @@ struct cnss_plat_data *cnss_bus_dev_to_plat_priv(struct device *dev)
 	switch (cnss_get_dev_bus_type(dev)) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_priv_to_plat_priv(bus_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_priv_to_plat_priv(bus_priv);
 	default:
 		return NULL;
 	}
@@ -81,6 +105,8 @@ int cnss_bus_init(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_init(plat_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_init(plat_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -96,6 +122,8 @@ void cnss_bus_deinit(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		cnss_pci_deinit(plat_priv);
+	case CNSS_BUS_USB:
+		cnss_usb_deinit(plat_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -204,6 +232,8 @@ int cnss_bus_call_driver_probe(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_call_driver_probe(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_call_driver_probe(plat_priv->bus_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -219,6 +249,8 @@ int cnss_bus_call_driver_remove(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_call_driver_remove(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_call_driver_remove(plat_priv->bus_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -234,6 +266,8 @@ int cnss_bus_dev_powerup(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_dev_powerup(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return 0;
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -249,6 +283,8 @@ int cnss_bus_dev_shutdown(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_dev_shutdown(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return 0;
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -294,6 +330,8 @@ int cnss_bus_register_driver_hdlr(struct cnss_plat_data *plat_priv, void *data)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_register_driver_hdlr(plat_priv->bus_priv, data);
+	case CNSS_BUS_USB:
+		return cnss_usb_register_driver_hdlr(plat_priv->bus_priv, data);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
@@ -309,6 +347,8 @@ int cnss_bus_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pci_unregister_driver_hdlr(plat_priv->bus_priv);
+	case CNSS_BUS_USB:
+		return cnss_usb_unregister_driver_hdlr(plat_priv->bus_priv);
 	default:
 		cnss_pr_err("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);
