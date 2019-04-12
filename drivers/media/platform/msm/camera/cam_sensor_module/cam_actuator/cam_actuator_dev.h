@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 #include "cam_sensor_util.h"
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+#include "cam_context.h"
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -92,6 +93,7 @@ struct intf_params {
 
 /**
  * struct cam_actuator_ctrl_t
+ * @device_name: Device name
  * @i2c_driver: I2C device info
  * @pdev: Platform device
  * @cci_i2c_master: I2C structure
@@ -107,9 +109,9 @@ struct intf_params {
  * @i2c_data: I2C register settings structure
  * @act_info: Sensor query cap structure
  * @of_node: Node ptr
- * @device_name: Device name
  */
 struct cam_actuator_ctrl_t {
+	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct i2c_driver *i2c_driver;
 	enum cci_i2c_master_t cci_i2c_master;
 	struct camera_io_master io_master_info;
@@ -123,7 +125,6 @@ struct cam_actuator_ctrl_t {
 	struct i2c_data_settings i2c_data;
 	struct cam_actuator_query_cap act_info;
 	struct intf_params bridge_intf;
-	char device_name[20];
 };
 
 #endif /* _CAM_ACTUATOR_DEV_H_ */
