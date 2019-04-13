@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 /dts-v1/;
@@ -10,7 +10,7 @@
 #include "lito-rumi.dtsi"
 
 / {
-	model = "RUMI";
+	model = "Qualcomm Technologies, Inc. Lito RUMI";
 	compatible = "qcom,lito-rumi", "qcom,lito", "qcom,rumi";
 	qcom,msm-id = <400 0x10000>;
 	qcom,board-id = <15 0>;

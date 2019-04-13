@@ -10,7 +10,7 @@
 #include "lito-atp.dtsi"
 
 / {
-	model = "ATP";
+	model = "Qualcomm Technologies, Inc. Lito ATP";
 	compatible = "qcom,lito-atp", "qcom,lito", "qcom,atp";
 	qcom,msm-id = <400 0x10000>;
 	qcom,board-id = <33 0>;
