@@ -1471,7 +1471,6 @@ static long mtk_disp_mgr_compat_ioctl(struct file *file, unsigned int cmd,
 		 */
 		return file->f_op->unlocked_ioctl(file, cmd,
 						  (unsigned long)data32);
-	}
 
 	case DISP_IOCTL_AAL_GET_HIST:
 	case DISP_IOCTL_AAL_EVENTCTL:
