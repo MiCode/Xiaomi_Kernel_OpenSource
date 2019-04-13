@@ -63,11 +63,14 @@ struct cmdqSecContextStruct {
 
 	/* iwc information */
 	void *iwcMessage;	/* message buffer */
+	void *iwcMessageEx;	/* message buffer extra */
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
 #endif
 };
+
+extern const u32 isp_iwc_buf_size[];
 
 int32_t cmdq_sec_init_allocate_resource_thread(void *data);
 
@@ -99,7 +102,7 @@ int32_t cmdq_sec_destroy_shared_memory(
  * Return:
  *     >=0 for success;
  */
-typedef int32_t(*CmdqSecFillIwcCB) (int32_t, void *, int32_t, void *);
+typedef int32_t(*CmdqSecFillIwcCB) (int32_t, void *, int32_t, void *, void *);
 
 
 /*
@@ -123,6 +126,8 @@ s32 cmdq_sec_handle_error_result(struct cmdqRecStruct *task, s32 thread,
 /* function declaretion */
 struct cmdqSecContextStruct *cmdq_sec_context_handle_create(uint32_t tgid);
 s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread);
+void cmdq_sec_dump_secure_thread_cookie(s32 thread);
+s32 cmdq_mbox_sec_chan_id(void *chan);
 
 /*
  * secure path control
@@ -146,7 +151,7 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee);
 s32 cmdq_sec_deinit_context(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer,
-	u32 size);
+	u32 size, void **wsm_buf_ex, u32 size_ex);
 
 s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer);
 
@@ -155,7 +160,7 @@ s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 s32 cmdq_sec_close_session(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
-	u32 cmd, s32 timeout_ms);
+	u32 cmd, s32 timeout_ms, bool share_mem_ex);
 #endif	/* CMDQ_SECURE_PATH_SUPPORT */
 
 #endif				/* __DDP_CMDQ_SEC_H__ */

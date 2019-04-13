@@ -451,15 +451,8 @@ enum cmdq_event {
 	CMDQ_EVENT_DVS_DONE_ASYNC_SHOT,			/* 362 */
 	CMDQ_EVENT_DVP_DONE_ASYNC_SHOT,			/* 363 */
 
-	CMDQ_EVENT_VDEC_SOF,				/* 364 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_0,			/* 365 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_1,			/* 366 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_2,			/* 367 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_3,			/* 368 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_4,			/* 369 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_5,			/* 370 */
-	CMDQ_EVENT_VDEC_FRAME_DONE_6,			/* 371 */
-
+	CMDQ_EVENT_VENC_FRAME_DONE,			/* 364 */
+	CMDQ_EVENT_VENC_PAUSE_DONE,			/* 365 */
 
 	/* Keep this at the end of HW events */
 	CMDQ_MAX_HW_EVENT_COUNT = 512,
@@ -539,6 +532,9 @@ enum cmdq_event {
 	CMDQ_SYNC_TOKEN_APPEND_THR22,			/* 692 */
 	CMDQ_SYNC_TOKEN_APPEND_THR23,			/* 693 */
 
+	/* secure world notify normal world task done */
+	CMDQ_SYNC_TOKEN_SEC_DONE,			/* 694 */
+
 	/* token after 700 sync user space header */
 
 	/* GPR access tokens (for HW register backup)
@@ -563,6 +559,9 @@ enum cmdq_event {
 	CMDQ_SYNC_TOKEN_DELAY_SET0 = 721,
 	CMDQ_SYNC_TOKEN_DELAY_SET1 = 722,
 	CMDQ_SYNC_TOKEN_DELAY_SET2 = 723,
+
+	/* GCE reserved hw event */
+	CMDQ_OUT_EVENT = 898,
 
 	/* GCE HW TPR Event*/
 	CMDQ_EVENT_TIMER_00 = 962,
