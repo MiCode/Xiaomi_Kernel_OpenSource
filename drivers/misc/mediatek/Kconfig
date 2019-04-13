@@ -21,6 +21,16 @@ config FPGA_EARLY_PORTING
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
 
+config MTK_PSCI
+	bool "Mediatek PSCI boot method"
+	depends on ARM64
+	default n
+	help
+	  If you want to
+	  enable PSCI boot method
+	  on MTK platform.
+	  Say y here.
+
 config MTK_AB_OTA_UPDATER
 	bool "Support Android A/B system updates"
 	default n
