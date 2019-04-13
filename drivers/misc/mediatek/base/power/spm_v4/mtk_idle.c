@@ -487,7 +487,9 @@ static void enable_idle_by_bit(int idle_type, int id)
 	int grp = id / 32;
 	unsigned int mask = 1U << (id % 32);
 
-	WARN_ON(INVALID_GRP_ID(grp));
+	if (!((idle_type >= 0 && idle_type < NR_TYPES) &&
+		(grp >= 0 && grp < NR_GRPS)))
+		return;
 	enable_idle_by_mask(idle_type, grp, mask);
 
 	if (idle_type == IDLE_TYPE_SO)
@@ -499,7 +501,10 @@ static void disable_idle_by_bit(int idle_type, int id)
 	int grp = id / 32;
 	unsigned int mask = 1U << (id % 32);
 
-	WARN_ON(INVALID_GRP_ID(grp));
+	if (!((idle_type >= 0 && idle_type < NR_TYPES) &&
+		(grp >= 0 && grp < NR_GRPS)))
+		return;
+
 	disable_idle_by_mask(idle_type, grp, mask);
 
 	if (idle_type == IDLE_TYPE_SO)
