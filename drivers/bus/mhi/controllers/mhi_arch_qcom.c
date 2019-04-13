@@ -281,9 +281,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 		if (boot_dev)
 			mhi_unprepare_from_transfer(boot_dev);
 
-		/* enable link inactivity timer to start auto suspend */
-		msm_pcie_l1ss_timeout_enable(mhi_dev->pci_dev);
-
 		pm_runtime_allow(&mhi_dev->pci_dev->dev);
 	}
 }
