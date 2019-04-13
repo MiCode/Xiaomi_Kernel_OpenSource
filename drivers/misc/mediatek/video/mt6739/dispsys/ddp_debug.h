@@ -31,9 +31,9 @@ unsigned int get_backup_vfp(void);
 void ddp_debug_init(void);
 void ddp_debug_exit(void);
 
-unsigned int  ddp_debug_analysis_to_buffer(void);
-unsigned int  ddp_debug_dbg_log_level(void);
-unsigned int  ddp_debug_irq_log_level(void);
+unsigned int ddp_debug_analysis_to_buffer(void);
+unsigned int ddp_debug_dbg_log_level(void);
+unsigned int ddp_debug_irq_log_level(void);
 int ddp_debug_force_roi(void);
 int ddp_debug_force_roi_x(void);
 int ddp_debug_force_roi_y(void);

@@ -1,15 +1,15 @@
 /*
-* Copyright (C) 2016 MediaTek Inc.
-*
-* This program is free software; you can redistribute it and/or modify
-* it under the terms of the GNU General Public License version 2 as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
-*/
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 
 #include <linux/kernel.h>
 #include <linux/clk.h>
@@ -27,11 +27,11 @@
 
 /*#define BYPASS_CLK_SELECT*/
 
-/*****************************************************************************
+/*
  *
  * dummy function
  *
-*****************************************************************************/
+ */
 #ifdef BYPASS_CLK_SELECT
 int disp_pwm_set_pwmmux(unsigned int clk_req)
 {
@@ -53,18 +53,19 @@ bool disp_pwm_mux_is_osc(void)
 	return false;
 }
 #else
-/*****************************************************************************
+/*
  *
  * variable for get clock node fromdts
  *
-*****************************************************************************/
+ */
 static void __iomem *disp_pmw_mux_base;
 
 #ifndef MUX_DISPPWM_ADDR /* disp pwm source clock select register address */
 #define MUX_DISPPWM_ADDR (disp_pmw_mux_base + 0xB0)
 #endif
 #ifdef HARD_CODE_CONFIG
-#ifndef MUX_UPDATE_ADDR /* disp pwm source clock update register address */
+/* disp pwm source clock update register address */
+#ifndef MUX_UPDATE_ADDR
 #define MUX_UPDATE_ADDR (disp_pmw_mux_base + 0x4)
 #endif
 #endif
@@ -76,11 +77,11 @@ static void __iomem *disp_pmw_mux_base;
 
 static int g_pwm_mux_clock_source = -1;
 
-/*****************************************************************************
+/*
  *
  * disp pwm source clock select mux api
  *
-*****************************************************************************/
+ */
 enum DDP_CLK_ID disp_pwm_get_clkid(unsigned int clk_req)
 {
 	enum DDP_CLK_ID clkid = -1;
@@ -106,11 +107,11 @@ enum DDP_CLK_ID disp_pwm_get_clkid(unsigned int clk_req)
 	return clkid;
 }
 
-/*****************************************************************************
+/*
  *
  * get disp pwm source mux node
  *
-*****************************************************************************/
+ */
 #define DTSI_TOPCKGEN "mediatek,topckgen"
 static int disp_pwm_get_muxbase(void)
 {
@@ -148,11 +149,11 @@ static unsigned int disp_pwm_get_pwmmux(void)
 	return regsrc;
 }
 
-/*****************************************************************************
+/*
  *
  * disp pwm source clock select mux api
  *
-*****************************************************************************/
+ */
 int disp_pwm_set_pwmmux(unsigned int clk_req)
 {
 	unsigned int reg_before, reg_after;
@@ -175,14 +176,15 @@ int disp_pwm_set_pwmmux(unsigned int clk_req)
 	reg_after = disp_pwm_get_pwmmux();
 	g_pwm_mux_clock_source = (reg_after) & 0x3;
 	PWM_NOTICE("PWM_MUX %x->%x", reg_before, reg_after);
+
 	return 0;
 }
 
-/*****************************************************************************
+/*
  *
  * disp pwm clock source power on /power off api
  *
-*****************************************************************************/
+ */
 int disp_pwm_clksource_enable(int clk_req)
 {
 	return 0;
@@ -193,15 +195,15 @@ int disp_pwm_clksource_disable(int clk_req)
 	return 0;
 }
 
-/*****************************************************************************
+/*
  *
  * disp pwm clock source query api
  *
-*****************************************************************************/
+ */
 
 bool disp_pwm_mux_is_osc(void)
 {
 
 	return false;
 }
-#endif		/* BYPASS_CLK_SELECT */
+#endif /* BYPASS_CLK_SELECT */

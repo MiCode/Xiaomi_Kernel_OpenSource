@@ -35,4 +35,5 @@ void mmsys_config_dump_reg(enum DISP_MODULE_ENUM module);
 
 int ddp_dump_analysis(enum DISP_MODULE_ENUM module);
 int ddp_dump_reg(enum DISP_MODULE_ENUM module);
-#endif
+
+#endif /* _DDP_DUMP_H_ */

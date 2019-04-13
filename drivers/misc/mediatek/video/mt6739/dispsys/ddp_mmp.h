@@ -11,13 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __H_DDP_MMP__
-#define __H_DDP_MMP__
+#ifndef __DDP_MMP_H__
+#define __DDP_MMP_H__
 
 #include "mmprofile.h"
-/* #include "mmprofile_function.h" */
 #include "ddp_info.h"
 #include "disp_session.h"
+
 struct DDP_MMP_Events {
 	mmp_event DDP;
 	mmp_event layerParent;
@@ -144,16 +144,19 @@ struct DDP_MMP_Events {
 struct DDP_MMP_Events *ddp_mmp_get_events(void);
 void init_ddp_mmp_events(void);
 void ddp_mmp_init(void);
-void ddp_mmp_ovl_layer(struct OVL_CONFIG_STRUCT *pLayer, unsigned int down_sample_x,
-		       unsigned int down_sample_y,
-		       unsigned int session /*1:primary, 2:external, 3:memory */);
-void ddp_mmp_wdma_layer(struct WDMA_CONFIG_STRUCT *wdma_layer, unsigned int wdma_num,
-			unsigned int down_sample_x, unsigned int down_sample_y);
-void ddp_mmp_rdma_layer(struct RDMA_CONFIG_STRUCT *rdma_layer, unsigned int rdma_num,
-			unsigned int down_sample_x, unsigned int down_sample_y);
+ /*1:primary, 2:external, 3:memory */
+void ddp_mmp_ovl_layer(struct OVL_CONFIG_STRUCT *pLayer,
+		       unsigned int down_sample_x, unsigned int down_sample_y,
+		       unsigned int session);
+void ddp_mmp_wdma_layer(struct WDMA_CONFIG_STRUCT *wdma_layer,
+			unsigned int wdma_num, unsigned int down_sample_x,
+			unsigned int down_sample_y);
+void ddp_mmp_rdma_layer(struct RDMA_CONFIG_STRUCT *rdma_layer,
+			unsigned int rdma_num, unsigned int down_sample_x,
+			unsigned int down_sample_y);
 
 /*defined in mmp driver, should remove it */
 extern void mmprofile_enable(int enable);
 void mmprofile_start(int start);
 
-#endif
+#endif /* __DDP_MMP_H__ */

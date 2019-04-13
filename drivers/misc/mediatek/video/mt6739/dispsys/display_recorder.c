@@ -106,8 +106,6 @@ static struct event_string_map event_map[] = {
 	{"Frame Start", DPREC_EVENT_FRAME_START},
 };
 
-
-
 static mmp_event dprec_mmp_event_spy(enum DPREC_LOGGER_ENUM l)
 {
 	switch (l & 0xffffff) {
@@ -140,15 +138,13 @@ static mmp_event dprec_mmp_event_spy(enum DPREC_LOGGER_ENUM l)
 	return 0xffff;
 }
 
-static void dprec_to_mmp(unsigned int type_logsrc,
-	enum mmp_log_type mmp_log, unsigned int data1,
-	unsigned int data2)
+static void dprec_to_mmp(unsigned int type_logsrc, enum mmp_log_type mmp_log,
+			 unsigned int data1, unsigned int data2)
 {
 	int event = dprec_mmp_event_spy(type_logsrc);
 
 	if (event < 0xffff)
 		mmprofile_log_ex(event, mmp_log, data1, data2);
-
 }
 
 static const char *_find_module_by_reg_addr(unsigned int reg)
@@ -157,7 +153,7 @@ static const char *_find_module_by_reg_addr(unsigned int reg)
 	unsigned int module_offset = 0x1000;
 	unsigned int base = (reg & (~(module_offset - 1)));
 
-	for (i = 0; i < sizeof(reg_map) / sizeof(struct reg_base_map); i++) {
+	for (i = 0; i < ARRAY_SIZE(reg_map); i++) {
 		if (base == reg_map[i].module_reg_base)
 			return reg_map[i].module_name;
 	}
@@ -169,7 +165,7 @@ static const char *_get_event_string(enum DPREC_EVENT event)
 {
 	int i = 0;
 
-	for (i = 0; i < sizeof(event_map) / sizeof(struct event_string_map); i++) {
+	for (i = 0; i < ARRAY_SIZE(event_map); i++) {
 		if (event == event_map[i].event)
 			return event_map[i].event_string;
 	}
@@ -189,14 +185,13 @@ static unsigned long long get_current_time_us(void)
 	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_usec;
 }
 
-
 #define dprec_string_max_length 512
 static unsigned char dprec_string_buffer[dprec_string_max_length] = { 0 };
 struct dprec_logger logger[DPREC_LOGGER_NUM] = { { 0 } };
 struct dprec_logger old_logger[DPREC_LOGGER_NUM] = { { 0 } };
 
 #define dprec_dump_max_length (1024*8*4)
-static unsigned char dprec_string_buffer_analysize[dprec_dump_max_length] = { 0 };
+static unsigned char dprec_string_buffer_analysize[dprec_dump_max_length];
 
 static unsigned int analysize_length;
 
@@ -213,11 +208,12 @@ int dprec_init(void)
 {
 	memset((void *)&_control, 0, sizeof(_control));
 	memset((void *)&logger, 0, sizeof(logger));
-	memset((void *)dprec_error_log_buffer, 0, DPREC_ERROR_LOG_BUFFER_LENGTH);
+	memset((void *)dprec_error_log_buffer, 0,
+	       DPREC_ERROR_LOG_BUFFER_LENGTH);
 	ddp_mmp_init();
 
-	dprec_logger_event_init(&dprec_vsync_irq_event, "VSYNC_IRQ", DPREC_LOGGER_LEVEL_SYSTRACE,
-				NULL);
+	dprec_logger_event_init(&dprec_vsync_irq_event, "VSYNC_IRQ",
+				DPREC_LOGGER_LEVEL_SYSTRACE, NULL);
 
 	return 0;
 }
@@ -229,15 +225,18 @@ void dprec_event_op(enum DPREC_EVENT event)
 	if (_control.overall_switch == 0)
 		return;
 
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[DPREC]");
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[EVENT]");
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[%s]", _get_event_string(event));
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "\n");
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[DPREC]");
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[EVENT]");
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[%s]",
+			 _get_event_string(event));
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "\n");
 
 	pr_debug("%s\n", dprec_string_buffer);
-
 }
-
 
 static long long nsec_high(unsigned long long nsec)
 {
@@ -284,7 +283,6 @@ static unsigned long msec_low(unsigned long long nsec)
 	ret = do_div(nsec, 1000000000);
 	return ret / 10000000;
 }
-
 
 static const char *dprec_logger_spy(enum DPREC_LOGGER_ENUM l)
 {
@@ -333,7 +331,8 @@ static const char *dprec_logger_spy(enum DPREC_LOGGER_ENUM l)
 	}
 }
 
-void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1,
+			  unsigned int val2)
 {
 	unsigned long flags = 0;
 	enum DPREC_LOGGER_ENUM source;
@@ -363,16 +362,8 @@ void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1, unsigned 
 
 		if (l->count == 0)
 			l->ts_start = l->ts_trigger;
-
 	}
 	l->count++;
-
-	if (source == DPREC_LOGGER_DSI_EXT_TE) {
-		/* DISPMSG("count=%d, time=%llu, period=%llu, max=%llu,min=%llu,start=%llu,trigger=%llu\n", l->count,*/
-		/* time, l->period_frame, l->period_max_frame, l->period_min_frame, l->ts_start, l->ts_trigger); */
-		/* DISPMSG("count=%d,period=%lld.%02lums,max=%lld.%02lums\n", l->count,*/
-		/* SPLIT_NS(l->period_frame), SPLIT_NS(l->period_max_frame)); */
-	}
 
 	if (source == DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND ||
 	    source == DPREC_LOGGER_PQ_TRIGGER_1SECOND) {
@@ -385,7 +376,8 @@ void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1, unsigned 
 	spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
 }
 
-unsigned long long dprec_logger_get_current_hold_period(unsigned int type_logsrc)
+unsigned long long
+dprec_logger_get_current_hold_period(unsigned int type_logsrc)
 {
 	unsigned long long period = 0;
 	unsigned long flags = 0;
@@ -406,7 +398,8 @@ unsigned long long dprec_logger_get_current_hold_period(unsigned int type_logsrc
 	return period;
 }
 
-void dprec_logger_start(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_start(unsigned int type_logsrc, unsigned int val1,
+			unsigned int val2)
 {
 	unsigned long flags = 0;
 	enum DPREC_LOGGER_ENUM source;
@@ -441,7 +434,8 @@ void dprec_logger_start(unsigned int type_logsrc, unsigned int val1, unsigned in
 	spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
 }
 
-void dprec_logger_done(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_done(unsigned int type_logsrc, unsigned int val1,
+		       unsigned int val2)
 {
 	unsigned long flags = 0;
 	enum DPREC_LOGGER_ENUM source;
@@ -458,7 +452,6 @@ void dprec_logger_done(unsigned int type_logsrc, unsigned int val1, unsigned int
 	if (l->ts_start == 0)
 		goto done;
 
-
 	l->period_frame = time - l->ts_trigger;
 
 	if (l->period_frame > l->period_max_frame)
@@ -474,25 +467,27 @@ done:
 	spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
 }
 
-void dprec_logger_event_init(struct dprec_logger_event *p, char *name, uint32_t level,
-			     mmp_event *mmp_root)
+void dprec_logger_event_init(struct dprec_logger_event *p, char *name,
+			     uint32_t level, mmp_event *mmp_root)
 {
-	if (p) {
-		/* scnprintf(p->name, ARRAY_SIZE(p->name) / sizeof(p->name[0]), name); */
-		scnprintf(p->name, ARRAY_SIZE(p->name), name);
+	if (!p)
+		return;
 
-		if (mmp_root)
-			p->mmp = mmprofile_register_event(*mmp_root, name);
-		else
-			p->mmp = mmprofile_register_event(ddp_mmp_get_events()->DDP, name);
+	scnprintf(p->name, ARRAY_SIZE(p->name), name);
 
-		mmprofile_enable_event_recursive(p->mmp, 1);
+	if (mmp_root)
+		p->mmp = mmprofile_register_event(*mmp_root, name);
+	else
+		p->mmp = mmprofile_register_event(
+			ddp_mmp_get_events()->DDP, name);
 
-		p->level = level;
+	mmprofile_enable_event_recursive(p->mmp, 1);
 
-		memset((void *)&p->logger, 0, sizeof(p->logger));
-		DISPDBG("dprec logger event init, name=%s, level=0x%08x\n", name, level);
-	}
+	p->level = level;
+
+	memset((void *)&p->logger, 0, sizeof(p->logger));
+	DISPDBG("dprec logger event init, name=%s, level=0x%08x\n",
+		name, level);
 }
 
 #ifdef CONFIG_TRACING
@@ -502,10 +497,10 @@ unsigned long disp_get_tracing_mark(void)
 	static unsigned long __read_mostly tracing_mark_write_addr;
 
 	if (unlikely(tracing_mark_write_addr == 0))
-		tracing_mark_write_addr = kallsyms_lookup_name("tracing_mark_write");
+		tracing_mark_write_addr =
+			kallsyms_lookup_name("tracing_mark_write");
 
 	return tracing_mark_write_addr;
-
 }
 
 static void mmp_kernel_trace_begin(char *name)
@@ -526,43 +521,49 @@ static void mmp_kernel_trace_end(void)
 	DISP_SYSTRACE_END();
 }
 
-void dprec_logger_frame_seq_begin(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_begin(unsigned int session_id,
+				  unsigned int frm_sequence)
 {
-	unsigned device_type = DISP_SESSION_TYPE(session_id);
+	unsigned int device_type = DISP_SESSION_TYPE(session_id);
 
 	if (frm_sequence <= 0 || session_id <= 0)
 		return;
 	if (device_type > DISP_SESSION_MEMORY) {
-		DISPERR("seq_begin session_id(0x%x) error, seq(%d)\n", session_id, frm_sequence);
+		DISPERR("seq_begin session_id(0x%x) error, seq(%d)\n",
+			session_id, frm_sequence);
 		return;
 	}
 
 	if (dprec_met_info[device_type].begin_frm_seq != frm_sequence) {
 		preempt_disable();
-		event_trace_printk(disp_get_tracing_mark(), "S|%d|%s|%d\n", current->tgid,
-				   dprec_met_info[device_type].log_name, frm_sequence);
+		event_trace_printk(
+			disp_get_tracing_mark(), "S|%d|%s|%d\n", current->tgid,
+			dprec_met_info[device_type].log_name, frm_sequence);
 
 		preempt_enable();
 		dprec_met_info[device_type].begin_frm_seq = frm_sequence;
 	}
 }
 
-void dprec_logger_frame_seq_end(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_end(unsigned int session_id,
+				unsigned int frm_sequence)
 {
-	unsigned device_type = DISP_SESSION_TYPE(session_id);
+	unsigned int device_type = DISP_SESSION_TYPE(session_id);
 
 	if (frm_sequence <= 0 || session_id <= 0)
 		return;
 	if (device_type > DISP_SESSION_MEMORY) {
-		DISPERR("seq_end session_id(0x%x) , seq(%d)\n", session_id, frm_sequence);
+		DISPERR("seq_end session_id(0x%x) , seq(%d)\n", session_id,
+			frm_sequence);
 		return;
 	}
 
 	if (dprec_met_info[device_type].end_frm_seq != frm_sequence) {
 
 		preempt_disable();
-		event_trace_printk(disp_get_tracing_mark(), "F|%d|%s|%d\n", current->tgid,
-				   dprec_met_info[device_type].log_name, frm_sequence);
+		event_trace_printk(
+			disp_get_tracing_mark(), "F|%d|%s|%d\n", current->tgid,
+			dprec_met_info[device_type].log_name, frm_sequence);
 		preempt_enable();
 		dprec_met_info[device_type].end_frm_seq = frm_sequence;
 	}
@@ -575,179 +576,191 @@ unsigned long disp_get_tracing_mark(void)
 	return 0UL;
 }
 
-void dprec_logger_frame_seq_begin(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_begin(unsigned int session_id,
+				  unsigned int frm_sequence)
 {
-
 }
 
-void dprec_logger_frame_seq_end(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_end(unsigned int session_id,
+				unsigned int frm_sequence)
 {
-
 }
 #endif
 
-void dprec_start(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_start(struct dprec_logger_event *event, unsigned int val1,
+		 unsigned int val2)
 {
-	if (event) {
-		if (event->level & DPREC_LOGGER_LEVEL_MMP)
-			mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_START, val1, val2);
+	if (!event)
+		return;
 
-		if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
-			unsigned long flags = 0;
-			struct dprec_logger *l;
-			unsigned long long time;
+	if (event->level & DPREC_LOGGER_LEVEL_MMP)
+		mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_START, val1, val2);
 
-			spin_lock_irqsave(&gdprec_logger_spinlock, flags);
-			l = &(event->logger);
-			time = get_current_time_us();
-			if (l->count == 0) {
-				l->ts_start = time;
-				l->period_min_frame = 0xffffffffffffffff;
-			}
+	if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
+		unsigned long flags = 0;
+		struct dprec_logger *l;
+		unsigned long long time;
+
+		spin_lock_irqsave(&gdprec_logger_spinlock, flags);
+		l = &(event->logger);
+		time = get_current_time_us();
+		if (l->count == 0) {
+			l->ts_start = time;
+			l->period_min_frame = 0xffffffffffffffff;
+		}
+
+		l->ts_trigger = time;
+
+		spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
+	}
+	if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
+		pr_debug("DISP/%s start,0x%08x,0x%08x\n",
+			 event->name, val1, val2);
+
+	if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
+		pr_debug("DISP/%s start,0x%08x,0x%08x\n",
+			 event->name, val1, val2);
+
+#ifdef CONFIG_TRACING
+	if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
+		char name[256];
+
+		scnprintf(name, ARRAY_SIZE(name), "K_%s_0x%x_0x%x",
+			  event->name, val1, val2);
+
+		mmp_kernel_trace_begin(name);
+	}
+#endif
+}
+
+void dprec_done(struct dprec_logger_event *event, unsigned int val1,
+		unsigned int val2)
+{
+	if (!event)
+		return;
+
+	if (event->level & DPREC_LOGGER_LEVEL_MMP)
+		mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_END, val1, val2);
+
+	if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
+		unsigned long flags = 0;
+		struct dprec_logger *l;
+		unsigned long long time;
+
+		spin_lock_irqsave(&gdprec_logger_spinlock, flags);
+		l = &(event->logger);
+		time = get_current_time_us();
+
+		if (l->ts_start != 0) {
+			l->period_frame = time - l->ts_trigger;
+
+			if (l->period_frame > l->period_max_frame)
+				l->period_max_frame = l->period_frame;
+
+			if (l->period_frame < l->period_min_frame)
+				l->period_min_frame = l->period_frame;
+
+			l->ts_trigger = 0;
+			l->period_total += l->period_frame;
+			l->count++;
+		}
+
+		spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
+	}
+	if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
+		pr_debug("DISP/%s done,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
+
+	if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
+		pr_debug("DISP/%s done,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
+
+#ifdef CONFIG_TRACING
+	if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
+		mmp_kernel_trace_end();
+		/* trace_printk("E|%s\n", event->name); */
+	}
+#endif
+}
+
+void dprec_trigger(struct dprec_logger_event *event, unsigned int val1,
+		   unsigned int val2)
+{
+	if (!event)
+		return;
+
+	if (event->level & DPREC_LOGGER_LEVEL_MMP)
+		mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_PULSE, val1, val2);
+
+	if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
+		unsigned long flags = 0;
+		struct dprec_logger *l;
+		unsigned long long time;
+
+		spin_lock_irqsave(&gdprec_logger_spinlock, flags);
+		l = &(event->logger);
+		time = get_current_time_us();
+		if (l->count == 0) {
+			l->ts_start = time;
+			l->ts_trigger = time;
+			l->period_min_frame = 0xffffffffffffffff;
+		} else {
+			l->period_frame = time - l->ts_trigger;
+
+			if (l->period_frame > l->period_max_frame)
+				l->period_max_frame = l->period_frame;
+
+			if (l->period_frame < l->period_min_frame)
+				l->period_min_frame = l->period_frame;
 
 			l->ts_trigger = time;
 
-			spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
+			if (l->count == 0)
+				l->ts_start = l->ts_trigger;
 		}
-		if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
-			pr_debug("DISP/%s start,0x%08x,0x%08x\n", event->name, val1, val2);
 
-		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
-			pr_debug("DISP/%s start,0x%08x,0x%08x\n", event->name, val1, val2);
+		l->count++;
+		spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
+	}
+	if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
+		pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
+
+	if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
+		pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
 
 #ifdef CONFIG_TRACING
-		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
-			char name[256];
+	if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
+		char name[256];
 
-			scnprintf(name, ARRAY_SIZE(name) / sizeof(name[0]), "K_%s_0x%x_0x%x",
-				  event->name, val1, val2);
-
-			mmp_kernel_trace_begin(name);
-			/* trace_printk("B|%d|%s\n", current->pid, event->name); */
-		}
-#endif
+		scnprintf(name, ARRAY_SIZE(name), "K_%s_0x%x_0x%x",
+			  event->name, val1, val2);
+		mmp_kernel_trace_begin(name);
+		mmp_kernel_trace_end();
 	}
+#endif
 }
 
-void dprec_done(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_submit(struct dprec_logger_event *event, unsigned int val1,
+		  unsigned int val2)
 {
-	if (event) {
-		if (event->level & DPREC_LOGGER_LEVEL_MMP)
-			mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_END, val1, val2);
+	if (!event)
+		return;
 
-		if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
-			unsigned long flags = 0;
-			struct dprec_logger *l;
-			unsigned long long time;
+	if (event->level & DPREC_LOGGER_LEVEL_MMP)
+		mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_PULSE, val1, val2);
 
-			spin_lock_irqsave(&gdprec_logger_spinlock, flags);
-			l = &(event->logger);
-			time = get_current_time_us();
+	if (event->level & DPREC_LOGGER_LEVEL_LOGGER)
+		;
 
-			if (l->ts_start != 0) {
-				l->period_frame = time - l->ts_trigger;
+	if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
+		pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
 
-				if (l->period_frame > l->period_max_frame)
-					l->period_max_frame = l->period_frame;
-
-				if (l->period_frame < l->period_min_frame)
-					l->period_min_frame = l->period_frame;
-
-				l->ts_trigger = 0;
-				l->period_total += l->period_frame;
-				l->count++;
-			}
-
-			spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
-		}
-		if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
-			pr_debug("DISP/%s done,0x%08x,0x%08x\n", event->name, val1, val2);
-
-		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
-			pr_debug("DISP/%s done,0x%08x,0x%08x\n", event->name, val1, val2);
-
-#ifdef CONFIG_TRACING
-		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
-			mmp_kernel_trace_end();
-			/* trace_printk("E|%s\n", event->name); */
-		}
-#endif
-	}
-}
-
-void dprec_trigger(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
-{
-	if (event) {
-		if (event->level & DPREC_LOGGER_LEVEL_MMP)
-			mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_PULSE, val1, val2);
-
-		if (event->level & DPREC_LOGGER_LEVEL_LOGGER) {
-			unsigned long flags = 0;
-			struct dprec_logger *l;
-			unsigned long long time;
-
-			spin_lock_irqsave(&gdprec_logger_spinlock, flags);
-			l = &(event->logger);
-			time = get_current_time_us();
-			if (l->count == 0) {
-				l->ts_start = time;
-				l->ts_trigger = time;
-				l->period_min_frame = 0xffffffffffffffff;
-			} else {
-				l->period_frame = time - l->ts_trigger;
-
-				if (l->period_frame > l->period_max_frame)
-					l->period_max_frame = l->period_frame;
-
-				if (l->period_frame < l->period_min_frame)
-					l->period_min_frame = l->period_frame;
-
-				l->ts_trigger = time;
-
-				if (l->count == 0)
-					l->ts_start = l->ts_trigger;
-
-			}
-
-			l->count++;
-			spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
-		}
-		if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
-			pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name, val1, val2);
-
-		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
-			pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name, val1, val2);
-
-#ifdef CONFIG_TRACING
-		if (event->level & DPREC_LOGGER_LEVEL_SYSTRACE && _control.systrace) {
-			char name[256];
-
-			scnprintf(name, ARRAY_SIZE(name) / sizeof(name[0]), "K_%s_0x%x_0x%x",
-				  event->name, val1, val2);
-			mmp_kernel_trace_begin(name);
-			mmp_kernel_trace_end();
-			/* trace_printk("B|%d|%s\n", current->pid, event->name); */
-		}
-#endif
-	}
-}
-
-
-void dprec_submit(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
-{
-	if (event) {
-		if (event->level & DPREC_LOGGER_LEVEL_MMP)
-			mmprofile_log_ex(event->mmp, MMPROFILE_FLAG_PULSE, val1, val2);
-
-		if (event->level & DPREC_LOGGER_LEVEL_LOGGER)
-			;
-		if (event->level & DPREC_LOGGER_LEVEL_MOBILE_LOG)
-			pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name, val1, val2);
-
-		if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
-			pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name, val1, val2);
-
-	}
+	if (event->level & DPREC_LOGGER_LEVEL_UART_LOG)
+		pr_debug("DISP/%s trigger,0x%08x,0x%08x\n", event->name,
+			 val1, val2);
 }
 
 void dprec_logger_submit(unsigned int type_logsrc, unsigned long long period,
@@ -773,7 +786,8 @@ void dprec_logger_submit(unsigned int type_logsrc, unsigned long long period,
 
 	spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
 
-	dprec_to_mmp(type_logsrc, MMPROFILE_FLAG_PULSE, (unsigned int)l->period_max_frame, fence_idx);
+	dprec_to_mmp(type_logsrc, MMPROFILE_FLAG_PULSE,
+		     (unsigned int)l->period_max_frame, fence_idx);
 }
 
 static unsigned long long ts_dprec_reset;
@@ -781,7 +795,6 @@ void dprec_logger_reset_all(void)
 {
 	int i = 0;
 
-	/* for (i = 0; i < ARRAY_SIZE(logger) / sizeof(logger[0]); i++) */
 	for (i = 0; i < ARRAY_SIZE(logger) ; i++)
 		dprec_logger_reset(i);
 	ts_dprec_reset = get_current_time_us();
@@ -795,7 +808,8 @@ void dprec_logger_reset(enum DPREC_LOGGER_ENUM source)
 	l->period_min_frame = 10000000;
 }
 
-int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source, char *stringbuf, int strlen)
+int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source,
+				   char *stringbuf, int strlen)
 {
 	unsigned long flags = 0;
 	int len = 0;
@@ -827,12 +841,11 @@ int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source, char *stringbu
 	do_div(fps_high, total);
 	fps_low = do_div(fps_high, 100);
 	len += scnprintf(stringbuf + len, strlen - len,
-		      "|%-24s|%8llu |%8lld.%02ld |%8llu.%02ld |%8llu.%02ld |%8llu.%02ld |\n",
-		      dprec_logger_spy(source), l->count, fps_high, fps_low,
-		      nsec_high(avg), nsec_low(avg),
-		      nsec_high(l->period_max_frame), nsec_low(l->period_max_frame),
-		      nsec_high(l->period_min_frame), nsec_low(l->period_min_frame)
-			);
+		"|%-24s|%8llu |%8lld.%02ld |%8llu.%02ld |%8llu.%02ld |%8llu.%02ld |\n",
+		dprec_logger_spy(source), l->count, fps_high, fps_low,
+		nsec_high(avg), nsec_low(avg), nsec_high(l->period_max_frame),
+		nsec_low(l->period_max_frame), nsec_high(l->period_min_frame),
+		nsec_low(l->period_min_frame));
 	spin_unlock_irqrestore(&gdprec_logger_spinlock, flags);
 	return len;
 }
@@ -844,10 +857,11 @@ int dprec_logger_get_result_string_all(char *stringbuf, int strlen)
 
 	n += scnprintf(stringbuf + n, strlen - n,
 		       "|**** Display Driver Statistic Information Dump ****\n");
-	n += scnprintf(stringbuf + n, strlen - n, "|Timestamp Begin=%llu.%03lds, End=%llu.%03lds\n",
+	n += scnprintf(stringbuf + n, strlen - n,
+		       "|Timestamp Begin=%llu.%03lds, End=%llu.%03lds\n",
 		       msec_high(ts_dprec_reset), msec_low(ts_dprec_reset),
-		       msec_high(get_current_time_us()), msec_low(get_current_time_us())
-		       );
+		       msec_high(get_current_time_us()),
+		       msec_low(get_current_time_us()));
 	n += scnprintf(stringbuf + n, strlen - n,
 		       "|------------------------+---------+------------+------------+------------+------------|\n");
 	n += scnprintf(stringbuf + n, strlen - n,
@@ -855,7 +869,8 @@ int dprec_logger_get_result_string_all(char *stringbuf, int strlen)
 	n += scnprintf(stringbuf + n, strlen - n,
 		       "|------------------------+---------+------------+------------+------------+------------|\n");
 	for (i = 0; i < ARRAY_SIZE(logger); i++)
-		n += dprec_logger_get_result_string(i, stringbuf + n, strlen - n);
+		n += dprec_logger_get_result_string(i, stringbuf + n,
+						    strlen - n);
 
 	n += scnprintf(stringbuf + n, strlen - n,
 		       "|------------------------+---------+------------+------------+------------+------------|\n");
@@ -864,14 +879,14 @@ int dprec_logger_get_result_string_all(char *stringbuf, int strlen)
 	return n;
 }
 
-
-int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source, struct fpsEx *fps)
+int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
+				  struct fpsEx *fps)
 {
 	unsigned long flags = 0;
 	int len = 0;
 	struct dprec_logger *l = &logger[source];
 	unsigned long long fps_high = 0;
-	uint64_t fps_low = 0;
+	unsigned long long fps_low = 0;
 	unsigned long long avg;
 	unsigned long long count;
 	unsigned long long total = 0;
@@ -966,12 +981,15 @@ void dprec_stub_irq(unsigned int irq_bit)
 		dprec_logger_trigger(DPREC_LOGGER_DSI_EXT_TE, irq_bit, 0);
 	} else if (irq_bit == DDP_IRQ_RDMA0_START) {
 		dprec_logger_start(DPREC_LOGGER_RDMA0_TRANSFER, irq_bit, 0);
-		dprec_logger_start(DPREC_LOGGER_RDMA0_TRANSFER_1SECOND, irq_bit, 0);
+		dprec_logger_start(DPREC_LOGGER_RDMA0_TRANSFER_1SECOND, irq_bit,
+				   0);
 	} else if (irq_bit == DDP_IRQ_RDMA0_DONE) {
 		dprec_logger_done(DPREC_LOGGER_RDMA0_TRANSFER, irq_bit, 0);
-		dprec_logger_done(DPREC_LOGGER_RDMA0_TRANSFER_1SECOND, irq_bit, 0);
+		dprec_logger_done(DPREC_LOGGER_RDMA0_TRANSFER_1SECOND, irq_bit,
+				  0);
 	} else if (irq_bit == DDP_IRQ_OVL0_FRAME_COMPLETE) {
-		dprec_logger_trigger(DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND, irq_bit, 0);
+		dprec_logger_trigger(DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND,
+				     irq_bit, 0);
 	}
 }
 
@@ -982,7 +1000,6 @@ void dprec_stub_event(enum DISP_PATH_EVENT event)
 	/* DISP_REG_SET(NULL,DISP_REG_CONFIG_MUTEX_INTEN,0xffffffff); */
 	if (event == DISP_PATH_EVENT_IF_VSYNC) {
 		vsync_cnt++;
-		/* mmprofile_log_ex(ddp_mmp_get_events()->vsync_count, MMPROFILE_FLAG_PULSE, vsync_cnt, 0); */
 		dprec_start(&dprec_vsync_irq_event, 0, 0);
 		dprec_done(&dprec_vsync_irq_event, 0, 0);
 	}
@@ -993,59 +1010,65 @@ unsigned int dprec_get_vsync_count(void)
 	return vsync_cnt;
 }
 
-void dprec_reg_op(void *cmdq, unsigned int reg, unsigned int val, unsigned int mask)
+void dprec_reg_op(void *cmdq, unsigned int reg, unsigned int val,
+		  unsigned int mask)
 {
 	int len = 0;
 
 	if (!cmdq)
-		mmprofile_log_ex(ddp_mmp_get_events()->dprec_cpu_write_reg, MMPROFILE_FLAG_PULSE, reg, val);
+		mmprofile_log_ex(ddp_mmp_get_events()->dprec_cpu_write_reg,
+				 MMPROFILE_FLAG_PULSE, reg, val);
 
 	if (cmdq) {
 		if (mask) {
 			DISPPR_HWOP("%s/0x%08x/0x%08x=0x%08x&0x%08x\n",
-				    _find_module_by_reg_addr(reg), (unsigned int)cmdq, reg, val,
-				    mask);
+				    _find_module_by_reg_addr(reg),
+				    (unsigned int)cmdq, reg, val, mask);
 		} else {
-			DISPPR_HWOP("%s/0x%08x/0x%08x=0x%08x\n", _find_module_by_reg_addr(reg),
+			DISPPR_HWOP("%s/0x%08x/0x%08x=0x%08x\n",
+				    _find_module_by_reg_addr(reg),
 				    (unsigned int)cmdq, reg, val);
 		}
 
 	} else {
 		if (mask)
-			DISPPR_HWOP("%s/%08x=%08x&%08x\n", _find_module_by_reg_addr(reg), reg, val, mask);
+			DISPPR_HWOP("%s/%08x=%08x&%08x\n",
+				    _find_module_by_reg_addr(reg), reg, val,
+				    mask);
 		else
-			DISPPR_HWOP("%s/%08x=%08x\n", _find_module_by_reg_addr(reg), reg, val);
-
+			DISPPR_HWOP("%s/%08x=%08x\n",
+				    _find_module_by_reg_addr(reg), reg, val);
 	}
 
 	if (_control.overall_switch == 0)
 		return;
 
-
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[DPREC]");
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[%s]",
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[DPREC]");
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[%s]",
 			 _find_module_by_reg_addr(reg));
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[%s]",
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "[%s]",
 			 cmdq ? "CMDQ" : "CPU");
 
 	if (cmdq)
-		len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "[0x%p]", cmdq);
+		len += scnprintf(dprec_string_buffer + len,
+				 dprec_string_max_length - len, "[0x%p]", cmdq);
 
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "0x%08x=0x%08x",
-			 reg, val);
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "0x%08x=0x%08x", reg,
+			 val);
 
 	if (mask)
-		len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "&0x%08x", mask);
+		len += scnprintf(dprec_string_buffer + len,
+				 dprec_string_max_length - len, "&0x%08x",
+				 mask);
 
-	len += scnprintf(dprec_string_buffer + len, dprec_string_max_length - len, "\n");
+	len += scnprintf(dprec_string_buffer + len,
+			 dprec_string_max_length - len, "\n");
 
 	pr_debug("%s\n", dprec_string_buffer);
-
-	if (_control.cmm_dump) {
-		/*pr_debug("[CMM]D.S SD:0x%08x %\LE %\LONG 0x%08x; write %s\n",*/
-		 /* (_control.cmm_dump_use_va)?reg:(reg&0x1fffffff),*/
-		 /* mask?(val|mask):val,_find_module_by_reg_addr(reg)); */
-	}
 }
 
 void dprec_logger_vdump(const char *fmt, ...)
@@ -1061,7 +1084,7 @@ void dprec_logger_vdump(const char *fmt, ...)
 	}
 
 	tmp = vscnprintf(dprec_string_buffer_analysize + analysize_length,
-		      dprec_dump_max_length - analysize_length, fmt, vargs);
+			 dprec_dump_max_length - analysize_length, fmt, vargs);
 
 	analysize_length += tmp;
 	if (analysize_length > dprec_dump_max_length)
@@ -1079,7 +1102,8 @@ void dprec_logger_dump_reset(void)
 {
 	analysize_length = 0;
 
-	memset(dprec_string_buffer_analysize, 0, sizeof(dprec_string_buffer_analysize));
+	memset(dprec_string_buffer_analysize, 0,
+	       sizeof(dprec_string_buffer_analysize));
 }
 
 char *dprec_logger_get_dump_addr()
@@ -1103,38 +1127,38 @@ enum DPREC_DEBUG_BIT_ENUM {
 
 int dprec_handle_option(unsigned int option)
 {
-	_control.overall_switch = (option & (1 << DPREC_DEBUG_BIT_OVERALL_SWITCH));
+	_control.overall_switch =
+		(option & (1 << DPREC_DEBUG_BIT_OVERALL_SWITCH));
 	_control.cmm_dump = (option & (1 << DPREC_DEBUG_BIT_CMM_DUMP_SWITCH));
-	_control.cmm_dump_use_va = (option & (1 << DPREC_DEBUG_BIT_CMM_DUMP_VA));
+	_control.cmm_dump_use_va =
+		(option & (1 << DPREC_DEBUG_BIT_CMM_DUMP_VA));
 	_control.systrace = (option & (1 << DPREC_DEBUG_BIT_SYSTRACE));
 	DISPMSG("dprec control=%p\n", &_control);
 
 	return 0;
 }
 
-/* return true if overall_switch is set. this will dump all register setting by default. */
-/* other functions outside of this display_recorder.c*/
-/* could use this api to determine whether to enable debug funciton */
+/**
+ * return true if overall_switch is set. this will dump
+ * all register setting by default.
+ * other functions outside of this display_recorder.c
+ * could use this api to determine whether to enable debug funciton
+ */
 int dprec_option_enabled(void)
 {
 	return _control.overall_switch;
 }
 
-#if 0 /* defined but not used */
-static int dprec_state_machine_op(enum DPREC_STM_EVENT op)
-{
-
-}
-#endif
-
-int dprec_mmp_dump_ovl_layer(struct OVL_CONFIG_STRUCT *ovl_layer, unsigned int l,
-			     unsigned int session /*1:primary, 2:external, 3:memory */)
+int dprec_mmp_dump_ovl_layer(struct OVL_CONFIG_STRUCT *ovl_layer,
+			     unsigned int l, unsigned int session)
 {
 	if (gCapturePriLayerEnable) {
 		if (gCapturePriLayerNum >= primary_display_get_max_layer())
-			ddp_mmp_ovl_layer(ovl_layer, gCapturePriLayerDownX, gCapturePriLayerDownY, session);
+			ddp_mmp_ovl_layer(ovl_layer, gCapturePriLayerDownX,
+					  gCapturePriLayerDownY, session);
 		else if (gCapturePriLayerNum == l)
-			ddp_mmp_ovl_layer(ovl_layer, gCapturePriLayerDownX, gCapturePriLayerDownY, session);
+			ddp_mmp_ovl_layer(ovl_layer, gCapturePriLayerDownX,
+					  gCapturePriLayerDownY, session);
 
 		return 0;
 	}
@@ -1144,8 +1168,9 @@ int dprec_mmp_dump_ovl_layer(struct OVL_CONFIG_STRUCT *ovl_layer, unsigned int l
 int dprec_mmp_dump_wdma_layer(void *wdma_layer, unsigned int wdma_num)
 {
 	if (gCaptureWdmaLayerEnable) {
-		ddp_mmp_wdma_layer((struct WDMA_CONFIG_STRUCT *) wdma_layer, wdma_num,
-				   gCapturePriLayerDownX, gCapturePriLayerDownY);
+		ddp_mmp_wdma_layer((struct WDMA_CONFIG_STRUCT *)wdma_layer,
+				   wdma_num, gCapturePriLayerDownX,
+				   gCapturePriLayerDownY);
 	}
 	return -1;
 }
@@ -1153,8 +1178,9 @@ int dprec_mmp_dump_wdma_layer(void *wdma_layer, unsigned int wdma_num)
 int dprec_mmp_dump_rdma_layer(void *rdma_layer, unsigned int rdma_num)
 {
 	if (gCaptureRdmaLayerEnable) {
-		ddp_mmp_rdma_layer((struct RDMA_CONFIG_STRUCT *) rdma_layer, rdma_num,
-				   gCapturePriLayerDownX, gCapturePriLayerDownY);
+		ddp_mmp_rdma_layer((struct RDMA_CONFIG_STRUCT *)rdma_layer,
+				   rdma_num, gCapturePriLayerDownX,
+				   gCapturePriLayerDownY);
 	}
 	return -1;
 }
@@ -1217,31 +1243,31 @@ void init_log_buffer(void)
 
 	/*4. Dispatch log ring buffer to each buffer slot*/
 	buf_idx = 0;
-	for (i = 0 ; i < ERROR_BUFFER_COUNT ; i++) {
+	for (i = 0; i < ERROR_BUFFER_COUNT; i++) {
 		err_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
 		buf_idx++;
 	}
 	dprec_logger_buffer[0].buffer_ptr = err_buffer;
 
-	for (i = 0 ; i < FENCE_BUFFER_COUNT ; i++) {
+	for (i = 0; i < FENCE_BUFFER_COUNT; i++) {
 		fence_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
 		buf_idx++;
 	}
 	dprec_logger_buffer[1].buffer_ptr = fence_buffer;
 
-	for (i = 0 ; i < DEBUG_BUFFER_COUNT ; i++) {
+	for (i = 0; i < DEBUG_BUFFER_COUNT; i++) {
 		dbg_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
 		buf_idx++;
 	}
 	dprec_logger_buffer[2].buffer_ptr = dbg_buffer;
 
-	for (i = 0 ; i < DUMP_BUFFER_COUNT ; i++) {
+	for (i = 0; i < DUMP_BUFFER_COUNT; i++) {
 		dump_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
 		buf_idx++;
 	}
 	dprec_logger_buffer[3].buffer_ptr = dump_buffer;
 
-	for (i = 0 ; i < STATUS_BUFFER_COUNT ; i++) {
+	for (i = 0; i < STATUS_BUFFER_COUNT; i++) {
 		status_buffer[i] = (temp_buf + buf_idx * LOGGER_BUFFER_SIZE);
 		buf_idx++;
 	}
@@ -1254,21 +1280,24 @@ err:
 	DISPERR("[DISP]%s: log buffer allocation fail\n", __func__);
 }
 
-void get_disp_err_buffer(unsigned long *addr, unsigned long *size, unsigned long *start)
+void get_disp_err_buffer(unsigned long *addr, unsigned long *size,
+			 unsigned long *start)
 {
 	*addr = 0;
 	*size = 0;
 	*start = 0;
 }
 
-void get_disp_fence_buffer(unsigned long *addr, unsigned long *size, unsigned long *start)
+void get_disp_fence_buffer(unsigned long *addr, unsigned long *size,
+			   unsigned long *start)
 {
 	*addr = 0;
 	*size = 0;
 	*start = 0;
 }
 
-void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size, unsigned long *start)
+void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
+			 unsigned long *start)
 {
 	if (is_buffer_init) {
 		*addr = (unsigned long)err_buffer[0];
@@ -1281,7 +1310,8 @@ void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size, unsigned long
 	}
 }
 
-void get_disp_dump_buffer(unsigned long *addr, unsigned long *size, unsigned long *start)
+void get_disp_dump_buffer(unsigned long *addr, unsigned long *size,
+			  unsigned long *start)
 {
 	*addr = 0;
 	*size = 0;
@@ -1309,23 +1339,24 @@ int dprec_logger_pr(unsigned int type, char *fmt, ...)
 	spin_lock_irqsave(&dprec_logger_spinlock, flags);
 	if (dprec_logger_buffer[type].len < 128) {
 		dprec_logger_buffer[type].id++;
-		dprec_logger_buffer[type].id = dprec_logger_buffer[type].id % dprec_logger_buffer[type].count;
+		dprec_logger_buffer[type].id %= dprec_logger_buffer[type].count;
 		/*not coverage the first error buf*/
-		if (type == DPREC_LOGGER_ERROR && dprec_logger_buffer[type].id == 0)
+		if (type == DPREC_LOGGER_ERROR &&
+		    dprec_logger_buffer[type].id == 0)
 			dprec_logger_buffer[type].id++;
 		dprec_logger_buffer[type].len = dprec_logger_buffer[type].size;
 	}
 	buf_arr = dprec_logger_buffer[type].buffer_ptr;
 	buf = buf_arr[dprec_logger_buffer[type].id] +
-		dprec_logger_buffer[type].size - dprec_logger_buffer[type].len;
+	      dprec_logger_buffer[type].size - dprec_logger_buffer[type].len;
 	len = dprec_logger_buffer[type].len;
 
 	if (buf) {
 		va_list args;
 
 		rem_nsec = do_div(time, 1000000000);
-		n += snprintf(buf + n, len - n, "[%5lu.%06lu]", (unsigned long)time,
-			      rem_nsec / 1000);
+		n += snprintf(buf + n, len - n, "[%5lu.%06lu]",
+			      (unsigned long)time, rem_nsec / 1000);
 
 		va_start(args, fmt);
 		n += vscnprintf(buf + n, len - n, fmt, args);
@@ -1340,10 +1371,10 @@ int dprec_logger_pr(unsigned int type, char *fmt, ...)
 
 char *get_dprec_status_ptr(int buffer_idx)
 {
-	if (buffer_idx < dprec_logger_buffer[DPREC_LOGGER_STATUS].count)
-		return dprec_logger_buffer[DPREC_LOGGER_STATUS].buffer_ptr[buffer_idx];
-	else
+	if (buffer_idx >= dprec_logger_buffer[DPREC_LOGGER_STATUS].count)
 		return NULL;
+
+	return dprec_logger_buffer[DPREC_LOGGER_STATUS].buffer_ptr[buffer_idx];
 }
 
 static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
@@ -1364,7 +1395,8 @@ static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
 	}
 }
 
-int dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf, int len)
+int dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
+			 int len)
 {
 	int n = 0;
 	int i;
@@ -1382,16 +1414,16 @@ int dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf, int le
 	for (i = 0; i < dprec_logger_buffer[type].count; i++) {
 		c++;
 		c %= dprec_logger_buffer[type].count;
-		n += scnprintf(stringbuf + n, len - n, "dprec log buffer[%s][%d]\n",
-					   _logger_pr_type_spy(type), c);
+		n += scnprintf(stringbuf + n, len - n,
+			       "dprec log buffer[%s][%d]\n",
+			       _logger_pr_type_spy(type), c);
 		n += scnprintf(stringbuf + n, len - n, "%s\n", buf_arr[c]);
-
 	}
 
 	return n;
 }
 
-#else
+#else /* !(CONFIG_MTK_ENG_BUILD) || !(CONFIG_MTK_GMO_RAM_OPTIMIZE)) */
 
 unsigned int gCapturePriLayerEnable;
 unsigned int gCaptureWdmaLayerEnable;
@@ -1399,13 +1431,11 @@ unsigned int gCapturePriLayerDownX = 20;
 unsigned int gCapturePriLayerDownY = 20;
 unsigned int gCapturePriLayerNum = 4;
 
-
 struct dprec_logger logger[DPREC_LOGGER_NUM] = { { 0 } };
 
 unsigned int dprec_error_log_len;
 unsigned int dprec_error_log_buflen = DPREC_ERROR_LOG_BUFFER_LENGTH;
 unsigned int dprec_error_log_id;
-
 
 int dprec_init(void)
 {
@@ -1416,49 +1446,59 @@ void dprec_event_op(enum DPREC_EVENT event)
 {
 }
 
-void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_trigger(unsigned int type_logsrc, unsigned int val1,
+			  unsigned int val2)
 {
 }
 
-unsigned long long dprec_logger_get_current_hold_period(unsigned int type_logsrc)
+unsigned long long
+dprec_logger_get_current_hold_period(unsigned int type_logsrc)
 {
 	return 0;
 }
 
-void dprec_logger_start(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_start(unsigned int type_logsrc, unsigned int val1,
+			unsigned int val2)
 {
 }
 
-void dprec_logger_done(unsigned int type_logsrc, unsigned int val1, unsigned int val2)
+void dprec_logger_done(unsigned int type_logsrc, unsigned int val1,
+		       unsigned int val2)
 {
 }
 
-void dprec_logger_event_init(struct dprec_logger_event *p, char *name, uint32_t level,
-			     mmp_event *mmp_root)
+void dprec_logger_event_init(struct dprec_logger_event *p, char *name,
+			     uint32_t level, mmp_event *mmp_root)
 {
 }
 
-void dprec_logger_frame_seq_begin(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_begin(unsigned int session_id,
+				  unsigned int frm_sequence)
 {
 }
 
-void dprec_logger_frame_seq_end(unsigned int session_id, unsigned frm_sequence)
+void dprec_logger_frame_seq_end(unsigned int session_id,
+				unsigned int frm_sequence)
 {
 }
 
-void dprec_start(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_start(struct dprec_logger_event *event, unsigned int val1,
+		 unsigned int val2)
 {
 }
 
-void dprec_done(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_done(struct dprec_logger_event *event, unsigned int val1,
+		unsigned int val2)
 {
 }
 
-void dprec_trigger(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_trigger(struct dprec_logger_event *event, unsigned int val1,
+		   unsigned int val2)
 {
 }
 
-void dprec_submit(struct dprec_logger_event *event, unsigned int val1, unsigned int val2)
+void dprec_submit(struct dprec_logger_event *event, unsigned int val1,
+		  unsigned int val2)
 {
 }
 
@@ -1475,7 +1515,8 @@ void dprec_logger_reset(enum DPREC_LOGGER_ENUM source)
 {
 }
 
-int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source, char *stringbuf, int strlen)
+int dprec_logger_get_result_string(enum DPREC_LOGGER_ENUM source,
+				   char *stringbuf, int strlen)
 {
 	return 0;
 }
@@ -1498,7 +1539,8 @@ unsigned int dprec_get_vsync_count(void)
 	return 0;
 }
 
-void dprec_reg_op(void *cmdq, unsigned int reg, unsigned int val, unsigned int mask)
+void dprec_reg_op(void *cmdq, unsigned int reg, unsigned int val,
+		  unsigned int mask)
 {
 }
 
@@ -1534,8 +1576,8 @@ int dprec_option_enabled(void)
 	return 0;
 }
 
-int dprec_mmp_dump_ovl_layer(struct OVL_CONFIG_STRUCT *ovl_layer, unsigned int l,
-			     unsigned int session /*1:primary, 2:external, 3:memory */)
+int dprec_mmp_dump_ovl_layer(struct OVL_CONFIG_STRUCT *ovl_layer,
+			     unsigned int l, unsigned int session)
 {
 	return 0;
 }
@@ -1555,12 +1597,15 @@ int dprec_logger_pr(unsigned int type, char *fmt, ...)
 	return 0;
 }
 
-int dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf, int len)
+int dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
+			 int len)
 {
 	return 0;
 }
-/*fix build error for add visual debug info*/
-int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source, struct fpsEx *fps)
+
+/* fix build error for add visual debug info */
+int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
+				  struct fpsEx *fps)
 {
 	return 0;
 }
@@ -1569,10 +1614,11 @@ char *get_dprec_status_ptr(int buffer_idx)
 {
 	return NULL;
 }
+
 char *debug_buffer;
 bool is_buffer_init;
+
 void init_log_buffer(void)
 {
-
 }
-#endif
+#endif /* CONFIG_MTK_ENG_BUILD) || !(CONFIG_MTK_GMO_RAM_OPTIMIZE) */
