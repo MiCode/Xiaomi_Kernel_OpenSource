@@ -106,7 +106,7 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_TC_DOW					(PMIC_TC_DOW_ADDR)
 
 #define RTC_TC_MTH					(PMIC_TC_MONTH_ADDR)
-
+#define RTC_TC_MTH_MASK				(PMIC_TC_MONTH_MASK)
 #define RTC_TC_YEA					(PMIC_TC_YEAR_ADDR)
 
 #define RTC_AL_SEC					(PMIC_AL_SECOND_ADDR)
