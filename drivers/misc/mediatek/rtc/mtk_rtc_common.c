@@ -924,8 +924,6 @@ static int __init rtc_late_init(void)
 #if (defined(MTK_GPS_MT3332))
 	hal_rtc_set_gpio_32k_status(0, true);
 #endif
-	rtc_debug_init();
-
 	return 0;
 }
 
