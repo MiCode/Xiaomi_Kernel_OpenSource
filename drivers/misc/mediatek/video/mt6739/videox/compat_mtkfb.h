@@ -36,8 +36,11 @@ struct compat_fb_overlay_layer {
 	compat_int_t layer_rotation;
 	compat_int_t layer_type;
 	compat_int_t video_rotation;
-
-	compat_uint_t isTdshp;	/* set to 1, will go through tdshp first, then layer blending, then to color */
+	/*
+	 * set to 1, will go through tdshp first,
+	 * then layer blending, then to color
+	 */
+	compat_uint_t isTdshp;
 
 	compat_int_t next_buff_idx;
 	compat_int_t identity;
@@ -45,8 +48,8 @@ struct compat_fb_overlay_layer {
 	compat_uint_t security;
 	compat_uint_t alpha_enable;
 	compat_uint_t alpha;
-	compat_int_t fence_fd;	/* 8135 */
-	compat_int_t ion_fd;	/* 8135 CL 2340210 */
+	compat_int_t fence_fd; /* 8135 */
+	compat_int_t ion_fd;   /* 8135 CL 2340210 */
 };
 
 struct compat_mtk_dispif_info {
@@ -61,27 +64,26 @@ struct compat_mtk_dispif_info {
 	compat_uint_t physicalWidth;
 	compat_uint_t physicalHeight;
 	compat_uint_t isConnected;
-/* this value is for DFO Multi-Resolution feature, which stores the original LCM Wdith */
 	compat_uint_t lcmOriginalWidth;
-/* this value is for DFO Multi-Resolution feature, which stores the original LCM Height */
 	compat_uint_t lcmOriginalHeight;
 };
 
-#define COMPAT_MTKFB_SET_OVERLAY_LAYER			MTK_IOW(0, struct compat_fb_overlay_layer)
-#define COMPAT_MTKFB_TRIG_OVERLAY_OUT			MTK_IO(1)
-#define COMPAT_MTKFB_SET_VIDEO_LAYERS			MTK_IOW(2, struct compat_fb_overlay_layer)
-#define COMPAT_MTKFB_CAPTURE_FRAMEBUFFER		MTK_IOW(3, compat_ulong_t)
-#define COMPAT_MTKFB_CONFIG_IMMEDIATE_UPDATE	MTK_IOW(4, compat_ulong_t)
-#define COMPAT_MTKFB_GET_FRAMEBUFFER_MVA        MTK_IOR(26, compat_uint_t)
-#define COMPAT_MTKFB_GET_DISPLAY_IF_INFORMATION	MTK_IOR(22, struct compat_mtk_dispif_info)
-#define COMPAT_MTKFB_GET_POWERSTATE				MTK_IOR(21, compat_ulong_t)
-#define COMPAT_MTKFB_META_RESTORE_SCREEN		MTK_IOW(101, compat_ulong_t)
-#define COMPAT_MTKFB_POWERON				    MTK_IO(12)
-#define COMPAT_MTKFB_POWEROFF				    MTK_IO(13)
-#define COMPAT_MTKFB_AEE_LAYER_EXIST            MTK_IOR(23, compat_ulong_t)
-#define COMPAT_MTKFB_FACTORY_AUTO_TEST          MTK_IOR(25, compat_ulong_t)
-#define COMPAT_MTKFB_META_SHOW_BOOTLOGO         MTK_IO(105)
-
+#define COMPAT_MTKFB_SET_OVERLAY_LAYER                                         \
+	MTK_IOW(0, struct compat_fb_overlay_layer)
+#define COMPAT_MTKFB_TRIG_OVERLAY_OUT MTK_IO(1)
+#define COMPAT_MTKFB_SET_VIDEO_LAYERS MTK_IOW(2, struct compat_fb_overlay_layer)
+#define COMPAT_MTKFB_CAPTURE_FRAMEBUFFER MTK_IOW(3, compat_ulong_t)
+#define COMPAT_MTKFB_CONFIG_IMMEDIATE_UPDATE MTK_IOW(4, compat_ulong_t)
+#define COMPAT_MTKFB_GET_FRAMEBUFFER_MVA MTK_IOR(26, compat_uint_t)
+#define COMPAT_MTKFB_GET_DISPLAY_IF_INFORMATION                                \
+	MTK_IOR(22, struct compat_mtk_dispif_info)
+#define COMPAT_MTKFB_GET_POWERSTATE MTK_IOR(21, compat_ulong_t)
+#define COMPAT_MTKFB_META_RESTORE_SCREEN MTK_IOW(101, compat_ulong_t)
+#define COMPAT_MTKFB_POWERON MTK_IO(12)
+#define COMPAT_MTKFB_POWEROFF MTK_IO(13)
+#define COMPAT_MTKFB_AEE_LAYER_EXIST MTK_IOR(23, compat_ulong_t)
+#define COMPAT_MTKFB_FACTORY_AUTO_TEST MTK_IOR(25, compat_ulong_t)
+#define COMPAT_MTKFB_META_SHOW_BOOTLOGO MTK_IO(105)
 
 #endif
 

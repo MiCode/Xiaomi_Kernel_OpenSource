@@ -58,10 +58,10 @@ enum DISP_HELPER_OPT {
 	DISP_OPT_CV_BYSUSPEND,
 	DISP_OPT_DELAYED_TRIGGER,
 	/* TODO: Will be removed @{*/
-	DISP_OPT_SHADOW_REGISTER,	/* is chip has shadow register? */
-	DISP_OPT_SHADOW_MODE,		/* 0:full; 1:force_commit; 2:bypass shadow */
+	DISP_OPT_SHADOW_REGISTER, /* is chip has shadow register? */
+	DISP_OPT_SHADOW_MODE,     /* 0:full; 1:force_commit; 2:bypass shadow */
 	/* @} */
-	DISP_OPT_OVL_EXT_LAYER,		/* is ovl has ext layer support? */
+	DISP_OPT_OVL_EXT_LAYER, /* is ovl has ext layer support? */
 	DISP_OPT_REG_PARSER_RAW_DUMP,
 	DISP_OPT_AOD,
 	DISP_OPT_RSZ,
@@ -88,6 +88,5 @@ int disp_helper_get_option_list(char *stringbuf, int buf_len);
 
 enum DISP_HELPER_STAGE disp_helper_get_stage(void);
 const char *disp_helper_stage_spy(void);
-
 
 #endif

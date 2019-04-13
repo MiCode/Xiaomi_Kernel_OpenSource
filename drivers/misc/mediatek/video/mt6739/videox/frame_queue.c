@@ -32,15 +32,16 @@ static DEFINE_MUTEX(framequeue_pool_lock);
 static GED_LOG_BUF_HANDLE ghlog;
 atomic_t ged_log_inited = ATOMIC_INIT(0);
 
-#define GEDLOG(fmt, ...) \
-	do { \
-		if (atomic_read(&ged_log_inited) == 0) {\
-			if (ged_log_buf_get_early("FENCE", &ghlog) == 0) \
-				atomic_set(&ged_log_inited, 1); \
-			else \
-				break; \
-		} \
-		ged_log_buf_print2(ghlog, GED_LOG_ATTR_TIME_TPT, fmt, __VA_ARGS__); \
+#define GEDLOG(fmt, ...)                                                       \
+	do {                                                                   \
+		if (atomic_read(&ged_log_inited) == 0) {                       \
+			if (ged_log_buf_get_early("FENCE", &ghlog) == 0)       \
+				atomic_set(&ged_log_inited, 1);                \
+			else                                                   \
+				break;                                         \
+		}                                                              \
+		ged_log_buf_print2(ghlog, GED_LOG_ATTR_TIME_TPT, fmt,          \
+				   __VA_ARGS__);                               \
 	} while (0)
 
 void disp_init_ged_log_handle(void)
@@ -81,25 +82,25 @@ static int disp_dump_fence_info(struct sync_fence *fence, int is_err)
 		drv_name = pt->ops->get_driver_name(pt);
 
 		pt->ops->fence_value_str(pt, fence_val, sizeof(fence_val));
-		pt->ops->timeline_value_str(pt, timeline_val, sizeof(timeline_val));
+		pt->ops->timeline_value_str(pt, timeline_val,
+					    sizeof(timeline_val));
 
-		_DISP_PRINT_FENCE_OR_ERR(is_err, "pt%d:tl=%s,drv=%s,val(%s/%s),sig=%d,stat=%d\n",
-			i, timeline_name, drv_name,
-			fence_val, timeline_val,
+		_DISP_PRINT_FENCE_OR_ERR(
+			is_err, "pt%d:tl=%s,drv=%s,val(%s/%s),sig=%d,stat=%d\n",
+			i, timeline_name, drv_name, fence_val, timeline_val,
 			fence_is_signaled(pt), pt->status);
 		if (is_err) {
 			GEDLOG("pt%d:tl=%s,drv=%s,val(%s/%s),sig=%d,stat=%d\n",
-				i, timeline_name, drv_name,
-				fence_val, timeline_val,
-				fence_is_signaled(pt), pt->status);
+			       i, timeline_name, drv_name, fence_val,
+			       timeline_val, fence_is_signaled(pt), pt->status);
 		}
 	}
 	return 0;
 }
 
 static int _do_wait_fence(struct sync_fence **src_fence, int session_id,
-				int timeline, int fence_fd, int buf_idx,
-				unsigned int present_idx)
+			  int timeline, int fence_fd, int buf_idx,
+			  unsigned int present_idx)
 {
 	int ret;
 	struct disp_session_sync_info *session_info;
@@ -107,8 +108,10 @@ static int _do_wait_fence(struct sync_fence **src_fence, int session_id,
 	session_info = disp_get_session_sync_info_for_debug(session_id);
 
 	if (session_info)
-		dprec_start(&session_info->event_wait_fence, timeline, fence_fd);
-	DISP_SYSTRACE_BEGIN("wait_fence:fd%d,layer%d,pf%d,idx%d\n", fence_fd, timeline, present_idx, buf_idx);
+		dprec_start(&session_info->event_wait_fence, timeline,
+			    fence_fd);
+	DISP_SYSTRACE_BEGIN("wait_fence:fd%d,layer%d,pf%d,idx%d\n",
+			    fence_fd, timeline, present_idx, buf_idx);
 
 	ret = sync_fence_wait(*src_fence, 1000);
 
@@ -118,17 +121,17 @@ static int _do_wait_fence(struct sync_fence **src_fence, int session_id,
 
 	if (ret == -ETIME) {
 		DISPERR("== display fence wait timeout for 1000ms. ret%d,layer%d,fd%d,idx%d ==>\n",
-				ret, timeline, fence_fd, buf_idx);
+			ret, timeline, fence_fd, buf_idx);
 		GEDLOG("== display fence wait timeout for 1000ms. ret%d,layer%d,fd%d,idx%d ==>\n",
-				ret, timeline, fence_fd, buf_idx);
+		       ret, timeline, fence_fd, buf_idx);
 	} else if (ret != 0) {
 		DISPERR("== display fence wait status error. ret%d,layer%d,fd%d,idx%d ==>\n",
-				ret, timeline, fence_fd, buf_idx);
+			ret, timeline, fence_fd, buf_idx);
 		GEDLOG("== display fence wait status error. ret%d,layer%d,fd%d,idx%d ==>\n",
-				ret, timeline, fence_fd, buf_idx);
+		       ret, timeline, fence_fd, buf_idx);
 	} else {
 		DISPDBG("== display fence wait done! ret%d,layer%d,fd%d,idx%d ==\n",
-				ret, timeline, fence_fd, buf_idx);
+			ret, timeline, fence_fd, buf_idx);
 	}
 
 	if (ret)
@@ -148,9 +151,11 @@ static int frame_wait_all_fence(struct disp_frame_cfg_t *cfg)
 
 	/* wait present fence */
 	if (cfg->prev_present_fence_struct) {
-		tmp = _do_wait_fence((struct sync_fence **)&cfg->prev_present_fence_struct,
-					session_id, disp_sync_get_present_timeline_id(),
-					cfg->prev_present_fence_fd, present_fence_idx, present_fence_idx);
+		tmp = _do_wait_fence(
+			(struct sync_fence **)&cfg->prev_present_fence_struct,
+			session_id, disp_sync_get_present_timeline_id(),
+			cfg->prev_present_fence_fd, present_fence_idx,
+			present_fence_idx);
 
 		if (tmp) {
 			DISPERR("wait present fence fail!\n");
@@ -163,33 +168,37 @@ static int frame_wait_all_fence(struct disp_frame_cfg_t *cfg)
 		if (cfg->input_cfg[i].src_fence_struct == NULL)
 			continue;
 
-		tmp = _do_wait_fence((struct sync_fence **)&cfg->input_cfg[i].src_fence_struct,
-					session_id, cfg->input_cfg[i].layer_id,
-					cfg->input_cfg[i].src_fence_fd,
-					cfg->input_cfg[i].next_buff_idx,
-					present_fence_idx);
+		tmp = _do_wait_fence((struct sync_fence **)&cfg->input_cfg[i]
+					     .src_fence_struct,
+				     session_id, cfg->input_cfg[i].layer_id,
+				     cfg->input_cfg[i].src_fence_fd,
+				     cfg->input_cfg[i].next_buff_idx,
+				     present_fence_idx);
 		if (tmp) {
-			dump_input_cfg_info(&cfg->input_cfg[i], cfg->session_id, 1);
+			dump_input_cfg_info(&cfg->input_cfg[i],
+					    cfg->session_id, 1);
 			ret = -1;
 		}
 
 		disp_sync_buf_cache_sync(session_id, cfg->input_cfg[i].layer_id,
-			cfg->input_cfg[i].next_buff_idx);
+					 cfg->input_cfg[i].next_buff_idx);
 	}
 
 	/* wait output fence */
 	if (cfg->output_en && cfg->output_cfg.src_fence_struct) {
-		tmp = _do_wait_fence((struct sync_fence **)&cfg->output_cfg.src_fence_struct,
-					session_id, disp_sync_get_output_timeline_id(),
-					cfg->output_cfg.src_fence_fd, cfg->output_cfg.buff_idx,
-					present_fence_idx);
+		tmp = _do_wait_fence(
+			(struct sync_fence **)&cfg->output_cfg.src_fence_struct,
+			session_id, disp_sync_get_output_timeline_id(),
+			cfg->output_cfg.src_fence_fd, cfg->output_cfg.buff_idx,
+			present_fence_idx);
 
 		if (tmp) {
 			DISPERR("wait output fence fail!\n");
 			ret = -1;
 		}
-		disp_sync_buf_cache_sync(session_id, disp_sync_get_output_timeline_id(),
-			cfg->output_cfg.buff_idx);
+		disp_sync_buf_cache_sync(session_id,
+					 disp_sync_get_output_timeline_id(),
+					 cfg->output_cfg.buff_idx);
 	}
 
 	return ret;
@@ -199,7 +208,8 @@ static int frame_wait_all_fence(struct disp_frame_cfg_t *cfg)
 }
 static int fence_wait_worker_func(void *data);
 
-static int frame_queue_head_init(struct frame_queue_head_t *head, int session_id)
+static int frame_queue_head_init(struct frame_queue_head_t *head,
+				 int session_id)
 {
 	WARN_ON(head->inited);
 
@@ -210,12 +220,13 @@ static int frame_queue_head_init(struct frame_queue_head_t *head, int session_id
 
 	/* create fence wait worker thread */
 	head->worker = kthread_run(fence_wait_worker_func,
-				head, "disp_queue_%s%d",
-				disp_session_mode_spy(session_id),
-				DISP_SESSION_DEV(session_id));
+				    head, "disp_queue_%s%d",
+				    disp_session_mode_spy(session_id),
+				    DISP_SESSION_DEV(session_id));
 
 	if (IS_ERR_OR_NULL(head->worker)) {
-		disp_aee_print("create fence thread fail! ret=%ld\n", PTR_ERR(head->worker));
+		disp_aee_print("create fence thread fail! ret=%ld\n",
+			       PTR_ERR(head->worker));
 		head->worker = NULL;
 		return -ENOMEM;
 	}
@@ -258,7 +269,8 @@ struct frame_queue_head_t *get_frame_queue_head(int session_id)
 	}
 
 	/* NO free node ??!! */
-	disp_aee_print("cannot find frame_q_head!! session_id=0x%x ===>\n", session_id);
+	disp_aee_print("cannot find frame_q_head!! session_id=0x%x ===>\n",
+		       session_id);
 
 	for (i = 0; i < ARRAY_SIZE(frame_q_head); i++)
 		DISPERR("0x%x,", frame_q_head[i].session_id);
@@ -289,7 +301,8 @@ struct frame_queue_t *frame_queue_node_create(void)
 	mutex_lock(&framequeue_pool_lock);
 	/* query a node from the pool if possible */
 	if (!list_empty(&framequeue_pool_head)) {
-		framequeue = list_first_entry(&framequeue_pool_head, struct frame_queue_t, link);
+		framequeue = list_first_entry(&framequeue_pool_head,
+					      struct frame_queue_t, link);
 		list_del_init(&framequeue->link);
 	}
 	mutex_unlock(&framequeue_pool_lock);
@@ -298,7 +311,7 @@ struct frame_queue_t *frame_queue_node_create(void)
 		framequeue = kzalloc(sizeof(struct frame_queue_t), GFP_KERNEL);
 		if (IS_ERR_OR_NULL(framequeue)) {
 			disp_aee_print("fail to kzalloc %zu of frame_queue\n",
-				sizeof(struct frame_queue_t));
+				       sizeof(struct frame_queue_t));
 			return ERR_PTR(-ENOMEM);
 		}
 	}
@@ -323,7 +336,7 @@ static int fence_wait_worker_func(void *data)
 	struct frame_queue_t *node;
 	struct list_head *list;
 	struct disp_frame_cfg_t *frame_cfg;
-	struct sched_param param = {.sched_priority = 94 };
+	struct sched_param param = {.sched_priority = 94};
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -353,7 +366,6 @@ static int fence_wait_worker_func(void *data)
 		disp_input_free_dirty_roi(&node->frame_cfg);
 		frame_queue_node_destroy(node);
 
-
 next:
 		/* wake up HWC thread, if it's being blocked */
 		wake_up(&head->wq);
@@ -363,7 +375,8 @@ next:
 	return 0;
 }
 
-int frame_queue_push(struct frame_queue_head_t *head, struct frame_queue_t *node)
+int frame_queue_push(struct frame_queue_head_t *head,
+		     struct frame_queue_t *node)
 {
 	int frame_queue_sz;
 
@@ -388,7 +401,6 @@ int frame_queue_push(struct frame_queue_head_t *head, struct frame_queue_t *node
 	return 0;
 }
 
-
 int frame_queue_wait_all_jobs_done(struct frame_queue_head_t *head)
 {
 	int ret = 0;
@@ -407,4 +419,3 @@ int frame_queue_wait_all_jobs_done(struct frame_queue_head_t *head)
 
 	return ret;
 }
-

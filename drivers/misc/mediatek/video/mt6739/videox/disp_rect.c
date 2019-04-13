@@ -45,7 +45,7 @@ void rect_make(struct disp_rect *in, int left, int top, int width, int height)
 }
 
 int rect_intersect(const struct disp_rect *src, const struct disp_rect *dst,
-		struct disp_rect *out)
+		   struct disp_rect *out)
 {
 	int left = src->x;
 	int top = src->y;
@@ -57,8 +57,7 @@ int rect_intersect(const struct disp_rect *src, const struct disp_rect *dst,
 	int fBottom = dst->y + dst->height - 1;
 
 	if (left < right && top < bottom && !rect_isEmpty(dst) &&
-			fLeft < right && left < fRight &&
-			fTop < bottom && top < fBottom) {
+	    fLeft < right && left < fRight && fTop < bottom && top < fBottom) {
 		if (fLeft < left)
 			fLeft = left;
 		if (fTop < top)
@@ -69,18 +68,19 @@ int rect_intersect(const struct disp_rect *src, const struct disp_rect *dst,
 			fBottom = bottom;
 		rect_set(out, fLeft, fTop, fRight, fBottom);
 		DISPDBG("rect_intersect (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
-			src->x, src->y, src->width, src->height, dst->x, dst->y, dst->width, dst->height,
+			src->x, src->y, src->width, src->height,
+			dst->x, dst->y, dst->width, dst->height,
 			out->x, out->y, out->width, out->height);
 		return 1;
 	}
 	/*make out empty*/
 	rect_initial(out);
 	return 0;
-
 }
 
-void rect_join_coord(const int x, const int y, const int width, const int height,
-		const struct disp_rect *in2, struct disp_rect *out)
+void rect_join_coord(const int x, const int y,
+		     const int width, const int height,
+		     const struct disp_rect *in2, struct disp_rect *out)
 {
 	struct disp_rect rect_coord = {0, 0, 0, 0};
 
@@ -89,7 +89,7 @@ void rect_join_coord(const int x, const int y, const int width, const int height
 }
 
 void rect_join(const struct disp_rect *in1, const struct disp_rect *in2,
-		struct disp_rect *out)
+	       struct disp_rect *out)
 {
 	int left = in1->x;
 	int top = in1->y;
@@ -125,22 +125,22 @@ void rect_join(const struct disp_rect *in1, const struct disp_rect *in2,
 		}
 	}
 	DISPDBG("rect_join (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
-		in1->x, in1->y, in1->width, in1->height, in2_x, in2_y, in2_w, in2_h,
-		in2->x, in2->y, in2->width, in2->height);
+		in1->x, in1->y, in1->width, in1->height, in2_x, in2_y,
+		in2_w, in2_h, in2->x, in2->y, in2->width, in2->height);
 }
 
 int rect_equal(const struct disp_rect *one, const struct disp_rect *two)
 {
 	return (one->x == two->x) && (one->y == two->y) &&
-		(one->width == two->width) && (one->height == two->height);
+	       (one->width == two->width) && (one->height == two->height);
 }
 
-unsigned long shift_address(const struct disp_rect *ori, const struct disp_rect *dst,
-		const int bpp, const int pitch, unsigned long addr)
+unsigned long shift_address(const struct disp_rect *ori,
+			    const struct disp_rect *dst, const int bpp,
+			    const int pitch, unsigned long addr)
 {
 	int x_shift = dst->x - ori->x;
 	int y_shfit = dst->y - ori->y;
 
-	return addr + y_shfit*pitch + x_shift*bpp;
+	return addr + y_shfit * pitch + x_shift * bpp;
 }
-

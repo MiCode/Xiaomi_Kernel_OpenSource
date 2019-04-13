@@ -38,10 +38,14 @@
 /* if the macro name changed, please modify the code here too. */
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
-static unsigned int disp_global_stage = MAGIC_CODE | DISP_HELPER_STAGE_EARLY_PORTING;
+static unsigned int disp_global_stage =
+	MAGIC_CODE | DISP_HELPER_STAGE_EARLY_PORTING;
 #else
 /* please change this to DISP_HELPER_STAGE_NORMAL after bring up done */
-/*static unsigned int disp_global_stage = MAGIC_CODE | DISP_HELPER_STAGE_BRING_UP;*/
+
+/* static unsigned int disp_global_stage =
+ * MAGIC_CODE | DISP_HELPER_STAGE_BRING_UP;
+ */
 static unsigned int disp_global_stage = MAGIC_CODE | DISP_HELPER_STAGE_NORMAL;
 #endif
 
@@ -74,12 +78,14 @@ static int _is_E3(void)
 
 static unsigned int _is_early_porting_stage(void)
 {
-	return (disp_global_stage & (~MAGIC_CODE)) == DISP_HELPER_STAGE_EARLY_PORTING;
+	return (disp_global_stage & (~MAGIC_CODE)) ==
+		DISP_HELPER_STAGE_EARLY_PORTING;
 }
 
 static unsigned int _is_bringup_stage(void)
 {
-	return (disp_global_stage & (~MAGIC_CODE)) == DISP_HELPER_STAGE_BRING_UP;
+	return (disp_global_stage & (~MAGIC_CODE)) ==
+		DISP_HELPER_STAGE_BRING_UP;
 }
 
 static unsigned int _is_normal_stage(void)
@@ -87,7 +93,7 @@ static unsigned int _is_normal_stage(void)
 	return (disp_global_stage & (~MAGIC_CODE)) == DISP_HELPER_STAGE_NORMAL;
 }
 
-static int _disp_helper_option_value[DISP_OPT_NUM] = { 0 };
+static int _disp_helper_option_value[DISP_OPT_NUM] = {0};
 
 const char *disp_helper_option_string[DISP_OPT_NUM] = {
 	"DISP_OPT_USE_CMDQ",
@@ -172,16 +178,19 @@ int disp_helper_set_option(enum DISP_HELPER_OPT option, int value)
 	if (option == DISP_OPT_FPS_CALC_WND) {
 		ret = primary_fps_ctx_set_wnd_sz(value);
 		if (ret) {
-			DISPERR("%s error to set fps_wnd_sz to %d\n", __func__, value);
+			DISPERR("%s error to set fps_wnd_sz to %d\n",
+				__func__, value);
 			return ret;
 		}
 	}
 
 	if (option < DISP_OPT_NUM) {
 		DISPCHECK("Set Option %d(%s) from (%d) to (%d)\n", option,
-			  disp_helper_option_spy(option), disp_helper_get_option(option), value);
+			  disp_helper_option_spy(option),
+			  disp_helper_get_option(option), value);
 		_disp_helper_option_value[option] = value;
-		DISPCHECK("After set (%s) is (%d)\n", disp_helper_option_spy(option),
+		DISPCHECK("After set (%s) is (%d)\n",
+			  disp_helper_option_spy(option),
 			  disp_helper_get_option(option));
 	} else {
 		DISPERR("Wrong option: %d\n", option);
@@ -210,100 +219,89 @@ int disp_helper_get_option(enum DISP_HELPER_OPT option)
 	}
 
 	switch (option) {
-	case DISP_OPT_USE_CMDQ:
-	case DISP_OPT_SHOW_VISUAL_DEBUG_INFO:
-		{
-			return _disp_helper_option_value[option];
-		}
-	case DISP_OPT_USE_M4U:
-		{
-			return _disp_helper_option_value[option];
-		}
 	case DISP_OPT_MIPITX_ON_CHIP:
-		{
-			if (_is_normal_stage())
-				return 1;
-			else if (_is_bringup_stage())
-				return 1;
-			else if (_is_early_porting_stage())
-				return 0;
+	{
+		if (_is_normal_stage())
+			return 1;
+		else if (_is_bringup_stage())
+			return 1;
+		else if (_is_early_porting_stage())
+			return 0;
 
-			DISPERR("%s,get option MIPITX fail\n", __FILE__);
-			return -1;
-		}
+		DISPERR("%s,get option MIPITX fail\n", __FILE__);
+		return -1;
+	}
 	case DISP_OPT_FAKE_LCM_X:
-		{
-			int x = 0;
+	{
+		int x = 0;
 
 #ifdef CONFIG_CUSTOM_LCM_X
-			ret = kstrtoint(CONFIG_CUSTOM_LCM_X, 0, &x);
-			if (ret) {
-				DISPERR("%s error to parse x: %s\n", __func__, CONFIG_CUSTOM_LCM_X);
-				x = 0;
-			}
-#endif
-			return x;
+		ret = kstrtoint(CONFIG_CUSTOM_LCM_X, 0, &x);
+		if (ret) {
+			DISPERR("%s error to parse x: %s\n",
+				__func__, CONFIG_CUSTOM_LCM_X);
+			x = 0;
 		}
+#endif
+		return x;
+	}
 	case DISP_OPT_FAKE_LCM_Y:
-		{
-			int y = 0;
+	{
+		int y = 0;
 
 #ifdef CONFIG_CUSTOM_LCM_Y
-			ret = kstrtoint(CONFIG_CUSTOM_LCM_Y, 0, &y);
-			if (ret) {
-				DISPERR("%s error to parse x: %s\n", __func__, CONFIG_CUSTOM_LCM_Y);
-				y = 0;
-			}
+		ret = kstrtoint(CONFIG_CUSTOM_LCM_Y, 0, &y);
+		if (ret) {
+			DISPERR("%s error to parse x: %s\n",
+				__func__, CONFIG_CUSTOM_LCM_Y);
+			y = 0;
+		}
 
 #endif
-			return y;
-		}
+		return y;
+	}
 	case DISP_OPT_FAKE_LCM_WIDTH:
-		{
-			int w = primary_display_get_virtual_width();
+	{
+		int w = primary_display_get_virtual_width();
 
-			if (w == 0)
-				w = DISP_GetScreenWidth();
-			return w;
-		}
+		if (w == 0)
+			w = DISP_GetScreenWidth();
+		return w;
+	}
 	case DISP_OPT_FAKE_LCM_HEIGHT:
-		{
-			int h = primary_display_get_virtual_height();
+	{
+		int h = primary_display_get_virtual_height();
 
-			if (h == 0)
-				h = DISP_GetScreenHeight();
-			return h;
-		}
-	case DISP_OPT_OVL_WARM_RESET:
-		{
-			return 0;
-		}
+		if (h == 0)
+			h = DISP_GetScreenHeight();
+		return h;
+	}
 	case DISP_OPT_NO_LK:
-		{
-			return 1;
-		}
+	{
+		return 1;
+	}
 	case DISP_OPT_PERFORMANCE_DEBUG:
-		{
-			if (_is_normal_stage())
-				return 0;
-			else if (_is_bringup_stage())
-				return 0;
-			else if (_is_early_porting_stage())
-				return 0;
-		}
+	{
+		if (_is_normal_stage())
+			return 0;
+		else if (_is_bringup_stage())
+			return 0;
+		else if (_is_early_porting_stage())
+			return 0;
+	}
 	case DISP_OPT_SWITCH_DST_MODE:
-		{
-			if (_is_normal_stage())
-				return 0;
-			else if (_is_bringup_stage())
-				return 0;
-			else if (_is_early_porting_stage())
-				return 0;
-		}
+	{
+		if (_is_normal_stage())
+			return 0;
+		else if (_is_bringup_stage())
+			return 0;
+		else if (_is_early_porting_stage())
+			return 0;
+	}
 	default:
-		{
-			return _disp_helper_option_value[option];
-		}
+	{
+		return _disp_helper_option_value[option];
+	}
 	}
 
 	return ret;
@@ -331,30 +329,33 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_USE_CMDQ, 1);
 	disp_helper_set_option(DISP_OPT_USE_M4U, 1);
 
-	/* test solution for 6795 rdma underflow caused by ufoe LR mode(ufoe fifo is larger than rdma) */
+	/*
+	 * test solution for 6795 rdma underflow caused by
+	 * ufoe LR mode(ufoe fifo is larger than rdma)
+	 */
 	disp_helper_set_option(DISP_OPT_DYNAMIC_SWITCH_UNDERFLOW_EN, 0);
 
 	/* warm reset ovl before each trigger for cmd mode */
 	disp_helper_set_option(DISP_OPT_OVL_WARM_RESET, 0);
 
-	/* ===================Begin: lowpower option setting==================== */
+	/* ================ Begin: lowpower option setting ================ */
 	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 1);
 	disp_helper_set_option(DISP_OPT_IDLE_MGR, 1);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
-	disp_helper_set_option(DISP_OPT_SHARE_SRAM,	1);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE, 1);
+	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 1);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
 
 	/* 2. cmd mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS,	0);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 0);
 
 	/* 3. cmd mode + vdo mode */
 	disp_helper_set_option(DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK, 0);
 	disp_helper_set_option(DISP_OPT_DYNAMIC_RDMA_GOLDEN_SETTING, 1);
 
 	disp_helper_set_option(DISP_OPT_MET_LOG, 0);
-	/* ===================End: lowpower option setting==================== */
+	/* ================ End: lowpower option setting ================== */
 
 	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 1);
 
@@ -375,7 +376,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_DYNAMIC_DEBUG, 0);
 	disp_helper_set_option(DISP_OPT_HRT, 1);
 
-	/* display partial update */
+/* display partial update */
 #ifdef CONFIG_MTK_CONSUMER_PARTIAL_UPDATE_SUPPORT
 	disp_helper_set_option(DISP_OPT_PARTIAL_UPDATE, 0);
 #endif
@@ -406,9 +407,10 @@ int disp_helper_get_option_list(char *stringbuf, int buf_len)
 	int i = 0;
 
 	for (i = 0; i < DISP_OPT_NUM; i++) {
-		len +=
-		    scnprintf(stringbuf + len, buf_len - len, "Option: [%d][%s] Value: [%d]\n", i,
-			      disp_helper_option_spy(i), disp_helper_get_option(i));
+		len += scnprintf(stringbuf + len, buf_len - len,
+				 "Option: [%d][%s] Value: [%d]\n",
+				  i, disp_helper_option_spy(i),
+				 disp_helper_get_option(i));
 	}
 
 	return len;

@@ -18,7 +18,6 @@
 unsigned int dsi_phy_get_clk(enum DISP_MODULE_ENUM module);
 void primary_display_idlemgr_enter_idle_nolock(void);
 
-
 struct golden_setting_context *get_golden_setting_pgc(void);
 int primary_display_lowpower_init(void);
 void primary_display_sodi_rule_init(void);
@@ -35,10 +34,10 @@ void enter_pd_by_cmdq(struct cmdqRecStruct *handler);
 void enter_share_sram(enum CMDQ_EVENT_ENUM resourceEvent);
 void leave_share_sram(enum CMDQ_EVENT_ENUM resourceEvent);
 void set_hrtnum(unsigned int new_hrtnum);
-void set_enterulps(unsigned flag);
+void set_enterulps(unsigned int flag);
 void set_is_dc(unsigned int is_dc);
 unsigned int set_one_layer(unsigned int is_onelayer);
-void set_rdma_width_height(unsigned int width, unsigned height);
+void set_rdma_width_height(unsigned int width, unsigned int height);
 void enable_idlemgr(unsigned int flag);
 unsigned int get_idlemgr_flag(void);
 unsigned int set_idlemgr(unsigned int flag, int need_lock);
@@ -48,7 +47,7 @@ unsigned int set_idlemgr(unsigned int flag, int need_lock);
 void primary_display_sodi_enable(int flag);
 unsigned int get_us_perline(unsigned int width);
 unsigned int time_to_line(unsigned int ms, unsigned int width);
-/**************************************** for met******************************************* */
+/******************************** for met********************************** */
 /*return 0: not enter ultra lowpower state which means mipi pll enable*/
 /*return 1: enter ultra lowpower state whicn means mipi pll disable*/
 unsigned int is_mipi_enterulps(void);

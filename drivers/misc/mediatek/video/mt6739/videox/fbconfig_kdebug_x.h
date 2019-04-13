@@ -23,8 +23,7 @@ int fb_config_execute_cmd(void);
 int fbconfig_get_esd_check_exec(void);
 #if defined(CONFIG_MACH_MT8160)
 extern int m4u_query_mva_info(unsigned int mva, unsigned int size,
-				  unsigned int *real_mva,
-				  unsigned int *real_size);
+			      unsigned int *real_mva, unsigned int *real_size);
 #endif
 #ifndef TOTAL_OVL_LAYER_NUM
 #define TOTAL_OVL_LAYER_NUM OVL_LAYER_NUM
@@ -46,9 +45,8 @@ enum DSI_INDEX {
 	PM_DSI_MAX = 0XFF,
 };
 
-
 struct CONFIG_RECORD {
-	enum RECORD_TYPE type;	/* msleep;cmd;setpin;resetpin. */
+	enum RECORD_TYPE type; /* msleep;cmd;setpin;resetpin. */
 	int ins_num;
 	int ins_array[MAX_INSTRUCTION];
 };
@@ -130,9 +128,8 @@ struct LCM_TYPE_FB {
 };
 
 struct DSI_RET {
-	int dsi[NUM_OF_DSI];	/* for there are totally 2 dsi. */
+	int dsi[NUM_OF_DSI]; /* for there are totally 2 dsi. */
 };
-
 
 struct LCM_REG_READ {
 	int check_addr;
@@ -151,17 +148,17 @@ struct FBCONFIG_DISP_IF {
 	void (*set_continuous_clock)(int enable);
 	int (*set_spread_frequency)(unsigned int clk);
 	int (*set_get_misc)(const char *name, void *parameter);
-
 };
 
 struct misc_property {
-	unsigned int dual_port:1;
-	unsigned int overall_layer_num:5;
-	unsigned int reserved:26;
+	unsigned int dual_port : 1;
+	unsigned int overall_layer_num : 5;
+	unsigned int reserved : 26;
 };
 
 void Panel_Master_DDIC_config(void);
-int fbconfig_get_esd_check(enum DSI_INDEX dsi_id, uint32_t cmd, uint8_t *buffer, uint32_t num);
+int fbconfig_get_esd_check(enum DSI_INDEX dsi_id, uint32_t cmd,
+			   uint8_t *buffer, uint32_t num);
 
 #include <linux/uaccess.h>
 #include <linux/compat.h>
@@ -174,13 +171,13 @@ struct compat_lcm_type_fb {
 };
 
 struct compat_config_record {
-	compat_int_t type;	/* msleep;cmd;setpin;resetpin. */
+	compat_int_t type; /* msleep;cmd;setpin;resetpin. */
 	compat_int_t ins_num;
 	compat_int_t ins_array[MAX_INSTRUCTION];
 };
 
 struct compat_dsi_ret {
-	compat_int_t dsi[NUM_OF_DSI];	/* for there are totally 2 dsi. */
+	compat_int_t dsi[NUM_OF_DSI]; /* for there are totally 2 dsi. */
 };
 
 struct compat_mipi_timing {

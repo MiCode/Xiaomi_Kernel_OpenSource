@@ -45,17 +45,19 @@
 /* #define MTK_FB_MMDVFS_SUPPORT*/
 /* #define DISP_SYNC_ENABLE */
 #define MTK_FB_ION_SUPPORT
-#define VIDEO_LAYER_COUNT            (3)
+#define VIDEO_LAYER_COUNT (3)
 /* #define HW_OVERLAY_COUNT                  (4) */
 /*be careful, change ovl config arry size at same time*/
 #ifndef CONFIG_MTK_ROUND_CORNER_SUPPORT
-#define PRIMARY_SESSION_INPUT_LAYER_COUNT			(7) /* phy(4+2) + ext(3+3) */
+#define PRIMARY_SESSION_INPUT_LAYER_COUNT (7) /* phy(4+2) + ext(3+3) */
 #else
-#define PRIMARY_SESSION_INPUT_LAYER_COUNT			(5) /* phy(4+2) + ext(3+3) */
+#define PRIMARY_SESSION_INPUT_LAYER_COUNT (5) /* phy(4+2) + ext(3+3) */
 #endif
-#define EXTERNAL_SESSION_INPUT_LAYER_COUNT			(0 /*2+3*/) /* 2 is enough, no need ext layer */
-#define MEMORY_SESSION_INPUT_LAYER_COUNT			(1 /*2+3*/) /* 2 is enough, no need ext layer */
-#define DISP_SESSION_OVL_TIMELINE_ID(x)				(x)
+/* 2 is enough, no need ext layer */
+#define EXTERNAL_SESSION_INPUT_LAYER_COUNT	(0)
+/* 2 is enough, no need ext layer */
+#define MEMORY_SESSION_INPUT_LAYER_COUNT	(1)
+#define DISP_SESSION_OVL_TIMELINE_ID(x) (x)
 
 /* Display HW Capabilities */
 #define DISP_HW_MODE_CAP DISP_OUTPUT_CAP_SWITCHABLE
@@ -69,7 +71,7 @@ enum DISP_SESSION_ENUM {
 	DISP_SESSION_TIMELINE_COUNT,
 };
 
-#define MAX_SESSION_COUNT					5
+#define MAX_SESSION_COUNT 5
 
 #define FBCONFIG_SHOULD_KICK_IDLEMGR
 
@@ -77,4 +79,4 @@ enum DISP_SESSION_ENUM {
 #define DISP_PATH_DELAYED_TRIGGER_33ms_SUPPORT
 /*#define DISP_PLATFORM_HAS_SHADOW_REG*/
 
-#endif				/* __DISP_DRV_PLATFORM_H__ */
+#endif /* __DISP_DRV_PLATFORM_H__ */

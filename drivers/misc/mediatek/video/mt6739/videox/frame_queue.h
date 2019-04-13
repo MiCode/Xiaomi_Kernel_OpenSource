@@ -37,7 +37,8 @@ struct frame_queue_head_t *get_frame_queue_head(int session_id);
 struct frame_queue_t *frame_queue_node_create(void);
 void frame_queue_node_destroy(struct frame_queue_t *node);
 
-int frame_queue_push(struct frame_queue_head_t *head, struct frame_queue_t *node);
+int frame_queue_push(struct frame_queue_head_t *head,
+		     struct frame_queue_t *node);
 
 int frame_queue_wait_all_jobs_done(struct frame_queue_head_t *head);
 
