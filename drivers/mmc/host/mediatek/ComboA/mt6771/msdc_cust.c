@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 MediaTek Inc.
+/* Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -289,8 +289,8 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 		msdc_set_rdsel(host, MSDC_TDRDSEL_CUST, 0);
 	}
 
-	msdc_ldo_power(on, host->mmc->supply.vmmc,
-		VOL_3000, &host->power_flash);
+	msdc_ldo_power(on, host->mmc->supply.vmmc, VOL_3000,
+		&host->power_flash);
 
 	pr_info("msdc%d power %s\n", host->id, (on ? "on" : "off"));
 #endif
@@ -411,8 +411,8 @@ EXPORT_SYMBOL(msdc_sd_power_off);
 void msdc_dump_vcore(char **buff, unsigned long *size, struct seq_file *m)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS) && defined(VCOREFS_READY)
-	SPREAD_PRINTF(buff, size, m,
-	"%s: Vcore %d\n", __func__, get_cur_vcore_opp());
+	SPREAD_PRINTF(buff, size, m, "%s: Vcore %d\n", __func__,
+		get_cur_vcore_opp());
 #endif
 }
 
@@ -1076,7 +1076,9 @@ static int msdc_get_pinctl_settings(struct msdc_host *host,
 {
 	struct device_node *pinctl_node, *pins_node;
 	static char const * const pinctl_names[] = {
-		"pinctl", "pinctl_sdr104", "pinctl_sdr50", "pinctl_ddr50"
+		"pinctl",
+		"pinctl_hs400", "pinctl_hs200",
+		"pinctl_sdr104", "pinctl_sdr50", "pinctl_ddr50"
 	};
 
 	/* sequence shall be the same as sequence in msdc_hw_driving */
@@ -1092,6 +1094,10 @@ static int msdc_get_pinctl_settings(struct msdc_host *host,
 
 		if (strcmp(pinctl_names[i], "pinctl") == 0)
 			pin_drv = (unsigned char *)&host->hw->driving;
+		else if (strcmp(pinctl_names[i], "pinctl_hs400") == 0)
+			pin_drv = (unsigned char *)&host->hw->driving_hs400;
+		else if (strcmp(pinctl_names[i], "pinctl_hs200") == 0)
+			pin_drv = (unsigned char *)&host->hw->driving_hs200;
 		else if (strcmp(pinctl_names[i], "pinctl_sdr104") == 0)
 			pin_drv = (unsigned char *)&host->hw->driving_sdr104;
 		else if (strcmp(pinctl_names[i], "pinctl_sdr50") == 0)

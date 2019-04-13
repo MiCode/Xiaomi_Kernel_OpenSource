@@ -26,6 +26,8 @@
 	mmc-hs400-1_8v;
 	non-removable;
 	pinctl = <&msdc0_pins_default>;
+	pinctl_hs400 = <&msdc0_pins_default>;
+	pinctl_hs200 = <&msdc0_pins_default>;
 	register_setting = <&msdc0_register_setting_default>;
 	host_function = /bits/ 8 <MSDC_EMMC>;
 	status = "okay";

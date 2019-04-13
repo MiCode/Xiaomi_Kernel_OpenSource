@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,6 +21,7 @@
 #include "mtk_sd.h"
 #include "dbg.h"
 #include <mmc/core/sdio_ops.h>
+#include <mmc/core/core.h>
 
 static char const * const sdio_autok_res_path[] = {
 	"/data/sdio_autok_0", "/data/sdio_autok_1",
@@ -866,8 +867,6 @@ int emmc_autok(void)
 
 	mmc_claim_host(host->mmc);
 
-	msdc_ungate_clock(host);
-
 	for (i = 0; i < AUTOK_VCORE_NUM; i++) {
 		if (vcorefs_request_dvfs_opp(KIR_AUTOK_EMMC, i) != 0)
 			pr_notice("vcorefs_req_dvfs_opp@LEVEL%d fail!\n", i);
@@ -928,8 +927,6 @@ int emmc_autok(void)
 		pr_notice("vcorefs_request_dvfs_opp@OPP_UNREQ fail!\n");
 
 	/* spm_msdc_dvfs_setting(KIR_AUTOK_EMMC, 1); */
-
-	msdc_gate_clock(host, 1);
 
 	mmc_release_host(host->mmc);
 #endif

@@ -230,40 +230,7 @@ static void mmc_discard_cmdq(struct mmc_host *host)
 
 static void mmc_post_req(struct mmc_host *host, struct mmc_request *mrq,
 	int err);
-
-/* add for emmc reset when error happen */
-int current_mmc_part_type;
-int emmc_resetting_when_cmdq;
-static int mmc_reset_for_cmdq(struct mmc_host *host)
-{
-	int err, ret;
-
-	emmc_resetting_when_cmdq = 1;
-	err = mmc_hw_reset(host);
-	/* Ensure we switch back to the correct partition */
-	if (err != -EOPNOTSUPP) {
-		u8 part_config = host->card->ext_csd.part_config;
-
-		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
-		part_config |= current_mmc_part_type;
-
-		ret = mmc_switch(host->card, EXT_CSD_CMD_SET_NORMAL,
-				EXT_CSD_PART_CONFIG, part_config,
-				host->card->ext_csd.part_time);
-		if (ret)
-			return ret;
-
-		/* enable cmdq at all partition */
-		ret = mmc_cmdq_enable(host->card);
-		if (ret)
-			return ret;
-
-		host->card->ext_csd.part_config = part_config;
-
-	}
-	emmc_resetting_when_cmdq = 0;
-	return err;
-}
+static int mmc_reset_for_cmdq(struct mmc_host *host);
 
 /*
  *	check CMDQ QSR
@@ -289,7 +256,10 @@ void mmc_do_check(struct mmc_host *host)
 
 		/* add for emmc reset when error happen */
 		if (host->que_mrq.cmd->error && !host->que_mrq.cmd->retries) {
-	/* wait data irq handle done otherwice timing issue will happen  */
+			/* wait for 2 seconds
+			 * and hope that data irq handle done;
+			 * otherwise timing issue will occur
+			 */
 			msleep(2000);
 			if (mmc_reset_for_cmdq(host)) {
 				pr_notice("[CQ] reinit fail\n");
@@ -601,7 +571,10 @@ int mmc_run_queue_thread(void *data)
 				/* add for emmc reset when error happen */
 				if ((cmd_mrq->sbc && cmd_mrq->sbc->error)
 				|| cmd_mrq->cmd->error) {
-		/* wait data irq handle done otherwise timing issue happen*/
+					/* wait for 2 seconds
+					 * and hope that data irq handle done;
+					 * otherwise timing issue will occur
+					 */
 					msleep(2000);
 					if (mmc_reset_for_cmdq(host)) {
 						pr_notice("[CQ] reinit fail\n");
@@ -726,7 +699,9 @@ void mmc_wait_cmdq_done(struct mmc_request *mrq)
 		unsigned int resp = cmd->resp[0];
 
 		if (resp == 0) {
-/* Workaround for ALPS03808823: if task not ready over 30s, reinit emmc */
+			/* Workaround for ALPS03808823:
+			 * if task not ready over 30s, reinit emmc
+			 */
 			if (!not_ready_time)
 				not_ready_time = jiffies;
 			else if (time_after(jiffies, not_ready_time
@@ -1125,12 +1100,12 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 		if (host->card
 			&& host->card->ext_csd.cmdq_support
 			&& mrq->cmd->opcode != MMC_SEND_STATUS)
-			/* add for emmc reset when error happen */
-			/* cannot wait cmdq empty for init requests
-			 * when emmc resetting when cmdq
+			/* For reset emmc when error happen,
+			 * request for init commands cannot wait cmdq empty;
+			 * Only request form exe_cq need wait cmdq empty
 			 */
 			if (strcmp(current->comm, "exe_cq")
-				|| !emmc_resetting_when_cmdq)
+			 || !emmc_resetting_when_cmdq)
 				mmc_wait_cmdq_empty(host);
 #endif
 
@@ -3255,6 +3230,58 @@ int mmc_hw_reset(struct mmc_host *host)
 	return ret;
 }
 EXPORT_SYMBOL(mmc_hw_reset);
+
+/* add for emmc reset when error happen */
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+int current_mmc_part_type;
+int emmc_resetting_when_cmdq;
+static int mmc_reset_for_cmdq(struct mmc_host *host)
+{
+	int err, ret;
+
+	if (!host || !host->card)
+		return -EINVAL;
+
+	if (!host->ops->hw_reset)
+		return -EOPNOTSUPP;
+
+	emmc_resetting_when_cmdq = 1;
+
+	mmc_bus_get(host);
+	mmc_set_clock(host, host->f_init);
+
+	host->ops->hw_reset(host);
+
+	/* Set initial state and call mmc_set_ios */
+	mmc_set_initial_state(host);
+
+	err = mmc_reinit_oldcard(host);
+	mmc_bus_put(host);
+	/* Ensure we switch back to the correct partition */
+	if (err != -EOPNOTSUPP) {
+		u8 part_config = host->card->ext_csd.part_config;
+
+		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
+		part_config |= current_mmc_part_type;
+
+		ret = mmc_switch(host->card, EXT_CSD_CMD_SET_NORMAL,
+				EXT_CSD_PART_CONFIG, part_config,
+				host->card->ext_csd.part_time);
+		if (ret)
+			return ret;
+
+		/* enable cmdq at all partition */
+		ret = mmc_cmdq_enable(host->card);
+		if (ret)
+			return ret;
+
+		host->card->ext_csd.part_config = part_config;
+
+	}
+	emmc_resetting_when_cmdq = 0;
+	return err;
+}
+#endif
 
 static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 {

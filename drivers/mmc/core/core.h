@@ -142,9 +142,7 @@ void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card);
 void mmc_put_card(struct mmc_card *card);
 
-#if defined(CONFIG_MMC_FFU)
 extern int mmc_reinit_oldcard(struct mmc_host *host);
-#endif
 
 /**
  *	mmc_claim_host - exclusively claim a host
