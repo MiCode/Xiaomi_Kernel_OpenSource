@@ -22,9 +22,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
-/* TODO: workaround for k414 porting
- *#include "cpu_ctrl.h"
- */
+#include "cpu_ctrl.h"
 #include "boost_ctrl.h"
 #include "mtk_perfmgr_internal.h"
 
@@ -37,24 +35,6 @@
 #include <linux/trace_events.h>
 #endif
 
-/* TODO: workaround for k414 porting
- */
-struct ppm_limit_data {
-	int min;
-	int max;
-};
-enum {
-	CPU_KIR_PERF = 0,
-	CPU_KIR_FPSGO,
-	CPU_KIR_WIFI,
-	CPU_KIR_BOOT,
-	CPU_KIR_TOUCH,
-	CPU_KIR_PERFTOUCH,
-	CPU_KIR_USB,
-	CPU_MAX_KIR
-};
-/* TODO: endof workaround for k414 porting
- */
 static struct mutex boost_freq;
 static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
@@ -65,11 +45,9 @@ static unsigned long *policy_mask;
 static int cfp_init_ret;
 #endif
 
-
 int powerhal_tid;
 
 /*******************************************/
-#ifdef CONFIG_MTK_CPU_CTRL
 int update_userlimit_cpu_freq(int kicker, int num_cluster
 		, struct ppm_limit_data *freq_limit)
 {
@@ -197,13 +175,6 @@ ret_update:
 
 	return 0;
 }
-#else
-int update_userlimit_cpu_freq(int kicker, int num_cluster
-		, struct ppm_limit_data *freq_limit)
-{
-	return 0;
-}
-#endif
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
 
@@ -278,6 +249,7 @@ static int perfmgr_perfserv_freq_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 /***************************************/
+#define MAX_NR_FREQ 16
 static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 		const char __user *ubuf, size_t cnt, loff_t *pos)
 {
@@ -304,17 +276,19 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 			pr_debug("@%s: Invalid input: %s\n", __func__, tok);
 			goto out;
 		} else {
-			#ifdef MTK_CPU_FREQ
+#ifdef CONFIG_MTK_CPU_FREQ
 			if (i % 2) /* max */
 				freq_limit[i/2].max =
-					data == -1 ? -1 :
+					(data < 0 || data > MAX_NR_FREQ - 1)
+					? -1 :
 					mt_cpufreq_get_freq_by_idx(i / 2, data);
 			else /* min */
 				freq_limit[i/2].min =
-					data == -1 ? -1 :
+					(data < 0 || data > MAX_NR_FREQ - 1)
+					? -1 :
 					mt_cpufreq_get_freq_by_idx(i / 2, data);
 			i++;
-			#endif
+#endif
 		}
 	}
 
@@ -345,7 +319,7 @@ static int perfmgr_boot_freq_proc_show(struct seq_file *m, void *v)
 }
 
 /***************************************/
-static int perfmgr_current_freqy_proc_show(struct seq_file *m, void *v)
+static int perfmgr_current_freq_proc_show(struct seq_file *m, void *v)
 {
 	int i;
 
@@ -381,7 +355,7 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RW(perfserv_freq);
 PROC_FOPS_RW(boot_freq);
-PROC_FOPS_RO(current_freqy);
+PROC_FOPS_RO(current_freq);
 PROC_FOPS_RW(perfmgr_log);
 
 /************************************************/
@@ -398,7 +372,7 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 	const struct pentry entries[] = {
 		PROC_ENTRY(perfserv_freq),
 		PROC_ENTRY(boot_freq),
-		PROC_ENTRY(current_freqy),
+		PROC_ENTRY(current_freq),
 		PROC_ENTRY(perfmgr_log),
 	};
 	mutex_init(&boost_freq);
