@@ -59,7 +59,7 @@ static unsigned long sec_low(unsigned long long nsec)
 }
 #endif
 
-bool is_critical_lock_held(raw_spinlock_t *lock)
+static bool is_critical_lock_held(raw_spinlock_t *lock)
 {
 	int cpu;
 	struct rq *rq;
@@ -230,6 +230,7 @@ static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd) = {
 #endif
 #define WARNING_TIME 1000000000		/* warning time 1 seconds */
 
+#ifdef MTK_LOCK_DEBUG
 static void __spin_lock_debug(raw_spinlock_t *lock)
 {
 	u64 one_second = loops_per_jiffy * LOOP_HZ;
@@ -315,6 +316,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		}
 	}
 }
+#endif /* MTK_LOCK_DEBUG */
 
 /*
  * We are now relying on the NMI watchdog to detect lockup instead of doing
