@@ -100,6 +100,11 @@ static int l_show(struct seq_file *m, void *v)
 	}
 
 	seq_printf(m, "%p", class->key);
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
+	/* 0x10: print key information */
+	if (lockdep_mode & 0x10)
+		seq_printf(m, " <%ps>", class->key);
+#endif
 #ifdef CONFIG_DEBUG_LOCKDEP
 	seq_printf(m, " OPS:%8ld", class->ops);
 #endif
@@ -185,6 +190,7 @@ static int lockdep_open(struct inode *inode, struct file *file)
  * 0x2: print entry trace of dependency locks in locks_after
  * 0x4: print locks with all distance in locks_after
  * 0x8: print locks with all distance in locks_before
+ * 0x10: print key information
  */
 static ssize_t lockdep_write(struct file *filp,
 	const char *ubuf, size_t cnt, loff_t *data)
@@ -204,7 +210,7 @@ static ssize_t lockdep_write(struct file *filp,
 	if (ret)
 		return ret;
 
-	if (lockdep_mode > 0x15)
+	if (lockdep_mode > 0x1f)
 		lockdep_mode = 0;
 
 	return cnt;
