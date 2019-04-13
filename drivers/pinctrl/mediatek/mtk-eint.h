@@ -6,8 +6,8 @@
  *	   Sean Wang <sean.wang@mediatek.com>
  *
  */
-#ifndef __MTK_EINT_V2_H
-#define __MTK_EINT_V2_H
+#ifndef __MTK_EINT_H
+#define __MTK_EINT_H
 
 #include <linux/irqdomain.h>
 
@@ -68,7 +68,7 @@ struct mtk_eint {
 	const struct mtk_eint_xt *gpio_xlate;
 };
 
-#if IS_ENABLED(CONFIG_EINT_MTK_V2)
+#if IS_ENABLED(CONFIG_EINT_MTK)
 int mtk_eint_do_init(struct mtk_eint *eint);
 int mtk_eint_do_suspend(struct mtk_eint *eint);
 int mtk_eint_do_resume(struct mtk_eint *eint);
@@ -104,4 +104,4 @@ static inline int mtk_eint_find_irq(struct mtk_eint *eint,
 	return -EOPNOTSUPP;
 }
 #endif
-#endif /* __MTK_EINT_V2_H */
+#endif /* __MTK_EINT_H */

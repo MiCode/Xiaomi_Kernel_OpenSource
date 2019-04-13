@@ -72,9 +72,6 @@ static int mtk_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR, !input);
 }
 
-/* MTK's legacy usage: use slew-rate for output mode */
-#define USE_SLEW_RATE_AS_OUTPUT_ENABLE
-
 static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 			   unsigned int pin, unsigned long *config)
 {
@@ -115,11 +112,7 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 		}
 		break;
 	case PIN_CONFIG_SLEW_RATE:
-#ifdef USE_SLEW_RATE_AS_OUTPUT_ENABLE
-		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DIR, &ret);
-#else
 		err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_SR, &ret);
-#endif
 		break;
 	case PIN_CONFIG_INPUT_ENABLE:
 	case PIN_CONFIG_OUTPUT_ENABLE:
@@ -235,11 +228,7 @@ static int mtk_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 				       MTK_INPUT);
 		break;
 	case PIN_CONFIG_SLEW_RATE:
-#ifdef USE_SLEW_RATE_AS_OUTPUT_ENABLE
-		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR, arg);
-#else
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_SR, arg);
-#endif
 		break;
 	case PIN_CONFIG_OUTPUT:
 		err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DIR,
@@ -987,11 +976,6 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 	err = pinctrl_enable(hw->pctrl);
 	if (err)
 		return err;
-
-#ifdef CONFIG_DEBUG_FS
-	if (mtk_gpio_create_attr(&pdev->dev))
-		pr_warn("[pinctrl]mtk_gpio create attribute error\n");
-#endif
 
 	err = mtk_build_eint(hw, pdev);
 	if (err)

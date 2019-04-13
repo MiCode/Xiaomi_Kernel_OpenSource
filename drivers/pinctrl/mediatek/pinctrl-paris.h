@@ -23,7 +23,7 @@
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
 #include "../pinmux.h"
-#include "mtk-eint-v2.h"
+#include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
 #define MTK_RANGE(_a)		{ .range = (_a), .nranges = ARRAY_SIZE(_a), }

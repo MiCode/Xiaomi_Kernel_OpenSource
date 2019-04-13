@@ -482,6 +482,7 @@ static const struct mtk_pin_reg_calc mt6771_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_DIR] = MTK_RANGE(mt6771_pin_dir_range),
 	[PINCTRL_PIN_REG_DI] = MTK_RANGE(mt6771_pin_di_range),
 	[PINCTRL_PIN_REG_DO] = MTK_RANGE(mt6771_pin_do_range),
+	[PINCTRL_PIN_REG_SR] = MTK_RANGE(mt6771_pin_dir_range),
 	[PINCTRL_PIN_REG_SMT] = MTK_RANGE(mt6771_pin_smt_range),
 	[PINCTRL_PIN_REG_IES] = MTK_RANGE(mt6771_pin_ies_range),
 	[PINCTRL_PIN_REG_PULLEN] = MTK_RANGE(mt6771_pin_pullen_range),
