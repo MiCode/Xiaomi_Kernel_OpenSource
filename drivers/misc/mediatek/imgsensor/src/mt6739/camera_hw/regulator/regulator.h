@@ -13,13 +13,13 @@
 
 #ifndef __IMGSENSOR_HW_REGULATOR_H__
 #define __IMGSENSOR_HW_REGULATOR_H__
+#include "imgsensor_common.h"
 
 #include <linux/of.h>
 #include <linux/device.h>
 #include <linux/regulator/consumer.h>
 
 #include "imgsensor_hw.h"
-#include "imgsensor_common.h"
 
 extern struct device *gimgsensor_device;
 

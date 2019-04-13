@@ -60,7 +60,7 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 	pdevice->of_node = of_find_compatible_node(NULL, NULL, "mediatek,camera_hw");
 
 	if (pdevice->of_node == NULL) {
-		PK_PR_ERR("regulator get cust camera node failed!\n");
+		pr_err("regulator get cust camera node failed!\n");
 		pdevice->of_node = pof_node;
 		return IMGSENSOR_RETURN_ERROR;
 	}
@@ -68,7 +68,7 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 	for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++, pregulator_ctrl++) {
 		preg->pregulator[i] = regulator_get(pdevice, pregulator_ctrl->pregulator_type);
 		if (preg->pregulator[i] == NULL)
-			PK_PR_ERR("regulator[%d]  %s fail!\n",
+			pr_err("regulator[%d]  %s fail!\n",
 						i, pregulator_ctrl->pregulator_type);
 		atomic_set(&preg->enable_cnt[i], 0);
 	}
@@ -126,12 +126,12 @@ static enum IMGSENSOR_RETURN regulator_set(
 						regulator_voltage[pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0],
 						regulator_voltage[pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0])) {
 
-				PK_PR_ERR("[regulator]fail to regulator_set_voltage, powertype:%d powerId:%d\n",
+				pr_err("[regulator]fail to regulator_set_voltage, powertype:%d powerId:%d\n",
 							pin,
 							regulator_voltage[pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 			}
 			if (regulator_enable(pregulator)) {
-				PK_PR_ERR("[regulator]fail to regulator_enable, powertype:%d powerId:%d\n",
+				pr_err("[regulator]fail to regulator_enable, powertype:%d powerId:%d\n",
 							pin,
 							regulator_voltage[pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 				return IMGSENSOR_RETURN_ERROR;
@@ -139,16 +139,17 @@ static enum IMGSENSOR_RETURN regulator_set(
 			atomic_inc(enable_cnt);
 		} else {
 			if (regulator_is_enabled(pregulator))
-				PK_DBG("[regulator]%d is enabled\n", pin);
+				pr_debug("[regulator]%d is enabled\n", pin);
 
 			if (regulator_disable(pregulator)) {
-				PK_PR_ERR("[regulator]fail to regulator_disable, powertype: %d\n", pin);
+				pr_err("[regulator]fail to regulator_disable, powertype: %d\n",
+				       pin);
 				return IMGSENSOR_RETURN_ERROR;
 			}
 			atomic_dec(enable_cnt);
 		}
 	} else {
-		PK_PR_ERR("regulator == NULL %d %d %d\n",
+		pr_err("regulator == NULL %d %d %d\n",
 								reg_type_offset, pin, IMGSENSOR_HW_PIN_AVDD);
 	}
 

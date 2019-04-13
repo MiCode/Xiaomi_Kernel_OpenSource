@@ -13,6 +13,7 @@
 
 #ifndef __IMGSENSOR_HW_MCLK_h__
 #define __IMGSENSOR_HW_MCLK_h__
+#include "imgsensor_common.h"
 
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -22,7 +23,6 @@
 
 #include "kd_camera_typedef.h"
 #include "imgsensor_hw.h"
-#include "imgsensor_common.h"
 
 extern struct mutex pinctrl_mutex;
 

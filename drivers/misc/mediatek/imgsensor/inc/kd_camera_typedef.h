@@ -21,7 +21,7 @@
 
 
 
-
+#define kal_int8 signed char
 #define kal_int16 signed short
 #define kal_int32 signed int
 #define kal_uint8 unsigned char
