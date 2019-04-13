@@ -17,9 +17,9 @@
 extern unsigned long gM4U_ProtectVA;
 
 extern int __attribute__((weak)) ddp_mem_test(void);
-extern int __attribute__((weak)) __ddp_mem_test(unsigned int *pSrc, unsigned int pSrcPa,
-			    unsigned int *pDst, unsigned int pDstPa,
-			    int need_sync);
+extern int __attribute__((weak))
+__ddp_mem_test(unsigned int *pSrc, unsigned int pSrcPa, unsigned int *pDst,
+	       unsigned int pDstPa, int need_sync);
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 extern int m4u_sec_init(void);
