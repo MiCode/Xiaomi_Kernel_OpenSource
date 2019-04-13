@@ -155,6 +155,7 @@ struct bind_operations {
  * @work_queue    : Work queue used for dispatching kernel callbacks
  * @bitmap        : Bitmap representation of all synx objects
  * synx_ids       : Global unique ids
+ * idr_lock       : Spin lock for id allocation
  * dma_context    : dma context id
  * bind_vtbl      : Table with bind ops for supported external sync objects
  * client_list    : All the synx clients
@@ -170,6 +171,7 @@ struct synx_device {
 	struct workqueue_struct *work_queue;
 	DECLARE_BITMAP(bitmap, SYNX_MAX_OBJS);
 	struct idr synx_ids;
+	spinlock_t idr_lock;
 	u64 dma_context;
 	struct bind_operations bind_vtbl[SYNX_MAX_BIND_TYPES];
 	struct list_head client_list;

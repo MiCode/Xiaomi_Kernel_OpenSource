@@ -138,17 +138,20 @@ int synx_deinit_object(struct synx_table_row *row)
 	struct synx_callback_info *synx_cb, *temp_cb;
 	struct synx_cb_data  *upayload_info, *temp_upayload;
 
-	if (!row)
+	if (!row || !synx_dev)
 		return -EINVAL;
 
 	synx_obj = row->synx_obj;
 
+	spin_lock_bh(&synx_dev->idr_lock);
 	if ((struct synx_table_row *)idr_remove(&synx_dev->synx_ids,
 			row->synx_obj) != row) {
 		pr_err("removing data in idr table failed 0x%x\n",
 			row->synx_obj);
+		spin_unlock_bh(&synx_dev->idr_lock);
 		return -EINVAL;
 	}
+	spin_unlock_bh(&synx_dev->idr_lock);
 
 	/*
 	 * release the fence memory only for individual obj.
@@ -483,9 +486,15 @@ u32 synx_status_locked(struct synx_table_row *row)
 void *synx_from_handle(s32 synx_obj)
 {
 	s32 base;
-	struct synx_table_row *row =
-		(struct synx_table_row *) idr_find(&synx_dev->synx_ids,
+	struct synx_table_row *row;
+
+	if (!synx_dev)
+		return NULL;
+
+	spin_lock_bh(&synx_dev->idr_lock);
+	row = (struct synx_table_row *) idr_find(&synx_dev->synx_ids,
 		synx_obj);
+	spin_unlock_bh(&synx_dev->idr_lock);
 
 	if (!row) {
 		pr_err(
@@ -507,8 +516,15 @@ void *synx_from_handle(s32 synx_obj)
 s32 synx_create_handle(void *pObj)
 {
 	s32 base = current->tgid << 16;
-	s32 id = idr_alloc(&synx_dev->synx_ids, pObj,
-					base, base + 0x10000, GFP_ATOMIC);
+	s32 id;
+
+	if (!synx_dev)
+		return -EINVAL;
+
+	spin_lock_bh(&synx_dev->idr_lock);
+	id = idr_alloc(&synx_dev->synx_ids, pObj,
+			base, base + 0x10000, GFP_ATOMIC);
+	spin_unlock_bh(&synx_dev->idr_lock);
 
 	pr_debug("generated Id: 0x%x, base: 0x%x, client: 0x%x\n",
 		id, base, current->tgid);
@@ -562,11 +578,17 @@ void *synx_from_key(s32 id, u32 secure_key)
 {
 	struct synx_table_row *row = NULL;
 
+	if (!synx_dev)
+		return NULL;
+
+	spin_lock_bh(&synx_dev->idr_lock);
 	row = (struct synx_table_row *) idr_find(&synx_dev->synx_ids, id);
 	if (!row) {
 		pr_err("invalid synx obj 0x%x\n", id);
+		spin_unlock_bh(&synx_dev->idr_lock);
 		return NULL;
 	}
+	spin_unlock_bh(&synx_dev->idr_lock);
 
 	if (row->secure_key != secure_key)
 		row = NULL;

@@ -96,9 +96,15 @@ int synx_create(s32 *synx_obj, const char *name)
 
 	/* global synx id */
 	id = synx_create_handle(synx_dev->synx_table + idx);
+	if (id < 0) {
+		pr_err("unable to allocate the synx handle\n");
+		clear_bit(idx, synx_dev->bitmap);
+		return -EINVAL;
+	}
+
 	rc = synx_init_object(synx_dev->synx_table,
 			idx, id, name, &synx_fence_ops);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("unable to init row at idx = %ld\n", idx);
 		clear_bit(idx, synx_dev->bitmap);
 		return -EINVAL;
@@ -1442,6 +1448,7 @@ static int __init synx_init(void)
 		spin_lock_init(&synx_dev->row_spinlocks[idx]);
 
 	idr_init(&synx_dev->synx_ids);
+	spin_lock_init(&synx_dev->idr_lock);
 
 	rc = alloc_chrdev_region(&synx_dev->dev, 0, 1, SYNX_DEVICE_NAME);
 	if (rc < 0) {
