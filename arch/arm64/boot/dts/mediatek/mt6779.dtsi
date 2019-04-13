@@ -8,6 +8,7 @@
 #include <dt-bindings/clock/mt6779-clk.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/memory/mt6779-larb-port.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -148,6 +149,20 @@
 			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&uart_clk>, <&uart_clk>;
 			clock-names = "spi", "wrap";
+		};
+
+		iommu0: iommu@10220000 {
+			compatible = "mediatek,mt6779-m4u-mm";
+			reg = <0 0x10220000 0 0x1000>;
+			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
+			#iommu-cells = <1>;
+		};
+
+		iommu1: iommu@1024f000 {
+			compatible = "mediatek,mt6779-m4u-vpu";
+			reg = <0 0x1024f000 0 0x1000>;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
+			#iommu-cells = <1>;
 		};
 
 		uart0: serial@11002000 {
