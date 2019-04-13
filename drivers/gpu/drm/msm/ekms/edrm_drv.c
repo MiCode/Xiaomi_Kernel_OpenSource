@@ -23,6 +23,8 @@
 #include "msm_mmu.h"
 #include "edrm_kms.h"
 
+static struct completion wait_display_completion;
+
 static int msm_edrm_unload(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = dev->dev_private;
@@ -367,6 +369,7 @@ static int msm_pdev_edrm_probe(struct platform_device *pdev)
 	if (ret)
 		DRM_ERROR("drm_platform_init failed: %d\n", ret);
 
+	complete(&wait_display_completion);
 	return ret;
 }
 
@@ -423,6 +426,7 @@ static struct platform_driver msm_platform_driver = {
 static int __init msm_edrm_register(void)
 {
 	DBG("init");
+	init_completion(&wait_display_completion);
 	return platform_driver_register(&msm_platform_driver);
 }
 
@@ -432,8 +436,18 @@ static void __exit msm_edrm_unregister(void)
 	platform_driver_unregister(&msm_platform_driver);
 }
 
+static int __init msm_edrm_late_register(void)
+{
+	pr_debug("wait for eDRM display probe completion\n");
+	wait_for_completion(&wait_display_completion);
+
+	return 0;
+}
+
 module_init(msm_edrm_register);
 module_exit(msm_edrm_unregister);
+/* init level 7 */
+late_initcall(msm_edrm_late_register);
 
 MODULE_DESCRIPTION("MSM EARLY DRM Driver");
 MODULE_LICENSE("GPL v2");
