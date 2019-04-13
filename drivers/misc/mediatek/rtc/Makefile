@@ -11,18 +11,39 @@
 # GNU General Public License for more details.
 #
 
-ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6358)))
-  obj-$(CONFIG_MTK_RTC) += rtc-mt6358.o mt6358_misc.o
+#set IP folder name
+
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6355)))
+  MDI_IP_FOLDER:=mt6355
 endif
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6358)+= -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6356)))
+  MDI_IP_FOLDER:=mt6356
+endif
 
 ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6357)))
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/mt6357
-obj-$(CONFIG_MTK_RTC) += mtk_rtc_common.o mtk_rtc_hal_common.o
-obj-$(CONFIG_MTK_RTC) += mt6357/
+  MDI_IP_FOLDER:=mt6357
 endif
 
-obj-$(CONFIG_MTK_RTC) += mtk_rtc_debug.o
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6358)))
+  MDI_IP_FOLDER:=mt6358
+endif
+
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6359)))
+  MDI_IP_FOLDER:=mt6359
+endif
+
+MDP_COMMON_FOLDER:= ./
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/$(MDI_IP_FOLDER)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/rtc/include
+
+#Top level common code
+obj-$(CONFIG_MTK_RTC) += mtk_rtc_common.o mtk_rtc_hal_common.o mtk_rtc_debug.o
+
+MTK_MDI_IP_SRC:= $(MDI_IP_FOLDER)/
+
+#IP dependent part
+obj-y += \
+    $(MTK_MDI_IP_SRC)
+
