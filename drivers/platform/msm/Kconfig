@@ -5,6 +5,7 @@ menu "Qualcomm technologies inc. MSM specific device drivers"
 
 config MSM_EXT_DISPLAY
 	bool "MSM External Display Driver"
+	default y if ARCH_QCOM && DRM
 	help
 	  Enabling this option adds MSM External Display Driver.
 	  External Display driver was added to support the communication
