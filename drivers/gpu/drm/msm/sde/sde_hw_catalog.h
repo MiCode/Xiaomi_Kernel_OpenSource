@@ -837,6 +837,17 @@ struct sde_merge_3d_cfg {
 };
 
 /**
+ * struct sde_qdss_cfg - information of qdss blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @len:               length of hardware block
+ * @features           bit mask identifying sub-blocks/features
+ */
+struct sde_qdss_cfg {
+	SDE_HW_BLK_INFO;
+};
+
+/**
  * struct sde_rot_vbif_cfg - inline rotator vbif configs
  * @xin_id             xin client id
  * @num                enum identifying this block
@@ -1177,6 +1188,9 @@ struct sde_mdss_cfg {
 
 	u32 merge_3d_count;
 	struct sde_merge_3d_cfg merge_3d[MAX_BLOCKS];
+
+	u32 qdss_count;
+	struct sde_qdss_cfg qdss[MAX_BLOCKS];
 
 	/* Add additional block data structures here */
 

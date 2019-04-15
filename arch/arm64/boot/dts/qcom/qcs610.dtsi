@@ -17,3 +17,13 @@
 	qcom,msm-name = "QCS610";
 	qcom,msm-id = <401 0>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
+};

@@ -195,7 +195,6 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(820000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
 	F(900000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
 	F(950000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
-	F(980000000, P_GPU_CC_PLL0_OUT_AUX2, 2, 0, 0),
 	{ }
 };
 
@@ -221,7 +220,7 @@ static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 			[VDD_NOMINAL] = 745000000,
 			[VDD_NOMINAL_L1] = 820000000,
 			[VDD_HIGH] = 900000000,
-			[VDD_HIGH_L1] = 980000000},
+			[VDD_HIGH_L1] = 950000000},
 	},
 };
 
@@ -259,24 +258,6 @@ static struct clk_branch gpu_cc_cx_gfx3d_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_gfx3d_clk",
-			.parent_names = (const char *[]){
-				"gpu_cc_gx_gfx3d_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gpu_cc_cx_gfx3d_slv_clk = {
-	.halt_reg = 0x10a8,
-	.halt_check = BRANCH_HALT_DELAY,
-	.clkr = {
-		.enable_reg = 0x10a8,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cx_gfx3d_slv_clk",
 			.parent_names = (const char *[]){
 				"gpu_cc_gx_gfx3d_clk_src",
 			},
@@ -406,7 +387,6 @@ static struct clk_regmap *gpu_cc_trinket_clocks[] = {
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
 	[GPU_CC_CX_APB_CLK] = &gpu_cc_cx_apb_clk.clkr,
 	[GPU_CC_CX_GFX3D_CLK] = &gpu_cc_cx_gfx3d_clk.clkr,
-	[GPU_CC_CX_GFX3D_SLV_CLK] = &gpu_cc_cx_gfx3d_slv_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
 	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
 	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,

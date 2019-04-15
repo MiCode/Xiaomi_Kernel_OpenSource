@@ -16,6 +16,9 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 &spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+
 	qcom,pm8150b@2 {
 		compatible = "qcom,spmi-pmic";
 		reg = <0x2 SPMI_USID>;

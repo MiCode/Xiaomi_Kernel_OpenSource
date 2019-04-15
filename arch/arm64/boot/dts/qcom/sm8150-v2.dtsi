@@ -778,16 +778,17 @@
 
 	qcom,gpu-acd-table {
 		/* Corresponds to levels in the GPU perf table */
-		qcom,acd-enable-by-level = <0x3e>;
+		qcom,acd-enable-by-level = <0x7e>;
 		qcom,acd-stride = <0x2>;
-		qcom,acd-num-levels = <0x5>;
+		qcom,acd-num-levels = <0x6>;
 
 		/* ACDCR, ACDTD */
 		qcom,acd-data = <0xa02d5ffd 0x00007611 /* LowSVS */
 				0xa02d5ffd 0x00006911 /* SVS */
 				0xa02d5ffd 0x00006111 /* SVS_L1 */
 				0xa02d5ffd 0x00006011 /* SVS_L2 */
-				0x802d5ffd 0x00005411>; /* NOM */
+				0x802d5ffd 0x00005411 /* NOM */
+				0x802d5ffd 0x00005411>; /* NOM_L1 */
 	};
 };
 

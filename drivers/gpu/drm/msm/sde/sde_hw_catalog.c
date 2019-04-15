@@ -711,6 +711,11 @@ static struct sde_prop_type merge_3d_prop[] = {
 	{HW_LEN, "qcom,sde-merge-3d-size", false, PROP_TYPE_U32},
 };
 
+static struct sde_prop_type qdss_prop[] = {
+	{HW_OFF, "qcom,sde-qdss-off", false, PROP_TYPE_U32_ARRAY},
+	{HW_LEN, "qcom,sde-qdss-size", false, PROP_TYPE_U32},
+};
+
 static struct sde_prop_type inline_rot_prop[INLINE_ROT_PROP_MAX] = {
 	{INLINE_ROT_XIN, "qcom,sde-inline-rot-xin", false,
 							PROP_TYPE_U32_ARRAY},
@@ -3472,6 +3477,55 @@ fail:
 	return rc;
 }
 
+int sde_qdss_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[HW_PROP_MAX], i;
+	struct sde_prop_value *prop_value = NULL;
+	bool prop_exists[HW_PROP_MAX];
+	u32 off_count;
+	struct sde_qdss_cfg *qdss;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	prop_value = kzalloc(HW_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, qdss_prop, ARRAY_SIZE(qdss_prop),
+			prop_count, &off_count);
+	if (rc) {
+		sde_cfg->qdss_count = 0;
+		goto end;
+	}
+
+	sde_cfg->qdss_count = off_count;
+
+	rc = _read_dt_entry(np, qdss_prop, ARRAY_SIZE(qdss_prop), prop_count,
+			prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	for (i = 0; i < off_count; i++) {
+		qdss = sde_cfg->qdss + i;
+		qdss->base = PROP_VALUE_ACCESS(prop_value, HW_OFF, i);
+		qdss->id = QDSS_0 + i;
+		snprintf(qdss->name, SDE_HW_BLK_NAME_LEN, "qdss_%u",
+				qdss->id - QDSS_0);
+		qdss->len = PROP_VALUE_ACCESS(prop_value, HW_LEN, 0);
+	}
+
+end:
+	kfree(prop_value);
+	return rc;
+}
+
 static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	uint32_t hw_rev)
 {
@@ -3879,6 +3933,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_merge_3d_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_qdss_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

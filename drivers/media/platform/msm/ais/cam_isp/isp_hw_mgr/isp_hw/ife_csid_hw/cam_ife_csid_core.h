@@ -290,6 +290,7 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t num_rdis;
 	uint32_t num_pix;
 	uint32_t num_ppp;
+	uint32_t csid_reg_rst_stb;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;
@@ -493,6 +494,8 @@ struct cam_ife_csid_hw {
 	bool                             sof_irq_triggered;
 	uint32_t                         irq_debug_cnt;
 	uint32_t                         error_irq_count;
+	uint32_t                         device_enabled;
+	spinlock_t                       lock_state;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

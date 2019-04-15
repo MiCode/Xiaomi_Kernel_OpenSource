@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,20 +229,23 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
+	CAM_INFO(CAM_OIS, "i2c driver remove invoked");
 	soc_info = &o_ctrl->soc_info;
 
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
 
+	mutex_lock(&(o_ctrl->ois_mutex));
+	cam_ois_shutdown(o_ctrl);
+	mutex_unlock(&(o_ctrl->ois_mutex));
+	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
+
 	soc_private =
 		(struct cam_ois_soc_private *)soc_info->soc_private;
 	power_info = &soc_private->power_info;
 
-	kfree(power_info->power_setting);
-	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
+	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(o_ctrl);
 
 	return 0;
@@ -303,8 +306,6 @@ static int32_t cam_ois_platform_driver_probe(
 	o_ctrl->bridge_intf.device_hdl = -1;
 
 	platform_set_drvdata(pdev, o_ctrl);
-	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, o_ctrl);
-
 	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 
 	return rc;
@@ -333,21 +334,26 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	CAM_INFO(CAM_OIS, "platform driver remove invoked");
 	soc_info = &o_ctrl->soc_info;
 	for (i = 0; i < soc_info->num_clk; i++)
 		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	mutex_lock(&(o_ctrl->ois_mutex));
+	cam_ois_shutdown(o_ctrl);
+	mutex_unlock(&(o_ctrl->ois_mutex));
+	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
 
 	soc_private =
 		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;
 	power_info = &soc_private->power_info;
 
-	kfree(power_info->power_setting);
-	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
 	kfree(o_ctrl->soc_info.soc_private);
 	kfree(o_ctrl->io_master_info.cci_client);
+	platform_set_drvdata(pdev, NULL);
+	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(o_ctrl);
+
 	return 0;
 }
 

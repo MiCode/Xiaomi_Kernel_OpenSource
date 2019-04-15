@@ -3277,7 +3277,7 @@ void sde_encoder_helper_phys_disable(struct sde_encoder_phys *phys_enc,
 
 	if (wb_enc) {
 		if (sde_encoder_helper_reset_mixers(phys_enc,
-				wb_enc->fb_disable))
+				NULL))
 			return;
 
 		if (wb_enc->hw_wb->ops.bind_pingpong_blk) {
@@ -3462,8 +3462,9 @@ static void sde_encoder_frame_done_callback(
 	unsigned int i;
 
 	if (!drm_enc || !sde_enc->cur_master) {
-		SDE_ERROR("invalid param: drm_enc %x, cur_master %x\n",
-				drm_enc, drm_enc ? sde_enc->cur_master : 0);
+		SDE_ERROR("invalid param: drm_enc %lx, cur_master %lx\n",
+			  (unsigned long)drm_enc, drm_enc ?
+			  (unsigned long)sde_enc->cur_master : 0);
 		return;
 	}
 
@@ -3545,6 +3546,23 @@ int sde_encoder_idle_request(struct drm_encoder *drm_enc)
 	return 0;
 }
 
+int sde_encoder_get_ctlstart_timeout_state(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	int i, count = 0;
+
+	if (!drm_enc)
+		return 0;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		count += atomic_read(&sde_enc->phys_encs[i]->ctlstart_timeout);
+		atomic_set(&sde_enc->phys_encs[i]->ctlstart_timeout, 0);
+	}
+
+	return count;
+}
 /**
  * _sde_encoder_trigger_flush - trigger flush for a physical encoder
  * drm_enc: Pointer to drm encoder structure

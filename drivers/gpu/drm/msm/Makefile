@@ -182,7 +182,8 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	sde/sde_reg_dma.o \
 	sde/sde_hw_reg_dma_v1.o \
 	sde/sde_hw_dsc.o \
-	sde/sde_hw_ds.o
+	sde/sde_hw_ds.o \
+	sde/sde_hw_qdss.o
 
 msm_drm-$(CONFIG_DRM_SDE_WB) += sde/sde_wb.o \
 	sde/sde_encoder_phys_wb.o

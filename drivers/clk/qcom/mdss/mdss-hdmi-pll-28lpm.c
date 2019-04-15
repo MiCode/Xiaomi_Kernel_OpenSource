@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -283,8 +283,8 @@ static void hdmi_phy_pll_calculator_28lpm(unsigned long vco_rate,
 	do_div(sdm_cfg2, int_ref_clk_freq);
 
 	pr_debug("lf_cfg0 = 0x%x    lf_cfg1 = 0x%x\n", lf_cfg0, lf_cfg1);
-	pr_debug("vco_cfg0 = 0x%x   vco_cfg4 = 0x%x\n", vco_cfg0, vco_cfg4);
-	pr_debug("sdm_cfg0 = 0x%x   sdm_cfg1 = 0x%x   sdm_cfg2 = 0x%x\n",
+	pr_debug("vco_cfg0 = 0x%llx   vco_cfg4 = 0x%llx\n", vco_cfg0, vco_cfg4);
+	pr_debug("sdm_cfg0 = 0x%llx   sdm_cfg1 = 0x%llx   sdm_cfg2 = 0x%llx\n",
 				sdm_cfg0, sdm_cfg1, sdm_cfg2);
 
 	refclk_cfg = MDSS_PLL_REG_R(pll_base, HDMI_PHY_PLL_REFCLK_CFG);
@@ -507,7 +507,7 @@ unsigned long hdmi_vco_recalc_rate_28lpm(struct clk_hw *hw,
 
 	if (hdmi_pll_res->vco_current_rate) {
 		vco_rate = (unsigned long)hdmi_pll_res->vco_current_rate;
-		pr_debug("vco_rate=%ld\n", vco_rate);
+		pr_debug("vco_rate=%llu\n", vco_rate);
 		return vco_rate;
 	}
 
@@ -528,7 +528,7 @@ unsigned long hdmi_vco_recalc_rate_28lpm(struct clk_hw *hw,
 		mdss_pll_resource_enable(hdmi_pll_res, false);
 	}
 
-	pr_debug("vco_rate = %ld\n", vco_rate);
+	pr_debug("vco_rate = %llu\n", vco_rate);
 
 	return (unsigned long)vco_rate;
 }

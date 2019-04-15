@@ -3962,10 +3962,10 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	}
 
 	ipa3_enable_clks();
-	atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
 	IPADBG_LOW("active clients = %d\n",
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
+	atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (!ipa3_uc_state_check() &&
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)) {
 		ipa3_read_mailbox_17(IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS);
@@ -6882,10 +6882,10 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	ret = of_property_read_u32(dev->of_node, "qcom,ipa-q6-smem-size",
 					&ipa_smem_size);
 	if (ret) {
-		IPADBG("ipa q6 smem size (default) = %zu\n", IPA_SMEM_SIZE);
+		IPADBG("ipa q6 smem size (default) = %u\n", IPA_SMEM_SIZE);
 		ipa_smem_size = IPA_SMEM_SIZE;
 	} else {
-		IPADBG("ipa q6 smem size = %zu\n", ipa_smem_size);
+		IPADBG("ipa q6 smem size = %u\n", ipa_smem_size);
 	}
 
 	/* map SMEM memory for IPA table accesses */
@@ -6907,7 +6907,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		return -EFAULT;
 	}
 	if (smem_size != ipa_smem_size)
-		IPAERR("unexpected read q6 smem size %zu %zu\n",
+		IPAERR("unexpected read q6 smem size %zu %u\n",
 			smem_size, ipa_smem_size);
 
 	iova = qcom_smem_virt_to_phys(smem_addr);

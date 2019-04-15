@@ -882,7 +882,7 @@ static int _sde_kms_splash_mem_get(struct sde_kms *sde_kms,
 	}
 
 	splash->ref_cnt++;
-	SDE_DEBUG("one2one mapping done for base:%x size:%x ref_cnt:%d\n",
+	SDE_DEBUG("one2one mapping done for base:%lx size:%x ref_cnt:%d\n",
 				splash->splash_buf_base,
 				splash->splash_buf_size,
 				splash->ref_cnt);
@@ -933,7 +933,7 @@ static int _sde_kms_splash_mem_put(struct sde_kms *sde_kms,
 
 	splash->ref_cnt--;
 
-	SDE_DEBUG("splash base:%x refcnt:%d\n",
+	SDE_DEBUG("splash base:%lx refcnt:%d\n",
 			splash->splash_buf_base, splash->ref_cnt);
 
 	if (!splash->ref_cnt) {
@@ -3309,6 +3309,13 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	rc = _sde_kms_get_splash_data(&sde_kms->splash_data);
 	if (rc)
 		SDE_DEBUG("sde splash data fetch failed: %d\n", rc);
+
+	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
+		priv->phandle.data_bus_handle[i].ab_rt =
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_AB_QUOTA;
+		priv->phandle.data_bus_handle[i].ib_rt =
+			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA;
+	}
 
 	rc = sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 		true);

@@ -370,6 +370,14 @@
 		qcom,no-clock-support;
 		qcom,qsee-reentrancy-support = <2>;
 	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		status = "ok";
+	};
 };
 
 #include "sm8150-pinctrl.dtsi"
@@ -377,3 +385,7 @@
 #include "sa8155-vm-qupv3.dtsi"
 #include "sa8155-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
+
+&qupv3_se13_4uart {
+	status = "ok";
+};

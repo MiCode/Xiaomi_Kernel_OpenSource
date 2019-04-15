@@ -515,6 +515,17 @@ static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
 }
 
 /**
+ * sde_crtc_get_num_datapath - get the number of datapath active
+ * @crtc: Pointer to drm crtc object
+ */
+static inline int sde_crtc_get_num_datapath(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	return sde_crtc ? sde_crtc->num_mixers : 0;
+}
+
+/**
  * sde_crtc_get_rotator_op_mode - get the rotator op mode from the crtc state
  * @crtc: Pointer to drm crtc object
  */

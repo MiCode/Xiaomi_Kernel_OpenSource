@@ -422,6 +422,11 @@ static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
 {
 	u16 device_id;
 
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("PCIe link is suspended\n");
+		return -EIO;
+	}
+
 	if (pci_priv->pci_link_down_ind) {
 		cnss_pr_err("PCIe link is down\n");
 		return -EIO;
@@ -701,6 +706,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
 		cnss_fatal_err("Failed to start MHI, err = %d\n", ret);
+		CNSS_ASSERT(0);
 		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
 		    !pci_priv->pci_link_down_ind && timeout)
 			mod_timer(&plat_priv->fw_boot_timer,
@@ -750,7 +756,8 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) &&
+	if ((test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	     test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_pci_collect_dump(pci_priv);
@@ -2330,6 +2337,9 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 		cnss_pr_dbg("RAM dump is already collected, skip\n");
 		return;
 	}
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
 
 	cnss_pci_dump_qdss_reg(pci_priv);
 
