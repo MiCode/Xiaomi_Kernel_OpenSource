@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,7 @@ struct sde_rsc_timer_config {
  * @pclient:		module power client of phandle
  * @fs:			"MDSS GDSC" handle
  * @sw_fs_enabled:	track "MDSS GDSC" sw vote during probe
+ * @need_hwinit:	rsc hw init is required for the next update
  *
  * @disp_rsc:		display rsc handle
  * @drv_io:		sde drv io data mapping
@@ -168,6 +169,7 @@ struct sde_rsc_priv {
 	struct sde_power_client *pclient;
 	struct regulator *fs;
 	bool sw_fs_enabled;
+	bool need_hwinit;
 
 	struct rpmh_client *disp_rsc;
 	struct dss_io_data drv_io;

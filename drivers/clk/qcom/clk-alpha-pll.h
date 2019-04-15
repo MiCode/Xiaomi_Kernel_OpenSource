@@ -85,6 +85,11 @@ struct clk_alpha_pll {
 	unsigned long min_supported_freq;
 };
 
+enum postdiv_type {
+	POSTDIV_EVEN,
+	POSTDIV_ODD,
+};
+
 /**
  * struct clk_alpha_pll_postdiv - phase locked loop (PLL) post-divider
  * @offset: base address of registers
@@ -102,6 +107,7 @@ struct clk_alpha_pll_postdiv {
 	size_t num_post_div;
 	struct clk_regmap clkr;
 	enum pll_type type;
+	enum postdiv_type postdiv;
 };
 
 struct alpha_pll_config {

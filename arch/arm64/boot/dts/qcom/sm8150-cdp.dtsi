@@ -267,6 +267,10 @@
 
 &qupv3_se9_i2c {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;

@@ -1225,6 +1225,9 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 	int ret = 0, idx;
 
 	CDBG("E: ops = %d\n", ops);
+	if (iommu_cb_set.camera_secure_sid)
+		return ret;
+
 	idx = GET_SMMU_TABLE_IDX(handle);
 	if (handle == HANDLE_INIT || idx < 0 || idx >= iommu_cb_set.cb_num) {
 		pr_err("Error: handle or index invalid. idx = %d hdl = %x\n",
@@ -1258,17 +1261,11 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 		break;
 	}
 	case CAM_SMMU_ATTACH_SEC_CPP: {
-		if (iommu_cb_set.camera_secure_sid == false)
-			ret = cam_smmu_attach_sec_cpp(idx);
-		else
-			iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
+		ret = cam_smmu_attach_sec_cpp(idx);
 		break;
 	}
 	case CAM_SMMU_DETACH_SEC_CPP: {
-		if (iommu_cb_set.camera_secure_sid == false)
-			ret = cam_smmu_detach_sec_cpp(idx);
-		else
-			iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
+		ret = cam_smmu_detach_sec_cpp(idx);
 		break;
 	}
 	case CAM_SMMU_VOTE:
@@ -2208,6 +2205,12 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 	iommu_set_fault_handler(cb->mapping->domain,
 			cam_smmu_iommu_fault_handler,
 			(void *)cb->name);
+
+	if (iommu_cb_set.camera_secure_sid) {
+		rc = cam_smmu_attach(iommu_cb_set.cb_init_count);
+		if (rc)
+			pr_err("Error: SMMU attach failed for %s\n", cb->name);
+	}
 
 	/* increment count to next bank */
 	iommu_cb_set.cb_init_count++;

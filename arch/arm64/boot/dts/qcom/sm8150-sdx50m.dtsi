@@ -583,6 +583,9 @@
 };
 
 &reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
 	pil_buffer_p2_mem: pil_buffer_p2_region@a0000000 {
 		compatible = "removed-dma-pool";
 		no-map;

@@ -71,6 +71,12 @@ enum dsi_dms_mode {
 	DSI_DMS_MODE_RES_SWITCH_IMMEDIATE,
 };
 
+enum dsi_panel_physical_type {
+	DSI_DISPLAY_PANEL_TYPE_LCD = 0,
+	DSI_DISPLAY_PANEL_TYPE_OLED,
+	DSI_DISPLAY_PANEL_TYPE_MAX,
+};
+
 struct dsi_dfps_capabilities {
 	enum dsi_dfps_type type;
 	u32 min_refresh_rate;
@@ -105,6 +111,7 @@ struct dsi_backlight_config {
 	u32 bl_min_level;
 	u32 bl_max_level;
 	u32 brightness_max_level;
+	u32 brightness_default_level;
 	u32 bl_level;
 	u32 bl_scale;
 	u32 bl_scale_ad;
@@ -203,6 +210,8 @@ struct dsi_panel {
 	enum dsi_dms_mode dms_mode;
 
 	bool sync_broadcast_en;
+	int power_mode;
+	enum dsi_panel_physical_type panel_type;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -223,6 +232,11 @@ static inline void dsi_panel_acquire_panel_lock(struct dsi_panel *panel)
 static inline void dsi_panel_release_panel_lock(struct dsi_panel *panel)
 {
 	mutex_unlock(&panel->panel_lock);
+}
+
+static inline bool dsi_panel_is_type_oled(struct dsi_panel *panel)
+{
+	return (panel->panel_type == DSI_DISPLAY_PANEL_TYPE_OLED);
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,

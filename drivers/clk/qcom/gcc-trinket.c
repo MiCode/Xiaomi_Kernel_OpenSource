@@ -2386,24 +2386,6 @@ static struct clk_branch gcc_camss_csiphy2_clk = {
 	},
 };
 
-static struct clk_branch gcc_camss_csiphy3_clk = {
-	.halt_reg = 0x55024,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x55024,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_camss_csiphy3_clk",
-			.parent_names = (const char *[]){
-				"gcc_camss_csiphy_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_camss_gp0_clk = {
 	.halt_reg = 0x50018,
 	.halt_check = BRANCH_HALT,
@@ -4188,7 +4170,6 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_CAMSS_CSIPHY0_CLK] = &gcc_camss_csiphy0_clk.clkr,
 	[GCC_CAMSS_CSIPHY1_CLK] = &gcc_camss_csiphy1_clk.clkr,
 	[GCC_CAMSS_CSIPHY2_CLK] = &gcc_camss_csiphy2_clk.clkr,
-	[GCC_CAMSS_CSIPHY3_CLK] = &gcc_camss_csiphy3_clk.clkr,
 	[GCC_CAMSS_CSIPHY_CLK_SRC] = &gcc_camss_csiphy_clk_src.clkr,
 	[GCC_CAMSS_GP0_CLK] = &gcc_camss_gp0_clk.clkr,
 	[GCC_CAMSS_GP0_CLK_SRC] = &gcc_camss_gp0_clk_src.clkr,

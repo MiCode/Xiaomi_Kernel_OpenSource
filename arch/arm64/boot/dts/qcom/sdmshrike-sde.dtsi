@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,13 +24,18 @@
 		clocks =
 			<&clock_gcc GCC_DISP_AHB_CLK>,
 			<&clock_gcc GCC_DISP_HF_AXI_CLK>,
+			<&clock_gcc GCC_DISP_SF_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_MDP_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>;
-		clock-names = "gcc_iface", "gcc_bus",
-				"iface_clk", "core_clk", "vsync_clk";
-		clock-rate = <0 0 0 300000000 19200000>;
-		clock-max-rate = <0 0 0 460000000 19200000>;
+			<&clock_dispcc DISP_CC_MDSS_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_MDP_LUT_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_ROT_CLK>;
+		clock-names = "gcc_iface", "gcc_bus", "gcc_nrt_bus",
+				"iface_clk", "core_clk", "vsync_clk",
+				"lut_clk", "rot_clk";
+		clock-rate = <0 0 0 0 300000000 19200000 300000000 19200000>;
+		clock-max-rate = <0 0 0 0 460000000 19200000 460000000
+					460000000>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
@@ -38,11 +43,13 @@
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		iommus = <&apps_smmu 0x800 0x20>,
-			<&apps_smmu 0xc00 0x20>;
+		iommus = <&apps_smmu 0x800 0x420>,
+			 <&apps_smmu 0x820 0x420>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		#power-domain-cells = <0>;
 
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
@@ -213,6 +220,8 @@
 		qcom,sde-reg-dma-version = <0x00010001>;
 		qcom,sde-reg-dma-trigger-off = <0x119c>;
 
+		qcom,sde-secure-sid-mask = <0x4200801>;
+
 		qcom,sde-sspp-vig-blocks {
 			qcom,sde-vig-csc-off = <0x1a00>;
 			qcom,sde-vig-qseed-off = <0xa00>;
@@ -265,8 +274,8 @@
 
 		smmu_sde_sec: qcom,smmu_sde_sec_cb {
 			compatible = "qcom,smmu_sde_sec";
-			iommus = <&apps_smmu 0x801 0x20>,
-			       <&apps_smmu 0xc01 0x20>;
+			iommus = <&apps_smmu 0x801 0x420>,
+				 <&apps_smmu 0x821 0x420>;
 		};
 
 		/* data and reg bus scale settings */
@@ -456,12 +465,12 @@
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
-			iommus = <&apps_smmu 0x1040 0x0>;
+			iommus = <&apps_smmu 0x2040 0x0>;
 		};
 
 		smmu_rot_sec: qcom,smmu_rot_sec_cb {
 			compatible = "qcom,smmu_sde_rot_sec";
-			iommus = <&apps_smmu 0x1041 0x0>;
+			iommus = <&apps_smmu 0x2041 0x0>;
 		};
 	};
 

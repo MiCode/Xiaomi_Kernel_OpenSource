@@ -710,11 +710,25 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0)
 {
-	if (irq_status0 & BIT(3))
+	struct vfe_device *temp = NULL;
+	struct msm_vfe_common_dev_data *c_data;
+
+	if (vfe_dev->dual_vfe_sync_mode) {
+		c_data = vfe_dev->common_data;
+		temp = c_data->dual_vfe_res->vfe_dev[ISP_VFE1];
+	}
+	if (irq_status0 & BIT(3)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
+		if (vfe_dev->dual_vfe_sync_mode)
+			temp->axi_data.src_info[VFE_PIX_0].accept_frame = false;
+	}
 	if (irq_status0 & BIT(0)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
 		vfe_dev->irq_sof_id++;
+		if (vfe_dev->dual_vfe_sync_mode) {
+			temp->axi_data.src_info[VFE_PIX_0].accept_frame = true;
+			temp->irq_sof_id++;
+		}
 	}
 }
 

@@ -23,3 +23,9 @@
 	qcom,chipid = <0x6080001>;
 
 };
+
+&mdss_mdp {
+	qcom,fullsize-va-map;
+	qcom,sde-min-core-ib-kbps = <0>;
+	qcom,sde-min-llcc-ib-kbps = <0>;
+};

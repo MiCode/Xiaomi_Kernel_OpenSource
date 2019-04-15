@@ -21,3 +21,19 @@
 	qcom,pmic-name = "PM6150";
 	qcom,board-id = <0 0>;
 };
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&apps_smmu {
+	status = "ok";
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&qusb_phy0 {
+	status = "ok";
+};

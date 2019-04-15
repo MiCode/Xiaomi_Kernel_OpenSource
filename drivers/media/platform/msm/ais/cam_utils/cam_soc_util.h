@@ -631,4 +631,7 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info);
 int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level clk_level);
 
+uint32_t cam_soc_util_get_vote_level(struct cam_hw_soc_info *soc_info,
+	uint64_t clock_rate);
+
 #endif /* _CAM_SOC_UTIL_H_ */

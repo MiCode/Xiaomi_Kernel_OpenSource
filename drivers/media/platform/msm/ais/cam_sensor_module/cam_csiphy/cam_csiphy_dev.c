@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,7 +165,6 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, &(new_csiphy_dev->v4l2_dev_str.sd));
-	v4l2_set_subdevdata(&(new_csiphy_dev->v4l2_dev_str.sd), new_csiphy_dev);
 
 	new_csiphy_dev->bridge_intf.device_hdl[0] = -1;
 	new_csiphy_dev->bridge_intf.device_hdl[1] = -1;
@@ -211,9 +210,17 @@ static int32_t cam_csiphy_device_remove(struct platform_device *pdev)
 	struct csiphy_device *csiphy_dev =
 		v4l2_get_subdevdata(subdev);
 
+	CAM_INFO(CAM_CSIPHY, "device remove invoked");
 	cam_cpas_unregister_client(csiphy_dev->cpas_handle);
 	cam_csiphy_soc_release(csiphy_dev);
+	mutex_lock(&csiphy_dev->mutex);
+	cam_csiphy_shutdown(csiphy_dev);
+	mutex_unlock(&csiphy_dev->mutex);
+	cam_unregister_subdev(&(csiphy_dev->v4l2_dev_str));
 	kfree(csiphy_dev->ctrl_reg);
+	csiphy_dev->ctrl_reg = NULL;
+	platform_set_drvdata(pdev, NULL);
+	v4l2_set_subdevdata(&(csiphy_dev->v4l2_dev_str.sd), NULL);
 	devm_kfree(&pdev->dev, csiphy_dev);
 
 	return 0;

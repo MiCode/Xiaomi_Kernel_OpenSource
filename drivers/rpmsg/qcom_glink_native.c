@@ -1958,7 +1958,7 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	glink->task = kthread_run(kthread_worker_fn, &glink->kworker,
 				  "glink_%s", glink->name);
 	if (IS_ERR(glink->task)) {
-		dev_err(dev, "failed to spawn intent kthread %d\n",
+		dev_err(dev, "failed to spawn intent kthread %ld\n",
 			PTR_ERR(glink->task));
 		return ERR_CAST(glink->task);
 	}

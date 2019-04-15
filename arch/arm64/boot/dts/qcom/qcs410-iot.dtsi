@@ -124,3 +124,11 @@
 	io-channel-names = "cp_die_temp";
 	status = "ok";
 };
+
+&pil_camera_mem {
+	reg = <0 0x8f800000 0 0x500000>;
+};
+
+&pil_modem_mem {
+	reg = <0 0x8fd00000 0 0x3100000>;
+};
