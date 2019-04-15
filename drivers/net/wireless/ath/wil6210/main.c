@@ -14,6 +14,7 @@
 #include "txrx_edma.h"
 #include "wmi.h"
 #include "boot_loader.h"
+#include "ipa.h"
 
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
@@ -294,6 +295,10 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
+
+	if (wil->ipa_handle)
+		wil_ipa_disconn_client(wil->ipa_handle, cid);
+
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
 	sta->stats.tx_latency_min_us = U32_MAX;
@@ -577,6 +582,10 @@ void wil_fw_recovery(struct wil6210_priv *wil)
 		if (no_fw_recovery) /* upper layers do recovery */
 			break;
 		/* silent recovery, upper layers will see disconnect */
+		if (wil->ipa_handle) {
+			wil_ipa_uninit(wil->ipa_handle);
+			wil->ipa_handle = NULL;
+		}
 		__wil_down(wil);
 		__wil_up(wil);
 		mutex_unlock(&wil->mutex);
@@ -625,7 +634,7 @@ static int wil_find_free_ring(struct wil6210_priv *wil)
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
-	int rc = -EINVAL, ringid;
+	int rc = -EINVAL, ringid, ring_size;
 
 	if (cid < 0) {
 		wil_err(wil, "No connection pending\n");
@@ -640,7 +649,9 @@ int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 	wil_dbg_wmi(wil, "Configure for connection CID %d MID %d ring %d\n",
 		    cid, vif->mid, ringid);
 
-	rc = wil->txrx_ops.ring_init_tx(vif, ringid, 1 << tx_ring_order,
+	ring_size = wil->ipa_handle ?
+		WIL_IPA_DESC_RING_SIZE : 1 << tx_ring_order;
+	rc = wil->txrx_ops.ring_init_tx(vif, ringid, ring_size,
 					cid, 0);
 	if (rc)
 		wil_err(wil, "init TX for CID %d MID %d vring %d failed\n",
