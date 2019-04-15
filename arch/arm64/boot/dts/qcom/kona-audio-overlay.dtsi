@@ -39,6 +39,8 @@
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
+			clock-names = "lpass_core_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>;
 			qcom,swr_master_id = <3>;
 			qcom,mipi-sdw-block-packing-mode = <1>;
 			swrm-io-base = <0x3230000 0x0>;
@@ -77,6 +79,8 @@
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
+			clock-names = "lpass_core_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>;
 			qcom,swr_master_id = <2>;
 			qcom,mipi-sdw-block-packing-mode = <1>;
 			swrm-io-base = <0x3210000 0x0>;
@@ -110,6 +114,8 @@
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
+			clock-names = "lpass_core_hw_vote";
+			clocks = <&lpass_core_hw_vote 0>;
 			qcom,swr_master_id = <1>;
 			qcom,mipi-sdw-block-packing-mode = <0>;
 			swrm-io-base = <0x3250000 0x0>;
