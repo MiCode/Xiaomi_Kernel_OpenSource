@@ -2399,7 +2399,7 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}
 
-	if (sys->repl->cache) {
+	if (sys->repl) {
 		head = atomic_read(&sys->repl->head_idx);
 		tail = atomic_read(&sys->repl->tail_idx);
 		while (head != tail) {
