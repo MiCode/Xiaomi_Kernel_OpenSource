@@ -14,6 +14,7 @@
 
 #include "qcs610.dtsi"
 #include "qcs610-iot.dtsi"
+#include "sm6150-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";
