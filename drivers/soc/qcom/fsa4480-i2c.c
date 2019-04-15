@@ -15,6 +15,7 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
+#include <linux/mutex.h>
 #include <linux/soc/qcom/fsa4480-i2c.h>
 
 #define FSA4480_I2C_NAME	"fsa4480-driver"
@@ -41,6 +42,7 @@ struct fsa4480_priv {
 	atomic_t usbc_mode;
 	struct work_struct usbc_analog_work;
 	struct blocking_notifier_head fsa4480_notifier;
+	struct mutex notification_lock;
 };
 
 struct fsa4480_reg_val {
@@ -132,6 +134,58 @@ static int fsa4480_usbc_event_changed(struct notifier_block *nb,
 	return ret;
 }
 
+static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
+{
+	int rc = 0;
+	union power_supply_propval mode;
+	struct device *dev;
+
+	if (!fsa_priv)
+		return -EINVAL;
+	dev = fsa_priv->dev;
+	if (!dev)
+		return -EINVAL;
+
+	mutex_lock(&fsa_priv->notification_lock);
+	/* get latest mode again within locked context */
+	rc = power_supply_get_property(fsa_priv->usb_psy,
+			POWER_SUPPLY_PROP_TYPEC_MODE, &mode);
+	if (rc) {
+		dev_err(dev, "%s: Unable to read USB TYPEC_MODE: %d\n",
+			__func__, rc);
+		goto done;
+	}
+	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
+		__func__, mode.intval != POWER_SUPPLY_TYPEC_NONE);
+
+	switch (mode.intval) {
+	/* add all modes FSA should notify for in here */
+	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
+		/* activate switches */
+		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
+
+		/* notify call chain on event */
+		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
+		mode.intval, NULL);
+		break;
+	case POWER_SUPPLY_TYPEC_NONE:
+		/* notify call chain on event */
+		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
+				POWER_SUPPLY_TYPEC_NONE, NULL);
+
+		/* deactivate switches */
+		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
+		break;
+	default:
+		/* ignore other usb connection modes */
+		break;
+	}
+
+done:
+	mutex_unlock(&fsa_priv->notification_lock);
+	return rc;
+}
+
 /*
  * fsa4480_reg_notifier - register notifier block with fsa driver
  *
@@ -165,9 +219,7 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 	 */
 	dev_dbg(fsa_priv->dev, "%s: verify if USB adapter is already inserted\n",
 		__func__);
-	rc = fsa4480_usbc_event_changed(&fsa_priv->psy_nb,
-					     PSY_EVENT_PROP_CHANGED,
-					     fsa_priv->usb_psy);
+	rc = fsa4480_usbc_analog_setup_switches(fsa_priv);
 
 	return rc;
 }
@@ -194,7 +246,6 @@ int fsa4480_unreg_notifier(struct notifier_block *nb,
 	if (!fsa_priv)
 		return -EINVAL;
 
-	atomic_set(&(fsa_priv->usbc_mode), 0);
 	fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
 	return blocking_notifier_chain_unregister
 					(&fsa_priv->fsa4480_notifier, nb);
@@ -266,33 +317,6 @@ int fsa4480_switch_event(struct device_node *node,
 }
 EXPORT_SYMBOL(fsa4480_switch_event);
 
-static int fsa4480_usbc_analog_setup_switches
-			(struct fsa4480_priv *fsa_priv, bool active)
-{
-	int rc = 0;
-
-	dev_dbg(fsa_priv->dev, "%s: setting GPIOs active = %d\n",
-		__func__, active);
-
-	if (active) {
-		/* activate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
-
-		/* notify call chain on event */
-		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
-		POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER, NULL);
-	} else {
-		/* notify call chain on event */
-		blocking_notifier_call_chain(&fsa_priv->fsa4480_notifier,
-				POWER_SUPPLY_TYPEC_NONE, NULL);
-
-		/* deactivate switches */
-		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0x98);
-	}
-
-	return rc;
-}
-
 static void fsa4480_usbc_analog_work_fn(struct work_struct *work)
 {
 	struct fsa4480_priv *fsa_priv =
@@ -302,8 +326,7 @@ static void fsa4480_usbc_analog_work_fn(struct work_struct *work)
 		pr_err("%s: fsa container invalid\n", __func__);
 		return;
 	}
-	fsa4480_usbc_analog_setup_switches(fsa_priv,
-		atomic_read(&(fsa_priv->usbc_mode)) != POWER_SUPPLY_TYPEC_NONE);
+	fsa4480_usbc_analog_setup_switches(fsa_priv);
 	pm_relax(fsa_priv->dev);
 }
 
@@ -361,6 +384,7 @@ static int fsa4480_probe(struct i2c_client *i2c,
 		goto err_supply;
 	}
 
+	mutex_init(&fsa_priv->notification_lock);
 	i2c_set_clientdata(i2c, fsa_priv);
 
 	INIT_WORK(&fsa_priv->usbc_analog_work,
@@ -394,6 +418,7 @@ static int fsa4480_remove(struct i2c_client *i2c)
 	/* deregister from PMI */
 	power_supply_unreg_notifier(&fsa_priv->psy_nb);
 	power_supply_put(fsa_priv->usb_psy);
+	mutex_destroy(&fsa_priv->notification_lock);
 	dev_set_drvdata(&i2c->dev, NULL);
 
 	return 0;
