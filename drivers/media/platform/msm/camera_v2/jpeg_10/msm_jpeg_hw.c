@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -903,7 +903,7 @@ int msm_jpeg_hw_exec_cmds(struct msm_jpeg_hw_cmd *hw_cmd_p, uint32_t m_cmds,
 
 void msm_jpeg_io_dump(void *base, int size)
 {
-	char line_str[128];
+	char line_str[140];
 	void __iomem *addr = (void __iomem *)base;
 	int i;
 	u32 *p = (u32 *) addr;
@@ -914,10 +914,10 @@ void msm_jpeg_io_dump(void *base, int size)
 	u32 data;
 	JPEG_DBG_HIGH("%s:%d] %pK %d", __func__, __LINE__, addr, size);
 	line_str[0] = '\0';
-	for (i = 0; i < size/4; i++) {
+	for (i = 0; i < size; i = i+4) {
 		if (i % 4 == 0) {
 			used = snprintf(line_str + offset,
-				sizeof_line_str - offset, "%pK ", p);
+				sizeof_line_str - offset, "%pK", p+i);
 			if ((used < min_range) ||
 				(offset + used >= sizeof_line_str)) {
 				JPEG_PR_ERR("%s\n", line_str);
@@ -927,9 +927,9 @@ void msm_jpeg_io_dump(void *base, int size)
 				offset += used;
 			}
 		}
-		data = msm_camera_io_r(p++);
+		data = msm_camera_io_r((void __iomem *) (p + i));
 		used = snprintf(line_str + offset,
-			sizeof_line_str - offset, "%08x ", data);
+			sizeof_line_str - offset, " - %08x ", data);
 		if ((used < min_range) ||
 			(offset + used >= sizeof_line_str)) {
 			JPEG_PR_ERR("%s\n", line_str);
@@ -937,11 +937,6 @@ void msm_jpeg_io_dump(void *base, int size)
 			line_str[0] = '\0';
 		} else {
 			offset += used;
-		}
-		if ((i + 1) % 4 == 0) {
-			JPEG_DBG_HIGH("%s\n", line_str);
-			line_str[0] = '\0';
-			offset = 0;
 		}
 	}
 	if (line_str[0] != '\0')
