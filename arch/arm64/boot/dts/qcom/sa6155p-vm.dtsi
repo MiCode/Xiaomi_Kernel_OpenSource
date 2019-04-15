@@ -51,6 +51,22 @@
 			reg = <0x0 0xa0000000 0x0 0x20000000>;
 			label = "pmem_shared_mem";
 		};
+
+		qseecom_mem: qseecom_region@0x9e400000 {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+		};
 	};
 
 	firmware: firmware {
@@ -108,6 +124,18 @@
 		system_heap: qcom,ion-heap@25 {
 			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			reg = <27>;
+			memory-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <19>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
 		};
 	};
 
@@ -305,6 +333,19 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3230000>;
 			status = "ok";
+	};
+
+	qcom_seecom: qseecom@86d00000 {
+			compatible = "qcom,qseecom";
+			reg = <0x86d00000 0xe00000>;
+			reg-names = "secapp-region";
+			memory-region = <&qseecom_mem>;
+			qcom,hlos-num-ce-hw-instances = <1>;
+			qcom,hlos-ce-hw-instance = <0>;
+			qcom,qsee-ce-hw-instance = <0>;
+			qcom,disk-encrypt-pipe-pair = <2>;
+			qcom,no-clock-support;
+			qcom,qsee-reentrancy-support = <2>;
 	};
 };
 
