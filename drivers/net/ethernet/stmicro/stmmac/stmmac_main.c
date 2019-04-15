@@ -1747,11 +1747,6 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 	if (ret < 0)
 		pr_warn("%s: failed debugFS registration\n", __func__);
 #endif
-	/* Start the ball rolling... */
-	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
-	priv->hw->dma->start_tx(priv->ioaddr);
-	priv->hw->dma->start_rx(priv->ioaddr);
-
 	/* Dump DMA/MAC registers */
 	if (netif_msg_hw(priv)) {
 		priv->hw->mac->dump_regs(priv->hw);
@@ -1778,6 +1773,11 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 	/* Enable TSO */
 	if (priv->tso)
 		priv->hw->dma->enable_tso(priv->ioaddr, 1, STMMAC_CHAN0);
+
+	/* Start the ball rolling... */
+	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
+	priv->hw->dma->start_tx(priv->ioaddr);
+	priv->hw->dma->start_rx(priv->ioaddr);
 
 	return 0;
 }
