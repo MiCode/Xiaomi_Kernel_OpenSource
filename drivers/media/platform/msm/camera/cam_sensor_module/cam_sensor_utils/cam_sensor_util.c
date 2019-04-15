@@ -340,7 +340,7 @@ int cam_sensor_i2c_command_parser(
 				sizeof(struct common_header)) {
 				CAM_ERR(CAM_SENSOR, "Not enough buffer");
 				rc = -EINVAL;
-				goto rel_buf;
+				goto end;
 			}
 			cmm_hdr = (struct common_header *)cmd_buf;
 			generic_op_code = cmm_hdr->fifth_byte;
@@ -356,7 +356,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 				tot_size = sizeof(struct i2c_rdwr_header) +
 					(sizeof(struct i2c_random_wr_payload) *
@@ -366,7 +366,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 
 				rc = cam_sensor_handle_random_write(
@@ -377,7 +377,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 					"Failed in random write %d", rc);
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 
 				cmd_buf += cmd_length_in_bytes /
@@ -397,7 +397,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 
 				tot_size = sizeof(struct i2c_rdwr_header) +
@@ -409,7 +409,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer provided");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 
 				rc = cam_sensor_handle_continuous_write(
@@ -419,7 +419,7 @@ int cam_sensor_i2c_command_parser(
 				if (rc < 0) {
 					CAM_ERR(CAM_SENSOR,
 					"Failed in continuous write %d", rc);
-					goto rel_buf;
+					goto end;
 				}
 
 				cmd_buf += cmd_length_in_bytes /
@@ -433,7 +433,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer space");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 				if (generic_op_code ==
 					CAMERA_SENSOR_WAIT_OP_HW_UCND ||
@@ -447,7 +447,7 @@ int cam_sensor_i2c_command_parser(
 						CAM_ERR(CAM_SENSOR,
 							"delay hdl failed: %d",
 							rc);
-						goto rel_buf;
+						goto end;
 					}
 
 				} else if (generic_op_code ==
@@ -459,14 +459,14 @@ int cam_sensor_i2c_command_parser(
 						CAM_ERR(CAM_SENSOR,
 							"Random read fail: %d",
 							rc);
-						goto rel_buf;
+						goto end;
 					}
 				} else {
 					CAM_ERR(CAM_SENSOR,
 						"Wrong Wait Command: %d",
 						generic_op_code);
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 				break;
 			}
@@ -476,7 +476,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 						"Not enough buffer space");
 					rc = -EINVAL;
-					goto rel_buf;
+					goto end;
 				}
 				rc = cam_sensor_handle_slave_info(
 					io_master, cmd_buf);
@@ -484,7 +484,7 @@ int cam_sensor_i2c_command_parser(
 					CAM_ERR(CAM_SENSOR,
 					"Handle slave info failed with rc: %d",
 					rc);
-					goto rel_buf;
+					goto end;
 				}
 				cmd_length_in_bytes =
 					sizeof(struct cam_cmd_i2c_info);
@@ -497,21 +497,13 @@ int cam_sensor_i2c_command_parser(
 				CAM_ERR(CAM_SENSOR, "Invalid Command Type:%d",
 					 cmm_hdr->cmd_type);
 				rc = -EINVAL;
-				goto rel_buf;
+				goto end;
 			}
 		}
 		i2c_reg_settings->is_settings_valid = 1;
-		if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
-			CAM_WARN(CAM_SENSOR, "put failed for buffer :0x%x",
-				cmd_desc[i].mem_handle);
 	}
 
-	return rc;
-
-rel_buf:
-	if (cam_mem_put_cpu_buf(cmd_desc[i].mem_handle))
-		CAM_WARN(CAM_SENSOR, "put failed for buffer :0x%x",
-			cmd_desc[i].mem_handle);
+end:
 	return rc;
 }
 

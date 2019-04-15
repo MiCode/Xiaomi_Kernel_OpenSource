@@ -228,9 +228,7 @@ EXPORT_SYMBOL(cam_mem_get_io_buf);
 
 int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 {
-	int rc = 0;
 	int idx;
-	struct dma_buf *dmabuf = NULL;
 
 	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
@@ -254,72 +252,17 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		return -EINVAL;
 
 	if (tbl.bufq[idx].kmdvaddr) {
-		dmabuf = tbl.bufq[idx].dma_buf;
-		if (!dmabuf) {
-			CAM_ERR(CAM_MEM, "Invalid DMA buffer pointer");
-			return -EINVAL;
-		}
-		rc = dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
-		if (rc) {
-			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
-			return rc;
-		}
+		*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
+		*len = tbl.bufq[idx].len;
 	} else {
+		CAM_ERR(CAM_MEM, "No KMD access was requested for 0x%x handle",
+			buf_handle);
 		return -EINVAL;
 	}
 
-	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
-	*len = tbl.bufq[idx].len;
-
-	return rc;
+	return 0;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
-
-int cam_mem_put_cpu_buf(int32_t buf_handle)
-{
-	int rc = 0;
-	int idx;
-	struct dma_buf *dmabuf = NULL;
-
-	if (!atomic_read(&cam_mem_mgr_state)) {
-		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
-		return -EINVAL;
-	}
-
-	if (!buf_handle)
-		return -EINVAL;
-
-	idx = CAM_MEM_MGR_GET_HDL_IDX(buf_handle);
-	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
-		return -EINVAL;
-
-	if (!tbl.bufq[idx].active)
-		return -EPERM;
-
-	if (buf_handle != tbl.bufq[idx].buf_handle)
-		return -EINVAL;
-
-	dmabuf = tbl.bufq[idx].dma_buf;
-	if (!dmabuf) {
-		CAM_ERR(CAM_CRM, "Invalid DMA buffer pointer");
-		return -EINVAL;
-	}
-
-	if ((tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) &&
-		(tbl.bufq[idx].kmdvaddr)) {
-		rc = dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
-		if (rc) {
-			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
-			return rc;
-		}
-	} else {
-		CAM_ERR(CAM_MEM, "Invalid buf flag");
-		rc = -EINVAL;
-	}
-
-	return rc;
-}
-EXPORT_SYMBOL(cam_mem_put_cpu_buf);
 
 int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 {
