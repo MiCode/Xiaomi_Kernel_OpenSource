@@ -40,6 +40,9 @@
 /* Indicate backport support for external authentication in AP mode */
 #define CFG80211_EXTERNAL_AUTH_AP_SUPPORT 1
 
+/* Indicate support for reporting rx FCS in cfg80211 */
+#define CFG80211_RX_FCS_ERROR_REPORTING_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
