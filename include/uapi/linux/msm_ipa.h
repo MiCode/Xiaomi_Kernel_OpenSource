@@ -1782,6 +1782,23 @@ struct ipa_wlan_msg {
 };
 
 /**
+ * struct ipa_wigig_msg- To hold information about wigig event
+ * @name: name of the wigig interface
+ * @client_mac_addr: the relevant wigig client mac address
+ * @ipa_client: TX pipe associated with the wigig client in case of connect
+ * @to_wigig: FST switch direction wlan->wigig?
+ */
+struct ipa_wigig_msg {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t client_mac_addr[IPA_MAC_ADDR_SIZE];
+	union {
+		enum ipa_client_type ipa_client;
+		uint8_t to_wigig;
+	} u;
+};
+#define feature_ipa_wigig_msg 1
+
+/**
  * enum ipa_wlan_hdr_attrib_type - attribute type
  * in wlan client header
  *

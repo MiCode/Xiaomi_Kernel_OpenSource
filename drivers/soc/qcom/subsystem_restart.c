@@ -1889,7 +1889,8 @@ static int __init subsys_restart_init(void)
 {
 	int ret;
 
-	ssr_wq = alloc_workqueue("ssr_wq", WQ_CPU_INTENSIVE, 0);
+	ssr_wq = alloc_workqueue("ssr_wq",
+		WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 0);
 	BUG_ON(!ssr_wq);
 
 	ret = bus_register(&subsys_bus_type);

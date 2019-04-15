@@ -2432,15 +2432,16 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 		return -EINVAL;
 	}
 
+	mutex_lock(&g_crm_core_dev->crm_lock);
+
 	/* session hdl's priv data is cam session struct */
 	cam_session = (struct cam_req_mgr_core_session *)
 		cam_get_device_priv(link_info->session_hdl);
 	if (!cam_session) {
 		CAM_DBG(CAM_CRM, "NULL pointer");
+		mutex_unlock(&g_crm_core_dev->crm_lock);
 		return -EINVAL;
 	}
-
-	mutex_lock(&g_crm_core_dev->crm_lock);
 
 	/* Allocate link struct and map it with session's request queue */
 	link = __cam_req_mgr_reserve_link(cam_session);
@@ -2778,7 +2779,8 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 		goto end;
 	}
 
-	if (control->num_links > MAX_LINKS_PER_SESSION) {
+	if ((control->num_links <= 0) ||
+		(control->num_links > MAX_LINKS_PER_SESSION)) {
 		CAM_ERR(CAM_CRM, "Invalid number of links %d",
 			control->num_links);
 		rc = -EINVAL;

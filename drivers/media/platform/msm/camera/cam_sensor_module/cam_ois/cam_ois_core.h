@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 #include <linux/cma.h>
 #include <linux/dma-contiguous.h>
 #include "cam_ois_dev.h"
+
+#define OIS_NAME_LEN 32
 
 /**
  * @power_info: power setting info to control the power
