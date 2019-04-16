@@ -401,14 +401,7 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,max-secure-instances",
-		.value = 2,             /*
-					 * As per design driver allows 3rd
-					 * instance as well since the secure
-					 * flags were updated later for the
-					 * current instance. Hence total
-					 * secure sessions would be
-					 * max-secure-instances + 1.
-					 */
+		.value = 3,
 	},
 	{
 		.key = "qcom,max-hw-load",
