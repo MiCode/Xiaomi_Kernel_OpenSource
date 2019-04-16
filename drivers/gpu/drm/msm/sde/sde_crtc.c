@@ -318,6 +318,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	struct sde_hw_mixer *lm;
 	struct sde_splash_info *sinfo;
 	struct sde_kms *sde_kms = _sde_crtc_get_kms(crtc);
+	bool splash_enabled = false;
+	u32 mixer_mask = 0, mixer_ext_mask = 0;
 
 	int i;
 
@@ -339,6 +341,9 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		return;
 	}
 
+	sde_splash_get_mixer_mask(sinfo, &splash_enabled,
+				&mixer_mask, &mixer_ext_mask);
+
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
 		if (!mixer[i].hw_lm || !mixer[i].hw_ctl) {
 			SDE_ERROR("invalid lm or ctl assigned to mixer\n");
@@ -348,10 +353,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		mixer[i].flush_mask = 0;
 		if (mixer[i].hw_ctl->ops.clear_all_blendstages)
 			mixer[i].hw_ctl->ops.clear_all_blendstages(
-					mixer[i].hw_ctl,
-					sinfo->handoff,
-					sinfo->reserved_pipe_info,
-					MAX_BLOCKS);
+					mixer[i].hw_ctl, splash_enabled,
+					mixer_mask, mixer_ext_mask);
 	}
 
 	/* initialize stage cfg */
@@ -379,7 +382,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&sde_crtc->stage_cfg, i,
-			sinfo->handoff, sinfo->reserved_pipe_info, MAX_BLOCKS);
+			splash_enabled, mixer_mask, mixer_ext_mask);
 	}
 }
 

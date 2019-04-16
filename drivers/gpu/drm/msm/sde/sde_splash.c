@@ -52,6 +52,35 @@
 
 static DEFINE_MUTEX(sde_splash_lock);
 
+static struct splash_pipe_caps splash_pipe_cap[MAX_BLOCKS] = {
+	{SSPP_VIG0, BIT(0), 0x7 << 0, BIT(0)},
+	{SSPP_VIG1, BIT(1), 0x7 << 3, BIT(2)},
+	{SSPP_VIG2, BIT(2), 0x7 << 6, BIT(4)},
+	{SSPP_VIG3, BIT(18), 0x7 << 26, BIT(6)},
+	{SSPP_RGB0, BIT(3), 0x7 << 9, BIT(8)},
+	{SSPP_RGB1, BIT(4), 0x7 << 12, BIT(10)},
+	{SSPP_RGB2, BIT(5), 0x7 << 15, BIT(12)},
+	{SSPP_RGB3, BIT(19), 0x7 << 29, BIT(14)},
+	{SSPP_DMA0, BIT(11), 0x7 << 18, BIT(16)},
+	{SSPP_DMA1, BIT(12), 0x7 << 21, BIT(18)},
+	{SSPP_CURSOR0, 0, 0, 0},
+	{SSPP_CURSOR1, 0, 0, 0},
+};
+
+static inline uint32_t _sde_splash_get_pipe_arrary_index(enum sde_sspp pipe)
+{
+	uint32_t i = 0, index = MAX_BLOCKS;
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (pipe == splash_pipe_cap[i].pipe) {
+			index = i;
+			break;
+		}
+	}
+
+	return index;
+}
+
 /*
  * In order to free reseved memory from bootup, and we are not
  * able to call the __init free functions, so we need to free
@@ -407,9 +436,25 @@ static void
 _sde_splash_release_early_splash_layer(struct sde_splash_info *splash_info)
 {
 	int i = 0;
+	uint32_t index;
 
 	for (i = 0; i < MAX_BLOCKS; i++) {
 		if (splash_info->reserved_pipe_info[i].early_release) {
+			index = _sde_splash_get_pipe_arrary_index(
+				splash_info->reserved_pipe_info[i].pipe_id);
+			if (index < MAX_BLOCKS) {
+				/*
+				 * Clear flush bits, mixer mask and extension
+				 * mask of released pipes.
+				 */
+				splash_info->flush_bits &=
+					~splash_pipe_cap[index].flush_bit;
+				splash_info->mixer_mask &=
+					~splash_pipe_cap[index].mixer_mask;
+				splash_info->mixer_ext_mask &=
+					~splash_pipe_cap[index].mixer_ext_mask;
+			}
+
 			splash_info->reserved_pipe_info[i].pipe_id =
 								0xFFFFFFFF;
 			splash_info->reserved_pipe_info[i].early_release =
@@ -566,6 +611,7 @@ int sde_splash_parse_reserved_plane_dt(struct drm_device *dev,
 	struct property *prop;
 	const char *cname;
 	int ret = 0, i = 0;
+	uint32_t index;
 
 	if (!splash_info || !cfg)
 		return -EINVAL;
@@ -579,6 +625,11 @@ int sde_splash_parse_reserved_plane_dt(struct drm_device *dev,
 		splash_info->reserved_pipe_info[i].pipe_id = 0xFFFFFFFF;
 		splash_info->reserved_pipe_info[i].early_release = false;
 	}
+
+	/* Reset flush bits and mixer mask of reserved planes */
+	splash_info->flush_bits = 0;
+	splash_info->mixer_mask = 0;
+	splash_info->mixer_ext_mask = 0;
 
 	i = 0;
 	for_each_child_of_node(parent, node) {
@@ -596,6 +647,19 @@ int sde_splash_parse_reserved_plane_dt(struct drm_device *dev,
 
 		splash_info->reserved_pipe_info[i].early_release =
 			of_property_read_bool(node, "qcom,pipe-early-release");
+
+		index = _sde_splash_get_pipe_arrary_index(
+				splash_info->reserved_pipe_info[i].pipe_id);
+
+		if (index < MAX_BLOCKS) {
+			splash_info->flush_bits |=
+					splash_pipe_cap[index].flush_bit;
+			splash_info->mixer_mask |=
+					splash_pipe_cap[index].mixer_mask;
+			splash_info->mixer_ext_mask |=
+					splash_pipe_cap[index].mixer_ext_mask;
+		}
+
 		i++;
 	}
 
@@ -878,55 +942,14 @@ void sde_splash_decrease_connector_cnt(struct drm_device *dev,
 	}
 }
 
-void sde_splash_get_mixer_mask(
-	const struct splash_reserved_pipe_info *resv_pipes,
-	u32 length, u32 *mixercfg, u32 *mixercfg_ext)
+void sde_splash_get_mixer_mask(struct sde_splash_info *sinfo,
+		bool *splash_on, u32 *mixercfg, u32 *mixercfg_ext)
 {
-	int i = 0;
-	u32 mixer_mask = 0;
-	u32 mixer_ext_mask = 0;
-
-	for (i = 0; i < length; i++) {
-		switch (resv_pipes[i].pipe_id) {
-		case SSPP_VIG0:
-			mixer_mask |= 0x7 << 0;
-			mixer_ext_mask |= BIT(0);
-			break;
-		case SSPP_VIG1:
-			mixer_mask |= 0x7 << 3;
-			mixer_ext_mask |= BIT(2);
-			break;
-		case SSPP_VIG2:
-			mixer_mask |= 0x7 << 6;
-			mixer_ext_mask |= BIT(4);
-			break;
-		case SSPP_VIG3:
-			mixer_mask |= 0x7 << 26;
-			mixer_ext_mask |= BIT(6);
-			break;
-		case SSPP_RGB0:
-			mixer_mask |= 0x7 << 9;
-			mixer_ext_mask |= BIT(8);
-			break;
-		case SSPP_RGB1:
-			mixer_mask |= 0x7 << 12;
-			mixer_ext_mask |= BIT(10);
-			break;
-		case SSPP_RGB2:
-			mixer_mask |= 0x7 << 15;
-			mixer_ext_mask |= BIT(12);
-			break;
-		case SSPP_RGB3:
-			mixer_mask |= 0x7 << 29;
-			mixer_ext_mask |= BIT(14);
-			break;
-		default:
-			break;
-		}
-	}
-
-	*mixercfg = mixer_mask;
-	*mixercfg_ext = mixer_ext_mask;
+	mutex_lock(&sde_splash_lock);
+	*splash_on = sinfo->handoff;
+	*mixercfg = sinfo->mixer_mask;
+	*mixercfg_ext = sinfo->mixer_ext_mask;
+	mutex_unlock(&sde_splash_lock);
 }
 
 bool sde_splash_get_lk_complete_status(struct msm_kms *kms)
@@ -1029,6 +1052,11 @@ int sde_splash_free_resource(struct msm_kms *kms,
 		/* set display's splash status to false after handoff is done */
 		_sde_splash_update_display_splash_status(sde_kms);
 
+		/* Reset flush_bits and mixer mask */
+		sinfo->flush_bits = 0;
+		sinfo->mixer_mask = 0;
+		sinfo->mixer_ext_mask = 0;
+
 		/* Finally mark handoff flag to false to say
 		 * handoff is complete.
 		 */
@@ -1129,8 +1157,8 @@ static int _sde_splash_clear_mixer_blendstage(struct msm_kms *kms,
 				mixer[i].hw_ctl->ops.clear_all_blendstages(
 						mixer[i].hw_ctl,
 						sinfo->handoff,
-						sinfo->reserved_pipe_info,
-						MAX_BLOCKS);
+						sinfo->mixer_mask,
+						sinfo->mixer_ext_mask);
 		}
 	}
 	return 0;
