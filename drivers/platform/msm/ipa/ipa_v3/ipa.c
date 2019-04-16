@@ -130,8 +130,6 @@ struct ipa3_context *ipa3_ctx;
 static struct {
 	bool present[IPA_SMMU_CB_MAX];
 	bool arm_smmu;
-	bool fast_map;
-	bool s1_bypass_arr[IPA_SMMU_CB_MAX];
 	bool use_64_bit_dma_mask;
 	u32 ipa_base;
 	u32 ipa_size;
@@ -351,59 +349,34 @@ static void ipa3_active_clients_log_destroy(void)
 
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
-struct iommu_domain *ipa3_get_smmu_domain(void)
+struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
 {
-	if (smmu_cb[IPA_SMMU_CB_AP].valid)
-		return smmu_cb[IPA_SMMU_CB_AP].mapping->domain;
+	if (VALID_IPA_SMMU_CB_TYPE(cb_type) && smmu_cb[cb_type].valid)
+		return smmu_cb[cb_type].iommu_domain;
 
-	IPAERR("CB not valid\n");
+	IPAERR("cb_type(%d) not valid\n", cb_type);
 
 	return NULL;
+}
+
+struct iommu_domain *ipa3_get_smmu_domain(void)
+{
+	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_AP);
 }
 
 struct iommu_domain *ipa3_get_uc_smmu_domain(void)
 {
-	if (smmu_cb[IPA_SMMU_CB_UC].valid)
-		return smmu_cb[IPA_SMMU_CB_UC].mapping->domain;
-
-	IPAERR("CB not valid\n");
-
-	return NULL;
+	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_UC);
 }
 
 struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 {
-	if (smmu_cb[IPA_SMMU_CB_WLAN].valid)
-		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
-
-	IPAERR("CB not valid\n");
-
-	return NULL;
+	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_WLAN);
 }
 
 struct iommu_domain *ipa3_get_11ad_smmu_domain(void)
 {
-	if (smmu_cb[IPA_SMMU_CB_11AD].valid)
-		return smmu_cb[IPA_SMMU_CB_11AD].iommu;
-
-	IPAERR("CB not valid\n");
-
-	return NULL;
-}
-
-struct iommu_domain *ipa3_get_smmu_domain_by_type(enum ipa_smmu_cb_type cb_type)
-{
-
-	if ((cb_type == IPA_SMMU_CB_WLAN || cb_type == IPA_SMMU_CB_11AD)
-		&& smmu_cb[cb_type].valid)
-		return smmu_cb[cb_type].iommu;
-
-	if (smmu_cb[cb_type].valid)
-		return smmu_cb[cb_type].mapping->domain;
-
-	IPAERR("CB#%d not valid\n", cb_type);
-
-	return NULL;
+	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_11AD);
 }
 
 struct device *ipa3_get_dma_dev(void)
@@ -6296,77 +6269,66 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
-	int atomic_ctx = 1;
-	int fast = 1;
-	int bypass = 1;
-	int ret;
+	int fast = 0;
+	int bypass = 0;
 	u32 add_map_size;
 	const u32 *add_map;
 	int i;
+	u32 iova_ap_mapping[2];
 
-	IPADBG("sub pdev=%pK\n", dev);
+	IPADBG("WLAN CB PROBE dev=%pK\n", dev);
 
 	if (!smmu_info.present[IPA_SMMU_CB_WLAN]) {
 		IPAERR("WLAN SMMU is disabled\n");
 		return 0;
 	}
 
-	cb->dev = dev;
-	cb->iommu = iommu_domain_alloc(dev->bus);
-	if (!cb->iommu) {
-		IPAERR("could not alloc iommu domain\n");
-		/* assume this failure is because iommu driver is not ready */
-		return -EPROBE_DEFER;
+	IPADBG("WLAN CB PROBE dev=%pK retrieving IOMMU mapping\n", dev);
+
+	cb->iommu_domain = iommu_get_domain_for_dev(dev);
+	if (IS_ERR_OR_NULL(cb->iommu_domain)) {
+		IPAERR("could not get iommu domain\n");
+		return -EINVAL;
 	}
+
+	IPADBG("WLAN CB PROBE mapping retrieved\n");
+
+	cb->dev   = dev;
 	cb->valid = true;
 
-	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass") ||
-		ipa3_ctx->ipa_config_is_mhi) {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = true;
-
-		if (iommu_domain_set_attr(cb->iommu,
-					DOMAIN_ATTR_S1_BYPASS,
-					&bypass)) {
-			IPAERR("couldn't set bypass\n");
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("WLAN SMMU S1 BYPASS\n");
-	} else {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = false;
-
-		if (iommu_domain_set_attr(cb->iommu,
-					DOMAIN_ATTR_ATOMIC,
-					&atomic_ctx)) {
-			IPAERR("couldn't disable coherent HTW\n");
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG(" WLAN SMMU ATTR ATOMIC\n");
-
-		if (smmu_info.fast_map) {
-			if (iommu_domain_set_attr(cb->iommu,
-						DOMAIN_ATTR_FAST,
-						&fast)) {
-				IPAERR("couldn't set fast map\n");
-				cb->valid = false;
-				return -EIO;
-			}
-			IPADBG("SMMU fast map set\n");
-		}
+	cb->va_start = cb->va_end  = cb->va_size = 0;
+	if (of_property_read_u32_array(
+			dev->of_node, "qcom,iommu-dma-addr-pool",
+			iova_ap_mapping, 2) == 0) {
+		cb->va_start = iova_ap_mapping[0];
+		cb->va_size  = iova_ap_mapping[1];
+		cb->va_end   = cb->va_start + cb->va_size;
 	}
 
-	pr_info("IPA smmu_info.s1_bypass_arr[WLAN]=%d smmu_info.fast_map=%d\n",
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_WLAN], smmu_info.fast_map);
+	IPADBG("WLAN CB PROBE dev=%pK va_start=0x%x va_size=0x%x\n",
+		   dev, cb->va_start, cb->va_size);
 
-	ret = iommu_attach_device(cb->iommu, dev);
-	if (ret) {
-		IPAERR("could not attach device ret=%d\n", ret);
-		cb->valid = false;
-		return ret;
-	}
+	/*
+	 * Prior to these calls to iommu_domain_get_attr(), these
+	 * attributes were set in this function relative to dtsi values
+	 * defined for this driver.  In other words, if corresponding ipa
+	 * driver owned values were found in the dtsi, they were read and
+	 * set here.
+	 *
+	 * In this new world, the developer will use iommu owned dtsi
+	 * settings to set them there.  This new logic below, simply
+	 * checks to see if they've been set in dtsi.  If so, the logic
+	 * further below acts accordingly...
+	 */
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_S1_BYPASS, &bypass);
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_FAST, &fast);
+
+	IPADBG(
+	  "WLAN CB PROBE dev=%pK DOMAIN ATTRS bypass=%d fast=%d\n",
+	  dev, bypass, fast);
+
+	ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_WLAN] = (bypass != 0);
+
 	/* MAP ipa-uc ram */
 	add_map = of_get_property(dev->of_node,
 		"qcom,additional-mapping", &add_map_size);
@@ -6391,123 +6353,88 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->iommu,
+			ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 		}
 	}
+
 	return 0;
 }
 
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
-	int atomic_ctx = 1;
-	int bypass = 1;
-	int fast = 1;
-	int ret;
+	int bypass = 0;
+	int fast = 0;
 	u32 iova_ap_mapping[2];
 
-	IPADBG("UC CB PROBE sub pdev=%pK\n", dev);
+	IPADBG("UC CB PROBE dev=%pK\n", dev);
 
 	if (!smmu_info.present[IPA_SMMU_CB_UC]) {
 		IPAERR("UC SMMU is disabled\n");
 		return 0;
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
-			iova_ap_mapping, 2);
-	if (ret) {
-		IPAERR("Fail to read UC start/size iova addresses\n");
-		return ret;
-	}
-	cb->va_start = iova_ap_mapping[0];
-	cb->va_size = iova_ap_mapping[1];
-	cb->va_end = cb->va_start + cb->va_size;
-	IPADBG("UC va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
-
 	if (smmu_info.use_64_bit_dma_mask) {
 		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
-				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
 			IPAERR("DMA set 64bit mask failed\n");
 			return -EOPNOTSUPP;
 		}
 	} else {
 		if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-				dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+			dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
 			IPAERR("DMA set 32bit mask failed\n");
 			return -EOPNOTSUPP;
 		}
 	}
-	IPADBG("UC CB PROBE=%pK create IOMMU mapping\n", dev);
 
-	cb->dev = dev;
-	cb->mapping = __depr_arm_iommu_create_mapping(dev->bus,
-			cb->va_start, cb->va_size);
-	if (IS_ERR_OR_NULL(cb->mapping)) {
-		IPADBG("Fail to create mapping\n");
-		/* assume this failure is because iommu driver is not ready */
-		return -EPROBE_DEFER;
+	IPADBG("UC CB PROBE dev=%pK retrieving IOMMU mapping\n", dev);
+
+	cb->iommu_domain = iommu_get_domain_for_dev(dev);
+	if (IS_ERR_OR_NULL(cb->iommu_domain)) {
+		IPAERR("could not get iommu domain\n");
+		return -EINVAL;
 	}
-	IPADBG("SMMU mapping created\n");
+
+	IPADBG("UC CB PROBE mapping retrieved\n");
+
+	cb->dev   = dev;
 	cb->valid = true;
 
-	IPADBG("UC CB PROBE sub pdev=%pK set attribute\n", dev);
-
-	if (of_property_read_bool(dev->of_node, "qcom,smmu-s1-bypass") ||
-		ipa3_ctx->ipa_config_is_mhi) {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = true;
-
-		if (iommu_domain_set_attr(cb->mapping->domain,
-			DOMAIN_ATTR_S1_BYPASS,
-			&bypass)) {
-			IPAERR("couldn't set bypass\n");
-			__depr_arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("UC SMMU S1 BYPASS\n");
-	} else {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = false;
-
-		if (iommu_domain_set_attr(cb->mapping->domain,
-			DOMAIN_ATTR_ATOMIC,
-			&atomic_ctx)) {
-			IPAERR("couldn't set domain as atomic\n");
-			__depr_arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("SMMU atomic set\n");
-
-		if (smmu_info.fast_map) {
-			if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_FAST,
-				&fast)) {
-				IPAERR("couldn't set fast map\n");
-				__depr_arm_iommu_release_mapping(cb->mapping);
-				cb->valid = false;
-				return -EIO;
-			}
-			IPADBG("SMMU fast map set\n");
-		}
+	cb->va_start = cb->va_end  = cb->va_size = 0;
+	if (of_property_read_u32_array(
+			dev->of_node, "qcom,iommu-dma-addr-pool",
+			iova_ap_mapping, 2) == 0) {
+		cb->va_start = iova_ap_mapping[0];
+		cb->va_size  = iova_ap_mapping[1];
+		cb->va_end   = cb->va_start + cb->va_size;
 	}
 
-	pr_info("IPA smmu_info.s1_bypass_arr[UC]=%d smmu_info.fast_map=%d\n",
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_UC], smmu_info.fast_map);
+	IPADBG("UC CB PROBE dev=%pK va_start=0x%x va_size=0x%x\n",
+		   dev, cb->va_start, cb->va_size);
 
-	IPADBG("UC CB PROBE sub pdev=%pK attaching IOMMU device\n", dev);
-	ret = __depr_arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (ret) {
-		IPAERR("could not attach device ret=%d\n", ret);
-		__depr_arm_iommu_release_mapping(cb->mapping);
-		cb->valid = false;
-		return ret;
-	}
+	/*
+	 * Prior to these calls to iommu_domain_get_attr(), these
+	 * attributes were set in this function relative to dtsi values
+	 * defined for this driver.  In other words, if corresponding ipa
+	 * driver owned values were found in the dtsi, they were read and
+	 * set here.
+	 *
+	 * In this new world, the developer will use iommu owned dtsi
+	 * settings to set them there.  This new logic below, simply
+	 * checks to see if they've been set in dtsi.  If so, the logic
+	 * further below acts accordingly...
+	 */
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_S1_BYPASS, &bypass);
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_FAST, &fast);
 
-	cb->next_addr = cb->va_end;
+	IPADBG("UC CB PROBE dev=%pK DOMAIN ATTRS bypass=%d fast=%d\n",
+		   dev, bypass, fast);
+
+	ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_UC] = (bypass != 0);
+
 	ipa3_ctx->uc_pdev = dev;
 
 	return 0;
@@ -6516,11 +6443,8 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 static int ipa_smmu_ap_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
-	int result;
-	int atomic_ctx = 1;
-	int fast = 1;
-	int bypass = 1;
-	u32 iova_ap_mapping[2];
+	int fast = 0;
+	int bypass = 0;
 	u32 add_map_size;
 	const u32 *add_map;
 	void *smem_addr;
@@ -6533,98 +6457,73 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	u32 size_p;
 	phys_addr_t iova;
 	phys_addr_t pa;
+	u32 iova_ap_mapping[2];
 
-	IPADBG("AP CB probe: sub pdev=%pK\n", dev);
+	IPADBG("AP CB PROBE dev=%pK\n", dev);
 
 	if (!smmu_info.present[IPA_SMMU_CB_AP]) {
 		IPAERR("AP SMMU is disabled");
 		return 0;
 	}
 
-	result = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
-		iova_ap_mapping, 2);
-	if (result) {
-		IPAERR("Fail to read AP start/size iova addresses\n");
-		return result;
-	}
-	cb->va_start = iova_ap_mapping[0];
-	cb->va_size = iova_ap_mapping[1];
-	cb->va_end = cb->va_start + cb->va_size;
-	IPADBG("AP va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
-
 	if (smmu_info.use_64_bit_dma_mask) {
 		if (dma_set_mask(dev, DMA_BIT_MASK(64)) ||
-				dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
+			dma_set_coherent_mask(dev, DMA_BIT_MASK(64))) {
 			IPAERR("DMA set 64bit mask failed\n");
 			return -EOPNOTSUPP;
 		}
 	} else {
 		if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-				dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+			dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
 			IPAERR("DMA set 32bit mask failed\n");
 			return -EOPNOTSUPP;
 		}
 	}
 
-	cb->dev = dev;
-	cb->mapping = __depr_arm_iommu_create_mapping(dev->bus,
-					cb->va_start, cb->va_size);
-	if (IS_ERR_OR_NULL(cb->mapping)) {
-		IPADBG("Fail to create mapping\n");
-		/* assume this failure is because iommu driver is not ready */
-		return -EPROBE_DEFER;
+	IPADBG("AP CB PROBE dev=%pK retrieving IOMMU mapping\n", dev);
+
+	cb->iommu_domain = iommu_get_domain_for_dev(dev);
+	if (IS_ERR_OR_NULL(cb->iommu_domain)) {
+		IPAERR("could not get iommu domain\n");
+		return -EINVAL;
 	}
-	IPADBG("SMMU mapping created\n");
+
+	IPADBG("AP CB PROBE mapping retrieved\n");
+
+	cb->dev   = dev;
 	cb->valid = true;
 
-	if (of_property_read_bool(dev->of_node,
-		"qcom,smmu-s1-bypass") || ipa3_ctx->ipa_config_is_mhi) {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = true;
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_S1_BYPASS,
-				&bypass)) {
-			IPAERR("couldn't set bypass\n");
-			__depr_arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("AP/USB SMMU S1 BYPASS\n");
-	} else {
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = false;
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_ATOMIC,
-				&atomic_ctx)) {
-			IPAERR("couldn't set domain as atomic\n");
-			__depr_arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("AP/USB SMMU atomic set\n");
-
-		if (smmu_info.fast_map) {
-			if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_FAST,
-				&fast)) {
-				IPAERR("couldn't set fast map\n");
-				__depr_arm_iommu_release_mapping(cb->mapping);
-				cb->valid = false;
-				return -EIO;
-			}
-			IPADBG("SMMU fast map set\n");
-		}
+	cb->va_start = cb->va_end  = cb->va_size = 0;
+	if (of_property_read_u32_array(
+			dev->of_node, "qcom,iommu-dma-addr-pool",
+			iova_ap_mapping, 2) == 0) {
+		cb->va_start = iova_ap_mapping[0];
+		cb->va_size  = iova_ap_mapping[1];
+		cb->va_end   = cb->va_start + cb->va_size;
 	}
 
-	pr_info("IPA smmu_info.s1_bypass_arr[AP]=%d smmu_info.fast_map=%d\n",
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_AP], smmu_info.fast_map);
+	IPADBG("AP CB PROBE dev=%pK va_start=0x%x va_size=0x%x\n",
+		   dev, cb->va_start, cb->va_size);
 
-	result = __depr_arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (result) {
-		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
-		cb->valid = false;
-		return result;
-	}
+	/*
+	 * Prior to these calls to iommu_domain_get_attr(), these
+	 * attributes were set in this function relative to dtsi values
+	 * defined for this driver.  In other words, if corresponding ipa
+	 * driver owned values were found in the dtsi, they were read and
+	 * set here.
+	 *
+	 * In this new world, the developer will use iommu owned dtsi
+	 * settings to set them there.  This new logic below, simply
+	 * checks to see if they've been set in dtsi.  If so, the logic
+	 * further below acts accordingly...
+	 */
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_S1_BYPASS, &bypass);
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_FAST, &fast);
+
+	IPADBG("AP CB PROBE dev=%pK DOMAIN ATTRS bypass=%d fast=%d\n",
+		   dev, bypass, fast);
+
+	ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_AP] = (bypass != 0);
 
 	add_map = of_get_property(dev->of_node,
 		"qcom,additional-mapping", &add_map_size);
@@ -6649,7 +6548,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->mapping->domain,
+			ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 		}
@@ -6693,11 +6592,12 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				iova_p, pa_p, size_p);
 			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->mapping->domain,
+			ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE);
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
+
 	ipa3_ctx->pdev = dev;
 	cb->next_addr = cb->va_end;
 
@@ -6706,50 +6606,51 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 static int ipa_smmu_11ad_cb_probe(struct device *dev)
 {
-	int ret;
-	int s1_bypass = 0;
+	int bypass = 0;
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
+	u32 iova_ap_mapping[2];
 
-	IPADBG("11ad CB probe: sub dev=%pK\n", dev);
+	IPADBG("11AD CB probe: dev=%pK\n", dev);
 
 	if (!smmu_info.present[IPA_SMMU_CB_11AD]) {
-		IPAERR("11ad SMMU is disabled");
+		IPAERR("11AD SMMU is disabled");
 		return 0;
 	}
 
-	cb->dev = dev;
-	cb->iommu = iommu_get_domain_for_dev(dev);
-	if (!cb->iommu) {
+	cb->iommu_domain = iommu_get_domain_for_dev(dev);
+	if (IS_ERR_OR_NULL(cb->iommu_domain)) {
 		IPAERR("could not get iommu domain\n");
-		/* assume this failure is because iommu driver is not ready */
-		return -EPROBE_DEFER;
+		return -EINVAL;
 	}
+
+	cb->dev   = dev;
 	cb->valid = true;
 
-	ret = iommu_domain_get_attr(
-		cb->iommu, DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
-	if (ret) {
-		IPAERR("can't get DOMAIN_ATTR_S1_BYPASS\n");
-		return ret;
+	cb->va_start = cb->va_end  = cb->va_size = 0;
+	if (of_property_read_u32_array(
+			dev->of_node, "qcom,iommu-dma-addr-pool",
+			iova_ap_mapping, 2) == 0) {
+		cb->va_start = iova_ap_mapping[0];
+		cb->va_size  = iova_ap_mapping[1];
+		cb->va_end   = cb->va_start + cb->va_size;
 	}
 
-	if (s1_bypass) {
-		IPADBG("11AD SMMU S1 BYPASS\n");
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_11AD] = true;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] = true;
-	} else {
-		IPADBG("11AD SMMU S1 enabled\n");
-		smmu_info.s1_bypass_arr[IPA_SMMU_CB_11AD] = false;
-		ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] = false;
-	}
+	IPADBG("11AD CB PROBE dev=%pK va_start=0x%x va_size=0x%x\n",
+		   dev, cb->va_start, cb->va_size);
+
+	iommu_domain_get_attr(cb->iommu_domain, DOMAIN_ATTR_S1_BYPASS, &bypass);
+
+	IPADBG("11AD CB PROBE dev=%pK DOMAIN ATTRS bypass=%d\n",
+		   dev, bypass);
+
+	ipa3_ctx->s1_bypass_arr[IPA_SMMU_CB_11AD] = (bypass != 0);
 
 	if (of_property_read_bool(dev->of_node, "qcom,shared-cb")) {
-		IPADBG("using shared CB\n");
+		IPADBG("11AD using shared CB\n");
 		cb->shared = true;
 	}
 
 	return 0;
-	IPADBG("exit\n");
 }
 
 static int ipa_smmu_cb_probe(struct device *dev, enum ipa_smmu_cb_type cb_type)
@@ -6911,16 +6812,9 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
-			"qcom,smmu-fast-map"))
-			smmu_info.fast_map = true;
-		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,use-64-bit-dma-mask"))
 			smmu_info.use_64_bit_dma_mask = true;
 		smmu_info.arm_smmu = true;
-	} else if (of_property_read_bool(pdev_p->dev.of_node,
-				"qcom,msm-smmu")) {
-		IPAERR("Legacy IOMMU not supported\n");
-		result = -EOPNOTSUPP;
 	} else {
 		if (of_property_read_bool(pdev_p->dev.of_node,
 			"qcom,use-64-bit-dma-mask")) {
