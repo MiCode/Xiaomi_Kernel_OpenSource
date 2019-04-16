@@ -13,6 +13,10 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
+#include "qcs610.dtsi"
+#include "sm6150-sde.dtsi"
+#include "sm6150-sde-pll.dtsi"
+#include "sm6150-sde-display.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";
@@ -192,4 +196,13 @@
 
 &L5C {
 	regulator-max-microvolt = <2912000>;
+};
+
+&dsi_hx83112a_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
 };
