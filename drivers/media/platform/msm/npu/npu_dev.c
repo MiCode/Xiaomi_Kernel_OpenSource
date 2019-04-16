@@ -314,7 +314,6 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 void npu_disable_core_power(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 
 	if (!pwr->pwr_vote_num)
 		return;
@@ -322,7 +321,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 	if (!pwr->pwr_vote_num) {
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
-		pwr->active_pwrlevel = thermalctrl->pwr_level;
+		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
 		NPU_DBG("setting back to power level=%d\n",
@@ -434,6 +433,24 @@ static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit)
 	pwr_level_idx = npu_power_level_to_index(npu_dev, pwr_level_to_set);
 	pwrlevel = &npu_dev->pwrctrl.pwrlevels[pwr_level_idx];
 
+	ret = npu_host_notify_fw_pwr_state(npu_dev, pwr_level_to_set, false);
+	/*
+	 * if new power level is lower than current power level,
+	 * ignore fw notification failure, and apply the new power level.
+	 * otherwise remain the current power level.
+	 */
+
+	if (ret) {
+		NPU_WARN("notify fw new power level [%d] failed\n",
+			pwr_level_to_set);
+		if (pwr->active_pwrlevel < pwr_level_to_set) {
+			NPU_WARN("remain current power level [%d]\n",
+				pwr->active_pwrlevel);
+			return 0;
+		}
+
+		ret = 0;
+	}
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
 		if (npu_is_exclude_rate_clock(
 			npu_dev->core_clks[i].clk_name))
