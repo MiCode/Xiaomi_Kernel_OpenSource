@@ -32,6 +32,7 @@ const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PTHRU] = "PASS THRU",
 	[MHI_EE_EDL] = "EDL",
 	[MHI_EE_DISABLE_TRANSITION] = "DISABLE",
+	[MHI_EE_NOT_SUPPORTED] = "NOT SUPPORTED",
 };
 
 const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX] = {
@@ -1062,6 +1063,8 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		       struct device_node *of_node)
 {
 	int ret;
+	enum mhi_ee i;
+	u32 *ee;
 
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
@@ -1088,6 +1091,19 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	mhi_cntrl->db_access = MHI_PM_M0 | MHI_PM_M2;
 	if (of_property_read_bool(of_node, "mhi,m2-no-db-access"))
 		mhi_cntrl->db_access &= ~MHI_PM_M2;
+
+	/* parse the device ee table */
+	for (i = MHI_EE_PBL, ee = mhi_cntrl->ee_table; i < MHI_EE_MAX;
+	     i++, ee++) {
+		/* setup the default ee before checking for override */
+		*ee = i;
+		ret = of_property_match_string(of_node, "mhi,ee-names",
+					       mhi_ee_str[i]);
+		if (ret < 0)
+			continue;
+
+		of_property_read_u32_index(of_node, "mhi,ee", ret, ee);
+	}
 
 	return 0;
 
