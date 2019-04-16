@@ -2422,9 +2422,12 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		if ((gsi_ep_index < gsi_ep_count) &&
 				(i > (num - 1 - gsi_ep_count))) {
 			gsi_ep_index++;
-			/* For GSI EPs, name eps as "gsi-epin" or "gsi-epout" */
-			snprintf(dep->name, sizeof(dep->name), "%s",
-				(epnum & 1) ? "gsi-epin" : "gsi-epout");
+			/*
+			 * For GSI EPs, name eps as "gsi-epin<i>" or
+			 * "gsi-epout<i>"
+			 */
+			snprintf(dep->name, sizeof(dep->name), "%s%d",
+			    (epnum & 1) ? "gsi-epin" : "gsi-epout", epnum >> 1);
 			/* Set ep type as GSI */
 			dep->endpoint.ep_type = EP_TYPE_GSI;
 		} else {
