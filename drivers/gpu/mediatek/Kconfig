@@ -1,0 +1,36 @@
+config MTK_GPU_SUPPORT
+	bool "Support MTK GPU"
+	default n
+	help
+	  config supports MTK GPU driver
+	  CONFIG_MTK_GPU_SUPPORT defines
+	  The gpu driver would be built-in or not
+	  MTK_GPU_VERSION would define the target HW IP
+
+config MTK_GPU_VERSION
+	string "Support MTK GPU Driver Version"
+	default ""
+	help
+	  CONFIG_MTK_GPU_VERSION define which gpu ddk version will be used
+	  It has three parts
+	  1. vendor name
+	  2. GPU architecture name
+	  3. driver version
+
+config MTK_GPU_COMMON_DVFS_SUPPORT
+	bool "Support GPU VSync-Based DVFS Policy"
+	default n
+	help
+	  config supports to enable GPU DVFS policy
+	  This enables MTK intenral GPU DVFS governor
+	  It is nice method to save power
+	  It is recommended to enable it when MTK_GPU_SUPPORT is enabled
+
+config SW_SYNC64
+	bool "Enable SW 64bit sync counter"
+	depends on SW_SYNC
+	help
+	  A sync object driver that uses a 64bit counter to coordinate
+	  syncrhronization.  Useful when there is no hardware
+	  primitive backing the synchronization.
+
