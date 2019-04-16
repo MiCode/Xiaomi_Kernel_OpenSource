@@ -22,8 +22,6 @@
 	(__p >= __d)\
 )
 
-#define V4L2_EVENT_SEQ_CHANGED_SUFFICIENT \
-		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
 #define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
@@ -1573,6 +1571,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	struct hfi_device *hdev;
 	u32 *ptr = NULL;
 	struct msm_vidc_format *fmt;
+	struct v4l2_format *f;
 	int extra_buff_count = 0;
 	u32 codec;
 
@@ -1591,8 +1590,49 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
-		event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+	{
+		/*
+		 * Check if there is some parameter has changed
+		 * If there is no change then no need to notify client
+		 * If there is a change, then raise an insufficient event
+		 */
+		bool event_fields_changed = false;
+
+		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
+		dprintk(VIDC_DBG,
+				"event_notify->height = %d event_notify->width = %d\n",
+				event_notify->height,
+				event_notify->width);
+		event_fields_changed |= (inst->bit_depth !=
+			event_notify->bit_depth);
+		/* Check for change from hdr->non-hdr and vice versa */
+		if ((event_notify->colour_space == MSM_VIDC_BT2020 &&
+			inst->colour_space != MSM_VIDC_BT2020) ||
+			(event_notify->colour_space != MSM_VIDC_BT2020 &&
+			inst->colour_space == MSM_VIDC_BT2020))
+			event_fields_changed = true;
+
+		f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
+		event_fields_changed |=
+			(f->fmt.pix_mp.height != event_notify->height);
+		event_fields_changed |=
+			(f->fmt.pix_mp.width != event_notify->width);
+
+		if (event_fields_changed) {
+			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+		} else {
+			dprintk(VIDC_DBG,
+				"No parameter change continue session\n");
+			rc = call_hfi_op(hdev, session_continue,
+						 (void *)inst->session);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"failed to send session_continue\n");
+			}
+			goto err_bad_event;
+		}
 		break;
+	}
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 		break;
@@ -1658,6 +1698,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		event_notify->pic_struct ?
 		MSM_VIDC_PIC_STRUCT_PROGRESSIVE :
 		MSM_VIDC_PIC_STRUCT_MAYBE_INTERLACED;
+	inst->colour_space = event_notify->colour_space;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
@@ -1712,12 +1753,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
-	} else {
-		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
-		dprintk(VIDC_DBG,
-				"event_notify->height = %d event_notify->width = %d\n",
-				event_notify->height,
-				event_notify->width);
 	}
 
 	rc = msm_vidc_check_session_supported(inst);
