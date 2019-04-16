@@ -652,14 +652,25 @@
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU0 &CPU1>;
 		qcom,target-dev = <&memlat_cpu0>;
-		status = "disabled";
+		qcom,core-dev-table =
+			<  307200 1525>,
+			<  537600 3509>,
+			<  691200 4066>,
+			<  768000 5928>;
 	};
 
 	qcom,arm-memlat-mon-2 {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu2>;
-		status = "disabled";
+		qcom,core-dev-table =
+			<  307200 1525>,
+			<  825600 3509>,
+			<  1209600 4066>,
+			<  1440000 7904>,
+			<  1747200 9887>,
+			<  2054400 11863>,
+			<  2342400 13763>;
 	};
 
 	devfreq_cpufreq: devfreq-cpufreq {
