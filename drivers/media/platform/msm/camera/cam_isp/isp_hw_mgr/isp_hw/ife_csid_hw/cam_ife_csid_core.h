@@ -382,17 +382,21 @@ struct cam_ife_csid_tpg_cfg  {
 /**
  * struct cam_ife_csid_cid_data- cid configuration private data
  *
- * @vc:          Virtual channel
- * @dt:          Data type
- * @cnt:         Cid resource reference count.
- * @tpg_set:     Tpg used for this cid resource
+ * @vc:               Virtual channel
+ * @dt:               Data type
+ * @cnt:              Cid resource reference count.
+ * @tpg_set:          Tpg used for this cid resource
+ * @is_valid_vc1_dt1: Valid vc1 and dt1
  *
  */
 struct cam_ife_csid_cid_data {
 	uint32_t                     vc;
 	uint32_t                     dt;
+	uint32_t                     vc1;
+	uint32_t                     dt1;
 	uint32_t                     cnt;
 	uint32_t                     tpg_set;
+	uint32_t                     is_valid_vc1_dt1;
 };
 
 
@@ -424,6 +428,9 @@ struct cam_ife_csid_cid_data {
 struct cam_ife_csid_path_cfg {
 	uint32_t                        vc;
 	uint32_t                        dt;
+	uint32_t                        vc1;
+	uint32_t                        dt1;
+	uint32_t                        is_valid_vc1_dt1;
 	uint32_t                        cid;
 	uint32_t                        in_format;
 	uint32_t                        out_format;

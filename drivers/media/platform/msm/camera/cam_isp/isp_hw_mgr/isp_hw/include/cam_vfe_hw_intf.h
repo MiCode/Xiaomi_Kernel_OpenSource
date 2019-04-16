@@ -7,6 +7,7 @@
 #define _CAM_VFE_HW_INTF_H_
 
 #include "cam_isp_hw.h"
+#include "cam_ife_csid_hw_intf.h"
 
 #define CAM_VFE_HW_NUM_MAX            7
 
@@ -116,14 +117,14 @@ struct cam_vfe_hw_get_hw_cap {
  * @cdm_ops:                 CDM operations
  */
 struct cam_vfe_hw_vfe_out_acquire_args {
-	struct cam_isp_resource_node      *rsrc_node;
-	struct cam_isp_out_port_info      *out_port_info;
-	uint32_t                           unique_id;
-	uint32_t                           is_dual;
-	enum cam_isp_hw_split_id           split_id;
-	uint32_t                           is_master;
-	uint32_t                           dual_slave_core;
-	struct cam_cdm_utils_ops          *cdm_ops;
+	struct cam_isp_resource_node         *rsrc_node;
+	struct cam_isp_out_port_generic_info *out_port_info;
+	uint32_t                              unique_id;
+	uint32_t                              is_dual;
+	enum cam_isp_hw_split_id              split_id;
+	uint32_t                              is_master;
+	uint32_t                              dual_slave_core;
+	struct cam_cdm_utils_ops             *cdm_ops;
 };
 
 /*
@@ -143,7 +144,7 @@ struct cam_vfe_hw_vfe_in_acquire_args {
 	uint32_t                              res_id;
 	void                                 *cdm_ops;
 	enum cam_isp_hw_sync_mode             sync_mode;
-	struct cam_isp_in_port_info          *in_port;
+	struct cam_isp_in_port_generic_info  *in_port;
 };
 
 /*

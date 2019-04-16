@@ -56,6 +56,10 @@
 #define CAM_UBWC_CFG_VERSION_1              1
 #define CAM_UBWC_CFG_VERSION_2              2
 
+#define CAM_MAX_ACQ_RES    5
+#define CAM_MAX_HW_SPLIT   3
+
+
 /**
  * enum flush_type_t - Identifies the various flush types
  *
@@ -551,6 +555,7 @@ struct cam_acquire_dev_cmd {
 #define CAM_API_COMPAT_CONSTANT                   0xFEFEFEFE
 
 #define CAM_ACQUIRE_HW_STRUCT_VERSION_1           1
+#define CAM_ACQUIRE_HW_STRUCT_VERSION_2           2
 
 /**
  * struct cam_acquire_hw_cmd_v1 - Control payload for acquire HW IOCTL (Ver 1)
@@ -579,6 +584,51 @@ struct cam_acquire_hw_cmd_v1 {
 	uint32_t        handle_type;
 	uint32_t        data_size;
 	uint64_t        resource_hdl;
+};
+
+/**
+ * struct cam_acquired_hw_info - Update the acquired hardware info
+ *
+ * @acquired_hw_id:     Acquired hardware mask
+ * @acquired_hw_path:   Acquired path mask for an input
+ *                      if input splits into multiple paths,
+ *                      its updated per hardware
+ * valid_acquired_hw:   Valid num of acquired hardware
+ */
+struct cam_acquired_hw_info {
+	uint32_t    acquired_hw_id[CAM_MAX_ACQ_RES];
+	uint32_t    acquired_hw_path[CAM_MAX_ACQ_RES][CAM_MAX_HW_SPLIT];
+	uint32_t    valid_acquired_hw;
+};
+
+/**
+ * struct cam_acquire_hw_cmd_v2 - Control payload for acquire HW IOCTL (Ver 2)
+ *
+ * @struct_version:     = CAM_ACQUIRE_HW_STRUCT_VERSION_2 for this struct
+ *                      This value should be the first 32-bits in any structure
+ *                      related to this IOCTL. So that if the struct needs to
+ *                      change, we can first read the starting 32-bits, get the
+ *                      version number and then typecast the data to struct
+ *                      accordingly.
+ * @reserved:           Reserved field for 64-bit alignment
+ * @session_handle:     Session handle for the acquire command
+ * @dev_handle:         Device handle to be returned
+ * @handle_type:        Tells you how to interpret the variable resource_hdl-
+ *                      1 = user pointer, 2 = mem handle
+ * @data_size:          Total size of data contained in memory pointed
+ *                      to by resource_hdl
+ * @resource_hdl:       Resource handle that refers to the actual
+ *                      resource data.
+ */
+struct cam_acquire_hw_cmd_v2 {
+	uint32_t                    struct_version;
+	uint32_t                    reserved;
+	int32_t                     session_handle;
+	int32_t                     dev_handle;
+	uint32_t                    handle_type;
+	uint32_t                    data_size;
+	uint64_t                    resource_hdl;
+	struct cam_acquired_hw_info hw_info;
 };
 
 #define CAM_RELEASE_HW_STRUCT_VERSION_1           1

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -124,6 +124,45 @@ err:
 
 static int __cam_node_handle_acquire_hw_v1(struct cam_node *node,
 	struct cam_acquire_hw_cmd_v1 *acquire)
+{
+	int rc = 0;
+	struct cam_context *ctx = NULL;
+
+	if (!acquire)
+		return -EINVAL;
+
+	if (acquire->dev_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
+		return -EINVAL;
+	}
+
+	if (acquire->session_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *)cam_get_device_priv(acquire->dev_handle);
+	if (!ctx) {
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			acquire->dev_handle);
+		return -EINVAL;
+	}
+
+	rc = cam_context_handle_acquire_hw(ctx, acquire);
+	if (rc) {
+		CAM_ERR(CAM_CORE, "Acquire device failed for node %s",
+			node->name);
+		return rc;
+	}
+
+	CAM_DBG(CAM_CORE, "[%s] Acquire ctx_id %d",
+		node->name, ctx->ctx_id);
+
+	return 0;
+}
+
+static int __cam_node_handle_acquire_hw_v2(struct cam_node *node,
+	struct cam_acquire_hw_cmd_v2 *acquire)
 {
 	int rc = 0;
 	struct cam_context *ctx = NULL;
@@ -624,6 +663,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 
 		if (api_version == 1) {
 			acquire_size = sizeof(struct cam_acquire_hw_cmd_v1);
+		} else if (api_version == 2) {
+			acquire_size = sizeof(struct cam_acquire_hw_cmd_v2);
 		} else {
 			CAM_ERR(CAM_CORE, "Unsupported api version %d",
 				api_version);
@@ -646,6 +687,14 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 
 		if (api_version == 1) {
 			rc = __cam_node_handle_acquire_hw_v1(node, acquire_ptr);
+			if (rc) {
+				CAM_ERR(CAM_CORE,
+					"acquire device failed(rc = %d)", rc);
+				goto acquire_kfree;
+			}
+			CAM_INFO(CAM_CORE, "Acquire HW successful");
+		} else if (api_version == 2) {
+			rc = __cam_node_handle_acquire_hw_v2(node, acquire_ptr);
 			if (rc) {
 				CAM_ERR(CAM_CORE,
 					"acquire device failed(rc = %d)", rc);

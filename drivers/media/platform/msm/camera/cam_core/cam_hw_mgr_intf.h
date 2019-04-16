@@ -83,6 +83,11 @@ struct cam_hw_done_event_data {
  * @num_acq:               Total number of acquire in the payload
  * @acquire_info:          Acquired resource array pointer
  * @ctxt_to_hw_map:        HW context (returned)
+ * @acquired_hw_id:        Acquired hardware mask
+ * @acquired_hw_path:      Acquired path mask for an input
+ *                         if input splits into multiple paths,
+ *                         its updated per hardware
+ * valid_acquired_hw:      Valid num of acquired hardware
  *
  */
 struct cam_hw_acquire_args {
@@ -92,6 +97,10 @@ struct cam_hw_acquire_args {
 	uint32_t                     acquire_info_size;
 	uintptr_t                    acquire_info;
 	void                        *ctxt_to_hw_map;
+
+	uint32_t    acquired_hw_id[CAM_MAX_ACQ_RES];
+	uint32_t    acquired_hw_path[CAM_MAX_ACQ_RES][CAM_MAX_HW_SPLIT];
+	uint32_t    valid_acquired_hw;
 };
 
 /**
