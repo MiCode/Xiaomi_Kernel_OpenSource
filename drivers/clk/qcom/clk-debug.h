@@ -130,5 +130,6 @@ extern const struct clk_ops clk_debug_mux_ops;
 
 int clk_debug_measure_register(struct clk_hw *hw);
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry);
+void clk_debug_bus_vote(struct clk_hw *hw, bool enable);
 
 #endif

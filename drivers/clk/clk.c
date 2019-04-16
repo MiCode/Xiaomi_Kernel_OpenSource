@@ -3404,10 +3404,18 @@ static int clock_debug_rate_set(void *data, u64 val)
 	struct clk_core *core = data;
 	int ret;
 
+	clk_prepare_lock();
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, true);
+
 	ret = clk_set_rate(core->hw->clk, val);
 	if (ret)
 		pr_err("clk_set_rate(%lu) failed (%d)\n",
 				(unsigned long)val, ret);
+
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, false);
+	clk_prepare_unlock();
 
 	return ret;
 }
@@ -3416,7 +3424,15 @@ static int clock_debug_rate_get(void *data, u64 *val)
 {
 	struct clk_core *core = data;
 
+	clk_prepare_lock();
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, true);
+
 	*val = clk_get_rate(core->hw->clk);
+
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, false);
+	clk_prepare_unlock();
 
 	return 0;
 }
@@ -3446,10 +3462,18 @@ static int clock_debug_enable_set(void *data, u64 val)
 	struct clk_core *core = data;
 	int rc = 0;
 
+	clk_prepare_lock();
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, true);
+
 	if (val)
 		rc = clk_prepare_enable(core->hw->clk);
 	else
 		clk_disable_unprepare(core->hw->clk);
+
+	if (core->ops->bus_vote)
+		core->ops->bus_vote(core->hw, false);
+	clk_prepare_unlock();
 
 	return rc;
 }
