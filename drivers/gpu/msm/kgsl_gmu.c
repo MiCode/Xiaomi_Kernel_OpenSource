@@ -86,6 +86,12 @@ static unsigned int num_uncached_entries;
 static void gmu_snapshot(struct kgsl_device *device);
 static void gmu_remove(struct kgsl_device *device);
 
+unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
+		enum gmu_mem_type type)
+{
+	return gmu_vma[type].start;
+}
+
 static int _gmu_iommu_fault_handler(struct device *dev,
 		unsigned long addr, int flags, const char *name)
 {
