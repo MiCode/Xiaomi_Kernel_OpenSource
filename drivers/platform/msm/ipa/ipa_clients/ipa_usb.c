@@ -296,6 +296,17 @@ static char *ipa3_usb_notify_event_to_string(enum ipa_usb_notify_event event)
 	return "UNSUPPORTED";
 }
 
+static bool ipa3_usb_get_teth_port_state(void)
+{
+	if (ipa3_usb_ctx == NULL)
+		return false;
+	if (ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].state ==
+					IPA_USB_CONNECTED)
+		return true;
+	else
+		return false;
+}
+
 static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 	enum ipa3_usb_transport_type ttype)
 {
@@ -2238,8 +2249,8 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 	 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
 	 */
 	if (connect_params->teth_prot != IPA_USB_DIAG)
-		ipa3_register_lock_unlock_callback(&ipa_usb_set_lock_unlock,
-			ul_out_params->clnt_hdl);
+		ipa3_register_client_callback(&ipa_usb_set_lock_unlock,
+			&ipa3_usb_get_teth_port_state, ul_out_params->clnt_hdl);
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2325,7 +2336,7 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
 	 */
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
-		ipa3_deregister_lock_unlock_callback(ul_clnt_hdl);
+		ipa3_deregister_client_callback(ul_clnt_hdl);
 
 	/* Change state to STOPPED */
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED, false, ttype))

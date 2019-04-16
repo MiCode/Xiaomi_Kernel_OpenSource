@@ -1686,6 +1686,7 @@ struct ipa3_context {
 	int uc_mailbox17_mismatch;
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 	atomic_t is_ssr;
+	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
 };
 
 struct ipa3_plat_drv_res {
@@ -2001,8 +2002,9 @@ int ipa3_xdci_connect(u32 clnt_hdl);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
+void ipa3_register_client_callback(int (*client_cb)(bool),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+void ipa3_deregister_client_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
 int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,

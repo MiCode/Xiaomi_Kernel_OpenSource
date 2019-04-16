@@ -1059,7 +1059,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
-	clk_lvl = cam_ife_csid_get_vote_level(soc_info, csid_hw->clk_rate);
+	clk_lvl = cam_soc_util_get_vote_level(soc_info, csid_hw->clk_rate);
 	CAM_DBG(CAM_ISP, "CSID clock lvl %u", clk_lvl);
 
 	rc = cam_ife_csid_enable_soc_resources(soc_info, clk_lvl);

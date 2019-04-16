@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -912,7 +912,7 @@ error:
 	vfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
+	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 release_buf:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
 		CAM_WARN(CAM_EEPROM, "Put cpu buffer failed : 0x%x",
