@@ -35,9 +35,17 @@ static const unsigned int a6xx_gmu_gx_registers[] = {
 	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
 };
 
+static const unsigned int a6xx_gmu_itcm_registers[] = {
+	/* GMU ITCM */
+	0x1B400, 0x1C3FF,
+};
+
+static const unsigned int a6xx_gmu_dtcm_registers[] = {
+	/* GMU DTCM */
+	0x1C400, 0x1D3FF,
+};
+
 static const unsigned int a6xx_gmu_registers[] = {
-	/* GMU TCM */
-	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
 	/* GMU CX */
 	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
 	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
@@ -1430,6 +1438,40 @@ static unsigned int a6xx_gmu_ifpc_show(struct adreno_device *adreno_dev)
 			gmu->idle_level  >= GPU_HW_IFPC;
 }
 
+static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
+	unsigned int i, bytes;
+	unsigned int *type = priv;
+	const unsigned int *regs;
+
+	if (*type == GMU_ITCM)
+		regs = a6xx_gmu_itcm_registers;
+	else
+		regs = a6xx_gmu_dtcm_registers;
+
+	bytes = (regs[1] - regs[0] + 1) << 2;
+
+	if (remain < bytes + sizeof(*mem_hdr)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Memory");
+		return 0;
+	}
+
+	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
+	mem_hdr->hostaddr = 0;
+	mem_hdr->gmuaddr = gmu_get_memtype_base(KGSL_GMU_DEVICE(device), *type);
+	mem_hdr->gpuaddr = 0;
+
+	for (i = regs[0]; i <= regs[1]; i++)
+		kgsl_regread(device, i, data++);
+
+	return bytes + sizeof(*mem_hdr);
+}
+
+
 struct gmu_mem_type_desc {
 	struct gmu_memdesc *memdesc;
 	uint32_t type;
@@ -1484,6 +1526,7 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
 		{gmu->dump_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK} };
 	unsigned int val, i;
+	enum gmu_mem_type type;
 
 	if (!gmu_core_isenabled(device))
 		return;
@@ -1496,8 +1539,15 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 					&desc[i]);
 	}
 
+	type = GMU_ITCM;
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+			snapshot, a6xx_snapshot_gmu_tcm, &type);
+	type = GMU_DTCM;
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+			snapshot, a6xx_snapshot_gmu_tcm, &type);
+
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
-					ARRAY_SIZE(a6xx_gmu_registers) / 2);
+			ARRAY_SIZE(a6xx_gmu_registers) / 2);
 
 	gx_on = a6xx_gmu_gx_is_on(adreno_dev);
 
