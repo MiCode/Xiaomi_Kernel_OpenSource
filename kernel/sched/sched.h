@@ -3127,7 +3127,7 @@ static inline bool is_min_capacity_cpu(int cpu) { return true; }
 static inline int
 preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
-	return 1;
+	return -1;
 }
 
 static inline struct sched_cluster *rq_cluster(struct rq *rq)
