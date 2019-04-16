@@ -30,6 +30,11 @@ subdir-y += zte
 
 dtstree		:= $(srctree)/$(src)
 
+vendor := $(dtstree)/vendor
+ifneq "$(wildcard $(vendor)/Makefile)" ""
+        subdir-y += vendor
+endif
+
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(foreach d,$(subdir), $(wildcard $(dtstree)/$(d)/*.dts)))
 
 always		:= $(dtb-y)
