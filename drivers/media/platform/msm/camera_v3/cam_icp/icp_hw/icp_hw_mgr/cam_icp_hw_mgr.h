@@ -80,6 +80,8 @@
  * @fw_buf: Memory info of firmware
  * @qdss_buf: Memory info of qdss
  * @sfr_buf: Memory info for sfr buffer
+ * @shmem: Memory info for shared region
+ * @io_mem: Memory info for io region
  */
 struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qtbl;
@@ -91,6 +93,7 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qdss_buf;
 	struct cam_mem_mgr_memory_desc sfr_buf;
 	struct cam_smmu_region_info shmem;
+	struct cam_smmu_region_info io_mem;
 };
 
 /**
