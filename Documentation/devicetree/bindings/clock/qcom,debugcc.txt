@@ -2,7 +2,7 @@ Qualcomm Technologies, Inc. Debug Clock Controller Binding
 ----------------------------------------------------------
 
 Required properties :
-- compatible: Shall contain "qcom,kona-debugcc".
+- compatible: Shall contain "qcom,kona-debugcc" or "qcom,lito-debugcc".
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
 - qcom,camcc: phandle to the Camera CC device node.
