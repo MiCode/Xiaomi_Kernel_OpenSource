@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -240,13 +240,19 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 		if (!ch->md_info_inited)
 			continue;
 		for (j = 0; j < ch->num_tbl_entries && !err; j++) {
+			spin_lock_irqsave(&ch->lock, flags);
 			entry = &ch->tbl[j];
-			if (entry->len <= 0 || entry->buf == NULL)
+			if (entry->len <= 0 || entry->buf == NULL) {
+				spin_unlock_irqrestore(&ch->lock, flags);
 				continue;
+			}
 
 			peripheral = diag_md_get_peripheral(entry->ctx);
-			if (peripheral < 0)
+			if (peripheral < 0) {
+				spin_unlock_irqrestore(&ch->lock, flags);
 				goto drop_data;
+			}
+			spin_unlock_irqrestore(&ch->lock, flags);
 			session_info =
 			diag_md_session_get_peripheral(peripheral);
 			if (!session_info)
@@ -383,6 +389,32 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 			entry->len = 0;
 			entry->ctx = 0;
 		}
+	}
+	spin_unlock_irqrestore(&ch->lock, flags);
+	return 0;
+}
+
+int diag_md_close_device(int id)
+{
+	int i;
+	uint8_t found = 0;
+	unsigned long flags;
+	struct diag_md_info *ch = NULL;
+	struct diag_buf_tbl_t *entry = NULL;
+
+	if (id < 0 || id >= NUM_DIAG_MD_DEV || id >= DIAG_NUM_PROC)
+		return -EINVAL;
+
+	ch = &diag_md[id];
+	if (!ch || !ch->md_info_inited)
+		return -EINVAL;
+
+	spin_lock_irqsave(&ch->lock, flags);
+	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
+		entry = &ch->tbl[i];
+		entry->buf = NULL;
+		entry->len = 0;
+		entry->ctx = 0;
 	}
 	spin_unlock_irqrestore(&ch->lock, flags);
 	return 0;
