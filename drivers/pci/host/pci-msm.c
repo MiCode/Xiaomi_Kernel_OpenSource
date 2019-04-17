@@ -83,6 +83,8 @@
 #define PCIE20_PARF_BDF_TRANSLATE_N	0x250
 #define PCIE20_PARF_DEVICE_TYPE		0x1000
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N	0x2000
+#define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
+#define PCIE20_PARF_DEBUG_INT_EN (0x190)
 
 #define PCIE20_ELBI_VERSION		0x00
 #define PCIE20_ELBI_SYS_CTRL	     0x04
@@ -208,6 +210,10 @@
 
 #define MSM_PCIE_MAX_RESET 5
 #define MSM_PCIE_MAX_PIPE_RESET 1
+
+/* Each tick is 19.2 MHz */
+#define L1SS_TIMEOUT_US_TO_TICKS(x) (x * 192 / 10)
+#define L1SS_TIMEOUT_US (100000)
 
 /* PM control options */
 #define PM_IRQ			 0x1
@@ -725,6 +731,7 @@ struct msm_pcie_dev_t {
 	void				*ipc_log_dump;
 	bool				use_19p2mhz_aux_clk;
 	bool				use_pinctrl;
+	bool enable_l1ss_timeout;
 	struct pinctrl			*pinctrl;
 	struct pinctrl_state		*pins_default;
 	struct pinctrl_state		*pins_sleep;
@@ -3893,6 +3900,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_MASK, 0,
 					BIT(MSM_PCIE_INT_EVT_LINK_DOWN) |
+					BIT(MSM_PCIE_INT_EVT_L1SUB_TIMEOUT) |
 					BIT(MSM_PCIE_INT_EVT_AER_LEGACY) |
 					BIT(MSM_PCIE_INT_EVT_AER_ERR) |
 					BIT(MSM_PCIE_INT_EVT_MSI_0) |
@@ -3904,7 +3912,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 					BIT(MSM_PCIE_INT_EVT_MSI_6) |
 					BIT(MSM_PCIE_INT_EVT_MSI_7));
 
-		PCIE_DBG(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
+		PCIE_INFO(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
 			dev->rc_idx,
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
 	}
@@ -4876,7 +4884,7 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0, status);
 
-	PCIE_DBG2(dev, "RC%d: Global IRQ %d received: 0x%x\n",
+	PCIE_DUMP(dev, "RC%d: Global IRQ %d received: 0x%x\n",
 		dev->rc_idx, irq, status);
 
 	for (i = 0; i <= MSM_PCIE_INT_EVT_MAX; i++) {
@@ -4887,6 +4895,10 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 					"PCIe: RC%d: handle linkdown event.\n",
 					dev->rc_idx);
 				handle_linkdown_irq(irq, data);
+				break;
+			case MSM_PCIE_INT_EVT_L1SUB_TIMEOUT:
+				msm_pcie_notify_client(dev,
+					MSM_PCIE_EVENT_L1SS_TIMEOUT);
 				break;
 			case MSM_PCIE_INT_EVT_AER_LEGACY:
 				PCIE_DBG(dev,
@@ -6380,6 +6392,40 @@ static void msm_pcie_fixup_early(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			msm_pcie_fixup_early);
 
+static void __msm_pcie_l1ss_timeout_disable(struct msm_pcie_dev_t *pcie_dev)
+{
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, BIT(0),
+				0);
+	writel_relaxed(0, pcie_dev->parf + PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+}
+
+static void __msm_pcie_l1ss_timeout_enable(struct msm_pcie_dev_t *pcie_dev)
+{
+	u32 val = BIT(31);
+
+	writel_relaxed(val, pcie_dev->parf +
+			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+
+	/* 3 AUX clock cycles so that RESET will sync with timer logic */
+	usleep_range(3, 4);
+
+	val |= L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US);
+	writel_relaxed(val, pcie_dev->parf +
+			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+
+	/* 1 AUX clock cycle so that CNT_MAX will sync with timer logic */
+	usleep_range(1, 2);
+
+	val &= ~BIT(31);
+	writel_relaxed(val, pcie_dev->parf +
+			PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER);
+
+	msm_pcie_write_mask(pcie_dev->parf +
+			PCIE20_PARF_DEBUG_INT_EN, 0, BIT(0));
+
+	pcie_dev->enable_l1ss_timeout = true;
+}
+
 /* Suspend the PCIe link */
 static int msm_pcie_pm_suspend(struct pci_dev *dev,
 			void *user, void *data, u32 options)
@@ -6402,6 +6448,9 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 			pcie_dev->rc_idx);
 		return ret;
 	}
+
+	if (pcie_dev->enable_l1ss_timeout)
+		__msm_pcie_l1ss_timeout_disable(pcie_dev);
 
 	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)
 		&& msm_pcie_confirm_linkup(pcie_dev, true, true,
@@ -6554,6 +6603,9 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 			pcie_dev->rc_idx);
 	}
 
+	if (pcie_dev->enable_l1ss_timeout)
+		__msm_pcie_l1ss_timeout_enable(pcie_dev);
+
 	PCIE_DBG(pcie_dev, "RC%d: exit\n", pcie_dev->rc_idx);
 
 	return ret;
@@ -6607,7 +6659,7 @@ DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			void *data, u32 options)
 {
-	int i, ret = 0;
+	int ret = 0;
 	struct pci_dev *dev;
 	u32 rc_idx = 0;
 	struct msm_pcie_dev_t *pcie_dev;
@@ -6634,30 +6686,6 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			"PCIe: did not find RC for pci endpoint device.\n"
 			);
 		ret = -ENODEV;
-		goto out;
-	}
-
-	for (i = 0; i < MAX_DEVICE_NUM; i++) {
-		if (!busnr)
-			break;
-		if (user == pcie_dev->pcidev_table[i].dev) {
-			if (busnr == pcie_dev->pcidev_table[i].bdf >> 24)
-				break;
-
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: bus number %d does not match with the expected value %d\n",
-				pcie_dev->rc_idx, busnr,
-				pcie_dev->pcidev_table[i].bdf >> 24);
-			ret = MSM_PCIE_ERROR;
-			goto out;
-		}
-	}
-
-	if (i == MAX_DEVICE_NUM) {
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: endpoint device was not found in device table",
-			pcie_dev->rc_idx);
-		ret = MSM_PCIE_ERROR;
 		goto out;
 	}
 
@@ -6782,6 +6810,22 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_pm_control);
+
+void msm_pcie_l1ss_timeout_disable(struct pci_dev *pci_dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(pci_dev->bus);
+
+	__msm_pcie_l1ss_timeout_disable(pcie_dev);
+}
+EXPORT_SYMBOL(msm_pcie_l1ss_timeout_disable);
+
+void msm_pcie_l1ss_timeout_enable(struct pci_dev *pci_dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(pci_dev->bus);
+
+	__msm_pcie_l1ss_timeout_enable(pcie_dev);
+}
+EXPORT_SYMBOL(msm_pcie_l1ss_timeout_enable);
 
 int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 {
