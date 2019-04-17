@@ -216,15 +216,6 @@ struct map_src_dst_addr_s {
 	 IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT)
 
 /*
- * Macro to get rsrc cnt of specific rsrc type and rsrc grp from test
- * bus collected data
- */
-#define IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type, rsrc_grp) \
-	IPA_DEBUG_TESTBUS_DATA_GET_RSRC_CNT_BITS_FROM_DEBUG_DATA( \
-		ipa_reg_save.ipa.testbus->ep_rsrc[rsrc_type].entry_ep \
-		[rsrc_grp].testbus_data.value)
-
-/*
  * Macro to pluck the gsi version from ram.
  */
 #define IPA_REG_SAVE_GSI_VER(reg_name, var_name)	\
@@ -694,14 +685,6 @@ struct ipa_reg_save_ipa_testbus_entry_s {
 	union ipa_hwio_def_ipa_debug_data_sel_u testbus_sel;
 	union ipa_hwio_def_ipa_debug_data_u testbus_data;
 };
-
-/* IPA TESTBUS global struct */
-struct ipa_reg_save_ipa_testbus_global_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	global[IPA_TESTBUS_SEL_INTERNAL_MAX + 1]
-	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
-};
-
 /* IPA TESTBUS per EP struct */
 struct ipa_reg_save_ipa_testbus_ep_s {
 	struct ipa_reg_save_ipa_testbus_entry_s
@@ -709,19 +692,10 @@ struct ipa_reg_save_ipa_testbus_ep_s {
 	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
 };
 
-/* IPA TESTBUS per EP struct */
-struct ipa_reg_save_ipa_testbus_ep_rsrc_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	  entry_ep[IPA_DEBUG_TESTBUS_RSRC_NUM_GRP];
-};
-
 /* IPA TESTBUS save data struct */
 struct ipa_reg_save_ipa_testbus_s {
-	struct ipa_reg_save_ipa_testbus_global_s global;
 	struct ipa_reg_save_ipa_testbus_ep_s
 	  ep[IPA_TESTBUS_SEL_EP_MAX + 1];
-	struct ipa_reg_save_ipa_testbus_ep_rsrc_s
-	  ep_rsrc[IPA_DEBUG_TESTBUS_RSRC_NUM_EP];
 };
 
 /*
