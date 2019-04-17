@@ -307,7 +307,7 @@ static irqreturn_t atl_legacy_irq(int irq, void *priv)
 {
 	struct atl_nic *nic = priv;
 	struct atl_hw *hw = &nic->hw;
-	uint32_t mask = hw->intr_mask | atl_qvec_intr(nic->qvecs);
+	uint32_t mask = hw->intr_mask | BIT(atl_qvec_intr(nic->qvecs));
 	uint32_t stat;
 
 
@@ -355,7 +355,10 @@ int atl_alloc_link_intr(struct atl_nic *nic)
 
 void atl_free_link_intr(struct atl_nic *nic)
 {
-	free_irq(pci_irq_vector(nic->hw.pdev, 0), nic);
+	struct atl_hw *hw = &nic->hw;
+
+	atl_intr_disable(hw, BIT(0));
+	free_irq(pci_irq_vector(hw->pdev, 0), nic);
 }
 
 void atl_set_uc_flt(struct atl_hw *hw, int idx, uint8_t mac_addr[ETH_ALEN])
@@ -766,7 +769,7 @@ int __atl_msm_write(struct atl_hw *hw, uint32_t addr, uint32_t val)
 		return ret;
 
 	atl_write(hw, ATL_MPI_MSM_WR, val);
-	atl_write(hw, ATL_MPI_MSM_ADDR, addr | BIT(8));
+	atl_write(hw, ATL_MPI_MSM_ADDR, (addr >> 2) | BIT(8));
 	ret = atl_msm_wait(hw);
 	if (ret)
 		return ret;
@@ -1018,15 +1021,18 @@ static uint32_t atl_mcp_mbox_wait(struct atl_hw *hw, int loops)
 }
 
 int atl_write_mcp_mem(struct atl_hw *hw, uint32_t offt, void *host_addr,
-	size_t size)
+	size_t size, enum mcp_area area)
 {
 	uint32_t *addr = (uint32_t *)host_addr;
+
+	if (offt > 0xffff)
+		return -EINVAL;
 
 	while (size) {
 		uint32_t stat;
 
 		atl_write(hw, ATL_MCP_SCRATCH(FW2_MBOX_DATA), *addr++);
-		atl_write(hw, ATL_MCP_SCRATCH(FW2_MBOX_CMD), BIT(31) | offt);
+		atl_write(hw, ATL_MCP_SCRATCH(FW2_MBOX_CMD), area | offt);
 		ndelay(750);
 		stat = atl_mcp_mbox_wait(hw, 5);
 

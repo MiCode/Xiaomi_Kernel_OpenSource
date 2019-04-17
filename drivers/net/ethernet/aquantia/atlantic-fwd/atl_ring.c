@@ -501,18 +501,19 @@ module_param_named(rx_linear, atl_rx_linear, uint, 0444);
  * for the target page.
  */
 static int atl_get_page(struct atl_pgref *pgref, unsigned int order,
-	struct device *dev)
+	struct device *dev, bool atomic)
 {
 	struct atl_rxpage *rxpage;
 	struct page *page;
 	dma_addr_t daddr;
 	int ret = -ENOMEM;
+	gfp_t flags = atomic ? GFP_ATOMIC | __GFP_NOWARN : GFP_KERNEL;
 
-	rxpage = kmalloc(sizeof(*rxpage), GFP_ATOMIC | __GFP_NOWARN);
+	rxpage = kmalloc(sizeof(*rxpage), flags);
 	if (unlikely(!rxpage))
 		return ret;
 
-	page = dev_alloc_pages(order);
+	page = __dev_alloc_pages(flags, order);
 	if (unlikely(!page))
 		goto free_rxpage;
 
@@ -542,7 +543,7 @@ free_rxpage:
 }
 
 static int atl_get_pages(struct atl_rxbuf *rxbuf,
-	struct atl_desc_ring *ring)
+	struct atl_desc_ring *ring, bool atomic)
 {
 	int ret;
 	struct device *dev = ring->qvec->dev;
@@ -552,7 +553,8 @@ static int atl_get_pages(struct atl_rxbuf *rxbuf,
 		return 0;
 
 	if (!rxbuf->head.rxpage && !atl_rx_linear) {
-		ret = atl_get_page(&rxbuf->head, ATL_RX_HEAD_ORDER, dev);
+		ret = atl_get_page(&rxbuf->head, ATL_RX_HEAD_ORDER,
+			dev, atomic);
 		if (ret) {
 			atl_update_ring_stat(ring,
 				rx.alloc_head_page_failed, 1);
@@ -562,7 +564,8 @@ static int atl_get_pages(struct atl_rxbuf *rxbuf,
 	}
 
 	if (!rxbuf->data.rxpage) {
-		ret = atl_get_page(&rxbuf->data, ATL_RX_DATA_ORDER, dev);
+		ret = atl_get_page(&rxbuf->data, ATL_RX_DATA_ORDER,
+			dev, atomic);
 		if (ret) {
 			atl_update_ring_stat(ring,
 				rx.alloc_data_page_failed, 1);
@@ -595,14 +598,14 @@ static inline void atl_fill_rx_desc(struct atl_desc_ring *ring,
 	COMMIT_DESC(ring, ring->tail, scratch);
 }
 
-static int atl_fill_rx(struct atl_desc_ring *ring, uint32_t count)
+static int atl_fill_rx(struct atl_desc_ring *ring, uint32_t count, bool atomic)
 {
 	int ret = 0;
 
 	while (count) {
 		struct atl_rxbuf *rxbuf = &ring->rxbufs[ring->tail];
 
-		ret = atl_get_pages(rxbuf, ring);
+		ret = atl_get_pages(rxbuf, ring, atomic);
 		if (ret)
 			break;
 
@@ -977,7 +980,7 @@ static int atl_clean_rx(struct atl_desc_ring *ring, int budget)
 		DECLARE_SCRATCH_DESC(scratch);
 
 		if (space >= atl_rx_refill_batch)
-			atl_fill_rx(ring, space);
+			atl_fill_rx(ring, space, true);
 
 		rxbuf = &ring->rxbufs[ring->head];
 
@@ -1070,8 +1073,8 @@ static int atl_poll(struct napi_struct *napi, int budget)
 }
 
 /* XXX NOTE: only checked on device probe for now */
-static int enable_msi = 1;
-module_param_named(msi, enable_msi, int, 0444);
+int atl_enable_msi = 1;
+module_param_named(msi, atl_enable_msi, int, 0444);
 
 static int atl_config_interrupts(struct atl_nic *nic)
 {
@@ -1079,7 +1082,7 @@ static int atl_config_interrupts(struct atl_nic *nic)
 	unsigned int flags;
 	int ret;
 
-	if (enable_msi) {
+	if (atl_enable_msi) {
 		int nvecs;
 
 		nvecs = min_t(int, nic->requested_nvecs, num_present_cpus());
@@ -1135,13 +1138,13 @@ void atl_clear_datapath(struct atl_nic *nic)
 	if (!test_and_clear_bit(ATL_ST_CONFIGURED, &nic->state))
 		return;
 
-#ifdef ATL_COMPAT_PCI_ALLOC_IRQ_VECTORS_AFFINITY
+	atl_free_link_intr(nic);
+
 	for (i = 0; i < nic->nvecs; i++) {
 		int vector = pci_irq_vector(nic->hw.pdev,
 			i + ATL_NUM_NON_RING_IRQS);
 		irq_set_affinity_hint(vector, NULL);
 	}
-#endif
 
 	pci_free_irq_vectors(nic->hw.pdev);
 
@@ -1195,9 +1198,13 @@ int atl_setup_datapath(struct atl_nic *nic)
 	if (!qvec) {
 		atl_nic_err("Couldn't alloc qvecs\n");
 		ret = -ENOMEM;
-		goto exit_free;
+		goto err_alloc;
 	}
 	nic->qvecs = qvec;
+
+	ret = atl_alloc_link_intr(nic);
+	if (ret)
+		goto err_link_intr;
 
 	for (i = 0; i < nvecs; i++, qvec++) {
 		qvec->nic = nic;
@@ -1225,8 +1232,13 @@ int atl_setup_datapath(struct atl_nic *nic)
 	set_bit(ATL_ST_CONFIGURED, &nic->state);
 	return 0;
 
-exit_free:
-	atl_clear_datapath(nic);
+err_link_intr:
+	kfree(nic->qvecs);
+	nic->qvecs = NULL;
+
+err_alloc:
+	pci_free_irq_vectors(nic->hw.pdev);
+
 	return ret;
 }
 
@@ -1538,7 +1550,7 @@ static int atl_start_qvec(struct atl_queue_vec *qvec)
 	rx->head = rx->tail = atl_read(hw, ATL_RING_HEAD(rx)) & 0x1fff;
 	tx->head = tx->tail = atl_read(hw, ATL_RING_HEAD(tx)) & 0x1fff;
 
-	ret = atl_fill_rx(rx, ring_space(rx));
+	ret = atl_fill_rx(rx, ring_space(rx), false);
 	if (ret)
 		return ret;
 
@@ -1594,6 +1606,9 @@ static void atl_set_lro(struct atl_nic *nic)
 	uint32_t val = nic->ndev->features & NETIF_F_LRO ?
 		BIT(nic->nvecs) - 1 : 0;
 
+	if (val)
+		atl_nic_warn("There are unresolved issues with LRO, enabling it isn't recommended for now\n");
+
 	atl_write_bits(hw, ATL_RX_LRO_CTRL1, 0, nic->nvecs, val);
 	atl_write_bits(hw, ATL_INTR_RSC_EN, 0, nic->nvecs, val);
 }
@@ -1605,12 +1620,14 @@ int atl_start_rings(struct atl_nic *nic)
 	struct atl_queue_vec *qvec;
 	int ret;
 
-	mask = BIT(nic->nvecs + ATL_NUM_NON_RING_IRQS) -
-		BIT(ATL_NUM_NON_RING_IRQS);
-	/* Enable auto-masking of ring interrupts on intr generation */
-	atl_set_bits(hw, ATL_INTR_AUTO_MASK, mask);
-	/* Enable status auto-clear on intr generation */
-	atl_set_bits(hw, ATL_INTR_AUTO_CLEAR, mask);
+	if (nic->flags & ATL_FL_MULTIPLE_VECTORS) {
+		mask = BIT(nic->nvecs + ATL_NUM_NON_RING_IRQS) -
+			BIT(ATL_NUM_NON_RING_IRQS);
+		/* Enable auto-masking of ring interrupts on intr generation */
+		atl_set_bits(hw, ATL_INTR_AUTO_MASK, mask);
+		/* Enable status auto-clear on intr generation */
+		atl_set_bits(hw, ATL_INTR_AUTO_CLEAR, mask);
+	}
 
 	atl_set_lro(nic);
 	atl_set_rss_tbl(hw);
