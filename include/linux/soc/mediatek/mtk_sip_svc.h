@@ -8,7 +8,6 @@
 
 #include <linux/kernel.h>
 
-
 /* Error Code */
 #define SIP_SVC_E_SUCCESS               0
 #define SIP_SVC_E_NOT_SUPPORTED         -1
@@ -33,6 +32,11 @@
 /* TRNG */
 #define MTK_SIP_KERNEL_GET_RND \
 	(0x82000206 | MTK_SIP_SMC_AARCH_BIT)
+/* DEVAPC */
+#define MTK_SIP_KERNEL_DAPC_PERM_GET \
+	(0x82000207 | MTK_SIP_SMC_AARCH_BIT)
+#define MTK_SIP_KERNEL_CLR_SRAMROM_VIO \
+	(0x82000208 | MTK_SIP_SMC_AARCH_BIT)
 /* CCCI debug feature */
 #define MTK_SIP_KERNEL_CCCI_GET_INFO \
 	(0x82000209 | MTK_SIP_SMC_AARCH_BIT)
