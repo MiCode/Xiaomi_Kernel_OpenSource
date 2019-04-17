@@ -700,10 +700,10 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 		usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request,
 				GSI_EP_OP_STORE_DBL_INFO);
-
-		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
-				GSI_EP_OP_ENABLE_GSI);
 	}
+
+	usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
+				GSI_EP_OP_ENABLE_GSI);
 
 	/* Unblock doorbell to GSI */
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
