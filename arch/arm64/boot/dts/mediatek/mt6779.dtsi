@@ -93,20 +93,20 @@
 			reg = <0 0x0c53a650 0 0x50>;
 		};
 
-		topckgen: topckgen@10000000 {
-			compatible = "mediatek,topckgen", "syscon";
+		topckgen: clock-controller@10000000 {
+			compatible = "mediatek,mt6779-topckgen", "syscon";
 			reg = <0 0x10000000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		infracfg_ao: infracfg_ao@10001000 {
-			compatible = "mediatek,infracfg_ao", "syscon";
+		infracfg_ao: clock-controller@10001000 {
+			compatible = "mediatek,mt6779-infracfg_ao", "syscon";
 			reg = <0 0x10001000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
 		scpsys: scpsys@10001000 {
-			compatible = "mediatek,scpsys";
+			compatible = "mediatek,mt6779-scpsys";
 			reg = <0 0x10001000 0 0x1000>,
 			      <0 0x10006000 0 0x1000>,
 			      <0 0x1020e000 0 0x1000>,
@@ -134,8 +134,8 @@
 			gpio-ranges = <&pio 0 0 209>;
 		};
 
-		apmixed: apmixed@1000c000 {
-			compatible = "mediatek,apmixed", "syscon";
+		apmixed: clock-controller@1000c000 {
+			compatible = "mediatek,mt6779-apmixed", "syscon";
 			reg = <0 0x1000c000 0 0xe00>;
 			#clock-cells = <1>;
 		};
@@ -168,85 +168,85 @@
 			status = "disabled";
 		};
 
-		audio: audio@11210000 {
-			compatible = "mediatek,audio", "syscon";
+		audio: clock-controller@11210000 {
+			compatible = "mediatek,mt6779-audio", "syscon";
 			reg = <0 0x11210000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		mfgcfg: mfgcfg@13fbf000 {
-			compatible = "mediatek,mfgcfg", "syscon";
+		mfgcfg: clock-controller@13fbf000 {
+			compatible = "mediatek,mt6779-mfgcfg", "syscon";
 			reg = <0 0x13fbf000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		mmsys_config: mmsys_config@14000000 {
-			compatible = "mediatek,mmsys_config", "syscon";
+		mmsys: clock-controller@14000000 {
+			compatible = "mediatek,mt6779-mmsys", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
 			interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_LOW>;
 			#clock-cells = <1>;
 		};
 
-		imgsys: imgsys@15020000 {
-			compatible = "mediatek,imgsys", "syscon";
+		imgsys: clock-controller@15020000 {
+			compatible = "mediatek,mt6779-imgsys", "syscon";
 			reg = <0 0x15020000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		vdec_gcon: vdec_gcon@16000000 {
-			compatible = "mediatek,vdec_gcon", "syscon";
+		vdecsys: clock-controller@16000000 {
+			compatible = "mediatek,mt6779-vdecsys", "syscon";
 			reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
 			      <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
 			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_LOW>;
 			#clock-cells = <1>;
 		};
 
-		venc_gcon: venc_gcon@17000000 {
-			compatible = "mediatek,venc_gcon", "syscon";
+		vencsys: clock-controller@17000000 {
+			compatible = "mediatek,mt6779-vencsys", "syscon";
 			reg = <0 0x17000000 0 0x1000>,
 			      <0 0x17020000 0 0x1000>;
 			interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_LOW>;
 			#clock-cells = <1>;
 		};
 
-		apu_conn: apu_conn@19000000 {
-			compatible = "mediatek,apu_conn", "syscon";
+		apu_conn: clock-controller@19000000 {
+			compatible = "mediatek,mt6779-apu_conn", "syscon";
 			reg = <0 0x19000000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		apu_vcore: apu_vcore@19020000 {
-			compatible = "mediatek,apu_vcore", "syscon";
+		apu_vcore: clock-controller@19020000 {
+			compatible = "mediatek,mt6779-apu_vcore", "syscon";
 			reg = <0 0x19020000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		apu0: apu0@19180000 {
-			compatible = "mediatek,apu0", "syscon";
+		apu0: clock-controller@19180000 {
+			compatible = "mediatek,mt6779-apu0", "syscon";
 			reg = <0 0x19180000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		apu1: apu1@19280000 {
-			compatible = "mediatek,apu1", "syscon";
+		apu1: clock-controller@19280000 {
+			compatible = "mediatek,mt6779-apu1", "syscon";
 			reg = <0 0x19280000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		apu_mdla: apu_mdla@19380000 {
-			compatible = "mediatek,apu_mdla", "syscon";
+		apu_mdla: clock-controller@19380000 {
+			compatible = "mediatek,mt6779-apu_mdla", "syscon";
 			reg = <0 0x19380000 0 0x1000>;
 			#clock-cells = <1>;
 		};
 
-		camsys: camsys@1a000000 {
-			compatible = "mediatek,camsys", "syscon";
+		camsys: clock-controller@1a000000 {
+			compatible = "mediatek,mt6779-camsys", "syscon";
 			reg = <0 0x1a000000 0 0x10000>;
 			#clock-cells = <1>;
 		};
 
-		ipesys_config: ipesys_config@1b000000 {
-			compatible = "mediatek,ipesys_config", "syscon";
+		ipesys: clock-controller@1b000000 {
+			compatible = "mediatek,mt6779-ipesys", "syscon";
 			reg = <0 0x1b000000 0 0x1000>;
 			#clock-cells = <1>;
 		};
