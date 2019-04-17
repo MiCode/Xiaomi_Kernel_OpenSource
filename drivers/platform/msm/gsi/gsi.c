@@ -2523,6 +2523,38 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 }
 EXPORT_SYMBOL(gsi_write_channel_scratch3_reg);
 
+int gsi_write_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi2_channel_scratch2_reg val)
+{
+	struct gsi_chan_ctx *ctx;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= gsi_ctx->max_ch) {
+		GSIERR("bad params chan_hdl=%lu\n", chan_hdl);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	mutex_lock(&ctx->mlock);
+
+	ctx->scratch.wdi2_new.endp_metadatareg_offset =
+				val.wdi.endp_metadatareg_offset;
+	ctx->scratch.wdi2_new.qmap_id = val.wdi.qmap_id;
+	val.wdi.update_ri_moderation_threshold =
+		ctx->scratch.wdi2_new.update_ri_moderation_threshold;
+	gsi_writel(val.data.word1, gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_SCRATCH_2_OFFS(chan_hdl,
+			gsi_ctx->per.ee));
+	mutex_unlock(&ctx->mlock);
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_write_channel_scratch2_reg);
+
 static void __gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch * val)
 {

@@ -1099,6 +1099,7 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 	union __packed gsi_channel_scratch gsi_scratch;
 	phys_addr_t pa;
 	unsigned long va;
+	unsigned long wifi_rx_ri_addr = 0;
 	u32 gsi_db_reg_phs_addr_lsb;
 	u32 gsi_db_reg_phs_addr_msb;
 
@@ -1276,16 +1277,11 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 					NULL,
 					4,
 					false,
-					&va)) {
+					&wifi_rx_ri_addr)) {
 			IPAERR("fail to create gsi RX rng RP\n");
 			result = -ENOMEM;
 			goto gsi_timeout;
 		}
-		gsi_scratch.wdi.wifi_rx_ri_addr_low =
-			va & 0xFFFFFFFF;
-		gsi_scratch.wdi.wifi_rx_ri_addr_high =
-			(va & 0xFFFFF00000000) >> 32;
-
 		len = in->smmu_enabled ?
 			in->u.ul_smmu.rdy_comp_ring_size :
 			in->u.ul.rdy_comp_ring_size;
@@ -1324,13 +1320,6 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 			goto gsi_timeout;
 		}
 		gsi_evt_ring_props.rp_update_addr = va;
-		gsi_scratch.wdi.wdi_rx_vdev_id = 0xff;
-		gsi_scratch.wdi.wdi_rx_fw_desc = 0xff;
-		gsi_scratch.wdi.endp_metadatareg_offset =
-					ipahal_get_reg_mn_ofst(
-					IPA_ENDP_INIT_HDR_METADATA_n, 0,
-							ipa_ep_idx)/4;
-		gsi_scratch.wdi.qmap_id = 0;
 	}
 
 	ep->valid = 1;
@@ -1388,11 +1377,44 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 
 	num_ring_ele = ep->gsi_mem_info.evt_ring_len/gsi_evt_ring_props.re_size;
 	IPAERR("UPDATE_RI_MODERATION_THRESHOLD: %d\n", num_ring_ele);
-	gsi_scratch.wdi.update_ri_moderation_threshold =
-		min(UPDATE_RI_MODERATION_THRESHOLD, num_ring_ele);
-	gsi_scratch.wdi.update_ri_moderation_counter = 0;
-	gsi_scratch.wdi.wdi_rx_tre_proc_in_progress = 0;
-	gsi_scratch.wdi.resv1 = 0;
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_7) {
+		if (IPA_CLIENT_IS_PROD(in->sys.client)) {
+			gsi_scratch.wdi.wifi_rx_ri_addr_low =
+				wifi_rx_ri_addr & 0xFFFFFFFF;
+			gsi_scratch.wdi.wifi_rx_ri_addr_high =
+				(wifi_rx_ri_addr & 0xFFFFF00000000) >> 32;
+			gsi_scratch.wdi.wdi_rx_vdev_id = 0xff;
+			gsi_scratch.wdi.wdi_rx_fw_desc = 0xff;
+			gsi_scratch.wdi.endp_metadatareg_offset =
+						ipahal_get_reg_mn_ofst(
+						IPA_ENDP_INIT_HDR_METADATA_n, 0,
+								ipa_ep_idx)/4;
+			gsi_scratch.wdi.qmap_id = 0;
+		}
+		gsi_scratch.wdi.update_ri_moderation_threshold =
+			min(UPDATE_RI_MODERATION_THRESHOLD, num_ring_ele);
+		gsi_scratch.wdi.update_ri_moderation_counter = 0;
+		gsi_scratch.wdi.wdi_rx_tre_proc_in_progress = 0;
+	} else {
+		if (IPA_CLIENT_IS_PROD(in->sys.client)) {
+			gsi_scratch.wdi2_new.wifi_rx_ri_addr_low =
+				wifi_rx_ri_addr & 0xFFFFFFFF;
+			gsi_scratch.wdi2_new.wifi_rx_ri_addr_high =
+				(wifi_rx_ri_addr & 0xFFFFF00000000) >> 32;
+			gsi_scratch.wdi2_new.wdi_rx_vdev_id = 0xff;
+			gsi_scratch.wdi2_new.wdi_rx_fw_desc = 0xff;
+			gsi_scratch.wdi2_new.endp_metadatareg_offset =
+						ipahal_get_reg_mn_ofst(
+						IPA_ENDP_INIT_HDR_METADATA_n, 0,
+								ipa_ep_idx)/4;
+			gsi_scratch.wdi2_new.qmap_id = 0;
+		}
+		gsi_scratch.wdi2_new.update_ri_moderation_threshold =
+			min(UPDATE_RI_MODERATION_THRESHOLD, num_ring_ele);
+		gsi_scratch.wdi2_new.update_ri_moderation_counter = 0;
+		gsi_scratch.wdi2_new.wdi_rx_tre_proc_in_progress = 0;
+	}
+
 	result = gsi_write_channel_scratch(ep->gsi_chan_hdl,
 			gsi_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
@@ -2708,17 +2730,29 @@ int ipa3_write_qmapid_gsi_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 {
 	int result = 0;
 	struct ipa3_ep_context *ep;
-	union __packed gsi_wdi_channel_scratch3_reg gsi_scratch;
+	union __packed gsi_wdi_channel_scratch3_reg gsi_scratch3;
+	union __packed gsi_wdi2_channel_scratch2_reg gsi_scratch2;
 
-	memset(&gsi_scratch, 0, sizeof(gsi_scratch));
 	ep = &ipa3_ctx->ep[clnt_hdl];
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	gsi_scratch.wdi.qmap_id = qmap_id;
-	gsi_scratch.wdi.endp_metadatareg_offset = ipahal_get_reg_mn_ofst(
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_7) {
+		memset(&gsi_scratch3, 0, sizeof(gsi_scratch3));
+		gsi_scratch3.wdi.qmap_id = qmap_id;
+		gsi_scratch3.wdi.endp_metadatareg_offset =
+			ipahal_get_reg_mn_ofst(
 				IPA_ENDP_INIT_HDR_METADATA_n, 0, clnt_hdl)/4;
-
-	result = gsi_write_channel_scratch3_reg(ep->gsi_chan_hdl, gsi_scratch);
+		result = gsi_write_channel_scratch3_reg(ep->gsi_chan_hdl,
+								gsi_scratch3);
+	} else {
+		memset(&gsi_scratch2, 0, sizeof(gsi_scratch2));
+		gsi_scratch2.wdi.qmap_id = qmap_id;
+		gsi_scratch2.wdi.endp_metadatareg_offset =
+			ipahal_get_reg_mn_ofst(
+				IPA_ENDP_INIT_HDR_METADATA_n, 0, clnt_hdl)/4;
+		result = gsi_write_channel_scratch2_reg(ep->gsi_chan_hdl,
+								gsi_scratch2);
+	}
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("gsi_write_channel_scratch failed %d\n",
 			result);
