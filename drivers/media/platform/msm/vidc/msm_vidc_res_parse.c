@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -575,6 +575,28 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	return rc;
 }
 
+static int msm_vidc_check_dcvs_enabled(struct msm_vidc_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+
+	if (of_find_property(pdev->dev.of_node, "disable-dcvs-enc", NULL)) {
+		/*
+		 * disable-dcvs-enc is an optional property.
+		 */
+		dprintk(VIDC_DBG, "disable-dcvs-enc\n");
+		msm_vidc_enc_dcvs_mode = false;
+	}
+	if (of_find_property(pdev->dev.of_node, "disable-dcvs-dec", NULL)) {
+		/*
+		 * disable-dcvs-dec is an optional property.
+		 */
+		dprintk(VIDC_DBG, "disable-dcvs-dec\n");
+		msm_vidc_dec_dcvs_mode = false;
+	}
+
+	return 0;
+}
+
 static int msm_vidc_load_dcvs_table(struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
@@ -1020,6 +1042,12 @@ int read_platform_resources_from_dt(
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
+		goto err_load_freq_table;
+	}
+
+	rc = msm_vidc_check_dcvs_enabled(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to check dcvs flags: %d\n", rc);
 		goto err_load_freq_table;
 	}
 

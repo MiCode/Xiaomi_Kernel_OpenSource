@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1310,10 +1310,6 @@ static int sde_hdcp_1x_authentication_part2(struct sde_hdcp_1x *hdcp)
 	}
 
 	do {
-		rc = sde_hdcp_1x_transfer_v_h(hdcp);
-		if (rc)
-			goto error;
-
 		/*
 		 * Do not proceed further if no device connected
 		 * If no downstream devices are attached to the repeater
@@ -1324,6 +1320,10 @@ static int sde_hdcp_1x_authentication_part2(struct sde_hdcp_1x *hdcp)
 			rc = -EINVAL;
 			goto error;
 		}
+
+		rc = sde_hdcp_1x_transfer_v_h(hdcp);
+		if (rc)
+			goto error;
 
 		rc = sde_hdcp_1x_write_ksv_fifo(hdcp);
 	} while (--v_retry && rc);

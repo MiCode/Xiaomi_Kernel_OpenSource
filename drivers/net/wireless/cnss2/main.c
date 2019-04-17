@@ -1201,9 +1201,15 @@ out:
 static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
+	bool pwr_up_reqd = false;
 
 	set_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
-	ret = cnss_bus_dev_powerup(plat_priv);
+	if (test_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state))
+		pwr_up_reqd = true;
+
+	if (pwr_up_reqd || plat_priv->bus_type != CNSS_BUS_USB)
+		ret = cnss_bus_dev_powerup(plat_priv);
+
 	if (ret)
 		clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
@@ -1214,7 +1220,8 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 {
 	plat_priv->cal_done = true;
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
-	if (plat_priv->device_id == QCN7605_DEVICE_ID)
+	if (plat_priv->device_id == QCN7605_DEVICE_ID ||
+	    plat_priv->bus_type == CNSS_BUS_USB)
 		goto skip_shutdown;
 	cnss_bus_dev_shutdown(plat_priv);
 
@@ -1677,6 +1684,8 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 	case QCN7605_DEVICE_ID:
+	case QCN7605_COMPOSITE_DEVICE_ID:
+	case QCN7605_STANDALONE_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Not supported for device ID 0x%lx\n",

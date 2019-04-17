@@ -77,16 +77,35 @@ static struct workqueue_struct *ssr_wq;
 
 
 #ifdef CONFIG_GHS_VMM
+enum subsys_payload_type {
+	SUBSYS_CHANNEL_SEND = 100,
+	SUBSYS_CHANNEL_RECV,
+	SUBSYS_CHANNEL_SEND_ACK,
+	SUBSYS_CHANNEL_RECV_ACK
+};
+
 struct ghs_vdev {
 	void *read_data; /* buffer to receive from gipc */
 	size_t read_size;
 	int read_offset;
 	GIPC_Endpoint endpoint;
 	spinlock_t io_lock;
+	wait_queue_head_t rx_queue;
+	int xfer_state;
 	char name[32];
 };
 
 static char dt_gipc_path_name[SSR_VIRT_DT_PATHLEN];
+
+static int ssrvirt_channel_ack(struct ghs_vdev *dev)
+{
+	int ret = 0;
+
+	ret = wait_event_interruptible(dev->rx_queue, ((dev->read_size != 0) ||
+				(dev->xfer_state == SUBSYS_CHANNEL_SEND_ACK)));
+
+	return ret;
+}
 
 static int ssrvirt_channel_send(struct ghs_vdev *dev, void *payload,
 		size_t size)
@@ -109,6 +128,8 @@ static int ssrvirt_channel_send(struct ghs_vdev *dev, void *payload,
 		return -ENOMEM;
 	}
 
+	dev->xfer_state = SUBSYS_CHANNEL_SEND;
+
 	if (size)
 		memcpy(msg, payload, size);
 
@@ -121,6 +142,8 @@ static int ssrvirt_channel_send(struct ghs_vdev *dev, void *payload,
 				result, size, 0);
 		return -EAGAIN;
 	}
+
+	ssrvirt_channel_ack(dev);
 
 	return 0;
 }
@@ -171,6 +194,14 @@ static void ssrvirt_channel_rx_dispatch(struct subsystem_descriptor *subsystem,
 				subsystem_handle =
 					subsys_notif_add_subsys(
 							subsystem->name);
+
+				if (state == SUBSYS_CHANNEL_SEND_ACK) {
+					dev->xfer_state =
+						SUBSYS_CHANNEL_SEND_ACK;
+					wake_up_interruptible(&dev->rx_queue);
+					continue;
+				}
+
 				subsys_notif_queue_notification(
 						subsystem_handle, state, NULL);
 			}
@@ -209,6 +240,7 @@ static int ssrvirt_commdev_alloc(void *dev_id, const char *name)
 
 	memset(dev, 0, sizeof(*dev));
 	spin_lock_init(&dev->io_lock);
+	init_waitqueue_head(&dev->rx_queue);
 
 	gvh_dn = of_find_node_by_path("/aliases");
 	if (gvh_dn) {
