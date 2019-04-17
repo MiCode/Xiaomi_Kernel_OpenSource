@@ -1242,7 +1242,7 @@ int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
 	tbl = __ipa3_find_rt_tbl(rules->ip, rules->rt_tbl_name);
 	if (tbl == NULL || (tbl->cookie != IPA_RT_TBL_COOKIE)) {
 		IPAERR_RL("failed finding rt tbl name = %s\n",
-			rules->rt_tbl_name ? rules->rt_tbl_name : "");
+			(rules->rt_tbl_name != NULL) ? rules->rt_tbl_name : "");
 		ret = -EINVAL;
 		goto bail;
 	}

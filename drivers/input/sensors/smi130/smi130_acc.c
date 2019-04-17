@@ -1325,7 +1325,7 @@
 #define SMI_ACC2X2_SET_BITSLICE(regvar, bitname, val)\
 	((regvar & ~bitname##__MSK) | ((val<<bitname##__POS)&bitname##__MSK))
 
-#define CHECK_CHIP_ID_TIME_MAX 5
+#define CHECK_CHIP_ID_TIME_MAX 1
 #define SMI_ACC255_CHIP_ID 0XFA
 #define SMI_ACC250E_CHIP_ID 0XF9
 #define SMI_ACC222E_CHIP_ID 0XF8
@@ -1339,7 +1339,7 @@
 
 #define MAX_FIFO_F_LEVEL 32
 #define MAX_FIFO_F_BYTES 6
-#define SMI_ACC_MAX_RETRY_I2C_XFER (100)
+#define SMI_ACC_MAX_RETRY_I2C_XFER (2)
 
 #ifdef CONFIG_DOUBLE_TAP
 #define DEFAULT_TAP_JUDGE_PERIOD 1000    /* default judge in 1 second */
@@ -1898,8 +1898,9 @@ static int smi130_acc_check_chip_id(struct i2c_client *client,
 	while (read_count++ < CHECK_CHIP_ID_TIME_MAX) {
 		if (smi130_acc_smbus_read_byte(client, SMI_ACC2X2_CHIP_ID_REG,
 							&chip_id) < 0) {
-			PERR("Bosch Sensortec Device not found\n\n"
+			PERR("Bosch Sensortec Device not found\n"
 			"i2c bus read error, read chip_id:%d\n", chip_id);
+			err = -ENODEV;
 			continue;
 		} else {
 		for (i = 0; i < smi130_acc_sensor_type_count; i++) {
@@ -1907,7 +1908,7 @@ static int smi130_acc_check_chip_id(struct i2c_client *client,
 				data->sensor_type =
 					sensor_type_map[i].sensor_type;
 				data->chip_id = chip_id;
-				PINFO("Bosch Sensortec Device detected,\n\n"
+				PINFO("Bosch Sensortec Device detected\n"
 					" HW IC name: %s\n",
 						sensor_type_map[i].sensor_name);
 					return err;
@@ -1917,7 +1918,7 @@ static int smi130_acc_check_chip_id(struct i2c_client *client,
 			return err;
 		else {
 			if (read_count == CHECK_CHIP_ID_TIME_MAX) {
-				PERR("Failed! Bosch Sensortec Device\n\n"
+				PERR("Failed! Bosch Sensortec Device\n"
 					" not found, mismatch chip_id:%d\n",
 								chip_id);
 					err = -ENODEV;

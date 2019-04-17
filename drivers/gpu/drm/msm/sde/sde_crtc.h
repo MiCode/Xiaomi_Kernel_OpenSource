@@ -230,7 +230,7 @@ struct sde_crtc {
 	u32 num_ctls;
 	u32 num_mixers;
 	bool mixers_swapped;
-	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
+	struct sde_crtc_mixer mixers[MAX_MIXERS_PER_CRTC];
 
 	struct drm_pending_vblank_event *event;
 	u32 vsync_count;
@@ -280,7 +280,7 @@ struct sde_crtc {
 	spinlock_t event_lock;
 	bool misr_enable;
 	u32 misr_frame_count;
-	u32 misr_data[CRTC_DUAL_MIXERS];
+	u32 misr_data[MAX_MIXERS_PER_CRTC];
 
 	bool enable_sui_enhancement;
 
@@ -405,8 +405,8 @@ struct sde_crtc_state {
 
 	bool is_ppsplit;
 	struct sde_rect crtc_roi;
-	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
-	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
+	struct sde_rect lm_bounds[MAX_MIXERS_PER_CRTC];
+	struct sde_rect lm_roi[MAX_MIXERS_PER_CRTC];
 	struct msm_roi_list user_roi_list;
 
 	struct msm_property_state property_state;
@@ -483,8 +483,7 @@ static inline int sde_crtc_get_mixer_width(struct sde_crtc *sde_crtc,
 	if (cstate->num_ds_enabled)
 		mixer_width = cstate->ds_cfg[0].lm_width;
 	else
-		mixer_width = (sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
-			mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay);
+		mixer_width = mode->hdisplay / sde_crtc->num_mixers;
 
 	return mixer_width;
 }

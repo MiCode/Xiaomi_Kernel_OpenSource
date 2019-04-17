@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,6 @@
 
 #define IPA_64_LOW_32_MASK (0xFFFFFFFF)
 #define IPA_64_HIGH_32_MASK (0xFFFFFFFF00000000ULL)
-#define IPAHAL_NAT_INVALID_PROTOCOL (0xFF)
 
 static const char *ipahal_nat_type_to_str[IPA_NAT_MAX] = {
 	__stringify(IPAHAL_NAT_IPV4),

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1523,40 +1523,6 @@ static void cnss_pci_free_m3_mem(struct cnss_pci_data *pci_priv)
 	m3_mem->size = 0;
 }
 
-int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
-{
-	int ret;
-	struct cnss_plat_data *plat_priv;
-
-	if (!pci_priv)
-		return -ENODEV;
-
-	plat_priv = pci_priv->plat_priv;
-	if (!plat_priv)
-		return -ENODEV;
-
-	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state)) {
-		cnss_pr_err("RDDM already collected 0x%x, return\n",
-			    pci_priv->mhi_state);
-		return 0;
-	}
-
-	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
-	if (ret) {
-		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
-		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
-				       CNSS_REASON_DEFAULT);
-		return 0;
-	}
-
-	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
-		mod_timer(&plat_priv->fw_boot_timer,
-			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
-	}
-
-	return 0;
-}
-
 void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 {
 	if (!pci_priv)
@@ -1885,21 +1851,32 @@ static void cnss_pci_disable_bus(struct cnss_pci_data *pci_priv)
 		pci_disable_device(pci_dev);
 }
 
-static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
+#ifndef CONFIG_MHI_BUS
+void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 {
-	struct cnss_pci_data *pci_priv = priv;
-
-	return pm_runtime_get(&pci_priv->pci_dev->dev);
 }
 
-static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
-					   void *priv)
+static inline int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
-	struct cnss_pci_data *pci_priv = priv;
-
-	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
+	return -EINVAL;
 }
 
+static inline void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
+{
+}
+
+inline int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
+			   enum cnss_mhi_state mhi_state)
+{
+	return -EINVAL;
+}
+
+inline int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
+{
+	return -EINVAL;
+}
+
+#else
 static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 {
 	switch (mhi_state) {
@@ -1925,6 +1902,21 @@ static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 		return "UNKNOWN";
 	}
 };
+
+static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
+{
+	struct cnss_pci_data *pci_priv = priv;
+
+	return pm_runtime_get(&pci_priv->pci_dev->dev);
+}
+
+static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
+					   void *priv)
+{
+	struct cnss_pci_data *pci_priv = priv;
+
+	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
+}
 
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 {
@@ -2000,34 +1992,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_DONE);
 	complete(&plat_priv->rddm_complete);
-}
-
-void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
-{
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-
-	plat_priv->ramdump_info_v2.dump_data.nentries = 0;
-	plat_priv->ramdump_info_v2.dump_data_valid = false;
-}
-
-static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
-{
-	struct cnss_pci_data *pci_priv = priv;
-	u16 device_id;
-
-	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL\n");
-		return -EINVAL;
-	}
-
-	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
-	if (device_id != pci_priv->device_id)  {
-		cnss_pr_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
-			    device_id, pci_priv->device_id);
-		return -EIO;
-	}
-
-	return 0;
 }
 
 static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
@@ -2172,87 +2136,6 @@ static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 	kfree(mhi_ctrl->irq);
 }
 
-static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
-					enum cnss_mhi_state mhi_state)
-{
-	switch (mhi_state) {
-	case CNSS_MHI_INIT:
-		if (!test_bit(CNSS_MHI_INIT, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_DEINIT:
-	case CNSS_MHI_POWER_ON:
-		if (test_bit(CNSS_MHI_INIT, &pci_priv->mhi_state) &&
-		    !test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_FORCE_POWER_OFF:
-		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_POWER_OFF:
-	case CNSS_MHI_SUSPEND:
-		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) &&
-		    !test_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_RESUME:
-		if (test_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_TRIGGER_RDDM:
-		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) &&
-		    !test_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state))
-			return 0;
-		break;
-	case CNSS_MHI_RDDM_DONE:
-		return 0;
-	default:
-		cnss_pr_err("Unhandled MHI state: %s(%d)\n",
-			    cnss_mhi_state_to_str(mhi_state), mhi_state);
-	}
-
-	cnss_pr_err("Cannot set MHI state %s(%d) in current MHI state (0x%lx)\n",
-		    cnss_mhi_state_to_str(mhi_state), mhi_state,
-		    pci_priv->mhi_state);
-
-	return -EINVAL;
-}
-
-static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
-				       enum cnss_mhi_state mhi_state)
-{
-	switch (mhi_state) {
-	case CNSS_MHI_INIT:
-		set_bit(CNSS_MHI_INIT, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_DEINIT:
-		clear_bit(CNSS_MHI_INIT, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_POWER_ON:
-		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_POWER_OFF:
-	case CNSS_MHI_FORCE_POWER_OFF:
-		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
-		clear_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_SUSPEND:
-		set_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_RESUME:
-		clear_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
-		break;
-	case CNSS_MHI_TRIGGER_RDDM:
-		break;
-	case CNSS_MHI_RDDM_DONE:
-		set_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
-		break;
-	default:
-		cnss_pr_err("Unhandled MHI state (%d)\n", mhi_state);
-	}
-}
-
 int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 			   enum cnss_mhi_state mhi_state)
 {
@@ -2324,6 +2207,147 @@ out:
 	cnss_pr_err("Failed to set MHI state: %s(%d)\n",
 		    cnss_mhi_state_to_str(mhi_state), mhi_state);
 	return ret;
+}
+
+static int cnss_mhi_link_status(struct mhi_controller *mhi_ctrl, void *priv)
+{
+	struct cnss_pci_data *pci_priv = priv;
+	u16 device_id;
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -EINVAL;
+	}
+
+	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
+	if (device_id != pci_priv->device_id)  {
+		cnss_pr_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
+			    device_id, pci_priv->device_id);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
+					enum cnss_mhi_state mhi_state)
+{
+	switch (mhi_state) {
+	case CNSS_MHI_INIT:
+		if (!test_bit(CNSS_MHI_INIT, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_DEINIT:
+	case CNSS_MHI_POWER_ON:
+		if (test_bit(CNSS_MHI_INIT, &pci_priv->mhi_state) &&
+		    !test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_FORCE_POWER_OFF:
+		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_POWER_OFF:
+	case CNSS_MHI_SUSPEND:
+		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) &&
+		    !test_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_RESUME:
+		if (test_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_TRIGGER_RDDM:
+		if (test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) &&
+		    !test_bit(CNSS_MHI_TRIGGER_RDDM, &pci_priv->mhi_state))
+			return 0;
+		break;
+	case CNSS_MHI_RDDM_DONE:
+		return 0;
+	default:
+		cnss_pr_err("Unhandled MHI state: %s(%d)\n",
+			    cnss_mhi_state_to_str(mhi_state), mhi_state);
+	}
+
+	cnss_pr_err("Cannot set MHI state %s(%d) in current MHI state (0x%lx)\n",
+		    cnss_mhi_state_to_str(mhi_state), mhi_state,
+		    pci_priv->mhi_state);
+
+	return -EINVAL;
+}
+
+static int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
+{
+	int ret;
+	struct cnss_plat_data *plat_priv;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
+	if (test_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state))
+		return 0;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
+	if (ret) {
+		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
+		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+				       CNSS_REASON_DEFAULT);
+		return ret;
+	}
+
+	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
+		mod_timer(&plat_priv->fw_boot_timer,
+			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
+	}
+
+	return 0;
+}
+#endif
+
+void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	plat_priv->ramdump_info_v2.dump_data.nentries = 0;
+	plat_priv->ramdump_info_v2.dump_data_valid = false;
+}
+
+static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
+				       enum cnss_mhi_state mhi_state)
+{
+	switch (mhi_state) {
+	case CNSS_MHI_INIT:
+		set_bit(CNSS_MHI_INIT, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_DEINIT:
+		clear_bit(CNSS_MHI_INIT, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_POWER_ON:
+		set_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_POWER_OFF:
+	case CNSS_MHI_FORCE_POWER_OFF:
+		clear_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state);
+		clear_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_SUSPEND:
+		set_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_RESUME:
+		clear_bit(CNSS_MHI_SUSPEND, &pci_priv->mhi_state);
+		break;
+	case CNSS_MHI_TRIGGER_RDDM:
+		break;
+	case CNSS_MHI_RDDM_DONE:
+		set_bit(CNSS_MHI_RDDM_DONE, &pci_priv->mhi_state);
+		break;
+	default:
+		cnss_pr_err("Unhandled MHI state (%d)\n", mhi_state);
+	}
 }
 
 int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -523,7 +523,7 @@ struct sde_prop_type mixer_blend_prop[] = {
 static struct sde_prop_type mixer_prop[] = {
 	{MIXER_OFF, "qcom,sde-mixer-off", true, PROP_TYPE_U32_ARRAY},
 	{MIXER_LEN, "qcom,sde-mixer-size", false, PROP_TYPE_U32},
-	{MIXER_PAIR_MASK, "qcom,sde-mixer-pair-mask", true,
+	{MIXER_PAIR_MASK, "qcom,sde-mixer-pair-mask", false,
 		PROP_TYPE_U32_ARRAY},
 	{MIXER_BLOCKS, "qcom,sde-mixer-blocks", false, PROP_TYPE_NODE},
 	{MIXER_DISP, "qcom,sde-mixer-display-pref", false,
@@ -1460,7 +1460,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 			goto end;
 		}
 		mixer->sblk = sblk;
-
+		mixer->lm_pair_mask = 0xFFFFFFFF;
 		mixer->base = mixer_base;
 		mixer->len = PROP_VALUE_ACCESS(prop_value, MIXER_LEN, 0);
 		mixer->id = LM_0 + i;

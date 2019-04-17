@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,7 @@ struct dp_catalog_ctrl {
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*config_misc)(struct dp_catalog_ctrl *ctrl, u32 cc, u32 tb);
 	void (*config_msa)(struct dp_catalog_ctrl *ctrl, u32 rate,
-				u32 stream_rate_khz, bool fixed_nvid);
+				u32 stream_rate_khz);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
 	void (*usb_reset)(struct dp_catalog_ctrl *ctrl, bool flip);

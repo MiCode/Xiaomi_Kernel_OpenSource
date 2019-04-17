@@ -36,6 +36,11 @@
 #define IPA_DFLT_RT_TBL_NAME "ipa_dflt_rt"
 
 /**
+ * name for default value of invalid protocol of NAT
+ */
+#define IPAHAL_NAT_INVALID_PROTOCOL   0xFF
+
+/**
  * commands supported by IPA driver
  */
 #define IPA_IOCTL_ADD_HDR                       0
@@ -307,12 +312,25 @@ enum ipa_client_type {
 
 	/* RESERVERD PROD                            = 74, */
 	IPA_CLIENT_MHI_DPL_CONS                 = 75,
-	/* RESERVED PROD                             76, */
-	IPA_CLIENT_DUMMY_CONS1			= 77
+	/* RESERVED PROD                             = 76, */
+	IPA_CLIENT_DUMMY_CONS1			= 77,
+
+	IPA_CLIENT_WIGIG_PROD			= 78,
+	IPA_CLIENT_WIGIG1_CONS			= 79,
+
+	/* RESERVERD PROD			     = 80, */
+	IPA_CLIENT_WIGIG2_CONS			= 81,
+
+	/* RESERVERD PROD			     = 82, */
+	IPA_CLIENT_WIGIG3_CONS			= 83,
+
+	/* RESERVERD PROD			     = 84, */
+	IPA_CLIENT_WIGIG4_CONS			= 85,
 };
 
 #define IPA_CLIENT_DUMMY_CONS IPA_CLIENT_DUMMY_CONS1
-#define IPA_CLIENT_MAX (IPA_CLIENT_DUMMY_CONS + 1)
+#define IPA_CLIENT_WIGIG4_CONS IPA_CLIENT_WIGIG4_CONS
+#define IPA_CLIENT_MAX (IPA_CLIENT_WIGIG4_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -548,7 +566,11 @@ enum ipa_gsb_event {
 #define IPA_GSB_EVENT_MAX IPA_GSB_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_GSB_EVENT_MAX)
+#define WIGIG_CLIENT_CONNECT (IPA_GSB_EVENT_MAX)
+#define WIGIG_FST_SWITCH (WIGIG_CLIENT_CONNECT + 1)
+#define WIGIG_EVENT_MAX (WIGIG_FST_SWITCH + 1)
+
+#define IPA_EVENT_MAX_NUM (WIGIG_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -1758,6 +1780,23 @@ struct ipa_wlan_msg {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
 };
+
+/**
+ * struct ipa_wigig_msg- To hold information about wigig event
+ * @name: name of the wigig interface
+ * @client_mac_addr: the relevant wigig client mac address
+ * @ipa_client: TX pipe associated with the wigig client in case of connect
+ * @to_wigig: FST switch direction wlan->wigig?
+ */
+struct ipa_wigig_msg {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t client_mac_addr[IPA_MAC_ADDR_SIZE];
+	union {
+		enum ipa_client_type ipa_client;
+		uint8_t to_wigig;
+	} u;
+};
+#define feature_ipa_wigig_msg 1
 
 /**
  * enum ipa_wlan_hdr_attrib_type - attribute type

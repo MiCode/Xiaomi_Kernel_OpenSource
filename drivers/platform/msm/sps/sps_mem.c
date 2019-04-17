@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, 2015, 2017, The Linux Foundation.
+/* Copyright (c) 2011-2013, 2015, 2017, 2019, The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -75,8 +75,8 @@ phys_addr_t sps_mem_alloc_io(u32 bytes)
 		return SPS_ADDR_INVALID;
 	}
 
-	SPS_DBG3(sps, "sps:sps_mem_alloc_io.phys=%pa.virt=0x%lx.size=0x%x.",
-		&phys_addr, virt_addr, bytes);
+	SPS_DBG3(sps, "sps:sps_mem_alloc_io.phys=%pa.virt=0x%pK.size=0x%x.",
+		&phys_addr, (void *)virt_addr, bytes);
 
 	return phys_addr;
 }
@@ -92,8 +92,8 @@ void sps_mem_free_io(phys_addr_t phys_addr, u32 bytes)
 	iomem_offset = phys_addr - iomem_phys;
 	virt_addr = (uintptr_t) iomem_virt + iomem_offset;
 
-	SPS_DBG3(sps, "sps:sps_mem_free_io.phys=%pa.virt=0x%lx.size=0x%x.",
-		&phys_addr, virt_addr, bytes);
+	SPS_DBG3(sps, "sps:sps_mem_free_io.phys=%pa.virt=0x%pK.size=0x%x.",
+		&phys_addr, (void *)virt_addr, bytes);
 
 	gen_pool_free(pool, virt_addr, bytes);
 	total_free += bytes;

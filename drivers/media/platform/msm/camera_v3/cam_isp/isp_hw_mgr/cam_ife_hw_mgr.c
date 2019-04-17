@@ -3551,8 +3551,8 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	struct cam_hw_prepare_update_args *prepare = NULL;
 
 	if (!blob_data || (blob_size == 0) || !blob_info) {
-		CAM_ERR(CAM_ISP, "Invalid info blob %pK %d prepare %pK",
-			blob_data, blob_size, prepare);
+		CAM_ERR(CAM_ISP, "Invalid args data %pK size %d info %pK",
+			blob_data, blob_size, blob_info);
 		return -EINVAL;
 	}
 
@@ -3572,8 +3572,29 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	CAM_DBG(CAM_ISP, "FS2: BLOB Type: %d", blob_type);
 	switch (blob_type) {
 	case CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG: {
-		struct cam_isp_resource_hfr_config    *hfr_config =
-			(struct cam_isp_resource_hfr_config *)blob_data;
+		struct cam_isp_resource_hfr_config    *hfr_config;
+
+		if (blob_size < sizeof(struct cam_isp_resource_hfr_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
+			return -EINVAL;
+		}
+
+		hfr_config = (struct cam_isp_resource_hfr_config *)blob_data;
+
+		if (hfr_config->num_ports > CAM_ISP_IFE_OUT_RES_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_ports %u in hfr config",
+				hfr_config->num_ports);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2 + hfr_config->num_ports *
+			sizeof(struct cam_isp_port_hfr_config))) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
+				blob_size, sizeof(uint32_t) * 2 +
+				sizeof(struct cam_isp_port_hfr_config) *
+				hfr_config->num_ports);
+			return -EINVAL;
+		}
 
 		rc = cam_isp_blob_hfr_update(blob_type, blob_info,
 			hfr_config, prepare);
@@ -3582,8 +3603,29 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_CLOCK_CONFIG: {
-		struct cam_isp_clock_config    *clock_config =
-			(struct cam_isp_clock_config *)blob_data;
+		struct cam_isp_clock_config    *clock_config;
+
+		if (blob_size < sizeof(struct cam_isp_clock_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
+			return -EINVAL;
+		}
+
+		clock_config = (struct cam_isp_clock_config *)blob_data;
+
+		if (clock_config->num_rdi > CAM_IFE_RDI_NUM_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_rdi %u in clock config",
+				clock_config->num_rdi);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2 + sizeof(uint64_t) *
+			(clock_config->num_rdi + 2))) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
+				blob_size,
+				sizeof(uint32_t) * 2 + sizeof(uint64_t) *
+				(clock_config->num_rdi + 2));
+			return -EINVAL;
+		}
 
 		rc = cam_isp_blob_clock_update(blob_type, blob_info,
 			clock_config, prepare);
@@ -3592,9 +3634,30 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG: {
-		struct cam_isp_bw_config    *bw_config =
-			(struct cam_isp_bw_config *)blob_data;
+		struct cam_isp_bw_config    *bw_config;
 		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
+
+		if (blob_size < sizeof(struct cam_isp_bw_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
+			return -EINVAL;
+		}
+
+		bw_config = (struct cam_isp_bw_config *)blob_data;
+
+		if (bw_config->num_rdi > CAM_IFE_RDI_NUM_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_rdi %u in bw config",
+				bw_config->num_rdi);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2 + (bw_config->num_rdi + 2)
+			* sizeof(struct cam_isp_bw_vote))) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
+				blob_size,
+				sizeof(uint32_t) * 2 + (bw_config->num_rdi + 2)
+				* sizeof(struct cam_isp_bw_vote));
+			return -EINVAL;
+		}
 
 		if (!prepare || !prepare->priv ||
 			(bw_config->usage_type >= CAM_IFE_HW_NUM_MAX)) {
@@ -3613,8 +3676,29 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG: {
-		struct cam_ubwc_config *ubwc_config =
-			(struct cam_ubwc_config *)blob_data;
+		struct cam_ubwc_config *ubwc_config;
+
+		if (blob_size < sizeof(struct cam_ubwc_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob_size %u", blob_size);
+			return -EINVAL;
+		}
+
+		ubwc_config = (struct cam_ubwc_config *)blob_data;
+
+		if (ubwc_config->num_ports > CAM_ISP_IFE_OUT_RES_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_ports %u in ubwc config",
+				ubwc_config->num_ports);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+			sizeof(struct cam_ubwc_plane_cfg_v1) * 2)) {
+			CAM_ERR(CAM_ISP, "Invalid blob_size %u expected %lu",
+				blob_size,
+				sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+				sizeof(struct cam_ubwc_plane_cfg_v1) * 2);
+			return -EINVAL;
+		}
 
 		rc = cam_isp_blob_ubwc_update(blob_type, blob_info,
 			ubwc_config, prepare);
@@ -3623,8 +3707,16 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG: {
-		struct cam_isp_csid_clock_config    *clock_config =
-			(struct cam_isp_csid_clock_config *)blob_data;
+		struct cam_isp_csid_clock_config    *clock_config;
+
+		if (blob_size < sizeof(struct cam_isp_csid_clock_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
+				blob_size,
+				sizeof(struct cam_isp_csid_clock_config));
+			return -EINVAL;
+		}
+
+		clock_config = (struct cam_isp_csid_clock_config *)blob_data;
 
 		rc = cam_isp_blob_csid_clock_update(blob_type, blob_info,
 			clock_config, prepare);
@@ -3633,8 +3725,16 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG: {
-		struct cam_fe_config *fe_config =
-			(struct cam_fe_config *)blob_data;
+		struct cam_fe_config *fe_config;
+
+		if (blob_size < sizeof(struct cam_fe_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
+				blob_size, sizeof(struct cam_fe_config));
+			return -EINVAL;
+		}
+
+		fe_config = (struct cam_fe_config *)blob_data;
+
 		rc = cam_isp_blob_fe_update(blob_type, blob_info,
 			fe_config, prepare);
 		if (rc)

@@ -1572,6 +1572,14 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv,
 			u64_to_user_ptr(isp_resource[i].res_hdl),
 			isp_resource[i].length);
 		if (!IS_ERR(in_port)) {
+			if (in_port->num_out_res > CAM_IFE_HW_OUT_RES_MAX) {
+				CAM_ERR(CAM_ISP, "too many output res %d",
+					in_port->num_out_res);
+				rc = -EINVAL;
+				kfree(in_port);
+				goto free_res;
+			}
+
 			in_port_length = sizeof(struct cam_isp_in_port_info) +
 				(in_port->num_out_res - 1) *
 				sizeof(struct cam_isp_out_port_info);
@@ -2667,7 +2675,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	ctx = (struct cam_ife_hw_mgr_ctx *) prepare->ctxt_to_hw_map;
 	hw_mgr = (struct cam_ife_hw_mgr *)hw_mgr_priv;
 
-	rc = cam_packet_util_validate_packet(prepare->packet);
+	rc = cam_packet_util_validate_packet(prepare->packet,
+		prepare->remain_len);
 	if (rc)
 		return rc;
 

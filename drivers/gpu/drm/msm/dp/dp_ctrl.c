@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1177,24 +1177,6 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 	pr_debug("Host deinitialized successfully\n");
 }
 
-static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
-{
-	u8 *dpcd = ctrl->panel->dpcd;
-
-	/*
-	 * For better interop experience, used a fixed NVID=0x8000
-	 * whenever connected to a VGA dongle downstream.
-	 */
-	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT) {
-		u8 type = dpcd[DP_DOWNSTREAMPORT_PRESENT] &
-			DP_DWN_STRM_PORT_TYPE_MASK;
-		if (type == DP_DWN_STRM_PORT_TYPE_ANALOG)
-			return true;
-	}
-
-	return false;
-}
-
 static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 {
 	int ret = 0;
@@ -1247,8 +1229,7 @@ static int dp_ctrl_link_maintenance(struct dp_ctrl *dp_ctrl)
 
 		ctrl->catalog->config_msa(ctrl->catalog,
 			drm_dp_bw_code_to_link_rate(
-			ctrl->link->link_params.bw_code),
-			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
+			ctrl->link->link_params.bw_code), ctrl->pixel_rate);
 
 		reinit_completion(&ctrl->idle_comp);
 
@@ -1414,8 +1395,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
 		ctrl->catalog->config_msa(ctrl->catalog,
 			drm_dp_bw_code_to_link_rate(
-			ctrl->link->link_params.bw_code),
-			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
+			ctrl->link->link_params.bw_code), ctrl->pixel_rate);
 
 		rc = dp_ctrl_setup_main_link(ctrl, true);
 		if (!rc)
