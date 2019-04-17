@@ -3385,8 +3385,6 @@ int msm_venc_set_rotation(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *vflip = NULL;
 	struct hfi_device *hdev;
 	struct hfi_vpe_rotation_type vpe_rotation;
-	struct hfi_frame_size frame_sz;
-	struct v4l2_format *f;
 
 	hdev = inst->core->device;
 
@@ -3423,24 +3421,6 @@ int msm_venc_set_rotation(struct msm_vidc_inst *inst)
 		return rc;
 	}
 
-	/* flip the output resolution if required */
-	f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
-	if (vpe_rotation.rotation == HFI_ROTATE_90 ||
-		vpe_rotation.rotation == HFI_ROTATE_270) {
-		frame_sz.buffer_type = HFI_BUFFER_OUTPUT;
-		frame_sz.width = f->fmt.pix_mp.height;
-		frame_sz.height = f->fmt.pix_mp.width;
-		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
-			frame_sz.width, frame_sz.height);
-		rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HFI_PROPERTY_PARAM_FRAME_SIZE,
-			&frame_sz, sizeof(frame_sz));
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set framesize\n");
-			return rc;
-		}
-	}
 	return rc;
 }
 
