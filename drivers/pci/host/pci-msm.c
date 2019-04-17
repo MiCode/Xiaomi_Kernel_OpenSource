@@ -172,6 +172,14 @@
 #define GEN2_SPEED 0x2
 #define GEN3_SPEED 0x3
 
+#define LINK_WIDTH_X1 (0x1)
+#define LINK_WIDTH_X2 (0x3)
+#define LINK_WIDTH_MASK (0x3f)
+#define LINK_WIDTH_SHIFT (16)
+
+#define RATE_CHANGE_19P2MHZ (19200000)
+#define RATE_CHANGE_100MHZ (100000000)
+
 #define MSM_PCIE_IOMMU_PRESENT BIT(0)
 #define MSM_PCIE_IOMMU_S1_BYPASS BIT(1)
 #define MSM_PCIE_IOMMU_FAST BIT(2)
@@ -629,6 +637,9 @@ struct msm_pcie_dev_t {
 	uint32_t			    gpio_n;
 	uint32_t			    parf_deemph;
 	uint32_t			    parf_swing;
+
+	struct msm_pcie_vreg_info_t *cx_vreg;
+	struct msm_pcie_clk_info_t *rate_change_clk;
 
 	bool				 cfg_access;
 	spinlock_t			 cfg_lock;
@@ -3496,6 +3507,9 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 				vreg_info->min_v = be32_to_cpup(&prop[1]);
 				vreg_info->opt_mode =
 					be32_to_cpup(&prop[2]);
+
+				if (!strcmp(vreg_info->name, "vreg-cx"))
+					dev->cx_vreg = vreg_info;
 			}
 		}
 	}
@@ -3636,6 +3650,10 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 					MSM_PCIE_MAX_PIPE_CLK];
 				PCIE_DBG(dev, "Freq of Clock %s is:%d\n",
 					clk_info->name, clk_info->freq);
+
+				if (!strcmp(clk_info->name,
+					"pcie_phy_refgen_clk"))
+					dev->rate_change_clk = clk_info;
 			}
 		}
 	}
@@ -5899,6 +5917,152 @@ out:
 
 	return ret;
 }
+
+static int msm_pcie_link_retrain(struct msm_pcie_dev_t *pcie_dev,
+				struct pci_dev *pci_dev)
+{
+	u32 cnt;
+	u32 cnt_max = 1000; /* 100ms timeout */
+	u32 link_status_lbms_mask = PCI_EXP_LNKSTA_LBMS << PCI_EXP_LNKCTL;
+
+	/* force link to L0 */
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL,  0, BIT(5));
+
+	cnt = 0;
+	/* confirm link is in L0 */
+	while (((readl_relaxed(pcie_dev->parf + PCIE20_PARF_LTSSM) &
+		MSM_PCIE_LTSSM_MASK)) != MSM_PCIE_LTSSM_L0) {
+		if (unlikely(cnt++ >= cnt_max)) {
+			PCIE_ERR(pcie_dev,
+				"PCIe: RC%d: failed to transition to L0\n",
+				pcie_dev->rc_idx);
+			return -EIO;
+		}
+
+		usleep_range(100, 105);
+	}
+
+	/* link retrain */
+	msm_pcie_config_clear_set_dword(pci_dev,
+					pci_dev->pcie_cap + PCI_EXP_LNKCTL,
+					0, PCI_EXP_LNKCTL_RL);
+
+	cnt = 0;
+	/* poll until link train is done */
+	while (!(readl_relaxed(pcie_dev->dm_core + pci_dev->pcie_cap +
+		PCI_EXP_LNKCTL) & link_status_lbms_mask)) {
+		if (unlikely(cnt++ >= cnt_max)) {
+			PCIE_ERR(pcie_dev, "PCIe: RC%d: failed to retrain\n",
+				pcie_dev->rc_idx);
+			return -EIO;
+		}
+
+		usleep_range(100, 105);
+	}
+
+	/* re-enable link LPM */
+	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
+
+	return 0;
+}
+
+static void msm_pcie_set_link_width(struct msm_pcie_dev_t *pcie_dev,
+					u16 *target_link_width)
+{
+	switch (*target_link_width) {
+	case PCI_EXP_LNKSTA_NLW_X1:
+		*target_link_width = LINK_WIDTH_X1;
+		break;
+	case PCI_EXP_LNKSTA_NLW_X2:
+		*target_link_width = LINK_WIDTH_X2;
+		break;
+	default:
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: unsupported link width request: %d\n",
+			pcie_dev->rc_idx, *target_link_width);
+		*target_link_width = 0;
+		return;
+	}
+
+	msm_pcie_write_reg_field(pcie_dev->dm_core,
+				PCIE20_PORT_LINK_CTRL_REG,
+				LINK_WIDTH_MASK << LINK_WIDTH_SHIFT,
+				*target_link_width);
+}
+
+int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
+				u16 target_link_width)
+{
+	struct pci_dev *root_pci_dev;
+	struct msm_pcie_dev_t *pcie_dev;
+	u16 link_status;
+	u16 current_link_speed;
+	u16 current_link_width;
+	int ret;
+
+	if (!pci_dev)
+		return -EINVAL;
+
+	root_pci_dev = pci_find_pcie_root_port(pci_dev);
+	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
+
+	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
+
+	current_link_speed = link_status & PCI_EXP_LNKSTA_CLS;
+	current_link_width = link_status & PCI_EXP_LNKSTA_NLW;
+	target_link_width <<= PCI_EXP_LNKSTA_NLW_SHIFT;
+
+	if (target_link_speed == current_link_speed)
+		target_link_speed = 0;
+
+	if (target_link_width == current_link_width)
+		target_link_width = 0;
+
+	if (target_link_width)
+		msm_pcie_set_link_width(pcie_dev, &target_link_width);
+
+	if (!target_link_speed && !target_link_width)
+		return 0;
+
+	if (target_link_speed)
+		msm_pcie_config_clear_set_dword(root_pci_dev,
+						root_pci_dev->pcie_cap +
+						PCI_EXP_LNKCTL2,
+						PCI_EXP_LNKSTA_CLS,
+						target_link_speed);
+
+	/* increase CX and rate change clk freq if target speed is Gen3 */
+	if (target_link_speed == PCI_EXP_LNKCTL2_TLS_8_0GT) {
+		if (pcie_dev->cx_vreg)
+			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
+						RPMH_REGULATOR_LEVEL_NOM,
+						pcie_dev->cx_vreg->max_v);
+
+		if (pcie_dev->rate_change_clk)
+			clk_set_rate(pcie_dev->rate_change_clk->hdl,
+					RATE_CHANGE_100MHZ);
+	}
+
+	ret = msm_pcie_link_retrain(pcie_dev, root_pci_dev);
+	if (ret)
+		return ret;
+
+	/* decrease CX and rate change clk freq if link is in Gen1 */
+	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
+	if ((link_status & PCI_EXP_LNKSTA_CLS) == PCI_EXP_LNKCTL2_TLS_2_5GT) {
+		if (pcie_dev->cx_vreg)
+			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
+						RPMH_REGULATOR_LEVEL_LOW_SVS,
+						pcie_dev->cx_vreg->max_v);
+
+		if (pcie_dev->rate_change_clk)
+			clk_set_rate(pcie_dev->rate_change_clk->hdl,
+					RATE_CHANGE_19P2MHZ);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_pcie_set_link_bandwidth);
 
 static int msm_pci_iommu_parse_dt(struct msm_root_dev_t *root_dev)
 {
