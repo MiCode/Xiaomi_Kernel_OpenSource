@@ -1105,6 +1105,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1168,6 +1169,27 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	} else {
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
+	}
+
+	/* read the device info if possible */
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto error_alloc_dev;
+
+		mhi_cntrl->family_number =
+			(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+			SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+			(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+			SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+			(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+			SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+			(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+			SOC_HW_VERSION_MINOR_VER_SHFT;
 	}
 
 	/* register controller with mhi_bus */
