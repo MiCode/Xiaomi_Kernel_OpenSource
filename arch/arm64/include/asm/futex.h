@@ -53,7 +53,7 @@
 static inline int
 arch_futex_atomic_op_inuser(int op, int oparg, int *oval, u32 __user *uaddr)
 {
-	int oldval, ret, tmp;
+	int oldval = 0, ret, tmp;
 
 	pagefault_disable();
 
