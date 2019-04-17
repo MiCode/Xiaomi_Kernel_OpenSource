@@ -275,6 +275,7 @@ struct cnss_plat_data {
 	struct notifier_block modem_nb;
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
+	struct cnss_device_version device_version;
 	unsigned long device_id;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
