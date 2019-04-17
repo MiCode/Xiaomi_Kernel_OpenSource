@@ -267,6 +267,15 @@
 			clock-names = "spi", "wrap";
 		};
 
+		devapc: devapc@10207000 {
+			compatible = "mediatek,mt6779-devapc";
+			reg = <0 0x10207000 0 0x1000>,
+			      <0 0x1001c000 0 0x1000>;
+			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&infracfg_ao CLK_INFRA_DEVICE_APC>;
+			clock-names = "devapc-infra-clock";
+		};
+
 		iommu0: iommu@10220000 {
 			compatible = "mediatek,mt6779-m4u-mm";
 			reg = <0 0x10220000 0 0x1000>;
