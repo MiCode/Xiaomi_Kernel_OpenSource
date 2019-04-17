@@ -455,8 +455,9 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* Allocates & maps memory for HFI */
-	gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, HFIMEM_SIZE,
-			(IOMMU_READ | IOMMU_WRITE));
+	if (IS_ERR_OR_NULL(gmu->hfi_mem))
+		gmu->hfi_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+				HFIMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
 	if (IS_ERR(gmu->hfi_mem)) {
 		ret = PTR_ERR(gmu->hfi_mem);
 		goto err_ret;
@@ -464,8 +465,11 @@ static int gmu_memory_probe(struct kgsl_device *device,
 
 	/* Allocates & maps GMU crash dump memory */
 	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
-		gmu->dump_mem = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
-				DUMPMEM_SIZE, (IOMMU_READ | IOMMU_WRITE));
+		if (IS_ERR_OR_NULL(gmu->dump_mem))
+			gmu->dump_mem = allocate_gmu_kmem(gmu,
+					GMU_NONCACHED_KERNEL,
+					DUMPMEM_SIZE,
+					(IOMMU_READ | IOMMU_WRITE));
 		if (IS_ERR(gmu->dump_mem)) {
 			ret = PTR_ERR(gmu->dump_mem);
 			goto err_ret;
@@ -473,8 +477,10 @@ static int gmu_memory_probe(struct kgsl_device *device,
 	}
 
 	/* GMU master log */
-	gmu->gmu_log = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL, LOGMEM_SIZE,
-			(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
+	if (IS_ERR_OR_NULL(gmu->gmu_log))
+		gmu->gmu_log = allocate_gmu_kmem(gmu, GMU_NONCACHED_KERNEL,
+				LOGMEM_SIZE,
+				(IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV));
 	if (IS_ERR(gmu->gmu_log)) {
 		ret = PTR_ERR(gmu->gmu_log);
 		goto err_ret;
