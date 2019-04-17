@@ -54,13 +54,13 @@
 		qcom,rx-proxy = <&atd_proxy_host>,
 				<&atd_proxy_uc>;
 
-		qcom,rx-gsi-mod-count = <250>;
-		qcom,rx-gsi-mod-timer = <5000>;
+		qcom,rx-gsi-mod-count = <20>;
+		qcom,rx-gsi-mod-timer = <1>;
 
-		qcom,tx-gsi-mod-count = <250>;
-		qcom,tx-gsi-mod-timer = <5000>;
+		qcom,tx-gsi-mod-count = <20>;
+		qcom,tx-gsi-mod-timer = <1>;
 
-		qcom,rx-mod-usecs = <50>;
+		qcom,rx-mod-usecs = <30>;
 
 		qcom,use-pci-direct;
 
