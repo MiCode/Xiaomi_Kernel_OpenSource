@@ -15,7 +15,7 @@
 #include "vidc_hfi.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
-#include "msm_cvp.h"
+#include "msm_cvp_internal.h"
 #include "msm_vidc_buffer_calculations.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) (\

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "msm_cvp.h"
+#include "msm_cvp_internal.h"
 
 #define MSM_VIDC_NOMINAL_CYCLES		(444 * 1000 * 1000)
 #define MSM_VIDC_UHD60E_VPSS_CYCLES	(111 * 1000 * 1000)
