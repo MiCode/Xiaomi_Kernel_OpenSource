@@ -12,6 +12,7 @@
 #include "wil6210.h"
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
+#include "ipa.h"
 
 static int n_msi = 3;
 module_param(n_msi, int, 0444);
@@ -98,6 +99,9 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		wil->use_enhanced_dma_hw = true;
 		wil->use_rx_hw_reordering = true;
 		wil->use_compressed_rx_status = true;
+		if (wil_ipa_offload())
+			/* IPA offload must use single MSI */
+			n_msi = 1;
 		wil_fw_name = ftm_mode ? WIL_FW_NAME_FTM_TALYN :
 			      WIL_FW_NAME_TALYN;
 		if (wil_fw_verify_file_exists(wil, wil_fw_name))
@@ -216,6 +220,11 @@ static int wil_if_pcie_enable(struct wil6210_priv *wil)
 
 	wil->n_msi = n_msi;
 
+	if (wil->n_msi == 0 && wil_ipa_offload()) {
+		wil_err(wil, "IPA offload cannot use INTx\n");
+		rc = -ENODEV;
+		goto stop_master;
+	}
 	if (wil->n_msi == 0 && msi_only) {
 		wil_err(wil, "Interrupt pin not routed, unable to use INTx\n");
 		rc = -ENODEV;

@@ -9,6 +9,7 @@
 #include <linux/rtnetlink.h>
 #include "wil6210.h"
 #include "txrx.h"
+#include "ipa.h"
 
 static bool alt_ifname; /* = false; */
 module_param(alt_ifname, bool, 0444);
@@ -187,13 +188,15 @@ static int wil6210_netdev_poll_tx_edma(struct napi_struct *napi, int budget)
 	int tx_done;
 	/* There is only one status TX ring */
 	struct wil_status_ring *sring;
+	int sring_idx = wil->ipa_handle ?
+		wil_ipa_get_bcast_sring_id(wil) : wil->tx_sring_idx;
 
-	if (wil->tx_sring_idx >= WIL6210_MAX_STATUS_RINGS) {
+	if (sring_idx >= WIL6210_MAX_STATUS_RINGS) {
 		napi_complete(napi);
 		return 0;
 	}
 
-	sring = &wil->srings[wil->tx_sring_idx];
+	sring = &wil->srings[sring_idx];
 	if (!sring->va) {
 		napi_complete(napi);
 		return 0;
@@ -203,7 +206,8 @@ static int wil6210_netdev_poll_tx_edma(struct napi_struct *napi, int budget)
 
 	if (tx_done < budget) {
 		napi_complete(napi);
-		wil6210_unmask_irq_tx_edma(wil);
+		if (!wil->ipa_handle)
+			wil6210_unmask_irq_tx_edma(wil);
 		wil_dbg_txrx(wil, "NAPI TX complete\n");
 	}
 
@@ -359,6 +363,9 @@ wil_vif_alloc(struct wil6210_priv *wil, const char *name,
 	ndev->hw_features = NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
 			    NETIF_F_SG | NETIF_F_GRO |
 			    NETIF_F_TSO | NETIF_F_TSO6;
+	if (wil_ipa_offload())
+		ndev->hw_features &= ~(NETIF_F_HW_CSUM | NETIF_F_TSO |
+				       NETIF_F_TSO6);
 
 	ndev->features |= ndev->hw_features;
 	SET_NETDEV_DEV(ndev, wiphy_dev(wdev->wiphy));
@@ -571,6 +578,8 @@ void wil_if_remove(struct wil6210_priv *wil)
 	wil_vif_remove(wil, 0);
 	rtnl_unlock();
 
+	wil_ipa_uninit(wil->ipa_handle);
+	wil->ipa_handle = NULL;
 	netif_napi_del(&wil->napi_tx);
 	netif_napi_del(&wil->napi_rx);
 

@@ -224,6 +224,9 @@ void wil_configure_interrupt_moderation_edma(struct wil6210_priv *wil)
 	/* Update RX and TX moderation */
 	moderation = wil->rx_max_burst_duration |
 		(WIL_EDMA_AGG_WATERMARK << WIL_EDMA_AGG_WATERMARK_POS);
+	if (wil->ipa_handle)
+		/* additional int per client, for Tx desc ring */
+		num_int_lines += max_assoc_sta;
 	for (i = 0; i < num_int_lines; i++)
 		wil_w(wil, i * 4 + RGF_INT_CTRL_INT_GEN_CFG, moderation);
 
@@ -531,7 +534,7 @@ static bool wil_validate_mbox_regs(struct wil6210_priv *wil)
 	return true;
 }
 
-static irqreturn_t wil6210_irq_misc(int irq, void *cookie)
+irqreturn_t wil6210_irq_misc(int irq, void *cookie)
 {
 	struct wil6210_priv *wil = cookie;
 	u32 isr;
@@ -600,7 +603,7 @@ static irqreturn_t wil6210_irq_misc(int irq, void *cookie)
 	}
 }
 
-static irqreturn_t wil6210_irq_misc_thread(int irq, void *cookie)
+irqreturn_t wil6210_irq_misc_thread(int irq, void *cookie)
 {
 	struct wil6210_priv *wil = cookie;
 	u32 isr = wil->isr_misc;

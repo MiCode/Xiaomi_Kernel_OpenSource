@@ -13,6 +13,7 @@
 #include "wmi.h"
 #include "trace.h"
 #include "ftm.h"
+#include "ipa.h"
 
 /* set the default max assoc sta to max supported by driver */
 uint max_assoc_sta = WIL6210_MAX_CID;
@@ -2228,6 +2229,9 @@ int wmi_pcp_start(struct wil6210_vif *vif,
 			cmd.pcp_max_assoc_sta);
 		return -EOPNOTSUPP;
 	}
+
+	if (wil->ipa_handle && cmd.pcp_max_assoc_sta > WIL_IPA_MAX_ASSOC_STA)
+		cmd.pcp_max_assoc_sta = WIL_IPA_MAX_ASSOC_STA;
 
 	if (disable_ap_sme &&
 	    !test_bit(WMI_FW_CAPABILITY_AP_SME_OFFLOAD_PARTIAL,
