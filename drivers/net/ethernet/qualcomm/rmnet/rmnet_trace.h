@@ -14,7 +14,7 @@
 #define TRACE_SYSTEM rmnet
 #define TRACE_INCLUDE_FILE rmnet_trace
 
-#if !defined(_TRACE_MSM_LOW_POWER_H_) || defined(TRACE_HEADER_MULTI_READ)
+#if !defined(_RMNET_TRACE_H_) || defined(TRACE_HEADER_MULTI_READ)
 #define _RMNET_TRACE_H_
 
 #include <linux/netdevice.h>
