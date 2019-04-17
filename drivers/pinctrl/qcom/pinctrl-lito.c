@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -548,6 +548,7 @@ enum lito_functions {
 	msm_mux_uim1_present,
 	msm_mux_phase_flag17,
 	msm_mux_aud_ref,
+	msm_mux_usb2phy_ac,
 	msm_mux_qlink1_wmss,
 	msm_mux_uim_batt,
 	msm_mux_aoss_cti,
@@ -598,6 +599,8 @@ enum lito_functions {
 	msm_mux_cri_trng0,
 	msm_mux_cri_trng1,
 	msm_mux_cri_trng,
+	msm_mux_tsense_pwm1,
+	msm_mux_tsense_pwm2,
 	msm_mux_NA,
 };
 
@@ -815,7 +818,7 @@ static const char * const lpass_slimbus_groups[] = {
 	"gpio53", "gpio54", "gpio55", "gpio56",
 };
 static const char * const phase_flag7_groups[] = {
-	"gpio54",
+	"gpio54", "gpio71",
 };
 static const char * const sec_mi2s_groups[] = {
 	"gpio57", "gpio70", "gpio71", "gpio72", "gpio74",
@@ -979,6 +982,9 @@ static const char * const phase_flag17_groups[] = {
 static const char * const aud_ref_groups[] = {
 	"gpio83",
 };
+static const char * const usb2phy_ac_groups[] = {
+	"gpio83",
+};
 static const char * const qlink1_wmss_groups[] = {
 	"gpio84",
 };
@@ -1129,6 +1135,12 @@ static const char * const cri_trng1_groups[] = {
 static const char * const cri_trng_groups[] = {
 	"gpio117",
 };
+static const char * const tsense_pwm1_groups[] = {
+	"gpio135",
+};
+static const char * const tsense_pwm2_groups[] = {
+	"gpio135",
+};
 
 static const struct msm_function lito_functions[] = {
 	FUNCTION(qup01),
@@ -1250,6 +1262,7 @@ static const struct msm_function lito_functions[] = {
 	FUNCTION(uim1_present),
 	FUNCTION(phase_flag17),
 	FUNCTION(aud_ref),
+	FUNCTION(usb2phy_ac),
 	FUNCTION(qlink1_wmss),
 	FUNCTION(uim_batt),
 	FUNCTION(aoss_cti),
@@ -1300,6 +1313,8 @@ static const struct msm_function lito_functions[] = {
 	FUNCTION(cri_trng0),
 	FUNCTION(cri_trng1),
 	FUNCTION(cri_trng),
+	FUNCTION(tsense_pwm1),
+	FUNCTION(tsense_pwm2),
 };
 
 /* Every pin is maintained as a single group, and missing or non-existing pin
@@ -1425,7 +1440,7 @@ static const struct msm_pingroup lito_groups[] = {
 	[70] = PINGROUP(70, WEST, sec_mi2s, qup10, mdp_vsync, ldo_en, NA, NA,
 			NA, NA, NA),
 	[71] = PINGROUP(71, WEST, sec_mi2s, qup10, mdp_vsync, ldo_update, NA,
-			NA, NA, NA, NA),
+			NA, phase_flag7, NA, NA),
 	[72] = PINGROUP(72, WEST, sec_mi2s, prng_rosc, NA, NA, NA, NA, NA, NA,
 			NA),
 	[73] = PINGROUP(73, EAST, NA, phase_flag9, atest_usb20, NA, NA, NA, NA,
@@ -1447,7 +1462,8 @@ static const struct msm_pingroup lito_groups[] = {
 			NA, NA, NA, NA),
 	[82] = PINGROUP(82, SOUTH, uim1_present, NA, phase_flag17, NA, NA, NA,
 			NA, NA, NA),
-	[83] = PINGROUP(83, WEST, aud_ref, NA, NA, NA, NA, NA, NA, NA, NA),
+	[83] = PINGROUP(83, WEST, aud_ref, NA, usb2phy_ac, NA, NA, NA, NA, NA,
+			NA),
 	[84] = PINGROUP(84, SOUTH, qlink1_wmss, uim_batt, aoss_cti, NA,
 			phase_flag18, atest_tsens, NA, NA, NA),
 	[85] = PINGROUP(85, SOUTH, qlink1_request, edp_hot, NA, phase_flag19,
@@ -1528,7 +1544,8 @@ static const struct msm_pingroup lito_groups[] = {
 	[132] = PINGROUP(132, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[133] = PINGROUP(133, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[134] = PINGROUP(134, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[135] = PINGROUP(135, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[135] = PINGROUP(135, WEST, tsense_pwm1, tsense_pwm2, NA, NA, NA, NA,
+			 NA, NA, NA),
 	[136] = PINGROUP(136, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[137] = PINGROUP(137, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[138] = PINGROUP(138, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
