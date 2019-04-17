@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -646,6 +646,15 @@
 			qcom,bcms = <&bcm_qup0>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+		};
+
+		mas_qhm_sensorss_ahb: mas-qhm-sensorss-ahb {
+			cell-id = <MSM_BUS_MASTER_SENSORS_AHB>;
+			label = "mas-qhm-sensorss-ahb";
+			qcom,buswidth = <4>;
+			qcom,agg-ports = <1>;
+			qcom,connections = <&slv_qns_a2noc_snoc>;
+			qcom,bus-dev = <&fab_aggre2_noc>;
 		};
 
 		mas_qxm_crypto: mas-qxm-crypto {
