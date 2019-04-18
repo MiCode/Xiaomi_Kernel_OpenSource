@@ -6766,7 +6766,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		!cpu_isolated(prev_cpu) && cpu_online(prev_cpu) &&
 		idle_cpu(prev_cpu)) {
 
-		if (idle_get_state_idx(cpu_rq(prev_cpu)) <= 1) {
+		if (idle_get_state_idx(cpu_rq(prev_cpu)) <=
+			(is_min_capacity_cpu(prev_cpu) ? 1 : 0)) {
+
 			target_cpu = prev_cpu;
 
 			fbt_env->fastpath = PREV_CPU_FASTPATH;
