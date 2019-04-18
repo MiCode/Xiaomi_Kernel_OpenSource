@@ -583,6 +583,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_HDR10PLUS_METADATA:
 		ret = HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_ENC_DTS_METADATA:
+		ret = HFI_PROPERTY_PARAM_VENC_DTS_INFO;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;

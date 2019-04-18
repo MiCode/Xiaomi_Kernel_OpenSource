@@ -688,6 +688,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE) |
@@ -1830,6 +1831,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
 		case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
+		case V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS:
 			inst->bufq[CAPTURE_PORT].num_planes = 2;
 			break;
 		default:
