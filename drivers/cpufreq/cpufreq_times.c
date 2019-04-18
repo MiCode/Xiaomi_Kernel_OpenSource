@@ -193,10 +193,12 @@ static void *uid_seq_start(struct seq_file *seq, loff_t *pos)
 
 static void *uid_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 {
-	(*pos)++;
+	do {
+		(*pos)++;
 
-	if (*pos >= HASH_SIZE(uid_hash_table))
-		return NULL;
+		if (*pos >= HASH_SIZE(uid_hash_table))
+			return NULL;
+	} while (hlist_empty(&uid_hash_table[*pos]));
 
 	return &uid_hash_table[*pos];
 }
@@ -220,7 +222,8 @@ static int uid_time_in_state_seq_show(struct seq_file *m, void *v)
 				if (freqs->freq_table[i] ==
 				    CPUFREQ_ENTRY_INVALID)
 					continue;
-				seq_printf(m, " %d", freqs->freq_table[i]);
+				seq_put_decimal_ull(m, " ",
+						    freqs->freq_table[i]);
 			}
 		}
 		seq_putc(m, '\n');
@@ -229,13 +232,16 @@ static int uid_time_in_state_seq_show(struct seq_file *m, void *v)
 	rcu_read_lock();
 
 	hlist_for_each_entry_rcu(uid_entry, (struct hlist_head *)v, hash) {
-		if (uid_entry->max_state)
-			seq_printf(m, "%d:", uid_entry->uid);
+		if (uid_entry->max_state) {
+			seq_put_decimal_ull(m, "", uid_entry->uid);
+			seq_putc(m, ':');
+		}
 		for (i = 0; i < uid_entry->max_state; ++i) {
+			u64 time;
 			if (freq_index_invalid(i))
 				continue;
-			seq_printf(m, " %lu", (unsigned long)nsec_to_clock_t(
-					   uid_entry->time_in_state[i]));
+			time = nsec_to_clock_t(uid_entry->time_in_state[i]);
+			seq_put_decimal_ull(m, " ", time);
 		}
 		if (uid_entry->max_state)
 			seq_putc(m, '\n');
@@ -550,24 +556,17 @@ void cpufreq_task_times_remove_uids(uid_t uid_start, uid_t uid_end)
 	spin_unlock_irqrestore(&uid_lock, flags);
 }
 
-void cpufreq_times_record_transition(struct cpufreq_freqs *freq)
+void cpufreq_times_record_transition(struct cpufreq_policy *policy,
+	unsigned int new_freq)
 {
 	int index;
-	struct cpu_freqs *freqs = all_freqs[freq->cpu];
-	struct cpufreq_policy *policy;
-
+	struct cpu_freqs *freqs = all_freqs[policy->cpu];
 	if (!freqs)
 		return;
 
-	policy = cpufreq_cpu_get(freq->cpu);
-	if (!policy)
-		return;
-
-	index = cpufreq_frequency_table_get_index(policy, freq->new);
+	index = cpufreq_frequency_table_get_index(policy, new_freq);
 	if (index >= 0)
 		WRITE_ONCE(freqs->last_index, index);
-
-	cpufreq_cpu_put(policy);
 }
 
 static const struct seq_operations uid_time_in_state_seq_ops = {
