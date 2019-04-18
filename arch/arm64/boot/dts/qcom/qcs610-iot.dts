@@ -21,3 +21,7 @@
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
 	qcom,board-id = <32 0>;
 };
+
+&sm6150_snd {
+	/delete-property/ fsa4480-i2c-handle;
+};
