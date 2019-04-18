@@ -1504,7 +1504,7 @@ static void atl_start_rx_ring(struct atl_desc_ring *ring)
 	unsigned int rx_ctl;
 
 	atl_write(hw, ATL_RING_BASE_LSW(ring), ring->hw.daddr);
-	atl_write(hw, ATL_RING_BASE_MSW(ring), (u64)ring->hw.daddr >> 32);
+	atl_write(hw, ATL_RING_BASE_MSW(ring), upper_32_bits(ring->hw.daddr));
 
 	atl_write(hw, ATL_RX_RING_TAIL(ring), ring->tail);
 	atl_write(hw, ATL_RX_RING_BUF_SIZE(ring),
@@ -1527,7 +1527,7 @@ static void atl_start_tx_ring(struct atl_desc_ring *ring)
 	struct atl_hw *hw = &nic->hw;
 
 	atl_write(hw, ATL_RING_BASE_LSW(ring), ring->hw.daddr);
-	atl_write(hw, ATL_RING_BASE_MSW(ring), (u64)ring->hw.daddr >> 32);
+	atl_write(hw, ATL_RING_BASE_MSW(ring), upper_32_bits(ring->hw.daddr));
 
 	/* Enable TSO on all active Tx rings */
 	atl_write(hw, ATL_TX_LSO_CTRL, BIT(nic->nvecs) - 1);

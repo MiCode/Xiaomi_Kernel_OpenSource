@@ -251,7 +251,7 @@ static void atl_fwd_init_ring(struct atl_fwd_ring *fwd_ring)
 	int lxo_bit = !!(flags & ATL_FWR_LXO);
 
 	atl_write(hw, ATL_RING_BASE_LSW(ring), ring->daddr);
-	atl_write(hw, ATL_RING_BASE_MSW(ring), (u64)ring->daddr >> 32);
+	atl_write(hw, ATL_RING_BASE_MSW(ring), upper_32_bits(ring->daddr));
 
 	if (dir_tx) {
 		atl_write(hw, ATL_TX_RING_THRESH(ring),
@@ -308,7 +308,6 @@ void atl_fwd_release_ring(struct atl_fwd_ring *ring)
 			hwring->size * sizeof(*hwring->descs), hwring->daddr);
 	else
 		atl_free_descs(nic, &ring->hw);
-	atl_free_descs(nic, &ring->hw);
 	kfree(ring);
 }
 EXPORT_SYMBOL(atl_fwd_release_ring);
@@ -620,7 +619,7 @@ int atl_fwd_request_event(struct atl_fwd_event *evt)
 		atl_write(hw, ATL_TX_RING_HEAD_WB_LSW(hwring),
 			evt->tx_head_wrb);
 		atl_write(hw, ATL_TX_RING_HEAD_WB_MSW(hwring),
-			(u64)evt->tx_head_wrb >> 32);
+			upper_32_bits(evt->tx_head_wrb));
 		return 0;
 	}
 

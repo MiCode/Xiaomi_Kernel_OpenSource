@@ -1044,11 +1044,11 @@ int atl_write_mcp_mem(struct atl_hw *hw, uint32_t offt, void *host_addr,
 		}
 
 		if (stat == 8) {
-			atl_dev_err("FW mbox timeout offt %x, remaining %lx\n",
+			atl_dev_err("FW mbox timeout offt %x, remaining %zx\n",
 				offt, size);
 			return -ETIME;
 		} else if (stat != 4) {
-			atl_dev_err("FW mbox error status %x, offt %x, remaining %lx\n",
+			atl_dev_err("FW mbox error status %x, offt %x, remaining %zx\n",
 				stat, offt, size);
 			return -EIO;
 		}
