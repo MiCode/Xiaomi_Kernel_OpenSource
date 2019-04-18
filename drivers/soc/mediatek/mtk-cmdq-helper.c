@@ -219,8 +219,8 @@ EXPORT_SYMBOL(cmdq_pkt_clear_event);
 
 static int cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 {
-
 	struct cmdq_instruction *inst;
+	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 
 	inst = cmdq_pkt_append_command(pkt);
 	if (!inst)
@@ -234,7 +234,7 @@ static int cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 		return -ENOMEM;
 
 	inst->op = CMDQ_CODE_JUMP;
-	inst->value = CMDQ_JUMP_PASS;
+	inst->value = CMDQ_JUMP_PASS >> cmdq_mbox_shift(cl->chan);
 
 	return 0;
 }

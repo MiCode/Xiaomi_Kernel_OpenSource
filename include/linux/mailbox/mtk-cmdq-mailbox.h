@@ -21,6 +21,7 @@
 #define CMDQ_WFE_WAIT_VALUE		0x1
 #define CMDQ_WFE_OPTION                 (CMDQ_WFE_UPDATE | CMDQ_WFE_WAIT | \
 					CMDQ_WFE_WAIT_VALUE)
+
 /*
  * CMDQ_CODE_MASK:
  *   set write mask
@@ -74,5 +75,7 @@ struct cmdq_pkt {
 	struct cmdq_task_cb	async_cb;
 	void			*cl;
 };
+
+u8 cmdq_mbox_shift(void *chan);
 
 #endif /* __MTK_CMDQ_MAILBOX_H__ */
