@@ -56,3 +56,9 @@
 		qcom,smmu-attr-s1-bypass;
 	};
 };
+
+&qupv3_se10_i2c {
+	asm330@6a {
+		qcom,use_qtimer = <1>; /* 0:Disable 1:Enable */
+	};
+};
