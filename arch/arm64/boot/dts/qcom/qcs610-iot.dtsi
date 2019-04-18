@@ -28,6 +28,10 @@
 	#include "smb1390.dtsi"
 };
 
+&fsa4480 {
+	status = "disabled";
+};
+
 &pm6150l_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
