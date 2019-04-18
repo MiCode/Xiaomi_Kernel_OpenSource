@@ -723,16 +723,6 @@ extern struct diagchar_dev *driver;
 extern int wrap_enabled;
 extern uint16_t wrap_count;
 
-struct diag_apps_data_t {
-	void *buf;
-	uint32_t len;
-	int ctxt;
-	uint8_t allocated;
-};
-
-extern struct diag_apps_data_t hdlc_data;
-extern struct diag_apps_data_t non_hdlc_data;
-
 void diag_get_timestamp(char *time_str);
 void check_drain_timer(void);
 int diag_get_remote(int remote_info);
