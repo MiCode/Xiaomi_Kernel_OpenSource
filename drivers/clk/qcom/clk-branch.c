@@ -358,8 +358,7 @@ static void clk_branch2_list_registers(struct seq_file *f, struct clk_hw *hw)
 							data[i].name, val);
 	}
 
-	if ((br->halt_check & BRANCH_HALT_VOTED) &&
-			!(br->halt_check & BRANCH_VOTED)) {
+	if (br->halt_check & BRANCH_HALT_VOTED) {
 		if (rclk->enable_reg) {
 			size = ARRAY_SIZE(data1);
 			for (i = 0; i < size; i++) {
