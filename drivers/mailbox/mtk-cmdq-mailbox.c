@@ -573,9 +573,11 @@ static const struct dev_pm_ops cmdq_pm_ops = {
 };
 
 static const struct gce_plat gce_plat_v2 = {.thread_nr = 16, .shift = 0};
+static const struct gce_plat gce_plat_v4 = {.thread_nr = 24, .shift = 3};
 
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt8173-gce", .data = (void *)&gce_plat_v2},
+	{.compatible = "mediatek,mt6779-gce", .data = (void *)&gce_plat_v4},
 	{}
 };
 
