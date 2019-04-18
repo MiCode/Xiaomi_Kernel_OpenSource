@@ -9,7 +9,7 @@
 #include "cam_defs.h"
 #include "cam_isp_vfe.h"
 #include "cam_isp_ife.h"
-
+#include "cam_cpas.h"
 
 /* ISP driver name */
 #define CAM_ISP_DEV_NAME                        "cam-isp"
@@ -98,6 +98,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
 #define CAM_ISP_GENERIC_BLOB_TYPE_VFE_OUT_CONFIG      8
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        9
 
 #define CAM_ISP_VC_DT_CFG    4
 
@@ -114,6 +115,12 @@
 #define CAM_ISP_RDI1_PATH         0x10
 #define CAM_ISP_RDI2_PATH         0x20
 #define CAM_ISP_RDI3_PATH         0x40
+
+/* Per Path Usage Data */
+#define CAM_ISP_USAGE_INVALID     0
+#define CAM_ISP_USAGE_LEFT_PX     1
+#define CAM_ISP_USAGE_RIGHT_PX    2
+#define CAM_ISP_USAGE_RDI         3
 
 /* Query devices */
 /**
@@ -492,7 +499,6 @@ struct cam_isp_csid_clock_config {
  * @cam_bw_bps:                 Bandwidth vote for CAMNOC
  * @ext_bw_bps:                 Bandwidth vote for path-to-DDR after CAMNOC
  */
-
 struct cam_isp_bw_vote {
 	uint32_t                       resource_id;
 	uint32_t                       reserved;
@@ -509,13 +515,25 @@ struct cam_isp_bw_vote {
  * @right_pix_vote:             Bandwidth vote for right ISP
  * @rdi_vote:                   RDI bandwidth requirements
  */
-
 struct cam_isp_bw_config {
 	uint32_t                       usage_type;
 	uint32_t                       num_rdi;
 	struct cam_isp_bw_vote         left_pix_vote;
 	struct cam_isp_bw_vote         right_pix_vote;
 	struct cam_isp_bw_vote         rdi_vote[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_config_v2 - Bandwidth configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_paths:                  Number of axi data paths
+ * @axi_path                    Per path vote info
+ */
+struct cam_isp_bw_config_v2 {
+	uint32_t                             usage_type;
+	uint32_t                             num_paths;
+	struct cam_axi_per_path_bw_vote      axi_path[1];
 } __attribute__((packed));
 
 /**
