@@ -228,7 +228,7 @@
 	};
 
 	eeprom_triple_tele: qcom,eeprom5 {
-		cell-index = <1>;
+		cell-index = <5>;
 		compatible = "qcom,eeprom";
 		cam_vdig-supply = <&pm8009_l2>;
 		cam_vio-supply = <&pm8009_l7>;
