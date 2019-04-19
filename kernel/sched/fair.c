@@ -7123,19 +7123,6 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		!(p->state == TASK_RUNNING && !idle_cpu(most_spare_cap_cpu)))
 		target_cpu = most_spare_cap_cpu;
 
-	/*
-	 * The next step of energy evaluation includes
-	 * prev_cpu. Drop target or backup if it is
-	 * same as prev_cpu
-	 */
-	if (backup_cpu == prev_cpu)
-		backup_cpu = -1;
-
-	if (target_cpu == prev_cpu) {
-		target_cpu = backup_cpu;
-		backup_cpu = -1;
-	}
-
 	if (target_cpu == -1 && isolated_candidate != -1 &&
 					cpu_isolated(prev_cpu))
 		target_cpu = isolated_candidate;
