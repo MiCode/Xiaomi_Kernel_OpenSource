@@ -352,6 +352,11 @@ static int do_clk_scaling(void)
 	int new_th_idx = 1;
 	struct clk_scaling_db *clk_scaling;
 
+	if (atomic_read(&ipa3_ctx->ipa_clk_vote) == 0) {
+		IPA_PM_DBG("IPA clock is gated\n");
+		return 0;
+	}
+
 	clk_scaling = &ipa_pm_ctx->clk_scaling;
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
@@ -1276,6 +1281,14 @@ int ipa_pm_set_throughput(u32 hdl, int throughput)
 	spin_unlock_irqrestore(&client->state_lock, flags);
 
 	return 0;
+}
+
+void ipa_pm_set_clock_index(int index)
+{
+	if (ipa_pm_ctx && index >= 0)
+		ipa_pm_ctx->clk_scaling.cur_vote = index;
+
+	IPA_PM_DBG("Setting pm clock vote to %d\n", index);
 }
 
 /**
