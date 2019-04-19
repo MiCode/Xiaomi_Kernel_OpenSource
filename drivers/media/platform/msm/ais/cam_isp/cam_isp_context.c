@@ -1681,6 +1681,11 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"Invalid Request Id asking %llu existing %llu",
 			apply->request_id, req->request_id);
+		if (ctx_isp->last_applied_req_id + 1 != req->request_id) {
+			/*ignore remain mismatching apply req_id for pause*/
+			ctx_isp->last_applied_req_id = apply->request_id;
+			return rc;
+		}
 		rc = -EFAULT;
 		goto end;
 	}
