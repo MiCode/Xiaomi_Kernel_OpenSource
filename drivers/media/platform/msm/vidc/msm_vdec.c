@@ -480,7 +480,15 @@ struct msm_vidc_format_constraint dec_pix_format_constraints[] = {
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.num_planes = 2,
 		.y_max_stride = 8192,
-		.y_buffer_alignment = 256,
+		.y_buffer_alignment = 512,
+		.uv_max_stride = 8192,
+		.uv_buffer_alignment = 256,
+	},
+	{
+		.fourcc = V4L2_PIX_FMT_NV21,
+		.num_planes = 2,
+		.y_max_stride = 8192,
+		.y_buffer_alignment = 512,
 		.uv_max_stride = 8192,
 		.uv_buffer_alignment = 256,
 	},
@@ -866,6 +874,12 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		inst->flags &= ~VIDC_SECURE;
 		if (ctrl->val)
 			inst->flags |= VIDC_SECURE;
+		if (msm_comm_check_for_inst_overload(inst->core)) {
+			dprintk(VIDC_ERR,
+				"%s: Instance count reached Max limit, rejecting session",
+				__func__);
+			return -ENOTSUPP;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
 		inst->clk_data.frame_rate = ctrl->val;

@@ -280,4 +280,5 @@ int msm_comm_set_index_extradata(struct msm_vidc_inst *inst,
 		uint32_t extradata_id, uint32_t value);
 int msm_comm_set_extradata(struct msm_vidc_inst *inst, uint32_t extradata_id,
 		uint32_t value);
+bool msm_comm_check_for_inst_overload(struct msm_vidc_core *core);
 #endif

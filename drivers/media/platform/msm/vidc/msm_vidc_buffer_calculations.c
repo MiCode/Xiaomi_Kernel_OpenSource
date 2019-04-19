@@ -1224,15 +1224,13 @@ static inline u32 calculate_mpeg2d_scratch_size(struct msm_vidc_inst *inst,
 static inline u32 calculate_enc_scratch_size(struct msm_vidc_inst *inst,
 	u32 width, u32 height, u32 work_mode, u32 lcu_size)
 {
-	u32 ALIGNedWidth, ALIGNedHeight, bitstream_size;
+	u32 aligned_width, aligned_height, bitstream_size;
 	u32 total_bitbin_buffers = 0, size_singlePipe, bitbin_size = 0;
 	u32 sao_bin_buffer_size, padded_bin_size, size = 0;
 
-	ALIGNedWidth = ALIGN(width, lcu_size);
-	ALIGNedHeight = ALIGN(height, lcu_size);
-	bitstream_size = ALIGNedWidth * ALIGNedHeight * 3;
-	if (bitstream_size > (352 * 288 * 4))
-		bitstream_size = (bitstream_size >> 2);
+	aligned_width = ALIGN(width, lcu_size);
+	aligned_height = ALIGN(height, lcu_size);
+	bitstream_size = msm_vidc_calculate_enc_output_frame_size(inst);
 
 	bitstream_size = ALIGN(bitstream_size, VENUS_DMA_ALIGNMENT);
 	if (work_mode == HFI_WORKMODE_2) {
@@ -1241,7 +1239,7 @@ static inline u32 calculate_enc_scratch_size(struct msm_vidc_inst *inst,
 		bitbin_size = ALIGN(bitbin_size, VENUS_DMA_ALIGNMENT);
 	} else {
 		total_bitbin_buffers = 1;
-		bitstream_size = ALIGNedWidth * ALIGNedHeight * 3;
+		bitstream_size = aligned_width * aligned_height * 3;
 		bitbin_size = ALIGN(bitstream_size, VENUS_DMA_ALIGNMENT);
 	}
 	size_singlePipe = bitbin_size / 2;
@@ -1460,7 +1458,8 @@ static inline u32 calculate_enc_scratch1_size(struct msm_vidc_inst *inst,
 	leftline_buf_ctrl_size_FE = ((VENUS_DMA_ALIGNMENT + 64 *
 		(height_coded >> 4)) +
 		(VENUS_DMA_ALIGNMENT << (num_vpp_pipes - 1)) - 1) &
-		(~((VENUS_DMA_ALIGNMENT << (num_vpp_pipes - 1)) - 1)) * 1;
+		(~((VENUS_DMA_ALIGNMENT << (num_vpp_pipes - 1)) - 1)) *
+		num_vpp_pipes;
 	leftline_buf_meta_recony = ((VENUS_DMA_ALIGNMENT + 64 *
 		((height_coded) / (8 * (ten_bit ? 4 : 8)))) * num_vpp_pipes);
 	leftline_buf_meta_recony = ALIGN(leftline_buf_meta_recony,
@@ -1482,6 +1481,9 @@ static inline u32 calculate_enc_scratch1_size(struct msm_vidc_inst *inst,
 		* (num_ref + 1);
 	h265e_colrcbuf_size = (((width_lcu_num + 7) >> 3) *
 		16 * 2 * height_lcu_num);
+	if (num_vpp_pipes > 1)
+		h265e_colrcbuf_size = ALIGN(h265e_colrcbuf_size,
+			VENUS_DMA_ALIGNMENT) * num_vpp_pipes;
 	h265e_colrcbuf_size = ALIGN(h265e_colrcbuf_size,
 		VENUS_DMA_ALIGNMENT) * HFI_MAX_COL_FRAME;
 	h265e_framerc_bufsize = (is_h265) ? (256 + 16 *
@@ -1533,10 +1535,10 @@ static inline u32 calculate_enc_scratch1_size(struct msm_vidc_inst *inst,
 		h265e_lcubitmap_bufsize + line_buf_sde_size +
 		topline_bufsize_fe_1stg_sao + override_buffer_size +
 		bse_reg_buffer_size + vpp_reg_buffer_size +
-		sps_pps_slice_hdr + bse_slice_cmd_buffer_size +
-		ir_buffer_size + slice_info_bufsize + lambda_lut_size +
-		se_stats_bufsize + temp_scratch_mv_bufsize + output_mv_bufsize
-		+ 1024;
+		sps_pps_slice_hdr + slice_cmd_buffer_size +
+		bse_slice_cmd_buffer_size + ir_buffer_size + slice_info_bufsize
+		+ lambda_lut_size + se_stats_bufsize + temp_scratch_mv_bufsize
+		+ output_mv_bufsize + 1024;
 	return size;
 }
 
@@ -1623,7 +1625,7 @@ static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 			metadata_stride, meta_buf_height);
 		size = (aligned_height + chroma_height) * aligned_width +
 			meta_size_y + meta_size_c;
-		size = (size * ((num_ref)+2)) + 4096;
+		size = (size * (num_ref+3)) + 4096;
 	} else {
 		ref_buf_height = (height + (HFI_VENUS_HEIGHT_ALIGNMENT - 1))
 			& (~(HFI_VENUS_HEIGHT_ALIGNMENT - 1));
@@ -1656,7 +1658,7 @@ static inline u32 calculate_enc_scratch2_size(struct msm_vidc_inst *inst,
 		meta_size_c = hfi_ubwc_metadata_plane_buffer_size(
 			metadata_stride, meta_buf_height);
 		size = ref_buf_size + meta_size_y + meta_size_c;
-		size = (size * ((num_ref)+2)) + 4096;
+		size = (size * (num_ref+3)) + 4096;
 	}
 	return size;
 }

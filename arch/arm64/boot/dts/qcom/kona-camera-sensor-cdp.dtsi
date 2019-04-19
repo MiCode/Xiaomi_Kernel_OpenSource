@@ -616,7 +616,7 @@
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <0 3600000 0>;
 		rgltr-max-voltage = <0 3600000 0>;
-		rgltr-load-current = <0 1200000 0>;
+		rgltr-load-current = <150000 120000 0>;
 		gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk3_active

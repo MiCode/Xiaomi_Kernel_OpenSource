@@ -725,7 +725,7 @@ static void imp_mhi_shutdown(void)
 				imp_ctx->dev_info.chdb_base, PAGE_SIZE,
 				&iova_p, &pa_p, &size_p);
 
-			iommu_unmap(cb->mapping->domain, iova_p, size_p);
+			iommu_unmap(cb->iommu_domain, iova_p, size_p);
 		}
 	}
 	if (!imp_ctx->in_lpm &&
@@ -836,7 +836,7 @@ static int imp_mhi_probe_cb(struct mhi_device *mhi_dev,
 			imp_ctx->dev_info.chdb_base, PAGE_SIZE,
 			&iova_p, &pa_p, &size_p);
 
-		ret = ipa3_iommu_map(cb->mapping->domain, iova_p, pa_p, size_p,
+		ret = ipa3_iommu_map(cb->iommu_domain, iova_p, pa_p, size_p,
 			IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO);
 		if (ret)
 			goto fail;

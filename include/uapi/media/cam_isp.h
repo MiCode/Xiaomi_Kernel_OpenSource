@@ -98,6 +98,22 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
 
+#define CAM_ISP_VC_DT_CFG    4
+
+#define CAM_ISP_IFE0_HW          0x1
+#define CAM_ISP_IFE1_HW          0x2
+#define CAM_ISP_IFE0_LITE_HW     0x4
+#define CAM_ISP_IFE1_LITE_HW     0x8
+#define CAM_ISP_IFE2_LITE_HW     0x10
+
+#define CAM_ISP_PXL_PATH          0x1
+#define CAM_ISP_PPP_PATH          0x2
+#define CAM_ISP_LCR_PATH          0x4
+#define CAM_ISP_RDI0_PATH         0x8
+#define CAM_ISP_RDI1_PATH         0x10
+#define CAM_ISP_RDI2_PATH         0x20
+#define CAM_ISP_RDI3_PATH         0x40
+
 /* Query devices */
 /**
  * struct cam_isp_dev_cap_info - A cap info for particular hw type
@@ -156,6 +172,36 @@ struct cam_isp_out_port_info {
 	uint32_t                split_point;
 	uint32_t                secure_mode;
 	uint32_t                reserved;
+};
+
+/**
+ * struct cam_isp_out_port_info_v2 - An output port resource info
+ *
+ * @res_type:                   output resource type defined in file
+ *                              cam_isp_vfe.h or cam_isp_ife.h
+ * @format:                     output format of the resource
+ * @wdith:                      output width in pixels
+ * @height:                     output height in lines
+ * @comp_grp_id:                composite group id for the resource.
+ * @split_point:                split point in pixels for the dual VFE.
+ * @secure_mode:                flag to tell if output should be run in secure
+ *                              mode or not. See cam_defs.h for definition
+ * @wm_mode:                    WM mode
+ * @out_port_res1:              Output reserved field
+ * @out_port_res2:              Output reserved field
+ *
+ */
+struct cam_isp_out_port_info_v2 {
+	uint32_t                res_type;
+	uint32_t                format;
+	uint32_t                width;
+	uint32_t                height;
+	uint32_t                comp_grp_id;
+	uint32_t                split_point;
+	uint32_t                secure_mode;
+	uint32_t                wm_mode;
+	uint32_t                out_port_res1;
+	uint32_t                out_port_res2;
 };
 
 /**
@@ -218,6 +264,83 @@ struct cam_isp_in_port_info {
 	uint32_t                        reserved;
 	uint32_t                        num_out_res;
 	struct cam_isp_out_port_info    data[1];
+};
+
+/**
+ * struct cam_isp_in_port_info_v2 - An input port resource info
+ *
+ * @res_type:                   input resource type define in file
+ *                              cam_isp_vfe.h or cam_isp_ife.h
+ * @lane_type:                  lane type: c-phy or d-phy.
+ * @lane_num:                   active lane number
+ * @lane_cfg:                   lane configurations: 4 bits per lane
+ * @vc:                         input virtual channel number
+ * @dt:                         input data type number
+ * @num_valid_vc_dt:            valid vc and dt in array
+ * @format:                     input format
+ * @test_pattern:               test pattern for the testgen
+ * @usage_type:                 whether dual vfe is required
+ * @left_start:                 left input start offset in pixels
+ * @left_stop:                  left input stop offset in pixels
+ * @left_width:                 left input width in pixels
+ * @right_start:                right input start offset in pixels.
+ *                              Only for Dual VFE
+ * @right_stop:                 right input stop offset in pixels.
+ *                              only for Dual VFE
+ * @right_width:                right input width in pixels.
+ *                              only for dual VFE
+ * @line_start:                 top of the line number
+ * @line_stop:                  bottome of the line number
+ * @height:                     input height in lines
+ * @pixel_clk;                  sensor output clock
+ * @batch_size:                 batch size for HFR mode
+ * @dsp_mode:                   DSP stream mode (Defines as CAM_ISP_DSP_MODE_*)
+ * @hbi_cnt:                    HBI count for the camif input
+ * @cust_node:                  if any custom HW block is present before IFE
+ * @num_out_res:                number of the output resource associated
+ * @horizontal_bin:             Horizontal Binning info
+ * @qcfa_bin:                   Quadra Binning info
+ * @csid_res_1:                 payload for future use
+ * @csid_res_2:                 payload for future use
+ * @ife_res_1:                  payload for future use
+ * @ife_res_2:                  payload for future use
+ * @data:                       payload that contains the output resources
+ *
+ */
+struct cam_isp_in_port_info_v2 {
+	uint32_t                        res_type;
+	uint32_t                        lane_type;
+	uint32_t                        lane_num;
+	uint32_t                        lane_cfg;
+	uint32_t                        vc[CAM_ISP_VC_DT_CFG];
+	uint32_t                        dt[CAM_ISP_VC_DT_CFG];
+	uint32_t                        num_valid_vc_dt;
+	uint32_t                        format;
+	uint32_t                        test_pattern;
+	uint32_t                        usage_type;
+	uint32_t                        left_start;
+	uint32_t                        left_stop;
+	uint32_t                        left_width;
+	uint32_t                        right_start;
+	uint32_t                        right_stop;
+	uint32_t                        right_width;
+	uint32_t                        line_start;
+	uint32_t                        line_stop;
+	uint32_t                        height;
+	uint32_t                        pixel_clk;
+	uint32_t                        batch_size;
+	uint32_t                        dsp_mode;
+	uint32_t                        hbi_cnt;
+	uint32_t                        cust_node;
+	uint32_t                        num_out_res;
+	uint32_t                        offline_mode;
+	uint32_t                        horizontal_bin;
+	uint32_t                        qcfa_bin;
+	uint32_t                        csid_res_1;
+	uint32_t                        csid_res_2;
+	uint32_t                        ife_res_1;
+	uint32_t                        ife_res_2;
+	struct cam_isp_out_port_info_v2 data[1];
 };
 
 /**
@@ -432,8 +555,6 @@ struct cam_fe_config {
 	uint32_t    unpacker_cfg;
 	uint32_t    latency_buf_size;
 } __attribute__((packed));
-
-/* Acquire Device/HW v2 */
 
 /**
  * struct cam_isp_core_config - ISP core registers configuration

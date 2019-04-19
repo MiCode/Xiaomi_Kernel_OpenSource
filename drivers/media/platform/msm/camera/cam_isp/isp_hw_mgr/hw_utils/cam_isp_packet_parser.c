@@ -102,7 +102,7 @@ static int cam_isp_update_dual_config(
 	uint32_t                                   *cpu_addr;
 	uint32_t                                    i, j;
 
-	CAM_DBG(CAM_UTIL, "cmd des size %d, length: %d",
+	CAM_DBG(CAM_ISP, "cmd des size %d, length: %d",
 		cmd_desc->size, cmd_desc->length);
 
 	rc = cam_packet_util_get_cmd_mem_addr(
@@ -113,7 +113,7 @@ static int cam_isp_update_dual_config(
 	if ((len < sizeof(struct cam_isp_dual_config)) ||
 		(cmd_desc->offset >=
 		(len - sizeof(struct cam_isp_dual_config)))) {
-		CAM_ERR(CAM_UTIL, "not enough buffer provided");
+		CAM_ERR(CAM_ISP, "not enough buffer provided");
 		return -EINVAL;
 	}
 	remain_len = len - cmd_desc->offset;
@@ -123,17 +123,17 @@ static int cam_isp_update_dual_config(
 	if ((dual_config->num_ports *
 		sizeof(struct cam_isp_dual_stripe_config)) >
 		(remain_len - offsetof(struct cam_isp_dual_config, stripes))) {
-		CAM_ERR(CAM_UTIL, "not enough buffer for all the dual configs");
+		CAM_ERR(CAM_ISP, "not enough buffer for all the dual configs");
 		return -EINVAL;
 	}
 	for (i = 0; i < dual_config->num_ports; i++) {
 
 		if (i >= CAM_ISP_IFE_OUT_RES_MAX) {
-			CAM_ERR(CAM_UTIL,
+			CAM_ERR(CAM_ISP,
 				"failed update for i:%d > size_isp_out:%d",
 				i, size_isp_out);
 			rc = -EINVAL;
-			goto put_buf;
+			goto end;
 		}
 
 		hw_mgr_res = &res_list_isp_out[i];
@@ -168,15 +168,11 @@ static int cam_isp_update_dual_config(
 				&dual_isp_update_args,
 				sizeof(struct cam_isp_hw_dual_isp_update_args));
 			if (rc)
-				goto put_buf;
+				goto end;
 		}
 	}
 
-put_buf:
-	if (cam_mem_put_cpu_buf(cmd_desc->mem_handle))
-		CAM_WARN(CAM_UTIL, "Failed to put buf: 0x%x",
-			cmd_desc->mem_handle);
-
+end:
 	return rc;
 }
 

@@ -294,8 +294,41 @@ static int cam_ife_csid_get_format_ipp_ppp(
 	return rc;
 }
 
+static int cam_ife_match_vc_dt_pair(int32_t *vc, uint32_t *dt,
+	uint32_t num_valid_vc_dt, struct cam_ife_csid_cid_data *cid_data)
+{
+	uint32_t camera_hw_version;
+	int rc = 0;
+
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
+		return -EINVAL;
+	}
+
+	if (camera_hw_version != CAM_CPAS_TITAN_480_V100)
+		num_valid_vc_dt = 1;
+
+	switch (num_valid_vc_dt) {
+	case 2:
+		if (vc[1] != cid_data->vc1 ||
+			dt[1] != cid_data->dt1)
+			return -EINVAL;
+	case 1:
+		if (vc[0] != cid_data->vc ||
+			dt[0] != cid_data->dt)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
-	struct cam_isp_resource_node **res, int32_t vc, uint32_t dt)
+	struct cam_isp_resource_node **res, int32_t *vc, uint32_t *dt,
+	uint32_t num_valid_vc_dt)
 {
 	struct cam_ife_csid_cid_data    *cid_data;
 	uint32_t  i = 0;
@@ -308,10 +341,11 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 			CAM_ISP_RESOURCE_STATE_RESERVED) {
 			cid_data = (struct cam_ife_csid_cid_data *)
 				csid_hw->cid_res[i].res_priv;
-			if (cid_data->vc == vc && cid_data->dt == dt) {
+			if (!cam_ife_match_vc_dt_pair(vc, dt,
+				num_valid_vc_dt, cid_data)) {
 				cid_data->cnt++;
 				*res = &csid_hw->cid_res[i];
-				CAM_DBG(CAM_ISP, "CSID:%d CID %d allocated",
+				CAM_DBG(CAM_ISP, "CSID:%d CID %d",
 					csid_hw->hw_intf->hw_idx,
 					csid_hw->cid_res[i].res_id);
 				return 0;
@@ -324,8 +358,13 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 			CAM_ISP_RESOURCE_STATE_AVAILABLE) {
 			cid_data = (struct cam_ife_csid_cid_data *)
 				csid_hw->cid_res[i].res_priv;
-			cid_data->vc  = vc;
-			cid_data->dt  = dt;
+			cid_data->vc  = vc[0];
+			cid_data->dt  = dt[0];
+			if (num_valid_vc_dt > 1) {
+				cid_data->vc1  = vc[1];
+				cid_data->dt1  = dt[1];
+				cid_data->is_valid_vc1_dt1 = 1;
+			}
 			cid_data->cnt = 1;
 			csid_hw->cid_res[i].res_state =
 				CAM_ISP_RESOURCE_STATE_RESERVED;
@@ -585,9 +624,10 @@ end:
 static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_hw_reserve_resource_args  *cid_reserv)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct cam_ife_csid_cid_data       *cid_data;
 	uint32_t camera_hw_version;
+	uint32_t valid_vc_dt;
 
 	CAM_DBG(CAM_ISP,
 		"CSID:%d res_sel:0x%x Lane type:%d lane_num:%d dt:%d vc:%d",
@@ -595,8 +635,8 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 		cid_reserv->in_port->res_type,
 		cid_reserv->in_port->lane_type,
 		cid_reserv->in_port->lane_num,
-		cid_reserv->in_port->dt,
-		cid_reserv->in_port->vc);
+		cid_reserv->in_port->dt[0],
+		cid_reserv->in_port->vc[0]);
 
 	if (cid_reserv->in_port->res_type >= CAM_ISP_IFE_IN_RES_MAX) {
 		CAM_ERR(CAM_ISP, "CSID:%d  Invalid phy sel %d",
@@ -635,14 +675,19 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 		goto end;
 	}
 
+	valid_vc_dt = cid_reserv->in_port->num_valid_vc_dt;
+
 	/* CSID  CSI2 v2.0 supports 31 vc  */
-	if (cid_reserv->in_port->dt > 0x3f ||
-		cid_reserv->in_port->vc > 0x1f) {
-		CAM_ERR(CAM_ISP, "CSID:%d Invalid vc:%d dt %d",
-			csid_hw->hw_intf->hw_idx,
-			cid_reserv->in_port->vc, cid_reserv->in_port->dt);
-		rc = -EINVAL;
-		goto end;
+	for (i = 0; i < valid_vc_dt; i++) {
+		if (cid_reserv->in_port->vc[i] > 0x1f ||
+			cid_reserv->in_port->dt[i] > 0x3f) {
+			CAM_ERR(CAM_ISP, "CSID:%d Invalid vc:%d or dt: %d",
+				csid_hw->hw_intf->hw_idx,
+				cid_reserv->in_port->vc[i],
+				cid_reserv->in_port->dt[i]);
+			rc = -EINVAL;
+			goto end;
+		}
 	}
 
 	if (cid_reserv->in_port->res_type == CAM_ISP_IFE_IN_RES_TPG && (
@@ -682,6 +727,21 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 			csid_hw->hw_intf->hw_idx != 2) {
 			rc = -EINVAL;
 			goto end;
+		}
+		break;
+	case CAM_CPAS_TITAN_480_V100:
+		if (cid_reserv->in_port->cust_node == 1) {
+			if (cid_reserv->in_port->usage_type == 1) {
+				CAM_ERR(CAM_ISP, "Dual IFE is not supported");
+				rc = -EINVAL;
+				goto end;
+			}
+			if (csid_hw->hw_intf->hw_idx != 0) {
+				CAM_DBG(CAM_ISP, "CSID%d not eligible",
+					csid_hw->hw_intf->hw_idx);
+				rc = -EINVAL;
+				goto end;
+			}
 		}
 		break;
 	default:
@@ -767,7 +827,8 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	rc = cam_ife_csid_cid_get(csid_hw,
 		&cid_reserv->node_res,
 		cid_reserv->in_port->vc,
-		cid_reserv->in_port->dt);
+		cid_reserv->in_port->dt,
+		cid_reserv->in_port->num_valid_vc_dt);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "CSID:%d CID Reserve failed res_type %d",
 			csid_hw->hw_intf->hw_idx,
@@ -835,19 +896,26 @@ end:
 static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_hw_reserve_resource_args  *reserve)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct cam_ife_csid_path_cfg    *path_data;
 	struct cam_isp_resource_node    *res;
 
 	/* CSID  CSI2 v2.0 supports 31 vc */
-	if (reserve->in_port->dt > 0x3f || reserve->in_port->vc > 0x1f ||
-		(reserve->sync_mode >= CAM_ISP_HW_SYNC_MAX)) {
-		CAM_ERR(CAM_ISP, "CSID:%d Invalid vc:%d dt %d mode:%d",
-			 csid_hw->hw_intf->hw_idx,
-			reserve->in_port->vc, reserve->in_port->dt,
+	if (reserve->sync_mode >= CAM_ISP_HW_SYNC_MAX) {
+		CAM_ERR(CAM_ISP, "CSID: %d Sync Mode: %d",
 			reserve->sync_mode);
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
+	}
+
+	for (i = 0; i < reserve->in_port->num_valid_vc_dt; i++) {
+		if (reserve->in_port->dt[i] > 0x3f ||
+			reserve->in_port->vc[i] > 0x1f) {
+			CAM_ERR(CAM_ISP, "CSID:%d Invalid vc:%d dt %d",
+				csid_hw->hw_intf->hw_idx,
+				reserve->in_port->vc, reserve->in_port->dt);
+			rc = -EINVAL;
+			goto end;
+		}
 	}
 
 	switch (reserve->res_id) {
@@ -980,8 +1048,13 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 		path_data->dt = CAM_IFE_CSID_TPG_DT_VAL;
 		path_data->vc = CAM_IFE_CSID_TPG_VC_VAL;
 	} else {
-		path_data->dt = reserve->in_port->dt;
-		path_data->vc = reserve->in_port->vc;
+		path_data->dt = reserve->in_port->dt[0];
+		path_data->vc = reserve->in_port->vc[0];
+		if (reserve->in_port->num_valid_vc_dt) {
+			path_data->dt1 = reserve->in_port->dt[1];
+			path_data->vc1 = reserve->in_port->vc[1];
+			path_data->is_valid_vc1_dt1 = 1;
+		}
 	}
 
 	if (reserve->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
@@ -1364,7 +1437,8 @@ static int cam_ife_csid_enable_csi2(
 	/* rx cfg1*/
 	val = (1 << csid_reg->csi2_reg->csi2_misr_enable_shift_val);
 	/* if VC value is more than 3 than set full width of VC */
-	if (cid_data->vc > 3)
+	if (cid_data->vc > 3 || (cid_data->is_valid_vc1_dt1 &&
+		cid_data->vc1 > 3))
 		val |= (1 << csid_reg->csi2_reg->csi2_vc_mode_shift_val);
 
 	/* enable packet ecc correction */
@@ -1496,6 +1570,7 @@ static int cam_ife_csid_init_config_pxl_path(
 	const struct cam_ife_csid_pxl_reg_offset *pxl_reg = NULL;
 	bool                                      is_ipp;
 	uint32_t decode_format = 0, plain_format = 0, val = 0;
+	uint32_t camera_hw_version;
 
 	path_data = (struct cam_ife_csid_path_cfg  *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1539,6 +1614,21 @@ static int cam_ife_csid_init_config_pxl_path(
 	val |= (1 << pxl_reg->pix_store_en_shift_val);
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg0_addr);
+
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
+		camera_hw_version = 0;
+	}
+	CAM_DBG(CAM_ISP, "HW version: %x", camera_hw_version);
+
+	if (path_data->is_valid_vc1_dt1 &&
+		camera_hw_version == CAM_CPAS_TITAN_480_V100) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			pxl_reg->csid_pxl_multi_vcdt_cfg0_addr);
+		val |= ((path_data->vc1 << 2) |
+			(path_data->dt1 << 7) | 1);
+	}
 
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 		pxl_reg->csid_pxl_cfg1_addr);
@@ -1907,6 +1997,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	struct cam_hw_soc_info                 *soc_info;
 	uint32_t path_format = 0, plain_fmt = 0, val = 0, id;
 	uint32_t format_measure_addr;
+	uint32_t camera_hw_version;
 
 	path_data = (struct cam_ife_csid_path_cfg   *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1945,6 +2036,21 @@ static int cam_ife_csid_init_config_rdi_path(
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
+
+	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get HW version rc:%d", rc);
+		camera_hw_version = 0;
+	}
+	CAM_DBG(CAM_ISP, "HW version: %x", camera_hw_version);
+
+	if (path_data->is_valid_vc1_dt1 &&
+		camera_hw_version == CAM_CPAS_TITAN_480_V100) {
+		val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_multi_vcdt_cfg0_addr);
+		val |= ((path_data->vc1 << 2) |
+			(path_data->dt1 << 7) | 1);
+	}
 
 	/* select the post irq sub sample strobe for time stamp capture */
 	cam_io_w_mb(CSID_TIMESTAMP_STB_POST_IRQ, soc_info->reg_map[0].mem_base +
