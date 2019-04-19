@@ -175,6 +175,7 @@
 			qcom,thermal-mitigation
 					= <3000000 1500000 1000000 500000>;
 
+			qcom,chg-term-src = <1>;
 			qcom,charger-temp-max = <800>;
 			qcom,smb-temp-max = <800>;
 
