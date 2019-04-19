@@ -1445,7 +1445,6 @@ gsi_chan_fail:
 	ipa3_disable_data_path(ipa_ep_idx);
 	ipa_mpm_change_gsi_state(probe_id, mhip_chan, GSI_ERR);
 	ipa_assert();
-
 	return MHIP_STATUS_FAIL;
 }
 
@@ -1620,6 +1619,7 @@ static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
 	get_ipa3_client(probe_id, &ul_chan, &dl_chan);
 	IPA_MPM_DBG("Start/Stop Data Path ? = %d\n", start);
 
+
 	/* MHIP Start Data path:
 	 * IPA MHIP Producer: remove HOLB
 	 * IPA MHIP Consumer : no op as there is no delay on these pipes.
@@ -1725,10 +1725,6 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
 	ipa_mpm_ctx->md[probe_id].in_lpm = false;
 	mutex_unlock(&ipa_mpm_ctx->md[probe_id].lpm_mutex);
-
-	/* NOTE :: Duplicate IPA vote - just for BU, remove later */
-	ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
-
 	IPA_MPM_DBG("ul chan = %d, dl_chan = %d\n", ul_prod, dl_cons);
 
 	/*
