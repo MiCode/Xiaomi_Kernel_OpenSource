@@ -220,4 +220,7 @@ struct snd_compr_metadata {
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
 #define SND_COMPR_TRIGGER_NEXT_TRACK 8
 #define SND_COMPR_TRIGGER_PARTIAL_DRAIN 9
+#ifdef CONFIG_AUDIO_QGKI
+#define SNDRV_COMPRESS_DSP_POSITION 10
+#endif
 #endif
