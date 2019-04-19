@@ -325,10 +325,10 @@ static void cnss_usb_remove(struct usb_interface *interface)
 
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	set_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state);
-	set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 	if (usb_priv->driver_ops) {
 		cnss_pr_dbg("driver_ops remove state %lu\n",
 			    plat_priv->driver_state);
+		set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		usb_priv->driver_ops->update_status(usb_priv->usb_intf,
 						    CNSS_FW_DOWN);
 		usb_priv->driver_ops->remove(usb_priv->usb_intf);
