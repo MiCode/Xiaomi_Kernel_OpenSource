@@ -60,3 +60,7 @@
 	qcom,string-cfg = <6>;
 	qcom,leds-per-string = <8>;
 };
+
+&icnss {
+	qcom,clk-monitor-enable;
+};
