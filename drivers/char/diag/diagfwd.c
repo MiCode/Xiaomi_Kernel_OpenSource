@@ -1930,6 +1930,7 @@ int diagfwd_init(void)
 	driver->supports_apps_hdlc_encoding = 1;
 	driver->supports_apps_header_untagging = 1;
 	driver->supports_pd_buffering = 1;
+	driver->supports_diagid_v2_feature_mask = 1;
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
@@ -1970,6 +1971,7 @@ int diagfwd_init(void)
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
 		driver->feature[i].diag_id_support = 0;
+		driver->feature[i].diagid_v2_feature_mask = 0;
 	}
 
 	diag_init_apps_feature();

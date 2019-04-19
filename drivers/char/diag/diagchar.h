@@ -243,6 +243,12 @@ do {						\
 		pd_mask |= (1 << fwd_info->upd_diag_id[i].pd);\
 } while (0)
 
+#define DIAGIDV2_FEATURE(f_index)	\
+	driver->diagid_v2_feature[f_index]
+
+#define DIAGIDV2_STATUS(f_index)	\
+	driver->diagid_v2_status[f_index]
+
 /*
  * Number of stm processors includes all the peripherals and
  * apps.Added 1 below to indicate apps
@@ -306,6 +312,8 @@ do {						\
 #define DIAG_ID_UNKNOWN		0
 #define DIAG_ID_APPS		1
 
+#define DIAGID_V2_FEATURE_COUNT 3
+
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
@@ -337,6 +345,7 @@ struct diag_id_tbl_t {
 	uint8_t diag_id;
 	uint8_t pd_val;
 	uint8_t peripheral;
+	uint8_t pd_feature_mask;
 	char *process_name;
 } __packed;
 struct diag_id_t {
@@ -559,6 +568,7 @@ struct diag_feature_t {
 	uint8_t sockets_enabled;
 	uint8_t sent_feature_mask;
 	uint8_t diag_id_support;
+	uint8_t diagid_v2_feature_mask;
 };
 
 struct diagchar_dev {
@@ -586,6 +596,7 @@ struct diagchar_dev {
 	int supports_apps_hdlc_encoding;
 	int supports_apps_header_untagging;
 	int supports_pd_buffering;
+	int supports_diagid_v2_feature_mask;
 	int peripheral_untag[NUM_PERIPHERALS];
 	int supports_sockets;
 	/* The state requested in the STM command */
@@ -617,6 +628,7 @@ struct diagchar_dev {
 	struct list_head cmd_reg_list;
 	struct list_head diag_id_list;
 	struct mutex diag_id_mutex;
+	struct mutex diagid_v2_mutex;
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
@@ -721,6 +733,8 @@ struct diagchar_dev {
 #endif
 	int time_sync_enabled;
 	uint8_t uses_time_api;
+	uint32_t diagid_v2_feature[DIAGID_V2_FEATURE_COUNT];
+	uint32_t diagid_v2_status[DIAGID_V2_FEATURE_COUNT];
 };
 
 extern struct diagchar_dev *driver;
