@@ -865,6 +865,17 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 	return ret;
 }
 
+int cnss_pci_is_drv_connected(struct device *dev)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	return pci_priv->drv_connected_last;
+}
+EXPORT_SYMBOL(cnss_pci_is_drv_connected);
+
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 {
 	int ret = 0;
