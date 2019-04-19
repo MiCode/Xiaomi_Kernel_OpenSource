@@ -284,7 +284,6 @@
 		      <0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
-		qcom,iommu-dma = "bypass";
 		iommus = <&apps_smmu 0x04c0 0>,
 			<&apps_smmu 0x04a0 0>;
 		#address-cells = <1>;
