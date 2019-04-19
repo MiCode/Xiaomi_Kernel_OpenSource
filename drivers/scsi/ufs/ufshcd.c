@@ -10566,10 +10566,8 @@ static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 	}
 
 	/* Unregister so that devfreq_monitor can't race with shutdown */
-	if (hba->devfreq) {
-		devfreq_remove_device(hba->devfreq);
-		hba->devfreq = NULL;
-	}
+	if (hba->devfreq)
+		ufshcd_devfreq_remove(hba);
 }
 
 static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
