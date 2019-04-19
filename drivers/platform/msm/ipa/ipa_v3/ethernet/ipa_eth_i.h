@@ -24,7 +24,7 @@
 #define IPA_ETH_NOAUTO_DEFAULT false
 #endif
 
-#ifdef DEBUG
+#ifdef CONFIG_IPA_ETH_DEBUG
 #define IPA_ETH_IPC_LOGDBG_DEFAULT true
 #else
 #define IPA_ETH_IPC_LOGDBG_DEFAULT false
@@ -41,6 +41,12 @@
 		ipa_eth_ipc_log("ERROR: " fmt, ## args); \
 	} while (0)
 
+#define ipa_eth_bug(fmt, args...) \
+	do { \
+		ipa_eth_err("BUG: " fmt, ## args); \
+		dump_stack(); \
+	} while (0)
+
 #define ipa_eth_log(fmt, args...) \
 	do { \
 		dev_dbg(IPA_ETH_PFDEV, \
@@ -54,21 +60,28 @@
 		dev_dbg(IPA_ETH_PFDEV, \
 			IPA_ETH_SUBSYS " %s:%d " fmt "\n", \
 			__func__, __LINE__, ## args); \
-		ipa_eth_ipc_dbg("ERROR: " fmt, ## args); \
+		ipa_eth_ipc_dbg("DEBUG: " fmt, ## args); \
 	} while (0)
 
 #define ipa_eth_dev_err(edev, fmt, args...) \
-	ipa_eth_err("(%s) " fmt, \
-		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
+	ipa_eth_err("(%s) " fmt, ((edev && edev->net_dev) ? \
+		edev->net_dev->name : "<unpaired>"), \
+		## args)
+
+#define ipa_eth_dev_bug(edev, fmt, args...) \
+	ipa_eth_bug("(%s) " fmt, ((edev && edev->net_dev) ? \
+		edev->net_dev->name : "<unpaired>"), \
+		## args)
 
 #define ipa_eth_dev_dbg(edev, fmt, args...) \
-	ipa_eth_dbg("(%s) " fmt, \
-		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
+	ipa_eth_dbg("(%s) " fmt, ((edev && edev->net_dev) ? \
+		edev->net_dev->name : "<unpaired>"), \
+		## args)
 
 #define ipa_eth_dev_log(edev, fmt, args...) \
-	ipa_eth_log("(%s) " fmt, \
-		(edev->net_dev ? edev->net_dev->name : "<unpaired>"), ## args)
-
+	ipa_eth_log("(%s) " fmt, ((edev && edev->net_dev) ? \
+		edev->net_dev->name : "<unpaired>"), \
+		## args)
 
 struct ipa_eth_bus {
 	struct list_head bus_list;

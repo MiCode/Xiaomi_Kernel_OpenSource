@@ -112,6 +112,8 @@ int ipa_eth_bus_modinit(struct dentry *dbgfs_root)
 
 	ipa_eth_bus_is_ready = true;
 
+	ipa_eth_log("Offload sub-system bus module init is complete");
+
 	return 0;
 
 err_init:
@@ -126,6 +128,8 @@ err_init:
 void ipa_eth_bus_modexit(void)
 {
 	struct ipa_eth_bus_map *map;
+
+	ipa_eth_log("De-initing offload sub-system bus module");
 
 	if (!ipa_eth_bus_is_ready)
 		return;
