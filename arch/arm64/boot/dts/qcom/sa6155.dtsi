@@ -60,6 +60,7 @@
 
 &clock_gcc {
 	compatible = "qcom,gcc-sa6155", "syscon";
+	/delete-property/ protected-clocks;
 };
 
 &clock_videocc {
