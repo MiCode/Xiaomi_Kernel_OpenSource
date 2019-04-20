@@ -2142,9 +2142,8 @@
 
 		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
 			compatible = "qcom,iommu-slim-ctrl-cb";
-			iommus = <&apps_smmu 0x66 0x0>,
-				 <&apps_smmu 0x6d 0x0>,
-				 <&apps_smmu 0x6e 0x1>,
+			iommus = <&apps_smmu 0x66 0x8>,
+				 <&apps_smmu 0x6d 0x2>,
 				 <&apps_smmu 0x70 0x1>;
 		};
 	};
