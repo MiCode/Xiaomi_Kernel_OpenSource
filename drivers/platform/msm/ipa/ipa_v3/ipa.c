@@ -3765,6 +3765,9 @@ void ipa3_disable_clks(void)
 
 	ipa3_ctx->ctrl->ipa3_disable_clks();
 
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_set_clock_index(0);
+
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
 	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
@@ -5079,6 +5082,7 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 
 	if (result) {
 		IPAERR("IPA FW loading process has failed\n");
+		ipa_assert();
 		return;
 	}
 	pr_info("IPA FW loaded successfully\n");

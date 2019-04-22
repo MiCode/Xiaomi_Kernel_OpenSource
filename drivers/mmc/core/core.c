@@ -782,6 +782,7 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 		host->ios.clock);
 
 	host->clk_scaling.enable = true;
+	host->clk_scaling.is_suspended = false;
 
 	return err;
 }

@@ -419,6 +419,13 @@ First Level Node - FG Gen4 device
 		    multiple battery profiles to be specified for a battery for
 		    proper functionality.
 
+- qcom,soc-hi-res
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified shows high
+		    resolution of monotonic SOC under CAPACITY_RAW property
+		    during charging in the scale of 0-10000.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================
