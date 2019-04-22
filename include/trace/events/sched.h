@@ -1160,6 +1160,47 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->isolated, __entry->reserved, __entry->high_irq_load)
 );
 
+TRACE_EVENT(sched_compute_energy,
+
+	TP_PROTO(struct task_struct *p, int eval_cpu,
+		unsigned long eval_energy,
+		unsigned long prev_energy,
+		unsigned long best_energy,
+		unsigned long best_energy_cpu),
+
+	TP_ARGS(p, eval_cpu, eval_energy, prev_energy, best_energy,
+		best_energy_cpu),
+
+	TP_STRUCT__entry(
+		__field(int,		pid)
+		__array(char,		comm, TASK_COMM_LEN)
+		__field(unsigned long,	util)
+		__field(int,		prev_cpu)
+		__field(unsigned long,	prev_energy)
+		__field(int,		eval_cpu)
+		__field(unsigned long,	eval_energy)
+		__field(int,		best_energy_cpu)
+		__field(unsigned long,	best_energy)
+	),
+
+	TP_fast_assign(
+		__entry->pid                    = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util                   = task_util(p);
+		__entry->prev_cpu               = task_cpu(p);
+		__entry->prev_energy	        = prev_energy;
+		__entry->eval_cpu	        = eval_cpu;
+		__entry->eval_energy	        = eval_energy;
+		__entry->best_energy_cpu	= best_energy_cpu;
+		__entry->best_energy	        = best_energy;
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%llu eval_cpu=%d eval_energy=%llu best_energy_cpu=%d best_energy=%llu",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->prev_energy, __entry->eval_cpu, __entry->eval_energy,
+		__entry->best_energy_cpu, __entry->best_energy)
+)
+
 TRACE_EVENT(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, int best_energy_cpu,
