@@ -75,3 +75,11 @@ config CNSS_EMULATION
 	  emulation hardware.
 	  These changes are needed for WLAN drivers to support and meet the
 	  requirement of emulation hardware.
+
+config CNSS_QCA6490
+	bool "Enable CNSS QCA6490 chipset specific changes"
+	help
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6490 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6490 chipset.
