@@ -11590,7 +11590,8 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	 */
 	if (!cpu_active(this_cpu))
 		return 0;
-	if (!is_min_capacity_cpu(this_cpu) && silver_has_big_tasks())
+	if (!is_min_capacity_cpu(this_cpu) && silver_has_big_tasks()
+		&& (atomic_read(&this_rq->nr_iowait) == 0))
 		avg_idle = ULLONG_MAX;
 	/*
 	 * This is OK, because current is on_cpu, which avoids it being picked
