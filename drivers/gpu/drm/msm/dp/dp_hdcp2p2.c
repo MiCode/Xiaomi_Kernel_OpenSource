@@ -277,19 +277,22 @@ static void dp_hdcp2p2_reset(struct dp_hdcp2p2_ctrl *ctrl)
 static int dp_hdcp2p2_register(void *input, bool mst_enabled)
 {
 	int rc;
-	enum sde_hdcp_2x_device_type device_type;
-	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
+	struct dp_hdcp2p2_ctrl *ctrl = input;
+	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_ENABLE};
 
 	rc = dp_hdcp2p2_valid_handle(ctrl);
 	if (rc)
 		return rc;
 
 	if (mst_enabled)
-		device_type = HDCP_TXMTR_DP_MST;
+		cdata.device_type = HDCP_TXMTR_DP_MST;
 	else
-		device_type = HDCP_TXMTR_DP;
+		cdata.device_type = HDCP_TXMTR_DP;
 
-	return sde_hdcp_2x_enable(ctrl->lib_ctx, device_type);
+	cdata.context = ctrl->lib_ctx;
+	rc = ctrl->lib->wakeup(&cdata);
+
+	return rc;
 }
 
 static int dp_hdcp2p2_on(void *input)
@@ -315,17 +318,11 @@ static void dp_hdcp2p2_off(void *input)
 {
 	int rc;
 	struct dp_hdcp2p2_ctrl *ctrl = (struct dp_hdcp2p2_ctrl *)input;
-	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_INVALID};
+	struct sde_hdcp_2x_wakeup_data cdata = {HDCP_2X_CMD_DISABLE};
 
 	rc = dp_hdcp2p2_valid_handle(ctrl);
 	if (rc)
 		return;
-
-	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_AUTH_FAIL) {
-		cdata.cmd = HDCP_2X_CMD_STOP;
-		cdata.context = ctrl->lib_ctx;
-		dp_hdcp2p2_wakeup_lib(ctrl, &cdata);
-	}
 
 	dp_hdcp2p2_set_interrupts(ctrl, false);
 
@@ -333,7 +330,9 @@ static void dp_hdcp2p2_off(void *input)
 
 	kthread_flush_worker(&ctrl->worker);
 
-	sde_hdcp_2x_disable(ctrl->lib_ctx);
+	cdata.context = ctrl->lib_ctx;
+	ctrl->lib->wakeup(&cdata);
+
 }
 
 static int dp_hdcp2p2_authenticate(void *input)
