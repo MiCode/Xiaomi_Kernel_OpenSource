@@ -9,7 +9,6 @@
 #include <linux/dma-direction.h>
 #include <linux/module.h>
 #include <linux/dma-buf.h>
-#include <asm/dma-iommu.h>
 #include <linux/dma-direction.h>
 #include <linux/of_platform.h>
 #include <linux/iommu.h>

@@ -1,20 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CCI_DEV_H_
 #define _CAM_CCI_DEV_H_
 
 #include <linux/delay.h>
-#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/irqreturn.h>
-#include <linux/ion.h>
 #include <linux/iommu.h>
 #include <linux/timer.h>
 #include <linux/kernel.h>

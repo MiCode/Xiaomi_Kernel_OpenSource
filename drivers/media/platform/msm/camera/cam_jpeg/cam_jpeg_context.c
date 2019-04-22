@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -9,7 +9,6 @@
 #include <linux/uaccess.h>
 
 #include "cam_mem_mgr.h"
-#include "cam_sync_api.h"
 #include "cam_jpeg_context.h"
 #include "cam_context_utils.h"
 #include "cam_debug_util.h"

@@ -15,7 +15,6 @@
 #include <media/cam_defs.h>
 #include <media/cam_jpeg.h>
 
-#include "cam_sync_api.h"
 #include "cam_packet_util.h"
 #include "cam_hw.h"
 #include "cam_hw_mgr_intf.h"

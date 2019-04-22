@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_LRME_CONTEXT_H_
@@ -10,7 +10,6 @@
 #include "cam_context_utils.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_req_mgr_interface.h"
-#include "cam_sync_api.h"
 
 #define CAM_LRME_CTX_INDEX_SHIFT 32
 

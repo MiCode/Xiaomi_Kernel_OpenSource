@@ -7,8 +7,6 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/module.h>
-#include <linux/ion.h>
-#include <linux/iommu.h>
 #include <linux/timer.h>
 #include <linux/kernel.h>
 

@@ -6,15 +6,14 @@
 #ifndef _CAM_SOC_UTIL_H_
 #define _CAM_SOC_UTIL_H_
 
+#include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
-#include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
-#include <linux/clk/qcom.h>
 #include <linux/debugfs.h>
 #include <linux/of_fdt.h>
 
