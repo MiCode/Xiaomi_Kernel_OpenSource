@@ -33,9 +33,17 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
     KERNEL_OUT ?= $(if $(filter /% ~%,$(TARGET_OUT_INTERMEDIATES)),,$(KERNEL_ROOT_DIR)/)$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
+      ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
+        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
+      else
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
+      endif
     else
+      ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
+        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/zImage-dtb
+      else
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/zImage
+      endif
     endif
 
     BUILT_KERNEL_TARGET := $(KERNEL_ZIMAGE_OUT).bin
@@ -43,6 +51,13 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     TARGET_KERNEL_CONFIG := $(KERNEL_OUT)/.config
     KERNEL_CONFIG_FILE := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/configs/$(KERNEL_DEFCONFIG)
     KERNEL_MAKE_OPTION := O=$(KERNEL_OUT) ARCH=$(KERNEL_TARGET_ARCH) CROSS_COMPILE=$(TARGET_KERNEL_CROSS_COMPILE) $(TARGET_KERNEL_CLANG_COMPILE) ROOTDIR=$(KERNEL_ROOT_DIR) $(if $(strip $(SHOW_COMMANDS)),V=1)
+    IMAGE_GZ_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
+    ifeq ($(MTK_APPEND_DTB),)
+        MTK_APPEND_DTB_PATH :=
+    else
+        MTK_APPEND_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_APPEND_DTB)
+    endif
+    MTK_IMAGE_GZ_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
 
   else
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)
