@@ -389,13 +389,16 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 			resp->fw_version_info.fw_build_timestamp,
 			QMI_WLFW_MAX_TIMESTAMP_LEN + 1);
 	}
+	if (resp->otp_version_valid)
+		plat_priv->otp_version = resp->otp_version;
 
-	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s",
+	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, fw_version: 0x%x, fw_build_timestamp: %s, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
 		    plat_priv->board_info.board_id, plat_priv->soc_info.soc_id,
 		    plat_priv->fw_version_info.fw_version,
-		    plat_priv->fw_version_info.fw_build_timestamp);
+		    plat_priv->fw_version_info.fw_build_timestamp,
+		    plat_priv->otp_version);
 
 	kfree(req);
 	kfree(resp);
