@@ -680,8 +680,9 @@
 	sound-9335 {
 		qcom,model = "msm8996-tasha-cdp-snd-card";
 		qcom,hdmi-audio-rx;
-		asoc-codec = <&stub_codec>, <&hdmi_audio>;
-		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+					"msm-ext-disp-audio-codec-rx";
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
 		qcom,wsa-max-devs = <2>;
 		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
