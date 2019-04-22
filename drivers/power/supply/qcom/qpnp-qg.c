@@ -2919,7 +2919,9 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 {
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
-		chip->wa_flags |= QG_RECHARGE_SOC_WA | QG_PON_OCV_WA;
+		chip->wa_flags |= QG_RECHARGE_SOC_WA;
+		if (!chip->dt.use_s7_ocv)
+			chip->wa_flags |= QG_PON_OCV_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
@@ -3614,6 +3616,8 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.shutdown_soc_threshold = temp;
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
+
+	chip->dt.use_s7_ocv = of_property_read_bool(node, "qcom,qg-use-s7-ocv");
 
 	/* Capacity learning params*/
 	if (!chip->dt.cl_disable) {

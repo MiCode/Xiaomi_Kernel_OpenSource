@@ -58,6 +58,7 @@ struct qg_dt {
 	bool			esr_disable;
 	bool			esr_discharge_enable;
 	bool			qg_ext_sense;
+	bool			use_s7_ocv;
 };
 
 struct qg_esr_data {
