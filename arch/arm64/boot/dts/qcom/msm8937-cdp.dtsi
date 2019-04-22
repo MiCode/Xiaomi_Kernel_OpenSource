@@ -177,10 +177,13 @@
 };
 
 &spi_3 { /* BLSP1 QUP3 */
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	maxim_sti@0 {
 		status = "disabled";
 		compatible = "maxim,maxim_sti";
-		reg = <0>;
+		reg = <0x0>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <65 0>;
 		spi-max-frequency = <16000000>;
@@ -200,6 +203,9 @@
 };
 
 &i2c_5 { /* BLSP2 QUP1 */
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
