@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@
 #define VBUSVLDEXT0				BIT(0)
 
 #define USB2_PHY_USB_PHY_HS_PHY_CTRL2		(0x64)
+#define USB2_AUTO_RESUME			BIT(0)
 #define USB2_SUSPEND_N				BIT(2)
 #define USB2_SUSPEND_N_SEL			BIT(3)
 
@@ -511,6 +512,15 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 	if (suspend) { /* Bus suspend */
 		if (phy->cable_connected ||
 			(phy->phy.flags & PHY_HOST_MODE)) {
+			/* Enable auto-resume functionality by pulsing signal */
+			msm_usb_write_readback(phy->base,
+				USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+				USB2_AUTO_RESUME, USB2_AUTO_RESUME);
+			usleep_range(500, 1000);
+			msm_usb_write_readback(phy->base,
+				USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+				USB2_AUTO_RESUME, 0);
+
 			msm_hsphy_enable_clocks(phy, false);
 		} else {/* Cable disconnect */
 			mutex_lock(&phy->phy_lock);

@@ -448,7 +448,7 @@ static ssize_t reflash_sysfs_reflash_store(struct device *dev,
 
 	retval = reflash_get_fw_image();
 	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
+		LOGD(tcm_hcd->pdev->dev.parent,
 				"Failed to get firmware image\n");
 		goto exit;
 	}
@@ -932,7 +932,7 @@ static int reflash_get_fw_image(void)
 		retval = request_firmware(&reflash_hcd->fw_entry, FW_IMAGE_NAME,
 				tcm_hcd->pdev->dev.parent);
 		if (retval < 0) {
-			LOGE(tcm_hcd->pdev->dev.parent,
+			LOGD(tcm_hcd->pdev->dev.parent,
 					"Failed to request %s\n",
 					FW_IMAGE_NAME);
 			return retval;
@@ -1024,16 +1024,14 @@ static enum update_area reflash_compare_id_info(void)
 	update_area = NONE;
 
 exit:
-	if (update_area == NONE) {
-		LOGN(tcm_hcd->pdev->dev.parent,
-				"No need to do reflash\n");
-	} else {
-		LOGN(tcm_hcd->pdev->dev.parent,
+	if (update_area == NONE)
+		LOGD(tcm_hcd->pdev->dev.parent, "No need to do reflash\n");
+	else
+		LOGD(tcm_hcd->pdev->dev.parent,
 				"Updating %s\n",
 				update_area == FIRMWARE_CONFIG ?
 				"firmware and config" :
 				"config only");
-	}
 
 	return update_area;
 }
@@ -1869,13 +1867,15 @@ static int reflash_do_reflash(void)
 
 	retval = reflash_get_fw_image();
 	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
+		LOGD(tcm_hcd->pdev->dev.parent,
 				"Failed to get firmware image\n");
 		goto exit;
 	}
 
-	LOGN(tcm_hcd->pdev->dev.parent,
+	LOGD(tcm_hcd->pdev->dev.parent,
 			"Start of reflash\n");
+
+	atomic_set(&tcm_hcd->firmware_flashing, 1);
 
 	update_area = reflash_compare_id_info();
 
@@ -1917,7 +1917,7 @@ static int reflash_do_reflash(void)
 		break;
 	}
 
-	LOGN(tcm_hcd->pdev->dev.parent,
+	LOGD(tcm_hcd->pdev->dev.parent,
 			"End of reflash\n");
 
 	retval = 0;
@@ -1930,6 +1930,8 @@ exit:
 		reflash_hcd->image_size = 0;
 	}
 
+	atomic_set(&tcm_hcd->firmware_flashing, 0);
+	wake_up_interruptible(&tcm_hcd->reflash_wq);
 	return retval;
 }
 

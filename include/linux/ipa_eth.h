@@ -18,12 +18,15 @@
 #include <linux/types.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/ipc_logging.h>
 
 #include <linux/netdevice.h>
 #include <linux/netdev_features.h>
 
 #include <linux/msm_ipa.h>
 #include <linux/msm_gsi.h>
+
+#define IPA_ETH_API_VER 1
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -89,30 +92,43 @@ enum ipa_eth_dev_events {
 
 /**
  * enum ipa_eth_channel_dir - Direction of a ring / channel
- * @IPA_ETH_DIR_RX: Traffic flowing from device to IPA
- * @IPA_ETH_DIR_TX: Traffic flowing from IPA to device
- * @IPA_ETH_DIR_BI: Bi-direction traffic flow
+ * @IPA_ETH_CH_DIR_RX: Traffic flowing from device to IPA
+ * @IPA_ETH_CH_DIR_TX: Traffic flowing from IPA to device
  */
 enum ipa_eth_channel_dir {
-	IPA_ETH_DIR_RX,
-	IPA_ETH_DIR_TX,
-	IPA_ETH_DIR_BI
+	IPA_ETH_CH_DIR_RX,
+	IPA_ETH_CH_DIR_TX,
+};
+
+#define IPA_ETH_DIR_RX IPA_ETH_CH_DIR_RX
+#define IPA_ETH_DIR_TX IPA_ETH_CH_DIR_TX
+
+/**
+ * enum ipa_eth_offload_state - Offload state of an ethernet device
+ * @IPA_ETH_OF_ST_DEINITED: No offload path resources are allocated
+ * @IPA_ETH_OF_ST_INITED: Offload path resources are allocated, but not started
+ * @IPA_ETH_OF_ST_STARTED: Offload path is started and ready to handle traffic
+ * @IPA_ETH_OF_ST_ERROR: One or more offload path components are in error state
+ * @IPA_ETH_OF_ST_RECOVERY: Offload path is attempting to recover from error
+ */
+enum ipa_eth_offload_state {
+	IPA_ETH_OF_ST_DEINITED = 0,
+	IPA_ETH_OF_ST_INITED,
+	IPA_ETH_OF_ST_STARTED,
+	IPA_ETH_OF_ST_ERROR,
+	IPA_ETH_OF_ST_RECOVERY,
+	IPA_ETH_OF_ST_MAX,
 };
 
 /**
- * enum ipa_eth_state - Offload state of an ethernet device
- * @IPA_ETH_ST_DEINITED: No offload path resources are allocated
- * @IPA_ETH_ST_INITED: Offload path resources are allocated, but not started
- * @IPA_ETH_ST_STARTED: Offload path is started and ready to handle traffic
- * @IPA_ETH_ST_ERROR: One or more offload path components are in error state
- * @IPA_ETH_ST_RECOVERY: Offload path is attempting to recover from error
+ * enum ipa_eth_offload_state - States of the network interface
+ * @IPA_ETH_IF_ST_UP: Network interface is up in software/Linux
+ * @IPA_ETH_IF_ST_LOWER_UP: Network interface PHY link is up / cable connected
  */
-enum ipa_eth_state {
-	IPA_ETH_ST_DEINITED = 0,
-	IPA_ETH_ST_INITED,
-	IPA_ETH_ST_STARTED,
-	IPA_ETH_ST_ERROR,
-	IPA_ETH_ST_RECOVERY,
+enum ipa_eth_interface_states {
+	IPA_ETH_IF_ST_UP,
+	IPA_ETH_IF_ST_LOWER_UP,
+	IPA_ETH_IF_ST_MAX,
 };
 
 struct ipa_eth_device;
@@ -141,8 +157,12 @@ struct ipa_eth_resource {
  * @features: Features enabled in the channel
  * @direction: Channel direction
  * @queue: Network device queue/ring number
- * @desc_mem: Descriptor ring memory
- * @buff_mem: Buffer memory pointed to by descriptors
+ * @desc_size: Size of each descriptor
+ * @desc_count: Number of descriptors in the ring
+ * @desc_mem: Descriptor ring memory base
+ * @buff_size: Size of each data buffer
+ * @buff_count: Number of data buffers
+ * @buff_mem: Data buffer memory base
  * @od_priv: Private field for use by offload driver
  * @eth_dev: Associated ipa_eth_device
  * @ipa_client: IPA client type enum to be used for the channel
@@ -164,7 +184,13 @@ struct ipa_eth_channel {
 	enum ipa_eth_channel_dir direction;
 
 	int queue;
+
+	u16 desc_size;
+	u32 desc_count;
 	struct ipa_eth_resource desc_mem;
+
+	u16 buff_size;
+	u32 buff_count;
 	struct ipa_eth_resource buff_mem;
 
 	/* fields managed by offload driver */
@@ -184,8 +210,8 @@ struct ipa_eth_channel {
 	u64 exception_loopback;
 };
 
-#define IPA_ETH_CH_IS_RX(ch) ((ch)->direction != IPA_ETH_DIR_TX)
-#define IPA_ETH_CH_IS_TX(ch) ((ch)->direction != IPA_ETH_DIR_RX)
+#define IPA_ETH_CH_IS_RX(ch) ((ch)->direction == IPA_ETH_CH_DIR_RX)
+#define IPA_ETH_CH_IS_TX(ch) ((ch)->direction == IPA_ETH_CH_DIR_TX)
 
 /**
  * struct ipa_eth_device - Represents an ethernet device
@@ -196,7 +222,7 @@ struct ipa_eth_channel {
  * @od_priv: Private field for use by offload driver
  * @device_list: Entry in the global offload device list
  * @bus_device_list: Entry in the per-bus offload device list
- * @state: Offload state of the device
+ * @of_state: Offload state of the device
  * @dev: Pointer to struct device
  * @nd: IPA offload net driver associated with the device
  * @od: IPA offload driver that is managing the device
@@ -204,11 +230,12 @@ struct ipa_eth_channel {
  *                network device (to monitor link state changes)
  * @init: Allowed to initialize offload path for the device
  * @start: Allowed to start offload data path for the device
- * @link_up: Carrier is detected by the PHY (link is active)
+ * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
+ * @refresh: Work struct used to perform device refresh
  */
 struct ipa_eth_device {
 	/* fields managed by the network driver */
@@ -224,7 +251,7 @@ struct ipa_eth_device {
 	struct list_head device_list;
 	struct list_head bus_device_list;
 
-	enum ipa_eth_state state;
+	enum ipa_eth_offload_state of_state;
 
 	struct device *dev;
 	struct ipa_eth_net_driver *nd;
@@ -234,13 +261,15 @@ struct ipa_eth_device {
 
 	bool init;
 	bool start;
-	bool link_up;
+	unsigned long if_state;
 
 	u32 pm_handle;
 
 	void *bus_priv;
 	void *ipa_priv;
 	struct dentry *debugfs;
+
+	struct work_struct refresh;
 };
 
 /**
@@ -706,5 +735,29 @@ int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
 int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
 	size_t size, int prot, bool split);
 int ipa_eth_uc_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
+
+/* IPC logging interface */
+
+#define ipa_eth_ipc_do_log(ipcbuf, fmt, args...) \
+	do { \
+		void *__buf = (ipcbuf); \
+		if (__buf) \
+			ipc_log_string(__buf, " %s:%d " fmt "\n", \
+				__func__, __LINE__, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_log(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf(), \
+					fmt, ## args); \
+	} while (0)
+
+#define ipa_eth_ipc_dbg(fmt, args...) \
+	do { \
+		void *ipa_eth_get_ipc_logbuf_dbg(void); \
+		ipa_eth_ipc_do_log(ipa_eth_get_ipc_logbuf_dbg(), \
+					fmt, ## args); \
+	} while (0)
 
 #endif // _IPA_ETH_H_

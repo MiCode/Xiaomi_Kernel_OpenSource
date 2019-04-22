@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,9 +82,10 @@ static LIST_HEAD(service_list);
 static DEFINE_MUTEX(service_list_lock);
 
 struct ind_req_resp {
-	char service_path[SERVREG_NOTIF_NAME_LENGTH];
 	int transaction_id;
 	int curr_state;
+	struct work_struct ind_ack;
+	struct qmi_client_info *client_data;
 };
 
 /*
@@ -100,23 +101,21 @@ struct qmi_client_info {
 	int instance_id;
 	char service_path[SERVREG_NOTIF_NAME_LENGTH];
 	enum pd_subsys_state subsys_state;
-	struct work_struct ind_ack;
 	struct work_struct new_server;
 	struct work_struct del_server;
 	struct workqueue_struct *svc_event_wq;
+	struct workqueue_struct *ind_ack_wq;
 	struct qmi_handle clnt_handle;
 	struct notifier_block notifier;
 	void *ssr_handle;
 	struct notifier_block ssr_notifier;
 	bool service_connected;
 	struct list_head list;
-	struct ind_req_resp ind_msg;
 	struct sockaddr_qrtr s_addr;
 };
 static LIST_HEAD(qmi_client_list);
 static DEFINE_MUTEX(qmi_list_lock);
 static DEFINE_MUTEX(notif_add_lock);
-static struct workqueue_struct *pdr_wq;
 
 static struct service_notif_info *_find_service_info(const char *service_path)
 {
@@ -149,8 +148,9 @@ static int service_notif_queue_notification(struct service_notif_info
 
 static void send_ind_ack(struct work_struct *work)
 {
-	struct qmi_client_info *data = container_of(work,
-					struct qmi_client_info, ind_ack);
+	struct ind_req_resp *ind_info = container_of(work, struct ind_req_resp,
+						     ind_ack);
+	struct qmi_client_info *data = ind_info->client_data;
 	struct qmi_servreg_notif_set_ack_req_msg_v01 req;
 	struct qmi_servreg_notif_set_ack_resp_msg_v01 resp = { { 0, 0 } };
 	struct qmi_txn txn;
@@ -158,29 +158,29 @@ static void send_ind_ack(struct work_struct *work)
 	enum pd_subsys_state state = USER_PD_STATE_CHANGE;
 	int rc;
 
-	service_notif = _find_service_info(data->ind_msg.service_path);
+	service_notif = _find_service_info(data->service_path);
 	if (!service_notif)
-		return;
-	if ((int)data->ind_msg.curr_state < QMI_STATE_MIN_VAL ||
-		(int)data->ind_msg.curr_state > QMI_STATE_MAX_VAL)
+		goto out;
+	if ((int)ind_info->curr_state < QMI_STATE_MIN_VAL ||
+		(int)ind_info->curr_state > QMI_STATE_MAX_VAL)
 		pr_err("Unexpected indication notification state %d\n",
-			data->ind_msg.curr_state);
+			ind_info->curr_state);
 	else {
 		mutex_lock(&notif_add_lock);
 		mutex_lock(&service_list_lock);
 		rc = service_notif_queue_notification(service_notif,
-			data->ind_msg.curr_state, &state);
+			ind_info->curr_state, &state);
 		if (rc & NOTIFY_STOP_MASK)
 			pr_err("Notifier callback aborted for %s with error %d\n",
-				data->ind_msg.service_path, rc);
-		service_notif->curr_state = data->ind_msg.curr_state;
+				data->service_path, rc);
+		service_notif->curr_state = ind_info->curr_state;
 		mutex_unlock(&service_list_lock);
 		mutex_unlock(&notif_add_lock);
 	}
 
-	req.transaction_id = data->ind_msg.transaction_id;
+	req.transaction_id = ind_info->transaction_id;
 	snprintf(req.service_name, ARRAY_SIZE(req.service_name), "%s",
-						data->ind_msg.service_path);
+						data->service_path);
 
 	rc = qmi_txn_init(&data->clnt_handle, &txn,
 			qmi_servreg_notif_set_ack_resp_msg_v01_ei,
@@ -188,8 +188,8 @@ static void send_ind_ack(struct work_struct *work)
 
 	if (rc < 0) {
 		pr_err("%s QMI tx init failed , ret - %d\n",
-			data->ind_msg.service_path, rc);
-		return;
+			data->service_path, rc);
+		goto out;
 	}
 
 	rc = qmi_send_request(&data->clnt_handle, &data->s_addr,
@@ -199,24 +199,26 @@ static void send_ind_ack(struct work_struct *work)
 			&req);
 	if (rc < 0) {
 		pr_err("%s: QMI send ACK failed, ret - %d\n",
-				data->ind_msg.service_path, rc);
+				data->service_path, rc);
 		qmi_txn_cancel(&txn);
-		return;
+		goto out;
 	}
 
 	rc = qmi_txn_wait(&txn, msecs_to_jiffies(SERVER_TIMEOUT));
 	if (rc < 0) {
 		pr_err("%s: QMI qmi txn wait failed, ret - %d\n",
-				data->ind_msg.service_path, rc);
-		return;
+		       data->service_path, rc);
+		goto out;
 	}
 
 	/* Check the response */
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01)
 		pr_err("QMI request failed 0x%x\n", resp.resp.error);
 	pr_info("Indication ACKed for transid %d, service %s, instance %d!\n",
-		data->ind_msg.transaction_id, data->ind_msg.service_path,
+		ind_info->transaction_id, data->service_path,
 		data->instance_id);
+out:
+	kfree(ind_info);
 }
 
 static void root_service_service_ind_cb(struct qmi_handle *qmi,
@@ -227,17 +229,20 @@ static void root_service_service_ind_cb(struct qmi_handle *qmi,
 				struct qmi_client_info, clnt_handle);
 	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg =
 		*((struct qmi_servreg_notif_state_updated_ind_msg_v01 *)data);
+	struct ind_req_resp *ind_info = kmalloc(sizeof(*ind_info), GFP_KERNEL);
+
+	if (!ind_info)
+		return;
 
 	pr_info("Indication received from %s, state: 0x%x, trans-id: %d\n",
 		ind_msg.service_name, ind_msg.curr_state,
 		ind_msg.transaction_id);
 
-	qmi_data->ind_msg.transaction_id = ind_msg.transaction_id;
-	qmi_data->ind_msg.curr_state = ind_msg.curr_state;
-	snprintf(qmi_data->ind_msg.service_path,
-		ARRAY_SIZE(qmi_data->ind_msg.service_path), "%s",
-		ind_msg.service_name);
-	queue_work(pdr_wq, &qmi_data->ind_ack);
+	ind_info->transaction_id = ind_msg.transaction_id;
+	ind_info->curr_state = ind_msg.curr_state;
+	ind_info->client_data = qmi_data;
+	INIT_WORK(&ind_info->ind_ack, send_ind_ack);
+	queue_work(qmi_data->ind_ack_wq, &ind_info->ind_ack);
 }
 
 static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
@@ -260,7 +265,7 @@ static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
 
 	if (rc < 0) {
 		pr_err("%s QMI tx init failed , ret - %d\n",
-			data->ind_msg.service_path, rc);
+			service_notif->service_path, rc);
 		return rc;
 	}
 
@@ -515,8 +520,13 @@ static void *add_service_notif(const char *service_path, int instance_id,
 		rc = -ENOMEM;
 		goto exit;
 	}
+	qmi_data->ind_ack_wq = alloc_ordered_workqueue("%s_pdr_wq", WQ_HIGHPRI,
+						       subsys);
+	if (!qmi_data->ind_ack_wq) {
+		rc = -ENOMEM;
+		goto exit;
+	}
 
-	INIT_WORK(&qmi_data->ind_ack, send_ind_ack);
 	INIT_WORK(&qmi_data->new_server, new_server_work);
 	INIT_WORK(&qmi_data->del_server, del_server_work);
 
@@ -563,6 +573,8 @@ add_service_list:
 
 	return service_notif;
 exit:
+	if (qmi_data->ind_ack_wq)
+		destroy_workqueue(qmi_data->ind_ack_wq);
 	if (qmi_data->svc_event_wq)
 		destroy_workqueue(qmi_data->svc_event_wq);
 	kfree(qmi_data);
@@ -587,8 +599,7 @@ static int send_pd_restart_req(const char *service_path,
 			&resp);
 
 	if (rc < 0) {
-		pr_err("%s QMI tx init failed , ret - %d\n",
-			data->ind_msg.service_path, rc);
+		pr_err("%s QMI tx init failed , ret - %d\n", service_path, rc);
 		return rc;
 	}
 
@@ -717,14 +728,3 @@ int service_notif_unregister_notifier(void *service_notif_handle,
 				&service_notif->service_notif_rcvr_list, nb);
 }
 EXPORT_SYMBOL(service_notif_unregister_notifier);
-
-static int __init service_notif_init(void)
-{
-
-	pdr_wq = alloc_workqueue("pdr_wq", WQ_CPU_INTENSIVE | WQ_UNBOUND |
-				 WQ_HIGHPRI, 0);
-	BUG_ON(!pdr_wq);
-
-	return 0;
-}
-arch_initcall(service_notif_init);

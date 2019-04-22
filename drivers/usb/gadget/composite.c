@@ -658,18 +658,10 @@ static int config_desc(struct usb_composite_dev *cdev, unsigned w_value)
 	w_value &= 0xff;
 
 	pos = &cdev->configs;
-	c = cdev->os_desc_config;
-	if (c)
-		goto check_config;
 
 	while ((pos = pos->next) !=  &cdev->configs) {
 		c = list_entry(pos, typeof(*c), list);
 
-		/* skip OS Descriptors config which is handled separately */
-		if (c == cdev->os_desc_config)
-			continue;
-
-check_config:
 		/* ignore configs that won't work at this speed */
 		switch (speed) {
 		case USB_SPEED_SUPER_PLUS:
@@ -1966,13 +1958,19 @@ unknown:
 		/*
 		 * OS descriptors handling
 		 */
-		if (cdev->use_os_string && cdev->os_desc_config &&
-		    (ctrl->bRequestType & USB_TYPE_VENDOR) &&
-		    ctrl->bRequest == cdev->b_vendor_code) {
+		if ((ctrl->bRequestType & USB_TYPE_VENDOR)) {
 			struct usb_configuration	*os_desc_cfg;
 			u8				*buf;
 			int				interface;
 			int				count = 0;
+
+			/* If os descriptor config is not enable, stall ep0 */
+			if (!cdev->use_os_string || !cdev->os_desc_config)
+				return -EINVAL;
+
+			/* Stall ep0 if bRequest is not same as b_vendor_code */
+			if (ctrl->bRequest != cdev->b_vendor_code)
+				return -EINVAL;
 
 			req = cdev->os_desc_req;
 			req->context = cdev;

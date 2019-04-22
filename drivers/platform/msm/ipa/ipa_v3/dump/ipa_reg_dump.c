@@ -259,6 +259,12 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 	GEN_SRC_DST_ADDR_MAP(IPA_ACKMNGR_CMDQ_STATUS_EMPTY,
 			     ipa.dbg,
 			     ipa_ackmngr_cmdq_status_empty),
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_WR,
+			     ipa.dbg,
+			     ipa_rx_hps_cmdq_cfg_wr),
+	GEN_SRC_DST_ADDR_MAP(IPA_RX_HPS_CMDQ_CFG_RD,
+			     ipa.dbg,
+			     ipa_rx_hps_cmdq_cfg_rd),
 
 	/*
 	 * NOTE: That GEN_SRC_DST_ADDR_MAP() not used below.  This is
@@ -789,7 +795,7 @@ void ipa_save_registers(void)
 	 * To override this, set do_non_tn_collection_on_crash to
 	 * true, via dtsi, and the collection will be done.
 	 */
-	if (ipa3_ctx->do_non_tn_collection_on_crash == true) {
+	if (ipa3_ctx->do_non_tn_collection_on_crash) {
 		/* Save all the uC PER configured registers */
 		for (i = 0; i < num_uc_per_regs; i++) {
 			/* Copy reg value to our data struct */
@@ -802,11 +808,11 @@ void ipa_save_registers(void)
 
 		/* Collecting resource DB information */
 		ipa_hal_save_regs_rsrc_db();
-
-		/* Save IPA testbus */
-		if (ipa3_ctx->do_testbus_collection_on_crash == true)
-			ipa_hal_save_regs_save_ipa_testbus();
 	}
+
+	/* Save IPA testbus */
+	if (ipa3_ctx->do_testbus_collection_on_crash)
+		ipa_hal_save_regs_save_ipa_testbus();
 
 	/* GSI test bus and QSB log */
 	for (i = 0;
@@ -851,27 +857,6 @@ void ipa_save_registers(void)
 				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
 	}
 
-	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6; i++) {
-		u32 phys_ch_idx =
-			ipa_reg_save.gsi.ch_cntxt.q6[
-			    i].gsi_debug_ee_n_ch_k_vp_table.phy_ch;
-		u32 n = phys_ch_idx * IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
-
-		if (!ipa_reg_save.gsi.ch_cntxt.q6[
-			i].gsi_debug_ee_n_ch_k_vp_table.valid)
-			continue;
-		ipa_reg_save.gsi.ch_cntxt.q6[
-			i].mcs_channel_scratch.scratch4.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
-		ipa_reg_save.gsi.ch_cntxt.q6[
-			i].mcs_channel_scratch.scratch5.shram =
-			IPA_READ_1xVECTOR_REG(
-				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
-	}
-
 	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC; i++) {
 		u32 phys_ch_idx =
 			ipa_reg_save.gsi.ch_cntxt.uc[
@@ -901,7 +886,7 @@ void ipa_save_registers(void)
 	 * To override this, set do_non_tn_collection_on_crash to
 	 * true, via dtsi, and the collection will be done.
 	 */
-	if (ipa3_ctx->do_non_tn_collection_on_crash == true) {
+	if (ipa3_ctx->do_non_tn_collection_on_crash) {
 		u32 ofst = GEN_2xVECTOR_REG_OFST(IPA_CTX_ID_m_CTX_NUM_n, 0, 0);
 		struct reg_access_funcs_s *io = get_access_funcs(ofst);
 		/*
@@ -1063,87 +1048,6 @@ static void ipa_reg_save_rsrc_cnts(void)
 }
 
 /*
- * FUNCTION:  ipa_reg_save_rsrc_cnts_test_bus
- *
- * This function saves the resource counts for all PCIE and DDR
- * resource groups collected from test bus.
- *
- * @param
- *
- * @return
- */
-void ipa_reg_save_rsrc_cnts_test_bus(void)
-{
-	int32_t rsrc_type = 0;
-
-	ipa_reg_save.rsrc_cnts.pcie.resource_group = IPA_HW_PCIE_SRC_RSRP_GRP;
-	ipa_reg_save.rsrc_cnts.ddr.resource_group = IPA_HW_DDR_SRC_RSRP_GRP;
-
-	rsrc_type = 0;
-	ipa_reg_save.rsrc_cnts.pcie.src.pkt_cntxt =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_SRC_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.src.pkt_cntxt =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_SRC_RSRP_GRP);
-
-	rsrc_type = 1;
-	ipa_reg_save.rsrc_cnts.pcie.src.descriptor_list =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_SRC_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.src.descriptor_list =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_SRC_RSRP_GRP);
-
-	rsrc_type = 2;
-	ipa_reg_save.rsrc_cnts.pcie.src.data_descriptor_buffer =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_SRC_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.src.data_descriptor_buffer =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_SRC_RSRP_GRP);
-
-	rsrc_type = 3;
-	ipa_reg_save.rsrc_cnts.pcie.src.hps_dmars =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_SRC_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.src.hps_dmars =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_SRC_RSRP_GRP);
-
-	rsrc_type = 4;
-	ipa_reg_save.rsrc_cnts.pcie.src.reserved_acks =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_SRC_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.src.reserved_acks =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_SRC_RSRP_GRP);
-
-	rsrc_type = 5;
-	ipa_reg_save.rsrc_cnts.pcie.dst.reserved_sectors =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_DEST_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.dst.reserved_sectors =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_DEST_RSRP_GRP);
-
-	rsrc_type = 6;
-	ipa_reg_save.rsrc_cnts.pcie.dst.dps_dmars =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_PCIE_DEST_RSRP_GRP);
-
-	ipa_reg_save.rsrc_cnts.ddr.dst.dps_dmars =
-		IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type,
-						    IPA_HW_DDR_DEST_RSRP_GRP);
-}
-
-/*
  * FUNCTION:  ipa_hal_save_regs_ipa_cmdq
  *
  * This function saves the various IPA CMDQ registers
@@ -1293,44 +1197,16 @@ static void ipa_hal_save_regs_ipa_cmdq(void)
  */
 static void ipa_hal_save_regs_save_ipa_testbus(void)
 {
-	int32_t sel_internal, sel_external, sel_ep, sel_grp;
+	int32_t sel_internal, sel_external, sel_ep;
 	union ipa_hwio_def_ipa_debug_data_sel_u debug_data_sel = { { 0 } };
-	union ipa_hwio_def_ipa_testbus_sel_u testbus_sel = { { 0 } };
 
-	if (ipa_reg_save.ipa.testbus == NULL) {
+	if (!ipa_reg_save.ipa.testbus) {
 		/*
 		 * Test-bus structure not allocated - exit test-bus
 		 * collection
 		 */
-		IPADBG("ipa_reg_save.ipa.testbus was not allocated\n");
+		IPAERR("ipa_reg_save.ipa.testbus was not allocated\n");
 		return;
-	}
-
-	testbus_sel.def.pipe_select = 0xF;
-	testbus_sel.def.external_block_select = IPA_DEBUG_TESTBUS_DEF_EXTERNAL;
-	testbus_sel.def.internal_block_select = IPA_DEBUG_TESTBUS_DEF_INTERNAL;
-
-	IPA_WRITE_SCALER_REG(IPA_TESTBUS_SEL, testbus_sel.value);
-
-	/* Get Global test bus values */
-	for (sel_external = 0;
-	     sel_external <= IPA_TESTBUS_SEL_EXTERNAL_MAX;
-	     sel_external++) {
-		for (sel_internal = 0;
-		     sel_internal <= IPA_TESTBUS_SEL_INTERNAL_MAX;
-		     sel_internal++) {
-			debug_data_sel.def.pipe_select = 0;
-			debug_data_sel.def.external_block_select = sel_external;
-			debug_data_sel.def.internal_block_select = sel_internal;
-			IPA_WRITE_SCALER_REG(IPA_DEBUG_DATA_SEL,
-					     debug_data_sel.value);
-			ipa_reg_save.ipa.testbus->global.global[sel_internal]
-			    [sel_external].testbus_sel.value =
-			    debug_data_sel.value;
-			ipa_reg_save.ipa.testbus->global.global[sel_internal]
-			    [sel_external].testbus_data.value =
-			    IPA_READ_SCALER_REG(IPA_DEBUG_DATA);
-		}
 	}
 
 	/* Collect per EP test bus */
@@ -1349,44 +1225,14 @@ static void ipa_hal_save_regs_save_ipa_testbus(void)
 				IPA_WRITE_SCALER_REG(IPA_DEBUG_DATA_SEL,
 						     debug_data_sel.value);
 				ipa_reg_save.ipa.testbus->ep[sel_ep].entry_ep
-				    [sel_internal]
-				    [sel_external].testbus_sel.value =
+				    [sel_external]
+				    [sel_internal].testbus_sel.value =
 				    debug_data_sel.value;
 				ipa_reg_save.ipa.testbus->ep[sel_ep].entry_ep
-				    [sel_internal]
-				    [sel_external].testbus_data.value =
+				    [sel_external]
+				    [sel_internal].testbus_data.value =
 				    IPA_READ_SCALER_REG(IPA_DEBUG_DATA);
 			}
-		}
-	}
-
-	/* Collect per EP RSRC count */
-	for (sel_ep = 0; sel_ep < IPA_DEBUG_TESTBUS_RSRC_NUM_EP; sel_ep++) {
-		for (sel_grp = 0;
-		     sel_grp < IPA_DEBUG_TESTBUS_RSRC_NUM_GRP;
-		     sel_grp++) {
-			testbus_sel.def.pipe_select = sel_ep;
-			testbus_sel.def.external_block_select =
-				IPA_DEBUG_TESTBUS_DEF_EXTERNAL;
-			testbus_sel.def.internal_block_select =
-				IPA_DEBUG_TESTBUS_DEF_INTERNAL;
-
-			debug_data_sel.def.pipe_select = sel_grp;
-			debug_data_sel.def.external_block_select =
-				IPA_DEBUG_TESTBUS_DEF_EXTERNAL;
-			debug_data_sel.def.internal_block_select =
-				IPA_DEBUG_TESTBUS_DEF_INTERNAL;
-
-			IPA_WRITE_SCALER_REG(IPA_TESTBUS_SEL,
-					     testbus_sel.value);
-			IPA_WRITE_SCALER_REG(IPA_DEBUG_DATA_SEL,
-					     debug_data_sel.value);
-			ipa_reg_save.ipa.testbus->ep_rsrc[
-			    sel_ep].entry_ep[sel_grp].testbus_sel.value =
-				debug_data_sel.value;
-			ipa_reg_save.ipa.testbus->ep_rsrc[sel_ep].entry_ep[
-			    sel_grp].testbus_data.value =
-				IPA_READ_SCALER_REG(IPA_DEBUG_DATA);
 		}
 	}
 }
@@ -1411,7 +1257,8 @@ int ipa_reg_save_init(u32 value)
 
 	ipa_reg_save.ipa.testbus = NULL;
 
-	if (ipa3_ctx->do_testbus_collection_on_crash == true) {
+	if (ipa3_ctx->do_testbus_collection_on_crash) {
+		memset(ipa_testbus_mem, value, sizeof(ipa_testbus_mem));
 		ipa_reg_save.ipa.testbus =
 		    (struct ipa_reg_save_ipa_testbus_s *) ipa_testbus_mem;
 	}

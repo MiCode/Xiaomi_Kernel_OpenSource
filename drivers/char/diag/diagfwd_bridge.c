@@ -18,24 +18,12 @@
 #include <linux/workqueue.h>
 #include <linux/ratelimit.h>
 #include <linux/platform_device.h>
-#ifdef USB_QCOM_DIAG_BRIDGE
-#include <linux/smux.h>
-#endif
 #include "diag_mux.h"
 #include "diagfwd_bridge.h"
-#ifdef USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
-#include "diagfwd_smux.h"
-#endif
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
 #include "diag_ipc_logging.h"
-
-#ifdef CONFIG_MHI_BUS
-#define diag_mdm_init		diag_mhi_init
-#else
-#define diag_mdm_init		diag_hsic_init
-#endif
 
 #define BRIDGE_TO_MUX(x)	(x + DIAG_MUX_BRIDGE_BASE)
 
@@ -48,18 +36,6 @@ struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV] = {
 		.ctxt = 0,
 		.dev_ops = NULL,
 		.dci_read_ptr = NULL,
-		.dci_read_buf = NULL,
-		.dci_read_len = 0,
-		.dci_wq = NULL,
-	},
-	{
-		.id = DIAGFWD_SMUX,
-		.type = DIAG_DATA_TYPE,
-		.name = "SMUX",
-		.inited = 0,
-		.ctxt = 0,
-		.dci_read_ptr = NULL,
-		.dev_ops = NULL,
 		.dci_read_buf = NULL,
 		.dci_read_len = 0,
 		.dci_wq = NULL,
@@ -253,33 +229,6 @@ int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt)
 	return err;
 }
 
-int diagfwd_bridge_init(void)
-{
-	int err = 0;
-
-	err = diag_mdm_init();
-	if (err)
-		goto fail;
-	#ifdef USB_QCOM_DIAG_BRIDGE
-	err = diag_smux_init();
-	if (err)
-		goto fail;
-	#endif
-	return 0;
-
-fail:
-	pr_err("diag: Unable to initialze diagfwd bridge, err: %d\n", err);
-	return err;
-}
-
-void diagfwd_bridge_exit(void)
-{
-	#ifdef USB_QCOM_DIAG_BRIDGE
-	diag_hsic_exit();
-	diag_smux_exit();
-	#endif
-}
-
 int diagfwd_bridge_close(int id)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
@@ -317,3 +266,18 @@ uint16_t diag_get_remote_device_mask(void)
 	return remote_dev;
 }
 
+void diag_register_with_bridge(void)
+{
+	if (IS_ENABLED(CONFIG_USB_QCOM_DIAG_BRIDGE))
+		diag_register_with_hsic();
+	else if (IS_ENABLED(CONFIG_MHI_BUS))
+		diag_register_with_mhi();
+}
+
+void diag_unregister_bridge(void)
+{
+	if (IS_ENABLED(CONFIG_USB_QCOM_DIAG_BRIDGE))
+		diag_unregister_hsic();
+	else if (IS_ENABLED(CONFIG_MHI_BUS))
+		diag_unregister_mhi();
+}

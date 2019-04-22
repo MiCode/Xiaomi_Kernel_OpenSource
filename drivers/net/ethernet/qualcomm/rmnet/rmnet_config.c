@@ -46,10 +46,25 @@
 
 /* Local Definitions and Declarations */
 
-static const struct nla_policy rmnet_policy[IFLA_RMNET_MAX + 2] = {
-	[IFLA_RMNET_MUX_ID]	= { .type = NLA_U16 },
-	[IFLA_RMNET_FLAGS]	= { .len = sizeof(struct ifla_rmnet_flags) },
-	[IFLA_VLAN_EGRESS_QOS]	= { .len = sizeof(struct tcmsg) },
+enum {
+	IFLA_RMNET_DFC_QOS = __IFLA_RMNET_MAX,
+	IFLA_RMNET_UL_AGG_PARAMS,
+	__IFLA_RMNET_EXT_MAX,
+};
+
+static const struct nla_policy rmnet_policy[__IFLA_RMNET_EXT_MAX] = {
+	[IFLA_RMNET_MUX_ID] = {
+		.type = NLA_U16
+	},
+	[IFLA_RMNET_FLAGS] = {
+		.len = sizeof(struct ifla_rmnet_flags)
+	},
+	[IFLA_RMNET_DFC_QOS] = {
+		.len = sizeof(struct tcmsg)
+	},
+	[IFLA_RMNET_UL_AGG_PARAMS] = {
+		.len = sizeof(struct rmnet_egress_agg_params)
+	},
 };
 
 int rmnet_is_real_dev_registered(const struct net_device *real_dev)
@@ -190,6 +205,17 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
 	netdev_dbg(dev, "data format [0x%08X]\n", data_format);
 	port->data_format = data_format;
 
+	if (data[IFLA_RMNET_UL_AGG_PARAMS]) {
+		void *agg_params;
+		unsigned long irq_flags;
+
+		agg_params = nla_data(data[IFLA_RMNET_UL_AGG_PARAMS]);
+		spin_lock_irqsave(&port->agg_lock, irq_flags);
+		memcpy(&port->egress_agg_params, agg_params,
+		       sizeof(port->egress_agg_params));
+		spin_unlock_irqrestore(&port->agg_lock, irq_flags);
+	}
+
 	return 0;
 
 err1:
@@ -294,6 +320,7 @@ static struct notifier_block rmnet_dev_notifier __read_mostly = {
 static int rmnet_rtnl_validate(struct nlattr *tb[], struct nlattr *data[],
 			       struct netlink_ext_ack *extack)
 {
+	struct rmnet_egress_agg_params *agg_params;
 	u16 mux_id;
 
 	if (!data) {
@@ -303,6 +330,12 @@ static int rmnet_rtnl_validate(struct nlattr *tb[], struct nlattr *data[],
 			mux_id = nla_get_u16(data[IFLA_RMNET_MUX_ID]);
 			if (mux_id > (RMNET_MAX_LOGICAL_EP - 1))
 				return -ERANGE;
+		}
+
+		if (data[IFLA_RMNET_UL_AGG_PARAMS]) {
+			agg_params = nla_data(data[IFLA_RMNET_UL_AGG_PARAMS]);
+			if (agg_params->agg_time < 3000000)
+				return -EINVAL;
 		}
 	}
 
@@ -347,11 +380,22 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 		port->data_format = flags->flags & flags->mask;
 	}
 
-	if (data[IFLA_VLAN_EGRESS_QOS]) {
+	if (data[IFLA_RMNET_DFC_QOS]) {
 		struct tcmsg *tcm;
 
-		tcm = nla_data(data[IFLA_VLAN_EGRESS_QOS]);
+		tcm = nla_data(data[IFLA_RMNET_DFC_QOS]);
 		qmi_rmnet_change_link(dev, port, tcm);
+	}
+
+	if (data[IFLA_RMNET_UL_AGG_PARAMS]) {
+		void *agg_params;
+		unsigned long irq_flags;
+
+		agg_params = nla_data(data[IFLA_RMNET_UL_AGG_PARAMS]);
+		spin_lock_irqsave(&port->agg_lock, irq_flags);
+		memcpy(&port->egress_agg_params, agg_params,
+		       sizeof(port->egress_agg_params));
+		spin_unlock_irqrestore(&port->agg_lock, irq_flags);
 	}
 
 	return 0;
@@ -364,7 +408,10 @@ static size_t rmnet_get_size(const struct net_device *dev)
 		nla_total_size(2) +
 		/* IFLA_RMNET_FLAGS */
 		nla_total_size(sizeof(struct ifla_rmnet_flags)) +
-		nla_total_size(sizeof(struct tcmsg));
+		/* IFLA_RMNET_DFC_QOS */
+		nla_total_size(sizeof(struct tcmsg)) +
+		/* IFLA_RMNET_UL_AGG_PARAMS */
+		nla_total_size(sizeof(struct rmnet_egress_agg_params));
 }
 
 static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
@@ -372,7 +419,7 @@ static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct net_device *real_dev;
 	struct ifla_rmnet_flags f;
-	struct rmnet_port *port;
+	struct rmnet_port *port = NULL;
 
 	real_dev = priv->real_dev;
 
@@ -391,6 +438,13 @@ static int rmnet_fill_info(struct sk_buff *skb, const struct net_device *dev)
 	if (nla_put(skb, IFLA_RMNET_FLAGS, sizeof(f), &f))
 		goto nla_put_failure;
 
+	if (port) {
+		if (nla_put(skb, IFLA_RMNET_UL_AGG_PARAMS,
+			    sizeof(port->egress_agg_params),
+			    &port->egress_agg_params))
+			goto nla_put_failure;
+	}
+
 	return 0;
 
 nla_put_failure:
@@ -399,7 +453,7 @@ nla_put_failure:
 
 struct rtnl_link_ops rmnet_link_ops __read_mostly = {
 	.kind		= "rmnet",
-	.maxtype	= __IFLA_RMNET_MAX,
+	.maxtype	= __IFLA_RMNET_EXT_MAX,
 	.priv_size	= sizeof(struct rmnet_priv),
 	.setup		= rmnet_vnd_setup,
 	.validate	= rmnet_rtnl_validate,

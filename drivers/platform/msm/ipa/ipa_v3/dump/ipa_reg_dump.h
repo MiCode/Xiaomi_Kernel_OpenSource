@@ -102,8 +102,6 @@
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_BIT_MASK 0x7E000
 #define IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT    13
 
-#define IPA_REG_SAVE_HWP_GSI_EE                  2
-
 /*
  * A structure used to map a source address to destination address...
  */
@@ -216,15 +214,6 @@ struct map_src_dst_addr_s {
 #define IPA_DEBUG_TESTBUS_DATA_GET_RSRC_CNT_BITS_FROM_DEBUG_DATA(x) \
 	((x & IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_BIT_MASK) >> \
 	 IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT)
-
-/*
- * Macro to get rsrc cnt of specific rsrc type and rsrc grp from test
- * bus collected data
- */
-#define IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type, rsrc_grp) \
-	IPA_DEBUG_TESTBUS_DATA_GET_RSRC_CNT_BITS_FROM_DEBUG_DATA( \
-		ipa_reg_save.ipa.testbus->ep_rsrc[rsrc_type].entry_ep \
-		[rsrc_grp].testbus_data.value)
 
 /*
  * Macro to pluck the gsi version from ram.
@@ -380,27 +369,14 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_A7_EE].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE), \
 		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_Q6_EE].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE), \
-		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_REG_SAVE_HWP_GSI_EE].\
-			var_name }
+	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE), \
+		(u32 *)&ipa_reg_save.gsi.gen_ee[IPA_HW_UC_EE].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all GSI EE
  * register
  */
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_CH_CNTXT(reg_name, var_name) \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 0), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 1), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[1].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 2), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[2].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[3].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 4), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[4].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 5), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.q6[5].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[0].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 1), \
@@ -429,20 +405,18 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[12].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 13), \
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[13].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 1), \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 14), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.a7[14].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 0),	\
 		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[1].var_name }
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 1), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[1].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 2),	\
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[2].var_name }, \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 3), \
+		(u32 *)&ipa_reg_save.gsi.ch_cntxt.uc[3].var_name }
 
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_EVT_CNTXT(reg_name, var_name) \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 0), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[0].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 1), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[1].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 2), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[2].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_Q6_EE, 3), \
-		(u32 *)&ipa_reg_save.gsi.evt_cntxt.q6[3].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[0].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 1), \
@@ -467,7 +441,7 @@ struct map_src_dst_addr_s {
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[10].var_name }, \
 	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE, 11), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.a7[11].var_name }, \
-	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_REG_SAVE_HWP_GSI_EE, 1), \
+	{ GEN_2xVECTOR_REG_OFST(reg_name, IPA_HW_UC_EE, 0), \
 		(u32 *)&ipa_reg_save.gsi.evt_cntxt.uc[0].var_name }
 
 /*
@@ -490,6 +464,7 @@ struct map_src_dst_addr_s {
 enum ipa_hw_ee_e {
 	IPA_HW_A7_EE  = 0, /* A7's execution environment */
 	IPA_HW_Q6_EE  = 1, /* Q6's execution environment */
+	IPA_HW_UC_EE  = 2, /* UC's execution environment */
 	IPA_HW_HWP_EE = 3, /* HWP's execution environment */
 	IPA_HW_EE_MAX,     /* Max EE to support */
 };
@@ -710,14 +685,6 @@ struct ipa_reg_save_ipa_testbus_entry_s {
 	union ipa_hwio_def_ipa_debug_data_sel_u testbus_sel;
 	union ipa_hwio_def_ipa_debug_data_u testbus_data;
 };
-
-/* IPA TESTBUS global struct */
-struct ipa_reg_save_ipa_testbus_global_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	global[IPA_TESTBUS_SEL_INTERNAL_MAX + 1]
-	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
-};
-
 /* IPA TESTBUS per EP struct */
 struct ipa_reg_save_ipa_testbus_ep_s {
 	struct ipa_reg_save_ipa_testbus_entry_s
@@ -725,19 +692,10 @@ struct ipa_reg_save_ipa_testbus_ep_s {
 	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
 };
 
-/* IPA TESTBUS per EP struct */
-struct ipa_reg_save_ipa_testbus_ep_rsrc_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	  entry_ep[IPA_DEBUG_TESTBUS_RSRC_NUM_GRP];
-};
-
 /* IPA TESTBUS save data struct */
 struct ipa_reg_save_ipa_testbus_s {
-	struct ipa_reg_save_ipa_testbus_global_s global;
 	struct ipa_reg_save_ipa_testbus_ep_s
 	  ep[IPA_TESTBUS_SEL_EP_MAX + 1];
-	struct ipa_reg_save_ipa_testbus_ep_rsrc_s
-	  ep_rsrc[IPA_DEBUG_TESTBUS_RSRC_NUM_EP];
 };
 
 /*
@@ -817,7 +775,11 @@ struct ipa_reg_save_dbg_s {
 	union ipa_hwio_def_ipa_hps_dps_cmdq_status_u
 		ipa_hps_dps_cmdq_status_arr[IPA_TESTBUS_SEL_EP_MAX + 1];
 	struct ipa_hwio_def_ipa_hps_dps_cmdq_status_empty_s
-	  ipa_hps_dps_cmdq_status_empty;
+		ipa_hps_dps_cmdq_status_empty;
+	union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_wr_u
+		ipa_rx_hps_cmdq_cfg_wr;
+	union ipa_hwio_def_ipa_rx_hps_cmdq_cfg_rd_u
+		ipa_rx_hps_cmdq_cfg_rd;
 
 	struct ipa_hwio_def_ipa_dps_tx_cmdq_cmd_s
 	  ipa_dps_tx_cmdq_cmd;
@@ -1187,8 +1149,6 @@ struct ipa_reg_save_gsi_ch_cntxt_s {
 	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
 		a7[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_A7];
 	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
-		q6[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_Q6];
-	struct ipa_reg_save_gsi_ch_cntxt_per_ep_s
 		uc[IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC];
 };
 
@@ -1197,15 +1157,13 @@ struct ipa_reg_save_gsi_evt_cntxt_s {
 	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
 		a7[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_A7];
 	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
-		q6[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_Q6];
-	struct ipa_reg_save_gsi_evt_cntxt_per_ep_s
 		uc[IPA_HW_REG_SAVE_GSI_NUM_EVT_CNTXT_UC];
 };
 
 /* Top level IPA register save data struct */
 struct ipa_regs_save_hierarchy_s {
 	struct ipa_gen_regs_s			gen;
-	struct ipa_reg_save_gen_ee_s		gen_ee[IPA_HW_EE_MAX];
+	struct ipa_reg_save_gen_ee_s	gen_ee[IPA_HW_EE_MAX];
 	struct ipa_reg_save_hwp_s		hwp;
 	struct ipa_reg_save_dbg_s		dbg;
 	struct ipa_reg_save_ipa_testbus_s	*testbus;

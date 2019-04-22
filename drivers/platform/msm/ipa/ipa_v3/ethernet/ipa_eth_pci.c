@@ -117,6 +117,12 @@ static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 	ipa_eth_dbg("PCI probe called for %s driver with devfn %u",
 		    pdev->driver->name, pdev->devfn);
 
+	if (!ipa_eth_pci_is_ready) {
+		ipa_eth_err("Offload sub-system PCI module is not initialized");
+		ipa_eth_err("PCI probe for device is deferred");
+		return -EPROBE_DEFER;
+	}
+
 	epci_drv = lookup_epci_driver(pdev->driver);
 
 	rc = epci_drv->probe_real(pdev, id);
@@ -148,6 +154,7 @@ static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 	return 0;
 
 err_register:
+	memset(eth_dev, 0, sizeof(*eth_dev));
 	devm_kfree(dev, eth_dev);
 err_alloc:
 	epci_drv->remove_real(pdev);
@@ -175,6 +182,7 @@ static void ipa_eth_pci_remove_handler(struct pci_dev *pdev)
 	epci_drv = eth_dev->bus_priv;
 	epci_drv->remove_real(pdev);
 
+	memset(eth_dev, 0, sizeof(*eth_dev));
 	devm_kfree(dev, eth_dev);
 }
 
@@ -183,6 +191,11 @@ static int ipa_eth_pci_register_net_driver(struct ipa_eth_net_driver *nd)
 	struct ipa_eth_pci_driver *epci_drv = NULL;
 	struct pci_driver *pci_drv = container_of(nd->driver,
 		struct pci_driver, driver);
+
+	if (!nd) {
+		ipa_eth_err("Network driver is NULL");
+		return -EINVAL;
+	}
 
 	if (WARN_ON(!pci_drv->probe || !pci_drv->remove)) {
 		ipa_eth_err("PCI driver lacking probe/remove callbacks");
@@ -222,6 +235,7 @@ static void ipa_eth_pci_unregister_net_driver(struct ipa_eth_net_driver *nd)
 	pci_drv->probe = epci_drv->probe_real;
 	pci_drv->remove = epci_drv->remove_real;
 
+	memset(epci_drv, 0, sizeof(*epci_drv));
 	kfree(epci_drv);
 }
 
@@ -243,11 +257,15 @@ int ipa_eth_pci_modinit(struct dentry *dbgfs_root)
 
 	ipa_eth_pci_is_ready = true;
 
+	ipa_eth_log("Offload sub-system pci bus module init is complete");
+
 	return 0;
 }
 
 void ipa_eth_pci_modexit(void)
 {
+	ipa_eth_log("De-initing offload sub-system pci bus module");
+
 	if (!ipa_eth_pci_is_ready)
 		return;
 

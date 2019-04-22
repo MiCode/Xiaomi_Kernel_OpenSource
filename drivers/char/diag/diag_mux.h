@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@ struct diag_mux_state_t {
 	struct diag_logger_t *logger;
 	struct diag_logger_t *usb_ptr;
 	struct diag_logger_t *md_ptr;
+	struct diag_logger_t *pcie_ptr;
 	unsigned int mux_mask;
 	unsigned int mode;
 };
@@ -33,14 +34,14 @@ struct diag_mux_ops {
 #define DIAG_MEMORY_DEVICE_MODE		1
 #define DIAG_NO_LOGGING_MODE		2
 #define DIAG_MULTI_MODE			3
+#define DIAG_PCIE_MODE		4
 
 #define DIAG_MUX_LOCAL		0
 #define DIAG_MUX_LOCAL_LAST	1
 #define DIAG_MUX_BRIDGE_BASE	DIAG_MUX_LOCAL_LAST
 #define DIAG_MUX_MDM		(DIAG_MUX_BRIDGE_BASE)
 #define DIAG_MUX_MDM2		(DIAG_MUX_BRIDGE_BASE + 1)
-#define DIAG_MUX_SMUX		(DIAG_MUX_BRIDGE_BASE + 2)
-#define DIAG_MUX_BRIDGE_LAST	(DIAG_MUX_BRIDGE_BASE + 3)
+#define DIAG_MUX_BRIDGE_LAST	(DIAG_MUX_BRIDGE_BASE + 2)
 
 #ifndef CONFIG_DIAGFWD_BRIDGE_CODE
 #define NUM_MUX_PROC		DIAG_MUX_LOCAL_LAST
@@ -73,4 +74,6 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral);
 int diag_mux_open_all(struct diag_logger_t *logger);
 int diag_mux_close_all(void);
 int diag_mux_switch_logging(int *new_mode, int *peripheral_mask);
+int diag_pcie_register_ops(int proc, int ctx, struct diag_mux_ops *ops);
+int diag_usb_register_ops(int proc, int ctx, struct diag_mux_ops *ops);
 #endif

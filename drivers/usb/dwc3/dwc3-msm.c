@@ -2490,11 +2490,11 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	atomic_set(&dwc->in_lpm, 1);
 
 	/*
-	 * with DCP or during cable disconnect, we dont require wakeup
+	 * with the core in power collapse, we dont require wakeup
 	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
 	 * case of host bus suspend and device bus suspend.
 	 */
-	if (mdwc->in_device_mode || mdwc->in_host_mode) {
+	if (!(mdwc->lpm_flags & MDWC3_POWER_COLLAPSE)) {
 		if (mdwc->use_pdc_interrupts) {
 			enable_usb_pdc_interrupt(mdwc, true);
 		} else {
@@ -3747,7 +3747,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		 * if dpdm is not present controller can be reset
 		 * as this controller may not be used for charger detection.
 		 */
-		mdwc->dpdm_reg = devm_regulator_get(&pdev->dev, "dpdm");
+		mdwc->dpdm_reg = devm_regulator_get_optional(&pdev->dev,
+				"dpdm");
 		if (IS_ERR(mdwc->dpdm_reg)) {
 			dev_dbg(mdwc->dev, "assume cable is not connected\n");
 			mdwc->dpdm_reg = NULL;

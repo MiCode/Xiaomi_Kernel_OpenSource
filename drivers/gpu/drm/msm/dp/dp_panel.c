@@ -1184,7 +1184,7 @@ static void dp_panel_dsc_prepare_pps_packet(struct dp_panel *dp_panel)
 static void _dp_panel_dsc_get_num_extra_pclk(struct msm_display_dsc_info *dsc,
 				enum msm_display_compression_ratio ratio)
 {
-	unsigned int dto_n, dto_d, remainder;
+	unsigned int dto_n = 0, dto_d = 0, remainder;
 	int ack_required, last_few_ack_required, accum_ack;
 	int last_few_pclk, last_few_pclk_required;
 	int start, temp, line_width = dsc->pic_width/2;

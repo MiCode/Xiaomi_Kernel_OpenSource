@@ -270,6 +270,9 @@ static void wil_move_all_rx_buff_to_free_list(struct wil6210_priv *wil,
 	struct list_head *active = &wil->rx_buff_mgmt.active;
 	dma_addr_t pa;
 
+	if (!wil->rx_buff_mgmt.buff_arr)
+		return;
+
 	while (!list_empty(active)) {
 		struct wil_rx_buff *rx_buff =
 			list_first_entry(active, struct wil_rx_buff, list);
@@ -433,6 +436,9 @@ static void wil_ring_free_edma(struct wil6210_priv *wil, struct wil_ring *ring)
 			     &ring->pa, ring->ctx);
 
 		wil_move_all_rx_buff_to_free_list(wil, ring);
+		dma_free_coherent(dev, sizeof(*ring->edma_rx_swtail.va),
+				  ring->edma_rx_swtail.va,
+				  ring->edma_rx_swtail.pa);
 		goto out;
 	}
 

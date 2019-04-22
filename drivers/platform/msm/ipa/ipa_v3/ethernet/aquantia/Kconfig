@@ -31,3 +31,13 @@ config AQC_IPA_PROXY_HOST
 	  need to be available and configured to receive the MSI.
 
 endchoice
+
+config AQC_IPA_DEBUG
+	bool "Aquantia IPA Ethernet Offload Driver Debugging Support"
+	depends on AQC_IPA
+	help
+	  Enable various debug features provided by Aquantia IPA
+	  offload driver. Using this feature may add a lot of
+	  additional log messages and panic on bugs. Enable this
+	  option with caution.
+	  If unsure, say N.

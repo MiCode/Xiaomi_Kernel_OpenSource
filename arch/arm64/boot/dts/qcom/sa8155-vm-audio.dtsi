@@ -271,6 +271,7 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <3>;
 		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36912>;
@@ -308,6 +309,7 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <12>;
 		dai_quat_tdm_tx_0: qcom,msm-dai-q6-tdm-quat-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36913>;
@@ -418,6 +420,12 @@
 };
 
 &audio_apr {
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+	};
+};
+
+&q6core {
 	sound-adp-star {
 		compatible = "qcom,sa8155-asoc-snd-adp-star";
 		qcom,model = "sa8155-adp-star-snd-card";
@@ -505,6 +513,7 @@
 				"msm-dai-q6-tdm.36935";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 };
 

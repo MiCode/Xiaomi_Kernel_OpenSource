@@ -1210,14 +1210,15 @@ int dsi_phy_dyn_refresh_cache_phy_timings(struct msm_dsi_phy *phy, u32 *dst,
 	if (!phy || !dst || !size)
 		return -EINVAL;
 
-	if (phy->hw.ops.dyn_refresh_ops.cache_phy_timings)
+	if (phy->hw.ops.dyn_refresh_ops.cache_phy_timings) {
 		rc = phy->hw.ops.dyn_refresh_ops.cache_phy_timings(
 				&phy->cfg.timing, dst, size);
 
 		if (rc)
 			pr_err("failed to cache phy timings %d\n", rc);
+	}
 
-		return rc;
+	return rc;
 }
 
 /**

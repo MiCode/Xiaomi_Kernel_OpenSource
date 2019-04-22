@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.16"
+#define ATL_VERSION "1.0.18"
 
 struct atl_nic;
 
@@ -210,6 +210,7 @@ struct atl_fwd {
 	unsigned long ring_map[ATL_FWDIR_NUM];
 	struct atl_fwd_ring *rings[ATL_FWDIR_NUM][ATL_NUM_FWD_RINGS];
 	unsigned long msi_map;
+	void *private;
 };
 
 struct atl_nic {
@@ -307,6 +308,7 @@ extern const struct ethtool_ops atl_ethtool_ops;
 extern int atl_max_queues;
 extern unsigned atl_rx_linear;
 extern unsigned atl_min_intr_delay;
+extern int atl_enable_msi;
 
 /* Logging conviniency macros.
  *

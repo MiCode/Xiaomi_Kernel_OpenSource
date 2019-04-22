@@ -95,6 +95,14 @@ struct cam_isp_start_args {
 	bool                          start_only;
 };
 
+struct cam_isp_bw_config_internal_ab {
+	uint32_t    usage_type;
+	uint32_t    num_rdi;
+	uint64_t    left_pix_vote_ab;
+	uint64_t    right_pix_vote_ab;
+	uint64_t    rdi_vote_ab[CAM_IFE_RDI_NUM_MAX];
+};
+
 /**
  * struct cam_isp_bw_config_internal - Internal Bandwidth configuration
  *
@@ -106,11 +114,11 @@ struct cam_isp_start_args {
  */
 
 struct cam_isp_bw_config_internal {
-	uint32_t                       usage_type;
-	uint32_t                       num_rdi;
-	struct cam_isp_bw_vote         left_pix_vote;
-	struct cam_isp_bw_vote         right_pix_vote;
-	struct cam_isp_bw_vote         rdi_vote[CAM_IFE_RDI_NUM_MAX];
+	uint32_t                  usage_type;
+	uint32_t                  num_rdi;
+	struct cam_isp_bw_vote    left_pix_vote;
+	struct cam_isp_bw_vote    right_pix_vote;
+	struct cam_isp_bw_vote    rdi_vote[CAM_IFE_RDI_NUM_MAX];
 };
 
 /**
@@ -125,9 +133,10 @@ struct cam_isp_bw_config_internal {
  *
  */
 struct cam_isp_prepare_hw_update_data {
-	uint32_t                          packet_opcode_type;
-	struct cam_isp_bw_config_internal bw_config[CAM_IFE_HW_NUM_MAX];
-	bool                              bw_config_valid[CAM_IFE_HW_NUM_MAX];
+	uint32_t                              packet_opcode_type;
+	struct cam_isp_bw_config_internal     bw_config[CAM_IFE_HW_NUM_MAX];
+	struct cam_isp_bw_config_internal_ab  bw_config_ab[CAM_IFE_HW_NUM_MAX];
+	bool                                bw_config_valid[CAM_IFE_HW_NUM_MAX];
 };
 
 

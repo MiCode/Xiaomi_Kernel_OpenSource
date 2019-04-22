@@ -1632,7 +1632,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	sys = ipa3_ctx->ep[src_ep_idx].sys;
 
 	if (!sys || !sys->ep->valid) {
-		IPAERR("pipe not valid\n");
+		IPAERR_RL("pipe not valid\n");
 		goto fail_gen;
 	}
 

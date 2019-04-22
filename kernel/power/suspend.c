@@ -33,8 +33,8 @@
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
-
 #include "power.h"
+#include <soc/qcom/boot_stats.h>
 
 const char * const pm_labels[] = {
 	[PM_SUSPEND_TO_IDLE] = "freeze",
@@ -643,6 +643,7 @@ int pm_suspend(suspend_state_t state)
 	}
 	pm_suspend_marker("exit");
 	pr_info("suspend exit\n");
+	measure_wake_up_time();
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

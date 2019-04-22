@@ -21,12 +21,14 @@
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
+#define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
+#define CE_MSI_NAME			"CE"
 
 #define QMI_WLFW_TIMEOUT_MS		(plat_priv->ctrl_params.qmi_timeout)
 #define QMI_WLFW_TIMEOUT_JF		msecs_to_jiffies(QMI_WLFW_TIMEOUT_MS)
@@ -456,8 +458,10 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				 fw_path, plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 "%s" ELF_BDF_FILE_NAME_PREFIX "%04x",
-				 fw_path, plat_priv->board_info.board_id);
+				 "%s" BDF_FILE_NAME_PREFIX "%02x.e%02x",
+				 fw_path,
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_BIN:
 		if (plat_priv->board_info.board_id == 0xFF)
@@ -469,8 +473,10 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 				 fw_path, plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 "%s" BIN_BDF_FILE_NAME_PREFIX "%04x",
-				 fw_path, plat_priv->board_info.board_id);
+				 "%s" BDF_FILE_NAME_PREFIX "%02x.b%02x",
+				 fw_path,
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
 		break;
 	case CNSS_BDF_REGDB:
 		snprintf(filename, sizeof(filename), REGDB_FILE_NAME);
@@ -744,7 +750,7 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	struct wlfw_wlan_cfg_req_msg_v01 *req;
 	struct wlfw_wlan_cfg_resp_msg_v01 *resp;
 	struct qmi_txn txn;
-	u32 i;
+	u32 i, ce_id, num_vectors, user_base_data, base_vector;
 	int ret = 0;
 
 	cnss_pr_dbg("Sending WLAN config message, state: 0x%lx\n",
@@ -791,6 +797,17 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 		req->svc_cfg[i].pipe_num = config->ce_svc_cfg[i].pipe_num;
 	}
 
+	if (config->num_shadow_reg_cfg) {
+		req->shadow_reg_valid = 1;
+		if (config->num_shadow_reg_cfg >
+		    QMI_WLFW_MAX_NUM_SHADOW_REG_V01)
+			req->shadow_reg_len = QMI_WLFW_MAX_NUM_SHADOW_REG_V01;
+		else
+			req->shadow_reg_len = config->num_shadow_reg_cfg;
+		memcpy(req->shadow_reg, config->shadow_reg_cfg,
+		       sizeof(struct wlfw_shadow_reg_cfg_s_v01)
+		       * req->shadow_reg_len);
+	}
 	req->shadow_reg_v2_valid = 1;
 	if (config->num_shadow_reg_v2_cfg >
 	    QMI_WLFW_MAX_NUM_SHADOW_REG_V2_V01)
@@ -801,6 +818,30 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	memcpy(req->shadow_reg_v2, config->shadow_reg_v2_cfg,
 	       sizeof(struct wlfw_shadow_reg_v2_cfg_s_v01)
 	       * req->shadow_reg_v2_len);
+	if (config->rri_over_ddr_cfg_valid) {
+		req->rri_over_ddr_cfg_valid = 1;
+		req->rri_over_ddr_cfg.base_addr_low =
+			config->rri_over_ddr_cfg.base_addr_low;
+		req->rri_over_ddr_cfg.base_addr_high =
+			config->rri_over_ddr_cfg.base_addr_high;
+	}
+	if (config->send_msi_ce) {
+		ret = cnss_get_msi_assignment(plat_priv,
+					      CE_MSI_NAME,
+					      &num_vectors,
+					      &user_base_data,
+					      &base_vector);
+		if (!ret) {
+			req->msi_cfg_valid = 1;
+			req->msi_cfg_len = QMI_WLFW_MAX_NUM_CE_V01;
+			for (ce_id = 0; ce_id < QMI_WLFW_MAX_NUM_CE_V01;
+				ce_id++) {
+				req->msi_cfg[ce_id].ce_id = ce_id;
+				req->msi_cfg[ce_id].msi_vector =
+					(ce_id % num_vectors) + base_vector;
+			}
+		}
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_wlan_cfg_resp_msg_v01_ei, resp);
@@ -1183,7 +1224,7 @@ static void cnss_wlfw_request_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 
 	plat_priv->fw_mem_seg_len = ind_msg->mem_seg_len;
 	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
-		cnss_pr_dbg("FW requests for memory, size: 0x%zx, type: %u\n",
+		cnss_pr_dbg("FW requests for memory, size: 0x%x, type: %u\n",
 			    ind_msg->mem_seg[i].size, ind_msg->mem_seg[i].type);
 		plat_priv->fw_mem[i].type = ind_msg->mem_seg[i].type;
 		plat_priv->fw_mem[i].size = ind_msg->mem_seg[i].size;
@@ -1345,7 +1386,6 @@ static void cnss_wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi_wlfw,
 	const struct wlfw_qdss_trace_save_ind_msg_v01 *ind_msg = data;
 	struct cnss_qmi_event_qdss_trace_save_data *event_data;
 	int i = 0;
-	u32 total_size = 0;
 
 	cnss_pr_dbg("Received QMI WLFW QDSS trace save indication\n");
 
@@ -1380,11 +1420,6 @@ static void cnss_wlfw_qdss_trace_save_ind_cb(struct qmi_handle *qmi_wlfw,
 			cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
 				    i, ind_msg->mem_seg[i].addr,
 				    ind_msg->mem_seg[i].size);
-			total_size += ind_msg->mem_seg[i].size;
-		}
-		if (total_size != ind_msg->total_size) {
-			cnss_pr_err("total size mismatch: %u\n", total_size);
-			goto free_event_data;
 		}
 	}
 

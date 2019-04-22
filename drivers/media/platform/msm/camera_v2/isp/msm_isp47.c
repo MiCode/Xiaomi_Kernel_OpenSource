@@ -443,10 +443,10 @@ void msm_vfe47_process_reset_irq(struct vfe_device *vfe_dev,
 	unsigned long flags;
 
 	if (irq_status0 & (1 << 31)) {
-		spin_lock_irqsave(&vfe_dev->completion_lock, flags);
+		spin_lock_irqsave(&vfe_dev->reset_completion_lock, flags);
 		complete(&vfe_dev->reset_complete);
 		vfe_dev->reset_pending = 0;
-		spin_unlock_irqrestore(&vfe_dev->completion_lock, flags);
+		spin_unlock_irqrestore(&vfe_dev->reset_completion_lock, flags);
 	}
 }
 
@@ -454,9 +454,12 @@ void msm_vfe47_process_halt_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
 	uint32_t val = 0;
+	unsigned long flags;
 
 	if (irq_status1 & (1 << 8)) {
+		spin_lock_irqsave(&vfe_dev->halt_completion_lock, flags);
 		complete(&vfe_dev->halt_complete);
+		spin_unlock_irqrestore(&vfe_dev->halt_completion_lock, flags);
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x400);
 	}
 
@@ -572,12 +575,14 @@ void msm_vfe47_read_and_clear_irq_status(struct vfe_device *vfe_dev,
 	uint32_t count = 0;
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x6C);
 	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x70);
+
 	/* Mask off bits that are not enabled */
+	*irq_status0 &= vfe_dev->irq0_mask;
+	*irq_status1 &= vfe_dev->irq1_mask;
+
 	msm_camera_io_w(*irq_status0, vfe_dev->vfe_base + 0x64);
 	msm_camera_io_w(*irq_status1, vfe_dev->vfe_base + 0x68);
 	msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x58);
-	*irq_status0 &= vfe_dev->irq0_mask;
-	*irq_status1 &= vfe_dev->irq1_mask;
 	/* check if status register is cleared if not clear again*/
 	while (*irq_status0 &&
 		(*irq_status0 & msm_camera_io_r(vfe_dev->vfe_base + 0x6C)) &&
@@ -625,8 +630,8 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 	for (i = VFE_PIX_0; i <= VFE_RAW_2; i++) {
 		if (shift_irq & BIT(i)) {
 			reg_updated |= BIT(i);
-			ISP_DBG("%s REG_UPDATE IRQ %x vfe %d\n", __func__,
-				(uint32_t)BIT(i), vfe_dev->pdev->id);
+			ISP_DBG("%s REG_UPDATE IRQ %x i %d vfe %d\n", __func__,
+				(uint32_t)BIT(i), i, vfe_dev->pdev->id);
 			switch (i) {
 			case VFE_PIX_0:
 				msm_isp_notify(vfe_dev, ISP_EVENT_REG_UPDATE,
@@ -669,11 +674,9 @@ void msm_vfe47_process_reg_update(struct vfe_device *vfe_dev,
 			}
 		}
 	}
-
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
 	if (reg_updated & BIT(VFE_PIX_0))
 		vfe_dev->reg_updated = 1;
-
 	vfe_dev->reg_update_requested &= ~reg_updated;
 	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
 }
@@ -707,10 +710,26 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 void msm_isp47_preprocess_camif_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0)
 {
-	if (irq_status0 & BIT(3))
+	struct vfe_device *temp = NULL;
+	struct msm_vfe_common_dev_data *c_data;
+
+	if (vfe_dev->dual_vfe_sync_mode) {
+		c_data = vfe_dev->common_data;
+		temp = c_data->dual_vfe_res->vfe_dev[ISP_VFE1];
+	}
+	if (irq_status0 & BIT(3)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = false;
-	if (irq_status0 & BIT(0))
+		if (vfe_dev->dual_vfe_sync_mode)
+			temp->axi_data.src_info[VFE_PIX_0].accept_frame = false;
+	}
+	if (irq_status0 & BIT(0)) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame = true;
+		vfe_dev->irq_sof_id++;
+		if (vfe_dev->dual_vfe_sync_mode) {
+			temp->axi_data.src_info[VFE_PIX_0].accept_frame = true;
+			temp->irq_sof_id++;
+		}
+	}
 }
 
 void msm_vfe47_reg_update(struct vfe_device *vfe_dev,
@@ -773,9 +792,9 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t reset;
 	unsigned long flags;
 
-	spin_lock_irqsave(&vfe_dev->completion_lock, flags);
+	spin_lock_irqsave(&vfe_dev->reset_completion_lock, flags);
 	init_completion(&vfe_dev->reset_complete);
-	spin_unlock_irqrestore(&vfe_dev->completion_lock, flags);
+	spin_unlock_irqrestore(&vfe_dev->reset_completion_lock, flags);
 
 	if (blocking_call)
 		vfe_dev->reset_pending = 1;
@@ -2030,6 +2049,7 @@ int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src i;
 	uint32_t val = 0;
 	struct msm_isp_timestamp ts;
+	unsigned long flags;
 
 	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 	val |= 0x1;
@@ -2046,7 +2066,9 @@ int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 			__func__, vfe_dev->pdev->id, blocking);
 
 	if (blocking) {
+		spin_lock_irqsave(&vfe_dev->halt_completion_lock, flags);
 		init_completion(&vfe_dev->halt_complete);
+		spin_unlock_irqrestore(&vfe_dev->halt_completion_lock, flags);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x400);
 		rc = wait_for_completion_interruptible_timeout(
@@ -3060,7 +3082,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.read_irq_status = msm_vfe47_read_irq_status,
 			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 			.dual_config_irq = NULL,
-			.read_and_clear_dual_irq_status =
+			.clear_dual_irq_status =
 				NULL,
 		},
 		.axi_ops = {

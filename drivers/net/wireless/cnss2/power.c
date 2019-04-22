@@ -389,7 +389,7 @@ static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 
 	if (state) {
 		if (pinctrl_info->activated) {
-			cnss_pr_dbg("Pinctrl is already activated\n", ret);
+			cnss_pr_dbg("Pinctrl is already activated\n");
 			goto out;
 		}
 
@@ -419,7 +419,7 @@ static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 		pinctrl_info->activated = true;
 	} else {
 		if (!pinctrl_info->activated) {
-			cnss_pr_dbg("Pinctrl is already de-activated\n", ret);
+			cnss_pr_dbg("Pinctrl is already de-activated\n");
 			goto out;
 		}
 

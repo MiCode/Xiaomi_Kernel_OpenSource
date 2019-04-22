@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2074,9 +2074,9 @@ static int ngd_slim_runtime_resume(struct device *device)
 	int ret = 0;
 
 	mutex_lock(&dev->tx_lock);
-	if (dev->state >= MSM_CTRL_ASLEEP)
+	if ((dev->state >= MSM_CTRL_ASLEEP) && (dev->qmi.handle != NULL))
 		ret = ngd_slim_power_up(dev, false);
-	if (ret) {
+	if (ret || dev->qmi.handle == NULL) {
 		/* Did SSR cause this power up failure */
 		if (dev->state != MSM_CTRL_DOWN)
 			dev->state = MSM_CTRL_ASLEEP;
@@ -2098,7 +2098,18 @@ static int ngd_slim_runtime_suspend(struct device *device)
 	int ret = 0;
 
 	mutex_lock(&dev->tx_lock);
-	ret = ngd_slim_power_down(dev);
+	if (dev->qmi.handle != NULL) {
+		ret = ngd_slim_power_down(dev);
+	} else {
+		if (dev->state == MSM_CTRL_DOWN)
+			SLIM_INFO(dev, "SB rt suspend in SSR: %d\n",
+								dev->state);
+		else
+			SLIM_INFO(dev, "SB rt suspend bad state: %d\n",
+								dev->state);
+		mutex_unlock(&dev->tx_lock);
+		return ret;
+	}
 	if (ret && ret != -EBUSY)
 		SLIM_INFO(dev, "slim resource not idle:%d\n", ret);
 	if (!ret || ret == -ETIMEDOUT)
@@ -2145,7 +2156,7 @@ static int ngd_slim_suspend(struct device *dev)
 			cdev->qmi.deferred_resp = false;
 		}
 	}
-	SLIM_INFO(cdev, "system suspend\n");
+	SLIM_INFO(cdev, "system suspend state: %d\n", cdev->state);
 	return ret;
 }
 
@@ -2179,7 +2190,7 @@ static int ngd_slim_resume(struct device *dev)
 	 * Even if it's not enabled, rely on 1st client transaction to do
 	 * clock/power on
 	 */
-	SLIM_INFO(cdev, "system resume\n");
+	SLIM_INFO(cdev, "system resume state: %d\n", cdev->state);
 	return ret;
 }
 #endif /* CONFIG_PM_SLEEP */

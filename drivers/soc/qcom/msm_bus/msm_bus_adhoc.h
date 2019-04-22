@@ -50,9 +50,12 @@ struct nodebw {
 	uint64_t sum_ab;
 	uint64_t last_sum_ab;
 	uint64_t max_ib;
+	uint64_t max_ab;
 	uint64_t cur_clk_hz;
 	uint32_t util_used;
 	uint32_t vrail_used;
+	const char *max_ab_cl_name;
+	const char *max_ib_cl_name;
 };
 
 struct msm_bus_fab_device_type {

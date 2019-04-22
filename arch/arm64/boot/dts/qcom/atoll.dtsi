@@ -504,6 +504,30 @@
 				       0x10100 0x10100 0x25900 0x25900>;
 	};
 
+	qcom,chd_sliver {
+		compatible = "qcom,core-hang-detect";
+		label = "silver";
+		qcom,threshold-arr = <0x18000058 0x18010058
+				      0x18020058 0x18030058
+				      0x18040058 0x18050058>;
+		qcom,config-arr = <0x18000060 0x18010060
+				   0x18020060 0x18030060
+				   0x18040060 0x18050060>;
+	};
+
+	qcom,chd_gold {
+		compatible = "qcom,core-hang-detect";
+		label = "gold";
+		qcom,threshold-arr = <0x18060058 0x18070058>;
+		qcom,config-arr = <0x18060060 0x18070060>;
+	};
+
+	qcom,ghd {
+		compatible = "qcom,gladiator-hang-detect-v3";
+		qcom,threshold-arr = <0x17e0041C>;
+		qcom,config-reg = <0x17e00434>;
+	};
+
 	kryo-erp {
 		compatible = "arm,arm64-kryo-cpu-erp";
 		interrupts = <GIC_PPI 6 IRQ_TYPE_LEVEL_HIGH>,
@@ -511,6 +535,33 @@
 
 		interrupt-names = "l1-l2-faultirq",
 				  "l3-scu-faultirq";
+	};
+
+	qcom,llcc@9200000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x9200000 0x450000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0>;
+		qcom,llcc-broadcast-off = <0x400000>;
+
+		llcc: qcom,atoll-llcc {
+			compatible = "qcom,atoll-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+			cap-based-alloc-and-pwr-collapse;
+		};
+
+		qcom,llcc-erp {
+			compatible = "qcom,llcc-erp";
+		};
+
+		qcom,llcc-amon {
+			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0x6c000>;
+		};
 	};
 
 	cpuss_dump {

@@ -74,7 +74,7 @@ static struct ipa_eth_channel *atl_ipa_request_channel(
 
 	ring = atl_fwd_request_ring(eth_dev->net_dev, ring_flags,
 				    ATL_IPA_DEFAULT_RING_SZ,
-				    ATL_IPA_DEFAULT_BUFF_SZ, 1);
+				    ATL_IPA_DEFAULT_BUFF_SZ, 1, NULL);
 	if (IS_ERR_OR_NULL(ring)) {
 		dev_err(eth_dev->dev, "Request ring failed");
 		goto err_exit;
@@ -89,14 +89,19 @@ static struct ipa_eth_channel *atl_ipa_request_channel(
 	channel->direction = dir;
 	channel->queue = ring->idx;
 
-	channel->desc_mem.size = ring->hw.size * 16;
+	channel->desc_size = 16;
+	channel->desc_count = ring->hw.size;
+	channel->desc_mem.size = channel->desc_size * channel->desc_count;
+
 	channel->desc_mem.vaddr = ring->hw.descs;
 	channel->desc_mem.daddr = ring->hw.daddr;
 	channel->desc_mem.paddr =
 		page_to_phys(vmalloc_to_page(channel->desc_mem.vaddr));
 
-	channel->buff_mem.size =
-		ATL_IPA_DEFAULT_RING_SZ * ATL_IPA_DEFAULT_BUFF_SZ;
+	channel->buff_size = ATL_IPA_DEFAULT_BUFF_SZ;
+	channel->buff_count = channel->desc_count;
+	channel->buff_mem.size = channel->buff_size * channel->buff_count;
+
 	channel->buff_mem.vaddr = (void *)ring->bufs->vaddr_vec;
 	channel->buff_mem.daddr = ring->bufs->daddr_vec_base;
 	channel->buff_mem.paddr = virt_to_phys((void *)ring->bufs->vaddr_vec);

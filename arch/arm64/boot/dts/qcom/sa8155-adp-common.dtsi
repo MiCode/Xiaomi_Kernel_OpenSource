@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,10 @@
 
 &qupv3_se0_spi {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	can-controller@0 {
 		compatible = "qcom,nxp,mpc5746c";
 		reg = <0>;
@@ -76,10 +80,10 @@
 	status = "disabled";
 };
 
-
 &soc {
 	qcom,lpass@17300000 {
 		status = "ok";
+		qcom,pil-force-shutdown;
 	};
 
 	qcom,ssc@5c00000 {

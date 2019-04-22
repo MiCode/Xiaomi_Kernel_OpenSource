@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,8 +68,9 @@
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
 		reg = <0x2c00000 0x40000>, <0x2c61000 0x800>,
-				<0x6900000 0x44000>;
-		reg-names = "kgsl_3d0_reg_memory", "cx_dbgc", "qdss_gfx";
+				<0x6900000 0x44000>, <0x780000 0x6fff>;
+		reg-names = "kgsl_3d0_reg_memory", "cx_dbgc",
+					"qdss_gfx", "qfprom_memory";
 		interrupts = <0 300 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
@@ -96,6 +97,8 @@
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 		#cooling-cells = <2>;
+
+		tzone-names = "gpuss-0-usr", "gpuss-1-usr";
 
 		qcom,pm-qos-active-latency = <44>;
 

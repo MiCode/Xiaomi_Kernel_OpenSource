@@ -1493,28 +1493,24 @@ static ssize_t kgsl_pwrctrl_temp_show(struct device *dev,
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
 	struct thermal_zone_device *thermal_dev;
-	int ret, temperature = 0;
+	int i, max_temp = 0;
 
 	if (device == NULL)
-		goto done;
+		return 0;
 
 	pwr = &device->pwrctrl;
 
-	if (!pwr->tzone_name)
-		goto done;
+	for (i = 0; i < KGSL_MAX_TZONE_NAMES; i++) {
+		int temp = 0;
 
-	thermal_dev = thermal_zone_get_zone_by_name((char *)pwr->tzone_name);
-	if (thermal_dev == NULL)
-		goto done;
+		thermal_dev = thermal_zone_get_zone_by_name(
+				pwr->tzone_names[i]);
+		if (!(thermal_zone_get_temp(thermal_dev, &temp)))
+			max_temp = max_t(int, temp, max_temp);
 
-	ret = thermal_zone_get_temp(thermal_dev, &temperature);
-	if (ret)
-		goto done;
+	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			temperature);
-done:
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", max_temp);
 }
 
 static ssize_t kgsl_pwrctrl_pwrscale_store(struct device *dev,
@@ -2453,9 +2449,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	kgsl_pwrctrl_vbif_init();
 
 	/* temperature sensor name */
-	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
-		&pwr->tzone_name);
 
+	of_property_read_string_array(pdev->dev.of_node, "tzone-names",
+		pwr->tzone_names, KGSL_MAX_TZONE_NAMES);
 	/*
 	 * Cx ipeak client support, default value of Cx Ipeak GPU freq
 	 * is used if defined in GPU list and it is overridden by
@@ -2553,8 +2549,9 @@ void kgsl_idle_check(struct work_struct *work)
 
 	requested_state = device->requested_state;
 
-	if (device->state == KGSL_STATE_ACTIVE
-		   || device->state ==  KGSL_STATE_NAP) {
+	if ((requested_state != KGSL_STATE_NONE) &&
+		(device->state == KGSL_STATE_ACTIVE
+			|| device->state ==  KGSL_STATE_NAP)) {
 
 		if (!atomic_read(&device->active_cnt)) {
 			spin_lock(&device->submit_lock);
@@ -2841,7 +2838,7 @@ _aware(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_INIT:
 		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
+		if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			status = -EINVAL;
 			break;
@@ -2858,7 +2855,7 @@ _aware(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_SLUMBER:
 		/* if GMU already in FAULT */
-		if (gmu_core_isenabled(device) &&
+		if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
 			status = -EINVAL;
 			break;
@@ -2871,7 +2868,7 @@ _aware(struct kgsl_device *device)
 	}
 
 	if (status) {
-		if (gmu_core_isenabled(device)) {
+		if (gmu_core_gpmu_isenabled(device)) {
 			/* GMU hang recovery */
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
 			set_bit(GMU_FAULT, &device->gmu_core.flags);

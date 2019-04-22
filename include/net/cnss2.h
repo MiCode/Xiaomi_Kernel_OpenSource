@@ -51,6 +51,13 @@ struct cnss_fw_files {
 	char evicted_data[CNSS_MAX_FILE_NAME];
 };
 
+struct cnss_device_version {
+	u32 family_number;
+	u32 device_number;
+	u32 major_version;
+	u32 minor_version;
+};
+
 struct cnss_soc_info {
 	void __iomem *va;
 	phys_addr_t pa;
@@ -60,6 +67,7 @@ struct cnss_soc_info {
 	uint32_t soc_id;
 	uint32_t fw_version;
 	char fw_build_timestamp[CNSS_MAX_TIMESTAMP_LEN + 1];
+	struct cnss_device_version device_version;
 };
 
 struct cnss_wlan_runtime_ops {
@@ -147,6 +155,7 @@ struct cnss_wlan_enable_cfg {
 	struct cnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
 	bool rri_over_ddr_cfg_valid;
 	struct cnss_rri_over_ddr_cfg rri_over_ddr_cfg;
+	bool send_msi_ce;
 };
 
 enum cnss_driver_mode {

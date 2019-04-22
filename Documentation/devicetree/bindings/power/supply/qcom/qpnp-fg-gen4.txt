@@ -381,6 +381,12 @@ First Level Node - FG Gen4 device
 		    charging. Value has no unit. Allowed range is 62 to 15564
 		    in micro units.
 
+- qcom,ki-coeff-cutoff
+	Usage:      optional
+	Value type: <u32>
+	Definition: ki coefficient value for cutoff integration gain. Value has
+		    no unit. Allowed range is 62 to 15564 in micro units.
+
 - qcom,ki-coeff-full-dischg
 	Usage:      optional
 	Value type: <prop-encoded-array>

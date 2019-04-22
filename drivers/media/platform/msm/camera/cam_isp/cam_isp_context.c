@@ -27,7 +27,7 @@
 #include "cam_isp_context.h"
 #include "cam_common_util.h"
 
-static const char isp_dev_name[] = "isp";
+static const char isp_dev_name[] = "cam-isp";
 
 #define INC_STATE_MONITOR_HEAD(head) \
 	(atomic64_add_return(1, head) % \
@@ -3170,7 +3170,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
 		CAM_ISP_CTX_ACTIVATED_APPLIED :
-		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_EPOCH :
+		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_APPLIED :
 		CAM_ISP_CTX_ACTIVATED_SOF;
 
 	/*
@@ -3192,13 +3192,8 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
 	list_del_init(&req->list);
+	list_add_tail(&req->list, &ctx->wait_req_list);
 
-	if (req_isp->num_fence_map_out) {
-		list_add_tail(&req->list, &ctx->active_req_list);
-		ctx_isp->active_req_cnt++;
-	} else {
-		list_add_tail(&req->list, &ctx->wait_req_list);
-	}
 end:
 	return rc;
 }

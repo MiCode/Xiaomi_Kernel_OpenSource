@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,6 +220,8 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_VENC_OX_START + 0x008)
 #define HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA	\
 	(HFI_PROPERTY_PARAM_VENC_OX_START + 0x00A)
+#define HFI_PROPERTY_PARAM_VENC_DTS_INFO \
+	(HFI_PROPERTY_PARAM_VENC_OX_START + 0x00C)
 
 #define HFI_PROPERTY_CONFIG_VENC_OX_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_OX_OFFSET + 0x6000)

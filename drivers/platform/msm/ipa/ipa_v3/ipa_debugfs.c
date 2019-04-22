@@ -154,7 +154,7 @@ static ssize_t ipa3_write_ep_holb(struct file *file,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, buf, count);
+	missing = copy_from_user(dbg_buff, buf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 
@@ -197,7 +197,7 @@ static ssize_t ipa3_write_ep_reg(struct file *file, const char __user *buf,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, buf, count);
+	missing = copy_from_user(dbg_buff, buf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 
@@ -335,7 +335,7 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, buf, count);
+	missing = copy_from_user(dbg_buff, buf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 
@@ -728,6 +728,9 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("rule_id:%u max_prio:%u prio:%u ",
 					entry->rule_id, entry->rule.max_prio,
 					entry->prio);
+				pr_err("enable_stats:%u counter_id:%u ",
+					entry->rule.enable_stats,
+					entry->rule.cnt_idx);
 				pr_err("hashable:%u retain_hdr:%u ",
 					entry->rule.hashable,
 					entry->rule.retain_hdr);
@@ -750,6 +753,9 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("rule_id:%u max_prio:%u prio:%u ",
 					entry->rule_id, entry->rule.max_prio,
 					entry->prio);
+				pr_err("enable_stats:%u counter_id:%u ",
+					entry->rule.enable_stats,
+					entry->rule.cnt_idx);
 				pr_err("hashable:%u retain_hdr:%u ",
 					entry->rule.hashable,
 					entry->rule.retain_hdr);
@@ -824,9 +830,9 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 					rules[rl].hdr_ofst,
 					rules[rl].eq_attrib.rule_eq_bitmap);
 
-			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
-				rules[rl].id, rules[rl].priority,
-				rules[rl].retain_hdr);
+			pr_err("rule_id:%u cnt_id:%hhu prio:%u retain_hdr:%u ",
+				rules[rl].id, rules[rl].cnt_idx,
+				rules[rl].priority, rules[rl].retain_hdr);
 			res = ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
 			if (res) {
 				IPAERR_RL("failed read attrib eq\n");
@@ -859,9 +865,9 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 					rules[rl].hdr_ofst,
 					rules[rl].eq_attrib.rule_eq_bitmap);
 
-			pr_err("rule_id:%u prio:%u retain_hdr:%u\n",
-				rules[rl].id, rules[rl].priority,
-				rules[rl].retain_hdr);
+			pr_err("rule_id:%u cnt_id:%hhu prio:%u retain_hdr:%u ",
+				rules[rl].id, rules[rl].cnt_idx,
+				rules[rl].priority, rules[rl].retain_hdr);
 			res = ipa3_attrib_dump_eq(&rules[rl].eq_attrib);
 			if (res) {
 				IPAERR_RL("failed read attrib eq\n");
@@ -973,6 +979,9 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 			pr_err("hashable:%u rule_id:%u max_prio:%u prio:%u ",
 				entry->rule.hashable, entry->rule_id,
 				entry->rule.max_prio, entry->prio);
+			pr_err("enable_stats:%u counter_id:%u ",
+					entry->rule.enable_stats,
+					entry->rule.cnt_idx);
 			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 				pr_err("pdn index %d, set metadata %d ",
 					entry->rule.pdn_idx,
@@ -1040,8 +1049,9 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				pipe, rl, rules[rl].rule.action, rt_tbl_idx);
 			pr_err("attrib_mask:%08x retain_hdr:%d ",
 				bitmap, rules[rl].rule.retain_hdr);
-			pr_err("rule_id:%u prio:%u ",
-				rules[rl].id, rules[rl].priority);
+			pr_err("rule_id:%u cnt_id:%hhu prio:%u ",
+				rules[rl].id, rules[rl].cnt_idx,
+				rules[rl].priority);
 			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 				pr_err("pdn: %u, set_metadata: %u ",
 					rules[rl].rule.pdn_idx,
@@ -1071,8 +1081,9 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				pipe, rl, rules[rl].rule.action, rt_tbl_idx);
 			pr_err("attrib_mask:%08x retain_hdr:%d ",
 				bitmap, rules[rl].rule.retain_hdr);
-			pr_err("rule_id:%u  prio:%u ",
-				rules[rl].id, rules[rl].priority);
+			pr_err("rule_id:%u cnt_id:%hhu prio:%u ",
+				rules[rl].id, rules[rl].cnt_idx,
+				rules[rl].priority);
 			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 				pr_err("pdn: %u, set_metadata: %u ",
 					rules[rl].rule.pdn_idx,
@@ -1530,7 +1541,7 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, buf, count);
+	missing = copy_from_user(dbg_buff, buf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 
@@ -2088,7 +2099,7 @@ static ssize_t ipa3_clear_active_clients_log(struct file *file,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, ubuf, count);
+	missing = copy_from_user(dbg_buff, ubuf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 
@@ -2110,7 +2121,7 @@ static ssize_t ipa3_enable_ipc_low(struct file *file,
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
-	missing = copy_from_user(dbg_buff, ubuf, count);
+	missing = copy_from_user(dbg_buff, ubuf, min(sizeof(dbg_buff), count));
 	if (missing)
 		return -EFAULT;
 

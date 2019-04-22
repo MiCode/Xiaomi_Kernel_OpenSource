@@ -41,7 +41,7 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
 	"Extradata Interlace Video",
-	"Reserved",
+	"Extradata enc DTS",
 	"Reserved",
 	"Extradata timestamp",
 	"Extradata S3D Frame Packing",
@@ -2685,6 +2685,10 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		msm_comm_store_mark_data(&inst->fbd_data, vb->index,
 			fill_buf_done->mark_data, fill_buf_done->mark_target);
 	}
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		msm_comm_store_filled_length(&inst->fbd_data, vb->index,
+			fill_buf_done->filled_len1);
+	}
 
 	tag_data.index = vb->index;
 	tag_data.input_tag = fill_buf_done->input_tag;
@@ -2888,7 +2892,7 @@ bool is_batching_allowed(struct msm_vidc_inst *inst)
 	 * - not a thumbnail session
 	 * - UBWC color format
 	 */
-	if (inst->core->resources.decode_batching && is_decode_session(inst) &&
+	if (inst->decode_batching && is_decode_session(inst) &&
 		(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_H264 ||
 		inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC ||
 		inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_VP9) &&
@@ -3194,8 +3198,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 				HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
 	/* batching needs minimum batch size count of input buffers */
-	if (inst->core->resources.decode_batching &&
-		is_decode_session(inst) &&
+	if (inst->decode_batching && is_decode_session(inst) &&
 		bufreq->buffer_count_min < inst->batch.size)
 		bufreq->buffer_count_min = inst->batch.size;
 	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
@@ -5430,6 +5433,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA:
 		ret = HAL_EXTRADATA_HDR10PLUS_METADATA;
 		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS:
+		ret = HAL_EXTRADATA_ENC_DTS_METADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
 		break;
@@ -6419,9 +6425,14 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 			} else if (vb->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) { /* bitstream */
+					u32 size_u32;
 					skip = false;
 					offset = 0;
-					size = vb->planes[i].length;
+					size_u32 = vb->planes[i].length;
+					msm_comm_fetch_filled_length(
+						&inst->fbd_data, vb->index,
+						&size_u32);
+					size = size_u32;
 					cache_op = SMEM_CACHE_INVALIDATE;
 				}
 			}
@@ -6961,6 +6972,63 @@ void msm_comm_fetch_tags(struct msm_vidc_inst *inst,
 		}
 	}
 	mutex_unlock(&inst->buffer_tags.lock);
+}
+
+void msm_comm_store_filled_length(struct msm_vidc_list *data_list,
+		u32 index, u32 filled_length)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+	bool found = false;
+
+	if (!data_list) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
+			__func__, data_list);
+		return;
+	}
+
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			pdata->filled_length = filled_length;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)  {
+			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
+			goto exit;
+		}
+		pdata->index = index;
+		pdata->filled_length = filled_length;
+		list_add_tail(&pdata->list, &data_list->list);
+	}
+
+exit:
+	mutex_unlock(&data_list->lock);
+}
+
+void msm_comm_fetch_filled_length(struct msm_vidc_list *data_list,
+		u32 index, u32 *filled_length)
+{
+	struct msm_vidc_buf_data *pdata = NULL;
+
+	if (!data_list || !filled_length) {
+		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
+			__func__, data_list, filled_length);
+		return;
+	}
+
+	mutex_lock(&data_list->lock);
+	list_for_each_entry(pdata, &data_list->list, list) {
+		if (pdata->index == index) {
+			*filled_length = pdata->filled_length;
+			break;
+		}
+	}
+	mutex_unlock(&data_list->lock);
 }
 
 void msm_comm_store_mark_data(struct msm_vidc_list *data_list,

@@ -514,6 +514,9 @@
 
 &slim_aud {
 	status = "disabled";
+	iommu_slim_aud_ctrl_cb {
+		status = "disabled";
+	};
 	msm_dai_slim {
 		status = "disabled";
 	};

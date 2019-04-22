@@ -54,6 +54,8 @@ enum ion_heap_ids {
  * Flags to be used when allocating from the secure heap for
  * content protection
  */
+#define ION_FLAG_CP_DSP_EXT		ION_BIT(15)
+/* ION_FLAG_POOL_FORCE_ALLOC uses ION_BIT(16) */
 #define ION_FLAG_CP_TOUCH		ION_BIT(17)
 #define ION_FLAG_CP_BITSTREAM		ION_BIT(18)
 #define ION_FLAG_CP_PIXEL		ION_BIT(19)
@@ -68,8 +70,9 @@ enum ion_heap_ids {
 /* ION_FLAG_ALLOW_NON_CONTIG uses ION_BIT(28) */
 #define ION_FLAG_CP_CDSP		ION_BIT(29)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
+/* ION_FLAG_SECURE uses ION_BIT(31) */
 
-#define ION_FLAGS_CP_MASK	0x6FFE0000
+#define ION_FLAGS_CP_MASK	0x6FFE8000
 
 /**
  * Flag to allow non continguous allocation of memory from secure

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,12 @@ struct ipa_api_controller {
 
 	int (*ipa_add_rt_rule)(struct ipa_ioc_add_rt_rule *rules);
 
+	int (*ipa_add_rt_rule_v2)(struct ipa_ioc_add_rt_rule_v2 *rules);
+
 	int (*ipa_add_rt_rule_usr)(struct ipa_ioc_add_rt_rule *rules,
+							bool user_only);
+
+	int (*ipa_add_rt_rule_usr_v2)(struct ipa_ioc_add_rt_rule_v2 *rules,
 							bool user_only);
 
 	int (*ipa_del_rt_rule)(struct ipa_ioc_del_rt_rule *hdls);
@@ -106,14 +111,23 @@ struct ipa_api_controller {
 
 	int (*ipa_mdfy_rt_rule)(struct ipa_ioc_mdfy_rt_rule *rules);
 
+	int (*ipa_mdfy_rt_rule_v2)(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
+
 	int (*ipa_add_flt_rule)(struct ipa_ioc_add_flt_rule *rules);
+
+	int (*ipa_add_flt_rule_v2)(struct ipa_ioc_add_flt_rule_v2 *rules);
 
 	int (*ipa_add_flt_rule_usr)(struct ipa_ioc_add_flt_rule *rules,
 								bool user_only);
 
+	int (*ipa_add_flt_rule_usr_v2)
+		(struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only);
+
 	int (*ipa_del_flt_rule)(struct ipa_ioc_del_flt_rule *hdls);
 
 	int (*ipa_mdfy_flt_rule)(struct ipa_ioc_mdfy_flt_rule *rules);
+
+	int (*ipa_mdfy_flt_rule_v2)(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
 
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 
@@ -454,6 +468,12 @@ struct ipa_api_controller {
 	int (*ipa_enable_wigig_pipe_i)(enum ipa_client_type client);
 
 	int (*ipa_disable_wigig_pipe_i)(enum ipa_client_type client);
+
+	void (*ipa_register_client_callback)(
+		int (*client_cb)(bool is_lock),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+
+	void (*ipa_deregister_client_callback)(u32 ipa_ep_idx);
 };
 
 #ifdef CONFIG_IPA3

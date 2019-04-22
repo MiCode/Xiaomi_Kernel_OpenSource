@@ -886,7 +886,7 @@ static int _sde_kms_splash_mem_get(struct sde_kms *sde_kms,
 	}
 
 	splash->ref_cnt++;
-	SDE_DEBUG("one2one mapping done for base:%x size:%x ref_cnt:%d\n",
+	SDE_DEBUG("one2one mapping done for base:%lx size:%x ref_cnt:%d\n",
 				splash->splash_buf_base,
 				splash->splash_buf_size,
 				splash->ref_cnt);
@@ -937,7 +937,7 @@ static int _sde_kms_splash_mem_put(struct sde_kms *sde_kms,
 
 	splash->ref_cnt--;
 
-	SDE_DEBUG("splash base:%x refcnt:%d\n",
+	SDE_DEBUG("splash base:%lx refcnt:%d\n",
 			splash->splash_buf_base, splash->ref_cnt);
 
 	if (!splash->ref_cnt) {

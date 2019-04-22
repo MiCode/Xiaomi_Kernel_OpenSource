@@ -295,6 +295,10 @@ static void atl_fw2_set_link(struct atl_hw *hw, bool force)
 
 	bits = atl_set_fw_bits(hw, 1);
 
+	/* If no modes are advertized, put PHY into low-power */
+	if (!bits)
+		hi_bits |= atl_fw2_link_drop;
+
 	hi_bits |= bits >> 32;
 
 	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), bits);
@@ -352,7 +356,8 @@ static int atl_fw2_enable_wol(struct atl_hw *hw)
 	atl_lock_fw(hw);
 
 	ret = atl_write_mcp_mem(hw, 0, msg,
-		(info->len + offsetof(struct drvIface, fw2xOffloads) + 3) & ~3);
+		(info->len + offsetof(struct drvIface, fw2xOffloads) + 3) & ~3,
+		MCP_AREA_CONFIG);
 	if (ret) {
 		atl_dev_err("Failed to upload sleep proxy info to FW\n");
 		goto free;
@@ -374,12 +379,11 @@ free:
 	return ret;
 }
 
-int atl_read_fwstat_word(struct atl_hw *hw, uint32_t offt, uint32_t *val)
+int atl_read_mcp_word(struct atl_hw *hw, uint32_t offt, uint32_t *val)
 {
 	int ret;
-	uint32_t addr = hw->mcp.fw_stat_addr + (offt & ~3);
 
-	ret = atl_read_mcp_mem(hw, addr, val, 4);
+	ret = atl_read_mcp_mem(hw, offt & ~3, val, 4);
 	if (ret)
 		return ret;
 
@@ -446,6 +450,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 int atl_fw_init(struct atl_hw *hw)
 {
 	uint32_t tries, reg, major;
+	int ret;
 
 	tries = busy_wait(10000, mdelay(1), reg, atl_read(hw, 0x18), !reg);
 	if (!reg) {
@@ -465,6 +470,18 @@ int atl_fw_init(struct atl_hw *hw)
 	hw->mcp.poll_link = major == 1;
 	hw->mcp.fw_rev = reg;
 	hw->mcp.fw_stat_addr = atl_read(hw, ATL_MCP_SCRATCH(FW_STAT_STRUCT));
+
+	if (major > 1) {
+		ret = atl_read_fwstat_word(hw, atl_fw2_stat_settings_addr,
+			&hw->mcp.fw_settings_addr);
+		if (ret)
+			return ret;
+
+		ret = atl_read_fwstat_word(hw, atl_fw2_stat_settings_len,
+			&hw->mcp.fw_settings_len);
+		if (ret)
+			return ret;
+	}
 
 	return hw->mcp.ops->wait_fw_init(hw);
 }

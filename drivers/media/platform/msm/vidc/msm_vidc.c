@@ -1086,7 +1086,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		rc = msm_vidc_set_rotation(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"Set rotation for encoder failed %pK\n");
+				"Set rotation for encoder failed\n");
 			goto fail_start;
 		}
 	}
@@ -1751,6 +1751,15 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		ctrl->val =
 		inst->capability.nal_stream_format.nal_stream_format_supported;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE:
+		if (!inst->core || !inst->core->platform_data)
+			return -EINVAL;
+
+		ctrl->val = (inst->core->platform_data->vpu_ver ==
+				VPU_VERSION_4) ?
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BIT :
+			V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE;
+		break;
 	default:
 		/*
 		 * Other controls aren't really volatile, shouldn't need to
@@ -1877,6 +1886,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->clk_data.ddr_bw = 0;
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
+	inst->clk_data.work_route = 1;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
@@ -1884,7 +1894,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
 	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
-
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);
