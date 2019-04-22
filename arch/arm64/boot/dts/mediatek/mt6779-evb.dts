@@ -7,6 +7,7 @@
 
 /dts-v1/;
 #include "mt6779.dtsi"
+#include "mt6359.dtsi"
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 
 / {
@@ -27,10 +28,12 @@
 	};
 };
 
-&pwrap {
-	pmic: mt6359 {
-		compatible = "mediatek,mt6359";
-	};
+&pmic {
+	compatible = "mediatek,mt6359";
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	interrupt-parent = <&pio>;
+	interrupts = <193 IRQ_TYPE_LEVEL_HIGH 193 0>;
 };
 
 &uart0 {
