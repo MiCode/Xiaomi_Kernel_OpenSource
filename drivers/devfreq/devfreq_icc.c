@@ -17,7 +17,9 @@
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
 #include <linux/devfreq.h>
+#include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_fdt.h>
 #include <trace/events/power.h>
 #include <linux/platform_device.h>
 #include <linux/interconnect.h>
@@ -87,6 +89,8 @@ int devfreq_add_icc(struct device *dev)
 	struct devfreq_dev_profile *p;
 	const char *gov_name;
 	int ret;
+	struct opp_table *opp_table;
+	u32 version;
 
 	d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -97,6 +101,15 @@ int devfreq_add_icc(struct device *dev)
 	p->polling_ms = 50;
 	p->target = icc_target;
 	p->get_dev_status = icc_get_dev_status;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,devfreq-icc-ddr")) {
+		version = (1 << of_fdt_get_ddrtype());
+		opp_table = dev_pm_opp_set_supported_hw(dev, &version, 1);
+		if (IS_ERR(opp_table)) {
+			dev_err(dev, "Failed to set supported hardware\n");
+			return PTR_ERR(opp_table);
+		}
+	}
 
 	ret = dev_pm_opp_of_add_table(dev);
 	if (ret < 0)
@@ -159,6 +172,8 @@ static int devfreq_icc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id devfreq_icc_match_table[] = {
+	{ .compatible = "qcom,devfreq-icc-llcc" },
+	{ .compatible = "qcom,devfreq-icc-ddr" },
 	{ .compatible = "qcom,devfreq-icc" },
 	{}
 };

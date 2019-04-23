@@ -20,6 +20,7 @@
 #include <linux/irq.h>
 #include <linux/cpu_pm.h>
 #include <linux/cpu.h>
+#include <linux/of_fdt.h>
 #include "governor.h"
 #include "governor_memlat.h"
 #include <linux/perf_event.h>
@@ -252,6 +253,26 @@ static int get_mask_from_dev_handle(struct platform_device *pdev,
 	return ret;
 }
 
+static struct device_node *parse_child_nodes(struct device *dev)
+{
+	struct device_node *of_child;
+	int ddr_type_of = -1;
+	int ddr_type = of_fdt_get_ddrtype();
+	int ret;
+
+	for_each_child_of_node(dev->of_node, of_child) {
+		ret = of_property_read_u32(of_child, "qcom,ddr-type",
+							&ddr_type_of);
+		if (!ret && (ddr_type == ddr_type_of)) {
+			dev_dbg(dev,
+				"ddr-type = %d, is matching DT entry\n",
+				ddr_type_of);
+			return of_child;
+		}
+	}
+	return NULL;
+}
+
 static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -297,6 +318,8 @@ static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
 	hw->start_hwmon = &start_hwmon;
 	hw->stop_hwmon = &stop_hwmon;
 	hw->get_cnt = &get_cnt;
+	if (of_get_child_count(dev->of_node))
+		hw->get_child_of_node = &parse_child_nodes;
 
 	spec = of_device_get_match_data(dev);
 	if (spec && spec->is_compute) {
