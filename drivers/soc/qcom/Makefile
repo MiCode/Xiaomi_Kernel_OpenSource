@@ -50,6 +50,7 @@ obj-$(CONFIG_QCOM_GLINK_PKT) += glink_pkt.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
+obj-$(CONFIG_QTI_PMIC_GLINK) += pmic_glink.o
 obj-$(CONFIG_QTI_DDR_STATS_LOG) += ddr_stats.o
 obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
 obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
