@@ -67,11 +67,13 @@ enum fw_state {
 
 struct npu_host_ctx {
 	struct mutex lock;
+	struct npu_device *npu_dev;
 	void *subsystem_handle;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
 	int32_t power_vote_num;
-	struct work_struct irq_work;
+	struct work_struct ipc_irq_work;
+	struct work_struct wdg_err_irq_work;
 	struct workqueue_struct *wq;
 	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
@@ -89,6 +91,8 @@ struct npu_host_ctx {
 	bool cancel_work;
 	bool misc_cmd_pending;
 	uint32_t misc_cmd_result;
+	struct notifier_block nb;
+	void *notif_hdle;
 };
 
 struct npu_device;

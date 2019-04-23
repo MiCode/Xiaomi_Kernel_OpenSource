@@ -370,17 +370,6 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 	} else if (strcmp(buf, "off") == 0) {
 		NPU_INFO("triggering fw_deinit\n");
 		disable_fw(npu_dev);
-	} else if (strcmp(buf, "ssr") == 0) {
-		NPU_INFO("trigger error irq\n");
-		if (npu_enable_core_power(npu_dev))
-			return -EPERM;
-
-		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_SET(1), 2);
-		REGW(npu_dev, NPU_MASTERn_ERROR_IRQ_SET(0), 2);
-		npu_disable_core_power(npu_dev);
-	} else if (strcmp(buf, "ssr_wdt") == 0) {
-		NPU_INFO("trigger wdt irq\n");
-		npu_disable_post_pil_clocks(npu_dev);
 	} else if (strcmp(buf, "loopback") == 0) {
 		NPU_DBG("loopback test\n");
 		rc = npu_host_loopback_test(npu_dev);

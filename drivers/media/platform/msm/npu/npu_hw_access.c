@@ -373,25 +373,6 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 }
 
 /* -------------------------------------------------------------------------
- * Functions - Work Queue
- * -------------------------------------------------------------------------
- */
-void npu_destroy_wq(struct workqueue_struct *wq)
-{
-	destroy_workqueue(wq);
-}
-
-struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
-	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work)
-{
-	struct workqueue_struct *wq = create_workqueue(name);
-
-	INIT_WORK(irq_work, hdlr);
-
-	return wq;
-}
-
-/* -------------------------------------------------------------------------
  * Functions - Features
  * -------------------------------------------------------------------------
  */
