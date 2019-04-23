@@ -84,6 +84,7 @@ static int _init_session_queue(struct msm_cvp_inst *inst)
 		dprintk(CVP_ERR, "Failed to allocate msg quque\n");
 		return -ENOMEM;
 	}
+	inst->session_queue.state = QUEUE_ACTIVE;
 	return 0;
 }
 

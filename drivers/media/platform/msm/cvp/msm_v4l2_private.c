@@ -166,6 +166,34 @@ static void print_hfi_short(struct cvp_kmd_arg __user *up)
 			words[0], words[1], words[2], words[3], words[4]);
 }
 
+static int _copy_session_ctrl_to_user(
+	struct cvp_kmd_session_control *k,
+	struct cvp_kmd_session_control *u)
+{
+	int i;
+
+	if (put_user(k->ctrl_type, &u->ctrl_type))
+		return -EFAULT;
+	for (i = 0; i < 8; i++)
+		if (put_user(k->ctrl_data[i], &u->ctrl_data[i]))
+			return -EFAULT;
+	return 0;
+}
+
+static int _get_session_ctrl_from_user(
+	struct cvp_kmd_session_control *k,
+	struct cvp_kmd_session_control *u)
+{
+	int i;
+
+	if (get_user(k->ctrl_type, &u->ctrl_type))
+		return -EFAULT;
+
+	for (i = 0; i < 8; i++)
+		if (get_user(k->ctrl_data[i], &u->ctrl_data[i]))
+			return -EFAULT;
+	return 0;
+}
 
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
@@ -306,6 +334,17 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
 	case CVP_KMD_RECEIVE_MSG_PKT:
 		break;
+	case CVP_KMD_SESSION_CONTROL:
+	{
+		struct cvp_kmd_session_control *k, *u;
+
+		k = &kp->data.session_ctrl;
+		u = &up->data.session_ctrl;
+
+		rc = _get_session_ctrl_from_user(k, u);
+
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -455,6 +494,15 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		rc = _copy_fence_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
+	case CVP_KMD_SESSION_CONTROL:
+	{
+		struct cvp_kmd_session_control *k, *u;
+
+		k = &kp->data.session_ctrl;
+		u = &up->data.session_ctrl;
+		rc = _copy_session_ctrl_to_user(k, u);
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -492,7 +540,7 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 	if (rc) {
 		dprintk(CVP_ERR, "%s: failed cmd type %x\n",
 			__func__, karg.type);
-		return -EINVAL;
+		return rc;
 	}
 
 	if (convert_to_user(&karg, arg)) {
