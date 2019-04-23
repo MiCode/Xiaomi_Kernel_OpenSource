@@ -19,7 +19,8 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-rumi.dtb \
 		qcs405-iot-sku9.dtb \
 		qcs405-iot-sku10.dtb \
 		qcs405-iot-sku11.dtb \
-		qcs405-iot-sku12.dtb
+		qcs405-iot-sku12.dtb \
+		qcs401-iot-sku1.dtb
 else
 dtb-$(CONFIG_ARCH_QCS405) += qcs403-iot-sku1.dtb \
 			qcs403-iot-sku2.dtb \
@@ -205,7 +206,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		trinket-qrd-overlay.dtbo \
 		trinket-external-codec-idp-overlay.dtbo \
 		trinket-usbc-external-codec-idp-overlay.dtbo \
-		trinket-usbc-idp-overlay.dtbo
+		trinket-usbc-idp-overlay.dtbo \
+		trinket-dp-idp-overlay.dtbo
 
 trinket-rumi-overlay.dtbo-base := trinket.dtb
 trinket-idp-overlay.dtbo-base := trinket.dtb
@@ -213,13 +215,15 @@ trinket-qrd-overlay.dtbo-base := trinket.dtb
 trinket-external-codec-idp-overlay.dtbo-base := trinket.dtb
 trinket-usbc-external-codec-idp-overlay.dtbo-base := trinket.dtb
 trinket-usbc-idp-overlay.dtbo-base := trinket.dtb
+trinket-dp-idp-overlay.dtbo-base := trinket.dtb
 else
 dtb-$(CONFIG_ARCH_TRINKET)	+= trinket-rumi.dtb \
 	trinket-idp.dtb \
 	trinket-qrd.dtb \
 	trinket-external-codec-idp.dtb \
 	trinket-usbc-external-codec-idp.dtb \
-	trinket-usbc-idp.dtb
+	trinket-usbc-idp.dtb \
+	trinket-dp-idp.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \

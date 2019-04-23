@@ -1404,8 +1404,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
-	unsigned long time;
-	bool vbif_acked = false;
 
 	/*
 	 * For the soft reset case with GMU enabled this part is done
@@ -1423,21 +1421,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
-
-	/* Wait for the VBIF reset ack to complete */
-	time = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
-
-	do {
-		kgsl_regread(device, A6XX_RBBM_VBIF_GX_RESET_STATUS, &reg);
-		if ((reg & VBIF_RESET_ACK_MASK) == VBIF_RESET_ACK_MASK) {
-			vbif_acked = true;
-			break;
-		}
-		cpu_relax();
-	} while (!time_after(jiffies, time));
-
-	if (!vbif_acked)
-		return -ETIMEDOUT;
 
 	/* Clear GBIF client halt and CX arbiter halt */
 	adreno_deassert_gbif_halt(adreno_dev);
@@ -2881,7 +2864,6 @@ static const struct {
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
-	{ adreno_is_a610, a6xx_efuse_speed_bin },
 	{ adreno_is_a610, a6xx_efuse_gaming_bin },
 };
 
@@ -2922,6 +2904,7 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
 		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
+		gpudev->gbif_gx_halt_mask = A6XX_GBIF_GX_HALT_MASK;
 	} else
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
@@ -3025,6 +3008,10 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GPR0_CNTL, A6XX_RBBM_GPR0_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
 				A6XX_RBBM_VBIF_GX_RESET_STATUS),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT,
+				A6XX_RBBM_GBIF_HALT),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT_ACK,
+				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,

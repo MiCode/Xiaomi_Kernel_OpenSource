@@ -14,9 +14,9 @@
 #include "qcs405.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403";
-	qcom,msm-name = "QCS403";
-	qcom,msm-id = <373 0x0>;
+	model = "Qualcomm Technologies, Inc. QCS401";
+	qcom,msm-name = "QCS401";
+	qcom,msm-id = <372 0x0>;
 };
 
 &soc {
@@ -46,16 +46,3 @@
 	};
 };
 
-&adsp_fw_mem {
-	reg = <0x0 0x87300000 0x0 0x1200000>;
-};
-
-&reserved_mem {
-	linux,cma {
-		size = <0 0x400000>;
-	};
-};
-
-&qcom_seecom {
-	/delete-property/ qcom,appsbl-qseecom-support;
-};

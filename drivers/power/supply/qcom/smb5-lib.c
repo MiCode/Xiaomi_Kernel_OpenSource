@@ -727,14 +727,9 @@ int smblib_set_charge_param(struct smb_charger *chg,
 int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
 {
 	int rc = 0;
-	int irq = chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq;
-
-	if (suspend && irq) {
-		if (chg->usb_icl_change_irq_enabled) {
-			disable_irq_nosync(irq);
-			chg->usb_icl_change_irq_enabled = false;
-		}
-	}
+	if (suspend)
+		vote(chg->icl_irq_disable_votable, USB_SUSPEND_VOTER,
+				true, 0);
 
 	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
 				 suspend ? USBIN_SUSPEND_BIT : 0);
@@ -742,12 +737,9 @@ int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
 		smblib_err(chg, "Couldn't write %s to USBIN_SUSPEND_BIT rc=%d\n",
 			suspend ? "suspend" : "resume", rc);
 
-	if (!suspend && irq) {
-		if (!chg->usb_icl_change_irq_enabled) {
-			enable_irq(irq);
-			chg->usb_icl_change_irq_enabled = true;
-		}
-	}
+	if (!suspend)
+		vote(chg->icl_irq_disable_votable, USB_SUSPEND_VOTER,
+				false, 0);
 
 	return rc;
 }
@@ -1135,6 +1127,10 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, false, 0);
 	vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
 	vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER, false, 0);
+	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER,
+			true, 0);
+	vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
+	vote(chg->hdc_irq_disable_votable, HDC_IRQ_VOTER, false, 0);
 
 	/* Remove SW thermal regulation WA votes */
 	vote(chg->usb_icl_votable, SW_THERM_REGULATION_VOTER, false, 0);
@@ -1158,6 +1154,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
+	chg->usbin_forced_max_uv = 0;
 	chg->usb_icl_delta_ua = 0;
 	chg->pulse_cnt = 0;
 	chg->uusb_apsd_rerun_done = false;
@@ -1582,23 +1579,92 @@ static int smblib_chg_disable_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
-static int smblib_usb_irq_enable_vote_callback(struct votable *votable,
-				void *data, int enable, const char *client)
+static int smblib_hdc_irq_disable_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
 {
 	struct smb_charger *chg = data;
 
-	if (!chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq ||
-				!chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq)
+	if (!chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq)
 		return 0;
 
-	if (enable) {
-		enable_irq(chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq);
-		enable_irq(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+	if (chg->irq_info[HIGH_DUTY_CYCLE_IRQ].enabled) {
+		if (disable)
+			disable_irq_nosync(
+				chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
 	} else {
-		disable_irq_nosync(
-			chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq);
-		disable_irq_nosync(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+		if (!disable)
+			enable_irq(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
 	}
+
+	chg->irq_info[HIGH_DUTY_CYCLE_IRQ].enabled = !disable;
+
+	return 0;
+}
+
+static int smblib_limited_irq_disable_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq)
+		return 0;
+
+	if (chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].enabled) {
+		if (disable)
+			disable_irq_nosync(
+				chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq);
+	} else {
+		if (!disable)
+			enable_irq(
+				chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].irq);
+	}
+
+	chg->irq_info[INPUT_CURRENT_LIMITING_IRQ].enabled = !disable;
+
+	return 0;
+}
+
+static int smblib_icl_irq_disable_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
+		return 0;
+
+	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].enabled) {
+		if (disable)
+			disable_irq_nosync(
+				chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
+	} else {
+		if (!disable)
+			enable_irq(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
+	}
+
+	chg->irq_info[USBIN_ICL_CHANGE_IRQ].enabled = !disable;
+
+	return 0;
+}
+
+static int smblib_temp_change_irq_disable_vote_callback(struct votable *votable,
+				void *data, int disable, const char *client)
+{
+	struct smb_charger *chg = data;
+
+	if (!chg->irq_info[TEMP_CHANGE_IRQ].irq)
+		return 0;
+
+	if (chg->irq_info[TEMP_CHANGE_IRQ].enabled && disable) {
+		if (chg->irq_info[TEMP_CHANGE_IRQ].wake)
+			disable_irq_wake(chg->irq_info[TEMP_CHANGE_IRQ].irq);
+		disable_irq_nosync(chg->irq_info[TEMP_CHANGE_IRQ].irq);
+	} else if (!chg->irq_info[TEMP_CHANGE_IRQ].enabled && !disable) {
+		enable_irq(chg->irq_info[TEMP_CHANGE_IRQ].irq);
+		if (chg->irq_info[TEMP_CHANGE_IRQ].wake)
+			enable_irq_wake(chg->irq_info[TEMP_CHANGE_IRQ].irq);
+	}
+
+	chg->irq_info[TEMP_CHANGE_IRQ].enabled = !disable;
 
 	return 0;
 }
@@ -2987,7 +3053,7 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 	return rc;
 }
 
-int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
 	switch (chg->real_charger_type) {
@@ -3007,6 +3073,37 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 			val->intval = MICRO_9V;
 		else
 			val->intval = MICRO_12V;
+		break;
+	default:
+		val->intval = MICRO_5V;
+		break;
+	}
+
+	return 0;
+}
+
+int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
+					union power_supply_propval *val)
+{
+	switch (chg->real_charger_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		if (chg->qc2_unsupported_voltage == QC2_NON_COMPLIANT_9V) {
+			val->intval = MICRO_5V;
+			break;
+		} else if (chg->qc2_unsupported_voltage ==
+				QC2_NON_COMPLIANT_12V) {
+			val->intval = MICRO_9V;
+			break;
+		}
+		/* else, fallthrough */
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		if (chg->smb_version == PMI632_SUBTYPE)
+			val->intval = MICRO_9V;
+		else
+			val->intval = MICRO_12V;
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		val->intval = chg->voltage_max_uv;
 		break;
 	default:
 		val->intval = MICRO_5V;
@@ -3838,6 +3935,32 @@ int smblib_set_prop_boost_current(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_set_prop_usb_voltage_max_limit(struct smb_charger *chg,
+					const union power_supply_propval *val)
+{
+	union power_supply_propval pval = {0, };
+
+	/* Exit if same value is re-configured */
+	if (val->intval == chg->usbin_forced_max_uv)
+		return 0;
+
+	smblib_get_prop_usb_voltage_max_design(chg, &pval);
+
+	if (val->intval >= MICRO_5V && val->intval <= pval.intval) {
+		chg->usbin_forced_max_uv = val->intval;
+		smblib_dbg(chg, PR_MISC, "Max VBUS limit changed to: %d\n",
+				val->intval);
+	} else if (chg->usbin_forced_max_uv) {
+		chg->usbin_forced_max_uv = 0;
+	} else {
+		return 0;
+	}
+
+	power_supply_changed(chg->usb_psy);
+
+	return 0;
+}
+
 int smblib_set_prop_typec_power_role(struct smb_charger *chg,
 				     const union power_supply_propval *val)
 {
@@ -3968,7 +4091,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	update_sw_icl_max(chg, apsd->pst);
 
 	if (chg->pd_active) {
-		vote(chg->usb_irq_enable_votable, PD_VOTER, true, 0);
+		vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER,
+				false, 0);
+		vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER,
+				false, 0);
 
 		/*
 		 * Enforce 100mA for PD until the real vote comes in later.
@@ -3994,7 +4120,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		}
 	} else {
 		vote(chg->usb_icl_votable, PD_VOTER, false, 0);
-		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
+		vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER,
+				true, 0);
+		vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER,
+				true, 0);
 
 		sec_charger = chg->sec_pl_present ?
 						POWER_SUPPLY_CHARGER_SEC_PL :
@@ -4746,6 +4875,9 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
 		smblib_micro_usb_plugin(chg, vbus_rising);
 
+	vote(chg->temp_change_irq_disable_votable, DEFAULT_VOTER,
+						!vbus_rising, 0);
+
 	power_supply_changed(chg->usb_psy);
 	if (chg->dual_role)
 		dual_role_instance_changed(chg->dual_role);
@@ -4816,7 +4948,10 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 
 		if (qc_charger) {
 			/* enable HDC and ICL irq for QC2/3 charger */
-			vote(chg->usb_irq_enable_votable, QC_VOTER, true, 0);
+			vote(chg->limited_irq_disable_votable,
+					CHARGER_TYPE_VOTER, false, 0);
+			vote(chg->hdc_irq_disable_votable,
+					CHARGER_TYPE_VOTER, false, 0);
 			vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 				HVDCP_CURRENT_UA);
 		} else {
@@ -5200,8 +5335,10 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER, false, 0);
 
 	/* reset usb irq voters */
-	vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
-	vote(chg->usb_irq_enable_votable, QC_VOTER, false, 0);
+	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER,
+			true, 0);
+	vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
+	vote(chg->hdc_irq_disable_votable, HDC_IRQ_VOTER, false, 0);
 
 	/* reset parallel voters */
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
@@ -5227,6 +5364,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	chg->usb_icl_delta_ua = 0;
 	chg->voltage_min_uv = MICRO_5V;
 	chg->voltage_max_uv = MICRO_5V;
+	chg->usbin_forced_max_uv = 0;
 
 	/* write back the default FLOAT charger configuration */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
@@ -5562,8 +5700,7 @@ irqreturn_t high_duty_cycle_irq_handler(int irq, void *data)
 	 * the flag cleared in the delayed work queue, to avoid any IRQ
 	 * storming during the delays
 	 */
-	if (chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq)
-		disable_irq_nosync(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+	vote(chg->hdc_irq_disable_votable, HDC_IRQ_VOTER, true, 0);
 
 	schedule_delayed_work(&chg->clear_hdc_work, msecs_to_jiffies(60));
 
@@ -5918,8 +6055,7 @@ static void clear_hdc_work(struct work_struct *work)
 						clear_hdc_work.work);
 
 	chg->is_hdc = 0;
-	if (chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq)
-		enable_irq(chg->irq_info[HIGH_DUTY_CYCLE_IRQ].irq);
+	vote(chg->hdc_irq_disable_votable, HDC_IRQ_VOTER, false, 0);
 }
 
 static void smblib_icl_change_work(struct work_struct *work)
@@ -6547,13 +6683,43 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->usb_irq_enable_votable = create_votable("USB_IRQ_DISABLE",
+	chg->limited_irq_disable_votable = create_votable(
+				"USB_LIMITED_IRQ_DISABLE",
+				VOTE_SET_ANY,
+				smblib_limited_irq_disable_vote_callback,
+				chg);
+	if (IS_ERR(chg->limited_irq_disable_votable)) {
+		rc = PTR_ERR(chg->limited_irq_disable_votable);
+		chg->limited_irq_disable_votable = NULL;
+		return rc;
+	}
+
+	chg->hdc_irq_disable_votable = create_votable("USB_HDC_IRQ_DISABLE",
 					VOTE_SET_ANY,
-					smblib_usb_irq_enable_vote_callback,
+					smblib_hdc_irq_disable_vote_callback,
 					chg);
-	if (IS_ERR(chg->usb_irq_enable_votable)) {
-		rc = PTR_ERR(chg->usb_irq_enable_votable);
-		chg->usb_irq_enable_votable = NULL;
+	if (IS_ERR(chg->hdc_irq_disable_votable)) {
+		rc = PTR_ERR(chg->hdc_irq_disable_votable);
+		chg->hdc_irq_disable_votable = NULL;
+		return rc;
+	}
+
+	chg->icl_irq_disable_votable = create_votable("USB_ICL_IRQ_DISABLE",
+					VOTE_SET_ANY,
+					smblib_icl_irq_disable_vote_callback,
+					chg);
+	if (IS_ERR(chg->icl_irq_disable_votable)) {
+		rc = PTR_ERR(chg->icl_irq_disable_votable);
+		chg->icl_irq_disable_votable = NULL;
+		return rc;
+	}
+
+	chg->temp_change_irq_disable_votable = create_votable(
+			"TEMP_CHANGE_IRQ_DISABLE", VOTE_SET_ANY,
+			smblib_temp_change_irq_disable_vote_callback, chg);
+	if (IS_ERR(chg->temp_change_irq_disable_votable)) {
+		rc = PTR_ERR(chg->temp_change_irq_disable_votable);
+		chg->temp_change_irq_disable_votable = NULL;
 		return rc;
 	}
 

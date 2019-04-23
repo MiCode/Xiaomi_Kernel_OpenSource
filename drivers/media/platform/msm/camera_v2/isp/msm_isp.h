@@ -169,7 +169,7 @@ struct msm_vfe_irq_ops {
 	void (*dual_config_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		enum msm_isp_irq_operation);
-	void (*read_and_clear_dual_irq_status)(struct vfe_device *vfe_dev,
+	void (*clear_dual_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *dual_irq_status0);
 };
 
@@ -762,7 +762,6 @@ struct msm_vfe_common_dev_data {
 	/* Irq debug Info */
 	struct msm_vfe_irq_dump vfe_irq_dump;
 	struct msm_vfe_tasklet tasklets[MAX_VFE + 1];
-	uint32_t drop_reconfig;
 };
 
 struct msm_vfe_common_subdev {
@@ -817,7 +816,8 @@ struct vfe_device {
 	struct mutex core_mutex;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
-	spinlock_t completion_lock;
+	spinlock_t reset_completion_lock;
+	spinlock_t halt_completion_lock;
 
 	/* Tasklet info */
 	atomic_t irq_cnt;
@@ -870,6 +870,7 @@ struct vfe_device {
 	/* Dual VFE IRQ CAMSS Info*/
 	void __iomem *camss_base;
 	struct resource *dual_vfe_irq;
+	bool dual_isp_sync_irq_enabled;
 	/* irq info */
 	uint32_t dual_irq_mask;
 	uint32_t irq_sof_id;

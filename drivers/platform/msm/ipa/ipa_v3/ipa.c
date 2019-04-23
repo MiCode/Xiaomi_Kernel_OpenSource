@@ -3780,6 +3780,9 @@ void ipa3_disable_clks(void)
 
 	ipa3_ctx->ctrl->ipa3_disable_clks();
 
+	if (ipa3_ctx->use_ipa_pm)
+		ipa_pm_set_clock_index(0);
+
 	if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl, 0))
 		WARN(1, "bus scaling failed");
 	atomic_set(&ipa3_ctx->ipa_clk_vote, 0);
@@ -3939,10 +3942,10 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 	}
 
 	ipa3_enable_clks();
-	atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
 	IPADBG_LOW("active clients = %d\n",
 		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 	ipa3_suspend_apps_pipes(false);
+	atomic_inc(&ipa3_ctx->ipa3_active_clients.cnt);
 	if (!ipa3_uc_state_check() &&
 		(ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)) {
 		ipa3_read_mailbox_17(IPA_PC_RESTORE_CONTEXT_STATUS_SUCCESS);

@@ -66,19 +66,19 @@
 		adsp_fw_mem: adsp_fw_mem@87500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x87300000 0x0 0x1a00000>;
+			reg = <0x0 0x87300000 0x0 0x1400000>;
 		};
 
 		cdsp_fw_mem: cdsp_fw_mem@88f00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x88d00000 0x0 0x600000>;
+			reg = <0x0 0x88700000 0x0 0x600000>;
 		};
 
 		wlan_msa_mem: wlan_msa_region@89500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x89300000 0x0 0x100000>;
+			reg = <0x0 0x88D00000 0x0 0x100000>;
 		};
 
 		secure_mem: secure_region {
@@ -520,6 +520,11 @@
 		diag_dload@c8 {
 			compatible = "qcom,msm-imem-diag-dload";
 			reg = <0xc8 200>;
+		};
+
+		kaslr_offset@6d0 {
+			compatible = "qcom,msm-imem-kaslr_offset";
+			reg = <0x6d0 12>;
 		};
 	};
 
@@ -1141,6 +1146,7 @@
 		qcom,support-fde;
 		qcom,fde-key-size;
 		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;

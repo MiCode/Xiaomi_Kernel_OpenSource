@@ -4,24 +4,6 @@
 
 comment "Qualcomm Technologies, Inc. MSM Camera And Video"
 
-menuconfig SPECTRA_CAMERA
-    bool "Qualcomm Technologies, Inc. Spectra camera and video capture support"
-    depends on ARCH_QCOM && VIDEO_V4L2 && I2C
-    ---help---
-      Say Y here to enable selecting the video adapters for
-      Qualcomm Technologies, Inc. Spectra camera and video capture.
-      Enabling this adds support for the camera driver stack including sensor,
-      IFE and postprocessing drivers.
-
-menuconfig MSM_AIS
-    bool "Qualcomm Technologies, Inc. Automotive Imaging System"
-     depends on ARCH_QCOM && VIDEO_V4L2 && I2C
-     ---help---
-       Say Y here to enable selecting the video adapters for
-       Qualcomm Technologies, Inc. Aotomitive Imaging System.
-       Enabling this adds support for the camera driver stack including sensor,
-       IFE and postprocessing drivers.
-
 menuconfig MSM_CAMERA
     bool "QTI MSM camera and video capture support"
     depends on ARCH_QCOM && VIDEO_V4L2 && I2C

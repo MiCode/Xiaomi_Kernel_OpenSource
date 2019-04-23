@@ -17,6 +17,7 @@
 &msm_audio_ion {
 	iommus = <&apps_smmu 0x0801 0x0>;
 	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
+	qcom,non-hyp-assign;
 };
 
 &soc {
