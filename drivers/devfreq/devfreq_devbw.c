@@ -17,7 +17,9 @@
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
 #include <linux/devfreq.h>
+#include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_fdt.h>
 #include <trace/events/power.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
@@ -101,6 +103,8 @@ int devfreq_add_devbw(struct device *dev)
 	u32 ports[MAX_PATHS * 2];
 	const char *gov_name;
 	int ret, len, i, num_paths;
+	struct opp_table *opp_table;
+	u32 version;
 
 	d = devm_kzalloc(dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -146,6 +150,15 @@ int devfreq_add_devbw(struct device *dev)
 	p->polling_ms = 50;
 	p->target = devbw_target;
 	p->get_dev_status = devbw_get_dev_status;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,devbw-ddr")) {
+		version = (1 << of_fdt_get_ddrtype());
+		opp_table = dev_pm_opp_set_supported_hw(dev, &version, 1);
+		if (IS_ERR(opp_table)) {
+			dev_err(dev, "Failed to set supported hardware\n");
+			return PTR_ERR(opp_table);
+		}
+	}
 
 	ret = dev_pm_opp_of_add_table(dev);
 	if (ret)
@@ -203,6 +216,8 @@ static int devfreq_devbw_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id devbw_match_table[] = {
+	{ .compatible = "qcom,devbw-llcc" },
+	{ .compatible = "qcom,devbw-ddr" },
 	{ .compatible = "qcom,devbw" },
 	{}
 };
