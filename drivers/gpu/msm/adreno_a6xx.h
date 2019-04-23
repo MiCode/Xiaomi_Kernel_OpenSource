@@ -38,6 +38,8 @@ struct adreno_a6xx_core {
 	const struct adreno_reglist *vbif;
 	/** @vbif_count: Number of registers in @vbif */
 	u32 vbif_count;
+	/** @veto_fal10: veto status for fal10 feature */
+	bool veto_fal10;
 };
 
 #define CP_CLUSTER_FE		0x0
