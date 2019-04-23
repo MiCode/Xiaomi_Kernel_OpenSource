@@ -41,7 +41,8 @@ static struct diag_logger_ops usb_log_ops = {
 	.close = diag_usb_disconnect_all,
 	.queue_read = diag_usb_queue_read,
 	.write = diag_usb_write,
-	.close_peripheral = NULL
+	.close_peripheral = NULL,
+	.close_device = NULL
 };
 
 static struct diag_logger_ops md_log_ops = {
@@ -50,6 +51,7 @@ static struct diag_logger_ops md_log_ops = {
 	.queue_read = NULL,
 	.write = diag_md_write,
 	.close_peripheral = diag_md_close_peripheral,
+	.close_device = diag_md_close_device
 };
 
 static struct diag_logger_ops pcie_log_ops = {
@@ -276,6 +278,20 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 
 	if (logger && logger->log_ops && logger->log_ops->close_peripheral)
 		return logger->log_ops->close_peripheral(proc, peripheral);
+	return 0;
+}
+
+int diag_mux_close_device(int proc)
+{
+	struct diag_logger_t *logger = NULL;
+
+	if (!diag_mux)
+		return -EIO;
+
+	logger = diag_mux->logger;
+
+	if (logger && logger->log_ops && logger->log_ops->close_device)
+		return logger->log_ops->close_device(proc);
 	return 0;
 }
 
