@@ -73,6 +73,12 @@
 #define IPA_MHI_CLIENT_HOST_ADDR_COND(addr) \
 	((ipa_mhi_client_ctx->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
 
+/* De-assert bit #40 in address when updating to host. */
+#define IPA_MHI_HOST_UPDATE(addr) ((addr) & ~(BIT_ULL(40)))
+
+#define IPA_MHI_CLIENT_HOST_ADDR_UPDATE(addr) \
+	((ipa_mhi_client_ctx->assert_bit40)?(IPA_MHI_HOST_UPDATE(addr)):(addr))
+
 enum ipa_mhi_rm_state {
 	IPA_MHI_RM_STATE_RELEASED,
 	IPA_MHI_RM_STATE_REQUESTED,
@@ -1338,8 +1344,13 @@ static int ipa_mhi_suspend_gsi_channel(struct ipa_mhi_channel_ctx *channel)
 	}
 
 	/* check if channel was stopped completely */
-	if (res)
+	if (res) {
 		channel->stop_in_proc = true;
+	} else {
+		/* Dump RP/WP. */
+		ipa_mhi_query_ch_info(channel->client,
+				&channel->ch_info);
+	}
 
 	IPA_MHI_DBG("GSI channel is %s\n", (channel->stop_in_proc) ?
 		"STOP_IN_PROC" : "STOP");
@@ -2017,7 +2028,8 @@ static void ipa_mhi_update_host_ch_state(bool update_rp)
 				ipa_assert();
 				return;
 			}
-
+			channel->ch_info.rp =
+			IPA_MHI_CLIENT_HOST_ADDR_UPDATE(channel->ch_info.rp);
 			res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 				&channel->ch_info.rp,
 				channel->channel_context_addr +
@@ -2055,6 +2067,8 @@ static void ipa_mhi_update_host_ch_state(bool update_rp)
 				return;
 			}
 
+			channel->ch_info.rp =
+			IPA_MHI_CLIENT_HOST_ADDR_UPDATE(channel->ch_info.rp);
 			res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 				&channel->ch_info.rp,
 				channel->channel_context_addr +
