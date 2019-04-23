@@ -26,7 +26,6 @@ struct arch_info {
 	u32 bus_client;
 	struct msm_pcie_register_event pcie_reg_event;
 	struct pci_saved_state *pcie_state;
-	struct dma_iommu_mapping *mapping;
 	async_cookie_t cookie;
 	void *boot_ipc_log;
 	struct mhi_device *boot_dev;
@@ -198,8 +197,8 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	/* wait for boot monitor to exit */
 	async_synchronize_cookie(arch_info->cookie + 1);
 
-	mhi_arch_iommu_deinit(mhi_cntrl);
 	mhi_arch_pcie_deinit(mhi_cntrl);
+	mhi_cntrl->dev = NULL;
 	mhi_dev->powered_on = false;
 }
 
@@ -504,135 +503,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
 {
 	mhi_arch_set_bus_request(mhi_cntrl, 0);
-}
-
-static struct dma_iommu_mapping *mhi_arch_create_iommu_mapping(
-					struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	dma_addr_t base;
-	size_t size;
-
-	/*
-	 * If S1_BYPASS enabled then iommu space is not used, however framework
-	 * still require clients to create a mapping space before attaching. So
-	 * set to smallest size required by iommu framework.
-	 */
-	if (mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS) {
-		base = 0;
-		size = PAGE_SIZE;
-	} else {
-		base = mhi_dev->iova_start;
-		size = (mhi_dev->iova_stop - base) + 1;
-	}
-
-	MHI_LOG("Create iommu mapping of base:%pad size:%zu\n",
-		&base, size);
-	return __depr_arm_iommu_create_mapping(&pci_bus_type, base, size);
-}
-
-int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_dev->arch_info;
-	u32 smmu_config = mhi_dev->smmu_cfg;
-	struct dma_iommu_mapping *mapping = NULL;
-	int ret;
-
-	if (smmu_config) {
-		mapping = mhi_arch_create_iommu_mapping(mhi_cntrl);
-		if (IS_ERR(mapping)) {
-			MHI_ERR("Failed to create iommu mapping\n");
-			return PTR_ERR(mapping);
-		}
-	}
-
-	if (smmu_config & MHI_SMMU_S1_BYPASS) {
-		int s1_bypass = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					    DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
-		if (ret) {
-			MHI_ERR("Failed to set attribute S1_BYPASS\n");
-			goto release_mapping;
-		}
-	}
-
-	if (smmu_config & MHI_SMMU_FAST) {
-		int fast_map = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_FAST,
-					    &fast_map);
-		if (ret) {
-			MHI_ERR("Failed to set attribute FAST_MAP\n");
-			goto release_mapping;
-		}
-	}
-
-	if (smmu_config & MHI_SMMU_ATOMIC) {
-		int atomic = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_ATOMIC,
-					    &atomic);
-		if (ret) {
-			MHI_ERR("Failed to set attribute ATOMIC\n");
-			goto release_mapping;
-		}
-	}
-
-	if (smmu_config & MHI_SMMU_FORCE_COHERENT) {
-		int force_coherent = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-					&force_coherent);
-		if (ret) {
-			MHI_ERR("Failed to set attribute FORCE_COHERENT\n");
-			goto release_mapping;
-		}
-	}
-
-	if (smmu_config) {
-		ret = __depr_arm_iommu_attach_device(&mhi_dev->pci_dev->dev,
-						     mapping);
-		if (ret) {
-			MHI_ERR("Error attach device, ret:%d\n", ret);
-			goto release_mapping;
-		}
-		arch_info->mapping = mapping;
-	}
-
-	mhi_cntrl->dev = &mhi_dev->pci_dev->dev;
-
-	ret = dma_set_mask_and_coherent(mhi_cntrl->dev, DMA_BIT_MASK(64));
-	if (ret) {
-		MHI_ERR("Error setting dma mask, ret:%d\n", ret);
-		goto release_device;
-	}
-
-	return 0;
-
-release_device:
-	__depr_arm_iommu_detach_device(mhi_cntrl->dev);
-
-release_mapping:
-	__depr_arm_iommu_release_mapping(mapping);
-
-	return ret;
-}
-
-void mhi_arch_iommu_deinit(struct mhi_controller *mhi_cntrl)
-{
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-	struct arch_info *arch_info = mhi_dev->arch_info;
-	struct dma_iommu_mapping *mapping = arch_info->mapping;
-
-	if (mapping) {
-		__depr_arm_iommu_detach_device(mhi_cntrl->dev);
-		__depr_arm_iommu_release_mapping(mapping);
-	}
-	arch_info->mapping = NULL;
-	mhi_cntrl->dev = NULL;
 }
 
 static int mhi_arch_drv_suspend(struct mhi_controller *mhi_cntrl)
