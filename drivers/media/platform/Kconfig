@@ -195,11 +195,23 @@ config VIDEO_MEDIATEK_JPEG
 	  To compile this driver as a module, choose M here: the
 	  module will be called mtk-jpeg
 
+config VIDEO_MEDIATEK_VCU
+	tristate "Mediatek Video Communication/Controller Unit"
+	depends on VIDEO_DEV && VIDEO_V4L2
+	select VIDEOBUF2_DMA_CONTIG
+	help
+	    This driver provides downloading VCU firmware and
+	    communicating with VPU. This driver for hw video
+	    codec embedded in Mediatek's MT8173 SOCs. It is able
+	    to handle video decoding/encoding in a range of formats.
+	    To compile this driver as a module, choose M here: the
+	    module will be called mtk-vcu.
+
 config VIDEO_MEDIATEK_VPU
 	tristate "Mediatek Video Processor Unit"
 	depends on VIDEO_DEV && VIDEO_V4L2
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	---help---
+	help
 	    This driver provides downloading VPU firmware and
 	    communicating with VPU. This driver for hw video
 	    codec embedded in Mediatek's MT8173 SOCs. It is able
@@ -224,6 +236,16 @@ config VIDEO_MEDIATEK_MDP
 	    To compile this driver as a module, choose M here: the
 	    module will be called mtk-mdp.
 
+config VIDEO_MEDIATEK_VCU_WO_FUSE
+	bool "VCU driver without FUSE"
+	depends on VIDEO_MEDIATEK_VCU
+	default n
+	help
+	    VCU dirver is dependent on FUSE by default, the latency of
+	    ipi send from kernel to FUSE daemon is a little long.
+	    To reduce the latency and remove dependency to FUSE, choose
+	    Y here.
+
 config VIDEO_MEDIATEK_VCODEC
 	tristate "Mediatek Video Codec driver"
 	depends on MTK_IOMMU || COMPILE_TEST
@@ -231,7 +253,7 @@ config VIDEO_MEDIATEK_VCODEC
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV
-	select VIDEO_MEDIATEK_VPU
+	select MEDIA_CONTROLLER
 	default n
 	---help---
 	    Mediatek video codec driver provides HW capability to
