@@ -80,6 +80,18 @@ Optional properties:
 			additional minidump entries that should be collected
 			along with the subsystem's minidump.
 
+- qcom,pon-depends-on: String that indicates the name of the subsystem that has
+			to be powered-on before this subsystem is powered-on.
+			If the dependednt subsystem is already powered-on,
+			regardless of the fact that it's requested to power-on
+			explicitly, the framework won't try to power it back up again.
+
+- qcom,poff-depends-on: String that indicates the name of the subsystem that has
+			to be powered-off before this subsystem is powered-off.
+			If the dependednt subsystem is already powered-off,
+			regardless of the fact that it's requested to power-off
+			explicitly, the framework won't try to power it off again.
+
 Example:
 	qcom,venus@fdce0000 {
 		compatible = "qcom,pil-tz-generic";
@@ -144,4 +156,7 @@ Example:
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 		qcom,ssctl-instance-id = <14>;
 		qcom,sysmon-id = <1>;
+
+		/* Power-off venus before LPASS */
+		qcom,poff-depends-on = "venus";
 	};
