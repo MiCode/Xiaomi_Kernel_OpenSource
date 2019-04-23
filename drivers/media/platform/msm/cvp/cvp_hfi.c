@@ -3169,6 +3169,14 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	return session_id;
 }
 
+static void print_msg_hdr(struct hfi_msg_session_hdr *hdr)
+{
+	dprintk(CVP_DBG, "HFI MSG received: %x %x %x %x %x %x %x\n",
+		hdr->size, hdr->packet_type, hdr->session_id,
+		hdr->client_data.transaction_id, hdr->client_data.data1,
+		hdr->client_data.data2, hdr->error_type);
+}
+
 static int __response_handler(struct venus_hfi_device *device)
 {
 	struct msm_cvp_cb_info *packets;
@@ -3213,8 +3221,11 @@ static int __response_handler(struct venus_hfi_device *device)
 	while (!__iface_msgq_read(device, raw_packet)) {
 		void **session_id = NULL;
 		struct msm_cvp_cb_info *info = &packets[packet_count++];
+		struct hfi_msg_session_hdr *hdr =
+			(struct hfi_msg_session_hdr *)raw_packet;
 		int rc = 0;
 
+		print_msg_hdr(hdr);
 		rc = cvp_hfi_process_msg_packet(device->device_id,
 			(struct cvp_hal_msg_pkt_hdr *)raw_packet, info);
 		if (rc) {
