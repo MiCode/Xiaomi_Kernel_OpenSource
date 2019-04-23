@@ -48,7 +48,7 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
-		qcom,clock-rates = <0 0 311000000 0 0 268800000 0
+		qcom,clock-rates = <0 0 311000000 0 0 200000000 0
 			0 200000000 0 0>;
 		status = "ok";
 	};
@@ -110,7 +110,7 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk",
 			"csiphy_ahb2crif";
-		qcom,clock-rates = <0 0 311000000 0 0 268800000 0
+		qcom,clock-rates = <0 0 311000000 0 0 200000000 0
 			0 200000000 0 0>;
 		status = "ok";
 	};

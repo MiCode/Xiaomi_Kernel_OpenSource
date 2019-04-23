@@ -169,7 +169,7 @@ struct msm_vfe_irq_ops {
 	void (*dual_config_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		enum msm_isp_irq_operation);
-	void (*read_and_clear_dual_irq_status)(struct vfe_device *vfe_dev,
+	void (*clear_dual_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *dual_irq_status0);
 };
 
@@ -870,6 +870,7 @@ struct vfe_device {
 	/* Dual VFE IRQ CAMSS Info*/
 	void __iomem *camss_base;
 	struct resource *dual_vfe_irq;
+	bool dual_isp_sync_irq_enabled;
 	/* irq info */
 	uint32_t dual_irq_mask;
 	uint32_t irq_sof_id;

@@ -191,7 +191,6 @@
 			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
-			qcom,adc-based-aicl;
 			io-channels = <&pmi632_vadc ADC_USB_IN_V_16>,
 				      <&pmi632_vadc ADC_USB_IN_I>,
 				      <&pmi632_vadc ADC_CHG_TEMP>,
@@ -614,6 +613,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pmi632_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pmi632_trip0: trip0 {
@@ -639,6 +639,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 0>;
+		wake-capable-sensor;
 
 		trips {
 			pmi632_ibat_lvl0: ibat-lvl0 {
@@ -654,6 +655,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&bcl_sensor 1>;
+		wake-capable-sensor;
 
 		trips {
 			pmi632_ibat_lvl1: ibat-lvl1 {
@@ -669,6 +671,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 2>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -685,6 +688,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 3>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -701,6 +705,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_sensor 4>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {
@@ -717,6 +722,7 @@
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&bcl_soc>;
+		wake-capable-sensor;
 		tracks-low;
 
 		trips {

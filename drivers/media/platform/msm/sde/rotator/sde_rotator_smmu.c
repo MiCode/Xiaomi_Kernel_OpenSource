@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 
 #define SMMU_SDE_ROT_SEC	"qcom,smmu_sde_rot_sec"
 #define SMMU_SDE_ROT_UNSEC	"qcom,smmu_sde_rot_unsec"
+#define NON_FATAL_FAULTS 1
 
 #ifndef SZ_4G
 #define SZ_4G	(((size_t) SZ_1G) * 4)
@@ -520,7 +521,7 @@ int sde_smmu_probe(struct platform_device *pdev)
 	struct device *dev;
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_smmu_client *sde_smmu;
-	int rc = 0;
+	int rc = 0, data = NON_FATAL_FAULTS;
 	struct sde_smmu_domain smmu_domain;
 	const struct of_device_id *match;
 	struct sde_module_power *mp;
@@ -654,9 +655,21 @@ int sde_smmu_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
 	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
 
+	/*
+	 * Stage 1 smmu faults can be treated non-fatal.So, register
+	 * sde rotator smmu client with non-fatal-faults attribute
+	 * to the iommu domain.
+	 */
 	iommu_set_fault_handler(sde_smmu->mmu_mapping->domain,
 			sde_smmu_fault_handler, (void *)sde_smmu);
 
+	rc = iommu_domain_set_attr(sde_smmu->mmu_mapping->domain,
+			DOMAIN_ATTR_NON_FATAL_FAULTS, &data);
+	if (rc) {
+		SDEROT_ERR("could not set attribute: non_fatal_faults: %d\n",
+				rc);
+		goto release_mapping;
+	}
 	sde_smmu_enable_power(sde_smmu, false);
 
 	sde_smmu->dev = dev;

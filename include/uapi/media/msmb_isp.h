@@ -918,6 +918,11 @@ struct msm_vfe_dual_lpm_mode {
 	uint32_t num_src;
 	uint32_t lpm_mode;
 };
+
+struct msm_vfe_dual_vfe_sync_mode {
+	uint32_t enable;
+};
+
 #define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
 #define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')
 #define V4L2_PIX_FMT_QGRBG8  v4l2_fourcc('Q', 'G', 'R', '8')
@@ -985,6 +990,7 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_DUAL_HW_LPM_MODE,
 	MSM_ISP32_REQUEST_STREAM,
 	MSM_ISP_DUAL_SYNC_CFG,
+	MSM_ISP_DUAL_SYNC_CFG_VER2,
 };
 
 #define VIDIOC_MSM_VFE_REG_CFG \
@@ -1118,5 +1124,9 @@ enum msm_isp_ioctl_cmd_code {
 #define VIDIOC_MSM_ISP_DUAL_SYNC_CFG \
 	_IOWR('V', MSM_ISP_DUAL_SYNC_CFG, \
 	uint32_t *)
+
+#define VIDIOC_MSM_ISP_DUAL_SYNC_CFG_VER2 \
+	_IOWR('V', MSM_ISP_DUAL_SYNC_CFG_VER2, \
+	struct msm_vfe_dual_vfe_sync_mode)
 
 #endif /* __MSMB_ISP__ */

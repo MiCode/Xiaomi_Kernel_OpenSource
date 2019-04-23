@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,7 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 int msm_isp_get_bit_per_pixel(uint32_t output_format);
 enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format);
 irqreturn_t msm_isp_process_irq(int irq_num, void *data);
+irqreturn_t msm_isp_process_irq_dual_sync(int irq_num, void *data);
 int msm_isp_set_src_state(struct vfe_device *vfe_dev, void *arg);
 void msm_isp_do_tasklet(unsigned long data);
 void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev);
