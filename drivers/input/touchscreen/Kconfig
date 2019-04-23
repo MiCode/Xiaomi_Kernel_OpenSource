@@ -1299,4 +1299,17 @@ config TOUCHSCREEN_ROHM_BU21023
 	  To compile this driver as a module, choose M here: the
 	  module will be called bu21023_ts.
 
+config TOUCHSCREEN_MTK_GT1151
+        bool "GT1151 for Mediatek package"
+        default n
+        help
+          Say Y here if you have GT1151 touch panel.
+
+          If unsure, say N.
+
+          To compile this dirver as a module, choose M here: the
+          module will be called.
+
+source "drivers/input/touchscreen/GT1151/Kconfig"
+
 endif
