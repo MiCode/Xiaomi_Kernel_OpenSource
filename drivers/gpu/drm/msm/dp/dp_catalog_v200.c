@@ -121,11 +121,13 @@ static void dp_catalog_aux_setup_v200(struct dp_catalog_aux *aux,
 
 	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x4); /* bit 2 */
 	udelay(1000);
-	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x0); /* bit 2 */
-	wmb(); /* make sure programming happened */
 
 	io_data = catalog->io->dp_tcsr;
 	dp_write(catalog->exe_mode, io_data, 0x0, 0x1);
+	wmb(); /* make sure programming happened */
+
+	io_data = catalog->io->dp_ahb;
+	dp_write(catalog->exe_mode, io_data, DP_PHY_CTRL, 0x0); /* bit 2 */
 	wmb(); /* make sure programming happened */
 
 	io_data = catalog->io->dp_phy;
