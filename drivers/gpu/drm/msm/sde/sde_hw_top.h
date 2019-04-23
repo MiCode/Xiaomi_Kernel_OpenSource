@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,6 +196,13 @@ struct sde_hw_mdp_ops {
 	 * @mdp: mdp top context driver
 	 */
 	void (*intf_audio_select)(struct sde_hw_mdp *mdp);
+
+	/**
+	 * set_mdp_hw_events - enable qdss hardware events for mdp
+	 * @mdp: mdp top context driver
+	 * @enable: enable/disable hw events
+	 */
+	void (*set_mdp_hw_events)(struct sde_hw_mdp *mdp, bool enable);
 
 	/**
 	 * set_cwb_ppb_cntl - select the data point for CWB
