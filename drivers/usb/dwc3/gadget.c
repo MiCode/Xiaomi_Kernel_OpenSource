@@ -3746,12 +3746,16 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 {
-	struct dwc3 *dwc = evt->dwc;
+	struct dwc3 *dwc;
 	u32 amount;
 	u32 count;
 	u32 reg;
 	ktime_t start_time;
 
+	if (!evt)
+		return IRQ_NONE;
+
+	dwc = evt->dwc;
 	start_time = ktime_get();
 	dwc->irq_cnt++;
 
