@@ -1293,6 +1293,44 @@ end:
 	return rc;
 }
 
+static int cam_icp_mgr_ipe_bps_get_gdsc_control(
+	struct cam_icp_hw_mgr *hw_mgr)
+{
+	int rc = 0;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+
+	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
+	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
+	bps_dev_intf = hw_mgr->bps_dev_intf;
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong");
+		return -EINVAL;
+	}
+
+	if (icp_hw_mgr.ipe_bps_pc_flag) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_POWER_COLLAPSE,
+			NULL, 0);
+
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
+			CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_POWER_COLLAPSE,
+				NULL, 0);
+		}
+	}
+
+	return rc;
+}
+
 static int cam_icp_set_dbg_default_clk(void *data, u64 val)
 {
 	icp_hw_mgr.icp_debug_clk = val;
@@ -1817,27 +1855,31 @@ static int cam_icp_ipebps_reset(struct cam_icp_hw_mgr *hw_mgr)
 	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
 	bps_dev_intf = hw_mgr->bps_dev_intf;
 
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "bps reset failed");
+	if (hw_mgr->bps_ctxt_cnt) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_RESET,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ICP, "bps reset failed");
+	}
 
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "ipe0 reset failed");
-
-	if (ipe1_dev_intf) {
-		rc = ipe1_dev_intf->hw_ops.process_cmd(
-			ipe1_dev_intf->hw_priv,
+	if (hw_mgr->ipe_ctxt_cnt) {
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
 			CAM_ICP_IPE_CMD_RESET,
 			NULL, 0);
 		if (rc)
-			CAM_ERR(CAM_ICP, "ipe1 reset failed");
+			CAM_ERR(CAM_ICP, "ipe0 reset failed");
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_RESET,
+				NULL, 0);
+			if (rc)
+				CAM_ERR(CAM_ICP, "ipe1 reset failed");
+		}
 	}
 
 	return 0;
@@ -1858,6 +1900,7 @@ static int cam_icp_mgr_trigger_recovery(struct cam_icp_hw_mgr *hw_mgr)
 	sfr_buffer = (struct sfr_buf *)icp_hw_mgr.hfi_mem.sfr_buf.kva;
 	CAM_WARN(CAM_ICP, "SFR:%s", sfr_buffer->msg);
 
+	cam_icp_mgr_ipe_bps_get_gdsc_control(hw_mgr);
 	cam_icp_ipebps_reset(hw_mgr);
 
 	atomic_set(&hw_mgr->recovery, 1);
