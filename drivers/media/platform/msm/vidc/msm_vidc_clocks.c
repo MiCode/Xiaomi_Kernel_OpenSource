@@ -688,6 +688,10 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		/* 21 / 20 is minimum overhead factor */
 		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
+		/* 1.059 pipeline overhead factor */
+		if (inst->clk_data.work_route > 1)
+			vpp_cycles += vpp_cycles/17;
+
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* vsp perf is about 0.5 bits/cycle */
