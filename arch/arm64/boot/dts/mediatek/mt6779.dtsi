@@ -545,6 +545,10 @@
 		};
 	};
 
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+	};
+
 	mtkfb: mtkfb {
 		compatible = "mediatek,mtkfb";
 	};
