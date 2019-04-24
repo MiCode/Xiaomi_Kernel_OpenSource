@@ -2079,6 +2079,7 @@ exit:
 
 	}
 	qseecom.app_block_ref_cnt--;
+	wake_up_interruptible_all(&qseecom.app_block_wq);
 	if (rc)
 		return rc;
 
@@ -2439,24 +2440,15 @@ exit:
  */
 static void __qseecom_reentrancy_check_if_no_app_blocked(uint32_t smc_id)
 {
-	sigset_t new_sigset, old_sigset;
-
 	if (qseecom.qsee_reentrancy_support > QSEE_REENTRANCY_PHASE_0 &&
 		qseecom.qsee_reentrancy_support < QSEE_REENTRANCY_PHASE_3 &&
 		IS_OWNER_TRUSTED_OS(TZ_SYSCALL_OWNER_ID(smc_id))) {
 		/* thread sleep until this app unblocked */
 		while (qseecom.app_block_ref_cnt > 0) {
-			sigfillset(&new_sigset);
-			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
-			do {
-				if (!wait_event_interruptible(
-					qseecom.app_block_wq,
-					(qseecom.app_block_ref_cnt == 0)))
-					break;
-			} while (1);
+			wait_event_interruptible(qseecom.app_block_wq,
+				(!qseecom.app_block_ref_cnt));
 			mutex_lock(&app_access_lock);
-			sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 		}
 	}
 }
@@ -2469,24 +2461,15 @@ static void __qseecom_reentrancy_check_if_no_app_blocked(uint32_t smc_id)
 static void __qseecom_reentrancy_check_if_this_app_blocked(
 			struct qseecom_registered_app_list *ptr_app)
 {
-	sigset_t new_sigset, old_sigset;
-
 	if (qseecom.qsee_reentrancy_support) {
 		ptr_app->check_block++;
 		while (ptr_app->app_blocked || qseecom.app_block_ref_cnt > 1) {
 			/* thread sleep until this app unblocked */
-			sigfillset(&new_sigset);
-			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
-			do {
-				if (!wait_event_interruptible(
-					qseecom.app_block_wq,
-					(!ptr_app->app_blocked &&
-					qseecom.app_block_ref_cnt <= 1)))
-					break;
-			} while (1);
+			wait_event_interruptible(qseecom.app_block_wq,
+				(!ptr_app->app_blocked &&
+				qseecom.app_block_ref_cnt <= 1));
 			mutex_lock(&app_access_lock);
-			sigprocmask(SIG_SETMASK, &old_sigset, NULL);
 		}
 		ptr_app->check_block--;
 	}
@@ -3373,7 +3356,7 @@ int __qseecom_process_reentrancy(struct qseecom_command_scm_resp *resp,
 		ret = __qseecom_reentrancy_process_incomplete_cmd(data, resp);
 		ptr_app->app_blocked = false;
 		qseecom.app_block_ref_cnt--;
-		wake_up_interruptible(&qseecom.app_block_wq);
+		wake_up_interruptible_all(&qseecom.app_block_wq);
 		if (ret)
 			pr_err("process_incomplete_cmd failed err: %d\n",
 					ret);
