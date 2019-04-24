@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,17 +577,17 @@ TRACE_EVENT(adreno_preempt_trigger,
 		unsigned int cntl),
 	TP_ARGS(cur, next, cntl),
 	TP_STRUCT__entry(
-		__field(struct adreno_ringbuffer *, cur)
-		__field(struct adreno_ringbuffer *, next)
+		__field(unsigned int, cur)
+		__field(unsigned int, next)
 		__field(unsigned int, cntl)
 	),
 	TP_fast_assign(
-		__entry->cur = cur;
-		__entry->next = next;
+		__entry->cur = cur->id;
+		__entry->next = next->id;
 		__entry->cntl = cntl;
 	),
 	TP_printk("trigger from id=%d to id=%d cntl=%x",
-		__entry->cur->id, __entry->next->id, __entry->cntl
+		__entry->cur, __entry->next, __entry->cntl
 	)
 );
 
@@ -596,17 +596,17 @@ TRACE_EVENT(adreno_preempt_done,
 		unsigned int level),
 	TP_ARGS(cur, next, level),
 	TP_STRUCT__entry(
-		__field(struct adreno_ringbuffer *, cur)
-		__field(struct adreno_ringbuffer *, next)
+		__field(unsigned int, cur)
+		__field(unsigned int, next)
 		__field(unsigned int, level)
 	),
 	TP_fast_assign(
-		__entry->cur = cur;
-		__entry->next = next;
+		__entry->cur = cur->id;
+		__entry->next = next->id;
 		__entry->level = level;
 	),
 	TP_printk("done switch to id=%d from id=%d level=%x",
-		__entry->next->id, __entry->cur->id, __entry->level
+		__entry->next, __entry->cur, __entry->level
 	)
 );
 
