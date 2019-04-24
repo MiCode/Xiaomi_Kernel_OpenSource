@@ -883,8 +883,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctx, FSYNR1);
 			KGSL_MEM_CRIT(ctx->kgsldev,
 				"FAULTING BLOCK: %s\n",
-				gpudev->iommu_fault_block(adreno_dev,
-								fsynr1));
+				gpudev->iommu_fault_block(device, fsynr1));
 		}
 
 		/* Don't print the debug if this is a permissions fault */
