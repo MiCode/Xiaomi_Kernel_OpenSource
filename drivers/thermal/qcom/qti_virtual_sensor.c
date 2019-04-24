@@ -172,6 +172,15 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 				"cpuss-2-usr"},
 		.logic = VIRT_MAXIMUM,
 	},
+	{
+		.virt_zone_name = "quad-gpuss-max-step",
+		.num_sensors = 4,
+		.sensor_names = {"gpuss-0-usr",
+				"gpuss-1-usr",
+				"gpuss-2-usr",
+				"gpuss-3-usr"},
+		.logic = VIRT_MAXIMUM,
+	},
 };
 
 int qti_virtual_sensor_register(struct device *dev)
