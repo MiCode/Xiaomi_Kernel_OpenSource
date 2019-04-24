@@ -56,6 +56,10 @@
 			};
 		};
 
+		pmic_efuse: pmic_efuse {
+			compatible = "mediatek,mt6359-efuse";
+		};
+
 		mt6359regulator: mt6359regulator {
 			compatible = "mediatek,mt6359-regulator";
 			mt6359_vs1_buck_reg: buck_vs1 {
