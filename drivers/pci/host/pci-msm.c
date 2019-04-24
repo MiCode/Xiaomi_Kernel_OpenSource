@@ -733,6 +733,7 @@ struct msm_pcie_dev_t {
 	bool				use_19p2mhz_aux_clk;
 	bool				use_pinctrl;
 	bool enable_l1ss_timeout;
+	bool				keep_powerdown_phy;
 	struct pinctrl			*pinctrl;
 	struct pinctrl_state		*pins_default;
 	struct pinctrl_state		*pins_sleep;
@@ -3193,6 +3194,11 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 
 		regulator_disable(dev->gdsc);
 	}
+
+	/* Clear power down bit to enable PHY */
+	if (dev->keep_powerdown_phy && dev->phy_power_down_offset)
+		msm_pcie_write_mask(dev->phy + dev->phy_power_down_offset, 0,
+									BIT(4));
 
 	for (i = 0; i < MSM_PCIE_MAX_RESET; i++) {
 		reset_info = &dev->reset[i];
@@ -5913,6 +5919,18 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	if (ret)
 		PCIE_DBG(&msm_pcie_dev[rc_idx],
 			"PCIe:RC%d didn't register pipeclock source\n", rc_idx);
+
+	msm_pcie_dev[rc_idx].keep_powerdown_phy =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,keep-powerdown-phy");
+	/* Power down PHY to avoid leakage at 1.8V LDO */
+	if (msm_pcie_dev[rc_idx].keep_powerdown_phy &&
+				msm_pcie_dev[rc_idx].phy_power_down_offset) {
+		msm_pcie_clk_init(&msm_pcie_dev[rc_idx]);
+		msm_pcie_write_reg(msm_pcie_dev[rc_idx].phy,
+				msm_pcie_dev[rc_idx].phy_power_down_offset, 0);
+		msm_pcie_clk_deinit(&msm_pcie_dev[rc_idx]);
+	}
 
 	if (msm_pcie_dev[rc_idx].boot_option &
 			MSM_PCIE_NO_PROBE_ENUMERATION) {
