@@ -17,6 +17,8 @@ Optional properties:
 				Defaults to 0x08 if not specified.
 - qcom,stall-cycle-ev:		The stall cycle count that this monitor is supposed to measure.
 				Assumes 100% stall if not specified.
+- qcom,ddr-type:		Optional property indicates ddr type which can support
+				different frequencies for a given target.
 
 
 Example:
@@ -27,8 +29,18 @@ Example:
 		qcom,cachemiss-ev = <0x2A>;
 		qcom,inst-ev = <0x08>;
 		qcom,stall-cycle-ev = <0xE7>;
-		qcom,core-dev-table =
-			<  300000 1525>,
-			<  499200 3143>,
-			< 1881600 5859>;
+		ddr3-map {
+			qcom,ddr-type = <DDR_TYPE_LPDDR3>;
+			qcom,core-dev-table =
+				<  300000 1525 >,
+				<  499200 3143 >,
+				< 1881600 5859 >;
+		};
+		ddr4-map {
+			qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+			qcom,core-dev-table =
+				<  300000 1525 >,
+				<  499200 3143 >,
+				< 1881600 5859 >;
+		};
 	};
