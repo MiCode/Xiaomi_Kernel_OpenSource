@@ -8027,7 +8027,10 @@ static const struct ieee80211_iface_limit ath10k_tlv_if_vap_limit[] = {
 	},
 	{
 		.max = 3,
-		.types = BIT(NL80211_IFTYPE_AP),
+		.types = BIT(NL80211_IFTYPE_AP)
+#ifdef CONFIG_MAC80211_MESH
+			| BIT(NL80211_IFTYPE_MESH_POINT)
+#endif
 	},
 };
 
