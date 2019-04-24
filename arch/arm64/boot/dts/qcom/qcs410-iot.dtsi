@@ -132,3 +132,19 @@
 &pil_modem_mem {
 	reg = <0 0x8fd00000 0 0x3100000>;
 };
+
+&L16A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L19A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L4C {
+	regulator-max-microvolt = <2912000>;
+};
+
+&L5C {
+	regulator-max-microvolt = <2912000>;
+};

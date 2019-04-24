@@ -177,3 +177,19 @@
 
 	status = "ok";
 };
+
+&L16A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L19A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L4C {
+	regulator-max-microvolt = <2912000>;
+};
+
+&L5C {
+	regulator-max-microvolt = <2912000>;
+};
