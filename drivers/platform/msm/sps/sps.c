@@ -2246,7 +2246,13 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	ok = sps_bam_device_init(bam);
 	mutex_unlock(&bam->lock);
 	if (ok) {
-		SPS_ERR(bam, "sps:Fail to init BAM device: phys %pa",
+		ipc_log_context_destroy(bam->ipc_log0);
+		ipc_log_context_destroy(bam->ipc_log1);
+		ipc_log_context_destroy(bam->ipc_log2);
+		ipc_log_context_destroy(bam->ipc_log3);
+		ipc_log_context_destroy(bam->ipc_log4);
+
+		SPS_ERR(sps, "sps:Fail to init BAM device: phys %pa",
 			&bam->props.phys_addr);
 		goto exit_err;
 	}
