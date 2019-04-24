@@ -1176,7 +1176,10 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 	list_add_tail(&rx_msg->entry, &pd->rx_q);
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
-	kick_sm(pd, 0);
+	if (!work_busy(&pd->sm_work))
+		kick_sm(pd, 0);
+	else
+		usbpd_dbg(&pd->dev, "usbpd_sm already running\n");
 }
 
 static void phy_shutdown(struct usbpd *pd)
@@ -3587,7 +3590,7 @@ sm_done:
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
 
 	/* requeue if there are any new/pending RX messages */
-	if (!ret)
+	if (!ret && !pd->sm_queued)
 		kick_sm(pd, 0);
 
 	if (!pd->sm_queued)
@@ -3756,7 +3759,12 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		usbpd_dbg(&pd->dev, "hard reset: typec mode:%d present:%d\n",
 			typec_mode, pd->vbus_present);
 		pd->typec_mode = typec_mode;
-		kick_sm(pd, 0);
+
+		if (!work_busy(&pd->sm_work))
+			kick_sm(pd, 0);
+		else
+			usbpd_dbg(&pd->dev, "usbpd_sm already running\n");
+
 		return 0;
 	}
 
