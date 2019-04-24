@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -381,7 +381,8 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 				TSENS_TM_CRITICAL_INT_CLEAR(
 					tm->tsens_tm_addr));
 			tm->sensor[i].thr_state.
-					crit_th_state = THERMAL_DEVICE_DISABLED;
+				crit_th_state =
+				THERMAL_TRIP_ACTIVATION_DISABLED;
 		}
 		spin_unlock_irqrestore(&tm->tsens_crit_lock, flags);
 	}
@@ -458,7 +459,8 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			} else {
 				upper_thr = true;
 				tm->sensor[i].thr_state.
-					high_th_state = THERMAL_DEVICE_DISABLED;
+					high_th_state =
+					THERMAL_TRIP_ACTIVATION_DISABLED;
 			}
 		}
 
@@ -490,7 +492,8 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			} else {
 				lower_thr = true;
 				tm->sensor[i].thr_state.
-					low_th_state = THERMAL_DEVICE_DISABLED;
+					low_th_state =
+					THERMAL_TRIP_ACTIVATION_DISABLED;
 			}
 		}
 		spin_unlock_irqrestore(&tm->tsens_upp_low_lock, flags);

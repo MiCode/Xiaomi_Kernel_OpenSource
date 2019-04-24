@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,7 +166,7 @@ static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 }
 
 static int tsens_tz_activate_trip_type(struct tsens_sensor *tm_sensor,
-			int trip, enum thermal_device_mode mode)
+			int trip, enum thermal_trip_activation_mode mode)
 {
 	struct tsens_device *tmdev = NULL;
 	unsigned int reg_cntl, code, hi_code, lo_code, mask;
@@ -212,7 +212,7 @@ static int tsens_tz_activate_trip_type(struct tsens_sensor *tm_sensor,
 		return -EINVAL;
 	}
 
-	if (mode == THERMAL_DEVICE_DISABLED)
+	if (mode == THERMAL_TRIP_ACTIVATION_DISABLED)
 		writel_relaxed(reg_cntl | mask,
 		(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tmdev->tsens_tm_addr) +
 			(tm_sensor->hw_id * TSENS_SN_ADDR_OFFSET)));
@@ -291,7 +291,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	if (high_temp != INT_MAX) {
 		rc = tsens_tz_activate_trip_type(tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_HI,
-				THERMAL_DEVICE_ENABLED);
+				THERMAL_TRIP_ACTIVATION_ENABLED);
 		if (rc) {
 			pr_err("trip high enable error :%d\n", rc);
 			goto fail;
@@ -299,7 +299,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	} else {
 		rc = tsens_tz_activate_trip_type(tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_HI,
-				THERMAL_DEVICE_DISABLED);
+				THERMAL_TRIP_ACTIVATION_DISABLED);
 		if (rc) {
 			pr_err("trip high disable error :%d\n", rc);
 			goto fail;
@@ -309,7 +309,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	if (low_temp != INT_MIN) {
 		rc = tsens_tz_activate_trip_type(tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_LOW,
-				THERMAL_DEVICE_ENABLED);
+				THERMAL_TRIP_ACTIVATION_ENABLED);
 		if (rc) {
 			pr_err("trip low enable activation error :%d\n", rc);
 			goto fail;
@@ -317,7 +317,7 @@ static int tsens1xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 	} else {
 		rc = tsens_tz_activate_trip_type(tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_LOW,
-				THERMAL_DEVICE_DISABLED);
+				THERMAL_TRIP_ACTIVATION_DISABLED);
 		if (rc) {
 			pr_err("trip low disable error :%d\n", rc);
 			goto fail;
@@ -379,15 +379,15 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			if (th_temp > (temp/TSENS_SCALE_MILLIDEG)) {
 				pr_debug("Re-arm high threshold\n");
 				rc = tsens_tz_activate_trip_type(
-						&tm->sensor[i],
-						THERMAL_TRIP_CONFIGURABLE_HI,
-						THERMAL_DEVICE_ENABLED);
+					&tm->sensor[i],
+					THERMAL_TRIP_CONFIGURABLE_HI,
+					THERMAL_TRIP_ACTIVATION_ENABLED);
 				if (rc)
 					pr_err("high rearm failed");
 			} else {
 				upper_thr = true;
 				tm->sensor[i].thr_state.high_th_state =
-					THERMAL_DEVICE_DISABLED;
+					THERMAL_TRIP_ACTIVATION_DISABLED;
 			}
 		}
 
@@ -401,15 +401,15 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			if (th_temp < (temp/TSENS_SCALE_MILLIDEG)) {
 				pr_debug("Re-arm Low threshold\n");
 				rc = tsens_tz_activate_trip_type(
-						&tm->sensor[i],
-						THERMAL_TRIP_CONFIGURABLE_LOW,
-						THERMAL_DEVICE_ENABLED);
+					&tm->sensor[i],
+					THERMAL_TRIP_CONFIGURABLE_LOW,
+					THERMAL_TRIP_ACTIVATION_ENABLED);
 				if (rc)
 					pr_err("low rearm failed");
 			} else {
 				lower_thr = true;
 				tm->sensor[i].thr_state.low_th_state =
-					THERMAL_DEVICE_DISABLED;
+					THERMAL_TRIP_ACTIVATION_DISABLED;
 			}
 		}
 		spin_unlock_irqrestore(&tm->tsens_upp_low_lock, flags);

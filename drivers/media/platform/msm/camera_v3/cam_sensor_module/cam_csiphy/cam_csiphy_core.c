@@ -850,6 +850,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		ahb_vote.type = CAM_VOTE_ABSOLUTE;
 		ahb_vote.vote.level = CAM_SVS_VOTE;
 		axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 		axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 		rc = cam_cpas_start(csiphy_dev->cpas_handle,
