@@ -5,5 +5,6 @@ obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/
 obj-$(CONFIG_MTK_FB) += video/
 obj-$(CONFIG_MTK_SYNC) += sync/
+obj-${CONFIG_MTK_ATF_LOGGER} += atf/
 
 
