@@ -233,12 +233,14 @@ struct cam_req_mgr_slot {
  * @slot        : request slot holding incoming request id and bubble info.
  * @rd_idx      : indicates slot index currently in process.
  * @wr_idx      : indicates slot index to hold new upcoming req.
+ * @last_applied_idx : indicates slot index last applied successfully.
  */
 struct cam_req_mgr_req_queue {
 	int32_t                     num_slots;
 	struct cam_req_mgr_slot     slot[MAX_REQ_SLOTS];
 	int32_t                     rd_idx;
 	int32_t                     wr_idx;
+	int32_t                     last_applied_idx;
 };
 
 /**
