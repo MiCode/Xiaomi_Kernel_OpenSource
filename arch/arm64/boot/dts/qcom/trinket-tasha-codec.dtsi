@@ -39,7 +39,7 @@
 		"msm-pcm-routing",
 		"msm-compr-dsp", "msm-pcm-dsp-noirq",
 		"msm-cpe-lsm", "msm-cpe-lsm.3";
-	asoc-cpu = <&dai_mi2s0>, <&dai_mi2s1>,
+	asoc-cpu = <&dai_dp>, <&dai_mi2s0>, <&dai_mi2s1>,
 		<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>,
 		<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 		<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
@@ -59,7 +59,8 @@
 		<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
 		<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
 		<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
-	asoc-cpu-names = "msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+	asoc-cpu-names = "msm-dai-q6-dp.24608",
+		"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 		"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 		"msm-dai-q6-mi2s.4",
 		"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
@@ -117,8 +118,8 @@
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,msm-mclk-freq = <9600000>;
-	asoc-codec = <&stub_codec>;
-	asoc-codec-names = "msm-stub-codec.1";
+	asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-ext-disp-audio-codec-rx";
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_70212>, <&wsa881x_70211>,
 		<&wsa881x_70214>, <&wsa881x_70213>;
