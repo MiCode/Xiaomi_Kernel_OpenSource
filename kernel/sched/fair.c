@@ -10253,7 +10253,12 @@ out:
 				 group ? group->cpumask[0] : 0,
 				 busiest ? busiest->nr_running : 0,
 				 env.imbalance, env.flags, ld_moved,
-				 sd->balance_interval, active_balance);
+				 sd->balance_interval, active_balance,
+#ifdef CONFIG_SCHED_WALT
+				 sd_overutilized(sd));
+#else
+				 READ_ONCE(this_rq->rd->overutilized));
+#endif
 	return ld_moved;
 }
 
