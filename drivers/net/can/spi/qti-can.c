@@ -46,6 +46,8 @@
 #define DRIVER_MODE_AMB			2
 #define QUERY_FIRMWARE_TIMEOUT_MS	100
 #define EUPGRADE			140
+#define QTIMER_DIV				192
+#define QTIMER_MUL				10000
 
 struct qti_can {
 	struct net_device	**netdev;
@@ -68,6 +70,7 @@ struct qti_can {
 	int reset_delay_msec;
 	int reset;
 	bool support_can_fd;
+	bool use_qtimer;
 	bool can_fw_cmd_timeout_req;
 	u32 rem_all_buffering_timeout_ms;
 	u32 can_fw_cmd_timeout_ms;
@@ -276,6 +279,25 @@ static irqreturn_t qti_can_irq(int irq, void *priv)
 	return IRQ_HANDLED;
 }
 
+static inline bool property_bool(struct device_node *np, const char *str)
+{
+	u32 tmp_val = 0;
+
+	if (of_property_read_u32(np, str, &tmp_val) < 0)
+		return false;
+	else
+		return (bool)tmp_val;
+}
+
+static inline u64 qtimer_time(void)
+{
+	u64 qt_count = 0;
+
+	qt_count = arch_counter_get_cntvct();
+
+	return mul_u64_u32_div(qt_count, QTIMER_MUL, QTIMER_DIV);
+}
+
 static void qti_can_receive_frame(struct qti_can *priv_data,
 				  struct can_receive_frame *frame)
 {
@@ -364,7 +386,6 @@ static int qti_can_process_response(struct qti_can *priv_data,
 {
 	int ret = 0;
 	u64 mstime;
-	ktime_t ktime_now;
 
 	LOGDI("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
 	if (resp->cmd == CMD_CAN_RECEIVE_FRAME) {
@@ -427,8 +448,11 @@ static int qti_can_process_response(struct qti_can *priv_data,
 		struct can_time_info *time_data =
 			(struct can_time_info *)resp->data;
 
-		ktime_now = ktime_get_boottime();
-		mstime = ktime_to_ms(ktime_now);
+		if (priv_data->use_qtimer)
+			mstime = (((s64)qtimer_time()) / NSEC_PER_MSEC);
+		else
+			mstime = ktime_to_ms(ktime_get_boottime());
+
 		priv_data->time_diff = mstime - (le64_to_cpu(time_data->time));
 	}
 
@@ -1359,6 +1383,10 @@ static int qti_can_probe(struct spi_device *spi)
 
 	priv_data->support_can_fd = of_property_read_bool(spi->dev.of_node,
 							  "support-can-fd");
+
+	priv_data->use_qtimer = property_bool(spi->dev.of_node,
+					      "qcom,use_qtimer");
+	LOGDI("DT property: qcom,use_qtimer:%d\n", priv_data->use_qtimer);
 
 	if (of_device_is_compatible(spi->dev.of_node, "qcom,nxp,mpc5746c"))
 		qti_can_bittiming_const = flexcan_bittiming_const;
