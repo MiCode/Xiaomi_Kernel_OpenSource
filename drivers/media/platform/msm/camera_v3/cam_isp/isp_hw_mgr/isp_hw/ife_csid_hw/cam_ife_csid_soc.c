@@ -129,6 +129,7 @@ int cam_ife_csid_enable_soc_resources(
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	CAM_DBG(CAM_ISP, "csid vote compressed_bw:%lld uncompressed_bw:%lld",

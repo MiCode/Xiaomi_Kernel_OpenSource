@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,9 @@
 };
 
 &pm8953_mpps {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	mpp@a100 {
 		reg = <0xa100 0x100>;
 		qcom,pin-num = <2>;
