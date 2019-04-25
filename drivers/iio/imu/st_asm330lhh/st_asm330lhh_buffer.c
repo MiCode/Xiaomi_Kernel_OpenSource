@@ -36,10 +36,27 @@
 #define ST_ASM330LHH_TS_TAG			0x04
 
 #define ST_ASM330LHH_TS_DELTA_NS		25000ULL /* 25us/LSB */
+#define QTIMER_DIV				192
+#define QTIMER_MUL				10000
+
+static int asm330_use_qtimer;
+
+static inline u64 qTimerTime(void)
+{
+	u64 qTCount = 0;
+
+	qTCount = arch_counter_get_cntvct();
+
+	return mul_u64_u32_div(qTCount, QTIMER_MUL, QTIMER_DIV);
+}
 
 static inline s64 st_asm330lhh_get_time_ns(void)
 {
 	struct timespec ts;
+
+	/* if enabled, use qtimer instead of monotonic timestamp */
+	if (asm330_use_qtimer)
+		return (s64)qTimerTime();
 
 	get_monotonic_boottime(&ts);
 	return timespec_to_ns(&ts);
@@ -503,6 +520,10 @@ int st_asm330lhh_fifo_setup(struct st_asm330lhh_hw *hw)
 
 		irq_type |= IRQF_SHARED;
 	}
+
+	/* use qtimer if property is enabled */
+	if (of_property_read_u32(np, "qcom,use_qtimer", &asm330_use_qtimer))
+		asm330_use_qtimer = 0; //force to 0 if not in dt
 
 	err = devm_request_threaded_irq(hw->dev, hw->irq,
 					st_asm330lhh_handler_irq,

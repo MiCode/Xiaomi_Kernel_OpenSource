@@ -13,6 +13,12 @@
 #include "sa8155-adp-common.dtsi"
 #include "sa8155-adp-alcor-display.dtsi"
 
+&qupv3_se0_spi {
+	can-controller@0 {
+		qcom,use_qtimer = <1>; /* 0:Disable, 1:Enable */
+	};
+};
+
 &pcie1 {
 	qcom,boot-option = <0x0>;
 };
@@ -48,5 +54,11 @@
 
 		qcom,smmu-attr-atomic;
 		qcom,smmu-attr-s1-bypass;
+	};
+};
+
+&qupv3_se10_i2c {
+	asm330@6a {
+		qcom,use_qtimer = <1>; /* 0:Disable 1:Enable */
 	};
 };
