@@ -25,7 +25,8 @@
 	compatible = "qcom,apq8009-mtp", "qcom,apq8009", "qcom,mtp";
 	qcom,msm-id =   <265 0>,
 			<301 0>;
-	qcom,board-id = <8 0x10f>;
+	qcom,board-id = <8 0x10f>,
+			<8 0x117>;
 	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
 			<0x0001011b 0x0 0x0 0x0>;
 };
