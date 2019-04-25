@@ -10595,7 +10595,8 @@ out:
 				 group ? group->cpumask[0] : 0,
 				 busiest ? busiest->nr_running : 0,
 				 env.imbalance, env.flags, ld_moved,
-				 sd->balance_interval, active_balance);
+				 sd->balance_interval, active_balance,
+				 sd_overutilized(sd));
 	return ld_moved;
 }
 
