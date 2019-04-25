@@ -937,7 +937,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	struct usb_gadget	*gadget = &dwc->gadget;
 	enum usb_device_speed	speed = gadget->speed;
 
-	dwc3_trace(trace_dwc3_gadget, "%s: req %pK dma %08llx length %d%s%s",
+	dwc3_trace(trace_dwc3_gadget, "%s: req %pK dma %08llx length %d%s",
 			dep->name, req, (unsigned long long) dma,
 			length, chain ? " chain" : "");
 
