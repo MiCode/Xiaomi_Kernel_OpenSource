@@ -545,9 +545,11 @@ static int diag_remove_client_entry(struct file *file)
 	 * This call will remove any pending registrations of such client
 	 */
 	mutex_lock(&driver->dci_mutex);
-	dci_entry = dci_lookup_client_entry_pid(current->tgid);
-	if (dci_entry)
-		diag_dci_deinit_client(dci_entry);
+	do {
+		dci_entry = dci_lookup_client_entry_pid(current->tgid);
+		if (dci_entry)
+			diag_dci_deinit_client(dci_entry);
+	} while (dci_entry);
 	mutex_unlock(&driver->dci_mutex);
 
 	diag_close_logging_process(current->tgid);
@@ -951,6 +953,9 @@ drop:
 				mutex_unlock(&buf_entry->data_mutex);
 				kfree(buf_entry);
 				continue;
+			} else {
+				mutex_unlock(&buf_entry->data_mutex);
+				continue;
 			}
 
 		}
@@ -959,7 +964,7 @@ drop:
 
 	if (total_data_len > 0) {
 		/* Copy the total data length */
-		COPY_USER_SPACE_OR_ERR(buf+8, total_data_len, 4);
+		COPY_USER_SPACE_OR_ERR(buf+(*pret), total_data_len, 4);
 		if (ret == -EFAULT)
 			goto exit;
 		ret -= 4;
@@ -3737,19 +3742,24 @@ exit:
 			ret += sizeof(int);
 			copy_dci_data = 1;
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
-			mutex_lock(&driver->diagchar_mutex);
-			driver->data_ready[index] ^= DCI_DATA_TYPE;
-			atomic_dec(&driver->data_ready_notif[index]);
-			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
 				put_task_struct(task_s);
 				put_pid(pid_struct);
+				mutex_lock(&driver->diagchar_mutex);
+				driver->data_ready[index] ^= DCI_DATA_TYPE;
+				atomic_dec(&driver->data_ready_notif[index]);
+				mutex_unlock(&driver->diagchar_mutex);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
 			put_task_struct(task_s);
 			put_pid(pid_struct);
+			continue;
 		}
+		mutex_lock(&driver->diagchar_mutex);
+		driver->data_ready[index] ^= DCI_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_unlock(&driver->dci_mutex);
 		goto end;
 	}
