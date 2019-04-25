@@ -1,0 +1,37 @@
+= Mediatek MT6359 PMIC eFuse device tree bindings =
+
+Required properties:
+- compatible: Should be
+	"mediatek,mt6359-efuse": for MT6359 PMIC
+
+= Data cells =
+Are child nodes of PMIC eFuse, bindings of which as described in
+bindings/nvmem/nvmem.txt
+
+Example:
+
+	pmic_efuse: efuse {
+		compatible = "mt6359-efuse";
+
+		/* Data cells */
+		accdet_cali: accdet_cali@10 {
+			reg = <0x66 0x2>;
+		};
+	};
+
+= Data consumers =
+Are device nodes which consume nvmem data cells or nvmem device directly.
+
+Example:
+
+	thermal {
+		...
+		nvmem = <&pmic_efuse>;
+		nvmem-names = "pmic_efuse_device";
+	};
+
+	accdet {
+		...
+		nvmem-cells = <&accdet_cali>;
+		nvmem-cell-names = "calibration";
+	};
