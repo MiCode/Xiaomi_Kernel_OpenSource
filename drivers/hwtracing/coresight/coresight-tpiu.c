@@ -12,6 +12,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/device.h>
@@ -80,7 +81,7 @@ static int tpiu_enable(struct coresight_device *csdev, u32 mode, void *__unused)
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 	tpiu_enable_hw(drvdata);
-
+	atomic_inc(csdev->refcnt);
 	dev_dbg(drvdata->dev, "TPIU enabled\n");
 	return 0;
 }
@@ -104,6 +105,9 @@ static void tpiu_disable_hw(struct tpiu_drvdata *drvdata)
 static int tpiu_disable(struct coresight_device *csdev)
 {
 	struct tpiu_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+
+	if (atomic_dec_return(csdev->refcnt))
+		return -EBUSY;
 
 	tpiu_disable_hw(drvdata);
 
