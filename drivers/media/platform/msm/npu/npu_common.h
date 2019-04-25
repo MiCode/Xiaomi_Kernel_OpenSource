@@ -186,12 +186,13 @@ struct npu_thermalctrl {
 	uint32_t pwr_level;
 };
 
-#define NPU_MAX_IRQ		3
+#define NPU_MAX_IRQ		8
 
 struct npu_irq {
 	char *name;
 	int irq;
 	int irq_type;
+	irq_handler_t handler;
 };
 
 struct npu_io_data {
@@ -212,6 +213,7 @@ struct npu_device {
 
 	struct npu_io_data core_io;
 	struct npu_io_data tcm_io;
+	struct npu_io_data cc_io;
 	struct npu_io_data qdsp_io;
 	struct npu_io_data apss_shared_io;
 	struct npu_io_data qfprom_io;
@@ -268,12 +270,17 @@ void npu_disable_core_power(struct npu_device *npu_dev);
 int npu_enable_post_pil_clocks(struct npu_device *npu_dev);
 void npu_disable_post_pil_clocks(struct npu_device *npu_dev);
 
-irqreturn_t npu_intr_hdler(int irq, void *ptr);
+irqreturn_t npu_ipc_intr_hdlr(int irq, void *ptr);
+irqreturn_t npu_general_intr_hdlr(int irq, void *ptr);
+irqreturn_t npu_err_intr_hdlr(int irq, void *ptr);
+irqreturn_t npu_wdg_intr_hdlr(int irq, void *ptr);
 
 int npu_set_uc_power_level(struct npu_device *npu_dev,
 	uint32_t pwr_level);
 
-int fw_init(struct npu_device *npu_dev);
-void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive);
+int enable_fw(struct npu_device *npu_dev);
+void disable_fw(struct npu_device *npu_dev);
+int load_fw(struct npu_device *npu_dev);
+int unload_fw(struct npu_device *npu_dev);
 
 #endif /* _NPU_COMMON_H */

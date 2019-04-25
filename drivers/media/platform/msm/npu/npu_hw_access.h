@@ -56,6 +56,9 @@ void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
 uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val);
+uint32_t npu_cc_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_cc_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val);
 void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t size);
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
