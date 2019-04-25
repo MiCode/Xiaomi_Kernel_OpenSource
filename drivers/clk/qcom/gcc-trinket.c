@@ -2874,7 +2874,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0_out_main",
+				"gpll0_out_early",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,

@@ -3348,9 +3348,9 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			int err;
 
 			err = mmc_blk_reset(md, card->host, type);
-			if (!err)
+			if (!err) {
 				break;
-			if (err == -ENODEV) {
+			} else {
 				mmc_blk_rw_cmd_abort(mq, card, old_req, mq_rq);
 				mmc_blk_rw_try_restart(mq, new_req, mqrq_cur);
 				return;

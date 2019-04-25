@@ -1009,6 +1009,19 @@
 		qcom,config-reg = <0x17e00434>;
 	};
 
+	kryo-erp {
+		compatible = "arm,arm64-kryo-cpu-erp";
+		interrupts = <1 6 4>,
+			     <1 7 4>,
+			     <0 34 4>,
+			     <0 35 4>;
+
+		interrupt-names = "l1-l2-faultirq",
+				  "l1-l2-errirq",
+				  "l3-scu-errirq",
+				  "l3-scu-faultirq";
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;

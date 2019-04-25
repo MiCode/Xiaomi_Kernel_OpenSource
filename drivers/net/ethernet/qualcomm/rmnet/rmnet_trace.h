@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #define TRACE_SYSTEM rmnet
 #define TRACE_INCLUDE_FILE rmnet_trace
 
-#if !defined(_TRACE_MSM_LOW_POWER_H_) || defined(TRACE_HEADER_MULTI_READ)
+#if !defined(_RMNET_TRACE_H_) || defined(TRACE_HEADER_MULTI_READ)
 #define _RMNET_TRACE_H_
 
 #include <linux/netdevice.h>
@@ -474,5 +474,5 @@ TP_printk("fun:%u ev:%u u1:%u u2:%u ul1:%llu ul2:%llu p1:0x%pK p2:0x%pK",
 
 /* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
+#define TRACE_INCLUDE_PATH ../drivers/net/ethernet/qualcomm/rmnet
 #include <trace/define_trace.h>

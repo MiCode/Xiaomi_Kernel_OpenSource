@@ -161,8 +161,8 @@ static struct clk_alpha_pll disp_cc_pll0_out_main = {
 
 static const struct freq_tbl ftbl_disp_cc_mdss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(37500000, P_GPLL0_OUT_MAIN, 8, 0, 0),
-	F(75000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(37500000, P_GPLL0_OUT_MAIN, 16, 0, 0),
+	F(75000000, P_GPLL0_OUT_MAIN, 8, 0, 0),
 	{ }
 };
 
@@ -177,7 +177,6 @@ static struct clk_rcg2 disp_cc_mdss_ahb_clk_src = {
 		.name = "disp_cc_mdss_ahb_clk_src",
 		.parent_names = disp_cc_parent_names_4,
 		.num_parents = 3,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -324,6 +323,8 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src[] = {
 	F(192000000, P_DISP_CC_PLL0_OUT_MAIN, 4, 0, 0),
 	F(256000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(307200000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(384000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	F(400000000, P_GPLL0_OUT_MAIN, 1.5, 0, 0),
 	{ }
 };
 
@@ -338,14 +339,15 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 		.name = "disp_cc_mdss_mdp_clk_src",
 		.parent_names = disp_cc_parent_names_3,
 		.num_parents = 4,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 192000000,
 			[VDD_LOW] = 256000000,
-			[VDD_LOW_L1] = 307200000},
+			[VDD_LOW_L1] = 307200000,
+			[VDD_NOMINAL] = 384000000,
+			[VDD_HIGH] = 400000000},
 	},
 };
 
@@ -368,12 +370,20 @@ static struct clk_rcg2 disp_cc_mdss_pclk0_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(192000000, P_DISP_CC_PLL0_OUT_MAIN, 4, 0, 0),
+	F(256000000, P_DISP_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(307200000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 	.cmd_rcgr = 0x208c,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = disp_cc_parent_map_3,
-	.freq_tbl = ftbl_disp_cc_mdss_mdp_clk_src,
+	.freq_tbl = ftbl_disp_cc_mdss_rot_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "disp_cc_mdss_rot_clk_src",

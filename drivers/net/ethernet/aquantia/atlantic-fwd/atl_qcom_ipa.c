@@ -19,7 +19,7 @@
 #include "atl_fwd.h"
 #include "atl_qcom_ipa.h"
 
-#define ATL_IPA_DEFAULT_RING_SZ 256
+#define ATL_IPA_DEFAULT_RING_SZ 128
 #define ATL_IPA_DEFAULT_BUFF_SZ 2048
 
 static inline struct atl_fwd_ring *CH_RING(struct ipa_eth_channel *ch)
@@ -74,7 +74,7 @@ static struct ipa_eth_channel *atl_ipa_request_channel(
 
 	ring = atl_fwd_request_ring(eth_dev->net_dev, ring_flags,
 				    ATL_IPA_DEFAULT_RING_SZ,
-				    ATL_IPA_DEFAULT_BUFF_SZ, 1);
+				    ATL_IPA_DEFAULT_BUFF_SZ, 1, NULL);
 	if (IS_ERR_OR_NULL(ring)) {
 		dev_err(eth_dev->dev, "Request ring failed");
 		goto err_exit;

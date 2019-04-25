@@ -1941,6 +1941,15 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	else
 		IPADBG("in->wdi_notify is null\n");
 
+	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
+		in->sys.ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
+		in->sys.ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
+		in->sys.ipa_ep_cfg.aggr.aggr_pkt_limit = IPA_AGGR_PKT_LIMIT;
+		in->sys.ipa_ep_cfg.aggr.aggr_byte_limit =
+						IPA_AGGR_HARD_BYTE_LIMIT;
+		in->sys.ipa_ep_cfg.aggr.aggr_hard_byte_limit_en =
+						IPA_ENABLE_AGGR;
+	}
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");

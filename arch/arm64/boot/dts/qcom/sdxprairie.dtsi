@@ -88,10 +88,10 @@
 			label = "mpss_debug_mem";
 		};
 
-		mpss_adsp_mem: mpss_adsp_region@83400000 {
+		mpss_adsp_mem: mpss_adsp_region@82300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x83400000 0xbb00000>;
+			reg = <0x82300000 0xcc00000>;
 			label = "mpss_adsp_mem";
 		};
 

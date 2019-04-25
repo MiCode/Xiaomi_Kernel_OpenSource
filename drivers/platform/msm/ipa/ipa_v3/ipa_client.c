@@ -185,14 +185,14 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 		goto reset_chan_fail;
 	}
 
-	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
 	/* undo the aggr value if flag was set above*/
 	if (undo_aggr_value) {
 		fields.open_aggr_wrapper = false;
 		ipahal_write_reg_fields(IPA_CLKON_CFG, &fields);
 	}
+
+	if (!ep->keep_ipa_awake)
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("exit\n");
 	return 0;

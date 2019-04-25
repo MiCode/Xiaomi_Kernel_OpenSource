@@ -26,6 +26,8 @@
 #include <linux/msm_ipa.h>
 #include <linux/msm_gsi.h>
 
+#define IPA_ETH_API_VER 1
+
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
  *                             driver that may be requested via offload APIs
@@ -90,30 +92,43 @@ enum ipa_eth_dev_events {
 
 /**
  * enum ipa_eth_channel_dir - Direction of a ring / channel
- * @IPA_ETH_DIR_RX: Traffic flowing from device to IPA
- * @IPA_ETH_DIR_TX: Traffic flowing from IPA to device
- * @IPA_ETH_DIR_BI: Bi-direction traffic flow
+ * @IPA_ETH_CH_DIR_RX: Traffic flowing from device to IPA
+ * @IPA_ETH_CH_DIR_TX: Traffic flowing from IPA to device
  */
 enum ipa_eth_channel_dir {
-	IPA_ETH_DIR_RX,
-	IPA_ETH_DIR_TX,
-	IPA_ETH_DIR_BI
+	IPA_ETH_CH_DIR_RX,
+	IPA_ETH_CH_DIR_TX,
+};
+
+#define IPA_ETH_DIR_RX IPA_ETH_CH_DIR_RX
+#define IPA_ETH_DIR_TX IPA_ETH_CH_DIR_TX
+
+/**
+ * enum ipa_eth_offload_state - Offload state of an ethernet device
+ * @IPA_ETH_OF_ST_DEINITED: No offload path resources are allocated
+ * @IPA_ETH_OF_ST_INITED: Offload path resources are allocated, but not started
+ * @IPA_ETH_OF_ST_STARTED: Offload path is started and ready to handle traffic
+ * @IPA_ETH_OF_ST_ERROR: One or more offload path components are in error state
+ * @IPA_ETH_OF_ST_RECOVERY: Offload path is attempting to recover from error
+ */
+enum ipa_eth_offload_state {
+	IPA_ETH_OF_ST_DEINITED = 0,
+	IPA_ETH_OF_ST_INITED,
+	IPA_ETH_OF_ST_STARTED,
+	IPA_ETH_OF_ST_ERROR,
+	IPA_ETH_OF_ST_RECOVERY,
+	IPA_ETH_OF_ST_MAX,
 };
 
 /**
- * enum ipa_eth_state - Offload state of an ethernet device
- * @IPA_ETH_ST_DEINITED: No offload path resources are allocated
- * @IPA_ETH_ST_INITED: Offload path resources are allocated, but not started
- * @IPA_ETH_ST_STARTED: Offload path is started and ready to handle traffic
- * @IPA_ETH_ST_ERROR: One or more offload path components are in error state
- * @IPA_ETH_ST_RECOVERY: Offload path is attempting to recover from error
+ * enum ipa_eth_offload_state - States of the network interface
+ * @IPA_ETH_IF_ST_UP: Network interface is up in software/Linux
+ * @IPA_ETH_IF_ST_LOWER_UP: Network interface PHY link is up / cable connected
  */
-enum ipa_eth_state {
-	IPA_ETH_ST_DEINITED = 0,
-	IPA_ETH_ST_INITED,
-	IPA_ETH_ST_STARTED,
-	IPA_ETH_ST_ERROR,
-	IPA_ETH_ST_RECOVERY,
+enum ipa_eth_interface_states {
+	IPA_ETH_IF_ST_UP,
+	IPA_ETH_IF_ST_LOWER_UP,
+	IPA_ETH_IF_ST_MAX,
 };
 
 struct ipa_eth_device;
@@ -195,8 +210,8 @@ struct ipa_eth_channel {
 	u64 exception_loopback;
 };
 
-#define IPA_ETH_CH_IS_RX(ch) ((ch)->direction != IPA_ETH_DIR_TX)
-#define IPA_ETH_CH_IS_TX(ch) ((ch)->direction != IPA_ETH_DIR_RX)
+#define IPA_ETH_CH_IS_RX(ch) ((ch)->direction == IPA_ETH_CH_DIR_RX)
+#define IPA_ETH_CH_IS_TX(ch) ((ch)->direction == IPA_ETH_CH_DIR_TX)
 
 /**
  * struct ipa_eth_device - Represents an ethernet device
@@ -207,7 +222,7 @@ struct ipa_eth_channel {
  * @od_priv: Private field for use by offload driver
  * @device_list: Entry in the global offload device list
  * @bus_device_list: Entry in the per-bus offload device list
- * @state: Offload state of the device
+ * @of_state: Offload state of the device
  * @dev: Pointer to struct device
  * @nd: IPA offload net driver associated with the device
  * @od: IPA offload driver that is managing the device
@@ -215,11 +230,12 @@ struct ipa_eth_channel {
  *                network device (to monitor link state changes)
  * @init: Allowed to initialize offload path for the device
  * @start: Allowed to start offload data path for the device
- * @link_up: Carrier is detected by the PHY (link is active)
+ * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
+ * @refresh: Work struct used to perform device refresh
  */
 struct ipa_eth_device {
 	/* fields managed by the network driver */
@@ -235,7 +251,7 @@ struct ipa_eth_device {
 	struct list_head device_list;
 	struct list_head bus_device_list;
 
-	enum ipa_eth_state state;
+	enum ipa_eth_offload_state of_state;
 
 	struct device *dev;
 	struct ipa_eth_net_driver *nd;
@@ -245,13 +261,15 @@ struct ipa_eth_device {
 
 	bool init;
 	bool start;
-	bool link_up;
+	unsigned long if_state;
 
 	u32 pm_handle;
 
 	void *bus_priv;
 	void *ipa_priv;
 	struct dentry *debugfs;
+
+	struct work_struct refresh;
 };
 
 /**
