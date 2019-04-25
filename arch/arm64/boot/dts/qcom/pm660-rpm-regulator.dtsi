@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,22 @@
  */
 
 &rpm_bus {
+	rpm-regulator-smpa1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
 	rpm-regulator-smpa2 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "smpa";
