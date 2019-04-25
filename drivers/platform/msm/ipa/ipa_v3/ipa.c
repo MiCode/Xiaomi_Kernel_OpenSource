@@ -5233,6 +5233,15 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			ipa3_ctx->ipa_config_is_mhi ? "" : "non ");
 	}
 
+	/* Prevent multiple calls from trying to load the FW again. */
+	if (ipa3_ctx->fw_loaded) {
+		IPAERR("not load FW again\n");
+		return count;
+	}
+
+	/* Schedule WQ to load ipa-fws */
+	ipa3_ctx->fw_loaded = true;
+
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
 		&ipa3_fw_loading_work);
 
