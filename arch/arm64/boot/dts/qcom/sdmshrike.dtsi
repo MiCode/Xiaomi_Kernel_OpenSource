@@ -2155,6 +2155,7 @@
 
 #include "sdmshrike-smp2p.dtsi"
 #include "sdmshrike-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
 #include "sdmshrike-regulators.dtsi"
 #include "sdmshrike-ion.dtsi"
 #include "sdmshrike-bus.dtsi"
