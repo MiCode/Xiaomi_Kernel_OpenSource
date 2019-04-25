@@ -1697,6 +1697,7 @@ struct ipa3_context {
 	struct mbox_chan *mbox;
 	atomic_t ipa_clk_vote;
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
+	bool fw_loaded;
 };
 
 struct ipa3_plat_drv_res {
