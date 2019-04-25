@@ -33,6 +33,24 @@
 #define MT6397_RTC_SIZE		0x3e
 #define MT6397_RTC_WRTGR_OFFSET	0x3c
 
+static const struct resource mt6359_rtc_resources[] = {
+	{
+		.start = MT6358_RTC_BASE,
+		.end   = MT6358_RTC_BASE + MT6358_RTC_SIZE,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MT6359_IRQ_RTC,
+		.end   = MT6359_IRQ_RTC,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = MT6358_RTC_WRTGR_OFFSET,
+		.end   = MT6358_RTC_WRTGR_OFFSET,
+		.flags = IORESOURCE_REG,
+	},
+};
+
 static const struct resource mt6358_rtc_resources[] = {
 	{
 		.start = MT6358_RTC_BASE,
@@ -161,6 +179,11 @@ static const struct mfd_cell mt6359_devs[] = {
 		.of_compatible = "mediatek,mt6359-regulator",
 		.num_resources = ARRAY_SIZE(mt6359_regulators_resources),
 		.resources = mt6359_regulators_resources,
+	}, {
+		.name = "mt6397-rtc",
+		.num_resources = ARRAY_SIZE(mt6359_rtc_resources),
+		.resources = mt6359_rtc_resources,
+		.of_compatible = "mediatek,mt6359-rtc",
 	},
 };
 
