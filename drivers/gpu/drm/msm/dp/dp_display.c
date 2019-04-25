@@ -401,7 +401,8 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp_display_update_hdcp_status(dp, false);
 
-	if (dp->debug->force_encryption && ops && ops->force_encryption)
+	if (status->hdcp_state != HDCP_STATE_AUTHENTICATED &&
+		dp->debug->force_encryption && ops && ops->force_encryption)
 		ops->force_encryption(data, dp->debug->force_encryption);
 
 	switch (status->hdcp_state) {
