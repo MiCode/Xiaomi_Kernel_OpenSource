@@ -439,4 +439,14 @@ config QGKI
 	  This flag is absent if the build is a GKI build. If this flag is
 	  enabled, all the ABI compatibilities are not applicable.
 
+config QTI_DDR_STATS_LOG
+	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
+	depends on QCOM_RPMH
+	depends on QGKI
+	help
+	  This option enables a driver which reads DDR statistical information
+	  from AOP shared memory location such as DDR low power modes and DDR
+	  frequency residency and counts. The driver outputs information using
+	  sysfs.
+
 endmenu
