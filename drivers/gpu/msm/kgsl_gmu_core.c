@@ -108,7 +108,7 @@ bool gmu_core_isenabled(struct kgsl_device *device)
 
 bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 {
-	return test_bit(GMU_GPMU, &device->gmu_core.flags);
+	return test_bit(GMU_GPMU, &device->gmu_core.flags) && !nogmu;
 }
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)

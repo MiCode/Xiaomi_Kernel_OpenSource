@@ -75,8 +75,8 @@
 	qcom,hw-connector-mitigation;
 	qcom,connector-internal-pull-kohm = <100>;
 	qcom,float-option = <1>;
-	qcom,thermal-mitigation = <3000000 2500000
-			2000000 1500000 1000000 500000>;
+	qcom,thermal-mitigation = <4200000 3500000 3000000
+			2500000 2000000 1500000 1000000 500000>;
 };
 
 &qupv3_se2_i2c {

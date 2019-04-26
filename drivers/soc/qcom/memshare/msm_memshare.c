@@ -601,7 +601,7 @@ static void handle_free_generic_req(struct qmi_handle *handle,
 	mutex_unlock(&memsh_drv->mem_free);
 	rc = qmi_send_response(mem_share_svc_handle, sq, txn,
 			  MEM_FREE_GENERIC_RESP_MSG_V01,
-			  sizeof(struct mem_free_generic_resp_msg_v01),
+			  MEM_FREE_REQ_MAX_MSG_LEN_V01,
 			  mem_free_generic_resp_msg_data_v01_ei, &free_resp);
 	if (rc < 0)
 		dev_err(memsh_child->dev,

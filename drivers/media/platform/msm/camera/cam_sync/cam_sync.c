@@ -322,7 +322,7 @@ int cam_sync_get_obj_ref(int32_t sync_obj)
 
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock(&sync_dev->row_spinlocks[sync_obj]);
-		CAM_ERR(CAM_SYNC,
+		CAM_ERR_RATE_LIMIT_CUSTOM(CAM_SYNC, 1, 5,
 			"accessing an uninitialized sync obj = %d state = %d",
 			sync_obj, row->state);
 		return -EINVAL;

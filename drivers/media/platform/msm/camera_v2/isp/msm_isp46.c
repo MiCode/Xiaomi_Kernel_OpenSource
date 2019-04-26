@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1905,7 +1905,7 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.config_irq = msm_vfe46_config_irq,
 			.preprocess_camif_irq = msm_isp47_preprocess_camif_irq,
 			.dual_config_irq = NULL,
-			.read_and_clear_dual_irq_status =
+			.clear_dual_irq_status =
 				NULL,
 		},
 		.axi_ops = {

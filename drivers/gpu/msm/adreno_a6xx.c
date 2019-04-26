@@ -787,7 +787,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	static bool patch_reglist;
 
 	/* runtime adjust callbacks based on feature sets */
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		/* Legacy idle management if gmu is disabled */
 		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
@@ -865,7 +865,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
 	/* Turn on GX_MEM retention */
-	if (gmu_core_isenabled(device) && adreno_is_a612(adreno_dev)) {
+	if (gmu_core_gpmu_isenabled(device) && adreno_is_a612(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_RBBM_BLOCK_GX_RETENTION_CNTL, 0x7FB);
 		/* For CP IPC interrupt */
 		kgsl_regwrite(device, A6XX_RBBM_INT_2_MASK, 0x00000010);
@@ -1356,7 +1356,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+	if (!gmu_core_gpmu_isenabled(KGSL_DEVICE(adreno_dev)))
 		return;
 
 	adreno_write_gmureg(adreno_dev,
@@ -1394,7 +1394,8 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			return ret;
 	}
 
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, load_firmware))
+	if (gmu_core_gpmu_isenabled(device) &&
+			GMU_DEV_OP_VALID(gmu_dev_ops, load_firmware))
 		return gmu_dev_ops->load_firmware(device);
 
 	return 0;
@@ -1404,14 +1405,12 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
-	unsigned long time;
-	bool vbif_acked = false;
 
 	/*
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (gmu_core_isenabled(device) &&
+	if (gmu_core_gpmu_isenabled(device) &&
 		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
 		return 0;
 
@@ -1423,21 +1422,6 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
-
-	/* Wait for the VBIF reset ack to complete */
-	time = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
-
-	do {
-		kgsl_regread(device, A6XX_RBBM_VBIF_GX_RESET_STATUS, &reg);
-		if ((reg & VBIF_RESET_ACK_MASK) == VBIF_RESET_ACK_MASK) {
-			vbif_acked = true;
-			break;
-		}
-		cpu_relax();
-	} while (!time_after(jiffies, time));
-
-	if (!vbif_acked)
-		return -ETIMEDOUT;
 
 	/* Clear GBIF client halt and CX arbiter halt */
 	adreno_deassert_gbif_halt(adreno_dev);
@@ -1506,7 +1490,7 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	int i = 0;
 
 	/* Use the regular reset sequence for No GMU */
-	if (!gmu_core_isenabled(device))
+	if (!gmu_core_gpmu_isenabled(device))
 		return adreno_reset(device, fault);
 
 	/* Transition from ACTIVE to RESET state */
@@ -2875,14 +2859,22 @@ static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
 
+static void a6xx_efuse_power_features(struct adreno_device *adreno_dev)
+{
+	a6xx_efuse_speed_bin(adreno_dev);
+
+	if (!adreno_dev->speed_bin)
+		clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static const struct {
 	int (*check)(struct adreno_device *adreno_dev);
 	void (*func)(struct adreno_device *adreno_dev);
 } a6xx_efuse_funcs[] = {
 	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
 	{ adreno_is_a612, a6xx_efuse_speed_bin },
-	{ adreno_is_a610, a6xx_efuse_speed_bin },
 	{ adreno_is_a610, a6xx_efuse_gaming_bin },
+	{ adreno_is_a640, a6xx_efuse_power_features },
 };
 
 static void a6xx_check_features(struct adreno_device *adreno_dev)
@@ -2922,6 +2914,7 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 		gpudev->gbif_client_halt_mask = A6XX_GBIF_CLIENT_HALT_MASK;
 		gpudev->gbif_arb_halt_mask = A6XX_GBIF_ARB_HALT_MASK;
+		gpudev->gbif_gx_halt_mask = A6XX_GBIF_GX_HALT_MASK;
 	} else
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
@@ -3025,6 +3018,10 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GPR0_CNTL, A6XX_RBBM_GPR0_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
 				A6XX_RBBM_VBIF_GX_RESET_STATUS),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT,
+				A6XX_RBBM_GBIF_HALT),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_GBIF_HALT_ACK,
+				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,

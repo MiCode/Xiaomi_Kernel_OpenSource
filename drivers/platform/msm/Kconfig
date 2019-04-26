@@ -166,6 +166,15 @@ config IPA_ETH_NOAUTO
 	  to enable offloading. This feature is meant only for debugging.
 	  If unsure, say N.
 
+config IPA_ETH_DEBUG
+	bool "Enable addtional debug logging in the offload sub-system"
+	depends on IPA_ETH
+	help
+	  Enabling this option increases the number of messages logged by the offload
+	  sub-system for aiding debugging. Additional debug messages are logged into
+	  IPC log as well as kernel log using dynamic debug.
+	  If unsure, say N.
+
 source "drivers/platform/msm/ipa/ipa_v3/ethernet/aquantia/Kconfig"
 
 config RMNET_IPA3
@@ -205,6 +214,15 @@ config IPA3_MHI_PROXY
 	  Once the configuration is done modem will communicate directly with
 	  the MHI device without AP involvement, with the exception of
 	  power management.
+
+config IPA3_MHI_PRIME_MANAGER
+	tristate "IPA3 MHI Prime Manager driver"
+	depends on IPA3
+	help
+	  This driver functionality is to setup MHI Prime channels between Host and
+	  Modem and enable the ability for MHI Prime communication.
+	  Once the configuration is set up modem will communicate directly with
+	  the Host without AP involvement for tethering data offload.
 
 config IPA_UT
 	tristate "IPA Unit-Test Framework and Test Suites"

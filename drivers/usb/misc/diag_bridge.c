@@ -41,7 +41,6 @@ struct diag_bridge {
 	__u8			out_epAddr;
 	int			err;
 	struct kref		kref;
-	struct mutex		ifc_mutex;
 	struct diag_bridge_ops	*ops;
 	struct platform_device	*pdev;
 	unsigned int		default_autosusp_delay;
@@ -59,6 +58,7 @@ struct diag_bridge {
 	unsigned int		drop_count;
 };
 struct diag_bridge *__dev[MAX_DIAG_BRIDGE_DEVS];
+static struct mutex diag_bridge_mutex[MAX_DIAG_BRIDGE_DEVS];
 
 int diag_bridge_open(int id, struct diag_bridge_ops *ops)
 {
@@ -75,13 +75,16 @@ int diag_bridge_open(int id, struct diag_bridge_ops *ops)
 		return -ENODEV;
 	}
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	if (dev->ops) {
 		pr_err("bridge already opened\n");
+		mutex_unlock(&diag_bridge_mutex[id]);
 		return -EALREADY;
 	}
 
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
 	dev->ops = ops;
+	mutex_unlock(&diag_bridge_mutex[id]);
 	dev->err = 0;
 
 	if (!id) {
@@ -106,11 +109,13 @@ static void diag_bridge_delete(struct kref *kref)
 	int id = dev->id;
 
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
+	mutex_lock(&diag_bridge_mutex[id]);
 	usb_set_intfdata(ifc, NULL);
 	usb_put_intf(ifc);
 	usb_put_dev(dev->udev);
 	__dev[id] = 0;
 	kfree(dev);
+	mutex_unlock(&diag_bridge_mutex[id]);
 }
 
 void diag_bridge_close(int id)
@@ -128,8 +133,10 @@ void diag_bridge_close(int id)
 		return;
 	}
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	if (!dev->ops) {
 		pr_err("can't close bridge that was not open\n");
+		mutex_unlock(&diag_bridge_mutex[id]);
 		return;
 	}
 
@@ -137,7 +144,7 @@ void diag_bridge_close(int id)
 
 	usb_kill_anchored_urbs(&dev->submitted);
 	dev->ops = 0;
-
+	mutex_unlock(&diag_bridge_mutex[id]);
 
 	if (!id) {
 		pm_runtime_set_autosuspend_delay(&dev->udev->dev,
@@ -185,13 +192,14 @@ int diag_bridge_read(int id, char *data, int size)
 
 	pr_debug("reading %d bytes\n", size);
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	dev = __dev[id];
 	if (!dev) {
 		pr_err("device is disconnected\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto error;
 	}
 
-	mutex_lock(&dev->ifc_mutex);
 	if (!dev->ifc) {
 		pr_err("device is disconnected\n");
 		ret = -ENODEV;
@@ -257,7 +265,7 @@ int diag_bridge_read(int id, char *data, int size)
 
 	usb_autopm_put_interface(dev->ifc);
 	usb_free_urb(urb);
-	mutex_unlock(&dev->ifc_mutex);
+	mutex_unlock(&diag_bridge_mutex[id]);
 	return ret;
 
 free_error:
@@ -266,7 +274,7 @@ put_error:
 	/* If URB submit successful, this is done in the completion handler */
 	kref_put(&dev->kref, diag_bridge_delete);
 error:
-	mutex_unlock(&dev->ifc_mutex);
+	mutex_unlock(&diag_bridge_mutex[id]);
 	return ret;
 }
 EXPORT_SYMBOL(diag_bridge_read);
@@ -309,13 +317,14 @@ int diag_bridge_write(int id, char *data, int size)
 
 	pr_debug("writing %d bytes\n", size);
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	dev = __dev[id];
 	if (!dev) {
 		pr_err("device is disconnected\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto error;
 	}
 
-	mutex_lock(&dev->ifc_mutex);
 	if (!dev->ifc) {
 		pr_err("device is disconnected\n");
 		ret = -ENODEV;
@@ -373,7 +382,7 @@ int diag_bridge_write(int id, char *data, int size)
 	}
 
 	usb_free_urb(urb);
-	mutex_unlock(&dev->ifc_mutex);
+	mutex_unlock(&diag_bridge_mutex[id]);
 	return ret;
 
 free_error:
@@ -382,7 +391,7 @@ put_error:
 	/* If URB submit successful, this is done in the completion handler */
 	kref_put(&dev->kref, diag_bridge_delete);
 error:
-	mutex_unlock(&dev->ifc_mutex);
+	mutex_unlock(&diag_bridge_mutex[id]);
 	return ret;
 }
 EXPORT_SYMBOL(diag_bridge_write);
@@ -505,7 +514,6 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	dev->udev = usb_get_dev(interface_to_usbdev(ifc));
 	dev->ifc = usb_get_intf(ifc);
 	kref_init(&dev->kref);
-	mutex_init(&dev->ifc_mutex);
 	init_usb_anchor(&dev->submitted);
 
 	ifc_desc = ifc->cur_altsetting;
@@ -636,6 +644,8 @@ static const struct usb_device_id diag_bridge_ids[] = {
 	/* 909E, ifc#1 refers to diag client interface */
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 1),
 	.driver_info =	DEV_ID(1), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90F3, 0),
+	.driver_info =	DEV_ID(0), },
 
 	{} /* terminating entry */
 };
@@ -654,11 +664,16 @@ static struct usb_driver diag_bridge_driver = {
 
 static int __init diag_bridge_init(void)
 {
-	int ret;
+	int ret, i;
+
+	for (i = 0; i < MAX_DIAG_BRIDGE_DEVS; i++)
+		mutex_init(&diag_bridge_mutex[i]);
 
 	ret = usb_register(&diag_bridge_driver);
 	if (ret) {
 		pr_err("unable to register diag driver\n");
+		for (i = 0; i < MAX_DIAG_BRIDGE_DEVS; i++)
+			mutex_destroy(&diag_bridge_mutex[i]);
 		return ret;
 	}
 
@@ -667,7 +682,11 @@ static int __init diag_bridge_init(void)
 
 static void __exit diag_bridge_exit(void)
 {
+	int i;
+
 	usb_deregister(&diag_bridge_driver);
+	for (i = 0; i < MAX_DIAG_BRIDGE_DEVS; i++)
+		mutex_destroy(&diag_bridge_mutex[i]);
 }
 
 module_init(diag_bridge_init);

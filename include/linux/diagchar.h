@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #define UART_MODE			4
 #define SOCKET_MODE			5
 #define CALLBACK_MODE			6
+#define PCIE_MODE			7
 
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT			0
@@ -148,10 +149,10 @@
  * a new RANGE of SSIDs to the msg_mask_tbl.
  */
 #define MSG_MASK_TBL_CNT		26
-#define APPS_EVENT_LAST_ID		0xC92
+#define APPS_EVENT_LAST_ID		0xCA7
 
 #define MSG_SSID_0			0
-#define MSG_SSID_0_LAST			129
+#define MSG_SSID_0_LAST			130
 #define MSG_SSID_1			500
 #define MSG_SSID_1_LAST			506
 #define MSG_SSID_2			1000
@@ -169,7 +170,7 @@
 #define MSG_SSID_8			5000
 #define MSG_SSID_8_LAST			5036
 #define MSG_SSID_9			5500
-#define MSG_SSID_9_LAST			5516
+#define MSG_SSID_9_LAST			5517
 #define MSG_SSID_10			6000
 #define MSG_SSID_10_LAST		6081
 #define MSG_SSID_11			6500
@@ -359,6 +360,7 @@ static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_MED,
 	MSG_LVL_MED,
+	MSG_LVL_HIGH,
 	MSG_LVL_HIGH
 };
 
@@ -595,7 +597,8 @@ static const uint32_t msg_bld_masks_9[] = {
 	MSG_LVL_MED | MSG_MASK_5,
 	MSG_LVL_MED | MSG_MASK_5,
 	MSG_LVL_MED | MSG_MASK_5,
-	MSG_LVL_MED | MSG_MASK_5
+	MSG_LVL_MED | MSG_MASK_5,
+	MSG_LVL_LOW
 };
 
 static const uint32_t msg_bld_masks_10[] =  {
@@ -919,7 +922,7 @@ static const uint32_t msg_bld_masks_25[] = {
 /* LOG CODES */
 static const uint32_t log_code_last_tbl[] = {
 	0x0,	/* EQUIP ID 0 */
-	0x1C7B,	/* EQUIP ID 1 */
+	0x1C94,	/* EQUIP ID 1 */
 	0x0,	/* EQUIP ID 2 */
 	0x0,	/* EQUIP ID 3 */
 	0x4910,	/* EQUIP ID 4 */

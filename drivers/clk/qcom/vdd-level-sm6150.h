@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,17 @@ enum vdd_mx_levels {
 	VDD_MX_NUM,
 };
 
+enum vdd_mx_levels_sa6155 {
+	VDD_MX_NONE_SA6155,
+	VDD_MX_MIN_SA6155,		/* MIN SVS */
+	VDD_MX_LOWER_SA6155,		/* SVS2 */
+	VDD_MX_LOW_SA6155,		/* SVS */
+	VDD_MX_LOW_L1_SA6155,		/* SVSL1 */
+	VDD_MX_NOMINAL_SA6155,		/* NOM */
+	VDD_MX_HIGH_SA6155,		/* TURBO */
+	VDD_MX_NUM_SA6155,
+};
+
 static int vdd_mx_corner[] = {
 	RPMH_REGULATOR_LEVEL_OFF,		/* VDD_NONE */
 	RPMH_REGULATOR_LEVEL_MIN_SVS,		/* VDD_MIN */
@@ -51,6 +62,18 @@ enum vdd_levels {
 	VDD_HIGH,		/* TURBO */
 	VDD_HIGH_L1,		/* TURBO_L1 */
 	VDD_NUM,
+};
+
+enum vdd_levels_sa6155 {
+	VDD_NONE_SA6155,
+	VDD_MIN_SA6155,		/* MIN SVS */
+	VDD_LOWER_SA6155,		/* SVS2 */
+	VDD_LOW_SA6155,		/* SVS */
+	VDD_LOW_L1_SA6155,		/* SVSL1 */
+	VDD_NOMINAL_SA6155,		/* NOM */
+	VDD_NOMINAL_L1_SA6155,		/* NOM1 */
+	VDD_HIGH_SA6155,		/* TURBO */
+	VDD_NUM_SA6155,
 };
 
 static int vdd_corner[] = {

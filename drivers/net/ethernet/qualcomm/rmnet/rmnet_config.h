@@ -40,6 +40,12 @@ struct rmnet_port_priv_stats {
 	u64 dl_trl_count;
 };
 
+struct rmnet_egress_agg_params {
+	u16 agg_size;
+	u16 agg_count;
+	u32 agg_time;
+};
+
 /* One instance of this structure is instantiated for each real_dev associated
  * with rmnet.
  */
@@ -52,8 +58,7 @@ struct rmnet_port {
 	struct net_device *bridge_ep;
 	void *rmnet_perf;
 
-	u16 egress_agg_size;
-	u16 egress_agg_count;
+	struct rmnet_egress_agg_params egress_agg_params;
 
 	/* Protect aggregation related elements */
 	spinlock_t agg_lock;

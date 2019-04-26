@@ -633,7 +633,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	 * This is usually harmless because the GMU will abort power collapse
 	 * and change the fence back to ALLOW. Poll so that this can happen.
 	 */
-	if (gmu_core_isenabled(device)) {
+	if (gmu_core_gpmu_isenabled(device)) {
 		adreno_readreg(adreno_dev,
 				ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
 				&fence);
@@ -1610,6 +1610,28 @@ int adreno_clear_pending_transactions(struct kgsl_device *device)
 
 	if (adreno_has_gbif(adreno_dev)) {
 
+		/* This is taken care by GMU firmware if GMU is enabled */
+		if (!gmu_core_gpmu_isenabled(device)) {
+			/* Halt GBIF GX traffic and poll for halt ack */
+			if (adreno_is_a615_family(adreno_dev)) {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_RBBM_GPR0_CNTL,
+					GBIF_HALT_REQUEST);
+				ret = adreno_wait_for_halt_ack(device,
+					A6XX_RBBM_VBIF_GX_RESET_STATUS,
+					VBIF_RESET_ACK_MASK);
+			} else {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_RBBM_GBIF_HALT,
+					gpudev->gbif_gx_halt_mask);
+				ret = adreno_wait_for_halt_ack(device,
+					ADRENO_REG_RBBM_GBIF_HALT_ACK,
+					gpudev->gbif_gx_halt_mask);
+			}
+			if (ret)
+				return ret;
+		}
+
 		/* Halt new client requests */
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT,
 				gpudev->gbif_client_halt_mask);
@@ -2070,7 +2092,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		}
 	}
 
-	if (gmu_core_isenabled(device) && adreno_dev->perfctr_ifpc_lo == 0) {
+	if (gmu_core_gpmu_isenabled(device) &&
+			adreno_dev->perfctr_ifpc_lo == 0) {
 		ret = adreno_perfcounter_get(adreno_dev,
 				KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 4,
 				&adreno_dev->perfctr_ifpc_lo, NULL,
@@ -2319,8 +2342,9 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		if (ret == 0) {
 			ret = adreno_soft_reset(device);
 			if (ret)
-				KGSL_DEV_ERR_ONCE(device,
-					"Device soft reset failed\n");
+				KGSL_DRV_ERR(device,
+					"Device soft reset failed: ret=%d\n",
+					ret);
 		}
 	}
 	if (ret) {
@@ -3375,7 +3399,7 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 
 	adreno_writereg(adreno_dev, offset, val);
 
-	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
+	if (!gmu_core_gpmu_isenabled(KGSL_DEVICE(adreno_dev)))
 		return 0;
 
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
@@ -3744,7 +3768,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 		if (gpudev->read_throttling_counters) {
 			adj = gpudev->read_throttling_counters(adreno_dev);
 			if (adj < 0 && -adj > gpu_busy)
-				adj = -gpu_busy;
+				adj = 0;
 
 			gpu_busy += adj;
 		}

@@ -42,6 +42,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/sysfs.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/secure_buffer.h>
@@ -150,6 +151,18 @@ static const char * const icnss_pdr_cause[] = {
 	[ICNSS_ROOT_PD_SHUTDOWN] = "Root PD shutdown",
 	[ICNSS_HOST_ERROR] = "Host error",
 };
+
+static ssize_t icnss_sysfs_store(struct kobject *kobj,
+				 struct kobj_attribute *attr,
+				 const char *buf, size_t count)
+{
+	atomic_set(&penv->is_shutdown, true);
+	icnss_pr_dbg("Received shutdown indication");
+	return count;
+}
+
+static struct kobj_attribute icnss_sysfs_attribute =
+__ATTR(shutdown, 0660, NULL, icnss_sysfs_store);
 
 static int icnss_assign_msa_perm(struct icnss_mem_region_info
 				 *mem_region, enum icnss_msa_perm new_perm)
@@ -644,6 +657,15 @@ bool icnss_is_rejuvenate(void)
 }
 EXPORT_SYMBOL(icnss_is_rejuvenate);
 
+bool icnss_is_pdr(void)
+{
+	if (!penv)
+		return false;
+	else
+		return test_bit(ICNSS_PDR, &penv->state);
+}
+EXPORT_SYMBOL(icnss_is_pdr);
+
 int icnss_power_off(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
@@ -1093,9 +1115,11 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_call_driver_shutdown(priv);
 
+	clear_bit(ICNSS_PDR, &priv->state);
 	clear_bit(ICNSS_REJUVENATE, &priv->state);
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 	priv->early_crash_ind = false;
+	priv->is_ssr = false;
 
 	if (!priv->ops || !priv->ops->reinit)
 		goto out;
@@ -1247,6 +1271,32 @@ static int icnss_driver_event_unregister_driver(void *data)
 	icnss_hw_power_off(penv);
 
 out:
+	return 0;
+}
+
+static int icnss_call_driver_remove(struct icnss_priv *priv)
+{
+	icnss_pr_dbg("Calling driver remove state: 0x%lx\n", priv->state);
+
+	clear_bit(ICNSS_FW_READY, &priv->state);
+
+	if (test_bit(ICNSS_DRIVER_UNLOADING, &priv->state))
+		return 0;
+
+	if (!test_bit(ICNSS_DRIVER_PROBED, &priv->state))
+		return 0;
+
+	if (!priv->ops || !priv->ops->remove)
+		return 0;
+
+	set_bit(ICNSS_DRIVER_UNLOADING, &priv->state);
+	priv->ops->remove(&priv->pdev->dev);
+
+	clear_bit(ICNSS_DRIVER_UNLOADING, &priv->state);
+	clear_bit(ICNSS_DRIVER_PROBED, &priv->state);
+
+	icnss_hw_power_off(priv);
+
 	return 0;
 }
 
@@ -1443,6 +1493,14 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
+	priv->is_ssr = true;
+
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
+	    atomic_read(&priv->is_shutdown)) {
+		atomic_set(&priv->is_shutdown, false);
+		icnss_call_driver_remove(priv);
+	}
+
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
 	    test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
 		if (!wait_for_completion_timeout(&priv->unblock_shutdown,
@@ -1567,6 +1625,9 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 
 	if (notification != SERVREG_NOTIF_SERVICE_STATE_DOWN_V01)
 		goto done;
+
+	if (!priv->is_ssr)
+		set_bit(ICNSS_PDR, &priv->state);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
@@ -2234,7 +2295,6 @@ int icnss_trigger_recovery(struct device *dev)
 	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
 		icnss_pr_err("PD recovery already in progress: state: 0x%lx\n",
 			     priv->state);
-		ret = -EPERM;
 		goto out;
 	}
 
@@ -2763,6 +2823,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_BLOCK_SHUTDOWN:
 			seq_puts(s, "BLOCK SHUTDOWN");
+			continue;
+		case ICNSS_PDR:
+			seq_puts(s, "PDR TRIGGERED");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -3192,6 +3255,34 @@ static void icnss_debugfs_destroy(struct icnss_priv *priv)
 	debugfs_remove_recursive(priv->root_dentry);
 }
 
+static void icnss_sysfs_create(struct icnss_priv *priv)
+{
+	struct kobject *icnss_kobject;
+	int error = 0;
+
+	atomic_set(&priv->is_shutdown, false);
+
+	icnss_kobject = kobject_create_and_add("shutdown_wlan", kernel_kobj);
+	if (!icnss_kobject) {
+		icnss_pr_err("Unable to create kernel object");
+		return;
+	}
+
+	priv->icnss_kobject = icnss_kobject;
+
+	error = sysfs_create_file(icnss_kobject, &icnss_sysfs_attribute.attr);
+	if (error)
+		icnss_pr_err("Unable to create icnss sysfs file");
+}
+
+static void icnss_sysfs_destroy(struct icnss_priv *priv)
+{
+	struct kobject *icnss_kobject;
+
+	icnss_kobject = priv->icnss_kobject;
+	if (icnss_kobject)
+		kobject_put(icnss_kobject);
+}
 
 static int icnss_get_vbatt_info(struct icnss_priv *priv)
 {
@@ -3425,6 +3516,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 	icnss_debugfs_create(priv);
 
+	icnss_sysfs_create(priv);
+
 	ret = device_init_wakeup(&priv->pdev->dev, true);
 	if (ret)
 		icnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
@@ -3455,6 +3548,8 @@ static int icnss_remove(struct platform_device *pdev)
 	device_init_wakeup(&penv->pdev->dev, false);
 
 	icnss_debugfs_destroy(penv);
+
+	icnss_sysfs_destroy(penv);
 
 	complete_all(&penv->unblock_shutdown);
 

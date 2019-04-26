@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "qcs405.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS401";
+	qcom,msm-name = "QCS401";
+	qcom,msm-id = <372 0x0>;
+};
+
+&soc {
+	/delete-node/ qcom,msm-cpufreq;
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk";
+		clocks = <&clock_cpu APCS_MUX_CLK>;
+
+		qcom,cpufreq-table =
+			 < 1094400 >,
+			 < 1248000 >,
+			 < 1401600 >;
+	};
+
+	/delete-node/ qcom,cpu0-computemon;
+
+	cpu0_computemon: qcom,cpu0-computemon {
+		compatible = "qcom,arm-cpu-mon";
+		qcom,cpulist = <&CPU0 &CPU1>;
+		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
+		qcom,core-dev-table =
+			< 1094400 MHZ_TO_MBPS( 297, 8) >,
+			< 1248000 MHZ_TO_MBPS( 597, 8) >,
+			< 1401600 MHZ_TO_MBPS( 710, 8) >;
+	};
+};
+

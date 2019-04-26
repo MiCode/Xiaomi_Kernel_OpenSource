@@ -1,7 +1,7 @@
 /*
  * Sample in-kernel QMI client driver
  *
- * Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017, 2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2017 Linaro Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -311,7 +311,7 @@ static ssize_t ping_write(struct file *file, const char __user *user_buf,
 			  size_t count, loff_t *ppos)
 {
 	struct qmi_handle *qmi = file->private_data;
-	struct test_ping_req_msg_v01 req = {0};
+	struct test_ping_req_msg_v01 req = { {0} };
 	struct qmi_txn txn;
 	int ret;
 

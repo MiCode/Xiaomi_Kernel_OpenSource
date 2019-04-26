@@ -35,6 +35,7 @@
 
 
 #define TASKSTATS_VERSION	8
+#define TASKSTATS2_VERSION	1
 #define TS_COMM_LEN		32	/* should be >= TASK_COMM_LEN
 					 * in linux/sched.h */
 
@@ -166,6 +167,17 @@ struct taskstats {
 	__u64	freepages_delay_total;
 };
 
+struct taskstats2 {
+	__u16 version;
+	__s16 oom_score;
+	__u32 pid;
+	__u64 anon_rss;	/* KB */
+	__u64 file_rss;	/* KB */
+	__u64 swap_rss;	/* KB */
+	__u64 shmem_rss;	/* KB */
+	__u64 unreclaimable;	/* KB */
+	/* version 1 ends here */
+};
 
 /*
  * Commands sent from userspace
@@ -177,6 +189,7 @@ enum {
 	TASKSTATS_CMD_UNSPEC = 0,	/* Reserved */
 	TASKSTATS_CMD_GET,		/* user->kernel request/get-response */
 	TASKSTATS_CMD_NEW,		/* kernel->user event */
+	TASKSTATS2_CMD_GET,		/* user->kernel request/get-response */
 	__TASKSTATS_CMD_MAX,
 };
 
@@ -190,6 +203,7 @@ enum {
 	TASKSTATS_TYPE_AGGR_PID,	/* contains pid + stats */
 	TASKSTATS_TYPE_AGGR_TGID,	/* contains tgid + stats */
 	TASKSTATS_TYPE_NULL,		/* contains nothing */
+	TASKSTATS_TYPE_FOREACH,		/* contains stats */
 	__TASKSTATS_TYPE_MAX,
 };
 
@@ -201,6 +215,7 @@ enum {
 	TASKSTATS_CMD_ATTR_TGID,
 	TASKSTATS_CMD_ATTR_REGISTER_CPUMASK,
 	TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK,
+	TASKSTATS_CMD_ATTR_FOREACH,
 	__TASKSTATS_CMD_ATTR_MAX,
 };
 

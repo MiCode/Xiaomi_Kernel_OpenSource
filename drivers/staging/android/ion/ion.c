@@ -321,9 +321,9 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 	struct ion_buffer *buffer = dmabuf->priv;
 
 	mutex_lock(&buffer->lock);
-	free_duped_table(a->table);
 	list_del(&a->list);
 	mutex_unlock(&buffer->lock);
+	free_duped_table(a->table);
 
 	kfree(a);
 }

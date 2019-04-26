@@ -65,7 +65,7 @@
 			compatible = "snps,dwc3";
 			reg = <0x0a600000 0xcd00>;
 			interrupts = <0 133 0>;
-			usb-phy = <&usb2_phy0>, <&usb_qmp_dp_phy>;
+			usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
@@ -74,7 +74,7 @@
 			snps,usb3-u1u2-disable;
 			usb-core-id = <0>;
 			tx-fifo-resize;
-			maximum-speed = "super-speed-plus";
+			maximum-speed = "high-speed";
 			dr_mode = "otg";
 		};
 

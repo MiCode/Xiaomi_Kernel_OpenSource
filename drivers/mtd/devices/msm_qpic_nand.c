@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3201,7 +3201,7 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 {
 	struct sps_bam_props bam = {0};
 	int rc = 0;
-
+	struct msm_nand_chip *chip = &nand_info->nand_chip;
 	bam.phys_addr = nand_info->bam_phys;
 	bam.virt_addr = nand_info->bam_base;
 	bam.irq = nand_info->bam_irq;
@@ -3222,7 +3222,12 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 	 */
 	bam.manage = SPS_BAM_MGR_DEVICE_REMOTE | SPS_BAM_MGR_MULTI_EE;
 	bam.ipc_loglevel = QPIC_BAM_DEFAULT_IPC_LOGLVL;
-
+	mutex_lock(&nand_info->lock);
+	rc = msm_nand_get_device(chip->dev);
+	if (rc) {
+		pr_err("failed to get the device err:%d\n", rc);
+		goto out;
+	}
 	rc = sps_phy2h(bam.phys_addr, &nand_info->sps.bam_handle);
 	if (!rc)
 		goto init_sps_ep;
@@ -3230,7 +3235,7 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 	if (rc) {
 		pr_err("%s: sps_register_bam_device() failed with %d\n",
 			__func__, rc);
-		goto out;
+		goto put_dev;
 	}
 	pr_info("%s: BAM device registered: bam_handle 0x%lx\n",
 			__func__, nand_info->sps.bam_handle);
@@ -3238,7 +3243,7 @@ init_sps_ep:
 	rc = msm_nand_init_endpoint(nand_info, &nand_info->sps.data_prod,
 					SPS_DATA_PROD_PIPE_INDEX);
 	if (rc)
-		goto out;
+		goto put_dev;
 	rc = msm_nand_init_endpoint(nand_info, &nand_info->sps.data_cons,
 					SPS_DATA_CONS_PIPE_INDEX);
 	if (rc)
@@ -3248,12 +3253,15 @@ init_sps_ep:
 					SPS_CMD_CONS_PIPE_INDEX);
 	if (rc)
 		goto deinit_data_cons;
-	goto out;
+	goto put_dev;
 deinit_data_cons:
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_cons);
 deinit_data_prod:
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_prod);
+put_dev:
+	rc = msm_nand_put_device(chip->dev);
 out:
+	mutex_unlock(&nand_info->lock);
 	return rc;
 }
 

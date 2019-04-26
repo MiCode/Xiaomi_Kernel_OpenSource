@@ -196,6 +196,9 @@ int atl_reconfigure(struct atl_nic *nic)
 	if (ret)
 		goto err;
 
+	/* Re-enable link interrupts disabled in atl_clear_datapath() */
+	atl_intr_enable(&nic->hw, BIT(0));
+
 	/* Number of rings might have changed, re-init RSS
 	 * redirection table.
 	 */
@@ -376,13 +379,13 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	ndev->features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
 		NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-		NETIF_F_RXHASH | NETIF_F_LRO;
+		NETIF_F_RXHASH;
 
 	ndev->vlan_features |= ndev->features;
 	ndev->features |= NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX |
 		NETIF_F_HW_VLAN_CTAG_FILTER;
 
-	ndev->hw_features |= ndev->features | NETIF_F_RXALL;
+	ndev->hw_features |= ndev->features | NETIF_F_RXALL | NETIF_F_LRO;
 
 	if (pci_64)
 		ndev->features |= NETIF_F_HIGHDMA;
@@ -409,10 +412,6 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, nic);
 	netif_carrier_off(ndev);
 
-	ret = atl_alloc_link_intr(nic);
-	if (ret)
-		goto err_link_intr;
-
 	ret = atl_hwmon_init(nic);
 	if (ret)
 		goto err_hwmon_init;
@@ -424,8 +423,6 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 err_hwmon_init:
-	atl_free_link_intr(nic);
-err_link_intr:
 	unregister_netdev(nic->ndev);
 err_register:
 	atl_clear_datapath(nic);
@@ -455,7 +452,6 @@ static void atl_remove(struct pci_dev *pdev)
 	netif_carrier_off(nic->ndev);
 	atl_intr_disable_all(&nic->hw);
 	/* atl_hw_reset(&nic->hw); */
-	atl_free_link_intr(nic);
 	unregister_netdev(nic->ndev);
 
 #ifdef CONFIG_ATLFWD_FWD

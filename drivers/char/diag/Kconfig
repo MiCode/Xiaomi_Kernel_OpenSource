@@ -25,13 +25,24 @@ config DIAG_OVER_USB
 	  Diag traffic from the USB endpoint.
 
 config DIAGFWD_BRIDGE_CODE
-	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
+	bool "Enable remote DIAG traffic over MHI/HSIC"
 	depends on DIAG_CHAR
 	depends on USB_QCOM_DIAG_BRIDGE || MHI_BUS
 	default y
 	help
-	  SMUX/HSIC Transport Layer for DIAG Router. When the MHI/SMUX endpoints
+	  MHI/HSIC Transport Layer for DIAG Router. When the MHI/HSIC endpoints
 	  become available, this bridge driver enables DIAG traffic over MHI
-	  and SMUX.
+	  and HSIC.
+
+config DIAG_OVER_PCIE
+	bool "Enable Diag traffic to go over PCIE"
+	depends on DIAG_CHAR
+	depends on MSM_MHI_DEV
+	help
+	  Diag over PCIE enables sending diag traffic over PCIE endpoint when
+	  pcie is available. Diag PCIE channels should be configured
+	  and connected to use the transport. If PCIE is not configured
+	  diag will switch to usb mode and diag traffic will be routed
+	  over USB.
 
 endmenu

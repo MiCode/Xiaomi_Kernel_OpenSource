@@ -873,8 +873,8 @@ static int rpm_vreg_get_voltage(struct regulator_dev *rdev)
 	return uV;
 }
 
-#define REGULATOR_MODE_PMIC4_LDO_LPM	5
-#define REGULATOR_MODE_PMIC4_LDO_HPM	7
+#define REGULATOR_MODE_PMIC4_LDO_LPM	0
+#define REGULATOR_MODE_PMIC4_LDO_HPM	1
 #define REGULATOR_MODE_PMIC5_LDO_LPM	4
 #define REGULATOR_MODE_PMIC5_LDO_HPM	7
 

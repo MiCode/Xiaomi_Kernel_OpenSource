@@ -157,6 +157,12 @@ static const char *const mpeg_video_stream_format[] = {
 	NULL
 };
 
+static const char *const roi_map_type[] = {
+	"None",
+	"2-bit",
+	"2-byte"
+};
+
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD,
@@ -682,6 +688,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE) |
@@ -1162,6 +1169,20 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.default_value = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE,
+		.name = "ROI Type",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE,
+		.menu_skip_mask = ~(
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BIT) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE)
+		),
+		.qmenu = roi_map_type,
 	},
 };
 
@@ -1810,6 +1831,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
 		case V4L2_MPEG_VIDC_EXTRADATA_ENC_FRAME_QP:
+		case V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS:
 			inst->bufq[CAPTURE_PORT].num_planes = 2;
 			break;
 		default:

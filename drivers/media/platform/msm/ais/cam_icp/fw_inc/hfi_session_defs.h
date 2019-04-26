@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,7 +472,6 @@ struct ica_stab_params {
 
 struct frame_set {
 	struct frame_buffer buffers[IPE_IO_IMAGES_MAX];
-	struct ica_stab_params ica_params;
 	uint32_t cdm_ica1_addr;
 	uint32_t cdm_ica2_addr;
 } __packed;

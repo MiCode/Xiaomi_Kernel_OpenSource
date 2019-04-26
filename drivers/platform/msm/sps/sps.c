@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -675,7 +675,8 @@ int sps_get_bam_debug_info(unsigned long dev, u32 option, u32 para,
 	/* Search for the target BAM device */
 	bam = sps_h2bam(dev);
 	if (bam == NULL) {
-		pr_err("sps:Can't find any BAM with handle 0x%lx.", dev);
+		pr_err("sps:Can't find any BAM with handle 0x%pK.",
+					(void *)dev);
 		mutex_unlock(&sps->lock);
 		return SPS_ERROR;
 	}
@@ -1226,7 +1227,7 @@ struct sps_bam *sps_h2bam(unsigned long h)
 {
 	struct sps_bam *bam;
 
-	SPS_DBG1(sps, "sps:%s: BAM handle:0x%lx.", __func__, h);
+	SPS_DBG1(sps, "sps:%s: BAM handle:0x%pK.", __func__, (void *)h);
 
 	if (h == SPS_DEV_HANDLE_MEM || h == SPS_DEV_HANDLE_INVALID)
 		return NULL;
@@ -1236,7 +1237,7 @@ struct sps_bam *sps_h2bam(unsigned long h)
 			return bam;
 	}
 
-	SPS_ERR(sps, "sps:Can't find BAM device for handle 0x%lx.", h);
+	SPS_ERR(sps, "sps:Can't find BAM device for handle 0x%pK.", (void *)h);
 
 	return NULL;
 }
@@ -1341,17 +1342,18 @@ int sps_connect(struct sps_pipe *h, struct sps_connect *connect)
 
 	bam = sps_h2bam(dev);
 	if (bam == NULL) {
-		SPS_ERR(sps, "sps:Invalid BAM device handle: 0x%lx", dev);
+		SPS_ERR(sps, "sps:Invalid BAM device handle: 0x%pK",
+					(void *)dev);
 		result = SPS_ERROR;
 		goto exit_err;
 	}
 
 	mutex_lock(&bam->lock);
-	SPS_DBG2(bam, "sps:%s: bam %pa src 0x%lx dest 0x%lx mode %s",
+	SPS_DBG2(bam, "sps:%s: bam %pa src 0x%pK dest 0x%pK mode %s",
 			__func__,
 			BAM_ID(bam),
-			connect->source,
-			connect->destination,
+			(void *)connect->source,
+			(void *)connect->destination,
 			connect->mode == SPS_MODE_SRC ? "SRC" : "DEST");
 
 	/* Allocate resources for the specified connection */
@@ -1415,11 +1417,11 @@ int sps_disconnect(struct sps_pipe *h)
 	}
 
 	SPS_DBG2(bam,
-		"sps:%s: bam %pa src 0x%lx dest 0x%lx mode %s",
+		"sps:%s: bam %pa src 0x%pK dest 0x%pK mode %s",
 		__func__,
 		BAM_ID(bam),
-		pipe->connect.source,
-		pipe->connect.destination,
+		(void *)pipe->connect.source,
+		(void *)pipe->connect.destination,
 		pipe->connect.mode == SPS_MODE_SRC ? "SRC" : "DEST");
 
 	result = SPS_ERROR;
@@ -1815,7 +1817,8 @@ int sps_device_reset(unsigned long dev)
 	/* Search for the target BAM device */
 	bam = sps_h2bam(dev);
 	if (bam == NULL) {
-		SPS_ERR(sps, "sps:Invalid BAM device handle: 0x%lx", dev);
+		SPS_ERR(sps, "sps:Invalid BAM device handle: 0x%pK",
+					(void *)dev);
 		result = SPS_ERROR;
 		goto exit_err;
 	}
@@ -1826,7 +1829,8 @@ int sps_device_reset(unsigned long dev)
 	result = sps_bam_reset(bam);
 	mutex_unlock(&bam->lock);
 	if (result) {
-		SPS_ERR(sps, "sps:Fail to reset BAM device: 0x%lx", dev);
+		SPS_ERR(sps, "sps:Fail to reset BAM device: 0x%pK",
+					(void *)dev);
 		goto exit_err;
 	}
 
@@ -2244,7 +2248,13 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 	ok = sps_bam_device_init(bam);
 	mutex_unlock(&bam->lock);
 	if (ok) {
-		SPS_ERR(bam, "sps:Fail to init BAM device: phys %pa",
+		ipc_log_context_destroy(bam->ipc_log0);
+		ipc_log_context_destroy(bam->ipc_log1);
+		ipc_log_context_destroy(bam->ipc_log2);
+		ipc_log_context_destroy(bam->ipc_log3);
+		ipc_log_context_destroy(bam->ipc_log4);
+
+		SPS_ERR(sps, "sps:Fail to init BAM device: phys %pa",
 			&bam->props.phys_addr);
 		goto exit_err;
 	}

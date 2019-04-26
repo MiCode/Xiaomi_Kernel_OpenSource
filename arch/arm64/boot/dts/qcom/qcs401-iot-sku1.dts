@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs401.dtsi"
+#include "qcs405-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS401 EVB2 1000 IOT";
+	compatible = "qcom,qcs401-iot", "qcom,qcs401", "qcom,iot";
+	qcom,board-id = <0x010020 0x2>;
+
+	cpus {
+		/delete-node/ cpu@102;
+		/delete-node/ cpu@103;
+
+		cpu-map {
+			cluster0 {
+				/delete-node/ core2;
+				/delete-node/ core3;
+			};
+		};
+	};
+};
+
+&soc {
+	cpuss_dump {
+		/delete-node/ qcom,l1_i_cache102;
+		/delete-node/ qcom,l1_i_cache103;
+		/delete-node/ qcom,l1_d_cache102;
+		/delete-node/ qcom,l1_d_cache103;
+	};
+
+	qcom,spm@b012000 {
+		qcom,cpu-vctl-list = <&CPU0 &CPU1>;
+	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0{
+			qcom,pm-cpu {
+				qcom,cpu = <&CPU0 &CPU1>;
+			};
+		};
+	};
+
+	/delete-node/ cti@61ba000;
+	/delete-node/ cti@61bb000;
+	/delete-node/ etm@61be000;
+	/delete-node/ etm@61bf000;
+	funnel@61a1000 {
+		ports {
+			/delete-node/ port@3;
+			/delete-node/ port@4;
+		};
+	};
+};
+
+&thermal_zones {
+	cpuss-max-step {
+		cooling-maps {
+			/delete-node/ cpu2_cdev;
+			/delete-node/ cpu3_cdev;
+		};
+	};
+
+	/delete-node/ cpuss-2-step;
+	/delete-node/ cpuss-3-step;
+};
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -314,6 +314,9 @@
 };
 
 &qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	aqt1000_cdc: aqt1000-i2c-codec@d {
 		status = "disabled";
 		compatible = "qcom,aqt1000-i2c-codec";

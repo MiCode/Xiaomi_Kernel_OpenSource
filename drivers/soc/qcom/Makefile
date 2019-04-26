@@ -9,6 +9,7 @@ obj-$(CONFIG_QCOM_SM8150_LLCC) += llcc-sm8150.o
 obj-$(CONFIG_QCOM_SDMSHRIKE_LLCC) += llcc-sdmshrike.o
 obj-$(CONFIG_QCOM_SDXPRAIRIE_LLCC) += llcc-sdxprairie.o
 obj-$(CONFIG_QCOM_SM6150_LLCC) += llcc-sm6150.o
+obj-$(CONFIG_QCOM_ATOLL_LLCC) += llcc-atoll.o
 obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
 obj-$(CONFIG_QCOM_SDMMAGPIE_LLCC) += llcc-sdmmagpie.o
 obj-$(CONFIG_QCOM_LLCC_AMON) += llcc-amon.o
@@ -28,6 +29,7 @@ obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o
+obj-$(CONFIG_QCOM_SCM_QCPE)  += scm_qcpe.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
 obj-$(CONFIG_SOC_BUS) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o

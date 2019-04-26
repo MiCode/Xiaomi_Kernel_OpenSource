@@ -3524,13 +3524,23 @@ static const struct qcom_cc_desc gcc_sm6150_desc = {
 
 static const struct of_device_id gcc_sm6150_match_table[] = {
 	{ .compatible = "qcom,gcc-sm6150" },
+	{ .compatible = "qcom,gcc-sa6155" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sm6150_match_table);
 
+static void gcc_sm6150_fixup_sa6155(struct platform_device *pdev)
+{
+	vdd_cx.num_levels = VDD_NUM_SA6155;
+	vdd_cx.cur_level = VDD_NUM_SA6155;
+	vdd_cx_ao.num_levels = VDD_NUM_SA6155;
+	vdd_cx_ao.cur_level = VDD_NUM_SA6155;
+}
+
 static int gcc_sm6150_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	int is_sa6155;
 	int ret;
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
@@ -3548,6 +3558,11 @@ static int gcc_sm6150_probe(struct platform_device *pdev)
 				"Unable to get vdd_cx_ao regulator\n");
 		return PTR_ERR(vdd_cx_ao.regulator[0]);
 	}
+
+	is_sa6155 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sa6155");
+	if (is_sa6155)
+		gcc_sm6150_fixup_sa6155(pdev);
 
 	regmap = qcom_cc_map(pdev, &gcc_sm6150_desc);
 	if (IS_ERR(regmap)) {

@@ -391,6 +391,14 @@ static phys_addr_t pgd_pgtable_alloc(void)
 	return __pa(ptr);
 }
 
+void create_pgtable_mapping(phys_addr_t start, phys_addr_t end)
+{
+	unsigned long virt = (unsigned long)phys_to_virt(start);
+
+	__create_pgd_mapping(init_mm.pgd, start, virt, end - start,
+				PAGE_KERNEL, NULL, 0);
+}
+
 /*
  * This function can only be used to modify existing table entries,
  * without allocating new levels of table. Note that this permits the

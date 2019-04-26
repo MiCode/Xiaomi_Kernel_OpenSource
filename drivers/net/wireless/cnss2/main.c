@@ -258,6 +258,9 @@ int cnss_wlan_enable(struct device *dev,
 	if (mode == CNSS_WALTEST || mode == CNSS_CCPM)
 		goto skip_cfg;
 
+	if (plat_priv->device_id == QCN7605_DEVICE_ID)
+		config->send_msi_ce = true;
+
 	ret = cnss_wlfw_wlan_cfg_send_sync(plat_priv, config, host_version);
 	if (ret)
 		goto out;
@@ -367,10 +370,16 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 
 	cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_REGDB);
 
+	if (plat_priv->device_id == QCN7605_DEVICE_ID)
+		plat_priv->ctrl_params.bdf_type = CNSS_BDF_BIN;
+
 	ret = cnss_wlfw_bdf_dnld_send_sync(plat_priv,
 					   plat_priv->ctrl_params.bdf_type);
 	if (ret)
 		goto out;
+
+	if (plat_priv->device_id == QCN7605_DEVICE_ID)
+		return 0;
 
 	ret = cnss_bus_load_m3(plat_priv);
 	if (ret)
@@ -1036,9 +1045,12 @@ int cnss_force_fw_assert(struct device *dev)
 		return 0;
 	}
 
-	cnss_driver_event_post(plat_priv,
-			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
-			       0, NULL);
+	if (in_interrupt() || irqs_disabled())
+		cnss_driver_event_post(plat_priv,
+				       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
+				       0, NULL);
+	else
+		cnss_bus_force_fw_assert_hdlr(plat_priv);
 
 	return 0;
 }
@@ -1087,6 +1099,12 @@ int cnss_force_collect_rddm(struct device *dev)
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
+		return 0;
+	}
+
+	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_info("Loading/Unloading is in progress, ignore forced collect rddm\n");
 		return 0;
 	}
 
@@ -1595,6 +1613,7 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		ret = cnss_register_ramdump_v2(plat_priv);
 		break;
 	case QCN7605_COMPOSITE_DEVICE_ID:
@@ -1616,6 +1635,7 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		cnss_unregister_ramdump_v2(plat_priv);
 		break;
 	case QCN7605_COMPOSITE_DEVICE_ID:
@@ -1689,6 +1709,7 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	switch (plat_priv->device_id) {
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		break;
 	default:
 		cnss_pr_err("Not supported for device ID 0x%lx\n",
@@ -1826,6 +1847,7 @@ static const struct cnss_fw_path cnss_fw_path_table[] = {
 	{ QCA6174_DEVICE_ID, "qca6174/" },
 	{ QCA6290_DEVICE_ID, "qca6290/" },
 	{ QCA6390_DEVICE_ID, "qca6390/" },
+	{ QCN7605_DEVICE_ID, "qcn7605/" },
 	{ 0, "" }
 };
 

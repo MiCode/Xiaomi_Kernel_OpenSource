@@ -2386,24 +2386,6 @@ static struct clk_branch gcc_camss_csiphy2_clk = {
 	},
 };
 
-static struct clk_branch gcc_camss_csiphy3_clk = {
-	.halt_reg = 0x55024,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x55024,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_camss_csiphy3_clk",
-			.parent_names = (const char *[]){
-				"gcc_camss_csiphy_clk_src",
-			},
-			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_camss_gp0_clk = {
 	.halt_reg = 0x50018,
 	.halt_check = BRANCH_HALT,
@@ -2868,34 +2850,6 @@ static struct clk_branch gcc_cpuss_gnoc_clk = {
 	},
 };
 
-static struct clk_branch gcc_cpuss_throttle_core_clk = {
-	.halt_reg = 0x2b180,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x2b180,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(30),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_throttle_core_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_cpuss_throttle_xo_clk = {
-	.halt_reg = 0x2b17c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x2b17c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_throttle_xo_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_disp_ahb_clk = {
 	.halt_reg = 0x1700c,
 	.halt_check = BRANCH_HALT,
@@ -3226,21 +3180,6 @@ static struct clk_branch gcc_qmip_camera_rt_ahb_clk = {
 		.enable_mask = BIT(2),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_qmip_camera_rt_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_qmip_cpuss_cfg_ahb_clk = {
-	.halt_reg = 0x2b178,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x2b178,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(18),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_qmip_cpuss_cfg_ahb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4231,7 +4170,6 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_CAMSS_CSIPHY0_CLK] = &gcc_camss_csiphy0_clk.clkr,
 	[GCC_CAMSS_CSIPHY1_CLK] = &gcc_camss_csiphy1_clk.clkr,
 	[GCC_CAMSS_CSIPHY2_CLK] = &gcc_camss_csiphy2_clk.clkr,
-	[GCC_CAMSS_CSIPHY3_CLK] = &gcc_camss_csiphy3_clk.clkr,
 	[GCC_CAMSS_CSIPHY_CLK_SRC] = &gcc_camss_csiphy_clk_src.clkr,
 	[GCC_CAMSS_GP0_CLK] = &gcc_camss_gp0_clk.clkr,
 	[GCC_CAMSS_GP0_CLK_SRC] = &gcc_camss_gp0_clk_src.clkr,
@@ -4270,8 +4208,6 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_CE1_CLK] = &gcc_ce1_clk.clkr,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
-	[GCC_CPUSS_THROTTLE_CORE_CLK] = &gcc_cpuss_throttle_core_clk.clkr,
-	[GCC_CPUSS_THROTTLE_XO_CLK] = &gcc_cpuss_throttle_xo_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
 	[GCC_DISP_GPLL0_DIV_CLK_SRC] = &gcc_disp_gpll0_div_clk_src.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
@@ -4298,7 +4234,6 @@ static struct clk_regmap *gcc_trinket_clocks[] = {
 	[GCC_PRNG_AHB_CLK] = &gcc_prng_ahb_clk.clkr,
 	[GCC_QMIP_CAMERA_NRT_AHB_CLK] = &gcc_qmip_camera_nrt_ahb_clk.clkr,
 	[GCC_QMIP_CAMERA_RT_AHB_CLK] = &gcc_qmip_camera_rt_ahb_clk.clkr,
-	[GCC_QMIP_CPUSS_CFG_AHB_CLK] = &gcc_qmip_cpuss_cfg_ahb_clk.clkr,
 	[GCC_QMIP_DISP_AHB_CLK] = &gcc_qmip_disp_ahb_clk.clkr,
 	[GCC_QMIP_GPU_CFG_AHB_CLK] = &gcc_qmip_gpu_cfg_ahb_clk.clkr,
 	[GCC_QMIP_VIDEO_VCODEC_AHB_CLK] = &gcc_qmip_video_vcodec_ahb_clk.clkr,

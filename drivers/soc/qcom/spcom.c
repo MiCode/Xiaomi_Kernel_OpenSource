@@ -1893,7 +1893,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 
 		if (ch->rpmsg_abort) {
 			if (ch->rpmsg_rx_buf) {
-				pr_debug("ch [%s] rx aborted free %d bytes\n",
+				pr_debug("ch [%s] rx aborted free %lu bytes\n",
 					ch->name, ch->actual_rx_size);
 				kfree(ch->rpmsg_rx_buf);
 				ch->actual_rx_size = 0;

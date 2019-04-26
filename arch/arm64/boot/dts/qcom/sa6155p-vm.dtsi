@@ -12,6 +12,9 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include <dt-bindings/clock/qcom,scc-sm6150.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
@@ -24,8 +27,7 @@
 	};
 
 	chosen {
-		bootargs = "rcupdate.rcu_expedited=1
-			rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
+		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
 	};
 
 	soc: soc { };
@@ -62,8 +64,7 @@
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
-					dev="/dev/block/platform/vdevs
-						/1c0f0000.virtio_blk/vdc";
+					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait";
@@ -77,8 +78,21 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	clock_virt: qcom,virt-gcc {
+		compatible = "qcom,virt-clk-sm6150-gcc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_virt_scc: qcom,virt-scc {
+		compatible = "qcom,virt-clk-sm6150-scc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
 
 	clock_gcc: qcom,gcc {
 		compatible = "qcom,dummycc";
@@ -161,4 +175,140 @@
 			remote-vmids = <0>;
 		};
 	};
+
+	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7815";
+	};
+
+	apps_smmu: apps-smmu@0x15000000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x15000000 0x80000>,
+			<0x150c2000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,skip-init;
+		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
+		#global-interrupts = <1>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
+	qcom,sps {
+			compatible = "qcom,msm-sps-4k";
+			qcom,pipe-attr-ee;
+			status = "ok";
+	};
+
+	usb30_prim_gdsc: usb30_prim_gdsc {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "usb30_prim_gdsc";
+			status = "ok";
+	};
+
+	usb20_sec_gdsc: usb20_sec_gdsc {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "usb20_sec_gdsc";
+			status = "ok";
+	};
+
+	pm6150_l11: regulator-pm6150-l11 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6150_l11";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1890000>;
+			status = "ok";
+	};
+
+	pm6150_l4: regulator-pm6150-l4 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6150_l4";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <875000>;
+			regulator-max-microvolt = <975000>;
+			status = "ok";
+	};
+
+	pm6150_l17: regulator-pm6150-l17 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6150_l17";
+			qcom,hpm-min-load = <10000>;
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3230000>;
+			status = "ok";
+	};
 };
+
+#include "sa6155p-vm-pinctrl.dtsi"
+#include "sm6150-slpi-pinctrl.dtsi"
+#include "sa6155p-vm-qupv3.dtsi"
+#include "sa6155p-vm-usb.dtsi"

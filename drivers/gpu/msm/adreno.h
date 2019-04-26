@@ -755,6 +755,8 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
 	ADRENO_REG_RBBM_GPR0_CNTL,
+	ADRENO_REG_RBBM_GBIF_HALT,
+	ADRENO_REG_RBBM_GBIF_HALT_ACK,
 	ADRENO_REG_RBBM_VBIF_GX_RESET_STATUS,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
@@ -975,6 +977,7 @@ struct adreno_gpudev {
 	unsigned int vbif_xin_halt_ctrl0_mask;
 	unsigned int gbif_client_halt_mask;
 	unsigned int gbif_arb_halt_mask;
+	unsigned int gbif_gx_halt_mask;
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
@@ -1357,6 +1360,18 @@ static inline int adreno_is_a640v1(struct adreno_device *adreno_dev)
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
+}
+
+static inline int adreno_is_a680v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A680) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
+}
+
+static inline int adreno_is_a680v2(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A680) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
 
@@ -2012,7 +2027,8 @@ static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 			break;
 		if (time_after(jiffies, wait_for_vbif)) {
 			KGSL_DRV_ERR(device,
-				"Wait limit reached for GBIF/VBIF Halt\n");
+				"GBIF/VBIF Halt ack timeout: reg=%08X mask=%08X status=%08X\n",
+				ack_reg, mask, val);
 			ret = -ETIMEDOUT;
 			break;
 		}
@@ -2023,8 +2039,18 @@ static inline int adreno_wait_for_halt_ack(struct kgsl_device *device,
 
 static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 {
-	if (adreno_has_gbif(adreno_dev))
+	if (adreno_has_gbif(adreno_dev)) {
 		adreno_writereg(adreno_dev, ADRENO_REG_GBIF_HALT, 0x0);
+
+		/*
+		 * Release GBIF GX halt. For A615 family, GPU GX halt
+		 * will be cleared automatically on reset.
+		 */
+		if (!gmu_core_gpmu_isenabled(KGSL_DEVICE(adreno_dev)) &&
+			!adreno_is_a615_family(adreno_dev))
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_GBIF_HALT, 0x0);
+	}
 }
 void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
 void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);

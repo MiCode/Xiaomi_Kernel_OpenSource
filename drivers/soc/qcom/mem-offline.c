@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,11 @@
 #include <linux/of.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
+#include <soc/qcom/rpm-smd.h>
+#include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
 
+#define RPM_DDR_REQ 0x726464
 #define AOP_MSG_ADDR_MASK		0xffffffff
 #define AOP_MSG_ADDR_HIGH_SHIFT		32
 #define MAX_LEN				96
@@ -32,6 +36,7 @@
 static unsigned long start_section_nr, end_section_nr;
 static struct kobject *kobj;
 static unsigned int offline_granule, sections_per_block;
+static bool is_rpm_controller;
 #define MODULE_CLASS_NAME	"mem-offline"
 #define BUF_LEN			100
 
@@ -56,8 +61,54 @@ static struct mem_offline_mailbox {
 	struct mbox_chan *mbox;
 } mailbox;
 
+struct memory_refresh_request {
+	u64 start;	/* Lower bit signifies action
+			 * 0 - disable self-refresh
+			 * 1 - enable self-refresh
+			 * upper bits are for base address
+			 */
+	u32 size;	/* size of memory region */
+};
+
 static struct section_stat *mem_info;
 
+static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
+{
+	unsigned long size = end - start;
+	unsigned long virt = (unsigned long)phys_to_virt(start);
+	unsigned long addr_end = virt + size;
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+
+	pgd = pgd_offset_k(virt);
+
+	while (virt < addr_end) {
+
+		/* Check if we have PUD section mapping */
+		pud = pud_offset(pgd, virt);
+		if (pud_sect(*pud)) {
+			pud_clear(pud);
+			virt += PUD_SIZE;
+			continue;
+		}
+
+		/* Check if we have PMD section mapping */
+		pmd = pmd_offset(pud, virt);
+		if (pmd_sect(*pmd)) {
+			pmd_clear(pmd);
+			virt += PMD_SIZE;
+			continue;
+		}
+
+		/* Clear mapping for page entry */
+		set_memory_valid(virt, 1, (int)false);
+		virt += PAGE_SIZE;
+	}
+
+	virt = (unsigned long)phys_to_virt(start);
+	flush_tlb_kernel_range(virt, addr_end);
+}
 void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -85,6 +136,25 @@ void record_stat(unsigned long sec, ktime_t delay, int mode)
 	mem_info[blk_nr].last_recorded_time = delay;
 }
 
+static int mem_region_refresh_control(unsigned long pfn,
+				      unsigned long nr_pages,
+				      bool enable)
+{
+	struct memory_refresh_request mem_req;
+	struct msm_rpm_kvp rpm_kvp;
+
+	mem_req.start = enable;
+	mem_req.start |= pfn << PAGE_SHIFT;
+	mem_req.size = nr_pages * PAGE_SIZE;
+
+	rpm_kvp.key = RPM_DDR_REQ;
+	rpm_kvp.data = (void *)&mem_req;
+	rpm_kvp.length = sizeof(mem_req);
+
+	return msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_DDR_REQ, 0,
+				    &rpm_kvp, 1);
+}
+
 static int aop_send_msg(unsigned long addr, bool online)
 {
 	struct qmp_pkt pkt;
@@ -101,6 +171,17 @@ static int aop_send_msg(unsigned long addr, bool online)
 	pkt.size = MAX_LEN;
 	pkt.data = mbox_msg;
 	return mbox_send_message(mailbox.mbox, &pkt);
+}
+
+static int send_msg(struct memory_notify *mn, bool online)
+{
+	int start = SECTION_ALIGN_DOWN(mn->start_pfn);
+
+	if (is_rpm_controller)
+		return mem_region_refresh_control(start, mn->nr_pages,
+						  online);
+	else
+		return aop_send_msg(__pfn_to_phys(start), online);
 }
 
 static int mem_event_callback(struct notifier_block *self,
@@ -142,16 +223,22 @@ static int mem_event_callback(struct notifier_block *self,
 			   idx) / sections_per_block].fail_count;
 		cur = ktime_get();
 
-		if (aop_send_msg(__pfn_to_phys(start), true))
-			pr_err("PASR: AOP online request addr:0x%llx failed\n",
+		if (send_msg(mn, true))
+			pr_err("PASR: %s online request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
+		if (!debug_pagealloc_enabled()) {
+			/* Create kernel page-tables */
+			create_pgtable_mapping(start_addr, end_addr);
+		}
 
 		break;
 	case MEM_ONLINE:
-		pr_info("mem-offline: Onlined memory block mem%lu\n", sec_nr);
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_ONLINE);
 		cur = 0;
+		pr_info("mem-offline: Onlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%lx end = 0x%lx",
@@ -161,19 +248,28 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
-		pr_info("mem-offline: Offlined memory block mem%lu\n", sec_nr);
-
-		if (aop_send_msg(__pfn_to_phys(start), false))
-			pr_err("PASR: AOP offline request addr:0x%llx failed\n",
+		if (!debug_pagealloc_enabled()) {
+			/* Clear kernel page-tables */
+			clear_pgtable_mapping(start_addr, end_addr);
+		}
+		if (send_msg(mn, false))
+			pr_err("PASR: %s offline request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
 
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
+		pr_info("mem-offline: Offlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%lx end = 0x%lx",
 				start_addr, end_addr);
+		if (send_msg(mn, false))
+			pr_err("PASR: %s online request addr:0x%llx failed\n",
+			       is_rpm_controller ? "RPM" : "AOP",
+			       __pfn_to_phys(start));
 		break;
 	default:
 		break;
@@ -345,6 +441,11 @@ static int mem_parse_dt(struct platform_device *pdev)
 			offline_granule * SZ_1M < MIN_MEMORY_BLOCK_SIZE) {
 		pr_err("mem-offine: invalid granule property\n");
 		return -EINVAL;
+	}
+
+	if (!of_find_property(node, "mboxes", NULL)) {
+		is_rpm_controller = true;
+		return 0;
 	}
 
 	mailbox.cl.dev = &pdev->dev;

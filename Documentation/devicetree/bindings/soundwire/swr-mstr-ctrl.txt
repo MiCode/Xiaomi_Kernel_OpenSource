@@ -16,6 +16,8 @@ Optional properties:
 - qcom,swr-wakeup-required : should be set to 1 if wakeup is required
 from LPASS as part of soundwire data-toggle interrupt sequence
 for given target.
+- qcom,swr-mstr-irq-wakeup-capable : should be set to 1 if swr master interrupt
+is to be made wakeup capable when APPS is in suspend state.
 
 * wsa881x
 
@@ -56,4 +58,5 @@ swr0: swr_master {
 			reg = <0x00 0x042000>;
 		};
 		mipi-sdw-clock-stop-mode0-supported = <0>;
+		qcom,swr-mstr-tx-wakeup-capable = <1>;
 	};

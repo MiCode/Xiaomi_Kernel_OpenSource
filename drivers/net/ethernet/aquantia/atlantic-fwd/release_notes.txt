@@ -1,0 +1,158 @@
+Version 1.0.18
+==============
+Fix double free in the new fwd ring memory allocation code.
+Fix 32-bit warnings (AQ036)
+Add a pointer for forwarding engine's private data. (AQ043)
+
+Version 1.0.17
+==============
+Add compatibility to kernel 4.1
+create empty atl_hwmon_init for old kernels
+Fix legacy interrupt handling
+Fix MSM register writes
+Free link interrupt before reconfiguring the rings
+Implement FW settings table access
+Use new FW interface to control ethernet padding stripping
+Disable LRO by default until all issues are resolved.
+Clamp max number of rings as reported by ethtool to num_present_cpus() (AQ037)
+Use __GFP_NOWARN for Rx buffers only in NAPI poll (AQ037)
+Put PHY into low-power state on ifdown or disabling link
+Improve error reporting for forwarding-engine ring creation (AQ041)
+Allow custom memory allocators for atl_fwd_request_ring() (AQ041)
+
+Version 1.0.16
+==============
+Introduce the config options for forwarding API (AQ033)
+Implement catchall ethtool filter (AQ034)
+Fix MSI-X vectors being disabled on cpu unplug (AQ032)
+Fix Kconfig changes for AQ033
+
+Version 1.0.15
+==============
+Reset statistics via private flag
+Implement interrupt moderation for offload engine's rings
+Introduce a FW mutex, handle link interrupts in a workqueue
+Implement PHY temperature sensor
+Report ring's and buffer's physical addresses on fwd ring request
+Implement ethtool control for stripping Rx ethernet frame's padding
+
+Version 1.0.14
+==============
+Remove old IPA implementation (replaced by atl_fwd.[ch])
+Fix forwarding engine interface
+Change the driver name to reflect the new module name
+Implement Linux PM support
+Implement WoL support
+
+Version 1.0.13
+==============
+Integrate Linux VLAN filter hw acceleration with ethtool filters
+Rename the module to atlantic-fwd
+
+Version 1.0.12
+==============
+Expose PHY LPI state via ethtool private flags
+
+Version 1.0.11
+==============
+Minor IPA interface fixes
+Turn on/off Rx XOFF flow control when needed
+Fix advertizing EEE link modes and show LPI timer
+Add some HW counters from RMON MIB
+Add Host and Lost counters to statistics
+Add more Felicity PCI IDs
+Add ethtool private flags tracking LPI state
+
+Version 1.0.10
+==============
+Add module parameter to force align IP headers
+
+Version 1.0.9
+==============
+Add AQC100 / -111 / -112 IDs
+Fix adding vlan with vlan id > 64
+Fix ethtool IPv4 filter reporting (AQ022)
+Implement ethtool interface for ethertype filters.
+Restore backward compat for Linux 4.4
+
+Version 1.0.8
+==============
+Fix checkpatch.pl and smatch  warnings and errors
+
+Version 1.0.7
+==============
+Make Tx ring free space watermarks configurable
+Misc filter fixes
+Implement ethtool interface for VLAN filters
+Implement pause statistics
+
+Version 1.0.6
+==============
+Implement compat fixes for kernels without IPv6 ethtool NFC API
+
+Version 1.0.5
+==============
+Fix ifdown / ifup link state race
+Fix autoneg re-enable on pre-ethtool_ksettings kernels
+Implement n-tuple Rx filters
+Misc clean-ups
+
+Version 1.0.4
+==============
+Switch to using spin lock for updating global stats
+Fix out-of-bounds dma_sync_single_range() for packet header
+Fix an Rx error corner case
+Refactor delayed dma-unmapping of headers for RSC
+Implement HW loopbacks
+Implement interrupt coalescing ethtool method
+
+Version 1.0.3
+==============
+Fix crash in mutex_lock on init
+Add compat cast for ->ndo_get_stats64 for old kernels
+Get rid of struct atl_common_stats
+Refactor ring structure to remove the need for -fplan9-extensions
+Drop -fplan9-extensions
+
+Version 1.0.2
+==============
+Implement setting the MAC address
+Rework VLAN filters
+Implement per-ring counters
+Fix Tx queue start / stop handling
+Implement basic netdev stats
+Implement ethtool stats
+
+Version 1.0.1
+==============
+Update the README
+Refactor the ring structure
+Fix LRO timers timebase
+Initial Qualcomm Technologies, Inc. IPA support
+Refactor Link management
+Implement Flow Control
+Implement EEE
+Set default link on init
+Implement dynamic datapath reconfiguration
+Implement ethtool -> [gs]et_ringparam, set_channels
+
+Version 1.0.0
+==============
+Add dma-mapping tracepoints
+Implement VLAN offloads
+Implement promiscuous mode and UC / MC filters
+Implement HW header splitting, fix Rx buffer mgmt for RSC
+Fix multicast filter support
+Implement new reset sequence
+Implement multi-fw switch
+Implement new link management
+Introduce link interrupt
+Implement ethtool set_settings and _ksettings variants
+Implement multiring support
+Implement RSS support
+Enable jumbo frames
+Fix ethtool RSS methods
+Add RDM / TDM descriptor thresholds
+Switch to INTR block based interrupt throttling
+Enable LRO
+Implement linear skb mode

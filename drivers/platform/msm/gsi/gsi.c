@@ -212,7 +212,7 @@ static void gsi_channel_state_change_wait(unsigned long chan_hdl,
 			return;
 		}
 
-		GSIDBG("GSI wait on chan_hld=%lu irqtyp=%lu state=%u intr=%u\n",
+		GSIDBG("GSI wait on chan_hld=%lu irqtyp=%u state=%u intr=%u\n",
 			chan_hdl,
 			type,
 			ctx->state,
@@ -3308,7 +3308,7 @@ int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 	spin_unlock_irqrestore(slock, flags);
 
 	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI && ctx->evtr)
-		GSIDBG("ch=%lu ev=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
+		GSIDBG("ch=%lu ev=%i RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
 			chan_hdl, ctx->evtr->id, rp, wp, rp_local);
 	else
 		GSIDBG("ch=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
@@ -4212,7 +4212,7 @@ void gsi_wdi3_dump_register(unsigned long chan_hdl)
 		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
 		return;
 	}
-	GSIDBG("reg dump ch id %d\n", chan_hdl);
+	GSIDBG("reg dump ch id %lu\n", chan_hdl);
 	val = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(chan_hdl,
 			gsi_ctx->per.ee));

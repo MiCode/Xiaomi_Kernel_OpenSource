@@ -40,12 +40,6 @@
 		#size-cells = <1>;
 		ranges;
 
-		mpss_debug_mem: mpss_debug_region@90c00000 {
-			no-map;
-			reg = <0x90c00000 0x800000>;
-			label = "mpss_debug_mem";
-		};
-
 		tz_apps_mem: tz_apps_region@0x90000000 {
 			no-map;
 			reg = <0x90000000 0xc00000>;
@@ -70,6 +64,12 @@
 			label = "peripheral2_mem";
 		};
 
+		secdata_mem: secdata_region@8fcfd000 {
+			no-map;
+			reg = <0x8fcfd000 0x1000>;
+			label = "secdata_mem";
+		};
+
 		ac_db_mem: ac_db_region@8fc80000 {
 			no-map;
 			reg = <0x8fc80000 0x40000>;
@@ -82,10 +82,16 @@
 			label = "hyp_mem";
 		};
 
-		mpss_adsp_mem: mpss_adsp_region@83c00000 {
+		mpss_debug_mem: mpss_debug_region@8ef00000 {
+			no-map;
+			reg = <0x8ef00000 0x800000>;
+			label = "mpss_debug_mem";
+		};
+
+		mpss_adsp_mem: mpss_adsp_region@82300000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x83c00000 0xbb00000>;
+			reg = <0x82300000 0xcc00000>;
 			label = "mpss_adsp_mem";
 		};
 
@@ -528,6 +534,7 @@
 
 	ipa_hw: qcom,ipa@01e00000 {
 		compatible = "qcom,ipa";
+		mboxes = <&qmp_aop 0>;
 		reg = <0x1e00000 0x84000>,
 		      <0x1e04000 0x23000>;
 		reg-names = "ipa-base", "gsi-base";
@@ -602,7 +609,7 @@
 			qcom,additional-mapping =
 				/* modem tables in IMEM */
 				<0x14688000 0x14688000 0x3000>;
-			qcom,ipa-q6-smem-size = <16384>;
+			qcom,ipa-q6-smem-size = <26624>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
@@ -960,7 +967,6 @@
 		reg-names =     "nand_phys",
 				"bam_phys";
 		qcom,reg-adjustment-offset = <0x4000>;
-		qcom,qpic-clk-rpmh;
 
 		interrupts = <0 135 0>;
 		interrupt-names = "bam_irq";
@@ -972,6 +978,9 @@
 			<91 512 0 0>,
 		/* Voting for max b/w on PNOC bus for now */
 			<91 512 400000 400000>;
+
+		clock-names = "core_clk";
+		clocks = <&clock_rpmh RPMH_QPIC_CLK>;
 
 		status = "disabled";
 	};
@@ -1047,6 +1056,7 @@
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 		pcie-disable-l1;
 		pcie-disable-l1ss;
+		qcom,smmu-s1-enable;
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
@@ -1433,5 +1443,27 @@
 		pci-ids = "17cb:1101";
 
 		memory-region = <&cnss_wlan_mem>;
+	};
+};
+
+&soc {
+	ess-instance {
+		num_devices = <0x1>;
+		ess-switch@0 {
+			compatible = "qcom,ess-switch-qca83xx";
+			qcom,switch-access-mode = "mdio";
+			qcom,ar8327-initvals = <
+				0x00004 0x4200000   /* PAD0_MODE */
+				0x00008 0x0         /* PAD5_MODE */
+				0x000e4 0xaa545     /* MAC_POWER_SEL */
+				0x000e0 0xc74164de  /* SGMII_CTRL */
+				0x0007c 0x4e        /* PORT0_STATUS */
+				0x00094 0x4e        /* PORT6_STATUS */
+			>;
+			qcom,link-intr-gpio = <84>;
+			qcom,switch-cpu-bmp = <0x01>;    /* cpu port bitmap */
+			qcom,switch-lan-bmp = <0x3e>;    /* lan port bitmap */
+			qcom,switch-wan-bmp = <0x0>;     /* wan port bitmap */
+		};
 	};
 };

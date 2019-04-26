@@ -43,6 +43,22 @@
 			reg = <0x0 0xa0000000 0x0 0x20000000>;
 			label = "pmem_shared_mem";
 		};
+
+		qseecom_mem: qseecom_region@0x9e400000 {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1400000>;
+		};
+
+		qseecom_ta_mem: qseecom_ta_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>;
+		};
 	};
 
 	firmware: firmware {
@@ -101,6 +117,19 @@
 			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			reg = <27>;
+			memory-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
+			reg = <19>;
+			memory-region = <&qseecom_ta_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
 	};
 
 	qcom,hab {
@@ -328,6 +357,27 @@
 		regulator-name = "usb30_sec_gdsc";
 		status = "okay";
 	};
+
+	qcom_seecom: qseecom@87900000 {
+		compatible = "qcom,qseecom";
+		reg = <0x87900000 0x2200000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,qsee-reentrancy-support = <2>;
+	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		status = "ok";
+	};
 };
 
 #include "sm8150-pinctrl.dtsi"
@@ -335,3 +385,7 @@
 #include "sa8155-vm-qupv3.dtsi"
 #include "sa8155-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
+
+&qupv3_se13_4uart {
+	status = "ok";
+};

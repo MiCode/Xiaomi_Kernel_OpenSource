@@ -22,6 +22,7 @@
 #include <linux/uidgid.h>
 
 #include <net/sock.h>
+#include <uapi/linux/sched/types.h>
 
 #include "qrtr.h"
 
@@ -903,13 +904,16 @@ static void qrtr_node_rx_work(struct kthread_work *work)
  * qrtr_endpoint_register() - register a new endpoint
  * @ep: endpoint to register
  * @nid: desired node id; may be QRTR_EP_NID_AUTO for auto-assignment
+ * @rt: flag to notify real time low latency endpoint
  * Return: 0 on success; negative error code on failure
  *
  * The specified endpoint must have the xmit function pointer set on call.
  */
-int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id)
+int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
+			   bool rt)
 {
 	struct qrtr_node *node;
+	struct sched_param param = {.sched_priority = 1};
 
 	if (!ep || !ep->xmit)
 		return -EINVAL;
@@ -932,6 +936,8 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id)
 		kfree(node);
 		return -ENOMEM;
 	}
+	if (rt)
+		sched_setscheduler(node->task, SCHED_FIFO, &param);
 
 	mutex_init(&node->qrtr_tx_lock);
 	INIT_RADIX_TREE(&node->qrtr_tx_flow, GFP_KERNEL);

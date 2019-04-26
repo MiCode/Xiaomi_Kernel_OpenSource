@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,9 @@
 #include "sm6150-camera-sensor-qrd.dtsi"
 
 &qupv3_se3_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 	#include "smb1390.dtsi"
 	#include "smb1355.dtsi"
@@ -184,6 +187,10 @@
 &qupv3_se5_i2c {
 	status = "ok";
 	qcom,clk-freq-out = <1000000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;

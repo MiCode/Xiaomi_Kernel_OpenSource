@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ struct scm_desc {
 	u64 x5;
 };
 
-#ifdef CONFIG_QCOM_SCM
+#if defined(CONFIG_QCOM_SCM) || defined(CONFIG_QCOM_SCM_QCPE)
 
 #define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
 extern int scm_call2(u32 cmd_id, struct scm_desc *desc);

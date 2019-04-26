@@ -681,11 +681,6 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 		if (!strcmp(iommu_cb_set.cb_info[i].name, name)) {
 			mutex_lock(&iommu_cb_set.cb_info[i].lock);
 			if (iommu_cb_set.cb_info[i].handle != HANDLE_INIT) {
-				CAM_ERR(CAM_SMMU,
-					"Error: %s already got handle 0x%x",
-					name,
-					iommu_cb_set.cb_info[i].handle);
-
 				if (iommu_cb_set.cb_info[i].is_secure)
 					iommu_cb_set.cb_info[i].secure_count++;
 
@@ -694,6 +689,11 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 					*hdl = iommu_cb_set.cb_info[i].handle;
 					return 0;
 				}
+
+				CAM_ERR(CAM_SMMU,
+					"Error: %s already got handle 0x%x",
+					name, iommu_cb_set.cb_info[i].handle);
+
 				return -EINVAL;
 			}
 

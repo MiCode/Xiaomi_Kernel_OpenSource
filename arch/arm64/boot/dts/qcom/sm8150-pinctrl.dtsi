@@ -4546,5 +4546,18 @@
 				bias-disable;
 			};
 		};
+
+		audio_ioexp_reset_active: audio_ioexp_reset_active {
+			mux {
+				pins = "gpio166";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio166";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
 	};
 };

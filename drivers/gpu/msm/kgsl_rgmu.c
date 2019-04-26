@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,7 +312,6 @@ error:
 	 * that hang recovery is needed to power on GPU
 	 */
 	set_bit(GMU_FAULT, &device->gmu_core.flags);
-	gmu_dev_ops->irq_disable(device);
 	rgmu_snapshot(device);
 }
 
@@ -447,7 +446,6 @@ static int rgmu_start(struct kgsl_device *device)
 
 error_rgmu:
 	set_bit(GMU_FAULT, &device->gmu_core.flags);
-	gmu_dev_ops->irq_disable(device);
 	rgmu_snapshot(device);
 	return ret;
 }
@@ -489,4 +487,5 @@ struct gmu_core_ops rgmu_ops = {
 	.dcvs_set = rgmu_dcvs_set,
 	.snapshot = rgmu_snapshot,
 	.regulator_isenabled = rgmu_regulator_isenabled,
+	.suspend = rgmu_suspend,
 };

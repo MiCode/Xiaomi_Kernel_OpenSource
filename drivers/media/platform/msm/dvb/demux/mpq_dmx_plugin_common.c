@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1774,7 +1774,7 @@ static int mpq_sdmx_terminate_metadata_buffer(struct mpq_feed *mpq_feed)
 
 	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
 
-	struct sdmx_buff_descriptor *desc = &mpq_feed->data_desc;
+	struct sdmx_buff_descriptor *desc = &mpq_feed->metadata_desc;
 
 	dma_free_coherent(&mpq_demux->pdev->dev,
 			  desc->size, desc->virt_base,

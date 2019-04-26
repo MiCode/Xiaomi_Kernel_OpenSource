@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1185,6 +1185,7 @@ struct ipa_tz_unlock_reg_info {
 
 enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
+	IPA_SMMU_AP_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
@@ -1285,7 +1286,12 @@ int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
  */
 int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules);
 
+int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules);
+
 int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only);
+
+int ipa_add_rt_rule_usr_v2(struct ipa_ioc_add_rt_rule_v2 *rules,
+	bool user_only);
 
 int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls);
 
@@ -1301,16 +1307,25 @@ int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in);
 
 int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules);
 
+int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
+
 /*
  * Filtering
  */
 int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules);
 
+int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules);
+
 int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules, bool user_only);
+
+int ipa_add_flt_rule_usr_v2(struct ipa_ioc_add_flt_rule_v2 *rules,
+	bool user_only);
 
 int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls);
 
 int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules);
+
+int ipa_mdfy_flt_rule_v2(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
 
 int ipa_commit_flt(enum ipa_ip_type ip);
 
@@ -1779,8 +1794,19 @@ static inline int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 	return -EPERM;
 }
 
+static inline int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules)
+{
+	return -EPERM;
+}
+
 static inline int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules,
 					bool user_only)
+{
+	return -EPERM;
+}
+
+static inline int ipa_add_rt_rule_usr_v2(
+	struct ipa_ioc_add_rt_rule_v2 *rules, bool user_only)
 {
 	return -EPERM;
 }
@@ -1820,6 +1846,11 @@ static inline int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules)
 	return -EPERM;
 }
 
+static inline int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *rules)
+{
+	return -EPERM;
+}
+
 /*
  * Filtering
  */
@@ -1828,8 +1859,19 @@ static inline int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	return -EPERM;
 }
 
+static inline int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules)
+{
+	return -EPERM;
+}
+
 static inline int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules,
 					bool user_only)
+{
+	return -EPERM;
+}
+
+static inline int ipa_add_flt_rule_usr_v2(
+	struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only)
 {
 	return -EPERM;
 }
@@ -1843,6 +1885,13 @@ static inline int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules)
 {
 	return -EPERM;
 }
+
+static inline int ipa_mdfy_flt_rule_v2(
+	struct ipa_ioc_mdfy_flt_rule_v2 *rules)
+{
+	return -EPERM;
+}
+
 
 static inline int ipa_commit_flt(enum ipa_ip_type ip)
 {

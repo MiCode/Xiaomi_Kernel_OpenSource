@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1710,14 +1710,24 @@ static const struct qcom_cc_desc cam_cc_sm6150_desc = {
 
 static const struct of_device_id cam_cc_sm6150_match_table[] = {
 	{ .compatible = "qcom,camcc-sm6150" },
+	{ .compatible = "qcom,camcc-sa6155" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_sm6150_match_table);
+
+static void camcc_sm6150_fixup_sa6155(struct platform_device *pdev)
+{
+	vdd_cx.num_levels = VDD_NUM_SA6155;
+	vdd_mx.num_levels = VDD_MX_NUM_SA6155;
+	vdd_cx.cur_level = VDD_NUM_SA6155;
+	vdd_mx.cur_level = VDD_MX_NUM_SA6155;
+}
 
 static int cam_cc_sm6150_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret = 0;
+	int is_sa6155;
 
 	vdd_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(vdd_cx.regulator[0])) {
@@ -1732,6 +1742,11 @@ static int cam_cc_sm6150_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
 		return PTR_ERR(vdd_mx.regulator[0]);
 	}
+
+	is_sa6155 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,camcc-sa6155");
+	if (is_sa6155)
+		camcc_sm6150_fixup_sa6155(pdev);
 
 	regmap = qcom_cc_map(pdev, &cam_cc_sm6150_desc);
 	if (IS_ERR(regmap)) {

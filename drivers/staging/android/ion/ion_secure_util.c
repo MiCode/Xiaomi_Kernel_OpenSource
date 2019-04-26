@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,8 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_SPSS_SP ||
 		vmid == VMID_CP_SPSS_SP_SHARED ||
 		vmid == VMID_CP_SPSS_HLOS_SHARED ||
-		vmid == VMID_CP_CDSP);
+		vmid == VMID_CP_CDSP ||
+		vmid == VMID_CP_DSP_EXT);
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -60,6 +61,8 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	if (flags & ION_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
+	if (flags & ION_FLAG_CP_DSP_EXT)
+		return VMID_CP_DSP_EXT;
 	return -EINVAL;
 }
 
@@ -87,6 +90,9 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	int vmid;
 
 	flags = flags & ION_FLAGS_CP_MASK;
+	if (!flags)
+		return -EINVAL;
+
 	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
 		vmid = get_vmid(0x1UL << itr);
 		if (vmid < 0 || !nelems)
@@ -156,7 +162,8 @@ int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 	}
 
 	for (i = 0; i < dest_nelems; i++) {
-		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY)
+		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY ||
+		    dest_vm_list[i] == VMID_CP_DSP_EXT)
 			dest_perms[i] = PERM_READ;
 		else
 			dest_perms[i] = PERM_READ | PERM_WRITE;
@@ -275,7 +282,8 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 	}
 
 	for (i = 0; i < nr; i++)
-		if (vmids[i] == VMID_CP_SEC_DISPLAY)
+		if (vmids[i] == VMID_CP_SEC_DISPLAY ||
+		    vmids[i] == VMID_CP_DSP_EXT)
 			modes[i] = PERM_READ;
 		else
 			modes[i] = PERM_READ | PERM_WRITE;

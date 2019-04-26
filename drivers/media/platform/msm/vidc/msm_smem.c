@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -532,7 +532,8 @@ int msm_smem_cache_operations(struct dma_buf *dbuf,
 	/* Return if buffer doesn't support caching */
 	rc = dma_buf_get_flags(dbuf, &flags);
 	if (rc) {
-		dprintk(VIDC_ERR, "%s: dma_buf_get_flags failed, err %d\n", rc);
+		dprintk(VIDC_ERR, "%s: dma_buf_get_flags failed, err %d\n",
+			__func__, rc);
 		return rc;
 	} else if (!(flags & ION_FLAG_CACHED)) {
 		return rc;

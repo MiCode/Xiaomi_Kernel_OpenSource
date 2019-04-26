@@ -1,0 +1,35 @@
+
+* Qualcomm Technologies Inc. SSDK Driver.
+
+Add missing DT bindings documentation for 8337 ethernet switch.
+
+Required properties:
+- compatible: Should be "qcom,ess-switch-qca83xx"
+- qcom,switch-access-mode: Should be "mdio" or "local bus"
+- qcom,link-intr-gpio: Link interrupt number used by switch
+- qcom,switch-cpu-bmp: Switch cpu port bitmap
+- qcom,switch-lan-bmp: Switch lan port bitmap
+- qcom,switch-wan-bmp: Switch wan port bitmap
+- qcom,ar8327-initvals: Initial qca83xx configuration
+
+Optional:
+- qcom,link-polling-required: Boolean- Present if using polling for link check
+
+Example:
+
+ess-switch@0 {
+	compatible = "qcom,ess-switch-qca83xx";
+	qcom,switch-access-mode = "mdio";
+	qcom,ar8327-initvals = <
+		0x00004 0x4200000   /* PAD0_MODE */
+		0x00008 0x0         /* PAD5_MODE */
+		0x000e4 0xaa545     /* MAC_POWER_SEL */
+		0x000e0 0xc74164de  /* SGMII_CTRL */
+		0x0007c 0x4e        /* PORT0_STATUS */
+		0x00094 0x4e        /* PORT6_STATUS */
+	>;
+	qcom,link-intr-gpio = <84>;
+	qcom,switch-cpu-bmp = <0x01>;    /* cpu port bitmap */
+	qcom,switch-lan-bmp = <0x3e>;    /* lan port bitmap */
+	qcom,switch-wan-bmp = <0x0>;     /* wan port bitmap */
+};

@@ -1696,6 +1696,8 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 		goto out;
 	}
 
+	memset(in_buf, 0, PAGE_SIZE);
+	memset(out_buf, 0, PAGE_SIZE);
 	hdr.tzhandle = tzhandle;
 	hdr.op = OBJECT_OP_RELEASE;
 	hdr.counts = 0;

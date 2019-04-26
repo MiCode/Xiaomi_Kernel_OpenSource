@@ -620,7 +620,7 @@ static struct npu_network *get_network_by_hdl(struct npu_host_ctx *ctx,
 	}
 
 	if (client && (client != network->client)) {
-		pr_err("network %d doesn't belong to this client\n",
+		pr_err("network %lld doesn't belong to this client\n",
 			network->id);
 		return NULL;
 	}
@@ -644,7 +644,7 @@ static struct npu_network *get_network_by_id(struct npu_host_ctx *ctx,
 
 	network = &ctx->networks[id - 1];
 	if (client && (client != network->client)) {
-		pr_err("network %d doesn't belong to this client\n", id);
+		pr_err("network %lld doesn't belong to this client\n", id);
 		return NULL;
 	}
 
@@ -669,7 +669,7 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
 			pr_debug("%s:Active network num %d\n", __func__,
 				ctx->network_num);
 		} else {
-			pr_warn("network %d:%d is in use\n", network->id,
+			pr_warn("network %lld:%d is in use\n", network->id,
 				atomic_read(&network->ref_cnt));
 		}
 	}
@@ -1839,7 +1839,7 @@ void npu_host_cleanup_networks(struct npu_client *client)
 	while (!list_empty(&client->mapped_buffer_list)) {
 		ion_buf = list_first_entry(&client->mapped_buffer_list,
 			struct npu_ion_buf, list);
-		pr_warn("unmap buffer %x:%x\n", ion_buf->fd, ion_buf->iova);
+		pr_warn("unmap buffer %x:%llx\n", ion_buf->fd, ion_buf->iova);
 		unmap_req.buf_ion_hdl = ion_buf->fd;
 		unmap_req.npu_phys_addr = ion_buf->iova;
 		npu_host_unmap_buf(client, &unmap_req);

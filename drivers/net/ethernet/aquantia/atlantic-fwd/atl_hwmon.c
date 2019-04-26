@@ -9,6 +9,7 @@
 
 #include "atl_common.h"
 #include <linux/hwmon.h>
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,10,0)
 
 static char *atl_hwmon_labels[] = {
 	"PHY Temperature",
@@ -82,3 +83,12 @@ int atl_hwmon_init(struct atl_nic *nic)
 
 	return PTR_ERR_OR_ZERO(hwmon_dev);
 }
+
+#else
+
+int atl_hwmon_init(struct atl_nic *nic)
+{
+	return 0;
+}
+
+#endif

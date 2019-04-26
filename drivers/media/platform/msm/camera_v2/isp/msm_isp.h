@@ -169,7 +169,7 @@ struct msm_vfe_irq_ops {
 	void (*dual_config_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		enum msm_isp_irq_operation);
-	void (*read_and_clear_dual_irq_status)(struct vfe_device *vfe_dev,
+	void (*clear_dual_irq_status)(struct vfe_device *vfe_dev,
 		uint32_t *dual_irq_status0);
 };
 
@@ -424,6 +424,12 @@ enum msm_isp_comp_irq_types {
 
 #define MSM_VFE_REQUESTQ_SIZE 8
 
+struct msm_isp_pending_buf_info {
+	uint32_t is_buf_done_pending;
+	struct msm_isp_buffer *buf;
+	uint32_t frame_id;
+};
+
 struct msm_vfe_axi_stream {
 	uint32_t frame_id;
 	enum msm_vfe_axi_state state;
@@ -480,6 +486,7 @@ struct msm_vfe_axi_stream {
 	uint32_t vfe_mask;
 	uint32_t composite_irq[MSM_ISP_COMP_IRQ_MAX];
 	int lpm_mode;
+	struct msm_isp_pending_buf_info pending_buf_info;
 };
 
 struct msm_vfe_axi_composite_info {
@@ -809,7 +816,8 @@ struct vfe_device {
 	struct mutex core_mutex;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
-	spinlock_t completion_lock;
+	spinlock_t reset_completion_lock;
+	spinlock_t halt_completion_lock;
 
 	/* Tasklet info */
 	atomic_t irq_cnt;
@@ -862,8 +870,10 @@ struct vfe_device {
 	/* Dual VFE IRQ CAMSS Info*/
 	void __iomem *camss_base;
 	struct resource *dual_vfe_irq;
+	bool dual_isp_sync_irq_enabled;
 	/* irq info */
 	uint32_t dual_irq_mask;
+	uint32_t irq_sof_id;
 };
 
 struct vfe_parent_device {

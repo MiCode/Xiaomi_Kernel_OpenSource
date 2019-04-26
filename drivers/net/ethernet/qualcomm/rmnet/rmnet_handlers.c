@@ -25,11 +25,9 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
-#ifdef CONFIG_QCOM_QMI_HELPERS
+
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
-
-#endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
@@ -253,6 +251,8 @@ __rmnet_map_ingress_handler(struct sk_buff *skb,
 	} else {
 		/* We only have the main QMAP header to worry about */
 		pskb_pull(skb, sizeof(*qmap));
+
+		rmnet_set_skb_proto(skb);
 
 		if (port->data_format & RMNET_FLAGS_INGRESS_MAP_CKSUMV4) {
 			if (!rmnet_map_checksum_downlink_packet(skb, len + pad))

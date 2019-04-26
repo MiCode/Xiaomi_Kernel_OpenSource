@@ -636,10 +636,10 @@ static int mhi_uci_read_async(struct uci_client *uci_handle,
 	reinit_completion(&uci_handle->read_done);
 
 	*bytes_avail = mhi_dev_read_channel(ureq);
-	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%x bytes_read = 0x%x\n",
+	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%lx bytes_read = 0x%x\n",
 		ureq->len, *bytes_avail);
 	if (*bytes_avail < 0) {
-		uci_log(UCI_DBG_ERROR, "Failed to read channel ret %d\n",
+		uci_log(UCI_DBG_ERROR, "Failed to read channel ret %dlu\n",
 			*bytes_avail);
 		return -EIO;
 	}
@@ -667,7 +667,7 @@ static int mhi_uci_read_async(struct uci_client *uci_handle,
 		uci_handle->pkt_size = ureq->transfer_len;
 
 		uci_log(UCI_DBG_VERBOSE,
-			"Got pkt of sz 0x%x at adr %pK, ch %d\n",
+			"Got pkt of sz 0x%lx at adr %pK, ch %d\n",
 			uci_handle->pkt_size,
 			ureq->buf, ureq->chan);
 	} else {
@@ -686,7 +686,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 	ureq->mode = DMA_SYNC;
 	*bytes_avail = mhi_dev_read_channel(ureq);
 
-	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%x bytes_read = 0x%x\n",
+	uci_log(UCI_DBG_VERBOSE, "buf_size = 0x%lx bytes_read = 0x%x\n",
 		ureq->len, *bytes_avail);
 
 	if (*bytes_avail < 0) {
@@ -700,7 +700,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 		uci_handle->pkt_size = ureq->transfer_len;
 
 		uci_log(UCI_DBG_VERBOSE,
-			"Got pkt of sz 0x%x at adr %pK, ch %d\n",
+			"Got pkt of sz 0x%lx at adr %pK, ch %d\n",
 			uci_handle->pkt_size,
 			ureq->buf, ureq->chan);
 	} else {
@@ -1076,7 +1076,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 
 		bytes_copied = *bytes_pending;
 		*bytes_pending = 0;
-		uci_log(UCI_DBG_VERBOSE, "Copied 0x%x of 0x%x, chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x, chan %d\n",
 			bytes_copied, (u32)*bytes_pending, uci_handle->in_chan);
 	} else {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
@@ -1087,7 +1087,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 		}
 		bytes_copied = uspace_buf_size;
 		*bytes_pending -= uspace_buf_size;
-		uci_log(UCI_DBG_VERBOSE, "Copied 0x%x of 0x%x,chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x,chan %d\n",
 			bytes_copied,
 			(u32)*bytes_pending,
 			uci_handle->in_chan);
@@ -1101,7 +1101,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 		uci_handle->pkt_size = 0;
 	}
 	uci_log(UCI_DBG_VERBOSE,
-		"Returning 0x%x bytes, 0x%x bytes left\n",
+		"Returning 0x%lx bytes, 0x%x bytes left\n",
 		bytes_copied, (u32)*bytes_pending);
 	mutex_unlock(mutex);
 	return bytes_copied;
@@ -1556,7 +1556,7 @@ static int uci_device_create(struct uci_client *client)
 		uci_ctxt.start_ctrl_nr + client_index, 1);
 	if (IS_ERR_VALUE(r)) {
 		uci_log(UCI_DBG_ERROR,
-			"Failed to add cdev for client %d, ret 0x%x\n",
+			"Failed to add cdev for client %d, ret 0x%lx\n",
 			client_index, r);
 		return r;
 	}
@@ -1750,7 +1750,7 @@ int mhi_uci_init(void)
 		r = mhi_register_client(mhi_client, i);
 		if (r) {
 			uci_log(UCI_DBG_CRITICAL,
-				"Failed to reg client %d ret %d\n",
+				"Failed to reg client %lu ret %d\n",
 				r, i);
 		}
 	}
@@ -1762,14 +1762,14 @@ int mhi_uci_init(void)
 			DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
 		uci_log(UCI_DBG_ERROR,
-				"Failed to alloc char devs, ret 0x%x\n", r);
+				"Failed to alloc char devs, ret 0x%lx\n", r);
 		goto failed_char_alloc;
 	}
 
 	r = alloc_chrdev_region(&uci_ctxt.ctrl_nr, 0, 1, DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
 		uci_log(UCI_DBG_ERROR,
-				"Failed to alloc char ctrl devs, 0x%x\n", r);
+				"Failed to alloc char ctrl devs, 0x%lx\n", r);
 		goto failed_char_alloc;
 	}
 
@@ -1778,7 +1778,7 @@ int mhi_uci_init(void)
 						DEVICE_NAME);
 	if (IS_ERR(uci_ctxt.mhi_uci_class)) {
 		uci_log(UCI_DBG_ERROR,
-			"Failed to instantiate class, ret 0x%x\n", r);
+			"Failed to instantiate class, ret 0x%lx\n", r);
 		r = -ENOMEM;
 		goto failed_class_add;
 	}
@@ -1812,7 +1812,7 @@ int mhi_uci_init(void)
 	r = cdev_add(uci_ctxt.cdev_ctrl, uci_ctxt.ctrl_nr, 1);
 	if (IS_ERR_VALUE(r)) {
 		uci_log(UCI_DBG_ERROR,
-		"Failed to add ctrl cdev %d, ret 0x%x\n", i, r);
+		"Failed to add ctrl cdev %d, ret 0x%lx\n", i, r);
 		kfree(uci_ctxt.cdev_ctrl);
 		uci_ctxt.cdev_ctrl = NULL;
 		return 0;

@@ -858,7 +858,7 @@ static int msm_geni_ir_get_res(struct platform_device *pdev,
 		pr_err("ioremap failed\n");
 		return -ENOMEM;
 	}
-	pr_debug("ir->base: 0x%x\n", ir->base);
+	pr_debug("ir->base: 0x%lx\n", (unsigned long int)ir->base);
 	ir->ahb_clk = clk_get(&pdev->dev, "iface_clk");
 	ir->serial_clk = clk_get(&pdev->dev, "serial_clk");
 	if (IS_ERR(ir->ahb_clk)) {

@@ -44,7 +44,16 @@ static inline phys_addr_t msm_timer_get_pa(void) { return 0; }
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 static inline int boot_marker_enabled(void) { return 1; }
 void place_marker(const char *name);
+void destroy_marker(const char *name);
+void measure_wake_up_time(void);
 #else
 static inline void place_marker(char *name) { };
+static inline void destroy_marker(const char *name) { };
 static inline int boot_marker_enabled(void) { return 0; }
+static inline void measure_wake_up_time(void) { };
+#endif
+#ifdef CONFIG_QTI_RPM_STATS_LOG
+uint64_t get_sleep_exit_time(void);
+#else
+static inline uint64_t get_sleep_exit_time(void) { return 0; }
 #endif

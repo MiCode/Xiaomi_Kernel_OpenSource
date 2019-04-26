@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014,2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014,2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,7 +206,7 @@ int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
 void msm_vfe47_set_halt_restart_mask(struct vfe_device *vfe_dev);
 uint32_t msm_vfe47_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx);
 uint32_t msm_vfe47_get_ub_size(struct vfe_device *vfe_dev);
-void msm_vfe47_read_and_clear_dual_irq_status(struct vfe_device *vfe_dev,
+void msm_vfe47_clear_dual_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *dual_irq_status);
 void msm_vfe47_dual_config_irq(struct vfe_device *vfe_dev,
 		uint32_t irq0_mask, uint32_t irq1_mask,

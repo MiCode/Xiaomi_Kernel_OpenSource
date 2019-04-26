@@ -201,6 +201,7 @@
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm6125_tz>;
+		wake-capable-sensor;
 
 		trips {
 			pm6125_trip0: trip0 {

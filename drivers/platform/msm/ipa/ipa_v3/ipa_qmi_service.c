@@ -934,8 +934,11 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 			resp.resp.result);
 		return resp.resp.result;
 	}
-	IPAWANDBG("SUCCESS\n");
-	return rc;
+
+	return ipa3_check_qmi_response(rc,
+		QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_V01,
+		resp.resp.result,
+		resp.resp.error, "ipa_enable_force_clear_datapath");
 }
 
 int ipa3_qmi_disable_force_clear_datapath_send(
@@ -988,8 +991,11 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 			resp.resp.result);
 		return resp.resp.result;
 	}
-	IPAWANDBG("SUCCESS\n");
-	return rc;
+
+	return ipa3_check_qmi_response(rc,
+		QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_V01,
+		resp.resp.result,
+		resp.resp.error, "ipa_disable_force_clear_datapath");
 }
 
 /* sending filter-installed-notify-request to modem*/

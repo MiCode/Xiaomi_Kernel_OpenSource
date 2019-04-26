@@ -50,7 +50,9 @@
 
 #define PLL_USER_CTL		0x10
 #define PLL_POST_DIV_SHIFT	8
+#define PLL_ODD_POST_DIV_SHIFT	15
 #define PLL_POST_DIV_MASK	0xf
+#define PLL_ODD_POST_DIV_MASK	0x7
 #define PLL_ALPHA_EN		BIT(24)
 #define PLL_VCO_SHIFT		20
 #define PLL_VCO_MASK		0x3
@@ -1394,6 +1396,7 @@ clk_alpha_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 	u32 ctl, user_ctl = PLL_USER_CTL, post_div_mask = PLL_POST_DIV_MASK;
+	u32 i, div = 0;
 
 	if (pll->type == AGERA_PLL) {
 		user_ctl = AGERA_PLL_USER_CTL;
@@ -1405,10 +1408,30 @@ clk_alpha_pll_postdiv_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 
 	regmap_read(pll->clkr.regmap, pll->offset + user_ctl, &ctl);
 
-	ctl >>= PLL_POST_DIV_SHIFT;
-	ctl &= post_div_mask;
+	if (pll->postdiv == POSTDIV_EVEN) {
+		ctl >>= PLL_POST_DIV_SHIFT;
+		ctl &= post_div_mask;
+		return parent_rate >> fls(ctl);
+	}
 
-	return parent_rate >> fls(ctl);
+	ctl >>= PLL_ODD_POST_DIV_SHIFT;
+
+	if (pll->type == AGERA_PLL)
+		ctl &= post_div_mask;
+	else
+		ctl &= PLL_ODD_POST_DIV_MASK;
+
+	for (i = 0; i < pll->num_post_div; i++) {
+		if (pll->post_div_table[i].val == ctl) {
+			div = pll->post_div_table[i].div;
+			break;
+		}
+	}
+
+	if (div == 0)
+		div = 1;
+
+	return (parent_rate / div);
 }
 
 static const struct clk_div_table clk_alpha_div_table[] = {
@@ -1425,9 +1448,16 @@ clk_alpha_pll_postdiv_round_rate(struct clk_hw *hw, unsigned long rate,
 				 unsigned long *prate)
 {
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
+	const struct clk_div_table *postdiv_table = clk_alpha_div_table;
+	u8 flag = CLK_DIVIDER_POWER_OF_TWO;
 
-	return divider_round_rate(hw, rate, prate, clk_alpha_div_table,
-				  pll->width, CLK_DIVIDER_POWER_OF_TWO);
+	if ((pll->postdiv == POSTDIV_ODD) && (pll->post_div_table)) {
+		postdiv_table = pll->post_div_table;
+		flag = CLK_DIVIDER_ROUND_CLOSEST;
+	}
+
+	return divider_round_rate(hw, rate, prate, postdiv_table, pll->width,
+				  flag);
 }
 
 static int clk_alpha_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -1436,18 +1466,29 @@ static int clk_alpha_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_alpha_pll_postdiv *pll = to_clk_alpha_pll_postdiv(hw);
 	int div;
 	u32 user_ctl = PLL_USER_CTL, post_div_mask = PLL_POST_DIV_MASK;
+	u32 post_div_shift = PLL_POST_DIV_SHIFT;
 
 	if (pll->type == AGERA_PLL) {
 		user_ctl = AGERA_PLL_USER_CTL;
 		post_div_mask = AGERA_PLL_POST_DIV_MASK;
 	}
 
-	/* 16 -> 0xf, 8 -> 0x7, 4 -> 0x3, 2 -> 0x1, 1 -> 0x0 */
-	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate) - 1;
+	/*
+	 * Even postdiv : 16 -> 0xf, 8 -> 0x7, 4 -> 0x3, 2 -> 0x1, 1 -> 0x0
+	 * Odd postdiv :  7 -> 0x7, 5 -> 0x5, 3 -> 0x3, 1 -> 0x0
+	 */
+	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	if (pll->postdiv == POSTDIV_EVEN || div == 1)
+		div--;
+
+	if (pll->postdiv == POSTDIV_ODD) {
+		if (!(pll->type == AGERA_PLL))
+			post_div_shift = PLL_ODD_POST_DIV_SHIFT;
+	}
 
 	return regmap_update_bits(pll->clkr.regmap, pll->offset + user_ctl,
-				  post_div_mask << PLL_POST_DIV_SHIFT,
-				  div << PLL_POST_DIV_SHIFT);
+				  post_div_mask << post_div_shift,
+				  div << post_div_shift);
 }
 
 const struct clk_ops clk_alpha_pll_postdiv_ops = {

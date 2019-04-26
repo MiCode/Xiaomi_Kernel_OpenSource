@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,14 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 		if ((!rc) && (vaddr_ptr) && (len) &&
 			(len >= cdm_cmd->cmd[i].offset)) {
+
+
+			if ((len - cdm_cmd->cmd[i].offset) <=
+				cdm_cmd->cmd[i].len) {
+				CAM_ERR(CAM_CDM, "Not enough buffer");
+				rc = -EINVAL;
+				break;
+			}
 			CAM_DBG(CAM_CDM,
 				"hdl=%x vaddr=%pK offset=%d cmdlen=%d:%zu",
 				cdm_cmd->cmd[i].bl_addr.mem_handle,

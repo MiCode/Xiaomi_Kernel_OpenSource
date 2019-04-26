@@ -56,6 +56,12 @@ static int msm_isp_composite_stats_irq(struct vfe_device *vfe_dev,
 				struct msm_vfe_stats_stream *stream_info,
 				enum msm_isp_comp_irq_types irq)
 {
+	/* for dual vfe mode need not check anything*/
+	if (vfe_dev->dual_vfe_sync_mode) {
+		stream_info->composite_irq[irq] = 0;
+		return 0;
+	}
+
 	/* interrupt recv on same vfe w/o recv on other vfe */
 	if (stream_info->composite_irq[irq] & (1 << vfe_dev->pdev->id)) {
 		pr_err("%s: irq %d out of sync for dual vfe on vfe %d\n",

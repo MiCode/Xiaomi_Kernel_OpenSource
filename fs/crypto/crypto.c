@@ -133,15 +133,25 @@ struct fscrypt_ctx *fscrypt_get_ctx(const struct inode *inode, gfp_t gfp_flags)
 }
 EXPORT_SYMBOL(fscrypt_get_ctx);
 
+void fscrypt_generate_iv(union fscrypt_iv *iv, u64 lblk_num,
+			 const struct fscrypt_info *ci)
+{
+	memset(iv, 0, ci->ci_mode->ivsize);
+	iv->lblk_num = cpu_to_le64(lblk_num);
+
+	if (ci->ci_flags & FS_POLICY_FLAG_DIRECT_KEY)
+		memcpy(iv->nonce, ci->ci_nonce, FS_KEY_DERIVATION_NONCE_SIZE);
+
+	if (ci->ci_essiv_tfm != NULL)
+		crypto_cipher_encrypt_one(ci->ci_essiv_tfm, iv->raw, iv->raw);
+}
+
 int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 			   u64 lblk_num, struct page *src_page,
 			   struct page *dest_page, unsigned int len,
 			   unsigned int offs, gfp_t gfp_flags)
 {
-	struct {
-		__le64 index;
-		u8 padding[FS_IV_SIZE - sizeof(__le64)];
-	} iv;
+	union fscrypt_iv iv;
 	struct skcipher_request *req = NULL;
 	DECLARE_CRYPTO_WAIT(wait);
 	struct scatterlist dst, src;
@@ -151,23 +161,11 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 
 	BUG_ON(len == 0);
 
-	BUILD_BUG_ON(sizeof(iv) != FS_IV_SIZE);
-	BUILD_BUG_ON(AES_BLOCK_SIZE != FS_IV_SIZE);
-	iv.index = cpu_to_le64(lblk_num);
-	memset(iv.padding, 0, sizeof(iv.padding));
-
-	if (ci->ci_essiv_tfm != NULL) {
-		crypto_cipher_encrypt_one(ci->ci_essiv_tfm, (u8 *)&iv,
-					  (u8 *)&iv);
-	}
+	fscrypt_generate_iv(&iv, lblk_num, ci);
 
 	req = skcipher_request_alloc(tfm, gfp_flags);
-	if (!req) {
-		printk_ratelimited(KERN_ERR
-				"%s: crypto_request_alloc() failed\n",
-				__func__);
+	if (!req)
 		return -ENOMEM;
-	}
 
 	skcipher_request_set_callback(
 		req, CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
@@ -184,9 +182,10 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 		res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
 	skcipher_request_free(req);
 	if (res) {
-		printk_ratelimited(KERN_ERR
-			"%s: crypto_skcipher_encrypt() returned %d\n",
-			__func__, res);
+		fscrypt_err(inode->i_sb,
+			    "%scryption failed for inode %lu, block %llu: %d",
+			    (rw == FS_DECRYPT ? "de" : "en"),
+			    inode->i_ino, lblk_num, res);
 		return res;
 	}
 	return 0;
@@ -332,7 +331,6 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return 0;
 	}
 
-	/* this should eventually be an flag in d_flags */
 	spin_lock(&dentry->d_lock);
 	cached_with_key = dentry->d_flags & DCACHE_ENCRYPTED_WITH_KEY;
 	spin_unlock(&dentry->d_lock);
@@ -359,7 +357,6 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 const struct dentry_operations fscrypt_d_ops = {
 	.d_revalidate = fscrypt_d_revalidate,
 };
-EXPORT_SYMBOL(fscrypt_d_ops);
 
 void fscrypt_restore_control_page(struct page *page)
 {
@@ -426,6 +423,27 @@ fail:
 	fscrypt_destroy();
 	mutex_unlock(&fscrypt_init_mutex);
 	return res;
+}
+
+void fscrypt_msg(struct super_block *sb, const char *level,
+		 const char *fmt, ...)
+{
+	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+	struct va_format vaf;
+	va_list args;
+
+	if (!__ratelimit(&rs))
+		return;
+
+	va_start(args, fmt);
+	vaf.fmt = fmt;
+	vaf.va = &args;
+	if (sb)
+		printk("%sfscrypt (%s): %pV\n", level, sb->s_id, &vaf);
+	else
+		printk("%sfscrypt: %pV\n", level, &vaf);
+	va_end(args);
 }
 
 /**

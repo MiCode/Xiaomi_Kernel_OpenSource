@@ -198,6 +198,7 @@ struct msm_vidc_buf_data {
 	u32 index;
 	u32 mark_data;
 	u32 mark_target;
+	u32 filled_length;
 };
 
 struct msm_vidc_common_data {
@@ -486,6 +487,7 @@ struct msm_vidc_inst {
 	struct batch_mode batch;
 	struct timer_list batch_timer;
 	struct work_struct batch_work;
+	bool decode_batching;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

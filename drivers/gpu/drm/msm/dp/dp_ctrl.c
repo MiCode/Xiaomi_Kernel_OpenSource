@@ -408,7 +408,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	}
 	ctrl->catalog->set_pattern(ctrl->catalog, pattern);
 	ret = dp_ctrl_train_pattern_set(ctrl,
-		pattern | DP_RECOVERED_CLOCK_OUT_EN);
+		pattern | DP_LINK_SCRAMBLING_DISABLE);
 	if (ret <= 0) {
 		ret = -EINVAL;
 		goto end;

@@ -1,0 +1,223 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/clock/mdss-14nm-pll-clk.h>
+#include "dsi-panel-ext-bridge-1080p.dtsi"
+
+&tlmm {
+	ioexp_intr_active: ioexp_intr_active {
+		mux {
+			pins = "gpio58";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio58";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	ioexp_reset_active: ioexp_reset_active {
+		mux {
+			pins = "gpio3";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio3";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+&sde_dp {
+	qcom,ext-disp = <&ext_disp>;
+	qcom,dp-hpd-gpio = <&ioexp 8 0>;
+
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&dp_hpd_cfg_pins>;
+	pinctrl-1 = <&dp_hpd_cfg_pins>;
+
+	vdda-1p2-supply = <&pm6155_1_l11>;
+	vdda-0p9-supply = <&pm6155_1_l5>;
+	/delete-property/ qcom,dp-aux-switch;
+	qcom,mst-enable;
+
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "refgen";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+/* FSA & Rotator not required in Auto */
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&mdss_rotator {
+	status = "disabled";
+};
+
+&qupv3_se2_i2c {
+
+	status = "ok";
+
+	pinctrl-0 = <&qupv3_se2_i2c_active
+		&ioexp_intr_active
+		&ioexp_reset_active>;
+
+	ioexp: gpio@3e {
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		compatible = "semtech,sx1509q";
+		reg = <0x3e>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <58 0>;
+		gpio-controller;
+		interrupt-controller;
+		semtech,probe-reset;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&dsi1_hpd_cfg_pins
+			&dsi1_cdet_cfg_pins
+			&dp_hpd_cfg_pins>;
+
+		dsi1_hpd_cfg_pins: gpio0-cfg {
+			pins = "gpio0";
+			bias-pull-up;
+		};
+
+		dsi1_cdet_cfg_pins: gpio1-cfg {
+			pins = "gpio1";
+			bias-pull-down;
+		};
+
+		dp_hpd_cfg_pins: gpio8-cfg {
+			pins = "gpio8";
+			bias-pull-down;
+		};
+	};
+
+	i2c-mux@77 {
+		compatible = "nxp,pca9542";
+		reg = <0x77>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			anx_7625_1: anx7625@2c {
+				compatible = "analogix,anx7625";
+				reg = <0x2c>;
+				interrupt-parent = <&ioexp>;
+				interrupts = <0 0>;
+				cbl_det-gpio = <&ioexp 1 0>;
+				power_en-gpio = <&tlmm 4 0>;
+				reset_n-gpio = <&tlmm 5 0>;
+			};
+		};
+	};
+};
+
+&anx_7625_1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			anx_7625_1_in: endpoint {
+				remote-endpoint = <&dsi_anx_7625_1_out>;
+			};
+		};
+	};
+};
+
+&soc {
+	dsi_anx_7625_1: qcom,dsi-display@17 {
+		label = "dsi_anx_7625_1";
+		qcom,dsi-display-active;
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_ext_bridge_1080p>;
+	};
+
+	dsi_dp1: qcom,dsi-display@1 {
+		compatible = "qcom,dsi-display";
+		label = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+
+		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
+			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
+
+
+		qcom,dsi-display-list =
+			<&dsi_anx_7625_1>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dsi_anx_7625_1_out: endpoint {
+					remote-endpoint = <&anx_7625_1_in>;
+				};
+			};
+		};
+	};
+
+	sde_wb: qcom,wb-display@0 {
+		compatible = "qcom,wb-display";
+		cell-index = <0>;
+		label = "wb_display";
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&mdss_dsi_phy0 {
+	qcom,panel-force-clock-lane-hs;
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &dsi_dp1 &sde_wb &sde_dp>;
+};
+

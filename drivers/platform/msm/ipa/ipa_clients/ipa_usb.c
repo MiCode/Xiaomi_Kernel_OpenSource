@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -172,6 +172,7 @@ struct ipa3_usb_transport_type_ctx {
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *user_data);
 	void *user_data;
 	enum ipa3_usb_state state;
+	bool rwakeup_pending;
 	struct ipa_usb_xdci_chan_params ul_ch_params;
 	struct ipa_usb_xdci_chan_params dl_ch_params;
 	struct ipa3_usb_teth_prot_conn_params teth_conn_params;
@@ -296,16 +297,29 @@ static char *ipa3_usb_notify_event_to_string(enum ipa_usb_notify_event event)
 	return "UNSUPPORTED";
 }
 
+static bool ipa3_usb_get_teth_port_state(void)
+{
+	if (ipa3_usb_ctx == NULL)
+		return false;
+	if (ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].state ==
+					IPA_USB_CONNECTED)
+		return true;
+	else
+		return false;
+}
+
 static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 	enum ipa3_usb_transport_type ttype)
 {
 	unsigned long flags;
 	int state_legal = false;
 	enum ipa3_usb_state state;
+	bool rwakeup_pending;
 	struct ipa3_usb_rm_context *rm_ctx;
 
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
 	state = ipa3_usb_ctx->ttype_ctx[ttype].state;
+	rwakeup_pending = ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
 	switch (new_state) {
 	case IPA_USB_INVALID:
 		if (state == IPA_USB_INITIALIZED)
@@ -345,8 +359,10 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 			 * In case of failure during resume, state is reverted
 			 * to original, which could be suspended. Allow it
 			 */
-			(err_permit && state == IPA_USB_RESUME_IN_PROGRESS))
+			(err_permit && state == IPA_USB_RESUME_IN_PROGRESS)) {
 			state_legal = true;
+			rwakeup_pending = false;
+		}
 		break;
 	case IPA_USB_SUSPENDED_NO_RWAKEUP:
 		if (state == IPA_USB_CONNECTED)
@@ -368,6 +384,8 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 				ipa3_usb_state_to_string(state),
 				ipa3_usb_state_to_string(new_state));
 			ipa3_usb_ctx->ttype_ctx[ttype].state = new_state;
+			ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+				rwakeup_pending;
 		}
 	} else {
 		IPA_USB_ERR("invalid state change %s -> %s\n",
@@ -551,12 +569,42 @@ static void ipa3_usb_dpl_dummy_prod_notify_cb(void *user_data,
 
 static void ipa3_usb_wq_notify_remote_wakeup(struct work_struct *work)
 {
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_TETH, IPA_USB_REMOTE_WAKEUP);
+	bool rwakeup_pending;
+	unsigned long flags;
+	enum ipa3_usb_transport_type ttype =
+		IPA_USB_TRANSPORT_TETH;
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	rwakeup_pending =
+		ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
+	if (!rwakeup_pending) {
+		rwakeup_pending = true;
+		ipa3_usb_notify_do(ttype,
+			IPA_USB_REMOTE_WAKEUP);
+	}
+	ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+		rwakeup_pending;
+	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 }
 
 static void ipa3_usb_wq_dpl_notify_remote_wakeup(struct work_struct *work)
 {
-	ipa3_usb_notify_do(IPA_USB_TRANSPORT_DPL, IPA_USB_REMOTE_WAKEUP);
+	bool rwakeup_pending;
+	unsigned long flags;
+	enum ipa3_usb_transport_type ttype =
+		IPA_USB_TRANSPORT_DPL;
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	rwakeup_pending =
+		ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending;
+	if (!rwakeup_pending) {
+		rwakeup_pending = true;
+		ipa3_usb_notify_do(ttype,
+			IPA_USB_REMOTE_WAKEUP);
+	}
+	ipa3_usb_ctx->ttype_ctx[ttype].rwakeup_pending =
+		rwakeup_pending;
+	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 }
 
 static int ipa3_usb_cons_request_resource_cb_do(
@@ -1917,6 +1965,15 @@ static int ipa3_usb_xdci_connect_internal(
 		goto connect_dl_fail;
 	}
 
+	/* MHIP pipe enablement */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to connect MHIP channel\n");
+			goto connect_dl_fail;
+		}
+	}
+
 	/* Connect tethering protocol */
 	result = ipa3_usb_connect_teth_prot(params->teth_prot);
 	if (result) {
@@ -2238,8 +2295,8 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 	 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
 	 */
 	if (connect_params->teth_prot != IPA_USB_DIAG)
-		ipa3_register_lock_unlock_callback(&ipa_usb_set_lock_unlock,
-			ul_out_params->clnt_hdl);
+		ipa3_register_client_callback(&ipa_usb_set_lock_unlock,
+			&ipa3_usb_get_teth_port_state, ul_out_params->clnt_hdl);
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2325,7 +2382,7 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
 	 */
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
-		ipa3_deregister_lock_unlock_callback(ul_clnt_hdl);
+		ipa3_deregister_client_callback(ul_clnt_hdl);
 
 	/* Change state to STOPPED */
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED, false, ttype))
@@ -2410,6 +2467,16 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		if (orig_state != IPA_USB_SUSPENDED) {
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
+
+			/* Stop UL MHIP channel */
+			if (ipa3_is_mhip_offload_enabled()) {
+				result = ipa_mpm_mhip_ul_data_stop(teth_prot);
+				if (result) {
+					IPA_USB_ERR("fail UL MHIPData stop\n");
+					goto bad_params;
+				}
+			}
+
 			/* Stop UL channel */
 			result = ipa3_xdci_disconnect(ul_clnt_hdl,
 				true,
@@ -2425,10 +2492,30 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	} else
 		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 
+	if (teth_prot == IPA_USB_RMNET) {
+		IPA_USB_DBG("USB suspend resetting dma mode\n");
+		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
+			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
+		if (result) {
+			IPA_USB_ERR("failed to reset dma mode\n");
+			goto bad_params;
+		}
+	}
+
 	result = ipa_usb_xdci_dismiss_channels(ul_clnt_hdl, dl_clnt_hdl,
 			teth_prot);
 	if (result)
 		goto bad_params;
+
+	/* Stop UL/DL MHIP channels */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			goto bad_params;
+		}
+	}
+
 
 	/* Disconnect tethering protocol */
 	result = ipa3_usb_disconnect_teth_prot(teth_prot);
@@ -2691,6 +2778,16 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto bad_params;
 	}
 
+	if (teth_prot == IPA_USB_RMNET) {
+		IPA_USB_DBG("USB suspend resetting dma mode\n");
+		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
+			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
+		if (result) {
+			IPA_USB_ERR("failed to reset dma mode\n");
+			goto bad_params;
+		}
+	}
+
 	/* Stop UL channel & suspend DL/DPL EP */
 	result = ipa3_xdci_suspend(ul_clnt_hdl, dl_clnt_hdl,
 		true,
@@ -2739,6 +2836,15 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			&ipa3_usb_notify_remote_wakeup_work);
 	}
 	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
+
+	/* Stop MHIP channel */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			goto release_prod_fail;
+		}
+	}
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);

@@ -166,6 +166,7 @@ struct rmnet_ipa3_context {
 		tether_device
 		[IPACM_MAX_CLIENT_DEVICE_TYPES];
 	bool dl_csum_offload_enabled;
+	atomic_t suspend_pend;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -1149,6 +1150,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	int ret = 0;
 	bool qmap_check;
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+	unsigned long flags;
 
 	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
 		IPAWANERR_RL("IPA embedded data on APQ platform\n");
@@ -1167,14 +1169,21 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	qmap_check = RMNET_MAP_GET_CD_BIT(skb);
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	if (netif_queue_stopped(dev)) {
-		if (qmap_check &&
+		/*
+		 * Checking rmnet suspend in progress or not, because in suspend
+		 * clock will be disabled, without clock transferring data
+		 * not possible.
+		 */
+		if (!atomic_read(&rmnet_ipa3_ctx->suspend_pend) && qmap_check &&
 			atomic_read(&wwan_ptr->outstanding_pkts) <
 					outstanding_high_ctl) {
 			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
 			goto send;
 		} else {
 			pr_err("[%s]fatal: %s stopped\n", dev->name, __func__);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
@@ -1189,6 +1198,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 				netif_queue_stopped(dev));
 			IPAWANDBG_LOW("qmap_chk(%d)\n", qmap_check);
 			netif_stop_queue(dev);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
@@ -1205,6 +1215,7 @@ send:
 	}
 	if (ret == -EINPROGRESS) {
 		netif_stop_queue(dev);
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return NETDEV_TX_BUSY;
 	}
 	if (ret) {
@@ -1212,6 +1223,7 @@ send:
 		       dev->name, ret);
 		dev_kfree_skb_any(skb);
 		dev->stats.tx_dropped++;
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return -EFAULT;
 	}
 	/* IPA_RM checking end */
@@ -1240,6 +1252,7 @@ out:
 				IPA_RM_RESOURCE_WWAN_0_PROD);
 		}
 	}
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 	return ret;
 }
 
@@ -2548,7 +2561,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		/* Android platform loads uC */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
 	else
-		/* LE platform not loads uC */
+		/* LE platform */
 		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_V01);
 
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
@@ -2639,6 +2652,8 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
+	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2738,6 +2753,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	struct net_device *netdev = IPA_NETDEV();
 	struct ipa3_wwan_private *wwan_ptr;
 	int ret;
+	unsigned long flags;
 
 	IPAWANDBG("Enter...\n");
 
@@ -2747,20 +2763,25 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		goto bail;
 	}
 
-	netif_tx_lock_bh(netdev);
 	wwan_ptr = netdev_priv(netdev);
 	if (wwan_ptr == NULL) {
 		IPAWANERR("wwan_ptr is NULL.\n");
 		ret = 0;
-		netif_tx_unlock_bh(netdev);
 		goto bail;
 	}
 
+	/*
+	 * Rmnert supend and xmit are executing at the same time, In those
+	 * scenarios observing the data was processed when IPA clock are off.
+	 * Added changes to synchronize rmnet supend and xmit.
+	 */
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 1);
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* Do not allow A7 to suspend in case there are outstanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
 		IPAWANDBG("Outstanding packets, postponing AP suspend.\n");
 		ret = -EAGAIN;
-		netif_tx_unlock_bh(netdev);
+		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		goto bail;
 	}
 
@@ -2769,11 +2790,13 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	/* Stoppig Watch dog timer when pipe was in suspend state */
 	if (del_timer(&netdev->watchdog_timer))
 		dev_put(netdev);
-	netif_tx_unlock_bh(netdev);
+	spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+
 	if (ipa3_ctx->use_ipa_pm)
 		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	else
 		ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
 	ret = 0;
 bail:
 	IPAWANDBG("Exit with %d\n", ret);
@@ -2909,10 +2932,12 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 		break;
 	case SUBSYS_BEFORE_POWERUP:
 		IPAWANINFO("IPA received MPSS BEFORE_POWERUP\n");
-		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
 			/* clean up cached QMI msg/handlers */
 			ipa3_qmi_service_exit();
-		/*hold a proxy vote for the modem*/
+			ipa3_q6_pre_powerup_cleanup();
+		}
+		/* hold a proxy vote for the modem. */
 		ipa3_proxy_clk_vote();
 		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");

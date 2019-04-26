@@ -574,13 +574,21 @@
 			compatible = "android,firmware";
 			vbmeta {
 				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
+				parts = "vbmeta,boot,system,vendor,dtbo,odm";
 			};
 			fstab {
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
 					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect,avb";
+					status = "ok";
+				};
+				odm {
+					compatible = "android,odm";
+					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/odm";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
@@ -2665,6 +2673,7 @@
 
 			qcom,modem_qrtr {
 				qcom,glink-channels = "IPCRTR";
+				qcom,low-latency;
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
@@ -2739,6 +2748,7 @@
 
 			qcom,slpi_qrtr {
 				qcom,glink-channels = "IPCRTR";
+				qcom,low-latency;
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
@@ -3686,6 +3696,9 @@
 
 		mhi,max-channels = <30>;
 		mhi,timeout = <10000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		mhi_chan@0 {
 			reg = <0>;
