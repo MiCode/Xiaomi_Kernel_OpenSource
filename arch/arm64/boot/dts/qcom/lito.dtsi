@@ -3,8 +3,6 @@
  * Copyright  (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "skeleton64.dtsi"
-
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-lito.h>
 #include <dt-bindings/clock/qcom,dispcc-lito.h>
@@ -24,6 +22,10 @@
 	compatible = "qcom,lito";
 	qcom,msm-id = <400 0x10000>;
 	interrupt-parent = <&intc>;
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 	aliases {
 		serial0 = &qupv3_se2_2uart;	/*RUMI*/
