@@ -32,6 +32,12 @@ Charger specific properties:
   Definition: For details about IIO bindings see:
 	      Documentation/devicetree/bindings/iio/iio-bindings.txt
 
+- qcom,max-cutoff-soc
+  Usage:      optional
+  Value type: <u32>
+  Definition: SOC beyond which SMB1390 is kept disabled.
+	      If this value is not specified then default value is 85%.
+
 ================================================
 Second Level Nodes - SMB1390 Charger Peripherals
 ================================================
