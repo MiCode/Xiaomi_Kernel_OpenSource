@@ -3,8 +3,6 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "skeleton64.dtsi"
-
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-kona.h>
 #include <dt-bindings/clock/qcom,cpucc-kona.h>
@@ -30,6 +28,10 @@
 	compatible = "qcom,kona";
 	qcom,msm-id = <356 0x10000>;
 	interrupt-parent = <&intc>;
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 	mem-offline {
 		compatible = "qcom,mem-offline";
@@ -457,11 +459,6 @@
 				};
 			};
 		};
-	};
-
-	psci {
-		compatible = "arm,psci-1.0";
-		method = "smc";
 	};
 
 	reserved-memory {
