@@ -2840,6 +2840,12 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 		}
 	}
 
+	if (info->event_mask) {
+		touch_event_call_notifier(info->event_mask,
+				(void *)&info->event[0]);
+		info->event_mask = 0;
+	}
+
 no_report:
 	return;
 
@@ -2882,6 +2888,12 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 
 		__clear_bit(touchId, &info->finger_pressed);
 		__set_bit(touchId, &info->event_mask);
+	}
+
+	if (info->event_mask) {
+		touch_event_call_notifier(info->event_mask,
+				(void *)&info->event[0]);
+		info->event_mask = 0;
 	}
 }
 
@@ -3258,12 +3270,6 @@ static void fts_event_handler(struct work_struct *work)
 	input_sync(info->input_dev);
 
 	fts_interrupt_enable(info);
-
-	if (info->event_mask) {
-		touch_event_call_notifier(info->event_mask,
-				(void *)&info->event[0]);
-		info->event_mask = 0;
-	}
 }
 
 static int cx_crc_check(void)
