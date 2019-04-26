@@ -31,6 +31,9 @@
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
+#define IRIS_DISABLE_MULTIPIPE	21
+#define IRIS_DISABLE_VP_FMAX	27
+
 enum {
 	P_BI_TCXO,
 	P_CHIP_SLEEP_CLK,
@@ -80,7 +83,7 @@ static struct pll_vco lucid_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config video_pll0_config = {
+static struct alpha_pll_config video_pll0_config = {
 	.l = 0x19,
 	.cal_l = 0x44,
 	.alpha = 0x0,
@@ -121,6 +124,16 @@ static const struct freq_tbl ftbl_video_cc_iris_clk_src[] = {
 	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_iris_multipipe_clk_src[] = {
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+};
+
+static const struct freq_tbl ftbl_video_cc_iris_fmax_clk_src[] = {
+	F(240000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(338000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(365000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 };
 
 static struct clk_rcg2 video_cc_iris_clk_src = {
@@ -390,6 +403,54 @@ static const struct of_device_id video_cc_lito_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, video_cc_lito_match_table);
 
+static int video_multipipe_fixup(struct platform_device *pdev,
+				struct regmap *regmap)
+{
+	void __iomem *base;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	u32 val, val_fmax;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	val = readl_relaxed(base);
+	val_fmax = (val >> IRIS_DISABLE_VP_FMAX) & 0x1;
+	val = (val >> IRIS_DISABLE_MULTIPIPE) & 0x1;
+
+	if (val) {
+		video_pll0_config.l = 0x14;
+		video_cc_iris_clk_src.freq_tbl =
+				ftbl_video_cc_iris_multipipe_clk_src;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOWER] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+				200000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] =
+				200000000;
+		goto done;
+	}
+
+	if (val_fmax) {
+		video_pll0_config.l = 0x14;
+		video_cc_iris_clk_src.freq_tbl =
+				ftbl_video_cc_iris_fmax_clk_src;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+				365000000;
+		video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_HIGH] =
+				365000000;
+	}
+done:
+	devm_iounmap(dev, base);
+	return 0;
+}
+
 static int video_cc_lito_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
@@ -417,7 +478,11 @@ static int video_cc_lito_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_cx.regulator[0]);
 	}
 
-	clk_lucid_pll_configure(&video_pll0, regmap, &video_pll0_config);
+	ret = video_multipipe_fixup(pdev, regmap);
+	if (ret)
+		return ret;
+
+	clk_fabia_pll_configure(&video_pll0, regmap, &video_pll0_config);
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_lito_desc, regmap);
 	if (ret) {
