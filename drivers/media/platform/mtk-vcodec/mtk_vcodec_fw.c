@@ -73,7 +73,8 @@ static const struct mtk_vcodec_fw_ops mtk_vcodec_vpu_msg = {
 
 static int mtk_vcodec_scp_load_firmware(struct mtk_vcodec_fw *fw)
 {
-	return rproc_boot(fw->rproc);
+	return 0;
+	//return rproc_boot(fw->rproc);
 }
 
 static unsigned int mtk_vcodec_scp_get_vdec_capa(struct mtk_vcodec_fw *fw) {
@@ -144,8 +145,9 @@ struct mtk_vcodec_fw *mtk_vcodec_fw_select(struct mtk_vcodec_dev *dev,
 		break;
 	case SCP:
 		ops = &mtk_vcodec_rproc_msg;
-		fw_pdev = scp_get_pdev(dev->plat_dev);
-		rproc = rproc_get_by_phandle(rproc_phandle);
+		//fw_pdev = scp_get_pdev(dev->plat_dev);
+		rproc = NULL;
+		//rproc = rproc_get_by_phandle(rproc_phandle);
 		if (!rproc) {
 			mtk_v4l2_err("could not get vdec rproc handle");
 			return ERR_PTR(-EPROBE_DEFER);
