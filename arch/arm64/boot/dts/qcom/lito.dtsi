@@ -30,6 +30,9 @@
 	aliases {
 		serial0 = &qupv3_se2_2uart;	/*RUMI*/
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
 	};
 
 	cpus {
@@ -514,6 +517,14 @@
 			alignment = <0x0 0x400000>;
 			size = <0x0 0x2000000>;
 			linux,cma-default;
+		};
+
+		mailbox_mem: mailbox_region {
+			compatible = "shared-dma-pool";
+			no-map;
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x20000>;
 		};
 	};
 
@@ -1780,6 +1791,7 @@
 #include "lito-usb.dtsi"
 #include "lito-ion.dtsi"
 #include "lito-vidc.dtsi"
+#include "lito-audio.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
