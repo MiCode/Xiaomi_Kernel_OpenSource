@@ -71,6 +71,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sm6150")
 #define early_machine_is_sm6150p()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sm6150p")
+#define early_machine_is_sa8195p()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sa8195p")
 #define early_machine_is_qcs405()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs405")
 #define early_machine_is_qcs403()	\
@@ -121,6 +123,7 @@
 #define early_machine_is_sa8155p()	0
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sm6150()	0
+#define early_machine_is_sa8195p()	0
 #define early_machine_is_sm6150p()	0
 #define early_machine_is_qcs405()	0
 #define early_machine_is_qcs403()	0
@@ -159,6 +162,7 @@ enum msm_cpu {
 	MSM_CPU_SM8150P,
 	MSM_CPU_SA8155,
 	MSM_CPU_SA8155P,
+	MSM_CPU_SA8195P,
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SM6150,
 	MSM_CPU_SM6150P,

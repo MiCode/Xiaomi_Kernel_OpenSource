@@ -157,8 +157,12 @@ static inline void forget_syscall(struct pt_regs *regs)
 #ifdef CONFIG_COMPAT
 #define compat_thumb_mode(regs) \
 	(((regs)->pstate & COMPAT_PSR_T_BIT))
+#define compat_arm_instr_set(regs) \
+	(((regs)->pstate & (COMPAT_PSR_T_BIT | COMPAT_PSR_J_BIT)) == 0)
 #else
 #define compat_thumb_mode(regs) (0)
+#define compat_arm_instr_set(regs) (0)
+
 #endif
 
 #define user_mode(regs)	\

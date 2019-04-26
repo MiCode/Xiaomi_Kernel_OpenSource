@@ -20,6 +20,7 @@
 /* From commit aff171641d181ea573380efc3f559c9de4741fc5 */
 int atl_compat_pci_irq_vector(struct pci_dev *dev, unsigned int nr)
 {
+#ifdef CONFIG_PCI_MSI
 	if (dev->msix_enabled) {
 		struct msi_desc *entry;
 		int i = 0;
@@ -42,6 +43,7 @@ int atl_compat_pci_irq_vector(struct pci_dev *dev, unsigned int nr)
 		if (WARN_ON_ONCE(nr > 0))
 			return -EINVAL;
 	}
+#endif
 
 	return dev->irq + nr;
 }

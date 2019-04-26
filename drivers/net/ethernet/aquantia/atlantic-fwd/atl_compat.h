@@ -143,4 +143,30 @@ static inline void page_ref_inc(struct page *page)
 
 #endif	/* 4.6.0 */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)
+
+/* introduced in commit c7f5d105495a38ed09e70d825f75d9d7d5407264
+ * stub it */
+static inline int eth_platform_get_mac_address(struct device *dev, u8 *mac_addr)
+{
+	return -ENODEV;
+}
+
+#endif	/* 4.5.0 */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+#define ETHTOOL_RX_FLOW_SPEC_RING      0x00000000FFFFFFFFLL
+#define ETHTOOL_RX_FLOW_SPEC_RING_VF   0x000000FF00000000LL
+#define ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF 32
+static inline __u64 ethtool_get_flow_spec_ring(__u64 ring_cookie)
+{
+	return ETHTOOL_RX_FLOW_SPEC_RING & ring_cookie;
+};
+static inline __u64 ethtool_get_flow_spec_ring_vf(__u64 ring_cookie)
+{
+	return (ETHTOOL_RX_FLOW_SPEC_RING_VF & ring_cookie) >>
+				ETHTOOL_RX_FLOW_SPEC_RING_VF_OFF;
+};
+#endif	/* 4.2.0 */
+
 #endif

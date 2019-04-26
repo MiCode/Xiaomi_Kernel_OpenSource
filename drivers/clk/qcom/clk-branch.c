@@ -204,8 +204,8 @@ static int clk_branch2_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (!parent)
 		return -EPERM;
 
-	if (!branch->aggr_sibling_rates || !clk_hw_is_prepared(hw)) {
-		branch->rate = rate;
+	if (!branch->aggr_sibling_rates) {
+		branch->rate = parent_rate;
 		return 0;
 	}
 
@@ -252,6 +252,11 @@ static long clk_branch2_round_rate(struct clk_hw *hw, unsigned long rate,
 static unsigned long clk_branch2_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
+	struct clk_branch *branch = to_clk_branch(hw);
+
+	if (!branch->aggr_sibling_rates)
+		return parent_rate;
+
 	return to_clk_branch(hw)->rate;
 }
 
@@ -353,8 +358,7 @@ static void clk_branch2_list_registers(struct seq_file *f, struct clk_hw *hw)
 							data[i].name, val);
 	}
 
-	if ((br->halt_check & BRANCH_HALT_VOTED) &&
-			!(br->halt_check & BRANCH_VOTED)) {
+	if (br->halt_check & BRANCH_HALT_VOTED) {
 		if (rclk->enable_reg) {
 			size = ARRAY_SIZE(data1);
 			for (i = 0; i < size; i++) {

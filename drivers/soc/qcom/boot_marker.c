@@ -26,10 +26,12 @@
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
+#include <asm/arch_timer.h>
 #include <soc/qcom/boot_stats.h>
 
 #define MAX_STRING_LEN 256
 #define BOOT_MARKER_MAX_LEN 40
+#define MSM_ARCH_TIMER_FREQ     19200000
 
 struct boot_marker {
 	char marker_name[BOOT_MARKER_MAX_LEN];
@@ -40,6 +42,23 @@ struct boot_marker {
 
 static struct dentry *dent_bkpi, *dent_bkpi_status, *dent_mpm_timer;
 static struct boot_marker boot_marker_list;
+
+static void _destroy_boot_marker(const char *name)
+{
+	struct boot_marker *marker;
+	struct boot_marker *temp_addr;
+
+	mutex_lock(&boot_marker_list.lock);
+	list_for_each_entry_safe(marker, temp_addr, &boot_marker_list.list,
+			list) {
+		if (strnstr(marker->marker_name, name,
+			 strlen(marker->marker_name))) {
+			list_del(&marker->list);
+			kfree(marker);
+		}
+	}
+	mutex_unlock(&boot_marker_list.lock);
+}
 
 static void _create_boot_marker(const char *name,
 		unsigned long long int timer_value)
@@ -77,6 +96,40 @@ void place_marker(const char *name)
 	_create_boot_marker((char *) name, msm_timer_get_sclk_ticks());
 }
 EXPORT_SYMBOL(place_marker);
+
+void destroy_marker(const char *name)
+{
+	_destroy_boot_marker((char *) name);
+}
+EXPORT_SYMBOL(destroy_marker);
+
+static inline u64 get_time_in_msec(u64 counter)
+{
+	counter *= MSEC_PER_SEC;
+	do_div(counter, MSM_ARCH_TIMER_FREQ);
+	return counter;
+}
+
+void measure_wake_up_time(void)
+{
+	u64 wake_up_time, deep_sleep_exit_time, current_time;
+	char wakeup_marker[50] = {0,};
+
+	current_time = arch_counter_get_cntvct();
+	deep_sleep_exit_time = get_sleep_exit_time();
+	if (deep_sleep_exit_time) {
+		wake_up_time = current_time - deep_sleep_exit_time;
+		wake_up_time = get_time_in_msec(wake_up_time);
+		pr_debug("Current= %llu, wakeup=%llu, kpi=%llu msec\n",
+			current_time, deep_sleep_exit_time, wake_up_time);
+		snprintf(wakeup_marker, sizeof(wakeup_marker),
+				"M - STR Wakeup : %llu ms", wake_up_time);
+		destroy_marker("M - STR Wakeup");
+		place_marker(wakeup_marker);
+	} else
+		destroy_marker("M - STR Wakeup");
+}
+EXPORT_SYMBOL(measure_wake_up_time);
 
 static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 		size_t count, loff_t *position)

@@ -36,6 +36,7 @@ enum atl_fw2_opts {
 	atl_define_bit(atl_fw2_asym_pause, 4)
 	atl_fw2_pause_mask = atl_fw2_pause | atl_fw2_asym_pause,
 	atl_define_bit(atl_fw2_phy_temp, 18)
+	atl_define_bit(atl_fw2_link_drop, 22)
 	atl_define_bit(atl_fw2_nic_proxy, 0x17)
 	atl_define_bit(atl_fw2_wol, 0x18)
 };
@@ -43,6 +44,16 @@ enum atl_fw2_opts {
 enum atl_fw2_stat_offt {
 	atl_fw2_stat_temp = 0x50,
 	atl_fw2_stat_lcaps = 0x84,
+	atl_fw2_stat_settings_addr = 0x110,
+	atl_fw2_stat_settings_len = 0x114,
+};
+
+enum atl_fw2_settings_offt {
+	atl_fw2_setings_msm_opts = 0x90,
+};
+
+enum atl_fw2_msm_opts {
+	atl_define_bit(atl_fw2_settings_msm_opts_strip_pad, 0)
 };
 
 enum atl_fc_mode {
@@ -89,6 +100,6 @@ struct atl_fw_ops {
 	unsigned efuse_shadow_addr_reg;
 };
 
-int atl_read_fwstat_word(struct atl_hw *hw, uint32_t offt, uint32_t *val);
+int atl_read_mcp_word(struct atl_hw *hw, uint32_t offt, uint32_t *val);
 
 #endif

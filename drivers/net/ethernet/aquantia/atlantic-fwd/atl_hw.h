@@ -50,6 +50,8 @@ struct atl_hw {
 		bool poll_link;
 		struct atl_fw_ops *ops;
 		uint32_t fw_stat_addr;
+		uint32_t fw_settings_addr;
+		uint32_t fw_settings_len;
 		struct mutex lock;
 	} mcp;
 	uint32_t intr_mask;
@@ -66,6 +68,11 @@ struct atl_hw_ring {
 	uint32_t size;
 	uint32_t reg_base;
 	dma_addr_t daddr;
+};
+
+enum mcp_area {
+	MCP_AREA_CONFIG = 0x80000000,
+	MCP_AREA_SETTINGS = 0x20000000,
 };
 
 #define offset_ptr(ptr, ring, amount)					\
@@ -180,6 +187,33 @@ void atl_set_intr_bits(struct atl_hw *hw, int idx, int rxbit, int txbit);
 int atl_alloc_link_intr(struct atl_nic *nic);
 void atl_free_link_intr(struct atl_nic *nic);
 int atl_write_mcp_mem(struct atl_hw *hw, uint32_t offt, void *addr,
-	size_t size);
+	size_t size, enum mcp_area area);
+
+static inline int atl_write_fwcfg_word(struct atl_hw *hw, uint32_t offt,
+	uint32_t val)
+{
+	return atl_write_mcp_mem(hw, offt, &val, sizeof(val), MCP_AREA_CONFIG);
+}
+
+static inline int atl_write_fwsettings_word(struct atl_hw *hw, uint32_t offt,
+	uint32_t val)
+{
+	return atl_write_mcp_mem(hw, offt, &val, sizeof(val), MCP_AREA_SETTINGS);
+}
+
+static inline int atl_read_fwstat_word(struct atl_hw *hw, uint32_t offt,
+	uint32_t *val)
+{
+	return atl_read_mcp_word(hw, offt + hw->mcp.fw_stat_addr, val);
+}
+
+static inline int atl_read_fwsettings_word(struct atl_hw *hw, uint32_t offt,
+	uint32_t *val)
+{
+	if (offt >= hw->mcp.fw_settings_len)
+		return -EINVAL;
+
+	return atl_read_mcp_word(hw, offt + hw->mcp.fw_settings_addr, val);
+}
 
 #endif

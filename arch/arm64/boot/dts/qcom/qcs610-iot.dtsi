@@ -130,6 +130,10 @@
 	status = "ok";
 };
 
+&qupv3_se7_4uart {
+	status = "ok";
+};
+
 &pil_camera_mem {
 	reg = <0 0x8f800000 0 0x500000>;
 };

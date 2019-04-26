@@ -18,9 +18,14 @@
 
 #include "ipa_eth_i.h"
 
-static bool ipa_eth_is_ready;
-static bool ipa_eth_ipa_is_ready;
-static bool ipa_eth_ipa_uc_is_ready;
+enum ipa_eth_states {
+	IPA_ETH_ST_READY,
+	IPA_ETH_ST_UC_READY,
+	IPA_ETH_ST_IPA_READY,
+	IPA_ETH_ST_MAX,
+};
+
+static unsigned long ipa_eth_state;
 
 static struct dentry *ipa_eth_debugfs;
 static struct dentry *ipa_eth_drivers_debugfs;
@@ -38,54 +43,67 @@ static bool ipa_eth_ipc_logdbg = IPA_ETH_IPC_LOGDBG_DEFAULT;
 module_param(ipa_eth_ipc_logdbg, bool, 0444);
 MODULE_PARM_DESC(ipa_eth_ipc_logdbg, "Log debug IPC messages");
 
+static struct workqueue_struct *ipa_eth_wq;
+
 static inline bool ipa_eth_ready(void)
 {
-	return ipa_eth_is_ready &&
-		ipa_eth_ipa_is_ready &&
-		ipa_eth_ipa_uc_is_ready;
+	return test_bit(IPA_ETH_ST_READY, &ipa_eth_state) &&
+		test_bit(IPA_ETH_ST_UC_READY, &ipa_eth_state) &&
+		test_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state);
+}
+
+static inline bool initable(struct ipa_eth_device *eth_dev)
+{
+	return eth_dev->init;
+}
+
+static inline bool startable(struct ipa_eth_device *eth_dev)
+{
+	return eth_dev->init && eth_dev->start &&
+		test_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state);
 }
 
 static int ipa_eth_init_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 
-	if (eth_dev->state == IPA_ETH_ST_INITED)
+	if (eth_dev->of_state == IPA_ETH_OF_ST_INITED)
 		return 0;
 
-	if (eth_dev->state != IPA_ETH_ST_DEINITED)
+	if (eth_dev->of_state != IPA_ETH_OF_ST_DEINITED)
 		return -EFAULT;
 
 	rc = ipa_eth_ep_init_headers(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to init EP headers");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_pm_register(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to register with IPA PM");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_offload_init(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to init offload");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_ep_register_interface(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to register EP interface");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	ipa_eth_dev_log(eth_dev, "Initialized device");
 
-	eth_dev->state = IPA_ETH_ST_INITED;
+	eth_dev->of_state = IPA_ETH_OF_ST_INITED;
 
 	return 0;
 }
@@ -94,36 +112,36 @@ static int ipa_eth_deinit_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 
-	if (eth_dev->state == IPA_ETH_ST_DEINITED)
+	if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED)
 		return 0;
 
-	if (eth_dev->state != IPA_ETH_ST_INITED)
+	if (eth_dev->of_state != IPA_ETH_OF_ST_INITED)
 		return -EFAULT;
 
 	rc = ipa_eth_ep_unregister_interface(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to unregister IPA interface");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_offload_deinit(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to deinit offload");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_pm_unregister(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to unregister with IPA PM");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	ipa_eth_dev_log(eth_dev, "Deinitialized device");
 
-	eth_dev->state = IPA_ETH_ST_DEINITED;
+	eth_dev->of_state = IPA_ETH_OF_ST_DEINITED;
 
 	return 0;
 }
@@ -132,29 +150,29 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 
-	if (eth_dev->state == IPA_ETH_ST_STARTED)
+	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED)
 		return 0;
 
-	if (eth_dev->state != IPA_ETH_ST_INITED)
+	if (eth_dev->of_state != IPA_ETH_OF_ST_INITED)
 		return -EFAULT;
 
 	rc = ipa_eth_pm_activate(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to activate device PM");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_offload_start(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to start offload");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	ipa_eth_dev_log(eth_dev, "Started device");
 
-	eth_dev->state = IPA_ETH_ST_STARTED;
+	eth_dev->of_state = IPA_ETH_OF_ST_STARTED;
 
 	return 0;
 }
@@ -163,48 +181,56 @@ static int ipa_eth_stop_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 
-	if (eth_dev->state == IPA_ETH_ST_DEINITED)
+	if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED)
 		return 0;
 
-	if (eth_dev->state != IPA_ETH_ST_STARTED)
+	if (eth_dev->of_state != IPA_ETH_OF_ST_STARTED)
 		return -EFAULT;
 
 	rc = ipa_eth_offload_stop(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to stop offload");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	rc = ipa_eth_pm_deactivate(eth_dev);
 	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to deactivate device PM");
-		eth_dev->state = IPA_ETH_ST_ERROR;
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
 		return rc;
 	}
 
 	ipa_eth_dev_log(eth_dev, "Stopped device");
 
-	eth_dev->state = IPA_ETH_ST_INITED;
+	eth_dev->of_state = IPA_ETH_OF_ST_INITED;
 
 	return 0;
 }
 
-static void __ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
+static void __ipa_eth_refresh_device(struct work_struct *work)
 {
+	struct ipa_eth_device *eth_dev = container_of(work,
+				struct ipa_eth_device, refresh);
+
 	ipa_eth_dev_log(eth_dev, "Refreshing offload state for device");
 
-	if (eth_dev->state == IPA_ETH_ST_ERROR) {
+	if (!ipa_eth_offload_device_paired(eth_dev)) {
+		ipa_eth_dev_log(eth_dev, "Device is not paired. Skipping.");
+		return;
+	}
+
+	if (eth_dev->of_state == IPA_ETH_OF_ST_ERROR) {
 		ipa_eth_dev_err(eth_dev,
 				"Device in ERROR state, skipping refresh");
 		return;
 	}
 
-	if (eth_dev->init) {
-		if (eth_dev->state == IPA_ETH_ST_DEINITED) {
+	if (initable(eth_dev)) {
+		if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED) {
 			(void) ipa_eth_init_device(eth_dev);
 
-			if (eth_dev->state != IPA_ETH_ST_INITED) {
+			if (eth_dev->of_state != IPA_ETH_OF_ST_INITED) {
 				ipa_eth_dev_err(eth_dev,
 						"Failed to init device");
 				return;
@@ -212,11 +238,10 @@ static void __ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 		}
 	}
 
-
-	if (eth_dev->init && eth_dev->start && eth_dev->link_up) {
+	if (startable(eth_dev)) {
 		(void) ipa_eth_start_device(eth_dev);
 
-		if (eth_dev->state != IPA_ETH_ST_STARTED) {
+		if (eth_dev->of_state != IPA_ETH_OF_ST_STARTED) {
 			ipa_eth_dev_err(eth_dev, "Failed to start device");
 			return;
 		}
@@ -227,10 +252,10 @@ static void __ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 	} else {
 		ipa_eth_dev_log(eth_dev, "Start is disallowed for the device");
 
-		if (eth_dev->state == IPA_ETH_ST_STARTED) {
+		if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
 			ipa_eth_stop_device(eth_dev);
 
-			if (eth_dev->state != IPA_ETH_ST_INITED) {
+			if (eth_dev->of_state != IPA_ETH_OF_ST_INITED) {
 				ipa_eth_dev_err(eth_dev,
 						"Failed to stop device");
 				return;
@@ -238,12 +263,12 @@ static void __ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 		}
 	}
 
-	if (!eth_dev->init) {
+	if (!initable(eth_dev)) {
 		ipa_eth_dev_log(eth_dev, "Init is disallowed for the device");
 
 		ipa_eth_deinit_device(eth_dev);
 
-		if (eth_dev->state != IPA_ETH_ST_DEINITED) {
+		if (eth_dev->of_state != IPA_ETH_OF_ST_DEINITED) {
 			ipa_eth_dev_err(eth_dev, "Failed to deinit device");
 			return;
 		}
@@ -252,27 +277,44 @@ static void __ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 
 static void ipa_eth_refresh_device(struct ipa_eth_device *eth_dev)
 {
-	mutex_lock(&ipa_eth_devices_lock);
-
 	if (ipa_eth_ready())
-		__ipa_eth_refresh_device(eth_dev);
-
-	mutex_unlock(&ipa_eth_devices_lock);
+		queue_work(ipa_eth_wq, &eth_dev->refresh);
 }
 
-static void ipa_eth_refresh_devices(void)
+static void __ipa_eth_refresh_devices(struct work_struct *work)
 {
 	struct ipa_eth_device *eth_dev;
+
+	ipa_eth_log("Performing global refresh");
 
 	mutex_lock(&ipa_eth_devices_lock);
 
 	if (ipa_eth_ready()) {
 		list_for_each_entry(eth_dev, &ipa_eth_devices, device_list) {
-			__ipa_eth_refresh_device(eth_dev);
+			ipa_eth_refresh_device(eth_dev);
 		}
 	}
 
 	mutex_unlock(&ipa_eth_devices_lock);
+}
+
+static DECLARE_WORK(global_refresh, __ipa_eth_refresh_devices);
+
+static void ipa_eth_refresh_devices(void)
+{
+	queue_work(ipa_eth_wq, &global_refresh);
+}
+
+static int ipa_eth_netdev_event_change(struct ipa_eth_device *eth_dev)
+{
+	bool refresh_needed = netif_carrier_ok(eth_dev->net_dev) ?
+		!test_and_set_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state) :
+		test_and_clear_bit(IPA_ETH_IF_ST_LOWER_UP, &eth_dev->if_state);
+
+	if (refresh_needed)
+		ipa_eth_refresh_device(eth_dev);
+
+	return NOTIFY_DONE;
 }
 
 static int ipa_eth_netdev_event(struct notifier_block *nb,
@@ -288,11 +330,12 @@ static int ipa_eth_netdev_event(struct notifier_block *nb,
 
 	ipa_eth_dev_log(eth_dev, "Received netdev event %lu", event);
 
-	if (event == NETDEV_CHANGE) {
-		eth_dev->link_up =
-			!test_bit(__LINK_STATE_NOCARRIER, &net_dev->state);
-
-		ipa_eth_refresh_device(eth_dev);
+	switch (event) {
+	case NETDEV_CHANGE:
+		return ipa_eth_netdev_event_change(eth_dev);
+	default:
+		/* Ignore other events */
+		break;
 	}
 
 	return NOTIFY_DONE;
@@ -303,7 +346,7 @@ static int ipa_eth_uc_ready_cb(struct notifier_block *nb,
 {
 	ipa_eth_log("IPA uC is ready");
 
-	ipa_eth_ipa_uc_is_ready = true;
+	set_bit(IPA_ETH_ST_UC_READY, &ipa_eth_state);
 
 	ipa_eth_refresh_devices();
 
@@ -318,7 +361,7 @@ static void ipa_eth_ipa_ready_cb(void *data)
 {
 	ipa_eth_log("IPA is ready");
 
-	ipa_eth_ipa_is_ready = true;
+	set_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state);
 
 	ipa_eth_refresh_devices();
 }
@@ -437,15 +480,15 @@ static ssize_t eth_dev_stats_print(char *buf, const size_t size,
 static ssize_t eth_dev_stats_read(struct file *file, char __user *user_buf,
 				  size_t count, loff_t *ppos)
 {
-	ssize_t n;
+	ssize_t n = 0, size = 2048;
 	char *buf = NULL;
 	struct ipa_eth_device *eth_dev = file->private_data;
 
-	buf = kzalloc(2048, GFP_KERNEL);
+	buf = kzalloc(size, GFP_KERNEL);
 	if (buf == NULL)
 		return 0;
 
-	n = eth_dev_stats_print(buf, sizeof(buf), eth_dev);
+	n = eth_dev_stats_print(buf, size, eth_dev);
 	n = simple_read_from_buffer(user_buf, count, ppos, buf, n);
 
 	kfree(buf);
@@ -531,7 +574,9 @@ static void __ipa_eth_unpair_device(struct ipa_eth_device *eth_dev)
 
 	eth_dev->init = eth_dev->start = false;
 
-	__ipa_eth_refresh_device(eth_dev);
+	ipa_eth_refresh_device(eth_dev);
+	flush_work(&eth_dev->refresh);
+	cancel_work_sync(&eth_dev->refresh);
 
 	unregister_netdevice_notifier(&eth_dev->netdevice_nb);
 	ipa_eth_offload_unpair_device(eth_dev);
@@ -565,8 +610,19 @@ static void ipa_eth_unpair_devices(struct ipa_eth_offload_driver *od)
 
 int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 {
-	eth_dev->state = IPA_ETH_ST_DEINITED;
+	if (!eth_dev->dev) {
+		ipa_eth_dev_err(eth_dev, "Device is NULL");
+		return -EINVAL;
+	}
+
+	if (!eth_dev->nd) {
+		ipa_eth_dev_err(eth_dev, "Network driver is NULL");
+		return -EINVAL;
+	}
+
+	eth_dev->of_state = IPA_ETH_OF_ST_DEINITED;
 	eth_dev->pm_handle = IPA_PM_MAX_CLIENTS;
+	INIT_WORK(&eth_dev->refresh, __ipa_eth_refresh_device);
 
 	eth_dev->init = eth_dev->start = !ipa_eth_noauto;
 
@@ -800,6 +856,44 @@ static void ipa_eth_debugfs_cleanup(void)
 	debugfs_remove_recursive(ipa_eth_debugfs);
 }
 
+static ssize_t eth_dev_ready_read(struct file *file, char __user *user_buf,
+				  size_t count, loff_t *ppos)
+{
+	char *buf;
+	ssize_t n = 0, size = 128;
+
+	buf = kzalloc(size, GFP_KERNEL);
+	if (buf == NULL)
+		return 0;
+
+	n += scnprintf(&buf[n], size - n, "Offload Sub-system: %s\n",
+		test_bit(IPA_ETH_ST_READY, &ipa_eth_state) ?
+			"Ready" : "Not Ready");
+
+	n += scnprintf(&buf[n], size - n, "uC: %s\n",
+		test_bit(IPA_ETH_ST_UC_READY, &ipa_eth_state) ?
+			"Ready" : "Not Ready");
+
+	n += scnprintf(&buf[n], size - n, "IPA: %s\n",
+		test_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state) ?
+			"Ready" : "Not Ready");
+
+	n += scnprintf(&buf[n], size - n, "ALL: %s\n",
+		ipa_eth_ready() ? "Ready" : "Not Ready");
+
+	n = simple_read_from_buffer(user_buf, count, ppos, buf, n);
+
+	kfree(buf);
+
+	return n;
+}
+
+static const struct file_operations fops_eth_dev_ready = {
+	.read = eth_dev_ready_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static int ipa_eth_debugfs_init(void)
 {
 	int rc = 0;
@@ -837,20 +931,16 @@ static int ipa_eth_debugfs_init(void)
 		goto err_exit;
 	}
 
-	(void) debugfs_create_bool("ready", 0444,
-				   ipa_eth_debugfs, &ipa_eth_is_ready);
-
-	(void) debugfs_create_bool("ipa_ready", 0444,
-				   ipa_eth_debugfs, &ipa_eth_ipa_is_ready);
-
-	(void) debugfs_create_bool("uc_ready", 0444,
-				   ipa_eth_debugfs, &ipa_eth_ipa_uc_is_ready);
+	(void) debugfs_create_file("ready", 0644, ipa_eth_debugfs, NULL,
+			    &fops_eth_dev_ready);
 
 	(void) debugfs_create_bool("no_auto", 0644,
 				   ipa_eth_debugfs, &ipa_eth_noauto);
 
 	(void) debugfs_create_bool("ipc_logdbg", 0644,
 				   ipa_eth_debugfs, &ipa_eth_ipc_logdbg);
+
+	ipa_eth_log("Debugfs root is initialized");
 
 	return 0;
 
@@ -898,18 +988,24 @@ int ipa_eth_init(void)
 {
 	int rc;
 
-	ipa_eth_dbg("Initializing IPA Ethernet Offload Sub-System");
-
 	rc = ipa_eth_ipc_log_init();
 	if (rc) {
 		ipa_eth_err("Failed to initialize IPC logging");
 		goto err_ipclog;
 	}
 
+	ipa_eth_dbg("Initializing IPA Ethernet Offload Sub-System");
+
 	rc = ipa_eth_debugfs_init();
 	if (rc) {
 		ipa_eth_err("Failed to initialize debugfs");
 		goto err_dbgfs;
+	}
+
+	ipa_eth_wq = alloc_workqueue("ipa_eth", WQ_UNBOUND, 0);
+	if (!ipa_eth_wq) {
+		ipa_eth_err("Failed to alloc workqueue");
+		goto err_wq;
 	}
 
 	rc = ipa_eth_bus_modinit(ipa_eth_drivers_debugfs);
@@ -932,13 +1028,17 @@ int ipa_eth_init(void)
 
 	rc = ipa_register_ipa_ready_cb(ipa_eth_ipa_ready_cb, NULL);
 	if (rc == -EEXIST) {
-		ipa_eth_ipa_is_ready = true;
+		set_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state);
 	} else if (rc) {
 		ipa_eth_err("Failed to register for IPA ready cb");
 		goto err_ipa;
 	}
 
-	ipa_eth_is_ready = true;
+	set_bit(IPA_ETH_ST_READY, &ipa_eth_state);
+
+	ipa_eth_log("Offload sub-system init is complete");
+
+	ipa_eth_refresh_devices();
 
 	return 0;
 
@@ -949,6 +1049,9 @@ err_uc:
 err_offload:
 	ipa_eth_bus_modexit();
 err_bus:
+	destroy_workqueue(ipa_eth_wq);
+	ipa_eth_wq = NULL;
+err_wq:
 	ipa_eth_debugfs_cleanup();
 err_dbgfs:
 	ipa_eth_ipc_log_cleanup();
@@ -960,13 +1063,17 @@ void ipa_eth_exit(void)
 {
 	ipa_eth_dbg("De-initializing IPA Ethernet Offload Sub-System");
 
-	ipa_eth_is_ready = false;
+	clear_bit(IPA_ETH_ST_READY, &ipa_eth_state);
 
 	// IPA ready CB can not be unregistered; just unregister uC ready CB
 	ipa3_uc_unregister_ready_cb(&uc_ready_cb);
 
 	ipa_eth_offload_modexit();
 	ipa_eth_bus_modexit();
+
+	destroy_workqueue(ipa_eth_wq);
+	ipa_eth_wq = NULL;
+
 	ipa_eth_debugfs_cleanup();
 	ipa_eth_ipc_log_cleanup();
 }

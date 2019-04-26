@@ -109,10 +109,45 @@ int ipa_eth_offload_stop(struct ipa_eth_device *eth_dev)
 	return rc_rx || rc_tx;
 }
 
+static int __try_pair_device(struct ipa_eth_device *eth_dev,
+			   struct ipa_eth_offload_driver *od)
+{
+	int rc = od->bus_ops->probe(eth_dev);
+
+	if (rc) {
+		ipa_eth_dev_dbg(eth_dev,
+			"Offload driver %s passed up paring with %s",
+			od->name, eth_dev->nd->name);
+		return rc;
+	}
+
+	ipa_eth_dev_log(eth_dev,
+		"Offload driver %s successfully probed device from %s",
+		od->name, eth_dev->nd->name);
+
+	if (!eth_dev->net_dev) {
+		ipa_eth_dev_err(eth_dev,
+			"Offload driver %s did not fill net_dev field",
+			od->name);
+
+		od->bus_ops->remove(eth_dev);
+
+		return -EFAULT;
+	}
+
+	eth_dev->od = od;
+
+	ipa_eth_dev_log(eth_dev,
+		"Offload driver %s successfully paired with device from %s",
+		od->name, eth_dev->nd->name);
+
+	return 0;
+}
+
 static int try_pair_device(struct ipa_eth_device *eth_dev,
 			   struct ipa_eth_offload_driver *od)
 {
-	if (od->bus && od->bus != eth_dev->dev->bus) {
+	if (od->bus != eth_dev->dev->bus) {
 		ipa_eth_dev_dbg(eth_dev,
 			"Offload driver %s is not a bus match for %s",
 			od->name, eth_dev->nd->name);
@@ -120,26 +155,7 @@ static int try_pair_device(struct ipa_eth_device *eth_dev,
 		return -ENOTSUPP;
 	}
 
-	if (od->bus_ops->probe) {
-		int rc = od->bus_ops->probe(eth_dev);
-
-		if (!rc) {
-			eth_dev->od = od;
-			return 0;
-		}
-
-		ipa_eth_dev_dbg(eth_dev,
-			"Offload driver %s passed up paring with %s",
-			od->name, eth_dev->nd->name);
-
-		return rc;
-	}
-
-	ipa_eth_dev_dbg(eth_dev,
-		"Bus probe is unsupported by the offload driver %s",
-		od->name);
-
-	return -ENOTSUPP;
+	return __try_pair_device(eth_dev, od);
 }
 
 int ipa_eth_offload_pair_device(struct ipa_eth_device *eth_dev)
@@ -181,6 +197,11 @@ int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
 		return -EINVAL;
 	}
 
+	if (!od->bus_ops || !od->bus_ops->probe || !od->bus_ops->remove) {
+		ipa_eth_err("Bus ops missing for offload driver %s", od->name);
+		return -EINVAL;
+	}
+
 	if (!od->debugfs && ipa_eth_offload_debugfs) {
 		od->debugfs =
 			debugfs_create_dir(od->name, ipa_eth_offload_debugfs);
@@ -208,10 +229,21 @@ void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od)
 
 int ipa_eth_offload_modinit(struct dentry *dbgfs_root)
 {
-	return ipa_eth_offload_debugfs_init(dbgfs_root);
+	int rc;
+
+	rc = ipa_eth_offload_debugfs_init(dbgfs_root);
+	if (rc) {
+		ipa_eth_err("Failed to init offload module debugfs");
+		return rc;
+	}
+
+	ipa_eth_log("Offload sub-system offload module init is complete");
+
+	return 0;
 }
 
 void ipa_eth_offload_modexit(void)
 {
+	ipa_eth_log("De-initing offload sub-system offload module");
 	ipa_eth_offload_debugfs_cleanup();
 }

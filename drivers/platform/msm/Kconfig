@@ -166,6 +166,15 @@ config IPA_ETH_NOAUTO
 	  to enable offloading. This feature is meant only for debugging.
 	  If unsure, say N.
 
+config IPA_ETH_DEBUG
+	bool "Enable addtional debug logging in the offload sub-system"
+	depends on IPA_ETH
+	help
+	  Enabling this option increases the number of messages logged by the offload
+	  sub-system for aiding debugging. Additional debug messages are logged into
+	  IPC log as well as kernel log using dynamic debug.
+	  If unsure, say N.
+
 source "drivers/platform/msm/ipa/ipa_v3/ethernet/aquantia/Kconfig"
 
 config RMNET_IPA3

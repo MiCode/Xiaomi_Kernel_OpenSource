@@ -75,13 +75,16 @@ int diag_bridge_open(int id, struct diag_bridge_ops *ops)
 		return -ENODEV;
 	}
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	if (dev->ops) {
 		pr_err("bridge already opened\n");
+		mutex_unlock(&diag_bridge_mutex[id]);
 		return -EALREADY;
 	}
 
 	dev_dbg(&dev->ifc->dev, "%s\n", __func__);
 	dev->ops = ops;
+	mutex_unlock(&diag_bridge_mutex[id]);
 	dev->err = 0;
 
 	if (!id) {
@@ -130,8 +133,10 @@ void diag_bridge_close(int id)
 		return;
 	}
 
+	mutex_lock(&diag_bridge_mutex[id]);
 	if (!dev->ops) {
 		pr_err("can't close bridge that was not open\n");
+		mutex_unlock(&diag_bridge_mutex[id]);
 		return;
 	}
 
@@ -139,7 +144,7 @@ void diag_bridge_close(int id)
 
 	usb_kill_anchored_urbs(&dev->submitted);
 	dev->ops = 0;
-
+	mutex_unlock(&diag_bridge_mutex[id]);
 
 	if (!id) {
 		pm_runtime_set_autosuspend_delay(&dev->udev->dev,

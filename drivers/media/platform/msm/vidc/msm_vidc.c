@@ -1886,6 +1886,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->clk_data.ddr_bw = 0;
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
+	inst->clk_data.work_route = 1;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
@@ -1893,7 +1894,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
 	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
-
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);
