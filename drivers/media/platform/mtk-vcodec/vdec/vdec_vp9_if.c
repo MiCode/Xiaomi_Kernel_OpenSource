@@ -1013,5 +1013,6 @@ const struct vdec_common_if vdec_vp9_if = {
 	.init		= vdec_vp9_init,
 	.decode		= vdec_vp9_decode,
 	.get_param	= vdec_vp9_get_param,
+	.set_param  = NULL,
 	.deinit		= vdec_vp9_deinit,
 };

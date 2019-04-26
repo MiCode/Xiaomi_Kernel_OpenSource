@@ -36,9 +36,12 @@
  * @status      : frame buffer status (vdec_fb_status)
  */
 struct vdec_fb {
+	struct mtk_vcodec_mem fb_base[VIDEO_MAX_PLANES];
 	struct mtk_vcodec_mem	base_y;
 	struct mtk_vcodec_mem	base_c;
 	unsigned int	status;
+	unsigned int    num_planes;
+	unsigned int    index;
 };
 
 /**

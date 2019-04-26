@@ -621,5 +621,6 @@ const struct vdec_common_if vdec_vp8_if = {
 	.init		= vdec_vp8_init,
 	.decode		= vdec_vp8_decode,
 	.get_param	= vdec_vp8_get_param,
+	.set_param	= NULL,
 	.deinit		= vdec_vp8_deinit,
 };

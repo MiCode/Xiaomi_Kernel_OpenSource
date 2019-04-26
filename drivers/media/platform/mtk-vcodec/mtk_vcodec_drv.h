@@ -202,6 +202,22 @@ struct mtk_vcodec_pm {
 	struct mtk_vcodec_dev	*mtkdev;
 };
 
+struct mtk_dec_params {
+	unsigned int    decode_mode;
+	unsigned int    frame_size_width;
+	unsigned int    frame_size_height;
+	unsigned int    fixed_max_frame_size_width;
+	unsigned int    fixed_max_frame_size_height;
+	char            *crc_path;
+	char            *golden_path;
+	unsigned int    fb_num_planes;
+	unsigned int	wait_key_frame;
+	unsigned int	nal_size_length;
+	unsigned int	svp_mode;
+	unsigned int	operating_rate;
+	unsigned int	total_frame_bufq_count;
+};
+
 /**
  * struct vdec_pic_info  - picture size information
  * @pic_w: picture width
@@ -278,6 +294,7 @@ struct mtk_vcodec_ctx {
 	enum mtk_instance_state state;
 	enum mtk_encode_param param_change;
 	struct mtk_enc_params enc_params;
+	struct mtk_dec_params dec_params;
 
 	const struct vdec_common_if *dec_if;
 	const struct venc_common_if *enc_if;
@@ -285,6 +302,7 @@ struct mtk_vcodec_ctx {
 
 	struct vdec_pic_info picinfo;
 	int dpb_size;
+	unsigned int errormap_info[VB2_MAX_FRAME];
 
 	int int_cond;
 	int int_type;

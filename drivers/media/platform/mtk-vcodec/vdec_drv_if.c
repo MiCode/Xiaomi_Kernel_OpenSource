@@ -22,15 +22,56 @@
 #include "vdec_drv_base.h"
 #include "mtk_vcodec_dec_pm.h"
 
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#include "mtk_vcu.h"
+const struct vdec_common_if *get_dec_common_if(void);
+#endif
+
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
+#include "mtk_vpu.h"
 extern const struct vdec_common_if vdec_h264_if;
 extern const struct vdec_common_if vdec_vp8_if;
 extern const struct vdec_common_if vdec_vp9_if;
 extern const struct vdec_common_if vdec_h264_slice_if;
+#endif
+
 
 int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 {
 	int ret = 0;
 
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+	case V4L2_PIX_FMT_H265:
+	case V4L2_PIX_FMT_HEIF:
+	case V4L2_PIX_FMT_MPEG1:
+	case V4L2_PIX_FMT_MPEG2:
+	case V4L2_PIX_FMT_MPEG4:
+	case V4L2_PIX_FMT_H263:
+	case V4L2_PIX_FMT_S263:
+	case V4L2_PIX_FMT_XVID:
+	case V4L2_PIX_FMT_DIVX:
+	case V4L2_PIX_FMT_DIVX3:
+	case V4L2_PIX_FMT_DIVX4:
+	case V4L2_PIX_FMT_DIVX5:
+	case V4L2_PIX_FMT_DIVX6:
+	case V4L2_PIX_FMT_VP8:
+	case V4L2_PIX_FMT_VP9:
+	case V4L2_PIX_FMT_WMV1:
+	case V4L2_PIX_FMT_WMV2:
+	case V4L2_PIX_FMT_WMV3:
+	case V4L2_PIX_FMT_WVC1:
+	case V4L2_PIX_FMT_WMVA:
+	case V4L2_PIX_FMT_RV30:
+	case V4L2_PIX_FMT_RV40:
+		ctx->dec_if = get_dec_common_if();
+		break;
+	default:
+		return -EINVAL;
+	}
+#endif
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264_SLICE:
 		ctx->dec_if = &vdec_h264_slice_if;
@@ -47,6 +88,7 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	default:
 		return -EINVAL;
 	}
+#endif
 
 	mtk_vdec_lock(ctx);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm);
@@ -99,12 +141,48 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 		      void *out)
 {
 	int ret = 0;
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
+	if (ctx->drv_handle == 0)
+		return -EIO;
+#endif
+
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+	struct vdec_inst *inst = NULL;
+	int drv_handle_exist = 1;
+
+	if (!ctx->drv_handle) {
+		inst = kzalloc(sizeof(struct vdec_inst), GFP_KERNEL);
+		inst->ctx = ctx;
+		ctx->drv_handle = (unsigned long)(inst);
+		ctx->dec_if = get_dec_common_if();
+		drv_handle_exist = 0;
+	}
+#endif
+	mtk_vdec_lock(ctx);
+	ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
+	mtk_vdec_unlock(ctx);
+
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+	if (!drv_handle_exist) {
+		kfree(inst);
+		ctx->drv_handle = 0;
+		ctx->dec_if = NULL;
+	}
+#endif
+	return ret;
+}
+
+int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
+					  void *in)
+{
+	int ret = 0;
 
 	if (ctx->drv_handle == 0)
 		return -EIO;
 
 	mtk_vdec_lock(ctx);
-	ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
+	if (ctx->dec_if->set_param)
+		ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);
 	mtk_vdec_unlock(ctx);
 
 	return ret;

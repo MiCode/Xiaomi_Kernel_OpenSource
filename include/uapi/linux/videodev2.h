@@ -644,6 +644,21 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_H264_NO_SC v4l2_fourcc('A', 'V', 'C', '1') /* H264 without start codes */
 #define V4L2_PIX_FMT_H264_MVC v4l2_fourcc('M', '2', '6', '4') /* H264 MVC */
 #define V4L2_PIX_FMT_H264_SLICE v4l2_fourcc('S', '2', '6', '4') /* H264 parsed slices */
+#define V4L2_PIX_FMT_H265     v4l2_fourcc('H', '2', '6', '5')
+#define V4L2_PIX_FMT_HEIF     v4l2_fourcc('H', 'E', 'I', 'F') /* HEIF */
+#define V4L2_PIX_FMT_H263     v4l2_fourcc('H', '2', '6', '3')
+#define V4L2_PIX_FMT_S263     v4l2_fourcc('S', '2', '6', '3')
+#define V4L2_PIX_FMT_H263     v4l2_fourcc('H', '2', '6', '3')
+#define V4L2_PIX_FMT_MPEG1    v4l2_fourcc('M', 'P', 'G', '1')
+#define V4L2_PIX_FMT_MPEG2    v4l2_fourcc('M', 'P', 'G', '2')
+#define V4L2_PIX_FMT_MPEG4    v4l2_fourcc('M', 'P', 'G', '4')
+#define V4L2_PIX_FMT_XVID     v4l2_fourcc('X', 'V', 'I', 'D')
+#define V4L2_PIX_FMT_DIVX     v4l2_fourcc('D', 'I', 'V', 'X')
+#define V4L2_PIX_FMT_DIVX3    v4l2_fourcc('D', 'I', 'V', '3')
+#define V4L2_PIX_FMT_DIVX4    v4l2_fourcc('D', 'I', 'V', '4')
+#define V4L2_PIX_FMT_DIVX5    v4l2_fourcc('D', 'I', 'V', '5')
+#define V4L2_PIX_FMT_DIVX6    v4l2_fourcc('D', 'I', 'V', '6')
+#define V4L2_PIX_FMT_VP8_FRAME v4l2_fourcc('V', 'P', '8', 'F')
 #define V4L2_PIX_FMT_H263     v4l2_fourcc('H', '2', '6', '3') /* H263          */
 #define V4L2_PIX_FMT_MPEG1    v4l2_fourcc('M', 'P', 'G', '1') /* MPEG-1 ES     */
 #define V4L2_PIX_FMT_MPEG2    v4l2_fourcc('M', 'P', 'G', '2') /* MPEG-2 ES     */
@@ -652,6 +667,31 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_VC1_ANNEX_G v4l2_fourcc('V', 'C', '1', 'G') /* SMPTE 421M Annex G compliant stream */
 #define V4L2_PIX_FMT_VC1_ANNEX_L v4l2_fourcc('V', 'C', '1', 'L') /* SMPTE 421M Annex L compliant stream */
 #define V4L2_PIX_FMT_VP8      v4l2_fourcc('V', 'P', '8', '0') /* VP8 */
+#define V4L2_PIX_FMT_VP8_FRAME v4l2_fourcc('V', 'P', '8', 'F')
+#define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
+#define V4L2_PIX_FMT_WMV1      v4l2_fourcc('W', 'M', 'V', '1') /* WMV7 */
+#define V4L2_PIX_FMT_WMV2      v4l2_fourcc('W', 'M', 'V', '2') /* WMV8 */
+#define V4L2_PIX_FMT_WMV3      v4l2_fourcc('W', 'M', 'V', '3') /* WMV9 */
+#define V4L2_PIX_FMT_WMVA      v4l2_fourcc('W', 'M', 'V', 'A') /* WMVA */
+#define V4L2_PIX_FMT_WVC1      v4l2_fourcc('W', 'V', 'C', '1') /* VC1 */
+#define V4L2_PIX_FMT_RV30      v4l2_fourcc('R', 'V', '3', '0') /* RealVideo 8 */
+#define V4L2_PIX_FMT_RV40      v4l2_fourcc('R', 'V', '4', '0')
+#define V4L2_PIX_FMT_MT21    v4l2_fourcc('M', 'M', '2', '1')
+#define V4L2_PIX_FMT_MT2110T    v4l2_fourcc('M', 'T', '2', 'T')
+#define V4L2_PIX_FMT_MT2110R    v4l2_fourcc('M', 'T', '2', 'R')
+#define V4L2_PIX_FMT_MT21C10T    v4l2_fourcc('M', 'T', 'C', 'T')
+#define V4L2_PIX_FMT_MT21C10R    v4l2_fourcc('M', 'T', 'C', 'R')
+#define V4L2_PIX_FMT_MT21CS    v4l2_fourcc('M', '2', 'C', 'S')
+#define V4L2_PIX_FMT_MT21S    v4l2_fourcc('M', '2', '1', 'S')
+#define V4L2_PIX_FMT_MT21S10T    v4l2_fourcc('M', 'T', 'S', 'T')
+#define V4L2_PIX_FMT_MT21S10R    v4l2_fourcc('M', 'T', 'S', 'R')
+#define V4L2_PIX_FMT_MT21CS10T    v4l2_fourcc('M', 'C', 'S', 'T')
+#define V4L2_PIX_FMT_MT21CS10R    v4l2_fourcc('M', 'C', 'S', 'R')
+#define V4L2_PIX_FMT_MT21CSA    v4l2_fourcc('M', 'A', 'C', 'S')
+#define V4L2_PIX_FMT_MT21S10TJ    v4l2_fourcc('M', 'J', 'S', 'T')
+#define V4L2_PIX_FMT_MT21S10RJ    v4l2_fourcc('M', 'J', 'S', 'R')
+#define V4L2_PIX_FMT_MT21CS10TJ    v4l2_fourcc('J', 'C', 'S', 'T')
+#define V4L2_PIX_FMT_MT21CS10RJ    v4l2_fourcc('J', 'C', 'S', 'R')
 #define V4L2_PIX_FMT_VP9      v4l2_fourcc('V', 'P', '9', '0') /* VP9 */
 #define V4L2_PIX_FMT_HEVC     v4l2_fourcc('H', 'E', 'V', 'C') /* HEVC aka H.265 */
 #define V4L2_PIX_FMT_FWHT     v4l2_fourcc('F', 'W', 'H', 'T') /* Fast Walsh Hadamard Transform (vicodec) */

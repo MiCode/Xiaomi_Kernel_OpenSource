@@ -32,7 +32,7 @@ struct mtk_vcodec_fw {
 	struct platform_device *pdev;
 	struct rproc *rproc;
 };
-
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 static int mtk_vcodec_vpu_load_firmware(struct mtk_vcodec_fw *fw)
 {
 	return vpu_load_firmware(fw->pdev);
@@ -70,6 +70,7 @@ static const struct mtk_vcodec_fw_ops mtk_vcodec_vpu_msg = {
 	.ipi_register = mtk_vcodec_vpu_set_ipi_register,
 	.ipi_send = mtk_vcodec_vpu_ipi_send,
 };
+#endif
 
 static int mtk_vcodec_scp_load_firmware(struct mtk_vcodec_fw *fw)
 {
@@ -138,10 +139,12 @@ struct mtk_vcodec_fw *mtk_vcodec_fw_select(struct mtk_vcodec_dev *dev,
 
 	switch (type) {
 	case VPU:
+		#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 		ops = &mtk_vcodec_vpu_msg;
 		fw_pdev = vpu_get_plat_device(dev->plat_dev);
 		vpu_wdt_reg_handler(fw_pdev, mtk_vcodec_reset_handler,
 				    dev, rst_id);
+		#endif
 		break;
 	case SCP:
 		ops = &mtk_vcodec_rproc_msg;

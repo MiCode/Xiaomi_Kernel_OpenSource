@@ -636,5 +636,6 @@ const struct vdec_common_if vdec_h264_slice_if = {
 	.init		= vdec_h264_slice_init,
 	.decode		= vdec_h264_slice_decode,
 	.get_param	= vdec_h264_slice_get_param,
+	.set_param	= NULL,
 	.deinit		= vdec_h264_slice_deinit,
 };

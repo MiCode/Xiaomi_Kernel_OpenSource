@@ -20,9 +20,14 @@
 #include <linux/dma-direction.h>
 
 struct mtk_vcodec_mem {
+	size_t length;
 	size_t size;
+	size_t data_offset;
 	void *va;
 	dma_addr_t dma_addr;
+	struct dma_buf *dmabuf;
+	__u32 flags;
+	__u32 index;
 };
 
 struct mtk_vcodec_fb {

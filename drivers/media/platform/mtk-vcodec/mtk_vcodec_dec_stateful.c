@@ -387,7 +387,10 @@ static void mtk_vdec_worker(struct work_struct *work)
 	buf.va = vb2_plane_vaddr(&src_buf->vb2_buf, 0);
 	buf.dma_addr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
 	buf.size = (size_t)src_buf->vb2_buf.planes[0].bytesused;
-	if (!buf.va) {
+	buf.dmabuf = src_buf->vb2_buf.planes[0].dbuf;
+	buf.flags = src_buf->flags;
+	buf.index = src_buf->vb2_buf.index;
+	if (buf.va == NULL && buf.dmabuf == NULL) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		mtk_v4l2_err("[%d] id=%d src_addr is NULL!!",
 				ctx->id, src_buf->vb2_buf.index);
@@ -514,11 +517,29 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	src_mem.va = vb2_plane_vaddr(&src_buf->vb2_buf, 0);
 	src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
 	src_mem.size = (size_t)src_buf->vb2_buf.planes[0].bytesused;
+	src_mem.length = (size_t)src_buf->vb2_buf.planes[0].length;
+	src_mem.dmabuf = src_buf->vb2_buf.planes[0].dbuf;
+	src_mem.flags = src_buf->flags;
+	src_mem.index = src_buf->vb2_buf.index;
 	mtk_v4l2_debug(2,
-			"[%d] buf id=%d va=%p dma=%pad size=%zx",
-			ctx->id, src_buf->vb2_buf.index,
-			src_mem.va, &src_mem.dma_addr,
-			src_mem.size);
+		"[%d] buf id=%d va=%p dma=%p size=%zx length=%zu dmabuf=%p",
+		ctx->id, src_buf->index,
+		src_mem.va, &src_mem.dma_addr,
+		src_mem.size, src_mem.length,
+		src_mem.dmabuf);
+	if (src_mem.va != NULL) {
+		mtk_v4l2_debug(0, "[%d] %x %x %x %x %x %x %x %x %x\n",
+					   ctx->id,
+					   ((char *)src_mem.va)[0],
+					   ((char *)src_mem.va)[1],
+					   ((char *)src_mem.va)[2],
+					   ((char *)src_mem.va)[3],
+					   ((char *)src_mem.va)[4],
+					   ((char *)src_mem.va)[5],
+					   ((char *)src_mem.va)[6],
+					   ((char *)src_mem.va)[7],
+					   ((char *)src_mem.va)[8]);
+	}
 
 	ret = vdec_if_decode(ctx, &src_mem, NULL, &res_chg);
 	if (ret || !res_chg) {
