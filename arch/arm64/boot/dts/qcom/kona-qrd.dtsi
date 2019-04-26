@@ -697,3 +697,9 @@
 &wil6210 {
 	status = "ok";
 };
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x1f 0x70
+		0x03 0x74>;
+};
