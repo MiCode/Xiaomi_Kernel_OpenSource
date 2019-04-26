@@ -2743,6 +2743,32 @@
 			};
 		};
 
+		usb2phy_ac_en1_default: usb2phy_ac_en1_default {
+			mux {
+				pins = "gpio113";
+				function = "usb2phy_ac";
+			};
+
+			config {
+				pins = "gpio113";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		usb2phy_ac_en2_default: usb2phy_ac_en2_default {
+			mux {
+				pins = "gpio123";
+				function = "usb2phy_ac";
+			};
+
+			config {
+				pins = "gpio123";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		audio_ioexp_reset_active: audio_ioexp_reset_active {
 			mux {
 				pins = "gpio166";
