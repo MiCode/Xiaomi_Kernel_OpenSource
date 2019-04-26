@@ -154,6 +154,10 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		set_bit(bit_offset, &inst->deprecate_bitmask);
 	}
 
+	if (get_user(kp->buf_offset, &up->buf_offset) ||
+		get_user(kp->buf_num, &up->buf_num))
+		return -EFAULT;
+
 	switch (kp->type) {
 	case CVP_KMD_GET_SESSION_INFO:
 	{
