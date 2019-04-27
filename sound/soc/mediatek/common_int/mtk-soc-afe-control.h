@@ -66,7 +66,7 @@
 #define MASK_ALL (0xFFFFFFFF)
 #define AFE_MASK_ALL (0xffffffff)
 
-bool InitAfeControl(struct device *pdev);
+int InitAfeControl(struct device *pdev);
 bool ResetAfeControl(void);
 bool Register_Aud_Irq(void *dev, unsigned int afe_irq_number);
 

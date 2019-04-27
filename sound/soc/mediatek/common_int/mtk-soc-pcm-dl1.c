@@ -668,7 +668,10 @@ static int mtk_soc_dl1_probe(struct platform_device *pdev)
 #endif
 #endif
 
-	InitAfeControl(&pdev->dev);
+	ret = InitAfeControl(&pdev->dev);
+
+	if (ret != 0)
+		return ret;
 
 #ifdef CONFIG_OF
 	auddrv_get_irqline(&pdev->dev);
@@ -676,6 +679,9 @@ static int mtk_soc_dl1_probe(struct platform_device *pdev)
 #else
 	ret = Register_Aud_Irq(&pdev->dev, MT6735_AFE_MCU_IRQ_LINE);
 #endif
+
+	if (ret != 0)
+		return ret;
 
 	/* config smartpa gpio pins, set initial state : SMARTPA_OFF */
 	AudDrv_GPIO_SMARTPA_Select(0);
