@@ -5160,6 +5160,12 @@ void cmdq_core_initialize(void)
 		if (!cmdq_clients[index])
 			cmdq_ctx.thread[index].used = true;
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	/* for secure path reserve irq notify thread */
+	cmdq_ctx.thread[CMDQ_SEC_IRQ_THREAD].used = true;
+#endif
+
 	cmdq_long_string_init(false, long_msg, &msg_offset, &msg_max_size);
 	for (index = 0; index < max_thread_count; index++) {
 		if (!cmdq_ctx.thread[index].used)
