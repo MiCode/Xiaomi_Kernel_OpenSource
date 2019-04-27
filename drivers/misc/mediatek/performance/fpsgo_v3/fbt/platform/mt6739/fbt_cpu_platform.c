@@ -18,60 +18,67 @@
 #include "fbt_cpu_platform.h"
 #include <fpsgo_common.h>
 #include <linux/pm_qos.h>
+#include <mtk_vcorefs_governor.h>
+#include <mtk_vcorefs_manager.h>
+#include <mach/mtk_ppm_api.h>
 
-#define API_READY 0
-#if API_READY
-static struct pm_qos_request dram_req;
-#endif
+int ultra_req;
+int cm_req;
+/*
+ * cpi_uclamp_thres = 123500000 / 149500000 * 100
+ */
+static int cpi_thres = 250;
+static unsigned int cpi_uclamp_thres = 82;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
-#ifdef CONFIG_MTK_CM_MGR
-	cm_mgr_perf_set_status(reach_limit);
-#endif
-	fpsgo_systrace_c_fbt_gm(-100, reach_limit, "notify_cm");
 }
 
 void fbt_reg_dram_request(int reg)
 {
-#if API_READY
-	if (reg) {
-		if (!pm_qos_request_active(&dram_req))
-			pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
-					PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	} else {
-		if (pm_qos_request_active(&dram_req))
-			pm_qos_remove_request(&dram_req);
-	}
-#endif
+}
+
+void fbt_dram_arbitration(void)
+{
+	int ret = -1;
+
+	if (cm_req || ultra_req)
+		ret = vcorefs_request_dvfs_opp(KIR_FBT, 0);
+	else
+		ret = vcorefs_request_dvfs_opp(KIR_FBT, -1);
+
+	if (ret < 0)
+		fpsgo_systrace_c_fbt_gm(-100, ret, "fbt_dram_arbitration_ret");
+
+	fpsgo_systrace_c_fbt_gm(-100, cm_req, "cm_req");
+	fpsgo_systrace_c_fbt_gm(-100, ultra_req, "ultra_req");
 }
 
 void fbt_boost_dram(int boost)
 {
-#if API_READY
-	if (!pm_qos_request_active(&dram_req)) {
-		fbt_reg_dram_request(1);
-		if (!pm_qos_request_active(&dram_req)) {
-			fpsgo_systrace_c_fbt_gm(-100, -1, "dram_boost");
-			return;
-		}
-	}
 
-	if (boost)
-		pm_qos_update_request(&dram_req, 0);
-	else
-		pm_qos_update_request(&dram_req,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
-#endif
+	if (boost == ultra_req)
+		return;
 
-	fpsgo_systrace_c_fbt_gm(-100, boost, "dram_boost");
+	ultra_req = boost;
+	fbt_dram_arbitration();
+
 }
 
 void fbt_set_boost_value(unsigned int base_blc)
 {
+	int cpi = 0;
+
 	base_blc = clamp(base_blc, 1U, 100U);
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, (int)base_blc);
 	fpsgo_systrace_c_fbt_gm(-100, base_blc, "TA_cap");
+
+	/* single cluster for mt6739 */
+	cpi = ppm_get_cluster_cpi(0);
+	fpsgo_systrace_c_fbt_gm(-100, cpi, "cpi");
+	cm_req = base_blc > cpi_uclamp_thres && cpi > cpi_thres;
+
+	fbt_dram_arbitration();
 }
 
 void fbt_clear_boost_value(void)
@@ -79,10 +86,16 @@ void fbt_clear_boost_value(void)
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_FPSGO, CGROUP_TA, 0);
 	fpsgo_systrace_c_fbt_gm(-100, 0, "TA_cap");
 
+	cm_req = 0;
+	ultra_req = 0;
 	fbt_notify_CM_limit(0);
-	fbt_boost_dram(0);
+	fbt_dram_arbitration();
 }
 
+/*
+ * mt6739 use boost_ta to support CM optimize.
+ * per-task uclamp doesn't support CM optimize.
+ */
 void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 {
 	int ret = -1;
@@ -110,16 +123,10 @@ int fbt_get_L_min_ceiling(void)
 {
 	int freq = 0;
 
-#if 0
-	int opp;
-
-	opp = upower_get_turn_point();
-	if (opp >= NR_FREQ_CPU || opp < 0)
-		return 0;
-
-	freq = cpu_dvfs[fbt_get_L_cluster_num()].power[opp];
-#endif
-
 	return freq;
 }
 
+int fbt_get_default_boost_ta(void)
+{
+	return 1;
+}

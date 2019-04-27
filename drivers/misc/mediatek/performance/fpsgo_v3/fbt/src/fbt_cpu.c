@@ -2827,6 +2827,7 @@ int __init fbt_cpu_init(void)
 	fbt_down_throttle_enable = 1;
 	sync_flag = -1;
 	fbt_sync_flag_enable = 1;
+	boost_ta = fbt_get_default_boost_ta();
 
 	cluster_num = arch_get_nr_clusters();
 	max_cap_cluster = min((cluster_num - 1), 0);
