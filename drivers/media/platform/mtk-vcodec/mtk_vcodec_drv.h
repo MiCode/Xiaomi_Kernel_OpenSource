@@ -224,13 +224,14 @@ struct mtk_dec_params {
  * @pic_h: picture height
  * @buf_w: picture buffer width (64 aligned up from pic_w)
  * @buf_h: picture buffer heiht (64 aligned up from pic_h)
- * @fb_sz: bitstream size of each plane
+ * @fb_sz: bitstream size
  * E.g. suppose picture size is 176x144,
  *      buffer size will be aligned to 176x160.
  * @cap_fourcc: fourcc number(may changed when resolution change)
  * @reserved: align struct to 64-bit in order to adjust 32-bit and 64-bit os.
  */
 struct vdec_pic_info {
+/** from yunfei upstream
 	unsigned int pic_w;
 	unsigned int pic_h;
 	unsigned int buf_w;
@@ -238,6 +239,15 @@ struct vdec_pic_info {
 	unsigned int fb_sz[VIDEO_MAX_PLANES];
 	unsigned int cap_fourcc;
 	unsigned int reserved;
+*/
+	__u32 pic_w;
+	__u32 pic_h;
+	__u32 buf_w;
+	__u32 buf_h;
+	__u32 fb_sz[VIDEO_MAX_PLANES];
+	__u32 bitdepth;
+	__u32 layout_mode;
+	unsigned int cap_fourcc;
 };
 
 /**

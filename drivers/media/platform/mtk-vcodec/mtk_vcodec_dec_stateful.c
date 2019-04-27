@@ -80,6 +80,8 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx)
 {
 	struct vdec_fb *disp_frame_buffer = NULL;
 	struct mtk_video_dec_buf *dstbuf;
+	const struct mtk_video_fmt	*fmt;
+	int i = 0;
 
 	mtk_v4l2_debug(3, "[%d]", ctx->id);
 	if (vdec_if_get_param(ctx,
@@ -99,11 +101,11 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx)
 				frame_buffer);
 	mutex_lock(&ctx->lock);
 	if (dstbuf->used) {
-		vb2_set_plane_payload(&dstbuf->vb.vb2_buf, 0,
-					ctx->picinfo.fb_sz[0]);
-		if (ctx->q_data[MTK_Q_DATA_DST].fmt->num_planes == 2)
-			vb2_set_plane_payload(&dstbuf->vb.vb2_buf, 1,
-						ctx->picinfo.fb_sz[1]);
+		fmt = ctx->q_data[MTK_Q_DATA_DST].fmt;
+		for (i = 0; i < fmt->num_planes; i++) {
+			vb2_set_plane_payload(&dstbuf->vb.vb2_buf, i,
+						ctx->picinfo.fb_sz[i]);
+		}
 
 		mtk_v4l2_debug(2,
 				"[%d]status=%x queue id=%d to done_list %d",

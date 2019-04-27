@@ -407,9 +407,8 @@ static void get_pic_info(struct vdec_h264_slice_inst *inst,
 	mtk_vcodec_debug(inst, "pic(%d, %d), buf(%d, %d)",
 			 ctx->picinfo.pic_w, ctx->picinfo.pic_h,
 			 ctx->picinfo.buf_w, ctx->picinfo.buf_h);
-	mtk_vcodec_debug(inst, "Y(%d, %d), C(%d, %d)", ctx->picinfo.y_bs_sz,
-			 ctx->picinfo.y_len_sz, ctx->picinfo.c_bs_sz,
-			 ctx->picinfo.c_len_sz);
+	mtk_vcodec_debug(inst, "Y(%d), C(%d)", ctx->picinfo.fb_sz[0],
+			 ctx->picinfo.fb_sz[1]);
 
 	if ((ctx->last_decoded_picinfo.pic_w != ctx->picinfo.pic_w) ||
 		(ctx->last_decoded_picinfo.pic_h != ctx->picinfo.pic_h)) {
