@@ -63,7 +63,6 @@
 #define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
 	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
 
-#define API_READY 0
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -1448,10 +1447,8 @@ static void fstb_fps_stats(struct work_struct *work)
 				calculate_fps_limit(iter, target_fps);
 			fpsgo_systrace_c_fstb(iter->pid,
 				iter->target_fps_margin, "target_fps_margin");
-#if API_READY
 			ged_kpi_set_target_FPS_margin(iter->bufid,
 				iter->target_fps, iter->target_fps_margin);
-#endif
 			mtk_fstb_dprintk_always(
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
@@ -2261,9 +2258,7 @@ int mtk_fstb_init(void)
 
 	num_cluster = arch_get_nr_clusters();
 
-#if API_READY
 	ged_kpi_output_gfx_info2_fp = gpu_time_update;
-#endif
 
 
 	/* create debugfs file */
