@@ -1837,6 +1837,7 @@ struct ipa3_context {
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 	atomic_t is_ssr;
 	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
+	bool fw_loaded;
 };
 
 struct ipa3_plat_drv_res {
