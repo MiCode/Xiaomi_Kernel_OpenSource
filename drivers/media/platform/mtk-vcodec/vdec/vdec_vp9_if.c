@@ -227,7 +227,7 @@ static struct vdec_fb *vp9_rm_from_fb_use_list(struct vdec_vp9_inst
 
 	list_for_each_entry(node, &inst->fb_use_list, list) {
 		fb = (struct vdec_fb *)node->fb;
-		if (fb->base_y.va == addr) {
+		if (fb->fb_base[0].va == addr) {
 			list_move_tail(&node->list,
 				       &inst->available_fb_node_list);
 			break;
@@ -275,9 +275,11 @@ static void vp9_ref_cnt_fb(struct vdec_vp9_inst *inst, int *idx,
 			if (!vp9_is_sf_ref_fb(inst,
 					      vsi->frm_bufs[ref_idx].buf.fb)) {
 				struct vdec_fb *fb;
+				struct vdec_fb *temp_fb;
 
+				temp_fb = vsi->frm_bufs[ref_idx].buf.fb;
 				fb = vp9_rm_from_fb_use_list(inst,
-				     vsi->frm_bufs[ref_idx].buf.fb->base_y.va);
+				     temp_fb->fb_base[0].va);
 				vp9_add_to_fb_free_list(inst, fb);
 			} else
 				vp9_free_sf_ref_fb(
@@ -295,11 +297,11 @@ static void vp9_free_all_sf_ref_fb(struct vdec_vp9_inst *inst)
 	struct vdec_vp9_vsi *vsi = inst->vsi;
 
 	for (i = 0; i < ARRAY_SIZE(vsi->sf_ref_fb); i++) {
-		if (vsi->sf_ref_fb[i].fb.base_y.va) {
+		if (vsi->sf_ref_fb[i].fb.fb_base[0].va) {
 			mtk_vcodec_mem_free(inst->ctx,
-				&vsi->sf_ref_fb[i].fb.base_y);
+				&vsi->sf_ref_fb[i].fb.fb_base[0]);
 			mtk_vcodec_mem_free(inst->ctx,
-				&vsi->sf_ref_fb[i].fb.base_c);
+				&vsi->sf_ref_fb[i].fb.fb_base[1]);
 			vsi->sf_ref_fb[i].used = 0;
 		}
 	}
@@ -320,7 +322,7 @@ static int vp9_get_sf_ref_fb(struct vdec_vp9_inst *inst)
 	for (idx = 0;
 		idx < ARRAY_SIZE(vsi->sf_ref_fb);
 		idx++) {
-		if (vsi->sf_ref_fb[idx].fb.base_y.va &&
+		if (vsi->sf_ref_fb[idx].fb.fb_base[0].va &&
 		    vsi->sf_ref_fb[idx].used == 0) {
 			return idx;
 		}
@@ -329,7 +331,7 @@ static int vp9_get_sf_ref_fb(struct vdec_vp9_inst *inst)
 	for (idx = 0;
 		idx < ARRAY_SIZE(vsi->sf_ref_fb);
 		idx++) {
-		if (vsi->sf_ref_fb[idx].fb.base_y.va == NULL)
+		if (vsi->sf_ref_fb[idx].fb.fb_base[0].va == NULL)
 			break;
 	}
 
@@ -338,7 +340,7 @@ static int vp9_get_sf_ref_fb(struct vdec_vp9_inst *inst)
 		return -1;
 	}
 
-	mem_basy_y = &vsi->sf_ref_fb[idx].fb.base_y;
+	mem_basy_y = &vsi->sf_ref_fb[idx].fb.fb_base[0];
 	mem_basy_y->size = vsi->buf_sz_y_bs +
 		vsi->buf_len_sz_y;
 
@@ -347,7 +349,7 @@ static int vp9_get_sf_ref_fb(struct vdec_vp9_inst *inst)
 		return -1;
 	}
 
-	mem_basy_c = &vsi->sf_ref_fb[idx].fb.base_c;
+	mem_basy_c = &vsi->sf_ref_fb[idx].fb.fb_base[1];
 	mem_basy_c->size = vsi->buf_sz_c_bs +
 		vsi->buf_len_sz_c;
 
@@ -480,14 +482,14 @@ static void vp9_swap_frm_bufs(struct vdec_vp9_inst *inst)
 		 * buffer
 		 */
 		if ((frm_to_show->fb != NULL) &&
-			(inst->cur_fb->base_y.size >=
-			frm_to_show->fb->base_y.size)) {
-			memcpy((void *)inst->cur_fb->base_y.va,
-				(void *)frm_to_show->fb->base_y.va,
+			(inst->cur_fb->fb_base[0].size >=
+			frm_to_show->fb->fb_base[0].size)) {
+			memcpy((void *)inst->cur_fb->fb_base[0].va,
+				(void *)frm_to_show->fb->fb_base[0].va,
 				vsi->buf_w *
 				vsi->buf_h);
-			memcpy((void *)inst->cur_fb->base_c.va,
-				(void *)frm_to_show->fb->base_c.va,
+			memcpy((void *)inst->cur_fb->fb_base[1].va,
+				(void *)frm_to_show->fb->fb_base[1].va,
 				vsi->buf_w *
 				vsi->buf_h / 2);
 		} else {
@@ -497,9 +499,9 @@ static void vp9_swap_frm_bufs(struct vdec_vp9_inst *inst)
 			 */
 			if (frm_to_show->fb != NULL)
 				mtk_vcodec_err(inst,
-					"inst->cur_fb->base_y.size=%zu, frm_to_show->fb.base_y.size=%zu",
-					inst->cur_fb->base_y.size,
-					frm_to_show->fb->base_y.size);
+					"inst->cur_fb->fb_base[0].size=%zu, frm_to_show->fb.fb_base[0].size=%zu",
+					inst->cur_fb->fb_base[0].size,
+					frm_to_show->fb->fb_base[0].size);
 		}
 		if (!vp9_is_sf_ref_fb(inst, inst->cur_fb)) {
 			if (vsi->show_frame)
@@ -521,7 +523,7 @@ static void vp9_swap_frm_bufs(struct vdec_vp9_inst *inst)
 			struct vdec_fb *fb;
 
 			fb = vp9_rm_from_fb_use_list(inst,
-			vsi->frm_bufs[vsi->new_fb_idx].buf.fb->base_y.va);
+			vsi->frm_bufs[vsi->new_fb_idx].buf.fb->fb_base[0].va);
 
 			vp9_add_to_fb_free_list(inst, fb);
 		} else {

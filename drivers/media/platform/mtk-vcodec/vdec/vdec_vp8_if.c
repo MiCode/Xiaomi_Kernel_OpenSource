@@ -310,7 +310,7 @@ static void vp8_dec_finish(struct vdec_vp8_inst *inst)
 		list_for_each_entry(node, &inst->fb_use_list, list) {
 			struct vdec_fb *fb = (struct vdec_fb *)node->fb;
 
-			if (prev_y_dma == (uint64_t)fb->base_y.dma_addr) {
+			if (prev_y_dma == (uint64_t)fb->fb_base[0].dma_addr) {
 				list_move_tail(&node->list,
 					       &inst->fb_free_list);
 				break;
@@ -454,8 +454,8 @@ static int vdec_vp8_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 		return vpu_dec_reset(vpu);
 	}
 
-	y_fb_dma = fb ? (u64)fb->base_y.dma_addr : 0;
-	c_fb_dma = fb ? (u64)fb->base_c.dma_addr : 0;
+	y_fb_dma = fb ? (u64)fb->fb_base[0].dma_addr : 0;
+	c_fb_dma = fb ? (u64)fb->fb_base[1].dma_addr : 0;
 
 	mtk_vcodec_debug(inst, "+ [%d] FB y_dma=%llx c_dma=%llx fb=%p",
 			 inst->frm_cnt, y_fb_dma, c_fb_dma, fb);

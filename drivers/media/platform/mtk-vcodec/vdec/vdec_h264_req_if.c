@@ -545,8 +545,8 @@ static int vdec_h264_slice_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	dst_buf_info = container_of(fb, struct mtk_video_dec_buf, frame_buffer);
 
 	vdec_fb_va = (u64)(uintptr_t)fb;
-	y_fb_dma = fb ? (u64)fb->base_y.dma_addr : 0;
-	c_fb_dma = fb ? (u64)fb->base_c.dma_addr : 0;
+	y_fb_dma = fb ? (u64)fb->fb_base[0].dma_addr : 0;
+	c_fb_dma = fb ? (u64)fb->fb_base[1].dma_addr : 0;
 
 	buf = (unsigned char *)bs->va;
 	nal_start_idx = find_start_code(buf, bs->size);

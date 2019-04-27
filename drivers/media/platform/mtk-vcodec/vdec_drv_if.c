@@ -103,7 +103,7 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 		   struct vdec_fb *fb, bool *res_chg)
 {
 	int ret = 0;
-
+	int i = 0;
 	if (bs) {
 		if ((bs->dma_addr & 63) != 0) {
 			mtk_v4l2_err("bs dma_addr should 64 byte align");
@@ -112,12 +112,14 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	}
 
 	if (fb) {
-		if (((fb->base_y.dma_addr & 511) != 0) ||
-		    ((fb->base_c.dma_addr & 511) != 0)) {
-			mtk_v4l2_err("frame buffer dma_addr should 512 byte align");
-			return -EINVAL;
+		for (i = 0; i < fb->num_planes; i++) {
+			if ((fb->fb_base[i].dma_addr & 511UL) != 0UL) {
+				mtk_v4l2_err("fb addr should 512 byte align");
+				return -EINVAL;
+			}
 		}
 	}
+
 
 	if (ctx->drv_handle == 0)
 		return -EIO;

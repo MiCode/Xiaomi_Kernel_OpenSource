@@ -31,14 +31,13 @@
 
 /**
  * struct vdec_fb  - decoder frame buffer
- * @base_y	: Y plane memory info
- * @base_c	: C plane memory info
+ * @fb_base	: planes memory info
  * @status      : frame buffer status (vdec_fb_status)
+ * @num_planes		:frame buffer plane number
+ * @index		:frame buffer index in vb2 queue
  */
 struct vdec_fb {
 	struct mtk_vcodec_mem fb_base[VIDEO_MAX_PLANES];
-	struct mtk_vcodec_mem	base_y;
-	struct mtk_vcodec_mem	base_c;
 	unsigned int	status;
 	unsigned int    num_planes;
 	unsigned int    index;

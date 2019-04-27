@@ -171,6 +171,7 @@ static struct vdec_fb *vdec_get_cap_buffer(struct mtk_vcodec_ctx *ctx)
 	struct vb2_v4l2_buffer *vb2_v4l2;
 	struct vb2_buffer *dst_buf;
 	struct vdec_fb *pfb;
+	unsigned int i;
 
 	vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	if (vb2_v4l2 == NULL) {
@@ -182,24 +183,20 @@ static struct vdec_fb *vdec_get_cap_buffer(struct mtk_vcodec_ctx *ctx)
 	framebuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	pfb = &framebuf->frame_buffer;
-	pfb->base_y.va = vb2_plane_vaddr(dst_buf, 0);
-	pfb->base_y.dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
-	//pfb->base_y.size = ctx->picinfo.y_bs_sz + ctx->picinfo.y_len_sz;
-	pfb->base_y.size = ctx->q_data[MTK_Q_DATA_DST].sizeimage[0];
-
-	if (ctx->q_data[MTK_Q_DATA_DST].fmt->num_planes == 2) {
-		pfb->base_c.va = vb2_plane_vaddr(dst_buf, 1);
-		pfb->base_c.dma_addr =
-			vb2_dma_contig_plane_dma_addr(dst_buf, 1);
-		//pfb->base_c.size = ctx->picinfo.c_bs_sz + ctx->picinfo.c_len_sz;
-		pfb->base_c.size = ctx->q_data[MTK_Q_DATA_DST].sizeimage[1];
+	pfb->num_planes = dst_buf->num_planes;
+	pfb->index = dst_buf->index;
+	for (i = 0; i < dst_buf->num_planes; i++) {
+		pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
+		pfb->fb_base[i].dma_addr =
+			vb2_dma_contig_plane_dma_addr(dst_buf, i);
+		pfb->fb_base[i].size = ctx->q_data[MTK_Q_DATA_DST].sizeimage[i];
+		mtk_v4l2_debug(1,
+			"id=%d Framebuf  pfb=%p VA=%p dma_addr=%pad Size=%zx frame_count = %d",
+			dst_buf->index, pfb,
+			pfb->fb_base[i].va, &pfb->fb_base[i].dma_addr,
+			pfb->fb_base[i].size,
+			ctx->decoded_frame_cnt);
 	}
-	mtk_v4l2_debug(1,
-		"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%pad C_DMA=%pad Size=%zx frame_count = %d",
-		dst_buf->index, pfb,
-		pfb->base_y.va, &pfb->base_y.dma_addr,
-		&pfb->base_c.dma_addr, pfb->base_y.size,
-		ctx->decoded_frame_cnt);
 
 	return pfb;
 }

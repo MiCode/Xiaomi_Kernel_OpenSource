@@ -329,6 +329,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct vdec_fb *pfb;
 	bool res_chg = false;
 	int ret;
+	int i;
 	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -349,21 +350,30 @@ static void mtk_vdec_worker(struct work_struct *work)
 	dst_buf_info = container_of(dst_buf, struct mtk_video_dec_buf, vb);
 
 	pfb = &dst_buf_info->frame_buffer;
-	pfb->base_y.va = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
-	pfb->base_y.dma_addr = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
-	pfb->base_y.size = ctx->picinfo.fb_sz[0];
+	pfb->num_planes = dst_buf->vb2_buf.num_planes;
+	pfb->index = dst_buf->vb2_buf.index;
+	for (i = 0; i < dst_buf->vb2_buf.num_planes; i++) {
+		pfb->fb_base[i].va = vb2_plane_vaddr(&dst_buf->vb2_buf, i);
+#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
+		pfb->fb_base[i].dma_addr =
+			mtk_dma_sg_plane_dma_addr(&dst_buf->vb2_buf, i);
+#else
+		pfb->fb_base[i].dma_addr =
+			vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, i);
+#endif
+		pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
+		pfb->fb_base[i].length = dst_buf->vb2_buf.planes[i].length;
+		pfb->fb_base[i].dmabuf = dst_buf->vb2_buf.planes[i].dbuf;
+		mtk_v4l2_debug(3,
+				"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%p Size=%zx",
+				dst_buf->vb2_buf.index,
+				pfb, pfb->fb_base[i].va,
+				&pfb->fb_base[i].dma_addr,
+				pfb->fb_base[i].size);
+	}
 
-	pfb->base_c.va = vb2_plane_vaddr(&dst_buf->vb2_buf, 1);
-	pfb->base_c.dma_addr = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 1);
-	pfb->base_c.size = ctx->picinfo.fb_sz[1];
 	pfb->status = 0;
 	mtk_v4l2_debug(3, "===>[%d] vdec_if_decode() ===>", ctx->id);
-
-	mtk_v4l2_debug(3,
-			"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%pad C_DMA=%pad Size=%zx",
-			dst_buf->vb2_buf.index, pfb,
-			pfb->base_y.va, &pfb->base_y.dma_addr,
-			&pfb->base_c.dma_addr, pfb->base_y.size);
 
 	if (src_buf_info->lastframe) {
 		mtk_v4l2_debug(1, "Got empty flush input buffer.");
@@ -377,11 +387,20 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		vdec_if_decode(ctx, NULL, NULL, &res_chg);
 		clean_display_buffer(ctx);
-		vb2_set_plane_payload(&dst_buf_info->vb.vb2_buf, 0, 0);
-		if (ctx->q_data[MTK_Q_DATA_DST].fmt->num_planes == 2)
-			vb2_set_plane_payload(&dst_buf_info->vb.vb2_buf, 1, 0);
-		dst_buf->flags |= V4L2_BUF_FLAG_LAST;
-		v4l2_m2m_buf_done(&dst_buf_info->vb, VB2_BUF_STATE_DONE);
+		if (src_buf->planes[0].bytesused == 0U) {
+			src_buf->flags |= V4L2_BUF_FLAG_LAST;
+			vb2_set_plane_payload(&src_buf_info->vb.vb2_buf, 0, 0);
+			v4l2_m2m_buf_done(&src_buf_info->vb,
+				VB2_BUF_STATE_DONE);
+
+			for (i = 0; i < pfb->num_planes; i++)
+				vb2_set_plane_payload(
+					&dst_buf_info->vb.vb2_buf, i, 0);
+			dst_buf->flags |= V4L2_BUF_FLAG_LAST;
+			v4l2_m2m_buf_done(&dst_buf_info->vb,
+				VB2_BUF_STATE_DONE);
+		}
+
 		clean_free_buffer(ctx);
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		return;

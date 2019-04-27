@@ -238,7 +238,8 @@ static void put_fb_to_free(struct vdec_h264_inst *inst, struct vdec_fb *fb)
 		}
 
 		mtk_vcodec_debug(inst, "[FB] put fb into free_list @(%p, %llx)",
-				 fb->base_y.va, (u64)fb->base_y.dma_addr);
+				 fb->fb_base[0].va,
+				 (u64)fb->fb_base[0].dma_addr);
 
 		list->fb_list[list->write_idx].vdec_fb_va = (u64)(uintptr_t)fb;
 		list->write_idx = (list->write_idx == H264_MAX_FB_NUM - 1) ?
@@ -351,8 +352,8 @@ static int vdec_h264_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	unsigned int buf_sz;
 	unsigned int data[2];
 	uint64_t vdec_fb_va = (u64)(uintptr_t)fb;
-	uint64_t y_fb_dma = fb ? (u64)fb->base_y.dma_addr : 0;
-	uint64_t c_fb_dma = fb ? (u64)fb->base_c.dma_addr : 0;
+	uint64_t y_fb_dma = fb ? (u64)fb->fb_base[0].dma_addr : 0;
+	uint64_t c_fb_dma = fb ? (u64)fb->fb_base[1].dma_addr : 0;
 
 	mtk_vcodec_debug(inst, "+ [%d] FB y_dma=%llx c_dma=%llx va=%p",
 			 ++inst->num_nalu, y_fb_dma, c_fb_dma, fb);
