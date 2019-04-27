@@ -163,6 +163,7 @@ struct smb1390 {
 	int			die_temp;
 	bool			suspended;
 	u32			debug_mask;
+	u32			min_ilim_ua;
 };
 
 struct smb_irq {
@@ -495,8 +496,8 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 		return rc;
 	}
 
-	/* ILIM less than 1A is not accurate; disable charging */
-	if (ilim_uA < 1000000) {
+	/* ILIM less than min_ilim_ua, disable charging */
+	if (ilim_uA < chip->min_ilim_ua) {
 		smb1390_dbg(chip, PR_INFO, "ILIM %duA is too low to allow charging\n",
 			ilim_uA);
 		vote(chip->disable_votable, ILIM_VOTER, true, 0);
@@ -662,7 +663,7 @@ static void smb1390_taper_work(struct work_struct *work)
 				fcc_uA);
 			vote(chip->fcc_votable, CP_VOTER, true, fcc_uA);
 
-			if (fcc_uA < 2000000) {
+			if (fcc_uA < (chip->min_ilim_ua * 2)) {
 				vote(chip->disable_votable, TAPER_END_VOTER,
 								true, 0);
 				goto out;
@@ -861,9 +862,15 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 			chip->iio.die_temp_chan = NULL;
 			return rc;
 		}
+	} else {
+		return rc;
 	}
 
-	return rc;
+	chip->min_ilim_ua = 1000000; /* 1A */
+	of_property_read_u32(chip->dev->of_node, "qcom,min-ilim-ua",
+			&chip->min_ilim_ua);
+
+	return 0;
 }
 
 static void smb1390_release_channels(struct smb1390 *chip)
