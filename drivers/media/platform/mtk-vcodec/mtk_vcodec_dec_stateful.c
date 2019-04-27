@@ -207,6 +207,52 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 	return &dstbuf->vb.vb2_buf;
 }
 
+static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
+	struct mtk_vcodec_mem *current_bs)
+{
+	struct mtk_vcodec_mem *free_bs_buffer;
+	struct mtk_video_dec_buf  *srcbuf;
+
+	if (vdec_if_get_param(ctx, GET_PARAM_FREE_BITSTREAM_BUFFER,
+						  &free_bs_buffer) != 0) {
+		mtk_v4l2_err("[%d] Cannot get param : GET_PARAM_FREE_BITSTREAM_BUFFER",
+					 ctx->id);
+		return NULL;
+	}
+
+	if (free_bs_buffer == NULL) {
+		mtk_v4l2_debug(3, "No free bitstream buffer");
+		return NULL;
+	}
+
+	if (current_bs == free_bs_buffer) {
+		mtk_v4l2_debug(4,
+			"No free bitstream buffer except current bs: %p",
+			current_bs);
+		return NULL;
+	}
+
+	srcbuf = container_of(free_bs_buffer,
+		struct mtk_video_dec_buf, bs_buffer);
+	mtk_v4l2_debug(2,
+		"[%d] length=%zu size=%zu queue idx=%d",
+		ctx->id, free_bs_buffer->length, free_bs_buffer->size,
+		srcbuf->vb.vb2_buf.index);
+
+	v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+	return &srcbuf->vb.vb2_buf;
+}
+
+static void clean_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
+	struct mtk_vcodec_mem *current_bs)
+{
+	struct vb2_buffer *framptr;
+
+	do {
+		framptr = get_free_bs_buffer(ctx, current_bs);
+	} while (framptr);
+}
+
 static void clean_display_buffer(struct mtk_vcodec_ctx *ctx)
 {
 	struct vb2_buffer *framptr;
@@ -265,6 +311,7 @@ static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 	if (ret)
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
 
+	clean_free_bs_buffer(ctx, NULL);
 	clean_display_buffer(ctx);
 	clean_free_buffer(ctx);
 
@@ -405,6 +452,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		mutex_unlock(&ctx->lock);
 
 		vdec_if_decode(ctx, NULL, NULL, &res_chg);
+		clean_free_bs_buffer(ctx, NULL);
 		clean_display_buffer(ctx);
 		if (src_buf->planes[0].bytesused == 0U) {
 			src_buf->flags |= V4L2_BUF_FLAG_LAST;
