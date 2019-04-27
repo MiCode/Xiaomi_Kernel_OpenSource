@@ -815,6 +815,9 @@ struct ufs_hba {
 
 	atomic_t scsi_block_reqs_cnt;
 	bool restore_needed;
+
+	bool full_init_linereset;
+	bool force_host_reset;
 };
 
 /* MTK PATCH */
