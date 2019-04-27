@@ -71,11 +71,53 @@ static const struct mtk_vcodec_fw_ops mtk_vcodec_vpu_msg = {
 	.ipi_send = mtk_vcodec_vpu_ipi_send,
 };
 #endif
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+static int mtk_vcodec_vcu_load_firmware(struct mtk_vcodec_fw *fw)
+{
+	return vcu_load_firmware(fw->pdev);
+}
 
+static unsigned int mtk_vcodec_vcu_get_vdec_capa(struct mtk_vcodec_fw *fw)
+{
+	return vcu_get_vdec_hw_capa(fw->pdev);
+}
+
+static unsigned int mtk_vcodec_vcu_get_venc_capa(struct mtk_vcodec_fw *fw)
+{
+	return vcu_get_venc_hw_capa(fw->pdev);
+}
+
+static void *mtk_vcodec_vcu_map_dm_addr(struct mtk_vcodec_fw *fw,
+		u32 dtcm_dmem_addr)
+{
+	return vcu_mapping_dm_addr(fw->pdev, dtcm_dmem_addr);
+}
+
+static int mtk_vcodec_vcu_set_ipi_register(struct mtk_vcodec_fw *fw, int id,
+		mtk_vcodec_ipi_handler handler, const char *name, void *priv)
+{
+	return vcu_ipi_register(fw->pdev, id, handler, name, priv);
+}
+
+static int mtk_vcodec_vcu_ipi_send(struct mtk_vcodec_fw *fw, int id, void *buf,
+		unsigned int len, unsigned int wait)
+{
+	return vcu_ipi_send(fw->pdev, id, buf, len);
+}
+
+static const struct mtk_vcodec_fw_ops mtk_vcodec_vcu_msg = {
+	.load_firmware = mtk_vcodec_vcu_load_firmware,
+	.get_vdec_capa = mtk_vcodec_vcu_get_vdec_capa,
+	.get_venc_capa = mtk_vcodec_vcu_get_venc_capa,
+	.map_dm_addr = mtk_vcodec_vcu_map_dm_addr,
+	.ipi_register = mtk_vcodec_vcu_set_ipi_register,
+	.ipi_send = mtk_vcodec_vcu_ipi_send,
+};
+#endif
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 static int mtk_vcodec_scp_load_firmware(struct mtk_vcodec_fw *fw)
 {
-	return 0;
-	//return rproc_boot(fw->rproc);
+	return rproc_boot(fw->rproc);
 }
 
 static unsigned int mtk_vcodec_scp_get_vdec_capa(struct mtk_vcodec_fw *fw) {
@@ -126,15 +168,16 @@ static void mtk_vcodec_reset_handler(void *priv)
 	}
 	mutex_unlock(&dev->dev_mutex);
 }
+#endif
 
 struct mtk_vcodec_fw *mtk_vcodec_fw_select(struct mtk_vcodec_dev *dev,
 						       enum mtk_vcodec_fw_type type,
 						       phandle rproc_phandle,
 						       enum rst_id rst_id)
 {
-	const struct mtk_vcodec_fw_ops *ops;
-	struct mtk_vcodec_fw *fw;
-	struct platform_device *fw_pdev;
+	const struct mtk_vcodec_fw_ops *ops = NULL;
+	struct mtk_vcodec_fw *fw = NULL;
+	struct platform_device *fw_pdev = NULL;
 	struct rproc *rproc = NULL;
 
 	switch (type) {
@@ -147,14 +190,21 @@ struct mtk_vcodec_fw *mtk_vcodec_fw_select(struct mtk_vcodec_dev *dev,
 		#endif
 		break;
 	case SCP:
+		#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 		ops = &mtk_vcodec_rproc_msg;
-		//fw_pdev = scp_get_pdev(dev->plat_dev);
-		rproc = NULL;
-		//rproc = rproc_get_by_phandle(rproc_phandle);
+		fw_pdev = scp_get_pdev(dev->plat_dev);
+		rproc = rproc_get_by_phandle(rproc_phandle);
 		if (!rproc) {
 			mtk_v4l2_err("could not get vdec rproc handle");
 			return ERR_PTR(-EPROBE_DEFER);
 		}
+		#endif
+		break;
+	case VCU:
+		#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+		ops = &mtk_vcodec_vcu_msg;
+		fw_pdev = vcu_get_plat_device(dev->plat_dev);
+		#endif
 		break;
 	default:
 		mtk_v4l2_err("invalid vcodec fw type");

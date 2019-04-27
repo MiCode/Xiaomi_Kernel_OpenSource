@@ -18,14 +18,30 @@
 #include <linux/remoteproc.h>
 
 // TODO move these into .c file!
-#include "../mtk-vpu/mtk_vpu.h"
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#include "../mtk-vcu/mtk_vcu.h"
+#endif
+#ifdef CONFIG_VIDEO_MEDIATEK_VPU
 #include <linux/platform_data/mtk_scp.h>
+#include "../mtk-vpu/mtk_vpu.h"
+#endif
 
+#ifndef CONFIG_VIDEO_MEDIATEK_VCU
+    #ifndef CONFIG_VIDEO_MEDIATEK_VPU
+enum rst_id {
+	VPU_RST_ENC,
+	VPU_RST_DEC,
+	VPU_RST_MDP,
+	VPU_RST_MAX,
+};
+    #endif
+#endif
 struct mtk_vcodec_dev;
 
 enum mtk_vcodec_fw_type {
 	VPU,
 	SCP,
+	VCU,
 };
 
 struct mtk_vcodec_fw;
