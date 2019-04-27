@@ -55,7 +55,7 @@
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_spm_pmic_wrap.h>
-#include <mtk_pmic_api_buck.h>
+#include <pmic_api_buck.h>
 #endif
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
@@ -141,14 +141,14 @@ struct spm_lp_scen __spm_suspend = {
 
 static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 {
-	if (is_cpu_pdn(pwrctrl->pcm_flags))
+	if (is_cpu_pdn(pwrctrl->pcm_flags)) {
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
 		spm_dormant_sta = mtk_enter_idle_state(MTK_SUSPEND_MODE);
 #else
 		;
 #endif
-	else {
+	} else {
 		/* need to comment out all cmd in CPU_PM_ENTER case, */
 		/* at gic_cpu_pm_notifier() @ drivers/irqchip/irq-gic-v3.c */
 		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_SUSPEND, 0, 0);

@@ -49,7 +49,7 @@
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
 
-//#include <trace/events/mtk_idle_event.h>
+#include <trace/events/mtk_idle_event.h>
 
 //#include "ufs-mtk.h"
 
