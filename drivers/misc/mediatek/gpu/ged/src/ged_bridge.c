@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <mt-plat/mtk_gpu_utility.h>
+#include <mt-plat/fpsgo_common.h>
 
 #include "ged_base.h"
 #include "ged_bridge.h"
@@ -28,27 +29,35 @@
 
 static unsigned int ged_boost_enable = 1;
 //-----------------------------------------------------------------------------
-int ged_bridge_log_buf_get(GED_BRIDGE_IN_LOGBUFGET *psLogBufGetIN, GED_BRIDGE_OUT_LOGBUFGET *psLogBufGetOUT)
+int ged_bridge_log_buf_get(
+	struct GED_BRIDGE_IN_LOGBUFGET *psLogBufGetIN,
+	struct GED_BRIDGE_OUT_LOGBUFGET *psLogBufGetOUT)
 {
 	psLogBufGetOUT->hLogBuf = ged_log_buf_get(psLogBufGetIN->acName);
 	psLogBufGetOUT->eError = psLogBufGetOUT->hLogBuf ? GED_OK : GED_ERROR_FAIL;
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_log_buf_write(GED_BRIDGE_IN_LOGBUFWRITE *psLogBufWriteIN, GED_BRIDGE_OUT_LOGBUFWRITE *psLogBufWriteOUT)
+int ged_bridge_log_buf_write(
+	struct GED_BRIDGE_IN_LOGBUFWRITE *psLogBufWriteIN,
+	struct GED_BRIDGE_OUT_LOGBUFWRITE *psLogBufWriteOUT)
 {
 	psLogBufWriteOUT->eError =
 		ged_log_buf_print2(psLogBufWriteIN->hLogBuf, psLogBufWriteIN->attrs, "%s", psLogBufWriteIN->acLogBuf);
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_log_buf_reset(GED_BRIDGE_IN_LOGBUFRESET *psLogBufResetIn, GED_BRIDGE_OUT_LOGBUFRESET *psLogBufResetOUT)
+int ged_bridge_log_buf_reset(
+	struct GED_BRIDGE_IN_LOGBUFRESET *psLogBufResetIn,
+	struct GED_BRIDGE_OUT_LOGBUFRESET *psLogBufResetOUT)
 {
 	psLogBufResetOUT->eError = ged_log_buf_reset(psLogBufResetIn->hLogBuf);
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_boost_gpu_freq(GED_BRIDGE_IN_BOOSTGPUFREQ *psBoostGpuFreqIN, GED_BRIDGE_OUT_BOOSTGPUFREQ *psBoostGpuFreqOUT)
+int ged_bridge_boost_gpu_freq(
+	struct GED_BRIDGE_IN_BOOSTGPUFREQ *psBoostGpuFreqIN,
+	struct GED_BRIDGE_OUT_BOOSTGPUFREQ *psBoostGpuFreqOUT)
 {
 #if 1
 	psBoostGpuFreqOUT->eError = (mtk_set_bottom_gpu_freq(
@@ -67,20 +76,26 @@ int ged_bridge_boost_gpu_freq(GED_BRIDGE_IN_BOOSTGPUFREQ *psBoostGpuFreqIN, GED_
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_monitor_3D_fence(GED_BRIDGE_IN_MONITOR3DFENCE *psMonitor3DFenceINT, GED_BRIDGE_OUT_MONITOR3DFENCE *psMonitor3DFenceOUT)
+int ged_bridge_monitor_3D_fence(
+	struct GED_BRIDGE_IN_MONITOR3DFENCE *psMonitor3DFenceINT,
+	struct GED_BRIDGE_OUT_MONITOR3DFENCE *psMonitor3DFenceOUT)
 {
 	psMonitor3DFenceOUT->eError =
 		ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_query_info(GED_BRIDGE_IN_QUERY_INFO *psQueryInfoINT, GED_BRIDGE_OUT_QUERY_INFO *psQueryInfoOUT)
+int ged_bridge_query_info(
+	struct GED_BRIDGE_IN_QUERY_INFO *psQueryInfoINT,
+	struct GED_BRIDGE_OUT_QUERY_INFO *psQueryInfoOUT)
 {
 	psQueryInfoOUT->retrieve = ged_query_info(psQueryInfoINT->eType);
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_notify_vsync(GED_BRIDGE_IN_NOTIFY_VSYNC *psNotifyVsyncINT, GED_BRIDGE_OUT_NOTIFY_VSYNC *psNotifyVsyncOUT)
+int ged_bridge_notify_vsync(
+	struct GED_BRIDGE_IN_NOTIFY_VSYNC *psNotifyVsyncINT,
+	struct GED_BRIDGE_OUT_NOTIFY_VSYNC *psNotifyVsyncOUT)
 {
 	psNotifyVsyncOUT->eError =
 		//ged_notify_vsync(psNotifyVsyncINT->eType, &psNotifyVsyncOUT->t);
@@ -89,14 +104,18 @@ int ged_bridge_notify_vsync(GED_BRIDGE_IN_NOTIFY_VSYNC *psNotifyVsyncINT, GED_BR
 	return 0;
 }
 //-----------------------------------------------------------------------------
-int ged_bridge_dvfs_probe(GED_BRIDGE_IN_DVFS_PROBE *psDVFSProbeINT, GED_BRIDGE_OUT_DVFS_PROBE *psDVFSProbeOUT)
+int ged_bridge_dvfs_probe(
+	struct GED_BRIDGE_IN_DVFS_PROBE *psDVFSProbeINT,
+	struct GED_BRIDGE_OUT_DVFS_PROBE *psDVFSProbeOUT)
 {
 	psDVFSProbeOUT->eError = ged_dvfs_probe(psDVFSProbeINT->pid);
 	return 0;
 }
 
 //-----------------------------------------------------------------------------
-int ged_bridge_dvfs_um_retrun(GED_BRIDGE_IN_DVFS_UM_RETURN *psDVFS_UM_returnINT,  GED_BRIDGE_OUT_DVFS_UM_RETURN *psDVFS_UM_returnOUT)
+int ged_bridge_dvfs_um_retrun(
+	struct GED_BRIDGE_IN_DVFS_UM_RETURN *psDVFS_UM_returnINT,
+	struct GED_BRIDGE_OUT_DVFS_UM_RETURN *psDVFS_UM_returnOUT)
 {
 	psDVFS_UM_returnOUT->eError =
 		ged_dvfs_um_commit(psDVFS_UM_returnINT->gpu_tar_freq, psDVFS_UM_returnINT->bFallback);
@@ -104,7 +123,9 @@ int ged_bridge_dvfs_um_retrun(GED_BRIDGE_IN_DVFS_UM_RETURN *psDVFS_UM_returnINT,
 }
 
 //-----------------------------------------------------------------------------
-int ged_bridge_event_notify(GED_BRIDGE_IN_EVENT_NOTIFY *psEVENT_NOTIFYINT,  GED_BRIDGE_OUT_EVENT_NOTIFY *psEVENT_NOTIFYOUT)
+int ged_bridge_event_notify(
+	struct GED_BRIDGE_IN_EVENT_NOTIFY *psEVENT_NOTIFYINT,
+	struct GED_BRIDGE_OUT_EVENT_NOTIFY *psEVENT_NOTIFYOUT)
 {
 	if (ged_boost_enable) {
 		psEVENT_NOTIFYOUT->eError =
@@ -117,7 +138,9 @@ int ged_bridge_event_notify(GED_BRIDGE_IN_EVENT_NOTIFY *psEVENT_NOTIFYINT,  GED_
 }
 
 /* ----------------------------------------------------------------------------- */
-int ged_bridge_gpu_timestamp(GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT, GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT)
+int ged_bridge_gpu_timestamp(
+	struct GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT,
+	struct GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT)
 {
 	if (ged_kpi_enabled() == 1) {
 		if (psGpuBeginINT->QedBuffer_length == -2) {
@@ -157,12 +180,29 @@ int ged_bridge_wait_hw_vsync(void)
 }
 
 /* ----------------------------------------------------------------------------- */
-int ged_bridge_query_target_fps(GED_BRIDGE_IN_QUERY_TARGET_FPS *in, GED_BRIDGE_OUT_QUERY_TARGET_FPS *out)
+int ged_bridge_query_target_fps(
+	struct GED_BRIDGE_IN_QUERY_TARGET_FPS *in,
+	struct GED_BRIDGE_OUT_QUERY_TARGET_FPS *out)
 {
 	ged_frr_fence2context_table_update(in->pid, in->cid, in->fenceFd);
 	out->fps = ged_frr_get_fps(in->pid, in->cid);
 	return 0;
 }
 #endif
+
+//-----------------------------------------------------------------------------
+int ged_bridge_gpu_hint_to_cpu(
+		struct GED_BRIDGE_IN_GPU_HINT_TO_CPU *in,
+		struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out)
+{
+	int ret = 0;
+
+	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
+
+	out->eError = GED_OK;
+	out->boost_flag = ret;
+	out->boost_value = ged_dvfs_boost_value();
+	return 0;
+}
 
 module_param(ged_boost_enable, uint, 0644);
