@@ -237,6 +237,25 @@ static void mtk_vdec_queue_res_chg_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_src_ch);
 }
 
+static void mtk_vdec_queue_stop_play_event(struct mtk_vcodec_ctx *ctx)
+{
+	static const struct v4l2_event ev_eos = {
+		.type = V4L2_EVENT_EOS,
+	};
+
+	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
+}
+
+static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
+{
+	static const struct v4l2_event ev_eos = {
+		.type = V4L2_EVENT_VDEC_ERROR,
+	};
+
+	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
+}
 static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 {
 	bool res_chg;
