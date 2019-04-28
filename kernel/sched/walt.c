@@ -114,22 +114,11 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 unsigned int sysctl_sched_walt_rotate_big_tasks;
 unsigned int walt_rotation_enabled;
 
-/*
- * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
- * associated with them. This is required for atomic update of those variables
- * when being modifed via sysctl interface.
- *
- * IMPORTANT: Initialize both copies to same value!!
- */
-
 __read_mostly unsigned int sched_ravg_hist_size = 5;
-__read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
 
 static __read_mostly unsigned int sched_io_is_busy = 1;
 
 __read_mostly unsigned int sched_window_stats_policy =
-	WINDOW_STATS_MAX_RECENT_AVG;
-__read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
 /* Window size (in ns) */
@@ -3354,12 +3343,8 @@ void walt_sched_init_rq(struct rq *rq)
 	rq->cur_irqload = 0;
 	rq->avg_irqload = 0;
 	rq->irqload_ts = 0;
-	rq->static_cpu_pwr_cost = 0;
 	rq->cc.cycles = 1;
 	rq->cc.time = 1;
-	rq->cstate = 0;
-	rq->wakeup_latency = 0;
-	rq->wakeup_energy = 0;
 
 	/*
 	 * All cpus part of same cluster by default. This avoids the

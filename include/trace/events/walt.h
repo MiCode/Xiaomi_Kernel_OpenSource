@@ -239,8 +239,8 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(u64,			nt_cs)
 		__field(u64,			nt_ps)
 		__field(u32,			active_windows)
-		__field(u8,			curr_top)
-		__field(u8,			prev_top)
+		__field(u32,			curr_top)
+		__field(u32,			prev_top)
 	),
 
 	TP_fast_assign(
