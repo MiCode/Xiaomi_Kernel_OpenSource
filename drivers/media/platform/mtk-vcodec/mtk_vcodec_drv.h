@@ -313,6 +313,7 @@ struct mtk_vcodec_ctx {
 	struct vdec_pic_info picinfo;
 	int dpb_size;
 	unsigned int errormap_info[VB2_MAX_FRAME];
+	u64 input_max_ts;
 
 	int int_cond;
 	int int_type;

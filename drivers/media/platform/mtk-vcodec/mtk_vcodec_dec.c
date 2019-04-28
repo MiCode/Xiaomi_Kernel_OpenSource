@@ -75,6 +75,7 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 	struct vb2_queue *src_vq, *dst_vq;
 	int ret;
+	const struct mtk_vcodec_dec_pdata *dec_pdata = ctx->dev->vdec_pdata;
 
 	ret = vidioc_try_decoder_cmd(file, priv, cmd);
 	if (ret)
@@ -95,6 +96,8 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
+		if (!dec_pdata->uses_stateless_api)
+			ctx->empty_flush_buf->lastframe = EOS;
 		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->empty_flush_buf->vb);
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
 		break;
@@ -778,8 +781,12 @@ int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		buf->used = false;
 		buf->queued_in_v4l2 = false;
+	} else	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		/* Do not reset EOS for 1st buffer with Early EOS*/
+		//buf->lastframe = NON_EOS;
 	} else {
-		buf->lastframe = false;
+		mtk_v4l2_err("%s: unknown queue type", __func__);
+		return -EINVAL;
 	}
 
 	return 0;

@@ -76,7 +76,8 @@ static const struct mtk_codec_framesizes mtk_vdec_framesizes[] = {
  * Note the buffers returned from codec driver may still be in driver's
  * reference list.
  */
-static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx)
+static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
+		bool got_early_eos)
 {
 	struct vdec_fb *disp_frame_buffer = NULL;
 	struct mtk_video_dec_buf *dstbuf;
@@ -107,11 +108,16 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx)
 						ctx->picinfo.fb_sz[i]);
 		}
 
+		if (got_early_eos &&
+			dstbuf->vb.vb2_buf.timestamp == ctx->input_max_ts)
+			dstbuf->vb.flags |= V4L2_BUF_FLAG_LAST;
+
 		mtk_v4l2_debug(2,
-				"[%d]status=%x queue id=%d to done_list %d",
+				"[%d]status=%x queue id=%d to done_list %d, %d, %x",
 				ctx->id, disp_frame_buffer->status,
 				dstbuf->vb.vb2_buf.index,
-				dstbuf->queued_in_vb2);
+				dstbuf->queued_in_vb2, got_early_eos,
+				dstbuf->vb.flags);
 
 		v4l2_m2m_buf_done(&dstbuf->vb, VB2_BUF_STATE_DONE);
 		ctx->decoded_frame_cnt++;
@@ -253,12 +259,12 @@ static void clean_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 	} while (framptr);
 }
 
-static void clean_display_buffer(struct mtk_vcodec_ctx *ctx)
+static void clean_display_buffer(struct mtk_vcodec_ctx *ctx, bool got_early_eos)
 {
 	struct vb2_buffer *framptr;
 
 	do {
-		framptr = get_display_buffer(ctx);
+		framptr = get_display_buffer(ctx, got_early_eos);
 	} while (framptr);
 }
 
@@ -312,7 +318,7 @@ static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
 
 	clean_free_bs_buffer(ctx, NULL);
-	clean_display_buffer(ctx);
+	clean_display_buffer(ctx, 0);
 	clean_free_buffer(ctx);
 
 	return 0;
@@ -444,6 +450,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	if (src_buf_info->lastframe) {
 		mtk_v4l2_debug(1, "Got empty flush input buffer.");
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		src_buf_info->lastframe = NON_EOS;
 
 		/* update dst buf status */
 		dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
@@ -453,7 +460,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		vdec_if_decode(ctx, NULL, NULL, &res_chg);
 		clean_free_bs_buffer(ctx, NULL);
-		clean_display_buffer(ctx);
+		clean_display_buffer(ctx, src_buf->planes[0].bytesused != 0U);
 		if (src_buf->planes[0].bytesused == 0U) {
 			src_buf->flags |= V4L2_BUF_FLAG_LAST;
 			vb2_set_plane_payload(&src_buf_info->vb.vb2_buf, 0, 0);
@@ -523,7 +530,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	}
 
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-	clean_display_buffer(ctx);
+	clean_display_buffer(ctx, src_buf_info->lastframe == EOS_WITH_DATA);
 	clean_free_buffer(ctx);
 
 	if (!ret && res_chg) {
