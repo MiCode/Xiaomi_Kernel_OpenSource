@@ -5965,6 +5965,7 @@ static int handle_external_interrupt(struct kvm_vcpu *vcpu)
 static int handle_triple_fault(struct kvm_vcpu *vcpu)
 {
 	vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
+	vcpu->mmio_needed = 0;
 	return 0;
 }
 
@@ -7046,6 +7047,10 @@ static int get_vmx_mem_address(struct kvm_vcpu *vcpu,
 	/* Addr = segment_base + offset */
 	/* offset = base + [index * scale] + displacement */
 	off = exit_qualification; /* holds the displacement */
+	if (addr_size == 1)
+		off = (gva_t)sign_extend64(off, 31);
+	else if (addr_size == 0)
+		off = (gva_t)sign_extend64(off, 15);
 	if (base_is_valid)
 		off += kvm_register_read(vcpu, base_reg);
 	if (index_is_valid)
@@ -7088,10 +7093,16 @@ static int get_vmx_mem_address(struct kvm_vcpu *vcpu,
 		/* Protected mode: #GP(0)/#SS(0) if the segment is unusable.
 		 */
 		exn = (s.unusable != 0);
-		/* Protected mode: #GP(0)/#SS(0) if the memory
-		 * operand is outside the segment limit.
+
+		/*
+		 * Protected mode: #GP(0)/#SS(0) if the memory operand is
+		 * outside the segment limit.  All CPUs that support VMX ignore
+		 * limit checks for flat segments, i.e. segments with base==0,
+		 * limit==0xffffffff and of type expand-up data or code.
 		 */
-		exn = exn || (off + sizeof(u64) > s.limit);
+		if (!(s.base == 0 && s.limit == 0xffffffff &&
+		     ((s.type & 8) || !(s.type & 4))))
+			exn = exn || (off + sizeof(u64) > s.limit);
 	}
 	if (exn) {
 		kvm_queue_exception_e(vcpu,

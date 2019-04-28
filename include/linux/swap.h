@@ -249,7 +249,7 @@ struct swap_info_struct {
 
 /* linux/mm/workingset.c */
 void *workingset_eviction(struct address_space *mapping, struct page *page);
-bool workingset_refault(void *shadow);
+void workingset_refault(struct page *page, void *shadow);
 void workingset_activation(struct page *page);
 extern struct list_lru workingset_shadow_nodes;
 
