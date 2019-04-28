@@ -55,6 +55,7 @@ struct cnss_pci_data {
 	struct pci_saved_state *default_state;
 	struct msm_pcie_register_event msm_pci_event;
 	atomic_t auto_suspended;
+	u8 drv_connected_last;
 	u8 monitor_wake_intr;
 	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
