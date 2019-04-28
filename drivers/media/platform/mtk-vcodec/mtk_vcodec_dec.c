@@ -16,6 +16,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
+#include <linux/delay.h>
 
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_dec.h"
@@ -192,11 +193,24 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 
 void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx)
 {
+	mtk_v4l2_debug(4, "ctx %p [%d]", ctx, ctx->id);
 	mutex_unlock(&ctx->dev->dec_mutex);
 }
 
 void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx)
 {
+	unsigned int suspend_block_cnt = 0;
+
+	while (ctx->dev->is_codec_suspending == 1) {
+		suspend_block_cnt++;
+		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+			mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
+			suspend_block_cnt = 0;
+		}
+		usleep_range(10000, 20000);
+	}
+
+	mtk_v4l2_debug(4, "ctx %p [%d]", ctx, ctx->id);
 	mutex_lock(&ctx->dev->dec_mutex);
 }
 
@@ -690,18 +704,21 @@ static int vidioc_vdec_g_selection(struct file *file, void *priv,
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
+	case V4L2_SEL_TGT_CROP_DEFAULT:
 		s->r.left = 0;
 		s->r.top = 0;
 		s->r.width = ctx->picinfo.pic_w;
 		s->r.height = ctx->picinfo.pic_h;
 		break;
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
+	case V4L2_SEL_TGT_CROP_BOUNDS:
 		s->r.left = 0;
 		s->r.top = 0;
 		s->r.width = ctx->picinfo.buf_w;
 		s->r.height = ctx->picinfo.buf_h;
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
+	case V4L2_SEL_TGT_CROP:
 		if (vdec_if_get_param(ctx, GET_PARAM_CROP_INFO, &(s->r))) {
 			/* set to default value if header info not ready yet*/
 			s->r.left = 0;
@@ -736,6 +753,7 @@ static int vidioc_vdec_s_selection(struct file *file, void *priv,
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE:
+	case V4L2_SEL_TGT_CROP:
 		s->r.left = 0;
 		s->r.top = 0;
 		s->r.width = ctx->picinfo.pic_w;
@@ -1211,8 +1229,14 @@ int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
 					struct mtk_video_dec_buf, vb);
 
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		buf->used = false;
-		buf->queued_in_v4l2 = false;
+		/* User could use different struct dma_buf*
+		 * with the same index & enter this buf_init.
+		 * once this buffer buf->used == true will reset in mistake
+		 * VB2 use kzalloc for struct mtk_video_dec_buf,
+		 * so init could be no need
+		 */
+		if (buf->used == false)
+			buf->queued_in_v4l2 = false;
 	} else	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		/* Do not reset EOS for 1st buffer with Early EOS*/
 		//buf->lastframe = NON_EOS;
@@ -1252,6 +1276,8 @@ void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (ctx->state >= MTK_STATE_HEADER)
+			ctx->dev->vdec_pdata->flush_decoder(ctx);
 		while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
 			struct mtk_video_dec_buf *buf_info = container_of(
 					src_buf, struct mtk_video_dec_buf, vb);
@@ -1270,15 +1296,17 @@ void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		 * VIDIOC_G_FMT< etc. return previous resolution.
 		 * So we update picinfo here
 		 */
-		ctx->picinfo = ctx->last_decoded_picinfo;
 
 		mtk_v4l2_debug(2,
-				"[%d]-> new(%d,%d), old(%d,%d), real(%d,%d)",
+				"[%d]-> new(%d,%d), old(%d,%d), real(%d,%d), DPB(%d,%d)",
 				ctx->id, ctx->last_decoded_picinfo.pic_w,
 				ctx->last_decoded_picinfo.pic_h,
 				ctx->picinfo.pic_w, ctx->picinfo.pic_h,
 				ctx->last_decoded_picinfo.buf_w,
-				ctx->last_decoded_picinfo.buf_h);
+				ctx->last_decoded_picinfo.buf_h,
+				ctx->dpb_size, ctx->last_dpb_size);
+		ctx->picinfo = ctx->last_decoded_picinfo;
+		ctx->dpb_size = ctx->last_dpb_size;
 
 		ret = ctx->dev->vdec_pdata->flush_decoder(ctx);
 		if (ret)
@@ -1313,7 +1341,8 @@ static int m2mops_vdec_job_ready(void *m2m_priv)
 		return 0;
 
 	if ((ctx->last_decoded_picinfo.pic_w != ctx->picinfo.pic_w) ||
-	    (ctx->last_decoded_picinfo.pic_h != ctx->picinfo.pic_h))
+	    (ctx->last_decoded_picinfo.pic_h != ctx->picinfo.pic_h)	||
+	    (ctx->last_dpb_size != ctx->dpb_size))
 		return 0;
 
 	if (ctx->state != MTK_STATE_HEADER)
@@ -1333,6 +1362,8 @@ int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
 	int ret = 0;
+	static unsigned int value;
+	struct mtk_color_desc *color_desc;
 
 	switch (ctrl->id) {
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
@@ -1343,6 +1374,68 @@ int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val = 0;
 		}
 		break;
+	case V4L2_CID_MPEG_MTK_FRAME_INTERVAL:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_FRAME_INTERVAL, &value) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+		ctrl->p_new.p_u32 = &value;
+		mtk_v4l2_debug(2, "V4L2_CID_MPEG_MTK_FRAME_INTERVAL val = %u",
+			*(ctrl->p_new.p_u32));
+		break;
+	case V4L2_CID_MPEG_MTK_COLOR_DESC:
+		color_desc = (struct mtk_color_desc *)ctrl->p_new.p_u32;
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_COLOR_DESC, color_desc) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
+	case V4L2_CID_MPEG_MTK_ASPECT_RATIO:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_ASPECT_RATIO, &ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
+	case V4L2_CID_MPEG_MTK_FIX_BUFFERS:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_PLATFORM_SUPPORTED_FIX_BUFFERS,
+				&ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
+	case V4L2_CID_MPEG_MTK_FIX_BUFFERS_SVP:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_PLATFORM_SUPPORTED_FIX_BUFFERS_SVP,
+				&ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
+	case V4L2_CID_MPEG_MTK_INTERLACING:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_INTERLACING, &ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
+	case V4L2_CID_MPEG_MTK_CODEC_TYPE:
+		if (vdec_if_get_param(ctx,
+				GET_PARAM_CODEC_TYPE, &ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param",
+				ctx->id);
+			ret = -EINVAL;
+		}
+	break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1402,6 +1495,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->io_modes	= VB2_DMABUF | VB2_MMAP;
 	src_vq->drv_priv	= ctx;
 	src_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
+	src_vq->allow_zero_bytesused = 1;
 	src_vq->ops		= ctx->dev->vdec_pdata->vdec_vb2_ops;
 	src_vq->mem_ops		= &vb2_dma_contig_memops;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
@@ -1417,6 +1511,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->io_modes	= VB2_DMABUF | VB2_MMAP;
 	dst_vq->drv_priv	= ctx;
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
+	dst_vq->allow_zero_bytesused = 1;
 	dst_vq->ops		= ctx->dev->vdec_pdata->vdec_vb2_ops;
 	dst_vq->mem_ops		= &vb2_dma_contig_memops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;

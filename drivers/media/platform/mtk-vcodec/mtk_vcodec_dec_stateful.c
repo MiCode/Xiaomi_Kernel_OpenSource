@@ -822,11 +822,119 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	ctx->last_dpb_size = dpbsize;
 	ctx->state = MTK_STATE_HEADER;
 	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->dpb_size);
+}
 
+static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
+
+	mtk_v4l2_debug(4, "[%d] id 0x%x val %d array[0] %d array[1] %d",
+				   ctx->id, ctrl->id, ctrl->val,
+				   ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+
+	if (ctrl->id == V4L2_CID_MPEG_MTK_SEC_DECODE) {
+		ctx->dec_params.svp_mode = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
+#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
+					ctx->dec_params.svp_mode);
+#endif
+		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
+			ctx->id, ctrl->id, ctrl->val);
+	}
+
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_MTK_DECODE_MODE:
+		ctx->dec_params.decode_mode = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_DECODE_MODE;
+		break;
+	case V4L2_CID_MPEG_MTK_SEC_DECODE:
+		ctx->dec_params.svp_mode = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
+#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
+					ctx->dec_params.svp_mode);
+#endif
+		break;
+	case V4L2_CID_MPEG_MTK_FRAME_SIZE:
+		if (ctx->dec_params.frame_size_width == 0)
+			ctx->dec_params.frame_size_width = ctrl->val;
+		else if (ctx->dec_params.frame_size_height == 0)
+			ctx->dec_params.frame_size_height = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_FRAME_SIZE;
+		break;
+	case V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER:
+		if (ctx->dec_params.fixed_max_frame_size_width == 0)
+			ctx->dec_params.fixed_max_frame_size_width = ctrl->val;
+		else if (ctx->dec_params.fixed_max_frame_size_height == 0)
+			ctx->dec_params.fixed_max_frame_size_height = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_FIXED_MAX_FRAME_SIZE;
+		break;
+	case V4L2_CID_MPEG_MTK_CRC_PATH:
+		ctx->dec_params.crc_path = ctrl->p_new.p_char;
+		ctx->dec_param_change |= MTK_DEC_PARAM_CRC_PATH;
+		break;
+	case V4L2_CID_MPEG_MTK_GOLDEN_PATH:
+		ctx->dec_params.golden_path = ctrl->p_new.p_char;
+		ctx->dec_param_change |= MTK_DEC_PARAM_GOLDEN_PATH;
+		break;
+	case V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME:
+		ctx->dec_params.wait_key_frame = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_WAIT_KEY_FRAME;
+		break;
+	case V4L2_CID_MPEG_MTK_SET_NAL_SIZE_LENGTH:
+		ctx->dec_params.nal_size_length = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_NAL_SIZE_LENGTH;
+		break;
+	case V4L2_CID_MPEG_MTK_OPERATING_RATE:
+		ctx->dec_params.operating_rate = ctrl->val;
+		ctx->dec_param_change |= MTK_DEC_PARAM_OPERATING_RATE;
+		break;
+	default:
+		mtk_v4l2_err("ctrl-id=%x not support!", ctrl->id);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static const struct v4l2_ctrl_ops mtk_vcodec_dec_ctrl_ops = {
 	.g_volatile_ctrl = mtk_vdec_g_v_ctrl,
+	.s_ctrl = mtk_vdec_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config mtk_color_desc_ctrl = {
+	.ops = &mtk_vcodec_dec_ctrl_ops,
+	.id = V4L2_CID_MPEG_MTK_COLOR_DESC,
+	.name = "MTK Color Description for HDR",
+	.type = V4L2_CTRL_TYPE_U32,
+	.min = 0x00000000,
+	.max = 0x00ffffff,
+	.step = 1,
+	.def = 0,
+	.dims = { sizeof(struct mtk_color_desc)/sizeof(u32) },
+};
+
+static const struct v4l2_ctrl_config mtk_interlacing_ctrl = {
+	.ops = &mtk_vcodec_dec_ctrl_ops,
+	.id = V4L2_CID_MPEG_MTK_INTERLACING,
+	.name = "MTK Query Interlacing",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+	.def = 0,
+};
+
+static const struct v4l2_ctrl_config mtk_codec_type_ctrl = {
+	.ops = &mtk_vcodec_dec_ctrl_ops,
+	.id = V4L2_CID_MPEG_MTK_CODEC_TYPE,
+	.name = "MTK Query HW/SW Codec Type",
+	.type = V4L2_CTRL_TYPE_U32,
+	.min = 0,
+	.max = 10,
+	.step = 1,
+	.def = 0,
 };
 
 static int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
@@ -845,6 +953,80 @@ static int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 				V4L2_CID_MPEG_VIDEO_VP9_PROFILE,
 				V4L2_MPEG_VIDEO_VP9_PROFILE_0,
 				0, V4L2_MPEG_VIDEO_VP9_PROFILE_0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_FRAME_INTERVAL,
+		16666, 41719, 1, 33333);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_ASPECT_RATIO,
+				0, 0xF000F, 1, 0x10001);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_FIX_BUFFERS,
+				0, 0xF, 1, 0);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_FIX_BUFFERS_SVP,
+				0, 0xF, 1, 0);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
+				&mtk_interlacing_ctrl, NULL);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
+				&mtk_codec_type_ctrl, NULL);
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl, &mtk_color_desc_ctrl, NULL);
+	ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+
+	/* s_ctrl */
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_DECODE_MODE,
+		0, 32, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_SEC_DECODE,
+		0, 32, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_FRAME_SIZE,
+		0, 65535, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER,
+		0, 65535, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_CRC_PATH,
+		0, 255, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+		&mtk_vcodec_dec_ctrl_ops,
+		V4L2_CID_MPEG_MTK_GOLDEN_PATH,
+		0, 255, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_SET_WAIT_KEY_FRAME,
+				0, 255, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_OPERATING_RATE,
+				0, 1024, 1, 0);
 
 	if (ctx->ctrl_hdl.error) {
 		mtk_v4l2_err("Adding control failed %d",

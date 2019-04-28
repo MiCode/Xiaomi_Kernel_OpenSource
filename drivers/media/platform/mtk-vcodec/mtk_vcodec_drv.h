@@ -32,6 +32,8 @@
 #define MTK_VCODEC_MAX_PLANES	3
 #define MTK_V4L2_BENCHMARK	0
 #define WAIT_INTR_TIMEOUT_MS	1000
+#define SUSPEND_TIMEOUT_CNT     5000
+
 
 /**
  * enum mtk_hw_reg_idx - MTK hw register base index
