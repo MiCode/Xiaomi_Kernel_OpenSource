@@ -262,23 +262,24 @@ static struct msm_vidc_common_data lito_common_data_v0[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 3110400,/* 4096x2160@90 */
+		.value = 3110400,/* ((4096x2160)/256)@90fps */
+				/* 4k@60 decode + 4k@30 encode */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,qcom,max-hq-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
+		.key = "qcom,max-b-frame-mbs-per-frame",
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -333,23 +334,23 @@ static struct msm_vidc_common_data lito_common_data_v1[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 1281600,/* 4k@30 Decode + 1080p@30 Encode */
+		.value = 1281600,/* 4K@30 decode + 1080@30 encode */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,qcom,max-hq-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
+		.key = "qcom,max-b-frame-mbs-per-frame",
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
 		.key = "qcom,power-collapse-delay",
