@@ -202,14 +202,14 @@ static struct ipa_ep_cfg mhip_dl_teth_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
 		.dst = IPA_CLIENT_MHI_PRIME_TETH_CONS,
-	},
+	}
 };
 
 static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
 		.dst = IPA_CLIENT_MHI_PRIME_TETH_PROD,
-	},
+	}
 };
 
 /* WARNING!! Temporary for rndis intgration only */
@@ -280,6 +280,8 @@ struct ipa_mpm_channel {
 	struct ipa_mpm_channel_props chan_props;
 	struct ipa_mpm_event_props evt_props;
 	enum ipa_mpm_gsi_state gsi_state;
+	dma_addr_t db_host_iova;
+	dma_addr_t db_device_iova;
 };
 
 enum ipa_mpm_teth_state {
@@ -297,9 +299,10 @@ enum ipa_mpm_mhip_chan {
 struct producer_rings {
 	struct mhi_p_desc *tr_va;
 	struct mhi_p_desc *er_va;
+	void *tre_buff_va[IPA_MPM_RING_LEN];
 	dma_addr_t tr_pa;
 	dma_addr_t er_pa;
-	void *tre_buff[IPA_MPM_RING_LEN];
+	dma_addr_t tre_buff_iova[IPA_MPM_RING_LEN];
 	/*
 	 * The iova generated for AP CB,
 	 * used only for dma_map_single to flush the cache.
@@ -319,6 +322,8 @@ struct ipa_mpm_mhi_driver {
 	enum ipa_mpm_teth_state teth_state;
 	struct mutex mutex;
 	bool init_complete;
+	struct mutex lpm_mutex;
+	bool in_lpm;
 };
 
 struct ipa_mpm_context {
@@ -327,13 +332,19 @@ struct ipa_mpm_context {
 	struct mutex mutex;
 	atomic_t ipa_clk_ref_cnt;
 	atomic_t pcie_clk_ref_cnt;
+	atomic_t probe_cnt;
 	struct device *parent_pdev;
 	struct ipa_smmu_cb_ctx carved_smmu_cb;
+	struct device *mhi_parent_dev;
 };
 
 #define IPA_MPM_DESC_SIZE (sizeof(struct mhi_p_desc))
 #define IPA_MPM_RING_TOTAL_SIZE (IPA_MPM_RING_LEN * IPA_MPM_DESC_SIZE)
-#define IPA_MPM_PAGE_SIZE roundup_pow_of_two(IPA_MPM_RING_TOTAL_SIZE)
+/* WA: Make the IPA_MPM_PAGE_SIZE from 16k (next power of ring size) to
+ * 32k. This is to make sure IOMMU map happens for the same size
+ * for all TR/ER and doorbells.
+ */
+#define IPA_MPM_PAGE_SIZE TRE_BUFF_SIZE
 
 
 static struct ipa_mpm_context *ipa_mpm_ctx;
@@ -387,13 +398,13 @@ static void ipa_mpm_ipa3_ready_cb(void *user_data)
 	schedule_work(&ipa_mpm_ipa3_scheduled_probe);
 }
 
-void ipa_mpm_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *err_data)
+static void ipa_mpm_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *err_data)
 {
 	IPA_MPM_ERR("GSI EVT RING ERROR, not expected..\n");
 	ipa_assert();
 }
 
-void ipa_mpm_gsi_chan_err_cb(struct gsi_chan_err_notify *err_data)
+static void ipa_mpm_gsi_chan_err_cb(struct gsi_chan_err_notify *err_data)
 {
 	IPA_MPM_ERR("GSI CHAN ERROR, not expected..\n");
 	ipa_assert();
@@ -455,7 +466,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 			ipa_assert();
 		}
 
-		if (!ipa_mpm_ctx->md[0].mhi_dev->dev.parent) {
+		if (!ipa_mpm_ctx->mhi_parent_dev) {
 			IPA_MPM_ERR("invalid PCIE SMMU domain\n");
 			ipa_assert();
 		}
@@ -476,7 +487,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 		}
 
 		pcie_smmu_domain = iommu_get_domain_for_dev(
-			ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+			ipa_mpm_ctx->mhi_parent_dev);
 		ret = iommu_map(pcie_smmu_domain, iova_p, pa_p, size_p, prot);
 
 		if (ret) {
@@ -510,7 +521,6 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 	dma_addr_t ap_cb_iova)
 {
-	int ret;
 	unsigned long iova_p;
 	unsigned long pa_p;
 	u32 size_p = 0;
@@ -519,6 +529,12 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 	int smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
 		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
 
+	if (carved_iova <= 0) {
+		IPA_MPM_ERR("carved_iova is zero/negative\n");
+		WARN_ON(1);
+		return;
+	}
+
 	if (smmu_enabled) {
 		ipa_smmu_domain = ipa3_get_smmu_domain();
 		if (!ipa_smmu_domain) {
@@ -526,32 +542,21 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 			ipa_assert();
 		}
 
-		if (!ipa_mpm_ctx->md[0].mhi_dev->dev.parent) {
+		if (!ipa_mpm_ctx->mhi_parent_dev) {
 			IPA_MPM_ERR("invalid PCIE SMMU domain\n");
 			ipa_assert();
 		}
 
 		IPA_SMMU_ROUND_TO_PAGE(carved_iova, carved_iova, sz,
-					iova_p, pa_p, size_p);
-
-		ret = iommu_unmap(ipa_smmu_domain, carved_iova, size_p);
-		if (ret) {
-			IPA_MPM_ERR("IPA IOMMU Unmap failure, ret = %d\n",
-					ret);
-			ipa_assert();
-		}
+			iova_p, pa_p, size_p);
 		pcie_smmu_domain = iommu_get_domain_for_dev(
-			ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+			ipa_mpm_ctx->mhi_parent_dev);
+		iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+		iommu_unmap(ipa_smmu_domain, iova_p, size_p);
 
-		ret = iommu_unmap(pcie_smmu_domain, carved_iova, size_p);
-
-		if (ret) {
-			IPA_MPM_ERR("PCIe IOMMU Unmap failure, ret = %d\n",
-				ret);
-			ipa_assert();
-		}
 		cb->next_addr -= size_p;
-		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova, size_p, dir);
+		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
+			size_p, dir);
 	} else {
 		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova, sz, dir);
 	}
@@ -572,7 +577,7 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 	int ret = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	struct ipa_smmu_cb_ctx *cb = &ipa_mpm_ctx->carved_smmu_cb;
-	unsigned long carved_iova = roundup(cb->next_addr, PAGE_SIZE);
+	unsigned long carved_iova = roundup(cb->next_addr, IPA_MPM_PAGE_SIZE);
 	u32 iova = 0;
 	u64 offset = 0;
 
@@ -585,7 +590,7 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
 
 	if (smmu_enabled) {
-		IPA_SMMU_ROUND_TO_PAGE(carved_iova, pa_addr, PAGE_SIZE,
+		IPA_SMMU_ROUND_TO_PAGE(carved_iova, pa_addr, IPA_MPM_PAGE_SIZE,
 					iova_p, pa_p, size_p);
 		if (smmu_domain == MHIP_SMMU_DOMAIN_IPA) {
 			ipa_smmu_domain = ipa3_get_smmu_domain();
@@ -598,7 +603,7 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 			offset = pa_addr - pa_p;
 		} else if (smmu_domain == MHIP_SMMU_DOMAIN_PCIE) {
 			pcie_smmu_domain = iommu_get_domain_for_dev(
-				ipa_mpm_ctx->md[0].mhi_dev->dev.parent);
+				ipa_mpm_ctx->mhi_parent_dev);
 			 ret = iommu_map(pcie_smmu_domain,
 				iova_p, pa_p, size_p, prot);
 			if (ret) {
@@ -608,14 +613,45 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 			offset = pa_addr - pa_p;
 		}
 		iova = iova_p + offset;
-		cb->next_addr = iova_p + PAGE_SIZE;
+		cb->next_addr = iova_p + IPA_MPM_PAGE_SIZE;
 	} else {
 		iova = pa_addr;
 	}
 	return iova;
 }
 
-int get_idx_from_id(const struct mhi_device_id *id)
+static void ipa_mpm_smmu_unmap_doorbell(enum mhip_smmu_domain_type smmu_domain,
+	dma_addr_t iova)
+{
+	/*
+	 * Doorbells are already in PA, map these to
+	 * PCIE/IPA doman if SMMUs are enabled.
+	 */
+	struct iommu_domain *ipa_smmu_domain, *pcie_smmu_domain;
+	int smmu_enabled;
+	unsigned long iova_p;
+	phys_addr_t pa_p;
+	u32 size_p;
+	struct ipa_smmu_cb_ctx *cb = &ipa_mpm_ctx->carved_smmu_cb;
+
+	smmu_enabled = (ipa_mpm_ctx->dev_info.ipa_smmu_enabled &&
+		ipa_mpm_ctx->dev_info.pcie_smmu_enabled) ? 1 : 0;
+
+	if (smmu_enabled) {
+		IPA_SMMU_ROUND_TO_PAGE(iova, iova, IPA_MPM_PAGE_SIZE,
+					iova_p, pa_p, size_p);
+		if (smmu_domain == MHIP_SMMU_DOMAIN_IPA) {
+			ipa_smmu_domain = ipa3_get_smmu_domain();
+			iommu_unmap(ipa_smmu_domain, iova_p, size_p);
+		} else if (smmu_domain == MHIP_SMMU_DOMAIN_PCIE) {
+			pcie_smmu_domain = iommu_get_domain_for_dev(
+				ipa_mpm_ctx->mhi_parent_dev);
+			 iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+			cb->next_addr -=  IPA_MPM_PAGE_SIZE;
+		}
+	}
+}
+static int get_idx_from_id(const struct mhi_device_id *id)
 {
 	return (id - mhi_driver_match_table);
 }
@@ -646,6 +682,7 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	int tr_ring_sz, ev_ring_sz;
 	dma_addr_t ev_ring_iova, tr_ring_iova;
 	dma_addr_t ap_cb_iova;
+	dma_addr_t ap_cb_er_iova;
 	struct ipa_request_gsi_channel_params gsi_params;
 	int dir;
 	int i;
@@ -657,7 +694,8 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 	if (mhip_client == IPA_CLIENT_MAX)
 		goto fail_gen;
 
-	if (mhi_idx == IPA_MPM_MHIP_CH_ID_MAX)
+	if ((mhi_idx < IPA_MPM_MHIP_CH_ID_0) ||
+		(mhi_idx >= IPA_MPM_MHIP_CH_ID_MAX))
 		goto fail_gen;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(mhip_client);
@@ -691,25 +729,30 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		DMA_TO_HIPA : DMA_FROM_HIPA;
 
 	/* allocate transfer ring elements */
-	for (i = 1, k = 0; i < IPA_MPM_RING_LEN; i++, k++) {
+	for (i = 1, k = 1; i < IPA_MPM_RING_LEN; i++, k++) {
 		buff = kzalloc(TRE_BUFF_SIZE, GFP_KERNEL);
 
 		if (!buff)
 			goto fail_buff_alloc;
 
-		if (IPA_CLIENT_IS_PROD(mhip_client))
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[k] =
-									buff;
-		else
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[k] =
-									buff;
-
 		tr_ring[i].buffer_ptr =
 			ipa_mpm_smmu_map(buff, TRE_BUFF_SIZE, dir,
 				&ap_cb_iova);
-
 		if (!tr_ring[i].buffer_ptr)
 			goto fail_smmu_map_ring;
+
+		if (IPA_CLIENT_IS_PROD(mhip_client)) {
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[k] =
+							buff;
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[k] =
+							tr_ring[i].buffer_ptr;
+		} else {
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[k] =
+							buff;
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[k] =
+							tr_ring[i].buffer_ptr;
+		}
+
 
 		tr_ring[i].buff_len = TRE_BUFF_SIZE;
 		tr_ring[i].chain = 0;
@@ -727,13 +770,13 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 				ap_cb_iova;
 	}
 
-	tr_ring_iova = ipa_mpm_smmu_map(tr_ring, tr_ring_sz, dir,
+	tr_ring_iova = ipa_mpm_smmu_map(tr_ring, IPA_MPM_PAGE_SIZE, dir,
 		&ap_cb_iova);
 	if (!tr_ring_iova)
 		goto fail_smmu_map_ring;
 
-	ev_ring_iova = ipa_mpm_smmu_map(ev_ring, ev_ring_sz, dir,
-		&ap_cb_iova);
+	ev_ring_iova = ipa_mpm_smmu_map(ev_ring, IPA_MPM_PAGE_SIZE, dir,
+		&ap_cb_er_iova);
 	if (!ev_ring_iova)
 		goto fail_smmu_map_ring;
 
@@ -746,6 +789,8 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa = tr_ring_iova;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr =
 			ap_cb_iova;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er =
+			ap_cb_er_iova;
 	} else {
 		/* Host UL */
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = ev_ring;
@@ -754,6 +799,8 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = tr_ring_iova;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr =
 			ap_cb_iova;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er =
+			ap_cb_er_iova;
 	}
 
 	memset(&gsi_params, 0, sizeof(struct ipa_request_gsi_channel_params));
@@ -780,6 +827,10 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 			ipa_mpm_ctx->md[mhi_idx].dl_cons.chan_props.device_db);
 		if (gsi_params.evt_ring_params.rp_update_addr == 0)
 			goto fail_smmu_map_db;
+
+		ipa_mpm_ctx->md[mhi_idx].dl_cons.db_host_iova =
+			gsi_params.evt_ring_params.rp_update_addr;
+
 		gsi_params.evt_ring_params.ring_base_addr =
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa;
 		gsi_params.chan_params.ring_base_addr =
@@ -791,6 +842,8 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 			ipa_mpm_ctx->md[mhi_idx].ul_prod.chan_props.device_db);
 		if (gsi_params.evt_ring_params.rp_update_addr == 0)
 			goto fail_smmu_map_db;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod.db_host_iova =
+			gsi_params.evt_ring_params.rp_update_addr;
 		gsi_params.evt_ring_params.ring_base_addr =
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa;
 		gsi_params.chan_params.ring_base_addr =
@@ -910,21 +963,21 @@ fail_gen:
 	return -EFAULT;
 }
 
-void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
+static void ipa_mpm_clean_mhip_chan(int mhi_idx,
+	enum ipa_client_type mhip_client)
 {
 	int dir;
 	int i;
-	int result;
 	int ipa_ep_idx;
-	struct mhi_p_desc *ev_ring;
-	struct mhi_p_desc *tr_ring;
-	int tr_ring_sz, ev_ring_sz;
+	int result;
 
 	IPA_MPM_FUNC_ENTRY();
 
 	if (mhip_client == IPA_CLIENT_MAX)
 		return;
-	if (mhi_idx == IPA_MPM_MHIP_CH_ID_MAX)
+
+	if ((mhi_idx < IPA_MPM_MHIP_CH_ID_0) ||
+		(mhi_idx >= IPA_MPM_MHIP_CH_ID_MAX))
 		return;
 
 	dir = IPA_CLIENT_IS_PROD(mhip_client) ?
@@ -937,100 +990,163 @@ void ipa_mpm_clean_mhip_chan(int mhi_idx, enum ipa_client_type mhip_client)
 	}
 
 	/* Release channel */
+	if (mhi_idx == IPA_MPM_MHIP_CH_ID_2) {
+		/* Note: DPL not supported yet */
+		IPA_MPM_ERR("DPL not supported yet. returning\n");
+		return;
+	}
+
+	ipa3_set_reset_client_prod_pipe_delay(true,
+					IPA_CLIENT_USB_PROD);
+
+	/* Release channel */
+	result = ipa3_stop_gsi_channel(ipa_ep_idx);
+	if (result) {
+		IPA_MPM_ERR("Stop channel for MHIP_Client =  %d failed\n",
+					mhip_client);
+		goto fail_chan;
+	}
+	result = ipa3_reset_gsi_channel(ipa_ep_idx);
+	if (result) {
+		IPA_MPM_ERR("Reset channel for MHIP_Client =  %d failed\n",
+					mhip_client);
+		goto fail_chan;
+	}
+	result = ipa3_reset_gsi_event_ring(ipa_ep_idx);
+	if (result) {
+		IPA_MPM_ERR("Reset ev ring for MHIP_Client =  %d failed\n",
+					mhip_client);
+		goto fail_chan;
+	}
 	result = ipa3_release_gsi_channel(ipa_ep_idx);
 	if (result) {
-		IPA_MPM_ERR("start MHIP channel %d failed\n", mhip_client);
+		IPA_MPM_ERR("Release tr ring for MHIP_Client =  %d failed\n",
+					mhip_client);
 		if (IPA_CLIENT_IS_PROD(mhip_client))
 			ipa_mpm_change_gsi_state(mhi_idx,
 				IPA_MPM_MHIP_CHAN_DL, GSI_ERR);
 		else
 			ipa_mpm_change_gsi_state(mhi_idx,
 				IPA_MPM_MHIP_CHAN_UL, GSI_ERR);
+		goto fail_chan;
 	}
+
 	if (IPA_CLIENT_IS_PROD(mhip_client))
 		ipa_mpm_change_gsi_state(mhi_idx,
-			IPA_MPM_MHIP_CHAN_DL, GSI_INIT);
+					IPA_MPM_MHIP_CHAN_DL, GSI_INIT);
 	else
 		ipa_mpm_change_gsi_state(mhi_idx,
-			IPA_MPM_MHIP_CHAN_UL, GSI_INIT);
+					IPA_MPM_MHIP_CHAN_UL, GSI_INIT);
 
+	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
 
-	/* deallocate transfer ring buffers  */
-	for (i = 0; i < IPA_MPM_RING_LEN; i++) {
+	/* Unmap Doorbells */
+	if (IPA_CLIENT_IS_PROD(mhip_client)) {
+		ipa_mpm_smmu_unmap_doorbell(MHIP_SMMU_DOMAIN_PCIE,
+			ipa_mpm_ctx->md[mhi_idx].dl_cons.db_device_iova);
+
+		ipa_mpm_smmu_unmap_doorbell(MHIP_SMMU_DOMAIN_IPA,
+			ipa_mpm_ctx->md[mhi_idx].dl_cons.db_host_iova);
+
+		ipa_mpm_ctx->md[mhi_idx].dl_cons.db_host_iova = 0;
+		ipa_mpm_ctx->md[mhi_idx].dl_cons.db_device_iova = 0;
+
+	} else {
+		ipa_mpm_smmu_unmap_doorbell(MHIP_SMMU_DOMAIN_PCIE,
+			ipa_mpm_ctx->md[mhi_idx].ul_prod.db_device_iova);
+
+		ipa_mpm_smmu_unmap_doorbell(MHIP_SMMU_DOMAIN_IPA,
+			ipa_mpm_ctx->md[mhi_idx].ul_prod.db_host_iova);
+
+		ipa_mpm_ctx->md[mhi_idx].ul_prod.db_host_iova = 0;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod.db_device_iova = 0;
+	}
+
+	/* deallocate/Unmap transfer ring buffers */
+	for (i = 1; i < IPA_MPM_RING_LEN; i++) {
 		if (IPA_CLIENT_IS_PROD(mhip_client)) {
 			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i],
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i],
 			TRE_BUFF_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]);
-
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i]
+								= 0;
 			kfree(
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i]);
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff[i]
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[i]);
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[i]
 								= NULL;
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]
+								= 0;
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i]
 								= 0;
 		} else {
 			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i],
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i],
 			TRE_BUFF_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
 			);
-
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i]
+								= 0;
 			kfree(
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i]);
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff[i]
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[i]);
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[i]
 								= NULL;
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
+								= 0;
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i]
 								= 0;
 		}
 	}
 
-	tr_ring_sz = sizeof(*tr_ring) * (IPA_MPM_RING_LEN);
-	ev_ring_sz = sizeof(*ev_ring) * (IPA_MPM_RING_LEN);
-
+	/* deallocate/Unmap rings */
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa,
-			ev_ring_sz, dir,
+			IPA_MPM_PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er);
 
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa,
-			tr_ring_sz, dir,
+			IPA_MPM_PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
 
 		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va);
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = NULL;
-
 		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va);
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = NULL;
 
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er = 0;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = NULL;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = NULL;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr = 0;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er = 0;
+
+
 	} else {
 		ipa_mpm_smmu_unmap(
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa,
+			IPA_MPM_PAGE_SIZE, dir,
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
+		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa,
-			ev_ring_sz, dir,
+			IPA_MPM_PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er);
 
-		ipa_mpm_smmu_unmap(
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa,
-			tr_ring_sz, dir,
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = 0;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa = 0;
 
 		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va);
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = NULL;
-
 		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va);
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = NULL;
 
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = NULL;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = NULL;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er = 0;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr = 0;
 	}
 
 	IPA_MPM_FUNC_EXIT();
+	return;
+fail_chan:
+	ipa_assert();
 }
 
 /* round addresses for closest page per SMMU requirements */
@@ -1080,17 +1196,28 @@ static int __ipa_mpm_configure_mhi_device(struct ipa_mpm_channel *ch,
 	return 0;
 }
 
-static void ipa_mpm_mhip_shutdown(void)
+static void ipa_mpm_mhip_shutdown(int mhip_idx)
 {
 	enum ipa_client_type ul_prod_chan, dl_cons_chan;
-	int mhip_idx = 0;
 
 	IPA_MPM_FUNC_ENTRY();
+
 	get_ipa3_client(mhip_idx, &ul_prod_chan, &dl_cons_chan);
+	if (mhip_idx == IPA_MPM_MHIP_CH_ID_2) {
+		IPA_MPM_ERR("DPL - return\n");
+		return;
+	}
 
 	ipa_mpm_clean_mhip_chan(mhip_idx, ul_prod_chan);
 	ipa_mpm_clean_mhip_chan(mhip_idx, dl_cons_chan);
 
+
+	mutex_lock(&ipa_mpm_ctx->md[mhip_idx].lpm_mutex);
+	if (!ipa_mpm_ctx->md[mhip_idx].in_lpm) {
+		ipa_mpm_vote_unvote_ipa_clk(CLK_OFF);
+		ipa_mpm_ctx->md[mhip_idx].in_lpm = true;
+	}
+	mutex_unlock(&ipa_mpm_ctx->md[mhip_idx].lpm_mutex);
 	IPA_MPM_FUNC_EXIT();
 }
 
@@ -1118,7 +1245,7 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 		return 0;
 	}
 	if (vote == CLK_ON) {
-		if (atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 0) {
+		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 0)) {
 			result = mhi_device_get_sync(
 				ipa_mpm_ctx->md[probe_id].mhi_dev);
 			if (result) {
@@ -1149,13 +1276,13 @@ static void ipa_mpm_vote_unvote_ipa_clk(enum ipa_mpm_clk_vote_type vote)
 		return;
 
 	if (vote == CLK_ON) {
-		if (!atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt)) {
+		if ((!atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt))) {
 			IPA_ACTIVE_CLIENTS_INC_SPECIAL("ipa_mpm");
 			IPA_MPM_DBG("IPA clock now ON\n");
 		}
 		atomic_inc(&ipa_mpm_ctx->ipa_clk_ref_cnt);
 	} else {
-		if (atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt) == 1) {
+		if ((atomic_read(&ipa_mpm_ctx->ipa_clk_ref_cnt) == 1)) {
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("ipa_mpm");
 			IPA_MPM_DBG("IPA clock now OFF\n");
 		}
@@ -1251,7 +1378,7 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 			goto gsi_chan_fail;
 		} else {
 			ipa_mpm_change_gsi_state(probe_id, mhip_chan,
-				 GSI_STARTED);
+					GSI_STARTED);
 		}
 	} else {
 		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
@@ -1281,7 +1408,6 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
 			source_pipe_bitmask = 1 <<
 				ipa3_get_ep_mapping(ep->client);
-
 			/* First Stop UL GSI channel before unvote PCIe clock */
 			result = ipa3_stop_gsi_channel(ipa_ep_idx);
 
@@ -1381,8 +1507,9 @@ int ipa_mpm_notify_wan_state(void)
 		ret = ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		return -EFAULT;
 	default:
-		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		IPA_MPM_ERR("Err not found\n");
+		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
+		ret = -EFAULT;
 		break;
 	}
 
@@ -1393,6 +1520,7 @@ static void ipa_mpm_change_gsi_state(int probe_id,
 	enum ipa_mpm_mhip_chan mhip_chan,
 	enum ipa_mpm_gsi_state next_state)
 {
+
 	if (probe_id >= IPA_MPM_MHIP_CH_ID_MAX)
 		return;
 
@@ -1462,12 +1590,12 @@ static void ipa_mpm_read_channel(enum ipa_client_type chan)
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-	IPA_MPM_ERR("Reading channel for chan %d, ep = %pK, gsi_chan_hdl = %ld\n",
+	IPA_MPM_ERR("Reading channel for chan %d, ep = %d, gsi_chan_hdl = %d\n",
 		chan, ep, ep->gsi_chan_hdl);
 
 	res = ipa3_get_gsi_chan_info(&chan_info, ep->gsi_chan_hdl);
 	if (res)
-		IPA_MPM_ERR("Reading of channel failed for ep %pK\n", ep);
+		IPA_MPM_ERR("Reading of channel failed for ep %d\n", ep);
 }
 
 static int ipa_mpm_start_stop_mhip_data_path(int probe_id,
@@ -1582,10 +1710,14 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	 * dl_cons = Device -> Host
 	 */
 	ipa_mpm_ctx->md[probe_id].mhi_dev = mhi_dev;
+	ipa_mpm_ctx->mhi_parent_dev =
+		ipa_mpm_ctx->md[probe_id].mhi_dev->dev.parent;
 
 	ipa_mpm_vote_unvote_pcie_clk(CLK_ON, probe_id);
+	mutex_lock(&ipa_mpm_ctx->md[probe_id].lpm_mutex);
 	ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
-
+	ipa_mpm_ctx->md[probe_id].in_lpm = false;
+	mutex_unlock(&ipa_mpm_ctx->md[probe_id].lpm_mutex);
 	IPA_MPM_DBG("ul chan = %d, dl_chan = %d\n", ul_prod, dl_cons);
 
 	/*
@@ -1679,9 +1811,10 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 				ipa_mpm_smmu_map_doorbell(
 					MHIP_SMMU_DOMAIN_PCIE,
 					ul_out_params.db_reg_phs_addr_lsb);
-
 			if (ch->evt_props.ev_ctx.update_rp_addr == 0)
 				ipa_assert();
+			ipa_mpm_ctx->md[probe_id].ul_prod.db_device_iova =
+				ch->evt_props.ev_ctx.update_rp_addr;
 
 			ret = __ipa_mpm_configure_mhi_device(
 					ch, probe_id, DMA_TO_HIPA);
@@ -1702,6 +1835,9 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 		if (ch->evt_props.ev_ctx.update_rp_addr == 0)
 			ipa_assert();
+
+	ipa_mpm_ctx->md[probe_id].dl_cons.db_device_iova =
+			ch->evt_props.ev_ctx.update_rp_addr;
 
 		ret = __ipa_mpm_configure_mhi_device(ch, probe_id,
 					DMA_FROM_HIPA);
@@ -1749,6 +1885,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	 */
 	if (ul_prod != IPA_CLIENT_MAX) {
 		ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
+
 		if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 			IPA_MPM_ERR("fail to alloc EP.\n");
 			goto fail_start_channel;
@@ -1828,6 +1965,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	/* Ring DL EVENT RING CONSUMER (DEVICE IPA CONSUMER) Doorbell */
 	if (dl_cons != IPA_CLIENT_MAX) {
 		ipa_ep_idx = ipa3_get_ep_mapping(dl_cons);
+
 		if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
 			IPA_MPM_ERR("fail to alloc EP.\n");
 			goto fail_start_channel;
@@ -1885,6 +2023,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		break;
 	}
 
+	atomic_inc(&ipa_mpm_ctx->probe_cnt);
 	IPA_MPM_FUNC_EXIT();
 	return 0;
 
@@ -1938,8 +2077,31 @@ static void ipa_mpm_init_mhip_channel_info(void)
 
 static void ipa_mpm_mhi_remove_cb(struct mhi_device *mhi_dev)
 {
+	int mhip_idx;
+
 	IPA_MPM_FUNC_ENTRY();
-	ipa_mpm_mhip_shutdown();
+
+	for (mhip_idx = 0; mhip_idx < IPA_MPM_MHIP_CH_ID_MAX; mhip_idx++) {
+		if (mhi_dev == ipa_mpm_ctx->md[mhip_idx].mhi_dev)
+			break;
+	}
+	if (mhip_idx >= IPA_MPM_MHIP_CH_ID_MAX) {
+		IPA_MPM_DBG("remove_cb for mhip_idx = %d not probed before\n",
+			mhip_idx);
+		return;
+	}
+
+	ipa_mpm_mhip_shutdown(mhip_idx);
+	atomic_dec(&ipa_mpm_ctx->probe_cnt);
+
+	if (atomic_read(&ipa_mpm_ctx->probe_cnt) == 0) {
+		/* Last probe done, reset Everything here */
+		ipa_mpm_ctx->mhi_parent_dev = NULL;
+		ipa_mpm_ctx->carved_smmu_cb.next_addr =
+			ipa_mpm_ctx->carved_smmu_cb.va_start;
+		atomic_set(&ipa_mpm_ctx->pcie_clk_ref_cnt, 0);
+	}
+
 	IPA_MPM_FUNC_EXIT();
 }
 
@@ -1959,20 +2121,34 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 		IPA_MPM_DBG("ignoring secondary callbacks\n");
 		return;
 	}
+
+	mutex_lock(&ipa_mpm_ctx->md[mhip_idx].lpm_mutex);
 	switch (mhi_cb) {
 	case MHI_CB_IDLE:
 		break;
 	case MHI_CB_LPM_ENTER:
-		status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_DL,
+		if (!ipa_mpm_ctx->md[mhip_idx].in_lpm) {
+			status = ipa_mpm_start_stop_mhip_chan(
+				IPA_MPM_MHIP_CHAN_DL,
 							mhip_idx, STOP);
 		IPA_MPM_DBG("status = %d\n", status);
 		ipa_mpm_vote_unvote_ipa_clk(CLK_OFF);
+			ipa_mpm_ctx->md[mhip_idx].in_lpm = true;
+		} else {
+			IPA_MPM_DBG("Already in lpm\n");
+		}
 		break;
 	case MHI_CB_LPM_EXIT:
-		ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
-		status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_DL,
-							mhip_idx, START);
-		IPA_MPM_DBG("status = %d\n", status);
+		if (ipa_mpm_ctx->md[mhip_idx].in_lpm) {
+			ipa_mpm_vote_unvote_ipa_clk(CLK_ON);
+			status = ipa_mpm_start_stop_mhip_chan(
+				IPA_MPM_MHIP_CHAN_DL,
+				mhip_idx, START);
+			IPA_MPM_DBG("status = %d\n", status);
+			ipa_mpm_ctx->md[mhip_idx].in_lpm = false;
+		} else {
+			IPA_MPM_DBG("Already out of lpm\n");
+		}
 		break;
 	case MHI_CB_EE_RDDM:
 	case MHI_CB_PENDING_DATA:
@@ -1981,9 +2157,10 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 		IPA_MPM_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
+	mutex_unlock(&ipa_mpm_ctx->md[mhip_idx].lpm_mutex);
 }
 
-int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
+static int ipa_mpm_set_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe)
 {
 	int result = 0;
@@ -2023,7 +2200,7 @@ int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	return result;
 }
 
-void ipa_mpm_mhip_map_prot(enum ipa_usb_teth_prot prot,
+static void ipa_mpm_mhip_map_prot(enum ipa_usb_teth_prot prot,
 	enum ipa_mpm_mhip_client_type *mhip_client)
 {
 	switch (prot) {
@@ -2232,6 +2409,7 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 		IPA_MPM_ERR("UL chan cant be started err =%d\n", status);
 		ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id);
 		return -EFAULT;
+		break;
 	default:
 		IPA_MPM_ERR("Err not found\n");
 		break;
@@ -2340,8 +2518,11 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 	if (!ipa_mpm_ctx)
 		return -ENOMEM;
 
-	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++)
+	for (i = 0; i < IPA_MPM_MHIP_CH_ID_MAX; i++) {
 		mutex_init(&ipa_mpm_ctx->md[i].mutex);
+		mutex_init(&ipa_mpm_ctx->md[i].lpm_mutex);
+	}
+
 	ipa_mpm_ctx->dev_info.pdev = pdev;
 	ipa_mpm_ctx->dev_info.dev = &pdev->dev;
 
@@ -2375,7 +2556,6 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 		ipa_mpm_ctx->md[idx].ul_prod.gsi_state = GSI_INIT;
 		ipa_mpm_ctx->md[idx].dl_cons.gsi_state = GSI_INIT;
 	}
-
 
 	ret = mhi_driver_register(&mhi_driver);
 	if (ret) {
