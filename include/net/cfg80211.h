@@ -40,6 +40,9 @@
 /* Indicate backport support for external authentication in AP mode */
 #define CFG80211_EXTERNAL_AUTH_AP_SUPPORT 1
 
+/* Indicate support for reporting rx FCS in cfg80211 */
+#define CFG80211_RX_FCS_ERROR_REPORTING_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
@@ -1318,6 +1321,10 @@ struct cfg80211_tid_stats {
  * @ack_signal: signal strength (in dBm) of the last ACK frame.
  * @avg_ack_signal: average rssi value of ack packet for the no of msdu's has
  *	been sent.
+ * @rx_mpdu_count: number of MPDUs received from this station
+ * @fcs_err_count: number of packets (MPDUs) received from this station with
+ *	an FCS error. This counter should be incremented only when TA of the
+ *	received packet with an FCS error matches the peer MAC address.
  */
 struct station_info {
 	u64 filled;
@@ -1364,6 +1371,9 @@ struct station_info {
 	struct cfg80211_tid_stats *pertid;
 	s8 ack_signal;
 	s8 avg_ack_signal;
+
+	u32 rx_mpdu_count;
+	u32 fcs_err_count;
 };
 
 #if IS_ENABLED(CONFIG_CFG80211)
