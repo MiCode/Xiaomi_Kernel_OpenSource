@@ -183,8 +183,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	{
 	 .min_iova = 0x40000000,
 	 .max_iova = 0x48000000 - 1,
-	 .resv_start = 0x0,
-	 .resv_size = 0x0,
 	 .resv_type = IOVA_REGION_UNDEFINE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 			0x0, 0x0, 0x0, 0x3, 0x0}
@@ -193,8 +191,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	{
 	 .min_iova = 0x7da00000,
 	 .max_iova = 0x7fc00000 - 1,
-	 .resv_start = 0x0,
-	 .resv_size = 0x0,
 	 .resv_type = IOVA_REGION_UNDEFINE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 			0x0, 0x0, 0x0, 0x0, 0x1}
@@ -206,6 +202,7 @@ struct mtk_iommu_domain {
 	struct iommu_domain		domain;
 	struct iommu_group		*group;
 	struct mtk_iommu_pgtable	*pgtable;
+	struct mtk_iommu_data		*data;
 	struct list_head		list;
 };
 
@@ -370,22 +367,20 @@ static struct iommu_group *mtk_iommu_get_group(
 
 static void mtk_iommu_tlb_flush_all(void *cookie)
 {
-	struct mtk_iommu_data *data, *temp;
-	int i = 0;
+	struct mtk_iommu_data *data, *data_tmp = cookie;
 
-	list_for_each_entry_safe(data, temp, &m4ulist, list) {
-		if (!data->base || IS_ERR(data->base)) {
-			pr_notice("%s, %d, invalid base addr%d\n",
-				__func__, __LINE__, data->base);
-		} else {
-			writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
-			       data->base + REG_MMU_INV_SEL);
-			writel_relaxed(F_ALL_INVLD,
-				data->base + REG_MMU_INVALIDATE);
-			wmb(); /* Make sure the tlb flush all done */
-		}
-		if (++i >= total_iommu_cnt)
-			return;  //do not while loop if m4ulist is destroyed
+	list_for_each_entry(data, &m4ulist, list) {
+		if (!single_pt)
+			data = data_tmp;
+
+		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
+		       data->base + REG_MMU_INV_SEL);
+		writel_relaxed(F_ALL_INVLD,
+			data->base + REG_MMU_INVALIDATE);
+		wmb(); /* Make sure the tlb flush all done */
+
+		if (!single_pt)
+			break;
 	}
 }
 
@@ -394,76 +389,64 @@ static void mtk_iommu_tlb_add_flush_nosync(unsigned long iova,
 					   size_t granule, bool leaf,
 					   void *cookie)
 {
-	struct mtk_iommu_data *data, *temp;
-	unsigned int i = 0;
+	struct mtk_iommu_data *data, *data_tmp = cookie;
 
-	list_for_each_entry_safe(data, temp, &m4ulist, list) {
+	list_for_each_entry(data, &m4ulist, list) {
+		if (!single_pt)
+			data = data_tmp;
 
-		if (!data->base  || IS_ERR(data->base)) {
-			pr_notice("%s, %d, invalid base addr%d\n",
-				__func__, __LINE__, data->base);
-		} else {
-			writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
-			       data->base + REG_MMU_INV_SEL);
+		writel_relaxed(F_INVLD_EN1 | F_INVLD_EN0,
+		       data->base + REG_MMU_INV_SEL);
 
-			writel_relaxed(iova, data->base +
-						REG_MMU_INVLD_START_A);
-			writel_relaxed(iova + size - 1,
-				       data->base + REG_MMU_INVLD_END_A);
-			writel_relaxed(F_MMU_INV_RANGE,
-				       data->base + REG_MMU_INVALIDATE);
-		}
-		if (++i >= total_iommu_cnt)
-			return;  //do not while loop if m4ulist is destroyed
+		writel_relaxed(iova, data->base + REG_MMU_INVLD_START_A);
+		writel_relaxed(iova + size - 1,
+			       data->base + REG_MMU_INVLD_END_A);
+		writel_relaxed(F_MMU_INV_RANGE,
+			       data->base + REG_MMU_INVALIDATE);
+		data->tlb_flush_active = true;
+
+		if (!single_pt)
+			break;
 	}
 }
 
 static void mtk_iommu_tlb_sync(void *cookie)
 {
-	struct mtk_iommu_data *data, *temp;
+	struct mtk_iommu_data *data, *data_tmp = cookie;
 	int ret;
-	u32 tmp, i = 0;
+	u32 tmp;
 
-	list_for_each_entry_safe(data, temp, &m4ulist, list) {
+	list_for_each_entry(data, &m4ulist, list) {
+		if (!single_pt)
+			data = data_tmp;
+
 		/* Avoid timing out if there's nothing to wait for */
-		if (!data || !data->tlb_flush_active)
+		if (!data->tlb_flush_active)
 			return;
 
-		if (!data->base  || IS_ERR(data->base)) {
-			pr_notice("%s, %d, invalid base addr%d\n",
-				__func__, __LINE__, data->base);
-		} else {
-			ret = readl_poll_timeout_atomic(data->base +
-							REG_MMU_CPE_DONE,
-							tmp, tmp != 0,
-							10, 100000);
-			if (ret) {
-				dev_warn(data->dev,
-					 "Partial TLB flush time out\n");
-				mtk_iommu_tlb_flush_all(cookie);
-			}
-			/* Clear the CPE status */
-			writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
-			data->tlb_flush_active = false;
+		ret = readl_poll_timeout_atomic(data->base +
+						REG_MMU_CPE_DONE,
+						tmp, tmp != 0,
+						10, 100000);
+		if (ret) {
+			dev_warn(data->dev,
+				 "Partial TLB flush time out\n");
+			mtk_iommu_tlb_flush_all(cookie);
 		}
-		if (++i >= total_iommu_cnt)
-			return;  //do not while loop if m4ulist is destroyed
+		/* Clear the CPE status */
+		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
+		data->tlb_flush_active = false;
+
+		if (!single_pt)
+			break;
 	}
 }
 
-static void mtk_iommu_iotlb_flush_all(struct iommu_domain *domain)
-{
-	mtk_iommu_tlb_flush_all(domain);
-}
-
-static void mtk_iommu_iotlb_range_add(struct iommu_domain *domain,
-				       unsigned long iova, size_t size)
-{
-	mtk_iommu_tlb_add_flush_nosync(iova, size, 0, 0, domain);
-}
 static void mtk_iommu_iotlb_sync(struct iommu_domain *domain)
 {
-	mtk_iommu_tlb_sync(domain);
+	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+
+	mtk_iommu_tlb_sync(dom->data);
 }
 
 static const struct iommu_gather_ops mtk_iommu_gather_ops = {
@@ -998,6 +981,7 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 
 	dom->domain.pgsize_bitmap = pgtable->cfg.pgsize_bitmap;
 	dom->pgtable = pgtable;
+	dom->data = data;
 	list_add_tail(&dom->list, &pgtable->m4u_dom_v2);
 
 	// init mtk_iommu_domain
@@ -1075,9 +1059,6 @@ static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
 }
 #endif
 
-
-#define CONFIG_MTK_MEMCFG
-#ifdef CONFIG_MTK_MEMCFG
 static void mtk_iommu_get_resv_region(
 					struct device *dev,
 					struct list_head *list)
@@ -1086,6 +1067,10 @@ static void mtk_iommu_get_resv_region(
 	const struct mtk_iova_domain_data *dom_data;
 	unsigned int id;
 	int i;
+	struct mtk_iommu_data *data = dev->iommu_fwspec->iommu_priv;
+
+	if (!data->plat_data->has_resv_region)
+		return;
 
 	id = mtk_iommu_get_domain_id(dev);
 	if (WARN_ON(id >= MTK_IOVA_DOMAIN_COUNT))
@@ -1095,6 +1080,10 @@ static void mtk_iommu_get_resv_region(
 	switch (dom_data->resv_type) {
 	case IOVA_REGION_REMOVE:
 		for (i = 0; i < MTK_IOVA_REMOVE_CNT; i++) {
+			if (!dom_data->resv_start[i] ||
+				!dom_data->resv_size[i])
+				continue;
+
 			region = iommu_alloc_resv_region(
 				dom_data->resv_start[i],
 				dom_data->resv_size[i],
@@ -1117,37 +1106,14 @@ static void mtk_iommu_put_resv_region(
 					struct list_head *list)
 {
 	struct  iommu_resv_region *region, *tmp;
+	struct mtk_iommu_data *data = dev->iommu_fwspec->iommu_priv;
 
-	list_for_each_entry_safe(region, tmp, list, list)
-		kfree(region);
-}
-#else
-static void mtk_iommu_get_resv_region(
-					struct device *dev,
-					struct list_head *list)
-{
-	struct iommu_resv_region *region;
-
-	/* for framebuffer region */
-	region = kzalloc(sizeof(*region), GFP_KERNEL);
-	if (!region)
+	if (!data->plat_data->has_resv_region)
 		return;
 
-	INIT_LIST_HEAD(&region->list);
-	list_add_tail(&region->list, list);
-}
-
-static void mtk_iommu_put_resv_region(
-					struct device *dev,
-					struct list_head *list)
-{
-	struct  iommu_resv_region *region, *tmp;
-
 	list_for_each_entry_safe(region, tmp, list, list)
 		kfree(region);
 }
-#endif
-
 
 static struct iommu_ops mtk_iommu_ops = {
 	.domain_alloc	= mtk_iommu_domain_alloc,
@@ -1156,16 +1122,13 @@ static struct iommu_ops mtk_iommu_ops = {
 	.detach_dev	= mtk_iommu_detach_device,
 	.map		= mtk_iommu_map,
 	.unmap		= mtk_iommu_unmap,
-	.flush_iotlb_all = mtk_iommu_iotlb_flush_all,
-	.iotlb_range_add	= mtk_iommu_iotlb_range_add,
+	.flush_iotlb_all = mtk_iommu_iotlb_sync,
 	.iotlb_sync	= mtk_iommu_iotlb_sync,
 	.iova_to_phys	= mtk_iommu_iova_to_phys,
 	.add_device	= mtk_iommu_add_device,
 	.remove_device	= mtk_iommu_remove_device,
 	.device_group	= mtk_iommu_device_group,
-#ifdef CONFIG_ARM64
 	.of_xlate	= mtk_iommu_of_xlate,
-#endif
 	.pgsize_bitmap	= SZ_4K | SZ_64K | SZ_1M | SZ_16M,
 	.get_resv_regions	= mtk_iommu_get_resv_region,
 	.put_resv_regions	= mtk_iommu_put_resv_region,
@@ -1388,12 +1351,14 @@ static const struct dev_pm_ops mtk_iommu_pm_ops = {
 const struct mtk_iommu_plat_data mt6779_data_mm = {
 	.m4u_plat = M4U_MT6779,
 	.single_pt = true,
+	.has_resv_region = true,
 	.iommu_id = 0,
 };
 
 const struct mtk_iommu_plat_data mt6779_data_vpu = {
 	.m4u_plat = M4U_MT6779,
 	.single_pt = true,
+	.has_resv_region = true,
 	.iommu_id = 1,
 };
 

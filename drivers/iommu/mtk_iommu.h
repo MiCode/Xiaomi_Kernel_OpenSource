@@ -52,6 +52,7 @@ struct mtk_iommu_plat_data {
 	unsigned char       larbid_remap[MTK_LARB_NR_MAX];
 #ifdef CONFIG_MTK_IOMMU_V2
 	bool		    single_pt;
+	bool		    has_resv_region;
 	unsigned char	    iommu_id;
 #endif
 };
