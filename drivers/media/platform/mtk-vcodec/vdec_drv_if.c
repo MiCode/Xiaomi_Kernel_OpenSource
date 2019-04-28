@@ -124,7 +124,9 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	if (ctx->drv_handle == 0)
 		return -EIO;
 
+	mtk_vdec_pmqos_prelock(ctx);
 	mtk_vdec_lock(ctx);
+	mtk_vdec_pmqos_begin_frame(ctx);
 
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm);
@@ -134,6 +136,7 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL);
 
+	mtk_vdec_pmqos_end_frame(ctx);
 	mtk_vdec_unlock(ctx);
 
 	return ret;

@@ -261,6 +261,28 @@ config VIDEO_MEDIATEK_VCODEC
 	    To compile this driver as a module, choose M here: the
 	    module will be called mtk-vcodec
 
+config MEDIATEK_DVFS
+	tristate "Mediatek DVFS"
+	default n
+	help
+	  Mediatek DVFS is a config For Mediatek video codec
+	  driver to control open or close mtk-vcodec use DVFS
+	  Function or not.
+
+	  To close DVFS for mtk-vcodec, choose n here: the dvfs
+	  Function will close for mtk-vcodec
+
+config MEDIATEK_EMI_BW
+	tristate "Mediatek EMI BW"
+	default n
+	help
+	  This is EMI BW config For Mediatek video codec driver to
+	  control open or close mtk-vcodec use EMI BW Function or
+	  not.
+
+	  To close EMI BW for mtk-vcodec, choose n here: the EMI BW
+	  Function will close for mtk-vcodec
+
 config VIDEO_MEM2MEM_DEINTERLACE
 	tristate "Deinterlace support"
 	depends on VIDEO_DEV && VIDEO_V4L2

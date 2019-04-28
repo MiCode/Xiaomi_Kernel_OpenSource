@@ -351,6 +351,7 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	disable_irq(dev->dec_irq);
 	mutex_init(&dev->dec_mutex);
 	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->dec_dvfs_mutex);
 	spin_lock_init(&dev->irqlock);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name), "%s",
@@ -435,6 +436,8 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 		vfd_dec->num);
 
+	mtk_prepare_vdec_dvfs();
+	mtk_prepare_vdec_emi_bw();
 	pm_notifier(mtk_vcodec_dec_suspend_notifier, 0);
 	dev->is_codec_suspending = 0;
 	vdec_dev = dev;
@@ -473,6 +476,9 @@ MODULE_DEVICE_TABLE(of, mtk_vcodec_match);
 static int mtk_vcodec_dec_remove(struct platform_device *pdev)
 {
 	struct mtk_vcodec_dev *dev = platform_get_drvdata(pdev);
+
+	mtk_unprepare_vdec_emi_bw();
+	mtk_unprepare_vdec_dvfs();
 
 	flush_workqueue(dev->decode_workqueue);
 	destroy_workqueue(dev->decode_workqueue);

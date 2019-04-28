@@ -483,6 +483,7 @@ struct mtk_vcodec_dev {
 
 	struct mutex dec_mutex;
 	struct mutex enc_mutex;
+	struct mutex dec_dvfs_mutex;
 
 	struct mtk_vcodec_pm pm;
 	unsigned int dec_capability;
