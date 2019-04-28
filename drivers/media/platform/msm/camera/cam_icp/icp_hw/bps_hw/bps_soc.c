@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/dma-buf.h>
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
 #include "bps_soc.h"

@@ -8,7 +8,6 @@
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
-#include <linux/firmware.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/iopoll.h>
