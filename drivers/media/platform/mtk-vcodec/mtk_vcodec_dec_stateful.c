@@ -648,11 +648,13 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	bool mtk_vcodec_unsupport = false;
 	bool wait_seq_header = false;
 	int ret = 0;
-	unsigned int dpbsize = 1, i = 0;
+	unsigned int i = 0;
+	unsigned int dpbsize = 1;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
 	struct mtk_video_dec_buf *buf = NULL;
 	struct mtk_q_data *dst_q_data;
+	unsigned int fourcc;
 
 	mtk_v4l2_debug(3, "[%d] (%d) id=%d, vb=%p",
 			ctx->id, vb->vb2_queue->type,
@@ -790,6 +792,9 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 
 	ctx->last_decoded_picinfo = ctx->picinfo;
 	dst_q_data = &ctx->q_data[MTK_Q_DATA_DST];
+
+	fourcc = ctx->picinfo.cap_fourcc;
+	dst_q_data->fmt = mtk_find_fmt_by_pixel(fourcc);
 	for (i = 0; i < dst_q_data->fmt->num_planes; i++) {
 		dst_q_data->sizeimage[i] = ctx->picinfo.fb_sz[i];
 		dst_q_data->bytesperline[i] = ctx->picinfo.buf_w;

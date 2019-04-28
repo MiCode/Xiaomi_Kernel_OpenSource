@@ -106,6 +106,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 			   struct vb2_queue *dst_vq);
 void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx);
+struct mtk_video_fmt *mtk_find_fmt_by_pixel(unsigned int pixelformat);
 
 int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl);
 

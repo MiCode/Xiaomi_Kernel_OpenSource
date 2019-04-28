@@ -110,15 +110,6 @@ struct mtk_video_fmt {
 };
 
 /**
- * struct mtk_codec_framesizes - Structure used to store information about
- *							framesizes
- */
-struct mtk_codec_framesizes {
-	u32	fourcc;
-	struct	v4l2_frmsize_stepwise	stepwise;
-};
-
-/**
  * struct mtk_q_type - Type of queue
  */
 enum mtk_q_type {
@@ -202,22 +193,6 @@ struct mtk_vcodec_pm {
 	struct mtk_vcodec_dev	*mtkdev;
 };
 
-struct mtk_dec_params {
-	unsigned int    decode_mode;
-	unsigned int    frame_size_width;
-	unsigned int    frame_size_height;
-	unsigned int    fixed_max_frame_size_width;
-	unsigned int    fixed_max_frame_size_height;
-	char            *crc_path;
-	char            *golden_path;
-	unsigned int    fb_num_planes;
-	unsigned int	wait_key_frame;
-	unsigned int	nal_size_length;
-	unsigned int	svp_mode;
-	unsigned int	operating_rate;
-	unsigned int	total_frame_bufq_count;
-};
-
 /**
  * struct vdec_pic_info  - picture size information
  * @pic_w: picture width
@@ -248,6 +223,33 @@ struct vdec_pic_info {
 	__u32 bitdepth;
 	__u32 layout_mode;
 	unsigned int cap_fourcc;
+};
+
+struct mtk_dec_params {
+	unsigned int    decode_mode;
+	unsigned int    frame_size_width;
+	unsigned int    frame_size_height;
+	unsigned int    fixed_max_frame_size_width;
+	unsigned int    fixed_max_frame_size_height;
+	char            *crc_path;
+	char            *golden_path;
+	unsigned int    fb_num_planes;
+	unsigned int	wait_key_frame;
+	unsigned int	nal_size_length;
+	unsigned int	svp_mode;
+	unsigned int	operating_rate;
+	unsigned int	total_frame_bufq_count;
+};
+
+/**
+ * struct mtk_codec_framesizes - Structure used to store information about
+ *							framesizes
+ */
+struct mtk_codec_framesizes {
+	__u32	fourcc;
+	__u32	profile;
+	__u32	level;
+	struct	v4l2_frmsize_stepwise	stepwise;
 };
 
 /**
