@@ -10,6 +10,11 @@
 #include "synx_api.h"
 #include "synx_util.h"
 
+bool synx_debugfs_enabled(void)
+{
+	return synx_dev->debugfs_root != NULL;
+}
+
 bool is_valid_type(u32 type)
 {
 	if (type < SYNX_MAX_BIND_TYPES)
@@ -573,3 +578,38 @@ void *synx_from_key(s32 id, u32 secure_key)
 
 	return row;
 }
+
+void generate_timestamp(char *timestamp, size_t size)
+{
+	struct timeval tv;
+	struct tm tm;
+
+	do_gettimeofday(&tv);
+	time_to_tm(tv.tv_sec, 0, &tm);
+	snprintf(timestamp, size, "%02d-%02d %02d:%02d:%02d",
+		tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
+		tm.tm_min, tm.tm_sec);
+
+}
+
+void log_synx_error(s32 error_code, s32 synx_obj)
+{
+	struct error_node *err_node;
+
+	if (!synx_debugfs_enabled())
+		return;
+
+	err_node = kzalloc(sizeof(*err_node), GFP_KERNEL);
+	if (!err_node)
+		return;
+
+	err_node->error_code = error_code;
+	err_node->synx_obj = synx_obj;
+	generate_timestamp(err_node->timestamp,
+		sizeof(err_node->timestamp));
+	spin_lock_bh(&synx_dev->synx_node_list_lock);
+	list_add(&err_node->node,
+		&synx_dev->synx_debug_head);
+	spin_unlock_bh(&synx_dev->synx_node_list_lock);
+}
+
