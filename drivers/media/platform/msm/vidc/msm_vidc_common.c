@@ -1433,12 +1433,6 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 		msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
 				&inst->capability.cap[CAP_BITRATE]);
 		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
-				&inst->capability.cap[CAP_SLICE_BYTE]);
-		msm_vidc_comm_update_ctrl(inst,
-				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
-				&inst->capability.cap[CAP_SLICE_MB]);
-		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
 				&inst->capability.cap[CAP_LTR_COUNT]);
 		msm_vidc_comm_update_ctrl(inst,
