@@ -319,9 +319,9 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	for (i = 0; i < NUM_MAX_VDEC_REG_BASE; i++) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		if (res == NULL) {
-			dev_err(&pdev->dev, "get memory resource failed.");
-			ret = -ENXIO;
-			goto err_res;
+			dev_err(&pdev->dev,
+				"get index:%d memory resource failed.", i);
+			break;
 		}
 		dev->reg_base[i] = devm_ioremap_resource(&pdev->dev, res);
 		if (IS_ERR((__force void *)dev->reg_base[i])) {
@@ -466,8 +466,9 @@ extern const struct mtk_vcodec_dec_pdata mtk_frame_8173_pdata;
 extern const struct mtk_vcodec_dec_pdata mtk_req_8183_pdata;
 
 static const struct of_device_id mtk_vcodec_match[] = {
-	{.compatible = "mediatek,mt8173-vcodec-dec", .data = &mtk_frame_8173_pdata},
+	{.compatible = "mediatek,mt8173-vcodec-dec", .data = &mtk_frame_pdata},
 	{.compatible = "mediatek,mt8183-vcodec-dec", .data = &mtk_req_8183_pdata},
+	{.compatible = "mediatek,mt6779-vcodec-dec", .data = &mtk_frame_pdata},
 	{},
 };
 

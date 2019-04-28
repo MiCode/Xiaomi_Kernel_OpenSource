@@ -93,6 +93,8 @@ extern const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops;
 extern const struct v4l2_m2m_ops mtk_vdec_m2m_ops;
 extern const struct media_device_ops mtk_vcodec_media_ops;
 
+extern const struct mtk_vcodec_dec_pdata	mtk_frame_pdata;
+extern const struct mtk_vcodec_dec_pdata	mtk_req_8183_pdata;
 
 /*
  * mtk_vdec_lock/mtk_vdec_unlock are for ctx instance to

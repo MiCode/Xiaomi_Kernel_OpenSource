@@ -386,7 +386,7 @@ static int mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 	if (dpbsize == 0)
 		mtk_v4l2_err("Incorrect dpb size, ret=%d", ret);
 
-	ctx->dpb_size = dpbsize;
+	ctx->last_dpb_size = dpbsize;
 
 	return ret;
 }
@@ -398,7 +398,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct mtk_vcodec_dev *dev = ctx->dev;
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct mtk_video_dec_buf *mtk_buf;
-	struct mtk_vcodec_mem buf;
+	struct mtk_vcodec_mem *buf;
 	struct vdec_fb *pfb;
 	unsigned int i = 0;
 	unsigned int src_chg = 0;
@@ -467,8 +467,9 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		vdec_if_decode(ctx, NULL, NULL, &src_chg);
 		clean_free_bs_buffer(ctx, NULL);
-		clean_display_buffer(ctx, src_buf->planes[0].bytesused != 0U);
-		if (src_buf->planes[0].bytesused == 0U) {
+		clean_display_buffer(ctx,
+			src_buf->vb2_buf.planes[0].bytesused != 0U);
+		if (src_buf->vb2_buf.planes[0].bytesused == 0U) {
 			src_buf->flags |= V4L2_BUF_FLAG_LAST;
 			vb2_set_plane_payload(&src_buf_info->vb.vb2_buf, 0, 0);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
@@ -487,15 +488,17 @@ static void mtk_vdec_worker(struct work_struct *work)
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		return;
 	}
-	buf.va = vb2_plane_vaddr(&src_buf->vb2_buf, 0);
-	buf.dma_addr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
-	buf.size = (size_t)src_buf->vb2_buf.planes[0].bytesused;
-	buf.dmabuf = src_buf->vb2_buf.planes[0].dbuf;
-	buf.flags = src_buf->flags;
-	buf.index = src_buf->vb2_buf.index;
-	if (buf.va == NULL && buf.dmabuf == NULL) {
+	buf = &src_buf_info->bs_buffer;
+	buf->va = vb2_plane_vaddr(&src_buf->vb2_buf, 0);
+	buf->dma_addr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+	buf->size = (size_t)src_buf->vb2_buf.planes[0].bytesused;
+	buf->length = (size_t)src_buf->vb2_buf.planes[0].length;
+	buf->dmabuf = src_buf->vb2_buf.planes[0].dbuf;
+	buf->flags = src_buf->flags;
+	buf->index = src_buf->vb2_buf.index;
+	if (buf->va == NULL && buf->dmabuf == NULL) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
-		mtk_v4l2_err("[%d] id=%d src_addr is NULL!!",
+		mtk_v4l2_err("[%d] id=%d src_addr is NULL!!!",
 				ctx->id, src_buf->vb2_buf.index);
 		return;
 	}
@@ -504,7 +507,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	dst_buf->flags &= ~REF_FREED;
 
 	mtk_v4l2_debug(3, "[%d] Bitstream VA=%p DMA=%pad Size=%zx vb=%p",
-			ctx->id, buf.va, &buf.dma_addr, buf.size, src_buf);
+			ctx->id, buf->va, &buf->dma_addr, buf->size, src_buf);
 	dst_buf_info->vb.vb2_buf.timestamp
 			= src_buf_info->vb.vb2_buf.timestamp;
 	dst_buf_info->vb.timecode
@@ -514,7 +517,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	mutex_unlock(&ctx->lock);
 	src_buf_info->used = true;
 
-	ret = vdec_if_decode(ctx, &buf, pfb, &src_chg);
+	ret = vdec_if_decode(ctx, buf, pfb, &src_chg);
 	res_chg = ((src_chg & VDEC_RES_CHANGE) != 0U) ? true : false;
 	need_more_output = ((src_chg & VDEC_NEED_MORE_OUTPUT_BUF) != 0U) ?
 		true : false;
@@ -528,7 +531,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			" <===[%d], src_buf[%d] sz=0x%zx pts=%llu dst_buf[%d] vdec_if_decode() ret=%d res_chg=%d===>",
 			ctx->id,
 			src_buf->vb2_buf.index,
-			buf.size,
+			buf->size,
 			src_buf_info->vb.vb2_buf.timestamp,
 			dst_buf->vb2_buf.index,
 			ret, res_chg);
@@ -579,7 +582,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		 */
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_DONE);
-		clean_free_bs_buffer(ctx, NULL);
+		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 	} else {    /* res_chg == true || need_more_output == true*/
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		mtk_v4l2_debug(1, "Need more capture buffer  r:%d n:%d\n",
@@ -1055,7 +1058,7 @@ static struct vb2_ops mtk_vdec_frame_vb2_ops = {
 	.stop_streaming	= vb2ops_vdec_stop_streaming,
 };
 
-const struct mtk_vcodec_dec_pdata mtk_frame_8173_pdata = {
+const struct mtk_vcodec_dec_pdata mtk_frame_pdata = {
 	.init_vdec_params = mtk_init_vdec_params,
 	.ctrls_setup = mtk_vcodec_dec_ctrls_setup,
 	.vdec_vb2_ops = &mtk_vdec_frame_vb2_ops,
