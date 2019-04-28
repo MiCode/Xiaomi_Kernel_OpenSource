@@ -807,6 +807,11 @@ KBUILD_CPPFLAGS += $(KCPPFLAGS)
 KBUILD_AFLAGS += $(KAFLAGS)
 KBUILD_CFLAGS += $(KCFLAGS)
 
+# Add macro for factory version
+ifeq ($(strip $(FACTORY_VERSION_MODE)), true)
+    KBUILD_CFLAGS += -DFACTORY_VERSION_ENABLE
+endif
+
 # Use --build-id when available.
 LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
 			      $(call cc-ldoption, -Wl$(comma)--build-id,))

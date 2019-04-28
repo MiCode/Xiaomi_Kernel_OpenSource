@@ -1,0 +1,49 @@
+
+qcom,3005023_huaqin_e7cos_4000mah_averaged_masterslave_jul10th2017 {
+	/* #3005023_Huaqin_E7cos_4000mAh_averaged_MasterSlave_Jul10th2017*/
+	qcom,max-voltage-uv = <4380000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "Vince_coslight_50Kohm_4000mah";
+	qcom,chg-rslow-comp-c1 = <2912209>;
+	qcom,chg-rslow-comp-c2 = <3933866>;
+	qcom,chg-rs-to-rslow = <758663>;
+	qcom,chg-rslow-comp-thr = <0xA0>;
+	qcom,checksum = <0xBFCD>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 ED 83 4A 7D
+		 73 81 EF 77
+		 57 83 7C 44
+		 E0 80 0E 8C
+		 21 82 F5 99
+		 D6 BC 4F C9
+		 5A 0F FA 83
+		 58 7D 65 81
+		 AF 77 57 83
+		 88 61 4C 81
+		 D6 8D 76 82
+		 15 98 FD B5
+		 EA C1 52 13
+		 AC 0F 4A 59
+		 14 70 EE FC
+		 BF 44 F4 3C
+		 56 3A 00 00
+		 D9 44 8F 39
+		 55 3E 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 A7 6A B9 69
+		 B4 6B 37 83
+		 C7 6E AB 62
+		 1D 70 67 81
+		 F6 6C 71 60
+		 16 7D 3E 92
+		 1B 51 60 6E
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

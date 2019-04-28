@@ -2382,6 +2382,7 @@ static void wcnss_nvbin_dnld(void)
 	const struct firmware *nv = NULL;
 	struct device *dev = &penv->pdev->dev;
 
+
 	down_read(&wcnss_pm_sem);
 
 	ret = request_firmware(&nv, NVBIN_FILE, dev);

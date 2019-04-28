@@ -559,6 +559,23 @@ config LEDS_AW2013
 	  This option enables support for the AW2013 RGB LED connected
 	  through I2C. Say Y to enable support for the AW2013 LED.
 
+config LEDS_AW2023
+	tristate "LED support for AW2023"
+	depends on LEDS_CLASS && I2C
+	help
+	  This option enables support for the AW2023 RGB LED connected
+	  through I2C. Say Y to enable support for the AW2013 LED.
+
+config FLASHLIGHT_SAKURA
+       bool "config flashlight sakura"
+       help
+         config flashlight sakura.
+
+config FLASHLIGHT_VINCE_O
+       bool "config flashlight vince_o"
+       help
+         config flashlight vince_o.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 

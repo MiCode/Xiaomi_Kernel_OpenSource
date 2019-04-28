@@ -31,7 +31,7 @@
 		/* Fudge factors */
 		qcom,mdss-ab-factor = <1 1>;		/* 1 time  */
 		qcom,mdss-ib-factor = <1 1>;		/* 1 time  */
-		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
+		qcom,mdss-clk-factor = <110 100>;	/* 1.10 times */
 
 		qcom,max-mixer-width = <2048>;
 		qcom,max-pipe-width = <2048>;

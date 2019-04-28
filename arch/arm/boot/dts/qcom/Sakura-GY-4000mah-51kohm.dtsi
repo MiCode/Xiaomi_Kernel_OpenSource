@@ -1,0 +1,50 @@
+
+qcom,3299735_huaqin_d1scos_4000mah_averaged_masterslave_feb20th2018 {
+	/* #3299735_Huaqin_D1Scos_4000mAh_averaged_MasterSlave_Feb20th2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <51>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "GY-4000mah-51kohm";
+	qcom,chg-rslow-comp-c1 = <3910349>;
+	qcom,chg-rslow-comp-c2 = <7207770>;
+	qcom,chg-rs-to-rslow = <881635>;
+	qcom,chg-rslow-comp-thr = <0xBA>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,checksum = <0xDA4C>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 D0 83 F4 77
+		 3A 80 29 75
+		 3C 83 4C 73
+		 1E 84 CC 80
+		 F6 81 A3 9B
+		 36 BF A6 D0
+		 75 10 FB 83
+		 4C 7D 45 81
+		 56 77 31 83
+		 0F 7A 28 8C
+		 81 88 23 82
+		 9A 9B 28 C4
+		 4D D2 6B 0E
+		 8D 0F 80 59
+		 14 70 EE FC
+		 4E 45 BA 3F
+		 A6 43 00 00
+		 41 4C C7 40
+		 FD 16 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 36 70 58 6A
+		 91 60 EF 89
+		 13 7C 72 71
+		 F9 6D 86 78
+		 DC 74 0A 6A
+		 A1 6C 3F A1
+		 2D C7 60 F3
+		 5E A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

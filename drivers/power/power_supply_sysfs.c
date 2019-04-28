@@ -78,7 +78,10 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Source attached (default current)",
 		"Source attached (medium current)",
 		"Source attached (high current)",
-		"Non compliant",
+		"Non compliant", "none",
+		"none", "none", "none",
+		"none", "none", "none",
+		"none", "sink", "source",
 	};
 	static const char * const typec_pr_text[] = {
 		"none", "dual power role", "sink", "source"

@@ -1436,5 +1436,9 @@ config RTC_DRV_HID_SENSOR_TIME
 	  If this driver is compiled as a module, it will be named
 	  rtc-hid-sensor-time.
 
+config PROJECT_SAKURA_CN
+	bool "XIAOMI D1S use"
+	help
+	  diff rtc in D1S project.
 
 endif # RTC_CLASS

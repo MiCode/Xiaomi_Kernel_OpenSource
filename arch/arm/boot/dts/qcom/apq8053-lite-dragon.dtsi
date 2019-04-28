@@ -439,14 +439,14 @@
 		};
 	};
 };
-
+/*
 &pm8953_typec {
 	ss-mux-supply = <&pm8953_l13>;
 	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_HIGH>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&typec_ssmux_config>;
 };
-
+*/
 /{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;

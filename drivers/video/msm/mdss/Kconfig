@@ -82,3 +82,18 @@ config FB_MSM_MDSS_FRC_DEBUG
 	frame rate control (FRC) debugging features to: Collect video frame
 	statistics and check whether its output pattern matches expected
 	cadence.
+
+config WPONIT_ADJUST_FUN
+	bool "XIAOMI whitepoint adjust"
+	---help---
+	Panel provides whitepoint x,y and r,g,b value.
+
+config PROJECT_SAKURA
+	bool "XIAOMI sakura project macro"
+	---help---
+	to distinguish diff project
+
+config PROJECT_DAISY
+	bool "XIAOMI daisy project macro"
+	---help---
+	to distinguish diff project

@@ -1178,7 +1178,11 @@ static void mmc_sd_detect(struct mmc_host *host)
 		err = mmc_send_status(host->card, NULL);
 		if (err) {
 			retries--;
+#ifdef CONFIG_PROJECT_DAISY
+			mmc_delay(20);
+#else
 			udelay(5);
+#endif
 			continue;
 		}
 		break;
