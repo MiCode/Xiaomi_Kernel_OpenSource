@@ -95,6 +95,7 @@ static const struct mtk_codec_framesizes mtk_vdec_framesizes[] = {
 
 #define NUM_SUPPORTED_FRAMESIZE ARRAY_SIZE(mtk_vdec_framesizes)
 
+
 void mtk_vdec_stateless_out_to_done(struct mtk_vcodec_ctx *ctx,
 				    struct mtk_vcodec_mem *bs, int error)
 {
@@ -275,7 +276,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct mtk_video_dec_buf *src_buf_info;
 	struct vb2_v4l2_buffer *src_vb2_v4l2;
 	struct media_request *src_buf_req;
-	bool res_chg = false;
+	unsigned int  res_chg;
 	int ret;
 
 	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -398,7 +399,7 @@ static void vb2ops_vdec_stateless_buf_queue(struct vb2_buffer *vb)
 }
 
 static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx) {
-	bool res_chg;
+	unsigned int  res_chg;
 
 	return vdec_if_decode(ctx, NULL, NULL, &res_chg);
 }

@@ -822,7 +822,7 @@ err_deinit_inst:
 }
 
 static int vdec_vp9_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
-		   struct vdec_fb *fb, bool *res_chg)
+		   struct vdec_fb *fb, unsigned int  *res_chg)
 {
 	int ret = 0;
 	struct vdec_vp9_inst *inst = (struct vdec_vp9_inst *)h_vdec;
@@ -830,7 +830,7 @@ static int vdec_vp9_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	u32 data[3];
 	int i;
 
-	*res_chg = false;
+	*res_chg = VDEC_NO_CHANGE;
 
 	if ((bs == NULL) && (fb == NULL)) {
 		mtk_vcodec_debug(inst, "[EOS]");
@@ -944,7 +944,7 @@ static int vdec_vp9_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 		}
 
 		if (vsi->resolution_changed) {
-			*res_chg = true;
+			*res_chg = VDEC_RES_CHANGE;
 			mtk_vcodec_debug(inst, "VDEC_ST_RESOLUTION_CHANGED");
 
 			ret = 0;

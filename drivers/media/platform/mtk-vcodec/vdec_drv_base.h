@@ -33,7 +33,7 @@ struct vdec_common_if {
 	 * @res_chg : [out] resolution change happen
 	 */
 	int (*decode)(void *h_vdec, struct mtk_vcodec_mem *bs,
-		      struct vdec_fb *fb, bool *res_chg);
+		      struct vdec_fb *fb, unsigned int  *res_chg);
 
 	/**
 	 * (*get_param)() - get driver's parameter

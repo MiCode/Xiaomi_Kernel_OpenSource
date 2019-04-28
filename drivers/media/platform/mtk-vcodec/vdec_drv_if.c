@@ -100,7 +100,7 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 }
 
 int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
-		   struct vdec_fb *fb, bool *res_chg)
+		   struct vdec_fb *fb, unsigned int  *res_chg)
 {
 	int ret = 0;
 	int i = 0;

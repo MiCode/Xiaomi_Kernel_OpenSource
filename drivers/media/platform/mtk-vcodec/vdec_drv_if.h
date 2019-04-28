@@ -80,7 +80,7 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx);
  * vdec_if_decode() - trigger decode
  * @ctx	: [in] v4l2 context
  * @bs	: [in] input bitstream
- * @fb	: [in] frame buffer to store decoded frame, when null means parse
+ * @fb	: [in] frame buffer to store decoded frame, when null menas parse
  *	header only
  * @res_chg	: [out] resolution change happens if current bs have different
  *	picture width/height
@@ -89,7 +89,7 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx);
  * Return: 0 on success. -EIO on unrecoverable error.
  */
 int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
-		   struct vdec_fb *fb, bool *res_chg);
+		   struct vdec_fb *fb, unsigned int  *res_chg);
 
 /**
  * vdec_if_get_param() - get driver's parameter

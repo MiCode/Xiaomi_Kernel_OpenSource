@@ -202,7 +202,7 @@ static void vdec_deinit(void *h_vdec)
 }
 
 static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
-	struct vdec_fb *fb, bool *src_chg)
+	struct vdec_fb *fb, unsigned int *src_chg)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
 	struct vdec_vcu_inst *vcu = &inst->vcu;

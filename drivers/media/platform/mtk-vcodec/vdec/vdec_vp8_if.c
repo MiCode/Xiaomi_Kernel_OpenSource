@@ -437,7 +437,7 @@ error_free_inst:
 }
 
 static int vdec_vp8_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
-			   struct vdec_fb *fb, bool *res_chg)
+			   struct vdec_fb *fb, unsigned int  *res_chg)
 {
 	struct vdec_vp8_inst *inst = (struct vdec_vp8_inst *)h_vdec;
 	struct vdec_vp8_dec_info *dec = &inst->vsi->dec;
@@ -447,6 +447,7 @@ static int vdec_vp8_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	int err = 0;
 	uint64_t y_fb_dma;
 	uint64_t c_fb_dma;
+	*res_chg = VDEC_NO_CHANGE;
 
 	/* bs NULL means flush decoder */
 	if (bs == NULL) {
@@ -490,7 +491,7 @@ static int vdec_vp8_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 
 	if (dec->resolution_changed) {
 		mtk_vcodec_debug(inst, "- resolution_changed -");
-		*res_chg = true;
+		*res_chg = VDEC_RES_CHANGE;
 		add_fb_to_free_list(inst, fb);
 		return 0;
 	}
@@ -512,7 +513,7 @@ static int vdec_vp8_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	mtk_vcodec_debug(inst, "\n - FRAME[%d] - show=%d\n", inst->frm_cnt,
 			 dec->show_frame);
 	inst->frm_cnt++;
-	*res_chg = false;
+	*res_chg = VDEC_NO_CHANGE;
 	return 0;
 
 error:

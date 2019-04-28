@@ -340,7 +340,7 @@ static int find_start_code(unsigned char *data, unsigned int data_sz)
 }
 
 static int vdec_h264_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
-			    struct vdec_fb *fb, bool *res_chg)
+			    struct vdec_fb *fb, unsigned int  *res_chg)
 {
 	struct vdec_h264_inst *inst = (struct vdec_h264_inst *)h_vdec;
 	struct vdec_vpu_inst *vpu = &inst->vpu;
@@ -354,6 +354,7 @@ static int vdec_h264_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	uint64_t vdec_fb_va = (u64)(uintptr_t)fb;
 	uint64_t y_fb_dma = fb ? (u64)fb->fb_base[0].dma_addr : 0;
 	uint64_t c_fb_dma = fb ? (u64)fb->fb_base[1].dma_addr : 0;
+	*res_chg = VDEC_NO_CHANGE;
 
 	mtk_vcodec_debug(inst, "+ [%d] FB y_dma=%llx c_dma=%llx va=%p",
 			 ++inst->num_nalu, y_fb_dma, c_fb_dma, fb);
@@ -393,9 +394,9 @@ static int vdec_h264_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	if (err)
 		goto err_free_fb_out;
 
-	*res_chg = inst->vsi->dec.resolution_changed;
-	if (*res_chg) {
+	if (inst->vsi->dec.resolution_changed) {
 		struct vdec_pic_info pic;
+		*res_chg = VDEC_RES_CHANGE;
 
 		mtk_vcodec_debug(inst, "- resolution changed -");
 		get_pic_info(inst, &pic);

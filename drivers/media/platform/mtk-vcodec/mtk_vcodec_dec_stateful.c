@@ -310,7 +310,7 @@ static void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 }
 static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 {
-	bool res_chg;
+	unsigned int res_chg;
 	int ret = 0;
 
 	ret = vdec_if_decode(ctx, NULL, NULL, &res_chg);
@@ -397,12 +397,19 @@ static void mtk_vdec_worker(struct work_struct *work)
 				decode_work);
 	struct mtk_vcodec_dev *dev = ctx->dev;
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
+	struct mtk_video_dec_buf *mtk_buf;
 	struct mtk_vcodec_mem buf;
 	struct vdec_fb *pfb;
+	unsigned int i = 0;
+	unsigned int src_chg = 0;
 	bool res_chg = false;
+	bool need_more_output = false;
+	bool mtk_vcodec_unsupport = false;
+
 	int ret;
-	int i;
 	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
+	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	unsigned int dpbsize = 0;
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_buf == NULL) {
@@ -458,7 +465,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		dst_buf_info->used = false;
 		mutex_unlock(&ctx->lock);
 
-		vdec_if_decode(ctx, NULL, NULL, &res_chg);
+		vdec_if_decode(ctx, NULL, NULL, &src_chg);
 		clean_free_bs_buffer(ctx, NULL);
 		clean_display_buffer(ctx, src_buf->planes[0].bytesused != 0U);
 		if (src_buf->planes[0].bytesused == 0U) {
@@ -476,6 +483,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		}
 
 		clean_free_buffer(ctx);
+		mtk_vdec_queue_stop_play_event(ctx);
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		return;
 	}
@@ -491,6 +499,10 @@ static void mtk_vdec_worker(struct work_struct *work)
 				ctx->id, src_buf->vb2_buf.index);
 		return;
 	}
+
+	dst_buf->flags &= ~CROP_CHANGED;
+	dst_buf->flags &= ~REF_FREED;
+
 	mtk_v4l2_debug(3, "[%d] Bitstream VA=%p DMA=%pad Size=%zx vb=%p",
 			ctx->id, buf.va, &buf.dma_addr, buf.size, src_buf);
 	dst_buf_info->vb.vb2_buf.timestamp
@@ -502,9 +514,16 @@ static void mtk_vdec_worker(struct work_struct *work)
 	mutex_unlock(&ctx->lock);
 	src_buf_info->used = true;
 
-	ret = vdec_if_decode(ctx, &buf, pfb, &res_chg);
+	ret = vdec_if_decode(ctx, &buf, pfb, &src_chg);
+	res_chg = ((src_chg & VDEC_RES_CHANGE) != 0U) ? true : false;
+	need_more_output = ((src_chg & VDEC_NEED_MORE_OUTPUT_BUF) != 0U) ?
+		true : false;
+	mtk_vcodec_unsupport = ((src_chg & VDEC_HW_NOT_SUPPORT) != 0) ?
+		true : false;
+	if (src_chg & VDEC_CROP_CHANGED)
+		dst_buf_info->flags |= CROP_CHANGED;
 
-	if (ret) {
+	if (ret < 0 || mtk_vcodec_unsupport) {
 		mtk_v4l2_err(
 			" <===[%d], src_buf[%d] sz=0x%zx pts=%llu dst_buf[%d] vdec_if_decode() ret=%d res_chg=%d===>",
 			ctx->id,
@@ -519,38 +538,104 @@ static void mtk_vdec_worker(struct work_struct *work)
 			src_buf_info->error = true;
 			mutex_unlock(&ctx->lock);
 		}
-		v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_ERROR);
-	} else if (res_chg == false) {
+		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
+		if (mtk_vcodec_unsupport) {
+			/*
+			 * If cncounter the src unsupport (fatal) during play,
+			 * egs: width/height, bitdepth, level, then teturn
+			 * error event to user to stop play it
+			 */
+			mtk_v4l2_err(" <=== [%d] vcodec not support the source!===>",
+				ctx->id);
+			ctx->state = MTK_STATE_FLUSH;
+			mtk_vdec_queue_error_event(ctx);
+			v4l2_m2m_buf_done(&src_buf_info->vb,
+				VB2_BUF_STATE_DONE);
+		} else
+			v4l2_m2m_buf_done(&src_buf_info->vb,
+			VB2_BUF_STATE_ERROR);
+	} else if (src_buf_info->lastframe == EOS_WITH_DATA &&
+		need_more_output == false) {
+		/*
+		 * Getting early eos bitstream buffer, after decode this
+		 * buffer, need to flush decoder. Use the flush_buf
+		 * as normal EOS, and flush decoder.
+		 */
+		mtk_v4l2_debug(0, "[%d] EarlyEos: decode last frame %d",
+			ctx->id, src_buf->planes[0].bytesused);
+		src_buf->flags |= V4L2_BUF_FLAG_LAST;
+		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		clean_free_bs_buffer(ctx, NULL);
+		mtk_buf = (struct mtk_video_dec_buf *)ctx->empty_flush_buf;
+		mtk_buf->lastframe = EOS;
+		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->empty_flush_buf->vb);
+	} else if ((ret == 0) && ((fourcc == V4L2_PIX_FMT_RV40) ||
+		(fourcc == V4L2_PIX_FMT_RV30) ||
+		(res_chg == false && need_more_output == false))) {
 		/*
 		 * we only return src buffer with VB2_BUF_STATE_DONE
-		 * when decode success without resolution change
+		 * when decode success without resolution
+		 * change except rv30/rv40.
 		 */
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_DONE);
+		clean_free_bs_buffer(ctx, NULL);
+	} else {    /* res_chg == true || need_more_output == true*/
+		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
+		mtk_v4l2_debug(1, "Need more capture buffer  r:%d n:%d\n",
+			res_chg, need_more_output);
 	}
+
 
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 	clean_display_buffer(ctx, src_buf_info->lastframe == EOS_WITH_DATA);
 	clean_free_buffer(ctx);
 
 	if (!ret && res_chg) {
-		mtk_vdec_pic_info_update(ctx);
-		/*
-		 * On encountering a resolution change in the stream.
-		 * The driver must first process and decode all
-		 * remaining buffers from before the resolution change
-		 * point, so call flush decode here
-		 */
-		mtk_vdec_flush_decoder(ctx);
-		/*
-		 * After all buffers containing decoded frames from
-		 * before the resolution change point ready to be
-		 * dequeued on the CAPTURE queue, the driver sends a
-		 * V4L2_EVENT_SOURCE_CHANGE event for source change
-		 * type V4L2_EVENT_SRC_CH_RESOLUTION
-		 */
-		mtk_vdec_queue_res_chg_event(ctx);
+		if ((fourcc == V4L2_PIX_FMT_RV40) ||
+			(fourcc == V4L2_PIX_FMT_RV30)) {
+			/*
+			 * For rv30/rv40 stream, encountering a resolution
+			 * change the current frame needs to refer to the
+			 * previous frame,so driver should not flush decode,
+			 * but the driver should sends a
+			 * V4L2_EVENT_SOURCE_CHANGE
+			 * event for source change to app.
+			 * app should set new crop to mdp directly.
+			 */
+			mtk_v4l2_debug(0, "RV30/RV40 RPR res_chg:%d\n",
+				res_chg);
+			mtk_vdec_queue_res_chg_event(ctx);
+		} else {
+			mtk_vdec_pic_info_update(ctx);
+			/*
+			 * On encountering a resolution change in the stream.
+			 * The driver must first process and decode all
+			 * remaining buffers from before the resolution change
+			 * point, so call flush decode here
+			 */
+			mtk_vdec_flush_decoder(ctx);
+			/*
+			 * After all buffers containing decoded frames from
+			 * before the resolution change point ready to be
+			 * dequeued on the CAPTURE queue, the driver sends a
+			 * V4L2_EVENT_SOURCE_CHANGE event for source change
+			 * type V4L2_EVENT_SRC_CH_RESOLUTION
+			 */
+			mtk_vdec_queue_res_chg_event(ctx);
+		}
+
+	} else if (ret == 0) {
+		ret = vdec_if_get_param(ctx, GET_PARAM_DPB_SIZE, &dpbsize);
+		if (dpbsize != 0) {
+			ctx->dpb_size = dpbsize;
+			ctx->last_dpb_size = dpbsize;
+		} else {
+			mtk_v4l2_err("[%d] GET_PARAM_DPB_SIZE fail=%d",
+				 ctx->id, ret);
+		}
 	}
+
 	v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 }
 
@@ -558,7 +643,10 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *src_buf;
 	struct mtk_vcodec_mem src_mem;
+	unsigned int src_chg = 0;
 	bool res_chg = false;
+	bool mtk_vcodec_unsupport = false;
+	bool wait_seq_header = false;
 	int ret = 0;
 	unsigned int dpbsize = 1, i = 0;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
@@ -636,14 +724,25 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 					   ((char *)src_mem.va)[8]);
 	}
 
-	ret = vdec_if_decode(ctx, &src_mem, NULL, &res_chg);
-	if (ret || !res_chg) {
+	ret = vdec_if_decode(ctx, &src_mem, NULL, &src_chg);
+	/* src_chg bit0 for res change flag, bit1 for realloc mv buf flag,
+	 * bit2 for not support flag, other bits are reserved
+	 */
+	res_chg = ((src_chg & VDEC_RES_CHANGE) != 0U) ? true : false;
+	mtk_vcodec_unsupport = ((src_chg & VDEC_HW_NOT_SUPPORT) != 0) ?
+						   true : false;
+	wait_seq_header = ((src_chg & VDEC_NEED_SEQ_HEADER) != 0U) ?
+					  true : false;
+
+	if (ret || !res_chg || mtk_vcodec_unsupport || wait_seq_header) {
 		/*
-		 * fb == NULL means to parse SPS/PPS header or
+		 * fb == NULL menas to parse SPS/PPS header or
 		 * resolution info in src_mem. Decode can fail
 		 * if there is no SPS header or picture info
 		 * in bs
 		 */
+		vb2_v4l2 = to_vb2_v4l2_buffer(vb);
+		buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		if (ret == -EIO) {
@@ -656,10 +755,32 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 		}
 		mtk_v4l2_debug(ret ? 0 : 1,
 			       "[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d",
-			       ctx->id, src_buf->vb2_buf.index,
+			       ctx->id, src_buf->index,
 			       src_mem.size, ret, res_chg);
+		/* If not support the source, eg: w/h,
+		 * bitdepth, level, we need to stop to play it
+		 */
+		if (mtk_vcodec_unsupport || buf->lastframe  != NON_EOS) {
+			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
+						 ctx->id);
+			mtk_vdec_queue_error_event(ctx);
+		}
 		return;
 	}
+
+	if (res_chg) {
+		mtk_v4l2_debug(3, "[%d] vdec_if_decode() res_chg: %d\n",
+			ctx->id, res_chg);
+		mtk_vdec_queue_res_chg_event(ctx);
+
+		/* remove all framebuffer.
+		 * framebuffer with old byteused cannot use.
+		 */
+		while (v4l2_m2m_dst_buf_remove(ctx->m2m_ctx) != NULL)
+			mtk_v4l2_debug(3, "[%d] v4l2_m2m_dst_buf_remove()",
+				ctx->id);
+	}
+
 
 	if (vdec_if_get_param(ctx, GET_PARAM_PIC_INFO, &ctx->picinfo)) {
 		mtk_v4l2_err("[%d]Error!! Cannot get param : GET_PARAM_PICTURE_INFO ERR",
@@ -689,7 +810,6 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	ctx->state = MTK_STATE_HEADER;
 	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->dpb_size);
 
-	mtk_vdec_queue_res_chg_event(ctx);
 }
 
 static const struct v4l2_ctrl_ops mtk_vcodec_dec_ctrl_ops = {
