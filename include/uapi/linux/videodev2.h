@@ -1038,11 +1038,16 @@ static inline __u64 v4l2_timeval_to_ns(const struct timeval *tv)
 #define V4L2_BUF_FLAG_IN_REQUEST		0x00000080
 /* timecode field is valid */
 #define V4L2_BUF_FLAG_TIMECODE			0x00000100
+/* Reference freed flags*/
+#define V4L2_BUF_FLAG_REF_FREED		0x00000200
 /* Buffer is prepared for queuing */
 #define V4L2_BUF_FLAG_PREPARED			0x00000400
 /* Cache handling flags */
 #define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE	0x00000800
 #define V4L2_BUF_FLAG_NO_CACHE_CLEAN		0x00001000
+/* Crop changed flags*/
+#define V4L2_BUF_FLAG_CROP_CHANGED		0x00008000
+
 /* Timestamp type */
 #define V4L2_BUF_FLAG_TIMESTAMP_MASK		0x0000e000
 #define V4L2_BUF_FLAG_TIMESTAMP_UNKNOWN		0x00000000

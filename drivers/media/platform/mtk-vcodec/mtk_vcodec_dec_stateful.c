@@ -648,6 +648,7 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	bool mtk_vcodec_unsupport = false;
 	bool wait_seq_header = false;
 	int ret = 0;
+	unsigned long frame_size[2];
 	unsigned int i = 0;
 	unsigned int dpbsize = 1;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
@@ -726,6 +727,10 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 					   ((char *)src_mem.va)[8]);
 	}
 
+
+	frame_size[0] = ctx->dec_params.frame_size_width;
+	frame_size[1] = ctx->dec_params.frame_size_height;
+	vdec_if_set_param(ctx, SET_PARAM_FRAME_SIZE, frame_size);
 	ret = vdec_if_decode(ctx, &src_mem, NULL, &src_chg);
 	mtk_vdec_set_param(ctx);
 
@@ -814,6 +819,7 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 		mtk_v4l2_err("[%d] GET_PARAM_DPB_SIZE fail=%d", ctx->id, ret);
 
 	ctx->dpb_size = dpbsize;
+	ctx->last_dpb_size = dpbsize;
 	ctx->state = MTK_STATE_HEADER;
 	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->dpb_size);
 

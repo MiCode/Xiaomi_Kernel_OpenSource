@@ -389,11 +389,63 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 			    struct v4l2_buffer *buf)
 {
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
+	struct vb2_queue *vq;
+	struct vb2_buffer *vb;
+	struct mtk_video_dec_buf *mtkbuf;
+	struct vb2_v4l2_buffer  *vb2_v4l2;
 
 	if (ctx->state == MTK_STATE_ABORT) {
 		mtk_v4l2_err("[%d] Call on QBUF after unrecoverable error",
 				ctx->id);
 		return -EIO;
+	}
+
+	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, buf->type);
+	vb = vq->bufs[buf->index];
+	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
+	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		ctx->input_max_ts =
+			(timeval_to_ns(&buf->timestamp) > ctx->input_max_ts) ?
+			timeval_to_ns(&buf->timestamp) : ctx->input_max_ts;
+		if (buf->m.planes[0].bytesused == 0) {
+			mtkbuf->lastframe = EOS;
+			mtk_v4l2_debug(1, "[%d] index=%d Eos BS(%d,%d) vb=%p pts=%llu",
+				ctx->id, buf->index,
+				buf->bytesused,
+				buf->length, vb,
+				timeval_to_ns(&buf->timestamp));
+		} else if (buf->flags & V4L2_BUF_FLAG_LAST) {
+			mtkbuf->lastframe = EOS_WITH_DATA;
+			mtk_v4l2_debug(1, "[%d] id=%d EarlyEos BS(%d,%d) vb=%p pts=%llu",
+				ctx->id, buf->index, buf->m.planes[0].bytesused,
+				buf->length, vb,
+				timeval_to_ns(&buf->timestamp));
+		} else {
+			mtkbuf->lastframe = NON_EOS;
+			mtk_v4l2_debug(1, "[%d] id=%d getdata BS(%d,%d) vb=%p pts=%llu %llu",
+				ctx->id, buf->index,
+				buf->m.planes[0].bytesused,
+				buf->length, vb,
+				timeval_to_ns(&buf->timestamp),
+				ctx->input_max_ts);
+		}
+	} else
+		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p",
+				ctx->id, buf->index,
+				buf->length, mtkbuf);
+
+	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
+		mtk_v4l2_debug(4, "[%d] No need for Cache clean, buf->index:%d. mtkbuf:%p",
+			ctx->id, buf->index, mtkbuf);
+		mtkbuf->flags |= NO_CAHCE_CLEAN;
+	}
+
+	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_INVALIDATE) {
+		mtk_v4l2_debug(4, "[%d] No need for Cache invalidate, buf->index:%d. mtkbuf:%p",
+			ctx->id, buf->index, mtkbuf);
+		mtkbuf->flags |= NO_CAHCE_INVALIDATE;
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -402,7 +454,12 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 			     struct v4l2_buffer *buf)
 {
+	int ret = 0;
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
+	struct vb2_queue *vq;
+	struct vb2_buffer *vb;
+	struct mtk_video_dec_buf *mtkbuf;
+	struct vb2_v4l2_buffer  *vb2_v4l2;
 
 	if (ctx->state == MTK_STATE_ABORT) {
 		mtk_v4l2_err("[%d] Call on DQBUF after unrecoverable error",
@@ -410,7 +467,23 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 		return -EIO;
 	}
 
-	return v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
+	ret = v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
+	buf->reserved = ctx->errormap_info[buf->index % VB2_MAX_FRAME];
+
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+		ret == 0) {
+		vq = v4l2_m2m_get_vq(ctx->m2m_ctx, buf->type);
+		vb = vq->bufs[buf->index];
+		vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
+		mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+		if (mtkbuf->flags & CROP_CHANGED)
+			buf->flags |= V4L2_BUF_FLAG_CROP_CHANGED;
+		if (mtkbuf->flags & REF_FREED)
+			buf->flags |= V4L2_BUF_FLAG_REF_FREED;
+	}
+
+	return ret;
 }
 
 static int vidioc_vdec_querycap(struct file *file, void *priv,
@@ -420,6 +493,8 @@ static int vidioc_vdec_querycap(struct file *file, void *priv,
 	strscpy(cap->bus_info, MTK_PLATFORM_STR, sizeof(cap->bus_info));
 	strscpy(cap->card, MTK_PLATFORM_STR, sizeof(cap->card));
 
+	cap->device_caps  = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
 
@@ -431,6 +506,8 @@ static int vidioc_vdec_subscribe_evt(struct v4l2_fh *fh,
 		return v4l2_event_subscribe(fh, sub, 2, NULL);
 	case V4L2_EVENT_SOURCE_CHANGE:
 		return v4l2_src_change_event_subscribe(fh, sub);
+	case V4L2_EVENT_VDEC_ERROR:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	default:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	}
@@ -676,10 +753,12 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 {
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 	struct v4l2_pix_format_mplane *pix_mp;
-	struct mtk_q_data *q_data;
-	int ret = 0;
-	const struct mtk_video_fmt *fmt;
+	struct mtk_q_data *q_data, *out_q_data;
+	int ret = 0, width = 0, height = 0;
+	struct mtk_video_fmt *fmt;
+
 	const struct mtk_vcodec_dec_pdata *dec_pdata = ctx->dev->vdec_pdata;
+	uint64_t size[2];
 
 	mtk_v4l2_debug(3, "[%d]", ctx->id);
 
@@ -715,6 +794,13 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 			fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 		}
 	}
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		width = pix_mp->width;
+		height = pix_mp->height;
+		out_q_data = mtk_vdec_get_q_data(ctx, f->type);
+		if (!out_q_data)
+			return -EINVAL;
+	}
 
 
 	q_data->fmt = fmt;
@@ -723,6 +809,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
 		q_data->coded_width = pix_mp->width;
 		q_data->coded_height = pix_mp->height;
+		size[0] = pix_mp->width;
+		size[1] = pix_mp->height;
 
 		ctx->colorspace = f->fmt.pix_mp.colorspace;
 		ctx->ycbcr_enc = f->fmt.pix_mp.ycbcr_enc;
@@ -737,7 +825,13 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 					ctx->id, ret);
 				return -EINVAL;
 			}
+			vdec_if_set_param(ctx, SET_PARAM_FRAME_SIZE,
+					(void *)size);
+
 			ctx->state = MTK_STATE_INIT;
+			if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+				vdec_if_set_param(ctx, SET_PARAM_FB_NUM_PLANES,
+					(void *) &q_data->fmt->num_planes);
 		}
 	}
 
@@ -901,6 +995,8 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
 	struct vb2_queue *vq;
 	struct mtk_q_data *q_data;
+	unsigned int fourcc;
+	unsigned int i = 0;
 
 	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, f->type);
 	if (!vq) {
@@ -938,8 +1034,15 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		 * further processing stages should crop to this
 		 * rectangle.
 		 */
-		pix_mp->width = q_data->coded_width;
-		pix_mp->height = q_data->coded_height;
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (fourcc == V4L2_PIX_FMT_RV30 ||
+			fourcc == V4L2_PIX_FMT_RV40) {
+			pix_mp->width = 1920;
+			pix_mp->height = 1088;
+		} else {
+			pix_mp->width = q_data->coded_width;
+			pix_mp->height = q_data->coded_height;
+		}
 
 		/*
 		 * Set pixelformat to the format in which mt vcodec
@@ -947,11 +1050,28 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		 */
 		pix_mp->num_planes = q_data->fmt->num_planes;
 		pix_mp->pixelformat = q_data->fmt->fourcc;
-		pix_mp->plane_fmt[0].bytesperline = q_data->bytesperline[0];
-		pix_mp->plane_fmt[0].sizeimage = q_data->sizeimage[0];
-		pix_mp->plane_fmt[1].bytesperline = q_data->bytesperline[1];
-		pix_mp->plane_fmt[1].sizeimage = q_data->sizeimage[1];
-
+		if (fourcc == V4L2_PIX_FMT_RV30 ||
+			fourcc == V4L2_PIX_FMT_RV40) {
+			for (i = 0; i < pix_mp->num_planes; i++) {
+				pix_mp->plane_fmt[i].bytesperline = 1920;
+				pix_mp->plane_fmt[i].sizeimage =
+					q_data->sizeimage[i];
+			}
+		} else {
+			for (i = 0; i < pix_mp->num_planes; i++) {
+				pix_mp->plane_fmt[i].bytesperline =
+					q_data->bytesperline[i];
+				pix_mp->plane_fmt[i].sizeimage =
+					q_data->sizeimage[i];
+			}
+		}
+		mtk_v4l2_debug(1, "fourcc:(%d %d),bytesperline:%d,sizeimage:%d,%d,%d\n",
+			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc,
+			q_data->fmt->fourcc,
+			pix_mp->plane_fmt[0].bytesperline,
+			pix_mp->plane_fmt[0].sizeimage,
+			pix_mp->plane_fmt[1].bytesperline,
+			pix_mp->plane_fmt[1].sizeimage);
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		/*
 		 * This is run on OUTPUT
@@ -966,14 +1086,29 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		pix_mp->pixelformat = q_data->fmt->fourcc;
 		pix_mp->num_planes = q_data->fmt->num_planes;
 	} else {
-		pix_mp->width = q_data->coded_width;
-		pix_mp->height = q_data->coded_height;
 		pix_mp->num_planes = q_data->fmt->num_planes;
 		pix_mp->pixelformat = q_data->fmt->fourcc;
-		pix_mp->plane_fmt[0].bytesperline = q_data->bytesperline[0];
-		pix_mp->plane_fmt[0].sizeimage = q_data->sizeimage[0];
-		pix_mp->plane_fmt[1].bytesperline = q_data->bytesperline[1];
-		pix_mp->plane_fmt[1].sizeimage = q_data->sizeimage[1];
+		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+
+		if (fourcc == V4L2_PIX_FMT_RV30 ||
+			fourcc == V4L2_PIX_FMT_RV40) {
+			for (i = 0; i < pix_mp->num_planes; i++) {
+				pix_mp->width = 1920;
+				pix_mp->height = 1088;
+				pix_mp->plane_fmt[i].bytesperline = 1920;
+				pix_mp->plane_fmt[i].sizeimage =
+					q_data->sizeimage[i];
+			}
+		} else {
+			pix_mp->width = q_data->coded_width;
+			pix_mp->height = q_data->coded_height;
+			for (i = 0; i < pix_mp->num_planes; i++) {
+				pix_mp->plane_fmt[i].bytesperline =
+					q_data->bytesperline[i];
+				pix_mp->plane_fmt[i].sizeimage =
+					q_data->sizeimage[i];
+			}
+		}
 
 		mtk_v4l2_debug(1, "[%d] type=%d state=%d Format information could not be read, not ready yet!",
 				ctx->id, f->type, ctx->state);
@@ -1065,6 +1200,7 @@ void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 		mtk_v4l2_err("Unrecoverable error on buffer.");
 		ctx->state = MTK_STATE_ABORT;
 	}
+
 }
 
 int vb2ops_vdec_buf_init(struct vb2_buffer *vb)
@@ -1094,6 +1230,13 @@ int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	if (ctx->state == MTK_STATE_FLUSH)
 		ctx->state = MTK_STATE_HEADER;
+
+	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		mtk_v4l2_debug(4, "V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE q->num_buffers = %d",
+			q->num_buffers);
+		ctx->dec_params.total_frame_bufq_count = q->num_buffers;
+		ctx->dec_param_change |= MTK_DEC_PARAM_TOTAL_FRAME_BUFQ_COUNT;
+	}
 
 	mtk_vdec_set_param(ctx);
 	return 0;
