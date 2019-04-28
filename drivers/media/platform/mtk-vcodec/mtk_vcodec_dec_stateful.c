@@ -727,6 +727,8 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	}
 
 	ret = vdec_if_decode(ctx, &src_mem, NULL, &src_chg);
+	mtk_vdec_set_param(ctx);
+
 	/* src_chg bit0 for res change flag, bit1 for realloc mv buf flag,
 	 * bit2 for not support flag, other bits are reserved
 	 */

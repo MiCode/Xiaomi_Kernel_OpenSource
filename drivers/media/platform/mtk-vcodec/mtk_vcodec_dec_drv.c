@@ -190,6 +190,7 @@ static int fops_vcodec_release(struct file *file)
 	 * Second, the decoder will be flushed and all the buffers will be
 	 * returned in stop_streaming.
 	 */
+	mtk_vcodec_dec_empty_queues(ctx);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 	mtk_vcodec_dec_release(ctx);
 

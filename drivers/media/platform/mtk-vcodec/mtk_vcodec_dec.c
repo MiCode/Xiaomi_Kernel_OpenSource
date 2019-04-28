@@ -200,6 +200,25 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx)
 	mutex_lock(&ctx->dev->dec_mutex);
 }
 
+void mtk_vcodec_dec_empty_queues(struct mtk_vcodec_ctx *ctx)
+{
+	struct vb2_buffer *src_buf = NULL, *dst_buf = NULL;
+	int i = 0;
+
+	while ((src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
+		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
+			VB2_BUF_STATE_ERROR);
+
+	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
+		for (i = 0; i < dst_buf->num_planes; i++)
+			vb2_set_plane_payload(dst_buf, i, 0);
+		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
+			VB2_BUF_STATE_ERROR);
+	}
+
+	ctx->state = MTK_STATE_FREE;
+}
+
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 {
 	vdec_if_deinit(ctx);
@@ -252,6 +271,118 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	q_data->bytesperline[0] = q_data->coded_width;
 	q_data->sizeimage[1] = q_data->sizeimage[0] / 2;
 	q_data->bytesperline[1] = q_data->coded_width;
+}
+
+int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
+{
+	unsigned long in[8] = {0};
+
+	mtk_v4l2_debug(4,
+		"[%d] param change %d decode mode %d frame width %d frame height %d max width %d max height %d",
+		ctx->id, ctx->dec_param_change,
+		ctx->dec_params.decode_mode,
+		ctx->dec_params.frame_size_width,
+		ctx->dec_params.frame_size_height,
+		ctx->dec_params.fixed_max_frame_size_width,
+		ctx->dec_params.fixed_max_frame_size_height);
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_DECODE_MODE) {
+		in[0] = ctx->dec_params.decode_mode;
+		if (vdec_if_set_param(ctx, SET_PARAM_DECODE_MODE, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_DECODE_MODE);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_FRAME_SIZE) {
+		in[0] = ctx->dec_params.frame_size_width;
+		in[1] = ctx->dec_params.frame_size_height;
+		if (in[0] != 0 && in[1] != 0) {
+			if (vdec_if_set_param(ctx,
+				SET_PARAM_FRAME_SIZE, in) != 0) {
+				mtk_v4l2_err("[%d] Error!! Cannot set param",
+					ctx->id);
+				return -EINVAL;
+			}
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_FRAME_SIZE);
+	}
+
+	if (ctx->dec_param_change &
+		MTK_DEC_PARAM_FIXED_MAX_FRAME_SIZE) {
+		in[0] = ctx->dec_params.fixed_max_frame_size_width;
+		in[1] = ctx->dec_params.fixed_max_frame_size_height;
+		if (in[0] != 0 && in[1] != 0) {
+			if (vdec_if_set_param(ctx,
+				SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER,
+				in) != 0) {
+				mtk_v4l2_err("[%d] Error!! Cannot set param",
+					ctx->id);
+				return -EINVAL;
+			}
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_FIXED_MAX_FRAME_SIZE);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_CRC_PATH) {
+		in[0] = (unsigned long)ctx->dec_params.crc_path;
+		if (vdec_if_set_param(ctx, SET_PARAM_CRC_PATH, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_CRC_PATH);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_GOLDEN_PATH) {
+		in[0] = (unsigned long)ctx->dec_params.golden_path;
+		if (vdec_if_set_param(ctx, SET_PARAM_GOLDEN_PATH, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_GOLDEN_PATH);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_WAIT_KEY_FRAME) {
+		in[0] = (unsigned long)ctx->dec_params.wait_key_frame;
+		if (vdec_if_set_param(ctx, SET_PARAM_WAIT_KEY_FRAME, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_WAIT_KEY_FRAME);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_NAL_SIZE_LENGTH) {
+		in[0] = (unsigned long)ctx->dec_params.wait_key_frame;
+		if (vdec_if_set_param(ctx, SET_PARAM_NAL_SIZE_LENGTH,
+					in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_NAL_SIZE_LENGTH);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_OPERATING_RATE) {
+		in[0] = (unsigned long)ctx->dec_params.operating_rate;
+		if (vdec_if_set_param(ctx, SET_PARAM_OPERATING_RATE, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &= (~MTK_DEC_PARAM_OPERATING_RATE);
+	}
+
+	if (ctx->dec_param_change & MTK_DEC_PARAM_TOTAL_FRAME_BUFQ_COUNT) {
+		in[0] = (unsigned long)ctx->dec_params.total_frame_bufq_count;
+		if (vdec_if_set_param
+			(ctx, SET_PARAM_TOTAL_FRAME_BUFQ_COUNT, in) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot set param", ctx->id);
+			return -EINVAL;
+		}
+		ctx->dec_param_change &=
+			(~MTK_DEC_PARAM_TOTAL_FRAME_BUFQ_COUNT);
+	}
+
+	return 0;
 }
 
 static int vidioc_vdec_qbuf(struct file *file, void *priv,
@@ -373,6 +504,61 @@ static int vidioc_try_fmt(struct v4l2_format *f,
 
 	pix_fmt_mp->flags = 0;
 	memset(&pix_fmt_mp->reserved, 0x0, sizeof(pix_fmt_mp->reserved));
+	return 0;
+}
+
+static  int vidioc_vdec_g_crop(struct file *file, void *priv,
+		struct v4l2_crop *cr)
+{
+	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
+
+	if (ctx->state < MTK_STATE_HEADER)
+		return -EINVAL;
+
+	if ((ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H264) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H265) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_HEIF) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP9) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG1) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG2) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG4) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H263) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_S263) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_XVID) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX3) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX4) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX5) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_DIVX6) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV1) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV2) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV3) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WVC1) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMVA) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_RV30) ||
+	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_RV40)) {
+		if (vdec_if_get_param(ctx, GET_PARAM_CROP_INFO, cr) != 0) {
+			mtk_v4l2_debug(2, "[%d]Error!! Cannot get param : GET_PARAM_CROP_INFO ERR",
+						   ctx->id);
+			cr->c.left = 0;
+			cr->c.top = 0;
+			cr->c.width = ctx->picinfo.pic_w;
+			cr->c.height = ctx->picinfo.pic_h;
+		}
+		mtk_v4l2_debug(2, "Cropping info: l=%d t=%d w=%d h=%d",
+					   cr->c.left, cr->c.top, cr->c.width,
+					   cr->c.height);
+	} else {
+		cr->c.left = 0;
+		cr->c.top = 0;
+		cr->c.width = ctx->picinfo.pic_w;
+		cr->c.height = ctx->picinfo.pic_h;
+		mtk_v4l2_debug(2, "Cropping info: w=%d h=%d fw=%d fh=%d",
+			cr->c.width, cr->c.height,
+			ctx->picinfo.buf_w,
+			ctx->picinfo.buf_h);
+	}
+
 	return 0;
 }
 
@@ -909,6 +1095,7 @@ int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	if (ctx->state == MTK_STATE_FLUSH)
 		ctx->state = MTK_STATE_HEADER;
 
+	mtk_vdec_set_param(ctx);
 	return 0;
 }
 
@@ -1057,6 +1244,7 @@ const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops = {
 
 	.vidioc_decoder_cmd = vidioc_decoder_cmd,
 	.vidioc_try_decoder_cmd = vidioc_try_decoder_cmd,
+	.vidioc_g_crop		= vidioc_vdec_g_crop,
 };
 
 int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,

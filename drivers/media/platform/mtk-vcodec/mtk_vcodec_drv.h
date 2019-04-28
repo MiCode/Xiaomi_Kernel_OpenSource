@@ -225,6 +225,21 @@ struct vdec_pic_info {
 	unsigned int cap_fourcc;
 };
 
+enum mtk_dec_param {
+	MTK_DEC_PARAM_NONE = 0,
+	MTK_DEC_PARAM_DECODE_MODE = (1 << 0),
+	MTK_DEC_PARAM_FRAME_SIZE = (1 << 1),
+	MTK_DEC_PARAM_FIXED_MAX_FRAME_SIZE = (1 << 2),
+	MTK_DEC_PARAM_CRC_PATH = (1 << 3),
+	MTK_DEC_PARAM_GOLDEN_PATH = (1 << 4),
+	MTK_DEC_PARAM_WAIT_KEY_FRAME = (1 << 5),
+	MTK_DEC_PARAM_NAL_SIZE_LENGTH = (1 << 6),
+	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
+	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
+	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9),
+	MTK_DEC_PARAM_TOTAL_FRAME_BUFQ_COUNT = (1 << 10)
+};
+
 struct mtk_dec_params {
 	unsigned int    decode_mode;
 	unsigned int    frame_size_width;
@@ -306,6 +321,7 @@ struct mtk_vcodec_ctx {
 	enum mtk_instance_state state;
 	enum mtk_encode_param param_change;
 	struct mtk_enc_params enc_params;
+	enum mtk_dec_param dec_param_change;
 	struct mtk_dec_params dec_params;
 
 	const struct vdec_common_if *dec_if;
