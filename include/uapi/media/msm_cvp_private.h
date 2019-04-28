@@ -185,7 +185,7 @@ struct cvp_kmd_client_data {
 
 #define CVP_PERSIST_CMD_SIZE 11
 #define CVP_PERSIST_BUFFERS_OFFSET 7
-#define CVP_PSRSIST_BUF_NUM	2
+#define CVP_PERSIST_BUF_NUM	2
 
 struct cvp_kmd_dfs_config {
 	unsigned int cvp_dfs_config[CVP_DFS_CONFIG_CMD_SIZE];
@@ -207,7 +207,7 @@ struct cvp_kmd_persist_buf {
 	unsigned int persist_data[CVP_PERSIST_CMD_SIZE];
 };
 
-#define	MAX_HFI_PKT_SIZE	250
+#define	MAX_HFI_PKT_SIZE	470
 
 struct cvp_kmd_hfi_packet {
 	unsigned int pkt_data[MAX_HFI_PKT_SIZE];
@@ -221,6 +221,17 @@ struct cvp_kmd_sys_property {
 struct cvp_kmd_sys_properties {
 	unsigned int prop_num;
 	struct cvp_kmd_sys_property prop_data;
+};
+
+#define SESSION_CREATE	1
+#define SESSION_DELETE	2
+#define SESSION_START	3
+#define SESSION_STOP	4
+#define SESSION_INFO	5
+
+struct cvp_kmd_session_control {
+	unsigned int ctrl_type;
+	unsigned int ctrl_data[8];
 };
 
 #define MAX_HFI_FENCE_SIZE        16
@@ -266,6 +277,7 @@ struct cvp_kmd_arg {
 		struct cvp_kmd_hfi_packet hfi_pkt;
 		struct cvp_kmd_sys_properties sys_properties;
 		struct cvp_kmd_hfi_fence_packet hfi_fence_pkt;
+		struct cvp_kmd_session_control session_ctrl;
 	} data;
 };
 #endif
