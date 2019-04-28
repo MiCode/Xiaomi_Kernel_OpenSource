@@ -283,6 +283,16 @@ config MEDIATEK_EMI_BW
 	  To close EMI BW for mtk-vcodec, choose n here: the EMI BW
 	  Function will close for mtk-vcodec
 
+config VB2_MEDIATEK_DMA
+	bool "MEDIATEK V4L2 driver with DMA CONTIG"
+	depends on VIDEO_MEDIATEK_VCODEC
+	default n
+	help
+	  For SVP, can't access secure memory in normal world.
+	  MEDIATEK V4L2 driver will use proprietary DMA contig
+	  functions to handle DMA and bypass memory access.
+	  To enable proprietary functions, choose Y here.
+
 config VIDEO_MEM2MEM_DEINTERLACE
 	tristate "Deinterlace support"
 	depends on VIDEO_DEV && VIDEO_V4L2
