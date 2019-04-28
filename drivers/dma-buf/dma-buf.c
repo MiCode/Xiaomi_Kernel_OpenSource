@@ -69,6 +69,7 @@ static struct dma_buf_list db_list;
 static int dma_buf_release(struct inode *inode, struct file *file)
 {
 	struct dma_buf *dmabuf;
+	int dtor_ret = 0;
 
 	if (!is_dma_buf_file(file))
 		return -EINVAL;
@@ -91,7 +92,14 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
 
-	dmabuf->ops->release(dmabuf);
+	if (dmabuf->dtor)
+		dtor_ret = dmabuf->dtor(dmabuf, dmabuf->dtor_data);
+
+	if (!dtor_ret)
+		dmabuf->ops->release(dmabuf);
+	else
+		pr_warn_ratelimited("Leaking dmabuf %s because destructor failed error:%d\n",
+				    dmabuf->name, dtor_ret);
 
 	dma_buf_ref_destroy(dmabuf);
 
