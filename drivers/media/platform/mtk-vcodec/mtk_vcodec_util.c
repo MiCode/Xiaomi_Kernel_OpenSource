@@ -33,7 +33,7 @@ void __iomem *mtk_vcodec_get_reg_addr(struct mtk_vcodec_ctx *data,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)data;
 
-	if (!data || reg_idx >= NUM_MAX_VCODEC_REG_BASE) {
+	if (!data || reg_idx >= NUM_MAX_VDEC_REG_BASE) {
 		mtk_v4l2_err("Invalid arguments, reg_idx=%d", reg_idx);
 		return NULL;
 	}

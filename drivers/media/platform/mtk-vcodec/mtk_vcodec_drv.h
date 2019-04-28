@@ -49,13 +49,15 @@ enum mtk_hw_reg_idx {
 	VDEC_HWQ,
 	VDEC_HWB,
 	VDEC_HWG,
-	NUM_MAX_VDEC_REG_BASE,
-	/* h264 encoder */
-	VENC_SYS = NUM_MAX_VDEC_REG_BASE,
-	/* vp8 encoder */
-	VENC_LT_SYS,
-	NUM_MAX_VCODEC_REG_BASE
+	NUM_MAX_VDEC_REG_BASE
 };
+
+enum mtk_enc_dtsi_reg_idx {
+	VENC_LT_SYS,
+	VENC_SYS,
+	NUM_MAX_VENC_REG_BASE
+};
+
 
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.
@@ -458,7 +460,7 @@ struct mtk_vcodec_dev {
 	struct list_head ctx_list;
 	spinlock_t irqlock;
 	struct mtk_vcodec_ctx *curr_ctx;
-	void __iomem *reg_base[NUM_MAX_VCODEC_REG_BASE];
+	void __iomem *reg_base[NUM_MAX_VDEC_REG_BASE];
 	const struct mtk_vcodec_dec_pdata *vdec_pdata;
 	const struct mtk_vcodec_enc_pdata *venc_pdata;
 
@@ -483,6 +485,7 @@ struct mtk_vcodec_dev {
 	struct mtk_vcodec_pm pm;
 	unsigned int dec_capability;
 	unsigned int enc_capability;
+	bool is_codec_suspending;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)
