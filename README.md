@@ -47,6 +47,7 @@
 | sagit-n-oss | Mi 6, Mi MIX 2 | Android N | MSM8998.LA.1.1.r1-00232-STD.PROD-3 | [sagit-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-n-oss) |
 | sagit-o-oss | Mi 6, Mi MIX 2 | Android O | LA.UM.6.4.r1-04900-8x98.0 | [sagit-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sagit-o-oss) |
 | sakura-o-oss | Redmi 6Pro, Redmi 5Plus,Mi 5X | Android O | LA.UM.6.6.r1-07400-89xx.0 | [sakura-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sakura-o-oss) |
+| sakura-p-oss | Redmi 6Pro | Android P | LA.UM.7.6.r1-02800-89xx.0 | [sakura-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sakura-p-oss) |
 | santoni-n-oss | Redmi 4X | Android N | LA.UM.5.6.r1-04600-89xx.0 | [santoni-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/santoni-n-oss) |
 | scorpio-m-oss | Mi 5, Mi 5s, Mi 5s Plus, Mi MIX, Mi Note 2 | Android M | LA.HB.1.3.1_101rb1275 | [scorpio-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/scorpio-m-oss) |
 | scorpio-n-oss | Mi 5, Mi 5s, Mi 5s Plus, Mi MIX, Mi Note 2 | Android N | LA.UM.5.5.r1-01800-8x96.0 | [scorpio-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/scorpio-n-oss) |
