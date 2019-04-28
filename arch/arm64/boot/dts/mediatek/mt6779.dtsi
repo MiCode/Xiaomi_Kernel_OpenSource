@@ -1136,6 +1136,41 @@
 				 <&imgsys CLK_IMG_LARB6>;
 			clock-names = "apb", "smi";
 		};
+		vcu: vcu@16000000 {
+			compatible = "mediatek-vcu";
+			mediatek,vcuid = <0>;
+			mediatek,vcuname = "vcu";
+			reg = <0 0x16000000 0 0x40000>,/* VDEC_BASE */
+				 <0 0x17020000 0 0x10000>,/* VENC_BASE */
+				 <0 0x19002000 0 0x1000>;/* VENC_LT */
+			iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>;
+		};
+
+		vcodec_dec: vcodec@16000000 {
+			compatible = "mediatek,mt6779-vcodec-dec";
+			reg = <0 0x16000000 0 0x1000>,/* VDEC_SYS */
+				 <0 0x16025000 0 0x1000>;/* VDEC_MISC */
+			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_LOW>;
+			mediatek,vcu = <&vcu>;
+			iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_PP_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_VLD_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_AVC_MV_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_PRED_RD_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
+				 <&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>;
+			clocks =
+				<&mmsys CLK_MM_SMI_COMMON>,
+				<&mmsys CLK_MM_GALS_COMM0>,
+				<&mmsys CLK_MM_GALS_COMM1>,
+				<&vdecsys CLK_VDEC_VDEC>;
+			clock-names =
+				"MT_MM_SMI_COMMON",
+				"MT_MM_GALS_COMM0",
+				"MT_MM_GALS_COMM1",
+				"MT_CG_VDEC_VDEC";
+			#clock-cells = <1>;
+		};
 
 		vdecsys: clock-controller@16000000 {
 			compatible = "mediatek,mt6779-vdecsys", "syscon";
