@@ -384,9 +384,11 @@ struct wlfw_cap_resp_msg_v01 {
 	u32 voltage_mv;
 	u8 time_freq_hz_valid;
 	u32 time_freq_hz;
+	u8 otp_version_valid;
+	u32 otp_version;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 221
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 228
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
