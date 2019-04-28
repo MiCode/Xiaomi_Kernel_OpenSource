@@ -1585,6 +1585,11 @@ struct ipa3_char_device_context {
 	struct cdev cdev;
 };
 
+struct ipa3_pc_mbox_data {
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @cdev: cdev context
@@ -1828,8 +1833,7 @@ struct ipa3_context {
 	u32 sd_state;
 	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
-	struct mbox_client mbox_client;
-	struct mbox_chan *mbox;
+	struct ipa3_pc_mbox_data pc_mbox;
 	atomic_t ipa_clk_vote;
 	int gsi_chk_intset_value;
 	int uc_mailbox17_chk;

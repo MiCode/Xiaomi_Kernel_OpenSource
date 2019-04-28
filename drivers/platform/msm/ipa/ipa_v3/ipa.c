@@ -8092,20 +8092,22 @@ void ipa_pc_qmp_enable(void)
 	char buf[MAX_LEN] = "{class: bcm, res: ipa_pc, val: 1}";
 	struct qmp_pkt pkt;
 	int ret = 0;
+	struct ipa3_pc_mbox_data *mbox_data = &ipa3_ctx->pc_mbox;
+
+	IPADBG("Enter\n");
 
 	/* prepare the mailbox struct */
-	ipa3_ctx->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
-	ipa3_ctx->mbox_client.tx_block = true;
-	ipa3_ctx->mbox_client.tx_tout = MBOX_TOUT_MS;
-	ipa3_ctx->mbox_client.knows_txdone = false;
+	mbox_data->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
+	mbox_data->mbox_client.tx_block = true;
+	mbox_data->mbox_client.tx_tout = MBOX_TOUT_MS;
+	mbox_data->mbox_client.knows_txdone = false;
 
-	ipa3_ctx->mbox = mbox_request_channel(&ipa3_ctx->mbox_client, 0);
-	if (IS_ERR(ipa3_ctx->mbox)) {
-		ret = PTR_ERR(ipa3_ctx->mbox);
+	mbox_data->mbox = mbox_request_channel(&mbox_data->mbox_client, 0);
+	if (IS_ERR(mbox_data->mbox)) {
+		ret = PTR_ERR(mbox_data->mbox);
 		if (ret != -EPROBE_DEFER)
 			IPAERR("mailbox channel request failed, ret=%d\n", ret);
 
-		ipa3_ctx->mbox = NULL;
 		return;
 	}
 
@@ -8114,16 +8116,13 @@ void ipa_pc_qmp_enable(void)
 	pkt.data = buf;
 
 	/* send the QMP packet to AOP */
-	ret = mbox_send_message(ipa3_ctx->mbox, &pkt);
-	if (ret < 0) {
+	ret = mbox_send_message(mbox_data->mbox, &pkt);
+	if (ret < 0)
 		IPAERR("qmp message send failed, ret=%d\n", ret);
-		goto cleanup;
-	}
 
-cleanup:
-	if (ipa3_ctx->mbox) {
-		mbox_free_channel(ipa3_ctx->mbox);
-		ipa3_ctx->mbox = NULL;
+	if (mbox_data->mbox) {
+		mbox_free_channel(mbox_data->mbox);
+		mbox_data->mbox = NULL;
 	}
 }
 

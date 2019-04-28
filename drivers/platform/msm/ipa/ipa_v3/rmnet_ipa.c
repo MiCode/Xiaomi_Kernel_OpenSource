@@ -3921,13 +3921,6 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 		 * SSR recovery
 		 */
 		rmnet_ipa_get_network_stats_and_update();
-	} else {
-		/*
-		 * To enable ipa power collapse we need to enable rpmh and uc
-		 * handshake So that uc can do register retention. To enable
-		 * this handshake we need to send the below message to rpmh
-		 */
-		ipa_pc_qmp_enable();
 	}
 
 	imp_handle_modem_ready();
