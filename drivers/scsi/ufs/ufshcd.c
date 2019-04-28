@@ -5169,7 +5169,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	ufshcd_dme_cmd_log(hba, "dme_cmpl_2", hba->active_uic_cmd->command);
 
 out:
-	if (ret) {
+	if (ret && !(hba->extcon && ufshcd_is_card_offline(hba))) {
 		ufsdbg_set_err_state(hba);
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
@@ -5363,7 +5363,7 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 			__func__, ret);
 		ret = ufshcd_link_recovery(hba);
 		/* Unable to recover the link, so no point proceeding */
-		if (ret)
+		if (ret && !(hba->extcon && ufshcd_is_card_offline(hba)))
 			BUG_ON(1);
 	} else {
 		ufshcd_vops_hibern8_notify(hba, UIC_CMD_DME_HIBER_EXIT,
