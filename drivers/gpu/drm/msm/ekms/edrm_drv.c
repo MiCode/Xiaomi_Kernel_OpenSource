@@ -24,6 +24,7 @@
 #include "edrm_kms.h"
 
 static struct completion wait_display_completion;
+static bool msm_edrm_probed;
 
 static int msm_edrm_unload(struct drm_device *dev)
 {
@@ -330,6 +331,8 @@ static int msm_pdev_edrm_probe(struct platform_device *pdev)
 	struct msm_drm_private *master_priv;
 	struct msm_kms *master_kms;
 
+	msm_edrm_probed = true;
+
 	/* main DRM's minor ID is zero */
 	minor = drm_minor_acquire(0);
 	if (IS_ERR(minor)) {
@@ -411,6 +414,20 @@ static const struct of_device_id dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, dt_match);
 
+static int find_match(struct device *dev, void *data)
+{
+	struct device_driver *drv = data;
+
+	return drv->bus->match(dev, drv);
+}
+
+static bool find_device(struct platform_driver *pdrv)
+{
+	struct device_driver *drv = &pdrv->driver;
+
+	return bus_for_each_dev(drv->bus, NULL, drv, find_match);
+}
+
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_edrm_probe,
 	.remove     = msm_pdev_edrm_remove,
@@ -438,9 +455,13 @@ static void __exit msm_edrm_unregister(void)
 
 static int __init msm_edrm_late_register(void)
 {
-	pr_debug("wait for eDRM display probe completion\n");
-	wait_for_completion(&wait_display_completion);
+	struct platform_driver *pdrv;
 
+	pdrv = &msm_platform_driver;
+	if (msm_edrm_probed || find_device(pdrv)) {
+		pr_debug("wait for eDRM display probe completion\n");
+		wait_for_completion(&wait_display_completion);
+	}
 	return 0;
 }
 

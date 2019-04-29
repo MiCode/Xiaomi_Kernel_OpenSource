@@ -48,6 +48,7 @@
 #include "msm_mmu.h"
 
 static struct completion wait_display_completion;
+static bool msm_drm_probed;
 
 static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 {
@@ -2369,6 +2370,8 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 	struct component_match *match = NULL;
 
+	msm_drm_probed = true;
+
 #ifdef CONFIG_OF
 	add_components(&pdev->dev, &match, "connectors");
 #ifndef CONFIG_QCOM_KGSL
@@ -2454,6 +2457,20 @@ static const struct of_device_id dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, dt_match);
 
+static int find_match(struct device *dev, void *data)
+{
+	struct device_driver *drv = data;
+
+	return drv->bus->match(dev, drv);
+}
+
+static bool find_device(struct platform_driver *pdrv)
+{
+	struct device_driver *drv = &pdrv->driver;
+
+	return bus_for_each_dev(drv->bus, NULL, drv, find_match);
+}
+
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
@@ -2502,9 +2519,13 @@ static void __exit msm_drm_unregister(void)
 
 static int __init msm_drm_late_register(void)
 {
-	pr_debug("wait for display probe completion\n");
-	wait_for_completion(&wait_display_completion);
+	struct platform_driver *pdrv;
 
+	pdrv = &msm_platform_driver;
+	if (msm_drm_probed || find_device(pdrv)) {
+		pr_debug("wait for display probe completion\n");
+		wait_for_completion(&wait_display_completion);
+	}
 	return 0;
 }
 
