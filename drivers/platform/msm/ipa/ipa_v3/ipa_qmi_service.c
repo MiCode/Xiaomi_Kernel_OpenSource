@@ -1335,13 +1335,25 @@ int ipa3_qmi_filter_notify_send(
 		return -EINVAL;
 	}
 
+	if (req->rule_id_ex_len == 0) {
+		IPAWANDBG(" delete UL filter rule for pipe %d\n",
+		req->source_pipe_index);
+	} else if (req->rule_id_ex_len > QMI_IPA_MAX_FILTERS_EX2_V01) {
+		IPAWANERR(" UL filter rule for pipe %d exceed max (%u)\n",
+		req->source_pipe_index,
+		req->rule_id_ex_len);
+		return -EINVAL;
+	}
+
 	if (req->install_status != IPA_QMI_RESULT_SUCCESS_V01) {
 		IPAWANERR(" UL filter rule for pipe %d install_status = %d\n",
 			req->source_pipe_index, req->install_status);
 		return -EINVAL;
-	} else if (req->rule_id_valid != 1) {
-		IPAWANERR(" UL filter rule for pipe %d rule_id_valid = %d\n",
-			req->source_pipe_index, req->rule_id_valid);
+	} else if ((req->rule_id_valid != 1) &&
+		(req->rule_id_ex_valid != 1)) {
+		IPAWANERR(" UL filter rule for pipe %d rule_id_valid = %d/%d\n",
+			req->source_pipe_index, req->rule_id_valid,
+			req->rule_id_ex_valid);
 		return -EINVAL;
 	} else if (req->source_pipe_index >= ipa3_ctx->ipa_num_pipes) {
 		IPAWANDBG(
