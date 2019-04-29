@@ -232,13 +232,18 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	csiphy_dev->csiphy_info.csiphy_3phase =
 		cam_cmd_csiphy_info->csiphy_3phase;
 	csiphy_dev->csiphy_info.combo_mode |= cam_cmd_csiphy_info->combo_mode;
-	if (cam_cmd_csiphy_info->combo_mode == 1)
+	if (cam_cmd_csiphy_info->combo_mode == 1) {
 		csiphy_dev->csiphy_info.settle_time_combo_sensor =
 			cam_cmd_csiphy_info->settle_time;
-	else
+		csiphy_dev->csiphy_info.data_rate_combo_sensor =
+			cam_cmd_csiphy_info->data_rate;
+	} else {
 		csiphy_dev->csiphy_info.settle_time =
 			cam_cmd_csiphy_info->settle_time;
-	csiphy_dev->csiphy_info.data_rate = cam_cmd_csiphy_info->data_rate;
+		csiphy_dev->csiphy_info.data_rate =
+			cam_cmd_csiphy_info->data_rate;
+	}
+
 
 	if (cam_cmd_csiphy_info->secure_mode == 1)
 		cam_csiphy_update_secure_info(csiphy_dev,

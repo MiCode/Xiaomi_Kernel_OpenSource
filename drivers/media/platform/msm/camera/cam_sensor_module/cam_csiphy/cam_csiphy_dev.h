@@ -155,6 +155,8 @@ struct csiphy_reg_t {
 	uint32_t csiphy_param_type;
 };
 
+struct csiphy_device;
+
 /**
  * struct csiphy_ctrl_t
  * @csiphy_reg: Register address
@@ -166,6 +168,9 @@ struct csiphy_reg_t {
  * @csiphy_3ph_reg: 3phase register set
  * @csiphy_2ph_3ph_mode_reg:
  *     2 phase 3phase combo register set
+ * @getclockvoting: function pointer which
+ *      is used to find the clock voting
+ *      for the sensor output data rate
  */
 struct csiphy_ctrl_t {
 	struct csiphy_reg_parms_t csiphy_reg;
@@ -176,6 +181,7 @@ struct csiphy_ctrl_t {
 	struct csiphy_reg_t (*csiphy_2ph_combo_mode_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_3ph_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_2ph_3ph_mode_reg)[MAX_SETTINGS_PER_LANE];
+	enum   cam_vote_level (*getclockvoting)(struct csiphy_device *phy_dev);
 };
 
 /**
@@ -190,6 +196,8 @@ struct csiphy_ctrl_t {
  * @settle_time   :  Settling time in ms
  * @settle_time_combo_sensor   :  Settling time in ms
  * @data_rate     :  Data rate in mbps
+ * @data_rate_combo_sensor: data rate of combo sensor
+ *                          in the the same phy
  *
  */
 struct cam_csiphy_param {
@@ -202,6 +210,7 @@ struct cam_csiphy_param {
 	uint64_t    settle_time;
 	uint64_t    settle_time_combo_sensor;
 	uint64_t    data_rate;
+	uint64_t    data_rate_combo_sensor;
 };
 
 /**
