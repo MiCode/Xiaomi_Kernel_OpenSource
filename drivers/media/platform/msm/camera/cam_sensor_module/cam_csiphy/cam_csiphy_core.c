@@ -274,6 +274,65 @@ void cam_csiphy_cphy_irq_config(struct csiphy_device *csiphy_dev)
 			csiphy_dev->ctrl_reg->csiphy_irq_reg[i].reg_addr);
 }
 
+void cam_csiphy_cphy_data_rate_config(struct csiphy_device *csiphy_device)
+{
+	int i = 0, j = 0;
+	uint64_t phy_data_rate = 0;
+	void __iomem *csiphybase = NULL;
+	ssize_t num_table_entries = 0;
+	struct data_rate_settings_t *settings_table = NULL;
+
+	if ((csiphy_device == NULL) ||
+		(csiphy_device->ctrl_reg == NULL) ||
+		(csiphy_device->ctrl_reg->data_rates_settings_table == NULL)) {
+		CAM_DBG(CAM_CSIPHY,
+			"Data rate specific register table not found");
+		return;
+	}
+
+	phy_data_rate = csiphy_device->csiphy_info.data_rate;
+	csiphybase =
+		csiphy_device->soc_info.reg_map[0].mem_base;
+	settings_table =
+		csiphy_device->ctrl_reg->data_rates_settings_table;
+	num_table_entries =
+		settings_table->num_data_rate_settings;
+
+	CAM_DBG(CAM_CSIPHY, "required data rate : %llu", phy_data_rate);
+	for (i = 0; i < num_table_entries; i++) {
+		struct data_rate_reg_info_t *drate_settings =
+			settings_table->data_rate_settings;
+		uint64_t bandwidth =
+			drate_settings[i].bandwidth;
+		ssize_t  num_reg_entries =
+		drate_settings[i].data_rate_reg_array_size;
+
+		if (phy_data_rate > bandwidth) {
+			CAM_DBG(CAM_CSIPHY,
+					"Skipping table [%d] %llu required: %llu",
+					i, bandwidth, phy_data_rate);
+			continue;
+		}
+
+		CAM_DBG(CAM_CSIPHY,
+			"table[%d] BW : %llu Selected", i, bandwidth);
+		for (j = 0; j < num_reg_entries; j++) {
+			uint32_t reg_addr =
+			drate_settings[i].csiphy_data_rate_regs[j].reg_addr;
+
+			uint32_t reg_data =
+			drate_settings[i].csiphy_data_rate_regs[j].reg_data;
+
+			CAM_DBG(CAM_CSIPHY,
+				"writing reg : %x val : %x",
+						reg_addr, reg_data);
+			cam_io_w_mb(reg_data,
+				csiphybase + reg_addr);
+		}
+		break;
+	}
+}
+
 void cam_csiphy_cphy_irq_disable(struct csiphy_device *csiphy_dev)
 {
 	int32_t i;
@@ -480,6 +539,9 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		lane_mask >>= 1;
 		lane_pos++;
 	}
+
+	if (csiphy_dev->csiphy_info.csiphy_3phase)
+		cam_csiphy_cphy_data_rate_config(csiphy_dev);
 
 	cam_csiphy_cphy_irq_config(csiphy_dev);
 
