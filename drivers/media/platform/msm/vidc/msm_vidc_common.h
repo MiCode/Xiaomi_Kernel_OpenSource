@@ -9,8 +9,6 @@
 #include "msm_vidc_debug.h"
 
 #define MAX_DEC_BATCH_SIZE                     6
-#define MAX_DEC_BATCH_WIDTH                    1920
-#define MAX_DEC_BATCH_HEIGHT                   1088
 #define SKIP_BATCH_WINDOW                      100
 #define MIN_FRAME_QUALITY 0
 #define MAX_FRAME_QUALITY 100

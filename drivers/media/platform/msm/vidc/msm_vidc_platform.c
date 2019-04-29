@@ -158,7 +158,7 @@ static struct msm_vidc_codec default_codecs[] = {
 };
 
 static struct msm_vidc_codec_capability kona_capabilities[] = {
-	/* {cap_type, min, max, step_size, default_value, domains, codecs} */
+	/* {cap_type, domains, codecs, min, max, step_size, default_value,} */
 	{CAP_FRAME_WIDTH, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1920},
 	{CAP_FRAME_HEIGHT, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1080},
 	/* (8192 * 4320) / 256 */
@@ -213,6 +213,11 @@ static struct msm_vidc_codec_capability kona_capabilities[] = {
 	/* (4096 * 2304) / 256 */
 	{CAP_SECURE_MBS_PER_FRAME, DOMAINS_ALL, CODECS_ALL, 1, 36864, 1, 36864},
 	{CAP_SECURE_BITRATE, DOMAINS_ALL, CODECS_ALL, 1, 40000000, 1, 20000000},
+
+	/* Batch Mode Decode */
+	{CAP_BATCH_MAX_MB_PER_FRAME, DEC, CODECS_ALL, 128, 34560, 1, 34560},
+	/* (4096 * 2160) / 256 */
+	{CAP_BATCH_MAX_FPS, DEC, CODECS_ALL, 1, 120, 1, 120},
 };
 
 /*
@@ -386,7 +391,6 @@ static struct msm_vidc_common_data lito_common_data_v1[] = {
 	},
 };
 
-/* Update with kona */
 static struct msm_vidc_common_data kona_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
@@ -446,7 +450,7 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,decode-batching",
-		.value = 0,
+		.value = 1,
 	},
 	{
 		.key = "qcom,dcvs",

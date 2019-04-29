@@ -2780,37 +2780,26 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 
 bool is_batching_allowed(struct msm_vidc_inst *inst)
 {
-	bool allowed = false;
-	struct v4l2_format *out_f;
-	struct v4l2_format *inp_f;
+	u32 op_pixelformat, fps, maxmbs, maxfps;
 
 	if (!inst || !inst->core)
 		return false;
 
-	/*
-	 * Enable decode batching based on below conditions
-	 * - platform supports batching
-	 * - decode session and H264/HEVC/VP9 format
-	 * - session resolution <= 1080p
-	 * - low latency not enabled
-	 * - not a thumbnail session
-	 * - UBWC color format
-	 */
-	inp_f = &inst->fmts[INPUT_PORT].v4l2_fmt;
-	out_f = &inst->fmts[OUTPUT_PORT].v4l2_fmt;
-	if (inst->core->resources.decode_batching && is_decode_session(inst) &&
-		(inp_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_H264 ||
-		inp_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_HEVC ||
-		inp_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_VP9) &&
-		(msm_vidc_get_mbs_per_frame(inst) <=
-		NUM_MBS_PER_FRAME(MAX_DEC_BATCH_HEIGHT, MAX_DEC_BATCH_WIDTH)) &&
-		!inst->clk_data.low_latency_mode &&
-		!is_thumbnail_session(inst) &&
-		(out_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV12_UBWC ||
-		out_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV12_TP10_UBWC))
-		allowed = true;
+	/* Enable decode batching based on below conditions */
+	op_pixelformat =
+		inst->fmts[OUTPUT_PORT].v4l2_fmt.fmt.pix_mp.pixelformat;
+	fps = inst->clk_data.frame_rate >> 16;
+	maxmbs = inst->capability.cap[CAP_BATCH_MAX_MB_PER_FRAME].max;
+	maxfps = inst->capability.cap[CAP_BATCH_MAX_FPS].max;
 
-	return allowed;
+	return (inst->core->resources.decode_batching &&
+		is_decode_session(inst) &&
+		!is_thumbnail_session(inst) &&
+		!inst->clk_data.low_latency_mode &&
+		(op_pixelformat == V4L2_PIX_FMT_NV12_UBWC ||
+		 op_pixelformat	== V4L2_PIX_FMT_NV12_TP10_UBWC) &&
+		fps <= maxfps &&
+		msm_vidc_get_mbs_per_frame(inst) <= maxmbs);
 }
 
 static int msm_comm_session_abort(struct msm_vidc_inst *inst)

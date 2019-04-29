@@ -882,10 +882,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	if (is_batching_allowed(inst))
-		inst->batch.enable = true;
-	else
-		inst->batch.enable = false;
+	inst->batch.enable = is_batching_allowed(inst);
 	dprintk(VIDC_DBG, "%s: batching %s for inst %pK (%#x)\n",
 		__func__, inst->batch.enable ? "enabled" : "disabled",
 		inst, hash32_ptr(inst->session));
