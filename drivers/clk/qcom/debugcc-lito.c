@@ -245,6 +245,10 @@ static const char *const debug_mux_parent_names[] = {
 	"pwrcl_clk",
 	"perfcl_clk",
 	"perfpcl_clk",
+	"measure_only_mccc_clk",
+	"measure_only_cnoc_clk",
+	"measure_only_ipa_2x_clk",
+	"measure_only_snoc_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -701,6 +705,14 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x45, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
 		{ "perfpcl_clk", 0xE8, 4, CPU_CC,
 			0x47, 0x7F, 4, 0xf, 11, 1, 0x0, 0x0, U32_MAX, 16 },
+		{ "measure_only_mccc_clk", 0xC2, 1, MC_CC,
+			0xC2, 0x3FF, 0, 0xF, 0, 1, 0x62008, 0x62000, 0x62004 },
+		{ "measure_only_cnoc_clk", 0x15, 1, GCC,
+			0x15, 0x3FF, 0, 0xF, 0, 1, 0x62008, 0x62000, 0x62004 },
+		{ "measure_only_ipa_2x_clk", 0x128, 1, GCC,
+			0x128, 0x3FF, 0, 0xF, 0, 1, 0x62008, 0x62000, 0x62004 },
+		{ "measure_only_snoc_clk", 0x7, 1, GCC,
+			0x7, 0x3FF, 0, 0xF, 0, 1, 0x62008, 0x62000, 0x62004 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",
@@ -776,6 +788,10 @@ static int clk_debug_lito_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = map_debug_bases(pdev, "qcom,cpucc", CPU_CC);
+	if (ret)
+		return ret;
+
+	ret = map_debug_bases(pdev, "qcom,mccc", MC_CC);
 	if (ret)
 		return ret;
 
