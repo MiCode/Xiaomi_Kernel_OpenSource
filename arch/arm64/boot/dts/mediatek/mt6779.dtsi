@@ -292,9 +292,15 @@
 			interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_LOW>;
 			phys = <&ufsphy>;
 
-			clocks = <&infracfg_ao CLK_INFRA_UFS>;
-			clock-names = "ufs";
-			freq-table-hz = <0 0>;
+			clocks = <&infracfg_ao CLK_INFRA_UFS>,
+				 <&infracfg_ao CLK_INFRA_UFS_TICK>,
+				 <&infracfg_ao CLK_INFRA_UFS_AXI>,
+				 <&infracfg_ao CLK_INFRA_UNIPRO_TICK>,
+				 <&infracfg_ao CLK_INFRA_UNIPRO_MBIST>;
+			clock-names = "ufs", "ufs_tick", "ufs_axi",
+				      "unipro_tick", "unipro_mbist";
+			freq-table-hz = <0 0>, <0 0>, <0 0>,
+					<0 0>, <0 0>;
 
 			vcc-supply = <&mt6359_vemc_ldo_reg>;
 		};
