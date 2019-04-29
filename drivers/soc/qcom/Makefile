@@ -24,6 +24,7 @@ obj-$(CONFIG_QCOM_IPCC) += qcom_ipcc.o
 obj-$(CONFIG_QCOM_LLCC) += llcc-slice.o
 obj-$(CONFIG_QCOM_KONA_LLCC) += llcc-kona.o
 obj-$(CONFIG_QCOM_LITO_LLCC) += llcc-lito.o
+obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
 obj-$(CONFIG_QCOM_APR) += apr.o
 obj-$(CONFIG_QCOM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_MSM_TZ_SMMU) += msm_tz_smmu.o

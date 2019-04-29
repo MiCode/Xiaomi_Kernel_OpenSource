@@ -353,7 +353,7 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	struct resource *banks_res, *bcast_res;
 	void __iomem *banks_base, *bcast_base;
 	int ret, i;
-	struct platform_device *llcc_edac;
+	struct platform_device *llcc_edac, *llcc_perfmon;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
@@ -429,6 +429,12 @@ int qcom_llcc_probe(struct platform_device *pdev,
 					sizeof(*drv_data));
 	if (IS_ERR(llcc_edac))
 		dev_err(dev, "Failed to register llcc edac driver\n");
+
+	llcc_perfmon = platform_device_register_data(&pdev->dev,
+					"qcom_llcc_perfmon", -1,
+					drv_data, sizeof(*drv_data));
+	if (IS_ERR(llcc_perfmon))
+		dev_err(dev, "Failed to register llcc perfmon device\n");
 
 	return ret;
 }
