@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,6 +339,32 @@
 					pins = "gpio37";
 					drive-strength = <2>;
 					bias-pull-up;
+				};
+			};
+
+			pcie0_3v3_on: pcie0_3v3_on {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio90";
+					drive_strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+
+			pcie0_1v5_on: pcie0_1v5_on {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio90";
+					drive_strength = <2>;
+					bias-disable;
+					output-high;
 				};
 			};
 		};
@@ -3538,6 +3564,15 @@
 		};
 	};
 
+	led_bt {
+		led_bt_default: led_bt_default {
+			pins = "gpio5";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
 			pins = "gpio6";
@@ -3565,6 +3600,15 @@
 			input-enable;
 			bias-pull-up;
 			power-source = <0>;
+		};
+	};
+
+	led_wifi {
+		led_wifi_default: led_wifi_default {
+			pins = "gpio9";
+			function = "normal";
+			power-source = <0>;
+			output-low;
 		};
 	};
 

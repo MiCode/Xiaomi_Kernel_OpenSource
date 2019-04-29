@@ -4264,6 +4264,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	int i;
 	struct dsi_display_ctrl *ctrl;
 	struct dsi_display_mode_priv_info *priv_info;
+	struct dsi_host_config *config;
 
 	priv_info = mode->priv_info;
 	if (!dsi_display_has_ext_bridge(display) && !priv_info) {
@@ -4272,9 +4273,9 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 		return -EINVAL;
 	}
 
-	rc = dsi_panel_get_host_cfg_for_mode(display->panel,
-					     mode,
-					     &display->config);
+	config = &display->config;
+
+	rc = dsi_panel_get_host_cfg_for_mode(display->panel, mode, config);
 	if (rc) {
 		pr_err("[%s] failed to get host config for mode, rc=%d\n",
 		       display->name, rc);
@@ -4306,8 +4307,16 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
-		rc = dsi_ctrl_update_host_config(ctrl->ctrl, &display->config,
-				mode->dsi_mode_flags, display->dsi_clk_handle);
+		/*
+		 * if bit clock is overridden then update the phy timings
+		 * and clock out control values first.
+		 */
+		if (config->bit_clk_rate_hz)
+			dsi_phy_update_phy_timings(ctrl->phy, config);
+
+		rc = dsi_ctrl_update_host_config(ctrl->ctrl, config,
+						 mode->dsi_mode_flags,
+						 display->dsi_clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update ctrl config, rc=%d\n",
 			       display->name, rc);
