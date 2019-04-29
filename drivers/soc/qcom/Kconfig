@@ -768,3 +768,31 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+
+config ICNSS
+	tristate "Platform driver for Q6 integrated connectivity"
+	select CNSS_UTILS
+	help
+	  This module adds support for Q6 integrated WLAN connectivity
+	  subsystem. This module is responsible for communicating WLAN on/off
+	  control messages to FW over QMI channel. It is also responsible for
+	  handling WLAN PD restart notifications.
+
+config ICNSS_DEBUG
+	bool "ICNSS debug support"
+	depends on ICNSS
+	help
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.
+
+config ICNSS_QMI
+	bool "ICNSS QMI support"
+	depends on ICNSS
+	help
+	  Say 'Y' here to enable ICNSS QMI support. ICNSS driver will use
+	  QMI framework to communicate with WLAN FW. It will send coldboot
+	  handshake messages to WLAN FW, which includes hardware capabilities
+	  and configurations. It also send WLAN on/off control message to FW
+	  over QMI channel.
