@@ -524,7 +524,7 @@ static unsigned long scan_shadow_nodes(struct shrinker *shrinker,
 static struct shrinker workingset_shadow_shrinker = {
 	.count_objects = count_shadow_nodes,
 	.scan_objects = scan_shadow_nodes,
-	.seeks = 0, /* ->count reports only fully expendable nodes */
+	.seeks = DEFAULT_SEEKS,
 	.flags = SHRINKER_NUMA_AWARE | SHRINKER_MEMCG_AWARE,
 };
 
