@@ -1490,6 +1490,12 @@ int msm_vidc_decide_work_mode_iris2(struct msm_vidc_inst *inst)
 			/* For WORK_MODE_1, set Low Latency mode by default */
 			latency.enable = true;
 		}
+		if (inst->rc_type == RATE_CONTROL_LOSSLESS &&
+			out_f->fmt.pix_mp.pixelformat == V4L2_PIX_FMT_H264) {
+			dprintk(VIDC_DBG,
+				"Set work mode to low latency for AVC lossless encoding.");
+			latency.enable = true;
+		}
 	} else {
 		return -EINVAL;
 	}
