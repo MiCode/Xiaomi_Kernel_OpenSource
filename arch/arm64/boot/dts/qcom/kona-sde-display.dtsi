@@ -217,6 +217,11 @@
 	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 	qcom,mdss-dsi-panel-status-value = <0x9c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,dsi-supported-dfps-list = <60 57 55>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_hfp";
+	qcom,mdss-dsi-min-refresh-rate = <55>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
@@ -242,7 +247,7 @@
 			qcom,display-topology = <2 2 1>;
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
-			qcom,panel-roi-alignment = <720 180 180 180 1440 180>;
+			qcom,panel-roi-alignment = <540 270 270 270 1080 270>;
 		};
 	};
 };
@@ -289,18 +294,24 @@
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
 				07 05 02 04 00 18 17];
-			qcom,display-topology = <2 2 2>;
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
 };
 
 &dsi_dual_nt35597_truly_video {
+	qcom,mdss-dsi-min-refresh-rate = <53>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
 				07 05 02 04 00 18 17];
-			qcom,display-topology = <2 2 2>;
+			qcom,display-topology = <2 0 2>,
+						<1 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
