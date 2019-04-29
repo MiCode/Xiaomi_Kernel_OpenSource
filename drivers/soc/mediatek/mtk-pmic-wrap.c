@@ -1877,16 +1877,18 @@ static int pwrap_probe(struct platform_device *pdev)
 	}
 
 	/* Write Test */
-	if (pwrap_write(wrp, wrp->slave->dew_regs[PWRAP_DEW_WRITE_TEST],
-			PWRAP_DEW_WRITE_TEST_VAL) ||
-	    pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_WRITE_TEST],
-		       &rdata) ||
-	    (rdata != PWRAP_DEW_WRITE_TEST_VAL)) {
-		dev_notice(wrp->dev,
-			"[PWRAP] Write Test fail, rdata=0x%x\n", rdata);
-		goto err_out2;
-	} else {
-		dev_notice(wrp->dev, "[PWRAP] Write Test pass\n");
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_MONITOR_V2)) {
+		if (pwrap_write(wrp, wrp->slave->dew_regs[PWRAP_DEW_WRITE_TEST],
+				PWRAP_DEW_WRITE_TEST_VAL) ||
+		    pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_WRITE_TEST],
+			       &rdata) ||
+		    (rdata != PWRAP_DEW_WRITE_TEST_VAL)) {
+			dev_notice(wrp->dev,
+				"[PWRAP] Write Test fail, rdata=0x%x\n", rdata);
+			goto err_out2;
+		} else {
+			dev_notice(wrp->dev, "[PWRAP] Write Test pass\n");
+		}
 	}
 
 	ret = of_platform_populate(np, NULL, NULL, wrp->dev);
