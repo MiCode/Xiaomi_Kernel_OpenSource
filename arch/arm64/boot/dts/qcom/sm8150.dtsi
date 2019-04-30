@@ -572,11 +572,11 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
-			vbmeta {
+			shared_meta: vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,dtbo,odm";
 			};
-			fstab {
+			android_q_fstab: fstab {
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
