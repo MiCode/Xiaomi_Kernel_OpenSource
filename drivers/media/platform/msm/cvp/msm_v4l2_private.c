@@ -130,13 +130,32 @@ static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
+static void _set_deprecate_bitmask(struct cvp_kmd_arg *kp,
+			struct msm_cvp_inst *inst)
+{
+	int bit_offset;
+
+	dprintk(CVP_DBG, "%s: kp->type = %#x\n", __func__, kp->type);
+	if (kp->type == CVP_KMD_HFI_DFS_FRAME_CMD ||
+			kp->type == CVP_KMD_HFI_DME_FRAME_CMD ||
+			kp->type == CVP_KMD_HFI_PERSIST_CMD) {
+		bit_offset = kp->type - CVP_KMD_CMD_START;
+		set_bit(bit_offset, &inst->deprecate_bitmask);
+	}
+
+	if (kp->type == CVP_KMD_HFI_DME_FRAME_FENCE_CMD) {
+		bit_offset = CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START;
+		set_bit(bit_offset, &inst->deprecate_bitmask);
+	}
+}
+
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
 		struct msm_cvp_inst *inst)
 {
 	int rc = 0;
-	int i, bit_offset;
-	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	int i;
+	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
 	if (!kp || !up) {
@@ -147,12 +166,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	if (get_user(kp->type, &up->type))
 		return -EFAULT;
 
-	if (kp->type == CVP_KMD_HFI_DFS_FRAME_CMD ||
-			kp->type == CVP_KMD_HFI_DME_FRAME_CMD ||
-			kp->type == CVP_KMD_HFI_PERSIST_CMD) {
-		bit_offset = kp->type - CVP_KMD_CMD_START;
-		set_bit(bit_offset, &inst->deprecate_bitmask);
-	}
+	_set_deprecate_bitmask(kp, inst);
 
 	if (get_user(kp->buf_offset, &up->buf_offset) ||
 		get_user(kp->buf_num, &up->buf_num))
@@ -290,7 +304,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
 	int i, size = sizeof(struct hfi_msg_session_hdr) >> 2;
-	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
 	if (!kp || !up) {
@@ -435,14 +449,13 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	return rc;
 }
 
-long msm_cvp_v4l2_private(struct file *filp,
+static long cvp_ioctl(struct msm_cvp_inst *inst,
 	unsigned int cmd, unsigned long arg)
 {
 	int rc;
-	struct msm_cvp_inst *inst;
 	struct cvp_kmd_arg karg;
 
-	if (!filp || !filp->private_data) {
+	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
@@ -451,7 +464,6 @@ long msm_cvp_v4l2_private(struct file *filp,
 	if (cmd != VIDIOC_CVP_CMD)
 		return 0;
 
-	inst = filp->private_data;
 	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 
 	if (convert_from_user(&karg, arg, inst)) {
@@ -474,4 +486,32 @@ long msm_cvp_v4l2_private(struct file *filp,
 	}
 
 	return rc;
+}
+
+long cvp_unblocked_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct msm_cvp_inst *inst;
+
+	if (!filp || !filp->private_data) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = filp->private_data;
+	return cvp_ioctl(inst, cmd, arg);
+}
+
+long cvp_compat_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct msm_cvp_inst *inst;
+
+	if (!filp || !filp->private_data) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = filp->private_data;
+	return cvp_ioctl(inst, cmd, (unsigned long)compat_ptr(arg));
 }
