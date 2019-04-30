@@ -847,13 +847,13 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
-				&mode->mdp_transfer_time_us);
-	if (!rc)
-		display_mode->priv_info->mdp_transfer_time_us =
-			mode->mdp_transfer_time_us;
-	else
-		display_mode->priv_info->mdp_transfer_time_us =
-			DEFAULT_MDP_TRANSFER_TIME;
+			&mode->mdp_transfer_time_us);
+	if (rc) {
+		pr_debug("fallback to default mdp-transfer-time-us\n");
+		mode->mdp_transfer_time_us = DEFAULT_MDP_TRANSFER_TIME;
+	}
+	display_mode->priv_info->mdp_transfer_time_us =
+					mode->mdp_transfer_time_us;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-panel-framerate",
