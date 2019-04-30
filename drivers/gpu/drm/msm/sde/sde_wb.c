@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,7 +345,7 @@ int sde_wb_get_mode_info(struct drm_connector *connector,
 		hdisplay = max(hdisplay, wb_dev->modes[i].hdisplay);
 
 	topology = &mode_info->topology;
-	topology->num_lm = (max_mixer_width <= hdisplay) ? dual_lm : single_lm;
+	topology->num_lm = (max_mixer_width < hdisplay) ? dual_lm : single_lm;
 	topology->num_enc = no_enc;
 	topology->num_intf = single_intf;
 
