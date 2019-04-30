@@ -595,6 +595,14 @@ static int cam_fd_mgr_util_prepare_io_buf_info(int32_t iommu_hdl,
 					return -ENOMEM;
 				}
 
+				if (io_cfg[i].offsets[plane] >= size) {
+					CAM_ERR(CAM_FD,
+						"Invalid cpu buf %d %d %d",
+						io_cfg[i].direction,
+						io_cfg[i].resource_type, plane);
+					return -EINVAL;
+				}
+
 				io_addr[plane] += io_cfg[i].offsets[plane];
 			}
 
