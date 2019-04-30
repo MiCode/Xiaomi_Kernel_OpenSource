@@ -2191,8 +2191,8 @@ static int venus_hfi_core_release(void *dev)
 
 	__resume(device);
 	__set_state(device, VENUS_STATE_DEINIT);
-	if (0)
-		__dsp_shutdown(device, 0);
+
+	__dsp_shutdown(device, 0);
 
 	__unload_fw(device);
 
@@ -2919,13 +2919,11 @@ static int __power_collapse(struct venus_hfi_device *device, bool force)
 		goto exit;
 	}
 
-	if (0) {
-		rc = __core_in_valid_state(device);
-		if (!rc) {
-			dprintk(CVP_WARN,
-					"Core is in bad state, Skipping power collapse\n");
-			return -EINVAL;
-		}
+	rc = __core_in_valid_state(device);
+	if (!rc) {
+		dprintk(CVP_WARN,
+				"Core is in bad state, Skipping power collapse\n");
+		return -EINVAL;
 	}
 
 	rc = __dsp_suspend(device, force, flags);
@@ -4607,8 +4605,8 @@ static inline int __resume(struct venus_hfi_device *device)
 	__enable_subcaches(device);
 	__set_subcaches(device);
 
-	if (0)
-		__dsp_resume(device, flags);
+
+	__dsp_resume(device, flags);
 
 	dprintk(CVP_PROF, "Resumed from power collapse\n");
 exit:
