@@ -664,7 +664,7 @@
 			wlan_vregs = "vdd-wlan-aon", "vdd-wlan-rfa1",
 				   "vdd-wlan-rfa2", "vdd-wlan-rfa3";
 			qcom,vdd-wlan-aon-info = <1055000 1055000 0 0>;
-			qcom,vdd-wlan-rfa1-info = <1350000 1350000 0 0>;
+			qcom,vdd-wlan-rfa1-info = <1370000 1370000 0 0>;
 			qcom,vdd-wlan-rfa2-info = <2040000 2040000 0 0>;
 			qcom,vdd-wlan-rfa3-info = <1900000 1900000 0 0>;
 
