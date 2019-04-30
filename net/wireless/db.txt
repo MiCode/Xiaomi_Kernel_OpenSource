@@ -273,8 +273,9 @@ country CL:
 	(2402 - 2482 @ 40), (20)
 	(5170 - 5330 @ 160), (20)
 	(5735 - 5835 @ 80), (20)
-	# 60 gHz band channels 1-3
-	(57240 - 63720 @ 2160), (50), NO-OUTDOOR
+	# 60 gHz band channels 1-4
+	# reference: https://www.leychile.cl/Navegar?idNorma=1121070
+	(57240 - 65880 @ 2160), (40), NO-OUTDOOR
 
 country CN: DFS-FCC
 	(2402 - 2482 @ 40), (20)
@@ -431,6 +432,9 @@ country EG: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
 	(5170 - 5250 @ 40), (23)
 	(5250 - 5330 @ 40), (23), DFS
+	# 60 gHz band channels 1-4
+	# reference: http://www.tra.gov.eg/en/industry/importing-of-equipment/Pages/Short-Range-Wireless-Devices.aspx
+	(57240 - 65880 @ 2160), (40)
 
 country ES: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
@@ -1370,6 +1374,9 @@ country TN: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
 	(5170 - 5250 @ 80), (23), AUTO-BW
 	(5250 - 5330 @ 80), (23), DFS, AUTO-BW
+	# 60 gHz band channels 1-4
+	# reference: https://guichetunique-tic.cert.tn/pdf/arrete_2017_2621_fr.pdf
+	(57240 - 65880 @ 2160), (40)
 
 country TR: DFS-ETSI
 	(2402 - 2482 @ 40), (20)
