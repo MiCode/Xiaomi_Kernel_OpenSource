@@ -118,5 +118,30 @@ struct spcom_user_send_modified_command {
 	char buf[0]; /* Variable buffer size - must be last field */
 } __packed;
 
+enum {
+	SPCOM_IONFD_CMD,
+	SPCOM_POLL_CMD,
+};
+
+enum spcom_poll_cmd_id {
+	SPCOM_LINK_STATE_REQ,
+	SPCOM_CH_CONN_STATE_REQ,
+};
+
+struct spcom_poll_param {
+	/* input parameters */
+	bool wait;
+	enum spcom_poll_cmd_id cmd_id;
+	/* output parameter */
+	int retval;
+} __packed;
+
+#define SPCOM_IOCTL_MAGIC	'S'
+#define SPCOM_GET_IONFD _IOR(SPCOM_IOCTL_MAGIC, SPCOM_IONFD_CMD, \
+			     struct spcom_ion_handle)
+#define SPCOM_SET_IONFD _IOW(SPCOM_IOCTL_MAGIC, SPCOM_IONFD_CMD, \
+			     struct spcom_ion_handle)
+#define SPCOM_POLL_STATE _IOWR(SPCOM_IOCTL_MAGIC, SPCOM_POLL_CMD, \
+			       struct spcom_poll_param)
 
 #endif /* _UAPI_SPCOM_H_ */

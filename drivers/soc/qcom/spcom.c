@@ -61,6 +61,7 @@
 #include <linux/list.h>
 #include <uapi/linux/spcom.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <linux/ioctl.h>
 
 /**
  * Request buffer size.
@@ -215,6 +216,9 @@ struct spcom_device {
 	/* rx data path */
 	struct list_head    rx_list_head;
 	spinlock_t          rx_lock;
+
+	int32_t nvm_ion_fd;
+	struct mutex ioctl_lock;
 };
 
 /* Device Driver State */
@@ -1540,119 +1544,119 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	return actual_size;
 }
 
-/**
- * spcom_device_poll() - handle channel file poll() from user space.
- *
- * @filp: file pointer
- *
- * This allows user space to wait/check for channel connection,
- * or wait for SSR event.
- *
- * Return: event bitmask on success, set POLLERR on failure.
- */
-static unsigned int spcom_device_poll(struct file *filp,
-				       struct poll_table_struct *poll_table)
+static inline int handle_poll(struct file *file,
+		       struct spcom_poll_param *op)
 {
-	/*
-	 * when user call with timeout -1 for blocking mode,
-	 * any bit must be set in response
-	 */
-	unsigned int ret = SPCOM_POLL_READY_FLAG;
-	unsigned long mask;
 	struct spcom_channel *ch;
-	const char *name = file_to_filename(filp);
-	bool wait = false;
-	bool done = false;
-	/* Event types always implicitly polled for */
-	unsigned long reserved = POLLERR | POLLHUP | POLLNVAL;
+	const char *name = file_to_filename(file);
 	int ready = 0;
+	int ret = 0;
+
+	pr_debug("SPCOM_POLL_STATE - wait:%d, op:%d\n", op->wait, op->cmd_id);
+
+	switch (op->cmd_id) {
+	case SPCOM_LINK_STATE_REQ:
+		if (op->wait) {
+			reinit_completion(&spcom_dev->rpmsg_state_change);
+			ready = wait_for_completion_interruptible(
+					  &spcom_dev->rpmsg_state_change);
+			pr_debug("ch [%s] link state change signaled\n", name);
+		}
+		op->retval = atomic_read(&spcom_dev->rpmsg_dev_count) > 0;
+		break;
+	case SPCOM_CH_CONN_STATE_REQ:
+		if (strcmp(name, DEVICE_NAME) == 0) {
+			pr_err("invalid control device is used: %s\n", name);
+			return -EINVAL;
+		}
+		/*
+		 * ch is not expected to be NULL since user must call open()
+		 * to get FD before it can call poll().
+		 * open() will fail if no ch related to the char-device.
+		 */
+		ch = file->private_data;
+		if (!ch) {
+			pr_err("invalid ch pointer, file [%s]\n", name);
+			ret = -EINVAL;
+			break;
+		}
+		if (op->wait) {
+			reinit_completion(&ch->connect);
+			ready = wait_for_completion_interruptible(&ch->connect);
+			pr_debug("ch [%s] connect signaled\n", name);
+		}
+		mutex_lock(&ch->lock);
+		op->retval = (ch->rpdev != NULL);
+		mutex_unlock(&ch->lock);
+		pr_debug("ch [%s] reported retval=%d\n", name, op->retval);
+		break;
+	default:
+		pr_err("ch [%s] unsupported ioctl:%u\n", op->cmd_id);
+		ret = -EINVAL;
+	}
+	pr_debug("name=%s, retval=%d, ready=%d\n", name, op->retval, ready);
+	if (ready < 0) { /* wait was interrupted */
+		pr_info("interrupted wait retval=%d\n", op->retval);
+		ret = -EINTR;
+	}
+	return ret;
+}
+
+static long spcom_device_ioctl(struct file *file,
+			       unsigned int ioctl,
+			       unsigned long arg)
+{
+	void __user *argp = (void __user *)arg;
+	const char *name = file_to_filename(file);
+	struct spcom_poll_param op = {0};
+	int ret = 0;
 
 	if (strcmp(name, "unknown") == 0) {
 		pr_err("name is unknown\n");
 		return -EINVAL;
 	}
 
-	if (!poll_table) {
-		pr_err("invalid parameters\n");
-		return -EINVAL;
-	}
-
-	ch = filp->private_data;
-	mask = poll_requested_events(poll_table);
-
-	pr_debug("== ch [%s] mask [0x%x] ==\n", name, (int) mask);
-
-	/* user space API has poll use "short" and not "long" */
-	mask &= 0x0000FFFF;
-
-	wait = mask & SPCOM_POLL_WAIT_FLAG;
-	if (wait)
-		pr_debug("ch [%s] wait for event flag is ON\n", name);
-
-	// mask will be used in output, clean input bits
-	mask &= (unsigned long)~SPCOM_POLL_WAIT_FLAG;
-	mask &= (unsigned long)~SPCOM_POLL_READY_FLAG;
-	mask &= (unsigned long)~reserved;
-
-	switch (mask) {
-	case SPCOM_POLL_LINK_STATE:
-		pr_debug("ch [%s] SPCOM_POLL_LINK_STATE\n", name);
-		if (wait) {
-			reinit_completion(&spcom_dev->rpmsg_state_change);
-			ready = wait_for_completion_interruptible(
-					  &spcom_dev->rpmsg_state_change);
-			pr_debug("ch [%s] poll LINK_STATE signaled\n", name);
-		}
-		done = atomic_read(&spcom_dev->rpmsg_dev_count) > 0;
+	switch (ioctl) {
+	case SPCOM_SET_IONFD:
+		ret = get_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
 		break;
-	case SPCOM_POLL_CH_CONNECT:
-		/*
-		 * ch is not expected to be NULL since user must call open()
-		 * to get FD before it can call poll().
-		 * open() will fail if no ch related to the char-device.
-		 */
-		if (ch == NULL) {
-			pr_err("invalid ch pointer, file [%s]\n", name);
-			return POLLERR;
+	case SPCOM_GET_IONFD:
+		ret = put_user(spcom_dev->nvm_ion_fd, (int32_t *)arg);
+		break;
+	case SPCOM_POLL_STATE:
+		ret = copy_from_user(&op, argp,
+				     sizeof(struct spcom_poll_param));
+		if (ret) {
+			pr_err("Unable to copy from user [%d]\n", ret);
+			return -EINVAL;
 		}
-		pr_debug("ch [%s] SPCOM_POLL_CH_CONNECT\n", name);
-		if (wait) {
-			reinit_completion(&ch->connect);
-			ready = wait_for_completion_interruptible(&ch->connect);
-			pr_debug("ch [%s] poll CH_CONNECT signaled\n", name);
+
+		ret = handle_poll(file, &op);
+		if (ret)
+			return ret;
+
+		ret = copy_to_user(argp, &op,
+				   sizeof(struct spcom_poll_param));
+		if (ret) {
+			pr_err("Unable to copy to user [%d]\n", ret);
+			return -EINVAL;
 		}
-		mutex_lock(&ch->lock);
-		done = (ch->rpdev != NULL);
-		pr_debug("ch [%s] reported done=%d\n", name, done);
-		mutex_unlock(&ch->lock);
 		break;
 	default:
-		pr_err("ch [%s] poll, invalid mask [0x%x]\n",
-			 name, (int) mask);
-		ret = POLLERR;
-		break;
+		pr_err("Unsupported ioctl:%d\n", ioctl);
+		ret = -EINVAL;
+
 	}
-
-	if (ready < 0) { /* wait was interrupted */
-		pr_debug("ch [%s] poll interrupted, ret [%d]\n", name, ready);
-		ret = POLLERR | SPCOM_POLL_READY_FLAG | mask;
-	}
-	if (done)
-		ret |= mask;
-
-	pr_debug("ch [%s] poll, mask = 0x%x, ret=0x%x\n",
-		 name, (int) mask, ret);
-
 	return ret;
 }
 
 /* file operation supported from user space */
 static const struct file_operations fops = {
 	.read = spcom_device_read,
-	.poll = spcom_device_poll,
 	.write = spcom_device_write,
 	.open = spcom_device_open,
 	.release = spcom_device_release,
+	.unlocked_ioctl = spcom_device_ioctl,
 };
 
 /**
@@ -1993,8 +1997,10 @@ static int spcom_rpdev_probe(struct rpmsg_device *rpdev)
 
 	/* used to evaluate underlying transport link up/down */
 	atomic_inc(&spcom_dev->rpmsg_dev_count);
-	if (atomic_read(&spcom_dev->rpmsg_dev_count) == 1)
+	if (atomic_read(&spcom_dev->rpmsg_dev_count) == 1) {
+		pr_err("Signal link up\n");
 		complete_all(&spcom_dev->rpmsg_state_change);
+	}
 
 	return 0;
 }
@@ -2037,9 +2043,10 @@ static void spcom_rpdev_remove(struct rpmsg_device *rpdev)
 	mutex_unlock(&ch->lock);
 
 	/* used to evaluate underlying transport link up/down */
-	if (atomic_dec_and_test(&spcom_dev->rpmsg_dev_count))
+	if (atomic_dec_and_test(&spcom_dev->rpmsg_dev_count)) {
+		pr_err("Signal link down\n");
 		complete_all(&spcom_dev->rpmsg_state_change);
-
+	}
 }
 
 /* register rpmsg driver to match with channel ch_name */
@@ -2143,6 +2150,8 @@ static int spcom_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&spcom_dev->rx_list_head);
 	spin_lock_init(&spcom_dev->rx_lock);
+	spcom_dev->nvm_ion_fd = -1;
+	mutex_init(&spcom_dev->ioctl_lock);
 
 	ret = spcom_register_chardev();
 	if (ret) {
