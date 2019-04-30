@@ -1391,16 +1391,13 @@ static int msm_venc_resolve_rc_enable(struct msm_vidc_inst *inst,
 static int msm_venc_resolve_rate_control(struct msm_vidc_inst *inst,
 		struct v4l2_ctrl *ctrl)
 {
-	struct v4l2_ctrl *rc_enable;
-
 	if (inst->rc_type == RATE_CONTROL_LOSSLESS) {
 		dprintk(VIDC_DBG,
 			"Skip RC mode when enabling lossless encoding\n");
 		return 0;
 	}
 
-	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
-	if (!rc_enable->val) {
+	if (inst->rc_type == RATE_CONTROL_OFF) {
 		dprintk(VIDC_ERR,
 			"RC is not enabled.\n");
 		return -EINVAL;
@@ -2617,7 +2614,6 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 	struct v4l2_ctrl *i_qp = NULL;
 	struct v4l2_ctrl *p_qp = NULL;
 	struct v4l2_ctrl *b_qp = NULL;
-	struct v4l2_ctrl *rc_enable = NULL;
 	struct hfi_quantization qp;
 
 	if (!inst || !inst->core) {
@@ -2633,7 +2629,6 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 	i_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP);
 	p_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP);
 	b_qp = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_HEVC_B_FRAME_QP);
-	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
 
 	/*
 	 * When RC is ON:
@@ -2642,7 +2637,7 @@ int msm_venc_set_frame_qp(struct msm_vidc_inst *inst)
 	 *   I_QP value must be set by client.
 	 *   If other QP value is invalid, then, assign I_QP value to it.
 	 */
-	if (rc_enable->val) {
+	if (inst->rc_type != RATE_CONTROL_OFF) {
 		if (!(inst->client_set_ctrls & CLIENT_SET_I_QP))
 			qp.enable &= ~QP_ENABLE_I;
 		if (!(inst->client_set_ctrls & CLIENT_SET_P_QP))
@@ -2829,7 +2824,6 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 	u32 mb_per_frame, fps, mbps, bitrate, max_slices;
 	u32 slice_val, slice_mode, max_avg_slicesize;
 	u32 rc_mode, output_width, output_height;
-	struct v4l2_ctrl *rc_enable;
 	u32 codec;
 
 	if (!inst || !inst->core) {
@@ -2845,13 +2839,11 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 	slice_val = 0;
 
 	bitrate = inst->clk_data.bitrate;
-	fps = inst->clk_data.frame_rate;
+	fps = inst->clk_data.frame_rate >> 16;
 	rc_mode = inst->rc_type;
-	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
-	if (fps > 60 ||
-		(rc_enable->val &&
-		 rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR &&
-		 rc_mode != V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)) {
+	if (fps > 60 || (!(rc_mode == RATE_CONTROL_OFF ||
+		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR ||
+		 rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR))) {
 		goto set_and_exit;
 	}
 
@@ -2896,8 +2888,11 @@ int msm_venc_set_slice_control_mode(struct msm_vidc_inst *inst)
 			mbps <= NUM_MBS_PER_SEC(1088, 1920, 60)) {
 			max_slices = inst->capability.cap[CAP_SLICE_BYTE].max ?
 				inst->capability.cap[CAP_SLICE_BYTE].max : 1;
-			max_avg_slicesize = ((bitrate / fps) / 8) / max_slices;
-			slice_val = max(slice_val, max_avg_slicesize);
+			if (rc_mode != RATE_CONTROL_OFF) {
+				max_avg_slicesize =
+					((bitrate / fps) / 8) / max_slices;
+				slice_val = max(slice_val, max_avg_slicesize);
+			}
 		}
 	}
 
@@ -2928,7 +2923,6 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct v4l2_ctrl *ctrl = NULL;
-	struct v4l2_ctrl *rc_mode = NULL;
 	struct hfi_intra_refresh intra_refresh;
 	struct v4l2_format *f;
 
@@ -2938,9 +2932,8 @@ int msm_venc_set_intra_refresh_mode(struct msm_vidc_inst *inst)
 	}
 	hdev = inst->core->device;
 
-	rc_mode = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
-	if (!(rc_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR ||
-		rc_mode->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR))
+	if (!(inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR ||
+		inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR))
 		return 0;
 
 	/* Firmware supports only random mode */
@@ -3616,6 +3609,11 @@ int msm_venc_set_ltr_mode(struct msm_vidc_inst *inst)
 	if (!(codec == V4L2_PIX_FMT_HEVC || codec == V4L2_PIX_FMT_H264))
 		return 0;
 
+	if (!(inst->rc_type == RATE_CONTROL_OFF ||
+		inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
+		inst->rc_type == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR_VFR))
+		return 0;
+
 	ctrl = get_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT);
 	if (!ctrl->val)
 		return 0;
@@ -3706,7 +3704,6 @@ int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hfi_quantization qp;
-	struct v4l2_ctrl *rc_enable;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -3714,8 +3711,7 @@ int msm_venc_set_dyn_qp(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	hdev = inst->core->device;
 
-	rc_enable = get_ctrl(inst, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
-	if (rc_enable->val) {
+	if (inst->rc_type != RATE_CONTROL_OFF) {
 		dprintk(VIDC_ERR, "%s: Dyn qp is set only when RC is OFF\n",
 			__func__);
 		return -EINVAL;
@@ -3958,6 +3954,9 @@ int msm_venc_set_properties(struct msm_vidc_inst *inst)
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_rate_control(inst);
+	if (rc)
+		goto exit;
+	rc = msm_venc_set_vbv_delay(inst);
 	if (rc)
 		goto exit;
 	rc = msm_venc_set_bitrate_savings_mode(inst);
