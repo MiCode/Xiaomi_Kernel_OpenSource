@@ -63,6 +63,22 @@ void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	__iowmb();
 }
 
+uint32_t npu_cc_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->cc_io.base + off);
+
+	return ret;
+}
+
+void npu_cc_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val)
+{
+	writel_relaxed(val, npu_dev->cc_io.base + off);
+	__iowmb();
+}
+
 uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;

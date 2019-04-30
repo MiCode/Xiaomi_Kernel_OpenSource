@@ -365,11 +365,11 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 
 	if (strcmp(buf, "on") == 0) {
 		NPU_INFO("triggering fw_init\n");
-		if (fw_init(npu_dev) != 0)
+		if (enable_fw(npu_dev) != 0)
 			NPU_INFO("error in fw_init\n");
 	} else if (strcmp(buf, "off") == 0) {
 		NPU_INFO("triggering fw_deinit\n");
-		fw_deinit(npu_dev, false, true);
+		disable_fw(npu_dev);
 	} else if (strcmp(buf, "ssr") == 0) {
 		NPU_INFO("trigger error irq\n");
 		if (npu_enable_core_power(npu_dev))

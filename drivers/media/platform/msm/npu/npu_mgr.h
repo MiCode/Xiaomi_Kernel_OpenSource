@@ -60,8 +60,9 @@ struct npu_network {
 };
 
 enum fw_state {
-	FW_DISABLED = 0,
-	FW_ENABLED = 1,
+	FW_UNLOADED = 0,
+	FW_LOADED = 1,
+	FW_ENABLED = 2,
 };
 
 struct npu_host_ctx {

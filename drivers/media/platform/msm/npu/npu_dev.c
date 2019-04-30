@@ -57,6 +57,9 @@ static ssize_t perf_mode_override_show(struct device *dev,
 static ssize_t perf_mode_override_store(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
+static ssize_t boot_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count);
 static bool npu_is_post_clock(const char *clk_name);
 static bool npu_is_exclude_rate_clock(const char *clk_name);
 static int npu_get_max_state(struct thermal_cooling_device *cdev,
@@ -129,10 +132,13 @@ static const char * const npu_exclude_rate_clocks[] = {
 	"s2p_clk",
 };
 
-static const struct npu_irq npu_irq_info[NPU_MAX_IRQ] = {
-	{"ipc_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
-	{"error_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
-	{"wdg_bite_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT},
+static const struct npu_irq npu_irq_info[] = {
+	{"ipc_irq", 0, IRQF_TRIGGER_RISING | IRQF_ONESHOT, npu_ipc_intr_hdlr},
+	{"general_irq", 0,  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+		npu_general_intr_hdlr},
+	{"error_irq", 0,  IRQF_TRIGGER_HIGH | IRQF_ONESHOT, npu_err_intr_hdlr},
+	{"wdg_bite_irq", 0,  IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+		npu_wdg_intr_hdlr}
 };
 
 static struct npu_device *g_npu_dev;
@@ -145,11 +151,13 @@ static struct npu_device *g_npu_dev;
 static DEVICE_ATTR_RO(caps);
 static DEVICE_ATTR_RW(pwr);
 static DEVICE_ATTR_RW(perf_mode_override);
+static DEVICE_ATTR_WO(boot);
 
 static struct attribute *npu_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_pwr.attr,
 	&dev_attr_perf_mode_override.attr,
+	&dev_attr_boot.attr,
 	NULL
 };
 
@@ -281,6 +289,36 @@ static ssize_t perf_mode_override_store(struct device *dev,
 	npu_dev->pwrctrl.perf_mode_override = val;
 	NPU_INFO("setting uc_pwrlevel_override to %d\n", val);
 	npu_set_power_level(npu_dev, true);
+
+	return count;
+}
+
+/* -------------------------------------------------------------------------
+ * SysFS - npu_boot
+ * -------------------------------------------------------------------------
+ */
+static ssize_t boot_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	bool enable = false;
+	int rc;
+
+	if (strtobool(buf, &enable) < 0)
+		return -EINVAL;
+
+	if (enable) {
+		NPU_DBG("%s: load fw\n", __func__);
+		rc = load_fw(npu_dev);
+		if (rc) {
+			NPU_ERR("fw init failed\n");
+			return rc;
+		}
+	} else {
+		NPU_INFO("%s: unload fw\n", __func__);
+		unload_fw(npu_dev);
+	}
 
 	return count;
 }
@@ -451,12 +489,13 @@ static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit)
 
 		ret = 0;
 	}
+
 	for (i = 0; i < npu_dev->core_clk_num; i++) {
 		if (npu_is_exclude_rate_clock(
 			npu_dev->core_clks[i].clk_name))
 			continue;
 
-		if (npu_dev->host_ctx.fw_state == FW_DISABLED) {
+		if (npu_dev->host_ctx.fw_state != FW_ENABLED) {
 			if (npu_is_post_clock(
 				npu_dev->core_clks[i].clk_name))
 				continue;
@@ -721,7 +760,21 @@ static void npu_disable_regulators(struct npu_device *npu_dev)
 int npu_enable_irq(struct npu_device *npu_dev)
 {
 	int i;
+	uint32_t reg_val;
 
+	/* setup general irq */
+	reg_val = npu_cc_reg_read(npu_dev,
+		NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0));
+	reg_val |= RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE;
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0),
+		reg_val);
+	reg_val = npu_cc_reg_read(npu_dev,
+		NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0));
+	reg_val |= RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE;
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0),
+		reg_val);
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
+		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
 			enable_irq(npu_dev->irq[i].irq);
@@ -735,6 +788,7 @@ int npu_enable_irq(struct npu_device *npu_dev)
 void npu_disable_irq(struct npu_device *npu_dev)
 {
 	int i;
+	uint32_t reg_val;
 
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
@@ -742,6 +796,19 @@ void npu_disable_irq(struct npu_device *npu_dev)
 			NPU_DBG("disable irq %d\n", npu_dev->irq[i].irq);
 		}
 	}
+
+	reg_val = npu_cc_reg_read(npu_dev,
+		NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0));
+	reg_val &= ~(RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0),
+		reg_val);
+	reg_val = npu_cc_reg_read(npu_dev,
+		NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0));
+	reg_val &= ~(RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0),
+		reg_val);
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
+		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
 }
 
 /* -------------------------------------------------------------------------
@@ -1513,7 +1580,7 @@ static int npu_irq_init(struct npu_device *npu_dev)
 	int ret = 0, i;
 
 	memcpy(npu_dev->irq, npu_irq_info, sizeof(npu_irq_info));
-	for (i = 0; i < NPU_MAX_IRQ; i++) {
+	for (i = 0; i < ARRAY_SIZE(npu_irq_info); i++) {
 		irq_type = npu_irq_info[i].irq_type;
 		npu_dev->irq[i].irq = platform_get_irq_byname(
 			npu_dev->pdev, npu_dev->irq[i].name);
@@ -1529,7 +1596,7 @@ static int npu_irq_init(struct npu_device *npu_dev)
 		irq_set_status_flags(npu_dev->irq[i].irq,
 						IRQ_NOAUTOEN);
 		ret = devm_request_irq(&npu_dev->pdev->dev,
-				npu_dev->irq[i].irq, npu_intr_hdler,
+				npu_dev->irq[i].irq, npu_dev->irq[i].handler,
 				irq_type, npu_dev->irq[i].name,
 				npu_dev);
 		if (ret) {
@@ -1628,6 +1695,25 @@ static int npu_probe(struct platform_device *pdev)
 	}
 	NPU_DBG("tcm phy address=0x%llx virt=%pK\n",
 		res->start, npu_dev->tcm_io.base);
+
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "cc");
+	if (!res) {
+		NPU_ERR("unable to get cc resource\n");
+		rc = -ENODEV;
+		goto error_get_dev_num;
+	}
+	npu_dev->cc_io.size = resource_size(res);
+	npu_dev->cc_io.phy_addr = res->start;
+	npu_dev->cc_io.base = devm_ioremap(&pdev->dev, res->start,
+					npu_dev->cc_io.size);
+	if (unlikely(!npu_dev->cc_io.base)) {
+		NPU_ERR("unable to map cc\n");
+		rc = -ENOMEM;
+		goto error_get_dev_num;
+	}
+	NPU_DBG("cc_io phy address=0x%llx virt=%pK\n",
+		res->start, npu_dev->cc_io.base);
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "qdsp");
