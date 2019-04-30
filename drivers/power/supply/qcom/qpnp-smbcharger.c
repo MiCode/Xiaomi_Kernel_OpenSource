@@ -422,6 +422,7 @@ enum wake_reason {
 static const unsigned int smbchg_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
+	EXTCON_USB_SPEED,
 	EXTCON_NONE,
 };
 
@@ -4794,10 +4795,12 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 
 	/* Only notify USB if it's not a charger */
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB ||
-			usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP)
+			usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP) {
 		extcon_set_cable_state_(chip->extcon, EXTCON_USB,
 				chip->usb_present);
-
+		extcon_set_cable_state_(chip->extcon, EXTCON_USB_SPEED,
+				chip->usb_present);
+	}
 	/* Notify the USB psy if OV condition is not present */
 	if (!chip->usb_ov_det) {
 		/*
