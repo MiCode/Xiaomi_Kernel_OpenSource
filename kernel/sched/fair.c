@@ -3853,7 +3853,7 @@ struct find_best_target_env {
 
 static inline void adjust_cpus_for_packing(struct task_struct *p,
 			int *target_cpu, int *best_idle_cpu,
-			int target_cpus_count, int shallowest_idle_cstate,
+			int shallowest_idle_cstate,
 			struct find_best_target_env *fbt_env,
 			bool boosted)
 {
@@ -3863,13 +3863,10 @@ static inline void adjust_cpus_for_packing(struct task_struct *p,
 		return;
 
 	if (task_placement_boost_enabled(p) || fbt_env->need_idle || boosted ||
-			shallowest_idle_cstate == -1) {
+			shallowest_idle_cstate <= 0) {
 		*target_cpu = -1;
 		return;
 	}
-
-	if (target_cpus_count > 1)
-		return;
 
 	if (task_in_cum_window_demand(cpu_rq(*target_cpu), p))
 		tutil = 0;
@@ -6734,7 +6731,6 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int i, start_cpu;
 	long spare_wake_cap, most_spare_wake_cap = 0;
 	int most_spare_cap_cpu = -1;
-	unsigned int active_cpus_count = 0;
 	int prev_cpu = task_cpu(p);
 	bool next_group_higher_cap = false;
 	int isolated_candidate = -1;
@@ -7031,8 +7027,6 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			 * capacity.
 			 */
 
-			active_cpus_count++;
-
 			/* Favor CPUs with maximum spare capacity */
 			if (capacity_orig == target_capacity &&
 			    spare_cap < target_max_spare_cap)
@@ -7087,7 +7081,7 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	} while (sg = sg->next, sg != start_sd->groups);
 
 	adjust_cpus_for_packing(p, &target_cpu, &best_idle_cpu,
-				active_cpus_count, shallowest_idle_cstate,
+				shallowest_idle_cstate,
 				fbt_env, boosted);
 
 	/*
