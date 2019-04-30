@@ -3403,6 +3403,12 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		return 0;
 
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
+		/*
+		 * Make sure the previous register write is posted before
+		 * checking the fence status
+		 */
+		mb();
+
 		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
 			&status);
 
