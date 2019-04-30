@@ -12,6 +12,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-lito.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
@@ -1282,6 +1283,11 @@
 			compatible = "qcom,lito-rpmh-clk";
 			#clock-cells = <1>;
 		};
+
+		msm_bus_apps_rsc {
+			compatible = "qcom,msm-bus-rsc";
+			qcom,msm-bus-id = <MSM_BUS_RSC_APPS>;
+		};
 	};
 
 	disp_rsc: rsc@af20000 {
@@ -1296,6 +1302,11 @@
 				  <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <CONTROL_TCS 0>;
+
+		msm_bus_disp_rsc {
+			compatible = "qcom,msm-bus-rsc";
+			qcom,msm-bus-id = <MSM_BUS_RSC_DISP>;
+		};
 	};
 
 	qcom,rmtfs_sharedmem@0 {
