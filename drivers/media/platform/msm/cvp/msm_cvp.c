@@ -159,7 +159,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (!buf->offset) {
+	if (buf->offset) {
 		dprintk(CVP_ERR,
 			"%s: offset is deprecated, set to 0.\n",
 			__func__);
