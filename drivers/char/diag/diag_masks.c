@@ -542,6 +542,12 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 				ENABLE_PKT_HEADER_UNTAGGING;
 		}
 	}
+	if (driver->supports_pd_buffering)
+		if (driver->feature[peripheral].pd_buffering)
+			DIAG_SET_FEATURE_MASK(F_DIAG_PD_BUFFERING);
+	if (driver->supports_diagid_v2_feature_mask)
+		if (driver->feature[peripheral].diagid_v2_feature_mask)
+			DIAG_SET_FEATURE_MASK(F_DIAGID_FEATURE_MASK);
 	DIAG_SET_FEATURE_MASK(F_DIAG_MASK_CENTRALIZATION);
 	if (driver->supports_sockets)
 		DIAG_SET_FEATURE_MASK(F_DIAG_SOCKETS_ENABLED);

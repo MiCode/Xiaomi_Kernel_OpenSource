@@ -415,6 +415,9 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].diag_id_support = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_PD_BUFFERING))
 			driver->feature[peripheral].pd_buffering = 1;
+		if (FEATURE_SUPPORTED(F_DIAGID_FEATURE_MASK))
+			driver->feature[peripheral].diagid_v2_feature_mask = 1;
+
 	}
 
 	process_socket_feature(peripheral);
@@ -739,6 +742,34 @@ int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name,
 	return 0;
 }
 
+static void diag_add_fmask_to_diagid_table(uint8_t diag_id,
+	uint32_t pd_feature_mask)
+{
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_id_tbl_t *item = NULL;
+
+	if (!diag_id) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "Invalid diag id: %d\n",
+			diag_id);
+		return;
+	}
+
+	mutex_lock(&driver->diag_id_mutex);
+	list_for_each_safe(start, temp, &driver->diag_id_list) {
+		item = list_entry(start, struct diag_id_tbl_t, link);
+		if (diag_id == item->diag_id) {
+			item->pd_feature_mask = pd_feature_mask;
+			mutex_unlock(&driver->diag_id_mutex);
+			return;
+		}
+	}
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Feature mask addition for diagid %d is skipped\n",
+		diag_id);
+	mutex_unlock(&driver->diag_id_mutex);
+}
+
 int diag_query_diag_id(char *process_name, uint8_t *diag_id)
 {
 	struct list_head *start;
@@ -760,27 +791,84 @@ int diag_query_diag_id(char *process_name, uint8_t *diag_id)
 	mutex_unlock(&driver->diag_id_mutex);
 	return 0;
 }
+
+void process_diagid_v2_feature_mask(uint32_t diag_id,
+		uint32_t pd_feature_mask)
+{
+	int i = 0;
+	uint32_t diagid_mask_bit = 0;
+	uint32_t feature_id_mask = 0;
+
+	if (!pd_feature_mask)
+		return;
+	mutex_lock(&driver->diagid_v2_mutex);
+	diagid_mask_bit = 1 << (diag_id - 1);
+	for (i = 0; i < DIAGID_V2_FEATURE_COUNT; i++) {
+		feature_id_mask = (pd_feature_mask & (1 << i));
+		if (feature_id_mask)
+			driver->diagid_v2_feature[i] |= diagid_mask_bit;
+		feature_id_mask = 0;
+	}
+	mutex_unlock(&driver->diagid_v2_mutex);
+}
+
 static void process_diagid(uint8_t *buf, uint32_t len,
 				      uint8_t peripheral)
 {
-	struct diag_ctrl_diagid *header = NULL;
+	struct diag_ctrl_diagid_header *header = NULL;
+	struct diag_ctrl_diagid *packet_v1 = NULL;
 	struct diag_ctrl_diagid ctrl_pkt;
+	struct diag_ctrl_diagid_v2 *packet_v2 = NULL;
 	struct diagfwd_info *fwd_info = NULL;
-	char *process_name = NULL;
-	int err = 0;
-	int pd_val;
-	char *root_str = NULL;
+	char *process_name = NULL, *root_str = NULL;
+	int err = 0, pd_val = 0, pkt_len = 0;
 	uint8_t local_diag_id = 0;
+	uint8_t diagid_v2_feature_mask = 0;
 	uint8_t new_request = 0, i = 0, ch_type = 0;
+	uint32_t version = 0, feature_len = 0;
+	uint32_t pd_feature_mask = 0;
 
 	if (!buf || len == 0 || peripheral >= NUM_PERIPHERALS)
 		return;
 
-	header = (struct diag_ctrl_diagid *)buf;
-	process_name = (char *)&header->process_name;
-	if (diag_query_diag_id(process_name, &local_diag_id))
-		ctrl_pkt.diag_id = local_diag_id;
-	else {
+	diagid_v2_feature_mask =
+		driver->feature[peripheral].diagid_v2_feature_mask;
+
+	if (len < sizeof(struct diag_ctrl_diagid_header)) {
+		pr_err("diag: Invalid control pkt len(%d) from peripheral: %d to parse packet header\n",
+			len, peripheral);
+		return;
+	}
+	header = (struct diag_ctrl_diagid_header *)buf;
+	version = (uint32_t)header->version;
+
+	if (diagid_v2_feature_mask && version == DIAGID_VERSION_2) {
+		if (len < (sizeof(struct diag_ctrl_diagid_v2) -
+			(MAX_DIAGID_STR_LEN - MIN_DIAGID_STR_LEN))) {
+			pr_err("diag: Invalid control pkt len(%d) from peripheral: %d to parse diagid v2 structure\n",
+				len, peripheral);
+			return;
+		}
+		packet_v2 = (struct diag_ctrl_diagid_v2 *)buf;
+		feature_len = (uint32_t)packet_v2->feature_len;
+		memcpy((uint32_t *)&pd_feature_mask,
+			&packet_v2->pd_feature_mask, feature_len);
+		process_name = (char *)&packet_v2->feature_len +
+			sizeof(feature_len) + feature_len;
+	} else {
+		if (len < (sizeof(struct diag_ctrl_diagid) -
+			(MAX_DIAGID_STR_LEN - MIN_DIAGID_STR_LEN))) {
+			pr_err("diag: Invalid control pkt len(%d) from peripheral: %d to parse diagid v1 structure\n",
+				len, peripheral);
+			return;
+		}
+		packet_v1 = (struct diag_ctrl_diagid *)buf;
+		process_name = (char *)&packet_v1->process_name;
+	}
+
+	if (diag_query_diag_id(process_name, &local_diag_id)) {
+		/* Do nothing in this if block */
+	} else {
 		diag_id++;
 		new_request = 1;
 		pd_val = diag_query_pd(process_name);
@@ -788,8 +876,15 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 			return;
 		diag_add_diag_id_to_list(diag_id, process_name,
 			pd_val, peripheral);
-		ctrl_pkt.diag_id = diag_id;
+		if (diagid_v2_feature_mask) {
+			diag_add_fmask_to_diagid_table(diag_id,
+				pd_feature_mask);
+			process_diagid_v2_feature_mask(diag_id,
+				pd_feature_mask);
+		}
+		local_diag_id = diag_id;
 	}
+
 	root_str = strnstr(process_name, DIAG_ID_ROOT_STRING,
 		strlen(process_name));
 
@@ -803,7 +898,7 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 
 			if (root_str) {
 				fwd_info->root_diag_id.diagid_val =
-					ctrl_pkt.diag_id;
+					local_diag_id;
 				fwd_info->root_diag_id.reg_str =
 					process_name;
 				fwd_info->root_diag_id.pd = pd_val;
@@ -811,7 +906,7 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 				i = fwd_info->num_pd - 2;
 				if (i >= 0 && i < MAX_PERIPHERAL_UPD) {
 					fwd_info->upd_diag_id[i].diagid_val =
-						ctrl_pkt.diag_id;
+						local_diag_id;
 					fwd_info->upd_diag_id[i].reg_str =
 						process_name;
 					fwd_info->upd_diag_id[i].pd = pd_val;
@@ -822,16 +917,19 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: peripheral = %d: diag_id string = %s,diag_id = %d\n",
-		peripheral, process_name, ctrl_pkt.diag_id);
+		peripheral, process_name, local_diag_id);
 
-	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_DIAGID;
-	ctrl_pkt.version = 1;
+	ctrl_pkt.diag_id = local_diag_id;
+	ctrl_pkt.header.pkt_id = DIAG_CTRL_MSG_DIAGID;
+	ctrl_pkt.header.version = DIAGID_VERSION_1;
 	strlcpy((char *)&ctrl_pkt.process_name, process_name,
 		sizeof(ctrl_pkt.process_name));
-	ctrl_pkt.len = sizeof(ctrl_pkt.diag_id) + sizeof(ctrl_pkt.version) +
-			strlen(process_name) + 1;
-	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt, ctrl_pkt.len +
-				sizeof(ctrl_pkt.pkt_id) + sizeof(ctrl_pkt.len));
+	ctrl_pkt.header.len = sizeof(ctrl_pkt.diag_id) +
+		sizeof(ctrl_pkt.header.version) + strlen(process_name) + 1;
+	pkt_len = ctrl_pkt.header.len + sizeof(ctrl_pkt.header.pkt_id) +
+		sizeof(ctrl_pkt.header.len);
+	err = diagfwd_write(peripheral, TYPE_CNTL,
+				&ctrl_pkt, pkt_len);
 	if (err && err != -ENODEV) {
 		pr_err("diag: Unable to send diag id ctrl packet to peripheral %d, err: %d\n",
 		       peripheral, err);
@@ -854,7 +952,7 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: diag_id sent = %d to peripheral = %d with diag_id = %d for %s :\n",
 			driver->diag_id_sent[peripheral], peripheral,
-			ctrl_pkt.diag_id, process_name);
+			local_diag_id, process_name);
 	}
 }
 

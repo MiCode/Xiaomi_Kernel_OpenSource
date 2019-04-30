@@ -71,7 +71,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"MD session mode: %d\n"
 		"MD session mask: %d\n"
 		"Uses Time API: %d\n"
-		"Supports PD buffering: %d\n",
+		"Supports PD buffering: %d\n"
+		"Diag_id Feature mask support:%d\n",
 		chk_config_get_id(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
@@ -87,11 +88,12 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->md_session_mode,
 		driver->md_session_mask,
 		driver->uses_time_api,
-		driver->supports_pd_buffering);
+		driver->supports_pd_buffering,
+		driver->supports_diagid_v2_feature_mask);
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c%c|\n",
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c%c%c|\n",
 			PERIPHERAL_STRING(i),
 			driver->feature[i].feature_mask[0],
 			driver->feature[i].feature_mask[1],
@@ -104,7 +106,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 			driver->feature[i].stm_support ? 'Q':'q',
 			driver->feature[i].sockets_enabled ? 'S':'s',
 			driver->feature[i].sent_feature_mask ? 'T':'t',
-			driver->feature[i].untag_header ? 'U':'u');
+			driver->feature[i].untag_header ? 'U':'u',
+			driver->feature[i].diagid_v2_feature_mask ? 'V':'v');
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB
