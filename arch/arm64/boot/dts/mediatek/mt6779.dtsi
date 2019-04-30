@@ -404,7 +404,7 @@
 	firmware {
 		android {
 			compatible = "android,firmware";
-			boot_devices = "11270000.ufshci";
+			boot_devices = "soc/11270000.ufshci";
 			vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,recovery";
