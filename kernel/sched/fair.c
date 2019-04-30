@@ -6746,8 +6746,6 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			target_cpu = prev_cpu;
 
 			fbt_env->fastpath = PREV_CPU_FASTPATH;
-			trace_sched_find_best_target(p, prefer_idle, min_util,
-					start_cpu, -1, -1, -1, target_cpu, -1);
 			goto target;
 		}
 	}
