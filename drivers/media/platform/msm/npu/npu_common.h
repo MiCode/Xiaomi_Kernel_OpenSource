@@ -51,6 +51,8 @@
 #define NPU_MAX_STATS_BUF_SIZE 16384
 #define NPU_MAX_PATCH_NUM		160
 
+#define DCVS_MODE_MAX 100
+
 enum npu_power_level {
 	NPU_PWRLEVEL_MINSVS = 0,
 	NPU_PWRLEVEL_LOWSVS,
@@ -154,6 +156,8 @@ struct npu_reg {
  * @uc_pwrlevel - power level from user driver setting
  * @perf_mode_override - perf mode from sysfs to override perf mode
  *                       settings from user driver
+ * @dcvs_mode - dcvs mode from sysfs to turn on dcvs mode
+ *              settings from user driver
  * @devbw - bw device
  */
 struct npu_pwrctrl {
@@ -172,6 +176,8 @@ struct npu_pwrctrl {
 	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
 	uint32_t perf_mode_override;
+	uint32_t dcvs_mode;
+	uint32_t cur_dcvs_activity;
 };
 
 /**
