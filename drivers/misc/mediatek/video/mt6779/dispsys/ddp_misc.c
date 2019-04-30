@@ -14,7 +14,9 @@
 #include "ddp_rdma_ex.h"
 #include "ddp_wdma_ex.h"
 #include "ddp_ovl.h"
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "ddp_info.h"
 #include "mtk_disp_mgr.h"
 #include "disp_helper.h"

@@ -20,13 +20,15 @@
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 #include <asm/cacheflush.h>
-#ifdef MTK_FB_ION_SUPPORT
-#  include "mtk_ion.h"
-#  include "ion_drv.h"
+#if defined(CONFIG_MTK_ION)
+#include "mtk_ion.h"
+#include "ion_drv.h"
 #endif
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
 #include "m4u_priv.h"
+#endif
 #include "ddp_m4u.h"
 #include "disp_drv_platform.h"
 #include "debug.h"
@@ -41,10 +43,12 @@
 #include "ddp_reg.h"
 #include "disp_session.h"
 #include "primary_display.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
 #include "cmdq_core.h"
+#endif
 #include "ddp_rdma.h"
 #include "ddp_manager.h"
 #include "mtkfb_fence.h"
@@ -58,7 +62,6 @@
 #include "ddp_reg.h"
 #include "mtk_disp_mgr.h"
 #include "ddp_dsi.h"
-#include "m4u.h"
 #include "mtkfb_console.h"
 #if defined(CONFIG_MTK_LEGACY)
 #include <mach/mtk_gpio.h>

@@ -222,9 +222,6 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			reg_val = (DISP_REG_GET(DISPSYS_DSI1_BASE + 0xC) &
 				   0xffff);
 
-		if (reg_val & 0x00000004)
-			DISPMSG("[cc] DSI TE\n");
-
 		reg_temp_val = reg_val;
 		/*
 		 * rd_rdy don't clear and wait for ESD &

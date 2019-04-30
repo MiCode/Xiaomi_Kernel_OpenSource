@@ -8,7 +8,9 @@
 
 #include "disp_session.h"
 #include "disp_drv_log.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_record.h"
+#endif
 #include "disp_rect.h"
 #include "ddp_manager.h"
 #include "disp_lcm.h"

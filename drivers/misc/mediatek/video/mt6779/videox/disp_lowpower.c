@@ -28,7 +28,9 @@
 #include "disp_pm_qos.h"
 #include "mmdvfs_pmqos.h"
 #endif
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 
 #include "debug.h"
 #include "disp_drv_log.h"
@@ -43,10 +45,12 @@
 #endif
 
 #include "disp_helper.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
 #include "cmdq_core.h"
+#endif
 #include "ddp_manager.h"
 #include "disp_lcm.h"
 #include "ddp_clkmgr.h"

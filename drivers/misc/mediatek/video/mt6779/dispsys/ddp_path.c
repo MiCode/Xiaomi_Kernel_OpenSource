@@ -18,7 +18,9 @@
 #include "disp_helper.h"
 #include "ddp_path.h"
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 
 /* #pragma GCC optimize("O0") */
 

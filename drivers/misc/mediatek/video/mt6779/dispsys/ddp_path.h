@@ -8,7 +8,9 @@
 #define __DDP_PATH_H__
 
 #include "ddp_info.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_record.h"
+#endif
 
 enum DDP_MODE {
 	DDP_VIDEO_MODE = 0,

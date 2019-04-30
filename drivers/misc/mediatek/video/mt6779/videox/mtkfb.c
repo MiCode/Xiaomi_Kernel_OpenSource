@@ -28,7 +28,9 @@
 /* #include <asm/mach-types.h> */
 #include <asm/cacheflush.h>
 #include <linux/io.h>
+#if defined(CONFIG_MTK_ION)
 #include "ion_drv.h"
+#endif
 #include "mt-plat/dma.h"
 /* #include <mach/irqs.h> */
 #include <linux/dma-mapping.h>

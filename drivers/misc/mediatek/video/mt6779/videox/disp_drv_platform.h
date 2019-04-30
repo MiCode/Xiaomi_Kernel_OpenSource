@@ -9,7 +9,9 @@
 
 #include <linux/dma-mapping.h>
 /* #include "mt-plat/mtk_gpio.h" */
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 /* #include <mach/mt_reg_base.h> */
 /* #include <mach/mt_irq.h> */
 #include "mt-plat/sync_write.h"
@@ -36,8 +38,12 @@
 #define MTK_FB_SHARE_WDMA0_SUPPORT
 
 /* memory manager */
+#if defined(CONFIG_MTK_ION)
 #define MTK_FB_ION_SUPPORT
+#endif
+#if defined(CONFIG_MTK_M4U)
 #define MTKFB_M4U_SUPPORT
+#endif
 
 /* TODO: */
 /* debug option */

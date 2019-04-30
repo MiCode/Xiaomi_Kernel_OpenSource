@@ -7,7 +7,9 @@
 #ifndef __DSI_MUTEX_H__
 #define __DSI_MUTEX_H__
 
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_record.h"
+#endif
 #include "ddp_hal.h"
 #include "ddp_path.h"
 

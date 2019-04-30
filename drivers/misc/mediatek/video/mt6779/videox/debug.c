@@ -14,7 +14,9 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "ddp_m4u.h"
 #include "disp_drv_log.h"
 #include "mtkfb.h"
@@ -38,18 +40,20 @@
 #include "ddp_log.h"
 #include "ddp_dsi.h"
 
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
 #include "cmdq_core.h"
+#endif
 #include "disp_lowpower.h"
 #include "disp_arr.h"
 #include "disp_recovery.h"
 #include "disp_partial.h"
-#if defined(MTK_FB_ION_SUPPORT)
-#  include "mtk_ion.h"
-#  include "ion_drv.h"
-#  include "ion.h"
+#if defined(CONFIG_MTK_ION)
+#include "mtk_ion.h"
+#include "ion_drv.h"
+#include "ion.h"
 #endif
 #include "layering_rule.h"
 #include "ddp_clkmgr.h"
@@ -57,7 +61,7 @@
 #include "ddp_misc.h"
 
 static struct dentry *mtkfb_dbgfs;
-unsigned int g_mobilelog = 1;
+unsigned int g_mobilelog;
 int bypass_blank;
 int lcm_mode_status;
 int layer_layout_allow_non_continuous;

@@ -7,11 +7,15 @@
 #ifndef __DSI_M4U_H__
 #define __DSI_M4U_H__
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "m4u_port.h"
 #include "ddp_hal.h"
 #include "mtk_ion.h"
+#if defined(CONFIG_MTK_ION)
 #include "ion_drv.h"
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

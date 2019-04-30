@@ -9,8 +9,10 @@
 
 #include "mt-plat/sync_write.h"
 #include "display_recorder.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_record.h"
 #include "cmdq_core.h"
+#endif
 #include "ddp_hal.h"
 
 

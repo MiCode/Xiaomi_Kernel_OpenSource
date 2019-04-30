@@ -37,7 +37,9 @@
 #include <linux/mutex.h>
 #include <linux/compat.h>
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 
 #include "mtk_sync.h"
 #include "debug.h"
@@ -51,10 +53,12 @@
 #include "ddp_drv.h"
 #include "ddp_info.h"
 #include "primary_display.h"
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
 #include "cmdq_core.h"
+#endif
 #include "ddp_manager.h"
 #include "disp_drv_platform.h"
 #include "display_recorder.h"
@@ -69,7 +73,6 @@
 #include "external_display.h"
 #include "extd_platform.h"
 
-#include "m4u.h"
 #include "layering_rule.h"
 #include "compat_mtk_disp_mgr.h"
 #include "disp_partial.h"

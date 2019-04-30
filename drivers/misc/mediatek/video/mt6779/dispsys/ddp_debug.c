@@ -18,7 +18,9 @@
 #include <linux/interrupt.h>
 #include <linux/time.h>
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 
 #include "disp_drv_ddp.h"
 

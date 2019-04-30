@@ -4,7 +4,9 @@
  */
 
 #include "disp_drv_log.h"
+#if defined(CONFIG_MTK_ION)
 #include "ion_drv.h"
+#endif
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -14,7 +16,9 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "mtk_sync.h"
 #include "debug.h"
 #include "ddp_ovl.h"

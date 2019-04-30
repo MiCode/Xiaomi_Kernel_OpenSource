@@ -11,7 +11,9 @@
 #include "ddp_info.h"
 #include "ddp_path.h"
 
+#if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_record.h"
+#endif
 
 #define MAKE_DDP_IRQ_BIT(module, shift)	((module << 24) | (0x1 << shift))
 #define IRQBIT_MODULE(irqbit)		(irqbit >> 24)
