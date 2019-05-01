@@ -4052,8 +4052,12 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	packet = prepare_args->packet;
 
-	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len))
+	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len)) {
+		mutex_unlock(&ctx_data->ctx_mutex);
+		CAM_ERR(CAM_ICP, "ctx id: %u packet req id %lld validate fail",
+			ctx_data->ctx_id, packet->header.request_id);
 		return -EINVAL;
+	}
 
 	rc = cam_icp_mgr_pkt_validation(packet);
 	if (rc) {
