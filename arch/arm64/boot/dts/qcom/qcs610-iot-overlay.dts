@@ -23,7 +23,3 @@
 	qcom,msm-id = <401 0x0>;
 	qcom,board-id = <32 0>;
 };
-
-&dsi_hx83112a_truly_vid_display {
-	qcom,dsi-display-active;
-};
