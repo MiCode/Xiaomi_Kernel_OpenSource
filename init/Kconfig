@@ -529,8 +529,19 @@ config PSI_DEFAULT_DISABLED
 	depends on PSI
 	help
 	  If set, pressure stall information tracking will be disabled
-	  per default but can be enabled through passing psi_enable=1
-	  on the kernel commandline during boot.
+	  per default but can be enabled through passing psi=1 on the
+	  kernel commandline during boot.
+
+	  This feature adds some code to the task wakeup and sleep
+	  paths of the scheduler. The overhead is too low to affect
+	  common scheduling-intense workloads in practice (such as
+	  webservers, memcache), but it does show up in artificial
+	  scheduler stress tests, such as hackbench.
+
+	  If you are paranoid and not sure what the kernel will be
+	  used for, say Y.
+
+	  Say N if unsure.
 
 endmenu # "CPU/Task time and stats accounting"
 
