@@ -983,18 +983,13 @@ static void __set_threshold_registers(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to restore threshold values\n");
 }
 
-static int __vote_bandwidth(struct bus_info *bus,
-		unsigned long *freq)
+static int __vote_bandwidth(struct bus_info *bus, unsigned long freq)
 {
 	int rc = 0;
 	uint64_t ab = 0;
 
-	if (*freq)
-		*freq = clamp_t(typeof(*freq), *freq, bus->range[0],
-				bus->range[1]);
-
 	/* Bus Driver expects values in Bps */
-	ab = *freq * 1000;
+	ab = freq * 1000;
 	dprintk(VIDC_PROF, "Voting bus %s to ab %llu\n", bus->name, ab);
 	rc = msm_bus_scale_update_bw(bus->client, ab, 0);
 	if (rc)
@@ -1008,20 +1003,13 @@ static int __unvote_buses(struct venus_hfi_device *device)
 {
 	int rc = 0;
 	struct bus_info *bus = NULL;
-	unsigned long freq = 0, zero = 0;
 
 	kfree(device->bus_vote.data);
 	device->bus_vote.data = NULL;
 	device->bus_vote.data_count = 0;
 
 	venus_hfi_for_each_bus(device, bus) {
-		if (!bus->is_prfm_mode) {
-			freq = device->bus_vote.calc_bw(bus, &device->bus_vote);
-			rc = __vote_bandwidth(bus, &freq);
-		}
-		else
-			rc = __vote_bandwidth(bus, &zero);
-
+		rc = __vote_bandwidth(bus, 0);
 		if (rc)
 			goto err_unknown_device;
 	}
@@ -1066,7 +1054,11 @@ no_data_count:
 			else
 				freq = bus->range[1];
 
-			rc = __vote_bandwidth(bus, &freq);
+			/* ensure freq is within limits */
+			freq = clamp_t(typeof(freq), freq,
+				bus->range[0], bus->range[1]);
+
+			rc = __vote_bandwidth(bus, freq);
 		} else {
 			dprintk(VIDC_ERR, "No BUS to Vote\n");
 		}
