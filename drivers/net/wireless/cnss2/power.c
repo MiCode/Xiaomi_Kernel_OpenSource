@@ -45,6 +45,7 @@ static struct cnss_vreg_cfg cnss_vreg_list[] = {
 #define TCS_CMD_OFFSET			0x10
 #define MAX_TCS_NUM			8
 #define MAX_TCS_CMD_NUM			5
+#define BT_CXMX_VOLTAGE_MV		950
 
 static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 				struct cnss_vreg_info *vreg)
@@ -652,6 +653,8 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 	}
 
 update_cpr:
+	cpr_info->voltage = cpr_info->voltage > BT_CXMX_VOLTAGE_MV ?
+		cpr_info->voltage : BT_CXMX_VOLTAGE_MV;
 	cnss_pr_dbg("Update TCS CMD data address %pa with voltage %dmV\n",
 		    &cpr_info->tcs_cmd_data_addr, cpr_info->voltage);
 	writel_relaxed(cpr_info->voltage, cpr_info->tcs_cmd_data_addr_io);
