@@ -81,6 +81,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(cci_dev->cpas_handle,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,6 +280,7 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 			ahb_vote.type = CAM_VOTE_ABSOLUTE;
 			ahb_vote.vote.level = CAM_SVS_VOTE;
 			axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+			axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 			axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 			rc = cam_cpas_start(core->cpas_handle,
