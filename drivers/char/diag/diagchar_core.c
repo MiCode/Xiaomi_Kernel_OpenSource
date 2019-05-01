@@ -22,6 +22,7 @@
 #include <linux/sched.h>
 #include <linux/ratelimit.h>
 #include <linux/timer.h>
+#include <linux/sched/task.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <linux/usb/usbdiag.h>
 #endif
@@ -525,9 +526,11 @@ static int diag_remove_client_entry(struct file *file)
 	 * This call will remove any pending registrations of such client
 	 */
 	mutex_lock(&driver->dci_mutex);
-	dci_entry = dci_lookup_client_entry_pid(current->tgid);
-	if (dci_entry)
-		diag_dci_deinit_client(dci_entry);
+	do {
+		dci_entry = dci_lookup_client_entry_pid(current->tgid);
+		if (dci_entry)
+			diag_dci_deinit_client(dci_entry);
+	} while (dci_entry);
 	mutex_unlock(&driver->dci_mutex);
 
 	diag_close_logging_process(current->tgid);
@@ -931,6 +934,9 @@ drop:
 				mutex_unlock(&buf_entry->data_mutex);
 				kfree(buf_entry);
 				continue;
+			} else {
+				mutex_unlock(&buf_entry->data_mutex);
+				continue;
 			}
 
 		}
@@ -939,7 +945,7 @@ drop:
 
 	if (total_data_len > 0) {
 		/* Copy the total data length */
-		COPY_USER_SPACE_OR_ERR(buf+8, total_data_len, 4);
+		COPY_USER_SPACE_OR_ERR(buf+(*pret), total_data_len, 4);
 		if (ret == -EFAULT)
 			goto exit;
 		ret -= 4;
@@ -3674,35 +3680,56 @@ exit:
 				DIAG_LOG(DIAG_DEBUG_DCI,
 				"diag: valid task doesn't exist for pid = %d\n",
 				entry->tgid);
+				put_pid(pid_struct);
 				continue;
 			}
-			if (task_s == entry->client)
-				if (entry->client->tgid != current->tgid)
+			if (task_s == entry->client) {
+				if (entry->client->tgid != current->tgid) {
+					put_task_struct(task_s);
+					put_pid(pid_struct);
 					continue;
-			if (!entry->in_service)
+				}
+			}
+			if (!entry->in_service) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				continue;
+			}
 			if (copy_to_user(buf + ret, &data_type, sizeof(int))) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
 			ret += sizeof(int);
 			if (copy_to_user(buf + ret, &entry->client_info.token,
 				sizeof(int))) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
 			ret += sizeof(int);
 			copy_dci_data = 1;
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
-			mutex_lock(&driver->diagchar_mutex);
-			driver->data_ready[index] ^= DCI_DATA_TYPE;
-			atomic_dec(&driver->data_ready_notif[index]);
-			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
+				put_task_struct(task_s);
+				put_pid(pid_struct);
+				mutex_lock(&driver->diagchar_mutex);
+				driver->data_ready[index] ^= DCI_DATA_TYPE;
+				atomic_dec(&driver->data_ready_notif[index]);
+				mutex_unlock(&driver->diagchar_mutex);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
+			put_task_struct(task_s);
+			put_pid(pid_struct);
+			continue;
 		}
+		mutex_lock(&driver->diagchar_mutex);
+		driver->data_ready[index] ^= DCI_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_unlock(&driver->dci_mutex);
 		goto end;
 	}

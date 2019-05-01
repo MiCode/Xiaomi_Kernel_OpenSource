@@ -296,6 +296,7 @@ do {						\
 #define DIAG_CNTL_TYPE		2
 #define DIAG_DCI_TYPE		3
 
+#define MAX_DCI_CLIENTS		10
 /*
  * List of diag ids
  * 0 is reserved for unknown diag id, 1 for apps, diag ids
@@ -599,7 +600,7 @@ struct diagchar_dev {
 	struct list_head dci_req_list;
 	struct list_head dci_client_list;
 	int dci_tag;
-	int dci_client_id;
+	int dci_client_id[MAX_DCI_CLIENTS];
 	struct mutex dci_mutex;
 	int num_dci_client;
 	unsigned char *apps_dci_buf;
