@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +103,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config video_pll0_config = {
+static struct alpha_pll_config video_pll0_config = {
 	.l = 0x14,
 	.alpha = 0xD555,
 	.config_ctl_val = 0x20485699,
@@ -117,7 +117,7 @@ static const struct alpha_pll_config video_pll0_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config video_pll0_config_sm8150_v2 = {
+static struct alpha_pll_config video_pll0_config_sm8150_v2 = {
 	.l = 0x14,
 	.alpha = 0xD555,
 	.config_ctl_val = 0x20485699,
@@ -133,6 +133,7 @@ static struct clk_alpha_pll video_pll0 = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &video_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_pll0",
@@ -314,8 +315,8 @@ MODULE_DEVICE_TABLE(of, video_cc_sm8150_match_table);
 
 static void video_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
-	clk_trion_pll_configure(&video_pll0, regmap,
-		&video_pll0_config_sm8150_v2);
+	video_pll0.config = &video_pll0_config_sm8150_v2;
+
 	video_cc_iris_clk_src.freq_tbl = ftbl_video_cc_iris_clk_src_sm8150_v2;
 	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOWER] = 240000000;
 	video_cc_iris_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 338000000;
@@ -386,7 +387,7 @@ static int video_cc_sm8150_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_trion_pll_configure(&video_pll0, regmap, &video_pll0_config);
+	clk_trion_pll_configure(&video_pll0, regmap, video_pll0.config);
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_sm8150_desc, regmap);
 	if (ret) {
