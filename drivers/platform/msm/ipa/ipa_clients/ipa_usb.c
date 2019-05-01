@@ -188,7 +188,7 @@ struct ipa3_usb_smmu_reg_map {
  */
 static const bool teth_type_switch_tbl_ipa45
 	[IPA_USB_MAX_TETH_PROT_SIZE][IPA_USB_MAX_TETH_PROT_SIZE] = {
-		[IPA_USB_RNDIS] = {true, false, false, false, false},
+		[IPA_USB_RNDIS] = {true, false, true, false, false},
 		[IPA_USB_ECM] = {false, true, false, false, false},
 		[IPA_USB_RMNET] = {true, false, true, false, false},
 		[IPA_USB_MBIM] = {true, true, true, true, false},
