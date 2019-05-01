@@ -762,6 +762,11 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	int i;
 	uint32_t reg_val;
 
+	if (npu_dev->irq_enabled) {
+		NPU_WARN("Irq is enabled already\n");
+		return 0;
+	}
+
 	/* setup general irq */
 	reg_val = npu_cc_reg_read(npu_dev,
 		NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0));
@@ -781,6 +786,7 @@ int npu_enable_irq(struct npu_device *npu_dev)
 			NPU_DBG("enable irq %d\n", npu_dev->irq[i].irq);
 		}
 	}
+	npu_dev->irq_enabled = true;
 
 	return 0;
 }
@@ -789,6 +795,11 @@ void npu_disable_irq(struct npu_device *npu_dev)
 {
 	int i;
 	uint32_t reg_val;
+
+	if (!npu_dev->irq_enabled) {
+		NPU_WARN("irq is not enabled\n");
+		return;
+	}
 
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
@@ -809,6 +820,7 @@ void npu_disable_irq(struct npu_device *npu_dev)
 		reg_val);
 	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
 		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
+	npu_dev->irq_enabled = false;
 }
 
 /* -------------------------------------------------------------------------

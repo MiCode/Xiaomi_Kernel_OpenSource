@@ -225,6 +225,7 @@ struct npu_device {
 	struct npu_regulator regulators[NPU_MAX_DT_NAME_LEN];
 
 	struct npu_irq irq[NPU_MAX_IRQ];
+	bool irq_enabled;
 
 	struct device *cb_device;
 
