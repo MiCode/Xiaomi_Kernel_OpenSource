@@ -792,11 +792,6 @@ int qmi_rmnet_set_powersave_mode(void *port, uint8_t enable)
 		return rc;
 	}
 
-	if (enable)
-		dfc_qmi_wq_flush(qmi);
-	else
-		qmi_rmnet_query_flows(qmi);
-
 	return 0;
 }
 EXPORT_SYMBOL(qmi_rmnet_set_powersave_mode);
@@ -827,6 +822,10 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		return;
 
 	if (qmi->ps_enabled) {
+
+		/* Ready to accept grant */
+		qmi->ps_ignore_grant = false;
+
 		/* Register to get QMI DFC and DL marker */
 		if (qmi_rmnet_set_powersave_mode(real_work->port, 0) < 0) {
 			/* If this failed need to retry quickly */
@@ -837,9 +836,11 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		}
 		qmi->ps_enabled = false;
 
+		/* Do a query when coming out of powersave */
+		qmi_rmnet_query_flows(qmi);
+
 		if (rmnet_get_powersave_notif(real_work->port))
 			qmi_rmnet_ps_off_notify(real_work->port);
-
 
 		goto end;
 	}
@@ -868,6 +869,9 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 			return;
 		}
 		qmi->ps_enabled = true;
+
+		/* Ignore grant after going into powersave */
+		qmi->ps_ignore_grant = true;
 
 		/* Clear the bit before enabling flow so pending packets
 		 * can trigger the work again
@@ -959,4 +963,17 @@ void qmi_rmnet_set_dl_msg_active(void *port)
 	qmi->dl_msg_active = true;
 }
 EXPORT_SYMBOL(qmi_rmnet_set_dl_msg_active);
+
+bool qmi_rmnet_ignore_grant(void *port)
+{
+	struct qmi_info *qmi;
+
+	qmi = (struct qmi_info *)rmnet_get_qmi_pt(port);
+	if (unlikely(!qmi))
+		return false;
+
+	return qmi->ps_ignore_grant;
+}
+EXPORT_SYMBOL(qmi_rmnet_ignore_grant);
+
 #endif
