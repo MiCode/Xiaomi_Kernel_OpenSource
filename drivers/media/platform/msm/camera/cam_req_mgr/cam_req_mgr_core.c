@@ -176,13 +176,20 @@ static int __cam_req_mgr_inject_delay(
  *
  */
 static int __cam_req_mgr_notify_error_on_link(
-	struct cam_req_mgr_core_link    *link)
+	struct cam_req_mgr_core_link    *link,
+	struct cam_req_mgr_connected_device *dev)
 {
 	struct cam_req_mgr_core_session *session = NULL;
 	struct cam_req_mgr_message       msg;
-	int rc = 0;
+	int rc = 0, pd;
 
 	session = (struct cam_req_mgr_core_session *)link->parent;
+
+	pd = dev->dev_info.p_delay;
+	if (pd >= CAM_PIPELINE_DELAY_MAX) {
+		CAM_ERR(CAM_CRM, "pd : %d is more than expected", pd);
+		return -EINVAL;
+	}
 
 	CAM_ERR(CAM_CRM,
 		"Notifying userspace to trigger recovery on link 0x%x for session %d",
@@ -192,8 +199,12 @@ static int __cam_req_mgr_notify_error_on_link(
 
 	msg.session_hdl = session->session_hdl;
 	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_RECOVERY;
-	msg.u.err_msg.request_id = 0;
+	msg.u.err_msg.request_id =
+		link->req.apply_data[pd].req_id;
 	msg.u.err_msg.link_hdl   = link->link_hdl;
+
+	CAM_DBG(CAM_CRM, "Failed for device: %s while applying request: %lld",
+		dev->dev_info.name, link->req.apply_data[pd].req_id);
 
 	rc = cam_req_mgr_notify_message(&msg,
 		V4L_EVENT_CAM_REQ_MGR_ERROR,
@@ -482,7 +493,8 @@ static int __cam_req_mgr_check_next_req_slot(
  *
  */
 static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
-	struct cam_req_mgr_req_queue *in_q, uint32_t trigger)
+	struct cam_req_mgr_req_queue *in_q, uint32_t trigger,
+	struct cam_req_mgr_connected_device **failed_dev)
 {
 	int                                  rc = 0, pd, i, idx;
 	struct cam_req_mgr_connected_device *dev = NULL;
@@ -574,8 +586,10 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 				link->link_hdl, pd, apply_req.request_id);
 			if (dev->ops && dev->ops->apply_req) {
 				rc = dev->ops->apply_req(&apply_req);
-				if (rc < 0)
+				if (rc < 0) {
+					*failed_dev = dev;
 					break;
+				}
 
 				if (pd == link->max_delay)
 					link->open_req_cnt--;
@@ -1034,6 +1048,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	struct cam_req_mgr_slot             *slot = NULL;
 	struct cam_req_mgr_req_queue        *in_q;
 	struct cam_req_mgr_core_session     *session;
+	struct cam_req_mgr_connected_device *dev;
 
 	in_q = link->req.in_q;
 	session = (struct cam_req_mgr_core_session *)link->parent;
@@ -1136,7 +1151,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		}
 	}
 
-	rc = __cam_req_mgr_send_req(link, link->req.in_q, trigger);
+	rc = __cam_req_mgr_send_req(link, link->req.in_q, trigger, &dev);
 	if (rc < 0) {
 		/* Apply req failed retry at next sof */
 		slot->status = CRM_SLOT_STATUS_REQ_PENDING;
@@ -1147,7 +1162,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				"Max retry attempts reached on link[0x%x] for req [%lld]",
 				link->link_hdl,
 				in_q->slot[in_q->rd_idx].req_id);
-			__cam_req_mgr_notify_error_on_link(link);
+			__cam_req_mgr_notify_error_on_link(link, dev);
 			link->retry_cnt = 0;
 		}
 	} else {
@@ -1714,6 +1729,7 @@ int cam_req_mgr_process_send_req(void *priv, void *data)
 	struct cam_req_mgr_core_link        *link = NULL;
 	struct cam_req_mgr_send_request     *send_req = NULL;
 	struct cam_req_mgr_req_queue        *in_q = NULL;
+	struct cam_req_mgr_connected_device *dev;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
@@ -1724,7 +1740,7 @@ int cam_req_mgr_process_send_req(void *priv, void *data)
 	send_req = (struct cam_req_mgr_send_request *)data;
 	in_q = send_req->in_q;
 
-	rc = __cam_req_mgr_send_req(link, in_q, CAM_TRIGGER_POINT_SOF);
+	rc = __cam_req_mgr_send_req(link, in_q, CAM_TRIGGER_POINT_SOF, &dev);
 end:
 	return rc;
 }
