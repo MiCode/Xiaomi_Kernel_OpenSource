@@ -104,6 +104,11 @@ MODULE_PARM_DESC(tx_ring_order, " Tx ring order; size = 1 << order");
 module_param_cb(bcast_ring_order, &ring_order_ops, &bcast_ring_order, 0444);
 MODULE_PARM_DESC(bcast_ring_order, " Bcast ring order; size = 1 << order");
 
+static u8 support_sensing_over_spi;
+module_param(support_sensing_over_spi, byte, 0444);
+MODULE_PARM_DESC(support_sensing_over_spi,
+		 " notify FW to enable SPI for sensing");
+
 enum {
 	WIL_BOOT_ERR,
 	WIL_BOOT_VANILLA,
@@ -1655,6 +1660,11 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (test_bit(WIL_PLATFORM_CAPA_EXT_CLK, wil->platform_capa)) {
 		wil_dbg_misc(wil, "Notify FW on ext clock configuration\n");
 		wil_s(wil, RGF_USER_USAGE_8, BIT_USER_EXT_CLK);
+	}
+
+	if (support_sensing_over_spi) {
+		wil_dbg_misc(wil, "notify FW to enable SPI for sensing\n");
+		wil_s(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
 	}
 
 	if (wil->platform_ops.notify) {
