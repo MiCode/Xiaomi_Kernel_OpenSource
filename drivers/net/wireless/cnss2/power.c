@@ -545,6 +545,7 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 	struct platform_device *plat_dev = plat_priv->plat_dev;
 	struct cnss_cpr_info *cpr_info = &plat_priv->cpr_info;
 	struct resource *res;
+	resource_size_t addr_len;
 	void __iomem *tcs_cmd_base_addr;
 	u32 s2f_addr = 0, s6a_addr = 0;
 	int ret = 0;
@@ -579,8 +580,9 @@ int cnss_get_cpr_info(struct cnss_plat_data *plat_priv)
 	}
 
 	cpr_info->tcs_cmd_base_addr = res->start;
+	addr_len = resource_size(res);
 	cnss_pr_dbg("TCS CMD base address is %pa with length %pa\n",
-		    cpr_info->tcs_cmd_base_addr, resource_size(res));
+		    &cpr_info->tcs_cmd_base_addr, &addr_len);
 
 	tcs_cmd_base_addr = devm_ioremap_resource(&plat_dev->dev, res);
 	if (IS_ERR(tcs_cmd_base_addr)) {
@@ -651,7 +653,7 @@ int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 
 update_cpr:
 	cnss_pr_dbg("Update TCS CMD data address %pa with voltage %dmV\n",
-		    cpr_info->tcs_cmd_data_addr, cpr_info->voltage);
+		    &cpr_info->tcs_cmd_data_addr, cpr_info->voltage);
 	writel_relaxed(cpr_info->voltage, cpr_info->tcs_cmd_data_addr_io);
 
 	return 0;
