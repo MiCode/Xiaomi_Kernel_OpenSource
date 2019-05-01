@@ -796,6 +796,8 @@ enum hal_capability {
 	HAL_CAPABILITY_MAX_VIDEOCORES,
 	HAL_CAPABILITY_MAX_WORKMODES,
 	HAL_CAPABILITY_UBWC_CR_STATS,
+	HAL_CAPABILITY_ROTATION,
+	HAL_CAPABILITY_COLOR_SPACE_CONVERSION,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -1249,6 +1251,8 @@ struct msm_vidc_capability {
 	struct hal_capability_supported rc_modes;
 	struct hal_capability_supported blur_width;
 	struct hal_capability_supported blur_height;
+	struct hal_capability_supported color_space_caps;
+	struct hal_capability_supported rotation;
 	struct hal_capability_supported slice_delivery_mode;
 	struct hal_capability_supported slice_bytes;
 	struct hal_capability_supported slice_mbs;
