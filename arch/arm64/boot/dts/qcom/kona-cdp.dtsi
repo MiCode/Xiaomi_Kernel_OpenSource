@@ -60,6 +60,7 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm8150_l5>;
+	vdda-phy-always-on;
 	vdda-pll-supply = <&pm8150_l9>;
 	vdda-phy-max-microamp = <89900>;
 	vdda-pll-max-microamp = <18800>;
