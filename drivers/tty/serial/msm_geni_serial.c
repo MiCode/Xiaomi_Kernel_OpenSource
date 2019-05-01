@@ -2624,7 +2624,11 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 	start_rx_sequencer(&port->uport);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();
-	if (pm_runtime_enabled(dev))
+	/*
+	 * Do not enable irq before interrupt registration which happens
+	 * at port open time.
+	 */
+	if (pm_runtime_enabled(dev) && port->xfer_mode != INVALID)
 		enable_irq(port->uport.irq);
 	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
