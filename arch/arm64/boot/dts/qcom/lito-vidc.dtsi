@@ -74,6 +74,7 @@
 			iommus = <&apps_smmu 0x1380 0x60>,
 				<&apps_smmu 0x1360 0x0>;
 			qcom,iommu-dma-addr-pool = <0x25800000 0xba800000>;
+			qcom,iommu-faults = "non-fatal";
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x25800000 0xba800000>;
 		};
@@ -83,6 +84,8 @@
 			label = "venus_sec_non_pixel";
 			iommus = <&apps_smmu 0x1304 0xe0>;
 			qcom,iommu-dma-addr-pool = <0x01000000 0x24800000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xB>; /*VMID_CP_NON_PIXEL*/
 			buffer-types = <0x480>;
 			virtual-addr-pool = <0x1000000 0x24800000>;
 			qcom,secure-context-bank;
@@ -93,6 +96,8 @@
 			label = "venus_sec_bitstream";
 			iommus = <&apps_smmu 0x1361 0x4>;
 			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0x9>; /*VMID_CP_BITSTREAM*/
 			buffer-types = <0x241>;
 			virtual-addr-pool = <0x500000 0xdfb00000>;
 			qcom,secure-context-bank;
@@ -103,6 +108,8 @@
 			label = "venus_sec_pixel";
 			iommus = <&apps_smmu 0x1303 0xe0>;
 			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xA>; /*VMID_CP_PIXEL*/
 			buffer-types = <0x106>;
 			virtual-addr-pool = <0x500000 0xdfb00000>;
 			qcom,secure-context-bank;
@@ -181,6 +188,7 @@
 			iommus = <&apps_smmu 0x1380 0x60>,
 				<&apps_smmu 0x1360 0x0>;
 			qcom,iommu-dma-addr-pool = <0x25800000 0xba800000>;
+			qcom,iommu-faults = "non-fatal";
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x25800000 0xba800000>;
 		};
@@ -190,6 +198,8 @@
 			label = "venus_sec_non_pixel";
 			iommus = <&apps_smmu 0x1304 0xe0>;
 			qcom,iommu-dma-addr-pool = <0x01000000 0x24800000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xB>; /*VMID_CP_NON_PIXEL*/
 			buffer-types = <0x480>;
 			virtual-addr-pool = <0x1000000 0x24800000>;
 			qcom,secure-context-bank;
@@ -200,6 +210,8 @@
 			label = "venus_sec_bitstream";
 			iommus = <&apps_smmu 0x1361 0x4>;
 			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0x9>; /*VMID_CP_BITSTREAM*/
 			buffer-types = <0x241>;
 			virtual-addr-pool = <0x00500000 0xdfb00000>;
 			qcom,secure-context-bank;
@@ -210,6 +222,8 @@
 			label = "venus_sec_pixel";
 			iommus = <&apps_smmu 0x1303 0xe0>;
 			qcom,iommu-dma-addr-pool = <0x00500000 0xdfb00000>;
+			qcom,iommu-faults = "non-fatal";
+			qcom,iommu-vmid = <0xA>; /*VMID_CP_PIXEL*/
 			buffer-types = <0x106>;
 			virtual-addr-pool = <0x00500000 0xdfb00000>;
 			qcom,secure-context-bank;

@@ -1882,7 +1882,6 @@
 
 		clocks = <&videocc VIDEO_CC_XO_CLK>,
 			 <&videocc VIDEO_CC_MVSC_CORE_CLK>;
-			/*<&videocc VIDEO_CC_IRIS_AHB_CLK>;*/
 		clock-names = "xo", "core";
 		qcom,proxy-clock-names = "xo", "core";
 
