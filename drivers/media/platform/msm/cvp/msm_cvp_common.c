@@ -192,7 +192,7 @@ static void cvp_handle_session_cmd_done(enum hal_command_response cmd,
 	dprintk(CVP_DBG, "%s: inst=%pK\n", __func__, inst);
 
 	if (IS_HAL_SESSION_CMD(cmd)) {
-		dprintk(CVP_INFO, "%s: calling completion for id=%d",
+		dprintk(CVP_INFO, "%s: calling completion for index = %d",
 			__func__, SESSION_MSG_INDEX(cmd));
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	} else
@@ -733,6 +733,7 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_DCM_CONFIG_CMD_DONE:
 	case HAL_SESSION_DC_CONFIG_CMD_DONE:
 	case HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE:
+	case HAL_SESSION_ICA_FRAME_CMD_DONE:
 		cvp_handle_session_cmd_done(cmd, data);
 		break;
 	default:

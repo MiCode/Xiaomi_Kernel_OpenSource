@@ -4,6 +4,7 @@
  */
 
 #include "msm_cvp.h"
+#include "cvp_hfi.h"
 #include <synx_api.h>
 
 #define MSM_CVP_NOMINAL_CYCLES		(444 * 1000 * 1000)
@@ -405,7 +406,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 
 	if (wait_event_timeout(sq->wq,
 		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
-		dprintk(CVP_ERR, "session queue wait timeout\n");
+		dprintk(CVP_DBG, "session queue wait timeout\n");
 		return -ETIMEDOUT;
 	}
 
@@ -555,6 +556,8 @@ static int msm_cvp_thread_fence_run(void *data)
 	struct cvp_kmd_hfi_packet *in_pkt;
 	struct msm_cvp_inst *inst;
 	int *fence;
+	int ica_enabled = 0;
+	int pkt_idx;
 
 	if (!data) {
 		dprintk(CVP_ERR, "%s Wrong input data %pK\n", __func__, data);
@@ -571,12 +574,22 @@ static int msm_cvp_thread_fence_run(void *data)
 	in_fence_pkt = (struct cvp_kmd_hfi_fence_packet *)
 					&fence_thread_data->in_fence_pkt;
 	in_pkt = (struct cvp_kmd_hfi_packet *)(in_fence_pkt);
+	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
+
+	if (pkt_idx < 0) {
+		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
+			in_pkt->pkt_data[0],
+			in_pkt->pkt_data[1]);
+		rc = pkt_idx;
+		goto exit;
+	}
+
 	fence = (int *)(in_fence_pkt->fence_data);
 	hdev = inst->core->device;
 
 	//wait on synx before signaling HFI
-	switch (fence_thread_data->arg_type) {
-	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
+	switch (cvp_hfi_defs[pkt_idx].type) {
+	case HFI_CMD_SESSION_CVP_DME_FRAME:
 	{
 		for (i = 0; i < HFI_DME_BUF_NUM-1; i++) {
 			if (fence[(i<<1)]) {
@@ -602,6 +615,14 @@ static int msm_cvp_thread_fence_run(void *data)
 						__func__);
 					goto exit;
 				}
+				if (i == 0) {
+					ica_enabled = 1;
+					/*
+					 * Increase loop count to skip fence
+					 * waiting on downscale image.
+					 */
+					i = i+1;
+				}
 			}
 		}
 
@@ -622,9 +643,116 @@ static int msm_cvp_thread_fence_run(void *data)
 			__func__, rc);
 			goto exit;
 		}
+
+		if (ica_enabled) {
+			rc = synx_import(fence[2], fence[3], &synx_obj);
+			if (rc) {
+				dprintk(CVP_ERR, "%s: synx_import failed\n",
+					__func__);
+				goto exit;
+			}
+			rc = synx_signal(synx_obj,
+					SYNX_STATE_SIGNALED_SUCCESS);
+			if (rc) {
+				dprintk(CVP_ERR, "%s: synx_signal failed\n",
+					__func__);
+				goto exit;
+			}
+			if (synx_get_status(synx_obj) !=
+				SYNX_STATE_SIGNALED_SUCCESS) {
+				dprintk(CVP_ERR,
+					"%s: synx_get_status failed\n",
+					__func__);
+				goto exit;
+			}
+			rc = synx_release(synx_obj);
+			if (rc) {
+				dprintk(CVP_ERR, "%s: synx_release failed\n",
+					__func__);
+				goto exit;
+			}
+		}
+
 		rc = synx_import(fence[((HFI_DME_BUF_NUM-1)<<1)],
 				fence[((HFI_DME_BUF_NUM-1)<<1)+1],
 				&synx_obj);
+		if (rc) {
+			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
+			goto exit;
+		}
+		rc = synx_signal(synx_obj, SYNX_STATE_SIGNALED_SUCCESS);
+		if (rc) {
+			dprintk(CVP_ERR, "%s: synx_signal failed\n", __func__);
+			goto exit;
+		}
+		if (synx_get_status(synx_obj) != SYNX_STATE_SIGNALED_SUCCESS) {
+			dprintk(CVP_ERR, "%s: synx_get_status failed\n",
+					__func__);
+			goto exit;
+		}
+		rc = synx_release(synx_obj);
+		if (rc) {
+			dprintk(CVP_ERR, "%s: synx_release failed\n",
+				__func__);
+			goto exit;
+		}
+		break;
+	}
+	case HFI_CMD_SESSION_CVP_ICA_FRAME:
+	{
+		for (i = 0; i < cvp_hfi_defs[pkt_idx].buf_num-1; i++) {
+			if (fence[(i<<1)]) {
+				rc = synx_import(fence[(i<<1)],
+					fence[((i<<1)+1)], &synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_import failed\n",
+						__func__);
+					goto exit;
+				}
+				rc = synx_wait(synx_obj, timeout_ms);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_wait failed\n",
+						__func__);
+					goto exit;
+				}
+				rc = synx_release(synx_obj);
+				if (rc) {
+					dprintk(CVP_ERR,
+						"%s: synx_release failed\n",
+						__func__);
+					goto exit;
+				}
+				if (i == 0) {
+					/*
+					 * Increase loop count to skip fence
+					 * waiting on output corrected image.
+					 */
+					i = i+1;
+				}
+			}
+		}
+
+		rc = call_hfi_op(hdev, session_send,
+				(void *)inst->session, in_pkt);
+		if (rc) {
+			dprintk(CVP_ERR,
+				"%s: Failed in call_hfi_op %d, %x\n",
+				__func__, in_pkt->pkt_data[0],
+				in_pkt->pkt_data[1]);
+			goto exit;
+		}
+
+		rc = wait_for_sess_signal_receipt(inst,
+				HAL_SESSION_ICA_FRAME_CMD_DONE);
+		if (rc)	{
+			dprintk(CVP_ERR, "%s: wait for signal failed, rc %d\n",
+			__func__, rc);
+			goto exit;
+		}
+
+		rc = synx_import(fence[2], fence[3], &synx_obj);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
 			goto exit;
@@ -857,7 +985,7 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 	print_client_buffer(CVP_DBG, "register", inst, buf);
 
 	if (!buf->index) {
-		dprintk(CVP_WARN,
+		dprintk(CVP_INFO,
 			"%s: CPU path register buffer is deprecated!",
 			__func__);
 		return 0;
@@ -876,7 +1004,7 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 	print_client_buffer(CVP_DBG, "unregister", inst, buf);
 
 	if (!buf->index) {
-		dprintk(CVP_WARN,
+		dprintk(CVP_INFO,
 			"%s CPU path unregister buffer is deprecated!\n",
 			__func__);
 		return 0;
@@ -1056,6 +1184,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		break;
 	}
 	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
+	case CVP_KMD_SEND_FENCE_CMD_PKT:
 	{
 		rc = msm_cvp_session_process_hfi_fence(inst, arg);
 		break;
@@ -1064,7 +1193,7 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		rc = msm_cvp_session_ctrl(inst, arg);
 		break;
 	default:
-		dprintk(CVP_ERR, "%s: unknown arg type 0x%x\n",
+		dprintk(CVP_DBG, "%s: unknown arg type %#x\n",
 				__func__, arg->type);
 		rc = -ENOTSUPP;
 		break;

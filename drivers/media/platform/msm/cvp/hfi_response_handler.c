@@ -16,10 +16,6 @@
 #include "cvp_hfi.h"
 #include "msm_cvp_common.h"
 
-#define DFS_BIT_OFFSET (CVP_KMD_HFI_DFS_FRAME_CMD - CVP_KMD_CMD_START)
-#define DME_BIT_OFFSET (CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START)
-#define PERSIST_BIT_OFFSET (CVP_KMD_HFI_PERSIST_CMD - CVP_KMD_CMD_START)
-
 extern struct msm_cvp_drv *cvp_driver;
 
 static int _deprecated_hfi_msg_process(u32 device_id,
@@ -543,12 +539,11 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 	if (inst->deprecate_bitmask) {
 		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_DME
-			|| pkt->packet_type ==
-				HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
+			|| pkt->packet_type == HFI_MSG_SESSION_CVP_ICA)
 			return _deprecated_hfi_msg_process(device_id,
 				pkt, info, inst);
 
-		dprintk(CVP_ERR, "Invalid deprecate_bitmask %lx\n",
+		dprintk(CVP_ERR, "Invalid deprecate_bitmask %#x\n",
 					inst->deprecate_bitmask);
 	}
 
@@ -606,7 +601,7 @@ static int hfi_process_session_cvp_dme(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d cmd_done.status=%d sessionid=%pK\n",
+		"%s: device_id=%d cmd_done.status=%d sessionid=%#x\n",
 		__func__, device_id, cmd_done.status, cmd_done.session_id);
 	info->response_type = HAL_SESSION_DME_FRAME_CMD_DONE;
 	info->response.cmd = cmd_done;
@@ -614,8 +609,8 @@ static int hfi_process_session_cvp_dme(u32 device_id,
 	return 0;
 }
 
-static int hfi_process_session_cvp_persist(u32 device_id,
-	struct cvp_hfi_msg_session_persist_packet_type *pkt,
+static int hfi_process_session_cvp_ica(u32 device_id,
+	struct cvp_hfi_msg_session_dme_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -623,9 +618,8 @@ static int hfi_process_session_cvp_persist(u32 device_id,
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
-	} else if (pkt->size < sizeof(*pkt)) {
-		dprintk(CVP_ERR,
-				"%s: bad_pkt_size\n", __func__);
+	} else if (pkt->size > sizeof(*pkt)) {
+		dprintk(CVP_ERR, "%s: bad_pkt_size %d\n", __func__, pkt->size);
 		return -E2BIG;
 	}
 
@@ -635,9 +629,9 @@ static int hfi_process_session_cvp_persist(u32 device_id,
 	cmd_done.size = 0;
 
 	dprintk(CVP_DBG,
-		"%s: device_id=%d cmd_done.status=%d sessionid=%pK\n",
+		"%s: device_id=%d cmd_done.status=%d sessionid=%#x\n",
 		__func__, device_id, cmd_done.status, cmd_done.session_id);
-	info->response_type = HAL_SESSION_PERSIST_CMD_DONE,
+	info->response_type = HAL_SESSION_ICA_FRAME_CMD_DONE;
 	info->response.cmd = cmd_done;
 
 	return 0;
@@ -660,11 +654,11 @@ static int _deprecated_hfi_msg_process(u32 device_id,
 			return hfi_process_session_cvp_dme(
 					device_id, (void *)pkt, info);
 
-	if (pkt->packet_type == HFI_MSG_SESSION_CVP_SET_PERSIST_BUFFERS)
-		if (test_and_clear_bit(PERSIST_BIT_OFFSET,
+	if (pkt->packet_type == HFI_MSG_SESSION_CVP_ICA)
+		if (test_and_clear_bit(ICA_BIT_OFFSET,
 				&inst->deprecate_bitmask))
-			return hfi_process_session_cvp_persist(
-					device_id, (void *)pkt, info);
+			return hfi_process_session_cvp_ica(
+				device_id, (void *)pkt, info);
 
 	dprintk(CVP_ERR, "Deprecatd MSG doesn't match bitmask %x %lx\n",
 			pkt->packet_type, inst->deprecate_bitmask);
@@ -760,7 +754,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		return -EINVAL;
 	}
 
-	dprintk(CVP_DBG, "Received HFI MSG with type %d\n", msg_hdr->packet);
+	dprintk(CVP_DBG, "Received HFI MSG with type %#x\n", msg_hdr->packet);
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
 		pkt_func = (pkt_func_def)hfi_process_event_notify;
@@ -797,7 +791,7 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
 		break;
 	default:
-		dprintk(CVP_DBG, "Unable to parse message: %#x\n",
+		dprintk(CVP_DBG, "Use default msg handler: %#x\n",
 				msg_hdr->packet);
 		pkt_func = (pkt_func_def)hfi_process_session_cvp_msg;
 		break;

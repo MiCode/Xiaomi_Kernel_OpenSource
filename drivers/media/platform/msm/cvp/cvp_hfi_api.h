@@ -91,6 +91,11 @@
 #define HFI_PYS_HCD_BUFFERS_OFFSET 14
 #define HFI_PYS_HCD_BUF_NUM 26
 
+#define DFS_BIT_OFFSET (CVP_KMD_HFI_DFS_FRAME_CMD - CVP_KMD_CMD_START)
+#define DME_BIT_OFFSET (CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START)
+#define PERSIST_BIT_OFFSET (CVP_KMD_HFI_PERSIST_CMD - CVP_KMD_CMD_START)
+#define ICA_BIT_OFFSET (CVP_KMD_HFI_ICA_FRAME_CMD - CVP_KMD_CMD_START)
+
 enum cvp_status {
 	CVP_ERR_NONE = 0x0,
 	CVP_ERR_FAIL = 0x80000000,
@@ -326,6 +331,7 @@ enum hal_command_response {
 	HAL_SESSION_DCM_CONFIG_CMD_DONE,
 	HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE,
 	HAL_SESSION_PERSIST_CMD_DONE,
+	HAL_SESSION_ICA_FRAME_CMD_DONE,
 	HAL_SESSION_PROPERTY_INFO,
 	HAL_SESSION_ERROR,
 	HAL_RESPONSE_UNUSED = 0x10000000,
@@ -571,6 +577,7 @@ void cvp_hfi_deinitialize(enum msm_cvp_hfi_type hfi_type,
 
 int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr);
 int get_signal_from_pkt_type(unsigned int type);
+int set_feature_bitmask(int pkt_index, unsigned long *bitmask);
 extern const struct msm_cvp_hfi_defs cvp_hfi_defs[];
 
 #endif /*__CVP_HFI_API_H__ */
