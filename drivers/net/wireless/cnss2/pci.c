@@ -442,6 +442,8 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		set_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+	} else {
+		complete(&plat_priv->power_up_complete);
 	}
 
 	return 0;
