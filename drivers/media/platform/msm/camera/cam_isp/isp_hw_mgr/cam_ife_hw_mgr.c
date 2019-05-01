@@ -2064,12 +2064,12 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 {
 	struct cam_isp_in_port_info *in = NULL;
 	uint32_t in_port_length = 0;
-	struct cam_isp_in_port_generic_info *port_info;
+	struct cam_isp_in_port_generic_info *port_info = NULL;
 	int32_t rc = 0, i;
 
 	in = (struct cam_isp_in_port_info *)
 		((uint8_t *)&acquire_hw_info->data +
-		 acquire_hw_info->input_info_offset) + (*input_size);
+		 acquire_hw_info->input_info_offset + *input_size);
 
 	in_port_length = sizeof(struct cam_isp_in_port_info) +
 		(in->num_out_res - 1) *
@@ -2084,6 +2084,9 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 
 	port_info = kzalloc(
 		sizeof(struct cam_isp_in_port_generic_info), GFP_KERNEL);
+
+	if (!port_info)
+		return -ENOMEM;
 
 	port_info->major_ver       =
 		(acquire_hw_info->input_info_version >> 16) & 0xFFFF;
@@ -2148,12 +2151,12 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 {
 	struct cam_isp_in_port_info_v2 *in = NULL;
 	uint32_t in_port_length = 0;
-	struct cam_isp_in_port_generic_info *port_info;
+	struct cam_isp_in_port_generic_info *port_info = NULL;
 	int32_t rc = 0, i;
 
 	in = (struct cam_isp_in_port_info_v2 *)
 		((uint8_t *)&acquire_hw_info->data +
-		 acquire_hw_info->input_info_offset) + (*input_size);
+		 acquire_hw_info->input_info_offset + *input_size);
 
 	in_port_length = sizeof(struct cam_isp_in_port_info_v2) +
 		(in->num_out_res - 1) *
@@ -2168,6 +2171,9 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 
 	port_info = kzalloc(
 		sizeof(struct cam_isp_in_port_generic_info), GFP_KERNEL);
+
+	if (!port_info)
+		return -ENOMEM;
 
 	port_info->major_ver       =
 		(acquire_hw_info->input_info_version >> 16) & 0xFFFF;
@@ -2746,7 +2752,8 @@ static int cam_isp_blob_bw_update(
 					camif_r_bw_updated = true;
 				}
 			} else {
-				if (hw_mgr_res->hw_res[i]) {
+				if (hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_LCR
+					&& hw_mgr_res->hw_res[i]) {
 					CAM_ERR(CAM_ISP, "Invalid res_id %u",
 						hw_mgr_res->res_id);
 					rc = -EINVAL;
