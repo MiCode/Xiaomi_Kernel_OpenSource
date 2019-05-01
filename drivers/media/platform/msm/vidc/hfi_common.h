@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#ifndef __H_VENUS_HFI_H__
-#define __H_VENUS_HFI_H__
+#ifndef __HFI_COMMON_H__
+#define __HFI_COMMON_H__
 
 #include <linux/clk.h>
 #include <linux/mutex.h>
@@ -234,12 +234,17 @@ enum reset_state {
 struct venus_hfi_device;
 
 struct venus_hfi_vpu_ops {
-	void (*interrupt_init)(struct venus_hfi_device *ptr);
-	void (*setup_dsp_uc_memmap)(struct venus_hfi_device *device);
+	void (*interrupt_init)(struct venus_hfi_device *device);
+	void (*setup_ucregion_memmap)(struct venus_hfi_device *device);
 	void (*clock_config_on_enable)(struct venus_hfi_device *device);
 	int (*reset_ahb2axi_bridge)(struct venus_hfi_device *device);
 	void (*power_off)(struct venus_hfi_device *device);
+	int (*prepare_pc)(struct venus_hfi_device *device);
+	void (*raise_interrupt)(struct venus_hfi_device *device);
+	bool (*watchdog)(u32 intr_status);
 	void (*noc_error_info)(struct venus_hfi_device *device);
+	void (*core_clear_interrupt)(struct venus_hfi_device *device);
+	int (*boot_firmware)(struct venus_hfi_device *device);
 };
 
 struct venus_hfi_device {
@@ -285,5 +290,31 @@ void venus_hfi_delete_device(void *device);
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		struct msm_vidc_platform_resources *res,
 		hfi_cmd_response_callback callback);
+
+void __write_register(struct venus_hfi_device *device, u32 reg, u32 value);
+int __read_register(struct venus_hfi_device *device, u32 reg);
+void __disable_unprepare_clks(struct venus_hfi_device *device);
+int __disable_regulators(struct venus_hfi_device *device);
+int __unvote_buses(struct venus_hfi_device *device);
+int __reset_ahb2axi_bridge_common(struct venus_hfi_device *device);
+int __prepare_pc(struct venus_hfi_device *device);
+
+/* AR50 specific */
+void __interrupt_init_ar50(struct venus_hfi_device *device);
+/* IRIS1 specific */
+void __interrupt_init_iris1(struct venus_hfi_device *device);
+void __setup_dsp_uc_memmap_iris1(struct venus_hfi_device *device);
+void __clock_config_on_enable_iris1(struct venus_hfi_device *device);
+void __setup_ucregion_memory_map_iris1(struct venus_hfi_device *device);
+/* IRIS2 specific */
+void __interrupt_init_iris2(struct venus_hfi_device *device);
+void __setup_ucregion_memory_map_iris2(struct venus_hfi_device *device);
+void __power_off_iris2(struct venus_hfi_device *device);
+int __prepare_pc_iris2(struct venus_hfi_device *device);
+void __raise_interrupt_iris2(struct venus_hfi_device *device);
+bool __watchdog_iris2(u32 intr_status);
+void __noc_error_info_iris2(struct venus_hfi_device *device);
+void __core_clear_interrupt_iris2(struct venus_hfi_device *device);
+int __boot_firmware_iris2(struct venus_hfi_device *device);
 
 #endif

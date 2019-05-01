@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/slab.h>
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
-#include "venus_hfi.h"
+#include "hfi_common.h"
 
 struct hfi_device *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type,
 		u32 device_id, struct msm_vidc_platform_resources *res,
