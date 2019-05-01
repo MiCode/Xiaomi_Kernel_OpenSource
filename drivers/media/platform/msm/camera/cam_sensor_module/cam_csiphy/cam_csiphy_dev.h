@@ -235,33 +235,32 @@ struct cam_csiphy_param {
 
 /**
  * struct csiphy_device
- * @pdev: Platform device
- * @irq: Interrupt structure
- * @base: Base address
- * @hw_version: Hardware Version
- * @csiphy_state: CSIPhy state
- * @ctrl_reg: CSIPhy control registers
- * @num_clk: Number of clocks
- * @csiphy_max_clk: Max timer clock rate
- * @num_vreg: Number of regulators
- * @csiphy_clk: Clock structure
- * @csiphy_clk_info: Clock information structure
- * @csiphy_vreg: Regulator structure
- * @csiphy_reg_ptr: Regulator structure
- * @csiphy_3p_clk_info: 3Phase clock information
- * @csiphy_3p_clk: 3Phase clocks structure
- * @csi_3phase: Is it a 3Phase mode
- * @ref_count: Reference count
- * @clk_lane: Clock lane
- * @acquire_count: Acquire device count
- * @start_dev_count: Start count
- * @is_acquired_dev_combo_mode:
- *    Flag that mentions whether already acquired
- *   device is for combo mode
- * @soc_info: SOC information
- * @cpas_handle: CPAS handle
- * @config_count: Config reg count
- * @csiphy_cpas_cp_reg_mask: CP reg mask for phy instance
+ * @pdev:                       Platform device
+ * @irq:                        Interrupt structure
+ * @base:                       Base address
+ * @hw_version:                 Hardware Version
+ * @csiphy_state:               CSIPhy state
+ * @ctrl_reg:                   CSIPhy control registers
+ * @num_clk:                    Number of clocks
+ * @csiphy_max_clk:             Max timer clock rate
+ * @num_vreg:                   Number of regulators
+ * @csiphy_clk:                 Clock structure
+ * @csiphy_clk_info:            Clock information structure
+ * @csiphy_vreg:                Regulator structure
+ * @csiphy_reg_ptr:             Regulator structure
+ * @csiphy_3p_clk_info:         3Phase clock information
+ * @csiphy_3p_clk:              3Phase clocks structure
+ * @csi_3phase:                 Is it a 3Phase mode
+ * @ref_count:                  Reference count
+ * @clk_lane:                   Clock lane
+ * @acquire_count:              Acquire device count
+ * @start_dev_count:            Start count
+ * @is_acquired_dev_combo_mode: Flag that mentions whether already acquired
+ *                              device is for combo mode
+ * @soc_info:                   SOC information
+ * @cpas_handle:                CPAS handle
+ * @config_count:               Config reg count
+ * @csiphy_cpas_cp_reg_mask:    CP reg mask for phy instance
  */
 struct csiphy_device {
 	struct mutex mutex;
@@ -275,6 +274,7 @@ struct csiphy_device {
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
 	uint8_t is_csiphy_3phase_hw;
+	uint8_t is_divisor_32_comp;
 	uint8_t num_irq_registers;
 	struct cam_subdev v4l2_dev_str;
 	struct cam_csiphy_param csiphy_info;

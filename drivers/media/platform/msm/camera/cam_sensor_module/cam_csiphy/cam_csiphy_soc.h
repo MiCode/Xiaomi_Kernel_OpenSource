@@ -25,7 +25,6 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define CSI_3PHASE_HW                               1
-#define CSI_3PHASE_HW_12                          0x12
 #define CSIPHY_VERSION_V35                        0x35
 #define CSIPHY_VERSION_V10                        0x10
 #define CSIPHY_VERSION_V11                        0x11

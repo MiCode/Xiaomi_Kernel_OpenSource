@@ -11,9 +11,9 @@
 #include "include/cam_csiphy_1_2_1_hwreg.h"
 #include "include/cam_csiphy_2_0_hwreg.h"
 
-#define CSIPHY_3PH_DIVISOR           16
-#define CSIPHY_3PH_DIVISOR_12        32
-#define CSIPHY_2PH_DIVISOR           8
+#define CSIPHY_DIVISOR_16           16
+#define CSIPHY_DIVISOR_32           32
+#define CSIPHY_DIVISOR_8             8
 #define BYTES_PER_REGISTER           4
 #define NUM_REGISTER_PER_LINE        4
 #define REG_OFFSET(__start, __i)    ((__start) + ((__i) * BYTES_PER_REGISTER))
@@ -96,12 +96,12 @@ enum cam_vote_level get_clk_voting_dynamic(struct csiphy_device *csiphy_dev)
 			csiphy_dev->csiphy_info.data_rate_combo_sensor);
 
 	if (csiphy_dev->csiphy_info.csiphy_3phase) {
-		if (csiphy_dev->is_csiphy_3phase_hw == CSI_3PHASE_HW_12)
-			do_div(phy_data_rate, CSIPHY_3PH_DIVISOR_12);
+		if (csiphy_dev->is_divisor_32_comp)
+			do_div(phy_data_rate, CSIPHY_DIVISOR_32);
 		else
-			do_div(phy_data_rate, CSIPHY_3PH_DIVISOR);
+			do_div(phy_data_rate, CSIPHY_DIVISOR_16);
 	} else {
-		do_div(phy_data_rate, CSIPHY_2PH_DIVISOR);
+		do_div(phy_data_rate, CSIPHY_DIVISOR_8);
 	}
 
 	 /* round off to next integer */
@@ -227,6 +227,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->ctrl_reg->getclockvoting = get_clk_vote_default;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V10;
 		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
+		csiphy_dev->is_divisor_32_comp = false;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
 	} else if (of_device_is_compatible(soc_info->dev->of_node,
@@ -245,6 +246,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v1_1;
 		csiphy_dev->ctrl_reg->getclockvoting = get_clk_vote_default;
 		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
+		csiphy_dev->is_divisor_32_comp = false;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V11;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
@@ -262,7 +264,8 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 			csiphy_reset_reg_1_2;
 		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
 		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v1_2;
-		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW_12;
+		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
+		csiphy_dev->is_divisor_32_comp = true;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V12;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table =
@@ -281,7 +284,8 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 			csiphy_reset_reg_1_2_1;
 		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v1_2_1;
 		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
-		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW_12;
+		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
+		csiphy_dev->is_divisor_32_comp = true;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V121;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table =
@@ -300,6 +304,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->ctrl_reg->getclockvoting = get_clk_vote_default;
 		csiphy_dev->hw_version = CSIPHY_VERSION_V20;
 		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
+		csiphy_dev->is_divisor_32_comp = false;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
 	} else {
