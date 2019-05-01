@@ -2900,6 +2900,7 @@ int ipa3_get_transport_info(
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
+u32 ipa3_get_r_rev_version(void);
 #if defined(CONFIG_IPA3_REGDUMP)
 int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);

@@ -8006,3 +8006,17 @@ void ipa3_init_imm_cmd_desc(struct ipa3_desc *desc,
 	desc->len = cmd_pyld->len;
 	desc->type = IPA_IMM_CMD_DESC;
 }
+
+u32 ipa3_get_r_rev_version(void)
+{
+	static u32 r_rev;
+
+	if (r_rev != 0)
+		return r_rev;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	r_rev = ipahal_read_reg(IPA_VERSION);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return r_rev;
+}
