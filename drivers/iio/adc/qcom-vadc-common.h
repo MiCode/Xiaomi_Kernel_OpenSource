@@ -52,6 +52,34 @@
 #define VADC5_FULL_SCALE_CODE			0x70e4
 #define ADC_USR_DATA_CHECK			0x8000
 
+#define IPC_LOGPAGES 10
+
+#ifdef CONFIG_DEBUG_FS
+#define ADC_IPC(idx, dev, msg, args...) do { \
+		if (dev) { \
+			if ((idx == 0) && (dev)->ipc_log0) \
+				ipc_log_string((dev)->ipc_log0, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 1) && (dev)->ipc_log1) \
+				ipc_log_string((dev)->ipc_log1, \
+					"%s: " msg, __func__, args); \
+			else \
+				pr_debug("adc: invalid logging index\n"); \
+		} \
+	} while (0)
+#define ADC_DBG(dev, msg, args...) do {				\
+		ADC_IPC(0, dev, msg, args); \
+		pr_debug(msg, ##args);	\
+	} while (0)
+#define ADC_DBG1(dev, msg, args...) do {				\
+		ADC_IPC(1, dev, msg, args); \
+		pr_debug(msg, ##args);	\
+	} while (0)
+#else
+#define	ADC_DBG(dev, msg, args...)		pr_debug(msg, ##args)
+#define	ADC_DBG1(dev, msg, args...)		pr_debug(msg, ##args)
+#endif
+
 /**
  * struct vadc_map_pt - Map the graph representation for ADC channel
  * @x: Represent the ADC digitized code.
