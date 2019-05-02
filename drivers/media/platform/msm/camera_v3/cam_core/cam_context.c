@@ -248,7 +248,7 @@ int cam_context_dump_pf_info(struct cam_context *ctx, unsigned long iova,
 		rc = ctx->state_machine[ctx->state].pagefault_ops(ctx, iova,
 			buf_info);
 	} else {
-		CAM_WARN(CAM_CORE, "No dump ctx in dev %d, state %d",
+		CAM_INFO(CAM_CORE, "No dump ctx in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
 	}
 	mutex_unlock(&ctx->ctx_mutex);

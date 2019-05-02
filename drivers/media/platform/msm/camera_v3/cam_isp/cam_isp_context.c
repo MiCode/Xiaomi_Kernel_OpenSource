@@ -2541,6 +2541,8 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->hw_acquired = false;
 	ctx_isp->init_received = false;
+	ctx_isp->rdi_only_context = false;
+	ctx_isp->split_acquire = false;
 
 	/*
 	 * Ideally, we should never have any active request here.
