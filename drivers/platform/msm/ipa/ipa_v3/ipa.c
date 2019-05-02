@@ -260,6 +260,7 @@ static struct notifier_block ipa3_active_clients_panic_blk = {
 	.notifier_call  = ipa3_active_clients_panic_notifier,
 };
 
+#ifdef CONFIG_IPA_DEBUG
 static int ipa3_active_clients_log_insert(const char *string)
 {
 	int head;
@@ -284,6 +285,7 @@ static int ipa3_active_clients_log_insert(const char *string)
 
 	return 0;
 }
+#endif
 
 static int ipa3_active_clients_log_init(void)
 {
@@ -3688,7 +3690,9 @@ static void ipa3_start_tag_process(struct work_struct *work)
  * - Remove and deallocate unneeded data structure
  * - Log the call in the circular history buffer (unless it is a simple call)
  */
-void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
+#ifdef CONFIG_IPA_DEBUG
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
 		bool inc, bool int_ctx)
 {
 	char temp_str[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN];
@@ -3750,6 +3754,13 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
 }
+#else
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
+		bool inc, bool int_ctx)
+{
+}
+#endif
 
 void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx)
