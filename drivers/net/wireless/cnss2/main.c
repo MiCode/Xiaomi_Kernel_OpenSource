@@ -638,6 +638,18 @@ int cnss_power_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_power_down);
 
+int cnss_idle_restart(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_restart);
+
+int cnss_idle_shutdown(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_shutdown);
+
 static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
