@@ -149,6 +149,24 @@ static void _set_deprecate_bitmask(struct cvp_kmd_arg *kp,
 	}
 }
 
+static void print_hfi_short(struct cvp_kmd_arg __user *up)
+{
+	struct cvp_kmd_hfi_packet *pkt;
+	unsigned int words[5];
+
+	pkt = &up->data.hfi_pkt;
+	if (get_user(words[0], &up->type) ||
+			get_user(words[1], &up->buf_offset) ||
+			get_user(words[2], &up->buf_num) ||
+			get_user(words[3], &pkt->pkt_data[0]) ||
+			get_user(words[4], &pkt->pkt_data[1]))
+		dprintk(CVP_ERR, "Failed to print ioctl cmd\n");
+
+	dprintk(CVP_DBG, "IOCTL cmd type %d, offset %d, num %d, pkt %d %d\n",
+			words[0], words[1], words[2], words[3], words[4]);
+}
+
+
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
 		struct msm_cvp_inst *inst)
@@ -162,6 +180,8 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
+
+	print_hfi_short(up);
 
 	if (get_user(kp->type, &up->type))
 		return -EFAULT;
@@ -267,8 +287,6 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 			return -EFAULT;
 		}
 
-		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
-				pkt_hdr.size, pkt_hdr.packet_type);
 		rc = _copy_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
@@ -280,8 +298,6 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 			return -EFAULT;
 		}
 
-		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
-				pkt_hdr.size, pkt_hdr.packet_type);
 		rc = _copy_fence_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
