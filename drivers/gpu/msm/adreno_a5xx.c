@@ -142,7 +142,6 @@ static void a5xx_check_features(struct adreno_device *adreno_dev)
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 {
-	uint64_t addr;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (adreno_is_a505_or_a506(adreno_dev) || adreno_is_a508(adreno_dev)) {
@@ -165,11 +164,6 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 		adreno_is_a512(adreno_dev)) {
 		gpudev->snapshot_data->sect_sizes->cp_merciu = 1024;
 	}
-
-	/* Calculate SP local and private mem addresses */
-	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
-	adreno_dev->sp_local_gpuaddr = addr;
-	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 
 	/* Setup defaults that might get changed by the fuse bits */
 	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;

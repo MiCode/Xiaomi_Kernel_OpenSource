@@ -2368,18 +2368,6 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 	return copy_prop(value, count, &vaddr, sizeof(vaddr));
 }
 
-static int adreno_prop_sp_generic_mem(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_sp_generic_mem sp_mem = {
-		.local = adreno_dev->sp_local_gpuaddr,
-		.pvt = adreno_dev->sp_pvt_gpuaddr,
-	};
-
-	return copy_prop(value, count, &sp_mem, sizeof(sp_mem));
-}
-
 static int adreno_prop_ucode_version(struct kgsl_device *device,
 		u32 type, void __user *value, size_t count)
 {
@@ -2447,7 +2435,6 @@ static struct {
 	[KGSL_PROP_MMU_ENABLE] = { .func = adreno_prop_s32 },
 	[KGSL_PROP_INTERRUPT_WAITS] = { .func = adreno_prop_s32 },
 	[KGSL_PROP_UCHE_GMEM_VADDR] = { .func = adreno_prop_uche_gmem_addr },
-	[KGSL_PROP_SP_GENERIC_MEM] = { .func = adreno_prop_sp_generic_mem },
 	[KGSL_PROP_UCODE_VERSION] = { .func = adreno_prop_ucode_version },
 	[KGSL_PROP_GPMU_VERSION] = { .func = adreno_prop_gpmu_version },
 	[KGSL_PROP_HIGHEST_BANK_BIT] = { .func = adreno_prop_u32 },

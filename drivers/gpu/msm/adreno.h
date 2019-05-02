@@ -460,8 +460,6 @@ enum gpu_coresight_sources {
  * buffer
  * @pwrup_reglist: Memdesc holding the power up register list
  * which is used by CP during preemption and IFPC
- * @sp_local_gpuaddr: Base GPU virtual address for SP local memory
- * @sp_pvt_gpuaddr: Base GPU virtual address for SP private memory
  * @lm_fw: The LM firmware handle
  * @lm_sequence: Pointer to the start of the register write sequence for LM
  * @lm_size: The dword size of the LM sequence
@@ -534,8 +532,6 @@ struct adreno_device {
 	struct kgsl_memdesc profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc pwrup_reglist;
-	uint64_t sp_local_gpuaddr;
-	uint64_t sp_pvt_gpuaddr;
 	const struct firmware *lm_fw;
 	uint32_t *lm_sequence;
 	uint32_t lm_size;
