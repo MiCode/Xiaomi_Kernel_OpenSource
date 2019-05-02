@@ -482,6 +482,10 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "POWER_UP";
 	case CNSS_DRIVER_EVENT_POWER_DOWN:
 		return "POWER_DOWN";
+	case CNSS_DRIVER_EVENT_IDLE_RESTART:
+		return "IDLE_RESTART";
+	case CNSS_DRIVER_EVENT_IDLE_SHUTDOWN:
+		return "IDLE_SHUTDOWN";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM:
 		return "QDSS_TRACE_REQ_MEM";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE:
@@ -637,13 +641,74 @@ EXPORT_SYMBOL(cnss_power_down);
 
 int cnss_idle_restart(struct device *dev)
 {
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	unsigned int timeout;
+	int ret = 0;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	cnss_pr_dbg("Doing idle restart\n");
+
+	ret = cnss_driver_event_post(plat_priv,
+				     CNSS_DRIVER_EVENT_IDLE_RESTART,
+				     CNSS_EVENT_SYNC, NULL);
+	if (ret)
+		goto out;
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
+		ret = cnss_bus_call_driver_probe(plat_priv);
+		goto out;
+	}
+
+	timeout = cnss_get_boot_timeout(dev);
+
+	reinit_completion(&plat_priv->power_up_complete);
+	ret = wait_for_completion_timeout(&plat_priv->power_up_complete,
+					  msecs_to_jiffies(timeout) << 2);
+	if (!ret) {
+		cnss_pr_err("Timeout waiting for idle restart to complete\n");
+		ret = -EAGAIN;
+		goto out;
+	}
+
 	return 0;
+
+out:
+	return ret;
 }
 EXPORT_SYMBOL(cnss_idle_restart);
 
 int cnss_idle_shutdown(struct device *dev)
 {
-	return 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	cnss_pr_dbg("Doing idle shutdown\n");
+
+	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
+	    !test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
+		goto skip_wait;
+
+	reinit_completion(&plat_priv->recovery_complete);
+	ret = wait_for_completion_timeout(&plat_priv->recovery_complete,
+					  RECOVERY_TIMEOUT);
+	if (!ret) {
+		cnss_pr_err("Timeout waiting for recovery to complete\n");
+		CNSS_ASSERT(0);
+	}
+
+skip_wait:
+	return cnss_driver_event_post(plat_priv,
+				      CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
+				      CNSS_EVENT_SYNC, NULL);
 }
 EXPORT_SYMBOL(cnss_idle_shutdown);
 
@@ -965,16 +1030,19 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_err("Driver unload is in progress, ignore recovery\n");
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) {
+		cnss_pr_err("Driver unload or idle shutdown is in progress, ignore recovery\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
-		if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)) {
-			cnss_pr_err("Driver load is in progress, ignore recovery\n");
+		if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+		    test_bit(CNSS_DRIVER_IDLE_RESTART,
+			     &plat_priv->driver_state)) {
+			cnss_pr_err("Driver load or idle restart is in progress, ignore recovery\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1012,8 +1080,9 @@ void cnss_schedule_recovery(struct device *dev,
 
 	cnss_bus_update_status(plat_priv, CNSS_FW_DOWN);
 
-	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Driver unload is in progress, ignore schedule recovery\n");
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Driver unload or idle shutdown is in progress, ignore schedule recovery\n");
 		return;
 	}
 
@@ -1092,8 +1161,10 @@ int cnss_force_collect_rddm(struct device *dev)
 	}
 
 	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_info("Loading/Unloading is in progress, ignore forced collect rddm\n");
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) {
+		cnss_pr_info("Loading/Unloading/idle restart/shutdown is in progress, ignore forced collect rddm\n");
 		return 0;
 	}
 
@@ -1152,7 +1223,13 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
 
 static int cnss_power_up_hdlr(struct cnss_plat_data *plat_priv)
 {
-	return cnss_bus_dev_powerup(plat_priv);
+	int ret;
+
+	ret = cnss_bus_dev_powerup(plat_priv);
+	if (ret)
+		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
+
+	return ret;
 }
 
 static int cnss_power_down_hdlr(struct cnss_plat_data *plat_priv)
@@ -1332,9 +1409,17 @@ static void cnss_driver_event_work(struct work_struct *work)
 		case CNSS_DRIVER_EVENT_FORCE_FW_ASSERT:
 			ret = cnss_bus_force_fw_assert_hdlr(plat_priv);
 			break;
+		case CNSS_DRIVER_EVENT_IDLE_RESTART:
+			set_bit(CNSS_DRIVER_IDLE_RESTART,
+				&plat_priv->driver_state);
+			/* fall through */
 		case CNSS_DRIVER_EVENT_POWER_UP:
 			ret = cnss_power_up_hdlr(plat_priv);
 			break;
+		case CNSS_DRIVER_EVENT_IDLE_SHUTDOWN:
+			set_bit(CNSS_DRIVER_IDLE_SHUTDOWN,
+				&plat_priv->driver_state);
+			/* fall through */
 		case CNSS_DRIVER_EVENT_POWER_DOWN:
 			ret = cnss_power_down_hdlr(plat_priv);
 			break;
