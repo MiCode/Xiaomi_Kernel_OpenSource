@@ -514,6 +514,16 @@ static int npu_set_power_level(struct npu_device *npu_dev, bool notify_cxlimit)
 		}
 	}
 
+	if (!ret) {
+		ret = npu_host_notify_fw_pwr_state(npu_dev,
+			pwr_level_to_set, true);
+		if (ret)
+			NPU_WARN("notify fw new power level [%d] failed\n",
+				pwr_level_to_set);
+
+		ret = 0;
+	}
+
 	pwr->active_pwrlevel = pwr_level_to_set;
 	return ret;
 }
