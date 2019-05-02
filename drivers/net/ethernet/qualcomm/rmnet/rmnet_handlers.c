@@ -46,6 +46,9 @@ EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_err);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_low);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_high);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_update);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_reset);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_boost);
 
 /* Helper Functions */
 
