@@ -1415,32 +1415,6 @@ int rtc6226_power_up(struct rtc6226_device *radio)
 	if (retval < 0)
 		goto done;
 
-	/* channel */
-	/* Top Frequency 108.0MHZ */
-	radio->registers[RADIOSEEKCFG1] = 0x2a30;
-	retval = rtc6226_set_register(radio, RADIOSEEKCFG1);
-	if (retval < 0)
-		goto done;
-
-	/* Bottom Frequency 87.5MHz*/
-	radio->registers[RADIOSEEKCFG2] = 0x222e;
-	retval = rtc6226_set_register(radio, RADIOSEEKCFG2);
-	if (retval < 0)
-		goto done;
-
-	/* Space 100KHz */
-	/* radio->registers[RADIOCFG] &= ~CHANNEL_CSR0_CHSPACE; */
-	radio->registers[RADIOCFG] = 0x0a00;
-	retval = rtc6226_set_register(radio, RADIOCFG);
-	if (retval < 0)
-		goto done;
-
-	/* Default channel 90.1Mhz */
-	radio->registers[CHANNEL] = 0x2232;
-	retval = rtc6226_set_register(radio, CHANNEL);
-	if (retval < 0)
-		goto done;
-
 	/* I2S salve */
 	radio->registers[I2SCFG] = 0x2480;
 	retval = rtc6226_set_register(radio, I2SCFG);
@@ -1459,7 +1433,7 @@ int rtc6226_power_up(struct rtc6226_device *radio)
 	if (retval < 0)
 		goto done;
 	/*wait for radio enable to complete*/
-	usleep_range(50, 30000);
+	msleep(30);
 	retval = rtc6226_get_all_registers(radio);
 	if (retval < 0)
 		goto done;
