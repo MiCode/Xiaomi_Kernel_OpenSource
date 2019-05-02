@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -58,6 +58,7 @@ static const char *const pmic_names[] = {
 	[PM8150B_SUBTYPE] = "PM8150B",
 	[PM8150L_SUBTYPE] = "PM8150L",
 	[PM6150_SUBTYPE] = "PM6150",
+	[PM7250B_SUBTYPE] = "PM7250B",
 };
 
 struct revid_chip {

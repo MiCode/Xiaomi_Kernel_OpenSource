@@ -1656,7 +1656,7 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x3000000 0x00100>;
 
-		vdd_lpi_cx-supply = <&L8A_LEVEL>;
+		vdd_lpi_cx-supply = <&L18A_LEVEL>;
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		vdd_lpi_mx-supply = <&L4A_LEVEL>;
 		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;

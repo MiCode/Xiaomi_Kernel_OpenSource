@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved. */
+
+#include "pm8150.dtsi"
+#include "pm7250b.dtsi"
+#include "pm8150l.dtsi"
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+&pm8150_clkdiv {
+	/delete-property/ clocks;
+	clocks = <&rpmhcc RPMH_CXO_CLK>;
+};
+
+&pm8150l_clkdiv {
+	/delete-property/ clocks;
+	clocks = <&rpmhcc RPMH_CXO_CLK>;
+};
+
+&pm7250b_charger {
+	dpdm-supply = <&usb2_phy0>;
+
+	smb5_vbus: qcom,smb5-vbus {
+		regulator-name = "smb5-vbus";
+	};
+
+	smb5_vconn: qcom,smb5-vconn {
+		regulator-name = "smb5-vconn";
+	};
+};
