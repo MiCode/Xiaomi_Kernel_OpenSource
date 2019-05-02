@@ -44,7 +44,7 @@ extern unsigned int sysctl_sched_little_cluster_coloc_fmin_khz;
 extern unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct;
 
 extern int
-walt_proc_update_handler(struct ctl_table *table, int write,
+walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp,
 			 loff_t *ppos);
 
