@@ -586,7 +586,7 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 {
 	struct hfi_queue_header *queue;
 	u32 packet_size_in_words, new_write_idx;
-	u32 empty_space, read_idx;
+	u32 empty_space, read_idx, write_idx;
 	u32 *write_ptr;
 
 	if (!qinfo || !packet) {
@@ -609,17 +609,19 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	}
 
 	packet_size_in_words = (*(u32 *)packet) >> 2;
-	if (!packet_size_in_words) {
-		dprintk(CVP_ERR, "Zero packet size\n");
+	if (!packet_size_in_words || packet_size_in_words >
+		qinfo->q_array.mem_size>>2) {
+		dprintk(CVP_ERR, "Invalid packet size\n");
 		return -ENODATA;
 	}
 
 	spin_lock(&qinfo->hfi_lock);
 	read_idx = queue->qhdr_read_idx;
+	write_idx = queue->qhdr_write_idx;
 
-	empty_space = (queue->qhdr_write_idx >=  read_idx) ?
-		(queue->qhdr_q_size - (queue->qhdr_write_idx -  read_idx)) :
-		(read_idx - queue->qhdr_write_idx);
+	empty_space = (write_idx >= read_idx) ?
+		((qinfo->q_array.mem_size>>2) - (write_idx - read_idx)) :
+		(read_idx - write_idx);
 	if (empty_space <= packet_size_in_words) {
 		queue->qhdr_tx_req =  1;
 		spin_unlock(&qinfo->hfi_lock);
@@ -630,13 +632,21 @@ static int __write_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 
 	queue->qhdr_tx_req =  0;
 
-	new_write_idx = (queue->qhdr_write_idx + packet_size_in_words);
+	new_write_idx = write_idx + packet_size_in_words;
 	write_ptr = (u32 *)((qinfo->q_array.align_virtual_addr) +
-		(queue->qhdr_write_idx << 2));
-	if (new_write_idx < queue->qhdr_q_size) {
+		(write_idx << 2));
+	if (write_ptr < (u32 *)qinfo->q_array.align_virtual_addr ||
+		write_ptr > (u32 *)(qinfo->q_array.align_virtual_addr +
+		qinfo->q_array.mem_size)) {
+		spin_unlock(&qinfo->hfi_lock);
+		dprintk(CVP_ERR, "Invalid write index\n");
+		return -ENODATA;
+	}
+
+	if (new_write_idx < (qinfo->q_array.mem_size >> 2)) {
 		memcpy(write_ptr, packet, packet_size_in_words << 2);
 	} else {
-		new_write_idx -= queue->qhdr_q_size;
+		new_write_idx -= qinfo->q_array.mem_size >> 2;
 		memcpy(write_ptr, packet, (packet_size_in_words -
 			new_write_idx) << 2);
 		memcpy((void *)qinfo->q_array.align_virtual_addr,
@@ -668,6 +678,7 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	u32 packet_size_in_words, new_read_idx;
 	u32 *read_ptr;
 	u32 receive_request = 0;
+	u32 read_idx, write_idx;
 		int rc = 0;
 
 	if (!qinfo || !packet || !pb_tx_req_is_set) {
@@ -702,7 +713,10 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	if (queue->qhdr_type & HFI_Q_ID_CTRL_TO_HOST_MSG_Q)
 		receive_request = 1;
 
-	if (queue->qhdr_read_idx == queue->qhdr_write_idx) {
+	read_idx = queue->qhdr_read_idx;
+	write_idx = queue->qhdr_write_idx;
+
+	if (read_idx == write_idx) {
 		queue->qhdr_rx_req = receive_request;
 		/*
 		 * mb() to ensure qhdr is updated in main memory
@@ -720,7 +734,15 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	}
 
 	read_ptr = (u32 *)((qinfo->q_array.align_virtual_addr) +
-				(queue->qhdr_read_idx << 2));
+				(read_idx << 2));
+	if (read_ptr < (u32 *)qinfo->q_array.align_virtual_addr ||
+		read_ptr > (u32 *)(qinfo->q_array.align_virtual_addr +
+		qinfo->q_array.mem_size - sizeof(*read_ptr))) {
+		spin_unlock(&qinfo->hfi_lock);
+		dprintk(CVP_ERR, "Invalid read index\n");
+		return -ENODATA;
+	}
+
 	packet_size_in_words = (*read_ptr) >> 2;
 	if (!packet_size_in_words) {
 		spin_unlock(&qinfo->hfi_lock);
@@ -728,14 +750,14 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 		return -ENODATA;
 	}
 
-	new_read_idx = queue->qhdr_read_idx + packet_size_in_words;
+	new_read_idx = read_idx + packet_size_in_words;
 	if (((packet_size_in_words << 2) <= CVP_IFACEQ_VAR_HUGE_PKT_SIZE)
-			&& queue->qhdr_read_idx <= queue->qhdr_q_size) {
-		if (new_read_idx < queue->qhdr_q_size) {
+			&& read_idx <= (qinfo->q_array.mem_size >> 2)) {
+		if (new_read_idx < (qinfo->q_array.mem_size >> 2)) {
 			memcpy(packet, read_ptr,
 					packet_size_in_words << 2);
 		} else {
-			new_read_idx -= queue->qhdr_q_size;
+			new_read_idx -= (qinfo->q_array.mem_size >> 2);
 			memcpy(packet, read_ptr,
 			(packet_size_in_words - new_read_idx) << 2);
 			memcpy(packet + ((packet_size_in_words -
@@ -746,18 +768,17 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	} else {
 		dprintk(CVP_WARN,
 			"BAD packet received, read_idx: %#x, pkt_size: %d\n",
-			queue->qhdr_read_idx, packet_size_in_words << 2);
+			read_idx, packet_size_in_words << 2);
 		dprintk(CVP_WARN, "Dropping this packet\n");
-		new_read_idx = queue->qhdr_write_idx;
+		new_read_idx = write_idx;
 		rc = -ENODATA;
 	}
 
-	queue->qhdr_read_idx = new_read_idx;
-
-	if (queue->qhdr_read_idx != queue->qhdr_write_idx)
+	if (read_idx != write_idx)
 		queue->qhdr_rx_req = 0;
 	else
 		queue->qhdr_rx_req = receive_request;
+	queue->qhdr_read_idx = new_read_idx;
 	/*
 	 * mb() to ensure qhdr is updated in main memory
 	 * so that venus reads the updated header values
