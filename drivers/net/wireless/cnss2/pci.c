@@ -1083,12 +1083,9 @@ static int cnss_pci_suspend(struct device *dev)
 	}
 
 	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
-		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND);
-		if (ret) {
-			if (driver_ops && driver_ops->resume)
-				driver_ops->resume(pci_dev);
+		if (cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_SUSPEND)) {
 			ret = -EAGAIN;
-			goto out;
+			goto resume_driver;
 		}
 
 		pci_clear_master(pci_dev);
@@ -1100,12 +1097,28 @@ static int cnss_pci_suspend(struct device *dev)
 		if (ret)
 			cnss_pr_err("Failed to set D3Hot, err = %d\n",
 				    ret);
+
+		if (cnss_set_pci_link(pci_priv, PCI_LINK_DOWN)) {
+			ret = -EAGAIN;
+			goto resume_mhi;
+		}
+		pci_priv->pci_link_state = PCI_LINK_DOWN;
 	}
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 
 	return 0;
 
+resume_mhi:
+	if (pci_enable_device(pci_dev))
+		cnss_pr_err("Failed to enable PCI device\n");
+	if (pci_priv->saved_state)
+		cnss_set_pci_config_space(pci_priv, RESTORE_PCI_CONFIG_SPACE);
+	pci_set_master(pci_dev);
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RESUME);
+resume_driver:
+	if (driver_ops && driver_ops->resume)
+		driver_ops->resume(pci_dev);
 out:
 	return ret;
 }
@@ -1123,7 +1136,14 @@ static int cnss_pci_resume(struct device *dev)
 	if (pci_priv->pci_link_down_ind)
 		goto out;
 
-	if (pci_priv->pci_link_state == PCI_LINK_UP && !pci_priv->disable_pc) {
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN &&
+	    !pci_priv->disable_pc) {
+		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
+			ret = -EAGAIN;
+			goto out;
+		}
+		pci_priv->pci_link_state = PCI_LINK_UP;
+
 		ret = pci_enable_device(pci_dev);
 		if (ret)
 			cnss_pr_err("Failed to enable PCI device, err = %d\n",
