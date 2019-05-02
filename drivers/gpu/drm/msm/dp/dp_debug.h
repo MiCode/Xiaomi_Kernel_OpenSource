@@ -25,6 +25,7 @@
 /**
  * struct dp_debug
  * @debug_en: specifies whether debug mode enabled
+ * @hdcp_wait_sink_sync: used to wait for sink synchronization before HDCP auth
  * @vdisplay: used to filter out vdisplay value
  * @hdisplay: used to filter out hdisplay value
  * @vrefresh: used to filter out vrefresh value
@@ -37,6 +38,7 @@ struct dp_debug {
 	bool sim_mode;
 	bool psm_enabled;
 	bool hdcp_disabled;
+	bool hdcp_wait_sink_sync;
 	int aspect_ratio;
 	int vdisplay;
 	int hdisplay;

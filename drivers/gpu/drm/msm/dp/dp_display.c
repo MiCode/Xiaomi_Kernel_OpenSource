@@ -357,12 +357,16 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		dp->hdcp_delayed_off = false;
 	}
 
-	drm_dp_dpcd_readb(dp->aux->drm_aux, DP_SINK_STATUS, &sink_status);
-	sink_status &= (DP_RECEIVE_PORT_0_STATUS | DP_RECEIVE_PORT_1_STATUS);
-	if (sink_status < 1) {
-		pr_debug("Sink not synchronized. Queuing again then exiting\n");
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
-		return;
+	if (dp->debug->hdcp_wait_sink_sync) {
+		drm_dp_dpcd_readb(dp->aux->drm_aux, DP_SINK_STATUS,
+				&sink_status);
+		sink_status &= (DP_RECEIVE_PORT_0_STATUS |
+				DP_RECEIVE_PORT_1_STATUS);
+		if (sink_status < 1) {
+			pr_debug("Sink not synchronized. Queuing again then exiting\n");
+			queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
+			return;
+		}
 	}
 
 	status = &dp->link->hdcp_status;
