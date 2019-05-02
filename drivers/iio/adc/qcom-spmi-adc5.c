@@ -956,6 +956,7 @@ static int adc_get_dt_data(struct adc_chip *adc, struct device_node *node)
 
 static const struct pmic_rev_data pmic_data[] = {
 	{PM6150_SUBTYPE,	1},
+	{PM7250B_SUBTYPE,	0},
 };
 
 bool skip_usb_in_wa(struct pmic_revid_data *pmic_rev_id)
