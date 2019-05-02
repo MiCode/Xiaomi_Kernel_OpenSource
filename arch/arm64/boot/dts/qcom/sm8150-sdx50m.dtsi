@@ -563,23 +563,6 @@
 			};
 		};
 	};
-
-	soc {
-		trips {
-			soc_trip1: soc-trip1 {
-				temperature = <20>;
-				hysteresis = <0>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
-			soc_modem {
-				trip = <&soc_trip1>;
-				cooling-device =
-					<&modem1_proc 3 3>;
-			};
-		};
-	};
 };
 
 &reserved_memory {
