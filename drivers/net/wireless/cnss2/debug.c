@@ -456,6 +456,10 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 
 	if (sysfs_streq(cmd, "usage_count")) {
 		cnss_pci_pm_runtime_show_usage_count(pci_priv);
+	} else if (sysfs_streq(cmd, "request_resume")) {
+		ret = cnss_pci_pm_request_resume(pci_priv);
+	} else if (sysfs_streq(cmd, "resume")) {
+		ret = cnss_pci_pm_runtime_resume(pci_priv);
 	} else if (sysfs_streq(cmd, "get")) {
 		ret = cnss_pci_pm_runtime_get(pci_priv);
 	} else if (sysfs_streq(cmd, "get_noresume")) {

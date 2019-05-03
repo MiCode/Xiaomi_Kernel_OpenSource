@@ -583,7 +583,7 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
-	cnss_pm_request_resume(pci_priv);
+	cnss_pci_pm_runtime_resume(pci_priv);
 
 	cnss_pci_call_driver_remove(pci_priv);
 
@@ -698,7 +698,7 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
-	cnss_pm_request_resume(pci_priv);
+	cnss_pci_pm_runtime_resume(pci_priv);
 
 	cnss_pci_call_driver_remove(pci_priv);
 
@@ -1035,7 +1035,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		if (cnss_pci_get_monitor_wake_intr(pci_priv) &&
 		    cnss_pci_get_auto_suspended(pci_priv)) {
 			cnss_pci_set_monitor_wake_intr(pci_priv, false);
-			pm_request_resume(&pci_dev->dev);
+			cnss_pci_pm_request_resume(pci_priv);
 		}
 		break;
 	default:
@@ -1304,6 +1304,34 @@ void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv)
 		    atomic_read(&dev->power.usage_count));
 }
 
+int cnss_pci_pm_request_resume(struct cnss_pci_data *pci_priv)
+{
+	struct pci_dev *pci_dev;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	pci_dev = pci_priv->pci_dev;
+	if (!pci_dev)
+		return -ENODEV;
+
+	return pm_request_resume(&pci_dev->dev);
+}
+
+int cnss_pci_pm_runtime_resume(struct cnss_pci_data *pci_priv)
+{
+	struct pci_dev *pci_dev;
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	pci_dev = pci_priv->pci_dev;
+	if (!pci_dev)
+		return -ENODEV;
+
+	return pm_runtime_resume(&pci_dev->dev);
+}
+
 int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
 {
 	if (!pci_priv)
@@ -1444,20 +1472,6 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(cnss_auto_resume);
-
-int cnss_pm_request_resume(struct cnss_pci_data *pci_priv)
-{
-	struct pci_dev *pci_dev;
-
-	if (!pci_priv)
-		return -ENODEV;
-
-	pci_dev = pci_priv->pci_dev;
-	if (!pci_dev)
-		return -ENODEV;
-
-	return pm_request_resume(&pci_dev->dev);
-}
 
 int cnss_pci_force_wake_request(struct device *dev)
 {
@@ -2056,7 +2070,7 @@ static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl, void *priv)
 {
 	struct cnss_pci_data *pci_priv = priv;
 
-	return pm_runtime_get(&pci_priv->pci_dev->dev);
+	return cnss_pci_pm_runtime_get(pci_priv);
 }
 
 static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
@@ -2064,7 +2078,7 @@ static void cnss_mhi_pm_runtime_put_noidle(struct mhi_controller *mhi_ctrl,
 {
 	struct cnss_pci_data *pci_priv = priv;
 
-	pm_runtime_put_noidle(&pci_priv->pci_dev->dev);
+	cnss_pci_pm_runtime_put_noidle(pci_priv);
 }
 
 static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
