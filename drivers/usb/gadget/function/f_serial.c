@@ -712,7 +712,8 @@ static struct configfs_item_operations serial_item_ops = {
 
 static ssize_t f_serial_port_num_show(struct config_item *item, char *page)
 {
-	return sprintf(page, "%u\n", to_f_serial_opts(item)->port_num);
+	return snprintf(page, PAGE_SIZE, "%u\n",
+			to_f_serial_opts(item)->port_num);
 }
 
 CONFIGFS_ATTR_RO(f_serial_, port_num);
