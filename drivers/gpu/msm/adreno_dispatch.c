@@ -1707,6 +1707,9 @@ static void adreno_fault_header(struct kgsl_device *device,
 		struct adreno_context *drawctxt =
 			ADRENO_CONTEXT(drawobj->context);
 
+		drawctxt->base.total_fault_count++;
+		drawctxt->base.last_faulted_cmd_ts = drawobj->timestamp;
+
 		trace_adreno_gpu_fault(drawobj->context->id,
 			drawobj->timestamp,
 			status, rptr, wptr, ib1base, ib1sz,
