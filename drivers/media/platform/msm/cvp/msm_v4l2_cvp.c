@@ -27,7 +27,7 @@
 
 #define BASE_DEVICE_NUMBER 32
 #define CLASS_NAME              "cvp"
-#define DRIVER_NAME             "video37"
+#define DRIVER_NAME             "cvp"
 
 struct msm_cvp_drv *cvp_driver;
 
@@ -222,10 +222,47 @@ static ssize_t sku_version_show(struct device *dev,
 
 static DEVICE_ATTR_RO(sku_version);
 
+static ssize_t boot_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int rc = 0, val = 0;
+	struct msm_cvp_inst *inst;
+	static int booted;
+
+	rc = kstrtoint(buf, 0, &val);
+	if (rc || val < 0) {
+		dprintk(CVP_WARN,
+			"Invalid boot value: %s\n", buf);
+		return -EINVAL;
+	}
+
+	if (val > 0 && booted == 0) {
+		inst = msm_cvp_open(MSM_CORE_CVP, MSM_CVP_CORE);
+		if (!inst) {
+			dprintk(CVP_ERR,
+			"Failed to create cvp instance\n");
+			return -ENOMEM;
+		}
+		rc = msm_cvp_close(inst);
+		if (rc) {
+			dprintk(CVP_ERR,
+			"Failed to close cvp instance\n");
+			return rc;
+		}
+		booted = 1;
+	}
+	return count;
+}
+
+static DEVICE_ATTR_WO(boot);
+
 static struct attribute *msm_cvp_core_attrs[] = {
 		&dev_attr_pwr_collapse_delay.attr,
 		&dev_attr_thermal_level.attr,
 		&dev_attr_sku_version.attr,
+		&dev_attr_link_name.attr,
+		&dev_attr_boot.attr,
 		NULL
 };
 
@@ -260,12 +297,6 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 	rc = msm_cvp_initialize_core(pdev, core);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to init core\n");
-		goto err_core_init;
-	}
-	rc = sysfs_create_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
-	if (rc) {
-		dprintk(CVP_ERR,
-				"Failed to create attributes\n");
 		goto err_core_init;
 	}
 
@@ -316,9 +347,10 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 	cvp_driver->num_cores++;
 	mutex_unlock(&cvp_driver->lock);
 
-	rc = device_create_file(core->dev, &dev_attr_link_name);
+	rc = sysfs_create_group(&core->dev->kobj, &msm_cvp_core_attr_group);
 	if (rc) {
-		dprintk(CVP_ERR, "Failed to create cvp device file\n");
+		dprintk(CVP_ERR,
+				"Failed to create attributes\n");
 		goto err_cores_exceeded;
 	}
 
@@ -365,7 +397,6 @@ static int msm_probe_cvp_device(struct platform_device *pdev)
 err_fail_sub_device_probe:
 	cvp_hfi_deinitialize(core->hfi_type, core->device);
 err_hfi_initialize:
-	device_remove_file(core->dev, &dev_attr_link_name);
 err_cores_exceeded:
 	cdev_del(&core->cdev);
 error_cdev_add:
@@ -439,8 +470,6 @@ static int msm_cvp_remove(struct platform_device *pdev)
 	}
 
 	cvp_hfi_deinitialize(core->hfi_type, core->device);
-	device_remove_file(core->dev, &dev_attr_link_name);
-
 	msm_cvp_free_platform_resources(&core->resources);
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
