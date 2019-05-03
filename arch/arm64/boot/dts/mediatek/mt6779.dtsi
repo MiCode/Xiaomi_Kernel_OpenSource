@@ -240,6 +240,14 @@
 			interrupt-parent = <&gic>;
 		};
 
+		toprgu: toprgu@10007000 {
+			compatible = "mediatek,mt6779-wdt",
+				     "mediatek,mt6589-wdt",
+				     "mediatek,toprgu";
+			reg = <0 0x10007000 0 0x1000>;
+			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>;
+		};
+
 		apmixed: clock-controller@1000c000 {
 			compatible = "mediatek,mt6779-apmixed", "syscon";
 			reg = <0 0x1000c000 0 0xe00>;
