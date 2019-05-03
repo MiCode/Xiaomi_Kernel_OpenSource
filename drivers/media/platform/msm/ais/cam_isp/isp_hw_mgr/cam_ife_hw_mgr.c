@@ -1243,6 +1243,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 	uint32_t acquired_cnt = 0;
 	struct cam_isp_out_port_info        *out_port = NULL;
+	uint32_t ife_id = 0;
 
 	ife_hw_mgr = ife_ctx->hw_mgr;
 	*cid_res = NULL;
@@ -1262,6 +1263,11 @@ static int cam_ife_mgr_acquire_cid_res(
 
 	if (in_port->num_out_res)
 		out_port = &(in_port->data[0]);
+
+	if (!out_port) {
+		CAM_ERR(CAM_ISP, "No info of out_port to be Acquired");
+		goto end;
+	}
 
 	/* Try acquiring CID resource from previously acquired HW */
 	list_for_each_entry(cid_res_iterator, &ife_ctx->res_list_ife_cid,
@@ -1315,57 +1321,35 @@ static int cam_ife_mgr_acquire_cid_res(
 		}
 	}
 
-	/* Acquire Left if not already acquired */
-	if (ife_ctx->is_fe_enable) {
-		for (i = 0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
-			if (!ife_hw_mgr->csid_devices[i])
-				continue;
+	/* Acquire Left if not already acquired
+	 * Using reserved field to receive ifeId from UMD and Acquiring
+	 * corresponding IFE resource only if available
+	 */
+	ife_id = out_port->reserved;
 
-			hw_intf = ife_hw_mgr->csid_devices[i];
-			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
-				&csid_acquire, sizeof(csid_acquire));
-			if (rc)
-				continue;
-			else {
-				cid_res_temp->hw_res[acquired_cnt++] =
-					csid_acquire.node_res;
-				break;
-			}
-		}
-		if (i == CAM_IFE_CSID_HW_NUM_MAX || !csid_acquire.node_res) {
-			CAM_ERR(CAM_ISP,
-				"Can not acquire ife cid resource for path %d",
-				path_res_id);
-			goto put_res;
-		}
+	if ((ife_id >= CAM_IFE_CSID_HW_NUM_MAX) ||
+		(!ife_hw_mgr->csid_devices[ife_id])) {
+		CAM_ERR(CAM_ISP,
+			"cannot acquire ife cid resource for path %d hw_idx %d",
+			path_res_id, ife_id);
+		goto put_res;
 	} else {
-		for (i = CAM_IFE_CSID_HW_NUM_MAX - 1; i >= 0; i--) {
-			if (!ife_hw_mgr->csid_devices[i])
-				continue;
-
-			hw_intf = ife_hw_mgr->csid_devices[i];
-			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
-				&csid_acquire, sizeof(csid_acquire));
-			if (rc)
-				continue;
-			else {
-				cid_res_temp->hw_res[acquired_cnt++] =
-					csid_acquire.node_res;
-				break;
-			}
-		}
-		if (i == -1 || !csid_acquire.node_res) {
+		hw_intf = ife_hw_mgr->csid_devices[ife_id];
+		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
+			&csid_acquire, sizeof(csid_acquire));
+		if (rc || !csid_acquire.node_res) {
 			CAM_ERR(CAM_ISP,
-				"Can not acquire ife cid resource for path %d",
-				path_res_id);
+				"cannot acquire ife cid resource for path %d hw_idx %d",
+				path_res_id, ife_id);
 			goto put_res;
+		} else {
+			cid_res_temp->hw_res[acquired_cnt++] =
+				csid_acquire.node_res;
 		}
 	}
-
-
 acquire_successful:
-	CAM_DBG(CAM_ISP, "CID left acquired success is_dual %d",
-		in_port->usage_type);
+	CAM_DBG(CAM_ISP, "CID left acquired success is_dual %d for hw_idx %d",
+		in_port->usage_type, ife_id);
 
 	cid_res_temp->res_type = CAM_IFE_HW_MGR_RES_CID;
 	/* CID(DT_ID) value of acquire device, require for path */
