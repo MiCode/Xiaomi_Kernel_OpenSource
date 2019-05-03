@@ -540,6 +540,15 @@ static inline void cpufreq_policy_apply_limits(struct cpufreq_policy *policy)
 		__cpufreq_driver_target(policy, policy->min, CPUFREQ_RELATION_L);
 }
 
+static inline void cpufreq_policy_apply_limits_fast(struct cpufreq_policy
+						    *policy)
+{
+	if (policy->max < policy->cur)
+		cpufreq_driver_fast_switch(policy, policy->max);
+	else if (policy->min > policy->cur)
+		cpufreq_driver_fast_switch(policy, policy->min);
+}
+
 /* Governor attribute set */
 struct gov_attr_set {
 	struct kobject kobj;
