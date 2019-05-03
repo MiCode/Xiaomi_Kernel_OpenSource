@@ -58,6 +58,8 @@
 
 		pmic_efuse: pmic_efuse {
 			compatible = "mediatek,mt6359-efuse";
+			#address-cells = <1>;
+			#size-cells = <1>;
 		};
 
 		mt6359regulator: mt6359regulator {
