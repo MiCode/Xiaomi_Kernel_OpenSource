@@ -89,9 +89,7 @@ static void dfc_svc_init(struct work_struct *work);
 #define QMI_DFC_INDICATION_REGISTER_RESP_V01_MAX_MSG_LEN 7
 
 #define QMI_DFC_FLOW_STATUS_IND_V01 0x0022
-#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 540
 #define QMI_DFC_TX_LINK_STATUS_IND_V01 0x0024
-#define QMI_DFC_TX_LINK_STATUS_IND_V01_MAX_MSG_LEN 120
 
 #define QMI_DFC_GET_FLOW_STATUS_REQ_V01 0x0023
 #define QMI_DFC_GET_FLOW_STATUS_RESP_V01 0x0023
@@ -1429,14 +1427,14 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 		.type = QMI_INDICATION,
 		.msg_id = QMI_DFC_FLOW_STATUS_IND_V01,
 		.ei = dfc_flow_status_ind_v01_ei,
-		.decoded_size = QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN,
+		.decoded_size = sizeof(struct dfc_flow_status_ind_msg_v01),
 		.fn = dfc_clnt_ind_cb,
 	},
 	{
 		.type = QMI_INDICATION,
 		.msg_id = QMI_DFC_TX_LINK_STATUS_IND_V01,
 		.ei = dfc_tx_link_status_ind_v01_ei,
-		.decoded_size = QMI_DFC_TX_LINK_STATUS_IND_V01_MAX_MSG_LEN,
+		.decoded_size = sizeof(struct dfc_tx_link_status_ind_msg_v01),
 		.fn = dfc_tx_link_status_ind_cb,
 	},
 	{},
