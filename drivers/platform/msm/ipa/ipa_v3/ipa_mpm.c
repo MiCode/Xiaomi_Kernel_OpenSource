@@ -2476,7 +2476,7 @@ static int ipa_mpm_populate_smmu_info(struct platform_device *pdev)
 	cb->va_size = carved_iova_ap_mapping[1];
 	cb->va_end = cb->va_start + cb->va_size;
 
-	if (cb->va_start >= ap_cb->va_start && cb->va_start < ap_cb->va_end) {
+	if (cb->va_start >= ap_cb->va_start || cb->va_end >= ap_cb->va_start) {
 		IPA_MPM_ERR("MPM iommu and AP overlap addr 0x%lx\n",
 				cb->va_start);
 		ipa_assert();
