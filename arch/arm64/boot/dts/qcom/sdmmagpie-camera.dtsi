@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1070,7 +1070,7 @@
 			"svs_l1", "nominal", "turbo";
 		control-camnoc-axi-clk;
 		camnoc-bus-width = <32>;
-		camnoc-axi-clk-bw-margin-perc = <10>;
+		camnoc-axi-clk-bw-margin-perc = <20>;
 		qcom,msm-bus,name = "cam_ahb";
 		qcom,msm-bus,num-cases = <6>;
 		qcom,msm-bus,num-paths = <1>;
