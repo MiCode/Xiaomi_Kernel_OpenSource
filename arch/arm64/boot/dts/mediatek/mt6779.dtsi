@@ -244,7 +244,7 @@
 			reg = <0 0x1000d000 0 0x1000>;
 			reg-names = "pwrap";
 			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&uart_clk>, <&uart_clk>;
+			clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_PMIC_AP>;
 			clock-names = "spi", "wrap";
 		};
 
