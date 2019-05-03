@@ -113,6 +113,8 @@ static int mtk_wdt_stop(struct watchdog_device *wdt_dev)
 	reg |= WDT_MODE_KEY;
 	iowrite32(reg, wdt_base + WDT_MODE);
 
+	clear_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
+
 	return 0;
 }
 
@@ -131,6 +133,8 @@ static int mtk_wdt_start(struct watchdog_device *wdt_dev)
 	reg &= ~(WDT_MODE_IRQ_EN | WDT_MODE_DUAL_EN);
 	reg |= (WDT_MODE_EN | WDT_MODE_KEY);
 	iowrite32(reg, wdt_base + WDT_MODE);
+
+	set_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
 
 	return 0;
 }
@@ -181,7 +185,10 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
 
-	mtk_wdt_stop(&mtk_wdt->wdt_dev);
+	if (readl(mtk_wdt->wdt_base + WDT_MODE) & WDT_MODE_EN)
+		mtk_wdt_start(&mtk_wdt->wdt_dev);
+	else
+		mtk_wdt_stop(&mtk_wdt->wdt_dev);
 
 	err = watchdog_register_device(&mtk_wdt->wdt_dev);
 	if (unlikely(err))
