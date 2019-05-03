@@ -1792,6 +1792,33 @@
 			};
 		};
 
+		/* add pins for DisplayPort */
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+				mux {
+					pins = "gpio38";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio38";
+					bias-disable;
+					drive-strength = <16>;
+				};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+				mux {
+					pins = "gpio38";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio38";
+					bias-pull-down;
+					drive-strength = <2>;
+				};
+		};
+
 		fsa_usbc_ana_en_n@100 {
 			fsa_usbc_ana_en: fsa_usbc_ana_en {
 				mux {
