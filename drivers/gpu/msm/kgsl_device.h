@@ -178,6 +178,7 @@ struct kgsl_functable {
 	 */
 	int (*query_property_list)(struct kgsl_device *device, u32 *list,
 		u32 count);
+	bool (*is_hwcg_on)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -246,6 +247,9 @@ struct kgsl_device {
 	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
 
+	/* Starting kernel virtual address for QDSS GFX DBG register block */
+	void __iomem *qdss_gfx_virt;
+
 	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
@@ -291,6 +295,7 @@ struct kgsl_device {
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	bool force_panic;		/* Force panic after snapshot dump */
 	bool prioritize_unrecoverable;	/* Overwrite with new GMU snapshots */
+	bool set_isdb_breakpoint;	/* Set isdb registers before snapshot */
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
