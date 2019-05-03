@@ -523,8 +523,8 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq->clock = devm_clk_get(dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
-		dev_err(dev, "failed to get gce clk\n");
-		return PTR_ERR(cmdq->clock);
+		dev_dbg(dev, "no gce clk\n");
+		cmdq->clock = NULL;
 	}
 
 	cmdq->mbox.dev = dev;
