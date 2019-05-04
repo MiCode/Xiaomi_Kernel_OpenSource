@@ -40,6 +40,8 @@
 #include <linux/platform_device.h>
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
+#define TCSR_PERST_SEPARATION_ENABLE		0x270
+
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
 static int ep_pcie_debug_keep_resource;
@@ -1413,7 +1415,14 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 		 EP_PCIE_DBG(dev,
 			 "TCSR PERST_EN value after configure:0x%x\n",
-			 readl_relaxed(dev->tcsr_perst_en));
+			 readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+		/*
+		 * Delatch PERST_SEPARATION_ENABLE with TCSR to avoid
+		 * device reset during host reboot and hibernate case.
+		 */
+		writel_relaxed(0, dev->tcsr_perst_en +
+					TCSR_PERST_SEPARATION_ENABLE);
 
 		 /* check link status during initial bootup */
 		if (!dev->enumerated) {
