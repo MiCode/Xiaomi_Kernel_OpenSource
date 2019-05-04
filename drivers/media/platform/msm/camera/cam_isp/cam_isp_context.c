@@ -1136,7 +1136,9 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	}
 
 	req_isp = (struct cam_isp_ctx_req *) req_to_dump->req_priv;
-	cam_isp_ctx_dump_req(req_isp);
+
+	if (error_event_data->enable_req_dump)
+		cam_isp_ctx_dump_req(req_isp);
 
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_ERROR, req_to_dump->request_id);
@@ -1849,7 +1851,7 @@ static int __cam_isp_ctx_apply_req_in_bubble(
 static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	struct list_head *req_list, struct cam_req_mgr_flush_request *flush_req)
 {
-	int i, rc;
+	int i, rc, tmp = 0;
 	uint32_t cancel_req_id_found = 0;
 	struct cam_ctx_request           *req;
 	struct cam_ctx_request           *req_temp;
@@ -1897,14 +1899,16 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
 				CAM_DBG(CAM_ISP, "Flush req 0x%llx, fence %d",
-					 req->request_id,
+					req->request_id,
 					req_isp->fence_map_out[i].sync_id);
 				rc = cam_sync_signal(
 					req_isp->fence_map_out[i].sync_id,
 					CAM_SYNC_STATE_SIGNALED_ERROR);
-				if (rc)
+				if (rc) {
+					tmp = req_isp->fence_map_out[i].sync_id;
 					CAM_ERR_RATE_LIMIT(CAM_ISP,
-						"signal fence failed\n");
+						"signal fence %d failed", tmp);
+				}
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
