@@ -1139,7 +1139,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 		if (peripheral > NUM_PERIPHERALS)
 			peripheral = diag_search_peripheral_by_pd(i);
 
-		if (peripheral < 0 || peripheral > NUM_PERIPHERALS)
+		if (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
 			continue;
 
 		if (!driver->feature[peripheral].peripheral_buffering)
