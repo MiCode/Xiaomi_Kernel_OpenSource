@@ -1819,6 +1819,473 @@
 				};
 		};
 
+		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
+			/* MCLK0 */
+			mux {
+				pins = "gpio13";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio13";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk0_suspend: cam_sensor_mclk0_suspend {
+			/* MCLK0 */
+			mux {
+				pins = "gpio13";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio13";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk1_active: cam_sensor_mclk1_active {
+			/* MCLK1 */
+			mux {
+				pins = "gpio14";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio14";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk1_suspend: cam_sensor_mclk1_suspend {
+			/* MCLK1 */
+			mux {
+				pins = "gpio14";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio14";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk2_active: cam_sensor_mclk2_active {
+			/* MCLK2 */
+			mux {
+				pins = "gpio15";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio15";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk2_suspend: cam_sensor_mclk2_suspend {
+			/* MCLK2 */
+			mux {
+				pins = "gpio15";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio15";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk3_active: cam_sensor_mclk3_active {
+			/* MCLK3 */
+			mux {
+				pins = "gpio16";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio16";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk3_suspend: cam_sensor_mclk3_suspend {
+			/* MCLK3 */
+			mux {
+				pins = "gpio16";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio16";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_eldo2_default: cam_sensor_eldo2_default {
+			/* AVDD ELDO2 */
+			mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				bias-disable; /* NO PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		camera_vaf_en_default: camera_vaf_en_default {
+			/*  VAF ELDO1 */
+			mux {
+				pins = "gpio29";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio29";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		camera_vana_en_default: camera_vana_en_default {
+			 /*  VANA ELDO2 */
+			 mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_active_rear: cam_sensor_active_rear {
+			/* RESET REAR2 */
+			mux {
+				pins = "gpio28";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_rear: cam_sensor_suspend_rear {
+			/* RESET REAR2 */
+			mux {
+				pins = "gpio28";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_rear_aux: cam_sensor_active_rear_aux {
+			/* RESET REARAUX */
+			mux {
+				pins = "gpio30";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_rear_aux: cam_sensor_suspend_rear_aux {
+			/* RESET REARAUX */
+			mux {
+				pins = "gpio30";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_front: cam_sensor_active_front {
+			/* RESET FRONT */
+			mux {
+				pins = "gpio12";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio12";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_front: cam_sensor_suspend_front {
+			/* RESET FRONT */
+			mux {
+				pins = "gpio12";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio12";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_iris: cam_sensor_active_iris {
+			/* RESET IRIS */
+			mux {
+				pins = "gpio23", "gpio26";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio23", "gpio26";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_iris: cam_sensor_suspend_iris {
+			/* RESET IRIS */
+			mux {
+				pins = "gpio23", "gpio26";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio23", "gpio26";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_triple_rear: cam_sensor_active_triple_rear {
+			mux {
+				pins = "gpio30", "gpio157", "gpio158";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30", "gpio157", "gpio158";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_triple_rear: cam_sensor_suspend_triple_rear {
+			mux {
+				pins = "gpio30", "gpio157", "gpio158";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio30", "gpio157", "gpio158";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_triple_rear_aux:
+			cam_sensor_active_triple_rear_aux {
+			mux {
+				pins = "gpio23", "gpio159", "gpio160";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio23", "gpio159", "gpio160";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_triple_rear_aux:
+			cam_sensor_suspend_triple_rear_aux {
+			mux {
+				pins = "gpio23", "gpio159", "gpio160";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio23", "gpio159", "gpio160";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cam_sensor_active_triple_rear_aux2:
+			cam_sensor_active_triple_rear_aux2 {
+			mux {
+				pins = "gpio28", "gpio24", "gpio25";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28", "gpio24", "gpio25";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_suspend_triple_rear_aux2:
+			cam_sensor_suspend_triple_rear_aux2 {
+			mux {
+				pins = "gpio28", "gpio24", "gpio25";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28", "gpio24", "gpio25";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		cci0_active: cci0_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio17","gpio18"; // Only 2
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio17","gpio18";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci0_suspend: cci0_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio17","gpio18";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio17","gpio18";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci1_active: cci1_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio19","gpio20";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio19","gpio20";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci1_suspend: cci1_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio19","gpio20";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio19","gpio20";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci2_active: cci2_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio31","gpio32";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio31","gpio32";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci2_suspend: cci2_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio31","gpio32";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio31","gpio32";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci3_active: cci3_active {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio33","gpio34";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio33","gpio34";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci3_suspend: cci3_suspend {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio33","gpio34";
+				function = "cci_i2c";
+			};
+
+			config {
+				pins = "gpio33","gpio34";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		fsa_usbc_ana_en_n@100 {
 			fsa_usbc_ana_en: fsa_usbc_ana_en {
 				mux {
