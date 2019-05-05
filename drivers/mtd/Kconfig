@@ -154,6 +154,14 @@ config MTD_BCM47XX_PARTS
 	  This provides partitions parser for devices based on BCM47xx
 	  boards.
 
+config MTD_GPT_PARTS
+	tristate "GPT partitioning support"
+	help
+	  GPT, abbreviation of GUID Partition Table, is a standard for the
+	  layout of partition tables using globally unique identifiers (GUIDs).
+	  This provides a partition parsing function to parse those devices
+	  have GUID Partition Table.
+
 menu "Partition parsers"
 source "drivers/mtd/parsers/Kconfig"
 endmenu
