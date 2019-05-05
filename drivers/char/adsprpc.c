@@ -34,7 +34,6 @@
 #include <linux/sort.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include <asm/dma-iommu.h>
-#include <soc/qcom/scm.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
@@ -61,7 +60,7 @@
 #define AUDIO_PDR_ADSP_SERVICE_NAME              "avs/audio"
 #define ADSP_AUDIOPD_NAME                        "msm/adsp/audio_pd"
 
-#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_adsprpc"
+#define SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME "sensors_pdr_sdsprpc"
 #define SENSORS_PDR_SLPI_SERVICE_NAME            "tms/servreg"
 #define SLPI_SENSORPD_NAME                       "msm/slpi/sensor_pd"
 
@@ -2426,16 +2425,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 	*raddr = (uintptr_t)routargs.vaddrout;
 	if (err)
 		goto bail;
-	if (flags == ADSP_MMAP_HEAP_ADDR) {
-		struct scm_desc desc = {0};
-
-		desc.args[0] = TZ_PIL_AUTH_QDSP6_PROC;
-		desc.args[1] = phys;
-		desc.args[2] = size;
-		desc.arginfo = SCM_ARGS(3);
-		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-			TZ_PIL_PROTECT_MEM_SUBSYS_ID), &desc);
-	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
+	if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
 				&& me->channel[fl->cid].rhvm.vmid) {
 		err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
@@ -2459,7 +2449,6 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 
 	if (flags == ADSP_MMAP_HEAP_ADDR) {
 		struct fastrpc_ioctl_invoke_crc ioctl;
-		struct scm_desc desc = {0};
 		remote_arg_t ra[2];
 		int err = 0;
 		struct {
@@ -2486,13 +2475,6 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 				FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 		if (err)
 			goto bail;
-		desc.args[0] = TZ_PIL_AUTH_QDSP6_PROC;
-		desc.args[1] = phys;
-		desc.args[2] = size;
-		desc.args[3] = routargs.skey;
-		desc.arginfo = SCM_ARGS(4);
-		err = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-			TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID), &desc);
 	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		if (me->channel[fl->cid].rhvm.vmid) {
 			err = hyp_assign_phys(phys,
@@ -2635,6 +2617,31 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 			     size_t len, struct fastrpc_mmap **ppmap);
 
 static void fastrpc_mmap_add(struct fastrpc_mmap *map);
+
+static inline void get_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	immap->fd = mmap64->fd;
+	immap->flags = mmap64->flags;
+	immap->vaddrin = (uintptr_t)mmap64->vaddrin;
+	immap->size = mmap64->size;
+}
+
+static inline void put_fastrpc_ioctl_mmap_64(
+			struct fastrpc_ioctl_mmap_64 *mmap64,
+			struct fastrpc_ioctl_mmap *immap)
+{
+	mmap64->vaddrout = (uint64_t)immap->vaddrout;
+}
+
+static inline void get_fastrpc_ioctl_munmap_64(
+			struct fastrpc_ioctl_munmap_64 *munmap64,
+			struct fastrpc_ioctl_munmap *imunmap)
+{
+	imunmap->vaddrout = (uintptr_t)munmap64->vaddrout;
+	imunmap->size = munmap64->size;
+}
 
 static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 				   struct fastrpc_ioctl_munmap *ud)
@@ -3561,13 +3568,19 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	union {
 		struct fastrpc_ioctl_invoke_crc inv;
 		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_mmap_64 mmap64;
 		struct fastrpc_ioctl_munmap munmap;
+		struct fastrpc_ioctl_munmap_64 munmap64;
 		struct fastrpc_ioctl_munmap_fd munmap_fd;
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
 		struct fastrpc_ioctl_control cp;
 		struct fastrpc_ioctl_dsp_capabilities dsp_cap;
 	} p;
+	union {
+		struct fastrpc_ioctl_mmap mmap;
+		struct fastrpc_ioctl_munmap munmap;
+	} i;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 	int size = 0, err = 0;
@@ -3631,24 +3644,27 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.mmap, param,
-						sizeof(p.mmap));
+		K_COPY_FROM_USER(err, 0, &p.mmap64, param,
+						sizeof(p.mmap64));
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &p.mmap)));
+		get_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(fl, &i.mmap)));
 		if (err)
 			goto bail;
-		K_COPY_TO_USER(err, 0, param, &p.mmap, sizeof(p.mmap));
+		put_fastrpc_ioctl_mmap_64(&p.mmap64, &i.mmap);
+		K_COPY_TO_USER(err, 0, param, &p.mmap64, sizeof(p.mmap64));
 		if (err)
 			goto bail;
 		break;
 	case FASTRPC_IOCTL_MUNMAP_64:
-		K_COPY_FROM_USER(err, 0, &p.munmap, param,
-						sizeof(p.munmap));
+		K_COPY_FROM_USER(err, 0, &p.munmap64, param,
+						sizeof(p.munmap64));
 		if (err)
 			goto bail;
+		get_fastrpc_ioctl_munmap_64(&p.munmap64, &i.munmap);
 		VERIFY(err, 0 == (err = fastrpc_internal_munmap(fl,
-							&p.munmap)));
+							&i.munmap)));
 		if (err)
 			goto bail;
 		break;
