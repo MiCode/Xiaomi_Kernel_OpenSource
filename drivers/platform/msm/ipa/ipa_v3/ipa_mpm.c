@@ -68,6 +68,8 @@
 #define IPA_MPM_MHI_HOST_DL_CHANNEL  5
 #define DEFAULT_AGGR_TIME_LIMIT 1000 /* 1ms */
 #define DEFAULT_AGGR_PKT_LIMIT 0
+#define TETH_AGGR_TIME_LIMIT 10000
+#define TETH_AGGR_BYTE_LIMIT 24
 #define TRE_BUFF_SIZE 32768
 #define IPA_HOLB_TMR_EN 0x1
 #define IPA_HOLB_TMR_DIS 0x0
@@ -209,6 +211,9 @@ static struct ipa_ep_cfg mhip_dl_teth_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
 		.dst = IPA_CLIENT_MHI_PRIME_TETH_CONS,
+	},
+	.hdr = {
+		.hdr_len = 4,
 	}
 };
 
@@ -216,7 +221,21 @@ static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
 		.dst = IPA_CLIENT_MHI_PRIME_TETH_PROD,
-	}
+	},
+	.hdr = {
+		.hdr_len = 4,
+	},
+		.hdr_ext = {
+		.hdr_total_len_or_pad_valid = true,
+		.hdr_payload_len_inc_padding = true,
+	},
+	.aggr = {
+		.aggr_en = IPA_ENABLE_AGGR,
+		.aggr = IPA_QCMAP,
+		.aggr_byte_limit = TETH_AGGR_BYTE_LIMIT,
+		.aggr_time_limit = TETH_AGGR_TIME_LIMIT,
+	},
+
 };
 
 /* WARNING!! Temporary for rndis intgration only */
