@@ -7359,6 +7359,25 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 }
 #endif
 
+/* return true if cpu should be chosen over best_energy_cpu */
+static inline bool select_cpu_same_energy(int cpu, int best_cpu, int prev_cpu)
+{
+	if (best_cpu == prev_cpu)
+		return false;
+
+	if (idle_cpu(best_cpu) && idle_get_state_idx(cpu_rq(best_cpu)) <= 0)
+		return false; /* best_cpu is idle wfi or shallower */
+
+	if (idle_cpu(cpu) && idle_get_state_idx(cpu_rq(cpu)) <= 0)
+		return true; /* new cpu is idle wfi or shallower */
+
+	/*
+	 * If we are this far this must be a tie between a busy and deep idle,
+	 * pick the busy.
+	 */
+	return idle_cpu(best_cpu);
+}
+
 static DEFINE_PER_CPU(cpumask_t, energy_cpus);
 
 /*
@@ -7507,6 +7526,12 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 		if (cur_energy < best_energy) {
 			best_energy = cur_energy;
 			best_energy_cpu = cpu;
+		} else if (cur_energy == best_energy) {
+			if (select_cpu_same_energy(cpu, best_energy_cpu,
+						prev_cpu)) {
+				best_energy = cur_energy;
+				best_energy_cpu = cpu;
+			}
 		}
 	}
 unlock:
