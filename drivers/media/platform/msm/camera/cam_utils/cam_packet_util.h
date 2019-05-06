@@ -135,4 +135,20 @@ int cam_packet_util_process_generic_cmd_buffer(
 	struct cam_cmd_buf_desc *cmd_buf,
 	cam_packet_generic_blob_handler blob_handler_cb, void *user_data);
 
+/**
+ * cam_packet_validate_plane_size()
+ *
+ * @brief:             Utility function to calculate and validate size of buffer
+ *                     required for a format.
+ * @io_cfg:            Contains IO config info
+ * @plane_index        Plane index for which size is to be calculated
+ *
+ * @return:            Size of buffer
+ *
+ */
+int32_t cam_packet_validate_plane_size(
+	struct cam_buf_io_cfg *io_cfg,
+	int plane_index,
+	size_t size);
+
 #endif /* _CAM_PACKET_UTIL_H_ */
