@@ -84,8 +84,12 @@ static int diagfwd_bridge_mux_write_done(unsigned char *buf, int len,
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 	ch = &bridge_info[buf_ctx];
-	if (ch->dev_ops && ch->dev_ops->fwd_complete)
+	if (ch->dev_ops && ch->dev_ops->fwd_complete) {
+		DIAG_LOG(DIAG_DEBUG_MHI,
+		"Write done completion received for buf %pK len:%d\n",
+			buf, len);
 		ch->dev_ops->fwd_complete(ch->ctxt, buf, len, 0);
+	}
 	return 0;
 }
 
@@ -172,6 +176,10 @@ int diag_remote_dev_open(int id)
 
 void diag_remote_dev_close(int id)
 {
+	if (id < 0 || id >= NUM_REMOTE_DEV)
+		return;
+
+	diag_mux_close_device(BRIDGE_TO_MUX(id));
 }
 
 int diag_remote_dev_read_done(int id, unsigned char *buf, int len)

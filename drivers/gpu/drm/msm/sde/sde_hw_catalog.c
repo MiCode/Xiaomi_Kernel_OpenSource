@@ -3477,7 +3477,8 @@ fail:
 	return rc;
 }
 
-int sde_qdss_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
+static int sde_qdss_parse_dt(struct device_node *np,
+				struct sde_mdss_cfg *sde_cfg)
 {
 	int rc, prop_count[HW_PROP_MAX], i;
 	struct sde_prop_value *prop_value = NULL;

@@ -74,6 +74,7 @@ struct ab_regulator {
 	/* DT params */
 	bool			swire_control;
 	bool			pd_control;
+	u32			aod_entry_poll_time_ms;
 };
 
 struct ibb_regulator {
@@ -225,20 +226,23 @@ static int qpnp_ab_pd_control(struct qpnp_amoled *chip, bool en)
 	return qpnp_amoled_write(chip, AB_LDO_PD_CTL(chip), &val, 1);
 }
 
-#define AB_VREG_OK_POLL_TRIES		50
 #define AB_VREG_OK_POLL_TIME_US		2000
 #define AB_VREG_OK_POLL_HIGH_TRIES	8
 #define AB_VREG_OK_POLL_HIGH_TIME_US	10000
 #define AB_VREG_OK_POLL_AGAIN_TRIES	10
 
-static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status)
+static int qpnp_ab_poll_vreg_ok(struct qpnp_amoled *chip, bool status,
+				u32 poll_time_us)
 {
-	u32 i = AB_VREG_OK_POLL_TRIES, poll_us = AB_VREG_OK_POLL_TIME_US;
+	u32 i, poll_us = AB_VREG_OK_POLL_TIME_US, wait_time_us = 0;
 	bool swire_high = false, poll_again = false, monitor = false;
-	u32 wait_time_us = 0;
 	int rc;
 	u8 val;
 
+	if (poll_time_us < AB_VREG_OK_POLL_TIME_US)
+		return -EINVAL;
+
+	i = poll_time_us / AB_VREG_OK_POLL_TIME_US;
 loop:
 	while (i--) {
 		/* Write a dummy value before reading AB_STATUS1 */
@@ -360,6 +364,7 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 					aod_work);
 	u8 val = 0;
 	unsigned int mode;
+	u32 poll_time_us = 100000;
 	int rc;
 
 	mutex_lock(&chip->reg_lock);
@@ -373,7 +378,7 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 			goto error;
 
 		/* poll for VREG_OK high */
-		rc = qpnp_ab_poll_vreg_ok(chip, true);
+		rc = qpnp_ab_poll_vreg_ok(chip, true, poll_time_us);
 		if (rc < 0)
 			goto error;
 
@@ -401,8 +406,11 @@ static void qpnp_amoled_aod_work(struct work_struct *work)
 				goto error;
 		}
 	} else if (mode == REGULATOR_MODE_IDLE) {
+		if (chip->ab.aod_entry_poll_time_ms > 0)
+			poll_time_us = chip->ab.aod_entry_poll_time_ms * 1000;
+
 		/* poll for VREG_OK low */
-		rc = qpnp_ab_poll_vreg_ok(chip, false);
+		rc = qpnp_ab_poll_vreg_ok(chip, false, poll_time_us);
 		if (rc < 0)
 			goto error;
 
@@ -712,6 +720,9 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 							"qcom,swire-control");
 			chip->ab.pd_control = of_property_read_bool(temp,
 							"qcom,aod-pd-control");
+			of_property_read_u32(temp,
+				"qcom,aod-entry-poll-time-ms",
+				&chip->ab.aod_entry_poll_time_ms);
 			break;
 		case IBB_PERIPH_TYPE:
 			chip->ibb_base = base;

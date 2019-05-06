@@ -4833,6 +4833,7 @@ static struct platform_driver cpp_driver = {
 		.name = MSM_CPP_DRV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = msm_cpp_dt_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

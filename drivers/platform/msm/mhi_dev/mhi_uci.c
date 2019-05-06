@@ -1404,14 +1404,12 @@ static void mhi_uci_at_ctrl_read(struct work_struct *work)
 		uci_log(UCI_DBG_VERBOSE, "msg: 0x%x\n", ctrl_msg->msg);
 
 		tgt_client = &uci_ctxt.client_handles[CHAN_TO_CLIENT(chan)];
-		tgt_client->tiocm &= (TIOCM_CD | TIOCM_DSR | TIOCM_RI);
+		tgt_client->tiocm &= ~(TIOCM_DTR | TIOCM_RTS);
 
-		if (ctrl_msg->msg & MHI_UCI_CTRL_MSG_DCD)
-			tgt_client->tiocm |= TIOCM_CD;
-		if (ctrl_msg->msg & MHI_UCI_CTRL_MSG_DSR)
-			tgt_client->tiocm |= TIOCM_DSR;
-		if (ctrl_msg->msg & MHI_UCI_CTRL_MSG_RI)
-			tgt_client->tiocm |= TIOCM_RI;
+		if (ctrl_msg->msg & MHI_UCI_CTRL_MSG_DTR)
+			tgt_client->tiocm |= TIOCM_DTR;
+		if (ctrl_msg->msg & MHI_UCI_CTRL_MSG_RTS)
+			tgt_client->tiocm |= TIOCM_RTS;
 
 		uci_log(UCI_DBG_VERBOSE, "Rcvd tiocm %d\n", tgt_client->tiocm);
 

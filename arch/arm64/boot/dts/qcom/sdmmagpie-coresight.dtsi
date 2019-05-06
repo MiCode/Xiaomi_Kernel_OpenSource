@@ -251,6 +251,15 @@
 
 			port@1 {
 				reg = <4>;
+				funnel_in0_in_tpdm_lpass: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_lpass_out_funnel_in0>;
+				};
+			};
+
+			port@2 {
+				reg = <4>;
 				funnel_in0_in_audio_etm0: endpoint {
 					slave-mode;
 					remote-endpoint =
@@ -258,7 +267,7 @@
 				};
 			};
 
-			port@2 {
+			port@3 {
 				reg = <6>;
 				funnel_in0_in_funnel_qatb: endpoint {
 					slave-mode;
@@ -267,7 +276,7 @@
 				};
 			};
 
-			port@3 {
+			port@4 {
 				reg = <7>;
 				funnel_in0_in_stm: endpoint {
 					slave-mode;
@@ -1445,6 +1454,20 @@
 					remote-endpoint =
 					<&tpdm_wcss_out_funnel_dl_south_1>;
 				};
+			};
+		};
+	};
+
+	tpdm_lpass: dummy_source {
+		compatible = "qcom,coresight-dummy";
+
+		coresight-name = "coresight-tpdm-lpass";
+		qcom,dummy-source;
+
+		port {
+			tpdm_lpass_out_funnel_in0: endpoint {
+				remote-endpoint =
+					<&funnel_in0_in_tpdm_lpass>;
 			};
 		};
 	};

@@ -105,9 +105,20 @@ static struct clk_alpha_pll scc_pll_out_aux2 = {
 	},
 };
 
+static const struct clk_div_table post_div_table[] = {
+	{ 0x0, 1 },
+	{ 0x3, 3 },
+	{ 0x5, 5 },
+	{ 0x7, 7 },
+	{ }
+};
+
 static struct clk_alpha_pll_postdiv scc_pll_out_aux = {
 	.offset = 0x0,
 	.width = 2,
+	.post_div_table = post_div_table,
+	.num_post_div = ARRAY_SIZE(post_div_table),
+	.postdiv = POSTDIV_ODD,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "scc_pll_out_aux",
 		.parent_names = (const char *[]){ "scc_pll_out_aux2" },

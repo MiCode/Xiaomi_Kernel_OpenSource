@@ -131,7 +131,7 @@ int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
 
 	remain_len = len;
 	if (((size_t)cmd_desc->offset >= len) ||
-		((size_t)cmd_desc->size >= (len - (size_t)cmd_desc->offset))) {
+		((size_t)cmd_desc->size > (len - (size_t)cmd_desc->offset))) {
 		CAM_ERR(CAM_UTIL, "invalid memory len:%zd and cmd desc size:%d",
 			len, cmd_desc->size);
 		rc = -EINVAL;

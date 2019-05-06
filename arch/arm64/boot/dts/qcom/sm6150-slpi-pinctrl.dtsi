@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,5 +248,214 @@
 				};
 			};
 		};
+
+		quat_tdm_sclk_active: quat_tdm_sclk_active {
+			mux {
+				pins = "gpio23";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_sclk_sleep: quat_tdm_sclk_sleep {
+			mux {
+				pins = "gpio23";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_ws_active: quat_tdm_ws_active {
+			mux {
+				pins = "gpio24";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio24";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_ws_sleep: quat_tdm_ws_sleep {
+			mux {
+				pins = "gpio24";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio24";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_data1_active: quat_tdm_data1_active {
+			mux {
+				pins = "gpio26";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_data1_sleep: quat_tdm_data1_sleep {
+			mux {
+				pins = "gpio26";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_data0_active: quat_tdm_data0_active {
+			mux {
+				pins = "gpio25";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio25";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quat_tdm_data0_sleep: quat_tdm_data0_sleep {
+			mux {
+				pins = "gpio25";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio25";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_sclk_active: quin_tdm_sclk_active {
+			mux {
+				pins = "gpio18";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_sclk_sleep: quin_tdm_sclk_sleep {
+			mux {
+				pins = "gpio18";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_data0_active: quin_tdm_data0_active {
+			mux {
+				pins = "gpio20";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_data0_sleep: quin_tdm_data0_sleep {
+			mux {
+				pins = "gpio20";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_ws_active: quin_tdm_ws_active {
+			mux {
+				pins = "gpio21";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_ws_sleep: quin_tdm_ws_sleep {
+			mux {
+				pins = "gpio21";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_data1_active: quin_tdm_data1_active {
+			mux {
+				pins = "gpio22";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <8>;
+				bias-bus-hold;
+			};
+		};
+
+		quin_tdm_data1_sleep: quin_tdm_data1_sleep {
+			mux {
+				pins = "gpio22";
+				function = "func3";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <2>;
+				bias-bus-hold;
+			};
+		};
+
 	};
 };
