@@ -379,6 +379,7 @@ struct fastrpc_file {
 	int pd;
 	char *servloc_name;
 	int file_close;
+	int dsp_process_init;
 	struct fastrpc_apps *apps;
 	struct hlist_head perf;
 	struct dentry *debugfs_file;
@@ -581,7 +582,9 @@ static void fastrpc_mmap_add(struct fastrpc_mmap *map)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		struct fastrpc_apps *me = &gfa;
 
+		spin_lock(&me->hlock);
 		hlist_add_head(&map->hn, &me->maps);
+		spin_unlock(&me->hlock);
 	} else {
 		struct fastrpc_file *fl = map->fl;
 
@@ -601,6 +604,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 		return -EOVERFLOW;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				 mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		spin_lock(&me->hlock);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			if (va >= map->va &&
 				va + len <= map->va + map->len &&
@@ -611,6 +615,7 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 				break;
 			}
 		}
+		spin_unlock(&me->hlock);
 	} else {
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			if (va >= map->va &&
@@ -656,6 +661,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 	struct hlist_node *n;
 	struct fastrpc_apps *me = &gfa;
 
+	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 		if (map->raddr == va &&
 			map->raddr + map->len == va + len &&
@@ -665,6 +671,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 			break;
 		}
 	}
+	spin_unlock(&me->hlock);
 	if (match) {
 		*ppmap = match;
 		return 0;
@@ -1609,7 +1616,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (rpra && lrpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1715,7 +1722,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!IS_CACHE_ALIGNED((uintptr_t)
 				uint64_to_ptr(rpra[i].buf.pv))) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -1729,7 +1736,7 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
 							rpra[i].buf.len);
 		if (!IS_CACHE_ALIGNED(end)) {
-			if (map && map->handle) {
+			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
@@ -2216,18 +2223,28 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			goto bail;
 	} else {
 		err = -ENOTTY;
+		goto bail;
 	}
+	fl->dsp_process_init = 1;
 bail:
 	kfree(proc_name);
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
 		me->staticpd_flags = 0;
 	if (mem && err) {
 		if (mem->flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-			&& me->channel[fl->cid].rhvm.vmid && rh_hyp_done)
-			hyp_assign_phys(mem->phys, (uint64_t)mem->size,
+			&& me->channel[fl->cid].rhvm.vmid && rh_hyp_done) {
+			int hyp_err = 0;
+
+			hyp_err = hyp_assign_phys(mem->phys,
+					(uint64_t)mem->size,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					hlosvm, hlosvmperm, 1);
+			if (hyp_err)
+				pr_warn("adsprpc: %s: %s: rh hyp unassign failed with %d for phys 0x%llx of size %zd\n",
+						__func__, current->comm,
+						hyp_err, mem->phys, mem->size);
+		}
 		mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_free(mem, 0);
 		mutex_unlock(&fl->map_mutex);
@@ -2380,7 +2397,13 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
 	VERIFY(err, fl->apps->channel[fl->cid].rpdev != NULL);
+	if (err)
+		goto bail;
+	VERIFY(err, fl->apps->channel[fl->cid].issubsystemup == 1);
 	if (err)
 		goto bail;
 	tgid = fl->tgid;
@@ -2394,6 +2417,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+	if (err && fl->dsp_process_init)
+		pr_err("adsprpc: %s: releasing DSP process failed with %d (0x%x) for %s\n",
+				__func__, err, err, current->comm);
 bail:
 	return err;
 }
@@ -2452,8 +2478,12 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 				hlosvm, 1, me->channel[fl->cid].rhvm.vmid,
 				me->channel[fl->cid].rhvm.vmperm,
 				me->channel[fl->cid].rhvm.vmcount);
-		if (err)
+		if (err) {
+			pr_err("adsprpc: %s: %s: rh hyp assign failed with %d for phys 0x%llx, size %zd\n",
+					__func__, current->comm,
+					err, phys, size);
 			goto bail;
+		}
 	}
 bail:
 	return err;
@@ -2503,8 +2533,12 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 					me->channel[fl->cid].rhvm.vmid,
 					me->channel[fl->cid].rhvm.vmcount,
 					destVM, destVMperm, 1);
-			if (err)
+			if (err) {
+				pr_err("adsprpc: %s: %s: rh hyp unassign failed with %d for phys 0x%llx, size %zd\n",
+					__func__, current->comm,
+					err, phys, size);
 				goto bail;
+			}
 		}
 	}
 
@@ -2620,8 +2654,8 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 		me->channel[fl->cid].spd[session].prevpdrcount) {
 		err = fastrpc_mmap_remove_ssr(fl);
 		if (err)
-			pr_err("adsprpc: %s: SSR: failed to unmap remote heap (err %d)\n",
-					__func__, err);
+			pr_warn("adsprpc: %s: %s: failed to unmap remote heap (err %d)\n",
+					__func__, current->comm, err);
 		me->channel[fl->cid].spd[session].prevpdrcount =
 				me->channel[fl->cid].spd[session].pdrcount;
 	}
@@ -3284,7 +3318,6 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	struct fastrpc_apps *me = &gfa;
 	int cid, err = 0;
 
-
 	VERIFY(err, fl && fl->sctx);
 	if (err)
 		goto bail;
@@ -3316,9 +3349,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
 			 me->channel[cid].prevssrcount) {
 		mutex_lock(&fl->map_mutex);
-		if (fastrpc_mmap_remove_ssr(fl))
-			pr_err("adsprpc: %s: SSR: Failed to unmap remote heap for %s\n",
-				__func__, me->channel[cid].name);
+		err = fastrpc_mmap_remove_ssr(fl);
+		if (err)
+			pr_warn("adsprpc: %s: %s: failed to unmap remote heap for %s (err %d)\n",
+					__func__, current->comm,
+					me->channel[cid].subsys, err);
 		mutex_unlock(&fl->map_mutex);
 		me->channel[cid].prevssrcount =
 					me->channel[cid].ssrcount;
@@ -3385,6 +3420,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
 	fl->qos_request = 0;
+	fl->dsp_process_init = 0;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
 	mutex_init(&fl->map_mutex);
@@ -3472,6 +3508,25 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 	default:
 		err = -ENOTTY;
 		break;
+	}
+bail:
+	return err;
+}
+
+static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name)
+{
+	int err = 0, session = -1, cid = -1;
+	struct fastrpc_apps *me = &gfa;
+
+	if (fl->servloc_name && sloc_name
+		&& !strcmp(fl->servloc_name, sloc_name)) {
+		err = fastrpc_get_spd_session(sloc_name, &session, &cid);
+		if (err || cid != fl->cid)
+			goto bail;
+		if (!me->channel[cid].spd[session].ispdup) {
+			err = -ENOTCONN;
+			goto bail;
+		}
 	}
 bail:
 	return err;
@@ -3612,6 +3667,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.fds = NULL;
 	p.inv.attrs = NULL;
 	p.inv.crc = NULL;
+
+	err = fastrpc_check_pd_status(fl,
+			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
+	err |= fastrpc_check_pd_status(fl,
+			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
+	if (err)
+		goto bail;
+
 	spin_lock(&fl->hlock);
 	if (fl->file_close == 1) {
 		err = EBADF;
