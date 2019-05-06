@@ -1626,6 +1626,7 @@ struct ipa3_context {
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
 	bool ipa_wdi3_over_gsi;
+	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1702,6 +1703,7 @@ struct ipa3_context {
 	atomic_t ipa_clk_vote;
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 	bool fw_loaded;
+	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
 };
 
 struct ipa3_plat_drv_res {
@@ -1746,6 +1748,7 @@ struct ipa3_plat_drv_res {
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
 	u32 secure_debug_check_action;
+	bool ipa_endp_delay_wa;
 };
 
 /**
@@ -2023,10 +2026,16 @@ int ipa3_xdci_connect(u32 clnt_hdl);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
+void ipa3_register_client_callback(int (*client_cb)(bool),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+void ipa3_deregister_client_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl);
+void ipa3_client_prod_post_shutdown_cleanup(void);
+
+
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client);
 
