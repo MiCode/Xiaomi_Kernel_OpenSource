@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-obj-y += sde/
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
 #
 # Makefile for the qti specific video device drivers
