@@ -16,7 +16,7 @@
 
 #define LUT_MAX_ENTRIES			40U
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
-#define LUT_ROW_SIZE			4
+#define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
 #define CYCLE_CNTR_OFFSET(c, m)		((c - cpumask_first(m) + 1) * 4)
 
@@ -29,6 +29,8 @@ enum {
 
 	REG_ARRAY_SIZE,
 };
+
+static unsigned int lut_row_size = LUT_ROW_SIZE;
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
@@ -342,6 +344,15 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 	for (i = REG_ENABLE; i < REG_ARRAY_SIZE; i++)
 		c->reg_bases[i] = base + offsets[i];
 
+	if (!of_property_read_bool(dev->of_node, "qcom,skip-enable-check")) {
+		/* HW should be in enabled state to proceed */
+		if (!(readl_relaxed(c->reg_bases[REG_ENABLE]) & 0x1)) {
+			dev_err(dev, "Domain-%d cpufreq hardware not enabled\n",
+				 index);
+			return -ENODEV;
+		}
+	}
+
 	ret = qcom_get_related_cpus(index, &c->related_cpus);
 	if (ret) {
 		dev_err(dev, "Domain-%d failed to get related CPUs\n", index);
@@ -384,13 +395,16 @@ static int qcom_resources_init(struct platform_device *pdev)
 
 	devm_clk_put(&pdev->dev, clk);
 
-	clk = devm_clk_get(&pdev->dev, "cpu_clk");
+	clk = devm_clk_get(&pdev->dev, "alternate");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
 	cpu_hw_rate = clk_get_rate(clk) / CLK_HW_DIV;
 
 	devm_clk_put(&pdev->dev, clk);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,lut-row-size",
+			      &lut_row_size);
 
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
@@ -449,6 +463,8 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 
 static const struct of_device_id qcom_cpufreq_hw_match[] = {
 	{ .compatible = "qcom,cpufreq-hw", .data = &cpufreq_qcom_std_offsets },
+	{ .compatible = "qcom,cpufreq-hw-epss",
+					   .data = &cpufreq_qcom_std_offsets },
 	{}
 };
 
