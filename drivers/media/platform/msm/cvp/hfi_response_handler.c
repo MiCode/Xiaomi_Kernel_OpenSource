@@ -170,9 +170,10 @@ static int hfi_process_session_error(u32 device_id,
 }
 
 static int hfi_process_event_notify(u32 device_id,
-		struct hfi_msg_event_notify_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_event_notify_packet *pkt = _pkt;
 	dprintk(CVP_DBG, "Received: EVENT_NOTIFY\n");
 
 	if (pkt->size < sizeof(struct hfi_msg_event_notify_packet)) {
@@ -211,9 +212,10 @@ static int hfi_process_event_notify(u32 device_id,
 }
 
 static int hfi_process_sys_init_done(u32 device_id,
-		struct hfi_msg_sys_init_done_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_sys_init_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	enum cvp_status status = CVP_ERR_NONE;
 
@@ -534,9 +536,10 @@ enum cvp_status cvp_hfi_process_sys_init_done_prop_read(
 }
 
 static int hfi_process_session_init_done(u32 device_id,
-		struct hfi_msg_sys_session_init_done_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_sys_session_init_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	struct cvp_hal_session_init_done session_init_done = { {0} };
 
@@ -560,9 +563,10 @@ static int hfi_process_session_init_done(u32 device_id,
 	return 0;
 }
 static int hfi_process_session_end_done(u32 device_id,
-		struct hfi_msg_sys_session_end_done_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_sys_session_end_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 
 	dprintk(CVP_DBG, "RECEIVED: SESSION_END_DONE[%#x]\n", pkt->session_id);
@@ -585,9 +589,10 @@ static int hfi_process_session_end_done(u32 device_id,
 }
 
 static int hfi_process_session_abort_done(u32 device_id,
-	struct hfi_msg_sys_session_abort_done_packet *pkt,
+	void *_pkt,
 	struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_sys_session_abort_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 
 	dprintk(CVP_DBG, "RECEIVED: SESSION_ABORT_DONE[%#x]\n",
@@ -611,9 +616,10 @@ static int hfi_process_session_abort_done(u32 device_id,
 }
 
 static int hfi_process_session_set_buf_done(u32 device_id,
-		struct hfi_msg_session_cvp_set_buffers_done_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_session_cvp_set_buffers_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	unsigned int pkt_size =
 		sizeof(struct hfi_msg_session_cvp_set_buffers_done_packet);
@@ -639,9 +645,10 @@ static int hfi_process_session_set_buf_done(u32 device_id,
 
 
 static int hfi_process_session_rel_buf_done(u32 device_id,
-		struct hfi_msg_session_hdr *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_session_hdr *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	unsigned int pkt_size =
 		sizeof(struct hfi_msg_session_hdr);
@@ -666,9 +673,11 @@ static int hfi_process_session_rel_buf_done(u32 device_id,
 }
 
 static int hfi_process_session_cvp_operation_config(u32 device_id,
-	struct hfi_msg_session_cvp_operation_config_done_packet_type *pkt,
+	void *_pkt,
 	struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_session_cvp_operation_config_done_packet_type
+								*pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	int signal;
 
@@ -761,9 +770,10 @@ static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 }
 
 static int hfi_process_session_cvp_msg(u32 device_id,
-	struct hfi_msg_session_hdr *pkt,
+	void *_pkt,
 	struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_session_hdr *pkt = _pkt;
 	struct session_msg *sess_msg;
 	struct msm_cvp_inst *inst = NULL;
 	struct msm_cvp_core *core;
@@ -959,9 +969,10 @@ static void hfi_process_sys_get_prop_image_version(
 }
 
 static int hfi_process_sys_property_info(u32 device_id,
-		struct hfi_msg_sys_property_info_packet *pkt,
+		void *_pkt,
 		struct msm_cvp_cb_info *info)
 {
+	struct hfi_msg_sys_property_info_packet *pkt = _pkt;
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;
@@ -1048,5 +1059,6 @@ int cvp_hfi_process_msg_packet(u32 device_id,
 		break;
 	}
 
-	return pkt_func ? pkt_func(device_id, msg_hdr, info) : -ENOTSUPP;
+	return pkt_func ?
+		pkt_func(device_id, (void *)msg_hdr, info) : -ENOTSUPP;
 }
