@@ -6084,7 +6084,7 @@ int sched_isolate_count(const cpumask_t *mask, bool include_offline)
  */
 int sched_isolate_cpu(int cpu)
 {
-	struct rq *rq = cpu_rq(cpu);
+	struct rq *rq;
 	cpumask_t avail_cpus;
 	int ret_code = 0;
 	u64 start_time = 0;
@@ -6096,10 +6096,13 @@ int sched_isolate_cpu(int cpu)
 
 	cpumask_andnot(&avail_cpus, cpu_online_mask, cpu_isolated_mask);
 
-	if (!cpu_online(cpu)) {
+	if (cpu < 0 || cpu >= nr_cpu_ids || !cpu_possible(cpu)
+			|| !cpu_online(cpu)) {
 		ret_code = -EINVAL;
 		goto out;
 	}
+
+	rq = cpu_rq(cpu);
 
 	if (++cpu_isolation_vote[cpu] > 1)
 		goto out;
@@ -6161,6 +6164,10 @@ int sched_unisolate_cpu_unlocked(int cpu)
 	int ret_code = 0;
 	u64 start_time = 0;
 
+	if (cpu < 0 || cpu >= nr_cpu_ids || !cpu_possible(cpu)) {
+		ret_code = -EINVAL;
+		goto out;
+	}
 	if (trace_sched_isolate_enabled())
 		start_time = sched_clock();
 
