@@ -31,6 +31,7 @@ static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
 static int ipa3_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 {
 	struct ipa3_hdr_entry *entry;
+	gfp_t flag = GFP_KERNEL;
 
 	mem->size = ipa3_ctx->hdr_tbl.end;
 
@@ -40,9 +41,14 @@ static int ipa3_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 	}
 	IPADBG_LOW("tbl_sz=%d\n", ipa3_ctx->hdr_tbl.end);
 
+alloc:
 	mem->base = dma_alloc_coherent(ipa3_ctx->pdev, mem->size,
-			&mem->phys_base, GFP_KERNEL);
+			&mem->phys_base, flag);
 	if (!mem->base) {
+		if (flag == GFP_KERNEL) {
+			flag = GFP_ATOMIC;
+			goto alloc;
+		}
 		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
 		return -ENOMEM;
 	}

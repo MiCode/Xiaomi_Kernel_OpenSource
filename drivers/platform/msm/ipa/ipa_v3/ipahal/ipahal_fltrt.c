@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3606,6 +3606,7 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 	u64 addr;
 	int i;
 	struct ipahal_fltrt_obj *obj;
+	gfp_t flag = GFP_KERNEL;
 
 	obj = &ipahal_fltrt_objs[ipahal_ctx->hw_type];
 
@@ -3615,10 +3616,15 @@ static int ipa_fltrt_alloc_init_tbl_hdr(
 	}
 
 	params->nhash_hdr.size = params->tbls_num * obj->tbl_hdr_width;
+alloc:
 	params->nhash_hdr.base = dma_alloc_coherent(ipahal_ctx->ipa_pdev,
 		params->nhash_hdr.size,
-		&params->nhash_hdr.phys_base, GFP_KERNEL);
+		&params->nhash_hdr.phys_base, flag);
 	if (!params->nhash_hdr.base) {
+		if (flag == GFP_KERNEL) {
+			flag = GFP_ATOMIC;
+			goto alloc;
+		}
 		IPAHAL_ERR_RL("fail to alloc DMA buff of size %d\n",
 			params->nhash_hdr.size);
 		goto nhash_alloc_fail;
