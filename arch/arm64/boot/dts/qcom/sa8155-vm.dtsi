@@ -378,6 +378,11 @@
 		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
 		status = "ok";
 	};
+
+	vm_restart: restart {
+		compatible = "qcom,vm-restart";
+		status = "ok";
+	};
 };
 
 #include "sm8150-pinctrl.dtsi"
