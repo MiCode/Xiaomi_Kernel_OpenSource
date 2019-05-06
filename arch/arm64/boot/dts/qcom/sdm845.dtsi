@@ -4100,6 +4100,7 @@
 
 &gpu_cx_gdsc {
 	parent-supply = <&pm8998_s9_level>;
+	vdd_parent-supply = <&pm8998_s9_level>;
 	status = "ok";
 };
 

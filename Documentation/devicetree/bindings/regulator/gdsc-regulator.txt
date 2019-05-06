@@ -50,6 +50,11 @@ Optional properties:
 			to enable.
  - qcom,reset-aon-logic: If present, the GPU DEMET cells need to be reset while
 			 enabling the GX GDSC.
+ - vdd_parent-supply:	phandle to the regulator that this GDSC gates. If
+			present, need to vote for a minimum operational voltage
+			(LOW_SVS) on the GDSC parent regulator prior to
+			configuring it. The vote is removed once the GDSC FSM
+			has latched on to the new state.
  - resets: reset specifier pair consisting of phandle for the reset controller
 			and reset lines used by this controller. These can be
 			supplied only if we support qcom,skip-logic-collapse.

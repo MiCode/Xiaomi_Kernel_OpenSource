@@ -167,13 +167,6 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 			io_cfg[i].resource_type,
 			io_cfg[i].fence, io_cfg[i].format);
 
-		if ((num_in_buf > io_buf_size) ||
-			(num_out_buf > io_buf_size)) {
-			CAM_ERR(CAM_LRME, "Invalid number of buffers %d %d %d",
-				num_in_buf, num_out_buf, io_buf_size);
-			return -EINVAL;
-		}
-
 		memset(io_addr, 0, sizeof(io_addr));
 		for (plane = 0; plane < CAM_PACKET_MAX_PLANES; plane++) {
 			if (!io_cfg[i].mem_handle[plane])
@@ -201,6 +194,12 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 
 		switch (io_cfg[i].direction) {
 		case CAM_BUF_INPUT: {
+			if (num_in_buf >= io_buf_size) {
+				CAM_ERR(CAM_LRME,
+					"Invalid number of buffers %d %d %d",
+					num_in_buf, num_out_buf, io_buf_size);
+				return -EINVAL;
+			}
 			prepare->in_map_entries[num_in_buf].resource_handle =
 				io_cfg[i].resource_type;
 			prepare->in_map_entries[num_in_buf].sync_id =
@@ -216,6 +215,12 @@ static int cam_lrme_mgr_util_prepare_io_buffer(int32_t iommu_hdl,
 			break;
 		}
 		case CAM_BUF_OUTPUT: {
+			if (num_out_buf >= io_buf_size) {
+				CAM_ERR(CAM_LRME,
+					"Invalid number of buffers %d %d %d",
+					num_in_buf, num_out_buf, io_buf_size);
+				return -EINVAL;
+			}
 			prepare->out_map_entries[num_out_buf].resource_handle =
 				io_cfg[i].resource_type;
 			prepare->out_map_entries[num_out_buf].sync_id =

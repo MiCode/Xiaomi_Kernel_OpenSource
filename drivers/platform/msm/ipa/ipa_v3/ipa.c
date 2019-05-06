@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4933,6 +4933,15 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			return count;
 		}
 	}
+
+	/* Prevent multiple calls from trying to load the FW again. */
+	if (ipa3_ctx->fw_loaded) {
+		IPAERR("not load FW again\n");
+		return count;
+	}
+
+	/* Schedule WQ to load ipa-fws */
+	ipa3_ctx->fw_loaded = true;
 
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
 		&ipa3_fw_loading_work);

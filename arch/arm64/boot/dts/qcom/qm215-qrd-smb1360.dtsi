@@ -50,6 +50,9 @@
 };
 
 &i2c_2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status ="ok";
 	smb1360_otg_supply: smb1360-chg-fg@14 {
 		compatible = "qcom,smb1360-chg-fg";
