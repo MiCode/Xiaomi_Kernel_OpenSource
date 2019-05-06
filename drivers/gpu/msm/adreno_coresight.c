@@ -180,7 +180,10 @@ static void adreno_coresight_disable(struct coresight_device *csdev,
 		kgsl_active_count_put(device);
 	}
 
-	clear_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv);
+	if (cs_id == GPU_CORESIGHT_GX)
+		clear_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv);
+	else if (cs_id == GPU_CORESIGHT_CX)
+		clear_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv);
 
 	mutex_unlock(&device->mutex);
 }
