@@ -146,3 +146,6 @@ x509.genkey
 arch/*/configs/vendor/*-gki_defconfig
 arch/*/configs/vendor/*-qgki_defconfig
 arch/*/configs/vendor/*-qgki-debug_defconfig
+
+# Tech package directories
+techpack/
