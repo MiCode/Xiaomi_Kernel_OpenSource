@@ -300,6 +300,248 @@
 			#mbox-cells = <3>;
 			#event-cells = <1>;
 			#subsys-cells = <3>;
+			clocks = <&infracfg_ao CLK_INFRA_GCE>,
+				<&infracfg_ao CLK_INFRA_GCE_26M>;
+			clock-names = "gce", "GCE_TIMER";
+		};
+
+		cmdq-ext@10228000 {
+			compatible = "mediatek,cmdq-ext";
+			reg = <0 0x10228000 0 0x4000>;
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_LOW>;
+			disp_mutex_reg = <0x14016000 0x1000>;
+			g3d_config_base = <0x13000000 0 0xffff0000>;
+			mmsys_config_base = <0x14000000 1 0xffff0000>;
+			disp_dither_base = <0x14010000 2 0xffff0000>;
+			mm_na_base = <0x14020000 3 0xffff0000>;
+			imgsys_base = <0x15020000 4 0xffff0000>;
+			vdec_gcon_base = <0x18800000 5 0xffff0000>;
+			venc_gcon_base = <0x18810000 6 0xffff0000>;
+			conn_peri_base = <0x18820000 7 0xffff0000>;
+			topckgen_base = <0x18830000 8 0xffff0000>;
+			kp_base = <0x18840000 9 0xffff0000>;
+			scp_sram_base = <0x10000000 10 0xffff0000>;
+			infra_na3_base = <0x10010000 11 0xffff0000>;
+			infra_na4_base = <0x10020000 12 0xffff0000>;
+			scp_base = <0x10030000 13 0xffff0000>;
+			mcucfg_base = <0x10040000 14 0xffff0000>;
+			gcpu_base = <0x10050000 15 0xffff0000>;
+			usb0_base = <0x10200000 16 0xffff0000>;
+			usb_sif_base = <0x10280000 17 0xffff0000>;
+			audio_base = <0x17000000 18 0xffff0000>;
+			vdec_base = <0x17010000 19 0xffff0000>;
+			msdc2_base = <0x17020000 20 0xffff0000>;
+			vdec1_base = <0x17030000 21 0xffff0000>;
+			msdc3_base = <0x18000000 22 0xffff0000>;
+			ap_dma_base = <0x18010000 23 0xffff0000>;
+			gce_base = <0x18020000 24 0xffff0000>;
+			vdec2_base = <0x18040000 25 0xffff0000>;
+			vdec3_base = <0x18050000 26 0xffff0000>;
+			camsys_base = <0x18080000 27 0xffff0000>;
+			camsys1_base = <0x180a0000 28 0xffff0000>;
+			camsys2_base = <0x180b0000 29 0xffff0000>;
+			pwm_sw_base = <0x11000000 99 0xffff0000>;
+			imgsys2_base = <0x15010000 99 0xffff0000>;
+			ipesys_base = <0x1b000000 99 0xffff0000>;
+			dpe_base = <0x1b100000 99 0xffff0000>;
+			mipitx0_base = <0x11e50000 99 0xffff0000>;
+			disp_rdma0_sof = <0>;
+			disp_rdma1_sof = <1>;
+			mdp_rdma0_sof = <2>;
+			mdp_rdma1_sof = <3>;
+			mdp_rsz0_sof = <4>;
+			mdp_rsz1_sof = <5>;
+			mdp_tdshp_sof = <6>;
+			mdp_wrot0_sof = <7>;
+			mdp_wrot1_sof = <8>;
+			disp_ovl0_sof = <9>;
+			disp_2l_ovl0_sof = <10>;
+			disp_2l_ovl1_sof = <11>;
+			disp_wdma0_sof = <12>;
+			disp_color0_sof = <13>;
+			disp_ccorr0_sof = <14>;
+			disp_aal0_sof = <15>;
+			disp_gamma0_sof = <16>;
+			disp_dither0_sof = <17>;
+			disp_pwm0_sof = <18>;
+			disp_dsi0_sof = <19>;
+			disp_dpi0_sof = <20>;
+			disp_postmask0_sof = <21>;
+			disp_rsz0_sof = <22>;
+			mdp_aal_sof = <23>;
+			mdp_ccorr_sof = <24>;
+			disp_dbi0_sof = <25>;
+			isp_relay_sof = <26>;
+			ipu_relay_sof = <27>;
+			disp_rdma0_frame_done = <28>;
+			disp_rdma1_frame_done = <29>;
+			mdp_rdma0_frame_done = <30>;
+			mdp_rdma1_frame_done = <31>;
+			mdp_rsz0_frame_done = <32>;
+			mdp_rsz1_frame_done = <33>;
+			mdp_tdshp_frame_done = <34>;
+			mdp_wrot0_write_frame_done = <35>;
+			mdp_wrot1_write_frame_done = <36>;
+			disp_ovl0_frame_done = <37>;
+			disp_2l_ovl0_frame_done = <38>;
+			disp_2l_ovl1_frame_done = <39>;
+			disp_wdma0_frame_done = <40>;
+			disp_color0_frame_done = <41>;
+			disp_ccorr0_frame_done = <42>;
+			disp_aal0_frame_done = <43>;
+			disp_gamma0_frame_done = <44>;
+			disp_dither0_frame_done = <45>;
+			disp_dsi0_frame_done = <46>;
+			disp_dpi0_frame_done = <47>;
+			disp_rsz0_frame_done = <49>;
+			mdp_aal_frame_done = <50>;
+			mdp_ccorr_frame_done = <51>;
+			disp_postmask0_frame_done = <52>;
+			stream_done_0 = <130>;
+			stream_done_1 = <131>;
+			stream_done_2 = <132>;
+			stream_done_3 = <133>;
+			stream_done_4 = <134>;
+			stream_done_5 = <135>;
+			stream_done_6 = <136>;
+			stream_done_7 = <137>;
+			stream_done_8 = <138>;
+			stream_done_9 = <139>;
+			stream_done_10 = <140>;
+			stream_done_11 = <141>;
+			buf_underrun_event_0 = <142>;
+			buf_underrun_event_1 = <143>;
+			buf_underrun_event_2 = <144>;
+			buf_underrun_event_3 = <145>;
+			dsi0_te_event = <146>;
+			dsi0_irq_event = <147>;
+			dsi0_done_event = <148>;
+			disp_postmask0_frame_rst_done_pulse = <150>;
+			disp_wdma0_rst_done = <151>;
+			mdp_wrot0_rst_done = <153>;
+			mdp_rdma0_rst_done = <154>;
+			disp_ovl0_frame_rst_done_pusle = <155>;
+			disp_ovl0_2l_frame_rst_done_pusle = <156>;
+			disp_ovl1_2l_frame_rst_done_pusle = <157>;
+			dip_cq_thread0_frame_done = <257>;
+			dip_cq_thread1_frame_done = <258>;
+			dip_cq_thread2_frame_done = <259>;
+			dip_cq_thread3_frame_done = <260>;
+			dip_cq_thread4_frame_done = <261>;
+			dip_cq_thread5_frame_done = <262>;
+			dip_cq_thread6_frame_done = <263>;
+			dip_cq_thread7_frame_done = <264>;
+			dip_cq_thread8_frame_done = <265>;
+			dip_cq_thread9_frame_done = <266>;
+			dip_cq_thread10_frame_done = <267>;
+			dip_cq_thread11_frame_done = <268>;
+			dip_cq_thread12_frame_done = <269>;
+			dip_cq_thread13_frame_done = <270>;
+			dip_cq_thread14_frame_done = <271>;
+			dip_cq_thread15_frame_done = <272>;
+			dip_cq_thread16_frame_done = <273>;
+			dip_cq_thread17_frame_done = <274>;
+			dip_cq_thread18_frame_done = <275>;
+			dip_dma_err_event = <276>;
+			amd_frame_done = <277>;
+			mfb_done = <278>;
+			wpe_a_frame_done = <279>;
+			venc_done = <289>;
+			venc_cmdq_pause_done = <290>;
+			jpgenc_done = <291>;
+			venc_mb_done = <292>;
+			venc_128byte_cnt_done = <293>;
+			isp_frame_done_a = <321>;
+			isp_frame_done_b = <322>;
+			isp_frame_done_c = <323>;
+			camsv_0_pass1_done = <324>;
+			camsv_0_2_pass1_done = <325>;
+			camsv_1_pass1_done = <326>;
+			camsv_2_pass1_done = <327>;
+			camsv_3_pass1_done = <328>;
+			tsf_done = <329>;
+			seninf_0_fifo_full = <330>;
+			seninf_1_fifo_full = <331>;
+			seninf_2_fifo_full = <332>;
+			seninf_3_fifo_full = <333>;
+			seninf_4_fifo_full = <334>;
+			seninf_5_fifo_full = <335>;
+			seninf_6_fifo_full = <336>;
+			seninf_7_fifo_full = <337>;
+			tg_ovrun_a_int_dly = <338>;
+			tg_ovrun_b_int_dly = <339>;
+			tg_ovrun_c_int = <340>;
+			tg_graberr_a_int_dly = <341>;
+			tg_graberr_b_int_dly = <342>;
+			tg_graberr_c_int = <343>;
+			cq_vr_snap_a_int_dly = <344>;
+			cq_vr_snap_b_int_dly = <345>;
+			cq_vr_snap_c_int = <346>;
+			dma_r1_error_a_int_dly = <347>;
+			dma_r1_error_b_int_dly = <348>;
+			dma_r1_error_c_int = <349>;
+			apu_gce_core0_event_0 = <353>;
+			apu_gce_core0_event_1 = <354>;
+			apu_gce_core0_event_2 = <355>;
+			apu_gce_core0_event_3 = <356>;
+			apu_gce_core1_event_0 = <385>;
+			apu_gce_core1_event_1 = <386>;
+			apu_gce_core1_event_2 = <387>;
+			apu_gce_core1_event_3 = <388>;
+			vdec_event_0 = <416>;
+			vdec_event_1 = <417>;
+			vdec_event_2 = <418>;
+			vdec_event_3 = <419>;
+			vdec_event_4 = <420>;
+			vdec_event_5 = <421>;
+			vdec_event_6 = <422>;
+			vdec_event_7 = <423>;
+			vdec_event_8 = <424>;
+			vdec_event_9 = <425>;
+			vdec_event_10 = <426>;
+			vdec_event_11 = <427>;
+			vdec_event_12 = <428>;
+			vdec_event_13 = <429>;
+			vdec_event_14 = <430>;
+			vdec_event_15 = <431>;
+			fdvt_done = <449>;
+			fe_done = <450>;
+			rsc_frame_done = <451>;
+			dvs_done_async_shot = <452>;
+			dvp_done_async_shot = <453>;
+			dsi0_te_from_infra = <898>;
+			sram_size_cpr_64 = <656>;
+			sram_share_cnt = <2>;
+			sram_share_engine = <21>, <22>;
+			sram_share_event = <710>, <711>;
+			thread_count = <24>;
+			mdp-platform = <0>;
+			mboxes = <&gce 0 CMDQ_THR_PRIO_4 0>,
+				<&gce 1 CMDQ_THR_PRIO_4 0>,
+				<&gce 2 CMDQ_THR_PRIO_5 0>,
+				<&gce 3 CMDQ_THR_PRIO_4 0>,
+				<&gce 4 CMDQ_THR_PRIO_4 0>,
+				<&gce 5 CMDQ_THR_PRIO_4 0>,
+				<&gce 6 CMDQ_THR_PRIO_4 0>,
+				<&gce 7 CMDQ_THR_PRIO_2 0>,
+				<&gce 8 CMDQ_THR_PRIO_1 0>,
+				<&gce 9 CMDQ_THR_PRIO_1 0>,
+				<&gce 10 CMDQ_THR_PRIO_1 0>,
+				<&gce 11 CMDQ_THR_PRIO_1 0>,
+				<&gce 12 CMDQ_THR_PRIO_1 0>,
+				<&gce 13 CMDQ_THR_PRIO_1 0>,
+				<&gce 14 CMDQ_THR_PRIO_1 0>,
+				<&gce 15 CMDQ_THR_PRIO_1 0>,
+				<&gce 16 CMDQ_THR_PRIO_1 0>,
+				<&gce 17 CMDQ_THR_PRIO_1 0>,
+				<&gce 18 CMDQ_THR_PRIO_1 0>,
+				<&gce 19 CMDQ_THR_PRIO_1 0>,
+				<&gce 20 CMDQ_THR_PRIO_1 0>,
+				<&gce 21 CMDQ_THR_PRIO_1 0>;
+			clocks = <&infracfg_ao CLK_INFRA_GCE>,
+				<&infracfg_ao CLK_INFRA_GCE_26M>;
+			clock-names = "GCE", "GCE_TIMER";
 		};
 
 		iommu1: iommu@1024f000 {
