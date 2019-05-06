@@ -9883,9 +9883,11 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 			/* TODO:don't assume same cap cpus are in same domain */
 			capacity_local = capacity_orig_of(cpu_local);
 			capacity_busiest = capacity_orig_of(cpu_busiest);
-			if (capacity_local > capacity_busiest) {
+			if ((sds.busiest->group_weight > 1) &&
+				capacity_local > capacity_busiest) {
 				goto out_balanced;
-			} else if (capacity_local == capacity_busiest) {
+			} else if (capacity_local == capacity_busiest ||
+				   asym_cap_siblings(cpu_local, cpu_busiest)) {
 				if (cpu_rq(cpu_busiest)->nr_running < 2)
 					goto out_balanced;
 			}
