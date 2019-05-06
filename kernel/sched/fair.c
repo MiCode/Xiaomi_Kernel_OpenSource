@@ -7021,9 +7021,14 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * visiting other clusters. If the boost is ON_BIG we visit
 		 * next cluster if they are higher in capacity. If we are
 		 * not in any kind of boost, we break.
+		 *
+		 * And always visit higher capacity group, if solo cpu group
+		 * is not in idle.
 		 */
 		if (!prefer_idle && !boosted &&
-			(target_cpu != -1 || best_idle_cpu != -1) &&
+			((target_cpu != -1 && (sg->group_weight > 1 ||
+			 !next_group_higher_cap)) ||
+			 best_idle_cpu != -1) &&
 			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
 			!is_full_throttle_boost() ||
 			(fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
@@ -7342,8 +7347,11 @@ static inline struct cpumask *find_rtg_target(struct task_struct *p)
 	grp = task_related_thread_group(p);
 	if (grp && grp->preferred_cluster && is_task_util_above_min_thresh(p)) {
 		rtg_target = &grp->preferred_cluster->cpus;
+
 		if (!task_fits_max(p, cpumask_first(rtg_target)))
 			rtg_target = NULL;
+		else if (cpumask_subset(rtg_target, &asym_cap_sibling_cpus))
+			rtg_target = &asym_cap_sibling_cpus;
 	} else {
 		rtg_target = NULL;
 	}
