@@ -8,7 +8,7 @@ Properties:
 - compatible
 	Usage:		required
 	Value type:	<string>
-	Definition:	must be "qcom,cpufreq-hw".
+	Definition:	must be "qcom,cpufreq-hw" or "qcom,cpufreq-hw-epss".
 
 - clocks
 	Usage:		required
@@ -31,9 +31,16 @@ Properties:
 	Definition:	Frequency domain name i.e.
 			"freq-domain0", "freq-domain1".
 
-- #freq-domain-cells:
-	Usage:		required.
-	Definition:	Number of cells in a freqency domain specifier.
+- qcom,lut-row-size
+	Usage:		Optional
+	Value type:	<u32>
+	Definition:	Size of the LUT row size.
+
+- qcom,skip-enable-check
+	Usage:		Optional
+	Value type:	bool
+	Definition:	Indicate to check for Enable of FW before registering
+			with cpufreq.
 
 * Property qcom,freq-domain
 Devices supporting freq-domain must set their "qcom,freq-domain" property with
