@@ -202,17 +202,9 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
-
-	mutex_lock(&mhi_cntrl->pm_mutex);
-	if (!mhi_dev->powered_on) {
-		MHI_LOG("Not in active state\n");
-		mutex_unlock(&mhi_cntrl->pm_mutex);
-		return;
-	}
-	mhi_dev->powered_on = false;
-	mutex_unlock(&mhi_cntrl->pm_mutex);
 
 	/*
 	 * Abort system suspend if system is preparing to go to suspend
@@ -222,6 +214,21 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	 */
 	pm_stay_awake(&mhi_cntrl->mhi_dev->dev);
 	wait_for_completion(&arch_info->pm_completion);
+
+	/* if link is in drv suspend, wake it up */
+	pm_runtime_get_sync(&pci_dev->dev);
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+	if (!mhi_dev->powered_on) {
+		MHI_LOG("Not in active state\n");
+		mutex_unlock(&mhi_cntrl->pm_mutex);
+		pm_runtime_put_noidle(&pci_dev->dev);
+		return;
+	}
+	mhi_dev->powered_on = false;
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	pm_runtime_put_noidle(&pci_dev->dev);
 
 	MHI_LOG("Triggering shutdown process\n");
 	mhi_power_down(mhi_cntrl, !mdm_state);
