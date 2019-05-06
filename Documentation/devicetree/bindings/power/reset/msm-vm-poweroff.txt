@@ -1,0 +1,13 @@
+MSM VM Restart Driver
+
+A restart driver to trigger memdump on msm virtual machine.
+
+Required Properties:
+-compatible: "qcom,vm-restart"
+
+Example:
+
+	vm_restart: restart {
+		compatible = "qcom,vm-restart";
+		status = "ok";
+	};
