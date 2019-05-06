@@ -171,7 +171,7 @@ static struct msm_vidc_codec_capability kona_capabilities[] = {
 	{CAP_SCALE_Y, DOMAINS_ALL, CODECS_ALL, 4096, 65536, 1, 4096},
 	{CAP_BFRAME, ENC, H264|HEVC, 0, 1, 1, 0},
 	{CAP_HIER_P_NUM_ENH_LAYERS, ENC, H264|HEVC, 0, 6, 1, 0},
-	{CAP_LTR_COUNT, ENC, H264|HEVC, 0, 6, 1, 0},
+	{CAP_LTR_COUNT, ENC, H264|HEVC, 0, 2, 1, 0},
 	/* ((4096 * 2304) / 256) * 60 fps */
 	{CAP_MBS_PER_SECOND_POWER_SAVE, ENC, CODECS_ALL,
 		0, 2211840, 1, 2211840},
