@@ -12,8 +12,6 @@ Required properties:
 - compatible: Can be "mediatek,mt8173-gce" or "mediatek,mt6779-gce"
 - reg: Address range of the GCE unit
 - interrupts: The interrupt signal from the GCE block
-- clock: Clocks according to the common clock binding
-- clock-names: Must be "gce" to stand for GCE clock
 - #mbox-cells: Should be 3.
 	<&phandle channel priority atomic_exec>
 	phandle: Label name of a gce node.
@@ -21,6 +19,9 @@ Required properties:
 	priority: Priority of GCE thread.
 	atomic_exec: GCE processing continuous packets of commands in atomic
 		way.
+Optional properties:
+- clock: Clocks according to the common clock binding
+- clock-names: Must be "gce" to stand for GCE clock
 
 Required properties for a client device:
 - mboxes: Client use mailbox to communicate with GCE, it should have this
