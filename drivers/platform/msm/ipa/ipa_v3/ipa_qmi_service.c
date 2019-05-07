@@ -1154,6 +1154,11 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	}
 
 	IPAWANDBG("Q6 QMI service available now\n");
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		IPAWANDBG("Dun send QMI msg to modem\n");
+		return;
+	}
+
 	/* Initialize modem IPA-driver */
 	IPAWANDBG("send ipa3_qmi_init_modem_send_sync_msg to modem\n");
 	rc = ipa3_qmi_init_modem_send_sync_msg();
@@ -1169,10 +1174,10 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	if (rc != 0) {
 		IPAWANERR("ipa3_qmi_init_modem_send_sync_msg failed\n");
 		/*
-		 * Hardware not responding.
-		 * This is a very unexpected scenario, which requires a kernel
-		 * panic in order to force dumps for QMI/Q6 side analysis.
-		 */
+		* Hardware not responding.
+		* This is a very unexpected scenario, which requires a kernel
+		* panic in order to force dumps for QMI/Q6 side analysis.
+		*/
 		BUG();
 	}
 

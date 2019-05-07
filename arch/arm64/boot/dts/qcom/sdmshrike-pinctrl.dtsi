@@ -67,6 +67,22 @@
 			};
 		};
 
+		aqt_intr {
+			aqt_intr_default: aqt_intr_default {
+				mux {
+					pins = "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio125";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
 		wcd9xxx_intr {
 			wcd_intr_default: wcd_intr_default {
 				 mux {

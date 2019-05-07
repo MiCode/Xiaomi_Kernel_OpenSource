@@ -1855,7 +1855,8 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 							DIAG_MAX_REQ_SIZE;
 			write_len += sizeof(uint32_t);
 		} else if (ss_cmd_code == DIAG_DIAG_STM) {
-			write_len = diag_process_stm_cmd(req_buf, payload_ptr);
+			write_len = diag_process_stm_cmd(req_buf, req_len,
+				payload_ptr);
 		}
 	} else if (subsys_id == DIAG_SS_PARAMS) {
 		if (ss_cmd_code == DIAG_DIAG_POLL) {

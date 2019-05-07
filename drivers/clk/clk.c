@@ -2074,10 +2074,13 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	if ((core->flags & CLK_SET_RATE_GATE) && core->prepare_count)
 		return -EBUSY;
 
+	set_rate_nesting_count++;
+
 	/* calculate new rates and get the topmost changed clock */
 	top = clk_calc_new_rates(core, rate);
 	if (!top) {
 		ret = -EINVAL;
+		set_rate_nesting_count--;
 		goto pre_rate_change_err;
 	}
 
@@ -2088,12 +2091,12 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 				fail_clk->name, req_rate);
 		clk_propagate_rate_change(top, ABORT_RATE_CHANGE);
 		ret = -EBUSY;
+		set_rate_nesting_count--;
 		goto pre_rate_change_err;
 	}
 
 
 	/* change the rates */
-	set_rate_nesting_count++;
 	ret = clk_change_rate(top);
 	set_rate_nesting_count--;
 	if (ret) {
