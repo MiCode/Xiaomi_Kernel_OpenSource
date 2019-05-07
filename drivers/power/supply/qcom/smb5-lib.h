@@ -80,6 +80,7 @@ enum print_reason {
 #define CHARGER_TYPE_VOTER		"CHARGER_TYPE_VOTER"
 #define HDC_IRQ_VOTER			"HDC_IRQ_VOTER"
 #define DETACH_DETECT_VOTER		"DETACH_DETECT_VOTER"
+#define CC_MODE_VOTER			"CC_MODE_VOTER"
 #define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
@@ -228,6 +229,17 @@ enum chg_term_config_src {
 	ITERM_SRC_UNSPECIFIED,
 	ITERM_SRC_ADC,
 	ITERM_SRC_ANALOG
+};
+
+enum comp_clamp_levels {
+	CLAMP_LEVEL_DEFAULT = 0,
+	CLAMP_LEVEL_1,
+	MAX_CLAMP_LEVEL,
+};
+
+struct clamp_config {
+	u16 reg[3];
+	u16 val[3];
 };
 
 struct smb_irq_info {
@@ -399,6 +411,9 @@ struct smb_charger {
 	/* parallel charging */
 	struct parallel_params	pl;
 
+	/* CC Mode */
+	int	adapter_cc_mode;
+
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
 	struct smb_regulator	*vconn_vreg;
@@ -528,6 +543,7 @@ struct smb_charger {
 	int			dr_mode;
 	int			usbin_forced_max_uv;
 	int			init_thermal_ua;
+	u32			comp_clamp_level;
 
 	/* workaround flag */
 	u32			wa_flags;
