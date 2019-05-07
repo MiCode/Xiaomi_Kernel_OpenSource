@@ -62,10 +62,10 @@
 			label = "hyp_mem";
 		};
 
-		mss_mem: mss_region@86400000 {
+		mss_mem: mss_region@87400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x86400000 0x9300000>;
+			reg = <0x86c00000 0x8b00000>;
 			label = "mss_mem";
 		};
 
