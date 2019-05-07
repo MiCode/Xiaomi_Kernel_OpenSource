@@ -448,7 +448,8 @@ int sdhci_msm_ice_cfg_end(struct sdhci_host *host, struct mmc_request *mrq)
 	req = mrq->req;
 	if (req) {
 		if (msm_host->ice.vops->config_end) {
-			err = msm_host->ice.vops->config_end(req);
+			err = msm_host->ice.vops->config_end(
+					msm_host->ice.pdev, req);
 			if (err) {
 				pr_err("%s: ice config end failed %d\n",
 						mmc_hostname(host->mmc), err);

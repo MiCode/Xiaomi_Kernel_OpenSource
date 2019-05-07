@@ -13,7 +13,6 @@
 #include <linux/of.h>
 #include <linux/device-mapper.h>
 #include <linux/clk.h>
-#include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 #include <linux/msm-bus.h>
 #include <crypto/ice.h>
@@ -46,11 +45,9 @@
 
 #define ICE_REV(x, y) (((x) & ICE_CORE_##y##_REV_MASK) >> ICE_CORE_##y##_REV)
 #define QCOM_UFS_ICE_DEV	"iceufs"
+#define QCOM_UFS_CARD_ICE_DEV	"iceufscard"
 #define QCOM_SDCC_ICE_DEV	"icesdcc"
-#define QCOM_ICE_TYPE_NAME_LEN 8
 #define QCOM_ICE_MAX_BIST_CHECK_COUNT 100
-#define QCOM_ICE_UFS		10
-#define QCOM_ICE_SDCC		20
 
 #define QCOM_ICE_ENCRYPT	0x1
 #define QCOM_ICE_DECRYPT	0x2
@@ -73,57 +70,13 @@ struct ice_clk_info {
 	bool enabled;
 };
 
-struct qcom_ice_bus_vote {
-	uint32_t client_handle;
-	uint32_t curr_vote;
-	int min_bw_vote;
-	int max_bw_vote;
-	int saved_vote;
-	bool is_max_bw_needed;
-	struct device_attribute max_bus_bw;
-};
-
 static LIST_HEAD(ice_devices);
-/*
- * ICE HW device structure.
- */
-struct ice_device {
-	struct list_head	list;
-	struct device		*pdev;
-	struct cdev		cdev;
-	dev_t			device_no;
-	struct class		*driver_class;
-	void __iomem		*mmio;
-	struct resource		*res;
-	int			irq;
-	bool			is_ice_enabled;
-	bool			is_ice_disable_fuse_blown;
-	ice_error_cb		error_cb;
-	void			*host_controller_data; /* UFS/EMMC/other? */
-	struct list_head	clk_list_head;
-	u32			ice_hw_version;
-	bool			is_ice_clk_available;
-	char			ice_instance_type[QCOM_ICE_TYPE_NAME_LEN];
-	struct regulator	*reg;
-	bool			is_regulator_available;
-	struct qcom_ice_bus_vote bus_vote;
-	ktime_t			ice_reset_start_time;
-	ktime_t			ice_reset_complete_time;
-};
 
 static int qti_ice_setting_config(struct request *req,
-		struct platform_device *pdev,
+		struct ice_device *ice_dev,
 		struct ice_crypto_setting *crypto_data,
 		struct ice_data_setting *setting, uint32_t cxt)
 {
-	struct ice_device *ice_dev = platform_get_drvdata(pdev);
-
-	if (!ice_dev) {
-		pr_debug("%s no ICE device\n", __func__);
-		/* make the caller finish peacefully */
-		return 0;
-	}
-
 	if (ice_dev->is_ice_disable_fuse_blown) {
 		pr_err("%s ICE disabled fuse is blown\n", __func__);
 		return -EPERM;
@@ -702,29 +655,36 @@ static int register_ice_device(struct ice_device *ice_dev)
 	unsigned int count = 1;
 	struct device *class_dev;
 	int is_sdcc_ice = !strcmp(ice_dev->ice_instance_type, "sdcc");
+	int is_ufscard_ice = !strcmp(ice_dev->ice_instance_type, "ufscard");
 
 	rc = alloc_chrdev_region(&ice_dev->device_no, baseminor, count,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 	if (rc < 0) {
 		pr_err("alloc_chrdev_region failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 		return rc;
 	}
 	ice_dev->driver_class = class_create(THIS_MODULE,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 	if (IS_ERR(ice_dev->driver_class)) {
 		rc = -ENOMEM;
 		pr_err("class_create failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 		goto exit_unreg_chrdev_region;
 	}
 	class_dev = device_create(ice_dev->driver_class, NULL,
 					ice_dev->device_no, NULL,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 
 	if (!class_dev) {
 		pr_err("class_device_create failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 		rc = -ENOMEM;
 		goto exit_destroy_class;
 	}
@@ -735,7 +695,8 @@ static int register_ice_device(struct ice_device *ice_dev)
 	rc = cdev_add(&ice_dev->cdev, MKDEV(MAJOR(ice_dev->device_no), 0), 1);
 	if (rc < 0) {
 		pr_err("cdev_add failed %d for %s\n", rc,
-			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : is_ufscard_ice ?
+				QCOM_UFS_CARD_ICE_DEV : QCOM_UFS_ICE_DEV);
 		goto exit_destroy_device;
 	}
 	return  0;
@@ -803,6 +764,12 @@ static int qcom_ice_probe(struct platform_device *pdev)
 	 */
 	ice_dev->is_ice_enabled = false;
 
+	rc = pfk_initialize_key_table(ice_dev);
+	if (rc) {
+		pr_err("Failed to initialize key table\n");
+		goto err_ice_dev;
+	}
+
 	platform_set_drvdata(pdev, ice_dev);
 	list_add_tail(&ice_dev->list, &ice_devices);
 
@@ -823,6 +790,7 @@ static int qcom_ice_remove(struct platform_device *pdev)
 	if (!ice_dev)
 		return 0;
 
+	pfk_remove(ice_dev);
 	qcom_ice_disable_intr(ice_dev);
 
 	device_init_wakeup(&pdev->dev, false);
@@ -858,29 +826,6 @@ static int qcom_ice_restore_config(void)
 
 	if (ret)
 		pr_err("%s: Error: 0x%x\n", __func__, ret);
-
-	return ret;
-}
-
-static int qcom_ice_restore_key_config(struct ice_device *ice_dev)
-{
-	struct scm_desc desc = {0};
-	int ret = -1;
-
-	/* For ice 3, key configuration needs to be restored in case of reset */
-
-	desc.arginfo = TZ_OS_KS_RESTORE_KEY_CONFIG_ID_PARAM_ID;
-
-	if (!strcmp(ice_dev->ice_instance_type, "sdcc"))
-		desc.args[0] = QCOM_ICE_SDCC;
-
-	if (!strcmp(ice_dev->ice_instance_type, "ufs"))
-		desc.args[0] = QCOM_ICE_UFS;
-
-	ret = scm_call2(TZ_OS_KS_RESTORE_KEY_CONFIG_ID, &desc);
-
-	if (ret)
-		pr_err("%s: Error:  0x%x\n", __func__, ret);
 
 	return ret;
 }
@@ -1164,16 +1109,12 @@ static int qcom_ice_finish_power_collapse(struct ice_device *ice_dev)
 		 * restore it
 		 */
 		} else if (ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) {
-			err = qcom_ice_restore_key_config(ice_dev);
-			if (err)
-				goto out;
-
 			/*
 			 * for PFE case, clear the cached ICE key table,
 			 * this will force keys to be reconfigured
 			 * per each next transaction
 			 */
-			pfk_clear_on_reset();
+			pfk_clear_on_reset(ice_dev);
 		}
 	}
 
@@ -1451,10 +1392,17 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 	bool is_pfe = false;
 	unsigned long sec_end = 0;
 	sector_t data_size;
+	struct ice_device *ice_dev;
 
 	if (!pdev || !req) {
 		pr_err("%s: Invalid params passed\n", __func__);
 		return -EINVAL;
+	}
+	ice_dev = platform_get_drvdata(pdev);
+	if (!ice_dev) {
+		pr_debug("%s no ICE device\n", __func__);
+		/* make the caller finish peacefully */
+		return 0;
 	}
 
 	/*
@@ -1472,7 +1420,8 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 		return 0;
 	}
 
-	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
+	ret = pfk_load_key_start(req->bio, ice_dev, &pfk_crypto_data,
+			&is_pfe, async);
 	if (is_pfe) {
 		if (ret) {
 			if (ret != -EBUSY && ret != -EAGAIN)
@@ -1481,7 +1430,7 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 			return ret;
 		}
 
-		return qti_ice_setting_config(req, pdev,
+		return qti_ice_setting_config(req, ice_dev,
 				&pfk_crypto_data, setting, ICE_CRYPTO_CXT_FBE);
 	}
 
@@ -1509,8 +1458,8 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 				if ((req->__sector + data_size) > sec_end)
 					return 0;
 				else
-					return qti_ice_setting_config(req, pdev,
-						&ice_data, setting,
+					return qti_ice_setting_config(req,
+						ice_dev, &ice_data, setting,
 						ICE_CRYPTO_CXT_FDE);
 			}
 		}
@@ -1525,12 +1474,14 @@ static int qcom_ice_config_start(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(qcom_ice_config_start);
 
-static int qcom_ice_config_end(struct request *req)
+static int qcom_ice_config_end(struct platform_device *pdev,
+		struct request *req)
 {
 	int ret = 0;
 	bool is_pfe = false;
+	struct ice_device *ice_dev;
 
-	if (!req) {
+	if (!req || !pdev) {
 		pr_err("%s: Invalid params passed\n", __func__);
 		return -EINVAL;
 	}
@@ -1540,7 +1491,14 @@ static int qcom_ice_config_end(struct request *req)
 		return 0;
 	}
 
-	ret = pfk_load_key_end(req->bio, &is_pfe);
+	ice_dev = platform_get_drvdata(pdev);
+	if (!ice_dev) {
+		pr_debug("%s no ICE device\n", __func__);
+		/* make the caller finish peacefully */
+		return 0;
+	}
+
+	ret = pfk_load_key_end(req->bio, ice_dev, &is_pfe);
 	if (is_pfe) {
 		if (ret != 0)
 			pr_err("%s error %d while end configuring ice key for PFE\n",
@@ -1649,7 +1607,7 @@ out:
 	return NULL;
 }
 
-static int enable_ice_setup(struct ice_device *ice_dev)
+int enable_ice_setup(struct ice_device *ice_dev)
 {
 	int ret = -1, vote;
 
@@ -1706,7 +1664,7 @@ out:
 	return ret;
 }
 
-static int disable_ice_setup(struct ice_device *ice_dev)
+int disable_ice_setup(struct ice_device *ice_dev)
 {
 	int ret = -1, vote;
 
@@ -1761,6 +1719,11 @@ int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
 		return enable_ice_setup(ice_dev);
 	else
 		return disable_ice_setup(ice_dev);
+}
+
+struct list_head *get_ice_dev_list(void)
+{
+	return &ice_devices;
 }
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node)
