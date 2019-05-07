@@ -39,6 +39,7 @@ struct arch_info {
 	struct dma_iommu_mapping *mapping;
 	async_cookie_t cookie;
 	void *boot_ipc_log;
+	void *tsync_ipc_log;
 	struct mhi_device *boot_dev;
 	struct mhi_link_info current_link_info;
 	struct work_struct bw_scale_work;
@@ -49,6 +50,8 @@ struct arch_info {
 /* ipc log markings */
 #define DLOG "Dev->Host: "
 #define HLOG "Host: "
+
+#define MHI_TSYNC_LOG_PAGES (10)
 
 #ifdef CONFIG_MHI_DEBUG
 
@@ -79,6 +82,19 @@ static int mhi_arch_pm_notifier(struct notifier_block *nb,
 	}
 
 	return NOTIFY_DONE;
+}
+
+static void mhi_arch_timesync_log(struct mhi_controller *mhi_cntrl,
+				  u64 remote_time)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+
+	if (remote_time != U64_MAX)
+		ipc_log_string(arch_info->tsync_ipc_log, "%6u.%06lu 0x%llx",
+			       REMOTE_TICKS_TO_SEC(remote_time),
+			       REMOTE_TIME_REMAINDER_US(remote_time),
+			       remote_time);
 }
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
@@ -430,6 +446,14 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
 							    node, 0);
 		mhi_cntrl->log_lvl = mhi_ipc_log_lvl;
+
+		snprintf(node, sizeof(node), "mhi_tsync_%04x_%02u.%02u.%02u",
+			 mhi_cntrl->dev_id, mhi_cntrl->domain, mhi_cntrl->bus,
+			 mhi_cntrl->slot);
+		arch_info->tsync_ipc_log = ipc_log_context_create(
+					   MHI_TSYNC_LOG_PAGES, node, 0);
+		if (arch_info->tsync_ipc_log)
+			mhi_cntrl->tsync_log = mhi_arch_timesync_log;
 
 		/* register for bus scale if defined */
 		arch_info->msm_bus_pdata = msm_bus_cl_get_pdata_from_dev(
