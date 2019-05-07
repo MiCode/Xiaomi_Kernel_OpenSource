@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -20,13 +20,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/scm.h>
 
-#define SCM_ENOMEM		-5
-#define SCM_EOPNOTSUPP		-4
+#define SCM_ENOMEM		-9
 #define SCM_EINVAL_ADDR		-3
 #define SCM_EINVAL_ARG		-2
 #define SCM_ERROR		-1
 #define SCM_INTERRUPTED		1
-#define SCM_EBUSY		-55
 #define SCM_V2_EBUSY		-12
 
 static DEFINE_MUTEX(scm_lock);
@@ -81,15 +79,12 @@ static int scm_remap_error(int err)
 {
 	switch (err) {
 	case SCM_ERROR:
-		return -EIO;
+		return -EOPNOTSUPP;
 	case SCM_EINVAL_ADDR:
 	case SCM_EINVAL_ARG:
 		return -EINVAL;
-	case SCM_EOPNOTSUPP:
-		return -EOPNOTSUPP;
 	case SCM_ENOMEM:
 		return -ENOMEM;
-	case SCM_EBUSY:
 	case SCM_V2_EBUSY:
 		return -EBUSY;
 	}
