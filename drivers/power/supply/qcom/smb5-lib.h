@@ -73,6 +73,11 @@ enum print_reason {
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
 #define THERMAL_THROTTLE_VOTER		"THERMAL_THROTTLE_VOTER"
+#define USB_SUSPEND_VOTER		"USB_SUSPEND_VOTER"
+#define CHARGER_TYPE_VOTER		"CHARGER_TYPE_VOTER"
+#define HDC_IRQ_VOTER			"HDC_IRQ_VOTER"
+#define VOUT_VOTER			"VOUT_VOTER"
+#define DETACH_DETECT_VOTER		"DETACH_DETECT_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -101,6 +106,7 @@ enum smb_mode {
 enum sink_src_mode {
 	SINK_MODE,
 	SRC_MODE,
+	AUDIO_ACCESS_MODE,
 	UNATTACHED_MODE,
 };
 
@@ -225,6 +231,7 @@ struct smb_irq_info {
 	const struct storm_watch	storm_data;
 	struct smb_irq_data		*irq_data;
 	int				irq;
+	bool				enabled;
 };
 
 static const unsigned int smblib_extcon_cable[] = {
@@ -395,9 +402,11 @@ struct smb_charger {
 	struct votable		*pl_disable_votable;
 	struct votable		*chg_disable_votable;
 	struct votable		*pl_enable_votable_indirect;
-	struct votable		*usb_irq_enable_votable;
 	struct votable		*cp_disable_votable;
 	struct votable		*smb_override_votable;
+	struct votable		*icl_irq_disable_votable;
+	struct votable		*limited_irq_disable_votable;
+	struct votable		*hdc_irq_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -415,6 +424,7 @@ struct smb_charger {
 	struct delayed_work	lpd_detach_work;
 	struct delayed_work	thermal_regulation_work;
 	struct delayed_work	usbov_dbc_work;
+	struct delayed_work	pr_swap_detach_work;
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
@@ -499,6 +509,8 @@ struct smb_charger {
 	int			aicl_cont_threshold_mv;
 	int			default_aicl_cont_threshold_mv;
 	bool			aicl_max_reached;
+	int			usbin_forced_max_uv;
+	int			init_thermal_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -631,8 +643,11 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_voltage_wls_output(struct smb_charger *chg,
+				union power_supply_propval *val);
 int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_set_prop_dc_reset(struct smb_charger *chg);
 int smblib_get_prop_usb_present(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_online(struct smb_charger *chg,
@@ -641,6 +656,10 @@ int smblib_get_prop_usb_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_usb_voltage_max_limit(struct smb_charger *chg,
+				const union power_supply_propval *val);
 int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_low_power(struct smb_charger *chg,

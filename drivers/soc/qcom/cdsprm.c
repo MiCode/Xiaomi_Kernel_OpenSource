@@ -60,7 +60,7 @@
 #define SYSMON_CDSP_QOS_FLAG_DISABLE	2
 #define QOS_LATENCY_DISABLE_VALUE	-1
 #define SYS_CLK_TICKS_PER_MS		19200
-#define CDSPRM_MSG_QUEUE_DEPTH		10
+#define CDSPRM_MSG_QUEUE_DEPTH		50
 #define CDSP_THERMAL_MAX_STATE		10
 #define HVX_THERMAL_MAX_STATE		10
 
@@ -825,7 +825,7 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 				gcdsprm.msg_queue_idx = 0;
 		} else {
 			spin_unlock_irqrestore(&gcdsprm.list_lock, flags);
-			dev_err(&dev->dev,
+			dev_dbg(&dev->dev,
 				"Unable to queue cdsp request, no memory\n");
 			return -ENOMEM;
 		}

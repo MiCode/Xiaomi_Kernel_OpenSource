@@ -1395,6 +1395,8 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 	else
 		IPADBG("in->wdi_notify is null\n");
 
+	ipa3_enable_data_path(ipa_ep_idx);
+
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->sys.client))
 		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
@@ -1921,6 +1923,15 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	else
 		IPADBG("in->wdi_notify is null\n");
 
+	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
+		in->sys.ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
+		in->sys.ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
+		in->sys.ipa_ep_cfg.aggr.aggr_pkt_limit = IPA_AGGR_PKT_LIMIT;
+		in->sys.ipa_ep_cfg.aggr.aggr_byte_limit =
+						IPA_AGGR_HARD_BYTE_LIMIT;
+		in->sys.ipa_ep_cfg.aggr.aggr_hard_byte_limit_en =
+						IPA_ENABLE_AGGR;
+	}
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
@@ -2090,7 +2101,6 @@ int ipa3_enable_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-	ipa3_enable_data_path(clnt_hdl);
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	ipa3_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);
