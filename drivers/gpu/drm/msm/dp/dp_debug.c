@@ -1946,6 +1946,17 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_bool("hdcp_wait_sink_sync", 0644, dir,
+			&debug->dp_debug.hdcp_wait_sink_sync);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs hdcp_wait_sink_sync failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+
 	file = debugfs_create_bool("dsc_feature_enable", 0644, dir,
 			&debug->parser->dsc_feature_enable);
 	if (IS_ERR_OR_NULL(file)) {

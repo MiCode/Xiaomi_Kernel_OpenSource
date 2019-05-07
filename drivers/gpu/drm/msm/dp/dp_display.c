@@ -107,6 +107,7 @@ struct dp_display_private {
 	struct mutex session_lock;
 	bool suspended;
 	bool hdcp_delayed_off;
+	bool hdcp_abort;
 
 	u32 active_stream_cnt;
 	struct dp_mst mst;
@@ -339,7 +340,8 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp = container_of(dw, struct dp_display_private, hdcp_cb_work);
 
-	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted))
+	if (!dp->power_on || !dp->is_connected || atomic_read(&dp->aborted) ||
+			dp->hdcp_abort)
 		return;
 
 	if (dp->suspended) {
@@ -355,12 +357,16 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		dp->hdcp_delayed_off = false;
 	}
 
-	drm_dp_dpcd_readb(dp->aux->drm_aux, DP_SINK_STATUS, &sink_status);
-	sink_status &= (DP_RECEIVE_PORT_0_STATUS | DP_RECEIVE_PORT_1_STATUS);
-	if (sink_status < 1) {
-		pr_debug("Sink not synchronized. Queuing again then exiting\n");
-		queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
-		return;
+	if (dp->debug->hdcp_wait_sink_sync) {
+		drm_dp_dpcd_readb(dp->aux->drm_aux, DP_SINK_STATUS,
+				&sink_status);
+		sink_status &= (DP_RECEIVE_PORT_0_STATUS |
+				DP_RECEIVE_PORT_1_STATUS);
+		if (sink_status < 1) {
+			pr_debug("Sink not synchronized. Queuing again then exiting\n");
+			queue_delayed_work(dp->wq, &dp->hdcp_cb_work, HZ);
+			return;
+		}
 	}
 
 	status = &dp->link->hdcp_status;
@@ -375,7 +381,6 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 				dp_display_update_hdcp_status(dp, true);
 				return;
 			}
-			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 		} else {
 			dp_display_update_hdcp_status(dp, true);
 			return;
@@ -400,10 +405,12 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 		ops->force_encryption(data, dp->debug->force_encryption);
 
 	switch (status->hdcp_state) {
-	case HDCP_STATE_AUTHENTICATING:
+	case HDCP_STATE_INACTIVE:
 		dp_display_hdcp_register_streams(dp);
 		if (dp->hdcp.ops && dp->hdcp.ops->authenticate)
 			rc = dp->hdcp.ops->authenticate(data);
+		if (!rc)
+			status->hdcp_state = HDCP_STATE_AUTHENTICATING;
 		break;
 	case HDCP_STATE_AUTH_FAIL:
 		if (dp_display_is_ready(dp) && dp->power_on) {
@@ -1730,16 +1737,18 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 		goto end;
 	}
 
+	dp->hdcp_abort = true;
+	cancel_delayed_work_sync(&dp->hdcp_cb_work);
 	if (dp_display_is_hdcp_enabled(dp) &&
 			status->hdcp_state != HDCP_STATE_INACTIVE) {
+		bool off = true;
 
 		if (dp->suspended) {
 			pr_debug("Can't perform HDCP cleanup while suspended. Defer\n");
 			dp->hdcp_delayed_off = true;
-			goto stream;
+			goto clean;
 		}
 
-		flush_delayed_work(&dp->hdcp_cb_work);
 		if (dp->mst.mst_active) {
 			dp_display_hdcp_deregister_stream(dp,
 				dp_panel->stream_id);
@@ -1747,18 +1756,19 @@ static int dp_display_pre_disable(struct dp_display *dp_display, void *panel)
 				if (i != dp_panel->stream_id &&
 						dp->active_panels[i]) {
 					pr_debug("Streams are still active. Skip disabling HDCP\n");
-					goto stream;
+					off = false;
 				}
 			}
 		}
 
-		if (dp->hdcp.ops->off)
-			dp->hdcp.ops->off(dp->hdcp.data);
-
-		dp_display_update_hdcp_status(dp, true);
+		if (off) {
+			if (dp->hdcp.ops->off)
+				dp->hdcp.ops->off(dp->hdcp.data);
+			dp_display_update_hdcp_status(dp, true);
+		}
 	}
 
-stream:
+clean:
 	if (dp_panel->audio_supported)
 		dp_panel->audio->off(dp_panel->audio);
 
@@ -1771,8 +1781,10 @@ end:
 
 static int dp_display_disable(struct dp_display *dp_display, void *panel)
 {
+	int i;
 	struct dp_display_private *dp = NULL;
 	struct dp_panel *dp_panel = NULL;
+	struct dp_link_hdcp_status *status;
 
 	if (!dp_display || !panel) {
 		pr_err("invalid input\n");
@@ -1781,6 +1793,7 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 	dp_panel = panel;
+	status = &dp->link->hdcp_status;
 
 	mutex_lock(&dp->session_lock);
 
@@ -1791,6 +1804,16 @@ static int dp_display_disable(struct dp_display *dp_display, void *panel)
 
 	dp_display_stream_disable(dp, dp_panel);
 	dp_display_update_dsc_resources(dp, dp_panel, false);
+
+	dp->hdcp_abort = false;
+	for (i = DP_STREAM_0; i < DP_STREAM_MAX; i++) {
+		if (dp->active_panels[i]) {
+			if (status->hdcp_state != HDCP_STATE_AUTHENTICATED)
+				queue_delayed_work(dp->wq, &dp->hdcp_cb_work,
+						HZ/4);
+			break;
+		}
+	}
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;

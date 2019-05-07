@@ -117,7 +117,7 @@ error:
 
 static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 {
-	int rc = -EFAULT;
+	int rc = 0;
 	struct pinctrl_state *pin_state;
 	struct dp_parser *parser;
 
@@ -140,9 +140,6 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 		}
 	}
 
-	if (parser->no_aux_switch)
-		return 0;
-
 	pin_state = active ? parser->pinctrl.state_active
 				: parser->pinctrl.state_suspend;
 	if (!IS_ERR_OR_NULL(pin_state)) {
@@ -152,10 +149,6 @@ static int dp_power_pinctrl_set(struct dp_power_private *power, bool active)
 			pr_err("can not set %s pins\n",
 			       active ? "dp_active"
 			       : "dp_sleep");
-	} else {
-		pr_err("invalid '%s' pinstate\n",
-		       active ? "dp_active"
-		       : "dp_sleep");
 	}
 
 	return rc;
