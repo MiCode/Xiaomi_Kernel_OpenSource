@@ -26,3 +26,8 @@ else
     obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 endif
+
+ifeq ($(CONFIG_GPU_VERSION_MALI_MIDGARD_R26P0),y)
+	obj-y += hal/
+	obj-y += gpu_mali/
+endif

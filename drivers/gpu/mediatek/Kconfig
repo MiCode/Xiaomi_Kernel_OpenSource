@@ -34,3 +34,23 @@ config SW_SYNC64
 	  syncrhronization.  Useful when there is no hardware
 	  primitive backing the synchronization.
 
+config MTK_GED_SUPPORT
+	bool "Support MTK GED"
+	default n
+
+choice
+	prompt "GPU_VERSION"
+	optional
+
+config GPU_VERSION_MALI_MIDGARD_R26P0
+	bool "MIDGARD_R26P0"
+	select MALI_MIDGARD
+
+config GPU_VERSION_IMG_M1_10ED5173305
+	bool "IMG_M1_10ED5173305"
+
+endchoice
+
+if GPU_VERSION_MALI_MIDGARD_R26P0
+source "drivers/gpu/mediatek/gpu_mali/midgard-r26p0/drivers/gpu/arm/midgard/Kconfig"
+endif

@@ -18,7 +18,10 @@
 #include <linux/mutex.h>
 
 #include <mt-plat/mtk_gpu_utility.h>
+
+#ifdef CONFIG_MTK_GED_SUPPORT
 #include "ged_gpu_tuner.h"
+#endif
 
 unsigned int (*mtk_get_gpu_memory_usage_fp)(void) = NULL;
 
@@ -776,6 +779,8 @@ bool mtk_get_gpu_pmu_swapnreset_stop(void)
 }
 EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset_stop);
 
+#ifdef CONFIG_MTK_GED_SUPPORT
+
 bool mtk_gpu_tuner_hint_set(char *packagename, enum GPU_TUNER_FEATURE eFeature)
 {
 	return ged_gpu_tuner_hint_set(packagename, eFeature);
@@ -800,6 +805,8 @@ bool mtk_gpu_tuner_get_stauts_by_packagename(char *packagename, int *feature)
 	return err;
 }
 EXPORT_SYMBOL(mtk_gpu_tuner_get_stauts_by_packagename);
+
+#endif
 
 /* ------------------------------------------------------------------------ */
 void (*mtk_dvfs_margin_value_fp)(int i32MarginValue) = NULL;

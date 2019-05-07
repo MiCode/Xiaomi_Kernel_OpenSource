@@ -116,6 +116,8 @@ bool mtk_unregister_gpu_power_change(const char *name);
 /* GPU POWER NOTIFY should be called by GPU only */
 void mtk_notify_gpu_power_change(int power_on);
 
+#ifdef CONFIG_MTK_GED_SUPPORT
+
 /* Quality Tuner */
 bool mtk_gpu_tuner_hint_set(char *packagename,
 	enum GPU_TUNER_FEATURE eFeature);
@@ -123,6 +125,7 @@ bool mtk_gpu_tuner_hint_restore(char *packagename,
 	enum GPU_TUNER_FEATURE eFeature);
 bool mtk_gpu_tuner_get_stauts_by_packagename(char *packagename, int *feature);
 
+#endif
 
 #ifdef __cplusplus
 }
