@@ -2501,55 +2501,33 @@ unsigned int __read_mostly sysctl_sched_group_upmigrate_pct = 100;
 unsigned int __read_mostly sched_group_downmigrate = 19000000;
 unsigned int __read_mostly sysctl_sched_group_downmigrate_pct = 95;
 
-static int
-group_will_fit(struct sched_cluster *cluster, struct related_thread_group *grp,
-						u64 demand, bool group_boost)
+static inline
+struct sched_cluster *best_cluster(struct related_thread_group *grp,
+				   u64 demand, bool boost)
 {
-	int cpu = cluster_first_cpu(cluster);
-	int prev_capacity = 0;
-	unsigned int threshold = sched_group_upmigrate;
-	u64 load;
+	struct sched_cluster *cluster = sched_cluster[0];
+	unsigned int threshold;
 
-	if (cluster->capacity == max_capacity)
-		return 1;
-
-	if (group_boost)
-		return 0;
-
-	if (!demand)
-		return 1;
-
-	if (grp->preferred_cluster)
-		prev_capacity = grp->preferred_cluster->capacity;
-
-	if (cluster->capacity < prev_capacity)
-		threshold = sched_group_downmigrate;
-
-	load = scale_load_to_cpu(demand, cpu);
-	if (load < threshold)
-		return 1;
-
-	return 0;
-}
-
-/* Return cluster which can offer required capacity for group */
-static struct sched_cluster *best_cluster(struct related_thread_group *grp,
-					u64 total_demand, bool group_boost)
-{
-	struct sched_cluster *cluster = NULL;
-	struct sched_cluster *last_best_cluster = sched_cluster[0];
-
-	for_each_sched_cluster(cluster) {
-
-		if (cluster == sched_cluster[MAX_NR_CLUSTERS - 1])
-			continue;
-
-		last_best_cluster = cluster;
-		if (group_will_fit(cluster, grp, total_demand, group_boost))
-			break;
+	if (boost) {
+		cluster = sched_cluster[1];
+		goto out;
 	}
 
-	return last_best_cluster;
+	if (!demand)
+		goto out;
+
+	if (grp->preferred_cluster == sched_cluster[1])
+		threshold = sched_group_downmigrate;
+	else
+		threshold = sched_group_upmigrate;
+
+	demand = scale_load_to_cpu(demand, cluster_first_cpu(cluster));
+
+	if (demand >= threshold)
+		cluster = sched_cluster[1];
+
+out:
+	return cluster;
 }
 
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
@@ -2578,6 +2556,11 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	if (list_empty(&grp->tasks))
 		return;
 
+	if (!hmp_capable()) {
+		grp->preferred_cluster = sched_cluster[0];
+		return;
+	}
+
 	wallclock = sched_ktime_clock();
 
 	/*
@@ -2602,9 +2585,9 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		combined_demand += p->ravg.coloc_demand;
 	}
 
-	grp->preferred_cluster = best_cluster(grp,
-			combined_demand, group_boost);
-	grp->last_update = sched_ktime_clock();
+	grp->last_update = wallclock;
+	grp->preferred_cluster = best_cluster(grp, combined_demand,
+					      group_boost);
 	trace_sched_set_preferred_cluster(grp, combined_demand);
 }
 
