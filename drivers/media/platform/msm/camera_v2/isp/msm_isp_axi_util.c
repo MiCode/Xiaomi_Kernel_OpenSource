@@ -16,6 +16,7 @@
 #include "msm_isp_stats_util.h"
 #include "msm_isp_axi_util.h"
 #include "msm_isp48.h"
+#include "trace/events/msm_cam.h"
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
@@ -1092,6 +1093,9 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		ISP_DBG("%s: vfe %d frame_src %d frameid %d\n", __func__,
 			vfe_dev->pdev->id, frame_src,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		trace_msm_cam_isp_status_dump("SOFNOTIFY:", vfe_dev->pdev->id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			0, 0, 0);
 
 		/*
 		 * Cannot support dual_cam and framedrop same time in union.
