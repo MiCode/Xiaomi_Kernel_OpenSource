@@ -503,7 +503,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 
 		/* Flush the cache with dma_map_single for IPA AP CB */
 		*ap_cb_iova = dma_map_single(ipa3_ctx->pdev, va_addr,
-						sz, dir);
+						IPA_MPM_RING_TOTAL_SIZE, dir);
 		ret = ipa3_iommu_map(ipa_smmu_domain, iova_p,
 					pa_p, size_p, prot);
 		if (ret) {
@@ -525,7 +525,8 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 		iova = iova_p;
 		cb->next_addr = iova_p + size_p;
 	} else {
-		iova = dma_map_single(ipa3_ctx->pdev, va_addr, sz, dir);
+		iova = dma_map_single(ipa3_ctx->pdev, va_addr,
+					IPA_MPM_RING_TOTAL_SIZE, dir);
 		*ap_cb_iova = iova;
 	}
 	return iova;
@@ -582,9 +583,10 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 
 		cb->next_addr -= size_p;
 		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
-			size_p, dir);
+			IPA_MPM_RING_TOTAL_SIZE, dir);
 	} else {
-		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova, sz, dir);
+		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
+			IPA_MPM_RING_TOTAL_SIZE, dir);
 	}
 }
 
