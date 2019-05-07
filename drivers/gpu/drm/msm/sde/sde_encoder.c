@@ -1966,7 +1966,8 @@ static int _sde_encoder_update_rsc_client(
 			SDE_EVTLOG_FUNC_ENTRY);
 
 	if (crtc->base.id != wait_vblank_crtc_id) {
-		primary_crtc = drm_crtc_find(drm_enc->dev, wait_vblank_crtc_id);
+		primary_crtc = drm_crtc_find(drm_enc->dev,
+				NULL, wait_vblank_crtc_id);
 		if (!primary_crtc) {
 			SDE_ERROR_ENC(sde_enc,
 					"failed to find primary crtc id %d\n",
