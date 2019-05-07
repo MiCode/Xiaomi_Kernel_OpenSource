@@ -16,3 +16,5 @@ source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
 endmenu
+
+source "drivers/misc/mediatek/Kconfig.default"
