@@ -24,6 +24,7 @@ obj-$(CONFIG_MSM_RPM_SMD)	+=	rpm-smd-debug.o
 endif
 obj-$(CONFIG_MSM_IPC_ROUTER_SMD_XPRT)	+=	ipc_router_smd_xprt.o
 obj-$(CONFIG_MSM_IPC_ROUTER_HSIC_XPRT)	+=	ipc_router_hsic_xprt.o
+obj-$(CONFIG_MSM_IPC_ROUTER_SDIO_XPRT)	+=	ipc_router_sdio_xprt.o
 obj-$(CONFIG_MSM_IPC_ROUTER_MHI_XPRT)	+=	ipc_router_mhi_xprt.o
 obj-$(CONFIG_MSM_IPC_ROUTER_GLINK_XPRT)	+=	ipc_router_glink_xprt.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
