@@ -79,7 +79,7 @@ static int _init_session_queue(struct msm_cvp_inst *inst)
 	INIT_LIST_HEAD(&inst->session_queue.msgs);
 	inst->session_queue.msg_count = 0;
 	init_waitqueue_head(&inst->session_queue.wq);
-	inst->session_queue.msg_cache = KMEM_CACHE(session_msg, 0);
+	inst->session_queue.msg_cache = KMEM_CACHE(cvp_session_msg, 0);
 	if (!inst->session_queue.msg_cache) {
 		dprintk(CVP_ERR, "Failed to allocate msg quque\n");
 		return -ENOMEM;
@@ -90,7 +90,7 @@ static int _init_session_queue(struct msm_cvp_inst *inst)
 
 static void _deinit_session_queue(struct msm_cvp_inst *inst)
 {
-	struct session_msg *msg, *tmpmsg;
+	struct cvp_session_msg *msg, *tmpmsg;
 
 	/* free all messages */
 	spin_lock(&inst->session_queue.lock);
@@ -236,14 +236,14 @@ static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
 	struct msm_cvp_internal_buffer *cbuf, *dummy;
-	struct hal_session *session;
+	struct cvp_hal_session *session;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return;
 	}
 
-	session = (struct hal_session *)inst->session;
+	session = (struct cvp_hal_session *)inst->session;
 	if (!session) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return;

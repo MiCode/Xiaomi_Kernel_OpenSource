@@ -23,7 +23,7 @@
 extern struct msm_cvp_drv *cvp_driver;
 
 static int _deprecated_hfi_msg_process(u32 device_id,
-	struct hfi_msg_session_hdr *pkt,
+	struct cvp_hfi_msg_session_hdr *pkt,
 	struct msm_cvp_cb_info *info,
 	struct msm_cvp_inst *inst);
 
@@ -93,22 +93,22 @@ static enum cvp_status hfi_map_err_status(u32 hfi_err)
 }
 
 static int hfi_process_evt_release_buffer_ref(u32 device_id,
-		struct hfi_msg_event_notify_packet *pkt,
+		struct cvp_hfi_msg_event_notify_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_event event_notify = {0};
-	struct hfi_msg_release_buffer_ref_event_packet *data;
+	struct cvp_hfi_msg_release_buffer_ref_event_packet *data;
 
 	dprintk(CVP_DBG,
 			"RECEIVED: EVENT_NOTIFY - release_buffer_reference\n");
-	if (sizeof(struct hfi_msg_event_notify_packet)
+	if (sizeof(struct cvp_hfi_msg_event_notify_packet)
 		> pkt->size) {
 		dprintk(CVP_ERR,
 				"hal_process_session_init_done: bad_pkt_size\n");
 		return -E2BIG;
 	}
 
-	data = (struct hfi_msg_release_buffer_ref_event_packet *)
+	data = (struct cvp_hfi_msg_release_buffer_ref_event_packet *)
 				pkt->rg_ext_event_data;
 
 	event_notify.device_id = device_id;
@@ -125,7 +125,7 @@ static int hfi_process_evt_release_buffer_ref(u32 device_id,
 }
 
 static int hfi_process_sys_error(u32 device_id,
-	struct hfi_msg_event_notify_packet *pkt,
+	struct cvp_hfi_msg_event_notify_packet *pkt,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -140,7 +140,7 @@ static int hfi_process_sys_error(u32 device_id,
 }
 
 static int hfi_process_session_error(u32 device_id,
-		struct hfi_msg_event_notify_packet *pkt,
+		struct cvp_hfi_msg_event_notify_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -170,13 +170,12 @@ static int hfi_process_session_error(u32 device_id,
 }
 
 static int hfi_process_event_notify(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_event_notify_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_event_notify_packet *pkt = _pkt;
 	dprintk(CVP_DBG, "Received: EVENT_NOTIFY\n");
 
-	if (pkt->size < sizeof(struct hfi_msg_event_notify_packet)) {
+	if (pkt->size < sizeof(struct cvp_hfi_msg_event_notify_packet)) {
 		dprintk(CVP_ERR, "Invalid Params\n");
 		return -E2BIG;
 	}
@@ -212,15 +211,14 @@ static int hfi_process_event_notify(u32 device_id,
 }
 
 static int hfi_process_sys_init_done(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_sys_init_done_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_sys_init_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	enum cvp_status status = CVP_ERR_NONE;
 
 	dprintk(CVP_DBG, "RECEIVED: SYS_INIT_DONE\n");
-	if (sizeof(struct hfi_msg_sys_init_done_packet) > pkt->size) {
+	if (sizeof(struct cvp_hfi_msg_sys_init_done_packet) > pkt->size) {
 		dprintk(CVP_ERR, "%s: bad_pkt_size: %d\n", __func__,
 				pkt->size);
 		return -E2BIG;
@@ -250,254 +248,8 @@ err_no_prop:
 	return 0;
 }
 
-enum hal_capability cvp_get_hal_cap_type(u32 capability_type)
-{
-	enum hal_capability hal_cap = 0;
-
-	switch (capability_type) {
-	case HFI_CAPABILITY_FRAME_WIDTH:
-		hal_cap = HAL_CAPABILITY_FRAME_WIDTH;
-		break;
-	case HFI_CAPABILITY_FRAME_HEIGHT:
-		hal_cap = HAL_CAPABILITY_FRAME_HEIGHT;
-		break;
-	case HFI_CAPABILITY_MBS_PER_FRAME:
-		hal_cap = HAL_CAPABILITY_MBS_PER_FRAME;
-		break;
-	case HFI_CAPABILITY_MBS_PER_SECOND:
-		hal_cap = HAL_CAPABILITY_MBS_PER_SECOND;
-		break;
-	case HFI_CAPABILITY_FRAMERATE:
-		hal_cap = HAL_CAPABILITY_FRAMERATE;
-		break;
-	case HFI_CAPABILITY_SCALE_X:
-		hal_cap = HAL_CAPABILITY_SCALE_X;
-		break;
-	case HFI_CAPABILITY_SCALE_Y:
-		hal_cap = HAL_CAPABILITY_SCALE_Y;
-		break;
-	case HFI_CAPABILITY_BITRATE:
-		hal_cap = HAL_CAPABILITY_BITRATE;
-		break;
-	case HFI_CAPABILITY_BFRAME:
-		hal_cap = HAL_CAPABILITY_BFRAME;
-		break;
-	case HFI_CAPABILITY_PEAKBITRATE:
-		hal_cap = HAL_CAPABILITY_PEAKBITRATE;
-		break;
-	case HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS:
-		hal_cap = HAL_CAPABILITY_HIER_P_NUM_ENH_LAYERS;
-		break;
-	case HFI_CAPABILITY_ENC_LTR_COUNT:
-		hal_cap = HAL_CAPABILITY_ENC_LTR_COUNT;
-		break;
-	case HFI_CAPABILITY_CP_OUTPUT2_THRESH:
-		hal_cap = HAL_CAPABILITY_SECURE_OUTPUT2_THRESHOLD;
-		break;
-	case HFI_CAPABILITY_HIER_B_NUM_ENH_LAYERS:
-		hal_cap = HAL_CAPABILITY_HIER_B_NUM_ENH_LAYERS;
-		break;
-	case HFI_CAPABILITY_LCU_SIZE:
-		hal_cap = HAL_CAPABILITY_LCU_SIZE;
-		break;
-	case HFI_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS:
-		hal_cap = HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS;
-		break;
-	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
-		hal_cap = HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE;
-		break;
-	case HFI_CAPABILITY_EXTRADATA:
-		hal_cap = HAL_CAPABILITY_EXTRADATA;
-		break;
-	case HFI_CAPABILITY_PROFILE:
-		hal_cap = HAL_CAPABILITY_PROFILE;
-		break;
-	case HFI_CAPABILITY_LEVEL:
-		hal_cap = HAL_CAPABILITY_LEVEL;
-		break;
-	case HFI_CAPABILITY_I_FRAME_QP:
-		hal_cap = HAL_CAPABILITY_I_FRAME_QP;
-		break;
-	case HFI_CAPABILITY_P_FRAME_QP:
-		hal_cap = HAL_CAPABILITY_P_FRAME_QP;
-		break;
-	case HFI_CAPABILITY_B_FRAME_QP:
-		hal_cap = HAL_CAPABILITY_B_FRAME_QP;
-		break;
-	case HFI_CAPABILITY_RATE_CONTROL_MODES:
-		hal_cap = HAL_CAPABILITY_RATE_CONTROL_MODES;
-		break;
-	case HFI_CAPABILITY_BLUR_WIDTH:
-		hal_cap = HAL_CAPABILITY_BLUR_WIDTH;
-		break;
-	case HFI_CAPABILITY_BLUR_HEIGHT:
-		hal_cap = HAL_CAPABILITY_BLUR_HEIGHT;
-		break;
-	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
-		hal_cap = HAL_CAPABILITY_SLICE_DELIVERY_MODES;
-		break;
-	case HFI_CAPABILITY_SLICE_BYTE:
-		hal_cap = HAL_CAPABILITY_SLICE_BYTE;
-		break;
-	case HFI_CAPABILITY_SLICE_MB:
-		hal_cap = HAL_CAPABILITY_SLICE_MB;
-		break;
-	case HFI_CAPABILITY_SECURE:
-		hal_cap = HAL_CAPABILITY_SECURE;
-		break;
-	case HFI_CAPABILITY_MAX_NUM_B_FRAMES:
-		hal_cap = HAL_CAPABILITY_MAX_NUM_B_FRAMES;
-		break;
-	case HFI_CAPABILITY_MAX_VIDEOCORES:
-		hal_cap = HAL_CAPABILITY_MAX_VIDEOCORES;
-		break;
-	case HFI_CAPABILITY_MAX_WORKMODES:
-		hal_cap = HAL_CAPABILITY_MAX_WORKMODES;
-		break;
-	case HFI_CAPABILITY_UBWC_CR_STATS:
-		hal_cap = HAL_CAPABILITY_UBWC_CR_STATS;
-		break;
-	default:
-		dprintk(CVP_DBG, "%s: unknown capablity %#x\n",
-			__func__, capability_type);
-		break;
-	}
-
-	return hal_cap;
-}
-
-static inline void copy_cap_prop(
-		struct hfi_capability_supported *in,
-		struct msm_cvp_capability *capability)
-{
-	struct hal_capability_supported *out = NULL;
-
-	if (!in || !capability) {
-		dprintk(CVP_ERR, "%s Invalid input parameters\n",
-			__func__);
-		return;
-	}
-
-	switch (in->capability_type) {
-	case HFI_CAPABILITY_FRAME_WIDTH:
-		out = &capability->width;
-		break;
-	case HFI_CAPABILITY_FRAME_HEIGHT:
-		out = &capability->height;
-		break;
-	case HFI_CAPABILITY_MBS_PER_FRAME:
-		out = &capability->mbs_per_frame;
-		break;
-	case HFI_CAPABILITY_MBS_PER_SECOND:
-		out = &capability->mbs_per_sec;
-		break;
-	case HFI_CAPABILITY_FRAMERATE:
-		out = &capability->frame_rate;
-		break;
-	case HFI_CAPABILITY_SCALE_X:
-		out = &capability->scale_x;
-		break;
-	case HFI_CAPABILITY_SCALE_Y:
-		out = &capability->scale_y;
-		break;
-	case HFI_CAPABILITY_BITRATE:
-		out = &capability->bitrate;
-		break;
-	case HFI_CAPABILITY_BFRAME:
-		out = &capability->bframe;
-		break;
-	case HFI_CAPABILITY_PEAKBITRATE:
-		out = &capability->peakbitrate;
-		break;
-	case HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS:
-		out = &capability->hier_p;
-		break;
-	case HFI_CAPABILITY_ENC_LTR_COUNT:
-		out = &capability->ltr_count;
-		break;
-	case HFI_CAPABILITY_CP_OUTPUT2_THRESH:
-		out = &capability->secure_output2_threshold;
-		break;
-	case HFI_CAPABILITY_HIER_B_NUM_ENH_LAYERS:
-		out = &capability->hier_b;
-		break;
-	case HFI_CAPABILITY_LCU_SIZE:
-		out = &capability->lcu_size;
-		break;
-	case HFI_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS:
-		out = &capability->hier_p_hybrid;
-		break;
-	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
-		out = &capability->mbs_per_sec_power_save;
-		break;
-	case HFI_CAPABILITY_EXTRADATA:
-		out = &capability->extradata;
-		break;
-	case HFI_CAPABILITY_PROFILE:
-		out = &capability->profile;
-		break;
-	case HFI_CAPABILITY_LEVEL:
-		out = &capability->level;
-		break;
-	case HFI_CAPABILITY_I_FRAME_QP:
-		out = &capability->i_qp;
-		break;
-	case HFI_CAPABILITY_P_FRAME_QP:
-		out = &capability->p_qp;
-		break;
-	case HFI_CAPABILITY_B_FRAME_QP:
-		out = &capability->b_qp;
-		break;
-	case HFI_CAPABILITY_RATE_CONTROL_MODES:
-		out = &capability->rc_modes;
-		break;
-	case HFI_CAPABILITY_BLUR_WIDTH:
-		out = &capability->blur_width;
-		break;
-	case HFI_CAPABILITY_BLUR_HEIGHT:
-		out = &capability->blur_height;
-		break;
-	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
-		out = &capability->slice_delivery_mode;
-		break;
-	case HFI_CAPABILITY_SLICE_BYTE:
-		out = &capability->slice_bytes;
-		break;
-	case HFI_CAPABILITY_SLICE_MB:
-		out = &capability->slice_mbs;
-		break;
-	case HFI_CAPABILITY_SECURE:
-		out = &capability->secure;
-		break;
-	case HFI_CAPABILITY_MAX_NUM_B_FRAMES:
-		out = &capability->max_num_b_frames;
-		break;
-	case HFI_CAPABILITY_MAX_VIDEOCORES:
-		out = &capability->max_video_cores;
-		break;
-	case HFI_CAPABILITY_MAX_WORKMODES:
-		out = &capability->max_work_modes;
-		break;
-	case HFI_CAPABILITY_UBWC_CR_STATS:
-		out = &capability->ubwc_cr_stats;
-		break;
-	default:
-		dprintk(CVP_DBG, "%s: unknown capablity %#x\n",
-			__func__, in->capability_type);
-		break;
-	}
-
-	if (out) {
-		out->capability_type =
-			cvp_get_hal_cap_type(in->capability_type);
-		out->min = in->min;
-		out->max = in->max;
-		out->step_size = in->step_size;
-	}
-}
-
 enum cvp_status cvp_hfi_process_sys_init_done_prop_read(
-	struct hfi_msg_sys_init_done_packet *pkt,
+	struct cvp_hfi_msg_sys_init_done_packet *pkt,
 	struct cvp_hal_sys_init_done *sys_init_done)
 {
 	enum cvp_status status = CVP_ERR_NONE;
@@ -511,7 +263,7 @@ enum cvp_status cvp_hfi_process_sys_init_done_prop_read(
 	}
 
 	rem_bytes = pkt->size - sizeof(struct
-			hfi_msg_sys_init_done_packet) + sizeof(u32);
+			cvp_hfi_msg_sys_init_done_packet) + sizeof(u32);
 
 	if (!rem_bytes) {
 		dprintk(CVP_ERR,
@@ -536,18 +288,18 @@ enum cvp_status cvp_hfi_process_sys_init_done_prop_read(
 }
 
 static int hfi_process_session_init_done(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_sys_session_init_done_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_sys_session_init_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	struct cvp_hal_session_init_done session_init_done = { {0} };
 
 	dprintk(CVP_DBG, "RECEIVED: SESSION_INIT_DONE[%x]\n", pkt->session_id);
 
-	if (sizeof(struct hfi_msg_sys_session_init_done_packet) > pkt->size) {
+	if (sizeof(struct cvp_hfi_msg_sys_session_init_done_packet)
+			> pkt->size) {
 		dprintk(CVP_ERR,
-				"hal_process_session_init_done: bad_pkt_size\n");
+			"hal_process_session_init_done: bad_pkt_size\n");
 		return -E2BIG;
 	}
 
@@ -563,16 +315,15 @@ static int hfi_process_session_init_done(u32 device_id,
 	return 0;
 }
 static int hfi_process_session_end_done(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_sys_session_end_done_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_sys_session_end_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 
 	dprintk(CVP_DBG, "RECEIVED: SESSION_END_DONE[%#x]\n", pkt->session_id);
 
 	if (!pkt || pkt->size !=
-		sizeof(struct hfi_msg_sys_session_end_done_packet)) {
+		sizeof(struct cvp_hfi_msg_sys_session_end_done_packet)) {
 		dprintk(CVP_ERR, "%s: bad packet/packet size\n", __func__);
 		return -E2BIG;
 	}
@@ -589,17 +340,16 @@ static int hfi_process_session_end_done(u32 device_id,
 }
 
 static int hfi_process_session_abort_done(u32 device_id,
-	void *_pkt,
+	struct cvp_hfi_msg_sys_session_abort_done_packet *pkt,
 	struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_sys_session_abort_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 
 	dprintk(CVP_DBG, "RECEIVED: SESSION_ABORT_DONE[%#x]\n",
 			pkt->session_id);
 
 	if (!pkt || pkt->size !=
-		sizeof(struct hfi_msg_sys_session_abort_done_packet)) {
+		sizeof(struct cvp_hfi_msg_sys_session_abort_done_packet)) {
 		dprintk(CVP_ERR, "%s: bad packet/packet size: %d\n",
 				__func__, pkt ? pkt->size : 0);
 		return -E2BIG;
@@ -616,13 +366,12 @@ static int hfi_process_session_abort_done(u32 device_id,
 }
 
 static int hfi_process_session_set_buf_done(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_session_set_buffers_done_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_session_cvp_set_buffers_done_packet *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	unsigned int pkt_size =
-		sizeof(struct hfi_msg_session_cvp_set_buffers_done_packet);
+		sizeof(struct cvp_hfi_msg_session_set_buffers_done_packet);
 
 	if (!pkt || pkt->size < pkt_size) {
 		dprintk(CVP_ERR, "bad packet/packet size %d\n",
@@ -645,13 +394,12 @@ static int hfi_process_session_set_buf_done(u32 device_id,
 
 
 static int hfi_process_session_rel_buf_done(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_session_hdr *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_session_hdr *pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	unsigned int pkt_size =
-		sizeof(struct hfi_msg_session_hdr);
+		sizeof(struct cvp_hfi_msg_session_hdr);
 
 	if (!pkt || pkt->size < pkt_size) {
 		dprintk(CVP_ERR, "bad packet/packet size %d\n",
@@ -673,11 +421,9 @@ static int hfi_process_session_rel_buf_done(u32 device_id,
 }
 
 static int hfi_process_session_cvp_operation_config(u32 device_id,
-	void *_pkt,
+	struct cvp_hfi_msg_session_op_cfg_done_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_session_cvp_operation_config_done_packet_type
-								*pkt = _pkt;
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
 	int signal;
 
@@ -717,7 +463,7 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 }
 
 static int hfi_process_session_cvp_dfs(u32 device_id,
-	struct hfi_msg_session_cvp_dfs_packet_type *pkt,
+	struct cvp_hfi_msg_session_dfs_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -770,11 +516,10 @@ static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 }
 
 static int hfi_process_session_cvp_msg(u32 device_id,
-	void *_pkt,
+	struct cvp_hfi_msg_session_hdr *pkt,
 	struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_session_hdr *pkt = _pkt;
-	struct session_msg *sess_msg;
+	struct cvp_session_msg *sess_msg;
 	struct msm_cvp_inst *inst = NULL;
 	struct msm_cvp_core *core;
 	void *session_id;
@@ -813,7 +558,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 		return -ENOMEM;
 	}
 
-	memcpy(&sess_msg->pkt, pkt, sizeof(struct hfi_msg_session_hdr));
+	memcpy(&sess_msg->pkt, pkt, sizeof(struct cvp_hfi_msg_session_hdr));
 
 	dprintk(CVP_DBG,
 		"%s: Received msg %x cmd_done.status=%d sessionid=%x\n",
@@ -842,7 +587,7 @@ error_handle_msg:
 }
 
 static int hfi_process_session_cvp_dme(u32 device_id,
-	struct hfi_msg_session_cvp_dme_packet_type *pkt,
+	struct cvp_hfi_msg_session_dme_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -870,7 +615,7 @@ static int hfi_process_session_cvp_dme(u32 device_id,
 }
 
 static int hfi_process_session_cvp_persist(u32 device_id,
-	struct hfi_msg_session_cvp_persist_packet_type *pkt,
+	struct cvp_hfi_msg_session_persist_packet_type *pkt,
 	struct msm_cvp_cb_info *info)
 {
 	struct msm_cvp_cb_cmd_done cmd_done = {0};
@@ -899,7 +644,7 @@ static int hfi_process_session_cvp_persist(u32 device_id,
 }
 
 static int _deprecated_hfi_msg_process(u32 device_id,
-	struct hfi_msg_session_hdr *pkt,
+	struct cvp_hfi_msg_session_hdr *pkt,
 	struct msm_cvp_cb_info *info,
 	struct msm_cvp_inst *inst)
 {
@@ -927,7 +672,7 @@ static int _deprecated_hfi_msg_process(u32 device_id,
 }
 
 static void hfi_process_sys_get_prop_image_version(
-		struct hfi_msg_sys_property_info_packet *pkt)
+		struct cvp_hfi_msg_sys_property_info_packet *pkt)
 {
 	int i = 0;
 	size_t smem_block_size = 0;
@@ -969,10 +714,9 @@ static void hfi_process_sys_get_prop_image_version(
 }
 
 static int hfi_process_sys_property_info(u32 device_id,
-		void *_pkt,
+		struct cvp_hfi_msg_sys_property_info_packet *pkt,
 		struct msm_cvp_cb_info *info)
 {
-	struct hfi_msg_sys_property_info_packet *pkt = _pkt;
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
 		return -EINVAL;

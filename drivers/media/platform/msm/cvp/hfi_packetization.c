@@ -15,7 +15,7 @@
  * sensible index.
  */
 
-int cvp_create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
+int cvp_create_pkt_cmd_sys_init(struct cvp_hfi_cmd_sys_init_packet *pkt,
 			   u32 arch_type)
 {
 	int rc = 0;
@@ -24,12 +24,12 @@ int cvp_create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 		return -EINVAL;
 
 	pkt->packet_type = HFI_CMD_SYS_INIT;
-	pkt->size = sizeof(struct hfi_cmd_sys_init_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_init_packet);
 	pkt->arch_type = arch_type;
 	return rc;
 }
 
-int cvp_create_pkt_cmd_sys_pc_prep(struct hfi_cmd_sys_pc_prep_packet *pkt)
+int cvp_create_pkt_cmd_sys_pc_prep(struct cvp_hfi_cmd_sys_pc_prep_packet *pkt)
 {
 	int rc = 0;
 
@@ -37,25 +37,25 @@ int cvp_create_pkt_cmd_sys_pc_prep(struct hfi_cmd_sys_pc_prep_packet *pkt)
 		return -EINVAL;
 
 	pkt->packet_type = HFI_CMD_SYS_PC_PREP;
-	pkt->size = sizeof(struct hfi_cmd_sys_pc_prep_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_pc_prep_packet);
 	return rc;
 }
 
 int cvp_create_pkt_cmd_sys_debug_config(
-	struct hfi_cmd_sys_set_property_packet *pkt,
+	struct cvp_hfi_cmd_sys_set_property_packet *pkt,
 	u32 mode)
 {
-	struct hfi_debug_config *hfi;
+	struct cvp_hfi_debug_config *hfi;
 
 	if (!pkt)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct hfi_debug_config) + sizeof(u32);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_property_packet) +
+		sizeof(struct cvp_hfi_debug_config) + sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
-	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
+	hfi = (struct cvp_hfi_debug_config *) &pkt->rg_property_data[1];
 	hfi->debug_config = mode;
 	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
 	if (msm_cvp_fw_debug_mode
@@ -65,7 +65,7 @@ int cvp_create_pkt_cmd_sys_debug_config(
 }
 
 int cvp_create_pkt_cmd_sys_coverage_config(
-	struct hfi_cmd_sys_set_property_packet *pkt,
+	struct cvp_hfi_cmd_sys_set_property_packet *pkt,
 	u32 mode)
 {
 	if (!pkt) {
@@ -73,7 +73,7 @@ int cvp_create_pkt_cmd_sys_coverage_config(
 		return -EINVAL;
 	}
 
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_property_packet) +
 		sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
@@ -85,7 +85,7 @@ int cvp_create_pkt_cmd_sys_coverage_config(
 }
 
 int cvp_create_pkt_cmd_sys_set_idle_indicator(
-	struct hfi_cmd_sys_set_property_packet *pkt,
+	struct cvp_hfi_cmd_sys_set_property_packet *pkt,
 	u32 mode)
 {
 	if (!pkt) {
@@ -93,7 +93,7 @@ int cvp_create_pkt_cmd_sys_set_idle_indicator(
 		return -EINVAL;
 	}
 
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_property_packet) +
 		sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
@@ -105,7 +105,7 @@ int cvp_create_pkt_cmd_sys_set_idle_indicator(
 }
 
 int cvp_create_pkt_cmd_sys_set_resource(
-		struct hfi_cmd_sys_set_resource_packet *pkt,
+		struct cvp_hfi_cmd_sys_set_resource_packet *pkt,
 		struct cvp_resource_hdr *res_hdr,
 		void *res_value)
 {
@@ -120,30 +120,30 @@ int cvp_create_pkt_cmd_sys_set_resource(
 	}
 
 	pkt->packet_type = HFI_CMD_SYS_SET_RESOURCE;
-	pkt->size = sizeof(struct hfi_cmd_sys_set_resource_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_resource_packet);
 	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
 	switch (res_hdr->resource_id) {
 	case CVP_RESOURCE_SYSCACHE:
 	{
-		struct hfi_resource_syscache_info_type *res_sc_info =
-			(struct hfi_resource_syscache_info_type *) res_value;
-		struct hfi_resource_subcache_type *res_sc =
-			(struct hfi_resource_subcache_type *)
+		struct cvp_hfi_resource_syscache_info_type *res_sc_info =
+			(struct cvp_hfi_resource_syscache_info_type *)res_value;
+		struct cvp_hfi_resource_subcache_type *res_sc =
+			(struct cvp_hfi_resource_subcache_type *)
 				&(res_sc_info->rg_subcache_entries[0]);
 
-		struct hfi_resource_syscache_info_type *hfi_sc_info =
-			(struct hfi_resource_syscache_info_type *)
+		struct cvp_hfi_resource_syscache_info_type *hfi_sc_info =
+			(struct cvp_hfi_resource_syscache_info_type *)
 				&pkt->rg_resource_data[0];
 
-		struct hfi_resource_subcache_type *hfi_sc =
-			(struct hfi_resource_subcache_type *)
+		struct cvp_hfi_resource_subcache_type *hfi_sc =
+			(struct cvp_hfi_resource_subcache_type *)
 			&(hfi_sc_info->rg_subcache_entries[0]);
 
 		pkt->resource_type = HFI_RESOURCE_SYSCACHE;
 		hfi_sc_info->num_entries = res_sc_info->num_entries;
 
-		pkt->size += (sizeof(struct hfi_resource_subcache_type))
+		pkt->size += (sizeof(struct cvp_hfi_resource_subcache_type))
 				 * hfi_sc_info->num_entries;
 
 		for (i = 0; i < hfi_sc_info->num_entries; i++) {
@@ -163,7 +163,7 @@ int cvp_create_pkt_cmd_sys_set_resource(
 }
 
 int cvp_create_pkt_cmd_sys_release_resource(
-		struct hfi_cmd_sys_release_resource_packet *pkt,
+		struct cvp_hfi_cmd_sys_release_resource_packet *pkt,
 		struct cvp_resource_hdr *res_hdr)
 {
 	int rc = 0;
@@ -175,7 +175,7 @@ int cvp_create_pkt_cmd_sys_release_resource(
 		return -EINVAL;
 	}
 
-	pkt->size = sizeof(struct hfi_cmd_sys_release_resource_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_release_resource_packet);
 	pkt->packet_type = HFI_CMD_SYS_RELEASE_RESOURCE;
 	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
@@ -196,29 +196,16 @@ int cvp_create_pkt_cmd_sys_release_resource(
 	return rc;
 }
 
-int cvp_create_pkt_cmd_sys_ping(struct hfi_cmd_sys_ping_packet *pkt)
-{
-	int rc = 0;
-
-	if (!pkt)
-		return -EINVAL;
-
-	pkt->size = sizeof(struct hfi_cmd_sys_ping_packet);
-	pkt->packet_type = HFI_CMD_SYS_PING;
-
-	return rc;
-}
-
 inline int cvp_create_pkt_cmd_sys_session_init(
-		struct hfi_cmd_sys_session_init_packet *pkt,
-		struct hal_session *session)
+		struct cvp_hfi_cmd_sys_session_init_packet *pkt,
+		struct cvp_hal_session *session)
 {
 	int rc = 0;
 
 	if (!pkt)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_sys_session_init_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_session_init_packet);
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
 	pkt->session_id = hash32_ptr(session);
 	pkt->session_kmask = 0xFFFFFFFF;
@@ -231,23 +218,23 @@ inline int cvp_create_pkt_cmd_sys_session_init(
 }
 
 static int create_pkt_cmd_sys_ubwc_config(
-		struct hfi_cmd_sys_set_property_packet *pkt,
+		struct cvp_hfi_cmd_sys_set_property_packet *pkt,
 		struct msm_cvp_ubwc_config_data *ubwc_config)
 {
 	int rc = 0;
-	struct hfi_cmd_sys_set_ubwc_config_packet_type *hfi;
+	struct cvp_hfi_cmd_sys_set_ubwc_config_packet_type *hfi;
 
 	if (!pkt)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct hfi_cmd_sys_set_ubwc_config_packet_type)
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_property_packet) +
+		sizeof(struct cvp_hfi_cmd_sys_set_ubwc_config_packet_type)
 		+ sizeof(u32);
 
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG;
-	hfi = (struct hfi_cmd_sys_set_ubwc_config_packet_type *)
+	hfi = (struct cvp_hfi_cmd_sys_set_ubwc_config_packet_type *)
 		&pkt->rg_property_data[1];
 
 	hfi->max_channels = ubwc_config->max_channels;
@@ -269,13 +256,13 @@ static int create_pkt_cmd_sys_ubwc_config(
 	hfi->bank_spreading = ubwc_config->bank_spreading;
 	hfi->override_bit_info.bank_spreading_override =
 		ubwc_config->override_bit_info.bank_spreading_override;
-	hfi->size = sizeof(struct hfi_cmd_sys_set_ubwc_config_packet_type);
+	hfi->size = sizeof(struct cvp_hfi_cmd_sys_set_ubwc_config_packet_type);
 
 	return rc;
 }
 
 int cvp_create_pkt_cmd_session_cmd(struct cvp_hal_session_cmd_pkt *pkt,
-			int pkt_type, struct hal_session *session)
+			int pkt_type, struct cvp_hal_session *session)
 {
 	int rc = 0;
 
@@ -290,21 +277,21 @@ int cvp_create_pkt_cmd_session_cmd(struct cvp_hal_session_cmd_pkt *pkt,
 }
 
 int cvp_create_pkt_cmd_sys_power_control(
-	struct hfi_cmd_sys_set_property_packet *pkt, u32 enable)
+	struct cvp_hfi_cmd_sys_set_property_packet *pkt, u32 enable)
 {
-	struct hfi_enable *hfi;
+	struct cvp_hfi_enable *hfi;
 
 	if (!pkt) {
 		dprintk(CVP_ERR, "No input packet\n");
 		return -EINVAL;
 	}
 
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct hfi_enable) + sizeof(u32);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_set_property_packet) +
+		sizeof(struct cvp_hfi_enable) + sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_CODEC_POWER_PLANE_CTRL;
-	hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+	hfi = (struct cvp_hfi_enable *) &pkt->rg_property_data[1];
 	hfi->enable = enable;
 	return 0;
 }
@@ -357,8 +344,8 @@ static u32 get_hfi_buffer(int hal_buffer)
 }
 
 int cvp_create_pkt_cmd_session_set_buffers(
-		struct hfi_cmd_session_cvp_set_buffers_packet *pkt,
-		struct hal_session *session,
+		struct cvp_hfi_cmd_session_set_buffers_packet *pkt,
+		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
@@ -370,14 +357,14 @@ int cvp_create_pkt_cmd_session_set_buffers(
 	pkt->session_id = hash32_ptr(session);
 	pkt->buffer_addr = buffer_info->align_device_addr;
 	pkt->buffer_size = buffer_info->buffer_size;
-	pkt->size = sizeof(struct hfi_cmd_session_cvp_set_buffers_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
 
 	return rc;
 }
 
 int cvp_create_pkt_cmd_session_release_buffers(
-		struct hfi_cmd_session_cvp_release_buffers_packet *pkt,
-		struct hal_session *session,
+		struct cvp_hfi_cmd_session_release_buffers_packet *pkt,
+		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
 	if (!pkt || !session)
@@ -393,7 +380,7 @@ int cvp_create_pkt_cmd_session_release_buffers(
 		return -EINVAL;
 	}
 
-	pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
+	pkt->size = sizeof(struct cvp_hfi_cmd_session_release_buffers_packet) +
 		((buffer_info->num_buffers - 1) * sizeof(u32));
 
 	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
@@ -404,15 +391,15 @@ int cvp_create_pkt_cmd_session_release_buffers(
 }
 
 int cvp_create_pkt_cmd_session_get_buf_req(
-		struct hfi_cmd_session_get_property_packet *pkt,
-		struct hal_session *session)
+		struct cvp_hfi_cmd_session_get_property_packet *pkt,
+		struct cvp_hal_session *session)
 {
 	int rc = 0;
 
 	if (!pkt || !session)
 		return -EINVAL;
 
-	pkt->size = sizeof(struct hfi_cmd_session_get_property_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_session_get_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_GET_PROPERTY;
 	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
@@ -423,7 +410,7 @@ int cvp_create_pkt_cmd_session_get_buf_req(
 
 int cvp_create_pkt_cmd_session_send(
 		struct cvp_kmd_hfi_packet *out_pkt,
-		struct hal_session *session,
+		struct cvp_hal_session *session,
 		struct cvp_kmd_hfi_packet *in_pkt)
 {
 	int def_idx;
@@ -463,8 +450,8 @@ error_hfi_packet:
 }
 
 int cvp_create_pkt_cmd_session_get_property(
-		struct hfi_cmd_session_get_property_packet *pkt,
-		struct hal_session *session, enum hal_property ptype)
+		struct cvp_hfi_cmd_session_get_property_packet *pkt,
+		struct cvp_hal_session *session, enum hal_property ptype)
 {
 	/* Currently no get property is supported */
 	dprintk(CVP_ERR, "%s cmd:%#x not supported\n", __func__,
@@ -473,8 +460,8 @@ int cvp_create_pkt_cmd_session_get_property(
 }
 
 int cvp_create_pkt_cmd_session_set_property(
-		struct hfi_cmd_session_set_property_packet *pkt,
-		struct hal_session *session,
+		struct cvp_hfi_cmd_session_set_property_packet *pkt,
+		struct cvp_hal_session *session,
 		enum hal_property ptype, void *pdata)
 {
 	/* Currently no set property is supported */
@@ -505,33 +492,33 @@ static int get_hfi_ssr_type(enum hal_ssr_trigger_type type)
 }
 
 int cvp_create_pkt_ssr_cmd(enum hal_ssr_trigger_type type,
-		struct hfi_cmd_sys_test_ssr_packet *pkt)
+		struct cvp_hfi_cmd_sys_test_ssr_packet *pkt)
 {
 	if (!pkt) {
 		dprintk(CVP_ERR, "Invalid params, device: %pK\n", pkt);
 		return -EINVAL;
 	}
-	pkt->size = sizeof(struct hfi_cmd_sys_test_ssr_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_test_ssr_packet);
 	pkt->packet_type = HFI_CMD_SYS_TEST_SSR;
 	pkt->trigger_type = get_hfi_ssr_type(type);
 	return 0;
 }
 
 int cvp_create_pkt_cmd_sys_image_version(
-		struct hfi_cmd_sys_get_property_packet *pkt)
+		struct cvp_hfi_cmd_sys_get_property_packet *pkt)
 {
 	if (!pkt) {
 		dprintk(CVP_ERR, "%s invalid param :%pK\n", __func__, pkt);
 		return -EINVAL;
 	}
-	pkt->size = sizeof(struct hfi_cmd_sys_get_property_packet);
+	pkt->size = sizeof(struct cvp_hfi_cmd_sys_get_property_packet);
 	pkt->packet_type = HFI_CMD_SYS_GET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IMAGE_VERSION;
 	return 0;
 }
 
-static struct hfi_packetization_ops hfi_default = {
+static struct cvp_hfi_packetization_ops hfi_default = {
 	.sys_init = cvp_create_pkt_cmd_sys_init,
 	.sys_pc_prep = cvp_create_pkt_cmd_sys_pc_prep,
 	.sys_power_control = cvp_create_pkt_cmd_sys_power_control,
@@ -540,7 +527,6 @@ static struct hfi_packetization_ops hfi_default = {
 	.sys_coverage_config = cvp_create_pkt_cmd_sys_coverage_config,
 	.sys_set_idle_indicator = cvp_create_pkt_cmd_sys_set_idle_indicator,
 	.sys_release_resource = cvp_create_pkt_cmd_sys_release_resource,
-	.sys_ping = cvp_create_pkt_cmd_sys_ping,
 	.sys_image_version = cvp_create_pkt_cmd_sys_image_version,
 	.sys_ubwc_config = create_pkt_cmd_sys_ubwc_config,
 	.ssr_cmd = cvp_create_pkt_ssr_cmd,
@@ -556,7 +542,7 @@ static struct hfi_packetization_ops hfi_default = {
 	.session_send = cvp_create_pkt_cmd_session_send,
 };
 
-struct hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(
+struct cvp_hfi_packetization_ops *cvp_hfi_get_pkt_ops_handle(
 			enum hfi_packetization_type type)
 {
 	dprintk(CVP_DBG, "%s selected\n",

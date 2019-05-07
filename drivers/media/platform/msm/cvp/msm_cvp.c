@@ -152,7 +152,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 	int rc = 0;
 	bool found;
 	struct msm_cvp_internal_buffer *cbuf;
-	struct hal_session *session;
+	struct cvp_hal_session *session;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
@@ -166,7 +166,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	session = (struct hal_session *)inst->session;
+	session = (struct cvp_hal_session *)inst->session;
 	mutex_lock(&inst->cvpdspbufs.lock);
 	found = false;
 	list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list) {
@@ -242,14 +242,14 @@ static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
 	int rc = 0;
 	bool found;
 	struct msm_cvp_internal_buffer *cbuf;
-	struct hal_session *session;
+	struct cvp_hal_session *session;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
-	session = (struct hal_session *)inst->session;
+	session = (struct cvp_hal_session *)inst->session;
 	if (!session) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return -EINVAL;
@@ -358,9 +358,9 @@ exit:
 
 static bool _cvp_msg_pending(struct msm_cvp_inst *inst,
 			struct cvp_session_queue *sq,
-			struct session_msg **msg)
+			struct cvp_session_msg **msg)
 {
-	struct session_msg *mptr = NULL;
+	struct cvp_session_msg *mptr = NULL;
 	bool result = false;
 
 	spin_lock(&sq->lock);
@@ -373,7 +373,8 @@ static bool _cvp_msg_pending(struct msm_cvp_inst *inst,
 	}
 	result = list_empty(&sq->msgs);
 	if (!result) {
-		mptr = list_first_entry(&sq->msgs, struct session_msg, node);
+		mptr =
+		list_first_entry(&sq->msgs, struct cvp_session_msg, node);
 		list_del_init(&mptr->node);
 		sq->msg_count--;
 	}
@@ -387,7 +388,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 			struct cvp_kmd_hfi_packet *out_pkt)
 {
 	unsigned long wait_time;
-	struct session_msg *msg = NULL;
+	struct cvp_session_msg *msg = NULL;
 	struct cvp_session_queue *sq;
 	struct cvp_kmd_session_control *sc;
 	int rc;
@@ -425,7 +426,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 		return rc;
 	}
 
-	memcpy(out_pkt, &msg->pkt, sizeof(struct hfi_msg_session_hdr));
+	memcpy(out_pkt, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
 	kmem_cache_free(inst->session_queue.msg_cache, msg);
 
 	return 0;
@@ -438,9 +439,9 @@ static int msm_cvp_session_process_hfi(
 	unsigned int in_buf_num)
 {
 	int i, pkt_idx, rc = 0;
-	struct hfi_device *hdev;
+	struct cvp_hfi_device *hdev;
 	struct msm_cvp_internal_buffer *cbuf = NULL;
-	struct buf_desc *buf_ptr;
+	struct cvp_buf_desc *buf_ptr;
 	unsigned int offset, buf_num, signal;
 	struct cvp_session_queue *sq;
 
@@ -484,7 +485,7 @@ static int msm_cvp_session_process_hfi(
 	}
 
 	if (offset != 0 && buf_num != 0) {
-		buf_ptr = (struct buf_desc *)&in_pkt->pkt_data[offset];
+		buf_ptr = (struct cvp_buf_desc *)&in_pkt->pkt_data[offset];
 
 		for (i = 0; i < buf_num; i++) {
 			if (!buf_ptr[i].fd)
@@ -548,7 +549,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	int i, rc = 0;
 	unsigned long timeout_ms = 1000;
 	int synx_obj;
-	struct hfi_device *hdev;
+	struct cvp_hfi_device *hdev;
 	struct msm_cvp_fence_thread_data *fence_thread_data;
 	struct cvp_kmd_hfi_fence_packet *in_fence_pkt;
 	struct cvp_kmd_hfi_packet *in_pkt;
@@ -670,7 +671,7 @@ static int msm_cvp_session_process_hfi_fence(
 	struct cvp_kmd_hfi_packet *in_pkt;
 	unsigned int offset, buf_num;
 	struct msm_cvp_internal_buffer *cbuf = NULL;
-	struct buf_desc *buf_ptr;
+	struct cvp_buf_desc *buf_ptr;
 
 	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
 
@@ -693,7 +694,7 @@ static int msm_cvp_session_process_hfi_fence(
 	buf_num = cvp_hfi_defs[pkt_idx].buf_num;
 
 	if (offset != 0 && buf_num != 0) {
-		buf_ptr = (struct buf_desc *)&in_pkt->pkt_data[offset];
+		buf_ptr = (struct cvp_buf_desc *)&in_pkt->pkt_data[offset];
 
 		for (i = 0; i < buf_num; i++) {
 			if (!buf_ptr[i].fd)
@@ -839,15 +840,15 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 		struct cvp_kmd_buffer *buf)
 {
-	struct hfi_device *hdev;
-	struct hal_session *session;
+	struct cvp_hfi_device *hdev;
+	struct cvp_hal_session *session;
 
 	if (!inst || !inst->core || !buf) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
-	session = (struct hal_session *)inst->session;
+	session = (struct cvp_hal_session *)inst->session;
 	if (!session) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
 		return -EINVAL;
