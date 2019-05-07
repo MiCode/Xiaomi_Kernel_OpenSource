@@ -292,6 +292,11 @@ enum {
 	SMB_THERM,
 };
 
+static const struct clamp_config clamp_levels[] = {
+	{ {0x11C6, 0x11F9, 0x13F1}, {0x60, 0x2E, 0x90} },
+	{ {0x11C6, 0x11F9, 0x13F1}, {0x60, 0x2B, 0x9C} },
+};
+
 #define PMI632_MAX_ICL_UA	3000000
 #define PM6150_MAX_FCC_UA	3000000
 static int smb5_chg_config_init(struct smb5 *chip)
@@ -701,6 +706,33 @@ static int smb5_parse_dt(struct smb5 *chip)
 	return 0;
 }
 
+static int smb5_set_prop_comp_clamp_level(struct smb_charger *chg,
+			     const union power_supply_propval *val)
+{
+	int rc = 0, i;
+	struct clamp_config clamp_config;
+	enum comp_clamp_levels level;
+
+	level = val->intval;
+	if (level >= MAX_CLAMP_LEVEL) {
+		pr_err("Invalid comp clamp level=%d\n", val->intval);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(clamp_config.reg); i++) {
+		rc = smblib_write(chg, clamp_levels[level].reg[i],
+			     clamp_levels[level].val[i]);
+		if (rc < 0)
+			dev_err(chg->dev,
+				"Failed to configure comp clamp settings for reg=0x%04x rc=%d\n",
+				   clamp_levels[level].reg[i], rc);
+	}
+
+	chg->comp_clamp_level = val->intval;
+
+	return rc;
+}
+
 /************************
  * USB PSY REGISTRATION *
  ************************/
@@ -732,6 +764,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT,
 	POWER_SUPPLY_PROP_SMB_EN_MODE,
 	POWER_SUPPLY_PROP_SMB_EN_REASON,
+	POWER_SUPPLY_PROP_ADAPTER_CC_MODE,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
@@ -875,6 +908,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_client_vote(chg->usb_icl_votable,
 					THERMAL_THROTTLE_VOTER);
 		break;
+	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
+		val->intval = chg->adapter_cc_mode;
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -961,6 +997,9 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
 		smblib_set_prop_usb_voltage_max_limit(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
+		chg->adapter_cc_mode = val->intval;
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -978,6 +1017,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_LIMIT:
+	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		return 1;
 	default:
 		break;
@@ -1129,6 +1169,9 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_TOGGLE_STAT,
 	POWER_SUPPLY_PROP_MAIN_FCC_MAX,
 	POWER_SUPPLY_PROP_IRQ_STATUS,
+	POWER_SUPPLY_PROP_FORCE_MAIN_FCC,
+	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
+	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1176,6 +1219,17 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_IRQ_STATUS:
 		rc = smblib_get_irq_status(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
+		rc = smblib_get_charge_param(chg, &chg->param.fcc,
+							&val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
+		rc = smblib_get_charge_param(chg, &chg->param.usb_icl,
+							&val->intval);
+		break;
+	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
+		val->intval = chg->comp_clamp_level;
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -1247,6 +1301,17 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		chg->main_fcc_max = val->intval;
 		rerun_election(chg->fcc_votable);
 		break;
+	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
+		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
+				(val->intval < 0) ? false : true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
+		vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
+				(val->intval < 0) ? false : true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
+		rc = smb5_set_prop_comp_clamp_level(chg, val);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -1264,6 +1329,9 @@ static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TOGGLE_STAT:
 	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
+	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
+	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
+	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		rc = 1;
 		break;
 	default:
@@ -1452,6 +1520,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
@@ -1542,6 +1611,9 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
 					      BATT_PROFILE_VOTER);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+		val->intval = get_effective_result(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
 		rc = smblib_get_prop_batt_iterm(chg, val);
