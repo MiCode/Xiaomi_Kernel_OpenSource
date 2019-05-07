@@ -1,16 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016 MediaTek Inc.
- * Author: Ming Hsiu Tsai <minghsiu.tsai@mediatek.com>
- *         Rick Chang <rick.chang@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef _MTK_JPEG_CORE_H
@@ -25,6 +15,8 @@
 
 #define MTK_JPEG_FMT_FLAG_DEC_OUTPUT	BIT(0)
 #define MTK_JPEG_FMT_FLAG_DEC_CAPTURE	BIT(1)
+#define MTK_JPEG_FMT_FLAG_ENC_OUTPUT	BIT(2)
+#define MTK_JPEG_FMT_FLAG_ENC_CAPTURE	BIT(3)
 
 #define MTK_JPEG_FMT_TYPE_OUTPUT	1
 #define MTK_JPEG_FMT_TYPE_CAPTURE	2
@@ -36,10 +28,56 @@
 
 #define MTK_JPEG_DEFAULT_SIZEIMAGE	(1 * 1024 * 1024)
 
+#define MTK_JPEG_ENCODE		0
+#define MTK_JPEG_DECODE		1
+
+/**
+ * enum mtk_jpeg_ctx_state - contex state of jpeg
+ */
 enum mtk_jpeg_ctx_state {
 	MTK_JPEG_INIT = 0,
 	MTK_JPEG_RUNNING,
 	MTK_JPEG_SOURCE_CHANGE,
+};
+
+/**
+ * enum mtk_jpeg_mode - mode of jpeg
+ */
+enum mtk_jpeg_mode {
+	MTK_JPEG_ENC,
+	MTK_JPEG_DEC,
+};
+
+/**
+ * enum jpeg_enc_yuv_fmt - yuv format of jpeg enc
+ */
+enum jpeg_enc_yuv_fmt {
+	JPEG_YUV_FORMAT_YUYV = 0,
+	JPEG_YUV_FORMAT_YVYU = 1,
+	JPEG_YUV_FORMAT_NV12 = 2,
+	JEPG_YUV_FORMAT_NV21 = 3,
+};
+
+/**
+ * enum JPEG_ENCODE_QUALITY_ENUM - number of jpeg encoder quality
+ */
+enum JPEG_ENCODE_QUALITY_ENUM {
+	JPEG_ENCODE_QUALITY_Q60 = 0x0,
+	JPEG_ENCODE_QUALITY_Q80 = 0x1,
+	JPEG_ENCODE_QUALITY_Q90 = 0x2,
+	JPEG_ENCODE_QUALITY_Q95 = 0x3,
+	JPEG_ENCODE_QUALITY_Q39 = 0x4,
+	JPEG_ENCODE_QUALITY_Q68 = 0x5,
+	JPEG_ENCODE_QUALITY_Q84 = 0x6,
+	JPEG_ENCODE_QUALITY_Q92 = 0x7,
+	JPEG_ENCODE_QUALITY_Q48 = 0x8,
+	JPEG_ENCODE_QUALITY_Q74 = 0xA,
+	JPEG_ENCODE_QUALITY_Q87 = 0xB,
+	JPEG_ENCODE_QUALITY_Q34 = 0xC,
+	JPEG_ENCODE_QUALITY_Q64 = 0xE,
+	JPEG_ENCODE_QUALITY_Q82 = 0xF,
+	JPEG_ENCODE_QUALITY_Q97 = 0x10,
+	JPEG_ENCODE_QUALITY_ALL = 0xFFFFFFFF
 };
 
 /**
@@ -51,10 +89,12 @@ enum mtk_jpeg_ctx_state {
  * @v4l2_dev:		v4l2 device for mem2mem mode
  * @m2m_dev:		v4l2 mem2mem device data
  * @alloc_ctx:		videobuf2 memory allocator's context
- * @dec_vdev:		video device node for decoder mem2mem mode
- * @dec_reg_base:	JPEG registers mapping
- * @clk_jdec:		JPEG hw working clock
- * @clk_jdec_smi:	JPEG SMI bus clock
+ * @vfd_jpeg:		video device node for jpeg mem2mem mode
+ * @reg_base:		JPEG registers mapping
+ * @clk_jpeg:		JPEG hw working clock
+ * @clk_jpeg_smi:	JPEG SMI bus clock
+ * @larb:		SMI device
+ * @mode:		compression (encode) operation or decompression (decode)
  */
 struct mtk_jpeg_dev {
 	struct mutex		lock;
@@ -64,10 +104,12 @@ struct mtk_jpeg_dev {
 	struct v4l2_device	v4l2_dev;
 	struct v4l2_m2m_dev	*m2m_dev;
 	void			*alloc_ctx;
-	struct video_device	*dec_vdev;
-	void __iomem		*dec_reg_base;
-	struct clk		*clk_jdec;
-	struct clk		*clk_jdec_smi;
+	struct video_device	*vfd_jpeg;
+	void __iomem		*reg_base;
+	struct clk		*clk_jpeg;
+	struct clk		*clk_jpeg_smi;
+	struct device		*larb;
+	enum mtk_jpeg_mode  mode;
 };
 
 /**
@@ -108,14 +150,49 @@ struct mtk_jpeg_q_data {
 };
 
 /**
+ * jpeg_enc_param - parameters of jpeg encode control
+ * @enable_exif:	EXIF enable for jpeg encode mode
+ * @enc_quality:	destination image quality in encode mode
+ * @restart_interval:	JPEG restart interval for JPEG encoding
+ */
+struct jpeg_enc_param {
+	u32 enable_exif;
+	u32 enc_quality;
+	u32 restart_interval;
+};
+
+/**
+ * mtk_jpeg_enc_param:  General jpeg encoding parameters
+ * @enc_w:		image width
+ * @enc_h:		image height
+ * @enable_exif:	EXIF enable for jpeg encode mode
+ * @enc_quality:	destination image quality in encode mode
+ * @enc_format:		input image format
+ * @restart_interval:	JPEG restart interval for JPEG encoding
+ * @img_stride:		jpeg encoder image stride
+ * @mem_stride:		jpeg encoder memory stride
+ * @total_encdu:	total 8x8 block number
+ */
+struct mtk_jpeg_enc_param {
+	u32 enc_w;
+	u32 enc_h;
+	u32 enable_exif;
+	u32 enc_quality;
+	u32 enc_format;
+	u32 restart_interval;
+	u32 img_stride;
+	u32 mem_stride;
+	u32 total_encdu;
+};
+/**
  * mtk_jpeg_ctx - the device context data
  * @jpeg:		JPEG IP device for this context
  * @out_q:		source (output) queue information
  * @cap_q:		destination (capture) queue queue information
  * @fh:			V4L2 file handle
- * @dec_param		parameters for HW decoding
  * @state:		state of the context
- * @header_valid:	set if header has been parsed and valid
+ * @jpeg_param:		jpeg encode parameters
+ * @ctrl_hdl:		controls handler
  * @colorspace: enum v4l2_colorspace; supplemental to pixelformat
  * @ycbcr_enc: enum v4l2_ycbcr_encoding, Y'CbCr encoding
  * @quantization: enum v4l2_quantization, colorspace quantization
@@ -127,6 +204,8 @@ struct mtk_jpeg_ctx {
 	struct mtk_jpeg_q_data		cap_q;
 	struct v4l2_fh			fh;
 	enum mtk_jpeg_ctx_state		state;
+	struct jpeg_enc_param		jpeg_param;
+	struct v4l2_ctrl_handler	ctrl_hdl;
 
 	enum v4l2_colorspace colorspace;
 	enum v4l2_ycbcr_encoding ycbcr_enc;
