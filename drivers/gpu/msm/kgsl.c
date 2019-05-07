@@ -2662,6 +2662,12 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		return -ENOMEM;
 
 	attach = dma_buf_attach(dmabuf, device->dev);
+
+	if (IS_ERR(attach)) {
+		ret = PTR_ERR(attach);
+		goto out;
+	}
+
 	/*
 	 * If dma buffer is marked IO coherent, skip sync at attach,
 	 * which involves flushing the buffer on CPU.
@@ -2669,11 +2675,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	 */
 	if (entry->memdesc.flags & KGSL_MEMFLAGS_IOCOHERENT)
 		attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-
-	if (IS_ERR_OR_NULL(attach)) {
-		ret = attach ? PTR_ERR(attach) : -EINVAL;
-		goto out;
-	}
 
 	meta->dmabuf = dmabuf;
 	meta->attach = attach;
