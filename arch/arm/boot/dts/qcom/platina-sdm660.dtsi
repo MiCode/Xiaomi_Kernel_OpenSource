@@ -455,3 +455,7 @@
 		[00 04 08 0C 0F 12 14 15 16
 		16 15 14 12 0F 0C 08 04 00];
 };
+
+&ssc_sensors {
+	qcom,firmware-name = "adsp_d2t";
+};

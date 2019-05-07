@@ -436,7 +436,7 @@
 		iommus = <&lpass_q6_smmu 1>;
 	};
 
-	qcom,msm-adsp-loader {
+	ssc_sensors:qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
 	};
