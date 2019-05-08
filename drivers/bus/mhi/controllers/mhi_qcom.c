@@ -217,6 +217,7 @@ static int mhi_runtime_suspend(struct device *dev)
 
 	if (ret) {
 		MHI_LOG("Abort due to ret:%d\n", ret);
+		mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
 		goto exit_runtime_suspend;
 	}
 
