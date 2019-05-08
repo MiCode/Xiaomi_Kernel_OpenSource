@@ -138,6 +138,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda439")
 #define early_machine_is_sda429()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda429")
+#define early_machine_is_sdm429w()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm429w")
 #define early_machine_is_mdm9650()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9650")
 #define early_machine_is_qm215()	\
@@ -199,6 +201,7 @@
 #define early_machine_is_sdm429()	0
 #define early_machine_is_sda439()	0
 #define early_machine_is_sda429()	0
+#define early_machine_is_sdm429w()      0
 #define early_machine_is_mdm9650()     0
 #define early_machine_is_qm215()	0
 #define early_machine_is_sdm712()	0
@@ -283,6 +286,7 @@ enum msm_cpu {
 	MSM_CPU_SDM429,
 	MSM_CPU_SDA439,
 	MSM_CPU_SDA429,
+	MSM_CPU_SDM429W,
 	MSM_CPU_9650,
 	MSM_CPU_QM215,
 };
