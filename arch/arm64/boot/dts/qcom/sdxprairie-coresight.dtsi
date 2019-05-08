@@ -838,6 +838,7 @@
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-dcc";
+		qcom,hw-enable-check;
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
