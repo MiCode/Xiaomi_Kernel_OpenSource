@@ -742,9 +742,9 @@ struct inode *__ext4_new_inode(handle_t *handle, struct inode *dir,
 	if (!dir || !dir->i_nlink)
 		return ERR_PTR(-EPERM);
 
-	if ((ext4_encrypted_inode(dir) ||
+	if ((IS_ENCRYPTED(dir) ||
 	     DUMMY_ENCRYPTION_ENABLED(EXT4_SB(dir->i_sb))) &&
-	    (S_ISREG(mode) || S_ISDIR(mode) || S_ISLNK(mode))) {
+	     (S_ISREG(mode) || S_ISDIR(mode) || S_ISLNK(mode))) {
 		err = fscrypt_get_encryption_info(dir);
 		if (err)
 			return ERR_PTR(err);
