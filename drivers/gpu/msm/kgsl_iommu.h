@@ -47,6 +47,9 @@
 #define KGSL_IOMMU_SCTLR_CFCFG_SHIFT		7
 #define KGSL_IOMMU_SCTLR_CFIE_SHIFT		6
 
+/* FSR fields */
+#define KGSL_IOMMU_FSR_SS_SHIFT		30
+
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_SCTLR = 0,
 	KGSL_IOMMU_CTX_TTBR0,
