@@ -1578,6 +1578,34 @@
 			};
 		};
 
+		emac {
+			emac_pin_pps_0: emac_pin_pps_0 {
+				mux {
+					pins = "gpio106";
+					function = "emac_PPS0";
+				};
+
+				config {
+					pins = "gpio106";
+					drive-strength = <8>; /* 8 mA */
+					bias-disable; /* NO PULL*/
+				};
+			};
+
+			emac_pin_pps_1: emac_pin_pps_1 {
+					mux {
+						pins = "gpio95";
+						function = "emac_PPS1";
+					};
+
+					config {
+						pins = "gpio95";
+						drive-strength = <8>; /* 8 mA */
+						bias-disable; /* NO PULL*/
+					};
+			};
+		};
+
 		a2b_cdc_sel {
 			a2b_cdc_sel_default: a2b_cdc_sel_default {
 				mux {
