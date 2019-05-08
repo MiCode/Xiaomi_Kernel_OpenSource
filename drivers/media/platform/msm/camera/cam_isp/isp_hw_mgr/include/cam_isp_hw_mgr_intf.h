@@ -15,7 +15,11 @@
 /* MAX IFE instance */
 #define CAM_IFE_HW_NUM_MAX   7
 #define CAM_IFE_RDI_NUM_MAX  4
+#define CAM_ISP_BW_CONFIG_V1 1
+#define CAM_ISP_BW_CONFIG_V2 2
 
+/* Appliacble vote paths for dual ife, based on no. of UAPI definitions */
+#define CAM_ISP_MAX_PER_PATH_VOTES 30
 /**
  *  enum cam_isp_hw_event_type - Collection of the ISP hardware events
  */
@@ -79,6 +83,19 @@ struct cam_isp_start_args {
 };
 
 /**
+ * struct cam_isp_bw_config_internal_v2 - Bandwidth configuration
+ *
+ * @usage_type:                 ife hw index
+ * @num_paths:                  Number of data paths
+ * @axi_path                    per path vote info
+ */
+struct cam_isp_bw_config_internal_v2 {
+	uint32_t                       usage_type;
+	uint32_t                       num_paths;
+	struct cam_axi_per_path_bw_vote axi_path[1];
+};
+
+/**
  * struct cam_isp_bw_config_internal - Internal Bandwidth configuration
  *
  * @usage_type:                 Usage type (Single/Dual)
@@ -87,7 +104,6 @@ struct cam_isp_start_args {
  * @right_pix_vote:             Bandwidth vote for right ISP
  * @rdi_vote:                   RDI bandwidth requirements
  */
-
 struct cam_isp_bw_config_internal {
 	uint32_t                       usage_type;
 	uint32_t                       num_rdi;
@@ -102,15 +118,19 @@ struct cam_isp_bw_config_internal {
  * @packet_opcode_type:     Packet header opcode in the packet header
  *                          this opcode defines, packet is init packet or
  *                          update packet
+ * @bw_config_version:      BW config version indicator
  * @bw_config:              BW config information
+ * @bw_config_v2:           BW config info for AXI bw voting v2
  * @bw_config_valid:        Flag indicating whether the bw_config at the index
  *                          is valid or not
  *
  */
 struct cam_isp_prepare_hw_update_data {
-	uint32_t                          packet_opcode_type;
-	struct cam_isp_bw_config_internal bw_config[CAM_IFE_HW_NUM_MAX];
-	bool                              bw_config_valid[CAM_IFE_HW_NUM_MAX];
+	uint32_t                              packet_opcode_type;
+	uint32_t                              bw_config_version;
+	struct cam_isp_bw_config_internal     bw_config[CAM_IFE_HW_NUM_MAX];
+	struct cam_isp_bw_config_internal_v2 *bw_config_v2[CAM_IFE_HW_NUM_MAX];
+	bool                                bw_config_valid[CAM_IFE_HW_NUM_MAX];
 };
 
 

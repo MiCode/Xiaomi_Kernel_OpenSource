@@ -271,12 +271,21 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 	if (operation == true) {
 		if (!cdm_hw->open_count) {
 			struct cam_ahb_vote ahb_vote;
-			struct cam_axi_vote axi_vote;
+			struct cam_axi_vote axi_vote = {0};
 
 			ahb_vote.type = CAM_VOTE_ABSOLUTE;
 			ahb_vote.vote.level = CAM_SVS_VOTE;
-			axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-			axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+			axi_vote.num_paths = 1;
+			axi_vote.axi_path[0].path_data_type =
+				CAM_AXI_PATH_DATA_ALL;
+			axi_vote.axi_path[0].transac_type =
+				CAM_AXI_TRANSACTION_READ;
+			axi_vote.axi_path[0].camnoc_bw =
+				CAM_CPAS_DEFAULT_AXI_BW;
+			axi_vote.axi_path[0].mnoc_ab_bw =
+				CAM_CPAS_DEFAULT_AXI_BW;
+			axi_vote.axi_path[0].mnoc_ib_bw =
+				CAM_CPAS_DEFAULT_AXI_BW;
 
 			rc = cam_cpas_start(core->cpas_handle,
 				&ahb_vote, &axi_vote);

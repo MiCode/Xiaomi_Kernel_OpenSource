@@ -30,7 +30,7 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_jpeg_dma_device_core_info *core_info = NULL;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	int rc;
 
 	if (!device_priv) {
@@ -56,8 +56,18 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = JPEG_VOTE;
-	axi_vote.uncompressed_bw = JPEG_VOTE;
+	axi_vote.num_paths = 2;
+	axi_vote.axi_path[0].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_READ;
+	axi_vote.axi_path[0].camnoc_bw = JPEG_VOTE;
+	axi_vote.axi_path[0].mnoc_ab_bw = JPEG_VOTE;
+	axi_vote.axi_path[0].mnoc_ib_bw = JPEG_VOTE;
+	axi_vote.axi_path[1].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[1].transac_type = CAM_AXI_TRANSACTION_WRITE;
+	axi_vote.axi_path[1].camnoc_bw = JPEG_VOTE;
+	axi_vote.axi_path[1].mnoc_ab_bw = JPEG_VOTE;
+	axi_vote.axi_path[1].mnoc_ib_bw = JPEG_VOTE;
+
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&ahb_vote, &axi_vote);

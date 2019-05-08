@@ -139,13 +139,24 @@ int cam_fd_soc_enable_resources(struct cam_hw_soc_info *soc_info)
 {
 	struct cam_fd_soc_private *soc_private = soc_info->soc_private;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	int rc;
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = 7200000;
-	axi_vote.uncompressed_bw = 7200000;
+	axi_vote.num_paths = 2;
+	axi_vote.axi_path[0].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_READ;
+	axi_vote.axi_path[0].camnoc_bw = 7200000;
+	axi_vote.axi_path[0].mnoc_ab_bw = 7200000;
+	axi_vote.axi_path[0].mnoc_ib_bw = 7200000;
+	axi_vote.axi_path[1].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[1].transac_type = CAM_AXI_TRANSACTION_WRITE;
+	axi_vote.axi_path[1].camnoc_bw = 7200000;
+	axi_vote.axi_path[1].mnoc_ab_bw = 7200000;
+	axi_vote.axi_path[1].mnoc_ib_bw = 7200000;
+
+
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Error in CPAS START, rc=%d", rc);

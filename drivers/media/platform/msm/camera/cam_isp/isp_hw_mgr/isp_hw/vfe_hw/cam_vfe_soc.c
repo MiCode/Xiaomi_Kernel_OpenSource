@@ -219,7 +219,7 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	int                               rc = 0;
 	struct cam_vfe_soc_private       *soc_private;
 	struct cam_ahb_vote               ahb_vote;
-	struct cam_axi_vote               axi_vote;
+	struct cam_axi_vote               axi_vote = {0};
 
 	if (!soc_info) {
 		CAM_ERR(CAM_ISP, "Error! Invalid params");
@@ -230,9 +230,20 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	ahb_vote.type       = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
+	axi_vote.num_paths = 1;
+	if (strnstr(soc_info->compatible, "lite",
+		strlen(soc_info->compatible))) {
+		axi_vote.axi_path[0].path_data_type =
+			CAM_AXI_PATH_DATA_IFE_RDI1;
+	} else {
+		axi_vote.axi_path[0].path_data_type =
+			CAM_AXI_PATH_DATA_IFE_VID;
+	}
 
-	axi_vote.compressed_bw   = 10640000000L;
-	axi_vote.uncompressed_bw = 10640000000L;
+	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_WRITE;
+	axi_vote.axi_path[0].camnoc_bw = 10640000000L;
+	axi_vote.axi_path[0].mnoc_ab_bw = 10640000000L;
+	axi_vote.axi_path[0].mnoc_ib_bw = 10640000000L;
 
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
