@@ -51,7 +51,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/oom.h>
 
-int sysctl_panic_on_oom;
+int sysctl_panic_on_oom =
+IS_ENABLED(CONFIG_DEBUG_PANIC_ON_OOM) ? 2 : 0;
 int sysctl_oom_kill_allocating_task;
 int sysctl_oom_dump_tasks = 1;
 int sysctl_reap_mem_on_sigkill;
