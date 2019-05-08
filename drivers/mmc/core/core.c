@@ -543,7 +543,6 @@ out:
 int mmc_init_clk_scaling(struct mmc_host *host)
 {
 	int err;
-	struct devfreq *devfreq;
 
 	if (!host || !host->card) {
 		pr_err("%s: unexpected host/card parameters\n",
@@ -594,34 +593,22 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 		return err;
 	}
 
-	dev_pm_opp_add(mmc_classdev(host),
-		host->clk_scaling.devfreq_profile.freq_table[0], 0);
-	dev_pm_opp_add(mmc_classdev(host),
-		host->clk_scaling.devfreq_profile.freq_table[1], 0);
-
 	pr_debug("%s: adding devfreq with: upthreshold=%u downthreshold=%u polling=%u\n",
 		mmc_hostname(host),
 		host->clk_scaling.ondemand_gov_data.upthreshold,
 		host->clk_scaling.ondemand_gov_data.downdifferential,
 		host->clk_scaling.devfreq_profile.polling_ms);
-
-	devfreq = devfreq_add_device(
+	host->clk_scaling.devfreq = devfreq_add_device(
 		mmc_classdev(host),
 		&host->clk_scaling.devfreq_profile,
 		"simple_ondemand",
 		&host->clk_scaling.ondemand_gov_data);
-
-	if (IS_ERR(devfreq)) {
+	if (!host->clk_scaling.devfreq) {
 		pr_err("%s: unable to register with devfreq\n",
 			mmc_hostname(host));
-		dev_pm_opp_remove(mmc_classdev(host),
-			host->clk_scaling.devfreq_profile.freq_table[0]);
-		dev_pm_opp_remove(mmc_classdev(host),
-			host->clk_scaling.devfreq_profile.freq_table[1]);
-		return PTR_ERR(devfreq);
+		return -EPERM;
 	}
 
-	host->clk_scaling.devfreq = devfreq;
 	pr_debug("%s: clk scaling is enabled for device %s (%pK) with devfreq %pK (clock = %uHz)\n",
 		mmc_hostname(host),
 		dev_name(mmc_classdev(host)),
@@ -778,11 +765,6 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 			mmc_hostname(host), err);
 		return err;
 	}
-
-	dev_pm_opp_remove(mmc_classdev(host),
-		host->clk_scaling.devfreq_profile.freq_table[0]);
-	dev_pm_opp_remove(mmc_classdev(host),
-		host->clk_scaling.devfreq_profile.freq_table[1]);
 
 	kfree(host->clk_scaling.devfreq_profile.freq_table);
 
@@ -1806,13 +1788,12 @@ int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
 	unsigned long flags;
 	int retry_cnt = delay_ms/10;
 	bool pm = false;
-	struct task_struct *task = current;
 
 	do {
 		spin_lock_irqsave(&host->lock, flags);
-		if (!host->claimed || mmc_ctx_matches(host, NULL, task)) {
+		if (!host->claimed || host->claimer->task == current) {
 			host->claimed = 1;
-			mmc_ctx_set_claimer(host, NULL, task);
+			host->claimer->task = current;
 			host->claim_cnt += 1;
 			claimed_host = 1;
 			if (host->claim_cnt == 1)
@@ -2574,23 +2555,18 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
 	 * During a signal voltage level switch, the clock must be gated
 	 * for 5 ms according to the SD spec
 	 */
-	host->card_clock_off = true;
 	clock = host->ios.clock;
 	host->ios.clock = 0;
 	mmc_set_ios(host);
 
-	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180)) {
-		host->ios.clock = clock;
-		mmc_set_ios(host);
-		host->card_clock_off = false;
+	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180))
 		return -EAGAIN;
-	}
 
 	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
 	mmc_delay(10);
 	host->ios.clock = clock;
 	mmc_set_ios(host);
-	host->card_clock_off = false;
+
 	return 0;
 }
 
@@ -2598,6 +2574,7 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 {
 	struct mmc_command cmd = {};
 	int err = 0;
+	u32 clock;
 
 	/*
 	 * If we cannot switch voltages, return failure so the caller
@@ -2635,16 +2612,33 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 		err = -EAGAIN;
 		goto power_cycle;
 	}
+	/*
+	 * During a signal voltage level switch, the clock must be gated
+	 * for 5 ms according to the SD spec
+	 */
+	host->card_clock_off = true;
+	clock = host->ios.clock;
+	host->ios.clock = 0;
+	mmc_set_ios(host);
 
-	if (mmc_host_set_uhs_voltage(host)) {
+	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180)) {
 		/*
 		 * Voltages may not have been switched, but we've already
 		 * sent CMD11, so a power cycle is required anyway
 		 */
 		err = -EAGAIN;
+		host->ios.clock = clock;
+		mmc_set_ios(host);
+		host->card_clock_off = false;
 		goto power_cycle;
 	}
 
+	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
+	mmc_delay(10);
+	host->ios.clock = clock;
+	mmc_set_ios(host);
+
+	host->card_clock_off = false;
 	/* Wait for at least 1 ms according to spec */
 	mmc_delay(1);
 
