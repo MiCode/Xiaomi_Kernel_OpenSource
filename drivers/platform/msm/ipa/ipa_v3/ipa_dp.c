@@ -3042,6 +3042,13 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 		return NULL;
 	}
 
+	/*Assesrt when WAN consumer channel receive EOB event*/
+	if (notify->evt_id == GSI_CHAN_EVT_EOB &&
+		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+		IPAERR("EOB event received on WAN consumer channel\n");
+		ipa_assert();
+	}
+
 	head = &rx_pkt->sys->pending_pkts[notify->veid];
 
 	INIT_LIST_HEAD(&rx_pkt->link);
