@@ -1043,6 +1043,9 @@ static int diag_process_ss_diag_cmd(unsigned char *buf, int len, int pid)
 {
 	int ret = 0, write_len = 0, i;
 
+	if (len < (2 * sizeof(uint8_t) + sizeof(uint16_t)))
+		return 0;
+
 	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
 	case DIAG_DIAG_MAX_PKT_SZ:
 		/*
@@ -1112,6 +1115,9 @@ static int diag_process_ss_diag_params(unsigned char *buf, int len, int pid)
 {
 	int write_len = 0, i;
 
+	if (len < (2 * sizeof(uint8_t) + sizeof(uint16_t)))
+		return 0;
+
 	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
 	case DIAG_DIAG_POLL:
 		/* Check for polling for Apps only DIAG */
@@ -1163,7 +1169,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	struct diagfwd_info *fwd_info = NULL;
 	struct diag_md_session_t *info = NULL;
 
-	if (!buf)
+	if (!buf || len <= 0)
 		return -EIO;
 
 	/* Check if the command is a supported mask command */
@@ -1174,18 +1180,33 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	}
 
 	temp = buf;
-	entry.cmd_code = (uint16_t)(*(uint8_t *)temp);
-	temp += sizeof(uint8_t);
-	entry.subsys_id = (uint16_t)(*(uint8_t *)temp);
-	temp += sizeof(uint8_t);
-	entry.cmd_code_hi = (uint16_t)(*(uint16_t *)temp);
-	entry.cmd_code_lo = (uint16_t)(*(uint16_t *)temp);
-	temp += sizeof(uint16_t);
+	if (len >= sizeof(uint8_t)) {
+		entry.cmd_code = (uint16_t)(*(uint8_t *)temp);
+		DIAG_LOG(DIAG_DEBUG_CMD_INFO,
+			"diag: received cmd_code %02x\n", entry.cmd_code);
+	}
+	if (len >= (2 * sizeof(uint8_t))) {
+		temp += sizeof(uint8_t);
+		entry.subsys_id = (uint16_t)(*(uint8_t *)temp);
+		DIAG_LOG(DIAG_DEBUG_CMD_INFO,
+			"diag: received subsys_id %02x\n", entry.subsys_id);
+	}
+	if (len == (3 * sizeof(uint8_t))) {
+		temp += sizeof(uint8_t);
+		entry.cmd_code_hi = (uint16_t)(*(uint8_t *)temp);
+		entry.cmd_code_lo = (uint16_t)(*(uint8_t *)temp);
+		DIAG_LOG(DIAG_DEBUG_CMD_INFO,
+			"diag: received cmd_code_hi %02x\n", entry.cmd_code_hi);
+	} else if (len >= (2 * sizeof(uint8_t)) + sizeof(uint16_t)) {
+		temp += sizeof(uint8_t);
+		entry.cmd_code_hi = (uint16_t)(*(uint16_t *)temp);
+		entry.cmd_code_lo = (uint16_t)(*(uint16_t *)temp);
+		DIAG_LOG(DIAG_DEBUG_CMD_INFO,
+			"diag: received cmd_code_hi %02x\n", entry.cmd_code_hi);
+	}
 
-	DIAG_LOG(DIAG_DEBUG_CMD_INFO, "diag: received cmd %02x %02x %02x\n",
-		 entry.cmd_code, entry.subsys_id, entry.cmd_code_hi);
-
-	if (*buf == DIAG_CMD_LOG_ON_DMND && driver->log_on_demand_support &&
+	if ((len >= sizeof(uint8_t)) && *buf == DIAG_CMD_LOG_ON_DMND &&
+		driver->log_on_demand_support &&
 	    driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask) {
 		write_len = diag_cmd_log_on_demand(buf, len,
 						   driver->apps_rsp_buf,
@@ -1226,10 +1247,12 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	mutex_unlock(&driver->cmd_reg_mutex);
 
 #if defined(CONFIG_DIAG_OVER_USB)
-	if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+	if ((len >= 2 * sizeof(uint8_t)) &&
+		(*buf == DIAG_CMD_DIAG_SUBSYS) &&
 			(*(buf+1) == DIAG_SS_DIAG)) {
 		return diag_process_ss_diag_cmd(buf, len, pid);
-	} else if ((chk_apps_master()) && (*buf == 0x3A)) {
+	} else if ((len >= sizeof(uint8_t)) && (chk_apps_master()) &&
+			(*buf == 0x3A)) {
 		/* Check for download command */
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
@@ -1241,7 +1264,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		kernel_restart(NULL);
 		/* Not required, represents that command isn't sent to modem */
 		return 0;
-	} else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+	} else if ((len >= 2 * sizeof(uint8_t)) &&
+			(*buf == DIAG_CMD_DIAG_SUBSYS) &&
 			(*(buf+1) == DIAG_SS_PARAMS)) {
 		return diag_process_ss_diag_params(buf, len, pid);
 	}
@@ -1257,7 +1281,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		 !(driver->diagfwd_cntl[PERIPHERAL_MODEM]->ch_open) &&
 		 !(driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask)) {
 		/* respond to 0x0 command */
-		if (*buf == 0x00) {
+		if ((len >= sizeof(uint8_t)) && *buf == 0x00) {
 			for (i = 0; i < 55; i++)
 				driver->apps_rsp_buf[i] = 0;
 
@@ -1265,7 +1289,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 			return 0;
 		}
 		/* respond to 0x7c command */
-		else if (*buf == 0x7c) {
+		else if ((len >= sizeof(uint8_t)) && *buf == 0x7c) {
 			driver->apps_rsp_buf[0] = 0x7c;
 			for (i = 1; i < 8; i++)
 				driver->apps_rsp_buf[i] = 0;
