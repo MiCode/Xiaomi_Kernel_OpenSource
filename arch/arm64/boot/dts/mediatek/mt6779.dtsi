@@ -457,4 +457,9 @@
 		};
 	};
 
+	odm: odm {
+		compatible = "simple-bus";
+		/* reserved for overlay by odm */
+	};
+
 };
