@@ -33,6 +33,33 @@
 	status = "ok";
 };
 
+&pcie1 {
+	status = "disable";
+};
+
+&soc {
+	clk40M: can_clock {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <40000000>;
+	};
+};
+
+&qupv3_se0_spi {
+	status = "ok";
+	can@0 {
+		compatible = "microchip,mcp2517fd";
+		reg = <0>;
+		clocks = <&clk40M>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <104 0>;
+		interrupt-names = "can_irq";
+		spi-max-frequency = <10000000>;
+		gpio-controller;
+		status = "okay";
+	};
+};
+
 &qupv3_se3_i2c {
 	status = "disabled";
 };
