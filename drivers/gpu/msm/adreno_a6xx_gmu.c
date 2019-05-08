@@ -1438,27 +1438,31 @@ struct gmu_mem_type_desc {
 static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_gmu *header = (struct kgsl_snapshot_gmu *)buf;
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
 	struct gmu_mem_type_desc *desc = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
 
 	if (priv == NULL)
 		return 0;
 
-	if (remain < desc->memdesc->size + sizeof(*header)) {
+	if (remain < desc->memdesc->size + sizeof(*mem_hdr)) {
 		KGSL_CORE_ERR(
 			"snapshot: Not enough memory for the gmu section %d\n",
 			desc->type);
 		return 0;
 	}
 
-	header->type = desc->type;
-	header->size = desc->memdesc->size;
+	memset(mem_hdr, 0, sizeof(*mem_hdr));
+	mem_hdr->type = desc->type;
+	mem_hdr->hostaddr = (uintptr_t)desc->memdesc->hostptr;
+	mem_hdr->gmuaddr = desc->memdesc->gmuaddr;
+	mem_hdr->gpuaddr = 0;
 
 	/* Just copy the ringbuffer, there are no active IBs */
 	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
 
-	return desc->memdesc->size + sizeof(*header);
+	return desc->memdesc->size + sizeof(*mem_hdr);
 }
 
 /*
@@ -1476,9 +1480,9 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	bool gx_on;
 	struct gmu_mem_type_desc desc[] = {
-		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
-		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
-		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
+		{gmu->hfi_mem, SNAPSHOT_GMU_MEM_HFI},
+		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
+		{gmu->dump_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK} };
 	unsigned int val, i;
 
 	if (!gmu_core_isenabled(device))
@@ -1487,7 +1491,7 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	for (i = 0; i < ARRAY_SIZE(desc); i++) {
 		if (desc[i].memdesc)
 			kgsl_snapshot_add_section(device,
-					KGSL_SNAPSHOT_SECTION_GMU,
+					KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
 					snapshot, a6xx_snapshot_gmu_mem,
 					&desc[i]);
 	}
