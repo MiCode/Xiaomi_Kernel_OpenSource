@@ -167,6 +167,7 @@ struct adc_chip {
 	bool			skip_usb_wa;
 	struct pmic_revid_data	*pmic_rev_id;
 	const struct adc_data	*data;
+	int			adc_irq;
 };
 
 static const struct vadc_prescale_ratio adc_prescale_ratios[] = {
@@ -992,7 +993,7 @@ static int adc_probe(struct platform_device *pdev)
 	struct adc_chip *adc;
 	struct regmap *regmap;
 	const __be32 *prop_addr;
-	int ret, irq_eoc;
+	int ret;
 	u32 reg;
 	bool skip_usb_wa = false;
 
@@ -1024,6 +1025,7 @@ static int adc_probe(struct platform_device *pdev)
 	adc->regmap = regmap;
 	adc->dev = dev;
 	adc->pmic_rev_id = pmic_rev_id;
+	dev_set_drvdata(&pdev->dev, adc);
 
 	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
 	if (!prop_addr) {
@@ -1049,13 +1051,13 @@ static int adc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	irq_eoc = platform_get_irq(pdev, 0);
-	if (irq_eoc < 0) {
-		if (irq_eoc == -EPROBE_DEFER || irq_eoc == -EINVAL)
-			return irq_eoc;
+	adc->adc_irq = platform_get_irq(pdev, 0);
+	if (adc->adc_irq < 0) {
+		if (adc->adc_irq == -EPROBE_DEFER || adc->adc_irq == -EINVAL)
+			return adc->adc_irq;
 		adc->poll_eoc = true;
 	} else {
-		ret = devm_request_irq(dev, irq_eoc, adc_isr, 0,
+		ret = devm_request_irq(dev, adc->adc_irq, adc_isr, 0,
 				       "pm-adc5", adc);
 		if (ret)
 			return ret;
@@ -1072,10 +1074,45 @@ static int adc_probe(struct platform_device *pdev)
 	return devm_iio_device_register(dev, indio_dev);
 }
 
+static int adc_restore(struct device *dev)
+{
+	int ret = 0;
+	struct adc_chip *adc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (adc->adc_irq > 0) {
+		ret = devm_request_irq(dev, adc->adc_irq, adc_isr, 0,
+				       "pm-adc5", adc);
+		if (ret)
+			return ret;
+	}
+
+	return ret;
+}
+
+static int adc_freeze(struct device *dev)
+{
+	struct adc_chip *adc = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (adc->adc_irq > 0)
+		devm_free_irq(dev, adc->adc_irq, adc);
+
+	return 0;
+}
+
+static const struct dev_pm_ops adc_pm_ops = {
+	.freeze = adc_freeze,
+	.restore = adc_restore,
+};
+
 static struct platform_driver adc_driver = {
 	.driver = {
 		.name = "qcom-spmi-adc5.c",
 		.of_match_table = adc_match_table,
+		.pm = &adc_pm_ops,
 	},
 	.probe = adc_probe,
 };

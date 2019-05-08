@@ -1908,7 +1908,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 		break;
 	}
 
-
+	uport->status  &= ~(UPSTAT_AUTOCTS);
 	/* stop bits */
 	if (termios->c_cflag & CSTOPB)
 		stop_bit_len = TX_STOP_BIT_LEN_2;
@@ -1916,8 +1916,10 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 		stop_bit_len = TX_STOP_BIT_LEN_1;
 
 	/* flow control, clear the CTS_MASK bit if using flow control. */
-	if (termios->c_cflag & CRTSCTS)
+	if (termios->c_cflag & CRTSCTS) {
 		tx_trans_cfg &= ~UART_CTS_MASK;
+		uport->status |= UPSTAT_AUTOCTS;
+	}
 	else
 		tx_trans_cfg |= UART_CTS_MASK;
 	/* status bits to ignore */
@@ -2687,6 +2689,28 @@ static int msm_geni_serial_sys_resume_noirq(struct device *dev)
 	}
 	return 0;
 }
+
+static int msm_geni_serial_sys_hib_resume_noirq(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
+	struct uart_port *uport = &port->uport;
+	unsigned long cfg0, cfg1;
+
+	if (uart_console(uport) &&
+	    console_suspend_enabled && uport->suspended) {
+		uart_resume_port((struct uart_driver *)uport->private_data,
+									uport);
+		dev_dbg(dev, "%s\n", __func__);
+		se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+		geni_write_reg_nolog(cfg0, uport->membase,
+					SE_GENI_TX_PACKING_CFG0);
+		geni_write_reg_nolog(cfg1, uport->membase,
+					SE_GENI_TX_PACKING_CFG1);
+		disable_irq(uport->irq);
+	}
+	return 0;
+}
 #else
 static int msm_geni_serial_runtime_suspend(struct device *dev)
 {
@@ -2707,6 +2731,11 @@ static int msm_geni_serial_sys_resume_noirq(struct device *dev)
 {
 	return 0;
 }
+
+static int msm_geni_serial_sys_hib_resume_noirq(struct device *dev)
+{
+	return 0;
+}
 #endif
 
 static const struct dev_pm_ops msm_geni_serial_pm_ops = {
@@ -2714,6 +2743,8 @@ static const struct dev_pm_ops msm_geni_serial_pm_ops = {
 	.runtime_resume = msm_geni_serial_runtime_resume,
 	.suspend_noirq = msm_geni_serial_sys_suspend_noirq,
 	.resume_noirq = msm_geni_serial_sys_resume_noirq,
+	.freeze = msm_geni_serial_sys_suspend_noirq,
+	.restore = msm_geni_serial_sys_hib_resume_noirq,
 };
 
 static struct platform_driver msm_geni_serial_platform_driver = {

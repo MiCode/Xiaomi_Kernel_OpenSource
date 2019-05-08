@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,6 +281,9 @@ int rmnet_ipa3_send_lan_client_msg(struct wan_ioctl_send_lan_client_msg *data);
 int rmnet_ipa3_enable_per_client_stats(bool *data);
 
 int rmnet_ipa3_query_per_client_stats(
+	struct wan_ioctl_query_per_client_stats *data);
+
+int rmnet_ipa3_query_per_client_stats_v2(
 	struct wan_ioctl_query_per_client_stats *data);
 
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,

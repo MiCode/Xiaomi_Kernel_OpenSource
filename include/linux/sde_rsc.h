@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,6 +265,14 @@ bool is_sde_rsc_available(int rsc_index);
  */
 enum sde_rsc_state get_sde_rsc_current_state(int rsc_index);
 
+/**
+ * get_sde_rsc_primary_crtc - gets the primary crtc for the sde rsc.
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Returns: crtc id of primary crtc ; 0 for all other cases.
+ */
+int get_sde_rsc_primary_crtc(int rsc_index);
+
 #else
 
 static inline struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index,
@@ -328,6 +336,11 @@ static inline bool is_sde_rsc_available(int rsc_index)
 static inline enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
 {
 	return SDE_RSC_IDLE_STATE;
+}
+
+static inline int get_sde_rsc_primary_crtc(int rsc_index)
+{
+	return 0;
 }
 #endif /* CONFIG_DRM_SDE_RSC */
 

@@ -39,6 +39,8 @@
  */
 enum sde_hdcp_2x_wakeup_cmd {
 	HDCP_2X_CMD_INVALID,
+	HDCP_2X_CMD_ENABLE,
+	HDCP_2X_CMD_DISABLE,
 	HDCP_2X_CMD_START,
 	HDCP_2X_CMD_START_AUTH,
 	HDCP_2X_CMD_STOP,
@@ -93,6 +95,7 @@ enum sde_hdcp_2x_device_type {
  */
 struct sde_hdcp_2x_wakeup_data {
 	enum sde_hdcp_2x_wakeup_cmd cmd;
+	enum sde_hdcp_2x_device_type device_type;
 	void *context;
 	uint32_t total_message_length;
 	uint32_t timeout;

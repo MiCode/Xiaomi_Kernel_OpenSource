@@ -96,6 +96,7 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 endif
 
 dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
+	sa8155-vm-lv.dtb \
 	sa6155p-vm.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

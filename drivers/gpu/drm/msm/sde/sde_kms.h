@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -273,6 +273,7 @@ struct sde_kms {
 	struct mutex secure_transition_lock;
 
 	bool first_kickoff;
+	bool qdss_enabled;
 };
 
 struct vsync_info {
