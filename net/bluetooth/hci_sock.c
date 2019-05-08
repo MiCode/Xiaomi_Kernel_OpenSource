@@ -558,13 +558,12 @@ static int hci_sock_release(struct socket *sock)
 	if (!sk)
 		return 0;
 
-	hdev = hci_pi(sk)->hdev;
-
 	if (hci_pi(sk)->channel == HCI_CHANNEL_MONITOR)
 		atomic_dec(&monitor_promisc);
 
 	bt_sock_unlink(&hci_sk_list, sk);
 
+	hdev = hci_pi(sk)->hdev;
 	if (hdev) {
 		if (hci_pi(sk)->channel == HCI_CHANNEL_USER) {
 			/* When releasing an user channel exclusive access,
