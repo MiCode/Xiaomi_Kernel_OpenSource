@@ -2038,46 +2038,74 @@ void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv)
 
 int cnss_pci_pm_request_resume(struct cnss_pci_data *pci_priv)
 {
-	struct pci_dev *pci_dev;
+	struct device *dev;
+	enum rpm_status status;
 
 	if (!pci_priv)
 		return -ENODEV;
 
-	pci_dev = pci_priv->pci_dev;
-	if (!pci_dev)
-		return -ENODEV;
+	dev = &pci_priv->pci_dev->dev;
 
-	return pm_request_resume(&pci_dev->dev);
+	status = dev->power.runtime_status;
+	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
+		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
+			     (void *)_RET_IP_);
+
+	return pm_request_resume(dev);
 }
 
 int cnss_pci_pm_runtime_resume(struct cnss_pci_data *pci_priv)
 {
-	struct pci_dev *pci_dev;
+	struct device *dev;
+	enum rpm_status status;
 
 	if (!pci_priv)
 		return -ENODEV;
 
-	pci_dev = pci_priv->pci_dev;
-	if (!pci_dev)
-		return -ENODEV;
+	dev = &pci_priv->pci_dev->dev;
 
-	return pm_runtime_resume(&pci_dev->dev);
+	status = dev->power.runtime_status;
+	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
+		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
+			     (void *)_RET_IP_);
+
+	return pm_runtime_resume(dev);
 }
 
 int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+	enum rpm_status status;
+
 	if (!pci_priv)
 		return -ENODEV;
 
-	return pm_runtime_get(&pci_priv->pci_dev->dev);
+	dev = &pci_priv->pci_dev->dev;
+
+	status = dev->power.runtime_status;
+	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
+		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
+			     (void *)_RET_IP_);
+
+	return pm_runtime_get(dev);
 }
 
 int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv)
 {
+	struct device *dev;
+	enum rpm_status status;
+
 	if (!pci_priv)
 		return -ENODEV;
 
-	return pm_runtime_get_sync(&pci_priv->pci_dev->dev);
+	dev = &pci_priv->pci_dev->dev;
+
+	status = dev->power.runtime_status;
+	if (status == RPM_SUSPENDING || status == RPM_SUSPENDED)
+		cnss_pr_vdbg("Runtime PM resume is requested by %ps\n",
+			     (void *)_RET_IP_);
+
+	return pm_runtime_get_sync(dev);
 }
 
 void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
