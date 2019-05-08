@@ -18,7 +18,7 @@
 	model = "Qualcomm Technologies, Inc. sda845 v2.1 TurboX-SOM_V01";
 	compatible = "qcom,sda845-mtp", "qcom,sda845", "qcom,mtp";
 	qcom,msm-id = <341 0x20001>;
-	qcom,board-id = <8 0>;
+	qcom,board-id = <8 7>;
 	aliases {
 		spi0 = &qupv3_se5_spi;
 	};
