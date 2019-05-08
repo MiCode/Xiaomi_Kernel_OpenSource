@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,9 @@
 #define KGSL_IOMMU_SCTLR_HUPCF_SHIFT		8
 #define KGSL_IOMMU_SCTLR_CFCFG_SHIFT		7
 #define KGSL_IOMMU_SCTLR_CFIE_SHIFT		6
+
+/* FSR fields */
+#define KGSL_IOMMU_FSR_SS_SHIFT		30
 
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_SCTLR = 0,
