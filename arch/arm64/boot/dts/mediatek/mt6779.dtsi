@@ -224,14 +224,20 @@
 			      <0 0x11e70000 0 0x1000>,
 			      <0 0x11ea0000 0 0x1000>,
 			      <0 0x11f20000 0 0x1000>,
-			      <0 0x11f30000 0 0x1000>;
+			      <0 0x11f30000 0 0x1000>,
+			      <0 0x1000b000 0 0x1000>;
 			reg-names = "gpio", "iocfg_rm",
 				"iocfg_br", "iocfg_lm",
 				"iocfg_lb", "iocfg_rt",
-				"iocfg_lt", "iocfg_tl";
+				"iocfg_lt", "iocfg_tl",
+				"eint";
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&pio 0 0 209>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
 		};
 
 		apmixed: clock-controller@1000c000 {
