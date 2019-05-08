@@ -2812,8 +2812,10 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 		chan->session[idx].smmu.faults = 0;
 	} else {
 		VERIFY(err, me->dev != NULL);
-		if (err)
+		if (err) {
+			err = -ECONNREFUSED;
 			goto bail;
+		}
 		chan->session[0].dev = me->dev;
 		chan->session[0].smmu.dev = me->dev;
 	}
@@ -3402,8 +3404,8 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		fl->cid = cid;
 		fl->ssrcount = fl->apps->channel[cid].ssrcount;
 		mutex_lock(&fl->apps->channel[cid].smd_mutex);
-		VERIFY(err, !fastrpc_session_alloc_locked(
-				&fl->apps->channel[cid], 0, &fl->sctx));
+		VERIFY(err, 0 == (err = fastrpc_session_alloc_locked(
+				&fl->apps->channel[cid], 0, &fl->sctx)));
 		mutex_unlock(&fl->apps->channel[cid].smd_mutex);
 		if (err)
 			goto bail;
