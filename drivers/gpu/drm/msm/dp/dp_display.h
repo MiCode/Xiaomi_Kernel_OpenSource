@@ -76,6 +76,8 @@ struct dp_display {
 	bool is_sst_connected;
 	bool is_mst_supported;
 	u32 max_pclk_khz;
+	u32 max_hdisplay;
+	u32 max_vdisplay;
 	void *dp_mst_prv_info;
 
 	int (*enable)(struct dp_display *dp_display, void *panel);
