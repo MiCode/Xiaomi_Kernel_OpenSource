@@ -138,3 +138,6 @@ kernel/configs/android-*.cfg
 
 # vendor device tree directories
 arch/arm64/boot/dts/vendor/
+
+# Tech package directories
+techpack/
