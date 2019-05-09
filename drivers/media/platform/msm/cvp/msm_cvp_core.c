@@ -140,7 +140,6 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	INIT_MSM_CVP_LIST(&inst->freqs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->registeredbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 
@@ -222,7 +221,6 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
 	kfree(inst);
@@ -307,7 +305,6 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
 	mutex_destroy(&inst->sync_lock);
