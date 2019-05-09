@@ -1084,6 +1084,8 @@ static void dp_catalog_ctrl_usb_reset(struct dp_catalog_ctrl *ctrl, bool flip)
 
 	dp_write(catalog->exe_mode, io_data, USB3_DP_COM_RESET_OVRD_CTRL, 0x0a);
 	dp_write(catalog->exe_mode, io_data, USB3_DP_COM_PHY_MODE_CTRL, 0x02);
+	pr_debug("Program PHYMODE to DP only\n");
+
 	dp_write(catalog->exe_mode, io_data, USB3_DP_COM_SW_RESET, 0x01);
 	/* make sure usb3 com phy software reset is done */
 	wmb();
