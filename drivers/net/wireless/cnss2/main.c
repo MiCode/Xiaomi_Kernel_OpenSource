@@ -432,11 +432,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 		cnss_request_antenna_sharing(plat_priv);
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    CNSS_CALIBRATION);
-	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-		   test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
-		ret = cnss_bus_call_driver_probe(plat_priv);
 	} else {
-		complete(&plat_priv->power_up_complete);
+		ret = cnss_bus_call_driver_probe(plat_priv);
 	}
 
 	if (ret && test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state))
@@ -637,6 +634,18 @@ int cnss_power_down(struct device *dev)
 				      CNSS_EVENT_SYNC, NULL);
 }
 EXPORT_SYMBOL(cnss_power_down);
+
+int cnss_idle_restart(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_restart);
+
+int cnss_idle_shutdown(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_shutdown);
 
 static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 {
