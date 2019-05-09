@@ -2418,6 +2418,7 @@ enable_reg:
 	if (!pd->vbus) {
 		pd->vbus = devm_regulator_get(pd->dev.parent, "vbus");
 		if (IS_ERR(pd->vbus)) {
+			pd->vbus = NULL;
 			usbpd_err(&pd->dev, "Unable to get vbus\n");
 			return -EAGAIN;
 		}
