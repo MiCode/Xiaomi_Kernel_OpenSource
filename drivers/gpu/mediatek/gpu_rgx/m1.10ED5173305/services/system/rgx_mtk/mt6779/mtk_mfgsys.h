@@ -25,6 +25,21 @@
 #define MTCMOS_CONTROL 1
 #else
 #define MTK_PM_SUPPORT 0
+
+struct g_clk_info {
+	struct clk *clk_mux;/* main clock for mfg setting*/
+	struct clk *clk_main_parent;/* sub clock for mfg trans mux setting*/
+	struct clk *clk_sub_parent; /* sub clock for mfg trans parent setting*/
+	struct clk *cg_bg3d;/* main clock for mfg setting*/
+};
+
+extern struct platform_device *gpsPVRCfgDev;
+
+enum g_clock_source_enum  {
+	CLOCK_MAIN = 0,
+	CLOCK_SUB,
+};
+
 #endif
 
 

@@ -197,7 +197,6 @@ static void MTKWriteBackFreqToRGX(PVRSRV_DEVICE_NODE *psDevNode,
 	psRGXData->psRGXTimingInfo->ui32CoreClockSpeed = ui32NewFreq * 1000;
 }
 
-
 #ifndef MTK_BRINGUP
 #define MTKCLK_prepare_enable(clk) \
 	do { \
@@ -224,6 +223,89 @@ static void MTKWriteBackFreqToRGX(PVRSRV_DEVICE_NODE *psDevNode,
 #define MTKCLK_disable_unprepare(clk)
 
 #define MTKCLK_set_parent(clkC, clkP)
+
+static struct g_clk_info *g_clk;
+
+static void mtgpufreq_clk_init(void)
+{
+	g_clk = kzalloc(sizeof(struct g_clk_info), GFP_KERNEL);
+
+	if (g_clk == NULL)
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: failed: %d", __func__, -ENOMEM)));
+
+	if (gpsPVRCfgDev == NULL)
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: failed: %d", __func__, -ENODEV)));
+
+	g_clk->clk_mux = devm_clk_get(&gpsPVRCfgDev->dev, "clk_mux");
+	if (IS_ERR(g_clk->clk_mux)) {
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: cannot get clk_mux",
+			__func__)));
+	}
+
+	g_clk->clk_main_parent
+		= devm_clk_get(&gpsPVRCfgDev->dev, "clk_main_parent");
+	if (IS_ERR(g_clk->clk_main_parent)) {
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: cannot get clk_main_parent",
+			__func__)));
+	}
+
+	g_clk->clk_sub_parent
+		= devm_clk_get(&gpsPVRCfgDev->dev, "clk_sub_parent");
+	if (IS_ERR(g_clk->clk_sub_parent)) {
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: cannot get clk_sub_parent",
+			__func__)));
+	}
+
+	g_clk->cg_bg3d = devm_clk_get(&gpsPVRCfgDev->dev, "cg_bg3d");
+	if (IS_ERR(g_clk->cg_bg3d)) {
+		PVR_DPF((PVR_DBG_ERROR,
+			"%s: cannot get cg_bg3d",
+			__func__)));
+	}
+
+	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
+		__func__, g_clk->clk_mux);
+	pr_info("clk_sub_parent is at 0x%p, ", g_clk->clk_sub_parent);
+	pr_info("clk_main_parent is at 0x%p, ", g_clk->clk_main_parent);
+}
+
+static void mtgpufreq_force_clk(enum g_clock_source_enum clksrc)
+{
+	int ret;
+
+	ret = clk_prepare_enable(g_clk->clk_mux);
+	if (ret)
+		PVR_DPF((PVR_DBG_ERROR,
+			"enable clk_mux(TOP_MUX_MFG) failed, ret = %d",
+			__func__, ret)));
+
+	if (clksrc == CLOCK_MAIN) {
+		clk_set_parent(g_clk->clk_mux, g_clk->clk_main_parent);
+		/* Enable CG when set to GPUPLL*/
+		clk_prepare_enable(g_clk->cg_bg3d);
+		pr_info("@%s: switch to main clock source done\n",
+			__func__);
+	} else if (clksrc == CLOCK_SUB) {
+		clk_set_parent(g_clk->clk_mux, g_clk->clk_sub_parent);
+		pr_info("@%s: switch to sub clock source done\n",
+			__func__);
+	} else {
+		pr_debug(
+			"@%s: clock source index is not valid, clksrc = %d\n",
+			__func__, clksrc);
+	}
+
+
+	/* TBD: currently not disable clk
+	 * clk_disable_unprepare(g_clk->clk_mux);
+	 */
+}
+
 #endif
 
 
@@ -286,6 +368,7 @@ static void MTKEnableMfgClock(IMG_BOOL bForce)
 	mt_gpufreq_enable_MTCMOS(true);
 #endif
 #endif
+
 	ui64CC_val = OSReadHWReg64(g_gpu_base, 0xA520);
 
 #ifdef MTK_GPU_DVFS
@@ -1271,7 +1354,7 @@ PVRSRV_ERROR MTKMFGSystemInit(void)
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,lorne");
 	g_gpu_base = of_iomap(node, 0);
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mfgcfg");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-mfgcfg");
 	g_mfgcfg_base = of_iomap(node, 0);
 
 	if (!g_gpu_base) {
@@ -1479,6 +1562,10 @@ int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 #ifndef MTK_BRINGUP
 	/* Enable CG & mtcmos */
 	MTKEnableMfgClock(IMG_TRUE);
+#else
+	/* Force Clock On*/
+	mtgpufreq_clk_init();
+	mtgpufreq_force_clk(CLOCK_MAIN);
 #endif
 
 #if defined(MTK_USE_HW_APM)
@@ -1506,6 +1593,9 @@ int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 
 int MTKRGXDeviceDeInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
+#ifdef MTK_BRINGUP
+	kfree(g_clk);
+#endif
 	return 0;
 }
 
