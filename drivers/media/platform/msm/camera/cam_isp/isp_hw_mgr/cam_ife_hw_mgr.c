@@ -876,6 +876,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 			out_port->res_type == CAM_ISP_IFE_OUT_RES_LCR))
 			continue;
 
+		if ((out_port->res_type == CAM_ISP_IFE_OUT_RES_2PD &&
+			ife_src_res->res_id != CAM_ISP_HW_VFE_IN_PDLIB) ||
+			(ife_src_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB &&
+			out_port->res_type != CAM_ISP_IFE_OUT_RES_2PD))
+			continue;
+
 		CAM_DBG(CAM_ISP, "res_type 0x%x", out_port->res_type);
 
 		ife_out_res = &ife_ctx->res_list_ife_out[k];
