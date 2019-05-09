@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM msm_vidc_events
@@ -335,6 +335,39 @@ DEFINE_EVENT(msm_vidc_perf, msm_vidc_perf_bus_vote,
 	TP_ARGS(governor_mode, ab)
 );
 
+#define MAX_TRACER_LOG_LENGTH 128
+
+DECLARE_EVENT_CLASS(msm_v4l2_vidc_log,
+
+	TP_PROTO(char *dummy, int length),
+
+	TP_ARGS(dummy, length),
+
+	TP_STRUCT__entry(
+		__array(char, dummy, MAX_TRACER_LOG_LENGTH)
+		__field(int, length)
+	),
+
+	TP_fast_assign(
+		__entry->length = length < MAX_TRACER_LOG_LENGTH ?
+						length  : MAX_TRACER_LOG_LENGTH;
+		__entry->dummy[0] = '\0';
+		if (__entry->length > 0) {
+			memcpy(__entry->dummy, dummy, __entry->length);
+			if (__entry->dummy[__entry->length - 1] == '\n')
+				__entry->dummy[__entry->length - 1] = '\0';
+		}
+	),
+
+	TP_printk("%s", __entry->dummy)
+);
+
+DEFINE_EVENT(msm_v4l2_vidc_log, msm_vidc_printf,
+
+	TP_PROTO(char *dummy, int length),
+
+	TP_ARGS(dummy, length)
+);
 #endif
 
 #include <trace/define_trace.h>
