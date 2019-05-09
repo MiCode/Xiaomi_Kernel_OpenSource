@@ -263,22 +263,7 @@
 	headset-three-key-threshold-CDD = <0 121 192 600>;
 	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
 	headset-four-key-threshold = <0 58 121 192 400>;
-	/* ACCDET GPIO standardization ACC mode no use */
-	pinctrl-names = "default", "state_eint_as_int";
-	pinctrl-0 = <&accdet_pins_default>;
-	pinctrl-1 = <&accdet_pins_eint_as_int>;
 	status = "okay";
-};
-&pio {
-	accdet_pins_default: accdetdefault {
-	};
-	accdet_pins_eint_as_int: accdeteint@0 {
-		pins_cmd_dat {
-			/*pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;*/
-			slew-rate = <0>;
-			bias-disable;
-		};
-	};
 };
 /* accdet end */
 /* CONSYS GPIO standardization */
