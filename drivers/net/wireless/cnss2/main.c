@@ -1829,6 +1829,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
 
+	cnss_get_cpr_info(plat_priv);
 	cnss_init_control_params(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);
