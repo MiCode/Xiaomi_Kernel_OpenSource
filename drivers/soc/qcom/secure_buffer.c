@@ -28,23 +28,11 @@ struct cp2_lock_req {
 	u32 lock;
 } __attribute__ ((__packed__));
 
-struct mem_prot_info {
-	phys_addr_t addr;
-	u64 size;
-};
-
 #define MEM_PROT_ASSIGN_ID		0x16
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define V2_CHUNK_SIZE           SZ_1M
 #define FEATURE_ID_CP 12
-
-struct dest_vm_and_perm_info {
-	u32 vm;
-	u32 perm;
-	u64 ctx;
-	u32 ctx_size;
-};
 
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
