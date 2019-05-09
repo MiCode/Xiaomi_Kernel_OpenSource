@@ -1472,7 +1472,7 @@ static void a6xx_snapshot_debugbus(struct adreno_device *adreno_dev,
 			(void *) &a6xx_dbgc_debugbus_blocks[i]);
 	}
 
-	if (adreno_is_a650(adreno_dev)) {
+	if (adreno_is_a650_family(adreno_dev)) {
 		for (i = 0; i < ARRAY_SIZE(a650_dbgc_debugbus_blocks); i++) {
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
@@ -1703,7 +1703,7 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	a6xx_snapshot_debugbus(adreno_dev, snapshot);
 
 	/* RSCC registers are on cx */
-	if (adreno_is_a650(adreno_dev)) {
+	if (adreno_is_a650_family(adreno_dev)) {
 		struct kgsl_snapshot_registers r;
 
 		r.regs = a650_rscc_registers;
@@ -1765,7 +1765,8 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 		A6XX_CP_DRAW_STATE_ADDR, A6XX_CP_DRAW_STATE_DATA,
 		0, 0x100);
 
-	ucode_dbg_size = adreno_is_a650(adreno_dev) ? 0x7000 : 0x6000;
+	ucode_dbg_size = adreno_is_a650_family(adreno_dev)
+			? 0x7000 : 0x6000;
 
 	 /* SQE_UCODE Cache */
 	kgsl_snapshot_indexed_registers(device, snapshot,
@@ -1813,8 +1814,8 @@ static int _a6xx_crashdump_init_mvc(struct adreno_device *adreno_dev,
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
 
 		/* The VPC registers are driven by VPC_PS cluster on a650 */
-		if (adreno_is_a650(adreno_dev) &&
-			(cluster->regs == a6xx_vpc_ps_cluster))
+		if (adreno_is_a650_family(adreno_dev) &&
+				(cluster->regs == a6xx_vpc_ps_cluster))
 			cluster->id = CP_CLUSTER_VPC_PS;
 
 		if (cluster->sel) {

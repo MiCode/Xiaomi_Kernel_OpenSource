@@ -147,7 +147,7 @@ static inline int timed_poll_check_rscc(struct kgsl_device *device,
 	t = jiffies + msecs_to_jiffies(timeout);
 
 	do {
-		if (adreno_is_a650(adreno_dev))
+		if (adreno_is_a650_family(adreno_dev))
 			adreno_rscc_regread(adreno_dev, offset, &value);
 		else
 			gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY,
@@ -159,7 +159,7 @@ static inline int timed_poll_check_rscc(struct kgsl_device *device,
 	} while (!time_after(jiffies, t));
 
 	/* Double check one last time */
-	if (adreno_is_a650(adreno_dev))
+	if (adreno_is_a650_family(adreno_dev))
 		adreno_rscc_regread(adreno_dev, offset, &value);
 	else
 		gmu_core_regread(device, offset + RSCC_OFFSET_LEGACY, &value);

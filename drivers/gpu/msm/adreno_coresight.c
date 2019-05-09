@@ -330,9 +330,6 @@ void adreno_coresight_stop(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
 
-	if (adreno_is_a650(adreno_dev))
-		return;
-
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
 			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT;
@@ -355,9 +352,6 @@ void adreno_coresight_stop(struct adreno_device *adreno_dev)
 void adreno_coresight_start(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
-
-	if (adreno_is_a650(adreno_dev))
-		return;
 
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
@@ -400,9 +394,6 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev)
 {
 	int i, adreno_dev_flag = -EINVAL;
 
-	if (adreno_is_a650(adreno_dev))
-		return;
-
 	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
 		if (i == GPU_CORESIGHT_GX)
 			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT;
@@ -427,9 +418,6 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 	int i = 0;
 	struct device_node *node, *child;
 
-	if (adreno_is_a650(adreno_dev))
-		return 0;
-
 	node = of_find_compatible_node(device->pdev->dev.of_node,
 					NULL, "qcom,gpu-coresight");
 
@@ -437,11 +425,14 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 		memset(&desc, 0, sizeof(desc));
 		desc.pdata = of_get_coresight_platform_data(&device->pdev->dev,
 				child);
-		if (IS_ERR_OR_NULL(desc.pdata))
-			return (desc.pdata == NULL) ? -ENODEV :
-				PTR_ERR(desc.pdata);
-		if (gpudev->coresight[i] == NULL)
-			return -ENODEV;
+		if (IS_ERR(desc.pdata)) {
+			ret = PTR_ERR(desc.pdata);
+			goto err;
+		}
+		if (gpudev->coresight[i] == NULL) {
+			ret = -ENODEV;
+			goto err;
+		}
 
 		desc.type = CORESIGHT_DEV_TYPE_SOURCE;
 		desc.subtype.source_subtype =
@@ -451,13 +442,25 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 		desc.groups = gpudev->coresight[i]->groups;
 
 		adreno_dev->csdev[i] = coresight_register(&desc);
-		if (IS_ERR(adreno_dev->csdev[i]))
+		if (IS_ERR(adreno_dev->csdev[i])) {
 			ret = PTR_ERR(adreno_dev->csdev[i]);
+			adreno_dev->csdev[i] = NULL;
+			goto err;
+		}
 		if (of_property_read_u32(child, "coresight-atid",
-			&gpudev->coresight[i]->atid))
-			return -EINVAL;
+			&gpudev->coresight[i]->atid)) {
+			coresight_unregister(adreno_dev->csdev[i]);
+			adreno_dev->csdev[i] = NULL;
+			ret = -EINVAL;
+			goto err;
+		}
 		i++;
 	}
 
+err:
+	if (ret)
+		of_node_put(child);
+
+	of_node_put(node);
 	return ret;
 }

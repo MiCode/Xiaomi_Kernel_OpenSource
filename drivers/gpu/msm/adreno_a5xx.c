@@ -1892,11 +1892,11 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Program the GMEM VA range for the UCHE path */
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_LO,
-				ADRENO_UCHE_GMEM_BASE);
+			adreno_dev->gpucore->gmem_base);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_LO,
-				ADRENO_UCHE_GMEM_BASE +
-				adreno_dev->gmem_size - 1);
+			adreno_dev->gpucore->gmem_base +
+			adreno_dev->gpucore->gmem_size - 1);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 
 	/*
