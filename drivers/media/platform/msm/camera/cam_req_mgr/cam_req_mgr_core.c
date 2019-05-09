@@ -2700,7 +2700,7 @@ int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info)
 	memset(&root_dev, 0, sizeof(struct cam_create_dev_hdl));
 	root_dev.session_hdl = link_info->u.link_info_v1.session_hdl;
 	root_dev.priv = (void *)link;
-
+	root_dev.dev_id = CAM_CRM;
 	mutex_lock(&link->lock);
 	/* Create unique dev handle for link */
 	link->link_hdl = cam_create_device_hdl(&root_dev);
