@@ -790,6 +790,7 @@ struct max_cpu_capacity {
 /* Scheduling group status flags */
 #define SG_OVERLOAD		0x1 /* More than one runnable task on a CPU. */
 #define SG_OVERUTILIZED		0x2 /* One or more CPUs are over-utilized. */
+#define SG_HAS_MISFIT_TASK	0x4 /* Group has misfit task. */
 
 /*
  * We add the notion of a root-domain which will be used to define per-domain
@@ -812,9 +813,6 @@ struct root_domain {
 	 * - Running task is misfit
 	 */
 	int			overload;
-
-	/* Indicate one or more cpus over-utilized (tipping point) */
-	int			overutilized;
 
 	/*
 	 * The bit corresponding to a CPU gets set here if such CPU has more
