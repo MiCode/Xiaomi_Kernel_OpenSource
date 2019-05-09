@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 
-PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 
 # mt6761 and mt6765 co-folder
 ifeq ($(PLATFORM),mt6761)

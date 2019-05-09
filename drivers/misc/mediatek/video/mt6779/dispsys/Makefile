@@ -13,7 +13,7 @@
 
 # drivers/dispsys
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/mtdummy/pq_dummy/
 ifneq ($(CONFIG_MTK_CMDQ), y)

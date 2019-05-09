@@ -15,7 +15,7 @@
 # Makefile for external display driver.
 #
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 
 ifneq ($(CONFIG_MTK_CMDQ), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/cmdq_dummy/
