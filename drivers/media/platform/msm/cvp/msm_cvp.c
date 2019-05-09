@@ -364,7 +364,8 @@ static bool _cvp_msg_pending(struct msm_cvp_inst *inst,
 	bool result = false;
 
 	spin_lock(&sq->lock);
-	if (!kref_read(&inst->kref)) {
+	if (!kref_read(&inst->kref) ||
+		sq->state != QUEUE_ACTIVE) {
 		/* The session is being deleted */
 		spin_unlock(&sq->lock);
 		*msg = NULL;
@@ -388,6 +389,8 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	unsigned long wait_time;
 	struct session_msg *msg = NULL;
 	struct cvp_session_queue *sq;
+	struct cvp_kmd_session_control *sc;
+	int rc;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s invalid session\n", __func__);
@@ -395,6 +398,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	}
 
 	sq = &inst->session_queue;
+	sc = (struct cvp_kmd_session_control *)out_pkt;
 
 	wait_time = msecs_to_jiffies(CVP_MAX_WAIT_TIME);
 
@@ -405,8 +409,20 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	}
 
 	if (msg == NULL) {
-		dprintk(CVP_ERR, "%s: session is deleted, no msg\n", __func__);
-		return -EINVAL;
+		dprintk(CVP_DBG,
+			"%s: session deleted, queue state %d, msg cnt %d\n",
+			__func__, inst->session_queue.state,
+			inst->session_queue.msg_count);
+
+		spin_lock(&sq->lock);
+		if (sq->msg_count) {
+			sc->ctrl_data[0] = sq->msg_count;
+			rc = -EUCLEAN;
+		} else {
+			rc = -ENOLINK;
+		}
+		spin_unlock(&sq->lock);
+		return rc;
 	}
 
 	memcpy(out_pkt, &msg->pkt, sizeof(struct hfi_msg_session_hdr));
@@ -426,11 +442,22 @@ static int msm_cvp_session_process_hfi(
 	struct msm_cvp_internal_buffer *cbuf = NULL;
 	struct buf_desc *buf_ptr;
 	unsigned int offset, buf_num, signal;
+	struct cvp_session_queue *sq;
 
 	if (!inst || !inst->core || !in_pkt) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
+
+	sq = &inst->session_queue;
+	spin_lock(&sq->lock);
+	if (sq->state != QUEUE_ACTIVE) {
+		spin_unlock(&sq->lock);
+		dprintk(CVP_ERR, "%s: invalid queue state\n", __func__);
+		return -EINVAL;
+	}
+	spin_unlock(&sq->lock);
+
 	hdev = inst->core->device;
 
 	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
@@ -856,6 +883,81 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 	return msm_cvp_unmap_buf_dsp(inst, buf);
 }
 
+static int msm_cvp_session_start(struct msm_cvp_inst *inst,
+		struct cvp_kmd_arg *arg)
+{
+	struct cvp_session_queue *sq;
+
+	sq = &inst->session_queue;
+	spin_lock(&sq->lock);
+	if (sq->msg_count) {
+		dprintk(CVP_ERR, "session start failed queue not empty%d\n",
+			sq->msg_count);
+		spin_unlock(&sq->lock);
+		return -EINVAL;
+	}
+	sq->state = QUEUE_ACTIVE;
+	spin_unlock(&sq->lock);
+	return 0;
+}
+
+static int msm_cvp_session_stop(struct msm_cvp_inst *inst,
+		struct cvp_kmd_arg *arg)
+{
+	struct cvp_session_queue *sq;
+	struct cvp_kmd_session_control *sc = &arg->data.session_ctrl;
+
+	sq = &inst->session_queue;
+
+	spin_lock(&sq->lock);
+	if (sq->msg_count) {
+		dprintk(CVP_ERR, "session stop incorrect: queue not empty%d\n",
+			sq->msg_count);
+		sc->ctrl_data[0] = sq->msg_count;
+		spin_unlock(&sq->lock);
+		return -EUCLEAN;
+	}
+	sq->state = QUEUE_STOP;
+
+	spin_unlock(&sq->lock);
+
+	wake_up_all(&inst->session_queue.wq);
+
+	return 0;
+}
+
+static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
+		struct cvp_kmd_arg *arg)
+{
+	struct cvp_kmd_session_control *ctrl = &arg->data.session_ctrl;
+	int rc = 0;
+
+
+
+	if (!inst) {
+		dprintk(CVP_ERR, "%s invalid session\n", __func__);
+		return -EINVAL;
+	}
+
+
+	switch (ctrl->ctrl_type) {
+	case SESSION_STOP:
+		rc = msm_cvp_session_stop(inst, arg);
+		break;
+	case SESSION_START:
+		rc = msm_cvp_session_start(inst, arg);
+		break;
+	case SESSION_CREATE:
+	case SESSION_DELETE:
+	case SESSION_INFO:
+	default:
+		dprintk(CVP_ERR, "%s Unsupported session ctrl%d\n",
+			__func__, ctrl->ctrl_type);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 {
 	int rc = 0;
@@ -957,6 +1059,9 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 		rc = msm_cvp_session_process_hfi_fence(inst, arg);
 		break;
 	}
+	case CVP_KMD_SESSION_CONTROL:
+		rc = msm_cvp_session_ctrl(inst, arg);
+		break;
 	default:
 		dprintk(CVP_ERR, "%s: unknown arg type 0x%x\n",
 				__func__, arg->type);

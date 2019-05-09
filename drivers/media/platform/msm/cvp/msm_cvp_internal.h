@@ -297,8 +297,16 @@ struct session_msg {
 	struct hfi_msg_session_hdr pkt;
 };
 
+enum queue_state {
+	QUEUE_INIT,
+	QUEUE_ACTIVE = 1,
+	QUEUE_STOP = 2,
+	QUEUE_INVALID,
+};
+
 struct cvp_session_queue {
 	spinlock_t lock;
+	enum queue_state state;
 	unsigned int msg_count;
 	struct list_head msgs;
 	wait_queue_head_t wq;
