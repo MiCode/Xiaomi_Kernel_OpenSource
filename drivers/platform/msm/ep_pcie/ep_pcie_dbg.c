@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #include "ep_pcie_phy.h"
 
 static struct dentry *dent_ep_pcie;
-static struct dentry *dfile_case;
+static u8 link_speed;
 static struct ep_pcie_dev_t *dev;
 
 static void ep_ep_pcie_phy_dump_pcs_debug_bus(struct ep_pcie_dev_t *dev,
@@ -406,6 +406,17 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 	case 32: /* do not output core registers when D3 hot is set by host*/
 		dev->dump_conf = false;
 		break;
+	case 33: /* Set link speed, takes effect upon next hlos link training */
+		if (link_speed > 0 && link_speed <= dev->max_link_speed) {
+			EP_PCIE_DBG_FS("Setting link speed to gen %d\n",
+					link_speed);
+			dev->curr_link_speed = link_speed;
+		} else {
+			EP_PCIE_DBG_FS(
+			"Invalid link speed %d, max supported speed %d\n",
+				link_speed, dev->max_link_speed);
+		}
+		break;
 	default:
 		EP_PCIE_DBG_FS("PCIe: Invalid testcase: %d.\n", testcase);
 		break;
@@ -423,6 +434,8 @@ const struct file_operations ep_pcie_cmd_debug_ops = {
 
 void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev)
 {
+	struct dentry *dfile;
+
 	dev = ep_dev;
 	dent_ep_pcie = debugfs_create_dir("pcie-ep", 0);
 	if (IS_ERR(dent_ep_pcie)) {
@@ -432,14 +445,23 @@ void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev)
 		return;
 	}
 
-	dfile_case = debugfs_create_file("case", 0664,
-					dent_ep_pcie, 0,
-					&ep_pcie_cmd_debug_ops);
-	if (!dfile_case || IS_ERR(dfile_case)) {
+	dfile = debugfs_create_file("case", 0664,
+				dent_ep_pcie, NULL,
+				&ep_pcie_cmd_debug_ops);
+	if (!dfile || IS_ERR(dfile)) {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: fail to create the file for case.\n",
 			dev->rev);
-		goto case_error;
+		goto file_error;
+	}
+
+	dfile = debugfs_create_u8("link_speed", 0664,
+				dent_ep_pcie, &link_speed);
+	if (!dfile || IS_ERR(dfile)) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: fail to create the file for link speed.\n",
+			dev->rev);
+		goto file_error;
 	}
 
 	EP_PCIE_DBG2(dev,
@@ -448,12 +470,11 @@ void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev)
 
 	return;
 
-case_error:
-	debugfs_remove(dent_ep_pcie);
+file_error:
+	debugfs_remove_recursive(dent_ep_pcie);
 }
 
 void ep_pcie_debugfs_exit(void)
 {
-	debugfs_remove(dfile_case);
-	debugfs_remove(dent_ep_pcie);
+	debugfs_remove_recursive(dent_ep_pcie);
 }
