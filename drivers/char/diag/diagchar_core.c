@@ -2527,6 +2527,208 @@ static int diag_ioctl_cmd_dereg(void)
 	return 0;
 }
 
+long diagchar_ioctl_init(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	uint16_t delayed_rsp_id = 0;
+	struct diag_logging_mode_param_t mode_param;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_COMMAND_DEREG:
+		result = diag_ioctl_cmd_dereg();
+		break;
+	case DIAG_IOCTL_SWITCH_LOGGING:
+		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
+				   sizeof(mode_param)))
+			return -EFAULT;
+		diag_switch_logging_clear_mask(&mode_param, current->tgid);
+		mutex_lock(&driver->diagchar_mutex);
+		result = diag_switch_logging(&mode_param);
+		mutex_unlock(&driver->diagchar_mutex);
+		break;
+	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
+		delayed_rsp_id = diag_get_next_delayed_rsp_id();
+		if (copy_to_user((void __user *)ioarg, &delayed_rsp_id,
+				 sizeof(uint16_t)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
+	case DIAG_IOCTL_LSM_DEINIT:
+		result = diag_ioctl_lsm_deinit();
+		break;
+	}
+	return result;
+}
+
+long diagchar_ioctl_dci(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL, client_id = 0;
+	struct diag_dci_client_tbl *dci_client = NULL;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_DCI_REG:
+		result = diag_ioctl_dci_reg(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_DEINIT:
+		mutex_lock(&driver->dci_mutex);
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int))) {
+			mutex_unlock(&driver->dci_mutex);
+			return -EFAULT;
+		}
+		dci_client = diag_dci_get_client_entry(client_id);
+		if (!dci_client) {
+			mutex_unlock(&driver->dci_mutex);
+			return DIAG_DCI_NOT_SUPPORTED;
+		}
+		result = diag_dci_deinit_client(dci_client);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_DCI_SUPPORT:
+		result = diag_ioctl_dci_support(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_HEALTH_STATS:
+		mutex_lock(&driver->dci_mutex);
+		result = diag_ioctl_dci_health_stats(ioarg);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_DCI_LOG_STATUS:
+		mutex_lock(&driver->dci_mutex);
+		result = diag_ioctl_dci_log_status(ioarg);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_DCI_EVENT_STATUS:
+		mutex_lock(&driver->dci_mutex);
+		result = diag_ioctl_dci_event_status(ioarg);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_DCI_CLEAR_LOGS:
+		mutex_lock(&driver->dci_mutex);
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int))) {
+			mutex_unlock(&driver->dci_mutex);
+			return -EFAULT;
+		}
+		result = diag_dci_clear_log_mask(client_id);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
+		mutex_lock(&driver->dci_mutex);
+		if (copy_from_user(&client_id, (void __user *)ioarg,
+			sizeof(int))) {
+			mutex_unlock(&driver->dci_mutex);
+			return -EFAULT;
+		}
+		result = diag_dci_clear_event_mask(client_id);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	}
+	return result;
+}
+
+long diagchar_ioctl_buffering(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_VOTE_REAL_TIME:
+		mutex_lock(&driver->dci_mutex);
+		result = diag_ioctl_vote_real_time(ioarg);
+		mutex_unlock(&driver->dci_mutex);
+		break;
+	case DIAG_IOCTL_GET_REAL_TIME:
+		result = diag_ioctl_get_real_time(ioarg);
+		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_CONFIG:
+		result = diag_ioctl_set_buffering_mode(ioarg);
+		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
+		result = diag_ioctl_peripheral_drain_immediate(ioarg);
+		break;
+	}
+	return result;
+}
+
+long diagchar_ioctl_remote(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	uint16_t remote_dev;
+
+	remote_dev = diag_get_remote_device_mask();
+	if (copy_to_user((void __user *)ioarg, &remote_dev,
+		sizeof(uint16_t)))
+		result = -EFAULT;
+	else
+		result = 1;
+
+	return result;
+}
+
+long diagchar_ioctl_misc(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_REGISTER_CALLBACK:
+		result = diag_ioctl_register_callback(ioarg);
+		break;
+	case DIAG_IOCTL_HDLC_TOGGLE:
+		result = diag_ioctl_hdlc_toggle(ioarg);
+		break;
+	}
+	return result;
+}
+
+long diagchar_ioctl_mdlog(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	struct diag_logging_mode_param_t mode_param;
+	struct diag_con_all_param_t con_param;
+	struct diag_query_pid_t pid_query;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_QUERY_PD_LOGGING:
+		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
+				   sizeof(mode_param)))
+			return -EFAULT;
+		result = diag_ioctl_query_pd_logging(&mode_param);
+		break;
+	case DIAG_IOCTL_QUERY_CON_ALL:
+		con_param.diag_con_all = DIAG_CON_ALL;
+		con_param.num_peripherals = NUM_PERIPHERALS;
+		if (copy_to_user((void __user *)ioarg, &con_param,
+				sizeof(struct diag_con_all_param_t)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
+	case DIAG_IOCTL_QUERY_MD_PID:
+		if (copy_from_user((void *)&pid_query, (void __user *)ioarg,
+				   sizeof(pid_query))) {
+			result = -EFAULT;
+			break;
+		}
+		mutex_lock(&driver->md_session_lock);
+		diag_ioctl_query_session_pid(&pid_query);
+		mutex_unlock(&driver->md_session_lock);
+
+		if (copy_to_user((void __user *)ioarg, &pid_query,
+				sizeof(pid_query)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
+	}
+	return result;
+}
+
 #ifdef CONFIG_COMPAT
 /*
  * @sync_obj_name: name of the synchronization object associated with this proc
@@ -2562,157 +2764,28 @@ long diagchar_compat_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
-	int client_id = 0;
-	uint16_t delayed_rsp_id = 0;
-	uint16_t remote_dev;
-	struct diag_dci_client_tbl *dci_client = NULL;
-	struct diag_logging_mode_param_t mode_param;
-	struct diag_con_all_param_t con_param;
-	struct diag_query_pid_t pid_query;
 
-	switch (iocmd) {
-	case DIAG_IOCTL_COMMAND_REG:
+	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
 		result = diag_ioctl_cmd_reg_compat(ioarg);
-		break;
-	case DIAG_IOCTL_COMMAND_DEREG:
-		result = diag_ioctl_cmd_dereg();
-		break;
-	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
-		delayed_rsp_id = diag_get_next_delayed_rsp_id();
-		if (copy_to_user((void __user *)ioarg, &delayed_rsp_id,
-				 sizeof(uint16_t)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
-	case DIAG_IOCTL_DCI_REG:
-		result = diag_ioctl_dci_reg(ioarg);
-		break;
-	case DIAG_IOCTL_DCI_DEINIT:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		dci_client = diag_dci_get_client_entry(client_id);
-		if (!dci_client) {
-			mutex_unlock(&driver->dci_mutex);
-			return DIAG_DCI_NOT_SUPPORTED;
-		}
-		result = diag_dci_deinit_client(dci_client);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_SUPPORT:
-		result = diag_ioctl_dci_support(ioarg);
-		break;
-	case DIAG_IOCTL_DCI_HEALTH_STATS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_health_stats(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_LOG_STATUS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_log_status(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_EVENT_STATUS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_event_status(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_CLEAR_LOGS:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		result = diag_dci_clear_log_mask(client_id);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user(&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		result = diag_dci_clear_event_mask(client_id);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_LSM_DEINIT:
-		result = diag_ioctl_lsm_deinit();
-		break;
-	case DIAG_IOCTL_SWITCH_LOGGING:
-		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
-				   sizeof(mode_param)))
-			return -EFAULT;
-		diag_switch_logging_clear_mask(&mode_param, current->tgid);
-		mutex_lock(&driver->diagchar_mutex);
-		result = diag_switch_logging(&mode_param);
-		mutex_unlock(&driver->diagchar_mutex);
-		break;
-	case DIAG_IOCTL_REMOTE_DEV:
-		remote_dev = diag_get_remote_device_mask();
-		if (copy_to_user((void __user *)ioarg, &remote_dev,
-			sizeof(uint16_t)))
-			result = -EFAULT;
-		else
-			result = 1;
-		break;
-	case DIAG_IOCTL_VOTE_REAL_TIME:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_vote_real_time(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_GET_REAL_TIME:
-		result = diag_ioctl_get_real_time(ioarg);
-		break;
-	case DIAG_IOCTL_PERIPHERAL_BUF_CONFIG:
-		result = diag_ioctl_set_buffering_mode(ioarg);
-		break;
-	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
-		result = diag_ioctl_peripheral_drain_immediate(ioarg);
-		break;
-	case DIAG_IOCTL_REGISTER_CALLBACK:
-		result = diag_ioctl_register_callback(ioarg);
-		break;
-	case DIAG_IOCTL_HDLC_TOGGLE:
-		result = diag_ioctl_hdlc_toggle(ioarg);
-		break;
-	case DIAG_IOCTL_QUERY_PD_LOGGING:
-		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
-				   sizeof(mode_param)))
-			return -EFAULT;
-		result = diag_ioctl_query_pd_logging(&mode_param);
-		break;
-	case DIAG_IOCTL_QUERY_CON_ALL:
-		con_param.diag_con_all = DIAG_CON_ALL;
-		con_param.num_peripherals = NUM_PERIPHERALS;
-		con_param.upd_map_supported = 1;
-		if (copy_to_user((void __user *)ioarg, &con_param,
-				sizeof(struct diag_con_all_param_t)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
-	case DIAG_IOCTL_QUERY_MD_PID:
-		if (copy_from_user((void *)&pid_query, (void __user *)ioarg,
-				   sizeof(pid_query))) {
-			result = -EFAULT;
-			break;
-		}
-		mutex_lock(&driver->md_session_lock);
-		diag_ioctl_query_session_pid(&pid_query);
-		mutex_unlock(&driver->md_session_lock);
-
-		if (copy_to_user((void __user *)ioarg, &pid_query,
-				sizeof(pid_query)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
+	} else if (iocmd >= DIAG_IOCTL_COMMAND_DEREG &&
+			iocmd <= DIAG_IOCTL_LSM_DEINIT) {
+		result = diagchar_ioctl_init(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_DCI_INIT &&
+			iocmd <= DIAG_IOCTL_DCI_CLEAR_EVENTS) {
+		result = diagchar_ioctl_dci(filp, iocmd, ioarg);
+	} else if (iocmd == DIAG_IOCTL_REMOTE_DEV) {
+		result = diagchar_ioctl_remote(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_VOTE_REAL_TIME &&
+			iocmd <= DIAG_IOCTL_PERIPHERAL_BUF_DRAIN) {
+		result = diagchar_ioctl_buffering(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_REGISTER_CALLBACK &&
+			iocmd <= DIAG_IOCTL_HDLC_TOGGLE) {
+		result = diagchar_ioctl_misc(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_LOGGING &&
+			iocmd <= DIAG_IOCTL_QUERY_MD_PID) {
+		result = diagchar_ioctl_mdlog(filp, iocmd, ioarg);
+	} else {
+		result = -EINVAL;
 	}
 	return result;
 }
@@ -2722,157 +2795,28 @@ long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
-	int client_id = 0;
-	uint16_t delayed_rsp_id;
-	uint16_t remote_dev;
-	struct diag_dci_client_tbl *dci_client = NULL;
-	struct diag_logging_mode_param_t mode_param;
-	struct diag_con_all_param_t con_param;
-	struct diag_query_pid_t pid_query;
 
-	switch (iocmd) {
-	case DIAG_IOCTL_COMMAND_REG:
+	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
 		result = diag_ioctl_cmd_reg(ioarg);
-		break;
-	case DIAG_IOCTL_COMMAND_DEREG:
-		result = diag_ioctl_cmd_dereg();
-		break;
-	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
-		delayed_rsp_id = diag_get_next_delayed_rsp_id();
-		if (copy_to_user((void __user *)ioarg, &delayed_rsp_id,
-				 sizeof(uint16_t)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
-	case DIAG_IOCTL_DCI_REG:
-		result = diag_ioctl_dci_reg(ioarg);
-		break;
-	case DIAG_IOCTL_DCI_DEINIT:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		dci_client = diag_dci_get_client_entry(client_id);
-		if (!dci_client) {
-			mutex_unlock(&driver->dci_mutex);
-			return DIAG_DCI_NOT_SUPPORTED;
-		}
-		result = diag_dci_deinit_client(dci_client);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_SUPPORT:
-		result = diag_ioctl_dci_support(ioarg);
-		break;
-	case DIAG_IOCTL_DCI_HEALTH_STATS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_health_stats(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_LOG_STATUS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_log_status(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_EVENT_STATUS:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_dci_event_status(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_CLEAR_LOGS:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		result = diag_dci_clear_log_mask(client_id);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
-		mutex_lock(&driver->dci_mutex);
-		if (copy_from_user(&client_id, (void __user *)ioarg,
-			sizeof(int))) {
-			mutex_unlock(&driver->dci_mutex);
-			return -EFAULT;
-		}
-		result = diag_dci_clear_event_mask(client_id);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_LSM_DEINIT:
-		result = diag_ioctl_lsm_deinit();
-		break;
-	case DIAG_IOCTL_SWITCH_LOGGING:
-		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
-				   sizeof(mode_param)))
-			return -EFAULT;
-		diag_switch_logging_clear_mask(&mode_param, current->tgid);
-		mutex_lock(&driver->diagchar_mutex);
-		result = diag_switch_logging(&mode_param);
-		mutex_unlock(&driver->diagchar_mutex);
-		break;
-	case DIAG_IOCTL_REMOTE_DEV:
-		remote_dev = diag_get_remote_device_mask();
-		if (copy_to_user((void __user *)ioarg, &remote_dev,
-			sizeof(uint16_t)))
-			result = -EFAULT;
-		else
-			result = 1;
-		break;
-	case DIAG_IOCTL_VOTE_REAL_TIME:
-		mutex_lock(&driver->dci_mutex);
-		result = diag_ioctl_vote_real_time(ioarg);
-		mutex_unlock(&driver->dci_mutex);
-		break;
-	case DIAG_IOCTL_GET_REAL_TIME:
-		result = diag_ioctl_get_real_time(ioarg);
-		break;
-	case DIAG_IOCTL_PERIPHERAL_BUF_CONFIG:
-		result = diag_ioctl_set_buffering_mode(ioarg);
-		break;
-	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
-		result = diag_ioctl_peripheral_drain_immediate(ioarg);
-		break;
-	case DIAG_IOCTL_REGISTER_CALLBACK:
-		result = diag_ioctl_register_callback(ioarg);
-		break;
-	case DIAG_IOCTL_HDLC_TOGGLE:
-		result = diag_ioctl_hdlc_toggle(ioarg);
-		break;
-	case DIAG_IOCTL_QUERY_PD_LOGGING:
-		if (copy_from_user((void *)&mode_param, (void __user *)ioarg,
-				   sizeof(mode_param)))
-			return -EFAULT;
-		result = diag_ioctl_query_pd_logging(&mode_param);
-		break;
-	case DIAG_IOCTL_QUERY_CON_ALL:
-		con_param.diag_con_all = DIAG_CON_ALL;
-		con_param.num_peripherals = NUM_PERIPHERALS;
-		if (copy_to_user((void __user *)ioarg, &con_param,
-				sizeof(struct diag_con_all_param_t)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
-	case DIAG_IOCTL_QUERY_MD_PID:
-		if (copy_from_user((void *)&pid_query, (void __user *)ioarg,
-				   sizeof(pid_query))) {
-			result = -EFAULT;
-			break;
-		}
-
-		mutex_lock(&driver->md_session_lock);
-		diag_ioctl_query_session_pid(&pid_query);
-		mutex_unlock(&driver->md_session_lock);
-
-		if (copy_to_user((void __user *)ioarg, &pid_query,
-				sizeof(pid_query)))
-			result = -EFAULT;
-		else
-			result = 0;
-		break;
+	} else if (iocmd >= DIAG_IOCTL_COMMAND_DEREG &&
+			iocmd <= DIAG_IOCTL_LSM_DEINIT) {
+		result = diagchar_ioctl_init(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_DCI_INIT &&
+			iocmd <= DIAG_IOCTL_DCI_CLEAR_EVENTS) {
+		result = diagchar_ioctl_dci(filp, iocmd, ioarg);
+	} else if (iocmd == DIAG_IOCTL_REMOTE_DEV) {
+		result = diagchar_ioctl_remote(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_VOTE_REAL_TIME &&
+			iocmd <= DIAG_IOCTL_PERIPHERAL_BUF_DRAIN) {
+		result = diagchar_ioctl_buffering(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_REGISTER_CALLBACK &&
+			iocmd <= DIAG_IOCTL_HDLC_TOGGLE) {
+		result = diagchar_ioctl_misc(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_LOGGING &&
+			iocmd <= DIAG_IOCTL_QUERY_MD_PID) {
+		result = diagchar_ioctl_mdlog(filp, iocmd, ioarg);
+	} else {
+		result = -EINVAL;
 	}
 	return result;
 }
