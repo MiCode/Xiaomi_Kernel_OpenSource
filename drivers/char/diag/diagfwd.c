@@ -1044,7 +1044,7 @@ static int diag_process_ss_diag_cmd(unsigned char *buf, int len, int pid)
 	int ret = 0, write_len = 0, i;
 
 	if (len < (2 * sizeof(uint8_t) + sizeof(uint16_t)))
-		return 0;
+		return -EINVAL;
 
 	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
 	case DIAG_DIAG_MAX_PKT_SZ:
@@ -1105,7 +1105,7 @@ static int diag_process_ss_diag_cmd(unsigned char *buf, int len, int pid)
 		ret = 0;
 		break;
 	default:
-		ret = 0;
+		ret = -EINVAL;
 		break;
 	}
 	return ret;
@@ -1113,10 +1113,10 @@ static int diag_process_ss_diag_cmd(unsigned char *buf, int len, int pid)
 
 static int diag_process_ss_diag_params(unsigned char *buf, int len, int pid)
 {
-	int write_len = 0, i;
+	int ret = 0, write_len = 0, i;
 
 	if (len < (2 * sizeof(uint8_t) + sizeof(uint16_t)))
-		return 0;
+		return -EINVAL;
 
 	switch (*(uint16_t *)(buf + DIAG_SS_CMD_OFFSET)) {
 	case DIAG_DIAG_POLL:
@@ -1151,16 +1151,17 @@ static int diag_process_ss_diag_params(unsigned char *buf, int len, int pid)
 			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
 		break;
 	default:
+		ret = -EINVAL;
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 {
 	int i, p_mask = 0;
 	int mask_ret, peripheral = -EINVAL;
-	int write_len = 0;
+	int ret = 0, write_len = 0;
 	unsigned char *temp = NULL;
 	struct diag_cmd_reg_entry_t entry;
 	struct diag_cmd_reg_entry_t *temp_entry = NULL;
@@ -1250,7 +1251,9 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	if ((len >= 2 * sizeof(uint8_t)) &&
 		(*buf == DIAG_CMD_DIAG_SUBSYS) &&
 			(*(buf+1) == DIAG_SS_DIAG)) {
-		return diag_process_ss_diag_cmd(buf, len, pid);
+		ret = diag_process_ss_diag_cmd(buf, len, pid);
+		if (ret == 0)
+			return ret;
 	} else if ((len >= sizeof(uint8_t)) && (chk_apps_master()) &&
 			(*buf == 0x3A)) {
 		/* Check for download command */
@@ -1267,7 +1270,9 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 	} else if ((len >= 2 * sizeof(uint8_t)) &&
 			(*buf == DIAG_CMD_DIAG_SUBSYS) &&
 			(*(buf+1) == DIAG_SS_PARAMS)) {
-		return diag_process_ss_diag_params(buf, len, pid);
+		ret = diag_process_ss_diag_params(buf, len, pid);
+		if (ret == 0)
+			return ret;
 	}
 	 /*
 	  * If the apps processor is master and no other
