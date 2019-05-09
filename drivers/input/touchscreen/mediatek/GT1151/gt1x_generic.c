@@ -118,6 +118,9 @@ static ssize_t gt1x_debug_read_proc(struct file *file, char __user *page,
 	if (*ppos)
 		return 0;
 
+	if (size > 1024*1024)
+		return -EMSGSIZE;
+
 	ptr = kzalloc((size + 10), GFP_KERNEL);
 	if (ptr == NULL)
 		return -EMSGSIZE;
