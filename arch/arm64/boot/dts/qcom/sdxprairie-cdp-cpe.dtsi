@@ -16,3 +16,7 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&wsa881x_0214 {
+	qcom,spkr-sd-n-node = <&wsa_spkr_wcd_sd1>;
+};
