@@ -379,6 +379,19 @@
 		status = "ok";
 	};
 
+	wdog: qcom,wdt@17c10000{
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17c10000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 0 0>, <0 1 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
+		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
+		0x18100 0x18100 0x18100 0x18100>;
+	};
+
 	vm_restart: restart {
 		compatible = "qcom,vm-restart";
 		status = "ok";
