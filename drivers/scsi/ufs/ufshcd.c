@@ -1761,12 +1761,11 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	}
 
 	/*
-	 * If auto hibern8 is supported then put the link in
+	 * If auto hibern8 is enabled then put the link in
 	 * hibern8 manually, this is to avoid auto hibern8
 	 * racing during clock frequency scaling sequence.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba) &&
-	    hba->hibern8_on_idle.is_enabled) {
+	if (ufshcd_is_auto_hibern8_enabled(hba)) {
 		ret = ufshcd_uic_hibern8_enter(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -1779,8 +1778,7 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		goto scale_up_gear;
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
-	if (ufshcd_is_auto_hibern8_supported(hba) &&
-	    hba->hibern8_on_idle.is_enabled) {
+	if (ufshcd_is_auto_hibern8_enabled(hba)) {
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (ret)
 			/* link will be bad state so no need to scale_up_gear */
@@ -2290,11 +2288,10 @@ static void ufshcd_gate_work(struct work_struct *work)
 	}
 
 	/*
-	 * If auto hibern8 is supported and enabled then the link will already
+	 * If auto hibern8 is enabled then the link will already
 	 * be in hibern8 state and the ref clock can be gated.
 	 */
-	if ((((ufshcd_is_auto_hibern8_supported(hba) &&
-	       hba->hibern8_on_idle.is_enabled)) ||
+	if ((ufshcd_is_auto_hibern8_enabled(hba) ||
 	     !ufshcd_is_link_active(hba)) && !hba->no_ref_clk_gating)
 		ufshcd_disable_clocks(hba, true);
 	else
@@ -2581,16 +2578,6 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 	destroy_workqueue(hba->clk_gating.clk_gating_workq);
 }
 
-static void ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba, u32 delay)
-{
-	ufshcd_rmwl(hba, AUTO_HIBERN8_TIMER_SCALE_MASK |
-			 AUTO_HIBERN8_IDLE_TIMER_MASK,
-			AUTO_HIBERN8_TIMER_SCALE_1_MS | delay,
-			REG_AUTO_HIBERNATE_IDLE_TIMER);
-	/* Make sure the timer gets applied before further operations */
-	mb();
-}
-
 /**
  * ufshcd_hibern8_hold - Make sure that link is not in hibern8.
  *
@@ -2764,23 +2751,6 @@ out:
 	return;
 }
 
-static void __ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba,
-					    unsigned long delay_ms)
-{
-	pm_runtime_get_sync(hba->dev);
-	ufshcd_hold_all(hba);
-	ufshcd_scsi_block_requests(hba);
-	down_write(&hba->lock);
-	/* wait for all the outstanding requests to finish */
-	ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
-	ufshcd_set_auto_hibern8_timer(hba, delay_ms);
-	hba->hibern8_on_idle.is_enabled = !!delay_ms;
-	up_write(&hba->lock);
-	ufshcd_scsi_unblock_requests(hba);
-	ufshcd_release_all(hba);
-	pm_runtime_put_sync(hba->dev);
-}
-
 static void ufshcd_hibern8_exit_work(struct work_struct *work)
 {
 	int ret;
@@ -2853,12 +2823,6 @@ static ssize_t ufshcd_hibern8_on_idle_delay_store(struct device *dev,
 	hba->hibern8_on_idle.delay_ms = value;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	/* Update auto hibern8 timer value if supported */
-	if (change && ufshcd_is_auto_hibern8_supported(hba) &&
-	    hba->hibern8_on_idle.is_enabled)
-		__ufshcd_set_auto_hibern8_timer(hba,
-						hba->hibern8_on_idle.delay_ms);
-
 	return count;
 }
 
@@ -2885,13 +2849,6 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 	if (value == hba->hibern8_on_idle.is_enabled)
 		goto out;
 
-	/* Update auto hibern8 timer value if supported */
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		__ufshcd_set_auto_hibern8_timer(hba,
-			value ? hba->hibern8_on_idle.delay_ms : value);
-		goto out;
-	}
-
 	if (value) {
 		/*
 		 * As clock gating work would wait for the hibern8 enter work
@@ -2910,52 +2867,52 @@ out:
 	return count;
 }
 
-static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
+static void ufshcd_init_hibern8(struct ufs_hba *hba)
 {
+	struct ufs_hibern8_on_idle *h8 = &hba->hibern8_on_idle;
+
 	/* initialize the state variable here */
-	hba->hibern8_on_idle.state = HIBERN8_EXITED;
+	h8->state = HIBERN8_EXITED;
 
 	if (!ufshcd_is_hibern8_on_idle_allowed(hba) &&
 	    !ufshcd_is_auto_hibern8_supported(hba))
 		return;
 
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		hba->hibern8_on_idle.delay_ms = 1;
-		hba->hibern8_on_idle.state = AUTO_HIBERN8;
+		/* Set the default auto-hiberate idle timer value to 1 ms */
+		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 1) |
+			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+		h8->state = AUTO_HIBERN8;
 		/*
 		 * Disable SW hibern8 enter on idle in case
 		 * auto hibern8 is supported
 		 */
 		hba->caps &= ~UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	} else {
-		hba->hibern8_on_idle.delay_ms = 10;
+		h8->delay_ms = 10;
 		INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
 				  ufshcd_hibern8_enter_work);
 		INIT_WORK(&hba->hibern8_on_idle.exit_work,
 			  ufshcd_hibern8_exit_work);
+		h8->is_enabled = true;
+
+		h8->delay_attr.show = ufshcd_hibern8_on_idle_delay_show;
+		h8->delay_attr.store = ufshcd_hibern8_on_idle_delay_store;
+		sysfs_attr_init(&h8->delay_attr.attr);
+		h8->delay_attr.attr.name = "hibern8_on_idle_delay_ms";
+		h8->delay_attr.attr.mode = 0644;
+		if (device_create_file(hba->dev, &h8->delay_attr))
+			dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_delay\n");
+
+		h8->enable_attr.show = ufshcd_hibern8_on_idle_enable_show;
+		h8->enable_attr.store = ufshcd_hibern8_on_idle_enable_store;
+		sysfs_attr_init(&h8->enable_attr.attr);
+		h8->enable_attr.attr.name = "hibern8_on_idle_enable";
+		h8->enable_attr.attr.mode = 0644;
+		if (device_create_file(hba->dev, &h8->enable_attr))
+			dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_enable\n");
+
 	}
-
-	hba->hibern8_on_idle.is_enabled = true;
-
-	hba->hibern8_on_idle.delay_attr.show =
-					ufshcd_hibern8_on_idle_delay_show;
-	hba->hibern8_on_idle.delay_attr.store =
-					ufshcd_hibern8_on_idle_delay_store;
-	sysfs_attr_init(&hba->hibern8_on_idle.delay_attr.attr);
-	hba->hibern8_on_idle.delay_attr.attr.name = "hibern8_on_idle_delay_ms";
-	hba->hibern8_on_idle.delay_attr.attr.mode = 0644;
-	if (device_create_file(hba->dev, &hba->hibern8_on_idle.delay_attr))
-		dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_delay\n");
-
-	hba->hibern8_on_idle.enable_attr.show =
-					ufshcd_hibern8_on_idle_enable_show;
-	hba->hibern8_on_idle.enable_attr.store =
-					ufshcd_hibern8_on_idle_enable_store;
-	sysfs_attr_init(&hba->hibern8_on_idle.enable_attr.attr);
-	hba->hibern8_on_idle.enable_attr.attr.name = "hibern8_on_idle_enable";
-	hba->hibern8_on_idle.enable_attr.attr.mode = 0644;
-	if (device_create_file(hba->dev, &hba->hibern8_on_idle.enable_attr))
-		dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_enable\n");
 }
 
 static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
@@ -5378,15 +5335,17 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 	return ret;
 }
 
-static void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
+static void ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) || !hba->ahit)
+	if (!ufshcd_is_auto_hibern8_supported(hba))
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_writel(hba, hba->ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
+	/* Make sure the timer gets applied before further operations */
+	mb();
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
@@ -6378,8 +6337,7 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		if (hba->uic_async_done) {
 			complete(hba->uic_async_done);
 			retval = IRQ_HANDLED;
-		} else if (ufshcd_is_auto_hibern8_supported(hba) &&
-			   hba->hibern8_on_idle.is_enabled) {
+		} else if (ufshcd_is_auto_hibern8_enabled(hba)) {
 			/*
 			 * If uic_async_done flag is not set then this
 			 * is an Auto hibern8 err interrupt.
@@ -7034,8 +6992,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 * process of gating when the err handler runs.
 	 */
 	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
-	    ufshcd_is_auto_hibern8_supported(hba) &&
-	    hba->hibern8_on_idle.is_enabled)) {
+	    ufshcd_is_auto_hibern8_enabled(hba))) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		hba->ufs_stats.clk_hold.ctx = ERR_HNDLR_WORK;
 		ufshcd_hold(hba, false);
@@ -8751,9 +8708,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	/* UniPro link is active now */
 	ufshcd_set_link_active(hba);
 
-	/* Enable Auto-Hibernate if configured */
-	ufshcd_auto_hibern8_enable(hba);
-
 	ret = ufshcd_verify_dev_init(hba);
 	if (ret)
 		goto out;
@@ -8868,10 +8822,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * Enable auto hibern8 if supported, after full host and
 	 * device initialization.
 	 */
-	if (ufshcd_is_auto_hibern8_supported(hba) &&
-	    hba->hibern8_on_idle.is_enabled)
-		ufshcd_set_auto_hibern8_timer(hba,
-				      hba->hibern8_on_idle.delay_ms);
+	ufshcd_set_auto_hibern8_timer(hba);
+
 out:
 	if (ret) {
 		ufshcd_set_ufs_dev_poweroff(hba);
@@ -10330,8 +10282,8 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufshcd_resume_clkscaling(hba);
 
 skip_dev_ops:
-	/* Enable Auto-Hibernate if configured */
-	ufshcd_auto_hibern8_enable(hba);
+	/* Set Auto-Hibernate timer if supported */
+	ufshcd_set_auto_hibern8_timer(hba);
 
 	/* Schedule clock gating in case of no access to UFS device yet */
 	ufshcd_release_all(hba);
@@ -10792,7 +10744,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	init_waitqueue_head(&hba->dev_cmd.tag_wq);
 
 	ufshcd_init_clk_gating(hba);
-	ufshcd_init_hibern8_on_idle(hba);
+	ufshcd_init_hibern8(hba);
 
 	/*
 	 * In order to avoid any spurious interrupt immediately after
@@ -10871,12 +10823,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 							UFS_SLEEP_PWR_MODE,
 							UIC_LINK_HIBERN8_STATE);
-
-	/* Set the default auto-hiberate idle timer value to 150 ms */
-	if (hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) {
-		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 150) |
-			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
-	}
 
 	/* Hold auto suspend until async scan completes */
 	pm_runtime_get_sync(dev);
