@@ -20,18 +20,6 @@
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
 
-struct dest_vm_and_perm_info {
-	u32 vm;
-	u32 perm;
-	u64 ctx;
-	u32 ctx_size;
-};
-
-struct mem_prot_info {
-	phys_addr_t addr;
-	u64 size;
-};
-
 static struct device *qcom_secure_buffer_dev;
 
 static struct dest_vm_and_perm_info *
