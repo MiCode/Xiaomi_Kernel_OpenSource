@@ -372,6 +372,45 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
 	return mem_device->configs.minimal_chunk_size;
 }
 
+static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_SVP:
+		return SIZE_256M;
+	case TRUSTED_MEM_PROT:
+		return SIZE_128M;
+	case TRUSTED_MEM_WFD:
+		return SIZE_64M;
+	case TRUSTED_MEM_2D_FR:
+		return SIZE_16M;
+	case TRUSTED_MEM_HAPP:
+		return SIZE_16M;
+	case TRUSTED_MEM_HAPP_EXTRA:
+		return SIZE_96M;
+	case TRUSTED_MEM_SDSP:
+		return SIZE_16M;
+	case TRUSTED_MEM_SDSP_SHARED:
+		return SIZE_16M;
+	default:
+		return SIZE_4K;
+	}
+}
+
+u32 tmem_core_get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
+{
+	struct trusted_mem_device *mem_device =
+		get_trusted_mem_device(mem_type);
+	u32 mem_size;
+
+	if (unlikely(INVALID(mem_device)))
+		return SIZE_4K;
+
+	mem_size = mem_device->peer_mgr->peer_mgr_data.mem_size_runtime;
+	if (IS_ZERO(mem_size))
+		return get_max_pool_size(mem_type);
+	return mem_size;
+}
+
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size)
 {
