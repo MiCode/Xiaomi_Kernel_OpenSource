@@ -999,6 +999,7 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 {
 	struct msm_cvp_core *core = token;
 	struct msm_cvp_inst *inst;
+	u32 *pfaddr = &core->last_fault_addr;
 
 	if (!domain || !core) {
 		dprintk(CVP_ERR, "%s - invalid param %pK %pK\n",
@@ -1007,11 +1008,12 @@ int msm_cvp_smmu_fault_handler(struct iommu_domain *domain,
 	}
 
 	if (core->smmu_fault_handled) {
-		if (core->resources.non_fatal_pagefaults)
-			dprintk(CVP_ERR,
-					"%s: non-fatal pagefault address: %lx\n",
+		if (core->resources.non_fatal_pagefaults) {
+			WARN_ONCE(1, "%s: non-fatal pagefault address: %lx\n",
 					__func__, iova);
+			*pfaddr = (*pfaddr == 0) ? iova : (*pfaddr);
 			return 0;
+		}
 	}
 
 	dprintk(CVP_ERR, "%s - faulting address: %lx\n", __func__, iova);

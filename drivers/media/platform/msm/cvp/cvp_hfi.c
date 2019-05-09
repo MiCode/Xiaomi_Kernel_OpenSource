@@ -2130,6 +2130,8 @@ static int venus_hfi_core_init(void *device)
 		goto err_core_init;
 	}
 
+	dev->version = __read_register(dev, CVP_VERSION_INFO);
+
 	rc =  call_hfi_pkt_op(dev, sys_init, &pkt, HFI_VIDEO_ARCH_OX);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to create sys init pkt\n");
