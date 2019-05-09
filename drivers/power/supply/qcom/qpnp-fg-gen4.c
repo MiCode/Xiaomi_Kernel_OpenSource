@@ -262,6 +262,7 @@ struct fg_gen4_chip {
 	struct work_struct	pl_current_en_work;
 	struct completion	mem_attn;
 	struct mutex		soc_scale_lock;
+	ktime_t			last_restart_time;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
 	int			ki_coeff_full_soc[2];
@@ -2151,6 +2152,7 @@ static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
 	}
 
 	if (normal_profile_load) {
+		chip->last_restart_time = ktime_get();
 		rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 		if (rc < 0) {
 			pr_err("Error in restarting FG, rc=%d\n", rc);
@@ -3254,6 +3256,7 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, vbatt_mv, msoc_raw;
+	s64 time_us;
 
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
@@ -3266,6 +3269,20 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
 		vbatt_mv, msoc_raw);
+
+	if (!fg->soc_reporting_ready) {
+		fg_dbg(fg, FG_IRQ, "SOC reporting is not ready\n");
+		return IRQ_HANDLED;
+	}
+
+	if (chip->last_restart_time) {
+		time_us = ktime_us_delta(ktime_get(), chip->last_restart_time);
+		if (time_us < 10000000) {
+			fg_dbg(fg, FG_IRQ, "FG restarted before %lld us\n",
+				time_us);
+			return IRQ_HANDLED;
+		}
+	}
 
 	if (vbatt_mv < chip->dt.cutoff_volt_mv) {
 		if (chip->dt.rapid_soc_dec_en) {
