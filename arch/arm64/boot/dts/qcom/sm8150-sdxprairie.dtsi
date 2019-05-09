@@ -21,6 +21,10 @@
 	qcom,proxy-reg-names = "vdd_cx";
 };
 
+&pcie1 {
+	dma-coherent;
+};
+
 &mhi_0 {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm3>;
