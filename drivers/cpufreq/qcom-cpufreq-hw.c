@@ -137,15 +137,14 @@ static unsigned int
 qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 			    unsigned int target_freq)
 {
-	void __iomem *perf_state_reg = policy->driver_data +
-					offsets[REG_PERF_STATE];
 	int index;
 
 	index = policy->cached_resolved_idx;
 	if (index < 0)
 		return 0;
 
-	writel_relaxed(index, perf_state_reg);
+	if (qcom_cpufreq_hw_target_index(policy, index))
+		return 0;
 
 	return policy->freq_table[index].frequency;
 }
