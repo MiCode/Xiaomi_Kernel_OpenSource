@@ -584,7 +584,8 @@ static int diag_cmd_get_build_mask(unsigned char *src_buf, int src_len,
 	struct diag_build_mask_req_t *req = NULL;
 	struct diag_msg_build_mask_t rsp;
 
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
+		src_len < sizeof(struct diag_build_mask_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
 		return -EINVAL;
