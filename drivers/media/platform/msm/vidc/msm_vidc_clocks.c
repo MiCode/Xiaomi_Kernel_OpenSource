@@ -1185,8 +1185,7 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	 * batch size count of extra buffers added on output port
 	 */
 	if (is_output_buffer(inst, buffer_type)) {
-		if (inst->core->resources.decode_batching &&
-			is_decode_session(inst) &&
+		if (inst->decode_batching && is_decode_session(inst) &&
 			count < inst->batch.size)
 			count = inst->batch.size;
 	}

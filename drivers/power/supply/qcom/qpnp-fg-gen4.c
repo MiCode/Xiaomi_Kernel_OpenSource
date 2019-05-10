@@ -196,6 +196,7 @@ struct fg_dt_props {
 	bool	five_pin_battery;
 	bool	esr_calib_dischg;
 	bool	multi_profile_load;
+	bool	soc_hi_res;
 	int	cutoff_volt_mv;
 	int	empty_volt_mv;
 	int	cutoff_curr_ma;
@@ -748,10 +749,21 @@ static int fg_gen4_get_cell_impedance(struct fg_gen4_chip *chip, int *val)
 {
 	struct fg_dev *fg = &chip->fg;
 	int rc, esr_uohms, temp, vbat_term_mv, v_delta, rprot_uohms = 0;
+	int rslow_uohms;
 
-	rc = fg_get_battery_resistance(fg, &esr_uohms);
-	if (rc < 0)
+	rc = fg_get_sram_prop(fg, FG_SRAM_ESR_ACT, &esr_uohms);
+	if (rc < 0) {
+		pr_err("failed to get ESR_ACT, rc=%d\n", rc);
 		return rc;
+	}
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_RSLOW, &rslow_uohms);
+	if (rc < 0) {
+		pr_err("failed to get Rslow, rc=%d\n", rc);
+		return rc;
+	}
+
+	esr_uohms += rslow_uohms;
 
 	if (!chip->dt.five_pin_battery)
 		goto out;
@@ -831,6 +843,35 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 	return 0;
 }
 
+static int fg_gen4_get_prop_capacity_raw(struct fg_gen4_chip *chip, int *val)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+
+	if (!chip->dt.soc_hi_res) {
+		rc = fg_get_msoc_raw(fg, val);
+		return rc;
+	}
+
+	if (!is_input_present(fg)) {
+		rc = fg_gen4_get_prop_capacity(fg, val);
+		if (!rc)
+			*val = *val * 100;
+		return rc;
+	}
+
+	rc = fg_get_sram_prop(&chip->fg, FG_SRAM_MONOTONIC_SOC, val);
+	if (rc < 0) {
+		pr_err("Error in getting MONOTONIC_SOC, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Show it in centi-percentage */
+	*val = (*val * 10000) / 0xFFFF;
+
+	return 0;
+}
+
 static inline void get_esr_meas_current(int curr_ma, u8 *val)
 {
 	switch (curr_ma) {
@@ -876,6 +917,11 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 	case TTF_VBAT:
 		rc = fg_get_battery_voltage(fg, val);
 		break;
+	case TTF_OCV:
+		rc = fg_get_sram_prop(fg, FG_SRAM_OCV, val);
+		if (rc < 0)
+			pr_err("Failed to get battery OCV, rc=%d\n", rc);
+		break;
 	case TTF_IBAT:
 		rc = fg_get_battery_current(fg, val);
 		break;
@@ -901,6 +947,8 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 			*val = TTF_MODE_QNOVO;
 		else if (chip->ttf->step_chg_cfg_valid)
 			*val = TTF_MODE_V_STEP_CHG;
+		else if (chip->ttf->ocv_step_chg_cfg_valid)
+			*val = TTF_MODE_OCV_STEP_CHG;
 		else
 			*val = TTF_MODE_NORMAL;
 		break;
@@ -1466,6 +1514,12 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 
 		chip->ttf->step_chg_num_params = tuple_len;
 		chip->ttf->step_chg_cfg_valid = true;
+		if (of_property_read_bool(profile_node,
+					   "qcom,ocv-based-step-chg")) {
+			chip->ttf->step_chg_cfg_valid = false;
+			chip->ttf->ocv_step_chg_cfg_valid = true;
+		}
+
 		mutex_unlock(&chip->ttf->lock);
 
 		if (chip->ttf->step_chg_cfg_valid) {
@@ -3488,7 +3542,7 @@ static int fg_psy_get_property(struct power_supply *psy,
 		rc = fg_gen4_get_prop_capacity(fg, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
-		rc = fg_get_msoc_raw(fg, &pval->intval);
+		rc = fg_gen4_get_prop_capacity_raw(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CC_SOC:
 		rc = fg_get_sram_prop(&chip->fg, FG_SRAM_CC_SOC, &val);
@@ -4866,6 +4920,7 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 					"qcom,five-pin-battery");
 	chip->dt.multi_profile_load = of_property_read_bool(node,
 					"qcom,multi-profile-load");
+	chip->dt.soc_hi_res = of_property_read_bool(node, "qcom,soc-hi-res");
 	return 0;
 }
 

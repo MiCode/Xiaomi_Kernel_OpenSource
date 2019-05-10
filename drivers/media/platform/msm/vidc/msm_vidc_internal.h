@@ -475,6 +475,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_codec_data *codec_data;
 	struct hal_hdr10_pq_sei hdr10_sei_params;
 	struct batch_mode batch;
+	bool decode_batching;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

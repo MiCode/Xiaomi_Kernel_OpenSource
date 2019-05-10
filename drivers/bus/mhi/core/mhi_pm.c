@@ -1067,6 +1067,7 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->wake_get(mhi_cntrl, true);
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
+		pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
 		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}

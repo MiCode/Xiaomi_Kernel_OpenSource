@@ -164,6 +164,7 @@ struct rmnet_ipa3_context {
 	struct ipa_tether_device_info
 		tether_device
 		[IPACM_MAX_CLIENT_DEVICE_TYPES];
+	atomic_t suspend_pend;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -1116,14 +1117,21 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	qmap_check = RMNET_MAP_GET_CD_BIT(skb);
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	if (netif_queue_stopped(dev)) {
-		if (qmap_check &&
+		/*
+		 * Checking rmnet suspend in progress or not, because in suspend
+		 * clock will be disabled, without clock transferring data
+		 * not possible.
+		 */
+		if (!atomic_read(&rmnet_ipa3_ctx->suspend_pend) && qmap_check &&
 			atomic_read(&wwan_ptr->outstanding_pkts) <
 					outstanding_high_ctl) {
 			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
 			goto send;
 		} else {
 			pr_err("[%s]fatal: %s stopped\n", dev->name, __func__);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
@@ -1138,12 +1146,12 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 				netif_queue_stopped(dev));
 			IPAWANDBG_LOW("qmap_chk(%d)\n", qmap_check);
 			netif_stop_queue(dev);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
 
 send:
-	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* IPA_RM checking start */
 	if (ipa3_ctx->use_ipa_pm) {
 		/* activate the modem pm for clock scaling */
@@ -2576,6 +2584,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
 	ipa3_update_ssr_state(false);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
@@ -2697,6 +2706,12 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		goto bail;
 	}
 
+	/*
+	 * Rmnert supend and xmit are executing at the same time, In those
+	 * scenarios observing the data was processed when IPA clock are off.
+	 * Added changes to synchronize rmnet supend and xmit.
+	 */
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 1);
 	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* Do not allow A7 to suspend in case there are outstanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
@@ -2717,6 +2732,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	else
 		ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
 	ret = 0;
 bail:
 	IPAWANDBG("Exit with %d\n", ret);

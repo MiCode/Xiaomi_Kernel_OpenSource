@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,12 @@ static const char *const mpeg_video_stream_format[] = {
 	"NAL Format Two Byte Length",
 	"NAL Format Four Byte Length",
 	NULL
+};
+
+static const char *const roi_map_type[] = {
+	"None",
+	"2-bit",
+	"2-byte"
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -1161,6 +1167,20 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.maximum = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.default_value = V4L2_MPEG_MSM_VIDC_ENABLE,
 		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE,
+		.name = "ROI Type",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE,
+		.menu_skip_mask = ~(
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_NONE) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BIT) |
+		(1 << V4L2_CID_MPEG_VIDC_VIDEO_ROI_TYPE_2BYTE)
+		),
+		.qmenu = roi_map_type,
 	},
 };
 
