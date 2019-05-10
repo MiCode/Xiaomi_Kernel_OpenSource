@@ -653,9 +653,9 @@ static int h264_enc_set_param(void *handle,
 		inst->vsi->config.framerate = enc_prm->frm_rate;
 		inst->vsi->config.intra_period = enc_prm->intra_period;
 		inst->vsi->config.profile =
-			h264_get_profile(inst, enc_prm->h264_profile);
+			h264_get_profile(inst, enc_prm->profile);
 		inst->vsi->config.level =
-			h264_get_level(inst, enc_prm->h264_level);
+			h264_get_level(inst, enc_prm->level);
 		inst->vsi->config.wfd = 0;
 		ret = vpu_enc_set_param(&inst->vpu_inst, type, enc_prm);
 		if (ret)
@@ -707,9 +707,16 @@ static int h264_enc_deinit(void *handle)
 	return ret;
 }
 
-const struct venc_common_if venc_h264_if = {
+static const struct venc_common_if venc_h264_if = {
 	.init = h264_enc_init,
 	.encode = h264_enc_encode,
 	.set_param = h264_enc_set_param,
 	.deinit = h264_enc_deinit,
 };
+
+const struct venc_common_if *get_h264_enc_comm_if(void);
+
+const struct venc_common_if *get_h264_enc_comm_if(void)
+{
+	return &venc_h264_if;
+}

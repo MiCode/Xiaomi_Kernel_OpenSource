@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o \
-				       mtk-vcodec-common.o
+				       mtk-vcodec-enc.o \
+				       mtk-vcodec-common.o \
 
 mtk-vcodec-dec-y := mtk_vcodec_dec_drv.o \
 		vdec_drv_if.o \
@@ -23,13 +24,20 @@ ifdef CONFIG_VIDEO_MEDIATEK_VPU
 		vdec_vpu_if.o
 endif
 
-mtk-vcodec-enc-n := venc/venc_vp8_if.o \
-		venc/venc_h264_if.o \
-		mtk_vcodec_enc.o \
+mtk-vcodec-enc-y := mtk_vcodec_enc.o \
 		mtk_vcodec_enc_drv.o \
 		mtk_vcodec_enc_pm.o \
 		venc_drv_if.o \
-		venc_vpu_if.o \
+
+ifdef CONFIG_VIDEO_MEDIATEK_VCU
+	mtk-vcodec-enc-y += venc/venc_common_if.o \
+		venc_vcu_if.o
+endif
+ifdef CONFIG_VIDEO_MEDIATEK_VPU
+	mtk-vcodec-enc-y += venc/venc_vp8_if.o \
+		venc/venc_h264_if.o \
+		venc_vpu_if.o
+endif
 
 
 mtk-vcodec-common-y := mtk_vcodec_intr.o \

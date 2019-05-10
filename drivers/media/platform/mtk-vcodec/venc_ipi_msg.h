@@ -17,9 +17,13 @@
 
 #ifndef _VENC_IPI_MSG_H_
 #define _VENC_IPI_MSG_H_
+#include <linux/videodev2.h>
 
+#define MTK_MAX_ENC_CODECS_SUPPORT       (32)
 #define AP_IPIMSG_VENC_BASE 0xC000
 #define VPU_IPIMSG_VENC_BASE 0xD000
+#define VENC_MAX_FB_NUM              VIDEO_MAX_FRAME
+#define VENC_MAX_BS_NUM              VIDEO_MAX_FRAME
 
 /**
  * enum venc_ipi_msg_id - message id between AP and VPU
@@ -32,13 +36,58 @@ enum venc_ipi_msg_id {
 	AP_IPIMSG_ENC_SET_PARAM,
 	AP_IPIMSG_ENC_ENCODE,
 	AP_IPIMSG_ENC_DEINIT,
+	AP_IPIMSG_ENC_QUERY_CAP,
 
 	VPU_IPIMSG_ENC_INIT_DONE = VPU_IPIMSG_VENC_BASE,
 	VPU_IPIMSG_ENC_SET_PARAM_DONE,
 	VPU_IPIMSG_ENC_ENCODE_DONE,
 	VPU_IPIMSG_ENC_DEINIT_DONE,
+	VPU_IPIMSG_ENC_QUERY_CAP_ACK,
+	VPU_IPIMSG_ENC_POWER_ON,
+	VPU_IPIMSG_ENC_POWER_OFF,
+	VPU_IPIMSG_ENC_WAIT_ISR,
+	VPU_IPIMSG_ENC_ENCODE_ACK
 };
 
+enum venc_get_param_type {
+	GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
+	GET_PARAM_CAPABILITY_FRAME_SIZES,
+	GET_PARAM_FREE_BUFFERS
+};
+/*
+ * enum venc_set_param_type - The type of set parameter used in
+ *                                                    venc_if_set_param()
+ * (VCU related: If you change the order, you must also update the VCU codes.)
+ * @VENC_SET_PARAM_ENC: set encoder parameters
+ * @VENC_SET_PARAM_FORCE_INTRA: force an intra frame
+ * @VENC_SET_PARAM_ADJUST_BITRATE: adjust bitrate (in bps)
+ * @VENC_SET_PARAM_ADJUST_FRAMERATE: set frame rate
+ * @VENC_SET_PARAM_GOP_SIZE: set IDR interval
+ * @VENC_SET_PARAM_INTRA_PERIOD: set I frame interval
+ * @VENC_SET_PARAM_SKIP_FRAME: set H264 skip one frame
+ * @VENC_SET_PARAM_PREPEND_HEADER: set H264 prepend SPS/PPS before IDR
+ * @VENC_SET_PARAM_TS_MODE: set VP8 temporal scalability mode
+ * @VENC_SET_PARAM_SCENARIO: set encoder scenario mode for different RC control
+ * @VENC_SET_PARAM_NONREFP: set encoder non reference P period
+ */
+enum venc_set_param_type {
+	VENC_SET_PARAM_ENC,
+	VENC_SET_PARAM_FORCE_INTRA,
+	VENC_SET_PARAM_ADJUST_BITRATE,
+	VENC_SET_PARAM_ADJUST_FRAMERATE,
+	VENC_SET_PARAM_GOP_SIZE,
+	VENC_SET_PARAM_INTRA_PERIOD,
+	VENC_SET_PARAM_SKIP_FRAME,
+	VENC_SET_PARAM_PREPEND_HEADER,
+	VENC_SET_PARAM_TS_MODE,
+	VENC_SET_PARAM_SCENARIO,
+	VENC_SET_PARAM_NONREFP,
+	VENC_SET_PARAM_DETECTED_FRAMERATE,
+	VENC_SET_PARAM_RFS_ON,
+	VENC_SET_PARAM_PREPEND_SPSPPS_TO_IDR,
+	VENC_SET_PARAM_OPERATION_RATE,
+	VENC_SET_PARAM_BITRATE_MODE,
+};
 /**
  * struct venc_ap_ipi_msg_init - AP to VPU init cmd structure
  * @msg_id:	message id (AP_IPIMSG_XXX_ENC_INIT)
@@ -54,6 +103,57 @@ struct venc_ap_ipi_msg_init {
 	uint64_t venc_inst;
 };
 
+/**
+ * struct venc_ap_ipi_query_cap - for AP_IPIMSG_ENC_QUERY_CAP
+ * @msg_id        : AP_IPIMSG_ENC_QUERY_CAP
+ * @id      : query capability type
+ * @vdec_inst     : AP query data address
+ */
+struct venc_ap_ipi_query_cap {
+	__u32 msg_id;
+	__u32 id;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+	union {
+		__u64 ap_data_addr_64;
+		__u32 ap_data_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+	__u64 ap_data_addr;
+#endif
+};
+
+/**
+ * struct venc_vcu_ipi_query_cap_ack - for VCU_IPIMSG_ENC_QUERY_CAP_ACK
+ * @msg_id      : VCU_IPIMSG_ENC_QUERY_CAP_ACK
+ * @status      : VCU exeuction result
+ * @ap_data_addr   : AP query data address
+ * @vcu_data_addr  : VCU query data address
+ */
+struct venc_vcu_ipi_query_cap_ack {
+	__u32 msg_id;
+	__s32 status;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+	__u32 id;
+	union {
+		__u64 ap_data_addr_64;
+		__u32 ap_data_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+	__u32 id;
+	__u64 ap_data_addr;
+#endif
+	__u32 vcu_data_addr;
+};
 /**
  * struct venc_ap_ipi_msg_set_param - AP to VPU set_param cmd structure
  * @msg_id:	message id (AP_IPIMSG_XXX_ENC_SET_PARAM)
@@ -91,10 +191,15 @@ struct venc_ap_ipi_msg_set_param_ext {
 struct venc_ap_ipi_msg_enc {
 	uint32_t msg_id;
 	uint32_t vpu_inst_addr;
-	uint32_t bs_mode;
 	uint32_t input_addr[3];
+	uint32_t input_size[3];
 	uint32_t bs_addr;
 	uint32_t bs_size;
+	__u32 data_offset[3];
+	__s16 input_fd[3];
+	__s16 bs_fd;
+	__u8 fb_num_planes;
+	__u8 bs_mode;
 };
 
 struct venc_ap_ipi_msg_enc_ext {
@@ -115,6 +220,22 @@ struct venc_ap_ipi_msg_deinit {
 };
 
 /**
+ * struct venc_vcu_ipi_msg_waitisr - VCU ack AP wait isr cmd structure
+ * @msg_id:   message id (VCU_IPIMSG_XXX_ENC_DEINIT_DONE)
+ * @status:   cmd status (venc_ipi_msg_status)
+ * @venc_inst:	AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
+ * @irq_status: encoder irq status
+ * @timeout: 1 indicate encode timeout, 0 indicate no error
+ */
+struct venc_vpu_ipi_msg_waitisr {
+	__u32 msg_id;
+	__s32 status;
+	__u64 venc_inst;
+	__u32 irq_status;
+	__u32 timeout;
+};
+
+/**
  * enum venc_ipi_msg_status - VPU ack AP cmd status
  */
 enum venc_ipi_msg_status {
@@ -128,7 +249,7 @@ enum venc_ipi_msg_status {
  * @status:	cmd status (venc_ipi_msg_status)
  * @venc_inst:	AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
-struct venc_vpu_ipi_msg_common {
+struct venc_vcu_ipi_msg_common {
 	uint32_t msg_id;
 	uint32_t status;
 	uint64_t venc_inst;
@@ -145,7 +266,7 @@ struct venc_vpu_ipi_msg_common {
  *		this reserved field, if kernel run in 64bit. this struct size
  *		will be different between kernel and vpu
  */
-struct venc_vpu_ipi_msg_init {
+struct venc_vcu_ipi_msg_init {
 	uint32_t msg_id;
 	uint32_t status;
 	uint64_t venc_inst;
@@ -162,7 +283,7 @@ struct venc_vpu_ipi_msg_init {
  * @data_item:	number of items in the data array
  * @data[6]:	data array to store the return result
  */
-struct venc_vpu_ipi_msg_set_param {
+struct venc_vcu_ipi_msg_set_param {
 	uint32_t msg_id;
 	uint32_t status;
 	uint64_t venc_inst;
@@ -197,7 +318,7 @@ enum venc_ipi_msg_enc_state {
  *		this reserved field, if kernel run in 64bit. this struct size
  *		will be different between kernel and vpu
  */
-struct venc_vpu_ipi_msg_enc {
+struct venc_vcu_ipi_msg_enc {
 	uint32_t msg_id;
 	uint32_t status;
 	uint64_t venc_inst;
@@ -213,10 +334,121 @@ struct venc_vpu_ipi_msg_enc {
  * @status:   cmd status (venc_ipi_msg_status)
  * @venc_inst:	AP encoder instance (struct venc_vp8_inst/venc_h264_inst *)
  */
-struct venc_vpu_ipi_msg_deinit {
+struct venc_vcu_ipi_msg_deinit {
 	uint32_t msg_id;
 	uint32_t status;
 	uint64_t venc_inst;
 };
 
+/*
+ * struct venc_vcu_config - Structure for encoder configuration
+ *                               AP-W/R : AP is writer/reader on this item
+ *                               VCU-W/R: VCU is write/reader on this item
+ * @input_fourcc: input fourcc
+ * @bitrate: target bitrate (in bps)
+ * @pic_w: picture width. Picture size is visible stream resolution, in pixels,
+ *         to be used for display purposes; must be smaller or equal to buffer
+ *         size.
+ * @pic_h: picture height
+ * @buf_w: buffer width. Buffer size is stream resolution in pixels aligned to
+ *         hardware requirements.
+ * @buf_h: buffer height
+ * @gop_size: group of picture size (idr frame)
+ * @intra_period: intra frame period
+ * @framerate: frame rate in fps
+ * @profile: as specified in standard
+ * @level: as specified in standard
+ * @wfd: WFD mode 1:on, 0:off
+ */
+struct venc_vcu_config {
+	__u32 input_fourcc;
+	__u32 bitrate;
+	__u32 pic_w;
+	__u32 pic_h;
+	__u32 buf_w;
+	__u32 buf_h;
+	__u32 gop_size;
+	__u32 intra_period;
+	__u32 framerate;
+	__u32 profile;
+	__u32 level;
+	__u32 wfd;
+	__u32 operationrate;
+	__u32 scenario;
+	__u32 prependheader;
+	__u32 bitratemode;
+};
+
+/**
+ * enum venc_bs_mode - for bs_mode argument in venc_bs_mode
+ */
+enum venc_bs_mode {
+	VENC_BS_MODE_SPS = 0,
+	VENC_BS_MODE_PPS,
+	VENC_BS_MODE_SEQ_HDR,
+	VENC_BS_MODE_FRAME,
+	VENC_BS_MODE_FRAME_FINAL,
+	VENC_BS_MODE_MAX
+};
+/**
+ * struct venc_info - encode information
+ * @bs_dma		: Input bit-stream buffer dma address
+ * @bs_fd           : Input bit-stream buffer dmabuf fd
+ * @fb_dma		    : Y frame buffer dma address
+ * @fb_fd           : Y frame buffer dmabuf fd
+ * @venc_bs_va		: VDEC bitstream buffer struct virtual address
+ * @venc_fb_va		: VDEC frame buffer struct virtual address
+ * @fb_num_planes	: frame buffer plane count
+ * @reserved		: reserved variable for 64bit align
+ */
+struct venc_info {
+	__u64 bs_dma;
+	__u64 bs_fd;
+	__u64 fb_dma[VIDEO_MAX_PLANES];
+	__u64 fb_fd[VIDEO_MAX_PLANES];
+	__u64 venc_bs_va;
+	__u64 venc_fb_va;
+	__u32 fb_num_planes;
+	__u32 index;
+	__u64 timestamp;
+};
+
+/**
+ * struct ring_input_list - ring input buffer list
+ * @venc_bs_va_list   : bitstream buffer arrary
+ * @venc_fb_va_list   : frame buffer arrary
+ * @read_idx  : read index
+ * @write_idx : write index
+ * @count     : buffer count in list
+ */
+struct ring_input_list {
+	__u64 venc_bs_va_list[VENC_MAX_FB_NUM];
+	__u64 venc_fb_va_list[VENC_MAX_FB_NUM];
+	__u32 bs_size[VENC_MAX_FB_NUM];
+	__u32 is_key_frm[VENC_MAX_FB_NUM];
+	__s32 read_idx;
+	__s32 write_idx;
+	__s32 count;
+	__s32 reserved;
+};
+/*
+ * struct venc_vsi - Structure for VCU driver control and info share
+ *                        AP-W/R : AP is writer/reader on this item
+ *                        VCU-W/R: VCU is write/reader on this item
+ * This structure is allocated in VCU side and shared to AP side.
+ * @config: h264 encoder configuration
+ * @work_bufs: working buffer information in VCU side
+ * The work_bufs here is for storing the 'size' info shared to AP side.
+ * The similar item in struct venc_inst is for memory allocation
+ * in AP side. The AP driver will copy the 'size' from here to the one in
+ * struct mtk_vcodec_mem, then invoke mtk_vcodec_mem_alloc to allocate
+ * the buffer. After that, bypass the 'dma_addr' to the 'iova' field here for
+ * register setting in VCU side.
+ */
+struct venc_vsi {
+	struct venc_vcu_config config;
+	__u32  sizeimage[VIDEO_MAX_PLANES];
+	struct ring_input_list list_free;
+	struct venc_info       venc;
+};
 #endif /* _VENC_IPI_MSG_H_ */

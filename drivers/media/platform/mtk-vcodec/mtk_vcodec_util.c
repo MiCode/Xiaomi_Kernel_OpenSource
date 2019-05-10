@@ -40,6 +40,18 @@ void __iomem *mtk_vcodec_get_reg_addr(struct mtk_vcodec_ctx *data,
 	return ctx->dev->reg_base[reg_idx];
 }
 EXPORT_SYMBOL(mtk_vcodec_get_reg_addr);
+void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,
+	unsigned int reg_idx)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)data;
+
+	if (!data || reg_idx >= NUM_MAX_VENC_REG_BASE) {
+		mtk_v4l2_err("Invalid arguments, reg_idx=%d", reg_idx);
+		return NULL;
+	}
+	return ctx->dev->enc_reg_base[reg_idx];
+}
+EXPORT_SYMBOL(mtk_vcodec_get_enc_reg_addr);
 
 int mtk_vcodec_mem_alloc(struct mtk_vcodec_ctx *data,
 			struct mtk_vcodec_mem *mem)

@@ -44,6 +44,15 @@ struct venc_common_if {
 		      struct venc_done_result *result);
 
 	/**
+	 * (*get_param)() - set driver's parameter
+	 * @handle: [in] driver handle
+	 * @type: [in] parameter type
+	 * @in: [in] buffer to store the parameter
+	 */
+	int (*get_param)(void *handle, enum venc_get_param_type type,
+					 void *out);
+
+	/**
 	 * (*set_param)() - set driver's parameter
 	 * @handle: [in] driver handle
 	 * @type: [in] parameter type
