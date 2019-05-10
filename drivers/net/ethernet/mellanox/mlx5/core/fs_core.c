@@ -1960,7 +1960,7 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_flow_steering
 	struct mlx5_flow_namespace *ns;
 
 	/* Create the root namespace */
-	root_ns = kvzalloc(sizeof(*root_ns), GFP_KERNEL);
+	root_ns = kzalloc(sizeof(*root_ns), GFP_KERNEL);
 	if (!root_ns)
 		return NULL;
 
