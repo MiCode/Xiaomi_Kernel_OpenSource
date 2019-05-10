@@ -89,9 +89,7 @@ static void dfc_svc_init(struct work_struct *work);
 #define QMI_DFC_INDICATION_REGISTER_RESP_V01_MAX_MSG_LEN 7
 
 #define QMI_DFC_FLOW_STATUS_IND_V01 0x0022
-#define QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN 540
 #define QMI_DFC_TX_LINK_STATUS_IND_V01 0x0024
-#define QMI_DFC_TX_LINK_STATUS_IND_V01_MAX_MSG_LEN 120
 
 #define QMI_DFC_GET_FLOW_STATUS_REQ_V01 0x0023
 #define QMI_DFC_GET_FLOW_STATUS_RESP_V01 0x0023
@@ -1161,6 +1159,11 @@ static void dfc_do_burst_flow_control(struct dfc_qmi_data *dfc,
 
 		spin_lock_bh(&qos->qos_lock);
 
+		if (qmi_rmnet_ignore_grant(dfc->rmnet_port)) {
+			spin_unlock_bh(&qos->qos_lock);
+			continue;
+		}
+
 		if (unlikely(flow_status->bearer_id == 0xFF))
 			dfc_all_bearer_flow_ctl(
 				dev, qos, ack_req, ancillary, flow_status);
@@ -1365,7 +1368,14 @@ static void dfc_svc_init(struct work_struct *work)
 		return;
 	}
 
-	rtnl_lock();
+	if (data->restart_state == 1)
+		return;
+	while (!rtnl_trylock()) {
+		if (!data->restart_state)
+			cond_resched();
+		else
+			return;
+	}
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
@@ -1417,14 +1427,14 @@ static struct qmi_msg_handler qmi_indication_handler[] = {
 		.type = QMI_INDICATION,
 		.msg_id = QMI_DFC_FLOW_STATUS_IND_V01,
 		.ei = dfc_flow_status_ind_v01_ei,
-		.decoded_size = QMI_DFC_FLOW_STATUS_IND_V01_MAX_MSG_LEN,
+		.decoded_size = sizeof(struct dfc_flow_status_ind_msg_v01),
 		.fn = dfc_clnt_ind_cb,
 	},
 	{
 		.type = QMI_INDICATION,
 		.msg_id = QMI_DFC_TX_LINK_STATUS_IND_V01,
 		.ei = dfc_tx_link_status_ind_v01_ei,
-		.decoded_size = QMI_DFC_TX_LINK_STATUS_IND_V01_MAX_MSG_LEN,
+		.decoded_size = sizeof(struct dfc_tx_link_status_ind_msg_v01),
 		.fn = dfc_tx_link_status_ind_cb,
 	},
 	{},
@@ -1547,18 +1557,6 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 out:
 	spin_unlock_bh(&qos->qos_lock);
-}
-
-void dfc_qmi_wq_flush(struct qmi_info *qmi)
-{
-	struct dfc_qmi_data *dfc_data;
-	int i;
-
-	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		dfc_data = (struct dfc_qmi_data *)(qmi->dfc_clients[i]);
-		if (dfc_data)
-			flush_workqueue(dfc_data->dfc_wq);
-	}
 }
 
 void dfc_qmi_query_flow(void *dfc_data)

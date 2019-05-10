@@ -562,7 +562,7 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
 	}
 }
 
-int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
+int diag_process_stm_cmd(unsigned char *buf, int len, unsigned char *dest_buf)
 {
 	uint8_t version, mask, cmd;
 	uint8_t rsp_supported = 0;
@@ -574,7 +574,11 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 		       buf, dest_buf, __func__);
 		return -EIO;
 	}
-
+	if (len < STM_CMD_NUM_BYTES) {
+		pr_err("diag: Invalid buffer length: %d in %s\n", len,
+			__func__);
+		return -EINVAL;
+	}
 	version = *(buf + STM_CMD_VERSION_OFFSET);
 	mask = *(buf + STM_CMD_MASK_OFFSET);
 	cmd = *(buf + STM_CMD_DATA_OFFSET);
@@ -1061,12 +1065,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		return 0;
 	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
 		(*(uint16_t *)(buf+2) == DIAG_DIAG_STM)) {
-		len = diag_process_stm_cmd(buf, driver->apps_rsp_buf);
-		if (len > 0) {
-			diag_send_rsp(driver->apps_rsp_buf, len, pid);
+		write_len = diag_process_stm_cmd(buf, len,
+			driver->apps_rsp_buf);
+		if (write_len > 0) {
+			diag_send_rsp(driver->apps_rsp_buf, write_len, pid);
 			return 0;
 		}
-		return len;
+		return write_len;
 	}
 	/* Check for time sync query command */
 	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
@@ -1675,7 +1680,7 @@ void diag_process_non_hdlc_pkt(unsigned char *buf, int len, int pid)
 		if (*(uint8_t *)(data_ptr + actual_pkt->length) !=
 						CONTROL_CHAR) {
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, pid);
+			diag_hdlc_start_recovery(buf, (len - read_bytes), pid);
 			mutex_lock(&driver->hdlc_recovery_mutex);
 		}
 		err = diag_process_apps_pkt(data_ptr,
@@ -1701,8 +1706,8 @@ start:
 		pkt_len = actual_pkt->length;
 
 		if (actual_pkt->start != CONTROL_CHAR) {
-			diag_hdlc_start_recovery(buf, len, pid);
-			diag_send_error_rsp(buf, len, pid);
+			diag_hdlc_start_recovery(buf, (len - read_bytes), pid);
+			diag_send_error_rsp(buf, (len - read_bytes), pid);
 			goto end;
 		}
 		mutex_lock(&driver->hdlc_recovery_mutex);
@@ -1710,7 +1715,7 @@ start:
 			pr_err("diag: In %s, incoming data is too large for the request buffer %d\n",
 			       __func__, pkt_len);
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, pid);
+			diag_hdlc_start_recovery(buf, (len - read_bytes), pid);
 			break;
 		}
 		if ((pkt_len + header_len) > (len - read_bytes)) {
@@ -1727,7 +1732,7 @@ start:
 		if (*(uint8_t *)(data_ptr + actual_pkt->length) !=
 						CONTROL_CHAR) {
 			mutex_unlock(&driver->hdlc_recovery_mutex);
-			diag_hdlc_start_recovery(buf, len, pid);
+			diag_hdlc_start_recovery(buf, (len - read_bytes), pid);
 			mutex_lock(&driver->hdlc_recovery_mutex);
 		} else
 			hdlc_reset = 0;
