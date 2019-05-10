@@ -2710,6 +2710,25 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 	return 1;
 }
 
+static void dwc3_gsi_ep_transfer_complete(struct dwc3 *dwc, struct dwc3_ep *dep)
+{
+	struct usb_ep *ep = &dep->endpoint;
+	struct dwc3_trb *trb;
+	dma_addr_t offset;
+
+	trb = &dep->trb_pool[dep->trb_dequeue];
+	while (trb->ctrl & DWC3_TRBCTL_LINK_TRB) {
+		dwc3_ep_inc_trb(&dep->trb_dequeue);
+		trb = &dep->trb_pool[dep->trb_dequeue];
+	}
+
+	if (!(trb->ctrl & DWC3_TRB_CTRL_HWO)) {
+		offset = dwc3_trb_dma_offset(dep, trb);
+		usb_gsi_ep_op(ep, (void *)&offset, GSI_EP_OP_UPDATE_DB);
+		dwc3_ep_inc_trb(&dep->trb_dequeue);
+	}
+}
+
 static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 		struct dwc3_ep *dep, const struct dwc3_event_depevt *event)
 {
@@ -2721,6 +2740,15 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 
 	if (event->status & DEPEVT_STATUS_BUSERR)
 		status = -ECONNRESET;
+	/*
+	 * Check if NORMAL EP is used with GSI.
+	 * In that case dwc3 driver recevies EP events from hardware and
+	 * updates GSI doorbell with completed TRB.
+	 */
+	if (dep->endpoint.ep_type == EP_TYPE_GSI) {
+		dwc3_gsi_ep_transfer_complete(dwc, dep);
+		return;
+	}
 
 	clean_busy = dwc3_cleanup_done_reqs(dwc, dep, event, status);
 	if (clean_busy && (!dep->endpoint.desc || is_xfer_complete ||

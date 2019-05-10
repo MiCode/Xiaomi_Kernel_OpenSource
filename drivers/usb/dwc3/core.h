@@ -620,6 +620,7 @@ struct dwc3_ep_events {
  * @dbg_ep_events_ts: timestamp for previous event counters
  * @fifo_depth: allocated TXFIFO depth
  * @ep_cfg_init_params: Used by GSI EP to save EP_CFG init_cmd params
+ * @gsi_db_reg_addr: Address of GSI DB register mapped to this EP
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -676,6 +677,7 @@ struct dwc3_ep {
 	struct timespec		dbg_ep_events_ts;
 	int			fifo_depth;
 	struct dwc3_gadget_ep_cmd_params ep_cfg_init_params;
+	void __iomem		*gsi_db_reg_addr;
 };
 
 enum dwc3_phy {
