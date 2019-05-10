@@ -207,7 +207,7 @@ to_geni_i3c_master(struct i3c_master_controller *master)
 static const struct geni_i3c_clk_fld geni_i3c_clk_map[] = {
 	{ KHZ(100),    19200, 7, 10, 11, 26, 0, 0 },
 	{ KHZ(400),    19200, 2,  5, 12, 24, 0, 0 },
-	{ KHZ(1000),   19200, 1,  3,  9, 18, 0, 0 },
+	{ KHZ(1000),   19200, 1,  3,  9, 18, 7, 0 },
 	{ KHZ(12500), 100000, 1, 60, 140, 250, 8, 16 },
 };
 
@@ -309,6 +309,8 @@ static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
 
 	dev_dbg(gi3c->se.dev, "%s\n", gi3c_log[err].msg);
 	gi3c->err = gi3c_log[err].err;
+
+	geni_se_dump_dbg_regs(&gi3c->se.i3c_rsc, gi3c->se.base, gi3c->ipcl);
 }
 
 static irqreturn_t geni_i3c_irq(int irq, void *dev)
