@@ -20,6 +20,7 @@
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
+#define OTHER_VFE(vfe_id) (vfe_id == ISP_VFE0 ? ISP_VFE1 : ISP_VFE0)
 
 static void msm_isp_reload_ping_pong_offset(
 		struct msm_vfe_axi_stream *stream_info);
@@ -4241,6 +4242,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct timeval *time_stamp;
 	uint32_t frame_id, buf_index = -1;
 	int vfe_idx;
+	struct vfe_device *temp_dev;
+	int other_vfe_id;
 
 	if (!ts) {
 		pr_err("%s: Error! Invalid argument\n", __func__);
@@ -4363,6 +4366,17 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 				stream_info->bufq_handle[
 				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
 			vfe_dev->error_info.framedrop_flag = 1;
+			if (vfe_dev->is_split) {
+				other_vfe_id = OTHER_VFE(vfe_dev->pdev->id);
+				temp_dev =
+				vfe_dev->common_data->dual_vfe_res->vfe_dev[
+					other_vfe_id];
+				temp_dev->error_info.stream_framedrop_count[
+				stream_info->bufq_handle[
+				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
+				temp_dev->error_info.framedrop_flag = 1;
+			}
+
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;
