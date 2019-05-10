@@ -17,6 +17,9 @@
 /* Default AXI Bandwidth vote */
 #define CAM_CPAS_DEFAULT_AXI_BW 1024
 
+#define CAM_CPAS_MAX_PATHS_PER_CLIENT 15
+#define CAM_CPAS_API_PATH_DATA_STD_START 512
+
 /**
  * enum cam_cpas_reg_base - Enum for register base identifier. These
  *                          are the identifiers used in generic register
@@ -44,7 +47,6 @@ enum cam_cpas_hw_version {
 	CAM_CPAS_TITAN_480_V100 = 0x480100,
 	CAM_CPAS_TITAN_MAX
 };
-
 
 /**
  * enum cam_camnoc_irq_type - Enum for camnoc irq types
@@ -327,20 +329,13 @@ struct cam_ahb_vote {
 /**
  * struct cam_axi_vote : AXI vote
  *
- * @uncompressed_bw : Bus bandwidth required in Bytes for uncompressed data
- *                    This is the required bandwidth for uncompressed
- *                    data traffic between hw core and camnoc.
- * @compressed_bw   : Bus bandwidth required in Bytes for compressed data.
- *                    This is the required bandwidth for compressed
- *                    data traffic between camnoc and mmnoc.
- *
- * If one of the above is not applicable to a hw client, it has to
- * fill the same values in both.
+ * @num_paths: Number of paths on which BW vote is sent to CPAS
+ * @axi_path: Per path BW vote info
  *
  */
 struct cam_axi_vote {
-	uint64_t   uncompressed_bw;
-	uint64_t   compressed_bw;
+	uint32_t num_paths;
+	struct cam_axi_per_path_bw_vote axi_path[CAM_CPAS_MAX_PATHS_PER_CLIENT];
 };
 
 /**
@@ -516,5 +511,32 @@ int cam_cpas_get_hw_info(
  */
 int cam_cpas_get_cpas_hw_version(
 	uint32_t				 *hw_version);
+
+/**
+ * cam_cpas_axi_util_path_type_to_string()
+ *
+ * @brief: API to get string for given path type
+ *
+ * @path_data_type  : Path type
+ *
+ * @return string.
+ *
+ */
+const char *cam_cpas_axi_util_path_type_to_string(
+	uint32_t path_data_type);
+
+/**
+ * cam_cpas_axi_util_trans_type_to_string()
+ *
+ * @brief: API to get string for given transaction type
+ *
+ * @path_data_type  : Transaction type
+ *
+ * @return string.
+ *
+ */
+const char *cam_cpas_axi_util_trans_type_to_string(
+	uint32_t path_data_type);
+
 
 #endif /* _CAM_CPAS_API_H_ */

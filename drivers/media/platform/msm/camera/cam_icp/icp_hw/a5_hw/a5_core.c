@@ -260,14 +260,27 @@ int cam_a5_init_hw(void *device_priv,
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.compressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
-	cpas_vote.axi_vote.uncompressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.num_paths = 1;
+	cpas_vote.axi_vote.axi_path[0].path_data_type =
+		CAM_ICP_DEFAULT_AXI_PATH;
+	cpas_vote.axi_vote.axi_path[0].transac_type =
+		CAM_ICP_DEFAULT_AXI_TRANSAC;
+	cpas_vote.axi_vote.axi_path[0].camnoc_bw =
+		CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ab_bw =
+		CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ib_bw =
+		CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.axi_path[0].ddr_ab_bw =
+		CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.axi_path[0].ddr_ib_bw =
+		CAM_ICP_A5_BW_BYTES_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		CAM_ERR(CAM_ICP, "cpas start failed: %d", rc);
+		goto error;
 	}
 	core_info->cpas_start = true;
 
@@ -280,6 +293,7 @@ int cam_a5_init_hw(void *device_priv,
 			core_info->cpas_start = false;
 	}
 
+error:
 	return rc;
 }
 

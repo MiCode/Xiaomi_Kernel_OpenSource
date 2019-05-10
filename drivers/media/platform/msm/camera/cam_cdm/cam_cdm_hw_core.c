@@ -826,7 +826,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	struct cam_cdm_private_dt_data *soc_private = NULL;
 	struct cam_cpas_register_params cpas_parms;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 
 	cdm_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!cdm_hw_intf)
@@ -932,8 +932,13 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.num_paths = 1;
+	axi_vote.axi_path[0].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_READ;
+	axi_vote.axi_path[0].camnoc_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ab_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ib_bw = CAM_CPAS_DEFAULT_AXI_BW;
+
 	rc = cam_cpas_start(cdm_core->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_CDM, "CPAS start failed");

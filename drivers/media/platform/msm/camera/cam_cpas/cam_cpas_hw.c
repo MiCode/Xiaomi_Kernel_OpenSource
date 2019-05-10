@@ -18,6 +18,7 @@
 static uint cam_min_camnoc_ib_bw;
 module_param(cam_min_camnoc_ib_bw, uint, 0644);
 
+
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info)
 {
@@ -233,27 +234,15 @@ static int cam_cpas_util_unregister_bus_client(
 static int cam_cpas_util_axi_cleanup(struct cam_cpas *cpas_core,
 	struct cam_hw_soc_info *soc_info)
 {
-	struct cam_cpas_private_soc *soc_private =
-		(struct cam_cpas_private_soc *)soc_info->soc_private;
-	struct cam_cpas_axi_port *curr_port;
-	struct cam_cpas_axi_port *temp_port;
+	int i = 0;
 
-	list_for_each_entry_safe(curr_port, temp_port,
-		&cpas_core->axi_ports_list_head, sibling_port) {
-		cam_cpas_util_unregister_bus_client(&curr_port->mnoc_bus);
-		of_node_put(curr_port->axi_port_mnoc_node);
-		if (soc_private->axi_camnoc_based) {
-			cam_cpas_util_unregister_bus_client(
-				&curr_port->camnoc_bus);
-			of_node_put(curr_port->axi_port_camnoc_node);
-		}
-		of_node_put(curr_port->axi_port_node);
-		list_del(&curr_port->sibling_port);
-		mutex_destroy(&curr_port->lock);
-		kfree(curr_port);
+	for (i = 0; i < cpas_core->num_axi_ports; i++) {
+		cam_cpas_util_unregister_bus_client(
+			&cpas_core->axi_port[i].bus_client);
+		of_node_put(cpas_core->axi_port[i].axi_port_node);
+		cpas_core->axi_port[i].axi_port_node = NULL;
+		mutex_destroy(&cpas_core->axi_port[i].lock);
 	}
-
-	of_node_put(soc_private->axi_port_list_node);
 
 	return 0;
 }
@@ -261,111 +250,31 @@ static int cam_cpas_util_axi_cleanup(struct cam_cpas *cpas_core,
 static int cam_cpas_util_axi_setup(struct cam_cpas *cpas_core,
 	struct cam_hw_soc_info *soc_info)
 {
-	struct cam_cpas_private_soc *soc_private =
-		(struct cam_cpas_private_soc *)soc_info->soc_private;
-	struct cam_cpas_axi_port *axi_port;
-	int rc;
-	struct device_node *axi_port_list_node;
-	struct device_node *axi_port_node = NULL;
+	int i = 0, rc = 0;
 	struct device_node *axi_port_mnoc_node = NULL;
-	struct device_node *axi_port_camnoc_node = NULL;
 
-	INIT_LIST_HEAD(&cpas_core->axi_ports_list_head);
-
-	axi_port_list_node = of_find_node_by_name(soc_info->pdev->dev.of_node,
-		"qcom,axi-port-list");
-	if (!axi_port_list_node) {
-		CAM_ERR(CAM_CPAS, "Node qcom,axi-port-list not found.");
-		return -EINVAL;
-	}
-
-	soc_private->axi_port_list_node = axi_port_list_node;
-
-	for_each_available_child_of_node(axi_port_list_node, axi_port_node) {
-		axi_port = kzalloc(sizeof(*axi_port), GFP_KERNEL);
-		if (!axi_port) {
-			rc = -ENOMEM;
-			goto error_previous_axi_cleanup;
-		}
-		axi_port->axi_port_node = axi_port_node;
-
-		rc = of_property_read_string_index(axi_port_node,
-			"qcom,axi-port-name", 0,
-			(const char **)&axi_port->axi_port_name);
-		if (rc) {
-			CAM_ERR(CAM_CPAS,
-				"failed to read qcom,axi-port-name rc=%d", rc);
-			goto port_name_fail;
-		}
-
-		axi_port_mnoc_node = of_find_node_by_name(axi_port_node,
-			"qcom,axi-port-mnoc");
-		if (!axi_port_mnoc_node) {
-			CAM_ERR(CAM_CPAS, "Node qcom,axi-port-mnoc not found.");
-			rc = -EINVAL;
-			goto mnoc_node_get_fail;
-		}
-		axi_port->axi_port_mnoc_node = axi_port_mnoc_node;
-		axi_port->ib_bw_voting_needed =
-			of_property_read_bool(axi_port_node,
-				"ib-bw-voting-needed");
-
+	for (i = 0; i < cpas_core->num_axi_ports; i++) {
+		axi_port_mnoc_node = cpas_core->axi_port[i].axi_port_node;
 		rc = cam_cpas_util_register_bus_client(soc_info,
-			axi_port_mnoc_node, &axi_port->mnoc_bus);
+			axi_port_mnoc_node, &cpas_core->axi_port[i].bus_client);
 		if (rc)
-			goto mnoc_register_fail;
+			goto bus_register_fail;
 
-		if (soc_private->axi_camnoc_based) {
-			axi_port_camnoc_node = of_find_node_by_name(
-				axi_port_node, "qcom,axi-port-camnoc");
-			if (!axi_port_camnoc_node) {
-				CAM_ERR(CAM_CPAS,
-					"Node qcom,axi-port-camnoc not found");
-				rc = -EINVAL;
-				goto camnoc_node_get_fail;
-			}
-			axi_port->axi_port_camnoc_node = axi_port_camnoc_node;
-
-			rc = cam_cpas_util_register_bus_client(soc_info,
-				axi_port_camnoc_node, &axi_port->camnoc_bus);
-			if (rc)
-				goto camnoc_register_fail;
-		}
-
-		mutex_init(&axi_port->lock);
-
-		INIT_LIST_HEAD(&axi_port->sibling_port);
-		list_add_tail(&axi_port->sibling_port,
-			&cpas_core->axi_ports_list_head);
-		INIT_LIST_HEAD(&axi_port->clients_list_head);
+		mutex_init(&cpas_core->axi_port[i].lock);
 	}
 
 	return 0;
-camnoc_register_fail:
-	of_node_put(axi_port->axi_port_camnoc_node);
-camnoc_node_get_fail:
-	cam_cpas_util_unregister_bus_client(&axi_port->mnoc_bus);
-mnoc_register_fail:
-	of_node_put(axi_port->axi_port_mnoc_node);
-mnoc_node_get_fail:
-port_name_fail:
-	of_node_put(axi_port->axi_port_node);
-	kfree(axi_port);
-error_previous_axi_cleanup:
-	cam_cpas_util_axi_cleanup(cpas_core, soc_info);
+bus_register_fail:
+	of_node_put(cpas_core->axi_port[i].axi_port_node);
 	return rc;
 }
 
 static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	int enable)
 {
-	int rc;
+	int rc, i = 0;
 	struct cam_cpas *cpas_core = (struct cam_cpas *)cpas_hw->core_info;
-	struct cam_cpas_axi_port *curr_port;
-	struct cam_cpas_axi_port *temp_port;
-	uint64_t camnoc_bw, mnoc_bw;
-	struct cam_cpas_private_soc *soc_private =
-		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
+	uint64_t ab_bw, ib_bw;
 
 	rc = cam_cpas_util_vote_bus_client_level(&cpas_core->ahb_bus_client,
 		(enable == true) ? CAM_SVS_VOTE : CAM_SUSPEND_VOTE);
@@ -376,35 +285,22 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	}
 
 	if (enable) {
-		mnoc_bw = CAM_CPAS_DEFAULT_AXI_BW;
-		camnoc_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		ab_bw = CAM_CPAS_DEFAULT_AXI_BW;
+		ib_bw = CAM_CPAS_DEFAULT_AXI_BW;
 	} else {
-		mnoc_bw = 0;
-		camnoc_bw = 0;
+		ab_bw = 0;
+		ib_bw = 0;
 	}
 
-	list_for_each_entry_safe(curr_port, temp_port,
-		&cpas_core->axi_ports_list_head, sibling_port) {
-		rc = cam_cpas_util_vote_bus_client_bw(&curr_port->mnoc_bus,
-			mnoc_bw, mnoc_bw, false);
+	for (i = 0; i < cpas_core->num_axi_ports; i++) {
+		rc = cam_cpas_util_vote_bus_client_bw(
+			&cpas_core->axi_port[i].bus_client,
+			ab_bw, ib_bw, false);
 		if (rc) {
 			CAM_ERR(CAM_CPAS,
 				"Failed in mnoc vote, enable=%d, rc=%d",
 				enable, rc);
 			goto remove_ahb_vote;
-		}
-
-		if (soc_private->axi_camnoc_based) {
-			cam_cpas_util_vote_bus_client_bw(
-				&curr_port->camnoc_bus, 0, camnoc_bw, true);
-			if (rc) {
-				CAM_ERR(CAM_CPAS,
-					"Failed in mnoc vote, enable=%d, %d",
-					enable, rc);
-				cam_cpas_util_vote_bus_client_bw(
-					&curr_port->mnoc_bus, 0, 0, false);
-				goto remove_ahb_vote;
-			}
 		}
 	}
 
@@ -413,41 +309,6 @@ remove_ahb_vote:
 	cam_cpas_util_vote_bus_client_level(&cpas_core->ahb_bus_client,
 		CAM_SUSPEND_VOTE);
 	return rc;
-}
-
-static int cam_cpas_util_insert_client_to_axi_port(struct cam_cpas *cpas_core,
-	struct cam_cpas_private_soc *soc_private,
-	struct cam_cpas_client *cpas_client, int32_t client_indx)
-{
-	struct cam_cpas_axi_port *curr_port;
-	struct cam_cpas_axi_port *temp_port;
-
-	list_for_each_entry_safe(curr_port, temp_port,
-		&cpas_core->axi_ports_list_head, sibling_port) {
-		if (strnstr(curr_port->axi_port_name,
-			soc_private->client_axi_port_name[client_indx],
-			strlen(curr_port->axi_port_name))) {
-
-			cpas_client->axi_port = curr_port;
-			INIT_LIST_HEAD(&cpas_client->axi_sibling_client);
-
-			mutex_lock(&curr_port->lock);
-			list_add_tail(&cpas_client->axi_sibling_client,
-				&cpas_client->axi_port->clients_list_head);
-			mutex_unlock(&curr_port->lock);
-			break;
-		}
-	}
-
-	return 0;
-}
-
-static void cam_cpas_util_remove_client_from_axi_port(
-	struct cam_cpas_client *cpas_client)
-{
-	mutex_lock(&cpas_client->axi_port->lock);
-	list_del(&cpas_client->axi_sibling_client);
-	mutex_unlock(&cpas_client->axi_port->lock);
 }
 
 static int cam_cpas_hw_reg_write(struct cam_hw_info *cpas_hw,
@@ -547,36 +408,31 @@ unlock_client:
 static int cam_cpas_util_set_camnoc_axi_clk_rate(
 	struct cam_hw_info *cpas_hw)
 {
-	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	struct cam_cpas_private_soc *soc_private =
 		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
-	struct cam_axi_vote consolidated_axi_vote;
-	int rc = 0;
+	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	struct cam_cpas_tree_node *tree_node = NULL;
+	int rc = 0, i = 0;
 
 	CAM_DBG(CAM_CPAS, "control_camnoc_axi_clk=%d",
 		soc_private->control_camnoc_axi_clk);
 
 	if (soc_private->control_camnoc_axi_clk) {
 		struct cam_hw_soc_info *soc_info = &cpas_hw->soc_info;
-		struct cam_cpas_axi_port *curr_axi_port = NULL;
-		struct cam_cpas_axi_port *temp_axi_port = NULL;
 		uint64_t required_camnoc_bw = 0;
 		int32_t clk_rate = 0;
 
-		list_for_each_entry_safe(curr_axi_port, temp_axi_port,
-			&cpas_core->axi_ports_list_head, sibling_port) {
-			consolidated_axi_vote =
-				curr_axi_port->consolidated_axi_vote;
+		for (i = 0; i < CAM_CPAS_MAX_TREE_NODES; i++) {
+			tree_node = soc_private->tree_node[i];
+			if (!tree_node ||
+				!tree_node->camnoc_max_needed)
+				continue;
 
-			if (consolidated_axi_vote.uncompressed_bw
-				> required_camnoc_bw)
-				required_camnoc_bw =
-					consolidated_axi_vote.uncompressed_bw;
-
-			CAM_DBG(CAM_CPAS, "[%s] : curr=%llu, overal=%llu",
-				curr_axi_port->axi_port_name,
-				consolidated_axi_vote.uncompressed_bw,
-				required_camnoc_bw);
+			if (required_camnoc_bw < (tree_node->camnoc_bw *
+				tree_node->bus_width_factor)) {
+				required_camnoc_bw = tree_node->camnoc_bw *
+					tree_node->bus_width_factor;
+			}
 		}
 
 		required_camnoc_bw += (required_camnoc_bw *
@@ -610,86 +466,319 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 	return rc;
 }
 
+static int cam_cpas_util_translate_client_paths(
+	struct cam_axi_vote *axi_vote)
+{
+	int i;
+	uint32_t *path_data_type = NULL;
+
+	if (!axi_vote)
+		return -EINVAL;
+
+	for (i = 0; i < axi_vote->num_paths; i++) {
+		path_data_type = &axi_vote->axi_path[i].path_data_type;
+		/* Update path_data_type from UAPI value to internal value */
+		if (*path_data_type >= CAM_CPAS_PATH_DATA_CONSO_OFFSET)
+			*path_data_type = CAM_CPAS_MAX_GRAN_PATHS_PER_CLIENT +
+				(*path_data_type %
+				CAM_CPAS_MAX_GRAN_PATHS_PER_CLIENT);
+		else
+			*path_data_type %= CAM_CPAS_MAX_GRAN_PATHS_PER_CLIENT;
+
+		if (*path_data_type >= CAM_CPAS_PATH_DATA_MAX) {
+			CAM_ERR(CAM_CPAS, "index Invalid: %d", path_data_type);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int cam_cpas_axi_consolidate_path_votes(
+	struct cam_cpas_client *cpas_client,
+	struct cam_axi_vote *axi_vote)
+{
+	int rc = 0, i, k, l;
+	struct cam_axi_vote *con_axi_vote = &cpas_client->axi_vote;
+	bool path_found = false, cons_entry_found;
+	struct cam_cpas_tree_node *curr_tree_node = NULL;
+	struct cam_cpas_tree_node *sum_tree_node = NULL;
+	uint32_t transac_type;
+	uint32_t path_data_type;
+	struct cam_axi_per_path_bw_vote *axi_path;
+
+	con_axi_vote->num_paths = 0;
+
+	for (i = 0; i < axi_vote->num_paths; i++) {
+		path_found = false;
+		path_data_type = axi_vote->axi_path[i].path_data_type;
+		transac_type = axi_vote->axi_path[i].transac_type;
+
+		if ((path_data_type >= CAM_CPAS_PATH_DATA_MAX) ||
+			(transac_type >= CAM_CPAS_TRANSACTION_MAX)) {
+			CAM_ERR(CAM_CPAS, "Invalid path or transac type: %d %d",
+				path_data_type, transac_type);
+			return -EINVAL;
+		}
+
+		axi_path = &con_axi_vote->axi_path[con_axi_vote->num_paths];
+
+		curr_tree_node =
+			cpas_client->tree_node[path_data_type][transac_type];
+		if (curr_tree_node) {
+			path_found = true;
+			memcpy(axi_path, &axi_vote->axi_path[i],
+				sizeof(struct cam_axi_per_path_bw_vote));
+			con_axi_vote->num_paths++;
+			continue;
+		}
+
+		for (k = 0; k < CAM_CPAS_PATH_DATA_MAX; k++) {
+			sum_tree_node = cpas_client->tree_node[k][transac_type];
+
+			if (!sum_tree_node)
+				continue;
+
+			if (sum_tree_node->constituent_paths[path_data_type]) {
+				path_found = true;
+				/*
+				 * Check if corresponding consolidated path
+				 * entry is already added into consolidated list
+				 */
+				cons_entry_found = false;
+				for (l = 0; l < con_axi_vote->num_paths; l++) {
+					if ((con_axi_vote->axi_path[l]
+					.path_data_type == k) &&
+					(con_axi_vote->axi_path[l]
+					.transac_type == transac_type)) {
+						cons_entry_found = true;
+						con_axi_vote->axi_path[l]
+						.camnoc_bw +=
+						axi_vote->axi_path[i]
+						.camnoc_bw;
+
+						con_axi_vote->axi_path[l]
+						.mnoc_ab_bw +=
+						axi_vote->axi_path[i]
+						.mnoc_ab_bw;
+
+						con_axi_vote->axi_path[l]
+						.mnoc_ib_bw +=
+						axi_vote->axi_path[i]
+						.mnoc_ib_bw;
+						break;
+					}
+				}
+
+				/* If not found, add a new entry */
+				if (!cons_entry_found) {
+					axi_path->path_data_type = k;
+					axi_path->transac_type = transac_type;
+					axi_path->camnoc_bw =
+					axi_vote->axi_path[i].camnoc_bw;
+					axi_path->mnoc_ab_bw =
+					axi_vote->axi_path[i].mnoc_ab_bw;
+					axi_path->mnoc_ib_bw =
+					axi_vote->axi_path[i].mnoc_ib_bw;
+					con_axi_vote->num_paths++;
+				}
+				break;
+			}
+		}
+
+		if (!path_found) {
+			CAM_ERR(CAM_CPAS,
+				"Client [%s][%d] Consolidated path not found for path=%d, transac=%d",
+				cpas_client->data.identifier,
+				cpas_client->data.cell_index,
+				path_data_type, transac_type);
+			return -EINVAL;
+		}
+	}
+
+	return rc;
+}
+
 static int cam_cpas_util_apply_client_axi_vote(
 	struct cam_hw_info *cpas_hw,
 	struct cam_cpas_client *cpas_client,
 	struct cam_axi_vote *axi_vote)
 {
-	struct cam_cpas_private_soc *soc_private =
-		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
-	struct cam_cpas_client *curr_client;
-	struct cam_cpas_client *temp_client;
-	struct cam_axi_vote req_axi_vote = *axi_vote;
-	struct cam_cpas_axi_port *axi_port = cpas_client->axi_port;
-	uint64_t camnoc_bw = 0, mnoc_bw = 0;
-	int rc = 0;
+	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	struct cam_axi_vote *con_axi_vote = NULL;
+	struct cam_cpas_axi_port *axi_port = NULL;
+	struct cam_cpas_tree_node *curr_tree_node = NULL;
+	struct cam_cpas_tree_node *par_tree_node = NULL;
+	uint32_t transac_type;
+	uint32_t path_data_type;
+	bool axi_port_updated[CAM_CPAS_MAX_AXI_PORTS] = {false};
+	uint64_t mnoc_ab_bw = 0, mnoc_ib_bw = 0,
+		curr_camnoc_old = 0, curr_mnoc_ab_old = 0, curr_mnoc_ib_old = 0,
+		par_camnoc_old = 0, par_mnoc_ab_old = 0, par_mnoc_ib_old = 0;
+	int rc = 0, i = 0;
 
-	if (!axi_port) {
-		CAM_ERR(CAM_CPAS, "axi port does not exists");
-		return -EINVAL;
+	if (!cpas_client->tree_node_valid) {
+		/*
+		 * This is by assuming apply_client_axi_vote is called
+		 * for these clients from only cpas_start, cpas_stop.
+		 * not called from hw_update_axi_vote
+		 */
+		for (i = 0; i < cpas_core->num_axi_ports; i++) {
+			if (axi_vote->axi_path[0].mnoc_ab_bw) {
+				/* start case */
+				cpas_core->axi_port[i].additional_bw +=
+					CAM_CPAS_DEFAULT_AXI_BW;
+			} else {
+				/* stop case */
+				cpas_core->axi_port[i].additional_bw -=
+					CAM_CPAS_DEFAULT_AXI_BW;
+			}
+			axi_port_updated[i] = true;
+		}
+		goto vote_start_clients;
 	}
 
-	/*
-	 * Make sure we use same bw for both compressed, uncompressed
-	 * in case client has requested either of one only
-	 */
-	if (req_axi_vote.compressed_bw == 0)
-		req_axi_vote.compressed_bw = req_axi_vote.uncompressed_bw;
-
-	if (req_axi_vote.uncompressed_bw == 0)
-		req_axi_vote.uncompressed_bw = req_axi_vote.compressed_bw;
-
-	if ((cpas_client->axi_vote.compressed_bw ==
-		req_axi_vote.compressed_bw) &&
-		(cpas_client->axi_vote.uncompressed_bw ==
-		req_axi_vote.uncompressed_bw))
-		return 0;
-
-	mutex_lock(&axi_port->lock);
-	cpas_client->axi_vote = req_axi_vote;
-
-	list_for_each_entry_safe(curr_client, temp_client,
-		&axi_port->clients_list_head, axi_sibling_client) {
-		camnoc_bw += curr_client->axi_vote.uncompressed_bw;
-		mnoc_bw += curr_client->axi_vote.compressed_bw;
-	}
-
-	axi_port->consolidated_axi_vote.compressed_bw = mnoc_bw;
-	axi_port->consolidated_axi_vote.uncompressed_bw = camnoc_bw;
-
-	CAM_DBG(CAM_CPAS,
-		"axi[(%d, %d)] : mnoc_bw[%llu]",
-		axi_port->mnoc_bus.src, axi_port->mnoc_bus.dst,
-		mnoc_bw);
-
-	if (axi_port->ib_bw_voting_needed)
-		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-			mnoc_bw, mnoc_bw, false);
-	else
-		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-			mnoc_bw, 0, false);
-
+	rc = cam_cpas_axi_consolidate_path_votes(cpas_client, axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_CPAS,
-			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
-			mnoc_bw,
-			(axi_port->ib_bw_voting_needed ? mnoc_bw : 0),
-			rc);
-		goto unlock_axi_port;
+		CAM_ERR(CAM_PERF, "Failed in bw consolidation, Client [%s][%d]",
+			cpas_client->data.identifier,
+			cpas_client->data.cell_index);
+		return rc;
 	}
 
-	if (soc_private->axi_camnoc_based) {
-		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->camnoc_bus,
-			0, camnoc_bw, true);
-		if (rc) {
-			CAM_ERR(CAM_CPAS,
-				"Failed camnoc vote ab[%llu] ib[%llu] rc=%d",
-				(uint64_t)0, camnoc_bw, rc);
-			goto unlock_axi_port;
+	con_axi_vote = &cpas_client->axi_vote;
+
+	cam_cpas_dump_axi_vote_info(cpas_client, "Consolidated Vote",
+		con_axi_vote);
+
+	/* Traverse through node tree and update bw vote values */
+	for (i = 0; i < con_axi_vote->num_paths; i++) {
+		path_data_type =
+		con_axi_vote->axi_path[i].path_data_type;
+		transac_type =
+		con_axi_vote->axi_path[i].transac_type;
+		curr_tree_node = cpas_client->tree_node[path_data_type]
+			[transac_type];
+
+		if (con_axi_vote->axi_path[i].mnoc_ab_bw == 0)
+			con_axi_vote->axi_path[i].mnoc_ab_bw =
+				con_axi_vote->axi_path[i].camnoc_bw;
+
+		if (con_axi_vote->axi_path[i].camnoc_bw == 0)
+			con_axi_vote->axi_path[i].camnoc_bw =
+				con_axi_vote->axi_path[i].mnoc_ab_bw;
+
+		if ((curr_tree_node->camnoc_bw ==
+			con_axi_vote->axi_path[i].camnoc_bw) &&
+			(curr_tree_node->mnoc_ab_bw ==
+			con_axi_vote->axi_path[i].mnoc_ab_bw) &&
+			(curr_tree_node->mnoc_ib_bw ==
+			con_axi_vote->axi_path[i].mnoc_ib_bw))
+			continue;
+
+		curr_camnoc_old = curr_tree_node->camnoc_bw;
+		curr_mnoc_ab_old = curr_tree_node->mnoc_ab_bw;
+		curr_mnoc_ib_old = curr_tree_node->mnoc_ib_bw;
+		curr_tree_node->camnoc_bw =
+			con_axi_vote->axi_path[i].camnoc_bw;
+		curr_tree_node->mnoc_ab_bw =
+			con_axi_vote->axi_path[i].mnoc_ab_bw;
+		curr_tree_node->mnoc_ib_bw =
+			con_axi_vote->axi_path[i].mnoc_ib_bw;
+
+		while (curr_tree_node->parent_node) {
+			par_tree_node = curr_tree_node->parent_node;
+			par_camnoc_old = par_tree_node->camnoc_bw;
+			par_mnoc_ab_old = par_tree_node->mnoc_ab_bw;
+			par_mnoc_ib_old = par_tree_node->mnoc_ib_bw;
+			par_tree_node->mnoc_ab_bw -= curr_mnoc_ab_old;
+			par_tree_node->mnoc_ab_bw += curr_tree_node->mnoc_ab_bw;
+			par_tree_node->mnoc_ib_bw -= curr_mnoc_ib_old;
+			par_tree_node->mnoc_ib_bw += curr_tree_node->mnoc_ib_bw;
+
+			if (par_tree_node->merge_type ==
+				CAM_CPAS_TRAFFIC_MERGE_SUM) {
+				par_tree_node->camnoc_bw -=
+					curr_camnoc_old;
+				par_tree_node->camnoc_bw +=
+					curr_tree_node->camnoc_bw;
+			} else if (par_tree_node->merge_type ==
+				CAM_CPAS_TRAFFIC_MERGE_SUM_INTERLEAVE) {
+				par_tree_node->camnoc_bw -=
+					(curr_camnoc_old / 2);
+				par_tree_node->camnoc_bw +=
+					(curr_tree_node->camnoc_bw / 2);
+			} else {
+				CAM_ERR(CAM_CPAS, "Invalid Merge type");
+				rc = -EINVAL;
+				return rc;
+			}
+
+			if (!par_tree_node->parent_node) {
+				if ((par_tree_node->axi_port_idx < 0) ||
+					(par_tree_node->axi_port_idx >=
+					CAM_CPAS_MAX_AXI_PORTS)) {
+					CAM_ERR(CAM_CPAS,
+					"AXI port index invalid");
+					rc = -EINVAL;
+					return rc;
+				}
+
+				cpas_core->axi_port
+				[par_tree_node->axi_port_idx].ab_bw =
+				par_tree_node->mnoc_ab_bw;
+				cpas_core->axi_port
+				[par_tree_node->axi_port_idx].ib_bw =
+				par_tree_node->mnoc_ib_bw;
+				axi_port_updated[par_tree_node->axi_port_idx] =
+					true;
+			}
+
+			curr_tree_node = par_tree_node;
+			curr_camnoc_old = par_camnoc_old;
+			curr_mnoc_ab_old = par_mnoc_ab_old;
+			curr_mnoc_ib_old = par_mnoc_ib_old;
 		}
 	}
 
-	mutex_unlock(&axi_port->lock);
+	if (!par_tree_node) {
+		CAM_DBG(CAM_CPAS, "No change in BW for all paths");
+		return 0;
+	}
+
+vote_start_clients:
+	for (i = 0; i < cpas_core->num_axi_ports; i++) {
+		if (axi_port_updated[i])
+			axi_port = &cpas_core->axi_port[i];
+		else
+			continue;
+
+		mutex_lock(&axi_port->lock);
+
+		CAM_DBG(CAM_PERF, "Port[%s] : ab=%lld ib=%lld additional=%lld",
+			axi_port->axi_port_name, axi_port->ab_bw,
+			axi_port->ib_bw, axi_port->additional_bw);
+
+		if (axi_port->ab_bw)
+			mnoc_ab_bw = axi_port->ab_bw;
+		else
+			mnoc_ab_bw = axi_port->additional_bw;
+
+		if (cpas_core->axi_port[i].ib_bw_voting_needed)
+			mnoc_ib_bw = axi_port->ib_bw;
+		else
+			mnoc_ib_bw = 0;
+
+		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->bus_client,
+			mnoc_ab_bw, mnoc_ib_bw, false);
+		if (rc) {
+			CAM_ERR(CAM_CPAS,
+				"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
+				mnoc_ab_bw, mnoc_ib_bw, rc);
+			goto unlock_axi_port;
+		}
+		mutex_unlock(&axi_port->lock);
+	}
 
 	rc = cam_cpas_util_set_camnoc_axi_clk_rate(cpas_hw);
 	if (rc)
@@ -705,30 +794,25 @@ unlock_axi_port:
 static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	uint32_t client_handle, struct cam_axi_vote *client_axi_vote)
 {
-	struct cam_axi_vote axi_vote;
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	struct cam_cpas_client *cpas_client = NULL;
+	struct cam_axi_vote axi_vote = {0};
 	uint32_t client_indx = CAM_CPAS_GET_CLIENT_IDX(client_handle);
 	int rc = 0;
 
 	if (!client_axi_vote) {
-		CAM_ERR(CAM_CPAS, "Invalid arg client_handle=%d",
+		CAM_ERR(CAM_CPAS, "Invalid arg, client_handle=%d",
 			client_handle);
 		return -EINVAL;
 	}
 
-	axi_vote = *client_axi_vote;
-
-	if ((axi_vote.compressed_bw == 0) &&
-		(axi_vote.uncompressed_bw == 0)) {
-		CAM_DBG(CAM_CPAS, "0 vote from client_handle=%d",
-			client_handle);
-		axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-		axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	}
+	memcpy(&axi_vote, client_axi_vote, sizeof(struct cam_axi_vote));
 
 	if (!CAM_CPAS_CLIENT_VALID(client_indx))
 		return -EINVAL;
+
+	cam_cpas_dump_axi_vote_info(cpas_core->cpas_client[client_indx],
+		"Incoming Vote", &axi_vote);
 
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
@@ -742,11 +826,15 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 		goto unlock_client;
 	}
 
-	CAM_DBG(CAM_PERF,
-		"Client=[%d][%s][%d] Requested compressed[%llu], uncompressed[%llu]",
-		client_indx, cpas_client->data.identifier,
-		cpas_client->data.cell_index, axi_vote.compressed_bw,
-		axi_vote.uncompressed_bw);
+	rc = cam_cpas_util_translate_client_paths(&axi_vote);
+	if (rc) {
+		CAM_ERR(CAM_CPAS,
+			"Unable to translate per path votes rc: %d", rc);
+		goto unlock_client;
+	}
+
+	cam_cpas_dump_axi_vote_info(cpas_core->cpas_client[client_indx],
+		"Translated Vote", &axi_vote);
 
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_core->cpas_client[client_indx], &axi_vote);
@@ -920,6 +1008,43 @@ unlock_client:
 	return rc;
 }
 
+static int cam_cpas_util_create_vote_all_paths(
+	struct cam_cpas_client *cpas_client,
+	struct cam_axi_vote *axi_vote)
+{
+	int i, j;
+	uint64_t camnoc_bw, mnoc_ab_bw, mnoc_ib_bw;
+	struct cam_axi_per_path_bw_vote *axi_path;
+
+	if (!cpas_client || !axi_vote)
+		return -EINVAL;
+
+	camnoc_bw = axi_vote->axi_path[0].camnoc_bw;
+	mnoc_ab_bw = axi_vote->axi_path[0].mnoc_ab_bw;
+	mnoc_ib_bw = axi_vote->axi_path[0].mnoc_ib_bw;
+
+	axi_vote->num_paths = 0;
+
+	for (i = 0; i < CAM_CPAS_TRANSACTION_MAX; i++) {
+		for (j = 0; j < CAM_CPAS_PATH_DATA_MAX; j++) {
+			if (cpas_client->tree_node[j][i]) {
+				axi_path =
+				&axi_vote->axi_path[axi_vote->num_paths];
+
+				axi_path->path_data_type = j;
+				axi_path->transac_type = i;
+				axi_path->camnoc_bw = camnoc_bw;
+				axi_path->mnoc_ab_bw = mnoc_ab_bw;
+				axi_path->mnoc_ib_bw = mnoc_ib_bw;
+
+				axi_vote->num_paths++;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	uint32_t arg_size)
 {
@@ -929,10 +1054,11 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	struct cam_cpas_hw_cmd_start *cmd_hw_start;
 	struct cam_cpas_client *cpas_client;
 	struct cam_ahb_vote *ahb_vote;
-	struct cam_axi_vote *axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	enum cam_vote_level applied_level = CAM_SVS_VOTE;
-	int rc;
+	int rc, i = 0;
 	struct cam_cpas_private_soc *soc_private = NULL;
+	bool invalid_start = true;
 
 	if (!hw_priv || !start_args) {
 		CAM_ERR(CAM_CPAS, "Invalid arguments %pK %pK",
@@ -953,16 +1079,28 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	cmd_hw_start = (struct cam_cpas_hw_cmd_start *)start_args;
 	client_indx = CAM_CPAS_GET_CLIENT_IDX(cmd_hw_start->client_handle);
 	ahb_vote = cmd_hw_start->ahb_vote;
-	axi_vote = cmd_hw_start->axi_vote;
 
-	if (!ahb_vote || !axi_vote)
+	if (!ahb_vote || !cmd_hw_start->axi_vote)
 		return -EINVAL;
 
-	if ((ahb_vote->vote.level == 0) || ((axi_vote->compressed_bw == 0) &&
-		(axi_vote->uncompressed_bw == 0))) {
-		CAM_ERR(CAM_CPAS, "Invalid vote ahb[%d], axi[%llu], [%llu]",
-			ahb_vote->vote.level, axi_vote->compressed_bw,
-			axi_vote->uncompressed_bw);
+	if (!ahb_vote->vote.level) {
+		CAM_ERR(CAM_CPAS, "Invalid vote ahb[%d]",
+			ahb_vote->vote.level);
+		return -EINVAL;
+	}
+
+	memcpy(&axi_vote, cmd_hw_start->axi_vote, sizeof(struct cam_axi_vote));
+	for (i = 0; i < axi_vote.num_paths; i++) {
+		if ((axi_vote.axi_path[i].camnoc_bw != 0) ||
+			(axi_vote.axi_path[i].mnoc_ab_bw != 0) ||
+			(axi_vote.axi_path[i].mnoc_ib_bw != 0)) {
+			invalid_start = false;
+			break;
+		}
+	}
+
+	if (invalid_start) {
+		CAM_ERR(CAM_CPAS, "Zero start vote");
 		return -EINVAL;
 	}
 
@@ -998,13 +1136,33 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	if (rc)
 		goto done;
 
-	CAM_DBG(CAM_CPAS,
-		"AXI client=[%d][%s][%d] compressed_bw[%llu], uncompressed_bw[%llu]",
-		client_indx, cpas_client->data.identifier,
-		cpas_client->data.cell_index, axi_vote->compressed_bw,
-		axi_vote->uncompressed_bw);
+	cam_cpas_dump_axi_vote_info(cpas_client, "CPAS Start Vote",
+		&axi_vote);
+
+	/*
+	 * If client has indicated start bw to be applied on all paths
+	 * of client, apply that otherwise apply whatever the client supplies
+	 * for specific paths
+	 */
+	if (axi_vote.axi_path[0].path_data_type ==
+		CAM_CPAS_API_PATH_DATA_STD_START) {
+		rc = cam_cpas_util_create_vote_all_paths(cpas_client,
+			&axi_vote);
+	} else {
+		rc = cam_cpas_util_translate_client_paths(&axi_vote);
+	}
+
+	if (rc) {
+		CAM_ERR(CAM_CPAS, "Unable to create or translate paths rc: %d",
+			rc);
+		goto done;
+	}
+
+	cam_cpas_dump_axi_vote_info(cpas_client, "CPAS Start Translated Vote",
+		&axi_vote);
+
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
-		cpas_client, axi_vote);
+		cpas_client, &axi_vote);
 	if (rc)
 		goto done;
 
@@ -1061,7 +1219,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	struct cam_cpas_hw_cmd_stop *cmd_hw_stop;
 	struct cam_cpas_client *cpas_client;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	struct cam_cpas_private_soc *soc_private = NULL;
 	int rc = 0;
 	long result;
@@ -1151,11 +1309,16 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	if (rc)
 		goto done;
 
-	axi_vote.uncompressed_bw = 0;
-	axi_vote.compressed_bw = 0;
+	rc = cam_cpas_util_create_vote_all_paths(cpas_client, &axi_vote);
+	if (rc) {
+		CAM_ERR(CAM_CPAS, "Unable to create per path votes rc: %d", rc);
+		goto done;
+	}
+
+	cam_cpas_dump_axi_vote_info(cpas_client, "CPAS Stop Vote", &axi_vote);
+
 	rc = cam_cpas_util_apply_client_axi_vote(cpas_hw,
 		cpas_client, &axi_vote);
-
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
@@ -1196,7 +1359,6 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_register_params *register_params)
 {
 	int rc;
-	struct cam_cpas_client *cpas_client;
 	char client_name[CAM_HW_IDENTIFIER_LENGTH + 3];
 	int32_t client_indx = -1;
 	struct cam_cpas *cpas_core = (struct cam_cpas *)cpas_hw->core_info;
@@ -1235,36 +1397,18 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 		return -EPERM;
 	}
 
-	cpas_client = kzalloc(sizeof(struct cam_cpas_client), GFP_KERNEL);
-	if (!cpas_client) {
-		mutex_unlock(&cpas_core->client_mutex[client_indx]);
-		mutex_unlock(&cpas_hw->hw_mutex);
-		return -ENOMEM;
-	}
-
-	rc = cam_cpas_util_insert_client_to_axi_port(cpas_core, soc_private,
-		cpas_client, client_indx);
-	if (rc) {
-		CAM_ERR(CAM_CPAS,
-			"axi_port_insert failed Client=[%d][%s][%d], rc=%d",
-			client_indx, cpas_client->data.identifier,
-			cpas_client->data.cell_index, rc);
-		kfree(cpas_client);
-		mutex_unlock(&cpas_core->client_mutex[client_indx]);
-		mutex_unlock(&cpas_hw->hw_mutex);
-		return -EINVAL;
-	}
-
 	register_params->client_handle =
 		CAM_CPAS_GET_CLIENT_HANDLE(client_indx);
-	memcpy(&cpas_client->data, register_params,
+	memcpy(&cpas_core->cpas_client[client_indx]->data, register_params,
 		sizeof(struct cam_cpas_register_params));
-	cpas_core->cpas_client[client_indx] = cpas_client;
 	cpas_core->registered_clients++;
+	cpas_core->cpas_client[client_indx]->registered = true;
 
 	CAM_DBG(CAM_CPAS, "client=[%d][%s][%d], registered_clients=%d",
-		client_indx, cpas_client->data.identifier,
-		cpas_client->data.cell_index, cpas_core->registered_clients);
+		client_indx,
+		cpas_core->cpas_client[client_indx]->data.identifier,
+		cpas_core->cpas_client[client_indx]->data.cell_index,
+		cpas_core->registered_clients);
 
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
@@ -1276,7 +1420,6 @@ static int cam_cpas_hw_unregister_client(struct cam_hw_info *cpas_hw,
 	uint32_t client_handle)
 {
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
-	struct cam_cpas_client *cpas_client = NULL;
 	uint32_t client_indx = CAM_CPAS_GET_CLIENT_IDX(client_handle);
 	int rc = 0;
 
@@ -1285,33 +1428,33 @@ static int cam_cpas_hw_unregister_client(struct cam_hw_info *cpas_hw,
 
 	mutex_lock(&cpas_hw->hw_mutex);
 	mutex_lock(&cpas_core->client_mutex[client_indx]);
-	cpas_client = cpas_core->cpas_client[client_indx];
 
 	if (!CAM_CPAS_CLIENT_REGISTERED(cpas_core, client_indx)) {
 		CAM_ERR(CAM_CPAS, "Client=[%d][%s][%d] not registered",
-			client_indx, cpas_client->data.identifier,
-			cpas_client->data.cell_index);
+			client_indx,
+			cpas_core->cpas_client[client_indx]->data.identifier,
+			cpas_core->cpas_client[client_indx]->data.cell_index);
 		rc = -EPERM;
 		goto done;
 	}
 
 	if (CAM_CPAS_CLIENT_STARTED(cpas_core, client_indx)) {
 		CAM_ERR(CAM_CPAS, "Client=[%d][%s][%d] is not stopped",
-			client_indx, cpas_client->data.identifier,
-			cpas_client->data.cell_index);
+			client_indx,
+			cpas_core->cpas_client[client_indx]->data.identifier,
+			cpas_core->cpas_client[client_indx]->data.cell_index);
+
 		rc = -EPERM;
 		goto done;
 	}
 
-	cam_cpas_util_remove_client_from_axi_port(
-		cpas_core->cpas_client[client_indx]);
-
 	CAM_DBG(CAM_CPAS, "client=[%d][%s][%d], registered_clients=%d",
-		client_indx, cpas_client->data.identifier,
-		cpas_client->data.cell_index, cpas_core->registered_clients);
+		client_indx,
+		cpas_core->cpas_client[client_indx]->data.identifier,
+		cpas_core->cpas_client[client_indx]->data.cell_index,
+		cpas_core->registered_clients);
 
-	kfree(cpas_core->cpas_client[client_indx]);
-	cpas_core->cpas_client[client_indx] = NULL;
+	cpas_core->cpas_client[client_indx]->registered = false;
 	cpas_core->registered_clients--;
 done:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
@@ -1465,22 +1608,23 @@ static int cam_cpas_util_client_setup(struct cam_hw_info *cpas_hw)
 
 	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
 		mutex_init(&cpas_core->client_mutex[i]);
-		cpas_core->cpas_client[i] = NULL;
 	}
 
 	return 0;
 }
 
-static int cam_cpas_util_client_cleanup(struct cam_hw_info *cpas_hw)
+int cam_cpas_util_client_cleanup(struct cam_hw_info *cpas_hw)
 {
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	int i;
 
 	for (i = 0; i < CAM_CPAS_MAX_CLIENTS; i++) {
-		if (cpas_core->cpas_client[i]) {
+		if (cpas_core->cpas_client[i] &&
+			cpas_core->cpas_client[i]->registered) {
 			cam_cpas_hw_unregister_client(cpas_hw, i);
-			cpas_core->cpas_client[i] = NULL;
 		}
+		kfree(cpas_core->cpas_client[i]);
+		cpas_core->cpas_client[i] = NULL;
 		mutex_destroy(&cpas_core->client_mutex[i]);
 	}
 
@@ -1673,6 +1817,7 @@ client_cleanup:
 deinit_platform_res:
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
 release_workq:
+	cam_cpas_node_tree_cleanup(cpas_hw->soc_info.soc_private);
 	flush_workqueue(cpas_core->work_queue);
 	destroy_workqueue(cpas_core->work_queue);
 release_mem:
@@ -1703,6 +1848,7 @@ int cam_cpas_hw_remove(struct cam_hw_intf *cpas_hw_intf)
 	}
 
 	cam_cpas_util_axi_cleanup(cpas_core, &cpas_hw->soc_info);
+	cam_cpas_node_tree_cleanup(cpas_hw->soc_info.soc_private);
 	cam_cpas_util_unregister_bus_client(&cpas_core->ahb_bus_client);
 	cam_cpas_util_client_cleanup(cpas_hw);
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);

@@ -8,6 +8,8 @@
 
 #include "cam_isp_hw.h"
 #include "cam_ife_csid_hw_intf.h"
+#include "cam_ife_csid_hw_intf.h"
+#include "cam_cpas_api.h"
 
 #define CAM_VFE_HW_NUM_MAX            7
 
@@ -192,6 +194,17 @@ struct cam_vfe_clock_update_args {
 struct cam_vfe_core_config_args {
 	struct cam_isp_resource_node      *node_res;
 	struct cam_isp_core_config         core_config;
+};
+
+/*
+ * struct cam_vfe_bw_update_args_v2:
+ *
+ * @node_res:             Resource to get the BW
+ * @isp_vote:             Vote info according to usage data (left/right/rdi)
+ */
+struct cam_vfe_bw_update_args_v2 {
+	struct cam_isp_resource_node      *node_res;
+	struct cam_axi_vote                isp_vote;
 };
 
 /*
