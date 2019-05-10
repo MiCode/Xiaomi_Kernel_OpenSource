@@ -1523,6 +1523,9 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	bool gx_on;
 	struct gmu_mem_type_desc desc[] = {
 		{gmu->hfi_mem, SNAPSHOT_GMU_MEM_HFI},
+		{gmu->persist_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
+		{gmu->icache_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
+		{gmu->dcache_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
 		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
 		{gmu->dump_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK} };
 	unsigned int val, i;
