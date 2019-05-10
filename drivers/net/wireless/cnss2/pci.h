@@ -42,6 +42,11 @@ struct cnss_pci_reg {
 	u32 offset;
 };
 
+struct cnss_pci_debug_reg {
+	u32 offset;
+	u32 val;
+};
+
 struct cnss_pci_data {
 	struct pci_dev *pci_dev;
 	struct cnss_plat_data *plat_priv;
@@ -72,6 +77,7 @@ struct cnss_pci_data {
 	u32 remap_window;
 	struct timer_list dev_rddm_timer;
 	u8 disable_pc;
+	struct cnss_pci_debug_reg *debug_reg;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)
