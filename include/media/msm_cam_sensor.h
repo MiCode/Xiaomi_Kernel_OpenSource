@@ -18,6 +18,8 @@
 
 #include <linux/compat.h>
 
+#define SECURE_CAM_RST_MODULES
+
 #ifdef CONFIG_COMPAT
 
 struct msm_sensor_power_setting32 {
@@ -85,6 +87,8 @@ struct msm_camera_csid_params32 {
 	struct msm_camera_csid_lut_params32 lut_params;
 	uint8_t csi_3p_sel;
 	uint8_t is_secure;
+	uint32_t topology;
+	uint8_t is_streamon;
 };
 
 struct msm_camera_csi2_params32 {
