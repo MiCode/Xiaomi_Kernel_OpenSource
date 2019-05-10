@@ -1846,7 +1846,6 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	}
 
 	smblib_apsd_enable(chg, true);
-	smblib_hvdcp_detect_enable(chg, false);
 
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
 				BC1P2_START_ON_CC_BIT, 0);
@@ -2374,24 +2373,12 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	/*
-	 * Disable HVDCP autonomous mode operation by default, providing a DT
-	 * knob to turn it on if required. Additionally, if specified in DT,
-	 * disable HVDCP and HVDCP authentication algorithm.
-	 */
-	val = (chg->hvdcp_disable) ? 0 :
-		(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT);
-	if (chip->dt.hvdcp_autonomous)
-		val |= HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT;
+	/* Set HVDCP autonomous mode per DT option */
+	smblib_hvdcp_hw_inov_enable(chg, chip->dt.hvdcp_autonomous);
 
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-			(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT |
-			 HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT),
-			val);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure HVDCP rc=%d\n", rc);
-		return rc;
-	}
+	/* Disable HVDCP and authentication algorithm if specified in DT */
+	if (chg->hvdcp_disable)
+		smblib_hvdcp_detect_enable(chg, false);
 
 	rc = smb5_init_connector_type(chg);
 	if (rc < 0) {

@@ -904,17 +904,31 @@ void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable)
 	int rc;
 	u8 mask;
 
-	if (chg->hvdcp_disable || chg->pd_not_supported)
-		return;
-
 	mask = HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT;
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, mask,
 						enable ? mask : 0);
 	if (rc < 0)
 		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
 				rc);
+}
 
-	return;
+static void smblib_hvdcp_detect_try_enable(struct smb_charger *chg, bool enable)
+{
+	if (chg->hvdcp_disable || chg->pd_not_supported)
+		return;
+	smblib_hvdcp_detect_enable(chg, enable);
+}
+
+void smblib_hvdcp_hw_inov_enable(struct smb_charger *chg, bool enable)
+{
+	int rc;
+
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
+				HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT,
+				enable ? HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "failed to write USBIN_OPTIONS_1_CFG rc=%d\n",
+				rc);
 }
 
 void smblib_hvdcp_exit_config(struct smb_charger *chg)
@@ -4004,7 +4018,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		/* PD hard resets failed, proceed to detect QC2/3 */
 		if (chg->ok_to_pd) {
 			chg->ok_to_pd = false;
-			smblib_hvdcp_detect_enable(chg, true);
+			smblib_hvdcp_detect_try_enable(chg, true);
 		}
 	}
 
@@ -5121,7 +5135,7 @@ static void typec_src_insertion(struct smb_charger *chg)
 
 	/* allow apsd proceed to detect QC2/3 */
 	if (!chg->ok_to_pd)
-		smblib_hvdcp_detect_enable(chg, true);
+		smblib_hvdcp_detect_try_enable(chg, true);
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -5158,7 +5172,7 @@ static void typec_src_removal(struct smb_charger *chg)
 			"Couldn't disable secondary charger rc=%d\n", rc);
 
 	typec_src_fault_condition_cfg(chg, false);
-	smblib_hvdcp_detect_enable(chg, false);
+	smblib_hvdcp_detect_try_enable(chg, false);
 	smblib_update_usb_type(chg);
 
 	if (chg->wa_flags & BOOST_BACK_WA) {

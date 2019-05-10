@@ -722,6 +722,7 @@ enum alarmtimer_restart smblib_lpd_recheck_timer(struct alarm *alarm,
 				ktime_t time);
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);
 void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable);
+void smblib_hvdcp_hw_inov_enable(struct smb_charger *chg, bool enable);
 void smblib_hvdcp_exit_config(struct smb_charger *chg);
 void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
