@@ -6715,15 +6715,19 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 			ep->gsi_chan_hdl, res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
 			return res;
-
-		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
-		/* Send a 1B packet DMA_TASK to IPA and try again */
-		res = ipa3_inject_dma_task_for_gsi();
-		if (res) {
-			IPAERR("Failed to inject DMA TASk for GSI\n");
-			return res;
+		/*
+		 * From >=IPA4.0 version not required to send dma send command,
+		 * this issue was fixed in latest versions.
+		 */
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+			IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
+			/* Send a 1B packet DMA_TASK to IPA and try again */
+			res = ipa3_inject_dma_task_for_gsi();
+			if (res) {
+				IPAERR("Failed to inject DMA TASk for GSI\n");
+				return res;
+			}
 		}
-
 		/* sleep for short period to flush IPA */
 		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
