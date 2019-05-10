@@ -76,6 +76,7 @@ struct cnss_pci_data {
 	unsigned long mhi_state;
 	u32 remap_window;
 	struct timer_list dev_rddm_timer;
+	struct delayed_work time_sync_work;
 	u8 disable_pc;
 	struct cnss_pci_debug_reg *debug_reg;
 };
