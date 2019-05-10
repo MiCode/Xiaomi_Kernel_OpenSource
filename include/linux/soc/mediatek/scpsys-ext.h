@@ -5,13 +5,15 @@
 #define MAX_STEPS	4
 
 #define BUS_PROT(_type, _set_ofs, _clr_ofs,			\
-		_en_ofs, _sta_ofs, _mask, _clr_ack_mask) {	\
+		_en_ofs, _sta_ofs, _mask, _set_ack_mask,	\
+		_clr_ack_mask) {				\
 		.type = _type,					\
 		.set_ofs = _set_ofs,				\
 		.clr_ofs = _clr_ofs,				\
 		.en_ofs = _en_ofs,				\
 		.sta_ofs = _sta_ofs,				\
 		.mask = _mask,					\
+		.set_ack_mask = _set_ack_mask,			\
 		.clr_ack_mask = _clr_ack_mask,			\
 	}
 
@@ -28,6 +30,7 @@ struct bus_prot {
 	u32 en_ofs;
 	u32 sta_ofs;
 	u32 mask;
+	u32 set_ack_mask;
 	u32 clr_ack_mask;
 };
 
