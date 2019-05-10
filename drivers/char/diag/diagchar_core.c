@@ -1899,7 +1899,7 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 		"Switch logging to %d mask:%0x\n", new_mode, peripheral_mask);
 
 	/* Update to take peripheral_mask */
-	if (new_mode != DIAG_MEMORY_DEVICE_MODE ||
+	if (new_mode != DIAG_MEMORY_DEVICE_MODE &&
 		new_mode != DIAG_MULTI_MODE) {
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
 					   MODE_REALTIME, ALL_PROC);
