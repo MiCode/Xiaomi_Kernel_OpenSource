@@ -135,7 +135,8 @@ qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 	if (index < 0)
 		return 0;
 
-	writel_relaxed(index, c->reg_bases[REG_PERF_STATE]);
+	if (qcom_cpufreq_hw_target_index(policy, index))
+		return 0;
 
 	return policy->freq_table[index].frequency;
 }
