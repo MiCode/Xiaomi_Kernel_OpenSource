@@ -11,3 +11,8 @@
  */
 
 #include "sm8150-sdxprairie.dtsi"
+
+&icnss {
+	esoc-names = "mdm";
+	esoc-0 = <&mdm3>;
+};
