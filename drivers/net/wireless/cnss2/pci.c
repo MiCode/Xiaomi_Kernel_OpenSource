@@ -1732,6 +1732,66 @@ void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 			       CNSS_REASON_TIMEOUT);
 }
 
+static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
+{
+	struct pci_dev *pci_dev = pci_priv->pci_dev;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct device_node *of_node;
+	struct resource *res;
+	const char *iommu_dma_type;
+	u32 addr_win[2];
+	int ret = 0;
+
+	of_node = of_parse_phandle(pci_dev->dev.of_node, "qcom,iommu-group", 0);
+	if (!of_node)
+		return ret;
+
+	cnss_pr_dbg("Initializing SMMU\n");
+
+	pci_priv->iommu_domain = iommu_get_domain_for_dev(&pci_dev->dev);
+	pci_priv->smmu_mapping.domain = pci_priv->iommu_domain;
+	ret = of_property_read_string(of_node, "qcom,iommu-dma",
+				      &iommu_dma_type);
+	if (!ret && !strcmp("fastmap", iommu_dma_type)) {
+		cnss_pr_dbg("Enabling SMMU S1 stage\n");
+		pci_priv->smmu_s1_enable = true;
+	}
+
+	ret = of_property_read_u32_array(of_node,  "qcom,iommu-dma-addr-pool",
+					 addr_win, ARRAY_SIZE(addr_win));
+	if (ret) {
+		cnss_pr_err("Invalid SMMU size window, err = %d\n", ret);
+		of_node_put(of_node);
+		return ret;
+	}
+
+	pci_priv->smmu_iova_start = addr_win[0];
+	pci_priv->smmu_iova_len = addr_win[1];
+	cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: 0x%zx\n",
+		    &pci_priv->smmu_iova_start,
+		    pci_priv->smmu_iova_len);
+
+	res = platform_get_resource_byname(plat_priv->plat_dev, IORESOURCE_MEM,
+					   "smmu_iova_ipa");
+	if (res) {
+		pci_priv->smmu_iova_ipa_start = res->start;
+		pci_priv->smmu_iova_ipa_len = resource_size(res);
+		cnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: 0x%zx\n",
+			    &pci_priv->smmu_iova_ipa_start,
+			    pci_priv->smmu_iova_ipa_len);
+	}
+
+	of_node_put(of_node);
+
+	return 0;
+}
+
+static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
+{
+	pci_priv->iommu_domain = NULL;
+	pci_priv->smmu_mapping.domain = NULL;
+}
+
 struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev)
 {
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
@@ -2685,10 +2745,6 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	int ret = 0;
 	struct cnss_pci_data *pci_priv;
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
-	struct resource *res;
-	struct device_node *of_node;
-	const char *iommu_dma_type;
-	u32 addr_win[2];
 
 	cnss_pr_dbg("PCI is probing, vendor ID: 0x%x, device ID: 0x%x\n",
 		    id->vendor, pci_dev->device);
@@ -2719,54 +2775,14 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		goto unregister_subsys;
 
-	of_node = of_parse_phandle(pci_priv->pci_dev->dev.of_node,
-				   "qcom,iommu-group", 0);
-	if (of_node) {
-		pci_priv->iommu_domain =
-			iommu_get_domain_for_dev(&pci_dev->dev);
-		pci_priv->smmu_mapping.domain = pci_priv->iommu_domain;
-		ret = of_property_read_string(of_node, "qcom,iommu-dma",
-					      &iommu_dma_type);
-		if (!ret) {
-			if (!strcmp("fastmap", iommu_dma_type)) {
-				cnss_pr_dbg("Enabling SMMU S1 stage\n");
-				pci_priv->smmu_s1_enable = true;
-			}
-		}
-
-		ret = of_property_read_u32_array(of_node,
-						 "qcom,iommu-dma-addr-pool",
-						 addr_win,
-						 ARRAY_SIZE(addr_win));
-		if (ret) {
-			cnss_pr_err("Invalid smmu size window, ret %d\n", ret);
-			of_node_put(of_node);
-			goto unregister_ramdump;
-		}
-
-		pci_priv->smmu_iova_start = addr_win[0];
-		pci_priv->smmu_iova_len = addr_win[1];
-		cnss_pr_dbg("smmu_iova_start: %pa, smmu_iova_len: 0x%zx\n",
-			    &pci_priv->smmu_iova_start,
-			    pci_priv->smmu_iova_len);
-
-		res = platform_get_resource_byname(plat_priv->plat_dev,
-						   IORESOURCE_MEM,
-						   "smmu_iova_ipa");
-		if (res) {
-			pci_priv->smmu_iova_ipa_start = res->start;
-			pci_priv->smmu_iova_ipa_len = resource_size(res);
-			cnss_pr_dbg("smmu_iova_ipa_start: %pa, smmu_iova_ipa_len: 0x%zx\n",
-				    &pci_priv->smmu_iova_ipa_start,
-				    pci_priv->smmu_iova_ipa_len);
-		}
-		of_node_put(of_node);
-	}
+	ret = cnss_pci_init_smmu(pci_priv);
+	if (ret)
+		goto unregister_ramdump;
 
 	ret = cnss_reg_pci_event(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to register PCI event, err = %d\n", ret);
-		goto unregister_ramdump;
+		goto deinit_smmu;
 	}
 
 	ret = cnss_pci_enable_bus(pci_priv);
@@ -2820,9 +2836,9 @@ disable_bus:
 	cnss_pci_disable_bus(pci_priv);
 dereg_pci_event:
 	cnss_dereg_pci_event(pci_priv);
+deinit_smmu:
+	cnss_pci_deinit_smmu(pci_priv);
 unregister_ramdump:
-	pci_priv->iommu_domain = NULL;
-	pci_priv->smmu_mapping.domain = NULL;
 	cnss_unregister_ramdump(plat_priv);
 unregister_subsys:
 	cnss_unregister_subsys(plat_priv);
@@ -2857,8 +2873,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
-	pci_priv->iommu_domain = NULL;
-	pci_priv->smmu_mapping.domain = NULL;
+	cnss_pci_deinit_smmu(pci_priv);
 	cnss_unregister_ramdump(plat_priv);
 	cnss_unregister_subsys(plat_priv);
 	plat_priv->bus_priv = NULL;
