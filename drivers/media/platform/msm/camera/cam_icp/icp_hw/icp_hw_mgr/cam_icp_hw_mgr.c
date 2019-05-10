@@ -4132,14 +4132,18 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 		}
 
 		/* Check for integer overflow */
-		if (sizeof(struct cam_axi_per_path_bw_vote) > ((UINT_MAX -
-			sizeof(struct cam_icp_clk_bw_request_v2)) /
-			(soc_req_v2->num_paths - 1))) {
-			CAM_ERR(CAM_ICP,
-				"Size exceeds limit paths:%u size per path:%lu",
-				soc_req_v2->num_paths - 1,
-				sizeof(struct cam_axi_per_path_bw_vote));
-			return -EINVAL;
+		if (soc_req_v2->num_paths != 1) {
+			if (sizeof(struct cam_axi_per_path_bw_vote) >
+				((UINT_MAX -
+				sizeof(struct cam_icp_clk_bw_request_v2)) /
+				(soc_req_v2->num_paths - 1))) {
+				CAM_ERR(CAM_ICP,
+					"Size exceeds limit paths:%u size per path:%lu",
+					soc_req_v2->num_paths - 1,
+					sizeof(
+					struct cam_axi_per_path_bw_vote));
+				return -EINVAL;
+			}
 		}
 
 		clk_update_size = sizeof(struct cam_icp_clk_bw_request_v2) +

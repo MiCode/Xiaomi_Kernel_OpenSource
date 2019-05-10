@@ -148,7 +148,6 @@ struct cam_cpas_bus_client {
  * struct cam_cpas_axi_port : AXI port information
  *
  * @axi_port_name: Name of this AXI port
- * @lock: Mutex lock for accessing this port
  * @bus_client: bus client info for this port
  * @ib_bw_voting_needed: if this port can update ib bw dynamically
  * @axi_port_node: Node representing AXI Port info in device tree
@@ -158,7 +157,6 @@ struct cam_cpas_bus_client {
  */
 struct cam_cpas_axi_port {
 	const char *axi_port_name;
-	struct mutex lock;
 	struct cam_cpas_bus_client bus_client;
 	bool ib_bw_voting_needed;
 	struct device_node *axi_port_node;
@@ -173,6 +171,7 @@ struct cam_cpas_axi_port {
  * @hw_caps: CPAS hw capabilities
  * @cpas_client: Array of pointers to CPAS clients info
  * @client_mutex: Mutex for accessing client info
+ * @tree_lock: Mutex lock for accessing CPAS node tree
  * @num_clients: Total number of clients that CPAS supports
  * @num_axi_ports: Total number of axi ports found in device tree
  * @registered_clients: Number of Clients registered currently
@@ -188,6 +187,7 @@ struct cam_cpas {
 	struct cam_cpas_hw_caps hw_caps;
 	struct cam_cpas_client *cpas_client[CAM_CPAS_MAX_CLIENTS];
 	struct mutex client_mutex[CAM_CPAS_MAX_CLIENTS];
+	struct mutex tree_lock;
 	uint32_t num_clients;
 	uint32_t num_axi_ports;
 	uint32_t registered_clients;

@@ -90,9 +90,9 @@ struct cam_isp_start_args {
  * @axi_path                    per path vote info
  */
 struct cam_isp_bw_config_internal_v2 {
-	uint32_t                       usage_type;
-	uint32_t                       num_paths;
-	struct cam_axi_per_path_bw_vote axi_path[1];
+	uint32_t                          usage_type;
+	uint32_t                          num_paths;
+	struct cam_axi_per_path_bw_vote   axi_path[CAM_ISP_MAX_PER_PATH_VOTES];
 };
 
 /**
@@ -129,7 +129,7 @@ struct cam_isp_prepare_hw_update_data {
 	uint32_t                              packet_opcode_type;
 	uint32_t                              bw_config_version;
 	struct cam_isp_bw_config_internal     bw_config[CAM_IFE_HW_NUM_MAX];
-	struct cam_isp_bw_config_internal_v2 *bw_config_v2[CAM_IFE_HW_NUM_MAX];
+	struct cam_isp_bw_config_internal_v2  bw_config_v2[CAM_IFE_HW_NUM_MAX];
 	bool                                bw_config_valid[CAM_IFE_HW_NUM_MAX];
 };
 

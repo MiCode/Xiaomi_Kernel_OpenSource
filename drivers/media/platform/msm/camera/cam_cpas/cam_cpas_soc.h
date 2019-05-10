@@ -110,7 +110,8 @@ void cam_cpas_dump_axi_vote_info(
 	const struct cam_cpas_client *cpas_client,
 	const char *identifier,
 	struct cam_axi_vote *axi_vote);
-int cam_cpas_node_tree_cleanup(struct cam_cpas_private_soc *soc_private);
+int cam_cpas_node_tree_cleanup(struct cam_cpas *cpas_core,
+	struct cam_cpas_private_soc *soc_private);
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t vfe_irq_handler, struct cam_hw_info *cpas_hw);
 int cam_cpas_soc_deinit_resources(struct cam_hw_soc_info *soc_info);
