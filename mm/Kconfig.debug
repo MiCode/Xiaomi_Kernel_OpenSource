@@ -31,6 +31,16 @@ config DEBUG_PAGEALLOC
 	  enabled by DEBUG_PAGEALLOC_ENABLE_DEFAULT or the debug_pagealloc
 	  command line parameter.
 
+config SLUB_DEBUG_PANIC_ON
+	bool "Enable to Panic on SLUB corruption detection"
+	depends on SLUB_DEBUG
+	help
+	  SLUB has a resiliency feature enabled which restores bytes in
+	  order for production environments to continue to operate. IN
+	  debug options this may not be desirable as it prevents from
+	  investigating the root cause which may be rooted within cache
+	  or memory.
+
 config DEBUG_PAGEALLOC_ENABLE_DEFAULT
 	bool "Enable debug page memory allocations by default?"
 	default n
