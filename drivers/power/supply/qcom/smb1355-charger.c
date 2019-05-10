@@ -243,6 +243,7 @@ struct smb1355 {
 	int			c_health;
 	int			c_charger_temp_max;
 	int			die_temp_deciDegC;
+	int			suspended_usb_icl;
 	bool			exit_die_temp;
 	struct delayed_work	die_temp_work;
 	bool			disabled;
@@ -589,6 +590,7 @@ static int smb1355_get_prop_health(struct smb1355 *chip, int type)
 }
 
 #define MIN_PARALLEL_ICL_UA		250000
+#define SUSPEND_CURRENT_UA		2000
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -665,11 +667,16 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (IS_USBIN(chip->dt.pl_mode))
-			rc = smb1355_get_charge_param(chip,
+		if (IS_USBIN(chip->dt.pl_mode)) {
+			/* Report cached ICL until its configured correctly */
+			if (chip->suspended_usb_icl)
+				val->intval = chip->suspended_usb_icl;
+			else
+				rc = smb1355_get_charge_param(chip,
 					&chip->param.usb_icl, &val->intval);
-		else
+		} else {
 			val->intval = 0;
+		}
 		break;
 	case POWER_SUPPLY_PROP_MIN_ICL:
 		val->intval = MIN_PARALLEL_ICL_UA;
@@ -701,6 +708,18 @@ static int smb1355_set_parallel_charging(struct smb1355 *chip, bool disable)
 
 	if (chip->disabled == disable)
 		return 0;
+
+	if (IS_USBIN(chip->dt.pl_mode)) {
+		/*
+		 * Initialize ICL configuration to minimum value while
+		 * depending upon the set icl configuration method to properly
+		 * configure the ICL value. At the same time, cache the value
+		 * of ICL to be reported as 2mA.
+		 */
+		chip->suspended_usb_icl = SUSPEND_CURRENT_UA;
+		smb1355_set_charge_param(chip,
+				&chip->param.usb_icl, MIN_PARALLEL_ICL_UA);
+	}
 
 	rc = smb1355_masked_write(chip, WD_CFG_REG, WDOG_TIMER_EN_BIT,
 				 disable ? 0 : WDOG_TIMER_EN_BIT);
@@ -770,6 +789,7 @@ static int smb1355_set_current_max(struct smb1355 *chip, int curr)
 
 		rc = smb1355_set_charge_param(chip,
 				&chip->param.usb_icl, curr);
+		chip->suspended_usb_icl = 0;
 	}
 
 	return rc;

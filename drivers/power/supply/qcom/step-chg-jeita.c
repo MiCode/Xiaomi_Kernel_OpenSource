@@ -50,7 +50,9 @@ struct step_chg_info {
 	bool			sw_jeita_cfg_valid;
 	bool			soc_based_step_chg;
 	bool			ocv_based_step_chg;
+	bool			vbat_avg_based_step_chg;
 	bool			batt_missing;
+	bool			taper_fcc;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
 	int			step_index;
@@ -68,6 +70,7 @@ struct step_chg_info {
 	struct power_supply	*bms_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*main_psy;
+	struct power_supply	*dc_psy;
 	struct delayed_work	status_change_work;
 	struct delayed_work	get_config_work;
 	struct notifier_block	nb;
@@ -113,6 +116,39 @@ static bool is_usb_available(struct step_chg_info *chip)
 		return false;
 
 	return true;
+}
+
+static bool is_input_present(struct step_chg_info *chip)
+{
+	int rc = 0, input_present = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+	if (chip->usb_psy) {
+		rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
+		if (rc < 0)
+			pr_err("Couldn't read USB Present status, rc=%d\n", rc);
+		else
+			input_present |= pval.intval;
+	}
+
+	if (!chip->dc_psy)
+		chip->dc_psy = power_supply_get_by_name("dc");
+	if (chip->dc_psy) {
+		rc = power_supply_get_property(chip->dc_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
+		if (rc < 0)
+			pr_err("Couldn't read DC Present status, rc=%d\n", rc);
+		else
+			input_present |= pval.intval;
+	}
+
+	if (input_present)
+		return true;
+
+	return false;
 }
 
 int read_range_data_from_node(struct device_node *node,
@@ -254,6 +290,8 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		return rc;
 	}
 
+	chip->taper_fcc = of_property_read_bool(profile_node, "qcom,taper-fcc");
+
 	chip->soc_based_step_chg =
 		of_property_read_bool(profile_node, "qcom,soc-based-step-chg");
 	if (chip->soc_based_step_chg) {
@@ -270,6 +308,17 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 				POWER_SUPPLY_PROP_VOLTAGE_OCV;
 		chip->step_chg_config->param.prop_name = "OCV";
 		chip->step_chg_config->param.hysteresis = 10000;
+		chip->step_chg_config->param.use_bms = true;
+	}
+
+	chip->vbat_avg_based_step_chg =
+				of_property_read_bool(profile_node,
+				"qcom,vbat-avg-based-step-chg");
+	if (chip->vbat_avg_based_step_chg) {
+		chip->step_chg_config->param.psy_prop =
+				POWER_SUPPLY_PROP_VOLTAGE_AVG;
+		chip->step_chg_config->param.prop_name = "VBAT_AVG";
+		chip->step_chg_config->param.hysteresis = 0;
 		chip->step_chg_config->param.use_bms = true;
 	}
 
@@ -436,10 +485,53 @@ static int get_val(struct range_data *range, int hysteresis, int current_index,
 	return 0;
 }
 
+#define TAPERED_STEP_CHG_FCC_REDUCTION_STEP_MA		50000 /* 50 mA */
+static void taper_fcc_step_chg(struct step_chg_info *chip, int index,
+					int current_voltage)
+{
+	u32 current_fcc, target_fcc;
+
+	if (index < 0) {
+		pr_err("Invalid STEP CHG index\n");
+		return;
+	}
+
+	current_fcc = get_effective_result(chip->fcc_votable);
+	target_fcc = chip->step_chg_config->fcc_cfg[index].value;
+
+	if (index == 0) {
+		vote(chip->fcc_votable, STEP_CHG_VOTER, true, target_fcc);
+	} else if (current_voltage >
+		(chip->step_chg_config->fcc_cfg[index - 1].high_threshold +
+		chip->step_chg_config->param.hysteresis)) {
+		/*
+		 * Ramp down FCC in pre-configured steps till the current index
+		 * FCC configuration is reached, whenever the step charging
+		 * control parameter exceeds the high threshold of previous
+		 * step charging index configuration.
+		 */
+		vote(chip->fcc_votable, STEP_CHG_VOTER, true, max(target_fcc,
+			current_fcc - TAPERED_STEP_CHG_FCC_REDUCTION_STEP_MA));
+	} else if ((current_fcc >
+		chip->step_chg_config->fcc_cfg[index - 1].value) &&
+		(current_voltage >
+		chip->step_chg_config->fcc_cfg[index - 1].low_threshold +
+		chip->step_chg_config->param.hysteresis)) {
+		/*
+		 * In case the step charging index switch to the next higher
+		 * index without FCCs saturation for the previous index, ramp
+		 * down FCC till previous index FCC configuration is reached.
+		 */
+		vote(chip->fcc_votable, STEP_CHG_VOTER, true,
+			max(chip->step_chg_config->fcc_cfg[index - 1].value,
+			current_fcc - TAPERED_STEP_CHG_FCC_REDUCTION_STEP_MA));
+	}
+}
+
 static int handle_step_chg_config(struct step_chg_info *chip)
 {
 	union power_supply_propval pval = {0, };
-	int rc = 0, fcc_ua = 0;
+	int rc = 0, fcc_ua = 0, current_index;
 	u64 elapsed_us;
 
 	elapsed_us = ktime_us_delta(ktime_get(), chip->step_last_update_time);
@@ -472,6 +564,7 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		return rc;
 	}
 
+	current_index = chip->step_index;
 	rc = get_val(chip->step_chg_config->fcc_cfg,
 			chip->step_chg_config->param.hysteresis,
 			chip->step_index,
@@ -485,15 +578,28 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 		goto update_time;
 	}
 
+	/* Do not drop step-chg index, if input supply is present */
+	if (is_input_present(chip)) {
+		if (chip->step_index < current_index)
+			chip->step_index = current_index;
+	} else {
+		chip->step_index = 0;
+	}
+
 	if (!chip->fcc_votable)
 		chip->fcc_votable = find_votable("FCC");
 	if (!chip->fcc_votable)
 		return -EINVAL;
 
-	vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
+	if (chip->taper_fcc)
+		taper_fcc_step_chg(chip, chip->step_index, pval.intval);
+	else
+		vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
 
-	pr_debug("%s = %d Step-FCC = %duA\n",
-		chip->step_chg_config->param.prop_name, pval.intval, fcc_ua);
+	pr_debug("%s = %d Step-FCC = %duA taper-fcc: %d\n",
+		chip->step_chg_config->param.prop_name, pval.intval,
+		get_client_vote(chip->fcc_votable, STEP_CHG_VOTER),
+		chip->taper_fcc);
 
 update_time:
 	chip->step_last_update_time = ktime_get();
