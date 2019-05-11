@@ -949,6 +949,26 @@ static struct clk_branch gcc_aggre_ufs_phy_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_aggre_ufs_phy_axi_hw_ctl_clk = {
+	.halt_reg = 0x770cc,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0x770cc,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x770cc,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_ufs_phy_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_axi_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_aggre_usb3_prim_axi_clk = {
 	.halt_reg = 0xf080,
 	.halt_check = BRANCH_HALT,
@@ -2101,6 +2121,26 @@ static struct clk_branch gcc_ufs_phy_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_phy_axi_hw_ctl_clk = {
+	.halt_reg = 0x77010,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0x77010,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x77010,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_axi_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_axi_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_phy_ice_core_clk = {
 	.halt_reg = 0x77064,
 	.halt_check = BRANCH_HALT,
@@ -2121,6 +2161,26 @@ static struct clk_branch gcc_ufs_phy_ice_core_clk = {
 	},
 };
 
+static struct clk_branch gcc_ufs_phy_ice_core_hw_ctl_clk = {
+	.halt_reg = 0x77064,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0x77064,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x77064,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_ice_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_ice_core_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_phy_phy_aux_clk = {
 	.halt_reg = 0x7709c,
 	.halt_check = BRANCH_HALT,
@@ -2137,6 +2197,26 @@ static struct clk_branch gcc_ufs_phy_phy_aux_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ufs_phy_phy_aux_hw_ctl_clk = {
+	.halt_reg = 0x7709c,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0x7709c,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x7709c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_phy_aux_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_phy_aux_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2196,6 +2276,26 @@ static struct clk_branch gcc_ufs_phy_unipro_core_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ufs_phy_unipro_core_hw_ctl_clk = {
+	.halt_reg = 0x7705c,
+	.halt_check = BRANCH_HALT,
+	.hwcg_reg = 0x7705c,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x7705c,
+		.enable_mask = BIT(1),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_ufs_phy_unipro_core_hw_ctl_clk",
+			.parent_names = (const char *[]){
+				"gcc_ufs_phy_unipro_core_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_hw_ctl_ops,
 		},
 	},
 };
@@ -2561,6 +2661,14 @@ static struct clk_regmap *gcc_lito_clocks[] = {
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
 	[GPLL6] = &gpll6.clkr,
 	[GPLL9] = &gpll9.clkr,
+	[GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK] = &gcc_ufs_phy_phy_aux_hw_ctl_clk.clkr,
+	[GCC_UFS_PHY_AXI_HW_CTL_CLK] = &gcc_ufs_phy_axi_hw_ctl_clk.clkr,
+	[GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK] =
+				&gcc_aggre_ufs_phy_axi_hw_ctl_clk.clkr,
+	[GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK] =
+				&gcc_ufs_phy_unipro_core_hw_ctl_clk.clkr,
+	[GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK] =
+				&gcc_ufs_phy_ice_core_hw_ctl_clk.clkr,
 };
 
 static const struct qcom_reset_map gcc_lito_resets[] = {
