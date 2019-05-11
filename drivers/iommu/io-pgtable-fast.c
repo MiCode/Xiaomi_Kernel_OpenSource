@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,7 +150,7 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_PAGE_SHIFT		12
 
 #define PTE_MAIR_IDX(pte)				\
-	((pte >> AV8L_FAST_PTE_ATTRINDX_SHIFT) &&	\
+	((pte >> AV8L_FAST_PTE_ATTRINDX_SHIFT) &	\
 	 AV8L_FAST_PTE_ATTRINDX_MASK)
 
 #define PTE_SH_IDX(pte) (pte & AV8L_FAST_PTE_SH_MASK)
