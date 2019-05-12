@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/log2.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/ipc_logging.h>
 
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 
@@ -157,6 +158,8 @@ struct adc_chip {
 	struct completion	complete;
 	struct mutex		lock;
 	bool			skip_usb_wa;
+	void			*ipc_log0;
+	void			*ipc_log1;
 	struct pmic_revid_data	*pmic_rev_id;
 	const struct adc_data	*data;
 };
@@ -987,6 +990,7 @@ static int adc_probe(struct platform_device *pdev)
 	int ret, irq_eoc;
 	u32 reg;
 	bool skip_usb_wa = false;
+	char adc_name[40];
 
 	regmap = dev_get_regmap(dev->parent, NULL);
 	if (!regmap)
@@ -1060,6 +1064,26 @@ static int adc_probe(struct platform_device *pdev)
 	indio_dev->info = &adc_info;
 	indio_dev->channels = adc->iio_chans;
 	indio_dev->num_channels = adc->nchannels;
+
+	snprintf(adc_name, sizeof(adc_name), "vadc_%s_0",
+					node->parent->full_name);
+
+	adc->ipc_log0 = ipc_log_context_create(IPC_LOGPAGES,
+							adc_name, 0);
+
+	if (!adc->ipc_log0)
+		pr_err("%s : unable to create IPC Logging 0 for %s ADC\n",
+					__func__, node->parent->full_name);
+
+	snprintf(adc_name, sizeof(adc_name), "vadc_%s_1",
+					node->parent->full_name);
+
+	adc->ipc_log1 = ipc_log_context_create(IPC_LOGPAGES,
+							adc_name, 0);
+
+	if (!adc->ipc_log1)
+		pr_err("%s : unable to create IPC Logging 1 for %s ADC\n",
+					__func__, node->parent->full_name);
 
 	return devm_iio_device_register(dev, indio_dev);
 }
