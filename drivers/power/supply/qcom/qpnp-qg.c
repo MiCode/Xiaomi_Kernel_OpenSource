@@ -2953,6 +2953,9 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 				QG_RECHARGE_SOC_WA;
 		qg_esr_mod_count = 10;
 		break;
+	case PM7250B_SUBTYPE:
+		qg_esr_mod_count = 10;
+		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
 			chip->pmic_rev_id->pmic_subtype);
