@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QG_CORE_H__
@@ -58,6 +58,7 @@ struct qg_dt {
 	bool			esr_disable;
 	bool			esr_discharge_enable;
 	bool			qg_ext_sense;
+	bool			use_s7_ocv;
 };
 
 struct qg_esr_data {
@@ -101,6 +102,7 @@ struct qpnp_qg {
 	struct qg_user_data	udata;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
+	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
@@ -115,7 +117,9 @@ struct qpnp_qg {
 	bool			charge_done;
 	bool			parallel_enabled;
 	bool			usb_present;
+	bool			dc_present;
 	bool			charge_full;
+	bool			force_soc;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -205,6 +209,7 @@ enum qg_wa_flags {
 	QG_VBAT_LOW_WA = BIT(0),
 	QG_RECHARGE_SOC_WA = BIT(1),
 	QG_CLK_ADJUST_WA = BIT(2),
+	QG_PON_OCV_WA = BIT(3),
 };
 
 

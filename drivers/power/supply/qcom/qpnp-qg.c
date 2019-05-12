@@ -1081,7 +1081,8 @@ static void process_udata_work(struct work_struct *work)
 			chip->catch_up_soc = chip->udata.param[QG_SOC].data;
 		}
 
-		qg_scale_soc(chip, false);
+		qg_scale_soc(chip, chip->force_soc);
+		chip->force_soc = false;
 
 		/* update parameters to SDAM */
 		chip->sdam_data[SDAM_SOC] = chip->msoc;
@@ -1095,10 +1096,6 @@ static void process_udata_work(struct work_struct *work)
 		if (rc < 0)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
-
-	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
-		chip->charge_counter_uah =
-			chip->udata.param[QG_CHARGE_COUNTER].data;
 
 	if (chip->udata.param[QG_ESR].valid)
 		chip->esr_last = chip->udata.param[QG_ESR].data;
@@ -1259,6 +1256,7 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 	u8 status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
 	struct qpnp_qg *chip = data;
+	unsigned long rtc_sec = 0;
 
 	qg_dbg(chip, QG_DEBUG_IRQ, "IRQ triggered\n");
 
@@ -1279,6 +1277,8 @@ static irqreturn_t qg_good_ocv_handler(int irq, void *data)
 		goto done;
 	}
 
+	get_rtc_time(&rtc_sec);
+	chip->kdata.fifo_time = (u32)rtc_sec;
 	chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 
@@ -1580,6 +1580,26 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
+{
+	int rc, cc_soc = 0;
+	int64_t temp = 0;
+
+	rc = qg_get_learned_capacity(chip, &temp);
+	if (rc < 0 || !temp)
+		rc = qg_get_nominal_capacity((int *)&temp, 250, true);
+
+	if (rc < 0) {
+		pr_err("Failed to get FCC for charge-counter rc=%d\n", rc);
+		return rc;
+	}
+
+	cc_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->cc_soc, 100));
+	*charge_counter = div_s64(temp * cc_soc, 100);
+
+	return 0;
+}
+
 static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 {
 	union power_supply_propval prop = {0, };
@@ -1615,7 +1635,10 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 		}
 		break;
 	case TTF_MODE:
-		*val = TTF_MODE_NORMAL;
+		if (chip->ttf->step_chg_cfg_valid)
+			*val = TTF_MODE_V_STEP_CHG;
+		else
+			*val = TTF_MODE_NORMAL;
 		break;
 	case TTF_ITERM:
 		if (chip->chg_iterm_ma == INT_MIN)
@@ -1661,6 +1684,94 @@ static int qg_ttf_awake_voter(void *data, bool val)
 	return 0;
 }
 
+#define MAX_QG_OK_RETRIES	20
+static int qg_reset(struct qpnp_qg *chip)
+{
+	int rc = 0, count = 0, soc = 0;
+	u32 ocv_uv = 0, ocv_raw = 0;
+	u8 reg = 0;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "QG RESET triggered\n");
+
+	mutex_lock(&chip->data_lock);
+
+	/* hold and release master to clear FIFO's */
+	rc = qg_master_hold(chip, true);
+	if (rc < 0) {
+		pr_err("Failed to hold master, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for the master-hold */
+	msleep(20);
+
+	rc = qg_master_hold(chip, false);
+	if (rc < 0) {
+		pr_err("Failed to release master, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* delay for master to settle */
+	msleep(20);
+
+	qg_get_battery_voltage(chip, &rc);
+	qg_get_battery_capacity(chip, &soc);
+	qg_dbg(chip, QG_DEBUG_STATUS, "VBAT=%duV SOC=%d\n", rc, soc);
+
+	/* Trigger S7 */
+	rc = qg_masked_write(chip, chip->qg_base + QG_STATE_TRIG_CMD_REG,
+				S7_PON_OCV_START, S7_PON_OCV_START);
+	if (rc < 0) {
+		pr_err("Failed to trigger S7, rc=%d\n", rc);
+		goto done;
+	}
+
+	/* poll for QG OK */
+	do {
+		rc = qg_read(chip, chip->qg_base + QG_STATUS1_REG, &reg, 1);
+		if (rc < 0) {
+			pr_err("Failed to read STATUS1_REG rc=%d\n", rc);
+			goto done;
+		}
+
+		if (reg & QG_OK_BIT)
+			break;
+
+		msleep(200);
+		count++;
+	} while (count < MAX_QG_OK_RETRIES);
+
+	if (count == MAX_QG_OK_RETRIES) {
+		qg_dbg(chip, QG_DEBUG_STATUS, "QG_OK not set\n");
+		goto done;
+	}
+
+	/* read S7 PON OCV */
+	rc = qg_read_ocv(chip, &ocv_uv, &ocv_raw, S7_PON_OCV);
+	if (rc < 0) {
+		pr_err("Failed to read PON OCV rc=%d\n", rc);
+		goto done;
+	}
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "S7_OCV = %duV\n", ocv_uv);
+
+	chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
+	chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
+	/* clear all the userspace data */
+	chip->kdata.param[QG_CLEAR_LEARNT_DATA].data = 1;
+	chip->kdata.param[QG_CLEAR_LEARNT_DATA].valid = true;
+
+	vote(chip->awake_votable, GOOD_OCV_VOTER, true, 0);
+	/* signal the read thread */
+	chip->data_ready = true;
+	chip->force_soc = true;
+	wake_up_interruptible(&chip->qg_wait_q);
+
+done:
+	mutex_unlock(&chip->data_lock);
+	return rc;
+}
+
 static int qg_psy_set_property(struct power_supply *psy,
 			       enum power_supply_property psp,
 			       const union power_supply_propval *pval)
@@ -1698,6 +1809,9 @@ static int qg_psy_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 		chip->esr_nominal = pval->intval;
+		break;
+	case POWER_SUPPLY_PROP_FG_RESET:
+		qg_reset(chip);
 		break;
 	default:
 		break;
@@ -1767,7 +1881,7 @@ static int qg_psy_get_property(struct power_supply *psy,
 		pval->intval = chip->bp.qg_profile_version;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		pval->intval = chip->charge_counter_uah;
+		rc = qg_get_charge_counter(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (!chip->dt.cl_disable && chip->dt.cl_feedback_on)
@@ -1810,6 +1924,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CC_SOC:
 		rc = qg_get_cc_soc(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
+		rc = qg_get_vbat_avg(chip, &pval->intval);
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1826,6 +1943,7 @@ static int qg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_ACTUAL:
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
+	case POWER_SUPPLY_PROP_FG_RESET:
 		return 1;
 	default:
 		break;
@@ -1861,6 +1979,8 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_ESR_NOMINAL,
 	POWER_SUPPLY_PROP_SOH,
 	POWER_SUPPLY_PROP_CC_SOC,
+	POWER_SUPPLY_PROP_FG_RESET,
+	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -1895,8 +2015,9 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	if (rc < 0 || prop.intval < 0) {
 		pr_debug("Failed to get recharge-soc\n");
 		recharge_soc = DEFAULT_RECHARGE_SOC;
+	} else {
+		recharge_soc = prop.intval;
 	}
-	recharge_soc = prop.intval;
 	chip->recharge_soc = recharge_soc;
 
 	qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d health=%d charge_full=%d charge_done=%d\n",
@@ -1915,14 +2036,14 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
-		bool usb_present = is_usb_present(chip);
+		bool input_present = is_input_present(chip);
 
 		/*
 		 * force a recharge only if SOC <= recharge SOC and
 		 * we have not started charging.
 		 */
 		if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
-			usb_present && chip->msoc <= recharge_soc &&
+			input_present && chip->msoc <= recharge_soc &&
 			chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
 			/* Force recharge */
 			prop.intval = 0;
@@ -1940,10 +2061,10 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 
 		/*
 		 * If SOC has indeed dropped below recharge-SOC or
-		 * the USB is removed, if linearize-soc is set scale
+		 * the input is removed, if linearize-soc is set scale
 		 * msoc from 100% for better UX.
 		 */
-		if (chip->msoc < recharge_soc || !usb_present) {
+		if (chip->msoc < recharge_soc || !input_present) {
 			if (chip->dt.linearize_soc) {
 				get_rtc_time(&chip->last_maint_soc_update_time);
 				chip->maint_soc = FULL_SOC;
@@ -1954,9 +2075,9 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 					chip->msoc, recharge_soc);
 		} else {
 			/* continue with charge_full state */
-			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d usb_present=%d\n",
+			qg_dbg(chip, QG_DEBUG_STATUS, "msoc=%d recharge_soc=%d charge_full=%d input_present=%d\n",
 					chip->msoc, recharge_soc,
-					chip->charge_full, usb_present);
+					chip->charge_full, input_present);
 		}
 	}
 out:
@@ -1994,18 +2115,21 @@ static int qg_parallel_status_update(struct qpnp_qg *chip)
 	return 0;
 }
 
-static int qg_usb_status_update(struct qpnp_qg *chip)
+static int qg_input_status_update(struct qpnp_qg *chip)
 {
 	bool usb_present = is_usb_present(chip);
+	bool dc_present = is_dc_present(chip);
 
-	if (chip->usb_present != usb_present) {
+	if ((chip->usb_present != usb_present) ||
+		(chip->dc_present != dc_present)) {
 		qg_dbg(chip, QG_DEBUG_STATUS,
-			"USB status changed Present=%d\n",
-							usb_present);
+			"Input status changed usb_present=%d dc_present=%d\n",
+						usb_present, dc_present);
 		qg_scale_soc(chip, false);
 	}
 
 	chip->usb_present = usb_present;
+	chip->dc_present = dc_present;
 
 	return 0;
 }
@@ -2027,7 +2151,6 @@ static int qg_handle_battery_removal(struct qpnp_qg *chip)
 	return rc;
 }
 
-#define MAX_QG_OK_RETRIES	20
 static int qg_handle_battery_insertion(struct qpnp_qg *chip)
 {
 	int rc, count = 0;
@@ -2120,6 +2243,7 @@ static void qg_status_change_work(struct work_struct *work)
 			struct qpnp_qg, qg_status_change_work);
 	union power_supply_propval prop = {0, };
 	int rc = 0, batt_temp = 0, batt_soc_32b = 0;
+	bool input_present = false;
 
 	if (!is_batt_available(chip)) {
 		pr_debug("batt-psy not available\n");
@@ -2158,14 +2282,17 @@ static void qg_status_change_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Failed to update parallel-status, rc=%d\n", rc);
 
-	rc = qg_usb_status_update(chip);
+	rc = qg_input_status_update(chip);
 	if (rc < 0)
-		pr_err("Failed to update usb status, rc=%d\n", rc);
+		pr_err("Failed to update input status, rc=%d\n", rc);
+
+	/* get input status */
+	input_present = is_input_present(chip);
 
 	cycle_count_update(chip->counter,
 			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
 			chip->charge_status, chip->charge_done,
-			chip->usb_present);
+			input_present);
 
 	if (!chip->dt.cl_disable) {
 		rc = qg_get_battery_temp(chip, &batt_temp);
@@ -2177,14 +2304,14 @@ static void qg_status_change_work(struct work_struct *work)
 					QG_SOC_FULL);
 			cap_learning_update(chip->cl, batt_temp, batt_soc_32b,
 				chip->charge_status, chip->charge_done,
-				chip->usb_present, false);
+				input_present, false);
 		}
 	}
 	rc = qg_charge_full_update(chip);
 	if (rc < 0)
 		pr_err("Failed in charge_full_update, rc=%d\n", rc);
 
-	ttf_update(chip->ttf, chip->usb_present);
+	ttf_update(chip->ttf, input_present);
 out:
 	pm_relax(chip->dev);
 }
@@ -2203,7 +2330,8 @@ static int qg_notifier_cb(struct notifier_block *nb,
 
 	if ((strcmp(psy->desc->name, "battery") == 0)
 		|| (strcmp(psy->desc->name, "parallel") == 0)
-		|| (strcmp(psy->desc->name, "usb") == 0)) {
+		|| (strcmp(psy->desc->name, "usb") == 0)
+		|| (strcmp(psy->desc->name, "dc") == 0)) {
 		/*
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
@@ -2460,7 +2588,7 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
 	struct device_node *batt_node, *profile_node;
-	int rc;
+	int rc, tuple_len, len, i;
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -2508,6 +2636,64 @@ static int qg_load_battery_profile(struct qpnp_qg *chip)
 	if (rc < 0) {
 		pr_err("Failed to read QG profile version rc:%d\n", rc);
 		chip->bp.qg_profile_version = -EINVAL;
+	}
+
+	/*
+	 * Currently step charging thresholds should be read only for Vbatt
+	 * based and not for SOC based.
+	 */
+	if (!of_property_read_bool(profile_node, "qcom,soc-based-step-chg") &&
+		of_find_property(profile_node, "qcom,step-chg-ranges", &len) &&
+		chip->bp.float_volt_uv > 0 && chip->bp.fastchg_curr_ma > 0) {
+		len /= sizeof(u32);
+		tuple_len = len / (sizeof(struct range_data) / sizeof(u32));
+		if (tuple_len <= 0 || tuple_len > MAX_STEP_CHG_ENTRIES)
+			return -EINVAL;
+
+		mutex_lock(&chip->ttf->lock);
+		chip->ttf->step_chg_cfg =
+			kcalloc(len, sizeof(*chip->ttf->step_chg_cfg),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_cfg) {
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		chip->ttf->step_chg_data =
+			kcalloc(tuple_len, sizeof(*chip->ttf->step_chg_data),
+				GFP_KERNEL);
+		if (!chip->ttf->step_chg_data) {
+			kfree(chip->ttf->step_chg_cfg);
+			mutex_unlock(&chip->ttf->lock);
+			return -ENOMEM;
+		}
+
+		rc = read_range_data_from_node(profile_node,
+				"qcom,step-chg-ranges",
+				chip->ttf->step_chg_cfg,
+				chip->bp.float_volt_uv,
+				chip->bp.fastchg_curr_ma * 1000);
+		if (rc < 0) {
+			pr_err("Error in reading qcom,step-chg-ranges from battery profile, rc=%d\n",
+				rc);
+			kfree(chip->ttf->step_chg_data);
+			kfree(chip->ttf->step_chg_cfg);
+			chip->ttf->step_chg_cfg = NULL;
+			mutex_unlock(&chip->ttf->lock);
+			return rc;
+		}
+
+		chip->ttf->step_chg_num_params = tuple_len;
+		chip->ttf->step_chg_cfg_valid = true;
+		mutex_unlock(&chip->ttf->lock);
+
+		if (chip->ttf->step_chg_cfg_valid) {
+			for (i = 0; i < tuple_len; i++)
+				pr_debug("Vbatt_low: %d Vbatt_high: %d FCC: %d\n",
+				chip->ttf->step_chg_cfg[i].low_threshold,
+				chip->ttf->step_chg_cfg[i].high_threshold,
+				chip->ttf->step_chg_cfg[i].value);
+		}
 	}
 
 	qg_dbg(chip, QG_DEBUG_PROFILE, "profile=%s FV=%duV FCC=%dma\n",
@@ -2562,7 +2748,7 @@ static struct ocv_all ocv[] = {
 #define S7_ERROR_MARGIN_UV		20000
 static int qg_determine_pon_soc(struct qpnp_qg *chip)
 {
-	int rc = 0, batt_temp = 0, i;
+	int rc = 0, batt_temp = 0, i, shutdown_temp = 0;
 	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
 	u32 ocv_uv = 0, soc = 0, pon_soc = 0, full_soc = 0, cutoff_soc = 0;
@@ -2603,6 +2789,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		pr_err("Failed to read shutdown params rc=%d\n", rc);
 		goto use_pon_ocv;
 	}
+	shutdown_temp = sign_extend32(shutdown[SDAM_TEMP], 15);
 
 	rc = lookup_soc_ocv(&pon_soc, ocv[S7_PON_OCV].ocv_uv, batt_temp, false);
 	if (rc < 0) {
@@ -2615,7 +2802,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 			shutdown[SDAM_SOC],
 			shutdown[SDAM_OCV_UV],
 			shutdown[SDAM_TIME_SEC],
-			shutdown[SDAM_TEMP],
+			shutdown_temp,
 			rtc_sec, batt_temp,
 			pon_soc);
 	/*
@@ -2632,7 +2819,8 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 		goto use_pon_ocv;
 
 	if (!is_between(0, chip->dt.shutdown_temp_diff,
-			abs(shutdown[SDAM_TEMP] -  batt_temp)))
+			abs(shutdown_temp -  batt_temp)) &&
+			(shutdown_temp < 0 || batt_temp < 0))
 		goto use_pon_ocv;
 
 	if ((chip->dt.shutdown_soc_threshold != -EINVAL) &&
@@ -2648,32 +2836,39 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 
 use_pon_ocv:
 	if (use_pon_ocv == true) {
-		if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
-			if (!ocv[SDAM_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			} else if (ocv[SDAM_PON_OCV].ocv_uv <=
-					ocv[S7_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			} else if (!shutdown[SDAM_VALID] &&
-				((ocv[SDAM_PON_OCV].ocv_uv -
-					ocv[S7_PON_OCV].ocv_uv) >
-					S7_ERROR_MARGIN_UV)) {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+		if (chip->wa_flags & QG_PON_OCV_WA) {
+			if (ocv[S3_LAST_OCV].ocv_raw == FIFO_V_RESET_VAL) {
+				if (!ocv[SDAM_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else if (ocv[SDAM_PON_OCV].ocv_uv <=
+						ocv[S7_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else if (!shutdown[SDAM_VALID] &&
+					((ocv[SDAM_PON_OCV].ocv_uv -
+						ocv[S7_PON_OCV].ocv_uv) >
+						S7_ERROR_MARGIN_UV)) {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				} else {
+					strlcpy(ocv_type, "SDAM_PON_SOC", 20);
+					ocv_uv = ocv[SDAM_PON_OCV].ocv_uv;
+				}
 			} else {
-				strlcpy(ocv_type, "SDAM_PON_SOC", 20);
-				ocv_uv = ocv[SDAM_PON_OCV].ocv_uv;
+				if (ocv[S3_LAST_OCV].ocv_uv >=
+						ocv[S7_PON_OCV].ocv_uv) {
+					strlcpy(ocv_type, "S3_LAST_SOC", 20);
+					ocv_uv = ocv[S3_LAST_OCV].ocv_uv;
+				} else {
+					strlcpy(ocv_type, "S7_PON_SOC", 20);
+					ocv_uv = ocv[S7_PON_OCV].ocv_uv;
+				}
 			}
 		} else {
-			if (ocv[S3_LAST_OCV].ocv_uv >= ocv[S7_PON_OCV].ocv_uv) {
-				strlcpy(ocv_type, "S3_LAST_SOC", 20);
-				ocv_uv = ocv[S3_LAST_OCV].ocv_uv;
-			} else {
-				strlcpy(ocv_type, "S7_PON_SOC", 20);
-				ocv_uv = ocv[S7_PON_OCV].ocv_uv;
-			}
+			/* Use S7 PON OCV */
+			strlcpy(ocv_type, "S7_PON_SOC", 20);
+			ocv_uv = ocv[S7_PON_OCV].ocv_uv;
 		}
 
 		ocv_uv = CAP(QG_MIN_OCV_UV, QG_MAX_OCV_UV, ocv_uv);
@@ -2689,6 +2884,7 @@ use_pon_ocv:
 			pr_err("Failed to lookup FULL_SOC@PON rc=%d\n", rc);
 			goto done;
 		}
+		full_soc = CAP(0, 99, full_soc);
 
 		rc = lookup_soc_ocv(&cutoff_soc,
 				chip->dt.vbatt_cutoff_mv * 1000,
@@ -2698,15 +2894,17 @@ use_pon_ocv:
 			goto done;
 		}
 
-		if ((full_soc - cutoff_soc) > 0 && (pon_soc - cutoff_soc) > 0)
+		if ((full_soc > cutoff_soc) && (pon_soc > cutoff_soc)) {
 			soc = DIV_ROUND_UP(((pon_soc - cutoff_soc) * 100),
 						(full_soc - cutoff_soc));
-		else
+			soc = CAP(0, 100, soc);
+		} else {
 			soc = pon_soc;
+		}
 
 		qg_dbg(chip, QG_DEBUG_PON, "v_float=%d v_cutoff=%d FULL_SOC=%d CUTOFF_SOC=%d PON_SYS_SOC=%d pon_soc=%d\n",
 			chip->bp.float_volt_uv, chip->dt.vbatt_cutoff_mv * 1000,
-			full_soc, cutoff_soc, pon_soc, soc);
+			full_soc, cutoff_soc, soc, pon_soc);
 	}
 done:
 	if (rc < 0) {
@@ -2745,12 +2943,15 @@ static int qg_set_wa_flags(struct qpnp_qg *chip)
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI632_SUBTYPE:
 		chip->wa_flags |= QG_RECHARGE_SOC_WA;
+		if (!chip->dt.use_s7_ocv)
+			chip->wa_flags |= QG_PON_OCV_WA;
 		if (chip->pmic_rev_id->rev4 == PMI632_V1P0_REV4)
 			chip->wa_flags |= QG_VBAT_LOW_WA;
 		break;
 	case PM6150_SUBTYPE:
 		chip->wa_flags |= QG_CLK_ADJUST_WA |
 				QG_RECHARGE_SOC_WA;
+		qg_esr_mod_count = 10;
 		break;
 	default:
 		pr_err("Unsupported PMIC subtype %d\n",
@@ -3195,6 +3396,7 @@ static void qg_create_debugfs(struct qpnp_qg *chip)
 #define DEFAULT_CL_MAX_DEC_DECIPERC	20
 #define DEFAULT_CL_MIN_LIM_DECIPERC	500
 #define DEFAULT_CL_MAX_LIM_DECIPERC	100
+#define DEFAULT_CL_DELTA_BATT_SOC	10
 #define DEFAULT_SHUTDOWN_TEMP_DIFF	60	/* 6 degC */
 #define DEFAULT_ESR_QUAL_CURRENT_UA	130000
 #define DEFAULT_ESR_QUAL_VBAT_UV	7000
@@ -3438,6 +3640,8 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
 
+	chip->dt.use_s7_ocv = of_property_read_bool(node, "qcom,qg-use-s7-ocv");
+
 	/* Capacity learning params*/
 	if (!chip->dt.cl_disable) {
 		chip->dt.cl_feedback_on = of_property_read_bool(node,
@@ -3492,6 +3696,14 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 						DEFAULT_CL_MAX_LIM_DECIPERC;
 		else
 			chip->cl->dt.max_cap_limit = temp;
+
+		chip->cl->dt.min_delta_batt_soc = DEFAULT_CL_DELTA_BATT_SOC;
+		/* read from DT property and update, if value exists */
+		of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
+					&chip->cl->dt.min_delta_batt_soc);
+
+		chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
+							"qcom,cl-wt-enable");
 
 		qg_dbg(chip, QG_DEBUG_PON, "DT: cl_min_start_soc=%d cl_max_start_soc=%d cl_min_temp=%d cl_max_temp=%d\n",
 			chip->cl->dt.min_start_soc, chip->cl->dt.max_start_soc,
@@ -3582,6 +3794,7 @@ static int process_resume(struct qpnp_qg *chip)
 	u8 status2 = 0, rt_status = 0;
 	u32 ocv_uv = 0, ocv_raw = 0;
 	int rc;
+	unsigned long rtc_sec = 0;
 
 	/* skip if profile is not loaded */
 	if (!chip->profile_loaded)
@@ -3602,6 +3815,8 @@ static int process_resume(struct qpnp_qg *chip)
 
 		 /* Clear suspend data as there has been a GOOD OCV */
 		memset(&chip->kdata, 0, sizeof(chip->kdata));
+		get_rtc_time(&rtc_sec);
+		chip->kdata.fifo_time = (u32)rtc_sec;
 		chip->kdata.param[QG_GOOD_OCV_UV].data = ocv_uv;
 		chip->kdata.param[QG_GOOD_OCV_UV].valid = true;
 		chip->suspend_data = false;
@@ -3935,8 +4150,9 @@ static int qpnp_qg_remove(struct platform_device *pdev)
 static void qpnp_qg_shutdown(struct platform_device *pdev)
 {
 	struct qpnp_qg *chip = platform_get_drvdata(pdev);
+	bool input_present = is_input_present(chip);
 
-	if (!is_usb_present(chip) || !chip->profile_loaded)
+	if (!input_present || !chip->profile_loaded)
 		return;
 	/*
 	 * Charging status doesn't matter when the device shuts down and we
@@ -3945,7 +4161,7 @@ static void qpnp_qg_shutdown(struct platform_device *pdev)
 	cycle_count_update(chip->counter,
 			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
 			POWER_SUPPLY_STATUS_NOT_CHARGING,
-			true, chip->usb_present);
+			true, input_present);
 }
 
 static const struct of_device_id match_table[] = {
