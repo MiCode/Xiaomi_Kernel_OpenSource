@@ -860,6 +860,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);
 	kfree(wil->board_file);
+	kfree(wil->brd_info);
 }
 
 static void wil_shutdown_bl(struct wil6210_priv *wil)
@@ -1760,7 +1761,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		rc = wil_request_firmware(wil, wil->wil_fw_name, true);
 		if (rc)
 			goto out;
-		if (wil->brd_file_addr)
+		if (wil->num_of_brd_entries)
 			rc = wil_request_board(wil, board_file);
 		else
 			rc = wil_request_firmware(wil, board_file, true);
