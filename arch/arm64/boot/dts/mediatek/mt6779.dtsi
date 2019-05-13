@@ -11,6 +11,7 @@
 #include <dt-bindings/memory/mt6779-larb-port.h>
 #include <dt-bindings/gce/mt6779-gce.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -452,6 +453,18 @@
 			#clock-cells = <1>;
 		};
 
+		mmc0: mmc@11230000 {
+			compatible = "mediatek,mt6779-mmc";
+			reg = <0 0x11230000 0 0x1000>,
+			      <0 0x11f50000 0 0x1000>;
+			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&topckgen CLK_TOP_MSDC50_0>,
+				 <&infracfg_ao CLK_INFRA_MSDC0>,
+				 <&infracfg_ao CLK_INFRA_MSDC0_SCK>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
+
 		ufshci@11270000 {
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x11270000 0 0x2300>;
@@ -631,7 +644,7 @@
 	firmware {
 		android {
 			compatible = "android,firmware";
-			boot_devices = "soc/11270000.ufshci";
+			boot_devices = "soc/11270000.ufshci,soc/11230000.mmc";
 			vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,recovery";
@@ -662,3 +675,5 @@
 	};
 
 };
+
+#include "cust_mt6779_msdc.dtsi"
