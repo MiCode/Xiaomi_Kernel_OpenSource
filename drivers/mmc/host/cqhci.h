@@ -169,7 +169,8 @@ struct cqhci_host {
 #define CQHCI_TASK_DESC_SZ_128		0x1
 
 	u32 quirks;
-#define CQHCI_QUIRK_SHORT_TXFR_DESC_SZ	0x1
+#define CQHCI_QUIRK_SHORT_TXFR_DESC_SZ		(1 << 0)
+#define CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD	(1 << 1)
 
 	bool enabled;
 	bool halted;

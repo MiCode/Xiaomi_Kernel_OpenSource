@@ -370,6 +370,16 @@ static void cqhci_off(struct mmc_host *mmc)
 	else
 		pr_debug("%s: cqhci: CQE off\n", mmc_hostname(mmc));
 
+	/*
+	 * MTK PATCH: need disable cqhci for legacy cmds coz legacy cmds using
+	 * GPD DMA and it can only work when CQHCI disable.
+	 */
+	if (cq_host->quirks & CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD) {
+		reg = cqhci_readl(cq_host, CQHCI_CFG);
+		reg &= ~CQHCI_ENABLE;
+		cqhci_writel(cq_host, reg, CQHCI_CFG);
+	}
+
 	mmc->cqe_on = false;
 }
 
@@ -561,6 +571,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	int tag = cqhci_tag(mrq);
 	struct cqhci_host *cq_host = mmc->cqe_private;
 	unsigned long flags;
+	u32 reg;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: cqhci: not enabled\n", mmc_hostname(mmc));
@@ -572,6 +583,13 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		__cqhci_enable(cq_host);
 
 	if (!mmc->cqe_on) {
+		/* MTK PATCH: need enable cqhci after issue legacy cmds */
+		if (cq_host->quirks & CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD) {
+			reg = cqhci_readl(cq_host, CQHCI_CFG);
+			reg |= CQHCI_ENABLE;
+			cqhci_writel(cq_host, reg, CQHCI_CFG);
+		}
+
 		cqhci_writel(cq_host, 0, CQHCI_CTL);
 		mmc->cqe_on = true;
 		pr_debug("%s: cqhci: CQE on\n", mmc_hostname(mmc));
