@@ -3011,17 +3011,9 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 					"Bandwidth Update Failed rc: %d", rc);
 			} else if (hw_update_data->bw_config_version ==
 				CAM_ISP_BW_CONFIG_V2) {
-				if (!hw_update_data->bw_config_v2[i]) {
-					CAM_ERR(CAM_ISP,
-						"NULL BW Config idx: %d", i);
-					return -EINVAL;
-				}
-
 				rc = cam_isp_blob_bw_update_v2(
 					(struct cam_isp_bw_config_v2 *)
-					hw_update_data->bw_config_v2[i], ctx);
-				kfree(hw_update_data->bw_config_v2[i]);
-				hw_update_data->bw_config_v2[i] = NULL;
+					&hw_update_data->bw_config_v2[i], ctx);
 				if (rc)
 					CAM_ERR(CAM_ISP,
 					"Bandwidth Update Failed rc: %d", rc);
@@ -4636,14 +4628,18 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		}
 
 		/* Check for integer overflow */
-		if (sizeof(struct cam_axi_per_path_bw_vote) > ((UINT_MAX -
-			sizeof(struct cam_isp_bw_config_v2)) /
-			(bw_config->num_paths - 1))) {
-			CAM_ERR(CAM_ISP,
-				"Size exceeds limit paths:%u size per path:%lu",
-				bw_config->num_paths - 1,
-				sizeof(struct cam_axi_per_path_bw_vote));
-			return -EINVAL;
+		if (bw_config->num_paths != 1) {
+			if (sizeof(struct cam_axi_per_path_bw_vote) >
+				((UINT_MAX -
+				sizeof(struct cam_isp_bw_config_v2)) /
+				(bw_config->num_paths - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Size exceeds limit paths:%u size per path:%lu",
+					bw_config->num_paths - 1,
+					sizeof(
+					struct cam_axi_per_path_bw_vote));
+				return -EINVAL;
+			}
 		}
 
 		if (blob_size < (sizeof(struct cam_isp_bw_config_v2) +
@@ -4666,14 +4662,14 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		prepare_hw_data = (struct cam_isp_prepare_hw_update_data  *)
 			prepare->priv;
 
+		memset(&prepare_hw_data->bw_config_v2[bw_config->usage_type],
+			0, sizeof(
+			prepare_hw_data->bw_config_v2[bw_config->usage_type]));
 		bw_config_size = sizeof(struct cam_isp_bw_config_internal_v2) +
 			((bw_config->num_paths - 1) *
 			sizeof(struct cam_axi_per_path_bw_vote));
-
-		prepare_hw_data->bw_config_v2[bw_config->usage_type] =
-			kmemdup(bw_config, bw_config_size, GFP_KERNEL);
-		if (!prepare_hw_data->bw_config_v2[bw_config->usage_type])
-			return -ENOMEM;
+		memcpy(&prepare_hw_data->bw_config_v2[bw_config->usage_type],
+			bw_config, bw_config_size);
 
 		prepare_hw_data->bw_config_version = CAM_ISP_BW_CONFIG_V2;
 		prepare_hw_data->bw_config_valid[bw_config->usage_type] = true;

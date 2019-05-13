@@ -88,7 +88,7 @@ void cam_cpas_util_debug_parse_data(
 	CAM_INFO(CAM_CPAS, "NUMBER OF NODES PARSED: %d", i);
 }
 
-int cam_cpas_node_tree_cleanup(
+int cam_cpas_node_tree_cleanup(struct cam_cpas *cpas_core,
 	struct cam_cpas_private_soc *soc_private)
 {
 	int i = 0;
@@ -108,6 +108,7 @@ int cam_cpas_node_tree_cleanup(
 
 	of_node_put(soc_private->camera_bus_node);
 	soc_private->camera_bus_node = NULL;
+	mutex_destroy(&cpas_core->tree_lock);
 
 	return 0;
 }
@@ -337,6 +338,7 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 			}
 		}
 	}
+	mutex_init(&cpas_core->tree_lock);
 	cam_cpas_util_debug_parse_data(soc_private);
 
 	return 0;
@@ -507,7 +509,7 @@ int cam_cpas_get_custom_dt_info(struct cam_hw_info *cpas_hw,
 	return 0;
 
 cleanup_tree:
-	cam_cpas_node_tree_cleanup(soc_private);
+	cam_cpas_node_tree_cleanup(cpas_core, soc_private);
 cleanup_clients:
 	cam_cpas_util_client_cleanup(cpas_hw);
 	return rc;

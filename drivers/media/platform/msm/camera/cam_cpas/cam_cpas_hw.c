@@ -241,7 +241,6 @@ static int cam_cpas_util_axi_cleanup(struct cam_cpas *cpas_core,
 			&cpas_core->axi_port[i].bus_client);
 		of_node_put(cpas_core->axi_port[i].axi_port_node);
 		cpas_core->axi_port[i].axi_port_node = NULL;
-		mutex_destroy(&cpas_core->axi_port[i].lock);
 	}
 
 	return 0;
@@ -259,8 +258,6 @@ static int cam_cpas_util_axi_setup(struct cam_cpas *cpas_core,
 			axi_port_mnoc_node, &cpas_core->axi_port[i].bus_client);
 		if (rc)
 			goto bus_register_fail;
-
-		mutex_init(&cpas_core->axi_port[i].lock);
 	}
 
 	return 0;
@@ -617,6 +614,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		par_camnoc_old = 0, par_mnoc_ab_old = 0, par_mnoc_ib_old = 0;
 	int rc = 0, i = 0;
 
+	mutex_lock(&cpas_core->tree_lock);
 	if (!cpas_client->tree_node_valid) {
 		/*
 		 * This is by assuming apply_client_axi_vote is called
@@ -643,7 +641,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 		CAM_ERR(CAM_PERF, "Failed in bw consolidation, Client [%s][%d]",
 			cpas_client->data.identifier,
 			cpas_client->data.cell_index);
-		return rc;
+		goto unlock_tree;
 	}
 
 	con_axi_vote = &cpas_client->axi_vote;
@@ -711,7 +709,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 			} else {
 				CAM_ERR(CAM_CPAS, "Invalid Merge type");
 				rc = -EINVAL;
-				return rc;
+				goto unlock_tree;
 			}
 
 			if (!par_tree_node->parent_node) {
@@ -721,7 +719,7 @@ static int cam_cpas_util_apply_client_axi_vote(
 					CAM_ERR(CAM_CPAS,
 					"AXI port index invalid");
 					rc = -EINVAL;
-					return rc;
+					goto unlock_tree;
 				}
 
 				cpas_core->axi_port
@@ -743,7 +741,8 @@ static int cam_cpas_util_apply_client_axi_vote(
 
 	if (!par_tree_node) {
 		CAM_DBG(CAM_CPAS, "No change in BW for all paths");
-		return 0;
+		rc = 0;
+		goto unlock_tree;
 	}
 
 vote_start_clients:
@@ -752,8 +751,6 @@ vote_start_clients:
 			axi_port = &cpas_core->axi_port[i];
 		else
 			continue;
-
-		mutex_lock(&axi_port->lock);
 
 		CAM_DBG(CAM_PERF, "Port[%s] : ab=%lld ib=%lld additional=%lld",
 			axi_port->axi_port_name, axi_port->ab_bw,
@@ -775,19 +772,16 @@ vote_start_clients:
 			CAM_ERR(CAM_CPAS,
 				"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
 				mnoc_ab_bw, mnoc_ib_bw, rc);
-			goto unlock_axi_port;
+			goto unlock_tree;
 		}
-		mutex_unlock(&axi_port->lock);
 	}
 
 	rc = cam_cpas_util_set_camnoc_axi_clk_rate(cpas_hw);
 	if (rc)
 		CAM_ERR(CAM_CPAS, "Failed in setting axi clk rate rc=%d", rc);
 
-	return rc;
-
-unlock_axi_port:
-	mutex_unlock(&axi_port->lock);
+unlock_tree:
+	mutex_unlock(&cpas_core->tree_lock);
 	return rc;
 }
 
@@ -1817,7 +1811,7 @@ client_cleanup:
 deinit_platform_res:
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
 release_workq:
-	cam_cpas_node_tree_cleanup(cpas_hw->soc_info.soc_private);
+	cam_cpas_node_tree_cleanup(cpas_core, cpas_hw->soc_info.soc_private);
 	flush_workqueue(cpas_core->work_queue);
 	destroy_workqueue(cpas_core->work_queue);
 release_mem:
@@ -1848,7 +1842,7 @@ int cam_cpas_hw_remove(struct cam_hw_intf *cpas_hw_intf)
 	}
 
 	cam_cpas_util_axi_cleanup(cpas_core, &cpas_hw->soc_info);
-	cam_cpas_node_tree_cleanup(cpas_hw->soc_info.soc_private);
+	cam_cpas_node_tree_cleanup(cpas_core, cpas_hw->soc_info.soc_private);
 	cam_cpas_util_unregister_bus_client(&cpas_core->ahb_bus_client);
 	cam_cpas_util_client_cleanup(cpas_hw);
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
