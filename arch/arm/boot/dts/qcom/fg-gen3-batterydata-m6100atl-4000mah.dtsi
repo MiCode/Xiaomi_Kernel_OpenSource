@@ -1,0 +1,73 @@
+
+qcom,m6100atl_4000mah {
+	qcom, = <24>;
+	/* #3826057_LC_8626_VK_59500mAh_averaged_Master_Jan19th2019*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2900>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-full-design = <4000>;
+	qcom,battery-type = "3826057_lc_8626_vk_59500mah_averaged_master_jan19th2019";
+	qcom,checksum = <0xF71B>;
+	qcom,gui-version = "PM660GUI - 0.0.0.45";
+	qcom,fg-profile-data = [
+		 24 20 E8 04
+		 08 0B C0 05
+		 EE 1C 8F FB
+		 33 04 34 0A
+		 DC 17 05 2A
+		 F8 4D CB 5A
+		 7E 00 00 00
+		 0F 00 00 00
+		 00 00 1A BA
+		 A9 CC 98 BD
+		 10 00 08 00
+		 7D DB 54 E5
+		 E7 FC D0 00
+		 49 07 C4 13
+		 63 E5 BE 2B
+		 1C 06 09 20
+		 27 00 14 00
+		 52 20 D0 04
+		 23 0B 98 05
+		 E2 1C 93 02
+		 B2 0C 99 0B
+		 96 18 B8 23
+		 0E 44 E4 5A
+		 72 00 00 00
+		 0E 00 00 00
+		 00 00 DF D5
+		 F2 C2 D8 C2
+		 0D 00 00 00
+		 9B E3 54 E5
+		 AC 06 B6 F2
+		 85 06 5E 03
+		 DD F4 7F 12
+		 99 33 CC FF
+		 07 10 00 00
+		 81 0F 66 46
+		 0D 00 40 00
+		 55 02 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

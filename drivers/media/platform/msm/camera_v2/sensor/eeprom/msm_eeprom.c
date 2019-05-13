@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +26,13 @@ DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
-
+struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
+#ifdef CONFIG_KERNEL_CUSTOM_E7T
+extern char sensor_fusion_id[512];
+#define S5K2L7_SENSOR_ID_ADD 12 
+#define S5K2L7_SENSOR_FUSE_ID_START 16 
+#define S5K2L7_SENSOR_ID 0x1B
+#endif
 /**
   * msm_get_read_mem_size - Get the total size for allocation
   * @eeprom_map_array:	mem map
@@ -226,6 +233,9 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 	}
 	return rc;
 }
+
+
+
 /**
   * msm_eeprom_parse_memory_map() - parse memory map in device node
   * @of:	device node
@@ -314,6 +324,34 @@ ERROR:
 	memset(data, 0, sizeof(*data));
 	return rc;
 }
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7T
+static int set_s5k2l7_fuse_id_from_eeprom(uint8_t *memptr) {
+
+	char s_fuse_id_temp[80] = {0};
+	if((memptr[S5K2L7_SENSOR_ID_ADD] == S5K2L7_SENSOR_ID)){
+		sprintf(s_fuse_id_temp,"back: %04x%04x%04x%04x%04x%04x%04x%04x%04x%04x%04x%04x%04x%04x%04x\n",
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 0],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 1],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 2],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 3],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 4],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 5],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 6],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 7],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 8],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 9],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 10],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 11],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 12],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 13],
+					memptr[S5K2L7_SENSOR_FUSE_ID_START + 14]);
+		strcat(sensor_fusion_id, s_fuse_id_temp);
+		CDBG("GP sensor_fusion_id = %s\n",sensor_fusion_id);
+	}
+	return 0;
+}
+#endif
 
 /**
   * eeprom_parse_memory_map - Parse mem map
@@ -416,6 +454,12 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 	memptr = e_ctrl->cal_data.mapdata;
 	for (i = 0; i < e_ctrl->cal_data.num_data; i++)
 		CDBG("memory_data[%d] = 0x%X\n", i, memptr[i]);
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7T
+	if(set_s5k2l7_fuse_id_from_eeprom(memptr)!= 0) {
+		pr_err("set 2l7 fuse id error !\n");
+	}
+#endif
 	return rc;
 
 clean_up:
@@ -465,6 +509,131 @@ static int msm_eeprom_power_up(struct msm_eeprom_ctrl_t *e_ctrl,
 	}
 	return rc;
 }
+
+#ifdef CONFIG_KERNEL_CUSTOM_FACTORY
+static int write_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
+	struct msm_eeprom_memory_block_t *block,uint32_t addr,unsigned char as_rewrite_data)
+	{
+        int rc = 0;
+        struct msm_eeprom_memory_map_t *emap = block->map;
+
+		if (!e_ctrl) {
+                pr_err("%s e_ctrl is NULL", __func__);
+                return -EINVAL;
+			}
+
+			e_ctrl->i2c_client.addr_type = emap[0].page.addr_t;
+			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+			&(e_ctrl->i2c_client),addr,as_rewrite_data, 1);
+			msleep(5);
+			pr_err("Brave write_addr = %x,as_rewrite_data =%x \n",addr,as_rewrite_data);
+			addr += 1;
+			if (rc < 0)
+			{
+				pr_err("Brave %s: write failed\n", __func__);
+				return rc;
+			}
+		return rc;
+	}
+static int eeprom_write_dualcam_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
+						struct msm_eeprom_cfg_data *cdata)
+{
+	int rc = 0;
+	int ret = 0;
+	uint16_t csp_config_addr = 0x8000;
+	uint16_t csp_reg_val;
+	struct msm_eeprom_board_info *eb_info;
+	int j;
+	int i;
+	unsigned char buf[2048] ={0};
+	uint32_t addr = 0x1364;
+	uint32_t  checksum1 = 0x00;
+	uint32_t  checksum2 = 0x00;
+	mm_segment_t fs;
+	loff_t pos;
+	struct file *fp = NULL;
+	fs = get_fs();
+			set_fs(KERNEL_DS);
+			fp = filp_open("/data/misc/camera/rewrite_arcsoft_calibration_data.bin", O_RDWR, 0777);
+
+			if (IS_ERR(fp))
+			{
+				pr_err("Brave open file fail,Not need rewrite! \n");
+				return -EINVAL;
+			}
+
+			pr_err("Brave open file succeed,need rewrite! \n");
+			pos = 0;
+			vfs_read(fp, buf, sizeof(buf), &pos);
+			set_fs(fs);
+			filp_close(fp, NULL);
+
+			eb_info = e_ctrl->eboard_info;
+			e_ctrl->i2c_client.cci_client->sid = eb_info->i2c_slaveaddr >>1;
+				pr_err("qcom,e_ctrl->i2c_client.cci_client->sid = 0x%X\n ,i2c_slaveaddr =0x%X\n",
+						e_ctrl->i2c_client.cci_client->sid,eb_info->i2c_slaveaddr);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+					&e_ctrl->i2c_client, csp_config_addr,&csp_reg_val,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			pr_err("%s:  csp_reg_val %d\n", __func__,csp_reg_val);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+					&e_ctrl->i2c_client, csp_config_addr,0x10,
+					MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+			&e_ctrl->i2c_client, csp_config_addr,&csp_reg_val,
+			MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(5);
+			pr_err("chb--3 %s:  csp_reg_val %d\n", __func__,csp_reg_val);
+		for(i = 0;i < 2048; i++){
+						pr_err("chb--2 enter\n");
+						rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, addr, buf[i]);
+					if(rc < 0)
+						{
+							pr_err("Brave rewrite fail!");
+						}
+					addr += 1;
+			}
+		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+		if (rc < 0)
+		{
+			pr_err("%s read_eeprom_memory failed\n", __func__);
+			return -EINVAL;
+		}
+		for (j = 4964; j <= 7011; j++)
+		{
+			checksum1 = checksum1 + e_ctrl->cal_data.mapdata[j];
+;
+		}
+		pr_err("Brave  sum1 = 0x%X ,checksum1 = 0x%X \n",checksum1,checksum1%0xFF+1);
+		rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, 0x1B64, checksum1%0xFF+1);
+		if(rc < 0)
+		{
+			pr_err("Brave rewrite  checksum1 fail!");
+		}
+		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
+		if (rc < 0)
+		{
+			pr_err("%s read_eeprom_memory failed\n", __func__);
+			return -EINVAL;
+		}
+
+		for (j = 0; j <= 7156; j++)
+		{
+			checksum2 = checksum2 + e_ctrl->cal_data.mapdata[j];
+		}
+		pr_err("Brave  sum2 = 0x%X ,checksum2 = 0x%X \n",checksum2,checksum2%0xFF+1);
+		rc = write_eeprom_memory(e_ctrl, &e_ctrl->cal_data, 0x1BF5, checksum2%0xFF+1);
+		rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+				&(e_ctrl->i2c_client), 0x1BF5,checksum2%0xFF+1, 1);
+		if(rc < 0)
+		{
+			pr_err("Brave rewrite  checksum2 fail!");
+		}
+		return rc;
+}
+#endif
 
 /**
   * msm_eeprom_power_up - Do power up, parse and power down
@@ -655,11 +824,19 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_GET_MM_INFO\n", __func__);
 		rc = msm_eeprom_get_cmm_data(e_ctrl, cdata);
 		break;
+
+#ifdef CONFIG_KERNEL_CUSTOM_FACTORY
+	case LAVENDER_CFG_EEPROM_WRITE_DATA:
+		pr_err("chb--%s E CFG_EEPROM_WRITE_DATA\n", __func__);
+		rc = eeprom_write_dualcam_cal_data(e_ctrl, cdata);
+		break;
+#endif
+
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1517,11 +1694,19 @@ static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
 		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
 		rc = eeprom_config_read_cal_data32(e_ctrl, argp);
 		break;
+
+#ifdef CONFIG_KERNEL_CUSTOM_FACTORY
+	case LAVENDER_CFG_EEPROM_WRITE_DATA:
+		pr_err("chb--%s E CFG_EEPROM_WRITE_DATA\n", __func__);
+		rc = eeprom_write_dualcam_cal_data(e_ctrl, argp);
+		break;
+#endif
+
 	case CFG_EEPROM_INIT:
 		if (e_ctrl->userspace_probe == 0) {
 			pr_err("%s:%d Eeprom already probed at kernel boot",
 				__func__, __LINE__);
-			rc = -EINVAL;
+			rc = 0;
 			break;
 		}
 		if (e_ctrl->cal_data.num_data == 0) {
@@ -1578,6 +1763,391 @@ static long msm_eeprom_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
 }
 
 #endif
+#ifdef CONFIG_KERNEL_CUSTOM_F7A
+static camera_vendor_module_id lavender_s5k5e8_ofilm_i_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+		
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+    uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+	if((MID_OFILM != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+
+static camera_vendor_module_id lavender_s5k5e8_sunny_ii_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+	uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+
+	if((MID_SUNNY != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+static camera_vendor_module_id lavender_ov02a10_ofilm_i_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	
+	uint8_t mid = 0;
+	uint8_t FLAG_OFFSET = 0;	
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+
+	for(i = 2; i >= 0; --i){
+		flag = buffer[FLAG_OFFSET];
+		mid = buffer[FLAG_OFFSET + 1];
+		printk("%s flag = 0x%x, mid = 0x%x\n",__func__,flag,mid);
+		break;
+	}
+
+	if(MID_OFILM != mid)
+		mid = MID_NULL;
+	return mid;
+}
+
+static camera_vendor_module_id lavender_ov02a10_sunny_ii_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	
+	uint8_t mid = 0;
+	uint8_t FLAG_OFFSET = 0;	
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+
+	for(i = 2; i >= 0; --i){
+		flag = buffer[FLAG_OFFSET];
+		mid = buffer[FLAG_OFFSET + 1];
+		printk("%s flag = 0x%x, mid = 0x%x\n",__func__,flag,mid);
+		break;
+	}
+
+	if(MID_SUNNY != mid)
+		mid = MID_NULL;
+	return mid;
+}
+#endif
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7S
+static camera_vendor_module_id whyred_s5k5e8_ofilm_i_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+		
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+    uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+	if((MID_OFILM != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+
+static camera_vendor_module_id whyred_s5k5e8_qtech_ii_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+		
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+	uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+
+	if((MID_QTECH != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+
+#endif
+
+
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7T
+static camera_vendor_module_id tulip_s5k5e8_ofilm_i_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+		
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+    uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+	if((MID_OFILM != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+
+static camera_vendor_module_id tulip_s5k5e8_qtech_ii_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	uint8_t INFO_NUM = 16;
+	uint8_t AWB_NUM = 8;
+	uint8_t LENSID_OFFSET = 9;
+	uint8_t SENSOR_OFFSET = 13;
+	uint8_t MODULE_OFFSET = 2;
+	uint8_t GROUP_MEMBER_NUM = 1 + INFO_NUM + AWB_NUM + 1;
+
+	uint32_t LSC_NUM = 360;
+	uint32_t FLAG_OFFSET ;
+
+	uint8_t mid=0;
+	uint8_t lensid=0;
+	uint8_t sensorid=0;
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+	for(i = 2; i >= 0; --i){
+		FLAG_OFFSET = LSC_NUM + i*GROUP_MEMBER_NUM;
+		printk("i=%d flag offset %d\n",i,FLAG_OFFSET);
+		flag = buffer[FLAG_OFFSET];
+		if(0x55 != flag){
+			mid = MID_NULL;
+			pr_err("Invalid flag = 0x%x\n",flag);
+			continue;
+		}
+		lensid = buffer[FLAG_OFFSET + LENSID_OFFSET];
+		mid = buffer[FLAG_OFFSET + MODULE_OFFSET];
+		sensorid = buffer[FLAG_OFFSET + SENSOR_OFFSET];
+		printk("%s flag = 0x%x, mid = 0x%x, lensid = 0x%x, sensorid = 0x%x \n", __func__, flag, mid, lensid, sensorid);
+		break;
+	}
+
+	if((MID_QTECH != mid) || (SENSOR_S5K5E8 != sensorid))
+		mid = MID_NULL;
+	return mid;
+}
+static camera_vendor_module_id tulip_ov02a10_ofilm_ii_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	
+	uint8_t mid = 0;
+	uint8_t FLAG_OFFSET = 0;	
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+
+	for(i = 2; i >= 0; --i){
+		flag = buffer[FLAG_OFFSET];
+		mid = buffer[FLAG_OFFSET + 1];
+		printk("%s flag = 0x%x, mid = 0x%x\n",__func__,flag,mid);
+		break;
+	}
+
+	if(MID_OFILM != mid)
+		mid = MID_NULL;
+	return mid;
+}
+
+static camera_vendor_module_id tulip_ov02a10_sunny_i_get_otp_vendor_module_id
+	(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	
+	uint8_t mid = 0;
+	uint8_t FLAG_OFFSET = 0;	
+	uint8_t flag=0;
+	uint8_t *buffer = e_ctrl->cal_data.mapdata;
+	int8_t i;
+
+
+	for(i = 2; i >= 0; --i){
+		flag = buffer[FLAG_OFFSET];
+		mid = buffer[FLAG_OFFSET + 1];
+		printk("%s flag = 0x%x, mid = 0x%x\n",__func__,flag,mid);
+		break;
+	}
+
+	if(MID_SUNNY != mid)
+		mid = MID_NULL;
+	return mid;
+}
+#endif
+
+
+
+static uint8_t get_otp_vendor_module_id(struct msm_eeprom_ctrl_t *e_ctrl, const char *eeprom_name)
+{
+	camera_vendor_module_id module_id=MID_NULL;
+#ifdef CONFIG_KERNEL_CUSTOM_F7A
+	if(strcmp(eeprom_name, "lavender_s5k5e8_ofilm_i") == 0){
+		module_id = lavender_s5k5e8_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	}else if(strcmp(eeprom_name, "lavender_s5k5e8_sunny_ii") == 0){
+		module_id = lavender_s5k5e8_sunny_ii_get_otp_vendor_module_id(e_ctrl);
+	}else if(strcmp(eeprom_name, "lavender_ov02a10_ofilm_i") == 0){
+		module_id = lavender_ov02a10_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	} else if(strcmp(eeprom_name, "lavender_ov02a10_sunny_ii") == 0){
+		module_id = lavender_ov02a10_sunny_ii_get_otp_vendor_module_id(e_ctrl);
+	}
+#endif
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7T
+	if(strcmp(eeprom_name, "tulip_s5k5e8_ofilm_i") == 0){
+		module_id = tulip_s5k5e8_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	}else if(strcmp(eeprom_name, "tulip_s5k5e8_qtech_ii") == 0){
+		module_id = tulip_s5k5e8_qtech_ii_get_otp_vendor_module_id(e_ctrl);
+	}else if(strcmp(eeprom_name, "tulip_ov02a10_ofilm_ii") == 0){
+		module_id = tulip_ov02a10_ofilm_ii_get_otp_vendor_module_id(e_ctrl);
+	} else if(strcmp(eeprom_name, "tulip_ov02a10_sunny_i") == 0){
+		module_id = tulip_ov02a10_sunny_i_get_otp_vendor_module_id(e_ctrl);
+	}
+#endif
+
+#ifdef CONFIG_KERNEL_CUSTOM_E7S
+	if(strcmp(eeprom_name, "whyred_s5k5e8_ofilm_i") == 0){
+		module_id = whyred_s5k5e8_ofilm_i_get_otp_vendor_module_id(e_ctrl);
+	}else if(strcmp(eeprom_name, "whyred_s5k5e8_qtech_ii") == 0){
+		module_id = whyred_s5k5e8_qtech_ii_get_otp_vendor_module_id(e_ctrl);
+	}
+#endif
+
+	if(module_id>=MID_MAX) module_id = MID_NULL;
+    	printk("%s %d eeprom_name=%s, module_id=0x%x\n",__func__,__LINE__, 
+			eeprom_name, module_id);
+	return ((uint8_t)module_id);
+}
+
 
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
@@ -1727,6 +2297,11 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+				
+		if(eb_info->eeprom_name != NULL){
+		s_vendor_eeprom[pdev->id].module_id = get_otp_vendor_module_id(e_ctrl, eb_info->eeprom_name);
+		strcpy(s_vendor_eeprom[pdev->id].eeprom_name, eb_info->eeprom_name);
+		}
 
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 

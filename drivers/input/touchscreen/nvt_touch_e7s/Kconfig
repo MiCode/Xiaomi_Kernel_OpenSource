@@ -1,0 +1,10 @@
+#
+# Novatek NT36xxx touchscreen driver configuration
+#
+config TOUCHSCREEN_NVT_E7S
+	tristate "Novatek touchscreens NT36xxx"
+	help
+		Say Y here if you have a Novatek NT36xxx touchscreen connected
+		to your system.
+		If unsure, say N.
+

@@ -136,6 +136,8 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 	u8			cmdq_depth;		/* 307 */
 	u8			cmdq_support;		/* 308 */
+	u8      		life_time_est_typ_a;    /* 268 */
+	u8      		life_time_est_typ_b;    /* 269 */
 	u8			barrier_support;	/* 486 */
 	u8			barrier_en;
 

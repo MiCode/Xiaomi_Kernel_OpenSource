@@ -67,7 +67,7 @@
 };
 
 &soc {
-	hbtp {
+/*	hbtp {
 		compatible = "qcom,hbtp-input";
 		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
 		pinctrl-0 = <&ts_rst_active>;
@@ -85,6 +85,7 @@
 		qcom,afe-power-on-delay-us = <1000>;
 		qcom,afe-power-off-delay-us = <6>;
 	};
+*/
 };
 
 &slim_aud {

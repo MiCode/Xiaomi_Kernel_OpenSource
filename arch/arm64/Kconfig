@@ -105,8 +105,8 @@ config ARM64
 	select SYSCTL_EXCEPTION_TRACE
 	select HAVE_CONTEXT_TRACKING
 	select HAVE_ARM_SMCCC
-	select THREAD_INFO_IN_TASK
-	select HAVE_ARM_SMCCC
+	select ARCH_HAS_PTE_SPECIAL
+	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -219,6 +219,42 @@ config ARM64_DMA_USE_IOMMU
 	select ARM_HAS_SG_CHAIN
 	select NEED_SG_DMA_LENGTH
 
+config THERMAL_SWITCH
+    default n
+        bool "Support themral config switch"
+	    help
+	            Support themral config switch.
+
+config KERNEL_CUSTOM_D2S
+    default n
+        bool "Custom for hardware D2S_pcb"
+	    help
+	            Custom for D2S_pcb.
+
+config KERNEL_CUSTOM_F7A
+    default n
+        bool "Custom for hardware F7A_pcb"
+	    help
+	            Custom for F7A_pcb.
+
+config KERNEL_CUSTOM_E7T
+    default n
+        bool "Custom for hardware E7T_pcb"
+	    help
+	            Custom for E7T_pcb.
+				
+config KERNEL_CUSTOM_E7S
+    default n
+        bool "Custom for hardware E7S_pcb"
+	    help
+	            Custom for E7S_pcb.
+				
+config KERNEL_CUSTOM_FACTORY
+    default n
+        bool "Custom for hardware FACTORY_pcb"
+	    help
+	            Custom for FACTORY_pcb.
+				
 if ARM64_DMA_USE_IOMMU
 
 config ARM64_DMA_IOMMU_ALIGNMENT
@@ -273,11 +309,18 @@ config MSM_GVM
 config MSM_GVM_QUIN
 	bool "Enable virtualization Support for MSM kernel required for QUIN platform"
 	help
-		This enables support for MSM Kernel based virtual
-		machine for QUIN platform.
-		This helps to enable virtual driver support.
-		This should work on 64bit machine.
-		If you don't know what to do here, say N.
+	  This enables support for MSM Kernel based virtual
+	  machine for QUIN platform.
+	  This helps to enable virtual driver support.
+	  This should work on 64bit machine.
+	  If you don't know what to do here, say N.
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
 
 source "init/Kconfig"
 

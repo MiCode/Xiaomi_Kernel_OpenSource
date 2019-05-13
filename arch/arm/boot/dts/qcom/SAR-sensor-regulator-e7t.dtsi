@@ -1,0 +1,41 @@
+/*
+ *Author:dingjian
+ *
+ *e-mail:dingjian@longcheer.com
+ *
+ *Date:20180330
+ */
+
+
+&rpm_bus{
+        rpm-regulator-ldoa18 {
+                compatible = "qcom,rpm-smd-regulator-resource";
+                qcom,resource-name = "ldoa";
+                qcom,resource-id = <18>;
+                qcom,regulator-type = <0>;
+                status = "okay";
+
+                pm660_l18:regulator-l18 {
+                        compatible = "qcom,rpm-smd-regulator";
+                        regulator-name = "pm660_l18";
+                        qcom,set = <3>;
+                        regulator-min-microvolt = <1780000>;
+                        regulator-max-microvolt = <1950000>;
+                        status = "okay";
+                        regulator-always-on;
+                };
+        };
+
+        rpm-regulator-ldoa13 {
+                status = "okay";
+                pm660_l13: regulator-l13 {
+                        regulator-min-microvolt = <1780000>;
+                        regulator-max-microvolt = <1950000>;
+                        status = "okay";
+                        regulator-always-on;
+                };
+        };
+
+};
+
+

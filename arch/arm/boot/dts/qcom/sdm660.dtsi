@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,6 +408,14 @@
 			reg = <0x0 0x9d400000 0x0 0x02400000>;
 			label = "cont_splash_mem";
 		};
+
+		pstore_reserve_mem: pstore_reserve_mem_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0xA0000000 0x0 0x00400000>;
+			label = "pstore_reserve_mem";
+		};
 	};
 
 	bluetooth: bt_wcn3990 {
@@ -672,7 +681,8 @@
 		clock-names = "core", "iface";
 	};
 
-	qcom,qbt1000 {
+/*
+        qcom,qbt1000 {
 		compatible = "qcom,qbt1000";
 		clock-names = "core", "iface";
 		clocks = <&clock_gcc GCC_BLSP1_QUP3_SPI_APPS_CLK>,
@@ -681,6 +691,7 @@
 		qcom,ipc-gpio = <&tlmm 72 0>;
 		qcom,finger-detect-gpio = <&pm660_gpios 11 0>;
 	};
+*/
 
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
@@ -787,6 +798,10 @@
 		sensor_information21: qcom,sensor-information-21 {
 			qcom,sensor-type = "llm";
 			qcom,sensor-name = "limits_sensor-01";
+		};
+		sensor_information22: qcom,sensor-information-22 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "backlight_therm";
 		};
 	};
 
@@ -2228,7 +2243,7 @@
 			<&clock_rpmcc QSEECOM_CE1_CLK>,
 			<&clock_rpmcc QSEECOM_CE1_CLK>;
 		qcom,ce-opp-freq = <171430000>;
-		qcom,qsee-reentrancy-support = <2>;
+		qcom,qsee-reentrancy-support = <0>;
 	};
 
 	qcom_cedev: qcedev@1de0000{
@@ -2418,6 +2433,12 @@
 		reg = <0x786040 0x8>;
 		reg-names = "fuse-base";
 	};
+	sn_fuse: snfuse@0xA4128 {
+        compatible = "qcom,sn-fuse";
+        reg = <0x786134 0x4>,
+              <0x78607C 0x4>;
+        reg-names = "sn-base","fuse-state";
+       };
 
 	jtag_mm0: jtagmm@7840000 {
 		compatible = "qcom,jtagv8-mm";

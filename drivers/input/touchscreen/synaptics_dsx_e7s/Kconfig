@@ -1,0 +1,105 @@
+#
+# Synaptics DSX touchscreen driver configuration
+#
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S
+	bool "Synaptics DSX touchscreen"
+	default y
+	help
+	  Say Y here if you have a Synaptics DSX touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_I2C
+	bool "I2C"
+	help
+	  Say Y here if you have a Synaptics DSX touchscreen interfaced
+	  to the host processor over I2C
+
+	  If unsure, say N.
+
+	  This module uses the services of DSX CORE
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_SPI
+	bool "SPI"
+	help
+	  Say Y here if you have a Synaptics DSX touchscreen interfaced
+	  to the host processor over SPI
+
+	  If unsure, say N.
+
+	  This module uses the services of DSX CORE
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	tristate "Synaptics DSX core driver module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_I2C || TOUCHSCREEN_SYNAPTICS_DSX_E7S_SPI
+	help
+	  Say Y here to enable basic touch reporting functionalities.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_core.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_RMI_DEV
+	tristate "Synaptics DSX touchscreen RMI device module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	help
+	  Say Y here to enable support for direct RMI register access.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_rmi_dev.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_FW_UPDATE
+	tristate "Synaptics DSX touchscreen firmware update module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	help
+	  Say Y here to enable support for carrying out firmware update.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_fw_update.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_GESTURE
+	tristate "Synaptics DSX v2.6 user defined gesture module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	help
+	  Say Y here to enable support for user defined gesture functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_gesture.
+
+
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_PROXIMITY
+	tristate "Synaptics DSX touchscreen proximity module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	help
+	  Say Y here to enable support for proximity functionalities.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_proximity.
+
+
+
+
+config TOUCHSCREEN_SYNAPTICS_DSX_E7S_TEST_REPORTING
+	tristate "Synaptics DSX touchscreen selftest module"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_E7S_CORE
+	help
+	  Say Y here to enable support for proximity functionalities.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_test_reporting.
+

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,12 +43,97 @@
 #define MAX_SSR_REASON_LEN	130U
 #define STOP_ACK_TIMEOUT_MS	1000
 
+#define CHECK_NV_DESTROYED_MI
+#ifdef CHECK_NV_DESTROYED_MI
+#include <linux/workqueue.h>
+#include <linux/slab.h>
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+#endif
+
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
+
+
+#ifdef CHECK_NV_DESTROYED_MI
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+
+	checknv_kobj->kset = checknv_kset;
+
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+
+free_kobj:
+	kfree(checknv_kobj);
+}
+
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+#endif
+
 
 static void log_modem_sfr(void)
 {
 	u32 size;
+	#ifdef CHECK_NV_DESTROYED_MI
+	char *smem_reason;
+	#else
 	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+	#endif
 
 	smem_reason = smem_get_entry_no_rlock(SMEM_SSR_REASON_MSS0, &size, 0,
 							SMEM_ANY_HOST_FLAG);
@@ -59,9 +145,13 @@ static void log_modem_sfr(void)
 		pr_err("modem subsystem failure reason: (unknown, empty string found).\n");
 		return;
 	}
-
+	#ifdef CHECK_NV_DESTROYED_MI
+	strlcpy(last_modem_sfr_reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
+	pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
+	#else
 	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
+	#endif
 
 	smem_reason[0] = '\0';
 	wmb();
@@ -71,7 +161,12 @@ static void restart_modem(struct modem_data *drv)
 {
 	log_modem_sfr();
 	drv->ignore_errors = true;
+      pr_err("modem subsystem failure liuxuan\n");
 	subsystem_restart_dev(drv->subsys);
+	if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+		pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+		schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+	}
 }
 
 static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
@@ -82,6 +177,7 @@ static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 	if (drv->crash_shutdown)
 		return IRQ_HANDLED;
 
+	pr_err("Fatal error on the modem.\n");
 	subsys_set_crash_status(drv->subsys, CRASH_STATUS_ERR_FATAL);
 	restart_modem(drv);
 	return IRQ_HANDLED;
@@ -485,6 +581,9 @@ module_init(pil_mss_init);
 
 static void __exit pil_mss_exit(void)
 {
+	#ifdef CHECK_NV_DESTROYED_MI
+	schedule_work(&clean_kobj_work);
+	#endif
 	platform_driver_unregister(&pil_mss_driver);
 }
 module_exit(pil_mss_exit);

@@ -545,7 +545,6 @@ static int initio_reset_scsi(struct initio_host * host, int seconds)
 	while (!((host->jsint = inb(host->addr + TUL_SInt)) & TSS_SCSIRST_INT))
 		cpu_relax();
 
-	/* reset tulip chip */
 	outb(0, host->addr + TUL_SSignal);
 
 	/* Stall for a while, wait for target's firmware ready,make it 2 sec ! */
@@ -597,7 +596,6 @@ static void initio_init(struct initio_host * host, u8 *bios_addr)
 	outb(0x1F, host->addr + TUL_Mask);
 
 	initio_stop_bm(host);
-	/* --- Initialize the tulip --- */
 	outb(TSC_RST_CHIP, host->addr + TUL_SCtrl0);
 
 	/* program HBA's SCSI ID        */
@@ -1087,7 +1085,7 @@ static int tulip_main(struct initio_host * host)
 	struct scsi_ctrl_blk *scb;
 
 	for (;;) {
-		tulip_scsi(host);	/* Call tulip_scsi              */
+		tulip_scsi(host);
 
 		/* Walk the list of completed SCBs */
 		while ((scb = initio_find_done_scb(host)) != NULL) {	/* find done entry */

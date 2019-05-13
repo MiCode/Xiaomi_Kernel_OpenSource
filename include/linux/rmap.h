@@ -159,7 +159,14 @@ void page_move_anon_rmap(struct page *, struct vm_area_struct *, unsigned long);
 void page_add_anon_rmap(struct page *, struct vm_area_struct *, unsigned long);
 void do_page_add_anon_rmap(struct page *, struct vm_area_struct *,
 			   unsigned long, int);
-void page_add_new_anon_rmap(struct page *, struct vm_area_struct *, unsigned long);
+void __page_add_new_anon_rmap(struct page *, struct vm_area_struct *, unsigned long);
+static inline void page_add_new_anon_rmap(struct page *page,
+					struct vm_area_struct *vma, unsigned long address)
+{
+	VM_BUG_ON_VMA(address < vma->vm_start || address >= vma->vm_end, vma);
+	__page_add_new_anon_rmap(page, vma, address);
+}
+
 void page_add_file_rmap(struct page *);
 void page_remove_rmap(struct page *);
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1626,7 +1627,7 @@ static int set_max_internal_buffers_size(struct msm_vidc_inst *inst)
 	frame_sz.height =
 		(inst->capability.mbs_per_frame.max * 256) /
 		inst->capability.width.max;
-
+    msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
 	dprintk(VIDC_DBG,
 		"Max buffer reqs, buffer type = %d width = %d, height = %d, max_mbs_per_frame = %d\n",
 		frame_sz.buffer_type, frame_sz.width,
@@ -1658,11 +1659,13 @@ static int set_max_internal_buffers_size(struct msm_vidc_inst *inst)
 				__func__, rc);
 			goto alloc_fail;
 		}
+	    frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
+        msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
 	}
 
-	msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
-	frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
-	msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
+
+
+
 	rc = msm_comm_try_get_bufreqs(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1711,6 +1714,10 @@ static int set_max_internal_buffers_size(struct msm_vidc_inst *inst)
 				output_count_actual, rc);
 			goto alloc_fail;
 		}
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+        frame_sz.width = inst->prop.width[CAPTURE_PORT];
+        frame_sz.height = inst->prop.height[CAPTURE_PORT];
+        msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
 	}
 
 	frame_sz.buffer_type = HAL_BUFFER_INPUT;

@@ -1,0 +1,72 @@
+
+qcom,l6650sun_4000mah {
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <2500>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-full-design = <4000>;
+	qcom,battery-type = "l6650sun_4000mah_averaged_masterslave_sept27th2017";
+	qcom,checksum = <0x8B28>;
+	qcom,gui-version = "PM660GUI - 0.0.0.44";
+	qcom,fg-profile-data = [
+				5B 1F C3 05
+				6A 0A 9B FC
+				5E 1D 1D ED
+				BD 0B B7 14
+				7C 18 43 23
+				0E 45 A1 53
+				56 00 00 00
+				0E 00 00 00
+				00 00 3D B5
+				1F CD 93 CA
+				24 00 08 00
+				CB E2 6D ED
+				B8 05 83 01
+				4F 06 65 12
+				E7 EC E7 2A
+				31 06 09 20
+				27 00 14 00
+				39 1D 86 E2
+				8B 01 3E E4
+				F4 1C 55 02
+				77 0D 4E 0A
+				E8 19 CE 1B
+				68 3D 4E 4A
+				77 00 00 00
+				0F 00 00 00
+				00 00 0C CC
+				9D C3 13 C2
+				18 00 00 00
+				C2 EB 6D ED
+				D5 FD 63 F2
+				99 F5 17 02
+				F5 F5 9A 1B
+				AA 33 CC FF
+				07 10 00 00
+				82 0F 66 46
+				18 00 40 00
+				72 01 0A FA
+				FF 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				00 00 00 00
+				];
+};

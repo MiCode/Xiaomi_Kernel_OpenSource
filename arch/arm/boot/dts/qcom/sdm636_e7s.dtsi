@@ -1,0 +1,82 @@
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm660_e7s.dtsi"
+#include "sdm636-touchpad-e7s.dsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDM 636";
+	compatible = "qcom,sdm636";
+	qcom,msm-id = <345 0x0>;
+
+	reserved-memory {
+		/delete-node/ cdsp_fw_region@94a00000;
+
+		buffer_mem: buffer_region@94a00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x94a00000 0x0 0x100000>;
+		};
+	};
+};
+
+&soc {
+	/delete-node/ qcom,turing@1a300000;
+
+	/delete-node/ qcom,msm-cdsp-loader;
+	/delete-node/ cti@7068000;
+	/delete-node/ turing_etm0;
+	funnel@6042000 {
+		ports {
+			/delete-node/ port@4;
+		};
+	};
+
+	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
+		qcom,core-dev-table =
+		< 1113600 762 >,
+		< 1401600 3879 >,
+		< 1804800 5163 >;
+	};
+
+	devfreq_cpufreq: devfreq-cpufreq {
+		mincpubw-cpufreq {
+			cpu-to-dev-map-4 =
+				< 1113600 762 >,
+				< 1401600 2086 >,
+				< 1747200 2929 >,
+				< 1804800 5163 >;
+		};
+	};
+};
+
+&soc {
+	/delete-node/ arm,smmu-turing_q6@5180000;
+	qcom,msm_fastrpc {
+		/delete-node/ qcom,msm_fastrpc_compute_cb5;
+		/delete-node/ qcom,msm_fastrpc_compute_cb6;
+		/delete-node/ qcom,msm_fastrpc_compute_cb7;
+		/delete-node/ qcom,msm_fastrpc_compute_cb8;
+		/delete-node/ qcom,msm_fastrpc_compute_cb9;
+		/delete-node/ qcom,msm_fastrpc_compute_cb10;
+		/delete-node/ qcom,msm_fastrpc_compute_cb11;
+		/delete-node/ qcom,msm_fastrpc_compute_cb12;
+		/delete-node/ qcom,msm_fastrpc_compute_cb13;
+	};
+};
+
+/* GPU overrides */
+&msm_gpu {
+		/* Update GPU chip ID*/
+		qcom,chipid = <0x05000900>;
+};
