@@ -10329,12 +10329,11 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufshcd_resume_clkscaling(hba);
 
 skip_dev_ops:
-	/* Schedule clock gating in case of no access to UFS device yet */
-	ufshcd_release_all(hba);
-
 	/* Enable Auto-Hibernate if configured */
 	ufshcd_auto_hibern8_enable(hba);
 
+	/* Schedule clock gating in case of no access to UFS device yet */
+	ufshcd_release_all(hba);
 	goto out;
 
 set_old_link_state:
