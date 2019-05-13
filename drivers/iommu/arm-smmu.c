@@ -1138,21 +1138,44 @@ static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
 }
 
+static void arm_smmu_tlb_inv_context_s1(void *cookie);
+
 static void arm_smmu_tlb_sync_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct device *dev = smmu_domain->dev;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	void __iomem *base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 	unsigned long flags;
+	size_t ret;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
+	ktime_t cur = ktime_get();
+
+	ret = arm_smmu_domain_power_on(&smmu_domain->domain,
+				       smmu_domain->smmu);
+	if (ret)
+		return;
+
+	trace_tlbi_start(dev, 0);
+
+	if (!use_tlbiall)
+		writel_relaxed(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
+	else
+		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
 	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
-					base + ARM_SMMU_CB_TLBSTATUS))
+				base + ARM_SMMU_CB_TLBSTATUS))
 		dev_err_ratelimited(smmu->dev,
-				"TLB sync on cb%d failed for device %s\n",
-				smmu_domain->cfg.cbndx,
-				dev_name(smmu_domain->dev));
+				    "TLB sync on cb%d failed for device %s\n",
+				    smmu_domain->cfg.cbndx,
+				    dev_name(smmu_domain->dev));
 	spin_unlock_irqrestore(&smmu_domain->sync_lock, flags);
+
+	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
+
+	arm_smmu_domain_power_off(&smmu_domain->domain, smmu_domain->smmu);
 }
 
 static void arm_smmu_tlb_sync_vmid(void *cookie)
@@ -1164,23 +1187,7 @@ static void arm_smmu_tlb_sync_vmid(void *cookie)
 
 static void arm_smmu_tlb_inv_context_s1(void *cookie)
 {
-	struct arm_smmu_domain *smmu_domain = cookie;
-	struct device *dev = smmu_domain->dev;
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	void __iomem *base = ARM_SMMU_CB(smmu_domain->smmu, cfg->cbndx);
-	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
-	ktime_t cur = ktime_get();
-
-	trace_tlbi_start(dev, 0);
-
-	if (!use_tlbiall)
-		writel_relaxed(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
-	else
-		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
-
-	arm_smmu_tlb_sync_context(cookie);
-	trace_tlbi_end(dev, ktime_us_delta(ktime_get(), cur));
+	return;
 }
 
 static void arm_smmu_tlb_inv_context_s2(void *cookie)
@@ -1471,6 +1478,7 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 
 	phys = arm_smmu_iova_to_phys_hard(domain, iova);
 	smmu_domain->pgtbl_cfg.tlb->tlb_flush_all(smmu_domain);
+	smmu_domain->pgtbl_cfg.tlb->tlb_sync(smmu_domain);
 	phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
 
 	if (phys != phys_post_tlbiall) {
@@ -2502,6 +2510,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 
 	/* Ensure there are no stale mappings for this context bank */
 	tlb->tlb_flush_all(smmu_domain);
+	tlb->tlb_sync(smmu_domain);
 }
 
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
@@ -2845,17 +2854,12 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		return msm_secure_smmu_unmap(domain, iova, size);
 
-	ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-	if (ret)
-		return ret;
-
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
-	arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 	/*
 	 * While splitting up block mappings, we might allocate page table
 	 * memory during unmap, so the vmids needs to be assigned to the
