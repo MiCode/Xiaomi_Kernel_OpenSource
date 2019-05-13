@@ -248,7 +248,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 		goto err_unprepare_clk;
 	}
 
-	err = kpd_get_dts_info(keypad->dts_data, pdev->dev.of_node);
+	err = kpd_get_dts_info(keypad, pdev->dev.of_node);
 	if (err) {
 		pr_debug("get dts info failed.\n");
 		goto err_unprepare_clk;
@@ -325,7 +325,7 @@ static int kpd_pdrv_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id kpd_of_match[] = {
-	{.compatible = "mediatek,mt6779-keypad",},
+	{.compatible = "mediatek,mt6779-keypad"},
 	{.compatible = "mediatek,kp"},
 	{},
 };
