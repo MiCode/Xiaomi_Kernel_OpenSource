@@ -41,15 +41,27 @@ enum mtk_iommu_plat {
 	M4U_MT8183,
 };
 
+#ifdef CONFIG_MTK_IOMMU
+struct mtk_iommu_resv_iova_region;
+#endif
+
 struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	bool                has_4gb_mode;
+#ifdef CONFIG_MTK_IOMMU
+	/*
+	 * reserve/dir-mapping iova region data
+	 * todo: for different reserve needs on multiple iommu domains
+	 */
+	const unsigned int resv_cnt;
+	const struct mtk_iommu_resv_iova_region *resv_region;
+#endif
 
 	/* HW will use the EMI clock if there isn't the "bclk". */
 	bool                has_bclk;
 	bool                reset_axi;
 	bool                has_vld_pa_rng;
-	unsigned char       larbid_remap[MTK_LARB_NR_MAX];
+	unsigned char       larbid_remap[2][MTK_LARB_NR_MAX];
 #ifdef CONFIG_MTK_IOMMU_V2
 	bool		    single_pt;
 	bool		    has_resv_region;
@@ -77,6 +89,9 @@ struct mtk_iommu_data {
 
 	struct iommu_device		iommu;
 	const struct mtk_iommu_plat_data *plat_data;
+#ifdef CONFIG_MTK_IOMMU
+	unsigned int			m4u_id;
+#endif
 
 	struct list_head		list;
 };
