@@ -5333,6 +5333,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->do_non_tn_collection_on_crash;
 	ipa3_ctx->secure_debug_check_action =
 		resource_p->secure_debug_check_action;
+	ipa3_ctx->do_ram_collection_on_crash =
+		resource_p->do_ram_collection_on_crash;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -6309,8 +6311,19 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": doing non-tn collection on crash = %u\n",
 	       ipa_drv_res->do_non_tn_collection_on_crash);
 
+	/*
+	 * We'll read ram-collection-on-crash here...
+	 */
+	ipa_drv_res->do_ram_collection_on_crash =
+		of_property_read_bool(
+			pdev->dev.of_node,
+			"qcom,ram-collection-on-crash");
+	IPADBG(": doing ram collection on crash = %u\n",
+		   ipa_drv_res->do_ram_collection_on_crash);
+
 	if (ipa_drv_res->do_testbus_collection_on_crash ||
-		ipa_drv_res->do_non_tn_collection_on_crash)
+		ipa_drv_res->do_non_tn_collection_on_crash ||
+		ipa_drv_res->do_ram_collection_on_crash)
 		ipa_drv_res->do_register_collection_on_crash = true;
 
 	IPADBG(": doing register collection on crash = %u\n",

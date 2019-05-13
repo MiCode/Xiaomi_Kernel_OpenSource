@@ -482,6 +482,30 @@ enum ipa_hw_irq_srcs_e {
 #define IPA_RX_SPLT_CMDQ_MAX 4
 
 /*
+ * Although not necessary for the numbers below, the use of round_up
+ * is so that future developers know that these particular constants
+ * have to be a multiple of four bytes, because the IPA memory reads
+ * that they drive are always 32 bits...
+ */
+#define IPA_IU_ADDR   0x000A0000
+#define IPA_IU_SIZE   round_up(40704, sizeof(u32))
+
+#define IPA_SRAM_ADDR 0x00050000
+#define IPA_SRAM_SIZE round_up(19232, sizeof(u32))
+
+#define IPA_MBOX_ADDR 0x000C2000
+#define IPA_MBOX_SIZE round_up(256, sizeof(u32))
+
+#define IPA_HRAM_ADDR 0x00060000
+#define IPA_HRAM_SIZE round_up(47536, sizeof(u32))
+
+#define IPA_SEQ_ADDR  0x00081000
+#define IPA_SEQ_SIZE  round_up(768, sizeof(u32))
+
+#define IPA_GSI_ADDR  0x00006000
+#define IPA_GSI_SIZE  round_up(5376, sizeof(u32))
+
+/*
  * Macro to define a particular register cfg entry for all pipe
  * indexed register
  */
