@@ -32,6 +32,7 @@ enum virtclk_cmd {
 	CLK_MSG_RESET,
 	CLK_MSG_SETFREQ,
 	CLK_MSG_GETFREQ,
+	CLK_MSG_ROUNDFREQ = 13,
 	CLK_MSG_MAX
 };
 
@@ -62,6 +63,16 @@ struct clk_msg_getid {
 } __packed;
 
 struct clk_msg_getfreq {
+	struct clk_msg_rsp rsp;
+	u32 freq;
+} __packed;
+
+struct clk_msg_roundfreq {
+	struct clk_msg_header header;
+	u32 freq;
+} __packed;
+
+struct clk_msg_roundfreq_rsp {
 	struct clk_msg_rsp rsp;
 	u32 freq;
 } __packed;
@@ -324,7 +335,60 @@ err_out:
 static long clk_virt_round_rate(struct clk_hw *hw, unsigned long rate,
 		unsigned long *parent_rate)
 {
-	return rate;
+	struct clk_virt *v = to_clk_virt(hw);
+	struct clk_msg_roundfreq msg;
+	struct clk_msg_roundfreq_rsp rsp;
+	u32 rsp_size = sizeof(rsp);
+	int handle;
+	int ret = 0;
+
+	ret = clk_virt_init_iface();
+	if (ret)
+		return ret;
+
+	ret = clk_virt_get_id(hw);
+	if (ret)
+		return ret;
+
+	msg.header.clk_id = v->id;
+	msg.header.cmd = CLK_MSG_ROUNDFREQ | v->flag;
+	msg.header.len = sizeof(msg);
+	msg.freq = (u32)rate;
+
+	mutex_lock(&virt_clk_lock);
+
+	handle = hab_handle;
+	ret = habmm_socket_send(handle, &msg, sizeof(msg), 0);
+	if (ret) {
+		pr_err("%s: habmm socket send failed (%d)\n",
+				clk_hw_get_name(hw), ret);
+		goto err_out;
+	}
+
+	ret = habmm_socket_recv(handle, &rsp, &rsp_size, UINT_MAX,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
+	if (ret) {
+		pr_err("%s: habmm socket receive failed (%d)\n",
+				clk_hw_get_name(hw),
+				ret);
+		goto err_out;
+	}
+
+	if (rsp.rsp.rsp) {
+		pr_err("%s (%luHz): error response (%d)\n", clk_hw_get_name(hw),
+				rate, rsp.rsp.rsp);
+		ret = 0;
+	} else
+		ret = rsp.freq;
+
+	mutex_unlock(&virt_clk_lock);
+	return ret;
+
+err_out:
+	habmm_socket_close(handle);
+	hab_handle = 0;
+	mutex_unlock(&virt_clk_lock);
+	return ret;
 }
 
 static unsigned long clk_virt_get_rate(struct clk_hw *hw,
