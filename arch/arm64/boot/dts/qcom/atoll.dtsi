@@ -790,6 +790,7 @@
 };
 
 #include "atoll-gdsc.dtsi"
+#include "msm-arm-smmu-sdmatoll.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
