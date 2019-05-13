@@ -1365,7 +1365,14 @@ static void dfc_svc_init(struct work_struct *work)
 		return;
 	}
 
-	rtnl_lock();
+	if (data->restart_state == 1)
+		return;
+	while (!rtnl_trylock()) {
+		if (!data->restart_state)
+			cond_resched();
+		else
+			return;
+	}
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
