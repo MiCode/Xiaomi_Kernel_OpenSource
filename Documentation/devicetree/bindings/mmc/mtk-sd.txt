@@ -14,6 +14,7 @@ Required properties:
 	"mediatek,mt2712-mmc": for mmc host ip compatible with mt2712
 	"mediatek,mt7622-mmc": for MT7622 SoC
 	"mediatek,mt7623-mmc", "mediatek,mt2701-mmc": for MT7623 SoC
+	"mediatek,mt6779-mmc": for mmc host ip compatible with mt6779
 
 - reg: physical base address of the controller and length
 - interrupts: Should contain MSDC interrupt number
@@ -45,6 +46,9 @@ Optional properties:
 		     error caused by stop clock(fifo full)
 		     Valid range = [0:0x7]. if not present, default value is 0.
 		     applied to compatible "mediatek,mt2701-mmc".
+- mediatek,cqhci:  HW cmdq selection
+		   If present, hw command queue is enabled.
+		   If not present, hw command queue is disabled.
 
 Examples:
 mmc0: mmc@11230000 {
