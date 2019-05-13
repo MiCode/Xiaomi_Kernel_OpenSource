@@ -37,3 +37,11 @@
 &qusb_phy0 {
 	status = "ok";
 };
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};
