@@ -145,7 +145,7 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 		dev = getDev();
 
 		if (dev != NULL) {
-			res = request_firmware_direct(&fw, pathToFile, dev);
+			res = firmware_request_nowarn(&fw, pathToFile, dev);
 			if (res == 0) {
 				*size = fw->size;
 				*data = (u8 *)kmalloc_array((*size), sizeof(u8),
