@@ -1325,7 +1325,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	 * Using reserved field to receive ifeId from UMD and Acquiring
 	 * corresponding IFE resource only if available
 	 */
-	ife_id = out_port->reserved;
+	ife_id = out_port->reserved & 0xFF;
 
 	if ((ife_id >= CAM_IFE_CSID_HW_NUM_MAX) ||
 		(!ife_hw_mgr->csid_devices[ife_id])) {
