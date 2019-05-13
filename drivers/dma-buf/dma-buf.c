@@ -1320,7 +1320,7 @@ static void free_proc(struct dma_proc *proc)
 	struct dma_info *tmp, *n;
 
 	list_for_each_entry_safe(tmp, n, &proc->dma_bufs, head) {
-		dma_buf_put(tmp->dmabuf);
+		fput(tmp->dmabuf->file);
 		list_del(&tmp->head);
 		kfree(tmp);
 	}
@@ -1353,14 +1353,14 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 	struct dma_proc *tmp, *n;
 	LIST_HEAD(plist);
 
-	read_lock(&tasklist_lock);
+	rcu_read_lock();
 	for_each_process(task) {
 		struct files_struct *group_leader_files = NULL;
 
 		tmp = kzalloc(sizeof(*tmp), GFP_ATOMIC);
 		if (!tmp) {
 			ret = -ENOMEM;
-			read_unlock(&tasklist_lock);
+			rcu_read_unlock();
 			goto mem_err;
 		}
 		INIT_LIST_HEAD(&tmp->dma_bufs);
@@ -1384,7 +1384,7 @@ static int dma_procs_debug_show(struct seq_file *s, void *unused)
 skip:
 		free_proc(tmp);
 	}
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	list_sort(NULL, &plist, proccmp);
 	list_for_each_entry(tmp, &plist, head)
