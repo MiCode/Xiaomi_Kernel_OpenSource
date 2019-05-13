@@ -4062,6 +4062,85 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	return res;
 }
 
+static int fts_chip_power_switch(struct fts_ts_info *info, bool on)
+{
+	int error = -1;
+
+	if (info->bdata->pwr_on_suspend) {
+		if (!info->ts_pinctrl)
+			return 0;
+
+		if (on) {
+			error = pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_active);
+			if (error < 0)
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_ACTIVE);
+		} else {
+			error = pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_suspend);
+			if (error < 0)
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_SUSPEND);
+		}
+
+		return 0;
+	}
+
+	if (on) {
+		if (info->pwr_reg) {
+			error = regulator_enable(info->bus_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to enable AVDD\n",
+					tag, __func__);
+		}
+
+		if (info->bus_reg) {
+			error = regulator_enable(info->pwr_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to enable DVDD\n",
+					tag, __func__);
+		}
+
+		if (info->ts_pinctrl) {
+			if (pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_active) < 0) {
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_ACTIVE);
+			}
+		}
+	} else {
+		if (info->bdata->reset_gpio != GPIO_NOT_DEFINED)
+			gpio_set_value(info->bdata->reset_gpio, 0);
+		else
+			msleep(300);
+
+		if (info->ts_pinctrl) {
+			if (pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_suspend) < 0) {
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_SUSPEND);
+			}
+		}
+
+		if (info->pwr_reg) {
+			error = regulator_disable(info->pwr_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to disable DVDD\n",
+					tag, __func__);
+		}
+
+		if (info->bus_reg) {
+			error = regulator_disable(info->bus_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to disable AVDD\n",
+					tag, __func__);
+		}
+	}
+	return error;
+}
+
+
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_info *info;
@@ -4070,18 +4149,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
-	if (info->ts_pinctrl) {
-		/*
-		 * Pinctrl handle is optional. If pinctrl handle is found
-		 * let pins to be configured in active state. If not
-		 * found continue further without error.
-		 */
-		if (pinctrl_select_state(info->ts_pinctrl,
-					info->pinctrl_state_active) < 0) {
-			logError(1, "%s: Failed to select %s pinstate\n",
-				__func__, PINCTRL_STATE_ACTIVE);
-		}
-	}
+	fts_chip_power_switch(info, true);
 
 	info->resume_bit = 1;
 
@@ -4119,19 +4187,7 @@ static void fts_suspend_work(struct work_struct *work)
 	release_all_touches(info);
 	info->sensor_sleep = true;
 
-	if (info->ts_pinctrl) {
-		/*
-		 * Pinctrl handle is optional. If pinctrl handle is found
-		 * let pins to be configured in suspend state. If not
-		 * found continue further without error.
-		 */
-		if (pinctrl_select_state(info->ts_pinctrl,
-					info->pinctrl_state_suspend) < 0) {
-			logError(1, "%s: Failed to select %s pinstate\n",
-				__func__, PINCTRL_STATE_SUSPEND);
-		}
-	}
-
+	fts_chip_power_switch(info, false);
 }
 
 #if defined(CONFIG_FB_MSM)
@@ -4458,6 +4514,9 @@ static int parse_dt(struct device *dev,
 		"st,irq-gpio", 0, NULL);
 
 	logError(0, "%s irq_gpio = %d\n", tag, bdata->irq_gpio);
+
+	bdata->pwr_on_suspend =
+		of_property_read_bool(np, "st,power_on_suspend");
 
 	retval = of_property_read_string(np, "st,regulator_dvdd", &name);
 	if (retval == -EINVAL)
