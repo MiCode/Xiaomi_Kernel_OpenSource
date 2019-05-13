@@ -11,11 +11,23 @@ config MTK_MET
           Select "N" if you are not sure.
 
 source "drivers/misc/mediatek/met_drv/Kconfig"
+endmenu
+
+menu "MultiMedia, Display, Camera"
+
+config MTK_DISP_PLATFORM
+	string "MTK display platform name"
+	help
+	  To separate display features and control
+	  for different platform. Config platform name
+	  for your selection. It's used for display
+	  driver only.
+
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
-endmenu
+endmenu  # MM
 
 source "drivers/misc/mediatek/Kconfig.default"
 
