@@ -346,7 +346,6 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
-	bool assert_wake = false;
 	int ret;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
@@ -367,16 +366,8 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
-	/*
-	 * For UL channels always assert WAKE until work is done,
-	 * For DL channels only assert if MHI is in a LPM
-	 */
-	if (mhi_chan->dir == DMA_TO_DEVICE ||
-	    (mhi_chan->dir == DMA_FROM_DEVICE &&
-	     mhi_cntrl->pm_state != MHI_PM_M0)) {
-		assert_wake = true;
-		mhi_cntrl->wake_get(mhi_cntrl, false);
-	}
+	/* toggle wake to exit out of M2 */
+	mhi_cntrl->wake_toggle(mhi_cntrl);
 
 	/* generate the tre */
 	buf_info = buf_ring->wp;
@@ -403,23 +394,20 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 	mhi_add_ring_element(mhi_cntrl, tre_ring);
 	mhi_add_ring_element(mhi_cntrl, buf_ring);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))) {
+	if (mhi_chan->dir == DMA_TO_DEVICE)
+		atomic_inc(&mhi_cntrl->pending_pkts);
+
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
 		read_lock_bh(&mhi_chan->lock);
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_bh(&mhi_chan->lock);
 	}
-
-	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
-		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return 0;
 
 map_error:
-	if (assert_wake)
-		mhi_cntrl->wake_put(mhi_cntrl, false);
-
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return ret;
@@ -437,7 +425,6 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
-	bool assert_wake = false;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -457,16 +444,8 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
-	/*
-	 * For UL channels always assert WAKE until work is done,
-	 * For DL channels only assert if MHI is in a LPM
-	 */
-	if (mhi_chan->dir == DMA_TO_DEVICE ||
-	    (mhi_chan->dir == DMA_FROM_DEVICE &&
-	     mhi_cntrl->pm_state != MHI_PM_M0)) {
-		assert_wake = true;
-		mhi_cntrl->wake_get(mhi_cntrl, false);
-	}
+	/* toggle wake to exit out of M2 */
+	mhi_cntrl->wake_toggle(mhi_cntrl);
 
 	/* generate the tre */
 	buf_info = buf_ring->wp;
@@ -501,14 +480,14 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	mhi_add_ring_element(mhi_cntrl, tre_ring);
 	mhi_add_ring_element(mhi_cntrl, buf_ring);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))) {
+	if (mhi_chan->dir == DMA_TO_DEVICE)
+		atomic_inc(&mhi_cntrl->pending_pkts);
+
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
 		read_lock_bh(&mhi_chan->lock);
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_bh(&mhi_chan->lock);
 	}
-
-	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
-		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
@@ -572,7 +551,6 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct mhi_ring *tre_ring;
 	unsigned long flags;
-	bool assert_wake = false;
 	int ret;
 
 	/*
@@ -603,27 +581,19 @@ int mhi_queue_buf(struct mhi_device *mhi_dev,
 		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	}
 
-	/*
-	 * For UL channels always assert WAKE until work is done,
-	 * For DL channels only assert if MHI is in a LPM
-	 */
-	if (mhi_chan->dir == DMA_TO_DEVICE ||
-	    (mhi_chan->dir == DMA_FROM_DEVICE &&
-	     mhi_cntrl->pm_state != MHI_PM_M0)) {
-		assert_wake = true;
-		mhi_cntrl->wake_get(mhi_cntrl, false);
-	}
+	/* toggle wake to exit out of M2 */
+	mhi_cntrl->wake_toggle(mhi_cntrl);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))) {
+	if (mhi_chan->dir == DMA_TO_DEVICE)
+		atomic_inc(&mhi_cntrl->pending_pkts);
+
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
 		unsigned long flags;
 
 		read_lock_irqsave(&mhi_chan->lock, flags);
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_irqrestore(&mhi_chan->lock, flags);
 	}
-
-	if (mhi_chan->dir == DMA_FROM_DEVICE && assert_wake)
-		mhi_cntrl->wake_put(mhi_cntrl, true);
 
 	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
@@ -951,11 +921,8 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 			/* notify client */
 			mhi_chan->xfer_cb(mhi_chan->mhi_dev, &result);
 
-			if (mhi_chan->dir == DMA_TO_DEVICE) {
-				read_lock_bh(&mhi_cntrl->pm_lock);
-				mhi_cntrl->wake_put(mhi_cntrl, false);
-				read_unlock_bh(&mhi_cntrl->pm_lock);
-			}
+			if (mhi_chan->dir == DMA_TO_DEVICE)
+				atomic_dec(&mhi_cntrl->pending_pkts);
 
 			/*
 			 * recycle the buffer if buffer is pre-allocated,
@@ -984,7 +951,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		mhi_chan->db_cfg.db_mode = true;
 		read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
 		if (tre_ring->wp != tre_ring->rp &&
-		    MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		    MHI_DB_ACCESS_VALID(mhi_cntrl)) {
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		}
 		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
@@ -1136,6 +1103,25 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
 		switch (type) {
+		case MHI_PKT_TYPE_BW_REQ_EVENT:
+		{
+			struct mhi_link_info *link_info;
+
+			link_info = &mhi_cntrl->mhi_link_info;
+			write_lock_irq(&mhi_cntrl->pm_lock);
+			link_info->target_link_speed =
+				MHI_TRE_GET_EV_LINKSPEED(local_rp);
+			link_info->target_link_width =
+				MHI_TRE_GET_EV_LINKWIDTH(local_rp);
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_VERB(
+				 "Received BW_REQ with link speed:0x%x width:0x%x\n",
+				 link_info->target_link_speed,
+				 link_info->target_link_width);
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_BW_REQ);
+			break;
+		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum mhi_dev_state new_state;
@@ -1224,7 +1210,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 	}
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_er_db(mhi_event);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
@@ -1277,7 +1263,7 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 		count++;
 	}
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_er_db(mhi_event);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
@@ -1355,7 +1341,7 @@ int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
 	}
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_er_db(mhi_event);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
@@ -1392,8 +1378,16 @@ void mhi_ctrl_ev_task(unsigned long data)
 	 * pm_state can change from reg access valid to no access while this
 	 * therad being executed.
 	 */
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		/*
+		 * we may have a pending event but not allowed to
+		 * process it since we probably in a suspended state,
+		 * trigger a resume.
+		 */
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 		return;
+	}
 
 	/* process ctrl events events */
 	ret = mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
@@ -1547,7 +1541,7 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	/* queue to hardware */
 	mhi_add_ring_element(mhi_cntrl, ring);
 	read_lock_bh(&mhi_cntrl->pm_lock);
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)))
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_cmd_db(mhi_cntrl, mhi_cmd);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_cmd->lock);
@@ -1597,7 +1591,7 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_pm_state;
 	}
 
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+	mhi_cntrl->wake_toggle(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
@@ -1605,7 +1599,7 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, MHI_CMD_START_CHAN);
 	if (ret) {
 		MHI_ERR("Failed to send start chan cmd\n");
-		goto error_send_cmd;
+		goto error_pm_state;
 	}
 
 	ret = wait_for_completion_timeout(&mhi_chan->completion,
@@ -1614,7 +1608,7 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		MHI_ERR("Failed to receive cmd completion for chan:%d\n",
 			mhi_chan->chan);
 		ret = -EIO;
-		goto error_send_cmd;
+		goto error_pm_state;
 	}
 
 	write_lock_irq(&mhi_chan->lock);
@@ -1648,7 +1642,7 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		}
 
 		read_lock_bh(&mhi_cntrl->pm_lock);
-		if (MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		if (MHI_DB_ACCESS_VALID(mhi_cntrl)) {
 			read_lock_irq(&mhi_chan->lock);
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 			read_unlock_irq(&mhi_chan->lock);
@@ -1656,20 +1650,11 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		read_unlock_bh(&mhi_cntrl->pm_lock);
 	}
 
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-
 	mutex_unlock(&mhi_chan->mutex);
 
 	MHI_LOG("Chan:%d successfully moved to start state\n", mhi_chan->chan);
 
 	return 0;
-
-error_send_cmd:
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 error_pm_state:
 	if (!mhi_chan->offload_ch)
@@ -1681,11 +1666,6 @@ error_init_chan:
 	return ret;
 
 error_pre_alloc:
-
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
-
 	mutex_unlock(&mhi_chan->mutex);
 	__mhi_unprepare_channel(mhi_cntrl, mhi_chan);
 
@@ -1741,7 +1721,8 @@ static void mhi_reset_data_chan(struct mhi_controller *mhi_cntrl,
 		struct mhi_buf_info *buf_info = buf_ring->rp;
 
 		if (mhi_chan->dir == DMA_TO_DEVICE)
-			mhi_cntrl->wake_put(mhi_cntrl, false);
+			atomic_dec(&mhi_cntrl->pending_pkts);
+
 		if (!buf_info->pre_mapped)
 			mhi_cntrl->unmap_single(mhi_cntrl, buf_info);
 		mhi_del_ring_element(mhi_cntrl, buf_ring);
@@ -1833,7 +1814,7 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_invalid_state;
 	}
 
-	mhi_cntrl->wake_get(mhi_cntrl, false);
+	mhi_cntrl->wake_toggle(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
@@ -1841,7 +1822,7 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, MHI_CMD_RESET_CHAN);
 	if (ret) {
 		MHI_ERR("Failed to send reset chan cmd\n");
-		goto error_completion;
+		goto error_invalid_state;
 	}
 
 	/* even if it fails we will still reset */
@@ -1849,11 +1830,6 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 				msecs_to_jiffies(mhi_cntrl->timeout_ms));
 	if (!ret || mhi_chan->ccs != MHI_EV_CC_SUCCESS)
 		MHI_ERR("Failed to receive cmd completion, still resetting\n");
-
-error_completion:
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->wake_put(mhi_cntrl, false);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 error_invalid_state:
 	if (!mhi_chan->offload_ch) {
@@ -1869,14 +1845,15 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 	struct mhi_controller *mhi_cntrl = m->private;
 
 	seq_printf(m,
-		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u wake:%d dev_wake:%u alloc_size:%u\n",
+		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
 		   mhi_cntrl->M0, mhi_cntrl->M2, mhi_cntrl->M3,
-		   mhi_cntrl->wake_set,
+		   mhi_cntrl->M3_FAST, mhi_cntrl->wake_set,
 		   atomic_read(&mhi_cntrl->dev_wake),
-		   atomic_read(&mhi_cntrl->alloc_size));
+		   atomic_read(&mhi_cntrl->alloc_size),
+		   atomic_read(&mhi_cntrl->pending_pkts));
 	return 0;
 }
 

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
 
 #ifndef __MSM_PCIE_H
 #define __MSM_PCIE_H
@@ -15,6 +15,7 @@ enum msm_pcie_config {
 };
 
 enum msm_pcie_pm_opt {
+	MSM_PCIE_DRV_SUSPEND,
 	MSM_PCIE_SUSPEND,
 	MSM_PCIE_RESUME,
 	MSM_PCIE_DISABLE_PC,
@@ -26,6 +27,9 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_LINKDOWN = 0x1,
 	MSM_PCIE_EVENT_LINKUP = 0x2,
 	MSM_PCIE_EVENT_WAKEUP = 0x4,
+	MSM_PCIE_EVENT_L1SS_TIMEOUT = BIT(3),
+	MSM_PCIE_EVENT_DRV_CONNECT = BIT(4),
+	MSM_PCIE_EVENT_DRV_DISCONNECT = BIT(5),
 };
 
 enum msm_pcie_trigger {
@@ -60,6 +64,40 @@ static inline int msm_msi_init(struct device *dev)
 #endif
 
 #ifdef CONFIG_PCI_MSM
+
+/**
+ * msm_pcie_set_link_bandwidth - updates the number of lanes and speed of PCIe
+ * link.
+ * @pci_dev:		client's pci device structure
+ * @target_link_speed:	gen speed
+ * @target_link_width:	number of lanes
+ *
+ * This function gives PCIe clients the control to update the number of lanes
+ * and gen speed of the link.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
+				u16 target_link_width);
+
+/**
+ * msm_pcie_l1ss_timeout_disable - disable L1ss timeout feature
+ * @pci_dev:	client's pci device structure
+ *
+ * This function gives PCIe clients the control to disable L1ss timeout
+ * feature.
+ */
+void msm_pcie_l1ss_timeout_disable(struct pci_dev *pci_dev);
+
+/**
+ * msm_pcie_l1ss_timeout_enable - enable L1ss timeout feature
+ * @pci_dev:	client's pci device structure
+ *
+ * This function gives PCIe clients the control to enable L1ss timeout
+ * feature.
+ */
+void msm_pcie_l1ss_timeout_enable(struct pci_dev *pci_dev);
+
 /**
  * msm_pcie_pm_control - control the power state of a PCIe link.
  * @pm_opt:	power management operation
@@ -160,6 +198,16 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 #else /* !CONFIG_PCI_MSM */
 static inline int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr,
 			void *user, void *data, u32 options)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_l1ss_timeout_disable(struct pci_dev *pci_dev)
+{
+	return -ENODEV;
+}
+
+static inline int msm_pcie_l1ss_timeout_enable(struct pci_dev *pci_dev)
 {
 	return -ENODEV;
 }

@@ -1249,7 +1249,8 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 	if (vote == CLK_ON) {
 		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 0)) {
 			result = mhi_device_get_sync(
-				ipa_mpm_ctx->md[probe_id].mhi_dev);
+					ipa_mpm_ctx->md[probe_id].mhi_dev,
+					MHI_VOTE_BUS);
 			if (result) {
 				IPA_MPM_ERR("mhi_sync_get failed %d\n",
 					result);
@@ -1260,7 +1261,8 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 		atomic_inc(&ipa_mpm_ctx->pcie_clk_ref_cnt);
 	} else {
 		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 1)) {
-			mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev);
+			mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev,
+				       MHI_VOTE_BUS);
 			IPA_MPM_DBG("PCIE clock off ON\n");
 		}
 		atomic_dec(&ipa_mpm_ctx->pcie_clk_ref_cnt);
@@ -2152,10 +2154,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 			IPA_MPM_DBG("Already out of lpm\n");
 		}
 		break;
-	case MHI_CB_EE_RDDM:
-	case MHI_CB_PENDING_DATA:
-	case MHI_CB_SYS_ERROR:
-	case MHI_CB_FATAL_ERROR:
+	default:
 		IPA_MPM_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
