@@ -236,7 +236,8 @@ bool mtk_is_virt_gpio(struct mtk_pinctrl *hw, unsigned int gpio_n)
 
 	desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio_n];
 
-	if (desc->funcs[desc->eint.eint_m].name == 0)
+	if (desc->funcs &&
+	    (desc->funcs[desc->eint.eint_m].name == 0))
 		virt_gpio = true;
 
 	return virt_gpio;
