@@ -105,6 +105,10 @@
 
 #include "dsi-panel-ext-bridge-hdmi-1080p.dtsi"
 
+&dsi_ext_bridge_hdmi_1080p {
+	qcom,mdss-dsi-ext-bridge = <0>;
+};
+
 &soc {
 	ext_dsi_bridge_display: qcom,dsi-display@50 {
 		label = "ext_dsi_bridge_display hdmi 1080p";
