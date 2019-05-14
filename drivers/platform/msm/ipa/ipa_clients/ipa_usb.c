@@ -984,6 +984,18 @@ static bool ipa3_usb_is_teth_switch_valid(enum ipa_usb_teth_prot new_teth)
 }
 
 
+static int ipa_usb_set_lock_unlock(bool is_lock)
+{
+	IPA_USB_DBG("entry\n");
+	if (is_lock)
+		mutex_lock(&ipa3_usb_ctx->general_mutex);
+	else
+		mutex_unlock(&ipa3_usb_ctx->general_mutex);
+	IPA_USB_DBG("exit\n");
+
+	return 0;
+}
+
 int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			   struct ipa_usb_teth_params *teth_params,
 			   int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event,
@@ -1118,6 +1130,14 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 		IPA_USB_DBG("initialized %s %s\n",
 			ipa3_usb_teth_prot_to_string(teth_prot),
 			ipa3_usb_teth_bridge_prot_to_string(teth_prot));
+		/*
+		 * Register for xdci lock/unlock callback with ipa core driver.
+		 * As per use case, only register for IPA_CONS end point now.
+		 * If needed we can include the same for IPA_PROD ep.
+		 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
+		 */
+		ipa3_register_client_callback(&ipa_usb_set_lock_unlock,
+			&ipa3_usb_get_teth_port_state, IPA_CLIENT_USB_PROD);
 		break;
 	case IPA_USB_DIAG:
 		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
@@ -2281,20 +2301,6 @@ static void ipa_usb_debugfs_init(void){}
 static void ipa_usb_debugfs_remove(void){}
 #endif /* CONFIG_DEBUG_FS */
 
-static int ipa_usb_set_lock_unlock(bool is_lock)
-{
-	IPA_USB_DBG("entry\n");
-	if (is_lock)
-		mutex_lock(&ipa3_usb_ctx->general_mutex);
-	else
-		mutex_unlock(&ipa3_usb_ctx->general_mutex);
-	IPA_USB_DBG("exit\n");
-
-	return 0;
-}
-
-
-
 int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 			 struct ipa_usb_xdci_chan_params *dl_chan_params,
 			 struct ipa_req_chan_out_params *ul_out_params,
@@ -2360,16 +2366,6 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 		IPA_USB_ERR("failed to connect\n");
 		goto connect_fail;
 	}
-
-	/*
-	 * Register for xdci lock/unlock callback with ipa core driver.
-	 * As per use case, only register for IPA_CONS end point for now.
-	 * If needed we can include the same for IPA_PROD ep.
-	 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
-	 */
-	if (connect_params->teth_prot != IPA_USB_DIAG)
-		ipa3_register_client_callback(&ipa_usb_set_lock_unlock,
-			&ipa3_usb_get_teth_port_state, ul_out_params->clnt_hdl);
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
@@ -2447,15 +2443,6 @@ static int ipa_usb_xdci_dismiss_channels(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			return result;
 		}
 	}
-
-	/*
-	 * Deregister for xdci lock/unlock callback from ipa core driver.
-	 * As per use case, only deregister for IPA_CONS end point for now.
-	 * If needed we can include the same for IPA_PROD ep.
-	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
-	 */
-	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
-		ipa3_deregister_client_callback(ul_clnt_hdl);
 
 	/* Change state to STOPPED */
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED, false, ttype))
@@ -3190,6 +3177,15 @@ ipa_usb_workqueue_fail:
 static void ipa3_usb_exit(void)
 {
 	IPA_USB_DBG_LOW("IPA_USB exit\n");
+
+	/*
+	 * Deregister for xdci lock/unlock callback from ipa core driver.
+	 * As per use case, only deregister for IPA_CONS end point for now.
+	 * If needed we can include the same for IPA_PROD ep.
+	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
+	 */
+	ipa3_deregister_client_callback(IPA_CLIENT_USB_PROD);
+
 	ipa_usb_debugfs_remove();
 	kfree(ipa3_usb_ctx);
 }
