@@ -1,0 +1,30 @@
+Generic MTK RGU mapped register reset driver
+
+This is a reset driver using toprgu to map its non-volatile register.
+The reset is generally performed with a write to the non-volatile register
+defined by the register map pointed by toprgu reference plus the offset
+with the mask defined in the reboot-mode node.
+
+Required properties:
+- compatible: should contain "toprgu-reboot-mode"
+- regmap: this is phandle to the register map node
+- offset: offset in the register map for the reboot-mode register (in bytes)
+- mask: the reset value written to the reboot register (32 bit access)
+
+Examples:
+	reboot-mode {
+	   compatible = "toprgu-reboot-mode";
+	   regmap = <&toprgu>;
+	   offset = <0x24>;
+	   mask = <0xF>;
+	};
+
+Optional properties - reboot mode value that will keep in toprgu nonrst RG:
+- mode-charger = <BOOT_CHARGER>;
+- mode-recovery = <BOOT_RECOVERY>;
+- mode-bootloader = <BOOT_BOOTLOADER>;
+- mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+- mode-kpoc = <BOOT_KPOC>;
+- mode-ddr-reserve = <BOOT_DDR_RSVD>;
+- mode-meta = <BOOT_META>;
+- mode-rpmbpk = <BOOT_RPMBPK>;
