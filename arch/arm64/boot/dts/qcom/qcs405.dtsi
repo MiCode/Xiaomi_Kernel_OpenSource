@@ -1354,7 +1354,8 @@
 
 		qcom,cpufreq-table =
 			 < 1094400 >,
-			 < 1248000 >;
+			 < 1248000 >,
+			 < 1401600 >;
 	};
 
 	ddr_bw_opp_table: ddr-bw-opp-table {
@@ -1395,7 +1396,8 @@
 		qcom,target-dev = <&cpu0_cpu_ddr_latfloor>;
 		qcom,core-dev-table =
 			< 1094400 MHZ_TO_MBPS( 297, 8) >,
-			< 1248000 MHZ_TO_MBPS( 597, 8) >;
+			< 1248000 MHZ_TO_MBPS( 597, 8) >,
+			< 1401600 MHZ_TO_MBPS( 710, 8) >;
 	};
 
 	emac_hw: qcom,emac@07A80000 {
