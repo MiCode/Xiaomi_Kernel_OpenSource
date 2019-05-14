@@ -93,7 +93,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c%c%c|\n",
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c%c%c%c|\n",
 			PERIPHERAL_STRING(i),
 			driver->feature[i].feature_mask[0],
 			driver->feature[i].feature_mask[1],
@@ -107,7 +107,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 			driver->feature[i].sockets_enabled ? 'S':'s',
 			driver->feature[i].sent_feature_mask ? 'T':'t',
 			driver->feature[i].untag_header ? 'U':'u',
-			driver->feature[i].diagid_v2_feature_mask ? 'V':'v');
+			driver->feature[i].diagid_v2_feature_mask ? 'V':'v',
+			driver->feature[i].multi_sim_support ? 'D':'d');
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB

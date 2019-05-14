@@ -63,6 +63,7 @@
 #define F_DIAG_PKT_HEADER_UNTAG			16
 #define F_DIAG_PD_BUFFERING		17
 #define F_DIAGID_FEATURE_MASK	19
+#define F_DIAG_MULTI_SIM_SUPPORT		20
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -149,6 +150,51 @@ struct diag_ctrl_msg_mask {
 	uint16_t ssid_first; /* Start of range of supported SSIDs */
 	uint16_t ssid_last; /* Last SSID in range */
 	uint32_t msg_mask_size; /* ssid_last - ssid_first + 1 */
+	/* Copy msg mask here */
+} __packed;
+
+struct diag_ctrl_event_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint8_t event_config;
+	uint32_t event_mask_size;
+	/* Copy event mask here */
+} __packed;
+
+struct diag_ctrl_log_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint8_t equip_id;
+	uint32_t num_items;
+	uint32_t log_mask_size;
+	/* Copy log mask here */
+} __packed;
+
+struct diag_ctrl_msg_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t msg_mode;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint16_t ssid_first;
+	uint16_t ssid_last;
+	uint32_t msg_mask_size;
 	/* Copy msg mask here */
 } __packed;
 
