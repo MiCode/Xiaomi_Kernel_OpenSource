@@ -605,6 +605,19 @@
 			};
 		};
 
+		lt9611_pins: lt9611_pins {
+			mux {
+				pins = "gpio26", "gpio20", "gpio79";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio26", "gpio20", "gpio79";
+				drive-strength = <8>;
+				bias-disable = <0>;   /* no pull */
+			};
+		};
+
 		pmx_sde: pmx_sde {
 			sde_dsi_active: sde_dsi_active {
 				mux {
