@@ -280,6 +280,7 @@ enum wmi_command_id {
 	WMI_GET_ASSOC_LIST_CMDID			= 0xA06,
 	WMI_GET_CCA_INDICATIONS_CMDID			= 0xA07,
 	WMI_SET_CCA_INDICATIONS_BI_AVG_NUM_CMDID	= 0xA08,
+	WMI_SET_VR_PROFILE_CMDID			= 0xA09,
 	WMI_INTERNAL_FW_IOCTL_CMDID			= 0xA0B,
 	WMI_LINK_STATS_CMDID				= 0xA0C,
 	WMI_SET_GRANT_MCS_CMDID				= 0xA0E,
@@ -2100,6 +2101,7 @@ enum wmi_event_id {
 	WMI_GET_ASSOC_LIST_RES_EVENTID			= 0x1A06,
 	WMI_GET_CCA_INDICATIONS_EVENTID			= 0x1A07,
 	WMI_SET_CCA_INDICATIONS_BI_AVG_NUM_EVENTID	= 0x1A08,
+	WMI_SET_VR_PROFILE_EVENTID			= 0x1A09,
 	WMI_INTERNAL_FW_EVENT_EVENTID			= 0x1A0A,
 	WMI_INTERNAL_FW_IOCTL_EVENTID			= 0x1A0B,
 	WMI_LINK_STATS_CONFIG_DONE_EVENTID		= 0x1A0C,
@@ -4147,6 +4149,32 @@ struct wmi_rbufcap_cfg_cmd {
 
 /* WMI_RBUFCAP_CFG_EVENTID */
 struct wmi_rbufcap_cfg_event {
+	/* enum wmi_fw_status */
+	u8 status;
+	u8 reserved[3];
+} __packed;
+
+enum wmi_vr_profile {
+	WMI_VR_PROFILE_DISABLED		= 0,
+	WMI_VR_PROFILE_COMMON_AP	= 1,
+	WMI_VR_PROFILE_COMMON_STA	= 2,
+	WMI_VR_PROFILE_RESERVED0	= 250,
+	WMI_VR_PROFILE_RESERVED1	= 251,
+	WMI_VR_PROFILE_RESERVED2	= 252,
+	WMI_VR_PROFILE_RESERVED3	= 253,
+	WMI_VR_PROFILE_RESERVED4	= 254,
+	WMI_VR_PROFILE_RESERVED5	= 255,
+};
+
+/* WMI_SET_VR_PROFILE_CMDID */
+struct wmi_set_vr_profile_cmd {
+	/* enum wmi_vr_profile */
+	u8 profile;
+	u8 reserved[3];
+} __packed;
+
+/* WMI_SET_VR_PROFILE_EVENTID */
+struct wmi_set_vr_profile_event {
 	/* enum wmi_fw_status */
 	u8 status;
 	u8 reserved[3];
