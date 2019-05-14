@@ -394,6 +394,11 @@ config NATIONAL_PHY
 	---help---
 	  Currently supports the DP83865 PHY.
 
+config NXP_TJA1100_PHY
+	tristate "NXP TJA1100 PHY"
+	help
+	  Currently supports the TJA1100 PHY.
+
 config QSEMI_PHY
 	tristate "Quality Semiconductor PHYs"
 	---help---
