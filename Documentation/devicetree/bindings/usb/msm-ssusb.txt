@@ -66,6 +66,8 @@ Optional properties :
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,no-wakeup-src-in-hostmode: If present then driver doesn't use wakeup_source APIs
   in host mode. This allows PM suspend to happen irrespective of runtimePM state of host.
+- qcom,check-for-float: If present, the driver will always check for possible
+  float connection irrespective of the charger type.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".

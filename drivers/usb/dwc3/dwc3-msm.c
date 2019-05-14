@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,9 @@
 
 /* AHB2PHY read/write waite value */
 #define ONE_READ_WRITE_WAIT 0x11
+
+/* DP_DM linestate float */
+#define DP_DM_STATE_FLOAT 0x02
 
 /* cpu to fix usb interrupt */
 static int cpu_to_affin;
@@ -220,6 +223,8 @@ struct dwc3_msm {
 	bool			hc_died;
 	bool			xhci_ss_compliance_enable;
 	bool			no_wakeup_src_in_hostmode;
+	bool			check_for_float;
+	bool			float_detected;
 
 	struct extcon_dev	*extcon_vbus;
 	struct extcon_dev	*extcon_id;
@@ -2724,6 +2729,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	if (mdwc->vbus_active == event)
 		return NOTIFY_DONE;
 
+	mdwc->float_detected = false;
 	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
 	if (cc_state < 0)
 		mdwc->typec_orientation = ORIENTATION_NONE;
@@ -3272,6 +3278,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
+	mdwc->check_for_float = of_property_read_bool(node,
+					"qcom,check-for-float");
 	ret = dwc3_msm_extcon_register(mdwc);
 	if (ret)
 		goto put_dwc3;
@@ -3820,7 +3828,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 	int ret, psy_type;
 
 	psy_type = get_psy_type(mdwc);
-	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT
+		|| (mdwc->check_for_float && mdwc->float_detected)) {
 		if (!mA)
 			pval.intval = -ETIMEDOUT;
 		else
@@ -3906,6 +3915,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "b_sess_vld\n");
+			mdwc->float_detected = false;
 			if (get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_FLOAT)
 				queue_delayed_work(mdwc->dwc3_wq,
 						&mdwc->sdp_check,
@@ -3918,6 +3928,21 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			pm_runtime_get_sync(mdwc->dev);
 			dbg_event(0xFF, "BIDLE gsync",
 				atomic_read(&mdwc->dev->power.usage_count));
+			if (mdwc->check_for_float) {
+				/*
+				 * If DP_DM are found to be floating, do not
+				 * start the peripheral mode.
+				 */
+				if (usb_phy_dpdm_with_idp_src(mdwc->hs_phy) ==
+							DP_DM_STATE_FLOAT) {
+					mdwc->float_detected = true;
+					dwc3_msm_gadget_vbus_draw(mdwc, 0);
+					pm_runtime_put_sync(mdwc->dev);
+					dbg_event(0xFF, "FLT sync", atomic_read(
+						&mdwc->dev->power.usage_count));
+					break;
+				}
+			}
 			dwc3_otg_start_peripheral(mdwc, 1);
 			mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
 			work = 1;

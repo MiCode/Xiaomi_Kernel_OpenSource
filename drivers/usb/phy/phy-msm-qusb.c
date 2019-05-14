@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,11 +29,23 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/reset.h>
 
+#define QUSB2PHY_PLL_PWR_CTL		0x18
+#define REF_BUF_EN			BIT(0)
+#define REXT_EN				BIT(1)
+#define PLL_BYPASSNL			BIT(2)
+#define REXT_TRIM_0			BIT(4)
+
+#define QUSB2PHY_PLL_AUTOPGM_CTL1	0x1C
+#define PLL_RESET_N_CNT_5		0x5
+#define PLL_RESET_N			BIT(4)
+#define PLL_AUTOPGM_EN			BIT(7)
+
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
 
 #define QUSB2PHY_PORT_QC1	0x70
 #define VDM_SRC_EN		BIT(4)
+#define IDP_SRC_EN		BIT(3)
 #define VDP_SRC_EN		BIT(2)
 
 #define QUSB2PHY_PORT_QC2	0x74
@@ -57,6 +69,7 @@
 #define CORE_READY_STATUS		BIT(0)
 
 #define QUSB2PHY_PORT_UTMI_CTRL1	0xC0
+#define SUSPEND_N			BIT(5)
 #define TERM_SELECT			BIT(4)
 #define XCVR_SELECT_FS			BIT(2)
 #define OP_MODE_NON_DRIVE		BIT(0)
@@ -84,6 +97,7 @@
 #define DPSE_INTR_HIGH_SEL              BIT(1)
 #define DPSE_INTR_EN                    BIT(0)
 
+#define QUSB2PHY_PORT_INT_STATUS	0xF0
 #define QUSB2PHY_PORT_UTMI_STATUS	0xF4
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
@@ -692,6 +706,83 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	qusb_phy_enable_clocks(qphy, false);
 }
+
+/**
+ * Returns DP/DM linestate with Idp_src enabled to detect if lines are floating
+ *
+ * @uphy - usb phy pointer.
+ *
+ */
+static int qusb_phy_linestate_with_idp_src(struct usb_phy *phy)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	u8 int_status, ret;
+
+	/* Disable/powerdown the PHY */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	/* Put PHY in non-driving mode */
+	writel_relaxed(TERM_SELECT | XCVR_SELECT_FS | OP_MODE_NON_DRIVE |
+			SUSPEND_N, qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+
+	/* Switch PHY to utmi register mode */
+	writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
+			qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	writel_relaxed(PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	/* Enable PHY */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	writel_relaxed(REF_BUF_EN | REXT_EN | PLL_BYPASSNL | REXT_TRIM_0,
+			qphy->base + QUSB2PHY_PLL_PWR_CTL);
+
+	usleep_range(5, 1000);
+
+	writel_relaxed(PLL_RESET_N | PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+	usleep_range(50, 1000);
+
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC1);
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC2);
+
+	/* Enable all chg_det events from PHY */
+	writel_relaxed(0x1F, qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+	/* Enable Idp_src */
+	writel_relaxed(IDP_SRC_EN, qphy->base + QUSB2PHY_PORT_QC1);
+
+	usleep_range(1000, 2000);
+	int_status = readl_relaxed(qphy->base + QUSB2PHY_PORT_INT_STATUS);
+
+	/* Exit chg_det mode, set PHY regs to default values */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);  /* 23 */
+
+	writel_relaxed(PLL_AUTOPGM_EN | PLL_RESET_N | PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	writel_relaxed(UTMI_ULPI_SEL, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	writel_relaxed(TERM_SELECT, qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	int_status = int_status & 0x5;
+
+	/*
+	 * int_status's Bit(0) is DP and Bit(2) is DM.
+	 * Caller expects bit(1) as DP and bit(0) DM i.e. usual linestate format
+	 */
+	ret = (int_status >> 2) | ((int_status & 0x1) << 1);
+	pr_debug("%s: int_status:%x, dpdm:%x\n", __func__, int_status, ret);
+
+	return ret;
+}
+
 /**
  * Performs QUSB2 PHY suspend/resume functionality.
  *
@@ -1150,6 +1241,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 	qphy->phy.notify_connect        = qusb_phy_notify_connect;
 	qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
+	qphy->phy.dpdm_with_idp_src	= qusb_phy_linestate_with_idp_src;
 
 	/*
 	 * On some platforms multiple QUSB PHYs are available. If QUSB PHY is
