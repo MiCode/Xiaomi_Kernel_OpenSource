@@ -739,6 +739,15 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 		return 0x00005555;
 }
 
+static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a620(adreno_dev) || adreno_is_a640(adreno_dev) ||
+		adreno_is_a650(adreno_dev))
+		return 0x00000002;
+
+	return 0x00000000;
+}
+
 static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -756,6 +765,8 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 			on ? __get_gmu_ao_cgc_delay_cntl(adreno_dev) : 0);
 		gmu_core_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
 			on ? __get_gmu_ao_cgc_hyst_cntl(adreno_dev) : 0);
+		gmu_core_regwrite(device, A6XX_GMU_CX_GMU_WFI_CONFIG,
+			on ? __get_gmu_wfi_config(adreno_dev) : 0);
 	}
 
 	kgsl_regread(device, A6XX_RBBM_CLOCK_CNTL, &value);
