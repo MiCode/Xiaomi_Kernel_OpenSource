@@ -14,6 +14,7 @@
 #include <dt-bindings/gce/mt6779-gce.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -407,6 +408,20 @@
 				     "mediatek,toprgu";
 			reg = <0 0x10007000 0 0x1000>;
 			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>;
+			reboot-mode {
+				compatible = "toprgu-reboot-mode";
+				regmap = <&toprgu>;
+				offset = <0x24>;
+				mask = <0xF>;
+				mode-charger = <BOOT_CHARGER>;
+				mode-recovery = <BOOT_RECOVERY>;
+				mode-bootloader = <BOOT_BOOTLOADER>;
+				mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+				mode-kpoc = <BOOT_KPOC>;
+				mode-ddr-reserve = <BOOT_DDR_RSVD>;
+				mode-meta = <BOOT_META>;
+				mode-rpmbpk = <BOOT_RPMBPK>;
+			};
 		};
 
 		apmixed: clock-controller@1000c000 {
