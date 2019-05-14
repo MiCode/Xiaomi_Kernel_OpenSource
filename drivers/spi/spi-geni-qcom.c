@@ -158,6 +158,7 @@ struct spi_geni_master {
 	int num_tx_eot;
 	int num_rx_eot;
 	int num_xfers;
+	bool slave_cross_connected;
 	void *ipc;
 	bool shared_se;
 	bool dis_autosuspend;
@@ -205,8 +206,14 @@ static void spi_slv_setup(struct spi_geni_master *mas)
 {
 	geni_write_reg(SPI_SLAVE_EN, mas->base, SE_SPI_SLAVE_EN);
 
-	geni_write_reg(1, mas->base, GENI_OUTPUT_CTRL);
-
+	if (mas->slave_cross_connected) {
+		geni_write_reg(GENI_IO_MUX_1_EN, mas->base, GENI_OUTPUT_CTRL);
+		geni_write_reg(IO1_SEL_TX | IO2_DATA_IN_SEL_PAD2 |
+						IO3_DATA_IN_SEL_PAD2,
+						mas->base, GENI_CFG_REG80);
+	} else {
+		geni_write_reg(GENI_IO_MUX_0_EN, mas->base, GENI_OUTPUT_CTRL);
+	}
 	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
 	/* ensure data is written to hardware register */
 	wmb();
@@ -1605,6 +1612,8 @@ static int spi_geni_probe(struct platform_device *pdev)
 		spi->slave_abort = spi_slv_abort;
 	}
 
+	geni_mas->slave_cross_connected =
+		of_property_read_bool(pdev->dev.of_node, "slv-cross-connected");
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	spi->num_chipselect = SPI_NUM_CHIPSELECT;
