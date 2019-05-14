@@ -217,28 +217,28 @@ static const struct mfd_cell mt6397_devs[] = {
 };
 
 struct chip_data {
-	unsigned int cid_addr;
-	unsigned int cid_mask;
+	u32 cid_addr;
+	u32 cid_shift;
 };
 
 static const struct chip_data mt6323_core = {
 	.cid_addr = MT6323_CID,
-	.cid_mask = 0xFF,
+	.cid_shift = 0,
 };
 
 static const struct chip_data mt6358_core = {
 	.cid_addr = MT6358_SWCID,
-	.cid_mask = 0xFF00,
+	.cid_shift = 8,
 };
 
 static const struct chip_data mt6359_core = {
 	.cid_addr = MT6359_SWCID,
-	.cid_mask = 0xFF00,
+	.cid_shift = 8,
 };
 
 static const struct chip_data mt6397_core = {
 	.cid_addr = MT6397_CID,
-	.cid_mask = 0xFF,
+	.cid_shift = 0,
 };
 
 static int mt6397_probe(struct platform_device *pdev)
@@ -247,10 +247,6 @@ static int mt6397_probe(struct platform_device *pdev)
 	unsigned int id;
 	struct mt6397_chip *pmic;
 	const struct chip_data *pmic_core;
-
-	pmic_core = of_device_get_match_data(&pdev->dev);
-	if (!pmic_core)
-		return -ENODEV;
 
 	pmic = devm_kzalloc(&pdev->dev, sizeof(*pmic), GFP_KERNEL);
 	if (!pmic)
@@ -266,28 +262,36 @@ static int mt6397_probe(struct platform_device *pdev)
 	if (!pmic->regmap)
 		return -ENODEV;
 
-	platform_set_drvdata(pdev, pmic);
+	pmic_core = of_device_get_match_data(&pdev->dev);
+	if (!pmic_core)
+		return -ENODEV;
 
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
 	if (ret) {
-		dev_err(pmic->dev, "Failed to read chip id: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to read chip id: %d\n", ret);
 		return ret;
 	}
-	pmic->chip_id = id & pmic_core->cid_mask;
+
+	pmic->chip_id = (id >> pmic_core->cid_shift) & 0xff;
+
+	platform_set_drvdata(pdev, pmic);
 
 	pmic->irq = platform_get_irq(pdev, 0);
-	if (pmic->irq <= 0)
+	if (pmic->irq <= 0) {
+		dev_err(&pdev->dev,
+			"failed to get platform irq, ret=%d", pmic->irq);
 		return pmic->irq;
+	}
 
 	switch (pmic->chip_id) {
-	case MT6358_CID_CODE:
-	case MT6359_CID_CODE:
+	case MT6358_CHIP_ID:
+	case MT6359_CHIP_ID:
 		ret = mt6358_irq_init(pmic);
 		break;
 
-	case MT6323_CID_CODE:
-	case MT6397_CID_CODE:
-	case MT6391_CID_CODE:
+	case MT6323_CHIP_ID:
+	case MT6397_CHIP_ID:
+	case MT6391_CHIP_ID:
 		ret = mt6397_irq_init(pmic);
 		break;
 
@@ -300,26 +304,26 @@ static int mt6397_probe(struct platform_device *pdev)
 		return ret;
 
 	switch (pmic->chip_id) {
-	case MT6323_CID_CODE:
+	case MT6323_CHIP_ID:
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6323_devs,
 					   ARRAY_SIZE(mt6323_devs), NULL,
 					   0, pmic->irq_domain);
 		break;
 
-	case MT6358_CID_CODE:
+	case MT6358_CHIP_ID:
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6358_devs,
 					   ARRAY_SIZE(mt6358_devs), NULL,
 					   0, pmic->irq_domain);
 		break;
 
-	case MT6359_CID_CODE:
+	case MT6359_CHIP_ID:
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6359_devs,
 					   ARRAY_SIZE(mt6359_devs), NULL,
 					   0, pmic->irq_domain);
 		break;
 
-	case MT6397_CID_CODE:
-	case MT6391_CID_CODE:
+	case MT6397_CHIP_ID:
+	case MT6391_CHIP_ID:
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6397_devs,
 					   ARRAY_SIZE(mt6397_devs), NULL,
 					   0, pmic->irq_domain);
@@ -327,8 +331,7 @@ static int mt6397_probe(struct platform_device *pdev)
 
 	default:
 		dev_err(&pdev->dev, "unsupported chip: 0x%x\n", pmic->chip_id);
-		ret = -ENODEV;
-		break;
+		return -ENODEV;
 	}
 
 	if (ret) {

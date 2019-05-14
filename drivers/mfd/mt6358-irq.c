@@ -18,7 +18,6 @@
 struct irq_top_t {
 	int hwirq_base;
 	unsigned int num_int_regs;
-	unsigned int num_int_bits;
 	unsigned int en_reg;
 	unsigned int en_reg_shift;
 	unsigned int sta_reg;
@@ -31,8 +30,8 @@ struct pmic_irq_data {
 	unsigned int num_pmic_irqs;
 	unsigned int reg_width;
 	unsigned short top_int_status_reg;
-	unsigned int *enable_hwirq;
-	unsigned int *cache_hwirq;
+	bool *enable_hwirq;
+	bool *cache_hwirq;
 	struct irq_top_t *pmic_ints;
 };
 
@@ -58,36 +57,22 @@ static struct irq_top_t mt6359_ints[] = {
 	MT6359_TOP_GEN(MISC),
 };
 
-static int parsing_hwirq_to_top_group(struct pmic_irq_data *irq_data,
-				      unsigned int hwirq)
-{
-	int top_group;
-
-	for (top_group = 1; top_group < irq_data->num_top; top_group++) {
-		if (irq_data->pmic_ints[top_group].hwirq_base > hwirq) {
-			top_group--;
-			break;
-		}
-	}
-	return top_group;
-}
-
 static void pmic_irq_enable(struct irq_data *data)
 {
 	unsigned int hwirq = irqd_to_hwirq(data);
 	struct mt6397_chip *chip = irq_data_get_irq_chip_data(data);
-	struct pmic_irq_data *irq_data = chip->irq_data;
+	struct pmic_irq_data *irqd = chip->irq_data;
 
-	irq_data->enable_hwirq[hwirq] = 1;
+	irqd->enable_hwirq[hwirq] = true;
 }
 
 static void pmic_irq_disable(struct irq_data *data)
 {
 	unsigned int hwirq = irqd_to_hwirq(data);
 	struct mt6397_chip *chip = irq_data_get_irq_chip_data(data);
-	struct pmic_irq_data *irq_data = chip->irq_data;
+	struct pmic_irq_data *irqd = chip->irq_data;
 
-	irq_data->enable_hwirq[hwirq] = 0;
+	irqd->enable_hwirq[hwirq] = false;
 }
 
 static void pmic_irq_lock(struct irq_data *data)
@@ -101,98 +86,103 @@ static void pmic_irq_sync_unlock(struct irq_data *data)
 {
 	unsigned int i, top_gp, en_reg, int_regs, shift;
 	struct mt6397_chip *chip = irq_data_get_irq_chip_data(data);
-	struct pmic_irq_data *irq_data = chip->irq_data;
+	struct pmic_irq_data *irqd = chip->irq_data;
 
-	for (i = 0; i < irq_data->num_pmic_irqs; i++) {
-		if (irq_data->enable_hwirq[i] ==
-				irq_data->cache_hwirq[i])
+	for (i = 0; i < irqd->num_pmic_irqs; i++) {
+		if (irqd->enable_hwirq[i] == irqd->cache_hwirq[i])
 			continue;
 
-		top_gp = parsing_hwirq_to_top_group(irq_data, i);
-		int_regs = irq_data->pmic_ints[top_gp].num_int_bits /
-			irq_data->reg_width;
-		en_reg = irq_data->pmic_ints[top_gp].en_reg +
-			irq_data->pmic_ints[top_gp].en_reg_shift * int_regs;
-		shift = (i - irq_data->pmic_ints[top_gp].hwirq_base) %
-			irq_data->reg_width;
-		regmap_update_bits(chip->regmap, en_reg, 0x1 << shift,
-				   irq_data->enable_hwirq[i] << shift);
-		irq_data->cache_hwirq[i] = irq_data->enable_hwirq[i];
+		top_gp = 0;
+		while ((top_gp + 1) < irqd->num_top &&
+			i >= irqd->pmic_ints[top_gp + 1].hwirq_base)
+			top_gp++;
+
+		if (top_gp >= irqd->num_top) {
+			mutex_unlock(&chip->irqlock);
+			dev_err(chip->dev,
+				"Failed to get top_group: %d\n", top_gp);
+			return;
+		}
+
+		int_regs = (i - irqd->pmic_ints[top_gp].hwirq_base) /
+			    irqd->reg_width;
+		en_reg = irqd->pmic_ints[top_gp].en_reg +
+			irqd->pmic_ints[top_gp].en_reg_shift * int_regs;
+		shift = (i - irqd->pmic_ints[top_gp].hwirq_base) %
+			irqd->reg_width;
+		regmap_update_bits(chip->regmap, en_reg, BIT(shift),
+				   irqd->enable_hwirq[i] << shift);
+		irqd->cache_hwirq[i] = irqd->enable_hwirq[i];
 	}
 	mutex_unlock(&chip->irqlock);
 }
 
-static int pmic_irq_set_type(struct irq_data *data, unsigned int type)
-{
-	return 0;
-}
-
 static struct irq_chip mt6358_irq_chip = {
 	.name = "mt6358-irq",
+	.flags = IRQCHIP_SKIP_SET_WAKE,
 	.irq_enable = pmic_irq_enable,
 	.irq_disable = pmic_irq_disable,
 	.irq_bus_lock = pmic_irq_lock,
 	.irq_bus_sync_unlock = pmic_irq_sync_unlock,
-	.irq_set_type = pmic_irq_set_type,
 };
 
 static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 				  unsigned int top_gp)
 {
-	unsigned int sta_reg, int_status = 0;
+	unsigned int sta_reg, irq_status = 0;
 	unsigned int hwirq, virq;
 	int ret, i, j;
-	struct pmic_irq_data *irq_data = chip->irq_data;
+	struct pmic_irq_data *irqd = chip->irq_data;
 
-	for (i = 0; i < irq_data->pmic_ints[top_gp].num_int_regs; i++) {
-		sta_reg = irq_data->pmic_ints[top_gp].sta_reg +
-			irq_data->pmic_ints[top_gp].sta_reg_shift * i;
-		ret = regmap_read(chip->regmap, sta_reg, &int_status);
+	for (i = 0; i < irqd->pmic_ints[top_gp].num_int_regs; i++) {
+		sta_reg = irqd->pmic_ints[top_gp].sta_reg +
+			irqd->pmic_ints[top_gp].sta_reg_shift * i;
+		ret = regmap_read(chip->regmap, sta_reg, &irq_status);
 		if (ret) {
 			dev_err(chip->dev,
 				"Failed to read irq status: %d\n", ret);
 			return;
 		}
 
-		if (!int_status)
+		if (!irq_status)
 			continue;
 
-		for (j = 0; j < 16 ; j++) {
-			if ((int_status & BIT(j)) == 0)
+		for (j = 0; j < irqd->reg_width ; j++) {
+			if ((irq_status & BIT(j)) == 0)
 				continue;
-			hwirq = irq_data->pmic_ints[top_gp].hwirq_base +
-				irq_data->reg_width * i + j;
+			hwirq = irqd->pmic_ints[top_gp].hwirq_base +
+				irqd->reg_width * i + j;
 			virq = irq_find_mapping(chip->irq_domain, hwirq);
 			dev_info(chip->dev,
 				"Reg[0x%x]=0x%x,hwirq=%d,type=%d\n",
-				sta_reg, int_status, hwirq,
+				sta_reg, irq_status, hwirq,
 				irq_get_trigger_type(virq));
 			if (virq)
 				handle_nested_irq(virq);
 		}
 
-		regmap_write(chip->regmap, sta_reg, int_status);
+		regmap_write(chip->regmap, sta_reg, irq_status);
 	}
 }
 
 static irqreturn_t mt6358_irq_handler(int irq, void *data)
 {
 	struct mt6397_chip *chip = data;
-	struct pmic_irq_data *irq_data = chip->irq_data;
-	unsigned int top_int_status = 0;
+	struct pmic_irq_data *irqd = chip->irq_data;
+	unsigned int top_irq_status;
 	unsigned int i;
 	int ret;
 
 	ret = regmap_read(chip->regmap,
-			  irq_data->top_int_status_reg,
-			  &top_int_status);
+			  irqd->top_int_status_reg,
+			  &top_irq_status);
 	if (ret) {
 		dev_err(chip->dev, "Can't read TOP_INT_STATUS ret=%d\n", ret);
 		return IRQ_NONE;
 	}
 
-	for (i = 0; i < irq_data->num_top; i++) {
-		if (top_int_status & BIT(irq_data->pmic_ints[i].top_offset))
+	for (i = 0; i < irqd->num_top; i++) {
+		if (top_irq_status & BIT(irqd->pmic_ints[i].top_offset))
 			mt6358_irq_sp_handler(chip, i);
 	}
 
@@ -220,30 +210,30 @@ static const struct irq_domain_ops mt6358_irq_domain_ops = {
 int mt6358_irq_init(struct mt6397_chip *chip)
 {
 	int i, j, ret;
-	struct pmic_irq_data *irq_data;
+	struct pmic_irq_data *irqd;
 
-	irq_data = devm_kzalloc(chip->dev, sizeof(struct pmic_irq_data *),
-				GFP_KERNEL);
-	if (!irq_data)
+	irqd = devm_kzalloc(chip->dev, sizeof(struct pmic_irq_data *),
+			    GFP_KERNEL);
+	if (!irqd)
 		return -ENOMEM;
 
-	chip->irq_data = irq_data;
+	chip->irq_data = irqd;
 
 	mutex_init(&chip->irqlock);
 	switch (chip->chip_id) {
-	case MT6358_CID_CODE:
-		irq_data->num_top = MT6358_TOP_NR;
-		irq_data->num_pmic_irqs = MT6358_IRQ_NR;
-		irq_data->reg_width = MT6358_REG_WIDTH;
-		irq_data->top_int_status_reg = MT6358_TOP_INT_STATUS0;
-		irq_data->pmic_ints = mt6358_ints;
+	case MT6358_CHIP_ID:
+		irqd->num_top = MT6358_TOP_NR;
+		irqd->num_pmic_irqs = MT6358_IRQ_NR;
+		irqd->reg_width = MT6358_REG_WIDTH;
+		irqd->top_int_status_reg = MT6358_TOP_INT_STATUS0;
+		irqd->pmic_ints = mt6358_ints;
 		break;
-	case MT6359_CID_CODE:
-		irq_data->num_top = MT6359_TOP_NR;
-		irq_data->num_pmic_irqs = MT6359_IRQ_NR;
-		irq_data->reg_width = MT6359_REG_WIDTH;
-		irq_data->top_int_status_reg = MT6359_TOP_INT_STATUS0;
-		irq_data->pmic_ints = mt6359_ints;
+	case MT6359_CHIP_ID:
+		irqd->num_top = MT6359_TOP_NR;
+		irqd->num_pmic_irqs = MT6359_IRQ_NR;
+		irqd->reg_width = MT6359_REG_WIDTH;
+		irqd->top_int_status_reg = MT6359_TOP_INT_STATUS0;
+		irqd->pmic_ints = mt6359_ints;
 		break;
 	default:
 		dev_err(chip->dev, "unsupported chip: 0x%x\n", chip->chip_id);
@@ -251,31 +241,30 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 		break;
 	}
 
-	irq_data->enable_hwirq = devm_kcalloc(chip->dev,
-					      irq_data->num_pmic_irqs,
-					      sizeof(unsigned int),
-					      GFP_KERNEL);
-	if (!irq_data->enable_hwirq)
+	irqd->enable_hwirq = devm_kcalloc(chip->dev,
+					  irqd->num_pmic_irqs,
+					  sizeof(bool),
+					  GFP_KERNEL);
+	if (!irqd->enable_hwirq)
 		return -ENOMEM;
 
-	irq_data->cache_hwirq = devm_kcalloc(chip->dev,
-					     irq_data->num_pmic_irqs,
-					     sizeof(unsigned int),
-					     GFP_KERNEL);
-	if (!irq_data->cache_hwirq)
+	irqd->cache_hwirq = devm_kcalloc(chip->dev,
+					 irqd->num_pmic_irqs,
+					 sizeof(bool),
+					 GFP_KERNEL);
+	if (!irqd->cache_hwirq)
 		return -ENOMEM;
 
 	/* Disable all interrupt for initializing */
-	for (i = 0; i < irq_data->num_top; i++) {
-		for (j = 0; j < irq_data->pmic_ints[i].num_int_regs; j++)
+	for (i = 0; i < irqd->num_top; i++) {
+		for (j = 0; j < irqd->pmic_ints[i].num_int_regs; j++)
 			regmap_write(chip->regmap,
-				     irq_data->pmic_ints[i].en_reg +
-				     irq_data->pmic_ints[i].en_reg_shift * j,
-				     0);
+				     irqd->pmic_ints[i].en_reg +
+				     irqd->pmic_ints[i].en_reg_shift * j, 0);
 	}
 
 	chip->irq_domain = irq_domain_add_linear(chip->dev->of_node,
-						 irq_data->num_pmic_irqs,
+						 irqd->num_pmic_irqs,
 						 &mt6358_irq_domain_ops, chip);
 	if (!chip->irq_domain) {
 		dev_err(chip->dev, "could not create irq domain\n");
