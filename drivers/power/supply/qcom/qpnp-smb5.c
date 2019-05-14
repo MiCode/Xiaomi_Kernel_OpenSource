@@ -2902,6 +2902,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[SMB_EN_IRQ] = {
 		.name		= "smb-en",
+		.handler	= smb_en_irq_handler,
 	},
 	[IMP_TRIGGER_IRQ] = {
 		.name		= "imp-trigger",

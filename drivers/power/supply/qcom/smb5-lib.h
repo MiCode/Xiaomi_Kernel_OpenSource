@@ -574,6 +574,7 @@ int smblib_vconn_regulator_disable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t default_irq_handler(int irq, void *data);
+irqreturn_t smb_en_irq_handler(int irq, void *data);
 irqreturn_t chg_state_change_irq_handler(int irq, void *data);
 irqreturn_t batt_temp_changed_irq_handler(int irq, void *data);
 irqreturn_t batt_psy_changed_irq_handler(int irq, void *data);
