@@ -606,7 +606,8 @@ static int cam_vfe_camif_ver3_reg_dump_bh(
 	}
 
 	soc_private = camif_priv->soc_info->soc_private;
-	if (soc_private->cpas_version == CAM_CPAS_TITAN_175_V120) {
+	if (soc_private->cpas_version == CAM_CPAS_TITAN_175_V120 ||
+		soc_private->cpas_version == CAM_CPAS_TITAN_175_V130) {
 		cam_cpas_reg_read(soc_private->cpas_handle,
 			CAM_CPAS_REG_CAMNOC, 0x3A20, true, &val);
 		CAM_DBG(CAM_ISP, "IFE0_nRDI_MAXWR_LOW offset 0x3A20 val 0x%x",
