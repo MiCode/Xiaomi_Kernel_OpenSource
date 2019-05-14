@@ -232,17 +232,17 @@ static void mtgpufreq_clk_init(void)
 
 	if (g_clk == NULL)
 		PVR_DPF((PVR_DBG_ERROR,
-			"%s: failed: %d", __func__, -ENOMEM)));
+			"%s: failed: %d", __func__, -ENOMEM));
 
 	if (gpsPVRCfgDev == NULL)
 		PVR_DPF((PVR_DBG_ERROR,
-			"%s: failed: %d", __func__, -ENODEV)));
+			"%s: failed: %d", __func__, -ENODEV));
 
 	g_clk->clk_mux = devm_clk_get(&gpsPVRCfgDev->dev, "clk_mux");
 	if (IS_ERR(g_clk->clk_mux)) {
 		PVR_DPF((PVR_DBG_ERROR,
 			"%s: cannot get clk_mux",
-			__func__)));
+			__func__));
 	}
 
 	g_clk->clk_main_parent
@@ -250,7 +250,7 @@ static void mtgpufreq_clk_init(void)
 	if (IS_ERR(g_clk->clk_main_parent)) {
 		PVR_DPF((PVR_DBG_ERROR,
 			"%s: cannot get clk_main_parent",
-			__func__)));
+			__func__));
 	}
 
 	g_clk->clk_sub_parent
@@ -258,14 +258,14 @@ static void mtgpufreq_clk_init(void)
 	if (IS_ERR(g_clk->clk_sub_parent)) {
 		PVR_DPF((PVR_DBG_ERROR,
 			"%s: cannot get clk_sub_parent",
-			__func__)));
+			__func__));
 	}
 
 	g_clk->cg_bg3d = devm_clk_get(&gpsPVRCfgDev->dev, "cg_bg3d");
 	if (IS_ERR(g_clk->cg_bg3d)) {
 		PVR_DPF((PVR_DBG_ERROR,
 			"%s: cannot get cg_bg3d",
-			__func__)));
+			__func__));
 	}
 
 	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
@@ -282,7 +282,7 @@ static void mtgpufreq_force_clk(enum g_clock_source_enum clksrc)
 	if (ret)
 		PVR_DPF((PVR_DBG_ERROR,
 			"enable clk_mux(TOP_MUX_MFG) failed, ret = %d",
-			__func__, ret)));
+			__func__, ret));
 
 	if (clksrc == CLOCK_MAIN) {
 		clk_set_parent(g_clk->clk_mux, g_clk->clk_main_parent);
