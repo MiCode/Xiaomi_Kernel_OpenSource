@@ -141,10 +141,10 @@ struct cvp_freq_data {
 	bool turbo;
 };
 
-struct internal_buf {
+struct cvp_internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
-	struct msm_smem smem;
+	struct msm_cvp_smem smem;
 	enum buffer_owner buffer_ownership;
 	bool mark_remove;
 };
@@ -232,7 +232,7 @@ enum dcvs_flags {
 	MSM_CVP_DCVS_DECR = BIT(1),
 };
 
-struct clock_data {
+struct cvp_clock_data {
 	int buffer_counter;
 	int load;
 	int load_low;
@@ -260,7 +260,7 @@ struct clock_data {
 	u32 dcvs_flags;
 };
 
-struct profile_data {
+struct cvp_profile_data {
 	int start;
 	int stop;
 	int cumulative;
@@ -270,7 +270,7 @@ struct profile_data {
 };
 
 struct msm_cvp_debug {
-	struct profile_data pdata[MAX_PROFILING_POINTS];
+	struct cvp_profile_data pdata[MAX_PROFILING_POINTS];
 	int profile;
 	int samples;
 };
@@ -292,9 +292,9 @@ struct msm_cvp_core_ops {
 #define MAX_NUM_MSGS_PER_SESSION	128
 #define CVP_MAX_WAIT_TIME	2000
 
-struct session_msg {
+struct cvp_session_msg {
 	struct list_head node;
-	struct hfi_msg_session_hdr pkt;
+	struct cvp_hfi_msg_session_hdr pkt;
 };
 
 enum queue_state {
@@ -313,22 +313,6 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
-
-struct session_crop {
-	u32 left;
-	u32 top;
-	u32 width;
-	u32 height;
-};
-
-struct session_prop {
-	u32 width[MAX_PORT_NUM];
-	u32 height[MAX_PORT_NUM];
-	struct session_crop crop_info;
-	u32 fps;
-	u32 bitrate;
-};
-
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
@@ -337,7 +321,7 @@ struct msm_cvp_core {
 	struct cdev cdev;
 	struct class *class;
 	struct device *dev;
-	struct hfi_device *device;
+	struct cvp_hfi_device *device;
 	struct msm_cvp_platform_data *platform_data;
 	struct list_head instances;
 	struct dentry *debugfs_root;
@@ -363,19 +347,18 @@ struct msm_cvp_inst {
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
 	void *session;
-	struct session_prop prop;
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
 	struct msm_cvp_list registeredbufs;
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
-	struct buffer_requirements buff_req;
+	struct cvp_buffer_requirements buff_req;
 	struct completion completions[SESSION_MSG_END - SESSION_MSG_START + 1];
-	struct msm_smem *extradata_handle;
+	struct msm_cvp_smem *extradata_handle;
 	struct dentry *debugfs_root;
 	struct msm_cvp_debug debug;
-	struct clock_data clk_data;
+	struct cvp_clock_data clk_data;
 	enum msm_cvp_modes flags;
 	struct msm_cvp_capability capability;
 	struct kref kref;
@@ -398,22 +381,23 @@ enum msm_cvp_flags {
 
 struct msm_cvp_internal_buffer {
 	struct list_head list;
-	struct msm_smem smem;
+	struct msm_cvp_smem smem;
 	struct cvp_kmd_buffer buf;
 };
 
 void msm_cvp_comm_handle_thermal_event(void);
 int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,
-	void  *res, u32 session_type, struct msm_smem *smem);
-int msm_cvp_smem_free(struct msm_smem *smem);
+	void  *res, u32 session_type, struct msm_cvp_smem *smem);
+int msm_cvp_smem_free(struct msm_cvp_smem *smem);
 
 struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_cvp_platform_resources *res,
 	enum hal_buffer buffer_type);
-int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst, struct msm_smem *smem);
+int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
+				struct msm_cvp_smem *smem);
 int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,
-	struct msm_smem *smem);
+	struct msm_cvp_smem *smem);
 struct dma_buf *msm_cvp_smem_get_dma_buf(int fd);
 void msm_cvp_smem_put_dma_buf(void *dma_buf);
 int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,

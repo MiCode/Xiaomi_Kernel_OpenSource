@@ -42,7 +42,7 @@
 #define CVP_MAX_SUBCACHES 4
 #define CVP_MAX_SUBCACHE_SIZE 52
 
-struct hfi_queue_table_header {
+struct cvp_hfi_queue_table_header {
 	u32 qtbl_version;
 	u32 qtbl_size;
 	u32 qtbl_qhdr0_offset;
@@ -53,7 +53,7 @@ struct hfi_queue_table_header {
 	char name[256];
 };
 
-struct hfi_queue_header {
+struct cvp_hfi_queue_header {
 	u32 qhdr_status;
 	u32 qhdr_start_addr;
 	u32 qhdr_type;
@@ -70,27 +70,27 @@ struct hfi_queue_header {
 	u32 qhdr_write_idx;
 };
 
-struct hfi_mem_map_table {
+struct cvp_hfi_mem_map_table {
 	u32 mem_map_num_entries;
 	u32 mem_map_table_base_addr;
 };
 
-struct hfi_mem_map {
+struct cvp_hfi_mem_map {
 	u32 virtual_addr;
 	u32 physical_addr;
 	u32 size;
 	u32 attr;
 };
 
-#define CVP_IFACEQ_TABLE_SIZE (sizeof(struct hfi_queue_table_header) \
-	+ sizeof(struct hfi_queue_header) * CVP_IFACEQ_NUMQ)
+#define CVP_IFACEQ_TABLE_SIZE (sizeof(struct cvp_hfi_queue_table_header) \
+	+ sizeof(struct cvp_hfi_queue_header) * CVP_IFACEQ_NUMQ)
 
 #define CVP_IFACEQ_QUEUE_SIZE	(CVP_IFACEQ_MAX_PKT_SIZE *  \
 	CVP_IFACEQ_MAX_BUF_COUNT * CVP_IFACE_MAX_PARALLEL_CLNTS)
 
 #define CVP_IFACEQ_GET_QHDR_START_ADDR(ptr, i)     \
-	(void *)((ptr + sizeof(struct hfi_queue_table_header)) + \
-		(i * sizeof(struct hfi_queue_header)))
+	(void *)((ptr + sizeof(struct cvp_hfi_queue_table_header)) + \
+		(i * sizeof(struct cvp_hfi_queue_header)))
 
 #define QDSS_SIZE 4096
 #define SFR_SIZE 4096
@@ -121,7 +121,7 @@ struct cvp_mem_addr {
 	u32 align_device_addr;
 	u8 *align_virtual_addr;
 	u32 mem_size;
-	struct msm_smem mem_data;
+	struct msm_cvp_smem mem_data;
 };
 
 struct cvp_iface_q_info {
@@ -132,7 +132,7 @@ struct cvp_iface_q_info {
 
 /*
  * These are helper macros to iterate over various lists within
- * venus_hfi_device->res.  The intention is to cut down on a lot of boiler-plate
+ * iris_hfi_device->res.  The intention is to cut down on a lot of boiler-plate
  * code
  */
 
@@ -204,7 +204,7 @@ struct cvp_iface_q_info {
 	((d)->vpu_ops->op(args)):0)
 
 /* Internal data used in vidc_hal not exposed to msm_vidc*/
-struct hal_data {
+struct cvp_hal_data {
 	u32 irq;
 	phys_addr_t firmware_base;
 	u8 __iomem *register_base;
@@ -213,7 +213,7 @@ struct hal_data {
 	u32 gcc_reg_size;
 };
 
-struct venus_resources {
+struct iris_resources {
 	struct msm_cvp_fw fw;
 };
 
@@ -233,18 +233,18 @@ enum reset_state {
 	DEASSERT,
 };
 
-struct venus_hfi_device;
+struct iris_hfi_device;
 
-struct venus_hfi_vpu_ops {
-	void (*interrupt_init)(struct venus_hfi_device *ptr);
-	void (*setup_dsp_uc_memmap)(struct venus_hfi_device *device);
-	void (*clock_config_on_enable)(struct venus_hfi_device *device);
-	int (*reset_ahb2axi_bridge)(struct venus_hfi_device *device);
-	void (*power_off)(struct venus_hfi_device *device);
-	void (*noc_error_info)(struct venus_hfi_device *device);
+struct iris_hfi_vpu_ops {
+	void (*interrupt_init)(struct iris_hfi_device *ptr);
+	void (*setup_dsp_uc_memmap)(struct iris_hfi_device *device);
+	void (*clock_config_on_enable)(struct iris_hfi_device *device);
+	int (*reset_ahb2axi_bridge)(struct iris_hfi_device *device);
+	void (*power_off)(struct iris_hfi_device *device);
+	void (*noc_error_info)(struct iris_hfi_device *device);
 };
 
-struct venus_hfi_device {
+struct iris_hfi_device {
 	struct list_head list;
 	struct list_head sess_head;
 	u32 intr_status;
@@ -265,27 +265,27 @@ struct venus_hfi_device {
 	struct cvp_iface_q_info iface_queues[CVP_IFACEQ_NUMQ];
 	struct cvp_iface_q_info dsp_iface_queues[CVP_IFACEQ_NUMQ];
 	u32 dsp_flags;
-	struct hal_data *hal_data;
+	struct cvp_hal_data *cvp_hal_data;
 	struct workqueue_struct *cvp_workq;
 	struct workqueue_struct *venus_pm_workq;
 	int spur_count;
 	int reg_count;
-	struct venus_resources resources;
+	struct iris_resources resources;
 	struct msm_cvp_platform_resources *res;
 	enum venus_hfi_state state;
-	struct hfi_packetization_ops *pkt_ops;
+	struct cvp_hfi_packetization_ops *pkt_ops;
 	enum hfi_packetization_type packetization_type;
 	struct msm_cvp_cb_info *response_pkt;
 	u8 *raw_packet;
 	struct pm_qos_request qos;
 	unsigned int skip_pc_count;
 	struct msm_cvp_capability *sys_init_capabilities;
-	struct venus_hfi_vpu_ops *vpu_ops;
+	struct iris_hfi_vpu_ops *vpu_ops;
 };
 
 void cvp_venus_hfi_delete_device(void *device);
 
-int cvp_venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
+int cvp_venus_hfi_initialize(struct cvp_hfi_device *hdev, u32 device_id,
 		struct msm_cvp_platform_resources *res,
 		hfi_cmd_response_callback callback);
 

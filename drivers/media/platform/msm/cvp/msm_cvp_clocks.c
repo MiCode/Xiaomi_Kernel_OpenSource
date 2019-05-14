@@ -23,7 +23,7 @@ struct msm_cvp_core_ops cvp_core_ops_vpu5 = {
 	.decide_work_mode = msm_cvp_decide_work_mode,
 };
 
-static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
+static inline void msm_dcvs_print_dcvs_stats(struct cvp_clock_data *dcvs)
 {
 	dprintk(CVP_PROF,
 		"DCVS: Load_Low %d, Load Norm %d, Load High %d\n",
@@ -36,57 +36,13 @@ static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
 		dcvs->min_threshold, dcvs->max_threshold);
 }
 
-static inline unsigned long get_ubwc_compression_ratio(
-	struct ubwc_cr_stats_info_type ubwc_stats_info)
-{
-	unsigned long sum = 0, weighted_sum = 0;
-	unsigned long compression_ratio = 1 << 16;
-
-	weighted_sum =
-		32  * ubwc_stats_info.cr_stats_info0 +
-		64  * ubwc_stats_info.cr_stats_info1 +
-		96  * ubwc_stats_info.cr_stats_info2 +
-		128 * ubwc_stats_info.cr_stats_info3 +
-		160 * ubwc_stats_info.cr_stats_info4 +
-		192 * ubwc_stats_info.cr_stats_info5 +
-		256 * ubwc_stats_info.cr_stats_info6;
-
-	sum =
-		ubwc_stats_info.cr_stats_info0 +
-		ubwc_stats_info.cr_stats_info1 +
-		ubwc_stats_info.cr_stats_info2 +
-		ubwc_stats_info.cr_stats_info3 +
-		ubwc_stats_info.cr_stats_info4 +
-		ubwc_stats_info.cr_stats_info5 +
-		ubwc_stats_info.cr_stats_info6;
-
-	compression_ratio = (weighted_sum && sum) ?
-		((256 * sum) << 16) / weighted_sum : compression_ratio;
-
-	return compression_ratio;
-}
-
 static int msm_cvp_get_fps(struct msm_cvp_inst *inst)
 {
-	int fps;
-
-	if ((inst->clk_data.operating_rate >> 16) > inst->prop.fps)
-		fps = (inst->clk_data.operating_rate >> 16) ?
-			(inst->clk_data.operating_rate >> 16) : 1;
-	else
-		fps = inst->prop.fps;
-
-	return fps;
+	return 0;
 }
 
 int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 {
-	int rc = 0, vote_data_count = 0, i = 0;
-	struct hfi_device *hdev;
-	struct msm_cvp_inst *inst = NULL;
-	struct cvp_bus_vote_data *vote_data = NULL;
-	bool is_turbo = false;
-
 	if (!core || !core->device) {
 		dprintk(CVP_ERR, "%s Invalid args: %pK\n", __func__, core);
 		return -EINVAL;
@@ -96,107 +52,7 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 		dprintk(CVP_WARN, "%s is not enabled for CVP!\n", __func__);
 		return 0;
 
-	hdev = core->device;
-	vote_data = kzalloc(sizeof(struct cvp_bus_vote_data) *
-			MAX_SUPPORTED_INSTANCES, GFP_ATOMIC);
-	if (!vote_data) {
-		dprintk(CVP_DBG,
-			"vote_data allocation with GFP_ATOMIC failed\n");
-		vote_data = kzalloc(sizeof(struct cvp_bus_vote_data) *
-			MAX_SUPPORTED_INSTANCES, GFP_KERNEL);
-		if (!vote_data) {
-			dprintk(CVP_DBG,
-				"vote_data allocation failed\n");
-			return -EINVAL;
-		}
-	}
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		int codec = 0;
-		u32 filled_len = 0;
-		u32 device_addr = 0;
-
-		if ((!filled_len || !device_addr) &&
-			(inst->session_type != MSM_CVP_CORE)) {
-			dprintk(CVP_DBG, "%s: no input for session %x\n",
-				__func__, hash32_ptr(inst->session));
-			continue;
-		}
-
-		++vote_data_count;
-
-		if (inst->session_type != MSM_CVP_CORE) {
-			dprintk(CVP_ERR, "%s: invalid session_type %#x\n",
-				__func__, inst->session_type);
-			break;
-		}
-
-		memset(&(vote_data[i]), 0x0, sizeof(struct cvp_bus_vote_data));
-
-		vote_data[i].domain = HAL_VIDEO_DOMAIN_CVP;
-		vote_data[i].codec = HAL_VIDEO_CODEC_CVP;
-		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].input_height = max(inst->prop.height[OUTPUT_PORT],
-				inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].output_width =  max(inst->prop.width[CAPTURE_PORT],
-				inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].output_height =
-				max(inst->prop.height[CAPTURE_PORT],
-				inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].lcu_size = (codec == V4L2_PIX_FMT_HEVC ||
-				codec == V4L2_PIX_FMT_VP9) ? 32 : 16;
-		vote_data[i].b_frames_enabled = false;
-
-		vote_data[i].fps = msm_cvp_get_fps(inst);
-		if (inst->session_type == MSM_CVP_ENCODER) {
-			vote_data[i].bitrate = inst->clk_data.bitrate;
-			/* scale bitrate if operating rate is larger than fps */
-			if (vote_data[i].fps > inst->prop.fps
-				&& inst->prop.fps) {
-				vote_data[i].bitrate = vote_data[i].bitrate /
-				inst->prop.fps * vote_data[i].fps;
-			}
-		}
-
-		vote_data[i].power_mode = 0;
-		if (inst->clk_data.buffer_counter < DCVS_FTB_WINDOW &&
-			inst->session_type != MSM_CVP_CORE)
-			vote_data[i].power_mode = CVP_POWER_TURBO;
-		if (msm_cvp_clock_voting || is_turbo)
-			vote_data[i].power_mode = CVP_POWER_TURBO;
-
-		if (msm_cvp_comm_get_stream_output_mode(inst) ==
-				HAL_VIDEO_DECODER_PRIMARY) {
-			vote_data[i].color_formats[0] = HAL_UNUSED_COLOR;
-			vote_data[i].num_formats = 1;
-		} else {
-			vote_data[i].color_formats[0] = HAL_UNUSED_COLOR;
-			vote_data[i].color_formats[1] = HAL_UNUSED_COLOR;
-			vote_data[i].num_formats = 2;
-		}
-		vote_data[i].work_mode = inst->clk_data.work_mode;
-
-		if (core->resources.sys_cache_res_set)
-			vote_data[i].use_sys_cache = true;
-
-		if (inst->session_type == MSM_CVP_CORE) {
-			vote_data[i].domain = HAL_VIDEO_DOMAIN_CVP;
-			vote_data[i].ddr_bw = inst->clk_data.ddr_bw;
-			vote_data[i].sys_cache_bw =
-				inst->clk_data.sys_cache_bw;
-		}
-
-		i++;
-	}
-	mutex_unlock(&core->lock);
-	if (vote_data_count)
-		rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data,
-			vote_data, vote_data_count);
-
-	kfree(vote_data);
-	return rc;
+	return 0;
 }
 
 static int msm_dcvs_scale_clocks(struct msm_cvp_inst *inst,
@@ -205,8 +61,8 @@ static int msm_dcvs_scale_clocks(struct msm_cvp_inst *inst,
 	int rc = 0;
 	int bufs_with_fw = 0;
 	int bufs_with_client = 0;
-	struct hal_buffer_requirements *buf_reqs;
-	struct clock_data *dcvs;
+	struct cvp_hal_buffer_requirements *buf_reqs;
+	struct cvp_clock_data *dcvs;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(CVP_ERR, "%s Invalid params\n", __func__);
@@ -337,7 +193,7 @@ static unsigned long msm_cvp_calc_freq(struct msm_cvp_inst *inst,
 	int i = 0;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u64 rate = 0, fps;
-	struct clock_data *dcvs = NULL;
+	struct cvp_clock_data *dcvs = NULL;
 
 	core = inst->core;
 	dcvs = &inst->clk_data;
@@ -376,7 +232,7 @@ static unsigned long msm_cvp_calc_freq(struct msm_cvp_inst *inst,
 
 int msm_cvp_set_clocks(struct msm_cvp_core *core)
 {
-	struct hfi_device *hdev;
+	struct cvp_hfi_device *hdev;
 	unsigned long freq_core_1 = 0, freq_core_2 = 0, rate = 0;
 	unsigned long freq_core_max = 0;
 	struct msm_cvp_inst *temp = NULL;
@@ -507,7 +363,7 @@ no_clock_change:
 int msm_cvp_comm_scale_clocks_and_bus(struct msm_cvp_inst *inst)
 {
 	struct msm_cvp_core *core;
-	struct hfi_device *hdev;
+	struct cvp_hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(CVP_ERR, "%s Invalid params\n", __func__);

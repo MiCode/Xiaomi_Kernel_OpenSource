@@ -33,7 +33,7 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	return 0;
 
 set_default_pkt_hdr:
-	pkt_hdr->size = sizeof(struct hfi_msg_session_hdr);
+	pkt_hdr->size = sizeof(struct cvp_hfi_msg_session_hdr);
 	return 0;
 }
 
@@ -358,7 +358,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
-	int i, size = sizeof(struct hfi_msg_session_hdr) >> 2;
+	int i, size = sizeof(struct cvp_hfi_msg_session_hdr) >> 2;
 	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
