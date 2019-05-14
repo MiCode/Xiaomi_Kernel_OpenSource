@@ -135,8 +135,8 @@ static int msm_cvp_session_get_iova_addr(
 
 	if (search_size != cbuf->buf.size) {
 		dprintk(CVP_ERR,
-			"%s: invalid size received fd = %d\n",
-			__func__, search_fd);
+			"%s: invalid size received fd = %d, size 0x%x 0x%x\n",
+			__func__, search_fd, search_size, cbuf->buf.size);
 		return -EINVAL;
 	}
 	*iova = cbuf->smem.device_addr;
@@ -428,10 +428,69 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 		return rc;
 	}
 
-	memcpy(out_pkt, &msg->pkt, sizeof(struct cvp_hfi_msg_session_hdr));
+	memcpy(out_pkt, &msg->pkt, get_msg_size());
 	kmem_cache_free(inst->session_queue.msg_cache, msg);
 
 	return 0;
+}
+
+static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
+	struct cvp_kmd_hfi_packet *in_pkt,
+	unsigned int offset, unsigned int buf_num)
+{
+	struct msm_cvp_internal_buffer *cbuf = NULL;
+	struct cvp_buf_desc *buf_ptr;
+	struct cvp_buf_type *new_buf;
+	int i, rc = 0;
+	struct cvp_hfi_device *hdev = inst->core->device;
+	struct iris_hfi_device *hfi = hdev->hfi_device_data;
+	u32 version = hfi->version;
+
+	version = (version & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (offset != 0 && buf_num != 0) {
+		for (i = 0; i < buf_num; i++) {
+			buf_ptr = (struct cvp_buf_desc *)
+					&in_pkt->pkt_data[offset];
+			if (version >= 1)
+				offset += sizeof(*new_buf) >> 2;
+			else
+				offset += sizeof(*buf_ptr) >> 2;
+
+			if (!buf_ptr->fd)
+				continue;
+
+			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
+						buf_ptr->fd,
+						buf_ptr->size,
+						&buf_ptr->fd,
+						&buf_ptr->size);
+			if (rc == -ENOENT) {
+				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
+					__func__, buf_ptr->fd,
+					buf_ptr->size);
+				rc = msm_cvp_map_buf_cpu(inst, buf_ptr->fd,
+						buf_ptr->size, &cbuf);
+				if (rc || !cbuf) {
+					dprintk(CVP_ERR,
+					"%s: buf %d register failed. rc=%d\n",
+					__func__, i, rc);
+					return rc;
+				}
+				buf_ptr->fd = cbuf->smem.device_addr;
+				buf_ptr->size = cbuf->buf.size;
+			} else if (rc) {
+				dprintk(CVP_ERR,
+				"%s: buf %d register failed. rc=%d\n",
+				__func__, i, rc);
+				return rc;
+			}
+			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
+						SMEM_CACHE_CLEAN_INVALIDATE,
+						0, buf_ptr->size);
+		}
+	}
+	return rc;
 }
 
 static int msm_cvp_session_process_hfi(
@@ -440,10 +499,8 @@ static int msm_cvp_session_process_hfi(
 	unsigned int in_offset,
 	unsigned int in_buf_num)
 {
-	int i, pkt_idx, rc = 0;
+	int pkt_idx, rc = 0;
 	struct cvp_hfi_device *hdev;
-	struct msm_cvp_internal_buffer *cbuf = NULL;
-	struct cvp_buf_desc *buf_ptr;
 	unsigned int offset, buf_num, signal;
 	struct cvp_session_queue *sq;
 
@@ -478,51 +535,14 @@ static int msm_cvp_session_process_hfi(
 	}
 
 	if (in_offset && in_buf_num) {
-		if (offset != in_offset || buf_num != in_buf_num) {
-			dprintk(CVP_ERR, "%s incorrect offset and num %d, %d\n",
-					__func__, in_offset, in_buf_num);
-			offset = in_offset;
-			buf_num = in_buf_num;
-		}
+		offset = in_offset;
+		buf_num = in_buf_num;
 	}
 
-	if (offset != 0 && buf_num != 0) {
-		buf_ptr = (struct cvp_buf_desc *)&in_pkt->pkt_data[offset];
+	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
+	if (rc)
+		return rc;
 
-		for (i = 0; i < buf_num; i++) {
-			if (!buf_ptr[i].fd)
-				continue;
-
-			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
-						buf_ptr[i].fd,
-						buf_ptr[i].size,
-						&buf_ptr[i].fd,
-						&buf_ptr[i].size);
-			if (rc == -ENOENT) {
-				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
-					__func__, buf_ptr[i].fd,
-					buf_ptr[i].size);
-				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
-						buf_ptr[i].size, &cbuf);
-				if (rc || !cbuf) {
-					dprintk(CVP_ERR,
-					"%s: buf %d register failed. rc=%d\n",
-					__func__, i, rc);
-					return rc;
-				}
-				buf_ptr[i].fd = cbuf->smem.device_addr;
-				buf_ptr[i].size = cbuf->buf.size;
-			} else if (rc) {
-				dprintk(CVP_ERR,
-				"%s: buf %d register failed. rc=%d\n",
-				__func__, i, rc);
-				return rc;
-			}
-			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
-						SMEM_CACHE_CLEAN_INVALIDATE,
-						0, buf_ptr[i].size);
-		}
-	}
 	rc = call_hfi_op(hdev, session_send,
 			(void *)inst->session, in_pkt);
 	if (rc) {
@@ -794,13 +814,11 @@ static int msm_cvp_session_process_hfi_fence(
 {
 	static int thread_num;
 	struct task_struct *thread;
-	int i, rc = 0;
+	int rc = 0;
 	char thread_fence_name[32];
 	int pkt_idx;
 	struct cvp_kmd_hfi_packet *in_pkt;
-	unsigned int offset, buf_num;
-	struct msm_cvp_internal_buffer *cbuf = NULL;
-	struct cvp_buf_desc *buf_ptr;
+	unsigned int signal, offset, buf_num, in_offset, in_buf_num;
 
 	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
 
@@ -809,57 +827,31 @@ static int msm_cvp_session_process_hfi_fence(
 		return -EINVAL;
 	}
 
+	in_offset = arg->buf_offset;
+	in_buf_num = arg->buf_num;
 	in_pkt = (struct cvp_kmd_hfi_packet *)&arg->data.hfi_pkt;
 	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
 	if (pkt_idx < 0) {
 		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
-			in_pkt->pkt_data[0],
-			in_pkt->pkt_data[1]);
-		rc = pkt_idx;
+				in_pkt->pkt_data[0],
+				in_pkt->pkt_data[1]);
+		offset = in_offset;
+		buf_num = in_buf_num;
+		signal = HAL_NO_RESP;
+	} else {
+		offset = cvp_hfi_defs[pkt_idx].buf_offset;
+		buf_num = cvp_hfi_defs[pkt_idx].buf_num;
+		signal = cvp_hfi_defs[pkt_idx].resp;
+	}
+
+	if (in_offset && in_buf_num) {
+		offset = in_offset;
+		buf_num = in_buf_num;
+	}
+
+	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
+	if (rc)
 		return rc;
-	}
-
-	offset = cvp_hfi_defs[pkt_idx].buf_offset;
-	buf_num = cvp_hfi_defs[pkt_idx].buf_num;
-
-	if (offset != 0 && buf_num != 0) {
-		buf_ptr = (struct cvp_buf_desc *)&in_pkt->pkt_data[offset];
-
-		for (i = 0; i < buf_num; i++) {
-			if (!buf_ptr[i].fd)
-				continue;
-
-			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
-				buf_ptr[i].fd,
-				buf_ptr[i].size,
-				&buf_ptr[i].fd,
-				&buf_ptr[i].size);
-
-			if (rc == -ENOENT) {
-				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
-					__func__, buf_ptr[i].fd,
-					buf_ptr[i].size);
-				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
-						buf_ptr[i].size, &cbuf);
-				if (rc || !cbuf) {
-					dprintk(CVP_ERR,
-					"%s: buf %d register failed. rc=%d\n",
-					__func__, i, rc);
-					return rc;
-				}
-				buf_ptr[i].fd = cbuf->smem.device_addr;
-				buf_ptr[i].size = cbuf->buf.size;
-			} else if (rc) {
-				dprintk(CVP_ERR,
-				"%s: buf %d register failed. rc=%d\n",
-				__func__, i, rc);
-				return rc;
-			}
-			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
-						SMEM_CACHE_CLEAN_INVALIDATE,
-						0, buf_ptr[i].size);
-		}
-	}
 
 	thread_num = thread_num + 1;
 	fence_thread_data.inst = inst;
@@ -948,20 +940,104 @@ static int msm_cvp_send_cmd(struct msm_cvp_inst *inst,
 	return 0;
 }
 
+#define C2C_FREQ_RATIO	(1.5)
+
+static void adjust_bw_freqs(struct allowed_clock_rates_table *tbl,
+		unsigned int tbl_size, unsigned int max_bw,
+		unsigned int *freq, unsigned long *ab, unsigned long *ib)
+{
+	struct msm_cvp_core *core;
+	struct msm_cvp_inst *inst;
+	unsigned long clk_core_sum = 0, clk_ctlr_sum = 0, bw_sum = 0;
+	int i;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+
+	list_for_each_entry(inst, &core->instances, list) {
+		clk_core_sum += inst->power.clock_cycles_a;
+		clk_ctlr_sum += inst->power.clock_cycles_b;
+		bw_sum += inst->power.ddr_bw;
+	}
+
+	if (clk_core_sum * C2C_FREQ_RATIO < clk_ctlr_sum)
+		clk_core_sum = clk_ctlr_sum/C2C_FREQ_RATIO;
+
+	for (i = 1; i < tbl_size; i++) {
+		if (clk_core_sum < tbl[i].clock_rate)
+			break;
+	}
+
+	if (i == tbl_size)
+		clk_core_sum = tbl[tbl_size - 1].clock_rate;
+	else
+		clk_core_sum = tbl[i].clock_rate;
+
+	*freq = clk_core_sum;
+
+	if (bw_sum > max_bw)
+		bw_sum = max_bw;
+
+	*ab = bw_sum;
+	*ib = 0;
+}
+
+/**
+ * clock_cycles_a: CVP core clock freq (lower)
+ * clock_cycles_b: CVP controller clock freq
+ */
 static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 		struct cvp_kmd_request_power *power)
 {
 	int rc = 0;
+	unsigned int freq;
+	unsigned long ab, ib;
+	struct msm_cvp_core *core;
+	struct bus_info *bus;
+	struct allowed_clock_rates_table *clks_tbl = NULL;
+	unsigned int clks_tbl_size;
+	unsigned int min_rate, max_rate;
+
 
 	if (!inst || !power) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+
+	mutex_lock(&core->lock);
+
+	clks_tbl = core->resources.allowed_clks_tbl;
+	clks_tbl_size = core->resources.allowed_clks_tbl_size;
+	min_rate = clks_tbl[0].clock_rate;
+	max_rate = clks_tbl[clks_tbl_size - 1].clock_rate;
+	bus = &core->resources.bus_set.bus_tbl[1];
+
+	memcpy(&inst->power, power, sizeof(*power));
+
+	if (inst->power.clock_cycles_a < min_rate ||
+			inst->power.clock_cycles_a > max_rate)
+		inst->power.clock_cycles_a = min_rate;
+
+	if (inst->power.clock_cycles_b < (min_rate * C2C_FREQ_RATIO) ||
+		inst->power.clock_cycles_b > (max_rate * C2C_FREQ_RATIO))
+		inst->power.clock_cycles_b = min_rate * C2C_FREQ_RATIO;
+
+	/* Convert bps to KBps */
+	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
+
+	if (inst->power.ddr_bw > bus->range[1])
+		inst->power.ddr_bw = bus->range[1] >> 1;
+
 	dprintk(CVP_DBG,
-		"%s: clock_cycles_a %d, clock_cycles_b %d, ddr_bw %d sys_cache_bw %d\n",
+		"%s: cycles_a %d, cycles_b %d, ddr_bw %d sys_cache_bw %d\n",
 		__func__, power->clock_cycles_a, power->clock_cycles_b,
 		power->ddr_bw, power->sys_cache_bw);
+
+	adjust_bw_freqs(clks_tbl, clks_tbl_size, bus->range[1],
+			&freq, &ab, &ib);
+	dprintk(CVP_DBG, "%s %x %llx %llx\n", __func__, freq, ab, ib);
+	mutex_unlock(&core->lock);
 
 	return rc;
 }
