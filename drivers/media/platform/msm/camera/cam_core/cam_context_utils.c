@@ -472,8 +472,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 						ctx->dev_name, ctx->ctx_id,
 						req->request_id);
 
-				cam_context_putref(ctx);
-				goto put_ref;
+				goto put_ctx_ref;
 			}
 			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
 				req->in_map_entries[j].sync_id, rc);
@@ -481,7 +480,9 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	}
 
 	return rc;
-
+put_ctx_ref:
+	for (j; j >= 0; j--)
+		cam_context_putref(ctx);
 put_ref:
 	for (--i; i >= 0; i--) {
 		if (cam_sync_put_obj_ref(req->out_map_entries[i].sync_id))
