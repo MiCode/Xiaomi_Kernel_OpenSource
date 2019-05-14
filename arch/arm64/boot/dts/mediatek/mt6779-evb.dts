@@ -28,6 +28,29 @@
 	};
 };
 
+&i2c0 {
+	/* gt1151 add to i2c node */
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "state_eint_as_int",
+		"state_eint_output0","state_eint_output1",
+		"state_rst_output0", "state_rst_output1";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_pins_eint_as_int>;
+	pinctrl-2 = <&ctp_pins_eint_output0>;
+	pinctrl-3 = <&ctp_pins_eint_output1>;
+	pinctrl-4 = <&ctp_pins_rst_output0>;
+	pinctrl-5 = <&ctp_pins_rst_output1>;
+	status = "okay";
+
+	gt1151@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		status = "okay";
+	};
+};
+
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
@@ -87,6 +110,26 @@
 	interrupts = <193 IRQ_TYPE_LEVEL_HIGH 193 0>;
 };
 
+&touch {
+	tpd-resolution = <1080 2160>;
+	use-tpd-button = <0>;
+	tpd-key-num = <3>;
+	tpd-key-local= <139 172 158 0>;
+	tpd-key-dim-local = <90 883 100 40 230
+				883 100 40 370 883 100 40 0 0 0 0>;
+	tpd-max-touch-num = <10>;
+	tpd-filter-enable = <0>;
+	tpd-filter-pixel-density = <168>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	goodix,eint-gpio = <&pio 1 0x0>;
+	goodix,reset-gpio = <&pio 2 0x0>;
+
+	interrupt-parent = <&pio>;
+	interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
+	status = "okay";
+};
+
 &uart0 {
 	status = "okay";
 };
@@ -104,6 +147,40 @@
 };
 
 &pio {
+	/* set touch eint and reset gpio status*/
+	ctp_pins_default: eint0default {
+	};
+	ctp_pins_eint_as_int: eint@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-disable;
+		};
+	};
+	ctp_pins_eint_output0: eintoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			output-low;
+		};
+	};
+	ctp_pins_eint_output1: eintoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			output-high;
+		};
+	};
+	ctp_pins_rst_output0: rstoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			output-low;
+		};
+	};
+	ctp_pins_rst_output1: rstoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			output-high;
+		};
+	};
 	kpd_gpios_def_cfg: kpdgpiodefault {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO59__FUNC_KPCOL0>,

@@ -1472,6 +1472,10 @@
 		/* reserved for overlay by odm */
 	};
 
+	touch: touch {
+		compatible = "goodix,touch";
+	};
+
 };
 
 #include "cust_mt6779_msdc.dtsi"
