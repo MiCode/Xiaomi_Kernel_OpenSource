@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <dt-bindings/gpio/gpio.h>
 #include "mt2712.dtsi"
 
 / {
@@ -499,25 +498,32 @@
 };
 
 &eth {
-	pinctrl-names = "default",
-			"txc",
-			"gpio",
-			"master100",
-			"slave100",
-			"master1000",
-			"slave1000";
+	phy-mode ="rgmii-rxid";
+	phy-handle = <&eth_phy0>;
+	mediatek,tx-delay-ps = <1530>;
+	snps,reset-gpio = <&pio 87 GPIO_ACTIVE_LOW>;
+	snps,reset-active-low;
+	pinctrl-names = "default";
 	pinctrl-0 = <&eth_default>;
-	pinctrl-1 = <&func_txc>;
-	pinctrl-2 = <&func_gpio>;
-	pinctrl-3 = <&master100>;
-	pinctrl-4 = <&slave100>;
-	pinctrl-5 = <&master1000>;
-	pinctrl-6 = <&slave1000>;
-	phy-reset = <&pio 87 0>;
-	mac-delay = <9 9 0 0>; /* <tx rx txinv rxinv> */
-	config = <1 1>; /*<is_giga is_slave>*/
-	fine-tune;
 	status = "okay";
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		eth_phy0: eth_phy0@5 {
+			compatible = "ethernet-phy-id0243.0d90";
+			reg = <0x5>;
+		};
+		eth_phy1: eth_phy1@7 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			marvell,88q2110 = <1000 0>;
+			reg = <0x7>;
+		};
+		eth_phy2: eth_phy2@4 {
+			compatible = "ethernet-phy-id0180.dc48";
+			reg = <0x4>;
+		};
+	};
 };
 
 &i2c0 {
@@ -1209,62 +1215,6 @@
 		mdio_pins {
 			pinmux = <MT2712_PIN_85_GBE_MDC__FUNC_GBE_MDC>,
 				 <MT2712_PIN_86_GBE_MDIO__FUNC_GBE_MDIO>;
-		};
-	};
-
-	func_txc: func_txc {
-		eth_mux {
-			pinmux = <MT2712_PIN_75_GBE_TXC__FUNC_GBE_TXC>;
-		};
-	};
-
-	func_gpio: func_gpio {
-		eth_mux {
-			pinmux = <MT2712_PIN_75_GBE_TXC__FUNC_GPIO75>;
-		};
-	};
-
-	master100: master100 {
-		rxd3_pins {
-			pinmux = <MT2712_PIN_78_GBE_RXD3__FUNC_GPIO78>;
-			output-low;
-		};
-		rxd2_pins {
-			pinmux = <MT2712_PIN_79_GBE_RXD2__FUNC_GPIO79>;
-			output-low;
-		};
-	};
-
-	slave100: slave100 {
-		rxd3_pins {
-			pinmux = <MT2712_PIN_78_GBE_RXD3__FUNC_GPIO78>;
-			output-low;
-		};
-		rxd2_pins {
-			pinmux = <MT2712_PIN_79_GBE_RXD2__FUNC_GPIO79>;
-			output-high;
-		};
-	};
-
-	master1000: master1000 {
-		rxd3_pins {
-			pinmux = <MT2712_PIN_78_GBE_RXD3__FUNC_GPIO78>;
-			output-high;
-		};
-		rxd2_pins {
-			pinmux = <MT2712_PIN_79_GBE_RXD2__FUNC_GPIO79>;
-			output-low;
-		};
-	};
-
-	slave1000: slave1000 {
-		rxd3_pins {
-			pinmux = <MT2712_PIN_78_GBE_RXD3__FUNC_GPIO78>;
-			output-high;
-		};
-		rxd2_pins {
-			pinmux = <MT2712_PIN_79_GBE_RXD2__FUNC_GPIO79>;
-			output-high;
 		};
 	};
 
