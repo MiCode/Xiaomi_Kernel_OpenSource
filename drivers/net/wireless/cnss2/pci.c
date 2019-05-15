@@ -2455,8 +2455,9 @@ static void cnss_mhi_notify_status(struct mhi_controller *mhi_ctrl, void *priv,
 
 	plat_priv = pci_priv->plat_priv;
 
-	cnss_pr_dbg("MHI status cb is called with reason %s(%d)\n",
-		    cnss_mhi_notify_status_to_str(reason), reason);
+	if (reason != MHI_CB_IDLE)
+		cnss_pr_dbg("MHI status cb is called with reason %s(%d)\n",
+			    cnss_mhi_notify_status_to_str(reason), reason);
 
 	switch (reason) {
 	case MHI_CB_IDLE:
