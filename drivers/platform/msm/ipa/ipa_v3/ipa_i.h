@@ -2485,6 +2485,8 @@ int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova);
 
+void ipa3_release_wdi3_gsi_smmu_mappings(u8 dir);
+
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
