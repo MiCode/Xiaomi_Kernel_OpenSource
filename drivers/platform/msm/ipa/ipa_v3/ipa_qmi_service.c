@@ -345,7 +345,7 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 static void ipa3_a5_svc_disconnect_cb(struct qmi_handle *qmi,
 	unsigned int node, unsigned int port)
 {
-	IPAWANDBG("Received QMI client disconnect\n");
+	IPAWANDBG_LOW("Received QMI client disconnect\n");
 }
 
 /****************************************************/
