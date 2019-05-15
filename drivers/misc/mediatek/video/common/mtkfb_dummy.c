@@ -65,7 +65,7 @@ static u32 fb_yres_update;
 /* local variables */
 /* ------------------------------------------------------------------------- */
 
-unsigned int fb_pa;
+unsigned long fb_pa;
 struct fb_info *mtkfb_fbi;
 unsigned int lcd_fps = 6000;
 char mtkfb_lcm_name[256] = { 0 };
@@ -623,10 +623,10 @@ phys_addr_t mtkfb_get_fb_base(void)
 
 
 int mtkfb_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
-	unsigned int *va, unsigned int *mva)
+	unsigned long *va, unsigned long *mva)
 {
 	*va = (unsigned long)ioremap_nocache(pa_start, pa_end - pa_start + 1);
-	pr_info("disphal_allocate_fb, pa=%pa, va=0x%08x\n", &pa_start, *va);
+	pr_info("disphal_allocate_fb, pa=%pa, va=0x%08lx\n", &pa_start, *va);
 	{
 		*mva = pa_start & 0xffffffffULL;
 	}
@@ -670,14 +670,14 @@ static int mtkfb_probe(struct device *dev)
 		pr_info("%s: fb_pa = 0x%p\n", __func__, (void *)fb_base);
 
 		mtkfb_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
-				   (unsigned int *)&fbdev->fb_va_base, &fb_pa);
+				   (unsigned long *)&fbdev->fb_va_base, &fb_pa);
 		fbdev->fb_pa_base = (dma_addr_t) fb_base;
 #else
 		struct resource *res =
 			platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 		disp_hal_allocate_framebuffer(res->start, res->end,
-				(unsigned int *)&fbdev->fb_va_base, &fb_pa);
+				(unsigned long *)&fbdev->fb_va_base, &fb_pa);
 		fbdev->fb_pa_base = res->start;
 #endif
 	}
