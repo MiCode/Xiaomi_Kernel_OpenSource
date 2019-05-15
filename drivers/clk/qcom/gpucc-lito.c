@@ -326,42 +326,6 @@ static struct clk_branch gpu_cc_sleep_clk = {
 	},
 };
 
-/* Measure-only clock for gpu_cc_cx_gfx3d_clk. */
-static struct clk_dummy measure_only_gpu_cc_cx_gfx3d_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_cx_gfx3d_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gpu_cc_cx_gfx3d_slv_clk. */
-static struct clk_dummy measure_only_gpu_cc_cx_gfx3d_slv_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_cx_gfx3d_slv_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gpu_cc_gx_gfx3d_clk. */
-static struct clk_dummy measure_only_gpu_cc_gx_gfx3d_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_gx_gfx3d_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-struct clk_hw *gpu_cc_lito_hws[] = {
-	[MEASURE_ONLY_GPU_CC_CX_GFX3D_CLK] =
-		&measure_only_gpu_cc_cx_gfx3d_clk.hw,
-	[MEASURE_ONLY_GPU_CC_CX_GFX3D_SLV_CLK] =
-		&measure_only_gpu_cc_cx_gfx3d_slv_clk.hw,
-	[MEASURE_ONLY_GPU_CC_GX_GFX3D_CLK] =
-		&measure_only_gpu_cc_gx_gfx3d_clk.hw,
-};
-
 static struct clk_regmap *gpu_cc_lito_clocks[] = {
 	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
@@ -389,8 +353,6 @@ static const struct regmap_config gpu_cc_lito_regmap_config = {
 
 static const struct qcom_cc_desc gpu_cc_lito_desc = {
 	.config = &gpu_cc_lito_regmap_config,
-	.hwclks = gpu_cc_lito_hws,
-	.num_hwclks = ARRAY_SIZE(gpu_cc_lito_hws),
 	.clks = gpu_cc_lito_clocks,
 	.num_clks = ARRAY_SIZE(gpu_cc_lito_clocks),
 };

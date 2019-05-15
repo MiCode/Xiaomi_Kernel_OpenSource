@@ -4,7 +4,19 @@
 #ifndef __QCOM_CLK_DEBUG_H__
 #define __QCOM_CLK_DEBUG_H__
 
+#include <linux/platform_device.h>
 #include "../clk.h"
+
+/**
+ * struct mux_regmap_names - Structure of mux regmap mapping
+ * @mux:		pointer to a clock debug mux
+ * @regmap_name:	corresponding regmap name used to match a debug mux to
+			its regmap
+ */
+struct mux_regmap_names {
+	struct clk_debug_mux *mux;
+	const char *regmap_name;
+};
 
 /* Debugfs Measure Clocks */
 
@@ -25,67 +37,11 @@ struct measure_clk_data {
 };
 
 /**
- * List of Debug clock controllers.
- */
-enum debug_cc {
-	GCC,
-	CAM_CC,
-	DISP_CC,
-	NPU_CC,
-	GPU_CC,
-	VIDEO_CC,
-	CPU_CC,
-	MC_CC,
-	MAX_NUM_CC,
-};
-
-/**
- * struct clk_src - Structure of clock source for debug mux
- *
- * @parents:		clock name to be used as parent for debug mux.
- * @prim_mux_sel:	debug mux index at global clock controller.
- * @prim_mux_div_val:	PLL post-divider setting for the primary mux.
- * @dbg_cc:		indicates the clock controller for recursive debug
- *			clock controllers.
- * @dbg_cc_mux_sel:	indicates the debug mux index at recursive debug mux.
- * @mux_sel_mask:	indicates the mask for the mux selection.
- * @mux_sel_shift:	indicates the shift required for mux selection.
- * @post_div_mask:	indicates the post div mask to be used at recursive
- *			debug mux.
- * @post_div_shift:	indicates the shift required for post divider
- *			configuration.
- * @post_div_val:	indicates the post div value to be used at recursive
- *			debug mux.
- * @mux_offset:		the debug mux offset.
- * @post_div_offset:	register with post-divider settings for the debug mux.
- * @cbcr_offset:	branch register to turn on debug mux.
- * @misc_div_val:	includes any pre-set dividers in the measurement logic.
- */
-struct clk_src {
-	const char *parents;
-	int prim_mux_sel;
-	u32 prim_mux_div_val;
-	enum debug_cc dbg_cc;
-	int dbg_cc_mux_sel;
-	u32 mux_sel_mask;
-	u32 mux_sel_shift;
-	u32 post_div_mask;
-	u32 post_div_shift;
-	u32 post_div_val;
-	u32 mux_offset;
-	u32 post_div_offset;
-	u32 cbcr_offset;
-	u32 misc_div_val;
-};
-
-#define MUX_SRC_LIST(...) \
-	.parent = (struct clk_src[]){__VA_ARGS__}, \
-	.num_parents = ARRAY_SIZE(((struct clk_src[]){__VA_ARGS__}))
-
-/**
  * struct clk_debug_mux - Structure of clock debug mux
  *
- * @parent:		structure of clk_src
+ * @mux_sels:		indicates the debug mux index at recursive debug mux.
+ * @pre_div_val:	optional divider values for clocks that were pre-divided
+			before feeding into the debug muxes
  * @num_parents:	number of parents
  * @regmap:		regmaps of debug mux
  * @priv:		private measure_clk_data to be used by debug mux
@@ -107,18 +63,20 @@ struct clk_src {
  * @hw:			handle between common and hardware-specific interfaces.
  */
 struct clk_debug_mux {
-	struct clk_src *parent;
+	int *mux_sels;
+	int *pre_div_vals;
 	int num_parents;
-	struct regmap **regmap;
+	struct regmap *regmap;
 	void *priv;
 	u32 en_mask;
 	u32 debug_offset;
-	u32 post_div_offset;
 	u32 cbcr_offset;
 	u32 src_sel_mask;
 	u32 src_sel_shift;
+	u32 post_div_offset;
 	u32 post_div_mask;
 	u32 post_div_shift;
+	u32 post_div_val;
 	u32 period_offset;
 	u32 bus_cl_id;
 	struct clk_hw hw;
@@ -131,5 +89,7 @@ extern const struct clk_ops clk_debug_mux_ops;
 int clk_debug_measure_register(struct clk_hw *hw);
 void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry);
 void clk_debug_bus_vote(struct clk_hw *hw, bool enable);
+int map_debug_bases(struct platform_device *pdev, const char *base,
+		    struct clk_debug_mux *mux);
 
 #endif

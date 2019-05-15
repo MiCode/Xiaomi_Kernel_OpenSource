@@ -335,42 +335,6 @@ static struct clk_branch gpu_cc_sleep_clk = {
 	},
 };
 
-/* Measure-only clock for gpu_cc_cx_gfx3d_clk. */
-static struct clk_dummy measure_only_gpu_cc_cx_gfx3d_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_cx_gfx3d_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gpu_cc_cx_gfx3d_slv_clk. */
-static struct clk_dummy measure_only_gpu_cc_cx_gfx3d_slv_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_cx_gfx3d_slv_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gpu_cc_gx_gfx3d_clk. */
-static struct clk_dummy measure_only_gpu_cc_gx_gfx3d_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_gpu_cc_gx_gfx3d_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-struct clk_hw *gpu_cc_kona_hws[] = {
-	[MEASURE_ONLY_GPU_CC_CX_GFX3D_CLK] =
-		&measure_only_gpu_cc_cx_gfx3d_clk.hw,
-	[MEASURE_ONLY_GPU_CC_CX_GFX3D_SLV_CLK] =
-		&measure_only_gpu_cc_cx_gfx3d_slv_clk.hw,
-	[MEASURE_ONLY_GPU_CC_GX_GFX3D_CLK] =
-		&measure_only_gpu_cc_gx_gfx3d_clk.hw,
-};
-
 static struct clk_regmap *gpu_cc_kona_clocks[] = {
 	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
@@ -424,9 +388,8 @@ MODULE_DEVICE_TABLE(of, gpu_cc_kona_match_table);
 static int gpu_cc_kona_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	struct clk *clk;
 	unsigned int value, mask;
-	int i, ret;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_kona_desc);
 	if (IS_ERR(regmap))
@@ -449,12 +412,6 @@ static int gpu_cc_kona_probe(struct platform_device *pdev)
 	}
 
 	clk_lucid_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
-
-	for (i = 0; i < ARRAY_SIZE(gpu_cc_kona_hws); i++) {
-		clk = devm_clk_register(&pdev->dev, gpu_cc_kona_hws[i]);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
-	}
 
 	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
 	mask = CX_GMU_CBCR_SLEEP_MASK | CX_GMU_CBCR_WAKE_MASK;

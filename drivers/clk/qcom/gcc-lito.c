@@ -2454,87 +2454,6 @@ static struct clk_branch gcc_video_xo_clk = {
 	},
 };
 
-/* Measure only clocks */
-static struct clk_dummy l3_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "l3_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-static struct clk_dummy pwrcl_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "pwrcl_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-static struct clk_dummy perfcl_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "perfcl_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-static struct clk_dummy perfpcl_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "perfpcl_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for ddrss_gcc_debug_clk. */
-static struct clk_dummy measure_only_mccc_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_mccc_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-
-/* Measure-only clock for gcc_cfg_noc_ahb_clk. */
-static struct clk_dummy measure_only_cnoc_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_cnoc_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gcc_ipa_2x_clk. */
-static struct clk_dummy measure_only_ipa_2x_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_ipa_2x_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gcc_sys_noc_axi_clk. */
-static struct clk_dummy measure_only_snoc_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_snoc_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-static struct clk_hw *gcc_lito_hws[] = {
-	&l3_clk.hw,
-	&pwrcl_clk.hw,
-	&perfcl_clk.hw,
-	&perfpcl_clk.hw,
-	&measure_only_mccc_clk.hw,
-	&measure_only_cnoc_clk.hw,
-	&measure_only_ipa_2x_clk.hw,
-	&measure_only_snoc_clk.hw,
-};
-
 static struct clk_regmap *gcc_lito_clocks[] = {
 	[GCC_AGGRE_UFS_PHY_AXI_CLK] = &gcc_aggre_ufs_phy_axi_clk.clkr,
 	[GCC_AGGRE_USB3_PRIM_AXI_CLK] = &gcc_aggre_usb3_prim_axi_clk.clkr,
@@ -2732,7 +2651,7 @@ MODULE_DEVICE_TABLE(of, gcc_lito_match_table);
 static int gcc_lito_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
-	int ret, i;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &gcc_lito_desc);
 	if (IS_ERR(regmap))
@@ -2763,11 +2682,6 @@ static int gcc_lito_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, GCC_NPU_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
-	for (i = 0; i < ARRAY_SIZE(gcc_lito_hws); i++) {
-		ret = devm_clk_hw_register(&pdev->dev, gcc_lito_hws[i]);
-		if (ret)
-			return ret;
-	}
 
 	ret = qcom_cc_really_probe(pdev, &gcc_lito_desc, regmap);
 	if (ret) {
