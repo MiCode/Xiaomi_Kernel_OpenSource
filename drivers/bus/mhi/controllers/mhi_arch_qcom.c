@@ -26,7 +26,6 @@ struct arch_info {
 	u32 bus_client;
 	struct msm_pcie_register_event pcie_reg_event;
 	struct pci_saved_state *pcie_state;
-	struct pci_saved_state *ref_pcie_state;
 	struct dma_iommu_mapping *mapping;
 	async_cookie_t cookie;
 	void *boot_ipc_log;
@@ -128,7 +127,6 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
-	struct arch_info *arch_info = mhi_dev->arch_info;
 	int ret;
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
@@ -158,7 +156,6 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 		MHI_ERR("Failed to resume pcie bus ret %d\n", ret);
 		return ret;
 	}
-	pci_load_saved_state(pci_dev, arch_info->ref_pcie_state);
 
 	return mhi_pci_probe(pci_dev, NULL);
 }
@@ -472,9 +469,6 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 				MHI_ERR("Failed to register esoc ops\n");
 		}
 
-		/* save reference state for pcie config space */
-		arch_info->ref_pcie_state = pci_store_saved_state(
-							mhi_dev->pci_dev);
 		/*
 		 * MHI host driver has full autonomy to manage power state.
 		 * Disable all automatic power collapse features
