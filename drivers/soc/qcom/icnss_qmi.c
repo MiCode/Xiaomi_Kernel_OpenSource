@@ -73,6 +73,7 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	struct wlfw_msa_info_req_msg_v01 *req;
 	struct wlfw_msa_info_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	uint64_t max_mapped_addr;
 
 	if (!priv)
 		return -ENODEV;
@@ -134,9 +135,23 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
+	max_mapped_addr = priv->msa_pa + priv->msa_mem_size;
 	priv->stats.msa_info_resp++;
 	priv->nr_mem_region = resp->mem_region_info_len;
 	for (i = 0; i < resp->mem_region_info_len; i++) {
+
+		if (resp->mem_region_info[i].size > priv->msa_mem_size ||
+		    resp->mem_region_info[i].region_addr > max_mapped_addr ||
+		    resp->mem_region_info[i].region_addr < priv->msa_pa ||
+		    resp->mem_region_info[i].size +
+		    resp->mem_region_info[i].region_addr > max_mapped_addr) {
+			icnss_pr_dbg("Received out of range Addr: 0x%llx Size: 0x%x\n",
+					resp->mem_region_info[i].region_addr,
+					resp->mem_region_info[i].size);
+			ret = -EINVAL;
+			goto fail_unwind;
+		}
+
 		priv->mem_region[i].reg_addr =
 			resp->mem_region_info[i].region_addr;
 		priv->mem_region[i].size =
@@ -153,6 +168,8 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	kfree(req);
 	return 0;
 
+fail_unwind:
+	memset(&priv->mem_region[0], 0, sizeof(priv->mem_region[0]) * i);
 out:
 	kfree(resp);
 	kfree(req);
