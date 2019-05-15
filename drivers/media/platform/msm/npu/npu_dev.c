@@ -68,6 +68,12 @@ static ssize_t npu_show_perf_mode_override(struct device *dev,
 static ssize_t npu_store_perf_mode_override(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count);
+static ssize_t npu_show_dcvs_mode(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf);
+static ssize_t npu_store_dcvs_mode(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count);
 static ssize_t npu_show_fw_unload_delay_ms(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf);
@@ -107,6 +113,9 @@ static int npu_exec_network(struct npu_client *client,
 static int npu_exec_network_v2(struct npu_client *client,
 	unsigned long arg);
 static int npu_receive_event(struct npu_client *client,
+	unsigned long arg);
+static int npu_set_fw_state(struct npu_client *client, uint32_t enable);
+static int npu_set_property(struct npu_client *client,
 	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
@@ -178,6 +187,8 @@ static DEVICE_ATTR(caps, 0444, npu_show_capabilities, NULL);
 static DEVICE_ATTR(pwr, 0644, npu_show_pwr_state, npu_store_pwr_state);
 static DEVICE_ATTR(perf_mode_override, 0644,
 	npu_show_perf_mode_override, npu_store_perf_mode_override);
+static DEVICE_ATTR(dcvs_mode, 0644,
+	npu_show_dcvs_mode, npu_store_dcvs_mode);
 static DEVICE_ATTR(fw_unload_delay_ms, 0644,
 	npu_show_fw_unload_delay_ms, npu_store_fw_unload_delay_ms);
 static DEVICE_ATTR(fw_state, 0644, npu_show_fw_state, npu_store_fw_state);
@@ -186,6 +197,7 @@ static struct attribute *npu_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_pwr.attr,
 	&dev_attr_perf_mode_override.attr,
+	&dev_attr_dcvs_mode.attr,
 	&dev_attr_fw_state.attr,
 	&dev_attr_fw_unload_delay_ms.attr,
 	NULL
@@ -289,7 +301,7 @@ static ssize_t npu_store_pwr_state(struct device *dev,
 }
 
 /* -------------------------------------------------------------------------
- * SysFS - Power State
+ * SysFS - perf_mode_override
  * -------------------------------------------------------------------------
  */
 static ssize_t npu_show_perf_mode_override(struct device *dev,
@@ -320,6 +332,50 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 	npu_dev->pwrctrl.perf_mode_override = val;
 	pr_info("setting uc_pwrlevel_override to %d\n", val);
 	npu_set_power_level(npu_dev, true);
+
+	return count;
+}
+
+static ssize_t npu_show_dcvs_mode(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pwr->dcvs_mode);
+}
+
+static ssize_t npu_store_dcvs_mode(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct msm_npu_property prop;
+	uint32_t val;
+	int ret = 0;
+
+	ret = kstrtou32(buf, 10, &val);
+	if (ret) {
+		pr_err("Invalid input for dcvs mode setting\n");
+		return -EINVAL;
+	}
+
+	val = min(val, (uint32_t)DCVS_MODE_MAX);
+	pr_debug("sysfs: setting dcvs_mode to %d\n", val);
+
+	prop.prop_id = MSM_NPU_PROP_ID_DCVS_MODE;
+	prop.num_of_params = 1;
+	prop.network_hdl = 0;
+	prop.prop_param[0] = val;
+
+	ret = npu_host_set_fw_property(npu_dev, &prop);
+	if (ret) {
+		pr_err("npu_host_set_fw_property failed %d\n", ret);
+		return ret;
+	}
+
+	npu_dev->pwrctrl.dcvs_mode = val;
 
 	return count;
 }
@@ -582,6 +638,7 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 			pwr->pwr_vote_num = 0;
 			return ret;
 		}
+		pwr->cur_dcvs_activity = DCVS_MODE_MAX;
 		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
@@ -593,7 +650,6 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 void npu_disable_core_power(struct npu_device *npu_dev)
 {
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
-	struct npu_thermalctrl *thermalctrl = &npu_dev->thermalctrl;
 
 	mutex_lock(&npu_dev->dev_lock);
 	if (!pwr->pwr_vote_num) {
@@ -606,9 +662,10 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
 		npu_disable_regulators(npu_dev);
-		pwr->active_pwrlevel = thermalctrl->pwr_level;
+		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
+		pwr->cur_dcvs_activity = 0;
 		pr_debug("setting back to power level=%d\n",
 			pwr->active_pwrlevel);
 	}
@@ -1563,6 +1620,57 @@ static int npu_receive_event(struct npu_client *client,
 	return ret;
 }
 
+static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
+{
+	struct npu_device *npu_dev = client->npu_dev;
+	int rc = 0;
+
+	if (enable) {
+		pr_debug("%s: enable fw\n", __func__);
+		rc = fw_init(npu_dev);
+		if (rc)
+			pr_err("enable fw failed\n");
+	} else {
+		pr_debug("%s: disable fw\n", __func__);
+		fw_deinit(npu_dev, false, true);
+	}
+
+	return rc;
+}
+
+static int npu_set_property(struct npu_client *client,
+	unsigned long arg)
+{
+	struct msm_npu_property prop;
+	void __user *argp = (void __user *)arg;
+	int ret = -EINVAL;
+
+	ret = copy_from_user(&prop, argp, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (prop.prop_id) {
+	case MSM_NPU_PROP_ID_FW_STATE:
+		ret = npu_set_fw_state(client,
+			(uint32_t)prop.prop_param[0]);
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE:
+		ret = npu_host_set_perf_mode(client,
+			(uint32_t)prop.network_hdl,
+			(uint32_t)prop.prop_param[0]);
+		break;
+	default:
+		ret = npu_host_set_fw_property(client->npu_dev, &prop);
+		if (ret)
+			pr_err("npu_host_set_fw_property failed\n");
+		break;
+	}
+
+	return ret;
+}
+
 static long npu_ioctl(struct file *file, unsigned int cmd,
 						 unsigned long arg)
 {
@@ -1596,6 +1704,9 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case MSM_NPU_RECEIVE_EVENT:
 		ret = npu_receive_event(client, arg);
+		break;
+	case MSM_NPU_SET_PROP:
+		ret = npu_set_property(client, arg);
 		break;
 	default:
 		pr_err("unexpected IOCTL %x\n", cmd);

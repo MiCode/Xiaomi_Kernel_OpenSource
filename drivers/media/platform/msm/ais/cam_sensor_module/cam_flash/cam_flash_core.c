@@ -1727,7 +1727,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	}
 
 	if (cam_mem_put_cpu_buf(config.packet_handle))
-		CAM_WARN(CAM_FLASH, "Failed in put the buffer: 0x%llx ",
+		CAM_WARN(CAM_FLASH, "Failed in put the buffer: 0x%x ",
 			config.packet_handle);
 
 	return 0;
@@ -1738,7 +1738,7 @@ rel_cmd_buf:
 			cmd_desc->mem_handle);
 rel_pkt_buf:
 	if (cam_mem_put_cpu_buf(config.packet_handle))
-		CAM_WARN(CAM_FLASH, "Failed in put the buffer: 0x%llx ",
+		CAM_WARN(CAM_FLASH, "Failed in put the buffer: 0x%x ",
 			config.packet_handle);
 
 	return rc;

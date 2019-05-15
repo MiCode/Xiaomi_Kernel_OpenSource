@@ -386,3 +386,51 @@ int dsi_pwr_enable_regulator(struct dsi_regulator_info *regs, bool enable)
 
 	return rc;
 }
+
+/**
+ * dsi_pwr_panel_regulator_mode_set()
+ * set the AB/IBB regulator mode for OLED panel
+ * AOD mode entry and exit
+ * @regs:       Pointer to set of regulators to enable or disable.
+ * @reg_name:	Name of panel power we want to set.
+ * @regulator_mode:	Regulator mode values, like:
+ *                  REGULATOR_MODE_INVALID
+ *                  REGULATOR_MODE_FAST
+ *                  REGULATOR_MODE_NORMAL
+ *                  REGULATOR_MODE_IDLE
+ *                  REGULATOR_MODE_STANDBY
+ *
+ * return: error code in case of failure or 0 for success.
+ */
+int dsi_pwr_panel_regulator_mode_set(struct dsi_regulator_info *regs,
+					 const char *reg_name,
+					 int regulator_mode)
+{
+	int i = 0, rc = 0;
+	struct dsi_vreg *vreg;
+
+	if (regs->count == 0)
+		return -EINVAL;
+
+	if (!regs->vregs)
+		return -EINVAL;
+
+	for (i = 0; i < regs->count; i++) {
+		vreg = &regs->vregs[i];
+		if (!strcmp(vreg->vreg_name, reg_name)) {
+			rc = regulator_set_mode(vreg->vreg,
+						regulator_mode);
+			if (rc)
+				pr_err("Regulator %s set mode %d failed\n",
+				       vreg->vreg_name, rc);
+			break;
+		}
+	}
+
+	if (i >= regs->count) {
+		pr_err("Regulator %s was not found\n", reg_name);
+		return -EINVAL;
+	}
+
+	return rc;
+}

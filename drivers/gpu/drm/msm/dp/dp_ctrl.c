@@ -177,6 +177,7 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 				ctrl->link->link_params.lane_count);
 		ctrl->catalog->mainlink_levels(ctrl->catalog,
 				ctrl->link->link_params.lane_count);
+		ctrl->catalog->fec_config(ctrl->catalog, false);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);

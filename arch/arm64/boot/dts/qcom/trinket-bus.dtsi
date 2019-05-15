@@ -380,7 +380,8 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <13>;
-			qcom,qos-mode = "bypass";
+			qcom,qos-mode = "fixed";
+			qcom,prio = <4>;
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
 			qcom,bus-dev = <&fab_mmnrt_virt>;

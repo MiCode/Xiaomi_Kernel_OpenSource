@@ -35,9 +35,17 @@ static const unsigned int a6xx_gmu_gx_registers[] = {
 	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
 };
 
+static const unsigned int a6xx_gmu_itcm_registers[] = {
+	/* GMU ITCM */
+	0x1B400, 0x1C3FF,
+};
+
+static const unsigned int a6xx_gmu_dtcm_registers[] = {
+	/* GMU DTCM */
+	0x1C400, 0x1D3FF,
+};
+
 static const unsigned int a6xx_gmu_registers[] = {
-	/* GMU TCM */
-	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
 	/* GMU CX */
 	0x1F400, 0x1F407, 0x1F410, 0x1F412, 0x1F500, 0x1F500, 0x1F507, 0x1F50A,
 	0x1F800, 0x1F804, 0x1F807, 0x1F808, 0x1F80B, 0x1F80C, 0x1F80F, 0x1F81C,
@@ -1098,36 +1106,31 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	return ret;
 }
 
-#define A6XX_STATE_OF_CHILD             (BIT(4) | BIT(5))
-#define A6XX_IDLE_FULL_LLM              BIT(0)
-#define A6XX_WAKEUP_ACK                 BIT(1)
-#define A6XX_IDLE_FULL_ACK              BIT(0)
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
-static int a6xx_llm_glm_handshake(struct kgsl_device *device)
+static void a6xx_llm_glm_handshake(struct kgsl_device *device)
 {
 	unsigned int val;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return 0;
+		return;
+
+	if (adreno_is_a640(adreno_dev))
+		return;
 
 	gmu_core_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
-	if (!(val & A6XX_STATE_OF_CHILD)) {
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
-		gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0,
-				A6XX_IDLE_FULL_LLM);
-		if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
-				A6XX_IDLE_FULL_ACK, GPU_RESET_TIMEOUT,
-				A6XX_IDLE_FULL_ACK)) {
-			dev_err(&gmu->pdev->dev, "LLM-GLM handshake failed\n");
-			return -EINVAL;
-		}
-	}
+	if (val & (BIT(4) | BIT(5)))
+		return;
 
-	return 0;
+	gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(4));
+	gmu_core_regrmw(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, 0, BIT(0));
+
+	if (timed_poll_check(device, A6XX_GMU_LLM_GLM_SLEEP_STATUS,
+		BIT(0), GPU_RESET_TIMEOUT, BIT(0)))
+		dev_err(&gmu->pdev->dev, "LLM-GLM handshake failed\n");
 }
 
 static void a6xx_isense_disable(struct kgsl_device *device)
@@ -1435,6 +1438,40 @@ static unsigned int a6xx_gmu_ifpc_show(struct adreno_device *adreno_dev)
 			gmu->idle_level  >= GPU_HW_IFPC;
 }
 
+static size_t a6xx_snapshot_gmu_tcm(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
+	unsigned int i, bytes;
+	unsigned int *type = priv;
+	const unsigned int *regs;
+
+	if (*type == GMU_ITCM)
+		regs = a6xx_gmu_itcm_registers;
+	else
+		regs = a6xx_gmu_dtcm_registers;
+
+	bytes = (regs[1] - regs[0] + 1) << 2;
+
+	if (remain < bytes + sizeof(*mem_hdr)) {
+		SNAPSHOT_ERR_NOMEM(device, "GMU Memory");
+		return 0;
+	}
+
+	mem_hdr->type = SNAPSHOT_GMU_MEM_BIN_BLOCK;
+	mem_hdr->hostaddr = 0;
+	mem_hdr->gmuaddr = gmu_get_memtype_base(KGSL_GMU_DEVICE(device), *type);
+	mem_hdr->gpuaddr = 0;
+
+	for (i = regs[0]; i <= regs[1]; i++)
+		kgsl_regread(device, i, data++);
+
+	return bytes + sizeof(*mem_hdr);
+}
+
+
 struct gmu_mem_type_desc {
 	struct gmu_memdesc *memdesc;
 	uint32_t type;
@@ -1443,27 +1480,31 @@ struct gmu_mem_type_desc {
 static size_t a6xx_snapshot_gmu_mem(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_gmu *header = (struct kgsl_snapshot_gmu *)buf;
+	struct kgsl_snapshot_gmu_mem *mem_hdr =
+		(struct kgsl_snapshot_gmu_mem *)buf;
 	struct gmu_mem_type_desc *desc = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	unsigned int *data = (unsigned int *)(buf + sizeof(*mem_hdr));
 
 	if (priv == NULL)
 		return 0;
 
-	if (remain < desc->memdesc->size + sizeof(*header)) {
+	if (remain < desc->memdesc->size + sizeof(*mem_hdr)) {
 		KGSL_CORE_ERR(
 			"snapshot: Not enough memory for the gmu section %d\n",
 			desc->type);
 		return 0;
 	}
 
-	header->type = desc->type;
-	header->size = desc->memdesc->size;
+	memset(mem_hdr, 0, sizeof(*mem_hdr));
+	mem_hdr->type = desc->type;
+	mem_hdr->hostaddr = (uintptr_t)desc->memdesc->hostptr;
+	mem_hdr->gmuaddr = desc->memdesc->gmuaddr;
+	mem_hdr->gpuaddr = 0;
 
 	/* Just copy the ringbuffer, there are no active IBs */
 	memcpy(data, desc->memdesc->hostptr, desc->memdesc->size);
 
-	return desc->memdesc->size + sizeof(*header);
+	return desc->memdesc->size + sizeof(*mem_hdr);
 }
 
 /*
@@ -1481,10 +1522,14 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	bool gx_on;
 	struct gmu_mem_type_desc desc[] = {
-		{gmu->hfi_mem, SNAPSHOT_GMU_HFIMEM},
-		{gmu->gmu_log, SNAPSHOT_GMU_LOG},
-		{gmu->dump_mem, SNAPSHOT_GMU_DUMPMEM} };
+		{gmu->hfi_mem, SNAPSHOT_GMU_MEM_HFI},
+		{gmu->persist_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
+		{gmu->icache_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
+		{gmu->dcache_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK},
+		{gmu->gmu_log, SNAPSHOT_GMU_MEM_LOG},
+		{gmu->dump_mem, SNAPSHOT_GMU_MEM_BIN_BLOCK} };
 	unsigned int val, i;
+	enum gmu_mem_type type;
 
 	if (!gmu_core_isenabled(device))
 		return;
@@ -1492,13 +1537,20 @@ static void a6xx_gmu_snapshot(struct adreno_device *adreno_dev,
 	for (i = 0; i < ARRAY_SIZE(desc); i++) {
 		if (desc[i].memdesc)
 			kgsl_snapshot_add_section(device,
-					KGSL_SNAPSHOT_SECTION_GMU,
+					KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
 					snapshot, a6xx_snapshot_gmu_mem,
 					&desc[i]);
 	}
 
+	type = GMU_ITCM;
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+			snapshot, a6xx_snapshot_gmu_tcm, &type);
+	type = GMU_DTCM;
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+			snapshot, a6xx_snapshot_gmu_tcm, &type);
+
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
-					ARRAY_SIZE(a6xx_gmu_registers) / 2);
+			ARRAY_SIZE(a6xx_gmu_registers) / 2);
 
 	gx_on = a6xx_gmu_gx_is_on(adreno_dev);
 

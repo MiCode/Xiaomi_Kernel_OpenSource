@@ -341,8 +341,6 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 {
 	if (meta != NULL) {
 		remove_dmabuf_list(meta);
-		dma_buf_unmap_attachment(meta->attach, meta->table,
-			DMA_FROM_DEVICE);
 		dma_buf_detach(meta->dmabuf, meta->attach);
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
@@ -401,7 +399,7 @@ kgsl_mem_entry_destroy(struct kref *kref)
 			    entry->memdesc.sgt->nents, i) {
 			page = sg_page(sg);
 			for (j = 0; j < (sg->length >> PAGE_SHIFT); j++)
-				set_page_dirty(nth_page(page, j));
+				set_page_dirty_lock(nth_page(page, j));
 		}
 	}
 
@@ -2689,6 +2687,8 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		ret = PTR_ERR(sg_table);
 		goto out;
 	}
+
+	dma_buf_unmap_attachment(attach, sg_table, DMA_FROM_DEVICE);
 
 	meta->table = sg_table;
 	entry->priv_data = meta;

@@ -131,6 +131,7 @@ int dsi_phy_hw_timing_val_v4_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 int dsi_phy_hw_v4_0_lane_reset(struct dsi_phy_hw *phy);
 void dsi_phy_hw_v4_0_toggle_resync_fifo(struct dsi_phy_hw *phy);
 void dsi_phy_hw_v4_0_reset_clk_en_sel(struct dsi_phy_hw *phy);
+void dsi_phy_hw_v4_0_set_continuous_clk(struct dsi_phy_hw *phy, bool enable);
 
 /* DSI controller common ops */
 u32 dsi_ctrl_hw_cmn_get_interrupt_status(struct dsi_ctrl_hw *ctrl);
@@ -256,6 +257,7 @@ void dsi_ctrl_hw_22_config_clk_gating(struct dsi_ctrl_hw *ctrl, bool enable,
 		enum dsi_clk_gate_type clk_selection);
 
 void dsi_ctrl_hw_cmn_set_continuous_clk(struct dsi_ctrl_hw *ctrl, bool enable);
+void dsi_ctrl_hw_cmn_hs_req_sel(struct dsi_ctrl_hw *ctrl, bool sel_phy);
 
 /* dynamic refresh specific functions */
 void dsi_phy_hw_v3_0_dyn_refresh_helper(struct dsi_phy_hw *phy, u32 offset);

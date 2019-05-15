@@ -11,6 +11,14 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/clock/qcom,camcc-atoll.h>
+#include <dt-bindings/clock/qcom,dispcc-atoll.h>
+#include <dt-bindings/clock/qcom,gcc-atoll.h>
+#include <dt-bindings/clock/qcom,gpucc-atoll.h>
+#include <dt-bindings/clock/qcom,npucc-atoll.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,videocc-atoll.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
@@ -334,6 +342,123 @@
 		method = "smc";
 	};
 
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		hyp_region: hyp_region@80000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x80000000 0 0x600000>;
+		};
+
+		xbl_aop_mem: xbl_aop_mem@80700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x80700000 0x0 0x140000>;
+		};
+
+		sec_apps_mem: sec_apps_region@808ff000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x808ff000 0x0 0x1000>;
+		};
+
+		smem_region: smem@80900000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x80900000 0x0 0x200000>;
+		};
+
+		removed_region: removed_region@80b00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x80b00000 0 0x3900000>;
+		};
+
+		pil_camera_mem: camera_region@8e000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8e000000 0 0x500000>;
+		};
+
+		pil_modem_mem: modem_region@86000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x86000000 0 0x8000000>;
+		};
+
+		pil_video_mem: pil_video_region@8ea00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ea00000 0 0x500000>;
+		};
+
+		pil_cdsp_mem: cdsp_regions@8ef00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ef00000 0 0x1e00000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@90d00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x90d00000 0 0x2800000>;
+		};
+
+		wlan_fw_mem: wlan_fw_region@93500000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93500000 0 0x200000>;
+		};
+
+		npu_mem: npu_region@8e500000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8e500000 0 0x500000>;
+		};
+
+		pil_ipa_fw_mem: ipa_fw_region@93700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93700000 0 0x10000>;
+		};
+
+		pil_ipa_gsi_mem: ipa_gsi_region@93710000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93710000 0 0x5000>;
+		};
+
+		pil_gpu_mem: gpu_region@93715000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93715000 0 0x2000>;
+		};
+
+		qseecom_mem: qseecom_region@9e000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0 0x9e000000 0 0x1400000>;
+		};
+
+		cdsp_sec_mem: cdsp_sec_regions@0x9f400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x9f400000 0 0xc00000>;
+		};
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x2000000>;
+			linux,cma-default;
+		};
+	};
+
 	chosen {
 		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7";
 	};
@@ -537,6 +662,14 @@
 				  "l3-scu-faultirq";
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+		qcom,guard-memory;
+	};
+
 	qcom,llcc@9200000 {
 		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
 		reg = <0x9200000 0x450000>;
@@ -718,6 +851,123 @@
 		};
 	};
 
+	clock_rpmh: qcom,rpmh {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpm_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_aop: qcom,aopclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "aop_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,gpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_npucc: qcom,npucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "npucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+};
+
+#include "atoll-gdsc.dtsi"
+#include "msm-arm-smmu-sdmatoll.dtsi"
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
+	status = "ok";
+};
+
+&bps_gdsc {
+	status = "ok";
+};
+
+&ipe_0_gdsc {
+	status = "ok";
+};
+
+&ife_0_gdsc {
+	status = "ok";
+};
+
+&ife_1_gdsc {
+	status = "ok";
+};
+
+&titan_top_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	status = "ok";
+};
+
+&vcodec0_gdsc {
+	status = "ok";
+};
+
+&venus_gdsc {
+	status = "ok";
+};
+
+&npu_core_gdsc {
+	status = "ok";
 };
 
 #include "atoll-pinctrl.dtsi"
+#include "atoll-pm.dtsi"

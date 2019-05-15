@@ -2695,10 +2695,9 @@
 		ddr3-map {
 			qcom,ddr-type = <DDR_TYPE_LPDDR3>;
 			qcom,core-dev-table =
-				<  652800 MHZ_TO_MBPS( 200, 8) >,
-				< 1056000 MHZ_TO_MBPS( 451, 8) >,
-				< 1401600 MHZ_TO_MBPS( 547, 8) >,
-				< 1536000 MHZ_TO_MBPS( 768, 8) >,
+				< 1056000 MHZ_TO_MBPS( 200, 8) >,
+				< 1401600 MHZ_TO_MBPS( 451, 8) >,
+				< 1804800 MHZ_TO_MBPS( 768, 8) >,
 				< 2016000 MHZ_TO_MBPS( 931, 8) >;
 		};
 		ddr4-map {

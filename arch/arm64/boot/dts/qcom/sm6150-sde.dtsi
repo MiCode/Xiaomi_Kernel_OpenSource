@@ -474,17 +474,17 @@
 			<0x88e9000 0x17c>,
 			<0x88e9400 0x10c>,
 			<0x88e9800 0x10c>,
-			<0xaf02000 0x1a0>,
+			<0xaf02130 0x8>,
 			<0x780000 0x621c>,
 			<0x88e9c30 0x10>,
 			<0xaee1000 0x34>,
-			<0x1fcb200 0x50>,
+			<0x1fcb24c 0x4>,
 			<0xae91000 0x098>;
 
 		/* dp_ctrl: dp_ahb, dp_aux, dp_link, dp_p0 */
 		reg-names = "dp_ahb", "dp_aux", "dp_link",
 			"dp_p0", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
-			"dp_mmss_cc", "qfprom_physical", "dp_pll",
+			"dp_pixel_mn", "qfprom_physical", "dp_pll",
 			"hdcp_physical", "dp_tcsr","dp_p1";
 
 		interrupt-parent = <&mdss_mdp>;
@@ -527,7 +527,7 @@
 		qcom,logical2physical-lane-map = [03 02 00 01];
 
 		qcom,max-lclk-frequency-khz = <540000>;
-		qcom,max-pclk-frequency-khz = <200000>;
+		qcom,max-pclk-frequency-khz = <195000>;
 
 		qcom,ext-disp = <&ext_disp>;
 		qcom,dp-aux-switch = <&fsa4480>;

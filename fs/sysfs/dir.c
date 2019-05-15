@@ -42,7 +42,8 @@ int sysfs_create_dir_ns(struct kobject *kobj, const void *ns)
 {
 	struct kernfs_node *parent, *kn;
 
-	BUG_ON(!kobj);
+	if (WARN_ON(!kobj))
+		return -EINVAL;
 
 	if (kobj->parent)
 		parent = kobj->parent->sd;

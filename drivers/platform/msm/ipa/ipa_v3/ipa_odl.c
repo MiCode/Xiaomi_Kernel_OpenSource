@@ -318,7 +318,7 @@ int ipa_setup_odl_pipe(void)
 	ipa_odl_ep_cfg->napi_obj = NULL;
 	ipa_odl_ep_cfg->desc_fifo_sz = IPA_ODL_RX_RING_SIZE *
 						IPA_FIFO_ELEMENT_SIZE;
-
+	ipa3_odl_ctx->odl_client_hdl = -1;
 	ret = ipa3_setup_sys_pipe(ipa_odl_ep_cfg,
 			&ipa3_odl_ctx->odl_client_hdl);
 	return ret;
@@ -343,6 +343,7 @@ int ipa3_odl_pipe_open(void)
 	ret = ipa_setup_odl_pipe();
 	if (ret) {
 		IPAERR(" Setup endpoint config failed\n");
+		ipa3_odl_ctx->odl_state.adpl_open = false;
 		goto fail;
 	}
 	ipa3_cfg_ep_holb_by_client(IPA_CLIENT_ODL_DPL_CONS, &holb_cfg);
@@ -413,6 +414,7 @@ void ipa3_odl_pipe_cleanup(bool is_ssr)
 	ipa3_cfg_ep_holb_by_client(IPA_CLIENT_USB_DPL_CONS, &holb_cfg);
 
 	ipa3_teardown_sys_pipe(ipa3_odl_ctx->odl_client_hdl);
+	ipa3_odl_ctx->odl_client_hdl = -1;
 	/*Assume QTI will never close this node once opened*/
 	if (ipa_odl_opened)
 		ipa3_odl_ctx->odl_state.odl_open = true;

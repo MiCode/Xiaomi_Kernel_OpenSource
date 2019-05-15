@@ -13,6 +13,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+
 #include "qcs610-iot.dtsi"
 
 / {
@@ -20,8 +22,4 @@
 	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
 	qcom,msm-id = <401 0x0>;
 	qcom,board-id = <32 0>;
-};
-
-&dsi_hx83112a_truly_vid_display {
-	qcom,dsi-display-active;
 };

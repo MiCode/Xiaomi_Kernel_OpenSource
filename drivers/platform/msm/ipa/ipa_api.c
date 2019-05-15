@@ -3635,16 +3635,17 @@ int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 }
 
 void ipa_register_client_callback(int (*client_cb)(bool is_lock),
-				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+				bool (*teth_port_state)(void),
+					enum ipa_client_type client)
 {
 	IPA_API_DISPATCH(ipa_register_client_callback,
-		client_cb, teth_port_state, ipa_ep_idx);
+		client_cb, teth_port_state, client);
 }
 
-void ipa_deregister_client_callback(u32 ipa_ep_idx)
+void ipa_deregister_client_callback(enum ipa_client_type client)
 {
 	IPA_API_DISPATCH(ipa_deregister_client_callback,
-		ipa_ep_idx);
+		client);
 }
 
 

@@ -974,7 +974,19 @@ static void _dsi_display_continuous_clk_ctrl(struct dsi_display *display,
 
 	display_for_each_ctrl(i, display) {
 		ctrl = &display->ctrl[i];
-		dsi_ctrl_set_continuous_clk(ctrl->ctrl, enable);
+
+		/**
+		 * For phy ver 4.0 chipsets, configure DSI controller and
+		 * DSI PHY to force clk lane to HS mode always whereas
+		 * for other phy ver chipsets, configure DSI controller only.
+		 */
+		if (ctrl->phy->hw.ops.set_continuous_clk) {
+			dsi_ctrl_hs_req_sel(ctrl->ctrl, true);
+			dsi_ctrl_set_continuous_clk(ctrl->ctrl, enable);
+			dsi_phy_set_continuous_clk(ctrl->phy, enable);
+		} else {
+			dsi_ctrl_set_continuous_clk(ctrl->ctrl, enable);
+		}
 	}
 }
 

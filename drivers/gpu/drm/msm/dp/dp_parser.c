@@ -205,14 +205,13 @@ static int dp_parser_msm_hdcp_dev(struct dp_parser *parser)
 
 static int dp_parser_pinctrl(struct dp_parser *parser)
 {
-	int rc = 0;
 	struct dp_pinctrl *pinctrl = &parser->pinctrl;
 
 	pinctrl->pin = devm_pinctrl_get(&parser->pdev->dev);
 
 	if (IS_ERR_OR_NULL(pinctrl->pin)) {
-		pr_debug("failed to get pinctrl, rc=%d\n", rc);
-		goto error;
+		pr_debug("failed to get pinctrl\n");
+		return 0;
 	}
 
 	if (parser->no_aux_switch && parser->lphw_hpd) {
@@ -235,20 +234,18 @@ static int dp_parser_pinctrl(struct dp_parser *parser)
 	pinctrl->state_active = pinctrl_lookup_state(pinctrl->pin,
 					"mdss_dp_active");
 	if (IS_ERR_OR_NULL(pinctrl->state_active)) {
-		rc = PTR_ERR(pinctrl->state_active);
-		pr_err("failed to get pinctrl active state, rc=%d\n", rc);
-		goto error;
+		pinctrl->state_active = NULL;
+		pr_debug("failed to get pinctrl active state\n");
 	}
 
 	pinctrl->state_suspend = pinctrl_lookup_state(pinctrl->pin,
 					"mdss_dp_sleep");
 	if (IS_ERR_OR_NULL(pinctrl->state_suspend)) {
-		rc = PTR_ERR(pinctrl->state_suspend);
-		pr_err("failed to get pinctrl suspend state, rc=%d\n", rc);
-		goto error;
+		pinctrl->state_suspend = NULL;
+		pr_debug("failed to get pinctrl suspend state\n");
 	}
-error:
-	return rc;
+
+	return 0;
 }
 
 static int dp_parser_gpio(struct dp_parser *parser)

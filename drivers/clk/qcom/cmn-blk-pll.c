@@ -45,6 +45,21 @@ static unsigned long clk_cmn_blk_recalc_rate(struct clk_hw *hw,
 	return to_clk_fixed_rate(hw)->fixed_rate;
 }
 
+static int clk_cmn_blk_pll_prepare(struct clk_hw *hw)
+{
+	int ret;
+
+	ret = clk_prepare(pll.misc_reset);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare(pll.aon_clk);
+	if (ret)
+		return ret;
+
+	return clk_prepare(pll.ahb_clk);
+}
+
 static int clk_cmn_blk_pll_enable(struct clk_hw *hw)
 {
 	u32 val, ret;
@@ -53,15 +68,15 @@ static int clk_cmn_blk_pll_enable(struct clk_hw *hw)
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(pll.misc_reset);
+	ret = clk_enable(pll.misc_reset);
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(pll.aon_clk);
+	ret = clk_enable(pll.aon_clk);
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(pll.ahb_clk);
+	ret = clk_enable(pll.ahb_clk);
 	if (ret)
 		return ret;
 
@@ -80,6 +95,13 @@ static int clk_cmn_blk_pll_enable(struct clk_hw *hw)
 	return 0;
 }
 
+static void clk_cmn_blk_pll_unprepare(struct clk_hw *hw)
+{
+	clk_unprepare(pll.misc_reset);
+	clk_unprepare(pll.aon_clk);
+	clk_unprepare(pll.ahb_clk);
+}
+
 static void clk_cmn_blk_pll_disable(struct clk_hw *hw)
 {
 	u32 val;
@@ -88,14 +110,16 @@ static void clk_cmn_blk_pll_disable(struct clk_hw *hw)
 	val &= ~BIT(6);
 	regmap_write(pll.regmap, 0, val);
 
-	clk_disable_unprepare(pll.misc_reset);
-	clk_disable_unprepare(pll.aon_clk);
-	clk_disable_unprepare(pll.ahb_clk);
+	clk_disable(pll.misc_reset);
+	clk_disable(pll.aon_clk);
+	clk_disable(pll.ahb_clk);
 }
 
 const struct clk_ops clk_cmn_blk_ops = {
+	.prepare = clk_cmn_blk_pll_prepare,
 	.enable = clk_cmn_blk_pll_enable,
 	.disable = clk_cmn_blk_pll_disable,
+	.unprepare = clk_cmn_blk_pll_unprepare,
 	.recalc_rate = clk_cmn_blk_recalc_rate,
 };
 

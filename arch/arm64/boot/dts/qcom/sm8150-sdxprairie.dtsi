@@ -132,7 +132,7 @@
 		compatible = "qcom,ipa-mpm";
 		qcom,mhi-chdb-base = <0x40300300>;
 		qcom,mhi-erdb-base = <0x40300700>;
-		qcom,iova-mapping = <0x10000000 0x1FFFFFFF>;
+		qcom,iova-mapping = <0x10000000 0x0FFFFFFF>;
 	 };
 };
 
