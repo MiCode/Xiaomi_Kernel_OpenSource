@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ *
  */
 
 #ifndef __SDHCI_MSM_H__
@@ -142,13 +143,13 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
 	int sdiowakeup_irq;
-	u32 *sup_ice_clk_table;
-	unsigned char sup_ice_clk_cnt;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
-	u32 ice_clk_max;
-	u32 ice_clk_min;
 	u32 *bus_clk_table;
 	unsigned char bus_clk_cnt;
+	u32 *sup_ice_clk_table;
+	unsigned char sup_ice_clk_cnt;
+	u32 ice_clk_max;
+	u32 ice_clk_min;
 };
 
 struct sdhci_msm_bus_vote {
@@ -159,12 +160,6 @@ struct sdhci_msm_bus_vote {
 	bool is_max_bw_needed;
 	struct delayed_work vote_work;
 	struct device_attribute max_bus_bw;
-};
-
-struct sdhci_msm_ice_data {
-	struct qcom_ice_variant_ops *vops;
-	struct platform_device *pdev;
-	int state;
 };
 
 struct sdhci_msm_regs_restore {
@@ -208,6 +203,12 @@ struct sdhci_msm_debug_data {
 	struct sdhci_host copy_host;
 };
 
+struct sdhci_msm_ice_data {
+	struct qcom_ice_variant_ops *vops;
+	struct platform_device *pdev;
+	int state;
+};
+
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
@@ -246,8 +247,6 @@ struct sdhci_msm_host {
 	bool enhanced_strobe;
 	bool rclk_delay_fix;
 	u32 caps_0;
-	struct sdhci_msm_ice_data ice;
-	u32 ice_clk_rate;
 	struct sdhci_msm_pm_qos_group *pm_qos;
 	int pm_qos_prev_cpu;
 	struct device_attribute pm_qos_group_enable_attr;
@@ -263,9 +262,9 @@ struct sdhci_msm_host {
 	bool use_7nm_dll;
 	int soc_min_rev;
 	struct workqueue_struct *pm_qos_wq;
-	bool use_cdr;
-	u32 transfer_mode;
 	struct sdhci_msm_dll_hsr *dll_hsr;
+	struct sdhci_msm_ice_data ice;
+	u32 ice_clk_rate;
 };
 
 extern char *saved_command_line;

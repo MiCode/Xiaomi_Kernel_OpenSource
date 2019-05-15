@@ -8,7 +8,6 @@
 #ifndef LINUX_MMC_CORE_H
 #define LINUX_MMC_CORE_H
 
-#include <uapi/linux/mmc/core.h>
 #include <linux/completion.h>
 #include <linux/types.h>
 
@@ -35,6 +34,38 @@ struct mmc_command {
 #define MMC_CMD23_ARG_TAG_REQ	(1 << 29)
 	u32			resp[4];
 	unsigned int		flags;		/* expected response type */
+#define MMC_RSP_PRESENT	(1 << 0)
+#define MMC_RSP_136	(1 << 1)		/* 136 bit response */
+#define MMC_RSP_CRC	(1 << 2)		/* expect valid crc */
+#define MMC_RSP_BUSY	(1 << 3)		/* card may send busy */
+#define MMC_RSP_OPCODE	(1 << 4)		/* response contains opcode */
+
+#define MMC_CMD_MASK	(3 << 5)		/* non-SPI command type */
+#define MMC_CMD_AC	(0 << 5)
+#define MMC_CMD_ADTC	(1 << 5)
+#define MMC_CMD_BC	(2 << 5)
+#define MMC_CMD_BCR	(3 << 5)
+
+#define MMC_RSP_SPI_S1	(1 << 7)		/* one status byte */
+#define MMC_RSP_SPI_S2	(1 << 8)		/* second byte */
+#define MMC_RSP_SPI_B4	(1 << 9)		/* four data bytes */
+#define MMC_RSP_SPI_BUSY (1 << 10)		/* card may send busy */
+
+/*
+ * These are the native response types, and correspond to valid bit
+ * patterns of the above flags.  One additional valid pattern
+ * is all zeros, which means we don't expect a response.
+ */
+#define MMC_RSP_NONE	(0)
+#define MMC_RSP_R1	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
+#define MMC_RSP_R1B	\
+	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE|MMC_RSP_BUSY)
+#define MMC_RSP_R2	(MMC_RSP_PRESENT|MMC_RSP_136|MMC_RSP_CRC)
+#define MMC_RSP_R3	(MMC_RSP_PRESENT)
+#define MMC_RSP_R4	(MMC_RSP_PRESENT)
+#define MMC_RSP_R5	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
+#define MMC_RSP_R6	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
+#define MMC_RSP_R7	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
 
 /* Can be used by core to poll after switch to MMC HS mode */
 #define MMC_RSP_R1_NO_CRC	(MMC_RSP_PRESENT|MMC_RSP_OPCODE)
@@ -82,8 +113,6 @@ struct mmc_command {
 	unsigned int		busy_timeout;	/* busy detect timeout in ms */
 	/* Set this flag only for blocking sanitize request */
 	bool			sanitize_busy;
-	/* Set this flag only for blocking bkops request */
-	bool			bkops_busy;
 
 	struct mmc_data		*data;		/* data segment associated with cmd */
 	struct mmc_request	*mrq;		/* associated request */
@@ -116,7 +145,6 @@ struct mmc_data {
 	int			sg_count;	/* mapped sg entries */
 	struct scatterlist	*sg;		/* I/O scatter list */
 	s32			host_cookie;	/* host private data */
-	bool			fault_injected; /* fault injected */
 };
 
 struct mmc_host;
@@ -136,6 +164,7 @@ struct mmc_request {
 	 */
 	void			(*recovery_notifier)(struct mmc_request *);
 	struct mmc_host		*host;
+	struct request *req;
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
 	bool			cap_cmd_during_tfr;
@@ -145,16 +174,6 @@ struct mmc_request {
 
 struct mmc_card;
 
-extern void mmc_check_bkops(struct mmc_card *card);
-extern void mmc_start_manual_bkops(struct mmc_card *card);
-extern int mmc_set_auto_bkops(struct mmc_card *card, bool enable);
-extern int mmc_suspend_clk_scaling(struct mmc_host *host);
-extern void mmc_flush_detect_work(struct mmc_host *host);
-extern int mmc_try_claim_host(struct mmc_host *host, unsigned int delay);
-extern void __mmc_put_card(struct mmc_card *card);
-extern void mmc_blk_init_bkops_statistics(struct mmc_card *card);
-extern void mmc_deferred_scaling(struct mmc_host *host);
-
 void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq);
 int mmc_wait_for_cmd(struct mmc_host *host, struct mmc_command *cmd,
 		int retries);
@@ -162,5 +181,6 @@ int mmc_wait_for_cmd(struct mmc_host *host, struct mmc_command *cmd,
 int mmc_hw_reset(struct mmc_host *host);
 int mmc_sw_reset(struct mmc_host *host);
 void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card);
+extern void mmc_flush_detect_work(struct mmc_host *host);
 
 #endif /* LINUX_MMC_CORE_H */

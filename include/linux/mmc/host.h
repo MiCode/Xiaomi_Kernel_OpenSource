@@ -21,7 +21,6 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/pm.h>
 #include <linux/dma-direction.h>
-#include <linux/mmc/ring_buffer.h>
 
 #define MMC_AUTOSUSPEND_DELAY_MS	3000
 
@@ -90,12 +89,6 @@ struct mmc_ios {
 
 struct mmc_host;
 
-/* states to represent load on the host */
-enum mmc_load {
-	MMC_LOAD_HIGH,
-	MMC_LOAD_LOW,
-};
-
 enum {
 	MMC_ERR_CMD_TIMEOUT,
 	MMC_ERR_CMD_CRC,
@@ -111,6 +104,12 @@ enum {
 	MMC_ERR_CMDQ_REQ_TIMEOUT,
 	MMC_ERR_ICE_CFG,
 	MMC_ERR_MAX,
+};
+
+/* states to represent load on the host */
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
 };
 
 struct mmc_host_ops {
@@ -210,8 +209,8 @@ struct mmc_host_ops {
 
 	unsigned long (*get_max_frequency)(struct mmc_host *host);
 	unsigned long (*get_min_frequency)(struct mmc_host *host);
+	int	(*notify_load)(struct mmc_host *host, enum mmc_load);
 
-	int	(*notify_load)(struct mmc_host *mmc, enum mmc_load);
 	void	(*notify_halt)(struct mmc_host *mmc, bool halt);
 	void	(*force_err_irq)(struct mmc_host *host, u64 errmask);
 };
@@ -619,10 +618,10 @@ struct mmc_host {
 	} perf;
 	bool perf_enable;
 #endif
-	struct mmc_trace_buffer trace_buf;
 	enum dev_state dev_status;
 	bool inlinecrypt_support;  /* Inline encryption support */
 	bool crash_on_err;	/* crash the system on error */
+	atomic_t active_reqs;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -724,11 +723,13 @@ static inline int mmc_card_wake_sdio_irq(struct mmc_host *host)
 	return host->pm_flags & MMC_PM_WAKE_SDIO_IRQ;
 }
 
+
 static inline bool mmc_card_and_host_support_async_int(struct mmc_host *host)
 {
 	return ((host->caps2 & MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE) &&
 			(host->card->cccr.async_intr_sup));
 }
+
 
 static inline void mmc_host_clear_sdr104(struct mmc_host *host)
 {

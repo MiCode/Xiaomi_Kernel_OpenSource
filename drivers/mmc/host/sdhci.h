@@ -712,13 +712,10 @@ struct sdhci_ops {
 	void		(*reset)(struct sdhci_host *host, u8 mask);
 	int	(*platform_execute_tuning)(struct sdhci_host *host, u32 opcode);
 	int	(*crypto_engine_cfg)(struct sdhci_host *host,
-			struct mmc_request *mrq, u32 slot);
-	int	(*crypto_engine_cmdq_cfg)(struct sdhci_host *host,
-			struct mmc_request *mrq, u32 slot, u64 *ice_ctx);
+				struct mmc_request *mrq, u32 slot);
 	int	(*crypto_engine_cfg_end)(struct sdhci_host *host,
-			struct mmc_request *mrq);
+					struct mmc_request *mrq);
 	int	(*crypto_engine_reset)(struct sdhci_host *host);
-	void	(*crypto_cfg_reset)(struct sdhci_host *host, unsigned int slot);
 	void	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);

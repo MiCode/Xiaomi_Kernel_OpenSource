@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017, 2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SDHCI_MSM_ICE_H__
@@ -9,7 +9,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/blkdev.h>
-//#include <crypto/ice.h>
+#include <crypto/ice.h>
 
 #include "sdhci-msm.h"
 
@@ -96,7 +96,7 @@ int sdhci_msm_ice_init(struct sdhci_host *host);
 void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot);
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot);
-int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
+int sdhci_msm_ice_cqe_cfg(struct sdhci_host *host,
 			struct mmc_request *mrq, u32 slot, u64 *ice_ctx);
 int sdhci_msm_ice_cfg_end(struct sdhci_host *host, struct mmc_request *mrq);
 int sdhci_msm_ice_reset(struct sdhci_host *host);
@@ -130,12 +130,12 @@ inline int sdhci_msm_ice_cfg(struct sdhci_host *host,
 {
 	return 0;
 }
-static inline int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
+inline int sdhci_msm_ice_cqe_cfg(struct sdhci_host *host,
 		struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	return 0;
 }
-static inline int sdhci_msm_ice_cfg_end(struct sdhci_host *host,
+inline int sdhci_msm_ice_cfg_end(struct sdhci_host *host,
 			struct mmc_request *mrq)
 {
 	return 0;

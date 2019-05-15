@@ -33,26 +33,6 @@ module_param(fail_request, charp, 0);
 #endif /* CONFIG_FAIL_MMC_REQUEST */
 
 /* The debugfs functions are optimized away when CONFIG_DEBUG_FS isn't set. */
-static int mmc_ring_buffer_show(struct seq_file *s, void *data)
-{
-	struct mmc_host *mmc = s->private;
-
-	mmc_dump_trace_buffer(mmc, s);
-	return 0;
-}
-
-static int mmc_ring_buffer_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mmc_ring_buffer_show, inode->i_private);
-}
-
-static const struct file_operations mmc_ring_buffer_fops = {
-	.open		= mmc_ring_buffer_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-
 static int mmc_ios_show(struct seq_file *s, void *data)
 {
 	static const char *vdd_str[] = {
@@ -216,7 +196,17 @@ static int mmc_ios_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-DEFINE_SHOW_ATTRIBUTE(mmc_ios);
+static int mmc_ios_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mmc_ios_show, inode->i_private);
+}
+
+static const struct file_operations mmc_ios_fops = {
+	.open           = mmc_ios_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
 
 static int mmc_clock_opt_get(void *data, u64 *val)
 {
@@ -245,8 +235,6 @@ static int mmc_clock_opt_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(mmc_clock_fops, mmc_clock_opt_get, mmc_clock_opt_set,
 	"%llu\n");
 
-#include <linux/delay.h>
-
 static int mmc_scale_get(void *data, u64 *val)
 {
 	struct mmc_host *host = data;
@@ -262,7 +250,6 @@ static int mmc_scale_set(void *data, u64 val)
 	struct mmc_host *host = data;
 
 	mmc_claim_host(host);
-	mmc_host_clk_hold(host);
 
 	/* change frequency from sysfs manually */
 	err = mmc_clk_update_freq(host, val, host->clk_scaling.state);
@@ -275,13 +262,12 @@ static int mmc_scale_set(void *data, u64 val)
 		pr_debug("%s: clock change to %llu finished successfully (%s)\n",
 			mmc_hostname(host), val, current->comm);
 
-	mmc_host_clk_release(host);
 	mmc_release_host(host);
 
 	return err;
 }
 
-DEFINE_DEBUGFS_ATTRIBUTE(mmc_scale_fops, mmc_scale_get, mmc_scale_set,
+DEFINE_SIMPLE_ATTRIBUTE(mmc_scale_fops, mmc_scale_get, mmc_scale_set,
 	"%llu\n");
 
 static int mmc_max_clock_get(void *data, u64 *val)
@@ -321,28 +307,8 @@ out:
 	return err;
 }
 
-DEFINE_DEBUGFS_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
+DEFINE_SIMPLE_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
 		mmc_max_clock_set, "%llu\n");
-
-static int mmc_force_err_set(void *data, u64 val)
-{
-	struct mmc_host *host = data;
-
-	if (host && host->card && host->ops &&
-			host->ops->force_err_irq) {
-		/*
-		 * To access the force error irq reg, we need to make
-		 * sure the host is powered up and host clock is ticking.
-		 */
-		mmc_get_card(host->card, NULL);
-		host->ops->force_err_irq(host, val);
-		mmc_put_card(host->card, NULL);
-	}
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
 
 static int mmc_err_state_get(void *data, u64 *val)
 {
@@ -368,7 +334,7 @@ static int mmc_err_state_clear(void *data, u64 val)
 	return 0;
 }
 
-DEFINE_DEBUGFS_ATTRIBUTE(mmc_err_state, mmc_err_state_get,
+DEFINE_SIMPLE_ATTRIBUTE(mmc_err_state, mmc_err_state_get,
 		mmc_err_state_clear, "%llu\n");
 
 static int mmc_err_stats_show(struct seq_file *file, void *data)
@@ -444,6 +410,26 @@ static const struct file_operations mmc_err_stats_fops = {
 	.write	= mmc_err_stats_write,
 };
 
+static int mmc_force_err_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (host && host->card && host->ops &&
+			host->ops->force_err_irq) {
+		/*
+		 * To access the force error irq reg, we need to make
+		 * sure the host is powered up and host clock is ticking.
+		 */
+		mmc_get_card(host->card, NULL);
+		host->ops->force_err_irq(host, val);
+		mmc_put_card(host->card, NULL);
+	}
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -462,6 +448,16 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 	if (!debugfs_create_file("ios", 0400, root, host, &mmc_ios_fops))
 		goto err_node;
 
+	if (!debugfs_create_x32("caps", 0400, root, &host->caps))
+		goto err_node;
+
+	if (!debugfs_create_x32("caps2", 0400, root, &host->caps2))
+		goto err_node;
+
+	if (!debugfs_create_file("clock", 0600, root, host,
+			&mmc_clock_fops))
+		goto err_node;
+
 	if (!debugfs_create_file("max_clock", 0600, root, host,
 		&mmc_max_clock_fops))
 		goto err_node;
@@ -475,38 +471,12 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 		&host->clk_scaling.skip_clk_scale_freq_update))
 		goto err_node;
 
-	if (!debugfs_create_bool("crash_on_err",
-		0600, root,
-		&host->crash_on_err))
-		goto err_node;
-
-#ifdef CONFIG_MMC_RING_BUFFER
-	if (!debugfs_create_file("ring_buffer", 0400,
-				root, host, &mmc_ring_buffer_fops))
-		goto err_node;
-#endif
 	if (!debugfs_create_file("err_state", 0600, root, host,
 		&mmc_err_state))
 		goto err_node;
 
 	if (!debugfs_create_file("err_stats", 0600, root, host,
 		&mmc_err_stats_fops))
-		goto err_node;
-
-#ifdef CONFIG_MMC_CLKGATE
-	if (!debugfs_create_u32("clk_delay", 0600,
-				root, &host->clk_delay))
-		goto err_node;
-#endif
-
-	if (!debugfs_create_x32("caps", 0400, root, &host->caps))
-		goto err_node;
-
-	if (!debugfs_create_x32("caps2", 0400, root, &host->caps2))
-		goto err_node;
-
-	if (!debugfs_create_file("clock", 0600, root, host,
-			&mmc_clock_fops))
 		goto err_node;
 
 #ifdef CONFIG_FAIL_MMC_REQUEST
@@ -522,6 +492,11 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 		&mmc_force_err_fops))
 		goto err_node;
 
+	if (!debugfs_create_bool("crash_on_err",
+		0600, root,
+		&host->crash_on_err))
+		goto err_node;
+
 	return;
 
 err_node:
@@ -535,89 +510,6 @@ void mmc_remove_host_debugfs(struct mmc_host *host)
 {
 	debugfs_remove_recursive(host->debugfs_root);
 }
-
-static int mmc_bkops_stats_read(struct seq_file *file, void *data)
-{
-	struct mmc_card *card = file->private;
-	struct mmc_bkops_stats *stats;
-	int i;
-
-	if (!card)
-		return -EINVAL;
-
-	stats = &card->bkops.stats;
-
-	if (!stats->enabled) {
-		pr_info("%s: bkops statistics are disabled\n",
-			 mmc_hostname(card->host));
-		goto exit;
-	}
-
-	spin_lock(&stats->lock);
-
-	seq_printf(file, "%s: bkops statistics:\n",
-			mmc_hostname(card->host));
-	seq_printf(file, "%s: BKOPS: sent START_BKOPS to device: %u\n",
-			mmc_hostname(card->host), stats->manual_start);
-	seq_printf(file, "%s: BKOPS: stopped due to HPI: %u\n",
-			mmc_hostname(card->host), stats->hpi);
-	seq_printf(file, "%s: BKOPS: sent AUTO_EN set to 1: %u\n",
-			mmc_hostname(card->host), stats->auto_start);
-	seq_printf(file, "%s: BKOPS: sent AUTO_EN set to 0: %u\n",
-			mmc_hostname(card->host), stats->auto_stop);
-
-	for (i = 0 ; i < MMC_BKOPS_NUM_SEVERITY_LEVELS ; ++i)
-		seq_printf(file, "%s: BKOPS: due to level %d: %u\n",
-			 mmc_hostname(card->host), i, stats->level[i]);
-
-	spin_unlock(&stats->lock);
-
-exit:
-
-	return 0;
-}
-
-static ssize_t mmc_bkops_stats_write(struct file *filp,
-				      const char __user *ubuf, size_t cnt,
-				      loff_t *ppos)
-{
-	struct mmc_card *card = filp->f_mapping->host->i_private;
-	int value;
-	struct mmc_bkops_stats *stats;
-	int err;
-
-	if (!card)
-		return cnt;
-
-	stats = &card->bkops.stats;
-
-	err = kstrtoint_from_user(ubuf, cnt, 0, &value);
-	if (err) {
-		pr_err("%s: %s: error parsing input from user (%d)\n",
-				mmc_hostname(card->host), __func__, err);
-		return err;
-	}
-	if (value) {
-		mmc_blk_init_bkops_statistics(card);
-	} else {
-		spin_lock(&stats->lock);
-		stats->enabled = false;
-		spin_unlock(&stats->lock);
-	}
-
-	return cnt;
-}
-
-static int mmc_bkops_stats_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mmc_bkops_stats_read, inode->i_private);
-}
-
-static const struct file_operations mmc_dbg_bkops_stats_fops = {
-	.open		= mmc_bkops_stats_open,
-	.read		= seq_read,
-	.write		= mmc_bkops_stats_write,
-};
 
 void mmc_add_card_debugfs(struct mmc_card *card)
 {
@@ -640,13 +532,6 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 
 	if (!debugfs_create_x32("state", 0400, root, &card->state))
 		goto err;
-
-	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 5) &&
-	    (mmc_card_configured_auto_bkops(card) ||
-	     mmc_card_configured_manual_bkops(card)))
-		if (!debugfs_create_file("bkops_stats", 0400, root, card,
-					 &mmc_dbg_bkops_stats_fops))
-			goto err;
 
 	return;
 

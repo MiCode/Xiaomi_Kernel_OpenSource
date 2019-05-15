@@ -16,12 +16,12 @@
 struct mmc_host;
 struct mmc_card;
 
-#define MMC_DEV_ATTR(name, fmt, args...)					\
+#define MMC_DEV_ATTR(name, fmt, args...)				\
 static ssize_t mmc_##name##_show (struct device *dev, struct device_attribute *attr, char *buf)	\
-{										\
-	struct mmc_card *card = mmc_dev_to_card(dev);				\
+{									\
+	struct mmc_card *card = mmc_dev_to_card(dev);			\
 	return snprintf(buf, PAGE_SIZE, fmt, args);			\
-}										\
+}									\
 static DEVICE_ATTR(name, S_IRUGO, mmc_##name##_show, NULL)
 
 struct mmc_card *mmc_alloc_card(struct mmc_host *host,
