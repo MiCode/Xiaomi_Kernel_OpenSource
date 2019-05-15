@@ -3,18 +3,20 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/iio/iio.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
+#include <linux/mfd/mt6358/registers.h>
+#include <linux/mfd/mt6359/registers.h>
+#include <linux/mfd/mt6397/core.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/iio/iio.h>
 #include <linux/regmap.h>
-#include <linux/mfd/mt6358/registers.h>
-#include <linux/mfd/mt6359/registers.h>
-#include <linux/mfd/mt6397/core.h>
 
 #include <dt-bindings/iio/mt635x-auxadc.h>
 
@@ -27,6 +29,7 @@
 #define AUXADC_POLL_DELAY_US		100
 #define AUXADC_TIMEOUT_US		32000
 #define VOLT_FULL			1800
+#define IMP_STOP_DELAY_US		150
 
 struct mt635x_auxadc_device {
 	unsigned int chip_id;
@@ -36,6 +39,8 @@ struct mt635x_auxadc_device {
 	struct iio_chan_spec *iio_chans;
 	struct mutex lock;
 	const struct auxadc_info *info;
+	int imp_vbat;
+	struct completion imp_done;
 };
 
 /*
@@ -83,6 +88,7 @@ static struct auxadc_channels auxadc_chans[] = {
 	MT635x_AUXADC_CHANNEL(HPOFS_CAL, 9, 15),
 	MT635x_AUXADC_CHANNEL(DCXO_TEMP, 10, 15),
 	MT635x_AUXADC_CHANNEL(VBIF, 11, 12),
+	MT635x_AUXADC_CHANNEL(IMP, 0, 15),
 };
 
 struct auxadc_regs {
@@ -157,24 +163,113 @@ static const unsigned int mt6359_rst_setting[][3] = {
 	}
 };
 
-
 struct auxadc_info {
 	const struct auxadc_regs *regs_tbl;
 	const unsigned int (*rst_setting)[3];
 	unsigned int num_rst_setting;
+	int (*imp_conv)(struct mt635x_auxadc_device *adc_dev,
+			int *vbat, int *ibat);
+	void (*imp_stop)(struct mt635x_auxadc_device *adc_dev);
 };
+
+#define MT6358_IMP_CK_SW_MASK		(BIT(1) | BIT(0))
+#define MT6358_IMP_AUTORPT_EN_MASK	BIT(15)
+#define MT6358_IMP_CLR_MASK		(BIT(14) | BIT(7))
+
+static int mt6358_imp_conv(struct mt635x_auxadc_device *adc_dev,
+			   int *vbat, int *ibat)
+{
+	int ret;
+
+	reinit_completion(&adc_dev->imp_done);
+	/* start conversion */
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_DCM_CON,
+			   MT6358_IMP_CK_SW_MASK, MT6358_IMP_CK_SW_MASK);
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_IMP1,
+			   MT6358_IMP_AUTORPT_EN_MASK,
+			   MT6358_IMP_AUTORPT_EN_MASK);
+	ret = wait_for_completion_timeout(&adc_dev->imp_done,
+					  usecs_to_jiffies(AUXADC_TIMEOUT_US));
+	if (!ret) {
+		adc_dev->info->imp_stop(adc_dev);
+		dev_err(adc_dev->dev, "IMP Time out!\n");
+		ret = -ETIMEDOUT;
+	}
+	*vbat = adc_dev->imp_vbat;
+	regmap_read(adc_dev->regmap, MT6358_FGADC_R_CON0, ibat);
+
+	return ret;
+}
+
+static void mt6358_imp_stop(struct mt635x_auxadc_device *adc_dev)
+{
+	regmap_read(adc_dev->regmap, MT6358_AUXADC_ADC28, &adc_dev->imp_vbat);
+	adc_dev->imp_vbat &= BIT(auxadc_chans[AUXADC_IMP].res) - 1;
+	/* stop conversion after read VBAT */
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_IMP0,
+			   MT6358_IMP_CLR_MASK, MT6358_IMP_CLR_MASK);
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_IMP0,
+			   MT6358_IMP_CLR_MASK, 0);
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_IMP1,
+			   MT6358_IMP_AUTORPT_EN_MASK, 0);
+	regmap_update_bits(adc_dev->regmap, MT6358_AUXADC_DCM_CON,
+			   MT6358_IMP_CK_SW_MASK, 0);
+}
+
+static int mt6359_imp_conv(struct mt635x_auxadc_device *adc_dev,
+			   int *vbat, int *ibat)
+{
+	int ret;
+
+	reinit_completion(&adc_dev->imp_done);
+	/* start conversion */
+	regmap_write(adc_dev->regmap, MT6359_AUXADC_IMP0, 1);
+	ret = wait_for_completion_timeout(&adc_dev->imp_done,
+					  usecs_to_jiffies(AUXADC_TIMEOUT_US));
+	if (!ret) {
+		adc_dev->info->imp_stop(adc_dev);
+		dev_err(adc_dev->dev, "IMP Time out!\n");
+		ret = -ETIMEDOUT;
+	}
+	*vbat = adc_dev->imp_vbat;
+	regmap_read(adc_dev->regmap, MT6359_FGADC_R_CON0, ibat);
+
+	return ret;
+}
+
+static void mt6359_imp_stop(struct mt635x_auxadc_device *adc_dev)
+{
+	/* stop conversio */
+	regmap_write(adc_dev->regmap, MT6359_AUXADC_IMP0, 0);
+	udelay(IMP_STOP_DELAY_US);
+	regmap_read(adc_dev->regmap, MT6359_AUXADC_IMP3, &adc_dev->imp_vbat);
+	adc_dev->imp_vbat &= BIT(auxadc_chans[AUXADC_IMP].res) - 1;
+}
 
 static const struct auxadc_info mt6358_info = {
 	.regs_tbl = mt6358_auxadc_regs_tbl,
 	.rst_setting = mt6358_rst_setting,
-	.num_rst_setting = ARRAY_SIZE(mt6358_rst_setting)
+	.num_rst_setting = ARRAY_SIZE(mt6358_rst_setting),
+	.imp_conv = mt6358_imp_conv,
+	.imp_stop = mt6358_imp_stop,
 };
 
 static const struct auxadc_info mt6359_info = {
 	.regs_tbl = mt6359_auxadc_regs_tbl,
 	.rst_setting = mt6359_rst_setting,
-	.num_rst_setting = ARRAY_SIZE(mt6359_rst_setting)
+	.num_rst_setting = ARRAY_SIZE(mt6359_rst_setting),
+	.imp_conv = mt6359_imp_conv,
+	.imp_stop = mt6359_imp_stop,
 };
+
+static irqreturn_t imp_isr(int irq, void *dev_id)
+{
+	struct mt635x_auxadc_device *adc_dev = dev_id;
+
+	adc_dev->info->imp_stop(adc_dev);
+	complete(&adc_dev->imp_done);
+	return IRQ_HANDLED;
+}
 
 static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
 {
@@ -193,11 +288,12 @@ static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
  * @adc_dev:	pointer to the struct mt635x_auxadc_device
  * @channel:	channel number, refer to the auxadc_chans index
 		pass from struct iio_chan_spec.channel
+ * @val:	pointer to output value
  */
-static int get_auxadc_out(struct mt635x_auxadc_device *adc_dev, int channel)
+static int get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
+			  int channel, int *val)
 {
 	int ret;
-	int auxadc_out = 0;
 	const struct auxadc_channels *auxadc_chan;
 
 	auxadc_chan = &auxadc_chans[channel];
@@ -210,18 +306,15 @@ static int get_auxadc_out(struct mt635x_auxadc_device *adc_dev, int channel)
 
 	ret = regmap_read_poll_timeout(adc_dev->regmap,
 				       auxadc_chan->regs->out_reg,
-				       auxadc_out,
-				       (auxadc_out & AUXADC_RDY_BIT),
+				       *val,
+				       (*val & AUXADC_RDY_BIT),
 				       AUXADC_POLL_DELAY_US,
 				       AUXADC_TIMEOUT_US);
-	auxadc_out &= BIT(auxadc_chan->res) - 1;
-	if (ret == -ETIMEDOUT) {
-		dev_err(adc_dev->dev, "(%d)Time out!\n",
-			   auxadc_chan->ch_num);
-	} else if (ret < 0)
-		return ret;
+	*val &= BIT(auxadc_chan->res) - 1;
+	if (ret == -ETIMEDOUT)
+		dev_err(adc_dev->dev, "(%d)Time out!\n", auxadc_chan->ch_num);
 
-	return auxadc_out;
+	return ret;
 }
 
 static int mt635x_auxadc_read_raw(struct iio_dev *indio_dev,
@@ -232,33 +325,38 @@ static int mt635x_auxadc_read_raw(struct iio_dev *indio_dev,
 {
 	struct mt635x_auxadc_device *adc_dev = iio_priv(indio_dev);
 	const struct auxadc_channels *auxadc_chan;
-	int auxadc_out;
+	int auxadc_out = 0;
 	int ret;
 
 	mutex_lock(&adc_dev->lock);
 	pm_stay_awake(adc_dev->dev);
 
-	auxadc_out = get_auxadc_out(adc_dev, chan->channel);
+	if (chan->channel == AUXADC_IMP && adc_dev->info->imp_conv)
+		ret = adc_dev->info->imp_conv(adc_dev, &auxadc_out, val2);
+	else
+		ret = get_auxadc_out(adc_dev, chan->channel, &auxadc_out);
 
 	pm_relax(adc_dev->dev);
 	mutex_unlock(&adc_dev->lock);
-	if (auxadc_out < 0)
+	if (ret != -ETIMEDOUT && ret < 0)
 		goto err;
 
 	auxadc_chan = &auxadc_chans[chan->channel];
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
-		*val = (int)(auxadc_out * auxadc_chan->r_ratio[0] * VOLT_FULL);
+		*val = auxadc_out * auxadc_chan->r_ratio[0] * VOLT_FULL;
 		*val = (*val / auxadc_chan->r_ratio[1]) >> auxadc_chan->res;
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_RAW:
-		*val = (int)auxadc_out;
+		*val = auxadc_out;
 		ret = IIO_VAL_INT;
 		break;
 	default:
 		return -EINVAL;
 	}
+	if (chan->channel == AUXADC_IMP)
+		ret = IIO_VAL_INT_MULTIPLE;
 err:
 	return ret;
 }
@@ -368,7 +466,7 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 	struct mt635x_auxadc_device *adc_dev;
 	struct iio_dev *indio_dev;
 	struct mt6397_chip *chip;
-	int ret;
+	int ret, imp_irq;
 
 	chip = dev_get_drvdata(pdev->dev.parent);
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*adc_dev));
@@ -379,13 +477,27 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 	adc_dev->regmap = chip->regmap;
 	adc_dev->dev = &pdev->dev;
 	mutex_init(&adc_dev->lock);
+	init_completion(&adc_dev->imp_done);
 	device_init_wakeup(&pdev->dev, true);
 	adc_dev->info = of_device_get_match_data(&pdev->dev);
+	imp_irq = platform_get_irq_byname(pdev, "imp");
+	if (imp_irq < 0) {
+		dev_notice(&pdev->dev, "failed to get IMP irq, ret=%d\n",
+			   imp_irq);
+		return imp_irq;
+	}
+	ret = devm_request_threaded_irq(&pdev->dev, imp_irq, NULL, imp_isr,
+					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					"auxadc_imp", adc_dev);
+	if (ret) {
+		dev_notice(&pdev->dev,
+			   "failed to request IMP irq, ret=%d\n", ret);
+		return ret;
+	}
 
 	ret = auxadc_parse_dt(adc_dev, node);
 	if (ret < 0) {
-		dev_notice(&pdev->dev,
-			"auxadc_parse_dt fail, ret=%d\n", ret);
+		dev_notice(&pdev->dev, "auxadc_parse_dt fail, ret=%d\n", ret);
 		return ret;
 	}
 	auxadc_reset(adc_dev);
