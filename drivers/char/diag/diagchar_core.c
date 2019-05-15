@@ -2532,7 +2532,7 @@ static int diag_ioctl_cmd_dereg(void)
 	return 0;
 }
 
-long diagchar_ioctl_init(struct file *filp,
+static long diagchar_ioctl_init(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
@@ -2567,7 +2567,7 @@ long diagchar_ioctl_init(struct file *filp,
 	return result;
 }
 
-long diagchar_ioctl_dci(struct file *filp,
+static long diagchar_ioctl_dci(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL, client_id = 0;
@@ -2634,7 +2634,7 @@ long diagchar_ioctl_dci(struct file *filp,
 	return result;
 }
 
-long diagchar_ioctl_buffering(struct file *filp,
+static long diagchar_ioctl_buffering(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
@@ -2658,7 +2658,7 @@ long diagchar_ioctl_buffering(struct file *filp,
 	return result;
 }
 
-long diagchar_ioctl_remote(struct file *filp,
+static long diagchar_ioctl_remote(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
@@ -2674,7 +2674,7 @@ long diagchar_ioctl_remote(struct file *filp,
 	return result;
 }
 
-long diagchar_ioctl_misc(struct file *filp,
+static long diagchar_ioctl_misc(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
@@ -2690,7 +2690,7 @@ long diagchar_ioctl_misc(struct file *filp,
 	return result;
 }
 
-long diagchar_ioctl_mdlog(struct file *filp,
+static long diagchar_ioctl_mdlog(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int result = -EINVAL;
@@ -2708,6 +2708,7 @@ long diagchar_ioctl_mdlog(struct file *filp,
 	case DIAG_IOCTL_QUERY_CON_ALL:
 		con_param.diag_con_all = DIAG_CON_ALL;
 		con_param.num_peripherals = NUM_PERIPHERALS;
+		con_param.upd_map_supported = 1;
 		if (copy_to_user((void __user *)ioarg, &con_param,
 				sizeof(struct diag_con_all_param_t)))
 			result = -EFAULT;
