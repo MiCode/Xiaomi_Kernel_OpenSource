@@ -1746,6 +1746,74 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 	return err;
 }
 
+int diag_send_passtru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
+{
+	struct diag_ctrl_passthru ctrl_pkt;
+	int f_index = -1, err = 0;
+	uint32_t diagid_mask = 0, diagid_status = 0;
+	uint8_t i, hw_accel_type, hw_accel_ver;
+
+	if (!req_params || req_params->operation > DIAG_HW_ACCEL_OP_QUERY) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid Operation\n");
+		return -EINVAL;
+	}
+
+	hw_accel_type = req_params->op_req.hw_accel_type;
+	hw_accel_ver = req_params->op_req.hw_accel_ver;
+
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+		"Received request for HW acceleration operation (%d) on hw_accel_type: %d, hw_accel_ver: %d\n",
+		req_params->operation, hw_accel_type, hw_accel_ver);
+
+	if (hw_accel_type > DIAG_HW_ACCEL_TYPE_MAX ||
+		hw_accel_ver > DIAG_HW_ACCEL_VER_MAX) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid Parameters\n");
+		return -EINVAL;
+	}
+
+	f_index = diag_map_hw_accel_type_ver(hw_accel_type, hw_accel_ver);
+	if (f_index < 0) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid feature index\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&driver->diagid_v2_mutex);
+
+	diagid_mask = req_params->op_req.diagid_mask;
+	diagid_status = (DIAGIDV2_FEATURE(f_index) & diagid_mask);
+
+	if (req_params->operation == DIAG_HW_ACCEL_OP_DISABLE)
+		DIAGIDV2_STATUS(f_index) &= ~diagid_status;
+	else
+		DIAGIDV2_STATUS(f_index) |= diagid_status;
+
+	req_params->op_req.diagid_mask = DIAGIDV2_STATUS(f_index);
+
+	mutex_unlock(&driver->diagid_v2_mutex);
+
+	/*
+	 * PASSTHRU Control Packet Formation to be sent to peripherals
+	 */
+	ctrl_pkt.header.pkt_id = DIAG_CTRL_MSG_PASSTHRU;
+	ctrl_pkt.header.version = 1;
+	ctrl_pkt.diagid_mask = diagid_mask;
+	ctrl_pkt.hw_accel_type = hw_accel_type;
+	ctrl_pkt.hw_accel_ver = hw_accel_ver;
+	ctrl_pkt.control_data = req_params->operation;
+	ctrl_pkt.header.len = sizeof(ctrl_pkt.header.version) +
+		sizeof(ctrl_pkt.diagid_mask) + sizeof(ctrl_pkt.hw_accel_type) +
+		sizeof(ctrl_pkt.hw_accel_ver) + sizeof(ctrl_pkt.control_data);
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
+		err = diagfwd_write(i, TYPE_CNTL, &ctrl_pkt, sizeof(ctrl_pkt));
+		if (err && err != -ENODEV) {
+			pr_err("diag: Unable to send PASSTHRU ctrl packet to peripheral %d, err: %d\n",
+				i, err);
+			return err;
+		}
+	}
+	return 0;
+}
+
 int diagfwd_cntl_init(void)
 {
 	uint8_t peripheral = 0;

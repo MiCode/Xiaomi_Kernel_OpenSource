@@ -2359,6 +2359,69 @@ static int diag_ioctl_query_pd_logging(struct diag_logging_mode_param_t *param)
 	return ret;
 }
 
+int diag_map_hw_accel_type_ver(
+	uint8_t hw_accel_type, uint8_t hw_accel_ver)
+{
+	int index = -EINVAL;
+
+	if (hw_accel_ver == DIAG_HW_ACCEL_VER_MIN) {
+		switch (hw_accel_type) {
+		case DIAG_HW_ACCEL_TYPE_STM:
+			index = DIAG_HW_ACCEL_TYPE_STM;
+			break;
+		case DIAG_HW_ACCEL_TYPE_ATB:
+			index = DIAG_HW_ACCEL_TYPE_ATB;
+			break;
+		default:
+			index = -EINVAL;
+			break;
+		}
+	}
+	return index;
+}
+
+static int diag_ioctl_query_pd_featuremask(
+	struct diag_hw_accel_query_sub_payload_rsp_t *query_params)
+{
+	int f_index = -1;
+
+	if (!query_params)
+		return -EINVAL;
+
+	if (query_params->hw_accel_type > DIAG_HW_ACCEL_TYPE_MAX ||
+		query_params->hw_accel_ver > DIAG_HW_ACCEL_VER_MAX) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid parameters\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&driver->diagid_v2_mutex);
+
+	f_index = diag_map_hw_accel_type_ver(query_params->hw_accel_type,
+				query_params->hw_accel_ver);
+	if (f_index < 0) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid feature index\n");
+		query_params->diagid_mask_supported = 0;
+		query_params->diagid_mask_enabled = 0;
+	} else {
+		query_params->diagid_mask_supported = DIAGIDV2_FEATURE(f_index);
+		query_params->diagid_mask_enabled = DIAGIDV2_STATUS(f_index);
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+		"HW acceleration: type: %d, ver:%d, supported diagid mask: %d, enabled diagid mask: %d\n",
+		query_params->hw_accel_type,
+		query_params->hw_accel_ver,
+		query_params->diagid_mask_supported,
+		query_params->diagid_mask_enabled);
+	}
+	mutex_unlock(&driver->diagid_v2_mutex);
+	return 0;
+}
+
+static int diag_ioctl_passthru_control_func(
+	struct diag_hw_accel_cmd_req_t *req_params)
+{
+	return diag_send_passtru_ctrl_pkt(req_params);
+}
+
 static void diag_ioctl_query_session_pid(struct diag_query_pid_t *param)
 {
 	int prev_pid = 0, test_pid = 0, i = 0, count = 0;
@@ -2735,6 +2798,53 @@ static long diagchar_ioctl_mdlog(struct file *filp,
 	return result;
 }
 
+static long diagchar_ioctl_hw_accel(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	struct diag_hw_accel_query_sub_payload_rsp_t query_params;
+	struct diag_hw_accel_cmd_req_t req_params;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_QUERY_PD_FEATUREMASK:
+		if (copy_from_user((void *)&query_params, (void __user *)ioarg,
+			sizeof(struct diag_hw_accel_query_sub_payload_rsp_t))) {
+			result = -EFAULT;
+			break;
+		}
+		result = diag_ioctl_query_pd_featuremask(&query_params);
+		if (result) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE, "%02x %02x %02x %02x\n",
+			query_params.hw_accel_type,
+			query_params.hw_accel_ver,
+			query_params.diagid_mask_supported,
+			query_params.diagid_mask_enabled);
+			break;
+		}
+		if (copy_to_user((void __user *)ioarg, &query_params,
+				sizeof(query_params)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
+	case DIAG_IOCTL_PASSTHRU_CONTROL:
+		if (copy_from_user((void *)&req_params, (void __user *)ioarg,
+				   sizeof(struct diag_hw_accel_cmd_req_t))) {
+			result = -EFAULT;
+			break;
+		}
+		result = diag_ioctl_passthru_control_func(&req_params);
+		if (result)
+			break;
+		if (copy_to_user((void __user *)ioarg, &req_params,
+				sizeof(req_params)))
+			result = -EFAULT;
+		else
+			result = 0;
+		break;
+	}
+	return result;
+}
 #ifdef CONFIG_COMPAT
 /*
  * @sync_obj_name: name of the synchronization object associated with this proc
@@ -2790,6 +2900,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_LOGGING &&
 			iocmd <= DIAG_IOCTL_QUERY_MD_PID) {
 		result = diagchar_ioctl_mdlog(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_FEATUREMASK &&
+			iocmd <= DIAG_IOCTL_PASSTHRU_CONTROL) {
+		result = diagchar_ioctl_hw_accel(filp, iocmd, ioarg);
 	} else {
 		result = -EINVAL;
 	}
@@ -2821,6 +2934,9 @@ long diagchar_ioctl(struct file *filp,
 	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_LOGGING &&
 			iocmd <= DIAG_IOCTL_QUERY_MD_PID) {
 		result = diagchar_ioctl_mdlog(filp, iocmd, ioarg);
+	} else if (iocmd >= DIAG_IOCTL_QUERY_PD_FEATUREMASK &&
+			iocmd <= DIAG_IOCTL_PASSTHRU_CONTROL) {
+		result = diagchar_ioctl_hw_accel(filp, iocmd, ioarg);
 	} else {
 		result = -EINVAL;
 	}
