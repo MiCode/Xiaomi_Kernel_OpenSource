@@ -329,7 +329,8 @@ int sysfs_add_file(struct kernfs_node *parent, const struct attribute *attr,
 int sysfs_create_file_ns(struct kobject *kobj, const struct attribute *attr,
 			 const void *ns)
 {
-	BUG_ON(!kobj || !kobj->sd || !attr);
+	if (WARN_ON(!kobj || !kobj->sd || !attr))
+		return -EINVAL;
 
 	return sysfs_add_file_mode_ns(kobj->sd, attr, false, attr->mode, ns);
 
@@ -532,7 +533,8 @@ EXPORT_SYMBOL_GPL(sysfs_remove_file_from_group);
 int sysfs_create_bin_file(struct kobject *kobj,
 			  const struct bin_attribute *attr)
 {
-	BUG_ON(!kobj || !kobj->sd || !attr);
+	if (WARN_ON(!kobj || !kobj->sd || !attr))
+		return -EINVAL;
 
 	return sysfs_add_file(kobj->sd, &attr->attr, true);
 }
