@@ -1941,6 +1941,7 @@ static void hv_eject_device_work(struct work_struct *work)
 			 VM_PKT_DATA_INBAND, 0);
 
 	put_pcichild(hpdev, hv_pcidev_ref_childlist);
+	put_pcichild(hpdev, hv_pcidev_ref_initial);
 	put_pcichild(hpdev, hv_pcidev_ref_pnp);
 	put_hvpcibus(hpdev->hbus);
 }
