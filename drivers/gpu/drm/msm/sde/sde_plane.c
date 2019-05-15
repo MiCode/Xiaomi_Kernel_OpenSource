@@ -1048,7 +1048,7 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		psde->is_error = true;
 	}
 	else if (psde->pipe_hw->ops.setup_sourceaddress) {
-		SDE_EVT32_VERBOSE(psde->pipe_hw->idx,
+		SDE_EVT32(psde->pipe_hw->idx,
 				pipe_cfg->layout.width,
 				pipe_cfg->layout.height,
 				pipe_cfg->layout.plane_addr[0],

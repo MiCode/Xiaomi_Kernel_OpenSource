@@ -545,9 +545,11 @@ static int diag_remove_client_entry(struct file *file)
 	 * This call will remove any pending registrations of such client
 	 */
 	mutex_lock(&driver->dci_mutex);
-	dci_entry = dci_lookup_client_entry_pid(current->tgid);
-	if (dci_entry)
-		diag_dci_deinit_client(dci_entry);
+	do {
+		dci_entry = dci_lookup_client_entry_pid(current->tgid);
+		if (dci_entry)
+			diag_dci_deinit_client(dci_entry);
+	} while (dci_entry);
 	mutex_unlock(&driver->dci_mutex);
 
 	diag_close_logging_process(current->tgid);
@@ -951,6 +953,9 @@ drop:
 				mutex_unlock(&buf_entry->data_mutex);
 				kfree(buf_entry);
 				continue;
+			} else {
+				mutex_unlock(&buf_entry->data_mutex);
+				continue;
 			}
 
 		}
@@ -959,7 +964,7 @@ drop:
 
 	if (total_data_len > 0) {
 		/* Copy the total data length */
-		COPY_USER_SPACE_OR_ERR(buf+8, total_data_len, 4);
+		COPY_USER_SPACE_OR_ERR(buf+(*pret), total_data_len, 4);
 		if (ret == -EFAULT)
 			goto exit;
 		ret -= 4;
@@ -1163,15 +1168,19 @@ static int diag_process_userspace_remote(int proc, void *buf, int len)
 }
 #endif
 
-static int mask_request_validate(unsigned char mask_buf[])
+static int mask_request_validate(unsigned char mask_buf[], int len)
 {
 	uint8_t packet_id;
 	uint8_t subsys_id;
 	uint16_t ss_cmd;
 
+	if (len <= 0)
+		return 0;
 	packet_id = mask_buf[0];
 
 	if (packet_id == DIAG_CMD_DIAG_SUBSYS_DELAY) {
+		if (len < 2*sizeof(uint8_t) + sizeof(uint16_t))
+			return 0;
 		subsys_id = mask_buf[1];
 		ss_cmd = *(uint16_t *)(mask_buf + 2);
 		switch (subsys_id) {
@@ -1187,6 +1196,8 @@ static int mask_request_validate(unsigned char mask_buf[])
 			return 0;
 		}
 	} else if (packet_id == 0x4B) {
+		if (len < 2*sizeof(uint8_t) + sizeof(uint16_t))
+			return 0;
 		subsys_id = mask_buf[1];
 		ss_cmd = *(uint16_t *)(mask_buf + 2);
 		/* Packets with SSID which are allowed */
@@ -3217,7 +3228,8 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 	}
 
 	/* Check for proc_type */
-	remote_proc = diag_get_remote(*(int *)user_space_data);
+	if (len >= sizeof(int))
+		remote_proc = diag_get_remote(*(int *)user_space_data);
 	if (remote_proc) {
 		token_offset = sizeof(int);
 		if (len <= MIN_SIZ_ALLOW) {
@@ -3231,7 +3243,7 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 	}
 	if (driver->mask_check) {
 		if (!mask_request_validate(user_space_data +
-						token_offset)) {
+						token_offset, len)) {
 			pr_alert("diag: mask request Invalid\n");
 			diagmem_free(driver, user_space_data, mempool);
 			user_space_data = NULL;
@@ -3309,7 +3321,7 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 	/* Check masks for On-Device logging */
 	if (driver->mask_check) {
 		if (!mask_request_validate(driver->user_space_data_buf +
-					   token_offset)) {
+					   token_offset, len)) {
 			pr_alert("diag: mask request Invalid\n");
 			return -EFAULT;
 		}
@@ -3737,19 +3749,24 @@ exit:
 			ret += sizeof(int);
 			copy_dci_data = 1;
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
-			mutex_lock(&driver->diagchar_mutex);
-			driver->data_ready[index] ^= DCI_DATA_TYPE;
-			atomic_dec(&driver->data_ready_notif[index]);
-			mutex_unlock(&driver->diagchar_mutex);
 			if (exit_stat == 1) {
 				put_task_struct(task_s);
 				put_pid(pid_struct);
+				mutex_lock(&driver->diagchar_mutex);
+				driver->data_ready[index] ^= DCI_DATA_TYPE;
+				atomic_dec(&driver->data_ready_notif[index]);
+				mutex_unlock(&driver->diagchar_mutex);
 				mutex_unlock(&driver->dci_mutex);
 				goto end;
 			}
 			put_task_struct(task_s);
 			put_pid(pid_struct);
+			continue;
 		}
+		mutex_lock(&driver->diagchar_mutex);
+		driver->data_ready[index] ^= DCI_DATA_TYPE;
+		atomic_dec(&driver->data_ready_notif[index]);
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_unlock(&driver->dci_mutex);
 		goto end;
 	}

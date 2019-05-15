@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/i2c.h>
 #include <linux/of.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
@@ -50,6 +52,9 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
 static int  i2c_msm_pm_resume(struct device *dev);
 static void i2c_msm_pm_suspend(struct device *dev);
 static void i2c_msm_clk_path_init(struct i2c_msm_ctrl *ctrl);
+static struct pinctrl_state *
+	i2c_msm_rsrcs_gpio_get_state(struct i2c_msm_ctrl *ctrl,
+					const char *name);
 static void i2c_msm_pm_pinctrl_state(struct i2c_msm_ctrl *ctrl,
 						bool runtime_active);
 
@@ -1918,64 +1923,74 @@ static void i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 			"error on verifying HW support (I2C_MAST_GEN=0)\n");
 }
 
-/*
- * qup_i2c_try_recover_bus_busy: issue QUP bus clear command
- */
-static int qup_i2c_try_recover_bus_busy(struct i2c_msm_ctrl *ctrl)
+static void qup_i2c_recover_bit_bang(struct i2c_msm_ctrl *ctrl)
 {
-	int ret;
-	ulong min_sleep_usec;
-
-	/* call i2c_msm_qup_init() to set core in idle state */
-	i2c_msm_qup_init(ctrl);
-
-	/* must be in run state for bus clear */
-	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
-	if (ret < 0) {
-		dev_err(ctrl->dev, "error: bus clear fail to set run state\n");
-		return ret;
-	}
-
-	/*
-	 * call i2c_msm_qup_xfer_init_run_state() to set clock dividers.
-	 * the dividers are necessary for bus clear.
-	 */
-	i2c_msm_qup_xfer_init_run_state(ctrl);
-
-	writel_relaxed(0x1, ctrl->rsrcs.base + QUP_I2C_MASTER_BUS_CLR);
-
-	/*
-	 * wait for recovery (9 clock pulse cycles) to complete.
-	 * min_time = 9 clock *10  (1000% margin)
-	 * max_time = 10* min_time
-	 */
-	min_sleep_usec =
-	  max_t(ulong, (9 * 10 * USEC_PER_SEC) / ctrl->rsrcs.clk_freq_out, 100);
-
-	usleep_range(min_sleep_usec, min_sleep_usec * 10);
-	return ret;
-}
-
-static int qup_i2c_recover_bus_busy(struct i2c_msm_ctrl *ctrl)
-{
-	u32 bus_clr, bus_active, status;
-	int retry = 0;
+	int i, ret;
+	int gpio_clk;
+	int gpio_dat;
+	bool gpio_clk_status = false;
+	u32 status = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
+	struct pinctrl_state *bitbang;
 
 	dev_info(ctrl->dev, "Executing bus recovery procedure (9 clk pulse)\n");
+	disable_irq(ctrl->rsrcs.irq);
+	if (!(status & (I2C_STATUS_BUS_ACTIVE)) ||
+		(status & (I2C_STATUS_BUS_MASTER))) {
+		dev_warn(ctrl->dev, "unexpected i2c recovery call:0x%x\n",
+				    status);
+		goto recovery_exit;
+	}
 
-	do {
-		qup_i2c_try_recover_bus_busy(ctrl);
-		bus_clr    = readl_relaxed(ctrl->rsrcs.base +
-							QUP_I2C_MASTER_BUS_CLR);
-		status     = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
-		bus_active = status & I2C_STATUS_BUS_ACTIVE;
-		if (++retry >= I2C_QUP_MAX_BUS_RECOVERY_RETRY)
+	gpio_clk = of_get_named_gpio(ctrl->adapter.dev.of_node, "qcom,i2c-clk",
+				     0);
+	gpio_dat = of_get_named_gpio(ctrl->adapter.dev.of_node, "qcom,i2c-dat",
+				     0);
+
+	if (gpio_clk < 0 || gpio_dat < 0) {
+		dev_warn(ctrl->dev, "SW bigbang err: i2c gpios not known\n");
+		goto recovery_exit;
+	}
+
+	bitbang = i2c_msm_rsrcs_gpio_get_state(ctrl, "i2c_bitbang");
+	if (bitbang)
+		ret = pinctrl_select_state(ctrl->rsrcs.pinctrl, bitbang);
+	if (!bitbang || ret) {
+		dev_err(ctrl->dev, "GPIO pins have no bitbang setting\n");
+		goto recovery_exit;
+	}
+	for (i = 0; i < 10; i++) {
+		if (gpio_get_value(gpio_dat) && gpio_clk_status)
 			break;
-	} while (bus_clr || bus_active);
+		gpio_direction_output(gpio_clk, 0);
+		udelay(5);
+		gpio_direction_output(gpio_dat, 0);
+		udelay(5);
+		gpio_direction_input(gpio_clk);
+		udelay(5);
+		if (!gpio_get_value(gpio_clk))
+			udelay(20);
+		if (!gpio_get_value(gpio_clk))
+			usleep_range(10000, 10001);
+		gpio_clk_status = gpio_get_value(gpio_clk);
+		gpio_direction_input(gpio_dat);
+		udelay(5);
+	}
 
-	dev_info(ctrl->dev, "Bus recovery %s after %d retries\n",
-		(bus_clr || bus_active) ? "fail" : "success", retry);
-	return 0;
+	i2c_msm_pm_pinctrl_state(ctrl, true);
+	udelay(10);
+
+	status = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
+	if (!(status & I2C_STATUS_BUS_ACTIVE)) {
+		dev_info(ctrl->dev,
+			"Bus busy cleared after %d clock cycles, status %x\n",
+			 i, status);
+		goto recovery_exit;
+	}
+
+	dev_warn(ctrl->dev, "Bus still busy, status %x\n", status);
+
+recovery_exit:
+	enable_irq(ctrl->rsrcs.irq);
 }
 
 static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
@@ -1986,7 +2001,7 @@ static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 		    (ctrl->xfer.err == I2C_MSM_ERR_BUS_ERR)  ||
 		    (ctrl->xfer.err == I2C_MSM_ERR_TIMEOUT)) {
 			if (i2c_msm_qup_slv_holds_bus(ctrl))
-				qup_i2c_recover_bus_busy(ctrl);
+				qup_i2c_recover_bit_bang(ctrl);
 
 			/* do not generalize error to EIO if its already set */
 			if (!err)

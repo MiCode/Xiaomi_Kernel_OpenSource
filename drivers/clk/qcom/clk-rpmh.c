@@ -27,6 +27,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 
 #include "common.h"
+#include "clk-debug.h"
 #include "clk-regmap.h"
 
 #define CLK_RPMH_ARC_EN_OFFSET 0
@@ -399,6 +400,7 @@ static const struct clk_ops clk_rpmh_bcm_ops = {
 	.set_rate	= clk_rpmh_bcm_set_rate,
 	.round_rate	= clk_rpmh_round_rate,
 	.recalc_rate	= clk_rpmh_bcm_recalc_rate,
+	.debug_init	= clk_debug_measure_add,
 };
 
 /* Use awake state instead of active-only on RSCs that do not have an AMC. */

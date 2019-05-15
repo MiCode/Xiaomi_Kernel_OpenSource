@@ -92,6 +92,7 @@ static const char *const debug_mux_parent_names[] = {
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
 	"apcs_mux_clk",
+	"qpic_clk",
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -223,6 +224,8 @@ static struct clk_debug_mux gcc_debug_mux = {
 			0x109, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
 		{ "apcs_mux_clk", 0x7C, 4, CPU_CC,
 			0x3, 0x7, 0x3, 0x0, 0, 1, 0, 0, U32_MAX, 1 },
+		{ "qpic_clk", 0xB1, 4, GCC,
+			0xB1, 0x3FF, 0, 0xF, 0, 4, 0x79000, 0x29000, 0x29004 },
 	),
 	.hw.init = &(struct clk_init_data){
 		.name = "gcc_debug_mux",

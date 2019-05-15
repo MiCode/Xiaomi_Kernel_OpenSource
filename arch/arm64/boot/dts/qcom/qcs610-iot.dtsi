@@ -13,6 +13,9 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
+#include "qcs610.dtsi"
+#include "sm6150-sde-display.dtsi"
+#include "qcs610-camera-sensor-idp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. QCS610 IOT";
@@ -176,4 +179,130 @@
 	cd-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
 
 	status = "ok";
+};
+
+&L16A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L19A {
+	regulator-max-microvolt = <3304000>;
+};
+
+&L4C {
+	regulator-max-microvolt = <2912000>;
+};
+
+&L5C {
+	regulator-max-microvolt = <2912000>;
+};
+
+&dsi_hx83112a_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 90 0>;
+	qcom,platform-reset-gpio = <&tlmm 91 0>;
+};
+
+&qupv3_se1_i2c {
+	status = "ok";
+	lt9611: lt,lt9611@3b {
+		compatible = "lt,lt9611";
+		reg = <0x3b>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <26 0>;
+		interrupt-names = "lt_irq";
+		lt,irq-gpio = <&tlmm 26 0x0>;
+		lt,reset-gpio = <&tlmm 20 0x0>;
+		instance_id = <0>;
+		lt,non-pluggable;
+		lt,preferred-mode = "1920x1080";
+
+		vdd-supply = <&pm6150_l13>;
+		vcc-supply = <&pm6150_l16>;
+
+		lt,supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			lt,supply-entry@0 {
+				reg = <0>;
+				lt,supply-name = "vcc";
+				lt,supply-min-voltage = <3304000>;
+				lt,supply-max-voltage = <3304000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+
+			lt,supply-entry@1 {
+				reg = <1>;
+				lt,supply-name = "vdd";
+				lt,supply-min-voltage = <1800000>;
+				lt,supply-max-voltage = <1800000>;
+				lt,supply-enable-load = <200000>;
+				lt,supply-post-on-sleep = <50>;
+			};
+		};
+
+		lt,customize-modes {
+			lt,customize-mode-id@0 {
+				lt,mode-h-active = <1920>;
+				lt,mode-h-front-porch = <88>;
+				lt,mode-h-pulse-width = <44>;
+				lt,mode-h-back-porch = <148>;
+				lt,mode-h-active-high;
+				lt,mode-v-active = <1080>;
+				lt,mode-v-front-porch = <4>;
+				lt,mode-v-pulse-width = <5>;
+				lt,mode-v-back-porch = <36>;
+				lt,mode-v-active-high;
+				lt,mode-refresh-rate = <60>;
+				lt,mode-clock-in-khz = <148500>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in: endpoint {
+					remote-endpoint = <&ext_dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+
+&soc {
+	ext_dsi_bridge_display: qcom,dsi-display@50 {
+		label = "ext_dsi_bridge_display hdmi 1080p";
+		qcom,dsi-display-active;
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+		qcom,dsi-panel = <&dsi_ext_bridge_hdmi_1080p>;
+	};
+};
+
+&sde_dsi {
+	qcom,dsi-display-list = <&ext_dsi_bridge_display>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			ext_dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in>;
+			};
+		};
+	};
 };

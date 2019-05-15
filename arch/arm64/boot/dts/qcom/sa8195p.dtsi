@@ -11,6 +11,7 @@
  */
 
 #include "sdmshrike-v2.dtsi"
+#include "sa8155-audio.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8195P";

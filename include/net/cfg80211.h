@@ -50,6 +50,9 @@
 /* Indicate backport support for oce scan capability flags */
 #define CFG80211_SCAN_OCE_CAPABILITY_SUPPORT 1
 
+/* Indicate support for reporting rx FCS in cfg80211 */
+#define CFG80211_RX_FCS_ERROR_REPORTING_SUPPORT 1
+
 /**
  * DOC: Introduction
  *

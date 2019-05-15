@@ -173,6 +173,30 @@ static struct cnss_pci_reg qdss_csr[] = {
 	{ NULL },
 };
 
+static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
+{
+	u16 device_id;
+
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("PCIe link is suspended\n");
+		return -EIO;
+	}
+
+	if (pci_priv->pci_link_down_ind) {
+		cnss_pr_err("PCIe link is down\n");
+		return -EIO;
+	}
+
+	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
+	if (device_id != pci_priv->device_id)  {
+		cnss_fatal_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
+			       device_id, pci_priv->device_id);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 {
 	u32 window = (offset >> WINDOW_SHIFT) & WINDOW_VALUE_MASK;
@@ -187,16 +211,26 @@ static void cnss_pci_select_window(struct cnss_pci_data *pci_priv, u32 offset)
 	}
 }
 
-static u32 cnss_pci_reg_read(struct cnss_pci_data *pci_priv, u32 offset)
+static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
+			     u32 offset, u32 *val)
 {
+	int ret;
+
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret)
+		return ret;
+
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
-	    offset < MAX_UNWINDOWED_ADDRESS)
-		return readl_relaxed(pci_priv->bar + offset);
+	    offset < MAX_UNWINDOWED_ADDRESS) {
+		*val = readl_relaxed(pci_priv->bar + offset);
+		return 0;
+	}
 
 	cnss_pci_select_window(pci_priv, offset);
 
-	return readl_relaxed(pci_priv->bar + WINDOW_START +
+	*val = readl_relaxed(pci_priv->bar + WINDOW_START +
 			     (offset & WINDOW_RANGE_MASK));
+	return 0;
 }
 
 static void cnss_pci_disable_l1(struct cnss_pci_data *pci_priv)
@@ -426,30 +460,6 @@ int cnss_pci_link_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
 
-static int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv)
-{
-	u16 device_id;
-
-	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
-		cnss_pr_dbg("PCIe link is suspended\n");
-		return -EIO;
-	}
-
-	if (pci_priv->pci_link_down_ind) {
-		cnss_pr_err("PCIe link is down\n");
-		return -EIO;
-	}
-
-	pci_read_config_word(pci_priv->pci_dev, PCI_DEVICE_ID, &device_id);
-	if (device_id != pci_priv->device_id)  {
-		cnss_fatal_err("PCI device ID mismatch, link possibly down, current read ID: 0x%x, record ID: 0x%x\n",
-			       device_id, pci_priv->device_id);
-		return -EIO;
-	}
-
-	return 0;
-}
-
 int cnss_pci_is_device_down(struct device *dev)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
@@ -618,15 +628,17 @@ static void cnss_pci_dump_shadow_reg(struct cnss_pci_data *pci_priv)
 	for (i = 0; i < SHADOW_REG_COUNT; i++, j++) {
 		reg_offset = QCA6390_PCIE_SHADOW_REG_VALUE_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
-		pci_priv->debug_reg[j].val = cnss_pci_reg_read(pci_priv,
-							       reg_offset);
+		if (cnss_pci_reg_read(pci_priv, reg_offset,
+				      &pci_priv->debug_reg[j].val))
+			return;
 	}
 
 	for (i = 0; i < SHADOW_REG_INTER_COUNT; i++, j++) {
 		reg_offset = QCA6390_PCIE_SHADOW_REG_INTER_0 + i * 4;
 		pci_priv->debug_reg[j].offset = reg_offset;
-		pci_priv->debug_reg[j].val = cnss_pci_reg_read(pci_priv,
-							       reg_offset);
+		if (cnss_pci_reg_read(pci_priv, reg_offset,
+				      &pci_priv->debug_reg[j].val))
+			return;
 	}
 }
 
@@ -979,6 +991,17 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 
 	return ret;
 }
+
+int cnss_pci_is_drv_connected(struct device *dev)
+{
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+
+	if (!pci_priv)
+		return -ENODEV;
+
+	return pci_priv->drv_connected_last;
+}
+EXPORT_SYMBOL(cnss_pci_is_drv_connected);
 
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 {
@@ -2312,8 +2335,9 @@ static void cnss_pci_dump_qdss_reg(struct cnss_pci_data *pci_priv)
 
 	for (i = 0; qdss_csr[i].name; i++) {
 		reg_offset = QDSS_APB_DEC_CSR_BASE + qdss_csr[i].offset;
-		plat_priv->qdss_reg[i] = cnss_pci_reg_read(pci_priv,
-							   reg_offset);
+		if (cnss_pci_reg_read(pci_priv, reg_offset,
+				      &plat_priv->qdss_reg[i]))
+			return;
 		cnss_pr_dbg("%s[0x%x] = 0x%x\n", qdss_csr[i].name, reg_offset,
 			    plat_priv->qdss_reg[i]);
 	}
@@ -2324,7 +2348,7 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 {
 	int i;
 	u32 ce_base = ce * QCA6390_CE_REG_INTERVAL;
-	u32 reg_offset;
+	u32 reg_offset, val;
 
 	switch (ce) {
 	case CNSS_CE_09:
@@ -2332,26 +2356,29 @@ static void cnss_pci_dump_ce_reg(struct cnss_pci_data *pci_priv,
 		for (i = 0; ce_src[i].name; i++) {
 			reg_offset = QCA6390_CE_SRC_RING_REG_BASE +
 				ce_base + ce_src[i].offset;
+			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
+				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
-				    ce, ce_src[i].name, reg_offset,
-				    cnss_pci_reg_read(pci_priv, reg_offset));
+				    ce, ce_src[i].name, reg_offset, val);
 		}
 
 		for (i = 0; ce_dst[i].name; i++) {
 			reg_offset = QCA6390_CE_DST_RING_REG_BASE +
 				ce_base + ce_dst[i].offset;
+			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
+				return;
 			cnss_pr_dbg("CE_%02d_%s[0x%x] = 0x%x\n",
-				    ce, ce_dst[i].name, reg_offset,
-				    cnss_pci_reg_read(pci_priv, reg_offset));
+				    ce, ce_dst[i].name, reg_offset, val);
 		}
 		break;
 	case CNSS_CE_COMMON:
 		for (i = 0; ce_cmn[i].name; i++) {
 			reg_offset = QCA6390_CE_COMMON_REG_BASE +
 				ce_cmn[i].offset;
+			if (cnss_pci_reg_read(pci_priv, reg_offset, &val))
+				return;
 			cnss_pr_dbg("CE_COMMON_%s[0x%x] = 0x%x\n",
-				    ce_cmn[i].name, reg_offset,
-				    cnss_pci_reg_read(pci_priv, reg_offset));
+				    ce_cmn[i].name, reg_offset, val);
 		}
 		break;
 	default:

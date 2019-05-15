@@ -55,6 +55,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_0>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -86,6 +87,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_1>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -111,6 +113,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_2>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			L2_2: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -136,6 +139,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			next-level-cache = <&L2_3>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			L2_3: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x20000>;
@@ -161,6 +165,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_4>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			L2_4: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x80000>;
@@ -186,6 +191,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_5>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			L2_5: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x80000>;
@@ -211,6 +217,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_6>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			L2_6: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x80000>;
@@ -236,6 +243,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			next-level-cache = <&L2_7>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			L2_7: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-size = <0x80000>;
@@ -1038,8 +1046,6 @@
 
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
-			interrupt-names = "ecc_irq";
-			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		qcom,llcc-amon {
@@ -2149,6 +2155,7 @@
 
 #include "sdmshrike-smp2p.dtsi"
 #include "sdmshrike-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
 #include "sdmshrike-regulators.dtsi"
 #include "sdmshrike-ion.dtsi"
 #include "sdmshrike-bus.dtsi"
@@ -2156,4 +2163,6 @@
 #include "sdmshrike-usb.dtsi"
 #include "sdmshrike-qupv3.dtsi"
 #include "sm8150-audio.dtsi"
+#include "sm8150-pm.dtsi"
 #include "sdmshrike-gpu.dtsi"
+#include "sdmshrike-thermal.dtsi"

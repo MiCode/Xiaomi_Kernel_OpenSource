@@ -2541,6 +2541,8 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->hw_acquired = false;
 	ctx_isp->init_received = false;
+	ctx_isp->rdi_only_context = false;
+	ctx_isp->split_acquire = false;
 
 	/*
 	 * Ideally, we should never have any active request here.
@@ -3170,7 +3172,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->reported_req_id = 0;
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
 		CAM_ISP_CTX_ACTIVATED_APPLIED :
-		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_APPLIED :
+		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_EPOCH :
 		CAM_ISP_CTX_ACTIVATED_SOF;
 
 	/*
@@ -3192,8 +3194,13 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
 	list_del_init(&req->list);
-	list_add_tail(&req->list, &ctx->wait_req_list);
 
+	if (req_isp->num_fence_map_out) {
+		list_add_tail(&req->list, &ctx->active_req_list);
+		ctx_isp->active_req_cnt++;
+	} else {
+		list_add_tail(&req->list, &ctx->wait_req_list);
+	}
 end:
 	return rc;
 }

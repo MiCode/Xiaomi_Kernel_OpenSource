@@ -22,7 +22,7 @@
 #include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/notifier.h>
-
+#include <linux/interrupt.h>
 #include <linux/ipa.h>
 #include <linux/ipa_usb.h>
 #include <asm/dma-iommu.h>
@@ -982,6 +982,8 @@ struct ipa3_repl_ctx {
  * @len: the size of the above list
  * @spinlock: protects the list and its size
  * @ep: IPA EP context
+ * @xmit_eot_cnt: count of pending eot for tasklet to process
+ * @tasklet: tasklet for eot write_done handle (tx_complete)
  *
  * IPA context specific to the GPI pipes a.k.a LAN IN/OUT and WAN
  */
@@ -1011,6 +1013,8 @@ struct ipa3_sys_context {
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
 	struct list_head pending_pkts[GSI_VEID_MAX];
+	atomic_t xmit_eot_cnt;
+	struct tasklet_struct tasklet;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -1041,7 +1045,6 @@ enum ipa3_desc_type {
  * struct ipa3_tx_pkt_wrapper - IPA Tx packet wrapper
  * @type: specify if this packet is for the skb or immediate command
  * @mem: memory buffer used by this Tx packet
- * @work: work struct for current Tx packet
  * @link: linked to the wrappers on that pipe
  * @callback: IPA client provided callback
  * @user1: cookie1 for above callback
@@ -1052,13 +1055,13 @@ enum ipa3_desc_type {
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
  * @bounce: va of bounce buffer
  * @unmap_dma: in case this is true, the buffer will not be dma unmapped
+ * @xmit_done: flag to indicate the last desc got tx complete on each ieob
  *
  * This struct can wrap both data packet and immediate command packet.
  */
 struct ipa3_tx_pkt_wrapper {
 	enum ipa3_desc_type type;
 	struct ipa_mem_buffer mem;
-	struct work_struct work;
 	struct list_head link;
 	void (*callback)(void *user1, int user2);
 	void *user1;
@@ -1067,6 +1070,7 @@ struct ipa3_tx_pkt_wrapper {
 	u32 cnt;
 	void *bounce;
 	bool no_unmap_dma;
+	bool xmit_done;
 };
 
 /**
@@ -1833,6 +1837,7 @@ struct ipa3_context {
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 	atomic_t is_ssr;
 	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
+	bool fw_loaded;
 };
 
 struct ipa3_plat_drv_res {
@@ -2895,6 +2900,7 @@ int ipa3_get_transport_info(
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
+u32 ipa3_get_r_rev_version(void);
 #if defined(CONFIG_IPA3_REGDUMP)
 int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);

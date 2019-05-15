@@ -1161,6 +1161,11 @@ static void dfc_do_burst_flow_control(struct dfc_qmi_data *dfc,
 
 		spin_lock_bh(&qos->qos_lock);
 
+		if (qmi_rmnet_ignore_grant(dfc->rmnet_port)) {
+			spin_unlock_bh(&qos->qos_lock);
+			continue;
+		}
+
 		if (unlikely(flow_status->bearer_id == 0xFF))
 			dfc_all_bearer_flow_ctl(
 				dev, qos, ack_req, ancillary, flow_status);
@@ -1365,7 +1370,14 @@ static void dfc_svc_init(struct work_struct *work)
 		return;
 	}
 
-	rtnl_lock();
+	if (data->restart_state == 1)
+		return;
+	while (!rtnl_trylock()) {
+		if (!data->restart_state)
+			cond_resched();
+		else
+			return;
+	}
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
@@ -1547,18 +1559,6 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 out:
 	spin_unlock_bh(&qos->qos_lock);
-}
-
-void dfc_qmi_wq_flush(struct qmi_info *qmi)
-{
-	struct dfc_qmi_data *dfc_data;
-	int i;
-
-	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		dfc_data = (struct dfc_qmi_data *)(qmi->dfc_clients[i]);
-		if (dfc_data)
-			flush_workqueue(dfc_data->dfc_wq);
-	}
 }
 
 void dfc_qmi_query_flow(void *dfc_data)

@@ -198,7 +198,7 @@ static void ipa3_wq_write_done_status(int src_pipe,
 /**
  * ipa_write_done() - this function will be (eventually) called when a Tx
  * operation is complete
- * * @work:	work_struct used by the work queue
+ * @data: user pointer point to the ipa3_sys_context
  *
  * Will be called in deferred context.
  * - invoke the callback supplied by the client who sent this command
@@ -207,26 +207,27 @@ static void ipa3_wq_write_done_status(int src_pipe,
  * - delete all the tx packet descriptors from the system
  *   pipe context (not needed anymore)
  */
-static void ipa3_wq_write_done(struct work_struct *work)
+static void ipa3_tasklet_write_done(unsigned long data)
 {
-	struct ipa3_tx_pkt_wrapper *tx_pkt;
 	struct ipa3_sys_context *sys;
 	struct ipa3_tx_pkt_wrapper *this_pkt;
+	bool xmit_done = false;
 
-	tx_pkt = container_of(work, struct ipa3_tx_pkt_wrapper, work);
-	sys = tx_pkt->sys;
+	sys = (struct ipa3_sys_context *)data;
 	spin_lock_bh(&sys->spinlock);
-	this_pkt = list_first_entry(&sys->head_desc_list,
-		struct ipa3_tx_pkt_wrapper, link);
-	while (tx_pkt != this_pkt) {
-		spin_unlock_bh(&sys->spinlock);
-		ipa3_wq_write_done_common(sys, this_pkt);
-		spin_lock_bh(&sys->spinlock);
-		this_pkt = list_first_entry(&sys->head_desc_list,
-			struct ipa3_tx_pkt_wrapper, link);
+	while (atomic_add_unless(&sys->xmit_eot_cnt, -1, 0)) {
+		while (!list_empty(&sys->head_desc_list)) {
+			this_pkt = list_first_entry(&sys->head_desc_list,
+				struct ipa3_tx_pkt_wrapper, link);
+			xmit_done = this_pkt->xmit_done;
+			spin_unlock_bh(&sys->spinlock);
+			ipa3_wq_write_done_common(sys, this_pkt);
+			spin_lock_bh(&sys->spinlock);
+			if (xmit_done)
+				break;
+		}
 	}
 	spin_unlock_bh(&sys->spinlock);
-	ipa3_wq_write_done_common(sys, tx_pkt);
 }
 
 
@@ -246,7 +247,6 @@ static void ipa3_send_nop_desc(struct work_struct *work)
 
 	INIT_LIST_HEAD(&tx_pkt->link);
 	tx_pkt->cnt = 1;
-	INIT_WORK(&tx_pkt->work, ipa3_wq_write_done);
 	tx_pkt->no_unmap_dma = true;
 	tx_pkt->sys = sys;
 	spin_lock_bh(&sys->spinlock);
@@ -357,7 +357,6 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		if (i == 0) {
 			tx_pkt_first = tx_pkt;
 			tx_pkt->cnt = num_desc;
-			INIT_WORK(&tx_pkt->work, ipa3_wq_write_done);
 		}
 
 		/* populate tag field */
@@ -413,6 +412,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		tx_pkt->callback = desc[i].callback;
 		tx_pkt->user1 = desc[i].user1;
 		tx_pkt->user2 = desc[i].user2;
+		tx_pkt->xmit_done = false;
 
 		list_add_tail(&tx_pkt->link, &sys->head_desc_list);
 
@@ -1033,6 +1033,9 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		memset(ep->sys, 0, offsetof(struct ipa3_sys_context, ep));
 	}
 
+	atomic_set(&ep->sys->xmit_eot_cnt, 0);
+	tasklet_init(&ep->sys->tasklet, ipa3_tasklet_write_done,
+			(unsigned long) ep->sys);
 	ep->skip_ep_cfg = sys_in->skip_ep_cfg;
 	if (ipa3_assign_policy(sys_in, ep->sys)) {
 		IPAERR("failed to sys ctx for client %d\n", sys_in->client);
@@ -3130,7 +3133,6 @@ static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
 		if (prev_skb) {
 			skb_shinfo(prev_skb)->frag_list = NULL;
 			sys->pyld_hdlr(first_skb, sys);
-			sys->repl_hdlr(sys);
 		}
 
 	/* TODO: add chaining for coal case */
@@ -3153,7 +3155,6 @@ static void ipa3_wq_rx_napi_chain(struct ipa3_sys_context *sys,
 				}
 				wan_def_sys = ipa3_ctx->ep[ipa_ep_idx].sys;
 				wan_def_sys->repl_hdlr(wan_def_sys);
-				sys->repl_hdlr(sys);
 			}
 		}
 	}
@@ -3888,7 +3889,9 @@ static void ipa_gsi_irq_tx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	case GSI_CHAN_EVT_EOT:
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
 		tx_pkt = notify->xfer_user_data;
-		queue_work(tx_pkt->sys->wq, &tx_pkt->work);
+		tx_pkt->xmit_done = true;
+		atomic_inc(&tx_pkt->sys->xmit_eot_cnt);
+		tasklet_schedule(&tx_pkt->sys->tasklet);
 		break;
 	default:
 		IPAERR("received unexpected event id %d\n", notify->evt_id);
@@ -4470,6 +4473,9 @@ start_poll:
 		}
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
+	/* call repl_hdlr before napi_reschedule / napi_complete */
+	if (cnt)
+		ep->sys->repl_hdlr(ep->sys);
 	if (cnt < weight) {
 		napi_complete(ep->sys->napi_obj);
 		ret = ipa3_rx_switch_to_intr_mode(ep->sys);

@@ -183,6 +183,23 @@ struct ipa3_usb_smmu_reg_map {
 	phys_addr_t addr;
 };
 
+/*
+ * Relevant for IPA4.5 on sdx55v1 and Kona.
+ */
+static const bool teth_type_switch_tbl_ipa45
+	[IPA_USB_MAX_TETH_PROT_SIZE][IPA_USB_MAX_TETH_PROT_SIZE] = {
+		[IPA_USB_RNDIS] = {true, false, true, false, false},
+		[IPA_USB_ECM] = {false, true, false, false, false},
+		[IPA_USB_RMNET] = {true, false, true, false, false},
+		[IPA_USB_MBIM] = {true, true, true, true, false},
+		[IPA_USB_DIAG] = {false, false, false, false, true},
+	};
+
+struct ipa3_usb_teth_type_switch {
+	bool valid;
+	enum ipa_usb_teth_prot teth;
+};
+
 struct ipa3_usb_context {
 	struct ipa3_usb_teth_prot_context
 		teth_prot_ctx[IPA_USB_MAX_TETH_PROT_SIZE];
@@ -199,6 +216,7 @@ struct ipa3_usb_context {
 	struct dentry *dfile_state_info;
 	struct dentry *dent;
 	struct ipa3_usb_smmu_reg_map smmu_reg_map;
+	struct ipa3_usb_teth_type_switch prev_teth;
 };
 
 enum ipa3_usb_op {
@@ -915,6 +933,56 @@ create_cons_rsc_fail:
 	}
 	return result;
 }
+
+static bool ipa3_usb_is_teth_switch_valid(enum ipa_usb_teth_prot new_teth)
+{
+	enum ipa_usb_teth_prot old_teth;
+	u32 ipa_r_rev;
+
+	IPA_USB_DBG("Start new_teth=%s\n",
+		ipa3_usb_teth_prot_to_string(new_teth));
+
+	if (IPA3_USB_IS_TTYPE_DPL(IPA3_USB_GET_TTYPE(new_teth)))
+		return true;
+
+	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_5)
+		return true;
+
+	ipa_r_rev = ipa3_get_r_rev_version();
+	IPA_USB_DBG("ipa_r_rev=%u\n", ipa_r_rev);
+
+	/* issue relevant for IPA4.5v1 */
+	if (ipa_r_rev != 10 && ipa_r_rev != 13)
+		return true;
+
+	if (ipa3_usb_ctx == NULL) {
+		IPA_USB_ERR("Invalid context");
+		return false;
+	}
+
+	if (new_teth < 0 || new_teth >= IPA_USB_MAX_TETH_PROT_SIZE) {
+		IPA_USB_ERR("Invalid new_teth %d\n", new_teth);
+		return false;
+	}
+
+	if (!ipa3_usb_ctx->prev_teth.valid) {
+		ipa3_usb_ctx->prev_teth.teth = new_teth;
+		ipa3_usb_ctx->prev_teth.valid = true;
+		return true;
+	}
+
+	old_teth = ipa3_usb_ctx->prev_teth.teth;
+	if (teth_type_switch_tbl_ipa45[old_teth][new_teth]) {
+		ipa3_usb_ctx->prev_teth.teth = new_teth;
+		return true;
+	}
+
+	IPA_USB_DBG("Invalid teth switch %s -> %s\n",
+		ipa3_usb_teth_prot_to_string(old_teth),
+		ipa3_usb_teth_prot_to_string(new_teth));
+	return false;
+}
+
 
 int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			   struct ipa_usb_teth_params *teth_params,
@@ -2244,6 +2312,11 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 		(ul_chan_params == NULL || ul_out_params == NULL))) {
 		IPA_USB_ERR("bad parameters\n");
 		result = -EINVAL;
+		goto bad_params;
+	}
+
+	if (!ipa3_usb_is_teth_switch_valid(connect_params->teth_prot)) {
+		IPA_USB_ERR("Invalid teth type switch\n");
 		goto bad_params;
 	}
 

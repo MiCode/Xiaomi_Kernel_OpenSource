@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,8 @@
 #define NPU_IPC_CMD_LOAD_V2             0x00000009
 /* ipc_cmd_execute_packet_v2 */
 #define NPU_IPC_CMD_EXECUTE_V2          0x0000000A
+/* ipc_cmd_set_property_packet */
+#define NPU_IPC_CMD_SET_PROPERTY        0x0000000B
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -55,6 +57,10 @@
 #define NPU_IPC_MSG_LOOPBACK_DONE       0x00010005
 /* ipc_msg_execute_pkt_v2 */
 #define NPU_IPC_MSG_EXECUTE_V2_DONE     0x00010006
+/* ipc_msg_set_property_packet */
+#define NPU_IPC_MSG_SET_PROPERTY_DONE   0x00010007
+/* ipc_msg_set_power_mode */
+#define NPU_IPC_MSG_DCVS_NOTIFY         0x00010010
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -102,6 +108,11 @@
 
 /* Debug stats */
 #define NUM_LAYER_STATS_PER_EXE_MSG_MAX 110
+
+enum npu_fw_property_id {
+	NPU_FW_PROP_ID_DCVS_MODE = 0,
+	NPU_FW_PROP_ID_INVALID = 0xFFFFFFFF,
+};
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -272,6 +283,27 @@ struct ipc_cmd_loopback_pkt {
 };
 
 /*
+ * Set property packet definition
+ */
+struct ipc_cmd_set_prop_pkt {
+	struct ipc_cmd_header_pkt header;
+	uint32_t prop_id;
+	uint32_t num_params;
+	uint32_t network_hdl;
+	uint32_t prop_param[0];
+};
+
+/*
+ * Set property response packet definition
+ */
+struct ipc_msg_set_prop_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t prop_id;
+	uint32_t network_hdl;
+	uint32_t prop_value;
+};
+
+/*
  * LOAD response packet definition
  */
 struct ipc_msg_load_pkt {
@@ -415,6 +447,15 @@ struct ipc_msg_performance_counters {
 struct ipc_cmd_shutdown_pkt {
 	struct ipc_cmd_header_pkt header;
 	uint32_t shutdown_flags;
+};
+
+/*
+ * Notify driver to set power mode (a value from 0 to 100)
+ */
+struct ipc_msg_set_dcvs_mode {
+	struct ipc_msg_header_pkt header;
+	/* activity level from 0-100 */
+	uint32_t activity;
 };
 
 #endif /* NPU_HOST_IPC_H */

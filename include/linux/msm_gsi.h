@@ -778,24 +778,26 @@ struct __packed gsi_11ad_tx_channel_scratch {
  *                                  N is the number of packets that IPA will
  *                                  process before Wifi transfer ring Ri will
  *                                  be updated.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
  * @resv: reserved bits.
- * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
- *                  WLAN host will pass this information to IPA.
  * @endp_metadata_reg_offset: Rx only, the offset of
  *                 IPA_ENDP_INIT_HDR_METADATA_n of the
  *                 corresponding endpoint in 4B words from IPA
  *                 base address.
- * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
- *           for MCS. Write for SW.
+ * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
+ *                  WLAN host will pass this information to IPA.
+ * @resv: reserved bits.
  */
 struct __packed gsi_wdi3_channel_scratch {
 	uint32_t wifi_rp_address_low;
 	uint32_t wifi_rp_address_high;
 	uint32_t update_rp_moderation_threshold : 5;
-	uint32_t reserved : 11;
-	uint32_t rx_pkt_offset : 16;
+	uint32_t qmap_id : 8;
+	uint32_t reserved1 : 3;
 	uint32_t endp_metadata_reg_offset : 16;
-	uint32_t qmap_id : 16;
+	uint32_t rx_pkt_offset : 16;
+	uint32_t reserved2 : 16;
 };
 
 /**

@@ -11,15 +11,33 @@
  */
 
 /dts-v1/;
-/plugin/;
 
-#include <dt-bindings/clock/qcom,camcc-sm6150.h>
-
-#include "qcs610-iot.dtsi"
+#include "sa8155-vm.dtsi"
 
 / {
-	model = "IOT";
-	compatible = "qcom,qcs610-iot", "qcom,qcs610", "qcom,iot";
-	qcom,msm-id = <401 0x0>;
-	qcom,board-id = <32 0>;
+	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
+	compatible = "qcom,sa8155";
+	qcom,pmic-name = "PM8150";
+	qcom,board-id = <0 0>;
+};
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&apps_smmu {
+	status = "ok";
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&sde_kms_hyp {
+	/delete-property/ qcom,client-id;
+	qcom,client-id = "7816";
 };

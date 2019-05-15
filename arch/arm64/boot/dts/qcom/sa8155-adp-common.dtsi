@@ -244,3 +244,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb2phy_ac_en2_default>;
 };
+
+&shared_meta {
+	parts = "vbmeta,boot,system,vendor,dtbo";
+};
