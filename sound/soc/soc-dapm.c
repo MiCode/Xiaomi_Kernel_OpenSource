@@ -96,7 +96,6 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_asrc] = 9,
 	[snd_soc_dapm_encoder] = 9,
 	[snd_soc_dapm_decoder] = 9,
-	[snd_soc_dapm_adc] = 10,
 	[snd_soc_dapm_out_drv] = 11,
 	[snd_soc_dapm_hp] = 11,
 	[snd_soc_dapm_spk] = 11,
