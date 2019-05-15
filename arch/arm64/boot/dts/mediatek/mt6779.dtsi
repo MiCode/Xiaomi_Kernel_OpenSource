@@ -267,6 +267,14 @@
 			clock-names = "spi", "wrap";
 		};
 
+		keypad: kp@10010000 {
+			compatible = "mediatek,kp";
+			reg = <0 0x10010000 0 0x1000>;
+			interrupts = <GIC_SPI 75 IRQ_TYPE_EDGE_FALLING>;
+			clocks = <&clk26m>;
+			clock-names = "kpd";
+		};
+
 		devapc: devapc@10207000 {
 			compatible = "mediatek,mt6779-devapc";
 			reg = <0 0x10207000 0 0x1000>,

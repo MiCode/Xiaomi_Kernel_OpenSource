@@ -91,8 +91,29 @@
 	status = "okay";
 };
 
+&keypad {
+	mediatek,key-debounce-ms = <1024>;
+	/*HW Keycode [0~71] -> Linux Keycode*/
+	mediatek,hw-map-num = <72>;
+	mediatek,hw-init-map = <114 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+		0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+		0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 >;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&kpd_gpios_def_cfg>;
+};
 /* DISPSYS GPIO standardization */
 &pio {
+	kpd_gpios_def_cfg: kpdgpiodefault {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO59__FUNC_KPCOL0>,
+				<PINMUX_GPIO60__FUNC_KPCOL1>;
+			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_01>;
+			output-low;
+			input-schmitt-enable;
+		};
+	};
+
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
