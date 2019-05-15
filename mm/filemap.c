@@ -1443,7 +1443,7 @@ EXPORT_SYMBOL(find_lock_entry);
  * - FGP_CREAT: If page is not present then a new page is allocated using
  *   @gfp_mask and added to the page cache and the VM's LRU
  *   list. The page is returned locked and with an increased
- *   refcount. Otherwise, NULL is returned.
+ *   refcount.
  * - FGP_FOR_MMAP: Similar to FGP_CREAT, only we want to allow the caller to do
  *   its own locking dance if the page is already in cache, or unlock the page
  *   before returning if we had to add the page to pagecache.
@@ -1515,10 +1515,10 @@ no_page:
 		}
 
 		/*
-		 * add_to_page_cache_lru lock's the page, and for mmap we expect
-		 * a unlocked page.
+		 * add_to_page_cache_lru locks the page, and for mmap we expect
+		 * an unlocked page.
 		 */
-		if (fgp_flags & FGP_FOR_MMAP)
+		if (page && (fgp_flags & FGP_FOR_MMAP))
 			unlock_page(page);
 	}
 
@@ -2301,6 +2301,7 @@ static struct file *maybe_unlock_mmap_for_io(struct vm_fault *vmf,
 					     struct file *fpin)
 {
 	int flags = vmf->flags;
+
 	if (fpin)
 		return fpin;
 
@@ -2334,6 +2335,11 @@ static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 	if (trylock_page(page))
 		return 1;
 
+	/*
+	 * NOTE! This will make us return with VM_FAULT_RETRY, but with
+	 * the mmap_sem still held. That's how FAULT_FLAG_RETRY_NOWAIT
+	 * is supposed to work. We have way too many special cases..
+	 */
 	if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT)
 		return 0;
 
