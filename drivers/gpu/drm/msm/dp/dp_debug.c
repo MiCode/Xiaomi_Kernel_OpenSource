@@ -122,8 +122,24 @@ static ssize_t dp_debug_write_edid(struct file *file,
 		goto bail;
 
 	if (edid_size != debug->edid_size) {
-		pr_debug("clearing debug edid\n");
-		goto bail;
+		pr_debug("realloc debug edid\n");
+
+		if (debug->edid) {
+			devm_kfree(debug->dev, debug->edid);
+
+			debug->edid = devm_kzalloc(debug->dev,
+						edid_size, GFP_KERNEL);
+			if (!debug->edid) {
+				rc = -ENOMEM;
+				goto bail;
+			}
+
+			debug->edid_size = edid_size;
+
+			debug->aux->set_sim_mode(debug->aux,
+					debug->dp_debug.sim_mode,
+					debug->edid, debug->dpcd);
+		}
 	}
 
 	while (edid_size--) {

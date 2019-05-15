@@ -13,6 +13,16 @@ menuconfig NVMEM
 
 if NVMEM
 
+config NVMEM_SYSFS
+	bool "/sys/bus/nvmem/devices/*/nvmem (sysfs interface)"
+	depends on SYSFS
+	default y
+	help
+	   Say Y here to add a sysfs interface for NVMEM.
+
+	   This interface is mostly used by userspace applications to
+	   read/write directly into nvmem.
+
 config NVMEM_IMX_OCOTP
 	tristate "i.MX6 On-Chip OTP Controller support"
 	depends on SOC_IMX6 || COMPILE_TEST

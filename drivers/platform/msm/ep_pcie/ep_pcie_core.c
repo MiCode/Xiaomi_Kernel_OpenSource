@@ -604,7 +604,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		/* Configure link speed */
 		ep_pcie_write_mask(dev->dm_core +
 				PCIE20_LINK_CONTROL2_LINK_STATUS2,
-				0xf, dev->link_speed);
+				0xf, dev->curr_link_speed);
 	}
 
 	if (dev->active_config) {
@@ -1597,6 +1597,10 @@ checkbme:
 		}
 	}
 
+	EP_PCIE_DBG(dev, "PCIe V%d: PCIE20_CAP_LINKCTRLSTATUS: 0x%x\n",
+		dev->rev,
+		readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS));
+
 	dev->suspending = false;
 	goto out;
 
@@ -2564,17 +2568,18 @@ static int ep_pcie_probe(struct platform_device *pdev)
 
 	pr_debug("%s\n", __func__);
 
-	ep_pcie_dev.link_speed = 1;
+	ep_pcie_dev.max_link_speed = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,pcie-link-speed",
-				&ep_pcie_dev.link_speed);
+				&ep_pcie_dev.max_link_speed);
 	if (ret)
 		EP_PCIE_DBG(&ep_pcie_dev,
 			"PCIe V%d: pcie-link-speed does not exist.\n",
 			ep_pcie_dev.rev);
 	else
 		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: pcie-link-speed:%d.\n",
-			ep_pcie_dev.rev, ep_pcie_dev.link_speed);
+			ep_pcie_dev.rev, ep_pcie_dev.max_link_speed);
+	ep_pcie_dev.curr_link_speed = ep_pcie_dev.max_link_speed;
 
 	ep_pcie_dev.vendor_id = 0xFFFF;
 	ret = of_property_read_u16((&pdev->dev)->of_node,

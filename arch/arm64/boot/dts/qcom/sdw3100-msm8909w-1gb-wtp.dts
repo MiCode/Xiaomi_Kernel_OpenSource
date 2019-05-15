@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,8 @@
 			<258 0>,
 			<275 0>,
 			<300 0>;
-	qcom,board-id = <8 0xf>;
+	qcom,board-id = <8 0xf>,
+			<8 0x17>;
 	qcom,pmic-id =  <0x0001001b 0x0 0x0 0x0>,
 			<0x0001011b 0x0 0x0 0x0>;
 };
