@@ -54,6 +54,11 @@
 				channel = <AUXADC_VBIF>;
 				resistance-ratio = <5 2>;
 			};
+			imp {
+				channel = <AUXADC_IMP>;
+				resistance-ratio = <7 2>;
+				avg-num = <128>;
+			};
 		};
 
 		pmic_efuse: pmic_efuse {
