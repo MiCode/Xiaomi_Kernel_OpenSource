@@ -151,17 +151,6 @@ void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-/* nop for backward compatibility, allowed to ring db registers in M2 state */
-static void mhi_toggle_dev_wake_nop(struct mhi_controller *mhi_cntrl)
-{
-}
-
-static void mhi_toggle_dev_wake(struct mhi_controller *mhi_cntrl)
-{
-	mhi_cntrl->wake_get(mhi_cntrl, false);
-	mhi_cntrl->wake_put(mhi_cntrl, true);
-}
-
 /* set device wake */
 void mhi_assert_dev_wake(struct mhi_controller *mhi_cntrl, bool force)
 {
@@ -383,15 +372,12 @@ void mhi_pm_m1_transition(struct mhi_controller *mhi_cntrl)
 		wake_up_all(&mhi_cntrl->state_event);
 
 		/* transfer pending, exit M2 immediately */
-		if (unlikely(atomic_read(&mhi_cntrl->pending_pkts) ||
-			     atomic_read(&mhi_cntrl->dev_wake))) {
-			MHI_VERB(
-				 "Exiting M2 Immediately, pending_pkts:%d dev_wake:%d\n",
-				 atomic_read(&mhi_cntrl->pending_pkts),
+		if (unlikely(atomic_read(&mhi_cntrl->dev_wake))) {
+			MHI_VERB("Exiting M2 Immediately, count:%d\n",
 				 atomic_read(&mhi_cntrl->dev_wake));
 			read_lock_bh(&mhi_cntrl->pm_lock);
 			mhi_cntrl->wake_get(mhi_cntrl, true);
-			mhi_cntrl->wake_put(mhi_cntrl, true);
+			mhi_cntrl->wake_put(mhi_cntrl, false);
 			read_unlock_bh(&mhi_cntrl->pm_lock);
 		} else {
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
@@ -467,7 +453,7 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 		smp_wmb();
 
 		spin_lock_irq(&mhi_event->lock);
-		if (MHI_DB_ACCESS_VALID(mhi_cntrl))
+		if (MHI_DB_ACCESS_VALID(mhi_cntrl->pm_state))
 			mhi_ring_er_db(mhi_event);
 		spin_unlock_irq(&mhi_event->lock);
 
@@ -589,7 +575,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	MHI_ASSERT(atomic_read(&mhi_cntrl->dev_wake), "dev_wake != 0");
-	MHI_ASSERT(atomic_read(&mhi_cntrl->pending_pkts), "pending_pkts != 0");
 
 	/* reset the ev rings and cmd rings */
 	MHI_LOG("Resetting EV CTXT and CMD CTXT\n");
@@ -767,13 +752,10 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	if (mhi_cntrl->msi_allocated < mhi_cntrl->total_ev_rings)
 		return -EINVAL;
 
-	/* set to default wake if any one is not set */
-	if (!mhi_cntrl->wake_get || !mhi_cntrl->wake_put ||
-	    !mhi_cntrl->wake_toggle) {
+	/* set to default wake if not set */
+	if (!mhi_cntrl->wake_get || !mhi_cntrl->wake_put) {
 		mhi_cntrl->wake_get = mhi_assert_dev_wake;
 		mhi_cntrl->wake_put = mhi_deassert_dev_wake;
-		mhi_cntrl->wake_toggle = (mhi_cntrl->db_access & MHI_PM_M2) ?
-			mhi_toggle_dev_wake_nop : mhi_toggle_dev_wake;
 	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
@@ -924,8 +906,7 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 		return -EIO;
 
 	/* do a quick check to see if any pending data, then exit */
-	if (atomic_read(&mhi_cntrl->dev_wake) ||
-	    atomic_read(&mhi_cntrl->pending_pkts)) {
+	if (atomic_read(&mhi_cntrl->dev_wake)) {
 		MHI_VERB("Busy, aborting M3\n");
 		return -EBUSY;
 	}
@@ -953,8 +934,7 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 	write_lock_irq(&mhi_cntrl->pm_lock);
 
 	/* we're asserting wake so count would be @ least 1 */
-	if (atomic_read(&mhi_cntrl->dev_wake) > 1 ||
-		atomic_read(&mhi_cntrl->pending_pkts)) {
+	if (atomic_read(&mhi_cntrl->dev_wake) > 1) {
 		MHI_VERB("Busy, aborting M3\n");
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		ret = -EBUSY;
