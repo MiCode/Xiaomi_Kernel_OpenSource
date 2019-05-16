@@ -176,6 +176,17 @@
 	status = "okay";
 };
 
+&ssusb {
+	dr_mode = "peripheral";
+	mediatek,force_vbus = <1>;
+	maximum-speed = "super-speed";
+	status = "okay";
+};
+
+&u3phy {
+	status = "okay";
+};
+
 /* DISPSYS GPIO standardization end */
 
 &i2c5 {
