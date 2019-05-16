@@ -30,7 +30,7 @@ source "drivers/misc/mediatek/video/Kconfig"
 endmenu  # MM
 
 source "drivers/misc/mediatek/Kconfig.default"
-
+source "drivers/misc/mediatek/mtprof/Kconfig"
 config MTK_ATF_LOGGER
 	bool "atf logger kernel driver"
 	depends on HAVE_ARM_SMCCC && ARCH_MEDIATEK && OF
