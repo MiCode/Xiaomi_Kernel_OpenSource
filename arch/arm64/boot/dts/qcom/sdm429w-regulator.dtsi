@@ -1,0 +1,326 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
+&rpm_bus {
+	/* PM660 S1 - VDD_CX supply */
+	rpm-regulator-smpa1 {
+		status = "okay";
+		VDD_CX_LEVEL: S1A_LEVEL:
+		pm660_s1_level: regulator-s1-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_CX_FLOOR_LEVEL: S1A_FLOOR_LEVEL:
+		pm660_s1_floor_level: regulator-s1-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		VDD_CX_LEVEL_AO: S1A_LEVEL_AO:
+		pm660_s1_level_ao: regulator-s1-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s1_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	/* PM660 S2 - VDD_MX supply */
+	rpm-regulator-smpa2 {
+		status = "okay";
+		VDD_MX_LEVEL: S2A_LEVEL:
+		pm660_s2_level: regulator-s2-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_MX_LEVEL_AO: S2A_LEVEL_AO:
+		pm660_s2_level_ao: regulator-s2-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+
+		VDD_MX_LEVEL_SO: S2A_LEVEL_SO:
+		pm660_s2_level_so: regulator-s2-level-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s2_level_so";
+			qcom,set = <2>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		S4A: pm660_s4: regulator-s4 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa5 {
+		status = "okay";
+		S5A: pm660_s5: regulator-s5 {
+			regulator-min-microvolt = <1040000>;
+			regulator-max-microvolt = <1350000>;
+			qcom,init-voltage = <1040000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		L1A: pm660_l1: regulator-l1 {
+			regulator-min-microvolt = <970000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <970000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		L2A: pm660_l2: regulator-l2 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		L3A: pm660_l3: regulator-l3 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <900000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		L5A: pm660_l5: regulator-l5 {
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1450000>;
+			qcom,init-voltage = <1150000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		L6A: pm660_l6: regulator-l6 {
+			regulator-min-microvolt = <670000>;
+			regulator-max-microvolt = <928000>;
+			qcom,init-voltage = <670000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		L7A: pm660_l7: regulator-l7 {
+			regulator-min-microvolt = <1140000>;
+			regulator-max-microvolt = <1280000>;
+			qcom,init-voltage = <1140000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		L8A: pm660_l8: regulator-l8 {
+			regulator-min-microvolt = <1500000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		L9A: pm660_l9: regulator-l9 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		L10A: pm660_l10: regulator-l10 {
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		L11A: pm660_l11: regulator-l11 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		L12A: pm660_l12: regulator-l12 {
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1620000>;
+			status = "okay";
+		};
+
+		L12A_AO: pm660_l12_ao: regulator-l12-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_l12_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1620000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1620000>;
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		L13A: pm660_l13: regulator-l13 {
+			regulator-min-microvolt = <1600000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1600000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		L14A: pm660_l14: regulator-l14 {
+			regulator-min-microvolt = <1700000>;
+			regulator-max-microvolt = <1900000>;
+			qcom,init-voltage = <1700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		L15A: pm660_l15: regulator-l15 {
+			regulator-min-microvolt = <2650000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		L16A: pm660_l16: regulator-l16 {
+			regulator-min-microvolt = <2970000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2970000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		L17A: pm660_l17: regulator-l17 {
+			regulator-min-microvolt = <2400000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <2400000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa18 {
+		status = "okay";
+		L18A: pm660_l18: regulator-l18 {
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <3050000>;
+			qcom,init-voltage = <1650000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		L19A: pm660_l19: regulator-l19 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3400000>;
+			qcom,init-voltage = <2700000>;
+			status = "okay";
+		};
+	};
+};
+
+/* SPM controlled regulators */
+&spmi_bus {
+	qcom,pm660@1 {
+		S3A: pm660_s3: spm-regulator@1a00 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x1a00 0x100>;
+			regulator-name = "pm660_s3";
+			regulator-min-microvolt = <725000>;
+			regulator-max-microvolt = <736000>;
+		};
+	};
+};
+
+&soc {
+	regulator@b018000 {
+		vdd-apc-supply = <&pm660_s3>;
+	};
+};
