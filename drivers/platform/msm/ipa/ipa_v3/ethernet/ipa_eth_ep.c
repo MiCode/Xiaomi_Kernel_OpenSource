@@ -131,7 +131,7 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 {
 	int rc = 0;
 	bool vlan_mode;
-	const size_t num_hdrs = 2; // one each for IPv4 and IPv6
+	const size_t num_hdrs = 2; /* one each for IPv4 and IPv6 */
 	size_t hdr_alloc_sz = sizeof(struct ipa_ioc_add_hdr) +
 				num_hdrs * sizeof(struct ipa_hdr_add);
 	struct ipa_hdr_add *hdr_v4 = NULL;
@@ -156,7 +156,7 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 	hdrs->commit = 1;
 	hdrs->num_hdrs = num_hdrs;
 
-	// Initialize IPv4 headers
+	/* Initialize IPv4 headers */
 	snprintf(hdr_v4->name, sizeof(hdr_v4->name), "%s_ipv4",
 		eth_dev->net_dev->name);
 
@@ -165,7 +165,7 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 	else
 		ipa_eth_init_vlan_header_v4(eth_dev, hdr_v4);
 
-	// Initialize IPv6 headers
+	/* Initialize IPv6 headers */
 	snprintf(hdr_v6->name, sizeof(hdr_v6->name), "%s_ipv6",
 		eth_dev->net_dev->name);
 
@@ -184,10 +184,11 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 }
 
 static void ipa_eth_ep_init_tx_props_v4(struct ipa_eth_device *eth_dev,
-					struct ipa_ioc_tx_intf_prop *props)
+		struct ipa_eth_channel *ch,
+		struct ipa_ioc_tx_intf_prop *props)
 {
 	props->ip = IPA_IP_v4;
-	props->dst_pipe = eth_dev->ch_tx->ipa_client;
+	props->dst_pipe = ch->ipa_client;
 
 	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	snprintf(props->hdr_name, sizeof(props->hdr_name), "%s_ipv4",
@@ -196,10 +197,11 @@ static void ipa_eth_ep_init_tx_props_v4(struct ipa_eth_device *eth_dev,
 }
 
 static void ipa_eth_ep_init_tx_props_v6(struct ipa_eth_device *eth_dev,
-					struct ipa_ioc_tx_intf_prop *props)
+		struct ipa_eth_channel *ch,
+		struct ipa_ioc_tx_intf_prop *props)
 {
 	props->ip = IPA_IP_v6;
-	props->dst_pipe = eth_dev->ch_tx->ipa_client;
+	props->dst_pipe = ch->ipa_client;
 
 	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	snprintf(props->hdr_name, sizeof(props->hdr_name), "%s_ipv6",
@@ -207,25 +209,79 @@ static void ipa_eth_ep_init_tx_props_v6(struct ipa_eth_device *eth_dev,
 }
 
 static void ipa_eth_ep_init_rx_props_v4(struct ipa_eth_device *eth_dev,
-					struct ipa_ioc_rx_intf_prop *props)
+		struct ipa_eth_channel *ch,
+		struct ipa_ioc_rx_intf_prop *props)
 {
 	props->ip = IPA_IP_v4;
-	props->src_pipe = eth_dev->ch_rx->ipa_client;
+	props->src_pipe = ch->ipa_client;
 
 	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
-
-	// TODO: what about attrib?
 }
 
 static void ipa_eth_ep_init_rx_props_v6(struct ipa_eth_device *eth_dev,
-					struct ipa_ioc_rx_intf_prop *props)
+		struct ipa_eth_channel *ch,
+		struct ipa_ioc_rx_intf_prop *props)
 {
 	props->ip = IPA_IP_v6;
-	props->src_pipe = eth_dev->ch_rx->ipa_client;
+	props->src_pipe = ch->ipa_client;
 
 	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+}
 
-	// TODO: what about attrib?
+static int ipa_eth_ep_init_tx_intf(struct ipa_eth_device *eth_dev,
+		struct ipa_tx_intf *tx_intf)
+{
+	u32 num_props;
+	struct list_head *l;
+	struct ipa_eth_channel *ch;
+
+	num_props = 0;
+	list_for_each(l, &eth_dev->tx_channels)
+		num_props += 2; /* one each for IPv4 and IPv6 */
+
+	tx_intf->prop = kcalloc(num_props, sizeof(*tx_intf->prop), GFP_KERNEL);
+	if (!tx_intf->prop) {
+		ipa_eth_dev_err(eth_dev, "Failed to alloc tx props");
+		return -ENOMEM;
+	}
+
+	tx_intf->num_props = 0;
+	list_for_each_entry(ch, &eth_dev->tx_channels, channel_list) {
+		ipa_eth_ep_init_tx_props_v4(eth_dev, ch,
+			&tx_intf->prop[tx_intf->num_props++]);
+		ipa_eth_ep_init_tx_props_v6(eth_dev, ch,
+			&tx_intf->prop[tx_intf->num_props++]);
+	}
+
+	return 0;
+}
+
+static int ipa_eth_ep_init_rx_intf(struct ipa_eth_device *eth_dev,
+		struct ipa_rx_intf *rx_intf)
+{
+	u32 num_props;
+	struct list_head *l;
+	struct ipa_eth_channel *ch;
+
+	num_props = 0;
+	list_for_each(l, &eth_dev->rx_channels)
+		num_props += 2; /* one each for IPv4 and IPv6 */
+
+	rx_intf->prop = kcalloc(num_props, sizeof(*rx_intf->prop), GFP_KERNEL);
+	if (!rx_intf->prop) {
+		ipa_eth_dev_err(eth_dev, "Failed to alloc rx props");
+		return -ENOMEM;
+	}
+
+	rx_intf->num_props = 0;
+	list_for_each_entry(ch, &eth_dev->rx_channels, channel_list) {
+		ipa_eth_ep_init_rx_props_v4(eth_dev, ch,
+			&rx_intf->prop[rx_intf->num_props++]);
+		ipa_eth_ep_init_rx_props_v6(eth_dev, ch,
+			&rx_intf->prop[rx_intf->num_props++]);
+	}
+
+	return 0;
 }
 
 /**
@@ -240,27 +296,28 @@ static void ipa_eth_ep_init_rx_props_v6(struct ipa_eth_device *eth_dev,
  */
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev)
 {
+	int rc;
 	struct ipa_tx_intf tx_intf;
 	struct ipa_rx_intf rx_intf;
-	const size_t num_props = 2; // one each for IPv4 and IPv6
-	struct ipa_ioc_tx_intf_prop tx_props[num_props];
-	struct ipa_ioc_rx_intf_prop rx_props[num_props];
 
-	memset(&tx_props, 0, sizeof(tx_props));
-	ipa_eth_ep_init_tx_props_v4(eth_dev, &tx_props[0]);
-	ipa_eth_ep_init_tx_props_v6(eth_dev, &tx_props[1]);
+	memset(&tx_intf, 0, sizeof(tx_intf));
+	memset(&rx_intf, 0, sizeof(rx_intf));
 
-	tx_intf.num_props = num_props;
-	tx_intf.prop = tx_props;
+	rc = ipa_eth_ep_init_tx_intf(eth_dev, &tx_intf);
+	if (rc)
+		goto free_and_exit;
 
-	memset(&rx_props, 0, sizeof(rx_props));
-	ipa_eth_ep_init_rx_props_v4(eth_dev, &rx_props[0]);
-	ipa_eth_ep_init_rx_props_v6(eth_dev, &rx_props[1]);
+	rc = ipa_eth_ep_init_rx_intf(eth_dev, &rx_intf);
+	if (rc)
+		goto free_and_exit;
 
-	rx_intf.num_props = num_props;
-	rx_intf.prop = rx_props;
+	rc = ipa_register_intf(eth_dev->net_dev->name, &tx_intf, &rx_intf);
 
-	return ipa_register_intf(eth_dev->net_dev->name, &tx_intf, &rx_intf);
+free_and_exit:
+	kzfree(tx_intf.prop);
+	kzfree(rx_intf.prop);
+
+	return rc;
 }
 
 /**
@@ -274,44 +331,16 @@ int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev)
 }
 
 /**
- * ipa_eth_ep_init - Initialize IPA endpoint for a channel
- * @ch: Channel for which EP need to be initialized
- *
- * Return: 0 on success, negative errno otherwise
+ * ipa_eth_ep_init_ctx - Initialize IPA endpoint context for a channel
+ * @ch: Channel for which EP ctx need to be initialized
+ * @vlan_mode: true if VLAN mode is enabled for the EP
  */
-int ipa_eth_ep_init(struct ipa_eth_channel *ch)
+void ipa_eth_ep_init_ctx(struct ipa_eth_channel *ch, bool vlan_mode)
 {
-	int rc = 0;
-	bool vlan_mode;
-	const bool client_prod = IPA_CLIENT_IS_PROD(ch->ipa_client);
-	const int ep_num = ipa_get_ep_mapping(ch->ipa_client);
+	struct ipa3_ep_context *ep_ctx = &ipa3_ctx->ep[ch->ipa_ep_num];
 
-	struct ipa3_ep_context *ep_ctx = NULL;
-
-	if (ep_num == IPA_EP_NOT_ALLOCATED) {
-		ipa_eth_dev_err(ch->eth_dev,
-				"Could not determine EP number for client %d",
-				ch->ipa_client);
-		rc = -EFAULT;
-		goto err_exit;
-	}
-
-	ch->ipa_ep_num = ep_num;
-
-	rc = ipa3_is_vlan_mode(IPA_VLAN_IF_ETH, &vlan_mode);
-	if (rc) {
-		ipa_eth_dev_err(ch->eth_dev,
-				"Could not determine IPA VLAN mode");
-		goto err_exit;
-	}
-
-	ep_ctx = &ipa3_ctx->ep[ep_num];
-	if (ep_ctx->valid) {
-		ipa_eth_dev_err(ch->eth_dev,
-				"EP context is already initialiazed");
-		rc = -EEXIST;
-		goto err_exit;
-	}
+	if (ep_ctx->valid)
+		return;
 
 	memset(ep_ctx, 0, offsetof(typeof(*ep_ctx), sys));
 
@@ -320,30 +349,57 @@ int ipa_eth_ep_init(struct ipa_eth_channel *ch)
 	ep_ctx->client_notify = ipa_ep_client_notifier;
 	ep_ctx->priv = ch;
 
-	ep_ctx->cfg.nat.nat_en =  client_prod ? IPA_SRC_NAT : IPA_BYPASS_NAT;
+	ep_ctx->cfg.nat.nat_en = IPA_CLIENT_IS_PROD(ch->ipa_client) ?
+					IPA_SRC_NAT : IPA_BYPASS_NAT;
 	ep_ctx->cfg.hdr.hdr_len = vlan_mode ? VLAN_ETH_HLEN : ETH_HLEN;
-
 	ep_ctx->cfg.mode.mode = IPA_BASIC;
+}
 
-#ifdef IPA_ETH_DMA_MODE
-	if (IPA_ETH_CH_IS_RX(ch)) {
-		ep_ctx->cfg.mode.mode = IPA_DMA;
-		ep_ctx->cfg.mode.dst = IPA_CLIENT_AQC_ETHERNET_CONS;
+/**
+ * ipa_eth_ep_deinit_ctx - Deinitialize IPA endpoint context for a channel
+ * @ch: Channel for which EP ctx need to be deinitialized
+ */
+void ipa_eth_ep_deinit_ctx(struct ipa_eth_channel *ch)
+{
+	struct ipa3_ep_context *ep_ctx = &ipa3_ctx->ep[ch->ipa_ep_num];
+
+	if (!ep_ctx->valid)
+		return;
+
+	ep_ctx->valid = false;
+
+	memset(ep_ctx, 0, offsetof(typeof(*ep_ctx), sys));
+}
+
+/**
+ * ipa_eth_ep_init - Initialize IPA endpoint for a channel
+ * @ch: Channel for which EP need to be initialized
+ *
+ * Return: 0 on success, negative errno otherwise
+ */
+int ipa_eth_ep_init(struct ipa_eth_channel *ch)
+{
+	int rc = 0;
+	struct ipa3_ep_context *ep_ctx = NULL;
+
+	ep_ctx = &ipa3_ctx->ep[ch->ipa_ep_num];
+	if (!ep_ctx->valid) {
+		ipa_eth_dev_bug(ch->eth_dev, "EP context is not initialiazed");
+		return -EFAULT;
 	}
-#endif
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	rc = ipa3_cfg_ep(ep_num, &ep_ctx->cfg);
+	rc = ipa3_cfg_ep(ch->ipa_ep_num, &ep_ctx->cfg);
 	if (rc) {
 		ipa_eth_dev_err(ch->eth_dev,
-				"Failed to configure EP %d", ep_num);
+				"Failed to configure EP %d", ch->ipa_ep_num);
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		goto err_exit;
 	}
 
-	if (IPA_ETH_CH_IS_RX(ch))
-		ipa3_install_dflt_flt_rules(ep_num);
+	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
+		ipa3_install_dflt_flt_rules(ch->ipa_ep_num);
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 

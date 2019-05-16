@@ -13,7 +13,8 @@
 #ifndef _IPA_ETH_I_H_
 #define _IPA_ETH_I_H_
 
-#include <linux/pci.h>
+#define IPA_ETH_NET_DRIVER
+#define IPA_ETH_OFFLOAD_DRIVER
 #include <linux/ipa_eth.h>
 
 #include "../ipa_i.h"
@@ -97,6 +98,14 @@ struct ipa_eth_bus {
 
 extern struct ipa_eth_bus ipa_eth_pci_bus;
 
+struct ipa_eth_cb_map_param {
+	bool map;
+	bool sym;
+	int iommu_prot;
+	enum dma_data_direction dma_dir;
+	const struct ipa_smmu_cb_ctx *cb_ctx;
+};
+
 int ipa_eth_register_device(struct ipa_eth_device *eth_dev);
 void ipa_eth_unregister_device(struct ipa_eth_device *eth_dev);
 
@@ -137,9 +146,14 @@ int ipa_eth_offload_deinit(struct ipa_eth_device *eth_dev);
 int ipa_eth_offload_start(struct ipa_eth_device *eth_dev);
 int ipa_eth_offload_stop(struct ipa_eth_device *eth_dev);
 
+int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev);
+void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev);
+
 int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev);
+void ipa_eth_ep_init_ctx(struct ipa_eth_channel *ch, bool vlan_mode);
+void ipa_eth_ep_deinit_ctx(struct ipa_eth_channel *ch);
 
 int ipa_eth_pm_register(struct ipa_eth_device *eth_dev);
 int ipa_eth_pm_unregister(struct ipa_eth_device *eth_dev);
