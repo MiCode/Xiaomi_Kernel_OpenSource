@@ -1976,7 +1976,10 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 							mhip_idx, START);
 		IPA_MPM_DBG("status = %d\n", status);
 		break;
-	default:
+	case MHI_CB_EE_RDDM:
+	case MHI_CB_PENDING_DATA:
+	case MHI_CB_SYS_ERROR:
+	case MHI_CB_FATAL_ERROR:
 		IPA_MPM_ERR("unexpected event %d\n", mhi_cb);
 		break;
 	}
