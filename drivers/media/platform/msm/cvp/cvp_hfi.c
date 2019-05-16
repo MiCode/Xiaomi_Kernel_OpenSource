@@ -329,6 +329,27 @@ int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr)
 	return -EINVAL;
 }
 
+int set_feature_bitmask(int pkt_idx, unsigned long *bitmask)
+{
+	if (!bitmask) {
+		dprintk(CVP_ERR, "%s: invalid bitmask\n", __func__);
+		return -EINVAL;
+	}
+
+	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_DME_FRAME) {
+		set_bit(DME_BIT_OFFSET, bitmask);
+		return 0;
+	}
+
+	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_ICA_FRAME) {
+		set_bit(ICA_BIT_OFFSET, bitmask);
+		return 0;
+	}
+
+	dprintk(CVP_ERR, "%s: invalid pkt_idx %d\n", __func__, pkt_idx);
+	return -EINVAL;
+}
+
 int get_signal_from_pkt_type(unsigned int type)
 {
 	int i, pkt_num = ARRAY_SIZE(cvp_hfi_defs);
@@ -1261,7 +1282,7 @@ static inline int __boot_firmware(struct iris_hfi_device *device)
 		rc = -ENODEV;
 	}
 
-	/* Enable interrupt before sending commands to venus */
+	/* Enable interrupt before sending commands to tensilica */
 	__write_register(device, CVP_CPU_CS_H2XSOFTINTEN, 0x1);
 	__write_register(device, CVP_CPU_CS_X2RPMh, 0x0);
 
@@ -2836,7 +2857,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		break;
 	case -EBUSY:
 		device->skip_pc_count = 0;
-		dprintk(CVP_DBG, "%s: retry PC as dsp is busy\n", __func__);
+		dprintk(CVP_DBG, "%s: retry PC as cvp is busy\n", __func__);
 		queue_delayed_work(device->venus_pm_workq,
 			&venus_hfi_pm_work, msecs_to_jiffies(
 			device->res->msm_cvp_pwr_collapse_delay));
@@ -3124,6 +3145,7 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	case HAL_SESSION_DME_BASIC_CONFIG_CMD_DONE:
 	case HAL_SESSION_DFS_FRAME_CMD_DONE:
 	case HAL_SESSION_DME_FRAME_CMD_DONE:
+	case HAL_SESSION_ICA_FRAME_CMD_DONE:
 	case HAL_SESSION_PERSIST_CMD_DONE:
 	case HAL_SESSION_PROPERTY_INFO:
 		session_id = &info->response.cmd.session_id;
