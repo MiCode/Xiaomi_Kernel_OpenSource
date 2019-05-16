@@ -89,6 +89,7 @@
 #define WIRELESS_VOTER		"WIRELESS_VOTER"
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
+#define SOC_LEVEL_VOTER		"SOC_LEVEL_VOTER"
 
 #define THERMAL_SUSPEND_DECIDEGC	1400
 
@@ -171,6 +172,7 @@ struct smb1390 {
 	u32			debug_mask;
 	u32			min_ilim_ua;
 	u32			max_temp_alarm_degc;
+	u32			max_cutoff_soc;
 };
 
 struct smb_irq {
@@ -452,6 +454,28 @@ unlock:
 	return rc;
 }
 
+static int smb1390_is_batt_soc_valid(struct smb1390 *chip)
+{
+	int rc;
+	union power_supply_propval pval = {0, };
+
+	if (!chip->batt_psy)
+		goto out;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get CAPACITY rc=%d\n", rc);
+		goto out;
+	}
+
+	if (pval.intval >= chip->max_cutoff_soc)
+		return false;
+
+out:
+	return true;
+}
+
 /* voter callbacks */
 static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 				  int disable, const char *client)
@@ -551,6 +575,9 @@ static void smb1390_status_change_work(struct work_struct *work)
 	if (!is_psy_voter_available(chip))
 		goto out;
 
+	vote(chip->disable_votable, SOC_LEVEL_VOTER,
+			smb1390_is_batt_soc_valid(chip) ? false : true, 0);
+
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
 	if (rc < 0) {
@@ -629,6 +656,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		vote(chip->disable_votable, SRC_VOTER, true, 0);
 		vote(chip->disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
+		vote(chip->disable_votable, SOC_LEVEL_VOTER, true, 0);
 	}
 
 out:
@@ -896,6 +924,10 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	of_property_read_u32(chip->dev->of_node, "qcom,max-temp-alarm-degc",
 			&chip->max_temp_alarm_degc);
 
+	chip->max_cutoff_soc = 85; /* 85% */
+	of_property_read_u32(chip->dev->of_node, "qcom,max-cutoff-soc",
+			&chip->max_cutoff_soc);
+
 	return 0;
 }
 
@@ -922,6 +954,9 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	 * traditional parallel charging if present
 	 */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	/* keep charge pump disabled if SOC is above threshold */
+	vote(chip->disable_votable, SOC_LEVEL_VOTER,
+			smb1390_is_batt_soc_valid(chip) ? false : true, 0);
 
 	/*
 	 * In case SMB1390 probe happens after FCC value has been configured,
@@ -1187,6 +1222,7 @@ static int smb1390_remove(struct platform_device *pdev)
 
 	/* explicitly disable charging */
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	vote(chip->disable_votable, SOC_LEVEL_VOTER, true, 0);
 	cancel_work_sync(&chip->taper_work);
 	cancel_work_sync(&chip->status_change_work);
 	wakeup_source_unregister(chip->cp_ws);
