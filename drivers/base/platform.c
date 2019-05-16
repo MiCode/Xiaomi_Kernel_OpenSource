@@ -26,6 +26,7 @@
 #include <linux/clk/clk-conf.h>
 #include <linux/limits.h>
 #include <linux/property.h>
+#include <linux/bootprof.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -471,9 +472,17 @@ EXPORT_SYMBOL_GPL(platform_device_del);
  */
 int platform_device_register(struct platform_device *pdev)
 {
+	int ret;
+#ifdef CONFIG_MTPROF
+	unsigned long long ts;
+#endif
+	BOOTPROF_TIME_LOG_START(ts);
 	device_initialize(&pdev->dev);
 	arch_setup_pdev_archdata(pdev);
-	return platform_device_add(pdev);
+	ret = platform_device_add(pdev);
+	BOOTPROF_TIME_LOG_END(ts);
+	bootprof_pdev_register(ts, pdev);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(platform_device_register);
 

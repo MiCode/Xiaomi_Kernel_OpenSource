@@ -27,6 +27,7 @@
 #include <linux/async.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/devinfo.h>
+#include <linux/bootprof.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -449,6 +450,9 @@ static int really_probe(struct device *dev, struct device_driver *drv)
 	int local_trigger_count = atomic_read(&deferred_trigger_count);
 	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
 			   !drv->suppress_bind_attrs;
+#ifdef CONFIG_MTPROF
+	unsigned long long ts;
+#endif
 
 	if (defer_all_probes) {
 		/*
@@ -497,11 +501,17 @@ re_probe:
 	}
 
 	if (dev->bus->probe) {
+		BOOTPROF_TIME_LOG_START(ts);
 		ret = dev->bus->probe(dev);
+		BOOTPROF_TIME_LOG_END(ts);
+		bootprof_probe(ts, dev, drv, (unsigned long)dev->bus->probe);
 		if (ret)
 			goto probe_failed;
 	} else if (drv->probe) {
+		BOOTPROF_TIME_LOG_START(ts);
 		ret = drv->probe(dev);
+		BOOTPROF_TIME_LOG_END(ts);
+		bootprof_probe(ts, dev, drv, (unsigned long)drv->probe);
 		if (ret)
 			goto probe_failed;
 	}
