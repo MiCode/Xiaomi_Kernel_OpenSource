@@ -518,7 +518,7 @@ static int msm_cvp_session_process_hfi(
 
 static int msm_cvp_thread_fence_run(void *data)
 {
-	int i, rc = 0;
+	int i, pkt_idx, rc = 0;
 	unsigned long timeout_ms = 1000;
 	int synx_obj;
 	struct hfi_device *hdev;
@@ -527,6 +527,9 @@ static int msm_cvp_thread_fence_run(void *data)
 	struct cvp_kmd_hfi_packet *in_pkt;
 	struct msm_cvp_inst *inst;
 	int *fence;
+	struct msm_cvp_internal_buffer *cbuf = NULL;
+	struct buf_desc *buf_ptr;
+	unsigned int offset, buf_num;
 
 	if (!data) {
 		dprintk(CVP_ERR, "%s Wrong input data %pK\n", __func__, data);
@@ -545,6 +548,57 @@ static int msm_cvp_thread_fence_run(void *data)
 	in_pkt = (struct cvp_kmd_hfi_packet *)(in_fence_pkt);
 	fence = (int *)(in_fence_pkt->fence_data);
 	hdev = inst->core->device;
+
+	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
+	if (pkt_idx < 0) {
+		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
+			in_pkt->pkt_data[0],
+			in_pkt->pkt_data[1]);
+		rc = pkt_idx;
+		goto exit;
+	}
+
+	offset = cvp_hfi_defs[pkt_idx].buf_offset;
+	buf_num = cvp_hfi_defs[pkt_idx].buf_num;
+
+	if (offset != 0 && buf_num != 0) {
+		buf_ptr = (struct buf_desc *)&in_pkt->pkt_data[offset];
+
+		for (i = 0; i < buf_num; i++) {
+			if (!buf_ptr[i].fd)
+				continue;
+
+			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
+				buf_ptr[i].fd,
+				buf_ptr[i].size,
+				&buf_ptr[i].fd,
+				&buf_ptr[i].size);
+
+			if (rc == -ENOENT) {
+				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
+					__func__, buf_ptr[i].fd,
+					buf_ptr[i].size);
+				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
+						buf_ptr[i].size, &cbuf);
+				if (rc || !cbuf) {
+					dprintk(CVP_ERR,
+					"%s: buf %d register failed. rc=%d\n",
+					__func__, i, rc);
+					do_exit(rc);
+				}
+				buf_ptr[i].fd = cbuf->smem.device_addr;
+				buf_ptr[i].size = cbuf->buf.size;
+			} else if (rc) {
+				dprintk(CVP_ERR,
+				"%s: buf %d register failed. rc=%d\n",
+				__func__, i, rc);
+				do_exit(rc);
+			}
+			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
+						SMEM_CACHE_CLEAN_INVALIDATE,
+						0, buf_ptr[i].size);
+		}
+	}
 
 	//wait on synx before signaling HFI
 	switch (fence_thread_data->arg_type) {
@@ -637,71 +691,14 @@ static int msm_cvp_session_process_hfi_fence(
 {
 	static int thread_num;
 	struct task_struct *thread;
-	int i, rc = 0;
+	int rc = 0;
 	char thread_fence_name[32];
-	int pkt_idx;
-	struct cvp_kmd_hfi_packet *in_pkt;
-	unsigned int offset, buf_num;
-	struct msm_cvp_internal_buffer *cbuf = NULL;
-	struct buf_desc *buf_ptr;
 
 	dprintk(CVP_DBG, "%s: Enter inst = %d", __func__, inst);
 
 	if (!inst || !inst->core || !arg) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
-	}
-
-	in_pkt = (struct cvp_kmd_hfi_packet *)&arg->data.hfi_pkt;
-	pkt_idx = get_pkt_index((struct cvp_hal_session_cmd_pkt *)in_pkt);
-	if (pkt_idx < 0) {
-		dprintk(CVP_ERR, "%s incorrect packet %d, %x\n", __func__,
-			in_pkt->pkt_data[0],
-			in_pkt->pkt_data[1]);
-		rc = pkt_idx;
-		return rc;
-	}
-
-	offset = cvp_hfi_defs[pkt_idx].buf_offset;
-	buf_num = cvp_hfi_defs[pkt_idx].buf_num;
-
-	if (offset != 0 && buf_num != 0) {
-		buf_ptr = (struct buf_desc *)&in_pkt->pkt_data[offset];
-
-		for (i = 0; i < buf_num; i++) {
-			if (!buf_ptr[i].fd)
-				continue;
-
-			rc = msm_cvp_session_get_iova_addr(inst, &cbuf,
-				buf_ptr[i].fd,
-				buf_ptr[i].size,
-				&buf_ptr[i].fd,
-				&buf_ptr[i].size);
-
-			if (rc == -ENOENT) {
-				dprintk(CVP_DBG, "%s map buf fd %d size %d\n",
-					__func__, buf_ptr[i].fd,
-					buf_ptr[i].size);
-				rc = msm_cvp_map_buf_cpu(inst, buf_ptr[i].fd,
-						buf_ptr[i].size, &cbuf);
-				if (rc || !cbuf) {
-					dprintk(CVP_ERR,
-					"%s: buf %d register failed. rc=%d\n",
-					__func__, i, rc);
-					return rc;
-				}
-				buf_ptr[i].fd = cbuf->smem.device_addr;
-				buf_ptr[i].size = cbuf->buf.size;
-			} else if (rc) {
-				dprintk(CVP_ERR,
-				"%s: buf %d register failed. rc=%d\n",
-				__func__, i, rc);
-				return rc;
-			}
-			msm_cvp_smem_cache_operations(cbuf->smem.dma_buf,
-						SMEM_CACHE_CLEAN_INVALIDATE,
-						0, buf_ptr[i].size);
-		}
 	}
 
 	thread_num = thread_num + 1;

@@ -68,8 +68,8 @@ static const struct file_operations cvp_fops = {
 	.owner = THIS_MODULE,
 	.open = cvp_open,
 	.release = cvp_close,
-	.unlocked_ioctl = cvp_unblocked_ioctl,
-	.compat_ioctl = cvp_compat_ioctl,
+	.unlocked_ioctl = msm_cvp_v4l2_private,
+	.compat_ioctl = msm_cvp_v4l2_private,
 	.poll = cvp_poll,
 };
 

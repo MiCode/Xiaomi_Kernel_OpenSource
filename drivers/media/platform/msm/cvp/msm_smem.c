@@ -531,11 +531,11 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 	switch (cache_op) {
 	case SMEM_CACHE_CLEAN:
 	case SMEM_CACHE_CLEAN_INVALIDATE:
-		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_BIDIRECTIONAL,
+		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_TO_DEVICE,
 				offset, size);
 		if (rc)
 			break;
-		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_BIDIRECTIONAL,
+		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_TO_DEVICE,
 				offset, size);
 		break;
 	case SMEM_CACHE_INVALIDATE:
@@ -592,3 +592,4 @@ struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 
 	return match;
 }
+
