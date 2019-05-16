@@ -70,6 +70,7 @@
 #define DEFAULT_AGGR_PKT_LIMIT 0
 #define TETH_AGGR_TIME_LIMIT 10000
 #define TETH_AGGR_BYTE_LIMIT 24
+#define TETH_AGGR_DL_BYTE_LIMIT 16
 #define TRE_BUFF_SIZE 32768
 #define IPA_HOLB_TMR_EN 0x1
 #define IPA_HOLB_TMR_DIS 0x0
@@ -214,7 +215,21 @@ static struct ipa_ep_cfg mhip_dl_teth_ep_cfg = {
 	},
 	.hdr = {
 		.hdr_len = 4,
-	}
+		.hdr_ofst_metadata_valid = 1,
+		.hdr_ofst_metadata = 1,
+		.hdr_ofst_pkt_size_valid = 1,
+		.hdr_ofst_pkt_size = 2,
+	},
+	.hdr_ext = {
+		.hdr_total_len_or_pad_valid = true,
+		.hdr_payload_len_inc_padding = true,
+	},
+	.aggr = {
+		.aggr_en = IPA_BYPASS_AGGR, /* temporarily disabled */
+		.aggr = IPA_QCMAP,
+		.aggr_byte_limit = TETH_AGGR_DL_BYTE_LIMIT,
+		.aggr_time_limit = TETH_AGGR_TIME_LIMIT,
+	},
 };
 
 static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
@@ -224,8 +239,12 @@ static struct ipa_ep_cfg mhip_ul_teth_ep_cfg = {
 	},
 	.hdr = {
 		.hdr_len = 4,
+		.hdr_ofst_metadata_valid = 1,
+		.hdr_ofst_metadata = 0,
+		.hdr_ofst_pkt_size_valid = 1,
+		.hdr_ofst_pkt_size = 2,
 	},
-		.hdr_ext = {
+	.hdr_ext = {
 		.hdr_total_len_or_pad_valid = true,
 		.hdr_payload_len_inc_padding = true,
 	},
