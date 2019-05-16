@@ -143,12 +143,9 @@ int synx_deinit_object(struct synx_table_row *row)
 
 	synx_obj = row->synx_obj;
 
-	if ((struct synx_table_row *)idr_remove(&synx_dev->synx_ids,
-			row->synx_obj) != row) {
-		pr_err("removing data in idr table failed 0x%x\n",
-			row->synx_obj);
-		return -EINVAL;
-	}
+	if ((struct synx_table_row *)idr_replace(&synx_dev->synx_ids,
+			NULL, row->synx_obj) != row)
+		pr_err("replacing data in idr table failed\n");
 
 	/*
 	 * release the fence memory only for individual obj.
