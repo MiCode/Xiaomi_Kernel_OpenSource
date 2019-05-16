@@ -14,11 +14,24 @@
 #include <asm/page.h>
 #include <asm/code-patching.h>
 #include <asm/uaccess.h>
+#include <asm/setup.h>
+#include <asm/sections.h>
 
+
+static inline bool is_init(unsigned int *addr)
+{
+	return addr >= (unsigned int *)__init_begin && addr < (unsigned int *)__init_end;
+}
 
 int patch_instruction(unsigned int *addr, unsigned int instr)
 {
 	int err;
+
+	/* Make sure we aren't patching a freed init section */
+	if (*PTRRELOC(&init_mem_is_free) && is_init(addr)) {
+		pr_debug("Skipping init section patching addr: 0x%px\n", addr);
+		return 0;
+	}
 
 	__put_user_size(instr, addr, 4, err);
 	if (err)
@@ -30,6 +43,22 @@ int patch_instruction(unsigned int *addr, unsigned int instr)
 int patch_branch(unsigned int *addr, unsigned long target, int flags)
 {
 	return patch_instruction(addr, create_branch(addr, target, flags));
+}
+
+int patch_branch_site(s32 *site, unsigned long target, int flags)
+{
+	unsigned int *addr;
+
+	addr = (unsigned int *)((unsigned long)site + *site);
+	return patch_instruction(addr, create_branch(addr, target, flags));
+}
+
+int patch_instruction_site(s32 *site, unsigned int instr)
+{
+	unsigned int *addr;
+
+	addr = (unsigned int *)((unsigned long)site + *site);
+	return patch_instruction(addr, instr);
 }
 
 unsigned int create_branch(const unsigned int *addr,
