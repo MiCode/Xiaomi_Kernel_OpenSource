@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_ISP_CONTEXT_H_
@@ -30,7 +30,7 @@
 /*
  * Maximum entries in state monitoring array for error logging
  */
-#define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   20
+#define CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES   40
 
 /* forward declaration */
 struct cam_isp_context;
@@ -60,11 +60,13 @@ enum cam_isp_ctx_activated_substate {
  */
 enum cam_isp_state_change_trigger {
 	CAM_ISP_STATE_CHANGE_TRIGGER_ERROR,
-	CAM_ISP_STATE_CHANGE_TRIGGER_SOF,
+	CAM_ISP_STATE_CHANGE_TRIGGER_APPLIED,
 	CAM_ISP_STATE_CHANGE_TRIGGER_REG_UPDATE,
+	CAM_ISP_STATE_CHANGE_TRIGGER_SOF,
 	CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH,
-	CAM_ISP_STATE_CHANGE_TRIGGER_EOF,
 	CAM_ISP_STATE_CHANGE_TRIGGER_DONE,
+	CAM_ISP_STATE_CHANGE_TRIGGER_EOF,
+	CAM_ISP_STATE_CHANGE_TRIGGER_FLUSH,
 	CAM_ISP_STATE_CHANGE_TRIGGER_MAX
 };
 
@@ -117,18 +119,19 @@ struct cam_isp_ctx_req {
  *                                        monitoring for
  *                                        debug purposes
  *
- *@curr_state:          Current sub state that received req
- *@req_type:            Event type of incoming req
- *@req_id:              Request id
- *@evt_time_stamp       Current time stamp
+ * @curr_state:          Current sub state that received req
+ * @trigger:             Event type of incoming req
+ * @req_id:              Request id
+ * @frame_id:            Frame id based on SOFs
+ * @evt_time_stamp       Current time stamp
  *
  */
 struct cam_isp_context_state_monitor {
 	enum cam_isp_ctx_activated_substate  curr_state;
 	enum cam_isp_state_change_trigger    trigger;
-	uint32_t                             req_id;
+	uint64_t                             req_id;
 	int64_t                              frame_id;
-	uint64_t                             evt_time_stamp;
+	unsigned int                         evt_time_stamp;
 };
 
 /**
@@ -158,6 +161,7 @@ struct cam_isp_context_state_monitor {
  * @hw_acquired:               Indicate whether HW resources are acquired
  * @init_received:             Indicate whether init config packet is received
  * @split_acquire:             Indicate whether a separate acquire is expected
+ * @init_timestamp:            Timestamp at which this context is initialized
  *
  */
 struct cam_isp_context {
@@ -186,6 +190,7 @@ struct cam_isp_context {
 	bool                             hw_acquired;
 	bool                             init_received;
 	bool                             split_acquire;
+	unsigned int                     init_timestamp;
 };
 
 /**
