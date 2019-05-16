@@ -21,18 +21,8 @@
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
 
-enum mhi_suspend_mode {
-	MHI_ACTIVE_STATE,
-	MHI_DEFAULT_SUSPEND,
-	MHI_FAST_LINK_OFF,
-	MHI_FAST_LINK_ON,
-};
-
-#define MHI_IS_SUSPENDED(mode) (mode)
-
 struct mhi_dev {
 	struct pci_dev *pci_dev;
-	bool drv_supported;
 	u32 smmu_cfg;
 	int resn;
 	void *arch_info;
@@ -40,7 +30,6 @@ struct mhi_dev {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	bool lpm_disabled;
-	enum mhi_suspend_mode suspend_mode;
 
 	/* if set, soc support dynamic bw scaling */
 	void (*bw_scale)(struct mhi_controller *mhi_cntrl,
@@ -58,8 +47,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl);
 int mhi_arch_iommu_init(struct mhi_controller *mhi_cntrl);
 void mhi_arch_iommu_deinit(struct mhi_controller *mhi_cntrl);
-int mhi_arch_link_suspend(struct mhi_controller *mhi_cntrl);
-int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl);
+int mhi_arch_link_off(struct mhi_controller *mhi_cntrl, bool graceful);
+int mhi_arch_link_on(struct mhi_controller *mhi_cntrl);
 
 #else
 
@@ -85,12 +74,13 @@ static inline void mhi_arch_pcie_deinit(struct mhi_controller *mhi_cntrl)
 {
 }
 
-static inline int mhi_arch_link_suspend(struct mhi_controller *mhi_cntrl)
+static inline int mhi_arch_link_off(struct mhi_controller *mhi_cntrl,
+				    bool graceful)
 {
 	return 0;
 }
 
-static inline int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
+static inline int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
 {
 	return 0;
 }

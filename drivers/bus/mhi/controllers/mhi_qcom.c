@@ -200,39 +200,15 @@ static int mhi_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
-	/* if drv is supported we will always go into drv */
-	if (mhi_dev->drv_supported) {
-		ret = mhi_pm_fast_suspend(mhi_cntrl, true);
-		mhi_dev->suspend_mode = MHI_FAST_LINK_OFF;
-	} else {
-		ret = mhi_pm_suspend(mhi_cntrl);
-		mhi_dev->suspend_mode = MHI_DEFAULT_SUSPEND;
-
-		/* regular suspend failed, probably a client has a vote */
-		if (ret == -EBUSY) {
-			ret = mhi_pm_fast_suspend(mhi_cntrl, false);
-			mhi_dev->suspend_mode = MHI_FAST_LINK_ON;
-		}
-	}
-
+	ret = mhi_pm_suspend(mhi_cntrl);
 	if (ret) {
 		MHI_LOG("Abort due to ret:%d\n", ret);
 		goto exit_runtime_suspend;
 	}
 
-	ret = mhi_arch_link_suspend(mhi_cntrl);
-
-	/* failed suspending link abort mhi suspend */
-	if (ret) {
-		MHI_LOG("Failed to suspend link, abort suspend\n");
-		if (mhi_dev->suspend_mode == MHI_DEFAULT_SUSPEND)
-			mhi_pm_resume(mhi_cntrl);
-		else
-			mhi_pm_fast_resume(mhi_cntrl,
-				mhi_dev->suspend_mode == MHI_FAST_LINK_OFF);
-
-		mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
-	}
+	ret = mhi_arch_link_off(mhi_cntrl, true);
+	if (ret)
+		MHI_ERR("Failed to Turn off link ret:%d\n", ret);
 
 exit_runtime_suspend:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
@@ -279,19 +255,12 @@ static int mhi_runtime_resume(struct device *dev)
 	}
 
 	/* turn on link */
-	ret = mhi_arch_link_resume(mhi_cntrl);
+	ret = mhi_arch_link_on(mhi_cntrl);
 	if (ret)
 		goto rpm_resume_exit;
 
-
-	/* transition to M0 state */
-	if (mhi_dev->suspend_mode == MHI_DEFAULT_SUSPEND)
-		ret = mhi_pm_resume(mhi_cntrl);
-	else
-		ret = mhi_pm_fast_resume(mhi_cntrl,
-				mhi_dev->suspend_mode == MHI_FAST_LINK_OFF);
-
-	mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
+	/* enter M0 state */
+	ret = mhi_pm_resume(mhi_cntrl);
 
 rpm_resume_exit:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
@@ -302,87 +271,41 @@ rpm_resume_exit:
 
 static int mhi_system_resume(struct device *dev)
 {
-	return mhi_runtime_resume(dev);
+	int ret = 0;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+
+	ret = mhi_runtime_resume(dev);
+	if (ret) {
+		MHI_ERR("Failed to resume link\n");
+	} else {
+		pm_runtime_set_active(dev);
+		pm_runtime_enable(dev);
+	}
+
+	return ret;
 }
 
 int mhi_system_suspend(struct device *dev)
 {
 	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	int ret;
 
 	MHI_LOG("Entered\n");
 
-	mutex_lock(&mhi_cntrl->pm_mutex);
-
-	if (!mhi_dev->powered_on) {
-		MHI_LOG("Not fully powered, return success\n");
-		mutex_unlock(&mhi_cntrl->pm_mutex);
-		return 0;
-	}
-
-	/*
-	 * pci framework always makes a dummy vote to rpm
-	 * framework to resume before calling system suspend
-	 * hence usage count is minimum one
-	 */
-	if (atomic_read(&dev->power.usage_count) > 1) {
-		/*
-		 * clients have requested to keep link on, try
-		 * fast suspend. No need to notify clients since
-		 * we will not be turning off the pcie link
-		 */
-		ret = mhi_pm_fast_suspend(mhi_cntrl, false);
-		mhi_dev->suspend_mode = MHI_FAST_LINK_ON;
-	} else {
-		/* if drv enable always do fast suspend */
-		if (mhi_dev->drv_supported) {
-			ret = mhi_pm_fast_suspend(mhi_cntrl, true);
-			mhi_dev->suspend_mode = MHI_FAST_LINK_OFF;
-		} else {
-			/* try normal suspend */
-			mhi_dev->suspend_mode = MHI_DEFAULT_SUSPEND;
-			ret = mhi_pm_suspend(mhi_cntrl);
-
-			/*
-			 * normal suspend failed because we're busy, try
-			 * fast suspend before aborting system suspend.
-			 * this could happens if client has disabled
-			 * device lpm but no active vote for PCIe from
-			 * apps processor
-			 */
-			if (ret == -EBUSY) {
-				ret = mhi_pm_fast_suspend(mhi_cntrl, true);
-				mhi_dev->suspend_mode = MHI_FAST_LINK_ON;
-			}
+	/* if rpm status still active then force suspend */
+	if (!pm_runtime_status_suspended(dev)) {
+		ret = mhi_runtime_suspend(dev);
+		if (ret) {
+			MHI_LOG("suspend failed ret:%d\n", ret);
+			return ret;
 		}
 	}
 
-	if (ret) {
-		MHI_LOG("Abort due to ret:%d\n", ret);
-		goto exit_system_suspend;
-	}
+	pm_runtime_set_suspended(dev);
+	pm_runtime_disable(dev);
 
-	ret = mhi_arch_link_suspend(mhi_cntrl);
-
-	/* failed suspending link abort mhi suspend */
-	if (ret) {
-		MHI_LOG("Failed to suspend link, abort suspend\n");
-		if (mhi_dev->suspend_mode == MHI_DEFAULT_SUSPEND)
-			mhi_pm_resume(mhi_cntrl);
-		else
-			mhi_pm_fast_resume(mhi_cntrl,
-				mhi_dev->suspend_mode == MHI_FAST_LINK_OFF);
-
-		mhi_dev->suspend_mode = MHI_ACTIVE_STATE;
-	}
-
-exit_system_suspend:
-	mutex_unlock(&mhi_cntrl->pm_mutex);
-
-	MHI_LOG("Exit with ret:%d\n", ret);
-
-	return ret;
+	MHI_LOG("Exit\n");
+	return 0;
 }
 
 /* checks if link is down */
@@ -752,6 +675,7 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 	}
 
 	pm_runtime_mark_last_busy(&pci_dev->dev);
+	pm_runtime_allow(&pci_dev->dev);
 
 	MHI_LOG("Return successful\n");
 
