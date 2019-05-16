@@ -274,3 +274,16 @@
 		};
 	};
 };
+
+&i2c7 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mt6660@34 {
+		status = "ok";
+		compatible = "mediatek,mt6660";
+		reg = <0x34>;
+	};
+};
+
