@@ -101,6 +101,13 @@ static const struct resource mt6359_auxadc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_AUXADC_IMP, "imp"),
 };
 
+static const struct resource mt6359_keys_resources[] = {
+	DEFINE_RES_IRQ(MT6359_IRQ_PWRKEY),
+	DEFINE_RES_IRQ(MT6359_IRQ_HOMEKEY),
+	DEFINE_RES_IRQ(MT6359_IRQ_PWRKEY_R),
+	DEFINE_RES_IRQ(MT6359_IRQ_HOMEKEY_R),
+};
+
 static const struct resource mt6359_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VPU_OC, "VPU"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VCORE_OC, "VCORE"),
@@ -193,7 +200,12 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_rtc_resources),
 		.resources = mt6359_rtc_resources,
 		.of_compatible = "mediatek,mt6359-rtc",
-	},
+	}, {
+		.name = "mtk-pmic-keys",
+		.num_resources = ARRAY_SIZE(mt6359_keys_resources),
+		.resources = mt6359_keys_resources,
+		.of_compatible = "mediatek,mt6359-keys"
+	}
 };
 
 static const struct mfd_cell mt6397_devs[] = {

@@ -24,6 +24,7 @@
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/mfd/mt6323/registers.h>
+#include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/registers.h>
 #include <linux/mfd/mt6397/core.h>
 
@@ -43,6 +44,8 @@
 #define MTK_PMIC_HOMEKEY_INDEX	1
 #define MTK_PMIC_MAX_KEY_COUNT	2
 
+#define INVALID_VALUE	0
+
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
 	u32 deb_mask;
@@ -59,8 +62,11 @@ struct mtk_pmic_keys_regs {
 	.intsel_mask		= _intsel_mask,		\
 }
 
+#define RELEASE_IRQ_INTERVAL	2
+
 struct mtk_pmic_regs {
 	const struct mtk_pmic_keys_regs keys_regs[MTK_PMIC_MAX_KEY_COUNT];
+	bool release_irq;
 	u32 pmic_rst_reg;
 };
 
@@ -71,6 +77,7 @@ static const struct mtk_pmic_regs mt6397_regs = {
 	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
 		MTK_PMIC_KEYS_REGS(MT6397_OCSTATUS2,
 		0x10, MT6397_INT_RSV, 0x8),
+	.release_irq = false,
 	.pmic_rst_reg = MT6397_TOP_RST_MISC,
 };
 
@@ -81,7 +88,19 @@ static const struct mtk_pmic_regs mt6323_regs = {
 	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
 		MTK_PMIC_KEYS_REGS(MT6323_CHRSTATUS,
 		0x4, MT6323_INT_MISC_CON, 0x8),
+	.release_irq = false,
 	.pmic_rst_reg = MT6323_TOP_RST_MISC,
+};
+
+static const struct mtk_pmic_regs mt6359_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(INVALID_VALUE,
+		INVALID_VALUE, MT6359_PSC_TOP_INT_CON0, 0x1),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(INVALID_VALUE,
+		INVALID_VALUE, MT6359_PSC_TOP_INT_CON0, 0x2),
+	.release_irq = true
+	.pmic_rst_reg = MT6359_TOP_RST_MISC,
 };
 
 struct mtk_pmic_keys_info {
@@ -89,6 +108,7 @@ struct mtk_pmic_keys_info {
 	const struct mtk_pmic_keys_regs *regs;
 	unsigned int keycode;
 	int irq;
+	int release_irq_num;
 	bool wakeup:1;
 };
 
@@ -155,16 +175,32 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 	}
 }
 
+static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
+				int irq, void *data)
+{
+	struct mtk_pmic_keys_info *info = data;
+
+	input_report_key(info->keys->input_dev, info->keycode, 0);
+	input_sync(info->keys->input_dev);
+
+	dev_dbg(info->keys->dev, "release key =%d using PMIC\n",
+			info->keycode);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 {
 	struct mtk_pmic_keys_info *info = data;
 	u32 key_deb, pressed;
 
-	regmap_read(info->keys->regmap, info->regs->deb_reg, &key_deb);
-
-	key_deb &= info->regs->deb_mask;
-
-	pressed = !key_deb;
+	if (info->release_irq_num > 0) {
+		pressed = 1;
+	} else {
+		regmap_read(info->keys->regmap, info->regs->deb_reg, &key_deb);
+		key_deb &= info->regs->deb_mask;
+		pressed = !key_deb;
+	}
 
 	input_report_key(info->keys->input_dev, info->keycode, pressed);
 	input_sync(info->keys->input_dev);
@@ -193,9 +229,22 @@ static int mtk_pmic_key_setup(struct mtk_pmic_keys *keys,
 					IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 					"mtk-pmic-keys", info);
 	if (ret) {
-		dev_err(keys->dev, "Failed to request IRQ: %d: %d\n",
+		dev_dbg(keys->dev, "Failed to request IRQ: %d: %d\n",
 			info->irq, ret);
 		return ret;
+	}
+
+	if (info->release_irq_num > 0) {
+		ret = devm_request_threaded_irq(keys->dev,
+				info->release_irq_num,
+				NULL, mtk_pmic_keys_release_irq_handler_thread,
+				IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+				"mtk-pmic-keys", info);
+		if (ret) {
+			dev_dbg(keys->dev, "Failed to request IRQ: %d: %d\n",
+				info->release_irq_num, ret);
+			return ret;
+		}
 	}
 
 	input_set_capability(keys->input_dev, EV_KEY, info->keycode);
@@ -240,6 +289,9 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 		.compatible = "mediatek,mt6323-keys",
 		.data = &mt6323_regs,
 	}, {
+		.compatible = "mediatek,mt6359-keys",
+		.data = &mt6359_regs,
+	}, {
 		/* sentinel */
 	}
 };
@@ -277,6 +329,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	input_dev->id.product = 0x0001;
 	input_dev->id.version = 0x0001;
 
+	__set_bit(EV_KEY, input_dev->evbit);
 	keycount = of_get_available_child_count(node);
 	if (keycount > MTK_PMIC_MAX_KEY_COUNT) {
 		dev_err(keys->dev, "too many keys defined (%d)\n", keycount);
@@ -289,6 +342,14 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 		keys->keys[index].irq = platform_get_irq(pdev, index);
 		if (keys->keys[index].irq < 0)
 			return keys->keys[index].irq;
+
+		if (mtk_pmic_regs->release_irq) {
+			keys->keys[index].release_irq_num = platform_get_irq(
+						pdev,
+						index + RELEASE_IRQ_INTERVAL);
+			if (keys->keys[index].release_irq_num < 0)
+				return keys->keys[index].release_irq_num;
+		}
 
 		error = of_property_read_u32(child,
 			"linux,keycodes", &keys->keys[index].keycode);
@@ -303,8 +364,10 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 			keys->keys[index].wakeup = true;
 
 		error = mtk_pmic_key_setup(keys, &keys->keys[index]);
-		if (error)
+		if (error) {
+			pr_info("Set key index = %d error.\n", index);
 			return error;
+		}
 
 		index++;
 	}
