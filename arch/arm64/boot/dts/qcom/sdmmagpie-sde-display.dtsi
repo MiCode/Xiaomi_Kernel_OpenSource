@@ -447,8 +447,8 @@
 
 &dsi_sw43404_amoled_fhd_plus_cmd {
 	qcom,ulps-enabled;
-	qcom,mdss-dsi-t-clk-post = <0x0A>;
-	qcom,mdss-dsi-t-clk-pre = <0x21>;
+	qcom,mdss-dsi-t-clk-post = <0x09>;
+	qcom,mdss-dsi-t-clk-pre = <0x1B>;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -458,8 +458,9 @@
 	qcom,mdss-dsi-panel-status-read-length = <1>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
-			qcom,mdss-dsi-panel-phy-timings = [00 13 05 04 1F 1E 05
-				05 03 02 04 00];
+			qcom,mdss-dsi-panel-phy-timings = [00 0F 03 03 1E 1D 04
+				04 02 03 04 00];
+			qcom,mdss-dsi-panel-clockrate = <354585600>;
 			qcom,display-topology = <1 1 1>;
 			qcom,default-topology-index = <0>;
 			qcom,partial-update-enabled = "single_roi";
