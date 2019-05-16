@@ -356,6 +356,7 @@ struct mtu3 {
 	unsigned u2_enable:1;
 	unsigned is_u3_ip:1;
 	unsigned delayed_status:1;
+	unsigned force_vbus:1;
 
 	u8 address;
 	u8 test_mode_nr;
