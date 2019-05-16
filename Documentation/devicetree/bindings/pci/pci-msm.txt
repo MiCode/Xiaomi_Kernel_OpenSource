@@ -202,16 +202,6 @@ Main node
 		- BIT(1)	PCIe bus driver will not start enumeration if it
 				receives a WAKE interrupt
 
-- qcom,drv-supported:
-	Usage: optional
-	Value type: <bool>
-	Definition: Direct resource vote (DRV) is supported. APPS PCIe
-		root complex driver can hand off PCIe resources to another
-		subsystem. This will allow APPS to enter lower power modes
-		while keeping PCIe core, PHY, and link funtional. In addition,
-		the system can enter CX power collapse once the DRV subsystem
-		removes its PCIe votes.
-
 - qcom,use-19p2mhz-aux-clk:
 	Usage: optional
 	Value type: <bool>
@@ -464,7 +454,6 @@ Example
 		qcom,target-link-speed = <0x2>;
 		qcom,link-check-max-count = <40> /* 200ms */
 		qcom,boot-option = <0x1>;
-		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,common-clk-en;
 		qcom,clk-power-manage-en;
