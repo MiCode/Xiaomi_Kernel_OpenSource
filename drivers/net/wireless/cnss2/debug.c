@@ -76,6 +76,12 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_UNLOADING:
 			seq_puts(s, "DRIVER_UNLOADING");
 			continue;
+		case CNSS_DRIVER_IDLE_RESTART:
+			seq_puts(s, "IDLE_RESTART");
+			continue;
+		case CNSS_DRIVER_IDLE_SHUTDOWN:
+			seq_puts(s, "IDLE_SHUTDOWN");
+			continue;
 		case CNSS_DRIVER_PROBED:
 			seq_puts(s, "DRIVER_PROBED");
 			continue;

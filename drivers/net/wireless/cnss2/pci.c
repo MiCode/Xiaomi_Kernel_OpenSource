@@ -43,7 +43,6 @@
 
 #define FW_ASSERT_TIMEOUT		5000
 #define DEV_RDDM_TIMEOUT		5000
-#define RECOVERY_TIMEOUT		60000
 
 #ifdef CONFIG_CNSS_EMULATION
 #define EMULATION_HW			1
@@ -460,6 +459,18 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		set_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+	} else if (test_bit(CNSS_DRIVER_IDLE_RESTART,
+			    &plat_priv->driver_state)) {
+		ret = pci_priv->driver_ops->idle_restart(pci_priv->pci_dev,
+			pci_priv->pci_device_id);
+		if (ret) {
+			cnss_pr_err("Failed to idle restart host driver, err = %d\n",
+				    ret);
+			goto out;
+		}
+		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state);
+		complete(&plat_priv->power_up_complete);
 	} else {
 		complete(&plat_priv->power_up_complete);
 	}
@@ -497,6 +508,10 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 	} else if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		pci_priv->driver_ops->remove(pci_priv->pci_dev);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+	} else if (test_bit(CNSS_DRIVER_IDLE_SHUTDOWN,
+			    &plat_priv->driver_state)) {
+		pci_priv->driver_ops->idle_shutdown(pci_priv->pci_dev);
 		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
 	}
 
@@ -641,6 +656,7 @@ static int cnss_qca6174_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_power_off_device(plat_priv);
 
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
+	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
 
 	return ret;
 }
@@ -749,7 +765,9 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 
 	if ((test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-	     test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) &&
+	     test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state) ||
+	     test_bit(CNSS_DRIVER_IDLE_RESTART, &plat_priv->driver_state) ||
+	     test_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state)) &&
 	    test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
 		del_timer(&pci_priv->dev_rddm_timer);
 		cnss_pci_collect_dump(pci_priv);
@@ -768,6 +786,7 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
+	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
 
 	return ret;
 }
