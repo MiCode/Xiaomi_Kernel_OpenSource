@@ -284,8 +284,11 @@ static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
 {
 	int ret, scale;
 
+	mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
 	ret = msm_pcie_set_link_bandwidth(pci_dev, link_info->target_link_speed,
 					  link_info->target_link_width);
+	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
+
 	if (ret)
 		return ret;
 
@@ -389,11 +392,13 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	char node[32];
 	int ret;
+	u16 linkstat;
 
 	if (!arch_info) {
 		struct msm_pcie_register_event *reg_event;
 		struct pci_dev *root_port;
 		struct device_node *root_ofnode;
+		struct mhi_link_info *cur_link_info;
 
 		arch_info = devm_kzalloc(&mhi_dev->pci_dev->dev,
 					 sizeof(*arch_info), GFP_KERNEL);
@@ -481,6 +486,20 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		INIT_WORK(&arch_info->bw_scale_work,
 			  mhi_arch_pcie_bw_scale_work);
 		mhi_dev->bw_scale = mhi_arch_pcie_bw_scale_cb;
+
+		/* store the current bw info */
+		ret = pcie_capability_read_word(mhi_dev->pci_dev,
+						PCI_EXP_LNKSTA, &linkstat);
+		if (ret)
+			return ret;
+
+		cur_link_info = &arch_info->current_link_info;
+		cur_link_info->target_link_speed =
+			linkstat & PCI_EXP_LNKSTA_CLS;
+		cur_link_info->target_link_width =
+			(linkstat & PCI_EXP_LNKSTA_NLW) >>
+			PCI_EXP_LNKSTA_NLW_SHIFT;
+		mhi_cntrl->mhi_link_info = *cur_link_info;
 
 		mhi_driver_register(&mhi_bl_driver);
 	}
