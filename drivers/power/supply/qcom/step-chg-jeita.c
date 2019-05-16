@@ -591,10 +591,12 @@ static int handle_step_chg_config(struct step_chg_info *chip)
 	if (!chip->fcc_votable)
 		return -EINVAL;
 
-	if (chip->taper_fcc)
+	if (chip->taper_fcc) {
 		taper_fcc_step_chg(chip, chip->step_index, pval.intval);
-	else
+	} else {
+		fcc_ua = chip->step_chg_config->fcc_cfg[chip->step_index].value;
 		vote(chip->fcc_votable, STEP_CHG_VOTER, true, fcc_ua);
+	}
 
 	pr_debug("%s = %d Step-FCC = %duA taper-fcc: %d\n",
 		chip->step_chg_config->param.prop_name, pval.intval,

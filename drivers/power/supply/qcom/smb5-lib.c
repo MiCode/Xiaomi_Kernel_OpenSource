@@ -322,11 +322,14 @@ static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
 		val.intval = ((prop_val.intval == 2) ? 1 : 0);
 		extcon_set_property(chg->extcon, id,
 				EXTCON_PROP_USB_TYPEC_POLARITY, val);
-	}
-
-	val.intval = true;
-	extcon_set_property(chg->extcon, id,
+		val.intval = true;
+		extcon_set_property(chg->extcon, id,
 				EXTCON_PROP_USB_SS, val);
+	} else if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB) {
+		val.intval = false;
+		extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_SS, val);
+	}
 }
 
 static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
@@ -2923,6 +2926,57 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 	return rc;
 }
 
+int smblib_set_prop_dc_reset(struct smb_charger *chg)
+{
+	int rc;
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, true, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't suspend DC rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK,
+				DCIN_EN_OVERRIDE_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't set DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, DCIN_PON_BIT | MID_CHG_BIT);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't write %d to DCIN_CMD_PON_REG rc=%d\n",
+			DCIN_PON_BIT | MID_CHG_BIT, rc);
+		return rc;
+	}
+
+	/* Wait for 10ms to allow the charge to get drained */
+	usleep_range(10000, 10010);
+
+	rc = smblib_write(chg, DCIN_CMD_PON_REG, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_CMD_PON_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smblib_masked_write(chg, DCIN_CMD_IL_REG, DCIN_EN_MASK, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't clear DCIN_EN_OVERRIDE_BIT rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = vote(chg->dc_suspend_votable, VOUT_VOTER, false, 0);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't unsuspend  DC rc=%d\n", rc);
+		return rc;
+	}
+
+	smblib_dbg(chg, PR_MISC, "Wireless charger removal detection successful\n");
+	return rc;
+}
+
 /*******************
  * USB PSY GETTERS *
  *******************/
@@ -3643,7 +3697,7 @@ int smblib_get_prop_scope(struct smb_charger *chg,
 	return 0;
 }
 
-int smblib_get_prop_connector_health(struct smb_charger *chg)
+static int smblib_get_typec_connector_temp_status(struct smb_charger *chg)
 {
 	int rc;
 	u8 stat;
@@ -3682,6 +3736,56 @@ int smblib_get_prop_connector_health(struct smb_charger *chg)
 
 	if (stat & CONNECTOR_TEMP_LB_BIT)
 		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+static int smblib_get_skin_temp_status(struct smb_charger *chg)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, SKIN_TEMP_STATUS_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read SKIN_TEMP_STATUS_REG, rc=%d\n",
+				rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (stat & SKIN_TEMP_RST_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (stat & SKIN_TEMP_UB_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (stat & SKIN_TEMP_LB_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+int smblib_get_prop_connector_health(struct smb_charger *chg)
+{
+	bool dc_present, usb_present;
+	int input_present;
+	int rc;
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0)
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	dc_present = input_present & INPUT_PRESENT_DC;
+	usb_present = input_present & INPUT_PRESENT_USB;
+
+	if (usb_present)
+		return smblib_get_typec_connector_temp_status(chg);
+
+	/*
+	 * In PM8150B, SKIN channel measures Wireless charger receiver
+	 * temp, used to regulate DC ICL.
+	 */
+	if (chg->smb_version == PM8150B_SUBTYPE && dc_present)
+		return smblib_get_skin_temp_status(chg);
 
 	return POWER_SUPPLY_HEALTH_COOL;
 }
@@ -3735,12 +3839,12 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 				 * Confiugure USB500 mode if Float charger is
 				 * configured for SDP mode.
 				 */
-				rc = set_sdp_current(chg, USBIN_500MA);
+				rc = vote(chg->usb_icl_votable,
+					SW_ICL_MAX_VOTER, true, USBIN_500MA);
 				if (rc < 0)
 					smblib_err(chg,
 						"Couldn't set SDP ICL rc=%d\n",
 						rc);
-
 				return rc;
 			}
 
@@ -4854,6 +4958,11 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 	if (chg->pd_active)
 		return;
 
+	if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+		return;
+	}
+
 	/*
 	 * HVDCP 2/3, handled separately
 	 */
@@ -5136,6 +5245,14 @@ static void typec_src_insertion(struct smb_charger *chg)
 	/* allow apsd proceed to detect QC2/3 */
 	if (!chg->ok_to_pd)
 		smblib_hvdcp_detect_try_enable(chg, true);
+}
+
+static void typec_ra_ra_insertion(struct smb_charger *chg)
+{
+	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, 500000);
+	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
+	chg->ok_to_pd = false;
+	smblib_hvdcp_detect_enable(chg, true);
 }
 
 static void typec_sink_removal(struct smb_charger *chg)
@@ -5437,7 +5554,11 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			return IRQ_HANDLED;
 		}
 
-		if (stat & SNK_SRC_MODE_BIT) {
+		if (smblib_get_prop_dfp_mode(chg) ==
+				POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER) {
+			chg->sink_src_mode = AUDIO_ACCESS_MODE;
+			typec_ra_ra_insertion(chg);
+		} else if (stat & SNK_SRC_MODE_BIT) {
 			if (smblib_src_lpd(chg))
 				return IRQ_HANDLED;
 			chg->sink_src_mode = SRC_MODE;
@@ -5453,6 +5574,7 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			typec_sink_removal(chg);
 			break;
 		case SINK_MODE:
+		case AUDIO_ACCESS_MODE:
 			typec_src_removal(chg);
 			break;
 		case UNATTACHED_MODE:

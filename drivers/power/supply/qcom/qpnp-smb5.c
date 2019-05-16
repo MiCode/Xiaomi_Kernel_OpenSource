@@ -206,6 +206,7 @@ struct smb_dt_props {
 	bool			no_battery;
 	bool			hvdcp_disable;
 	bool			hvdcp_autonomous;
+	bool			adc_based_aicl;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
@@ -549,6 +550,9 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
 					"qcom,disable-suspend-on-collapse");
 
+	chip->dt.adc_based_aicl = of_property_read_bool(node,
+					"qcom,adc-based-aicl");
+
 	return 0;
 }
 
@@ -560,17 +564,10 @@ static int smb5_parse_dt_adc_channels(struct smb_charger *chg)
 	if (rc < 0)
 		return rc;
 
-	if (!chg->iio.mid_chan) {
-		rc = smblib_get_iio_channel(chg, "usb_in_voltage",
-				&chg->iio.usbin_v_chan);
-		if (rc < 0)
-			return rc;
-
-		if (!chg->iio.usbin_v_chan) {
-			dev_err(chg->dev, "No voltage channel defined\n");
-			return -EINVAL;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
 	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
 	if (rc < 0)
@@ -1288,6 +1285,7 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_DC_RESET,
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1322,6 +1320,8 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_get_prop_voltage_wls_output(chg, val);
+	case POWER_SUPPLY_PROP_DC_RESET:
+		val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
@@ -1351,6 +1351,9 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_set_prop_voltage_wls_output(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_DC_RESET:
+		rc = smblib_set_prop_dc_reset(chg);
 		break;
 	default:
 		return -EINVAL;
@@ -1917,13 +1920,16 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
-		0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
-		return rc;
+	if (chg->smb_version != PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				USBIN_IN_COLLAPSE_GF_SEL_MASK |
+				USBIN_AICL_STEP_TIMING_SEL_MASK,
+				0);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* Set CC threshold to 1.6 V in source mode */
@@ -2215,40 +2221,32 @@ static int smb5_configure_recharging(struct smb5 *chip)
 static int smb5_configure_float_charger(struct smb5 *chip)
 {
 	int rc = 0;
+	u8 val = 0;
 	struct smb_charger *chg = &chip->chg;
 
 	/* configure float charger options */
 	switch (chip->dt.float_option) {
-	case FLOAT_DCP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, 0);
-		break;
 	case FLOAT_SDP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		val = FORCE_FLOAT_SDP_CFG_BIT;
 		break;
 	case DISABLE_CHARGING:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		val = FLOAT_DIS_CHGING_CFG_BIT;
 		break;
 	case SUSPEND_INPUT:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		val = SUSPEND_FLOAT_CFG_BIT;
 		break;
+	case FLOAT_DCP:
 	default:
-		rc = 0;
+		val = 0;
 		break;
 	}
 
+	chg->float_cfg = val;
+	/* Update float charger setting and set DCD timeout 300ms */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK | DCD_TIMEOUT_SEL_BIT, val);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+		dev_err(chg->dev, "Couldn't change float charger setting rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -2434,22 +2432,22 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 
 	/*
-	 * AICL configuration:
-	 * start from min and AICL ADC disable, and enable aicl rerun
+	 * AICL configuration: enable aicl and aicl rerun and based on DT
+	 * configuration enable/disable ADB based AICL and Suspend on collapse.
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
-		mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
+	mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
 			| USBIN_AICL_EN_BIT | SUSPEND_ON_COLLAPSE_USBIN_BIT;
-		val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
-		if (!chip->dt.disable_suspend_on_collapse)
-			val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
+	if (!chip->dt.disable_suspend_on_collapse)
+		val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	if (chip->dt.adc_based_aicl)
+		val |= USBIN_AICL_ADC_EN_BIT;
 
-		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				mask, val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
-			return rc;
-		}
+	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			mask, val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,
