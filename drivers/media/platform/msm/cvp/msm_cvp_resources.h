@@ -107,16 +107,6 @@ struct bus_set {
 	u32 count;
 };
 
-struct reset_info {
-	struct reset_control *rst;
-	const char *name;
-};
-
-struct reset_set {
-	struct reset_info *reset_tbl;
-	u32 count;
-};
-
 struct allowed_clock_rates_table {
 	u32 clock_rate;
 };
@@ -176,7 +166,6 @@ struct msm_cvp_platform_resources {
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
 	struct bus_set bus_set;
-	struct reset_set reset_set;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool slave_side_cp;

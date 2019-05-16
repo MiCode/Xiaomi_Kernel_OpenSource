@@ -26,7 +26,6 @@
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <linux/dma-mapping.h>
-#include <linux/reset.h>
 #include "hfi_packetization.h"
 #include "msm_cvp_debug.h"
 #include "cvp_core_hfi.h"
@@ -230,16 +229,20 @@ struct tzbsp_resp {
 	int ret;
 };
 
-#define TZBSP_PIL_SET_STATE 0xA
-#define TZBSP_CVP_PAS_ID    26
+#define TZBSP_VIDEO_SET_STATE 0xa
 
 /* Poll interval in uS */
 #define POLL_INTERVAL_US 50
 
-enum tzbsp_subsys_state {
-	TZ_SUBSYS_STATE_SUSPEND = 0,
-	TZ_SUBSYS_STATE_RESUME = 1,
-	TZ_SUBSYS_STATE_RESTORE_THRESHOLD = 2,
+enum tzbsp_video_state {
+	TZBSP_VIDEO_STATE_SUSPEND = 0,
+	TZBSP_VIDEO_STATE_RESUME = 1,
+	TZBSP_VIDEO_STATE_RESTORE_THRESHOLD = 2,
+};
+
+struct tzbsp_video_set_state_req {
+	u32 state; /* should be tzbsp_video_state enum value */
+	u32 spare; /* reserved for future, should be zero */
 };
 
 const struct msm_cvp_gov_data CVP_DEFAULT_BUS_VOTE = {
@@ -268,7 +271,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 					void *pkt);
 static int __load_fw(struct venus_hfi_device *device);
 static void __unload_fw(struct venus_hfi_device *device);
-static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state);
+static int __tzbsp_set_video_state(enum tzbsp_video_state state);
 static int __enable_subcaches(struct venus_hfi_device *device);
 static int __set_subcaches(struct venus_hfi_device *device);
 static int __release_subcaches(struct venus_hfi_device *device);
@@ -279,18 +282,13 @@ static int venus_hfi_noc_error_info(void *dev);
 static void interrupt_init_vpu5(struct venus_hfi_device *device);
 static void setup_dsp_uc_memmap_vpu5(struct venus_hfi_device *device);
 static void clock_config_on_enable_vpu5(struct venus_hfi_device *device);
-static int reset_ahb2axi_bridge(struct venus_hfi_device *device);
-static void power_off_iris2(struct venus_hfi_device *device);
 
 static int __set_ubwc_config(struct venus_hfi_device *device);
 
-static struct venus_hfi_vpu_ops iris2_ops = {
+struct venus_hfi_vpu_ops cvp_vpu5_ops = {
 	.interrupt_init = interrupt_init_vpu5,
 	.setup_dsp_uc_memmap = setup_dsp_uc_memmap_vpu5,
 	.clock_config_on_enable = clock_config_on_enable_vpu5,
-	.reset_ahb2axi_bridge = reset_ahb2axi_bridge,
-	.power_off = power_off_iris2,
-	.noc_error_info = NULL,
 };
 
 /**
@@ -922,7 +920,7 @@ static void __set_threshold_registers(struct venus_hfi_device *device)
 	if (version != (0x3 << 28 | 0x43 << 16))
 		return;
 
-	if (__tzbsp_set_cvp_state(TZ_SUBSYS_STATE_RESTORE_THRESHOLD))
+	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESTORE_THRESHOLD))
 		dprintk(CVP_ERR, "Failed to restore threshold values\n");
 }
 
@@ -1046,14 +1044,12 @@ static int __unvote_buses(struct venus_hfi_device *device)
 		rc = msm_bus_scale_update_bw(bus->client, 0, 0);
 #endif
 
-		if (rc) {
-			dprintk(CVP_ERR,
-			"%s: Failed unvoting bus\n", __func__);
+		if (rc)
 			goto err_unknown_device;
-		}
 	}
 
 err_unknown_device:
+	dprintk(CVP_ERR, "%s: Failed unvoting bus\n", __func__);
 	return rc;
 }
 
@@ -1188,18 +1184,19 @@ err_create_pkt:
 	return rc;
 }
 
-static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state)
+static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 {
+	struct tzbsp_video_set_state_req cmd = {0};
 	int tzbsp_rsp = 0;
 	int rc = 0;
 	struct scm_desc desc = {0};
 
-	desc.args[0] = state;
-	desc.args[1] = TZBSP_CVP_PAS_ID;
+	desc.args[0] = cmd.state = state;
+	desc.args[1] = cmd.spare = 0;
 	desc.arginfo = SCM_ARGS(2);
 
 	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
-			TZBSP_PIL_SET_STATE), &desc);
+			TZBSP_VIDEO_SET_STATE), &desc);
 	tzbsp_rsp = desc.ret[0];
 
 	if (rc) {
@@ -1238,17 +1235,11 @@ static inline int __boot_firmware(struct venus_hfi_device *device)
 		count++;
 	}
 
-	if (!(ctrl_status & CVP_CTRL_INIT_STATUS__M)) {
-		dprintk(CVP_ERR, "Failed to boot FW status: %x\n",
+	if (ctrl_status != 0x1)
+		dprintk(CVP_DBG, "Failed to boot FW status: %x\n",
 			ctrl_status);
-		rc = -ENODEV;
-	}
 
-	/* Enable interrupt before sending commands to venus */
-	__write_register(device, CVP_CPU_CS_H2XSOFTINTEN, 0x1);
-	__write_register(device, CVP_CPU_CS_X2RPMh, 0x0);
-
-	return rc;
+	return 0;
 }
 
 static int venus_hfi_suspend(void *dev)
@@ -1988,20 +1979,6 @@ static int __sys_set_debug(struct venus_hfi_device *device, u32 debug)
 	return 0;
 }
 
-static int __sys_set_idle_indicator(struct venus_hfi_device *device,
-	bool enable)
-{
-	u8 packet[CVP_IFACEQ_VAR_SMALL_PKT_SIZE];
-	int rc = 0;
-	struct hfi_cmd_sys_set_property_packet *pkt =
-		(struct hfi_cmd_sys_set_property_packet *) &packet;
-
-	rc = call_hfi_pkt_op(device, sys_set_idle_indicator, pkt, enable);
-	if (__iface_cmdq_write(device, pkt))
-		return -ENOTEMPTY;
-	return 0;
-}
-
 static int __sys_set_coverage(struct venus_hfi_device *device, u32 mode)
 {
 	u8 packet[CVP_IFACEQ_VAR_SMALL_PKT_SIZE];
@@ -2128,7 +2105,6 @@ static int venus_hfi_core_init(void *device)
 	__dsp_send_hfi_queue(device);
 
 	__set_ubwc_config(device);
-	__sys_set_idle_indicator(device, true);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -2971,7 +2947,7 @@ exit:
 skip_power_off:
 	dprintk(CVP_WARN, "Skip PC(%#x, %#x, %#x)\n",
 		wfi_status, idle_status, pc_ready);
-	__flush_debug_queue(device, device->raw_packet);
+
 	return -EAGAIN;
 }
 
@@ -3487,59 +3463,6 @@ err_clk_get:
 	return rc;
 }
 
-static int __handle_reset_clk(struct msm_cvp_platform_resources *res,
-			int reset_index, enum reset_state state)
-{
-	int rc = 0;
-	struct reset_control *rst;
-	struct reset_set *rst_set = &res->reset_set;
-
-	if (!rst_set->reset_tbl)
-		return 0;
-
-	rst = rst_set->reset_tbl[reset_index].rst;
-	dprintk(CVP_DBG, "reset_clk: name %s reset_state %d rst %pK\n",
-		rst_set->reset_tbl[reset_index].name, state, rst);
-
-	switch (state) {
-	case INIT:
-		if (rst)
-			goto skip_reset_init;
-
-		rst = devm_reset_control_get(&res->pdev->dev,
-				rst_set->reset_tbl[reset_index].name);
-		if (IS_ERR(rst))
-			rc = PTR_ERR(rst);
-
-		rst_set->reset_tbl[reset_index].rst = rst;
-		break;
-	case ASSERT:
-		if (!rst) {
-			rc = PTR_ERR(rst);
-			goto failed_to_reset;
-		}
-
-		rc = reset_control_assert(rst);
-		break;
-	case DEASSERT:
-		if (!rst) {
-			rc = PTR_ERR(rst);
-			goto failed_to_reset;
-		}
-		rc = reset_control_deassert(rst);
-		break;
-	default:
-		dprintk(CVP_ERR, "Invalid reset request\n");
-		if (rc)
-			goto failed_to_reset;
-	}
-
-	return 0;
-
-skip_reset_init:
-failed_to_reset:
-	return rc;
-}
 
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 {
@@ -3568,41 +3491,6 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 		}
 		clk_disable_unprepare(cl->clk);
 	}
-}
-
-static int reset_ahb2axi_bridge(struct venus_hfi_device *device)
-{
-	int rc, i;
-
-	if (!device) {
-		dprintk(CVP_ERR, "NULL device\n");
-		rc = -EINVAL;
-		goto failed_to_reset;
-	}
-
-	for (i = 0; i < device->res->reset_set.count; i++) {
-		rc = __handle_reset_clk(device->res, i, ASSERT);
-		if (rc) {
-			dprintk(CVP_ERR,
-				"failed to assert reset clocks\n");
-			goto failed_to_reset;
-		}
-
-		/* wait for deassert */
-		usleep_range(150, 250);
-
-		rc = __handle_reset_clk(device->res, i, DEASSERT);
-		if (rc) {
-			dprintk(CVP_ERR,
-				"failed to deassert reset clocks\n");
-			goto failed_to_reset;
-		}
-	}
-
-	return 0;
-
-failed_to_reset:
-	return rc;
 }
 
 static inline int __prepare_enable_clks(struct venus_hfi_device *device)
@@ -3863,7 +3751,7 @@ err_subcache_get:
 static int __init_resources(struct venus_hfi_device *device,
 				struct msm_cvp_platform_resources *res)
 {
-	int i, rc = 0;
+	int rc = 0;
 
 	rc = __init_regulators(device);
 	if (rc) {
@@ -3876,15 +3764,6 @@ static int __init_resources(struct venus_hfi_device *device,
 		dprintk(CVP_ERR, "Failed to init clocks\n");
 		rc = -ENODEV;
 		goto err_init_clocks;
-	}
-
-	for (i = 0; i < device->res->reset_set.count; i++) {
-		rc = __handle_reset_clk(res, i, INIT);
-		if (rc) {
-			dprintk(CVP_ERR, "Failed to init reset clocks\n");
-			rc = -ENODEV;
-			goto err_init_reset_clk;
-		}
 	}
 
 	rc = __init_bus(device);
@@ -3903,7 +3782,6 @@ static int __init_resources(struct venus_hfi_device *device,
 
 	return rc;
 
-err_init_reset_clk:
 err_init_bus:
 	__deinit_clocks(device);
 err_init_clocks:
@@ -4323,12 +4201,6 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		goto fail_enable_gdsc;
 	}
 
-	rc = call_venus_op(device, reset_ahb2axi_bridge, device);
-	if (rc) {
-		dprintk(CVP_ERR, "Failed to reset ahb2axi: %d\n", rc);
-		goto fail_enable_clks;
-	}
-
 	rc = __prepare_enable_clks(device);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to enable clocks: %d\n", rc);
@@ -4375,7 +4247,7 @@ fail_vote_buses:
 	return rc;
 }
 
-void power_off_common(struct venus_hfi_device *device)
+static void __venus_power_off(struct venus_hfi_device *device)
 {
 	if (!device->power_enabled)
 		return;
@@ -4411,111 +4283,20 @@ static inline int __suspend(struct venus_hfi_device *device)
 		pm_qos_request_active(&device->qos))
 		pm_qos_remove_request(&device->qos);
 
-	rc = __tzbsp_set_cvp_state(TZ_SUBSYS_STATE_SUSPEND);
+	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 	if (rc) {
-		dprintk(CVP_WARN, "Failed to suspend cvp core %d\n", rc);
+		dprintk(CVP_WARN, "Failed to suspend video core %d\n", rc);
 		goto err_tzbsp_suspend;
 	}
 
 	__disable_subcaches(device);
 
-	call_venus_op(device, power_off, device);
+	__venus_power_off(device);
 	dprintk(CVP_PROF, "Venus power off\n");
 	return rc;
 
 err_tzbsp_suspend:
 	return rc;
-}
-
-static void power_off_iris2(struct venus_hfi_device *device)
-{
-	u32 lpi_status, reg_status = 0, count = 0, max_count = 10;
-
-	if (!device->power_enabled)
-		return;
-
-	if (!(device->intr_status & CVP_WRAPPER_INTR_STATUS_A2HWD_BMSK))
-		disable_irq_nosync(device->hal_data->irq);
-	device->intr_status = 0;
-
-	/* HPG 6.1.2 Step 1  */
-	__write_register(device, CVP_CPU_CS_X2RPMh, 0x3);
-
-	/* HPG 6.1.2 Step 2, noc to low power */
-	__write_register(device, CVP_AON_WRAPPER_MVP_NOC_LPI_CONTROL, 0x1);
-	while (!reg_status && count < max_count) {
-		lpi_status =
-			 __read_register(device,
-				CVP_AON_WRAPPER_MVP_NOC_LPI_STATUS);
-		reg_status = lpi_status & BIT(0);
-		dprintk(CVP_DBG,
-			"Noc: lpi_status %d noc_status %d (count %d)\n",
-			lpi_status, reg_status, count);
-
-		/* Wait for noc lpi status to be set */
-		usleep_range(50, 100);
-		count++;
-	}
-	if (count == max_count) {
-		dprintk(CVP_WARN,
-			"NOC not in qaccept status %d\n", reg_status);
-	}
-
-	/* HPG 6.1.2 Step 3, debug bridge to low power */
-	__write_register(device,
-		CVP_WRAPPER_DEBUG_BRIDGE_LPI_CONTROL, 0x7);
-	reg_status = 0;
-	count = 0;
-	while ((reg_status != 0x7) && count < max_count) {
-		lpi_status = __read_register(device,
-				 CVP_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
-		reg_status = lpi_status & 0x7;
-		dprintk(CVP_DBG,
-			"DBLP Set : lpi_status %d reg_status %d (count %d)\n",
-			lpi_status, reg_status, count);
-
-		/* Wait for debug bridge lpi status to be set */
-		usleep_range(50, 100);
-		count++;
-	}
-	if (count == max_count) {
-		dprintk(CVP_WARN,
-			"DBLP Set: status %d\n", reg_status);
-	}
-
-	/* HPG 6.1.2 Step 4, debug bridge to lpi release */
-	__write_register(device,
-		CVP_WRAPPER_DEBUG_BRIDGE_LPI_CONTROL, 0x0);
-	lpi_status = 0x1;
-	count = 0;
-	while (lpi_status && count < max_count) {
-		lpi_status = __read_register(device,
-				 CVP_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
-		dprintk(CVP_DBG,
-			"DBLP Release: lpi_status %d(count %d)\n",
-			lpi_status, count);
-		usleep_range(50, 100);
-		count++;
-	}
-	if (count == max_count) {
-		dprintk(CVP_WARN,
-			"DBLP Release: lpi_status %d\n", lpi_status);
-	}
-
-	/* HPG 6.1.2 Step 6 */
-	__disable_unprepare_clks(device);
-
-	/* HPG 6.1.2 Step 7 & 8 */
-	if (call_venus_op(device, reset_ahb2axi_bridge, device))
-		dprintk(CVP_ERR, "Failed to reset ahb2axi\n");
-
-	/* HPG 6.1.2 Step 5 */
-	if (__disable_regulators(device))
-		dprintk(CVP_WARN, "Failed to disable regulators\n");
-
-	if (__unvote_buses(device))
-		dprintk(CVP_WARN, "Failed to unvote for buses\n");
-	device->power_enabled = false;
 }
 
 static inline int __resume(struct venus_hfi_device *device)
@@ -4536,22 +4317,22 @@ static inline int __resume(struct venus_hfi_device *device)
 	dprintk(CVP_PROF, "Resuming from power collapse\n");
 	rc = __venus_power_on(device);
 	if (rc) {
-		dprintk(CVP_ERR, "Failed to power on cvp\n");
+		dprintk(CVP_ERR, "Failed to power on venus\n");
 		goto err_venus_power_on;
 	}
 
 	/* Reboot the firmware */
-	rc = __tzbsp_set_cvp_state(TZ_SUBSYS_STATE_RESUME);
+	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
 	if (rc) {
-		dprintk(CVP_ERR, "Failed to resume cvp core %d\n", rc);
-		goto err_set_cvp_state;
+		dprintk(CVP_ERR, "Failed to resume video core %d\n", rc);
+		goto err_set_video_state;
 	}
 
 	__setup_ucregion_memory_map(device);
 	/* Wait for boot completion */
 	rc = __boot_firmware(device);
 	if (rc) {
-		dprintk(CVP_ERR, "Failed to reset cvp core\n");
+		dprintk(CVP_ERR, "Failed to reset venus core\n");
 		goto err_reset_core;
 	}
 
@@ -4585,9 +4366,9 @@ exit:
 		device->skip_pc_count = 0;
 	return rc;
 err_reset_core:
-	__tzbsp_set_cvp_state(TZ_SUBSYS_STATE_SUSPEND);
-err_set_cvp_state:
-	call_venus_op(device, power_off, device);
+	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
+err_set_video_state:
+	__venus_power_off(device);
 err_venus_power_on:
 	dprintk(CVP_ERR, "Failed to resume from power collapse\n");
 	return rc;
@@ -4646,7 +4427,7 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
-	call_venus_op(device, power_off, device);
+	__venus_power_off(device);
 fail_venus_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
@@ -4667,7 +4448,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
-	call_venus_op(device, power_off, device);
+	__venus_power_off(device);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 
@@ -4774,7 +4555,7 @@ static int __initialize_packetization(struct venus_hfi_device *device)
 
 void __init_cvp_ops(struct venus_hfi_device *device)
 {
-	device->vpu_ops = &iris2_ops;
+	device->vpu_ops = &cvp_vpu5_ops;
 }
 
 static struct venus_hfi_device *__add_device(u32 device_id,

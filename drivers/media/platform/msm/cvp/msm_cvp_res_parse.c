@@ -665,44 +665,12 @@ static int msm_cvp_load_clock_table(
 			vc->count ? "yes" : "no");
 	}
 
+
 	return 0;
 
 err_load_clk_prop_fail:
 err_load_clk_table_fail:
 	return rc;
-}
-
-static int msm_cvp_load_reset_table(
-		struct msm_cvp_platform_resources *res)
-{
-	struct platform_device *pdev = res->pdev;
-	struct reset_set *rst = &res->reset_set;
-	int num_clocks = 0, c = 0;
-
-	num_clocks = of_property_count_strings(pdev->dev.of_node,
-				"reset-names");
-	if (num_clocks <= 0) {
-		dprintk(CVP_DBG, "No reset clocks found\n");
-		rst->count = 0;
-		return 0;
-	}
-
-	rst->reset_tbl = devm_kcalloc(&pdev->dev, num_clocks,
-			sizeof(*rst->reset_tbl), GFP_KERNEL);
-	if (!rst->reset_tbl)
-		return -ENOMEM;
-
-	rst->count = num_clocks;
-	dprintk(CVP_DBG, "Found %d reset clocks\n", num_clocks);
-
-	for (c = 0; c < num_clocks; ++c) {
-		struct reset_info *rc = &res->reset_set.reset_tbl[c];
-
-		of_property_read_string_index(pdev->dev.of_node,
-				"reset-names", c, &rc->name);
-	}
-
-	return 0;
 }
 
 static int find_key_value(struct msm_cvp_platform_data *platform_data,
@@ -862,13 +830,6 @@ int cvp_read_platform_resources_from_dt(
 		goto err_load_allowed_clocks_table;
 	}
 
-	rc = msm_cvp_load_reset_table(res);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"Failed to load reset table: %d\n", rc);
-		goto err_load_reset_table;
-	}
-
 	res->use_non_secure_pil = of_property_read_bool(pdev->dev.of_node,
 			"qcom,use-non-secure-pil");
 
@@ -882,8 +843,6 @@ int cvp_read_platform_resources_from_dt(
 
 return rc;
 
-err_load_reset_table:
-	msm_cvp_free_allowed_clocks_table(res);
 err_load_allowed_clocks_table:
 	msm_cvp_free_clock_table(res);
 err_load_clock_table:

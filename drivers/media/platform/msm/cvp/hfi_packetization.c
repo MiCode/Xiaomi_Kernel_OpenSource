@@ -84,26 +84,6 @@ int cvp_create_pkt_cmd_sys_coverage_config(
 	return 0;
 }
 
-int cvp_create_pkt_cmd_sys_set_idle_indicator(
-	struct hfi_cmd_sys_set_property_packet *pkt,
-	u32 mode)
-{
-	if (!pkt) {
-		dprintk(CVP_ERR, "In %s(), No input packet\n", __func__);
-		return -EINVAL;
-	}
-
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(u32);
-	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
-	pkt->num_properties = 1;
-	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IDLE_INDICATOR;
-	pkt->rg_property_data[1] = mode;
-	dprintk(CVP_DBG, "Firmware idle indicator mode %d\n",
-			pkt->rg_property_data[1]);
-	return 0;
-}
-
 int cvp_create_pkt_cmd_sys_set_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct cvp_resource_hdr *res_hdr,
@@ -538,7 +518,6 @@ static struct hfi_packetization_ops hfi_default = {
 	.sys_set_resource = cvp_create_pkt_cmd_sys_set_resource,
 	.sys_debug_config = cvp_create_pkt_cmd_sys_debug_config,
 	.sys_coverage_config = cvp_create_pkt_cmd_sys_coverage_config,
-	.sys_set_idle_indicator = cvp_create_pkt_cmd_sys_set_idle_indicator,
 	.sys_release_resource = cvp_create_pkt_cmd_sys_release_resource,
 	.sys_ping = cvp_create_pkt_cmd_sys_ping,
 	.sys_image_version = cvp_create_pkt_cmd_sys_image_version,
