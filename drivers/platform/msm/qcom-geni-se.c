@@ -324,6 +324,10 @@ static int geni_se_select_fifo_mode(void __iomem *base)
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_RX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_IRQ_EN);
 
+	/* Clearing registers before reading */
+	geni_write_reg(0x00000000, base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_S_IRQ_EN);
+
 	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
 	common_geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
@@ -343,9 +347,7 @@ static int geni_se_select_fifo_mode(void __iomem *base)
 
 static int geni_se_select_dma_mode(void __iomem *base)
 {
-	int proto = get_se_proto(base);
 	unsigned int geni_dma_mode = 0;
-	unsigned int common_geni_m_irq_en;
 
 	geni_write_reg(0, base, SE_GSI_EVENT_EN);
 	geni_write_reg(0xFFFFFFFF, base, SE_GENI_M_IRQ_CLEAR);
@@ -353,13 +355,9 @@ static int geni_se_select_dma_mode(void __iomem *base)
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_TX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_DMA_RX_IRQ_CLR);
 	geni_write_reg(0xFFFFFFFF, base, SE_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0x00000000, base, SE_GENI_S_IRQ_EN);
 
-	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
-	if (proto != UART)
-		common_geni_m_irq_en &=
-			~(M_TX_FIFO_WATERMARK_EN | M_RX_FIFO_WATERMARK_EN);
-
-	geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
 	geni_dma_mode |= GENI_DMA_MODE_EN;
 	geni_write_reg(geni_dma_mode, base, SE_GENI_DMA_MODE_EN);
