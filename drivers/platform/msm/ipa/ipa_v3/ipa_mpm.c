@@ -1120,8 +1120,7 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 	if (vote == CLK_ON) {
 		if (atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 0) {
 			result = mhi_device_get_sync(
-					ipa_mpm_ctx->md[probe_id].mhi_dev,
-					MHI_VOTE_BUS);
+				ipa_mpm_ctx->md[probe_id].mhi_dev);
 			if (result) {
 				IPA_MPM_ERR("mhi_sync_get failed %d\n",
 					result);
@@ -1132,8 +1131,7 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 		atomic_inc(&ipa_mpm_ctx->pcie_clk_ref_cnt);
 	} else {
 		if ((atomic_read(&ipa_mpm_ctx->pcie_clk_ref_cnt) == 1)) {
-			mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev,
-				       MHI_VOTE_BUS);
+			mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev);
 			IPA_MPM_DBG("PCIE clock off ON\n");
 		}
 		atomic_dec(&ipa_mpm_ctx->pcie_clk_ref_cnt);

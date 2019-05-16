@@ -106,9 +106,6 @@ enum mhi_dev_state {
 	MHI_STATE_MAX,
 };
 
-#define MHI_VOTE_BUS BIT(0) /* do not disable the bus */
-#define MHI_VOTE_DEVICE BIT(1) /* prevent mhi device from entering lpm */
-
 /**
  * struct image_info - firmware and rddm table table
  * @mhi_buf - Contain device firmware and rddm table
@@ -301,8 +298,6 @@ struct mhi_controller {
  * @ul_chan_id: MHI channel id for UL transfer
  * @dl_chan_id: MHI channel id for DL transfer
  * @tiocm: Device current terminal settings
- * @dev_vote: Keep external device in active state
- * @bus_vote: Keep physical bus (pci, spi) in active state
  * @priv: Driver private data
  */
 struct mhi_device {
@@ -322,8 +317,7 @@ struct mhi_device {
 	struct mhi_controller *mhi_cntrl;
 	struct mhi_chan *ul_chan;
 	struct mhi_chan *dl_chan;
-	atomic_t dev_vote;
-	atomic_t bus_vote;
+	atomic_t dev_wake;
 	enum mhi_device_type dev_type;
 	void *priv_data;
 	int (*ul_xfer)(struct mhi_device *mhi_dev, struct mhi_chan *mhi_chan,
@@ -463,29 +457,26 @@ int mhi_device_configure(struct mhi_device *mhi_div,
 			 int elements);
 
 /**
- * mhi_device_get - disable low power modes
+ * mhi_device_get - disable all low power modes
  * Only disables lpm, does not immediately exit low power mode
  * if controller already in a low power mode
  * @mhi_dev: Device associated with the channels
- * @vote: requested vote (bus, device or both)
  */
-void mhi_device_get(struct mhi_device *mhi_dev, int vote);
+void mhi_device_get(struct mhi_device *mhi_dev);
 
 /**
- * mhi_device_get_sync - disable low power modes
- * Synchronously disable device & or bus low power, exit low power mode if
+ * mhi_device_get_sync - disable all low power modes
+ * Synchronously disable all low power, exit low power mode if
  * controller already in a low power state
  * @mhi_dev: Device associated with the channels
- * @vote: requested vote (bus, device or both)
  */
-int mhi_device_get_sync(struct mhi_device *mhi_dev, int vote);
+int mhi_device_get_sync(struct mhi_device *mhi_dev);
 
 /**
  * mhi_device_put - re-enable low power modes
  * @mhi_dev: Device associated with the channels
- * @vote: vote to remove
  */
-void mhi_device_put(struct mhi_device *mhi_dev, int vote);
+void mhi_device_put(struct mhi_device *mhi_dev);
 
 /**
  * mhi_prepare_for_transfer - setup channel for data transfer
