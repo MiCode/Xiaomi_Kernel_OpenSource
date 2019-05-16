@@ -54,18 +54,28 @@ static int devfreq_get_target_freq(struct devfreq *df,
 
 static int gov_start(struct devfreq *df)
 {
+	int ret = 0;
+
 	if (p_me.of_node != df->dev.parent->of_node) {
 		dev_err(df->dev.parent,
 		"Device match error in CDSP L3 frequency governor\n");
 		return -ENODEV;
 	}
+
 	p_me.df = df;
 	p_me.l3_freq_hz = 0;
+	/*
+	 * Trigger an update to set the target frequency
+	 */
+	mutex_lock(&df->lock);
+	ret = update_devfreq(df);
+	mutex_unlock(&df->lock);
 	/*
 	 * Send governor start message to CDSP RM driver
 	 */
 	cdsprm_register_cdspl3gov(&cdsprm);
-	return 0;
+
+	return ret;
 }
 
 static int gov_stop(struct devfreq *df)
