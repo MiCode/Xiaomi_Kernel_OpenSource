@@ -104,7 +104,7 @@
 		regulator-enable-ramp-delay = <233>;
 		gpio = <&tlmm 61 0>;
 		enable-active-high;
-		regulator-boot-on;
+		regulator-boost-on;
 		pinctrl-names = "default";
 		pinctrl-0 = <&display_panel_avdd_default>;
 	};
