@@ -46,6 +46,9 @@ EXPORT_TRACEPOINT_SYMBOL(rmnet_perf_err);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_low);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_high);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_err);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_update);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_reset);
+EXPORT_TRACEPOINT_SYMBOL(rmnet_freq_boost);
 
 /* Helper Functions */
 
@@ -358,7 +361,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	if (csum_type)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev, csum_type);
 
-	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0);
+	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0,
+					      port);
 	if (!map_header)
 		return -ENOMEM;
 

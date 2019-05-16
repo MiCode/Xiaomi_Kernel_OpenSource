@@ -311,6 +311,13 @@ struct dsi_phy_hw_ops {
 	 */
 	void (*reset_clk_en_sel)(struct dsi_phy_hw *phy);
 
+	/**
+	 * set_continuous_clk() - Set continuous clock
+	 * @phy:	Pointer to DSI PHY hardware object
+	 * @enable:	Bool to control continuous clock request.
+	 */
+	void (*set_continuous_clk)(struct dsi_phy_hw *phy, bool enable);
+
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;
 	struct phy_dyn_refresh_ops dyn_refresh_ops;

@@ -503,11 +503,8 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 		 * To enable ipa power collapse we need to enable rpmh and uc
 		 * handshake So that uc can do register retention. To enable
 		 * this handshake we need to send the below message to rpmh.
-		 * For APQ only target, we do it here once uC loading is
-		 * completed.
 		 */
-		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
-			ipa_pc_qmp_enable();
+		ipa_pc_qmp_enable();
 
 		for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
 			if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)

@@ -24,6 +24,8 @@ static struct virt_reset_map sm8150_gcc_virt_resets[] = {
 	[GCC_USB3PHY_PHY_SEC_BCR] = { "gcc_usb3phy_phy_sec_bcr" },
 	[GCC_USB30_PRIM_BCR] = { "gcc_usb30_prim_master_clk" },
 	[GCC_USB30_SEC_BCR] = { "gcc_usb30_sec_master_clk" },
+	[GCC_PCIE_0_BCR] = { "gcc_pcie_0_mstr_axi_clk" },
+	[GCC_PCIE_0_PHY_BCR] = { "gcc_pcie_0_phy_bcr" },
 };
 
 static struct clk_virt gcc_qupv3_wrap0_s0_clk = {
@@ -334,6 +336,76 @@ static struct clk_virt gcc_usb3_sec_phy_com_aux_clk = {
 	},
 };
 
+static struct clk_virt gcc_pcie_0_pipe_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_pipe_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_aux_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_aux_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_cfg_ahb_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_cfg_ahb_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_mstr_axi_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_mstr_axi_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_slv_axi_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_slv_axi_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_clkref_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_clkref_en",
+	},
+};
+
+static struct clk_virt gcc_pcie_0_slv_q2a_axi_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_0_slv_q2a_axi_clk",
+	},
+};
+
+static struct clk_virt gcc_aggre_noc_pcie_tbu_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_aggre_noc_pcie_tbu_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie0_phy_refgen_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie0_phy_refgen_clk",
+	},
+};
+
+static struct clk_virt gcc_pcie_phy_aux_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_pcie_phy_aux_clk",
+	},
+};
+
 static struct clk_hw *sm8150_gcc_virt_clocks[] = {
 	[GCC_QUPV3_WRAP0_S0_CLK] = &gcc_qupv3_wrap0_s0_clk.hw,
 	[GCC_QUPV3_WRAP0_S1_CLK] = &gcc_qupv3_wrap0_s1_clk.hw,
@@ -379,6 +451,16 @@ static struct clk_hw *sm8150_gcc_virt_clocks[] = {
 	[GCC_USB3_SEC_PHY_AUX_CLK] = &gcc_usb3_sec_phy_aux_clk.hw,
 	[GCC_USB3_SEC_PHY_PIPE_CLK] = &gcc_usb3_sec_phy_pipe_clk.hw,
 	[GCC_USB3_SEC_PHY_COM_AUX_CLK] = &gcc_usb3_sec_phy_com_aux_clk.hw,
+	[GCC_PCIE_0_PIPE_CLK] = &gcc_pcie_0_pipe_clk.hw,
+	[GCC_PCIE_0_AUX_CLK] = &gcc_pcie_0_aux_clk.hw,
+	[GCC_PCIE_0_CFG_AHB_CLK] = &gcc_pcie_0_cfg_ahb_clk.hw,
+	[GCC_PCIE_0_MSTR_AXI_CLK] = &gcc_pcie_0_mstr_axi_clk.hw,
+	[GCC_PCIE_0_SLV_AXI_CLK] = &gcc_pcie_0_slv_axi_clk.hw,
+	[GCC_PCIE_0_CLKREF_CLK] = &gcc_pcie_0_clkref_clk.hw,
+	[GCC_PCIE_0_SLV_Q2A_AXI_CLK] = &gcc_pcie_0_slv_q2a_axi_clk.hw,
+	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.hw,
+	[GCC_PCIE0_PHY_REFGEN_CLK] = &gcc_pcie0_phy_refgen_clk.hw,
+	[GCC_PCIE_PHY_AUX_CLK] = &gcc_pcie_phy_aux_clk.hw,
 };
 
 const struct clk_virt_desc clk_virt_sm8150_gcc = {

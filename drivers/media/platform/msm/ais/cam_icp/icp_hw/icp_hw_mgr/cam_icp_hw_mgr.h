@@ -188,6 +188,7 @@ struct cam_ctx_clk_info {
 	uint32_t reserved;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
+	uint64_t compressed_bw_ab;
 	int32_t clk_rate[CAM_MAX_VOTE];
 };
 /**
@@ -252,6 +253,7 @@ struct icp_cmd_generic_blob {
  * @over_clked: Over clock count
  * @uncompressed_bw: Current bandwidth voting
  * @compressed_bw: Current compressed bandwidth voting
+ * @compressed_bw_ab: Current absolute compressed bandwidth voting
  * @hw_type: IPE/BPS device type
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
@@ -263,6 +265,7 @@ struct cam_icp_clk_info {
 	uint32_t over_clked;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
+	uint64_t compressed_bw_ab;
 	uint32_t hw_type;
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;

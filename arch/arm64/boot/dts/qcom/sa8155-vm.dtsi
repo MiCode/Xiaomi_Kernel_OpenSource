@@ -6,12 +6,17 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,gcc-sm8150.h>
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
 	qcom,msm-name = "SA8155 V2";
 	qcom,msm-id = <362 0x20000>;
+
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 
 	psci {
 		compatible = "arm,psci-1.0";
@@ -106,6 +111,11 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_rpmh: qcom,rpmh {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
 	};
 
 	qcom,ion {
@@ -306,6 +316,38 @@
 		status = "disabled";
 	};
 
+	S6A: pm8150_1_s6: regulator-pm8150-1-s6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_1_s6";
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1352000>;
+		qcom,init-voltage = <600000>;
+	};
+
+	S4C: pm8150_2_s4: regulator-pm8150-2-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_s4";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <1400000>;
+		qcom,init-voltage = <800000>;
+	};
+
+	S5C: pm8150_2_s5: regulator-pm8150-2-s5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_s5";
+		regulator-min-microvolt = <1824000>;
+		regulator-max-microvolt = <2040000>;
+		qcom,init-voltage = <1824000>;
+	};
+
+	L15C: pm8150_2_l15: regulator-pm8150-2-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_l15";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1904000>;
+		qcom,init-voltage = <1800000>;
+	};
+
 	pm8150_l2: regulator-pm8150-l2 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8150_l2";
@@ -346,6 +388,38 @@
 		status = "okay";
 	};
 
+	pm8150_2_l8: regulator-pm8150-2-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_l8";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		status = "okay";
+	};
+
+	pm8150_2_l18: regulator-pm8150-2-l18 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_l18";
+		regulator-min-microvolt = <880000>;
+		regulator-max-microvolt = <880000>;
+		status = "okay";
+	};
+
+	VDD_CX_LEVEL: VDD_MMCX_LEVEL:
+	S9C_LEVEL: pm8150_2_s9_level: regulator-pm8150-2-s9-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_2_s9_level";
+		regulator-min-microvolt
+			= <RPMH_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt
+			= <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pcie_0_gdsc: pcie_0_gdsc {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pcie_0_gdsc";
+		status = "okay";
+	};
+
 	usb30_prim_gdsc: usb30_prim_gdsc {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "usb30_prim_gdsc";
@@ -378,6 +452,24 @@
 		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
 		status = "ok";
 	};
+
+	wdog: qcom,wdt@17c10000{
+		compatible = "qcom,msm-watchdog";
+		reg = <0x17c10000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 0 0>, <0 1 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <9360>;
+		qcom,ipi-ping;
+		qcom,wakeup-enable;
+		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
+		0x18100 0x18100 0x18100 0x18100>;
+	};
+
+	vm_restart: restart {
+		compatible = "qcom,vm-restart";
+		status = "ok";
+	};
 };
 
 #include "sm8150-pinctrl.dtsi"
@@ -385,6 +477,7 @@
 #include "sa8155-vm-qupv3.dtsi"
 #include "sa8155-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
+#include "sa8155-vm-pcie.dtsi"
 
 &qupv3_se13_4uart {
 	status = "ok";

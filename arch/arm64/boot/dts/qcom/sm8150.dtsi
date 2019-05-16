@@ -572,11 +572,11 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
-			vbmeta {
+			shared_meta: vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,dtbo,odm";
 			};
-			fstab {
+			android_q_fstab: fstab {
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
@@ -1366,6 +1366,12 @@
 		compatible = "qcom,aop-ddr-msgs";
 		mboxes = <&qmp_aop 0>;
 		mbox-name = "restart-ddr-mbox";
+	};
+
+	qcom,aop-ddrss-cmds {
+		compatible = "qcom,aop-ddrss-cmds";
+		mboxes = <&qmp_aop 0>;
+		mbox-name = "ddrss-cmds-mbox";
 	};
 
 	qcom,mpm2-sleep-counter@0xc221000 {

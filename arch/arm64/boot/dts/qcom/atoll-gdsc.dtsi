@@ -1,0 +1,162 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	/* GDSCs in Global CC */
+	ufs_phy_gdsc: qcom,gdsc@177004 {
+		compatible = "regulator-fixed";
+		regulator-name = "ufs_phy_gdsc";
+		reg = <0x177004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	usb30_prim_gdsc: qcom,gdsc@10f004 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb30_prim_gdsc";
+		reg = <0x10f004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@17d040 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
+		reg = <0x17d040 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_sf_gdsc: qcom,gdsc@17d044 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf_gdsc";
+		reg = <0x17d044 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	/* GDSCs in Camera CC */
+	bps_gdsc: qcom,gdsc@ad06004 {
+		compatible = "regulator-fixed";
+		regulator-name = "bps_gdsc";
+		reg = <0xad06004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	ipe_0_gdsc: qcom,gdsc@ad07004 {
+		compatible = "regulator-fixed";
+		regulator-name = "ipe_0_gdsc";
+		reg = <0xad07004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	ife_0_gdsc: qcom,gdsc@ad09004 {
+		compatible = "regulator-fixed";
+		regulator-name = "ife_0_gdsc";
+		reg = <0xad09004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	ife_1_gdsc: qcom,gdsc@ad0a004 {
+		compatible = "regulator-fixed";
+		regulator-name = "ife_1_gdsc";
+		reg = <0xad0a004 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	titan_top_gdsc: qcom,gdsc@ad0b134 {
+		compatible = "regulator-fixed";
+		regulator-name = "titan_top_gdsc";
+		reg = <0xad0b134 0x4>;
+		qcom,poll-cfg-gdscr;
+		status = "disabled";
+	};
+
+	/* GDSCs in Display CC */
+	mdss_core_gdsc: qcom,gdsc@af03000 {
+		compatible = "regulator-fixed";
+		regulator-name = "mdss_core_gdsc";
+		reg = <0xaf03000 0x4>;
+		qcom,poll-cfg-gdscr;
+		qcom,support-hw-trigger;
+		status = "disabled";
+		proxy-supply = <&mdss_core_gdsc>;
+		qcom,proxy-consumer-enable;
+	};
+
+	/* GDSCs in Graphics CC */
+	gpu_cx_hw_ctrl: syscon@5091540 {
+		compatible = "syscon";
+		reg = <0x5091540 0x4>;
+	};
+
+	gpu_gx_domain_addr: syscon@5091508 {
+		compatible = "syscon";
+		reg = <0x5091508 0x4>;
+	};
+
+	gpu_gx_sw_reset: syscon@5091008 {
+		compatible = "syscon";
+		reg = <0x5091008 0x4>;
+	};
+
+	gpu_cx_gdsc: qcom,gdsc@509106c {
+		compatible = "regulator-fixed";
+		regulator-name = "gpu_cx_gdsc";
+		reg = <0x509106c 0x4>;
+		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		qcom,clk-dis-wait-val = <8>;
+		status = "disabled";
+	};
+
+	gpu_gx_gdsc: qcom,gdsc@509100c {
+		compatible = "regulator-fixed";
+		regulator-name = "gpu_gx_gdsc";
+		reg = <0x509100c 0x4>;
+		qcom,poll-cfg-gdscr;
+		domain-addr = <&gpu_gx_domain_addr>;
+		sw-reset = <&gpu_gx_sw_reset>;
+		status = "disabled";
+	};
+
+	/* GDSCs in Video CC */
+	vcodec0_gdsc: qcom,gdsc@ab00874 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcodec0_gdsc";
+		reg = <0xab00874 0x4>;
+		status = "disabled";
+	};
+
+	venus_gdsc: qcom,gdsc@ab00814 {
+		compatible = "regulator-fixed";
+		regulator-name = "venus_gdsc";
+		reg = <0xab00814 0x4>;
+		status = "disabled";
+	};
+
+	/* GDSCs in NPU CC */
+	npu_core_gdsc: qcom,gdsc@9981004 {
+		compatible = "regulator-fixed";
+		regulator-name = "npu_core_gdsc";
+		reg = <0x9981004 0x4>;
+		status = "disabled";
+	};
+};

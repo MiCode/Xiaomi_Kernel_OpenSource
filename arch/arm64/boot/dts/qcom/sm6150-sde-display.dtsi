@@ -20,6 +20,7 @@
 #include "dsi-panel-td4330-truly-singlemipi-fhd-cmd.dtsi"
 #include "dsi-panel-td4330-truly-singlemipi-fhd-video.dtsi"
 #include "dsi-panel-sharp-split-link-wuxga-video.dtsi"
+#include "dsi-panel-ext-bridge-hdmi-1080p.dtsi"
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
 
 &soc {
@@ -518,6 +519,24 @@
 				25 1f 09 0a 06 03 04 a0
 				25 1f 09 0a 06 03 04 a0
 				25 1f 08 0a 06 03 04 a0];
+
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_ext_bridge_hdmi_1080p {
+	qcom,mdss-dsi-t-clk-post = <0x0D>;
+	qcom,mdss-dsi-t-clk-pre = <0x30>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings =
+				[24 1f 08 09 05 03 04 a0
+				24 1f 08 09 05 03 04 a0
+				24 1f 08 09 05 03 04 a0
+				24 1f 08 09 05 03 04 a0
+				24 1b 08 09 05 03 04 a0];
 
 			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;

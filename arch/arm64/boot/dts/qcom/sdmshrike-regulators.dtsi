@@ -193,6 +193,26 @@
 			qcom,init-voltage = <1800000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
+
+		L12A_AO: pm8150_1_l12_ao: regulator-pm8150_1-l12-ao {
+			regulator-name = "pm8150_1_l12_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		regulator-pm8150_1-l12-so {
+			regulator-name = "pm8150_1_l12_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
+		};
+
 	};
 
 	rpmh-regulator-ldoa13 {
@@ -411,6 +431,26 @@
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
+
+		L5E_AO: pm8150_2_l5_ao: regulator-pm8150_2-l5-ao {
+			regulator-name = "pm8150_2_l5_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+
+		regulator-pm8150_2-l5-so {
+			regulator-name = "pm8150_2_l5_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			qcom,init-enable = <0>;
+		};
+
 	};
 
 	rpmh-regulator-ldoe7 {

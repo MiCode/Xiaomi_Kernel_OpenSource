@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -319,7 +319,8 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 
 	rx_chs = btfmslim->rx_chs;
 	tx_chs = btfmslim->tx_chs;
-	if (chipset_ver ==  QCA_CHEROKEE_SOC_ID_0300) {
+	if ((chipset_ver >=  QCA_CHEROKEE_SOC_ID_0300) &&
+		chipset_ver <=  QCA_CHEROKEE_SOC_ID_0320) {
 		for (i = 0; (tx_chs->port != BTFM_SLIM_PGD_PORT_LAST) &&
 		(i < BTFM_SLIM_NUM_CODEC_DAIS); i++, tx_chs++) {
 			if (tx_chs->port == CHRK_SB_PGD_PORT_TX1_FM)

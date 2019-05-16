@@ -1,0 +1,66 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,camcc-sm8150.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sm8150-cdp.dtsi"
+
+#include "sdx5xm-external-soc.dtsi"
+#include "sm8150-sdxprairie-v2.dtsi"
+#include "sm8150-cdp-audio-overlay.dtsi"
+
+/ {
+	model = "SDXPRAIRIE V2 CDP";
+	compatible = "qcom,sm8150-cdp", "qcom,sm8150", "qcom,cdp";
+	qcom,board-id = <1 4>;
+};
+
+&dsi_sharp_4k_dsc_cmd_display {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&dsi_dual_nt35597_truly_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 9 0>;
+};
+
+&dsi_dual_nt35597_truly_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,platform-te-gpio = <&tlmm 8 0>;
+	qcom,platform-reset-gpio = <&tlmm 9 0>;
+};
+
+&dsi_dual_nt35597_truly_cmd_display {
+	qcom,dsi-display-active;
+};
+
+&pm8150l_wled {
+	qcom,string-cfg = <6>;
+	qcom,leds-per-string = <8>;
+};
+
+&icnss {
+	qcom,clk-monitor-enable;
+};
