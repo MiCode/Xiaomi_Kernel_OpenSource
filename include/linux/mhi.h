@@ -301,6 +301,7 @@ struct mhi_controller {
 			  struct mhi_buf_info *buf);
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
 			     struct mhi_buf_info *buf);
+	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;

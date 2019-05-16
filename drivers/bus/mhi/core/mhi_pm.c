@@ -145,6 +145,9 @@ enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
 	MHI_VERB("Transition to pm state from:%s to:%s\n",
 		 to_mhi_pm_state_str(cur_state), to_mhi_pm_state_str(state));
 
+	if (MHI_REG_ACCESS_VALID(cur_state) || MHI_REG_ACCESS_VALID(state))
+		mhi_timesync_log(mhi_cntrl);
+
 	mhi_cntrl->pm_state = state;
 	return mhi_cntrl->pm_state;
 }
