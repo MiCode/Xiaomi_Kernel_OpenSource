@@ -580,7 +580,7 @@ inline int bio_phys_segments(struct request_queue *q, struct bio *bio)
 }
 EXPORT_SYMBOL(bio_phys_segments);
 
-inline void bio_clone_crypt_key(struct bio *dst, const struct bio *src)
+static inline void bio_clone_crypt_key(struct bio *dst, const struct bio *src)
 {
 #ifdef CONFIG_PFK
 	dst->bi_iter.bi_dun = src->bi_iter.bi_dun;
@@ -591,7 +591,6 @@ inline void bio_clone_crypt_key(struct bio *dst, const struct bio *src)
 	dst->bi_dio_inode = src->bi_dio_inode;
 #endif
 }
-EXPORT_SYMBOL(bio_clone_crypt_key);
 
 /**
  * 	__bio_clone_fast - clone a bio that shares the original bio's biovec
