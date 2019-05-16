@@ -139,7 +139,6 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv);
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic);
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv);
-int cnss_pm_request_resume(struct cnss_pci_data *pci_priv);
 u32 cnss_pci_get_wake_msi(struct cnss_pci_data *pci_priv);
 int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv);
 void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv);
@@ -154,6 +153,8 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv);
 int cnss_pci_call_driver_modem_status(struct cnss_pci_data *pci_priv,
 				      int modem_current_status);
 void cnss_pci_pm_runtime_show_usage_count(struct cnss_pci_data *pci_priv);
+int cnss_pci_pm_request_resume(struct cnss_pci_data *pci_priv);
+int cnss_pci_pm_runtime_resume(struct cnss_pci_data *pci_priv);
 int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv);
 void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv);
 int cnss_pci_pm_runtime_put_autosuspend(struct cnss_pci_data *pci_priv);
