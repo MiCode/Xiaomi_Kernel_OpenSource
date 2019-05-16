@@ -480,6 +480,22 @@
 			clock-names = "unipro", "mp";
 		};
 
+		mfg_lorne: mfg_lorne@13000000 {
+			compatible = "mediatek,lorne";
+			reg = <0 0x13000000 0 0x80000>;
+			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "RGX";
+			clock-frequency = <100000000>;
+			clocks = <&mfgcfg CLK_MFGCFG_BG3D>,
+				<&topckgen CLK_TOP_MFG>,
+				<&topckgen CLK_TOP_MFGPLL_CK>,
+				<&topckgen CLK_TOP_UNIVPLL_D3>;
+			clock-names = "cg_bg3d",
+				"clk_mux",
+				"clk_main_parent",
+				"clk_sub_parent";
+		};
+
 		mfgcfg: clock-controller@13fbf000 {
 			compatible = "mediatek,mt6779-mfgcfg", "syscon";
 			reg = <0 0x13fbf000 0 0x1000>;
