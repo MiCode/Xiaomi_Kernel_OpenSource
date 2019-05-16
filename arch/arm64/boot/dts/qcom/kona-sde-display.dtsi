@@ -217,11 +217,6 @@
 	qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 	qcom,mdss-dsi-panel-status-value = <0x9c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
-	qcom,dsi-supported-dfps-list = <60 57 55>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_hfp";
-	qcom,mdss-dsi-min-refresh-rate = <55>;
-	qcom,mdss-dsi-max-refresh-rate = <60>;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 14 05 05 1f 1e 05
