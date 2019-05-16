@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 TRUSTONIC LIMITED
+ */
+#ifndef MOBICORE_COMPONENT_BUILD_TAG
+#define MOBICORE_COMPONENT_BUILD_TAG \
+	"t-base-MTK-A64-Android-410a-V002-20190318_110437_65733_93363"
+#endif
