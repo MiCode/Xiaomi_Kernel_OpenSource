@@ -800,6 +800,10 @@ static int mtk_spi_suspend(struct device *dev)
 	if (!pm_runtime_suspended(dev))
 		clk_disable_unprepare(mdata->spi_clk);
 
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret < 0)
+		dev_notice(dev, "failed to set pin sleep_state (%d)\n", ret);
+
 	return ret;
 }
 
@@ -808,6 +812,10 @@ static int mtk_spi_resume(struct device *dev)
 	int ret;
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
+
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret < 0)
+		dev_notice(dev, "failed to set pin default_state (%d)\n", ret);
 
 	if (!pm_runtime_suspended(dev)) {
 		ret = clk_prepare_enable(mdata->spi_clk);
