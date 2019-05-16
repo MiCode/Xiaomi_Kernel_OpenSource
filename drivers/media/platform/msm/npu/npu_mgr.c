@@ -348,14 +348,7 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 int npu_host_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post)
 {
-	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	int ret;
-
-	mutex_lock(&host_ctx->lock);
-	ret = npu_notify_fw_pwr_state(npu_dev, pwr_level, post);
-	mutex_unlock(&host_ctx->lock);
-
-	return ret;
+	return npu_notify_fw_pwr_state(npu_dev, pwr_level, post);
 }
 
 static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
@@ -1341,16 +1334,36 @@ static uint32_t find_networks_perf_mode(struct npu_host_ctx *host_ctx)
 
 	network = host_ctx->networks;
 
-	/* find the max level among all the networks */
-	for (i = 0; i < host_ctx->network_num; i++) {
-		if ((network->perf_mode != 0) &&
-			(network->perf_mode > max_perf_mode))
-			max_perf_mode = network->perf_mode;
-		network++;
+	if (!host_ctx->network_num) {
+		/* if no network exists, set to the lowest level */
+		max_perf_mode = 1;
+	} else {
+		/* find the max level among all the networks */
+		for (i = 0; i < host_ctx->network_num; i++) {
+			if ((network->perf_mode != 0) &&
+				(network->perf_mode > max_perf_mode))
+				max_perf_mode = network->perf_mode;
+			network++;
+		}
 	}
-	NPU_DBG("max perf mode for networks: %d\n", max_perf_mode);
+	pr_debug("max perf mode for networks: %d\n", max_perf_mode);
 
 	return max_perf_mode;
+}
+
+static int set_perf_mode(struct npu_device *npu_dev)
+{
+	int ret = 0;
+	uint32_t networks_perf_mode;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	networks_perf_mode = find_networks_perf_mode(host_ctx);
+
+	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	if (ret)
+		NPU_ERR("set uc power level %d failed\n", networks_perf_mode);
+
+	return ret;
 }
 
 int32_t npu_host_load_network(struct npu_client *client,
@@ -1361,7 +1374,6 @@ int32_t npu_host_load_network(struct npu_client *client,
 	struct npu_network *network;
 	struct ipc_cmd_load_pkt load_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	uint32_t networks_perf_mode = 0;
 
 	ret = enable_fw(npu_dev);
 	if (ret)
@@ -1388,11 +1400,9 @@ int32_t npu_host_load_network(struct npu_client *client,
 		goto error_free_network;
 	}
 
-	networks_perf_mode = find_networks_perf_mode(host_ctx);
-
-	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	ret = set_perf_mode(npu_dev);
 	if (ret) {
-		NPU_ERR("network load failed due to power level set\n");
+		NPU_ERR("set_perf_mode failed\n");
 		goto error_free_network;
 	}
 
@@ -1467,7 +1477,6 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	struct npu_network *network;
 	struct ipc_cmd_load_pkt_v2 *load_packet = NULL;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	uint32_t networks_perf_mode = 0;
 	uint32_t num_patch_params, pkt_size;
 
 	ret = enable_fw(npu_dev);
@@ -1512,11 +1521,10 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	}
 
 	NPU_DBG("network address %llx\n", network->phy_add);
-	networks_perf_mode = find_networks_perf_mode(host_ctx);
 
-	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	ret = set_perf_mode(npu_dev);
 	if (ret) {
-		NPU_ERR("network load failed due to power level set\n");
+		NPU_ERR("set_perf_mode failed\n");
 		goto error_free_network;
 	}
 
@@ -1595,7 +1603,6 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	uint32_t networks_perf_mode;
 
 	/* get the corresponding network for ipc trans id purpose */
 	mutex_lock(&host_ctx->lock);
@@ -1681,15 +1688,14 @@ free_network:
 	 */
 	network_put(network);
 	free_network(host_ctx, client, network->id);
-	/* recalculate uc_power_level after unload network */
-	networks_perf_mode = find_networks_perf_mode(host_ctx);
-	if (networks_perf_mode > 0) {
-		ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
-		if (ret)
-			NPU_WARN("restore uc power level failed\n");
-	}
+	/* update perf mode */
+	if (set_perf_mode(npu_dev))
+		NPU_WARN("set_perf_mode failed\n");
+
 	mutex_unlock(&host_ctx->lock);
+
 	disable_fw(npu_dev);
+
 	return ret;
 }
 

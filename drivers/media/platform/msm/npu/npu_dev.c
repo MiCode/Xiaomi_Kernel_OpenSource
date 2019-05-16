@@ -276,6 +276,7 @@ static ssize_t perf_mode_override_store(struct device *dev,
 					  const char *buf, size_t count)
 {
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t val;
 	int rc;
 
@@ -286,9 +287,11 @@ static ssize_t perf_mode_override_store(struct device *dev,
 	}
 
 	val = min(val, npu_dev->pwrctrl.num_pwrlevels);
+	mutex_lock(&host_ctx->lock);
 	npu_dev->pwrctrl.perf_mode_override = val;
 	NPU_INFO("setting uc_pwrlevel_override to %d\n", val);
 	npu_set_power_level(npu_dev, true);
+	mutex_unlock(&host_ctx->lock);
 
 	return count;
 }
@@ -707,17 +710,23 @@ static int
 npu_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
 	struct npu_device *npu_dev = cdev->devdata;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_thermalctrl *thermal = &npu_dev->thermalctrl;
+	int rc = 0;
 
 	NPU_DBG("request state=%lu\n", state);
 	if (state > thermal->max_state)
 		return -EINVAL;
 
+	mutex_lock(&host_ctx->lock);
 	thermal->current_state = state;
 	thermal->pwr_level =  npu_power_level_from_index(npu_dev,
 		thermal->max_state - state);
 
-	return npu_set_power_level(npu_dev, true);
+	rc = npu_set_power_level(npu_dev, true);
+	mutex_unlock(&host_ctx->lock);
+
+	return rc;
 }
 
 /* -------------------------------------------------------------------------
