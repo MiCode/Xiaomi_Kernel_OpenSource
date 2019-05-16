@@ -636,10 +636,6 @@
 	};
 };
 
-&usb1 {
-	qcom,default-mode-none;
-};
-
 &wil6210 {
 	status = "ok";
 };
