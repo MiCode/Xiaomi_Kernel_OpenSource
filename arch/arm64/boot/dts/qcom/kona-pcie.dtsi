@@ -94,6 +94,9 @@
 		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
 		qcom,slv-addr-space-size = <0x4000000>;
 		qcom,ep-latency = <10>;
 
@@ -610,6 +613,9 @@
 		qcom,drv-supported;
 		qcom,use-19p2mhz-aux-clk;
 		qcom,no-l0s-supported;
+		qcom,no-l1-supported;
+		qcom,no-l1ss-supported;
+		qcom,no-aux-clk-sync;
 		qcom,slv-addr-space-size = <0x4000000>;
 		qcom,ep-latency = <10>;
 
