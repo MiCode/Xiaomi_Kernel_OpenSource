@@ -111,8 +111,6 @@ struct kgsl_iommu_context {
  * @clks: Array of pointers to IOMMU clocks
  * @smmu_info: smmu info used in a5xx preemption
  * @protect: register protection settings for the iommu.
- * @pagefault_suppression_count: Total number of pagefaults
- *				 suppressed since boot.
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_context ctx[KGSL_IOMMU_CONTEXT_MAX];
@@ -124,7 +122,6 @@ struct kgsl_iommu {
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	struct kgsl_memdesc smmu_info;
 	struct kgsl_protected_registers protect;
-	u32 pagefault_suppression_count;
 };
 
 /*
