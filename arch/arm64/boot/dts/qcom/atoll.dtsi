@@ -1326,6 +1326,7 @@
 };
 
 #include "atoll-gdsc.dtsi"
+#include "atoll-ion.dtsi"
 #include "msm-arm-smmu-sdmatoll.dtsi"
 
 &ufs_phy_gdsc {
