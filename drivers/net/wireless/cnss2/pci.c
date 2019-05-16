@@ -2583,9 +2583,6 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
 
-	if (pci_priv->disable_pc && !pci_dev->state_saved)
-		pci_save_state(pci_dev);
-
 out:
 	return ret;
 }
@@ -4401,6 +4398,9 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		goto out;
 	}
 
+#ifdef CONFIG_PCI_QTI
+	pci_dev->no_d3hot = true;
+#endif
 	pci_priv->pci_link_state = PCI_LINK_UP;
 	pci_priv->plat_priv = plat_priv;
 	pci_priv->pci_dev = pci_dev;
