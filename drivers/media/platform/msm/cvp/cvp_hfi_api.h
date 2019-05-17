@@ -337,7 +337,9 @@ enum hal_command_response {
 	HAL_SESSION_DC_CONFIG_CMD_DONE,
 	HAL_SESSION_DCM_CONFIG_CMD_DONE,
 	HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE,
+	HAL_SESSION_FD_CONFIG_CMD_DONE,
 	HAL_SESSION_PERSIST_CMD_DONE,
+	HAL_SESSION_MODEL_BUF_CMD_DONE,
 	HAL_SESSION_ICA_FRAME_CMD_DONE,
 	HAL_SESSION_PROPERTY_INFO,
 	HAL_SESSION_ERROR,
@@ -564,6 +566,7 @@ struct cvp_hfi_device {
 	int (*suspend)(void *dev);
 	int (*flush_debug_queue)(void *dev);
 	int (*noc_error_info)(void *dev);
+	int (*validate_session)(void *sess, const char *func);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum hal_command_response cmd,

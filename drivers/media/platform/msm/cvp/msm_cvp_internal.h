@@ -314,6 +314,18 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
+enum cvp_event_t {
+	CVP_NO_EVENT,
+	CVP_SSR_EVENT = 1,
+	CVP_INVALID_EVENT,
+};
+
+struct cvp_session_event {
+	spinlock_t lock;
+	enum cvp_event_t event;
+	wait_queue_head_t wq;
+};
+
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
@@ -348,6 +360,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_core *core;
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
+	struct cvp_session_event event_handler;
 	void *session;
 	enum instance_state state;
 	struct msm_cvp_list freqs;
