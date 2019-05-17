@@ -706,7 +706,8 @@ static void imp_mhi_shutdown(void)
 
 	IMP_FUNC_ENTRY();
 
-	if (imp_ctx->state == IMP_STARTED) {
+	if (imp_ctx->state == IMP_STARTED ||
+		imp_ctx->state == IMP_READY) {
 		req.cleanup_valid = true;
 		req.cleanup = true;
 		ipa3_qmi_send_mhi_cleanup_request(&req);
