@@ -658,6 +658,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				wmb();
 			}
 		} else { /* Cable connect case */
+			qusb_phy_enable_power(qphy, true);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
