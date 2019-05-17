@@ -156,6 +156,11 @@
 				regulator-always-on;
 				regulator-allowed-modes = <0 1 2>;
 			};
+			mt6359_vcore_sshub_buck_reg: buck_vcore_sshub {
+				regulator-name = "vcore_sshub";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1193750>;
+			};
 			mt6359_vaud18_ldo_reg: ldo_vaud18 {
 				compatible = "regulator-fixed";
 				regulator-name = "vaud18";
@@ -375,6 +380,11 @@
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <3100000>;
 				regulator-enable-ramp-delay = <480>;
+			};
+			mt6359_vsram_others_sshub_ldo_reg: ldo_vsram_others_sshub {
+				regulator-name = "vsram_others_sshub";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1193750>;
 			};
 		};
 
