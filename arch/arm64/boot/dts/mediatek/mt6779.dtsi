@@ -327,9 +327,9 @@
 			status = "disabled";
 		};
 
-		i2c6: i2c6@11005000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c6: i2c@11005000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11005000 0 0x1000>,
 				<0 0x11000580 0 0x100>;
 			interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_LOW>;
@@ -339,9 +339,9 @@
 			clock-div = <1>;
 		};
 
-		i2c0: i2c0@11007000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c0: i2c@11007000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11007000 0 0x1000>,
 				<0 0x11000080 0 0x80>;
 			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_LOW>;
@@ -351,9 +351,9 @@
 			clock-div = <1>;
 		};
 
-		i2c1: i2c1@11008000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c1: i2c@11008000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11008000 0 0x1000>,
 				<0 0x11000100 0 0x80>;
 			interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_LOW>;
@@ -363,9 +363,9 @@
 			clock-div = <1>;
 		};
 
-		i2c2: i2c2@11009000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c2: i2c@11009000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11009000 0 0x1000>,
 				<0 0x11000180 0 0x180>;
 			interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_LOW>;
@@ -375,9 +375,9 @@
 			clock-div = <1>;
 		};
 
-		i2c3: i2c3@1100f000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c3: i2c@1100f000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x1100f000 0 0x1000>,
 				<0 0x11000300 0 0x80>;
 			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_LOW>;
@@ -387,9 +387,9 @@
 			clock-div = <1>;
 		};
 
-		i2c4: i2c4@11011000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c4: i2c@11011000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11011000 0 0x1000>,
 				<0 0x11000380 0 0x180>;
 			interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_LOW>;
@@ -399,9 +399,9 @@
 			clock-div = <1>;
 		};
 
-		i2c9: i2c9@11015000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c9: i2c@11015000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11015000 0 0x1000>,
 				<0 0x11000800 0 0x80>;
 			interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_LOW>;
@@ -411,9 +411,9 @@
 			clock-div = <1>;
 		};
 
-		i2c5: i2c5@11016000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c5: i2c@11016000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x11016000 0 0x1000>,
 				<0 0x11000500 0 0x80>;
 			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>;
@@ -423,9 +423,9 @@
 			clock-div = <1>;
 		};
 
-		i2c7: i2c7@1101a000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c7: i2c@1101a000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x1101a000 0 0x1000>,
 				<0 0x11000680 0 0x100>;
 			interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_LOW>;
@@ -435,9 +435,9 @@
 			clock-div = <1>;
 		};
 
-		i2c8: i2c8@1101b000 {
-			compatible = "mediatek,mt8183-i2c",
-				     "mediatek,mt6779-i2c";
+		i2c8: i2c@1101b000 {
+			compatible = "mediatek,mt6779-i2c",
+				     "mediatek,mt8183-i2c";
 			reg = <0 0x1101b000 0 0x1000>,
 				<0 0x11000780 0 0x80>;
 			interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_LOW>;
