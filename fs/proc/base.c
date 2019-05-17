@@ -161,7 +161,7 @@ static unsigned int __init pid_entry_nlink(const struct pid_entry *entries,
 	count = 2;
 	for (i = 0; i < n; ++i) {
 		if (S_ISDIR(entries[i].mode))
-		+count;
+			++count;
 	}
 
 	return count;
