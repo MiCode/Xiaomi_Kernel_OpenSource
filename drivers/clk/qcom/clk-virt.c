@@ -655,7 +655,7 @@ static int __init clk_virt_init(void)
 {
 	return platform_driver_register(&clk_virt_driver);
 }
-fs_initcall(clk_virt_init);
+subsys_initcall_sync(clk_virt_init);
 
 static void __exit clk_virt_exit(void)
 {
