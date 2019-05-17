@@ -20,6 +20,7 @@
 enum regmap_type {
 	IFR_TYPE,
 	SMI_TYPE,
+	IFR_WAYEN_TYPE,
 	MAX_REGMAP_TYPE,
 };
 

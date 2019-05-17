@@ -79,17 +79,24 @@ int mtk_scpsys_ext_set_bus_protection(const struct bus_prot *bp_table,
 	int i;
 
 	for (i = 0; i < MAX_STEPS && bp_table[i].mask; i++) {
-		struct regmap *map;
 		int ret;
 
-		if (bp_table[i].type == IFR_TYPE)
-			map = infracfg;
-		else if (bp_table[i].type == SMI_TYPE)
-			map = smi_common;
-		else
+		switch (bp_table[i].type) {
+		case IFR_TYPE:
+			ret = set_bus_protection(infracfg,
+						&bp_table[i]);
+			break;
+		case SMI_TYPE:
+			ret = set_bus_protection(smi_common,
+						&bp_table[i]);
+			break;
+		case IFR_WAYEN_TYPE:
+			ret = disable_way_en(infracfg, infracfg_nao,
+						&bp_table[i]);
+			break;
+		default:
 			return -EINVAL;
-
-		ret = set_bus_protection(map, &bp_table[i]);
+		}
 
 		if (ret)
 			return ret;
@@ -105,17 +112,24 @@ int mtk_scpsys_ext_clear_bus_protection(const struct bus_prot *bp_table,
 	int i;
 
 	for (i = MAX_STEPS - 1; i >= 0; i--) {
-		struct regmap *map;
 		int ret;
 
-		if (bp_table[i].type == IFR_TYPE)
-			map = infracfg;
-		else if (bp_table[i].type == SMI_TYPE)
-			map = smi_common;
-		else
+		switch (bp_table[i].type) {
+		case IFR_TYPE:
+			ret = clear_bus_protection(infracfg,
+							&bp_table[i]);
+			break;
+		case SMI_TYPE:
+			ret = clear_bus_protection(smi_common,
+							&bp_table[i]);
+			break;
+		case IFR_WAYEN_TYPE:
+			ret = enable_way_en(infracfg, infracfg_nao,
+							&bp_table[i]);
+			break;
+		default:
 			return -EINVAL;
-
-		ret = clear_bus_protection(map, &bp_table[i]);
+		}
 
 		if (ret)
 			return ret;
