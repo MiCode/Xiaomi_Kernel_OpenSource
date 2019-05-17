@@ -24,7 +24,6 @@
 #include "cam_req_mgr_dev.h"
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
-static struct cam_req_mgr_core_link g_links[MAXIMUM_LINKS_PER_SESSION];
 
 void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 {
@@ -1520,8 +1519,8 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		return NULL;
 	}
 	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		if (!atomic_cmpxchg(&g_links[i].is_used, 0, 1)) {
-			link = &g_links[i];
+		if (!atomic_cmpxchg(&session->links_init[i].is_used, 0, 1)) {
+			link = &session->links_init[i];
 			CAM_DBG(CAM_CRM, "alloc link index %d", i);
 			cam_req_mgr_core_link_reset(link);
 			break;
@@ -1588,12 +1587,8 @@ error:
  */
 static void __cam_req_mgr_free_link(struct cam_req_mgr_core_link *link)
 {
-	ptrdiff_t i;
 	kfree(link->req.in_q);
 	link->req.in_q = NULL;
-	i = link - g_links;
-	CAM_DBG(CAM_CRM, "free link index %d", i);
-	atomic_set(&g_links[i].is_used, 0);
 }
 
 /**
@@ -1625,8 +1620,10 @@ static void __cam_req_mgr_unreserve_link(
 	}
 
 	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		if (session->links[i] == link)
+		if (session->links[i] == link) {
+			atomic_set(&session->links_init[i].is_used, 0);
 			session->links[i] = NULL;
+		}
 
 		if (link->sync_link) {
 			if (link->sync_link == session->links[i])
@@ -2482,6 +2479,7 @@ int cam_req_mgr_create_session(
 	struct cam_req_mgr_session_info *ses_info)
 {
 	int                              rc = 0;
+	int                              i = 0;
 	int32_t                          session_hdl;
 	struct cam_req_mgr_core_session *cam_session = NULL;
 
@@ -2515,6 +2513,15 @@ int cam_req_mgr_create_session(
 	cam_session->num_links = 0;
 	cam_session->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
 	list_add(&cam_session->entry, &g_crm_core_dev->session_head);
+
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
+		mutex_init(&cam_session->links_init[i].lock);
+		spin_lock_init(
+			&cam_session->links_init[i].link_state_spin_lock);
+		atomic_set(&cam_session->links_init[i].is_used, 0);
+		cam_req_mgr_core_link_reset(&cam_session->links_init[i]);
+	}
+
 	mutex_unlock(&cam_session->lock);
 end:
 	mutex_unlock(&g_crm_core_dev->crm_lock);
@@ -3111,7 +3118,7 @@ end:
 
 int cam_req_mgr_core_device_init(void)
 {
-	int i;
+
 	CAM_DBG(CAM_CRM, "Enter g_crm_core_dev %pK", g_crm_core_dev);
 
 	if (g_crm_core_dev) {
@@ -3128,12 +3135,6 @@ int cam_req_mgr_core_device_init(void)
 	mutex_init(&g_crm_core_dev->crm_lock);
 	cam_req_mgr_debug_register(g_crm_core_dev);
 
-	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		mutex_init(&g_links[i].lock);
-		spin_lock_init(&g_links[i].link_state_spin_lock);
-		atomic_set(&g_links[i].is_used, 0);
-		cam_req_mgr_core_link_reset(&g_links[i]);
-	}
 	return 0;
 }
 
