@@ -1649,9 +1649,9 @@ static int gmu_start(struct kgsl_device *device)
 		gmu_enable_clks(device);
 		gmu_dev_ops->irq_enable(device);
 
-		/* Vote for 300MHz DDR for GMU to init */
+		/* Vote for minimal DDR BW for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
-				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_min);
 		if (ret)
 			dev_err(&gmu->pdev->dev,
 				"Failed to allocate gmu b/w: %d\n", ret);
