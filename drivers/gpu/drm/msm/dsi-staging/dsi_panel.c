@@ -3215,7 +3215,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_bl_config(panel);
 	if (rc) {
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
-		goto error;
+		if (rc == -EPROBE_DEFER)
+			goto error;
 	}
 
 
