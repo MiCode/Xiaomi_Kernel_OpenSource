@@ -168,6 +168,7 @@ struct scp {
 	struct device *dev;
 	void __iomem *base;
 	struct regmap *infracfg;
+	struct regmap *infracfg_nao;
 	struct regmap *smi_common;
 	struct scp_ctrl_reg ctrl_reg;
 	bool bus_prot_reg_update;
@@ -324,8 +325,8 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 				scp->bus_prot_reg_update);
 	} else if (scpd->data->bp_table[0].mask) {
 		ret = mtk_scpsys_ext_set_bus_protection(scpd->data->bp_table,
-				scp->infracfg,
-				scp->smi_common);
+				scp->infracfg, scp->smi_common,
+				scp->infracfg_nao);
 	}
 
 	return ret;
@@ -341,10 +342,9 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 				scpd->data->bus_prot_mask,
 				scp->bus_prot_reg_update);
 	} else if (scpd->data->bp_table[0].mask) {
-		ret = mtk_scpsys_ext_clear_bus_protection(
-				scpd->data->bp_table,
-				scp->infracfg,
-				scp->smi_common);
+		ret = mtk_scpsys_ext_clear_bus_protection(scpd->data->bp_table,
+				scp->infracfg, scp->smi_common,
+				scp->infracfg_nao);
 	}
 
 	return ret;
@@ -574,6 +574,17 @@ static struct scp *init_scp(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Cannot find smi_common controller: %ld\n",
 				PTR_ERR(scp->smi_common));
 		return ERR_CAST(scp->smi_common);
+	}
+
+	scp->infracfg_nao = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"infracfg_nao");
+
+	if (scp->infracfg_nao == ERR_PTR(-ENODEV)) {
+		scp->infracfg_nao = NULL;
+	} else if (IS_ERR(scp->infracfg_nao)) {
+		dev_err(&pdev->dev, "Cannot find infracfg_nao controller: %ld\n",
+				PTR_ERR(scp->infracfg_nao));
+		return ERR_CAST(scp->infracfg_nao);
 	}
 
 	for (i = 0; i < num; i++) {

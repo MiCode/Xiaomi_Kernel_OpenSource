@@ -43,7 +43,8 @@ static int clear_bus_protection(struct regmap *map, u32 mask, u32 ack_mask,
 }
 
 int mtk_scpsys_ext_set_bus_protection(const struct bus_prot *bp_table,
-	struct regmap *infracfg, struct regmap *smi_common)
+	struct regmap *infracfg, struct regmap *smi_common,
+	struct regmap *infracfg_nao)
 {
 	int i;
 
@@ -71,7 +72,8 @@ int mtk_scpsys_ext_set_bus_protection(const struct bus_prot *bp_table,
 }
 
 int mtk_scpsys_ext_clear_bus_protection(const struct bus_prot *bp_table,
-	struct regmap *infracfg, struct regmap *smi_common)
+	struct regmap *infracfg, struct regmap *smi_common,
+	struct regmap *infracfg_nao)
 {
 	int i;
 

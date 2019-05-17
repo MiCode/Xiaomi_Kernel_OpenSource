@@ -32,8 +32,10 @@ struct bus_prot {
 };
 
 int mtk_scpsys_ext_set_bus_protection(const struct bus_prot *bp_table,
-	struct regmap *infracfg, struct regmap *smi_common);
+	struct regmap *infracfg, struct regmap *smi_common,
+	struct regmap *infracfg_nao);
 int mtk_scpsys_ext_clear_bus_protection(const struct bus_prot *bp_table,
-	struct regmap *infracfg, struct regmap *smi_common);
+	struct regmap *infracfg, struct regmap *smi_common,
+	struct regmap *infracfg_nao);
 
 #endif /* __SOC_MEDIATEK_SCPSYS_EXT_H */
