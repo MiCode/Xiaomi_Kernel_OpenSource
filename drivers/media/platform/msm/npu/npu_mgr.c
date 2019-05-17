@@ -26,7 +26,7 @@
 #define LOG_MSG_MSG_ID_INDEX     1
 
 #define NPU_FW_TIMEOUT_POLL_INTERVAL_MS  20
-#define NPU_FW_TIMEOUT_MS                1000
+#define NPU_FW_TIMEOUT_MS                5000
 
 /* -------------------------------------------------------------------------
  * File Scope Function Prototypes
@@ -61,8 +61,7 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on);
 static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post);
 static int load_fw_nolock(struct npu_device *npu_dev);
-static void disable_fw_nolock(struct npu_device *npu_dev, bool ssr,
-	bool fw_alive);
+static void disable_fw_nolock(struct npu_device *npu_dev);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -100,8 +99,21 @@ static int load_fw_nolock(struct npu_device *npu_dev)
 
 	host_ctx->fw_state = FW_ENABLED;
 
-	/* delay 3 seconds for cold boot complele */
-	msleep(3000);
+	reinit_completion(&host_ctx->fw_shutdown_done);
+	ret = npu_notify_fw_pwr_state(npu_dev, NPU_PWRLEVEL_OFF, false);
+	if (ret) {
+		NPU_ERR("notify fw pwr off failed\n");
+		goto load_fw_fail;
+	}
+
+	ret = wait_for_completion_timeout(
+		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+	if (!ret) {
+		NPU_ERR("Wait for fw shutdown timedout\n");
+		ret = -ETIMEDOUT;
+	} else {
+		ret = 0;
+	}
 
 load_fw_fail:
 	npu_disable_irq(npu_dev);
@@ -206,10 +218,23 @@ int enable_fw(struct npu_device *npu_dev)
 
 	NPU_DBG("NPU powers up\n");
 
+	/* turn on auto ACK for warm boots up */
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL, 3);
+	reinit_completion(&host_ctx->fw_bringup_done);
 	ret = npu_notify_fw_pwr_state(npu_dev, npu_dev->pwrctrl.active_pwrlevel,
 		true);
 	if (ret) {
-		NPU_WARN("notify fw power state failed\n");
+		NPU_ERR("notify fw power state failed\n");
+		goto notify_fw_pwr_fail;
+	}
+
+	ret = wait_for_completion_interruptible_timeout(
+		&host_ctx->fw_bringup_done, NW_CMD_TIMEOUT);
+	if (!ret) {
+		NPU_ERR("Wait for fw bringup timedout\n");
+		ret = -ETIMEDOUT;
+		goto notify_fw_pwr_fail;
+	} else {
 		ret = 0;
 	}
 
@@ -223,6 +248,8 @@ int enable_fw(struct npu_device *npu_dev)
 
 	return ret;
 
+notify_fw_pwr_fail:
+	npu_disable_irq(npu_dev);
 enable_irq_fail:
 	npu_disable_sys_cache(npu_dev);
 enable_sys_cache_fail:
@@ -233,14 +260,16 @@ enable_pw_fail:
 	return ret;
 }
 
-static void disable_fw_nolock(struct npu_device *npu_dev, bool ssr,
-	bool fw_alive)
+static void disable_fw_nolock(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
-	if (!ssr && (host_ctx->fw_ref_cnt > 0))
-		host_ctx->fw_ref_cnt--;
+	if (!host_ctx->fw_ref_cnt) {
+		NPU_WARN("fw_ref_cnt is 0\n");
+		return;
+	}
 
+	host_ctx->fw_ref_cnt--;
 	NPU_DBG("fw_ref_cnt %d\n", host_ctx->fw_ref_cnt);
 
 	if (host_ctx->fw_state != FW_ENABLED) {
@@ -248,23 +277,20 @@ static void disable_fw_nolock(struct npu_device *npu_dev, bool ssr,
 		return;
 	}
 
-	if ((host_ctx->fw_ref_cnt > 0) && !ssr)
+	if (host_ctx->fw_ref_cnt > 0)
 		return;
 
-	/*
-	 * if fw is still alive, notify fw before power off
-	 * otherwise if ssr happens or notify fw returns failure
-	 * delay 500 ms to make sure dsp has finished
-	 * its own ssr handling.
-	 */
-	if (fw_alive) {
-		if (npu_notify_fw_pwr_state(npu_dev, NPU_PWRLEVEL_OFF, false)) {
-			NPU_WARN("notify fw pwr off failed\n");
-			msleep(500);
-		}
-	} else {
+	/* turn on auto ACK for warm shuts down */
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL, 3);
+	reinit_completion(&host_ctx->fw_shutdown_done);
+	if (npu_notify_fw_pwr_state(npu_dev, NPU_PWRLEVEL_OFF, false)) {
+		NPU_WARN("notify fw pwr off failed\n");
 		msleep(500);
 	}
+
+	if (!wait_for_completion_interruptible_timeout(
+		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT))
+		NPU_ERR("Wait for fw shutdown timedout\n");
 
 	npu_disable_irq(npu_dev);
 	npu_disable_sys_cache(npu_dev);
@@ -281,7 +307,7 @@ void disable_fw(struct npu_device *npu_dev)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	mutex_lock(&host_ctx->lock);
-	disable_fw_nolock(npu_dev, false, true);
+	disable_fw_nolock(npu_dev);
 	mutex_unlock(&host_ctx->lock);
 }
 
@@ -444,6 +470,8 @@ int npu_host_init(struct npu_device *npu_dev)
 	memset(host_ctx, 0, sizeof(*host_ctx));
 	init_completion(&host_ctx->misc_cmd_done);
 	init_completion(&host_ctx->fw_deinit_done);
+	init_completion(&host_ctx->fw_bringup_done);
+	init_completion(&host_ctx->fw_shutdown_done);
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
@@ -497,8 +525,9 @@ irqreturn_t npu_ipc_intr_hdlr(int irq, void *ptr)
 
 irqreturn_t npu_general_intr_hdlr(int irq, void *ptr)
 {
-	uint32_t reg_val;
+	uint32_t reg_val, ack_val;
 	struct npu_device *npu_dev = (struct npu_device *)ptr;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	NPU_DBG("NPU general irq %d\n", irq);
 
@@ -506,8 +535,27 @@ irqreturn_t npu_general_intr_hdlr(int irq, void *ptr)
 		NPU_CC_NPU_MASTERn_GENERAL_IRQ_STATUS(0));
 	NPU_DBG("GENERAL_IRQ_STATUS %x\n", reg_val);
 	reg_val &= (RSC_SHUTDOWN_REQ_IRQ_STATUS | RSC_BRINGUP_REQ_IRQ_STATUS);
+	ack_val = npu_cc_reg_read(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL);
+
+	if (reg_val & RSC_SHUTDOWN_REQ_IRQ_STATUS) {
+		NPU_DBG("Send SHUTDOWN ACK\n");
+		ack_val |= Q6SS_RSC_SHUTDOWN_ACK_EN;
+	}
+
+	if (reg_val & RSC_BRINGUP_REQ_IRQ_STATUS) {
+		NPU_DBG("Send BRINGUP ACK\n");
+		ack_val |= Q6SS_RSC_BRINGUP_ACK_EN;
+	}
+
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL, ack_val);
 	npu_cc_reg_write(npu_dev,
 		NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0), reg_val);
+
+	if (reg_val & RSC_SHUTDOWN_REQ_IRQ_STATUS)
+		complete(&host_ctx->fw_shutdown_done);
+
+	if (reg_val & RSC_BRINGUP_REQ_IRQ_STATUS)
+		complete(&host_ctx->fw_bringup_done);
 
 	return IRQ_HANDLED;
 }
@@ -611,7 +659,6 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	NPU_DBG("firmware init complete\n");
 
 	host_ctx->fw_state = FW_ENABLED;
-	msleep(3000);
 
 fw_start_done:
 	/* mark all existing network to error state */

@@ -18,7 +18,7 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define NW_CMD_TIMEOUT_MS (1000 * 60 * 5) /* set for 5 minutes */
+#define NW_CMD_TIMEOUT_MS (1000 * 5) /* set for 5 seconds */
 #define NW_CMD_TIMEOUT msecs_to_jiffies(NW_CMD_TIMEOUT_MS)
 #define NW_DEBUG_TIMEOUT_MS (1000 * 60 * 30) /* set for 30 minutes */
 #define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
@@ -77,6 +77,8 @@ struct npu_host_ctx {
 	struct workqueue_struct *wq;
 	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
+	struct completion fw_bringup_done;
+	struct completion fw_shutdown_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
