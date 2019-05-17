@@ -23,6 +23,8 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/io.h>
+#include <linux/mfd/mt6358/registers.h>
+#include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/nvmem-provider.h>
 
@@ -96,9 +98,24 @@ enum mtk_rtc_spare_enum {
 	SPARE_RG_MAX,
 };
 
+enum rtc_eosc_cali_td {
+	EOSC_CALI_TD_01_SEC = 0x3,
+	EOSC_CALI_TD_02_SEC,
+	EOSC_CALI_TD_04_SEC,
+	EOSC_CALI_TD_08_SEC,
+	EOSC_CALI_TD_16_SEC,
+};
+
+enum cali_field_enum {
+	RTC_EOSC32_CK_PDN,
+	EOSC_CALI_TD,
+	CALI_FILED_MAX
+};
+
 struct mtk_rtc_compatible {
 	u32			wrtgr_addr;
 	const struct reg_field *spare_reg_fields;
+	const struct reg_field *cali_reg_fields;
 };
 
 struct mt6397_rtc {
@@ -110,6 +127,18 @@ struct mt6397_rtc {
 	u32			addr_base;
 	const struct mtk_rtc_compatible *dev_comp;
 	struct regmap_field	*spare[SPARE_RG_MAX];
+	struct regmap_field	*cali[CALI_FILED_MAX];
+	bool			cali_is_supported;
+};
+
+static const struct reg_field mt6358_cali_reg_fields[CALI_FILED_MAX] = {
+	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6358_SCK_TOP_CKPDN_CON0, 2, 2),
+	[EOSC_CALI_TD]		= REG_FIELD(MT6358_EOSC_CALI_CON0, 5, 7),
+};
+
+static const struct reg_field mt6359_cali_reg_fields[CALI_FILED_MAX] = {
+	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6359_SCK_TOP_CKPDN_CON0, 2, 2),
+	[EOSC_CALI_TD]		= REG_FIELD(MT6359_EOSC_CALI_CON0, 5, 7),
 };
 
 static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
@@ -118,9 +147,16 @@ static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
 	[SPARE_SPAR0]		= REG_FIELD(RTC_SPAR0, 0, 7),
 };
 
+static const struct mtk_rtc_compatible mt6359_rtc_compat = {
+	.wrtgr_addr		= RTC_WRTGR_MT6358,
+	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
+	.cali_reg_fields	= mt6359_cali_reg_fields,
+};
+
 static const struct mtk_rtc_compatible mt6358_rtc_compat = {
 	.wrtgr_addr		= RTC_WRTGR_MT6358,
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
+	.cali_reg_fields	= mt6358_cali_reg_fields,
 };
 
 static const struct mtk_rtc_compatible mt6397_rtc_compat = {
@@ -129,7 +165,7 @@ static const struct mtk_rtc_compatible mt6397_rtc_compat = {
 
 static const struct of_device_id mt6397_rtc_of_match[] = {
 	{ .compatible = "mediatek,mt6359-rtc",
-		.data = (void *)&mt6358_rtc_compat, },
+		.data = (void *)&mt6359_rtc_compat, },
 	{ .compatible = "mediatek,mt6358-rtc",
 		.data = (void *)&mt6358_rtc_compat, },
 	{ .compatible = "mediatek,mt6397-rtc",
@@ -137,6 +173,9 @@ static const struct of_device_id mt6397_rtc_of_match[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, mt6397_rtc_of_match);
+
+static int rtc_eosc_cali_td;
+module_param(rtc_eosc_cali_td, int, 0644);
 
 static int mtk_rtc_write_trigger(struct mt6397_rtc *rtc)
 {
@@ -446,6 +485,65 @@ static const struct rtc_class_ops mtk_rtc_ops = {
 	.set_alarm  = mtk_rtc_set_alarm,
 };
 
+static void mtk_rtc_enable_k_eosc(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	u32 td;
+
+	if (!rtc->cali_is_supported)
+		return;
+
+	/* Truning on eosc cali mode clock */
+	regmap_field_write(rtc->cali[RTC_EOSC32_CK_PDN], 0);
+
+	if (rtc_eosc_cali_td) {
+		dev_notice(dev, "%s: rtc_eosc_cali_td = %d\n",
+				__func__, rtc_eosc_cali_td);
+		switch (rtc_eosc_cali_td) {
+		case 1:
+			td = EOSC_CALI_TD_01_SEC;
+			break;
+		case 2:
+			td = EOSC_CALI_TD_02_SEC;
+			break;
+		case 4:
+			td = EOSC_CALI_TD_04_SEC;
+			break;
+		case 16:
+			td = EOSC_CALI_TD_16_SEC;
+			break;
+		default:
+			td = EOSC_CALI_TD_08_SEC;
+			break;
+		}
+		regmap_field_write(rtc->cali[EOSC_CALI_TD], td);
+	}
+}
+
+static void mtk_rtc_shutdown(struct platform_device *pdev)
+{
+	mtk_rtc_enable_k_eosc(&pdev->dev);
+}
+
+static int mtk_rtc_config_eosc_cali(struct device *dev)
+{
+	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < CALI_FILED_MAX; i++) {
+		rtc->cali[i] = devm_regmap_field_alloc(dev, rtc->regmap,
+					rtc->dev_comp->cali_reg_fields[i]);
+		if (IS_ERR(rtc->cali[i])) {
+			dev_err(rtc->dev, "cali regmap field[%d] err= %ld\n",
+						i, PTR_ERR(rtc->cali[i]));
+			return PTR_ERR(rtc->cali[i]);
+		}
+	}
+	rtc->cali_is_supported = true;
+
+	return 0;
+}
+
 static int mtk_rtc_set_spare(struct device *dev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
@@ -542,6 +640,10 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		if (mtk_rtc_set_spare(&pdev->dev))
 			dev_err(&pdev->dev, "spare is not supported\n");
 
+	if (rtc->dev_comp->cali_reg_fields)
+		if (mtk_rtc_config_eosc_cali(&pdev->dev))
+			dev_err(&pdev->dev, "config eosc cali failed\n");
+
 	return 0;
 
 out_free_irq:
@@ -594,6 +696,7 @@ static struct platform_driver mtk_rtc_driver = {
 	},
 	.probe	= mtk_rtc_probe,
 	.remove = mtk_rtc_remove,
+	.shutdown = mtk_rtc_shutdown,
 };
 
 module_platform_driver(mtk_rtc_driver);
