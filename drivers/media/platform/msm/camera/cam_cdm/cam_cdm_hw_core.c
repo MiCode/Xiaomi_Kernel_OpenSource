@@ -38,6 +38,8 @@
 
 static void cam_hw_cdm_work(struct work_struct *work);
 
+static struct cam_cdm_debugfs_entry debugfs_entry;
+
 /* DT match table entry for all CDM variants*/
 static const struct of_device_id msm_cam_hw_cdm_dt_match[] = {
 	{
@@ -66,6 +68,31 @@ int cam_hw_cdm_bl_fifo_pending_bl_rb(struct cam_hw_info *cdm_hw,
 		rc = -EIO;
 	}
 
+	return rc;
+}
+
+static int cam_hw_cdm_create_debugfs_entry(void)
+{
+	int rc = 0;
+
+	debugfs_entry.dentry = debugfs_create_dir("camera_cdm", NULL);
+	if (!debugfs_entry.dentry)
+		return -ENOMEM;
+
+	if (!debugfs_create_bool("dump_register",
+		0644,
+		debugfs_entry.dentry,
+		&debugfs_entry.dump_register)) {
+		CAM_ERR(CAM_CDM,
+			"failed to create dump_register entry");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	return rc;
+err:
+	debugfs_remove_recursive(debugfs_entry.dentry);
+	debugfs_entry.dentry = NULL;
 	return rc;
 }
 
@@ -185,6 +212,9 @@ void cam_hw_cdm_dump_core_debug_registers(
 	struct cam_hw_info *cdm_hw)
 {
 	uint32_t dump_reg, core_dbg, loop_cnt;
+
+	if (!debugfs_entry.dump_register)
+		return;
 
 	mutex_lock(&cdm_hw->hw_mutex);
 	cam_cdm_read_hw_reg(cdm_hw, CDM_CFG_CORE_EN, &dump_reg);
@@ -1020,6 +1050,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	}
 	cdm_hw->open_count--;
 	mutex_unlock(&cdm_hw->hw_mutex);
+	cam_hw_cdm_create_debugfs_entry();
 
 	CAM_DBG(CAM_CDM, "CDM%d probe successful", cdm_hw_intf->hw_idx);
 
