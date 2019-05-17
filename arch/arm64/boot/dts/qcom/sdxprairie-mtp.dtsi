@@ -207,10 +207,6 @@
 	qcom,step-charging-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
-	qcom,hvdcp-autonomous-enable;
-	qcom,hw-die-temp-mitigation;
-	qcom,hw-connector-mitigation;
-	qcom,hw-skin-temp-mitigation;
 };
 
 &pm8150b_fg {
