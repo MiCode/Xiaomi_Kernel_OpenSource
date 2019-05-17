@@ -4448,8 +4448,9 @@ static int cam_isp_blob_vfe_out_update(
 			&bytes_used);
 		if (rc < 0) {
 			CAM_ERR(CAM_ISP,
-				"Failed to update VFE out base_idx: %d rc: %d",
-				blob_info->base_info->idx, bytes_used);
+				"Failed to update VFE Out out_type:0x%X base_idx:%d bytes_used:%u rc:%d",
+				wm_config->port_type, blob_info->base_info->idx,
+				bytes_used, rc);
 			return rc;
 		}
 
@@ -4515,18 +4516,35 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 
 		hfr_config = (struct cam_isp_resource_hfr_config *)blob_data;
 
-		if (hfr_config->num_ports > CAM_ISP_IFE_OUT_RES_MAX) {
-			CAM_ERR(CAM_ISP, "Invalid num_ports %u in hfr config",
+		if (hfr_config->num_ports > CAM_ISP_IFE_OUT_RES_MAX ||
+			hfr_config->num_ports == 0) {
+			CAM_ERR(CAM_ISP, "Invalid num_ports %u in HFR config",
 				hfr_config->num_ports);
 			return -EINVAL;
 		}
 
-		if (blob_size < (sizeof(uint32_t) * 2 + hfr_config->num_ports *
+		/* Check for integer overflow */
+		if (hfr_config->num_ports != 1) {
+			if (sizeof(struct cam_isp_port_hfr_config) >
+				((UINT_MAX -
+				sizeof(struct cam_isp_resource_hfr_config)) /
+				(hfr_config->num_ports - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in hfr config num_ports:%u size per port:%lu",
+					hfr_config->num_ports,
+					sizeof(struct cam_isp_port_hfr_config));
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_isp_resource_hfr_config) +
+			(hfr_config->num_ports - 1) *
 			sizeof(struct cam_isp_port_hfr_config))) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
-				blob_size, sizeof(uint32_t) * 2 +
-				sizeof(struct cam_isp_port_hfr_config) *
-				hfr_config->num_ports);
+				blob_size,
+				sizeof(struct cam_isp_resource_hfr_config) +
+				(hfr_config->num_ports - 1) *
+				sizeof(struct cam_isp_port_hfr_config));
 			return -EINVAL;
 		}
 
@@ -4552,8 +4570,21 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			return -EINVAL;
 		}
 
-		if (blob_size < (sizeof(uint32_t) * 2 + sizeof(uint64_t) *
-			(clock_config->num_rdi + 2))) {
+		/* Check for integer overflow */
+		if (clock_config->num_rdi != 1) {
+			if (sizeof(uint64_t) > ((UINT_MAX -
+				sizeof(struct cam_isp_clock_config)) /
+				(clock_config->num_rdi - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in clock config num_rdi:%u size per port:%lu",
+					clock_config->num_rdi,
+					sizeof(uint64_t));
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_isp_clock_config) +
+			sizeof(uint64_t) * (clock_config->num_rdi - 1))) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
 				blob_size,
 				sizeof(uint32_t) * 2 + sizeof(uint64_t) *
@@ -4585,12 +4616,26 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			return -EINVAL;
 		}
 
-		if (blob_size < (sizeof(uint32_t) * 2 + (bw_config->num_rdi + 2)
-			* sizeof(struct cam_isp_bw_vote))) {
+		/* Check for integer overflow */
+		if (bw_config->num_rdi != 1) {
+			if (sizeof(struct cam_isp_bw_vote) > ((UINT_MAX -
+				sizeof(struct cam_isp_bw_config)) /
+				(bw_config->num_rdi - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in bw config num_rdi:%u size per port:%lu",
+					bw_config->num_rdi,
+					sizeof(struct cam_isp_bw_vote));
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_isp_bw_config) +
+			(bw_config->num_rdi - 1) *
+			sizeof(struct cam_isp_bw_vote))) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
-				blob_size,
-				sizeof(uint32_t) * 2 + (bw_config->num_rdi + 2)
-				* sizeof(struct cam_isp_bw_vote));
+				blob_size, sizeof(struct cam_isp_bw_config) +
+				(bw_config->num_rdi - 1) *
+				sizeof(struct cam_isp_bw_vote));
 			return -EINVAL;
 		}
 
@@ -4685,17 +4730,34 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 
 		ubwc_config = (struct cam_ubwc_config *)blob_data;
 
-		if (ubwc_config->num_ports > CAM_VFE_MAX_UBWC_PORTS) {
+		if (ubwc_config->num_ports > CAM_VFE_MAX_UBWC_PORTS ||
+			ubwc_config->num_ports == 0) {
 			CAM_ERR(CAM_ISP, "Invalid num_ports %u in ubwc config",
 				ubwc_config->num_ports);
 			return -EINVAL;
 		}
 
-		if (blob_size < (sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+		/* Check for integer overflow */
+		if (ubwc_config->num_ports != 1) {
+			if (sizeof(struct cam_ubwc_plane_cfg_v1) >
+				((UINT_MAX - sizeof(struct cam_ubwc_config)) /
+				((ubwc_config->num_ports - 1) * 2))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in ubwc config num_ports:%u size per port:%lu",
+					ubwc_config->num_ports,
+					sizeof(struct cam_ubwc_plane_cfg_v1) *
+					2);
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_ubwc_config) +
+			(ubwc_config->num_ports - 1) *
 			sizeof(struct cam_ubwc_plane_cfg_v1) * 2)) {
 			CAM_ERR(CAM_ISP, "Invalid blob_size %u expected %lu",
 				blob_size,
-				sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+				sizeof(struct cam_ubwc_config) +
+				(ubwc_config->num_ports - 1) *
 				sizeof(struct cam_ubwc_plane_cfg_v1) * 2);
 			return -EINVAL;
 		}
@@ -4717,17 +4779,34 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 
 		ubwc_config = (struct cam_ubwc_config_v2 *)blob_data;
 
-		if (ubwc_config->num_ports > CAM_VFE_MAX_UBWC_PORTS) {
+		if (ubwc_config->num_ports > CAM_VFE_MAX_UBWC_PORTS ||
+			ubwc_config->num_ports == 0) {
 			CAM_ERR(CAM_ISP, "Invalid num_ports %u in ubwc config",
 				ubwc_config->num_ports);
 			return -EINVAL;
 		}
 
-		if (blob_size < (sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+		/* Check for integer overflow */
+		if (ubwc_config->num_ports != 1) {
+			if (sizeof(struct cam_ubwc_plane_cfg_v2) >
+				((UINT_MAX - sizeof(struct cam_ubwc_config_v2))
+				/ ((ubwc_config->num_ports - 1) * 2))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in ubwc config num_ports:%u size per port:%lu",
+					ubwc_config->num_ports,
+					sizeof(struct cam_ubwc_plane_cfg_v2) *
+					2);
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_ubwc_config_v2) +
+			(ubwc_config->num_ports - 1) *
 			sizeof(struct cam_ubwc_plane_cfg_v2) * 2)) {
 			CAM_ERR(CAM_ISP, "Invalid blob_size %u expected %lu",
 				blob_size,
-				sizeof(uint32_t) * 2 + ubwc_config->num_ports *
+				sizeof(struct cam_ubwc_config_v2) +
+				(ubwc_config->num_ports - 1) *
 				sizeof(struct cam_ubwc_plane_cfg_v2) * 2);
 			return -EINVAL;
 		}
@@ -4802,30 +4881,34 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 
 		vfe_out_config = (struct cam_isp_vfe_out_config *)blob_data;
 
-		if (vfe_out_config->num_ports >= CAM_IFE_HW_OUT_RES_MAX) {
-			CAM_ERR(CAM_ISP, "num_ports %u exceeds max ports %u",
+		if (vfe_out_config->num_ports > CAM_IFE_HW_OUT_RES_MAX ||
+			vfe_out_config->num_ports == 0) {
+			CAM_ERR(CAM_ISP,
+				"Invalid num_ports:%u in vfe out config",
 				vfe_out_config->num_ports,
 				CAM_IFE_HW_OUT_RES_MAX);
 			return -EINVAL;
 		}
 
 		/* Check for integer overflow */
-		if (sizeof(struct cam_isp_vfe_wm_config) > ((UINT_MAX -
-			sizeof(struct cam_isp_vfe_out_config)) /
-			(vfe_out_config->num_ports - 1))) {
-			CAM_ERR(CAM_ISP,
-				"Size exceeds limit ports:%u size per port:%lu",
-				vfe_out_config->num_ports - 1,
-				sizeof(struct cam_isp_vfe_wm_config));
-			return -EINVAL;
+		if (vfe_out_config->num_ports != 1) {
+			if (sizeof(struct cam_isp_vfe_wm_config) > ((UINT_MAX -
+				sizeof(struct cam_isp_vfe_out_config)) /
+				(vfe_out_config->num_ports - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in vfe out config num_ports:%u size per port:%lu",
+					vfe_out_config->num_ports,
+					sizeof(struct cam_isp_vfe_wm_config));
+				return -EINVAL;
+			}
 		}
 
 		if (blob_size < (sizeof(struct cam_isp_vfe_out_config) +
 			(vfe_out_config->num_ports - 1) *
 			sizeof(struct cam_isp_vfe_wm_config))) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %lu",
-				blob_size, sizeof(uint32_t) * 2 +
-				vfe_out_config->num_ports *
+				blob_size, sizeof(struct cam_isp_vfe_out_config)
+				+ (vfe_out_config->num_ports - 1) *
 				sizeof(struct cam_isp_vfe_wm_config));
 			return -EINVAL;
 		}
