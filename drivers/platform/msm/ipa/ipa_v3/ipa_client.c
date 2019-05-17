@@ -394,14 +394,13 @@ static enum ipa_client_cb_type ipa_get_client_cb_type(
 	return client_cb;
 }
 void ipa3_register_client_callback(int (*client_cb)(bool is_lock),
-				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+				bool (*teth_port_state)(void),
+				enum ipa_client_type client_type)
 {
 	enum ipa_client_cb_type client;
-	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
 	client = ipa_get_client_cb_type(client_type);
 	if (client == IPA_MAX_CLNT)
 		return;
@@ -418,14 +417,12 @@ void ipa3_register_client_callback(int (*client_cb)(bool is_lock),
 	IPADBG("exit\n");
 }
 
-void ipa3_deregister_client_callback(u32 ipa_ep_idx)
+void ipa3_deregister_client_callback(enum ipa_client_type client_type)
 {
 	enum ipa_client_cb_type client_cb;
-	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
 	client_cb = ipa_get_client_cb_type(client_type);
 	if (client_cb == IPA_MAX_CLNT)
 		return;
