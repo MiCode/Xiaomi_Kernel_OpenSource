@@ -1078,6 +1078,12 @@ int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 		return 0;
 	}
 
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("FnR stats not supported in %d hw_type\n",
+			ipa3_ctx->ipa_hw_type);
+		return 0;
+	}
+
 	if (query->start_id == 0 || query->end_id == 0) {
 		IPAERR("Invalid start_id/end_id, must be not 0");
 		IPAERR("start_id %d, end_id %d\n",
