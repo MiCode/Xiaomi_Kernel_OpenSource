@@ -916,6 +916,11 @@
 		#hwlock-cells = <1>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	smem: qcom,smem {
 		compatible = "qcom,smem";
 		memory-region = <&smem_region>;
