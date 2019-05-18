@@ -5654,7 +5654,7 @@ static int cam_ife_hw_mgr_handle_hw_rup(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "RUP done for VFE source %d",
+	CAM_DBG(CAM_ISP, "RUP done for VFE:%d source %d", event_info->hw_idx,
 		event_info->res_id);
 
 	return 0;
@@ -5753,7 +5753,8 @@ static int cam_ife_hw_mgr_handle_hw_epoch(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "Epoch for VFE source %d", event_info->res_id);
+	CAM_DBG(CAM_ISP, "Epoch for VFE:%d source %d", event_info->hw_idx,
+		event_info->res_id);
 
 	return 0;
 }
@@ -5815,7 +5816,8 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "SOF for VFE source %d", event_info->res_id);
+	CAM_DBG(CAM_ISP, "SOF for VFE:%d source %d", event_info->hw_idx,
+		event_info->res_id);
 
 	return 0;
 }
@@ -5860,7 +5862,7 @@ static int cam_ife_hw_mgr_handle_hw_eof(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "EOF for out_res->res_id: 0x%x",
+	CAM_DBG(CAM_ISP, "EOF for VFE:%d source %d", event_info->hw_idx,
 		event_info->res_id);
 
 	return 0;
@@ -5890,8 +5892,8 @@ static int cam_ife_hw_mgr_handle_hw_buf_done(
 			CAM_ISP_HW_EVENT_DONE, &buf_done_event_data);
 	}
 
-	CAM_DBG(CAM_ISP, "Buf done for out_res->res_id: 0x%x",
-		event_info->res_id);
+	CAM_DBG(CAM_ISP, "Buf done for VFE:%d out_res->res_id: 0x%x",
+		event_info->hw_idx, event_info->res_id);
 
 	return 0;
 }

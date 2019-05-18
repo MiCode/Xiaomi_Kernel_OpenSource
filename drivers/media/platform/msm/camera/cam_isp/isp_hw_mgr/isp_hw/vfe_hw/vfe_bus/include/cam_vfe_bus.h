@@ -79,7 +79,7 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 	struct cam_hw_intf            *hw_intf,
 	void                          *bus_hw_info,
 	void                          *vfe_irq_controller,
-	struct cam_vfe_bus            **vfe_bus);
+	struct cam_vfe_bus           **vfe_bus);
 
 /*
  * cam_vfe_bus_deinit()

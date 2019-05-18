@@ -59,7 +59,7 @@ static int cam_vfe_camif_ver3_get_evt_payload(
 
 	spin_lock(&camif_priv->spin_lock);
 	if (list_empty(&camif_priv->free_payload_list)) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "No free payload");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No free CAMIF event payload");
 		rc = -ENODEV;
 		goto done;
 	}
@@ -107,9 +107,6 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 	struct cam_vfe_top_irq_evt_payload    *evt_payload;
 	bool                                   error_flag = false;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = %x, IRQ status_2 = %x",
-		th_payload->evt_status_arr[0], th_payload->evt_status_arr[2]);
-
 	camif_node = th_payload->handler_priv;
 	camif_priv = camif_node->res_priv;
 	/*
@@ -119,7 +116,7 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 	if (th_payload->evt_status_arr[2] || (th_payload->evt_status_arr[0] &
 		camif_priv->reg_data->error_irq_mask0)) {
 		CAM_ERR(CAM_ISP,
-			"CAMIF Err VFE:%d: IRQ STATUS_0=0x%x STATUS_2=0x%x",
+			"VFE:%d CAMIF Err IRQ status_0: 0x%X status_2: 0x%X",
 			camif_node->hw_intf->hw_idx,
 			th_payload->evt_status_arr[0],
 			th_payload->evt_status_arr[2]);
@@ -133,14 +130,8 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 	}
 
 	rc  = cam_vfe_camif_ver3_get_evt_payload(camif_priv, &evt_payload);
-	if (rc) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue");
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ STATUS_0=0x%x STATUS_2=0x%x",
-			th_payload->evt_status_arr[0],
-			th_payload->evt_status_arr[2]);
+	if (rc)
 		return rc;
-	}
 
 	cam_isp_hw_get_timestamp(&evt_payload->ts);
 
@@ -151,7 +142,7 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 		camif_priv->common_reg->violation_status);
 
 	if (error_flag)
-		CAM_INFO(CAM_ISP, "Violation status = 0x%x",
+		CAM_INFO(CAM_ISP, "Violation status = 0x%X",
 			evt_payload->irq_reg_val[i]);
 
 	th_payload->evt_payload_priv = evt_payload;
@@ -221,7 +212,8 @@ static int cam_vfe_camif_ver3_get_reg_update(
 	rsrc_data = camif_res->res_priv;
 	reg_val_pair[0] = rsrc_data->camif_reg->reg_update_cmd;
 	reg_val_pair[1] = rsrc_data->reg_data->reg_update_cmd_data;
-	CAM_DBG(CAM_ISP, "CAMIF reg_update_cmd 0x%x offset 0x%x",
+	CAM_DBG(CAM_ISP, "VFE:%d CAMIF reg_update_cmd 0x%X offset 0x%X",
+		camif_res->hw_intf->hw_idx,
 		reg_val_pair[1], reg_val_pair[0]);
 
 	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd.cmd_buf_addr,
@@ -262,7 +254,7 @@ int cam_vfe_camif_ver3_acquire_resource(
 	camif_data->event_cb    = acquire_data->event_cb;
 	camif_data->priv        = acquire_data->priv;
 
-	CAM_DBG(CAM_ISP, "hw id:%d pix_pattern:%d dsp_mode=%d",
+	CAM_DBG(CAM_ISP, "VFE:%d CAMIF pix_pattern:%d dsp_mode=%d",
 		camif_res->hw_intf->hw_idx,
 		camif_data->pix_pattern, camif_data->dsp_mode);
 
@@ -389,7 +381,7 @@ static int cam_vfe_camif_ver3_resource_start(
 	val |= (1 << rsrc_data->reg_data->pp_camif_cfg_ife_out_en_shift);
 	cam_io_w_mb(val,
 		rsrc_data->mem_base + rsrc_data->camif_reg->module_cfg);
-	CAM_DBG(CAM_ISP, "write module_cfg val = 0x%x", val);
+	CAM_DBG(CAM_ISP, "write module_cfg val = 0x%X", val);
 
 	val = cam_io_r_mb(rsrc_data->mem_base +
 		rsrc_data->common_reg->core_cfg_0);
@@ -453,11 +445,11 @@ static int cam_vfe_camif_ver3_resource_start(
 		cam_io_w_mb(computed_epoch_line_cfg,
 			rsrc_data->mem_base +
 			rsrc_data->camif_reg->epoch_irq_cfg);
-		CAM_DBG(CAM_ISP, "epoch_line_cfg: 0x%x",
+		CAM_DBG(CAM_ISP, "epoch_line_cfg: 0x%X",
 			computed_epoch_line_cfg);
 		break;
 	default:
-			CAM_ERR(CAM_ISP, "Hardware version not proper: 0x%x",
+			CAM_ERR(CAM_ISP, "Hardware version not proper: 0x%X",
 				soc_private->cpas_version);
 			return -EINVAL;
 		break;
@@ -468,7 +460,8 @@ static int cam_vfe_camif_ver3_resource_start(
 	/* Reg Update */
 	cam_io_w_mb(rsrc_data->reg_data->reg_update_cmd_data,
 		rsrc_data->mem_base + rsrc_data->camif_reg->reg_update_cmd);
-	CAM_DBG(CAM_ISP, "hw id:%d RUP val:0x%x", camif_res->hw_intf->hw_idx,
+	CAM_DBG(CAM_ISP, "VFE:%d CAMIF RUP val:0x%X",
+		camif_res->hw_intf->hw_idx,
 		rsrc_data->reg_data->reg_update_cmd_data);
 
 	/* disable sof irq debug flag */
@@ -518,62 +511,14 @@ static int cam_vfe_camif_ver3_resource_start(
 		}
 	}
 
-	CAM_DBG(CAM_ISP, "Start Camif IFE %d Done", camif_res->hw_intf->hw_idx);
+	CAM_DBG(CAM_ISP, "VFE:%d CAMIF Start Done", camif_res->hw_intf->hw_idx);
 	return 0;
 }
 
 static int cam_vfe_camif_ver3_reg_dump(
-	struct cam_vfe_mux_camif_ver3_data *camif_priv)
-{
-	uint32_t val = 0, wm_idx, offset;
-	int i = 0;
-
-	for (i = 0xA3C; i <= 0xA90; i += 8) {
-		CAM_INFO(CAM_ISP,
-			"SCALING offset 0x%x val 0x%x offset 0x%x val 0x%x",
-			i, cam_io_r_mb(camif_priv->mem_base + i), i + 4,
-			cam_io_r_mb(camif_priv->mem_base + i + 4));
-	}
-
-	for (i = 0xE0C; i <= 0xE3C; i += 4) {
-		val = cam_io_r_mb(camif_priv->mem_base + i);
-		CAM_INFO(CAM_ISP, "offset 0x%x val 0x%x", i, val);
-	}
-
-	for (wm_idx = 0; wm_idx <= 25; wm_idx++) {
-		offset = 0xAC00 + 0x100 * wm_idx;
-		CAM_INFO(CAM_ISP,
-			"BUS_WM%u offset 0x%x val 0x%x offset 0x%x val 0x%x",
-			wm_idx, offset,
-			cam_io_r_mb(camif_priv->mem_base + offset),
-			offset + 4, cam_io_r_mb(camif_priv->mem_base +
-			offset + 4));
-		CAM_INFO(CAM_ISP,
-			"BUS_WM%u offset 0x%x val 0x%x offset 0x%x val 0x%x",
-			wm_idx, offset + 8,
-			cam_io_r_mb(camif_priv->mem_base + offset + 8),
-			offset + 12, cam_io_r_mb(camif_priv->mem_base +
-			offset + 12));
-	}
-
-	offset = 0x420;
-	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
-	CAM_INFO(CAM_ISP, "CAMNOC IFE02 MaxWR_LOW offset 0x%x value 0x%x",
-		offset, val);
-
-	offset = 0x820;
-	val = cam_soc_util_r(camif_priv->soc_info, 1, offset);
-	CAM_INFO(CAM_ISP, "CAMNOC IFE13 MaxWR_LOW offset 0x%x value 0x%x",
-		offset, val);
-
-	return 0;
-}
-
-static int cam_vfe_camif_ver3_reg_dump_bh(
 	struct cam_isp_resource_node *camif_res)
 {
 	struct cam_vfe_mux_camif_ver3_data *camif_priv;
-	struct cam_vfe_soc_private *soc_private;
 	uint32_t offset, val, wm_idx;
 
 	if (!camif_res) {
@@ -586,50 +531,58 @@ static int cam_vfe_camif_ver3_reg_dump_bh(
 		return 0;
 
 	camif_priv = (struct cam_vfe_mux_camif_ver3_data *)camif_res->res_priv;
-	for (offset = 0x0; offset < 0x1000; offset += 0x4) {
+
+	CAM_INFO(CAM_ISP, "IFE:%d TOP", camif_res->hw_intf->hw_idx);
+	for (offset = 0x0; offset <= 0x1FC; offset += 0x4) {
+		if (offset == 0x1C || offset == 0x34 ||
+			offset == 0x38 || offset == 0x90)
+			continue;
 		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-		CAM_DBG(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+		CAM_INFO(CAM_ISP, "offset 0x%X value 0x%X", offset, val);
 	}
 
+	CAM_INFO(CAM_ISP, "IFE:%d PP CLC PREPROCESS",
+		camif_res->hw_intf->hw_idx);
+	for (offset = 0x2200; offset <= 0x23FC; offset += 0x4) {
+		if (offset == 0x2208)
+			offset = 0x2260;
+		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+		CAM_INFO(CAM_ISP, "offset 0x%X value 0x%X", offset, val);
+		if (offset == 0x2260)
+			offset = 0x23F4;
+	}
+
+	CAM_INFO(CAM_ISP, "IFE:%d PP CLC CAMIF", camif_res->hw_intf->hw_idx);
+	for (offset = 0x2600; offset <= 0x27FC; offset += 0x4) {
+		if (offset == 0x2608)
+			offset = 0x2660;
+		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+		CAM_INFO(CAM_ISP, "offset 0x%X value 0x%X", offset, val);
+		if (offset == 0x2660)
+			offset = 0x2664;
+		else if (offset == 0x2680)
+			offset = 0x27EC;
+	}
+
+	CAM_INFO(CAM_ISP, "IFE:%d PP CLC Modules", camif_res->hw_intf->hw_idx);
+	for (offset = 0x2800; offset <= 0x8FFC; offset += 0x4) {
+		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
+		CAM_INFO(CAM_ISP, "offset 0x%X value 0x%X", offset, val);
+	}
+
+	CAM_INFO(CAM_ISP, "IFE:%d BUS WR", camif_res->hw_intf->hw_idx);
 	for (offset = 0xAA00; offset <= 0xAADC; offset += 0x4) {
 		val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-		CAM_DBG(CAM_ISP, "offset 0x%x value 0x%x", offset, val);
+		CAM_DBG(CAM_ISP, "offset 0x%X value 0x%X", offset, val);
 	}
 
 	for (wm_idx = 0; wm_idx <= 25; wm_idx++) {
 		for (offset = 0xAC00 + 0x100 * wm_idx;
 			offset < 0xAC84 + 0x100 * wm_idx; offset += 0x4) {
 			val = cam_soc_util_r(camif_priv->soc_info, 0, offset);
-			CAM_DBG(CAM_ISP,
-				"offset 0x%x value 0x%x", offset, val);
+			CAM_INFO(CAM_ISP, "offset 0x%X value 0x%X",
+				offset, val);
 		}
-	}
-
-	soc_private = camif_priv->soc_info->soc_private;
-	if (soc_private->cpas_version == CAM_CPAS_TITAN_175_V120 ||
-		soc_private->cpas_version == CAM_CPAS_TITAN_175_V130) {
-		cam_cpas_reg_read(soc_private->cpas_handle,
-			CAM_CPAS_REG_CAMNOC, 0x3A20, true, &val);
-		CAM_DBG(CAM_ISP, "IFE0_nRDI_MAXWR_LOW offset 0x3A20 val 0x%x",
-			val);
-
-		cam_cpas_reg_read(soc_private->cpas_handle,
-			CAM_CPAS_REG_CAMNOC, 0x5420, true, &val);
-		CAM_DBG(CAM_ISP, "IFE1_nRDI_MAXWR_LOW offset 0x5420 val 0x%x",
-			val);
-
-		cam_cpas_reg_read(soc_private->cpas_handle,
-			CAM_CPAS_REG_CAMNOC, 0x3620, true, &val);
-		CAM_DBG(CAM_ISP,
-			"IFE0123_RDI_WR_MAXWR_LOW offset 0x3620 val 0x%x", val);
-	} else {
-		cam_cpas_reg_read(soc_private->cpas_handle,
-			CAM_CPAS_REG_CAMNOC, 0x420, true, &val);
-		CAM_DBG(CAM_ISP, "IFE02_MAXWR_LOW offset 0x420 val 0x%x", val);
-
-		cam_cpas_reg_read(soc_private->cpas_handle,
-			CAM_CPAS_REG_CAMNOC, 0x820, true, &val);
-		CAM_DBG(CAM_ISP, "IFE13_MAXWR_LOW offset 0x820 val 0x%x", val);
 	}
 
 	return 0;
@@ -760,9 +713,6 @@ static int cam_vfe_camif_ver3_process_cmd(
 		rc = cam_vfe_camif_ver3_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;
-	case CAM_ISP_HW_CMD_GET_REG_DUMP:
-		rc = cam_vfe_camif_ver3_reg_dump_bh(rsrc_node);
-		break;
 	case CAM_ISP_HW_CMD_SOF_IRQ_DEBUG:
 		rc = cam_vfe_camif_ver3_sof_irq_debug(rsrc_node, cmd_args);
 		break;
@@ -783,86 +733,165 @@ static int cam_vfe_camif_ver3_process_cmd(
 	return rc;
 }
 
-static void cam_vfe_camif_ver3_print_status(uint32_t val,
-	uint32_t violation_status, int ret)
+static void cam_vfe_camif_ver3_print_status(uint32_t *status,
+	int err_type)
 {
-	uint32_t violation_mask = 0x3F;
-	uint32_t module_id;
+	uint32_t violation_mask = 0x3F, module_id = 0;
+	uint32_t bus_overflow_status = 0, status_0 = 0, status_2 = 0;
 
-	if (ret == CAM_VFE_IRQ_STATUS_OVERFLOW) {
-		if (val & 0x0200)
+	if (!status) {
+		CAM_ERR(CAM_ISP, "Invalid params");
+		return;
+	}
+
+	bus_overflow_status = status[CAM_IFE_IRQ_REGISTERS_MAX];
+	status_0 = status[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
+	status_2 = status[CAM_IFE_IRQ_CAMIF_REG_STATUS2];
+
+	if (err_type == CAM_VFE_IRQ_STATUS_OVERFLOW) {
+		if (status_0 & 0x0200)
 			CAM_INFO(CAM_ISP, "DSP OVERFLOW");
 
-		if (val & 0x2000000)
+		if (status_0 & 0x2000000)
 			CAM_INFO(CAM_ISP, "PIXEL PIPE FRAME DROP");
 
-		if (val & 0x80000000)
+		if (status_0 & 0x80000000)
 			CAM_INFO(CAM_ISP, "PIXEL PIPE OVERFLOW");
 	}
 
-	if (ret == CAM_VFE_IRQ_STATUS_VIOLATION) {
+	if (err_type == CAM_VFE_IRQ_STATUS_OVERFLOW && bus_overflow_status) {
+		if (bus_overflow_status & 0x01)
+			CAM_INFO(CAM_ISP, "VID Y 1:1 BUS OVERFLOW");
 
-		if (val & 0x080)
+		if (bus_overflow_status & 0x02)
+			CAM_INFO(CAM_ISP, "VID C 1:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x04)
+			CAM_INFO(CAM_ISP, "VID YC 4:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x08)
+			CAM_INFO(CAM_ISP, "VID YC 16:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x010)
+			CAM_INFO(CAM_ISP, "DISP Y 1:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x020)
+			CAM_INFO(CAM_ISP, "DISP C 1:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x040)
+			CAM_INFO(CAM_ISP, "DISP YC 4:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x080)
+			CAM_INFO(CAM_ISP, "DISP YC 16:1 BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x0100)
+			CAM_INFO(CAM_ISP, "FD Y BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x0200)
+			CAM_INFO(CAM_ISP, "FD C BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x0400)
+			CAM_INFO(CAM_ISP, "PIXEL RAW DUMP BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x01000)
+			CAM_INFO(CAM_ISP, "STATS HDR BE BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x02000)
+			CAM_INFO(CAM_ISP, "STATS HDR BHIST BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x04000)
+			CAM_INFO(CAM_ISP, "STATS TINTLESS BG BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x08000)
+			CAM_INFO(CAM_ISP, "STATS AWB BG BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x010000)
+			CAM_INFO(CAM_ISP, "STATS BHIST BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x020000)
+			CAM_INFO(CAM_ISP, "STATS RS BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x040000)
+			CAM_INFO(CAM_ISP, "STATS CS BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x080000)
+			CAM_INFO(CAM_ISP, "STATS IHIST BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x0100000)
+			CAM_INFO(CAM_ISP, "STATS BAF BUS OVERFLOW");
+
+		if (bus_overflow_status & 0x0200000)
+			CAM_INFO(CAM_ISP, "PDAF BUS OVERFLOW");
+
+		return;
+	}
+
+	if (err_type == CAM_VFE_IRQ_STATUS_OVERFLOW && !bus_overflow_status) {
+		CAM_INFO(CAM_ISP, "PIXEL PIPE Module hang");
+		/* print debug registers */
+		return;
+	}
+
+	if (err_type == CAM_VFE_IRQ_STATUS_VIOLATION) {
+		if (status_2 & 0x080)
 			CAM_INFO(CAM_ISP, "DSP IFE PROTOCOL VIOLATION");
 
-		if (val & 0x0100)
+		if (status_2 & 0x0100)
 			CAM_INFO(CAM_ISP, "IFE DSP TX PROTOCOL VIOLATION");
 
-		if (val & 0x0200)
+		if (status_2 & 0x0200)
 			CAM_INFO(CAM_ISP, "DSP IFE RX PROTOCOL VIOLATION");
 
-		if (val & 0x0400)
+		if (status_2 & 0x0400)
 			CAM_INFO(CAM_ISP, "PP PREPROCESS VIOLATION");
 
-		if (val & 0x0800)
+		if (status_2 & 0x0800)
 			CAM_INFO(CAM_ISP, "PP CAMIF VIOLATION");
 
-		if (val & 0x01000)
+		if (status_2 & 0x01000)
 			CAM_INFO(CAM_ISP, "PP VIOLATION");
 
-		if (val & 0x0100000)
+		if (status_2 & 0x0100000)
 			CAM_INFO(CAM_ISP,
 				"DSP_TX_VIOLATION:overflow on DSP interface TX path FIFO");
 
-		if (val & 0x0200000)
+		if (status_2 & 0x0200000)
 			CAM_INFO(CAM_ISP,
 			"DSP_RX_VIOLATION:overflow on DSP interface RX path FIFO");
 
-		if (val & 0x10000000)
+		if (status_2 & 0x10000000)
 			CAM_INFO(CAM_ISP, "DSP ERROR VIOLATION");
 
-		if (val & 0x20000000)
+		if (status_2 & 0x20000000)
 			CAM_INFO(CAM_ISP,
 				"DIAG VIOLATION: HBI is less than the minimum required HBI");
 	}
 
-	if (violation_mask & violation_status) {
-		CAM_INFO(CAM_ISP, "PP VIOLATION, module = %d",
-			violation_mask & violation_status);
-		module_id = violation_mask & violation_status;
+	if (err_type == CAM_VFE_IRQ_STATUS_VIOLATION &&
+		status[CAM_IFE_IRQ_VIOLATION_STATUS]) {
+		module_id =
+			violation_mask & status[CAM_IFE_IRQ_VIOLATION_STATUS];
+		CAM_INFO(CAM_ISP, "PIXEL PIPE VIOLATION Module ID:%d",
+			module_id);
+
 		switch (module_id) {
 		case 0:
-			CAM_INFO(CAM_ISP, "Demux");
+			CAM_INFO(CAM_ISP, "DEMUX");
 			break;
 		case 1:
-			CAM_INFO(CAM_ISP,
-				"CHROMA_UP");
+			CAM_INFO(CAM_ISP, "CHROMA_UP");
 			break;
 		case 2:
-			CAM_INFO(CAM_ISP,
-				"PEDESTAL");
+			CAM_INFO(CAM_ISP, "PEDESTAL");
 			break;
 		case 3:
-			CAM_INFO(CAM_ISP,
-				"LINEARIZATION");
+			CAM_INFO(CAM_ISP, "LINEARIZATION");
 			break;
 		case 4:
-			CAM_INFO(CAM_ISP,
-				"BPC_PDPC");
+			CAM_INFO(CAM_ISP, "BPC_PDPC");
 			break;
 		case 5:
-			CAM_INFO(CAM_ISP,
-				"HDR_BINCORRECT");
+			CAM_INFO(CAM_ISP, "HDR_BINCORRECT");
 			break;
 		case 6:
 			CAM_INFO(CAM_ISP, "ABF");
@@ -874,8 +903,7 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 			CAM_INFO(CAM_ISP, "DEMOSAIC");
 			break;
 		case 9:
-			CAM_INFO(CAM_ISP,
-				"COLOR_CORRECT");
+			CAM_INFO(CAM_ISP, "COLOR_CORRECT");
 			break;
 		case 10:
 			CAM_INFO(CAM_ISP, "GTM");
@@ -884,20 +912,16 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 			CAM_INFO(CAM_ISP, "GLUT");
 			break;
 		case 12:
-			CAM_INFO(CAM_ISP,
-				"COLOR_XFORM");
+			CAM_INFO(CAM_ISP, "COLOR_XFORM");
 			break;
 		case 13:
-			CAM_INFO(CAM_ISP,
-				"CROP_RND_CLAMP_PIXEL_RAW_OUT");
+			CAM_INFO(CAM_ISP, "CROP_RND_CLAMP_PIXEL_RAW_OUT");
 			break;
 		case 14:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_Y_FD_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_Y_FD_OUT");
 			break;
 		case 15:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_C_FD_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_C_FD_OUT");
 			break;
 		case 16:
 			CAM_INFO(CAM_ISP,
@@ -908,12 +932,10 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_C_FD_OUT");
 			break;
 		case 18:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_Y_DISP_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_Y_DISP_OUT");
 			break;
 		case 19:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_C_DISP_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_C_DISP_OUT");
 			break;
 		case 20:
 			CAM_INFO(CAM_ISP,
@@ -924,12 +946,10 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 				"CROP_RND_CLAMP_POST_DOWNSCALE_MN_C_DISP_OUT");
 			break;
 		case 22:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_4TO1_Y_DISP_DS4_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_4TO1_Y_DISP_DS4_OUT");
 			break;
 		case 23:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_4TO1_C_DISP_DS4_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_4TO1_C_DISP_DS4_OUT");
 			break;
 		case 24:
 			CAM_INFO(CAM_ISP,
@@ -940,12 +960,10 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_C_DISP_DS4_OUT");
 			break;
 		case 26:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_4TO1_Y_DISP_DS16_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_4TO1_Y_DISP_DS16_OUT");
 			break;
 		case 27:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_4TO1_C_DISP_DS16_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_4TO1_C_DISP_DS16_OUT");
 			break;
 		case 28:
 			CAM_INFO(CAM_ISP,
@@ -956,12 +974,10 @@ static void cam_vfe_camif_ver3_print_status(uint32_t val,
 				"CROP_RND_CLAMP_POST_DOWNSCALE_4TO1_C_DISP_DS16_OUT");
 			break;
 		case 30:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_Y_VID_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_Y_VID_OUT");
 			break;
 		case 31:
-			CAM_INFO(CAM_ISP,
-				"DOWNSCALE_MN_C_VID_OUT");
+			CAM_INFO(CAM_ISP, "DOWNSCALE_MN_C_VID_OUT");
 			break;
 		case 32:
 			CAM_INFO(CAM_ISP,
@@ -1051,18 +1067,17 @@ static int cam_vfe_camif_ver3_handle_irq_top_half(uint32_t evt_id,
 	camif_node = th_payload->handler_priv;
 	camif_priv = camif_node->res_priv;
 
-	CAM_DBG(CAM_ISP, "IRQ status_0 = 0x%x", th_payload->evt_status_arr[0]);
-	CAM_DBG(CAM_ISP, "IRQ status_1 = 0x%x", th_payload->evt_status_arr[1]);
-	CAM_DBG(CAM_ISP, "IRQ status_2 = 0x%x", th_payload->evt_status_arr[2]);
+	CAM_DBG(CAM_ISP,
+		"VFE:%d CAMIF IRQ status_0: 0x%X status_1: 0x%X status_2: 0x%X",
+		camif_node->hw_intf->hw_idx, th_payload->evt_status_arr[0],
+		th_payload->evt_status_arr[1], th_payload->evt_status_arr[2]);
 
 	rc  = cam_vfe_camif_ver3_get_evt_payload(camif_priv, &evt_payload);
 	if (rc) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "No tasklet_cmd is free in queue");
-		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"IRQ status_0: 0x%x status_1 : 0x%x status_2: 0x%x",
-			th_payload->evt_status_arr[0],
-			th_payload->evt_status_arr[1],
-			th_payload->evt_status_arr[2]);
+		CAM_INFO_RATE_LIMIT(CAM_ISP,
+		"VFE:%d CAMIF IRQ status_0: 0x%X status_1: 0x%X status_2: 0x%X",
+		camif_node->hw_intf->hw_idx, th_payload->evt_status_arr[0],
+		th_payload->evt_status_arr[1], th_payload->evt_status_arr[2]);
 		return rc;
 	}
 
@@ -1085,8 +1100,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 	struct cam_vfe_mux_camif_ver3_data *camif_priv;
 	struct cam_vfe_top_irq_evt_payload *payload;
 	struct cam_isp_hw_event_info evt_info;
-	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX];
-	uint32_t val;
+	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX + 1] = {0};
 	int i = 0;
 
 	if (!handler_priv || !evt_payload_priv) {
@@ -1099,6 +1113,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 	camif_node = handler_priv;
 	camif_priv = camif_node->res_priv;
 	payload = evt_payload_priv;
+
 	for (i = 0; i < CAM_IFE_IRQ_REGISTERS_MAX; i++)
 		irq_status[i] = payload->irq_reg_val[i];
 
@@ -1111,7 +1126,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		if ((camif_priv->enable_sof_irq_debug) &&
 			(camif_priv->irq_debug_cnt <=
 			CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX)) {
-			CAM_INFO_RATE_LIMIT(CAM_ISP, "Received SOF");
+			CAM_INFO_RATE_LIMIT(CAM_ISP, "VFE:%d Received SOF",
+				evt_info.hw_idx);
 
 			camif_priv->irq_debug_cnt++;
 			if (camif_priv->irq_debug_cnt ==
@@ -1121,7 +1137,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 				camif_priv->irq_debug_cnt = 0;
 			}
 		} else
-			CAM_DBG(CAM_ISP, "Received SOF");
+			CAM_DBG(CAM_ISP, "VFE:%d Received SOF",
+				evt_info.hw_idx);
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
@@ -1132,7 +1149,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 
 	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
 		& camif_priv->reg_data->epoch0_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EPOCH");
+		CAM_DBG(CAM_ISP, "VFE:%d Received EPOCH", evt_info.hw_idx);
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
@@ -1143,7 +1160,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 
 	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS1]
 		& camif_priv->reg_data->eof_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EOF");
+		CAM_DBG(CAM_ISP, "VFE:%d Received EOF", evt_info.hw_idx);
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
@@ -1154,110 +1171,44 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 
 	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
 		& camif_priv->reg_data->error_irq_mask0) {
-		CAM_ERR(CAM_ISP, "VFE Overflow");
+		CAM_ERR(CAM_ISP, "VFE:%d Overflow", evt_info.hw_idx);
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
-		val = cam_io_r(camif_priv->mem_base +
+		irq_status[CAM_IFE_IRQ_REGISTERS_MAX] =
+			cam_io_r(camif_priv->mem_base +
 			camif_priv->common_reg->bus_overflow_status);
 
-		if (val) {
-
-			if (val & 0x01)
-				CAM_INFO(CAM_ISP, "VID Y 1:1 bus overflow");
-
-			if (val & 0x02)
-				CAM_INFO(CAM_ISP, "VID C 1:1 bus overflow");
-
-			if (val & 0x04)
-				CAM_INFO(CAM_ISP, "VID YC 4:1 bus overflow");
-
-			if (val & 0x08)
-				CAM_INFO(CAM_ISP, "VID YC 16:1 bus overflow");
-
-			if (val & 0x010)
-				CAM_INFO(CAM_ISP, "DISP Y 1:1 bus overflow");
-
-			if (val & 0x020)
-				CAM_INFO(CAM_ISP, "DISP C 1:1 bus overflow");
-
-			if (val & 0x040)
-				CAM_INFO(CAM_ISP, "DISP YC 4:1 bus overflow");
-
-			if (val & 0x080)
-				CAM_INFO(CAM_ISP, "DISP YC 16:1 bus overflow");
-
-			if (val & 0x0100)
-				CAM_INFO(CAM_ISP, "FD Y bus overflow");
-
-			if (val & 0x0200)
-				CAM_INFO(CAM_ISP, "FD C bus overflow");
-
-			if (val & 0x0400)
-				CAM_INFO(CAM_ISP,
-				"PIXEL RAW DUMP bus overflow");
-
-			if (val & 0x01000)
-				CAM_INFO(CAM_ISP, "STATS HDR BE bus overflow");
-
-			if (val & 0x02000)
-				CAM_INFO(CAM_ISP,
-				"STATS HDR BHIST bus overflow");
-
-			if (val & 0x04000)
-				CAM_INFO(CAM_ISP,
-				"STATS TINTLESS BG bus overflow");
-
-			if (val & 0x08000)
-				CAM_INFO(CAM_ISP, "STATS AWB BG bus overflow");
-
-			if (val & 0x010000)
-				CAM_INFO(CAM_ISP, "STATS BHIST bus overflow");
-
-			if (val & 0x020000)
-				CAM_INFO(CAM_ISP, "STATS RS bus overflow");
-
-			if (val & 0x040000)
-				CAM_INFO(CAM_ISP, "STATS CS bus overflow");
-
-			if (val & 0x080000)
-				CAM_INFO(CAM_ISP, "STATS IHIST bus overflow");
-
-			if (val & 0x0100000)
-				CAM_INFO(CAM_ISP, "STATS BAF bus overflow");
-
-			if (val & 0x0200000)
-				CAM_INFO(CAM_ISP, "PDAF bus overflow");
-		}
-
 		ret = CAM_VFE_IRQ_STATUS_OVERFLOW;
-		cam_vfe_camif_ver3_print_status(
-			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS0],
-			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret);
-		cam_vfe_camif_ver3_reg_dump(camif_node->res_priv);
+
+		cam_vfe_camif_ver3_print_status(irq_status, ret);
+
+		if (camif_priv->camif_debug & CAMIF_DEBUG_ENABLE_REG_DUMP)
+			cam_vfe_camif_ver3_reg_dump(camif_node);
 	}
 
 	if (irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2]) {
-		CAM_ERR(CAM_ISP, "VFE Violation");
+		CAM_ERR(CAM_ISP, "VFE:%d Violation", evt_info.hw_idx);
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
 		ret = CAM_VFE_IRQ_STATUS_VIOLATION;
-		cam_vfe_camif_ver3_print_status(
-			irq_status[CAM_IFE_IRQ_CAMIF_REG_STATUS2],
-			irq_status[CAM_IFE_IRQ_VIOLATION_STATUS], ret);
-		cam_vfe_camif_ver3_reg_dump(camif_node->res_priv);
+
+		cam_vfe_camif_ver3_print_status(irq_status, ret);
+
+		if (camif_priv->camif_debug & CAMIF_DEBUG_ENABLE_REG_DUMP)
+			cam_vfe_camif_ver3_reg_dump(camif_node);
 	}
 
 	if (camif_priv->camif_debug & CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS) {
-		val = cam_io_r(camif_priv->mem_base +
-			camif_priv->common_reg->diag_sensor_status_0);
-		CAM_DBG(CAM_ISP, "VFE_DIAG_SENSOR_STATUS: 0x%x",
-			camif_priv->mem_base, val);
+		CAM_DBG(CAM_ISP, "VFE:%d VFE_DIAG_SENSOR_STATUS: 0x%X",
+			evt_info.hw_idx, camif_priv->mem_base,
+			cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->diag_sensor_status_0));
 	}
 
 	cam_vfe_camif_ver3_put_evt_payload(camif_priv, &payload);

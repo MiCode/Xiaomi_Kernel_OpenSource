@@ -599,6 +599,7 @@ int cam_vfe_top_ver3_reset(void *device_priv,
 {
 	struct cam_vfe_top_ver3_priv   *top_priv = device_priv;
 	struct cam_hw_soc_info         *soc_info = NULL;
+	struct cam_vfe_soc_private     *soc_private = NULL;
 	struct cam_vfe_top_ver3_reg_offset_common *reg_common = NULL;
 	uint32_t *reset_reg_args = reset_core_args;
 	uint32_t reset_reg_val;
@@ -611,25 +612,28 @@ int cam_vfe_top_ver3_reset(void *device_priv,
 	soc_info = top_priv->common_data.soc_info;
 	reg_common = top_priv->common_data.common_reg;
 
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Invalid soc_private");
+		return -ENODEV;
+	}
+
 	switch (*reset_reg_args) {
 	case CAM_VFE_HW_RESET_HW_AND_REG:
-		if (strnstr(soc_info->compatible, "lite",
-			strlen(soc_info->compatible)) == NULL)
+		if (!soc_private->is_ife_lite)
 			reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
 		else
 			reset_reg_val = CAM_VFE_LITE_HW_RESET_AND_REG_VAL;
 		break;
 	default:
-		if (strnstr(soc_info->compatible, "lite",
-			strlen(soc_info->compatible)) == NULL)
+		if (!soc_private->is_ife_lite)
 			reset_reg_val = CAM_VFE_HW_RESET_HW_VAL;
 		else
 			reset_reg_val = CAM_VFE_LITE_HW_RESET_HW_VAL;
 		break;
 	}
 	/* override due to hw limitation */
-	if (strnstr(soc_info->compatible, "lite",
-		strlen(soc_info->compatible)) == NULL)
+	if (!soc_private->is_ife_lite)
 		reset_reg_val = CAM_VFE_HW_RESET_HW_AND_REG_VAL;
 	else
 		reset_reg_val = CAM_VFE_LITE_HW_RESET_AND_REG_VAL;
@@ -637,8 +641,7 @@ int cam_vfe_top_ver3_reset(void *device_priv,
 	CAM_DBG(CAM_ISP, "reset reg value: 0x%x", reset_reg_val);
 
 	/* Mask All the IRQs except RESET */
-	if (strnstr(soc_info->compatible, "lite",
-			strlen(soc_info->compatible)) == NULL)
+	if (!soc_private->is_ife_lite)
 		cam_io_w_mb(0x00000001,
 			CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX)
 			+ 0x3C);
@@ -674,7 +677,7 @@ int cam_vfe_top_ver3_reserve(void *device_priv,
 	args = (struct cam_vfe_acquire_args *)reserve_args;
 	acquire_args = &args->vfe_in;
 
-	CAM_INFO(CAM_ISP, "res id %d", acquire_args->res_id);
+	CAM_DBG(CAM_ISP, "res id %d", acquire_args->res_id);
 
 
 	for (i = 0; i < CAM_VFE_TOP_VER3_MUX_MAX; i++) {
