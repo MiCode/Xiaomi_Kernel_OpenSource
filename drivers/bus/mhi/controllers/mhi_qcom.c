@@ -700,6 +700,8 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->lpm_disable = mhi_lpm_disable;
 	mhi_cntrl->lpm_enable = mhi_lpm_enable;
 	mhi_cntrl->time_get = mhi_time_get;
+	mhi_cntrl->remote_timer_freq = 19200000;
+	mhi_cntrl->local_timer_freq = 19200000;
 
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
