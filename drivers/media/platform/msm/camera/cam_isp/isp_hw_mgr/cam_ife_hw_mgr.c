@@ -2161,7 +2161,7 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 
 	in_port_length = sizeof(struct cam_isp_in_port_info_v2) +
 		(in->num_out_res - 1) *
-		sizeof(struct cam_isp_out_port_info);
+		sizeof(struct cam_isp_out_port_info_v2);
 
 	*input_size += in_port_length;
 
