@@ -6651,38 +6651,40 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("ipa q6 smem size = %u\n", ipa_smem_size);
 	}
 
-	/* map SMEM memory for IPA table accesses */
-	ret = qcom_smem_alloc(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		ipa_smem_size);
+	if (ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ) {
+		/* map SMEM memory for IPA table accesses */
+		ret = qcom_smem_alloc(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			ipa_smem_size);
 
-	if (ret < 0 && ret != -EEXIST) {
-		IPAERR("unable to allocate smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
-	}
-	smem_addr = qcom_smem_get(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		&smem_size);
-	if (IS_ERR(smem_addr)) {
-		IPAERR("unable to acquire smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
-	}
-	if (smem_size != ipa_smem_size)
-		IPAERR("unexpected read q6 smem size %zu %u\n",
-			smem_size, ipa_smem_size);
+		if (ret < 0 && ret != -EEXIST) {
+			IPAERR("unable to allocate smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		smem_addr = qcom_smem_get(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			&smem_size);
+		if (IS_ERR(smem_addr)) {
+			IPAERR("unable to acquire smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		if (smem_size != ipa_smem_size)
+			IPAERR("unexpected read q6 smem size %zu %u\n",
+				smem_size, ipa_smem_size);
 
-	iova = qcom_smem_virt_to_phys(smem_addr);
-	pa = iova;
+		iova = qcom_smem_virt_to_phys(smem_addr);
+		pa = iova;
 
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->iommu_domain,
+		ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE);
+	}
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 
