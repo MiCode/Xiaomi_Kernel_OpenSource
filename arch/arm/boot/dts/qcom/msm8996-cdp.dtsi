@@ -14,7 +14,7 @@
 #include "msm8996-camera-sensor-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 
-/ {
+&vendor {
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */

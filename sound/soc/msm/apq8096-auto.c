@@ -48,6 +48,8 @@
 #define SAMPLING_RATE_192KHZ    192000
 #define SAMPLING_RATE_384KHZ    384000
 
+#define ADSP_STATE_READY_TIMEOUT_MS 10000
+
 static int hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_auxpcm_rate = SAMPLING_RATE_8KHZ;
 static int msm_hdmi_rx_ch = 2;
@@ -7678,6 +7680,33 @@ static struct platform_driver apq8096_asoc_machine_dummy_driver = {
 	.remove = dummy_machine_remove,
 };
 
+static int apq8096_is_adsp_ready(void)
+{
+	int adsp_ready = 0;
+	unsigned long timeout;
+
+	timeout = jiffies +
+	  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
+	do {
+		if (!q6core_is_adsp_ready()) {
+			pr_err_ratelimited("%s: ADSP Audio isn't ready\n",
+					   __func__);
+			/*
+			 * ADSP will be coming up after subsystem restart and
+			 * it might not be fully up when the control reaches
+			 * here. So, wait for 50msec before checking ADSP state
+			 */
+			msleep(50);
+		} else {
+			pr_debug("%s: ADSP Audio is ready\n", __func__);
+			adsp_ready = 1;
+			break;
+		}
+	} while (time_after(timeout, jiffies));
+
+	return adsp_ready;
+}
+
 static int  apq8096_adsp_state_callback(struct notifier_block *nb,
 					unsigned long value, void *priv)
 {
@@ -7689,6 +7718,11 @@ static int  apq8096_adsp_state_callback(struct notifier_block *nb,
 	if (sndcard) {
 		switch (value) {
 		case SUBSYS_AFTER_POWERUP:
+			if (!apq8096_is_adsp_ready()) {
+				pr_err("%s: timed out waiting for ADSP\n", __func__);
+				return -ETIMEDOUT;
+			}
+
 			pr_debug("%s:SSR complete, set sndcard state as ONLINE\n",
 				__func__);
 			snd_soc_card_change_online_state(sndcard, 1);

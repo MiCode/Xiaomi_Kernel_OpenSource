@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,8 @@
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
 #include "adreno_dispatch.h"
+
+#include <soc/qcom/boot_stats.h>
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "adreno."
@@ -1035,6 +1037,9 @@ static int adreno_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+
+	place_marker("M - DRIVER GPU Ready");
+
 out:
 	if (status) {
 		adreno_ringbuffer_close(adreno_dev);

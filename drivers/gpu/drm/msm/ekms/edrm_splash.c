@@ -32,38 +32,6 @@
 #define SDE_EXIT_VALUE		0xDEADBEEF
 #define SDE_LK_IMMEDIATE_STOP_VALUE	0xFEFEFEFE
 
-/**
- * edrm_splash_notify_lk_stop_splash.
- *
- * Function to stop early splash in LK.
- */
-void edrm_splash_notify_lk_stop_splash(struct msm_kms *kms)
-{
-	request_early_service_shutdown(EARLY_DISPLAY);
-}
-
-/**
- * edrm_splash_poll_lk_stop_splash.
- *
- * Function to poll for early splash stop in LK.
- */
-void edrm_splash_poll_lk_stop_splash(struct msm_kms *kms)
-{
-	int i = 0;
-	struct msm_edrm_kms *edrm_kms = to_edrm_kms(kms);
-
-	/* each read may wait up to 10000us, worst case polling is 4 sec */
-	while (i < 400) {
-		/* read LK status from scratch register*/
-		if (!get_early_service_status(EARLY_DISPLAY)) {
-			edrm_kms->lk_running_flag = false;
-			break;
-		}
-		usleep_range(8000, 10000);
-		i++;
-	}
-}
-
 /*
  * Below function will indicate early display exited or not started.
  */

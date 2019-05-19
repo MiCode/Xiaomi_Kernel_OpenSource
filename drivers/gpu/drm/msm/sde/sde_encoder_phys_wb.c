@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -767,6 +767,22 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 }
 
 /**
+ * sde_encoder_phys_wb_post_disable - post disable writeback encoder
+ * @phys_enc:	Pointer to physical encoder
+ */
+static void sde_encoder_phys_wb_post_disable(
+		struct sde_encoder_phys *phys_enc)
+{
+	if (!phys_enc || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid encoder %d\n", phys_enc != NULL);
+		return;
+	}
+
+	if (phys_enc->hw_ctl->ops.clear_intf_cfg)
+		phys_enc->hw_ctl->ops.clear_intf_cfg(phys_enc->hw_ctl);
+}
+
+/**
  * sde_encoder_phys_wb_get_hw_resources - get hardware resources
  * @phys_enc:	Pointer to physical encoder
  * @hw_res:	Pointer to encoder resources
@@ -903,6 +919,7 @@ static void sde_encoder_phys_wb_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->mode_set = sde_encoder_phys_wb_mode_set;
 	ops->enable = sde_encoder_phys_wb_enable;
 	ops->disable = sde_encoder_phys_wb_disable;
+	ops->post_disable = sde_encoder_phys_wb_post_disable;
 	ops->destroy = sde_encoder_phys_wb_destroy;
 	ops->atomic_check = sde_encoder_phys_wb_atomic_check;
 	ops->get_hw_resources = sde_encoder_phys_wb_get_hw_resources;

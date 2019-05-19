@@ -774,6 +774,18 @@ int cnss_power_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_power_down);
 
+int cnss_idle_restart(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_restart);
+
+int cnss_idle_shutdown(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_idle_shutdown);
+
 static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1178,6 +1190,41 @@ int cnss_force_fw_assert(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_force_fw_assert);
+
+int cnss_force_collect_rddm(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret = 0;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
+		cnss_pr_info("Force collect rddm is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+		cnss_pr_info("Recovery is already in progress, ignore forced collect rddm\n");
+		return 0;
+	}
+
+	cnss_driver_event_post(plat_priv,
+			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
+			       0, NULL);
+
+	reinit_completion(&plat_priv->rddm_complete);
+	ret = wait_for_completion_timeout
+		(&plat_priv->rddm_complete,
+		 msecs_to_jiffies(CNSS_RDDM_TIMEOUT_MS));
+	if (!ret)
+		ret = -ETIMEDOUT;
+
+	return ret;
+}
+EXPORT_SYMBOL(cnss_force_collect_rddm);
 
 static int cnss_wlfw_server_arrive_hdlr(struct cnss_plat_data *plat_priv)
 {
@@ -1928,6 +1975,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 			    ret);
 
 	init_completion(&plat_priv->power_up_complete);
+	init_completion(&plat_priv->rddm_complete);
 	mutex_init(&plat_priv->dev_lock);
 
 	cnss_pr_info("Platform driver probed successfully.\n");
@@ -1967,6 +2015,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	complete_all(&plat_priv->rddm_complete);
 	complete_all(&plat_priv->power_up_complete);
 	device_init_wakeup(&plat_dev->dev, false);
 	unregister_pm_notifier(&cnss_pm_notifier);

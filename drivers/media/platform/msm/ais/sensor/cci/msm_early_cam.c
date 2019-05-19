@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,6 +161,19 @@ int msm_ais_enable_clocks(void)
 			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
+	if ((new_early_cam_dev->pdev == NULL) ||
+		(new_early_cam_dev->early_cam_clk_info == NULL) ||
+		(new_early_cam_dev->early_cam_clk == NULL) ||
+		(new_early_cam_dev->num_clk == 0)) {
+		rc = -EINVAL;
+		pr_err("%s: Clock details uninitialised %d %pK %pK %pK %zd\n",
+			__func__, rc, new_early_cam_dev->pdev,
+			new_early_cam_dev->early_cam_clk_info,
+			new_early_cam_dev->early_cam_clk,
+			new_early_cam_dev->num_clk);
 		return rc;
 	}
 
@@ -365,6 +378,19 @@ static int msm_early_cam_probe(struct platform_device *pdev)
 	if (rc < 0)
 		pr_err("%s:%d early_cam enable_vreg failed\n", __func__,
 		__LINE__);
+
+	if ((new_early_cam_dev->pdev == NULL) ||
+		(new_early_cam_dev->early_cam_clk_info == NULL) ||
+		(new_early_cam_dev->early_cam_clk == NULL) ||
+		(new_early_cam_dev->num_clk == 0)) {
+		rc = -EINVAL;
+		pr_err("%s: Clock details uninitialised %d %pK %pK %pK %zd\n",
+			__func__, rc, new_early_cam_dev->pdev,
+			new_early_cam_dev->early_cam_clk_info,
+			new_early_cam_dev->early_cam_clk,
+			new_early_cam_dev->num_clk);
+		return rc;
+	}
 
 	rc = msm_camera_clk_enable(&new_early_cam_dev->pdev->dev,
 		new_early_cam_dev->early_cam_clk_info,

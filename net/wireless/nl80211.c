@@ -11226,16 +11226,13 @@ static int nl80211_update_owe_info(struct sk_buff *skb, struct genl_info *info)
 		return -EOPNOTSUPP;
 
 	if (!info->attrs[NL80211_ATTR_STATUS_CODE] ||
-	    (info->attrs[NL80211_ATTR_IE] &&
-	     !is_valid_ie_attr(info->attrs[NL80211_ATTR_IE])))
+	    !info->attrs[NL80211_ATTR_MAC])
 		return -EINVAL;
 
 	memset(&owe_info, 0, sizeof(owe_info));
-	owe_info.status =
-			nla_get_u16(info->attrs[NL80211_ATTR_STATUS_CODE]);
-	if (info->attrs[NL80211_ATTR_MAC])
-		nla_memcpy(owe_info.bssid, info->attrs[NL80211_ATTR_MAC],
-			   ETH_ALEN);
+	owe_info.status = nla_get_u16(info->attrs[NL80211_ATTR_STATUS_CODE]);
+	nla_memcpy(owe_info.peer, info->attrs[NL80211_ATTR_MAC], ETH_ALEN);
+
 	if (info->attrs[NL80211_ATTR_IE]) {
 		owe_info.ie = nla_data(info->attrs[NL80211_ATTR_IE]);
 		owe_info.ie_len = nla_len(info->attrs[NL80211_ATTR_IE]);
@@ -12089,7 +12086,6 @@ static const struct genl_ops nl80211_ops[] = {
 	{
 		.cmd = NL80211_CMD_UPDATE_OWE_INFO,
 		.doit = nl80211_update_owe_info,
-		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
 		.internal_flags = NL80211_FLAG_NEED_NETDEV_UP |
 				  NL80211_FLAG_NEED_RTNL,
@@ -14099,9 +14095,6 @@ void cfg80211_update_owe_info_event(struct net_device *netdev,
 
 	trace_cfg80211_update_owe_info_event(wiphy, netdev, owe_info);
 
-	if (!owe_info)
-		return;
-
 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, gfp);
 	if (!msg)
 		return;
@@ -14112,10 +14105,11 @@ void cfg80211_update_owe_info_event(struct net_device *netdev,
 
 	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
 	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
-	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, owe_info->bssid))
+	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, owe_info->peer))
 		goto nla_put_failure;
 
-	if (nla_put(msg, NL80211_ATTR_IE, owe_info->ie_len, owe_info->ie))
+	if (!owe_info->ie_len ||
+	    nla_put(msg, NL80211_ATTR_IE, owe_info->ie_len, owe_info->ie))
 		goto nla_put_failure;
 
 	genlmsg_end(msg, hdr);
@@ -14125,8 +14119,7 @@ void cfg80211_update_owe_info_event(struct net_device *netdev,
 	return;
 
 nla_put_failure:
-	if (hdr)
-		genlmsg_cancel(msg, hdr);
+	genlmsg_cancel(msg, hdr);
 	nlmsg_free(msg);
 }
 EXPORT_SYMBOL(cfg80211_update_owe_info_event);

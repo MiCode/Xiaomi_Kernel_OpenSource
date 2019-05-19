@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,10 +388,28 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 	sde_kms->irq_obj.total_irqs = sde_kms->hw_intr->irq_idx_tbl_size;
 	sde_kms->irq_obj.irq_cb_tbl = kcalloc(sde_kms->irq_obj.total_irqs,
 			sizeof(struct list_head), GFP_KERNEL);
+	if (sde_kms->irq_obj.irq_cb_tbl == NULL) {
+		SDE_ERROR("Failed to allocate\n");
+		return;
+	}
 	sde_kms->irq_obj.enable_counts = kcalloc(sde_kms->irq_obj.total_irqs,
 			sizeof(atomic_t), GFP_KERNEL);
+	if (sde_kms->irq_obj.enable_counts == NULL) {
+		kfree(sde_kms->irq_obj.irq_cb_tbl);
+		sde_kms->irq_obj.irq_cb_tbl = NULL;
+		SDE_ERROR("Failed to allocate\n");
+		return;
+	}
 	sde_kms->irq_obj.irq_counts = kcalloc(sde_kms->irq_obj.total_irqs,
 			sizeof(atomic_t), GFP_KERNEL);
+	if (sde_kms->irq_obj.irq_counts == NULL) {
+		kfree(sde_kms->irq_obj.irq_cb_tbl);
+		kfree(sde_kms->irq_obj.enable_counts);
+		sde_kms->irq_obj.irq_cb_tbl = NULL;
+		sde_kms->irq_obj.enable_counts = NULL;
+		SDE_ERROR("Failed to allocate\n");
+		return;
+	}
 	for (i = 0; i < sde_kms->irq_obj.total_irqs; i++) {
 		INIT_LIST_HEAD(&sde_kms->irq_obj.irq_cb_tbl[i]);
 		atomic_set(&sde_kms->irq_obj.enable_counts[i], 0);

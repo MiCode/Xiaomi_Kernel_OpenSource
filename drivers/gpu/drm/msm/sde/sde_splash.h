@@ -48,6 +48,13 @@ struct splash_reserved_pipe_info {
 	bool early_release;
 };
 
+struct splash_pipe_caps {
+	enum sde_sspp pipe;
+	u32 flush_bit;
+	u32 mixer_mask;
+	u32 mixer_ext_mask;
+};
+
 struct sde_splash_info {
 	/* handoff flag */
 	bool handoff;
@@ -93,6 +100,15 @@ struct sde_splash_info {
 
 	/* reserved pipe info both for early RVC and early splash */
 	struct splash_reserved_pipe_info reserved_pipe_info[MAX_BLOCKS];
+
+	/* flush bits of reserved pipes */
+	uint32_t flush_bits;
+
+	/* layer mixer mask of reserved pipes */
+	uint32_t mixer_mask;
+
+	/* layer mixer extension mask of reserved pipes */
+	uint32_t mixer_ext_mask;
 };
 
 /* APIs for early splash handoff functions */
@@ -210,9 +226,8 @@ void sde_splash_decrease_connector_cnt(struct drm_device *dev,
 /**
  * sde_splash_get_mixer_mask
  *
- * Get mask configuration of splash layer mixer.
+ * Retrieve mixer mask and extension mask from splash_info structure.
  */
-void sde_splash_get_mixer_mask(
-	const struct splash_reserved_pipe_info *resv_pipes,
-	u32 length, u32 *mixercfg, u32 *mixercfg_ext);
+void sde_splash_get_mixer_mask(struct sde_splash_info *sinfo,
+			bool *splash_on, u32 *mixercfg, u32 *mixercfg_ext);
 #endif

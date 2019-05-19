@@ -173,10 +173,10 @@ int cnss_usb_dev_shutdown(struct cnss_usb_data *usb_priv)
 	case QCN7605_VER20_STANDALONE_DEVICE_ID:
 	case QCN7605_VER20_COMPOSITE_DEVICE_ID:
 		cnss_pr_dbg("cnss driver state %lu\n", plat_priv->driver_state);
-		if (!test_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state))
+		if (!test_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state)) {
 			cnss_usb_call_driver_remove(usb_priv);
-
-		cnss_power_off_device(plat_priv);
+			cnss_power_off_device(plat_priv);
+		}
 		clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		break;
@@ -199,22 +199,12 @@ int cnss_usb_call_driver_probe(struct cnss_usb_data *usb_priv)
 		goto out;
 	}
 
-	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
-	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
-		ret = usb_priv->driver_ops->reinit(usb_priv->usb_intf,
-						   usb_priv->usb_device_id);
-		if (ret) {
-			cnss_pr_err("Failed to reinit host driver, err = %d\n",
-				    ret);
-			goto out;
-		}
-		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
-	} else if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		ret = usb_priv->driver_ops->probe(usb_priv->usb_intf,
 						  usb_priv->usb_device_id);
 		if (ret) {
-			cnss_pr_err("Failed to probe host driver, err = %d\n",
-				    ret);
+			cnss_pr_err("Host drv probe failed, err = %d\n", ret);
 			goto out;
 		}
 		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
@@ -331,15 +321,26 @@ static void cnss_usb_remove(struct usb_interface *interface)
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(NULL);
 	struct cnss_usb_data *usb_priv = plat_priv->bus_priv;
 
-	cnss_pr_dbg("driver state %lu\n", plat_priv->driver_state);
+	del_timer(&plat_priv->fw_boot_timer);
+
+	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
+	set_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state);
+	if (usb_priv->driver_ops) {
+		cnss_pr_dbg("driver_ops remove state %lu\n",
+			    plat_priv->driver_state);
+		set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+		usb_priv->driver_ops->update_status(usb_priv->usb_intf,
+						    CNSS_FW_DOWN);
+		usb_priv->driver_ops->remove(usb_priv->usb_intf);
+		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
+	}
 	cnss_unregister_ramdump(plat_priv);
 	cnss_unregister_subsys(plat_priv);
 	usb_dev = interface_to_usbdev(interface);
 	usb_put_dev(usb_dev);
 	usb_priv->usb_intf = NULL;
 	usb_priv->usb_device_id = NULL;
-	set_bit(CNSS_DEV_REMOVED, &plat_priv->driver_state);
-	del_timer(&plat_priv->fw_boot_timer);
+	cnss_pr_dbg("driver state %lu\n", plat_priv->driver_state);
 }
 
 static int cnss_usb_suspend(struct usb_interface *interface, pm_message_t state)

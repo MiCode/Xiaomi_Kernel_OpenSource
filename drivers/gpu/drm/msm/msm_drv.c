@@ -47,6 +47,9 @@
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
+static struct completion wait_display_completion;
+static bool msm_drm_probed;
+
 static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 {
 	struct drm_connector *connector;
@@ -2367,6 +2370,8 @@ static int msm_pdev_probe(struct platform_device *pdev)
 	int ret;
 	struct component_match *match = NULL;
 
+	msm_drm_probed = true;
+
 #ifdef CONFIG_OF
 	add_components(&pdev->dev, &match, "connectors");
 #ifndef CONFIG_QCOM_KGSL
@@ -2406,6 +2411,7 @@ static int msm_pdev_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = msm_add_master_component(&pdev->dev, match);
+	complete(&wait_display_completion);
 
 	return ret;
 }
@@ -2451,6 +2457,20 @@ static const struct of_device_id dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, dt_match);
 
+static int find_match(struct device *dev, void *data)
+{
+	struct device_driver *drv = data;
+
+	return drv->bus->match(dev, drv);
+}
+
+static bool find_device(struct platform_driver *pdrv)
+{
+	struct device_driver *drv = &pdrv->driver;
+
+	return bus_for_each_dev(drv->bus, NULL, drv, find_match);
+}
+
 static struct platform_driver msm_platform_driver = {
 	.probe      = msm_pdev_probe,
 	.remove     = msm_pdev_remove,
@@ -2459,6 +2479,7 @@ static struct platform_driver msm_platform_driver = {
 		.name   = "msm_drm",
 		.of_match_table = dt_match,
 		.pm     = &msm_pm_ops,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.id_table   = msm_id,
 };
@@ -2481,6 +2502,7 @@ static int __init msm_drm_register(void)
 	msm_edp_register();
 	hdmi_register();
 	adreno_register();
+	init_completion(&wait_display_completion);
 	return platform_driver_register(&msm_platform_driver);
 }
 
@@ -2495,8 +2517,22 @@ static void __exit msm_drm_unregister(void)
 	msm_smmu_driver_cleanup();
 }
 
+static int __init msm_drm_late_register(void)
+{
+	struct platform_driver *pdrv;
+
+	pdrv = &msm_platform_driver;
+	if (msm_drm_probed || find_device(pdrv)) {
+		pr_debug("wait for display probe completion\n");
+		wait_for_completion(&wait_display_completion);
+	}
+	return 0;
+}
+
 module_init(msm_drm_register);
 module_exit(msm_drm_unregister);
+/* init level 7 */
+late_initcall(msm_drm_late_register);
 
 MODULE_AUTHOR("Rob Clark <robdclark@gmail.com");
 MODULE_DESCRIPTION("MSM DRM Driver");

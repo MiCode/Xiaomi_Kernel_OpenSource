@@ -30,6 +30,7 @@
 #include <linux/list.h>
 #include <linux/wait.h>
 #include <linux/poll.h>
+#include <linux/kobject.h>
 
 #define DRIVER_DESC	"USB host ks bridge driver"
 
@@ -670,6 +671,17 @@ static void ksb_start_rx_work(struct work_struct *w)
 		usb_autopm_put_interface_async(ksb->ifc);
 }
 
+static void ks_bridge_notify_status(struct kobject *kobj,
+						const struct usb_device_id *id)
+{
+	char product_info[32];
+	char *envp[2] = { product_info, NULL };
+
+	snprintf(product_info, sizeof(product_info), "PRODUCT=%x/%x/%x",
+			id->idVendor, id->idProduct, id->bDeviceProtocol);
+	kobject_uevent_env(kobj, KOBJ_ONLINE, envp);
+}
+
 static int
 ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 {
@@ -854,6 +866,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 	if (free_mdev)
 		kfree(mdev);
+
+	ks_bridge_notify_status(&ksb->device->kobj, id);
 	dev_dbg(&udev->dev, "usb dev connected");
 
 	return 0;
@@ -925,6 +939,7 @@ static void ksb_usb_disconnect(struct usb_interface *ifc)
 	dbg_log_event(ksb, "PID-DETACH", 0, 0);
 
 	clear_bit(USB_DEV_CONNECTED, &ksb->flags);
+	kobject_uevent(&ksb->device->kobj, KOBJ_OFFLINE);
 	wake_up(&ksb->ks_wait_q);
 	cancel_work_sync(&ksb->to_mdm_work);
 	cancel_work_sync(&ksb->start_rx_work);

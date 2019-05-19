@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -563,6 +563,13 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
 		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
 
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.post_disable)
+			phys->ops.post_disable(phys);
+	}
+
 	sde_enc->cur_master = NULL;
 	SDE_DEBUG_ENC(sde_enc, "cleared master\n");
 
@@ -788,6 +795,8 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
+
+	phys->splash_flush_bits = phys->sde_kms->splash_info.flush_bits;
 
 	ctl->ops.trigger_flush(ctl);
 	SDE_EVT32(DRMID(drm_enc), ctl->idx);

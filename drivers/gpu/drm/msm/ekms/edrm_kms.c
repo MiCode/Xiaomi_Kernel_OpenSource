@@ -70,12 +70,6 @@ static void edrm_kms_prepare_commit(struct msm_kms *kms,
 	/* Notify bootloader splash to stop */
 	if (valid_commit && edrm_kms->lk_running_flag) {
 
-		/* if LK is still running, notify LK to stop */
-		if (edrm_splash_get_lk_status(kms) !=
-			SPLASH_STATUS_NOT_START) {
-			edrm_splash_notify_lk_stop_splash(kms);
-			edrm_splash_poll_lk_stop_splash(kms);
-		}
 
 		/* next eDRM close will trigger display resources handoff */
 		edrm_kms->handoff_flag = true;

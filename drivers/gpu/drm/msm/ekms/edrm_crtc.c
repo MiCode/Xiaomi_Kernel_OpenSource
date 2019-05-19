@@ -151,6 +151,7 @@ static void edrm_crtc_disable(struct drm_crtc *crtc)
 	const struct drm_plane_helper_funcs *funcs;
 	u32 sspp_flush_mask_bit[10] = {
 				0, 1, 2, 18, 3, 4, 5, 19, 11, 12};
+	struct drm_encoder *encoder;
 
 	edrm_plane = to_edrm_plane(crtc->primary);
 	funcs = crtc->primary->helper_private;
@@ -159,6 +160,12 @@ static void edrm_crtc_disable(struct drm_crtc *crtc)
 	edrm_crtc->sspp_flush_mask |=
 		BIT(sspp_flush_mask_bit[edrm_plane->sspp_cfg_id - 1]);
 	edrm_crtc_commit_kickoff(crtc);
+
+	drm_for_each_encoder(encoder, crtc->dev) {
+		if (encoder->crtc != crtc)
+			continue;
+		edrm_encoder_wait_for_commit_done(encoder);
+	}
 }
 
 void edrm_crtc_destroy(struct drm_crtc *crtc)

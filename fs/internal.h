@@ -123,7 +123,6 @@ extern void inode_add_lru(struct inode *inode);
 extern void inode_io_list_del(struct inode *inode);
 
 extern long get_nr_dirty_inodes(void);
-extern void evict_inodes(struct super_block *);
 extern int invalidate_inodes(struct super_block *, bool);
 
 /*

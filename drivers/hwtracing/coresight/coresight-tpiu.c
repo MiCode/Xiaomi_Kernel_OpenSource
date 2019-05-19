@@ -193,14 +193,6 @@ static int tpiu_probe(struct amba_device *adev, const struct amba_id *id)
 	return 0;
 }
 
-static int tpiu_remove(struct amba_device *adev)
-{
-	struct tpiu_drvdata *drvdata = amba_get_drvdata(adev);
-
-	coresight_unregister(drvdata->csdev);
-	return 0;
-}
-
 #ifdef CONFIG_PM
 static int tpiu_runtime_suspend(struct device *dev)
 {
@@ -244,9 +236,9 @@ static struct amba_driver tpiu_driver = {
 		.name	= "coresight-tpiu",
 		.owner	= THIS_MODULE,
 		.pm	= &tpiu_dev_pm_ops,
+		.suppress_bind_attrs = true,
 	},
 	.probe		= tpiu_probe,
-	.remove		= tpiu_remove,
 	.id_table	= tpiu_ids,
 };
 

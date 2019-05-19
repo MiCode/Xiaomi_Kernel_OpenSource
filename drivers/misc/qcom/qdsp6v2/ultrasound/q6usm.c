@@ -645,6 +645,8 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 		    (sizeof(uint32_t)*(READDONE_IDX_STATUS + 1))) {
 			pr_err("%s: Invalid payload size for READDONE[%d]\n",
 			       __func__, data->payload_size);
+			spin_unlock_irqrestore(&port->dsp_lock,
+					       dsp_flags);
 			return -EINVAL;
 		}
 		if (payload[READDONE_IDX_STATUS]) {
