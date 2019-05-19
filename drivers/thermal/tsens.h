@@ -31,6 +31,7 @@
 #define SLOPE_DEFAULT		3200
 
 #define IPC_LOGPAGES 10
+#define MIN_TEMP_DEF_OFFSET		0xFF
 
 enum tsens_dbg_type {
 	TSENS_DBG_POLL,
@@ -208,14 +209,20 @@ struct tsens_device {
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
 	int				trdy_fail_ctr;
+	struct tsens_sensor		min_temp;
+	u8				min_temp_sensor_id;
 	struct tsens_sensor		sensor[0];
 };
 
-extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
+extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx,
+		data_tsens26xx;
 extern const struct tsens_data data_tsens14xx, data_tsens14xx_405;
 extern struct list_head tsens_device_list;
 
 extern int calibrate_8937(struct tsens_device *tmdev);
 extern int calibrate_405(struct tsens_device *tmdev);
+
+extern int tsens_2xxx_get_min_temp(
+		struct tsens_sensor *sensor, int *temp);
 
 #endif /* __QCOM_TSENS_H__ */
