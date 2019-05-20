@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5231,6 +5231,14 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				"Invalid params, inst %pK\n", inst);
 		return -EINVAL;
 	}
+
+	if (inst->state < MSM_VIDC_OPEN_DONE) {
+		dprintk(VIDC_ERR,
+			"Invalid state to call flush, inst %pK, state %#x\n",
+			inst, inst->state);
+		return -EINVAL;
+	}
+
 	core = inst->core;
 	hdev = core->device;
 
