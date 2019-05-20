@@ -49,12 +49,19 @@ struct cpufreq_counter {
 
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_ENABLE]		= 0x0,
+	[REG_FREQ_LUT_TABLE]	= 0x110,
+	[REG_VOLT_LUT_TABLE]	= 0x114,
+	[REG_PERF_STATE]	= 0x920,
+	[REG_CYCLE_CNTR]	= 0x9c0,
+};
+
+static const u16 cpufreq_qcom_epss_std_offsets[REG_ARRAY_SIZE] = {
+	[REG_ENABLE]		= 0x0,
 	[REG_FREQ_LUT_TABLE]	= 0x100,
 	[REG_VOLT_LUT_TABLE]	= 0x200,
 	[REG_PERF_STATE]	= 0x320,
 	[REG_CYCLE_CNTR]	= 0x3c4,
 };
-
 
 static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
@@ -128,14 +135,14 @@ static unsigned int
 qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 			    unsigned int target_freq)
 {
-	struct cpufreq_qcom *c = policy->driver_data;
 	int index;
 
 	index = policy->cached_resolved_idx;
 	if (index < 0)
 		return 0;
 
-	writel_relaxed(index, c->reg_bases[REG_PERF_STATE]);
+	if (qcom_cpufreq_hw_target_index(policy, index))
+		return 0;
 
 	return policy->freq_table[index].frequency;
 }
@@ -242,12 +249,12 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	base_volt = c->reg_bases[REG_VOLT_LUT_TABLE];
 
 	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
-		data = readl_relaxed(base_freq + i * LUT_ROW_SIZE);
+		data = readl_relaxed(base_freq + i * lut_row_size);
 		src = (data & GENMASK(31, 30)) >> 30;
 		lval = data & GENMASK(7, 0);
 		core_count = CORE_COUNT_VAL(data);
 
-		data = readl_relaxed(base_volt + i * LUT_ROW_SIZE);
+		data = readl_relaxed(base_volt + i * lut_row_size);
 		volt = (data & GENMASK(11, 0)) * 1000;
 
 		if (src)
@@ -464,7 +471,7 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 static const struct of_device_id qcom_cpufreq_hw_match[] = {
 	{ .compatible = "qcom,cpufreq-hw", .data = &cpufreq_qcom_std_offsets },
 	{ .compatible = "qcom,cpufreq-hw-epss",
-					   .data = &cpufreq_qcom_std_offsets },
+				   .data = &cpufreq_qcom_epss_std_offsets },
 	{}
 };
 
