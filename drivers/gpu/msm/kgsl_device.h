@@ -122,11 +122,9 @@ struct kgsl_functable {
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
 	int (*getproperty)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*getproperty_compat)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*waittimestamp)(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
 		unsigned int msecs);

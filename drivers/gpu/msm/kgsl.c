@@ -1409,122 +1409,125 @@ static inline bool kgsl_mem_entry_set_pend(struct kgsl_mem_entry *entry)
 	return ret;
 }
 
+static long kgsl_prop_version(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	struct kgsl_version version = {
+		.drv_major = KGSL_VERSION_MAJOR,
+		.drv_minor = KGSL_VERSION_MINOR,
+		.dev_major = 3,
+		.dev_minor = 1,
+	};
+
+	if (param->sizebytes != sizeof(version))
+		return -EINVAL;
+
+	if (copy_to_user(param->value, &version, sizeof(version)))
+		return -EFAULT;
+
+	return 0;
+}
+
+/* Return reset status of given context and clear it */
+static long kgsl_prop_gpu_reset_stat(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	u32 id;
+	struct kgsl_context *context;
+
+	if (param->sizebytes != sizeof(id))
+		return -EINVAL;
+
+	/* We expect the value passed in to contain the context id */
+	if (copy_from_user(&id, param->value, sizeof(id)))
+		return -EFAULT;
+
+	context = kgsl_context_get_owner(dev_priv, id);
+	if (!context)
+		return -EINVAL;
+
+	/*
+	 * Copy the reset status to value which also serves as
+	 * the out parameter
+	 */
+	id = context->reset_status;
+
+	context->reset_status = KGSL_CTX_STAT_NO_ERROR;
+	kgsl_context_put(context);
+
+	if (copy_to_user(param->value, &id, sizeof(id)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long kgsl_prop_secure_buf_alignment(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	u32 align;
+
+	if (param->sizebytes != sizeof(align))
+		return -EINVAL;
+
+	/*
+	 * XPUv2 impose the constraint of 1MB memory alignment,
+	 * on the other hand Hypervisor does not have such
+	 * constraints. So driver should fulfill such
+	 * requirements when allocating secure memory.
+	 */
+	align = MMU_FEATURE(&dev_priv->device->mmu,
+			KGSL_MMU_HYP_SECURE_ALLOC) ? PAGE_SIZE : SZ_1M;
+
+	if (copy_to_user(param->value, &align, sizeof(align)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static long kgsl_prop_secure_ctxt_support(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	u32 secure;
+
+	if (param->sizebytes != sizeof(secure))
+		return -EINVAL;
+
+	secure = dev_priv->device->mmu.secured ? 1 : 0;
+
+	if (copy_to_user(param->value, &secure, sizeof(secure)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static const struct {
+	int type;
+	long (*func)(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param);
+} kgsl_property_funcs[] = {
+	{ KGSL_PROP_VERSION, kgsl_prop_version },
+	{ KGSL_PROP_GPU_RESET_STAT, kgsl_prop_gpu_reset_stat},
+	{ KGSL_PROP_SECURE_BUFFER_ALIGNMENT, kgsl_prop_secure_buf_alignment },
+	{ KGSL_PROP_SECURE_CTXT_SUPPORT, kgsl_prop_secure_ctxt_support },
+};
+
 /*call all ioctl sub functions with driver locked*/
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data)
 {
-	int result = 0;
+	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_device_getproperty *param = data;
+	int i;
 
-	switch (param->type) {
-	case KGSL_PROP_VERSION:
-	{
-		struct kgsl_version version;
-
-		if (param->sizebytes != sizeof(version)) {
-			result = -EINVAL;
-			break;
-		}
-
-		version.drv_major = KGSL_VERSION_MAJOR;
-		version.drv_minor = KGSL_VERSION_MINOR;
-
-		version.dev_major = 3;
-		version.dev_minor = 1;
-
-		if (copy_to_user(param->value, &version, sizeof(version)))
-			result = -EFAULT;
-
-		break;
-	}
-	case KGSL_PROP_GPU_RESET_STAT:
-	{
-		/* Return reset status of given context and clear it */
-		uint32_t id;
-		struct kgsl_context *context;
-
-		if (param->sizebytes != sizeof(unsigned int)) {
-			result = -EINVAL;
-			break;
-		}
-		/* We expect the value passed in to contain the context id */
-		if (copy_from_user(&id, param->value,
-			sizeof(unsigned int))) {
-			result = -EFAULT;
-			break;
-		}
-		context = kgsl_context_get_owner(dev_priv, id);
-		if (!context) {
-			result = -EINVAL;
-			break;
-		}
-		/*
-		 * Copy the reset status to value which also serves as
-		 * the out parameter
-		 */
-		if (copy_to_user(param->value, &(context->reset_status),
-			sizeof(unsigned int)))
-			result = -EFAULT;
-		else {
-			/* Clear reset status once its been queried */
-			context->reset_status = KGSL_CTX_STAT_NO_ERROR;
-		}
-
-		kgsl_context_put(context);
-		break;
-	}
-	case KGSL_PROP_SECURE_BUFFER_ALIGNMENT:
-	{
-		unsigned int align;
-
-		if (param->sizebytes != sizeof(unsigned int)) {
-			result = -EINVAL;
-			break;
-		}
-		/*
-		 * XPUv2 impose the constraint of 1MB memory alignment,
-		 * on the other hand Hypervisor does not have such
-		 * constraints. So driver should fulfill such
-		 * requirements when allocating secure memory.
-		 */
-		align = MMU_FEATURE(&dev_priv->device->mmu,
-				KGSL_MMU_HYP_SECURE_ALLOC) ? PAGE_SIZE : SZ_1M;
-
-		if (copy_to_user(param->value, &align, sizeof(align)))
-			result = -EFAULT;
-
-		break;
-	}
-	case KGSL_PROP_SECURE_CTXT_SUPPORT:
-	{
-		unsigned int secure_ctxt;
-
-		if (param->sizebytes != sizeof(unsigned int)) {
-			result = -EINVAL;
-			break;
-		}
-
-		secure_ctxt = dev_priv->device->mmu.secured ? 1 : 0;
-
-		if (copy_to_user(param->value, &secure_ctxt,
-				sizeof(secure_ctxt)))
-			result = -EFAULT;
-
-		break;
-	}
-	default:
-		if (is_compat_task())
-			result = dev_priv->device->ftbl->getproperty_compat(
-					dev_priv->device, param->type,
-					param->value, param->sizebytes);
-		else
-			result = dev_priv->device->ftbl->getproperty(
-					dev_priv->device, param->type,
-					param->value, param->sizebytes);
+	for (i = 0; i < ARRAY_SIZE(kgsl_property_funcs); i++) {
+		if (param->type == kgsl_property_funcs[i].type)
+			return kgsl_property_funcs[i].func(dev_priv, param);
 	}
 
+	if (is_compat_task())
+		return device->ftbl->getproperty_compat(device, param);
 
-	return result;
+	return device->ftbl->getproperty(device, param);
 }
 
 long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
