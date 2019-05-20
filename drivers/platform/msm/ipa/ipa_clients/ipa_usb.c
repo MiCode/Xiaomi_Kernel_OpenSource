@@ -2058,7 +2058,7 @@ static int ipa3_usb_xdci_connect_internal(
 		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
 		if (result) {
 			IPA_USB_ERR("failed to connect MHIP channel\n");
-			goto connect_dl_fail;
+			goto connect_teth_prot_fail;
 		}
 	}
 
@@ -2066,7 +2066,7 @@ static int ipa3_usb_xdci_connect_internal(
 	result = ipa3_usb_connect_teth_prot(params->teth_prot);
 	if (result) {
 		IPA_USB_ERR("failed to connect teth protocol\n");
-		goto connect_teth_prot_fail;
+		goto connect_mhip_prot_fail;
 	}
 
 	if (!ipa3_usb_set_state(IPA_USB_CONNECTED, false, ttype)) {
@@ -2080,6 +2080,9 @@ static int ipa3_usb_xdci_connect_internal(
 
 state_change_connected_fail:
 	ipa3_usb_disconnect_teth_prot(params->teth_prot);
+connect_mhip_prot_fail:
+	if (ipa3_is_mhip_offload_enabled())
+		ipa_mpm_mhip_xdci_pipe_disable(params->teth_prot);
 connect_teth_prot_fail:
 	ipa3_xdci_disconnect(params->ipa_to_usb_clnt_hdl, false, -1);
 	ipa3_reset_gsi_channel(params->ipa_to_usb_clnt_hdl);
@@ -2530,7 +2533,8 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 			/* Stop UL MHIP channel */
 			if (ipa3_is_mhip_offload_enabled()) {
-				result = ipa_mpm_mhip_ul_data_stop(teth_prot);
+				result = ipa_mpm_mhip_ul_start_stop_data(
+						MPM_MHIP_STOP, teth_prot);
 				if (result) {
 					IPA_USB_ERR("fail UL MHIPData stop\n");
 					goto bad_params;
@@ -2552,21 +2556,6 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	} else
 		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 
-	if (teth_prot == IPA_USB_RMNET) {
-		IPA_USB_DBG("USB suspend resetting dma mode\n");
-		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
-			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
-		if (result) {
-			IPA_USB_ERR("failed to reset dma mode\n");
-			goto bad_params;
-		}
-	}
-
-	result = ipa_usb_xdci_dismiss_channels(ul_clnt_hdl, dl_clnt_hdl,
-			teth_prot);
-	if (result)
-		goto bad_params;
-
 	/* Stop UL/DL MHIP channels */
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
@@ -2576,6 +2565,10 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		}
 	}
 
+	result = ipa_usb_xdci_dismiss_channels(ul_clnt_hdl, dl_clnt_hdl,
+			teth_prot);
+	if (result)
+		goto bad_params;
 
 	/* Disconnect tethering protocol */
 	result = ipa3_usb_disconnect_teth_prot(teth_prot);
@@ -2752,20 +2745,38 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
+		/* Stop UL MHIP channel - enable HOLB */
+		if (ipa3_is_mhip_offload_enabled()) {
+			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
+								teth_prot);
+			if (result) {
+				IPA_USB_ERR("fail UL MHIP Data stop\n");
+				goto start_dl;
+			}
+		}
 		/* Stop UL channel */
 		result = ipa3_xdci_disconnect(ul_clnt_hdl, true,
 			ipa3_usb_ctx->qmi_req_id);
 		if (result) {
 			IPA_USB_ERR("failed disconnect UL channel\n");
-			goto start_dl;
+			goto start_mhip;
 		}
 		ipa3_usb_ctx->qmi_req_id++;
+	}
+
+	/* Stop MHIP channel */
+	if (ipa3_is_mhip_offload_enabled()) {
+		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			goto start_ul;
+		}
 	}
 
 	/* Disconnect tethering protocol */
 	result = ipa3_usb_disconnect_teth_prot(teth_prot);
 	if (result)
-		goto start_ul;
+		goto enable_mhip;
 
 	if (ipa_pm_is_used())
 		result = ipa_pm_deactivate_sync(
@@ -2786,9 +2797,16 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 connect_teth:
 	(void)ipa3_usb_connect_teth_prot(teth_prot);
+enable_mhip:
+	if (ipa3_is_mhip_offload_enabled())
+		(void)ipa_mpm_mhip_xdci_pipe_enable(teth_prot);
 start_ul:
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
 		(void)ipa3_xdci_connect(ul_clnt_hdl);
+start_mhip:
+	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
+		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
+							teth_prot);
 start_dl:
 	(void)ipa3_xdci_connect(dl_clnt_hdl);
 fail_exit:
@@ -2836,16 +2854,6 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			"fail changing state to suspend_req\n");
 		result = -EFAULT;
 		goto bad_params;
-	}
-
-	if (teth_prot == IPA_USB_RMNET) {
-		IPA_USB_DBG("USB suspend resetting dma mode\n");
-		result = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
-			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
-		if (result) {
-			IPA_USB_ERR("failed to reset dma mode\n");
-			goto bad_params;
-		}
 	}
 
 	/* Stop UL channel & suspend DL/DPL EP */
@@ -2896,15 +2904,6 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			&ipa3_usb_notify_remote_wakeup_work);
 	}
 	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-
-	/* Stop MHIP channel */
-	if (ipa3_is_mhip_offload_enabled()) {
-		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
-		if (result) {
-			IPA_USB_ERR("failed to disconnect MHIP channel\n");
-			goto release_prod_fail;
-		}
-	}
 
 	IPA_USB_DBG_LOW("exit\n");
 	mutex_unlock(&ipa3_usb_ctx->general_mutex);
