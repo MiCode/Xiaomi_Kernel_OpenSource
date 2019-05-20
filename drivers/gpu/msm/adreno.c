@@ -2435,7 +2435,7 @@ static int adreno_getproperty(struct kgsl_device *device,
 {
 	if (type >= ARRAY_SIZE(adreno_property_funcs) ||
 		!adreno_property_funcs[type].func)
-		return -EINVAL;
+		return -ENODEV;
 
 	return adreno_property_funcs[type].func(device, type, value, sizebytes);
 }
@@ -2602,6 +2602,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 		}
 		break;
 	default:
+		status = -ENODEV;
 		break;
 	}
 
