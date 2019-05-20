@@ -1541,9 +1541,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	ret = ep_pcie_reset_init(dev);
-	if (ret)
-		goto link_fail;
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
