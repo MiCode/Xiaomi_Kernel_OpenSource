@@ -114,6 +114,7 @@ struct cam_isp_in_port_generic_info {
  * @cid:          cid (DT_ID) value for path, this is applicable for CSID path
  *                reserve
  * @node_res :    Reserved resource structure pointer
+ * @crop_enable : Flag to indicate CSID crop enable
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -125,6 +126,7 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
+	bool                                      crop_enable;
 };
 
 /**
