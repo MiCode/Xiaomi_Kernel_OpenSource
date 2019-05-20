@@ -161,7 +161,8 @@ struct ufs_qcom_phy {
  * @dbg_register_dump: pointer to a function that dumps phy registers for debug.
  */
 struct ufs_qcom_phy_specific_ops {
-	int (*calibrate_phy)(struct ufs_qcom_phy *phy, bool is_rate_B);
+	int (*calibrate_phy)(struct ufs_qcom_phy *phy, bool is_rate_B,
+			     bool is_g4);
 	void (*start_serdes)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);

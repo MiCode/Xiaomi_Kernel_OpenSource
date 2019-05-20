@@ -8683,6 +8683,25 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	return 0;
 }
 
+static inline bool ufshcd_needs_reinit(struct ufs_hba *hba)
+{
+	bool reinit = false;
+
+	if (hba->dev_info.w_spec_version < 0x300 && hba->phy_init_g4) {
+		dev_warn(hba->dev, "%s: Using force-g4 setting for a non-g4 device, re-init\n",
+				  __func__);
+		hba->phy_init_g4 = false;
+		reinit = true;
+	} else if (hba->dev_info.w_spec_version >= 0x300 && !hba->phy_init_g4) {
+		dev_warn(hba->dev, "%s: Re-init UFS host to use proper PHY settings for the UFS device. This can be avoided by setting the force-g4 in DT\n",
+				  __func__);
+		hba->phy_init_g4 = true;
+		reinit = true;
+	}
+
+	return reinit;
+}
+
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -8695,6 +8714,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	int ret;
 	ktime_t start = ktime_get();
 
+reinit:
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
@@ -8732,6 +8752,32 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		dev_err(hba->dev, "%s: Failed getting device info. err = %d\n",
 			__func__, ret);
 		goto out;
+	}
+
+	if (ufshcd_needs_reinit(hba)) {
+		unsigned long flags;
+		int err;
+
+		err = ufshcd_vops_full_reset(hba);
+		if (err)
+			dev_warn(hba->dev, "%s: full reset returned %d\n",
+				 __func__, err);
+
+		err = ufshcd_reset_device(hba);
+		if (err)
+			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
+				 __func__, err);
+
+		/* Reset the host controller */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufshcd_hba_stop(hba, false);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+		err = ufshcd_hba_enable(hba);
+		if (err)
+			goto out;
+
+		goto reinit;
 	}
 
 	ufs_fixup_device_setup(hba, &card);
@@ -10784,6 +10830,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	if (err)
 		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
 			 __func__, err);
+
+	if (hba->force_g4)
+		hba->phy_init_g4 = true;
 
 	/* Host controller enable */
 	err = ufshcd_hba_enable(hba);
