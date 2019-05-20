@@ -5333,7 +5333,8 @@ int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 		ret = __ufshcd_uic_hibern8_enter(hba);
 		if (!ret)
 			goto out;
-		else if (ret != -EAGAIN)
+		else if (ret != -EAGAIN &&
+			 !(hba->extcon && ufshcd_is_card_offline(hba)))
 			/* Unable to recover the link, so no point proceeding */
 			BUG_ON(1);
 	}
