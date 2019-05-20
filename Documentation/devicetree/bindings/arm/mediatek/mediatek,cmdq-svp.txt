@@ -1,0 +1,27 @@
+MediaTek GCE
+===============
+
+This is temporary node for cmdq driver legacy interface, which compatible
+with legacy display driver. CMDQ SVP send commands and secure metadata to
+secure world cmdq driver, which control gce hardware in trustzone.
+
+CMDQ svp driver uses mailbox framework for communication. Please refer to
+mailbox.txt for generic information about mailbox device-tree bindings.
+
+Required properties:
+- compatible: Must be "mediatek,cmdq-svp"
+- reg: Address range of the GCE unit
+- interrupts: The interrupt signal from the GCE block
+- clock: Clocks according to the common clock binding
+- clock-names: Must be "GCE" to stand for GCE clock
+
+Example:
+
+	cmdq-svp: cmdq-svp@10212000 {
+		compatible = "mediatek,cmdq-svp";
+		reg = <0 0x10212000 0 0x1000>;
+		interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+		clock-names = "GCE";
+	};
+
