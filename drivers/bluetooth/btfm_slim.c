@@ -313,7 +313,8 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 
 	rx_chs = btfmslim->rx_chs;
 	tx_chs = btfmslim->tx_chs;
-	if (chipset_ver ==  QCA_CHEROKEE_SOC_ID_0300) {
+	if ((chipset_ver >=  QCA_CHEROKEE_SOC_ID_0300) &&
+		(chipset_ver <=  QCA_CHEROKEE_SOC_ID_0320)) {
 		for (i = 0; (tx_chs->port != BTFM_SLIM_PGD_PORT_LAST) &&
 		(i < BTFM_SLIM_NUM_CODEC_DAIS); i++, tx_chs++) {
 			if (tx_chs->port == SLAVE_SB_PGD_PORT_TX1_FM)
