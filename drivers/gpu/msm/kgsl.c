@@ -1428,8 +1428,9 @@ long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 
 		version.drv_major = KGSL_VERSION_MAJOR;
 		version.drv_minor = KGSL_VERSION_MINOR;
-		version.dev_major = dev_priv->device->ver_major;
-		version.dev_minor = dev_priv->device->ver_minor;
+
+		version.dev_major = 3;
+		version.dev_minor = 1;
 
 		if (copy_to_user(param->value, &version, sizeof(version)))
 			result = -EFAULT;

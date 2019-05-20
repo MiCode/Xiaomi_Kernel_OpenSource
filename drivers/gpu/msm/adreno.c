@@ -38,9 +38,6 @@
 #include "adreno-gpulist.h"
 #include "adreno_dispatch.h"
 
-#define DRIVER_VERSION_MAJOR   3
-#define DRIVER_VERSION_MINOR   1
-
 static void adreno_input_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,
 	unsigned int reg, unsigned int *counter);
