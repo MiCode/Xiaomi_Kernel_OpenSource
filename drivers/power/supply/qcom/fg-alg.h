@@ -75,7 +75,7 @@ struct cap_learning {
 enum ttf_mode {
 	TTF_MODE_NORMAL = 0,
 	TTF_MODE_QNOVO,
-	TTF_MODE_V_STEP_CHG,
+	TTF_MODE_VBAT_STEP_CHG,
 	TTF_MODE_OCV_STEP_CHG,
 };
 
