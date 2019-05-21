@@ -1601,7 +1601,69 @@ static int cam_icp_mgr_handle_frame_process(uint32_t *msg_ptr, int flag)
 
 	return 0;
 }
+static const char *cam_icp_error_handle_id_to_type(
+	uint32_t error_handle)
+{
+	const char *name = NULL;
 
+	switch (error_handle) {
+	case CAMERAICP_SUCCESS:
+		name = "SUCCESS";
+		break;
+	case CAMERAICP_EFAILED:
+		name = "EFAILED";
+		break;
+	case CAMERAICP_ENOMEMORY:
+		name = "ENOMEMORY";
+		break;
+	case CAMERAICP_EBADSTATE:
+		name = "EBADSTATE";
+		break;
+	case CAMERAICP_EBADPARM:
+		name = "EBADPARM";
+		break;
+	case CAMERAICP_EBADITEM:
+		name = "EBADITEM";
+		break;
+	case CAMERAICP_EINVALIDFORMAT:
+		name = "EINVALIDFORMAT";
+		break;
+	case CAMERAICP_EUNSUPPORTED:
+		name = "EUNSUPPORTED";
+		break;
+	case CAMERAICP_EOUTOFBOUND:
+		name = "EOUTOFBOUND";
+		break;
+	case CAMERAICP_ETIMEDOUT:
+		name = "ETIMEDOUT";
+		break;
+	case CAMERAICP_EABORTED:
+		name = "EABORTED";
+		break;
+	case CAMERAICP_EHWVIOLATION:
+		name = "EHWVIOLATION";
+		break;
+	case CAMERAICP_ECDMERROR:
+		name = "ECDMERROR";
+		break;
+	case CAMERAICP_HFI_ERR_COMMAND_SIZE:
+		name = "HFI_ERR_COMMAND_SIZE";
+		break;
+	case CAMERAICP_HFI_ERR_MESSAGE_SIZE:
+		name = "HFI_ERR_MESSAGE_SIZE";
+		break;
+	case CAMERAICP_HFI_QUEUE_EMPTY:
+		name = "HFI_QUEUE_EMPTY";
+		break;
+	case CAMERAICP_HFI_QUEUE_FULL:
+		name = "HFI_QUEUE_FULL";
+		break;
+	default:
+		name = NULL;
+		break;
+	}
+	return name;
+}
 static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 {
 	struct hfi_msg_ipebps_async_ack *ioconfig_ack = NULL;
@@ -1614,8 +1676,11 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 
 	ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 	if (ioconfig_ack->err_type != HFI_ERR_SYS_NONE) {
-		CAM_ERR(CAM_ICP, "failed with error : %u",
-			ioconfig_ack->err_type);
+		CAM_ERR(CAM_ICP,
+			"failed with err_no= [%u] err_type= [%s]",
+			ioconfig_ack->err_type,
+			cam_icp_error_handle_id_to_type(
+			ioconfig_ack->err_type));
 		cam_icp_mgr_handle_frame_process(msg_ptr,
 			ICP_FRAME_PROCESS_FAILURE);
 		return -EIO;
@@ -1655,8 +1720,12 @@ static int cam_icp_mgr_process_msg_config_io(uint32_t *msg_ptr)
 		ipe_config_ack =
 			(struct hfi_msg_ipe_config *)(ioconfig_ack->msg_data);
 		if (ipe_config_ack->rc) {
-			CAM_ERR(CAM_ICP, "rc = %d err = %u",
-				ipe_config_ack->rc, ioconfig_ack->err_type);
+			CAM_ERR(CAM_ICP, "rc = %d failed with\n"
+				"err_no = [%u] err_type = [%s]",
+				ipe_config_ack->rc,
+				ioconfig_ack->err_type,
+				cam_icp_error_handle_id_to_type(
+				ioconfig_ack->err_type));
 			return -EIO;
 		}
 		ctx_data = (struct cam_icp_hw_ctx_data *)
@@ -1821,9 +1890,13 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
 		if (ctx_data->state != CAM_ICP_CTX_STATE_FREE)
 			complete(&ctx_data->wait_complete);
-		CAM_DBG(CAM_ICP,
-			"received IPE/BPS MAP ACK:ctx_state =%d err_status =%u",
-			ctx_data->state, ioconfig_ack->err_type);
+			CAM_DBG(CAM_ICP, "received IPE/BPS\n"
+				"MAP ACK:ctx_state =%d\n"
+				"failed with err_no = [%u] err_type = [%s]",
+				ctx_data->state,
+				ioconfig_ack->err_type,
+				cam_icp_error_handle_id_to_type(
+				ioconfig_ack->err_type));
 		break;
 	case HFI_IPEBPS_CMD_OPCODE_MEM_UNMAP:
 		ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
@@ -1831,9 +1904,13 @@ static int cam_icp_mgr_process_direct_ack_msg(uint32_t *msg_ptr)
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
 		if (ctx_data->state != CAM_ICP_CTX_STATE_FREE)
 			complete(&ctx_data->wait_complete);
-		CAM_DBG(CAM_ICP,
-			"received IPE/BPS UNMAP ACK:ctx_state =%d err_status =%u",
-			ctx_data->state, ioconfig_ack->err_type);
+				CAM_DBG(CAM_ICP,
+					"received IPE/BPS UNMAP ACK:ctx_state =%d\n"
+					"failed with err_no = [%u] err_type = [%s]",
+					ctx_data->state,
+					ioconfig_ack->err_type,
+					cam_icp_error_handle_id_to_type(
+					ioconfig_ack->err_type));
 		break;
 	default:
 		CAM_ERR(CAM_ICP, "Invalid opcode : %u",
