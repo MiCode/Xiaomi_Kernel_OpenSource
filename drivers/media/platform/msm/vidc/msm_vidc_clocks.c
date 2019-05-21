@@ -15,6 +15,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
+#include "./governors/fixedpoint.h"
 
 #define MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR (1 << 16)
 #define MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR (4 << 16)
@@ -38,7 +39,7 @@ static inline void msm_dcvs_print_dcvs_stats(struct clock_data *dcvs)
 static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
 {
-	unsigned long int sum = 0, weighted_sum = 0;
+	fp_t sum = 0, weighted_sum = 0;
 	unsigned long int compression_ratio = 1 << 16;
 
 	weighted_sum =
@@ -60,7 +61,7 @@ static inline unsigned long int get_ubwc_compression_ratio(
 		ubwc_stats_info.cr_stats_info6;
 
 	compression_ratio = (weighted_sum && sum) ?
-		((256 * sum) << 16) / weighted_sum : compression_ratio;
+		fp_div((256 * sum), weighted_sum) : compression_ratio;
 
 	return compression_ratio;
 }

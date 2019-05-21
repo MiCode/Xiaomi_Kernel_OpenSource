@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -418,4 +418,52 @@
 		qcom,btm-channel-number = <0x88>;
 		qcom,thermal-node;
 	};
+};
+
+&msm_fastrpc_compute_cb1 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb2 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb3 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb4 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb5 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb6 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb7 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb8 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb9 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb10 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb11 {
+	/delete-property/ dma-coherent;
+};
+
+&msm_fastrpc_compute_cb12 {
+	/delete-property/ dma-coherent;
 };

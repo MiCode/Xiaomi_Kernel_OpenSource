@@ -333,7 +333,8 @@ struct ep_pcie_dev_t {
 	u16                          vendor_id;
 	u16                          device_id;
 	u32                          subsystem_id;
-	u32                          link_speed;
+	u32                          max_link_speed;
+	u32                          curr_link_speed;
 	bool                         active_config;
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;

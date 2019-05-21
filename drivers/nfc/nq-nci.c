@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,8 +682,11 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	int gpio_retry_count = 0;
 	unsigned char raw_nci_reset_cmd[] =  {0x20, 0x00, 0x01, 0x00};
 	unsigned char raw_nci_init_cmd[] =   {0x20, 0x01, 0x00};
+	unsigned char nci_get_version_cmd[] = {0x00, 0x04, 0xF1,
+					 0x00, 0x00, 0x00, 0x6E, 0xEF};
 	unsigned char nci_init_rsp[28];
 	unsigned char nci_reset_rsp[6];
+	unsigned char nci_get_version_rsp[12];
 	unsigned char init_rsp_len = 0;
 	unsigned int enable_gpio = nqx_dev->en_gpio;
 
@@ -701,8 +704,47 @@ reset_enable_gpio:
 						sizeof(raw_nci_reset_cmd));
 	if (ret < 0) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_send Error\n", __func__);
-		goto err_nfcc_hw_check;
+		"%s: - i2c_master_send core reset Error\n", __func__);
+
+		if (gpio_is_valid(nqx_dev->firm_gpio)) {
+			gpio_set_value(nqx_dev->firm_gpio, 1);
+			usleep_range(10000, 10100);
+		}
+		gpio_set_value(nqx_dev->en_gpio, 0);
+		usleep_range(10000, 10100);
+		gpio_set_value(nqx_dev->en_gpio, 1);
+		usleep_range(10000, 10100);
+
+		ret = i2c_master_send(client, nci_get_version_cmd,
+						sizeof(nci_get_version_cmd));
+
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"%s: - i2c_master_send get version cmd Error\n",
+				__func__);
+			goto err_nfcc_hw_check;
+		}
+		/* hardware dependent delay */
+		usleep_range(10000, 10100);
+
+		ret = i2c_master_recv(client, nci_get_version_rsp,
+						sizeof(nci_get_version_rsp));
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"%s: - i2c_master_recv get version rsp Error\n",
+				__func__);
+			goto err_nfcc_hw_check;
+		} else {
+			nqx_dev->nqx_info.info.chip_type =
+				nci_get_version_rsp[3];
+			nqx_dev->nqx_info.info.rom_version =
+				nci_get_version_rsp[4];
+			nqx_dev->nqx_info.info.fw_minor =
+				nci_get_version_rsp[10];
+			nqx_dev->nqx_info.info.fw_major =
+				nci_get_version_rsp[11];
+		}
+		goto err_nfcc_reset_failed;
 	}
 	/* hardware dependent delay */
 	msleep(30);
@@ -722,7 +764,7 @@ reset_enable_gpio:
 				sizeof(raw_nci_init_cmd));
 	if (ret < 0) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_send Error\n", __func__);
+		"%s: - i2c_master_send failed for Core INIT\n", __func__);
 		goto err_nfcc_core_init_fail;
 	}
 	/* hardware dependent delay */
@@ -751,6 +793,7 @@ reset_enable_gpio:
 		__func__, nci_reset_rsp[0],
 		nci_reset_rsp[1], nci_reset_rsp[2]);
 
+err_nfcc_reset_failed:
 	dev_dbg(&nqx_dev->client->dev, "NQ NFCC chip_type = %x\n",
 		nqx_dev->nqx_info.info.chip_type);
 	dev_dbg(&nqx_dev->client->dev, "NQ fw version = %x.%x.%x\n",

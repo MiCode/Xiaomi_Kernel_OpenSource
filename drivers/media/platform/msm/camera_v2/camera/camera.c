@@ -369,9 +369,12 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 
 	if (pfmt->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
-		if (WARN_ON(!sp->vb2_q.drv_priv))
-			return -ENOMEM;
-
+		mutex_lock(sp->vb2_q.lock);
+		if (WARN_ON(!sp->vb2_q.drv_priv)) {
+			rc = -ENOMEM;
+			mutex_unlock(sp->vb2_q.lock);
+			goto done;
+	}
 		memcpy(sp->vb2_q.drv_priv, pfmt->fmt.raw_data,
 			sizeof(struct msm_v4l2_format_data));
 		user_fmt = (struct msm_v4l2_format_data *)sp->vb2_q.drv_priv;
@@ -381,27 +384,29 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 		/* num_planes need to bound checked, otherwise for loop
 		 * can execute forever
 		 */
-		if (WARN_ON(user_fmt->num_planes > VIDEO_MAX_PLANES))
-			return -EINVAL;
+		if (WARN_ON(user_fmt->num_planes > VIDEO_MAX_PLANES)) {
+			rc = -EINVAL;
+			mutex_unlock(sp->vb2_q.lock);
+			goto done;
+		}
 		for (i = 0; i < user_fmt->num_planes; i++)
 			pr_debug("%s: plane size[%d]\n", __func__,
 					user_fmt->plane_sizes[i]);
-
+		mutex_unlock(sp->vb2_q.lock);
 		if (msm_is_daemon_present() != false) {
 			camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 				MSM_CAMERA_PRIV_S_FMT, -1, &event);
 
 			rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 			if (rc < 0)
-				return rc;
-
+				goto done;
 			rc = camera_check_event_status(&event);
 			if (rc < 0)
-				return rc;
+				goto done;
 		}
 		sp->is_vb2_valid = 1;
 	}
-
+done:
 	return rc;
 }
 
@@ -600,6 +605,12 @@ static int camera_v4l2_vb2_q_init(struct file *filep)
 		pr_err("%s : memory not available\n", __func__);
 		return -ENOMEM;
 	}
+	q->lock = kzalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (!q->lock) {
+		kzfree(q->drv_priv);
+		return -ENOMEM;
+	}
+	mutex_init(q->lock);
 
 	q->mem_ops = msm_vb2_get_q_mem_ops();
 	q->ops = msm_vb2_get_q_ops();
@@ -619,6 +630,8 @@ static void camera_v4l2_vb2_q_release(struct file *filep)
 	kzfree(sp->vb2_q.drv_priv);
 	mutex_lock(&sp->lock);
 	vb2_queue_release(&sp->vb2_q);
+	mutex_destroy(sp->vb2_q.lock);
+	kzfree(sp->vb2_q.lock);
 	mutex_unlock(&sp->lock);
 }
 

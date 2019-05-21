@@ -169,7 +169,7 @@ rel_kmd_buf:
 }
 
 int cam_packet_util_process_patches(struct cam_packet *packet,
-	int32_t iommu_hdl, int32_t sec_mmu_hdl)
+	int32_t iommu_hdl, int32_t sec_mmu_hdl, int pf_dump_flag)
 {
 	struct cam_patch_desc *patch_desc = NULL;
 	dma_addr_t iova_addr;
@@ -242,6 +242,14 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 		if (cam_mem_put_cpu_buf(patch_desc[i].dst_buf_hdl))
 			CAM_WARN(CAM_UTIL, "unable to put dst buf address:0x%x",
 				patch_desc[i].dst_buf_hdl);
+
+		if (pf_dump_flag) {
+			CAM_INFO(CAM_UTIL,
+				"patch[%d]: patched addr %llx sz 0x%x offset:0x%x",
+				i, *((uint64_t *)dst_cpu_addr),
+				(uint32_t)src_buf_size,
+				patch_desc[i].src_offset);
+		}
 	}
 
 	return rc;

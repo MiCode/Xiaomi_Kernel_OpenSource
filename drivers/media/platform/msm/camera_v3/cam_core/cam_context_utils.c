@@ -482,9 +482,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 						ctx->dev_name, ctx->ctx_id,
 						req->request_id);
 
-				cam_context_putref(ctx);
-
-				goto put_ref;
+				goto put_ctx_ref;
 			}
 			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
 				req->in_map_entries[j].sync_id, rc);
@@ -493,7 +491,9 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	}
 
 	return rc;
-
+put_ctx_ref:
+	for (--j; j >= 0; j--)
+		cam_context_putref(ctx);
 put_ref:
 	for (--i; i >= 0; i--) {
 		rc = cam_sync_put_obj_ref(req->out_map_entries[i].sync_id);
@@ -1018,6 +1018,7 @@ int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
 		cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
 		cmd_args.cmd_type = CAM_HW_MGR_CMD_DUMP_PF_INFO;
 		cmd_args.u.pf_args.pf_data.packet = packet;
+		cmd_args.u.pf_args.pf_data.ctx_id = ctx->ctx_id;
 		cmd_args.u.pf_args.iova = iova;
 		cmd_args.u.pf_args.buf_info = buf_info;
 		cmd_args.u.pf_args.mem_found = mem_found;

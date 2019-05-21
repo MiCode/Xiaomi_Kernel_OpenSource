@@ -2804,12 +2804,15 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_rm;
 	}
 
-	/* Initialize uC interface */
-	ipa_uc_mhi_init(ipa_mhi_uc_ready_cb,
-		ipa_mhi_uc_wakeup_request_cb);
-	if (ipa_uc_state_check() == 0)
+	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI) {
 		ipa_mhi_set_state(IPA_MHI_STATE_READY);
-
+	} else {
+		/* Initialize uC interface */
+		ipa_uc_mhi_init(ipa_mhi_uc_ready_cb,
+			ipa_mhi_uc_wakeup_request_cb);
+		if (ipa_uc_state_check() == 0)
+			ipa_mhi_set_state(IPA_MHI_STATE_READY);
+	}
 	/* Initialize debugfs */
 	ipa_mhi_debugfs_init();
 

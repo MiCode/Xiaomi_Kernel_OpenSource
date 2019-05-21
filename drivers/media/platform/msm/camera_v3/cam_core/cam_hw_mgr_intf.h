@@ -144,9 +144,11 @@ struct cam_hw_stop_args {
  * struct cam_hw_mgr_dump_pf_data - page fault debug data
  *
  * packet:     pointer to packet
+ * ctx_id:     context id
  */
 struct cam_hw_mgr_dump_pf_data {
 	void    *packet;
+	uint32_t ctx_id;
 };
 
 /**

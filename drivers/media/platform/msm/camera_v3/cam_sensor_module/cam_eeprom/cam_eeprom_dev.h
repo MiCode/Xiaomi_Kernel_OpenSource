@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <cam_mem_mgr.h>
 #include <cam_subdev.h>
 #include "cam_soc_util.h"
+#include "cam_context.h"
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
@@ -151,6 +152,7 @@ struct cam_eeprom_intf_params {
 
 /**
  * struct cam_cmd_conditional_wait - Conditional wait command
+ * @device_name     :   Device name
  * @pdev            :   platform device
  * @spi             :   spi device
  * @eeprom_mutex    :   eeprom mutex
@@ -163,10 +165,10 @@ struct cam_eeprom_intf_params {
  * @cam_eeprom_state:   eeprom_device_state
  * @userspace_probe :   flag indicates userspace or kernel probe
  * @cal_data        :   Calibration data
- * @device_name     :   Device name
  *
  */
 struct cam_eeprom_ctrl_t {
+	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
 	struct spi_device *spi;
 	struct mutex eeprom_mutex;
@@ -181,7 +183,6 @@ struct cam_eeprom_ctrl_t {
 	enum cam_eeprom_state cam_eeprom_state;
 	bool userspace_probe;
 	struct cam_eeprom_memory_block_t cal_data;
-	char device_name[20];
 };
 
 int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,

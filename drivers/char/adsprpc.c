@@ -103,6 +103,7 @@
 #define FASTRPC_LINK_DISCONNECTING (0x7)
 #define FASTRPC_LINK_REMOTE_DISCONNECTING (0x8)
 #define FASTRPC_GLINK_INTENT_LEN  (64)
+#define FASTRPC_GLINK_INTENT_NUM  (16)
 
 #define PERF_KEYS \
 	"count:flush:map:copy:glink:getargs:putargs:invalidate:invoke:tid:ptr"
@@ -3356,7 +3357,7 @@ static const struct file_operations debugfs_fops = {
 static int fastrpc_channel_open(struct fastrpc_file *fl)
 {
 	struct fastrpc_apps *me = &gfa;
-	int cid, err = 0;
+	int cid, ii, err = 0;
 
 	mutex_lock(&me->smd_mutex);
 
@@ -3403,15 +3404,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
-		if (me->glink) {
-			err = glink_queue_rx_intent(me->channel[cid].chan, NULL,
+
+		for (ii = 0; ii < FASTRPC_GLINK_INTENT_NUM && me->glink; ii++)
+			glink_queue_rx_intent(me->channel[cid].chan, NULL,
 				FASTRPC_GLINK_INTENT_LEN);
-			err |= glink_queue_rx_intent(me->channel[cid].chan,
-				NULL, FASTRPC_GLINK_INTENT_LEN);
-			if (err)
-				pr_warn("adsprpc: initial intent fail for %d err %d\n",
-					cid, err);
-		}
+
 		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
