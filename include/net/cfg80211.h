@@ -43,6 +43,9 @@
 /* Indicate support for reporting rx FCS in cfg80211 */
 #define CFG80211_RX_FCS_ERROR_REPORTING_SUPPORT 1
 
+/* Indicate backport support for DH IE creation/update*/
+#define CFG80211_EXTERNAL_DH_UPDATE_SUPPORT 1
+
 /**
  * DOC: Introduction
  *
