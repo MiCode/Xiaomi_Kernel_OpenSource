@@ -9,7 +9,10 @@ CMDQ driver uses mailbox framework for communication. Please refer to
 mailbox.txt for generic information about mailbox device-tree bindings.
 
 Required properties:
-- compatible: Can be "mediatek,mt8173-gce" or "mediatek,mt6779-gce"
+- compatible: Can be one of the following strings:
+	"mediatek,mt6779-gce" for mt6799.
+	"mediatek,mt8173-gce" for mt8173.
+	"mediatek,mt2712-gce", "mediatek,mt8173-gce" for mt2712.
 - reg: Address range of the GCE unit
 - interrupts: The interrupt signal from the GCE block
 - #mbox-cells: Should be 3.
@@ -29,8 +32,8 @@ Required properties for a client device:
 - mediatek,gce-subsys: u32, specify the sub-system id which is corresponding
   to the register address.
 
-Some vaules of properties are defined in 'dt-bindings/gce/mt8173-gce.h' or
-'dt-bindings/gce/mt6779-gce.h'. Such as sub-system ids, thread priority, event ids.
+Some vaules of properties are defined in 'dt-bindings/gce/mtxxxx-gce.h', e.g.,
+mt8173-gce.h. Such as sub-system ids, thread priority, event ids.
 
 Example:
 
