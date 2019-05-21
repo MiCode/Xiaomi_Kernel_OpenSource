@@ -621,18 +621,12 @@ static void *alloc_item_nonsecure(unsigned int id, unsigned int size_in)
 	struct smem_shared *shared = smem_base;
 	struct smem_heap_entry *toc = shared->heap_toc;
 	uint32_t free_offset, heap_remaining;
-	struct smem_toc __iomem *p_toc;
 	void *ret = NULL;
-	uint32_t p_size;
-
-	p_toc = smem_get_toc();
-	p_size =
-	readl_relaxed(&p_toc->entry[comm_partition.partition_num].size);
 
 	heap_remaining = shared->heap_info.heap_remaining;
 	free_offset = shared->heap_info.free_offset;
-	if (WARN_ON(heap_remaining > p_size
-		   || free_offset > p_size))
+	if (WARN_ON(heap_remaining > smem_ram_size
+		   || free_offset > smem_ram_size))
 		return NULL;
 
 	if (heap_remaining >= size_in) {
@@ -972,13 +966,13 @@ unsigned int smem_get_free_space(unsigned int to_proc)
 	uint32_t offset_free_cached;
 	uint32_t heap_remaining;
 	uint32_t p_size;
+	uint32_t p_num;
 
 	if (to_proc >= NUM_SMEM_SUBSYSTEMS) {
 		pr_err("%s: invalid to_proc:%d\n", __func__, to_proc);
 		return UINT_MAX;
 	}
 
-	toc = smem_get_toc();
 	if (partitions[to_proc].offset) {
 		if (unlikely(OVERFLOW_ADD_UNSIGNED(uintptr_t,
 					(uintptr_t)smem_areas[0].virt_addr,
@@ -989,7 +983,10 @@ unsigned int smem_get_free_space(unsigned int to_proc)
 		hdr = smem_areas[0].virt_addr + partitions[to_proc].offset;
 		offset_free_cached = hdr->offset_free_cached;
 		offset_free_uncached = hdr->offset_free_uncached;
-		p_size = readl_relaxed(&toc->entry[to_proc].size);
+
+		toc = smem_get_toc();
+		p_num = partitions[to_proc].partition_num;
+		p_size = readl_relaxed(&toc->entry[p_num].size);
 		if (WARN_ON(offset_free_uncached > offset_free_cached
 			    || offset_free_cached > p_size))
 			return -EINVAL;
@@ -998,8 +995,7 @@ unsigned int smem_get_free_space(unsigned int to_proc)
 	}
 	shared = smem_ram_base;
 	heap_remaining = shared->heap_info.heap_remaining;
-	p_size = readl_relaxed(&toc->entry[comm_partition.partition_num].size);
-	if (WARN_ON(heap_remaining > p_size))
+	if (WARN_ON(heap_remaining > smem_ram_size))
 		return -EINVAL;
 
 	return heap_remaining;
