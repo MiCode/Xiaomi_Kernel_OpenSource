@@ -5747,6 +5747,16 @@ static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 static int smbchg_set_sdp_current(struct smbchg_chip *chip, int current_ma)
 {
 	if (chip->usb_supply_type == POWER_SUPPLY_TYPE_USB) {
+		if (current_ma == -ETIMEDOUT) {
+			/* float charger */
+			current_ma = CURRENT_1500_MA;
+			pr_smb(PR_MISC,
+				"Update usb_type to FLOAT current=%dmA\n",
+								current_ma);
+			chip->usb_psy_d.type = POWER_SUPPLY_TYPE_USB_FLOAT;
+		} else {
+			current_ma = current_ma / 1000;
+		}
 		/* Override if type-c charger used */
 		if (chip->typec_current_ma > 500 &&
 				current_ma < chip->typec_current_ma) {
@@ -5807,7 +5817,7 @@ static int smbchg_usb_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_SDP_CURRENT_MAX:
-		smbchg_set_sdp_current(chip, val->intval / 1000);
+		smbchg_set_sdp_current(chip, val->intval);
 	default:
 		return -EINVAL;
 	}
