@@ -27,6 +27,10 @@
 #define IPA_CPU_2_HW_CMD_MBOX_m          0
 #define IPA_CPU_2_HW_CMD_MBOX_n         23
 
+static void ipa_uc_send_dma_addr_on_wq(struct work_struct *work);
+static DECLARE_WORK(ipa_uc_send_dma_addr_work,
+	ipa_uc_send_dma_addr_on_wq);
+
 /**
  * enum ipa3_cpu_2_hw_commands - Values that represent the commands from the CPU
  * IPA_CPU_2_HW_CMD_NO_OP : No operation is required.
@@ -68,6 +72,8 @@ enum ipa3_cpu_2_hw_commands {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 10),
 	IPA_CPU_2_HW_CMD_REMOTE_IPA_INFO           =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 11),
+	IPA_CPU_2_HW_CMD_DMA_ADDR_INFO           =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 12),
 };
 
 /**
@@ -498,6 +504,13 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 		 * IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED is received.
 		 */
 		ipa3_proxy_clk_unvote();
+
+		/*
+		 * Sending the dma address command to uC for storing debug info
+		 */
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2)
+			queue_work(ipa3_ctx->power_mgmt_wq,
+				&ipa_uc_send_dma_addr_work);
 
 		for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
 			if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)
@@ -931,4 +944,47 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n)
 free_coherent:
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	return res;
+}
+
+static void ipa_uc_send_dma_addr_on_wq(struct work_struct *work)
+{
+	int res;
+	struct ipa_mem_buffer *cmd;
+	u32 addr_lo, addr_hi, *value;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	cmd = &ipa3_ctx->uc_dma_addr;
+	cmd->size = sizeof(int);
+	cmd->base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd->size,
+			&cmd->phys_base, GFP_KERNEL);
+	if (cmd->base == NULL) {
+		IPAERR("Memory allocation failed\n");
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		return;
+	}
+
+	memset(cmd->base, 0, cmd->size);
+	value = (u32 *)cmd->base;
+	/* By default expected to write 0xDEADDEAD in this dma addr*/
+	*value = 0xDEADDEAD;
+	addr_lo = lower_32_bits(cmd->phys_base);
+	addr_hi = upper_32_bits(cmd->phys_base);
+	res = ipa3_uc_send_cmd_64b_param(addr_lo, addr_hi,
+			IPA_CPU_2_HW_CMD_DMA_ADDR_INFO,
+			0, false, 10 * HZ);
+
+	if (res) {
+		IPAERR("Failed to send command\n");
+		goto free_coherent;
+	}
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	return;
+free_coherent:
+	dma_free_coherent(ipa3_ctx->uc_pdev, cmd->size, cmd->base,
+							cmd->phys_base);
+	cmd->size = 0;
+	cmd->base = NULL;
+	cmd->phys_base = 0;
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
