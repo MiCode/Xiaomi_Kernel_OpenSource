@@ -9,6 +9,7 @@
 #include <dt-bindings/memory/mt2712-larb-port.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/power/mt2712-power.h>
+#include <dt-bindings/gce/mt2712-gce.h>
 #include <dt-bindings/reset/mt2712-resets.h>
 #include "mt2712-pinfunc.h"
 
@@ -395,13 +396,14 @@
 			#iommu-cells = <1>;
 		};
 
-		gce: gce@10212000 {
-			compatible = "mediatek,mt2712-gce";
+		gce: mailbox@10212000 {
+			compatible = "mediatek,mt2712-gce",
+					"mediatek,mt8173-gce";
 			reg = <0 0x10212000 0 0x900>;
 			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_LOW>;
 			clocks = <&infracfg CLK_INFRA_GCE>;
 			clock-names = "gce";
-			#mbox-cells = <2>;
+			#mbox-cells = <3>;
 		};
 
 		cqdma: cqdma@10212C00 {
