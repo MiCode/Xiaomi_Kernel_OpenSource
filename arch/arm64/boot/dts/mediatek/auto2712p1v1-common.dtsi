@@ -928,12 +928,12 @@
 	pinctrl-1 = <&state_wakeup_eint_as_int>;
 	status = "okay";
 	mediatek,kpd-hw-wakekey = <8>;
-	mediatek,kpd-key-debounce = <1024>;
+	mediatek,key-debounce-ms = <1024>;
 	mediatek,kpd-use-extend-type = <0>;
 	/*HW Keycode [0~71] -> Linux Keycode*/
-	mediatek,kpd-hw-map-num = <72>;
+	mediatek,hw-map-num = <72>;
 	/* 8*9 key mapping table */
-	mediatek,kpd-hw-init-map = \
+	mediatek,hw-init-map = \
 			<115 114 0 0 0 0 0 0 0
 			113 237 0 0 0 0 0 0 0
 			0 0 0 0 0 0 0 0 0
