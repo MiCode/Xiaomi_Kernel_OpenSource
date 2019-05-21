@@ -130,6 +130,10 @@
 /* PortID within the local arbiter */
 #define MTK_M4U_TO_PORT(id)		((id) & 0x1f)
 
+#define F_MMU_INT_ID_COMM_ID(a)		(((a) >> 9) & 0x7)
+#define F_MMU_INT_ID_SUB_COMM_ID(a)	(((a) >> 7) & 0x3)
+
+
 /* IO virtual address start page frame number */
 #define IOVA_START_PFN			(1)
 #define IOVA_PFN(addr)			((addr) >> PAGE_SHIFT)
@@ -359,9 +363,10 @@ static struct iommu_group *mtk_iommu_get_group(
 	struct mtk_iommu_domain *dom;
 
 	dom = __mtk_iommu_get_mtk_domain(dev);
-	if (dom)
+	if (dom) {
+		iommu_group_ref_get(dom->group);
 		return dom->group;
-
+	}
 	return NULL;
 }
 
@@ -463,7 +468,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	struct mtk_iommu_data *data = dev_id;
 	struct iommu_domain *domain;
 	u32 int_state, regval, fault_iova, fault_pa;
-	unsigned int fault_larb, fault_port;
+	unsigned int fault_larb, fault_port, sub_comm = 0;
 	bool layer, write;
 	int slave_id = 0;
 	phys_addr_t pa;
@@ -499,15 +504,21 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		fault_pa = readl_relaxed(data->base + REG_MMU1_INVLD_PA);
 		regval = readl_relaxed(data->base + REG_MMU1_INT_ID);
 	}
-	fault_larb = F_MMU0_INT_ID_LARB_ID(regval);
-	fault_port = F_MMU0_INT_ID_PORT_ID(regval);
-	domain = __mtk_iommu_get_domain(data,
-				fault_larb, fault_port);
-	pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
-	pr_notice("iova=%x,pa=%x\n", fault_iova, (unsigned int)pa);
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 	fault_iova &= F_MMU_FAULT_VA_MSK;
+	fault_port = F_MMU0_INT_ID_PORT_ID(regval);
+	fault_larb = F_MMU_INT_ID_COMM_ID(regval);
+	sub_comm = F_MMU_INT_ID_SUB_COMM_ID(regval);
+	if (fault_larb == 5)
+		fault_larb = sub_comm ? 8 : 7;
+	else
+		fault_larb = data->plat_data->larbid_remap[fault_larb];
+
+	domain = __mtk_iommu_get_domain(data,
+				fault_larb, fault_port);
+	pa = mtk_iommu_iova_to_phys(domain, fault_iova);
+	pr_notice("iova=%x,pa=%x\n", fault_iova, (unsigned int)pa);
 	if (data->plat_data->iommu_id) {
 		fault_port = 151;
 		fault_larb = 13;
@@ -520,7 +531,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			"iommu fault id:%u type=0x%x iova=0x%x pa=0x%x larb=%d port=%d layer=%d regval=0x%x %s\n",
 			data->plat_data->iommu_id, int_state, fault_iova,
 			fault_pa, fault_larb, fault_port,
-			regval, layer, write ? "write" : "read");
+			layer, regval, write ? "write" : "read");
 	}
 
 	/* Interrupt clear */
@@ -1350,6 +1361,7 @@ static const struct dev_pm_ops mtk_iommu_pm_ops = {
 
 const struct mtk_iommu_plat_data mt6779_data_mm = {
 	.m4u_plat = M4U_MT6779,
+	.larbid_remap = {0, 1, 2, 3, 5, 7, 10, 9},
 	.single_pt = true,
 	.has_resv_region = true,
 	.iommu_id = 0,
