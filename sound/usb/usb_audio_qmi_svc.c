@@ -118,8 +118,6 @@ struct uaudio_qmi_svc {
 	struct workqueue_struct *uaudio_wq;
 	struct sockaddr_qrtr client_sq;
 	bool client_connected;
-	ktime_t t_request_recvd;
-	ktime_t t_resp_sent;
 	void *uaudio_ipc_log;
 };
 
@@ -1034,11 +1032,11 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 	struct uaudio_qmi_svc *svc = uaudio_svc;
 	struct intf_info *info;
 	struct usb_host_endpoint *ep;
+	ktime_t t_request_recvd = ktime_get();
+
 	int pcm_format;
 	u8 pcm_card_num, pcm_dev_num, direction;
 	int info_idx = -EINVAL, datainterval = -EINVAL, ret = 0;
-
-	svc->t_request_recvd = ktime_get();
 
 	uaudio_dbg("sq_node:%x sq_port:%x sq_family:%x\n", sq->sq_node,
 			sq->sq_port, sq->sq_family);
@@ -1182,10 +1180,8 @@ response:
 			QMI_UAUDIO_STREAM_RESP_MSG_V01_MAX_MSG_LEN,
 			qmi_uaudio_stream_resp_msg_v01_ei, &resp);
 
-	svc->t_resp_sent = ktime_get();
-
-	uaudio_dbg("t_resp sent - t_req recvd (in ms) %lld\n",
-		ktime_to_ms(ktime_sub(svc->t_resp_sent, svc->t_request_recvd)));
+	uaudio_dbg("ret %d: qmi response latency %lld ms\n", ret,
+		ktime_to_ms(ktime_sub(ktime_get(), t_request_recvd)));
 }
 
 static void uaudio_qmi_disconnect_work(struct work_struct *w)
