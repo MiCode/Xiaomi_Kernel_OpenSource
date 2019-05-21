@@ -186,7 +186,7 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
-			vbmeta {
+			android_vbmeta: vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
 			};
