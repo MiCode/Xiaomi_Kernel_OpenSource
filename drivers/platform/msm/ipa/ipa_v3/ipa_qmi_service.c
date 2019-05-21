@@ -824,10 +824,11 @@ int ipa3_qmi_ul_filter_request_send(
 		if (req->firewall_rules_list[i].ip_type !=
 				QMI_IPA_IP_TYPE_V4_V01 &&
 			req->firewall_rules_list[i].ip_type !=
-				QMI_IPA_IP_TYPE_V6_V01)
+				QMI_IPA_IP_TYPE_V6_V01) {
 			IPAWANERR("Invalid IP type %d\n",
 					req->firewall_rules_list[i].ip_type);
-		return -EINVAL;
+			return -EINVAL;
+		}
 	}
 
 	req_desc.max_msg_len =
