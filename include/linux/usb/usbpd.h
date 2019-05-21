@@ -43,7 +43,8 @@ struct usbpd_svid_handler {
 	u16 svid;
 
 	/* Notified when VDM session established/reset; must be implemented */
-	void (*connect)(struct usbpd_svid_handler *hdlr);
+	void (*connect)(struct usbpd_svid_handler *hdlr,
+			bool supports_usb_comm);
 	void (*disconnect)(struct usbpd_svid_handler *hdlr);
 
 	/* DP driver -> PE driver for requesting USB SS lanes */

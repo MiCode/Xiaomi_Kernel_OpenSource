@@ -528,6 +528,35 @@ static void sde_hdcp_2x_initialize_command(struct sde_hdcp_2x_ctrl *hdcp,
 		cdata->buf = hdcp->app_data.request.data + 1;
 }
 
+static void sde_hdcp_2x_set_hw_key(struct sde_hdcp_2x_ctrl *hdcp)
+{
+	int rc;
+	struct hdcp_transport_wakeup_data cdata = {
+						HDCP_TRANSPORT_CMD_INVALID };
+	cdata.context = hdcp->client_data;
+
+	if (hdcp->authenticated) {
+		pr_debug("authenticated, h/w key already set\n");
+		return;
+	}
+
+	rc = hdcp2_app_comm(hdcp->hdcp2_ctx, HDCP2_CMD_SET_HW_KEY,
+			&hdcp->app_data);
+	if (rc) {
+		pr_err("failed to set h/w key: %d\n", rc);
+		return;
+	}
+
+	hdcp->authenticated = true;
+	pr_debug("authenticated\n");
+
+	if (hdcp->force_encryption)
+		hdcp2_force_encryption(hdcp->hdcp2_ctx, 1);
+
+	cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
+	sde_hdcp_2x_wakeup_client(hdcp, &cdata);
+}
+
 static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 {
 	struct hdcp_transport_wakeup_data cdata = {
@@ -536,16 +565,7 @@ static void sde_hdcp_2x_msg_sent(struct sde_hdcp_2x_ctrl *hdcp)
 
 	switch (hdcp->app_data.response.data[0]) {
 	case SKE_SEND_TYPE_ID:
-		if (!hdcp2_app_comm(hdcp->hdcp2_ctx,
-				HDCP2_CMD_EN_ENCRYPTION, &hdcp->app_data)) {
-			hdcp->authenticated = true;
-
-			if (hdcp->force_encryption)
-				hdcp2_force_encryption(hdcp->hdcp2_ctx, 1);
-
-			cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
-			sde_hdcp_2x_wakeup_client(hdcp, &cdata);
-		}
+		sde_hdcp_2x_set_hw_key(hdcp);
 
 		/* poll for link check */
 		sde_hdcp_2x_initialize_command(hdcp,
@@ -743,24 +763,9 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 			if (!rc)
 				sde_hdcp_2x_send_message(hdcp);
 			goto exit;
-		} else if (!hdcp->authenticated) {
-			rc = hdcp2_app_comm(hdcp->hdcp2_ctx,
-					HDCP2_CMD_EN_ENCRYPTION,
-					&hdcp->app_data);
-			if (!rc) {
-				hdcp->authenticated = true;
-
-				if (hdcp->force_encryption)
-					hdcp2_force_encryption(
-							hdcp->hdcp2_ctx, 1);
-
-				cdata.cmd = HDCP_TRANSPORT_CMD_STATUS_SUCCESS;
-				sde_hdcp_2x_wakeup_client(hdcp, &cdata);
-			} else {
-				pr_err("failed to enable encryption (%d)\n",
-						rc);
-			}
 		}
+
+		sde_hdcp_2x_set_hw_key(hdcp);
 
 		sde_hdcp_2x_initialize_command(hdcp,
 				HDCP_TRANSPORT_CMD_LINK_POLL, &cdata);
