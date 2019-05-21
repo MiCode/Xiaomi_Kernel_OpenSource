@@ -84,6 +84,7 @@ void dev_pm_opp_put_opp_table(struct opp_table *opp_table);
 unsigned long dev_pm_opp_get_voltage(struct dev_pm_opp *opp);
 
 unsigned long dev_pm_opp_get_freq(struct dev_pm_opp *opp);
+unsigned int dev_pm_opp_get_level(struct dev_pm_opp *opp);
 
 bool dev_pm_opp_is_turbo(struct dev_pm_opp *opp);
 
@@ -144,6 +145,10 @@ static inline unsigned long dev_pm_opp_get_voltage(struct dev_pm_opp *opp)
 }
 
 static inline unsigned long dev_pm_opp_get_freq(struct dev_pm_opp *opp)
+{
+	return 0;
+}
+static inline unsigned int dev_pm_opp_get_level(struct dev_pm_opp *opp)
 {
 	return 0;
 }
@@ -302,6 +307,7 @@ struct device_node *dev_pm_opp_of_get_opp_desc_node(struct device *dev);
 struct dev_pm_opp *of_dev_pm_opp_find_required_opp(struct device *dev, struct device_node *np);
 struct device_node *dev_pm_opp_get_of_node(struct dev_pm_opp *opp);
 int of_dev_pm_opp_get_cpu_power(unsigned long *mW, unsigned long *KHz, int cpu);
+int of_get_required_opp_performance_state(struct device_node *np, int index);
 #else
 static inline int dev_pm_opp_of_add_table(struct device *dev)
 {
@@ -348,6 +354,11 @@ static inline int of_dev_pm_opp_get_cpu_power(unsigned long *mW, unsigned long *
 {
 	return -ENOTSUPP;
 }
+static inline int of_get_required_opp_performance_state(struct device_node *np, int index)
+{
+	return -ENOTSUPP;
+}
+
 #endif
 
 #endif		/* __LINUX_OPP_H__ */
