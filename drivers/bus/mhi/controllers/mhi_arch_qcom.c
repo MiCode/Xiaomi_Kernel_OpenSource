@@ -24,6 +24,7 @@
 #include <linux/msm_pcie.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
@@ -41,6 +42,8 @@ struct arch_info {
 	struct mhi_device *boot_dev;
 	struct mhi_link_info current_link_info;
 	struct work_struct bw_scale_work;
+	struct notifier_block pm_notifier;
+	struct completion pm_completion;
 };
 
 /* ipc log markings */
@@ -58,6 +61,25 @@ enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_VERBOSE;
 enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_ERROR;
 
 #endif
+
+static int mhi_arch_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	struct arch_info *arch_info =
+		container_of(nb, struct arch_info, pm_notifier);
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		reinit_completion(&arch_info->pm_completion);
+		break;
+
+	case PM_POST_SUSPEND:
+		complete_all(&arch_info->pm_completion);
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 {
@@ -174,6 +196,15 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	mhi_dev->powered_on = false;
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 
+	/*
+	 * Abort system suspend if system is preparing to go to suspend
+	 * by grabbing wake source.
+	 * If system is suspended, wait for pm notifier callback to notify
+	 * that resume has occurred with PM_POST_SUSPEND event.
+	 */
+	pm_stay_awake(&mhi_cntrl->mhi_dev->dev);
+	wait_for_completion(&arch_info->pm_completion);
+
 	MHI_LOG("Triggering shutdown process\n");
 	mhi_power_down(mhi_cntrl, !mdm_state);
 
@@ -186,6 +217,8 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 
 	mhi_arch_iommu_deinit(mhi_cntrl);
 	mhi_arch_pcie_deinit(mhi_cntrl);
+
+	pm_relax(&mhi_cntrl->mhi_dev->dev);
 }
 
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
@@ -416,6 +449,18 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		ret = msm_pcie_register_event(reg_event);
 		if (ret)
 			MHI_LOG("Failed to reg. for link up notification\n");
+
+		init_completion(&arch_info->pm_completion);
+
+		/* register PM notifier to get post resume events */
+		arch_info->pm_notifier.notifier_call = mhi_arch_pm_notifier;
+		register_pm_notifier(&arch_info->pm_notifier);
+
+		/*
+		 * Mark as completed at initial boot-up to allow ESOC power on
+		 * callback to proceed if system has not gone to suspend
+		 */
+		complete_all(&arch_info->pm_completion);
 
 		arch_info->esoc_client = devm_register_esoc_client(
 						&mhi_dev->pci_dev->dev, "mdm");
