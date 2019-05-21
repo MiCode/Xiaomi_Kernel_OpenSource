@@ -410,15 +410,18 @@
 &audio_apr {
 	status = "ok";
 	q6core: qcom,q6core-audio {
-		status = "disabled";
+		status = "ok";
 		sm6150_snd: sound {
 			status = "disabled";
 		};
+
 		bolero: bolero-cdc {
 			status = "disabled";
 		};
 	};
+};
 
+&q6core {
 	sound-adp-star {
 		status = "ok";
 		compatible = "qcom,sa6155-asoc-snd-adp-star";
@@ -505,6 +508,7 @@
 				"msm-dai-q6-tdm.36935";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>;
 	};
 };
 
