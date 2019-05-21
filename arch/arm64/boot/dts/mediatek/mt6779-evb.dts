@@ -225,6 +225,7 @@
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1300000>;
 				regulator-allowed-modes = <0 2 3>;
+				regulator-always-on;
 			};
 			ldo6 {
 				regulator-compatible = "LDO6";
@@ -232,6 +233,7 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <2100000>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			ldo7 {
 				regulator-compatible = "LDO7";
@@ -239,6 +241,7 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <2100000>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 		};
 		ldo {
