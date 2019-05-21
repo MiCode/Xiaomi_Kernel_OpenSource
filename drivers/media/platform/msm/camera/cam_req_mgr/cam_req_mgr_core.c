@@ -351,7 +351,8 @@ static void __cam_req_mgr_reset_req_slot(struct cam_req_mgr_core_link *link,
 	CAM_DBG(CAM_CRM, "RESET: idx: %d: slot->status %d", idx, slot->status);
 
 	/* Check if CSL has already pushed new request*/
-	if (slot->status == CRM_SLOT_STATUS_REQ_ADDED)
+	if (slot->status == CRM_SLOT_STATUS_REQ_ADDED ||
+		in_q->last_applied_idx == idx)
 		return;
 
 	/* Reset input queue slot */
@@ -512,9 +513,11 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			}
 			if (link->req.apply_data[pd].skip_idx ||
 				link->req.apply_data[pd].req_id < 0) {
-				CAM_DBG(CAM_CRM, "skip %d req_id %lld",
+				CAM_DBG(CAM_CRM,
+					"skip %d req_id %lld pd %d dev_name %s",
 					link->req.apply_data[pd].skip_idx,
-					link->req.apply_data[pd].req_id);
+					link->req.apply_data[pd].req_id,
+					pd, dev->dev_info.name);
 				continue;
 			}
 			if (!(dev->dev_info.trigger & trigger))
@@ -1129,6 +1132,8 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				slot->req_id,
 				link->link_hdl);
 			idx = in_q->rd_idx;
+			if (slot->req_id > 0)
+				in_q->last_applied_idx = idx;
 			reset_step = link->max_delay;
 			if (link->sync_link) {
 				if ((link->in_msync_mode) &&
