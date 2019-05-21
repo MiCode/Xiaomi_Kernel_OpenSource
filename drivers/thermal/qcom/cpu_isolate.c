@@ -192,6 +192,10 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 	} else {
 		if (cpumask_test_and_clear_cpu(cpu, &cpus_pending_online)) {
 			cpu_dev = get_cpu_device(cpu);
+			if (!cpu_dev) {
+				pr_err("CPU:%d cpu dev error\n", cpu);
+				return ret;
+			}
 			mutex_unlock(&cpu_isolate_lock);
 			ret = device_online(cpu_dev);
 			if (ret)
