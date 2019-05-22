@@ -186,7 +186,7 @@
 &ssusb {
 	dr_mode = "peripheral";
 	mediatek,force_vbus = <1>;
-	maximum-speed = "super-speed";
+	maximum-speed = "high-speed";
 	status = "okay";
 };
 
