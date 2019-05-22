@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,19 @@
 		};
 	};
 
+	rpmh-regulator-smpa5 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "smpa5";
+		S5A: pm6155_1_s5: regulator-pm6155-1-s5 {
+			regulator-name = "pm6155_1_s5";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1896000>;
+			regulator-max-microvolt = <2040000>;
+			qcom,init-voltage = <1896000>;
+		};
+	};
+
 	rpmh-regulator-smpa6 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		mboxes = <&apps_rsc 0>;
@@ -118,6 +131,25 @@
 			regulator-min-microvolt = <1650000>;
 			regulator-max-microvolt = <3100000>;
 			qcom,init-voltage = <1650000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
+	rpmh-regulator-ldoa3 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		mboxes = <&apps_rsc 0>;
+		qcom,resource-name = "ldoa3";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 1>;
+		L3A: pm6155_1_l3: regulator-pm6155-1-l3 {
+			regulator-name = "pm6155_1_l3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1248000>;
+			qcom,init-voltage = <1000000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
