@@ -117,12 +117,11 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 
 		arch_info->drv_connected = true;
 
-		pm_runtime_allow(&pci_dev->dev);
-
 		mutex_lock(&mhi_cntrl->pm_mutex);
 
 		/* if we're in amss attempt a suspend */
 		if (mhi_dev->powered_on && mhi_cntrl->ee == MHI_EE_AMSS) {
+			pm_runtime_allow(&pci_dev->dev);
 			pm_runtime_mark_last_busy(&pci_dev->dev);
 			pm_request_autosuspend(&pci_dev->dev);
 		}
