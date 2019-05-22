@@ -896,6 +896,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	int64_t req_id = 0;
 	int sync_slot_idx = 0, sync_rd_idx = 0, rc = 0;
 	int32_t sync_num_slots = 0;
+	bool ready = true, sync_ready = true;
 
 	if (!link->sync_link) {
 		CAM_ERR(CAM_CRM, "Sync link null");
@@ -924,17 +925,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		CAM_DBG(CAM_CRM,
 			"Skip Process Req: %lld on link: %x",
 			req_id, link->link_hdl);
-		link->sync_link_sof_skip = true;
-		return rc;
-	}
-
-	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true);
-	if (rc) {
-		CAM_DBG(CAM_CRM,
-			"Req: %lld [My link] not ready on link: %x, rc=%d",
-			req_id, link->link_hdl, rc);
-		link->sync_link_sof_skip = true;
-		return rc;
+		ready = false;
 	}
 
 	sync_slot_idx = __cam_req_mgr_find_slot_for_req(
@@ -942,8 +933,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	if (sync_slot_idx == -1) {
 		CAM_DBG(CAM_CRM, "Req: %lld not found on link: %x [other link]",
 			req_id, sync_link->link_hdl);
-		link->sync_link_sof_skip = true;
-		return -EINVAL;
+		sync_ready = false;
 	}
 
 	sync_rd_idx = sync_link->req.in_q->rd_idx;
@@ -959,14 +949,38 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 		return -EAGAIN;
 	}
 
+	rc = __cam_req_mgr_check_link_is_ready(link, slot->idx, true);
+	if (rc) {
+		CAM_DBG(CAM_CRM,
+			"Req: %lld [My link] not ready on link: %x, rc=%d",
+			req_id, link->link_hdl, rc);
+		ready = false;
+	}
+
 	rc = __cam_req_mgr_check_link_is_ready(sync_link, sync_slot_idx, true);
 	if (rc && (sync_link->req.in_q->slot[sync_slot_idx].status !=
 		CRM_SLOT_STATUS_REQ_APPLIED)) {
 		CAM_DBG(CAM_CRM,
 			"Req: %lld not ready on [other link] link: %x, rc=%d",
 			req_id, sync_link->link_hdl, rc);
+		sync_ready = false;
+	}
+
+	/*
+	 * If both of them are ready or not ready, then just
+	 * skip this sof and don't skip sync link next SOF.
+	 */
+	if (sync_ready != ready) {
+		CAM_DBG(CAM_CRM,
+			"Req: %lld ready %d sync_ready %d, ignore sync link next SOF",
+			req_id, ready, sync_ready);
 		link->sync_link_sof_skip = true;
-		return rc;
+		return -EINVAL;
+	} else if (ready == false) {
+		CAM_DBG(CAM_CRM,
+			"Req: %lld not ready on link: %x",
+			req_id, link->link_hdl);
+		return -EINVAL;
 	}
 
 	CAM_DBG(CAM_REQ,
