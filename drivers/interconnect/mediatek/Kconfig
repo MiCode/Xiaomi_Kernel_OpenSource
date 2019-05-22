@@ -15,3 +15,20 @@ config INTERCONNECT_MTK_EMI
 	  will aggregate require EMI BW of users to DVFSRC(dynamic voltage
 	  and frequency scaling resource collector). The DVFSRC will adjust
 	  appropriate DRAM frequency to fulfill this bandwidth request.
+
+config INTERCONNECT_MTK_MMQOS_COMMON
+	bool "Mediatek MMQoS support"
+	help
+	  Support for multimedia QoS in Mediatek's SoCs.
+	  The Mediatek MMQoS(Multimedia Quality of Service) Interconnect
+	  driver will collect BW requests from MM users, such as display,
+	  camera, mdp and video codec, and configure SMI settings dynamically
+	  according to the aggregated BW.
+
+config INTERCONNECT_MTK_MMQOS_MT6779
+	tristate "Mediatek MT6779 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6779 multimedia QoS.
