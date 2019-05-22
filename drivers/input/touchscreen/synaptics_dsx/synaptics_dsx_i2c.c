@@ -283,10 +283,16 @@ static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 {
 	int retval = 0;
 	unsigned char retry;
-	unsigned char buf[PAGE_SELECT_LEN];
+	unsigned char *buf = NULL;
 	unsigned char page;
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	struct i2c_msg msg[2];
+
+	buf = kcalloc(PAGE_SELECT_LEN, sizeof(char), GFP_KERNEL);
+	if (!buf) {
+		retval = -ENOMEM;
+		goto exit;
+	}
 
 	msg[0].addr = hw_if.board_data->i2c_addr;
 	msg[0].flags = 0;
@@ -318,6 +324,8 @@ static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 		retval = PAGE_SELECT_LEN;
 	}
 
+exit:
+	kfree(buf);
 	return retval;
 }
 
@@ -326,7 +334,7 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 {
 	int retval = 0;
 	unsigned char retry;
-	unsigned char buf;
+	unsigned char *buf = NULL;
 	unsigned char index = 0;
 	unsigned char xfer_msgs;
 	unsigned char remaining_msgs;
@@ -339,6 +347,12 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
 
+	buf = kcalloc(1, sizeof(char), GFP_KERNEL);
+	if (!buf) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
 	retval = synaptics_rmi4_i2c_set_page(rmi4_data, addr);
 	if (retval != PAGE_SELECT_LEN) {
 		retval = -EIO;
@@ -348,13 +362,13 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	msg[0].addr = hw_if.board_data->i2c_addr;
 	msg[0].flags = 0;
 	msg[0].len = 1;
-	msg[0].buf = &buf;
+	msg[0].buf = buf;
 	msg[rd_msgs].addr = hw_if.board_data->i2c_addr;
 	msg[rd_msgs].flags = I2C_M_RD;
 	msg[rd_msgs].len = (unsigned short)remaining_length;
 	msg[rd_msgs].buf = &data[data_offset];
 
-	buf = addr & MASK_8BIT;
+	buf[0] = addr & MASK_8BIT;
 
 	remaining_msgs = rd_msgs + 1;
 
@@ -393,8 +407,8 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	retval = length;
 
 exit:
+	kfree(buf);
 	mutex_unlock(&rmi4_data->rmi4_io_ctrl_mutex);
-
 	return retval;
 }
 
