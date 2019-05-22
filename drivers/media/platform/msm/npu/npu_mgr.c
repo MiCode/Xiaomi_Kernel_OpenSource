@@ -294,28 +294,33 @@ void fw_deinit(struct npu_device *npu_dev, bool ssr, bool fw_alive)
 
 int npu_host_init(struct npu_device *npu_dev)
 {
-	int sts = 0;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	memset(host_ctx, 0, sizeof(*host_ctx));
 	init_completion(&host_ctx->loopback_done);
 	init_completion(&host_ctx->fw_deinit_done);
-	init_completion(&host_ctx->property_set_done);
+	init_completion(&host_ctx->property_done);
 	mutex_init(&host_ctx->lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 	host_ctx->npu_dev = npu_dev;
 
 	host_ctx->wq = npu_create_wq(host_ctx, "npu_wq");
 	if (!host_ctx->wq)
-		sts = -EPERM;
+		return -EPERM;
 
-	return sts;
+	host_ctx->prop_buf = kzalloc(sizeof(struct msm_npu_property),
+		GFP_KERNEL);
+	if (!host_ctx->prop_buf)
+		return -ENOMEM;
+
+	return 0;
 }
 
 void npu_host_deinit(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
+	kfree(host_ctx->prop_buf);
 	npu_destroy_wq(host_ctx);
 	mutex_destroy(&host_ctx->lock);
 }
@@ -914,25 +919,65 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 	}
 	case NPU_IPC_MSG_SET_PROPERTY_DONE:
 	{
-		struct ipc_msg_set_prop_pkt *set_prop_rsp_pkt =
-			(struct ipc_msg_set_prop_pkt *)msg;
-
+		struct ipc_msg_prop_pkt *prop_rsp_pkt =
+			(struct ipc_msg_prop_pkt *)msg;
+		uint32_t *param = (uint32_t *)((uint8_t *)prop_rsp_pkt +
+			sizeof(struct ipc_msg_prop_pkt));
 		pr_debug("NPU_IPC_MSG_SET_PROPERTY_DONE %d:0x%x:%d\n",
-			set_prop_rsp_pkt->network_hdl,
-			set_prop_rsp_pkt->prop_id,
-			set_prop_rsp_pkt->prop_value);
-		complete_all(&host_ctx->property_set_done);
+			prop_rsp_pkt->network_hdl,
+			prop_rsp_pkt->prop_id,
+			param[0]);
+
+		complete_all(&host_ctx->property_done);
 		break;
 	}
-	case NPU_IPC_MSG_DCVS_NOTIFY:
+	case NPU_IPC_MSG_GET_PROPERTY_DONE:
 	{
-		struct ipc_msg_set_dcvs_mode *set_dcvs_pkt =
-			(struct ipc_msg_set_dcvs_mode *)msg;
+		struct ipc_msg_prop_pkt *prop_rsp_pkt =
+			(struct ipc_msg_prop_pkt *)msg;
+		uint32_t prop_size = 0;
+		uint32_t *prop_data = (uint32_t *)((uint8_t *)prop_rsp_pkt +
+			sizeof(struct ipc_msg_header_pkt));
 
-		pr_debug("NPU_IPC_MSG_DCVS_NOTIFY %d\n",
-			set_dcvs_pkt->activity);
+		pr_debug("NPU_IPC_MSG_GET_PROPERTY_DONE %d:0x%x:%d:%d\n",
+			prop_rsp_pkt->network_hdl,
+			prop_rsp_pkt->prop_id,
+			prop_rsp_pkt->num_params,
+			prop_rsp_pkt->prop_param[0]);
 
-		update_dcvs_activity(npu_dev, set_dcvs_pkt->activity);
+		host_ctx->cmd_ret_status = prop_rsp_pkt->header.status;
+
+		if (prop_rsp_pkt->num_params > 0) {
+			/* Copy prop data to kernel buffer */
+			prop_size = prop_rsp_pkt->header.size -
+				sizeof(struct ipc_msg_header_pkt);
+			memcpy(host_ctx->prop_buf, prop_data, prop_size);
+		}
+
+		complete_all(&host_ctx->property_done);
+		break;
+	}
+	case NPU_IPC_MSG_GENERAL_NOTIFY:
+	{
+		struct ipc_msg_general_notify_pkt *notify_msg_pkt =
+			(struct ipc_msg_general_notify_pkt *)msg;
+
+		pr_debug("NPU_IPC_MSG_GENERAL_NOTIFY %d:0x%x:%d\n",
+			notify_msg_pkt->network_hdl,
+			notify_msg_pkt->notify_id,
+			notify_msg_pkt->notify_param[0]);
+
+		switch (notify_msg_pkt->notify_id) {
+		case NPU_NOTIFY_DCVS_MODE:
+			pr_debug("NPU_IPC_MSG_GENERAL_NOTIFY DCVS_MODE %d\n",
+				notify_msg_pkt->notify_param[0]);
+			update_dcvs_activity(npu_dev,
+				notify_msg_pkt->notify_param[0]);
+			break;
+		default:
+			pr_err("Nothing to do\n");
+			break;
+		}
 		break;
 	}
 	default:
@@ -1096,6 +1141,7 @@ static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	} else {
 		pr_debug("Send cmd %d\n",
 			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type);
+		host_ctx->cmd_ret_status = 0;
 		ret = npu_host_ipc_send_cmd(npu_dev, q_idx, cmd_ptr);
 	}
 	mutex_unlock(&host_ctx->lock);
@@ -1177,6 +1223,13 @@ static int set_perf_mode(struct npu_device *npu_dev)
 
 	networks_perf_mode = find_networks_perf_mode(host_ctx);
 
+	if (npu_dev->pwrctrl.perf_mode_override)
+		networks_perf_mode = npu_dev->pwrctrl.perf_mode_override;
+
+	if (npu_dev->pwrctrl.cur_dcvs_activity != NPU_DCVS_ACTIVITY_MAX_PERF)
+		networks_perf_mode = min_t(uint32_t, networks_perf_mode,
+			npu_dev->pwrctrl.cur_dcvs_activity);
+
 	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
 	if (ret)
 		pr_err("network load failed due to power level set\n");
@@ -1186,35 +1239,10 @@ static int set_perf_mode(struct npu_device *npu_dev)
 
 static int update_dcvs_activity(struct npu_device *npu_dev, uint32_t activity)
 {
-	int ret = 0;
-
 	npu_dev->pwrctrl.cur_dcvs_activity = activity;
+	pr_debug("update dcvs activity to %d\n", activity);
 
-	if (activity > 0) {
-		pr_debug("Set clocks back to default setting - exit dcvs mode\n");
-		ret = set_perf_mode(npu_dev);
-	} else {
-		pr_debug("Set clocks to low - enter dcvs mode\n");
-		ret = npu_set_uc_power_level(npu_dev, 1);
-	}
-
-	return ret;
-}
-
-static enum npu_fw_property_id npu_host_to_fw_prop_id(uint32_t prop)
-{
-	uint32_t fw_prop_id = NPU_FW_PROP_ID_INVALID;
-
-	switch (prop) {
-	case MSM_NPU_PROP_ID_DCVS_MODE:
-		fw_prop_id = NPU_FW_PROP_ID_DCVS_MODE;
-		break;
-	default:
-		pr_err("Invalid host property id %x\n", prop);
-		break;
-	}
-
-	return fw_prop_id;
+	return set_perf_mode(npu_dev);
 }
 
 int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
@@ -1222,14 +1250,11 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 {
 	int ret = 0, i;
 	uint32_t prop_param, prop_id;
-	struct ipc_cmd_set_prop_pkt *prop_packet = NULL;
+	struct ipc_cmd_prop_pkt *prop_packet = NULL;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_of_params, pkt_size;
 
-	prop_id = npu_host_to_fw_prop_id(property->prop_id);
-	if (prop_id == NPU_FW_PROP_ID_INVALID)
-		return -EINVAL;
-
+	prop_id = property->prop_id;
 	num_of_params = min_t(uint32_t, property->num_of_params,
 		(uint32_t)PROP_PARAM_MAX_SIZE);
 	pkt_size = sizeof(*prop_packet) + num_of_params * sizeof(uint32_t);
@@ -1239,9 +1264,9 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 		return -ENOMEM;
 
 	switch (prop_id) {
-	case NPU_FW_PROP_ID_DCVS_MODE:
+	case MSM_NPU_PROP_ID_DCVS_MODE:
 		prop_param = min_t(uint32_t, property->prop_param[0],
-			(uint32_t)DCVS_MODE_MAX);
+			(uint32_t)(npu_dev->pwrctrl.num_pwrlevels - 1));
 		property->prop_param[0] = prop_param;
 		pr_debug("setting dcvs_mode to %d\n", prop_param);
 
@@ -1267,7 +1292,7 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 	for (i = 0; i < num_of_params; i++)
 		prop_packet->prop_param[i] = property->prop_param[i];
 
-	reinit_completion(&host_ctx->property_set_done);
+	reinit_completion(&host_ctx->property_done);
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
 		prop_packet);
 	pr_debug("NPU_IPC_CMD_SET_PROPERTY sent status: %d\n", ret);
@@ -1278,7 +1303,7 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 	}
 
 	ret = wait_for_completion_interruptible_timeout(
-		&host_ctx->property_set_done,
+		&host_ctx->property_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -1296,7 +1321,77 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 set_prop_exit:
 	kfree(prop_packet);
 	return ret;
+}
 
+int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
+	struct msm_npu_property *property)
+{
+	int ret = 0, i;
+	struct ipc_cmd_prop_pkt *prop_packet = NULL;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct msm_npu_property *prop_from_fw;
+	uint32_t num_of_params, pkt_size;
+
+	num_of_params = min_t(uint32_t, property->num_of_params,
+		(uint32_t)PROP_PARAM_MAX_SIZE);
+	pkt_size = sizeof(*prop_packet);
+	prop_packet = kzalloc(pkt_size, GFP_KERNEL);
+
+	if (!prop_packet)
+		return -ENOMEM;
+
+	prop_packet->header.cmd_type = NPU_IPC_CMD_GET_PROPERTY;
+	prop_packet->header.size = pkt_size;
+	prop_packet->header.trans_id =
+		atomic_add_return(1, &host_ctx->ipc_trans_id);
+	prop_packet->header.flags = 0;
+
+	prop_packet->prop_id = property->prop_id;
+	prop_packet->num_params = num_of_params;
+	prop_packet->network_hdl = property->network_hdl;
+
+	reinit_completion(&host_ctx->property_done);
+	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
+		prop_packet);
+	pr_debug("NPU_IPC_CMD_GET_PROPERTY sent status: %d\n", ret);
+
+	if (ret) {
+		pr_err("NPU_IPC_CMD_GET_PROPERTY failed\n");
+		goto get_prop_exit;
+	}
+
+	ret = wait_for_completion_interruptible_timeout(
+		&host_ctx->property_done,
+		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
+		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
+
+	if (!ret) {
+		pr_err_ratelimited("npu: NPU_IPC_CMD_GET_PROPERTY time out\n");
+		ret = -ETIMEDOUT;
+		goto get_prop_exit;
+	} else if (ret < 0) {
+		pr_err("Wait for get_property done interrupted by signal\n");
+		goto get_prop_exit;
+	}
+
+	ret = host_ctx->cmd_ret_status;
+	if (!ret) {
+		/* Return prop data retrieved from fw to user */
+		prop_from_fw = (struct msm_npu_property *)(host_ctx->prop_buf);
+		if (property->prop_id == prop_from_fw->prop_id &&
+			property->network_hdl == prop_from_fw->network_hdl) {
+			property->num_of_params = num_of_params;
+			for (i = 0; i < num_of_params; i++)
+				property->prop_param[i] =
+					prop_from_fw->prop_param[i];
+		}
+	} else {
+		pr_err("get fw property failed %d\n", ret);
+	}
+
+get_prop_exit:
+	kfree(prop_packet);
+	return ret;
 }
 
 int32_t npu_host_load_network(struct npu_client *client,
@@ -1304,6 +1399,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 {
 	int ret = 0;
 	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_network *network;
 	struct ipc_cmd_load_pkt load_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
@@ -1326,7 +1422,9 @@ int32_t npu_host_load_network(struct npu_client *client,
 	network->first_block_size = load_ioctl->first_block_size;
 	network->priority = load_ioctl->priority;
 	network->cur_perf_mode = network->init_perf_mode =
-		load_ioctl->perf_mode;
+		(load_ioctl->perf_mode == PERF_MODE_DEFAULT) ?
+			pwr->num_pwrlevels - 1 :
+			load_ioctl->perf_mode;
 
 	/* verify mapped physical address */
 	if (!npu_mem_verify_addr(client, network->phy_add)) {
@@ -1403,6 +1501,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 {
 	int ret = 0, i;
 	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_network *network;
 	struct ipc_cmd_load_pkt_v2 *load_packet = NULL;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
@@ -1440,6 +1539,8 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	network->first_block_size = load_ioctl->first_block_size;
 	network->priority = load_ioctl->priority;
 	network->cur_perf_mode = network->init_perf_mode =
+		(load_ioctl->perf_mode == PERF_MODE_DEFAULT) ?
+		pwr->num_pwrlevels - 1 :
 		load_ioctl->perf_mode;
 	network->num_layers = load_ioctl->num_layers;
 
@@ -2007,7 +2108,6 @@ int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
 	struct npu_device *npu_dev = client->npu_dev;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_network *network = NULL;
-	uint32_t networks_perf_mode;
 
 	mutex_lock(&host_ctx->lock);
 
@@ -2033,14 +2133,45 @@ int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
 		}
 	}
 
-	networks_perf_mode = find_networks_perf_mode(host_ctx);
-	ret = npu_set_uc_power_level(npu_dev, networks_perf_mode);
+	ret = set_perf_mode(npu_dev);
 	if (ret)
-		pr_err("failed to set power level %d\n", networks_perf_mode);
+		pr_err("set_perf_mode failed");
 
 	if (network)
 		network_put(network);
 	mutex_unlock(&host_ctx->lock);
 
 	return ret;
+}
+
+/*
+ * get the currently set network or global perf_mode
+ * if network_hdl is 0, get global perf_mode_override
+ * otherwise get network perf_mode
+ */
+int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl)
+{
+	int param_val = 0;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct npu_network *network = NULL;
+
+	mutex_lock(&host_ctx->lock);
+
+	if (network_hdl == 0) {
+		param_val = npu_dev->pwrctrl.perf_mode_override;
+	} else {
+		network = get_network_by_hdl(host_ctx, client, network_hdl);
+		if (!network) {
+			pr_err("invalid network handle %x\n", network_hdl);
+			mutex_unlock(&host_ctx->lock);
+			return -EINVAL;
+		}
+		param_val = network->cur_perf_mode;
+		network_put(network);
+	}
+
+	mutex_unlock(&host_ctx->lock);
+
+	return param_val;
 }
