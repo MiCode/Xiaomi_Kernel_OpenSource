@@ -148,6 +148,8 @@
 			bat_id {
 				reg = <ADC_BAT_ID_PU2>;
 				label = "bat_id";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
 				qcom,pre-scaling = <1 1>;
 			};
 
