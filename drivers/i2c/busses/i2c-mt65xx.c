@@ -29,6 +29,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
@@ -1039,6 +1040,11 @@ static int mtk_i2c_resume(struct device *dev)
 	int ret;
 	struct mtk_i2c *i2c = dev_get_drvdata(dev);
 
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret < 0)
+		dev_notice(dev, "failed to set pin default_state (%d)\n", ret);
+
+	/* enable i2c clock to sync i2c register configuration */
 	ret = mtk_i2c_clock_enable(i2c);
 	if (ret) {
 		dev_err(dev, "clock enable failed!\n");
@@ -1051,18 +1057,31 @@ static int mtk_i2c_resume(struct device *dev)
 
 	return 0;
 }
-#endif
+
+static int mtk_i2c_suspend(struct device *dev)
+{
+	int ret = 0;
+
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret < 0)
+		dev_notice(dev, "failed to set pin sleep_state (%d)\n", ret);
+
+	return ret;
+}
 
 static const struct dev_pm_ops mtk_i2c_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(NULL, mtk_i2c_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(mtk_i2c_suspend, mtk_i2c_resume)
 };
+#endif
 
 static struct platform_driver mtk_i2c_driver = {
 	.probe = mtk_i2c_probe,
 	.remove = mtk_i2c_remove,
 	.driver = {
 		.name = I2C_DRV_NAME,
+#ifdef CONFIG_PM_SLEEP
 		.pm = &mtk_i2c_pm,
+#endif
 		.of_match_table = of_match_ptr(mtk_i2c_of_match),
 	},
 };
