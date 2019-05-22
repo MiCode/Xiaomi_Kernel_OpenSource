@@ -104,6 +104,7 @@ struct coresight_reg_clk {
  * @name:	name of the component as shown under sysfs.
  * @nr_inport:	number of input ports for this component.
  * @outports:	list of remote endpoint port number.
+ * @source_names:name of all source components connected to this device.
  * @child_names:name of all child components connected to this device.
  * @child_ports:child component port number the current component is
 		connected  to.
@@ -116,6 +117,7 @@ struct coresight_platform_data {
 	const char *name;
 	int nr_inport;
 	int *outports;
+	const char **source_names;
 	const char **child_names;
 	int *child_ports;
 	int nr_outport;
@@ -146,6 +148,7 @@ struct coresight_desc {
 /**
  * struct coresight_connection - representation of a single connection
  * @outport:	a connection's output port number.
+ * @source_name:source component's name.
  * @chid_name:	remote component's name.
  * @child_port:	remote component's port number @output is connected to.
  * @child_dev:	a @coresight_device representation of the component
@@ -153,6 +156,7 @@ struct coresight_desc {
  */
 struct coresight_connection {
 	int outport;
+	const char *source_name;
 	const char *child_name;
 	int child_port;
 	struct coresight_device *child_dev;
