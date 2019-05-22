@@ -992,6 +992,14 @@
 			status = "disabled";
 		};
 
+		efuse: efuse@11c10000 {
+			compatible = "mediatek,mt6779-efuse", "mediatek,efuse";
+			reg = <0 0x11c10000 0 0x10000>;
+			#address-cells = <1>;
+			#size-celss = <1>;
+			read-only;
+		};
+
 		u3phy: usb-phy@11e40000 {
 			compatible = "mediatek,generic-tphy-v2";
 			clocks = <&clk26m>;
