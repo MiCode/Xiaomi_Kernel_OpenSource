@@ -102,7 +102,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&kpd_gpios_def_cfg>;
 };
-/* DISPSYS GPIO standardization */
+
 &pio {
 	kpd_gpios_def_cfg: kpdgpiodefault {
 		pins_cmd_dat {
@@ -113,11 +113,13 @@
 			input-schmitt-enable;
 		};
 	};
+};
 
+/* DISPSYS GPIO standardization */
+&pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
@@ -125,7 +127,6 @@
 	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
@@ -133,7 +134,6 @@
 	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
@@ -141,7 +141,6 @@
 	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
@@ -149,7 +148,6 @@
 	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO44__FUNC_GPIO44>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
@@ -157,7 +155,6 @@
 	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO44__FUNC_GPIO44>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
@@ -165,6 +162,77 @@
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO43__FUNC_DSI_TE>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi0_sdata: lcm_mipi0_sdata {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO95__FUNC_MIPI0_SDATA>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi0_sclk: lcm_mipi0_sclk {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO96__FUNC_MIPI0_SCLK>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi1_sdata: lcm_mipi1_sdata {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO97__FUNC_MIPI1_SDATA>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi1_sclk: lcm_mipi1_sclk {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO98__FUNC_MIPI1_SCLK>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi2_sdata: lcm_mipi2_sdata {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO100__FUNC_MIPI2_SDATA>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi2_sclk: lcm_mipi2_sclk {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO99__FUNC_MIPI2_SCLK>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi3_sdata: lcm_mipi3_sdata {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO102__FUNC_MIPI3_SDATA>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi3_sclk: lcm_mipi3_sclk {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO101__FUNC_MIPI3_SCLK>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi4_sdata: lcm_mipi4_sdata {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO104__FUNC_MIPI4_SDATA>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_mipi4_sclk: lcm_mipi4_sclk {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO103__FUNC_MIPI4_SCLK>;
+			output-low;
 		};
 	};
 };
@@ -172,7 +240,12 @@
 &mtkfb {
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
-		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio", "lcm_dsi_te";
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio", "lcm_dsi_te",
+		"lcm_mipi0_sdata", "lcm_mipi0_sclk",
+		"lcm_mipi1_sdata", "lcm_mipi1_sclk",
+		"lcm_mipi2_sdata", "lcm_mipi2_sclk",
+		"lcm_mipi3_sdata", "lcm_mipi3_sclk",
+		"lcm_mipi4_sdata", "lcm_mipi4_sclk";
 	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
 	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
 	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
@@ -180,8 +253,19 @@
 	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_mipi0_sdata>;
+	pinctrl-8 = <&mtkfb_pins_lcm_mipi0_sclk>;
+	pinctrl-9 = <&mtkfb_pins_lcm_mipi1_sdata>;
+	pinctrl-10 = <&mtkfb_pins_lcm_mipi1_sclk>;
+	pinctrl-11 = <&mtkfb_pins_lcm_mipi2_sdata>;
+	pinctrl-12 = <&mtkfb_pins_lcm_mipi2_sclk>;
+	pinctrl-13 = <&mtkfb_pins_lcm_mipi3_sdata>;
+	pinctrl-14 = <&mtkfb_pins_lcm_mipi3_sclk>;
+	pinctrl-15 = <&mtkfb_pins_lcm_mipi4_sdata>;
+	pinctrl-16 = <&mtkfb_pins_lcm_mipi4_sclk>;
 	status = "okay";
 };
+/* DISPSYS GPIO standardization end */
 
 &ssusb {
 	dr_mode = "peripheral";
@@ -193,8 +277,6 @@
 &u3phy {
 	status = "okay";
 };
-
-/* DISPSYS GPIO standardization end */
 
 &i2c5 {
 	status = "okay";
