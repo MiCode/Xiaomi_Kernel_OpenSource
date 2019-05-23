@@ -21,7 +21,9 @@
 #include "ddp_drv.h"
 #include "ddp_info.h"
 
+#if defined(CONFIG_MTK_M4U)
 #include <m4u.h>
+#endif
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
@@ -272,7 +274,9 @@ static long get_current_time_us(void)
 static int _build_path_direct_link(void)
 {
 	int ret = 0;
+#ifdef MTKFB_M4U_SUPPORT
 	struct M4U_PORT_STRUCT sPort;
+#endif
 
 	EXT_DISP_FUNC();
 	pgc->mode = EXTD_DIRECT_LINK_MODE;
@@ -286,12 +290,12 @@ static int _build_path_direct_link(void)
 	EXT_DISP_LOG("dpmgr create path SUCCESS(%p)\n", pgc->dpmgr_handle);
 
 	/* todo: correct module */
+#ifdef MTKFB_M4U_SUPPORT
 	sPort.ePortID = M4U_PORT_UNKNOWN;
 	sPort.Virtuality = ext_disp_use_m4u;
 	sPort.Security = 0;
 	sPort.Distance = 1;
 	sPort.Direction = 0;
-#ifdef MTKFB_M4U_SUPPORT
 	ret = m4u_config_port(&sPort);
 #endif
 	if (ret) {
@@ -325,8 +329,9 @@ static int _build_path_single_layer(void)
 static int _build_path_rdma_dpi(void)
 {
 	int ret = 0;
+#ifdef MTKFB_M4U_SUPPORT
 	struct M4U_PORT_STRUCT sPort;
-
+#endif
 	enum DISP_MODULE_ENUM dst_module = 0;
 
 	pgc->mode = EXTD_RDMA_DPI_MODE;
@@ -346,12 +351,12 @@ static int _build_path_rdma_dpi(void)
 	EXT_DISP_LOG("dpmgr set dst module FINISHED(%s)\n",
 		     ddp_get_module_name(dst_module));
 
+#ifdef MTKFB_M4U_SUPPORT
 	sPort.ePortID = M4U_PORT_DISP_RDMA1;
 	sPort.Virtuality = ext_disp_use_m4u;
 	sPort.Security = 0;
 	sPort.Distance = 1;
 	sPort.Direction = 0;
-#ifdef MTKFB_M4U_SUPPORT
 	ret = m4u_config_port(&sPort);
 #endif
 	if (ret == 0) {
@@ -1206,7 +1211,9 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	int ret = 0;
 	int i = 0;
 	int layer_cnt = 0;
+#ifdef MTKFB_M4U_SUPPORT
 	struct M4U_PORT_STRUCT sPort;
+#endif
 	struct disp_ddp_path_config *pconfig;
 	unsigned int input_source;
 	struct ddp_io_golden_setting_arg gset_arg;
@@ -1236,12 +1243,12 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		if (ext_disp_get_ovl_req_status(session) ==
 		    EXTD_OVL_REMOVE_REQ) {
 			EXT_DISP_LOG("config M4U Port DISP_MODULE_RDMA1\n");
+#ifdef MTKFB_M4U_SUPPORT
 			sPort.ePortID = M4U_PORT_DISP_RDMA1;
 			sPort.Virtuality = 1;
 			sPort.Security = 0;
 			sPort.Distance = 1;
 			sPort.Direction = 0;
-#ifdef MTKFB_M4U_SUPPORT
 			ret = m4u_config_port(&sPort);
 #endif
 			if (ret)
@@ -1254,12 +1261,12 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		if (ext_disp_get_ovl_req_status(session) ==
 		    EXTD_OVL_INSERT_REQ) {
 			EXT_DISP_LOG("config M4U Port DISP_MODULE_OVL1_2L\n");
+#ifdef MTKFB_M4U_SUPPORT
 			sPort.ePortID = M4U_PORT_UNKNOWN;
 			sPort.Virtuality = 1;
 			sPort.Security = 0;
 			sPort.Distance = 1;
 			sPort.Direction = 0;
-#ifdef MTKFB_M4U_SUPPORT
 			ret = m4u_config_port(&sPort);
 #endif
 			if (ret)

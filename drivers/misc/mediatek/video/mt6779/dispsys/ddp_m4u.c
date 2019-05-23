@@ -3,6 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/types.h>
+#include <linux/dma-buf.h>
 #include "ddp_m4u.h"
 #include "ddp_dump.h"
 #include "ddp_hal.h"
@@ -10,11 +12,14 @@
 #include "ddp_log.h"
 #include "disp_helper.h"
 #include "disp_drv_platform.h"
-#include <ion_priv.h>
 #ifdef CONFIG_MTK_IOMMU_V2
+#if defined(CONFIG_MTK_ION)
+#include <ion_priv.h>
 #include "mach/mt_iommu.h"
-#include <soc/mediatek/smi.h>
 #include "mtk_iommu_ext.h"
+#endif
+#include <soc/mediatek/smi.h>
+#include "ion.h"
 #elif defined(CONFIG_MTK_M4U)
 #include "m4u.h"
 #endif
@@ -40,6 +45,7 @@ static struct module_to_m4u_port_t module_to_m4u_port_mapping[] = {
 	{DISP_MODULE_OVL0_2L, 1, DISP_M4U_PORT_DISP_OVL0_2L_HDR},
 };
 
+#if defined(CONFIG_MTK_M4U)
 int module_to_m4u_port(enum DISP_MODULE_ENUM module)
 {
 	unsigned int i;
@@ -65,6 +71,7 @@ int module_to_m4u_larb(enum DISP_MODULE_ENUM module)
 		   ddp_get_module_name(module));
 	return M4U_PORT_UNKNOWN;
 }
+#endif
 
 enum DISP_MODULE_ENUM m4u_port_to_module(int port)
 {
@@ -85,18 +92,13 @@ void disp_m4u_init(void)
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		/* init M4U callback */
 		DDPMSG("register m4u callback\n");
+#if defined(CONFIG_MTK_M4U)
 		for (i = 0; i < ARRAY_SIZE(module_to_m4u_port_mapping); i++) {
-#ifdef CONFIG_MTK_IOMMU_V2
-			mtk_iommu_register_fault_callback(
-				module_to_m4u_port_mapping[i].port,
-				(mtk_iommu_fault_callback_t)disp_m4u_callback,
-				0);
-#elif defined(CONFIG_MTK_M4U)
 			m4u_register_fault_callback(
 				module_to_m4u_port_mapping[i].port,
 				(m4u_fault_callback_t *)disp_m4u_callback, 0);
-#endif
 		}
+#endif
 	} else {
 		/* disable m4u port, used for m4u not ready */
 		DDPMSG("m4u not enable, disable m4u port\n");
@@ -167,6 +169,7 @@ int disp_mva_map_kernel(enum DISP_MODULE_ENUM module, unsigned int mva,
 			unsigned int *map_size)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
+#if defined(CONFIG_MTK_ION)
 	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
 
 	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
@@ -174,6 +177,7 @@ int disp_mva_map_kernel(enum DISP_MODULE_ENUM module, unsigned int mva,
 					      mva, map_va, size);
 	else
 		pr_info("disp mva map kernel fail\n");
+#endif
 #elif defined(CONFIG_MTK_M4U)
 	m4u_mva_map_kernel(mva, size, map_va, map_size);
 #endif
@@ -228,6 +232,21 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 	return disp_handle;
 }
 
+int *disp_aosp_ion_alloc(unsigned int heap_id_mask,
+				  unsigned int size)
+{
+	int fd = -1;
+
+#if !defined(MTK_FB_ION_SUPPORT)
+	fd = ion_alloc(size, heap_id_mask, 0);
+	if (fd < 0)
+		DISP_PR_ERR("%s error %d\n", __func__, fd);
+
+	DDPDBG("%s %d\n", __func__, fd);
+#endif
+	return fd;
+}
+
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 		     unsigned int *mva, int port)
 {
@@ -256,10 +275,51 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 	return 0;
 }
 
+int disp_aosp_ion_get_iova(struct device *dev, int fd,
+		     dma_addr_t *iova)
+{
+#if !defined(MTK_FB_ION_SUPPORT)
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	int ret;
+
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR(dma_buf))
+		return -1;
+	attach = dma_buf_attach(dma_buf, dev);
+	if (IS_ERR(attach)) {
+		ret = -1;
+		goto fail_put;
+	}
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		ret = -1;
+		goto fail_detach;
+	}
+	*iova = sg_dma_address(sgt->sgl);
+
+	DDPDBG("alloc mmu addr sgt=0x%p,iova=0x%08x\n",
+		   sgt, (unsigned long)iova);
+	return 0;
+
+fail_detach:
+	dma_buf_detach(dma_buf, attach);
+fail_put:
+	dma_buf_put(dma_buf);
+
+	return ret;
+
+#else
+	return 0;
+
+#endif
+}
+
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 {
-	struct ion_handle *handle = NULL;
 #if defined(MTK_FB_ION_SUPPORT)
+	struct ion_handle *handle = NULL;
 	struct ion_mm_data mm_data;
 
 	/* If no need ION support, do nothing! */
@@ -289,8 +349,13 @@ struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 		DDP_PR_ERR("configure ion buffer failed!\n");
 
 	DDPDBG("import ion handle fd=%d,hnd=0x%p\n", fd, handle);
-#endif
+
 	return handle;
+
+#else
+	return NULL;
+
+#endif
 }
 
 void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
@@ -317,10 +382,10 @@ void disp_ion_destroy(struct ion_client *client)
 #endif
 }
 
+#if defined(MTK_FB_ION_SUPPORT)
 void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 			  enum ION_CACHE_SYNC_TYPE sync_type)
 {
-#if defined(MTK_FB_ION_SUPPORT)
 	struct ion_sys_data sys_data;
 	void *buffer_va;
 
@@ -344,12 +409,13 @@ void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 		DDP_PR_ERR("ion cache flush failed!\n");
 
 	ion_unmap_kernel(client, handle);
-#endif
 }
+#endif
 
-#ifndef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V2
 static struct sg_table table;
 
+#ifdef MTKFB_M4U_SUPPORT
 int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 		      unsigned long va, struct sg_table *sg_table,
 		      unsigned int size, unsigned int prot,
@@ -360,13 +426,10 @@ int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 	if (port == M4U_PORT_NR)
 		return 1; /* err */
 
-#ifdef MTKFB_M4U_SUPPORT
 	return m4u_alloc_mva(client, port, va, sg_table, size, prot, flags,
 			     pMva);
-#else
-	return 0;
-#endif
 }
+#endif
 
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva)
@@ -377,6 +440,7 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 	pr_debug("%s: pa_start=0x%pa, pa_end=0x%pa, va=0x%lx\n",
 		 __func__, &pa_start, &pa_end, *va);
 
+#ifdef MTKFB_M4U_SUPPORT
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		struct m4u_client_t *client;
 		struct sg_table *sg_table = &table;
@@ -402,8 +466,11 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 	} else {
 		*mva = pa_start & 0xffffffffULL;
 	}
+#else
+	*mva = pa_start & 0xffffffffULL;
+#endif
 
 	return 0;
 }
 
-#endif /* !CONFIG_MTK_IOMMU */
+#endif /* !CONFIG_MTK_IOMMU_V2 */

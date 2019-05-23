@@ -7,7 +7,7 @@
 #ifndef _DDP_RDMA_H_
 #define _DDP_RDMA_H_
 
-#include <mt-plat/sync_write.h>
+/* #include <mt-plat/sync_write.h> */
 #include <linux/types.h>
 /* #include <mach/mt_reg_base.h> */
 #include "ddp_info.h"

@@ -14,7 +14,7 @@
 #endif
 /* #include <mach/mt_reg_base.h> */
 /* #include <mach/mt_irq.h> */
-#include "mt-plat/sync_write.h"
+/* #include "mt-plat/sync_write.h" */
 #include "disp_assert_layer.h"
 
 #include "ddp_hal.h"
@@ -30,7 +30,7 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 /* #define MTK_FB_MMDVFS_SUPPORT */ /* TODO: */
-#define MTK_FB_SPM_SUPPORT
+/* #define MTK_FB_SPM_SUPPORT */
 #endif
 
 /* 2nd display */

@@ -7,6 +7,7 @@
 #include "ddp_log.h"
 #include "ddp_clkmgr.h"
 #include <linux/delay.h>
+#include <linux/types.h>
 #include "ddp_reg.h"
 #include "ddp_matrix_para.h"
 #include "ddp_info.h"
@@ -175,6 +176,7 @@ static int wdma_config_yuv420(enum DISP_MODULE_ENUM module,
 				     DISP_REG_WDMA_DST_ADDR2,
 				     dstAddress + v_off);
 	} else {
+#if defined(CONFIG_MTK_M4U)
 		int m4u_port;
 
 		m4u_port = DISP_M4U_PORT_DISP_WDMA0;
@@ -188,6 +190,7 @@ static int wdma_config_yuv420(enum DISP_MODULE_ENUM module,
 						DISP_REG_WDMA_DST_ADDR2),
 					CMDQ_SAM_H_2_MVA, dstAddress,
 					v_off, u_size, m4u_port);
+#endif
 	}
 	DISP_REG_SET_FIELD(handle, DST_W_IN_BYTE_FLD_DST_W_IN_BYTE,
 			   idx_offst + DISP_REG_WDMA_DST_UV_PITCH, u_stride);
@@ -256,6 +259,7 @@ static int wdma_config(enum DISP_MODULE_ENUM module,
 		DISP_REG_SET(handle, idx_offst + DISP_REG_WDMA_DST_ADDR0,
 			     dstAddress);
 	} else {
+#if defined(CONFIG_MTK_M4U)
 		int m4u_port;
 
 		m4u_port = DISP_M4U_PORT_DISP_WDMA0;
@@ -267,6 +271,7 @@ static int wdma_config(enum DISP_MODULE_ENUM module,
 		cmdqRecWriteSecure(handle,
 			disp_addr_convert(idx_offst + DISP_REG_WDMA_DST_ADDR0),
 			CMDQ_SAM_H_2_MVA, dstAddress, 0, size, m4u_port);
+#endif
 	}
 	DISP_REG_SET(handle, idx_offst + DISP_REG_WDMA_DST_W_IN_BYTE, dstPitch);
 

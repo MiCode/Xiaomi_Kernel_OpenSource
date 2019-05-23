@@ -46,7 +46,9 @@
 #include <linux/atomic.h>
 #include <linux/io.h>
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 
 #include "mtkfb_info.h"
 #include "mtkfb.h"

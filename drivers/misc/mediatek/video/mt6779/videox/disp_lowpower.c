@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/math64.h>
 #include "disp_drv_platform.h"	/* must be at the top-most */
-#include "mtk_boot_common.h"
+/* #include "mtk_boot_common.h" */
 #ifdef MTK_FB_SPM_SUPPORT
 #include "mtk_idle.h"
 #endif
@@ -1233,8 +1233,9 @@ int primary_display_lowpower_init(void)
 	backup_vfp_for_lp_cust(params->dsi.vertical_frontporch_for_low_power);
 
 	/* init idlemgr */
-	if (disp_helper_get_option(DISP_OPT_IDLE_MGR) &&
-	    get_boot_mode() == NORMAL_BOOT)
+	if (disp_helper_get_option(DISP_OPT_IDLE_MGR)
+		/* get_boot_mode() == NORMAL_BOOT */
+		)
 		primary_display_idlemgr_init();
 
 	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
@@ -1642,8 +1643,9 @@ void external_display_sodi_rule_init(void)
 int external_display_lowpower_init(void)
 {
 	/* init idlemgr */
-	if (disp_helper_get_option(DISP_OPT_IDLE_MGR) &&
-	    get_boot_mode() == NORMAL_BOOT)
+	if (disp_helper_get_option(DISP_OPT_IDLE_MGR)
+		/* get_boot_mode() == NORMAL_BOOT */
+		)
 		external_display_idlemgr_init();
 
 	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))

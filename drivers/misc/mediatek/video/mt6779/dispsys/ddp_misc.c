@@ -6,6 +6,7 @@
 #include <linux/of_address.h>
 #include <linux/of.h>
 #include <linux/delay.h>
+#include <linux/types.h>
 
 
 #include "ddp_misc.h"
@@ -205,6 +206,7 @@ void fake_engine(unsigned int idx, unsigned int en,
 			unsigned int latency, unsigned int preultra_cnt,
 			unsigned int ultra_cnt)
 {
+#if defined(CONFIG_MTK_M4U)
 	int offset = idx * 0x20;
 	struct M4U_PORT_STRUCT port;
 	static void *va[2];
@@ -310,6 +312,7 @@ void fake_engine(unsigned int idx, unsigned int en,
 
 		DDPMSG("fake_engine_%d disable\n", idx);
 	}
+#endif
 }
 
 void dump_fake_engine(void)

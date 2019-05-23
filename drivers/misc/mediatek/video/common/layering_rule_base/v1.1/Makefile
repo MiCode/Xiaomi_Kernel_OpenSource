@@ -11,6 +11,11 @@
 # GNU General Public License for more details.
 #
 
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
+CONFIG_MACH_MT6779 := y
+endif
+
 obj-y += layering_rule_base.o
 
 ccflags-y += \
@@ -28,4 +33,8 @@ ifeq ($(CONFIG_MACH_MT6761),y)
     ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
 else
     ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+endif
+
+ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DCONFIG_MACH_MT6779
 endif

@@ -5,6 +5,7 @@
 
 #define LOG_TAG "MET"
 
+#include <linux/kernel.h>
 #include <linux/trace_events.h>
 /* #include <mt-plat/met_drv.h> */ /* TODO: */
 #include "ddp_log.h"
@@ -80,6 +81,7 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 		if (rdmaInfo.addr == 0 || (rdmaInfo.addr != 0 &&
 					   sBufAddr[index] != rdmaInfo.addr)) {
 			sBufAddr[index] = rdmaInfo.addr;
+#ifdef CONFIG_TRACING
 			sprintf(tag_name, index ?  "ExtDispRefresh" :
 				"PrimDispRefresh");
 
@@ -89,6 +91,7 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 								DDP_IRQ_FPS_ID,
 								tag_name, 1);
 			preempt_enable();
+#endif
 		}
 		return;
 	}
@@ -121,6 +124,7 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 	}
 
 	if (b_layer_changed) {
+#ifdef CONFIG_TRACING
 		sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
 		preempt_disable();
 		event_trace_printk(disp_get_tracing_mark(),
@@ -128,11 +132,13 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 							DDP_IRQ_FPS_ID,
 							tag_name, 1);
 		preempt_enable();
+#endif
 	}
 }
 
 static void ddp_disp_refresh_tag_end(unsigned int index)
 {
+#ifdef CONFIG_TRACING
 	char tag_name[30] = { '\0' };
 
 	sprintf(tag_name, index ?  "ExtDispRefresh" : "PrimDispRefresh");
@@ -142,10 +148,12 @@ static void ddp_disp_refresh_tag_end(unsigned int index)
 						DDP_IRQ_FPS_ID,
 						tag_name, 0);
 	preempt_enable();
+#endif
 }
 
 static void ddp_err_irq_met_tag(const char *name)
 {
+#ifdef CONFIG_TRACING
 	preempt_disable();
 	event_trace_printk(disp_get_tracing_mark(),
 						"C|%d|%s|%d\n",
@@ -156,6 +164,7 @@ static void ddp_err_irq_met_tag(const char *name)
 						DDP_IRQ_EER_ID,
 						name, 0);
 	preempt_enable();
+#endif
 }
 
 static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)

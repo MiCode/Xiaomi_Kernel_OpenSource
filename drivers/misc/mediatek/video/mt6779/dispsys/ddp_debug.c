@@ -17,6 +17,7 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/time.h>
+#include <linux/types.h>
 
 #if defined(CONFIG_MTK_M4U)
 #include "m4u.h"

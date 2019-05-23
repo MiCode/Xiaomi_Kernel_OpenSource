@@ -47,7 +47,7 @@
 /* #include <mach/mt_irq.h> */
 #include "ddp_clkmgr.h"
 /* #include "mach/mt_irq.h" */
-#include "mt-plat/sync_write.h"
+/* #include "mt-plat/sync_write.h" */
 /* #include "mt-plat/mtk_smi.h" */
 #if defined(CONFIG_MTK_M4U)
 #include "m4u.h"

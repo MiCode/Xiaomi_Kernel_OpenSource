@@ -41,7 +41,9 @@
 #include <mach/mt_clkmgr.h>
 #endif
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "ddp_log.h"
 #include "ddp_dump.h"
 #include "ddp_info.h"
@@ -1290,8 +1292,9 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	int ret = 0;
 	M4U_PORT_STRUCT m4uport;
 	m4u_client_t *client = NULL;
+#if defined(CONFIG_MTK_MT4U)
 	int M4U_PORT = M4U_PORT_UNKNOWN;
-
+#endif
 	unsigned int hdmiPixelSize = 0;
 	unsigned int hdmiDataSize = 0;
 	unsigned int hdmiBufferSize = 0;
@@ -1335,16 +1338,19 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 		return -1;
 	}
 
+#if defined(CONFIG_MTK_MT4U)
 	if (hw_type == M4U_FOR_RDMA1)
 		M4U_PORT = M4U_PORT_DISP_RDMA1;
 #ifdef DPI_DVT_TEST_SUPPORT
 	else if (hw_type == M4U_FOR_OVL1_2L)
 		M4U_PORT = M4U_PORT_DISP_2L_OVL1_LARB0;
 #endif
+#endif
 
 	DPI_DVT_LOG_W("data_va %lx , client %p\n", data_va, client);
 
 	memset((void *)&m4uport, 0, sizeof(M4U_PORT_STRUCT));
+#if defined(CONFIG_MTK_MT4U)
 	m4uport.ePortID = M4U_PORT;
 	m4uport.Virtuality = 1;
 	m4uport.domain = 0;
@@ -1356,6 +1362,7 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	m4u_alloc_mva(client, M4U_PORT, (unsigned long)data_va, NULL,
 		      hdmiBufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
 		      &data_mva);
+#endif
 	DPI_DVT_LOG_W("data_mva %x\n", data_mva);
 
 	return ret;

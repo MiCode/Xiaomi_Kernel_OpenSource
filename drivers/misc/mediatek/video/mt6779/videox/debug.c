@@ -14,6 +14,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/types.h>
 #if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
 #endif
@@ -388,7 +389,8 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 			DISP_PR_INFO("m4u_alloc_mva returns fail: %d\n", ret);
 #endif
 	}
-#else /* !CONFIG_MTK_IOMMU */
+#else /* !CONFIG_MTK_IOMMU_V2 */
+#if defined(CONFIG_MTK_ION)
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 
@@ -410,9 +412,10 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 	}
 	disp_ion_get_mva(ion_display_client, ion_display_handle,
 			 (unsigned int *)&mva, DISP_M4U_PORT_DISP_WDMA0);
+#endif
 
 out:
-#endif /* CONFIG_MTK_IOMMU */
+#endif /* CONFIG_MTK_IOMMU_V2 */
 	buf_info->buf_mva = mva;
 	DISPMSG("%s MVA is 0x%x PA is 0x%pa\n",
 		__func__, mva, &buf_info->buf_pa);

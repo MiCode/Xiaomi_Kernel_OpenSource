@@ -19,6 +19,9 @@
 ifneq ($(filter y,$(CONFIG_MACH_MT8127) $(CONFIG_MACH_MT7623) $(CONFIG_MACH_MT8590)),)
 CONFIG_MTK_DISP_PLATFORM := mt8127
 endif
+ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
+CONFIG_MACH_MT6779 := y
+endif
 
 ifneq ($(CONFIG_MTK_LCM), y)
 	obj-y += mtdummy/

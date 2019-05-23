@@ -31,7 +31,9 @@
 #include <mach/mt_clkmgr.h>
 #endif
 
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #include "ddp_log.h"
 #include "cmdq_record.h"
 #include "dpi_dvt_platform.h"

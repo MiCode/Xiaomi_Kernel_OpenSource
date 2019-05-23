@@ -28,17 +28,19 @@
 /* #include <asm/mach-types.h> */
 #include <asm/cacheflush.h>
 #include <linux/io.h>
+#include <linux/types.h>
 #if defined(CONFIG_MTK_ION)
 #include "ion_drv.h"
 #endif
-#include "mt-plat/dma.h"
+#include "ion.h"
+/* #include "mt-plat/dma.h" */
 /* #include <mach/irqs.h> */
 #include <linux/dma-mapping.h>
 #include <linux/compat.h>
 #ifdef CONFIG_MTK_AEE_FEATURE
 #  include "mt-plat/aee.h"
 #endif
-#include "mt-plat/mtk_boot.h"
+/* #include "mt-plat/mtk_boot.h" */
 #include "debug.h"
 #include "ddp_hal.h"
 #include "disp_drv_log.h"
@@ -54,7 +56,7 @@
 #include "display_recorder.h"
 #include "fbconfig_kdebug.h"
 #include "mtk_ovl.h"
-#include "mtk_boot.h"
+/* #include "mtk_boot.h" */
 #include "disp_helper.h"
 #include "compat_mtkfb.h"
 #include "disp_dts_gpio.h"
@@ -63,6 +65,7 @@
 #include "ddp_log.h"
 #include "ddp_m4u.h"
 #include "disp_lowpower.h"
+#include "mtk_disp_mgr.h"
 
 #ifdef MTKFB_SUPPORT_SECOND_DISP
 #  include "extd_multi_control.h"
@@ -156,6 +159,7 @@ do {								\
 struct notifier_block pm_nb;
 unsigned int EnableVSyncLog;
 unsigned long fb_mva;
+dma_addr_t fb_iova;
 atomic_t has_pending_update = ATOMIC_INIT(0);
 struct fb_overlay_layer video_layerInfo;
 UINT32 dbr_backup;
@@ -2057,7 +2061,7 @@ static void _mtkfb_draw_block(unsigned long addr, unsigned int x,
 
 	for (j = 0; j < h; j++) {
 		for (i = 0; i < w; i++)
-			mt_reg_sync_writel(color, (start_addr + i * 4 +
+			writel(color, (start_addr + i * 4 +
 						   j * MTK_FB_XRESV * 4));
 	}
 }
@@ -2459,8 +2463,12 @@ static int mtkfb_probe(struct platform_device *pdev)
 	int ret = 0;
 
 #ifdef CONFIG_MTK_IOMMU_V2
+#if defined(MTK_FB_ION_SUPPORT)
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
+#else
+	int fd;
+#endif
 	size_t temp_va = 0;
 #endif
 	/* struct platform_device *pdev; */
@@ -2498,10 +2506,11 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->fb_info = fbi;
 	fbdev->dev = &(pdev->dev);
 	dev_set_drvdata(&(pdev->dev), fbdev);
+	mtk_disp_mgr_set_dev(&(pdev->dev));
 
 	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#if defined(MTK_FB_ION_SUPPORT)
 	temp_va = (size_t)ioremap_nocache(fb_base, vramsize);
 	fbdev->fb_va_base = (void *)temp_va;
 	ion_display_client = disp_ion_create("disp_fb0");
@@ -2522,9 +2531,11 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	disp_ion_get_mva(ion_display_client, ion_display_handle,
 			 (unsigned int *)&fb_mva, DISP_M4U_PORT_DISP_OVL0);
+
 #else
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 				(unsigned long *)(&fbdev->fb_va_base), &fb_mva);
+
 #endif
 	fbdev->fb_pa_base = fb_base;
 

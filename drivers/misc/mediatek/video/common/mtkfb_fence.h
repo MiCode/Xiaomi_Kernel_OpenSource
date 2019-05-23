@@ -46,7 +46,7 @@ struct mtkfb_fence_buf_info {
 	struct list_head list;
 	unsigned int idx;
 	int fence;
-	struct ion_handle *hnd;
+	void *hnd;
 	unsigned long mva;
 	unsigned long va;
 	unsigned int size;
@@ -173,7 +173,7 @@ void mtkfb_release_layer_fence(unsigned int session_id, unsigned int layer_id);
 int mtkfb_fence_clean_thread(void *data);
 int mtkfb_fence_timeline_index(void);
 
-struct mtkfb_fence_buf_info *disp_sync_prepare_buf(
+struct mtkfb_fence_buf_info *disp_sync_prepare_buf(struct device *dev,
 	struct disp_buffer_info *buf);
 int disp_sync_init(void);
 int disp_sync_get_cached_layer_info(unsigned int session_id,

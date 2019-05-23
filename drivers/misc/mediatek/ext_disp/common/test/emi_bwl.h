@@ -7,6 +7,9 @@
 #ifndef __MT_EMI_BW_LIMITER__
 #define __MT_EMI_BW_LIMITER__
 
+#include <linux/io.h>
+#include <linux/types.h>
+
 /*
  * Define EMI hardware registers.
  */

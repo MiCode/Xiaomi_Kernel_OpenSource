@@ -25,6 +25,7 @@
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
 #include <linux/io.h>
+#include <linux/types.h>
 #include "mtkfb.h"
 #include "mtkfb_info.h"
 #include <linux/bug.h>

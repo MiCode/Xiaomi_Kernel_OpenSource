@@ -17,11 +17,11 @@
 #include "disp_drv_log.h"
 #include "primary_display.h"
 
-#include "mtk_boot.h"
+/* #include "mtk_boot.h" */
 #include "disp_helper.h"
 #include "disp_drv_platform.h"
 #include "primary_display.h"
-#include "mt-plat/mtk_chip.h"
+/* #include "mt-plat/mtk_chip.h" */
 
 /* use this magic_code to detect memory corruption */
 #define MAGIC_CODE 0xDEADAAA0U
@@ -343,7 +343,7 @@ const char *disp_helper_stage_spy(void)
 void disp_helper_option_init(void)
 {
 	disp_helper_set_option(DISP_OPT_USE_CMDQ, 1);
-	disp_helper_set_option(DISP_OPT_USE_M4U, 1);
+	disp_helper_set_option(DISP_OPT_USE_M4U, 0);
 
 	/*
 	 * test solution for 6795 rdma underflow caused by ufoe LR mode
@@ -356,21 +356,21 @@ void disp_helper_option_init(void)
 
 	/* ================ Begin: lowpower option setting ================ */
 	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 0);
-	disp_helper_set_option(DISP_OPT_IDLE_MGR, 1);
+	disp_helper_set_option(DISP_OPT_IDLE_MGR, 0);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
-	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 1);
-	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 1);
-	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	0);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 0);
+	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 0);
 
 	/* 2. cmd mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 1);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 0);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_KEEP_LP11, 0);
 
 	/* 3. cmd mode + vdo mode */
 	disp_helper_set_option(DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK, 0);
-	disp_helper_set_option(DISP_OPT_DYNAMIC_RDMA_GOLDEN_SETTING, 1);
+	disp_helper_set_option(DISP_OPT_DYNAMIC_RDMA_GOLDEN_SETTING, 0);
 
 	disp_helper_set_option(DISP_OPT_MET_LOG, 0);
 	/* ================ End: lowpower option setting ================== */
@@ -383,10 +383,10 @@ void disp_helper_option_init(void)
 	/* use RGB565 format for decouple mode intermediate buffer */
 	disp_helper_set_option(DISP_OPT_DECOUPLE_MODE_USE_RGB565, 0);
 
-	disp_helper_set_option(DISP_OPT_USE_PQ, 1);
+	disp_helper_set_option(DISP_OPT_USE_PQ, 0);
 	disp_helper_set_option(DISP_OPT_MUTEX_EOF_EN_FOR_CMD_MODE, 0);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 1);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 1);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 0);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 0);
 
 	disp_helper_set_option(DISP_OPT_BYPASS_OVL, 0);
 	disp_helper_set_option(DISP_OPT_FPS_CALC_WND, 10);
@@ -404,7 +404,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_PARTIAL_UPDATE, 0);
 #endif
 	disp_helper_set_option(DISP_OPT_CV_BYSUSPEND, 0);
-	disp_helper_set_option(DISP_OPT_DELAYED_TRIGGER, 1);
+	disp_helper_set_option(DISP_OPT_DELAYED_TRIGGER, 0);
 	disp_helper_set_option(DISP_OPT_SHADOW_REGISTER, 0);
 	disp_helper_set_option(DISP_OPT_SHADOW_MODE, 0);
 
@@ -414,22 +414,22 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_REG_PARSER_RAW_DUMP, 0);
 	disp_helper_set_option(DISP_OPT_PQ_REG_DUMP, 0);
 
-	disp_helper_set_option(DISP_OPT_AOD, 1);
+	disp_helper_set_option(DISP_OPT_AOD, 0);
 
 	/* ARR phase 1 option */
 	disp_helper_set_option(DISP_OPT_ARR_PHASE_1, 0);
 
 	disp_helper_set_option(DISP_OPT_RSZ, 0);
-	disp_helper_set_option(DISP_OPT_RPO, 1);
+	disp_helper_set_option(DISP_OPT_RPO, 0);
 	disp_helper_set_option(DISP_OPT_DUAL_PIPE, 0);
 	disp_helper_set_option(DISP_OPT_SHARE_WDMA0, 0);
-	disp_helper_set_option(DISP_OPT_ROUND_CORNER, 1);
+	disp_helper_set_option(DISP_OPT_ROUND_CORNER, 0);
 	disp_helper_set_option(DISP_OPT_ROUND_CORNER_MODE, DISP_HELPER_HW_RC);
 	disp_helper_set_option(DISP_OPT_FRAME_QUEUE, 0);
 	disp_helper_set_option(DISP_OPT_DC_BY_HRT, 0);
-	disp_helper_set_option(DISP_OPT_OVL_WCG, 1);
+	disp_helper_set_option(DISP_OPT_OVL_WCG, 0);
 	/* OVL SBCH */
-	disp_helper_set_option(DISP_OPT_OVL_SBCH, 1);
+	disp_helper_set_option(DISP_OPT_OVL_SBCH, 0);
 	disp_helper_set_option(DISP_OPT_MMPATH, 0);
 }
 

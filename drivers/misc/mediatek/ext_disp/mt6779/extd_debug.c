@@ -18,7 +18,9 @@
 /* #include <cust_gpio_usage.h> */
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&	\
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
+#if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
+#endif
 #endif
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
@@ -83,6 +85,7 @@ static int test_allocate_buffer(void)
 		return -1;
 	}
 
+#if defined(CONFIG_MTK_M4U)
 	client = m4u_create_client();
 	ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va, 0,
 			    bufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
@@ -90,6 +93,7 @@ static int test_allocate_buffer(void)
 	ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL1, buffer_va_1, 0,
 			    bufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
 			    (unsigned int *)(&buffer_mva_1));
+#endif
 
 	pr_debug("buffer_va:0x%lx, buffer_mva=0x%lx, size %d\n", buffer_va,
 		 buffer_mva, bufferSize);

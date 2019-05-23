@@ -99,6 +99,7 @@ static DEFINE_MUTEX(disp_session_lock);
 static dev_t mtk_disp_mgr_devno;
 static struct cdev *mtk_disp_mgr_cdev;
 static struct class *mtk_disp_mgr_class;
+static struct device *mtk_disp_mgr_dev;
 
 /*---------------- variable for repaint start ------------------*/
 static DEFINE_MUTEX(repaint_queue_lock);
@@ -107,6 +108,11 @@ static LIST_HEAD(repaint_job_queue);
 static LIST_HEAD(repaint_job_pool);
 
 static int HWC_gpid;
+
+inline int mtk_disp_mgr_set_dev(struct device *dev)
+{
+	mtk_disp_mgr_dev = dev;
+}
 
 inline int get_HWC_gpid(void)
 {
@@ -438,7 +444,7 @@ static void __prepare_output_buffer(struct disp_buffer_info *disp_buf,
 
 	/* create second fence for WDMA when decouple mirror mode */
 	disp_buf->layer_id = disp_sync_get_output_interface_timeline_id();
-	output_buf = disp_sync_prepare_buf(disp_buf);
+	output_buf = disp_sync_prepare_buf(mtk_disp_mgr_dev, disp_buf);
 	if (output_buf) {
 		disp_buf->interface_fence_fd = output_buf->fence;
 		disp_buf->interface_index = output_buf->idx;
@@ -478,7 +484,7 @@ int _ioctl_prepare_buffer(unsigned long arg, enum PREPARE_FENCE_TYPE type)
 		DISP_PR_INFO("type is wrong: %d\n", type);
 
 	if (disp_buf.layer_en) {
-		fence_buf = disp_sync_prepare_buf(&disp_buf);
+		fence_buf = disp_sync_prepare_buf(mtk_disp_mgr_dev, &disp_buf);
 		if (fence_buf) {
 			disp_buf.fence_fd = fence_buf->fence;
 			disp_buf.index = fence_buf->idx;

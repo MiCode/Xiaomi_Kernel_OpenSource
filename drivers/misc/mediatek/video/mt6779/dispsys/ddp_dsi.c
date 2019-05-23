@@ -12,7 +12,8 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
-#include "mt-plat/sync_write.h"
+#include <linux/io.h>
+/* #include "mt-plat/sync_write.h" */
 #include <debug.h>
 #include "disp_drv_log.h"
 #include "disp_drv_platform.h"
@@ -58,7 +59,7 @@ enum MIPITX_PAD_VALUE {
 #define DSI_POLLREG32(cmdq, addr, mask, value) \
 				DISP_REG_CMDQ_POLLING(cmdq, addr, value, mask)
 #define DSI_INREG32(type, addr) INREG32(addr)
-#define DSI_READREG32(type, dst, src) mt_reg_sync_writel(INREG32(src), dst)
+#define DSI_READREG32(type, dst, src) writel(INREG32(src), dst)
 
 static int dsi_reg_op_debug;
 
@@ -84,7 +85,7 @@ do {							\
 		v.bit = value;				\
 		DISP_REG_MASK(cmdq, &REG, AS_UINT32(&v), AS_UINT32(&r)); \
 	} else {					\
-		mt_reg_sync_writel(INREG32(&REG), &r);	\
+		writel(INREG32(&REG), &r);	\
 		r.bit = (value);			\
 		DISP_REG_SET(cmdq, &REG, INREG32(&r));	\
 	}						\
@@ -99,7 +100,7 @@ do {							\
 	if (dsi_reg_op_debug)				\
 		DDPMSG("[mipitx/reg]%p=0x%08x\n", (void *)addr, val); \
 	if (0)						\
-		mt_reg_sync_writel(val, addr);		\
+		writel(val, addr);		\
 } while (0)
 
 #define MIPITX_OUTREGBIT(addr, field, value)		\
@@ -120,7 +121,7 @@ do {							\
 	if (dsi_reg_op_debug) {				\
 		DDPMSG("[mipitx/wreg]%p=0x%08x\n", (void *)addr, val); \
 	}						\
-	mt_reg_sync_writel(val, addr);			\
+	writel(val, addr);			\
 } while (0)
 
 #define MIPITX_OUTREGBIT(addr, field, value)		\

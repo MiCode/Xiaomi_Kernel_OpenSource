@@ -24,7 +24,10 @@
 
 #####################################
 # MT67xx chipset group
-
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
+CONFIG_MACH_MT6779 := y
+endif
 
 #####################################
 # Add new chipset groups here
@@ -112,4 +115,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mhltx/
 endif
 ifeq ($(CONFIG_MTK_DITHERING_SUPPORT), y)
 ccflags-y += -DDITHERING_SUPPORT
+endif
+ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DCONFIG_MACH_MT6779
 endif

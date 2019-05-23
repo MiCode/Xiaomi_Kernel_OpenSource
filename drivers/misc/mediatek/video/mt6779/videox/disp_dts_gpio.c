@@ -20,6 +20,16 @@ static const char *this_state_name[DTS_GPIO_STATE_MAX] = {
 	"lcm_rst_out1_gpio",
 	"lcm_rst_out0_gpio",
 	"lcm_dsi_te",
+	"lcm_mipi0_sdata",
+	"lcm_mipi0_sclk",
+	"lcm_mipi1_sdata",
+	"lcm_mipi1_sclk",
+	"lcm_mipi2_sdata",
+	"lcm_mipi2_sclk",
+	"lcm_mipi3_sdata",
+	"lcm_mipi3_sclk",
+	"lcm_mipi4_sdata",
+	"lcm_mipi4_sclk",
 };
 
 /* pinctrl implementation */
@@ -61,6 +71,19 @@ long disp_dts_gpio_init(struct platform_device *pdev)
 	}
 
 	this_pctrl = pctrl;
+
+	/* setup DSI pin by default */
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_DSI_TE);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI0_SDATA);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI0_SCLK);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI1_SDATA);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI1_SCLK);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI2_SDATA);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI2_SCLK);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI3_SDATA);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI3_SCLK);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI4_SDATA);
+	disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_MIPI4_SCLK);
 
 exit:
 	return ret;

@@ -19,7 +19,7 @@
 #ifdef __KERNEL__
 
 #include <linux/version.h>
-#include <../../../../../drivers/dma-buf/sync_debug.h>
+#include <../../../../drivers/dma-buf/sync_debug.h>
 
 //#include <../drivers/staging/android/sw_sync.h>
 

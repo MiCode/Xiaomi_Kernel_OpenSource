@@ -45,7 +45,7 @@
 #include "m4u.h"
 #endif
 
-#include "mt-plat/mtk_boot_common.h"
+/* #include "mt-plat/mtk_boot_common.h" */
 /* #include "mt-plat/mt_boot.h" */
 #include "mtkfb_info.h"
 #include "mtkfb.h"

@@ -3802,13 +3802,16 @@ static int update_primary_intferface_module(void)
 	return 0;
 }
 
+/*
 static void replace_fb_addr_to_mva(void)
 {
-#ifdef MTKFB_M4U_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	struct ddp_fb_info fb_info;
 
+#ifdef MTKFB_M4U_SUPPORT
 	if (!disp_helper_get_option(DISP_OPT_USE_M4U))
 		return;
+#endif
 
 	fb_info.fb_mva = pgc->framebuffer_mva;
 	fb_info.fb_pa = pgc->framebuffer_pa;
@@ -3821,6 +3824,7 @@ static void replace_fb_addr_to_mva(void)
 			   DISPSYS_SMI_LARB1_BASE + 0x388, 0x1);
 #endif
 }
+*/
 
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			 int is_lcm_inited)
@@ -3992,6 +3996,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 				&corner_pattern_width, &corner_pattern_height);
 		}
 	} else {
+#if defined(CONFIG_MTK_ION)
 		if (lcm_corner_en && !top_mva) {
 			ion_client = disp_ion_create("round_corner");
 			if (!ion_client)
@@ -4026,6 +4031,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			if (ret)
 				DISP_PR_ERR("[RC]:Fail to cach sync\n");
 		}
+#endif
 	}
 #endif
 
@@ -4108,7 +4114,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	io_gs.is_decouple_mode = 0;
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 			 DDP_OVL_GOLDEN_SETTING, &io_gs);
-	replace_fb_addr_to_mva();
+	/* replace_fb_addr_to_mva(); */
 
 	if (is_lcm_inited) {
 		/* ??? why need */
@@ -8529,12 +8535,15 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	unsigned int pixel_byte = primary_display_get_bpp() / 8;
 	int buffer_size = h_yres * w_xres * pixel_byte;
 	enum DISP_MODULE_ENUM after_eng = DISP_MODULE_OVL0;
+#if defined(CONFIG_MTK_ION)
 	int tmp;
+#endif
 
 	DISPMSG("primary capture: begin\n");
 
 	disp_sw_mutex_lock(&(pgc->capture_lock));
 
+#if defined(CONFIG_MTK_ION)
 	if (primary_display_is_sleepd()) {
 		memset((void *)pbuf, 0, buffer_size);
 		DISPMSG("primary capture: Fail black End\n");
@@ -8582,6 +8591,7 @@ out:
 
 	if (ion_display_client)
 		disp_ion_destroy(ion_display_client);
+#endif
 
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
 	DISPMSG("primary capture: end\n");

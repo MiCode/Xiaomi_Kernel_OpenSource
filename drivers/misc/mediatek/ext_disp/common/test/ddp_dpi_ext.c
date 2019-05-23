@@ -42,6 +42,7 @@
 
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/io.h>
 /*#include "mach/eint.h"*/
 
 /* #ifdef DPI_EXT_INREG32 */
@@ -51,7 +52,7 @@
 
 #define DPI_EXT_OUTREG32(cmdq, addr, val) \
 	{\
-		mt_reg_sync_writel(val, addr); \
+		writel(val, addr); \
 	}
 
 #define DPI_EXT_LOG_PRINT(fmt, arg...)  \
