@@ -525,6 +525,7 @@
 
 &pmi8994_charger {
 	dpdm-supply = <&qusb_phy0>;
+	qcom,usbin-vadc = <&pmi8994_vadc>;
 };
 
 &pmi8994_fg {
