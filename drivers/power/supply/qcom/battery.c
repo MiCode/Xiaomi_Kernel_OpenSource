@@ -314,7 +314,8 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 	vote(chip->pl_disable_votable, ICL_LIMIT_VOTER, disable, 0);
 	rerun_election(chip->fcc_votable);
 	rerun_election(chip->fv_votable);
-	split_settled(chip);
+	if (IS_USBIN(chip->pl_mode))
+		split_settled(chip);
 
 	return count;
 }
