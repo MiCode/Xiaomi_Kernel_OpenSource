@@ -38,6 +38,8 @@
 #define MAX_M3_FILE_NAME_LENGTH		13
 #define DEFAULT_M3_FILE_NAME		"m3.bin"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
+#define FW_V2_FILE_NAME			"amss20.bin"
+#define FW_V2_NUMBER			2
 
 #define WAKE_MSI_NAME			"WAKE"
 
@@ -1950,12 +1952,20 @@ EXPORT_SYMBOL(cnss_smmu_map);
 int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 {
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
+	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv)
 		return -ENODEV;
 
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return -ENODEV;
+
 	info->va = pci_priv->bar;
 	info->pa = pci_resource_start(pci_priv->pci_dev, PCI_BAR_NUM);
+
+	memcpy(&info->device_version, &plat_priv->device_version,
+	       sizeof(info->device_version));
 
 	return 0;
 }
@@ -2546,6 +2556,32 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+static void cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
+
+	plat_priv->device_version.family_number = mhi_ctrl->family_number;
+	plat_priv->device_version.device_number = mhi_ctrl->device_number;
+	plat_priv->device_version.major_version = mhi_ctrl->major_version;
+	plat_priv->device_version.minor_version = mhi_ctrl->minor_version;
+
+	cnss_pr_dbg("Get device version info, family number: 0x%x, device number: 0x%x, major version: 0x%x, minor version: 0x%x\n",
+		    plat_priv->device_version.family_number,
+		    plat_priv->device_version.device_number,
+		    plat_priv->device_version.major_version,
+		    plat_priv->device_version.minor_version);
+
+	if (pci_priv->device_id == QCA6390_DEVICE_ID &&
+	    plat_priv->device_version.major_version >= FW_V2_NUMBER) {
+		scnprintf(plat_priv->firmware_name,
+			  sizeof(plat_priv->firmware_name), FW_V2_FILE_NAME);
+		mhi_ctrl->fw_image = plat_priv->firmware_name;
+	}
+
+	cnss_pr_dbg("Firmware name is %s\n", mhi_ctrl->fw_image);
+}
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -2610,6 +2646,8 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 		cnss_pr_err("Failed to register to MHI bus, err = %d\n", ret);
 		return ret;
 	}
+
+	cnss_pci_update_fw_name(pci_priv);
 
 	return 0;
 }
