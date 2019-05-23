@@ -305,6 +305,9 @@ skip_core_cfg:
 		rsrc_data->mem_base +
 		rsrc_data->camif_lite_reg->reg_update_cmd);
 
+	memset(err_irq_mask, 0, sizeof(err_irq_mask));
+	memset(irq_mask, 0, sizeof(irq_mask));
+
 	err_irq_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0] =
 		rsrc_data->reg_data->error_irq_mask0;
 	err_irq_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS2] =
