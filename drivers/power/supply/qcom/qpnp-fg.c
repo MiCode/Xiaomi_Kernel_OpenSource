@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1341,10 +1341,15 @@ static int fg_check_ima_exception(struct fg_chip *chip, bool check_hw_sts)
 
 	if (run_err_clr_seq) {
 		ret = fg_run_iacs_clear_sequence(chip);
-		if (!ret)
-			return -EAGAIN;
-		else
+		if (ret) {
 			pr_err("Error clearing IMA exception ret=%d\n", ret);
+			return ret;
+		}
+
+		if (check_hw_sts)
+			return 0;
+		else
+			return -EAGAIN;
 	}
 
 	return rc;
