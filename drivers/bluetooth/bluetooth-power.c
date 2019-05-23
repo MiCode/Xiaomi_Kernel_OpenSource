@@ -50,6 +50,7 @@ static bool previous;
 static int pwr_state;
 struct class *bt_class;
 static int bt_major;
+static int soc_id;
 
 static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 {
@@ -742,9 +743,16 @@ int bt_register_slimdev(struct device *dev)
 	return 0;
 }
 
+int get_chipset_version(void)
+{
+	BT_PWR_DBG("");
+	return soc_id;
+}
+
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, pwr_cntrl = 0;
+	int chipset_version = 0;
 
 	switch (cmd) {
 	case BT_CMD_SLIM_TEST:
@@ -769,6 +777,16 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			BT_PWR_ERR("BT chip state is already :%d no change d\n"
 				, pwr_state);
 			ret = 0;
+		}
+		break;
+	case BT_CMD_CHIPSET_VERS:
+		chipset_version = (int)arg;
+		BT_PWR_ERR("BT_CMD_CHIP_VERS soc_version:%x", chipset_version);
+		if (chipset_version) {
+			soc_id = chipset_version;
+		} else {
+			BT_PWR_ERR("got invalid soc version");
+			soc_id = 0;
 		}
 		break;
 	default:
