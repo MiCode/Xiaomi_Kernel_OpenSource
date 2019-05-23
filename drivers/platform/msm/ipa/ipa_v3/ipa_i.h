@@ -2501,6 +2501,8 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client);
 
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
+int ipa3_teth_bridge_get_pm_hdl(void);
+
 /*
  * Tethering client info
  */
@@ -2980,4 +2982,6 @@ static inline int ipa_mpm_panic_handler(char *buf, int size)
 
 #endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
 
+/* query ipa APQ mode*/
+bool ipa3_is_apq(void);
 #endif /* _IPA3_I_H_ */
