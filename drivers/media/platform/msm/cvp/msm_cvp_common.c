@@ -1509,6 +1509,13 @@ void msm_cvp_fw_unload_handler(struct work_struct *work)
 	mutex_unlock(&core->lock);
 }
 
+void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
+		struct msm_cvp_internal_buffer *cbuf)
+{
+	dprintk(tag, "%s addr: %x size %u\n", str,
+		cbuf->smem.device_addr, cbuf->smem.size);
+}
+
 void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 {
 	struct msm_cvp_internal_buffer *cbuf;
@@ -1525,11 +1532,17 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 	dprintk(CVP_ERR,
 			"---Buffer details for inst: %pK of type: %d---\n",
 			inst, inst->session_type);
-	mutex_lock(&inst->registeredbufs.lock);
-	dprintk(CVP_ERR, "registered buffer list:\n");
-	list_for_each_entry(cbuf, &inst->registeredbufs.list, list)
-		print_cvp_buffer(CVP_ERR, "buf", inst, cbuf);
-	mutex_unlock(&inst->registeredbufs.lock);
+	mutex_lock(&inst->cvpcpubufs.lock);
+	dprintk(CVP_ERR, "cpu buffer list:\n");
+	list_for_each_entry(cbuf, &inst->cvpcpubufs.list, list)
+		print_cvp_buffer(CVP_ERR, "bufdump", inst, cbuf);
+	mutex_unlock(&inst->cvpcpubufs.lock);
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	dprintk(CVP_ERR, "dsp buffer list:\n");
+	list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list)
+		print_cvp_buffer(CVP_ERR, "bufdump", inst, cbuf);
+	mutex_unlock(&inst->cvpdspbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
 	dprintk(CVP_ERR, "persist buffer list:\n");
@@ -1538,11 +1551,6 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 				buf->buffer_type, buf->smem.device_addr,
 				buf->smem.size);
 	mutex_unlock(&inst->persistbufs.lock);
-}
-
-void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
-		struct msm_cvp_internal_buffer *cbuf)
-{
 }
 
 int msm_cvp_comm_unmap_cvp_buffer(struct msm_cvp_inst *inst,

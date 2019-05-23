@@ -6,6 +6,7 @@
 #include "msm_cvp.h"
 #include "cvp_hfi.h"
 #include <synx_api.h>
+#include "cvp_core_hfi.h"
 
 #define MSM_CVP_NOMINAL_CYCLES		(444 * 1000 * 1000)
 #define MSM_CVP_UHD60E_VPSS_CYCLES	(111 * 1000 * 1000)
@@ -984,12 +985,9 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 	hdev = inst->core->device;
 	print_client_buffer(CVP_DBG, "register", inst, buf);
 
-	if (!buf->index) {
-		dprintk(CVP_INFO,
-			"%s: CPU path register buffer is deprecated!",
-			__func__);
+	if (!buf->index)
 		return 0;
-	}
+
 	return msm_cvp_map_buf_dsp(inst, buf);
 }
 
@@ -1083,6 +1081,36 @@ static int msm_cvp_session_ctrl(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "%s Unsupported session ctrl%d\n",
 			__func__, ctrl->ctrl_type);
 		rc = -EINVAL;
+	}
+	return rc;
+}
+
+static int msm_cvp_get_sysprop(struct msm_cvp_inst *inst,
+		struct cvp_kmd_arg *arg)
+{
+	struct cvp_kmd_sys_properties *props = &arg->data.sys_properties;
+	struct cvp_hfi_device *hdev;
+	struct iris_hfi_device *hfi;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+	hfi = hdev->hfi_device_data;
+
+	switch (props->prop_data.prop_type) {
+	case CVP_HFI_VERSION:
+	{
+		props->prop_data.data = hfi->version;
+		break;
+	}
+	default:
+		dprintk(CVP_ERR, "unrecognized sys property %d\n",
+			props->prop_data.prop_type);
+		rc = -EFAULT;
 	}
 	return rc;
 }
@@ -1191,6 +1219,9 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 	}
 	case CVP_KMD_SESSION_CONTROL:
 		rc = msm_cvp_session_ctrl(inst, arg);
+		break;
+	case CVP_KMD_GET_SYS_PROPERTY:
+		rc = msm_cvp_get_sysprop(inst, arg);
 		break;
 	default:
 		dprintk(CVP_DBG, "%s: unknown arg type %#x\n",

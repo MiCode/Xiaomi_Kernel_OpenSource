@@ -217,6 +217,7 @@ struct cvp_kmd_hfi_packet {
 	unsigned int pkt_data[MAX_HFI_PKT_SIZE];
 };
 
+#define CVP_HFI_VERSION	1
 struct cvp_kmd_sys_property {
 	unsigned int prop_type;
 	unsigned int data;
