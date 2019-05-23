@@ -1455,8 +1455,14 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	rc = wmi_send(wil, WMI_CONNECT_CMDID, vif->mid, &conn, sizeof(conn));
 	if (rc == 0) {
 		netif_carrier_on(ndev);
-		if (!wil_has_other_active_ifaces(wil, ndev, false, true))
-			wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+		if (!wil_has_other_active_ifaces(wil, ndev, false, true)) {
+			if (wil->force_edmg_channel)
+				wil6210_bus_request(wil,
+						    WIL_11AY_BUS_REQUEST_KBPS);
+			else
+				wil6210_bus_request(wil,
+						    WIL_11AD_BUS_REQUEST_KBPS);
+		}
 		vif->bss = bss;
 		/* Connect can take lots of time */
 		mod_timer(&vif->connect_timer,
@@ -2099,8 +2105,13 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	}
 
 	netif_carrier_on(ndev);
-	if (!wil_has_other_active_ifaces(wil, ndev, false, true))
-		wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+	if (!wil_has_other_active_ifaces(wil, ndev, false, true)) {
+		if (wil->force_edmg_channel)
+			wil6210_bus_request(wil, WIL_11AY_BUS_REQUEST_KBPS);
+		else
+			wil6210_bus_request(wil, WIL_11AD_BUS_REQUEST_KBPS);
+	}
+
 
 	rc = wmi_pcp_start(vif, bi, wmi_nettype, chan, hidden_ssid, is_go);
 	if (rc)
