@@ -1119,6 +1119,71 @@
 			};
 		};
 
+		mmdvfs {
+			compatible = "mediatek,mmdvfs";
+
+			operating-points-v2 = <&opp_table_mm>;
+
+			mediatek,support_mux = "mm", "cam", "img", "ipe",
+				"venc", "vdec", "dpe", "ccu";
+
+			mediatek,mux_mm = "clk_mmpll_d5_d2",
+				"clk_mmpll_d7", "clk_tvdpll_mainpll_d2_ck";
+			mediatek,mux_cam = "clk_mmpll_d5_d2",
+				"clk_univpll_d3", "clk_adsppll_d5";
+			mediatek,mux_img = "clk_mmpll_d5_d2",
+				"clk_univpll_d3", "clk_tvdpll_mainpll_d2_ck";
+			mediatek,mux_ipe = "clk_mmpll_d5_d2",
+				"clk_univpll_d3", "clk_mainpll_d2";
+			mediatek,mux_venc = "clk_mainpll_d3",
+				"clk_mmpll_d7", "clk_mmpll_d5";
+			mediatek,mux_vdec = "clk_univpll_d2_d2",
+				"clk_univpll_d3", "clk_univpll_d2";
+			mediatek,mux_dpe = "clk_mainpll_d3",
+				"clk_mmpll_d7", "clk_mainpll_d2";
+			mediatek,mux_ccu = "clk_mmpll_d5_d2",
+				"clk_univpll_d3", "clk_adsppll_d5";
+
+			clocks = <&topckgen CLK_TOP_MM>,
+				<&topckgen CLK_TOP_CAM>,
+				<&topckgen CLK_TOP_IMG>,
+				<&topckgen CLK_TOP_IPE>,
+				<&topckgen CLK_TOP_VENC>,
+				<&topckgen CLK_TOP_VDEC>,
+				<&topckgen CLK_TOP_DPE>,
+				<&topckgen CLK_TOP_CCU>,
+				<&topckgen CLK_TOP_MMPLL_D5>,
+				<&topckgen CLK_TOP_UNIVPLL_D2>,
+				<&topckgen CLK_TOP_TVDPLL_MAINPLL_D2_CK>,
+				<&topckgen CLK_TOP_ADSPPLL_D5>,
+				<&topckgen CLK_TOP_MAINPLL_D2>,
+				<&topckgen CLK_TOP_MMPLL_D6>,
+				<&topckgen CLK_TOP_MMPLL_D7>,
+				<&topckgen CLK_TOP_UNIVPLL_D3>,
+				<&topckgen CLK_TOP_MAINPLL_D3>,
+				<&topckgen CLK_TOP_MMPLL_D5_D2>,
+				<&topckgen CLK_TOP_UNIVPLL_D2_D2>;
+			clock-names = "mm",
+				"cam",
+				"img",
+				"ipe",
+				"venc",
+				"vdec",
+				"dpe",
+				"ccu",
+				"clk_mmpll_d5",
+				"clk_univpll_d2",
+				"clk_tvdpll_mainpll_d2_ck",
+				"clk_adsppll_d5",
+				"clk_mainpll_d2",
+				"clk_mmpll_d6",
+				"clk_mmpll_d7",
+				"clk_univpll_d3",
+				"clk_mainpll_d3",
+				"clk_mmpll_d5_d2",
+				"clk_univpll_d2_d2";
+		};
+
 		mmsys: clock-controller@14000000 {
 			compatible = "mediatek,mt6779-mmsys", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
