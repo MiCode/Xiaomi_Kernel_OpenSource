@@ -94,7 +94,7 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 	}
 }
 
-static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
+static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -134,10 +134,11 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
-void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
+static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	bool mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
 
