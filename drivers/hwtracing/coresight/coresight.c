@@ -47,6 +47,19 @@ struct coresight_path {
 	struct list_head link;
 };
 
+struct coresight_link {
+	struct coresight_device *csdev;
+	int inport;
+	int outport;
+};
+
+struct coresight_link_node {
+	struct coresight_link *cs_link;
+	struct list_head link;
+};
+
+static LIST_HEAD(cs_disabled_link);
+
 static LIST_HEAD(cs_active_paths);
 
 /*
@@ -202,6 +215,53 @@ static int coresight_find_link_outport(struct coresight_device *csdev,
 	return -ENODEV;
 }
 
+static void coresight_disable_links(void)
+{
+	struct coresight_link_node *node;
+	struct coresight_link_node *node_next;
+	struct device *dev;
+	struct coresight_device *csdev;
+
+	list_for_each_entry_safe(node, node_next, &cs_disabled_link, link) {
+		csdev = node->cs_link->csdev;
+		if (link_ops(csdev)->disable) {
+			link_ops(csdev)->disable(csdev, node->cs_link->inport,
+					node->cs_link->outport);
+			coresight_disable_reg_clk(csdev);
+		}
+		dev = &node->cs_link->csdev->dev;
+		devm_kfree(dev, node->cs_link);
+		node->cs_link = NULL;
+		list_del(&node->link);
+		devm_kfree(dev, node);
+	}
+}
+
+static void coresight_add_disabled_link(struct coresight_device *csdev,
+					int inport, int outport)
+{
+	struct coresight_link_node *node;
+	struct coresight_link *cs_link;
+
+	if (csdev) {
+		cs_link = devm_kzalloc(&csdev->dev,
+				sizeof(struct coresight_link), GFP_KERNEL);
+		if (!cs_link)
+			return;
+		node = devm_kzalloc(&csdev->dev,
+				sizeof(struct coresight_link_node), GFP_KERNEL);
+		if (!node) {
+			devm_kfree(&csdev->dev, cs_link);
+			return;
+		}
+		cs_link->csdev = csdev;
+		cs_link->inport = inport;
+		cs_link->outport = outport;
+		node->cs_link = cs_link;
+		list_add(&node->link, &cs_disabled_link);
+	}
+}
+
 static int coresight_enable_sink(struct coresight_device *csdev, u32 mode)
 {
 	int ret;
@@ -229,6 +289,8 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 		if (sink_ops(csdev)->disable) {
 			sink_ops(csdev)->disable(csdev);
 			coresight_disable_reg_clk(csdev);
+			if (coresight_link_late_disable())
+				coresight_disable_links();
 			csdev->enable = false;
 			csdev->activated = false;
 		}
@@ -306,7 +368,9 @@ static void coresight_disable_link(struct coresight_device *csdev,
 	}
 
 	if (atomic_dec_return(&csdev->refcnt[refport]) == 0) {
-		if (link_ops(csdev)->disable) {
+		if (coresight_link_late_disable()) {
+			coresight_add_disabled_link(csdev, inport, outport);
+		} else if (link_ops(csdev)->disable) {
 			link_ops(csdev)->disable(csdev, inport, outport);
 			coresight_disable_reg_clk(csdev);
 		}

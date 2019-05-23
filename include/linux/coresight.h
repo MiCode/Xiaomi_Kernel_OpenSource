@@ -299,6 +299,13 @@ extern int coresight_timeout(void __iomem *addr, u32 offset,
 extern void coresight_abort(void);
 extern void coresight_disable_reg_clk(struct coresight_device *csdev);
 extern int coresight_enable_reg_clk(struct coresight_device *csdev);
+static inline bool coresight_link_late_disable(void)
+{
+	if (IS_ENABLED(CONFIG_CORESIGHT_LINK_LATE_DISABLE))
+		return true;
+	else
+		return false;
+}
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
