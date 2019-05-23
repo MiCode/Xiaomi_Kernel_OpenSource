@@ -78,6 +78,8 @@ Optional Properties:
   - qcom,phy-sequence: The initialization sequence to bring up the PCIe PHY.
     Should be specified in groups (offset, value, delay).
     Should be specified in groups (offset, value, delay).
+  - qcom,bw-scale: Table of CX voltage and rate change clock frequency pair
+    for PCIe bandwidth scaling.
   - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
   - qcom,boot-option: Bits that alter PCIe bus driver boot sequence.
     Below details what happens when each bit is set
