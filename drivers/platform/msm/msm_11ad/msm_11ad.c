@@ -1396,7 +1396,7 @@ static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 		 * assume we have single path (vectors[0]). If we ever
 		 * have multiple paths, need to define the behavior
 		 */
-		usecase_kbps = div64_u64(usecase->vectors[0].ib, 1000);
+		usecase_kbps = div64_u64(usecase->vectors[0].ab, 1000);
 		if (usecase_kbps >= kbps && usecase_kbps < min_kbps) {
 			min_kbps = usecase_kbps;
 			vote = i;
