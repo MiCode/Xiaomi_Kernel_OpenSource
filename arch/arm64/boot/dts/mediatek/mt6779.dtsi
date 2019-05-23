@@ -939,10 +939,14 @@
 			clock-div = <1>;
 		};
 
-		disp_pwm0@1100e000 {
-			compatible = "mediatek,mt6779-disp_pwm0";
+		disp_pwm: disp_pwm0@1100e000 {
+			compatible = "mediatek,mt6779-disp-pwm";
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_LOW>;
+			#pwm-cells = <2>;
+			clocks = <&mmsys CLK_MM_26M>,
+				<&topckgen CLK_TOP_DISP_PWM>;
+			clock-names = "main", "mm";
 		};
 
 		i2c3: i2c@1100f000 {
