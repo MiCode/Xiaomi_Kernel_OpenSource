@@ -4118,7 +4118,7 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 
 	switch (blob_type) {
 	case CAM_ICP_CMD_GENERIC_BLOB_CLK:
-		CAM_WARN(CAM_ICP,
+		CAM_WARN_RATE_LIMIT_CUSTOM(CAM_ICP, 300, 1,
 			"Using deprecated blob type GENERIC_BLOB_CLK");
 		if (blob_size != sizeof(struct cam_icp_clk_bw_request)) {
 			CAM_ERR(CAM_ICP, "Mismatch blob size %d expected %lu",

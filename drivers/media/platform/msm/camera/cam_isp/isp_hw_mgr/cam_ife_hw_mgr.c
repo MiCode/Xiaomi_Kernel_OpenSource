@@ -4625,7 +4625,8 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		struct cam_isp_bw_config    *bw_config;
 		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
-		CAM_WARN(CAM_ISP, "Deprecated Blob TYPE_BW_CONFIG");
+		CAM_WARN_RATE_LIMIT_CUSTOM(CAM_ISP, 300, 1,
+			"Deprecated Blob TYPE_BW_CONFIG");
 		if (blob_size < sizeof(struct cam_isp_bw_config)) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
 			return -EINVAL;
