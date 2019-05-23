@@ -2715,7 +2715,8 @@ static int cam_isp_classify_vote_info(
 
 	if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
 		|| (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
-		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)) {
+		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB) ||
+		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_LCR)) {
 		if (split_idx == CAM_ISP_HW_SPLIT_LEFT) {
 			if (*camif_l_bw_updated)
 				return rc;
@@ -2890,8 +2891,11 @@ static int cam_isp_blob_bw_update(
 			if (!hw_mgr_res->hw_res[i])
 				continue;
 
-			if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
-			|| (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD))
+			if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) ||
+				(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
+				(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)
+				|| (hw_mgr_res->res_id ==
+				CAM_ISP_HW_VFE_IN_LCR))
 				if (i == CAM_ISP_HW_SPLIT_LEFT) {
 					if (camif_l_bw_updated)
 						continue;
@@ -2925,32 +2929,8 @@ static int cam_isp_blob_bw_update(
 					bw_config->rdi_vote[idx].cam_bw_bps;
 				ext_bw_bps =
 					bw_config->rdi_vote[idx].ext_bw_bps;
-			} else if (hw_mgr_res->res_id ==
-				CAM_ISP_HW_VFE_IN_PDLIB) {
-				if (i == CAM_ISP_HW_SPLIT_LEFT) {
-					if (camif_l_bw_updated)
-						continue;
-
-					cam_bw_bps =
-					bw_config->left_pix_vote.cam_bw_bps;
-					ext_bw_bps =
-					bw_config->left_pix_vote.ext_bw_bps;
-
-					camif_l_bw_updated = true;
-				} else {
-					if (camif_r_bw_updated)
-						continue;
-
-					cam_bw_bps =
-					bw_config->right_pix_vote.cam_bw_bps;
-					ext_bw_bps =
-					bw_config->right_pix_vote.ext_bw_bps;
-
-					camif_r_bw_updated = true;
-				}
 			} else {
-				if (hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_LCR
-					&& hw_mgr_res->hw_res[i]) {
+				if (hw_mgr_res->hw_res[i]) {
 					CAM_ERR(CAM_ISP, "Invalid res_id %u",
 						hw_mgr_res->res_id);
 					rc = -EINVAL;
