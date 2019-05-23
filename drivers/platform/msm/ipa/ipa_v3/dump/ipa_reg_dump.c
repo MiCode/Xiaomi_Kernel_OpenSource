@@ -352,22 +352,32 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 					    ipa_src_rsrc_grp_01_rsrc_type_n),
 	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_GRP(IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n,
 					    ipa_src_rsrc_grp_23_rsrc_type_n),
+	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_GRP(IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n,
+					    ipa_src_rsrc_grp_45_rsrc_type_n),
 
 	/* Destination Resource Group Config Registers */
 	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_GRP(IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
 					    ipa_dst_rsrc_grp_01_rsrc_type_n),
 	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_GRP(IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
 					    ipa_dst_rsrc_grp_23_rsrc_type_n),
+	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_GRP(IPA_DST_RSRC_GRP_45_RSRC_TYPE_n,
+					    ipa_dst_rsrc_grp_45_rsrc_type_n),
 
 	/* Source Resource Group Count Registers */
 	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_CNT_GRP(
 		IPA_SRC_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
 		ipa_src_rsrc_grp_0123_rsrc_type_cnt_n),
+	IPA_REG_SAVE_CFG_ENTRY_SRC_RSRC_CNT_GRP(
+		IPA_SRC_RSRC_GRP_4567_RSRC_TYPE_CNT_n,
+		ipa_src_rsrc_grp_4567_rsrc_type_cnt_n),
 
 	/* Destination Resource Group Count Registers */
 	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_CNT_GRP(
 		IPA_DST_RSRC_GRP_0123_RSRC_TYPE_CNT_n,
 		ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n),
+	IPA_REG_SAVE_CFG_ENTRY_DST_RSRC_CNT_GRP(
+		IPA_DST_RSRC_GRP_4567_RSRC_TYPE_CNT_n,
+		ipa_dst_rsrc_grp_4567_rsrc_type_cnt_n),
 
 	/*
 	 * =====================================================================
@@ -411,6 +421,9 @@ static struct map_src_dst_addr_s ipa_regs_to_save_array[] = {
 	GEN_SRC_DST_ADDR_MAP(IPA_GSI_TOP_GSI_DEBUG_QSB_LOG_ERR_TRNS_ID,
 			     gsi.debug,
 			     ipa_gsi_top_gsi_debug_qsb_log_err_trns_id),
+
+	IPA_REG_SAVE_CFG_ENTRY_GSI_QSB_DEBUG(
+		GSI_DEBUG_QSB_LOG_LAST_MISC_IDn, qsb_log_last_misc),
 
 	/* GSI IRAM pointers Registers */
 	GEN_SRC_DST_ADDR_MAP(IPA_GSI_TOP_GSI_IRAM_PTR_CH_CMD,
@@ -831,10 +844,13 @@ void ipa_save_registers(void)
 			ipa_hal_save_regs_save_ipa_testbus();
 	}
 
-	/* GSI test bus and QSB log */
+	/* GSI test bus */
 	for (i = 0;
 	     i < ARRAY_SIZE(ipa_reg_save_gsi_ch_test_bus_selector_array);
 	     i++) {
+		ipa_reg_save.gsi.debug.gsi_test_bus.test_bus_selector[i] =
+			ipa_reg_save_gsi_ch_test_bus_selector_array[i];
+
 		/* Write test bus selector */
 		IPA_WRITE_SCALER_REG(
 			GSI_TEST_BUS_SEL,
@@ -1346,6 +1362,8 @@ static void ipa_hal_save_regs_save_ipa_testbus(void)
 			 sel_internal <= IPA_TESTBUS_SEL_INTERNAL_MAX;
 			 sel_internal++) {
 
+			testbus_sel.value = 0;
+
 			testbus_sel.def.pipe_select = 0;
 			testbus_sel.def.external_block_select =
 				sel_external;
@@ -1380,6 +1398,8 @@ static void ipa_hal_save_regs_save_ipa_testbus(void)
 				 sel_internal <=
 					 IPA_TESTBUS_SEL_INTERNAL_PIPE_MAX;
 				 sel_internal++) {
+
+				testbus_sel.value = 0;
 
 				testbus_sel.def.pipe_select = sel_ep;
 				testbus_sel.def.external_block_select =
@@ -1445,7 +1465,7 @@ int ipa_reg_save_init(u32 value)
 	       ipa3_ctx->ipa_wrapper_base);
 
 	ipa3_ctx->reg_collection_base =
-		ioremap(ipa3_ctx->ipa_wrapper_base,
+		ioremap_nocache(ipa3_ctx->ipa_wrapper_base,
 			ipa3_ctx->entire_ipa_block_size);
 
 	if (!ipa3_ctx->reg_collection_base) {

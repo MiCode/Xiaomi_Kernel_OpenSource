@@ -1312,6 +1312,16 @@ union ipa_hwio_def_ipa_src_rsrc_grp_23_rsrc_type_n_u {
 	struct ipa_hwio_def_ipa_src_rsrc_grp_23_rsrc_type_n_s	def;
 	u32							value;
 };
+struct ipa_hwio_def_ipa_src_rsrc_grp_45_rsrc_type_n_s {
+	u32 src_rsrc_grp_4_min_limit : 6;
+	u32 reserved0 : 2;
+	u32 src_rsrc_grp_4_max_limit : 6;
+	u32 reserved1 : 18;
+};
+union ipa_hwio_def_ipa_src_rsrc_grp_45_rsrc_type_n_u {
+	struct ipa_hwio_def_ipa_src_rsrc_grp_45_rsrc_type_n_s	def;
+	u32 value;
+};
 struct ipa_hwio_def_ipa_src_rsrc_grp_0123_rsrc_type_cnt_n_s {
 	u32	src_rsrc_grp_0_cnt : 6;
 	u32	reserved0 : 2;
@@ -1324,6 +1334,15 @@ struct ipa_hwio_def_ipa_src_rsrc_grp_0123_rsrc_type_cnt_n_s {
 };
 union ipa_hwio_def_ipa_src_rsrc_grp_0123_rsrc_type_cnt_n_u {
 	struct ipa_hwio_def_ipa_src_rsrc_grp_0123_rsrc_type_cnt_n_s
+		def;
+	u32 value;
+};
+struct ipa_hwio_def_ipa_src_rsrc_grp_4567_rsrc_type_cnt_n_s {
+	u32 src_rsrc_grp_4_cnt : 6;
+	u32 reserved0 : 26;
+};
+union ipa_hwio_def_ipa_src_rsrc_grp_4567_rsrc_type_cnt_n_u {
+	struct ipa_hwio_def_ipa_src_rsrc_grp_4567_rsrc_type_cnt_n_s
 		def;
 	u32 value;
 };
@@ -1355,6 +1374,16 @@ union ipa_hwio_def_ipa_dst_rsrc_grp_23_rsrc_type_n_u {
 	struct ipa_hwio_def_ipa_dst_rsrc_grp_23_rsrc_type_n_s	def;
 	u32							value;
 };
+struct ipa_hwio_def_ipa_dst_rsrc_grp_45_rsrc_type_n_s {
+	u32 dst_rsrc_grp_4_min_limit : 6;
+	u32 reserved0 : 2;
+	u32 dst_rsrc_grp_4_max_limit : 6;
+	u32 reserved1 : 18;
+};
+union ipa_hwio_def_ipa_dst_rsrc_grp_45_rsrc_type_n_u {
+	struct ipa_hwio_def_ipa_dst_rsrc_grp_45_rsrc_type_n_s	def;
+	u32 value;
+};
 struct ipa_hwio_def_ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n_s {
 	u32	dst_rsrc_grp_0_cnt : 6;
 	u32	reserved0 : 2;
@@ -1367,6 +1396,15 @@ struct ipa_hwio_def_ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n_s {
 };
 union ipa_hwio_def_ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n_u {
 	struct ipa_hwio_def_ipa_dst_rsrc_grp_0123_rsrc_type_cnt_n_s
+		def;
+	u32 value;
+};
+struct ipa_hwio_def_ipa_dst_rsrc_grp_4567_rsrc_type_cnt_n_s {
+	u32 dst_rsrc_grp_4_cnt : 8;
+	u32 reserved0 : 24;
+};
+union ipa_hwio_def_ipa_dst_rsrc_grp_4567_rsrc_type_cnt_n_u {
+	struct ipa_hwio_def_ipa_dst_rsrc_grp_4567_rsrc_type_cnt_n_s
 		def;
 	u32 value;
 };

@@ -83,6 +83,16 @@ union gsi_hwio_def_gsi_debug_countern_u {
 	struct gsi_hwio_def_gsi_debug_countern_s	def;
 	u32						value;
 };
+struct gsi_hwio_def_gsi_debug_qsb_log_last_misc_idn_s {
+	u32 addr_20_0 : 21;
+	u32 write : 1;
+	u32 tid : 5;
+	u32 mid : 5;
+};
+union gsi_hwio_def_gsi_debug_qsb_log_last_misc_idn_u {
+	struct gsi_hwio_def_gsi_debug_qsb_log_last_misc_idn_s   def;
+	u32						value;
+};
 struct gsi_hwio_def_gsi_debug_sw_rf_n_read_s {
 	u32 rf_reg : 32;
 };
