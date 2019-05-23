@@ -1544,7 +1544,6 @@ static int disp_cc_kona_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
-	vdd_mm.use_max_uV = true;
 
 	dispcc_bus_id = msm_bus_scale_register_client(&clk_debugfs_scale_table);
 	if (!dispcc_bus_id) {
