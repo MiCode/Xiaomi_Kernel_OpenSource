@@ -26,6 +26,7 @@
 
 #define MTK_SCPD_ACTIVE_WAKEUP		BIT(0)
 #define MTK_SCPD_FWAIT_SRAM		BIT(1)
+#define MTK_SCPD_STRICT_BUSP		BIT(2)
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
 #define SPM_VDE_PWR_CON			0x0210
@@ -388,17 +389,36 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
-	if (ret < 0)
-		goto err_pwr_ack;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_STRICT_BUSP)) {
+		/*
+		 * In few Mediatek platforms(e.g. MT6779), the bus protect
+		 * policy is stricter, which leads to bus protect release must
+		 * be prior to bus access.
+		 */
+		ret = scpsys_sram_enable(scpd, ctl_addr);
+		if (ret < 0)
+			goto err_pwr_ack;
 
-	ret = scpsys_sram_enable(scpd, ctl_addr);
-	if (ret < 0)
-		goto err_sram;
+		ret = scpsys_bus_protect_disable(scpd);
+		if (ret < 0)
+			goto err_pwr_ack;
 
-	ret = scpsys_bus_protect_disable(scpd);
-	if (ret < 0)
-		goto err_sram;
+		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
+	} else {
+		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
+
+		ret = scpsys_sram_enable(scpd, ctl_addr);
+		if (ret < 0)
+			goto err_sram;
+
+		ret = scpsys_bus_protect_disable(scpd);
+		if (ret < 0)
+			goto err_sram;
+	}
 
 	return 0;
 
