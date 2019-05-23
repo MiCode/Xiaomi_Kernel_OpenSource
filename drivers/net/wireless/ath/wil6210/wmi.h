@@ -136,6 +136,7 @@ enum wmi_command_id {
 	WMI_RADAR_SET_MODE_CMDID			= 0x103,
 	WMI_RADAR_CONTROL_CMDID				= 0x104,
 	WMI_RADAR_PCI_CONTROL_CMDID			= 0x105,
+	WMI_RESET_SPI_SLAVE_CMDID			= 0x106,
 	WMI_MEM_READ_CMDID				= 0x800,
 	WMI_MEM_WR_CMDID				= 0x801,
 	WMI_ECHO_CMDID					= 0x803,
@@ -684,6 +685,11 @@ struct wmi_radar_pci_control_cmd {
 	/* pcie host buffer size */
 	__le32 buffer_size;
 	__le32 reserved;
+} __packed;
+
+/* WMI_RESET_SPI_SLAVE_CMDID */
+struct wmi_reset_spi_slave_cmd {
+	u8 reserved[4];
 } __packed;
 
 /* WMI_RF_MGMT_CMDID */
@@ -1733,6 +1739,13 @@ struct wmi_radar_pci_control_event {
 	u8 reserved[3];
 } __packed;
 
+/* WMI_RESET_SPI_SLAVE_EVENTID */
+struct wmi_reset_spi_slave_event {
+	/* wmi_fw_status */
+	u8 status;
+	u8 reserved[3];
+} __packed;
+
 /* WMI_SET_LONG_RANGE_CONFIG_CMDID */
 struct wmi_set_long_range_config_cmd {
 	__le32 reserved;
@@ -1971,6 +1984,7 @@ enum wmi_event_id {
 	WMI_RADAR_SET_MODE_EVENTID			= 0x1103,
 	WMI_RADAR_CONTROL_EVENTID			= 0x1104,
 	WMI_RADAR_PCI_CONTROL_EVENTID			= 0x1105,
+	WMI_RESET_SPI_SLAVE_EVENTID			= 0x1106,
 	WMI_RD_MEM_RSP_EVENTID				= 0x1800,
 	WMI_FW_READY_EVENTID				= 0x1801,
 	WMI_EXIT_FAST_MEM_ACC_MODE_EVENTID		= 0x200,
