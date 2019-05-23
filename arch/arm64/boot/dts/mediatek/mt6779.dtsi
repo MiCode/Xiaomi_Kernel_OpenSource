@@ -7,6 +7,7 @@
 
 #include <dt-bindings/clock/mt6779-clk.h>
 #include <dt-bindings/power/mt6779-power.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/memory/mt6779-larb-port.h>
@@ -1907,6 +1908,16 @@
 				 <&mmsys CLK_MM_GALS_COMM0>,
 				 <&mmsys CLK_MM_GALS_COMM1>;
 			clock-names = "apb", "smi", "gals0", "gals1";
+		};
+
+		mmqos: interconnect {
+			compatible = "mediatek,mt6779-mmqos";
+			#interconnect-cells = <1>;
+			mediatek,larbs = <&larb0 &larb1 &larb2 &larb3
+					  &larb5 &larb7 &larb8 &larb9
+					  &larb10 &larb11>;
+			clocks = <&topckgen CLK_TOP_MM>;
+			clock-names = "mm";
 		};
 
 		disp_rsz0@1401a000 {
