@@ -220,6 +220,11 @@
 			#clock-cells = <1>;
 		};
 
+		gpio: gpio@10005000 {
+			compatible = "mediatek,gpio";
+			reg = <0 0x10005000 0 0x1000>;
+		};
+
 		pio: pinctrl@10005000 {
 			compatible = "mediatek,mt6779-pinctrl";
 			reg = <0 0x10005000 0 0x1000>,
