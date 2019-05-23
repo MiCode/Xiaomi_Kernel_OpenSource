@@ -57,6 +57,7 @@ static LIST_HEAD(regulator_map_list);
 static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
 static bool has_full_constraints;
+static bool debug_suspend;
 
 static struct dentry *debugfs_root;
 
@@ -5120,6 +5121,71 @@ static const struct file_operations regulator_summary_fops = {
 #endif
 };
 
+static int _regulator_debug_print_enabled(struct device *dev, void *data)
+{
+	struct regulator_dev *rdev = dev_to_rdev(dev);
+	struct regulator *reg;
+	const char *supply_name;
+	int mode = -EPERM;
+	int uV = -EPERM;
+
+	if (_regulator_is_enabled(rdev) <= 0)
+		return 0;
+
+	uV = _regulator_get_voltage(rdev);
+
+	if (rdev->desc->ops->get_mode)
+		mode = rdev->desc->ops->get_mode(rdev);
+
+	if (uV != -EPERM && mode != -EPERM)
+		pr_info("%s[%u] %d uV, mode=%d\n",
+			rdev_get_name(rdev), rdev->use_count, uV, mode);
+	else if (uV != -EPERM)
+		pr_info("%s[%u] %d uV\n",
+			rdev_get_name(rdev), rdev->use_count, uV);
+	else if (mode != -EPERM)
+		pr_info("%s[%u], mode=%d\n",
+			rdev_get_name(rdev), rdev->use_count, mode);
+	else
+		pr_info("%s[%u]\n", rdev_get_name(rdev), rdev->use_count);
+
+	/* Print a header if there are consumers. */
+	if (rdev->open_count)
+		pr_info("  %-32s EN    Min_uV   Max_uV  load_uA\n",
+			"Device-Supply");
+
+	list_for_each_entry(reg, &rdev->consumer_list, list) {
+		if (reg->supply_name)
+			supply_name = reg->supply_name;
+		else
+			supply_name = "(null)-(null)";
+
+		pr_info("  %-32s %d   %8d %8d %8d\n", supply_name, reg->enabled,
+			reg->voltage[PM_SUSPEND_ON].min_uV,
+			reg->voltage[PM_SUSPEND_ON].max_uV,
+			reg->uA_load);
+	}
+
+	return 0;
+}
+
+/**
+ * regulator_debug_print_enabled - log enabled regulators
+ *
+ * Print the names of all enabled regulators and their consumers to the kernel
+ * log if debug_suspend is set from debugfs.
+ */
+void regulator_debug_print_enabled(void)
+{
+	if (likely(!debug_suspend))
+		return;
+
+	pr_info("Enabled regulators:\n");
+	class_for_each_device(&regulator_class, NULL, NULL,
+			     _regulator_debug_print_enabled);
+}
+EXPORT_SYMBOL(regulator_debug_print_enabled);
+
 static int __init regulator_init(void)
 {
 	int ret;
@@ -5135,6 +5201,9 @@ static int __init regulator_init(void)
 
 	debugfs_create_file("regulator_summary", 0444, debugfs_root,
 			    NULL, &regulator_summary_fops);
+
+	debugfs_create_bool("debug_suspend", 0644, debugfs_root,
+			    &debug_suspend);
 
 	regulator_dummy_init();
 

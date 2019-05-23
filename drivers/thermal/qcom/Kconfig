@@ -112,3 +112,11 @@ config QTI_CPU_ISOLATE_COOLING_DEVICE
 	   a CPU will be used when the CPU frequency mitigation
 	   is not good enough to achieve the necessary cooling.
 
+config QTI_LMH_CPU_VDD_COOLING_DEVICE
+	tristate "QTI CPU Voltage cooling devices"
+	depends on THERMAL_OF
+	help
+	   This enables the QTI limits hardware CPU VDD cooling devices.
+	   These cooling devices will be used by QTI chipset to place a
+	   request to limits hardware for a minimum CPU railway voltage
+	   corner at cold temperature condition.

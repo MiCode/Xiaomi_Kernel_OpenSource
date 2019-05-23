@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef _UAPI_LINUX_MSM_ION_H
 #define _UAPI_LINUX_MSM_ION_H
@@ -73,7 +73,7 @@ enum ion_heap_ids {
 #define ION_FLAG_CP_CDSP		ION_BIT(29)
 #define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
-#define ION_FLAGS_CP_MASK	0x7FFF0000
+#define ION_FLAGS_CP_MASK	0x6FFE0000
 
 /**
  * Flag to allow non continguous allocation of memory from secure

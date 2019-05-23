@@ -6,11 +6,6 @@
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_KONA_H
 #define _DT_BINDINGS_CLK_QCOM_GCC_KONA_H
 
-/* Dummy clocks for rate measurement */
-#define MEASURE_ONLY_CNOC_CLK					0
-#define MEASURE_ONLY_IPA_2X_CLK					1
-#define MEASURE_ONLY_SNOC_CLK					2
-
 /* GCC clocks */
 #define GCC_AGGRE_NOC_PCIE_TBU_CLK				3
 #define GCC_AGGRE_UFS_CARD_AXI_CLK				4

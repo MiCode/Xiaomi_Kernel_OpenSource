@@ -247,8 +247,12 @@ struct regulator_init_data {
 
 #ifdef CONFIG_REGULATOR
 void regulator_has_full_constraints(void);
+void regulator_debug_print_enabled(void);
 #else
 static inline void regulator_has_full_constraints(void)
+{
+}
+static void regulator_debug_print_enabled(void)
 {
 }
 #endif

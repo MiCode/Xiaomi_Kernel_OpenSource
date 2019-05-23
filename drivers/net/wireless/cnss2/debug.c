@@ -76,6 +76,12 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_UNLOADING:
 			seq_puts(s, "DRIVER_UNLOADING");
 			continue;
+		case CNSS_DRIVER_IDLE_RESTART:
+			seq_puts(s, "IDLE_RESTART");
+			continue;
+		case CNSS_DRIVER_IDLE_SHUTDOWN:
+			seq_puts(s, "IDLE_SHUTDOWN");
+			continue;
 		case CNSS_DRIVER_PROBED:
 			seq_puts(s, "DRIVER_PROBED");
 			continue;
@@ -450,6 +456,10 @@ static ssize_t cnss_runtime_pm_debug_write(struct file *fp,
 
 	if (sysfs_streq(cmd, "usage_count")) {
 		cnss_pci_pm_runtime_show_usage_count(pci_priv);
+	} else if (sysfs_streq(cmd, "request_resume")) {
+		ret = cnss_pci_pm_request_resume(pci_priv);
+	} else if (sysfs_streq(cmd, "resume")) {
+		ret = cnss_pci_pm_runtime_resume(pci_priv);
 	} else if (sysfs_streq(cmd, "get")) {
 		ret = cnss_pci_pm_runtime_get(pci_priv);
 	} else if (sysfs_streq(cmd, "get_noresume")) {

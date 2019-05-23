@@ -333,17 +333,17 @@ enum req_flag_bits {
 
 	__REQ_SORTED = __REQ_RAHEAD, /* elevator knows about this request */
 	__REQ_URGENT,		/* urgent request */
-	/* Android specific flags */
-	__REQ_NOENCRYPT,	/*
-				 * ok to not encrypt (already encrypted at fs
-				 * level)
-				 */
 	/* command specific flags for REQ_OP_WRITE_ZEROES: */
 	__REQ_NOUNMAP,		/* do not free blocks when zeroing */
 
 	/* for driver use */
 	__REQ_DRV,
 	__REQ_SWAP,		/* swapping request. */
+	/* Android specific flags */
+	__REQ_NOENCRYPT,	/*
+				 * ok to not encrypt (already encrypted at fs
+				 * level)
+				 */
 	__REQ_NR_BITS,		/* stops here */
 };
 
@@ -362,12 +362,10 @@ enum req_flag_bits {
 #define REQ_RAHEAD		(1ULL << __REQ_RAHEAD)
 #define REQ_BACKGROUND		(1ULL << __REQ_BACKGROUND)
 #define REQ_NOWAIT		(1ULL << __REQ_NOWAIT)
-#define REQ_NOENCRYPT		(1ULL << __REQ_NOENCRYPT)
-
 #define REQ_NOUNMAP		(1ULL << __REQ_NOUNMAP)
-
 #define REQ_DRV			(1ULL << __REQ_DRV)
 #define REQ_SWAP		(1ULL << __REQ_SWAP)
+#define REQ_NOENCRYPT		(1ULL << __REQ_NOENCRYPT)
 
 #define REQ_FAILFAST_MASK \
 	(REQ_FAILFAST_DEV | REQ_FAILFAST_TRANSPORT | REQ_FAILFAST_DRIVER)

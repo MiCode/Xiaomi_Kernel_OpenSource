@@ -196,8 +196,10 @@ struct dentry *kernfs_node_dentry(struct kernfs_node *kn,
 		return dentry;
 
 	knparent = find_next_ancestor(kn, NULL);
-	if (WARN_ON(!knparent))
+	if (WARN_ON(!knparent)) {
+		dput(dentry);
 		return ERR_PTR(-EINVAL);
+	}
 
 	do {
 		struct dentry *dtmp;
@@ -206,8 +208,10 @@ struct dentry *kernfs_node_dentry(struct kernfs_node *kn,
 		if (kn == knparent)
 			return dentry;
 		kntmp = find_next_ancestor(kn, knparent);
-		if (WARN_ON(!kntmp))
+		if (WARN_ON(!kntmp)) {
+			dput(dentry);
 			return ERR_PTR(-EINVAL);
+		}
 		dtmp = lookup_one_len_unlocked(kntmp->name, dentry,
 					       strlen(kntmp->name));
 		dput(dentry);
@@ -235,6 +239,9 @@ static int kernfs_fill_super(struct super_block *sb, unsigned long magic)
 	if (info->root->flags & KERNFS_ROOT_SUPPORT_EXPORTOP)
 		sb->s_export_op = &kernfs_export_ops;
 	sb->s_time_gran = 1;
+
+	/* sysfs dentries and inodes don't require IO to create */
+	sb->s_shrink.seeks = 0;
 
 	/* get root inode, initialize and unlock it */
 	mutex_lock(&kernfs_mutex);

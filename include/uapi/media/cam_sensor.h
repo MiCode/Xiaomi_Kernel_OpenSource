@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_SENSOR_H__
@@ -300,10 +300,10 @@ struct cam_cmd_i2c_continuous_rd {
 struct cam_cmd_conditional_wait {
 	uint8_t     data_type;
 	uint8_t     addr_type;
+	uint16_t    reserved;
 	uint8_t     op_code;
 	uint8_t     cmd_type;
 	uint16_t    timeout;
-	uint16_t    reserved;
 	uint32_t    reg_addr;
 	uint32_t    reg_data;
 	uint32_t    data_mask;

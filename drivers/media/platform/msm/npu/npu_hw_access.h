@@ -43,7 +43,6 @@ struct npu_ion_buf_t;
 struct npu_host_ctx;
 struct npu_client;
 typedef irqreturn_t (*intr_hdlr_fn)(int32_t irq, void *ptr);
-typedef void (*wq_hdlr_fn) (struct work_struct *work);
 
 /* -------------------------------------------------------------------------
  * Function Prototypes
@@ -55,6 +54,9 @@ uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
 uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val);
+uint32_t npu_cc_reg_read(struct npu_device *npu_dev, uint32_t off);
+void npu_cc_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val);
 void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint32_t size);
@@ -72,10 +74,6 @@ void *npu_ipc_addr(void);
 void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num);
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev);
 int32_t npu_interrupt_raise_dsp(struct npu_device *npu_dev);
-
-struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
-	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work);
-void npu_destroy_wq(struct workqueue_struct *wq);
 
 uint8_t npu_hw_clk_gating_enabled(void);
 uint8_t npu_hw_log_enabled(void);

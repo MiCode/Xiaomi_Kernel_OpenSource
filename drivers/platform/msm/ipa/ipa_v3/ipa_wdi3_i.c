@@ -12,6 +12,9 @@
 #define UPDATE_RP_MODERATION_CONFIG 1
 #define UPDATE_RP_MODERATION_THRESHOLD 8
 
+#define IPA_WLAN_AGGR_PKT_LIMIT 1
+#define IPA_WLAN_AGGR_BYTE_LIMIT 2 /*2 Kbytes Agger hard byte limit*/
+
 #define IPA_WDI3_GSI_EVT_RING_INT_MODT 32
 
 static void ipa3_wdi3_gsi_evt_ring_err_cb(struct gsi_evt_err_notify *notify)
@@ -568,6 +571,11 @@ int ipa3_conn_wdi3_pipes(struct ipa_wdi_conn_in_params *in,
 		memcpy(&ep_tx->cfg, &in->u_tx.tx_smmu.ipa_ep_cfg,
 			sizeof(ep_tx->cfg));
 
+	ep_tx->cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
+	ep_tx->cfg.aggr.aggr = IPA_GENERIC;
+	ep_tx->cfg.aggr.aggr_byte_limit = IPA_WLAN_AGGR_BYTE_LIMIT;
+	ep_tx->cfg.aggr.aggr_pkt_limit = IPA_WLAN_AGGR_PKT_LIMIT;
+	ep_tx->cfg.aggr.aggr_hard_byte_limit_en = IPA_ENABLE_AGGR;
 	if (ipa3_cfg_ep(ipa_ep_idx_tx, &ep_tx->cfg)) {
 		IPAERR("fail to setup tx pipe cfg\n");
 		result = -EFAULT;
@@ -655,6 +663,11 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	ep_rx = &ipa3_ctx->ep[ipa_ep_idx_rx];
 
 	/* tear down tx pipe */
+	result = ipa3_reset_gsi_channel(ipa_ep_idx_tx);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to reset gsi channel: %d.\n", result);
+		return result;
+	}
 	result = gsi_reset_evt_ring(ep_tx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
@@ -670,6 +683,11 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	IPADBG("tx client (ep: %d) disconnected\n", ipa_ep_idx_tx);
 
 	/* tear down rx pipe */
+	result = ipa3_reset_gsi_channel(ipa_ep_idx_rx);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to reset gsi channel: %d.\n", result);
+		return result;
+	}
 	result = gsi_reset_evt_ring(ep_rx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
@@ -812,21 +830,6 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	result = ipa3_stop_gsi_channel(ipa_ep_idx_tx);
 	if (result) {
 		IPAERR("failed to stop gsi tx channel\n");
-		result = -EFAULT;
-		goto fail;
-	}
-
-	/* reset gsi rx channel */
-	result = ipa3_reset_gsi_channel(ipa_ep_idx_rx);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to reset gsi channel: %d.\n", result);
-		result = -EFAULT;
-		goto fail;
-	}
-	/* reset gsi tx channel */
-	result = ipa3_reset_gsi_channel(ipa_ep_idx_tx);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to reset gsi channel: %d.\n", result);
 		result = -EFAULT;
 		goto fail;
 	}

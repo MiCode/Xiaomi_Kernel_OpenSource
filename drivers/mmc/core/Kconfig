@@ -61,17 +61,6 @@ config MMC_BLOCK_MINORS
 
 	  If unsure, say 8 here.
 
-config MMC_BLOCK_DEFERRED_RESUME
-	bool "Defer MMC layer resume until I/O is requested"
-	depends on MMC_BLOCK
-	default n
-	help
-	  Say Y here to enable deferred MMC resume until I/O
-	  is requested.
-
-	  This will reduce overall resume latency and
-	  save power when there is an SD card inserted but not being used.
-
 config SDIO_UART
 	tristate "SDIO UART/GPS class support"
 	depends on TTY
@@ -91,23 +80,3 @@ config MMC_TEST
 	  This driver is only of interest to those developing or
 	  testing a host driver. Most people should say N here.
 
-config MMC_RING_BUFFER
-	bool "MMC_RING_BUFFER"
-	depends on MMC
-	default n
-	help
-	  This enables the ring buffer tracing of significant
-	  events for mmc driver to provide command history for
-	  debugging purpose.
-
-	  If unsure, say N.
-
-config MMC_CLKGATE
-	bool "MMC host clock gating"
-	help
-	  This will attempt to aggressively gate the clock to the MMC card.
-	  This is done to save power due to gating off the logic and bus
-	  noise when the MMC card is not in use. Your host driver has to
-	  support handling this in order for it to be of any use.
-
-	  If unsure, say N.

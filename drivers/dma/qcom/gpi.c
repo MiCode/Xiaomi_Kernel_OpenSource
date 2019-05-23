@@ -2642,6 +2642,7 @@ static int gpi_probe(struct platform_device *pdev)
 {
 	struct gpi_dev *gpi_dev;
 	int ret, i;
+	const char *mode = NULL;
 
 	gpi_dev = devm_kzalloc(&pdev->dev, sizeof(*gpi_dev), GFP_KERNEL);
 	if (!gpi_dev)
@@ -2689,34 +2690,50 @@ static int gpi_probe(struct platform_device *pdev)
 		GPI_ERR(gpi_dev, "missing 'qcom,smmu-cfg' DT node\n");
 		return ret;
 	}
-	if (gpi_dev->smmu_cfg && !(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
-		u64 iova_range[2];
 
-		ret = of_property_count_elems_of_size(gpi_dev->dev->of_node,
-						      "qcom,iova-range",
-						      sizeof(iova_range));
-		if (ret != 1) {
-			GPI_ERR(gpi_dev,
-				"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
-				ret);
+	ret = of_property_read_string(gpi_dev->dev->of_node,
+			"qcom,iommu-dma", &mode);
+
+	if ((ret == 0) && (strcmp(mode, "disabled") == 0)) {
+		if (gpi_dev->smmu_cfg &&
+			!(gpi_dev->smmu_cfg & GPI_SMMU_S1_BYPASS)) {
+
+			u64 iova_range[2];
+
+			ret = of_property_count_elems_of_size(
+				gpi_dev->dev->of_node, "qcom,iova-range",
+							sizeof(iova_range));
+			if (ret != 1) {
+				GPI_ERR(gpi_dev,
+					"missing or incorrect 'qcom,iova-range' DT node ret:%d\n",
+					ret);
+			}
+
+			ret = of_property_read_u64_array(gpi_dev->dev->of_node,
+						"qcom,iova-range", iova_range,
+						ARRAY_SIZE(iova_range));
+			if (ret) {
+				GPI_ERR(gpi_dev,
+					"could not read DT prop 'qcom,iova-range\n");
+				return ret;
+			}
+			gpi_dev->iova_base = iova_range[0];
+			gpi_dev->iova_size = iova_range[1];
 		}
 
-		ret = of_property_read_u64_array(gpi_dev->dev->of_node,
-					"qcom,iova-range", iova_range,
-					ARRAY_SIZE(iova_range));
+		ret = gpi_smmu_init(gpi_dev);
 		if (ret) {
 			GPI_ERR(gpi_dev,
-				"could not read DT prop 'qcom,iova-range\n");
+				"error configuring smmu, ret:%d\n", ret);
 			return ret;
 		}
-		gpi_dev->iova_base = iova_range[0];
-		gpi_dev->iova_size = iova_range[1];
-	}
-
-	ret = gpi_smmu_init(gpi_dev);
-	if (ret) {
-		GPI_ERR(gpi_dev, "error configuring smmu, ret:%d\n", ret);
-		return ret;
+	} else {
+		ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
+		if (ret) {
+			GPI_ERR(gpi_dev,
+			"Error setting dma_mask to 64, ret:%d\n", ret);
+			return ret;
+		}
 	}
 
 	gpi_dev->gpiis = devm_kzalloc(gpi_dev->dev,
@@ -2724,7 +2741,6 @@ static int gpi_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
-
 
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);

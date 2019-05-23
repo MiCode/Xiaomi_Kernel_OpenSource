@@ -51,6 +51,13 @@
 
 #define RW_Kernel_ENG
 
+#define DEBUG
+#undef FMDBG
+#define FMDBG(fmt, args...) pr_debug("rtc6226: " fmt, ##args)
+
+#undef FMDERR
+#define FMDERR(fmt, args...) pr_err("rtc6226: " fmt, ##args)
+
 /* driver definitions */
 #define DRIVER_KERNEL_VERSION KERNEL_VERSION(1, 0, 1)
 #define DRIVER_CARD "Richwave rtc6226 FM Tuner"

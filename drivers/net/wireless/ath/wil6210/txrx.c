@@ -18,6 +18,7 @@
 #include "txrx.h"
 #include "trace.h"
 #include "txrx_edma.h"
+#include "ipa.h"
 
 bool rx_align_2;
 module_param(rx_align_2, bool, 0444);
@@ -1781,6 +1782,9 @@ static int __wil_tx_vring_tso(struct wil6210_priv *wil, struct wil6210_vif *vif,
 		}
 	}
 
+	if (!_desc)
+		goto mem_error;
+
 	/* first descriptor may also be the last.
 	 * in this case d pointer is invalid
 	 */
@@ -2037,6 +2041,19 @@ static int wil_tx_ring(struct wil6210_priv *wil, struct wil6210_vif *vif,
 	return rc;
 }
 
+int wil_get_cid_by_ring(struct wil6210_priv *wil, struct wil_ring *ring)
+{
+	int ring_index = ring - wil->ring_tx;
+
+	if (unlikely(ring_index < 0 || ring_index >= WIL6210_MAX_TX_RINGS)) {
+		wil_err(wil, "cid by ring 0x%pK: invalid ring index %d\n",
+			ring, ring_index);
+		return max_assoc_sta;
+	}
+
+	return wil->ring2cid_tid[ring_index][0];
+}
+
 /**
  * Check status of tx vrings and stop/wake net queues if needed
  * It will start/stop net queues of a specific VIF net_device.
@@ -2191,6 +2208,19 @@ netdev_tx_t wil_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		wil_dbg_txrx(wil, "No Tx RING found for %pM\n", da);
 		goto drop;
 	}
+
+	if (wil->ipa_handle) {
+		rc = wil_ipa_tx(wil->ipa_handle, ring, skb);
+		switch (rc) {
+		case 0:
+			return NETDEV_TX_OK;
+		case -EPROTONOSUPPORT:
+			break;
+		default:
+			return NETDEV_TX_BUSY;
+		}
+	}
+
 	/* set up vring entry */
 	rc = wil_tx_ring(wil, vif, ring, skb);
 

@@ -432,11 +432,11 @@ static struct clk_rcg2 gcc_pcie_phy_refgen_clk_src = {
 	.freq_tbl = ftbl_gcc_pcie_phy_refgen_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_pcie_phy_refgen_clk_src",
-		.parent_names = gcc_parent_names_0,
+		.parent_names = gcc_parent_names_0_ao,
 		.num_parents = 4,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
-		.vdd_class = &vdd_cx,
+		.vdd_class = &vdd_cx_ao,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200000,
@@ -1069,7 +1069,7 @@ static struct clk_rcg2 gcc_ufs_card_axi_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_axi_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_axi_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1100,7 +1100,7 @@ static struct clk_rcg2 gcc_ufs_card_ice_core_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_ice_core_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_ice_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1128,7 +1128,8 @@ static struct clk_rcg2 gcc_ufs_card_phy_aux_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_3,
 	.freq_tbl = ftbl_gcc_ufs_card_phy_aux_clk_src,
-	.flags = FORCE_ENABLE_RCG,
+	.enable_safe_config = true,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_phy_aux_clk_src",
 		.parent_names = gcc_parent_names_3,
@@ -1156,7 +1157,7 @@ static struct clk_rcg2 gcc_ufs_card_unipro_core_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_unipro_core_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_unipro_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1188,7 +1189,7 @@ static struct clk_rcg2 gcc_ufs_phy_axi_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_phy_axi_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_axi_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1212,7 +1213,7 @@ static struct clk_rcg2 gcc_ufs_phy_ice_core_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_ice_core_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_ice_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -1235,7 +1236,8 @@ static struct clk_rcg2 gcc_ufs_phy_phy_aux_clk_src = {
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_3,
 	.freq_tbl = ftbl_gcc_pcie_0_aux_clk_src,
-	.flags = FORCE_ENABLE_RCG,
+	.enable_safe_config = true,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_phy_aux_clk_src",
 		.parent_names = gcc_parent_names_3,
@@ -1256,7 +1258,7 @@ static struct clk_rcg2 gcc_ufs_phy_unipro_core_clk_src = {
 	.parent_map = gcc_parent_map_0,
 	.freq_tbl = ftbl_gcc_ufs_card_ice_core_clk_src,
 	.enable_safe_config = true,
-	.flags = FORCE_ENABLE_RCG,
+	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_phy_unipro_core_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -3872,39 +3874,6 @@ static struct clk_branch gcc_video_xo_clk = {
 	},
 };
 
-/* Measure-only clock for gcc_cfg_noc_ahb_clk. */
-static struct clk_dummy measure_only_cnoc_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_cnoc_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gcc_ipa_2x_clk. */
-static struct clk_dummy measure_only_ipa_2x_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_ipa_2x_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-/* Measure-only clock for gcc_sys_noc_axi_clk. */
-static struct clk_dummy measure_only_snoc_clk = {
-	.rrate = 1000,
-	.hw.init = &(struct clk_init_data){
-		.name = "measure_only_snoc_clk",
-		.ops = &clk_dummy_ops,
-	},
-};
-
-struct clk_hw *gcc_kona_hws[] = {
-	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
-	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
-	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,
-};
-
 static struct clk_regmap *gcc_kona_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_CLK] = &gcc_aggre_ufs_card_axi_clk.clkr,
@@ -4213,8 +4182,6 @@ static const struct qcom_cc_desc gcc_kona_desc = {
 	.num_clks = ARRAY_SIZE(gcc_kona_clocks),
 	.resets = gcc_kona_resets,
 	.num_resets = ARRAY_SIZE(gcc_kona_resets),
-	.hwclks = gcc_kona_hws,
-	.num_hwclks = ARRAY_SIZE(gcc_kona_hws),
 };
 
 static const struct of_device_id gcc_kona_match_table[] = {

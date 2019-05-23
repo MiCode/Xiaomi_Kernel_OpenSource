@@ -19,7 +19,7 @@
 
 #define MHI_SAT_DRIVER_NAME "mhi_satellite"
 
-static bool mhi_sat_defer_init = true; /* set by default */
+static bool mhi_sat_defer_init;
 
 /* logging macros */
 #define IPC_LOG_PAGES (10)

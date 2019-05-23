@@ -18,6 +18,7 @@
 #include <linux/qcom-geni-se.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/ipc_logging.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 #define SE_I3C_SCL_HIGH			0x268
 #define SE_I3C_TX_TRANS_LEN		0x26C
@@ -116,6 +117,7 @@ enum i3c_trans_dir {
 
 struct geni_se {
 	void __iomem *base;
+	void __iomem *ibi_base;
 	struct device *dev;
 	struct se_geni_rsc i3c_rsc;
 };
@@ -207,7 +209,7 @@ to_geni_i3c_master(struct i3c_master_controller *master)
 static const struct geni_i3c_clk_fld geni_i3c_clk_map[] = {
 	{ KHZ(100),    19200, 7, 10, 11, 26, 0, 0 },
 	{ KHZ(400),    19200, 2,  5, 12, 24, 0, 0 },
-	{ KHZ(1000),   19200, 1,  3,  9, 18, 0, 0 },
+	{ KHZ(1000),   19200, 1,  3,  9, 18, 7, 0 },
 	{ KHZ(12500), 100000, 1, 60, 140, 250, 8, 16 },
 };
 
@@ -298,6 +300,7 @@ static void qcom_geni_i3c_conf(struct geni_i3c_dev *gi3c)
 	writel_relaxed(val, gi3c->se.base + SE_GENI_HW_IRQ_CMD_PARAM_0);
 
 	writel_relaxed(1, gi3c->se.base + SE_GENI_HW_IRQ_EN);
+	geni_write_reg(1, gi3c->se.ibi_base, 0x2C);
 }
 
 static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
@@ -309,6 +312,8 @@ static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
 
 	dev_dbg(gi3c->se.dev, "%s\n", gi3c_log[err].msg);
 	gi3c->err = gi3c_log[err].err;
+
+	geni_se_dump_dbg_regs(&gi3c->se.i3c_rsc, gi3c->se.base, gi3c->ipcl);
 }
 
 static irqreturn_t geni_i3c_irq(int irq, void *dev)
@@ -595,7 +600,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		dev_dbg(gi3c->se.dev, "i3c entdaa read\n");
 
 		xfer.m_cmd = I2C_READ;
-		xfer.m_param = STOP_STRETCH | CONTINUOUS_MODE_DAA | USE_7E;
+		xfer.m_param = STOP_STRETCH | CONTINUOUS_MODE_DAA | USE_7E |
+				IBI_NACK_TBL_CTRL;
 
 		ret = i3c_geni_execute_read_command(gi3c, &xfer, rx_buf, 8);
 		if (ret)
@@ -611,6 +617,10 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			((u64)rx_buf[5]);
 
 		i3c_bus_for_each_i3cdev(bus, i3cdev) {
+
+			if (!i3cdev->dev)
+				continue;
+
 			i3c_device_get_info(i3cdev->dev, &info);
 			if (pid == info.pid &&
 				dcr == info.dcr &&
@@ -637,7 +647,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		dev_dbg(gi3c->se.dev, "i3c entdaa write\n");
 
 		xfer.m_cmd = I2C_WRITE;
-		xfer.m_param = STOP_STRETCH | BYPASS_ADDR_PHASE | USE_7E;
+		xfer.m_param = STOP_STRETCH | BYPASS_ADDR_PHASE | USE_7E |
+				IBI_NACK_TBL_CTRL;
 
 		ret = i3c_geni_execute_write_command(gi3c, &xfer, tx_buf, 1);
 		if (ret)
@@ -1106,6 +1117,7 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 	struct device_node *wrapper_ph_node;
 	int ret;
 
+	/* base register address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
@@ -1113,6 +1125,15 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 	gi3c->se.base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(gi3c->se.base))
 		return PTR_ERR(gi3c->se.base);
+
+	/* IBI register address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res)
+		return -EINVAL;
+
+	gi3c->se.ibi_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(gi3c->se.ibi_base))
+		return PTR_ERR(gi3c->se.ibi_base);
 
 	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,wrapper-core", 0);
@@ -1293,6 +1314,7 @@ static int geni_i3c_runtime_suspend(struct device *dev)
 
 	disable_irq(gi3c->irq);
 	se_geni_resources_off(&gi3c->se.i3c_rsc);
+	msm_qup_write(0, 0x0);
 	return 0;
 }
 
@@ -1307,6 +1329,8 @@ static int geni_i3c_runtime_resume(struct device *dev)
 
 	enable_irq(gi3c->irq);
 
+	/* Enable TLMM I3C MODE registers */
+	msm_qup_write(0, 0x24);
 	return 0;
 }
 #else

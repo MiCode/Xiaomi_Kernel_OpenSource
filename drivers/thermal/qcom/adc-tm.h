@@ -13,8 +13,7 @@
 #include <linux/delay.h>
 #include <linux/iio/consumer.h>
 #include <linux/qpnp/qpnp-revid.h>
-
-struct adc_tm_chip;
+#include <linux/adc-tm-clients.h>
 
 #define ADC_TM_DECIMATION_DEFAULT	840
 #define ADC_TM_DECIMATION_SAMPLES_MAX	3
@@ -46,56 +45,6 @@ enum adc_timer_select {
 	ADC_TIMER_SEL_2,
 	ADC_TIMER_SEL_3,
 	ADC_TIMER_SEL_NONE,
-};
-
-/**
- * enum adc_tm_state - This lets the client know whether the threshold
- *		that was crossed was high/low.
- * %ADC_TM_HIGH_STATE: Client is notified of crossing the requested high
- *			voltage threshold.
- * %ADC_TM_COOL_STATE: Client is notified of crossing the requested cool
- *			temperature threshold.
- * %ADC_TM_LOW_STATE: Client is notified of crossing the requested low
- *			voltage threshold.
- * %ADC_TM_WARM_STATE: Client is notified of crossing the requested high
- *			temperature threshold.
- */
-enum adc_tm_state {
-	ADC_TM_HIGH_STATE = 0,
-	ADC_TM_COOL_STATE = ADC_TM_HIGH_STATE,
-	ADC_TM_LOW_STATE,
-	ADC_TM_WARM_STATE = ADC_TM_LOW_STATE,
-	ADC_TM_STATE_NUM,
-};
-
-/**
- * enum adc_tm_state_request - Request to enable/disable the corresponding
- *			high/low voltage/temperature thresholds.
- * %ADC_TM_HIGH_THR_ENABLE: Enable high voltage threshold.
- * %ADC_TM_COOL_THR_ENABLE = Enables cool temperature threshold.
- * %ADC_TM_LOW_THR_ENABLE: Enable low voltage/temperature threshold.
- * %ADC_TM_WARM_THR_ENABLE = Enables warm temperature threshold.
- * %ADC_TM_HIGH_LOW_THR_ENABLE: Enable high and low voltage/temperature
- *				threshold.
- * %ADC_TM_HIGH_THR_DISABLE: Disable high voltage/temperature threshold.
- * %ADC_TM_COOL_THR_ENABLE = Disables cool temperature threshold.
- * %ADC_TM_LOW_THR_DISABLE: Disable low voltage/temperature threshold.
- * %ADC_TM_WARM_THR_ENABLE = Disables warm temperature threshold.
- * %ADC_TM_HIGH_THR_DISABLE: Disable high and low voltage/temperature
- *				threshold.
- */
-enum adc_tm_state_request {
-	ADC_TM_HIGH_THR_ENABLE = 0,
-	ADC_TM_COOL_THR_ENABLE = ADC_TM_HIGH_THR_ENABLE,
-	ADC_TM_LOW_THR_ENABLE,
-	ADC_TM_WARM_THR_ENABLE = ADC_TM_LOW_THR_ENABLE,
-	ADC_TM_HIGH_LOW_THR_ENABLE,
-	ADC_TM_HIGH_THR_DISABLE,
-	ADC_TM_COOL_THR_DISABLE = ADC_TM_HIGH_THR_DISABLE,
-	ADC_TM_LOW_THR_DISABLE,
-	ADC_TM_WARM_THR_DISABLE = ADC_TM_LOW_THR_DISABLE,
-	ADC_TM_HIGH_LOW_THR_DISABLE,
-	ADC_TM_THR_NUM,
 };
 
 /**
@@ -132,16 +81,6 @@ struct adc_tm_sensor {
 	bool				low_thr_triggered;
 	struct workqueue_struct		*req_wq;
 	struct work_struct		work;
-};
-
-struct adc_tm_param {
-	int			low_thr;
-	int			high_thr;
-	uint32_t				channel;
-	enum adc_tm_state_request	state_request;
-	void					*btm_ctx;
-	void	(*threshold_notification)(enum adc_tm_state state,
-						void *ctx);
 };
 
 struct adc_tm_client_info {
@@ -324,12 +263,6 @@ int32_t adc_tm_absolute_rthr(const struct adc_tm_data *data,
 			struct adc_tm_config *tm_config);
 
 void notify_adc_tm_fn(struct work_struct *work);
-
-struct adc_tm_chip *get_adc_tm(struct device *dev, const char *name);
-int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
-					struct adc_tm_param *param);
-int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
-					struct adc_tm_param *param);
 
 int adc_tm_is_valid(struct adc_tm_chip *chip);
 

@@ -681,8 +681,8 @@ int hfi_start(struct kgsl_device *device,
 		}
 	}
 
-	if (!adreno_is_a640(adreno_dev) && !adreno_is_a680(adreno_dev) &&
-			!adreno_is_a650(adreno_dev)) {
+	/* This is legacy HFI message for A630 and A615 family firmware */
+	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) {
 		result = hfi_send_gmu_init(gmu, boot_state);
 		if (result)
 			return result;

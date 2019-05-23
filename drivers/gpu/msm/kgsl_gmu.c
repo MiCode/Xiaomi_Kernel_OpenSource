@@ -722,7 +722,7 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 		}
 
 		/* Hardcode GMU ARC Vote levels for A650 */
-		if (adreno_is_a650(ADRENO_DEVICE(device)) &&
+		if (adreno_is_a650_family(ADRENO_DEVICE(device)) &&
 				type == GMU_ARC_VOTE) {
 			vlvl_tbl[i] = cx_vlvl[i];
 			continue;
@@ -1312,7 +1312,7 @@ int gmu_cache_finalize(struct kgsl_device *device)
 	if (IS_ERR(md))
 		return PTR_ERR(md);
 
-	if (!adreno_is_a650(ADRENO_DEVICE(device))) {
+	if (!adreno_is_a650_family(ADRENO_DEVICE(device))) {
 		md = allocate_gmu_kmem(gmu, GMU_DCACHE,
 				gmu->vma[GMU_DCACHE].start,
 				gmu->vma[GMU_DCACHE].size,
@@ -1377,7 +1377,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	if (ret)
 		goto error;
 
-	if (adreno_is_a650(adreno_dev))
+	if (adreno_is_a650_family(adreno_dev))
 		gmu->vma = gmu_vma;
 	else
 		gmu->vma = gmu_vma_legacy;

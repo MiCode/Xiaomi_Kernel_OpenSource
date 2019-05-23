@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/string.h>
@@ -11,7 +11,7 @@
 #include "cam_debug_util.h"
 
 int cam_common_util_get_string_index(const char **strings,
-	uint32_t num_strings, char *matching_string, uint32_t *index)
+	uint32_t num_strings, const char *matching_string, uint32_t *index)
 {
 	int i;
 

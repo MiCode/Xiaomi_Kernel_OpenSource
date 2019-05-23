@@ -6,9 +6,9 @@
 #ifndef CAM_ICP_HW_MGR_INTF_H
 #define CAM_ICP_HW_MGR_INTF_H
 
+#include <linux/of.h>
 #include <uapi/media/cam_icp.h>
 #include <uapi/media/cam_defs.h>
-#include <linux/of.h>
 #include "cam_cpas_api.h"
 
 #define ICP_CLK_TURBO_HZ         600000000
@@ -19,6 +19,13 @@
 #define CAM_ICP_CTX_MAX          54
 
 #define CPAS_IPE1_BIT            0x2000
+
+#define CAM_IPE_DEFAULT_AXI_PATH    CAM_AXI_PATH_DATA_IPE_WR_VID
+#define CAM_IPE_DEFAULT_AXI_TRANSAC CAM_AXI_TRANSACTION_WRITE
+#define CAM_BPS_DEFAULT_AXI_PATH    CAM_AXI_PATH_DATA_ALL
+#define CAM_BPS_DEFAULT_AXI_TRANSAC CAM_AXI_TRANSACTION_WRITE
+#define CAM_ICP_DEFAULT_AXI_PATH    CAM_AXI_PATH_DATA_ALL
+#define CAM_ICP_DEFAULT_AXI_TRANSAC CAM_AXI_TRANSACTION_READ
 
 int cam_icp_hw_mgr_init(struct device_node *of_node,
 	uint64_t *hw_mgr_hdl, int *iommu_hdl);

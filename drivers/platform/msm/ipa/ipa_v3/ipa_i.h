@@ -15,7 +15,7 @@
 #include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/notifier.h>
-
+#include <linux/interrupt.h>
 #include <linux/ipa.h>
 #include <linux/ipa_usb.h>
 #include <asm/dma-iommu.h>
@@ -808,8 +808,6 @@ struct ipa3_ep_context {
 	u32 eot_in_poll_err;
 	bool ep_delay_set;
 
-	int (*client_lock_unlock)(bool is_lock);
-
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
 };
@@ -866,6 +864,8 @@ struct ipa3_repl_ctx {
  * @len: the size of the above list
  * @spinlock: protects the list and its size
  * @ep: IPA EP context
+ * @xmit_eot_cnt: count of pending eot for tasklet to process
+ * @tasklet: tasklet for eot write_done handle (tx_complete)
  *
  * IPA context specific to the GPI pipes a.k.a LAN IN/OUT and WAN
  */
@@ -895,6 +895,8 @@ struct ipa3_sys_context {
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
 	struct list_head pending_pkts[GSI_VEID_MAX];
+	atomic_t xmit_eot_cnt;
+	struct tasklet_struct tasklet;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
@@ -925,7 +927,6 @@ enum ipa3_desc_type {
  * struct ipa3_tx_pkt_wrapper - IPA Tx packet wrapper
  * @type: specify if this packet is for the skb or immediate command
  * @mem: memory buffer used by this Tx packet
- * @work: work struct for current Tx packet
  * @link: linked to the wrappers on that pipe
  * @callback: IPA client provided callback
  * @user1: cookie1 for above callback
@@ -936,13 +937,13 @@ enum ipa3_desc_type {
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
  * @bounce: va of bounce buffer
  * @unmap_dma: in case this is true, the buffer will not be dma unmapped
+ * @xmit_done: flag to indicate the last desc got tx complete on each ieob
  *
  * This struct can wrap both data packet and immediate command packet.
  */
 struct ipa3_tx_pkt_wrapper {
 	enum ipa3_desc_type type;
 	struct ipa_mem_buffer mem;
-	struct work_struct work;
 	struct list_head link;
 	void (*callback)(void *user1, int user2);
 	void *user1;
@@ -951,6 +952,7 @@ struct ipa3_tx_pkt_wrapper {
 	u32 cnt;
 	void *bounce;
 	bool no_unmap_dma;
+	bool xmit_done;
 };
 
 /**
@@ -1435,6 +1437,12 @@ enum ipa_smmu_cb_type {
 #define VALID_IPA_SMMU_CB_TYPE(t) \
 	((t) >= IPA_SMMU_CB_AP && (t) < IPA_SMMU_CB_MAX)
 
+enum ipa_client_cb_type {
+	IPA_USB_CLNT,
+	IPA_MHI_CLNT,
+	IPA_MAX_CLNT
+};
+
 /**
  * struct ipa3_char_device_context - IPA character device
  * @class: pointer to the struct class
@@ -1447,6 +1455,11 @@ struct ipa3_char_device_context {
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev cdev;
+};
+
+struct ipa3_pc_mbox_data {
+	struct mbox_client mbox_client;
+	struct mbox_chan *mbox;
 };
 
 /**
@@ -1618,6 +1631,7 @@ struct ipa3_context {
 	bool ipa_wdi2;
 	bool ipa_wdi2_over_gsi;
 	bool ipa_wdi3_over_gsi;
+	bool ipa_endp_delay_wa;
 	bool ipa_fltrt_not_hashable;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
@@ -1685,13 +1699,16 @@ struct ipa3_context {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
 	u32 sd_state;
 	void __iomem *reg_collection_base;
 	struct ipa3_wdi2_ctx wdi2_ctx;
-	struct mbox_client mbox_client;
-	struct mbox_chan *mbox;
+	struct ipa3_pc_mbox_data pc_mbox;
 	atomic_t ipa_clk_vote;
+	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
+	bool fw_loaded;
+	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
 };
 
 struct ipa3_plat_drv_res {
@@ -1735,7 +1752,9 @@ struct ipa3_plat_drv_res {
 	bool do_register_collection_on_crash;
 	bool do_testbus_collection_on_crash;
 	bool do_non_tn_collection_on_crash;
+	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
+	bool ipa_endp_delay_wa;
 };
 
 /**
@@ -2013,10 +2032,16 @@ int ipa3_xdci_connect(u32 clnt_hdl);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 void ipa3_xdci_ep_delay_rm(u32 clnt_hdl);
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool), u32 ipa_ep_idx);
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx);
+void ipa3_register_client_callback(int (*client_cb)(bool),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+void ipa3_deregister_client_callback(u32 ipa_ep_idx);
 int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		enum ipa_client_type client);
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl);
+void ipa3_client_prod_post_shutdown_cleanup(void);
+
+
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client);
 
@@ -2548,6 +2573,7 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 
 void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
+void ipa3_q6_pre_powerup_cleanup(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
@@ -2730,6 +2756,7 @@ int ipa3_get_transport_info(
 	unsigned long *size_ptr);
 irq_handler_t ipa3_get_isr(void);
 void ipa_pc_qmp_enable(void);
+u32 ipa3_get_r_rev_version(void);
 #if defined(CONFIG_IPA3_REGDUMP)
 int ipa_reg_save_init(u32 value);
 void ipa_save_registers(void);
@@ -2788,5 +2815,15 @@ static inline int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 }
 
 #endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
+
+static inline void *alloc_and_init(u32 size, u32 init_val)
+{
+	void *ptr = kmalloc(size, GFP_KERNEL);
+
+	if (ptr)
+		memset(ptr, init_val, size);
+
+	return ptr;
+}
 
 #endif /* _IPA3_I_H_ */

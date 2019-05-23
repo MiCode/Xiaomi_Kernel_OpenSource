@@ -18,6 +18,7 @@
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
 #define CNSS_RDDM_TIMEOUT_MS		20000
+#define RECOVERY_TIMEOUT		60000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -161,6 +162,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 	CNSS_DRIVER_EVENT_POWER_UP,
 	CNSS_DRIVER_EVENT_POWER_DOWN,
+	CNSS_DRIVER_EVENT_IDLE_RESTART,
+	CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
@@ -174,6 +177,8 @@ enum cnss_driver_state {
 	CNSS_COLD_BOOT_CAL,
 	CNSS_DRIVER_LOADING,
 	CNSS_DRIVER_UNLOADING,
+	CNSS_DRIVER_IDLE_RESTART,
+	CNSS_DRIVER_IDLE_SHUTDOWN,
 	CNSS_DRIVER_PROBED,
 	CNSS_DRIVER_RECOVERY,
 	CNSS_FW_BOOT_RECOVERY,
@@ -231,6 +236,15 @@ struct cnss_control_params {
 	unsigned int bdf_type;
 };
 
+struct cnss_cpr_info {
+	resource_size_t tcs_cmd_base_addr;
+	resource_size_t tcs_cmd_data_addr;
+	void __iomem *tcs_cmd_base_addr_io;
+	void __iomem *tcs_cmd_data_addr_io;
+	u32 cpr_pmic_addr;
+	u32 voltage;
+};
+
 enum cnss_ce_index {
 	CNSS_CE_00,
 	CNSS_CE_01,
@@ -274,6 +288,7 @@ struct cnss_plat_data {
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
 	struct wlfw_fw_version_info fw_version_info;
+	u32 otp_version;
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];
 	struct cnss_fw_mem m3_mem;
@@ -297,6 +312,7 @@ struct cnss_plat_data {
 	struct completion rddm_complete;
 	struct completion recovery_complete;
 	struct cnss_control_params ctrl_params;
+	struct cnss_cpr_info cpr_info;
 	u64 antenna;
 	u64 grant;
 	struct qmi_handle coex_qmi;
@@ -322,5 +338,7 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
+int cnss_get_cpr_info(struct cnss_plat_data *plat_priv);
+int cnss_update_cpr_info(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

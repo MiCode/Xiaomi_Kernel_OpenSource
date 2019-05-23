@@ -1230,9 +1230,6 @@ rdi_config:
 		rsrc_data->en_cfg = 0x1;
 	} else if (rsrc_data->index == 20) {
 		/* WM 20 stats BAF */
-		rsrc_data->width = 0;
-		rsrc_data->height = 0;
-		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 	} else if (rsrc_data->index > 11 && rsrc_data->index < 20) {
 		/* WM 12-19 stats */
@@ -2725,16 +2722,6 @@ static int cam_vfe_bus_ver3_update_ubwc_regs(
 	CAM_DBG(CAM_ISP, "WM:%d packer cfg 0x%x",
 		wm_data->index, reg_val_pair[*j-1]);
 
-	if (wm_data->is_dual) {
-		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
-			wm_data->hw_regs->image_cfg_1, wm_data->offset);
-	} else {
-		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
-			wm_data->hw_regs->image_cfg_1, wm_data->h_init);
-		CAM_DBG(CAM_ISP, "WM:%d h_init 0x%x",
-			wm_data->index, reg_val_pair[*j-1]);
-	}
-
 	CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, *j,
 		ubwc_regs->meta_cfg, wm_data->ubwc_meta_cfg);
 	CAM_DBG(CAM_ISP, "WM:%d meta stride 0x%x",
@@ -2821,12 +2808,13 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 		ubwc_client = wm_data->hw_regs->ubwc_regs;
-		/* update width register */
-		val = cam_io_r_mb(wm_data->common_data->mem_base +
-			wm_data->hw_regs->image_cfg_0);
-		/* mask previously written width but preserve height */
-		val = val & 0xFFFF0000;
-		val |= wm_data->width;
+
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->cfg, wm_data->en_cfg);
+		CAM_DBG(CAM_ISP, "WM:%d en_cfg 0x%x",
+			wm_data->index, reg_val_pair[j-1]);
+
+		val = (wm_data->height << 16) | wm_data->width;
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->image_cfg_0, val);
 		CAM_DBG(CAM_ISP, "WM:%d image height and width 0x%x",
@@ -2849,7 +2837,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 				wm_data->hw_regs->image_cfg_2,
 				io_cfg->planes[i].plane_stride);
 			wm_data->stride = val;
-			CAM_DBG(CAM_ISP, "WM %d image stride 0x%x",
+			CAM_DBG(CAM_ISP, "WM:%d image stride 0x%x",
 				wm_data->index, reg_val_pair[j-1]);
 		}
 
@@ -2870,7 +2858,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 				reg_val_pair, &j,
 				wm_data->hw_regs->ubwc_regs,
 				update_buf->wm_update->image_buf[i]);
-			CAM_DBG(CAM_ISP, "WM %d ubwc meta addr 0x%llx",
+			CAM_DBG(CAM_ISP, "WM:%d ubwc meta addr 0x%llx",
 				wm_data->index,
 				update_buf->wm_update->image_buf[i]);
 		}
@@ -2880,7 +2868,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 			    io_cfg->planes[i].slice_height, 4096);
 			frame_inc += io_cfg->planes[i].meta_size;
 			CAM_DBG(CAM_ISP,
-				"WM %d frm %d: ht: %d stride %d meta: %d",
+				"WM:%d frm %d: ht: %d stride %d meta: %d",
 				wm_data->index, frame_inc,
 				io_cfg->planes[i].slice_height,
 				io_cfg->planes[i].plane_stride,
@@ -2888,6 +2876,13 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 		} else {
 			frame_inc = io_cfg->planes[i].plane_stride *
 				io_cfg->planes[i].slice_height;
+		}
+
+		if (!(wm_data->en_cfg & (0x3 << 16))) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->image_cfg_1, wm_data->h_init);
+			CAM_DBG(CAM_ISP, "WM:%d h_init 0x%x",
+				wm_data->index, reg_val_pair[j-1]);
 		}
 
 		if ((!bus_priv->common_data.is_lite && wm_data->index > 22) ||
@@ -2904,18 +2899,24 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 					update_buf->wm_update->image_buf[i] +
 					io_cfg->planes[i].meta_size +
 					k * frame_inc);
+			else if (wm_data->en_cfg & (0x3 << 16))
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->image_addr,
+					(update_buf->wm_update->image_buf[i] +
+					wm_data->offset + k * frame_inc));
 			else
 				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 					wm_data->hw_regs->image_addr,
-					update_buf->wm_update->image_buf[i] +
-					wm_data->offset + k * frame_inc);
-			CAM_DBG(CAM_ISP, "WM %d image address 0x%x",
+					(update_buf->wm_update->image_buf[i] +
+					k * frame_inc));
+
+			CAM_DBG(CAM_ISP, "WM:%d image address 0x%x",
 				wm_data->index, reg_val_pair[j-1]);
 		}
 
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->frame_incr, frame_inc);
-		CAM_DBG(CAM_ISP, "WM %d frame_inc %d",
+		CAM_DBG(CAM_ISP, "WM:%d frame_inc %d",
 			wm_data->index, reg_val_pair[j-1]);
 
 
@@ -3219,10 +3220,67 @@ static int cam_vfe_bus_ver3_update_stripe_cfg(void *priv, void *cmd_args,
 		stripe_config = (struct cam_isp_dual_stripe_config  *)
 			&stripe_args->dual_cfg->stripes[ports_plane_idx + i];
 		wm_data->width = stripe_config->width;
-		wm_data->offset = stripe_config->offset;
-		CAM_DBG(CAM_ISP, "id:%x WM:%d width:0x%x offset:%x",
+
+		/*
+		 * UMD sends buffer offset address as offset for clients
+		 * programmed to operate in frame/index based mode and h_init
+		 * value as offset for clients programmed to operate in line
+		 * based mode.
+		 */
+
+		if (wm_data->en_cfg & (0x3 << 16))
+			wm_data->offset = stripe_config->offset;
+		else
+			wm_data->h_init = stripe_config->offset;
+
+		CAM_DBG(CAM_ISP, "id:%x WM:%d width:%d offset:0x%x h_init:%d",
 			stripe_args->res->res_id, wm_data->index,
-			wm_data->width, wm_data->offset);
+			wm_data->width, wm_data->offset, wm_data->h_init);
+	}
+
+	return 0;
+}
+
+static int cam_vfe_bus_ver3_update_wm_config(
+	void                                        *cmd_args)
+{
+	int                                          i;
+	struct cam_isp_hw_get_cmd_update            *wm_config_update;
+	struct cam_vfe_bus_ver3_vfe_out_data        *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver3_wm_resource_data    *wm_data = NULL;
+	struct cam_isp_vfe_wm_config                *wm_config = NULL;
+
+	if (!cmd_args) {
+		CAM_ERR(CAM_ISP, "Invalid args");
+		return -EINVAL;
+	}
+
+	wm_config_update = cmd_args;
+	vfe_out_data = wm_config_update->res->res_priv;
+	wm_config = wm_config_update->wm_config;
+
+	if (!vfe_out_data || !vfe_out_data->cdm_util_ops || !wm_config) {
+		CAM_ERR(CAM_ISP, "Invalid data");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < vfe_out_data->num_wm; i++) {
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		if (wm_config->wm_mode > 0x2) {
+			CAM_ERR(CAM_ISP, "Invalid wm_mode: 0x%x",
+				wm_config->wm_mode);
+			return -EINVAL;
+		}
+
+		wm_data->en_cfg = (wm_config->wm_mode << 16) | 0x1;
+		wm_data->height = wm_config->height;
+		wm_data->width  = wm_config->width;
+
+		CAM_DBG(CAM_ISP,
+			"WM:%d en_cfg:0x%x height:%d width:%d",
+			wm_data->index, wm_data->en_cfg, wm_data->height,
+			wm_data->width);
 	}
 
 	return 0;
@@ -3378,6 +3436,9 @@ static int cam_vfe_bus_ver3_process_cmd(
 		break;
 	case CAM_ISP_HW_CMD_UBWC_UPDATE_V2:
 		rc = cam_vfe_bus_ver3_update_ubwc_config_v2(cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_WM_CONFIG_UPDATE:
+		rc = cam_vfe_bus_ver3_update_wm_config(cmd_args);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",

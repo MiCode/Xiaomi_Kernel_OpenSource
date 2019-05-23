@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -43,6 +43,67 @@ struct cam_cpas_intf {
 
 static struct cam_cpas_intf *g_cpas_intf;
 
+const char *cam_cpas_axi_util_path_type_to_string(
+	uint32_t path_data_type)
+{
+	switch (path_data_type) {
+	/* IFE Paths */
+	case CAM_AXI_PATH_DATA_IFE_LINEAR:
+		return "IFE_LINEAR";
+	case CAM_AXI_PATH_DATA_IFE_VID:
+		return "IFE_VID";
+	case CAM_AXI_PATH_DATA_IFE_DISP:
+		return "IFE_DISP";
+	case CAM_AXI_PATH_DATA_IFE_STATS:
+		return "IFE_STATS";
+	case CAM_AXI_PATH_DATA_IFE_RDI0:
+		return "IFE_RDI0";
+	case CAM_AXI_PATH_DATA_IFE_RDI1:
+		return "IFE_RDI1";
+	case CAM_AXI_PATH_DATA_IFE_RDI2:
+		return "IFE_RDI2";
+	case CAM_AXI_PATH_DATA_IFE_RDI3:
+		return "IFE_RDI3";
+	case CAM_AXI_PATH_DATA_IFE_PDAF:
+		return "IFE_PDAF";
+	case CAM_AXI_PATH_DATA_IFE_PIXEL_RAW:
+		return "IFE_PIXEL_RAW";
+
+	/* IPE Paths */
+	case CAM_AXI_PATH_DATA_IPE_RD_IN:
+		return "IPE_RD_IN";
+	case CAM_AXI_PATH_DATA_IPE_RD_REF:
+		return "IPE_RD_REF";
+	case CAM_AXI_PATH_DATA_IPE_WR_VID:
+		return "IPE_WR_VID";
+	case CAM_AXI_PATH_DATA_IPE_WR_DISP:
+		return "IPE_WR_DISP";
+	case CAM_AXI_PATH_DATA_IPE_WR_REF:
+		return "IPE_WR_REF";
+
+	/* Common Paths */
+	case CAM_AXI_PATH_DATA_ALL:
+		return "DATA_ALL";
+	default:
+		return "IFE_PATH_INVALID";
+	}
+}
+EXPORT_SYMBOL(cam_cpas_axi_util_path_type_to_string);
+
+const char *cam_cpas_axi_util_trans_type_to_string(
+	uint32_t transac_type)
+{
+	switch (transac_type) {
+	case CAM_AXI_TRANSACTION_READ:
+		return "TRANSAC_READ";
+	case CAM_AXI_TRANSACTION_WRITE:
+		return "TRANSAC_WRITE";
+	default:
+		return "TRANSAC_INVALID";
+	}
+}
+EXPORT_SYMBOL(cam_cpas_axi_util_trans_type_to_string);
+
 int cam_cpas_get_cpas_hw_version(uint32_t *hw_version)
 {
 	struct cam_hw_info *cpas_hw = NULL;
@@ -68,7 +129,6 @@ int cam_cpas_get_cpas_hw_version(uint32_t *hw_version)
 
 	return 0;
 }
-
 
 int cam_cpas_get_hw_info(uint32_t *camera_family,
 	struct cam_hw_version *camera_version,
@@ -184,6 +244,11 @@ int cam_cpas_update_axi_vote(uint32_t client_handle,
 		return -ENODEV;
 	}
 
+	if (!axi_vote) {
+		CAM_ERR(CAM_CPAS, "NULL axi vote");
+		return -EINVAL;
+	}
+
 	if (g_cpas_intf->hw_intf->hw_ops.process_cmd) {
 		struct cam_cpas_hw_cmd_axi_vote cmd_axi_vote;
 
@@ -272,6 +337,11 @@ int cam_cpas_start(uint32_t client_handle,
 	if (!CAM_CPAS_INTF_INITIALIZED()) {
 		CAM_ERR(CAM_CPAS, "cpas intf not initialized");
 		return -ENODEV;
+	}
+
+	if (!axi_vote) {
+		CAM_ERR(CAM_CPAS, "NULL axi vote");
+		return -EINVAL;
 	}
 
 	if (g_cpas_intf->hw_intf->hw_ops.start) {

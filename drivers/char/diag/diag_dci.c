@@ -992,7 +992,7 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	int save_req_uid = 0;
 	struct diag_dci_pkt_rsp_header_t pkt_rsp_header;
 
-	if (!buf) {
+	if (!buf || len <= 0) {
 		pr_err("diag: Invalid pointer in %s\n", __func__);
 		return;
 	}
@@ -1006,6 +1006,8 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 								dci_cmd_code);
 		return;
 	}
+	if (len < (cmd_code_len + sizeof(int)))
+		return;
 	temp += cmd_code_len;
 	tag = *(int *)temp;
 	temp += sizeof(int);
@@ -1014,10 +1016,16 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	 * The size of the response is (total length) - (length of the command
 	 * code, the tag (int)
 	 */
-	rsp_len = len - (cmd_code_len + sizeof(int));
-	if ((rsp_len == 0) || (rsp_len > (len - 5))) {
-		pr_err("diag: Invalid length in %s, len: %d, rsp_len: %d\n",
-						__func__, len, rsp_len);
+	if (len >= cmd_code_len + sizeof(int)) {
+		rsp_len = len - (cmd_code_len + sizeof(int));
+		if ((rsp_len == 0) || (rsp_len > (len - 5))) {
+			pr_err("diag: Invalid length in %s, len: %d, rsp_len: %d\n",
+					__func__, len, rsp_len);
+			return;
+		}
+	} else {
+		pr_err("diag:%s: Invalid length(%d) for calculating rsp_len\n",
+			__func__, len);
 		return;
 	}
 
@@ -1949,7 +1957,9 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (!buf)
 		return -EIO;
 
-	if (len <= sizeof(struct dci_pkt_req_t) || len > DCI_REQ_BUF_SIZE) {
+	if (len <= (sizeof(struct dci_pkt_req_t) +
+		sizeof(struct diag_pkt_header_t)) ||
+		len > DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: Invalid length %d len in %s\n",
 			len, __func__);
 		return -EIO;
@@ -2587,7 +2597,7 @@ static int dci_fill_log_mask(unsigned char *dest_ptr, unsigned char *src_ptr)
 	int header_len = sizeof(struct diag_ctrl_log_mask);
 
 	header.cmd_type = DIAG_CTRL_MSG_LOG_MASK;
-	header.num_items = DCI_MAX_ITEMS_PER_LOG_CODE;
+	header.num_items = LOG_SIZE_TO_ITEMS(DCI_MAX_ITEMS_PER_LOG_CODE);
 	header.data_len = 11 + DCI_MAX_ITEMS_PER_LOG_CODE;
 	header.stream_id = DCI_MASK_STREAM;
 	header.status = 3;

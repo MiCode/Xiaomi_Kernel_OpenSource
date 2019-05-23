@@ -447,6 +447,12 @@ struct ipa_api_controller {
 	int (*ipa_enable_wigig_pipe_i)(enum ipa_client_type client);
 
 	int (*ipa_disable_wigig_pipe_i)(enum ipa_client_type client);
+
+	void (*ipa_register_client_callback)(
+		int (*client_cb)(bool is_lock),
+		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+
+	void (*ipa_deregister_client_callback)(u32 ipa_ep_idx);
 };
 
 #ifdef CONFIG_IPA3

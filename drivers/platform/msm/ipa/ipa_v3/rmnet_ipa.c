@@ -158,6 +158,7 @@ struct rmnet_ipa3_context {
 	u32 outstanding_low;
 	struct rmnet_ipa_debugfs dbgfs;
 	bool dl_csum_offload_enabled;
+	atomic_t suspend_pend;
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
@@ -1159,14 +1160,21 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	qmap_check = RMNET_MAP_GET_CD_BIT(skb);
+	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	if (netif_queue_stopped(dev)) {
-		if (qmap_check &&
+		/*
+		 * Checking rmnet suspend in progress or not, because in suspend
+		 * clock will be disabled, without clock transferring data
+		 * not possible.
+		 */
+		if (!atomic_read(&rmnet_ipa3_ctx->suspend_pend) && qmap_check &&
 			atomic_read(&wwan_ptr->outstanding_pkts) <
 				rmnet_ipa3_ctx->outstanding_high_ctl) {
 			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
 			goto send;
 		} else {
 			pr_err("[%s]fatal: %s stopped\n", dev->name, __func__);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
@@ -1180,12 +1188,12 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 				netif_queue_stopped(dev));
 			IPAWANDBG_LOW("qmap_chk(%d)\n", qmap_check);
 			netif_stop_queue(dev);
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 			return NETDEV_TX_BUSY;
 		}
 	}
 
 send:
-	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* IPA_RM checking start */
 	if (ipa3_ctx->use_ipa_pm) {
 		/* activate the modem pm for clock scaling */
@@ -2634,6 +2642,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		ipa3_proxy_clk_unvote();
 	}
 	atomic_set(&rmnet_ipa3_ctx->is_ssr, 0);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
 
 	IPAWANERR("rmnet_ipa completed initialization\n");
 	return 0;
@@ -2750,6 +2759,12 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		goto bail;
 	}
 
+	/*
+	 * Rmnert supend and xmit are executing at the same time, In those
+	 * scenarios observing the data was processed when IPA clock are off.
+	 * Added changes to synchronize rmnet supend and xmit.
+	 */
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 1);
 	spin_lock_irqsave(&wwan_ptr->lock, flags);
 	/* Do not allow A7 to suspend in case there are outstanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
@@ -2767,6 +2782,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 		ipa_pm_deactivate_sync(rmnet_ipa3_ctx->pm_hdl);
 	else
 		ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	atomic_set(&rmnet_ipa3_ctx->suspend_pend, 0);
 	ret = 0;
 bail:
 	IPAWANDBG("Exit with %d\n", ret);
@@ -2889,14 +2905,20 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
+
+		if (ipa3_ctx->ipa_endp_delay_wa)
+			ipa3_client_prod_post_shutdown_cleanup();
+
 		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
 		break;
 	case SUBSYS_BEFORE_POWERUP:
 		IPAWANINFO("IPA received MPSS BEFORE_POWERUP\n");
-		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr)) {
 			/* clean up cached QMI msg/handlers */
 			ipa3_qmi_service_exit();
-		/*hold a proxy vote for the modem*/
+			ipa3_q6_pre_powerup_cleanup();
+		}
+		/* hold a proxy vote for the modem. */
 		ipa3_proxy_clk_vote();
 		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
@@ -3836,13 +3858,6 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 		 * SSR recovery
 		 */
 		rmnet_ipa_get_network_stats_and_update();
-	} else {
-		/*
-		 * To enable ipa power collapse we need to enable rpmh and uc
-		 * handshake So that uc can do register retention. To enable
-		 * this handshake we need to send the below message to rpmh
-		 */
-		ipa_pc_qmp_enable();
 	}
 
 	imp_handle_modem_ready();

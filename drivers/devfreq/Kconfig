@@ -133,7 +133,7 @@ comment "DEVFREQ Drivers"
 
 config DEVFREQ_GOV_QCOM_ADRENO_TZ
 	tristate "Qualcomm Technologies Inc Adreno Trustzone"
-	depends on QCOM_KGSL && QCOM_SCM
+	depends on QCOM_KGSL
 	help
 	   Trustzone based governor for the Adreno GPU. Sets
 	   the frequency using a "on-demand" algorithm. This

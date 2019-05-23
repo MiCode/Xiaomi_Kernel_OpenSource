@@ -145,6 +145,8 @@ struct sched_cluster {
 	u64 aggr_grp_load;
 	u64 coloc_boost_load;
 };
+
+extern cpumask_t asym_cap_sibling_cpus;
 #endif /* CONFIG_SCHED_WALT */
 
 /* task_struct::on_rq states: */
@@ -788,6 +790,7 @@ struct max_cpu_capacity {
 /* Scheduling group status flags */
 #define SG_OVERLOAD		0x1 /* More than one runnable task on a CPU. */
 #define SG_OVERUTILIZED		0x2 /* One or more CPUs are over-utilized. */
+#define SG_HAS_MISFIT_TASK	0x4 /* Group has misfit task. */
 
 /*
  * We add the notion of a root-domain which will be used to define per-domain
@@ -810,9 +813,6 @@ struct root_domain {
 	 * - Running task is misfit
 	 */
 	int			overload;
-
-	/* Indicate one or more cpus over-utilized (tipping point) */
-	int			overutilized;
 
 	/*
 	 * The bit corresponding to a CPU gets set here if such CPU has more
@@ -937,7 +937,10 @@ struct rq {
 
 	unsigned int		clock_update_flags;
 	u64			clock;
-	u64			clock_task;
+	/* Ensure that all clocks are in the same cache line */
+	u64			clock_task ____cacheline_aligned;
+	u64			clock_pelt;
+	unsigned long		lost_idle_time;
 
 	atomic_t		nr_iowait;
 
@@ -983,7 +986,6 @@ struct rq {
 	struct cpumask		freq_domain_cpumask;
 	struct walt_sched_stats walt_stats;
 
-	int			cstate, wakeup_latency, wakeup_energy;
 	u64			window_start;
 	s64			cum_window_start;
 	unsigned long		walt_flags;
@@ -991,7 +993,6 @@ struct rq {
 	u64			cur_irqload;
 	u64			avg_irqload;
 	u64			irqload_ts;
-	unsigned int		static_cpu_pwr_cost;
 	struct task_struct	*ed_task;
 	struct cpu_cycle	cc;
 	u64			old_busy_time, old_busy_time_group;
@@ -1064,6 +1065,22 @@ struct rq {
 	int			idle_state_idx;
 #endif
 };
+
+#ifdef CONFIG_FAIR_GROUP_SCHED
+
+/* CPU runqueue to which this cfs_rq is attached */
+static inline struct rq *rq_of(struct cfs_rq *cfs_rq)
+{
+	return cfs_rq->rq;
+}
+
+#else
+
+static inline struct rq *rq_of(struct cfs_rq *cfs_rq)
+{
+	return container_of(cfs_rq, struct rq, cfs);
+}
+#endif
 
 static inline int cpu_of(struct rq *rq)
 {
@@ -2161,7 +2178,7 @@ u64 freq_policy_load(struct rq *rq);
 extern u64 walt_load_reported_window;
 
 static inline unsigned long
-cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
+__cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 {
 	u64 util, util_unboosted;
 	struct rq *rq = cpu_rq(cpu);
@@ -2193,6 +2210,41 @@ cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
 		walt_load->pl = pl;
 		walt_load->ws = walt_load_reported_window;
 	}
+
+	return (util >= capacity) ? capacity : util;
+}
+
+#define ADJUSTED_ASYM_CAP_CPU_UTIL(orig, other, x)	\
+			(max(orig, mult_frac(other, x, 100)))
+
+static inline unsigned long
+cpu_util_freq_walt(int cpu, struct sched_walt_cpu_load *walt_load)
+{
+	struct sched_walt_cpu_load wl_other = {0};
+	unsigned long util = 0, util_other = 0;
+	unsigned long capacity = capacity_orig_of(cpu);
+	int i, mpct = sysctl_sched_asym_cap_sibling_freq_match_pct;
+
+	if (!cpumask_test_cpu(cpu, &asym_cap_sibling_cpus))
+		return __cpu_util_freq_walt(cpu, walt_load);
+
+	for_each_cpu(i, &asym_cap_sibling_cpus) {
+		if (i == cpu)
+			util = __cpu_util_freq_walt(cpu, walt_load);
+		else
+			util_other = __cpu_util_freq_walt(i, &wl_other);
+	}
+
+	if (cpu == cpumask_last(&asym_cap_sibling_cpus))
+		mpct = 100;
+
+	util = ADJUSTED_ASYM_CAP_CPU_UTIL(util, util_other, mpct);
+	walt_load->prev_window_util = util;
+
+	walt_load->nl = ADJUSTED_ASYM_CAP_CPU_UTIL(walt_load->nl, wl_other.nl,
+						   mpct);
+	walt_load->pl = ADJUSTED_ASYM_CAP_CPU_UTIL(walt_load->pl, wl_other.pl,
+						   mpct);
 
 	return (util >= capacity) ? capacity : util;
 }
@@ -2732,6 +2784,12 @@ extern void add_new_task_to_grp(struct task_struct *new);
 #define RESTRAINED_BOOST_DISABLE -3
 #define MAX_NUM_BOOST_TYPE (RESTRAINED_BOOST+1)
 
+static inline int asym_cap_siblings(int cpu1, int cpu2)
+{
+	return (cpumask_test_cpu(cpu1, &asym_cap_sibling_cpus) &&
+		cpumask_test_cpu(cpu2, &asym_cap_sibling_cpus));
+}
+
 static inline int cpu_capacity(int cpu)
 {
 	return cpu_rq(cpu)->cluster->capacity;
@@ -2923,6 +2981,9 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	struct rq *rq = cpu_rq(src_cpu);
 
 	if (src_cpu == dst_cpu)
+		return 1;
+
+	if (asym_cap_siblings(src_cpu, dst_cpu))
 		return 1;
 
 	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
@@ -3135,6 +3196,8 @@ static inline struct sched_cluster *rq_cluster(struct rq *rq)
 	return NULL;
 }
 
+static inline int asym_cap_siblings(int cpu1, int cpu2) { return 0; }
+
 static inline u64 scale_load_to_cpu(u64 load, int cpu)
 {
 	return load;
@@ -3228,5 +3291,6 @@ struct sched_avg_stats {
 	int nr;
 	int nr_misfit;
 	int nr_max;
+	int nr_scaled;
 };
 extern void sched_get_nr_running_avg(struct sched_avg_stats *stats);

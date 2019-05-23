@@ -21,7 +21,7 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, unsigned long align,
 	dma_addr_t *iova, unsigned long *buffer_size,
 	unsigned long flags, enum hal_buffer buffer_type,
 	unsigned long session_type, struct msm_cvp_platform_resources *res,
-	struct dma_mapping_info *mapping_info)
+	struct cvp_dma_mapping_info *mapping_info)
 {
 	int rc = 0;
 	struct dma_buf_attachment *attach;
@@ -126,7 +126,7 @@ mem_map_failed:
 }
 
 static int msm_dma_put_device_address(u32 flags,
-	struct dma_mapping_info *mapping_info,
+	struct cvp_dma_mapping_info *mapping_info,
 	enum hal_buffer buffer_type)
 {
 	int rc = 0;
@@ -184,7 +184,8 @@ void msm_cvp_smem_put_dma_buf(void *dma_buf)
 	dma_buf_put((struct dma_buf *)dma_buf);
 }
 
-int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst, struct msm_smem *smem)
+int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
+				struct msm_cvp_smem *smem)
 {
 	int rc = 0;
 
@@ -249,7 +250,8 @@ exit:
 	return rc;
 }
 
-int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst, struct msm_smem *smem)
+int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,
+				struct msm_cvp_smem *smem)
 {
 	int rc = 0;
 
@@ -325,7 +327,7 @@ static int get_secure_flag_for_buffer_type(
 static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,
 	struct msm_cvp_platform_resources *res, u32 session_type,
-	struct msm_smem *mem)
+	struct msm_cvp_smem *mem)
 {
 	dma_addr_t iova = 0;
 	unsigned long buffer_size = 0;
@@ -442,7 +444,7 @@ fail_shared_mem_alloc:
 	return rc;
 }
 
-static int free_dma_mem(struct msm_smem *mem)
+static int free_dma_mem(struct msm_cvp_smem *mem)
 {
 	dprintk(CVP_DBG,
 		"%s: dma_buf = %pK, device_addr = %x, size = %d, kvaddr = %pK, buffer_type = %#x\n",
@@ -477,7 +479,7 @@ static int free_dma_mem(struct msm_smem *mem)
 
 int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
 	enum hal_buffer buffer_type, int map_kernel,
-	void *res, u32 session_type, struct msm_smem *smem)
+	void *res, u32 session_type, struct msm_cvp_smem *smem)
 {
 	int rc = 0;
 
@@ -494,7 +496,7 @@ int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
 	return rc;
 }
 
-int msm_cvp_smem_free(struct msm_smem *smem)
+int msm_cvp_smem_free(struct msm_cvp_smem *smem)
 {
 	int rc = 0;
 
@@ -531,11 +533,11 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 	switch (cache_op) {
 	case SMEM_CACHE_CLEAN:
 	case SMEM_CACHE_CLEAN_INVALIDATE:
-		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_TO_DEVICE,
+		rc = dma_buf_begin_cpu_access_partial(dbuf, DMA_BIDIRECTIONAL,
 				offset, size);
 		if (rc)
 			break;
-		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_TO_DEVICE,
+		rc = dma_buf_end_cpu_access_partial(dbuf, DMA_BIDIRECTIONAL,
 				offset, size);
 		break;
 	case SMEM_CACHE_INVALIDATE:
@@ -592,4 +594,3 @@ struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 
 	return match;
 }
-

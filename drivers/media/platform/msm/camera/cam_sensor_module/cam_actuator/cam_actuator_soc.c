@@ -48,7 +48,7 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 		}
 
 		of_parent = of_get_parent(of_node);
-		if (of_property_read_u32(of_parent, "cci-device",
+		if (of_property_read_u32(of_parent, "cell-index",
 				&a_ctrl->cci_num) < 0)
 			/* Set default master 0 */
 			a_ctrl->cci_num = CCI_DEVICE_0;

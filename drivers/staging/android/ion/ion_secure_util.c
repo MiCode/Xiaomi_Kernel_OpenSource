@@ -77,6 +77,9 @@ static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 	int vmid;
 
 	flags = flags & ION_FLAGS_CP_MASK;
+	if (!flags)
+		return -EINVAL;
+
 	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
 		vmid = get_vmid(0x1UL << itr);
 		if (vmid < 0 || !nelems)
@@ -148,6 +151,8 @@ int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 	for (i = 0; i < dest_nelems; i++) {
 		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY)
 			dest_perms[i] = PERM_READ;
+		else if (dest_vm_list[i] == VMID_CP_CDSP)
+			dest_perms[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
 		else
 			dest_perms[i] = PERM_READ | PERM_WRITE;
 	}
@@ -267,6 +272,8 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 	for (i = 0; i < nr; i++)
 		if (vmids[i] == VMID_CP_SEC_DISPLAY)
 			modes[i] = PERM_READ;
+		else if (vmids[i] == VMID_CP_CDSP)
+			modes[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
 		else
 			modes[i] = PERM_READ | PERM_WRITE;
 

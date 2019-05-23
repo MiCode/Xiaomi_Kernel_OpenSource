@@ -12,6 +12,7 @@
 
 #include "clk-alpha-pll.h"
 #include "common.h"
+#include "clk-debug.h"
 
 #define PLL_MODE(p)		((p)->offset + 0x0)
 # define PLL_OUTCTRL		BIT(0)
@@ -1109,6 +1110,7 @@ const struct clk_ops clk_alpha_pll_ops = {
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_alpha_pll_set_rate,
 	.list_registers = clk_alpha_pll_list_registers,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_ops);
 
@@ -1119,6 +1121,7 @@ const struct clk_ops clk_alpha_pll_huayra_ops = {
 	.recalc_rate = alpha_pll_huayra_recalc_rate,
 	.round_rate = alpha_pll_huayra_round_rate,
 	.set_rate = alpha_pll_huayra_set_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_huayra_ops);
 
@@ -1130,6 +1133,7 @@ const struct clk_ops clk_alpha_pll_hwfsm_ops = {
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_alpha_pll_hwfsm_set_rate,
 	.list_registers = clk_alpha_pll_list_registers,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_hwfsm_ops);
 
@@ -1141,6 +1145,7 @@ const struct clk_ops clk_alpha_pll_zonda_ops = {
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_zonda_pll_set_rate,
 	.list_registers = clk_zonda_pll_list_registers,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL(clk_alpha_pll_zonda_ops);
 
@@ -1233,12 +1238,14 @@ const struct clk_ops clk_alpha_pll_postdiv_ops = {
 	.recalc_rate = clk_alpha_pll_postdiv_recalc_rate,
 	.round_rate = clk_alpha_pll_postdiv_round_rate,
 	.set_rate = clk_alpha_pll_postdiv_set_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ops);
 
 const struct clk_ops clk_alpha_pll_postdiv_ro_ops = {
 	.round_rate = clk_alpha_pll_postdiv_round_ro_rate,
 	.recalc_rate = clk_alpha_pll_postdiv_recalc_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_ro_ops);
 
@@ -1407,6 +1414,7 @@ const struct clk_ops clk_alpha_pll_fabia_ops = {
 	.set_rate = alpha_pll_fabia_set_rate,
 	.recalc_rate = alpha_pll_fabia_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fabia_ops);
 
@@ -1416,6 +1424,7 @@ const struct clk_ops clk_alpha_pll_fixed_fabia_ops = {
 	.is_enabled = clk_alpha_pll_is_enabled,
 	.recalc_rate = alpha_pll_fabia_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fixed_fabia_ops);
 
@@ -1501,6 +1510,7 @@ const struct clk_ops clk_alpha_pll_postdiv_fabia_ops = {
 	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,
 	.round_rate = clk_alpha_pll_postdiv_fabia_round_rate,
 	.set_rate = clk_alpha_pll_postdiv_fabia_set_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_fabia_ops);
 
@@ -1508,6 +1518,7 @@ const struct clk_ops clk_alpha_pll_postdiv_zonda_ops = {
 	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,
 	.round_rate = clk_alpha_pll_postdiv_fabia_round_rate,
 	.set_rate = clk_alpha_pll_postdiv_fabia_set_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL(clk_alpha_pll_postdiv_zonda_ops);
 
@@ -1869,6 +1880,7 @@ const struct clk_ops clk_alpha_pll_lucid_ops = {
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = alpha_pll_lucid_set_rate,
 	.list_registers = clk_alpha_pll_lucid_list_registers,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_lucid_ops);
 
@@ -1879,6 +1891,7 @@ const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.recalc_rate = alpha_pll_lucid_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.list_registers = clk_alpha_pll_lucid_list_registers,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_fixed_lucid_ops);
 
@@ -1886,5 +1899,6 @@ const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
 	.recalc_rate = clk_alpha_pll_postdiv_fabia_recalc_rate,
 	.round_rate = clk_alpha_pll_postdiv_fabia_round_rate,
 	.set_rate = clk_alpha_pll_postdiv_fabia_set_rate,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_lucid_ops);

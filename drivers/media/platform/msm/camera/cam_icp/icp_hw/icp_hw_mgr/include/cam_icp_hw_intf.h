@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef CAM_ICP_HW_INTF_H
@@ -8,6 +8,10 @@
 
 #define CAM_ICP_CMD_BUF_MAX_SIZE     128
 #define CAM_ICP_MSG_BUF_MAX_SIZE     CAM_ICP_CMD_BUF_MAX_SIZE
+
+#define CAM_ICP_BW_CONFIG_UNKNOWN 0
+#define CAM_ICP_BW_CONFIG_V1      1
+#define CAM_ICP_BW_CONFIG_V2      2
 
 enum cam_a5_hw_type {
 	CAM_ICP_DEV_A5,

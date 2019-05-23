@@ -129,259 +129,11 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	return res;
 }
 
-static void ipa_chan_err_cb(struct gsi_chan_err_notify *notify)
-{
-	/*
-	 * These are the errors that hardware has returned,
-	 * which indicates hardware unexpected state.
-	 */
-	if (notify) {
-		switch (notify->evt_id) {
-		case GSI_CHAN_INVALID_TRE_ERR:
-			IPAERR("Received GSI_CHAN_INVALID_TRE_ERR\n");
-			break;
-		case GSI_CHAN_NON_ALLOCATED_EVT_ACCESS_ERR:
-			IPAERR("Received GSI_CHAN_NON_ALLOC_EVT_ACCESS_ERR\n");
-			break;
-		case GSI_CHAN_OUT_OF_BUFFERS_ERR:
-			IPAERR("Received GSI_CHAN_OUT_OF_BUFFERS_ERR\n");
-			break;
-		case GSI_CHAN_OUT_OF_RESOURCES_ERR:
-			IPAERR("Received GSI_CHAN_OUT_OF_RESOURCES_ERR\n");
-			break;
-		case GSI_CHAN_UNSUPPORTED_INTER_EE_OP_ERR:
-			IPAERR("Received GSI_CHAN_UNSUPP_INTER_EE_OP_ERR\n");
-			break;
-		case GSI_CHAN_HWO_1_ERR:
-			IPAERR("Received GSI_CHAN_HWO_1_ERR\n");
-			break;
-		default:
-			IPAERR("Unexpected err evt: %d\n", notify->evt_id);
-		}
-		ipa_assert();
-	}
-}
-
-static void ipa_xfer_cb(struct gsi_chan_xfer_notify *notify)
-{
-}
-
-static int ipa3_reconfigure_channel_to_gpi(struct ipa3_ep_context *ep,
-	struct gsi_chan_props *orig_chan_props,
-	struct ipa_mem_buffer *chan_dma)
-{
-	struct gsi_chan_props chan_props;
-	enum gsi_status gsi_res;
-	dma_addr_t chan_dma_addr;
-	int result;
-
-	/* Set up channel properties */
-	memset(&chan_props, 0, sizeof(struct gsi_chan_props));
-	chan_props.prot = GSI_CHAN_PROT_GPI;
-	chan_props.dir = GSI_CHAN_DIR_FROM_GSI;
-	chan_props.ch_id = orig_chan_props->ch_id;
-	chan_props.evt_ring_hdl = orig_chan_props->evt_ring_hdl;
-	chan_props.re_size = GSI_CHAN_RE_SIZE_16B;
-	chan_props.ring_len = 2 * GSI_CHAN_RE_SIZE_16B;
-	chan_props.ring_base_vaddr =
-		dma_alloc_coherent(ipa3_ctx->pdev, chan_props.ring_len,
-		&chan_dma_addr, GFP_ATOMIC);
-	chan_props.ring_base_addr = chan_dma_addr;
-	chan_dma->base = chan_props.ring_base_vaddr;
-	chan_dma->phys_base = chan_props.ring_base_addr;
-	chan_dma->size = chan_props.ring_len;
-	chan_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
-	chan_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
-	chan_props.low_weight = 1;
-	chan_props.chan_user_data = NULL;
-	chan_props.err_cb = ipa_chan_err_cb;
-	chan_props.xfer_cb = ipa_xfer_cb;
-
-	gsi_res = gsi_set_channel_cfg(ep->gsi_chan_hdl, &chan_props, NULL);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error setting channel properties\n");
-		result = -EFAULT;
-		goto set_chan_cfg_fail;
-	}
-
-	return 0;
-
-set_chan_cfg_fail:
-	dma_free_coherent(ipa3_ctx->pdev, chan_dma->size,
-		chan_dma->base, chan_dma->phys_base);
-	return result;
-
-}
-
-static int ipa3_restore_channel_properties(struct ipa3_ep_context *ep,
-	struct gsi_chan_props *chan_props,
-	union gsi_channel_scratch *chan_scratch)
-{
-	enum gsi_status gsi_res;
-
-	gsi_res = gsi_set_channel_cfg(ep->gsi_chan_hdl, chan_props,
-		chan_scratch);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error restoring channel properties\n");
-		return -EFAULT;
-	}
-
-	return 0;
-}
-
-static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
-	struct ipa3_ep_context *ep)
-{
-	int result = -EFAULT;
-	enum gsi_status gsi_res;
-	struct gsi_chan_props orig_chan_props;
-	union gsi_channel_scratch orig_chan_scratch;
-	struct ipa_mem_buffer chan_dma;
-	void *buff;
-	dma_addr_t dma_addr;
-	struct gsi_xfer_elem xfer_elem;
-	int i;
-	int aggr_active_bitmap = 0;
-	bool pipe_suspended = false;
-	struct ipa_ep_cfg_ctrl ctrl;
-
-	IPADBG("Applying reset channel with open aggregation frame WA\n");
-	ipahal_write_reg(IPA_AGGR_FORCE_CLOSE, (1 << clnt_hdl));
-
-	/* Reset channel */
-	gsi_res = gsi_reset_channel(ep->gsi_chan_hdl);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error resetting channel: %d\n", gsi_res);
-		return -EFAULT;
-	}
-
-	/* Reconfigure channel to dummy GPI channel */
-	memset(&orig_chan_props, 0, sizeof(struct gsi_chan_props));
-	memset(&orig_chan_scratch, 0, sizeof(union gsi_channel_scratch));
-	gsi_res = gsi_get_channel_cfg(ep->gsi_chan_hdl, &orig_chan_props,
-		&orig_chan_scratch);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error getting channel properties: %d\n", gsi_res);
-		return -EFAULT;
-	}
-	memset(&chan_dma, 0, sizeof(struct ipa_mem_buffer));
-	result = ipa3_reconfigure_channel_to_gpi(ep, &orig_chan_props,
-		&chan_dma);
-	if (result)
-		return -EFAULT;
-
-	memset(&ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
-
-	ipahal_read_reg_n_fields(IPA_ENDP_INIT_CTRL_n, clnt_hdl, &ctrl);
-	if (ctrl.ipa_ep_suspend) {
-		IPADBG("pipe is suspended, remove suspend\n");
-		pipe_suspended = true;
-		ctrl.ipa_ep_suspend = false;
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
-			clnt_hdl, &ctrl);
-	}
-
-	/* Start channel and put 1 Byte descriptor on it */
-	gsi_res = gsi_start_channel(ep->gsi_chan_hdl);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error starting channel: %d\n", gsi_res);
-		goto start_chan_fail;
-	}
-
-	memset(&xfer_elem, 0, sizeof(struct gsi_xfer_elem));
-	buff = dma_alloc_coherent(ipa3_ctx->pdev, 1, &dma_addr,
-		GFP_ATOMIC);
-	xfer_elem.addr = dma_addr;
-	xfer_elem.len = 1;
-	xfer_elem.flags = GSI_XFER_FLAG_EOT;
-	xfer_elem.type = GSI_XFER_ELEM_DATA;
-
-	gsi_res = gsi_queue_xfer(ep->gsi_chan_hdl, 1, &xfer_elem,
-		true);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error queueing xfer: %d\n", gsi_res);
-		result = -EFAULT;
-		goto queue_xfer_fail;
-	}
-
-	/* Wait for aggregation frame to be closed and stop channel*/
-	for (i = 0; i < IPA_POLL_AGGR_STATE_RETRIES_NUM; i++) {
-		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
-		if (!(aggr_active_bitmap & (1 << clnt_hdl)))
-			break;
-		msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
-	}
-
-	if (aggr_active_bitmap & (1 << clnt_hdl)) {
-		IPAERR("Failed closing aggr frame for client: %d\n",
-			clnt_hdl);
-		/* Unexpected hardware state */
-		ipa_assert();
-	}
-
-	dma_free_coherent(ipa3_ctx->pdev, 1, buff, dma_addr);
-
-	result = ipa3_stop_gsi_channel(clnt_hdl);
-	if (result) {
-		IPAERR("Error stopping channel: %d\n", result);
-		goto start_chan_fail;
-	}
-
-	/* Reset channel */
-	gsi_res = gsi_reset_channel(ep->gsi_chan_hdl);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error resetting channel: %d\n", gsi_res);
-		result = -EFAULT;
-		goto start_chan_fail;
-	}
-
-	/*
-	 * Need to sleep for 1ms as required by H/W verified
-	 * sequence for resetting GSI channel
-	 */
-	msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
-
-	if (pipe_suspended) {
-		IPADBG("suspend the pipe again\n");
-		ctrl.ipa_ep_suspend = true;
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
-			clnt_hdl, &ctrl);
-	}
-
-	/* Restore channels properties */
-	result = ipa3_restore_channel_properties(ep, &orig_chan_props,
-		&orig_chan_scratch);
-	if (result)
-		goto restore_props_fail;
-	dma_free_coherent(ipa3_ctx->pdev, chan_dma.size,
-		chan_dma.base, chan_dma.phys_base);
-
-	return 0;
-
-queue_xfer_fail:
-	ipa3_stop_gsi_channel(clnt_hdl);
-	dma_free_coherent(ipa3_ctx->pdev, 1, buff, dma_addr);
-start_chan_fail:
-	if (pipe_suspended) {
-		IPADBG("suspend the pipe again\n");
-		ctrl.ipa_ep_suspend = true;
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
-			clnt_hdl, &ctrl);
-	}
-	ipa3_restore_channel_properties(ep, &orig_chan_props,
-		&orig_chan_scratch);
-restore_props_fail:
-	dma_free_coherent(ipa3_ctx->pdev, chan_dma.size,
-		chan_dma.base, chan_dma.phys_base);
-	return result;
-}
-
 int ipa3_reset_gsi_channel(u32 clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
-	int aggr_active_bitmap = 0;
 	bool undo_aggr_value = false;
 	struct ipahal_reg_clkon_cfg fields;
 
@@ -416,28 +168,6 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 	}
 
 	/*
-	 * for IPA 4.0 and above aggregation frame is closed together with
-	 * channel STOP. Below workaround not required for IPA 4.0 and above
-	 * versions.
-	 */
-
-	/*
-	 * Check for open aggregation frame on Consumer EP -
-	 * reset with open aggregation frame WA
-	 */
-	if (IPA_CLIENT_IS_CONS(ep->client) &&
-			ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
-		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
-		if (aggr_active_bitmap & (1 << clnt_hdl)) {
-			result = ipa3_reset_with_open_aggr_frame_wa(clnt_hdl,
-				ep);
-			if (result)
-				goto reset_chan_fail;
-			goto finish_reset;
-		}
-	}
-
-	/*
 	 * Reset channel
 	 * If the reset called after stop, need to wait 1ms
 	 */
@@ -449,15 +179,14 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 		goto reset_chan_fail;
 	}
 
-finish_reset:
-	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
-
 	/* undo the aggr value if flag was set above*/
 	if (undo_aggr_value) {
 		fields.open_aggr_wrapper = false;
 		ipahal_write_reg_fields(IPA_CLKON_CFG, &fields);
 	}
+
+	if (!ep->keep_ipa_awake)
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("exit\n");
 	return 0;
@@ -638,66 +367,86 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	return 0;
 }
 
-void ipa3_register_lock_unlock_callback(int (*client_cb)(bool is_lock),
-						u32 ipa_ep_idx)
+static enum ipa_client_cb_type ipa_get_client_cb_type(
+					enum ipa_client_type client_type)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client_cb;
+
+	if (client_type == IPA_CLIENT_USB_PROD ||
+			client_type == IPA_CLIENT_USB_CONS) {
+		IPADBG("USB Client registered\n");
+		client_cb = IPA_USB_CLNT;
+	} else if (client_type == IPA_CLIENT_MHI_PROD ||
+			client_type == IPA_CLIENT_MHI_CONS) {
+		IPADBG("MHI Client registered\n");
+		client_cb = IPA_MHI_CLNT;
+	} else {
+		IPAERR("Invalid IPA client\n");
+		client_cb = IPA_MAX_CLNT;
+	}
+
+	return client_cb;
+}
+void ipa3_register_client_callback(int (*client_cb)(bool is_lock),
+				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+{
+	enum ipa_client_cb_type client;
+	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
+	client = ipa_get_client_cb_type(client_type);
+	if (client == IPA_MAX_CLNT)
 		return;
-	}
 
 	if (client_cb == NULL) {
 		IPAERR("Bad Param");
 		return;
 	}
 
-	ep->client_lock_unlock = client_cb;
+	if (!ipa3_ctx->client_lock_unlock[client])
+		ipa3_ctx->client_lock_unlock[client] = client_cb;
+	if (!ipa3_ctx->get_teth_port_state[client])
+		ipa3_ctx->get_teth_port_state[client] = teth_port_state;
 	IPADBG("exit\n");
 }
 
-void ipa3_deregister_lock_unlock_callback(u32 ipa_ep_idx)
+void ipa3_deregister_client_callback(u32 ipa_ep_idx)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client_cb;
+	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
+	client_cb = ipa_get_client_cb_type(client_type);
+	if (client_cb == IPA_MAX_CLNT)
 		return;
-	}
 
-	if (ep->client_lock_unlock == NULL) {
+	if (ipa3_ctx->client_lock_unlock[client_cb] == NULL &&
+		ipa3_ctx->get_teth_port_state[client_cb] == NULL) {
 		IPAERR("client_lock_unlock is already NULL");
 		return;
 	}
 
-	ep->client_lock_unlock = NULL;
+	ipa3_ctx->client_lock_unlock[client_cb] = NULL;
+	ipa3_ctx->get_teth_port_state[client_cb] = NULL;
 	IPADBG("exit\n");
 }
 
-static void client_lock_unlock_cb(u32 ipa_ep_idx, bool is_lock)
+static void client_lock_unlock_cb(enum ipa_client_type client, bool is_lock)
 {
-	struct ipa3_ep_context *ep;
+	enum ipa_client_cb_type client_cb;
 
 	IPADBG("entry\n");
 
-	ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("Invalid EP\n");
+	client_cb = ipa_get_client_cb_type(client);
+	if (client_cb == IPA_MAX_CLNT)
 		return;
-	}
 
-	if (ep->client_lock_unlock)
-		ep->client_lock_unlock(is_lock);
+	if (ipa3_ctx->client_lock_unlock[client_cb])
+		ipa3_ctx->client_lock_unlock[client_cb](is_lock);
 
 	IPADBG("exit\n");
 }
@@ -1377,7 +1126,7 @@ int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 	ep = &ipa3_ctx->ep[pipe_idx];
 
 	/* Setting delay on USB_PROD with skip_ep_cfg */
-	client_lock_unlock_cb(pipe_idx, true);
+	client_lock_unlock_cb(client, true);
 	if (ep->valid && ep->skip_ep_cfg) {
 		ep->ep_delay_set = ep_ctrl.ipa_ep_delay;
 		result = ipa3_cfg_ep_ctrl(pipe_idx, &ep_ctrl);
@@ -1387,10 +1136,56 @@ int ipa3_set_reset_client_prod_pipe_delay(bool set_reset,
 		else
 			IPADBG("client (ep: %d) success\n", pipe_idx);
 	}
-	client_lock_unlock_cb(pipe_idx, false);
+	client_lock_unlock_cb(client, false);
 	return result;
 }
 
+static bool ipa3_get_teth_port_status(enum ipa_client_type client)
+{
+	enum ipa_client_cb_type client_cb;
+
+	client_cb = ipa_get_client_cb_type(client);
+	if (client_cb == IPA_MAX_CLNT)
+		return false;
+	if (ipa3_ctx->get_teth_port_state[client_cb])
+		return ipa3_ctx->get_teth_port_state[client_cb]();
+	return false;
+}
+
+/*
+ * Start/stop the CLIENT PROD pipes in SSR scenarios
+ */
+
+int ipa3_start_stop_client_prod_gsi_chnl(enum ipa_client_type client,
+		bool start_chnl)
+{
+	int result = 0;
+	int pipe_idx;
+	struct ipa3_ep_context *ep;
+
+	if (IPA_CLIENT_IS_CONS(client)) {
+		IPAERR("client (%d) not PROD\n", client);
+		return -EINVAL;
+	}
+
+	pipe_idx = ipa3_get_ep_mapping(client);
+
+	if (pipe_idx == IPA_EP_NOT_ALLOCATED) {
+		IPAERR("client (%d) not valid\n", client);
+		return -EINVAL;
+	}
+
+	client_lock_unlock_cb(client, true);
+	ep = &ipa3_ctx->ep[pipe_idx];
+	if (ep->valid && ep->skip_ep_cfg && ipa3_get_teth_port_status(client)) {
+		if (start_chnl)
+			result = ipa3_start_gsi_channel(pipe_idx);
+		else
+			result = ipa3_stop_gsi_channel(pipe_idx);
+	}
+	client_lock_unlock_cb(client, false);
+	return result;
+}
 int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		enum ipa_client_type client)
 {
@@ -1420,7 +1215,7 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 
 	ep = &ipa3_ctx->ep[pipe_idx];
 	/* Setting sus/holb on MHI_CONS with skip_ep_cfg */
-	client_lock_unlock_cb(pipe_idx, true);
+	client_lock_unlock_cb(client, true);
 	if (ep->valid && ep->skip_ep_cfg) {
 		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
 			ipahal_write_reg_n_fields(
@@ -1439,7 +1234,7 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 			IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			pipe_idx, &ep_holb);
 	}
-	client_lock_unlock_cb(pipe_idx, false);
+	client_lock_unlock_cb(client, false);
 	return 0;
 }
 

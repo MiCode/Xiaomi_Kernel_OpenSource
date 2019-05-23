@@ -10,6 +10,8 @@
 
 extern struct synx_device *synx_dev;
 
+bool synx_debugfs_enabled(void);
+
 /**
  * @brief: Function to check if the external sync obj is valid
  *
@@ -215,5 +217,15 @@ s32 synx_create_handle(void *pObj);
  * @return The created handle
  */
 int synx_generate_secure_key(struct synx_table_row *row);
+
+/**
+ * @brief: Function to handle adding an error
+ *         code to a synx
+ *
+ * @param error_code : error to add
+ *
+ * @param synx_obj : synx_obj to add the error to
+ */
+void log_synx_error(s32 error_code, s32 synx_obj);
 
 #endif /* __SYNX_UTIL_H__ */

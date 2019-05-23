@@ -54,6 +54,11 @@
 #define DIAG_CTRL_MSG_LOG_MASK	9
 #define DIAG_CTRL_MSG_EVENT_MASK	10
 #define DIAG_CTRL_MSG_F3_MASK	11
+
+#define DIAG_CTRL_MSG_F3_MS_MASK	36
+#define DIAG_CTRL_MSG_LOG_MS_MASK	37
+#define DIAG_CTRL_MSG_EVENT_MS_MASK	38
+
 #define CONTROL_CHAR	0x7E
 
 #define DIAG_ID_ROOT_STRING "root"
@@ -150,6 +155,10 @@
 #define DIAG_CMD_OP_SET_MSG_MASK	4
 #define DIAG_CMD_OP_SET_ALL_MSG_MASK	5
 
+#define DIAG_CMD_OP_GET_EVENT_MSK	1
+#define DIAG_CMD_OP_SET_EVENT_MSK	2
+#define DIAG_CMD_OP_EVENT_TOGGLE	3
+
 #define DIAG_CMD_OP_GET_MSG_ALLOC       0x33
 #define DIAG_CMD_OP_GET_MSG_DROP	0x30
 #define DIAG_CMD_OP_RESET_MSG_STATS	0x2F
@@ -161,6 +170,10 @@
 #define DIAG_CMD_OP_RESET_EVENT_STATS	0x2D
 
 #define DIAG_CMD_OP_HDLC_DISABLE	0x218
+
+#define DIAG_SUB_SYS_CMD_MSG	0x6D
+#define DIAG_SUB_SYS_CMD_LOG	0x6E
+#define DIAG_SUB_SYS_CMD_EVENT	0x6F
 
 #define BAD_PARAM_RESPONSE_MESSAGE 20
 
@@ -243,6 +256,12 @@ do {						\
 		pd_mask |= (1 << fwd_info->upd_diag_id[i].pd);\
 } while (0)
 
+#define DIAGIDV2_FEATURE(f_index)	\
+	driver->diagid_v2_feature[f_index]
+
+#define DIAGIDV2_STATUS(f_index)	\
+	driver->diagid_v2_status[f_index]
+
 /*
  * Number of stm processors includes all the peripherals and
  * apps.Added 1 below to indicate apps
@@ -306,6 +325,8 @@ do {						\
 #define DIAG_ID_UNKNOWN		0
 #define DIAG_ID_APPS		1
 
+#define DIAGID_V2_FEATURE_COUNT 3
+
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
@@ -337,6 +358,7 @@ struct diag_id_tbl_t {
 	uint8_t diag_id;
 	uint8_t pd_val;
 	uint8_t peripheral;
+	uint8_t pd_feature_mask;
 	char *process_name;
 } __packed;
 struct diag_id_t {
@@ -523,14 +545,23 @@ struct diag_md_session_t {
  * High level structure for storing Diag masks.
  *
  * @ptr: Pointer to the buffer that stores the masks
+ * @ms_ptr: Pointer to the list having mask based upon subscription
  * @mask_len: Length of the buffer pointed by ptr
  * @update_buf: Buffer for performing mask updates to peripherals
  * @update_buf_len: Length of the buffer pointed by buf
  * @status: status of the mask - all enable, disabled, valid
  * @lock: To protect access to the mask variables
  */
+
+struct diag_multisim_masks {
+	uint8_t *sub_ptr;
+	uint8_t status;
+	struct diag_multisim_masks *next;
+};
+
 struct diag_mask_info {
 	uint8_t *ptr;
+	struct diag_multisim_masks *ms_ptr;
 	int mask_len;
 	uint8_t *update_buf;
 	int update_buf_len;
@@ -559,6 +590,8 @@ struct diag_feature_t {
 	uint8_t sockets_enabled;
 	uint8_t sent_feature_mask;
 	uint8_t diag_id_support;
+	uint8_t diagid_v2_feature_mask;
+	uint8_t multi_sim_support;
 };
 
 struct diagchar_dev {
@@ -586,6 +619,7 @@ struct diagchar_dev {
 	int supports_apps_hdlc_encoding;
 	int supports_apps_header_untagging;
 	int supports_pd_buffering;
+	int supports_diagid_v2_feature_mask;
 	int peripheral_untag[NUM_PERIPHERALS];
 	int supports_sockets;
 	/* The state requested in the STM command */
@@ -610,6 +644,7 @@ struct diagchar_dev {
 	int dci_tag;
 	int dci_client_id[MAX_DCI_CLIENTS];
 	struct mutex dci_mutex;
+	struct mutex rpmsginfo_mutex[NUM_PERIPHERALS];
 	int num_dci_client;
 	unsigned char *apps_dci_buf;
 	int dci_state;
@@ -617,6 +652,7 @@ struct diagchar_dev {
 	struct list_head cmd_reg_list;
 	struct list_head diag_id_list;
 	struct mutex diag_id_mutex;
+	struct mutex diagid_v2_mutex;
 	struct mutex cmd_reg_mutex;
 	uint32_t cmd_reg_count;
 	struct mutex diagfwd_channel_mutex[NUM_PERIPHERALS];
@@ -704,6 +740,7 @@ struct diagchar_dev {
 	struct diag_mask_info *log_mask;
 	struct diag_mask_info *event_mask;
 	struct diag_mask_info *build_time_mask;
+	uint8_t multisim_feature_rcvd;
 	uint8_t set_mask_cmd;
 	uint8_t msg_mask_tbl_count;
 	uint8_t bt_msg_mask_tbl_count;
@@ -721,6 +758,8 @@ struct diagchar_dev {
 #endif
 	int time_sync_enabled;
 	uint8_t uses_time_api;
+	uint32_t diagid_v2_feature[DIAGID_V2_FEATURE_COUNT];
+	uint32_t diagid_v2_status[DIAGID_V2_FEATURE_COUNT];
 };
 
 extern struct diagchar_dev *driver;

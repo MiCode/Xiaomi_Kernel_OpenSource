@@ -8,7 +8,6 @@
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
-#include <linux/firmware.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/iopoll.h>
@@ -27,7 +26,7 @@
 
 #define HFI_MAX_POLL_TRY 5
 
-static int cam_ipe_caps_vote(struct cam_ipe_device_core_info *core_info,
+static int cam_ipe_cpas_vote(struct cam_ipe_device_core_info *core_info,
 	struct cam_icp_cpas_vote *cpas_vote)
 {
 	int rc = 0;
@@ -70,14 +69,27 @@ int cam_ipe_init_hw(void *device_priv,
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.num_paths = 1;
+	cpas_vote.axi_vote.axi_path[0].path_data_type =
+		CAM_IPE_DEFAULT_AXI_PATH;
+	cpas_vote.axi_vote.axi_path[0].transac_type =
+		CAM_IPE_DEFAULT_AXI_TRANSAC;
+	cpas_vote.axi_vote.axi_path[0].camnoc_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ab_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ib_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].ddr_ab_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].ddr_ib_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		CAM_ERR(CAM_ICP, "cpas start failed: %d", rc);
+		goto error;
 	}
 	core_info->cpas_start = true;
 
@@ -92,6 +104,7 @@ int cam_ipe_init_hw(void *device_priv,
 		core_info->clk_enable = true;
 	}
 
+error:
 	return rc;
 }
 
@@ -155,7 +168,8 @@ static int cam_ipe_handle_pc(struct cam_hw_info *ipe_dev)
 			hw_info->pwr_ctrl, true, 0x1);
 
 		if (pwr_status >> IPE_PWR_ON_MASK)
-			return -EINVAL;
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+				pwr_status, pwr_ctrl);
 
 	}
 	cam_ipe_get_gdsc_control(soc_info);
@@ -313,7 +327,7 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		if (!cmd_args)
 			return -EINVAL;
 
-		cam_ipe_caps_vote(core_info, cpas_vote);
+		cam_ipe_cpas_vote(core_info, cpas_vote);
 		break;
 	}
 

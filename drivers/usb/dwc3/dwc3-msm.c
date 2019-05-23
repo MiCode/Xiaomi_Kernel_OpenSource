@@ -2022,6 +2022,15 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 							evt->buf, evt->dma);
 		}
 		break;
+	case DWC3_GSI_EVT_BUF_CLEAR:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_CLEAR\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT((i+1)));
+			reg &= DWC3_GEVNTCOUNT_MASK;
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), reg);
+			dbg_log_string("remaining EVNTCOUNT(%d)=%d", i+1, reg);
+		}
+		break;
 	case DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER:
 		dwc3_msm_dbm_disable_updxfer(dwc, value);
 		break;
@@ -3675,16 +3684,31 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 		}
 	} else {
-		if ((dwc3_is_otg_or_drd(dwc) &&
-		     !of_property_read_bool(node, "qcom,default-mode-host")) ||
-		     dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
-			dev_dbg(mdwc->dev, "%s: no extcon, start peripheral mode\n",
+		switch (dwc->dr_mode) {
+		case USB_DR_MODE_DRD:
+			if (of_property_read_bool(node,
+						"qcom,default-mode-host")) {
+				dev_dbg(mdwc->dev, "%s: start host mode\n",
 								__func__);
-			mdwc->vbus_active = true;
-		} else {
-			dev_dbg(mdwc->dev, "%s: no extcon, start host mode\n",
+				mdwc->id_state = DWC3_ID_GROUND;
+			} else if (of_property_read_bool(node,
+						"qcom,default-mode-none")) {
+				dev_dbg(mdwc->dev, "%s: stay in none mode\n",
 								__func__);
+			} else {
+				dev_dbg(mdwc->dev, "%s: start peripheral mode\n",
+								__func__);
+				mdwc->vbus_active = true;
+			}
+			break;
+		case USB_DR_MODE_HOST:
 			mdwc->id_state = DWC3_ID_GROUND;
+			break;
+		case USB_DR_MODE_PERIPHERAL:
+			/* fall through */
+		default:
+			mdwc->vbus_active = true;
+			break;
 		}
 
 		dwc3_ext_event_notify(mdwc);

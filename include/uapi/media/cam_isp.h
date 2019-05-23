@@ -9,7 +9,7 @@
 #include "cam_defs.h"
 #include "cam_isp_vfe.h"
 #include "cam_isp_ife.h"
-
+#include "cam_cpas.h"
 
 /* ISP driver name */
 #define CAM_ISP_DEV_NAME                        "cam-isp"
@@ -97,6 +97,8 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG_V2      6
 #define CAM_ISP_GENERIC_BLOB_TYPE_IFE_CORE_CONFIG     7
+#define CAM_ISP_GENERIC_BLOB_TYPE_VFE_OUT_CONFIG      8
+#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        9
 
 #define CAM_ISP_VC_DT_CFG    4
 
@@ -113,6 +115,12 @@
 #define CAM_ISP_RDI1_PATH         0x10
 #define CAM_ISP_RDI2_PATH         0x20
 #define CAM_ISP_RDI3_PATH         0x40
+
+/* Per Path Usage Data */
+#define CAM_ISP_USAGE_INVALID     0
+#define CAM_ISP_USAGE_LEFT_PX     1
+#define CAM_ISP_USAGE_RIGHT_PX    2
+#define CAM_ISP_USAGE_RDI         3
 
 /* Query devices */
 /**
@@ -491,7 +499,6 @@ struct cam_isp_csid_clock_config {
  * @cam_bw_bps:                 Bandwidth vote for CAMNOC
  * @ext_bw_bps:                 Bandwidth vote for path-to-DDR after CAMNOC
  */
-
 struct cam_isp_bw_vote {
 	uint32_t                       resource_id;
 	uint32_t                       reserved;
@@ -508,13 +515,25 @@ struct cam_isp_bw_vote {
  * @right_pix_vote:             Bandwidth vote for right ISP
  * @rdi_vote:                   RDI bandwidth requirements
  */
-
 struct cam_isp_bw_config {
 	uint32_t                       usage_type;
 	uint32_t                       num_rdi;
 	struct cam_isp_bw_vote         left_pix_vote;
 	struct cam_isp_bw_vote         right_pix_vote;
 	struct cam_isp_bw_vote         rdi_vote[1];
+} __attribute__((packed));
+
+/**
+ * struct cam_isp_bw_config_v2 - Bandwidth configuration
+ *
+ * @usage_type:                 Usage type (Single/Dual)
+ * @num_paths:                  Number of axi data paths
+ * @axi_path                    Per path vote info
+ */
+struct cam_isp_bw_config_v2 {
+	uint32_t                             usage_type;
+	uint32_t                             num_paths;
+	struct cam_axi_per_path_bw_vote      axi_path[1];
 } __attribute__((packed));
 
 /**
@@ -608,6 +627,55 @@ struct cam_isp_acquire_hw_info {
 	uint32_t                input_info_size;
 	uint32_t                input_info_offset;
 	uint64_t                data;
+};
+
+/**
+ * struct cam_isp_vfe_wm_config  -  VFE write master config per port
+ *
+ * @port_type        : Unique ID of output port
+ * @wm_mode          : Write master mode
+ *                     0x0 - Line based mode
+ *                     0x1 - Frame based mode
+ *                     0x2 - Index based mode, valid for BAF only
+ * @h_init           : Horizontal starting coordinate in pixels. Must be a
+ *                     multiple of 3 for TP10 format
+ * @height           : Height in pixels
+ * @width            : Width in pixels
+ * @virtual_frame_en : Enabling virtual frame will prevent actual request from
+ *                     being sent to NOC
+ * @stride           : Write master stride
+ * @offset           : Write master offset
+ * @reserved_1       : Reserved field for Write master config
+ * @reserved_2       : Reserved field for Write master config
+ * @reserved_3       : Reserved field for Write master config
+ * @reserved_4       : Reserved field for Write master config
+ */
+struct cam_isp_vfe_wm_config {
+	uint32_t                      port_type;
+	uint32_t                      wm_mode;
+	uint32_t                      h_init;
+	uint32_t                      height;
+	uint32_t                      width;
+	uint32_t                      virtual_frame_en;
+	uint32_t                      stride;
+	uint32_t                      offset;
+	uint32_t                      reserved_1;
+	uint32_t                      reserved_2;
+	uint32_t                      reserved_3;
+	uint32_t                      reserved_4;
+};
+
+/**
+ * struct cam_isp_vfe_out_config  -  VFE write master config
+ *
+ * @num_ports      : Number of ports
+ * @reserved       : Reserved field
+ * @wm_config      : VFE out config
+ */
+struct cam_isp_vfe_out_config {
+	uint32_t                      num_ports;
+	uint32_t                      reserved;
+	struct cam_isp_vfe_wm_config  wm_config[1];
 };
 
 #define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000

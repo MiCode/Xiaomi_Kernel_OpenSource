@@ -13,14 +13,14 @@
 
 #define MAX_BUFFER_TYPES 32
 
-struct dcvs_table {
+struct cvp_dcvs_table {
 	u32 load;
 	u32 load_low;
 	u32 load_high;
 	u32 supported_codecs;
 };
 
-struct dcvs_limit {
+struct cvp_dcvs_limit {
 	u32 min_mbpf;
 	u32 fps;
 };
@@ -107,6 +107,16 @@ struct bus_set {
 	u32 count;
 };
 
+struct reset_info {
+	struct reset_control *rst;
+	const char *name;
+};
+
+struct reset_set {
+	struct reset_info *reset_tbl;
+	u32 count;
+};
+
 struct allowed_clock_rates_table {
 	u32 clock_rate;
 };
@@ -150,9 +160,9 @@ struct msm_cvp_platform_resources {
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
-	struct dcvs_table *dcvs_tbl;
+	struct cvp_dcvs_table *dcvs_tbl;
 	uint32_t dcvs_tbl_size;
-	struct dcvs_limit *dcvs_limit;
+	struct cvp_dcvs_limit *cvp_dcvs_limit;
 	bool sys_cache_present;
 	bool sys_cache_res_set;
 	struct subcache_set subcache_set;
@@ -166,6 +176,7 @@ struct msm_cvp_platform_resources {
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
 	struct bus_set bus_set;
+	struct reset_set reset_set;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool slave_side_cp;

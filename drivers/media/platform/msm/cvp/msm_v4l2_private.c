@@ -33,7 +33,7 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	return 0;
 
 set_default_pkt_hdr:
-	pkt_hdr->size = sizeof(struct hfi_msg_session_hdr);
+	pkt_hdr->size = sizeof(struct cvp_hfi_msg_session_hdr);
 	return 0;
 }
 
@@ -44,11 +44,11 @@ static int _get_fence_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 
 	u = &up->data.hfi_fence_pkt;
 
-	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
+	if (get_user(pkt_hdr->size, &u->pkt_data[0]))
 		return -EFAULT;
 
-	pkt_hdr->size = (MAX_HFI_FENCE_OFFSET + MAX_HFI_FENCE_SIZE)
-			* sizeof(unsigned int);
+	if (get_user(pkt_hdr->packet_type, &u->pkt_data[1]))
+		return -EFAULT;
 
 	if (pkt_hdr->size > (MAX_HFI_PKT_SIZE*sizeof(unsigned int)))
 		return -EINVAL;
@@ -130,29 +130,103 @@ static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
+static void _set_deprecate_bitmask(struct cvp_kmd_arg *kp,
+			struct msm_cvp_inst *inst)
+{
+	dprintk(CVP_INFO, "%s: kp->type = %#x\n", __func__, kp->type);
+
+	switch (kp->type) {
+	case CVP_KMD_HFI_DFS_FRAME_CMD:
+	{
+		set_bit(DFS_BIT_OFFSET, &inst->deprecate_bitmask);
+		break;
+	}
+	case CVP_KMD_HFI_DME_FRAME_CMD:
+	{
+		set_bit(DME_BIT_OFFSET, &inst->deprecate_bitmask);
+		break;
+	}
+	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
+	{
+		set_bit(DME_BIT_OFFSET, &inst->deprecate_bitmask);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+static void print_hfi_short(struct cvp_kmd_arg __user *up)
+{
+	struct cvp_kmd_hfi_packet *pkt;
+	unsigned int words[5];
+
+	pkt = &up->data.hfi_pkt;
+	if (get_user(words[0], &up->type) ||
+			get_user(words[1], &up->buf_offset) ||
+			get_user(words[2], &up->buf_num) ||
+			get_user(words[3], &pkt->pkt_data[0]) ||
+			get_user(words[4], &pkt->pkt_data[1]))
+		dprintk(CVP_ERR, "Failed to print ioctl cmd\n");
+
+	dprintk(CVP_DBG, "IOCTL cmd type %d, offset %d, num %d, pkt %d %d\n",
+			words[0], words[1], words[2], words[3], words[4]);
+}
+
+static int _copy_session_ctrl_to_user(
+	struct cvp_kmd_session_control *k,
+	struct cvp_kmd_session_control *u)
+{
+	int i;
+
+	if (put_user(k->ctrl_type, &u->ctrl_type))
+		return -EFAULT;
+	for (i = 0; i < 8; i++)
+		if (put_user(k->ctrl_data[i], &u->ctrl_data[i]))
+			return -EFAULT;
+	return 0;
+}
+
+static int _get_session_ctrl_from_user(
+	struct cvp_kmd_session_control *k,
+	struct cvp_kmd_session_control *u)
+{
+	int i;
+
+	if (get_user(k->ctrl_type, &u->ctrl_type))
+		return -EFAULT;
+
+	for (i = 0; i < 8; i++)
+		if (get_user(k->ctrl_data[i], &u->ctrl_data[i]))
+			return -EFAULT;
+	return 0;
+}
+
 static int convert_from_user(struct cvp_kmd_arg *kp,
 		unsigned long arg,
 		struct msm_cvp_inst *inst)
 {
 	int rc = 0;
-	int i, bit_offset;
-	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	int i;
+	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
+	int pkt_idx;
 
 	if (!kp || !up) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
+	print_hfi_short(up);
+
 	if (get_user(kp->type, &up->type))
 		return -EFAULT;
 
-	if (kp->type == CVP_KMD_HFI_DFS_FRAME_CMD ||
-			kp->type == CVP_KMD_HFI_DME_FRAME_CMD ||
-			kp->type == CVP_KMD_HFI_PERSIST_CMD) {
-		bit_offset = kp->type - CVP_KMD_CMD_START;
-		set_bit(bit_offset, &inst->deprecate_bitmask);
-	}
+	_set_deprecate_bitmask(kp, inst);
+
+	if (get_user(kp->buf_offset, &up->buf_offset) ||
+		get_user(kp->buf_num, &up->buf_num))
+		return -EFAULT;
 
 	switch (kp->type) {
 	case CVP_KMD_GET_SESSION_INFO:
@@ -249,11 +323,10 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 			return -EFAULT;
 		}
 
-		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
-				pkt_hdr.size, pkt_hdr.packet_type);
 		rc = _copy_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
+	case CVP_KMD_SEND_FENCE_CMD_PKT:
 	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
 	{
 		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr)) {
@@ -261,9 +334,20 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 				kp->type, pkt_hdr.size, pkt_hdr.packet_type);
 			return -EFAULT;
 		}
-
 		dprintk(CVP_DBG, "system call cmd pkt: %d 0x%x\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
+
+		pkt_idx = get_pkt_index(&pkt_hdr);
+		if (pkt_idx < 0) {
+			dprintk(CVP_ERR, "%s incorrect packet %d, %x\n",
+				__func__,
+				pkt_hdr.size,
+				pkt_hdr.packet_type);
+			return -EFAULT;
+		}
+
+		set_feature_bitmask(pkt_idx, &inst->deprecate_bitmask);
+
 		rc = _copy_fence_pkt_from_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
@@ -272,6 +356,17 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 	case CVP_KMD_HFI_PERSIST_CMD_RESPONSE:
 	case CVP_KMD_RECEIVE_MSG_PKT:
 		break;
+	case CVP_KMD_SESSION_CONTROL:
+	{
+		struct cvp_kmd_session_control *k, *u;
+
+		k = &kp->data.session_ctrl;
+		u = &up->data.session_ctrl;
+
+		rc = _get_session_ctrl_from_user(k, u);
+
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -285,8 +380,8 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
-	int i, size = sizeof(struct hfi_msg_session_hdr) >> 2;
-	struct cvp_kmd_arg __user *up = compat_ptr(arg);
+	int i, size = sizeof(struct cvp_hfi_msg_session_hdr) >> 2;
+	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
 	if (!kp || !up) {
@@ -411,6 +506,7 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		rc = _copy_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
 		break;
 	}
+	case CVP_KMD_SEND_FENCE_CMD_PKT:
 	case CVP_KMD_HFI_DME_FRAME_FENCE_CMD:
 	{
 		if (_get_fence_pkt_hdr_from_user(up, &pkt_hdr))
@@ -418,7 +514,17 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 
 		dprintk(CVP_DBG, "Send user cmd pkt: %d %d\n",
 				pkt_hdr.size, pkt_hdr.packet_type);
+
 		rc = _copy_fence_pkt_to_user(kp, up, (pkt_hdr.size >> 2));
+		break;
+	}
+	case CVP_KMD_SESSION_CONTROL:
+	{
+		struct cvp_kmd_session_control *k, *u;
+
+		k = &kp->data.session_ctrl;
+		u = &up->data.session_ctrl;
+		rc = _copy_session_ctrl_to_user(k, u);
 		break;
 	}
 	default:
@@ -431,14 +537,13 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 	return rc;
 }
 
-long msm_cvp_v4l2_private(struct file *filp,
+static long cvp_ioctl(struct msm_cvp_inst *inst,
 	unsigned int cmd, unsigned long arg)
 {
 	int rc;
-	struct msm_cvp_inst *inst;
 	struct cvp_kmd_arg karg;
 
-	if (!filp || !filp->private_data) {
+	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
@@ -447,7 +552,6 @@ long msm_cvp_v4l2_private(struct file *filp,
 	if (cmd != VIDIOC_CVP_CMD)
 		return 0;
 
-	inst = filp->private_data;
 	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
 
 	if (convert_from_user(&karg, arg, inst)) {
@@ -460,7 +564,7 @@ long msm_cvp_v4l2_private(struct file *filp,
 	if (rc) {
 		dprintk(CVP_ERR, "%s: failed cmd type %x\n",
 			__func__, karg.type);
-		return -EINVAL;
+		return rc;
 	}
 
 	if (convert_to_user(&karg, arg)) {
@@ -470,4 +574,32 @@ long msm_cvp_v4l2_private(struct file *filp,
 	}
 
 	return rc;
+}
+
+long cvp_unblocked_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct msm_cvp_inst *inst;
+
+	if (!filp || !filp->private_data) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = filp->private_data;
+	return cvp_ioctl(inst, cmd, arg);
+}
+
+long cvp_compat_ioctl(struct file *filp,
+		unsigned int cmd, unsigned long arg)
+{
+	struct msm_cvp_inst *inst;
+
+	if (!filp || !filp->private_data) {
+		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = filp->private_data;
+	return cvp_ioctl(inst, cmd, (unsigned long)compat_ptr(arg));
 }

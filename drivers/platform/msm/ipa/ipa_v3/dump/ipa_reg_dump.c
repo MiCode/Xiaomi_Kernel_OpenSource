@@ -948,6 +948,33 @@ void ipa_save_registers(void)
 		}
 	}
 
+	if (ipa3_ctx->do_ram_collection_on_crash) {
+		for (i = 0; i < IPA_IU_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_iu_ptr[i] =
+				in_dword(IPA_IU_ADDR + (i * sizeof(u32)));
+		}
+		for (i = 0; i < IPA_SRAM_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_sram_ptr[i] =
+				in_dword(IPA_SRAM_ADDR + (i * sizeof(u32)));
+		}
+		for (i = 0; i < IPA_MBOX_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_mbox_ptr[i] =
+				in_dword(IPA_MBOX_ADDR + (i * sizeof(u32)));
+		}
+		for (i = 0; i < IPA_HRAM_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_hram_ptr[i] =
+				in_dword(IPA_HRAM_ADDR + (i * sizeof(u32)));
+		}
+		for (i = 0; i < IPA_SEQ_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_seq_ptr[i] =
+				in_dword(IPA_SEQ_ADDR + (i * sizeof(u32)));
+		}
+		for (i = 0; i < IPA_GSI_SIZE / sizeof(u32); i++) {
+			ipa_reg_save.ipa.ipa_gsi_ptr[i] =
+				in_dword(IPA_GSI_ADDR + (i * sizeof(u32)));
+		}
+	}
+
 	ipa_reg_save_anomaly_check();
 
 	IPAERR("Completed\n");
@@ -1407,6 +1434,7 @@ int ipa_reg_save_init(u32 value)
 	ipa_reg_save.ipa.testbus = NULL;
 
 	if (ipa3_ctx->do_testbus_collection_on_crash) {
+		memset(ipa_testbus_mem, value, sizeof(ipa_testbus_mem));
 		ipa_reg_save.ipa.testbus =
 		    (struct ipa_reg_save_ipa_testbus_s *) ipa_testbus_mem;
 	}
@@ -1422,17 +1450,80 @@ int ipa_reg_save_init(u32 value)
 
 	if (!ipa3_ctx->reg_collection_base) {
 		IPAERR(":register collection ioremap err\n");
-		return -EFAULT;
+		goto alloc_fail1;
 	}
 
-	num_regs -= (CONFIG_IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS *
-		     IPA_REG_SAVE_NUM_EXTRA_ENDP_REGS);
+	num_regs -=
+		(CONFIG_IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS *
+		 IPA_REG_SAVE_NUM_EXTRA_ENDP_REGS);
 
-	for (i = 0; i < (CONFIG_IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS *
-			 IPA_REG_SAVE_NUM_EXTRA_ENDP_REGS); i++)
+	for (i = 0;
+		 i < (CONFIG_IPA3_REGDUMP_NUM_EXTRA_ENDP_REGS *
+			  IPA_REG_SAVE_NUM_EXTRA_ENDP_REGS);
+		 i++)
 		*(ipa_regs_to_save_array[num_regs + i].dst_addr) = 0x0;
 
+	ipa_reg_save.ipa.ipa_seq_ptr  = NULL;
+	ipa_reg_save.ipa.ipa_hram_ptr = NULL;
+	ipa_reg_save.ipa.ipa_mbox_ptr = NULL;
+	ipa_reg_save.ipa.ipa_sram_ptr = NULL;
+	ipa_reg_save.ipa.ipa_iu_ptr   = NULL;
+
+	if (ipa3_ctx->do_ram_collection_on_crash) {
+		ipa_reg_save.ipa.ipa_iu_ptr =
+			alloc_and_init(IPA_IU_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_iu_ptr) {
+			IPAERR("ipa_iu_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+
+		ipa_reg_save.ipa.ipa_sram_ptr =
+			alloc_and_init(IPA_SRAM_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_sram_ptr) {
+			IPAERR("ipa_sram_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+
+		ipa_reg_save.ipa.ipa_mbox_ptr =
+			alloc_and_init(IPA_MBOX_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_mbox_ptr) {
+			IPAERR("ipa_mbox_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+
+		ipa_reg_save.ipa.ipa_hram_ptr =
+			alloc_and_init(IPA_HRAM_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_hram_ptr) {
+			IPAERR("ipa_hram_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+
+		ipa_reg_save.ipa.ipa_seq_ptr =
+			alloc_and_init(IPA_SEQ_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_seq_ptr) {
+			IPAERR("ipa_seq_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+
+		ipa_reg_save.ipa.ipa_gsi_ptr =
+			alloc_and_init(IPA_GSI_SIZE, value);
+		if (!ipa_reg_save.ipa.ipa_gsi_ptr) {
+			IPAERR("ipa_gsi_ptr memory alloc failed\n");
+			goto alloc_fail2;
+		}
+	}
+
 	return 0;
+
+alloc_fail2:
+	kfree(ipa_reg_save.ipa.ipa_seq_ptr);
+	kfree(ipa_reg_save.ipa.ipa_hram_ptr);
+	kfree(ipa_reg_save.ipa.ipa_mbox_ptr);
+	kfree(ipa_reg_save.ipa.ipa_sram_ptr);
+	kfree(ipa_reg_save.ipa.ipa_iu_ptr);
+	iounmap(ipa3_ctx->reg_collection_base);
+alloc_fail1:
+	return -ENOMEM;
 }
 
 /*

@@ -9,6 +9,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/msm-bus.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -16,6 +17,7 @@
 #include <linux/reset-controller.h>
 
 #include <dt-bindings/clock/qcom,camcc-kona.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 #include "clk-alpha-pll.h"
 #include "clk-branch.h"
@@ -27,8 +29,40 @@
 #include "reset.h"
 #include "vdd-level.h"
 
+#define MSM_BUS_VECTOR(_src, _dst, _ab, _ib)	\
+{						\
+	.src = _src,				\
+	.dst = _dst,				\
+	.ab = _ab,				\
+	.ib = _ib,				\
+}
+
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
+
+static struct msm_bus_vectors clk_debugfs_vectors[] = {
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_CAMERA_CFG, 0, 0),
+	MSM_BUS_VECTOR(MSM_BUS_MASTER_AMPSS_M0,
+			MSM_BUS_SLAVE_CAMERA_CFG, 0, 1),
+};
+
+static struct msm_bus_paths clk_debugfs_usecases[] = {
+	{
+		.num_paths = 1,
+		.vectors = &clk_debugfs_vectors[0],
+	},
+	{
+		.num_paths = 1,
+		.vectors = &clk_debugfs_vectors[1],
+	}
+};
+
+static struct msm_bus_scale_pdata clk_debugfs_scale_table = {
+	.usecase = clk_debugfs_usecases,
+	.num_usecases = ARRAY_SIZE(clk_debugfs_usecases),
+	.name = "clk_camcc_debugfs",
+};
 
 enum {
 	P_BI_TCXO,
@@ -2567,7 +2601,8 @@ static int cam_cc_kona_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	struct clk *clk;
-	int ret;
+	int ret, i;
+	unsigned int camcc_bus_id;
 
 	regmap = qcom_cc_map(pdev, &cam_cc_kona_desc);
 	if (IS_ERR(regmap)) {
@@ -2598,6 +2633,18 @@ static int cam_cc_kona_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
+
+	camcc_bus_id = msm_bus_scale_register_client(&clk_debugfs_scale_table);
+	if (!camcc_bus_id) {
+		dev_err(&pdev->dev, "Unable to register for bw voting\n");
+		return -EPROBE_DEFER;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(cam_cc_kona_clocks); i++)
+		if (cam_cc_kona_clocks[i])
+			*(unsigned int *)(void *)
+			&cam_cc_kona_clocks[i]->hw.init->bus_cl_id =
+			camcc_bus_id;
 
 	clk_lucid_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);

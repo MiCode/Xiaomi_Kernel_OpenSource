@@ -13,6 +13,7 @@
 #include <linux/idr.h>
 #include <linux/workqueue.h>
 
+#define MAX_TIMESTAMP_SIZE          32
 #define SYNX_OBJ_NAME_LEN           64
 #define SYNX_MAX_OBJS               1024
 #define SYNX_MAX_REF_COUNTS         2048
@@ -43,6 +44,21 @@ struct synx_external_data {
 struct synx_bind_desc {
 	struct synx_external_desc external_desc;
 	struct synx_external_data *external_data;
+};
+
+/**
+ * struct error_node - Single error node related to a table_row
+ *
+ * @timestamp       : Time that the error occurred
+ * @error_code      : Code related to the error
+ * @node            : List member used to append
+ *                    this node to a linked list
+ */
+struct error_node {
+	char timestamp[MAX_TIMESTAMP_SIZE];
+	s32 error_code;
+	s32 synx_obj;
+	struct list_head node;
 };
 
 /**
@@ -158,6 +174,9 @@ struct bind_operations {
  * dma_context    : dma context id
  * bind_vtbl      : Table with bind ops for supported external sync objects
  * client_list    : All the synx clients
+ * debugfs_root   : Root directory for debugfs
+ * synx_node_head : list head for synx nodes
+ * synx_node_list_lock : Spinlock for synx nodes
  */
 struct synx_device {
 	struct cdev cdev;
@@ -173,6 +192,9 @@ struct synx_device {
 	u64 dma_context;
 	struct bind_operations bind_vtbl[SYNX_MAX_BIND_TYPES];
 	struct list_head client_list;
+	struct dentry *debugfs_root;
+	struct list_head synx_debug_head;
+	spinlock_t synx_node_list_lock;
 };
 
 /**

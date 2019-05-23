@@ -17,16 +17,14 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
-#ifdef CONFIG_QCOM_QMI_HELPERS
+
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
-
-#endif
 
 #define RMNET_IP_VERSION_4 0x40
 #define RMNET_IP_VERSION_6 0x60
 #define CREATE_TRACE_POINTS
-#include <trace/events/rmnet.h>
+#include "rmnet_trace.h"
 
 EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_low);
 EXPORT_TRACEPOINT_SYMBOL(rmnet_shs_high);

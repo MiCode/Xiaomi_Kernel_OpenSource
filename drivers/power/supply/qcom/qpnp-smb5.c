@@ -206,10 +206,12 @@ struct smb_dt_props {
 	bool			no_battery;
 	bool			hvdcp_disable;
 	bool			hvdcp_autonomous;
+	bool			adc_based_aicl;
 	int			sec_charger_config;
 	int			auto_recharge_soc;
 	int			auto_recharge_vbat_mv;
 	int			wd_bark_time;
+	int			wd_snarl_time_cfg;
 	int			batt_profile_fcc_ua;
 	int			batt_profile_fv_uv;
 	int			term_current_src;
@@ -323,6 +325,13 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
 		chg->wa_flags |= CHG_TERMINATION_WA;
+		break;
+	case PM7250B_SUBTYPE:
+		chip->chg.smb_version = PM7250B_SUBTYPE;
+		chg->param = smb5_pm8150b_params;
+		chg->name = "pm7250b_charger";
+		chg->wa_flags |= CHG_TERMINATION_WA;
+		chg->uusb_moisture_protection_capable = true;
 		break;
 	case PM6150_SUBTYPE:
 		chip->chg.smb_version = PM6150_SUBTYPE;
@@ -448,6 +457,11 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)
 		chip->dt.wd_bark_time = DEFAULT_WD_BARK_TIME;
 
+	rc = of_property_read_u32(node, "qcom,wd-snarl-time-config",
+					&chip->dt.wd_snarl_time_cfg);
+	if (rc < 0)
+		chip->dt.wd_snarl_time_cfg = -EINVAL;
+
 	chip->dt.no_battery = of_property_read_bool(node,
 						"qcom,batteryless-platform");
 
@@ -536,6 +550,9 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
 					"qcom,disable-suspend-on-collapse");
 
+	chip->dt.adc_based_aicl = of_property_read_bool(node,
+					"qcom,adc-based-aicl");
+
 	return 0;
 }
 
@@ -547,17 +564,10 @@ static int smb5_parse_dt_adc_channels(struct smb_charger *chg)
 	if (rc < 0)
 		return rc;
 
-	if (!chg->iio.mid_chan) {
-		rc = smblib_get_iio_channel(chg, "usb_in_voltage",
-				&chg->iio.usbin_v_chan);
-		if (rc < 0)
-			return rc;
-
-		if (!chg->iio.usbin_v_chan) {
-			dev_err(chg->dev, "No voltage channel defined\n");
-			return -EINVAL;
-		}
-	}
+	rc = smblib_get_iio_channel(chg, "usb_in_voltage",
+					&chg->iio.usbin_v_chan);
+	if (rc < 0)
+		return rc;
 
 	rc = smblib_get_iio_channel(chg, "chg_temp", &chg->iio.temp_chan);
 	if (rc < 0)
@@ -724,6 +734,8 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	POWER_SUPPLY_PROP_HVDCP_OPTI_ALLOWED,
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
+	POWER_SUPPLY_PROP_VOLTAGE_VPH,
+	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -845,6 +857,13 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		if (chg->hw_connector_mitigation)
 			val->intval |= POWER_SUPPLY_QC_CTM_DISABLE;
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_VPH:
+		rc = smblib_get_prop_vph_voltage_now(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
+		val->intval = get_client_vote(chg->usb_icl_votable,
+					THERMAL_THROTTLE_VOTER);
+		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
 		rc = -EINVAL;
@@ -865,7 +884,7 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 {
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
+	int icl, rc = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PD_CURRENT_MAX:
@@ -909,6 +928,14 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		chg->connector_health = val->intval;
 		power_supply_changed(chg->usb_psy);
 		break;
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
+		icl = get_effective_result(chg->usb_icl_votable);
+		if ((icl + val->intval) > 0)
+			rc = vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER,
+					true, icl + val->intval);
+		else
+			rc = -EINVAL;
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -924,6 +951,7 @@ static int smb5_usb_prop_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
 		return 1;
 	default:
 		break;
@@ -1257,6 +1285,7 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_DC_RESET,
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1291,6 +1320,8 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_get_prop_voltage_wls_output(chg, val);
+	case POWER_SUPPLY_PROP_DC_RESET:
+		val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
@@ -1320,6 +1351,9 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_set_prop_voltage_wls_output(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_DC_RESET:
+		rc = smblib_set_prop_dc_reset(chg);
 		break;
 	default:
 		return -EINVAL;
@@ -1822,7 +1856,6 @@ static int smb5_configure_typec(struct smb_charger *chg)
 	}
 
 	smblib_apsd_enable(chg, true);
-	smblib_hvdcp_detect_enable(chg, false);
 
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
 				BC1P2_START_ON_CC_BIT, 0);
@@ -1887,12 +1920,24 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
-		USBIN_IN_COLLAPSE_GF_SEL_MASK | USBIN_AICL_STEP_TIMING_SEL_MASK,
-		0);
+	if (chg->smb_version != PMI632_SUBTYPE) {
+		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
+				USBIN_IN_COLLAPSE_GF_SEL_MASK |
+				USBIN_AICL_STEP_TIMING_SEL_MASK,
+				0);
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	/* Set CC threshold to 1.6 V in source mode */
+	rc = smblib_masked_write(chg, TYPE_C_EXIT_STATE_CFG_REG,
+				SEL_SRC_UPPER_REF_BIT, SEL_SRC_UPPER_REF_BIT);
 	if (rc < 0)
 		dev_err(chg->dev,
-			"Couldn't set USBIN_LOAD_CFG_REG rc=%d\n", rc);
+			"Couldn't configure CC threshold voltage rc=%d\n", rc);
 
 	return rc;
 }
@@ -2176,40 +2221,32 @@ static int smb5_configure_recharging(struct smb5 *chip)
 static int smb5_configure_float_charger(struct smb5 *chip)
 {
 	int rc = 0;
+	u8 val = 0;
 	struct smb_charger *chg = &chip->chg;
 
 	/* configure float charger options */
 	switch (chip->dt.float_option) {
-	case FLOAT_DCP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, 0);
-		break;
 	case FLOAT_SDP:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FORCE_FLOAT_SDP_CFG_BIT);
+		val = FORCE_FLOAT_SDP_CFG_BIT;
 		break;
 	case DISABLE_CHARGING:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, FLOAT_DIS_CHGING_CFG_BIT);
+		val = FLOAT_DIS_CHGING_CFG_BIT;
 		break;
 	case SUSPEND_INPUT:
-		rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
-				FLOAT_OPTIONS_MASK, SUSPEND_FLOAT_CFG_BIT);
+		val = SUSPEND_FLOAT_CFG_BIT;
 		break;
+	case FLOAT_DCP:
 	default:
-		rc = 0;
+		val = 0;
 		break;
 	}
 
+	chg->float_cfg = val;
+	/* Update float charger setting and set DCD timeout 300ms */
+	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
+				FLOAT_OPTIONS_MASK | DCD_TIMEOUT_SEL_BIT, val);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure float charger options rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = smblib_read(chg, USBIN_OPTIONS_2_CFG_REG, &chg->float_cfg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read float charger options rc=%d\n",
+		dev_err(chg->dev, "Couldn't change float charger setting rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -2324,7 +2361,8 @@ static int smb5_init_hw(struct smb5 *chip)
 	 */
 	if (chg->wa_flags & SW_THERM_REGULATION_WA) {
 		rc = smblib_write(chg, MISC_THERMREG_SRC_CFG_REG,
-					THERMREG_DIE_CMP_SRC_EN_BIT);
+					THERMREG_SW_ICL_ADJUST_BIT
+					| THERMREG_DIE_CMP_SRC_EN_BIT);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable HW thermal regulation rc=%d\n",
 				rc);
@@ -2340,24 +2378,12 @@ static int smb5_init_hw(struct smb5 *chip)
 		}
 	}
 
-	/*
-	 * Disable HVDCP autonomous mode operation by default, providing a DT
-	 * knob to turn it on if required. Additionally, if specified in DT,
-	 * disable HVDCP and HVDCP authentication algorithm.
-	 */
-	val = (chg->hvdcp_disable) ? 0 :
-		(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT);
-	if (chip->dt.hvdcp_autonomous)
-		val |= HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT;
+	/* Set HVDCP autonomous mode per DT option */
+	smblib_hvdcp_hw_inov_enable(chg, chip->dt.hvdcp_autonomous);
 
-	rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
-			(HVDCP_AUTH_ALG_EN_CFG_BIT | HVDCP_EN_BIT |
-			 HVDCP_AUTONOMOUS_MODE_EN_CFG_BIT),
-			val);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't configure HVDCP rc=%d\n", rc);
-		return rc;
-	}
+	/* Disable HVDCP and authentication algorithm if specified in DT */
+	if (chg->hvdcp_disable)
+		smblib_hvdcp_detect_enable(chg, false);
 
 	rc = smb5_init_connector_type(chg);
 	if (rc < 0) {
@@ -2406,22 +2432,22 @@ static int smb5_init_hw(struct smb5 *chip)
 		return rc;
 
 	/*
-	 * AICL configuration:
-	 * start from min and AICL ADC disable, and enable aicl rerun
+	 * AICL configuration: enable aicl and aicl rerun and based on DT
+	 * configuration enable/disable ADB based AICL and Suspend on collapse.
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
-		mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
+	mask = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_ADC_EN_BIT
 			| USBIN_AICL_EN_BIT | SUSPEND_ON_COLLAPSE_USBIN_BIT;
-		val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
-		if (!chip->dt.disable_suspend_on_collapse)
-			val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	val = USBIN_AICL_PERIODIC_RERUN_EN_BIT | USBIN_AICL_EN_BIT;
+	if (!chip->dt.disable_suspend_on_collapse)
+		val |= SUSPEND_ON_COLLAPSE_USBIN_BIT;
+	if (chip->dt.adc_based_aicl)
+		val |= USBIN_AICL_ADC_EN_BIT;
 
-		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				mask, val);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
-			return rc;
-		}
+	rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+			mask, val);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = smblib_write(chg, AICL_RERUN_TIME_CFG_REG,
@@ -2450,9 +2476,17 @@ static int smb5_init_hw(struct smb5 *chip)
 	val = (ilog2(chip->dt.wd_bark_time / 16) << BARK_WDOG_TIMEOUT_SHIFT)
 			& BARK_WDOG_TIMEOUT_MASK;
 	val |= (BITE_WDOG_TIMEOUT_8S | BITE_WDOG_DISABLE_CHARGING_CFG_BIT);
+
+	if (chip->dt.wd_snarl_time_cfg == -EINVAL)
+		val |= SNARL_WDOG_TMOUT_8S;
+	else
+		val |= (chip->dt.wd_snarl_time_cfg << SNARL_WDOG_TIMEOUT_SHIFT)
+			& SNARL_WDOG_TIMEOUT_MASK;
+
 	rc = smblib_masked_write(chg, SNARL_BARK_BITE_WD_CFG_REG,
 			BITE_WDOG_DISABLE_CHARGING_CFG_BIT |
-			BARK_WDOG_TIMEOUT_MASK | BITE_WDOG_TIMEOUT_MASK,
+			SNARL_WDOG_TIMEOUT_MASK | BARK_WDOG_TIMEOUT_MASK |
+			BITE_WDOG_TIMEOUT_MASK,
 			val);
 	if (rc < 0) {
 		pr_err("Couldn't configue WD config rc=%d\n", rc);
@@ -2956,13 +2990,14 @@ static int smb5_request_interrupts(struct smb5 *chip)
 		chg->usb_icl_change_irq_enabled = true;
 
 	/*
-	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
-	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
-	 * interrupt storm.
+	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA. In case
+	 * the WA is not required and neither is the snarl timer configuration
+	 * defined, disable the WDOG_SNARL_IRQ to prevent interrupt storm.
 	 */
 
-	if (chg->irq_info[WDOG_SNARL_IRQ].irq && !(chg->wa_flags &
-						SW_THERM_REGULATION_WA)) {
+	if (chg->irq_info[WDOG_SNARL_IRQ].irq && (!(chg->wa_flags &
+				SW_THERM_REGULATION_WA) &&
+				chip->dt.wd_snarl_time_cfg == -EINVAL)) {
 		disable_irq_wake(chg->irq_info[WDOG_SNARL_IRQ].irq);
 		disable_irq_nosync(chg->irq_info[WDOG_SNARL_IRQ].irq);
 	}

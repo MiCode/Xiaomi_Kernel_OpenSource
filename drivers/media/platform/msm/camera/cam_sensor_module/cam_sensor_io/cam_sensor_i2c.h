@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_I2C_H_
@@ -8,7 +8,6 @@
 
 #include <linux/delay.h>
 #include <media/v4l2-subdev.h>
-#include <media/cam_sensor.h>
 #include <media/cam_sensor.h>
 #include "cam_cci_dev.h"
 #include "cam_sensor_io.h"

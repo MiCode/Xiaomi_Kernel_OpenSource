@@ -2,6 +2,8 @@
 # Makefile for the RMNET module
 #
 
+CFLAGS_rmnet_handlers.o = -I$(src)
+
 rmnet-y		 := rmnet_config.o
 rmnet-y		 += rmnet_vnd.o
 rmnet-y		 += rmnet_handlers.o

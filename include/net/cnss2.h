@@ -41,6 +41,13 @@ struct cnss_fw_files {
 	char evicted_data[CNSS_MAX_FILE_NAME];
 };
 
+struct cnss_device_version {
+	u32 family_number;
+	u32 device_number;
+	u32 major_version;
+	u32 minor_version;
+};
+
 struct cnss_soc_info {
 	void __iomem *va;
 	phys_addr_t pa;
@@ -50,6 +57,7 @@ struct cnss_soc_info {
 	uint32_t soc_id;
 	uint32_t fw_version;
 	char fw_build_timestamp[CNSS_MAX_TIMESTAMP_LEN + 1];
+	struct cnss_device_version device_version;
 };
 
 struct cnss_wlan_runtime_ops {
@@ -61,6 +69,9 @@ struct cnss_wlan_driver {
 	char *name;
 	int  (*probe)(struct pci_dev *pdev, const struct pci_device_id *id);
 	void (*remove)(struct pci_dev *pdev);
+	int (*idle_restart)(struct pci_dev *pdev,
+			    const struct pci_device_id *id);
+	int  (*idle_shutdown)(struct pci_dev *pdev);
 	int  (*reinit)(struct pci_dev *pdev, const struct pci_device_id *id);
 	void (*shutdown)(struct pci_dev *pdev);
 	void (*crash_shutdown)(struct pci_dev *pdev);
@@ -167,6 +178,8 @@ extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern int cnss_request_bus_bandwidth(struct device *dev, int bandwidth);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
+extern int cnss_idle_restart(struct device *dev);
+extern int cnss_idle_shutdown(struct device *dev);
 extern void cnss_request_pm_qos(struct device *dev, u32 qos_val);
 extern void cnss_remove_pm_qos(struct device *dev);
 extern void cnss_lock_pm_sem(struct device *dev);
@@ -174,6 +187,7 @@ extern void cnss_release_pm_sem(struct device *dev);
 extern int cnss_wlan_pm_control(struct device *dev, bool vote);
 extern int cnss_auto_suspend(struct device *dev);
 extern int cnss_auto_resume(struct device *dev);
+extern int cnss_pci_is_drv_connected(struct device *dev);
 extern int cnss_pci_force_wake_request(struct device *dev);
 extern int cnss_pci_is_device_awake(struct device *dev);
 extern int cnss_pci_force_wake_release(struct device *dev);

@@ -14,11 +14,14 @@
 #include "txrx_edma.h"
 #include "wmi.h"
 #include "boot_loader.h"
+#include "ipa.h"
 
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
 #define WIL_DEFAULT_NUM_RX_STATUS_RINGS 1
 #define WIL_BOARD_FILE_MAX_NAMELEN 128
+#define WIL6210_ITR_VR_RX_MAX_BURST_DURATION (5) /* usec */
+#define WIL6210_VR_TX_RING_ORDER 10
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -102,6 +105,11 @@ module_param_cb(tx_ring_order, &ring_order_ops, &tx_ring_order, 0444);
 MODULE_PARM_DESC(tx_ring_order, " Tx ring order; size = 1 << order");
 module_param_cb(bcast_ring_order, &ring_order_ops, &bcast_ring_order, 0444);
 MODULE_PARM_DESC(bcast_ring_order, " Bcast ring order; size = 1 << order");
+
+static u8 support_sensing_over_spi;
+module_param(support_sensing_over_spi, byte, 0444);
+MODULE_PARM_DESC(support_sensing_over_spi,
+		 " notify FW to enable SPI for sensing");
 
 enum {
 	WIL_BOOT_ERR,
@@ -294,6 +302,10 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
+
+	if (wil->ipa_handle)
+		wil_ipa_disconn_client(wil->ipa_handle, cid);
+
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
 	sta->stats.tx_latency_min_us = U32_MAX;
@@ -577,6 +589,10 @@ void wil_fw_recovery(struct wil6210_priv *wil)
 		if (no_fw_recovery) /* upper layers do recovery */
 			break;
 		/* silent recovery, upper layers will see disconnect */
+		if (wil->ipa_handle) {
+			wil_ipa_uninit(wil->ipa_handle);
+			wil->ipa_handle = NULL;
+		}
 		__wil_down(wil);
 		__wil_up(wil);
 		mutex_unlock(&wil->mutex);
@@ -625,7 +641,7 @@ static int wil_find_free_ring(struct wil6210_priv *wil)
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
-	int rc = -EINVAL, ringid;
+	int rc = -EINVAL, ringid, ring_size;
 
 	if (cid < 0) {
 		wil_err(wil, "No connection pending\n");
@@ -640,7 +656,9 @@ int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 	wil_dbg_wmi(wil, "Configure for connection CID %d MID %d ring %d\n",
 		    cid, vif->mid, ringid);
 
-	rc = wil->txrx_ops.ring_init_tx(vif, ringid, 1 << tx_ring_order,
+	ring_size = wil->ipa_handle ?
+		WIL_IPA_DESC_RING_SIZE : 1 << tx_ring_order;
+	rc = wil->txrx_ops.ring_init_tx(vif, ringid, ring_size,
 					cid, 0);
 	if (rc)
 		wil_err(wil, "init TX for CID %d MID %d vring %d failed\n",
@@ -844,6 +862,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);
 	kfree(wil->board_file);
+	kfree(wil->brd_info);
 }
 
 static void wil_shutdown_bl(struct wil6210_priv *wil)
@@ -1546,6 +1565,38 @@ int wil_ps_update(struct wil6210_priv *wil, enum wmi_ps_profile_type ps_profile)
 	return rc;
 }
 
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
+{
+	int rc;
+
+	if (profile == WMI_VR_PROFILE_DISABLED) {
+		/* Switch from VR mode to normal (non-VR) mode is not
+		 * supported at runtime - it requires FW re-loading.
+		 * It is assumed here that FW is not running when VR disable
+		 * is requested
+		 */
+		wil->ps_profile = WMI_PS_PROFILE_TYPE_DEFAULT;
+		tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+		drop_if_ring_full = false;
+		wil->rx_max_burst_duration =
+			WIL6210_ITR_RX_MAX_BURST_DURATION_DEFAULT;
+
+		return 0;
+	}
+
+	rc = wmi_set_vr_profile(wil, profile);
+	if (rc)
+		return rc;
+
+	/* VR default configuration */
+	wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
+	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
+	drop_if_ring_full = true;
+	wil->rx_max_burst_duration = WIL6210_ITR_VR_RX_MAX_BURST_DURATION;
+
+	return 0;
+}
+
 static void wil_pre_fw_config(struct wil6210_priv *wil)
 {
 	/* Mark FW as loaded from host */
@@ -1646,6 +1697,11 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		wil_s(wil, RGF_USER_USAGE_8, BIT_USER_EXT_CLK);
 	}
 
+	if (support_sensing_over_spi) {
+		wil_dbg_misc(wil, "notify FW to enable SPI for sensing\n");
+		wil_s(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
+	}
+
 	if (wil->platform_ops.notify) {
 		rc = wil->platform_ops.notify(wil->platform_handle,
 					      WIL_PLATFORM_EVT_PRE_RESET);
@@ -1739,7 +1795,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		rc = wil_request_firmware(wil, wil->wil_fw_name, true);
 		if (rc)
 			goto out;
-		if (wil->brd_file_addr)
+		if (wil->num_of_brd_entries)
 			rc = wil_request_board(wil, board_file);
 		else
 			rc = wil_request_firmware(wil, board_file, true);
@@ -1771,6 +1827,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "wmi_echo failed, rc %d\n", rc);
 			return rc;
 		}
+
+		/* Update VR mode before configuring interrupt moderation */
+		if (wil->vr_profile != WMI_VR_PROFILE_DISABLED)
+			wil_vr_update_profile(wil, wil->vr_profile);
 
 		wil->txrx_ops.configure_interrupt_moderation(wil);
 
@@ -1976,6 +2036,9 @@ void wil_halp_vote(struct wil6210_priv *wil)
 	unsigned long rc;
 	unsigned long to_jiffies = msecs_to_jiffies(WAIT_FOR_HALP_VOTE_MS);
 
+	if (wil->hw_version >= HW_VER_TALYN_MB)
+		return;
+
 	mutex_lock(&wil->halp.lock);
 
 	wil_dbg_irq(wil, "halp_vote: start, HALP ref_cnt (%d)\n",
@@ -2006,6 +2069,9 @@ void wil_halp_vote(struct wil6210_priv *wil)
 
 void wil_halp_unvote(struct wil6210_priv *wil)
 {
+	if (wil->hw_version >= HW_VER_TALYN_MB)
+		return;
+
 	WARN_ON(wil->halp.ref_cnt == 0);
 
 	mutex_lock(&wil->halp.lock);

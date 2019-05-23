@@ -459,6 +459,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_core *core;
 	enum session_type session_type;
 	void *session;
+	struct msm_cvp_external *cvp;
 	struct session_prop prop;
 	enum instance_state state;
 	struct msm_vidc_format fmts[MAX_PORT_NUM];

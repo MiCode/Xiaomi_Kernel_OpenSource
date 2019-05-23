@@ -2930,6 +2930,9 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 	case IPA_HW_v4_5:
 		str = "4.5";
 		break;
+	case IPA_HW_v4_7:
+		str = "4.7";
+		break;
 	default:
 		str = "Invalid version";
 		break;
@@ -3039,6 +3042,7 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v4_1:
 	case IPA_HW_v4_2:
 	case IPA_HW_v4_5:
+	case IPA_HW_v4_7:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;
@@ -3509,6 +3513,20 @@ int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 
 	return ret;
 }
+
+void ipa_register_client_callback(int (*client_cb)(bool is_lock),
+				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+{
+	IPA_API_DISPATCH(ipa_register_client_callback,
+		client_cb, teth_port_state, ipa_ep_idx);
+}
+
+void ipa_deregister_client_callback(u32 ipa_ep_idx)
+{
+	IPA_API_DISPATCH(ipa_deregister_client_callback,
+		ipa_ep_idx);
+}
+
 
 /**
  * ipa_pm_is_used() - Returns if IPA PM framework is used

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_cci_dev.h"
@@ -14,7 +14,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master = MASTER_0;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	struct cam_hw_soc_info *soc_info = NULL;
 	void __iomem *base = NULL;
 
@@ -73,8 +73,17 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.num_paths = 1;
+	axi_vote.axi_path[0].path_data_type =
+		CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[0].transac_type =
+		CAM_AXI_TRANSACTION_WRITE;
+	axi_vote.axi_path[0].camnoc_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ab_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ib_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(cci_dev->cpas_handle,
 		&ahb_vote, &axi_vote);

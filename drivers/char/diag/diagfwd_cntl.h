@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGFWD_CNTL_H
@@ -62,6 +62,8 @@
 #define F_DIAG_DIAGID_SUPPORT	15
 #define F_DIAG_PKT_HEADER_UNTAG			16
 #define F_DIAG_PD_BUFFERING		17
+#define F_DIAGID_FEATURE_MASK	19
+#define F_DIAG_MULTI_SIM_SUPPORT		20
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -81,6 +83,12 @@
 
 #define DIAG_MODE_PKT_LEN		36
 #define DIAG_MODE_PKT_LEN_V2	37
+
+#define DIAGID_VERSION_1	1
+#define DIAGID_VERSION_2	2
+
+#define MAX_DIAGID_STR_LEN	30
+#define MIN_DIAGID_STR_LEN	5
 
 struct diag_ctrl_pkt_header_t {
 	uint32_t pkt_id;
@@ -142,6 +150,51 @@ struct diag_ctrl_msg_mask {
 	uint16_t ssid_first; /* Start of range of supported SSIDs */
 	uint16_t ssid_last; /* Last SSID in range */
 	uint32_t msg_mask_size; /* ssid_last - ssid_first + 1 */
+	/* Copy msg mask here */
+} __packed;
+
+struct diag_ctrl_event_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint8_t event_config;
+	uint32_t event_mask_size;
+	/* Copy event mask here */
+} __packed;
+
+struct diag_ctrl_log_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint8_t equip_id;
+	uint32_t num_items;
+	uint32_t log_mask_size;
+	/* Copy log mask here */
+} __packed;
+
+struct diag_ctrl_msg_mask_sub {
+	uint32_t cmd_type;
+	uint32_t data_len;
+	uint8_t version;
+	uint8_t stream_id;
+	uint8_t preset_id;
+	uint8_t status;
+	uint8_t msg_mode;
+	uint8_t id_valid;
+	uint32_t sub_id;
+	uint16_t ssid_first;
+	uint16_t ssid_last;
+	uint32_t msg_mask_size;
 	/* Copy msg mask here */
 } __packed;
 
@@ -302,11 +355,23 @@ struct diag_ctrl_set_wq_val_v2 {
 	uint8_t low_wm_val;
 } __packed;
 
-struct diag_ctrl_diagid {
+struct diag_ctrl_diagid_header {
 	uint32_t pkt_id;
 	uint32_t len;
 	uint32_t version;
+} __packed;
+
+struct diag_ctrl_diagid {
+	struct diag_ctrl_diagid_header header;
 	uint32_t diag_id;
+	char process_name[30];
+} __packed;
+
+struct diag_ctrl_diagid_v2 {
+	struct diag_ctrl_diagid_header header;
+	uint32_t diag_id;
+	uint32_t feature_len;
+	uint32_t pd_feature_mask;
 	char process_name[30];
 } __packed;
 

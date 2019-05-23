@@ -260,6 +260,7 @@ static struct notifier_block ipa3_active_clients_panic_blk = {
 	.notifier_call  = ipa3_active_clients_panic_notifier,
 };
 
+#ifdef CONFIG_IPA_DEBUG
 static int ipa3_active_clients_log_insert(const char *string)
 {
 	int head;
@@ -284,6 +285,7 @@ static int ipa3_active_clients_log_insert(const char *string)
 
 	return 0;
 }
+#endif
 
 static int ipa3_active_clients_log_init(void)
 {
@@ -2548,7 +2550,8 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	ipa3_q6_pipe_delay(true);
+	if (!ipa3_ctx->ipa_endp_delay_wa)
+		ipa3_q6_pipe_delay(true);
 	ipa3_q6_avoid_holb();
 	if (ipa3_ctx->ipa_config_is_mhi)
 		ipa3_set_reset_client_cons_pipe_sus_holb(true,
@@ -2572,12 +2575,14 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	/* Remove delay from Q6 PRODs to avoid pending descriptors
 	 * on pipe reset procedure
 	 */
-	ipa3_q6_pipe_delay(false);
-	ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_USB_PROD);
-	if (ipa3_ctx->ipa_config_is_mhi)
+	if (!ipa3_ctx->ipa_endp_delay_wa) {
+		ipa3_q6_pipe_delay(false);
 		ipa3_set_reset_client_prod_pipe_delay(true,
-		IPA_CLIENT_MHI_PROD);
+			IPA_CLIENT_USB_PROD);
+	} else {
+		ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD,
+						false);
+	}
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -2635,6 +2640,47 @@ void ipa3_q6_post_shutdown_cleanup(void)
 				 */
 			}
 		}
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG_LOW("Exit with success\n");
+}
+
+/**
+ * ipa3_q6_pre_powerup_cleanup() - A cleanup routine for pheripheral
+ * configuration in IPA HW. This is performed in case of SSR.
+ *
+ * This is a mandatory procedure, in case one of the steps fails, the
+ * AP needs to restart.
+ */
+void ipa3_q6_pre_powerup_cleanup(void)
+{
+	IPADBG_LOW("ENTER\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_ctx->ipa_config_is_mhi)
+		ipa3_set_reset_client_prod_pipe_delay(true,
+			IPA_CLIENT_MHI_PROD);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG_LOW("Exit with success\n");
+}
+
+/*
+ * ipa3_client_prod_post_shutdown_cleanup () - As part of this function
+ * set end point delay client producer pipes and starting corresponding
+ * gsi channels
+ */
+
+void ipa3_client_prod_post_shutdown_cleanup(void)
+{
+	IPADBG_LOW("ENTER\n");
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	ipa3_set_reset_client_prod_pipe_delay(true,
+				IPA_CLIENT_USB_PROD);
+	ipa3_start_stop_client_prod_gsi_chnl(IPA_CLIENT_USB_PROD, true);
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG_LOW("Exit with success\n");
@@ -3688,7 +3734,9 @@ static void ipa3_start_tag_process(struct work_struct *work)
  * - Remove and deallocate unneeded data structure
  * - Log the call in the circular history buffer (unless it is a simple call)
  */
-void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
+#ifdef CONFIG_IPA_DEBUG
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
 		bool inc, bool int_ctx)
 {
 	char temp_str[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN];
@@ -3750,6 +3798,13 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
 }
+#else
+static void ipa3_active_clients_log_mod(
+		struct ipa_active_client_logging_info *id,
+		bool inc, bool int_ctx)
+{
+}
+#endif
 
 void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx)
@@ -4463,6 +4518,9 @@ static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
 	case IPA_HW_v4_5:
 		gsi_ver = GSI_VER_2_5;
 		break;
+	case IPA_HW_v4_7:
+		gsi_ver = GSI_VER_2_7;
+		break;
 	default:
 		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
 		WARN_ON(1);
@@ -5046,6 +5104,15 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			ipa3_ctx->ipa_config_is_mhi ? "" : "non ");
 	}
 
+	/* Prevent multiple calls from trying to load the FW again. */
+	if (ipa3_ctx->fw_loaded) {
+		IPAERR("not load FW again\n");
+		return count;
+	}
+
+	/* Schedule WQ to load ipa-fws */
+	ipa3_ctx->fw_loaded = true;
+
 	queue_work(ipa3_ctx->transport_power_mgmt_wq,
 		&ipa3_fw_loading_work);
 
@@ -5275,6 +5342,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	    resource_p->do_non_tn_collection_on_crash;
 	ipa3_ctx->secure_debug_check_action =
 		resource_p->secure_debug_check_action;
+	ipa3_ctx->do_ram_collection_on_crash =
+		resource_p->do_ram_collection_on_crash;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -5297,6 +5366,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("secure debug disabled\n");
 		ipa3_ctx->do_testbus_collection_on_crash = false;
 	}
+	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
 
 	WARN(ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_NORMAL,
 		"Non NORMAL IPA HW mode, is this emulation platform ?");
@@ -5891,6 +5961,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->mhi_evid_limits[0] = IPA_MHI_GSI_EVENT_RING_ID_START;
 	ipa_drv_res->mhi_evid_limits[1] = IPA_MHI_GSI_EVENT_RING_ID_END;
 	ipa_drv_res->ipa_fltrt_not_hashable = false;
+	ipa_drv_res->ipa_endp_delay_wa = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -5975,6 +6046,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-wdi2_over_gsi");
 	IPADBG(": WDI-2.0 over gsi= %s\n",
 			ipa_drv_res->ipa_wdi2_over_gsi
+			? "True" : "False");
+	ipa_drv_res->ipa_endp_delay_wa =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-endp-delay-wa");
+	IPADBG(": endppoint delay wa = %s\n",
+			ipa_drv_res->ipa_endp_delay_wa
 			? "True" : "False");
 
 	ipa_drv_res->ipa_wdi3_over_gsi =
@@ -6243,8 +6320,19 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": doing non-tn collection on crash = %u\n",
 	       ipa_drv_res->do_non_tn_collection_on_crash);
 
+	/*
+	 * We'll read ram-collection-on-crash here...
+	 */
+	ipa_drv_res->do_ram_collection_on_crash =
+		of_property_read_bool(
+			pdev->dev.of_node,
+			"qcom,ram-collection-on-crash");
+	IPADBG(": doing ram collection on crash = %u\n",
+		   ipa_drv_res->do_ram_collection_on_crash);
+
 	if (ipa_drv_res->do_testbus_collection_on_crash ||
-		ipa_drv_res->do_non_tn_collection_on_crash)
+		ipa_drv_res->do_non_tn_collection_on_crash ||
+		ipa_drv_res->do_ram_collection_on_crash)
 		ipa_drv_res->do_register_collection_on_crash = true;
 
 	IPADBG(": doing register collection on crash = %u\n",
@@ -7103,20 +7191,22 @@ void ipa_pc_qmp_enable(void)
 	char buf[MAX_LEN] = "{class: bcm, res: ipa_pc, val: 1}";
 	struct qmp_pkt pkt;
 	int ret = 0;
+	struct ipa3_pc_mbox_data *mbox_data = &ipa3_ctx->pc_mbox;
+
+	IPADBG("Enter\n");
 
 	/* prepare the mailbox struct */
-	ipa3_ctx->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
-	ipa3_ctx->mbox_client.tx_block = true;
-	ipa3_ctx->mbox_client.tx_tout = MBOX_TOUT_MS;
-	ipa3_ctx->mbox_client.knows_txdone = false;
+	mbox_data->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
+	mbox_data->mbox_client.tx_block = true;
+	mbox_data->mbox_client.tx_tout = MBOX_TOUT_MS;
+	mbox_data->mbox_client.knows_txdone = false;
 
-	ipa3_ctx->mbox = mbox_request_channel(&ipa3_ctx->mbox_client, 0);
-	if (IS_ERR(ipa3_ctx->mbox)) {
-		ret = PTR_ERR(ipa3_ctx->mbox);
+	mbox_data->mbox = mbox_request_channel(&mbox_data->mbox_client, 0);
+	if (IS_ERR(mbox_data->mbox)) {
+		ret = PTR_ERR(mbox_data->mbox);
 		if (ret != -EPROBE_DEFER)
 			IPAERR("mailbox channel request failed, ret=%d\n", ret);
 
-		ipa3_ctx->mbox = NULL;
 		return;
 	}
 
@@ -7125,16 +7215,13 @@ void ipa_pc_qmp_enable(void)
 	pkt.data = buf;
 
 	/* send the QMP packet to AOP */
-	ret = mbox_send_message(ipa3_ctx->mbox, &pkt);
-	if (ret < 0) {
+	ret = mbox_send_message(mbox_data->mbox, &pkt);
+	if (ret < 0)
 		IPAERR("qmp message send failed, ret=%d\n", ret);
-		goto cleanup;
-	}
 
-cleanup:
-	if (ipa3_ctx->mbox) {
-		mbox_free_channel(ipa3_ctx->mbox);
-		ipa3_ctx->mbox = NULL;
+	if (mbox_data->mbox) {
+		mbox_free_channel(mbox_data->mbox);
+		mbox_data->mbox = NULL;
 	}
 }
 

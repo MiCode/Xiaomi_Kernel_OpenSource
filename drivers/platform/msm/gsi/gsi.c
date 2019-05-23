@@ -622,6 +622,7 @@ static void gsi_handle_ieob(int ee)
 	unsigned long flags;
 	unsigned long cntr;
 	uint32_t msk;
+	bool empty;
 
 	ch = gsi_readl(gsi_ctx->base +
 		GSI_EE_n_CNTXT_SRC_IEOB_IRQ_OFFS(ee));
@@ -653,6 +654,7 @@ static void gsi_handle_ieob(int ee)
 			spin_lock_irqsave(&ctx->ring.slock, flags);
 check_again:
 			cntr = 0;
+			empty = true;
 			rp = gsi_readl(gsi_ctx->base +
 				GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(i, ee));
 			rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
@@ -666,8 +668,10 @@ check_again:
 					break;
 				}
 				gsi_process_evt_re(ctx, &notify, true);
+				empty = false;
 			}
-			gsi_ring_evt_doorbell(ctx);
+			if (!empty)
+				gsi_ring_evt_doorbell(ctx);
 			if (cntr != 0)
 				goto check_again;
 			spin_unlock_irqrestore(&ctx->ring.slock, flags);
@@ -857,6 +861,13 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
 		break;
+	case GSI_VER_2_7:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+		break;
 	}
 
 	GSIDBG("max channels %d\n", reg);
@@ -913,6 +924,13 @@ static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 		reg = (reg &
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
 			GSI_V2_5_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_7:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_7_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
 		break;
 	}
 
@@ -1038,6 +1056,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 		needed_reg_ver = GSI_REGISTER_VER_1;
 		break;
 	case GSI_VER_2_5:
+	case GSI_VER_2_7:
 		needed_reg_ver = GSI_REGISTER_VER_2;
 		break;
 	case GSI_VER_ERR:
@@ -2959,7 +2978,13 @@ int gsi_reset_channel(unsigned long chan_hdl)
 
 	ctx = &gsi_ctx->chan[chan_hdl];
 
-	if (ctx->state != GSI_CHAN_STATE_STOPPED) {
+	/*
+	 * In WDI3 case, if SAP enabled but no client connected,
+	 * GSI will be in allocated state. When SAP disabled,
+	 * gsi_reset_channel will be called and reset is needed.
+	 */
+	if (ctx->state != GSI_CHAN_STATE_STOPPED &&
+		ctx->state != GSI_CHAN_STATE_ALLOCATED) {
 		GSIERR("bad state %d\n", ctx->state);
 		return -GSI_STATUS_UNSUPPORTED_OP;
 	}
@@ -3582,19 +3607,31 @@ int gsi_poll_n_channel(unsigned long chan_hdl,
 	spin_lock_irqsave(&ctx->evtr->ring.slock, flags);
 	if (ctx->evtr->ring.rp == ctx->evtr->ring.rp_local) {
 		/* update rp to see of we have anything new to process */
-		gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
-			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 		rp = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(ctx->evtr->id, ee));
-		rp |= ctx->ring.rp & 0xFFFFFFFF00000000;
+		rp |= ctx->ring.rp & 0xFFFFFFFF00000000ULL;
 
 		ctx->evtr->ring.rp = rp;
-	}
-
-	if (ctx->evtr->ring.rp == ctx->evtr->ring.rp_local) {
-		spin_unlock_irqrestore(&ctx->evtr->ring.slock, flags);
-		ctx->stats.poll_empty++;
-		return GSI_STATUS_POLL_EMPTY;
+		/* read gsi event ring rp again if last read is empty */
+		if (rp == ctx->evtr->ring.rp_local) {
+			/* event ring is empty */
+			gsi_writel(1 << ctx->evtr->id, gsi_ctx->base +
+				GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
+			/* do another read to close a small window */
+			__iowmb();
+			rp = gsi_readl(gsi_ctx->base +
+				GSI_EE_n_EV_CH_k_CNTXT_4_OFFS(
+				ctx->evtr->id, ee));
+			rp |= ctx->ring.rp & 0xFFFFFFFF00000000ULL;
+			ctx->evtr->ring.rp = rp;
+			if (rp == ctx->evtr->ring.rp_local) {
+				spin_unlock_irqrestore(
+					&ctx->evtr->ring.slock,
+					flags);
+				ctx->stats.poll_empty++;
+				return GSI_STATUS_POLL_EMPTY;
+			}
+		}
 	}
 
 	*actual_num = gsi_get_complete_num(&ctx->evtr->ring,
@@ -3972,6 +4009,9 @@ void gsi_get_inst_ram_offset_and_size(unsigned long *base_offset,
 		break;
 	case GSI_VER_2_5:
 		maxn = GSI_V2_5_GSI_INST_RAM_n_MAXn;
+		break;
+	case GSI_VER_2_7:
+		maxn = GSI_V2_7_GSI_INST_RAM_n_MAXn;
 		break;
 	case GSI_VER_ERR:
 	case GSI_VER_MAX:

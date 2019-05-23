@@ -67,7 +67,6 @@ static struct adreno_device device_3d0 = {
 		.shadermemname = "kgsl_3d0_shader_memory",
 		.ftbl = &adreno_functable,
 	},
-	.gmem_size = SZ_256K,
 	.ft_policy = KGSL_FT_DEFAULT_POLICY,
 	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
 	.long_ib_detect = 1,
@@ -799,13 +798,6 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 			adreno_dev->gpucore->patchid);
 		return -ENODEV;
 	}
-
-	/*
-	 * The gmem size might be dynamic when ocmem is involved so copy it out
-	 * of the gpu device
-	 */
-
-	adreno_dev->gmem_size = adreno_dev->gpucore->gmem_size;
 
 	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
@@ -2284,8 +2276,8 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 		.device_id = device->id + 1,
 		.chip_id = adreno_dev->chipid,
 		.mmu_enabled = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED),
-		.gmem_gpubaseaddr = adreno_dev->gmem_base,
-		.gmem_sizebytes = adreno_dev->gmem_size,
+		.gmem_gpubaseaddr = adreno_dev->gpucore->gmem_base,
+		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
 
 	return copy_prop(value, count, &devinfo, sizeof(devinfo));
@@ -2358,26 +2350,9 @@ static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
 		u32 type, void __user *value, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	u64 vaddr;
-
-	if (ADRENO_GPUREV(adreno_dev) >= 500 && !(adreno_is_a650(adreno_dev)))
-		vaddr = ADRENO_UCHE_GMEM_BASE;
-	else
-		vaddr = 0;
+	u64 vaddr = adreno_dev->gpucore->gmem_base;
 
 	return copy_prop(value, count, &vaddr, sizeof(vaddr));
-}
-
-static int adreno_prop_sp_generic_mem(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_sp_generic_mem sp_mem = {
-		.local = adreno_dev->sp_local_gpuaddr,
-		.pvt = adreno_dev->sp_pvt_gpuaddr,
-	};
-
-	return copy_prop(value, count, &sp_mem, sizeof(sp_mem));
 }
 
 static int adreno_prop_ucode_version(struct kgsl_device *device,
@@ -2447,7 +2422,6 @@ static struct {
 	[KGSL_PROP_MMU_ENABLE] = { .func = adreno_prop_s32 },
 	[KGSL_PROP_INTERRUPT_WAITS] = { .func = adreno_prop_s32 },
 	[KGSL_PROP_UCHE_GMEM_VADDR] = { .func = adreno_prop_uche_gmem_addr },
-	[KGSL_PROP_SP_GENERIC_MEM] = { .func = adreno_prop_sp_generic_mem },
 	[KGSL_PROP_UCODE_VERSION] = { .func = adreno_prop_ucode_version },
 	[KGSL_PROP_GPMU_VERSION] = { .func = adreno_prop_gpmu_version },
 	[KGSL_PROP_HIGHEST_BANK_BIT] = { .func = adreno_prop_u32 },
@@ -3110,6 +3084,12 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		return 0;
 
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
+		/*
+		 * Make sure the previous register write is posted before
+		 * checking the fence status
+		 */
+		mb();
+
 		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
 			&status);
 

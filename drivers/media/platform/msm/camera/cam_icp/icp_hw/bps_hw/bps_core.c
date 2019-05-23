@@ -8,7 +8,6 @@
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
-#include <linux/firmware.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/iopoll.h>
@@ -72,14 +71,27 @@ int cam_bps_init_hw(void *device_priv,
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.num_paths = 1;
+	cpas_vote.axi_vote.axi_path[0].path_data_type =
+		CAM_BPS_DEFAULT_AXI_PATH;
+	cpas_vote.axi_vote.axi_path[0].transac_type =
+		CAM_BPS_DEFAULT_AXI_TRANSAC;
+	cpas_vote.axi_vote.axi_path[0].camnoc_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ab_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].mnoc_ib_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].ddr_ab_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.axi_path[0].ddr_ib_bw =
+		CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 			&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		CAM_ERR(CAM_ICP, "cpas start failed: %d", rc);
+		goto error;
 	}
 	core_info->cpas_start = true;
 
@@ -94,6 +106,7 @@ int cam_bps_init_hw(void *device_priv,
 		core_info->clk_enable = true;
 	}
 
+error:
 	return rc;
 }
 
@@ -157,11 +170,9 @@ static int cam_bps_handle_pc(struct cam_hw_info *bps_dev)
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0x1);
 
-		if ((pwr_status >> BPS_PWR_ON_MASK)) {
-			CAM_ERR(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+		if ((pwr_status >> BPS_PWR_ON_MASK))
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
 				pwr_status, pwr_ctrl);
-			return -EINVAL;
-		}
 	}
 	cam_bps_get_gdsc_control(soc_info);
 	cam_cpas_reg_read(core_info->cpas_handle,

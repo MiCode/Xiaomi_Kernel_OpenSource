@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_ICP_H__
 #define __UAPI_CAM_ICP_H__
 
 #include "cam_defs.h"
+#include "cam_cpas.h"
 
 /* icp, ipe, bps, cdm(ipe/bps) are used in querycap */
 #define CAM_ICP_DEV_TYPE_A5      1
@@ -72,6 +73,26 @@
 #define CAM_ICP_CMD_GENERIC_BLOB_CFG_IO         0x2
 #define CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_MAP     0x3
 #define CAM_ICP_CMD_GENERIC_BLOB_FW_MEM_UNMAP   0x4
+#define CAM_ICP_CMD_GENERIC_BLOB_CLK_V2         0x5
+
+/**
+ * struct cam_icp_clk_bw_request_v2
+ *
+ * @budget_ns: Time required to process frame
+ * @frame_cycles: Frame cycles needed to process the frame
+ * @rt_flag: Flag to indicate real time stream
+ * @reserved: For memory alignment
+ * @num_paths: Number of axi paths in bw request
+ * @axi_path: Per path vote info for IPE/BPS
+ */
+struct cam_icp_clk_bw_request_v2 {
+	uint64_t                          budget_ns;
+	uint32_t                          frame_cycles;
+	uint32_t                          rt_flag;
+	uint32_t                          reserved;
+	uint32_t                          num_paths;
+	struct cam_axi_per_path_bw_vote   axi_path[1];
+};
 
 /**
  * struct cam_icp_clk_bw_request

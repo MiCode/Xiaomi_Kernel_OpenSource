@@ -63,6 +63,22 @@ void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	__iowmb();
 }
 
+uint32_t npu_cc_reg_read(struct npu_device *npu_dev, uint32_t off)
+{
+	uint32_t ret = 0;
+
+	ret = readl_relaxed(npu_dev->cc_io.base + off);
+
+	return ret;
+}
+
+void npu_cc_reg_write(struct npu_device *npu_dev, uint32_t off,
+	uint32_t val)
+{
+	writel_relaxed(val, npu_dev->cc_io.base + off);
+	__iowmb();
+}
+
 uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
 	uint32_t ret = 0;
@@ -354,25 +370,6 @@ void npu_mem_unmap(struct npu_client *client, int buf_hdl,  uint64_t addr)
 	NPU_DBG("unmapped mem addr:0x%llx size:0x%x\n", ion_buf->iova,
 		ion_buf->size);
 	npu_free_npu_ion_buffer(client, buf_hdl);
-}
-
-/* -------------------------------------------------------------------------
- * Functions - Work Queue
- * -------------------------------------------------------------------------
- */
-void npu_destroy_wq(struct workqueue_struct *wq)
-{
-	destroy_workqueue(wq);
-}
-
-struct workqueue_struct *npu_create_wq(struct npu_host_ctx *host_ctx,
-	const char *name, wq_hdlr_fn hdlr, struct work_struct *irq_work)
-{
-	struct workqueue_struct *wq = create_workqueue(name);
-
-	INIT_WORK(irq_work, hdlr);
-
-	return wq;
 }
 
 /* -------------------------------------------------------------------------

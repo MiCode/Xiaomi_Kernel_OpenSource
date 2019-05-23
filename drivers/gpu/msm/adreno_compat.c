@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/uaccess.h>
 #include <linux/ioctl.h>
@@ -34,8 +34,10 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 			devinfo.chip_id = adreno_dev->chipid;
 			devinfo.mmu_enabled =
 				MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED);
-			devinfo.gmem_gpubaseaddr = adreno_dev->gmem_base;
-			devinfo.gmem_sizebytes = adreno_dev->gmem_size;
+			devinfo.gmem_gpubaseaddr =
+					adreno_dev->gpucore->gmem_base;
+			devinfo.gmem_sizebytes =
+					adreno_dev->gpucore->gmem_size;
 
 			if (copy_to_user(value, &devinfo, sizeof(devinfo)) !=
 					0) {

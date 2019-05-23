@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -179,6 +179,7 @@ const struct clk_ops clk_branch_ops = {
 	.disable = clk_branch_disable,
 	.is_enabled = clk_is_enabled_regmap,
 	.set_flags = clk_branch_set_flags,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
@@ -193,8 +194,8 @@ static int clk_branch2_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (!parent)
 		return -EPERM;
 
-	if (!branch->aggr_sibling_rates || !clk_hw_is_prepared(hw)) {
-		branch->rate = rate;
+	if (!branch->aggr_sibling_rates) {
+		branch->rate = parent_rate;
 		return 0;
 	}
 
@@ -241,6 +242,11 @@ static long clk_branch2_round_rate(struct clk_hw *hw, unsigned long rate,
 static unsigned long clk_branch2_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
+	struct clk_branch *branch = to_clk_branch(hw);
+
+	if (!branch->aggr_sibling_rates)
+		return parent_rate;
+
 	return to_clk_branch(hw)->rate;
 }
 
@@ -368,6 +374,7 @@ const struct clk_ops clk_branch2_ops = {
 	.set_flags = clk_branch_set_flags,
 	.list_registers = clk_branch2_list_registers,
 	.debug_init = clk_debug_measure_add,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
@@ -433,6 +440,7 @@ const struct clk_ops clk_branch2_hw_ctl_ops = {
 	.recalc_rate = clk_branch2_hw_ctl_recalc_rate,
 	.determine_rate = clk_branch2_hw_ctl_determine_rate,
 	.set_flags = clk_branch_set_flags,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_hw_ctl_ops);
 
@@ -440,5 +448,6 @@ const struct clk_ops clk_branch_simple_ops = {
 	.enable = clk_enable_regmap,
 	.disable = clk_disable_regmap,
 	.is_enabled = clk_is_enabled_regmap,
+	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_branch_simple_ops);

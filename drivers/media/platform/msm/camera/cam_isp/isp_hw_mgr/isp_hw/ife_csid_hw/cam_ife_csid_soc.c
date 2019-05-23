@@ -115,17 +115,24 @@ int cam_ife_csid_enable_soc_resources(
 	int rc = 0;
 	struct cam_csid_soc_private       *soc_private;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 
 	soc_private = soc_info->soc_private;
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.num_paths = 1;
+	axi_vote.axi_path[0].path_data_type = CAM_AXI_PATH_DATA_ALL;
+	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_WRITE;
 
-	CAM_DBG(CAM_ISP, "csid vote compressed_bw:%lld uncompressed_bw:%lld",
-		axi_vote.compressed_bw, axi_vote.uncompressed_bw);
+	axi_vote.axi_path[0].camnoc_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ab_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.axi_path[0].mnoc_ib_bw = CAM_CPAS_DEFAULT_AXI_BW;
+
+	CAM_DBG(CAM_ISP, "csid camnoc_bw:%lld mnoc_ab_bw:%lld mnoc_ib_bw:%lld ",
+		axi_vote.axi_path[0].camnoc_bw,
+		axi_vote.axi_path[0].mnoc_ab_bw,
+		axi_vote.axi_path[0].mnoc_ib_bw);
 
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {

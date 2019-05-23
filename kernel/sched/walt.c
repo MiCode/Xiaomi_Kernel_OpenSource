@@ -114,22 +114,12 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 unsigned int sysctl_sched_walt_rotate_big_tasks;
 unsigned int walt_rotation_enabled;
 
-/*
- * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
- * associated with them. This is required for atomic update of those variables
- * when being modifed via sysctl interface.
- *
- * IMPORTANT: Initialize both copies to same value!!
- */
-
+__read_mostly unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct = 100;
 __read_mostly unsigned int sched_ravg_hist_size = 5;
-__read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
 
 static __read_mostly unsigned int sched_io_is_busy = 1;
 
 __read_mostly unsigned int sched_window_stats_policy =
-	WINDOW_STATS_MAX_RECENT_AVG;
-__read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
 /* Window size (in ns) */
@@ -2010,11 +2000,10 @@ void init_new_task_load(struct task_struct *p)
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
 
-	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
-	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
-
-	/* Don't have much choice. CPU frequency would be bogus */
-	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
+	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32),
+					  GFP_KERNEL | __GFP_NOFAIL);
+	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32),
+					  GFP_KERNEL | __GFP_NOFAIL);
 
 	if (init_load_pct) {
 		init_load_windows = div64_u64((u64)init_load_pct *
@@ -2096,6 +2085,7 @@ struct sched_cluster *sched_cluster[NR_CPUS];
 int num_clusters;
 
 struct list_head cluster_head;
+cpumask_t asym_cap_sibling_cpus = CPU_MASK_NONE;
 
 static void
 insert_cluster(struct sched_cluster *cluster, struct list_head *head)
@@ -2280,6 +2270,7 @@ void update_cluster_topology(void)
 {
 	struct cpumask cpus = *cpu_possible_mask;
 	const struct cpumask *cluster_cpus;
+	struct sched_cluster *cluster;
 	struct list_head new_head;
 	int i;
 
@@ -2300,6 +2291,15 @@ void update_cluster_topology(void)
 	 */
 	move_list(&cluster_head, &new_head, false);
 	update_all_clusters_stats();
+
+	for_each_sched_cluster(cluster) {
+		if (cpumask_weight(&cluster->cpus) == 1)
+			cpumask_or(&asym_cap_sibling_cpus,
+				   &asym_cap_sibling_cpus, &cluster->cpus);
+	}
+
+	if (cpumask_weight(&asym_cap_sibling_cpus) == 1)
+		cpumask_clear(&asym_cap_sibling_cpus);
 }
 
 struct sched_cluster init_cluster = {
@@ -2540,7 +2540,8 @@ static struct sched_cluster *best_cluster(struct related_thread_group *grp,
 	struct sched_cluster *last_best_cluster = sched_cluster[0];
 
 	for_each_sched_cluster(cluster) {
-		if (cpumask_weight(&cluster->cpus) <= 1)
+
+		if (cluster == sched_cluster[MAX_NR_CLUSTERS - 1])
 			continue;
 
 		last_best_cluster = cluster;
@@ -2560,7 +2561,8 @@ int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 
 	grp = task_related_thread_group(p);
 	if (grp)
-		rc = (grp->preferred_cluster == cluster);
+		rc = ((grp->preferred_cluster == cluster) ||
+		      cpumask_subset(&cluster->cpus, &asym_cap_sibling_cpus));
 
 	rcu_read_unlock();
 	return rc;
@@ -3158,8 +3160,8 @@ void walt_irq_work(struct irq_work *irq_work)
 	struct rq *rq;
 	int cpu;
 	u64 wc;
-	bool is_migration = false;
-	u64 total_grp_load = 0;
+	bool is_migration = false, is_asym_migration = false;
+	u64 total_grp_load = 0, min_cluster_grp_load = 0;
 	int level = 0;
 
 	/* Am I the window rollover work or the migration work? */
@@ -3189,17 +3191,32 @@ void walt_irq_work(struct irq_work *irq_work)
 				account_load_subtractions(rq);
 				aggr_grp_load += rq->grp_time.prev_runnable_sum;
 			}
+			if (is_migration && rq->notif_pending &&
+			    cpumask_test_cpu(cpu, &asym_cap_sibling_cpus)) {
+				is_asym_migration = true;
+				rq->notif_pending = false;
+			}
 		}
 
 		cluster->aggr_grp_load = aggr_grp_load;
 		total_grp_load += aggr_grp_load;
 		cluster->coloc_boost_load = 0;
 
+		if (is_min_capacity_cluster(cluster))
+			min_cluster_grp_load = aggr_grp_load;
 		raw_spin_unlock(&cluster->load_lock);
 	}
 
-	if (total_grp_load)
+	if (total_grp_load) {
+		if (cpumask_weight(&asym_cap_sibling_cpus)) {
+			u64 big_grp_load =
+					  total_grp_load - min_cluster_grp_load;
+
+			for_each_cpu(cpu, &asym_cap_sibling_cpus)
+				cpu_cluster(cpu)->aggr_grp_load = big_grp_load;
+		}
 		walt_update_coloc_boost_load();
+	}
 
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
@@ -3219,6 +3236,10 @@ void walt_irq_work(struct irq_work *irq_work)
 					rq->notif_pending = false;
 				}
 			}
+
+			if (is_asym_migration && cpumask_test_cpu(cpu,
+							&asym_cap_sibling_cpus))
+				flag |= SCHED_CPUFREQ_INTERCLUSTER_MIG;
 
 			if (i == num_cpus)
 				cpufreq_update_util(cpu_rq(cpu), flag);
@@ -3354,12 +3375,8 @@ void walt_sched_init_rq(struct rq *rq)
 	rq->cur_irqload = 0;
 	rq->avg_irqload = 0;
 	rq->irqload_ts = 0;
-	rq->static_cpu_pwr_cost = 0;
 	rq->cc.cycles = 1;
 	rq->cc.time = 1;
-	rq->cstate = 0;
-	rq->wakeup_latency = 0;
-	rq->wakeup_energy = 0;
 
 	/*
 	 * All cpus part of same cluster by default. This avoids the

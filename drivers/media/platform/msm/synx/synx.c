@@ -16,6 +16,7 @@
 
 #include "synx_api.h"
 #include "synx_util.h"
+#include "synx_debugfs.h"
 
 struct synx_device *synx_dev;
 
@@ -1302,7 +1303,7 @@ static int synx_open(struct inode *inode, struct file *filep)
 	return 0;
 }
 
-static int synx_close(struct file *filep, fl_owner_t id)
+static int synx_close(struct inode *inode, struct file *filep)
 {
 	int rc = 0;
 	int i;
@@ -1382,7 +1383,7 @@ static const struct file_operations synx_fops = {
 	.owner = THIS_MODULE,
 	.open  = synx_open,
 	.read  = synx_read,
-	.flush = synx_close,
+	.release = synx_close,
 	.poll  = synx_poll,
 	.unlocked_ioctl = synx_ioctl,
 #ifdef CONFIG_COMPAT
@@ -1477,6 +1478,8 @@ static int __init synx_init(void)
 
 	INIT_LIST_HEAD(&synx_dev->client_list);
 	synx_dev->dma_context = dma_fence_context_alloc(1);
+
+	synx_dev->debugfs_root = init_synx_debug_dir(synx_dev);
 
 	synx_bind_ops_register(synx_dev);
 

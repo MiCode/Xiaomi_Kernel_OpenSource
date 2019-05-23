@@ -178,7 +178,9 @@ struct RGF_ICR {
 
 /* registers - FW addresses */
 #define RGF_USER_USAGE_1		(0x880004)
+#define RGF_USER_USAGE_2		(0x880008)
 #define RGF_USER_USAGE_6		(0x880018)
+	#define BIT_SPI_SENSING_SUPPORT		BIT(28)
 	#define BIT_USER_OOB_MODE		BIT(31)
 	#define BIT_USER_OOB_R2_MODE		BIT(30)
 #define RGF_USER_USAGE_8		(0x880020)
@@ -913,6 +915,11 @@ struct wil_fw_stats_global {
 	struct wmi_link_stats_global stats;
 };
 
+struct wil_brd_info {
+	u32 file_addr;
+	u32 file_max_size;
+};
+
 struct wil6210_priv {
 	struct pci_dev *pdev;
 	u32 bar_size;
@@ -928,8 +935,8 @@ struct wil6210_priv {
 	const char *wil_fw_name;
 	char *board_file;
 	char board_file_reg_suffix[WIL_BRD_SUFFIX_LEN]; /* empty or CN or FCC */
-	u32 brd_file_addr;
-	u32 brd_file_max_size;
+	u32 num_of_brd_entries;
+	struct wil_brd_info *brd_info;
 	DECLARE_BITMAP(hw_capa, hw_capa_last);
 	DECLARE_BITMAP(fw_capabilities, WMI_FW_CAPABILITY_MAX);
 	DECLARE_BITMAP(platform_capa, WIL_PLATFORM_CAPA_MAX);
@@ -1038,6 +1045,9 @@ struct wil6210_priv {
 		short direct;
 	} snr_thresh;
 
+	/* VR profile, VR is disabled on profile 0 */
+	u8 vr_profile;
+
 	/* current reg domain configured in kernel */
 	char regdomain[3]; /* alpha2 */
 
@@ -1071,6 +1081,7 @@ struct wil6210_priv {
 	u32 max_ampdu_size;
 
 	struct work_struct pci_linkdown_recovery_worker;
+	void *ipa_handle;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1231,6 +1242,7 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil);
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r);
 int wil_find_cid(struct wil6210_priv *wil, u8 mid, const u8 *mac);
 void wil_set_ethtoolops(struct net_device *ndev);
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile);
 
 struct fw_map *wil_find_fw_mapping(const char *section);
 void __iomem *wmi_buffer_block(struct wil6210_priv *wil, __le32 ptr, u32 size);
@@ -1295,6 +1307,8 @@ void wil_configure_interrupt_moderation(struct wil6210_priv *wil);
 void wil_disable_irq(struct wil6210_priv *wil);
 void wil_enable_irq(struct wil6210_priv *wil);
 void wil6210_mask_halp(struct wil6210_priv *wil);
+irqreturn_t wil6210_irq_misc(int irq, void *cookie);
+irqreturn_t wil6210_irq_misc_thread(int irq, void *cookie);
 
 /* P2P */
 bool wil_p2p_is_social_scan(struct cfg80211_scan_request *request);
@@ -1418,6 +1432,10 @@ void wil_halp_vote(struct wil6210_priv *wil);
 void wil_halp_unvote(struct wil6210_priv *wil);
 void wil6210_set_halp(struct wil6210_priv *wil);
 void wil6210_clear_halp(struct wil6210_priv *wil);
+
+int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile);
+const char *
+wil_get_vr_profile_name(enum wmi_vr_profile profile);
 
 void wil_ftm_init(struct wil6210_vif *vif);
 void wil_ftm_deinit(struct wil6210_vif *vif);

@@ -429,14 +429,17 @@ int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
 	int32_t src_clk_idx;
 	struct clk *clk = NULL;
 	int32_t apply_level;
+	uint32_t clk_level_override = 0;
 
 	if (!soc_info || (soc_info->src_clk_idx < 0))
 		return -EINVAL;
 
-	if (soc_info->clk_level_override && clk_rate)
-		clk_rate = soc_info->clk_level_override;
-
 	src_clk_idx = soc_info->src_clk_idx;
+	clk_level_override = soc_info->clk_level_override;
+	if (clk_level_override && clk_rate)
+		clk_rate =
+			soc_info->clk_rate[clk_level_override][src_clk_idx];
+
 	clk = soc_info->clk[src_clk_idx];
 
 	if (soc_info->cam_cx_ipeak_enable && clk_rate >= 0) {
@@ -508,6 +511,13 @@ int cam_soc_util_get_option_clk_by_name(struct cam_hw_soc_info *soc_info,
 
 	index = of_property_match_string(of_node, "clock-names-option",
 		clk_name);
+
+	if (index < 0) {
+		CAM_INFO(CAM_UTIL, "No clk data for %s", clk_name);
+		*clk_index = -1;
+		*clk = ERR_PTR(-EINVAL);
+		return -EINVAL;
+	}
 
 	*clk = cam_soc_util_option_clk_get(of_node, index);
 	if (IS_ERR(*clk)) {

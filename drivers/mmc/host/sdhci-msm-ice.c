@@ -148,7 +148,7 @@ int sdhci_msm_ice_pltfm_init(struct sdhci_msm_host *msm_host)
 	 * So map the cmdq mem for accessing ICE HCI registers.
 	 */
 	ice_memres = platform_get_resource_byname(pdev,
-						IORESOURCE_MEM, "cmdq_mem");
+						IORESOURCE_MEM, "cqhci_mem");
 	if (!ice_memres) {
 		dev_err(&pdev->dev, "Failed to get iomem resource for ice\n");
 		err = -EINVAL;
@@ -269,11 +269,11 @@ void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba, u32 slot,
 }
 
 static inline
-void sdhci_msm_ice_hci_update_cmdq_cfg(u64 dun, unsigned int bypass,
+void sdhci_msm_ice_hci_update_cqe_cfg(u64 dun, unsigned int bypass,
 				short key_index, u64 *ice_ctx)
 {
 	/*
-	 * The naming convention got changed between ICE2.0 and ICE3.0
+	 *
 	 * registers fields. Below is the equivalent names for
 	 * ICE3.0 Vs ICE2.0:
 	 *   Data Unit Number(DUN) == Logical Base address(LBA)
@@ -343,16 +343,12 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 		return -EINVAL;
 	req = mrq->req;
 	if (req && req->bio) {
-#ifdef CONFIG_PFK
 		if (bio_dun(req->bio)) {
 			dun = bio_dun(req->bio);
 			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
 		} else {
 			dun = req->__sector;
 		}
-#else
-		dun = req->__sector;
-#endif
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
@@ -374,7 +370,7 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	return 0;
 }
 
-int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
+int sdhci_msm_ice_cqe_cfg(struct sdhci_host *host,
 			struct mmc_request *mrq, u32 slot, u64 *ice_ctx)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -397,16 +393,12 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 		return -EINVAL;
 	req = mrq->req;
 	if (req && req->bio) {
-#ifdef CONFIG_PFK
 		if (bio_dun(req->bio)) {
 			dun = bio_dun(req->bio);
 			cdu_sz = SDHCI_MSM_ICE_TR_DATA_UNIT_4_KB;
 		} else {
 			dun = req->__sector;
 		}
-#else
-		dun = req->__sector;
-#endif
 		err = sdhci_msm_ice_get_cfg(msm_host, req, &bypass, &key_index);
 		if (err)
 			return err;
@@ -418,13 +410,14 @@ int sdhci_msm_ice_cmdq_cfg(struct sdhci_host *host,
 
 	if (msm_host->ice_hci_support) {
 		/* For ICE HCI / ICE3.0 */
-		sdhci_msm_ice_hci_update_cmdq_cfg(dun, bypass, key_index,
+		sdhci_msm_ice_hci_update_cqe_cfg(dun, bypass, key_index,
 						ice_ctx);
 	} else {
 		/* For ICE versions earlier to ICE3.0 */
 		sdhci_msm_ice_update_cfg(host, dun, slot, bypass, key_index,
 					cdu_sz);
 	}
+
 	return 0;
 }
 

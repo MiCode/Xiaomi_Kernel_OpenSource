@@ -28,7 +28,7 @@ bool msm_cvp_syscache_disable = !true;
 	atomic_read(&__binfo->ref_count) >= 2 ? "video driver" : "firmware";\
 })
 
-struct core_inst_pair {
+struct cvp_core_inst_pair {
 	struct msm_cvp_core *core;
 	struct msm_cvp_inst *inst;
 };
@@ -56,8 +56,8 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	struct msm_cvp_core *core = file->private_data;
-	struct hfi_device *hdev;
-	struct hal_fw_info fw_info = { {0} };
+	struct cvp_hfi_device *hdev;
+	struct cvp_hal_fw_info fw_info = { {0} };
 	char *dbuf, *cur, *end;
 	int i = 0, rc = 0;
 	ssize_t len = 0;
@@ -288,7 +288,7 @@ static void put_inst_helper(struct kref *kref)
 static ssize_t inst_info_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
 {
-	struct core_inst_pair *idata = file->private_data;
+	struct cvp_core_inst_pair *idata = file->private_data;
 	struct msm_cvp_core *core;
 	struct msm_cvp_inst *inst, *temp = NULL;
 	char *dbuf, *cur, *end;
@@ -331,11 +331,6 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		inst->session_type == MSM_CVP_ENCODER ? "Encoder" : "Decoder");
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "core: %pK\n", inst->core);
-	cur += write_str(cur, end - cur, "height: %d\n",
-		inst->prop.height[CAPTURE_PORT]);
-	cur += write_str(cur, end - cur, "width: %d\n",
-		inst->prop.width[CAPTURE_PORT]);
-	cur += write_str(cur, end - cur, "fps: %d\n", inst->prop.fps);
 	cur += write_str(cur, end - cur, "state: %d\n", inst->state);
 	cur += write_str(cur, end - cur, "secure: %d\n",
 		!!(inst->flags & CVP_SECURE));
@@ -373,7 +368,7 @@ struct dentry *msm_cvp_debugfs_init_inst(struct msm_cvp_inst *inst,
 {
 	struct dentry *dir = NULL, *info = NULL;
 	char debugfs_name[MAX_DEBUGFS_NAME];
-	struct core_inst_pair *idata = NULL;
+	struct cvp_core_inst_pair *idata = NULL;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "Invalid params, inst: %pK\n", inst);
@@ -381,7 +376,7 @@ struct dentry *msm_cvp_debugfs_init_inst(struct msm_cvp_inst *inst,
 	}
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "inst_%p", inst);
 
-	idata = kzalloc(sizeof(struct core_inst_pair), GFP_KERNEL);
+	idata = kzalloc(sizeof(*idata), GFP_KERNEL);
 	if (!idata) {
 		dprintk(CVP_ERR, "%s: Allocation failed!\n", __func__);
 		goto exit;

@@ -1160,6 +1160,47 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->isolated, __entry->reserved, __entry->high_irq_load)
 );
 
+TRACE_EVENT(sched_compute_energy,
+
+	TP_PROTO(struct task_struct *p, int eval_cpu,
+		unsigned long eval_energy,
+		unsigned long prev_energy,
+		unsigned long best_energy,
+		unsigned long best_energy_cpu),
+
+	TP_ARGS(p, eval_cpu, eval_energy, prev_energy, best_energy,
+		best_energy_cpu),
+
+	TP_STRUCT__entry(
+		__field(int,		pid)
+		__array(char,		comm, TASK_COMM_LEN)
+		__field(unsigned long,	util)
+		__field(int,		prev_cpu)
+		__field(unsigned long,	prev_energy)
+		__field(int,		eval_cpu)
+		__field(unsigned long,	eval_energy)
+		__field(int,		best_energy_cpu)
+		__field(unsigned long,	best_energy)
+	),
+
+	TP_fast_assign(
+		__entry->pid                    = p->pid;
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->util                   = task_util(p);
+		__entry->prev_cpu               = task_cpu(p);
+		__entry->prev_energy	        = prev_energy;
+		__entry->eval_cpu	        = eval_cpu;
+		__entry->eval_energy	        = eval_energy;
+		__entry->best_energy_cpu	= best_energy_cpu;
+		__entry->best_energy	        = best_energy;
+	),
+
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d prev_energy=%llu eval_cpu=%d eval_energy=%llu best_energy_cpu=%d best_energy=%llu",
+		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
+		__entry->prev_energy, __entry->eval_cpu, __entry->eval_energy,
+		__entry->best_energy_cpu, __entry->best_energy)
+)
+
 TRACE_EVENT(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, int best_energy_cpu,
@@ -1470,22 +1511,28 @@ TRACE_EVENT(sched_boost_task,
 /*
  * Tracepoint for system overutilized flag
 */
-TRACE_EVENT(sched_overutilized,
 
-	TP_PROTO(int overutilized),
+struct sched_domain;
+TRACE_EVENT_CONDITION(sched_overutilized,
 
-	TP_ARGS(overutilized),
+	TP_PROTO(struct sched_domain *sd, bool was_overutilized, bool overutilized),
+
+	TP_ARGS(sd, was_overutilized, overutilized),
+
+	TP_CONDITION(overutilized != was_overutilized),
 
 	TP_STRUCT__entry(
-		__field( int,  overutilized    )
+		__field( bool,	overutilized	  )
+		__array( char,  cpulist , 32      )
 	),
 
 	TP_fast_assign(
-		__entry->overutilized   = overutilized;
+		__entry->overutilized	= overutilized;
+		scnprintf(__entry->cpulist, sizeof(__entry->cpulist), "%*pbl", cpumask_pr_args(sched_domain_span(sd)));
 	),
 
-	TP_printk("overutilized=%d",
-		__entry->overutilized)
+	TP_printk("overutilized=%d sd_span=%s",
+		__entry->overutilized ? 1 : 0, __entry->cpulist)
 );
 
 /*
@@ -1493,15 +1540,16 @@ TRACE_EVENT(sched_overutilized,
  */
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max),
+	TP_PROTO(int cpu, int nr, int nr_misfit, int nr_max, int nr_scaled),
 
-	TP_ARGS(cpu, nr, nr_misfit, nr_max),
+	TP_ARGS(cpu, nr, nr_misfit, nr_max, nr_scaled),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
 		__field(int, nr)
 		__field(int, nr_misfit)
 		__field(int, nr_max)
+		__field( int, nr_scaled)
 	),
 
 	TP_fast_assign(
@@ -1509,10 +1557,12 @@ TRACE_EVENT(sched_get_nr_running_avg,
 		__entry->nr = nr;
 		__entry->nr_misfit = nr_misfit;
 		__entry->nr_max = nr_max;
+		__entry->nr_scaled = nr_scaled;
 	),
 
-	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d",
-		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max)
+	TP_printk("cpu=%d nr=%d nr_misfit=%d nr_max=%d nr_scaled=%d",
+		__entry->cpu, __entry->nr, __entry->nr_misfit, __entry->nr_max,
+		__entry->nr_scaled)
 );
 
 /*
@@ -1584,7 +1634,6 @@ TRACE_EVENT(sched_preempt_disable,
 );
 
 #include "walt.h"
-
 #endif /* CONFIG_SMP */
 #endif /* _TRACE_SCHED_H */
 

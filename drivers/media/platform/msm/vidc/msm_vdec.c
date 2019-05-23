@@ -1418,6 +1418,9 @@ int msm_vdec_set_extradata(struct msm_vidc_inst *inst)
 			0x1);
 		msm_comm_set_extradata(inst,
 			HFI_PROPERTY_PARAM_VDEC_CLL_SEI_EXTRADATA, 0x1);
+		msm_comm_set_extradata(inst,
+			HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA,
+			0x1);
 	}
 
 	/* Enable / Disable Advanced Extradata */

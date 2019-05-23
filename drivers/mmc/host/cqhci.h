@@ -30,11 +30,13 @@
 
 /* capabilities */
 #define CQHCI_CAP			0x04
+#define CQHCI_CAP_CS			(1 << 28)
 /* configuration */
 #define CQHCI_CFG			0x08
 #define CQHCI_DCMD			0x00001000
 #define CQHCI_TASK_DESC_SZ		0x00000100
 #define CQHCI_ENABLE			0x00000001
+#define CQHCI_ICE_ENABLE		0x00000002
 
 /* control */
 #define CQHCI_CTL			0x0C
@@ -145,6 +147,9 @@
 #define CQHCI_DAT_ADDR_LO(x)		(((x) & 0xFFFFFFFF) << 32)
 #define CQHCI_DAT_ADDR_HI(x)		(((x) & 0xFFFFFFFF) << 0)
 
+#define CQHCI_TASK_DESC_TASK_PARAMS_SIZE	8
+#define CQHCI_TASK_DESC_ICE_PARAMS_SIZE	8
+
 struct cqhci_host_ops;
 struct mmc_host;
 struct cqhci_slot;
@@ -167,6 +172,7 @@ struct cqhci_host {
 	u32 dcmd_slot;
 	u32 caps;
 #define CQHCI_TASK_DESC_SZ_128		0x1
+#define CQHCI_CAP_CRYPTO_SUPPORT	0x2
 
 	u32 quirks;
 #define CQHCI_QUIRK_SHORT_TXFR_DESC_SZ	0x1
@@ -210,6 +216,10 @@ struct cqhci_host_ops {
 	u32 (*read_l)(struct cqhci_host *host, int reg);
 	void (*enable)(struct mmc_host *mmc);
 	void (*disable)(struct mmc_host *mmc, bool recovery);
+	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
+				u32 slot, u64 *ice_ctx);
+	int (*crypto_cfg_end)(struct mmc_host *mmc, struct mmc_request *mrq);
+	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 };
 
 static inline void cqhci_writel(struct cqhci_host *host, u32 val, int reg)

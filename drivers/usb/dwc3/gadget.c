@@ -868,6 +868,42 @@ static void dwc3_stop_active_transfers(struct dwc3 *dwc)
 	dbg_log_string("DONE");
 }
 
+static void dwc3_stop_active_transfers_to_halt(struct dwc3 *dwc)
+{
+	u32 epnum;
+	struct dwc3_request *req;
+	struct dwc3_ep *dep;
+
+	dbg_log_string("START");
+	for (epnum = 2; epnum < DWC3_ENDPOINTS_NUM; epnum++) {
+		dep = dwc->eps[epnum];
+		if (!dep)
+			continue;
+
+		if (!(dep->flags & DWC3_EP_ENABLED))
+			continue;
+
+		dwc3_stop_active_transfer_noioc(dwc, dep->number, true);
+
+		/* - giveback all requests to gadget driver */
+		while (!list_empty(&dep->started_list)) {
+			req = next_request(&dep->started_list);
+			if (req)
+				dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		}
+
+		while (!list_empty(&dep->pending_list)) {
+			req = next_request(&dep->pending_list);
+			if (req)
+				dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		}
+	}
+
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
+
+	dbg_log_string("DONE");
+}
+
 /**
  * __dwc3_gadget_ep_disable - disables a hw endpoint
  * @dep: the endpoint to disable
@@ -1052,7 +1088,7 @@ static u32 dwc3_calc_trbs_left(struct dwc3_ep *dep)
 	 */
 	if (dep->trb_enqueue == dep->trb_dequeue) {
 		tmp = dwc3_ep_prev_trb(dep, dep->trb_enqueue);
-		if (tmp->ctrl & DWC3_TRB_CTRL_HWO)
+		if (!tmp || tmp->ctrl & DWC3_TRB_CTRL_HWO)
 			return 0;
 
 		return DWC3_TRB_NUM - 1;
@@ -2138,7 +2174,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * call dwc3_stop_active_transfers() API before stopping USB
 		 * device controller.
 		 */
-		dwc3_stop_active_transfers(dwc);
+		dwc3_stop_active_transfers_to_halt(dwc);
 
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
@@ -2152,6 +2188,9 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 		reg &= DWC3_DSTS_DEVCTRLHLT;
 	} while (--timeout && !(!is_on ^ !reg));
+
+	if (!is_on)
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
 
 	if (!timeout) {
 		dev_err(dwc->dev, "failed to %s controller\n",
@@ -2248,14 +2287,8 @@ static void dwc3_gadget_enable_irq(struct dwc3 *dwc)
 			DWC3_DEVTEN_USBRSTEN |
 			DWC3_DEVTEN_DISCONNEVTEN);
 
-	/*
-	 * Enable SUSPENDEVENT(BIT:6) for version 230A and above
-	 * else enable USB Link change event (BIT:3) for older version
-	 */
 	if (dwc->revision < DWC3_REVISION_230A)
 		reg |= DWC3_DEVTEN_ULSTCNGEN;
-	else
-		reg |= DWC3_DEVTEN_EOPFEN;
 
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
 }
@@ -2664,6 +2697,7 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 	u8				epnum;
 	u8				out_count;
 	u8				in_count;
+	u8				idx;
 	struct dwc3_ep			*dep;
 
 	in_count = out_count = total / 2;
@@ -2683,11 +2717,15 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc, u8 total)
 		/* Reserve EPs at the end for GSI */
 		if (!dep->direction && num >
 				out_count - NUM_GSI_OUT_EPS - 1) {
-			snprintf(dep->name, sizeof(dep->name), "gsi-epout");
+			idx = num - (out_count - NUM_GSI_OUT_EPS - 1);
+			snprintf(dep->name, sizeof(dep->name), "gsi-epout%d",
+					idx);
 			dep->endpoint.ep_type = EP_TYPE_GSI;
 		} else if (dep->direction && num >
 				in_count - NUM_GSI_IN_EPS - 1) {
-			snprintf(dep->name, sizeof(dep->name), "gsi-epin");
+			idx = num - (in_count - NUM_GSI_IN_EPS - 1);
+			snprintf(dep->name, sizeof(dep->name), "gsi-epin%d",
+					idx);
 			dep->endpoint.ep_type = EP_TYPE_GSI;
 		}
 	}
@@ -3095,6 +3133,34 @@ void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 			dep->name, dep->number, ret);
 }
 
+void dwc3_stop_active_transfer_noioc(struct dwc3 *dwc, u32 epnum, bool force)
+{
+	struct dwc3_ep *dep;
+	struct dwc3_gadget_ep_cmd_params params;
+	u32 cmd;
+	int ret;
+
+	dep = dwc->eps[epnum];
+
+	if (!dep->resource_index)
+		return;
+
+	if (dep->endpoint.endless)
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
+								dep->number);
+
+	cmd = DWC3_DEPCMD_ENDTRANSFER;
+	cmd |= force ? DWC3_DEPCMD_HIPRI_FORCERM : 0;
+	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
+	memset(&params, 0, sizeof(params));
+	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
+	WARN_ON_ONCE(ret);
+	dep->resource_index = 0;
+
+	dbg_log_string("%s(%d): endxfer ret:%d)",
+			dep->name, dep->number, ret);
+}
+
 static void dwc3_clear_stall_all_ep(struct dwc3 *dwc)
 {
 	u32 epnum;
@@ -3240,6 +3306,13 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 	speed = reg & DWC3_DSTS_CONNECTSPD;
 	dwc->speed = speed;
+
+	/* Enable SUSPENDEVENT(BIT:6) for version 230A and above */
+	if (dwc->revision >= DWC3_REVISION_230A) {
+		reg = dwc3_readl(dwc->regs, DWC3_DEVTEN);
+		reg |= DWC3_DEVTEN_EOPFEN;
+		dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
+	}
 
 	/*
 	 * RAMClkSel is reset to 0 after USB reset, so it must be reprogrammed

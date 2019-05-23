@@ -158,7 +158,7 @@ static struct msm_vidc_codec default_codecs[] = {
 };
 
 static struct msm_vidc_codec_capability kona_capabilities[] = {
-	/* {cap_type, min, max, step_size, default_value, domains, codecs} */
+	/* {cap_type, domains, codecs, min, max, step_size, default_value,} */
 	{CAP_FRAME_WIDTH, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1920},
 	{CAP_FRAME_HEIGHT, DOMAINS_ALL, CODECS_ALL, 128, 8192, 1, 1080},
 	/* (8192 * 4320) / 256 */
@@ -171,7 +171,7 @@ static struct msm_vidc_codec_capability kona_capabilities[] = {
 	{CAP_SCALE_Y, DOMAINS_ALL, CODECS_ALL, 4096, 65536, 1, 4096},
 	{CAP_BFRAME, ENC, H264|HEVC, 0, 1, 1, 0},
 	{CAP_HIER_P_NUM_ENH_LAYERS, ENC, H264|HEVC, 0, 6, 1, 0},
-	{CAP_LTR_COUNT, ENC, H264|HEVC, 0, 6, 1, 0},
+	{CAP_LTR_COUNT, ENC, H264|HEVC, 0, 2, 1, 0},
 	/* ((4096 * 2304) / 256) * 60 fps */
 	{CAP_MBS_PER_SECOND_POWER_SAVE, ENC, CODECS_ALL,
 		0, 2211840, 1, 2211840},
@@ -213,6 +213,11 @@ static struct msm_vidc_codec_capability kona_capabilities[] = {
 	/* (4096 * 2304) / 256 */
 	{CAP_SECURE_MBS_PER_FRAME, DOMAINS_ALL, CODECS_ALL, 1, 36864, 1, 36864},
 	{CAP_SECURE_BITRATE, DOMAINS_ALL, CODECS_ALL, 1, 40000000, 1, 20000000},
+
+	/* Batch Mode Decode */
+	{CAP_BATCH_MAX_MB_PER_FRAME, DEC, CODECS_ALL, 128, 34560, 1, 34560},
+	/* (4096 * 2160) / 256 */
+	{CAP_BATCH_MAX_FPS, DEC, CODECS_ALL, 1, 120, 1, 120},
 };
 
 /*
@@ -262,23 +267,24 @@ static struct msm_vidc_common_data lito_common_data_v0[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 3110400,/* 4096x2160@90 */
+		.value = 3110400,/* ((4096x2160)/256)@90fps */
+				/* 4k@60 decode + 4k@30 encode */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,qcom,max-hq-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
+		.key = "qcom,max-b-frame-mbs-per-frame",
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -333,23 +339,23 @@ static struct msm_vidc_common_data lito_common_data_v1[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 1281600,/* 4k@30 Decode + 1080p@30 Encode */
+		.value = 1281600,/* 4K@30 decode + 1080@30 encode */
 	},
 	{
 		.key = "qcom,max-hq-mbs-per-frame",
-		.value = 8160,
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-hq-frames-per-sec",
-		.value = 60,
+		.key = "qcom,qcom,max-hq-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
-		.key = "qcom,max-b-frame-size",
-		.value = 8160,
+		.key = "qcom,max-b-frame-mbs-per-frame",
+		.value = 8160,/* ((1920x1088)/256) */
 	},
 	{
-		.key = "qcom,max-b-frames-per-sec",
-		.value = 60,
+		.key = "qcom,max-b-frame-mbs-per-sec",
+		.value = 244800,/* ((1920x1088)/256) MBs@30fps */
 	},
 	{
 		.key = "qcom,power-collapse-delay",
@@ -385,7 +391,6 @@ static struct msm_vidc_common_data lito_common_data_v1[] = {
 	},
 };
 
-/* Update with kona */
 static struct msm_vidc_common_data kona_common_data[] = {
 	{
 		.key = "qcom,never-unload-fw",
@@ -405,11 +410,10 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,max-hw-load",
-		.value = 7833600,       /*
-					 * 1920x1088/256 MB's@960fps.
-					 * Greater than any other usecases (ex:
-					 *  3840x2160@240fps, 4096x2160@120fps,
-					 *  7680x4320@60fps, 8192x4320@48fps)
+		.value = 7776000,       /*
+					 * 7680x4320@60fps, 3840x2160@240fps
+					 * Greater than 4096x2160@120fps,
+					 *  8192x4320@48fps
 					 */
 	},
 	{
@@ -446,7 +450,7 @@ static struct msm_vidc_common_data kona_common_data[] = {
 	},
 	{
 		.key = "qcom,decode-batching",
-		.value = 0,
+		.value = 1,
 	},
 	{
 		.key = "qcom,dcvs",

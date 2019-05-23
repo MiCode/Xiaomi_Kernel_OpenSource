@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <soc/qcom/qtee_shmbridge.h>
 #include <soc/qcom/scm.h>
 #include <linux/debugfs.h>
 #include <linux/ratelimit.h>
+#include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
+#include <asm/cacheflush.h>
 
 #define REMOTEQDSS_FLAG_QUIET (BIT(0))
 
@@ -154,14 +157,20 @@ static void free_remoteqdss_data(struct remoteqdss_data *data)
 }
 
 static int remoteqdss_do_scm_call(struct scm_desc *desc,
-		dma_addr_t addr, size_t size, const void *caller)
+		dma_addr_t addr, size_t size, struct qtee_shm *shm,
+		const void *caller)
 {
 	int ret;
+	phys_addr_t paddr = qtee_shmbridge_is_enabled() ?
+			shm->paddr : dma_to_phys(&dma_dev, addr);
 
 	memset(desc, 0, sizeof(*desc));
-	desc->args[0] = dma_to_phys(&dma_dev, addr);
+	desc->args[0] = paddr;
 	desc->args[1] = size;
 	desc->arginfo = SCM_ARGS(2, SCM_RO, SCM_VAL);
+
+	if (qtee_shmbridge_is_enabled())
+		dmac_flush_range(shm->vaddr, shm->vaddr + shm->size);
 
 	ret = scm_call2(
 		SCM_SIP_FNID(SCM_SVC_QDSS, SCM_CMD_ID),
@@ -174,6 +183,31 @@ static int remoteqdss_do_scm_call(struct scm_desc *desc,
 	return ret;
 }
 
+static void *alloc_from_dma_or_shmbridge(size_t size, dma_addr_t *dma_handle,
+		struct qtee_shm *shm)
+{
+	int ret;
+	void *p;
+
+	if (!qtee_shmbridge_is_enabled()) {
+		p = dma_alloc_coherent(&dma_dev, size, dma_handle, GFP_KERNEL);
+	} else {
+		ret = qtee_shmbridge_allocate_shm(size, shm);
+		p = ret ? NULL : shm->vaddr;
+	}
+	return p;
+}
+
+static void free_dma_or_shmbridge(size_t size, void *addr,
+		dma_addr_t dma_handle, struct qtee_shm *shm)
+{
+	if (!qtee_shmbridge_is_enabled()) {
+		dma_free_coherent(&dma_dev, size, addr, dma_handle);
+	} else {
+		qtee_shmbridge_free_shm(shm);
+	}
+}
+
 static int remoteqdss_scm_query_swtrace(void *priv, u64 *val)
 {
 	struct remoteqdss_data *data = priv;
@@ -181,18 +215,19 @@ static int remoteqdss_scm_query_swtrace(void *priv, u64 *val)
 	struct scm_desc desc;
 	struct remoteqdss_header_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->subsys_id = data->id;
 	fmt->cmd_id = CMD_ID_QUERY_SWTRACE_STATE;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 	*val = desc.ret[1];
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -203,18 +238,19 @@ static int remoteqdss_scm_filter_swtrace(void *priv, u64 val)
 	struct scm_desc desc;
 	struct remoteqdss_filter_swtrace_state_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->h.subsys_id = data->id;
 	fmt->h.cmd_id = CMD_ID_FILTER_SWTRACE_STATE;
 	fmt->state = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -230,18 +266,19 @@ static int remoteqdss_scm_query_tag(void *priv, u64 *val)
 	struct scm_desc desc;
 	struct remoteqdss_header_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->subsys_id = data->id;
 	fmt->cmd_id = CMD_ID_QUERY_SWEVENT_TAG;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 	*val = desc.ret[1];
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -257,19 +294,20 @@ static int remoteqdss_scm_query_swevent(void *priv, u64 *val)
 	struct scm_desc desc;
 	struct remoteqdss_query_swevent_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->h.subsys_id = data->id;
 	fmt->h.cmd_id = CMD_ID_QUERY_SWEVENT;
 	fmt->event_group = data->sw_event_group;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 	*val = desc.ret[1];
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -280,8 +318,9 @@ static int remoteqdss_scm_filter_swevent(void *priv, u64 val)
 	struct scm_desc desc;
 	struct remoteqdss_filter_swevent_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->h.subsys_id = data->id;
@@ -289,10 +328,10 @@ static int remoteqdss_scm_filter_swevent(void *priv, u64 val)
 	fmt->event_group = data->sw_event_group;
 	fmt->event_mask = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -308,19 +347,20 @@ static int remoteqdss_scm_query_swentity(void *priv, u64 *val)
 	struct scm_desc desc;
 	struct remoteqdss_query_swentity_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->h.subsys_id = data->id;
 	fmt->h.cmd_id = CMD_ID_QUERY_SWENTITY;
 	fmt->entity_group = data->sw_entity_group;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 	*val = desc.ret[1];
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 
@@ -331,8 +371,9 @@ static int remoteqdss_scm_filter_swentity(void *priv, u64 val)
 	struct scm_desc desc;
 	struct remoteqdss_filter_swentity_fmt *fmt;
 	dma_addr_t addr;
+	struct qtee_shm shm;
 
-	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	fmt = alloc_from_dma_or_shmbridge(sizeof(*fmt), &addr, &shm);
 	if (!fmt)
 		return -ENOMEM;
 	fmt->h.subsys_id = data->id;
@@ -340,10 +381,10 @@ static int remoteqdss_scm_filter_swentity(void *priv, u64 val)
 	fmt->entity_group = data->sw_entity_group;
 	fmt->entity_mask = (uint32_t)val;
 
-	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt),
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt), &shm,
 					__builtin_return_address(0));
 
-	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	free_dma_or_shmbridge(sizeof(*fmt), fmt, addr, &shm);
 	return ret;
 }
 

@@ -92,6 +92,8 @@ struct msm11ad_ctx {
 	struct pci_saved_state *golden_state;
 	struct msm_pcie_register_event pci_event;
 
+	int smmu_s1_bypass;
+
 	/* bus frequency scaling */
 	struct msm_bus_scale_pdata *bus_scale;
 	u32 msm_bus_handle;
@@ -1540,6 +1542,8 @@ static int ops_get_capa(void *handle)
 			BIT(WIL_PLATFORM_CAPA_RADIO_ON_IN_SUSPEND) : 0) |
 		BIT(WIL_PLATFORM_CAPA_T_PWR_ON_0) |
 		BIT(WIL_PLATFORM_CAPA_EXT_CLK);
+	if (!ctx->smmu_s1_bypass)
+		capa |= BIT(WIL_PLATFORM_CAPA_SMMU);
 
 	return capa;
 }
@@ -1589,6 +1593,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	} else {
 		dev_warn(ctx->dev, "Unable to get iommu domain\n");
 	}
+	ctx->smmu_s1_bypass = bypass;
 
 	/* subsystem restart */
 	if (rops) {

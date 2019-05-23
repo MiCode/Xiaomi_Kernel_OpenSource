@@ -1085,5 +1085,13 @@ config REGULATOR_STUB
 	  Consumers can use stub regulator device with proper constraint
 	  checking while the real regulator driver is being developed.
 
+config REGULATOR_PM8008
+	bool "Qualcomm Technologies Inc. PM8008 regulator driver"
+	depends on MFD_I2C_PMIC
+	help
+	  Say Y here to support the PM8008 PMIC chip.
+	  This driver controls PM8008 PMIC chip and the voltage
+	  regulators found in Qualcomm Technologies Inc. PM8008
+	  PMIC.
 endif
 

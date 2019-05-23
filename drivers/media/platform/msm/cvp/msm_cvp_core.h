@@ -47,7 +47,7 @@ enum hal_buffer {
 	HAL_BUFFER_INTERNAL_RECON = 0x1000,
 };
 
-struct dma_mapping_info {
+struct cvp_dma_mapping_info {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
 	struct sg_table *table;
@@ -56,7 +56,7 @@ struct dma_mapping_info {
 	void *cb_info;
 };
 
-struct msm_smem {
+struct msm_cvp_smem {
 	u32 refcount;
 	int fd;
 	void *dma_buf;
@@ -67,7 +67,7 @@ struct msm_smem {
 	unsigned int size;
 	unsigned long flags;
 	enum hal_buffer buffer_type;
-	struct dma_mapping_info mapping_info;
+	struct cvp_dma_mapping_info mapping_info;
 };
 
 enum smem_cache_ops {

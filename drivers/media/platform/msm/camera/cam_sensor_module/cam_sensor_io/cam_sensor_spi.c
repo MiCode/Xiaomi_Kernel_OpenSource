@@ -3,6 +3,7 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/dma-contiguous.h>
 #include "cam_sensor_spi.h"
 #include "cam_debug_util.h"
 

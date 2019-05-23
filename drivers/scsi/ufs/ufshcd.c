@@ -39,7 +39,6 @@
 
 #include <linux/async.h>
 #include <scsi/ufs/ioctl.h>
-#include <linux/devfreq.h>
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/bitfield.h>
@@ -408,6 +407,7 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_NO_FASTAUTO),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE),
+	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
@@ -476,7 +476,6 @@ static int ufshcd_config_vreg(struct device *dev,
 				struct ufs_vreg *vreg, bool on);
 static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
 static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
-static bool ufshcd_is_g4_supported(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -489,12 +488,6 @@ static void *gov_data = &ufshcd_ondemand_data;
 #else
 static void *gov_data;
 #endif
-
-static struct devfreq_dev_profile ufs_devfreq_profile = {
-	.polling_ms	= 60,
-	.target		= ufshcd_devfreq_target,
-	.get_dev_status	= ufshcd_devfreq_get_dev_status,
-};
 
 static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
 {
@@ -1957,6 +1950,7 @@ static int ufshcd_devfreq_init(struct ufs_hba *hba)
 	struct list_head *clk_list = &hba->clk_list_head;
 	struct ufs_clk_info *clki;
 	struct devfreq *devfreq;
+	struct ufs_clk_scaling *scaling = &hba->clk_scaling;
 	int ret;
 
 	/* Skip devfreq if we don't have any clocks in the list */
@@ -1967,8 +1961,12 @@ static int ufshcd_devfreq_init(struct ufs_hba *hba)
 	dev_pm_opp_add(hba->dev, clki->min_freq, 0);
 	dev_pm_opp_add(hba->dev, clki->max_freq, 0);
 
+	scaling->profile.polling_ms = 60;
+	scaling->profile.target = ufshcd_devfreq_target;
+	scaling->profile.get_dev_status = ufshcd_devfreq_get_dev_status;
+
 	devfreq = devfreq_add_device(hba->dev,
-			&ufs_devfreq_profile,
+			&scaling->profile,
 			DEVFREQ_GOV_SIMPLE_ONDEMAND,
 			gov_data);
 	if (IS_ERR(devfreq)) {
@@ -2167,6 +2165,8 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 start:
 	switch (hba->clk_gating.state) {
 	case CLKS_ON:
+		if (hba->extcon && ufshcd_is_card_offline(hba))
+			break;
 		/*
 		 * Wait for the ungate work to complete if in progress.
 		 * Though the clocks may be in ON state, the link could
@@ -5169,7 +5169,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	ufshcd_dme_cmd_log(hba, "dme_cmpl_2", hba->active_uic_cmd->command);
 
 out:
-	if (ret) {
+	if (ret && !(hba->extcon && ufshcd_is_card_offline(hba))) {
 		ufsdbg_set_err_state(hba);
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
@@ -5363,7 +5363,7 @@ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 			__func__, ret);
 		ret = ufshcd_link_recovery(hba);
 		/* Unable to recover the link, so no point proceeding */
-		if (ret)
+		if (ret && !(hba->extcon && ufshcd_is_card_offline(hba)))
 			BUG_ON(1);
 	} else {
 		ufshcd_vops_hibern8_notify(hba, UIC_CMD_DME_HIBER_EXIT,
@@ -8190,7 +8190,7 @@ static int ufshcd_set_low_vcc_level(struct ufs_hba *hba,
 	struct ufs_vreg *vreg = hba->vreg_info.vcc;
 
 	/* Check if device supports the low voltage VCC feature */
-	if (dev_desc->wspecversion < 0x300 && !ufshcd_is_g4_supported(hba))
+	if (dev_desc->wspecversion < 0x300)
 		return 0;
 
 	/*
@@ -8726,34 +8726,6 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 }
 
 /**
- * ufshcd_is_g4_supported - check if device supports HS-G4
- * @hba: per-adapter instance
- *
- * Returns True if device supports HS-G4, False otherwise.
- */
-static bool ufshcd_is_g4_supported(struct ufs_hba *hba)
-{
-	int ret;
-	u32 tx_hsgear = 0;
-
-	/* check device capability */
-	ret = ufshcd_dme_peer_get(hba,
-			UIC_ARG_MIB_SEL(TX_HSGEAR_CAPABILITY,
-			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
-			&tx_hsgear);
-	if (ret) {
-		dev_err(hba->dev, "%s: Failed getting peer TX_HSGEAR_CAPABILITY. err = %d\n",
-			__func__, ret);
-		return false;
-	}
-
-	if (tx_hsgear == UFS_HS_G4)
-		return true;
-	else
-		return false;
-}
-
-/**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
  *
@@ -8811,10 +8783,13 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_tune_unipro_params(hba);
 
 	ufshcd_apply_pm_quirks(hba);
-	ret = ufshcd_set_vccq_rail_unused(hba,
-		(hba->dev_info.quirks & UFS_DEVICE_NO_VCCQ) ? true : false);
-	if (ret)
-		goto out;
+	if (card.wspecversion < 0x300) {
+		ret = ufshcd_set_vccq_rail_unused(hba,
+			(hba->dev_info.quirks & UFS_DEVICE_NO_VCCQ) ?
+			true : false);
+		if (ret)
+			goto out;
+	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
@@ -10354,12 +10329,11 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufshcd_resume_clkscaling(hba);
 
 skip_dev_ops:
-	/* Schedule clock gating in case of no access to UFS device yet */
-	ufshcd_release_all(hba);
-
 	/* Enable Auto-Hibernate if configured */
 	ufshcd_auto_hibern8_enable(hba);
 
+	/* Schedule clock gating in case of no access to UFS device yet */
+	ufshcd_release_all(hba);
 	goto out;
 
 set_old_link_state:
@@ -10566,10 +10540,8 @@ static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 	}
 
 	/* Unregister so that devfreq_monitor can't race with shutdown */
-	if (hba->devfreq) {
-		devfreq_remove_device(hba->devfreq);
-		hba->devfreq = NULL;
-	}
+	if (hba->devfreq)
+		ufshcd_devfreq_remove(hba);
 }
 
 static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
