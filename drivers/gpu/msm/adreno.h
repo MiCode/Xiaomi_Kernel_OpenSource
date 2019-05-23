@@ -1167,26 +1167,8 @@ static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 }
 
 ADRENO_TARGET(a304, ADRENO_REV_A304)
-ADRENO_TARGET(a305, ADRENO_REV_A305)
-ADRENO_TARGET(a305b, ADRENO_REV_A305B)
-ADRENO_TARGET(a305c, ADRENO_REV_A305C)
 ADRENO_TARGET(a306, ADRENO_REV_A306)
 ADRENO_TARGET(a306a, ADRENO_REV_A306A)
-ADRENO_TARGET(a310, ADRENO_REV_A310)
-ADRENO_TARGET(a320, ADRENO_REV_A320)
-ADRENO_TARGET(a330, ADRENO_REV_A330)
-
-static inline int adreno_is_a330v2(struct adreno_device *adreno_dev)
-{
-	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A330) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) > 0));
-}
-
-static inline int adreno_is_a330v21(struct adreno_device *adreno_dev)
-{
-	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A330) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) > 0xF));
-}
 
 static inline int adreno_is_a5xx(struct adreno_device *adreno_dev)
 {

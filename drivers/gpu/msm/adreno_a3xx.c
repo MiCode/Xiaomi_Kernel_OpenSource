@@ -101,18 +101,6 @@ const unsigned int a3xx_cp_addr_regs[ADRENO_CP_ADDR_MAX] = {
 				A3XX_SP_FS_OBJ_START_REG),
 };
 
-static unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
-							*adreno_dev)
-{
-	if (adreno_is_a320(adreno_dev))
-		return A320_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a330v2(adreno_dev))
-		return A3XX_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a330(adreno_dev))
-		return A330_RBBM_CLOCK_CTL_DEFAULT;
-	return A3XX_RBBM_CLOCK_CTL_DEFAULT;
-}
-
 static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
 	0x00000000, 0x302CC300, 0x00000000, 0x302CC304,
 	0x00000000, 0x302CC308, 0x00000000, 0x302CC30C,
@@ -624,14 +612,9 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 
 static void a3xx_platform_setup(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
-	if (adreno_is_a306(adreno_dev) || adreno_is_a306a(adreno_dev)
-			|| adreno_is_a304(adreno_dev)) {
-		gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-		gpudev->vbif_xin_halt_ctrl0_mask =
-				A30X_VBIF_XIN_HALT_CTRL0_MASK;
-	}
+	gpudev->vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK;
 
 	/* Check efuse bits for various capabilties */
 	a3xx_check_features(adreno_dev);
@@ -721,19 +704,7 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
  */
 static void a3xx_init(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
 	_a3xx_pwron_fixup(adreno_dev);
-
-	/* Adjust snapshot section sizes according to core */
-	if ((adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))) {
-		gpudev->snapshot_data->sect_sizes->cp_pfp =
-					A320_SNAPSHOT_CP_STATE_SECTION_SIZE;
-		gpudev->snapshot_data->sect_sizes->roq =
-					A320_SNAPSHOT_ROQ_SECTION_SIZE;
-		gpudev->snapshot_data->sect_sizes->cp_merciu =
-					A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE;
-	}
 }
 
 /*
@@ -866,48 +837,6 @@ static const struct adreno_vbif_data a304_vbif[] = {
 	{0, 0},
 };
 
-static const struct adreno_vbif_data a305_vbif[] = {
-	/* Set up 16 deep read/write request queues */
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x10101010 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF1, 0x10101010 },
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x0000FF },
-	/* Set up round robin arbitration between both AXI ports */
-	{ A3XX_VBIF_ARB_CTL, 0x00000030 },
-	/* Set up AOOO */
-	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000003C },
-	{ A3XX_VBIF_OUT_AXI_AOOO, 0x003C003C },
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a305b_vbif[] = {
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00181818 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00181818 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000018 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00000018 },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x00000303 },
-	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a305c_vbif[] = {
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00101010 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00101010 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000010 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00000010 },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x00000101 },
-	{ A3XX_VBIF_ARB_CTL, 0x00000010 },
-	/* Set up AOOO */
-	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x00000007 },
-	{ A3XX_VBIF_OUT_AXI_AOOO, 0x00070007 },
-	{0, 0},
-};
-
 static const struct adreno_vbif_data a306_vbif[] = {
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
 	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x0000000A },
@@ -922,111 +851,10 @@ static const struct adreno_vbif_data a306a_vbif[] = {
 	{0, 0},
 };
 
-static const struct adreno_vbif_data a310_vbif[] = {
-	{ A3XX_VBIF_ABIT_SORT, 0x0001000F },
-	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000001 },
-	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
-	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x3 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18180C0C },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x1818000C },
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a320_vbif[] = {
-	/* Set up 16 deep read/write request queues */
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x10101010 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x10101010 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF1, 0x10101010 },
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x0000FF },
-	/* Set up round robin arbitration between both AXI ports */
-	{ A3XX_VBIF_ARB_CTL, 0x00000030 },
-	/* Set up AOOO */
-	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000003C },
-	{ A3XX_VBIF_OUT_AXI_AOOO, 0x003C003C },
-	/* Enable 1K sort */
-	{ A3XX_VBIF_ABIT_SORT, 0x000000FF },
-	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a330_vbif[] = {
-	/* Set up 16 deep read/write request queues */
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x00001818 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00001818 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00001818 },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x18181818 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF1, 0x00001818 },
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00003F },
-	/* Set up round robin arbitration between both AXI ports */
-	{ A3XX_VBIF_ARB_CTL, 0x00000030 },
-	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
-	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0001 },
-	/* Set up AOOO */
-	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000003F },
-	{ A3XX_VBIF_OUT_AXI_AOOO, 0x003F003F },
-	/* Enable 1K sort */
-	{ A3XX_VBIF_ABIT_SORT, 0x0001003F },
-	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
-	/* Disable VBIF clock gating. This is to enable AXI running
-	 * higher frequency than GPU.
-	 */
-	{ A3XX_VBIF_CLKON, 1 },
-	{0, 0},
-};
-
-/*
- * Most of the VBIF registers on 8974v2 have the correct values at power on, so
- * we won't modify those if we don't need to
- */
-static const struct adreno_vbif_data a330v2_vbif[] = {
-	/* Enable 1k sort */
-	{ A3XX_VBIF_ABIT_SORT, 0x0001003F },
-	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00003F },
-	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
-	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
-	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
-	{0, 0},
-};
-
-/*
- * Most of the VBIF registers on a330v2.1 have the correct values at power on,
- * so we won't modify those if we don't need to
- */
-static const struct adreno_vbif_data a330v21_vbif[] = {
-	/* Enable WR-REQ */
-	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x1 },
-	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
-	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18180c0c },
-	{0, 0},
-};
-
 static const struct adreno_vbif_platform a3xx_vbif_platforms[] = {
 	{ adreno_is_a304, a304_vbif },
-	{ adreno_is_a305, a305_vbif },
-	{ adreno_is_a305c, a305c_vbif },
 	{ adreno_is_a306, a306_vbif },
 	{ adreno_is_a306a, a306a_vbif },
-	{ adreno_is_a310, a310_vbif },
-	{ adreno_is_a320, a320_vbif },
-	/* A330v2.1 needs to be ahead of A330v2 so the right device matches */
-	{ adreno_is_a330v21, a330v21_vbif},
-	/* A330v2 needs to be ahead of A330 so the right device matches */
-	{ adreno_is_a330v2, a330v2_vbif },
-	{ adreno_is_a330, a330_vbif },
-	{ adreno_is_a305b, a305b_vbif },
 };
 
 /*
@@ -1260,13 +1088,7 @@ static void a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 {
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 
-	/* SP[3] counter is broken on a330 so disable it if a330 device */
-	if (adreno_is_a330(adreno_dev))
-		a3xx_perfcounters_sp[3].countable = KGSL_PERFCOUNTER_BROKEN;
-
-	if (counters &&
-		(adreno_is_a306(adreno_dev) || adreno_is_a304(adreno_dev) ||
-		adreno_is_a306a(adreno_dev))) {
+	if (counters) {
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs =
 			a3xx_perfcounters_vbif2;
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
@@ -1335,7 +1157,6 @@ static void a3xx_protect_init(struct adreno_device *adreno_dev)
 static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	adreno_vbif_start(adreno_dev, a3xx_vbif_platforms,
 			ARRAY_SIZE(a3xx_vbif_platforms));
@@ -1364,14 +1185,8 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	 * Turn on hang detection - this spews a lot of useful information
 	 * into the RBBM registers on a hang
 	 */
-	if (adreno_is_a330v2(adreno_dev)) {
-		set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
-		gpudev->irq->mask |= (1 << A3XX_INT_MISC_HANG_DETECT);
-		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
-				(1 << 31) | 0xFFFF);
-	} else
-		kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
-				(1 << 16) | 0xFFF);
+	kgsl_regwrite(device, A3XX_RBBM_INTERFACE_HANG_INT_CTL,
+		(1 << 16) | 0xFFF);
 
 	/* Enable 64-byte cacheline size. HW Default is 32-byte (0x000000E0). */
 	kgsl_regwrite(device, A3XX_UCHE_CACHE_MODE_CONTROL_REG, 0x00000001);
@@ -1380,18 +1195,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_UCHE_CACHE_WAYS_VFD, 0x07);
 
 	/* Enable Clock gating */
-	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL,
-		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
-
-	if (adreno_is_a330v2(adreno_dev))
-		kgsl_regwrite(device, A3XX_RBBM_GPR0_CTL,
-			A330v2_RBBM_GPR0_CTL_DEFAULT);
-	else if (adreno_is_a330(adreno_dev))
-		kgsl_regwrite(device, A3XX_RBBM_GPR0_CTL,
-			A330_RBBM_GPR0_CTL_DEFAULT);
-	else if (adreno_is_a310(adreno_dev))
-		kgsl_regwrite(device, A3XX_RBBM_GPR0_CTL,
-			A310_RBBM_GPR0_CTL_DEFAULT);
+	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL, A3XX_RBBM_CLOCK_CTL_DEFAULT);
 
 	/* Turn on protection */
 	a3xx_protect_init(adreno_dev);
@@ -1402,12 +1206,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_CP_DEBUG, A3XX_CP_DEBUG_DEFAULT);
 
 	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
-	if (adreno_is_a305b(adreno_dev) ||
-			adreno_is_a310(adreno_dev) ||
-			adreno_is_a330(adreno_dev))
-		kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, 0x003E2008);
-	else
-		kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, 0x000E0602);
+	kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, 0x000E0602);
 
 }
 
