@@ -989,6 +989,12 @@ void ipa_save_registers(void)
 			ipa_reg_save.ipa.ipa_gsi_ptr[i] =
 				in_dword(IPA_GSI_ADDR + (i * sizeof(u32)));
 		}
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_iu_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_sram_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_mbox_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_hram_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_seq_ptr);
+		IPALOG_VnP_ADDRS(ipa_reg_save.ipa.ipa_gsi_ptr);
 	}
 
 	ipa_reg_save_anomaly_check();
@@ -1483,6 +1489,7 @@ int ipa_reg_save_init(u32 value)
 		 i++)
 		*(ipa_regs_to_save_array[num_regs + i].dst_addr) = 0x0;
 
+	ipa_reg_save.ipa.ipa_gsi_ptr  = NULL;
 	ipa_reg_save.ipa.ipa_seq_ptr  = NULL;
 	ipa_reg_save.ipa.ipa_hram_ptr = NULL;
 	ipa_reg_save.ipa.ipa_mbox_ptr = NULL;
