@@ -76,6 +76,8 @@ static struct cam_vfe_camif_reg_data vfe_175_130_camif_reg_data = {
 	.eof_irq_mask                    = 0x00000002,
 	.error_irq_mask0                 = 0x0003FC00,
 	.error_irq_mask1                 = 0xEFFF7E80,
+	.subscribe_irq_mask0             = 0x00000017,
+	.subscribe_irq_mask1             = 0x00000000,
 	.enable_diagnostic_hw            = 0x1,
 };
 
@@ -400,6 +402,8 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_130_bus_hw_info = {
 		.addr_sync_cfg                = 0x0000207C,
 		.addr_sync_frame_hdr          = 0x00002080,
 		.addr_sync_no_sync            = 0x00002084,
+		.debug_status_cfg             = 0x0000226C,
+		.debug_status_0               = 0x00002270,
 	},
 	.num_client = 24,
 	.bus_client_reg = {
