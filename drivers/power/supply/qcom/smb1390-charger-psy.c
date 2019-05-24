@@ -19,6 +19,8 @@
 #include <linux/regmap.h>
 #include <linux/iio/consumer.h>
 
+#define MISC_CSIR_LSB_REG		0x9F1
+#define MISC_CSIR_MSB_REG		0x9F2
 #define CORE_STATUS1_REG		0x1006
 #define WIN_OV_BIT			BIT(0)
 #define WIN_UV_BIT			BIT(1)
@@ -93,6 +95,7 @@
 #define SRC_VOTER		"SRC_VOTER"
 #define SWITCHER_TOGGLE_VOTER	"SWITCHER_TOGGLE_VOTER"
 #define SOC_LEVEL_VOTER		"SOC_LEVEL_VOTER"
+#define HW_DISABLE_VOTER	"HW_DISABLE_VOTER"
 
 #define CP_MASTER		0
 #define CP_SLAVE		1
@@ -177,6 +180,7 @@ struct smb1390 {
 	int			irqs[NUM_IRQS];
 	bool			status_change_running;
 	bool			taper_work_running;
+	bool			smb_init_done;
 	struct smb1390_iio	iio;
 	int			irq_status;
 	int			taper_entry_fv;
@@ -191,6 +195,47 @@ struct smb1390 {
 	u32			pl_output_mode;
 	u32			cp_role;
 	enum isns_mode		current_capability;
+};
+
+struct smb_cfg {
+	u16	address;
+	u8	mask;
+	u8	val;
+};
+
+/* SMB1390 rev2/3 for dual charge */
+static const struct smb_cfg smb1390_dual[] = {
+	{0x1031, 0xff, 0x7A},
+	{0x1032, 0xff, 0x07},
+	{0x1035, 0xff, 0x63},
+	{0x1036, 0xff, 0x80},
+	{0x103A, 0xff, 0x44},
+};
+
+/* SMB1390 rev3, CSIR2500, for triple charge */
+static const struct smb_cfg smb1390_csir2500_triple[] = {
+	{0x1030, 0x80, 0x80},
+	{0x1031, 0xff, 0x72},
+	{0x1032, 0xff, 0x03},
+	{0x1033, 0x04, 0x04},
+	{0x1034, 0x80, 0x00},
+	{0x1035, 0xff, 0xE3},
+	{0x1036, 0xff, 0xA0},
+	{0x1037, 0xff, 0x80},
+	{0x1039, 0xff, 0x30},
+	{0x103A, 0xff, 0x40},
+	{0x103B, 0xff, 0x20},
+	{0x103E, 0xff, 0x00},
+};
+
+/* SMB1390 rev3, CSIR 2515 or 2519 for triple charge */
+static const struct smb_cfg smb1390_triple[] = {
+	{0x1031, 0xff, 0x72},
+	{0x1032, 0xff, 0x03},
+	{0x1035, 0xff, 0xE3},
+	{0x1036, 0xff, 0xA0},
+	{0x103A, 0xff, 0x40},
+	{0x1037, 0x04, 0x00},
 };
 
 struct smb_irq {
@@ -667,6 +712,68 @@ out:
 	return true;
 }
 
+static int smb1390_triple_init_hw(struct smb1390 *chip)
+{
+	int i, rc = 0;
+	int csir_lsb = 0, csir_msb = 0;
+	u16 csir = 0;
+
+	smb1390_read(chip, MISC_CSIR_LSB_REG, &csir_lsb);
+	smb1390_read(chip, MISC_CSIR_MSB_REG, &csir_msb);
+	csir = ((csir_msb << 8) | csir_lsb);
+	smb1390_dbg(chip, PR_INFO, "CSIR register = 0x%04x\n", csir);
+
+	if (csir == 0x2500) {
+		for (i = 0; i < ARRAY_SIZE(smb1390_csir2500_triple); i++) {
+			rc = smb1390_masked_write(chip,
+				smb1390_csir2500_triple[i].address,
+				smb1390_csir2500_triple[i].mask,
+				smb1390_csir2500_triple[i].val);
+			if (rc < 0) {
+				pr_err("Failed to configure SMB1390 for triple chg config for address 0x%04x rc=%d\n",
+				       smb1390_csir2500_triple[i].address, rc);
+				return rc;
+			}
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(smb1390_triple); i++) {
+			rc = smb1390_masked_write(chip,
+				smb1390_triple[i].address,
+				smb1390_triple[i].mask,
+				smb1390_triple[i].val);
+			if (rc < 0) {
+				pr_err("Failed to configure SMB1390 for triple chg config for address 0x%04x rc=%d\n",
+				       smb1390_triple[i].address, rc);
+				return rc;
+			}
+		}
+	}
+
+	smb1390_dbg(chip, PR_INFO, "Configured SMB1390 charge pump for triple chg config\n");
+	chip->smb_init_done = true;
+	return rc;
+}
+
+static int smb1390_dual_init_hw(struct smb1390 *chip)
+{
+	int rc = 0, i;
+
+	for (i = 0; i < ARRAY_SIZE(smb1390_dual); i++) {
+		rc = smb1390_masked_write(chip,
+			smb1390_dual[i].address,
+			smb1390_dual[i].mask,
+			smb1390_dual[i].val);
+		if (rc < 0) {
+			pr_err("Failed to configure SMB1390 for dual chg config for address 0x%04x rc=%d\n",
+			       smb1390_dual[i].address, rc);
+			return rc;
+		}
+	}
+
+	smb1390_dbg(chip, PR_INFO, "Configured SMB1390 charge pump for Dual chg config\n");
+	return rc;
+}
+
 /* voter callbacks */
 static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 				  int disable, const char *client)
@@ -764,6 +871,7 @@ static int smb1390_notifier_cb(struct notifier_block *nb,
 {
 	struct smb1390 *chip = container_of(nb, struct smb1390, nb);
 	struct power_supply *psy = data;
+	int rc;
 	unsigned long flags;
 
 	if (event != PSY_EVENT_PROP_CHANGED)
@@ -771,14 +879,28 @@ static int smb1390_notifier_cb(struct notifier_block *nb,
 
 	if (strcmp(psy->desc->name, "battery") == 0
 				|| strcmp(psy->desc->name, "usb") == 0
-				|| strcmp(psy->desc->name, "main") == 0) {
+				|| strcmp(psy->desc->name, "main") == 0
+				|| strcmp(psy->desc->name, "cp_slave") == 0) {
 		spin_lock_irqsave(&chip->status_change_lock, flags);
+
 		if (!chip->status_change_running) {
 			chip->status_change_running = true;
 			pm_stay_awake(chip->dev);
 			schedule_work(&chip->status_change_work);
 		}
 		spin_unlock_irqrestore(&chip->status_change_lock, flags);
+
+		/*
+		 * If not already configured for triple chg, configure master
+		 * SMB1390 here for triple chg, if slave is detected.
+		 */
+		if (is_cps_available(chip) && !chip->smb_init_done) {
+			smb1390_dbg(chip, PR_INFO, "SMB1390 slave has registered, configure for triple charging\n");
+			rc = smb1390_triple_init_hw(chip);
+			if (rc < 0)
+				pr_err("Couldn't configure SMB1390 for triple-chg config rc=%d\n",
+					rc);
+		}
 	}
 
 	return NOTIFY_OK;
@@ -1265,6 +1387,23 @@ static int smb1390_init_hw(struct smb1390 *chip)
 	}
 	rc = smb1390_masked_write(chip, CORE_FTRIM_CTRL_REG,
 			TEMP_ALERT_LVL_MASK, val << TEMP_ALERT_LVL_SHIFT);
+	if (rc < 0) {
+		pr_err("Failed to write CORE_FTRIM_CTRL_REG rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * If the slave charger has registered, configure Master SMB1390 for
+	 * triple-chg config, else configure for dual. Later, if the slave
+	 * charger registers, re-configure for triple chg config from the
+	 * power-supply notifier.
+	 */
+	if (!chip->smb_init_done) {
+		if (is_cps_available(chip))
+			rc = smb1390_triple_init_hw(chip);
+		else
+			rc = smb1390_dual_init_hw(chip);
+	}
 
 	return rc;
 }
@@ -1428,6 +1567,16 @@ static int smb1390_master_probe(struct smb1390 *chip)
 		goto out_work;
 	}
 
+	smb1390_dbg(chip, PR_INFO, "Detected revid=0x%02x\n",
+			 chip->pmic_rev_id->rev4);
+	if (chip->pmic_rev_id->rev4 <= 0x02 && chip->pl_output_mode !=
+			POWER_SUPPLY_PL_OUTPUT_VPH) {
+		pr_err("Incompatible SMB1390 HW detected, Disabling the charge pump\n");
+		if (chip->disable_votable)
+			vote(chip->disable_votable, HW_DISABLE_VOTER,
+			     true, 0);
+	}
+
 	rc = smb1390_init_charge_pump_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize charge pump psy rc=%d\n", rc);
@@ -1554,6 +1703,10 @@ static int smb1390_slave_probe(struct smb1390 *chip)
 		pr_err("Couldn't find slave SMB1390\n");
 		return -EINVAL;
 	}
+
+	rc = smb1390_triple_init_hw(chip);
+	if (rc < 0)
+		return rc;
 
 	rc = smb1390_init_cps_psy(chip);
 	if (rc < 0)
