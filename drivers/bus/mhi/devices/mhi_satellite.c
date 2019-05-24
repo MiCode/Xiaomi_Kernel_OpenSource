@@ -731,6 +731,9 @@ static void mhi_sat_rpmsg_remove(struct rpmsg_device *rpdev)
 	/* unprepare each controller/device from transfer */
 	mutex_lock(&subsys->cntrl_mutex);
 	list_for_each_entry(sat_cntrl, &subsys->cntrl_list, node) {
+		if (!sat_cntrl->active)
+			continue;
+
 		sat_cntrl->active = false;
 
 		flush_work(&sat_cntrl->connect_work);
@@ -756,9 +759,8 @@ static void mhi_sat_rpmsg_remove(struct rpmsg_device *rpdev)
 
 		MHI_SAT_LOG("Removed RPMSG link\n");
 	}
-	mutex_unlock(&subsys->cntrl_mutex);
-
 	subsys->rpdev = NULL;
+	mutex_unlock(&subsys->cntrl_mutex);
 }
 
 static int mhi_sat_rpmsg_probe(struct rpmsg_device *rpdev)
@@ -830,6 +832,7 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 
 	sat_cntrl->num_devices--;
 
+	mutex_lock(&subsys->cntrl_mutex);
 	/* prepare SYS_ERR command if first device is being removed */
 	if (sat_cntrl->active) {
 		sat_cntrl->active = false;
@@ -870,8 +873,10 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 
 exit_sys_err_send:
 	/* exit if some devices are still present */
-	if (sat_cntrl->num_devices)
+	if (sat_cntrl->num_devices) {
+		mutex_unlock(&subsys->cntrl_mutex);
 		return;
+	}
 
 	/* remove address mappings */
 	mutex_lock(&sat_cntrl->list_mutex);
@@ -884,16 +889,16 @@ exit_sys_err_send:
 	mutex_unlock(&sat_cntrl->list_mutex);
 
 	/* remove controller */
-	mutex_lock(&subsys->cntrl_mutex);
 	spin_lock_irq(&subsys->cntrl_lock);
 	list_del(&sat_cntrl->node);
 	spin_unlock_irq(&subsys->cntrl_lock);
-	mutex_unlock(&subsys->cntrl_mutex);
 
 	mutex_destroy(&sat_cntrl->cmd_wait_mutex);
 	mutex_destroy(&sat_cntrl->list_mutex);
 	MHI_SAT_LOG("Satellite controller node removed\n");
 	kfree(sat_cntrl);
+
+	mutex_unlock(&subsys->cntrl_mutex);
 }
 
 static int mhi_sat_dev_probe(struct mhi_device *mhi_dev,
