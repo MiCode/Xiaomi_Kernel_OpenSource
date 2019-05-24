@@ -42,7 +42,7 @@ static struct TEEC_Session imgsensor_tci_session;
  * #endif
  */
 
-static int secure_i2c_bus = 3; /*initiate at _tee_cmd_get_i2c_bus*/
+static int secure_i2c_bus = 0xff; /*initiate at _tee_cmd_get_i2c_bus*/
 
 static atomic_t ca_open_cnt;
 
