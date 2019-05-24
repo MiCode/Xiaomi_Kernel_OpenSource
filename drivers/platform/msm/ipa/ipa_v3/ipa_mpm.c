@@ -538,6 +538,10 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 
 		pcie_smmu_domain = iommu_get_domain_for_dev(
 			ipa_mpm_ctx->mhi_parent_dev);
+		if (!pcie_smmu_domain) {
+			IPA_MPM_ERR("invalid pcie smmu domain\n");
+			ipa_assert();
+		}
 		ret = iommu_map(pcie_smmu_domain, iova_p, pa_p, size_p, prot);
 
 		if (ret) {
@@ -602,7 +606,12 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 			iova_p, pa_p, size_p);
 		pcie_smmu_domain = iommu_get_domain_for_dev(
 			ipa_mpm_ctx->mhi_parent_dev);
-		iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+		if (pcie_smmu_domain) {
+			iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+		} else {
+			IPA_MPM_ERR("invalid PCIE SMMU domain\n");
+			ipa_assert();
+		}
 		iommu_unmap(ipa_smmu_domain, iova_p, size_p);
 
 		cb->next_addr -= size_p;
@@ -646,6 +655,10 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 					iova_p, pa_p, size_p);
 		if (smmu_domain == MHIP_SMMU_DOMAIN_IPA) {
 			ipa_smmu_domain = ipa3_get_smmu_domain();
+			if (!ipa_smmu_domain) {
+				IPA_MPM_ERR("invalid IPA smmu domain\n");
+				ipa_assert();
+			}
 			ret = ipa3_iommu_map(ipa_smmu_domain,
 				iova_p, pa_p, size_p, prot);
 			if (ret) {
@@ -656,8 +669,12 @@ static u32 ipa_mpm_smmu_map_doorbell(enum mhip_smmu_domain_type smmu_domain,
 		} else if (smmu_domain == MHIP_SMMU_DOMAIN_PCIE) {
 			pcie_smmu_domain = iommu_get_domain_for_dev(
 				ipa_mpm_ctx->mhi_parent_dev);
-			 ret = iommu_map(pcie_smmu_domain,
-				iova_p, pa_p, size_p, prot);
+			if (!pcie_smmu_domain) {
+				IPA_MPM_ERR("invalid IPA smmu domain\n");
+				ipa_assert();
+			}
+			ret = iommu_map(pcie_smmu_domain,
+					iova_p, pa_p, size_p, prot);
 			if (ret) {
 				IPA_MPM_ERR("PCIe doorbell mapping failed\n");
 				ipa_assert();
@@ -694,11 +711,21 @@ static void ipa_mpm_smmu_unmap_doorbell(enum mhip_smmu_domain_type smmu_domain,
 					iova_p, pa_p, size_p);
 		if (smmu_domain == MHIP_SMMU_DOMAIN_IPA) {
 			ipa_smmu_domain = ipa3_get_smmu_domain();
-			iommu_unmap(ipa_smmu_domain, iova_p, size_p);
+			if (ipa_smmu_domain) {
+				iommu_unmap(ipa_smmu_domain, iova_p, size_p);
+			} else {
+				IPA_MPM_ERR("invalid IPA smmu domain\n");
+				ipa_assert();
+			}
 		} else if (smmu_domain == MHIP_SMMU_DOMAIN_PCIE) {
 			pcie_smmu_domain = iommu_get_domain_for_dev(
 				ipa_mpm_ctx->mhi_parent_dev);
-			 iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+			if (pcie_smmu_domain) {
+				iommu_unmap(pcie_smmu_domain, iova_p, size_p);
+			} else {
+				IPA_MPM_ERR("invalid PCIE smmu domain\n");
+				ipa_assert();
+			}
 			cb->next_addr -=  IPA_MPM_PAGE_SIZE;
 		}
 	}
