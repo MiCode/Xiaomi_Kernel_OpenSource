@@ -187,7 +187,6 @@
 
 	qcom,vddp-ref-clk-supply = <&pm8150_2_l5>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
-	qcom,disable-lpm;
 
 	status = "ok";
 };
