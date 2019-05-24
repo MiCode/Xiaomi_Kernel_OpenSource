@@ -13,6 +13,15 @@
 #ifndef __SSMR_INTERNAL_H__
 #define __SSMR_INTERNAL_H__
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	defined(CONFIG_MTK_TEE_GP_SUPPORT) ||\
+	defined(CONFIG_MTK_IRIS_SUPPORT) ||\
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define SSMR_SECMEM_REGION_ENABLE
+#else
+#undef SSMR_SECMEM_REGION_ENABLE
+#endif
+
 #if defined(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
 	defined(CONFIG_BLOWFISH_TUI_SUPPORT) ||\
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
@@ -41,12 +50,24 @@
 #define CMD_LEN  64
 
 enum region_type {
+#ifdef SSMR_SECMEM_REGION_ENABLE
 	SSMR_SECMEM,
+#endif
 #ifdef SSMR_TUI_REGION_ENABLE
 	SSMR_TUI,
 #endif
 #ifdef SSMR_PROT_SHAREDMEM_REGION_ENABLE
 	SSMR_PROT_SHAREDMEM,
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+	SSMR_TA_ELF,
+	SSMR_TA_STACK_HEAP,
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+	SSMR_SDSP_TEE_SHAREDMEM,
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+	SSMR_SDSP_FIRMWARE,
 #endif
 	__MAX_NR_SSMRSUBS,
 };
@@ -110,6 +131,8 @@ struct SSMR_Region {
 };
 
 static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	defined(CONFIG_MTK_TEE_GP_SUPPORT)
 	[SSMR_FEAT_SVP] = {
 		.dt_prop_name = "svp-size",
 		.feat_name = "svp",
@@ -117,6 +140,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.cmd_offline = "svp=off",
 		.region = SSMR_SECMEM
 	},
+#endif
 #ifdef CONFIG_MTK_IRIS_SUPPORT
 	[SSMR_FEAT_IRIS] = {
 		.dt_prop_name = "iris-recognition-size",
@@ -161,15 +185,51 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.cmd_online = "prot_sharedmem=on",
 		.cmd_offline = "prot_sharedmem=off",
 		.region = SSMR_PROT_SHAREDMEM
+	},
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+	[SSMR_FEAT_TA_ELF] = {
+		.dt_prop_name = "ta-elf-size",
+		.feat_name = "ta-elf",
+		.cmd_online = "ta_elf=on",
+		.cmd_offline = "ta_elf=off",
+		.region = SSMR_TA_ELF
+	},
+	[SSMR_FEAT_TA_STACK_HEAP] = {
+		.dt_prop_name = "ta-stack-heap-size",
+		.feat_name = "ta-stack-heap",
+		.cmd_online = "ta_stack_heap=on",
+		.cmd_offline = "ta_stack_heap=off",
+		.region = SSMR_TA_STACK_HEAP
+	},
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+	[SSMR_FEAT_SDSP_TEE_SHAREDMEM] = {
+		.dt_prop_name = "sdsp-tee-sharedmem-size",
+		.feat_name = "sdsp-tee-sharedmem",
+		.cmd_online = "sdsp_tee_sharedmem=on",
+		.cmd_offline = "sdsp_tee_sharedmem=off",
+		.region = SSMR_SDSP_TEE_SHAREDMEM
+	},
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+	[SSMR_FEAT_SDSP_FIRMWARE] = {
+		.dt_prop_name = "sdsp-firmware-size",
+		.feat_name = "sdsp-firmware",
+		.cmd_online = "sdsp_firmware=on",
+		.cmd_offline = "sdsp_firmware=off",
+		.region = SSMR_SDSP_FIRMWARE
 	}
 #endif
 };
 
 static struct SSMR_Region _ssmregs[__MAX_NR_SSMRSUBS] = {
+#ifdef SSMR_SECMEM_REGION_ENABLE
 	[SSMR_SECMEM] = {
-		.name = "svp_region",
+		.name = "secmem_region",
 		.cur_feat = __MAX_NR_SSMR_FEATURES
 	},
+#endif
 #ifdef SSMR_TUI_REGION_ENABLE
 	[SSMR_TUI] = {
 		.name = "tui_region",
@@ -179,6 +239,28 @@ static struct SSMR_Region _ssmregs[__MAX_NR_SSMRSUBS] = {
 #ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 	[SSMR_PROT_SHAREDMEM] = {
 		.name = "prot_sharedmem_region",
+		.cur_feat = __MAX_NR_SSMR_FEATURES
+	},
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+	[SSMR_TA_ELF] = {
+		.name = "ta_elf_region",
+		.cur_feat = __MAX_NR_SSMR_FEATURES
+	},
+	[SSMR_TA_STACK_HEAP] = {
+		.name = "ta_stack_heap_region",
+		.cur_feat = __MAX_NR_SSMR_FEATURES
+	},
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+	[SSMR_SDSP_TEE_SHAREDMEM] = {
+		.name = "sdsp_tee_sharedmem_region",
+		.cur_feat = __MAX_NR_SSMR_FEATURES
+	},
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+	[SSMR_SDSP_FIRMWARE] = {
+		.name = "sdsp_firmware_region",
 		.cur_feat = __MAX_NR_SSMR_FEATURES
 	}
 #endif
