@@ -889,6 +889,7 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	return 0;
 }
 
+#define MIN_THERMAL_VOTE_UA	500000
 static int smb5_usb_set_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		const union power_supply_propval *val)
@@ -940,10 +941,20 @@ static int smb5_usb_set_prop(struct power_supply *psy,
 		power_supply_changed(chg->usb_psy);
 		break;
 	case POWER_SUPPLY_PROP_THERM_ICL_LIMIT:
-		icl = get_effective_result(chg->usb_icl_votable);
-		if ((icl + val->intval) > 0)
+		if (!is_client_vote_enabled(chg->usb_icl_votable,
+						THERMAL_THROTTLE_VOTER)) {
+			chg->init_thermal_ua = get_effective_result(
+							chg->usb_icl_votable);
+			icl = chg->init_thermal_ua + val->intval;
+		} else {
+			icl = get_client_vote(chg->usb_icl_votable,
+					THERMAL_THROTTLE_VOTER) + val->intval;
+		}
+
+		if (icl >= MIN_THERMAL_VOTE_UA)
 			rc = vote(chg->usb_icl_votable, THERMAL_THROTTLE_VOTER,
-					true, icl + val->intval);
+				(icl != chg->init_thermal_ua) ? true : false,
+				icl);
 		else
 			rc = -EINVAL;
 		break;
