@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -517,6 +517,7 @@ static const unsigned int ufs_reset_pins[] = { 193 };
 enum sdmshrike_functions {
 	msm_mux_GRFC2,
 	msm_mux_atest_usb31,
+	msm_mux_emac_pps,
 	msm_mux_ddr_pxi4,
 	msm_mux_GRFC3,
 	msm_mux_tgu_ch4,
@@ -793,6 +794,9 @@ static const char * const GRFC2_groups[] = {
 };
 static const char * const atest_usb31_groups[] = {
 	"gpio73",
+};
+static const char * const emac_pps_groups[] = {
+	"gpio81",
 };
 static const char * const ddr_pxi4_groups[] = {
 	"gpio73", "gpio74",
@@ -1637,6 +1641,7 @@ static const char * const atest_usb32_groups[] = {
 static const struct msm_function sdmshrike_functions[] = {
 	FUNCTION(GRFC2),
 	FUNCTION(atest_usb31),
+	FUNCTION(emac_pps),
 	FUNCTION(ddr_pxi4),
 	FUNCTION(GRFC3),
 	FUNCTION(tgu_ch4),
@@ -2044,7 +2049,7 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[79] = PINGROUP(79, EAST, NA, GRFC13, NA, NA, NA, NA, NA, NA, NA),
 	[80] = PINGROUP(80, EAST, NA, GRFC14, NA, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, EAST, NA, GRFC15, GPS_TX, NAV_PPS, NAV_PPS,
-			qdss_cti, NA, NA, NA),
+			qdss_cti, NA, emac_pps, NA),
 	[82] = PINGROUP(82, EAST, NA, GRFC16, GPS_TX, NAV_PPS, NAV_PPS,
 			mdp_vsync, qdss_cti, NA, NA),
 	[83] = PINGROUP(83, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),
