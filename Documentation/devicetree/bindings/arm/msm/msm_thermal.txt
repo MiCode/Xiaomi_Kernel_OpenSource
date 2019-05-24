@@ -109,6 +109,12 @@ Optional properties
 			DDR frequency restriction feature. It expects array of
 			sensor id to be monitored, high threshold  and low threshold
 			for that sensor respectively.
+- qcom,therm-dynamic-hw-sampling-info: If this optional property is defined, it enables
+			dynamic TSENS sampling feature. It expects array of
+			sensor id to be monitored, high threshold and low threshold
+			for that sensor, TSENS sampling level to be requested when
+			threshold is triggered and default sampling level for normal
+			temperature condition respectively.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
@@ -285,6 +291,10 @@ Example:
 		vdd-cx-supply = <&pmd9635_s5_level>;
 		qcom,online-hotplug-core;
 		qcom,therm-ddr-lm-info = <1 90 75>;
+		qcom,therm-dynamic-hw-sampling-info = <4 60 45 0 1>;
+		/* <sensor id, high threshold, low threshold, sampling level for violation,
+		**  sampling level for default condition>;
+		*/
 		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
 		qcom,synchronous-cluster-map =  <0 2 &CPU0 &CPU1>,
 						<1 2 &CPU2 &CPU3>;
