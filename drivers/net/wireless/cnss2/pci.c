@@ -562,6 +562,13 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, low);
 	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
 
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, &low);
+	cnss_pci_reg_read(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, &high);
+
+	cnss_pr_dbg("Updated time sync regs [0x%x] = 0x%x, [0x%x] = 0x%x\n",
+		    QCA6390_PCIE_SHADOW_REG_VALUE_34, low,
+		    QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+
 force_wake_put:
 	cnss_pci_force_wake_put(pci_priv);
 
