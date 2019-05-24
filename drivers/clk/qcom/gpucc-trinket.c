@@ -259,7 +259,7 @@ static struct clk_branch gpu_cc_cx_gfx3d_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_gfx3d_clk",
 			.parent_names = (const char *[]){
-				"gpu_cc_gx_gfx3d_clk_src",
+				"gpu_cc_gx_gfx3d_clk",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
