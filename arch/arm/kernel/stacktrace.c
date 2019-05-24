@@ -125,6 +125,7 @@ static noinline void __save_stack_trace(struct task_struct *tsk,
 	data.no_sched_functions = nosched;
 
 	if (tsk != current) {
+#if 0
 #ifdef CONFIG_SMP
 		/*
 		 * What guarantees do we have here that 'tsk' is not
@@ -134,6 +135,7 @@ static noinline void __save_stack_trace(struct task_struct *tsk,
 		if (trace->nr_entries < trace->max_entries)
 			trace->entries[trace->nr_entries++] = ULONG_MAX;
 		return;
+#endif
 #else
 		frame.fp = thread_saved_fp(tsk);
 		frame.sp = thread_saved_sp(tsk);
