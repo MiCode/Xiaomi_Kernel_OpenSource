@@ -2949,7 +2949,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 			}
 		}
 		if (list_empty(&sb->mark_removal)) {
-			mutex_unlock(&ctrl->sched.m_reconf);
 			pr_info("SLIM_CL: skip reconfig sequence");
 			return 0;
 		}
@@ -3154,7 +3153,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 		ctrl->sched.msgsl = ctrl->sched.pending_msgsl;
 		sb->cur_msgsl = sb->pending_msgsl;
 		slim_chan_changes(sb, false);
-		mutex_unlock(&ctrl->sched.m_reconf);
 		return 0;
 	}
 
