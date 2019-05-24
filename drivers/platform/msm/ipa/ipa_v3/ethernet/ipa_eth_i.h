@@ -90,6 +90,9 @@ struct ipa_eth_bus {
 
 	int (*register_net_driver)(struct ipa_eth_net_driver *nd);
 	void (*unregister_net_driver)(struct ipa_eth_net_driver *nd);
+
+	int (*enable_pc)(struct ipa_eth_device *eth_dev);
+	int (*disable_pc)(struct ipa_eth_device *eth_dev);
 };
 
 extern struct ipa_eth_bus ipa_eth_pci_bus;
@@ -111,6 +114,9 @@ void ipa_eth_bus_modexit(void);
 
 int ipa_eth_bus_register_driver(struct ipa_eth_net_driver *nd);
 void ipa_eth_bus_unregister_driver(struct ipa_eth_net_driver *nd);
+
+int ipa_eth_bus_enable_pc(struct ipa_eth_device *eth_dev);
+int ipa_eth_bus_disable_pc(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_offload_modinit(struct dentry *dbgfs_root);
 void ipa_eth_offload_modexit(void);
