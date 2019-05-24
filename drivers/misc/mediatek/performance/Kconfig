@@ -37,6 +37,15 @@ config MTK_PERF_OBSERVER
 	  via notifier. If you are not sure about whether to enable it or not,
 	  please set n.
 
+config MTK_RESYM
+	bool "MTK resource symphony support"
+	default n
+	help
+	  MTK_RESYM define if resource symphony should
+	  be built-in or not. It supports system related usages.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+
 config MTK_FPSGO_V3
 	bool "Support FPSGO_V3 framework"
 	default n
