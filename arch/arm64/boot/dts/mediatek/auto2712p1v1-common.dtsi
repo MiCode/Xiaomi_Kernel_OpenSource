@@ -2027,7 +2027,7 @@
 	status = "okay";
 
 	spidev4: spi@0 {
-		compatible = "linux,spidev";
+		compatible = "spi-mt65xx-dev";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 	};
