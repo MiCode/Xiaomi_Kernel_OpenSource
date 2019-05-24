@@ -212,7 +212,7 @@ static void msdc_init_dma_latest_address(void)
 
 #ifdef CONFIG_MTK_MMC_DEBUG
 #define dbg_max_cnt (500)
-#define MSDC_AEE_BUFFER_SIZE (300 * 1024)
+#define MSDC_AEE_BUFFER_SIZE (30 * 1024)
 struct dbg_run_host_log {
 	unsigned long long time_sec;
 	unsigned long long time_usec;
