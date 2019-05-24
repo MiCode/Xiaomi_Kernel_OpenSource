@@ -125,6 +125,10 @@ static DEFINE_SPINLOCK(pci_reg_window_lock);
 #define WINDOW_START				MAX_UNWINDOWED_ADDRESS
 #define WINDOW_RANGE_MASK			0x7FFFF
 
+#define FORCE_WAKE_DELAY_MIN_US			4000
+#define FORCE_WAKE_DELAY_MAX_US			6000
+#define FORCE_WAKE_DELAY_TIMEOUT_US		60000
+
 #define QCA6390_TIME_SYNC_ENABLE		0x80000000
 #define QCA6390_TIME_SYNC_CLEAR			0x0
 
@@ -264,6 +268,44 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 	spin_unlock_irqrestore(&pci_reg_window_lock, flags);
 
 	return 0;
+}
+
+static int cnss_pci_force_wake_get(struct cnss_pci_data *pci_priv)
+{
+	struct device *dev = &pci_priv->pci_dev->dev;
+	u32 timeout = 0;
+	int ret;
+
+	ret = cnss_pci_force_wake_request(dev);
+	if (ret) {
+		cnss_pr_err("Failed to request force wake\n");
+		return ret;
+	}
+
+	while (!cnss_pci_is_device_awake(dev) &&
+	       timeout <= FORCE_WAKE_DELAY_TIMEOUT_US) {
+		usleep_range(FORCE_WAKE_DELAY_MIN_US, FORCE_WAKE_DELAY_MAX_US);
+		timeout += FORCE_WAKE_DELAY_MAX_US;
+	}
+
+	if (cnss_pci_is_device_awake(dev) != true) {
+		cnss_pr_err("Timed out to request force wake\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
+{
+	struct device *dev = &pci_priv->pci_dev->dev;
+	int ret;
+
+	ret = cnss_pci_force_wake_release(dev);
+	if (ret)
+		cnss_pr_err("Failed to release force wake\n");
+
+	return ret;
 }
 
 static int cnss_set_pci_config_space(struct cnss_pci_data *pci_priv, bool save)
@@ -491,22 +533,23 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	u32 low, high;
 	int ret;
 
-	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
+	ret = cnss_pci_check_link_status(pci_priv);
 	if (ret)
 		return ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
+	ret = cnss_pci_force_wake_get(pci_priv);
 	if (ret)
 		return ret;
 
 	host_time_us = cnss_get_host_timestamp(plat_priv);
 	ret = cnss_pci_get_device_timestamp(pci_priv, &device_time_us);
 	if (ret)
-		return ret;
+		goto force_wake_put;
 
 	if (host_time_us < device_time_us) {
 		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto force_wake_put;
 	}
 
 	offset = host_time_us - device_time_us;
@@ -519,7 +562,10 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, low);
 	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
 
-	return 0;
+force_wake_put:
+	cnss_pci_force_wake_put(pci_priv);
+
+	return ret;
 }
 
 static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
@@ -527,8 +573,10 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 	struct cnss_pci_data *pci_priv =
 		container_of(work, struct cnss_pci_data, time_sync_work.work);
 
-	cnss_pci_update_timestamp(pci_priv);
+	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
+		return;
 
+	cnss_pci_update_timestamp(pci_priv);
 	schedule_delayed_work(&pci_priv->time_sync_work, TIME_SYNC_PERIOD_JF);
 }
 
