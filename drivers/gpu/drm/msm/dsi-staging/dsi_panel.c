@@ -2452,6 +2452,9 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
 	struct dsi_mode_info *timing = NULL;
 
+	if (!mode || !mode->priv_info)
+		return -EINVAL;
+
 	priv_info = mode->priv_info;
 
 	data = utils->get_property(utils->data,
@@ -2471,10 +2474,6 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 	};
 
 	timing = &mode->timing;
-	if (!timing) {
-		pr_err("timing is null\n");
-		return -EINVAL;
-	}
 
 	if (panel_mode == DSI_OP_CMD_MODE) {
 		h_period = DSI_H_ACTIVE_DSC(timing);
@@ -3215,7 +3214,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_bl_config(panel);
 	if (rc) {
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
-		goto error;
+		if (rc == -EPROBE_DEFER)
+			goto error;
 	}
 
 

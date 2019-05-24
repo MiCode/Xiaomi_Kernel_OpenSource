@@ -1314,7 +1314,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		atomic_read(&display->panel->esd_recovery_pending))
 		return user_len;
 
-	buf = kzalloc(user_len, GFP_KERNEL);
+	buf = kzalloc(user_len + 1, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
@@ -1369,7 +1369,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 	if (*ppos)
 		return 0;
 
-	buf = kzalloc(len, GFP_KERNEL);
+	buf = kzalloc(len + 1, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf))
 		return -ENOMEM;
 
