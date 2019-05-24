@@ -340,6 +340,7 @@
 331	common	pkey_free		sys_pkey_free
 332	common	statx			sys_statx
 424	common	pidfd_send_signal	sys_pidfd_send_signal
+434	common	pidfd_open		sys_pidfd_open
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
