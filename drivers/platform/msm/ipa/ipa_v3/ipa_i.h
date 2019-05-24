@@ -225,6 +225,11 @@ enum {
 	NUM_SMEM_SUBSYSTEMS,
 };
 
+enum ipa_mpm_start_stop_type {
+	MPM_MHIP_STOP,
+	MPM_MHIP_START,
+};
+
 #define IPA_WDI_RX_RING_RES			0
 #define IPA_WDI_RX_RING_RP_RES		1
 #define IPA_WDI_RX_COMP_RING_RES	2
@@ -269,7 +274,7 @@ enum {
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
-#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
+#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 4096
 
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
@@ -2929,10 +2934,13 @@ int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
 int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot prot);
 int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot);
 int ipa_mpm_notify_wan_state(void);
-int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot);
+int ipa_mpm_mhip_ul_start_stop_data(
+		enum ipa_mpm_start_stop_type start_stop,
+		enum ipa_usb_teth_prot xdci_teth_prot);
 int ipa3_is_mhip_offload_enabled(void);
 int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
+int ipa_mpm_panic_handler(char *buf, int size);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -2948,8 +2956,9 @@ static inline int ipa_mpm_notify_wan_state(void)
 {
 	return 0;
 }
-static inline int ipa_mpm_mhip_ul_data_stop(
-	enum ipa_usb_teth_prot xdci_teth_prot)
+static inline int ipa_mpm_mhip_ul_start_stop_data(
+		enum ipa_mpm_start_stop_type start_stop,
+		enum ipa_usb_teth_prot xdci_teth_prot)
 {
 	return 0;
 }
@@ -2959,6 +2968,10 @@ static inline int ipa3_is_mhip_offload_enabled(void)
 }
 static inline int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe)
+{
+	return 0;
+}
+static inline int ipa_mpm_panic_handler(char *buf, int size)
 {
 	return 0;
 }
