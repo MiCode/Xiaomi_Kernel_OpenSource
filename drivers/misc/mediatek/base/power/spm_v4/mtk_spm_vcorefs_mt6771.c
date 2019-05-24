@@ -99,6 +99,13 @@ struct spm_lp_scen __spm_vcorefs = {
 	.pwrctrl = &vcorefs_ctrl,
 };
 
+static int force_opp_enable;
+
+int is_force_opp_enable(void)
+{
+	return force_opp_enable;
+}
+
 /* lt_opp config */
 static int lt_opp_feature_en = 1;
 static int enter_lt_opp_temp;
@@ -553,7 +560,6 @@ void dvfsrc_hw_policy_mask(bool mask)
 {
 	if (mask) {
 		spm_write(DVFSRC_EMI_REQUEST, 0);
-		spm_write(DVFSRC_EMI_REQUEST2, 0);
 		spm_write(DVFSRC_EMI_REQUEST3, 0);
 		spm_write(DVFSRC_VCORE_REQUEST, 0);
 		spm_write(DVFSRC_VCORE_REQUEST2, 0);
@@ -563,10 +569,10 @@ void dvfsrc_hw_policy_mask(bool mask)
 			spm_read(DVFSRC_MD_SW_CONTROL) | (0x1 << 0));
 		spm_write(DVFSRC_MD_SW_CONTROL,
 			spm_read(DVFSRC_MD_SW_CONTROL) | (0x1 << 5));
+		spm_write(DVFSRC_SW_REQ2, 0);
 	} else {
-		spm_write(DVFSRC_EMI_REQUEST, 0x00209209);
-		spm_write(DVFSRC_EMI_REQUEST2, 0);
-		/* spm_write(DVFSRC_EMI_REQUEST3, 0x29292929); */
+		spm_write(DVFSRC_EMI_REQUEST, 0x00290209);
+		spm_write(DVFSRC_EMI_REQUEST3, 0x09000000);
 		spm_write(DVFSRC_VCORE_REQUEST, 0x00150000);
 		/* spm_write(DVFSRC_VCORE_REQUEST2, 0x29292929); */
 		spm_write(DVFSRC_MD_SW_CONTROL,
@@ -584,11 +590,18 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 
 	u32 vcore_req[NUM_OPP] = {0x1, 0x1, 0x0, 0x0};
 	u32 emi_req[NUM_OPP] = {0x2, 0x1, 0x1, 0x0};
-	u32 force_req[NUM_OPP] = {0x8, 0x4, 0x2, 0x1};
 
 	if (__spm_get_dram_type() == SPMFW_LP4X_2CH_3200) {
 		vcore_req[1] = 0x0;
 		emi_req[1] = 0x2;
+	}
+
+	if (fix) {
+		force_opp_enable = 1;
+		dvfsrc_hw_policy_mask(1);
+	} else {
+		force_opp_enable = 0;
+		dvfsrc_hw_policy_mask(0);
 	}
 
 	/* check DVFS idle */
@@ -601,21 +614,6 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 		return -1;
 	}
 
-	if (fix) {
-		if (opp < 0) {
-			spm_write(DVFSRC_BASIC_CONTROL,
-				spm_read(DVFSRC_BASIC_CONTROL)
-				& ~(1 << 15 | 1 << 14 | 1 << 8));
-			spm_write(DVFSRC_FORCE, 0);
-			spm_write(DVFSRC_BASIC_CONTROL,
-				spm_read(DVFSRC_BASIC_CONTROL) | (1 << 8));
-		} else {
-			spm_write(DVFSRC_FORCE,
-				(force_req[opp] << 8));
-			spm_write(DVFSRC_BASIC_CONTROL,
-				spm_read(DVFSRC_BASIC_CONTROL) | (1 << 15));
-		}
-	} else {
 		if (opp >= NUM_OPP || opp < OPP_0)
 			opp = NUM_OPP - 1;
 
@@ -625,7 +623,6 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 		spm_write(DVFSRC_SW_REQ,
 			(spm_read(DVFSRC_SW_REQ) & ~(0x3))
 			| (emi_req[opp]));
-	}
 
 	/* check DVFS timer */
 	if (fix) {
@@ -642,14 +639,6 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 		spm_vcorefs_dump_dvfs_regs(NULL);
 		aee_kernel_warning("VCOREFS", "wait complete timeout");
 		return -1;
-	}
-
-	if (fix) {
-		if (!(opp < 0)) {
-			spm_write(DVFSRC_BASIC_CONTROL,
-				spm_read(DVFSRC_BASIC_CONTROL) | (1 << 14));
-			spm_write(DVFSRC_FORCE, 0);
-		}
 	}
 
 	vcorefs_crit_mask(log_mask(), kicker,
@@ -753,6 +742,9 @@ out:
 static int scp_vcore_level;
 void dvfsrc_set_scp_vcore_request(unsigned int level)
 {
+	if (is_force_opp_enable())
+		return;
+
 	if (is_vcorefs_can_work() != 1) {
 		scp_vcore_level = level;
 		return;
@@ -765,6 +757,9 @@ void dvfsrc_set_power_model_ddr_request(unsigned int level)
 	unsigned long flags;
 	unsigned int val;
 
+	if (is_force_opp_enable())
+		return;
+
 	spin_lock_irqsave(&__spm_lock, flags);
 
 	val = (spm_read(DVFSRC_SW_REQ2) & ~(0x3)) | level;
@@ -776,6 +771,9 @@ void dvfsrc_set_power_model_ddr_request(unsigned int level)
 static void dvfsrc_init(void)
 {
 	unsigned long flags;
+
+	if (is_force_opp_enable())
+		return;
 
 	spin_lock_irqsave(&__spm_lock, flags);
 
@@ -904,8 +902,9 @@ int spm_set_vcore_dvfs(struct kicker_config *krconf)
 	unsigned long flags;
 	int r = 0;
 	u32 autok_kir_group = AUTOK_KIR_GROUP;
-	bool fix = (((1U << krconf->kicker) & autok_kir_group)
-			|| krconf->kicker == KIR_SYSFSX);
+	bool fix = (((1U << krconf->kicker) & autok_kir_group) ||
+			krconf->kicker == KIR_SYSFSX) &&
+			krconf->opp != OPP_UNREQ;
 	int opp = fix ? krconf->opp : krconf->dvfs_opp;
 
 	spm_check_status_before_dvfs();
@@ -954,6 +953,9 @@ void spm_request_dvfs_opp(int id, enum dvfs_opp opp)
 
 	if (is_vcorefs_can_work() != 1)
 		return;
+
+	if (is_force_opp_enable())
+		opp = NUM_OPP-1;
 
 	switch (id) {
 	case 0: /* ZQTX */

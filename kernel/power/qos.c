@@ -71,6 +71,7 @@ static struct pm_qos_constraints cpu_dma_constraints = {
 	.default_value = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+	.qos_lock = __MUTEX_INITIALIZER(cpu_dma_constraints.qos_lock),
 	.notifiers = &cpu_dma_lat_notifier,
 };
 static struct pm_qos_object cpu_dma_pm_qos = {
@@ -86,6 +87,7 @@ static struct pm_qos_constraints network_lat_constraints = {
 	.default_value = PM_QOS_NETWORK_LAT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_NETWORK_LAT_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+	.qos_lock = __MUTEX_INITIALIZER(network_lat_constraints.qos_lock),
 	.notifiers = &network_lat_notifier,
 };
 static struct pm_qos_object network_lat_pm_qos = {
@@ -102,6 +104,7 @@ static struct pm_qos_constraints network_tput_constraints = {
 	.default_value = PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(network_tput_constraints.qos_lock),
 	.notifiers = &network_throughput_notifier,
 };
 static struct pm_qos_object network_throughput_pm_qos = {
@@ -118,6 +121,7 @@ static struct pm_qos_constraints memory_bw_constraints = {
 	.default_value = PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+	.qos_lock = __MUTEX_INITIALIZER(memory_bw_constraints.qos_lock),
 	.notifiers = &memory_bandwidth_notifier,
 };
 static struct pm_qos_object memory_bandwidth_pm_qos = {
@@ -148,6 +152,7 @@ static struct pm_qos_constraints mdp_freq_constraints = {
 	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(mdp_freq_constraints.qos_lock),
 	.notifiers = &mdp_freq_notifier,
 };
 static struct pm_qos_object mdp_freq_pm_qos = {
@@ -163,6 +168,7 @@ static struct pm_qos_constraints vdec_freq_constraints = {
 	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(vdec_freq_constraints.qos_lock),
 	.notifiers = &vdec_freq_notifier,
 };
 static struct pm_qos_object vdec_freq_pm_qos = {
@@ -178,6 +184,7 @@ static struct pm_qos_constraints venc_freq_constraints = {
 	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(venc_freq_constraints.qos_lock),
 	.notifiers = &venc_freq_notifier,
 };
 static struct pm_qos_object venc_freq_pm_qos = {
@@ -193,6 +200,7 @@ static struct pm_qos_constraints img_freq_constraints = {
 	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(img_freq_constraints.qos_lock),
 	.notifiers = &img_freq_notifier,
 };
 static struct pm_qos_object img_freq_pm_qos = {
@@ -208,6 +216,7 @@ static struct pm_qos_constraints cam_freq_constraints = {
 	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+	.qos_lock = __MUTEX_INITIALIZER(cam_freq_constraints.qos_lock),
 	.notifiers = &cam_freq_notifier,
 };
 static struct pm_qos_object cam_freq_pm_qos = {
@@ -223,6 +232,7 @@ static struct pm_qos_constraints cpu_memory_bw_constraints = {
 	.default_value = PM_QOS_CPU_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_CPU_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+	.qos_lock = __MUTEX_INITIALIZER(cpu_memory_bw_constraints.qos_lock),
 	.notifiers = &cpu_memory_bandwidth_notifier,
 };
 static struct pm_qos_object cpu_memory_bandwidth_pm_qos = {
@@ -239,6 +249,7 @@ static struct pm_qos_constraints gpu_memory_bw_constraints = {
 	.default_value = PM_QOS_GPU_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_GPU_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+	.qos_lock = __MUTEX_INITIALIZER(gpu_memory_bw_constraints.qos_lock),
 	.notifiers = &gpu_memory_bandwidth_notifier,
 };
 static struct pm_qos_object gpu_memory_bandwidth_pm_qos = {
@@ -255,6 +266,7 @@ static struct pm_qos_constraints mm_memory_bw_constraints = {
 	.default_value = PM_QOS_MM_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MM_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+	.qos_lock = __MUTEX_INITIALIZER(mm_memory_bw_constraints.qos_lock),
 	.notifiers = &mm_memory_bandwidth_notifier,
 };
 static struct pm_qos_object mm_memory_bandwidth_pm_qos = {
@@ -271,6 +283,7 @@ static struct pm_qos_constraints md_peri_memory_bw_constraints = {
 	.default_value = PM_QOS_MD_PERI_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MD_PERI_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+	.qos_lock = __MUTEX_INITIALIZER(md_peri_memory_bw_constraints.qos_lock),
 	.notifiers = &md_peri_memory_bandwidth_notifier,
 };
 static struct pm_qos_object md_peri_memory_bandwidth_pm_qos = {
@@ -287,6 +300,7 @@ static struct pm_qos_constraints emi_opp_constraints = {
 	.default_value = PM_QOS_EMI_OPP_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_EMI_OPP_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+	.qos_lock = __MUTEX_INITIALIZER(emi_opp_constraints.qos_lock),
 	.notifiers = &emi_opp_notifier,
 };
 static struct pm_qos_object emi_opp_pm_qos = {
@@ -303,6 +317,7 @@ static struct pm_qos_constraints vcore_opp_constraints = {
 	.default_value = PM_QOS_VCORE_OPP_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_VCORE_OPP_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+	.qos_lock = __MUTEX_INITIALIZER(vcore_opp_constraints.qos_lock),
 	.notifiers = &vcore_opp_notifier,
 };
 static struct pm_qos_object vcore_opp_pm_qos = {
@@ -318,6 +333,8 @@ static struct pm_qos_constraints vcore_dvfs_fixed_opp_constraints = {
 	.default_value = PM_QOS_VCORE_DVFS_FIXED_OPP_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_VCORE_DVFS_FIXED_OPP_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+	.qos_lock =
+		__MUTEX_INITIALIZER(vcore_dvfs_fixed_opp_constraints.qos_lock),
 	.notifiers = &vcore_dvfs_fixed_opp_notifier,
 };
 static struct pm_qos_object vcore_dvfs_fixed_opp_pm_qos = {
@@ -533,6 +550,7 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	int prev_value, curr_value, new_value;
 	int ret;
 
+	mutex_lock(&c->qos_lock);
 	spin_lock_irqsave(&pm_qos_lock, flags);
 	prev_value = pm_qos_get_value(c);
 	if (value == PM_QOS_DEFAULT_VALUE)
@@ -575,6 +593,8 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	} else {
 		ret = 0;
 	}
+	mutex_unlock(&c->qos_lock);
+
 	return ret;
 }
 
