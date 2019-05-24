@@ -221,14 +221,14 @@ struct VAL_MEM_ADDR_T {    /* union extend 64bits for TEE*/
  *  This is a structure for thread info
  *  u4tid1		[IN/OUT] thread id for single core
  *  u4tid2		[IN/OUT] thread id for single core
- *  u4VCodecThreadNum	[IN/OUT] thread num
- *  u4VCodecThreadID	[IN/OUT] thread id for each thread
+ *  u4ThreadNum	[IN/OUT] thread num
+ *  u4ThreadID	[IN/OUT] thread id for each thread
  */
 struct VAL_VCODEC_THREAD_ID_T {
 	unsigned int    u4tid1;
 	unsigned int    u4tid2;
-	unsigned int    u4VCodecThreadNum;
-	unsigned int    u4VCodecThreadID[VCODEC_THREAD_MAX_NUM];
+	unsigned int    u4ThreadNum;
+	unsigned int    u4ThreadID[VCODEC_THREAD_MAX_NUM];
 };
 
 
