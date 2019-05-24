@@ -319,7 +319,7 @@ TEEC_Result _tee_cmd_feature_control(
 		teeOperation.params[3].tmpref.buffer =
 			(void *)(uintptr_t) (*(feature_data + 1));
 		teeOperation.params[3].tmpref.size =
-			sizeof(SENSOR_WINSIZE_INFO_STRUCT);
+			sizeof(struct SENSOR_WINSIZE_INFO_STRUCT);
 		break;
 	case SENSOR_FEATURE_SET_HDR:
 		teeOperation.paramTypes = TEEC_PARAM_TYPES(
@@ -346,14 +346,14 @@ TEEC_Result _tee_cmd_feature_control(
 		teeOperation.params[3].tmpref.buffer =
 			(void *)(uintptr_t) (*(feature_data + 1));
 		teeOperation.params[3].tmpref.size =
-			sizeof(SENSOR_VC_INFO_STRUCT);
+			sizeof(struct SENSOR_VC_INFO_STRUCT);
 		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		teeOperation.paramTypes = TEEC_PARAM_TYPES(
 			TEEC_VALUE_INOUT, TEEC_MEMREF_TEMP_INPUT,
 			TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
 		teeOperation.params[1].tmpref.size =
-			sizeof(SET_SENSOR_AWB_GAIN);
+			sizeof(struct SET_SENSOR_AWB_GAIN);
 		teeOperation.params[2].tmpref.size = sizeof(UINT32);
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
@@ -367,7 +367,7 @@ TEEC_Result _tee_cmd_feature_control(
 		teeOperation.params[3].tmpref.buffer =
 			(void *)(uintptr_t) (*(feature_data + 1));
 		teeOperation.params[3].tmpref.size =
-			sizeof(SET_PD_BLOCK_INFO_T);
+			sizeof(struct SET_PD_BLOCK_INFO_T);
 		break;
 
 	case SENSOR_FEATURE_SET_PDAF:
@@ -481,8 +481,8 @@ TEEC_Result _tee_cmd_getInfo(struct command_params params, MUINT32 *ret)
 
 	TEEC_Result ret_tee = TEEC_SUCCESS;
 	struct TEEC_Operation teeOperation;
-	MSDK_SCENARIO_ID_ENUM scenario_id =
-			(MSDK_SCENARIO_ID_ENUM)(params.param0);
+	enum MSDK_SCENARIO_ID_ENUM scenario_id =
+			(enum MSDK_SCENARIO_ID_ENUM)(params.param0);
 
 	_TRACE("%s\n", __func__);
 	memset(&teeOperation, 0, sizeof(struct TEEC_Operation));
@@ -496,11 +496,11 @@ TEEC_Result _tee_cmd_getInfo(struct command_params params, MUINT32 *ret)
 
 	teeOperation.params[1].tmpref.buffer = params.param1;
 	teeOperation.params[1].tmpref.size   =
-		sizeof(MSDK_SENSOR_INFO_STRUCT);
+		sizeof(struct ACDK_SENSOR_CONFIG_STRUCT);
 
 	teeOperation.params[2].tmpref.buffer = params.param2;
 	teeOperation.params[2].tmpref.size =
-		sizeof(MSDK_SENSOR_CONFIG_STRUCT);
+		sizeof(struct ACDK_SENSOR_CONFIG_STRUCT);
 
 	ret_tee = TEEC_InvokeCommand(&imgsensor_tci_session,
 		IMGSENSOR_TEE_CMD_GET_INFO, &teeOperation, NULL);
@@ -508,8 +508,8 @@ TEEC_Result _tee_cmd_getInfo(struct command_params params, MUINT32 *ret)
 	PK_DBG(
 	    "cagi: params.param1 = %p param2 = %p sizeof(MSDK_SENSOR_CONFIG_STRUCT) %zu %zu\n",
 	    params.param1, params.param2,
-	    sizeof(MSDK_SENSOR_CONFIG_STRUCT),
-	    sizeof(ACDK_SENSOR_MIPI_LANE_NUMBER_ENUM));
+	    sizeof(struct ACDK_SENSOR_CONFIG_STRUCT),
+	    sizeof(enum ACDK_SENSOR_MIPI_LANE_NUMBER_ENUM));
 
 	if (ret_tee == TEEC_SUCCESS)
 		*ret = teeOperation.params[0].value.a;
@@ -524,8 +524,8 @@ TEEC_Result _tee_cmd_Control(struct command_params params, MUINT32 *ret)
 
 	TEEC_Result ret_tee = TEEC_SUCCESS;
 	struct TEEC_Operation teeOperation;
-	MSDK_SCENARIO_ID_ENUM scenario_id =
-		(MSDK_SCENARIO_ID_ENUM)(params.param0);
+	enum MSDK_SCENARIO_ID_ENUM scenario_id =
+		(enum MSDK_SCENARIO_ID_ENUM)(params.param0);
 
 	_TRACE("%s\n", __func__);
 	memset(&teeOperation, 0, sizeof(struct TEEC_Operation));

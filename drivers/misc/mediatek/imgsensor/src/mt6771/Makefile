@@ -70,4 +70,12 @@ obj-y				+= camera_project/$(ARCH_MTK_PROJECT)/
 subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(ARCH_MTK_PROJECT)/camera_hw
 endif
 
+ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
+include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+endif
+
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+endif
+
 obj-y += seninf/
