@@ -1408,6 +1408,81 @@ static inline bool kgsl_mem_entry_set_pend(struct kgsl_mem_entry *entry)
 	return ret;
 }
 
+static inline int kgsl_get_ctxt_fault_stats(struct kgsl_context *context,
+		struct kgsl_context_property *ctxt_property)
+{
+	struct kgsl_context_property_fault fault_stats;
+	size_t copy;
+
+	/* Return the size of the subtype struct */
+	if (ctxt_property->size == 0) {
+		ctxt_property->size = sizeof(fault_stats);
+		return 0;
+	}
+
+	memset(&fault_stats, 0, sizeof(fault_stats));
+
+	copy = min_t(size_t, ctxt_property->size, sizeof(fault_stats));
+
+	fault_stats.faults = context->total_fault_count;
+	fault_stats.timestamp = context->last_faulted_cmd_ts;
+
+	/*
+	 * Copy the context fault stats to data which also serves as
+	 * the out parameter.
+	 */
+	if (copy_to_user(u64_to_user_ptr(ctxt_property->data),
+				&fault_stats, copy))
+		return -EFAULT;
+
+	return 0;
+}
+
+static inline int kgsl_get_ctxt_properties(struct kgsl_device_private *dev_priv,
+		struct kgsl_device_getproperty *param)
+{
+	/* Return fault stats of given context */
+	struct kgsl_context_property ctxt_property;
+	struct kgsl_context *context;
+	size_t copy;
+	int ret = 0;
+
+	/*
+	 * If sizebytes is zero, tell the user how big the
+	 * ctxt_property struct should be.
+	 */
+	if (param->sizebytes == 0) {
+		param->sizebytes = sizeof(ctxt_property);
+		return 0;
+	}
+
+	memset(&ctxt_property, 0, sizeof(ctxt_property));
+
+	copy = min_t(size_t, param->sizebytes, sizeof(ctxt_property));
+
+	/* We expect the value passed in to contain the context id */
+	if (copy_from_user(&ctxt_property, param->value, copy))
+		return -EFAULT;
+
+	/* ctxt type zero is not valid, as we consider it as uninitialized. */
+	if (ctxt_property.type == 0)
+		return -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv,
+			ctxt_property.contextid);
+	if (!context)
+		return -EINVAL;
+
+	if (ctxt_property.type == KGSL_CONTEXT_PROP_FAULTS)
+		ret = kgsl_get_ctxt_fault_stats(context, &ctxt_property);
+	else
+		ret = -EOPNOTSUPP;
+
+	kgsl_context_put(context);
+
+	return ret;
+}
+
 /*call all ioctl sub functions with driver locked*/
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data)
@@ -1510,6 +1585,9 @@ long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 
 		break;
 	}
+	case KGSL_PROP_CONTEXT_PROPERTY:
+		result = kgsl_get_ctxt_properties(dev_priv, param);
+		break;
 	default:
 		if (is_compat_task())
 			result = dev_priv->device->ftbl->getproperty_compat(
