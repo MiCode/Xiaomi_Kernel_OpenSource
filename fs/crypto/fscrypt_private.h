@@ -43,6 +43,12 @@ struct fscrypt_context {
 
 #define FS_ENCRYPTION_CONTEXT_FORMAT_V1		1
 
+enum fscrypt_ci_mode {
+	CI_NONE_MODE = 0,
+	CI_DATA_MODE,
+	CI_FNAME_MODE,
+};
+
 /**
  * For encrypted symlinks, the ciphertext length is stored at the beginning
  * of the string in little-endian format.
@@ -86,6 +92,7 @@ struct fscrypt_info {
 	struct fscrypt_master_key *ci_master_key;
 
 	/* fields from the fscrypt_context */
+	u8 ci_format;
 	u8 ci_data_mode;
 	u8 ci_filename_mode;
 	u8 ci_flags;
@@ -104,6 +111,12 @@ typedef enum {
 
 #define FS_CTX_REQUIRES_FREE_ENCRYPT_FL		0x00000001
 #define FS_CTX_HAS_BOUNCE_BUFFER_FL		0x00000002
+
+static inline bool fscrypt_is_private_mode(struct fscrypt_info *ci)
+{
+	return ci->ci_format == CI_DATA_MODE &&
+		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
+}
 
 static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 					   u32 filenames_mode)
