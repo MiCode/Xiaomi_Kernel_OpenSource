@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,7 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 	int ret;
-	resource_size_t start, len;
+	resource_size_t len;
 	int i;
 
 	mhi_dev->resn = MHI_PCI_BAR_NUM;
@@ -118,9 +118,9 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 
 	pci_set_master(pci_dev);
 
-	start = pci_resource_start(pci_dev, mhi_dev->resn);
+	mhi_cntrl->base_addr = pci_resource_start(pci_dev, mhi_dev->resn);
 	len = pci_resource_len(pci_dev, mhi_dev->resn);
-	mhi_cntrl->regs = ioremap_nocache(start, len);
+	mhi_cntrl->regs = ioremap_nocache(mhi_cntrl->base_addr, len);
 	if (!mhi_cntrl->regs) {
 		MHI_ERR("Error ioremap region\n");
 		goto error_ioremap;
