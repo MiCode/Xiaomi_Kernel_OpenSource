@@ -39,3 +39,11 @@ config MTK_ATF_LOGGER
 	  ARM Trusted Firmwear Logger which is designed by Mediatek.
 	  The logger provide a /proc interface for reading from
 	  user space.
+
+config MTK_ICE_DEBUG
+	bool "ICE_DEBUG"
+	default y if ARCH_MEDIATEK
+	help
+	  For Mediatek InCircuit Emulator Debug features.
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
