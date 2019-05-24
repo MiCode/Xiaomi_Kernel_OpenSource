@@ -2221,13 +2221,15 @@ int ipa3_wwan_set_modem_perf_profile(int throughput)
 	int ret;
 	int tether_bridge_handle = 0;
 
+	IPAWANDBG("throughput: %d\n", throughput);
+
 	if (ipa3_ctx->use_ipa_pm) {
 		/* query rmnet-tethering handle */
 		tether_bridge_handle = ipa3_teth_bridge_get_pm_hdl();
 		if (tether_bridge_handle > 0) {
 			/* only update with valid handle*/
 			ret = ipa_pm_set_throughput(tether_bridge_handle,
-				throughput);
+			throughput);
 		}
 		/* for TETH MODEM on softap/rndis */
 		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,

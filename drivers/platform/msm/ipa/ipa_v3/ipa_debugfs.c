@@ -19,6 +19,7 @@
 #include "../ipa_rm_i.h"
 #include "ipahal/ipahal_nat.h"
 #include "ipa_odl.h"
+#include "ipa_qmi_service.h"
 
 #define IPA_MAX_ENTRY_STRING_LEN 500
 #define IPA_MAX_MSG_LEN 4096
@@ -331,6 +332,7 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 {
 	unsigned long missing;
 	s8 option = 0;
+	uint32_t bw_mbps = 0;
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -343,12 +345,35 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 	if (kstrtos8(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	if (option == 1)
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	else if (option == 0)
+	switch (option) {
+	case 0:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-	else
+		bw_mbps = 0;
+		break;
+	case 1:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		bw_mbps = 0;
+		break;
+	case 2:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		bw_mbps = 350;
+		break;
+	case 3:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		bw_mbps = 690;
+		break;
+	case 4:
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		bw_mbps = 1200;
+		break;
+	default:
+		pr_err("Not support this vote (%d)\n", option);
 		return -EFAULT;
+	}
+	if (ipa3_vote_for_bus_bw(&bw_mbps)) {
+		IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
+		return -EFAULT;
+	}
 
 	return count;
 }
