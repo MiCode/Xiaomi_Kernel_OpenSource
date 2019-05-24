@@ -2111,6 +2111,126 @@ done:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa3_read_mhip_gsi_stats(struct file *file,
+	char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct ipa3_uc_dbg_ring_stats stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+	if (!ipa3_get_mhip_gsi_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_CLIENT_MHI_PRIME_TETH_CONS ringFull=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_CONS ringEmpty=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_CONS ringUsageHigh=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_CONS ringUsageLow=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_CONS RingUtilCount=%u\n",
+			stats.ring[1].ringFull,
+			stats.ring[1].ringEmpty,
+			stats.ring[1].ringUsageHigh,
+			stats.ring[1].ringUsageLow,
+			stats.ring[1].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"IPA_CLIENT_MHI_PRIME_TETH_PROD ringFull=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_PROD ringEmpty=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_PROD ringUsageHigh=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_PROD ringUsageLow=%u\n"
+			"IPA_CLIENT_MHI_PRIME_TETH_PROD RingUtilCount=%u\n",
+			stats.ring[0].ringFull,
+			stats.ring[0].ringEmpty,
+			stats.ring[0].ringUsageHigh,
+			stats.ring[0].ringUsageLow,
+			stats.ring[0].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"IPA_CLIENT_MHI_PRIME_RMNET_CONS ringFull=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_CONS ringEmpty=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_CONS ringUsageHigh=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_CONS ringUsageLow=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_CONS RingUtilCount=%u\n",
+			stats.ring[3].ringFull,
+			stats.ring[3].ringEmpty,
+			stats.ring[3].ringUsageHigh,
+			stats.ring[3].ringUsageLow,
+			stats.ring[3].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"IPA_CLIENT_MHI_PRIME_RMNET_PROD ringFull=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_PROD ringEmpty=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_PROD ringUsageHigh=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_PROD ringUsageLow=%u\n"
+			"IPA_CLIENT_MHI_PRIME_RMNET_PROD RingUtilCount=%u\n",
+			stats.ring[2].ringFull,
+			stats.ring[2].ringEmpty,
+			stats.ring[2].ringUsageHigh,
+			stats.ring[2].ringUsageLow,
+			stats.ring[2].RingUtilCount);
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"Fail to read WDI GSI stats\n");
+		cnt += nbytes;
+	}
+
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa3_read_usb_gsi_stats(struct file *file,
+	char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct ipa3_uc_dbg_ring_stats stats;
+	int nbytes;
+	int cnt = 0;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"This feature only support on IPA4.5+\n");
+		cnt += nbytes;
+		goto done;
+	}
+	if (!ipa3_get_usb_gsi_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n",
+			stats.ring[1].ringFull,
+			stats.ring[1].ringEmpty,
+			stats.ring[1].ringUsageHigh,
+			stats.ring[1].ringUsageLow,
+			stats.ring[1].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n",
+			stats.ring[0].ringFull,
+			stats.ring[0].ringEmpty,
+			stats.ring[0].ringUsageHigh,
+			stats.ring[0].ringUsageLow,
+			stats.ring[0].RingUtilCount);
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"Fail to read WDI GSI stats\n");
+		cnt += nbytes;
+	}
+
+done:
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
@@ -2400,6 +2520,14 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"aqc_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_aqc_gsi_stats,
+		}
+	}, {
+		"mhip_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_mhip_gsi_stats,
+		}
+	}, {
+		"usb_gsi_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_usb_gsi_stats,
 		}
 	}
 };

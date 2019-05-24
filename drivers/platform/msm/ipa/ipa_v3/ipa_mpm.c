@@ -990,7 +990,6 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 		ipa_mpm_change_gsi_state(mhi_idx,
 			IPA_MPM_MHIP_CHAN_UL,
 			GSI_ALLOCATED);
-
 	result = ipa3_start_gsi_channel(ipa_ep_idx);
 	if (result) {
 		IPA_MPM_ERR("start MHIP channel %d failed\n", mhip_client);
@@ -2784,6 +2783,54 @@ int ipa_mpm_panic_handler(char *buf, int size)
 	}
 	return cnt;
 }
+
+/**
+ * ipa3_get_mhip_gsi_stats() - Query MHIP gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_mhip_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i;
+
+	if (!ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad parms NULL mhip_gsi_stats_mmio\n");
+		return -EINVAL;
+	}
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < MAX_CH_STATS_SUPPORTED; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+
+	return 0;
+}
+
+
 late_initcall(ipa_mpm_init);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MHI Proxy Manager Driver");
