@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,7 @@ struct mhi_controller {
 	struct device_node *of_node;
 
 	/* mmio base */
+	phys_addr_t base_addr;
 	void __iomem *regs;
 	void __iomem *bhi;
 	void __iomem *bhie;
