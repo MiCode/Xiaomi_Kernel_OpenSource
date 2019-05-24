@@ -297,6 +297,15 @@ config MTK_PERF_TRACKER
 	  be built-in or not. It supports system related performance index
 	  via trace. If you are not sure about whether to enable it or not,
 	  please set n.
+
+config MTK_LOWMEM_HINT
+	bool "MTK low memory thrash hint v2.0"
+	default n
+	help
+	  A hint to notify userspace if low-momory
+	  is occurs via uevent per second. The system in
+	  userspace can use the hint to make memory health
+	  improvement immediately.
 endmenu # PPT
 
 menu "Memory configs"

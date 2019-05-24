@@ -414,6 +414,49 @@ TRACE_EVENT(sspm_ipi,
 	__entry->start, __entry->ipi_id, __entry->ipi_opt)
 );
 
+TRACE_EVENT(trigger_lowmem_hint,
+	TP_PROTO(
+		long mm_free,
+		long mm_thrash
+	),
+
+	TP_ARGS(mm_free, mm_thrash),
+
+	TP_STRUCT__entry(
+		__field(long, mm_free)
+		__field(long, mm_thrash)
+	),
+
+	TP_fast_assign(
+		__entry->mm_free = mm_free;
+		__entry->mm_thrash = mm_thrash;
+	),
+
+	TP_printk("free=%ld thrash=%ld",
+		__entry->mm_free, __entry->mm_thrash
+	)
+);
+
+TRACE_EVENT(lowmem_hint_uevent,
+	TP_PROTO(
+		int ret
+	),
+
+	TP_ARGS(ret),
+
+	TP_STRUCT__entry(
+		__field(int, ret)
+	),
+
+	TP_fast_assign(
+		__entry->ret = ret;
+	),
+
+	TP_printk("ret=%d",
+		__entry->ret
+	)
+);
+
 TRACE_EVENT(perf_index_s,
 	TP_PROTO(
 		unsigned int sf0,
