@@ -146,15 +146,6 @@ __weak void aee_rr_proc_done(struct proc_dir_entry *aed_proc_dir)
 {
 }
 
-__weak int aee_kernel_wdt_kick_api(int kinterval)
-{
-	return 0;
-}
-
-__weak void aee_powerkey_notify_press(unsigned long pressed)
-{
-}
-
 __weak void aee_disable_api(void)
 {
 }
@@ -165,18 +156,6 @@ __weak void aee_disable_api(void)
 
 #endif
 
-#ifndef CONFIG_MTK_AEE_AED
-
-__weak void aee_kernel_wdt_kick_Powkey_api(const char *module, int msg)
-{
-}
-
-__weak int aee_kernel_Powerkey_is_press(void)
-{
-	return 0;
-}
-
-#endif
 
 #ifndef CONFIG_MTK_AEE_IPANIC
 
