@@ -1742,6 +1742,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	struct ipa3_ep_context *ep;
 	u32 evt_ring_db_addr_low, evt_ring_db_addr_high;
 	u32 wp_addr;
+	int pipe_idx;
 
 	IPA_MPM_FUNC_ENTRY();
 
@@ -2084,10 +2085,11 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 			}
 		}
 
-		if (probe_id == IPA_MPM_MHIP_CH_ID_1)
+		if (probe_id == IPA_MPM_MHIP_CH_ID_1) {
 			/* Lift the delay for rmnet USB prod pipe */
-			ipa3_set_reset_client_prod_pipe_delay(false,
-							IPA_CLIENT_USB_PROD);
+			pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
+			ipa3_xdci_ep_delay_rm(pipe_idx);
+		}
 		break;
 	default:
 		IPA_MPM_DBG("No op for UL channel, in teth state = %d",
@@ -2309,6 +2311,7 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	enum ipa_mpm_mhip_client_type mhip_client;
 	enum mhip_status_type status;
 	int ret = 0;
+	int pipe_idx;
 
 	if (ipa_mpm_ctx == NULL) {
 		IPA_MPM_ERR("MPM not platform probed yet, returning ..\n");
@@ -2368,9 +2371,11 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
 		ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
 						MPM_MHIP_START);
+
+		pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
+
 		/* Lift the delay for rmnet USB prod pipe */
-		ipa3_set_reset_client_prod_pipe_delay(false,
-			IPA_CLIENT_USB_PROD);
+		ipa3_xdci_ep_delay_rm(pipe_idx);
 		if (status == MHIP_STATUS_NO_OP) {
 			/* Channels already have been started,
 			 * we can devote for pcie clocks
