@@ -16,7 +16,7 @@
 #include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include <mach/mtk_freqhopping.h>
+#include "mtk_freqhopping_drv.h"
 #else
 #define FH_PLL0 0
 #define FH_PLL1 1

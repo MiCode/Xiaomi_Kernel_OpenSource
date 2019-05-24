@@ -15,7 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/regulator/consumer.h>
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include <mach/mtk_freqhopping.h>
+#include "mtk_freqhopping_drv.h"
 #endif
 #include "mtk_cpufreq_platform.h"
 #include "mtk_cpufreq_hybrid.h"

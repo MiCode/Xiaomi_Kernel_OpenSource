@@ -39,7 +39,7 @@
 #include "mmdvfs_internal.h"
 
 #ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mach/mtk_freqhopping.h"
+#include "mtk_freqhopping_drv.h"
 #endif
 
 #ifdef USE_DDR_TYPE

@@ -40,7 +40,7 @@
 /* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"
 
-#include "mtk_freqhopping.h"
+#include "mtk_freqhopping_drv.h"
 #include "mtk_fhreg.h"
 #include "upmu_sw.h"
 #include "upmu_hw.h"
