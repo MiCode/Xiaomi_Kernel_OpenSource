@@ -110,7 +110,6 @@ static int spm_dram_golden_setting_cmp(bool en)
 		return r;
 
 	switch (spm_get_spmfw_idx()) {
-	case SPMFW_LP4_2CH_2400:
 	case SPMFW_LP4_2CH_3200:
 		ddrphy_setting = ddrphy_setting_lp4_2ch;
 		ddrphy_num = ARRAY_SIZE(ddrphy_setting_lp4_2ch);
@@ -167,9 +166,7 @@ static void spm_dram_type_check(void)
 	int ddr_type = get_ddr_type();
 	int ddr_hz = dram_steps_freq(0);
 
-	if (ddr_type == TYPE_LPDDR4 && ddr_hz == 2400)
-		spmfw_idx = SPMFW_LP4_2CH_2400;
-	else if (ddr_type == TYPE_LPDDR4 && ddr_hz == 3200)
+	if (ddr_type == TYPE_LPDDR4 && ddr_hz == 3200)
 		spmfw_idx = SPMFW_LP4_2CH_3200;
 	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 3200)
 		spmfw_idx = SPMFW_LP4X_2CH_3200;
