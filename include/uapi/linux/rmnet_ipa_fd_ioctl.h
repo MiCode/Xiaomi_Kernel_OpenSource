@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _RMNET_IPA_FD_IOCTL_H
@@ -33,6 +33,8 @@
 #define WAN_IOCTL_SET_LAN_CLIENT_INFO        15
 #define WAN_IOCTL_CLEAR_LAN_CLIENT_INFO      16
 #define WAN_IOCTL_SEND_LAN_CLIENT_MSG        17
+#define WAN_IOCTL_ADD_OFFLOAD_CONNECTION     18
+#define WAN_IOCTL_RMV_OFFLOAD_CONNECTION     19
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -251,4 +253,12 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_CLEAR_LAN_CLIENT_INFO _IOWR(WAN_IOC_MAGIC, \
 			WAN_IOCTL_CLEAR_LAN_CLIENT_INFO, \
 			struct wan_ioctl_lan_client_info *)
+
+#define WAN_IOC_ADD_OFFLOAD_CONNECTION _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ADD_OFFLOAD_CONNECTION, \
+		struct ipa_add_offload_connection_req_msg_v01 *)
+
+#define WAN_IOC_RMV_OFFLOAD_CONNECTION _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_RMV_OFFLOAD_CONNECTION, \
+		struct ipa_remove_offload_connection_req_msg_v01 *)
 #endif /* _RMNET_IPA_FD_IOCTL_H */
