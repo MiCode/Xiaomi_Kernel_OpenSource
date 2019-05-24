@@ -41,6 +41,9 @@
 
 #include "spm_v4/mtk_spm_resource_req.h"
 
+#elif defined(CONFIG_MACH_MT6768)
+#include "spm/mtk_spm_resource_req.h"
+
 #endif
 
 #endif /* __MTK_SPM_RESOURCE_REQ_H__ */
