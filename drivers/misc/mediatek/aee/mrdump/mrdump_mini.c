@@ -540,7 +540,7 @@ EXPORT_SYMBOL(mrdump_mini_per_cpu_regs);
 
 void mrdump_mini_build_task_info(struct pt_regs *regs)
 {
-#define MAX_STACK_TRACE_DEPTH 32
+#define MAX_STACK_TRACE_DEPTH 64
 	unsigned long ipanic_stack_entries[MAX_STACK_TRACE_DEPTH];
 	char symbol[96] = {'\0'};
 	int sz;
