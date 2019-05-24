@@ -3272,58 +3272,6 @@ static void fts_event_handler(struct work_struct *work)
 	fts_interrupt_enable(info);
 }
 
-static int cx_crc_check(void)
-{
-	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0,
-				ADDR_CRC_BYTE1};
-	unsigned char val[2] = {0};
-	unsigned char crc_status;
-	int res;
-	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
-	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
-			(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE] = {0};
-
-	/* read 2 bytes because the first one is a dummy byte! */
-	res = fts_readCmd(regAdd1, sizeof(regAdd1), val, 2);
-	if (res < OK) {
-		logError(1, "%s %s Cannot read crc status ERROR %08X\n",
-			tag, __func__, res);
-		return res;
-	}
-
-	crc_status = val[1] & CRC_MASK;
-	if (crc_status != OK) {
-		logError(1, "%s %s CRC ERROR = %X\n",
-			tag, __func__, crc_status);
-		return crc_status;
-	}
-
-	logError(0, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
-	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
-	res = fts_writeCmd(cmd, 4);
-	if (res < OK) {
-		logError(1, "%s %s Cannot send system resest command:%08X\n",
-			tag, __func__, res);
-		return res;
-	}
-	setSystemResettedDown(1);
-	setSystemResettedUp(1);
-	res = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
-	if (res < OK) {
-		logError(0, "%s %s: No Config CRC Found!\n", tag, __func__);
-	} else {
-		if (readData[2] == CRC_CONFIG_SIGNATURE ||
-				readData[2] == CRC_CONFIG) {
-			logError(1, "%s:%s: CRC Error for config found! %02X\n",
-				tag, __func__, readData[2]);
-			return readData[2];
-		}
-	}
-
-	return OK;
-}
-
 static void fts_fw_update_auto(struct work_struct *work)
 {
 	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
@@ -3342,17 +3290,6 @@ static void fts_fw_update_auto(struct work_struct *work)
 
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
-
-	/* check CRC status */
-	ret = cx_crc_check();
-	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {
-		logError(1, "%s %s: CRC Error or NO FW!\n", tag, __func__);
-		crc_status = 1;
-	} else {
-		crc_status = 0;
-		logError(0, "%s %s:NO Error or can't read CRC register!\n",
-			tag, __func__);
-	}
 
 	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
 	if ((retval & ERROR_MEMH_READ) || (retval & ERROR_FW_NO_UPDATE)) {
@@ -3373,8 +3310,6 @@ static void fts_fw_update_auto(struct work_struct *work)
 		}
 	}
 
-	logError(0, "%s %s: Verifying if CX CRC Error...\n",
-		tag, __func__, ret);
 	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
 	ret = fts_writeCmd(cmd, 4);
 	if (ret < OK) {
