@@ -193,11 +193,13 @@ static struct platform_driver spm_dev_drv = {
 static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 			void *unused)
 {
+#if 0 /* Avoid race condition between Suspend sync and Idle async IPI cmd */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	struct spm_data spm_d;
 	int ret;
 	unsigned long flags;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif
 
 	switch (pm_event) {
 	case PM_HIBERNATION_PREPARE:
@@ -206,8 +208,9 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 		return NOTIFY_DONE;
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	case PM_SUSPEND_PREPARE:
+#if 0 /* Avoid race condition between Suspend sync and Idle async IPI cmd */
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 		spin_lock_irqsave(&__spm_lock, flags);
 		ret = spm_to_sspm_command(SPM_SUSPEND_PREPARE, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
@@ -216,8 +219,12 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 				__func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+#if 0 /* Avoid race condition between Suspend sync and Idle async IPI cmd */
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 		spin_lock_irqsave(&__spm_lock, flags);
 		ret = spm_to_sspm_command(SPM_POST_SUSPEND, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
@@ -226,8 +233,9 @@ static int spm_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 				__func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}
-		return NOTIFY_DONE;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif
+		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
 }
