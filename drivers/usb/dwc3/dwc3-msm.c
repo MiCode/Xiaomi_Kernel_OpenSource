@@ -1232,6 +1232,7 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	}
 	sg_free_table(&req->sgt_trb_xfer_ring);
 }
+
 /*
 * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
 *
@@ -1274,10 +1275,8 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	/* Set interrupter number for GSI endpoints */
 	params.param1 |= DWC3_DEPCFG_INT_NUM(ep->ep_intr_num);
 
-	/* Enable XferInProgress and XferComplete Interrupts */
-	params.param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
-	params.param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
-	params.param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
+	/* EP Events are enabled later once DBL_ADDR is updated */
+
 	/*
 	 * We must use the lower 16 TX FIFOs even though
 	 * HW might have more
@@ -1289,7 +1288,10 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	params.param0 |= DWC3_DEPCFG_ACTION_INIT;
 
 	dev_dbg(mdwc->dev, "Set EP config to params = %x %x %x, for %s\n",
-	params.param0, params.param1, params.param2, dep->name);
+		params.param0, params.param1, params.param2, dep->name);
+
+	/* params are used later when EP_CONFIG is modified to enable events */
+	dep->ep_cfg_init_params = params;
 
 	dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
 
@@ -1313,6 +1315,57 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 		dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
 	}
 
+}
+
+/*
+ * Enables events for GSI EPs. Modify EP_CONFIG to enable EP events
+ * after GSI wrapper is initialized for the endpoint.
+ *
+ * @usb_ep - pointer to usb_ep instance.
+ */
+static void gsi_enable_ep_events(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dep->dwc->dev->parent);
+	struct dwc3_gadget_ep_cmd_params params;
+
+	/* EP is already configured, just update params to enable events */
+	params = dep->ep_cfg_init_params;
+
+	/* Enable XferInProgress and XferComplete Interrupts */
+	params.param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
+	params.param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
+	params.param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
+
+	params.param0 |= DWC3_DEPCFG_ACTION_MODIFY;
+
+	dev_dbg(mdwc->dev, "Modify EP config to params = %x %x %x, for %s\n",
+		params.param0, params.param1, params.param2, dep->name);
+
+	dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
+}
+
+/*
+ * Disables events for GSI EPs. Modify EP_CONFIG to disable EP events
+ * to prevent USB GSI wrapper from ringing any doorbell.
+ *
+ * @usb_ep - pointer to usb_ep instance.
+ */
+static void gsi_disable_ep_events(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dep->dwc->dev->parent);
+	struct dwc3_gadget_ep_cmd_params params;
+
+	/* EP is already enabled, just restore init_params to disable events */
+	params = dep->ep_cfg_init_params;
+
+	params.param0 |= DWC3_DEPCFG_ACTION_MODIFY;
+
+	dev_dbg(mdwc->dev, "Modify EP config to params = %x %x %x, for %s\n",
+		params.param0, params.param1, params.param2, dep->name);
+
+	dwc3_send_gadget_ep_cmd(dep, DWC3_DEPCMD_SETEPCONFIG, &params);
 }
 
 /*
@@ -1351,6 +1404,16 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	/*
+	 * Disable EP events if doorbell needs to be blocked to avoid issues
+	 * due to another GSI interface endpoint enabling doorbell say on resume
+	 * as there is no control of doorbell per endpoint.
+	 */
+	if (block_db)
+		gsi_disable_ep_events(ep);
+	else
+		gsi_enable_ep_events(ep);
 
 	dwc3_msm_write_reg_field(mdwc->base,
 		GSI_GENERAL_CFG_REG, BLOCK_GSI_WR_GO_MASK, block_db);
@@ -1462,7 +1525,9 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
 		block_db = *((bool *)op_data);
+		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_set_clear_dbell(ep, block_db);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_CHECK_FOR_SUSPEND:
 		ret = gsi_check_ready_to_suspend(mdwc);
