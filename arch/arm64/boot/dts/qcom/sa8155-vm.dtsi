@@ -712,6 +712,7 @@
 #include "sa8155-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
 #include "sa8155-vm-pcie.dtsi"
+#include "sa8155-vm-mhi.dtsi"
 
 &qupv3_se13_4uart {
 	status = "ok";
