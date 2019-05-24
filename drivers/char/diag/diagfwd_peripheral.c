@@ -205,8 +205,10 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 
 		mutex_lock(&driver->md_session_lock);
 		if (buf->len < max_size) {
-			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
-				driver->logging_mode == DIAG_MULTI_MODE) {
+			if (driver->logging_mode[DIAG_LOCAL_PROC] ==
+				DIAG_MEMORY_DEVICE_MODE ||
+				driver->logging_mode[DIAG_LOCAL_PROC] ==
+							DIAG_MULTI_MODE) {
 				ch = &diag_md[DIAG_LOCAL_PROC];
 				if (!ch || !ch->md_info_inited) {
 					mutex_unlock(&driver->md_session_lock);
@@ -1235,7 +1237,7 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	 * Keeping the buffers busy for Memory Device and Multi Mode.
 	 */
 
-	if (driver->logging_mode != DIAG_USB_MODE) {
+	if (driver->logging_mode[DIAG_LOCAL_PROC] != DIAG_USB_MODE) {
 		if (fwd_info->buf_1) {
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
 			fwd_info->buffer_status[BUF_1_INDEX] = 0;
