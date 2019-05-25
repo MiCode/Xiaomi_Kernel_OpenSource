@@ -1503,7 +1503,8 @@ end:
 static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
-	bool                                is_ipp)
+	bool                                 is_ipp,
+	bool                                 crop_enable)
 {
 	int rc = -1;
 	int i;
@@ -1560,6 +1561,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.in_port = in_port;
 		csid_acquire.out_port = in_port->data;
 		csid_acquire.node_res = NULL;
+		csid_acquire.crop_enable = crop_enable;
 
 		hw_intf = cid_res->hw_res[i]->hw_intf;
 
@@ -1688,6 +1690,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 		csid_acquire.node_res = NULL;
+
+		/* Enable RDI crop for single ife use case only */
+		if (in_port->usage_type)
+			csid_acquire.crop_enable = false;
+		else
+			csid_acquire.crop_enable = true;
 
 		hw_intf = cid_res->hw_res[0]->hw_intf;
 		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
@@ -1935,6 +1943,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	int ppp_count                             = 0;
 	int ife_rd_count                          = 0;
 	int lcr_count                             = 0;
+	bool crop_enable                          = true;
 
 	is_dual_vfe = in_port->usage_type;
 
@@ -1958,7 +1967,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	if (ipp_count || lcr_count) {
 		/* get ife csid IPP resource */
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_pxl(ife_ctx,
-			in_port, true);
+			in_port, true, crop_enable);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID IPP/LCR resource Failed");
@@ -1967,7 +1976,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	}
 
 	if (rdi_count) {
-		/* get ife csid rdi resource */
+		/* get ife csid RDI resource */
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -1978,8 +1987,16 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 
 	if (ppp_count) {
 		/* get ife csid PPP resource */
+
+		/* If both IPP and PPP paths are requested with the same vc dt
+		 * it is implied that the sensor is a type 3 PD sensor. Crop
+		 * must be enabled for this sensor on PPP path as well.
+		 */
+		if (!ipp_count)
+			crop_enable = false;
+
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_pxl(ife_ctx,
-			in_port, false);
+			in_port, false, crop_enable);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID PPP resource Failed");
