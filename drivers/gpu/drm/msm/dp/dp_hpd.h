@@ -72,6 +72,7 @@ struct dp_hpd {
 	bool hpd_irq;
 	bool alt_mode_cfg_done;
 	bool multi_func;
+	bool peer_usb_comm;
 
 	void (*isr)(struct dp_hpd *dp_hpd);
 	int (*register_hpd)(struct dp_hpd *dp_hpd);

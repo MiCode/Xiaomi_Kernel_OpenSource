@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -47,6 +47,13 @@
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
+
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX)
+#include <linux/completion.h>
+#include <linux/atomic.h>
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
 #endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
@@ -286,6 +293,17 @@ struct synaptics_rmi4_device_info {
 	struct list_head support_fn_list;
 };
 
+struct synaptics_rmi4_f01_device_status {
+	union {
+		struct {
+			unsigned char status_code:4;
+			unsigned char reserved:2;
+			unsigned char flash_prog:1;
+			unsigned char unconfigured:1;
+		} __packed;
+		unsigned char data[1];
+	};
+};
 /*
  * struct synaptics_rmi4_data - RMI4 device instance data
  * @pdev: pointer to platform device
@@ -360,6 +378,9 @@ struct synaptics_rmi4_data {
 	const struct synaptics_dsx_hw_interface *hw_if;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
 	struct synaptics_rmi4_input_settings input_settings;
+	struct synaptics_rmi4_fn_desc rmi_fd;
+	struct synaptics_rmi4_fn_desc fd;
+	struct synaptics_rmi4_f01_device_status status;
 	struct kobject *board_prop_dir;
 	struct regulator *pwr_reg;
 	struct regulator *bus_reg;
@@ -437,6 +458,15 @@ struct synaptics_rmi4_data {
 			bool enable);
 	void (*report_touch)(struct synaptics_rmi4_data *rmi4_data,
 			struct synaptics_rmi4_fn *fhandler);
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_powerdown;
+	struct completion st_irq_processed;
+	bool st_initialized;
+	struct clk *core_clk;
+	struct clk *iface_clk;
+#endif
 };
 
 struct synaptics_dsx_bus_access {
@@ -445,6 +475,8 @@ struct synaptics_dsx_bus_access {
 		unsigned char *data, unsigned int length);
 	int (*write)(struct synaptics_rmi4_data *rmi4_data, unsigned short addr,
 		unsigned char *data, unsigned int length);
+	int (*get)(struct synaptics_rmi4_data *rmi4_data);
+	void (*put)(struct synaptics_rmi4_data *rmi4_data);
 };
 
 struct synaptics_dsx_hw_interface {
@@ -493,6 +525,16 @@ static inline int synaptics_rmi4_reg_write(
 		unsigned int len)
 {
 	return rmi4_data->hw_if->bus_access->write(rmi4_data, addr, data, len);
+}
+
+static inline int synaptics_rmi4_bus_get(struct synaptics_rmi4_data *rmi4_data)
+{
+	return rmi4_data->hw_if->bus_access->get(rmi4_data);
+}
+
+static inline void synaptics_rmi4_bus_put(struct synaptics_rmi4_data *rmi4_data)
+{
+	rmi4_data->hw_if->bus_access->put(rmi4_data);
 }
 
 static inline ssize_t synaptics_rmi4_show_error(struct device *dev,

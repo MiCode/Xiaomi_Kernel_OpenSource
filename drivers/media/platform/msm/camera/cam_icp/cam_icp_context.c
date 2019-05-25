@@ -45,6 +45,14 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 		return -EINVAL;
 	}
 
+	mutex_lock(&ctx->ctx_mutex);
+
+	if (ctx->state < CAM_CTX_ACQUIRED || ctx->state > CAM_CTX_ACTIVATED) {
+		CAM_ERR(CAM_ICP, "Invalid state icp ctx %d state %d",
+			ctx->ctx_id, ctx->state);
+		goto end;
+	}
+
 	CAM_INFO(CAM_ICP, "iommu fault for icp ctx %d state %d",
 		ctx->ctx_id, ctx->state);
 
@@ -63,6 +71,8 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 				req->request_id, rc);
 	}
 
+end:
+	mutex_unlock(&ctx->ctx_mutex);
 	return rc;
 }
 
@@ -135,6 +145,12 @@ static int __cam_icp_config_dev_in_ready(struct cam_context *ctx,
 			ctx->dev_name, ctx->ctx_id);
 		rc = -EINVAL;
 		return rc;
+	}
+
+	if ((len < sizeof(struct cam_packet)) ||
+		(cmd->offset >= (len - sizeof(struct cam_packet)))) {
+		CAM_ERR(CAM_CTXT, "Not enough buf");
+		return -EINVAL;
 	}
 
 	packet = (struct cam_packet *) ((uint8_t *)packet_addr +

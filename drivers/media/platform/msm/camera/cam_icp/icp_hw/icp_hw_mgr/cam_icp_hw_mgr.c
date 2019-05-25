@@ -64,6 +64,37 @@ static struct cam_icp_hw_mgr icp_hw_mgr;
 
 static void cam_icp_mgr_process_dbg_buf(unsigned int debug_lvl);
 
+static int cam_icp_dump_io_cfg(struct cam_icp_hw_ctx_data *ctx_data,
+	int32_t buf_handle)
+{
+	uintptr_t vaddr_ptr;
+	uint32_t  *ptr;
+	size_t    len;
+	int       rc, i;
+	char      buf[512];
+	int       used = 0;
+
+	rc = cam_mem_get_cpu_buf(buf_handle, &vaddr_ptr, &len);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to get io_cfg buf address for %d",
+			ctx_data->ctx_id);
+		return rc;
+	}
+
+	len = len / sizeof(uint32_t);
+	ptr = (uint32_t *)vaddr_ptr;
+	for (i = 0; i < len; i++) {
+		used += snprintf(buf + used,
+			sizeof(buf) - used, "0X%08X-", ptr[i]);
+		if (!(i % 8)) {
+			CAM_INFO(CAM_ICP, "%s: %s", __func__, buf);
+			used = 0;
+		}
+	}
+
+	return rc;
+}
+
 static int cam_icp_send_ubwc_cfg(struct cam_icp_hw_mgr *hw_mgr)
 {
 	struct cam_hw_intf *a5_dev_intf = NULL;
@@ -3449,6 +3480,17 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 				goto rel_cmd_buf;
 			}
 			*fw_cmd_buf_iova_addr = addr;
+
+			if (cmd_desc[i].offset >= len ||
+				((len - cmd_desc[i].offset) <
+				cmd_desc[i].size)){
+				CAM_ERR(CAM_ICP,
+					"Invalid offset/length, i %d offset 0x%x len 0x%x size 0x%x",
+					i, cmd_desc[i].offset,
+					len, cmd_desc[i].size);
+				goto rel_cmd_buf;
+			}
+
 			*fw_cmd_buf_iova_addr =
 				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
 			rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
@@ -4052,8 +4094,12 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	packet = prepare_args->packet;
 
-	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len))
+	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len)) {
+		mutex_unlock(&ctx_data->ctx_mutex);
+		CAM_ERR(CAM_ICP, "ctx id: %u packet req id %lld validate fail",
+			ctx_data->ctx_id, packet->header.request_id);
 		return -EINVAL;
+	}
 
 	rc = cam_icp_mgr_pkt_validation(packet);
 	if (rc) {
@@ -4674,6 +4720,8 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	rc = cam_icp_mgr_send_config_io(ctx_data, io_buf_addr);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "IO Config command failed %d", rc);
+		cam_icp_dump_io_cfg(ctx_data,
+			icp_dev_acquire_info->io_config_cmd_handle);
 		goto ioconfig_failed;
 	}
 
