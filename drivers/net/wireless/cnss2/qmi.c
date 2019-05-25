@@ -395,6 +395,11 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 			    plat_priv->cpr_info.voltage);
 		cnss_update_cpr_info(plat_priv);
 	}
+	if (resp->time_freq_hz_valid) {
+		plat_priv->device_freq_hz = resp->time_freq_hz;
+		cnss_pr_dbg("Device frequency is %d HZ\n",
+			    plat_priv->device_freq_hz);
+	}
 	if (resp->otp_version_valid)
 		plat_priv->otp_version = resp->otp_version;
 

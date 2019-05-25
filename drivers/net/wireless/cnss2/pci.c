@@ -52,7 +52,10 @@
 #define EMULATION_HW			0
 #endif
 
+#define TIME_SYNC_PERIOD_JF		msecs_to_jiffies(900000)
+
 static DEFINE_SPINLOCK(pci_link_down_lock);
+static DEFINE_SPINLOCK(pci_reg_window_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 
@@ -98,7 +101,11 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 
 #define SHADOW_REG_COUNT			36
 #define QCA6390_PCIE_SHADOW_REG_VALUE_0		0x1E03024
+#define QCA6390_PCIE_SHADOW_REG_VALUE_34	0x1E030AC
 #define QCA6390_PCIE_SHADOW_REG_VALUE_35	0x1E030B0
+#define QCA6390_WLAON_GLOBAL_COUNTER_CTRL3	0x1F80118
+#define QCA6390_WLAON_GLOBAL_COUNTER_CTRL4	0x1F8011C
+#define QCA6390_WLAON_GLOBAL_COUNTER_CTRL5	0x1F80120
 
 #define SHADOW_REG_INTER_COUNT			43
 #define QCA6390_PCIE_SHADOW_REG_INTER_0		0x1E05000
@@ -117,6 +124,9 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 #define WINDOW_VALUE_MASK			0x3F
 #define WINDOW_START				MAX_UNWINDOWED_ADDRESS
 #define WINDOW_RANGE_MASK			0x7FFFF
+
+#define QCA6390_TIME_SYNC_ENABLE		0x80000000
+#define QCA6390_TIME_SYNC_CLEAR			0x0
 
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
@@ -208,6 +218,7 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 			     u32 offset, u32 *val)
 {
 	int ret;
+	unsigned long flags;
 
 	ret = cnss_pci_check_link_status(pci_priv);
 	if (ret)
@@ -219,10 +230,39 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 		return 0;
 	}
 
+	spin_lock_irqsave(&pci_reg_window_lock, flags);
 	cnss_pci_select_window(pci_priv, offset);
 
 	*val = readl_relaxed(pci_priv->bar + WINDOW_START +
 			     (offset & WINDOW_RANGE_MASK));
+	spin_unlock_irqrestore(&pci_reg_window_lock, flags);
+
+	return 0;
+}
+
+static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
+			      u32 val)
+{
+	int ret;
+	unsigned long flags;
+
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret)
+		return ret;
+
+	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
+	    offset < MAX_UNWINDOWED_ADDRESS) {
+		writel_relaxed(val, pci_priv->bar + offset);
+		return 0;
+	}
+
+	spin_lock_irqsave(&pci_reg_window_lock, flags);
+	cnss_pci_select_window(pci_priv, offset);
+
+	writel_relaxed(val, pci_priv->bar + WINDOW_START +
+		       (offset & WINDOW_RANGE_MASK));
+	spin_unlock_irqrestore(&pci_reg_window_lock, flags);
+
 	return 0;
 }
 
@@ -417,6 +457,114 @@ int cnss_pci_is_device_down(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_pci_is_device_down);
 
+static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
+					 u64 *time_us)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	u32 low, high;
+	u64 device_ticks;
+
+	if (!plat_priv->device_freq_hz) {
+		cnss_pr_err("Device time clock frequency is not valid\n");
+		return -EINVAL;
+	}
+
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_CLEAR);
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_ENABLE);
+
+	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL3, &low);
+	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL4, &high);
+
+	device_ticks = (u64)high << 32 | low;
+	do_div(device_ticks, plat_priv->device_freq_hz / 100000);
+	*time_us = device_ticks * 10;
+
+	return 0;
+}
+
+static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	u64 host_time_us, device_time_us, offset;
+	u32 low, high;
+	int ret;
+
+	ret = cnss_pci_is_device_down(&pci_priv->pci_dev->dev);
+	if (ret)
+		return ret;
+
+	ret = cnss_pci_check_link_status(pci_priv);
+	if (ret)
+		return ret;
+
+	host_time_us = cnss_get_host_timestamp(plat_priv);
+	ret = cnss_pci_get_device_timestamp(pci_priv, &device_time_us);
+	if (ret)
+		return ret;
+
+	if (host_time_us < device_time_us) {
+		cnss_pr_err("Host time (%llu us) is smaller than device time (%llu us), stop\n");
+		return -EINVAL;
+	}
+
+	offset = host_time_us - device_time_us;
+	cnss_pr_dbg("Host time = %llu us, device time = %llu us, offset = %llu us\n",
+		    host_time_us, device_time_us, offset);
+
+	low = offset & 0xFFFFFFFF;
+	high = offset >> 32;
+
+	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_34, low);
+	cnss_pci_reg_write(pci_priv, QCA6390_PCIE_SHADOW_REG_VALUE_35, high);
+
+	return 0;
+}
+
+static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
+{
+	struct cnss_pci_data *pci_priv =
+		container_of(work, struct cnss_pci_data, time_sync_work.work);
+
+	cnss_pci_update_timestamp(pci_priv);
+
+	schedule_delayed_work(&pci_priv->time_sync_work, TIME_SYNC_PERIOD_JF);
+}
+
+static int cnss_pci_start_time_sync_update(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	if (!plat_priv->device_freq_hz) {
+		cnss_pr_dbg("Device time clock frequency is not valid, skip time sync\n");
+		return -EINVAL;
+	}
+
+	cnss_pci_time_sync_work_hdlr(&pci_priv->time_sync_work.work);
+
+	return 0;
+}
+
+static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
+{
+	switch (pci_priv->device_id) {
+	case QCA6390_DEVICE_ID:
+		break;
+	default:
+		return;
+	}
+
+	cancel_delayed_work_sync(&pci_priv->time_sync_work);
+}
+
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -477,6 +625,8 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 		complete(&plat_priv->power_up_complete);
 	}
 
+	cnss_pci_start_time_sync_update(pci_priv);
+
 	return 0;
 
 out:
@@ -491,6 +641,8 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	plat_priv = pci_priv->plat_priv;
+
+	cnss_pci_stop_time_sync_update(pci_priv);
 
 	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
 	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
@@ -2950,6 +3102,8 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	case QCA6490_DEVICE_ID:
 		timer_setup(&pci_priv->dev_rddm_timer,
 			    cnss_dev_rddm_timeout_hdlr, 0);
+		INIT_DELAYED_WORK(&pci_priv->time_sync_work,
+				  cnss_pci_time_sync_work_hdlr);
 
 		ret = cnss_pci_enable_msi(pci_priv);
 		if (ret)

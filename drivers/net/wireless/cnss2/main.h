@@ -4,6 +4,7 @@
 #ifndef _CNSS_MAIN_H
 #define _CNSS_MAIN_H
 
+#include <asm/arch_timer.h>
 #include <linux/esoc_client.h>
 #include <linux/etherdevice.h>
 #include <linux/msm-bus.h>
@@ -19,6 +20,7 @@
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
 #define CNSS_RDDM_TIMEOUT_MS		20000
 #define RECOVERY_TIMEOUT		60000
+#define TIME_CLOCK_FREQ_HZ		19200000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -303,6 +305,7 @@ struct cnss_plat_data {
 	struct completion power_up_complete;
 	struct completion cal_complete;
 	struct mutex dev_lock; /* mutex for register access through debugfs */
+	u32 device_freq_hz;
 	u32 diag_reg_read_addr;
 	u32 diag_reg_read_mem_type;
 	u32 diag_reg_read_len;
@@ -318,6 +321,26 @@ struct cnss_plat_data {
 	u64 grant;
 	struct qmi_handle coex_qmi;
 };
+
+#ifdef CONFIG_ARCH_QCOM
+static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
+{
+	u64 ticks = arch_counter_get_cntvct();
+
+	do_div(ticks, TIME_CLOCK_FREQ_HZ / 100000);
+
+	return ticks * 10;
+}
+#else
+static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
+{
+	struct timespec ts;
+
+	ktime_get_ts(&ts);
+
+	return ((u64)ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+}
+#endif
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
 int cnss_driver_event_post(struct cnss_plat_data *plat_priv,
