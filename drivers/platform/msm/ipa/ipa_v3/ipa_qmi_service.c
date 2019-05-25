@@ -1034,7 +1034,7 @@ int ipa3_qmi_rmv_offload_request_send(
 		/* fill up the filter_handle */
 		req->filter_handle_list[i].filter_handle =
 			ipa3_qmi_ctx->ipa_offload_cache[j].rule_hdl;
-		ipa3_qmi_ctx->ipa_offload_cache[j].valid == false;
+		ipa3_qmi_ctx->ipa_offload_cache[j].valid = false;
 		ipa3_qmi_ctx->num_ipa_offload_connection--;
 	}
 	mutex_unlock(&ipa3_qmi_lock);
@@ -1968,7 +1968,6 @@ int ipa3_qmi_set_aggr_info(enum ipa_aggr_enum_type_v01 aggr_enum_type)
 	/* replace to right qmap format */
 	aggr_req.aggr_info[1].aggr_type = aggr_enum_type;
 	aggr_req.aggr_info[2].aggr_type = aggr_enum_type;
-	aggr_req.aggr_info[2].pkt_count = 1; /*disable aggregation */
 	aggr_req.aggr_info[3].aggr_type = aggr_enum_type;
 	aggr_req.aggr_info[4].aggr_type = aggr_enum_type;
 

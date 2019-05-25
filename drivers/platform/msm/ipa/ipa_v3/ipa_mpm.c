@@ -223,7 +223,7 @@ static struct ipa_ep_cfg mhip_dl_teth_ep_cfg = {
 		.hdr_payload_len_inc_padding = true,
 	},
 	.aggr = {
-		.aggr_en = IPA_BYPASS_AGGR, /* temporarily disabled */
+		.aggr_en = IPA_ENABLE_DEAGGR,
 		.aggr = IPA_QCMAP,
 		.aggr_byte_limit = TETH_AGGR_DL_BYTE_LIMIT,
 		.aggr_time_limit = TETH_AGGR_TIME_LIMIT,
