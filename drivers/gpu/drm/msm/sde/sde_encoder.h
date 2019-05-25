@@ -282,9 +282,12 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
  *
  *      TODO: manage the event at sde_kms level for forward processing.
  * @drm_enc:    Pointer to drm encoder structure
+ * @skip_pre_kickoff:    Caller can avoid pre_kickoff if it is triggering this
+ *                       event only to switch the panel TE to watchdog mode.
  * @Return:     true if successful in updating the encoder structure
  */
-int sde_encoder_display_failure_notification(struct drm_encoder *enc);
+int sde_encoder_display_failure_notification(struct drm_encoder *enc,
+	bool skip_pre_kickoff);
 
 /**
  * sde_encoder_recovery_events_enabled - checks if client has enabled

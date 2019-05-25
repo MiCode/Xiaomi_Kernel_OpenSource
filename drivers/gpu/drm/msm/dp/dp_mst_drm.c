@@ -595,6 +595,9 @@ static void _dp_mst_bridge_pre_enable_part1(struct dp_mst_bridge *dp_bridge)
 
 	/* skip mst specific disable operations during suspend */
 	if (mst->state == PM_SUSPEND) {
+		dp_display->wakeup_phy_layer(dp_display, true);
+		drm_dp_send_power_updown_phy(&mst->mst_mgr, port, true);
+		dp_display->wakeup_phy_layer(dp_display, false);
 		_dp_mst_update_single_timeslot(mst, dp_bridge);
 		return;
 	}
@@ -678,8 +681,12 @@ static void _dp_mst_bridge_pre_disable_part2(struct dp_mst_bridge *dp_bridge)
 	DP_MST_DEBUG("enter\n");
 
 	/* skip mst specific disable operations during suspend */
-	if (mst->state == PM_SUSPEND)
+	if (mst->state == PM_SUSPEND) {
+		dp_display->wakeup_phy_layer(dp_display, true);
+		drm_dp_send_power_updown_phy(&mst->mst_mgr, port, false);
+		dp_display->wakeup_phy_layer(dp_display, false);
 		return;
+	}
 
 	mst->mst_fw_cbs->check_act_status(&mst->mst_mgr);
 
