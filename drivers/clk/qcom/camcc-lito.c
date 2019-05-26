@@ -198,7 +198,7 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000001,
+	.user_ctl_val = 0x00000007,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -274,7 +274,7 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000001,
+	.user_ctl_val = 0x00000007,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -327,9 +327,9 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.cal_l = 0x32,
 	.alpha = 0x0,
 	.config_ctl_val = 0x08200920,
-	.config_ctl_hi_val = 0x05008001,
+	.config_ctl_hi_val = 0x05008011,
 	.config_ctl_hi1_val = 0x00000000,
-	.user_ctl_val = 0x00000108,
+	.user_ctl_val = 0x0000010F,
 };
 
 static struct clk_alpha_pll cam_cc_pll2 = {
@@ -403,7 +403,7 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000001,
+	.user_ctl_val = 0x00000007,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -458,7 +458,7 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000001,
+	.user_ctl_val = 0x00000007,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
 };
@@ -1215,13 +1215,14 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_8,
+	.enable_safe_config = true,
 	.freq_tbl = ftbl_cam_cc_slow_ahb_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_slow_ahb_clk_src",
 		.parent_names = cam_cc_parent_names_8,
 		.num_parents = 3,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
+		.flags = CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
