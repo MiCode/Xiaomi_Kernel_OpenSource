@@ -1067,7 +1067,7 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
-	if (!inst || !inst->core) {
+	if (!inst || !inst->core || !inst->clk_data.entry) {
 		dprintk(VIDC_ERR, "%s Invalid args: Inst = %pK\n",
 			__func__, inst);
 		return;

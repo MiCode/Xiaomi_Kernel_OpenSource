@@ -49,6 +49,10 @@
 #define MSM_NPU_RECEIVE_EVENT \
 	_IOR(MSM_NPU_IOCTL_MAGIC, 9, struct msm_npu_event)
 
+/* set property */
+#define MSM_NPU_SET_PROP \
+	_IOW(MSM_NPU_IOCTL_MAGIC, 10, struct msm_npu_property)
+
 #define MSM_NPU_EVENT_TYPE_START 0x10000000
 #define MSM_NPU_EVENT_TYPE_EXEC_DONE (MSM_NPU_EVENT_TYPE_START + 1)
 #define MSM_NPU_EVENT_TYPE_EXEC_V2_DONE (MSM_NPU_EVENT_TYPE_START + 2)
@@ -58,6 +62,15 @@
 #define MSM_NPU_MAX_OUTPUT_LAYER_NUM 4
 #define MSM_NPU_MAX_PATCH_LAYER_NUM (MSM_NPU_MAX_INPUT_LAYER_NUM +\
 	MSM_NPU_MAX_OUTPUT_LAYER_NUM)
+
+#define MSM_NPU_PROP_ID_START 0x100
+#define MSM_NPU_PROP_ID_FW_STATE (MSM_NPU_PROP_ID_START + 0)
+#define MSM_NPU_PROP_ID_PERF_MODE (MSM_NPU_PROP_ID_START + 1)
+
+#define MSM_NPU_FW_PROP_ID_START 0x1000
+#define MSM_NPU_PROP_ID_DCVS_MODE (MSM_NPU_FW_PROP_ID_START + 0)
+
+#define PROP_PARAM_MAX_SIZE 8
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -252,6 +265,13 @@ struct msm_npu_event {
 		uint8_t data[128];
 	} u;
 	uint32_t reserved[4];
+};
+
+struct msm_npu_property {
+	uint32_t prop_id;
+	uint32_t num_of_params;
+	uint32_t network_hdl;
+	uint32_t prop_param[PROP_PARAM_MAX_SIZE];
 };
 
 #endif /*_UAPI_MSM_NPU_H_*/

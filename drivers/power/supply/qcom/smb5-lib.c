@@ -1105,9 +1105,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
-	if (chg->wa_flags & CHG_TERMINATION_WA)
-		alarm_cancel(&chg->chg_termination_alarm);
-
 	if (chg->wa_flags & BOOST_BACK_WA) {
 		data = chg->irq_info[SWITCHER_POWER_OK_IRQ].irq_data;
 		if (data) {
@@ -4403,7 +4400,8 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	union power_supply_propval pval = {0, };
 	int rc = 0;
 
-	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CAPACITY, &pval);
+	rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_REAL_CAPACITY, &pval);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read SOC value, rc=%d\n", rc);
 		return;
@@ -4417,6 +4415,8 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 	 * to prevent overcharing.
 	 */
 	if ((batt_status == TERMINATE_CHARGE) && (pval.intval == 100)) {
+		chg->cc_soc_ref = 0;
+		chg->last_cc_soc = 0;
 		alarm_start_relative(&chg->chg_termination_alarm,
 				ms_to_ktime(CHG_TERM_WA_ENTRY_DELAY_MS));
 	} else if (pval.intval < 100) {
@@ -4425,6 +4425,7 @@ static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
 		 * we exit the TERMINATE_CHARGE state and soc drops below 100%
 		 */
 		chg->cc_soc_ref = 0;
+		chg->last_cc_soc = 0;
 	}
 }
 
@@ -5277,9 +5278,6 @@ static void typec_src_removal(struct smb_charger *chg)
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
-	if (chg->wa_flags & CHG_TERMINATION_WA)
-		alarm_cancel(&chg->chg_termination_alarm);
-
 	/* reset input current limit voters */
 	vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 			is_flash_active(chg) ? SDP_CURRENT_UA : SDP_100_MA);
@@ -5614,16 +5612,19 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 				dev_err(chg->dev, "Couldn't enable secondary chargers  rc=%d\n",
 					rc);
 		}
-	} else if (chg->cp_reason == POWER_SUPPLY_CP_WIRELESS) {
-		sec_charger = chg->sec_pl_present ?
+	} else {
+		if (chg->cp_reason == POWER_SUPPLY_CP_WIRELESS) {
+			sec_charger = chg->sec_pl_present ?
 					POWER_SUPPLY_CHARGER_SEC_PL :
 					POWER_SUPPLY_CHARGER_SEC_NONE;
-		rc = smblib_select_sec_charger(chg, sec_charger,
+			rc = smblib_select_sec_charger(chg, sec_charger,
 					POWER_SUPPLY_CP_NONE, false);
-		if (rc < 0)
-			dev_err(chg->dev,
-				"Couldn't disable secondary charger rc=%d\n",
-						rc);
+			if (rc < 0)
+				dev_err(chg->dev, "Couldn't disable secondary charger rc=%d\n",
+					rc);
+		}
+
+		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
 	}
 
 	power_supply_changed(chg->dc_psy);
@@ -6188,9 +6189,11 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	if ((rc < 0) || !input_present)
 		goto out;
 
-	rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_CAPACITY, &pval);
+	rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_REAL_CAPACITY, &pval);
 	if ((rc < 0) || (pval.intval < 100)) {
 		vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
+		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
 		goto out;
 	}
 
@@ -6221,6 +6224,18 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	}
 
 	/*
+	 * In BSM a sudden jump in CC_SOC is not expected. If seen, its a
+	 * good_ocv or updated capacity, reject it.
+	 */
+	if (chg->last_cc_soc && pval.intval > (chg->last_cc_soc + 100)) {
+		/* CC_SOC has increased by 1% from last time */
+		chg->cc_soc_ref = pval.intval;
+		smblib_dbg(chg, PR_MISC, "cc_soc jumped(%d->%d), reset cc_soc_ref\n",
+				chg->last_cc_soc, pval.intval);
+	}
+	chg->last_cc_soc = pval.intval;
+
+	/*
 	 * Suspend/Unsuspend USB input to keep cc_soc within the 0.5% to 0.75%
 	 * overshoot range of the cc_soc value at termination, to prevent
 	 * overcharging.
@@ -6231,8 +6246,12 @@ static void smblib_chg_termination_work(struct work_struct *work)
 		delay = CHG_TERM_WA_ENTRY_DELAY_MS;
 	} else if (pval.intval > DIV_ROUND_CLOSEST(chg->cc_soc_ref * 10075,
 								10000)) {
-		vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, true, 0);
-		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, true, 0);
+		if (input_present & INPUT_PRESENT_USB)
+			vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER,
+					true, 0);
+		if (input_present & INPUT_PRESENT_DC)
+			vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER,
+					true, 0);
 		delay = CHG_TERM_WA_EXIT_DELAY_MS;
 	}
 
