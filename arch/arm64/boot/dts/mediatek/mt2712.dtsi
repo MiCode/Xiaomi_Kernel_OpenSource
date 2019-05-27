@@ -328,7 +328,7 @@
 			clock-names = "parent-clk",
 				      "sel-clk",
 				      "spi-clk",
-				      "eco-clk";
+				      "spare-clk";
 			status = "disabled";
 		};
 
