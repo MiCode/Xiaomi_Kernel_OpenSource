@@ -694,6 +694,26 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 		return false;
 }
 
+static inline int kgsl_change_flag(struct kgsl_device *device,
+		unsigned long flag, unsigned long *val)
+{
+	int ret;
+
+	mutex_lock(&device->mutex);
+	/*
+	 * Bring down the GPU, so that we can bring it back up with the correct
+	 * power and clock settings
+	 */
+	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (!ret) {
+		change_bit(flag, val);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	}
+
+	mutex_unlock(&device->mutex);
+	return ret;
+}
+
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 		enum kgsl_timestamp_type type, unsigned int *timestamp);
 
