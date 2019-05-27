@@ -24,6 +24,16 @@ struct mtk_smi_iommu {
 	struct mtk_smi_larb_iommu larb_imu[MTK_LARB_NR_MAX];
 };
 
+void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val);
+void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val);
+
+#else
+
+static inline void
+mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val) { }
+static inline void
+mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val) { }
+
 #endif
 
 #endif
