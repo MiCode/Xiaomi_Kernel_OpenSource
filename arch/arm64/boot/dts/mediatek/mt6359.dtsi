@@ -6,6 +6,21 @@
 
 &pwrap {
 	pmic: pmic {
+		mt6359keys: mt6359keys {
+			compatible = "mediatek,mt6359-keys";
+			mediatek,long-press-mode = <1>;
+			power-off-time-sec = <0>;
+
+			power {
+				linux,keycodes = <116>;
+				wakeup-source;
+			};
+
+			home {
+				linux,keycodes = <115>;
+			};
+		};
+
 		pmic_auxadc: pmic_auxadc {
 			compatible = "mediatek,mt6359-auxadc";
 			#io-channel-cells = <1>;
