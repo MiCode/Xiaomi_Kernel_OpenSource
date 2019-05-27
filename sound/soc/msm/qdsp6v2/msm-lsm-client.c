@@ -300,6 +300,12 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 		break;
 
 	case LSM_SESSION_EVENT_DETECTION_STATUS_V3:
+		if (client_size < 2 * (sizeof(uint32_t) + sizeof(uint8_t))) {
+			dev_err(rtd->dev,
+					"%s: client_size has invalid size[%d]\n",
+					__func__, client_size);
+			return;
+		}
 		event_ts_lsw = ((uint32_t *)payload)[0];
 		event_ts_msw = ((uint32_t *)payload)[1];
 		status = (uint16_t)((uint8_t *)payload)[8];
