@@ -95,7 +95,7 @@ struct mtk_spi {
 	u32 state;
 	int pad_num;
 	u32 *pad_sel;
-	struct clk *parent_clk, *sel_clk, *spi_clk, *eco_clk;
+	struct clk *parent_clk, *sel_clk, *spi_clk, *spare_clk;
 	struct spi_transfer *cur_transfer;
 	u32 xfer_len;
 	u32 num_xfered;
@@ -717,14 +717,14 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		goto err_put_master;
 	}
 
-	mdata->eco_clk = devm_clk_get(&pdev->dev, "eco-clk");
-	if (IS_ERR(mdata->eco_clk))
-		dev_notice(&pdev->dev, "spi is trying to get eco-clk\n");
+	mdata->spare_clk = devm_clk_get(&pdev->dev, "spare-clk");
+	if (IS_ERR(mdata->spare_clk))
+		dev_notice(&pdev->dev, "spi is trying to get spare-clk\n");
 	else {
-		ret = clk_prepare_enable(mdata->eco_clk);
+		ret = clk_prepare_enable(mdata->spare_clk);
 		if (ret < 0) {
 			dev_err(&pdev->dev,
-				"failed to enable eco_clk (%d)\n", ret);
+				"failed to enable spare_clk (%d)\n", ret);
 			clk_disable_unprepare(mdata->spi_clk);
 			goto err_put_master;
 		}
@@ -738,8 +738,8 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	}
 
 	clk_disable_unprepare(mdata->spi_clk);
-	if (!IS_ERR(mdata->eco_clk))
-		clk_disable_unprepare(mdata->eco_clk);
+	if (!IS_ERR(mdata->spare_clk))
+		clk_disable_unprepare(mdata->spare_clk);
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -814,8 +814,8 @@ static int mtk_spi_suspend(struct device *dev)
 
 	if (!pm_runtime_suspended(dev)) {
 		clk_disable_unprepare(mdata->spi_clk);
-		if (!IS_ERR(mdata->eco_clk))
-			clk_disable_unprepare(mdata->eco_clk);
+		if (!IS_ERR(mdata->spare_clk))
+			clk_disable_unprepare(mdata->spare_clk);
 	}
 
 	ret = pinctrl_pm_select_sleep_state(dev);
@@ -842,12 +842,13 @@ static int mtk_spi_resume(struct device *dev)
 			return ret;
 		}
 
-		if (!IS_ERR(mdata->eco_clk)) {
-			ret = clk_prepare_enable(mdata->eco_clk);
+		if (!IS_ERR(mdata->spare_clk)) {
+			ret = clk_prepare_enable(mdata->spare_clk);
 			if (ret < 0) {
 				clk_disable_unprepare(mdata->spi_clk);
 				dev_err(dev,
-					"failed to enable eco-clk (%d)\n", ret);
+					"failed to enable spare-clk (%d)\n",
+					ret);
 				return ret;
 			}
 		}
@@ -856,8 +857,8 @@ static int mtk_spi_resume(struct device *dev)
 	ret = spi_master_resume(master);
 	if (ret < 0) {
 		clk_disable_unprepare(mdata->spi_clk);
-		if (!IS_ERR(mdata->eco_clk))
-			clk_disable_unprepare(mdata->eco_clk);
+		if (!IS_ERR(mdata->spare_clk))
+			clk_disable_unprepare(mdata->spare_clk);
 	}
 
 	return ret;
@@ -871,8 +872,8 @@ static int mtk_spi_runtime_suspend(struct device *dev)
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
 	clk_disable_unprepare(mdata->spi_clk);
-	if (!IS_ERR(mdata->eco_clk))
-		clk_disable_unprepare(mdata->eco_clk);
+	if (!IS_ERR(mdata->spare_clk))
+		clk_disable_unprepare(mdata->spare_clk);
 
 	return 0;
 }
@@ -889,11 +890,12 @@ static int mtk_spi_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	if (!IS_ERR(mdata->eco_clk)) {
-		ret = clk_prepare_enable(mdata->eco_clk);
+	if (!IS_ERR(mdata->spare_clk)) {
+		ret = clk_prepare_enable(mdata->spare_clk);
 		if (ret < 0) {
 			clk_disable_unprepare(mdata->spi_clk);
-			dev_err(dev, "failed to enable eco-clk (%d)\n", ret);
+			dev_err(dev,
+				"failed to enable spare-clk (%d)\n", ret);
 			return ret;
 		}
 	}

@@ -19,7 +19,7 @@ struct mtk_spi {
 	u32 state;
 	int pad_num;
 	u32 *pad_sel;
-	struct clk *parent_clk, *sel_clk, *spi_clk, *eco_clk;
+	struct clk *parent_clk, *sel_clk, *spi_clk, *spare_clk;
 	struct spi_transfer *cur_transfer;
 	u32 xfer_len;
 	u32 num_xfered;
@@ -37,8 +37,8 @@ void secspi_enable_clk(struct spi_device *spidev)
 	ms = spi_master_get_devdata(master);
 
 	clk_prepare_enable(ms->spi_clk);
-	if (!IS_ERR(ms->eco_clk))
-		clk_prepare_enable(ms->eco_clk);
+	if (!IS_ERR(ms->spare_clk))
+		clk_prepare_enable(ms->spare_clk);
 }
 
 void secspi_disable_clk(struct spi_device *spidev)
@@ -51,8 +51,8 @@ void secspi_disable_clk(struct spi_device *spidev)
 	ms = spi_master_get_devdata(master);
 
 	clk_disable_unprepare(ms->spi_clk);
-	if (!IS_ERR(ms->eco_clk))
-		clk_disable_unprepare(ms->eco_clk);
+	if (!IS_ERR(ms->spare_clk))
+		clk_disable_unprepare(ms->spare_clk);
 }
 
 void spi_transfer_malloc(struct spi_transfer *trans, int is2spis)
