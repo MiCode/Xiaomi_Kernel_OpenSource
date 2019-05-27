@@ -692,4 +692,10 @@
 
 &usb_otg {
 	extcon = <&pm660_charger>;
+	hsusb_vdd_dig-supply = <&L6A>;
+	HSUSB_1p8-supply = <&L12A>;
+	HSUSB_3p3-supply = <&L16A>;
+	qcom,vdd-voltage-level = <0 928000 928000>;
+	vbus_otg-supply = <&smb2_vbus>;
+	status = "okay";
 };
