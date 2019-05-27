@@ -29,6 +29,9 @@ obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 
+#obj-$(CONFIG_FINGERPRINT_FPC1020)		+= fingerprint/
+obj-y	+= fingerprint/
+
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
 
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o

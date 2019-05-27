@@ -177,7 +177,7 @@
 
 #define QPNP_MIN_TIME			2000
 #define QPNP_MAX_TIME			2100
-#define QPNP_RETRY			1000
+#define QPNP_RETRY			100
 
 /* QPNP ADC TM HC start */
 #define QPNP_BTM_HC_STATUS1				0x08

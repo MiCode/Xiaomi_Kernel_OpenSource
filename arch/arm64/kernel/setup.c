@@ -66,6 +66,7 @@
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
 #include <asm/system_misc.h>
+#include <asm/bootinfo.h>
 
 phys_addr_t __fdt_pointer __initdata;
 
@@ -246,6 +247,14 @@ static void __init request_standard_resources(void)
 			request_resource(res, &kernel_data);
 	}
 }
+#ifdef CONFIG_OF_FLATTREE
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+	set_powerup_reason(pu_reason);
+	pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+#endif
+
 
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
 

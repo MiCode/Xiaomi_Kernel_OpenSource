@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +119,20 @@ static void get_next_update_time(struct qpnp_qg *chip)
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
+	int batt_curr = 0,rc = 0;
+	rc = qg_get_battery_current(chip,&batt_curr);
+	if(rc >= 0)
+	{
+		if(chip->catch_up_soc < chip->msoc && is_usb_present(chip) && batt_curr < 0 )
+			return false;
+	}
+
+	if(rc >= 0)
+	{
+		if(chip->catch_up_soc > chip->msoc && is_usb_present(chip) && batt_curr == 0 )
+			return false;
+	}
+
 	if (!chip->profile_loaded)
 		return false;
 
@@ -132,7 +147,6 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 	if (chip->catch_up_soc == chip->msoc)
 		/* SOC has not changed */
 		return false;
-
 
 	if (chip->catch_up_soc > chip->msoc && !is_usb_present(chip))
 		/* USB is not present and SOC has increased */

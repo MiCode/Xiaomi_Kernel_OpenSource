@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,9 +69,13 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define HW_LIMIT_VOTER			"HW_LIMIT_VOTER"
 #define FORCE_RECHARGE_VOTER		"FORCE_RECHARGE_VOTER"
+#define UNKNOWN_CHARGER			"UNKNOWN_CHARGER"
 #define AICL_THRESHOLD_VOTER		"AICL_THRESHOLD_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
 #define USBOV_DBC_VOTER			"USBOV_DBC_VOTER"
+
+#define THERMAL_CONFIG_FB		1
+#define XIAOMI_CHARGER_RUNIN 	//lct add for xiaomi RUNIN 20181105
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -80,7 +85,7 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
+#define DCP_CURRENT_UA			2000000
 #define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -376,6 +381,9 @@ struct smb_charger {
 	int			fake_batt_status;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
+#ifdef XIAOMI_CHARGER_RUNIN
+	int			charging_enabled;
+#endif
 	bool			is_hdc;
 	bool			chg_done;
 	int			connector_type;
@@ -405,6 +413,11 @@ struct smb_charger {
 	bool			aicl_max_reached;
 	bool			moisture_present;
 	bool			moisture_protection_enabled;
+
+	#ifdef THERMAL_CONFIG_FB
+	struct notifier_block notifier;
+	struct work_struct fb_notify_work;
+	#endif
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -506,6 +519,10 @@ int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
+#ifdef XIAOMI_CHARGER_RUNIN
+int lct_set_prop_input_suspend(struct smb_charger *chg,
+				const union power_supply_propval *val);
+#endif
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_batt_status(struct smb_charger *chg,
@@ -585,6 +602,10 @@ int smblib_configure_wdog(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
 int smblib_configure_hvdcp_apsd(struct smb_charger *chg, bool enable);
 int smblib_icl_override(struct smb_charger *chg, bool override);
+//begin for the total capacity of batt in  2018.11.05
+int smblib_get_prop_battery_full_design(struct smb_charger *chg,
+				     union power_supply_propval *val);
+//end for the total capacity of batt in  2018.11.05
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

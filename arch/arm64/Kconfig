@@ -91,7 +91,6 @@ config ARM64
 	select HAVE_CMPXCHG_DOUBLE
 	select HAVE_CMPXCHG_LOCAL
 	select HAVE_CONTEXT_TRACKING
-	select HAVE_DEBUG_BUGVERBOSE
 	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_CONTIGUOUS
@@ -210,6 +209,12 @@ config RWSEM_XCHGADD_ALGORITHM
 config GENERIC_BUG
 	def_bool y
 	depends on BUG
+
+config THERMAL_SWITCH
+        default n
+	bool "Support themral config switch"
+	help
+	  Support themral config switch.
 
 config GENERIC_BUG_RELATIVE_POINTERS
 	def_bool y
@@ -747,6 +752,13 @@ config ARM64_DMA_IOMMU_ALIGNMENT
 	  by the PAGE_SIZE.
 
 endif
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
 
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"

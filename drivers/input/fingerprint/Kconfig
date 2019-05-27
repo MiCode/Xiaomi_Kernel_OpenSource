@@ -1,0 +1,19 @@
+#
+# Fingerprint device configuration
+#
+
+menu "Fingerprint device support"
+
+config FINGERPRINT_FPC1020
+	tristate "fpc fpc1020 fingerprint driver support"
+	help
+	  Say Y here if you have fpc2010 fingerprint device
+
+config GOODIX_FINGERPRINT
+	tristate "goodix fingerprint driver support"
+	default y
+	help
+	  Say Y here if you have goodix fingerprint devices
+
+endmenu
+

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +30,7 @@
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/qpnp/qpnp-adc.h>
+
 
 #define KELVINMIL_DEGMIL	273160
 #define QPNP_VADC_LDO_VOLTAGE_MIN	1800000
@@ -678,7 +680,7 @@ static const struct qpnp_vadc_map_pt adcmap_batt_therm[] = {
 };
 
 /* Voltage to temperature */
-static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd[] = {
+static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd_100k[] = {
 	{1840,	-400},
 	{1835,	-380},
 	{1828,	-360},
@@ -749,6 +751,83 @@ static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd[] = {
 	{120,	940},
 	{114,	960},
 	{107,	980}
+};
+
+/* Voltage to temperature */
+
+static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd[] = {
+	{1608,	-400},
+	{1551,	-350},
+	{1476,	-300},
+	{1392,	-250},
+	{1300,	-200},
+	{1201,	-150},
+	{1099,	-100},
+	{995,	-50},
+	{893, 	0},
+	{795,   50},
+	{702,	100},
+	{617,	150},
+	{539,	200},
+	{469,	250},
+	{407,	300},
+	{352,	350},
+	{305,	400},
+	{264,	450},
+	{227,	500},
+	{198,	550},
+	{172,	600},
+	{149,	650},
+	{130,	700},
+	{113,	750},
+	{99,	800},
+	{87,	850},
+	{76,	900},
+	{66,	950},
+	{58,	1000},
+	{51,	1050},
+	{45,	1100},
+	{39,	1150},
+	{35,	1200},
+	{31,	1250},
+};
+/* Voltage to temperature */
+
+static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd_30k[] = {
+	{1608,	-400},
+	{1551,	-350},
+	{1476,	-300},
+	{1392,	-250},
+	{1300,	-200},
+	{1201,	-150},
+	{1099,	-100},
+	{995,	-50},
+	{893, 	0},
+	{795,   50},
+	{702,	100},
+	{617,	150},
+	{539,	200},
+	{469,	250},
+	{407,	300},
+	{352,	350},
+	{305,	400},
+	{264,	450},
+	{227,	500},
+	{198,	550},
+	{172,	600},
+	{149,	650},
+	{130,	700},
+	{113,	750},
+	{99,	800},
+	{87,	850},
+	{76,	900},
+	{66,	950},
+	{58,	1000},
+	{51,	1050},
+	{45,	1100},
+	{39,	1150},
+	{35,	1200},
+	{31,	1250},
 };
 
 /* Voltage to temperature */
@@ -1207,7 +1286,7 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_tdkntcg_therm);
-
+extern char* Get_BatID(void);
 int32_t qpnp_adc_batt_therm(struct qpnp_vadc_chip *chip,
 		int32_t adc_code,
 		const struct qpnp_adc_properties *adc_properties,
@@ -1230,13 +1309,21 @@ int32_t qpnp_adc_batt_therm(struct qpnp_vadc_chip *chip,
 							* 1000);
 		batt_thm_voltage = div64_s64(batt_thm_voltage,
 				adc_properties->full_scale_code * 1000);
+		if(!strcmp(Get_BatID(), "battery_30k")){
 		qpnp_adc_map_voltage_temp(adcmap_batt_therm,
 			ARRAY_SIZE(adcmap_batt_therm),
 			batt_thm_voltage, &adc_chan_result->physical);
+		}else{
+		qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd_100k,
+			ARRAY_SIZE(adcmap_batt_therm_qrd_100k),
+			batt_thm_voltage, &adc_chan_result->physical);
+		}
 	}
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_batt_therm);
+
+
 
 int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *chip,
 		int32_t adc_code,
@@ -1260,10 +1347,17 @@ int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *chip,
 							* 1000);
 		batt_thm_voltage = div64_s64(batt_thm_voltage,
 				adc_properties->full_scale_code * 1000);
-		qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd,
-			ARRAY_SIZE(adcmap_batt_therm_qrd),
-			batt_thm_voltage, &adc_chan_result->physical);
-	} else {
+
+		if(!strcmp(Get_BatID(), "battery_30k")){
+			qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd_30k,
+				ARRAY_SIZE(adcmap_batt_therm_qrd_30k),
+				batt_thm_voltage, &adc_chan_result->physical);
+		}else{
+			qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd_100k,
+				ARRAY_SIZE(adcmap_batt_therm_qrd_100k),
+				batt_thm_voltage, &adc_chan_result->physical);
+		}	
+	}else {
 
 		qpnp_adc_scale_with_calib_param(adc_code,
 			adc_properties, chan_properties, &batt_thm_voltage);
@@ -2328,7 +2422,7 @@ int32_t qpnp_adc_scale_die_temp_1390(struct qpnp_vadc_chip *chip,
 
 	pr_debug("raw_code:%x, v_adc:%lld\n", adc_code,
 						adc_chan_result->physical);
-	/* T = (1.49322 – V) / 0.00356 */
+	/* T = (1.49322 \E2\80?V) / 0.00356 */
 	adc_chan_result->physical = 1493220 - adc_chan_result->physical;
 	adc_chan_result->physical = div64_s64(adc_chan_result->physical, 356);
 

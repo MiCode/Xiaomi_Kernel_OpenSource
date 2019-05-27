@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,19 +37,21 @@
 /{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-ascent-3450mah.dtsi"
-		#include "qg-batterydata-mlp356477-2800mah.dtsi"
+		#include "qg-batterydata-atl-3900mah.dtsi"
+		#include "qg-batterydata-light-3900mah.dtsi"
+		#include "qg-batterydata-sunwoda-3900mah.dtsi"
+		#include "qg-batterydata-share-3900mah.dtsi"
 	};
 };
 
 &pmi632_vadc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&quiet_therm_default &smb_therm_default>;
+	pinctrl-0 = <&backlight_therm_default &smb_therm_default>;
 };
 
 &pmi632_gpios {
-	quiet_therm {
-		quiet_therm_default: quiet_therm_default {
+	backlight_therm {
+		backlight_therm_default: backlight_therm_default {
 			pins = "gpio3";
 			bias-high-impedance;
 		};
@@ -236,7 +239,7 @@
 		};
 	};
 
-	quiet-therm-adc {
+	backlight-therm-adc {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-sensors = <&pmi632_adc_tm 0x53>;

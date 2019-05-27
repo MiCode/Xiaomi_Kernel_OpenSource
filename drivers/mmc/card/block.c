@@ -1016,6 +1016,7 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 	struct scatterlist sg;
 	int err = 0, i = 0;
 	u32 status = 0;
+	unsigned long freq = 0;
 
 	/* The caller must have CAP_SYS_RAWIO */
 	if (!capable(CAP_SYS_RAWIO))
@@ -1066,6 +1067,18 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 				goto cmd_rel_host;
 		}
 	}
+
+
+	freq = 50000000;
+	mmc_claim_host(card->host);
+	err = card->host->clk_scaling.devfreq_profile.target(&card->host->class_dev, &freq,0);
+
+
+
+
+
+	mmc_release_host(card->host);
+
 
 	err = mmc_blk_part_switch(card, md);
 	if (err)

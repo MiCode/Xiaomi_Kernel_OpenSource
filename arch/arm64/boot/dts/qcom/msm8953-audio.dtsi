@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,10 +51,11 @@
 
 		qcom,msm-ext-pa = "primary";
 		qcom,msm-mclk-freq = <9600000>;
-		qcom,msm-mbhc-hphl-swh = <0>;
-		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,msm-hs-micbias-type = "external";
 		qcom,msm-micbias1-ext-cap;
+		qcom,msm-micbias2-ext-cap;
 
 		qcom,audio-routing =
 				"RX_BIAS", "MCLK",
@@ -72,17 +74,18 @@
 				"ADC3_IN", "ADC3_OUT",
 				"PDM_IN_RX1", "PDM_OUT_RX1",
 				"PDM_IN_RX2", "PDM_OUT_RX2",
-				"PDM_IN_RX3", "PDM_OUT_RX3",
-				"WSA_SPK OUT", "VDD_WSA_SWITCH",
-				"SpkrMono WSA_IN", "WSA_SPK OUT";
+				"PDM_IN_RX3", "PDM_OUT_RX3";
+				//"WSA_SPK OUT", "VDD_WSA_SWITCH",
+				//"SpkrMono WSA_IN", "WSA_SPK OUT";
 
-		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
-		qcom,cdc-us-eu-gpios = <&cdc_us_euro_sw>;
+		//qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+		//qcom,cdc-us-eu-gpios = <&cdc_us_euro_sw>;
 		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
 		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
 		qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
 
-		qcom,afe-rxtx-lb;
+		//qcom,msm-spk-ext-pa = <&tlmm 139 0>;
+		//qcom,msm-spk-ext-pa-gpios = <&spk_ext_pa_gpios>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -127,11 +130,11 @@
 				<&pmic_analog_codec>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
 					"analog-codec";
-		asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
-		asoc-wsa-codec-prefixes = "SpkrMono";
-		msm-vdd-wsa-switch-supply = <&pm8953_l5>;
-		qcom,msm-vdd-wsa-switch-voltage = <1800000>;
-		qcom,msm-vdd-wsa-switch-current = <10000>;
+		//asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
+		//asoc-wsa-codec-prefixes = "SpkrMono";
+		//msm-vdd-wsa-switch-supply = <&pm8953_l5>;
+		//qcom,msm-vdd-wsa-switch-voltage = <1800000>;
+		//qcom,msm-vdd-wsa-switch-current = <10000>;
 	};
 
 	cdc_us_euro_sw: msm_cdc_pinctrl_us_euro_sw {
@@ -162,9 +165,27 @@
 		pinctrl-1 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 	};
 
+	/*spk_ext_pa_gpios: msm_spk_ext_pa_ctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&spk_ext_pa_act>;
+		pinctrl-1 = <&spk_ext_pa_sus>;
+	};*/
+	i2c@7af5000 {
+		status = "okay";
+		aw87329@58 {
+			status = "okay";
+			compatible = "awinic,aw87329_pa";
+			reg = <0x58>;
+			reset-gpio = <&tlmm 139 0>;
+			pinctrl-names = "reset_pa_act", "reset_pa_sus";
+			pinctrl-0 = <&reset_pa_active>;
+			pinctrl-1 = <&reset_pa_suspend>;
+			};
+	};
 
 	i2c@78b6000 {
-		status = "okay";
+		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		wsa881x_i2c_f: wsa881x-i2c-codec@f {

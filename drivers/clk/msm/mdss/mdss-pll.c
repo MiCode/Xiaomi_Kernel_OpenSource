@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,6 +228,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	struct resource *dynamic_pll_base_reg;
 	struct resource *gdsc_base_reg;
 	struct mdss_pll_resources *pll_res;
+//	char *p=NULL;
 
 	if (!pdev->dev.of_node) {
 		pr_err("MDSS pll driver only supports device tree probe\n");
@@ -254,10 +256,14 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		pr_err("Unable to get the cell-index rc=%d\n", rc);
 		pll_res->index = 0;
 	}
-
-	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
-						"qcom,dsi-pll-ssc-en");
-
+/*  disable ssc
+//add by wuningxia - disable ssc for truly LCD
+	p= strstr(boot_command_line, "mdss_dsi_truly_otm1901a_720p_video");
+	if(!p) {
+		pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
+							"qcom,dsi-pll-ssc-en");
+	}
+*/
 	if (pll_res->ssc_en) {
 		pr_info("%s: label=%s PLL SSC enabled\n", __func__, label);
 

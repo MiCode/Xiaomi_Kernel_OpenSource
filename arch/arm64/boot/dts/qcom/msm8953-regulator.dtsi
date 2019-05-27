@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,6 +183,7 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -227,10 +229,11 @@
 	rpm-regulator-ldoa10 {
 		status = "okay";
 		pm8953_l10: regulator-l10 {
-			regulator-min-microvolt = <2850000>;
-			regulator-max-microvolt = <2850000>;
-			qcom,init-voltage = <2850000>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 

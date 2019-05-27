@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,6 +266,20 @@
 				hysteresis = <1000>;
 				type = "passive";
 			};
+		};
+	};
+
+	quiet-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8953_adc_tm 0x11>;
+		thermal-governor = "user_space";
+		trips {
+				active-config0 {
+				temperature = <65000>;
+				hysteresis = <5000>;
+				type = "passive";
+				};
 		};
 	};
 

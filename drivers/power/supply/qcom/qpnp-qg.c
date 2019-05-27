@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1061,10 +1062,6 @@ static void process_udata_work(struct work_struct *work)
 			pr_err("Failed to update SDAM params, rc=%d\n", rc);
 	}
 
-	if (chip->udata.param[QG_CHARGE_COUNTER].valid)
-		chip->charge_counter_uah =
-			chip->udata.param[QG_CHARGE_COUNTER].data;
-
 	if (chip->udata.param[QG_ESR].valid)
 		chip->esr_last = chip->udata.param[QG_ESR].data;
 
@@ -1545,6 +1542,28 @@ static int qg_get_battery_capacity(struct qpnp_qg *chip, int *soc)
 	return 0;
 }
 
+static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
+
+{
+
+	int rc, temp = 0, cc_soc = 0;
+	rc = qg_get_learned_capacity(chip, (int64_t *)&temp);
+
+	if (rc < 0 || !temp)
+		rc = qg_get_nominal_capacity((int *)&temp, 250, true);
+	if (rc < 0) {
+		pr_err("Failed to get FCC for charge-counter rc=%d\n", rc);
+		return rc;
+	}
+
+
+	cc_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->cc_soc, 100));
+
+	*charge_counter = (temp * cc_soc) / 100;
+
+	return 0;
+
+}
 static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 {
 	union power_supply_propval prop = {0, };
@@ -1732,7 +1751,7 @@ static int qg_psy_get_property(struct power_supply *psy,
 		pval->intval = chip->bp.qg_profile_version;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		pval->intval = chip->charge_counter_uah;
+		rc = qg_get_charge_counter(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (!chip->dt.cl_disable && chip->dt.cl_feedback_on)
@@ -1872,7 +1891,47 @@ static int qg_charge_full_update(struct qpnp_qg *chip)
 			/* terminated in JEITA */
 			qg_dbg(chip, QG_DEBUG_STATUS, "Terminated charging @ msoc=%d\n",
 					chip->msoc);
+		} else if (health == POWER_SUPPLY_HEALTH_GOOD && chip->msoc <= recharge_soc) {
+
+			bool usb_present = is_usb_present(chip);
+
+			/*
+			 * force a recharge only if SOC <= recharge SOC and
+			* we have not started charging.
+			*/
+			 if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+				 usb_present && chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
+				/* Force recharge */
+				 prop.intval = 0;
+				 rc = power_supply_set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+
+			 if (rc < 0)
+				pr_err("Failed to force recharge rc=%d\n", rc);
+			 else
+				qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
+			 }
 		}
+	} else if (health == POWER_SUPPLY_HEALTH_GOOD && chip->msoc <= recharge_soc) {
+
+		 bool usb_present = is_usb_present(chip);
+
+		/*
+		 * force a recharge only if SOC <= recharge SOC and
+		 * we have not started charging.
+		*/
+		 if ((chip->wa_flags & QG_RECHARGE_SOC_WA) &&
+			 usb_present && chip->charge_status != POWER_SUPPLY_STATUS_CHARGING) {
+			 /* Force recharge */
+			 prop.intval = 0;
+			 rc = power_supply_set_property(chip->batt_psy,
+			 POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+
+		 if (rc < 0)
+			pr_err("Failed to force recharge rc=%d\n", rc);
+		 else
+			qg_dbg(chip, QG_DEBUG_STATUS, "Forced recharge\n");
+		 }
 	} else if ((!chip->charge_done || chip->msoc <= recharge_soc)
 				&& chip->charge_full) {
 
@@ -3324,7 +3383,7 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 	else
 		chip->dt.esr_min_ibat_ua = (int)temp;
 
-	rc = of_property_read_u32(node, "qcom,shutdown_soc_threshold", &temp);
+	rc = of_property_read_u32(node, "qcom,shutdown-soc-threshold", &temp);
 	if (rc < 0)
 		chip->dt.shutdown_soc_threshold = -EINVAL;
 	else
