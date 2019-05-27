@@ -26,16 +26,14 @@ config module test"
 defconfig=mediatek_debug_defconfig mode=t \
 ./scripts/bvt/mediatek_bvt.sh${eol}"
 	echo ""
-	echo -e "${red}Command for manual add config list:${eol}"
+	echo -e "${red}Command for add and check config list:${eol}"
 	echo "[commit] [kernel_dir] mode=a ./scripts/bvt/mediatek_bvt.sh"
 	echo ""
 	echo -e "${green}Description:${eol}"
-	echo "[commit]: last commit ID of config_list"
 	echo "[kernel_dir]: kernel directory position"
 	echo ""
 	echo -e "${green}Example:${eol} ${red}kernel_dir=\$(pwd) \
-commit=c1f52584def32d13a7a8c435674e0043e196c323 mode=a \
-./scripts/bvt/mediatek_bvt.sh${eol}"
+ mode=a ./scripts/bvt/mediatek_bvt.sh${eol}"
 }
 
 if [[ "$1" == "h" ]] || [[ "$1" == "help" ]] || [ -z "mode" ]
@@ -48,21 +46,58 @@ then
 	IFS="+"
 	if [ -z "$commit" ]
 	then
-                new_con=$(git log show -p | grep "+CONFIG_" | grep "=y" \
-			| sed '/^$/d' | sed 's/y//g' | sed 's/\+//g' \
-			| tr '\n' '+')
+		bypass=$(git log --name-only -1 | grep mediatek_bvt.sh)
+                log_cached=$(git show -p | grep "+CONFIG_" \
+			| grep "=y" | sed '/^$/d' | sed 's/y//g' \
+			| sed 's/\+//g' | tr '\n' '+')
+		log_noncached=$(git diff | grep "+CONFIG_" \
+                        | grep "=y" | sed '/^$/d' | sed 's/y//g' \
+			| sed 's/\+//g' | tr '\n' '+')
+		if [ -z "$bypass" ]
+		then
+			for conf in ${log_cached[@]}; do
+				result=\
+$(grep $conf $kernel_dir/scripts/bvt/config_list )
+				if [ -z "$result" ]
+				then
+					echo ""$conf"y" >> \
+				$kernel_dir/scripts/bvt/config_list
+				fi
+			done
+		fi
+		for conf in ${log_noncached[@]}; do
+			result=\
+$(grep $conf $kernel_dir/scripts/bvt/config_list )
+			if [ -z "$result" ]
+			then
+				echo ""$conf"y" >> \
+				$kernel_dir/scripts/bvt/config_list
+			fi
+		done
+		sort $kernel_dir/scripts/bvt/config_list \
+			-o $kernel_dir/scripts/bvt/config_list
+		check_return=$(git status | grep config_list)
+		if  [ "$check_return" == "" ]
+		then
+			exit 0
+		fi
+		exit -1
 	else
 		new_con=$(git log "$commit"..HEAD -p | grep "+CONFIG_" \
 			| grep "=y" | sed '/^$/d' | sed 's/y//g' \
 			| sed 's/\+//g' | tr '\n' '+')
+		for conf in ${new_con[@]}; do
+			result=\
+$(grep $conf $kernel_dir/scripts/bvt/config_list )
+			if [ -z "$result" ]
+			then
+				echo ""$conf"y" >> \
+				$kernel_dir/scripts/bvt/config_list
+			fi
+		done
+		sort $kernel_dir/scripts/bvt/config_list \
+			-o $kernel_dir/scripts/bvt/config_list
 	fi
-	for conf in ${new_con[@]}; do
-		result=$(grep $conf $kernel_dir/scripts/bvt/config_list )
-		if [ -z "$result" ]
-		then
-			echo ""$conf"y" >> $kernel_dir/scripts/bvt/config_list
-		fi
-	done
 fi
 
 if [ "$mode" == "t" ]
