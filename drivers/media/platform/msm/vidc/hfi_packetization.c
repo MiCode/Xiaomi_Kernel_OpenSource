@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1375,6 +1375,35 @@ int create_pkt_cmd_session_set_property(
 
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_SESSION_QP_RANGE;
+		hfi = (struct hfi_quantization_range *)
+				&pkt->rg_property_data[1];
+
+		/*
+		 * When creating the packet, pack the qp value as
+		 * 0xbbppii, where ii = qp range for I-frames,
+		 * pp = qp range for P-frames, etc.
+		 */
+		hfi->min_qp.qp_packed = hal_range->qpi_min |
+			hal_range->qpp_min << 8 |
+			hal_range->qpb_min << 16;
+		hfi->max_qp.qp_packed = hal_range->qpi_max |
+			hal_range->qpp_max << 8 |
+			hal_range->qpb_max << 16;
+		hfi->max_qp.layer_id = hal_range->layer_id;
+		hfi->min_qp.layer_id = hal_range->layer_id;
+
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_quantization_range);
+		break;
+	}
+	case HAL_CONFIG_VENC_FRAME_QP_RANGE:
+	{
+		struct hfi_quantization_range *hfi;
+		struct hal_quantization_range *hal_range =
+			(struct hal_quantization_range *) pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_FRAME_QP_RANGE;
 		hfi = (struct hfi_quantization_range *)
 				&pkt->rg_property_data[1];
 
