@@ -160,6 +160,10 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 	gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
 	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
+	gsi_channel_props.prefetch_mode =
+		gsi_ep_info->prefetch_mode;
+	gsi_channel_props.empty_lvl_threshold =
+		gsi_ep_info->prefetch_threshold;
 	gsi_channel_props.low_weight = 1;
 	gsi_channel_props.err_cb = ipa3_wdi3_gsi_chan_err_cb;
 
