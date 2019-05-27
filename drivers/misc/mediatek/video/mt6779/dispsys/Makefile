@@ -14,6 +14,9 @@
 # drivers/dispsys
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
+CONFIG_MACH_MT6779 := y
+endif
 
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/mtdummy/pq_dummy/
 ifneq ($(CONFIG_MTK_CMDQ), y)
@@ -122,5 +125,9 @@ ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"DISP")
     ccflags-y += -DDISP_COLOR_ON
 else ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"OFF")
     ccflags-y += -DDISP_COLOR_ON
+endif
+
+ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DCONFIG_MACH_MT6779
 endif
 # EOF

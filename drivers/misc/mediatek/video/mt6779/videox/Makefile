@@ -15,6 +15,9 @@
 #
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
+CONFIG_MACH_MT6779 := y
+endif
 
 obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			disp_assert_layer.o	\
@@ -112,3 +115,7 @@ ifeq ($(MTK_MIRAVISION_SUPPORT), yes)
 endif
 
 ccflags-$(CONFIG_MTK_LCM_DEVICE_TREE_SUPPORT) += -DMTK_LCM_DEVICE_TREE_SUPPORT
+
+ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DCONFIG_MACH_MT6779
+endif
