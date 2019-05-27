@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,7 @@ struct bcl_device {
 
 static struct bcl_device *bcl_devices[MAX_PERPH_COUNT];
 static int bcl_device_ct;
+static bool ibat_use_qg_adc;
 
 static int bcl_read_register(struct bcl_device *bcl_perph, int16_t reg_offset,
 				unsigned int *data)
@@ -164,12 +165,20 @@ static void convert_ibat_to_adc_val(int *val)
 	 * Threshold register is bit shifted from ADC MSB.
 	 * So the scaling factor is half.
 	 */
-	*val = (*val * 2000) / BCL_IBAT_SCALING_UA;
+	if (ibat_use_qg_adc)
+		*val = (int)div_s64(*val * 2000 * 2, BCL_IBAT_SCALING_UA);
+	else
+		*val = (int)div_s64(*val * 2000, BCL_IBAT_SCALING_UA);
+
 }
 
 static void convert_adc_to_ibat_val(int *val)
 {
-	*val = (*val * BCL_IBAT_SCALING_UA) / 1000;
+	/* Scaling factor will be half if ibat_use_qg_adc is true */
+	if (ibat_use_qg_adc)
+		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 2 * 1000);
+	else
+		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 1000);
 }
 
 static int bcl_set_ibat(void *data, int low, int high)
@@ -481,6 +490,9 @@ static int bcl_get_devicetree_data(struct platform_device *pdev,
 		dev_err(&pdev->dev, "No fg_bcl registers found\n");
 		return -ENODEV;
 	}
+
+	ibat_use_qg_adc =  of_property_read_bool(dev_node,
+				"qcom,ibat-use-qg-adc-5a");
 
 	return ret;
 }
