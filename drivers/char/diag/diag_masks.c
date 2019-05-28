@@ -3201,7 +3201,8 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
 		diag_send_peripheral_buffering_mode(
 					&driver->buffering_mode[peripheral]);
-
+		if (P_FMASK_DIAGID_V2(peripheral))
+			diag_send_hw_accel_status(peripheral);
 		/*
 		 * Clear mask_update variable afer updating
 		 * logging masks to peripheral.
