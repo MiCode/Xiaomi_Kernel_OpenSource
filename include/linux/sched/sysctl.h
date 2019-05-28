@@ -131,6 +131,6 @@ extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
 extern char sched_lib_name[LIB_PATH_LENGTH];
 extern unsigned int sched_lib_mask_force;
 extern bool is_sched_lib_based_app(pid_t pid);
-extern unsigned long *sched_busy_hysteresis_cpubits;
+extern unsigned int sysctl_sched_busy_hysteresis_enable_cpus;
 
 #endif /* _LINUX_SCHED_SYSCTL_H */
