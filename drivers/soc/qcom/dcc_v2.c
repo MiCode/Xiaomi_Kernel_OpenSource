@@ -1273,27 +1273,16 @@ err:
 }
 static DEVICE_ATTR_WO(loop);
 
-static ssize_t rd_mod_wr_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
+static int dcc_rd_mod_wr_add(struct dcc_drvdata *drvdata, unsigned int mask,
+			  unsigned int val)
 {
-	int ret = size;
-	int nval;
-	unsigned int mask, val;
-	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	int ret = 0;
 	struct dcc_config_entry *entry;
 
 	mutex_lock(&drvdata->mutex);
 
-	nval = sscanf(buf, "%x %x", &mask, &val);
-
-	if (nval <= 1 || nval > 2) {
-		ret = -EINVAL;
-		goto err;
-	}
-
 	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
-		dev_err(dev, "Select link list to program using curr_list\n");
+		dev_err(drvdata->dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1319,6 +1308,28 @@ static ssize_t rd_mod_wr_store(struct device *dev,
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
+}
+
+static ssize_t rd_mod_wr_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
+{
+	int ret;
+	int nval;
+	unsigned int mask, val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	nval = sscanf(buf, "%x %x", &mask, &val);
+
+	if (nval <= 1 || nval > 2)
+		return -EINVAL;
+
+	ret = dcc_rd_mod_wr_add(drvdata, mask, val);
+	if (ret)
+		return ret;
+
+	return size;
+
 }
 static DEVICE_ATTR_WO(rd_mod_wr);
 
@@ -1636,6 +1647,10 @@ static int dcc_dt_parse(struct dcc_drvdata *drvdata, struct device_node *np)
 			case DCC_READ:
 				ret = dcc_config_add(drvdata, val1,
 							val2, apb_bus);
+				break;
+			case DCC_READ_WRITE:
+				ret = dcc_rd_mod_wr_add(drvdata, val1,
+							val2);
 				break;
 			case DCC_WRITE:
 				ret = dcc_add_write(drvdata, val1,
