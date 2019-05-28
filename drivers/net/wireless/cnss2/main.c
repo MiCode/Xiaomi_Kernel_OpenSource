@@ -1137,7 +1137,7 @@ int cnss_force_fw_assert(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force assert\n");
 		return 0;
 	}
@@ -1173,7 +1173,7 @@ int cnss_force_collect_rddm(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
-	if (cnss_pci_is_device_down(dev)) {
+	if (cnss_bus_is_device_down(plat_priv)) {
 		cnss_pr_info("Device is already in bad state, ignore force collect rddm\n");
 		return 0;
 	}
