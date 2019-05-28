@@ -222,14 +222,14 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 	mutex_init(&chip->irqlock);
 	switch (chip->chip_id) {
 	case MT6358_CHIP_ID:
-		irqd->num_top = MT6358_TOP_NR;
+		irqd->num_top = ARRAY_SIZE(mt6358_ints);
 		irqd->num_pmic_irqs = MT6358_IRQ_NR;
 		irqd->reg_width = MT6358_REG_WIDTH;
 		irqd->top_int_status_reg = MT6358_TOP_INT_STATUS0;
 		irqd->pmic_ints = mt6358_ints;
 		break;
 	case MT6359_CHIP_ID:
-		irqd->num_top = MT6359_TOP_NR;
+		irqd->num_top = ARRAY_SIZE(mt6359_ints);
 		irqd->num_pmic_irqs = MT6359_IRQ_NR;
 		irqd->reg_width = MT6359_REG_WIDTH;
 		irqd->top_int_status_reg = MT6359_TOP_INT_STATUS0;

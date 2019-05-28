@@ -15,9 +15,8 @@ enum mt6359_irq_top_status_shift {
 	MT6359_SCK_TOP = 3,
 	MT6359_BM_TOP = 4,
 	MT6359_HK_TOP = 5,
-	MT6359_AUD_TOP = 6,
-	MT6359_MISC_TOP = 7,
-	MT6359_TOP_NR = 8,
+	MT6359_AUD_TOP = 7,
+	MT6359_MISC_TOP = 8,
 };
 
 enum mt6359_irq_numbers {
