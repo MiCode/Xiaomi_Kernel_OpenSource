@@ -3042,6 +3042,12 @@ void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (!sde_enc->cur_master) {
+		SDE_ERROR("virt encoder has no master\n");
+		return;
+	}
+
 	memset(&sde_enc->cur_master->intf_cfg_v1, 0,
 			sizeof(sde_enc->cur_master->intf_cfg_v1));
 	sde_enc->idle_pc_restore = true;
