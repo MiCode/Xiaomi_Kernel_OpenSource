@@ -40,6 +40,8 @@
 #define NPU_IPC_CMD_EXECUTE_V2          0x0000000A
 /* ipc_cmd_set_property_packet */
 #define NPU_IPC_CMD_SET_PROPERTY        0x0000000B
+/* ipc_cmd_get_property_packet */
+#define NPU_IPC_CMD_GET_PROPERTY        0x0000000C
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -59,8 +61,13 @@
 #define NPU_IPC_MSG_EXECUTE_V2_DONE     0x00010006
 /* ipc_msg_set_property_packet */
 #define NPU_IPC_MSG_SET_PROPERTY_DONE   0x00010007
-/* ipc_msg_set_power_mode */
-#define NPU_IPC_MSG_DCVS_NOTIFY         0x00010010
+/* ipc_msg_get_property_packet */
+#define NPU_IPC_MSG_GET_PROPERTY_DONE   0x00010008
+/* ipc_msg_general_notify_pkt */
+#define NPU_IPC_MSG_GENERAL_NOTIFY      0x00010010
+
+/* IPC Notify Message Type -- uint32_t */
+#define NPU_NOTIFY_DCVS_MODE            0x00002000
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -109,10 +116,8 @@
 /* Debug stats */
 #define NUM_LAYER_STATS_PER_EXE_MSG_MAX 110
 
-enum npu_fw_property_id {
-	NPU_FW_PROP_ID_DCVS_MODE = 0,
-	NPU_FW_PROP_ID_INVALID = 0xFFFFFFFF,
-};
+/* DCVS */
+#define NPU_DCVS_ACTIVITY_MAX_PERF 0x100
 
 /* -------------------------------------------------------------------------
  * Data Structures
@@ -283,9 +288,9 @@ struct ipc_cmd_loopback_pkt {
 };
 
 /*
- * Set property packet definition
+ * Generic property definition
  */
-struct ipc_cmd_set_prop_pkt {
+struct ipc_cmd_prop_pkt {
 	struct ipc_cmd_header_pkt header;
 	uint32_t prop_id;
 	uint32_t num_params;
@@ -294,14 +299,27 @@ struct ipc_cmd_set_prop_pkt {
 };
 
 /*
- * Set property response packet definition
+ * Generic property response packet definition
  */
-struct ipc_msg_set_prop_pkt {
+struct ipc_msg_prop_pkt {
 	struct ipc_msg_header_pkt header;
 	uint32_t prop_id;
+	uint32_t num_params;
 	uint32_t network_hdl;
-	uint32_t prop_value;
+	uint32_t prop_param[0];
 };
+
+/*
+ * Generic notify message packet definition
+ */
+struct ipc_msg_general_notify_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t notify_id;
+	uint32_t num_params;
+	uint32_t network_hdl;
+	uint32_t notify_param[0];
+};
+
 
 /*
  * LOAD response packet definition
@@ -447,15 +465,6 @@ struct ipc_msg_performance_counters {
 struct ipc_cmd_shutdown_pkt {
 	struct ipc_cmd_header_pkt header;
 	uint32_t shutdown_flags;
-};
-
-/*
- * Notify driver to set power mode (a value from 0 to 100)
- */
-struct ipc_msg_set_dcvs_mode {
-	struct ipc_msg_header_pkt header;
-	/* activity level from 0-100 */
-	uint32_t activity;
 };
 
 #endif /* NPU_HOST_IPC_H */
