@@ -583,8 +583,14 @@ static void cnss_pci_time_sync_work_hdlr(struct work_struct *work)
 	if (cnss_pci_is_device_down(&pci_priv->pci_dev->dev))
 		return;
 
+	if (cnss_pci_pm_runtime_get_sync(pci_priv) < 0)
+		return;
+
 	cnss_pci_update_timestamp(pci_priv);
 	schedule_delayed_work(&pci_priv->time_sync_work, TIME_SYNC_PERIOD_JF);
+
+	cnss_pci_pm_runtime_mark_last_busy(pci_priv);
+	cnss_pci_pm_runtime_put_autosuspend(pci_priv);
 }
 
 static int cnss_pci_start_time_sync_update(struct cnss_pci_data *pci_priv)
@@ -1638,6 +1644,14 @@ int cnss_pci_pm_runtime_get(struct cnss_pci_data *pci_priv)
 		return -ENODEV;
 
 	return pm_runtime_get(&pci_priv->pci_dev->dev);
+}
+
+int cnss_pci_pm_runtime_get_sync(struct cnss_pci_data *pci_priv)
+{
+	if (!pci_priv)
+		return -ENODEV;
+
+	return pm_runtime_get_sync(&pci_priv->pci_dev->dev);
 }
 
 void cnss_pci_pm_runtime_get_noresume(struct cnss_pci_data *pci_priv)
