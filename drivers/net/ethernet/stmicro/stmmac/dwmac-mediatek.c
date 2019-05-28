@@ -409,6 +409,11 @@ static int eth_create_attr(struct device *dev)
 
 	return err;
 }
+
+static void eth_remove_attr(struct device *dev)
+{
+	device_remove_file(dev, &dev_attr_stmmac);
+}
 #endif
 
 static int mt2712_set_interface(struct mediatek_dwmac_plat_data *plat)
@@ -704,6 +709,24 @@ static int mediatek_dwmac_probe(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	eth_create_attr(&pdev->dev);
 #endif
+	return 0;
+}
+
+static int mediatek_dwmac_remove(struct platform_device *pdev)
+{
+	int ret;
+
+#ifdef CONFIG_DEBUG_FS
+	eth_remove_attr(&pdev->dev);
+#endif
+	stmmac_pltfr_remove(pdev);
+
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "put power fail, ret=%d\n", ret);
+		return ret;
+	}
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -718,7 +741,7 @@ MODULE_DEVICE_TABLE(of, mediatek_dwmac_match);
 
 static struct platform_driver mediatek_dwmac_driver = {
 	.probe  = mediatek_dwmac_probe,
-	.remove = stmmac_pltfr_remove,
+	.remove = mediatek_dwmac_remove,
 	.driver = {
 		.name           = "dwmac-mediatek",
 		.pm		= &stmmac_pltfr_pm_ops,
