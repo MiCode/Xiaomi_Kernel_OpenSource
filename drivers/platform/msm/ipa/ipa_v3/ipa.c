@@ -213,7 +213,8 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 			"\nTotal active clients count: %d\n",
 			atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
 
-	cnt += ipa_mpm_panic_handler(buf + cnt, size - cnt);
+	if (ipa3_is_mhip_offload_enabled())
+		cnt += ipa_mpm_panic_handler(buf + cnt, size - cnt);
 
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
