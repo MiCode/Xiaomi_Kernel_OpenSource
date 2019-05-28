@@ -3996,14 +3996,19 @@ static void sram_dump_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work, struct fg_dev,
 				    sram_dump_work.work);
-	u8 buf[FG_SRAM_LEN];
+	u8 *buf;
 	int rc;
 	s64 timestamp_ms, quotient;
 	s32 remainder;
 
+	buf = kcalloc(FG_SRAM_LEN, sizeof(u8), GFP_KERNEL);
+	if (!buf)
+		goto resched;
+
 	rc = fg_sram_read(fg, 0, 0, buf, FG_SRAM_LEN, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in reading FG SRAM, rc:%d\n", rc);
+		kfree(buf);
 		goto resched;
 	}
 
@@ -4012,6 +4017,7 @@ static void sram_dump_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "SRAM Dump Started at %lld.%d\n",
 		quotient, remainder);
 	dump_sram(fg, buf, 0, FG_SRAM_LEN);
+	kfree(buf);
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
 	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
 	fg_dbg(fg, FG_STATUS, "SRAM Dump done at %lld.%d\n",
