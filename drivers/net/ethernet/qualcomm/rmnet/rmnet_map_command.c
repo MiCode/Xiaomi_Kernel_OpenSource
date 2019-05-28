@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,8 +96,8 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	netif_tx_unlock(dev);
 }
 
-static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
-				     struct rmnet_map_dl_ind_hdr *dlhdr)
+void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_hdr *dlhdr)
 {
 	struct rmnet_map_dl_ind *tmp;
 
@@ -107,8 +107,8 @@ static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
 		tmp->dl_hdr_handler(dlhdr);
 }
 
-static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
-				     struct rmnet_map_dl_ind_trl *dltrl)
+void rmnet_map_dl_trl_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_trl *dltrl)
 {
 	struct rmnet_map_dl_ind *tmp;
 	struct napi_struct *napi;
@@ -154,12 +154,11 @@ static void rmnet_map_process_flow_start(struct sk_buff *skb,
 			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
 		pskb_pull(skb, pull_size);
 	}
-
 }
 
 static void rmnet_map_process_flow_end(struct sk_buff *skb,
 				       struct rmnet_port *port,
-					   bool rmnet_perf)
+				       bool rmnet_perf)
 {
 	struct rmnet_map_dl_ind_trl *dltrl;
 
@@ -182,7 +181,6 @@ static void rmnet_map_process_flow_end(struct sk_buff *skb,
 			pull_size += sizeof(struct rmnet_map_dl_csum_trailer);
 		pskb_pull(skb, pull_size);
 	}
-
 }
 
 /* Process MAP command frame and send N/ACK message as appropriate. Message cmd

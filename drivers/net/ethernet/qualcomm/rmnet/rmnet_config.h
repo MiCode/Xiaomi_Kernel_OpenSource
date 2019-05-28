@@ -77,6 +77,9 @@ struct rmnet_port {
 	struct list_head dl_list;
 	struct rmnet_port_priv_stats stats;
 	int dl_marker_flush;
+
+	struct rmnet_descriptor *rmnet_desc;
+	struct rmnet_frag_descriptor_pool *frag_desc_pool;
 };
 
 extern struct rtnl_link_ops rmnet_link_ops;
