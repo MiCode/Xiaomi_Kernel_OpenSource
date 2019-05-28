@@ -1080,7 +1080,7 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	}
 
 	mutex_lock(&mask_info->lock);
-	if (src_len >= header_len + mask_len)
+	if (src_len >= header_len + mask_len - 1)
 		memcpy(mask_info->ptr, src_buf + header_len, mask_len);
 	mask_info->status = DIAG_CTRL_MASK_VALID;
 	mutex_unlock(&mask_info->lock);
