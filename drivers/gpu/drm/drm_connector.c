@@ -848,6 +848,10 @@ static const struct drm_prop_enum_list dp_colorspaces[] = {
 	{ DRM_MODE_DP_COLORIMETRY_SRGB, "sRGB" },
 	{ DRM_MODE_DP_COLORIMETRY_RGB_WIDE_GAMUT, "RGB Wide Gamut" },
 	{ DRM_MODE_DP_COLORIMETRY_SCRGB, "scRGB" },
+	/* Colorimetry based on ITU-R BT.2020 */
+	{ DRM_MODE_COLORIMETRY_BT2020_RGB, "BT2020_RGB" },
+	/* Colorimetry based on ITU-R BT.2020 */
+	{ DRM_MODE_COLORIMETRY_BT2020_YCC, "BT2020_YCC" },
 };
 
 /**
