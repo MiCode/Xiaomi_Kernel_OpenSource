@@ -28,10 +28,27 @@ unsigned long get_smi_larb_va(unsigned int larb)
 	struct device_node *node = NULL;
 	char smi_larb_dt_name[25];
 	unsigned long va = 0;
+	unsigned int id;
+	int i, ret;
 
 	snprintf(smi_larb_dt_name, sizeof(smi_larb_dt_name),
-		"mediatek,smi_larb%u", larb);
-	node = of_find_compatible_node(NULL, NULL, smi_larb_dt_name);
+			"mediatek,smi-larb");
+	for (i = 0; i < DISP_LARB_NUM; i++) {
+		node = of_find_compatible_node(node,
+				NULL, smi_larb_dt_name);
+		if (node) {
+			ret = of_property_read_u32(node,
+					"mediatek,larb-id", &id);
+			if ((!ret) && (id == larb))
+				break;
+		}
+	}
+
+	if (i == DISP_LARB_NUM) {
+		DDP_PR_ERR("Cannot find smi-larb%d node:%s\n",
+				larb);
+		return 0;
+	}
 
 	if (node != NULL)
 		va = (unsigned long)of_iomap(node, 0);

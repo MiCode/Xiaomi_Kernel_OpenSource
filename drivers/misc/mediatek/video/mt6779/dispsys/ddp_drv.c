@@ -306,12 +306,14 @@ static inline unsigned int virq_to_hwirq(unsigned int virq)
 static int disp_probe_1(void)
 {
 	int ret = 0;
-	int i;
+	int i, j;
 	unsigned long va;
 	unsigned int irq;
 	const int len = 200;
 	char msg[len];
 	int n = 0;
+	unsigned int id;
+	unsigned int larb;
 
 	pr_info("disp driver(1) %s begin\n", __func__);
 
@@ -340,16 +342,40 @@ static int disp_probe_1(void)
 		if (!is_ddp_module_has_reg_info(i))
 			continue;
 
-		node = of_find_compatible_node(NULL, NULL,
-					       ddp_get_module_dtname(i));
-		if (node == NULL) {
-			n = snprintf(msg, len, "[ERR]DT, i=%d, module=%s, ",
-				     i, ddp_get_module_name(i));
-			n += snprintf(msg + n, len - n,
-				      "unable to find node, dt_name=%s\n",
-				      ddp_get_module_dtname(i));
-			DDP_PR_ERR("%s", msg);
-			continue;
+		/* get LARB ID */
+		if ((i >= DISP_MODULE_SMI_LARB0) &&
+			(i <= DISP_MODULE_SMI_LARB1)) {
+			larb = i - DISP_MODULE_SMI_LARB0;
+			node = NULL;
+			for (j = 0; j < DISP_LARB_NUM; j++) {
+				node = of_find_compatible_node(node,
+						NULL, ddp_get_module_dtname(i));
+				if (node) {
+					ret = of_property_read_u32(node,
+						"mediatek,larb-id", &id);
+					if ((!ret) && (id == larb))
+						break;
+				}
+			}
+
+			if (j == DISP_LARB_NUM) {
+				DDP_PR_ERR("Cannot find smi-larb%d node:%s\n",
+						larb);
+				continue;
+			}
+		} else {
+			node = of_find_compatible_node(NULL,
+					NULL, ddp_get_module_dtname(i));
+			if (node == NULL) {
+				n = snprintf(msg, len,
+						"[ERR]DT, i=%d, module=%s, ",
+						i, ddp_get_module_name(i));
+				n += snprintf(msg + n, len - n,
+						"unable to find node, dt_name=%s\n",
+						ddp_get_module_dtname(i));
+				DDP_PR_ERR("%s", msg);
+				continue;
+			}
 		}
 
 		va = (unsigned long)of_iomap(node, 0);

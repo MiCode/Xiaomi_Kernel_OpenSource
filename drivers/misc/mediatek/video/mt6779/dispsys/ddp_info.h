@@ -513,6 +513,7 @@ struct ddp_reg {
 	/* get info for DT */
 	unsigned long reg_va;
 	unsigned int reg_irq;
+	unsigned int larb_id;
 };
 
 struct ddp_module {
