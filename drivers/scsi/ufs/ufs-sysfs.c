@@ -123,15 +123,31 @@ static void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit)
 {
 	unsigned long flags;
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT))
+	if (!ufshcd_is_auto_hibern8_supported(hba))
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (hba->ahit == ahit)
 		goto out_unlock;
-	hba->ahit = ahit;
-	if (!pm_runtime_suspended(hba->dev))
+	if (!pm_runtime_suspended(hba->dev)) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		ufshcd_hold(hba, false);
+		down_write(&hba->lock);
+		ufshcd_scsi_block_requests(hba);
+		/* wait for all the outstanding requests to finish */
+		ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->ahit = ahit;
 		ufshcd_writel(hba, hba->ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
+		/* Make sure the timer gets applied before further operations */
+		mb();
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		up_write(&hba->lock);
+		ufshcd_scsi_unblock_requests(hba);
+		ufshcd_release(hba, false);
+		return;
+	}
+	hba->ahit = ahit;
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
@@ -165,7 +181,7 @@ static ssize_t auto_hibern8_show(struct device *dev,
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT))
+	if (!ufshcd_is_auto_hibern8_supported(hba))
 		return -EOPNOTSUPP;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n", ufshcd_ahit_to_us(hba->ahit));
@@ -178,7 +194,7 @@ static ssize_t auto_hibern8_store(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	unsigned int timer;
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT))
+	if (!ufshcd_is_auto_hibern8_supported(hba))
 		return -EOPNOTSUPP;
 
 	if (kstrtouint(buf, 0, &timer))
