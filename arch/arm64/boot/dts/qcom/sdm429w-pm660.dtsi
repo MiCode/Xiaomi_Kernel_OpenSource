@@ -1,0 +1,695 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+
+&rpm_bus {
+	/* Delete all pm8953 regulators */
+	/delete-node/ rpm-regulator-smpa1;
+	/delete-node/ rpm-regulator-smpa2;
+	/delete-node/ rpm-regulator-smpa3;
+	/delete-node/ rpm-regulator-smpa4;
+	/delete-node/ rpm-regulator-smpa7;
+	/delete-node/ rpm-regulator-ldoa1;
+	/delete-node/ rpm-regulator-ldoa2;
+	/delete-node/ rpm-regulator-ldoa3;
+	/delete-node/ rpm-regulator-ldoa4;
+	/delete-node/ rpm-regulator-ldoa5;
+	/delete-node/ rpm-regulator-ldoa6;
+	/delete-node/ rpm-regulator-ldoa7;
+	/delete-node/ rpm-regulator-ldoa8;
+	/delete-node/ rpm-regulator-ldoa9;
+	/delete-node/ rpm-regulator-ldoa10;
+	/delete-node/ rpm-regulator-ldoa11;
+	/delete-node/ rpm-regulator-ldoa12;
+	/delete-node/ rpm-regulator-ldoa13;
+	/delete-node/ rpm-regulator-ldoa14;
+	/delete-node/ rpm-regulator-ldoa15;
+	/delete-node/ rpm-regulator-ldoa16;
+	/delete-node/ rpm-regulator-ldoa17;
+	/delete-node/ rpm-regulator-ldoa19;
+	/delete-node/ rpm-regulator-ldoa22;
+	/delete-node/ rpm-regulator-ldoa23;
+	/delete-node/ rpm-regulator-clk0;
+};
+
+&thermal_zones {
+	/delete-node/ xo-therm-adc;
+	/delete-node/ xo-therm-buf-adc;
+	/delete-node/ pm8953_tz;
+	/delete-node/ pmi-ibat-lvl0;
+	/delete-node/ pmi-ibat-lvl1;
+	/delete-node/ pmi-vbat-lvl0;
+	/delete-node/ pmi-vbat-lvl1;
+	/delete-node/ pmi-vbat-lvl2;
+	/delete-node/ soc;
+	/delete-node/ pmi632_tz;
+	/delete-node/ quiet-therm-step;
+	/delete-node/ quiet-therm-adc;
+	/delete-node/ pa-therm0;
+
+	aoss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	mdm-core-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	lpass-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	camera-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	cpuss1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	apc1-cpu0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	apc1-cpu1-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	apc1-cpu2-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	apc1-cpu3-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	cpuss0-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+
+	gpu-lowf {
+		cooling-maps {
+			cx_vdd_cdev {
+				/delete-property/ cooling-device;
+			};
+		};
+	};
+};
+
+&usb_otg {
+	/delete-property/ vbus_otg-supply;
+	/delete-property/ extcon;
+	/delete-property/ hsusb_vdd_dig-supply;
+	/delete-property/ HSUSB_1p8-supply;
+	/delete-property/ HSUSB_3p3-supply;
+	/delete-property/ qcom,vdd-voltage-level;
+};
+
+&soc {
+	/delete-node/ qcom,camera-flash;
+
+	regulator@b018000 {
+		/delete-property/ vdd-apc-supply;
+	};
+
+	qcom,cpu-clock-8939@b111050 {
+		/delete-property/ vdd-c0-supply;
+		/delete-property/ vdd-c1-supply;
+		/delete-property/ vdd-cci-supply;
+	};
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_sr2_dig-supply;
+		/delete-property/ vdd_sr2_pll-supply;
+		/delete-property/ vdd_hf_dig-supply;
+		/delete-property/ vdd_hf_pll-supply;
+	};
+
+	qcom,lpass@c200000 {
+		/delete-property/ vdd_cx-supply;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+	};
+
+	qcom,wcnss-wlan@0a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+
+	qcom,csid@1b30000 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
+	qcom,csid@1b30400 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
+	qcom,csid@1b30800 {
+		/delete-property/ qcom,mipi-csi-vdd-supply;
+	};
+
+	sound {
+		/delete-property/ asoc-codec;
+		/delete-property/ msm-vdd-wsa-switch-supply;
+	};
+
+	hbtp {
+		/delete-property/ vcc_ana-supply;
+		/delete-property/ vcc_dig-supply;
+	};
+
+	fpc1020 {
+		/delete-property/ vcc_spi-supply;
+		/delete-property/ vdd_io-supply;
+		/delete-property/ vdd_ana-supply;
+	};
+};
+
+&clock_audio {
+	/delete-property/ pinctrl-0;
+	/delete-property/ pinctrl-1;
+	/delete-property/ qcom,audio-ref-clk-gpio;
+};
+
+&wcd9335 {
+	/delete-property/ cdc-vdd-buck-supply;
+	/delete-property/ cdc-buck-sido-supply;
+	/delete-property/ cdc-vdd-tx-h-supply;
+	/delete-property/ cdc-vdd-rx-h-supply;
+	/delete-property/ cdc-vdd-px-supply;
+	/delete-property/ cdc-vdd-mic-bias-supply;
+};
+
+&pil_mss {
+	/delete-property/ vdd_mss-supply;
+	/delete-property/ vdd_cx-supply;
+	/delete-property/ vdd_cx-voltage;
+	/delete-property/ vdd_mx-supply;
+	/delete-property/ vdd_mx-uV;
+	/delete-property/ vdd_pll-supply;
+};
+
+&cci {
+	qcom,actuator@0 {
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,actuator@1 {
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,eeprom@0 {
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+		/delete-property/ cam_vdig-supply;
+	};
+
+	qcom,eeprom@1 {
+		/delete-property/ cam_vdig-supply;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,camera@0 {
+		/delete-property/ qcom,led-flash-src;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+		/delete-property/ cam_vdig-supply;
+	};
+
+	qcom,camera@1 {
+		/delete-property/ cam_vdig-supply;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+	};
+
+	qcom,camera@2 {
+		/delete-property/ cam_vdig-supply;
+		/delete-property/ cam_vana-supply;
+		/delete-property/ cam_vio-supply;
+		/delete-property/ cam_vaf-supply;
+	};
+};
+
+&mdss_dsi {
+	/delete-property/ vdda-supply;
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ bklight_en-supply;
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+};
+
+&mdss_dsi1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi0_pll {
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ vddio-supply;
+};
+
+&i2c_2 {
+	/delete-node/ qcom,smb1355@8;
+	/delete-node/ qcom,smb1355@c;
+};
+
+&i2c_5 {
+	nq@28 {
+		/delete-property/ qcom,nq-clkreq;
+		/delete-property/ pinctrl-0;
+	};
+};
+
+&sdhc_1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&sdhc_2 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm8953@0;
+	/delete-node/ qcom,pm8953@1;
+	/delete-node/ qcom,pmi632@2;
+	/delete-node/ qcom,pmi632@3;
+};
+
+&dsi_hx8399c_truly_vid {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+
+&dsi_hx8399c_hd_vid {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+
+&tlmm {
+	/delete-node/ smb_int_default;
+};
+
+&soc {
+	/delete-node/ qcom,rpm-smd;
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>;	/* SMD_APSS_RPM */
+	};
+};
+
+#include "pm660.dtsi"
+#include "pm660-rpm-regulator.dtsi"
+#include "sdm429w-regulator.dtsi"
+
+&pm660_pdphy {
+	/delete-property/ vdd-pdphy-supply;
+};
+
+/{
+	/delete-node/ mtp_batterydata;
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "fg-gen3-batterydata-I13Z5P-680mAh.dtsi"
+	};
+};
+
+/* over-write the PM660 GPIO mappings for 429w */
+&pm660_gpios {
+	interrupts  = <0x0 0xc3 0 IRQ_TYPE_NONE>;
+	interrupt-names = "pm660_gpio4";
+	qcom,gpios-disallowed = <1 2 3 5 6 7 8 9 10 11 12 13>;
+};
+
+&pm660_vadc {
+	/delete-node/ chan@1d;
+};
+
+&pm660_0 {
+	pm660_charger: qcom,qpnp-smb2 {
+		compatible = "qcom,qpnp-smb2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#cooling-cells = <2>;
+
+		qcom,pmic-revid = <&pm660_revid>;
+		io-channels = <&pm660_rradc 8>,
+			      <&pm660_rradc 10>,
+			      <&pm660_rradc 3>,
+			      <&pm660_rradc 4>;
+		io-channel-names = "charger_temp",
+				   "charger_temp_max",
+				   "usbin_i",
+				   "usbin_v";
+		qcom,thermal-mitigation
+				= <3000000 2500000 2000000 1500000
+					1000000 500000>;
+		qcom,wipower-max-uw = <5000000>;
+		qcom,auto-recharge-soc;
+		qcom,use-extcon;
+		qcom,pd-not-supported;
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts =
+				<0x0 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x10 0x4 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "chg-error",
+					  "chg-state-change",
+					  "step-chg-state-change",
+					  "step-chg-soc-update-fail",
+					  "step-chg-soc-update-request";
+		};
+
+		qcom,otg@1100 {
+			reg = <0x1100 0x100>;
+			interrupts = <0x0 0x11 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x11 0x3 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "otg-fail",
+					  "otg-overcurrent",
+					  "otg-oc-dis-sw-sts",
+					  "testmode-change-detect";
+		};
+
+		qcom,bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =
+				<0x0 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x12 0x5 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "bat-temp",
+					  "bat-ocp",
+					  "bat-ov",
+					  "bat-low",
+					  "bat-therm-or-id-missing",
+					  "bat-terminal-missing";
+		};
+
+		qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts =
+				<0x0 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x13 0x5 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "usbin-collapse",
+					  "usbin-lt-3p6v",
+					  "usbin-uv",
+					  "usbin-ov",
+					  "usbin-plugin",
+					  "usbin-src-change",
+					  "usbin-icl-change",
+					  "type-c-change";
+		};
+
+		qcom,dc-chgpth@1400 {
+			reg = <0x1400 0x100>;
+			interrupts =
+				<0x0 0x14 0x0 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x1 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x14 0x6 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "dcin-collapse",
+					  "dcin-lt-3p6v",
+					  "dcin-uv",
+					  "dcin-ov",
+					  "dcin-plugin",
+					  "div2-en-dg",
+					  "dcin-icl-change";
+		};
+
+		qcom,chgr-misc@1600 {
+			reg = <0x1600 0x100>;
+			interrupts =
+				<0x0 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+				<0x0 0x16 0x2 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x3 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x4 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x5 IRQ_TYPE_EDGE_BOTH>,
+				<0x0 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
+				<0x0 0x16 0x7 IRQ_TYPE_EDGE_BOTH>;
+
+			interrupt-names = "wdog-snarl",
+					  "wdog-bark",
+					  "aicl-fail",
+					  "aicl-done",
+					  "high-duty-cycle",
+					  "input-current-limiting",
+					  "temperature-change",
+					  "switcher-power-ok";
+		};
+
+		smb2_vbus: qcom,smb2-vbus {
+			regulator-name = "smb2-vbus";
+		};
+
+		smb2_vconn: qcom,smb2-vconn {
+			regulator-name = "smb2-vconn";
+		};
+	};
+
+	qcom,power-on@800 {
+		qcom,use-legacy-hard-reset-offset;
+	};
+
+	pm660_rradc: rradc@4500 {
+		compatible = "qcom,rradc";
+		reg = <0x4500 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#io-channel-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+	};
+
+	pm660_fg: qpnp,fg {
+		compatible = "qcom,fg-gen3";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		qcom,pmic-revid = <&pm660_revid>;
+		io-channels = <&pm660_rradc 0>,
+			      <&pm660_rradc 7>;
+		io-channel-names = "rradc_batt_id",
+				   "rradc_die_temp";
+		qcom,rradc-base = <0x4500>;
+		qcom,fg-esr-timer-awake = <64 96>;
+		qcom,fg-esr-timer-charging = <0 96>;
+		qcom,fg-esr-timer-shutdown = <2048 2048>;
+		qcom,fg-esr-timer-asleep = <512 512>;
+		qcom,cycle-counter-en;
+		qcom,hold-soc-while-full;
+		qcom,fg-auto-recharge-soc;
+		qcom,fg-recharge-soc-thr = <98>;
+		qcom,fg-rsense-sel = <1>;		/* External rsense */
+		qcom,fg-cutoff-voltage = <3400>;
+		qcom,fg-recharge-voltage = <4100>;
+		qcom,fg-use-sw-esr;
+		qcom,fg-esr-pulse-thresh-ma = <40>;
+		qcom,fg-esr-meas-curr-ma = <60>;
+		qcom,fg-cutoff-current = <50>;
+		qcom,fg-sync-sleep-threshold-ma = <30>;
+		qcom,battery-data = <&mtp_batterydata>;
+		status = "okay";
+
+		qcom,fg-batt-soc@4000 {
+			status = "okay";
+			reg = <0x4000 0x100>;
+			interrupts = <0x0 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x2
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x3
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x5
+						IRQ_TYPE_EDGE_RISING>,
+				     <0x0 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "soc-update",
+					  "soc-ready",
+					  "bsoc-delta",
+					  "msoc-delta",
+					  "msoc-low",
+					  "msoc-empty",
+					  "msoc-high",
+					  "msoc-full";
+		};
+
+		qcom,fg-batt-info@4100 {
+			status = "okay";
+			reg = <0x4100 0x100>;
+			interrupts = <0x0 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x2 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x3 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x41 0x6 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "vbatt-pred-delta",
+					  "vbatt-low",
+					  "esr-delta",
+					  "batt-missing",
+					  "batt-temp-delta";
+		};
+
+		qcom,fg-memif@4400 {
+			status = "okay";
+			reg = <0x4400 0x100>;
+			interrupts = <0x0 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
+				     <0x0 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "ima-rdy",
+					  "mem-xcp",
+					  "dma-grant";
+		};
+	};
+};
+
+&pm660_1 {
+	pm660_haptics: qcom,haptics@c000 {
+		compatible = "qcom,pm660-haptics";
+		reg = <0xc000 0x100>;
+		interrupts = <0x1 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x1 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "hap-sc-irq", "hap-play-irq";
+		qcom,actuator-type = "erm";
+		qcom,vmax-mv = <3200>;
+		qcom,ilim-ma = <400>;
+		qcom,play-rate-us = <10000>;
+		wf_0 {
+			/* CLICK */
+			qcom,effect-id = <0>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [3e 3e 3e];
+			qcom,wf-brake-pattern = [01 00 00 00];
+		};
+		wf_1 {
+			/* DOUBLE CLICK */
+			qcom,effect-id = <1>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e 02 02 02 02 02 02];
+			qcom,wf-repeat-count = <2>;
+			qcom,wf-s-repeat-count = <1>;
+		};
+		wf_2 {
+			/* TICK */
+			qcom,effect-id = <2>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e];
+		};
+		wf_3 {
+			/* THUD */
+			qcom,effect-id = <3>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e 7e];
+		};
+		wf_4 {
+			/* POP */
+			qcom,effect-id = <4>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e];
+		};
+		wf_5 {
+			/* HEAVY CLICK */
+			qcom,effect-id = <5>;
+			qcom,wf-vmax-mv = <3600>;
+			qcom,wf-pattern = [7e 7e 7e];
+			qcom,wf-play-rate-us = <6667>;
+		};
+	};
+};
+
+&usb_otg {
+	extcon = <&pm660_charger>;
+};

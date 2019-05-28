@@ -27,7 +27,7 @@
 #include "cam_isp_context.h"
 #include "cam_common_util.h"
 
-static const char isp_dev_name[] = "isp";
+static const char isp_dev_name[] = "cam-isp";
 
 #define INC_STATE_MONITOR_HEAD(head) \
 	(atomic64_add_return(1, head) % \

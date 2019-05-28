@@ -49,6 +49,17 @@
 
 #define ARCH_DMA_MINALIGN      L1_CACHE_BYTES
 
+/*
+ * Make sure slab-allocated buffers are 64-bit aligned when atomic64_t uses
+ * ARCv2 64-bit atomics (LLOCKD/SCONDD). This guarantess runtime 64-bit
+ * alignment for any atomic64_t embedded in buffer.
+ * Default ARCH_SLAB_MINALIGN is __alignof__(long long) which has a relaxed
+ * value of 4 (and not 8) in ARC ABI.
+ */
+#if defined(CONFIG_ARC_HAS_LL64) && defined(CONFIG_ARC_HAS_LLSC)
+#define ARCH_SLAB_MINALIGN	8
+#endif
+
 extern void arc_cache_init(void);
 extern char *arc_cache_mumbojumbo(int cpu_id, char *buf, int len);
 extern void read_decode_cache_bcr(void);
