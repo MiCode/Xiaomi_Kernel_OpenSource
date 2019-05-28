@@ -17,6 +17,8 @@
 &bolero {
 	qcom,num-macros = <4>;
 	qcom,va-without-decimation;
+	slew_rate_reg1 = <0xD8E000 0x0>;
+	slew_rate_val1 = <0x3 0x0>;
 	tx_macro: tx-macro@0a460000 {
 		compatible = "qcom,tx-macro";
 		reg = <0x0a460000 0x0>;
