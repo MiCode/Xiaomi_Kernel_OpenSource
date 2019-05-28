@@ -1495,11 +1495,11 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 		ms_ptr = diag_get_ms_ptr_index(mask_info->ms_ptr, sub_index);
 		if (!ms_ptr)
 			goto err;
-		if (src_len >= header_len + mask_len)
+		if (src_len >= header_len + mask_len - 1)
 			memcpy(ms_ptr->sub_ptr, src_buf + header_len, mask_len);
 		ms_ptr->status = DIAG_CTRL_MASK_VALID;
 	} else {
-		if (src_len >= header_len + mask_len)
+		if (src_len >= header_len + mask_len - 1)
 			memcpy(mask_info->ptr, src_buf + header_len, mask_len);
 		mask_info->status = DIAG_CTRL_MASK_VALID;
 	}
