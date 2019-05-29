@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/component.h>
+#include <linux/workqueue.h>
 #include <linux/of_gpio.h>
 #include <linux/of_graph.h>
 #include <linux/of_irq.h>
@@ -45,6 +46,7 @@
 #define EDID_SEG_SIZE 256
 #define READ_BUF_MAX_SIZE 9
 #define WRITE_BUF_MAX_SIZE 2
+#define HPD_UEVENT_BUFFER_SIZE 30
 
 struct lt9611_reg_cfg {
 	u8 reg;
@@ -118,6 +120,9 @@ struct lt9611 {
 	struct drm_display_mode curr_mode;
 	struct lt9611_video_cfg video_cfg;
 
+	struct workqueue_struct *wq;
+	struct work_struct work;
+
 	u8 edid_buf[EDID_SEG_SIZE];
 	u8 i2c_wbuf[WRITE_BUF_MAX_SIZE];
 	u8 i2c_rbuf[READ_BUF_MAX_SIZE];
@@ -172,6 +177,35 @@ static struct lt9611_timing_info lt9611_supp_timing_cfg[] = {
 	{640, 480, 24, 60, 2, 1},
 	{0xffff, 0xffff, 0xff, 0xff, 0xff},
 };
+
+static void lt9611_hpd_work(struct work_struct *work)
+{
+	struct drm_device *dev = NULL;
+	char name[HPD_UEVENT_BUFFER_SIZE], status[HPD_UEVENT_BUFFER_SIZE];
+	char *envp[5];
+	struct lt9611 *pdata = container_of(work, struct lt9611, work);
+
+	if (!pdata)
+		return;
+
+	dev = pdata->connector.dev;
+	pdata->connector.status =
+		pdata->connector.funcs->detect(&pdata->connector, true);
+
+	scnprintf(name, HPD_UEVENT_BUFFER_SIZE, "name=%s",
+		 pdata->connector.name);
+	scnprintf(status, HPD_UEVENT_BUFFER_SIZE, "status=%s",
+		drm_get_connector_status_name(pdata->connector.status));
+
+	pr_debug("[%s]:[%s]\n", name, status);
+	envp[0] = name;
+	envp[1] = status;
+	envp[2] = NULL;
+	envp[3] = NULL;
+	envp[4] = NULL;
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+			envp);
+}
 
 static struct lt9611 *bridge_to_lt9611(struct drm_bridge *bridge)
 {
@@ -985,7 +1019,7 @@ static irqreturn_t lt9611_irq_thread_handler(int irq, void *dev_id)
 	lt9611_read(pdata, 0x0c, &irq_flag0, 1);
 
 	 /* hpd changed low */
-	if (irq_flag3 & 0x80) {
+	if (irq_flag3 & BIT(7)) {
 		pr_info("hdmi cable disconnected\n");
 
 		lt9611_write(pdata, 0xff, 0x82); /* irq 3 clear flag */
@@ -993,7 +1027,7 @@ static irqreturn_t lt9611_irq_thread_handler(int irq, void *dev_id)
 		lt9611_write(pdata, 0x07, 0x3f);
 	}
 	 /* hpd changed high */
-	if (irq_flag3 & 0x40) {
+	if (irq_flag3 & BIT(6)) {
 		pr_info("hdmi cable connected\n");
 
 		lt9611_write(pdata, 0xff, 0x82); /* irq 3 clear flag */
@@ -1002,7 +1036,7 @@ static irqreturn_t lt9611_irq_thread_handler(int irq, void *dev_id)
 	}
 
 	/* video input changed */
-	if (irq_flag0 & 0x01) {
+	if (irq_flag0 & BIT(0)) {
 		pr_info("video input changed\n");
 		lt9611_write(pdata, 0xff, 0x82); /* irq 0 clear flag */
 		lt9611_write(pdata, 0x9e, 0xff);
@@ -1010,6 +1044,9 @@ static irqreturn_t lt9611_irq_thread_handler(int irq, void *dev_id)
 		lt9611_write(pdata, 0x04, 0xff);
 		lt9611_write(pdata, 0x04, 0xfe);
 	}
+
+	if (irq_flag3 & (BIT(6) | BIT(7)))
+		queue_work(pdata->wq, &pdata->work);
 
 	return IRQ_HANDLED;
 }
@@ -1602,7 +1639,7 @@ lt9611_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct lt9611 *pdata = connector_to_lt9611(connector);
 
-	if (!pdata->non_pluggable) {
+	if (!pdata->non_pluggable || force) {
 		u8 reg_val = 0;
 		int connected = 0;
 
@@ -2125,6 +2162,14 @@ static int lt9611_probe(struct i2c_client *client,
 
 	drm_bridge_add(&pdata->bridge);
 
+	pdata->wq = create_singlethread_workqueue("lt9611_wk");
+	if (!pdata->wq) {
+		pr_err("Error creating lt9611 wq\n");
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&pdata->work, lt9611_hpd_work);
+
 	return 0;
 
 err_sysfs_init:
@@ -2168,6 +2213,9 @@ static int lt9611_remove(struct i2c_client *client)
 			kfree(mode);
 		}
 	}
+
+	if (pdata->wq)
+		destroy_workqueue(pdata->wq);
 
 	devm_kfree(&client->dev, pdata);
 

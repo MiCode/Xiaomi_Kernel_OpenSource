@@ -579,6 +579,12 @@ enum hal_capability get_hal_cap_type(u32 capability_type)
 	case HFI_CAPABILITY_BLUR_HEIGHT:
 		hal_cap = HAL_CAPABILITY_BLUR_HEIGHT;
 		break;
+	case HFI_CAPABILITY_ROTATION:
+		hal_cap = HAL_CAPABILITY_ROTATION;
+		break;
+	case HFI_CAPABILITY_COLOR_SPACE_CONVERSION:
+		hal_cap = HAL_CAPABILITY_COLOR_SPACE_CONVERSION;
+		break;
 	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
 		hal_cap = HAL_CAPABILITY_SLICE_DELIVERY_MODES;
 		break;
@@ -702,6 +708,12 @@ static inline void copy_cap_prop(
 		break;
 	case HFI_CAPABILITY_BLUR_HEIGHT:
 		out = &capability->blur_height;
+		break;
+	case HFI_CAPABILITY_ROTATION:
+		out = &capability->rotation;
+		break;
+	case HFI_CAPABILITY_COLOR_SPACE_CONVERSION:
+		out = &capability->color_space_caps;
 		break;
 	case HFI_CAPABILITY_SLICE_DELIVERY_MODES:
 		out = &capability->slice_delivery_mode;

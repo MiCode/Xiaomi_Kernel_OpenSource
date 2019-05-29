@@ -2194,7 +2194,11 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		}
 	}
 
+	disable_irq(dwc->irq);
 	spin_lock_irqsave(&dwc->lock, flags);
+	if (dwc->ep0state != EP0_SETUP_PHASE)
+		dbg_event(0xFF, "EP0 is not in SETUP phase\n", 0);
+
 	/*
 	 * If we are here after bus suspend notify otg state machine to
 	 * increment pm usage count of dwc to prevent pm_runtime_suspend
@@ -2205,6 +2209,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	enable_irq(dwc->irq);
 
 	pm_runtime_mark_last_busy(dwc->dev);
 	pm_runtime_put_autosuspend(dwc->dev);

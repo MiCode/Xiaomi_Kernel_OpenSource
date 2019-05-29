@@ -202,7 +202,7 @@
 	vbus_detect: qcom,pmd-vbus-det {
 		compatible = "qcom,pmd-vbus-det";
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0x0d 0x0 IRQ_TYPE_NONE>;
+		interrupts = <0x8 0x0d 0x0 IRQ_TYPE_NONE>;
 		interrupt-names = "usb_vbus";
 		status = "disabled";
 	};

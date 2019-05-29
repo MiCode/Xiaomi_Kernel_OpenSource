@@ -27,7 +27,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDXPRAIRIE";
 	compatible = "qcom,sdxprairie";
-	qcom,msm-id = <357 0x10000>, <368 0x10000>;
+	qcom,msm-id = <357 0x10000>, <368 0x10000>, <418 0x10000>;
 	interrupt-parent = <&pdc>;
 
 	aliases {

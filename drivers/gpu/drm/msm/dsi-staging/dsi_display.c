@@ -4914,11 +4914,14 @@ static int dsi_display_bind(struct device *dev,
 		return 0;
 
 	/* defer bind if ext bridge driver is not loaded */
-	for (i = 0; i < display->ext_bridge_cnt; i++) {
-		if (!of_drm_find_bridge(display->ext_bridge[i].node_of)) {
-			pr_err("defer for bridge[%d] %s\n", i,
-				display->ext_bridge[i].node_of->full_name);
-			return -EPROBE_DEFER;
+	if (display->panel && display->panel->host_config.ext_bridge_mode) {
+		for (i = 0; i < display->ext_bridge_cnt; i++) {
+			if (!of_drm_find_bridge(
+					display->ext_bridge[i].node_of)) {
+				pr_debug("defer for bridge[%d] %s\n", i,
+				  display->ext_bridge[i].node_of->full_name);
+				return -EPROBE_DEFER;
+			}
 		}
 	}
 
@@ -5762,6 +5765,9 @@ int dsi_display_drm_ext_bridge_init(struct dsi_display *display,
 	struct sde_connector *sde_conn = to_sde_connector(connector);
 	struct drm_bridge *prev_bridge = bridge;
 	int rc = 0, i;
+
+	if (display->panel && !display->panel->host_config.ext_bridge_mode)
+		return 0;
 
 	for (i = 0; i < display->ext_bridge_cnt; i++) {
 		struct dsi_display_ext_bridge *ext_bridge_info =

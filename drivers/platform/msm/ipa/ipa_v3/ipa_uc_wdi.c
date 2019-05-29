@@ -869,6 +869,36 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	return 0;
 }
 
+void ipa3_release_wdi3_gsi_smmu_mappings(u8 dir)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	int i, j, start, end;
+
+	if (dir == IPA_WDI3_TX_DIR) {
+		start = IPA_WDI_TX_RING_RES;
+		end = IPA_WDI_TX_DB_RES;
+	} else {
+		start = IPA_WDI_RX_RING_RES;
+		end = IPA_WDI_RX_COMP_RING_WP_RES;
+	}
+
+	for (i = start; i <= end; i++) {
+		if (wdi_res[i].valid) {
+			for (j = 0; j < wdi_res[i].nents; j++) {
+				iommu_unmap(cb->mapping->domain,
+					wdi_res[i].res[j].iova,
+					wdi_res[i].res[j].size);
+				ipa3_ctx->wdi_map_cnt--;
+			}
+			kfree(wdi_res[i].res);
+			wdi_res[i].valid = false;
+		}
+	}
+
+	if (ipa3_ctx->wdi_map_cnt == 0)
+		cb->next_addr = cb->va_end;
+}
+
 int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova)

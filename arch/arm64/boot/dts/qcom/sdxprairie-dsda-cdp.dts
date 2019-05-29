@@ -28,7 +28,7 @@
 };
 
 &usb {
-	/delete-property/ extcon;
+	extcon = <&vbus_detect>;
 };
 
 &spmi_bus {

@@ -5293,8 +5293,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(conn, &conn_iter)
-		if (conn->state && conn->state->crtc == crtc &&
-				cstate->num_connectors < MAX_CONNECTORS) {
+		if ((state->connector_mask & (1 << drm_connector_index(conn)))
+				&& cstate->num_connectors < MAX_CONNECTORS) {
 			cstate->connectors[cstate->num_connectors++] = conn;
 		}
 	drm_connector_list_iter_end(&conn_iter);
