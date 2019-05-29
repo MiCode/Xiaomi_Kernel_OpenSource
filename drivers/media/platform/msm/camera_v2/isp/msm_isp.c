@@ -357,26 +357,48 @@ static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
 				file->f_flags & O_NONBLOCK);
 		if (rc)
 			return rc;
-		event_data = (struct msm_isp_event_data *)
-				isp_event.u.data;
-		isp_event_user = (struct v4l2_event *)arg;
-		memcpy(isp_event_user, &isp_event,
+		if (isp_event.type == ISP_EVENT_SOF_UPDATE_NANOSEC) {
+			struct msm_isp_event_data_nanosec *event_data_nanosec;
+			struct msm_isp_event_data_nanosec
+				*event_data_nanosec_user;
+
+			event_data_nanosec =
+				(struct msm_isp_event_data_nanosec *)
+					isp_event.u.data;
+			isp_event_user = (struct v4l2_event *)arg;
+			memcpy(isp_event_user, &isp_event,
 				sizeof(*isp_event_user));
-		event_data32 = (struct msm_isp_event_data32 *)
-			isp_event_user->u.data;
-		memset(event_data32, 0,
-				sizeof(struct msm_isp_event_data32));
-		event_data32->timestamp.tv_sec =
-				event_data->timestamp.tv_sec;
-		event_data32->timestamp.tv_usec =
-				event_data->timestamp.tv_usec;
-		event_data32->mono_timestamp.tv_sec =
-				event_data->mono_timestamp.tv_sec;
-		event_data32->mono_timestamp.tv_usec =
-				event_data->mono_timestamp.tv_usec;
-		event_data32->frame_id = event_data->frame_id;
-		memcpy(&(event_data32->u), &(event_data->u),
-					sizeof(event_data32->u));
+			event_data_nanosec_user =
+				(struct msm_isp_event_data_nanosec *)
+					isp_event_user->u.data;
+			memset(event_data_nanosec_user, 0,
+				sizeof(struct msm_isp_event_data_nanosec));
+			event_data_nanosec_user->nano_timestamp =
+				event_data_nanosec->nano_timestamp;
+			event_data_nanosec_user->frame_id =
+				event_data_nanosec->frame_id;
+		} else {
+			event_data = (struct msm_isp_event_data *)
+					isp_event.u.data;
+			isp_event_user = (struct v4l2_event *)arg;
+			memcpy(isp_event_user, &isp_event,
+					sizeof(*isp_event_user));
+			event_data32 = (struct msm_isp_event_data32 *)
+				isp_event_user->u.data;
+			memset(event_data32, 0,
+					sizeof(struct msm_isp_event_data32));
+			event_data32->timestamp.tv_sec =
+					event_data->timestamp.tv_sec;
+			event_data32->timestamp.tv_usec =
+					event_data->timestamp.tv_usec;
+			event_data32->mono_timestamp.tv_sec =
+					event_data->mono_timestamp.tv_sec;
+			event_data32->mono_timestamp.tv_usec =
+					event_data->mono_timestamp.tv_usec;
+			event_data32->frame_id = event_data->frame_id;
+			memcpy(&(event_data32->u), &(event_data->u),
+						sizeof(event_data32->u));
+		}
 	} else {
 		rc = v4l2_event_dequeue(vfh, arg,
 				file->f_flags & O_NONBLOCK);
