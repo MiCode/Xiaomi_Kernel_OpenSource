@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -247,7 +247,7 @@ static void dsi_pll_14nm_input_init(struct dsi_pll_14nm *pll)
 
 	pll->in.pll_ie_trim = 4;
 	pll->in.pll_ip_trim = 4;
-	pll->in.pll_cpcset_cur = 1;
+	pll->in.pll_cpcset_cur = 0;
 	pll->in.pll_cpmset_cur = 1;
 	pll->in.pll_icpmset = 4;
 	pll->in.pll_icpcset = 4;
