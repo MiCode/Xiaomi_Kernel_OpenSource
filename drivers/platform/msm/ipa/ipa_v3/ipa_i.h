@@ -2342,6 +2342,8 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client);
 
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
+int ipa3_teth_bridge_get_pm_hdl(void);
+
 /*
  * Tethering client info
  */
@@ -2829,4 +2831,6 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 	return ptr;
 }
 
+/* query ipa APQ mode*/
+bool ipa3_is_apq(void);
 #endif /* _IPA3_I_H_ */
