@@ -13,6 +13,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/gpio/gpio.h>
 
 &rpm_bus {
 	/* PM660 S1 - VDD_CX supply */
@@ -322,5 +323,24 @@
 &soc {
 	regulator@b018000 {
 		vdd-apc-supply = <&pm660_s3>;
+	};
+
+	vreg_sd_pad: vreg_sd_pad {
+		compatible = "regulator-gpio";
+		retulator-name = "vreg_sd_pad";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2950000>;
+		enable-gpio = <&tlmm 63 GPIO_ACTIVE_HIGH>;
+		gpios = <&tlmm 91 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0>, <2950000 1>;
+		startup-delay-us = <200000>;
+		enable-active-high;
+	};
+
+	vreg_sd_vdd: sd-vdd-fixed-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sd_vdd";
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
 	};
 };
