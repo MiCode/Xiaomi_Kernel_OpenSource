@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@ static int fill_vmid_mmid_tbl(struct vmid_mmid_desc *tbl, int32_t vm_start,
 				   int32_t mmid_range, int32_t be)
 {
 	int ret = 0;
-	int i, j;
+	int i = 0, j = 0;
 
 	for (i = vm_start; i < vm_start+vm_range; i++) {
 		tbl[i].vmid = i; /* set valid vmid value to make it usable */
@@ -43,6 +43,7 @@ static int fill_vmid_mmid_tbl(struct vmid_mmid_desc *tbl, int32_t vm_start,
 
 void dump_settings(struct local_vmid *settings)
 {
+	(void)settings;
 	pr_debug("self vmid is %d\n", settings->self);
 }
 
@@ -152,7 +153,7 @@ static int hab_parse_dt(struct local_vmid *settings)
  */
 int hab_parse(struct local_vmid *settings)
 {
-	int ret;
+	int ret = 0;
 
 	ret = hab_parse_dt(settings);
 
