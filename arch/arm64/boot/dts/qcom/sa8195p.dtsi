@@ -209,6 +209,10 @@
 	compatible = "qcom,rpmh-clk-sm8150";
 };
 
+&clock_scc {
+	compatible = "qcom,scc-sa8195";
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v4";
 	vdda-phy-supply = <&pm8195_3_l5>;
