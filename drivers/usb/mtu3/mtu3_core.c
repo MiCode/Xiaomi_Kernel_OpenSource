@@ -185,10 +185,8 @@ static void mtu3_intr_enable(struct mtu3 *mtu)
 
 	if (mtu->is_u3_ip) {
 		/* Enable U3 LTSSM interrupts */
-		value = HOT_RST_INTR | WARM_RST_INTR | ENTER_U3_INTR |
-		    EXIT_U3_INTR;
-		if (!mtu->force_vbus)
-			value |= VBUS_FALL_INTR | VBUS_RISE_INTR;
+		value = HOT_RST_INTR | WARM_RST_INTR | VBUS_RISE_INTR |
+		    VBUS_FALL_INTR | ENTER_U3_INTR | EXIT_U3_INTR;
 		mtu3_writel(mbase, U3D_LTSSM_INTR_ENABLE, value);
 	}
 
@@ -598,11 +596,8 @@ static void mtu3_regs_init(struct mtu3 *mtu)
 	mtu3_writel(mbase, U3D_DEVICE_CONF, 0);
 	/* enable QMU 16B checksum */
 	mtu3_setbits(mbase, U3D_QCR0, QMU_CS16B_EN);
-	/* force vbus or detected by HW */
-	if (mtu->force_vbus)
-		mtu3_setbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
-	else
-		mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
+	/* vbus detected by HW */
+	mtu3_clrbits(mbase, U3D_MISC_CTRL, VBUS_FRC_EN | VBUS_ON);
 }
 
 static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
@@ -821,7 +816,6 @@ static int mtu3_set_dma_mask(struct mtu3 *mtu)
 int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 {
 	struct device *dev = ssusb->dev;
-	struct device_node *node = dev->of_node;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mtu3 *mtu = NULL;
 	struct resource *res;
@@ -872,10 +866,6 @@ int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 
 	dev_dbg(dev, "mac_base=0x%p, ippc_base=0x%p\n",
 		mtu->mac_base, mtu->ippc_base);
-
-	mtu->force_vbus = of_property_read_bool(node,
-		"mediatek,force_vbus");
-	dev_dbg(dev, "force_vbus %d\n", mtu->force_vbus);
 
 	ret = mtu3_hw_init(mtu);
 	if (ret) {
