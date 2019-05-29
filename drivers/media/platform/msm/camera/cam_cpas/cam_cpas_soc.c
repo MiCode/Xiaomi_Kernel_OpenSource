@@ -102,12 +102,17 @@ int cam_cpas_node_tree_cleanup(struct cam_cpas *cpas_core,
 	}
 
 	for (i = 0; i < CAM_CPAS_MAX_TREE_LEVELS; i++) {
-		of_node_put(soc_private->level_node[i]);
-		soc_private->level_node[i] = NULL;
+		if (soc_private->level_node[i]) {
+			of_node_put(soc_private->level_node[i]);
+			soc_private->level_node[i] = NULL;
+		}
 	}
 
-	of_node_put(soc_private->camera_bus_node);
-	soc_private->camera_bus_node = NULL;
+	if (soc_private->camera_bus_node) {
+		of_node_put(soc_private->camera_bus_node);
+		soc_private->camera_bus_node = NULL;
+	}
+
 	mutex_destroy(&cpas_core->tree_lock);
 
 	return 0;
