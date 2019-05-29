@@ -195,35 +195,7 @@ error_enable_device:
 
 static int mhi_runtime_suspend(struct device *dev)
 {
-	int ret = 0;
-	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-
-	MHI_LOG("Enter\n");
-
-	mutex_lock(&mhi_cntrl->pm_mutex);
-
-	if (!mhi_dev->powered_on) {
-		MHI_LOG("Not fully powered, return success\n");
-		mutex_unlock(&mhi_cntrl->pm_mutex);
-		return 0;
-	}
-
-	ret = mhi_pm_suspend(mhi_cntrl);
-	if (ret) {
-		MHI_LOG("Abort due to ret:%d\n", ret);
-		goto exit_runtime_suspend;
-	}
-
-	ret = mhi_arch_link_off(mhi_cntrl, true);
-	if (ret)
-		MHI_ERR("Failed to Turn off link ret:%d\n", ret);
-
-exit_runtime_suspend:
-	mutex_unlock(&mhi_cntrl->pm_mutex);
-	MHI_LOG("Exited with ret:%d\n", ret);
-
-	return ret;
+	return -EBUSY;
 }
 
 static int mhi_runtime_idle(struct device *dev)

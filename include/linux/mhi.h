@@ -192,6 +192,10 @@ struct mhi_controller {
 	u32 domain;
 	u32 bus;
 	u32 slot;
+	u32 family_number;
+	u32 device_number;
+	u32 major_version;
+	u32 minor_version;
 
 	/* addressing window */
 	dma_addr_t iova_start;
