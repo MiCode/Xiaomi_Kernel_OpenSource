@@ -410,25 +410,25 @@ int cnss_pci_link_down(struct device *dev)
 	struct cnss_plat_data *plat_priv;
 
 	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL!\n");
+		cnss_pr_err("pci_priv is NULL\n");
 		return -EINVAL;
 	}
 
 	plat_priv = pci_priv->plat_priv;
 	if (test_bit(ENABLE_PCI_LINK_DOWN_PANIC,
 		     &plat_priv->ctrl_params.quirks))
-		panic("cnss: PCI link is down!\n");
+		panic("cnss: PCI link is down\n");
 
 	spin_lock_irqsave(&pci_link_down_lock, flags);
 	if (pci_priv->pci_link_down_ind) {
-		cnss_pr_dbg("PCI link down recovery is in progress, ignore!\n");
+		cnss_pr_dbg("PCI link down recovery is in progress, ignore\n");
 		spin_unlock_irqrestore(&pci_link_down_lock, flags);
 		return -EINVAL;
 	}
 	pci_priv->pci_link_down_ind = true;
 	spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
-	cnss_pr_err("PCI link down is detected by host driver, schedule recovery!\n");
+	cnss_pr_err("PCI link down is detected, schedule recovery\n");
 
 	cnss_schedule_recovery(dev, CNSS_REASON_LINK_DOWN);
 
@@ -1375,6 +1375,8 @@ static int cnss_pci_resume(struct device *dev)
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN &&
 	    !pci_priv->disable_pc) {
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
+			cnss_fatal_err("Failed to resume PCI link from suspend\n");
+			cnss_pci_link_down(dev);
 			ret = -EAGAIN;
 			goto out;
 		}
@@ -1687,6 +1689,8 @@ int cnss_auto_resume(struct device *dev)
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
 		if (cnss_set_pci_link(pci_priv, PCI_LINK_UP)) {
+			cnss_fatal_err("Failed to resume PCI link from suspend\n");
+			cnss_pci_link_down(dev);
 			ret = -EAGAIN;
 			goto out;
 		}
