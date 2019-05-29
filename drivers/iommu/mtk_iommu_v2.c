@@ -363,10 +363,9 @@ static struct iommu_group *mtk_iommu_get_group(
 	struct mtk_iommu_domain *dom;
 
 	dom = __mtk_iommu_get_mtk_domain(dev);
-	if (dom) {
-		iommu_group_ref_get(dom->group);
+	if (dom)
 		return dom->group;
-	}
+
 	return NULL;
 }
 
@@ -472,6 +471,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	bool layer, write;
 	int slave_id = 0;
 	phys_addr_t pa;
+	unsigned int m4uid = data->plat_data->iommu_id;
 
 	if (!data->base || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr%d\n",
@@ -507,22 +507,27 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
 	fault_iova &= F_MMU_FAULT_VA_MSK;
+
+	/* for vpu iommu, its fault id is irregular, so be treated specially */
+	if (data->plat_data->m4u_plat == M4U_MT6779 && m4uid) {
+		fault_port = 1;
+		fault_larb = 13;
+		goto out;
+	}
+
 	fault_port = F_MMU0_INT_ID_PORT_ID(regval);
 	fault_larb = F_MMU_INT_ID_COMM_ID(regval);
 	sub_comm = F_MMU_INT_ID_SUB_COMM_ID(regval);
 	if (fault_larb == 5)
 		fault_larb = sub_comm ? 8 : 7;
 	else
-		fault_larb = data->plat_data->larbid_remap[fault_larb];
+		fault_larb = data->plat_data->larbid_remap[m4uid][fault_larb];
 
+out:
 	domain = __mtk_iommu_get_domain(data,
 				fault_larb, fault_port);
 	pa = mtk_iommu_iova_to_phys(domain, fault_iova);
 	pr_notice("iova=%x,pa=%x\n", fault_iova, (unsigned int)pa);
-	if (data->plat_data->iommu_id) {
-		fault_port = 151;
-		fault_larb = 13;
-	}
 
 	if (report_iommu_fault(domain, data->dev, fault_iova,
 			      write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
@@ -550,6 +555,7 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 	struct mtk_smi_larb_iommu    *larb_mmu;
 	unsigned int                 larbid, portid;
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct device_link *link;
 	int i;
 
 	for (i = 0; i < fwspec->num_ids; ++i) {
@@ -560,10 +566,20 @@ static void mtk_iommu_config(struct mtk_iommu_data *data,
 		dev_dbg(dev, "%s iommu port: %d\n",
 			enable ? "enable" : "disable", portid);
 
-		if (enable)
+		if (enable) {
 			larb_mmu->mmu |= MTK_SMI_MMU_EN(portid);
-		else
+			/* Link the consumer with the larb device(supplier) */
+			link = device_link_add(dev, larb_mmu->dev,
+					       DL_FLAG_PM_RUNTIME |
+					       DL_FLAG_AUTOREMOVE_CONSUMER);
+			if (!link) {
+				dev_err(dev, "Unable to link %s\n",
+					dev_name(larb_mmu->dev));
+				return;
+			}
+		} else {
 			larb_mmu->mmu &= ~MTK_SMI_MMU_EN(portid);
+		}
 	}
 }
 
@@ -1204,10 +1220,11 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	struct device           *dev = &pdev->dev;
 	struct resource         *res;
 	resource_size_t		ioaddr;
+	struct component_match  *match = NULL;
 	void                    *protect;
-	int                     ret;
+	int                     i, larb_nr, ret;
 
-	pr_notice("%s, %d,+\n",
+	pr_notice("%s start, %d,+\n",
 		__func__, __LINE__);
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -1241,6 +1258,37 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (data->irq < 0) {
 		pr_notice("mtk_iommu irq error\n");
 		return data->irq;
+	}
+
+	larb_nr = of_count_phandle_with_args(dev->of_node,
+					     "mediatek,larbs", NULL);
+	if (larb_nr < 0)
+		return larb_nr;
+
+	for (i = 0; i < larb_nr; i++) {
+		struct device_node *larbnode;
+		struct platform_device *plarbdev;
+		u32 id;
+
+		larbnode = of_parse_phandle(dev->of_node, "mediatek,larbs", i);
+		if (!larbnode)
+			return -EINVAL;
+
+		if (!of_device_is_available(larbnode))
+			continue;
+
+		ret = of_property_read_u32(larbnode, "mediatek,larb-id", &id);
+		if (ret)/* The id is consecutive if there is no this property */
+			id = i;
+
+		plarbdev = of_find_device_by_node(larbnode);
+		if (!plarbdev || !plarbdev->dev.driver)
+			return -EPROBE_DEFER;
+
+		data->smi_imu.larb_imu[id].dev = &plarbdev->dev;
+
+		component_match_add_release(dev, &match, release_of,
+					    compare_of, larbnode);
 	}
 
 	platform_set_drvdata(pdev, data);
@@ -1277,9 +1325,10 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (!iommu_present(&platform_bus_type))
 		bus_set_iommu(&platform_bus_type, &mtk_iommu_ops);
 
-	pr_notice("%s, %d, iommu_id=%u\n",
+	pr_notice("%s done, %d, iommu_id=%u\n",
 		__func__, __LINE__, data->plat_data->iommu_id);
-	return ret;
+
+	return component_master_add_with_match(dev, &mtk_iommu_com_ops, match);
 }
 
 static int mtk_iommu_remove(struct platform_device *pdev)
@@ -1361,7 +1410,7 @@ static const struct dev_pm_ops mtk_iommu_pm_ops = {
 
 const struct mtk_iommu_plat_data mt6779_data_mm = {
 	.m4u_plat = M4U_MT6779,
-	.larbid_remap = {0, 1, 2, 3, 5, 7, 10, 9},
+	.larbid_remap[0] = {0, 1, 2, 3, 5, 7, 10, 9},
 	.single_pt = true,
 	.has_resv_region = true,
 	.iommu_id = 0,
