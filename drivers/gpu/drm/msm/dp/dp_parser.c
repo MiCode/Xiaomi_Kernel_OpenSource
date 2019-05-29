@@ -158,6 +158,12 @@ static int dp_parser_misc(struct dp_parser *parser)
 	if (data && (len == DP_MAX_PHY_LN)) {
 		for (i = 0; i < len; i++)
 			parser->l_map[i] = data[i];
+	} else {
+		pr_debug("Incorrect mapping, configure default\n");
+		parser->l_map[0] = DP_PHY_LN0;
+		parser->l_map[1] = DP_PHY_LN1;
+		parser->l_map[2] = DP_PHY_LN2;
+		parser->l_map[3] = DP_PHY_LN3;
 	}
 
 	data = of_get_property(of_node, "qcom,pn-swap-lane-map", &len);
