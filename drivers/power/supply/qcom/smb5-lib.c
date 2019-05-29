@@ -4199,6 +4199,13 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	int rc = 0;
 	int sec_charger;
 
+	/*
+	 * Ignore repetitive notification while PD is active, which
+	 * is caused by hard reset.
+	 */
+	if (chg->pd_active && chg->pd_active == val->intval)
+		return 0;
+
 	chg->pd_active = val->intval;
 
 	smblib_apsd_enable(chg, !chg->pd_active);
