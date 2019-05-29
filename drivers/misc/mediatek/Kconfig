@@ -1,17 +1,12 @@
+source "drivers/misc/mediatek/Kconfig.default"
 
-menu "MTK MET configs"
+menu "Storage"
 
-config MTK_MET
-	bool "Mediatek Embedded Technology"
-	depends on FTRACE && TRACING
-	help
-	  For Mediatek Embedded Technology features.
-	  It depends on FTRACE and TRACING.
-          Select "Y" if you want to use.
-          Select "N" if you are not sure.
+endmenu # Storage
 
-source "drivers/misc/mediatek/met_drv/Kconfig"
-endmenu
+menu "Power, PMIC, Battery & Low Power"
+
+endmenu # Power
 
 menu "MultiMedia, Display, Camera"
 
@@ -27,11 +22,34 @@ source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
-endmenu  # MM
+endmenu # MultiMedia
 
-source "drivers/misc/mediatek/Kconfig.default"
-source "drivers/misc/mediatek/mtprof/Kconfig"
+menu "Sensors"
+
+endmenu # Sensors
+
+menu "Modem & Connectivity"
+
+endmenu # CONN
+
+menu "Security"
+
+endmenu # Security
+
+menu "Other Peripherals"
+
+endmenu # Other Peripheral
+
+menu "Memory"
+
+endmenu # Memory
+
+menu "TinySys"
 source "drivers/misc/mediatek/sspm/Kconfig"
+endmenu # TinySys
+
+menu "Debug, log, trace"
+
 config MTK_ATF_LOGGER
 	bool "atf logger kernel driver"
 	depends on HAVE_ARM_SMCCC && ARCH_MEDIATEK && OF
@@ -48,3 +66,21 @@ config MTK_ICE_DEBUG
 	  For Mediatek InCircuit Emulator Debug features.
 	  Select "y" if you want to use.
 	  Select "n" if you are not sure.
+
+config MTK_MET
+	bool "Mediatek Embedded Technology"
+	depends on FTRACE && TRACING
+	help
+	  For Mediatek Embedded Technology features.
+	  It depends on FTRACE and TRACING.
+	  Select "Y" if you want to use.
+	  Select "N" if you are not sure.
+
+source "drivers/misc/mediatek/met_drv/Kconfig"
+source "drivers/misc/mediatek/mtprof/Kconfig"
+endmenu # Debug
+
+menu "Misc"
+
+endmenu # Misc
+
