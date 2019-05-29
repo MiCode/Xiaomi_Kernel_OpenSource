@@ -365,6 +365,7 @@ struct cam_req_mgr_core_session {
 	int32_t                       session_hdl;
 	uint32_t                      num_links;
 	struct cam_req_mgr_core_link *links[MAXIMUM_LINKS_PER_SESSION];
+	struct cam_req_mgr_core_link  links_init[MAXIMUM_LINKS_PER_SESSION];
 	struct list_head              entry;
 	struct mutex                  lock;
 	int32_t                       force_err_recovery;
