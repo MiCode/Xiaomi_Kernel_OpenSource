@@ -2510,7 +2510,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 1, 1, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 1, 1, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			true,
@@ -2529,6 +2529,25 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 7, 12, 20, 24, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	/* MHI PRIME PIPES - Client producer / IPA Consumer pipes */
+	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_DPL_PROD] = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{3, 2, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_TETH_PROD] = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 2, 7, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_RMNET_PROD] = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			QMB_MASTER_SELECT_DDR,
+			{ 4, 11, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 7 } },
 	/* Only for test purpose */
 	[IPA_4_5_APQ][IPA_CLIENT_TEST_PROD]           = {
 			true, IPA_v4_5_GROUP_UL_DL,
@@ -2566,31 +2585,31 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 23, 8, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 23, 8, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG1_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 14, 14, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 14, 14, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG2_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 20, 18, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 20, 18, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG3_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 22, 5, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 22, 5, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_WIGIG4_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 29, 10, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 29, 10, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_APQ][IPA_CLIENT_USB_CONS]            = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
@@ -2615,6 +2634,19 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 21, 19, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	/* MHI PRIME PIPES - Client Consumer / IPA Producer pipes */
+	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_TETH_CONS] = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 28, 6, 8, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_RMNET_CONS] = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 17, 17, 8, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	/* Only for test purpose */
 	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
 	[IPA_4_5_APQ][IPA_CLIENT_TEST_CONS]           = {
@@ -2654,38 +2686,6 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 31, 31, 8, 8, IPA_EE_AP } },
-	/* MHI PRIME PIPES - Client producer / IPA Consumer pipes */
-	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_DPL_PROD] = {
-			true, IPA_v4_5_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
-			QMB_MASTER_SELECT_DDR,
-			{3, 2, 8, 16, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY } },
-	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_TETH_PROD] = {
-			true, IPA_v4_5_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
-			QMB_MASTER_SELECT_DDR,
-			{ 2, 7, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
-	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_RMNET_PROD] = {
-			true, IPA_v4_5_GROUP_UL_DL,
-			true,
-			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
-			QMB_MASTER_SELECT_DDR,
-			{ 4, 11, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 8 } },
-	/* MHI PRIME PIPES - Client Consumer / IPA Producer pipes */
-	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_TETH_CONS] = {
-			true, IPA_v4_5_GROUP_UL_DL,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 28, 6, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
-	[IPA_4_5_APQ][IPA_CLIENT_MHI_PRIME_RMNET_CONS] = {
-			true, IPA_v4_5_GROUP_UL_DL,
-			false,
-			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
-			{ 17, 17, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 
 	/* IPA_4_7 */
 	[IPA_4_7][IPA_CLIENT_WLAN1_PROD]          = {
