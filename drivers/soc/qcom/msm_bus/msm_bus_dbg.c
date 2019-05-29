@@ -43,6 +43,7 @@ struct msm_bus_cldata {
 	int index;
 	uint32_t clid;
 	int size;
+	int vote_count;
 	struct dentry *file;
 	struct list_head list;
 	char buffer[MAX_BUFF_SIZE];
@@ -432,6 +433,7 @@ static int msm_bus_dbg_record_client(const struct msm_bus_scale_pdata *pdata,
 	cldata->clid = clid;
 	cldata->file = file;
 	cldata->size = 0;
+	cldata->vote_count = 0;
 	rt_mutex_lock(&msm_bus_dbg_cllist_lock);
 	list_add_tail(&cldata->list, &cl_list);
 	rt_mutex_unlock(&msm_bus_dbg_cllist_lock);
@@ -486,6 +488,7 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 			clients, clid);
 	}
 
+	cldata->vote_count++;
 	if (cldata->size < (MAX_BUFF_SIZE - FILL_LIMIT))
 		i = cldata->size;
 	else {
@@ -767,7 +770,8 @@ static ssize_t msm_bus_dbg_dump_clients_read(struct file *file,
 			cldata->pdata->usecase[cldata->index].vectors[j].dst,
 			cldata->pdata->usecase[cldata->index].vectors[j].ab,
 			cldata->pdata->usecase[cldata->index].vectors[j].ib,
-			cldata->pdata->active_only);
+			cldata->pdata->active_only,
+			cldata->vote_count);
 		}
 	}
 	rt_mutex_unlock(&msm_bus_dbg_cllist_lock);
