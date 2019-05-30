@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -56,9 +56,11 @@ static void cyttsp5_get_touch_axis(struct cyttsp5_mt_data *md,
 
 	for (nbyte = 0, *axis = 0, next = 0; nbyte < size; nbyte++) {
 		parade_debug(md->dev, DEBUG_LEVEL_2,
-			"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%p xy_data[%d]=%02X(%d) bofs=%d\n",
-			__func__, *axis, *axis, size, max, xy_data, next,
-			xy_data[next], xy_data[next], bofs);
+			"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%pK",
+			__func__, *axis, *axis, size, max, xy_data);
+		parade_debug(md->dev, DEBUG_LEVEL_2,
+			" xy_data[%d]=%02X(%d) bofs=%d\n",
+			next, xy_data[next], xy_data[next], bofs);
 		*axis = *axis + ((xy_data[next] >> bofs) << (nbyte * 8));
 		next++;
 	}
@@ -66,9 +68,11 @@ static void cyttsp5_get_touch_axis(struct cyttsp5_mt_data *md,
 	*axis &= max - 1;
 
 	parade_debug(md->dev, DEBUG_LEVEL_2,
-		"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%p xy_data[%d]=%02X(%d)\n",
-		__func__, *axis, *axis, size, max, xy_data, next,
-		xy_data[next], xy_data[next]);
+		"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%pK",
+		__func__, *axis, *axis, size, max, xy_data);
+	parade_debug(md->dev, DEBUG_LEVEL_2,
+		"xy_data[%d]=%02X(%d)\n",
+		next, xy_data[next], xy_data[next]);
 }
 
 static void cyttsp5_get_touch_hdr(struct cyttsp5_mt_data *md,
@@ -173,7 +177,8 @@ static void cyttsp5_mt_process_touch(struct cyttsp5_mt_data *md,
 	tmp = touch->abs[CY_TCH_MIN] * 100 * si->sensing_conf_data.res_x;
 	touch->abs[CY_TCH_MIN] = tmp / si->sensing_conf_data.len_x;
 
-	parade_debug(dev, DEBUG_LEVEL_2, "%s: flip=%s inv-x=%s inv-y=%s x=%04X(%d) y=%04X(%d)\n",
+	parade_debug(dev, DEBUG_LEVEL_2,
+		"%s: flip=%s inv-x=%s inv-y=%s x=%04X(%d) y=%04X(%d)\n",
 		__func__, flipped ? "true" : "false",
 		md->pdata->flags & CY_MT_FLAG_INV_X ? "true" : "false",
 		md->pdata->flags & CY_MT_FLAG_INV_Y ? "true" : "false",
@@ -210,8 +215,9 @@ static void cyttsp5_get_mt_touches(struct cyttsp5_mt_data *md,
 
 		/*  Discard proximity event */
 		if (tch->abs[CY_TCH_O] == CY_OBJ_PROXIMITY) {
-			parade_debug(dev, DEBUG_LEVEL_2, "%s: Discarding proximity event\n",
-					__func__);
+			parade_debug(dev, DEBUG_LEVEL_2,
+				"%s: Discarding proximity event\n",
+				__func__);
 			continue;
 		}
 
@@ -228,7 +234,8 @@ static void cyttsp5_get_mt_touches(struct cyttsp5_mt_data *md,
 
 		/* Lift-off */
 		if (tch->abs[CY_TCH_E] == CY_EV_LIFTOFF) {
-			parade_debug(dev, DEBUG_LEVEL_1, "%s: t=%d e=%d lift-off\n",
+			parade_debug(dev, DEBUG_LEVEL_1,
+				"%s: t=%d e=%d lift-off\n",
 				__func__, t, tch->abs[CY_TCH_E]);
 			goto cyttsp5_get_mt_touches_pr_tch;
 		}
@@ -276,15 +283,18 @@ static void cyttsp5_get_mt_touches(struct cyttsp5_mt_data *md,
 			md->mt_function.input_sync(md->input);
 		mt_sync_count++;
 
+		input_report_key(md->input, BTN_TOUCH, 1);
 cyttsp5_get_mt_touches_pr_tch:
 		parade_debug(dev, DEBUG_LEVEL_1,
-			"%s: t=%d x=%d y=%d z=%d M=%d m=%d o=%d e=%d obj=%d tip=%d\n",
+			"%s: t=%d x=%d y=%d z=%d M=%d m=%d",
 			__func__, t,
 			tch->abs[CY_TCH_X],
 			tch->abs[CY_TCH_Y],
 			tch->abs[CY_TCH_P],
 			tch->abs[CY_TCH_MAJ],
-			tch->abs[CY_TCH_MIN],
+			tch->abs[CY_TCH_MIN]);
+		parade_debug(dev, DEBUG_LEVEL_1,
+			"o=%d e=%d obj=%d tip=%d\n",
 			tch->abs[CY_TCH_OR],
 			tch->abs[CY_TCH_E],
 			tch->abs[CY_TCH_O],
@@ -332,8 +342,10 @@ static int cyttsp5_xy_worker(struct cyttsp5_mt_data *md)
 		__func__, num_cur_tch);
 	if (num_cur_tch)
 		cyttsp5_get_mt_touches(md, &tch, num_cur_tch);
-	else
+	else {
+		input_report_key(md->input, BTN_TOUCH, 0);
 		cyttsp5_mt_lift_all(md);
+	}
 
 	rc = 0;
 
@@ -344,28 +356,12 @@ cyttsp5_xy_worker_exit:
 static void cyttsp5_mt_send_dummy_event(struct cyttsp5_core_data *cd,
 		struct cyttsp5_mt_data *md)
 {
-#ifndef EASYWAKE_TSG6
-	/* TSG5 EasyWake */
-	unsigned long ids = 0;
 
-	/* for easy wakeup */
-	if (md->mt_function.input_report)
-		md->mt_function.input_report(md->input, ABS_MT_TRACKING_ID,
-			0, CY_OBJ_STANDARD_FINGER);
-	if (md->mt_function.input_sync)
-		md->mt_function.input_sync(md->input);
-	if (md->mt_function.final_sync)
-		md->mt_function.final_sync(md->input, 0, 1, &ids);
-	if (md->mt_function.report_slot_liftoff)
-		md->mt_function.report_slot_liftoff(md, 1);
-	if (md->mt_function.final_sync)
-		md->mt_function.final_sync(md->input, 1, 1, &ids);
-#else
-	/* TSG6 FW1.3 and above only. TSG6 FW1.0 - 1.2 does not */
-	/*  support EasyWake, and this function will not be called */
-	u8 key_value;
+	u8 key_value = 0;
 
-	switch (cd->gesture_id) {
+	dev_err(cd->dev, "%s report_id:%X\n", __func__, cd->input_buf[2]);
+
+	switch (cd->input_buf[3]) {
 	case GESTURE_DOUBLE_TAP:
 		key_value = KEY_F1;
 	break;
@@ -373,10 +369,10 @@ static void cyttsp5_mt_send_dummy_event(struct cyttsp5_core_data *cd,
 		key_value = KEY_F2;
 	break;
 	case GESTURE_TOUCH_DETECTED:
-		key_value = KEY_F3;
+		key_value = KEY_POWER;
 	break;
 	case GESTURE_PUSH_BUTTON:
-		key_value = KEY_F4;
+		key_value = KEY_POWER;
 	break;
 	case GESTURE_SINGLE_SLIDE_DE_TX:
 		key_value = KEY_F5;
@@ -390,15 +386,24 @@ static void cyttsp5_mt_send_dummy_event(struct cyttsp5_core_data *cd,
 	case GESTURE_SINGLE_SLIDE_IN_RX:
 		key_value = KEY_F8;
 	break;
+	case GESTURE_SINGLE_QUICK_CALL:
+		//key_value = KEY_QUICKCALL;
+		key_value = KEY_POWER;
+	break;
+	case 0xAA:
+		key_value = KEY_POWER;
+	break;
+
 	default:
 	break;
 	}
 
 	input_report_key(md->input, key_value, 1);
-	mdelay(10);
+	input_sync(md->input);
+
 	input_report_key(md->input, key_value, 0);
 	input_sync(md->input);
-#endif
+
 }
 
 static int cyttsp5_mt_attention(struct device *dev)
@@ -551,8 +556,11 @@ static int cyttsp5_setup_input_device(struct device *dev)
 	parade_debug(dev, DEBUG_LEVEL_2, "%s: Initialize event signals\n",
 		__func__);
 	__set_bit(EV_ABS, md->input->evbit);
-	__set_bit(EV_REL, md->input->evbit);
+	__set_bit(EV_SYN, md->input->evbit);
+	//__set_bit(EV_REL, md->input->evbit);
 	__set_bit(EV_KEY, md->input->evbit);
+	__set_bit(BTN_TOUCH, md->input->keybit);
+
 #ifdef INPUT_PROP_DIRECT
 	__set_bit(INPUT_PROP_DIRECT, md->input->propbit);
 #endif
@@ -617,16 +625,16 @@ static int cyttsp5_setup_input_device(struct device *dev)
 	else
 		md->input_device_registered = true;
 
-#ifdef EASYWAKE_TSG6
 	input_set_capability(md->input, EV_KEY, KEY_F1);
 	input_set_capability(md->input, EV_KEY, KEY_F2);
-	input_set_capability(md->input, EV_KEY, KEY_F3);
-	input_set_capability(md->input, EV_KEY, KEY_F4);
+	input_set_capability(md->input, EV_KEY, KEY_POWER);
+
 	input_set_capability(md->input, EV_KEY, KEY_F5);
 	input_set_capability(md->input, EV_KEY, KEY_F6);
 	input_set_capability(md->input, EV_KEY, KEY_F7);
 	input_set_capability(md->input, EV_KEY, KEY_F8);
-#endif
+	//input_set_capability(md->input, EV_KEY, KEY_QUICKCALL);
+
 	return rc;
 }
 
@@ -700,7 +708,7 @@ int cyttsp5_mt_probe(struct device *dev)
 		if (rc)
 			goto error_init_input;
 	} else {
-		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%p\n",
+		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%pK\n",
 			__func__, md->si);
 		_cyttsp5_subscribe_attention(dev, CY_ATTEN_STARTUP,
 			CYTTSP5_MT_NAME, cyttsp5_setup_input_attention, 0);

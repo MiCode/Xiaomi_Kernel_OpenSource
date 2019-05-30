@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -30,15 +30,15 @@
 #include <linux/input/cyttsp5_device_access-api.h>
 #include <asm/unaligned.h>
 
-#define BUFFER_SIZE		256
+#define BUFFER_SIZE              256
 
-#define COMMAND_GET_SYSTEM_INFO		2
-#define COMMAND_SUSPEND_SCANNING	3
-#define COMMAND_RESUME_SCANNING		4
-#define COMMAND_GET_PARAMETER		5
-#define COMMAND_SET_PARAMETER		6
+#define COMMAND_GET_SYSTEM_INFO  2
+#define COMMAND_SUSPEND_SCANNING 3
+#define COMMAND_RESUME_SCANNING  4
+#define COMMAND_GET_PARAMETER    5
+#define COMMAND_SET_PARAMETER    6
 
-#define PARAMETER_ACTIVE_DISTANCE_2	0x0B
+#define PARAMETER_ACTIVE_DISTANCE_2 0x0B
 
 struct tt_output_report {
 	__le16 reg_address;
@@ -437,6 +437,6 @@ exit:
 }
 module_exit(cyttsp5_test_device_access_api_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Parade TrueTouch(R) Standard Product Device Access Driver API Tester");
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Parade TrueTouch(R) Device Access Driver API Tester");
 MODULE_AUTHOR("Parade Technologies <ttdrivers@paradetech.com>");

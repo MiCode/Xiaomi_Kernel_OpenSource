@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -36,8 +36,7 @@ static inline void cyttsp5_btn_key_action(struct cyttsp5_btn_data *bd,
 	struct device *dev = bd->dev;
 	struct cyttsp5_sysinfo *si = bd->si;
 
-	if (!si->btn[btn_no].enabled ||
-			si->btn[btn_no].state == btn_state)
+	if (!si->btn[btn_no].enabled || si->btn[btn_no].state == btn_state)
 		return;
 
 	si->btn[btn_no].state = btn_state;
@@ -46,8 +45,7 @@ static inline void cyttsp5_btn_key_action(struct cyttsp5_btn_data *bd,
 
 	parade_debug(dev, DEBUG_LEVEL_1, "%s: btn=%d key_code=%d %s\n",
 		__func__, btn_no, si->btn[btn_no].key_code,
-		btn_state == CY_BTN_PRESSED ?
-			"PRESSED" : "RELEASED");
+		btn_state == CY_BTN_PRESSED ? "PRESSED" : "RELEASED");
 }
 
 static void cyttsp5_get_btn_touches(struct cyttsp5_btn_data *bd)
@@ -96,8 +94,7 @@ static void cyttsp5_log_btn_data(struct cyttsp5_btn_data *bd)
 			value = 0;
 		snprintf(pr_buf, CY_MAX_PRBUF_SIZE, "btn_rec[%d]=0x", cur);
 		snprintf(pr_buf, CY_MAX_PRBUF_SIZE, "%s%X (%02X)",
-			pr_buf, value,
-			le16_to_cpu(si->xy_data[1 + cur * 2]));
+			pr_buf, value, le16_to_cpu(si->xy_data[1 + cur * 2]));
 
 		parade_debug(dev, DEBUG_LEVEL_2, "%s: %s\n", __func__, pr_buf);
 	}
@@ -276,7 +273,7 @@ static int cyttsp5_setup_input_attention(struct device *dev)
 
 	bd->si = _cyttsp5_request_sysinfo(dev);
 	if (!bd->si)
-		return -1;
+		return -EPERM;
 
 	rc = cyttsp5_setup_input_device(dev);
 
@@ -306,8 +303,8 @@ int cyttsp5_btn_probe(struct device *dev)
 	bd->pdata = btn_pdata;
 
 	/* Create the input device and register it. */
-	parade_debug(dev, DEBUG_LEVEL_2, "%s: Create the input device and register it\n",
-		__func__);
+	parade_debug(dev, DEBUG_LEVEL_2,
+		"%s: Create the input device and register it\n", __func__);
 	bd->input = input_allocate_device();
 	if (!bd->input) {
 		dev_err(dev, "%s: Error, failed to allocate input device\n",
@@ -336,7 +333,7 @@ int cyttsp5_btn_probe(struct device *dev)
 		if (rc)
 			goto error_init_input;
 	} else {
-		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%p\n",
+		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%pK\n",
 			__func__, bd->si);
 		_cyttsp5_subscribe_attention(dev, CY_ATTEN_STARTUP,
 			CYTTSP5_BTN_NAME, cyttsp5_setup_input_attention, 0);
@@ -357,9 +354,9 @@ int cyttsp5_btn_release(struct device *dev)
 	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 	struct cyttsp5_btn_data *bd = &cd->bd;
 
-	if (bd->input_device_registered) {
+	if (bd->input_device_registered)
 		input_unregister_device(bd->input);
-	} else {
+	else {
 		input_free_device(bd->input);
 		_cyttsp5_unsubscribe_attention(dev, CY_ATTEN_STARTUP,
 			CYTTSP5_BTN_NAME, cyttsp5_setup_input_attention, 0);

@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -26,9 +26,9 @@
  *
  */
 
-#include "cyttsp5_regs.h"
 #include <linux/input/mt.h>
 #include <linux/version.h>
+#include "cyttsp5_regs.h"
 
 static void cyttsp5_final_sync(struct input_dev *input, int max_slots,
 		int mt_sync_count, unsigned long *ids)
@@ -67,18 +67,14 @@ static void cyttsp5_report_slot_liftoff(struct cyttsp5_mt_data *md,
 
 	for (t = 0; t < max_slots; t++) {
 		input_mt_slot(md->input, t);
-		input_mt_report_slot_state(md->input,
-			MT_TOOL_FINGER, false);
+		input_mt_report_slot_state(md->input, MT_TOOL_FINGER, false);
 	}
 }
 
 static int cyttsp5_input_register_device(struct input_dev *input, int max_slots)
 {
-#if (KERNEL_VERSION(3, 7, 0) <= LINUX_VERSION_CODE)
 	input_mt_init_slots(input, max_slots, 0);
-#else
-	input_mt_init_slots(input, max_slots);
-#endif
+
 	return input_register_device(input);
 }
 
