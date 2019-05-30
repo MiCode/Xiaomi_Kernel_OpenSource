@@ -4211,26 +4211,9 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 	return len;
 }
 
-/**
- * sde_evtlog_dump_write - debugfs write handler for evtlog dump
- * @file: file handler
- * @user_buf: user buffer content from debugfs
- * @count: size of user buffer
- * @ppos: position offset of user buffer
- */
-static ssize_t sde_evtlog_dump_write(struct file *file,
-	const char __user *user_buf, size_t count, loff_t *ppos)
-{
-	_sde_dump_array(NULL, 0, sde_dbg_base.panic_on_err, "dump_debugfs",
-		true, true, true, false);
-
-	return count;
-}
-
 static const struct file_operations sde_evtlog_fops = {
 	.open = sde_dbg_debugfs_open,
 	.read = sde_evtlog_dump_read,
-	.write = sde_evtlog_dump_write,
 };
 
 /**
