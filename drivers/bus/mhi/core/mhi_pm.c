@@ -853,6 +853,36 @@ error_dev_ctxt:
 }
 EXPORT_SYMBOL(mhi_async_power_up);
 
+/* Transition MHI into error state and notify critical clients */
+void mhi_control_error(struct mhi_controller *mhi_cntrl)
+{
+	enum MHI_PM_STATE cur_state;
+
+	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+
+	write_lock_irq(&mhi_cntrl->pm_lock);
+	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_LD_ERR_FATAL_DETECT);
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	if (cur_state != MHI_PM_LD_ERR_FATAL_DETECT) {
+		MHI_ERR("Failed to transition to state:%s from:%s\n",
+			to_mhi_pm_state_str(MHI_PM_LD_ERR_FATAL_DETECT),
+			to_mhi_pm_state_str(cur_state));
+		goto exit_control_error;
+	}
+
+	/* start notifying all clients who request early notification */
+	device_for_each_child(mhi_cntrl->dev, NULL, mhi_early_notify_device);
+
+exit_control_error:
+	MHI_LOG("Exit with pm_state:%s MHI_STATE:%s\n",
+		to_mhi_pm_state_str(mhi_cntrl->pm_state),
+		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+}
+EXPORT_SYMBOL(mhi_control_error);
+
 void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 {
 	enum MHI_PM_STATE cur_state;
