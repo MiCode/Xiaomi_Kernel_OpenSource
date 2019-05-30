@@ -1346,8 +1346,7 @@
 	dispsys {
 		compatible = "mediatek,dispsys";
 
-		clocks = <&scpsys SCP_SYS_DIS>,
-			<&mmsys CLK_MM_SMI_COMMON>,
+		clocks = <&mmsys CLK_MM_SMI_COMMON>,
 			<&mmsys CLK_MM_SMI_LARB0>,
 			<&mmsys CLK_MM_SMI_LARB1>,
 			<&mmsys CLK_MM_GALS_COMM0>,
@@ -1388,8 +1387,7 @@
 			<&topckgen CLK_TOP_TVDPLL_CK>,
 			<&apmixed CLK_APMIXED_MIPID0_26M>;
 
-		clock-names = "CLK_MM_MTCMOS",
-			"CLK_SMI_COMMON",
+		clock-names = "CLK_SMI_COMMON",
 			"CLK_SMI_LARB0",
 			"CLK_SMI_LARB1",
 			"CLK_GALS_COMM0",
