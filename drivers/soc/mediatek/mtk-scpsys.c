@@ -595,7 +595,7 @@ static struct scp *init_scp(struct platform_device *pdev,
 {
 	struct genpd_onecell_data *pd_data;
 	struct resource *res;
-	int i, j;
+	int i, j, count;
 	struct scp *scp;
 	struct clk *clk[CLK_MAX];
 
@@ -723,8 +723,13 @@ static struct scp *init_scp(struct platform_device *pdev,
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ACTIVE_WAKEUP))
 			genpd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 
-		genpd->set_performance_state = mtk_pd_set_performance;
-		genpd->opp_to_performance_state = mtk_pd_get_performance;
+		count = of_count_phandle_with_args(pdev->dev.of_node,
+			   "operating-points-v2", NULL);
+		if (count > 0) {
+			genpd->set_performance_state = mtk_pd_set_performance;
+			genpd->opp_to_performance_state =
+				mtk_pd_get_performance;
+		}
 	}
 
 	return scp;
