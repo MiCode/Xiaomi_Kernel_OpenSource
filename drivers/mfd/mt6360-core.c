@@ -234,46 +234,15 @@ static const struct regmap_irq_chip mt6360_pmu_irq_chip = {
 	.mask_base = MT6360_PMU_CHG_MASK1,
 	.status_base = MT6360_PMU_CHG_IRQ1,
 	.ack_base = MT6360_PMU_CHG_IRQ1,
+	.init_ack_masked = true,
 	.use_ack = true,
 	.handle_post_irq = mt6360_pmu_handle_post_irq,
-};
-
-static bool mt6360_pmu_is_volatile_reg(struct device *dev, unsigned int reg)
-{
-	/* TODO: implement after conclude all sub-device register */
-	return true;
-}
-
-static const struct reg_default mt6360_pmu_reg_defaults[] = {
-	{ MT6360_PMU_IRQ_MASK, 0xff },
-	{ MT6360_PMU_CHG_MASK1, 0xff },
-	{ MT6360_PMU_CHG_MASK2, 0xff },
-	{ MT6360_PMU_CHG_MASK3, 0xff },
-	{ MT6360_PMU_CHG_MASK4, 0xff },
-	{ MT6360_PMU_CHG_MASK5, 0xff },
-	{ MT6360_PMU_CHG_MASK6, 0xff },
-	{ MT6360_PMU_QC_MASK, 0xff },
-	{ MT6360_PMU_FOD_MASK, 0xff },
-	{ MT6360_PMU_BASE_MASK, 0xff },
-	{ MT6360_PMU_FLED_MASK1, 0xff },
-	{ MT6360_PMU_FLED_MASK2, 0xff },
-	{ MT6360_PMU_FAULTB_MASK, 0xff },
-	{ MT6360_PMU_BUCK1_MASK, 0xff },
-	{ MT6360_PMU_BUCK2_MASK, 0xff },
-	{ MT6360_PMU_LDO_MASK1, 0xff },
-	{ MT6360_PMU_LDO_MASK2, 0xff },
-	{ MT6360_PMU_IRQ_MASK, 0x00 },
 };
 
 static const struct regmap_config mt6360_pmu_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.volatile_reg = mt6360_pmu_is_volatile_reg,
 	.max_register = MT6360_PMU_MAXREG,
-	.cache_type = REGCACHE_RBTREE,
-	.can_multi_write = true,
-	.reg_defaults = mt6360_pmu_reg_defaults,
-	.num_reg_defaults = ARRAY_SIZE(mt6360_pmu_reg_defaults),
 };
 
 static const struct resource mt6360_adc_resources[] = {
@@ -408,10 +377,10 @@ static int mt6360_pmu_probe(struct i2c_client *client,
 				   mt6360_devs, ARRAY_SIZE(mt6360_devs), NULL,
 				   0, regmap_irq_get_domain(mpi->irq_data));
 	if (ret < 0) {
-		dev_err(&client->dev, "mfa add cells fail\n");
+		dev_err(&client->dev, "mfd add cells fail\n");
 		goto out;
 	}
-	dev_info(&client->dev, "%s: successfully probed\n", __func__);
+	dev_info(&client->dev, "Successfully probed\n");
 	return 0;
 out:
 	while (--i >= 0) {
