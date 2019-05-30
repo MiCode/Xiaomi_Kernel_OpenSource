@@ -369,6 +369,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_video_throttle_axi_clk",
 	"gcc_video_xo_clk",
 	"gpu_cc_debug_mux",
+	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
@@ -474,6 +475,7 @@ static int gcc_debug_mux_sels[] = {
 	0x46,		/* gcc_video_throttle_axi_clk */
 	0x4B,		/* gcc_video_xo_clk */
 	0x129,		/* gpu_cc_debug_mux */
+	0xC5,		/* mc_cc_debug_mux */
 	0x15,		/* measure_only_cnoc_clk */
 	0x10F,		/* measure_only_ipa_2x_clk */
 	0x7,		/* measure_only_snoc_clk */
@@ -689,12 +691,28 @@ static struct clk_debug_mux video_cc_debug_mux = {
 	},
 };
 
+static const char *const mc_cc_debug_mux_parent_names[] = {
+	"measure_only_mccc_clk",
+};
+
+static struct clk_debug_mux mc_cc_debug_mux = {
+	.period_offset = 0x50,
+	.hw.init = &(struct clk_init_data){
+		.name = "mc_cc_debug_mux",
+		.ops = &clk_debug_mux_ops,
+		.parent_names = mc_cc_debug_mux_parent_names,
+		.num_parents = ARRAY_SIZE(mc_cc_debug_mux_parent_names),
+		.flags = CLK_IS_MEASURE,
+	},
+};
+
 static struct mux_regmap_names mux_list[] = {
 	{ .mux = &cpu_cc_debug_mux, .regmap_name = "qcom,cpucc" },
 	{ .mux = &cam_cc_debug_mux, .regmap_name = "qcom,camcc" },
 	{ .mux = &disp_cc_debug_mux, .regmap_name = "qcom,dispcc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 	{ .mux = &gpu_cc_debug_mux, .regmap_name = "qcom,gpucc" },
+	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
 	{ .mux = &npu_cc_debug_mux, .regmap_name = "qcom,npucc" },
 	{ .mux = &video_cc_debug_mux, .regmap_name = "qcom,videocc" },
 };
@@ -703,6 +721,14 @@ static struct clk_dummy l3_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
 		.name = "l3_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_mccc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_mccc_clk",
 		.ops = &clk_dummy_ops,
 	},
 };
@@ -786,6 +812,7 @@ struct clk_hw *debugcc_lito_hws[] = {
 	&measure_only_gpu_cc_cx_gfx3d_slv_clk.hw,
 	&measure_only_gpu_cc_gx_gfx3d_clk.hw,
 	&measure_only_ipa_2x_clk.hw,
+	&measure_only_mccc_clk.hw,
 	&measure_only_snoc_clk.hw,
 	&perfcl_clk.hw,
 	&perfpcl_clk.hw,
