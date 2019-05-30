@@ -98,13 +98,13 @@ static irqreturn_t mt6360_pmu_##_name##_handler(int irq, void *data) \
 /* PMIC irqs */
 MT6360_REGU_IRQH(buck1_pgb_evt, MT6360_PMIC_BUCK1, REGULATOR_EVENT_FAIL)
 MT6360_REGU_IRQH(buck1_oc_evt, MT6360_PMIC_BUCK1, REGULATOR_EVENT_OVER_CURRENT)
-MT6360_REGU_IRQH(
-		buck1_ov_evt, MT6360_PMIC_BUCK1, REGULATOR_EVENT_REGULATION_OUT)
+MT6360_REGU_IRQH(buck1_ov_evt,
+		 MT6360_PMIC_BUCK1, REGULATOR_EVENT_REGULATION_OUT)
 MT6360_REGU_IRQH(buck1_uv_evt, MT6360_PMIC_BUCK1, REGULATOR_EVENT_UNDER_VOLTAGE)
 MT6360_REGU_IRQH(buck2_pgb_evt, MT6360_PMIC_BUCK2, REGULATOR_EVENT_FAIL)
 MT6360_REGU_IRQH(buck2_oc_evt, MT6360_PMIC_BUCK2, REGULATOR_EVENT_OVER_CURRENT)
-MT6360_REGU_IRQH(
-		buck2_ov_evt, MT6360_PMIC_BUCK2, REGULATOR_EVENT_REGULATION_OUT)
+MT6360_REGU_IRQH(buck2_ov_evt,
+		 MT6360_PMIC_BUCK2, REGULATOR_EVENT_REGULATION_OUT)
 MT6360_REGU_IRQH(buck2_uv_evt, MT6360_PMIC_BUCK2, REGULATOR_EVENT_UNDER_VOLTAGE)
 MT6360_REGU_IRQH(ldo6_oc_evt, MT6360_PMIC_LDO6, REGULATOR_EVENT_OVER_CURRENT)
 MT6360_REGU_IRQH(ldo7_oc_evt, MT6360_PMIC_LDO7, REGULATOR_EVENT_OVER_CURRENT)
@@ -446,52 +446,21 @@ static int mt6360_regulator_reg_read(void *context,
 	return 0;
 }
 
-static bool mt6360_pmic_is_volatile_reg(struct device *dev, unsigned int reg)
-{
-	switch (reg) {
-	case MT6360_PMIC_BUCK1_EN_CTRL2:
-	case MT6360_PMIC_BUCK2_EN_CTRL2:
-	case MT6360_PMIC_LDO7_EN_CTRL2:
-	/* fall through */
-	case MT6360_PMIC_LDO6_EN_CTRL2:
-		return true;
-	}
-	return false;
-}
-
-static bool mt6360_ldo_is_volatile_reg(struct device *dev, unsigned int reg)
-{
-	switch (reg) {
-	case MT6360_LDO_LDO3_EN_CTRL2:
-	case MT6360_LDO_LDO5_EN_CTRL2:
-	case MT6360_LDO_LDO5_CTRL0:
-	case MT6360_LDO_LDO2_EN_CTRL2:
-	/* fall through */
-	case MT6360_LDO_LDO1_EN_CTRL2:
-		return true;
-	}
-	return false;
-}
-
 static const struct regmap_config mt6360_pmic_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.volatile_reg = mt6360_pmic_is_volatile_reg,
 	.reg_read = mt6360_regulator_reg_read,
 	.reg_write = mt6360_regulator_reg_write,
 	.max_register = MT6360_PMIC_REGMAX,
-	.cache_type = REGCACHE_RBTREE,
 	.use_single_rw = true,
 };
 
 static const struct regmap_config mt6360_ldo_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.volatile_reg = mt6360_ldo_is_volatile_reg,
 	.reg_read = mt6360_regulator_reg_read,
 	.reg_write = mt6360_regulator_reg_write,
 	.max_register = MT6360_LDO_REGMAX,
-	.cache_type = REGCACHE_RBTREE,
 	.use_single_rw = true,
 };
 
@@ -583,6 +552,7 @@ static int mt6360_regulator_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Fail to register irqs\n");
 		return ret;
 	}
+	dev_info(&pdev->dev, "Successfully probed\n");
 	return 0;
 }
 
