@@ -36,6 +36,9 @@
 /* CCCI debug feature */
 #define MTK_SIP_KERNEL_CCCI_GET_INFO \
 	(0x82000209 | MTK_SIP_SMC_AARCH_BIT)
+/* VCOREFS */
+#define MTK_SIP_VCOREFS_CONTROL \
+	(0x82000506 | MTK_SIP_SMC_AARCH_BIT)
 
 #endif				/* _MTK_SECURE_API_H_ */
 
