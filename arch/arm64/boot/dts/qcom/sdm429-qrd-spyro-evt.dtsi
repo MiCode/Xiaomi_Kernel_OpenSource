@@ -343,6 +343,156 @@
 	};
 };
 
+&i2c_4 {
+	status = "ok";
+
+	tsc@24 {
+		compatible = "cy,cyttsp5_i2c_adapter";
+		reg = <0x24>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2008>;
+		cy,adapter_id = "cyttsp5_i2c_adapter";
+		vcc_i2c-supply = <&L13A>;
+		vdd-supply = <&L15A>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+				"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+
+		cy,core {
+			cy,name = "cyttsp5_core";
+			cy,irq_gpio = <65>;
+			cy,rst_gpio = <64>;
+			cy,hid_desc_register = <1>;
+			cy,flags = <4>;
+			cy,easy_wakeup_gesture = <1>;
+			cy,btn_keys = <172 139 158 217 114 115 212 116>;
+			cy,btn_keys-tag = <0>;
+
+			cy,mt {
+				cy,name = "cyttsp5_mt";
+
+				cy,inp_dev_name = "cyttsp5_mt";
+				cy,flags = <0x28>;
+				cy,abs =
+					<0x35 0 320 0 0
+					0x36 0 360 0 0
+					0x3a 0 255 0 0
+					0xffff 0 255 0 0
+					0x39 0 15 0 0
+					0x30 0 255 0 0
+					0x31 0 255 0 0
+					0x34 0xffffff81 127 0 0
+					0x37 0 1 0 0
+					0x3b 0 255 0 0>;
+
+				cy,vkeys_x = <320>;
+				cy,vkeys_y = <360>;
+
+				cy,virtual_keys =
+					<158 1360 90 160 180
+					139 1360 270 160 180
+					172 1360 450 160 180
+					217 1360 630 160 180>;
+			};
+
+			cy,btn {
+				cy,name = "cyttsp5_btn";
+
+				cy,inp_dev_name = "cyttsp5_btn";
+			};
+
+			cy,proximity {
+				cy,name = "cyttsp5_proximity";
+
+				cy,inp_dev_name = "cyttsp5_proximity";
+				cy,abs = <0x19 0 1 0 0>;
+			};
+		};
+	};
+
+};
+
+&tlmm {
+	pmx_ts_int_active {
+		ts_int_active: ts_int_active {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_int_suspend {
+		ts_int_suspend: ts_int_suspend {
+			mux {
+				pins = "gpio65";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_reset_active {
+		ts_reset_active: ts_reset_active {
+			mux {
+				pins = "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio64";
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
+
+	pmx_ts_reset_suspend {
+		ts_reset_suspend: ts_reset_suspend {
+			mux {
+				pins = "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio64";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+	pmx_ts_release {
+		ts_release: ts_release {
+			mux {
+				pins = "gpio65", "gpio64";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio65", "gpio64";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+
+};
+
 &modem_mem {
 	reg = <0x0 0x86800000 0x0 0x5000000>;
 };
