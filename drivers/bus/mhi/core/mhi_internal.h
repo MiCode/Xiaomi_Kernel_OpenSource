@@ -505,6 +505,15 @@ enum MHI_ER_TYPE {
 	MHI_ER_TYPE_VALID = 0x1,
 };
 
+enum mhi_er_priority {
+	MHI_ER_PRIORITY_HIGH,
+	MHI_ER_PRIORITY_MEDIUM,
+	MHI_ER_PRIORITY_LOW,
+};
+
+#define IS_MHI_ER_PRIORITY_LOW(ev) (ev->priority >= MHI_ER_PRIORITY_LOW)
+#define IS_MHI_ER_PRIORITY_HIGH(ev) (ev->priority == MHI_ER_PRIORITY_HIGH)
+
 enum mhi_er_data_type {
 	MHI_ER_DATA_ELEMENT_TYPE,
 	MHI_ER_CTRL_ELEMENT_TYPE,
@@ -592,17 +601,19 @@ struct mhi_buf_info {
 };
 
 struct mhi_event {
+	struct list_head node;
 	u32 er_index;
 	u32 intmod;
 	u32 msi;
 	int chan; /* this event ring is dedicated to a channel */
-	u32 priority;
+	enum mhi_er_priority priority;
 	enum mhi_er_data_type data_type;
 	struct mhi_ring ring;
 	struct db_cfg db_cfg;
 	bool hw_ring;
 	bool cl_manage;
 	bool offload_ev; /* managed by a device driver */
+	bool request_irq; /* has dedicated interrupt handler */
 	spinlock_t lock;
 	struct mhi_chan *mhi_chan; /* dedicated to channel */
 	struct tasklet_struct task;
@@ -703,6 +714,7 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
 void mhi_pm_sys_err_worker(struct work_struct *work);
+void mhi_low_priority_worker(struct work_struct *work);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);
 int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);
@@ -756,6 +768,7 @@ void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
 int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
+void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);

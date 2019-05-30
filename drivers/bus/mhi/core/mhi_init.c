@@ -192,7 +192,7 @@ void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl)
 	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		free_irq(mhi_cntrl->irq[mhi_event->msi], mhi_event);
@@ -216,7 +216,7 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 		return ret;
 
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		ret = request_irq(mhi_cntrl->irq[mhi_event->msi],
@@ -233,7 +233,7 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 
 error_request:
 	for (--i, --mhi_event; i >= 0; i--, mhi_event--) {
-		if (mhi_event->offload_ev)
+		if (!mhi_event->request_irq)
 			continue;
 
 		free_irq(mhi_cntrl->irq[mhi_event->msi], mhi_event);
@@ -893,6 +893,8 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 	if (!mhi_cntrl->mhi_event)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&mhi_cntrl->lp_ev_rings);
+
 	/* populate ev ring */
 	mhi_event = mhi_cntrl->mhi_event;
 	i = 0;
@@ -969,6 +971,19 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 							"mhi,client-manage");
 		mhi_event->offload_ev = of_property_read_bool(child,
 							      "mhi,offload");
+
+		/*
+		 * low priority events are handled in a separate worker thread
+		 * to allow for sleeping functions to be called.
+		 */
+		if (!mhi_event->offload_ev) {
+			if (IS_MHI_ER_PRIORITY_LOW(mhi_event))
+				list_add_tail(&mhi_event->node,
+						&mhi_cntrl->lp_ev_rings);
+			else
+				mhi_event->request_irq = true;
+		}
+
 		mhi_event++;
 	}
 
@@ -1248,6 +1263,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	INIT_WORK(&mhi_cntrl->st_worker, mhi_pm_st_worker);
 	INIT_WORK(&mhi_cntrl->fw_worker, mhi_fw_load_worker);
 	INIT_WORK(&mhi_cntrl->syserr_worker, mhi_pm_sys_err_worker);
+	INIT_WORK(&mhi_cntrl->low_priority_worker, mhi_low_priority_worker);
 	init_waitqueue_head(&mhi_cntrl->state_event);
 
 	mhi_cmd = mhi_cntrl->mhi_cmd;
@@ -1261,6 +1277,10 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 		mhi_event->mhi_cntrl = mhi_cntrl;
 		spin_lock_init(&mhi_event->lock);
+
+		if (IS_MHI_ER_PRIORITY_LOW(mhi_event))
+			continue;
+
 		if (mhi_event->data_type == MHI_ER_CTRL_ELEMENT_TYPE)
 			tasklet_init(&mhi_event->task, mhi_ctrl_ev_task,
 				     (ulong)mhi_event);
