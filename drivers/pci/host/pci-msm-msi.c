@@ -30,6 +30,7 @@
 #define PCIE_MSI_CTRL_ADDR_OFFS (PCIE_MSI_CTRL_BASE)
 #define PCIE_MSI_CTRL_UPPER_ADDR_OFFS (PCIE_MSI_CTRL_BASE + 0x4)
 #define PCIE_MSI_CTRL_INT_N_EN_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x8 + 0xc * n)
+#define PCIE_MSI_CTRL_INT_N_MASK_OFFS(n) (PCIE_MSI_CTRL_BASE + 0xc + 0xc * n)
 #define PCIE_MSI_CTRL_INT_N_STATUS_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x10 + 0xc * n)
 
 #define MSI_IRQ_NR_GRP (1)
@@ -42,6 +43,8 @@ enum msi_type {
 
 struct msm_msi_irq {
 	struct msm_msi_client *client;
+	struct msm_msi_grp *grp; /* group the irq belongs to */
+	u32 grp_index; /* index in the group */
 	unsigned int hwirq; /* MSI controller hwirq */
 	unsigned int virq; /* MSI controller virq */
 	u32 pos; /* position in MSI bitmap */
@@ -50,7 +53,10 @@ struct msm_msi_irq {
 struct msm_msi_grp {
 	/* registers for SNPS only */
 	void __iomem *int_en_reg;
+	void __iomem *int_mask_reg;
 	void __iomem *int_status_reg;
+	u32 mask; /* tracks masked/unmasked MSI */
+	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
 
 	struct msm_msi_irq irqs[MSI_IRQ_PER_GRP];
 };
@@ -70,6 +76,9 @@ struct msm_msi {
 	phys_addr_t msi_addr;
 	enum msi_type type;
 	void __iomem *pcie_cfg;
+
+	void (*mask_irq)(struct irq_data *data);
+	void (*unmask_irq)(struct irq_data *data);
 };
 
 /* structure for each client of MSI controller */
@@ -123,38 +132,90 @@ static void msm_msi_qgic_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static void msm_msi_mask_irq(struct irq_data *data)
+static void msm_msi_snps_mask_irq(struct irq_data *data)
+{
+	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
+	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msi_grp->cfg_lock, flags);
+	msi_grp->mask |= BIT(msi_irq->grp_index);
+	writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+	spin_unlock_irqrestore(&msi_grp->cfg_lock, flags);
+}
+
+static void msm_msi_qgic_mask_irq(struct irq_data *data)
 {
 	struct irq_data *parent_data;
 
-	if (!data->parent_data)
-		return;
-
-	parent_data = irq_get_irq_data(data->parent_data->hwirq);
+	parent_data = irq_get_irq_data(irqd_to_hwirq(data));
 	if (!parent_data || !parent_data->chip)
 		return;
 
-	pci_msi_mask_irq(data);
 	parent_data->chip->irq_mask(parent_data);
+}
+
+static void msm_msi_mask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+	struct msm_msi_irq *msi_irq;
+	struct msm_msi *msi;
+
+	parent_data = data->parent_data;
+	if (!parent_data)
+		return;
+
+	msi_irq = irq_data_get_irq_chip_data(parent_data);
+	msi = msi_irq->client->msi;
+
+	pci_msi_mask_irq(data);
+	msi->mask_irq(parent_data);
+}
+
+static void msm_msi_snps_unmask_irq(struct irq_data *data)
+{
+	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
+	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msi_grp->cfg_lock, flags);
+	msi_grp->mask &= ~BIT(msi_irq->grp_index);
+	writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+	spin_unlock_irqrestore(&msi_grp->cfg_lock, flags);
+}
+
+static void msm_msi_qgic_unmask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+
+	parent_data = irq_get_irq_data(irqd_to_hwirq(data));
+	if (!parent_data || !parent_data->chip)
+		return;
+
+	parent_data->chip->irq_unmask(parent_data);
 }
 
 static void msm_msi_unmask_irq(struct irq_data *data)
 {
 	struct irq_data *parent_data;
+	struct msm_msi_irq *msi_irq;
+	struct msm_msi *msi;
 
-	if (!data->parent_data)
+	parent_data = data->parent_data;
+	if (!parent_data)
 		return;
 
-	parent_data = irq_get_irq_data(data->parent_data->hwirq);
-	if (!parent_data || !parent_data->chip)
-		return;
+	msi_irq = irq_data_get_irq_chip_data(parent_data);
+	msi = msi_irq->client->msi;
 
-	parent_data->chip->irq_unmask(parent_data);
+	msi->unmask_irq(parent_data);
 	pci_msi_unmask_irq(data);
 }
 
 static struct irq_chip msm_msi_irq_chip = {
 	.name = "msm_pci_msi",
+	.irq_enable = msm_msi_unmask_irq,
+	.irq_disable = msm_msi_mask_irq,
 	.irq_mask = msm_msi_mask_irq,
 	.irq_unmask = msm_msi_unmask_irq,
 };
@@ -328,9 +389,6 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 				&msm_msi_bottom_irq_chip, msi_irq,
 				handle_simple_irq, NULL, NULL);
 
-		if (msi->type == MSM_MSI_TYPE_QCOM)
-			irq_set_status_flags(msi_irq->virq, IRQ_DISABLE_UNLAZY);
-
 		client->nr_irqs++;
 		pos++;
 	}
@@ -497,10 +555,14 @@ int msm_msi_init(struct device *dev)
 
 		msi->nr_virqs = MSI_IRQ_NR_GRP * MSI_IRQ_PER_GRP;
 		msi->nr_grps = MSI_IRQ_NR_GRP;
+		msi->mask_irq = msm_msi_snps_mask_irq;
+		msi->unmask_irq = msm_msi_snps_unmask_irq;
 		msi_handler = msm_msi_snps_handler;
 	} else {
 		msi->nr_virqs = msi->nr_hwirqs;
 		msi->nr_grps = 1;
+		msi->mask_irq = msm_msi_qgic_mask_irq;
+		msi->unmask_irq = msm_msi_qgic_unmask_irq;
 		msi_handler = msm_msi_qgic_handler;
 	}
 
@@ -522,6 +584,7 @@ int msm_msi_init(struct device *dev)
 
 	for (i = 0; i < msi->nr_hwirqs; i++) {
 		unsigned int irq = irq_of_parse_and_map(msi->of_node, i);
+		struct msm_msi_grp *msi_grp;
 		struct msm_msi_irq *msi_irq;
 
 		if (!irq) {
@@ -533,8 +596,11 @@ int msm_msi_init(struct device *dev)
 
 		grp = i / MSI_IRQ_PER_GRP;
 		index = i % MSI_IRQ_PER_GRP;
-		msi_irq = &msi->grps[grp].irqs[index];
+		msi_grp = &msi->grps[grp];
+		msi_irq = &msi_grp->irqs[index];
 
+		msi_irq->grp = msi_grp;
+		msi_irq->grp_index = index;
 		msi_irq->pos = i;
 		msi_irq->hwirq = irq;
 
@@ -542,19 +608,32 @@ int msm_msi_init(struct device *dev)
 	}
 
 	if (msi->type == MSM_MSI_TYPE_SNPS) {
+		struct msm_msi_grp *msi_grp;
+
+		for (i = 0; i < msi->nr_grps; i++) {
+			msi_grp = &msi->grps[i];
+
+			spin_lock_init(&msi_grp->cfg_lock);
+			msi_grp->int_en_reg = msi->pcie_cfg +
+					PCIE_MSI_CTRL_INT_N_EN_OFFS(i);
+			msi_grp->int_mask_reg = msi->pcie_cfg +
+					PCIE_MSI_CTRL_INT_N_MASK_OFFS(i);
+			msi_grp->int_status_reg = msi->pcie_cfg +
+					PCIE_MSI_CTRL_INT_N_STATUS_OFFS(i);
+		}
+
 		for (i = 0; i < msi->nr_virqs; i++) {
-			struct msm_msi_grp *msi_grp;
+			struct msm_msi_irq *msi_irq;
 
 			grp = i / MSI_IRQ_PER_GRP;
 			index = i % MSI_IRQ_PER_GRP;
 			msi_grp = &msi->grps[grp];
+			msi_irq = &msi_grp->irqs[index];
 
-			msi_grp->irqs[index].pos = i;
-			msi_grp->irqs[index].hwirq = msi_grp->irqs[0].hwirq;
-			msi_grp->int_en_reg = msi->pcie_cfg +
-					PCIE_MSI_CTRL_INT_N_EN_OFFS(grp);
-			msi_grp->int_status_reg = msi->pcie_cfg +
-					PCIE_MSI_CTRL_INT_N_STATUS_OFFS(grp);
+			msi_irq->grp = msi_grp;
+			msi_irq->grp_index = index;
+			msi_irq->pos = i;
+			msi_irq->hwirq = msi_grp->irqs[0].hwirq;
 		}
 	}
 

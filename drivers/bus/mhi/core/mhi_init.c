@@ -1289,12 +1289,6 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_dev_ctxt;
 	}
 
-	ret = mhi_init_irq_setup(mhi_cntrl);
-	if (ret) {
-		MHI_ERR("Error setting up irq\n");
-		goto error_setup_irq;
-	}
-
 	/*
 	 * allocate rddm table if specified, this table is for debug purpose
 	 * so we'll ignore erros
@@ -1330,10 +1324,6 @@ bhie_error:
 		mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->rddm_image);
 		mhi_cntrl->rddm_image = NULL;
 	}
-	mhi_deinit_free_irq(mhi_cntrl);
-
-error_setup_irq:
-	mhi_deinit_dev_ctxt(mhi_cntrl);
 
 error_dev_ctxt:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
@@ -1354,7 +1344,6 @@ void mhi_unprepare_after_power_down(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->rddm_image = NULL;
 	}
 
-	mhi_deinit_free_irq(mhi_cntrl);
 	mhi_deinit_dev_ctxt(mhi_cntrl);
 	mhi_cntrl->pre_init = false;
 }
