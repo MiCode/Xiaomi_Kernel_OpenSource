@@ -5,7 +5,6 @@
 
 #define pr_fmt(fmt) "icnss: " fmt
 
-#include <asm/dma-iommu.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
 #include <linux/iommu.h>
@@ -2168,9 +2167,21 @@ struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev)
 		return NULL;
 	}
 
-	return priv->smmu_mapping;
+	return &priv->smmu_mapping;
 }
 EXPORT_SYMBOL(icnss_smmu_get_mapping);
+
+struct iommu_domain *icnss_smmu_get_domain(struct device *dev)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %pK\n", dev);
+		return NULL;
+	}
+	return priv->iommu_domain;
+}
+EXPORT_SYMBOL(icnss_smmu_get_domain);
 
 int icnss_smmu_map(struct device *dev,
 		   phys_addr_t paddr, uint32_t *iova_addr, size_t size)
@@ -2203,7 +2214,7 @@ int icnss_smmu_map(struct device *dev,
 		return -ENOMEM;
 	}
 
-	ret = iommu_map(priv->smmu_mapping->domain, iova,
+	ret = iommu_map(priv->iommu_domain, iova,
 			rounddown(paddr, PAGE_SIZE), len,
 			IOMMU_READ | IOMMU_WRITE);
 	if (ret) {
@@ -2272,98 +2283,6 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(icnss_trigger_recovery);
-
-
-static int icnss_smmu_init(struct icnss_priv *priv)
-{
-	struct dma_iommu_mapping *mapping;
-	int atomic_ctx = 1;
-	int s1_bypass = 1;
-	int fast = 1;
-	int stall_disable = 1;
-	int ret = 0;
-
-	icnss_pr_dbg("Initializing SMMU\n");
-
-	mapping = __depr_arm_iommu_create_mapping(&platform_bus_type,
-					   priv->smmu_iova_start,
-					   priv->smmu_iova_len);
-	if (IS_ERR(mapping)) {
-		icnss_pr_err("Create mapping failed, err = %d\n", ret);
-		ret = PTR_ERR(mapping);
-		goto map_fail;
-	}
-
-	if (priv->bypass_s1_smmu) {
-		ret = iommu_domain_set_attr(mapping->domain,
-					    DOMAIN_ATTR_S1_BYPASS,
-					    &s1_bypass);
-		if (ret < 0) {
-			icnss_pr_err("Set s1_bypass attribute failed, err = %d\n",
-				     ret);
-			goto set_attr_fail;
-		}
-		icnss_pr_dbg("SMMU S1 BYPASS\n");
-	} else {
-		ret = iommu_domain_set_attr(mapping->domain,
-					    DOMAIN_ATTR_ATOMIC,
-					    &atomic_ctx);
-		if (ret < 0) {
-			icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
-				     ret);
-			goto set_attr_fail;
-		}
-		icnss_pr_dbg("SMMU ATTR ATOMIC\n");
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					    DOMAIN_ATTR_FAST,
-					    &fast);
-		if (ret < 0) {
-			icnss_pr_err("Set fast map attribute failed, err = %d\n",
-				     ret);
-			goto set_attr_fail;
-		}
-		icnss_pr_dbg("SMMU FAST map set\n");
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					    DOMAIN_ATTR_CB_STALL_DISABLE,
-					    &stall_disable);
-		if (ret < 0) {
-			icnss_pr_err("Set stall disable map attribute failed, err = %d\n",
-				     ret);
-			goto set_attr_fail;
-		}
-		icnss_pr_dbg("SMMU STALL DISABLE map set\n");
-	}
-
-	ret = __depr_arm_iommu_attach_device(&priv->pdev->dev, mapping);
-	if (ret < 0) {
-		icnss_pr_err("Attach device failed, err = %d\n", ret);
-		goto attach_fail;
-	}
-
-	priv->smmu_mapping = mapping;
-
-	return ret;
-
-attach_fail:
-set_attr_fail:
-	__depr_arm_iommu_release_mapping(mapping);
-map_fail:
-	return ret;
-}
-
-
-static void icnss_smmu_deinit(struct icnss_priv *priv)
-{
-	if (!priv->smmu_mapping)
-		return;
-
-	__depr_arm_iommu_detach_device(&priv->pdev->dev);
-	__depr_arm_iommu_release_mapping(priv->smmu_mapping);
-
-	priv->smmu_mapping = NULL;
-}
 
 static int icnss_get_vreg_info(struct device *dev,
 			       struct icnss_vreg_info *vreg_info)
@@ -3248,6 +3167,7 @@ static int icnss_probe(struct platform_device *pdev)
 	const __be32 *addrp;
 	u64 prop_size = 0;
 	struct device_node *np;
+	u32 addr_win[2];
 
 	if (penv) {
 		icnss_pr_err("Driver is already initialized\n");
@@ -3287,11 +3207,6 @@ static int icnss_probe(struct platform_device *pdev)
 		if (ret)
 			goto out;
 	}
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,smmu-s1-bypass"))
-		priv->bypass_s1_smmu = true;
-
-	icnss_pr_dbg("SMMU S1 BYPASS = %d\n", priv->bypass_s1_smmu);
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,hyp_disabled"))
 		priv->is_hyp_disabled = true;
@@ -3376,15 +3291,17 @@ static int icnss_probe(struct platform_device *pdev)
 	icnss_pr_dbg("MSA pa: %pa, MSA va: 0x%pK MSA Memory Size: 0x%x\n",
 		     &priv->msa_pa, (void *)priv->msa_va, priv->msa_mem_size);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "smmu_iova_base");
-	if (!res) {
+	ret = of_property_read_u32_array(dev->of_node,
+					 "qcom,iommu-dma-addr-pool",
+					 addr_win,
+					 ARRAY_SIZE(addr_win));
+
+	if (ret) {
 		icnss_pr_err("SMMU IOVA base not found\n");
 	} else {
-		priv->smmu_iova_start = res->start;
-		priv->smmu_iova_len = resource_size(res);
-		icnss_pr_dbg("SMMU IOVA start: %pa, len: %zu\n",
-			     &priv->smmu_iova_start, priv->smmu_iova_len);
+		priv->iommu_domain =
+			iommu_get_domain_for_dev(&pdev->dev);
+		priv->smmu_mapping.domain = priv->iommu_domain;
 
 		res = platform_get_resource_byname(pdev,
 						   IORESOURCE_MEM,
@@ -3394,17 +3311,9 @@ static int icnss_probe(struct platform_device *pdev)
 		} else {
 			priv->smmu_iova_ipa_start = res->start;
 			priv->smmu_iova_ipa_len = resource_size(res);
-			icnss_pr_dbg("SMMU IOVA IPA start: %pa, len: %zu\n",
+			icnss_pr_dbg("SMMU IOVA IPA start: %pa, len: %zx\n",
 				     &priv->smmu_iova_ipa_start,
 				     priv->smmu_iova_ipa_len);
-		}
-
-		ret = icnss_smmu_init(priv);
-		if (ret < 0) {
-			icnss_pr_err("SMMU init failed, err = %d, start: %pad, len: %zx\n",
-				     ret, &priv->smmu_iova_start,
-				     priv->smmu_iova_len);
-			goto out;
 		}
 	}
 
@@ -3416,7 +3325,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
-		goto out_smmu_deinit;
+		goto smmu_cleanup;
 	}
 
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
@@ -3447,8 +3356,9 @@ static int icnss_probe(struct platform_device *pdev)
 
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
-out_smmu_deinit:
-	icnss_smmu_deinit(priv);
+smmu_cleanup:
+	priv->iommu_domain = NULL;
+	priv->smmu_mapping.domain = NULL;
 out:
 	dev_set_drvdata(dev, NULL);
 
@@ -3474,6 +3384,9 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_unregister_fw_service(penv);
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
+
+	penv->iommu_domain = NULL;
+	penv->smmu_mapping.domain = NULL;
 
 	icnss_hw_power_off(penv);
 
