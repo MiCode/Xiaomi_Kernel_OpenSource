@@ -1039,20 +1039,6 @@ start:
 	logError(0, "%s Programming Procedure for flashing started:\n\n", tag);
 
 	logError(0, "%s 1) SYSTEM RESET:\n", tag);
-	res = fts_system_reset();
-	if (res < 0) {
-		logError(1, "%s system reset FAILED!\n", tag);
-		/**
-		 * if there is no firmware i will not
-		 * get the controller ready event and
-		 * there will be a timeout but i can
-		 * keep going, but if there is an I2C
-		 * error i have to exit
-		 */
-		if (res != (ERROR_SYSTEM_RESET_FAIL | ERROR_TIMEOUT))
-			return (res | ERROR_FLASH_BURN_FAILED);
-	} else
-		logError(0, "%s system reset COMPLETED!\n\n", tag);
 
 	logError(0, "%s 2) WARM BOOT:\n", tag);
 	res = fts_warm_boot();
@@ -1136,15 +1122,13 @@ start:
 		return (res | ERROR_FLASH_BURN_FAILED);
 	}
 
-	for (res = 0; res < EXTERNAL_RELEASE_INFO_SIZE; res++) {
-		////external release is prined during readChipInfo
-		if (fw.externalRelease[res] != ftsInfo.u8_extReleaseInfo[res]) {
-			pr_err("Firmware is different from the old!\n");
-			logError(1, "%s fw: %x != %x, conf: %x != %x\n",
-				tag, ftsInfo.u16_fwVer, fw.fw_ver,
-				ftsInfo.u16_cfgId, fw.config_id);
-			return ERROR_FLASH_BURN_FAILED;
-		}
+	if ((ftsInfo.u16_fwVer != fw.fw_ver)
+		&& (ftsInfo.u16_cfgId != fw.config_id)) {
+		pr_err("Firmware is different from the old!\n");
+		logError(1, "%s fw: %x != %x, conf: %x != %x\n",
+			tag, ftsInfo.u16_fwVer, fw.fw_ver,
+			ftsInfo.u16_cfgId, fw.config_id);
+		return ERROR_FLASH_BURN_FAILED;
 	}
 
 	logError(0, "%s Final check OK! fw: %02X , conf: %02X\n",

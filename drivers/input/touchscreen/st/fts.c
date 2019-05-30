@@ -3291,8 +3291,9 @@ static void fts_fw_update_auto(struct work_struct *work)
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
 
+	fts_chip_powercycle(info);
 	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
-	if ((retval & ERROR_MEMH_READ) || (retval & ERROR_FW_NO_UPDATE)) {
+	if (retval == (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED)) {
 		logError(1, "%s %s: no firmware file or no newer firmware!\n",
 			tag, __func__);
 		goto NO_FIRMWARE_UPDATE;
@@ -3703,12 +3704,6 @@ static int fts_init_afterProbe(struct fts_ts_info *info)
 
 	/* enable the interrupt */
 	error |= fts_enableInterrupt();
-
-#if defined(CONFIG_FB_MSM)
-	error |= fb_register_client(&info->notifier);
-#else
-	error |= msm_drm_register_client(&info->notifier);
-#endif
 
 	if (error < OK)
 		logError(1, "%s %s Init after Probe error (ERROR = %08X)\n",
@@ -4805,7 +4800,11 @@ static int fts_probe(struct i2c_client *client,
 			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 	logError(1, "%s Probe Finished!\n", tag);
 
-	info->event_mask = 0;
+#if defined(CONFIG_FB_MSM)
+	error |= fb_register_client(&info->notifier);
+#else
+	error |= msm_drm_register_client(&info->notifier);
+#endif
 
 	return OK;
 
