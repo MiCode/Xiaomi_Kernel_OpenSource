@@ -1540,6 +1540,7 @@ void MTKMFGSystemDeInit(void)
 #endif
 }
 
+#define DMA_BIT_MASK(n)        (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
 
 int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
@@ -1587,6 +1588,9 @@ int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 #if MTK_PM_SUPPORT
 	MTKDisableMfgClock(IMG_TRUE);
 #endif
+
+	pdev = psDevConfig->pvOSDevice;
+	pdev->coherent_dma_mask = DMA_BIT_MASK(64);
 
 	return 0;
 }
