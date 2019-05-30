@@ -5143,8 +5143,8 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 					CDP_CURRENT_UA);
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
-		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
-					DCP_CURRENT_UA);
+		rp_ua = get_rp_based_dcp_current(chg, typec_mode);
+		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, rp_ua);
 		break;
 	case POWER_SUPPLY_TYPE_USB_FLOAT:
 		/*
