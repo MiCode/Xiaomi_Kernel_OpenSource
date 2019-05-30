@@ -2304,8 +2304,13 @@ void msm_isp_do_tasklet(unsigned long data)
 		if (vfe_dev->dual_vfe_sync_mode) {
 			irq_ops->process_camif_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
+			/*
+			 * process the reg_update for pix from dual_irq_status
+			 * and RDI redupdate from individual VFEs
+			 */
 			irq_ops->process_reg_update(vfe_dev,
-				(irq_status0 | dual_irq_status),
+				((irq_status0 & 0xE0) |
+				dual_irq_status),
 				irq_status1, &ts);
 			irq_ops->process_epoch_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
