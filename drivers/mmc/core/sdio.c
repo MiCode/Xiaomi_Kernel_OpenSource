@@ -936,6 +936,7 @@ static int mmc_sdio_pre_suspend(struct mmc_host *host)
 static int mmc_sdio_suspend(struct mmc_host *host)
 {
 	mmc_claim_host(host);
+	mmc_log_string(host, "Enter\n");
 
 	if (mmc_card_keep_power(host) && mmc_card_wake_sdio_irq(host))
 		sdio_disable_wide(host->card);
@@ -947,6 +948,7 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 		mmc_retune_needed(host);
 	}
 
+	mmc_log_string(host, "Exit\n");
 	mmc_release_host(host);
 
 	return 0;
@@ -958,6 +960,7 @@ static int mmc_sdio_resume(struct mmc_host *host)
 
 	/* Basic card reinitialization. */
 	mmc_claim_host(host);
+	mmc_log_string(host, "Enter\n");
 
 	/* Restore power if needed */
 	if (!mmc_card_keep_power(host)) {
@@ -990,6 +993,7 @@ static int mmc_sdio_resume(struct mmc_host *host)
 			host->ops->enable_sdio_irq(host, 1);
 	}
 
+	mmc_log_string(host, "Exit err: %d\n", err);
 	mmc_release_host(host);
 
 	host->pm_flags &= ~MMC_PM_KEEP_POWER;
