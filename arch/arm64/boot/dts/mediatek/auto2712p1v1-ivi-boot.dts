@@ -9,7 +9,7 @@
 
 / {
 	chosen {
-		bootargs = "console=ttyS0,921600n1 root=/dev/mmcblk0p7 \
+		bootargs = "console=ttyS0,921600n1 root=/dev/mmcblk0p6 \
 rootwait earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
 	};
 
