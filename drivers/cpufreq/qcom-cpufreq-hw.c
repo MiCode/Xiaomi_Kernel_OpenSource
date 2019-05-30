@@ -18,8 +18,9 @@
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
 #define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
-#define CYCLE_CNTR_OFFSET(c, m)		((c - cpumask_first(m) + 1) * 4)
 
+#define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
+			(acc_count ? ((c - cpumask_first(m) + 1) * 4) : 0)
 enum {
 	REG_ENABLE,
 	REG_FREQ_LUT_TABLE,
@@ -31,6 +32,7 @@ enum {
 };
 
 static unsigned int lut_row_size = LUT_ROW_SIZE;
+static bool accumulative_counter;
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
@@ -79,7 +81,8 @@ static u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 	cpu_counter = &qcom_cpufreq_counter[cpu];
 	spin_lock_irqsave(&cpu_counter->lock, flags);
 
-	offset = CYCLE_CNTR_OFFSET(cpu, &cpu_domain->related_cpus);
+	offset = CYCLE_CNTR_OFFSET(cpu, &cpu_domain->related_cpus,
+					accumulative_counter);
 	val = readl_relaxed_no_log(cpu_domain->reg_bases[REG_CYCLE_CNTR] +
 				   offset);
 
@@ -359,6 +362,9 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
+
+	accumulative_counter = !of_property_read_bool(dev->of_node,
+					"qcom,no-accumulative-counter");
 
 	ret = qcom_get_related_cpus(index, &c->related_cpus);
 	if (ret) {
