@@ -2890,12 +2890,15 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				io_cfg->planes[i].plane_stride,
 				val);
 
-		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
-			wm_data->hw_regs->stride,
-			io_cfg->planes[i].plane_stride);
-		wm_data->stride = val;
-		CAM_DBG(CAM_ISP, "WM %d image stride 0x%x",
-			wm_data->index, reg_val_pair[j-1]);
+		/* override stride only if in line based mode */
+		if (wm_data->en_cfg == 0x1) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->stride,
+					io_cfg->planes[i].plane_stride);
+			wm_data->stride = val;
+			CAM_DBG(CAM_ISP, "WM %d image stride 0x%x",
+					wm_data->index, reg_val_pair[j-1]);
+		}
 
 		if (wm_data->en_ubwc) {
 			if (!wm_data->hw_regs->ubwc_regs) {
