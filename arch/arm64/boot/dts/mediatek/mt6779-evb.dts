@@ -162,7 +162,7 @@
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO43__FUNC_DSI_TE>;
-			output-low;
+			input-enable;
 		};
 	};
 
@@ -263,6 +263,12 @@
 	pinctrl-14 = <&mtkfb_pins_lcm_mipi3_sclk>;
 	pinctrl-15 = <&mtkfb_pins_lcm_mipi4_sdata>;
 	pinctrl-16 = <&mtkfb_pins_lcm_mipi4_sclk>;
+	status = "okay";
+};
+
+&dsi_te {
+	interrupt-parent = <&pio>;
+	interrupts = <43 IRQ_TYPE_EDGE_RISING 43 1>;
 	status = "okay";
 };
 /* DISPSYS GPIO standardization end */

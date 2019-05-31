@@ -1431,7 +1431,6 @@
 
 	dsi_te: dsi_te {
 		compatible = "mediatek, dsi_te-eint";
-		status = "disabled";
 	};
 
 	firmware {
