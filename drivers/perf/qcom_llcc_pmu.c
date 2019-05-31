@@ -16,7 +16,7 @@
 #include <linux/ktime.h>
 
 enum llcc_pmu_version {
-	LLCC_PMU_VER1,
+	LLCC_PMU_VER1 = 1,
 	LLCC_PMU_VER2,
 };
 
