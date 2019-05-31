@@ -4046,6 +4046,7 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_FPS_CONFIG: {
 		struct cam_fps_config *fps_config;
+		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
 		if (blob_size < sizeof(struct cam_fps_config)) {
 			CAM_ERR(CAM_ISP, "Invalid fps blob size %u expected %u",
@@ -4054,6 +4055,10 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		}
 
 		fps_config = (struct cam_fps_config *)blob_data;
+		prepare_hw_data = (struct cam_isp_prepare_hw_update_data  *)
+			prepare->priv;
+
+		prepare_hw_data->fps = fps_config->fps;
 
 		rc = cam_isp_blob_fps_config(blob_type, blob_info,
 			fps_config, prepare);
@@ -4956,6 +4961,8 @@ static int cam_ife_hw_mgr_handle_reg_update(
 				break;
 
 			if (!rup_status) {
+				rup_event_data.irq_mono_boot_time =
+					evt_payload->ts.time_usecs;
 				ife_hwr_irq_rup_cb(
 					ife_hwr_mgr_ctx->common.cb_priv,
 					CAM_ISP_HW_EVENT_REG_UPDATE,
@@ -4985,6 +4992,8 @@ static int cam_ife_hw_mgr_handle_reg_update(
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
 				break;
 			if (!rup_status) {
+				rup_event_data.irq_mono_boot_time =
+					evt_payload->ts.time_usecs;
 				/* Send the Reg update hw event */
 				ife_hwr_irq_rup_cb(
 					ife_hwr_mgr_ctx->common.cb_priv,
@@ -5344,6 +5353,8 @@ static int cam_ife_hw_mgr_handle_sof(
 						ife_hw_mgr_ctx,
 						&sof_done_event_data.timestamp,
 						&sof_done_event_data.boot_time);
+					sof_done_event_data.irq_mono_boot_time =
+						evt_payload->ts.time_usecs;
 
 					ife_hw_irq_sof_cb(
 						ife_hw_mgr_ctx->common.cb_priv,
@@ -5367,6 +5378,8 @@ static int cam_ife_hw_mgr_handle_sof(
 					ife_hw_mgr_ctx,
 					&sof_done_event_data.timestamp,
 					&sof_done_event_data.boot_time);
+				sof_done_event_data.irq_mono_boot_time =
+					evt_payload->ts.time_usecs;
 
 				ife_hw_irq_sof_cb(
 					ife_hw_mgr_ctx->common.cb_priv,
@@ -5452,13 +5465,15 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 				if (atomic_read(
 					&ife_hwr_mgr_ctx->overflow_pending))
 					break;
-				if (!eof_status)
+				if (!eof_status) {
+					eof_done_event_data.irq_mono_boot_time =
+						evt_payload->ts.time_usecs;
 					ife_hwr_irq_eof_cb(
 						ife_hwr_mgr_ctx->common.cb_priv,
 						CAM_ISP_HW_EVENT_EOF,
 						&eof_done_event_data);
+				}
 			}
-
 			break;
 		/* Handling dual VFE Scenario */
 		case 1:
@@ -5499,11 +5514,14 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
 				break;
 
-			if (!rc)
+			if (!rc) {
+				eof_done_event_data.irq_mono_boot_time =
+					evt_payload->ts.time_usecs;
 				ife_hwr_irq_eof_cb(
 					ife_hwr_mgr_ctx->common.cb_priv,
 					CAM_ISP_HW_EVENT_EOF,
 					&eof_done_event_data);
+			}
 
 			break;
 
@@ -5603,6 +5621,8 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 
 			if (atomic_read(&ife_hwr_mgr_ctx->overflow_pending))
 				break;
+			buf_done_event_data.irq_mono_boot_time =
+					evt_payload->ts.time_usecs;
 			/* Report for Successful buf_done event if any */
 			if (buf_done_event_data.num_handles > 0 &&
 				ife_hwr_irq_wm_done_cb) {

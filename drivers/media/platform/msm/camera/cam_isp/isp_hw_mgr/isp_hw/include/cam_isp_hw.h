@@ -28,11 +28,13 @@
  * @mono_time:          Monotonic boot time
  * @vt_time:            AV Timer time
  * @ticks:              Qtimer ticks
+ * @time_usecs:         time in micro seconds
  */
 struct cam_isp_timestamp {
 	struct timeval          mono_time;
 	struct timeval          vt_time;
 	uint64_t                ticks;
+	uint64_t                time_usecs;
 };
 
 /*
