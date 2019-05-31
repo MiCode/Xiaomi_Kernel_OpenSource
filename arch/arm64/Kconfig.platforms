@@ -179,6 +179,15 @@ config ARCH_QCOM
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
+config ARCH_LAHAINA
+	bool "Enable Support for Qualcomm Technologies, Inc. LAHAINA"
+	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  LAHAINA chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
