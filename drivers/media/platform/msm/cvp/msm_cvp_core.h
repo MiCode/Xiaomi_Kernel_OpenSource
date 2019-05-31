@@ -12,6 +12,7 @@
 #include <linux/msm_ion.h>
 #include <media/msm_cvp_private.h>
 #include <media/msm_cvp_utils.h>
+#include <media/msm_cvp_vidc.h>
 
 #define HAL_BUFFER_MAX 0xe
 
@@ -101,4 +102,7 @@ int msm_cvp_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
 int msm_cvp_private(void *cvp_inst, unsigned int cmd,
 		struct cvp_kmd_arg *arg);
+int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
+		struct cvp_kmd_request_power *cvp_voting);
+
 #endif

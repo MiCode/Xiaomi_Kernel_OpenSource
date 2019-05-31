@@ -25,6 +25,7 @@
 #include <media/videobuf2-v4l2.h>
 #include "msm_cvp_core.h"
 #include <media/msm_media_info.h>
+#include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
 
 #define MSM_CVP_DRV_NAME "msm_cvp_driver"
@@ -363,6 +364,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_capability capability;
 	struct kref kref;
 	unsigned long deprecate_bitmask;
+	struct cvp_kmd_request_power power;
 };
 
 extern struct msm_cvp_drv *cvp_driver;

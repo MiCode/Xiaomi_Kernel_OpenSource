@@ -571,6 +571,30 @@ struct cvp_hfi_client {
 	u32 transaction_id;
 	u32 data1;
 	u32 data2;
+	u32 data3;
+	u32 data4;
+	u32 reserved1;
+	u32 reserved2;
+};
+
+struct cvp_hfi_client_d {
+	u32 transaction_id;
+	u32 data1;
+	u32 data2;
+};
+
+struct cvp_buf_desc {
+	u32 fd;
+	u32 size;
+};
+
+struct cvp_buf_type {
+	u32 fd;
+	u32 size;
+	u32 offset;
+	u32 flags;
+	u32 reserved1;
+	u32 reserved2;
 };
 
 struct cvp_hfi_cmd_session_set_buffers_packet {
@@ -578,15 +602,34 @@ struct cvp_hfi_cmd_session_set_buffers_packet {
 	u32 packet_type;
 	u32 session_id;
 	struct cvp_hfi_client client_data;
+	struct cvp_buf_type buf_type;
+};
+
+struct cvp_hfi_cmd_session_set_buffers_packet_d {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	struct cvp_hfi_client_d client_data;
 	u32 buffer_addr;
 	u32 buffer_size;
 };
 
-struct cvp_hfi_cmd_session_release_buffers_packet {
+struct cvp_session_release_buffers_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
 	struct cvp_hfi_client client_data;
+	u32 kernel_type;
+	u32 buffer_type;
+	u32 num_buffers;
+	u32 buffer_idx;
+};
+
+struct cvp_session_release_buffers_packet_d {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	struct cvp_hfi_client_d client_data;
 	u32 buffer_type;
 	u32 num_buffers;
 	u32 buffer_idx;
@@ -596,19 +639,17 @@ struct cvp_hfi_msg_session_hdr {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	struct cvp_hfi_client client_data;
 	u32 error_type;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
 };
 
-struct cvp_hfi_msg_session_set_buffers_done_packet {
+struct cvp_hfi_msg_session_hdr_d {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	struct cvp_hfi_client client_data;
+	struct cvp_hfi_client_d client_data;
 	u32 error_type;
-	u32 buffer_type;
-	u32 buffer_addr;
-	u32 buffer_size;
 };
 
 struct cvp_hfi_buffer_mapping_type {
@@ -635,75 +676,23 @@ struct cvp_hfi_msg_event_notify_packet {
 	u32 rg_ext_event_data[1];
 };
 
-struct cvp_hfi_client_data {
-	u32 transactionid;
-	u32 client_data1;
-	u32 client_data2;
-};
-
-struct cvp_hfi_msg_session_op_cfg_done_packet_type {
+struct cvp_hfi_msg_session_op_cfg_packet_d {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	struct cvp_hfi_client_data  client_data;
+	struct cvp_hfi_client_d  client_data;
 	u32 op_conf_id;
 	u32 error_type;
 };
 
-struct cvp_hfi_msg_session_dfs_packet_type {
+struct cvp_hfi_msg_session_op_cfg_packet {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
-	struct cvp_hfi_client_data  client_data;
 	u32 error_type;
-	u32 width;
-	u32 height;
-	u32 occlusionmask_enable;
-	u32 left_view_buf_addr;
-	u32 left_view_buf_size;
-	u32 right_view_buf_addr;
-	u32 right_view_buf_size;
-	u32 disparity_map_buf_addr;
-	u32 disparity_map_buf_size;
-	u32 occ_mask_buf_addr;
-	u32 occ_mask_buf_size;
-};
-
-struct cvp_hfi_msg_session_dme_packet_type {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	struct cvp_hfi_client_data  client_data;
-	u32 error_type;
-	u32 skip_mv_calc;
-	u32 src_buf_addr;
-	u32 src_buf_size;
-	u32 src_frame_ctx_buf_addr;
-	u32 src_frame_ctx_buf_size;
-	u32 ref_buf_addr;
-	u32 ref_buf_size;
-	u32 ref_frame_ctxt_buf_addr;
-	u32 ref_frame_ctxt_buf_size;
-	u32 video_spatial_temp_status_buf_addr;
-	u32 video_spatial_temp_status_buf_size;
-	u32 full_res_height;
-	u32 full_res_width;
-	u32 proc_frame_width;
-	u32 proc_frame_height;
-	u32 transform_confidence;
-};
-
-struct cvp_hfi_msg_session_persist_packet_type {
-	u32 size;
-	u32 packet_type;
-	u32 session_id;
-	struct cvp_hfi_client_data  client_data;
-	u32 error_type;
-	u32 cvp_op;
-	u32 persist1_buffer_fd;
-	u32 persist1_size;
-	u32 persist2_fd;
-	u32 persist2_size;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
+	u32 op_conf_id;
 };
 
 struct cvp_hfi_msg_release_buffer_ref_event_packet {

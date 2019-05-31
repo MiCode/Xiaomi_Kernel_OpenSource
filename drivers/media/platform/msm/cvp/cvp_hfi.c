@@ -322,8 +322,7 @@ int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr)
 	int i, pkt_num = ARRAY_SIZE(cvp_hfi_defs);
 
 	for (i = 0; i < pkt_num; i++)
-		if ((cvp_hfi_defs[i].size*sizeof(unsigned int) == hdr->size) &&
-			(cvp_hfi_defs[i].type == hdr->packet_type))
+		if (cvp_hfi_defs[i].type == hdr->packet_type)
 			return i;
 
 	return -EINVAL;
@@ -348,6 +347,88 @@ int set_feature_bitmask(int pkt_idx, unsigned long *bitmask)
 
 	dprintk(CVP_ERR, "%s: invalid pkt_idx %d\n", __func__, pkt_idx);
 	return -EINVAL;
+}
+
+int get_hfi_version(void)
+{
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *hfi;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	hfi = (struct iris_hfi_device *)core->device->hfi_device_data;
+
+	return hfi->version;
+}
+
+unsigned int get_msg_size(void)
+{
+	unsigned int ver;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (ver < 1)
+		return sizeof(struct cvp_hfi_msg_session_hdr_d);
+
+	return sizeof(struct cvp_hfi_msg_session_hdr);
+}
+
+unsigned int get_msg_session_id(void *msg)
+{
+	unsigned int ver;
+	struct cvp_hfi_msg_session_hdr *hdr =
+		(struct cvp_hfi_msg_session_hdr *)msg;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (ver < 1) {
+		struct cvp_hfi_msg_session_hdr_d *old_hdr =
+			(struct cvp_hfi_msg_session_hdr_d *)msg;
+		return old_hdr->session_id;
+	}
+	return hdr->session_id;
+}
+
+unsigned int get_msg_errorcode(void *msg)
+{
+	unsigned int ver;
+	struct cvp_hfi_msg_session_hdr *hdr =
+		(struct cvp_hfi_msg_session_hdr *)msg;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (ver < 1) {
+		struct cvp_hfi_msg_session_hdr_d *old_hdr =
+			(struct cvp_hfi_msg_session_hdr_d *)msg;
+		return old_hdr->error_type;
+	}
+	return hdr->error_type;
+}
+
+int get_msg_opconfigs(void *msg, unsigned int *session_id,
+		unsigned int *error_type, unsigned int *config_id)
+{
+	unsigned int ver;
+	struct cvp_hfi_msg_session_op_cfg_packet *cfg =
+		(struct cvp_hfi_msg_session_op_cfg_packet *)msg;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (ver < 1) {
+		struct cvp_hfi_msg_session_op_cfg_packet_d *old_cfg
+			= (struct cvp_hfi_msg_session_op_cfg_packet_d *)msg;
+		*session_id = old_cfg->session_id;
+		*error_type = old_cfg->error_type;
+		*config_id = old_cfg->op_conf_id;
+		return 0;
+	}
+	*session_id = cfg->session_id;
+	*error_type = cfg->error_type;
+	*config_id = cfg->op_conf_id;
+	return 0;
 }
 
 int get_signal_from_pkt_type(unsigned int type)
@@ -2613,7 +2694,7 @@ err_create_pkt:
 static int venus_hfi_session_release_buffers(void *sess,
 				struct cvp_buffer_addr_info *buffer_info)
 {
-	struct cvp_hfi_cmd_session_release_buffers_packet pkt;
+	struct cvp_session_release_buffers_packet pkt;
 	int rc = 0;
 	struct cvp_hal_session *session = sess;
 	struct iris_hfi_device *device;
@@ -3166,12 +3247,34 @@ static void **get_session_id(struct msm_cvp_cb_info *info)
 	return session_id;
 }
 
-static void print_msg_hdr(struct cvp_hfi_msg_session_hdr *hdr)
+static void print_msg_hdr(void *hdr)
 {
+	unsigned int ver;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (ver >= 1) {
+		struct cvp_hfi_msg_session_hdr *new_hdr =
+			(struct cvp_hfi_msg_session_hdr *)hdr;
 	dprintk(CVP_DBG, "HFI MSG received: %x %x %x %x %x %x %x\n",
-		hdr->size, hdr->packet_type, hdr->session_id,
-		hdr->client_data.transaction_id, hdr->client_data.data1,
-		hdr->client_data.data2, hdr->error_type);
+			new_hdr->size, new_hdr->packet_type,
+			new_hdr->session_id,
+			new_hdr->client_data.transaction_id,
+			new_hdr->client_data.data1,
+			new_hdr->client_data.data2,
+			new_hdr->error_type);
+	} else {
+		struct cvp_hfi_msg_session_hdr_d *old_hdr =
+			(struct cvp_hfi_msg_session_hdr_d *)hdr;
+		dprintk(CVP_DBG, "HFI MSG received: %x %x %x %x %x %x %x\n",
+			old_hdr->size, old_hdr->packet_type,
+			old_hdr->session_id,
+			old_hdr->client_data.transaction_id,
+			old_hdr->client_data.data1,
+			old_hdr->client_data.data2,
+			old_hdr->error_type);
+	}
 }
 
 static int __response_handler(struct iris_hfi_device *device)
