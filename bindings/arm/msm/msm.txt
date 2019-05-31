@@ -47,6 +47,9 @@ SoCs:
 - KONA
   compatible = "qcom,kona"
 
+- LAHAINA
+  compatible = "qcom,lahaina"
+
 - LITO
   compatible = "qcom,lito"
 
@@ -165,6 +168,10 @@ compatible = "qcom,kona-rumi"
 compatible = "qcom,kona-mtp"
 compatible = "qcom,kona-cdp"
 compatible = "qcom,kona-qrd"
+compatible = "qcom,lahaina-rumi"
+compatible = "qcom,lahaina-mtp"
+compatible = "qcom,lahaina-cdp"
+compatible = "qcom,lahaina-qrd"
 compatible = "qcom,lito-rumi"
 compatible = "qcom,lito-mtp"
 compatible = "qcom,lito-cdp"
