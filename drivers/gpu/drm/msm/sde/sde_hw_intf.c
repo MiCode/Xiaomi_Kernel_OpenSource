@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,6 +401,9 @@ static void sde_hw_intf_bind_pingpong_blk(
 
 	if (intf->cfg.split_link_en)
 		mux_cfg = 0x60000;
+
+	if (intf->cfg.pp_slave_intf)
+		mux_cfg = 0x6;
 
 	SDE_REG_WRITE(c, INTF_MUX, mux_cfg);
 }
