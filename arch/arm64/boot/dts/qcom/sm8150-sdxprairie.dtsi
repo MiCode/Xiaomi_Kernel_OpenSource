@@ -32,6 +32,8 @@
 	qcom,addr-win = <0x0 0x20000000 0x0 0x2fffffff>;
 
 	mhi_channels {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		mhi_chan@25 {
 			status = "disabled";
 		};

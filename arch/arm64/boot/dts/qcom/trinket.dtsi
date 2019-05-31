@@ -2807,6 +2807,8 @@
 			compatible = "qcom,adc-tm5-iio";
 			reg = <0x3400 0x100>;
 			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			io-channels = <&pm6125_vadc ADC_GPIO1_PU2>,
 					<&pm6125_vadc ADC_GPIO3_PU2>;
 
