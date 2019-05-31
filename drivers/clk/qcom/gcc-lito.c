@@ -1020,7 +1020,7 @@ static struct clk_branch gcc_camera_ahb_clk = {
 
 static struct clk_branch gcc_camera_hf_axi_clk = {
 	.halt_reg = 0xb028,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb028,
 		.enable_mask = BIT(0),
@@ -1033,7 +1033,7 @@ static struct clk_branch gcc_camera_hf_axi_clk = {
 
 static struct clk_branch gcc_camera_sf_axi_clk = {
 	.halt_reg = 0xb02c,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb02c,
 		.enable_mask = BIT(0),
@@ -1170,7 +1170,7 @@ static struct clk_branch gcc_disp_gpll0_clk_src = {
 
 static struct clk_branch gcc_disp_hf_axi_clk = {
 	.halt_reg = 0xb030,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb030,
 		.enable_mask = BIT(0),
@@ -1183,7 +1183,7 @@ static struct clk_branch gcc_disp_hf_axi_clk = {
 
 static struct clk_branch gcc_disp_sf_axi_clk = {
 	.halt_reg = 0xb034,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0xb034,
 		.enable_mask = BIT(0),
@@ -1366,7 +1366,7 @@ static struct clk_branch gcc_npu_axi_clk = {
 
 static struct clk_branch gcc_npu_bwmon2_axi_clk = {
 	.halt_reg = 0x7000c,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x7000c,
 		.enable_mask = BIT(0),
@@ -1380,7 +1380,7 @@ static struct clk_branch gcc_npu_bwmon2_axi_clk = {
 
 static struct clk_branch gcc_npu_bwmon_axi_clk = {
 	.halt_reg = 0x70008,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x70008,
 		.enable_mask = BIT(0),
