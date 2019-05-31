@@ -22,8 +22,10 @@
 #include <linux/types.h>
 
 #include <linux/qcom_scm.h>
+#include <linux/ipc_logging.h>
 
 #define PDC_MAX_IRQS		168
+#define PDC_IPC_LOG_SZ		2
 #define PDC_MAX_GPIO_IRQS	256
 
 #define CLEAR_INTR(reg, intr)	(reg & ~(1 << intr))
@@ -54,6 +56,7 @@ static void __iomem *pdc_base;
 static struct pdc_pin_region *pdc_region;
 static int pdc_region_cnt;
 static struct spi_cfg_regs *spi_cfg;
+static void *pdc_ipc_log;
 
 static void pdc_reg_write(int reg, u32 i, u32 val)
 {
@@ -98,6 +101,7 @@ static void pdc_enable_intr(struct irq_data *d, bool on)
 	enable = pdc_reg_read(IRQ_ENABLE_BANK, index);
 	enable = on ? ENABLE_INTR(enable, mask) : CLEAR_INTR(enable, mask);
 	pdc_reg_write(IRQ_ENABLE_BANK, index, enable);
+	ipc_log_string(pdc_ipc_log, "PIN=%d enable=%d", d->hwirq, on);
 	raw_spin_unlock(&pdc_lock);
 }
 
@@ -124,6 +128,7 @@ static void qcom_pdc_gic_mask(struct irq_data *d)
 	if (d->hwirq == GPIO_NO_WAKE_IRQ)
 		return;
 
+	ipc_log_string(pdc_ipc_log, "PIN=%d mask", d->hwirq);
 	irq_chip_mask_parent(d);
 }
 
@@ -132,6 +137,7 @@ static void qcom_pdc_gic_unmask(struct irq_data *d)
 	if (d->hwirq == GPIO_NO_WAKE_IRQ)
 		return;
 
+	ipc_log_string(pdc_ipc_log, "PIN=%d unmask", d->hwirq);
 	irq_chip_unmask_parent(d);
 }
 
@@ -181,6 +187,9 @@ static int spi_configure_type(irq_hw_number_t hwirq, unsigned int type)
 	if (type & IRQ_TYPE_LEVEL_MASK)
 		val |= mask;
 	__spi_pin_write(pin, val);
+	ipc_log_string(pdc_ipc_log,
+		       "SPI config: GIC-SPI=%d (reg=%d,bit=%d) val=%d",
+		       spi, pin, spi % 32, type & IRQ_TYPE_LEVEL_MASK);
 	raw_spin_unlock_irqrestore(&pdc_lock, flags);
 
 	return 0;
@@ -257,6 +266,8 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 
 	old_pdc_type = pdc_reg_read(IRQ_i_CFG, pin_out);
 	pdc_reg_write(IRQ_i_CFG, pin_out, pdc_type);
+	ipc_log_string(pdc_ipc_log, "Set type: PIN=%d pdc_type=%d gic_type=%d",
+		       pin_out, pdc_type, type);
 
 	/* Additionally, configure (only) the GPIO in the f/w */
 	ret = spi_configure_type(parent_hwirq, type);
@@ -365,6 +376,8 @@ static int qcom_pdc_alloc(struct irq_domain *domain, unsigned int virq,
 	parent_fwspec.param[1]    = parent_hwirq;
 	parent_fwspec.param[2]    = type;
 
+	ipc_log_string(pdc_ipc_log, "Alloc: PIN=%d GIC-SPI=%d",
+		       hwirq, parent_hwirq);
 	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
 					    &parent_fwspec);
 }
@@ -412,6 +425,8 @@ static int qcom_pdc_gpio_alloc(struct irq_domain *domain, unsigned int virq,
 	parent_fwspec.param[1]    = parent_hwirq;
 	parent_fwspec.param[2]    = type;
 
+	ipc_log_string(pdc_ipc_log, "GPIO alloc: PIN=%d GIC-SPI=%d",
+		       hwirq, parent_hwirq);
 	return irq_domain_alloc_irqs_parent(domain, virq, nr_irqs,
 					    &parent_fwspec);
 }
@@ -542,6 +557,7 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 
 	irq_domain_update_bus_token(pdc_gpio_domain, DOMAIN_BUS_WAKEUP);
 
+	pdc_ipc_log = ipc_log_context_create(PDC_IPC_LOG_SZ, "pdc", 0);
 	return 0;
 
 remove:
