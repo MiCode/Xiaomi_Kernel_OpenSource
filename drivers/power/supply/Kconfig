@@ -645,4 +645,14 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
+config BATTERY_MT6359
+	bool "MT6359 fuel gauge support"
+	depends on MFD_MT6397
+	default n
+	help
+	  Say Y to enable support for MT6359 battery driver.
+	  it measure battery current and temperature to provide
+	  battery information , It issues interrupt when trigger
+	  threshold is met.
+
 endif # POWER_SUPPLY
