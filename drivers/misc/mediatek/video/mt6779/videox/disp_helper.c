@@ -385,8 +385,8 @@ void disp_helper_option_init(void)
 
 	disp_helper_set_option(DISP_OPT_USE_PQ, 1);
 	disp_helper_set_option(DISP_OPT_MUTEX_EOF_EN_FOR_CMD_MODE, 0);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 0);
-	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 0);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_RECOVERY, 1);
+	disp_helper_set_option(DISP_OPT_ESD_CHECK_SWITCH, 1);
 
 	disp_helper_set_option(DISP_OPT_BYPASS_OVL, 0);
 	disp_helper_set_option(DISP_OPT_FPS_CALC_WND, 10);
