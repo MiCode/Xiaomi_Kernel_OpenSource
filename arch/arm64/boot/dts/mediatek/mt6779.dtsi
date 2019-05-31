@@ -6,6 +6,7 @@
  */
 
 #include <dt-bindings/clock/mt6779-clk.h>
+#include <dt-bindings/power/mt6779-power.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/memory/mt6779-larb-port.h>
@@ -220,16 +221,6 @@
 			#clock-cells = <1>;
 		};
 
-		scpsys: scpsys@10001000 {
-			compatible = "mediatek,mt6779-scpsys";
-			reg = <0 0x10001000 0 0x1000>,
-			      <0 0x10006000 0 0x1000>,
-			      <0 0x1020e000 0 0x1000>,
-			      <0 0x10000000 0 0x1000>,
-			      <0 0x14019000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
 		gpio: gpio@10005000 {
 			compatible = "mediatek,gpio";
 			reg = <0 0x10005000 0 0x1000>;
@@ -258,6 +249,141 @@
 			#interrupt-cells = <2>;
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&gic>;
+		};
+
+		scpsys: scpsys@10006000 {
+			compatible = "mediatek,mt6779-scpsys";
+			#power-domain-cells = <1>;
+			reg = <0 0x10006000 0 0x1000>;
+
+			clocks =
+				<&topckgen CLK_TOP_MM>, /* basic clks */
+				<&topckgen CLK_TOP_CAM>,
+				<&topckgen CLK_TOP_CCU>,
+				<&topckgen CLK_TOP_IMG>,
+				<&topckgen CLK_TOP_IPE>,
+				<&topckgen CLK_TOP_VENC>,
+				<&topckgen CLK_TOP_VDEC>,
+				<&topckgen CLK_TOP_IPU_IF>,
+				<&topckgen CLK_TOP_DSP>,
+				<&topckgen CLK_TOP_DSP1>,
+				<&topckgen CLK_TOP_DSP2>,
+				<&topckgen CLK_TOP_DSP3>,
+				<&infracfg_ao CLK_INFRA_AUD_26M_BCLK_CK>,
+
+				<&mmsys CLK_MM_SMI_COMMON>,	/* mm pclks*/
+				<&mmsys CLK_MM_SMI_LARB0>,
+				<&mmsys CLK_MM_SMI_LARB1>,
+				<&mmsys CLK_MM_GALS_COMM0>,
+				<&mmsys CLK_MM_GALS_COMM1>,
+				<&mmsys CLK_MM_GALS_CCU2MM>,
+				<&mmsys CLK_MM_GALS_IPU12MM>,
+				<&mmsys CLK_MM_GALS_IMG2MM>,
+				<&mmsys CLK_MM_GALS_CAM2MM>,
+				<&mmsys CLK_MM_GALS_IPU2MM>,
+				<&imgsys CLK_IMG_LARB5>,	/* img pclks*/
+				<&imgsys CLK_IMG_LARB6>,
+
+				<&ipesys CLK_IPE_LARB7>,	/* ipe pclks*/
+				<&ipesys CLK_IPE_LARB8>,
+				<&ipesys CLK_IPE_SMI_SUBCOM>,
+
+				<&vencsys CLK_VENC_GCON_LARB>,	/* venc pclks*/
+				<&vencsys CLK_VENC_GCON_VENC>,
+				<&vencsys CLK_VENC_GCON_JPGENC>,
+				<&vencsys CLK_VENC_GCON_GALS>,
+
+				<&vdecsys CLK_VDEC_LARB1>,	/* vdec pclks*/
+
+				<&camsys CLK_CAM_LARB10>,	/* cam pclks*/
+				<&camsys CLK_CAM_DFP_VAD>,
+				<&camsys CLK_CAM_LARB11>,
+				<&camsys CLK_CAM_LARB9>,
+				<&camsys CLK_CAM_CAM>,
+				<&camsys CLK_CAM_CAMTG>,
+				<&camsys CLK_CAM_SENINF>,
+				<&camsys CLK_CAM_CAMSV0>,
+				<&camsys CLK_CAM_CAMSV1>,
+				<&camsys CLK_CAM_CAMSV2>,
+				<&camsys CLK_CAM_CAMSV3>,
+				<&camsys CLK_CAM_CCU>,
+				<&camsys CLK_CAM_FAKE_ENG>,
+
+				<&apu_conn CLK_APU_CONN_APU>,	/*vconn pclks*/
+				<&apu_conn CLK_APU_CONN_AHB>,
+				<&apu_conn CLK_APU_CONN_AXI>,
+				<&apu_conn CLK_APU_CONN_ISP>,
+				<&apu_conn CLK_APU_CONN_CAM_ADL>,
+				<&apu_conn CLK_APU_CONN_IMG_ADL>,
+				<&apu_conn CLK_APU_CONN_EMI_26M>,
+				<&apu_conn CLK_APU_CONN_VPU_UDI>,
+
+				/* vcore clks but active in vconn */
+				<&apu_vcore CLK_APU_VCORE_AHB>,
+				<&apu_vcore CLK_APU_VCORE_AXI>,
+				<&apu_vcore CLK_APU_VCORE_ADL>;
+
+			clock-names = "mm",
+				"cam",
+				"ccu",
+				"isp",
+				"ipe",
+				"venc",
+				"vdec",
+				"vpuvcore",
+				"vpuconn",
+				"vpucore0",
+				"vpucore1",
+				"vpucore2",
+				"audio",
+				"mm-0",
+				"mm-1",
+				"mm-2",
+				"mm-3",
+				"mm-4",
+				"mm-5",
+				"mm-6",
+				"mm-7",
+				"mm-8",
+				"mm-9",
+				"isp-0",
+				"isp-1",
+				"ipe-0",
+				"ipe-1",
+				"ipe-2",
+				"venc-0",
+				"venc-1",
+				"venc-2",
+				"venc-3",
+				"vdec-0",
+				"cam-0",
+				"cam-1",
+				"cam-2",
+				"cam-3",
+				"cam-4",
+				"cam-5",
+				"cam-6",
+				"cam-7",
+				"cam-8",
+				"cam-9",
+				"cam-10",
+				"cam-11",
+				"cam-12",
+				"vpuconn-0",
+				"vpuconn-1",
+				"vpuconn-2",
+				"vpuconn-3",
+				"vpuconn-4",
+				"vpuconn-5",
+				"vpuconn-6",
+				"vpuconn-7",
+				"vpuconn-8",
+				"vpuconn-9",
+				"vpuconn-10";
+
+			infracfg = <&infracfg_ao>;
+			smi_comm = <&smi_common>;
+			infracfg_nao = <&infracfg>;
 		};
 
 		toprgu: toprgu@10007000 {
@@ -299,6 +425,11 @@
 			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_LOW>;
 			clocks = <&infracfg_ao CLK_INFRA_DEVICE_APC>;
 			clock-names = "devapc-infra-clock";
+		};
+
+		infracfg: infracfg@1020e000 {
+			compatible = "syscon";
+			reg = <0 0x1020e000 0 0x1000>;
 		};
 
 		iommu0: iommu@10220000 {
