@@ -8,6 +8,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of_platform.h>
+#include <soc/qcom/cmd-db.h>
 
 #include "kgsl_gmu_core.h"
 #include "kgsl_gmu.h"
@@ -83,6 +84,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	struct resource *res_pdc, *res_cfg, *res_seq;
 	void __iomem *cfg = NULL, *seq = NULL, *rscc;
 	unsigned int cfg_offset, seq_offset;
+	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
 
 	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
 	if (adreno_is_a640v2(adreno_dev)) {
@@ -200,6 +202,16 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			adreno_dev->gpucore->pdc_address_offset);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
+
+	if (vrm_resource_addr && adreno_is_a620(adreno_dev)) {
+		_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 3,
+				0x10108);
+		_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 3,
+				vrm_resource_addr + 0x4);
+		_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 3,
+				0x0);
+	}
+
 	_regwrite(cfg, PDC_GPU_TCS3_CMD_ENABLE_BANK, 7);
 	_regwrite(cfg, PDC_GPU_TCS3_CMD_WAIT_FOR_CMPL_BANK, 0);
 	_regwrite(cfg, PDC_GPU_TCS3_CONTROL, 0);
@@ -220,6 +232,15 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 			adreno_dev->gpucore->pdc_address_offset);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
+
+	if (vrm_resource_addr && adreno_is_a620(adreno_dev)) {
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 3,
+				0x10108);
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 3,
+				vrm_resource_addr + 0x4);
+		_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 3,
+				0x1);
+	}
 
 	/* Setup GPU PDC */
 	_regwrite(cfg, PDC_GPU_SEQ_START_ADDR, 0);
