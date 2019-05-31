@@ -1081,7 +1081,7 @@
 		};
 
 		smi_common: smi@14019000 {
-			compatible = "mediatek,mt6779-smi-common";
+			compatible = "mediatek,mt6779-smi-common", "syscon";
 			reg = <0 0x14019000 0 0x1000>;
 			power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_SMI_COMMON>,
