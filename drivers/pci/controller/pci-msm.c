@@ -7102,7 +7102,8 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 		if (unlikely(drv_info->seq == MSM_PCIE_DRV_SEQ_RESV))
 			drv_info->seq = 0;
 
-		ret = rpmsg_send(rpdev->ept, drv_disable, sizeof(*drv_disable));
+		ret = rpmsg_trysend(rpdev->ept, drv_disable,
+					sizeof(*drv_disable));
 		if (!ret) {
 			ret = wait_for_completion_timeout(&drv_info->completion,
 					msecs_to_jiffies(drv_info->timeout_ms));
@@ -7164,7 +7165,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev)
 	if (unlikely(drv_info->seq == MSM_PCIE_DRV_SEQ_RESV))
 		drv_info->seq = 0;
 
-	ret = rpmsg_send(rpdev->ept, drv_enable, sizeof(*drv_enable));
+	ret = rpmsg_trysend(rpdev->ept, drv_enable, sizeof(*drv_enable));
 	if (ret) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to send rpmsg\n",
 			pcie_dev->rc_idx);
