@@ -29,6 +29,9 @@ struct rmnet_endpoint {
 };
 
 struct rmnet_port_priv_stats {
+	u64 dl_hdr_last_qmap_vers;
+	u64 dl_hdr_last_ep_id;
+	u64 dl_hdr_last_trans_id;
 	u64 dl_hdr_last_seq;
 	u64 dl_hdr_last_bytes;
 	u64 dl_hdr_last_pkts;
