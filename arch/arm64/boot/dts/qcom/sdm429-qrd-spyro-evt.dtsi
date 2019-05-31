@@ -44,6 +44,9 @@
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
 };
 
+&i2c_5 {
+	status = "disabled";
+};
 
 &soc {
 	/delete-node/ qcom,spm@b1d2000;
