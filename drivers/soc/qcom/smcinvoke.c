@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,7 +466,7 @@ static int marshal_in(const struct smcinvoke_cmd_req *req,
 			const union smcinvoke_arg *args_buf, uint32_t tzhandle,
 			uint8_t *buf, size_t buf_size, struct file **arr_filp)
 {
-	int ret = -EINVAL, i = 0;
+	int ret = -EINVAL, i = 0, j = 0;
 	union smcinvoke_tz_args *tz_args = NULL;
 	struct smcinvoke_msg_hdr msg_hdr = {tzhandle, req->op, req->counts};
 	uint32_t offset = sizeof(struct smcinvoke_msg_hdr) +
@@ -511,7 +511,7 @@ static int marshal_in(const struct smcinvoke_cmd_req *req,
 	}
 	FOR_ARGS(i, req->counts, OI) {
 		if (get_tzhandle_from_fd(args_buf[i].o.fd,
-					&arr_filp[i], &(tz_args->tzhandle)))
+					&arr_filp[j++], &(tz_args->tzhandle)))
 			goto out;
 		tz_args++;
 	}
