@@ -32,6 +32,34 @@
 #define MT7622_TOP_AXI_PROT_EN_WB		(BIT(2) | BIT(6) | \
 						 BIT(7) | BIT(8))
 
+#define MT6779_IFR_SET				0x02A0
+#define MT6779_IFR_CLR				0x02A4
+
+#define MT6779_IFR1_SET				0x02A8
+#define MT6779_IFR1_CLR				0x02AC
+#define MT6779_IFR2_SET				0x0714
+#define MT6779_IFR2_CLR				0x0718
+#define MT6779_IFRMCU_SET			0x02C4
+#define MT6779_IFRMCU_CLR			0x02C8
+#define MT6779_IFRMM_SET			0x02D4
+#define MT6779_IFRMM_CLR			0x02D8
+
+#define MT6779_IFR_STA1				0x0228
+#define MT6779_IFR1_STA1			0x0258
+#define MT6779_IFR1_STA2			0x0724
+#define MT6779_IFRMM_STA1			0x02EC
+#define MT6779_IFRMCU_STA1			0x02E4
+
+#define MT6779_SMI_SET				0x03C4
+#define MT6779_SMI_CLR				0x03C8
+#define MT6779_SMI_STA				0x03C0
+
+#define MT6779_IFR_SI0_SET			0x3B8
+#define MT6779_IFR_SI0_CLR			0x3BC
+#define MT6779_IFR_PDN_SI2_CTL			0x234
+#define MT6779_IFR_SI0_STA			0x0
+#define MT6779_IFR_SI2_STA			0x28
+
 int mtk_infracfg_set_bus_protection(struct regmap *infracfg, u32 mask,
 		bool reg_update);
 int mtk_infracfg_clear_bus_protection(struct regmap *infracfg, u32 mask,

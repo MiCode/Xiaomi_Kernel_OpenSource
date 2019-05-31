@@ -19,6 +19,7 @@
 #include <dt-bindings/power/mt2701-power.h>
 #include <dt-bindings/power/mt2712-power.h>
 #include <dt-bindings/power/mt6797-power.h>
+#include <dt-bindings/power/mt6779-power.h>
 #include <dt-bindings/power/mt7622-power.h>
 #include <dt-bindings/power/mt7623a-power.h>
 #include <dt-bindings/power/mt8173-power.h>
@@ -114,7 +115,7 @@ static const char * const clk_names[] = {
 };
 
 #define MAX_CLKS	3
-#define MAX_SUBSYS_CLKS 10
+#define MAX_SUBSYS_CLKS 13
 
 /**
  * struct scp_domain_data - scp domain data for power on/off flow
@@ -1043,6 +1044,249 @@ static const struct scp_subdomain scp_subdomain_mt6797[] = {
 	{MT6797_POWER_DOMAIN_MM, MT6797_POWER_DOMAIN_MJC},
 };
 
+
+/*
+ * MT6779 power domain support
+ */
+static const struct scp_domain_data scp_domain_data_mt6779[] = {
+	[MT6779_POWER_DOMAIN_AUDIO] = {
+		.name = "audio",
+		.sta_mask = BIT(24),
+		.ctl_offs = 0x31C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"audio"},
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1, BIT(31), BIT(31), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_MM] = {
+		.name = "mm",
+		.sta_mask = BIT(3),
+		.ctl_offs = 0x30C,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"mm"},
+		.subsys_clk_prefix = "mm",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(0) | BIT(1) | BIT(3) | BIT(4) |
+					BIT(5) | BIT(6),
+				BIT(0) | BIT(1) | BIT(3) | BIT(4) |
+					BIT(5) | BIT(6), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET, MT6779_SMI_CLR,
+				0, MT6779_SMI_STA,
+				GENMASK(7, 0), GENMASK(7, 0), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFR1_SET,
+				MT6779_IFR1_CLR, 0, MT6779_IFR1_STA1,
+				BIT(16) | BIT(17), BIT(16) | BIT(17), 0),
+
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1,
+				BIT(10) | BIT(11), BIT(10) | BIT(11), 0),
+			/* WAY EN1 */
+			BUS_PROT(IFR_WAYEN_TYPE, MT6779_IFR_SI0_SET,
+				MT6779_IFR_SI0_CLR, 0, MT6779_IFR_SI0_STA,
+				BIT(6), BIT(24), BIT(24)),
+			/* WAY EN2 */
+			BUS_PROT(IFR_WAYEN_TYPE, 0x0, 0x0,
+				MT6779_IFR_PDN_SI2_CTL, MT6779_IFR_SI2_STA,
+				BIT(5), BIT(14), BIT(14)),
+
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1, BIT(6), BIT(6), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_VDE] = {
+		.name = "vde",
+		.sta_mask = BIT(31),
+		.ctl_offs = 0x300,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"vdec"},
+		.subsys_clk_prefix = "vdec",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(1), BIT(1), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET,
+				MT6779_SMI_CLR, 0, MT6779_SMI_STA,
+				BIT(2), BIT(2), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_CAM] = {
+		.name = "cam",
+		.sta_mask = BIT(25),
+		.ctl_offs = 0x324,
+		.sram_pdn_bits = GENMASK(9, 8),
+		.sram_pdn_ack_bits = GENMASK(13, 12),
+		.basic_clk_name = {"cam", "ccu"}, /* cam needs 2 clkmuxes */
+		.subsys_clk_prefix = "cam",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(4) | BIT(5) | BIT(9) | BIT(13),
+				BIT(4) | BIT(5) | BIT(9) | BIT(13), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1, BIT(28), BIT(28), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(11), BIT(11), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET, MT6779_SMI_CLR,
+				0, MT6779_SMI_STA,
+				BIT(6) | BIT(7), BIT(6) | BIT(7), 0),
+		},
+	},
+
+
+	[MT6779_POWER_DOMAIN_ISP] = {
+		.name = "isp",
+		.sta_mask = BIT(5),
+		.ctl_offs = 0x308,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"isp"},
+		.subsys_clk_prefix = "isp",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(3) | BIT(8), BIT(3) | BIT(8), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(10), BIT(10), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET, MT6779_SMI_CLR,
+				0, MT6779_SMI_STA, BIT(4), BIT(4), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_IPE] = {
+		.name = "ipe",
+		.sta_mask = BIT(13),
+		.ctl_offs = 0x350,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.basic_clk_name = {"ipe"},
+		.subsys_clk_prefix = "ipe",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(6), BIT(6), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET, MT6779_SMI_CLR,
+				0, MT6779_SMI_STA, BIT(5), BIT(5), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_VEN] = {
+		.name = "ven",
+		.sta_mask = BIT(21),
+		.ctl_offs = 0x304,
+		.sram_pdn_bits = GENMASK(11, 8),
+		.sram_pdn_ack_bits = GENMASK(15, 12),
+		.basic_clk_name = {"venc"},
+		.subsys_clk_prefix = "venc",
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFRMM_SET,
+				MT6779_IFRMM_CLR, 0, MT6779_IFRMM_STA1,
+				BIT(0), BIT(0), 0),
+			BUS_PROT(SMI_TYPE, MT6779_SMI_SET,
+				MT6779_SMI_CLR, 0, MT6779_SMI_STA,
+				BIT(3), BIT(3), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_MFG0] = {
+		.name = "mfg0",
+		.sta_mask = BIT(4),
+		.ctl_offs = 0x328,
+		.caps = MTK_SCPD_STRICT_BUSP,
+	},
+
+
+	[MT6779_POWER_DOMAIN_MFG1] = {
+		.name = "mfg1",
+		.sta_mask = BIT(7),
+		.ctl_offs = 0x32C,
+		.sram_pdn_bits = GENMASK(9, 8),
+		.sram_pdn_ack_bits = GENMASK(13, 12),
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFR1_SET,
+				MT6779_IFR1_CLR, 0, MT6779_IFR1_STA1,
+				BIT(19) | BIT(20) | BIT(21),
+				BIT(19) | BIT(20) | BIT(21), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET,
+				MT6779_IFR_CLR, 0, MT6779_IFR_STA1,
+				BIT(21) | BIT(22), BIT(21) | BIT(22), 0),
+		},
+	},
+
+	[MT6779_POWER_DOMAIN_MFG2] = {
+		.name = "mfg2",
+		.sta_mask = BIT(20),
+		.ctl_offs = 0x330,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_STRICT_BUSP,
+	},
+
+
+	[MT6779_POWER_DOMAIN_MFG3] = {
+		.name = "mfg3",
+		.sta_mask = BIT(22),
+		.ctl_offs = 0x334,
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.caps = MTK_SCPD_STRICT_BUSP,
+	},
+
+
+	[MT6779_POWER_DOMAIN_CONN] = {
+		.name = "conn",
+		.sta_mask = BIT(1),
+		.ctl_offs = 0x320,
+		.caps = MTK_SCPD_STRICT_BUSP,
+		.bp_table = {
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1, BIT(13) | BIT(18),
+				BIT(13) | BIT(18), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFR_SET, MT6779_IFR_CLR,
+				0, MT6779_IFR_STA1, BIT(14), BIT(14), 0),
+			BUS_PROT(IFR_TYPE, MT6779_IFR1_SET,
+				MT6779_IFR1_CLR, 0, MT6779_IFR1_STA1,
+				BIT(10), BIT(10), 0),
+		},
+	},
+};
+
+#define SPM_PWR_STATUS_MT6779		0x0160
+#define SPM_PWR_STATUS_2ND_MT6779	0x0164
+
+static const struct scp_subdomain scp_subdomain_mt6779[] = {
+	{MT6779_POWER_DOMAIN_MM, MT6779_POWER_DOMAIN_VDE},
+	{MT6779_POWER_DOMAIN_MM, MT6779_POWER_DOMAIN_CAM},
+	{MT6779_POWER_DOMAIN_MM, MT6779_POWER_DOMAIN_ISP},
+	{MT6779_POWER_DOMAIN_MM, MT6779_POWER_DOMAIN_IPE},
+	{MT6779_POWER_DOMAIN_MM, MT6779_POWER_DOMAIN_VEN},
+
+	{MT6779_POWER_DOMAIN_MFG0, MT6779_POWER_DOMAIN_MFG1},
+	{MT6779_POWER_DOMAIN_MFG1, MT6779_POWER_DOMAIN_MFG2},
+	{MT6779_POWER_DOMAIN_MFG2, MT6779_POWER_DOMAIN_MFG3},
+};
+
+
 /*
  * MT7622 power domain support
  */
@@ -1264,6 +1508,18 @@ static const struct scp_soc_data mt6797_data = {
 	.bus_prot_reg_update = true,
 };
 
+static const struct scp_soc_data mt6779_data = {
+	.domains = scp_domain_data_mt6779,
+	.num_domains = ARRAY_SIZE(scp_domain_data_mt6779),
+	.subdomains = scp_subdomain_mt6779,
+	.num_subdomains = ARRAY_SIZE(scp_subdomain_mt6779),
+	.regs = {
+		.pwr_sta_offs = SPM_PWR_STATUS_MT6779,
+		.pwr_sta2nd_offs = SPM_PWR_STATUS_2ND_MT6779
+	},
+	.bus_prot_reg_update = true,
+};
+
 static const struct scp_soc_data mt7622_data = {
 	.domains = scp_domain_data_mt7622,
 	.num_domains = ARRAY_SIZE(scp_domain_data_mt7622),
@@ -1310,6 +1566,9 @@ static const struct of_device_id of_scpsys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6797-scpsys",
 		.data = &mt6797_data,
+	}, {
+		.compatible = "mediatek,mt6779-scpsys",
+		.data = &mt6779_data,
 	}, {
 		.compatible = "mediatek,mt7622-scpsys",
 		.data = &mt7622_data,

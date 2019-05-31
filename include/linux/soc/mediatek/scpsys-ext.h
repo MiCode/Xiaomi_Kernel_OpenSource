@@ -2,7 +2,7 @@
 #ifndef __SOC_MEDIATEK_SCPSYS_EXT_H
 #define __SOC_MEDIATEK_SCPSYS_EXT_H
 
-#define MAX_STEPS	4
+#define MAX_STEPS	7
 
 #define BUS_PROT(_type, _set_ofs, _clr_ofs,			\
 		_en_ofs, _sta_ofs, _mask, _set_ack_mask,	\
