@@ -774,8 +774,6 @@ static void serial_ir_exit(void)
 
 static int __init serial_ir_init_module(void)
 {
-	int result;
-
 	switch (type) {
 	case IR_HOMEBREW:
 	case IR_IRDEO:
@@ -803,12 +801,7 @@ static int __init serial_ir_init_module(void)
 	if (sense != -1)
 		sense = !!sense;
 
-	result = serial_ir_init();
-	if (!result)
-		return 0;
-
-	serial_ir_exit();
-	return result;
+	return serial_ir_init();
 }
 
 static void __exit serial_ir_exit_module(void)
