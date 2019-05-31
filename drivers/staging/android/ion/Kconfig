@@ -42,3 +42,12 @@ config ION_CMA_HEAP
 	  Choose this option to enable CMA heaps with Ion. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config MTK_ION_DEBUG
+	bool "Ion system heap debug information"
+	depends on ION_SYSTEM_HEAP
+	help
+	  Choose this option to open Mediatek debug information,
+	  the information only support ion system heap. It can
+	  show the buffer of total size about ion system heap,
+	  and show the number of the dma_map_attachment.

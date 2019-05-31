@@ -330,4 +330,6 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
 int ion_query_heaps(struct ion_heap_query *query);
 
+struct ion_buffer *ion_drv_file_to_buffer(struct file *file);
+
 #endif /* _ION_H */

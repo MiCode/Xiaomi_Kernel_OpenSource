@@ -11,6 +11,7 @@
 #include <linux/highmem.h>
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
+#include <linux/sched/clock.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -85,9 +86,10 @@ static struct page *alloc_largest_available(struct ion_system_heap *heap,
 			continue;
 
 		page = alloc_buffer_page(heap, buffer, orders[i]);
-		if (!page)
+		if (!page) {
+			pr_warn("[ion_dbg] alloc_pages order=%lu\n", orders[i]);
 			continue;
-
+		}
 		return page;
 	}
 
@@ -109,11 +111,14 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	int i = 0;
 	unsigned long size_remaining = PAGE_ALIGN(size);
 	unsigned int max_order = orders[0];
+	unsigned long long start, end;
 
 	if (size / PAGE_SIZE > totalram_pages / 2)
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&pages);
+
+	start = sched_clock();
 	while (size_remaining > 0) {
 		page = alloc_largest_available(sys_heap, buffer, size_remaining,
 					       max_order);
@@ -123,6 +128,12 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		size_remaining -= PAGE_SIZE << compound_order(page);
 		max_order = compound_order(page);
 		i++;
+	}
+	end = sched_clock();
+
+	if (end - start > 10000000ULL) {	/* unit is ns, 10ms */
+		pr_warn("%s warn: size: %lu time: %lld ns --%s\n",
+			__func__, size, end - start, heap->name);
 	}
 	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)

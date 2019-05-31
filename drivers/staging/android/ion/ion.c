@@ -29,6 +29,7 @@
 #include <linux/vmalloc.h>
 
 #include "ion.h"
+#include "mtk_ion.h"
 
 static struct ion_device *internal_dev;
 static int heap_id;
@@ -379,6 +380,35 @@ static const struct dma_buf_ops dma_buf_ops = {
 	.unmap = ion_dma_buf_kunmap,
 };
 
+struct ion_buffer *ion_drv_file_to_buffer(struct file *file)
+{
+	struct dma_buf *dmabuf;
+	struct ion_buffer *buffer = NULL;
+	const char *pathname = NULL;
+
+	if (!file)
+		goto file2buf_exit;
+	if (!(file->f_path.dentry))
+		goto file2buf_exit;
+
+	pathname = file->f_path.dentry->d_name.name;
+	if (!pathname)
+		goto file2buf_exit;
+
+	if (strstr(pathname, "dmabuf")) {
+		dmabuf = file->private_data;
+		if (dmabuf->ops == &dma_buf_ops)
+			buffer = dmabuf->priv;
+	}
+
+file2buf_exit:
+
+	if (buffer)
+		return buffer;
+	else
+		return ERR_PTR(-EINVAL);
+}
+
 int ion_alloc(size_t len, unsigned int heap_id_mask, unsigned int flags)
 {
 	struct ion_device *dev = internal_dev;
@@ -524,8 +554,21 @@ static int debug_shrink_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 			debug_shrink_set, "%llu\n");
 
+static int ion_debug_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_sys_heap_debug_show, inode->i_private);
+}
+
+static const struct file_operations debug_heap_fops = {
+	.open = ion_debug_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 void ion_device_add_heap(struct ion_heap *heap)
 {
+	struct dentry *debug_file;
 	struct ion_device *dev = internal_dev;
 	int ret;
 
@@ -554,7 +597,17 @@ void ion_device_add_heap(struct ion_heap *heap)
 	 */
 	plist_node_init(&heap->node, -heap->id);
 	plist_add(&heap->node, &dev->heaps);
+	debug_file = debugfs_create_file(heap->name, 0664,
+					 dev->debug_root, heap,
+					 &debug_heap_fops);
 
+	if (!debug_file) {
+		char buf[256], *path;
+
+		path = dentry_path(dev->debug_root, buf, 256);
+		pr_err("Failed to create heap debugfs at %s/%s\n",
+		       path, heap->name);
+	}
 	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
 		char debug_name[64];
 
