@@ -1015,8 +1015,21 @@ static void start_rx_sequencer(struct uart_port *uport)
 	u32 geni_se_param = UART_PARAM_RFR_OPEN;
 
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
-	if (geni_status & S_GENI_CMD_ACTIVE)
+	if (geni_status & S_GENI_CMD_ACTIVE) {
+		if (port->xfer_mode == SE_DMA && !port->rx_dma) {
+			IPC_LOG_MSG(port->ipc_log_misc,
+				"%s: GENI: 0x%x\n", __func__, geni_status);
+			ret = geni_se_rx_dma_prep(port->wrapper_dev,
+				uport->membase, port->rx_buf, DMA_RX_BUF_SIZE,
+				&port->rx_dma);
+			if (ret) {
+				IPC_LOG_MSG(port->ipc_log_misc,
+					"%s: RX buff Fail %d\n", __func__, ret);
+				goto exit_start_rx_sequencer;
+			}
+		}
 		msm_geni_serial_stop_rx(uport);
+	}
 
 	/* Start RX with the RFR_OPEN to keep RFR in always ready state */
 	geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
