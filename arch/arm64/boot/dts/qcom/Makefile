@@ -259,7 +259,9 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-cdp-256.dtb \
 	sdxprairie-mtp-256.dtb \
 	sdxprairie-mtp-aqc.dtb \
-	sdxprairie-dsda-mtp.dtb
+	sdxprairie-dsda-mtp.dtb \
+	sdxprairie-v2-cdp.dtb \
+	sdxprairie-v2-mtp.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)
