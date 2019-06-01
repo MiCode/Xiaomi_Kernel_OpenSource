@@ -26,17 +26,13 @@ struct mtk_iommu_suspend_reg {
 	u32				int_main_control;
 	u32				ivrp_paddr;
 	u32				vld_pa_rng;
-#ifdef CONFIG_MTK_IOMMU_V2
 	u32				wr_len;
-#endif
 };
 
 enum mtk_iommu_plat {
 	M4U_MT2701,
 	M4U_MT2712,
-#ifdef CONFIG_MTK_IOMMU_V2
 	M4U_MT6779,
-#endif
 	M4U_MT8173,
 	M4U_MT8183,
 };
@@ -68,13 +64,13 @@ struct mtk_iommu_plat_data {
 	bool                reset_axi;
 	bool                has_vld_pa_rng;
 	unsigned char       larbid_remap[2][MTK_LARB_NR_MAX];
-#ifdef CONFIG_MTK_IOMMU_V2
 	bool		    has_sub_comm[2];
 	bool		    has_wr_len;
 	bool		    has_misc_ctrl[2];
-	unsigned char	    dom_cnt;
 	u32		    inv_sel_reg;
 	u32		    m4u1_mask;
+#ifdef CONFIG_MTK_IOMMU_V2
+	unsigned char	    dom_cnt;
 #endif
 };
 
