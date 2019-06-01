@@ -681,6 +681,7 @@ static int mhi_sat_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 	struct sat_tre *pkt = SAT_TRE_OFFSET(data);
 	struct mhi_sat_cntrl *sat_cntrl;
 	struct mhi_sat_packet *packet;
+	unsigned long flags;
 
 	MHI_SAT_ASSERT(!mhi_sat_isvalid_header(hdr, len), "Invalid header!\n");
 
@@ -710,9 +711,9 @@ static int mhi_sat_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 	packet->msg = packet + 1;
 	memcpy(packet->msg, data, len);
 
-	spin_lock_irq(&sat_cntrl->pkt_lock);
+	spin_lock_irqsave(&sat_cntrl->pkt_lock, flags);
 	list_add_tail(&packet->node, &sat_cntrl->packet_list);
-	spin_unlock_irq(&sat_cntrl->pkt_lock);
+	spin_unlock_irqrestore(&sat_cntrl->pkt_lock, flags);
 
 	schedule_work(&sat_cntrl->process_work);
 
