@@ -14,6 +14,7 @@
 #define QBT_DISABLE_IPC          103
 #define QBT_ENABLE_FD            104
 #define QBT_DISABLE_FD           105
+#define QBT_CONFIGURE_TOUCH_FD   106
 
 /*
  * enum qbt_fw_event -
@@ -46,6 +47,19 @@ struct qbt_wuhb_connected_status {
 struct qbt_key_event {
 	int key;
 	int value;
+};
+
+/*
+ * struct qbt_touch_config -
+ *		used to configure touch finger detect
+ * @rad_filter_enable - flag to enable/disable radius based filtering
+ * @rad_x: movement radius in x direction
+ * @rad_y: movement radius in y direction
+ */
+struct qbt_touch_config {
+	bool rad_filter_enable;
+	int rad_x;
+	int rad_y;
 };
 
 #endif /* _UAPI_QBT_HANDLER_H_ */
