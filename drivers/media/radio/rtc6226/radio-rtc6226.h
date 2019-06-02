@@ -481,7 +481,7 @@ struct rtc6226_device {
 	struct fm_power_vreg_data *vioreg;
 	int band;
 	int space;
-	unsigned int users;
+	atomic_t users;
 	unsigned int mode;
 	u8 seek_tune_status;
 	u8 rssi_th;
