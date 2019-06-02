@@ -14,6 +14,7 @@
 #include <linux/ipa_uc_offload.h>
 #include <linux/pci.h>
 #include "ipa_api.h"
+#include "ipa_v3/ipa_i.h"
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -2794,23 +2795,18 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
 EXPORT_SYMBOL(ipa_get_client_mapping);
 
 /**
- * ipa_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
- * the supplied pipe index.
- *
- * @pipe_idx:
- *
- * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
- * found.
+ * ipa_get_rm_resource_from_ep() - this function is part of the deprecated
+ * RM mechanism but is still used by some drivers so we kept the definition.
  */
+
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 {
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_get_rm_resource_from_ep, pipe_idx);
-
-	return ret;
+	IPAERR("IPA RM is not supported idx=%d\n", pipe_idx);
+	return -EFAULT;
 }
 EXPORT_SYMBOL(ipa_get_rm_resource_from_ep);
+
+
 
 /**
  * ipa_get_modem_cfg_emb_pipe_flt()- Return ipa_ctx->modem_cfg_emb_pipe_flt
@@ -3644,18 +3640,6 @@ void ipa_deregister_client_callback(enum ipa_client_type client)
 		client);
 }
 
-
-/**
- * ipa_pm_is_used() - Returns if IPA PM framework is used
- */
-bool ipa_pm_is_used(void)
-{
-	bool ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_pm_is_used);
-
-	return ret;
-}
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

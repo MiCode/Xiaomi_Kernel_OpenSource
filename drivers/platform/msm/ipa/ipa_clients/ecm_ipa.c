@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -112,7 +112,7 @@ enum ecm_ipa_state {
 };
 
 /**
- * enum ecm_ipa_operation - enumerations used to descibe the API operation
+ * enum ecm_ipa_operation - enumerations used to describe the API operation
  *
  * Those enums are used as input for the driver state machine.
  */
@@ -147,8 +147,6 @@ enum ecm_ipa_operation {
  * state is changed to RNDIS_IPA_CONNECTED_AND_UP
  * @ipa_to_usb_client: consumer client
  * @usb_to_ipa_client: producer client
- * @ipa_rm_resource_name_prod: IPA resource manager producer resource
- * @ipa_rm_resource_name_cons: IPA resource manager consumer resource
  * @pm_hdl: handle for IPA PM
  * @is_vlan_mode: does the driver need to work in VLAN mode?
  */
@@ -166,8 +164,6 @@ struct ecm_ipa_dev {
 	void (*device_ready_notify)(void);
 	enum ipa_client_type ipa_to_usb_client;
 	enum ipa_client_type usb_to_ipa_client;
-	enum ipa_rm_resource_name ipa_rm_resource_name_prod;
-	enum ipa_rm_resource_name ipa_rm_resource_name_cons;
 	u32 pm_hdl;
 	bool is_vlan_mode;
 };
@@ -186,15 +182,9 @@ static int ecm_ipa_rules_cfg
 static void ecm_ipa_rules_destroy(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_deregister_properties(void);
-static void ecm_ipa_rm_notify
-	(void *user_data, enum ipa_rm_event event, unsigned long data);
 static struct net_device_stats *ecm_ipa_get_stats(struct net_device *net);
-static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
-static void ecm_ipa_destroy_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_register_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_deregister_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx);
-static int resource_request(struct ecm_ipa_dev *ecm_ipa_ctx);
-static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx);
 static netdev_tx_t ecm_ipa_start_xmit
 	(struct sk_buff *skb, struct net_device *net);
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
@@ -242,7 +232,6 @@ static void ecm_ipa_msg_free_cb(void *buff, u32 len, u32 type)
  *  - allocate the network device
  *  - set default values for driver internals
  *  - create debugfs folder and files
- *  - create IPA resource manager client
  *  - add header insertion rules for IPA driver (based on host/device
  *    Ethernet addresses given in input params)
  *  - register tx/rx properties to IPA driver (will be later used
@@ -446,44 +435,18 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 	ECM_IPA_DEBUG("usb_to_ipa_client = %d\n",
 		      ecm_ipa_ctx->usb_to_ipa_client);
 
-	if (ipa_pm_is_used()) {
-		retval = ecm_ipa_register_pm_client(ecm_ipa_ctx);
-	} else {
-		ecm_ipa_ctx->ipa_rm_resource_name_cons =
-			ipa_get_rm_resource_from_ep(ipa_to_usb_hdl);
-		if (ecm_ipa_ctx->ipa_rm_resource_name_cons < 0) {
-			ECM_IPA_ERROR(
-			"Error getting CONS RM resource from handle %d\n",
-				      ecm_ipa_ctx->ipa_rm_resource_name_cons);
-			return -EINVAL;
-		}
-		ECM_IPA_DEBUG("ipa_rm_resource_name_cons = %d\n",
-			      ecm_ipa_ctx->ipa_rm_resource_name_cons);
-
-		ecm_ipa_ctx->ipa_rm_resource_name_prod =
-			ipa_get_rm_resource_from_ep(usb_to_ipa_hdl);
-		if (ecm_ipa_ctx->ipa_rm_resource_name_prod < 0) {
-			ECM_IPA_ERROR(
-			"Error getting PROD RM resource from handle %d\n",
-				      ecm_ipa_ctx->ipa_rm_resource_name_prod);
-			return -EINVAL;
-		}
-		ECM_IPA_DEBUG("ipa_rm_resource_name_prod = %d\n",
-			      ecm_ipa_ctx->ipa_rm_resource_name_prod);
-
-		retval = ecm_ipa_create_rm_resource(ecm_ipa_ctx);
-	}
+	retval = ecm_ipa_register_pm_client(ecm_ipa_ctx);
 
 	if (retval) {
-		ECM_IPA_ERROR("fail on RM create\n");
-		goto fail_create_rm;
+		ECM_IPA_ERROR("fail register PM client\n");
+		return retval;
 	}
-	ECM_IPA_DEBUG("RM resource was created\n");
+	ECM_IPA_DEBUG("PM client registered\n");
 
 	retval = ecm_ipa_register_properties(ecm_ipa_ctx);
 	if (retval) {
 		ECM_IPA_ERROR("fail on properties set\n");
-		goto fail_create_rm;
+		goto fail_register_pm;
 	}
 	ECM_IPA_DEBUG("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
 
@@ -537,11 +500,8 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 
 fail:
 	ecm_ipa_deregister_properties();
-fail_create_rm:
-	if (ipa_pm_is_used())
-		ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
-	else
-		ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
+fail_register_pm:
+	ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
 	return retval;
 }
 EXPORT_SYMBOL(ecm_ipa_connect);
@@ -592,10 +552,7 @@ static int ecm_ipa_open(struct net_device *net)
  *   in "send" state
  * - The driver internal state is in "UP" state.
  * - Filter Tx switch is turned off
- * - The IPA resource manager state for the driver producer client
- *   is "Granted" which implies that all the resources in the dependency
- *   graph are valid for data flow.
- * - outstanding high boundary did not reach.
+ * - Outstanding high boundary did not reach.
  *
  * In case all of the above conditions are met, the network driver will
  * send the packet by using the IPA API for Tx.
@@ -626,11 +583,11 @@ static netdev_tx_t ecm_ipa_start_xmit
 		return NETDEV_TX_BUSY;
 	}
 
-	ret = resource_request(ecm_ipa_ctx);
+	ret = ipa_pm_activate(ecm_ipa_ctx->pm_hdl);
 	if (ret) {
-		ECM_IPA_DEBUG("Waiting to resource\n");
+		ECM_IPA_DEBUG("Failed to activate PM client\n");
 		netif_stop_queue(net);
-		goto resource_busy;
+		goto fail_pm_activate;
 	}
 
 	if (atomic_read(&ecm_ipa_ctx->outstanding_pkts) >=
@@ -662,8 +619,8 @@ static netdev_tx_t ecm_ipa_start_xmit
 
 fail_tx_packet:
 out:
-	resource_release(ecm_ipa_ctx);
-resource_busy:
+	ipa_pm_deferred_deactivate(ecm_ipa_ctx->pm_hdl);
+fail_pm_activate:
 	return status;
 }
 
@@ -803,10 +760,7 @@ int ecm_ipa_disconnect(void *priv)
 	netif_stop_queue(ecm_ipa_ctx->net);
 	ECM_IPA_DEBUG("queue stopped\n");
 
-	if (ipa_pm_is_used())
-		ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
-	else
-		ecm_ipa_destroy_rm_resource(ecm_ipa_ctx);
+	ecm_ipa_deregister_pm_client(ecm_ipa_ctx);
 
 	outstanding_dropped_pkts =
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts);
@@ -831,8 +785,6 @@ EXPORT_SYMBOL(ecm_ipa_disconnect);
  * needed anymore, e.g: when the USB composition does not support ECM.
  * This function shall be called after the pipes were disconnected.
  * Detailed description:
- *  - delete the driver dependency defined for IPA resource manager and
- *   destroy the producer resource.
  *  -  remove the debugfs entries
  *  - deregister the network interface from Linux network stack
  *  - free all internal data structs
@@ -1110,97 +1062,9 @@ static void ecm_ipa_deregister_properties(void)
  * Returns negative errno, or zero on success
  */
 
-static void ecm_ipa_rm_notify
-	(void *user_data, enum ipa_rm_event event, unsigned long data)
-{
-	struct ecm_ipa_dev *ecm_ipa_ctx = user_data;
-
-	ECM_IPA_LOG_ENTRY();
-	if
-		(event == IPA_RM_RESOURCE_GRANTED &&
-			netif_queue_stopped(ecm_ipa_ctx->net)) {
-		ECM_IPA_DEBUG("Resource Granted - starting queue\n");
-		netif_start_queue(ecm_ipa_ctx->net);
-	} else {
-		ECM_IPA_DEBUG("Resource released\n");
-	}
-	ECM_IPA_LOG_EXIT();
-}
-
 static struct net_device_stats *ecm_ipa_get_stats(struct net_device *net)
 {
 	return &net->stats;
-}
-
-static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
-{
-	struct ipa_rm_create_params create_params = {0};
-	struct ipa_rm_perf_profile profile;
-	int result;
-
-	ECM_IPA_LOG_ENTRY();
-	create_params.name = IPA_RM_RESOURCE_STD_ECM_PROD;
-	create_params.reg_params.user_data = ecm_ipa_ctx;
-	create_params.reg_params.notify_cb = ecm_ipa_rm_notify;
-	result = ipa_rm_create_resource(&create_params);
-	if (result) {
-		ECM_IPA_ERROR("Fail on ipa_rm_create_resource\n");
-		goto fail_rm_create;
-	}
-	ECM_IPA_DEBUG("rm client was created");
-
-	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_STD_ECM_PROD, &profile);
-
-	result = ipa_rm_inactivity_timer_init
-		(IPA_RM_RESOURCE_STD_ECM_PROD,
-		INACTIVITY_MSEC_DELAY);
-	if (result) {
-		ECM_IPA_ERROR("Fail on ipa_rm_inactivity_timer_init\n");
-		goto fail_it;
-	}
-	ECM_IPA_DEBUG("rm_it client was created");
-
-	result = ipa_rm_add_dependency_sync
-		(IPA_RM_RESOURCE_STD_ECM_PROD,
-		ecm_ipa_ctx->ipa_rm_resource_name_cons);
-	if (result && result != -EINPROGRESS)
-		ECM_IPA_ERROR
-		("unable to add ECM/USB dependency (%d)\n", result);
-
-	result = ipa_rm_add_dependency_sync
-		(ecm_ipa_ctx->ipa_rm_resource_name_prod,
-		IPA_RM_RESOURCE_APPS_CONS);
-	if (result && result != -EINPROGRESS)
-		ECM_IPA_ERROR
-		("unable to add USB/APPS dependency (%d)\n", result);
-
-	ECM_IPA_DEBUG("rm dependency was set\n");
-
-	ECM_IPA_LOG_EXIT();
-	return 0;
-
-fail_it:
-fail_rm_create:
-	return result;
-}
-
-static void ecm_ipa_destroy_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
-{
-	int result;
-
-	ECM_IPA_LOG_ENTRY();
-
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
-				 ecm_ipa_ctx->ipa_rm_resource_name_cons);
-	ipa_rm_delete_dependency(ecm_ipa_ctx->ipa_rm_resource_name_prod,
-				 IPA_RM_RESOURCE_APPS_CONS);
-	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
-	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
-	if (result)
-		ECM_IPA_ERROR("resource deletion failed\n");
-
-	ECM_IPA_LOG_EXIT();
 }
 
 static void ecm_ipa_pm_cb(void *p, enum ipa_pm_cb_event event)
@@ -1246,23 +1110,6 @@ static void ecm_ipa_deregister_pm_client(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ecm_ipa_ctx->pm_hdl = ~0;
 }
 
-static int resource_request(struct ecm_ipa_dev *ecm_ipa_ctx)
-{
-	if (ipa_pm_is_used())
-		return ipa_pm_activate(ecm_ipa_ctx->pm_hdl);
-
-	return ipa_rm_inactivity_timer_request_resource(
-		IPA_RM_RESOURCE_STD_ECM_PROD);
-}
-
-static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx)
-{
-	if (ipa_pm_is_used())
-		ipa_pm_deferred_deactivate(ecm_ipa_ctx->pm_hdl);
-	else
-		ipa_rm_inactivity_timer_release_resource(
-			IPA_RM_RESOURCE_STD_ECM_PROD);
-}
 
 /**
  * ecm_ipa_tx_complete_notify() - Rx notify

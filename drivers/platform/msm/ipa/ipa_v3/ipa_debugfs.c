@@ -1853,39 +1853,10 @@ bail:
 	return 0;
 }
 
-static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
-		size_t count, loff_t *ppos)
-{
-	int result, cnt = 0;
-
-	/* deprecate if IPA PM is used */
-	if (ipa3_ctx->use_ipa_pm) {
-		cnt += scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"IPA RM is disabled\n");
-		goto ret;
-	}
-
-	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
-	if (result < 0) {
-		cnt += scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"Error in printing RM stat %d\n", result);
-		goto ret;
-	}
-	cnt += result;
-ret:
-	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
-}
-
 static ssize_t ipa3_pm_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int result, cnt = 0;
-
-	if (!ipa3_ctx->use_ipa_pm) {
-		cnt += scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"IPA PM is disabled\n");
-		goto ret;
-	}
 
 	result = ipa_pm_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
@@ -1902,12 +1873,6 @@ static ssize_t ipa3_pm_ex_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int result, cnt = 0;
-
-	if (!ipa3_ctx->use_ipa_pm) {
-		cnt += scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"IPA PM is disabled\n");
-		goto ret;
-	}
 
 	result = ipa_pm_exceptions_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
@@ -2408,10 +2373,6 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"ipv6ct", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_ipv6ct,
-		}
-	}, {
-		"rm_stats", IPA_READ_ONLY_MODE, NULL, {
-			.read = ipa3_rm_read_stats,
 		}
 	}, {
 		"pm_stats", IPA_READ_ONLY_MODE, NULL, {
