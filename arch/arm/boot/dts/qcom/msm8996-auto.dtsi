@@ -11,7 +11,11 @@
  */
 
 &android_vendor {
-	fsmgr_flags = "wait,slotselect,verify";
+	fsmgr_flags = "wait,slotselect,avb";
+};
+
+&android_vbmeta {
+	parts = "vbmeta,boot,system,vendor,dtbo";
 };
 
 &peripheral_mem {

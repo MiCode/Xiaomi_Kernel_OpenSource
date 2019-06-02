@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -876,6 +876,12 @@ static int ipc_router_mhi_config_init(
 	spin_lock_init(&mhi_xprtp->rx_addr_map_list_lock);
 
 	rc = ipc_router_mhi_driver_register(mhi_xprtp, dev);
+	if (rc < 0) {
+		IPC_RTR_ERR("%s: mhi registration failed\n", __func__);
+		destroy_workqueue(mhi_xprtp->wq);
+		kfree(mhi_xprtp);
+	};
+
 	return rc;
 }
 

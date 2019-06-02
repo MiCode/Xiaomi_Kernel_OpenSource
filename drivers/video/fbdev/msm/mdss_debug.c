@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1449,6 +1449,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						break;
 					case MDSS_MDP_INTF2:
 						block_id = DISPLAY_MISR_DSI1;
+						break;
+					case MDSS_MDP_INTF3:
+						block_id = DISPLAY_MISR_HDMI;
 						break;
 					default:
 						pr_err("Unmatch INTF for Dual LM single display configuration, INTF:%d\n",

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -694,17 +694,6 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 	if (pwm_config->pwm_value > max_pwm_value)
 		pwm_config->pwm_value = max_pwm_value;
 
-	value = pwm_config->pwm_value;
-	mask = QPNP_PWM_VALUE_LSB_MASK;
-
-	pr_debug("pwm_lsb value:%d\n", value & mask);
-	rc = qpnp_lpg_save_and_write(value, mask,
-			&chip->qpnp_lpg_registers[QPNP_PWM_VALUE_LSB],
-			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-			QPNP_PWM_VALUE_LSB), 1, chip);
-	if (rc)
-		return rc;
-
 	value = (pwm_config->pwm_value >> QPNP_PWM_VALUE_MSB_SHIFT) &
 					QPNP_PWM_VALUE_MSB_MASK;
 
@@ -715,6 +704,17 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 			&chip->qpnp_lpg_registers[QPNP_PWM_VALUE_MSB],
 			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 			QPNP_PWM_VALUE_MSB), 1, chip);
+	if (rc)
+		return rc;
+
+	value = pwm_config->pwm_value;
+	mask = QPNP_PWM_VALUE_LSB_MASK;
+
+	pr_debug("pwm_lsb value:%d\n", value & mask);
+	rc = qpnp_lpg_save_and_write(value, mask,
+			&chip->qpnp_lpg_registers[QPNP_PWM_VALUE_LSB],
+			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+			QPNP_PWM_VALUE_LSB), 1, chip);
 	if (rc)
 		return rc;
 

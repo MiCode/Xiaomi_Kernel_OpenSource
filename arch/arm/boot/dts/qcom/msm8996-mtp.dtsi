@@ -525,6 +525,7 @@
 
 &pmi8994_charger {
 	dpdm-supply = <&qusb_phy0>;
+	qcom,usbin-vadc = <&pmi8994_vadc>;
 };
 
 &pmi8994_fg {
@@ -707,6 +708,7 @@
 	sound-9335 {
 		qcom,model = "msm8996-tasha-mtp-snd-card";
 		qcom,tdm-audio-intf;
+		qcom,hdmi-audio-rx;
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
@@ -738,9 +740,9 @@
 			"MIC BIAS4", "Digital Mic5",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
-
-		asoc-codec = <&stub_codec>, <&hdmi_audio>;
-		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+					"msm-ext-disp-audio-codec-rx";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 				<&dai_hdmi>, <&dai_mi2s>,
 				<&sb_0_rx>, <&sb_0_tx>,
