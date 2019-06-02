@@ -800,7 +800,7 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata)
 	case ODU_BRIDGE_MODE_ROUTER:
 		/* Router mode - pass skb to IPA */
 		res = ipa_tx_dp(IPA_CLIENT_ODU_PROD, skb, metadata);
-		if (res) {
+		if (unlikely(res)) {
 			ODU_BRIDGE_DBG("tx dp failed %d\n", res);
 			goto out;
 		}
@@ -813,7 +813,7 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata)
 		    ODU_BRIDGE_IS_QMI_ADDR(ipv6hdr->daddr)) {
 			ODU_BRIDGE_DBG_LOW("QMI packet\n");
 			skb_copied = skb_clone(skb, GFP_KERNEL);
-			if (!skb_copied) {
+			if (unlikely(!skb_copied)) {
 				ODU_BRIDGE_ERR("No memory\n");
 				return -ENOMEM;
 			}
@@ -834,13 +834,13 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata)
 			ODU_BRIDGE_DBG_LOW(
 				"Multicast pkt, send to APPS and IPA\n");
 			skb_copied = skb_clone(skb, GFP_KERNEL);
-			if (!skb_copied) {
+			if (unlikely(!skb_copied)) {
 				ODU_BRIDGE_ERR("No memory\n");
 				return -ENOMEM;
 			}
 
 			res = ipa_tx_dp(IPA_CLIENT_ODU_PROD, skb, metadata);
-			if (res) {
+			if (unlikely(res)) {
 				ODU_BRIDGE_DBG("tx dp failed %d\n", res);
 				dev_kfree_skb(skb_copied);
 				goto out;
@@ -855,7 +855,7 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata)
 		}
 
 		res = ipa_tx_dp(IPA_CLIENT_ODU_PROD, skb, metadata);
-		if (res) {
+		if (unlikely(res)) {
 			ODU_BRIDGE_DBG("tx dp failed %d\n", res);
 			goto out;
 		}

@@ -1228,7 +1228,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
 	unsigned long flags;
 
-	if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+	if (unlikely(rmnet_ipa3_ctx->ipa_config_is_apq)) {
 		IPAWANERR_RL("IPA embedded data on APQ platform\n");
 		dev_kfree_skb_any(skb);
 		dev->stats.tx_dropped++;
@@ -1295,7 +1295,8 @@ send:
 		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
 		return NETDEV_TX_BUSY;
 	}
-	if (ret) {
+
+	if (unlikely(ret)) {
 		IPAWANERR("[%s] fatal: ipa pm activate failed %d\n",
 		       dev->name, ret);
 		dev_kfree_skb_any(skb);
@@ -1318,7 +1319,7 @@ send:
 	 * IPA_CLIENT_Q6_WAN_CONS based on status configuration
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
-	if (ret) {
+	if (unlikely(ret)) {
 		atomic_dec(&wwan_ptr->outstanding_pkts);
 		if (ret == -EPIPE) {
 			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
@@ -1419,7 +1420,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 {
 	struct net_device *dev = (struct net_device *)priv;
 
-	if (evt == IPA_RECEIVE) {
+	if (likely(evt == IPA_RECEIVE)) {
 		struct sk_buff *skb = (struct sk_buff *)data;
 		int result;
 		unsigned int packet_len = skb->len;
@@ -1442,7 +1443,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 			}
 		}
 
-		if (result)	{
+		if (unlikely(result))	{
 			pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_receive_skb\n",
 							   __func__, __LINE__);
 			dev->stats.rx_dropped++;
