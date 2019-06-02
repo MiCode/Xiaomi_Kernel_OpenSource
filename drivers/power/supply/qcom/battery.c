@@ -92,6 +92,8 @@ struct pl_data {
 	bool			cp_disabled;
 	int			taper_entry_fv;
 	int			main_fcc_max;
+	int			fcc_step_size_ua;
+	int			fcc_step_delay_ms;
 	/* debugfs directory */
 	struct dentry		*dfs_root;
 };
@@ -420,8 +422,8 @@ ATTRIBUTE_GROUPS(batt_class);
  *  FCC  *
  **********/
 #define EFFICIENCY_PCT	80
-#define FCC_STEP_SIZE_UA 100000
-#define FCC_STEP_UPDATE_DELAY_MS 1000
+#define DEFAULT_FCC_STEP_SIZE_UA 100000
+#define DEFAULT_FCC_STEP_UPDATE_DELAY_MS 1000
 #define STEP_UP 1
 #define STEP_DOWN -1
 static void get_fcc_split(struct pl_data *chip, int total_ua,
@@ -528,6 +530,11 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 	union power_supply_propval pval = {0, };
 	int rc;
 
+	if (!chip->fcc_step_size_ua) {
+		pr_err("Invalid fcc stepper step size, value 0\n");
+		return;
+	}
+
 	/* Read current FCC of main charger */
 	rc = power_supply_get_property(chip->main_psy,
 		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
@@ -540,16 +547,16 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 	chip->main_step_fcc_dir = (main_fcc_ua > pval.intval) ?
 				STEP_UP : STEP_DOWN;
 	chip->main_step_fcc_count = abs((main_fcc_ua - pval.intval) /
-				FCC_STEP_SIZE_UA);
+				chip->fcc_step_size_ua);
 	chip->main_step_fcc_residual = (main_fcc_ua - pval.intval) %
-				FCC_STEP_SIZE_UA;
+				chip->fcc_step_size_ua;
 
 	chip->parallel_step_fcc_dir = (parallel_fcc_ua > chip->slave_fcc_ua) ?
 				STEP_UP : STEP_DOWN;
 	chip->parallel_step_fcc_count = abs((parallel_fcc_ua -
-				chip->slave_fcc_ua) / FCC_STEP_SIZE_UA);
+				chip->slave_fcc_ua) / chip->fcc_step_size_ua);
 	chip->parallel_step_fcc_residual = (parallel_fcc_ua -
-				chip->slave_fcc_ua) % FCC_STEP_SIZE_UA;
+				chip->slave_fcc_ua) % chip->fcc_step_size_ua;
 
 	if (chip->parallel_step_fcc_count || chip->parallel_step_fcc_residual
 		|| chip->main_step_fcc_count || chip->main_step_fcc_residual)
@@ -753,19 +760,19 @@ static void fcc_stepper_work(struct work_struct *work)
 	}
 
 	if (chip->main_step_fcc_count) {
-		main_fcc += (FCC_STEP_SIZE_UA * chip->main_step_fcc_dir);
+		main_fcc += (chip->fcc_step_size_ua * chip->main_step_fcc_dir);
 		chip->main_step_fcc_count--;
-		reschedule_ms = FCC_STEP_UPDATE_DELAY_MS;
+		reschedule_ms = chip->fcc_step_delay_ms;
 	} else if (chip->main_step_fcc_residual) {
 		main_fcc += chip->main_step_fcc_residual;
 		chip->main_step_fcc_residual = 0;
 	}
 
 	if (chip->parallel_step_fcc_count) {
-		parallel_fcc += (FCC_STEP_SIZE_UA *
+		parallel_fcc += (chip->fcc_step_size_ua *
 			chip->parallel_step_fcc_dir);
 		chip->parallel_step_fcc_count--;
-		reschedule_ms = FCC_STEP_UPDATE_DELAY_MS;
+		reschedule_ms = chip->fcc_step_delay_ms;
 	} else if (chip->parallel_step_fcc_residual) {
 		parallel_fcc += chip->parallel_step_fcc_residual;
 		chip->parallel_step_fcc_residual = 0;
@@ -1628,7 +1635,13 @@ static int pl_determine_initial_status(struct pl_data *chip)
 
 static void pl_config_init(struct pl_data *chip, int smb_version)
 {
+	chip->fcc_step_size_ua = DEFAULT_FCC_STEP_SIZE_UA;
+	chip->fcc_step_delay_ms = DEFAULT_FCC_STEP_UPDATE_DELAY_MS;
+
 	switch (smb_version) {
+	case PM8150B_SUBTYPE:
+		chip->fcc_step_delay_ms = 100;
+		break;
 	case PMI8998_SUBTYPE:
 	case PM660_SUBTYPE:
 		chip->wa_flags = AICL_RERUN_WA_BIT | FORCE_INOV_DISABLE_BIT;
