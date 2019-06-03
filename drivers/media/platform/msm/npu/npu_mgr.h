@@ -82,6 +82,7 @@ struct npu_host_ctx {
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
+	bool auto_pil_disable;
 	uint32_t fw_dbg_mode;
 	uint32_t exec_flags_override;
 	atomic_t ipc_trans_id;

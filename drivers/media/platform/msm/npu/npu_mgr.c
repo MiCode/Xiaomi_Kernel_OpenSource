@@ -60,14 +60,14 @@ static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
 static int npu_notify_aop(struct npu_device *npu_dev, bool on);
 static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post);
-static int load_fw_nolock(struct npu_device *npu_dev);
+static int load_fw_nolock(struct npu_device *npu_dev, bool enable);
 static void disable_fw_nolock(struct npu_device *npu_dev);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
  * -------------------------------------------------------------------------
  */
-static int load_fw_nolock(struct npu_device *npu_dev)
+static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
@@ -98,6 +98,15 @@ static int load_fw_nolock(struct npu_device *npu_dev)
 	NPU_DBG("firmware init complete\n");
 
 	host_ctx->fw_state = FW_ENABLED;
+	if (enable) {
+		ret = npu_notify_fw_pwr_state(npu_dev,
+			npu_dev->pwrctrl.active_pwrlevel, true);
+		if (ret) {
+			NPU_ERR("notify fw pwr on failed\n");
+			goto load_fw_fail;
+		}
+		return ret;
+	}
 
 	reinit_completion(&host_ctx->fw_shutdown_done);
 	ret = npu_notify_fw_pwr_state(npu_dev, NPU_PWRLEVEL_OFF, false);
@@ -119,6 +128,7 @@ load_fw_fail:
 	npu_disable_irq(npu_dev);
 	npu_disable_sys_cache(npu_dev);
 	npu_disable_core_power(npu_dev);
+	npu_notify_aop(npu_dev, false);
 	if (!ret) {
 		host_ctx->fw_state = FW_LOADED;
 	} else {
@@ -135,8 +145,12 @@ int load_fw(struct npu_device *npu_dev)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
 
+	if (host_ctx->auto_pil_disable) {
+		NPU_WARN("auto pil is disabled\n");
+		return ret;
+	}
 	mutex_lock(&host_ctx->lock);
-	ret = load_fw_nolock(npu_dev);
+	ret = load_fw_nolock(npu_dev, false);
 	mutex_unlock(&host_ctx->lock);
 
 	return ret;
@@ -145,6 +159,11 @@ int load_fw(struct npu_device *npu_dev)
 int unload_fw(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->auto_pil_disable) {
+		NPU_WARN("auto pil is disabled\n");
+		return 0;
+	}
 
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_UNLOADED) {
@@ -173,11 +192,19 @@ int enable_fw(struct npu_device *npu_dev)
 	mutex_lock(&host_ctx->lock);
 
 	if (host_ctx->fw_state == FW_UNLOADED) {
-		ret = load_fw_nolock(npu_dev);
+		ret = load_fw_nolock(npu_dev,
+			host_ctx->auto_pil_disable ? true : false);
 		if (ret) {
 			NPU_ERR("load fw failed\n");
 			mutex_unlock(&host_ctx->lock);
 			return ret;
+		}
+
+		if (host_ctx->auto_pil_disable) {
+			host_ctx->fw_error = false;
+			host_ctx->fw_ref_cnt++;
+			mutex_unlock(&host_ctx->lock);
+			goto enable_log;
 		}
 	}
 
@@ -241,6 +268,7 @@ int enable_fw(struct npu_device *npu_dev)
 	host_ctx->fw_ref_cnt++;
 	mutex_unlock(&host_ctx->lock);
 
+enable_log:
 	/* Set logging state */
 	if (!npu_hw_log_enabled()) {
 		NPU_DBG("fw logging disabled\n");
@@ -289,7 +317,8 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 		msleep(500);
 	}
 
-	if (!wait_for_completion_interruptible_timeout(
+	if (!host_ctx->auto_pil_disable
+		&& !wait_for_completion_interruptible_timeout(
 		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT))
 		NPU_ERR("Wait for fw shutdown timedout\n");
 
@@ -301,6 +330,12 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 	NPU_DBG("firmware is disabled\n");
 	npu_notify_aop(npu_dev, false);
 	complete(&host_ctx->fw_deinit_done);
+
+	if (host_ctx->auto_pil_disable) {
+		subsystem_put_local(host_ctx->subsystem_handle);
+		host_ctx->fw_state = FW_UNLOADED;
+		NPU_DBG("fw is unloaded\n");
+	}
 }
 
 void disable_fw(struct npu_device *npu_dev)
@@ -490,6 +525,11 @@ int npu_host_init(struct npu_device *npu_dev)
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
 	}
+
+	if (npu_dev->hw_version != 0x20000000)
+		host_ctx->auto_pil_disable = true;
+	else
+		host_ctx->auto_pil_disable = false;
 
 	return sts;
 }

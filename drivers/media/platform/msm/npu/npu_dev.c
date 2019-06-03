@@ -1670,6 +1670,23 @@ static void npu_mbox_deinit(struct npu_device *npu_dev)
 	}
 }
 
+static int npu_hw_info_init(struct npu_device *npu_dev)
+{
+	int rc = 0;
+
+	rc = npu_enable_core_power(npu_dev);
+	if (rc) {
+		NPU_ERR("Failed to enable power\n");
+		return rc;
+	}
+
+	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
+	NPU_DBG("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
+	npu_disable_core_power(npu_dev);
+
+	return rc;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -1807,6 +1824,10 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 
 	rc = npu_parse_dt_clock(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
+	rc = npu_hw_info_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
 
