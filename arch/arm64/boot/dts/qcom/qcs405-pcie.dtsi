@@ -115,6 +115,13 @@
 		clock-output-names = "pcie_0_pipe_clk";
 		resets = <&clock_gcc GCC_PCIEPHY_0_PHY_BCR>;
 		reset-names = "pcie_0_phy_reset";
+
+		pcie_rc0: pcie_rc0 {
+			#address-cells = <5>;
+			#size-cells = <0>;
+			reg = <0 0 0 0 0>;
+			pci-ids = "17cb:1000";
+		};
 	};
 
 	pcie0_msi: qcom,pcie0_msi@a0000000 {
