@@ -17,9 +17,6 @@
 #include "kgsl_gmu.h"
 #include "kgsl_hfi.h"
 #include "adreno.h"
-#include "kgsl_hfi.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_gmu.h"
 
 struct adreno_sysfs_attribute {
 	struct device_attribute attr;
@@ -536,87 +533,6 @@ static int _acd_data_store(struct adreno_device *adreno_dev, unsigned int val)
 	return 0;
 }
 
-static unsigned int address;
-static DEFINE_SPINLOCK(address_lock);
-
-static int _address_store(struct adreno_device *adreno_dev,
-		unsigned int val)
-{
-	spin_lock(&address_lock);
-	address = val;
-	spin_unlock(&address_lock);
-	return 0;
-}
-
-static unsigned int _address_show(struct adreno_device *adreno_dev)
-{
-	unsigned int val;
-
-	spin_lock(&address_lock);
-	val = address;
-	spin_unlock(&address_lock);
-	return val;
-}
-
-static int _value_store(struct adreno_device *adreno_dev,
-		unsigned int val)
-{
-	struct hfi_set_value_cmd req = {
-		.type = HFI_VALUE_ADDRESS,
-		.subtype = 0,
-		.data = val,
-	};
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret;
-
-	spin_lock(&address_lock);
-	req.subtype = address;
-	spin_unlock(&address_lock);
-
-	mutex_lock(&device->mutex);
-	ret = kgsl_active_count_get(device);
-	if (ret) {
-		mutex_unlock(&device->mutex);
-		return ret;
-	}
-
-	ret = hfi_send_req(gmu, H2F_MSG_SET_VALUE, &req);
-
-	kgsl_active_count_put(device);
-	mutex_unlock(&device->mutex);
-	return ret;
-}
-
-static unsigned int _value_show(struct adreno_device *adreno_dev)
-{
-	struct hfi_get_value_req req;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret;
-
-	memset(&req, 0, sizeof(req));
-
-	spin_lock(&address_lock);
-	req.cmd.subtype = address;
-	spin_unlock(&address_lock);
-
-	req.cmd.type = HFI_VALUE_ADDRESS;
-
-	mutex_lock(&device->mutex);
-	ret = kgsl_active_count_get(device);
-	if (ret) {
-		mutex_unlock(&device->mutex);
-		return ret;
-	}
-
-	ret = hfi_send_req(gmu, H2F_MSG_GET_VALUE, &req);
-
-	kgsl_active_count_put(device);
-	mutex_unlock(&device->mutex);
-	return ret ? ret : req.data[0];
-}
-
 static ssize_t _sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -729,8 +645,6 @@ static ADRENO_SYSFS_U32(acd_stride);
 static ADRENO_SYSFS_U32(acd_num_levels);
 static ADRENO_SYSFS_U32(acd_enable_by_level);
 static ADRENO_SYSFS_U32(acd_data);
-static ADRENO_SYSFS_U32(address);
-static ADRENO_SYSFS_U32(value);
 
 static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr,
@@ -759,8 +673,6 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_acd_num_levels.attr,
 	&adreno_attr_acd_enable_by_level.attr,
 	&adreno_attr_acd_data.attr,
-	&adreno_attr_address.attr,
-	&adreno_attr_value.attr,
 	NULL,
 };
 

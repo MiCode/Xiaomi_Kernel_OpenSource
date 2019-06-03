@@ -78,6 +78,7 @@ struct qmi_info {
 	unsigned long ps_work_active;
 	bool ps_enabled;
 	bool dl_msg_active;
+	bool ps_ignore_grant;
 };
 
 enum data_ep_type_enum_v01 {
@@ -120,8 +121,6 @@ void dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 
 int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable);
 
-void dfc_qmi_wq_flush(struct qmi_info *qmi);
-
 void dfc_qmi_query_flow(void *dfc_data);
 
 int dfc_bearer_flow_ctl(struct net_device *dev,
@@ -155,11 +154,6 @@ static inline void dfc_qmi_client_exit(void *dfc_data)
 static inline void
 dfc_qmi_burst_check(struct net_device *dev, struct qos_info *qos,
 		    int ip_type, u32 mark, unsigned int len)
-{
-}
-
-static inline void
-dfc_qmi_wq_flush(struct qmi_info *qmi)
 {
 }
 

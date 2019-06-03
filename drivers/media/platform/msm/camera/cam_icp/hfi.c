@@ -73,24 +73,28 @@ void cam_hfi_queue_dump(void)
 		qtbl_hdr->qtbl_num_q, qtbl_hdr->qtbl_qhdr_size);
 
 	cmd_q_hdr = &qtbl->q_hdr[Q_CMD];
-	CAM_DBG(CAM_HFI, "cmd: size = %u r_idx = %u w_idx = %u addr = %x",
+	CAM_INFO(CAM_HFI, "cmd: size = %u r_idx = %u w_idx = %u addr = %x",
 		cmd_q_hdr->qhdr_q_size, cmd_q_hdr->qhdr_read_idx,
 		cmd_q_hdr->qhdr_write_idx, hfi_mem->cmd_q.iova);
 	read_q = (uint32_t *)g_hfi->map.cmd_q.kva;
 	read_ptr = (uint32_t *)(read_q + 0);
+	CAM_INFO(CAM_HFI, "CMD Q %p", read_q);
 	CAM_DBG(CAM_HFI, "CMD Q START");
 	for (i = 0; i < ICP_CMD_Q_SIZE_IN_BYTES >> BYTE_WORD_SHIFT; i++)
 		CAM_DBG(CAM_HFI, "Word: %d Data: 0x%08x ", i, read_ptr[i]);
+	CAM_DBG(CAM_HFI, "CMD Q END");
 
 	msg_q_hdr = &qtbl->q_hdr[Q_MSG];
-	CAM_DBG(CAM_HFI, "msg: size = %u r_idx = %u w_idx = %u addr = %x",
+	CAM_INFO(CAM_HFI, "msg: size = %u r_idx = %u w_idx = %u addr = %x",
 		msg_q_hdr->qhdr_q_size, msg_q_hdr->qhdr_read_idx,
 		msg_q_hdr->qhdr_write_idx, hfi_mem->msg_q.iova);
 	read_q = (uint32_t *)g_hfi->map.msg_q.kva;
 	read_ptr = (uint32_t *)(read_q + 0);
+	CAM_INFO(CAM_HFI, "MSG Q %p", read_ptr);
 	CAM_DBG(CAM_HFI, "MSG Q START");
 	for (i = 0; i < ICP_MSG_Q_SIZE_IN_BYTES >> BYTE_WORD_SHIFT; i++)
 		CAM_DBG(CAM_HFI, "Word: %d Data: 0x%08x ", i, read_ptr[i]);
+	CAM_DBG(CAM_HFI, "MSG Q END");
 }
 
 int hfi_write_cmd(void *cmd_ptr)

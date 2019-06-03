@@ -5203,6 +5203,14 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				"Invalid params, inst %pK\n", inst);
 		return -EINVAL;
 	}
+
+	if (inst->state < MSM_VIDC_OPEN_DONE) {
+		dprintk(VIDC_ERR,
+			"Invalid state to call flush, inst %pK, state %#x\n",
+			inst, inst->state);
+		return -EINVAL;
+	}
+
 	core = inst->core;
 	hdev = core->device;
 

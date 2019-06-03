@@ -49,7 +49,8 @@ struct npu_network {
 	uint32_t first_block_size;
 	uint32_t network_hdl;
 	uint32_t priority;
-	uint32_t perf_mode;
+	uint32_t cur_perf_mode;
+	uint32_t init_perf_mode;
 	uint32_t num_layers;
 	void *stats_buf;
 	void __user *stats_buf_u;
@@ -74,6 +75,7 @@ enum fw_state {
 struct npu_host_ctx {
 	struct mutex lock;
 	void *subsystem_handle;
+	struct npu_device *npu_dev;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
 	int32_t power_vote_num;
@@ -83,6 +85,7 @@ struct npu_host_ctx {
 	struct workqueue_struct *wq;
 	struct completion loopback_done;
 	struct completion fw_deinit_done;
+	struct completion property_set_done;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
@@ -90,7 +93,7 @@ struct npu_host_ctx {
 	uint32_t exec_flags_override;
 	uint32_t fw_unload_delay_ms;
 	atomic_t ipc_trans_id;
-	atomic_t network_exeute_cnt;
+	atomic_t network_execute_cnt;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
@@ -134,8 +137,11 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
+int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
+			struct msm_npu_property *property);
 void npu_host_cleanup_networks(struct npu_client *client);
-
+int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
+	uint32_t perf_mode);
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 
 #endif /* _NPU_MGR_H */

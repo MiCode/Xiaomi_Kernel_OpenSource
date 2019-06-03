@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,12 +284,8 @@ static int mhi_system_resume(struct device *dev)
 	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
 
 	ret = mhi_runtime_resume(dev);
-	if (ret) {
+	if (ret)
 		MHI_ERR("Failed to resume link\n");
-	} else {
-		pm_runtime_set_active(dev);
-		pm_runtime_enable(dev);
-	}
 
 	return ret;
 }
@@ -309,9 +305,6 @@ int mhi_system_suspend(struct device *dev)
 			return ret;
 		}
 	}
-
-	pm_runtime_set_suspended(dev);
-	pm_runtime_disable(dev);
 
 	MHI_LOG("Exit\n");
 	return 0;

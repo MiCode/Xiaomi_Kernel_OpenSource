@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config gpu_cc_pll1_config = {
+static struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x1A,
 	.alpha = 0xAAA,
 	.config_ctl_val = 0x20485699,
@@ -90,6 +90,7 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 	.offset = 0x100,
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
+	.config = &gpu_cc_pll1_config,
 	.type = TRION_PLL,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
@@ -484,8 +485,6 @@ static int gpu_cc_sm8150_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_mx.regulator[0]);
 	}
 
-	clk_trion_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
-
 	gpu_cc_sm8150_fixup(pdev);
 
 	for (i = 0; i < ARRAY_SIZE(gpu_cc_sm8150_hws); i++) {
@@ -493,6 +492,8 @@ static int gpu_cc_sm8150_probe(struct platform_device *pdev)
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 	}
+
+	clk_trion_pll_configure(&gpu_cc_pll1, regmap, gpu_cc_pll1.config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sm8150_desc, regmap);
 	if (ret) {
