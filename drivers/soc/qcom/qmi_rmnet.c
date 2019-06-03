@@ -743,8 +743,8 @@ static LIST_HEAD(ps_list);
 struct rmnet_powersave_work {
 	struct delayed_work work;
 	void *port;
-	u64 old_rx_pkts;
-	u64 old_tx_pkts;
+	u64 old_rx_bytes;
+	u64 old_tx_bytes;
 };
 
 void qmi_rmnet_ps_on_notify(void *port)
@@ -830,8 +830,9 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 {
 	struct rmnet_powersave_work *real_work;
 	struct qmi_info *qmi;
-	u64 rxd, txd;
+	s64 rxd, txd;
 	u64 rx, tx;
+	u64 rx_rate, tx_rate;
 	bool dl_msg_active;
 
 	real_work = container_of(to_delayed_work(work),
@@ -864,11 +865,18 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		goto end;
 	}
 
-	rmnet_get_packets(real_work->port, &rx, &tx);
-	rxd = rx - real_work->old_rx_pkts;
-	txd = tx - real_work->old_tx_pkts;
-	real_work->old_rx_pkts = rx;
-	real_work->old_tx_pkts = tx;
+	rmnet_get_stats(real_work->port, &rx, &tx);
+	rxd = rx - real_work->old_rx_bytes;
+	txd = tx - real_work->old_tx_bytes;
+	real_work->old_rx_bytes = rx;
+	real_work->old_tx_bytes = tx;
+
+	if (rxd >= 0 && txd >= 0) {
+		/* data rates in bits/s */
+		rx_rate = (rxd * HZ / PS_INTERVAL) << 3;
+		tx_rate = (txd * HZ / PS_INTERVAL) << 3;
+		rmnet_set_data_rates(real_work->port, rx_rate, tx_rate);
+	}
 
 	dl_msg_active = qmi->dl_msg_active;
 	qmi->dl_msg_active = false;
@@ -938,8 +946,8 @@ void qmi_rmnet_work_init(void *port)
 	}
 	INIT_DEFERRABLE_WORK(&rmnet_work->work, qmi_rmnet_check_stats);
 	rmnet_work->port = port;
-	rmnet_get_packets(rmnet_work->port, &rmnet_work->old_rx_pkts,
-			  &rmnet_work->old_tx_pkts);
+	rmnet_get_stats(rmnet_work->port, &rmnet_work->old_rx_bytes,
+			&rmnet_work->old_tx_bytes);
 
 	rmnet_work_quit = false;
 	qmi_rmnet_work_set_active(rmnet_work->port, 1);

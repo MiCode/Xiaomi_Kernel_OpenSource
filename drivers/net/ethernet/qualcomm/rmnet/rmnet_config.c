@@ -39,6 +39,9 @@
 
 /* Local Definitions and Declarations */
 
+#define RMNET_SCHED_BOOST_THRESH  (500000000)
+bool rmnet_sched_boost;
+
 enum {
 	IFLA_RMNET_DFC_QOS = __IFLA_RMNET_MAX,
 	IFLA_RMNET_UL_AGG_PARAMS,
@@ -606,7 +609,7 @@ void rmnet_init_qmi_pt(void *port, void *qmi)
 }
 EXPORT_SYMBOL(rmnet_init_qmi_pt);
 
-void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
+void rmnet_get_stats(void *port, u64 *rx, u64 *tx)
 {
 	struct rmnet_priv *priv;
 	struct rmnet_pcpu_stats *ps;
@@ -627,14 +630,14 @@ void rmnet_get_packets(void *port, u64 *rx, u64 *tx)
 			ps = per_cpu_ptr(priv->pcpu_stats, cpu);
 			do {
 				start = u64_stats_fetch_begin_irq(&ps->syncp);
-				*tx += ps->stats.tx_pkts;
-				*rx += ps->stats.rx_pkts;
+				*tx += ps->stats.tx_bytes;
+				*rx += ps->stats.rx_bytes;
 			} while (u64_stats_fetch_retry_irq(&ps->syncp, start));
 		}
 	}
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL(rmnet_get_packets);
+EXPORT_SYMBOL(rmnet_get_stats);
 
 void  rmnet_set_powersave_format(void *port)
 {
@@ -701,6 +704,16 @@ int rmnet_get_powersave_notif(void *port)
 }
 EXPORT_SYMBOL(rmnet_get_powersave_notif);
 #endif
+
+/* Set data rates (in bits/s) */
+void rmnet_set_data_rates(void *port, u64 rx_rate, u64 tx_rate)
+{
+	if (((struct rmnet_port *)port)->data_format & RMNET_FORMAT_TASK_BOOST)
+		WRITE_ONCE(rmnet_sched_boost,
+			   (tx_rate >= RMNET_SCHED_BOOST_THRESH) ?
+				true : false);
+}
+EXPORT_SYMBOL(rmnet_set_data_rates);
 
 /* Startup/Shutdown */
 
