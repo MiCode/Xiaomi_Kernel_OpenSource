@@ -1043,6 +1043,8 @@ struct ath10k {
 	const u8 *wmi_key_cipher;
 	void *ce_priv;
 
+	struct completion peer_delete_done;
+
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };
