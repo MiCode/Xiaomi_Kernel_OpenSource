@@ -433,14 +433,9 @@ static int disp_probe_1(void)
 			continue;
 		}
 
-#ifdef CONFIG_MTK_SYSIRQ
 		/* In MTK SYSIRQ, the irq offset has been removed. */
 		if (ddp_get_module_checkirq(i) - 32 !=
 		    virq_to_hwirq(ddp_get_module_irq(i))) {
-#else
-		if (ddp_get_module_checkirq(i) !=
-		    virq_to_hwirq(ddp_get_module_irq(i))) {
-#endif
 			n = snprintf(msg, len,
 				     "[ERR]DT, i=%d, module=%s, map_irq=%d, ",
 				     i, ddp_get_module_name(i),
