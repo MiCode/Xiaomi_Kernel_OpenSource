@@ -742,6 +742,12 @@
 				"mbox2",
 				"mbox3",
 				"mbox4";
+
+			clocks = <&infracfg_ao CLK_INFRA_SSPM_26M_SELF>,
+				<&infracfg_ao CLK_INFRA_SSPM_32K_SELF>,
+				<&infracfg_ao CLK_INFRA_SSPM_BUS_HCLK>;
+
+			clock-names = "sspm_26m", "sspm_32k", "sspm_bus_hclk";
 		};
 
 		uart0: serial@11002000 {
