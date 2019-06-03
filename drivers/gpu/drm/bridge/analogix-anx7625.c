@@ -728,7 +728,7 @@ static int anx7625_poweron(struct anx7625 *anx7625)
 	usleep_range(10000, 11000);
 
 	gpiod_set_value_cansleep(pdata->gpiod_reset, 1);
-	usleep_range(1000, 1100);
+	usleep_range(10000, 11000);
 
 	/* setup clock */
 	WriteReg(RX_P0, XTAL_FRQ_SEL, XTAL_FRQ_27M);
