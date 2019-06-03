@@ -685,6 +685,7 @@
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-mhi-a7-irq;
 		qcom,phy-status-reg = <0xa14>;
+		qcom,tcsr-not-supported;
 
 		qcom,phy-init = <0x0a40 0x01 0x0 0x1
 				0x0094 0x00 0x0 0x1
