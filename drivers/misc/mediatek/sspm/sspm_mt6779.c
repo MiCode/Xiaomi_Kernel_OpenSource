@@ -28,6 +28,7 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/atomic.h>
+#include <linux/clk.h>
 #include "sspm_define.h"
 #include "sspm_ipi.h"
 #include "sspm_excep.h"
@@ -135,6 +136,7 @@ static int mt6779_sspm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
+	struct clk *sspm_26m, *sspm_32k, *sspm_bus_hclk;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfgreg");
 	sspmreg.cfg = devm_ioremap_resource(dev, res);
@@ -154,6 +156,28 @@ static int mt6779_sspm_probe(struct platform_device *pdev)
 
 	pr_info("[SSPM] mt6779-sspm irq=%d, cfgreg=0x%x\n",
 			sspmreg.irq, sspmreg.cfg);
+
+	sspm_26m = devm_clk_get(dev, "sspm_26m");
+	if (IS_ERR(sspm_26m)) {
+		pr_err("[SSPM] Get sspm clock fail: 26M.\n");
+		return -1;
+	}
+
+	sspm_32k = devm_clk_get(dev, "sspm_32k");
+	if (IS_ERR(sspm_32k)) {
+		pr_err("[SSPM] Get sspm clock fail: 32K.\n");
+		return -1;
+	}
+
+	sspm_bus_hclk = devm_clk_get(dev, "sspm_bus_hclk");
+	if (IS_ERR(sspm_bus_hclk)) {
+		pr_err("[SSPM] Get sspm clock fail: Bus_hclk.\n");
+		return -1;
+	}
+
+	clk_prepare_enable(sspm_26m);
+	clk_prepare_enable(sspm_32k);
+	clk_prepare_enable(sspm_bus_hclk);
 
 	sspm_pdev = pdev;
 
