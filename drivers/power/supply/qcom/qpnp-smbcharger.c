@@ -249,6 +249,7 @@ struct smbchg_chip {
 	struct power_supply		*dc_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		*typec_psy;
+	struct power_supply		*dpdm_psy;
 	int				dc_psy_type;
 	const char			*bms_psy_name;
 	const char			*battery_psy_name;
@@ -4605,12 +4606,19 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 	smbchg_relax(chip, PM_DETECT_HVDCP);
 }
 
-static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
+static int set_dpdm_psy(struct smbchg_chip *chip, int state)
 {
 	int rc;
 	u8 reg;
 	union power_supply_propval pval = {0, };
 
+	if (!chip->dpdm_psy)
+		chip->dpdm_psy = power_supply_get_by_name("dpdm");
+
+	if (!chip->dpdm_psy) {
+		pr_err("dpdm_psy not found\n");
+		return -EINVAL;
+	}
 	/*
 	 * ensure that we are not in the middle of an insertion where usbin_uv
 	 * is low and src_detect hasnt gone high. If so force dp=F dm=F
@@ -4626,9 +4634,9 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 			return rc;
 		}
 	}
-	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
+	pr_smb(PR_MISC, "setting dpdm psy = %d\n", state);
 	pval.intval = state;
-	return power_supply_set_property(chip->usb_psy,
+	return power_supply_set_property(chip->dpdm_psy,
 				POWER_SUPPLY_PROP_DP_DM, &pval);
 }
 
@@ -5240,7 +5248,7 @@ static int smbchg_prepare_for_pulsing(struct smbchg_chip *chip)
 	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
 			AICL_EN_BIT, AICL_EN_BIT);
 
-	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DP0P6_DMF);
+	set_dpdm_psy(chip, POWER_SUPPLY_DP_DM_DP0P6_DMF);
 	/*
 	 * DCP will switch to HVDCP in this time by removing the short
 	 * between DP DM
@@ -5263,7 +5271,7 @@ static int smbchg_prepare_for_pulsing(struct smbchg_chip *chip)
 		goto out;
 	}
 
-	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DP0P6_DM3P3);
+	set_dpdm_psy(chip, POWER_SUPPLY_DP_DM_DP0P6_DM3P3);
 	/* Wait 60mS after entering continuous mode */
 	msleep(60);
 
@@ -5665,8 +5673,7 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 		break;
 	case POWER_SUPPLY_DP_DM_DP_PULSE:
 		if (chip->schg_version == QPNP_SCHG)
-			rc = set_usb_psy_dp_dm(chip,
-					POWER_SUPPLY_DP_DM_DP_PULSE);
+			rc = set_dpdm_psy(chip, POWER_SUPPLY_DP_DM_DP_PULSE);
 		else
 			rc = smbchg_dp_pulse_lite(chip);
 		if (!rc)
@@ -5675,8 +5682,7 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 		break;
 	case POWER_SUPPLY_DP_DM_DM_PULSE:
 		if (chip->schg_version == QPNP_SCHG)
-			rc = set_usb_psy_dp_dm(chip,
-					POWER_SUPPLY_DP_DM_DM_PULSE);
+			rc = set_dpdm_psy(chip, POWER_SUPPLY_DP_DM_DM_PULSE);
 		else
 			rc = smbchg_dm_pulse_lite(chip);
 		if (!rc && chip->pulse_cnt)
