@@ -61,6 +61,7 @@ Optional Properties:
   - qcom,pcie-mhi-a7-irq: boolean type; MHI a7 has separate irq.
   - qcom,pcie-perst-enum: Link enumeration will be triggered by PERST
     deassertion.
+  - qcom,tcsr-not-supported: TCSR pcie perst is not supported.
   - mdm2apstatus-gpio: GPIO used by PCIe endpoint side to notify the host side.
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
     below optional properties:
