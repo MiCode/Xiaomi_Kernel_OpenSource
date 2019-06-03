@@ -34,7 +34,11 @@ struct cvp_dsp_cmd_msg {
 	uint32_t buff_size;
 	uint32_t session_id;
 	int32_t ddr_type;
-	uint32_t reserved[CVP_DSP_MAX_RESERVED];
+	uint32_t buff_fd;
+	uint32_t buff_offset;
+	uint32_t reserved0;
+	uint32_t reserved1;
+	uint32_t reserved2;
 };
 
 struct cvp_dsp_rsp_msg {
@@ -336,19 +340,22 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 	return err;
 }
 
-int cvp_dsp_register_buffer(uint32_t iova_buff_addr,
-	uint32_t buff_index, uint32_t buff_size,
-	uint32_t session_id)
+int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
+			uint32_t buff_size, uint32_t buff_offset,
+			uint32_t buff_index, uint32_t iova_buff_addr)
 {
 	struct cvp_dsp_cmd_msg local_cmd_msg;
 	int err;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
 	local_cmd_msg.cmd_msg_type = CVP_DSP_REGISTER_BUFFER;
-	local_cmd_msg.iova_buff_addr = iova_buff_addr;
-	local_cmd_msg.buff_index = buff_index;
-	local_cmd_msg.buff_size = buff_size;
 	local_cmd_msg.session_id = session_id;
+	local_cmd_msg.buff_fd = buff_fd;
+	local_cmd_msg.buff_size = buff_size;
+	local_cmd_msg.buff_offset = buff_offset;
+	local_cmd_msg.buff_index = buff_index;
+	local_cmd_msg.iova_buff_addr = iova_buff_addr;
+
 	dprintk(CVP_DBG,
 		"%s: cmd_msg_type=0x%x, iova_buff_addr=0x%x buff_index=0x%x\n",
 		__func__, local_cmd_msg.cmd_msg_type, iova_buff_addr,

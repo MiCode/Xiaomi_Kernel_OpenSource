@@ -296,6 +296,8 @@ void *msm_cvp_open(int core_id, int session_type)
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
+	INIT_MSM_CVP_LIST(&inst->frames);
+
 	init_waitqueue_head(&inst->event_handler.wq);
 
 	kref_init(&inst->kref);
@@ -311,6 +313,9 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.core_id = CVP_CORE_ID_DEFAULT;
 	inst->deprecate_bitmask = 0;
 	inst->fence_data_cache = KMEM_CACHE(msm_cvp_fence_thread_data, 0);
+	inst->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
+	inst->frame_buf_cache = KMEM_CACHE(msm_cvp_frame_buf, 0);
+	inst->internal_buf_cache = KMEM_CACHE(msm_cvp_internal_buffer, 0);
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -362,7 +367,13 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
+	DEINIT_MSM_CVP_LIST(&inst->frames);
+
 	kmem_cache_destroy(inst->fence_data_cache);
+	kmem_cache_destroy(inst->frame_cache);
+	kmem_cache_destroy(inst->frame_buf_cache);
+	kmem_cache_destroy(inst->internal_buf_cache);
+
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
@@ -405,7 +416,12 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
+	DEINIT_MSM_CVP_LIST(&inst->frames);
+
 	kmem_cache_destroy(inst->fence_data_cache);
+	kmem_cache_destroy(inst->frame_cache);
+	kmem_cache_destroy(inst->frame_buf_cache);
+	kmem_cache_destroy(inst->internal_buf_cache);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
