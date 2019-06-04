@@ -16,6 +16,17 @@
 #include <linux/esoc_ctrl.h>
 #include <linux/notifier.h>
 
+enum esoc_client_hook_prio {
+	ESOC_MHI_HOOK,
+	ESOC_CNSS_HOOK,
+	ESOC_MAX_HOOKS
+};
+
+struct esoc_link_data {
+	enum esoc_client_hook_prio prio;
+	__u64 link_id;
+};
+
 /* Flag values used with the power_on and power_off hooks */
 #define ESOC_HOOK_MDM_CRASH	0x0001 /* In crash handling path */
 #define ESOC_HOOK_MDM_DOWN	0x0002 /* MDM about to go down */
