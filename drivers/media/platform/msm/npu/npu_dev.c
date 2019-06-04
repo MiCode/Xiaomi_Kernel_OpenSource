@@ -438,22 +438,19 @@ static ssize_t npu_store_fw_state(struct device *dev,
 					  const char *buf, size_t count)
 {
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_client client;
 	bool enable = false;
 	int rc;
 
 	if (strtobool(buf, &enable) < 0)
 		return -EINVAL;
 
-	if (enable) {
-		pr_debug("%s: fw init\n", __func__);
-		rc = fw_init(npu_dev);
-		if (rc) {
-			pr_err("fw init failed\n");
-			return rc;
-		}
-	} else {
-		pr_debug("%s: fw deinit\n", __func__);
-		fw_deinit(npu_dev, false, true);
+	client.npu_dev = npu_dev;
+	rc = npu_set_fw_state(&client, enable ? 1 : 0);
+
+	if (rc) {
+		pr_err("%s fw failed\n", enable ? "enable" : "disable");
+		return rc;
 	}
 
 	return count;
@@ -1615,16 +1612,32 @@ static int npu_receive_event(struct npu_client *client,
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 {
 	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int rc = 0;
 
+	if (host_ctx->network_num > 0) {
+		pr_err("Need to unload network first\n");
+		mutex_unlock(&npu_dev->dev_lock);
+		return -EINVAL;
+	}
+
 	if (enable) {
-		pr_debug("%s: enable fw\n", __func__);
+		pr_debug("enable fw\n");
 		rc = fw_init(npu_dev);
-		if (rc)
+		if (rc) {
 			pr_err("enable fw failed\n");
-	} else {
-		pr_debug("%s: disable fw\n", __func__);
+		} else {
+			host_ctx->npu_init_cnt++;
+			pr_debug("npu_init_cnt %d\n",
+				host_ctx->npu_init_cnt);
+		}
+	} else if (host_ctx->npu_init_cnt > 0) {
+		pr_debug("disable fw\n");
 		fw_deinit(npu_dev, false, true);
+		host_ctx->npu_init_cnt--;
+		pr_debug("npu_init_cnt %d\n", host_ctx->npu_init_cnt);
+	} else {
+		pr_err("can't disable fw %d\n", host_ctx->npu_init_cnt);
 	}
 
 	return rc;
