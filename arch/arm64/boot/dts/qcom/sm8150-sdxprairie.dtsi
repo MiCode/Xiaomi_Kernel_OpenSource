@@ -90,7 +90,6 @@
 
 	mhi_devices {
 		mhi_qrtr {
-			mhi,chan = "IPCR";
 			qcom,net-id = <3>;
 		};
 	};
