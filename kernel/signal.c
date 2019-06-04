@@ -2991,12 +2991,11 @@ static int copy_siginfo_from_user_any(siginfo_t *kinfo, siginfo_t __user *info)
 }
 
 /**
- * sys_pidfd_send_signal - send a signal to a process through a task file
- *                          descriptor
- * @pidfd:  the file descriptor of the process
- * @sig:    signal to be sent
- * @info:   the signal info
- * @flags:  future flags to be passed
+ * sys_pidfd_send_signal - Signal a process through a pidfd
+ * @pidfd:  file descriptor of the process
+ * @sig:    signal to send
+ * @info:   signal info
+ * @flags:  future flags
  *
  * The syscall currently only signals via PIDTYPE_PID which covers
  * kill(<positive-pid>, <signal>. It does not signal threads or process
