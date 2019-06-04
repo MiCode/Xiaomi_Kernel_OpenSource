@@ -1630,6 +1630,9 @@ static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 			host_ctx->npu_init_cnt++;
 			pr_debug("npu_init_cnt %d\n",
 				host_ctx->npu_init_cnt);
+			/* set npu to lowest power level */
+			if (npu_set_uc_power_level(npu_dev, 1))
+				pr_warn("Failed to set uc power level");
 		}
 	} else if (host_ctx->npu_init_cnt > 0) {
 		pr_debug("disable fw\n");
