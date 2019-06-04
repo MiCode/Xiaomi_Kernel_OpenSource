@@ -1430,9 +1430,18 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 	 * This test is optimistic, if we get it wrong the load-balancer
 	 * will have to sort it out.
 	 */
+#ifdef CONFIG_MTK_SCHED_INTEROP
+	/*
+	 * If the task is allowed to put more than one CPU.
+	 * Let p use find_lowest_rq to choose idle CPU first,
+	 * instead of CPU have non-RT tasks.
+	 */
+	if ((p->nr_cpus_allowed > 1)) {
+#else
 	if (curr && unlikely(rt_task(curr)) &&
 	    (curr->nr_cpus_allowed < 2 ||
 	     curr->prio <= p->prio)) {
+#endif
 		int target = find_lowest_rq(p);
 
 		/*
@@ -1653,6 +1662,9 @@ static int find_lowest_rq(struct task_struct *task)
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
 	int cpu      = task_cpu(task);
+#ifdef CONFIG_MTK_SCHED_INTEROP
+	int i;
+#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1663,6 +1675,18 @@ static int find_lowest_rq(struct task_struct *task)
 
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return -1; /* No targets found */
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+	/* Choose task_cpu if it is idle and it fits lowest_mask */
+	if (cpumask_test_cpu(cpu, lowest_mask) && idle_cpu(cpu))
+		return cpu;
+
+	/* Choose idle_cpu among lowest */
+	for_each_cpu(i, lowest_mask) {
+		if (idle_cpu(i))
+			return i;
+	}
+#endif
 
 	/*
 	 * At this point we have built a mask of CPUs representing the
@@ -2433,6 +2457,23 @@ const struct sched_class rt_sched_class = {
  * Ensure that the real time constraints are schedulable.
  */
 static DEFINE_MUTEX(rt_constraints_mutex);
+#ifdef CONFIG_MTK_SCHED_INTEROP
+bool is_rt_throttle(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	rt_rq_iter_t iter;
+	struct rt_rq *rt_rq;
+	bool rt_throttle = false;
+
+	for_each_rt_rq(rt_rq, iter, rq) {
+		if (rt_rq->rt_throttled) {
+			rt_throttle = true;
+			break;
+		}
+	}
+	return rt_throttle;
+}
+#endif
 
 /* Must be called with tasklist_lock held */
 static inline int tg_has_rt_tasks(struct task_group *tg)

@@ -1,0 +1,10 @@
+menu "MTK load balance and schedule enhancement"
+config MTK_SCHED_INTEROP
+	bool "mtk scheduling interopation enhancement"
+	default n
+	help
+	   Original Linux Design, RT & CFS do load balance seperatedly,
+	   and let would result in unload balance.
+	   that is, one CPU has more than 2 tasks, however, one CPU is IDLE
+	   We make RT & CFS to check each other and make load more balance.
+endmenu

@@ -1602,6 +1602,11 @@ config PC104
 	  selection and configuration. Enable this option if your target
 	  machine has a PC/104 bus.
 
+
+menu "Extension scheduler feature"
+source "kernel/sched/extension/Kconfig"
+endmenu
+
 menu "Kernel Performance Events And Counters"
 
 config PERF_EVENTS
