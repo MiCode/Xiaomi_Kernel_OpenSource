@@ -541,6 +541,15 @@ source "drivers/s390/char/Kconfig"
 source "drivers/char/xillybus/Kconfig"
 source "drivers/char/diag/Kconfig"
 
+config MSM_FASTCVPD
+	bool "QTI FASTCVP driver"
+	depends on QCOM_GLINK
+	help
+	  This driver exposes APIs (Application Program Interface) to video driver
+	  to share HFI command queue address to CDSP (Compute Digital Signal
+	  Processor) and handle errors to exit gracefully in case video and cdsp
+	  subsystems crash.
+
 config MSM_ADSPRPC
         tristate "QTI ADSP RPC driver"
         depends on QCOM_GLINK
