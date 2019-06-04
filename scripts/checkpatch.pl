@@ -2591,16 +2591,10 @@ sub process {
 						     $herecurr);
 					}
 					$shorttext = AFTER_SHORTTEXT;
-				} elsif (length($line) > (SHORTTEXT_LIMIT +
-							  $shorttext_exspc)
-					 && $line !~ /^:([0-7]{6}\s){2}
-						      ([[:xdigit:]]+\.*
-						       \s){2}\w+\s\w+/xms) {
-					WARN("LONG_COMMIT_TEXT",
-					     "commit text line over " .
-					     SHORTTEXT_LIMIT .
-					     " characters\n" . $herecurr);
-				} elsif ($line=~/^\s*[\x21-\x39\x3b-\x7e]+:/) {
+				} elsif ($line=~/^\s*change-id:/i ||
+					 $line=~/^\s*signed-off-by:/i ||
+					 $line=~/^\s*crs-fixed:/i ||
+					 $line=~/^\s*acked-by:/i) {
 					# this is a tag, there must be commit
 					# text by now
 					if ($commit_text_present == 0) {
