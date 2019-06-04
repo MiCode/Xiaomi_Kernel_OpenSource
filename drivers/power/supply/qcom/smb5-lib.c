@@ -4567,6 +4567,41 @@ irqreturn_t default_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smb_en_irq_handler(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+	int rc, input_present;
+
+	if (!chg->cp_disable_votable) {
+		chg->cp_disable_votable = find_votable("CP_DISABLE");
+		if (!chg->cp_disable_votable)
+			return IRQ_HANDLED;
+	}
+
+	if (chg->pd_hard_reset) {
+		vote(chg->cp_disable_votable, BOOST_BACK_VOTER, true, 0);
+		return IRQ_HANDLED;
+	}
+
+	rc = smblib_is_input_present(chg, &input_present);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return IRQ_HANDLED;
+	}
+
+	if (input_present) {
+		/*
+		 * Add some delay to enable SMB1390 switcher after SMB_EN
+		 * pin goes high
+		 */
+		usleep_range(1000, 1100);
+		vote(chg->cp_disable_votable, BOOST_BACK_VOTER, false, 0);
+	}
+
+	return IRQ_HANDLED;
+}
+
 #define CHG_TERM_WA_ENTRY_DELAY_MS		300000		/* 5 min */
 #define CHG_TERM_WA_EXIT_DELAY_MS		60000		/* 1 min */
 static void smblib_eval_chg_termination(struct smb_charger *chg, u8 batt_status)
