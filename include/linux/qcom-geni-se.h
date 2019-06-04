@@ -103,6 +103,7 @@ struct se_geni_rsc {
 #define SE_GENI_CLK_SEL			(0x7C)
 #define SE_GENI_CFG_SEQ_START			(0x84)
 #define SE_GENI_CFG_REG		(0x200)
+#define GENI_CFG_REG80			(0x240)
 #define SE_GENI_BYTE_GRAN		(0x254)
 #define SE_GENI_DMA_MODE_EN		(0x258)
 #define SE_GENI_TX_PACKING_CFG0		(0x260)
@@ -140,6 +141,13 @@ struct se_geni_rsc {
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
+#define GENI_IO_MUX_0_EN			BIT(1)
+#define GENI_IO_MUX_1_EN			BIT(2)
+
+/* GENI_CFG_REG80 fields */
+#define IO1_SEL_TX			BIT(2)
+#define IO2_DATA_IN_SEL_PAD2	(GENMASK(11, 10))
+#define IO3_DATA_IN_SEL_PAD2	BIT(15)
 
 /* GENI_FORCE_DEFAULT_REG fields */
 #define FORCE_DEFAULT	(BIT(0))
