@@ -14,6 +14,8 @@
 #include <dt-bindings/iio/qcom,spmi-vadc.h>
 #include <dt-bindings/input/input.h>
 #include "qcs610.dtsi"
+#include "sm6150-sde.dtsi"
+#include "sm6150-sde-pll.dtsi"
 #include "sm6150-sde-display.dtsi"
 #include "qcs610-camera-sensor-idp.dtsi"
 
@@ -75,7 +77,115 @@
 		#include "qg-batterydata-alium-3600mah.dtsi"
 		#include "qg-batterydata-mlp356477-2800mah.dtsi"
 	};
+
+	emac_hw: qcom,emac@20000 {
+		compatible = "qcom,emac-dwc-eqos";
+		qcom,arm-smmu;
+		reg = <0x20000 0x10000>,
+			<0x36000 0x100>;
+		reg-names = "emac-base", "rgmii-base";
+		dma-bit-mask = <32>;
+		emac-core-version = <7>;
+		interrupts-extended = <&pdc 0 660 4>, <&pdc 0 661 4>,
+			<&tlmm 76 2>, <&pdc 0 651 4>,
+			<&pdc 0 652 4>, <&pdc 0 653 4>,
+			<&pdc 0 654 4>, <&pdc 0 655 4>,
+			<&pdc 0 656 4>, <&pdc 0 657 4>,
+			<&pdc 0 658 4>, <&pdc 0 659 4>,
+			<&pdc 0 668 4>, <&pdc 0 669 4>;
+		interrupt-names = "sbd-intr", "lpi-intr",
+			"phy-intr", "tx-ch0-intr",
+			"tx-ch1-intr", "tx-ch2-intr",
+			"tx-ch3-intr", "tx-ch4-intr",
+			"rx-ch0-intr", "rx-ch1-intr",
+			"rx-ch2-intr", "rx-ch3-intr",
+			"ptp_pps_irq_0","ptp_pps_irq_1";
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>,  /* No vote */
+			<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "0", "10", "100", "1000";
+		clocks = <&clock_gcc GCC_EMAC_AXI_CLK>,
+				<&clock_gcc GCC_EMAC_PTP_CLK>,
+				<&clock_gcc GCC_EMAC_RGMII_CLK>,
+				<&clock_gcc GCC_EMAC_SLV_AHB_CLK>;
+		clock-names = "eth_axi_clk", "eth_ptp_clk",
+				"eth_rgmii_clk", "eth_slave_ahb_clk";
+		qcom,phy-reset = <&tlmm 36 GPIO_ACTIVE_HIGH>;
+		qcom,phy-intr-redirect = <&tlmm 76 GPIO_ACTIVE_LOW>;
+		gdsc_emac-supply = <&emac_gdsc>;
+		pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
+		"dev-emac-rgmii_txd0_state", "dev-emac-rgmii_txd1_state",
+		"dev-emac-rgmii_txd2_state", "dev-emac-rgmii_txd3_state",
+		"dev-emac-rgmii_txc_state",  "dev-emac-rgmii_tx_ctl_state",
+		"dev-emac-rgmii_rxd0_state", "dev-emac-rgmii_rxd1_state",
+		"dev-emac-rgmii_rxd2_state", "dev-emac-rgmii_rxd3_state",
+		"dev-emac-rgmii_rxc_state", "dev-emac-rgmii_rx_ctl_state",
+		"dev-emac-phy_intr", "dev-emac-phy_reset_state",
+		"dev-emac_pin_pps_0";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+		pinctrl-2 = <&emac_rgmii_txd0>;
+		pinctrl-3 = <&emac_rgmii_txd1>;
+		pinctrl-4 = <&emac_rgmii_txd2>;
+		pinctrl-5 = <&emac_rgmii_txd3>;
+		pinctrl-6 = <&emac_rgmii_txc>;
+		pinctrl-7 = <&emac_rgmii_tx_ctl>;
+		pinctrl-8 = <&emac_rgmii_rxd0>;
+		pinctrl-9 = <&emac_rgmii_rxd1>;
+		pinctrl-10 = <&emac_rgmii_rxd2>;
+		pinctrl-11 = <&emac_rgmii_rxd3>;
+		pinctrl-12 = <&emac_rgmii_rxc>;
+		pinctrl-13 = <&emac_rgmii_rx_ctl>;
+		pinctrl-14 = <&emac_phy_intr>;
+		pinctrl-15 = <&emac_phy_reset_state>;
+		pinctrl-16 = <&emac_pin_pps_0>;
+		vreg_emac_phy-supply =  <&L19A>;
+		qcom,phyad_change;
+
+		io-macro-info {
+			io-macro-bypass-mode = <0>;
+			io-interface = "rgmii";
+		};
+		emac_emb_smmu: emac_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x1C0 0x0>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
+		};
+	};
+
 };
+
+&emac_phy_intr {
+	mux {
+		pins = "gpio76";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio76";
+		bias-disable;  /* NO pull */
+		drive-strength = <2>;
+		};
+	};
+
+&emac_phy_reset_state {
+	mux {
+		pins = "gpio36";
+		function = "gpio";
+		};
+
+	config {
+		pins = "gpio36";
+		bias-pull-up;
+		drive-strength = <16>;
+		};
+	};
 
 &pm6150l_wled {
 	qcom,string-cfg= <3>;
