@@ -423,7 +423,7 @@
 					compatble = "android,vendor";
 					dev = "/dev/block/platform/soc/4804000.ufshc/by-name/vendor";
 					type = "ext4";
-					mnt_flags = "ro.barrier=1,discard";
+					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
 				};
