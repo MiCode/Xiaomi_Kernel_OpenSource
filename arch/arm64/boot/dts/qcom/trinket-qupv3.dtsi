@@ -36,9 +36,9 @@
 		qcom,msm-bus,vectors-bus-ids =
 			<MSM_BUS_MASTER_QUP_CORE_0 MSM_BUS_SLAVE_QUP_CORE_0>,
 			<MSM_BUS_MASTER_QUP_0 MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,vote-for-bw;
 
 		qcom,iommu-s1-bypass;
-
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
 			iommus = <&apps_smmu 0x123 0x0>;
@@ -236,6 +236,7 @@
 		qcom,msm-bus,vectors-bus-ids =
 			<MSM_BUS_MASTER_QUP_CORE_1 MSM_BUS_SLAVE_QUP_CORE_1>,
 			<MSM_BUS_MASTER_QUP_1 MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,vote-for-bw;
 
 		qcom,iommu-s1-bypass;
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
