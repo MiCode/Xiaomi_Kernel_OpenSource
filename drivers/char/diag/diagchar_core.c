@@ -4239,7 +4239,7 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->hdlc_recovery_mutex);
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		mutex_init(&driver->diagfwd_channel_mutex[i]);
-		mutex_init(&driver->rpmsginfo_mutex[i]);
+		spin_lock_init(&driver->rpmsginfo_lock[i]);
 		driver->diag_id_sent[i] = 0;
 	}
 	init_waitqueue_head(&driver->wait_q);
