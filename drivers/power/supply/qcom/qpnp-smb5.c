@@ -2165,13 +2165,15 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 
 	switch (chip->dt.term_current_src) {
 	case ITERM_SRC_ADC:
-		rc = smblib_masked_write(chg, CHGR_ADC_TERM_CFG_REG,
-				TERM_BASED_ON_SYNC_CONV_OR_SAMPLE_CNT,
-				TERM_BASED_ON_SAMPLE_CNT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure ADC_ITERM_CFG rc=%d\n",
-					rc);
-			return rc;
+		if (chip->chg.smb_version == PM8150B_SUBTYPE) {
+			rc = smblib_masked_write(chg, CHGR_ADC_TERM_CFG_REG,
+					TERM_BASED_ON_SYNC_CONV_OR_SAMPLE_CNT,
+					TERM_BASED_ON_SAMPLE_CNT);
+			if (rc < 0) {
+				dev_err(chg->dev, "Couldn't configure ADC_ITERM_CFG rc=%d\n",
+						rc);
+				return rc;
+			}
 		}
 		rc = smb5_configure_iterm_thresholds_adc(chip);
 		break;
