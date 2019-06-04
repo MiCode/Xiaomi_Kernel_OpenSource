@@ -2911,6 +2911,12 @@ static void ipa3_q6_avoid_holb(void)
 			ipahal_write_reg_n_fields(
 				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 				ep_idx, &ep_holb);
+
+			/* IPA4.5 issue requires HOLB_EN to be written twice */
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+				ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+					ep_idx, &ep_holb);
 		}
 	}
 }
