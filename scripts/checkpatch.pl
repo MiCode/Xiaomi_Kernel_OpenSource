@@ -2787,7 +2787,7 @@ sub process {
 			$sig_nospace =~ s/\s//g;
 			$sig_nospace = lc($sig_nospace);
 			if (defined $signatures{$sig_nospace}) {
-				WARN("BAD_SIGN_OFF",
+				WARN("DUPLICATE_SIGN_OFF",
 				     "Duplicate signature\n" . $herecurr);
 			} else {
 				$signatures{$sig_nospace} = 1;
@@ -2838,7 +2838,7 @@ sub process {
 # Check for line lengths > 75 in commit log, warn once
 		if ($in_commit_log && !$commit_log_long_line &&
 		    length($line) > 75 &&
-		    !($line =~ /^\s*[a-zA-Z0-9_\/\.]+\s+\|\s+\d+/ ||
+		    !($line =~ /^\s*[a-zA-Z0-9_\/\.\-]+\s+\|\s+\d+/ ||
 					# file delta changes
 		      $line =~ /^\s*(?:[\w\.\-]+\/)++[\w\.\-]+:/ ||
 					# filename then :
