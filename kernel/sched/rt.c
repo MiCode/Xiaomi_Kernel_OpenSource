@@ -860,6 +860,9 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 				rt_rq->rt_throttled = 0;
 				enqueue = 1;
 
+				printk_deferred("[name:rt&]sched: RT throttling inactivated cpu=%d\n",
+						i);
+
 				/*
 				 * When we're idle and a woken (rt) task is
 				 * throttled check_preempt_curr() will set
@@ -928,7 +931,7 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 		 */
 		if (likely(rt_b->rt_runtime)) {
 			rt_rq->rt_throttled = 1;
-			printk_deferred_once("sched: RT throttling activated\n");
+			printk_deferred("[name:rt&]sched: RT throttling activated\n");
 		} else {
 			/*
 			 * In case we did anyway, make it go away,
