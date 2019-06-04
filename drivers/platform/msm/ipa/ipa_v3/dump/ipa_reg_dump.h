@@ -20,16 +20,6 @@
 #include "ipa_pkt_cntxt.h"
 #include "ipa_hw_common_ex.h"
 
-/*
- * The following macros are used to peek and poke register values and
- * are required by some of the macros and include files that follow...
- */
-#define my_in_dword(addr) \
-	(readl(addr))
-
-#define my_out_dword(addr, val) \
-	({ __iowmb(); writel_relaxed((val), (addr)); })
-
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
 #include "ipa_hwio.h"
@@ -1253,7 +1243,7 @@ struct regs_save_hierarchy_s {
 static inline u32
 act_read(void __iomem *addr)
 {
-	u32 val = my_in_dword(addr);
+	u32 val = ioread32(addr);
 
 	return val;
 }
@@ -1264,7 +1254,7 @@ act_read(void __iomem *addr)
 static inline void
 act_write(void __iomem *addr, u32 val)
 {
-	my_out_dword(addr, val);
+	iowrite32(val, addr);
 }
 
 /*
