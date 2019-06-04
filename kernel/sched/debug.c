@@ -674,7 +674,6 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_WALT
-	P(cluster->load_scale_factor);
 	P(cluster->max_possible_capacity);
 	P(cluster->efficiency);
 	P(cluster->cur_freq);
