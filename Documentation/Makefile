@@ -2,7 +2,7 @@
 # Makefile for Sphinx documentation
 #
 
-subdir-y := devicetree/bindings/
+subdir-y :=
 
 # You can set these variables from the command line.
 SPHINXBUILD   = sphinx-build

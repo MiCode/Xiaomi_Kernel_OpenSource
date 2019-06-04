@@ -28,3 +28,9 @@ subdir-y += synaptics
 subdir-y += ti
 subdir-y += xilinx
 subdir-y += zte
+
+dtstree	:= $(srctree)/$(src)
+vendor  := $(dtstree)/vendor
+ifneq "$(wildcard $(vendor)/Makefile)" ""
+    subdir-y += vendor
+endif
