@@ -70,6 +70,6 @@
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "cam_clk";
 		clock-cntl-level = "turbo";
-		clock-rates = <24000000>;
+		clock-rates = <37125000>;
 	};
 };
