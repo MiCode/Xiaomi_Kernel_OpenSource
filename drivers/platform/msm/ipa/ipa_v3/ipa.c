@@ -2486,11 +2486,13 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 			continue;
 
 		/* disable statuses for all modem controlled prod pipes */
-		if (IPA_CLIENT_IS_Q6_PROD(client_idx) ||
-			(ipa3_ctx->ep[ep_idx].valid &&
+		if (!IPA_CLIENT_IS_TEST(client_idx) &&
+			(IPA_CLIENT_IS_Q6_PROD(client_idx) ||
+			(IPA_CLIENT_IS_PROD(client_idx) &&
+			ipa3_ctx->ep[ep_idx].valid &&
 			ipa3_ctx->ep[ep_idx].skip_ep_cfg) ||
 			(ipa3_ctx->ep[ep_idx].client == IPA_CLIENT_APPS_WAN_PROD
-			&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
+			&& ipa3_ctx->modem_cfg_emb_pipe_flt))) {
 			ipa_assert_on(num_descs >= ipa3_ctx->ipa_num_pipes);
 
 			ipa3_ctx->ep[ep_idx].status.status_en = false;
