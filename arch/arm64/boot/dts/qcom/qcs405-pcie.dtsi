@@ -84,6 +84,7 @@
 		qcom,phy-power-down-offset = <0x98>;
 		qcom,boot-option = <0x1>;
 		qcom,keep-powerdown-phy;
+		qcom,no-l0s-supported;
 
 		linux,pci-domain = <0>;
 
