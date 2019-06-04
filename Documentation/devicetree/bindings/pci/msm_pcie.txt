@@ -122,6 +122,7 @@ Optional Properties:
     and reset lines used by this controller.
   - reset-names: reset signal name strings sorted in the same order as the resets
     property.
+  - clock-output-names: name of the outgoing clock signal from the PHY PLL.
 
 =================
 Root Complex node
