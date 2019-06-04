@@ -431,6 +431,8 @@ void unregister_irq_proc(unsigned int irq, struct irq_desc *desc)
 	remove_proc_entry("node", desc->dir);
 #endif
 	remove_proc_entry("spurious", desc->dir);
+	remove_proc_entry("disable_depth", desc->dir);
+	remove_proc_entry("wake_depth", desc->dir);
 
 	memset(name, 0, MAX_NAMELEN);
 	sprintf(name, "%u", irq);
