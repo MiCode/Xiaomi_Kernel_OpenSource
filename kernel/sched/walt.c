@@ -2081,7 +2081,7 @@ void mark_task_starting(struct task_struct *p)
 
 #define pct_to_min_scaled(tunable) \
 		div64_u64(((u64)sched_ravg_window * tunable) << 10, \
-			   (u64)sched_cluster[0]->load_scale_factor)
+			   (u64)sched_cluster[0]->load_scale_factor * 100)
 
 static inline void walt_update_group_thresholds(void)
 {
