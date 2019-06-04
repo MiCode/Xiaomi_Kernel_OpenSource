@@ -26,6 +26,7 @@ void init_cpu_topology(void);
 void store_cpu_topology(unsigned int cpuid);
 void remove_cpu_topology(unsigned int cpuid);
 const struct cpumask *cpu_coregroup_mask(int cpu);
+int topology_nr_clusters(void);
 
 #ifdef CONFIG_NUMA
 
@@ -50,6 +51,10 @@ int pcibus_to_node(struct pci_bus *bus);
 
 /* Enable topology flag updates */
 #define arch_update_cpu_topology topology_update_cpu_topology
+
+/* Cpu and cluster informantion */
+#define arch_cpu_cluster_id topology_physical_package_id
+#define arch_nr_clusters topology_nr_clusters
 
 #include <asm-generic/topology.h>
 
