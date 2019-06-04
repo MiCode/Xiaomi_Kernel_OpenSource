@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -424,6 +424,11 @@
 				mhi,chan = "IP_HW_ADPL";
 				mhi,interface-name = "rmnet_mhi";
 				mhi,mru = <0x4000>;
+			};
+
+			mhi_qrtr {
+				 mhi,chan = "IPCR";
+				 mhi,early-notify;
 			};
 		};
 	};
