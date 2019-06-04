@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,9 @@ int ufshcd_pltfrm_resume(struct device *dev);
 int ufshcd_pltfrm_runtime_suspend(struct device *dev);
 int ufshcd_pltfrm_runtime_resume(struct device *dev);
 int ufshcd_pltfrm_runtime_idle(struct device *dev);
+int ufshcd_pltfrm_freeze(struct device *dev);
+int ufshcd_pltfrm_restore(struct device *dev);
+int ufshcd_pltfrm_thaw(struct device *dev);
 
 #else /* !CONFIG_PM */
 
