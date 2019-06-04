@@ -32,6 +32,7 @@ Properties:
 		    "qcom,pdc-sm6150",
 	            "qcom,pdc-sm8150",
 		    "qcom,pdc-sdxprairie",
+	            "qcom,pdc-atoll"
 
 - reg:
 	Usage: required

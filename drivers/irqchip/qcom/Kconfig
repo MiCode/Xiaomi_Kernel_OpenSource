@@ -41,6 +41,15 @@ config QTI_PDC_SDXPRAIRIE
 	  the wakeup interrupts. Enable it when
 	  ARCH_SDXPRAIRIE is selected.
 
+config QTI_PDC_ATOLL
+        bool "QTI PDC ATOLL"
+        select QTI_PDC
+        help
+          QTI Power Domain Controller for ATOLL
+	  This is used for managing and configuring
+	  the wakeup interrupts. Enable it when
+	  ARCH_ATOLL is selected.
+
 config QTI_MPM
 	bool "QTI MPM"
 	depends on ARCH_QCOM
