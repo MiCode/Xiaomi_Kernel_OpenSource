@@ -112,6 +112,8 @@ static int add_opp_prop_from_child(struct device *dev,
 	const void *p_val;
 
 	p_val = of_get_property(of_child, PROP_OPERATING_POINTS_V2, &len);
+	if (!p_val)
+		return -ENODEV;
 	value = devm_kzalloc(dev, len, GFP_KERNEL);
 	if (!value)
 		return -ENOMEM;
