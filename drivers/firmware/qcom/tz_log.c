@@ -20,6 +20,7 @@
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
+#include <soc/qcom/qtee_shmbridge.h>
 
 /* QSEE_LOG_BUF_SIZE = 32K */
 #define QSEE_LOG_BUF_SIZE 0x8000
@@ -319,6 +320,7 @@ static struct tzdbg tzdbg = {
 static struct tzdbg_log_t *g_qsee_log;
 static dma_addr_t coh_pmem;
 static uint32_t debug_rw_buf_size;
+static struct qtee_shm shm;
 
 /*
  * Debugfs data structure and functions
@@ -856,14 +858,13 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 	void *buf = NULL;
 
 	len = QSEE_LOG_BUF_SIZE;
-	buf = dma_alloc_coherent(&pdev->dev, len, &coh_pmem, GFP_KERNEL);
-	if (buf == NULL) {
-		pr_err("Failed to alloc memory for size %zu\n", len);
+	ret = qtee_shmbridge_allocate_shm(len, &shm);
+	if (ret)
 		return;
-	}
+	buf = shm.vaddr;
+	coh_pmem = shm.paddr;
 
 	g_qsee_log = (struct tzdbg_log_t *)buf;
-
 	desc.args[0] = coh_pmem;
 	desc.args[1] = len;
 	desc.arginfo = 0x22;
@@ -886,7 +887,7 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 	return;
 
 err:
-	dma_free_coherent(&pdev->dev, len, (void *)g_qsee_log, coh_pmem);
+	qtee_shmbridge_free_shm(&shm);
 }
 
 static int  tzdbgfs_init(struct platform_device *pdev)
@@ -933,8 +934,7 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
 	if (g_qsee_log)
-		dma_free_coherent(&pdev->dev, QSEE_LOG_BUF_SIZE,
-					 (void *)g_qsee_log, coh_pmem);
+		qtee_shmbridge_free_shm(&shm);
 }
 
 static int __update_hypdbg_base(struct platform_device *pdev,
