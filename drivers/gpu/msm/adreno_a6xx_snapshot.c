@@ -585,7 +585,7 @@ static struct a6xx_shader_block a6xx_shader_blocks[] = {
 	{A6XX_SP_LB_3_DATA,               0x800},
 	{A6XX_SP_LB_4_DATA,               0x800},
 	{A6XX_SP_LB_5_DATA,               0x200},
-	{A6XX_SP_CB_BINDLESS_DATA,        0x2000},
+	{A6XX_SP_CB_BINDLESS_DATA,        0x800},
 	{A6XX_SP_CB_LEGACY_DATA,          0x280,},
 	{A6XX_SP_UAV_DATA,                0x80,},
 	{A6XX_SP_INST_TAG,                0x80,},
