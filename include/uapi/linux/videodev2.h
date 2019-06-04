@@ -727,6 +727,37 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_Y12I     v4l2_fourcc('Y', '1', '2', 'I') /* Greyscale 12-bit L/R interleaved */
 #define V4L2_PIX_FMT_Z16      v4l2_fourcc('Z', '1', '6', ' ') /* Depth data 16-bit */
 #define V4L2_PIX_FMT_MT21C    v4l2_fourcc('M', 'T', '2', '1') /* Mediatek compressed block mode  */
+#define V4L2_PIX_FMT_MT21    v4l2_fourcc('M', 'M', '2', '1')
+	/* MTK 8-bit block mode, two non-contiguous planes */
+#define V4L2_PIX_FMT_MT2110T    v4l2_fourcc('M', 'T', '2', 'T')
+	/* MTK 10-bit tile block mode, two non-contiguous planes */
+#define V4L2_PIX_FMT_MT2110R    v4l2_fourcc('M', 'T', '2', 'R')
+	/* MTK 10-bit raster block mode, two non-contiguous planes */
+#define V4L2_PIX_FMT_MT21C10T    v4l2_fourcc('M', 'T', 'C', 'T')
+	/* MTK 10-bit tile compressed block mode, two non-contiguous planes */
+#define V4L2_PIX_FMT_MT21C10R    v4l2_fourcc('M', 'T', 'C', 'R')
+	/* MTK 10-bit raster compressed block mode, two non-contiguous planes */
+#define V4L2_PIX_FMT_MT21CS    v4l2_fourcc('M', '2', 'C', 'S')
+	/* MTK 8-bit compressed block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21S    v4l2_fourcc('M', '2', '1', 'S')
+	/* MTK 8-bit block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21S10T    v4l2_fourcc('M', 'T', 'S', 'T')
+	/* MTK 10-bit tile block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21S10R    v4l2_fourcc('M', 'T', 'S', 'R')
+	/* MTK 10-bit raster block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21CS10T    v4l2_fourcc('M', 'C', 'S', 'T')
+	/* MTK 10-bit tile compressed block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21CS10R    v4l2_fourcc('M', 'C', 'S', 'R')
+	/* MTK 10-bit raster compressed block mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21CSA    v4l2_fourcc('M', 'A', 'C', 'S')
+	/* MTK 8-bit compressed block au offset mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21S10TJ    v4l2_fourcc('M', 'J', 'S', 'T')
+	/* MTK 10-bit tile block jump mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21S10RJ    v4l2_fourcc('M', 'J', 'S', 'R')
+	/* MTK 10-bit raster block jump mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21CS10TJ    v4l2_fourcc('J', 'C', 'S', 'T')
+	/* MTK 10-bit tile compressed block jump mode, two contiguous planes */
+#define V4L2_PIX_FMT_MT21CS10RJ    v4l2_fourcc('J', 'C', 'S', 'R')
 #define V4L2_PIX_FMT_INZI     v4l2_fourcc('I', 'N', 'Z', 'I') /* Intel Planar Greyscale 10-bit and Depth 16-bit */
 
 /* 10bit raw bayer packed, 32 bytes for every 25 pixels, last LSB 6 bits unused */
