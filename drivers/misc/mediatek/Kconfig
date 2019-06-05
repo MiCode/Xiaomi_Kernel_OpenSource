@@ -6,6 +6,15 @@ endmenu # Storage
 
 menu "Power, PMIC, Battery & Low Power"
 
+config MTK_BASE_POWER
+	bool "MediaTek power management"
+	help
+	  For MediaTek power management features, such as CPU idle,
+	  CPU suspend, CPU DVFS, GPU DVFS,
+	  Select if you want to enable MediaTek power
+	  management feature.
+
+source "drivers/misc/mediatek/base/power/Kconfig"
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
@@ -95,4 +104,3 @@ endmenu # Debug
 menu "Misc"
 
 endmenu # Misc
-

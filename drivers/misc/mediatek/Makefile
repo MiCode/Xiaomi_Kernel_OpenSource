@@ -14,3 +14,5 @@ obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/
 obj-$(CONFIG_MTK_SPMTWAM) += twam/
 obj-$(CONFIG_MTK_DVFSRC) += dvfsrc/
 obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
+obj-$(CONFIG_MTK_BASE_POWER) += base/
+
