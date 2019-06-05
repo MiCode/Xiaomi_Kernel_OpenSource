@@ -8883,6 +8883,9 @@ static void ufshcd_remove_device(struct ufs_hba *hba)
 		scsi_remove_device(sdev_cache[i]);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	/* Complete the flying async UIC command if there is one */
+	if (hba->uic_async_done)
+		complete(hba->uic_async_done);
 	hba->silence_err_logs = false;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
