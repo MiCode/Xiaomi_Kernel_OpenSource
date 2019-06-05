@@ -546,6 +546,10 @@ static int atl_resume_common(struct device *dev, bool deep)
 	if (ret)
 		goto exit;
 
+	ret = atl_fwd_resume_rings(nic);
+	if (ret)
+		goto exit;
+
 	netif_device_attach(nic->ndev);
 
 exit:
