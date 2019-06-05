@@ -49,4 +49,5 @@ void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type);
 int diag_process_stm_cmd(unsigned char *buf, int len, unsigned char *dest_buf);
 void diag_md_hdlc_reset_timer_func(unsigned long pid);
 void diag_update_md_clients(unsigned int type);
+void diag_update_md_clients_proc(unsigned int proc, unsigned int type);
 #endif
