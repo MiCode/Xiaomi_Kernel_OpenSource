@@ -68,6 +68,15 @@ config MTK_ICE_DEBUG
 	  Select "y" if you want to use.
 	  Select "n" if you are not sure.
 
+config MTK_SPMTWAM
+	tristate "Mediatek Signal profiling tool"
+	depends on ARCH_MEDIATEK && OF
+	help
+	  For Mediatek low power signal profiling features.
+	  Profiling several hw signals for debug purposes.
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+
 config MTK_MET
 	bool "Mediatek Embedded Technology"
 	depends on FTRACE && TRACING
