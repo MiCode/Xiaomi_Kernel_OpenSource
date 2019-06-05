@@ -2714,6 +2714,19 @@
 			};
 		};
 
+		audio_ioexp_reset_active: audio_ioexp_reset_active {
+			mux {
+				pins = "gpio166";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio166";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+
 		/* SE0 pin mappings */
 		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
 			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
