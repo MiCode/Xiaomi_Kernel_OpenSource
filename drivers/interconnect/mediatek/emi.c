@@ -247,7 +247,18 @@ static struct platform_driver emi_icc_driver = {
 		.of_match_table = emi_icc_of_match,
 	},
 };
-module_platform_driver(emi_icc_driver);
+
+static int __init mtk_emi_icc_init(void)
+{
+	return platform_driver_register(&emi_icc_driver);
+}
+subsys_initcall(mtk_emi_icc_init);
+
+static void __exit mtk_emi_icc_exit(void)
+{
+	platform_driver_unregister(&emi_icc_driver);
+}
+module_exit(mtk_emi_icc_exit);
 
 MODULE_AUTHOR("Henry Chen <henryc.chen@mediatek.com>");
 MODULE_LICENSE("GPL v2");
