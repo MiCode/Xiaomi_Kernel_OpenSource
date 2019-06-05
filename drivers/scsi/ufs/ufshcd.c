@@ -8857,6 +8857,7 @@ static void ufshcd_remove_device(struct ufs_hba *hba)
 	int sdev_count = 0, i;
 	unsigned long flags;
 
+	hba->card_removal_in_progress = 1;
 	ufshcd_hold_all(hba);
 	/* Reset the host controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -8887,6 +8888,7 @@ static void ufshcd_remove_device(struct ufs_hba *hba)
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	ufshcd_release_all(hba);
+	hba->card_removal_in_progress = 0;
 }
 
 static void ufshcd_card_detect_handler(struct work_struct *work)
@@ -8912,9 +8914,11 @@ static int ufshcd_card_detect_notifier(struct notifier_block *nb,
 {
 	struct ufs_hba *hba = container_of(nb, struct ufs_hba, card_detect_nb);
 
-	if (event)
+	if (event) {
+		if (hba->card_removal_in_progress)
+			goto out;
 		ufshcd_set_card_online(hba);
-	else
+	} else
 		ufshcd_set_card_offline(hba);
 
 	if (ufshcd_is_card_offline(hba) && !hba->sdev_ufs_device)
