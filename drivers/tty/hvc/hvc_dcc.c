@@ -72,12 +72,18 @@ static bool hvc_dcc_check(void)
 
 	static bool dcc_core0_available;
 
+	preempt_disable();
+
 	/*
 	 * If we're not on core 0, but we previously confirmed that DCC is
 	 * active, then just return true.
 	 */
-	if (smp_processor_id() && dcc_core0_available)
+	if (smp_processor_id() && dcc_core0_available) {
+		preempt_enable();
 		return true;
+	}
+
+	preempt_enable();
 
 	/* Write a test character to check if it is handled */
 	__dcc_putchar('\n');
