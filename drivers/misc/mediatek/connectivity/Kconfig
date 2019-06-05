@@ -147,6 +147,15 @@ config MTK_COMBO_CHIP_CONSYS_6739
 	  in current platform
 	  is
 	  MT6739(BT/WIFI/GPS/FM combo chip)
+
+config MTK_COMBO_CHIP_CONSYS_6779
+	bool "MTK MT6779 combo chip support"
+	help
+	  this config is used to decided SOC consys version
+	  in current platform
+	  is
+	  MT6779(BT/WIFI/GPS/FM combo chip)
+
 endchoice
 
 config MTK_COMBO_CHIP

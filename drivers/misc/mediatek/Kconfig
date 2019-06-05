@@ -29,7 +29,8 @@ menu "Sensors"
 endmenu # Sensors
 
 menu "Modem & Connectivity"
-
+source "drivers/misc/mediatek/btif/Kconfig"
+source "drivers/misc/mediatek/connectivity/Kconfig"
 endmenu # CONN
 
 menu "Security"
