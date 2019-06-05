@@ -386,6 +386,21 @@
 			infracfg_nao = <&infracfg>;
 		};
 
+		spmtwam: spmtwam@10006000 {
+			compatible = "mediatek,spmtwam";
+			reg = <0 0x10006000 0 0x1000>;
+			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_LOW>;
+			spm_twam_con = <0x194>;
+			spm_twam_window_len = <0x198>;
+			spm_twam_idle_sel = <0x19c>;
+			spm_irq_mask = <0xb4>;
+			spm_irq_sta = <0x130>;
+			spm_twam_last_sta0 = <0x170>;
+			spm_twam_last_sta1 = <0x174>;
+			spm_twam_last_sta2 = <0x178>;
+			spm_twam_last_sta3 = <0x17c>;
+		};
+
 		toprgu: toprgu@10007000 {
 			compatible = "mediatek,mt6779-wdt",
 				     "mediatek,mt6589-wdt",
