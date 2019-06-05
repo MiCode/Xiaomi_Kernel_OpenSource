@@ -130,13 +130,13 @@
 };
 
 &soc {
-	gpio_keys {
+	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
 		pinctrl-names = "default";
 		pinctrl-0 = <&gpio_key_active>;
 
-		vol_up {
+		vol_up: vol_up {
 			label = "volume_up";
 			gpios = <&tlmm 91 0x1>;
 			linux,input-type = <1>;
