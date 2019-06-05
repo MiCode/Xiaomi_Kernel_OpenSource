@@ -925,62 +925,124 @@ static int msm_cvp_send_cmd(struct msm_cvp_inst *inst,
 	return 0;
 }
 
-#define C2C_FREQ_RATIO	(1.5)
+static inline int div_by_1dot5(unsigned int a)
+{
+	unsigned long i = a << 1;
 
-static void adjust_bw_freqs(struct allowed_clock_rates_table *tbl,
-		unsigned int tbl_size, unsigned int max_bw,
-		unsigned int *freq, unsigned long *ab, unsigned long *ib)
+	return (unsigned int) i/3;
+}
+
+static inline int max_3(unsigned int a, unsigned int b, unsigned int c)
+{
+	return (a >= b) ? ((a >= c) ? a : c) : ((b >= c) ? b : c);
+}
+
+/**
+ * adjust_bw_freqs(): calculate CVP clock freq and bw required to sustain
+ * required use case.
+ */
+static int adjust_bw_freqs(void)
 {
 	struct msm_cvp_core *core;
 	struct msm_cvp_inst *inst;
-	unsigned long clk_core_sum = 0, clk_ctlr_sum = 0, bw_sum = 0;
-	int i;
+	struct iris_hfi_device *hdev;
+	struct bus_info *bus;
+	struct clock_set *clocks;
+	struct clock_info *cl;
+	struct allowed_clock_rates_table *tbl = NULL;
+	unsigned int tbl_size;
+	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
+	unsigned long core_sum = 0, ctlr_sum = 0, fw_sum = 0;
+	unsigned long op_core_max = 0, op_ctlr_max = 0, op_fw_max = 0;
+	unsigned long bw_sum = 0;
+	int i, rc = 0;
 
 	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
 
+	hdev = core->device->hfi_device_data;
+	clocks = &core->resources.clock_set;
+	cl = &clocks->clock_tbl[clocks->count - 1];
+	tbl = core->resources.allowed_clks_tbl;
+	tbl_size = core->resources.allowed_clks_tbl_size;
+	cvp_min_rate = tbl[0].clock_rate;
+	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
+	bus = &core->resources.bus_set.bus_tbl[1];
+	max_bw = bus->range[1];
+
 	list_for_each_entry(inst, &core->instances, list) {
-		clk_core_sum += inst->power.clock_cycles_a;
-		clk_ctlr_sum += inst->power.clock_cycles_b;
+		core_sum += inst->power.clock_cycles_a;
+		ctlr_sum += inst->power.clock_cycles_b;
+		fw_sum += inst->power.reserved[0];
+		op_core_max = (op_core_max >= inst->power.reserved[1]) ?
+			op_core_max : inst->power.reserved[1];
+		op_ctlr_max = (op_ctlr_max >= inst->power.reserved[2]) ?
+			op_ctlr_max : inst->power.reserved[2];
+		op_fw_max = (op_fw_max >= inst->power.reserved[3]) ?
+			op_fw_max : inst->power.reserved[3];
 		bw_sum += inst->power.ddr_bw;
 	}
 
-	if (clk_core_sum * C2C_FREQ_RATIO < clk_ctlr_sum)
-		clk_core_sum = clk_ctlr_sum/C2C_FREQ_RATIO;
+	core_sum = max_3(core_sum, ctlr_sum, fw_sum);
+	op_core_max = max_3(op_core_max, op_ctlr_max, op_fw_max);
+	core_sum = (core_sum >= op_core_max) ? core_sum : op_core_max;
 
-	for (i = 1; i < tbl_size; i++) {
-		if (clk_core_sum < tbl[i].clock_rate)
-			break;
+	if (core_sum < tbl[0].clock_rate) {
+		core_sum = tbl[0].clock_rate;
+	} else {
+		for (i = 1; i < tbl_size; i++)
+			if (core_sum <= tbl[i].clock_rate)
+				break;
+
+		if (i == tbl_size)
+			rc = -ENOSR;
+		else
+			core_sum = tbl[i].clock_rate;
 	}
-
-	if (i == tbl_size)
-		clk_core_sum = tbl[tbl_size - 1].clock_rate;
-	else
-		clk_core_sum = tbl[i].clock_rate;
-
-	*freq = clk_core_sum;
 
 	if (bw_sum > max_bw)
 		bw_sum = max_bw;
 
-	*ab = bw_sum;
-	*ib = 0;
+	dprintk(CVP_DBG, "%s %d %lld %lld\n", __func__, core_sum, bw_sum, 0);
+	if (!cl->has_scaling) {
+		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
+		return -EINVAL;
+	}
+
+	rc = clk_set_rate(cl->clk, core_sum);
+	if (rc) {
+		dprintk(CVP_ERR,
+			"Failed to set clock rate %u %s: %d %s\n",
+			core_sum, cl->name, rc, __func__);
+		return rc;
+	}
+	hdev->clk_freq = core_sum;
+	rc = msm_bus_scale_update_bw(bus->client,
+			bw_sum, 0);
+	if (rc)
+		dprintk(CVP_ERR, "Failed voting bus %s to ab %u\n",
+			bus->name, bw_sum);
+
+	return rc;
 }
 
 /**
- * clock_cycles_a: CVP core clock freq (lower)
+ * Use of cvp_kmd_request_power structure
+ * clock_cycles_a: CVP core clock freq
  * clock_cycles_b: CVP controller clock freq
+ * ddr_bw: b/w vote in Bps
+ * reserved[0]: CVP firmware required clock freq
+ * reserved[1]: CVP core operational clock freq
+ * reserved[2]: CVP controller operational clock freq
+ * reserved[3]: CVP firmware operational clock freq
+ * reserved[4]: CVP operational b/w vote
+ *
+ * session's power record only saves normalized freq or b/w vote
  */
 static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 		struct cvp_kmd_request_power *power)
 {
 	int rc = 0;
-	unsigned int freq;
-	unsigned long ab, ib;
 	struct msm_cvp_core *core;
-	struct bus_info *bus;
-	struct allowed_clock_rates_table *clks_tbl = NULL;
-	unsigned int clks_tbl_size;
-	unsigned int min_rate, max_rate;
 	struct msm_cvp_inst *s;
 
 	if (!inst || !power) {
@@ -996,36 +1058,21 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 
 	mutex_lock(&core->lock);
 
-	clks_tbl = core->resources.allowed_clks_tbl;
-	clks_tbl_size = core->resources.allowed_clks_tbl_size;
-	min_rate = clks_tbl[0].clock_rate;
-	max_rate = clks_tbl[clks_tbl_size - 1].clock_rate;
-	bus = &core->resources.bus_set.bus_tbl[1];
-
 	memcpy(&inst->power, power, sizeof(*power));
 
-	if (inst->power.clock_cycles_a < min_rate ||
-			inst->power.clock_cycles_a > max_rate)
-		inst->power.clock_cycles_a = min_rate;
-
-	if (inst->power.clock_cycles_b < (min_rate * C2C_FREQ_RATIO) ||
-		inst->power.clock_cycles_b > (max_rate * C2C_FREQ_RATIO))
-		inst->power.clock_cycles_b = min_rate * C2C_FREQ_RATIO;
+	/* Normalize CVP controller clock freqs */
+	inst->power.clock_cycles_b = div_by_1dot5(inst->power.clock_cycles_b);
+	inst->power.reserved[0] = div_by_1dot5(inst->power.reserved[0]);
+	inst->power.reserved[2] = div_by_1dot5(inst->power.reserved[2]);
+	inst->power.reserved[3] = div_by_1dot5(inst->power.reserved[3]);
 
 	/* Convert bps to KBps */
 	inst->power.ddr_bw = inst->power.ddr_bw >> 10;
 
-	if (inst->power.ddr_bw > bus->range[1])
-		inst->power.ddr_bw = bus->range[1] >> 1;
+	rc = adjust_bw_freqs();
+	if (rc)
+		dprintk(CVP_ERR, "Instance %pK power request out of range\n");
 
-	dprintk(CVP_DBG,
-		"%s: cycles_a %d, cycles_b %d, ddr_bw %d sys_cache_bw %d\n",
-		__func__, power->clock_cycles_a, power->clock_cycles_b,
-		power->ddr_bw, power->sys_cache_bw);
-
-	adjust_bw_freqs(clks_tbl, clks_tbl_size, bus->range[1],
-			&freq, &ab, &ib);
-	dprintk(CVP_DBG, "%s %x %llx %llx\n", __func__, freq, ab, ib);
 	mutex_unlock(&core->lock);
 	cvp_put_inst(s);
 

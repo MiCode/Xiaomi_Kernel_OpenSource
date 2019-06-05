@@ -70,8 +70,9 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 	cvp_voting->clock_cycles_a = cvp_cycles * cvp_desc->fps;
 	cvp_voting->clock_cycles_b = 0;
 	cvp_voting->reserved[0] = NUM_CYCLESFW_FRAME * cvp_desc->fps;
-	cvp_voting->reserved[1] = cvp_desc->fps;
-	cvp_voting->reserved[2] = cvp_desc->op_rate;
+	cvp_voting->reserved[1] = cvp_cycles * cvp_desc->op_rate;
+	cvp_voting->reserved[2] = 0;
+	cvp_voting->reserved[3] = NUM_CYCLESFW_FRAME*cvp_desc->op_rate;
 
 	if (cvp_desc->is_downscale) {
 		if (cvp_desc->fullres_width <= 1920) {
@@ -141,6 +142,7 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 		+ hcd_stats_write + dme_pixel_read + ncc_pixel_read;
 
 	cvp_voting->ddr_bw = cvp_bw * cvp_desc->fps;
+	cvp_voting->reserved[4] = cvp_bw * cvp_desc->op_rate;
 
 	dprintk(CVP_DBG, "%s Voting cycles_a, b, bw: %d %d %d\n", __func__,
 		cvp_voting->clock_cycles_a, cvp_voting->clock_cycles_b,

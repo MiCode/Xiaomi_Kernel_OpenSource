@@ -1242,7 +1242,7 @@ no_data_count:
 			}
 #else
 			rc = msm_bus_scale_update_bw(bus->client,
-				bus->range[1]*1000, 0);
+				bus->range[1], 0);
 			if (rc)
 				dprintk(CVP_ERR,
 				"Failed voting bus %s to ab %u\n",
