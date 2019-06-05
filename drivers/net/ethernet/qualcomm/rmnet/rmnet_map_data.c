@@ -667,7 +667,7 @@ static void rmnet_map_gso_stamp(struct sk_buff *skb,
 	}
 
 	skb->ip_summed = CHECKSUM_PARTIAL;
-	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_start = skb->data + coal_meta->ip_len - skb->head;
 	shinfo->gso_size = coal_meta->data_len;
 	shinfo->gso_segs = coal_meta->pkt_count;
 }
