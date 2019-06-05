@@ -176,7 +176,18 @@ static struct platform_driver mtk_dvfsrc_regulator_driver = {
 	.probe = dvfsrc_vcore_regulator_probe,
 };
 
-module_platform_driver(mtk_dvfsrc_regulator_driver);
+static int __init mtk_dvfsrc_regulator_init(void)
+{
+	return platform_driver_register(&mtk_dvfsrc_regulator_driver);
+}
+subsys_initcall(mtk_dvfsrc_regulator_init);
+
+static void __exit mtk_dvfsrc_regulator_exit(void)
+{
+	platform_driver_unregister(&mtk_dvfsrc_regulator_driver);
+}
+module_exit(mtk_dvfsrc_regulator_exit);
+
 
 MODULE_AUTHOR("Arvin wang <arvin.wang@mediatek.com>");
 MODULE_LICENSE("GPL v2");
