@@ -798,6 +798,9 @@
 			qcom,wlan-ramdump-dynamic = <0x300000>;
 			mhi,max-channels = <30>;
 			mhi,timeout = <10000>;
+			mhi,ee = <0x3>, <0x4>;
+			mhi,ee-names = "SBL", "RDDM";
+			mhi,bhie-offset = <0x0324>;
 
 			mhi_channels {
 				mhi_chan@0 {
