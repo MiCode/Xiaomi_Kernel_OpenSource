@@ -710,11 +710,9 @@ int f2fs_getattr(struct vfsmount *mnt,
 		stat->btime.tv_nsec = fi->i_crtime.tv_nsec;
 	}
 
-	flags = fi->i_flags & F2FS_FL_USER_VISIBLE;
+	flags = fi->i_flags;
 	if (flags & F2FS_APPEND_FL)
 		stat->attributes |= STATX_ATTR_APPEND;
-	if (flags & F2FS_COMPR_FL)
-		stat->attributes |= STATX_ATTR_COMPRESSED;
 	if (IS_ENCRYPTED(inode))
 		stat->attributes |= STATX_ATTR_ENCRYPTED;
 	if (flags & F2FS_IMMUTABLE_FL)
@@ -723,7 +721,6 @@ int f2fs_getattr(struct vfsmount *mnt,
 		stat->attributes |= STATX_ATTR_NODUMP;
 
 	stat->attributes_mask |= (STATX_ATTR_APPEND |
-				  STATX_ATTR_COMPRESSED |
 				  STATX_ATTR_ENCRYPTED |
 				  STATX_ATTR_IMMUTABLE |
 				  STATX_ATTR_NODUMP);
@@ -1651,37 +1648,143 @@ static int f2fs_file_flush(struct file *file, fl_owner_t id)
 	return 0;
 }
 
+static int f2fs_setflags_common(struct inode *inode, u32 iflags, u32 mask)
+{
+	struct f2fs_inode_info *fi = F2FS_I(inode);
+	u32 oldflags;
+
+	/* Is it quota file? Do not allow user to mess with it */
+	if (IS_NOQUOTA(inode))
+		return -EPERM;
+
+	oldflags = fi->i_flags;
+
+	if ((iflags ^ oldflags) & (F2FS_APPEND_FL | F2FS_IMMUTABLE_FL))
+		if (!capable(CAP_LINUX_IMMUTABLE))
+			return -EPERM;
+
+	fi->i_flags = iflags | (oldflags & ~mask);
+
+	if (fi->i_flags & F2FS_PROJINHERIT_FL)
+		set_inode_flag(inode, FI_PROJ_INHERIT);
+	else
+		clear_inode_flag(inode, FI_PROJ_INHERIT);
+
+	inode->i_ctime = current_time(inode);
+	f2fs_set_inode_flags(inode);
+	f2fs_mark_inode_dirty_sync(inode, true);
+	return 0;
+}
+
+/* FS_IOC_GETFLAGS and FS_IOC_SETFLAGS support */
+
+/*
+ * To make a new on-disk f2fs i_flag gettable via FS_IOC_GETFLAGS, add an entry
+ * for it to f2fs_fsflags_map[], and add its FS_*_FL equivalent to
+ * F2FS_GETTABLE_FS_FL.  To also make it settable via FS_IOC_SETFLAGS, also add
+ * its FS_*_FL equivalent to F2FS_SETTABLE_FS_FL.
+ */
+
+static const struct {
+	u32 iflag;
+	u32 fsflag;
+} f2fs_fsflags_map[] = {
+	{ F2FS_SYNC_FL,		FS_SYNC_FL },
+	{ F2FS_IMMUTABLE_FL,	FS_IMMUTABLE_FL },
+	{ F2FS_APPEND_FL,	FS_APPEND_FL },
+	{ F2FS_NODUMP_FL,	FS_NODUMP_FL },
+	{ F2FS_NOATIME_FL,	FS_NOATIME_FL },
+	{ F2FS_INDEX_FL,	FS_INDEX_FL },
+	{ F2FS_DIRSYNC_FL,	FS_DIRSYNC_FL },
+	{ F2FS_PROJINHERIT_FL,	FS_PROJINHERIT_FL },
+};
+
+#define F2FS_GETTABLE_FS_FL (		\
+		FS_SYNC_FL |		\
+		FS_IMMUTABLE_FL |	\
+		FS_APPEND_FL |		\
+		FS_NODUMP_FL |		\
+		FS_NOATIME_FL |		\
+		FS_INDEX_FL |		\
+		FS_DIRSYNC_FL |		\
+		FS_PROJINHERIT_FL |	\
+		FS_ENCRYPT_FL |		\
+		FS_INLINE_DATA_FL |	\
+		FS_NOCOW_FL)
+
+#define F2FS_SETTABLE_FS_FL (		\
+		FS_SYNC_FL |		\
+		FS_IMMUTABLE_FL |	\
+		FS_APPEND_FL |		\
+		FS_NODUMP_FL |		\
+		FS_NOATIME_FL |		\
+		FS_DIRSYNC_FL |		\
+		FS_PROJINHERIT_FL)
+
+/* Convert f2fs on-disk i_flags to FS_IOC_{GET,SET}FLAGS flags */
+static inline u32 f2fs_iflags_to_fsflags(u32 iflags)
+{
+	u32 fsflags = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(f2fs_fsflags_map); i++)
+		if (iflags & f2fs_fsflags_map[i].iflag)
+			fsflags |= f2fs_fsflags_map[i].fsflag;
+
+	return fsflags;
+}
+
+/* Convert FS_IOC_{GET,SET}FLAGS flags to f2fs on-disk i_flags */
+static inline u32 f2fs_fsflags_to_iflags(u32 fsflags)
+{
+	u32 iflags = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(f2fs_fsflags_map); i++)
+		if (fsflags & f2fs_fsflags_map[i].fsflag)
+			iflags |= f2fs_fsflags_map[i].iflag;
+
+	return iflags;
+}
+
 static int f2fs_ioc_getflags(struct file *filp, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
 	struct f2fs_inode_info *fi = F2FS_I(inode);
-	unsigned int flags = fi->i_flags;
+	u32 fsflags = f2fs_iflags_to_fsflags(fi->i_flags);
 
 	if (IS_ENCRYPTED(inode))
-		flags |= F2FS_ENCRYPT_FL;
+		fsflags |= FS_ENCRYPT_FL;
 	if (f2fs_has_inline_data(inode) || f2fs_has_inline_dentry(inode))
-		flags |= F2FS_INLINE_DATA_FL;
+		fsflags |= FS_INLINE_DATA_FL;
 	if (is_inode_flag_set(inode, FI_PIN_FILE))
-		flags |= F2FS_NOCOW_FL;
+		fsflags |= FS_NOCOW_FL;
 
-	flags &= F2FS_FL_USER_VISIBLE;
+	fsflags &= F2FS_GETTABLE_FS_FL;
 
-	return put_user(flags, (int __user *)arg);
+	return put_user(fsflags, (int __user *)arg);
 }
 
 static int f2fs_ioc_setflags(struct file *filp, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
-	struct f2fs_inode_info *fi = F2FS_I(inode);
-	unsigned int flags;
-	unsigned int oldflags;
+	u32 fsflags;
+	u32 iflags;
 	int ret;
 
 	if (!inode_owner_or_capable(inode))
 		return -EACCES;
 
-	if (get_user(flags, (int __user *)arg))
+	if (get_user(fsflags, (int __user *)arg))
 		return -EFAULT;
+
+	if (fsflags & ~F2FS_GETTABLE_FS_FL)
+		return -EOPNOTSUPP;
+	fsflags &= F2FS_SETTABLE_FS_FL;
+
+	iflags = f2fs_fsflags_to_iflags(fsflags);
+	if (f2fs_mask_flags(inode->i_mode, iflags) != iflags)
+		return -EOPNOTSUPP;
 
 	ret = mnt_want_write_file(filp);
 	if (ret)
@@ -1689,31 +1792,8 @@ static int f2fs_ioc_setflags(struct file *filp, unsigned long arg)
 
 	inode_lock(inode);
 
-	/* Is it quota file? Do not allow user to mess with it */
-	if (IS_NOQUOTA(inode)) {
-		ret = -EPERM;
-		goto unlock_out;
-	}
-
-	flags = f2fs_mask_flags(inode->i_mode, flags);
-
-	oldflags = fi->i_flags;
-
-	if ((flags ^ oldflags) & (F2FS_APPEND_FL | F2FS_IMMUTABLE_FL)) {
-		if (!capable(CAP_LINUX_IMMUTABLE)) {
-			ret = -EPERM;
-			goto unlock_out;
-		}
-	}
-
-	flags = flags & (F2FS_FL_USER_MODIFIABLE);
-	flags |= oldflags & ~(F2FS_FL_USER_MODIFIABLE);
-	fi->i_flags = flags;
-
-	inode->i_ctime = current_time(inode);
-	f2fs_set_inode_flags(inode);
-	f2fs_mark_inode_dirty_sync(inode, false);
-unlock_out:
+	ret = f2fs_setflags_common(inode, iflags,
+			f2fs_fsflags_to_iflags(F2FS_SETTABLE_FS_FL));
 	inode_unlock(inode);
 	mnt_drop_write_file(filp);
 	return ret;
