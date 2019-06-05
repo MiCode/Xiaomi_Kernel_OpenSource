@@ -598,6 +598,9 @@ static int hab_mem_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	vma->vm_private_data = pglist;
 	vma->vm_flags |= VM_MIXEDMAP;
 
+	if (!(pglist->userflags & HABMM_IMPORT_FLAGS_CACHED))
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
 	return 0;
 }
 
