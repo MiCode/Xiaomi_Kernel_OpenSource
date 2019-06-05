@@ -6802,7 +6802,7 @@ static int get_ipa_dts_pm_info(struct platform_device *pdev,
 
 		result = of_property_read_string_index(pdev->dev.of_node,
 			"qcom,scaling-exceptions",
-			i * ipa_drv_res->pm_init.threshold_size,
+			i * (ipa_drv_res->pm_init.threshold_size + 1),
 			&ex[i].usecase);
 		if (result) {
 			IPAERR("failed to read qcom,scaling-exceptions");
@@ -6815,7 +6815,8 @@ static int get_ipa_dts_pm_info(struct platform_device *pdev,
 			result = of_property_read_string_index(
 				pdev->dev.of_node,
 				"qcom,scaling-exceptions",
-				i * ipa_drv_res->pm_init.threshold_size + j + 1,
+				i * (ipa_drv_res->pm_init.threshold_size + 1)
+				+ j + 1,
 				&str);
 			if (result) {
 				IPAERR("failed to read qcom,scaling-exceptions"

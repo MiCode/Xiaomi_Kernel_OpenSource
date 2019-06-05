@@ -368,7 +368,7 @@ static int do_clk_scaling(void)
 	mutex_unlock(&ipa_pm_ctx->client_mutex);
 
 	for (i = 0; i < clk_scaling->threshold_size; i++) {
-		if (tput > clk_scaling->current_threshold[i])
+		if (tput >= clk_scaling->current_threshold[i])
 			new_th_idx++;
 	}
 
@@ -533,15 +533,19 @@ static int find_next_open_array_element(const char *name)
  */
 static int add_client_to_exception_list(u32 hdl)
 {
-	int i;
+	int i, len = 0;
 	struct ipa_pm_exception_list *exception;
 
 	mutex_lock(&ipa_pm_ctx->client_mutex);
+	len = strlen(ipa_pm_ctx->clients[hdl]->name);
 	for (i = 0; i < ipa_pm_ctx->clk_scaling.exception_size; i++) {
 		exception = &ipa_pm_ctx->clk_scaling.exception_list[i];
 		if (strnstr(exception->clients, ipa_pm_ctx->clients[hdl]->name,
-			strlen(exception->clients))) {
+			len) && (strlen(exception->clients)
+			== len)) {
 			exception->pending--;
+			IPA_PM_DBG("Pending: %d\n",
+			exception->pending);
 
 			if (exception->pending < 0) {
 				WARN_ON(1);
@@ -575,6 +579,8 @@ static int remove_client_from_exception_list(u32 hdl)
 		exception = &ipa_pm_ctx->clk_scaling.exception_list[i];
 		if (exception->bitmask & (1 << hdl)) {
 			exception->pending++;
+			IPA_PM_DBG("Pending: %d\n",
+			exception->pending);
 			exception->bitmask &= ~(1 << hdl);
 		}
 	}
@@ -658,6 +664,7 @@ int ipa_pm_init(struct ipa_pm_init_params *params)
 				clk_scaling->exception_list[i].pending++;
 		}
 
+		/* for the first client */
 		clk_scaling->exception_list[i].pending++;
 		IPA_PM_DBG("Pending: %d\n",
 			clk_scaling->exception_list[i].pending);
