@@ -100,38 +100,63 @@ $(grep $conf $kernel_dir/scripts/bvt/config_list )
 	fi
 fi
 
+opt=""
+if [[ "$defconfig" == mediatek_debug* ]]
+then
+	opt="-e"
+fi
+if [[ "$defconfig" == mediatek_config_off* ]]
+then
+	opt="-d"
+fi
+if [[ "$defconfig" == mediatek_module* ]]
+then
+	opt="-m"
+fi
+
+if [ -z "$arch" ]
+then
+	arch=arm64
+
+	def_arch=$(echo $defconfig | tail -c 13)
+	echo $def_arch
+	if [[ "$def_arch" == "32_defconfig" ]]
+	then
+		arch=arm
+	fi
+fi
+
 if [ "$mode" == "t" ]
 then
+	if [[ "$defconfig" != "mediatek_debug_defconfig" ]] && \
+		[[ "$arch" == "arm64" ]]
+	then
+		if [ ! -f "$kernel_dir/arch/$arch/configs/$defconfig" ]
+		then
+		cp $kernel_dir/arch/$arch/configs/mediatek_debug_defconfig \
+			$kernel_dir/arch/$arch/configs/$defconfig
+		fi
+	fi
+	if [[ "$defconfig" != "mediatek_debug_32_defconfig" ]] && \
+		[[ "$arch" == "arm" ]]
+	then
+		if [ ! -f "$kernel_dir/arch/$arch/configs/$defconfig" ]
+		then
+		cp $kernel_dir/arch/$arch/configs/mediatek_debug_32_defconfig \
+			$kernel_dir/arch/$arch/configs/$defconfig
+		fi
+	fi
 	exec < $kernel_dir/scripts/bvt/config_list
 
 	IFS="="
 	while read config test
 	do
-		echo $config $test
-		if [ "$defconfig" == "mediatek_debug_defconfig" ]
+		echo $config $test $opt $arch
+		if [[ "$test" == "y" ]] && [[ -n "$opt" ]]
 		then
 			sh $kernel_dir/scripts/config --file \
-			$kernel_dir/arch/$arch/configs/$defconfig -e $config
-		fi
-
-		if [ "$defconfig" == "mediatek_config_off_defconfig" ]
-		then
-			if [ "$test" == "y" ]
-			then
-				sh $kernel_dir/scripts/config --file \
-				$kernel_dir/arch/$arch/configs/$defconfig \
-				-d $config
-			fi
-		fi
-
-		if [ "$defconfig" == "mediatek_module_defconfig" ]
-		then
-			if [ "$test" == "y" ]
-			then
-				sh $kernel_dir/scripts/config --file \
-				$kernel_dir/arch/$arch/configs/$defconfig \
-				-m $config
-			fi
+			$kernel_dir/arch/$arch/configs/$defconfig \
+			$opt $config
 		fi
 	done
 fi
