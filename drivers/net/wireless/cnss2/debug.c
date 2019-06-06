@@ -100,6 +100,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_COEX_CONNECTED:
 			seq_puts(s, "COEX_CONNECTED");
 			continue;
+		case CNSS_IMS_CONNECTED:
+			seq_puts(s, "IMS_CONNECTED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
