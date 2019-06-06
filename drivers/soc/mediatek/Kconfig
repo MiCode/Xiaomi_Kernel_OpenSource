@@ -55,6 +55,15 @@ config MTK_SCPSYS
 	  Say yes here to add support for the MediaTek SCPSYS power domain
 	  driver.
 
+config MTK_SCPSYS_BRINGUP
+	bool "MediaTek SCPSYS bring Up Support"
+	depends on MTK_SCPSYS
+	help
+	  Say yes here to support for MediaTek SCPSYS power domain power on
+	  for chip bring up early stage.
+	  This driver is used to turn on the specific power domain for chip
+	  bringing up stage.
+
 menu "Security"
 
 source "drivers/soc/mediatek/devapc/Kconfig"
