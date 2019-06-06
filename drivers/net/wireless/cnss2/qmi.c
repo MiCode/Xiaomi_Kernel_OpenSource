@@ -1301,6 +1301,73 @@ out:
 	return ret;
 }
 
+static int cnss_wlfw_wfc_call_status_send_sync(struct cnss_plat_data *plat_priv,
+					       u32 data_len, const void *data)
+{
+	struct wlfw_wfc_call_status_req_msg_v01 *req;
+	struct wlfw_wfc_call_status_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+	int ret = 0;
+
+	cnss_pr_dbg("Sending WFC call status: state: 0x%lx\n",
+		    plat_priv->driver_state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->wfc_call_status_len = data_len;
+	memcpy(req->wfc_call_status, data, req->wfc_call_status_len);
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_wfc_call_status_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		cnss_pr_err("Fail to initialize txn for WFC call status request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_WFC_CALL_STATUS_REQ_V01,
+			       WLFW_WFC_CALL_STATUS_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_wfc_call_status_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send WFC call status request: err %d\n",
+			    ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
+	if (ret < 0) {
+		cnss_pr_err("Fail to wait for response of WFC call status request, err %d\n",
+			    ret);
+		goto out;
+	}
+
+	if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("WFC call status request failed, result: %d, err: %d\n",
+			    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(req);
+	kfree(resp);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
 unsigned int cnss_get_qmi_timeout(struct cnss_plat_data *plat_priv)
 {
 	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
@@ -2031,8 +2098,11 @@ static void ims_wfc_call_status_ind_cb(struct qmi_handle *ims_qmi,
 				       struct sockaddr_qrtr *sq,
 				       struct qmi_txn *txn, const void *data)
 {
+	struct cnss_plat_data *plat_priv =
+		container_of(ims_qmi, struct cnss_plat_data, ims_qmi);
 	const
 	struct ims_private_service_wfc_call_status_ind_msg_v01 *ind_msg = data;
+	u32 data_len = 0;
 
 	cnss_pr_dbg("Received IMS wfc call status indication\n");
 
@@ -2045,6 +2115,14 @@ static void ims_wfc_call_status_ind_cb(struct qmi_handle *ims_qmi,
 		cnss_pr_err("Invalid indication\n");
 		return;
 	}
+
+	data_len = sizeof(*ind_msg);
+	if (data_len > QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01) {
+		cnss_pr_err("Exceed maxinum data len:%u\n", data_len);
+		return;
+	}
+
+	cnss_wlfw_wfc_call_status_send_sync(plat_priv, data_len, ind_msg);
 }
 
 static struct qmi_msg_handler qmi_ims_msg_handlers[] = {
