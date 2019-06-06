@@ -70,9 +70,11 @@ static int cpu_isolate_pm_notify(struct notifier_block *nb,
 				if (cpu_online(cpu) &&
 					!cpumask_test_and_set_cpu(cpu,
 					&cpus_isolated_by_thermal)) {
+					mutex_unlock(&cpu_isolate_lock);
 					if (sched_isolate_cpu(cpu))
 						cpumask_clear_cpu(cpu,
 						&cpus_isolated_by_thermal);
+					mutex_lock(&cpu_isolate_lock);
 				}
 				continue;
 			}
@@ -182,9 +184,11 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 		if (cpu_online(cpu) &&
 			(!cpumask_test_and_set_cpu(cpu,
 			&cpus_isolated_by_thermal))) {
+			mutex_unlock(&cpu_isolate_lock);
 			if (sched_isolate_cpu(cpu))
 				cpumask_clear_cpu(cpu,
 					&cpus_isolated_by_thermal);
+			mutex_lock(&cpu_isolate_lock);
 		}
 		cpumask_set_cpu(cpu, &cpus_in_max_cooling_level);
 		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
@@ -194,6 +198,7 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 			cpu_dev = get_cpu_device(cpu);
 			if (!cpu_dev) {
 				pr_err("CPU:%d cpu dev error\n", cpu);
+				mutex_unlock(&cpu_isolate_lock);
 				return ret;
 			}
 			mutex_unlock(&cpu_isolate_lock);
@@ -203,7 +208,9 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 			return ret;
 		} else if (cpumask_test_and_clear_cpu(cpu,
 			&cpus_isolated_by_thermal)) {
+			mutex_unlock(&cpu_isolate_lock);
 			sched_unisolate_cpu(cpu);
+			mutex_lock(&cpu_isolate_lock);
 		}
 		cpumask_clear_cpu(cpu, &cpus_in_max_cooling_level);
 		blocking_notifier_call_chain(&cpu_max_cooling_level_notifer,
