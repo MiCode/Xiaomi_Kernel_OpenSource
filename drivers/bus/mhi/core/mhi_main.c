@@ -182,12 +182,24 @@ void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 				    db);
 }
 
+static enum mhi_ee mhi_translate_dev_ee(struct mhi_controller *mhi_cntrl,
+					u32 dev_ee)
+{
+	enum mhi_ee i;
+
+	for (i = MHI_EE_PBL; i < MHI_EE_MAX; i++)
+		if (mhi_cntrl->ee_table[i] == dev_ee)
+			return i;
+
+	return MHI_EE_NOT_SUPPORTED;
+}
+
 enum mhi_ee mhi_get_exec_env(struct mhi_controller *mhi_cntrl)
 {
 	u32 exec;
 	int ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_EXECENV, &exec);
 
-	return (ret) ? MHI_EE_MAX : exec;
+	return (ret) ? MHI_EE_MAX : mhi_translate_dev_ee(mhi_cntrl, exec);
 }
 
 enum mhi_dev_state mhi_get_mhi_state(struct mhi_controller *mhi_cntrl)
@@ -1159,6 +1171,9 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 		{
 			enum MHI_ST_TRANSITION st = MHI_ST_TRANSITION_MAX;
 			enum mhi_ee event = MHI_TRE_GET_EV_EXECENV(local_rp);
+
+			/* convert device ee to host ee */
+			event = mhi_translate_dev_ee(mhi_cntrl, event);
 
 			MHI_LOG("MHI EE received event:%s\n",
 				TO_MHI_EXEC_STR(event));
