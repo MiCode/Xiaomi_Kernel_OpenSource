@@ -2994,6 +2994,7 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define	CPU_RESERVED	1
 
 extern enum sched_boost_policy boost_policy;
+extern unsigned int sched_task_filter_util;
 static inline enum sched_boost_policy sched_boost_policy(void)
 {
 	return boost_policy;
@@ -3122,9 +3123,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 		 * Filter out tasks less than min task util threshold
 		 * under conservative boost.
 		 */
-		if (sched_boost() == CONSERVATIVE_BOOST &&
-				task_util(p) <=
-				sysctl_sched_min_task_util_for_boost)
+		if (task_util(p) <= sched_task_filter_util)
 			policy = SCHED_BOOST_NONE;
 	}
 
