@@ -54,6 +54,9 @@ struct mtkfb_fence_buf_info {
 	enum BUFFER_STATE buf_state;
 	unsigned int cache_sync;
 	unsigned int set_input_ticket;
+	/* DMA */
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 	/* we can't update trigger_ticket_end,*/
 	/*because can't gurantee ticket being updated before cmdq callback*/
 	unsigned int trigger_ticket;

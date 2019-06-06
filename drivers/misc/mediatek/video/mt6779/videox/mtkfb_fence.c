@@ -474,8 +474,29 @@ static struct dma_buf *mtkfb_aosp_ion_import_handle(int fd)
 	return handle;
 }
 
+static void mtkfb_aosp_ion_free_handle(struct dma_buf *handle,
+				      struct mtkfb_fence_buf_info *fence_buf)
+{
+	if (!handle)
+		return;
+	if (!fence_buf)
+		return;
+
+	if (fence_buf->attach && fence_buf->sgt)
+		dma_buf_unmap_attachment(fence_buf->attach,
+				fence_buf->sgt, DMA_BIDIRECTIONAL);
+
+	if (fence_buf->attach)
+		dma_buf_detach(handle, fence_buf->attach);
+
+	dma_buf_put(handle);
+
+	MTKFB_FENCE_LOG("free dma_buf handle 0x%p\n", handle);
+}
+
 static size_t mtkfb_aosp_ion_phys_mmu_addr(struct dma_buf *handle,
 				      struct device *dev,
+				      struct mtkfb_fence_buf_info *fence_buf,
 				      dma_addr_t *iova)
 {
 	struct dma_buf_attachment *attach;
@@ -483,6 +504,10 @@ static size_t mtkfb_aosp_ion_phys_mmu_addr(struct dma_buf *handle,
 	int ret;
 
 	if (!handle)
+		return 0;
+	if (!dev)
+		return 0;
+	if (!fence_buf)
 		return 0;
 
 	attach = dma_buf_attach(handle, dev);
@@ -501,6 +526,8 @@ static size_t mtkfb_aosp_ion_phys_mmu_addr(struct dma_buf *handle,
 				handle, dev);
 		goto fail_detach;
 	}
+	fence_buf->attach = attach;
+	fence_buf->sgt = sgt;
 	*iova = sg_dma_address(sgt->sgl);
 
 	MTKFB_FENCE_LOG("alloc mmu addr hnd=0x%p,iova=0x%08lx\n",
@@ -1028,6 +1055,11 @@ void mtkfb_release_fence(unsigned int session, unsigned int layer_id,
 		if (buf->hnd)
 			mtkfb_ion_free_handle(ion_client,
 				(struct ion_handle *)buf->hnd);
+#else
+		if (buf->hnd)
+			mtkfb_aosp_ion_free_handle(
+				(struct dma_buf *)buf->hnd,
+				buf);
 #endif
 		ion_release_count++;
 
@@ -1312,6 +1344,7 @@ static int prepare_ion_buf(struct device *dev,
 	if (handle) {
 		fence_buf->size = mtkfb_aosp_ion_phys_mmu_addr(handle,
 							  dev,
+							  fence_buf,
 							  &iova);
 		mva = (unsigned int)iova;
 	} else
