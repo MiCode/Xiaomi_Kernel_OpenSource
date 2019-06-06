@@ -2380,7 +2380,7 @@ static struct cam_req_mgr_crm_cb cam_req_mgr_ops = {
 static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	struct cam_req_mgr_ver_info *link_info)
 {
-	int                                     rc = 0, i = 0;
+	int                                     rc = 0, i = 0, num_devices = 0;
 	struct cam_req_mgr_core_dev_link_setup  link_data;
 	struct cam_req_mgr_connected_device    *dev;
 	struct cam_req_mgr_req_tbl             *pd_tbl;
@@ -2405,12 +2405,21 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		return rc;
 
 	max_delay = CAM_PIPELINE_DELAY_0;
-	for (i = 0; i < link_info->u.link_info_v1.num_devices; i++) {
+	if (link_info->version == VERSION_1)
+		num_devices = link_info->u.link_info_v1.num_devices;
+	else if (link_info->version == VERSION_2)
+		num_devices = link_info->u.link_info_v2.num_devices;
+	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];
 		/* Using dev hdl, get ops ptr to communicate with device */
-		dev->ops = (struct cam_req_mgr_kmd_ops *)
-			cam_get_device_ops(
-			link_info->u.link_info_v1.dev_hdls[i]);
+		if (link_info->version == VERSION_1)
+			dev->ops = (struct cam_req_mgr_kmd_ops *)
+					cam_get_device_ops(
+					link_info->u.link_info_v1.dev_hdls[i]);
+		else if (link_info->version == VERSION_2)
+			dev->ops = (struct cam_req_mgr_kmd_ops *)
+					cam_get_device_ops(
+					link_info->u.link_info_v2.dev_hdls[i]);
 		if (!dev->ops ||
 			!dev->ops->get_dev_info ||
 			!dev->ops->link_setup) {
@@ -2418,19 +2427,29 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			rc = -ENXIO;
 			goto error;
 		}
-		dev->dev_hdl = link_info->u.link_info_v1.dev_hdls[i];
+		if (link_info->version == VERSION_1)
+			dev->dev_hdl = link_info->u.link_info_v1.dev_hdls[i];
+		else if (link_info->version == VERSION_2)
+			dev->dev_hdl = link_info->u.link_info_v2.dev_hdls[i];
 		dev->parent = (void *)link;
 		dev->dev_info.dev_hdl = dev->dev_hdl;
 		rc = dev->ops->get_dev_info(&dev->dev_info);
 
 		trace_cam_req_mgr_connect_device(link, &dev->dev_info);
-
-		CAM_DBG(CAM_CRM,
-			"%x: connected: %s, id %d, delay %d, trigger %x",
-			link_info->u.link_info_v1.session_hdl,
-			dev->dev_info.name,
-			dev->dev_info.dev_id, dev->dev_info.p_delay,
-			dev->dev_info.trigger);
+		if (link_info->version == VERSION_1)
+			CAM_DBG(CAM_CRM,
+				"%x: connected: %s, id %d, delay %d, trigger %x",
+				link_info->u.link_info_v1.session_hdl,
+				dev->dev_info.name,
+				dev->dev_info.dev_id, dev->dev_info.p_delay,
+				dev->dev_info.trigger);
+		else if (link_info->version == VERSION_2)
+			CAM_DBG(CAM_CRM,
+				"%x: connected: %s, id %d, delay %d, trigger %x",
+				link_info->u.link_info_v2.session_hdl,
+				dev->dev_info.name,
+				dev->dev_info.dev_id, dev->dev_info.p_delay,
+				dev->dev_info.trigger);
 		if (rc < 0 ||
 			dev->dev_info.p_delay >=
 			CAM_PIPELINE_DELAY_MAX ||
@@ -2439,10 +2458,18 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			CAM_ERR(CAM_CRM, "get device info failed");
 			goto error;
 		} else {
-			CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
-				link_info->u.link_info_v1.session_hdl,
-				dev->dev_info.name,
-				dev->dev_info.p_delay);
+			if (link_info->version == VERSION_1) {
+				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
+					link_info->u.link_info_v1.session_hdl,
+					dev->dev_info.name,
+					dev->dev_info.p_delay);
+				}
+			else if (link_info->version == VERSION_2) {
+				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
+					link_info->u.link_info_v2.session_hdl,
+					dev->dev_info.name,
+					dev->dev_info.p_delay);
+				}
 			if (dev->dev_info.p_delay > max_delay)
 				max_delay = dev->dev_info.p_delay;
 
@@ -2457,7 +2484,7 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	link_data.max_delay = max_delay;
 	link_data.subscribe_event = subscribe_event;
 
-	for (i = 0; i < link_info->u.link_info_v1.num_devices; i++) {
+	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];
 
 		link_data.dev_hdl = dev->dev_hdl;
@@ -2500,7 +2527,7 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		if (link->max_delay < dev->dev_info.p_delay)
 			link->max_delay = dev->dev_info.p_delay;
 	}
-	link->num_devs = link_info->u.link_info_v1.num_devices;
+	link->num_devs = num_devices;
 
 	/* Assign id for pd tables */
 	__cam_req_mgr_tbl_set_id(link->req.l_tbl, &link->req);
