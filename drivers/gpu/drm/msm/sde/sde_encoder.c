@@ -2489,8 +2489,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
 			/* enable all the clks and resources */
 			ret = _sde_encoder_resource_control_helper(drm_enc,
 					true);
@@ -2536,8 +2542,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	case SDE_ENC_RC_EVENT_POST_MODESET:
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
 			SDE_ERROR_ENC(sde_enc,
 					"sw_event:%d, rc:%d !MODESET state\n",
 					sw_event, sde_enc->rc_state);
