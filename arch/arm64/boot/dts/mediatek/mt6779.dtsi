@@ -1370,6 +1370,51 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	mtk_scpsys_bringup_disp {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
+	};
+
+	mtk_scpsys_bringup_venc {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_VEN>;
+	};
+
+	mtk_scpsys_bringup_vdec {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_VDE>;
+	};
+
+	mtk_scpsys_bringup_isp {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_ISP>;
+	};
+
+	mtk_scpsys_bringup_ipe {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_IPE>;
+	};
+
+	mtk_scpsys_bringup_cam {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_CAM>;
+	};
+
+	mtk_scpsys_bringup_audio {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_AUDIO>;
+	};
+
+	mtk_scpsys_bringup_conn {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_CONN>;
+	};
+
+	mtk_scpsys_bringup_mfg3 {
+		compatible = "mediatek,scpsys-bringup-mt6779";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_MFG3>;
+	};
+
 	mtkfb: mtkfb {
 		compatible = "mediatek,mtkfb";
 
