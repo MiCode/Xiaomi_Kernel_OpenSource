@@ -48,6 +48,11 @@ static struct cam_vfe_top_ver3_reg_offset_common vfe48x_top_common_reg = {
 	.diag_config              = 0x00000050,
 	.diag_sensor_status_0     = 0x00000054,
 	.bus_overflow_status      = 0x00001A68,
+	.top_debug_cfg            = 0x00000074,
+	.top_debug_0              = 0x0000005C,
+	.top_debug_1              = 0x00000068,
+	.top_debug_2              = 0x0000006C,
+	.top_debug_3              = 0x00000070,
 };
 
 static struct cam_vfe_camif_lite_ver3_reg vfe48x_camif_rdi[4] = {
@@ -118,6 +123,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.error_irq_mask2                 = 0x100,
 		.subscribe_irq_mask1             = 0x3,
 		.enable_diagnostic_hw            = 0x1,
+		.top_debug_cfg_en                = 0x1,
 	},
 	{
 		.extern_reg_update_shift         = 0,
@@ -131,6 +137,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.error_irq_mask2                 = 0x200,
 		.subscribe_irq_mask1             = 0x30,
 		.enable_diagnostic_hw            = 0x1,
+		.top_debug_cfg_en                = 0x1,
 	},
 	{
 		.extern_reg_update_shift         = 0,
@@ -144,6 +151,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.error_irq_mask2                 = 0x400,
 		.subscribe_irq_mask1             = 0x300,
 		.enable_diagnostic_hw            = 0x1,
+		.top_debug_cfg_en                = 0x1,
 	},
 	{
 		.extern_reg_update_shift         = 0,
@@ -157,6 +165,7 @@ static struct cam_vfe_camif_lite_ver3_reg_data vfe48x_camif_rdi_reg_data[4] = {
 		.error_irq_mask2                 = 0x800,
 		.subscribe_irq_mask1             = 0x3000,
 		.enable_diagnostic_hw            = 0x1,
+		.top_debug_cfg_en                = 0x1,
 	},
 };
 

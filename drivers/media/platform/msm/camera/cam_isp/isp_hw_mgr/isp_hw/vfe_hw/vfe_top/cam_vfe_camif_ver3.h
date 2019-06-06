@@ -56,6 +56,7 @@ struct cam_vfe_camif_ver3_reg_data {
 	uint32_t     enable_diagnostic_hw;
 	uint32_t     pp_camif_cfg_en_shift;
 	uint32_t     pp_camif_cfg_ife_out_en_shift;
+	uint32_t     top_debug_cfg_en;
 };
 
 struct cam_vfe_camif_ver3_hw_info {
