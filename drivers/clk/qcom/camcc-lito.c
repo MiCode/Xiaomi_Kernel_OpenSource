@@ -330,6 +330,9 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.config_ctl_hi_val = 0x05008011,
 	.config_ctl_hi1_val = 0x00000000,
 	.user_ctl_val = 0x0000010F,
+	.test_ctl_val = 0x00010000,
+	.test_ctl_hi_val = 0x00000000,
+	.test_ctl_hi1_val = 0x00000000,
 };
 
 static struct clk_alpha_pll cam_cc_pll2 = {
