@@ -11,13 +11,14 @@
  *
  * It provides interface to userspace spcomlib.
  *
- * Userspace application shall use spcomlib for communication with SP. Userspace
- * application can be either client or server. spcomlib shall use write() file
- * operation to send data, and read() file operation to read data.
+ * Userspace application shall use spcomlib for communication with SP.
+ * Userspace application can be either client or server. spcomlib shall
+ * use write() file operation to send data, and read() file operation
+ * to read data.
  *
  * This driver uses RPMSG with glink-spss as a transport layer.
- * This driver exposes "/dev/<sp-channel-name>" file node for each rpmsg logical
- * channel.
+ * This driver exposes "/dev/<sp-channel-name>" file node for each rpmsg
+ * logical channel.
  * This driver exposes "/dev/spcom" file node for some debug/control command.
  * The predefined channel "/dev/sp_kernel" is used for loading SP application
  * from HLOS.
@@ -75,6 +76,9 @@
 
 /* SPCOM driver name */
 #define DEVICE_NAME	"spcom"
+
+/* maximum clients that can register over a single channel */
+#define SPCOM_MAX_CHANNEL_CLIENTS 2
 
 /* maximum ION buffers should be >= SPCOM_MAX_CHANNELS  */
 #define SPCOM_MAX_ION_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
@@ -161,11 +165,16 @@ struct spcom_channel {
 	struct completion rx_done;
 	struct completion connect;
 
-	/*
-	 * Only one client or server per channel.
-	 * Only one rx/tx transaction at a time (request + response).
+	/**
+	 * Only one client or server per non-sharable channel       .
+	 * SPCOM_MAX_CHANNEL_CLIENTS clients for sharable channel
+	 * Only one tx-rx transaction at a time (request + response).
 	 */
 	bool is_busy;
+	bool is_sharable;              /* channel's sharable property   */
+	u32 active_pid;                /* current tx-rx transaction pid */
+	uint8_t num_clients;           /* current number of clients     */
+	struct mutex shared_sync_lock;
 
 	u32 pid; /* debug only to find user space application */
 
@@ -225,7 +234,7 @@ struct spcom_device {
 static struct spcom_device *spcom_dev;
 
 /* static functions declaration */
-static int spcom_create_channel_chardev(const char *name);
+static int spcom_create_channel_chardev(const char *name, bool is_sharable);
 static struct spcom_channel *spcom_find_channel_by_name(const char *name);
 static int spcom_register_rpmsg_drv(struct spcom_channel *ch);
 static int spcom_unregister_rpmsg_drv(struct spcom_channel *ch);
@@ -274,7 +283,7 @@ static int spcom_create_predefined_channels_chardev(void)
 
 		if (name[0] == 0)
 			break;
-		ret = spcom_create_channel_chardev(name);
+		ret = spcom_create_channel_chardev(name, false);
 		if (ret) {
 			pr_err("failed to create chardev [%s], ret [%d]\n",
 			       name, ret);
@@ -295,9 +304,12 @@ static int spcom_create_predefined_channels_chardev(void)
  * spcom_init_channel() - initialize channel state.
  *
  * @ch: channel state struct pointer
+ * @is_sharable: whether channel is sharable
  * @name: channel name
  */
-static int spcom_init_channel(struct spcom_channel *ch, const char *name)
+static int spcom_init_channel(struct spcom_channel *ch,
+			      bool is_sharable,
+			      const char *name)
 {
 	if (!ch || !name || !name[0]) {
 		pr_err("invalid parameters\n");
@@ -319,7 +331,10 @@ static int spcom_init_channel(struct spcom_channel *ch, const char *name)
 	ch->rpmsg_abort = false;
 	ch->rpmsg_rx_buf = NULL;
 	ch->comm_role_undefined = true;
-
+	ch->is_sharable = is_sharable;
+	ch->active_pid = 0;
+	ch->num_clients = 0;
+	mutex_init(&ch->shared_sync_lock);
 	return 0;
 }
 
@@ -515,7 +530,6 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 {
 	int ret = 0;
 	struct spcom_user_create_channel_command *cmd = cmd_buf;
-	const char *ch_name;
 	const size_t maxlen = sizeof(cmd->ch_name);
 
 	if (cmd_size != sizeof(*cmd)) {
@@ -524,15 +538,14 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 		return -EINVAL;
 	}
 
-	ch_name = cmd->ch_name;
 	if (strnlen(cmd->ch_name, maxlen) == maxlen) {
 		pr_err("channel name is not NULL terminated\n");
 		return -EINVAL;
 	}
 
-	pr_debug("ch_name [%s]\n", ch_name);
+	pr_debug("ch_name [%s]\n", cmd->ch_name);
 
-	ret = spcom_create_channel_chardev(ch_name);
+	ret = spcom_create_channel_chardev(cmd->ch_name, cmd->is_sharable);
 
 	return ret;
 }
@@ -1061,9 +1074,21 @@ static int spcom_handle_write(struct spcom_channel *ch,
 
 	switch (cmd_id) {
 	case SPCOM_CMD_SEND:
+		if (ch->is_sharable) {
+			/* Channel shared, mutex protect TxRx */
+			mutex_lock(&ch->shared_sync_lock);
+			/* pid indicates the current active ch */
+			ch->active_pid = current_pid();
+		}
 		ret = spcom_handle_send_command(ch, buf, buf_size);
 		break;
 	case SPCOM_CMD_SEND_MODIFIED:
+		if (ch->is_sharable) {
+			/* Channel shared, mutex protect TxRx */
+			mutex_lock(&ch->shared_sync_lock);
+			/* pid indicates the current active ch */
+			ch->active_pid = current_pid();
+		}
 		ret = spcom_handle_send_modified_command(ch, buf, buf_size);
 		break;
 	case SPCOM_CMD_LOCK_ION_BUF:
@@ -1308,15 +1333,37 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 			return ret;
 		}
 	}
-	/* only one client/server may use the channel */
+	/* max number of channel clients reached */
 	if (ch->is_busy) {
-		pr_err("channel [%s] is BUSY, already in use by pid [%d]\n",
-			name, ch->pid);
+		pr_err("channel [%s] is BUSY and has %d of clients, already in use by pid [%d]\n",
+			name, ch->num_clients, ch->pid);
 		mutex_unlock(&ch->lock);
 		return -EBUSY;
 	}
 
-	ch->is_busy = true;
+	/*
+	 * if same active client trying to register again, this will fail.
+	 * Note: in the case of shared channel and SPCOM_MAX_CHANNEL_CLIENTS > 2
+	 * It possible to register with same pid if you are not the current
+	 * active client
+	 */
+	if (ch->pid == pid) {
+		pr_err("client is already registered with channel[%s]\n", name);
+		return -EINVAL;
+	}
+
+	if (ch->is_sharable) {
+		ch->num_clients++;
+		if (ch->num_clients >= SPCOM_MAX_CHANNEL_CLIENTS)
+			ch->is_busy = true;
+		else
+			ch->is_busy = false;
+	} else {
+		ch->num_clients = 1;
+		ch->is_busy = true;
+	}
+
+	/* pid has the last registed client's pid */
 	ch->pid = pid;
 	mutex_unlock(&ch->lock);
 
@@ -1370,8 +1417,31 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
+	if (ch->num_clients > 1) {
+		/*
+		 * Shared client is trying to close channel,
+		 * release the sync_lock if applicable
+		 */
+		if (ch->active_pid == current_pid()) {
+			pr_debug("active_pid [%x] is releasing ch [%s] sync lock\n",
+				 ch->active_pid, name);
+			mutex_unlock(&ch->shared_sync_lock);
+			/* No longer the current active user of the channel */
+			ch->active_pid = 0;
+		}
+		ch->num_clients--;
+		ch->is_busy = false;
+		if (ch->num_clients > 0) {
+			mutex_unlock(&ch->lock);
+			return 0;
+		}
+	}
+
 	ch->is_busy = false;
 	ch->pid = 0;
+	ch->num_clients = 0;
+	ch->active_pid = 0;
+
 	if (ch->rpmsg_rx_buf) {
 		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%zd\n",
 		       name, ch->actual_rx_size);
@@ -1381,7 +1451,6 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->actual_rx_size = 0;
 	mutex_unlock(&ch->lock);
 	filp->private_data = NULL;
-
 	return ret;
 }
 
@@ -1425,6 +1494,12 @@ static ssize_t spcom_device_write(struct file *filp,
 		return -EINVAL;
 	}
 
+	if (size > SPCOM_MAX_COMMAND_SIZE) {
+		pr_err("size [%d] > max size [%d]\n",
+			   (int) size, (int) SPCOM_MAX_COMMAND_SIZE);
+		return -EINVAL;
+	}
+
 	ch = filp->private_data;
 	if (!ch) {
 		if (strcmp(name, DEVICE_NAME) != 0) {
@@ -1438,12 +1513,6 @@ static ssize_t spcom_device_write(struct file *filp,
 			pr_err("ch [%s] remote side not connect\n", ch->name);
 			return -ENOTCONN;
 		}
-	}
-
-	if (size > SPCOM_MAX_COMMAND_SIZE) {
-		pr_err("size [%d] > max size [%d]\n",
-			   (int) size, (int) SPCOM_MAX_COMMAND_SIZE);
-		return -EINVAL;
 	}
 	buf_size = size; /* explicit casting size_t to int */
 	buf = kzalloc(size, GFP_KERNEL);
@@ -1461,6 +1530,10 @@ static ssize_t spcom_device_write(struct file *filp,
 	if (ret) {
 		pr_err("handle command error [%d]\n", ret);
 		kfree(buf);
+		if (ch && ch->active_pid == current_pid()) {
+			mutex_unlock(&ch->shared_sync_lock);
+			ch->active_pid = 0;
+		}
 		return ret;
 	}
 
@@ -1486,6 +1559,7 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
 	uint32_t buf_size = 0;
+	u32 cur_pid = current_pid();
 
 	pr_debug("read file [%s], size = %d bytes\n", name, (int) size);
 
@@ -1514,34 +1588,47 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	}
 
 	buf = kzalloc(size, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
+	if (buf == NULL) {
+		ret =  -ENOMEM;
+		goto exit_err;
+	}
 
 	ret = spcom_handle_read(ch, buf, buf_size);
 	if (ret < 0) {
 		if (ret != -ERESTARTSYS)
 			pr_err("read error [%d]\n", ret);
-		kfree(buf);
-		return ret;
+		goto exit_err;
 	}
 	actual_size = ret;
 	if ((actual_size == 0) || (actual_size > size)) {
 		pr_err("invalid actual_size [%d]\n", actual_size);
-		kfree(buf);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto exit_err;
 	}
 
 	ret = copy_to_user(user_buff, buf, actual_size);
 	if (ret) {
 		pr_err("Unable to copy to user, err = %d\n", ret);
-		kfree(buf);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto exit_err;
 	}
 
 	kfree(buf);
 	pr_debug("ch [%s] ret [%d]\n", name, (int) actual_size);
 
+	if (ch->active_pid == cur_pid) {
+		mutex_unlock(&ch->shared_sync_lock);
+		ch->active_pid = 0;
+	}
 	return actual_size;
+
+exit_err:
+	kfree(buf);
+	if (ch->active_pid == cur_pid) {
+		mutex_unlock(&ch->shared_sync_lock);
+		ch->active_pid = 0;
+	}
+	return ret;
 }
 
 static inline int handle_poll(struct file *file,
@@ -1663,7 +1750,7 @@ static const struct file_operations fops = {
  * spcom_create_channel_chardev() - Create a channel char-dev node file
  * for user space interface
  */
-static int spcom_create_channel_chardev(const char *name)
+static int spcom_create_channel_chardev(const char *name, bool is_sharable)
 {
 	int ret;
 	struct device *dev;
@@ -1688,7 +1775,7 @@ static int spcom_create_channel_chardev(const char *name)
 		return -ENODEV;
 	}
 
-	ret = spcom_init_channel(ch, name);
+	ret = spcom_init_channel(ch, is_sharable, name);
 	if (ret < 0) {
 		pr_err("can't init channel %d\n", ret);
 		return ret;
