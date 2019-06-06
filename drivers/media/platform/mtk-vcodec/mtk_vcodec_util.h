@@ -63,7 +63,7 @@ extern bool mtk_vcodec_dbg;
 	pr_err("[MTK_VCODEC][ERROR][%d]: %s() " fmt "\n",		\
 	       ((struct mtk_vcodec_ctx *)h->ctx)->id, __func__, ##args)
 
-
+#define DEBUG   1
 #if defined(DEBUG)
 
 #define mtk_v4l2_debug(level, fmt, args...)				 \

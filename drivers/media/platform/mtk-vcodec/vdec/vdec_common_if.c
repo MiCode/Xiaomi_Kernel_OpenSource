@@ -61,7 +61,7 @@ static void get_pic_info(struct vdec_inst *inst,
 
 	mtk_vcodec_debug(inst, "pic(%d, %d), buf(%d, %d), bitdepth = %d, fourcc = %d\n",
 		pic->pic_w, pic->pic_h, pic->buf_w, pic->buf_h,
-		pic->bitdepth, pic->fourcc);
+		pic->bitdepth, pic->cap_fourcc);
 	mtk_vcodec_debug(inst, "Y/C(%d, %d)", pic->fb_sz[0], pic->fb_sz[1]);
 }
 

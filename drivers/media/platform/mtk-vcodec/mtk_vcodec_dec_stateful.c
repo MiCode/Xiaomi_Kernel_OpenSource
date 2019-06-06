@@ -336,7 +336,7 @@ static void mtk_vdec_update_fmt(struct mtk_vcodec_ctx *ctx,
 		fmt = &mtk_video_formats[k];
 		if (fmt->fourcc == pixelformat) {
 			mtk_v4l2_debug(1, "Update cap fourcc(%d -> %d)",
-				dst_q_data->fmt.fourcc, pixelformat);
+				dst_q_data->fmt->fourcc, pixelformat);
 			dst_q_data->fmt = fmt;
 			return;
 		}
@@ -712,7 +712,7 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 	src_mem.index = src_buf->vb2_buf.index;
 	mtk_v4l2_debug(2,
 		"[%d] buf id=%d va=%p dma=%p size=%zx length=%zu dmabuf=%p",
-		ctx->id, src_buf->index,
+		ctx->id, src_buf->vb2_buf.index,
 		src_mem.va, &src_mem.dma_addr,
 		src_mem.size, src_mem.length,
 		src_mem.dmabuf);
@@ -767,7 +767,7 @@ static void vb2ops_vdec_stateful_buf_queue(struct vb2_buffer *vb)
 		}
 		mtk_v4l2_debug(ret ? 0 : 1,
 			       "[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d",
-			       ctx->id, src_buf->index,
+			       ctx->id, src_buf->vb2_buf.index,
 			       src_mem.size, ret, res_chg);
 		/* If not support the source, eg: w/h,
 		 * bitdepth, level, we need to stop to play it
