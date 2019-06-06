@@ -2487,6 +2487,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
  * The children inherits the group id from the parent.
  */
 unsigned int __read_mostly sysctl_sched_enable_thread_grouping;
+unsigned int __read_mostly sysctl_sched_coloc_downmigrate_ns;
 
 struct related_thread_group *related_thread_groups[MAX_NUM_CGROUP_COLOC_ID];
 static LIST_HEAD(active_related_thread_groups);
@@ -2508,30 +2509,35 @@ unsigned int __read_mostly sched_group_downmigrate = 19000000;
 unsigned int __read_mostly sysctl_sched_group_downmigrate_pct = 95;
 
 static inline
-struct sched_cluster *best_cluster(struct related_thread_group *grp,
+void update_best_cluster(struct related_thread_group *grp,
 				   u64 demand, bool boost)
 {
-	struct sched_cluster *cluster = sched_cluster[0];
-	unsigned int threshold;
-
 	if (boost) {
-		cluster = sched_cluster[1];
-		goto out;
+		grp->preferred_cluster = sched_cluster[1];
+		return;
 	}
 
-	if (!demand)
-		goto out;
-
-	if (grp->preferred_cluster == sched_cluster[1])
-		threshold = sched_group_downmigrate;
-	else
-		threshold = sched_group_upmigrate;
-
-	if (demand >= threshold)
-		cluster = sched_cluster[1];
-
-out:
-	return cluster;
+	if (grp->preferred_cluster == sched_cluster[0]) {
+		if (demand >= sched_group_upmigrate)
+			grp->preferred_cluster = sched_cluster[1];
+		return;
+	}
+	if (demand < sched_group_downmigrate) {
+		if (!sysctl_sched_coloc_downmigrate_ns) {
+			grp->preferred_cluster = sched_cluster[0];
+			return;
+		}
+		if (!grp->downmigrate_ts) {
+			grp->downmigrate_ts = grp->last_update;
+			return;
+		}
+		if (grp->last_update - grp->downmigrate_ts >
+				sysctl_sched_coloc_downmigrate_ns) {
+			grp->preferred_cluster = sched_cluster[0];
+			grp->downmigrate_ts = 0;
+		}
+	} else if (grp->downmigrate_ts)
+		grp->downmigrate_ts = 0;
 }
 
 int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
@@ -2590,8 +2596,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 	}
 
 	grp->last_update = wallclock;
-	grp->preferred_cluster = best_cluster(grp, combined_demand,
-					      group_boost);
+	update_best_cluster(grp, combined_demand, group_boost);
 	trace_sched_set_preferred_cluster(grp, combined_demand);
 }
 
