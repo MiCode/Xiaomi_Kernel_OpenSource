@@ -724,8 +724,8 @@ static void register_fw_error_notifications(struct device *dev)
 	}
 
 	ret = devm_request_threaded_irq(dev, irq, NULL, fw_error_fatal_handler,
-					IRQF_ONESHOT, "wlanfw-err",
-					priv);
+					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+					"wlanfw-err", priv);
 	if (ret < 0) {
 		icnss_pr_err("Unable to register for error fatal IRQ handler %d ret = %d",
 			     irq, ret);
@@ -764,9 +764,8 @@ static void register_early_crash_notifications(struct device *dev)
 
 	ret = devm_request_threaded_irq(dev, irq, NULL,
 					fw_crash_indication_handler,
-					IRQF_ONESHOT,
-					"wlanfw-early-crash-ind",
-					priv);
+					IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+					"wlanfw-early-crash-ind", priv);
 	if (ret < 0) {
 		icnss_pr_err("Unable to register for early crash indication IRQ handler %d ret = %d",
 			     irq, ret);
