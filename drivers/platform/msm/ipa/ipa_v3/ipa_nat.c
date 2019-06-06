@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -905,7 +906,8 @@ int ipa3_del_nat_table(struct ipa_ioc_nat_ipv6ct_table_del *del)
 
 	tmp.table_index = del->table_index;
 	tmp.public_ip_addr = ipa3_ctx->nat_mem.public_ip_addr;
-
+        ipa3_ctx->nat_mem.pdn_mem.base = NULL;
+        ipa3_ctx->nat_mem.dev.is_mem_allocated = false;
 	return ipa3_nat_del_cmd(&tmp);
 }
 

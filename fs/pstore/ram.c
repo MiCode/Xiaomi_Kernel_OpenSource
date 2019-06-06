@@ -35,6 +35,9 @@
 #include <linux/compiler.h>
 #include <linux/pstore_ram.h>
 
+#include <linux/memblock.h>
+
+
 #define RAMOOPS_KERNMSG_HDR "===="
 #define MIN_MEM_SIZE 4096UL
 
@@ -484,6 +487,11 @@ static int ramoops_probe(struct platform_device *pdev)
 		goto fail_out;
 	}
 
+
+	if (pdata->mem_size && !is_power_of_2(pdata->mem_size))
+		pdata->mem_size = rounddown_pow_of_two(pdata->mem_size);
+
+
 	if (pdata->record_size && !is_power_of_2(pdata->record_size))
 		pdata->record_size = rounddown_pow_of_two(pdata->record_size);
 	if (pdata->console_size && !is_power_of_2(pdata->console_size))
@@ -644,6 +652,76 @@ static void ramoops_register_dummy(void)
 			PTR_ERR(dummy));
 	}
 }
+
+
+static struct ramoops_platform_data ramoops_data;
+
+static struct platform_device ramoops_dev  = {
+	.name = "ramoops",
+	.dev = {
+		.platform_data = &ramoops_data,
+	},
+};
+
+static int __init ramoops_memreserve(char *p)
+{
+	unsigned long size = 0;
+
+	if (!p)
+		return 1;
+
+	size = memparse(p, &p) & PAGE_MASK;
+
+	ramoops_data.mem_size = size;
+	ramoops_data.console_size = size / 2;
+	ramoops_data.pmsg_size = size / 2;
+
+
+
+	pr_info("xuke: %s, mem_size=0x%lx, console_size=0x%lx, pmsg_size=0x%lx, record_size=%lx, ftrace_size=%lx, mem_address=0x%llx\n", __func__,
+		ramoops_data.mem_size, ramoops_data.console_size, ramoops_data.pmsg_size,
+		ramoops_data.record_size, ramoops_data.ftrace_size, (unsigned long long)ramoops_data.mem_address);
+
+
+	if (ramoops_data.mem_address)
+		memblock_reserve(ramoops_data.mem_address, ramoops_data.mem_size);
+
+	return 0;
+}
+early_param("ramoops_memreserve", ramoops_memreserve);
+
+
+static int __init ramoops_memreserve_addr(char *p)
+{
+	phys_addr_t addr = 0;
+
+	if (!p)
+		return 1;
+
+	addr = memparse(p, &p) & PAGE_MASK;
+
+	ramoops_data.mem_address = addr;
+	ramoops_data.dump_oops = 1;
+
+	pr_info("xuke: %s, mem_address=0x%llx\n", __func__, (unsigned long long)ramoops_data.mem_address);
+
+	if (ramoops_data.mem_size)
+		memblock_reserve(ramoops_data.mem_address, ramoops_data.mem_size);
+
+	return 0;
+}
+early_param("ramoops_memreserve_addr", ramoops_memreserve_addr);
+
+
+static int __init msm_register_ramoops_device(void)
+{
+    pr_info("msm_register_ramoops_device \n");
+	if (platform_device_register(&ramoops_dev))
+		pr_info("Unable to register ramoops platform device\n");
+    return 0;
+}
+core_initcall(msm_register_ramoops_device);
+
 
 static int __init ramoops_init(void)
 {

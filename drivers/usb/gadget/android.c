@@ -2,6 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
  *
@@ -2455,14 +2456,14 @@ static int rndis_qc_function_bind_config(struct android_usb_function *f,
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
-		rndis_qc_iad_descriptor.bFunctionClass =
-						USB_CLASS_WIRELESS_CONTROLLER;
-		rndis_qc_iad_descriptor.bFunctionSubClass = 0x01;
-		rndis_qc_iad_descriptor.bFunctionProtocol = 0x03;
-		rndis_qc_control_intf.bInterfaceClass =
-						USB_CLASS_WIRELESS_CONTROLLER;
-		rndis_qc_control_intf.bInterfaceSubClass =	 0x01;
-		rndis_qc_control_intf.bInterfaceProtocol =	 0x03;
+		/* HTH-49378 add by zhangyaohui 20190410  begin */
+		rndis_qc_iad_descriptor.bFunctionClass =0xef;
+		rndis_qc_iad_descriptor.bFunctionSubClass = 0x04;
+		rndis_qc_iad_descriptor.bFunctionProtocol = 0x01;
+		rndis_qc_control_intf.bInterfaceClass =0xef;
+		rndis_qc_control_intf.bInterfaceSubClass = 0x04;
+		rndis_qc_control_intf.bInterfaceProtocol = 0x01;
+		/* HTH-49378 add by zhangyaohui 20190410  end */
 	}
 
 	return rndis_qc_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,

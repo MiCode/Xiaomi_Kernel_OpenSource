@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,7 +467,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		case (Q6_SUBSYS_AVS2_8):
 			ret = q6asm_open_read_v4(prtd->audio_client,
 					FORMAT_LINEAR_PCM,
-					bits_per_sample);
+					bits_per_sample, false);
 
 			break;
 		case (Q6_SUBSYS_INVALID):

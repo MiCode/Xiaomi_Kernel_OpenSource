@@ -210,6 +210,9 @@ source "drivers/input/misc/Kconfig"
 
 source "drivers/input/sensors/smi130/Kconfig"
 
+# modify by zhoudan for merge 8.1 base 20181228
+source "drivers/input/fingerprint/Kconfig"
+
 endif
 
 menu "Hardware I/O ports"

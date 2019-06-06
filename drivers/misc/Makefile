@@ -73,3 +73,6 @@ obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
 obj-$(CONFIG_APDS9930)		+= apds993x.o
 obj-$(CONFIG_UID_SYS_STATS) += uid_sys_stats.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
+
+#add sar ant check by wangyibo at 20190108
+obj-$(CONFIG_ANT_CHECK)		+= ant_check.o

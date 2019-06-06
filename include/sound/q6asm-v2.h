@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -274,7 +275,7 @@ int q6asm_open_read_v3(struct audio_client *ac, uint32_t format,
 		       uint16_t bits_per_sample);
 
 int q6asm_open_read_v4(struct audio_client *ac, uint32_t format,
-			uint16_t bits_per_sample);
+			uint16_t bits_per_sample, bool ts_mode);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format
 		/*, uint16_t bits_per_sample*/);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,6 +337,7 @@
 			<0xff 114>, /* qdsd_intr_out */
 			<0xff 126>, /* app_tcu_cxt_irpt_vec[11] */
 			<0xff 128>, /* blsp1_peripheral_irq[3] */
+			<0xff 129>, /* i2c-msm-v2-irq */
 			<0xff 131>, /* qup_irq */
 			<0xff 136>, /* app_tcu_cxt_irpt_vec[15] */
 			<0xff 137>, /* app_tcu_cxt_irpt_vec[16] */
@@ -402,6 +404,7 @@
 			<0xff 264>, /* arm-smmu context fault */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 271>, /* sps add by dzy*/
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */

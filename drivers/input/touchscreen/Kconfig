@@ -1136,7 +1136,6 @@ config TOUCHSCREEN_MAXIM_STI
 	  module will be called maxim_sti.
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
-source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 config TOUCHSCREEN_HIMAX_CHIPSET
 	bool "Himax touchpanel CHIPSET"
@@ -1150,4 +1149,15 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
 
+config TOUCHSCREEN_GT917D
+        bool "Goodix touchpanel GT9xx series"
+        depends on I2C
+        help
+          Say Y here if you have a Goodix GT917D touchscreen.
+          Gt917D controllers are multi touch controllers which can
+          report 5 touches at a time.
+
+          If unsure, say N.
+source "drivers/input/touchscreen/gt917d/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 endif

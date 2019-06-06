@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +42,12 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				/*modify long press 6s to reboot by wangyibo st 20190107*/
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <8>;
+				/*modify long press 6s to reboot by wangyibo st 20190107*/
 			};
 
 			qcom,pon_2 {
@@ -48,6 +55,17 @@
 				qcom,pull-up = <1>;
 				linux,code = <114>;
 			};
+			/*modify long press 6s to reboot by wangyibo st 20190107*/
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,pull-up = <1>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <1352>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <1>;
+				qcom,use-bark;
+			};
+			/*modify long press 6s to reboot by wangyibo st 20190110*/
 		};
 
 		pm8953_temp_alarm: qcom,temp-alarm@2400 {
@@ -151,7 +169,10 @@
 			gpio@c700 {
 				reg = <0xc700 0x100>;
 				qcom,pin-num = <8>;
-				status = "disabled";
+				/* dongzhenyu modify start */
+				qcom,mode = <0>;
+				status = "ok";
+				/* dongzhenyu modify end */
 			};
 		};
 

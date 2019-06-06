@@ -158,10 +158,12 @@ static struct usb_interface_descriptor rndis_qc_control_intf = {
 
 	/* .bInterfaceNumber = DYNAMIC */
 	/* status endpoint is optional; this could be patched later */
+	/* HTH-49378 add by zhangyaohui 20190410  begin */
 	.bNumEndpoints =	1,
-	.bInterfaceClass =	USB_CLASS_COMM,
-	.bInterfaceSubClass =   USB_CDC_SUBCLASS_ACM,
-	.bInterfaceProtocol =   USB_CDC_ACM_PROTO_VENDOR,
+	.bInterfaceClass = USB_CLASS_MISC,
+	.bInterfaceSubClass = 0x04,
+	.bInterfaceProtocol = 0x01, /* RNDIS over ethernet */
+	/* HTH-49378 add by zhangyaohui 20190410  end */
 	/* .iInterface = DYNAMIC */
 };
 
@@ -219,9 +221,11 @@ rndis_qc_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 	.bFirstInterface =	0, /* XXX, hardcoded */
 	.bInterfaceCount =	2, /* control + data */
-	.bFunctionClass =	USB_CLASS_COMM,
-	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
-	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+	/* HTH-49378 add by zhangyaohui 20190410  begin */
+	.bFunctionClass = USB_CLASS_MISC,
+	.bFunctionSubClass = 0x04,
+	.bFunctionProtocol = 0x01, /* RNDIS over ethernet */
+	/* HTH-49378 add by zhangyaohui 20190410  end */
 	/* .iFunction = DYNAMIC */
 };
 

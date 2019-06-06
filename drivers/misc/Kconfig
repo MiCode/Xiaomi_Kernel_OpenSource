@@ -613,6 +613,13 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+config ANT_CHECK
+	tristate "ant check gpio"
+	depends on GPIOLIB
+	default y
+	help
+	  Say 'y' here to include support for An gpio detect Ant connect Machine
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

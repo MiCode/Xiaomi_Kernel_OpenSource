@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/mmu.c
  *
  *  Copyright (C) 1995-2005 Russell King
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1093,7 +1094,7 @@ void __init debug_ll_io_init(void)
 #endif
 
 static void * __initdata vmalloc_min =
-	(void *)(VMALLOC_END - (240 << 20) - VMALLOC_OFFSET);
+	(void *)(VMALLOC_END - (400 << 20) - VMALLOC_OFFSET);
 
 /*
  * vmalloc=size forces the vmalloc area to be exactly 'size'

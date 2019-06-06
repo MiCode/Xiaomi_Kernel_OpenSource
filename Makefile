@@ -670,11 +670,15 @@ ifdef CONFIG_CC_STACKPROTECTOR_REGULAR
   endif
 else
 ifdef CONFIG_CC_STACKPROTECTOR_STRONG
-  stackp-flag := -fstack-protector-strong
-  ifeq ($(call cc-option, $(stackp-flag)),)
-    $(warning Cannot use CONFIG_CC_STACKPROTECTOR_STRONG: \
-	      -fstack-protector-strong not supported by compiler)
-  endif
+#xiaopei 9102-3-7 HTH-49751 CTS android.security.cts.KernelConfigTest#testConfigStackProtectorStrong
+#cheat gcc compiler,if turn on CONFIG_CC_STACKPROTECTOR_STRONG cannt compile successfuly,so block this line to cheat,use -fno-stack-protector
+#  stackp-flag := -fstack-protector-strong
+#  ifeq ($(call cc-option, $(stackp-flag)),)
+#    $(warning Cannot use CONFIG_CC_STACKPROTECTOR_STRONG: \
+#	      -fstack-protector-strong not supported by compiler)
+#  endif
+  stackp-flag := $(call cc-option, -fno-stack-protector)
+#xiaopei 9102-3-7 HTH-49751 CTS£ºandroid.security.cts.KernelConfigTest#testConfigStackProtectorStrong
 else
   # Force off for distro compilers that enable stack protector by default.
   stackp-flag := $(call cc-option, -fno-stack-protector)

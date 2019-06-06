@@ -3,6 +3,7 @@
  * FocalTech TouchScreen driver.
  *
  * Copyright (c) 2010-2017, FocalTech Systems, Ltd., all rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -69,16 +70,18 @@ static DEFINE_MUTEX(i2c_rw_access);
 * Output: get data in the 3rd buf
 * Return: fail <0
 ***********************************************************************/
-int fts_i2c_read(struct i2c_client *client, char *writebuf,
-		int writelen, char *readbuf, int readlen)
+int fts_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char *readbuf, int readlen)
 {
-	int ret = -EIO;
+	int ret;
 
 	mutex_lock(&i2c_rw_access);
 
-	if (readlen > 0) {
-		if (writelen > 0) {
-			struct i2c_msg msgs[] = {
+	if (readlen > 0)
+	{
+		if (writelen > 0)
+		{
+			struct i2c_msg msgs[] =
+			{
 				{
 					.addr = client->addr,
 					.flags = 0,
@@ -94,9 +97,14 @@ int fts_i2c_read(struct i2c_client *client, char *writebuf,
 			};
 			ret = i2c_transfer(client->adapter, msgs, 2);
 			if (ret < 0)
-				FTS_ERROR("[IIC]: i2c_write error %d!!", ret);
-		} else {
-			struct i2c_msg msgs[] = {
+			{
+				FTS_ERROR("[IIC]: i2c_transfer(write) error, ret=%d!!", ret);
+			}
+		}
+		else
+		{
+			struct i2c_msg msgs[] =
+			{
 				{
 					.addr = client->addr,
 					.flags = I2C_M_RD,
@@ -106,12 +114,13 @@ int fts_i2c_read(struct i2c_client *client, char *writebuf,
 			};
 			ret = i2c_transfer(client->adapter, msgs, 1);
 			if (ret < 0)
-				FTS_ERROR("[IIC]: i2c_read error %d!!", ret);
+			{
+				FTS_ERROR("[IIC]: i2c_transfer(read) error, ret=%d!!", ret);
+			}
 		}
 	}
 
 	mutex_unlock(&i2c_rw_access);
-
 	return ret;
 }
 
@@ -127,9 +136,10 @@ int fts_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
 	int ret = 0;
 
 	mutex_lock(&i2c_rw_access);
-
-	if (writelen > 0) {
-		struct i2c_msg msgs[] = {
+	if (writelen > 0)
+	{
+		struct i2c_msg msgs[] =
+		{
 			{
 				.addr = client->addr,
 				.flags = 0,
@@ -139,9 +149,10 @@ int fts_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
 		};
 		ret = i2c_transfer(client->adapter, msgs, 1);
 		if (ret < 0)
-			FTS_ERROR("[IIC]: i2c_write error, ret=%d", ret);
+		{
+			FTS_ERROR("%s: i2c_transfer(write) error, ret=%d", __func__, ret);
+		}
 	}
-
 	mutex_unlock(&i2c_rw_access);
 
 	return ret;

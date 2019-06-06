@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,6 +521,7 @@ static int32_t msm_flash_init(
 			return rc;
 		}
 	}
+	flash_ctrl->func_tbl->camera_flash_off(flash_ctrl, NULL);
 
 	flash_ctrl->flash_state = MSM_CAMERA_FLASH_INIT;
 

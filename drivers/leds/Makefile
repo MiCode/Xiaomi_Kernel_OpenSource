@@ -63,6 +63,10 @@ obj-$(CONFIG_LEDS_VERSATILE)		+= leds-versatile.o
 obj-$(CONFIG_LEDS_MENF21BMC)		+= leds-menf21bmc.o
 obj-$(CONFIG_LEDS_AW2013)		+= leds-aw2013.o
 
+# add aw2023 led by wangyibo at 20181229 start
+obj-$(CONFIG_LEDS_AW2023)		+= leds-aw2023.o
+# add aw2023 led by wangyibo at 20181229 end
+
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 

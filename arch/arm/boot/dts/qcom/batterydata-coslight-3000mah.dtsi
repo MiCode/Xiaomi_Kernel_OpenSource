@@ -1,0 +1,48 @@
+qcom,coslight-3000mah {
+    /* #3213692_Longcheer_BN31cos_3080mAh_averaged_MasterSlave_Dec13th2017*/
+    qcom,max-voltage-uv = <4400000>;
+    qcom,nom-batt-capacity-mah = <3080>;
+    qcom,batt-id-kohm = <100>;
+    qcom,battery-beta = <3435>;
+    qcom,battery-type = "coslight_3000mah";
+    qcom,chg-rslow-comp-c1 = <4018624>;
+    qcom,chg-rslow-comp-c2 = <7053755>;
+    qcom,chg-rs-to-rslow = <1096864>;
+    qcom,chg-rslow-comp-thr = <0xB7>;
+    qcom,checksum = <0x4288>;
+    qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+    qcom,fg-profile-data = [
+         DE 83 60 7C
+         75 80 7E 75
+         3C 83 F2 72
+         5C 7F 40 80
+         FF 81 6F 9B
+         06 BF 87 D0
+         7B 10 03 88
+         92 7D 6C 81
+         88 77 35 83
+         82 79 2E 87
+         AE 83 24 82
+         A7 9B 33 C4
+         5F D2 70 0E
+         FE 0B 0B 5A
+         14 70 A5 FD
+         24 44 23 45
+         36 43 00 00
+         41 4C 41 41
+         FD 16 00 00
+         00 00 00 00
+         00 00 00 00
+         DD 70 46 6B
+         67 64 FA 88
+         43 7C 46 71
+         13 6D C7 78
+         23 75 4A 69
+         48 6F 41 A1
+         2A 46 60 BA
+         5D A0 71 0C
+         28 00 FF 36
+         F0 11 30 03
+         00 00 00 0C
+         ];
+};

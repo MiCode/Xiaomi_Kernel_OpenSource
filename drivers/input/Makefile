@@ -29,3 +29,5 @@ obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 obj-$(CONFIG_SENSORS_HALL)	+= hall_sensor.o
 obj-y	+= sensors/smi130/
+# modify by zhoudan for merge 8.1 base 20181228
+obj-y += fingerprint/

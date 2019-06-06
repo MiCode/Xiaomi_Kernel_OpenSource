@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +40,14 @@
 					fsmgr_flags = "wait,verify";
 					status = "ok";
 				};
+                                system {
+					compatible = "android,system";
+					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,verify";
+					status = "ok";
+				};
 			};
 		};
 	};
@@ -48,11 +57,12 @@
 		#size-cells = <2>;
 		ranges;
 
-		other_ext_mem: other_ext_region@0 {
+        other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
+
 
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
@@ -63,13 +73,13 @@
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d600000 0x0 0x1100000>;
+			reg = <0x0 0x8d600000 0x0 0x1200000>;
 		};
 
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8e700000 0x0 0x700000>;
+			reg = <0x0 0x8e800000 0x0 0x700000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -110,6 +120,11 @@
 			label = "cont_splash_mem";
 		};
 
+		pstore_reserve_mem: pstore_reserve_mem@0x91400000 {
+			reg = <0x0 0x91400000  0x0 0x400000>;
+			label = "cont_splash_mem";
+		};
+
 		gpu_mem: gpu_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -138,6 +153,7 @@
 		i2c3 = &i2c_3;
 		i2c5 = &i2c_5;
 		spi3 = &spi_3;
+		spi5 = &spi_5;
 	};
 
 	soc: soc { };
@@ -731,7 +747,33 @@
 		qcom,bam-consumer-pipe-index = <8>;
 		qcom,bam-producer-pipe-index = <9>;
 		qcom,master-id = <86>;
+		status = "disabled";
 	};
+	spi_5: spi@7af5000 { /* BLSP2 QUP1 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x7af5000 0x600>,
+			<0x07AC4000 0x1f000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 299 0>, <0 239 0>;
+		spi-max-frequency = <19200000>;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi5_default &spi5_cs0_active>;
+		pinctrl-1 = <&spi5_sleep &spi5_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup1_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <4>;
+		qcom,bam-producer-pipe-index = <5>;
+		qcom,master-id = <84>;
+	};
+// modify by zhoudan for merge 8.1 base 20181228 end
 
 	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
@@ -807,6 +849,7 @@
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
+		status = "disabled"; //diabale i2c-5 by henry.liu 2018.12.29
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1268,6 +1311,13 @@
 		reg-names = "fuse-base";
 	};
 
+	sn_fuse: snfuse@a4128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xA4128 0x4>,
+		      <0xA6034 0x4>;
+		reg-names = "sn-base","fuse-state";
+	};
+
 	jtag_mm0: jtagmm@619c000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x619c000 0x1000>,
@@ -1662,9 +1712,10 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
+
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -2194,10 +2245,11 @@
 		vdda33-supply = <&pm8953_l13>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
 
+		/*usb eys testing modifiyed by wangyibo at 20190102*/
 		qcom,qusb-phy-init-seq = <0xF8 0x80
-					0xB3 0x84
+					0x73 0x84
 					0x83 0x88
-					0xC0 0x8C
+					0xC5 0x8C
 					0x14 0x9C
 					0x30 0x08
 					0x79 0x0C
@@ -2341,6 +2393,51 @@
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 213 11028>;
 	};
+
+	ant_check {
+		compatible = "ant_check";
+                pinctrl-names = "ant_check_irq_state";
+                pinctrl-0 = <&ant_check_irq_state>;
+                ant_check,irq_gpio = <&tlmm 9 0>;
+	};
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+		fpc,gpio_rst = <&tlmm 140 0x0>;
+		fpc,gpio_irq = <&tlmm 48 0x0>;
+		fpc,gpio_ldo_en = <&tlmm 47 0x0>;
+
+		vcc_spi-supply = <&pm8953_l6>;
+		vdd_io-supply = <&pm8953_l6>;
+		vdd_ana-supply = <&pm8953_l6>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active",
+            "fpc1020_ldo_2v8_en";
+		pinctrl-0 = <&fp_reset_low>;
+		pinctrl-1 = <&fp_reset_high>;
+		pinctrl-2 = <&fp_irq_active>;
+		pinctrl-3 = <&fp_ldo_2v8_en>;
+	};
+
+    goodix_fp {
+		status = "ok";
+		compatible = "goodix,fingerprint";
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+		goodix,gpio_reset = <&tlmm 140 0x0>;
+		goodix,gpio_irq = <&tlmm 48 0x0>;
+		goodix,gpio_pwr = <&tlmm 47 0x0>;
+
+		vcc_spi-supply = <&pm8953_l6>;
+		vdd_io-supply = <&pm8953_l6>;
+		vdd_ana-supply = <&pm8953_l6>;
+
+	};
 };
 
 #include "msm-pm8953-rpm-regulator.dtsi"
@@ -2483,7 +2580,7 @@
 	};
 
 	chan@11 {
-		label = "pa_therm1";
+		label = "case_therm";
 		reg = <0x11>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;

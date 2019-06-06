@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -330,7 +331,8 @@ module_param_named(
 	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
 );
 
-static int fg_sram_update_period_ms = 30000;
+
+static int fg_sram_update_period_ms = 30000 / 3;
 module_param_named(
 	sram_update_period_ms, fg_sram_update_period_ms, int, S_IRUSR | S_IWUSR
 );
@@ -2753,7 +2755,7 @@ out:
 #define BATT_TEMP_OFF		DISABLE_THERM_BIT
 #define BATT_TEMP_ON		(FORCE_RBIAS_ON_BIT | TEMP_SENSE_ALWAYS_BIT | \
 				TEMP_SENSE_CHARGE_BIT)
-#define TEMP_PERIOD_UPDATE_MS		10000
+#define TEMP_PERIOD_UPDATE_MS		11000
 #define TEMP_PERIOD_TIMEOUT_MS		3000
 #define BATT_TEMP_LOW_LIMIT		-600
 #define BATT_TEMP_HIGH_LIMIT		1500
@@ -4043,6 +4045,17 @@ static void status_change_work(struct work_struct *work)
 			pr_info("terminated charging at %d/0x%02x\n",
 					capacity, get_monotonic_soc_raw(chip));
 		}
+
+		if (capacity >= 95 && chip->hold_soc_while_full
+				&& (chip->health == POWER_SUPPLY_HEALTH_COOL || chip->health == POWER_SUPPLY_HEALTH_COOL_XIAOMI)) {
+			if (fg_debug_mask & FG_STATUS)
+				pr_info("holding soc at 100,cool\n");
+			chip->charge_full = true;
+		} else if (fg_debug_mask & FG_STATUS) {
+			pr_info("terminated charging at %d/0x%02x\n",
+					capacity, get_monotonic_soc_raw(chip));
+		}
+
 	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
@@ -4578,6 +4591,7 @@ static int fg_power_get_property(struct power_supply *psy,
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
 	bool vbatt_low_sts;
+	int temp = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_BATTERY_TYPE:
@@ -4610,7 +4624,28 @@ static int fg_power_get_property(struct power_supply *psy,
 		val->intval = chip->batt_max_voltage_uv;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+
+		temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+		if( -70 <= temp && temp <= -50){
+			temp -= 10;
+		}
+		else if (-100 <= temp && temp < -70){
+			temp -= 20;
+		}
+		else if(-130 <= temp && temp < -100){
+			temp -= 30;
+		}
+		else if(-160 <= temp && temp < -130){
+			temp -= 50;
+		}
+		else if(-190 <= temp && temp < -160){
+			temp -= 60;
+		}
+		else if(temp < -190){
+			temp -= 70;
+		}
+		val->intval = temp;
+
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
@@ -4643,10 +4678,12 @@ static int fg_power_get_property(struct power_supply *psy,
 			val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = chip->nom_cap_uah;
+
+		val->intval = 3080000;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval = chip->learning_data.learned_cc_uah;
+
+		val->intval = 3080000;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
 		val->intval = chip->learning_data.cc_uah;
@@ -6306,6 +6343,49 @@ fail:
 	return -EINVAL;
 }
 
+#define REDO_BATID_DURING_FIRST_EST BIT(4)
+static void fg_hw_restart(struct fg_chip *chip)
+{
+	u8 reg;
+	int batt_id;
+	u8 data[4];
+	int rc;
+
+	reg = 0x80;
+	batt_id = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+	pr_info("xyy 1 battery id = %d\n", batt_id);
+	fg_masked_write(chip, 0x4150, reg, reg, 1);
+
+	fg_masked_write(chip, chip->soc_base + SOC_RESTART, 0xFF, 0, 1);
+	mdelay(5);
+
+	reg = REDO_BATID_DURING_FIRST_EST|REDO_FIRST_ESTIMATE;
+	fg_masked_write(chip, chip->soc_base + SOC_RESTART, 0x18, 0x18, 1);
+	mdelay(5);
+
+	reg = REDO_BATID_DURING_FIRST_EST |REDO_FIRST_ESTIMATE| RESTART_GO;
+	fg_masked_write(chip, chip->soc_base + SOC_RESTART, 0x19, 0x19, 1);
+	mdelay(1000);
+
+	fg_masked_write(chip, chip->soc_base + SOC_RESTART, 0xFF, 0, 1);
+	fg_masked_write(chip, 0x4150, 0x80, 0, 1);
+
+	mdelay(2000);
+	chip->fg_restarting = true;
+
+	rc = fg_mem_read(chip, data, fg_data[FG_DATA_BATT_ID].address,
+	fg_data[FG_DATA_BATT_ID].len, fg_data[FG_DATA_BATT_ID].offset, 0);
+	if (rc) {
+		pr_err("Failed to get sram battery id data\n");
+	} else {
+		fg_data[FG_DATA_BATT_ID].value = data[0] * LSB_8B;
+	}
+
+	batt_id = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+	pr_info("xyy 2 battery id = %d\n", batt_id);
+}
+
+
 #define FG_PROFILE_LEN			128
 #define PROFILE_COMPARE_LEN		32
 #define THERMAL_COEFF_ADDR		0x444
@@ -6320,8 +6400,15 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 	const char *data, *batt_type_str;
 	bool tried_again = false, vbat_in_range, profiles_same;
 	u8 reg = 0;
+	int batt_id;
 
 wait:
+
+	batt_id = get_sram_prop_now(chip, FG_DATA_BATT_ID);
+	if(batt_id <= 85000 || (batt_id >= 115000 && batt_id <= 285000) || (batt_id >= 370000 && batt_id <= 1000000))
+		fg_hw_restart(chip);
+
+
 	fg_stay_awake(&chip->profile_wakeup_source);
 	ret = wait_for_completion_interruptible_timeout(&chip->batt_id_avail,
 			msecs_to_jiffies(PROFILE_LOAD_TIMEOUT_MS));
@@ -8681,6 +8768,52 @@ done:
 	fg_cleanup(chip);
 }
 
+#define SOC_LOW_PWR_CFG 0xF5
+#define LO_FRQ_CLKSWITCH_EN BIT(0)
+static void fg_adc_clk_change(struct fg_chip *chip, int val)
+{
+	u8 reg = 0;
+	int rc = 0;
+
+	if (val > 1 || val < 0) {
+		pr_err(":%s Invalid Value %d, Return!\n", __func__, val);
+		return;
+	}
+
+
+
+	chip->fg_restarting = true;
+	rc = fg_read(chip, &reg, chip->soc_base + SOC_LOW_PWR_CFG, 1);
+	if (rc) {
+		pr_err(":%s failed to read SOC_LOW_PWR_CFG\n", __func__);
+		goto adc_clk_change_fail;
+	}
+	pr_err(":%s SOC_LOW_PWR_CFG = 0x%02x\n", __func__, reg);
+	usleep_range(5000, 6000);
+
+	rc = fg_masked_write(chip, chip->soc_base + SOC_LOW_PWR_CFG, LO_FRQ_CLKSWITCH_EN, val, 1);
+	if (rc) {
+		pr_err(":%s failed to change FG ADC Clk\n", __func__);
+		goto adc_clk_change_fail;
+	}
+	usleep_range(5000, 6000);
+
+	rc = fg_read(chip, &reg, chip->soc_base + SOC_LOW_PWR_CFG, 1);
+	if (rc) {
+		pr_err(":%s failed to read SOC_LOW_PWR_CFG\n", __func__);
+		goto adc_clk_change_fail;
+	}
+	pr_err(":%s SOC_LOW_PWR_CFG = 0x%02x\n", __func__, reg);
+
+	chip->fg_restarting = false;
+	pr_err(":%s Success change FG ADC Clk\n", __func__);
+	return;
+
+adc_clk_change_fail:
+	chip->fg_restarting = false;
+}
+
+
 static int fg_probe(struct spmi_device *spmi)
 {
 	struct device *dev = &(spmi->dev);
@@ -8918,6 +9051,7 @@ static int fg_probe(struct spmi_device *spmi)
 	memset(chip->batt_info, INT_MAX, sizeof(chip->batt_info));
 
 	schedule_work(&chip->init_work);
+	fg_adc_clk_change(chip, 1);
 
 	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d PMIC subtype=%d\n",
 		chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],

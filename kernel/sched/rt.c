@@ -1719,6 +1719,15 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			continue;
 
 		for_each_cpu(i, &candidate_mask) {
+			/* In app boot stage, normal(CFS)task will run in big core(4-6),
+			 * so big core will be in high load. Original rt policy will let
+			 * top app ui/render rt thread run in a lower load cpu(0-3).
+			 * Cpu 0-3 is little core. This will affect app launch time.
+			 * This change fix this by choose big core for rt task in boost time.
+			 */
+			if (sched_boost() && cpu_capacity(i) != max_capacity)
+				continue;
+
 			if (sched_cpu_high_irqload(i))
 				continue;
 

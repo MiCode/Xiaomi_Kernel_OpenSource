@@ -24,6 +24,10 @@ obj-$(CONFIG_ATAGS)		+= atags_parse.o
 obj-$(CONFIG_ATAGS_PROC)	+= atags_proc.o
 obj-$(CONFIG_DEPRECATED_PARAM_STRUCT) += atags_compat.o
 
+# HTH_43987 add powerup reason to bugreport by wangyibo at 20190116 start
+obj-$(CONFIG_BOOT_INFO)          += bootinfo.o
+# HTH_43987 add powerup reason to bugreport by wangyibo at 20190116 end
+
 ifeq ($(CONFIG_CPU_V7M),y)
 obj-y		+= entry-v7m.o v7m.o
 else

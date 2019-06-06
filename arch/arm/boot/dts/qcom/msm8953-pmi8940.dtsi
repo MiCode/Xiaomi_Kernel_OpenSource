@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,14 +15,27 @@
 #include "msm8953-audio-mtp.dtsi"
 
 &soc {
-	led_flash0: qcom,camera-flash {
+	led_flash0: qcom,camera-flash@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi8940_flash0 &pmi8940_flash1>;
-		qcom,torch-source = <&pmi8940_torch0 &pmi8940_torch1>;
+		qcom,flash-source = <&pmi8940_flash0>;
+		qcom,torch-source = <&pmi8940_torch0>;
 		qcom,switch-source = <&pmi8940_switch>;
 	};
+	led_flash1: qcom,camera-flash@1 {
+		cell-index = <1>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8940_flash1>;
+		qcom,torch-source = <&pmi8940_torch1>;
+		qcom,switch-source = <&pmi8940_switch>;
+	};
+};
+&cci {
+	qcom,camera@2 {
+			qcom,led-flash-src = <&led_flash1>;
+		};
 };
 
 &usb3 {

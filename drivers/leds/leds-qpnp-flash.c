@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +54,9 @@
 #define	FLASH_LED_UNLOCK_SECURE(base)				(base + 0xD0)
 #define FLASH_PERPH_RESET_CTRL(base)				(base + 0xDA)
 #define	FLASH_TORCH(base)					(base + 0xE4)
+
+#define FLASH_TRIM1(base)					(base + 0xF1)
+#define FLASH_TRIM3(base)					(base + 0xF3)
 
 #define FLASH_STATUS_REG_MASK					0xFF
 #define FLASH_LED_FAULT_STATUS(base)				(base + 0x08)
@@ -202,6 +206,7 @@ struct flash_led_platform_data {
 	unsigned int			temp_derate_curr_num;
 	unsigned int			*die_temp_derate_curr_ma;
 	unsigned int			*die_temp_threshold_degc;
+	u16 				max_total_current_limit;
 	u16				ramp_up_step;
 	u16				ramp_dn_step;
 	u16				vph_pwr_droop_threshold;
@@ -211,6 +216,8 @@ struct flash_led_platform_data {
 	u8				vph_pwr_droop_debounce_time;
 	u8				startup_dly;
 	u8				thermal_derate_rate;
+	u8				flash_trim1;
+	u8				flash_trim3;
 	bool				pmic_charger_support;
 	bool				self_check_en;
 	bool				thermal_derate_en;
@@ -1315,6 +1322,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	mutex_lock(&flash_node->cdev.led_access);
 
 	brightness = flash_node->cdev.brightness;
+	pr_debug("current_ma qpnp_flash_led_work brightness %d\n", brightness);
 	if (!brightness)
 		goto turn_off;
 
@@ -1617,6 +1625,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					max_curr_avail_ma) / total_curr_ma;
 			}
 
+			if (led->pdata->flash_trim1 == 0) {
+				rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+							led->spmi_dev->sid,
+							FLASH_TRIM1(led->base),
+							&val, 1);
+				led->pdata->flash_trim1 = val;
+			}
+
+			rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_LED_UNLOCK_SECURE(led->base),
+					FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"Secure reg write failed\n");
+				goto exit_flash_led_work;
+
+			}
+
+			rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_TRIM1(led->base),
+					0xFF, (led->pdata->flash_trim1 + 10));
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"TRIM1 reg write failed\n");
+				goto exit_flash_led_work;
+			}
+
+
 			val = (u8)(flash_node->prgm_current *
 				FLASH_MAX_LEVEL / flash_node->max_current);
 			rc = qpnp_led_masked_write(led->spmi_dev,
@@ -1626,6 +1662,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					"Current register write failed\n");
 				goto exit_flash_led_work;
 			}
+
+
+			if (led->pdata->flash_trim3 == 0) {
+				rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+							led->spmi_dev->sid,
+							FLASH_TRIM3(led->base),
+							&val, 1);
+				led->pdata->flash_trim3 = val;
+			}
+
+			rc = qpnp_led_masked_write(led->spmi_dev,
+						FLASH_LED_UNLOCK_SECURE(led->base),
+						FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"Secure reg write failed\n");
+				goto exit_flash_led_work;
+			}
+
+			rc = qpnp_led_masked_write(led->spmi_dev,
+						FLASH_TRIM3(led->base),
+						0xFF, (led->pdata->flash_trim3 + 10));
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"TRIM3 reg write failed\n");
+				goto exit_flash_led_work;
+			}
+
 
 			val = (u8)(flash_node->prgm_current2 *
 				FLASH_MAX_LEVEL / flash_node->max_current);
@@ -1828,7 +1892,7 @@ turn_off:
 
 		led->open_fault = (val & FLASH_LED_OPEN_FAULT_DETECTED);
 	}
-
+	pr_debug("wyw++ %s %d led_name=%s", __func__, __LINE__, flash_node->cdev.name);
 	rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
@@ -1888,13 +1952,85 @@ error_enable_gpio:
 	return;
 }
 
+static void qpnp_flashlight_led_brightness_set(struct led_classdev *led_cdev,
+						enum led_brightness value)
+{
+	struct flash_node_data *flash_node;
+	struct qpnp_flash_led *led;
+	int i ;
+
+	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
+	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+
+	if (value < LED_OFF ) {
+		pr_err("Invalid brightness value\n");
+		return;
+	}
+
+	pr_debug("wyw++ qpnp_flashlight_led_brightness_set value=%d\n", value);
+
+	if (value == 1 || value == 0){
+		queue_work(led->ordered_workq, &flash_node->work);
+		return;
+	} else {
+		if (value > flash_node->cdev.max_brightness) {
+			value = flash_node->cdev.max_brightness;
+	}
+	pr_debug("wyw++ %s led_name=%s, id=%d\n", __func__, led->flash_node[led->num_leds - 1].cdev.name,
+		led->flash_node[led->num_leds - 1].id);
+
+	led->flash_node[led->num_leds - 1].cdev.brightness = value;
+	led->flash_node[led->num_leds - 1].type = TORCH;
+	if (100 == value){
+		led->flash_node[led->num_leds - 1].max_current = 200;
+	} else {
+		led->flash_node[led->num_leds - 1].max_current = flash_node->max_current;
+	}
+
+	for (i=0; i<1; i++) {
+		if (value < FLASH_LED_MIN_CURRENT_MA && value != 0)
+				value = FLASH_LED_MIN_CURRENT_MA;
+
+		led->flash_node[i+2].prgm_current = value;
+		led->flash_node[i+2].flash_on = value ? true : false;
+		if (value)
+			led->flash_node[led->num_leds - 1].trigger |=
+						(0x80 >>led->flash_node[i+2].id);
+		else
+			led->flash_node[led->num_leds - 1].trigger &=
+						~(0x80 >> led->flash_node[i+2].id);
+		if (led->flash_node[i+2].id == FLASH_LED_0) {
+			if (100 == value) {
+				led->flash_node[led->num_leds - 1].prgm_current = 195;
+			} else {
+				led->flash_node[led->num_leds - 1].prgm_current
+					= led->flash_node[i+2].prgm_current;
+			}
+		} else if (led->flash_node[i+2].id== FLASH_LED_1) {
+			if (100 == value ){
+				led->flash_node[led->num_leds -1].prgm_current2 =78;
+			} else {
+				led->flash_node[led->num_leds -1].prgm_current2 =
+					led->flash_node[i+2].prgm_current;
+			}
+	    }
+	}
+	queue_work(led->ordered_workq, &flash_node->work);
+
+	return;
+	}
+}
+
+
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 						enum led_brightness value)
 {
 	struct flash_node_data *flash_node;
 	struct qpnp_flash_led *led;
+	u32 total_current;
 	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
 	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+	pr_debug("wyw++ qpnp_flash_led_brightness_set IN\n");
 
 	if (value < LED_OFF) {
 		pr_err("Invalid brightness value\n");
@@ -1942,6 +2078,15 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 			if (!value) {
 				flash_node->prgm_current = 0;
 				flash_node->prgm_current2 = 0;
+
+			} else {
+				total_current = flash_node->prgm_current +
+						flash_node->prgm_current2;
+				if (total_current > led->pdata->max_total_current_limit) {
+					flash_node->prgm_current = (flash_node->prgm_current * led->pdata->max_total_current_limit) / total_current;
+					flash_node->prgm_current2 = (flash_node->prgm_current2 * led->pdata->max_total_current_limit) / total_current;
+				}
+
 			}
 		}
 	} else {
@@ -2294,6 +2439,10 @@ static int qpnp_flash_led_parse_common_dt(
 		return rc;
 	}
 
+	led->pdata->flash_trim1 = 0;
+	led->pdata->flash_trim3  = 0;
+
+
 	led->pdata->pmic_charger_support =
 			of_property_read_bool(node,
 						"qcom,pmic-charger-support");
@@ -2304,6 +2453,13 @@ static int qpnp_flash_led_parse_common_dt(
 	led->pdata->thermal_derate_en =
 			of_property_read_bool(node,
 						"qcom,thermal-derate-enabled");
+
+
+	led->pdata->max_total_current_limit = 2000;
+	rc = of_property_read_u32(node, "qcom,max-total-current-limit", &val);
+	if (!rc)
+		led->pdata->max_total_current_limit = (u16) val;
+
 
 	if (led->pdata->thermal_derate_en) {
 		led->pdata->thermal_derate_rate =
@@ -2612,6 +2768,7 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 		INIT_WORK(&led->flash_node[i].work, qpnp_flash_led_work);
 		rc = of_property_read_string(temp, "qcom,led-name",
 						&led->flash_node[i].cdev.name);
+		pr_debug("wyw++ cdev_name[%d]=%s", i, led->flash_node[i].cdev.name);
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
 					"Unable to read flash name\n");
@@ -2637,6 +2794,13 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 					"Unable to read max current\n");
 			return rc;
 		}
+
+		if (strcmp(led->flash_node[i].cdev.name, "flashlight") == 0)
+		{
+			led->flash_node[i].cdev.brightness_set =
+						qpnp_flashlight_led_brightness_set;
+		}
+
 		rc = led_classdev_register(&spmi->dev,
 						&led->flash_node[i].cdev);
 		if (rc) {
