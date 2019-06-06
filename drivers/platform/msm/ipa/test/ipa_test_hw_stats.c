@@ -663,6 +663,71 @@ static int ipa_test_hw_stats_query_FnR_clean(void *priv)
 	return ret;
 }
 
+
+static int ipa_test_hw_stats_query_sw_stats(void *priv)
+{
+	int ret, i, start = 0;
+	struct ipa_ioc_flt_rt_query *query;
+	int pyld_size = 0;
+
+	query = kzalloc(sizeof(struct ipa_ioc_flt_rt_query), GFP_KERNEL);
+	if (!query)
+		return -ENOMEM;
+	pyld_size = IPA_MAX_FLT_RT_CNT_INDEX *
+		sizeof(struct ipa_flt_rt_stats);
+	query->stats = (uint64_t)kzalloc(pyld_size, GFP_KERNEL);
+	if (!query->stats) {
+		kfree(query);
+		return -ENOMEM;
+	}
+
+	/* query all together */
+	IPA_UT_INFO("========query all SW counters========\n");
+	query->start_id = IPA_FLT_RT_HW_COUNTER + 1;
+	query->end_id = IPA_MAX_FLT_RT_CNT_INDEX;
+	ipa_get_flt_rt_stats(query);
+	start = 0;
+	for (i = IPA_FLT_RT_HW_COUNTER + 1;
+		i <= IPA_MAX_FLT_RT_CNT_INDEX; i++) {
+		IPA_UT_INFO(
+			"counter %u pkt_cnt %u bytes cnt %llu\n",
+			i, ((struct ipa_flt_rt_stats *)
+			query->stats)[start].num_pkts,
+			((struct ipa_flt_rt_stats *)
+			query->stats)[start].num_bytes);
+		start++;
+	}
+	IPA_UT_INFO("================ done ============\n");
+
+	ret = 0;
+	kfree((void *)(query->stats));
+	kfree(query);
+	return ret;
+}
+
+static int ipa_test_hw_stats_set_sw_stats(void *priv)
+{
+	int ret = 0, i, start = 0;
+	struct ipa_flt_rt_stats stats;
+
+	/* set sw counters */
+	IPA_UT_INFO("========set all SW counters========\n");
+	for (i = IPA_FLT_RT_HW_COUNTER + 1;
+		i <= IPA_MAX_FLT_RT_CNT_INDEX; i++) {
+		stats.num_bytes = start;
+		stats.num_pkts_hash = start + 10;
+		stats.num_pkts = start + 100;
+		IPA_UT_INFO(
+			"set counter %u pkt_cnt %u bytes cnt %llu\n",
+			i, stats.num_pkts, stats.num_bytes);
+		ipa_set_flt_rt_stats(i, stats);
+		start++;
+	}
+	IPA_UT_INFO("================ done ============\n");
+
+	return ret;
+}
+
 /* Suite definition block */
 IPA_UT_DEFINE_SUITE_START(hw_stats, "HW stats test",
 	ipa_test_hw_stats_suite_setup, ipa_test_hw_stats_suite_teardown)
@@ -683,6 +748,14 @@ IPA_UT_DEFINE_SUITE_START(hw_stats, "HW stats test",
 
 	IPA_UT_ADD_TEST(query_stats_one_shot_clean, "Query and clean",
 		ipa_test_hw_stats_query_FnR_clean, false,
+		IPA_HW_v4_5, IPA_HW_MAX),
+
+	IPA_UT_ADD_TEST(query_sw_stats, "Query SW stats",
+		ipa_test_hw_stats_query_sw_stats, false,
+		IPA_HW_v4_5, IPA_HW_MAX),
+
+	IPA_UT_ADD_TEST(set_sw_stats, "Set SW stats to dummy values",
+		ipa_test_hw_stats_set_sw_stats, false,
 		IPA_HW_v4_5, IPA_HW_MAX),
 
 } IPA_UT_DEFINE_SUITE_END(hw_stats);

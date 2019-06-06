@@ -260,4 +260,14 @@ int ipahal_parse_stats(enum ipahal_hw_stats_type type, void *init_params,
 	void *raw_stats, void *parsed_stats);
 
 
+/*
+ * ipahal_set_flt_rt_sw_stats - set sw counter stats for FnR
+ * @raw_stats: stats write to IPA SRAM
+ * @sw_stats: FnR sw stats to be written
+ *
+ * Return: None
+ */
+void ipahal_set_flt_rt_sw_stats(void *raw_stats,
+	struct ipa_flt_rt_stats sw_stats);
+
 #endif /* _IPAHAL_HW_STATS_H_ */

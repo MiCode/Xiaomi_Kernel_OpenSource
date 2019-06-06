@@ -2816,6 +2816,8 @@ int ipa_reset_all_teth_stats(void);
 
 int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query);
 
+int ipa_set_flt_rt_stats(int index, struct ipa_flt_rt_stats stats);
+
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(enum ipa_smmu_cb_type);
 struct iommu_domain *ipa3_get_smmu_domain(void);

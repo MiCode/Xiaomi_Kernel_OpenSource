@@ -620,3 +620,15 @@ int ipahal_parse_stats(enum ipahal_hw_stats_type type, void *init_params,
 	return ipahal_hw_stats_objs[ipahal_ctx->hw_type][type].parse_stats(
 		init_params, raw_stats, parsed_stats);
 }
+
+void ipahal_set_flt_rt_sw_stats(void *raw_stats,
+	struct ipa_flt_rt_stats sw_stats)
+{
+	struct ipahal_stats_flt_rt_v4_5_hw *raw_hw =
+		(struct ipahal_stats_flt_rt_v4_5_hw *)raw_stats;
+
+	IPAHAL_DBG_LOW("\n");
+	raw_hw->num_bytes = sw_stats.num_bytes;
+	raw_hw->num_packets_hash = sw_stats.num_pkts_hash;
+	raw_hw->num_packets = sw_stats.num_pkts;
+}

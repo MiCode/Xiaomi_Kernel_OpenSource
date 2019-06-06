@@ -1084,6 +1084,117 @@ int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 	return __ipa_get_flt_rt_stats(query);
 }
 
+
+static int __ipa_set_flt_rt_stats(int index, struct ipa_flt_rt_stats stats)
+{
+	int ret;
+	int smem_ofst;
+	struct ipahal_stats_get_offset_flt_rt_v4_5 *get_offset;
+	struct ipahal_stats_offset offset = { 0 };
+	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipa_mem_buffer mem;
+	struct ipa3_desc desc = { 0 };
+
+	get_offset = kzalloc(sizeof(*get_offset), GFP_KERNEL);
+	if (!get_offset) {
+		IPADBG("no mem\n");
+		return -ENOMEM;
+	}
+
+	smem_ofst = IPA_MEM_PART(stats_fnr_ofst);
+
+	get_offset->start_id = index;
+	get_offset->end_id = index;
+
+	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_FNR, get_offset,
+		&offset);
+	if (ret) {
+		IPAERR("failed to get offset from hal %d\n", ret);
+		goto free_offset;
+	}
+
+	IPADBG("offset = %d size = %d\n", offset.offset, offset.size);
+
+	if (offset.size == 0) {
+		ret = 0;
+		goto free_offset;
+	}
+
+	mem.size = offset.size;
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
+		mem.size,
+		&mem.phys_base,
+		GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("fail to alloc DMA memory\n");
+		goto free_offset;
+	}
+	ipahal_set_flt_rt_sw_stats(mem.base, stats);
+
+	cmd.is_read = false;
+	cmd.skip_pipeline_clear = false;
+	cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	cmd.size = mem.size;
+	cmd.system_addr = mem.phys_base;
+	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
+		smem_ofst + offset.offset;
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct dma_shared_mem imm cmd\n");
+		ret = -ENOMEM;
+		goto free_dma_mem;
+	}
+	desc.opcode = cmd_pyld->opcode;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
+	desc.type = IPA_IMM_CMD_DESC;
+
+	ret = ipa3_send_cmd(1, &desc);
+	if (ret) {
+		IPAERR("failed to send immediate command (error %d)\n", ret);
+		goto destroy_imm;
+	}
+
+	ret = 0;
+
+destroy_imm:
+	ipahal_destroy_imm_cmd(cmd_pyld);
+free_dma_mem:
+	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
+free_offset:
+	kfree(get_offset);
+	return ret;
+}
+
+int ipa_set_flt_rt_stats(int index, struct ipa_flt_rt_stats stats)
+{
+	if (!ipa3_ctx->hw_stats.enabled) {
+		IPAERR("hw_stats is not enabled\n");
+		return 0;
+	}
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("FnR stats not supported in %d hw_type\n",
+			ipa3_ctx->ipa_hw_type);
+		return 0;
+	}
+
+	if (index > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("index %d out of range\n", index);
+		return -EINVAL;
+	}
+
+	if (index <= IPA_FLT_RT_HW_COUNTER) {
+		IPAERR("index %d invalid, only support sw counter set\n",
+			index);
+		return -EINVAL;
+	}
+
+	return __ipa_set_flt_rt_stats(index, stats);
+}
+
 int ipa_init_drop_stats(u32 pipe_bitmask)
 {
 	struct ipahal_stats_init_pyld *pyld;
