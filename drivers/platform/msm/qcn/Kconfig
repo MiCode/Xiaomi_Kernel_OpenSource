@@ -1,0 +1,8 @@
+config SDIO_QCN
+	tristate "Qualcomm Technologies, Inc SDIO Function 1 Driver"
+	depends on MMC
+	default n
+	help
+	  This module adds the support for SDIO based Wi-Fi devices with QCN7605
+	  chipsets. This module interfaces the diag, IPC router, Qsahara and
+	  WLAN driver with the external sdio based soc.

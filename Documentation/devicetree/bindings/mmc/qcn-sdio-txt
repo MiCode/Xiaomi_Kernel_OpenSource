@@ -1,0 +1,30 @@
+QCN SDIO function-1 driver
+==========================
+
+The QCN7605 device uses a Q6-WCSS DSP co-processor. The Q6-WCSS requires a
+firmware binary to boot. The QCN SDIO function-1 driver provides the means with
+to communicate with the device. The commuincation involves firmware download,
+multiprocessor communication, and other subsytem's coreesponding data download
+and upload.
+
+Example: WLAN traffic, WLAN BDF, M3 or CALDATA download etc.
+
+QCN SDIO Device Node:
+=====================
+A QCN SDIO device node is used to represent the function-1 driver instance. It
+is needed as a child node to SOC parent node through which it is accessible to
+the host.
+
+Required properties:
+--------------------
+- compatible:		Should be one of,
+				"qcom,qcn-sdio" for MSM8996 SOCs
+
+Example:
+--------
+/* MSM8996 */
+soc {
+	qcom,qcn-sdio {
+		compatible = "qcom,qcn-sdio";
+	}
+};
