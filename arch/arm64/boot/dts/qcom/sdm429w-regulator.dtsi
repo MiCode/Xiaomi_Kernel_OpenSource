@@ -116,6 +116,21 @@
 		};
 	};
 
+	rpm-regulator-smpa6 {
+		status = "okay";
+		S6A: pm660_s6_level: regulator-s6-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm660_s6_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,use-voltage-level;
+			status = "okay";
+		};
+	};
+
 	rpm-regulator-ldoa1 {
 		status = "okay";
 		L1A: pm660_l1: regulator-l1 {
