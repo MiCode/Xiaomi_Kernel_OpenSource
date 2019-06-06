@@ -476,7 +476,12 @@
 		compatible = "qca,qca6174";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_active>;
-		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		/* BT_EN */
+		qca,bt-reset-gpio = <&tlmm 172 0>;
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
 		status = "ok";
 	};
 
