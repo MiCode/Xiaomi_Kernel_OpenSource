@@ -5590,7 +5590,8 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
 	return ret;
 }
 
-int sde_encoder_display_failure_notification(struct drm_encoder *enc)
+int sde_encoder_display_failure_notification(struct drm_encoder *enc,
+	bool skip_pre_kickoff)
 {
 	struct msm_drm_thread *event_thread = NULL;
 	struct msm_drm_private *priv = NULL;
@@ -5616,9 +5617,11 @@ int sde_encoder_display_failure_notification(struct drm_encoder *enc)
 
 	event_thread = &priv->event_thread[sde_enc->crtc->index];
 
-	kthread_queue_work(&event_thread->worker,
-			   &sde_enc->esd_trigger_work);
-	kthread_flush_work(&sde_enc->esd_trigger_work);
+	if (!skip_pre_kickoff) {
+		kthread_queue_work(&event_thread->worker,
+				   &sde_enc->esd_trigger_work);
+		kthread_flush_work(&sde_enc->esd_trigger_work);
+	}
 
 	/**
 	 * panel may stop generating te signal (vsync) during esd failure. rsc
@@ -5627,7 +5630,8 @@ int sde_encoder_display_failure_notification(struct drm_encoder *enc)
 	 */
 	_sde_encoder_switch_to_watchdog_vsync(enc);
 
-	sde_encoder_wait_for_event(enc, MSM_ENC_TX_COMPLETE);
+	if (!skip_pre_kickoff)
+		sde_encoder_wait_for_event(enc, MSM_ENC_TX_COMPLETE);
 
 	return 0;
 }
