@@ -189,9 +189,6 @@
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp";
-	qcom,hw-die-temp-mitigation;
-	qcom,hw-connector-mitigation;
-	qcom,hw-skin-temp-mitigation;
 };
 
 &sdhc_1 {

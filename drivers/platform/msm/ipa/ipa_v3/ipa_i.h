@@ -2490,6 +2490,8 @@ int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
 		unsigned long *iova);
 
+void ipa3_release_wdi3_gsi_smmu_mappings(u8 dir);
+
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
@@ -2498,6 +2500,8 @@ int ipa3_teth_bridge_init(struct teth_bridge_init_params *params);
 int ipa3_teth_bridge_disconnect(enum ipa_client_type client);
 
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
+
+int ipa3_teth_bridge_get_pm_hdl(void);
 
 /*
  * Tethering client info
@@ -2978,4 +2982,6 @@ static inline int ipa_mpm_panic_handler(char *buf, int size)
 
 #endif /* CONFIG_IPA3_MHI_PRIME_MANAGER */
 
+/* query ipa APQ mode*/
+bool ipa3_is_apq(void);
 #endif /* _IPA3_I_H_ */

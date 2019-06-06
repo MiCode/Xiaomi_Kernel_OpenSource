@@ -179,6 +179,13 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE_CAPS:
+		msm_vidc_ctrl_get_range(ctrl,
+			&inst->capability.color_space_caps);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_CAPS:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.rotation);
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.frame_rate);

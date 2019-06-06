@@ -139,6 +139,55 @@ static struct snd_info_entry_ops snd_card_state_proc_ops = {
 	.poll = snd_card_state_poll,
 };
 
+#ifdef CONFIG_PM
+static ssize_t snd_card_power_read(struct snd_info_entry *entry,
+			void *file_private_data, struct file *file,
+			char __user *buf, size_t count, loff_t pos)
+{
+	int len, err;
+	char buffer[SND_CARD_STATE_MAX_LEN];
+
+	err = wait_event_interruptible(entry->card->power_sleep,
+			xchg(&entry->card->power_change, 0));
+	if (err == -ERESTARTSYS)
+		return -EINTR;
+
+	/* make sure power is updated prior to wake up */
+	rmb();
+	switch (entry->card->power_state) {
+	case SNDRV_CTL_POWER_D0:
+		len = scnprintf(buffer, sizeof(buffer),
+				"%s\n", "D0");
+		break;
+	case SNDRV_CTL_POWER_D1:
+		len = scnprintf(buffer, sizeof(buffer),
+				"%s\n", "D1");
+		break;
+	case SNDRV_CTL_POWER_D2:
+		len = scnprintf(buffer, sizeof(buffer),
+				"%s\n", "D2");
+		break;
+	case SNDRV_CTL_POWER_D3hot:
+		len = scnprintf(buffer, sizeof(buffer),
+				"%s\n", "D3hot");
+		break;
+	case SNDRV_CTL_POWER_D3cold:
+		len = scnprintf(buffer, sizeof(buffer),
+				"%s\n", "D3cold");
+		break;
+	default:
+		dev_dbg(entry->card->dev, "unknown power state: 0x%x\n",
+				entry->card->power_state);
+		return -EIO;
+	}
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops snd_card_power_proc_ops = {
+	.read = snd_card_power_read,
+};
+#endif
+
 static int init_info_for_card(struct snd_card *card)
 {
 	struct snd_info_entry *entry, *entry_state;
@@ -161,6 +210,19 @@ static int init_info_for_card(struct snd_card *card)
 	entry_state->size = SND_CARD_STATE_MAX_LEN;
 	entry_state->content = SNDRV_INFO_CONTENT_DATA;
 	entry_state->c.ops = &snd_card_state_proc_ops;
+
+#ifdef CONFIG_PM
+	entry_state = snd_info_create_card_entry(card, "power",
+						 card->proc_root);
+	if (!entry_state) {
+		dev_dbg(card->dev, "unable to create card entry power\n");
+		card->proc_id = NULL;
+		return -ENOMEM;
+	}
+	entry_state->size = SND_CARD_STATE_MAX_LEN;
+	entry_state->content = SNDRV_INFO_CONTENT_DATA;
+	entry_state->c.ops = &snd_card_power_proc_ops;
+#endif
 
 	return snd_info_card_register(card);
 }

@@ -2786,7 +2786,7 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.uc_info_size			= 0x200,
 	.ofst_start			= 0x280,
 	.v4_flt_hash_ofst		= 0x288,
-	.v4_flt_hash_size		=  0x78,
+	.v4_flt_hash_size		= 0x78,
 	.v4_flt_hash_size_ddr		= 0x4000,
 	.v4_flt_nhash_ofst		= 0x308,
 	.v4_flt_nhash_size		= 0x78,
@@ -2825,21 +2825,21 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_size			= 0x200,
 	.apps_hdr_size_ddr		= 0x800,
 	.modem_hdr_proc_ctx_ofst	= 0xad0,
-	.modem_hdr_proc_ctx_size	= 0x200,
-	.apps_hdr_proc_ctx_ofst		= 0xcd0,
+	.modem_hdr_proc_ctx_size	= 0xac0,
+	.apps_hdr_proc_ctx_ofst		= 0x1590,
 	.apps_hdr_proc_ctx_size		= 0x200,
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
-	.nat_tbl_ofst			= 0xee0,
+	.nat_tbl_ofst			= 0x17a0,
 	.nat_tbl_size			= 0x800,
-	.nat_index_tbl_ofst		= 0x16e0,
+	.nat_index_tbl_ofst		= 0x1fa0,
 	.nat_index_tbl_size		= 0x100,
-	.nat_exp_tbl_ofst		= 0x17e0,
+	.nat_exp_tbl_ofst		= 0x20a0,
 	.nat_exp_tbl_size		= 0x400,
-	.pdn_config_ofst		= 0x1be8,
+	.pdn_config_ofst		= 0x24a8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0x1c40,
+	.stats_quota_ofst		= 0x2500,
 	.stats_quota_size		= 0x78,
-	.stats_tethering_ofst		= 0x1cb8,
+	.stats_tethering_ofst		= 0x2578,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
 	.stats_flt_v4_size		= 0,
@@ -2849,14 +2849,14 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.stats_rt_v4_size		= 0,
 	.stats_rt_v6_ofst		= 0,
 	.stats_rt_v6_size		= 0,
-	.stats_fnr_ofst			= 0x1ef0,
+	.stats_fnr_ofst			= 0x27b0,
 	.stats_fnr_size			= 0x800,
-	.stats_drop_ofst		= 0x26f0,
+	.stats_drop_ofst		= 0x2fb0,
 	.stats_drop_size		= 0x20,
 	.modem_comp_decomp_ofst		= 0x0,
 	.modem_comp_decomp_size		= 0x0,
-	.modem_ofst			= 0x2718,
-	.modem_size			= 0x100c,
+	.modem_ofst			= 0x2fd8,
+	.modem_size			= 0x800,
 	.apps_v4_flt_hash_ofst	= 0x2718,
 	.apps_v4_flt_hash_size	= 0x0,
 	.apps_v4_flt_nhash_ofst	= 0x2718,
@@ -7940,6 +7940,20 @@ void ipa3_read_mailbox_17(enum uc_state state)
 	default:
 		break;
 	}
+}
+
+/**
+ * ipa3_is_apq() - indicate apq platform or not
+ *
+ * Return value: true if apq, false if not apq platform
+ *
+ */
+bool ipa3_is_apq(void)
+{
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+		return true;
+	else
+		return false;
 }
 
 /**

@@ -63,6 +63,10 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1   (0xC)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2   (0xD)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3   (0xE)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4   (0xF)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5   (0x10)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6   (0x11)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7   (0x12)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0   (0x13)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1   (0x14)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2   (0x15)
@@ -310,13 +314,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 3), \
 		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[3].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 4), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[4].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 5), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[5].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 6), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[6].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 7), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[7].var_name }
+		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[4].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all resource
@@ -326,9 +324,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 0), \
 		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[0].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 1), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[1].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 2), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[2].var_name }
+		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[1].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all source
@@ -344,13 +340,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 3), \
 		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[3].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 4), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[4].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 5), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[5].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 6), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[6].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 7), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[7].var_name }
+		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[4].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all dest
@@ -360,9 +350,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 0), \
 		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[0].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 1), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[1].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 2), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[2].var_name }
+		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[1].var_name }
 
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_GENERAL_EE(reg_name, var_name) \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE), \
@@ -929,6 +917,10 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2,
@@ -961,6 +953,8 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
  * GSI QSB debug bus register save data struct
  */
 struct ipa_reg_save_gsi_test_bus_s {
+	u32 test_bus_selector[
+		ARRAY_SIZE(ipa_reg_save_gsi_ch_test_bus_selector_array)];
 	struct
 	  gsi_hwio_def_gsi_test_bus_reg_s
 	  test_bus_reg[ARRAY_SIZE(ipa_reg_save_gsi_ch_test_bus_selector_array)];

@@ -2305,7 +2305,8 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_ops->process_camif_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
 			irq_ops->process_reg_update(vfe_dev,
-				dual_irq_status, irq_status1, &ts);
+				(irq_status0 | dual_irq_status),
+				irq_status1, &ts);
 			irq_ops->process_epoch_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
 		} else {

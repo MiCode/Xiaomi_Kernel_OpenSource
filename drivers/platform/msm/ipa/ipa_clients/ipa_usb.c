@@ -2057,7 +2057,7 @@ static int ipa3_usb_xdci_connect_internal(
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to enable MHIP channel\n");
+			IPA_USB_ERR("failed to connect MHIP channel\n");
 			goto connect_teth_prot_fail;
 		}
 	}
@@ -2560,7 +2560,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to disconnect MHIP pipe\n");
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
 			goto bad_params;
 		}
 	}
@@ -2768,7 +2768,7 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to disconnect MHIP pipe\n");
+			IPA_USB_ERR("failed to disconnect MHIP channel\n");
 			goto start_ul;
 		}
 	}

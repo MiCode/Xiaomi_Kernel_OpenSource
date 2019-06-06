@@ -1577,6 +1577,8 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("rc_modes", &inst->capability.rc_modes);
 	print_cap("blur_width", &inst->capability.blur_width);
 	print_cap("blur_height", &inst->capability.blur_height);
+	print_cap("rotation", &inst->capability.rotation);
+	print_cap("color_space_caps", &inst->capability.color_space_caps);
 	print_cap("slice_delivery_mode", &inst->capability.slice_delivery_mode);
 	print_cap("slice_bytes", &inst->capability.slice_bytes);
 	print_cap("slice_mbs", &inst->capability.slice_mbs);

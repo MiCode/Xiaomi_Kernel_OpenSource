@@ -115,6 +115,28 @@ int ipa3_teth_bridge_init(struct teth_bridge_init_params *params)
 }
 
 /**
+ * ipa3_teth_bridge_get_pm_hdl() - Get the Tethering bridge Driver pm hdl
+ *
+ *
+ * Return codes: handle
+ *		-EINVAL - Bad parameter
+ */
+int ipa3_teth_bridge_get_pm_hdl(void)
+{
+	TETH_DBG_FUNC_ENTRY();
+
+	if (ipa3_teth_ctx->modem_pm_hdl == ~0) {
+		TETH_ERR("Bad parameter\n");
+		TETH_DBG_FUNC_EXIT();
+		return -EINVAL;
+	}
+
+	TETH_DBG("Return rm-handle %d\n", ipa3_teth_ctx->modem_pm_hdl);
+	TETH_DBG_FUNC_EXIT();
+	return ipa3_teth_ctx->modem_pm_hdl;
+}
+
+/**
  * ipa3_teth_bridge_disconnect() - Disconnect tethering bridge module
  */
 int ipa3_teth_bridge_disconnect(enum ipa_client_type client)

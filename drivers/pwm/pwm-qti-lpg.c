@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -458,19 +458,19 @@ static int qpnp_lpg_set_pwm_config(struct qpnp_lpg_channel *lpg)
 	if (lpg->src_sel == LUT_PATTERN)
 		return 0;
 
-	val = lpg->pwm_config.pwm_value & LPG_PWM_VALUE_LSB_MASK;
-	rc = qpnp_lpg_write(lpg, REG_LPG_PWM_VALUE_LSB, val);
-	if (rc < 0) {
-		dev_err(lpg->chip->dev, "Write LPG_PWM_VALUE_LSB failed, rc=%d\n",
-							rc);
-		return rc;
-	}
-
 	val = lpg->pwm_config.pwm_value >> 8;
 	mask = LPG_PWM_VALUE_MSB_MASK;
 	rc = qpnp_lpg_masked_write(lpg, REG_LPG_PWM_VALUE_MSB, mask, val);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write LPG_PWM_VALUE_MSB failed, rc=%d\n",
+							rc);
+		return rc;
+	}
+
+	val = lpg->pwm_config.pwm_value & LPG_PWM_VALUE_LSB_MASK;
+	rc = qpnp_lpg_write(lpg, REG_LPG_PWM_VALUE_LSB, val);
+	if (rc < 0) {
+		dev_err(lpg->chip->dev, "Write LPG_PWM_VALUE_LSB failed, rc=%d\n",
 							rc);
 		return rc;
 	}

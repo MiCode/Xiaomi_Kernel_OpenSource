@@ -216,9 +216,13 @@
 		interrupt-names = "lt_irq";
 		lt,irq-gpio = <&tlmm 26 0x0>;
 		lt,reset-gpio = <&tlmm 20 0x0>;
+		lt,hdmi-en-gpio = <&tlmm 79 0x0>;
 		instance_id = <0>;
 		lt,non-pluggable;
 		lt,preferred-mode = "1920x1080";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lt9611_pins>;
 
 		vdd-supply = <&pm6150_l13>;
 		vcc-supply = <&pm6150_l16>;

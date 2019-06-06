@@ -7336,7 +7336,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->iommu,
 				iova_p, pa_p, size_p,
@@ -7465,7 +7465,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		iova_p, pa_p, size_p);
 
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1) {
-		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+		IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 			iova_p, &pa_p, size_p);
 		ipa3_iommu_map(cb->mapping->domain,
 			iova_p, pa_p, size_p,
@@ -7612,7 +7612,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->mapping->domain,
 				iova_p, pa_p, size_p,
@@ -7657,7 +7657,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 		IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 					iova_p, pa_p, size_p);
-				IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+				IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 					iova_p, &pa_p, size_p);
 				ipa3_iommu_map(cb->mapping->domain,
 					iova_p, pa_p, size_p,
@@ -8019,8 +8019,8 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 
-	IPADBG("domain =0x%pK iova 0x%lx\n", domain, iova);
-	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
+	IPADBG_LOW("domain =0x%pK iova 0x%lx\n", domain, iova);
+	IPADBG_LOW("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
 
 	/* make sure no overlapping */
 	if (domain == ipa3_get_smmu_domain()) {

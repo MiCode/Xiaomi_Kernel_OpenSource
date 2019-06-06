@@ -192,7 +192,7 @@ static uint32_t msm_camera_tz_get_tzbsp_status(uint32_t status_mask)
 		};
 		ktime_t startTime = ktime_get();
 
-		int32_t scmcall_status = scm_call2_atomic(
+		int32_t scmcall_status = scm_call2(
 			SCM_SIP_FNID(
 				MSM_CAMERA_TZ_SVC_CAMERASS_CALL_ID,
 				MSM_CAMERA_TZ_SVC_CAMERASS_SECURITY_STATUS),

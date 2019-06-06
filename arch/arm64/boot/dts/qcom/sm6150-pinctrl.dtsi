@@ -193,20 +193,20 @@
 			fpc_reset_low: reset_low {
 				mux {
 					pins = "gpio101";
-					function = "fpc_reset_gpio_low";
+					function = "gpio";
 				};
 				config {
 					pins = "gpio101";
 					drive-strength = <2>;
 					bias-disable;
 					output-low;
-					};
+				};
 			};
 
 			fpc_reset_high: reset_high {
 				mux {
 					pins = "gpio101";
-					function = "fpc_reset_gpio_high";
+					function = "gpio";
 				};
 
 				config {
@@ -220,6 +220,7 @@
 			fpc_int_low: int_low {
 				mux {
 					pins = "gpio93";
+					function = "gpio";
 				};
 				config {
 					pins = "gpio93";
@@ -602,6 +603,19 @@
 					drive-strength = <2>;
 					bias-pull-up;
 				};
+			};
+		};
+
+		lt9611_pins: lt9611_pins {
+			mux {
+				pins = "gpio26", "gpio20", "gpio79";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio26", "gpio20", "gpio79";
+				drive-strength = <8>;
+				bias-disable = <0>;   /* no pull */
 			};
 		};
 
