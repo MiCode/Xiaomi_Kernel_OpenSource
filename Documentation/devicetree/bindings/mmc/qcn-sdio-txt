@@ -28,3 +28,63 @@ soc {
 		compatible = "qcom,qcn-sdio";
 	}
 };
+
+QCN SDIO bridge driver
+======================
+
+The Q6-WCSS runs few services that need to be interfaced on the host device. The
+QCN SDIO bridge driver provides the interfacing between the function-1 driver
+and the services running on the host device, ther by maintaining a streamlined
+communication between Q6-WCSS and host device.
+
+Example Services: Diag, IPC router, QMI
+
+QCN SDIO Bridge Node:
+=====================
+A QCN SDIO bridge driver node is used to represent the client driver instance.
+It is needed as a child node to SOC parent node through which
+it is accessible to host.
+
+Required properties:
+--------------------
+- compatible		Should be one of
+				"qcom,sdio-bridge" for MSM8996 SOCs
+
+- qcom,client-id	Client ID, Should be on of
+				1: TTY, 2: WLAN, 3: QMI, 4: DIAG;
+
+- qcom,client-name	Client Name, Should be one of
+			"SDIO_AL_CLIENT_TTY", "SDIO_AL_CLIENT_WLAN"
+			"SDIO_AL_CLIENT_QMI", "SDIO_AL_CLIENT_DIAG"
+
+- qcom,ch-name		"SDIO_AL_TTY_CH0", "SDIO_AL_WLAN_CH0",
+			"SDIO_AL_WLAN_CH1", "SDIO_AL_QMI_CH0",
+
+Example:
+--------
+/* MSM8996 */
+soc {
+	sdio_bridge_tty: qcom,sdio-bridge@0 {
+		 compatible = "qcom,sdio-bridge";
+		 qcom,client-id = <1>;
+		 qcom,client-name = "SDIO_AL_CLIENT_TTY";
+		 qcom,ch-name = "SDIO_AL_TTY_CH0";
+		 status = "disabled";
+	};
+
+	sdio_bridge_ipc: qcom,sdio-bridge@1 {
+		 compatible = "qcom,sdio-bridge";
+		 qcom,client-id = <3>;
+		 qcom,client-name = "SDIO_AL_CLIENT_QMI";
+		 qcom,ch-name = "SDIO_AL_QMI_CH0";
+		 status = "disabled";
+	};
+
+	sdio_bridge_diag: qcom,sdio-bridge@3 {
+		  compatible = "qcom,sdio-bridge";
+		  qcom,client-id = <4>;
+		  qcom,client-name = "SDIO_AL_CLIENT_DIAG";
+		  qcom,ch-name = "SDIO_AL_DIAG_CH0";
+		  status = "disabled";
+	};
+};

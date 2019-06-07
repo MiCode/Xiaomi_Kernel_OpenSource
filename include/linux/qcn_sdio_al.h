@@ -97,6 +97,8 @@ struct sdio_al_client_data {
 
 	int id;
 
+	int mode;
+
 	int (*probe)(struct sdio_al_client_handle *);
 
 	int (*remove)(struct sdio_al_client_handle *);
