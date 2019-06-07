@@ -8825,6 +8825,22 @@ reinit:
 			goto out;
 	}
 
+	/**
+	 * UFS3.0 and newer devices use Vcc and Vccq(1.2V)
+	 * while UFS2.1 devices use Vcc and Vccq2(1.8V) power
+	 * supplies. If the system allows turning off the regulators
+	 * during power collapse event, turn off the regulators
+	 * during system suspend events. This will cause the UFS
+	 * device to re-initialize upon system resume events.
+	 */
+	if ((hba->dev_info.w_spec_version >= 0x300 &&
+		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
+		(hba->dev_info.w_spec_version < 0x300 &&
+		hba->vreg_info.vccq2->sys_suspend_pwr_off))
+		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
+				UFS_POWERDOWN_PWR_MODE,
+				UIC_LINK_OFF_STATE);
+
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
@@ -10070,7 +10086,20 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	 */
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
-		ufshcd_setup_vreg(hba, false);
+		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq->sys_suspend_pwr_off)
+			ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq, false);
+		else
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+
+		if (hba->dev_info.w_spec_version < 0x300 &&
+			hba->vreg_info.vccq2->sys_suspend_pwr_off)
+			ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq2, false);
+		else
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
 	} else if (!ufshcd_is_ufs_dev_active(hba)) {
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 		if (!ufshcd_is_link_active(hba)) {
@@ -10085,23 +10114,40 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 	int ret = 0;
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
-	    !hba->dev_info.is_lu_power_on_wp) {
-		ret = ufshcd_setup_vreg(hba, true);
-	} else if (!ufshcd_is_ufs_dev_active(hba)) {
-		if (!ret && !ufshcd_is_link_active(hba)) {
+		!hba->dev_info.is_lu_power_on_wp) {
+		if (hba->dev_info.w_spec_version < 0x300 &&
+			hba->vreg_info.vccq2->sys_suspend_pwr_off)
+			ret = ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq2, true);
+		else
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq2);
+		if (ret)
+			goto vcc_disable;
+
+		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq->sys_suspend_pwr_off)
+			ret = ufshcd_toggle_vreg(hba->dev,
+				hba->vreg_info.vccq, true);
+		else
 			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
-			if (ret)
-				goto vcc_disable;
+		if (ret)
+			goto vccq2_lpm;
+		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
+	} else if (!ufshcd_is_ufs_dev_active(hba)) {
+		if (!ufshcd_is_link_active(hba)) {
 			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq2);
 			if (ret)
-				goto vccq_lpm;
+				goto vcc_disable;
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
+			if (ret)
+				goto vccq2_lpm;
 		}
 		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
 	}
 	goto out;
 
-vccq_lpm:
-	ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+vccq2_lpm:
+	ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
 vcc_disable:
 	ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 out:

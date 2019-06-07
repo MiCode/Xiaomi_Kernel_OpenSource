@@ -217,9 +217,24 @@ static int ufshcd_populate_vreg(struct device *dev, const char *name,
 	} else if (!strcmp(name, "vccq")) {
 		vreg->min_uV = UFS_VREG_VCCQ_MIN_UV;
 		vreg->max_uV = UFS_VREG_VCCQ_MAX_UV;
+		/**
+		 * Only if the SoC supports turning off VCCQ or VCCQ2 power
+		 * supply source during power collapse, set a flag to turn off
+		 * the specified power supply to reduce the system power
+		 * consumption during system suspend events. The tradeoffs are:
+		 *   - System resume time will increase due
+		 *     to UFS device full re-initialization time.
+		 *   - UFS device life may be affected due to multiple
+		 *     UFS power on/off events.
+		 * The benefits vs tradeoff should be considered carefully.
+		 */
+		if (of_property_read_bool(np, "vccq-pwr-collapse-sup"))
+			vreg->sys_suspend_pwr_off = true;
 	} else if (!strcmp(name, "vccq2")) {
 		vreg->min_uV = UFS_VREG_VCCQ2_MIN_UV;
 		vreg->max_uV = UFS_VREG_VCCQ2_MAX_UV;
+		if (of_property_read_bool(np, "vccq2-pwr-collapse-sup"))
+			vreg->sys_suspend_pwr_off = true;
 	}
 
 	goto out;
