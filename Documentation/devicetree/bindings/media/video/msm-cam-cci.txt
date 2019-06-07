@@ -711,6 +711,64 @@ OIS MODULE
   Definition: This property is required if the clk is shared clk between different
 	sensor and ois, if this device need to be opened together.
 
+=============================
+IRLED MODULE
+=============================
+
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,camera-ir-led".
+
+- cell-index: cci hardware core index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the Hardware index id.
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: offset and length of the register set
+	for the device for the cci operating in
+	compatible mode.
+
+- pwms
+  Usage: optional
+  Value type: <phandle>
+  Definition: should contain phandle to pwm node used for IRLED
+
+- pinctrl-names
+  Usage: required
+  Value type: <string>
+  Definition: List of names to assign the shared pin state defined in pinctrl device node
+
+- pinctrl-<0..n>
+  Usage: required
+  Value type: <phandle>
+  Definition: Lists phandles each pointing to the pin configuration node within a pin
+
+- gpios
+  Usage: required
+  Value type: <phandle>
+  Definition: should contain phandle to gpio controller node and array of
+	#gpio-cells specifying specific gpio (controller specific)
+
+- gpio-req-tbl-num
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio table index.
+
+- gpio-req-tbl-flags
+  Usage: required
+  Value type: <u32>
+  Definition: should specify the gpio functions.
+
+- gpio-req-tbl-label
+  Usage: required
+  Value type: <string>
+  Definition: should specify the gpio labels in
+	gpio-req-tbl-num property (in the same order)
+
 Example:
 &soc {
     led_flash0: qcom,camera-flash@0 {
@@ -719,6 +777,29 @@ Example:
          flash-source = <&pmi8994_flash0 &pmi8994_flash1>;
          torch-source = <&pmi8998_torch0 &pmi8998_torch1>;
          switch-source = <&pmi8998_switch>;
+         status = "ok";
+    };
+
+    ir_led: camera-ir-led@0 {
+         cell-index = <0>;
+         reg = <0x00>;
+         compatible = "qcom,camera-ir-led";
+         pwms = <&pm6150l_pwm_1  0 0>;
+
+         enable-active-high;
+         pinctrl-names = "default", "cam_default", "cam_suspend";
+         pinctrl-0 = <&irled_pwm>;
+         pinctrl-1 = <&cam_sensor_ir_cut_on>;
+         pinctrl-2 = <&cam_sensor_ir_cut_off>;
+         gpios = <&tlmm 73 0>,
+                 <&tlmm 74 0>;
+         qcom,gpio-ir-p = <0>;
+         qcom,gpio-ir-m =  <1>;
+         qcom,gpio-req-tbl-num = <0 1>;
+         qcom,gpio-req-tbl-flags = <0 0>;
+         qcom,gpio-req-tbl-label = "IR_CUT_FILTER_P",
+                                   "IR_CUT_FILTER_M";
+         gpio-no-mux = <0>;
          status = "ok";
     };
 };
