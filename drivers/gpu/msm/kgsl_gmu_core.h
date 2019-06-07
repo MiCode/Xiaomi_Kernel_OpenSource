@@ -195,6 +195,21 @@ void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value);
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value);
+
+/**
+ * gmu_core_blkwrite - Do a bulk I/O write to GMU
+ * @device: Pointer to the kgsl device
+ * @offsetwords: Destination dword offset
+ * @buffer: Pointer to the source buffer
+ * @size: Number of bytes to copy
+ *
+ * Write a series of GMU registers quickly without bothering to spend time
+ * logging the register writes. The logging of these writes causes extra
+ * delays that could allow IRQs arrive and be serviced before finishing
+ * all the writes.
+ */
+void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
+		const void *buffer, size_t size);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 const char *gmu_core_oob_type_str(enum oob_request req);
