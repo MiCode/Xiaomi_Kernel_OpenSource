@@ -284,3 +284,5 @@
 		};
 	};
 };
+
+#include "lahaina-pinctrl.dtsi"
