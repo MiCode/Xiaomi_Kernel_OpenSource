@@ -101,6 +101,3 @@
 	};
 };
 
-&pil_modem {
-	status = "disabled";
-};
