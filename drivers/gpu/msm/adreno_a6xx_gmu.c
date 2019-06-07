@@ -478,15 +478,12 @@ static int _load_legacy_gmu_fw(struct kgsl_device *device,
 	struct gmu_device *gmu)
 {
 	const struct firmware *fw = gmu->fw_image;
-	u32 *fwptr = (u32 *)fw->data;
-	int i;
 
 	if (fw->size > MAX_GMUFW_SIZE)
 		return -EINVAL;
 
-	for (i = 0; i < (fw->size >> 2); i++)
-		gmu_core_regwrite(device,
-			A6XX_GMU_CM3_ITCM_START + i, fwptr[i]);
+	gmu_core_blkwrite(device, A6XX_GMU_CM3_ITCM_START, fw->data,
+			fw->size);
 
 	/* Proceed only after the FW is written */
 	wmb();
@@ -497,7 +494,6 @@ static int load_gmu_fw(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	uint8_t *fw = (uint8_t *)gmu->fw_image->data;
-	int j;
 	int tcm_addr;
 	struct gmu_block_header *blk;
 	struct gmu_memdesc *md;
@@ -523,8 +519,6 @@ static int load_gmu_fw(struct kgsl_device *device)
 		}
 
 		if (md->mem_type == GMU_ITCM || md->mem_type == GMU_DTCM) {
-			uint32_t *fwptr = (uint32_t *)fw;
-
 			tcm_addr = (blk->addr - (uint32_t)md->gmuaddr) /
 				sizeof(uint32_t);
 
@@ -533,9 +527,7 @@ static int load_gmu_fw(struct kgsl_device *device)
 			else
 				tcm_addr += A6XX_GMU_CM3_DTCM_START;
 
-			for (j = 0; j < blk->size / sizeof(uint32_t); j++)
-				gmu_core_regwrite(device, tcm_addr + j,
-					fwptr[j]);
+			gmu_core_blkwrite(device, tcm_addr, fw, blk->size);
 		} else {
 			uint32_t offset = blk->addr - (uint32_t)md->gmuaddr;
 

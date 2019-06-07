@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,6 +209,16 @@ void gmu_core_regread(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int *value);
 void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int value);
+
+/**
+ * gmu_core_blkwrite() - Do a bulk I/O write to GMU
+ * @device: Pointer to the kgsl device
+ * @offsetwords: Destination dword offset
+ * @buffer: Pointer to the source buffer
+ * @size: Number of bytes to copy
+ */
+void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
+		const void *buffer, size_t size);
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 const char *gmu_core_oob_type_str(enum oob_request req);
