@@ -141,3 +141,8 @@ x509.genkey
 
 # Kdevelop4
 *.kdev4
+
+# GKI generated defconfigs
+arch/*/configs/vendor/*-gki_defconfig
+arch/*/configs/vendor/*-qgki_defconfig
+arch/*/configs/vendor/*-qgki-debug_defconfig
