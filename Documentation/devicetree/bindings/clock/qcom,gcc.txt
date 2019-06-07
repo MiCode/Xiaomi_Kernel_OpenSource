@@ -28,6 +28,7 @@ Required properties :
 			"qcom,gcc-sdxprairie"
 			"qcom,gcc-trinket"
 			"qcom,gcc-sa6155"
+			"qcom,gcc-sdxprairie-v2"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1
