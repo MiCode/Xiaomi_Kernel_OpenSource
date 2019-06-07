@@ -1609,6 +1609,8 @@
 		compatible = "qcom,cmd-db";
 		reg = <0xc3f000c 8>;
 	};
+
+	thermal_zones: thermal-zones {};
 };
 
 #include "atoll-gdsc.dtsi"
@@ -1680,6 +1682,8 @@
 	status = "ok";
 };
 
+#include "pm6150.dtsi"
+#include "pm6150l.dtsi"
 #include "atoll-pinctrl.dtsi"
 #include "atoll-pm.dtsi"
 #include "atoll-stub-regulator.dtsi"
