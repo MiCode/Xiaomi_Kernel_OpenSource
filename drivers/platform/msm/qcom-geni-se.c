@@ -335,14 +335,16 @@ static int geni_se_select_fifo_mode(void __iomem *base)
 			M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN);
 		common_geni_s_irq_en |= S_CMD_DONE_EN;
 	}
+
+	if (proto == I3C)
+		common_geni_m_irq_en |=  (M_GP_SYNC_IRQ_0_EN | M_SEC_IRQ_EN);
+
 	geni_dma_mode &= ~GENI_DMA_MODE_EN;
 
 	geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
 	geni_write_reg(common_geni_s_irq_en, base, SE_GENI_S_IRQ_EN);
 	geni_write_reg(geni_dma_mode, base, SE_GENI_DMA_MODE_EN);
 
-	if (proto == I3C)
-		geni_write_reg(0x3, base, GENI_I3C_IBI_LEGACY);
 	return 0;
 }
 

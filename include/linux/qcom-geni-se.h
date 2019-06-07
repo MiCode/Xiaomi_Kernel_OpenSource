@@ -117,7 +117,6 @@ struct se_geni_rsc {
 #define SE_GENI_IOS			(0x908)
 #define SE_GENI_M_GP_LENGTH		(0x910)
 #define SE_GENI_S_GP_LENGTH		(0x914)
-#define GENI_I3C_IBI_LEGACY		(0xA9c)
 #define SE_GSI_EVENT_EN			(0xE18)
 #define SE_IRQ_EN			(0xE1C)
 #define SE_HW_PARAM_0			(0xE24)
@@ -262,10 +261,6 @@ struct se_geni_rsc {
 #define GENI_M_EVENT_EN		(BIT(2))
 #define GENI_S_EVENT_EN		(BIT(3))
 
-/* GENI_I3C_IBI_LEGACY fields */
-#define I3C_IBI_LEGACY_EN	(BIT(0))
-#define I3C_IBI_LEGACY_PORTS_EN	(BIT(1))
-
 /* SE_GENI_IOS fields */
 #define IO2_DATA_IN		(BIT(1))
 #define RX_DATA_IN		(BIT(0))
@@ -281,6 +276,7 @@ struct se_geni_rsc {
 #define TX_FIFO_WIDTH_SHFT	(24)
 #define TX_FIFO_DEPTH_MSK	(GENMASK(21, 16))
 #define TX_FIFO_DEPTH_SHFT	(16)
+#define GEN_I3C_IBI_CTRL	(BIT(7))
 
 /* SE_HW_PARAM_1 fields */
 #define RX_FIFO_WIDTH_MSK	(GENMASK(29, 24))
