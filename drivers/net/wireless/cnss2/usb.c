@@ -73,6 +73,12 @@ int cnss_usb_wlan_register_driver(struct cnss_usb_wlan_driver *driver_ops)
 		return -ENODEV;
 	}
 
+	if (plat_priv->bus_type != CNSS_BUS_USB) {
+		cnss_pr_err("Wrong bus type. Expected bus_type %d\n",
+			    plat_priv->bus_type);
+		return -EFAULT;
+	}
+
 	usb_priv = plat_priv->bus_priv;
 	usb_priv->plat_priv = plat_priv;
 
