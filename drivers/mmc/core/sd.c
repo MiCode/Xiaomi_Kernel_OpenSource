@@ -1187,7 +1187,10 @@ static void mmc_sd_remove(struct mmc_host *host)
 {
 	mmc_exit_clk_scaling(host);
 	mmc_remove_card(host->card);
+
+	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_release_host(host);
 }
 
 /*
@@ -1359,7 +1362,6 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.suspend = mmc_sd_suspend,
 	.resume = mmc_sd_resume,
 	.alive = mmc_sd_alive,
-	.shutdown = mmc_sd_suspend,
 	.hw_reset = mmc_sd_hw_reset,
 	.change_bus_speed = mmc_sd_change_bus_speed,
 	.change_bus_speed_deferred = mmc_sd_change_bus_speed_deferred,
