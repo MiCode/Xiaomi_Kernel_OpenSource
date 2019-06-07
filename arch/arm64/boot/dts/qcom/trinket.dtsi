@@ -3106,13 +3106,11 @@
 };
 
 &L1P {
-	regulator-min-microvolt = <1200000>;
 	regulator-max-microvolt = <1200000>;
 	qcom,min-dropout-voltage = <100000>;
 };
 
 &L2P {
-	regulator-min-microvolt = <1104000>;
 	regulator-max-microvolt = <1104000>;
 	qcom,min-dropout-voltage = <100000>;
 };
