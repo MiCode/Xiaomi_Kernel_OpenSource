@@ -251,7 +251,7 @@ enum {
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
-#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
+#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 4096
 
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
@@ -2789,6 +2789,7 @@ int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot);
 int ipa3_is_mhip_offload_enabled(void);
 int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe);
+int ipa_mpm_panic_handler(char *buf, int size);
 #else
 static inline int ipa_mpm_mhip_xdci_pipe_enable(
 	enum ipa_usb_teth_prot prot)
@@ -2815,6 +2816,10 @@ static inline int ipa3_is_mhip_offload_enabled(void)
 }
 static inline int ipa_mpm_reset_dma_mode(enum ipa_client_type src_pipe,
 	enum ipa_client_type dst_pipe)
+{
+	return 0;
+}
+static inline int ipa_mpm_panic_handler(char *buf, int size)
 {
 	return 0;
 }
