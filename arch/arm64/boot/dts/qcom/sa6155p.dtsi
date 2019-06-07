@@ -52,6 +52,18 @@
 		/* PWR_CTR1_VDD_PA */
 		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
 		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
+		qca,bt-vdd-vm-supply = <&pm6155_1_s6>;
+		qca,bt-vdd-5a-supply = <&pm6155_1_s5>;
+		qca,bt-vdd-vh-supply = <&pm6155_1_l15>;
+
+		qca,bt-vdd-vm-voltage-level = <1370000 1370000>;
+		qca,bt-vdd-5a-voltage-level = <2040000 2040000>;
+		qca,bt-vdd-vh-voltage-level = <1904000 1904000>;
+
+		qca,bt-vdd-vm-current-level = <0>;
+		qca,bt-vdd-5a-current-level = <0>;
+		qca,bt-vdd-vh-current-level = <450000>;
+
 		status = "disabled";
 	};
 
@@ -88,6 +100,14 @@
 
 	qcom,rmnet-ipa {
 		status="disabled";
+	};
+	qfprom: qfprom@780130 {
+		compatible = "qcom,qfprom";
+		reg = <0x00780130 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
 	};
 };
 

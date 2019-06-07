@@ -111,6 +111,7 @@ struct lt9611 {
 
 	enum drm_connector_status status;
 	bool power_on;
+	bool regulator_on;
 
 	/* get display modes from device tree */
 	bool non_pluggable;
@@ -206,6 +207,8 @@ static void lt9611_hpd_work(struct work_struct *work)
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
 			envp);
 }
+
+static void lt9611_device_power_ctl(struct lt9611 *pdata, bool on_off);
 
 static struct lt9611 *bridge_to_lt9611(struct drm_bridge *bridge)
 {
@@ -1223,22 +1226,30 @@ static void lt9611_mipi_byte_clk_debug(struct lt9611 *pdata)
 		pr_info("port B byte clk unstable\n");
 }
 
-static void lt9611_reset(struct lt9611 *pdata)
+static void lt9611_reset(struct lt9611 *pdata, bool on_off)
 {
-	gpio_set_value(pdata->reset_gpio, 1);
-	msleep(20);
-	gpio_set_value(pdata->reset_gpio, 0);
-	msleep(20);
-	gpio_set_value(pdata->reset_gpio, 1);
-	msleep(20);
+	if (on_off) {
+		gpio_set_value(pdata->reset_gpio, 1);
+		msleep(20);
+		gpio_set_value(pdata->reset_gpio, 0);
+		msleep(20);
+		gpio_set_value(pdata->reset_gpio, 1);
+		msleep(20);
+	} else
+		gpio_set_value(pdata->reset_gpio, 0);
 }
 
-static void lt9611_assert_5v(struct lt9611 *pdata)
+static void lt9611_assert_5v(struct lt9611 *pdata, bool on_off)
 {
-	if (gpio_is_valid(pdata->hdmi_en_gpio)) {
+	if (!gpio_is_valid(pdata->hdmi_en_gpio))
+		return;
+
+	if (on_off)
 		gpio_set_value(pdata->hdmi_en_gpio, 1);
-		msleep(20);
-	}
+	else
+		gpio_set_value(pdata->hdmi_en_gpio, 0);
+
+	msleep(20);
 }
 
 static int lt9611_config_vreg(struct device *dev,
@@ -1970,7 +1981,7 @@ static void lt9611_bridge_pre_enable(struct drm_bridge *bridge)
 
 	pr_debug("bridge pre_enable\n");
 
-	lt9611_reset(pdata);
+	lt9611_reset(pdata, true);
 
 	lt9611_write(pdata, 0xff, 0x80);
 	lt9611_write(pdata, 0xee, 0x01);
@@ -2120,7 +2131,7 @@ static int lt9611_probe(struct i2c_client *client,
 		goto err_dt_supply;
 	}
 
-	lt9611_assert_5v(pdata);
+	lt9611_assert_5v(pdata, true);
 
 	ret = lt9611_enable_vreg(pdata, true);
 	if (ret) {
@@ -2128,7 +2139,9 @@ static int lt9611_probe(struct i2c_client *client,
 		goto err_dt_supply;
 	}
 
-	lt9611_reset(pdata);
+	lt9611_reset(pdata, true);
+
+	pdata->regulator_on = true;
 
 	ret = lt9611_read_device_rev(pdata);
 	if (ret) {
@@ -2223,6 +2236,53 @@ end:
 	return ret;
 }
 
+static void lt9611_device_power_ctl(struct lt9611 *pdata, bool on_off)
+{
+	int ret = 0;
+
+	lt9611_assert_5v(pdata, on_off);
+
+	ret = lt9611_enable_vreg(pdata, on_off);
+
+	if (ret)
+		pr_err("failed to set vreg state %d\n", on_off);
+
+	lt9611_reset(pdata, on_off);
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int lt9611_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lt9611 *pdata = i2c_get_clientdata(client);
+
+	if (pdata->regulator_on) {
+		disable_irq(pdata->irq);
+		lt9611_device_power_ctl(pdata, false);
+		pdata->regulator_on = false;
+	}
+
+	return 0;
+}
+
+static int lt9611_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct lt9611 *pdata = i2c_get_clientdata(client);
+
+	if (!pdata->regulator_on) {
+		lt9611_device_power_ctl(pdata, true);
+		enable_irq(pdata->irq);
+		pdata->regulator_on = true;
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops lt9611_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(lt9611_suspend, lt9611_resume)
+};
+#endif
 
 static struct i2c_device_id lt9611_id[] = {
 	{ "lt,lt9611", 0},
@@ -2239,7 +2299,12 @@ static struct i2c_driver lt9611_driver = {
 	.driver = {
 		.name = "lt9611",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
 		.of_match_table = lt9611_match_table,
+#endif
+#ifdef CONFIG_PM_SLEEP
+		.pm = &lt9611_pm,
+#endif
 	},
 	.probe = lt9611_probe,
 	.remove = lt9611_remove,

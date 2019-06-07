@@ -312,3 +312,4 @@
 #include "sm6150-slpi-pinctrl.dtsi"
 #include "sa6155p-vm-qupv3.dtsi"
 #include "sa6155p-vm-usb.dtsi"
+#include "sa8155-vm-audio.dtsi"

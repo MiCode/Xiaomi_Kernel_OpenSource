@@ -11,6 +11,7 @@
 #define _ATL_HW_H_
 #include <linux/pci.h>
 #include <linux/if_ether.h>
+#include <linux/ethtool.h>
 
 #include "atl_regs.h"
 #include "atl_fw.h"
@@ -41,10 +42,12 @@ enum atl_board {
 	ATL_AQC100,
 };
 
+#define ATL_WAKE_SUPPORTED (WAKE_MAGIC | WAKE_PHY)
 struct atl_hw {
 	uint8_t __iomem *regs;
 	struct pci_dev *pdev;
 	struct atl_link_state link_state;
+	unsigned wol_mode;
 	struct {
 		uint32_t fw_rev;
 		bool poll_link;

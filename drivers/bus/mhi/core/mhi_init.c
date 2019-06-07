@@ -278,6 +278,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 
 	atomic_set(&mhi_cntrl->dev_wake, 0);
 	atomic_set(&mhi_cntrl->alloc_size, 0);
+	atomic_set(&mhi_cntrl->pending_pkts, 0);
 
 	mhi_ctxt = kzalloc(sizeof(*mhi_ctxt), GFP_KERNEL);
 	if (!mhi_ctxt)
@@ -1083,6 +1084,11 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		mhi_cntrl->buffer_len = MHI_MAX_MTU;
 
+	/* by default host allowed to ring DB both M0 and M2 state */
+	mhi_cntrl->db_access = MHI_PM_M0 | MHI_PM_M2;
+	if (of_property_read_bool(of_node, "mhi,m2-no-db-access"))
+		mhi_cntrl->db_access &= ~MHI_PM_M2;
+
 	return 0;
 
 error_ev_cfg:
@@ -1099,6 +1105,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1162,6 +1169,27 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	} else {
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
+	}
+
+	/* read the device info if possible */
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto error_alloc_dev;
+
+		mhi_cntrl->family_number =
+			(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+			SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+			(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+			SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+			(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+			SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+			(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+			SOC_HW_VERSION_MINOR_VER_SHFT;
 	}
 
 	/* register controller with mhi_bus */
@@ -1261,12 +1289,6 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_dev_ctxt;
 	}
 
-	ret = mhi_init_irq_setup(mhi_cntrl);
-	if (ret) {
-		MHI_ERR("Error setting up irq\n");
-		goto error_setup_irq;
-	}
-
 	/*
 	 * allocate rddm table if specified, this table is for debug purpose
 	 * so we'll ignore erros
@@ -1302,10 +1324,6 @@ bhie_error:
 		mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->rddm_image);
 		mhi_cntrl->rddm_image = NULL;
 	}
-	mhi_deinit_free_irq(mhi_cntrl);
-
-error_setup_irq:
-	mhi_deinit_dev_ctxt(mhi_cntrl);
 
 error_dev_ctxt:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
@@ -1326,7 +1344,6 @@ void mhi_unprepare_after_power_down(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->rddm_image = NULL;
 	}
 
-	mhi_deinit_free_irq(mhi_cntrl);
 	mhi_deinit_dev_ctxt(mhi_cntrl);
 	mhi_cntrl->pre_init = false;
 }

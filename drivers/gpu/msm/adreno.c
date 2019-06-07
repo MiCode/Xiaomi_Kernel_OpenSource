@@ -2142,6 +2142,14 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_oob_clear;
 
+	/*
+	 * At this point it is safe to assume that we recovered. Setting
+	 * this field allows us to take a new snapshot for the next failure
+	 * if we are prioritizing the first unrecoverable snapshot.
+	 */
+	if (device->snapshot)
+		device->snapshot->recovered = true;
+
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
 

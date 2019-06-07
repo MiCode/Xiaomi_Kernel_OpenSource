@@ -2057,7 +2057,7 @@ static int ipa3_usb_xdci_connect_internal(
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_enable(params->teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to connect MHIP channel\n");
+			IPA_USB_ERR("failed to enable MHIP channel\n");
 			goto connect_teth_prot_fail;
 		}
 	}
@@ -2536,7 +2536,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 				result = ipa_mpm_mhip_ul_start_stop_data(
 						MPM_MHIP_STOP, teth_prot);
 				if (result) {
-					IPA_USB_ERR("fail UL MHIPData stop\n");
+					IPA_USB_ERR("fail UL MHIP Data stop\n");
 					goto bad_params;
 				}
 			}
@@ -2560,7 +2560,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			IPA_USB_ERR("failed to disconnect MHIP pipe\n");
 			goto bad_params;
 		}
 	}
@@ -2768,7 +2768,7 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (ipa3_is_mhip_offload_enabled()) {
 		result = ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
 		if (result) {
-			IPA_USB_ERR("failed to disconnect MHIP channel\n");
+			IPA_USB_ERR("failed to disconnect MHIP pipe\n");
 			goto start_ul;
 		}
 	}
@@ -2967,15 +2967,39 @@ static int ipa3_usb_resume_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto stop_ul;
 	}
 
+	/* Start MHIP channel */
+	if (ipa3_is_mhip_offload_enabled()) {
+		if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
+			/* Start UL MHIP channel */
+			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
+								teth_prot);
+			if (result) {
+				IPA_USB_ERR("fail UL MHIP Data Start\n");
+				goto stop_dl;
+			}
+		}
+		result = ipa_mpm_mhip_xdci_pipe_enable(teth_prot);
+		if (result) {
+			IPA_USB_ERR("failed to enable MHIP pipe\n");
+			goto stop_mhip_data;
+		}
+	}
 	/* Change state to CONNECTED */
 	if (!ipa3_usb_set_state(IPA_USB_CONNECTED, false, ttype)) {
 		IPA_USB_ERR("failed to change state to connected\n");
 		result = -EFAULT;
-		goto stop_dl;
+		goto stop_mhip;
 	}
 
 	return 0;
-
+stop_mhip:
+	if (ipa3_is_mhip_offload_enabled())
+		(void)ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
+stop_mhip_data:
+	/* Stop UL MHIP data */
+	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
+		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
+							teth_prot);
 stop_dl:
 	(void)ipa3_xdci_disconnect(dl_clnt_hdl, false, -1);
 stop_ul:
