@@ -81,6 +81,9 @@
 #define TIOCGPTPEER	_IO('T', 0x41) /* Safely open the slave */
 #define TIOCGISO7816	_IOR('T', 0x42, struct serial_iso7816)
 #define TIOCSISO7816	_IOWR('T', 0x43, struct serial_iso7816)
+#define TIOCPMGET	0x544D	/* PM get */
+#define TIOCPMPUT	0x544E	/* PM put */
+#define TIOCPMACT	0x544F	/* PM is active */
 
 #define FIONCLEX	0x5450
 #define FIOCLEX		0x5451
