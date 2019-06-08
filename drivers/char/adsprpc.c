@@ -3533,6 +3533,7 @@ bail:
 static int fastrpc_internal_control(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_control *cp)
 {
+	struct fastrpc_apps *me = &gfa;
 	int err = 0;
 	int latency;
 
@@ -3558,7 +3559,8 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			pm_qos_update_request(&fl->pm_qos_req, latency);
 		break;
 	case FASTRPC_CONTROL_SMMU:
-		fl->sharedcb = cp->smmu.sharedcb;
+		if (!me->legacy)
+			fl->sharedcb = cp->smmu.sharedcb;
 		break;
 	case FASTRPC_CONTROL_KALLOC:
 		cp->kalloc.kalloc_support = 1;

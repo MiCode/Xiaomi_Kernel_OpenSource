@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +362,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x014)
 #define HFI_PROPERTY_CONFIG_HEIC_GRID_ENABLE			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x015)
+#define HFI_PROPERTY_CONFIG_VENC_FRAME_QP_RANGE			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x016)
 
 #define HFI_PROPERTY_PARAM_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
