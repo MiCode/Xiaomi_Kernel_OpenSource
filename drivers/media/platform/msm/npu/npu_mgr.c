@@ -1431,8 +1431,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	network->priority = load_ioctl->priority;
 	network->cur_perf_mode = network->init_perf_mode =
 		(load_ioctl->perf_mode == PERF_MODE_DEFAULT) ?
-			pwr->num_pwrlevels - 1 :
-			load_ioctl->perf_mode;
+			pwr->num_pwrlevels : load_ioctl->perf_mode;
 
 	/* verify mapped physical address */
 	if (!npu_mem_verify_addr(client, network->phy_add)) {
@@ -1451,6 +1450,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	load_packet.buf_pkt.buf_size = network->first_block_size;
 	load_packet.buf_pkt.network_id = network->id;
 
+	set_perf_mode(npu_dev);
 	/* NPU_IPC_CMD_LOAD will go onto IPC_QUEUE_APPS_EXEC */
 	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, &load_packet, false);
@@ -1548,8 +1548,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	network->priority = load_ioctl->priority;
 	network->cur_perf_mode = network->init_perf_mode =
 		(load_ioctl->perf_mode == PERF_MODE_DEFAULT) ?
-		pwr->num_pwrlevels - 1 :
-		load_ioctl->perf_mode;
+		pwr->num_pwrlevels : load_ioctl->perf_mode;
 	network->num_layers = load_ioctl->num_layers;
 
 	/* verify mapped physical address */
@@ -1572,6 +1571,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	load_packet->buf_pkt.num_layers = network->num_layers;
 	load_packet->num_patch_params = num_patch_params;
 
+	set_perf_mode(npu_dev);
 	/* NPU_IPC_CMD_LOAD_V2 will go onto IPC_QUEUE_APPS_EXEC */
 	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, load_packet, false);
