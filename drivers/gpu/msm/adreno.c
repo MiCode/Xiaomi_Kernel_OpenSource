@@ -1851,7 +1851,7 @@ int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
 	}
 
 	/* GPU comes up in secured mode, make it unsecured by default */
-	if (adreno_dev->zap_loaded)
+	if (adreno_dev->zap_handle_ptr)
 		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
 	else
 		adreno_writereg(adreno_dev,
@@ -1876,6 +1876,26 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 	}
 }
 
+static int adreno_program_smmu_aperture(struct kgsl_device *device)
+{
+	unsigned long start = jiffies;
+	int ret;
+
+	if (!scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID))
+		return 0;
+
+	ret = kgsl_program_smmu_aperture();
+	if (ret)
+		dev_err(device->dev,
+		    "SMMU aperture programming call failed error %d\n",
+		    ret);
+	else if (jiffies_to_msecs(jiffies - start) > 2000)
+		dev_err(device->dev,
+		    "scm call took a long time to finish: %u ms\n",
+		    jiffies_to_msecs(jiffies - start));
+
+	return ret;
+}
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1926,20 +1946,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 
 	if (adreno_is_a640v1(adreno_dev)) {
-		unsigned long start = jiffies;
-
-		if (scm_is_call_available(SCM_SVC_MP, CP_SMMU_APERTURE_ID)) {
-			ret = kgsl_program_smmu_aperture();
-			/* Log it if it takes more than 2 seconds */
-			if (((jiffies - start) / HZ) > 2)
-				dev_err(device->dev, "scm call took too long to finish on a640v1: %lu seconds\n",
-					((jiffies - start) / HZ));
-			if (ret) {
-				dev_err(device->dev, "SMMU aperture programming call failed with error %d\n",
-					ret);
-				goto error_pwr_off;
-			}
-		}
+		ret = adreno_program_smmu_aperture(device);
+		if (ret)
+			goto error_pwr_off;
 	}
 
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -4022,6 +4031,63 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
+static int adreno_suspend_device(struct kgsl_device *device,
+				pm_message_t pm_state)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int pm_event = pm_state.event;
+	int ret = 0;
+
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
+
+	if (pm_event != PM_EVENT_SUSPEND) {
+		if (gpudev->zap_shader_unload != NULL)
+			gpudev->zap_shader_unload(adreno_dev);
+
+		if (gmu_core_isenabled(device)) {
+			clear_bit(GMU_BOOT_INIT_DONE, &device->gmu_core.flags);
+			clear_bit(GMU_RSCC_SLEEP_SEQ_DONE,
+						&device->gmu_core.flags);
+		}
+
+		if (gpudev->secure_pt_hibernate != NULL)
+			ret = gpudev->secure_pt_hibernate(adreno_dev);
+	}
+
+	return ret;
+}
+
+static int adreno_resume_device(struct kgsl_device *device,
+				pm_message_t pm_state)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int pm_event = pm_state.event;
+	int ret;
+
+	if (pm_event != PM_EVENT_RESUME) {
+		if (gpudev->secure_pt_restore != NULL) {
+			ret = gpudev->secure_pt_restore(adreno_dev);
+			if (ret)
+				return ret;
+		}
+
+		if (!adreno_is_a640v1(adreno_dev) &&
+			kgsl_mmu_is_perprocess(&device->mmu)) {
+			ret = adreno_program_smmu_aperture(device);
+			if (ret)
+				return ret;
+		}
+	}
+
+	if (device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_unhalt(device);
+
+	return 0;
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -4063,8 +4129,8 @@ static const struct kgsl_functable adreno_functable = {
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
-	.dispatcher_halt = adreno_dispatcher_halt,
-	.dispatcher_unhalt = adreno_dispatcher_unhalt,
+	.suspend_device = adreno_suspend_device,
+	.resume_device = adreno_resume_device,
 };
 
 static struct platform_driver adreno_platform_driver = {

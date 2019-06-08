@@ -600,7 +600,7 @@ struct adreno_device {
 	bool gpu_llc_slice_enable;
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
-	unsigned int zap_loaded;
+	void *zap_handle_ptr;
 	unsigned int soc_hw_rev;
 	bool gaming_bin;
 };
@@ -1038,6 +1038,9 @@ struct adreno_gpudev {
 				bool update_reg);
 	size_t (*snapshot_preemption)(struct kgsl_device *, u8 *,
 				 size_t, void *);
+	void (*zap_shader_unload)(struct adreno_device *);
+	int (*secure_pt_hibernate)(struct adreno_device *);
+	int (*secure_pt_restore)(struct adreno_device *);
 };
 
 /**

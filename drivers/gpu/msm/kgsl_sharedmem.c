@@ -482,7 +482,7 @@ done:
 	mutex_unlock(&kernel_map_global_lock);
 }
 
-static int kgsl_lock_sgt(struct sg_table *sgt, uint64_t size)
+int kgsl_lock_sgt(struct sg_table *sgt, uint64_t size)
 {
 	struct scatterlist *sg;
 	int dest_perms = PERM_READ | PERM_WRITE;
@@ -514,7 +514,7 @@ static int kgsl_lock_sgt(struct sg_table *sgt, uint64_t size)
 	return 0;
 }
 
-static int kgsl_unlock_sgt(struct sg_table *sgt)
+int kgsl_unlock_sgt(struct sg_table *sgt)
 {
 	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int source_vm = VMID_CP_PIXEL;
