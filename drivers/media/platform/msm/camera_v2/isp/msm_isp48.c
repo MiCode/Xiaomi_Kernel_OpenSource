@@ -451,7 +451,7 @@ void msm_vfe48_clear_dual_irq_status(struct vfe_device *vfe_dev,
 			(*dual_irq_status &
 			msm_camera_io_r(vfe_dev->camss_base + 0x140)) &&
 			(count < MAX_RECOVERY_THRESHOLD)) {
-			pr_err("%s: problem with clear try again status %x\n",
+			pr_debug("%s: problem with clear try again status %x\n",
 			__func__, msm_camera_io_r(vfe_dev->camss_base + 0x140));
 			msm_camera_io_w(*dual_irq_status,
 				vfe_dev->camss_base + 0x13C);
