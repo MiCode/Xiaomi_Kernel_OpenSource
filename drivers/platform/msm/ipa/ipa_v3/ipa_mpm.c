@@ -1343,7 +1343,8 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 								== 0)) {
 			IPA_MPM_DBG("probe_id %d PCIE clock already devoted\n",
 				probe_id);
-			ipa_assert();
+			WARN_ON(1);
+			return 0;
 		}
 		mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev);
 		IPA_MPM_DBG("probe_id %d PCIE clock off\n", probe_id);
@@ -1378,7 +1379,8 @@ static void ipa_mpm_vote_unvote_ipa_clk(enum ipa_mpm_clk_vote_type vote,
 								== 0)) {
 			IPA_MPM_DBG("probe_id %d IPA clock count < 0\n",
 				probe_id);
-			ipa_assert();
+			WARN_ON(1);
+			return;
 		}
 		IPA_ACTIVE_CLIENTS_DEC_SPECIAL(ipa_mpm_mhip_chan_str[probe_id]);
 		IPA_MPM_DBG("probe_id %d IPA clock off\n", probe_id);
