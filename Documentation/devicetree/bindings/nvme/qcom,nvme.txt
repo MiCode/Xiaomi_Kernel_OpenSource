@@ -1,0 +1,50 @@
+= NVME(Non Volatile Memory Express) Device Tree Bindings =
+
+Required properties:
+
+- compatible : Must be "qcom,nvme"
+
+If SMMU is present, also use:
+
+- qcom,smmu : if present, SMMU attach is performed
+- qcom,smmu-iova-base : SMMU IOVA start address the device can access
+- qcom,smmu-iova-size : SMMU IOVA size the device can access
+
+Optional Properties:
+
+- qcom,smmu-attr-s1-bypass : Bypasses SMMU S1 translation
+- qcom,smmu-attr-fastmap : Enables SMMU fastmap
+- qcom,smmu-attr-atomic : Enables DMA alloc using GFP_ATOMIC
+- qcom,smmu-attr-pt-coherent : Use if DMA coherency is available for SMMU page tables
+
+
+Example:
+
+&pcie_rc0 {
+
+	nvme_x1: qcom,nvme@pcie_rc0 {
+		compatible = "qcom,nvme";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x0>;
+		qcom,smmu-iova-size = /bits/ 64 <0x100000000>;
+
+		qcom,smmu-attr-s1-bypass;
+	};
+};
+
+&pcie_rc1 {
+
+	nvme_x4: qcom,nvme@pcie_rc1 {
+		compatible = "qcom,nvme";
+
+		qcom,smmu;
+		qcom,smmu-iova-base = /bits/ 64 <0x0>;
+		qcom,smmu-iova-size = /bits/ 64 <0x100000000>;
+
+		qcom,smmu-attr-atomic;
+		qcom,smmu-attr-fastmap;
+		qcom,smmu-attr-pt-coherent;
+	};
+};
+
