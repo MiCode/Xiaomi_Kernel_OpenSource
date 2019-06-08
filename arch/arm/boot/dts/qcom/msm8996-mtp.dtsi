@@ -812,6 +812,23 @@
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
 	};
+
+	qcom,msm-pcm {
+		qcom,avs-version;
+	};
+
+	qcom,msm-pcm-low-latency {
+		qcom,avs-version;
+	};
+
+	qcom,msm-ultra-low-latency {
+		qcom,avs-version;
+	};
+
+	qcom,msm-compress-dsp {
+		qcom,avs-version;
+	};
+
 	qcom,msm-dai-tdm-tert-rx {
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <0>;
