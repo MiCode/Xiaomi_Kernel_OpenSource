@@ -33,6 +33,30 @@ struct mmdvfs_drv_data {
 	u32 voltages[MAX_OPP_NUM];
 };
 
+static BLOCKING_NOTIFIER_HEAD(mmdvfs_notifier_list);
+
+/**
+ * register_mmdvfs_notifier - register multimedia clk changing notifier
+ * @nb: notifier block
+ *
+ * Register notifier block to receive clk changing  notification.
+ */
+int register_mmdvfs_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&mmdvfs_notifier_list, nb);
+}
+
+/**
+ * unregister_mmdvfs_notifier - unregister multimedia clk changing notifier
+ * @nb: notifier block
+ *
+ * Unregister clk changing notifier block.
+ */
+int unregister_mmdvfs_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&mmdvfs_notifier_list, nb);
+}
+
 static void set_mux_clk(struct mmdvfs_mux_data *mux_data, u32 opp_level)
 {
 	struct clk *mux = mux_data->mux;
@@ -74,7 +98,8 @@ static void set_all_muxes(struct mmdvfs_drv_data *drv_data, u32 voltage)
 	for (i = 0; i < num_muxes; i++)
 		set_mux_clk(&drv_data->muxes[i], opp_level);
 
-	pr_notice("set clk to opp level:%d\n", opp_level);
+	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
+	pr_info("set clk to opp level:%d\n", opp_level);
 }
 
 static int regulator_event_notify(struct notifier_block *nb,
