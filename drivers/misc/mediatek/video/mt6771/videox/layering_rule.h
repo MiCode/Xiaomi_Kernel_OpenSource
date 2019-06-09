@@ -102,6 +102,7 @@ enum HRT_DRAMC_TYPE {
 
 void layering_rule_init(void);
 int layering_rule_get_mm_freq_table(enum HRT_OPP_LEVEL opp_level);
+int layering_rule_get_emi_freq_table(enum HRT_OPP_LEVEL opp_level);
 void layering_rule_set_max_hrt_level(void);
 int layering_rule_get_max_hrt_level(void);
 void antilatency_config_hrt(void);

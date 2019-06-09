@@ -450,8 +450,20 @@ static void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_GMC_SETTING_0,
 		preultra_low | (preultra_high << 16));
 
-	DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_GMC_SETTING_1,
-		ultra_low | (ultra_high << 16));
+	if (primary_display_is_video_mode()) {
+		/* video mode */
+		DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_GMC_SETTING_1,
+			   ultra_low | (ultra_high << 16) |
+			   REG_FLD_VAL(FLD_RG_VALID_THRESHOLD_BLOCK_ULTRA, 0) |
+			   REG_FLD_VAL(FLD_RG_VDE_BLOCK_ULTRA, 1));
+
+		output_valid_fifo_threshold = 0;
+	} else {
+		/* cmd mode */
+		DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_GMC_SETTING_1,
+			     ultra_low | (ultra_high << 16));
+	}
+
 
 	DISP_REG_SET(handle, offset + DISP_REG_RDMA_MEM_GMC_SETTING_2,
 		issue_req_threshold);
