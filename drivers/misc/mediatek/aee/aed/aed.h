@@ -21,12 +21,6 @@
 #include <linux/kallsyms.h>
 #include <linux/ptrace.h>
 
-#define LOGD(fmt, msg...)	no_printk(fmt, ##msg)
-#define LOGV(fmt, msg...)    no_printk(fmt, ##msg)
-#define LOGI	LOGD
-#define LOGE(fmt, msg...)	no_printk(fmt, ##msg)
-#define LOGW	LOGE
-
 #define AE_INVALID              0xAEEFF000
 #define AE_NOT_AVAILABLE        0xAEE00000
 #define AE_DEFAULT              0xAEE00001
@@ -214,7 +208,7 @@ struct aee_siginfo {
 #define  AED_PROC_ENTRY(name, entry, mode)\
 	({if (!proc_create(#name, S_IFREG | mode, aed_proc_dir, \
 		&proc_##entry##_fops)) \
-		LOGE("proc_create %s failed\n", #name); })
+		pr_info("proc_create %s failed\n", #name); })
 
 
 struct proc_dir_entry;
