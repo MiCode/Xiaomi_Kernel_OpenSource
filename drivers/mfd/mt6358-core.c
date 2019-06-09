@@ -274,7 +274,7 @@ static int mt6358_irq_init(struct mt6358_chip *chip)
 		pmic_irq->sp_top = &sp_top_ints[sp];
 		num_int_bits = sp_top_ints[sp].num_int_regs * 16;
 		if (pmic_irq->sp_top->hwirq_base == -1)
-			pmic_irq->sp_top->hwirq_base = hwirq;
+			pmic_irq->sp_top->hwirq_base = round_down(hwirq, 16);
 		else if (hwirq - pmic_irq->sp_top->hwirq_base >= num_int_bits)
 			pmic_irq->sp_top->num_int_regs++;
 #if 0
