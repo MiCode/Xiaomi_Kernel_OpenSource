@@ -236,6 +236,10 @@ int soter_open_session(struct tee_context *ctx,
 	struct optee_msg_arg *msg_arg;
 	phys_addr_t msg_parg;
 	struct soter_session *sess = NULL;
+#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
+	down(&keymaster_api_lock);
+	up(&keymaster_api_lock);
+#endif
 
 	/* +2 for the meta parameters added below */
 	shm = get_msg_arg(ctx, arg->num_params + 2, &msg_arg, &msg_parg);

@@ -26,6 +26,8 @@ enum {
 	NQ_CMD_REGISTER_SHM_POOL,
 };
 
+extern struct semaphore keymaster_api_lock;
+
 int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size);
 
 static inline int soter_do_call_with_arg(struct tee_context *ctx,

@@ -573,7 +573,7 @@ static ssize_t tzdriver_dynamical_debug_store(struct device *dev,
 	if ((value == 0) || (value == 1))
 		tzdriver_dynamical_debug_flag = value;
 
-	return (ssize_t)len;
+	return len;
 }
 static DEVICE_ATTR_RW(tzdriver_dynamical_debug);
 #endif

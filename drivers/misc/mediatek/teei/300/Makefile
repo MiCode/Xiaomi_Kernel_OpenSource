@@ -25,6 +25,10 @@ subdir-ccflags-y  += \
 	-I$(src)/public \
 	-I$(src)/tz_driver/include
 
+ifeq ($(CONFIG_MTPROF), y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtprof/
+endif
+
 subdir-ccflags-$(CONFIG_MICROTRUST_DEBUG) += -DDEBUG
 
 obj-y += tee/

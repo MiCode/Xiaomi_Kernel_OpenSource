@@ -27,7 +27,7 @@
 #include <asm/cacheflush.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
-
+#include <linux/vmalloc.h>
 #include <teei_ioc.h>
 #include "../tz_driver/include/teei_id.h"
 #include "../tz_driver/include/tz_service.h"
@@ -50,7 +50,6 @@ struct semaphore keymaster_api_lock;
 
 struct keymaster_dev {
 	struct cdev cdev;
-	unsigned char mem[KEYMASTER_SIZE];
 	struct semaphore sem;
 };
 struct keymaster_dev *keymaster_devp;
@@ -79,6 +78,9 @@ static long keymaster_ioctl(struct file *filp,
 {
 	down(&keymaster_api_lock);
 	switch (cmd) {
+#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
+
+#else
 	case CMD_KM_MEM_CLEAR:
 		IMSG_DEBUG("microtrust keymaster mem clear.\n");
 		break;
@@ -110,10 +112,13 @@ static long keymaster_ioctl(struct file *filp,
 		}
 
 		break;
+#endif
 	case CMD_KM_NOTIFY_UTD:
 		complete(&boot_decryto_lock);
 		break;
+#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
 
+#else
 	case CMD_KM_FIRST_TIME_BOOT:
 
 		if (!keymaster_buff_addr) {
@@ -144,6 +149,7 @@ static long keymaster_ioctl(struct file *filp,
 		}
 
 		break;
+#endif
 	default:
 		up(&keymaster_api_lock);
 		return -EINVAL;
@@ -177,7 +183,9 @@ static const struct file_operations keymaster_fops = {
 	.read = keymaster_read,
 	.write = keymaster_write,
 	.unlocked_ioctl = keymaster_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = keymaster_ioctl,
+#endif
 	.open = keymaster_open,
 	.release = keymaster_release,
 };
@@ -221,7 +229,7 @@ int keymaster_init(void)
 		goto class_destroy;
 	}
 	keymaster_devp = NULL;
-	keymaster_devp = kmalloc(sizeof(struct keymaster_dev), GFP_KERNEL);
+	keymaster_devp = vmalloc(sizeof(struct keymaster_dev));
 	if (keymaster_devp == NULL) {
 		result = -ENOMEM;
 		goto class_device_destroy;
@@ -249,7 +257,7 @@ void keymaster_exit(void)
 	device_destroy(driver_class, devno);
 	class_destroy(driver_class);
 	cdev_del(&keymaster_devp->cdev);
-	kfree(keymaster_devp);
+	vfree(keymaster_devp);
 	unregister_chrdev_region(MKDEV(keymaster_major, 0), 1);
 }
 

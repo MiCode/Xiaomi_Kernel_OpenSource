@@ -45,20 +45,6 @@ static struct load_soter_entry load_ent;
 static struct work_entry work_ent;
 static struct work_entry sched_work_ent;
 
-#if 0
-static struct teei_smc_cmd *get_response_smc_cmd(void)
-{
-	struct NQ_entry *nq_ent = NULL;
-
-	nq_ent = (struct NQ_entry *)get_nq_entry((unsigned char *)t_nt_buffer);
-	if (nq_ent == NULL)
-		return NULL;
-
-	return (struct teei_smc_cmd *)phys_to_virt(
-				(unsigned long)(nq_ent->buffer_addr));
-}
-#endif
-
 void sched_func(struct work_struct *entry)
 {
 	down(&(smc_lock));
@@ -107,6 +93,9 @@ static irqreturn_t nt_error_irq_handler(void)
 	soter_error_flag = 1;
 	up(&(boot_sema));
 	up(&smc_lock);
+
+	WARN_ON(1);
+
 	return IRQ_HANDLED;
 }
 
@@ -224,17 +213,6 @@ static irqreturn_t nt_switch_irq_handler(void)
 				INIT_WORK(&(work_ent.work), work_func);
 				queue_work(secure_wq, &(work_ent.work));
 				up(&smc_lock);
-#if 0
-			} else if (msg_head->child_type == FDRV_ACK_TYPE) {
-				/*
-				 * if(forward_call_flag == GLSCH_NONE)
-				 *	forward_call_flag = GLSCH_NEG;
-				 * else
-				 *	forward_call_flag = GLSCH_NONE;
-				 */
-				up(&boot_sema);
-				up(&smc_lock);
-#endif
 			} else if (msg_head->child_type == NQ_CALL_TYPE) {
 				forward_call_flag = GLSCH_NONE;
 				notify_smc_completed();

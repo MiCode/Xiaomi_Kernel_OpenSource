@@ -702,7 +702,9 @@ static const struct file_operations tee_fops = {
 	.open = tee_open,
 	.release = tee_release,
 	.unlocked_ioctl = tee_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = tee_ioctl,
+#endif
 };
 
 static void tee_release_device(struct device *dev)
@@ -959,7 +961,7 @@ EXPORT_SYMBOL_GPL(tee_get_drvdata);
 struct match_dev_data {
 	struct tee_ioctl_version_data *vers;
 	const void *data;
-	int (*match)(struct tee_ioctl_version_data *vers, const void *data);
+	int (*match)(struct tee_ioctl_version_data *vars, const void *data);
 };
 
 static int match_dev(struct device *dev, const void *data)
