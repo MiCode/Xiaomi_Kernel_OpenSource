@@ -1283,6 +1283,17 @@
 			"PWM-main";
 	};
 
+       i2c_common: i2c_common {
+		compatible = "mediatek,i2c_common";
+		dma_support = /bits/ 8 <1>;
+		idvfs = /bits/ 8 <0>;
+		set_dt_div = /bits/ 8 <1>;
+		check_max_freq = /bits/ 8 <1>;
+		set_ltiming = /bits/ 8 <1>;
+		set_aed = /bits/ 8 <1>;
+		ext_time_config = /bits/ 16 <0x1801>;
+	};
+
 	i2c0: i2c@11007000 {
 		compatible = "mediatek,i2c";
 		id = <0>;
