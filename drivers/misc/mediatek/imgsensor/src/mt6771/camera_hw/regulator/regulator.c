@@ -40,7 +40,10 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcamio_main2"},
 	{"vcama_sub2"},
 	{"vcamd_sub2"},
-	{"vcamio_sub2"}
+	{"vcamio_sub2"},
+	{"vcama_main3"},
+	{"vcamd_main3"},
+	{"vcamio_main3"}
 };
 
 static struct REGULATOR reg_instance;
@@ -106,7 +109,9 @@ static enum IMGSENSOR_RETURN regulator_set(
 			(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB) ?
 			REGULATOR_TYPE_SUB_VCAMA :
 			(sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) ?
-			REGULATOR_TYPE_MAIN2_VCAMA : REGULATOR_TYPE_SUB2_VCAMA;
+			REGULATOR_TYPE_MAIN2_VCAMA :
+			(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) ?
+			REGULATOR_TYPE_SUB2_VCAMA : REGULATOR_TYPE_MAIN3_VCAMA;
 
 	pregulator = preg->pregulator[reg_type_offset +
 				pin - IMGSENSOR_HW_PIN_AVDD];

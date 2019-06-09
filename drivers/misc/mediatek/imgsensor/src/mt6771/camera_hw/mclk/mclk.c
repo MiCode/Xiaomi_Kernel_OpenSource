@@ -19,6 +19,7 @@ struct MCLK_PINCTRL_NAMES
 	{{"cam1_mclk_off"}, {"cam1_mclk_on"} },
 	{{"cam2_mclk_off"}, {"cam2_mclk_on"} },
 	{{"cam3_mclk_off"}, {"cam3_mclk_on"} },
+	{{"cam4_mclk_off"}, {"cam4_mclk_on"} },
 };
 
 static struct mclk mclk_instance;
