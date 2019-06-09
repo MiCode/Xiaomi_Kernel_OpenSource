@@ -317,6 +317,15 @@ struct CmdqDebugCBkStruct {
 	CmdqDebugRegDumpEndCB endDebugRegDump;
 };
 
+enum CMDQ_CLT_ENUM {
+	CMDQ_CLT_UNKN,
+	CMDQ_CLT_MDP,
+	CMDQ_CLT_CMDQ,
+	CMDQ_CLT_GNRL,
+	CMDQ_CLT_DISP,
+	CMDQ_CLT_MAX	/* ALWAYS keep at the end */
+};
+
 /* handle to gce life cycle callback */
 typedef void (*cmdq_core_handle_cb)(struct cmdqRecStruct *handle);
 
@@ -870,6 +879,10 @@ void cmdq_core_reset_first_dump(void);
 s32 cmdq_core_save_first_dump(const char *string, ...);
 
 /* Allocate/Free HW use buffer, e.g. command buffer forCMDQ HW */
+void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,
+	dma_addr_t *dma_handle, const gfp_t flag, enum CMDQ_CLT_ENUM clt);
+void cmdq_core_free_hw_buffer_clt(struct device *dev, size_t size,
+	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt);
 void *cmdq_core_alloc_hw_buffer(struct device *dev,
 	size_t size, dma_addr_t *dma_handle, const gfp_t flag);
 void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
@@ -885,11 +898,12 @@ size_t cmdq_core_get_cpr_cnt(void);
 void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
-int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart);
+int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
+	enum CMDQ_CLT_ENUM clt);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
 void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value);
-int cmdqCoreFreeWriteAddress(dma_addr_t paStart);
+int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
 
 /* Get and HW information from device tree */
 void cmdq_core_init_dts_data(void);
