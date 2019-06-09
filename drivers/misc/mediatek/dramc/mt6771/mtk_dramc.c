@@ -458,8 +458,10 @@ static unsigned int dramc_tx_tracking(int channel)
 		dram_steps_freq(2) * 8 / dram_steps_freq(opp_level);
 		tx_freq_ratio[2] =
 		dram_steps_freq(3) * 8 / dram_steps_freq(opp_level);
-
-		max_pi_adj[0] = 10;
+		if (DRAM_TYPE == TYPE_LPDDR4)
+			max_pi_adj[0] = 7;
+		else
+			max_pi_adj[0] = 10;
 		max_pi_adj[1] = 7;
 		max_pi_adj[2] = 4;
 	}
@@ -522,7 +524,7 @@ static unsigned int dramc_tx_tracking(int channel)
 	temp = Reg_Readl(DRAMC_AO_SPCMDCTRL);
 	mr4_on_off = (temp >> 29) & 0x1;
 	Reg_Sync_Writel(DRAMC_AO_SPCMDCTRL, temp | (1<<29));
-	for (rank = 0; rank < 2; rank++) {
+	for (rank = 0; rank < get_rk_num(); rank++) {
 		res =
 		auto_dram_dqs_osc(rank, dramc_ao_chx_base, dramc_nao_chx_base);
 		if (res != TX_DONE)
@@ -1337,22 +1339,25 @@ int dram_steps_freq(unsigned int step)
 	case 0:
 		if (DRAM_TYPE == TYPE_LPDDR3)
 			freq = 1866;
-		else if ((DRAM_TYPE == TYPE_LPDDR4)
-			|| (DRAM_TYPE == TYPE_LPDDR4X))
+		else if (DRAM_TYPE == TYPE_LPDDR4)
+			freq = 2400;
+		else if (DRAM_TYPE == TYPE_LPDDR4X)
 			freq = (lp4_highfreq_3600) ? 3600 : 3200;
 		break;
 	case 1:
 		if (DRAM_TYPE == TYPE_LPDDR3)
 			freq = 1600;
-		else if ((DRAM_TYPE == TYPE_LPDDR4)
-			|| (DRAM_TYPE == TYPE_LPDDR4X))
+		else if (DRAM_TYPE == TYPE_LPDDR4)
+			freq = 2400;
+		else if (DRAM_TYPE == TYPE_LPDDR4X)
 			freq = 3200;
 		break;
 	case 2:
 		if (DRAM_TYPE == TYPE_LPDDR3)
 			freq = 1600;
-		else if ((DRAM_TYPE == TYPE_LPDDR4)
-			|| (DRAM_TYPE == TYPE_LPDDR4X))
+		else if (DRAM_TYPE == TYPE_LPDDR4)
+			freq = 2400;
+		else if (DRAM_TYPE == TYPE_LPDDR4X)
 			freq = (lp4_highfreq_3600) ? 3200 : 2400;
 		break;
 	case 3:
@@ -1572,9 +1577,13 @@ void zqcs_timer_callback(unsigned long data)
 			else
 				spm_request_dvfs_opp(0, OPP_1);
 			for (timeout = 100; timeout; timeout--) {
-				if (((!lp4_highfreq_3600) &&
-					get_dram_data_rate() >= 3200) ||
-					((lp4_highfreq_3600) &&
+				if ((((!lp4_highfreq_3600) &&
+					get_dram_data_rate() >= 2400) &&
+					(DRAM_TYPE == TYPE_LPDDR4))
+					|| (((!lp4_highfreq_3600) &&
+					get_dram_data_rate() >= 3200) &&
+					(DRAM_TYPE == TYPE_LPDDR4X))
+					|| ((lp4_highfreq_3600) &&
 					get_dram_data_rate() >= 3600))
 					break;
 				udelay(1);
