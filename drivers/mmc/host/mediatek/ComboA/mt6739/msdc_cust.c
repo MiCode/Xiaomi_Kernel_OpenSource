@@ -239,8 +239,10 @@ int msdc_oc_check(struct msdc_host *host, u32 en)
 		goto out;
 
 	if (en) {
-		pmic_mask_interrupt(INT_VMCH_OC, "VMCH_OC");
-		pmic_enable_interrupt(INT_VMCH_OC, 1, "VMCH_OC");
+		pmic_config_interface(REG_VMCH_OC_MASK, 1,
+				MASK_VMCH_OC_MASK, SHIFT_VMCH_OC_MASK);
+		pmic_config_interface(REG_VMCH_OC_EN, 1,
+				MASK_VMCH_OC_EN, SHIFT_VMCH_OC_EN);
 
 		pmic_read_interface(REG_VMCH_OC_RAW_STATUS, &val,
 			MASK_VMCH_OC_RAW_STATUS, SHIFT_VMCH_OC_RAW_STATUS);
@@ -256,8 +258,10 @@ int msdc_oc_check(struct msdc_host *host, u32 en)
 			ret = 1;
 		}
 	} else {
-		pmic_enable_interrupt(INT_VMCH_OC, 0, "VMCH_OC");
-		pmic_unmask_interrupt(INT_VMCH_OC, "VMCH_OC");
+		pmic_config_interface(REG_VMCH_OC_EN, 0,
+				MASK_VMCH_OC_EN, SHIFT_VMCH_OC_EN);
+		pmic_config_interface(REG_VMCH_OC_MASK, 0,
+				MASK_VMCH_OC_MASK, SHIFT_VMCH_OC_MASK);
 	}
 
 out:
