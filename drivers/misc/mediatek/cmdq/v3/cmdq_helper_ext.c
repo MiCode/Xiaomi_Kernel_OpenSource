@@ -1409,7 +1409,12 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 
 	/* if pc match end and irq flag on, dump irq status */
 	if (dump_irq && value[0] == value[1] && value[2] == 1)
+#ifdef CONFIG_MTK_GIC_V3_EXT
 		mt_irq_dump_status(cmdq_dev_get_irq_id());
+#else
+		CMDQ_LOG("gic dump not support irq id:%u\n",
+			cmdq_dev_get_irq_id());
+#endif
 }
 
 void cmdq_core_dump_trigger_loop_thread(const char *tag)
