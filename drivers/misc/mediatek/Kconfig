@@ -290,6 +290,7 @@ source "drivers/misc/mediatek/typec/Kconfig"
 source "drivers/misc/mediatek/irrx/Kconfig"
 source "drivers/misc/mediatek/devmpu/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
+source "drivers/misc/mediatek/cqdma/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance, Power, and Thermal"
