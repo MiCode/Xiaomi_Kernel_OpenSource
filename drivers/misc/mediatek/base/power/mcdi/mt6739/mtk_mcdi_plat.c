@@ -52,10 +52,10 @@ static unsigned int cpu_cluster_pwr_stat_map[NF_PWR_STAT_MAP_TYPE][NF_CPU] = {
 		0x000F		/* Cluster 0 */
 	},
 	[CPU_CLUSTER] = {
-		0x1000E,	/* Only CPU 0 */
-		0x1000D,	/* Only CPU 1 */
-		0x1000B,
-		0x10007
+		0x2000E,	/* Only CPU 0 */
+		0x2000D,	/* Only CPU 1 */
+		0x2000B,
+		0x20007
 	},
 	[CPU_IN_OTHER_CLUSTER] = {
 		0x00000
