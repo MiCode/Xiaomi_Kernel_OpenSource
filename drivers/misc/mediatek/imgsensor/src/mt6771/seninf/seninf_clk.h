@@ -89,7 +89,6 @@ struct SENINF_CLK {
 	struct platform_device *pplatform_device;
 	struct clk *mclk_sel[SENINF_CLK_IDX_MAX_NUM];
 	atomic_t enable_cnt[SENINF_CLK_IDX_MAX_NUM];
-	atomic_t wakelock_cnt;
 
 #ifdef CONFIG_PM_WAKELOCKS
 	struct wakeup_source seninf_wake_lock;

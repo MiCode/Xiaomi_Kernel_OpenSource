@@ -80,7 +80,6 @@ enum SENINF_RETURN seninf_clk_init(struct SENINF_CLK *pclk)
 	wake_lock_init(&pclk->seninf_wake_lock, WAKE_LOCK_SUSPEND,
 						"seninf_lock_wakelock");
 #endif
-	atomic_set(&pclk->wakelock_cnt, 0);
 
 	return SENINF_RETURN_SUCCESS;
 }
@@ -174,13 +173,11 @@ void seninf_clk_open(struct SENINF_CLK *pclk)
 
 	PK_DBG("open\n");
 
-	if (atomic_inc_return(&pclk->wakelock_cnt) == 1) {
 #ifdef CONFIG_PM_WAKELOCKS
-		__pm_stay_awake(&pclk->seninf_wake_lock);
+	__pm_stay_awake(&pclk->seninf_wake_lock);
 #else
-		wake_lock(&pclk->seninf_wake_lock);
+	wake_lock(&pclk->seninf_wake_lock);
 #endif
-	}
 
 	for (i = SENINF_CLK_IDX_SYS_MIN_NUM;
 		i < SENINF_CLK_IDX_SYS_MAX_NUM; i++) {
@@ -205,13 +202,11 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 		}
 	} while (i);
 
-	if (atomic_dec_and_test(&pclk->wakelock_cnt)) {
 #ifdef CONFIG_PM_WAKELOCKS
-		__pm_relax(&pclk->seninf_wake_lock);
+	__pm_relax(&pclk->seninf_wake_lock);
 #else
-		wake_unlock(&pclk->seninf_wake_lock);
+	wake_unlock(&pclk->seninf_wake_lock);
 #endif
-	}
 }
 
 unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)

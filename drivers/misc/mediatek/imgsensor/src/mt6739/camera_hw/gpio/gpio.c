@@ -74,8 +74,10 @@ static enum IMGSENSOR_RETURN gpio_release(void *pinstance)
 	struct GPIO *pgpio = (struct GPIO *)pinstance;
 
 	for (i = GPIO_CTRL_STATE_CAM0_PDN_L; i < GPIO_CTRL_STATE_MAX_NUM; i += 2) {
+		mutex_lock(&pinctrl_mutex);
 		if (pgpio->ppinctrl_state[i] != NULL && !IS_ERR(pgpio->ppinctrl_state[i]))
 			pinctrl_select_state(pgpio->ppinctrl, pgpio->ppinctrl_state[i]);
+		mutex_unlock(&pinctrl_mutex);
 	}
 
 	return IMGSENSOR_RETURN_SUCCESS;
