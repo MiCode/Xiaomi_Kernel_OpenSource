@@ -548,6 +548,146 @@ static char *dynamic_emit_prefix(const struct _ddebug *desc, char *buf)
 	return buf;
 }
 
+void __dynamic_pr_emerg(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_EMERG "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_emerg);
+
+void __dynamic_pr_alert(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_ALERT "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_alert);
+
+void __dynamic_pr_crit(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_CRIT "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_crit);
+
+void __dynamic_pr_err(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_ERR "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_err);
+
+void __dynamic_pr_warn(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_WARNING "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_warn);
+
+void __dynamic_pr_notice(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_NOTICE "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_notice);
+
+void __dynamic_pr_info(struct _ddebug *descriptor, const char *fmt, ...)
+{
+	va_list args;
+	struct va_format vaf;
+	char buf[PREFIX_SIZE];
+
+	BUG_ON(!descriptor);
+	BUG_ON(!fmt);
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_INFO "%s%pV", dynamic_emit_prefix(descriptor, buf), &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(__dynamic_pr_info);
+
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...)
 {
 	va_list args;
