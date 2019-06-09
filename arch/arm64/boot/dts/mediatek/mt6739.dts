@@ -518,15 +518,23 @@
 		reg = <0 0x1000ce00 0 0x0>;
 	};
 
-	pwrap@1000d000 {
-		compatible = "mediatek,pwrap";
+	pwrap: pwrap@1000d000 {
+		compatible = "mediatek,mt6739-pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+		reg-names = "pwrap";
 		interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk26m>, <&clk26m>;
+		clock-names = "spi", "wrap";
+
+		main_pmic: mt-pmic {
+			compatible = "mediatek,mt6357-pmic";
+			interrupt-controller;
+		};
 	};
 
-	main_pmic: mt-pmic {
-		compatible = "mediatek,mt_pmic";
-		interrupt-controller;
+	pwraph: pwraphal@ {
+		compatible = "mediatek,pwraph";
+		mediatek,pwrap-regmap = <&pwrap>;
 	};
 
 	sleep_reg_md@1000f000 {
