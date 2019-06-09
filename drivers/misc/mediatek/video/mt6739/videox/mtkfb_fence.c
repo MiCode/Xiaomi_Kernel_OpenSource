@@ -870,11 +870,6 @@ void mtkfb_release_fence(unsigned int session_id, unsigned int layer_id,
 			DISP_SESSION_DEV(session_id), layer_id,
 				current_timeline_idx, fence);
 
-	else {
-		mutex_unlock(&layer_info->sync_lock);
-		return;
-	}
-
 	list_for_each_entry_safe(buf, n, &layer_info->buf_list, list) {
 		if (buf->idx > fence)
 			continue;
