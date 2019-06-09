@@ -1004,102 +1004,106 @@ static int SCP_sensorHub_flush(int handle)
 	return 0;
 }
 
-static int SCP_sensorHub_report_data(struct data_unit_t *data_t)
+static int SCP_sensorHub_report_raw_data(struct data_unit_t *data_t)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
-	int err = 0, sensor_type = 0, sensor_id = 0, alt_id;
-	int64_t timestamp_ms = 0;
-	static int64_t last_timestamp_ms[ID_SENSOR_MAX_HANDLE_PLUS_ONE];
-	uint8_t alt = 0;
+	int err = 0, sensor_type = 0, sensor_id = 0;
 	atomic_t *p_flush_count = NULL;
-	bool raw_enable = 0, alt_enable = 0;
-	bool need_send = false;
-	/* int64_t now_enter_timestamp = 0;
-	 * now_enter_timestamp = ktime_get_boot_ns();
-	 * pr_err("type:%d,now time:%lld, scp time: %lld\n",
-	 * data_t->sensor_type, now_enter_timestamp,
-	 * data_t->time_stamp);
-	 */
+	bool raw_enable = 0;
+	int64_t raw_enable_time = 0;
+
 	sensor_id = data_t->sensor_type;
 	sensor_type = sensor_id + ID_OFFSET;
-	data_t->time_stamp += get_filter_output(&moving_average_algo);
-	/*
-	 * pr_debug("compensation_offset=%lld\n",
-	 * get_filter_output(&moving_average_algo));
-	 */
-	alt = READ_ONCE(mSensorState[sensor_type].alt);
-	alt_id = alt - ID_OFFSET;
-	if (!alt) {
-		raw_enable = READ_ONCE(mSensorState[sensor_type].enable);
-	} else if (alt) {
-		raw_enable = READ_ONCE(mSensorState[sensor_type].enable);
-		alt_enable = READ_ONCE(mSensorState[alt].enable);
-	}
-	if (sensor_id > ID_SENSOR_MAX_HANDLE) {
+
+	if (sensor_id < 0 || sensor_id > ID_SENSOR_MAX_HANDLE) {
 		pr_err("invalid sensor %d\n", sensor_id);
-		return err;
+		return 0;
 	}
 
 	if (obj->dispatch_data_cb[sensor_id] == NULL) {
 		pr_err("type:%d don't support this flow?\n", sensor_id);
 		return 0;
 	}
-	if (alt) {
-		if (obj->dispatch_data_cb[alt_id] == NULL) {
-			pr_err("alt:%d don't support this flow?\n", alt_id);
-			return 0;
+
+	raw_enable = READ_ONCE(mSensorState[sensor_type].enable);
+	raw_enable_time = atomic64_read(&mSensorState[sensor_type].enableTime);
+
+	if (raw_enable && data_t->flush_action == DATA_ACTION) {
+		if (data_t->time_stamp > raw_enable_time)
+			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
+		else
+			pr_info("ac:%d, e:%lld, d:%lld\n", data_t->flush_action,
+				raw_enable_time, data_t->time_stamp);
+	} else if (data_t->flush_action == FLUSH_ACTION) {
+		p_flush_count = &mSensorState[sensor_type].flushCnt;
+		if (atomic_read(p_flush_count) > 0) {
+			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
+			if (!err)
+				atomic_dec(p_flush_count);
 		}
-	}
-	if (data_t->flush_action != DATA_ACTION)
-		need_send = true;
-	else {
-		/* timestamp filter, drop which equal to each other at 1 ms */
-		timestamp_ms = (int64_t)data_t->time_stamp;
-		timestamp_ms = div_s64(timestamp_ms, 1000000);
-		if (last_timestamp_ms[sensor_id] != timestamp_ms) {
-			last_timestamp_ms[sensor_id] = timestamp_ms;
-			need_send = true;
-		} else
-			need_send = false;
-		if (!mSensorState[sensor_type].timestamp_filter)
-			need_send = true;
-	}
-	if (need_send == true && !alt) {
+	} else if (data_t->flush_action == BIAS_ACTION ||
+		data_t->flush_action == CALI_ACTION ||
+		data_t->flush_action == TEMP_ACTION ||
+		data_t->flush_action == TEST_ACTION)
 		err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
-		if (data_t->flush_action == FLUSH_ACTION)
-			atomic_dec(&mSensorState[sensor_type].flushCnt);
-	} else if (need_send == true && alt) {
-		if (alt_enable && data_t->flush_action == DATA_ACTION)
+	return err;
+}
+
+static int SCP_sensorHub_report_alt_data(struct data_unit_t *data_t)
+{
+	struct SCP_sensorHub_data *obj = obj_data;
+	int err = 0, sensor_type = 0, sensor_id = 0, alt_id;
+	uint8_t alt = 0;
+	atomic_t *p_flush_count = NULL;
+	bool alt_enable = 0;
+	int64_t alt_enable_time = 0;
+
+	sensor_id = data_t->sensor_type;
+	sensor_type = sensor_id + ID_OFFSET;
+
+	if (sensor_id < 0 || sensor_id > ID_SENSOR_MAX_HANDLE) {
+		pr_err("invalid sensor %d\n", sensor_id);
+		return 0;
+	}
+
+	alt = READ_ONCE(mSensorState[sensor_type].alt);
+	alt_id = alt - ID_OFFSET;
+
+	if (!alt || (obj->dispatch_data_cb[alt_id] == NULL)) {
+		pr_err("alt:%d don't support this flow?\n", alt_id);
+		return 0;
+	}
+
+	alt_enable = READ_ONCE(mSensorState[alt].enable);
+	alt_enable_time = atomic64_read(&mSensorState[alt].enableTime);
+
+	if (alt_enable && data_t->flush_action == DATA_ACTION) {
+		if (data_t->time_stamp > alt_enable_time)
 			err = obj->dispatch_data_cb[alt_id](data_t, NULL);
-		else if (data_t->flush_action == FLUSH_ACTION) {
-			p_flush_count = &mSensorState[alt].flushCnt;
-			if (atomic_dec_if_positive(p_flush_count) >= 0)
-				err = obj->dispatch_data_cb[alt_id](data_t,
-					NULL);
+		else
+			pr_info("ac:%d, e:%lld, d:%lld\n", data_t->flush_action,
+				alt_enable_time, data_t->time_stamp);
+	} else if (data_t->flush_action == FLUSH_ACTION) {
+		p_flush_count = &mSensorState[alt].flushCnt;
+		if (atomic_read(p_flush_count) > 0) {
+			err = obj->dispatch_data_cb[alt_id](data_t, NULL);
+			if (!err)
+				atomic_dec(p_flush_count);
 		}
-		if (raw_enable && data_t->flush_action == DATA_ACTION)
-			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
-		else if (data_t->flush_action == FLUSH_ACTION) {
-			p_flush_count = &mSensorState[sensor_type].flushCnt;
-			if (atomic_dec_if_positive(p_flush_count) >= 0)
-				err = obj->dispatch_data_cb[sensor_id](data_t,
-					NULL);
-		} else if (data_t->flush_action == BIAS_ACTION ||
-			data_t->flush_action == CALI_ACTION ||
-			data_t->flush_action == TEMP_ACTION ||
-			data_t->flush_action == TEST_ACTION)
-			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
 	}
 
 	return err;
 }
+
 static int SCP_sensorHub_server_dispatch_data(uint32_t *currWp)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
 	char *pStart, *pEnd, *rp, *wp;
-	struct data_unit_t event, event_copy;
+	struct data_unit_t event;
 	uint32_t wp_copy;
 	int err = 0;
+
+	int64_t scp_time = 0;
 
 	pStart = (char *)READ_ONCE(obj->SCP_sensorFIFO) +
 		offsetof(struct sensorFIFO, data);
@@ -1107,7 +1111,6 @@ static int SCP_sensorHub_server_dispatch_data(uint32_t *currWp)
 	wp_copy = *currWp;
 	rp = pStart + READ_ONCE(obj->SCP_sensorFIFO->rp);
 	wp = pStart + wp_copy;
-
 
 	if (wp < pStart || pEnd < wp) {
 		pr_err("FIFO wp invalid : %p, %p, %p\n", pStart, pEnd, wp);
@@ -1127,38 +1130,65 @@ static int SCP_sensorHub_server_dispatch_data(uint32_t *currWp)
 	if (rp < wp) {
 		while (rp < wp) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
-			/* sleep safe enough, data save in dram and not lost */
+
+			scp_time = event.time_stamp;
+			event.time_stamp +=
+				get_filter_output(&moving_average_algo);
+
 			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = SCP_sensorHub_report_data(&event_copy);
+				err = SCP_sensorHub_report_raw_data(&event);
 				if (err < 0)
 					usleep_range(2000, 4000);
 			} while (err < 0);
+
+			do {
+				err = SCP_sensorHub_report_alt_data(&event);
+				if (err < 0)
+					usleep_range(2000, 4000);
+			} while (err < 0);
+
 			rp += SENSOR_DATA_SIZE;
 		}
 	} else if (rp > wp) {
 		while (rp < pEnd) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
+			scp_time = event.time_stamp;
+			event.time_stamp +=
+				get_filter_output(&moving_average_algo);
+
 			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = SCP_sensorHub_report_data(&event_copy);
+				err = SCP_sensorHub_report_raw_data(&event);
 				if (err < 0)
 					usleep_range(2000, 4000);
 			} while (err < 0);
+
+			do {
+				err = SCP_sensorHub_report_alt_data(&event);
+				if (err < 0)
+					usleep_range(2000, 4000);
+			} while (err < 0);
+
 			rp += SENSOR_DATA_SIZE;
 		}
 		rp = pStart;
 		while (rp < wp) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
+			scp_time = event.time_stamp;
+			event.time_stamp +=
+				get_filter_output(&moving_average_algo);
+
 			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = SCP_sensorHub_report_data(&event_copy);
+				err = SCP_sensorHub_report_raw_data(&event);
 				if (err < 0)
 					usleep_range(2000, 4000);
 			} while (err < 0);
+
+			do {
+				err = SCP_sensorHub_report_alt_data(&event);
+				if (err < 0)
+					usleep_range(2000, 4000);
+			} while (err < 0);
+
 			rp += SENSOR_DATA_SIZE;
 		}
 	}
@@ -1255,6 +1285,9 @@ int sensor_enable_to_hub(uint8_t handle, int enabledisable)
 	}
 	if (mSensorState[sensor_type].sensorType) {
 		mSensorState[sensor_type].enable = enabledisable;
+		if (enabledisable == 1)
+			atomic64_set(&mSensorState[sensor_type].enableTime,
+							ktime_get_boot_ns());
 		init_sensor_config_cmd(&cmd, sensor_type);
 		if (atomic_read(&power_status) == SENSOR_POWER_UP) {
 			ret = nanohub_external_write((const uint8_t *)&cmd,
