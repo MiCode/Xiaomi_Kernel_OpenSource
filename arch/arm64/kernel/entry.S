@@ -316,6 +316,13 @@ alternative_else_nop_endif
 	ldr	x23, [sp, #S_SP]		// load return stack pointer
 	msr	sp_el0, x23
 	tst	x22, #PSR_MODE32_BIT		// native task?
+#ifdef CONFIG_ARM64_SSBD
+alternative_if ARM64_SSBS
+	orr	x0, x22, #PSR_SSBS_BIT
+	orr	x1, x22, #PSR_AA32_SSBS_BIT
+	csel	x22, x0, x1, eq
+alternative_else_nop_endif
+#endif
 	b.eq	3f
 
 #ifdef CONFIG_ARM64_ERRATUM_845719
@@ -605,7 +612,6 @@ el1_da:
 	bl	do_mem_abort
 	cmp	x24, #ESR_ELx_EC_DABT_CUR	// data abort in EL1
 	b.eq	el1_da_nest_skip_dec
-	mov	x5, sp
 	get_thread_info x20	// top of stack
 	ldr	w4, [x20, #TI_CPU_EXCP]
 	sub	w4, w4, #0x1
@@ -631,7 +637,11 @@ el1_undef:
 	enable_dbg
 	mov	x0, sp
 	bl	do_undefinstr
-	ASM_BUG()
+	get_thread_info x20     // top of stack
+	ldr	w4, [x20, #TI_CPU_EXCP]
+	sub	w4, w4, #0x1
+	str	w4, [x20, #TI_CPU_EXCP]
+	kernel_exit 1
 el1_dbg:
 	/*
 	 * Debug exception handling
@@ -642,7 +652,6 @@ el1_dbg:
 	mrs	x0, far_el1
 	mov	x2, sp				// struct pt_regs
 	bl	do_debug_exception
-	mov	x5, sp
 	get_thread_info x20	// top of stack
 	ldr	w4, [x20, #TI_CPU_EXCP]
 	sub	w4, w4, #0x1
