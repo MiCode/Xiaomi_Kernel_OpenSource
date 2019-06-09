@@ -1540,6 +1540,7 @@
 			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
 		clock-names = "GCE", "GCE_TIMER";
 		mediatek,mailbox-gce = <&gce_mbox>;
+		secure_thread = <8 10>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
