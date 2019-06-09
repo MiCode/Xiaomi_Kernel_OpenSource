@@ -58,9 +58,7 @@
 #include "upmu_common.h"
 #include <mt-plat/mtk_chip.h>
 /* #include <mt-plat/mtk_gpio.h> */
-#ifdef CONFIG_MTK_FREQ_HOPPING
-#include "mach/mtk_freqhopping.h"
-#endif
+
 #ifdef CONFIG_THERMAL
 #include "mtk_thermal.h"
 #endif
@@ -72,6 +70,7 @@
 #if PPM_READY
 #include "mtk_ppm_api.h"
 #endif
+
 #include "mtk_eem_internal.h"
 #ifdef CONFIG_MTK_GPU_SUPPORT
 #include "mtk_gpufreq.h"
@@ -3054,6 +3053,7 @@ void eem_init01(void)
 #endif
 			}
 			timeout = 0;
+
 			while (det->real_vboot != det->VBOOT) {
 				det->real_vboot = det->ops->volt_2_eem(
 					det, det->ops->get_volt(det));

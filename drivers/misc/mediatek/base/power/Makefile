@@ -14,6 +14,7 @@ obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_CPU_FREQ) += cpufreq_v1/
 obj-$(CONFIG_MTK_PTPOD) += eem_v2/
 obj-$(CONFIG_MACH_MT6739) += eem_v2/
+obj-$(CONFIG_MACH_MT6771) += eem_v2/
 ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
 obj-$(CONFIG_MACH_MT6771) += upower_v2/
 obj-$(CONFIG_MACH_MT6739) += upower_v2/
