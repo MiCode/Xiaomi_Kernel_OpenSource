@@ -357,7 +357,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_IDLE_MGR, 1);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE, 1);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_BY_REPAINT, 0);
 	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);

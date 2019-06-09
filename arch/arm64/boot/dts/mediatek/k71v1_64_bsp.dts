@@ -801,6 +801,20 @@
 	};
 };
 
+&pio {
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO44__FUNC_DSI_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "mode_te_te";
+	pinctrl-0 = <&mtkfb_pins_lcm_dsi_te>;
+	status = "okay";
+};
+
 #include <k71v1_64_bsp/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
