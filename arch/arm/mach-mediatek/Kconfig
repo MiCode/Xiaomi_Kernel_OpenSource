@@ -97,6 +97,7 @@ config MACH_MT6739
 	select F2FS_FS_ENCRYPTION
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
+	select OVERLAY_FS
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG
 	select GENERIC_SCHED_CLOCK
@@ -169,7 +170,7 @@ config MACH_MT6771
 	select MTK_TIMER_APXGPT
 	select MTK_EMI
 	select MTK_DRAMC
-
+	select OVERLAY_FS
 	help
 	  This enables support for MediaTek MT6771
 	  Support for aarch64 Architecture
