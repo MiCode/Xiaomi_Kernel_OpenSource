@@ -24,6 +24,7 @@
 #include "uload_ind.h"
 
 int clstr_num;
+
 static int perfmgr_probe(struct platform_device *dev)
 {
 	return 0;
@@ -72,11 +73,11 @@ static struct platform_driver perfmgr_driver = {
 
 static int perfmgr_main_data_init(void)
 {
-#if 0
-	clstr_num = (unsigned int)arch_get_nr_clusters();
-#else
-	/* get cluster number from topo_ctrl */
-	clstr_num = topo_ctrl_get_nr_clusters();
+#ifdef CONFIG_MTK_BASE_POWER
+	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
+		/* get cluster number from topo_ctrl */
+		clstr_num = topo_ctrl_get_nr_clusters();
+	}
 #endif
 	return 0;
 }
