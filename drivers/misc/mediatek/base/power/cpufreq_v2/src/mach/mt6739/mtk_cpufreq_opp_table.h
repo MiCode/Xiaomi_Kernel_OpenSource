@@ -39,10 +39,10 @@
 #define CPU_DVFS_FREQ4_LL_SB		1105000		/* KHz */
 #define CPU_DVFS_FREQ5_LL_SB		1053000		/* KHz */
 #define CPU_DVFS_FREQ6_LL_SB		1001000		/* KHz */
-#define CPU_DVFS_FREQ7_LL_SB		338000		/* KHz */
-#define CPU_DVFS_FREQ8_LL_SB		338000		/* KHz */
-#define CPU_DVFS_FREQ9_LL_SB		338000		/* KHz */
-#define CPU_DVFS_FREQ10_LL_SB		 338000		/* KHz */
+#define CPU_DVFS_FREQ7_LL_SB		962000		/* KHz */
+#define CPU_DVFS_FREQ8_LL_SB		910000		/* KHz */
+#define CPU_DVFS_FREQ9_LL_SB		845000		/* KHz */
+#define CPU_DVFS_FREQ10_LL_SB		 702000		/* KHz */
 #define CPU_DVFS_FREQ11_LL_SB		 624000		/* KHz */
 #define CPU_DVFS_FREQ12_LL_SB		 546000	/* KHz */
 #define CPU_DVFS_FREQ13_LL_SB		 416000	/* KHz */
