@@ -3029,7 +3029,7 @@ static enum hrtimer_restart atm_loop(struct hrtimer *timer)
 {
 	ktime_t ktime;
 #elif KRTATM_TIMER == KRTATM_NORMAL
-static int atm_loop(void)
+static void atm_loop(unsigned long data)
 {
 #endif
 	int temp;
@@ -3138,7 +3138,6 @@ exit:
 	atm_timer.expires = jiffies + msecs_to_jiffies(polling_time);
 	add_timer(&atm_timer);
 
-	return 0;
 #endif
 
 }
@@ -3172,7 +3171,7 @@ static void atm_timer_init(void)
 		atm_timer_polling_delay : 100;
 
 	init_timer_deferrable(&atm_timer);
-	atm_timer.function = (void *)&atm_loop;
+	atm_timer.function = &atm_loop;
 	atm_timer.data = (unsigned long)&atm_timer;
 	atm_timer.expires =
 		jiffies + msecs_to_jiffies(atm_timer_polling_delay);
