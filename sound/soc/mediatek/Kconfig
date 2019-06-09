@@ -32,6 +32,28 @@ config SND_SOC_MT2701_WM8960
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT6885
+	tristate "ASoC support for Mediatek MT6885 chip"
+	select REGMAP_MMIO
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	help
+	  This adds ASoC driver for Mediatek MT6885 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6885_MT6359
+	tristate "ASoc Audio driver for MT6885 with MT6359 codec"
+	select SND_SOC_MT6885
+	select SND_SOC_MT6359
+	help
+	  This adds ASoC driver for Mediatek MT6885 boards
+	  with the MT6359 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_MT8168
 	tristate "ASoC support for Mediatek MT8168 chip"
 	depends on ARCH_MEDIATEK
@@ -130,4 +152,3 @@ config MTK_SND_SOC_NEW_ARCH
 	  Only enable this when you use refactored audio driver architecture.
 	  If new chip after mt6757, we will enable this config.
 	  Audio driver refactor to common folder and platform folder.
-
