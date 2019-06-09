@@ -20,7 +20,9 @@
 #define SRAM_HEADER_SIG (0xabcd1234)
 #define DRAM_HEADER_SIG (0x5678ef90)
 #define LOG_STORE_SIG (0xcdab3412)
-
+#define LOG_EMMC_SIG (0x785690ef)
+#define KEDUMP_ENABLE (0xecab1e)
+#define KEDUMP_DISABLE (0xd15ab1e)
 
 #define MAX_DRAM_COUNT	2
 
@@ -80,10 +82,28 @@ struct sram_log_header {
 	u32 reserve[43];                        // reserve 43 * 4 char size
 };
 
+enum EMMC_STORE_TYPE {
+	UART_LOG = 0,
+	LOG_LEVEL,
+	PRINTK_PATELIMIT,
+	KEDUMP_CTL,
+	EMMC_STORE_TYPE_NR
+};
+
+/* emmc last block struct */
+struct log_emmc_header {
+	u32 sig;
+	u32 offset;
+	u32 uart_flag;
+	u32 reserve[10];
+};
+
 #ifdef CONFIG_MTK_DRAM_LOG_STORE
 void log_store_bootup(void);
 void store_log_to_emmc_enable(bool value);
 void disable_early_log(void);
+int set_emmc_config(int type, int value);
+int read_emmc_config(struct log_emmc_header *log_header);
 #else
 
 static inline void  log_store_bootup(void)
@@ -98,6 +118,16 @@ static inline void store_log_to_emmc_enable(bool value)
 
 static inline void disable_early_log(void)
 {
+}
+
+static inline int set_emmc_config(int type, int value)
+{
+	return 0;
+}
+
+static inline int read_emmc_config(struct log_emmc_header *log_header)
+{
+	return 0;
 }
 #endif
 #endif
