@@ -221,6 +221,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
 	select SND_SOC_RT5509 if I2C
 	select SND_SOC_MT6660 if I2C
+	select SND_SOC_TFA9874 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -1158,6 +1159,15 @@ config SND_SOC_MT6660
 	  amplifier which contain speaker protection,
 	  multi-band DRC, equalizer function. It would
 	  be set to yes if device with MT6660 on it.
+
+config SND_SOC_TFA9874
+	tristate "NXP TFA9874 speaker amplifier"
+	depends on I2C
+	help
+	  Config of TFA9874. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with TFA9874 on it.
 
 config SND_SOC_LM4857
 	tristate

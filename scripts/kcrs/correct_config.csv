@@ -705,6 +705,8 @@ CONFIG_MTK_USE_RESERVED_EXT_MEM,USER;PROJECT,chunhui.li,gmo project config,,,,,,
 CONFIG_MTK_VIBRATOR,COMMON,chang-an.chen,,y,y,y,y,,,,
 CONFIG_MTK_VIDEOCODEC_DRIVER,COMMON,Tofar.Huang,,y,y,y,y,,,,
 CONFIG_MTK_VIDEOX,PLATFORM,Tai-Hua.Tseng,,X,X,X,X,,,,
+CONFIG_MTK_VOW_BARGE_IN_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O
+CONFIG_MTK_VOW_DUAL_MIC_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O
 CONFIG_MTK_VOW_SUPPORT,PROJECT,che-jui.chang,new config in this commit a98a2d4db76d5afef19676fe44e8eb2375f44543,,,,,,,,
 CONFIG_MTK_VPU_SUPPORT,PROJECT,guan-ting.lin,,,,,,,,,
 CONFIG_MTK_WAKEHUB,PROJECT,qiangming.xia,,,,,,,,,
@@ -830,7 +832,13 @@ CONFIG_SND_SIMPLE_CARD,PLATFORM,Michael.Hsiao,,y,X,X,y,,,,
 CONFIG_SND_SOC,COMMON,Michael.Hsiao,,y,y,y,y,,,,
 CONFIG_SND_SOC_MAX98926 ,PROJECT,chipeng.chang,use in 97 and new config in this commit 4ba429dbf0ed272ef89e8754b562c2413c220c8a,X,X,X,X,,,,
 CONFIG_SND_SOC_MTK_BTCVSD,PLATFORM,Tina.Tsai,Auido with BT,y,y,y,y,,,,
+CONFIG_SND_SOC_MT6768_MT6358,PLATFORM,Michael.Hsiao,new config in this commit f33316c836a15150890ad743961cdfa75f69af1f,X,X,X,X,y,y,X,X
+CONFIG_SND_SOC_MT6885_MT6359,PLATFORM,Shane.Chien,,X,X,X,X,X,X,X,X
+CONFIG_SND_SOC_MTK_AUDIO_DSP,PROJECT,chipeng.chang,,X,X,X,X,X,X,X,y
+CONFIG_SND_SOC_MT6660,PROJECT,shane.chien,,X,X,X,X,X,X,X,
+CONFIG_SND_SOC_TFA9874,PROJECT,shane.chien,,X,X,X,X,X,X,X,
 CONFIG_SND_SOC_RT5509,PROJECT,shane.chien,,,,,,,,,
+CONFIG_SND_SOC_MTK_SCP_SMARTPA,PROJECT,Shane.Chien,,X,X,X,X,X,X,X,X
 CONFIG_SND_SPI,COMMON,Michael.Hsiao,,N,N,N,N,,,,
 CONFIG_SND_USB_AUDIO,COMMON,Michael.Hsiao,,y,y,y,y,,,,
 CONFIG_SND_VERBOSE_PRINTK,COMMON,Michael.Hsiao,,y,y,y,y,,,,
