@@ -59,17 +59,8 @@ static unsigned long sec_low(unsigned long long nsec)
 }
 #endif
 
-static bool is_critical_lock_held(raw_spinlock_t *lock)
+static bool is_critical_spinlock(raw_spinlock_t *lock)
 {
-	int cpu;
-	struct rq *rq;
-
-	cpu = raw_smp_processor_id();
-	rq = cpu_rq(cpu);
-	/* The lock is needed by aee_kernel_warning_api */
-	if (raw_spin_is_locked(&rq->lock))
-		return true;
-
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	/* The lock is needed by kmalloc and aee_kernel_warning_api */
 	if (!strcmp(lock->dep_map.name, "&(&n->list_lock)->rlock"))
@@ -77,6 +68,21 @@ static bool is_critical_lock_held(raw_spinlock_t *lock)
 	if (!strcmp(lock->dep_map.name, "depot_lock"))
 		return true;
 #endif
+	return false;
+}
+
+static bool is_critical_lock_held(void)
+{
+	int cpu;
+	struct rq *rq;
+
+	cpu = raw_smp_processor_id();
+	rq = cpu_rq(cpu);
+
+	/* The lock is needed by aee_kernel_warning_api */
+	if (raw_spin_is_locked(&rq->lock))
+		return true;
+
 	return false;
 }
 
@@ -167,7 +173,7 @@ static void spin_bug(raw_spinlock_t *lock, const char *msg)
 	}
 
 #ifdef CONFIG_MTK_AEE_FEATURE
-	if (!is_critical_lock_held(lock)) {
+	if (!is_critical_spinlock(lock) && !is_critical_lock_held()) {
 		aee_kernel_warning_api(__FILE__, __LINE__,
 			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
 			aee_str, "spinlock debugger\n");
@@ -207,11 +213,25 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 }
 
 #ifdef MTK_LOCK_DEBUG
-static void show_cpu_backtrace(void *ignored)
+static void show_cpu_backtrace(void *info)
 {
 	pr_info("========== The call trace of lock owner on CPU%d ==========\n",
 		raw_smp_processor_id());
 	dump_stack();
+
+	if (info != NULL) {
+#ifdef CONFIG_MTK_AEE_FEATURE
+		char aee_str[128];
+
+		snprintf(aee_str, sizeof(aee_str),
+			"Spinlock lockup: (%s) in %s\n",
+			(char *)info, current->comm);
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "spinlock debugger\n");
+#endif
+		kfree(info);
+	}
 }
 static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd) = {
 	.func = show_cpu_backtrace,
@@ -231,16 +251,17 @@ static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd) = {
 #define WARNING_TIME 1000000000		/* warning time 1 seconds */
 
 #ifdef MTK_LOCK_DEBUG
+#define MAX_LOCK_NAME 64
 static void __spin_lock_debug(raw_spinlock_t *lock)
 {
 	u64 one_second = loops_per_jiffy * LOOP_HZ;
 	u64 loops = one_second;
 	u32 cpu = raw_smp_processor_id();
 	int print_once = 1, cnt = 0;
-	char lock_name[64];
+	char lock_name[MAX_LOCK_NAME];
 	unsigned long long t1, t2, t3;
 	struct task_struct *owner = NULL;
-	cycles_t start = get_cycles();
+	cycles_t start;
 
 	/* skip debugging */
 	if (is_logbuf_lock_held(lock)) {
@@ -250,6 +271,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 
 	t1 = sched_clock();
 	t2 = t1;
+	start = get_cycles();
 
 	for (;;) {
 		while ((get_cycles() - start) < loops) {
@@ -270,9 +292,9 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			owner = lock->owner;
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
-		snprintf(lock_name, 64, "%s", lock->dep_map.name);
+		snprintf(lock_name, MAX_LOCK_NAME, "%s", lock->dep_map.name);
 #else
-		snprintf(lock_name, 64, "%ps", lock);
+		snprintf(lock_name, MAX_LOCK_NAME, "%ps", lock);
 #endif
 		pr_info("(%s)(%p) spin time: %llu ms(from %lld.%06lu), raw_lock: 0x%08x, magic: %08x, held by %s/%d on CPU#%d(from %lld.%06lu)\n",
 		lock_name, lock,
@@ -292,27 +314,26 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			/* in exception follow, printk maybe spinlock error */
 			continue;
 
-		if (print_once) {
-			print_once = 0;
-			pr_info("========== The call trace of spinning task ==========\n");
-			dump_stack();
+		if (!print_once)
+			continue;
+		print_once = 0;
 
-			if (owner && (cpu != lock->owner_cpu))
-				smp_call_function_single_async(
-					lock->owner_cpu,
-					this_cpu_ptr(&spinlock_debug_csd));
-#ifdef CONFIG_MTK_AEE_FEATURE
-			if (!is_critical_lock_held(lock)) {
-				char aee_str[50];
+		pr_info("========== The call trace of spinning task ==========\n");
+		dump_stack();
 
-				snprintf(aee_str, sizeof(aee_str),
-					"Spinlock lockup: (%s) in %s\n",
-					lock_name, current->comm);
-				aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-					aee_str, "spinlock debugger\n");
+		if (owner && (cpu != lock->owner_cpu)) {
+			call_single_data_t *csd;
+
+			csd = this_cpu_ptr(&spinlock_debug_csd);
+			csd->info = NULL;
+
+			if (!is_critical_spinlock(lock)
+				&& !is_critical_lock_held()) {
+				csd->info = kmalloc(MAX_LOCK_NAME, GFP_ATOMIC);
+				strncpy(csd->info, lock_name, MAX_LOCK_NAME);
 			}
-#endif
+			smp_call_function_single_async(
+				lock->owner_cpu, csd);
 		}
 	}
 }
