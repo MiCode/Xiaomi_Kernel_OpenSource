@@ -20,6 +20,7 @@
 #include <linux/of_irq.h>
 #include <linux/printk.h>
 #include <linux/memblock.h>
+#include <linux/arm-smccc.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/mtk_meminfo.h>
@@ -77,6 +78,7 @@ static void clear_violation(void)
 {
 	unsigned int mpus, mput, i;
 #ifdef CONFIG_MTK_DEVMPU
+	struct arm_smccc_res smc_res;
 	unsigned int mput_2nd;
 #endif
 
@@ -101,10 +103,10 @@ static void clear_violation(void)
 
 #ifdef CONFIG_MTK_DEVMPU
 	/* clear hyp violation status */
-	mt_reg_sync_writel(0x40000000, EMI_MPUT_2ND);
-
+	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_VIO_CLR,
+			0, 0, 0, 0, 0, 0, 0, &smc_res);
 	mput_2nd = readl(IOMEM(EMI_MPUT_2ND));
-	if ((mput_2nd >> 21) & 0x3) {
+	if ((smc_res.a0) || ((mput_2nd >> 21) & 0x3)) {
 		pr_info("[MPU] fail to clear hypervisor violation\n");
 		pr_info("[MPU] EMI_MPT_2ND: %x\n", mput_2nd);
 	}
