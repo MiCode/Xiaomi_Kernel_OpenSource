@@ -709,10 +709,8 @@
 		reg = <0 0x1020e000 0 0x1000>;
 	};
 
-	trng@1020f000 {
-		compatible = "mediatek,trng";
-		reg = <0 0x1020f000 0 0x1000>;
-		interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_LOW>;
+	hwrng: hwrng {
+		compatible = "mediatek,mt67xx-rng";
 	};
 
 	dxcc_sec@10210000 {
