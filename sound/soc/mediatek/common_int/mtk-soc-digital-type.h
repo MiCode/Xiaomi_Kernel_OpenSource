@@ -146,6 +146,11 @@ enum soc_aud_afe_io_block {
 	/* HDMI */
 	Soc_Aud_AFE_IO_Block_HDMI_OUT,
 	Soc_Aud_AFE_IO_Block_HDMI_IN,
+	/* General SRC */
+	Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_OUT,
+	Soc_Aud_AFE_IO_Block_GENERAL_SRC_1_IN,
+	Soc_Aud_AFE_IO_Block_GENERAL_SRC_2_OUT,
+	Soc_Aud_AFE_IO_Block_GENERAL_SRC_2_IN,
 	/* Proximity CIC */
 	Soc_Aud_AFE_IO_Block_PROXIMITY_CIC,
 	/* connection to int main modem */
@@ -171,6 +176,8 @@ enum audio_usage_id {
 	AUDIO_USAGE_SCP_SPK_IV_DATA,
 	AUDIO_USAGE_DEEPBUFFER_PLAYBACK,
 	AUDIO_USAGE_FM_CAPTURE,
+	AUDIO_USAGE_SMART_PA_IN,
+	AUDIO_USAGE_VOW_BARGE_IN,
 };
 
 enum audio_general_asrc_id {
@@ -220,6 +227,10 @@ enum soc_aud_interconnection_input {
 	Soc_Aud_InterConnectionInput_I33,
 	Soc_Aud_InterConnectionInput_I34,
 	Soc_Aud_InterConnectionInput_I35,
+	Soc_Aud_InterConnectionInput_I36,
+	Soc_Aud_InterConnectionInput_I37,
+	Soc_Aud_InterConnectionInput_I38,
+	Soc_Aud_InterConnectionInput_I39,
 	Soc_Aud_InterConnectionInput_Num_Input
 };
 
@@ -264,6 +275,10 @@ enum soc_aud_interconnection_output {
 	Soc_Aud_InterConnectionOutput_O37,
 	Soc_Aud_InterConnectionOutput_O38,
 	Soc_Aud_InterConnectionOutput_O39,
+	Soc_Aud_InterConnectionOutput_O40,
+	Soc_Aud_InterConnectionOutput_O41,
+	Soc_Aud_InterConnectionOutput_O42,
+	Soc_Aud_InterConnectionOutput_O43,
 	Soc_Aud_InterConnectionOutput_Num_Output
 };
 
@@ -453,6 +468,7 @@ enum Soc_Aud_I2S_SAMPLERATE {
 	Soc_Aud_I2S_SAMPLERATE_I2S_174K = 13,
 	Soc_Aud_I2S_SAMPLERATE_I2S_192K = 14,
 	Soc_Aud_I2S_SAMPLERATE_I2S_260K = 15,
+	Soc_Aud_I2S_SAMPLERATE_I2S_NUM
 };
 
 enum Soc_Aud_I2S {
@@ -806,6 +822,13 @@ enum audio_mode {
 	AUDIO_MODE_INCALL,
 	AUDIO_MODE_INCALL2,
 	AUDIO_MODE_INCALL_EXTERNAL,
+};
+
+enum audio_src_param_type {
+	AUDIO_SRC_PARAM_TYPE_FREQ_MODE,
+	AUDIO_SRC_PARAM_TYPE_AUTORST_THRESHOLD_HIGH,
+	AUDIO_SRC_PARAM_TYPE_AUTORST_THRESHOLD_LOW,
+	AUDIO_SRC_PARAM_TYPE_NUM
 };
 
 struct audio_afe_reg_cache {

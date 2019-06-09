@@ -524,6 +524,7 @@ enum audio_sdm_level {
 /* do afe register ioremap */
 int Auddrv_Reg_map(struct device *pdev);
 
+void Afe_Set_Reg_Val(unsigned int offset, unsigned int value);
 void Afe_Set_Reg(unsigned int offset, unsigned int value, unsigned int mask);
 unsigned int Afe_Get_Reg(unsigned int offset);
 

@@ -350,6 +350,113 @@ afe_buffer_regs[Soc_Aud_AFE_IO_Block_NUM_OF_IO_BLOCK][aud_buffer_ctrl_num] = {
 		AFE_DL3_BASE, AFE_DL3_END, AFE_DL3_CUR
 	},
 };
+
+#define SRC_PARAM_INVALID (0)
+#define ARRAYSIZE(array) (sizeof(array) / sizeof((array)[0]))
+static const unsigned int
+src_param[Soc_Aud_I2S_SAMPLERATE_I2S_NUM][AUDIO_SRC_PARAM_TYPE_NUM] = {
+    /* FS = {freq_mode, autorst_threadhold_high, autorst_threadhold_low}*/
+	[Soc_Aud_I2S_SAMPLERATE_I2S_8K] =  {0x00050000, 0x36000, 0x2FC00},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_11K] = {0x0006E400, 0x28800, 0x21000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_12K] = {0x00078000, 0x24000, 0x20000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_16K] = {0x000A0000, 0x1B000, 0x17E00},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_22K] = {0x000DC800, 0x14400, 0x10800},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_24K] = {0x000F0000, 0x12000, 0x10000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_130K] = {
+		SRC_PARAM_INVALID, SRC_PARAM_INVALID, SRC_PARAM_INVALID
+	},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_32K] = {0x00140000, 0xD800, 0xBF00},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_44K] = {0x001B9000, 0xA200, 0x8400},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_48K] = {0x001E0000, 0x9000, 0x8000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_88K] = {0x00372000, 0x5100, 0x4200},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_96K] = {0x003C0000, 0x4800, 0x4000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_174K] = {0x006E4000, 0x2880, 0x2100},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_192K] = {0x00780000, 0x2400, 0x2000},
+	[Soc_Aud_I2S_SAMPLERATE_I2S_260K] = {
+		SRC_PARAM_INVALID, SRC_PARAM_INVALID, SRC_PARAM_INVALID
+	},
+};
+
+static const unsigned int src_iir_coeff_32_to_16[] = {
+	0x0dbae6, 0xff9b0a, 0x0dbae6, 0x05e488, 0xe072b9, 0x000002,
+	0x0dbae6, 0x000f3b, 0x0dbae6, 0x06a537, 0xe17d79, 0x000002,
+	0x0dbae6, 0x01246a, 0x0dbae6, 0x087261, 0xe306be, 0x000002,
+	0x0dbae6, 0x03437d, 0x0dbae6, 0x0bc16f, 0xe57c87, 0x000002,
+	0x0dbae6, 0x072981, 0x0dbae6, 0x111dd3, 0xe94f2a, 0x000002,
+	0x0dbae6, 0x0dc4a6, 0x0dbae6, 0x188611, 0xee85a0, 0x000002,
+	0x0dbae6, 0x168b9a, 0x0dbae6, 0x200e8f, 0xf3ccf1, 0x000002,
+	0x000000, 0x1b75cb, 0x1b75cb, 0x2374a2, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_44_to_16[] = {
+	0x09ae28, 0xf7d97d, 0x09ae28, 0x212a3d, 0xe0ac3a, 0x000002,
+	0x09ae28, 0xf8525a, 0x09ae28, 0x216d72, 0xe234be, 0x000002,
+	0x09ae28, 0xf980f5, 0x09ae28, 0x22a057, 0xe45a81, 0x000002,
+	0x09ae28, 0xfc0a08, 0x09ae28, 0x24d3bd, 0xe7752d, 0x000002,
+	0x09ae28, 0x016162, 0x09ae28, 0x27da01, 0xeb6ea8, 0x000002,
+	0x09ae28, 0x0b67df, 0x09ae28, 0x2aca4a, 0xef34c4, 0x000002,
+	0x000000, 0x135c50, 0x135c50, 0x2c1079, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_44_to_32[] = {
+	0x096966, 0x0c4d35, 0x096966, 0xedee81, 0xf05070, 0x000003,
+	0x12d2cc, 0x193910, 0x12d2cc, 0xddbf4f, 0xe21e1d, 0x000002,
+	0x12d2cc, 0x1a9e60, 0x12d2cc, 0xe18916, 0xe470fd, 0x000002,
+	0x12d2cc, 0x1d06e0, 0x12d2cc, 0xe8a4a6, 0xe87b24, 0x000002,
+	0x12d2cc, 0x207578, 0x12d2cc, 0xf4fe62, 0xef5917, 0x000002,
+	0x12d2cc, 0x24055f, 0x12d2cc, 0x05ee2b, 0xf8b502, 0x000002,
+	0x000000, 0x25a599, 0x25a599, 0x0fabe2, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_48_to_16[] = {
+	0x091009, 0xf68197, 0x091009, 0x26dd51, 0xe09fd1, 0x000002,
+	0x091009, 0xf6e5b0, 0x091009, 0x26e8ad, 0xe20be1, 0x000002,
+	0x091009, 0xf7e303, 0x091009, 0x27af51, 0xe407c2, 0x000002,
+	0x091009, 0xfa0fc6, 0x091009, 0x29331a, 0xe6e0ac, 0x000002,
+	0x091009, 0xfee432, 0x091009, 0x2b4be9, 0xea7ccb, 0x000002,
+	0x091009, 0x08fc54, 0x091009, 0x2d52b2, 0xede0d8, 0x000002,
+	0x000000, 0x122013, 0x122013, 0x2e3256, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_48_to_32[] = {
+	0x10c1b8, 0x10a7df, 0x10c1b8, 0xe7514e, 0xe0b41f, 0x000002,
+	0x10c1b8, 0x116257, 0x10c1b8, 0xe9402f, 0xe25aaa, 0x000002,
+	0x10c1b8, 0x130c89, 0x10c1b8, 0xed3cc3, 0xe4dddb, 0x000002,
+	0x10c1b8, 0x1600dd, 0x10c1b8, 0xf48000, 0xe90c55, 0x000002,
+	0x10c1b8, 0x1a672e, 0x10c1b8, 0x00494c, 0xefa807, 0x000002,
+	0x10c1b8, 0x1f38e6, 0x10c1b8, 0x0ee076, 0xf7c5f3, 0x000002,
+	0x000000, 0x218370, 0x218370, 0x168b40, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_48_to_44[] = {
+	0x0bf71c, 0x170f3f, 0x0bf71c, 0xe3a4c8, 0xf096cb, 0x000003,
+	0x0bf71c, 0x17395e, 0x0bf71c, 0xe58085, 0xf210c8, 0x000003,
+	0x0bf71c, 0x1782bd, 0x0bf71c, 0xe95ef6, 0xf4c899, 0x000003,
+	0x0bf71c, 0x17cd97, 0x0bf71c, 0xf1608a, 0xfa3b18, 0x000003,
+	0x000000, 0x2fdc6f, 0x2fdc6f, 0xf15663, 0x000000, 0x000001
+};
+
+static const unsigned int src_iir_coeff_96_to_16[] = {
+	0x0805a1, 0xf21ae3, 0x0805a1, 0x3840bb, 0xe02a2e, 0x000002,
+	0x0d5dd8, 0xe8f259, 0x0d5dd8, 0x1c0af6, 0xf04700, 0x000003,
+	0x0bb422, 0xec08d9, 0x0bb422, 0x1bfccc, 0xf09216, 0x000003,
+	0x08fde6, 0xf108be, 0x08fde6, 0x1bf096, 0xf10ae0, 0x000003,
+	0x0ae311, 0xeeeda3, 0x0ae311, 0x37c646, 0xe385f5, 0x000002,
+	0x044089, 0xfa7242, 0x044089, 0x37a785, 0xe56526, 0x000002,
+	0x00c75c, 0xffb947, 0x00c75c, 0x378ba3, 0xe72c5f, 0x000002,
+	0x000000, 0x0ef76e, 0x0ef76e, 0x377fda, 0x000000, 0x000001,
+};
+
+static const unsigned int src_iir_coeff_96_to_44[] = {
+	0x08b543, 0xfd80f4, 0x08b543, 0x0e2332, 0xe06ed0, 0x000002,
+	0x1b6038, 0xf90e7e, 0x1b6038, 0x0ec1ac, 0xe16f66, 0x000002,
+	0x188478, 0xfbb921, 0x188478, 0x105859, 0xe2e596, 0x000002,
+	0x13eff3, 0xffa707, 0x13eff3, 0x13455c, 0xe533b7, 0x000002,
+	0x0dc239, 0x03d458, 0x0dc239, 0x17f120, 0xe8b617, 0x000002,
+	0x0745f1, 0x05d790, 0x0745f1, 0x1e3d75, 0xed5f18, 0x000002,
+	0x05641f, 0x085e2b, 0x05641f, 0x48efd0, 0xe3e9c8, 0x000001,
+	0x000000, 0x28f632, 0x28f632, 0x273905, 0x000000, 0x000001,
+};
 /*  Above structures may vary with chips!!!! */
 
 /* set address hardware , platform dependent*/
@@ -1240,6 +1347,325 @@ bool set_chip_sine_gen_enable(unsigned int connection, bool direction,
 	return true;
 }
 
+static bool src1_on;
+bool set_chip_general_asrc1_enable(bool enable)
+{
+	pr_debug("%s(), enable = %d, src1_on = %d", __func__, enable, src1_on);
+
+	if (enable) {
+		if (src1_on)
+			return true;
+
+		Afe_Set_Reg(GENERAL_ASRC_EN_ON, 0x1 << 0, 0x1 << 0);
+		/* ASM_ON */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x1 << 0, 0x1 << 0);
+		/* CHSET_ON */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x1 << 2, 0x1 << 2);
+		/* CHSET_STR_CLR */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x1 << 4, 0x1 << 4);
+
+		src1_on = true;
+	} else {
+		if (!src1_on)
+			return true;
+
+		/* ASM_ON */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x0 << 0, 0x1 << 0);
+		/* CHSET_ON */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x0 << 2, 0x1 << 2);
+		/* CHSET_STR_CLR */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x0 << 4, 0x1 << 4);
+		Afe_Set_Reg(GENERAL_ASRC_EN_ON, 0x0 << 0, 0x1 << 0);
+
+		src1_on = false;
+	}
+	return true;
+}
+
+static bool src2_on;
+bool set_chip_general_asrc2_enable(bool enable)
+{
+	pr_debug("%s(), enable = %d, src2_on = %d", __func__, enable, src2_on);
+
+	if (enable) {
+		if (src2_on)
+			return true;
+
+		Afe_Set_Reg(GENERAL_ASRC_EN_ON, 0x1 << 1, 0x1 << 1);
+		/* ASM_ON */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x1 << 0, 0x1 << 0);
+		/* CHSET_ON */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x1 << 2, 0x1 << 2);
+		/* CHSET_STR_CLR */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x1 << 4, 0x1 << 4);
+
+		src2_on = true;
+	} else {
+		if (!src2_on)
+			return true;
+
+		/* ASM_ON */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x0 << 0, 0x1 << 0);
+		/* CHSET_ON */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x0 << 2, 0x1 << 2);
+		/* CHSET_STR_CLR */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x0 << 4, 0x1 << 4);
+		Afe_Set_Reg(GENERAL_ASRC_EN_ON, 0x0 << 1, 0x1 << 1);
+
+		src2_on = false;
+	}
+
+	return true;
+}
+
+bool set_chip_general_asrc_enable(enum audio_general_asrc_id id, bool enable)
+{
+	bool ret = false;
+
+	pr_debug("%s(), id = %d, enable = %d", __func__, id, enable);
+
+	switch (id) {
+	case AUDIO_GENERAL_ASRC_1:
+		ret = set_chip_general_asrc1_enable(enable);
+		break;
+	case AUDIO_GENERAL_ASRC_2:
+		ret = set_chip_general_asrc2_enable(enable);
+		break;
+	default:
+		pr_debug("%s(), No such SRC id = %d\n", __func__, id);
+		return ret;
+	}
+	/* Toggle BT DAT memif for enable general src on 6771 & 6775 */
+	Afe_Set_Reg(AFE_DAC_CON0, 0x1 << 4, 0x1 << 4);
+	Afe_Set_Reg(AFE_DAC_CON0, 0x0 << 4, 0x1 << 4);
+	return ret;
+}
+
+const unsigned int *get_iir_coeff(unsigned int sample_rate_in,
+				  unsigned int sample_rate_out,
+				  unsigned int *parameter_num)
+{
+	if (sample_rate_in == 32000 && sample_rate_out == 16000) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_32_to_16);
+		return src_iir_coeff_32_to_16;
+	} else if (sample_rate_in == 44100 && sample_rate_out == 16000) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_44_to_16);
+		return src_iir_coeff_44_to_16;
+	} else if (sample_rate_in == 44100 && sample_rate_out == 32000) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_44_to_32);
+		return src_iir_coeff_44_to_32;
+	} else if ((sample_rate_in == 48000 && sample_rate_out == 16000) ||
+		   (sample_rate_in == 96000 && sample_rate_out == 32000)) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_48_to_16);
+		return src_iir_coeff_48_to_16;
+	} else if (sample_rate_in == 48000 && sample_rate_out == 32000) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_48_to_32);
+		return src_iir_coeff_48_to_32;
+	} else if (sample_rate_in == 48000 && sample_rate_out == 44100) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_48_to_44);
+		return src_iir_coeff_48_to_44;
+	} else if (sample_rate_in == 96000 && sample_rate_out == 16000) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_96_to_16);
+		return src_iir_coeff_96_to_16;
+	} else if (sample_rate_in == 96000 && sample_rate_out == 44100) {
+		*parameter_num = ARRAY_SIZE(src_iir_coeff_96_to_44);
+		return src_iir_coeff_96_to_44;
+	}
+	pr_debug("%s(), No this IIR Coeff %dHz -> %dHz\n",
+		 __func__, sample_rate_in, sample_rate_out);
+	*parameter_num = 0;
+	return NULL;
+}
+
+bool set_general_asrc_1_parameter(unsigned int sample_rate_in,
+				  unsigned int sample_rate_out)
+{
+	unsigned int src_in_mode = SampleRateTransform(sample_rate_in, 0);
+	unsigned int src_out_mode = SampleRateTransform(sample_rate_out, 0);
+
+	unsigned int src_in_freq_mode =
+			src_param[src_in_mode][AUDIO_SRC_PARAM_TYPE_FREQ_MODE];
+	unsigned int src_out_freq_mode =
+			src_param[src_out_mode][AUDIO_SRC_PARAM_TYPE_FREQ_MODE];
+
+	int coeff_index = 0;
+	unsigned int iir_coeff_num = 0;
+
+	pr_debug("%s(), sample_rate_in = %d, sample_rate_out = %d, src1_on = %d\n",
+		 __func__, sample_rate_in, sample_rate_out, src1_on);
+
+	if (src1_on)
+		return true;
+
+	Afe_Set_Reg(GENERAL_ASRC_MODE, src_in_mode << 0, 0xf << 0);
+	Afe_Set_Reg(GENERAL_ASRC_MODE, src_out_mode << 4, 0xf << 4);
+	if (src_out_freq_mode != SRC_PARAM_INVALID) {
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON3,
+			    src_out_freq_mode, 0x00ffffff);
+	}
+	if (src_in_freq_mode != SRC_PARAM_INVALID) {
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON4,
+			    src_in_freq_mode, 0x00ffffff);
+	}
+	Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON5, 0x003f5986, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON5, 0x003f5987, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON6, 0x00001fbd, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON2, 0x00000000, 0xffffffff);
+
+	if (sample_rate_in > sample_rate_out) {
+		const unsigned int *iir_coeff =
+			get_iir_coeff(sample_rate_in,
+				      sample_rate_out,
+				      &iir_coeff_num);
+
+		if (iir_coeff == NULL) {
+			pr_debug("%s(), iir_coeff = NULL! Return false\n",
+				 __func__);
+			return false;
+		}
+		pr_debug("%s(), iir_coeff_num = %d, iir_coeff = %p\n",
+			 __func__, iir_coeff_num, iir_coeff);
+
+		/* COEFF_SRAM_CTRL */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x1 << 1, 0x1 << 1);
+		/* Clear coeff history to read/write coef from first position */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON13, 0x0 << 0, 0x3f << 0);
+		/* Write SRC coeff */
+		for (coeff_index = 0;
+		     coeff_index < iir_coeff_num; coeff_index++) {
+			/* Can not use Afe_Set_Reg because it leads another
+			 * read and moves the coeff position next
+			 */
+			Afe_Set_Reg_Val(AFE_GENERAL1_ASRC_2CH_CON12,
+					iir_coeff[coeff_index]);
+		}
+#ifdef DEBUG_COEFF
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON13, 0x0 << 0, 0x3f << 0);
+		pr_debug("%s(), set AFE_GENERAL1_ASRC_2CH_CON13[0-5] = 0, AFE_GENERAL1_ASRC_2CH_CON13 = 0x%x\n",
+			 __func__, Afe_Get_Reg(AFE_GENERAL1_ASRC_2CH_CON13));
+		for (coeff_index = 0;
+		     coeff_index < iir_coeff_num; coeff_index++) {
+			pr_debug("%s(), coeff_index = %d, AFE_GENERAL1_ASRC_2CH_CON12 = 0x%x\n",
+				 __func__, coeff_index,
+				 Afe_Get_Reg(AFE_GENERAL1_ASRC_2CH_CON12));
+		}
+#endif
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON0, 0x0 << 1, 0x1 << 1);
+		/* CHSET_IIR_STAGE */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON2,
+			    ((iir_coeff_num / 6) - 1) << 8, 0x7 << 8);
+		/* CHSET_IIR_EN */
+		Afe_Set_Reg(AFE_GENERAL1_ASRC_2CH_CON2, 0x1 << 11, 0x1 << 11);
+	}
+	return true;
+}
+
+bool set_general_asrc_2_parameter(unsigned int sample_rate_in,
+				  unsigned int sample_rate_out)
+{
+	unsigned int src_in_mode = SampleRateTransform(sample_rate_in, 0);
+	unsigned int src_out_mode = SampleRateTransform(sample_rate_out, 0);
+
+	unsigned int src_in_freq_mode =
+		src_param[src_in_mode][AUDIO_SRC_PARAM_TYPE_FREQ_MODE];
+	unsigned int src_out_freq_mode =
+		src_param[src_out_mode][AUDIO_SRC_PARAM_TYPE_FREQ_MODE];
+
+	int coeff_index = 0;
+	unsigned int iir_coeff_num = 0;
+
+	pr_debug("%s(), sample_rate_in = %d, sample_rate_out = %d, src2_on = %d\n",
+		 __func__, sample_rate_in, sample_rate_out, src2_on);
+
+	if (src2_on)
+		return true;
+
+	Afe_Set_Reg(GENERAL_ASRC_MODE, src_in_mode << 8, 0xf << 8);
+	Afe_Set_Reg(GENERAL_ASRC_MODE, src_out_mode << 12, 0xf << 12);
+	if (src_out_freq_mode != SRC_PARAM_INVALID) {
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON3,
+			    src_out_freq_mode, 0x00ffffff);
+	}
+	if (src_in_freq_mode != SRC_PARAM_INVALID) {
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON4,
+			    src_in_freq_mode, 0x00ffffff);
+	}
+	Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON5, 0x003f5986, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON5, 0x003f5987, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON6, 0x00001fbd, 0xffffffff);
+	Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON2, 0x00000000, 0xffffffff);
+
+	if (sample_rate_in > sample_rate_out) {
+		const unsigned int *iir_coeff =
+			get_iir_coeff(sample_rate_in,
+				      sample_rate_out, &iir_coeff_num);
+
+		if (iir_coeff == NULL) {
+			pr_debug("%s(), iir_coeff = NULL! Return false\n",
+				 __func__);
+			return false;
+		}
+		pr_debug("%s(), iir_coeff_num = %d, iir_coeff = %p\n",
+			 __func__, iir_coeff_num, iir_coeff);
+
+		/* COEFF_SRAM_CTRL */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x1 << 1, 0x1 << 1);
+		/* Clear coeff history to read/write coef from first position */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON13, 0x0 << 0, 0x3f << 0);
+		/* Write SRC coeff */
+		for (coeff_index = 0;
+		     coeff_index < iir_coeff_num; coeff_index++) {
+			/* Can not use Afe_Set_Reg because it leads another
+			 * read and moves the coeff position next
+			 */
+			Afe_Set_Reg_Val(AFE_GENERAL2_ASRC_2CH_CON12,
+					iir_coeff[coeff_index]);
+		}
+#ifdef DEBUG_COEFF
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON13, 0x0 << 0, 0x3f << 0);
+		pr_debug("%s(), set AFE_GENERAL2_ASRC_2CH_CON13[0-5] = 0, AFE_GENERAL2_ASRC_2CH_CON13 = 0x%x\n",
+			 __func__, Afe_Get_Reg(AFE_GENERAL2_ASRC_2CH_CON13));
+		for (coeff_index = 0;
+		     coeff_index < iir_coeff_num; coeff_index++) {
+			pr_debug("%s(), coeff_index = %d, AFE_GENERAL2_ASRC_2CH_CON12 = 0x%x\n",
+				 __func__, coeff_index,
+				 Afe_Get_Reg(AFE_GENERAL2_ASRC_2CH_CON12));
+		}
+#endif
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON0, 0x0 << 1, 0x1 << 1);
+		/* CHSET_IIR_STAGE */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON2,
+			    ((iir_coeff_num / 6) - 1) << 8, 0x7 << 8);
+		/* CHSET_IIR_EN */
+		Afe_Set_Reg(AFE_GENERAL2_ASRC_2CH_CON2, 0x1 << 11, 0x1 << 11);
+	}
+	return true;
+}
+
+bool set_chip_general_asrc_parameter(enum audio_general_asrc_id id,
+				     unsigned int sample_rate_in,
+				     unsigned int sample_rate_out)
+{
+	bool ret = false;
+
+	pr_debug("%s(), id = %d, sample_rate_in = %d, sample_rate_out = %d\n",
+		 __func__, id, sample_rate_in, sample_rate_out);
+
+	switch (id) {
+	case AUDIO_GENERAL_ASRC_1:
+		ret = set_general_asrc_1_parameter(sample_rate_in,
+						   sample_rate_out);
+		break;
+	case AUDIO_GENERAL_ASRC_2:
+		ret = set_general_asrc_2_parameter(sample_rate_in,
+						   sample_rate_out);
+		break;
+	default:
+		pr_debug("%s(), No such SRC id = %d\n", __func__, id);
+	}
+	return ret;
+}
+
 bool set_chip_sine_gen_sample_rate(unsigned int sample_rate)
 {
 	unsigned int sine_mode_ch1 = 0;
@@ -1256,8 +1682,8 @@ bool set_chip_sine_gen_sample_rate(unsigned int sample_rate)
 
 bool set_chip_sine_gen_amplitude(unsigned int amp_divide)
 {
-	if (amp_divide < Soc_Aud_SGEN_AMP_DIV_128
-	    || amp_divide > Soc_Aud_SGEN_AMP_DIV_1) {
+	if (amp_divide < Soc_Aud_SGEN_AMP_DIV_128 ||
+	    amp_divide > Soc_Aud_SGEN_AMP_DIV_1) {
 		pr_warn("%s(): [AudioWarn] amp_divide = %d is invalid\n",
 			__func__, amp_divide);
 		return false;
@@ -1410,7 +1836,10 @@ bool set_chip_ul_src_enable(bool enable)
 
 bool set_chip_ul2_src_enable(bool enable)
 {
-	/* TODO: 3rd dmic*/
+	if (enable)
+		Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0, 0x1, 0x1);
+	else
+		Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0, 0x0, 0x1);
 	return true;
 }
 
@@ -1503,7 +1932,7 @@ bool EnableSideToneFilter(bool stf_on)
 		Afe_Set_Reg(AFE_SIDETONE_GAIN, 0, MASK_ALL);
 		Afe_Set_Reg(AFE_SIDETONE_CON1, write_reg_value, MASK_ALL);
 		pr_debug("%s(), AFE_SIDETONE_CON1[0x%lx] = 0x%x\n",
-			__func__, AFE_SIDETONE_CON1,
+			 __func__, AFE_SIDETONE_CON1,
 			 write_reg_value);
 
 		for (coef_addr = 0;
@@ -1514,12 +1943,12 @@ bool EnableSideToneFilter(bool stf_on)
 			int try_cnt = 0;
 
 			write_reg_value = enable_read_write << 25 |
-					  read_write_sel	<< 24 |
-					  sel_ch2		<< 23 |
-					  coef_addr	<< 16 |
+					  read_write_sel << 24 |
+					  sel_ch2 << 23 |
+					  coef_addr << 16 |
 					  kSideToneCoefficientTable[coef_addr];
 			Afe_Set_Reg(AFE_SIDETONE_CON0,
-				write_reg_value, 0x39FFFFF);
+				    write_reg_value, 0x39FFFFF);
 
 			/* wait flag write_ready changed (means write done) */
 			for (try_cnt = 0; try_cnt < 10; try_cnt++) {
@@ -2916,6 +3345,8 @@ int get_usage_digital_block(enum audio_usage_id id)
 		return Soc_Aud_Digital_Block_MEM_DL3;
 	case AUDIO_USAGE_FM_CAPTURE:
 		return Soc_Aud_Digital_Block_MEM_VUL2;
+	case AUDIO_USAGE_VOW_BARGE_IN:
+		return Soc_Aud_Digital_Block_MEM_AWB;
 	default:
 		pr_debug("%s(), not defined id %d\n", __func__, id);
 		return -EINVAL;
@@ -2933,6 +3364,10 @@ int get_usage_digital_block_io(enum audio_usage_id id)
 		return Soc_Aud_AFE_IO_Block_MEM_DL3;
 	case AUDIO_USAGE_FM_CAPTURE:
 		return Soc_Aud_AFE_IO_Block_MEM_VUL2;
+	case AUDIO_USAGE_SMART_PA_IN:
+		return Soc_Aud_AFE_IO_Block_I2S0;
+	case AUDIO_USAGE_VOW_BARGE_IN:
+		return Soc_Aud_AFE_IO_Block_MEM_AWB;
 	default:
 		pr_debug("%s(), not defined id %d\n", __func__, id);
 		return -EINVAL;
@@ -2988,27 +3423,42 @@ static int set_rch_dc_compensation(int value)
 
 static int set_ap_dmic(bool enable)
 {
+	pr_info("%s(), enable = %d\n", __func__, enable);
+
 	if (enable) {
-		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_ADDA_UL)) {
-			set_adc_enable(false);
+		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_ADDA_UL2)) {
+			set_adc2_enable(false);
 
-			/* mtkaif_rxif_data_mode = 1, dmic */
-			Afe_Set_Reg(AFE_ADDA_MTKAIF_RX_CFG0, 0x1, 0x1);
+			/* Set sample rate(48K) */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0,
+				    0x3 << 17, 0x7 << 17);
 
-			/* dmic mode, 3.25M*/
-			Afe_Set_Reg(AFE_ADDA_MTKAIF_RX_CFG0, 0x0, 0xf << 20);
-			Afe_Set_Reg(AFE_ADDA_UL_SRC_CON0, 0x0, 0x1 << 5);
-			Afe_Set_Reg(AFE_ADDA_UL_SRC_CON0, 0x0, 0x3 << 14);
+			/* Turns on digital mic  for channel 1 and channel 2 */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0,
+				    0x3 << 21, 0x3 << 21);
 
-			/* turn on dmic, ch1, ch2 */
-			Afe_Set_Reg(AFE_ADDA_UL_SRC_CON0, 0x1 << 1, 0x1 << 1);
-			Afe_Set_Reg(AFE_ADDA_UL_SRC_CON0, 0x3 << 21,
-				0x3 << 21);
+			/* Select SDM 3-level mode (DMIC) */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0, 0x1 << 1, 0x1 << 1);
 
-			set_adc_enable(true);
+			/* Turns on uplink SRC */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0, 0x1, 0x1);
+
+			/* Set ch1/ch2 digital mic low power mode : 3.25M */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0,
+				    0x0 << 14, 0x3 << 14);
+
+			/* Set digmic input mode : 3.25M */
+			Afe_Set_Reg(AFE_ADDA6_UL_SRC_CON0, 0x0 << 5, 0x1 << 5);
+
+			/* AFE_ADDA6_FIFO_AUTO_RST */
+			Afe_Set_Reg(AFE_ADDA_UL_DL_CON0, 0x0 << 13, 0x1 << 13);
+
+			/* afe_adda6_ckdiv_rst */
+			Afe_Set_Reg(AFE_ADDA_UL_DL_CON0, 0x0 << 14, 0x1 << 14);
+
+			set_adc2_enable(true);
 		}
 	}
-
 	return 0;
 }
 
@@ -3060,6 +3510,8 @@ static struct mtk_codec_ops mtk_codec_platform_ops = {
 
 static struct mtk_afe_platform_ops afe_platform_ops = {
 	.set_sinegen = set_chip_sine_gen_enable,
+	.set_general_asrc_enable = set_chip_general_asrc_enable,
+	.set_general_asrc_parameter = set_chip_general_asrc_parameter,
 };
 
 void init_afe_ops(void)
