@@ -977,7 +977,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 EXPORT_SYMBOL(cmdq_pkt_sleep);
 
 s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
-	u32 value, u32 addr, u32 mask, u16 count, u16 reg_gpr)
+	u32 value, phys_addr_t addr, u32 mask, u16 count, u16 reg_gpr)
 {
 	const u16 reg_tmp = CMDQ_SPR_FOR_TEMP;
 	const u16 reg_val = CMDQ_THR_SPR_IDX1;
