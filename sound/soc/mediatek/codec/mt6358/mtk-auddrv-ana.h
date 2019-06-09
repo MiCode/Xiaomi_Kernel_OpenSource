@@ -289,6 +289,7 @@
 #define OTP_CON12           0x3a2
 #define OTP_CON13           0x3a4
 
+#define SMT_CON1            0x30
 #define DRV_CON3            0x3c
 #define GPIO_DIR0           0x88
 
