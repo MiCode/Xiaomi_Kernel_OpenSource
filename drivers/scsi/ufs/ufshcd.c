@@ -7663,6 +7663,15 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_init_desc_sizes(hba);
 
 	/*
+	 * Read LU size to init DI
+	 */
+	/* MTK PATCH */
+#ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
+	/* disk inspector initialization */
+	ufs_mtk_di_init(hba);
+#endif
+
+	/*
 	 * Read device descriptors for setting device quirks
 	 * in booting stage only.
 	 */

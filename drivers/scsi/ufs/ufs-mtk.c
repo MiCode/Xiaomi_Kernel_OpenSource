@@ -2178,11 +2178,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 
 	hba = platform_get_drvdata(pdev);
 
-#ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
-	/* disk inspector initialization */
-	ufs_mtk_di_init(hba);
-#endif
-
 #ifdef CONFIG_HIE
 
 	hie_register_device(&ufs_hie_dev);
