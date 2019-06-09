@@ -53,7 +53,7 @@ enum ipi_id {
 	IPI_DVFS_LIMIT_OPP_EN,
 	IPI_DVFS_DISABLE,           /* 20 */
 	IPI_DVFS_SLEEP,
-	IPI_DVFS_WAKE,
+	IPI_PMICW_MODE_DEBUG,
 	IPI_DVFS_SET_FREQ,
 	IPI_CHRE,
 	IPI_CHREX,                  /* 25 */
