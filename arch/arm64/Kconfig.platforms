@@ -218,6 +218,41 @@ config MACH_MT8168
           Support for fpga_64_mt8168 related projects
           Support for mt8168 related projects
 
+config MACH_MT6885
+        bool "MediaTek MT6885"
+        select GENERIC_TIME
+        select GENERIC_CLOCKEVENTS
+        select ARCH_HAS_CPUFREQ
+        select ARM_AMBA
+        select CPU_V7
+        select HAVE_SMP
+        select NEED_MACH_MEMORY_H
+        select IRQ_DOMAIN
+        select IRQ_DOMAIN_DEBUG
+        select GENERIC_SCHED_CLOCK
+        select ARMV7_COMPAT
+        select ARMV7_COMPAT_CPUINFO
+        select PINCTRL
+        select PINCTRL_MT6885
+        select MFD_SYSCON
+        select CPU_IDLE
+        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+        select MTK_SYSIRQ
+        select ARM64_CRYPTO
+        select CRYPTO_SHA2_ARM64_CE
+        select CRYPTO_AES_ARM64_CE_BLK
+        select MTK_SYSTRACKER_V2
+        select MTK_ES_REG
+        select MTK_CQDMA
+        select MTK_BOUNCING_CHECK if AEE_FEATURE
+        select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+        select MTK_TIMER_APXGPT
+        help
+          This enables support for MediaTek MT6885
+          Support for aarch64 Architecture
+          Support for fpga_64_mt6885 related projects
+          Support for mt6885 related projects
+
 config ARCH_MESON
 	bool "Amlogic Platforms"
 	select PINCTRL
