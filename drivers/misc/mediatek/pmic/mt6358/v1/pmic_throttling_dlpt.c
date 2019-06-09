@@ -21,6 +21,8 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/iio/consumer.h>
+#include <linux/interrupt.h>
+#include <linux/mfd/mt6358/core.h>
 
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/aee.h>
@@ -272,6 +274,8 @@ int g_battery_oc_level;
 int g_battery_oc_stop;
 unsigned int g_battery_oc_h_thd = POWER_BAT_OC_CURRENT_H;
 unsigned int g_battery_oc_l_thd = POWER_BAT_OC_CURRENT_L;
+static unsigned int fg_cur_h_irq;
+static unsigned int fg_cur_l_irq;
 
 struct battery_oc_callback_table {
 	void (*occb)(enum BATTERY_OC_LEVEL_TAG);
@@ -311,18 +315,7 @@ void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 	}
 }
 
-void bat_oc_h_en_setting(int en_val)
-{
-	pmic_enable_interrupt(INT_FG_CUR_H, en_val, "pmic_throttling_dlpt");
-}
-
-void bat_oc_l_en_setting(int en_val)
-{
-	pmic_enable_interrupt(INT_FG_CUR_L, en_val, "pmic_throttling_dlpt");
-}
-
-
-void fg_cur_h_int_handler(void)
+static irqreturn_t fg_cur_h_int_handler(int irq, void *data)
 {
 #if PMIC_THROTTLING_DLPT_UT
 	pr_info("[%s]\n", __func__);
@@ -332,10 +325,8 @@ void fg_cur_h_int_handler(void)
 
 	g_battery_oc_level = 0;
 	exec_battery_oc_callback(BATTERY_OC_LEVEL_0);
-	bat_oc_h_en_setting(0);
-	bat_oc_l_en_setting(0);
-	mdelay(1);
-	bat_oc_l_en_setting(1);
+	disable_irq_nosync(fg_cur_h_irq);
+	enable_irq(fg_cur_l_irq);
 
 #if PMIC_THROTTLING_DLPT_UT
 	pr_info("FG_CUR_HTH = 0x%x, FG_CUR_LTH = 0x%x, RG_INT_EN_FG_CUR_H = %d, RG_INT_EN_FG_CUR_L = %d\n"
@@ -352,9 +343,10 @@ void fg_cur_h_int_handler(void)
 		PMIC_RG_INT_EN_FG_BAT0_H_ADDR,
 		upmu_get_reg_value(PMIC_RG_INT_EN_FG_BAT0_H_ADDR));
 #endif
+	return IRQ_HANDLED;
 }
 
-void fg_cur_l_int_handler(void)
+static irqreturn_t fg_cur_l_int_handler(int irq, void *data)
 {
 #if PMIC_THROTTLING_DLPT_UT
 	pr_info("[%s]\n", __func__);
@@ -364,10 +356,8 @@ void fg_cur_l_int_handler(void)
 
 	g_battery_oc_level = 1;
 	exec_battery_oc_callback(BATTERY_OC_LEVEL_1);
-	bat_oc_h_en_setting(0);
-	bat_oc_l_en_setting(0);
-	mdelay(1);
-	bat_oc_h_en_setting(1);
+	disable_irq_nosync(fg_cur_l_irq);
+	enable_irq(fg_cur_h_irq);
 
 #if PMIC_THROTTLING_DLPT_UT
 	pr_info("FG_CUR_HTH = 0x%x, FG_CUR_LTH = 0x%x, RG_INT_EN_FG_CUR_H = %d,	RG_INT_EN_FG_CUR_L = %d\n"
@@ -384,20 +374,34 @@ void fg_cur_l_int_handler(void)
 		PMIC_RG_INT_EN_FG_BAT0_H_ADDR,
 		upmu_get_reg_value(PMIC_RG_INT_EN_FG_BAT0_H_ADDR));
 #endif
+	return IRQ_HANDLED;
 }
 
-void battery_oc_protect_init(void)
+void battery_oc_protect_init(struct platform_device *pdev)
 {
-	pmic_register_interrupt_callback(INT_FG_CUR_H, fg_cur_h_int_handler);
-	pmic_register_interrupt_callback(INT_FG_CUR_L, fg_cur_l_int_handler);
+	int ret;
 
+	/* set Maximum threshold to avoid fg_cur_h being triggered at init */
+	pmic_set_register_value(PMIC_FG_CUR_HTH,
+				0x7FFF);
+	fg_cur_h_irq = platform_get_irq_byname(pdev, "fg_cur_h");
+	ret = devm_request_threaded_irq(&pdev->dev, fg_cur_h_irq,
+		NULL, fg_cur_h_int_handler, IRQF_TRIGGER_NONE,
+		"fg_cur_h", NULL);
+	if (ret < 0)
+		dev_notice(&pdev->dev, "request fg_cur_h irq fail\n");
+	disable_irq_nosync(fg_cur_h_irq);
 	pmic_set_register_value(PMIC_FG_CUR_HTH,
 				bat_oc_h_thd(g_battery_oc_h_thd));
+
 	pmic_set_register_value(PMIC_FG_CUR_LTH,
 				bat_oc_l_thd(g_battery_oc_l_thd));
-
-	bat_oc_h_en_setting(0);
-	bat_oc_l_en_setting(1);
+	fg_cur_l_irq = platform_get_irq_byname(pdev, "fg_cur_l");
+	ret = devm_request_threaded_irq(&pdev->dev, fg_cur_l_irq,
+		NULL, fg_cur_l_int_handler, IRQF_TRIGGER_NONE,
+		"fg_cur_l", NULL);
+	if (ret < 0)
+		dev_notice(&pdev->dev, "request fg_cur_l irq fail\n");
 
 	pr_info("FG_CUR_HTH = 0x%x, FG_CUR_LTH = 0x%x, RG_INT_EN_FG_CUR_H = %d, RG_INT_EN_FG_CUR_L = %d\n"
 		, pmic_get_register_value(PMIC_FG_CUR_HTH)
@@ -763,7 +767,7 @@ static DEFINE_MUTEX(dlpt_notify_mutex);
 #define DLPT_NUM 16
 
 struct dlpt_callback_table {
-	void (*dlpt_cb)(unsigned int val);
+	void (*dlpt_cb)(unsigned int dlpt_val);
 };
 
 struct dlpt_callback_table dlpt_cb_tb[] = {
@@ -772,7 +776,7 @@ struct dlpt_callback_table dlpt_cb_tb[] = {
 };
 
 void register_dlpt_notify(
-	void (*dlpt_callback)(unsigned int),
+	void (*dlpt_callback)(unsigned int dlpt_val),
 	enum DLPT_PRIO_TAG prio_val)
 {
 	PMICLOG("[%s] start\n", __func__);
@@ -975,8 +979,7 @@ int get_dlpt_imix(void)
 			else if (count_do_ptim > 3) {
 				pr_notice("do_ptim more than five times\n");
 				ptim_lock();
-				pmic_set_hk_reg_value(PMIC_RG_AUXADC_RST, 1);
-				pmic_set_hk_reg_value(PMIC_RG_AUXADC_RST, 0);
+				wk_auxadc_reset();
 				ptim_unlock();
 				aee_kernel_warning("PTIM timeout", "PTIM");
 				break;
@@ -1668,8 +1671,8 @@ void pmic_throttling_dlpt_suspend(void)
 {
 	lbat_suspend();
 #ifdef BATTERY_OC_PROTECT
-	bat_oc_h_en_setting(0);
-	bat_oc_l_en_setting(0);
+	disable_irq_nosync(fg_cur_h_irq);
+	disable_irq_nosync(fg_cur_l_irq);
 
 	PMICLOG("Reg[0x%x]=0x%x, Reg[0x%x]=0x%x, Reg[0x%x]=0x%x\n",
 		PMIC_FG_CUR_HTH_ADDR, upmu_get_reg_value(PMIC_FG_CUR_HTH_ADDR),
@@ -1683,14 +1686,8 @@ void pmic_throttling_dlpt_resume(void)
 {
 	lbat_resume();
 #ifdef BATTERY_OC_PROTECT
-	bat_oc_h_en_setting(0);
-	bat_oc_l_en_setting(0);
-	mdelay(1);
-
-	if (g_battery_oc_level == 1)
-		bat_oc_h_en_setting(1);
-	else
-		bat_oc_l_en_setting(1);
+	enable_irq(fg_cur_h_irq);
+	enable_irq(fg_cur_l_irq);
 
 	PMICLOG("Reg[0x%x]=0x%x, Reg[0x%x]=0x%x, Reg[0x%x]=0x%x\n"
 		, PMIC_FG_CUR_HTH_ADDR
@@ -1788,14 +1785,14 @@ static void pmic_uvlo_init(void)
 		, pmic_get_register_value(PMIC_RG_UVLO_VTHL));
 }
 
-int pmic_throttling_dlpt_init(void)
+int pmic_throttling_dlpt_init(struct platform_device *pdev)
 {
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	struct device_node *np;
 	u32 val;
 	char *path;
 
-	path = "/bat_gm30";
+	path = "/battery";
 	np = of_find_node_by_path(path);
 	if (of_property_read_u32(np, "CAR_TUNE_VALUE", &val) == 0) {
 		fg_cust_data.car_tune_value = (int)val*10;
@@ -1826,7 +1823,7 @@ int pmic_throttling_dlpt_init(void)
 	pmic_set_hk_reg_value(PMIC_AUXADC_IMP_AUTORPT_PRD, 6);
 
 	/* no need to depend on LOW_BATTERY_PROTECT */
-	lbat_service_init();
+	lbat_service_init(pdev);
 #ifdef LOW_BATTERY_PROTECT
 	low_battery_protect_init();
 #else
@@ -1834,7 +1831,7 @@ int pmic_throttling_dlpt_init(void)
 #endif
 
 #ifdef BATTERY_OC_PROTECT
-	battery_oc_protect_init();
+	battery_oc_protect_init(pdev);
 #else
 	pr_info("[PMIC] no define BATTERY_OC_PROTECT\n");
 #endif

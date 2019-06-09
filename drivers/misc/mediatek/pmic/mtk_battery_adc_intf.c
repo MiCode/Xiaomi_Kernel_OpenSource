@@ -23,14 +23,11 @@
 #include <mtk_charger.h>
 #include "include/pmic_auxadc.h"
 
-bool __attribute__ ((weak))
-	is_power_path_supported(void)
+bool __attribute__ ((weak)) is_power_path_supported(void)
 {
-	pr_notice_once("%s: do not define is_power_path_supported()\n",
-		__func__);
-	return true;
+	pr_notice_once("%s: check mtk_charger\n", __func__);
+	return 0;
 }
-
 
 int pmic_get_battery_voltage(void)
 {
@@ -53,7 +50,12 @@ bool pmic_is_battery_exist(void)
 	bool is_bat_exist;
 	int hw_id = pmic_get_register_value(PMIC_HWCID);
 
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
+#if defined(CONFIG_FPGA_EARLY_PORTING)
+	is_bat_exist = 0;
+	return is_bat_exist;
+#endif
+
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358) || defined(CONFIG_MTK_PMIC_CHIP_MT6359)
 	temp = pmic_get_register_value(PMIC_AD_BATON_UNDET);
 #else
 	temp = pmic_get_register_value(PMIC_RGS_BATON_UNDET);
@@ -204,8 +206,11 @@ int pmic_bif_init(void)
 int pmic_enable_hw_vbus_ovp(bool enable)
 {
 	int ret = 0;
-
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+	/* TODO check replace by which RG*/
+#else
 	ret = pmic_set_register_value(PMIC_RG_VCDT_HV_EN, enable);
+#endif
 	if (ret != 0)
 		pr_notice("%s: failed, ret = %d\n", __func__, ret);
 

@@ -11,11 +11,12 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/list_sort.h>
 #include <linux/dcache.h>
 #include <linux/debugfs.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/pm_wakeup.h>
@@ -64,14 +65,12 @@ static void lbat_max_en_setting(int en_val)
 {
 	pmic_set_register_value(PMIC_AUXADC_LBAT_EN_MAX, en_val);
 	pmic_set_register_value(PMIC_AUXADC_LBAT_IRQ_EN_MAX, en_val);
-	pmic_enable_interrupt(INT_BAT_H, en_val, "lbat_service");
 }
 
 static void lbat_min_en_setting(int en_val)
 {
 	pmic_set_register_value(PMIC_AUXADC_LBAT_EN_MIN, en_val);
 	pmic_set_register_value(PMIC_AUXADC_LBAT_IRQ_EN_MIN, en_val);
-	pmic_enable_interrupt(INT_BAT_L, en_val, "lbat_service");
 }
 
 static void lbat_irq_enable(void)
@@ -331,13 +330,13 @@ int lbat_user_set_debounce(struct lbat_user *user,
 }
 EXPORT_SYMBOL(lbat_user_set_debounce);
 
-static void bat_h_int_handler(void)
+static irqreturn_t bat_h_int_handler(int irq, void *data)
 {
 	struct lbat_user *user;
 
 	if (cur_hv_ptr == NULL) {
 		lbat_max_en_setting(0);
-		return;
+		return IRQ_NONE;
 	}
 	mutex_lock(&lbat_mutex);
 	pr_info("[%s] cur_thd_volt=%d\n", __func__, cur_hv_ptr->thd_volt);
@@ -368,15 +367,16 @@ out:
 	udelay(200);
 	lbat_irq_enable();
 	mutex_unlock(&lbat_mutex);
+	return IRQ_HANDLED;
 }
 
-static void bat_l_int_handler(void)
+static irqreturn_t bat_l_int_handler(int irq, void *data)
 {
 	struct lbat_user *user;
 
 	if (cur_lv_ptr == NULL) {
 		lbat_min_en_setting(0);
-		return;
+		return IRQ_NONE;
 	}
 	mutex_lock(&lbat_mutex);
 	pr_info("[%s] cur_thd_volt=%d\n", __func__, cur_lv_ptr->thd_volt);
@@ -407,6 +407,7 @@ out:
 	udelay(200);
 	lbat_irq_enable();
 	mutex_unlock(&lbat_mutex);
+	return IRQ_HANDLED;
 }
 
 void lbat_suspend(void)
@@ -419,11 +420,11 @@ void lbat_resume(void)
 	lbat_irq_enable();
 }
 
-int lbat_service_init(void)
+int lbat_service_init(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	pr_info("[%s]", __func__);
+	pr_info("[%s]\n", __func__);
 	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MAX,
 		DEF_H_DEB / LBAT_PRD);
 	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MIN,
@@ -435,8 +436,18 @@ int lbat_service_init(void)
 		PMIC_AUXADC_LBAT_DET_PRD_19_16,
 		(LBAT_PRD & 0xF0000) >> 16);
 
-	pmic_register_interrupt_callback(INT_BAT_L, bat_l_int_handler);
-	pmic_register_interrupt_callback(INT_BAT_H, bat_h_int_handler);
+	ret = devm_request_threaded_irq(&pdev->dev,
+		platform_get_irq_byname(pdev, "bat_h"),
+		NULL, bat_h_int_handler, IRQF_TRIGGER_NONE,
+		"bat_h", NULL);
+	if (ret < 0)
+		dev_notice(&pdev->dev, "request bat_h irq fail\n");
+	ret = devm_request_threaded_irq(&pdev->dev,
+		platform_get_irq_byname(pdev, "bat_l"),
+		NULL, bat_l_int_handler, IRQF_TRIGGER_NONE,
+		"bat_l", NULL);
+	if (ret < 0)
+		dev_notice(&pdev->dev, "request bat_l irq fail\n");
 
 	lbat_wq = create_singlethread_workqueue("lbat_service");
 

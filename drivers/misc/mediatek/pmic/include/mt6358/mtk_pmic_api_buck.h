@@ -16,9 +16,6 @@
 
 void vmd1_pmic_setting_on(void);
 void vmd1_pmic_setting_off(void);
-int vcore_pmic_set_mode(unsigned char mode);
-void wk_auxadc_bgd_ctrl(unsigned char en);
-void wk_auxadc_bgd_ctrl_dbg(void);
 
 #ifdef LP_GOLDEN_SETTING
 #define LGS
