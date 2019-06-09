@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -210,7 +211,7 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 			} else {
 				if (LBA_CRC16_ARRAY[lba] != crc_temp) {
 					dev_info(hba->dev,
-				"EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
+				"FDE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
 					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
 					return -EIO;
 				}
@@ -229,9 +230,9 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 				} else {
 					if (LBA_CRC16_ARRAY[lba] != crc_temp) {
 						dev_info(hba->dev,
-			"EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
+			"FBE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
 					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
-						return -EIO;
+						return 0;
 					}
 				}
 			} else {
@@ -310,7 +311,7 @@ struct kh_dev *ufs_mtk_get_kh(void)
 #if defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
 static int ufs_crypto_hie_get_cap(struct ufs_hba *hba, unsigned int hie_cap)
 {
-	dev_info(hba->dev, "hie_cap: 0x%x\n", hie_cap);
+	dev_dbg(hba->dev, "hie_cap: 0x%x\n", hie_cap);
 
 	if (hie_cap & BC_AES_128_XTS)
 		return 0;
@@ -412,7 +413,7 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 		for (i = 0; i < 32; i++) {
 			ufshcd_writel(info->hba, cpt_cfg.cfgx_raw[i],
 				(addr + i * 4));
-			dev_info(info->hba->dev, "0x%x=0x%x\n",
+			dev_dbg(info->hba->dev, "0x%x=0x%x\n",
 				(addr + i * 4), cpt_cfg.cfgx_raw[i]);
 		}
 
@@ -837,24 +838,18 @@ static int ufs_mtk_init_mphy(struct ufs_hba *hba)
 	return 0;
 }
 
-static int ufs_mtk_reset_host(struct ufs_hba *hba)
+static int ufs_mtk_init_crypto(struct ufs_hba *hba)
 {
-	if (!(hba->quirks & UFSHCD_QUIRK_UFS_HCI_VENDOR_HOST_RST))
-		return 0;
-
 	/* avoid resetting host during resume flow or when link is not off */
 	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
 		return 0;
-
-	dev_info(hba->dev, "reset host\n");
-
-	/* do host sw reset */
-	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 6), 0, 0, 0);
 
 #ifdef CONFIG_MTK_HW_FDE
 
 	/* restore HW FDE related settings by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
+
+	dev_info(hba->dev, "crypto cfg initialized\n");
 #endif
 
 	return 0;
@@ -888,9 +883,9 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 
 	switch (stage) {
 	case PRE_CHANGE:
-		ret = ufs_mtk_reset_host(hba);
 		break;
 	case POST_CHANGE:
+		ret = ufs_mtk_init_crypto(hba);
 		/*
 		 * After HCE enable, need disable xoufs_req_s in ufshci
 		 * when xoufs hw solution is not ready.
@@ -958,11 +953,6 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 		dev_err(hba->dev, "dme_setting_after_link fail\n");
 		ret = 0;	/* skip error */
 	}
-
-#ifdef CONFIG_MTK_HW_FDE
-	/* init HW FDE feature inlined in HCI */
-	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 0), 0, 0, 0);
-#endif
 
 #ifdef CONFIG_HIE
 	/* init ufs crypto IP for HIE */
