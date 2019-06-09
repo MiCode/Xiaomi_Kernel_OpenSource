@@ -27,7 +27,9 @@
 #include <mt-plat/upmu_common.h>
 #endif
 /* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING) && !defined(CONFIG_MACH_MT6739)
+#if !defined(SPM_K414_EARLY_PORTING) && \
+	!defined(CONFIG_MACH_MT6739) && \
+	!defined(CONFIG_MACH_MT6771)
 #include <mtk_pmic_api_buck.h>
 #elif defined(CONFIG_MACH_MT6739)
 #include "pmic_api_buck.h"
@@ -1414,7 +1416,7 @@ void unmask_edge_trig_irqs_for_cirq(void)
 	for (i = 0; i < NF_EDGE_TRIG_IRQS; i++) {
 		if (edge_trig_irqs[i]) {
 			/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
+#if !defined(SPM_K414_EARLY_PORTING) && !defined(CONFIG_MACH_MT6771)
 			/* unmask edge trigger irqs */
 			mt_irq_unmask_for_sleep_ex(edge_trig_irqs[i]);
 #endif

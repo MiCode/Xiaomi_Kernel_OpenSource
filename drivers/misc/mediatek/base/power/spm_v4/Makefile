@@ -108,6 +108,7 @@ obj-y += mtk_spm_sodi_mt6739.o
 endif
 
 ifeq ($(CONFIG_MACH_MT6771), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(MTK_PLATFORM)/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/cpuidle_v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(MTK_PLATFORM)/
 obj-y += mtk_idle_mt6771.o
