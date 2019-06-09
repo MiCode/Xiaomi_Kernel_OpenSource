@@ -169,7 +169,8 @@ static void build_vcore_opp_table(unsigned int ddr_type, unsigned int soc_efuse)
 		vcore_dvfs_to_ddr_opp[1] = DDR_OPP_0;
 		vcore_dvfs_to_ddr_opp[2] = DDR_OPP_1;
 		vcore_dvfs_to_ddr_opp[3] = DDR_OPP_2;
-	} else if (ddr_type == SPMFW_LP4X_2CH_3733) {
+	} else if (ddr_type == SPMFW_LP4X_2CH_3733 ||
+		   ddr_type == SPMFW_LP4_2CH_2400) {
 		vcore_opp = &vcore_opp_L4_2CH_CASE2[0];
 		vcore_opp_efuse_idx[0] = 0; /* 0.8V, no corner tightening*/
 		vcore_opp_efuse_idx[1] = 0; /* 0.8V, no corner tightening*/
