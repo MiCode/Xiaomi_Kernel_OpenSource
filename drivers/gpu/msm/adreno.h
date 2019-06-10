@@ -337,6 +337,16 @@ struct adreno_device_private {
 };
 
 /**
+ * struct adreno_reglist - simple container for register offsets / values
+ */
+struct adreno_reglist {
+	/** @offset: Offset of the register */
+	u32 offset;
+	/** @value: Default value of the register to write */
+	u32 value;
+};
+
+/**
  * struct adreno_gpu_core - A specific GPU core definition
  * @gpurev: Unique GPU revision identifier
  * @core: Match for the core version of the GPU

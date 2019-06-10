@@ -28,6 +28,10 @@ struct adreno_a5xx_core {
 	const char *regfw_name;
 	/** @zap_name: Name of the CPZ zap file */
 	const char *zap_name;
+	/** @hwcg: List of registers and values to write for HWCG */
+	const struct adreno_reglist *hwcg;
+	/** @hwcg_count: Number of registers in @hwcg */
+	u32 hwcg_count;
 };
 
 #define A5XX_IRQ_FLAGS \
