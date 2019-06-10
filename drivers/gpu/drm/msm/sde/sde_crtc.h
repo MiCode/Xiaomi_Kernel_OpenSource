@@ -646,7 +646,14 @@ static inline enum sde_crtc_client_type sde_crtc_get_client_type(
  */
 static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
 {
-	return crtc ? crtc->enabled : false;
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return false;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	return sde_crtc->enabled;
 }
 
 /**
