@@ -202,3 +202,13 @@
 		dma-coherent;
 	};
 };
+
+&apps_smmu {
+	qcom,actlr =
+	    /* HF_0 and SF_0 TBUs: +3 deep PF */
+	    <0x800 0x7ff 0x103>,
+
+	    /* NPU SIDs: +3 deep PF */
+	    <0x1460 0x1f 0x303>,
+	    <0x1480 0x1f 0x303>;
+};
