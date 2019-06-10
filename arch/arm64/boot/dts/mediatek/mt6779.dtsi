@@ -1497,6 +1497,42 @@
 			#clock-cells = <1>;
 		};
 
+		venc_gcon: venc_gcon@17000000 {
+			compatible = "mediatek,venc_gcon", "syscon";
+			reg = <0 0x17000000 0 0x1000>,
+			      <0 0x17020000 0 0x1000>;
+			interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_LOW>;
+			mediatek,vcu = <&vcu>;
+			iommus = <&iommu0 M4U_PORT_VENC_RCPU>,
+				 <&iommu0 M4U_PORT_VENC_REC>,
+				 <&iommu0 M4U_PORT_VENC_BSDMA>,
+				 <&iommu0 M4U_PORT_VENC_SV_COMV>,
+				 <&iommu0 M4U_PORT_VENC_RD_COMV>,
+				 <&iommu0 M4U_PORT_VENC_NBM_RDMA>,
+				 <&iommu0 M4U_PORT_VENC_NBM_RDMA_LITE>,
+				 <&iommu0 M4U_PORT_VENC_NBM_WDMA>,
+				 <&iommu0 M4U_PORT_VENC_NBM_WDMA_LITE>,
+				 <&iommu0 M4U_PORT_VENC_CUR_LUMA>,
+				 <&iommu0 M4U_PORT_VENC_CUR_CHROMA>,
+				 <&iommu0 M4U_PORT_VENC_REF_LUMA>,
+				 <&iommu0 M4U_PORT_VENC_REF_CHROMA>;
+			clocks =
+				 <&mmsys CLK_MM_SMI_COMMON>,
+				 <&mmsys CLK_MM_GALS_COMM0>,
+				 <&mmsys CLK_MM_GALS_COMM1>,
+				 <&mmsys CLK_MM_SMI_LARB1>,
+				 <&vdecsys CLK_VDEC_VDEC>,
+				 <&vencsys CLK_VENC_GCON_VENC>;
+			clock-names =
+				"MT_CG_SMI_COMMON",
+				"MT_CG_GALS_COMM0",
+				"MT_CG_GALS_COMM1",
+				"CLK_MM_SMI_LARB1",
+				"MT_CG_VDEC",
+				"MT_CG_VENC";
+			#clock-cells = <1>;
+		};
+
 		larb3: larb@17010000 {
 			compatible = "mediatek,mt6779-smi-larb";
 			reg = <0 0x17010000 0 0x1000>;
