@@ -69,9 +69,6 @@
 #else
 #include "disp_dts_gpio.h"
 #endif
-#ifdef CONFIG_MTK_AEE_FEATURE
-#include "mt-plat/aee.h"
-#endif
 
 #include "ddp_clkmgr.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -4914,10 +4911,6 @@ done:
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
 	_primary_path_switch_dst_unlock();
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_early_suspend",
-				       WDT_SETBY_Display);
-#endif
 	primary_trigger_cnt = 0;
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 			 MMPROFILE_FLAG_END, 0, 0);
@@ -5362,9 +5355,6 @@ done:
 	_primary_path_unlock(__func__);
 	DISPMSG("skip_update:%d\n", skip_update);
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_late_resume", WDT_SETBY_Display);
-#endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 			 MMPROFILE_FLAG_END, 0, 0);
 	ddp_clk_check();
@@ -5723,13 +5713,6 @@ static int primary_display_trigger_nolock(int blocking, void *callback,
 	atomic_set(&delayed_trigger_kick, 1);
 
 done:
-#ifdef CONFIG_MTK_AEE_FEATURE
-	if ((primary_trigger_cnt > 1) && aee_kernel_Powerkey_is_press()) {
-		aee_kernel_wdt_kick_Powkey_api("primary_display_trigger",
-					       WDT_SETBY_Display);
-		primary_trigger_cnt = 0;
-	}
-#endif
 	if (pgc->session_id > 0)
 		update_frm_seq_info(0, 0, 0, FRM_TRIGGER);
 
