@@ -744,13 +744,6 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = 0x00000000;
 	}
 
-	if (CP_INIT_MASK & CP_INIT_DRAWCALL_FILTER_RANGE) {
-		/* Start range */
-		*cmds++ = 0x00000000;
-		/* End range (inclusive) */
-		*cmds++ = 0x00000000;
-	}
-
 	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
 		*cmds++ = 0x00000000;
 
@@ -763,15 +756,6 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		*cmds++ =  0;
-
-	} else if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
-		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
-
-		*cmds++ = lower_32_bits(gpuaddr);
-		*cmds++ = upper_32_bits(gpuaddr);
-		/* Size is in dwords */
-		*cmds++ = (sizeof(a6xx_ifpc_pwrup_reglist) +
-			sizeof(a6xx_pwrup_reglist)) >> 2;
 	}
 
 	/* Pad rest of the cmds with 0's */
