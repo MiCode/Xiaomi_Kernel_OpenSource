@@ -571,7 +571,8 @@ int msm_bus_commit_data(struct list_head *clist)
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		bcm_clist_add(node);
-		msm_bus_dev_sbm_config(&node->dev, false);
+		if (!init_time)
+			msm_bus_dev_sbm_config(&node->dev, false);
 	}
 
 	if (!cur_rsc) {
