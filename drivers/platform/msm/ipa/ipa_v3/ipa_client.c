@@ -1236,6 +1236,12 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		ipahal_write_reg_n_fields(
 			IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			pipe_idx, &ep_holb);
+
+		/* IPA4.5 issue requires HOLB_EN to be written twice */
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+				pipe_idx, &ep_holb);
 	}
 	client_lock_unlock_cb(client, false);
 	return 0;
