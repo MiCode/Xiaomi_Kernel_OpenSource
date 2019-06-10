@@ -30,6 +30,10 @@
 	qcom,msm-id = <407 0x0>;
 	interrupt-parent = <&pdc>;
 
+	aliases {
+		serial0 = &qupv3_se8_2uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -1610,6 +1614,7 @@
 #include "atoll-gdsc.dtsi"
 #include "atoll-ion.dtsi"
 #include "msm-arm-smmu-sdmatoll.dtsi"
+#include "atoll-qupv3.dtsi"
 
 &ufs_phy_gdsc {
 	status = "ok";
@@ -1668,6 +1673,10 @@
 };
 
 &npu_core_gdsc {
+	status = "ok";
+};
+
+&qupv3_se8_2uart {
 	status = "ok";
 };
 
