@@ -180,6 +180,14 @@ struct kgsl_functable {
 	void (*stop_fault_timer)(struct kgsl_device *device);
 	void (*dispatcher_halt)(struct kgsl_device *device);
 	void (*dispatcher_unhalt)(struct kgsl_device *device);
+	/**
+	 * @query_property_list: query the list of properties
+	 * supported by the device. If 'list' is NULL just return the total
+	 * number of properties available otherwise copy up to 'count' items
+	 * into the list and return the total number of items copied.
+	 */
+	int (*query_property_list)(struct kgsl_device *device, u32 *list,
+		u32 count);
 };
 
 struct kgsl_ioctl {
@@ -888,6 +896,21 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
 	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
+
+/**
+ * kgsl_query_property_list - Get a list of valid properties
+ * @device: A KGSL device handle
+ * @list: Pointer to a list of u32s
+ * @count: Number of items in @list
+ *
+ * Populate a list with the IDs for supported properties. If @list is NULL,
+ * just return the number of properties available, otherwise fill up to @count
+ * items in the list with property identifiers.
+ *
+ * Returns the number of total properties if @list is NULL or the number of
+ * properties copied to @list.
+ */
+int kgsl_query_property_list(struct kgsl_device *device, u32 *list, u32 count);
 
 /**
  * kgsl_get_bus_scale_table() - Get the bus scaling table from devicetree
