@@ -2714,6 +2714,35 @@
 			};
 		};
 
+		cnss_pins {
+			cnss_wlan_en_active: cnss_wlan_en_active {
+				mux {
+					pins = "gpio169";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio169";
+					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
+			};
+			cnss_wlan_en_sleep: cnss_wlan_en_sleep {
+				mux {
+					pins = "gpio169";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio169";
+					drive-strength = <2>;
+					output-low;
+					bias-pull-down;
+				};
+			};
+		};
+
 		audio_ioexp_reset_active: audio_ioexp_reset_active {
 			mux {
 				pins = "gpio166";
