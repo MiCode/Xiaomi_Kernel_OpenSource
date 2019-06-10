@@ -23,4 +23,8 @@
 	wdog: qcom,wdt@17c10000{
 		status = "disabled";
 	};
+
+	disp_rsc: mailbox@af20000 {
+		status = "disabled";
+	};
 };
