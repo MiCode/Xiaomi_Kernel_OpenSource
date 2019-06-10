@@ -1216,7 +1216,7 @@ TRACE_EVENT(kgsl_clock_throttling,
 		__entry->crc_less50pct = crc_less50pct;
 		__entry->adj = adj;
 	),
-	TP_printk("idle_10=%d crc_50=%d crc_more50=%d crc_less50=%d adj=%llx",
+	TP_printk("idle_10=%d crc_50=%d crc_more50=%d crc_less50=%d adj=%lld",
 		__entry->idle_10pct, __entry->crc_50pct, __entry->crc_more50pct,
 		__entry->crc_less50pct, __entry->adj
 	)

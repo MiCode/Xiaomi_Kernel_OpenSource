@@ -1351,40 +1351,43 @@ static int a6xx_gmu_rpmh_gpu_pwrctrl(struct kgsl_device *device,
 	return ret;
 }
 
-static int a640_throttling_counters[ADRENO_GPMU_THROTTLE_COUNTERS] = {
-	0x11, 0x15, 0x19
-};
+static int _setup_throttling_counter(struct adreno_device *adreno_dev,
+						int countable, u32 *offset)
+{
+	if (*offset)
+		return 0;
+
+	return adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
+			countable, offset, NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+}
 
 static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < ARRAY_SIZE(a640_throttling_counters); i++) {
-		adreno_dev->busy_data.throttle_cycles[i] = 0;
+	ret = _setup_throttling_counter(adreno_dev, 0x10,
+				&adreno_dev->gpmu_throttle_counters[0]);
+	ret |= _setup_throttling_counter(adreno_dev, 0x15,
+				&adreno_dev->gpmu_throttle_counters[1]);
+	ret |= _setup_throttling_counter(adreno_dev, 0x19,
+				&adreno_dev->gpmu_throttle_counters[2]);
 
-		if (!a640_throttling_counters[i])
-			continue;
-		if (adreno_dev->gpmu_throttle_counters[i])
-			continue;
+	if (ret)
+		dev_err_once(&gmu->pdev->dev,
+			"Could not get all the throttling counters for LM\n");
 
-		ret = adreno_perfcounter_get(adreno_dev,
-				KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
-				a640_throttling_counters[i],
-				&adreno_dev->gpmu_throttle_counters[i],
-				NULL,
-				PERFCOUNTER_FLAG_KERNEL);
-		if (ret)
-			dev_err_once(&gmu->pdev->dev,
-				"Unable to get counter for LM: GPMU_PWR %d\n",
-				a640_throttling_counters[i]);
-	}
 }
 
 void a6xx_gmu_enable_lm(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	memset(adreno_dev->busy_data.throttle_cycles, 0,
+		sizeof(adreno_dev->busy_data.throttle_cycles));
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))

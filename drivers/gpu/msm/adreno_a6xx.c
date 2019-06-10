@@ -1102,12 +1102,18 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/* Number of throttling counters for A6xx */
+#define A6XX_GMU_THROTTLE_COUNTERS 3
+
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	int i;
 	int64_t adj = -1;
-	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
+	uint32_t counts[A6XX_GMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
