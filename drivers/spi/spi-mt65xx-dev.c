@@ -101,15 +101,7 @@ int spi_loopback_check(struct spi_device *spi,
 		i = 0;
 
 	for (; i < trans->len; i++) {
-		value = 0;
-		if (chip_config->tx_mlsb ^ chip_config->rx_mlsb) {
-			for (j = 7; j >= 0; j--)
-				value |= ((*((u8 *)trans->tx_buf + i)
-					  & (1 << j)) >> j) << (7-j);
-		} else {
-			value = *((u8 *) trans->tx_buf + i);
-		}
-
+		value = *((u8 *) trans->tx_buf + i);
 		if (value != *((char *) trans->rx_buf + i))
 			err++;
 	}
