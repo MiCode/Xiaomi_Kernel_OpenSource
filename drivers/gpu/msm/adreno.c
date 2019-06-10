@@ -2365,25 +2365,6 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
-static int adreno_prop_gpmu_version(struct kgsl_device *device,
-		struct kgsl_device_getproperty *param)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_gpmu_version gpmu = { 0 };
-
-	if (!adreno_dev->gpucore)
-		return -EINVAL;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return -EOPNOTSUPP;
-
-	gpmu.major = adreno_dev->gpucore->gpmu_major;
-	gpmu.minor = adreno_dev->gpucore->gpmu_minor;
-	gpmu.features = adreno_dev->gpucore->gpmu_features;
-
-	return copy_prop(param, &gpmu, sizeof(gpmu));
-}
-
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2421,7 +2402,6 @@ static const struct {
 	{ KGSL_PROP_INTERRUPT_WAITS, adreno_prop_s32 },
 	{ KGSL_PROP_UCHE_GMEM_VADDR, adreno_prop_uche_gmem_addr },
 	{ KGSL_PROP_UCODE_VERSION, adreno_prop_ucode_version },
-	{ KGSL_PROP_GPMU_VERSION, adreno_prop_gpmu_version },
 	{ KGSL_PROP_HIGHEST_BANK_BIT, adreno_prop_u32 },
 	{ KGSL_PROP_MIN_ACCESS_LENGTH, adreno_prop_u32 },
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
