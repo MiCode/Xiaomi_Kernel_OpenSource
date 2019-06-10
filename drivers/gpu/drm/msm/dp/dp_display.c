@@ -2543,6 +2543,28 @@ static int dp_display_get_mst_caps(struct dp_display *dp_display,
 	return rc;
 }
 
+static void dp_display_wakeup_phy_layer(struct dp_display *dp_display,
+		bool wakeup)
+{
+	struct dp_display_private *dp;
+	struct dp_hpd *hpd;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+	if (!dp->mst.drm_registered) {
+		pr_debug("drm mst not registered\n");
+		return;
+	}
+
+	hpd = dp->hpd;
+	if (hpd && hpd->wakeup_phy)
+		hpd->wakeup_phy(hpd, wakeup);
+}
+
 static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -2615,6 +2637,8 @@ static int dp_display_probe(struct platform_device *pdev)
 					dp_display_mst_get_connector_info;
 	g_dp_display->mst_get_fixed_topology_port =
 					dp_display_mst_get_fixed_topology_port;
+	g_dp_display->wakeup_phy_layer =
+					dp_display_wakeup_phy_layer;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc) {

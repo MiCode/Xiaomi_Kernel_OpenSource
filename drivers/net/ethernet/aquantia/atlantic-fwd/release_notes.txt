@@ -1,3 +1,13 @@
+Version 1.0.19
+==============
+Fix freeing of buf vaddr vector in FWD API (AQ050)
+Add a private data pointer to atl_fwd_mem_ops (AQ051)
+Implement wake-on-link-up support (AQ049)
+Introduce the forwarding engine API versioning (AQ048)
+Fix build errors (AQ047)
+Delay enabling bus-mastering until after reset sequence (AQ045)
+Validate interrupt moderation delays in FWD API (AQ040)
+
 Version 1.0.18
 ==============
 Fix double free in the new fwd ring memory allocation code.

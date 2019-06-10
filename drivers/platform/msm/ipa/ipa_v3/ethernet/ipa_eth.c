@@ -170,6 +170,14 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
+	rc = ipa_eth_bus_disable_pc(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to disable bus power collapse");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		return rc;
+	}
+
 	ipa_eth_dev_log(eth_dev, "Started device");
 
 	eth_dev->of_state = IPA_ETH_OF_ST_STARTED;
@@ -186,6 +194,14 @@ static int ipa_eth_stop_device(struct ipa_eth_device *eth_dev)
 
 	if (eth_dev->of_state != IPA_ETH_OF_ST_STARTED)
 		return -EFAULT;
+
+	rc = ipa_eth_bus_enable_pc(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to enable bus power collapse");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		return rc;
+	}
 
 	rc = ipa_eth_offload_stop(eth_dev);
 	if (rc) {
@@ -987,6 +1003,7 @@ static void ipa_eth_ipc_log_cleanup(void)
 int ipa_eth_init(void)
 {
 	int rc;
+	unsigned int wq_flags = WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_FREEZABLE;
 
 	rc = ipa_eth_ipc_log_init();
 	if (rc) {
@@ -1002,7 +1019,7 @@ int ipa_eth_init(void)
 		goto err_dbgfs;
 	}
 
-	ipa_eth_wq = alloc_workqueue("ipa_eth", WQ_UNBOUND, 0);
+	ipa_eth_wq = alloc_workqueue("ipa_eth", wq_flags, 0);
 	if (!ipa_eth_wq) {
 		ipa_eth_err("Failed to alloc workqueue");
 		goto err_wq;

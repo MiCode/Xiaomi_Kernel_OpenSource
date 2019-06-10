@@ -38,6 +38,17 @@
 			power-source = <0>;
 		};
 	};
+
+	irled {
+		irled_pwm: irled_pwm_default {
+			pins = "gpio6";
+			function = "func1";
+			qcom,drive-strength = <2>;
+			power-source = <0>;
+			bias-disable;
+			output-low;
+		};
+	};
 };
 
 &soc {
@@ -74,6 +85,10 @@
 
 &pm6150l_lcdb {
 	status = "ok";
+};
+
+&pm6150l_pwm_1 {
+	status = "okay";
 };
 
 &pm6150_qg {

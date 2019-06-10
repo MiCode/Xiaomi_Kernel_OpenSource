@@ -405,10 +405,12 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(cp_switcher_en),
 	POWER_SUPPLY_ATTR(cp_die_temp),
 	POWER_SUPPLY_ATTR(cp_isns),
+	POWER_SUPPLY_ATTR(cp_isns_slave),
 	POWER_SUPPLY_ATTR(cp_toggle_switcher),
 	POWER_SUPPLY_ATTR(cp_irq_status),
 	POWER_SUPPLY_ATTR(cp_ilim),
 	POWER_SUPPLY_ATTR(irq_status),
+	POWER_SUPPLY_ATTR(parallel_output_mode),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */

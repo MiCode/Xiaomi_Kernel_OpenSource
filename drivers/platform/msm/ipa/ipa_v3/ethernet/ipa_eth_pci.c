@@ -15,6 +15,7 @@
 #include <linux/debugfs.h>
 
 #include <linux/pci.h>
+#include <linux/msm_pcie.h>
 
 #include "ipa_eth_i.h"
 
@@ -25,6 +26,8 @@ struct ipa_eth_pci_driver {
 
 	int (*probe_real)(struct pci_dev *dev, const struct pci_device_id *id);
 	void (*remove_real)(struct pci_dev *dev);
+
+	const struct dev_pm_ops *pm_ops_real;
 };
 
 static LIST_HEAD(pci_drivers);
@@ -127,7 +130,7 @@ static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 
 	rc = epci_drv->probe_real(pdev, id);
 	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Failed real PCI probe of devfn=%u");
+		ipa_eth_err("Failed real PCI probe of devfn=%u");
 		goto err_probe;
 	}
 
@@ -172,6 +175,10 @@ static void ipa_eth_pci_remove_handler(struct pci_dev *pdev)
 		    pdev->driver->name, pdev->devfn);
 
 	eth_dev = lookup_eth_dev(pdev);
+	if (!eth_dev) {
+		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
+		return;
+	}
 
 	mutex_lock(&pci_devices_mutex);
 	list_del(&eth_dev->bus_device_list);
@@ -186,19 +193,113 @@ static void ipa_eth_pci_remove_handler(struct pci_dev *pdev)
 	devm_kfree(dev, eth_dev);
 }
 
+static int ipa_eth_pci_suspend_handler(struct device *dev)
+{
+	int rc = 0;
+	struct ipa_eth_device *eth_dev;
+	const struct dev_pm_ops *pm_ops_real;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	eth_dev = lookup_eth_dev(pci_dev);
+	if (!eth_dev) {
+		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
+		return -EFAULT;
+	}
+
+	pm_ops_real =
+		((struct ipa_eth_pci_driver *)eth_dev->bus_priv)->pm_ops_real;
+
+	/* When offload is started, PCI power collapse is already disabled by
+	 * the ipa_eth_pci_disable_pc() api. Nonetheless, we still need to do
+	 * a dummy PCI config space save so that the PCIe framework will not by
+	 * itself perform a config space save-restore.
+	 */
+	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
+		ipa_eth_dev_log(eth_dev,
+			"Device suspend performing dummy config space save");
+		rc = pci_save_state(pci_dev);
+	} else {
+		ipa_eth_dev_log(eth_dev,
+			"Device suspend delegated to net driver");
+		rc = pm_ops_real->suspend(dev);
+	}
+
+	if (rc)
+		ipa_eth_dev_log(eth_dev, "Device suspend failed");
+	else
+		ipa_eth_dev_log(eth_dev, "Device suspend complete");
+
+	return rc;
+}
+
+static int ipa_eth_pci_resume_handler(struct device *dev)
+{
+	int rc = 0;
+	struct ipa_eth_device *eth_dev;
+	const struct dev_pm_ops *pm_ops_real;
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+
+	eth_dev = lookup_eth_dev(pci_dev);
+	if (!eth_dev) {
+		ipa_eth_bug("Failed to lookup pci_dev -> eth_dev");
+		return -EFAULT;
+	}
+
+	pm_ops_real =
+		((struct ipa_eth_pci_driver *)eth_dev->bus_priv)->pm_ops_real;
+
+	/* During suspend, RC power collapse would not have happened if offload
+	 * was started. Ignore resume callback since the device does not need
+	 * to be re-initialized.
+	 */
+	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
+		ipa_eth_dev_log(eth_dev,
+			"Device resume performing nop");
+		rc = 0;
+	} else {
+		ipa_eth_dev_log(eth_dev,
+			"Device resume delegated to net driver");
+		rc = pm_ops_real->resume(dev);
+	}
+
+	if (rc)
+		ipa_eth_dev_log(eth_dev, "Device resume failed");
+	else
+		ipa_eth_dev_log(eth_dev, "Device resume complete");
+
+	return 0;
+}
+
+/* MSM PCIe driver invokes only suspend and resume callbacks, other operations
+ * can be ignored.
+ */
+static const struct dev_pm_ops ipa_eth_pci_pm_ops = {
+	.suspend = ipa_eth_pci_suspend_handler,
+	.resume = ipa_eth_pci_resume_handler,
+};
+
 static int ipa_eth_pci_register_net_driver(struct ipa_eth_net_driver *nd)
 {
-	struct ipa_eth_pci_driver *epci_drv = NULL;
-	struct pci_driver *pci_drv = container_of(nd->driver,
-		struct pci_driver, driver);
+	struct pci_driver *pci_drv;
+	struct ipa_eth_pci_driver *epci_drv;
 
 	if (!nd) {
 		ipa_eth_err("Network driver is NULL");
 		return -EINVAL;
 	}
 
+	pci_drv = to_pci_driver(nd->driver);
+
 	if (WARN_ON(!pci_drv->probe || !pci_drv->remove)) {
-		ipa_eth_err("PCI driver lacking probe/remove callbacks");
+		ipa_eth_err("PCI net driver %s lacking probe/remove callbacks",
+			nd->name);
+		return -EFAULT;
+	}
+
+	if (!pci_drv->driver.pm || !pci_drv->driver.pm->suspend ||
+			!pci_drv->driver.pm->resume) {
+		ipa_eth_err("PCI net driver %s does not support PM ops",
+			nd->name);
 		return -EFAULT;
 	}
 
@@ -212,6 +313,9 @@ static int ipa_eth_pci_register_net_driver(struct ipa_eth_net_driver *nd)
 	epci_drv->remove_real = pci_drv->remove;
 	pci_drv->remove = ipa_eth_pci_remove_handler;
 
+	epci_drv->pm_ops_real = pci_drv->driver.pm;
+	pci_drv->driver.pm = &ipa_eth_pci_pm_ops;
+
 	epci_drv->nd = nd;
 
 	mutex_lock(&pci_drivers_mutex);
@@ -224,8 +328,7 @@ static int ipa_eth_pci_register_net_driver(struct ipa_eth_net_driver *nd)
 
 static void ipa_eth_pci_unregister_net_driver(struct ipa_eth_net_driver *nd)
 {
-	struct pci_driver *pci_drv = container_of(nd->driver,
-		struct pci_driver, driver);
+	struct pci_driver *pci_drv = to_pci_driver(nd->driver);
 	struct ipa_eth_pci_driver *epci_drv = lookup_epci_driver(pci_drv);
 
 	mutex_lock(&pci_drivers_mutex);
@@ -235,14 +338,72 @@ static void ipa_eth_pci_unregister_net_driver(struct ipa_eth_net_driver *nd)
 	pci_drv->probe = epci_drv->probe_real;
 	pci_drv->remove = epci_drv->remove_real;
 
+	pci_drv->driver.pm = epci_drv->pm_ops_real;
+
 	memset(epci_drv, 0, sizeof(*epci_drv));
 	kfree(epci_drv);
+}
+
+/**
+ * ipa_eth_pci_enable_pc() - Permit power collapse of the PCI root port
+ * @eth_dev: Device attached to the PCI bus
+ *
+ * This function instructs the MSM PCIe bus driver to permit power collapse
+ * of the root complex when Linux goes to suspend state.
+ *
+ * Return: 0 on success, non-zero otherwise
+ */
+static int ipa_eth_pci_enable_pc(struct ipa_eth_device *eth_dev)
+{
+	int rc;
+	struct pci_dev *pci_dev = to_pci_dev(eth_dev->dev);
+
+	rc = msm_pcie_pm_control(MSM_PCIE_ENABLE_PC,
+		pci_dev->bus->number, pci_dev, NULL, MSM_PCIE_CONFIG_INVALID);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to enable MSM PCIe power collapse");
+	} else {
+		ipa_eth_dev_log(eth_dev,
+			"Enabled MSM PCIe power collapse");
+	}
+
+	return rc;
+}
+
+/**
+ * ipa_eth_pci_disable_pc() - Prevent power collapse of the PCI root port
+ * @eth_dev: Device attached to the PCI bus
+ *
+ * This function instructs the MSM PCIe bus driver to prevent power collapse
+ * of the root complex and connected EPs when Linux goes to suspend state.
+ *
+ * Return: 0 on success, non-zero otherwise
+ */
+static int ipa_eth_pci_disable_pc(struct ipa_eth_device *eth_dev)
+{
+	int rc;
+	struct pci_dev *pci_dev = to_pci_dev(eth_dev->dev);
+
+	rc = msm_pcie_pm_control(MSM_PCIE_DISABLE_PC,
+		pci_dev->bus->number, pci_dev, NULL, MSM_PCIE_CONFIG_INVALID);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev,
+			"Failed to disable MSM PCIe power collapse");
+	} else {
+		ipa_eth_dev_log(eth_dev,
+			"Disabled MSM PCIe power collapse");
+	}
+
+	return rc;
 }
 
 struct ipa_eth_bus ipa_eth_pci_bus = {
 	.bus = &pci_bus_type,
 	.register_net_driver = ipa_eth_pci_register_net_driver,
 	.unregister_net_driver = ipa_eth_pci_unregister_net_driver,
+	.enable_pc = ipa_eth_pci_enable_pc,
+	.disable_pc = ipa_eth_pci_disable_pc,
 };
 
 int ipa_eth_pci_modinit(struct dentry *dbgfs_root)

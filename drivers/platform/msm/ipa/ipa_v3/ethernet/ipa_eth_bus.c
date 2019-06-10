@@ -87,7 +87,44 @@ void ipa_eth_bus_unregister_driver(struct ipa_eth_net_driver *nd)
 {
 	struct ipa_eth_bus *eth_bus = lookup_eth_bus(nd->bus);
 
+	if (!eth_bus) {
+		ipa_eth_bug("Failed to lookup eth_bus for %s", nd->bus->name);
+		return;
+	}
+
 	eth_bus->unregister_net_driver(nd);
+}
+
+int ipa_eth_bus_enable_pc(struct ipa_eth_device *eth_dev)
+{
+	struct ipa_eth_net_driver *nd = eth_dev->nd;
+	struct ipa_eth_bus *eth_bus = lookup_eth_bus(nd->bus);
+
+	if (!eth_bus) {
+		ipa_eth_dev_bug(eth_dev, "Failed to lookup eth_bus");
+		return -EFAULT;
+	}
+
+	if (eth_bus->enable_pc)
+		return eth_bus->enable_pc(eth_dev);
+
+	return -EFAULT;
+}
+
+int ipa_eth_bus_disable_pc(struct ipa_eth_device *eth_dev)
+{
+	struct ipa_eth_net_driver *nd = eth_dev->nd;
+	struct ipa_eth_bus *eth_bus = lookup_eth_bus(nd->bus);
+
+	if (!eth_bus) {
+		ipa_eth_dev_bug(eth_dev, "Failed to lookup eth_bus");
+		return -EFAULT;
+	}
+
+	if (eth_bus->disable_pc)
+		return eth_bus->disable_pc(eth_dev);
+
+	return -EFAULT;
 }
 
 int ipa_eth_bus_modinit(struct dentry *dbgfs_root)
