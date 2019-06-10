@@ -20,7 +20,7 @@
 #include "cam_isp_context.h"
 #include "cam_common_util.h"
 
-static const char isp_dev_name[] = "isp";
+static const char isp_dev_name[] = "cam-isp";
 
 static struct cam_isp_ctx_debug isp_ctx_debug;
 
