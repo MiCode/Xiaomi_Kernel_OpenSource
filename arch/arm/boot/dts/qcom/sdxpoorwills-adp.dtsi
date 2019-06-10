@@ -27,3 +27,7 @@
 &blsp1_uart2b_hs {
 	status = "okay";
 };
+
+&mss_mem {
+	reg = <0x86400000 0x9300000>;
+};

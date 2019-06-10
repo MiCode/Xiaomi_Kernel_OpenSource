@@ -641,7 +641,7 @@ static int diag_cmd_get_build_mask(unsigned char *src_buf, int src_len,
 	struct diag_build_mask_req_t *req = NULL;
 	struct diag_msg_build_mask_t rsp;
 
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
+	if (!src_buf || !dest_buf || dest_len <= 0 ||
 		src_len < sizeof(struct diag_build_mask_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len);
@@ -703,7 +703,7 @@ static int diag_cmd_get_msg_mask(unsigned char *src_buf, int src_len,
 	info = diag_md_session_get_pid(pid);
 
 	mask_info = (!info) ? &msg_mask : info->msg_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
+	if (!src_buf || !dest_buf || dest_len <= 0 ||
 	    !mask_info || (src_len < sizeof(struct diag_build_mask_req_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
@@ -782,8 +782,8 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	info = diag_md_session_get_pid(pid);
 
 	mask_info = (!info) ? &msg_mask : info->msg_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
+		(src_len < sizeof(struct diag_msg_build_mask_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -867,7 +867,9 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 			break;
 		}
 		mask_size = mask_size * sizeof(uint32_t);
-		memcpy(mask->ptr + offset, src_buf + header_len, mask_size);
+		if (mask_size && src_len >= header_len + mask_size)
+			memcpy(mask->ptr + offset, src_buf + header_len,
+				mask_size);
 		mutex_unlock(&mask->lock);
 		mask_info->status = DIAG_CTRL_MASK_VALID;
 		break;
@@ -930,8 +932,8 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 	info = diag_md_session_get_pid(pid);
 
 	mask_info = (!info) ? &msg_mask : info->msg_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
+		(src_len < sizeof(struct diag_msg_config_rsp_t))) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1054,8 +1056,8 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	mutex_lock(&driver->md_session_lock);
 	info = diag_md_session_get_pid(pid);
 	mask_info = (!info) ? &event_mask : info->event_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
+		src_len < sizeof(struct diag_event_mask_config_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1078,7 +1080,8 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	}
 
 	mutex_lock(&mask_info->lock);
-	memcpy(mask_info->ptr, src_buf + header_len, mask_len);
+	if (src_len >= header_len + mask_len)
+		memcpy(mask_info->ptr, src_buf + header_len, mask_len);
 	mask_info->status = DIAG_CTRL_MASK_VALID;
 	mutex_unlock(&mask_info->lock);
 	mutex_unlock(&driver->md_session_lock);
@@ -1127,8 +1130,8 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 	mutex_lock(&driver->md_session_lock);
 	info = diag_md_session_get_pid(pid);
 	mask_info = (!info) ? &event_mask : info->event_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || src_len <= sizeof(uint8_t) ||
+		dest_len <= 0 || !mask_info) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1201,8 +1204,8 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 	info = diag_md_session_get_pid(pid);
 
 	mask_info = (!info) ? &log_mask : info->log_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
+		src_len < sizeof(struct diag_log_config_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1343,8 +1346,8 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	info = diag_md_session_get_pid(pid);
 
 	mask_info = (!info) ? &log_mask : info->log_mask;
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0 ||
-	    !mask_info) {
+	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
+		src_len < sizeof(struct diag_log_config_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1418,7 +1421,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 			mask->range_tools = mask_size;
 		}
 		req->num_items = mask->num_items_tools;
-		if (mask_size > 0)
+		if (mask_size > 0 && src_len >= read_len + mask_size)
 			memcpy(mask->ptr, src_buf + read_len, mask_size);
 		DIAG_LOG(DIAG_DEBUG_MASKS,
 			 "copying log mask, e %d num %d range %d size %d\n",
@@ -2299,6 +2302,8 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 		return -EINVAL;
 
 	if (*buf == DIAG_CMD_LOG_CONFIG) {
+		if (len < (2 * sizeof(int)))
+			return -EINVAL;
 		sub_cmd = *(int *)(buf + sizeof(int));
 		switch (sub_cmd) {
 		case DIAG_CMD_OP_LOG_DISABLE:
@@ -2316,6 +2321,8 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 			break;
 		}
 	} else if (*buf == DIAG_CMD_MSG_CONFIG) {
+		if (len < (2 * sizeof(uint8_t)))
+			return -EINVAL;
 		sub_cmd = *(uint8_t *)(buf + sizeof(uint8_t));
 		switch (sub_cmd) {
 		case DIAG_CMD_OP_GET_SSID_RANGE:

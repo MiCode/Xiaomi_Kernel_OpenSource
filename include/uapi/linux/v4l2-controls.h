@@ -1350,6 +1350,9 @@ enum v4l2_mpeg_vidc_video_divx_format_type {
 #define V4L2_CID_MPEG_VIDC_IMG_GRID_DIMENSION \
 	(V4L2_CID_MPEG_MSM_VIDC_BASE+161)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_FRAME_QP \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE+162)
+
 enum v4l2_mpeg_vidc_video_mbi_statistics_mode {
 	V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_DEFAULT = 0,
 	V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_1 = 1,

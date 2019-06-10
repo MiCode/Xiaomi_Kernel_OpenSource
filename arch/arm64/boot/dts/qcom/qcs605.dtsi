@@ -97,6 +97,10 @@
 	compatible = "qcom,qcs605-llcc";
 };
 
+&mdss_mdp {
+	/delete-property/ qcom,sde-inline-rotator;
+};
+
 &ipa_hw {
 	status = "disabled";
 };

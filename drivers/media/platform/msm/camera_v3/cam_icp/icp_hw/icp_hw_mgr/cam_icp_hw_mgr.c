@@ -3447,6 +3447,17 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 				goto rel_cmd_buf;
 			}
 			*fw_cmd_buf_iova_addr = addr;
+
+			if (cmd_desc[i].offset >= len ||
+				((len - cmd_desc[i].offset) <
+				cmd_desc[i].size)){
+				CAM_ERR(CAM_ICP,
+					"Invalid offset/length, i %d offset 0x%x len %u size 0x%x",
+					i, cmd_desc[i].offset,
+					(uint32_t)len, cmd_desc[i].size);
+				goto rel_cmd_buf;
+			}
+
 			*fw_cmd_buf_iova_addr =
 				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
 			rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,

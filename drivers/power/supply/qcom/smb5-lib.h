@@ -413,6 +413,7 @@ struct smb_charger {
 	bool			fcc_stepper_enable;
 	int			charge_full_cc;
 	int			cc_soc_ref;
+	int			last_cc_soc;
 
 	/* workaround flag */
 	u32			wa_flags;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,6 +492,15 @@
 					slave-mode;
 					remote-endpoint =
 						<&audio_etm0_out_funnel_in1>;
+				};
+			};
+
+			port@2 {
+				reg = <0>;
+				funnel_in1_in_tpdm_lpass: endpoint {
+					slave-mode;
+					remote-endpoint =
+					<&tpdm_lpass_out_funnel_in1>;
 				};
 			};
 		};
@@ -2085,6 +2094,18 @@
 			sensor_etm0_out_funnel_swao: endpoint {
 				remote-endpoint =
 					<&funnel_swao_in_sensor_etm0>;
+			};
+		};
+	};
+
+	tpdm_lpass: tpdm@6b16000 {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-tpdm-lpass";
+
+		qcom,dummy-source;
+		port {
+			tpdm_lpass_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_tpdm_lpass>;
 			};
 		};
 	};
