@@ -742,27 +742,6 @@ struct adreno_reg_offsets {
 #define ADRENO_INT_DEFINE(_offset, _val) ADRENO_REG_DEFINE(_offset, _val)
 
 /*
- * struct adreno_vbif_data - Describes vbif register value pair
- * @reg: Offset to vbif register
- * @val: The value that should be programmed in the register at reg
- */
-struct adreno_vbif_data {
-	unsigned int reg;
-	unsigned int val;
-};
-
-/*
- * struct adreno_vbif_platform - Holds an array of vbif reg value pairs
- * for a particular core
- * @devfunc: Pointer to platform/core identification function
- * @vbif: Array of reg value pairs for vbif registers
- */
-struct adreno_vbif_platform {
-	int (*devfunc)(struct adreno_device *adreno_dev);
-	const struct adreno_vbif_data *vbif;
-};
-
-/*
  * struct adreno_vbif_snapshot_registers - Holds an array of vbif registers
  * listed for snapshot dump for a particular core
  * @version: vbif version
@@ -1467,32 +1446,16 @@ static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
 }
 
 
-/*
- * adreno_vbif_start() - Program VBIF registers, called in device start
- * @adreno_dev: Pointer to device whose vbif data is to be programmed
- * @vbif_platforms: list register value pair of vbif for a family
- * of adreno cores
- * @num_platforms: Number of platforms contained in vbif_platforms
+/**
+ * adreno_reglist_write - Write each register in a reglist
+ * @adreno_dev: An Adreno GPU device handle
+ * @reglist: A list of &struct adreno_reglist items
+ * @count: Number of items in @reglist
+ *
+ * Write each register listed in @reglist.
  */
-static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
-			const struct adreno_vbif_platform *vbif_platforms,
-			int num_platforms)
-{
-	int i;
-	const struct adreno_vbif_data *vbif = NULL;
-
-	for (i = 0; i < num_platforms; i++) {
-		if (vbif_platforms[i].devfunc(adreno_dev)) {
-			vbif = vbif_platforms[i].vbif;
-			break;
-		}
-	}
-
-	while ((vbif != NULL) && (vbif->reg != 0)) {
-		kgsl_regwrite(KGSL_DEVICE(adreno_dev), vbif->reg, vbif->val);
-		vbif++;
-	}
-}
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count);
 
 /**
  * adreno_set_protected_registers() - Protect the specified range of registers

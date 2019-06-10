@@ -108,6 +108,16 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count)
+{
+	int i;
+
+	for (i = 0; list && i < count; i++)
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
+			list[i].offset, list[i].value);
+}
+
 /**
  * adreno_readreg64() - Read a 64bit register by getting its offset from the
  * offset array defined in gpudev node

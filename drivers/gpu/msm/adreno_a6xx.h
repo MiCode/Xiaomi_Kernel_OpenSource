@@ -32,6 +32,10 @@ struct adreno_a6xx_core {
 	const struct adreno_reglist *hwcg;
 	/** @hwcg_count: Number of registers in @hwcg */
 	u32 hwcg_count;
+	/** @vbif: List of registers and values to write for VBIF */
+	const struct adreno_reglist *vbif;
+	/** @vbif_count: Number of registers in @vbif */
+	u32 vbif_count;
 };
 
 #define CP_CLUSTER_FE		0x0

@@ -31,27 +31,6 @@ static struct kgsl_memdesc crit_pkts_refbuf1;
 static struct kgsl_memdesc crit_pkts_refbuf2;
 static struct kgsl_memdesc crit_pkts_refbuf3;
 
-static const struct adreno_vbif_data a530_vbif[] = {
-	{A5XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003},
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a540_vbif[] = {
-	{A5XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003},
-	{A5XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
-	{0, 0},
-};
-
-static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
-	{ adreno_is_a540, a540_vbif },
-	{ adreno_is_a530, a530_vbif },
-	{ adreno_is_a512, a540_vbif },
-	{ adreno_is_a510, a530_vbif },
-	{ adreno_is_a508, a530_vbif },
-	{ adreno_is_a505, a530_vbif },
-	{ adreno_is_a506, a530_vbif },
-};
-
 static void a5xx_irq_storm_worker(struct work_struct *work);
 static int _read_fw2_block_header(struct kgsl_device *device,
 		uint32_t *header, uint32_t remain,
@@ -1430,6 +1409,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	unsigned int bit;
 	int ret;
 
@@ -1447,8 +1427,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	_setup_throttling_counters(adreno_dev);
 
-	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
-			ARRAY_SIZE(a5xx_vbif_platforms));
+	/* Set up VBIF registers from the GPU core definition */
+	adreno_reglist_write(adreno_dev, a5xx_core->vbif,
+		a5xx_core->vbif_count);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);

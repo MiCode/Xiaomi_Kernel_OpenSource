@@ -27,45 +27,6 @@
 #define HBB_LOWER_MASK	0x3
 #define HBB_UPPER_SHIFT	0x2
 
-static const struct adreno_vbif_data a630_vbif[] = {
-	{A6XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
-	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a615_gbif[] = {
-	{A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x3},
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a640_gbif[] = {
-	{A6XX_GBIF_QSB_SIDE0, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE1, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE2, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE3, 0x00071620},
-	{A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x3},
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a650_gbif[] = {
-	{A6XX_GBIF_QSB_SIDE0, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE1, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE2, 0x00071620},
-	{A6XX_GBIF_QSB_SIDE3, 0x00071620},
-	{A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x3},
-	{0, 0},
-};
-
-static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
-	{ adreno_is_a630, a630_vbif },
-	{ adreno_is_a615_family, a615_gbif },
-	{ adreno_is_a640, a640_gbif },
-	{ adreno_is_a650, a650_gbif },
-	{ adreno_is_a680, a640_gbif },
-	{ adreno_is_a612, a640_gbif },
-	{ adreno_is_a620, a650_gbif },
-};
-
 static struct a6xx_protected_regs {
 	unsigned int base;
 	unsigned int count;
@@ -510,8 +471,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
 		adreno_dev->lm_threshold_count = A6XX_GMU_GENERAL_1;
 
-	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
-			ARRAY_SIZE(a6xx_vbif_platforms));
+	/* Set up VBIF registers from the GPU core definition */
+	adreno_reglist_write(adreno_dev, a6xx_core->vbif,
+		a6xx_core->vbif_count);
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW))
 		kgsl_regwrite(device, A6XX_UCHE_GBIF_GX_CONFIG, 0x10200F9);
