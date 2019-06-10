@@ -309,7 +309,7 @@
 /* SPM controlled regulators */
 &spmi_bus {
 	qcom,pm660@1 {
-		S3A: pm660_s3: spm-regulator@1a00 {
+		apc_vreg_regulator: S3A: pm660_s3: spm-regulator@1a00 {
 			compatible = "qcom,spm-regulator";
 			reg = <0x1a00 0x100>;
 			regulator-name = "pm660_s3";

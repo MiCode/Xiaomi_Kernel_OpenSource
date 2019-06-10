@@ -163,18 +163,17 @@
 		/delete-property/ vdd-apc-supply;
 	};
 
-	qcom,cpu-clock-8939@b111050 {
-		/delete-property/ vdd-c0-supply;
-		/delete-property/ vdd-c1-supply;
-		/delete-property/ vdd-cci-supply;
-	};
-
 	qcom,gcc@1800000 {
 		/delete-property/ vdd_dig-supply;
 		/delete-property/ vdd_sr2_dig-supply;
 		/delete-property/ vdd_sr2_pll-supply;
 		/delete-property/ vdd_hf_dig-supply;
 		/delete-property/ vdd_hf_pll-supply;
+		vdd_dig-supply = <&VDD_CX_LEVEL>;
+		vdd_sr2_dig-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_sr2_pll-supply = <&L12A_AO>;
+		vdd_hf_dig-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_hf_pll-supply = <&L12A_AO>;
 	};
 
 	qcom,lpass@c200000 {
