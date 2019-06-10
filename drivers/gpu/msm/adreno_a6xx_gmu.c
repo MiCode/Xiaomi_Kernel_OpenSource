@@ -842,6 +842,22 @@ static bool idle_trandition_complete(unsigned int idle_level,
 	return true;
 }
 
+static const char *idle_level_name(int level)
+{
+	if (level == GPU_HW_ACTIVE)
+		return "GPU_HW_ACTIVE";
+	else if (level == GPU_HW_SPTP_PC)
+		return "GPU_HW_SPTP_PC";
+	else if (level == GPU_HW_IFPC)
+		return "GPU_HW_IFPC";
+	else if (level == GPU_HW_NAP)
+		return "GPU_HW_NAP";
+	else if (level == GPU_HW_MIN_VOLT)
+		return "GPU_HW_MIN_VOLT";
+
+	return "";
+}
+
 static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
@@ -888,7 +904,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 		"----------------------[ GMU error ]----------------------\n");
 	dev_err(&gmu->pdev->dev,
 		"Timeout waiting for lowest idle level %s\n",
-		gpu_idle_level_names[gmu->idle_level]);
+		idle_level_name(gmu->idle_level));
 	dev_err(&gmu->pdev->dev, "Start: %llx (absolute ticks)\n", ts1);
 	dev_err(&gmu->pdev->dev, "Poll: %llx (ticks relative to start)\n",
 		ts2-ts1);
