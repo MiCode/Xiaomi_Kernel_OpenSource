@@ -2941,6 +2941,50 @@ static void adreno_read(struct kgsl_device *device, void __iomem *base,
 	rmb();
 }
 
+static void adreno_retry_rbbm_read(struct kgsl_device *device,
+		void __iomem *base, unsigned int offsetwords,
+		unsigned int *value, unsigned int mem_len)
+{
+	int i;
+	void __iomem *reg;
+
+	/* Make sure we're not reading from invalid memory */
+	if (WARN(offsetwords * sizeof(uint32_t) >= mem_len,
+		"Out of bounds register read: 0x%x/0x%x\n",
+		offsetwords, mem_len >> 2))
+		return;
+
+	reg = (base + (offsetwords << 2));
+
+	/*
+	 * If 0xdeafbead was transient, second read is expected to return the
+	 * actual register value. However, if a register value is indeed
+	 * 0xdeafbead, read it enough times to guarantee that.
+	 */
+	for (i = 0; i < 16; i++) {
+		*value = readl_relaxed(reg);
+		/*
+		 * Read barrier needed so that register is read from hardware
+		 * every iteration
+		 */
+		rmb();
+
+		if (*value != 0xdeafbead)
+			return;
+	}
+}
+
+static inline bool adreno_is_a650_rbbm_batch_reg(unsigned int offsetwords)
+{
+	if (((offsetwords > 0x0) && (offsetwords < 0x3FF)) ||
+		((offsetwords > 0x4FA) && (offsetwords < 0x53F)) ||
+		((offsetwords > 0x556) && (offsetwords < 0x5FF)) ||
+		((offsetwords > 0xF400) && (offsetwords < 0xFFFF)))
+		return  true;
+
+	return false;
+}
+
 /**
  * adreno_regread - Used to read adreno device registers
  * @offsetwords - Word (4 Bytes) offset to the register to be read
@@ -2951,6 +2995,11 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 {
 	adreno_read(device, device->reg_virt, offsetwords, value,
 						device->reg_len);
+
+	if ((*value == 0xdeafbead) && adreno_is_a650(ADRENO_DEVICE(device)) &&
+		adreno_is_a650_rbbm_batch_reg(offsetwords))
+		adreno_retry_rbbm_read(device, device->reg_virt, offsetwords,
+			value, device->reg_len);
 }
 
 /**
