@@ -511,6 +511,7 @@
 
 &usb3 {
 	extcon = <&pmi8994_charger>;
+	qcom,check-for-float;
 };
 
 &i2c_7 {
