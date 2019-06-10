@@ -1248,6 +1248,27 @@ void kgsl_get_memory_usage(char *name, size_t name_size, uint64_t memflags)
 }
 EXPORT_SYMBOL(kgsl_get_memory_usage);
 
+int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,
+		phys_addr_t addr, u64 size)
+{
+	int ret;
+	struct page *page = phys_to_page(addr);
+
+	memdesc->sgt = kmalloc(sizeof(*memdesc->sgt), GFP_KERNEL);
+	if (memdesc->sgt == NULL)
+		return -ENOMEM;
+
+	ret = sg_alloc_table(memdesc->sgt, 1, GFP_KERNEL);
+	if (ret) {
+		kfree(memdesc->sgt);
+		memdesc->sgt = NULL;
+		return ret;
+	}
+
+	sg_set_page(memdesc->sgt->sgl, page, (size_t) size, 0);
+	return 0;
+}
+
 int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t size)
 {
@@ -1269,7 +1290,7 @@ int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_dma(memdesc, memdesc->physaddr, size);
+	result = kgsl_memdesc_sg_dma(memdesc, memdesc->physaddr, size);
 	if (result)
 		goto err;
 
@@ -1379,7 +1400,7 @@ static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_dma(memdesc, memdesc->physaddr, aligned);
+	result = kgsl_memdesc_sg_dma(memdesc, memdesc->physaddr, aligned);
 	if (result)
 		goto err;
 

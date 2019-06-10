@@ -152,34 +152,17 @@ kgsl_memdesc_usermem_type(const struct kgsl_memdesc *memdesc)
 }
 
 /**
- * memdesg_sg_dma() - Turn a dma_addr (from CMA) into a sg table
- * @memdesc: Pointer to the memdesc structure
+ * kgsl_memdesc_sg_dma - Turn a dma_addr (from CMA) into a sg table
+ * @memdesc: Pointer to a memory descriptor
  * @addr: Physical address from the dma_alloc function
  * @size: Size of the chunk
  *
- * Create a sg table for the contigious chunk specified by addr and size.
+ * Create a sg table for the contiguous chunk specified by addr and size.
+ *
+ * Return: 0 on success or negative on failure.
  */
-static inline int
-memdesc_sg_dma(struct kgsl_memdesc *memdesc,
-		phys_addr_t addr, uint64_t size)
-{
-	int ret;
-	struct page *page = phys_to_page(addr);
-
-	memdesc->sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
-	if (memdesc->sgt == NULL)
-		return -ENOMEM;
-
-	ret = sg_alloc_table(memdesc->sgt, 1, GFP_KERNEL);
-	if (ret) {
-		kfree(memdesc->sgt);
-		memdesc->sgt = NULL;
-		return ret;
-	}
-
-	sg_set_page(memdesc->sgt->sgl, page, (size_t) size, 0);
-	return 0;
-}
+int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,
+		phys_addr_t addr, u64 size);
 
 /*
  * kgsl_memdesc_is_global - is this a globally mapped buffer?

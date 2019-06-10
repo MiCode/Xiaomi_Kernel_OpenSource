@@ -259,7 +259,7 @@ static void kgsl_setup_qdss_desc(struct kgsl_device *device)
 	gpu_qdss_desc.ops = NULL;
 	gpu_qdss_desc.hostptr = NULL;
 
-	result = memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
+	result = kgsl_memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
 			gpu_qdss_desc.size);
 	if (result) {
 		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
@@ -303,7 +303,7 @@ static void kgsl_setup_qtimer_desc(struct kgsl_device *device)
 	gpu_qtimer_desc.ops = NULL;
 	gpu_qtimer_desc.hostptr = NULL;
 
-	result = memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
+	result = kgsl_memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
 			gpu_qtimer_desc.size);
 	if (result) {
 		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
