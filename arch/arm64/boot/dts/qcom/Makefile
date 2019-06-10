@@ -244,11 +244,14 @@ endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_ATOLL) += \
-		atoll-rumi-overlay.dtbo\
+		atoll-idp-overlay.dtbo\
+		atoll-rumi-overlay.dtbo
 
+atoll-idp-overlay.dtbo-base := atoll.dtb
 atoll-rumi-overlay.dtbo-base := atoll.dtb
 else
-dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-rumi.dtb
+dtb-$(CONFIG_ARCH_ATOLL)	+= atoll-idp.dtb\
+	atoll-rumi.dtb
 endif
 
 dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
