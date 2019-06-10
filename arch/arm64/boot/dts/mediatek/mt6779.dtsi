@@ -15,6 +15,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <dt-bindings/interconnect/mtk,mt6779-emi.h>
 
 / {
 	compatible = "mediatek,mt6779";
@@ -385,6 +386,34 @@
 			infracfg = <&infracfg_ao>;
 			smi_comm = <&smi_common>;
 			infracfg_nao = <&infracfg>;
+			operating-points-v2 = <&dvfsrc_opp_table>;
+			dvfsrc_opp_table: opp-table {
+				compatible = "operating-points-v2-level";
+
+				dvfsrc_freq_opp5: opp5 {
+					opp-level = <1>;
+				};
+
+				dvfsrc_freq_opp4: opp4 {
+					opp-level = <2>;
+				};
+
+				dvfsrc_freq_opp3: opp3 {
+					opp-level = <3>;
+				};
+
+				dvfsrc_freq_opp2: opp2 {
+					opp-level = <4>;
+				};
+
+				dvfsrc_freq_opp1: opp1 {
+					opp-level = <8>;
+				};
+
+				dvfsrc_freq_opp0: opp0 {
+					opp-level = <13>;
+				};
+			};
 		};
 
 		spmtwam: spmtwam@10006000 {
@@ -446,6 +475,44 @@
 			interrupts = <GIC_SPI 75 IRQ_TYPE_EDGE_FALLING>;
 			clocks = <&clk26m>;
 			clock-names = "kpd";
+		};
+
+		dvfsrc: dvfsrc@10012000 {
+			compatible = "mediatek,mt6779-dvfsrc";
+			reg = <0 0x10012000 0 0x1000>;
+			reg-names = "dvfsrc";
+			clocks = <&infracfg_ao CLK_INFRA_DVFSRC>;
+			clock-names = "dvfsrc";
+
+			ddr_emi: interconnect {
+				compatible = "mediatek,mt6779-emi";
+				#interconnect-cells = <1>;
+			};
+
+			dvfsrc-regulator{
+				compatible = "mediatek,dvfsrc-mt6779-regulator";
+				dvfsrc_vcore: dvfsrc-vcore {
+					regulator-name = "dvfsrc-vcore";
+					regulator-min-microvolt = <650000>;
+					regulator-max-microvolt = <825000>;
+					regulator-always-on;
+				};
+				dvfsrc_vscp: dvfsrc-vscp {
+					regulator-name = "dvfsrc-vscp";
+					regulator-min-microvolt = <650000>;
+					regulator-max-microvolt = <825000>;
+					regulator-always-on;
+				};
+			};
+
+			dvfsrc-debug {
+				compatible = "mediatek,mt6779-dvfsrc-debug";
+				interconnects = <&ddr_emi MT6779_MASTER_DEBUGSYS
+					&ddr_emi MT6779_SLAVE_DDR_EMI>;
+				interconnect-names = "icc-bw-port";
+				rc-vcore-supply = <&dvfsrc_vcore>;
+				rc-vscp-supply = <&dvfsrc_vscp>;
+			};
 		};
 
 		devapc: devapc@10207000 {
