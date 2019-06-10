@@ -74,6 +74,7 @@ obj-$(CONFIG_QCOM_CLK_VIRT) += clk-virt.o clk-virt-sm8150.o clk-virt-sm6150.o
 obj-$(CONFIG_QCS_CMN_BLK_PLL) += cmn-blk-pll.o
 obj-$(CONFIG_SM_DEBUGCC_TRINKET) += debugcc-trinket.o
 obj-$(CONFIG_SM_DISPCC_TRINKET) += dispcc-trinket.o
+obj-$(CONFIG_SM_GCC_ATOLL) += gcc-atoll.o
 obj-$(CONFIG_SM_GCC_TRINKET) += gcc-trinket.o
 obj-$(CONFIG_SM_GPUCC_TRINKET) += gpucc-trinket.o
 obj-$(CONFIG_SM_VIDEOCC_TRINKET) += videocc-trinket.o

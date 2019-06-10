@@ -568,3 +568,13 @@ config VIRTIO_CLK
 	depends on VIRTIO
 	---help---
 	  This is the virtual clock driver for virtio.
+
+config SM_GCC_ATOLL
+	tristate "ATOLL Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	select QCOM_GDSC
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIe, etc.
