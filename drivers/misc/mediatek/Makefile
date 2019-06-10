@@ -11,3 +11,4 @@ obj-$(CONFIG_MTPROF) += mtprof/
 obj-${CONFIG_MTK_ICE_DEBUG} += ice_debug/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/
 obj-$(CONFIG_MTK_SPMTWAM) += twam/
+obj-$(CONFIG_MTK_DVFSRC) += dvfsrc/
