@@ -6383,7 +6383,8 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	}
 
 	IPADBG("WLAN CB PROBE mapping retrieved\n");
-
+	cb->is_cache_coherent = of_property_read_bool(dev->of_node,
+							"dma-coherent");
 	cb->dev   = dev;
 	cb->valid = true;
 
@@ -6491,6 +6492,8 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 	IPADBG("UC CB PROBE mapping retrieved\n");
 
+	cb->is_cache_coherent = of_property_read_bool(dev->of_node,
+						"dma-coherent");
 	cb->dev   = dev;
 	cb->valid = true;
 
@@ -6581,6 +6584,8 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 	IPADBG("AP CB PROBE mapping retrieved\n");
 
+	cb->is_cache_coherent = of_property_read_bool(dev->of_node,
+						"dma-coherent");
 	cb->dev   = dev;
 	cb->valid = true;
 
@@ -6715,7 +6720,8 @@ static int ipa_smmu_11ad_cb_probe(struct device *dev)
 		IPAERR("could not get iommu domain\n");
 		return -EINVAL;
 	}
-
+	cb->is_cache_coherent = of_property_read_bool(dev->of_node,
+							"dma-coherent");
 	cb->dev   = dev;
 	cb->valid = true;
 
@@ -7095,24 +7101,28 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
 int ipa3_iommu_map(struct iommu_domain *domain,
 	unsigned long iova, phys_addr_t paddr, size_t size, int prot)
 {
-	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
-	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
+	struct ipa_smmu_cb_ctx *cb = NULL;
 
 	IPADBG_LOW("domain =0x%pK iova 0x%lx\n", domain, iova);
 	IPADBG_LOW("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
 
 	/* make sure no overlapping */
 	if (domain == ipa3_get_smmu_domain()) {
-		if (iova >= ap_cb->va_start && iova < ap_cb->va_end) {
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+		if (iova >= cb->va_start && iova < cb->va_end) {
 			IPAERR("iommu AP overlap addr 0x%lx\n", iova);
 			ipa_assert();
 			return -EFAULT;
 		}
-	} else if (domain == ipa3_get_wlan_smmu_domain() ||
-		domain == ipa3_get_11ad_smmu_domain()) {
-		/* wlan\11ad is one time map */
+	} else if (domain == ipa3_get_wlan_smmu_domain()) {
+		/* wlan is one time map */
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
+	} else if (domain == ipa3_get_11ad_smmu_domain()) {
+		/* 11ad is one time map */
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
 	} else if (domain == ipa3_get_uc_smmu_domain()) {
-		if (iova >= uc_cb->va_start && iova < uc_cb->va_end) {
+		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
+		if (iova >= cb->va_start && iova < cb->va_end) {
 			IPAERR("iommu uC overlap addr 0x%lx\n", iova);
 			ipa_assert();
 			return -EFAULT;
@@ -7122,6 +7132,18 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 		ipa_assert();
 		return -EFAULT;
 	}
+
+	if (cb == NULL) {
+		IPAERR("Unexpected cb turning NULL for domain 0x%pK\n", domain);
+		ipa_assert();
+	}
+
+	/*
+	 * IOMMU_CACHE is needed to make the entries cachable
+	 * if cache coherency is enabled in dtsi.
+	 */
+	if (cb->is_cache_coherent)
+		prot |= IOMMU_CACHE;
 
 	return iommu_map(domain, iova, paddr, size, prot);
 }
