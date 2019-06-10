@@ -3,23 +3,18 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
+/* soc/qcom/cmd-db.h needs types.h */
 #include <linux/firmware.h>
-#include <linux/jiffies.h>
-#include <linux/interrupt.h>
 #include <linux/io.h>
-#include <linux/of_platform.h>
+#include <linux/of.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/cmd-db.h>
 
-#include "kgsl_gmu_core.h"
-#include "kgsl_gmu.h"
-#include "kgsl_trace.h"
-#include "kgsl_snapshot.h"
-
 #include "adreno.h"
-#include "a6xx_reg.h"
 #include "adreno_a6xx.h"
 #include "adreno_snapshot.h"
-#include "adreno_trace.h"
+#include "kgsl_gmu.h"
+#include "kgsl_trace.h"
 
 static const unsigned int a6xx_gmu_gx_registers[] = {
 	/* GMU GX */

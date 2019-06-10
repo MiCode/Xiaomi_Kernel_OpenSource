@@ -3,24 +3,20 @@
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/firmware.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/scm.h>
-#include <linux/pm_opp.h>
 #include <linux/clk/qcom.h>
+#include <linux/delay.h>
+#include <linux/firmware.h>
+#include <linux/of.h>
+#include <linux/slab.h>
+#include <soc/qcom/scm.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include "adreno.h"
-#include "a5xx_reg.h"
 #include "adreno_a5xx.h"
-#include "adreno_cp_parser.h"
-#include "adreno_trace.h"
-#include "adreno_pm4types.h"
-#include "adreno_perfcounter.h"
-#include "adreno_ringbuffer.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl.h"
-#include "kgsl_trace.h"
 #include "adreno_a5xx_packets.h"
+#include "adreno_pm4types.h"
+#include "adreno_trace.h"
+#include "kgsl_trace.h"
 
 static int critical_packet_constructed;
 

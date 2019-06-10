@@ -2,43 +2,29 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/sched.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_fdt.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_fdt.h>
+#include <linux/module.h>
+#include <linux/msm_kgsl.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/scm.h>
 
-#include <linux/msm-bus-board.h>
-#include <linux/msm-bus.h>
-
-#include "kgsl.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_iommu.h"
-#include "kgsl_trace.h"
-#include "adreno_llc.h"
-
 #include "adreno.h"
-#include "adreno_iommu.h"
-#include "adreno_compat.h"
-#include "adreno_pm4types.h"
-#include "adreno_trace.h"
-
 #include "adreno_a3xx.h"
 #include "adreno_a5xx.h"
 #include "adreno_a6xx.h"
-
-#include "adreno_snapshot.h"
+#include "adreno_compat.h"
+#include "adreno_iommu.h"
+#include "adreno_llc.h"
+#include "adreno_trace.h"
+#include "kgsl_trace.h"
 
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
-#include "adreno_dispatch.h"
 
 static void adreno_input_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,

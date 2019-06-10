@@ -5,6 +5,8 @@
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
 
+#include <linux/platform_device.h>
+
 #include "kgsl_iommu.h"
 
 /* Identifier for the global page table */
@@ -186,7 +188,6 @@ void kgsl_mmu_put_gpuaddr(struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
-enum kgsl_mmutype kgsl_mmu_get_mmutype(struct kgsl_device *device);
 bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
 
 int kgsl_mmu_get_region(struct kgsl_pagetable *pagetable,
@@ -195,11 +196,6 @@ int kgsl_mmu_get_region(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t region_start, uint64_t region_end,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
-
-void kgsl_mmu_add_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc, const char *name);
-void kgsl_mmu_remove_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc);
 
 struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
 							int ptname);

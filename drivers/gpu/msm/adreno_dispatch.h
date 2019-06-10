@@ -1,10 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef ____ADRENO_DISPATCHER_H
 #define ____ADRENO_DISPATCHER_H
+
+#include <linux/kobject.h>
+#include <linux/kthread.h>
 
 extern unsigned int adreno_drawobj_timeout;
 
@@ -68,6 +71,12 @@ enum adreno_dispatcher_flags {
 	ADRENO_DISPATCHER_ACTIVE = 1,
 };
 
+struct adreno_device;
+struct adreno_context;
+struct kgsl_context;
+struct kgsl_device;
+struct kgsl_device_private;
+
 void adreno_dispatcher_start(struct kgsl_device *device);
 void adreno_dispatcher_halt(struct kgsl_device *device);
 void adreno_dispatcher_unhalt(struct kgsl_device *device);
@@ -77,6 +86,8 @@ int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
 void adreno_dispatcher_irq_fault(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop_fault_timer(struct kgsl_device *device);
+
+struct kgsl_drawobj;
 
 int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],

@@ -5,10 +5,6 @@
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
 
-#include "kgsl_iommu.h"
-#include "adreno_iommu.h"
-#include "adreno_dispatch.h"
-
 /* Given a ringbuffer, return the adreno device that owns it */
 
 #define _RB_OFFSET(_id) (offsetof(struct adreno_device, ringbuffers) + \

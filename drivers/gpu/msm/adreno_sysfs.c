@@ -4,9 +4,7 @@
  */
 
 #include <linux/sysfs.h>
-#include <linux/device.h>
 
-#include "kgsl_device.h"
 #include "adreno.h"
 
 struct adreno_sysfs_attribute {

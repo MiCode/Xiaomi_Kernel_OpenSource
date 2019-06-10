@@ -5,19 +5,9 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
-#include <linux/slab.h>
-#include <linux/idr.h>
-#include <linux/pm_qos.h>
-#include <linux/sched.h>
-
 #include "kgsl.h"
-#include "kgsl_mmu.h"
-#include "kgsl_pwrctrl.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_snapshot.h"
-#include "kgsl_sharedmem.h"
 #include "kgsl_drawobj.h"
-#include "kgsl_gmu_core.h"
+#include "kgsl_mmu.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \

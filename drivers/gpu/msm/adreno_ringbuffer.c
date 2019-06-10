@@ -2,26 +2,16 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/slab.h>
-#include <linux/sched.h>
+
 #include <linux/sched/clock.h>
-#include <linux/log2.h>
-#include <linux/time.h>
-#include <linux/delay.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_trace.h"
-#include "kgsl_pwrctrl.h"
-
+#include "a3xx_reg.h"
 #include "adreno.h"
-#include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
-
-#include "a3xx_reg.h"
-#include "adreno_a5xx.h"
+#include "kgsl_trace.h"
 
 #define RB_HOSTPTR(_rb, _pos) \
 	((unsigned int *) ((_rb)->buffer_desc.hostptr + \

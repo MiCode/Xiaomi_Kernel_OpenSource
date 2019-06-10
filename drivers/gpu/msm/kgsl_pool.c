@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
-#include <linux/slab.h>
 #include <linux/highmem.h>
-#include <linux/version.h>
+#include <linux/of.h>
+#include <linux/scatterlist.h>
 
-#include "kgsl.h"
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
+#include "kgsl_sharedmem.h"
 
 #define KGSL_MAX_POOLS 4
 #define KGSL_MAX_POOL_ORDER 8
@@ -281,6 +280,22 @@ static int kgsl_pool_get_retry_order(unsigned int order)
 			return kgsl_pools[i].pool_order;
 
 	return 0;
+}
+
+static unsigned int kgsl_gfp_mask(unsigned int page_order)
+{
+	unsigned int gfp_mask = __GFP_HIGHMEM;
+
+	if (page_order > 0) {
+		gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
+		gfp_mask &= ~__GFP_RECLAIM;
+	} else
+		gfp_mask |= GFP_KERNEL;
+
+	if (kgsl_sharedmem_get_noretry())
+		gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
+
+	return gfp_mask;
 }
 
 /**

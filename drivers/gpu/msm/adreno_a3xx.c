@@ -3,22 +3,17 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/firmware.h>
-#include <linux/delay.h>
-#include <linux/sched.h>
-#include <linux/msm_kgsl.h>
 #include <linux/clk/qcom.h>
+#include <linux/firmware.h>
+#include <linux/of.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
 #include "adreno.h"
-#include "kgsl_sharedmem.h"
-#include "a3xx_reg.h"
-#include "adreno_a3xx.h"
 #include "adreno_cp_parser.h"
-#include "adreno_trace.h"
+#include "adreno_a3xx.h"
 #include "adreno_pm4types.h"
-#include "adreno_perfcounter.h"
 #include "adreno_snapshot.h"
+#include "adreno_trace.h"
 
 /*
  * Define registers for a3xx that contain addresses used by the

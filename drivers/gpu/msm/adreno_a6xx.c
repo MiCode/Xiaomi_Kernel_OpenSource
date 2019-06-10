@@ -4,23 +4,15 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/of.h>
 #include <soc/qcom/subsystem_restart.h>
-#include <linux/pm_opp.h>
-#include <linux/jiffies.h>
 
 #include "adreno.h"
-#include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "adreno_cp_parser.h"
-#include "adreno_trace.h"
-#include "adreno_pm4types.h"
-#include "adreno_perfcounter.h"
-#include "adreno_ringbuffer.h"
 #include "adreno_llc.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl.h"
+#include "adreno_pm4types.h"
+#include "adreno_trace.h"
 #include "kgsl_gmu.h"
-#include "kgsl_hfi.h"
 #include "kgsl_trace.h"
 
 #define MIN_HBB		13

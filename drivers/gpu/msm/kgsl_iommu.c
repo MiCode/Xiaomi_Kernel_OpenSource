@@ -2,29 +2,21 @@
 /*
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/types.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/spinlock.h>
-#include <linux/genalloc.h>
-#include <linux/slab.h>
+
+#include <linux/compat.h>
 #include <linux/iommu.h>
-#include <linux/msm_kgsl.h>
-#include <linux/ratelimit.h>
 #include <linux/of_platform.h>
+#include <linux/seq_file.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/compat.h>
 
-#include "kgsl.h"
-#include "kgsl_device.h"
-#include "kgsl_mmu.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_iommu.h"
-#include "adreno_pm4types.h"
 #include "adreno.h"
-#include "kgsl_trace.h"
+#include "kgsl_device.h"
+#include "kgsl_iommu.h"
+#include "kgsl_mmu.h"
 #include "kgsl_pwrctrl.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 #define _IOMMU_PRIV(_mmu) (&((_mmu)->priv.iommu))
 

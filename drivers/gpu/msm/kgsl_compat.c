@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/fs.h>
-#include <linux/file.h>
-#include <linux/uaccess.h>
-#include <asm/ioctl.h>
-
-#include "kgsl.h"
-#include "kgsl_compat.h"
 #include "kgsl_device.h"
+#include "kgsl_compat.h"
 #include "kgsl_sync.h"
 
 static long

@@ -3,14 +3,14 @@
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
-#include "kgsl_device.h"
-#include "kgsl_hfi.h"
-#include "kgsl_gmu.h"
-#include "kgsl_trace.h"
-#include "kgsl_pwrctrl.h"
+#include <linux/delay.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "kgsl_device.h"
+#include "kgsl_gmu.h"
+#include "kgsl_hfi.h"
+#include "kgsl_trace.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
 		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \

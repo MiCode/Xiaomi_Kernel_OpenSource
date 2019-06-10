@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017,2019 The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_a5xx.h"
-#include "a5xx_reg.h"
-#include "adreno_trace.h"
 #include "adreno_pm4types.h"
+#include "adreno_trace.h"
 
 #define PREEMPT_RECORD(_field) \
 		offsetof(struct a5xx_cp_preemption_record, _field)

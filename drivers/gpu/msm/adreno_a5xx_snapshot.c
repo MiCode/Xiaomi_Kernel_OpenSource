@@ -3,13 +3,9 @@
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/io.h>
-#include "kgsl.h"
 #include "adreno.h"
-#include "kgsl_snapshot.h"
-#include "adreno_snapshot.h"
-#include "a5xx_reg.h"
 #include "adreno_a5xx.h"
+#include "adreno_snapshot.h"
 
 enum a5xx_rbbm_debbus_id {
 	A5XX_RBBM_DBGBUS_CP          = 0x1,

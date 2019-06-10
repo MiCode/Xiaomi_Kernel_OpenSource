@@ -5,17 +5,12 @@
 #ifndef __ADRENO_H
 #define __ADRENO_H
 
-#include "kgsl_device.h"
-#include "kgsl_sharedmem.h"
-#include "adreno_drawctxt.h"
-#include "adreno_ringbuffer.h"
-#include "adreno_profile.h"
 #include "adreno_dispatch.h"
-#include "kgsl_iommu.h"
+#include "adreno_drawctxt.h"
 #include "adreno_perfcounter.h"
-#include <linux/stat.h>
-#include <linux/delay.h>
-#include "kgsl_gmu_core.h"
+#include "adreno_profile.h"
+#include "adreno_ringbuffer.h"
+#include "kgsl_sharedmem.h"
 
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"

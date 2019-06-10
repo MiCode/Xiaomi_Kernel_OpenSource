@@ -2,42 +2,29 @@
 /*
  * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/fb.h>
-#include <linux/file.h>
-#include <linux/fs.h>
-#include <linux/fdtable.h>
-#include <linux/list.h>
-#include <linux/debugfs.h>
-#include <linux/uaccess.h>
-#include <linux/interrupt.h>
-#include <linux/workqueue.h>
-#include <linux/dma-buf.h>
-#include <linux/pm_runtime.h>
-#include <linux/rbtree.h>
-#include <linux/major.h>
-#include <linux/io.h>
-#include <linux/mman.h>
-#include <linux/sort.h>
-#include <linux/security.h>
-#include <linux/compat.h>
-#include <linux/ctype.h>
-#include <linux/mm.h>
-#include <linux/ion.h>
-#include <asm/cacheflush.h>
-#include <uapi/linux/sched/types.h>
-#include <linux/of_fdt.h>
-#include <linux/msm-bus.h>
 
-#include "kgsl.h"
-#include "kgsl_debugfs.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_drawobj.h"
-#include "kgsl_device.h"
-#include "kgsl_trace.h"
-#include "kgsl_sync.h"
+#include <uapi/linux/sched/types.h>
+#include <linux/ctype.h>
+#include <linux/debugfs.h>
+#include <linux/dma-buf.h>
+#include <linux/fdtable.h>
+#include <linux/io.h>
+#include <linux/ion.h>
+#include <linux/mman.h>
+#include <linux/module.h>
+#include <linux/msm-bus.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/pm_runtime.h>
+#include <linux/security.h>
+#include <linux/sort.h>
+
 #include "kgsl_compat.h"
-#include "kgsl_pool.h"
+#include "kgsl_debugfs.h"
+#include "kgsl_device.h"
+#include "kgsl_mmu.h"
+#include "kgsl_sync.h"
+#include "kgsl_trace.h"
 
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)

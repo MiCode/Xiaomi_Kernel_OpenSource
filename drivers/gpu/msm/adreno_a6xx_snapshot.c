@@ -3,14 +3,9 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/io.h>
-#include "kgsl.h"
 #include "adreno.h"
-#include "kgsl_snapshot.h"
-#include "adreno_snapshot.h"
-#include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "kgsl_gmu_core.h"
+#include "adreno_snapshot.h"
 
 #define A6XX_NUM_CTXTS 2
 #define A6XX_NUM_AXI_ARB_BLOCKS 2

@@ -1,12 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __KGSL_PWRSCALE_H
 #define __KGSL_PWRSCALE_H
 
-#include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
 #include "kgsl_pwrctrl.h"
 

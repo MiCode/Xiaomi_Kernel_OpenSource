@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/types.h>
 
+#include <linux/of.h>
+
+#include "adreno.h"
 #include "kgsl_device.h"
 #include "kgsl_gmu_core.h"
 #include "kgsl_trace.h"
-#include "adreno.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl_gmu."

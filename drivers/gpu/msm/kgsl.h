@@ -5,22 +5,14 @@
 #ifndef __KGSL_H
 #define __KGSL_H
 
-#include <linux/types.h>
-#include <linux/slab.h>
-#include <linux/vmalloc.h>
-#include <linux/msm_kgsl.h>
-#include <linux/platform_device.h>
-#include <linux/clk.h>
-#include <linux/interrupt.h>
-#include <linux/mutex.h>
 #include <linux/cdev.h>
-#include <linux/regulator/consumer.h>
+#include <linux/kthread.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
-#include <linux/kthread.h>
-#include <asm/cacheflush.h>
-#include <linux/compat.h>
 #include <uapi/linux/msm_kgsl.h>
+
+#include "kgsl_gmu_core.h"
+#include "kgsl_pwrscale.h"
 
 /*
  * --- kgsl drawobj flags ---
@@ -456,6 +448,12 @@ int kgsl_resume_driver(struct platform_device *pdev);
 struct kgsl_mem_entry *gpumem_alloc_entry(struct kgsl_device_private *dev_priv,
 				uint64_t size, uint64_t flags);
 long gpumem_free_entry(struct kgsl_mem_entry *entry);
+
+enum kgsl_mmutype kgsl_mmu_get_mmutype(struct kgsl_device *device);
+void kgsl_mmu_add_global(struct kgsl_device *device,
+	struct kgsl_memdesc *memdesc, const char *name);
+void kgsl_mmu_remove_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc);
 
 /* Helper functions */
 int kgsl_request_irq(struct platform_device *pdev, const  char *name,

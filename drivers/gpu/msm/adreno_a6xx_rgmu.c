@@ -2,19 +2,15 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/firmware.h>
-#include <linux/jiffies.h>
-#include <linux/interrupt.h>
 
-#include "kgsl_gmu_core.h"
-#include "kgsl_rgmu.h"
-#include "kgsl_trace.h"
+#include <linux/firmware.h>
+#include <linux/regulator/consumer.h>
 
 #include "adreno.h"
-#include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "adreno_trace.h"
 #include "adreno_snapshot.h"
+#include "kgsl_rgmu.h"
+#include "kgsl_trace.h"
 
 /* RGMU timeouts */
 #define RGMU_IDLE_TIMEOUT		100	/* ms */

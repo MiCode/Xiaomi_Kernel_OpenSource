@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/delay.h>
 #include <linux/debugfs.h>
-#include <linux/uaccess.h>
-#include <linux/io.h>
+#include <linux/msm_kgsl.h>
 
-#include "kgsl.h"
 #include "adreno.h"
-#include "kgsl_sync.h"
 
 static int _isdb_set(void *data, u64 val)
 {

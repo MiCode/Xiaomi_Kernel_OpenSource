@@ -5,6 +5,7 @@
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
 
+#include <linux/clk.h>
 #include <linux/pm_qos.h>
 
 /*****************************************************************************

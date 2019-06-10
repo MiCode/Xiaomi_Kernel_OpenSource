@@ -3,21 +3,14 @@
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
-#include <linux/slab.h>
-#include <linux/kmemleak.h>
 #include <linux/highmem.h>
-#include <linux/scatterlist.h>
+#include <linux/slab.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/ratelimit.h>
 
-#include "kgsl.h"
-#include "kgsl_sharedmem.h"
 #include "kgsl_device.h"
-#include "kgsl_mmu.h"
+#include "kgsl_sharedmem.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
@@ -44,6 +37,43 @@ struct cp2_lock_req {
 
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
+
+int kgsl_allocate_global(struct kgsl_device *device,
+	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
+	unsigned int priv, const char *name)
+{
+	int ret;
+
+	kgsl_memdesc_init(device, memdesc, flags);
+	memdesc->priv |= priv;
+
+	if (((memdesc->priv & KGSL_MEMDESC_CONTIG) != 0) ||
+		(kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE))
+		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
+						(size_t) size);
+	else {
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, (size_t) size);
+		if (ret == 0) {
+			if (kgsl_memdesc_map(memdesc) == NULL) {
+				kgsl_sharedmem_free(memdesc);
+				ret = -ENOMEM;
+			}
+		}
+	}
+
+	if (ret == 0)
+		kgsl_mmu_add_global(device, memdesc, name);
+
+	return ret;
+}
+
+void kgsl_free_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc)
+{
+	kgsl_mmu_remove_global(device, memdesc);
+	kgsl_sharedmem_free(memdesc);
+}
+
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
