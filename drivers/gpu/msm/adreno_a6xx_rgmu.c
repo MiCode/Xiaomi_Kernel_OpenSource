@@ -99,9 +99,6 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret, set, check;
 
-	if (!gmu_core_isenabled(device))
-		return 0;
-
 	set = BIT(req + 16);
 	check = BIT(req + 16);
 
@@ -136,9 +133,6 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
 static inline void a6xx_rgmu_oob_clear(struct kgsl_device *device,
 		enum oob_request req)
 {
-	if (!gmu_core_isenabled(device))
-		return;
-
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, BIT(req + 24));
 	trace_kgsl_gmu_oob_clear(BIT(req + 24));
 }
@@ -201,8 +195,7 @@ static int a6xx_rgmu_ifpc_store(struct kgsl_device *device,
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	unsigned int requested_idle_level;
 
-	if (!gmu_core_isenabled(device) ||
-		!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		return -EINVAL;
 
 	if (val)
@@ -229,7 +222,7 @@ static unsigned int a6xx_rgmu_ifpc_show(struct kgsl_device *device)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 
-	return gmu_core_isenabled(device) && rgmu->idle_level == GPU_HW_IFPC;
+	return rgmu->idle_level == GPU_HW_IFPC;
 }
 
 
@@ -263,8 +256,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
-	if (!gmu_core_isenabled(device) ||
-			rgmu->idle_level != GPU_HW_IFPC)
+	if (rgmu->idle_level != GPU_HW_IFPC)
 		return 0;
 
 	ts1 = read_AO_counter(device);
@@ -462,9 +454,6 @@ static int a6xx_rgmu_gpu_pwrctrl(struct kgsl_device *device,
 {
 	int ret = 0;
 
-	if (!gmu_core_isenabled(device))
-		return 0;
-
 	switch (mode) {
 	case GMU_FW_START:
 		ret = a6xx_rgmu_fw_start(device, arg1);
@@ -501,9 +490,6 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	int ret;
-
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	/* RGMU fw already saved and verified so do nothing new */
 	if (rgmu->fw_hostptr)

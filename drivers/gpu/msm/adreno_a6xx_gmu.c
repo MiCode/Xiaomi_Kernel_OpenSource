@@ -556,9 +556,6 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
 	int ret = 0;
 	int set, check;
 
-	if (!gmu_core_isenabled(device))
-		return 0;
-
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		set = BIT(30 - req * 2);
 		check = BIT(31 - req);
@@ -602,9 +599,6 @@ static inline void a6xx_gmu_oob_clear(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int clear;
-
-	if (!gmu_core_isenabled(device))
-		return;
 
 	if (!adreno_is_a630(adreno_dev) && !adreno_is_a615_family(adreno_dev)) {
 		clear = BIT(31 - req * 2);
@@ -693,9 +687,6 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
 {
 	int ret = 0;
-
-	if (!gmu_core_isenabled(device))
-		return ret;
 
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS0_DRV0_STATUS,
 			BIT(0), GPU_RESET_TIMEOUT, BIT(0));
@@ -857,9 +848,6 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 	unsigned int reg, reg1, reg2, reg3, reg4, reg5, reg6, reg7, reg8;
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
-
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	ts1 = read_AO_counter(device);
 
@@ -1069,10 +1057,6 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	struct gmu_block_header *blk;
 	int ret, offset = 0;
-
-	/* there is no GMU */
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	/* GMU fw already saved and verified so do nothing new */
 	if (gmu->fw_image)
@@ -1448,8 +1432,7 @@ static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	unsigned int requested_idle_level;
 
-	if (!gmu_core_isenabled(device) ||
-			!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
 		return -EINVAL;
 
 	if ((val && gmu->idle_level >= GPU_HW_IFPC) ||
@@ -1481,7 +1464,7 @@ static unsigned int a6xx_gmu_ifpc_show(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
-	return gmu_core_isenabled(device) && gmu->idle_level  >= GPU_HW_IFPC;
+	return gmu->idle_level >= GPU_HW_IFPC;
 }
 
 struct gmu_mem_type_desc {
@@ -1670,9 +1653,6 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 {
 	unsigned int val;
 
-	if (!gmu_core_isenabled(device))
-		return;
-
 	a6xx_gmu_snapshot_versions(device, snapshot);
 
 	a6xx_gmu_snapshot_memories(device, snapshot);
@@ -1704,9 +1684,6 @@ static int a6xx_gmu_wait_for_active_transition(
 {
 	unsigned int reg, num_retries;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	gmu_core_regread(device,
 		A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
