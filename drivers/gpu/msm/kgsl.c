@@ -2344,11 +2344,11 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	if (sglen == 0 || sglen >= LONG_MAX)
 		return -EINVAL;
 
-	pages = kgsl_malloc(sglen * sizeof(struct page *));
+	pages = kvcalloc(sglen, sizeof(*pages), GFP_KERNEL);
 	if (pages == NULL)
 		return -ENOMEM;
 
-	memdesc->sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	memdesc->sgt = kmalloc(sizeof(*memdesc->sgt), GFP_KERNEL);
 	if (memdesc->sgt == NULL) {
 		ret = -ENOMEM;
 		goto out;
@@ -2385,7 +2385,7 @@ out:
 		kfree(memdesc->sgt);
 		memdesc->sgt = NULL;
 	}
-	kgsl_free(pages);
+	kvfree(pages);
 	return ret;
 }
 

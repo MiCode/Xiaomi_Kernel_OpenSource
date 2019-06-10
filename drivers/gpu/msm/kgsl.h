@@ -568,35 +568,6 @@ static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 		(gpuaddr1 >= (gpuaddr2 + size2)));
 }
 
-/**
- * kgsl_malloc() - Use either kzalloc or vmalloc to allocate memory
- * @size: Size of the desired allocation
- *
- * Allocate a block of memory for the driver - if it is small try to allocate it
- * from kmalloc (fast!) otherwise we need to go with vmalloc (safe!)
- */
-static inline void *kgsl_malloc(size_t size)
-{
-	if (size <= PAGE_SIZE)
-		return kzalloc(size, GFP_KERNEL);
-
-	return vmalloc(size);
-}
-
-/**
- * kgsl_free() - Free memory allocated by kgsl_malloc()
- * @ptr: Pointer to the memory to free
- *
- * Free the memory be it in vmalloc or kmalloc space
- */
-static inline void kgsl_free(void *ptr)
-{
-	if (ptr != NULL && is_vmalloc_addr(ptr))
-		return vfree(ptr);
-
-	kfree(ptr);
-}
-
 static inline int kgsl_copy_from_user(void *dest, void __user *src,
 		unsigned int ksize, unsigned int usize)
 {

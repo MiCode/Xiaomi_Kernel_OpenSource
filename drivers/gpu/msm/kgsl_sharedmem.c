@@ -887,7 +887,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	 * routine by finding the faulted page in constant time.
 	 */
 
-	memdesc->pages = kgsl_malloc(len_alloc * sizeof(struct page *));
+	memdesc->pages = kvcalloc(len_alloc, sizeof(*memdesc->pages),
+		GFP_KERNEL);
 	memdesc->page_count = 0;
 	memdesc->size = 0;
 
@@ -956,7 +957,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			memdesc->sgt = NULL;
 
 			if (ret == -EADDRNOTAVAIL) {
-				kgsl_free(memdesc->pages);
+				kvfree(memdesc->pages);
 				memset(memdesc, 0, sizeof(*memdesc));
 				return ret;
 			}
@@ -974,7 +975,7 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 		 * We don't need the array for secure buffers because they are
 		 * not mapped to CPU
 		 */
-		kgsl_free(memdesc->pages);
+		kvfree(memdesc->pages);
 		memdesc->pages = NULL;
 		memdesc->page_count = 0;
 
@@ -996,7 +997,7 @@ done:
 			}
 		}
 
-		kgsl_free(memdesc->pages);
+		kvfree(memdesc->pages);
 		memset(memdesc, 0, sizeof(*memdesc));
 	}
 
@@ -1016,11 +1017,10 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 
 	if (memdesc->sgt) {
 		sg_free_table(memdesc->sgt);
-		kfree(memdesc->sgt);
+		kvfree(memdesc->sgt);
 	}
 
-	if (memdesc->pages)
-		kgsl_free(memdesc->pages);
+	kvfree(memdesc->pages);
 }
 EXPORT_SYMBOL(kgsl_sharedmem_free);
 
