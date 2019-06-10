@@ -342,7 +342,7 @@
 
 	vreg_sd_pad: vreg_sd_pad {
 		compatible = "regulator-gpio";
-		retulator-name = "vreg_sd_pad";
+		regulator-name = "vreg_sd_pad";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <2950000>;
 		enable-gpio = <&tlmm 63 GPIO_ACTIVE_HIGH>;
