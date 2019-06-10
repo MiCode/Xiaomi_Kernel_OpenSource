@@ -643,24 +643,29 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	uint32_t *data;
 	const struct firmware *fw = NULL;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	uint32_t *cmds, cmd_size;
 	int ret =  -EINVAL;
+	u32 gmu_major = 1;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
+
+	/* a530 used GMU major 1 and A540 used GMU major 3 */
+	if (adreno_is_a540(adreno_dev))
+		gmu_major = 3;
 
 	/* gpmu fw already saved and verified so do nothing new */
 	if (adreno_dev->gpmu_cmds_size != 0)
 		return 0;
 
-	if (gpucore->gpmufw_name == NULL)
+	if (a5xx_core->gpmufw_name == NULL)
 		return 0;
 
-	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
+	ret = request_firmware(&fw, a5xx_core->gpmufw_name, device->dev);
 	if (ret || fw == NULL) {
 		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
-				gpucore->gpmufw_name, ret);
+				a5xx_core->gpmufw_name, ret);
 		return ret;
 	}
 
@@ -672,10 +677,7 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (data[1] != GPMU_FIRMWARE_ID)
 		goto err;
 	ret = _read_fw2_block_header(device, &data[2],
-		data[0] - 2,
-		GPMU_FIRMWARE_ID,
-		adreno_dev->gpucore->gpmu_major,
-		adreno_dev->gpucore->gpmu_minor);
+		data[0] - 2, GPMU_FIRMWARE_ID, gmu_major, 0);
 	if (ret)
 		goto err;
 
@@ -1272,21 +1274,26 @@ static int _read_fw2_block_header(struct kgsl_device *device,
 static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	const struct firmware *fw;
 	uint64_t block_size = 0, block_total = 0;
 	uint32_t fw_size, *block;
 	int ret = -EINVAL;
+	u32 lm_major = 1;
 
-	if (!adreno_dev->gpucore->regfw_name)
+	if (!a5xx_core->regfw_name)
 		return;
 
-	ret = request_firmware(&fw, adreno_dev->gpucore->regfw_name,
-			device->dev);
+	ret = request_firmware(&fw, a5xx_core->regfw_name, device->dev);
 	if (ret) {
 		dev_err(device->dev, "request firmware failed %d, %s\n",
-				ret, adreno_dev->gpucore->regfw_name);
+				ret, a5xx_core->regfw_name);
 		return;
 	}
+
+	/* a530v2 lm_major was 3. a530v3 lm_major was 1 */
+	if (adreno_is_a530v2(adreno_dev))
+		lm_major = 3;
 
 	fw_size = fw->size / sizeof(uint32_t);
 	/* Min valid file of size 6, see file description */
@@ -1305,10 +1312,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 		/* For now ignore blocks other than the LM sequence */
 		if (block[4] == LM_SEQUENCE_ID) {
 			ret = _read_fw2_block_header(device, &block[2],
-				block_size - 2,
-				GPMU_SEQUENCE_ID,
-				adreno_dev->gpucore->lm_major,
-				adreno_dev->gpucore->lm_minor);
+				block_size - 2, GPMU_SEQUENCE_ID,
+				lm_major, 0);
 			if (ret)
 				goto err;
 
@@ -1369,12 +1374,13 @@ static uint32_t _write_voltage_table(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int i;
 	struct dev_pm_opp *opp;
 	int levels = pwr->num_pwrlevels - 1;
 	unsigned int mvolt = 0;
 
-	kgsl_regwrite(device, addr++, adreno_dev->gpucore->max_power);
+	kgsl_regwrite(device, addr++, a5xx_core->max_power);
 	kgsl_regwrite(device, addr++, levels);
 
 	/* Write voltage in mV and frequency in MHz */
@@ -1414,6 +1420,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 {
 	uint32_t length;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
@@ -1433,8 +1440,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 		return;
 	}
 
-	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_ID,
-			adreno_dev->gpucore->gpmu_tsens);
+	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_ID, a5xx_core->gpmu_tsens);
 	kgsl_regwrite(device, A5XX_GPMU_DELTA_TEMP_THRESHOLD, 0x1);
 	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, 0x1);
 
@@ -2152,6 +2158,7 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	uint64_t gpuaddr;
 
 	gpuaddr = pm4_fw->memdesc.gpuaddr;
@@ -2197,8 +2204,8 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	}
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (a5xx_core->zap_name && !adreno_dev->zap_loaded) {
+		ptr = subsystem_get(a5xx_core->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(ptr))
@@ -2440,17 +2447,18 @@ static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 	int ret;
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
 	if (pm4_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pm4fw_name, pm4_fw);
+				 a5xx_core->pm4fw_name, pm4_fw);
 		if (ret)
 			return ret;
 	}
 
 	if (pfp_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pfpfw_name, pfp_fw);
+				 a5xx_core->pfpfw_name, pfp_fw);
 		if (ret)
 			return ret;
 	}

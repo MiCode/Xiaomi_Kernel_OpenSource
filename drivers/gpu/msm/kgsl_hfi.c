@@ -6,9 +6,11 @@
 #include "kgsl_device.h"
 #include "kgsl_hfi.h"
 #include "kgsl_gmu.h"
-#include "adreno.h"
 #include "kgsl_trace.h"
 #include "kgsl_pwrctrl.h"
+
+#include "adreno.h"
+#include "adreno_a6xx.h"
 
 #define HFI_QUEUE_OFFSET(i)		\
 		(ALIGN(sizeof(struct hfi_queue_table), SZ_16) + \
@@ -607,6 +609,7 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 		struct gmu_device *gmu)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	int result;
 	unsigned int ver, major, minor;
 
@@ -614,8 +617,8 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	if (gmu->ver.core != 0)
 		return 0;
 
-	major = adreno_dev->gpucore->gpmu_major;
-	minor = adreno_dev->gpucore->gpmu_minor;
+	major = a6xx_core->gmu_major;
+	minor = a6xx_core->gmu_minor;
 
 	result = hfi_get_fw_version(gmu, GMU_VERSION(major, minor), &ver);
 	if (result) {

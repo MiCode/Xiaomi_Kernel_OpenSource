@@ -1394,17 +1394,18 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	const struct adreno_a3xx_core *a3xx_core = to_a3xx_core(adreno_dev);
 
 	if (pm4_fw->fwvirt == NULL) {
 		int len;
 		void *ptr;
 
 		int ret = _load_firmware(device,
-			adreno_dev->gpucore->pm4fw_name, &ptr, &len);
+			a3xx_core->pm4fw_name, &ptr, &len);
 
 		if (ret) {
 			dev_err(device->dev,  "Failed to read pm4 ucode %s\n",
-				adreno_dev->gpucore->pm4fw_name);
+				a3xx_core->pm4fw_name);
 			return ret;
 		}
 
@@ -1427,10 +1428,10 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev)
 		void *ptr;
 
 		int ret = _load_firmware(device,
-			adreno_dev->gpucore->pfpfw_name, &ptr, &len);
+			a3xx_core->pfpfw_name, &ptr, &len);
 		if (ret) {
 			dev_err(device->dev, "Failed to read pfp ucode %s\n",
-					   adreno_dev->gpucore->pfpfw_name);
+					   a3xx_core->pfpfw_name);
 			return ret;
 		}
 

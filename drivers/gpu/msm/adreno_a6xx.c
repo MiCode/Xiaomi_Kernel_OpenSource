@@ -899,6 +899,7 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	unsigned int bit, lower_bit, mal, mode, upper_bit;
 	unsigned int uavflagprd_inv;
 	unsigned int amsbc = 0;
@@ -975,7 +976,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	/* Setting the primFifo thresholds values */
 	kgsl_regwrite(device, A6XX_PC_DBG_ECO_CNTL,
-			adreno_dev->gpucore->prim_fifo_threshold);
+		a6xx_core->prim_fifo_threshold);
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
@@ -1104,6 +1105,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	uint64_t gpuaddr;
 	void *zap;
 	int ret = 0;
@@ -1115,8 +1117,8 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 				upper_32_bits(gpuaddr));
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (a6xx_core->zap_name && !adreno_dev->zap_loaded) {
+		zap = subsystem_get(a6xx_core->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(zap)) {
@@ -1520,10 +1522,10 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 
 	if (sqe_fw->memdesc.hostptr == NULL) {
-		ret = _load_firmware(device, adreno_dev->gpucore->sqefw_name,
-				sqe_fw);
+		ret = _load_firmware(device, a6xx_core->sqefw_name, sqe_fw);
 		if (ret)
 			return ret;
 	}

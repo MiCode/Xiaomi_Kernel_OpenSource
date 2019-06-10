@@ -6,6 +6,17 @@
 #define __A3XX_H
 
 #include "a3xx_reg.h"
+/**
+ * struct adreno_a3xx_core - a3xx specific GPU core definitions
+ */
+struct adreno_a3xx_core {
+	/** @base: Container for the generic &struct adreno_gpu_core */
+	struct adreno_gpu_core base;
+	/** pm4fw_name: Name of the PM4 microcode file */
+	const char *pm4fw_name;
+	/** pfpfw_name: Name of the PFP microcode file */
+	const char *pfpfw_name;
+};
 
 #define A3XX_IRQ_FLAGS \
 	{ BIT(A3XX_INT_RBBM_GPU_IDLE), "RBBM_GPU_IDLE" }, \
@@ -32,6 +43,21 @@
 	{ BIT(A3XX_INT_CP_AHB_ERROR_HALT), "CP_AHB_ERROR_HALT" }, \
 	{ BIT(A3XX_INT_MISC_HANG_DETECT), "MISC_HANG_DETECT" }, \
 	{ BIT(A3XX_INT_UCHE_OOB_ACCESS), "UCHE_OOB_ACCESS" }
+
+/**
+ * to_a3xx_core - return the a3xx specific GPU core struct
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns:
+ * A pointer to the a3xx specific GPU core struct
+ */
+static inline const struct adreno_a3xx_core *
+to_a3xx_core(struct adreno_device *adreno_dev)
+{
+	const struct adreno_gpu_core *core = adreno_dev->gpucore;
+
+	return container_of(core, struct adreno_a3xx_core, base);
+}
 
 unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
 

@@ -8,6 +8,28 @@
 
 #include "a6xx_reg.h"
 
+/**
+ * struct adreno_a6xx_core - a6xx specific GPU core definitions
+ */
+struct adreno_a6xx_core {
+	/** @base: Container for the generic GPU definitions */
+	struct adreno_gpu_core base;
+	/** @gmu_major: The maximum GMU version supported by the core */
+	u32 gmu_major;
+	/** @gmu_minor: The minimum GMU version supported by the core */
+	u32 gmu_minor;
+	/** @prim_fifo_threshold: target specific value for PC_DBG_ECO_CNTL */
+	unsigned int prim_fifo_threshold;
+	/** @pdc_address_offset: Offset for the PDC region for the target */
+	unsigned int pdc_address_offset;
+	/** @sqefw_name: Name of the SQE microcode file */
+	const char *sqefw_name;
+	/** @gmufw_name: Name of the GMU firmware file */
+	const char *gmufw_name;
+	/** @zap_name: Name of the CPZ zap file */
+	const char *zap_name;
+};
+
 #define CP_CLUSTER_FE		0x0
 #define CP_CLUSTER_SP_VS	0x1
 #define CP_CLUSTER_PC_VS	0x2
@@ -98,6 +120,21 @@ struct cpu_gpu_lock {
 
 #define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
 		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
+
+/**
+ * to_a6xx_core - return the a6xx specific GPU core struct
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns:
+ * A pointer to the a6xx specific GPU core struct
+ */
+static inline const struct adreno_a6xx_core *
+to_a6xx_core(struct adreno_device *adreno_dev)
+{
+	const struct adreno_gpu_core *core = adreno_dev->gpucore;
+
+	return container_of(core, struct adreno_a6xx_core, base);
+}
 
 /*
  * timed_poll_check() - polling *gmu* register at given offset until
