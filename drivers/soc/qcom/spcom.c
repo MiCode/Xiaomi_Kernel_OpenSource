@@ -224,6 +224,20 @@ struct spcom_device {
 /* Device Driver State */
 static struct spcom_device *spcom_dev;
 
+/* Physical address of SP2SOC RMB shared register */
+/* SP_SCSR_RMB_SP2SOC_IRQ_SET_ADDR */
+static u32 spcom_sp2soc_rmb_reg_addr;
+/* SP_SCSR_SP2SOC_IRQ_SET_SW_INIT_DONE_BMSK */
+static u32 spcom_sp2soc_initdone_mask;
+/* SP_SCSR_SP2SOC_IRQ_SET_PBL_DONE_BMSK */
+static u32 spcom_sp2soc_pbldone_mask;
+
+/* Physical address of SOC2SP RMB shared register */
+/* SP_SCSR_RMB_SOC2SP_IRQ_SET_ADDR */
+static u32 spcom_soc2sp_rmb_reg_addr;
+/* Bit used by spcom kernel for indicating SSR to SP */
+static u32 spcom_soc2sp_rmb_sp_ssr_mask;
+
 /* static functions declaration */
 static int spcom_create_channel_chardev(const char *name);
 static struct spcom_channel *spcom_find_channel_by_name(const char *name);
@@ -538,16 +552,88 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 }
 
 /**
- * spcom_handle_restart_sp_command() - Handle Restart SP command from
- * user space.
+ * spcom_local_powerup() - Helper function that causes PIL boot to skip
+ * powerup. This function sets the INIT DONE register.
+ *
+ * @subsys: subsystem descriptor.
  *
  * Return: 0 on successful operation, negative value otherwise.
  */
-static int spcom_handle_restart_sp_command(void)
+static int spcom_local_powerup(const struct subsys_desc *subsys)
+{
+	void __iomem *regs;
+
+	regs = ioremap_nocache(spcom_sp2soc_rmb_reg_addr, sizeof(u32));
+	if (!regs)
+		return -ENOMEM;
+
+	writel_relaxed(spcom_sp2soc_pbldone_mask|spcom_sp2soc_initdone_mask,
+		regs);
+	iounmap(regs);
+	pr_debug("spcom local powerup - SPSS cold boot\n");
+	return 0;
+}
+
+/**
+ * spcom_handle_restart_sp_command() - Handle Restart SP command from
+ * user space.
+ *
+ * @cmd_buf:    command buffer.
+ * @cmd_size:   command buffer size.
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 {
 	void *subsystem_get_retval = NULL;
+	struct spcom_user_restart_sp_command *cmd = cmd_buf;
+	struct subsys_desc *desc_p = NULL;
+	int (*desc_powerup)(const struct subsys_desc *) = NULL;
 
-	pr_debug("restart - PIL FW loading process initiated\n");
+	if (!cmd) {
+		pr_err("NULL cmd_buf\n");
+		return -EINVAL;
+	}
+
+	if (cmd_size != sizeof(*cmd)) {
+		pr_err("cmd_size [%d] , expected [%d]\n",
+				(int) cmd_size,  (int) sizeof(*cmd));
+		return -EINVAL;
+	}
+
+	pr_debug("restart - PIL FW loading initiated: preloaded=%d\n",
+		cmd->arg);
+
+	if (cmd->arg) {
+		subsystem_get_retval = find_subsys_device("spss");
+		if (!subsystem_get_retval) {
+			pr_err("restart - no device\n");
+			return -ENODEV;
+		}
+
+		desc_p = *(struct subsys_desc **)subsystem_get_retval;
+		if (!desc_p) {
+			pr_err("restart - no device\n");
+			return -ENODEV;
+		}
+
+		pr_debug("restart - Name: %s FW name: %s Depends on: %s\n",
+			desc_p->name, desc_p->fw_name, desc_p->depends_on);
+		desc_powerup = desc_p->powerup;
+		/**
+		 * Overwrite the subsys PIL powerup function with an spcom
+		 * internal function which causes PIL to skip calling the
+		 * PIL boot function. This is done because SP is already
+		 * loaded in UEFI state and we do not want PIL to start
+		 * loading the SP again. We still want to let PIL perform
+		 * everything else wrt SP - hence calling the subsystem_get
+		 * API with a spcom internal function that only writes the
+		 * INIT DONE register on behalf of SP. Once done with this,
+		 * we shall reset the PIL subsys power up function so that
+		 * we let the PIL subsys to load/boot SP upon SSR
+		 */
+		desc_p->powerup = spcom_local_powerup;
+	}
 
 	subsystem_get_retval = subsystem_get("spss");
 	if (!subsystem_get_retval) {
@@ -555,6 +641,10 @@ static int spcom_handle_restart_sp_command(void)
 		return -EINVAL;
 	}
 
+	if (cmd->arg) {
+		/* Reset the PIL subsystem power up function */
+		desc_p->powerup = desc_powerup;
+	}
 	pr_debug("restart - PIL FW loading process is complete\n");
 	return 0;
 }
@@ -1076,7 +1166,7 @@ static int spcom_handle_write(struct spcom_channel *ch,
 		ret = spcom_handle_create_channel_command(buf, buf_size);
 		break;
 	case SPCOM_CMD_RESTART_SP:
-		ret = spcom_handle_restart_sp_command();
+		ret = spcom_handle_restart_sp_command(buf, buf_size);
 		break;
 	default:
 		pr_err("Invalid Command Id [0x%x]\n", (int) cmd->cmd_id);
@@ -1551,6 +1641,7 @@ static inline int handle_poll(struct file *file,
 	const char *name = file_to_filename(file);
 	int ready = 0;
 	int ret = 0;
+	void __iomem *regs;
 
 	pr_debug("SPCOM_POLL_STATE - wait:%d, op:%d\n", op->wait, op->cmd_id);
 
@@ -1561,6 +1652,15 @@ static inline int handle_poll(struct file *file,
 			ready = wait_for_completion_interruptible(
 					  &spcom_dev->rpmsg_state_change);
 			pr_debug("ch [%s] link state change signaled\n", name);
+			regs = ioremap_nocache(spcom_soc2sp_rmb_reg_addr,
+					sizeof(u32));
+			if (regs) {
+				writel_relaxed(spcom_soc2sp_rmb_sp_ssr_mask,
+					regs);
+				iounmap(regs);
+			} else {
+				pr_err("failed to set register indicating SSR\n");
+			}
 		}
 		op->retval = atomic_read(&spcom_dev->rpmsg_dev_count) > 0;
 		break;
@@ -1820,7 +1920,53 @@ static int spcom_parse_dt(struct device_node *np)
 	int num_ch;
 	int i;
 	const char *name;
+	u32 sp2soc_rmb_pbldone_bit = 0;
+	u32 sp2soc_rmb_initdone_bit = 0;
+	u32 soc2sp_rmb_sp_ssr_bit = 0;
 
+	/* Read SP HLOS SCSR RMB IRQ register address */
+	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-reg-addr",
+		&spcom_sp2soc_rmb_reg_addr);
+	if (ret < 0) {
+		pr_err("can't get sp2soc rmb reg addr\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-pbldone-bit",
+		&sp2soc_rmb_pbldone_bit);
+	if (ret < 0) {
+		pr_err("can't get sp2soc rmb pbl done bit\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "qcom,spcom-sp2soc-rmb-initdone-bit",
+		&sp2soc_rmb_initdone_bit);
+	if (ret < 0) {
+		pr_err("can't get sp2soc rmb sw init done bit\n");
+		return ret;
+	}
+
+	spcom_sp2soc_pbldone_mask = BIT(sp2soc_rmb_pbldone_bit);
+	spcom_sp2soc_initdone_mask = BIT(sp2soc_rmb_initdone_bit);
+
+	/* Read SOC 2 SP SCSR RMB IRQ register address */
+	ret = of_property_read_u32(np, "qcom,spcom-soc2sp-rmb-reg-addr",
+		&spcom_soc2sp_rmb_reg_addr);
+	if (ret < 0) {
+		pr_err("can't get soc2sp rmb reg addr\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "qcom,spcom-soc2sp-rmb-sp-ssr-bit",
+		&soc2sp_rmb_sp_ssr_bit);
+	if (ret < 0) {
+		pr_err("can't get soc2sp rmb SP SSR bit\n");
+		return ret;
+	}
+
+	spcom_soc2sp_rmb_sp_ssr_mask = BIT(soc2sp_rmb_sp_ssr_bit);
+
+	/* Get predefined channels info */
 	num_ch = of_property_count_strings(np, propname);
 	if (num_ch < 0) {
 		pr_err("wrong format of predefined channels definition [%d]\n",
