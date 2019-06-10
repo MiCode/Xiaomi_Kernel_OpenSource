@@ -53,6 +53,54 @@
 	};
 };
 
+#include "atoll-stub-regulator.dtsi"
+
+&sdhc_1 {
+	vdd-supply = <&pm6150_l19>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&pm6150_l12>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on
+					&sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off
+					&sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "DDR_1p8v";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm6150l_l9>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 800000>;
+
+	vdd-io-supply = <&pm6150l_l6>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <0 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
+
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+};
+
 &usb0 {
 	dwc3@a600000 {
 		usb-phy = <&usb_emu_phy>, <&usb_nop_phy>;
