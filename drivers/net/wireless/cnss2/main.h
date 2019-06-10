@@ -339,6 +339,7 @@ struct cnss_plat_data {
 	struct qmi_handle coex_qmi;
 	struct qmi_handle ims_qmi;
 	struct qmi_txn txn;
+	u64 dynamic_feature;
 };
 
 #ifdef CONFIG_ARCH_QCOM
