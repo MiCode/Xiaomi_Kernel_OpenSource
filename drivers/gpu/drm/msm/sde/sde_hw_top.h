@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,9 +43,11 @@ struct traffic_shaper_cfg {
  * @intf      : Interface id for main control path
  * @pp_split_slave: Slave interface for ping pong split, INTF_MAX to disable
  * @pp_split_idx:   Ping pong index for ping pong split
+ * @overlap_pixel_width : Number of overlap pixels in the split mode
  * @split_flush_en: Allows both the paths to be flushed when master path is
  *              flushed
  * @split_link_en:  Check if split link is enabled
+ * @pp_slave_intf: Check if this is pp slave interface
  */
 struct split_pipe_cfg {
 	bool en;
@@ -53,8 +55,10 @@ struct split_pipe_cfg {
 	enum sde_intf intf;
 	enum sde_intf pp_split_slave;
 	u32 pp_split_index;
+	u32 overlap_pixel_width;
 	bool split_flush_en;
 	bool split_link_en;
+	bool pp_slave_intf;
 };
 
 /**

@@ -225,7 +225,8 @@ static int dp_parser_pinctrl(struct dp_parser *parser)
 				pinctrl->pin, "mdss_dp_hpd_ctrl");
 		}
 
-		if (!pinctrl->state_hpd_tlmm || !pinctrl->state_hpd_ctrl) {
+		if (IS_ERR_OR_NULL(pinctrl->state_hpd_tlmm) ||
+				IS_ERR_OR_NULL(pinctrl->state_hpd_ctrl)) {
 			pinctrl->state_hpd_tlmm = NULL;
 			pinctrl->state_hpd_ctrl = NULL;
 			pr_debug("tlmm or ctrl pinctrl state does not exist\n");

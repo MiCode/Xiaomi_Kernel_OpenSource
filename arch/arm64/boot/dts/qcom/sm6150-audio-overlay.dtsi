@@ -20,6 +20,8 @@
 	qcom,va-without-decimation;
 	slew_rate_reg1 = <0x62B6F000 0x0>;
 	slew_rate_reg2 = <0x62B6F004 0x0>;
+	slew_rate_val1 = <0x3333 0x0>;
+	slew_rate_val2 = <0xF 0x0>;
 	tx_macro: tx-macro@62ec0000 {
 		compatible = "qcom,tx-macro";
 		reg = <0x62ec0000 0x0>;

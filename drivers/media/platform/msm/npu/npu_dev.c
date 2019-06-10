@@ -40,7 +40,6 @@
 #define DDR_MAPPED_START_ADDR   0x80000000
 #define DDR_MAPPED_SIZE         0x60000000
 
-#define PERF_MODE_DEFAULT 0
 #define MBOX_OP_TIMEOUTMS 1000
 
 /* -------------------------------------------------------------------------
@@ -116,6 +115,8 @@ static int npu_receive_event(struct npu_client *client,
 	unsigned long arg);
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable);
 static int npu_set_property(struct npu_client *client,
+	unsigned long arg);
+static int npu_get_property(struct npu_client *client,
 	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
@@ -318,6 +319,7 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count)
 {
+	struct npu_client client;
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
 	uint32_t val;
 	int rc;
@@ -331,7 +333,9 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 	val = min(val, npu_dev->pwrctrl.num_pwrlevels);
 	npu_dev->pwrctrl.perf_mode_override = val;
 	pr_info("setting uc_pwrlevel_override to %d\n", val);
-	npu_set_power_level(npu_dev, true);
+
+	client.npu_dev = npu_dev;
+	npu_host_set_perf_mode(&client, 0, val);
 
 	return count;
 }
@@ -361,7 +365,7 @@ static ssize_t npu_store_dcvs_mode(struct device *dev,
 		return -EINVAL;
 	}
 
-	val = min(val, (uint32_t)DCVS_MODE_MAX);
+	val = min(val, (uint32_t)(npu_dev->pwrctrl.num_pwrlevels - 1));
 	pr_debug("sysfs: setting dcvs_mode to %d\n", val);
 
 	prop.prop_id = MSM_NPU_PROP_ID_DCVS_MODE;
@@ -638,7 +642,6 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 			pwr->pwr_vote_num = 0;
 			return ret;
 		}
-		pwr->cur_dcvs_activity = DCVS_MODE_MAX;
 		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
@@ -665,7 +668,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
-		pwr->cur_dcvs_activity = 0;
+		pwr->cur_dcvs_activity = pwr->num_pwrlevels;
 		pr_debug("setting back to power level=%d\n",
 			pwr->active_pwrlevel);
 	}
@@ -724,14 +727,6 @@ static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 	uint32_t therm_pwr_level = npu_dev->thermalctrl.pwr_level;
 	uint32_t active_pwr_level = npu_dev->pwrctrl.active_pwrlevel;
 	uint32_t uc_pwr_level = npu_dev->pwrctrl.uc_pwrlevel;
-
-	/*
-	 * if perf_mode_override is not 0, use it to override
-	 * uc_pwrlevel
-	 */
-	if (npu_dev->pwrctrl.perf_mode_override > 0)
-		uc_pwr_level = npu_power_level_from_index(npu_dev,
-			npu_dev->pwrctrl.perf_mode_override - 1);
 
 	/*
 	 * pick the lowese power level between thermal power and usecase power
@@ -821,11 +816,8 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	uint32_t uc_pwrlevel_to_set;
 
-	if (perf_mode == PERF_MODE_DEFAULT)
-		uc_pwrlevel_to_set = pwr->default_pwrlevel;
-	else
-		uc_pwrlevel_to_set = npu_power_level_from_index(npu_dev,
-			perf_mode - 1);
+	uc_pwrlevel_to_set = npu_power_level_from_index(npu_dev,
+		perf_mode - 1);
 
 	if (uc_pwrlevel_to_set > pwr->max_pwrlevel)
 		uc_pwrlevel_to_set = pwr->max_pwrlevel;
@@ -1671,6 +1663,53 @@ static int npu_set_property(struct npu_client *client,
 	return ret;
 }
 
+static int npu_get_property(struct npu_client *client,
+	unsigned long arg)
+{
+	struct msm_npu_property prop;
+	void __user *argp = (void __user *)arg;
+	int ret = -EINVAL;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	ret = copy_from_user(&prop, argp, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (prop.prop_id) {
+	case MSM_NPU_PROP_ID_FW_STATE:
+		prop.prop_param[0] = host_ctx->fw_state;
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE:
+		prop.prop_param[0] = npu_host_get_perf_mode(client,
+			(uint32_t)prop.network_hdl);
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE_MAX:
+		prop.prop_param[0] = npu_dev->pwrctrl.num_pwrlevels;
+		break;
+	case MSM_NPU_PROP_ID_DRV_VERSION:
+		prop.prop_param[0] = 0;
+		break;
+	default:
+		ret = npu_host_get_fw_property(client->npu_dev, &prop);
+		if (ret) {
+			pr_err("npu_host_set_fw_property failed\n");
+			return ret;
+		}
+		break;
+	}
+
+	ret = copy_to_user(argp, &prop, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy to user\n");
+		return -EFAULT;
+	}
+
+	return ret;
+}
+
 static long npu_ioctl(struct file *file, unsigned int cmd,
 						 unsigned long arg)
 {
@@ -1707,6 +1746,9 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case MSM_NPU_SET_PROP:
 		ret = npu_set_property(client, arg);
+		break;
+	case MSM_NPU_GET_PROP:
+		ret = npu_get_property(client, arg);
 		break;
 	default:
 		pr_err("unexpected IOCTL %x\n", cmd);
@@ -1926,6 +1968,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 	pwr->uc_pwrlevel = pwr->max_pwrlevel;
 	pwr->perf_mode_override = 0;
 	pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
+	pwr->cur_dcvs_activity = pwr->num_pwrlevels;
 
 	return 0;
 }
