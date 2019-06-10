@@ -24,9 +24,6 @@
 #define MODULE_NAME "qdss_bridge"
 #define INIT_STATUS -1
 
-/* Max number of objects needed */
-static int poolsize = 32;
-
 static struct class *mhi_class;
 static enum mhi_dev_state dev_state = INIT_STATUS;
 static enum mhi_ch curr_chan;
@@ -99,8 +96,12 @@ static int qdss_create_buf_tbl(struct qdss_bridge_drvdata *drvdata)
 	void *buf;
 	struct qdss_request *usb_req;
 	int i;
+	struct mhi_device *mhi_dev = drvdata->mhi_dev;
 
-	for (i = 0; i < poolsize; i++) {
+	drvdata->nr_trbs = mhi_get_no_free_descriptors(mhi_dev,
+							DMA_FROM_DEVICE);
+
+	for (i = 0; i < drvdata->nr_trbs; i++) {
 		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry)
 			goto err;
@@ -454,7 +455,7 @@ static void usb_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_QDSS_CONNECT:
-		usb_qdss_alloc_req(ch, poolsize, 0);
+		usb_qdss_alloc_req(ch, drvdata->nr_trbs, 0);
 		mhi_queue_read(drvdata);
 		break;
 
@@ -708,12 +709,11 @@ read_error:
 static int mhi_queue_inbound(struct qdss_bridge_drvdata *drvdata)
 {
 	struct mhi_device *mhi_dev = drvdata->mhi_dev;
-	int nr_trbs = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
 	void *buf;
 	struct qdss_mhi_buf_tbl_t *entry;
 	int ret = -EIO, i;
 
-	for (i = 0; i < nr_trbs; i++) {
+	for (i = 0; i < drvdata->nr_trbs; i++) {
 		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry)
 			goto err;
@@ -962,8 +962,8 @@ exit_unreg_chrdev_region:
 }
 
 static const struct mhi_device_id qdss_mhi_match_table[] = {
-	{ .chan = "QDSS", .driver_data = 0x4000 },
-	{ .chan = "IP_HW_QDSS", .driver_data = 0x4000 },
+	{ .chan = "QDSS", .driver_data = 0x8000 },
+	{ .chan = "IP_HW_QDSS", .driver_data = 0x8000 },
 	{},
 };
 
