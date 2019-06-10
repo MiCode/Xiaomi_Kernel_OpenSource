@@ -44,4 +44,6 @@
 #define VIRTIO_ID_VSOCK        19 /* virtio vsock transport */
 #define VIRTIO_ID_CRYPTO       20 /* virtio crypto */
 
+#define VIRTIO_ID_I2C		32 /* virtio i2c */
+
 #endif /* _LINUX_VIRTIO_IDS_H */
