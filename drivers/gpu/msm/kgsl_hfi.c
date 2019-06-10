@@ -776,13 +776,6 @@ void hfi_stop(struct gmu_device *gmu)
 int hfi_send_req(struct gmu_device *gmu, unsigned int id, void *data)
 {
 	switch (id) {
-	case H2F_MSG_LM_CFG: {
-		struct hfi_lmconfig_cmd *cmd = data;
-
-		cmd->hdr = CMD_MSG_HDR(H2F_MSG_LM_CFG, sizeof(*cmd));
-
-		return hfi_send_generic_req(gmu, HFI_CMD_ID, &cmd);
-	}
 	case H2F_MSG_GX_BW_PERF_VOTE: {
 		struct hfi_gx_bw_perf_vote_cmd *cmd = data;
 

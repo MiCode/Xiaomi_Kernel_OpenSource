@@ -202,14 +202,6 @@ struct hfi_fw_version_cmd {
 	uint32_t supported_ver;
 };
 
-/* H2F */
-struct hfi_lmconfig_cmd {
-	uint32_t hdr;
-	uint32_t limit_conf;
-	uint32_t bcl_conf;
-	uint32_t lm_enable_bitmask;
-};
-
 #define ARC_VOTE_GET_PRI(_v) ((_v) & 0xFF)
 #define ARC_VOTE_GET_SEC(_v) (((_v) >> 8) & 0xFF)
 #define ARC_VOTE_GET_VLVL(_v) (((_v) >> 16) & 0xFFFF)
