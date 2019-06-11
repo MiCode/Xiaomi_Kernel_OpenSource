@@ -1932,6 +1932,9 @@ static int ufs_qcom_pm_qos_init(struct ufs_qcom_host *host)
 		if (ret)
 			goto free_groups;
 
+		host->pm_qos.groups[i].req.type = PM_QOS_REQ_AFFINE_CORES;
+		host->pm_qos.groups[i].req.cpus_affine =
+			host->pm_qos.groups[i].mask;
 		host->pm_qos.groups[i].state = PM_QOS_UNVOTED;
 		host->pm_qos.groups[i].active_reqs = 0;
 		host->pm_qos.groups[i].host = host;
