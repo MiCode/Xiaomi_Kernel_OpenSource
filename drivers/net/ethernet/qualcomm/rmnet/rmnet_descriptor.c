@@ -197,17 +197,25 @@ static void rmnet_frag_send_ack(struct rmnet_map_header *qmap,
 	netif_tx_unlock(dev);
 }
 
-static void rmnet_frag_process_flow_start(struct rmnet_map_control_command *cmd,
-					  struct rmnet_port *port,
-					  u16 cmd_len)
+static void
+rmnet_frag_process_flow_start(struct rmnet_map_control_command_header *cmd,
+			      struct rmnet_port *port,
+			      u16 cmd_len)
 {
 	struct rmnet_map_dl_ind_hdr *dlhdr;
+	u32 data_format;
+	bool is_dl_mark_v2;
 
-	if (cmd_len < RMNET_DL_IND_HDR_SIZE)
+	if (cmd_len + sizeof(struct rmnet_map_header) < RMNET_DL_IND_HDR_SIZE)
 		return;
 
+	data_format = port->data_format;
+	is_dl_mark_v2 = data_format & RMNET_INGRESS_FORMAT_DL_MARKER_V2;
 	dlhdr = (struct rmnet_map_dl_ind_hdr *)((char *)cmd + sizeof(*cmd));
 
+	port->stats.dl_hdr_last_ep_id = cmd->source_id;
+	port->stats.dl_hdr_last_qmap_vers = cmd->reserved;
+	port->stats.dl_hdr_last_trans_id = cmd->transaction_id;
 	port->stats.dl_hdr_last_seq = dlhdr->le.seq;
 	port->stats.dl_hdr_last_bytes = dlhdr->le.bytes;
 	port->stats.dl_hdr_last_pkts = dlhdr->le.pkts;
@@ -216,24 +224,41 @@ static void rmnet_frag_process_flow_start(struct rmnet_map_control_command *cmd,
 	port->stats.dl_hdr_total_pkts += port->stats.dl_hdr_last_pkts;
 	port->stats.dl_hdr_count++;
 
-	rmnet_map_dl_hdr_notify(port, dlhdr);
+	/* If a target is taking frag path, we can assume DL marker v2 is in
+	 * play
+	 */
+	if (is_dl_mark_v2)
+		rmnet_map_dl_hdr_notify_v2(port, dlhdr, cmd);
+	else
+		rmnet_map_dl_hdr_notify(port, dlhdr);
 }
 
-static void rmnet_frag_process_flow_end(struct rmnet_map_control_command *cmd,
-					struct rmnet_port *port,
-					u16 cmd_len)
+static void
+rmnet_frag_process_flow_end(struct rmnet_map_control_command_header *cmd,
+			    struct rmnet_port *port, u16 cmd_len)
 {
 	struct rmnet_map_dl_ind_trl *dltrl;
+	u32 data_format;
+	bool is_dl_mark_v2;
 
-	if (cmd_len < RMNET_DL_IND_TRL_SIZE)
+
+	if (cmd_len + sizeof(struct rmnet_map_header) < RMNET_DL_IND_TRL_SIZE)
 		return;
 
+	data_format = port->data_format;
+	is_dl_mark_v2 = data_format & RMNET_INGRESS_FORMAT_DL_MARKER_V2;
 	dltrl = (struct rmnet_map_dl_ind_trl *)((char *)cmd + sizeof(*cmd));
 
 	port->stats.dl_trl_last_seq = dltrl->seq_le;
 	port->stats.dl_trl_count++;
 
-	rmnet_map_dl_trl_notify(port, dltrl);
+	/* If a target is taking frag path, we can assume DL marker v2 is in
+	 * play
+	 */
+	if (is_dl_mark_v2)
+		rmnet_map_dl_trl_notify_v2(port, dltrl, cmd);
+	else
+		rmnet_map_dl_trl_notify(port, dltrl);
 }
 
 /* Process MAP command frame and send N/ACK message as appropriate. Message cmd
@@ -269,10 +294,10 @@ void rmnet_frag_command(struct rmnet_map_header *qmap, struct rmnet_port *port)
 int rmnet_frag_flow_command(struct rmnet_map_header *qmap,
 			    struct rmnet_port *port, u16 pkt_len)
 {
-	struct rmnet_map_control_command *cmd;
+	struct rmnet_map_control_command_header *cmd;
 	unsigned char command_name;
 
-	cmd = (struct rmnet_map_control_command *)
+	cmd = (struct rmnet_map_control_command_header *)
 	      ((char *)qmap + sizeof(*qmap));
 	command_name = cmd->command_name;
 
