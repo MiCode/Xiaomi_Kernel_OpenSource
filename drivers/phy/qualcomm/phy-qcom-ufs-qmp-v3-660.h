@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016,2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,7 @@
 #define UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP	PHY_OFF(0xCC)
 #define UFS_PHY_LINECFG_DISABLE			PHY_OFF(0x138)
 #define UFS_PHY_RX_SYM_RESYNC_CTRL		PHY_OFF(0x13C)
+#define UFS_PHY_RX_MIN_HIBERN8_TIME		PHY_OFF(0x140)
 #define UFS_PHY_RX_SIGDET_CTRL2			PHY_OFF(0x148)
 #define UFS_PHY_RX_PWM_GEAR_BAND		PHY_OFF(0x154)
 #define UFS_PHY_PCS_READY_STATUS		PHY_OFF(0x168)
@@ -274,6 +275,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_3_1_1[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_SMALL_AMP_DRV_LVL, 0x02),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SYM_RESYNC_CTRL, 0x03),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_HIBERN8_TIME, 0x9A), /* 8 us */
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
