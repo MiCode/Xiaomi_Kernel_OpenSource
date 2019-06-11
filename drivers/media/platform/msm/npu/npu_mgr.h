@@ -22,6 +22,8 @@
 #define NW_CMD_TIMEOUT msecs_to_jiffies(NW_CMD_TIMEOUT_MS)
 #define NW_DEBUG_TIMEOUT_MS (1000 * 60 * 30) /* set for 30 minutes */
 #define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
+#define NPU_MBOX_IDLE_TIMEOUT_MS 500 /* set for 500ms */
+#define NPU_MBOX_IDLE_TIMEOUT msecs_to_jiffies(NPU_MBOX_IDLE_TIMEOUT_MS)
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
 #define NPU_IPC_BUF_LENGTH 512
@@ -74,6 +76,8 @@ struct npu_host_ctx {
 	int32_t power_vote_num;
 	struct work_struct ipc_irq_work;
 	struct work_struct wdg_err_irq_work;
+	struct work_struct bridge_mbox_work;
+	struct delayed_work disable_fw_work;
 	struct workqueue_struct *wq;
 	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
@@ -96,6 +100,8 @@ struct npu_host_ctx {
 	uint32_t misc_cmd_result;
 	struct notifier_block nb;
 	void *notif_hdle;
+	spinlock_t bridge_mbox_lock;
+	bool bridge_mbox_pwr_on;
 };
 
 struct npu_device;
