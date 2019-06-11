@@ -427,6 +427,7 @@ static struct reg_list_pair {
 /* IFPC only static powerup restore list */
 static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
 	{ A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x0 },
+	{ A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0 },
 	{ A6XX_CP_CHICKEN_DBG, 0x0 },
 	{ A6XX_CP_DBG_ECO_CNTL, 0x0 },
 	{ A6XX_CP_PROTECT_CNTL, 0x0 },
