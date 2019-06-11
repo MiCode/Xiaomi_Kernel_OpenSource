@@ -206,6 +206,7 @@ int hab_msg_recv(struct physical_channel *pchan,
 	struct virtual_channel *vchan = NULL;
 	struct export_desc *exp_desc = NULL, exp_ack = {0};
 	struct timeval tv = {0};
+	unsigned long long rx_mpm_tv = 0;
 
 	/* get the local virtual channel if it isn't an open message */
 	if (payload_type != HAB_PAYLOAD_TYPE_INIT &&
