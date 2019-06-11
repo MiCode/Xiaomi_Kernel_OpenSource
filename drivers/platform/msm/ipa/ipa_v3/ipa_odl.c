@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include "ipa_i.h"
@@ -365,7 +365,8 @@ static int ipa_adpl_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 
 	IPADBG("Called the function :\n");
-	if (ipa3_odl_ctx->odl_state.odl_init) {
+	if (ipa3_odl_ctx->odl_state.odl_init &&
+				!ipa3_odl_ctx->odl_state.adpl_open) {
 		ipa3_odl_ctx->odl_state.adpl_open = true;
 		ret = ipa3_odl_pipe_open();
 	} else {
@@ -414,6 +415,8 @@ void ipa3_odl_pipe_cleanup(bool is_ssr)
 	/*Assume DIAG will not close this node in SSR case*/
 	if (is_ssr)
 		ipa3_odl_ctx->odl_state.adpl_open = true;
+	else
+		ipa3_odl_ctx->odl_state.adpl_open = false;
 
 	ipa3_odl_ctx->odl_state.odl_disconnected = true;
 	ipa3_odl_ctx->odl_state.odl_ep_setup = false;
