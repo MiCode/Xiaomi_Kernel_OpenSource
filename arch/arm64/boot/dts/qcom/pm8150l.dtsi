@@ -400,6 +400,9 @@
 		};
 
 		pm8150a_amoled: qcom,amoled {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
 			compatible = "qcom,qpnp-amoled-regulator";
 			status = "disabled";
 

@@ -803,6 +803,8 @@
 			mhi,bhie-offset = <0x0324>;
 
 			mhi_channels {
+				#address-cells = <1>;
+				#size-cells = <0>;
 				mhi_chan@0 {
 					reg = <0>;
 					label = "LOOPBACK";

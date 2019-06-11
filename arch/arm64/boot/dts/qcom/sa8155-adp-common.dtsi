@@ -51,6 +51,9 @@
 };
 
 &qupv3_se10_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 	asm330@6a {
 		compatible = "st,asm330lhh";

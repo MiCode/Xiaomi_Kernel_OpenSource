@@ -55,6 +55,9 @@
 };
 
 &qupv3_se9_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 	lt9611: lt,lt9611@3b {
 		compatible = "lt,lt9611";
