@@ -2105,13 +2105,30 @@ static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id,
 
 int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
 {
+	uint32_t bw_mbps = 0;
+	int ret = 0;
+
 	if (!state)
 		return -EINVAL;
 
-	if (state->up)
-		return ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
-	else
-		return ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	if (state->up) {
+		bw_mbps = 5200;
+		ret = ipa3_vote_for_bus_bw(&bw_mbps);
+		if (ret) {
+			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
+			return ret;
+		}
+		ret = ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	} else {
+		bw_mbps = 0;
+		ret = ipa3_vote_for_bus_bw(&bw_mbps);
+		if (ret) {
+			IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
+			return ret;
+		}
+		ret = ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
+	}
+	return ret;
 }
 
 /**
@@ -2159,16 +2176,8 @@ static void ipa3_q6_deregister_pm(void)
 int ipa3_wwan_set_modem_perf_profile(int throughput)
 {
 	int ret;
-	int tether_bridge_handle = 0;
 
 	IPAWANDBG("throughput: %d\n", throughput);
-	/* query rmnet-tethering handle */
-	tether_bridge_handle = ipa3_teth_bridge_get_pm_hdl();
-	if (tether_bridge_handle > 0) {
-		/* only update with valid handle*/
-		ret = ipa_pm_set_throughput(tether_bridge_handle,
-		throughput);
-	}
 	/* for TETH MODEM on softap/rndis */
 	ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
 	throughput);
