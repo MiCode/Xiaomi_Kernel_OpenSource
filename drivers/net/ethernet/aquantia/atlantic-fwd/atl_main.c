@@ -490,7 +490,10 @@ static int atl_suspend_common(struct device *dev, bool deep)
 			atl_dev_err("Enable WoL failed: %d\n", -ret);
 	}
 
+	pci_save_state(pdev);
 	pci_disable_device(pdev);
+	pci_set_power_state(pdev, PCI_D3hot);
+
 	__clear_bit(ATL_ST_ENABLED, &nic->state);
 
 	rtnl_unlock();
@@ -516,6 +519,9 @@ static int atl_resume_common(struct device *dev, bool deep)
 
 	rtnl_lock();
 
+	pci_set_power_state(pdev, PCI_D0);
+	pci_restore_state(pdev);
+
 	ret = pci_enable_device_mem(pdev);
 	if (ret)
 		goto exit;
@@ -537,6 +543,10 @@ static int atl_resume_common(struct device *dev, bool deep)
 	if (deep && atl_keep_link)
 		atl_link_up(nic);
 
+	if (ret)
+		goto exit;
+
+	ret = atl_fwd_resume_rings(nic);
 	if (ret)
 		goto exit;
 
