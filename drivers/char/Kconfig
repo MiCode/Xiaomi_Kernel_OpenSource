@@ -559,6 +559,14 @@ config MSM_ADSPRPC
           applications/compute DSP processor.
 		  Say M if you want to enable this module.
 
+config MSM_RDBG
+	tristate "QTI Remote debug driver"
+	help
+	Implements a shared memory based transport mechanism that allows
+	for a debugger running on a host PC to communicate with a remote
+	stub running on peripheral subsystems such as the ADSP, MODEM etc.
+		Say M if you want to enable this module.
+
 config ADI
 	tristate "SPARC Privileged ADI driver"
 	depends on SPARC64
