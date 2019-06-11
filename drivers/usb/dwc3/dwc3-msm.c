@@ -177,6 +177,7 @@ enum plug_orientation {
 #define ID			0
 #define B_SESS_VLD		1
 #define B_SUSPEND		2
+#define WAIT_FOR_LPM		3
 
 #define PM_QOS_SAMPLE_SEC	2
 #define PM_QOS_THRESHOLD	400
@@ -2224,7 +2225,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool hibernation)
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
+
+	/* kick_sm if it is waiting for lpm sequence to finish */
+	if (test_and_clear_bit(WAIT_FOR_LPM, &mdwc->inputs))
+		schedule_delayed_work(&mdwc->sm_work, 0);
+
 	mutex_unlock(&mdwc->suspend_resume_mutex);
+
 	return 0;
 }
 
@@ -3737,6 +3744,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		if (!mdwc->host_only_mode)
 			dwc3_post_host_reset_core_init(dwc);
 
+		/* wait for LPM, to ensure h/w is reset after stop_host */
+		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
+
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",
@@ -3819,6 +3829,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
 		dwc3_override_vbus_status(mdwc, false);
 		dwc3_usb3_phy_suspend(dwc, false);
+
+		/* wait for LPM, to ensure h/w is reset after stop_peripheral */
+		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 	}
 
 	pm_runtime_put_sync(mdwc->dev);
@@ -3936,6 +3949,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		pm_runtime_enable(mdwc->dev);
 		/* fall-through */
 	case DRD_STATE_IDLE:
+		if (test_bit(WAIT_FOR_LPM, &mdwc->inputs)) {
+			dev_dbg(mdwc->dev, "still not in lpm, wait.\n");
+			break;
+		}
+
 		if (!test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "!id\n");
 			mdwc->drd_state = DRD_STATE_HOST_IDLE;
