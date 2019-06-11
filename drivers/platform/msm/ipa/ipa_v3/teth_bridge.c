@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +191,9 @@ int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 			TETH_ERR("fail to register with PM %d\n", res);
 			return res;
 		}
-
+		/* vote for turbo */
+		res = ipa_pm_set_throughput(ipa3_teth_ctx->modem_pm_hdl,
+			5200);
 		res = ipa_pm_activate_sync(ipa3_teth_ctx->modem_pm_hdl);
 		goto bail;
 	}
