@@ -48,7 +48,8 @@ static const char * const clocks[] = {
 	"rbcpr_clk",
 	"iref_clk",
 	"gmu_clk",
-	"ahb_clk"
+	"ahb_clk",
+	"smmu_vote",
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
