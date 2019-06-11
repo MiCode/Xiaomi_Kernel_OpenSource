@@ -117,6 +117,9 @@ struct mhi_netdev {
 	enum MHI_DEBUG_LEVEL msg_lvl;
 	enum MHI_DEBUG_LEVEL ipc_log_lvl;
 	void *ipc_log;
+
+	/* debug stats */
+	u32 abuffers, kbuffers, rbuffers;
 };
 
 struct mhi_netdev_priv {
@@ -228,6 +231,7 @@ static int mhi_netdev_tmp_alloc(struct mhi_netdev *mhi_netdev,
 			__free_pages(mhi_buf->page, order);
 			return ret;
 		}
+		mhi_netdev->abuffers++;
 	}
 
 	return 0;
@@ -268,6 +272,7 @@ static int mhi_netdev_queue_bg_pool(struct mhi_netdev *mhi_netdev,
 			break;
 		}
 		list_del(&mhi_buf->node);
+		mhi_netdev->kbuffers++;
 	}
 
 	/* add remaining buffers back to main pool */
@@ -339,6 +344,7 @@ static void mhi_netdev_queue(struct mhi_netdev *mhi_netdev,
 			list_add(&mhi_buf->node, pool);
 			return;
 		}
+		mhi_netdev->rbuffers++;
 	}
 
 	/* recycling did not work, buffers are still busy use bg pool */
@@ -844,6 +850,31 @@ static void mhi_netdev_status_cb(struct mhi_device *mhi_dev, enum MHI_CB mhi_cb)
 
 struct dentry *dentry;
 
+static int mhi_netdev_debugfs_stats_show(struct seq_file *m, void *d)
+{
+	struct mhi_netdev *mhi_netdev = m->private;
+
+	seq_printf(m,
+		   "mru:%u order:%u pool_size:%d, bg_pool_size:%d bg_pool_limit:%d abuf:%u kbuf:%u rbuf:%u\n",
+		   mhi_netdev->mru, mhi_netdev->order, mhi_netdev->pool_size,
+		   mhi_netdev->bg_pool_size, mhi_netdev->bg_pool_limit,
+		   mhi_netdev->abuffers, mhi_netdev->kbuffers,
+		   mhi_netdev->rbuffers);
+
+	return 0;
+}
+
+static int mhi_netdev_debugfs_stats_open(struct inode *inode, struct file *fp)
+{
+	return single_open(fp, mhi_netdev_debugfs_stats_show, inode->i_private);
+}
+
+static const struct file_operations debugfs_stats = {
+	.open = mhi_netdev_debugfs_stats_open,
+	.release = single_release,
+	.read = seq_read,
+};
+
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
@@ -860,6 +891,9 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 	mhi_netdev->dentry = debugfs_create_dir(node_name, dentry);
 	if (IS_ERR_OR_NULL(mhi_netdev->dentry))
 		return;
+
+	debugfs_create_file_unsafe("stats", 0444, mhi_netdev->dentry,
+				   mhi_netdev, &debugfs_stats);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)
