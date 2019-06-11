@@ -66,7 +66,6 @@ static struct msm_bus_scale_pdata clk_debugfs_scale_table = {
 
 enum {
 	P_BI_TCXO,
-	P_BI_TCXO_MX,
 	P_CAM_CC_PLL0_OUT_EVEN,
 	P_CAM_CC_PLL0_OUT_MAIN,
 	P_CAM_CC_PLL0_OUT_ODD,
@@ -99,7 +98,7 @@ static const char * const cam_cc_parent_names_0[] = {
 };
 
 static const struct parent_map cam_cc_parent_map_1[] = {
-	{ P_BI_TCXO_MX, 0 },
+	{ P_BI_TCXO, 0 },
 	{ P_CAM_CC_PLL2_OUT_AUX2, 3 },
 	{ P_CAM_CC_PLL2_OUT_EARLY, 5 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
@@ -322,6 +321,18 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.user_ctl_hi1_val = 0x00000000,
 };
 
+static const struct alpha_pll_config cam_cc_pll2_config_sm8250_v2 = {
+	.l = 0x4B,
+	.cal_l = 0x4B,
+	.alpha = 0x0,
+	.config_ctl_val = 0x08200920,
+	.config_ctl_hi_val = 0x05008011,
+	.config_ctl_hi1_val = 0x00000000,
+	.user_ctl_val = 0x00000100,
+	.user_ctl_hi_val = 0x00000000,
+	.user_ctl_hi1_val = 0x00000000,
+};
+
 static struct clk_alpha_pll cam_cc_pll2 = {
 	.offset = 0x2000,
 	.vco_table = zonda_vco,
@@ -494,6 +505,16 @@ static const struct freq_tbl ftbl_cam_cc_bps_clk_src[] = {
 	F(200000000, P_CAM_CC_PLL0_OUT_ODD, 2, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	F(480000000, P_CAM_CC_PLL2_OUT_MAIN, 1, 0, 0),
+	F(600000000, P_CAM_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_bps_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(100000000, P_CAM_CC_PLL0_OUT_EVEN, 6, 0, 0),
+	F(200000000, P_CAM_CC_PLL0_OUT_ODD, 2, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
+	F(480000000, P_CAM_CC_PLL2_OUT_MAIN, 1.5, 0, 0),
 	F(600000000, P_CAM_CC_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
@@ -778,6 +799,14 @@ static const struct freq_tbl ftbl_cam_cc_fd_core_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_cam_cc_fd_core_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
+	F(480000000, P_CAM_CC_PLL2_OUT_MAIN, 1.5, 0, 0),
+	F(600000000, P_CAM_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 cam_cc_fd_core_clk_src = {
 	.cmd_rcgr = 0xc098,
 	.mnd_width = 0,
@@ -828,6 +857,15 @@ static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src[] = {
 	F(475000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(576000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(720000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(350000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(475000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(576000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(680000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -890,6 +928,15 @@ static const struct freq_tbl ftbl_cam_cc_ife_1_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_cam_cc_ife_1_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(350000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(475000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(576000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	F(680000000, P_CAM_CC_PLL4_OUT_EVEN, 1, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 cam_cc_ife_1_clk_src = {
 	.cmd_rcgr = 0xb010,
 	.mnd_width = 0,
@@ -937,6 +984,13 @@ static const struct freq_tbl ftbl_cam_cc_ife_lite_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	F(480000000, P_CAM_CC_PLL2_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_ife_lite_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
+	F(480000000, P_CAM_CC_PLL2_OUT_MAIN, 1.5, 0, 0),
 	{ }
 };
 
@@ -1036,9 +1090,16 @@ static struct clk_rcg2 cam_cc_jpeg_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
-	F(19200000, P_BI_TCXO_MX, 1, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 4),
 	F(68571429, P_CAM_CC_PLL2_OUT_EARLY, 14, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src_kona_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(24000000, P_CAM_CC_PLL2_OUT_EARLY, 10, 1, 6),
+	F(68571429, P_CAM_CC_PLL2_OUT_EARLY, 1, 1, 21),
 	{ }
 };
 
@@ -2593,9 +2654,32 @@ static const struct qcom_cc_desc cam_cc_kona_desc = {
 
 static const struct of_device_id cam_cc_kona_match_table[] = {
 	{ .compatible = "qcom,camcc-kona" },
+	{ .compatible = "qcom,camcc-kona-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_kona_match_table);
+
+static void cam_cc_kona_fixup_konav2(struct regmap *regmap)
+{
+	clk_zonda_pll_configure(&cam_cc_pll2, regmap,
+		&cam_cc_pll2_config_sm8250_v2);
+	cam_cc_bps_clk_src.freq_tbl = ftbl_cam_cc_bps_clk_src_kona_v2;
+	cam_cc_fd_core_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_kona_v2;
+	cam_cc_icp_clk_src.freq_tbl = ftbl_cam_cc_fd_core_clk_src_kona_v2;
+	cam_cc_ife_0_clk_src.freq_tbl = ftbl_cam_cc_ife_0_clk_src_kona_v2;
+	cam_cc_ife_0_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 680000000;
+	cam_cc_ife_1_clk_src.freq_tbl = ftbl_cam_cc_ife_1_clk_src_kona_v2;
+	cam_cc_ife_1_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 680000000;
+	cam_cc_ife_lite_clk_src.freq_tbl = ftbl_cam_cc_ife_lite_clk_src_kona_v2;
+	cam_cc_jpeg_clk_src.freq_tbl = ftbl_cam_cc_bps_clk_src_kona_v2;
+	cam_cc_mclk0_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk1_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk2_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk3_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk4_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk5_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+	cam_cc_mclk6_clk_src.freq_tbl = ftbl_cam_cc_mclk0_clk_src_kona_v2;
+}
 
 static int cam_cc_kona_probe(struct platform_device *pdev)
 {
@@ -2651,6 +2735,10 @@ static int cam_cc_kona_probe(struct platform_device *pdev)
 	clk_zonda_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
 	clk_lucid_pll_configure(&cam_cc_pll3, regmap, &cam_cc_pll3_config);
 	clk_lucid_pll_configure(&cam_cc_pll4, regmap, &cam_cc_pll4_config);
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				"qcom,camcc-kona-v2"))
+		cam_cc_kona_fixup_konav2(regmap);
 
 	ret = qcom_cc_really_probe(pdev, &cam_cc_kona_desc, regmap);
 	if (ret) {
