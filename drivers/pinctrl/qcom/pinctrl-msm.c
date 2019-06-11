@@ -633,7 +633,7 @@ static void msm_gpio_update_dual_edge_pos(struct msm_pinctrl *pctrl,
 		val, val2);
 }
 
-static void msm_gpio_irq_mask(struct irq_data *d)
+static void _msm_gpio_irq_mask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
@@ -642,13 +642,6 @@ static void msm_gpio_irq_mask(struct irq_data *d)
 	u32 val;
 
 	g = &pctrl->soc->groups[d->hwirq];
-
-	if (d->parent_data)
-		irq_chip_mask_parent(d);
-
-	/* Monitored by parent wakeup controller? */
-	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
-		return;
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
@@ -684,7 +677,7 @@ static void msm_gpio_irq_mask(struct irq_data *d)
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 }
 
-static void msm_gpio_irq_unmask(struct irq_data *d)
+static void _msm_gpio_irq_unmask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
@@ -693,13 +686,6 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 	u32 val;
 
 	g = &pctrl->soc->groups[d->hwirq];
-
-	if (d->parent_data)
-		irq_chip_unmask_parent(d);
-
-	/* Monitored by parent wakeup controller? Keep masked */
-	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
-		return;
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
 
@@ -711,6 +697,62 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 	set_bit(d->hwirq, pctrl->enabled_irqs);
 
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+}
+
+static void msm_gpio_irq_mask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data)
+		irq_chip_mask_parent(d);
+
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
+	_msm_gpio_irq_mask(d);
+}
+
+static void msm_gpio_irq_unmask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data)
+		irq_chip_unmask_parent(d);
+
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
+	_msm_gpio_irq_unmask(d);
+}
+
+static void msm_gpio_irq_disable(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data)
+		irq_chip_disable_parent(d);
+
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
+	_msm_gpio_irq_mask(d);
+}
+
+static void msm_gpio_irq_enable(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+
+	if (d->parent_data)
+		irq_chip_enable_parent(d);
+
+	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
+		return;
+
+	_msm_gpio_irq_unmask(d);
 }
 
 static void msm_gpio_irq_ack(struct irq_data *d)
@@ -1034,6 +1076,8 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 
 	pctrl->irq_chip.name = "msmgpio";
 	pctrl->irq_chip.irq_eoi	= irq_chip_eoi_parent;
+	pctrl->irq_chip.irq_enable = msm_gpio_irq_enable;
+	pctrl->irq_chip.irq_disable = msm_gpio_irq_disable;
 	pctrl->irq_chip.irq_mask = msm_gpio_irq_mask;
 	pctrl->irq_chip.irq_unmask = msm_gpio_irq_unmask;
 	pctrl->irq_chip.irq_ack = msm_gpio_irq_ack;
