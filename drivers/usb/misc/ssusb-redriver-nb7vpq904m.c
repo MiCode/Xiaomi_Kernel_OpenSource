@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -85,8 +85,10 @@ enum operation_mode {
 enum channel_mode {
 	CHAN_MODE_USB,
 	CHAN_MODE_DP,
-	CHAN_MODE_NUM,
+	/* update CHAN_MODE_NUM if new mode is added */
 };
+
+#define CHAN_MODE_NUM	2
 
 /**
  * struct ssusb_redriver - representation of USB re-driver
