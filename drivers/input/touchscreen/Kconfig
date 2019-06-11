@@ -11,6 +11,9 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/fts_521/Kconfig"
+source "drivers/input/touchscreen/goodix_driver_gt9886/Kconfig"
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1246,6 +1249,12 @@ config TOUCHSCREEN_ROHM_BU21023
 	  To compile this driver as a module, choose M here: the
 	  module will be called bu21023_ts.
 
+config INPUT_PRESS_NDT
+	bool "ndt"
+	depends on I2C
+	help
+	  Say Y here if you have a press ic ndt.
+
 config TOUCHSCREEN_ST
 	bool "STMicroelectronics Touchscreen Driver"
 	depends on I2C
@@ -1277,5 +1286,15 @@ config TOUCHSCREEN_SYNAPTICS_DSX
           If unsure, say N.
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+
+config TOUCHSCREEN_NT36XX
+        bool "nt36xxx Touchscreen Driver"
+        depends on I2C
+        help
+          Say Y here if you have a nt36xxx Touchscreen.
+
+          If unsure, say N.
+
+source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
 endif

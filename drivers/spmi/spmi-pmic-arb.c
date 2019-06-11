@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,6 +443,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	pmic_arb_base_write(pmic_arb, offset + PMIC_ARB_CMD, cmd);
 	rc = pmic_arb_wait_for_done(ctrl, pmic_arb->wr_base, sid, addr,
 				    PMIC_ARB_CHANNEL_RW);
+
 	raw_spin_unlock_irqrestore(&pmic_arb->lock, flags);
 
 	return rc;
@@ -559,6 +561,7 @@ static void pmic_arb_chained_irq(struct irq_desc *desc)
 					ver_ops->acc_enable(pmic_arb, apid));
 			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
 				periph_interrupt(pmic_arb, apid);
+
 		}
 	}
 

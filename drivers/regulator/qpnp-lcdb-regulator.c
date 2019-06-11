@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1235,6 +1236,17 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 		pr_err("Failed to read %s volatge rc=%d\n",
 			(type == LDO) ? "LDO" : "NCP", rc);
 		return rc;
+	}
+
+	if ((val & 0x80) && (type == NCP))//NCP follow 0x71 LDO
+	{
+		offset = LCDB_LDO_OUTPUT_VOLTAGE_REG;
+
+		rc = qpnp_lcdb_read(lcdb, lcdb->base + offset, &val, 1);
+		if (rc < 0) {
+				 pr_err("Failed to read NCP volatge rc=%d\n", rc);
+				 return rc;
+		}
 	}
 
 	val &= SET_OUTPUT_VOLTAGE_MASK;

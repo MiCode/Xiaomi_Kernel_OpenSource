@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -983,6 +984,7 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	unsigned char *temp = buf;
 	int save_req_uid = 0;
 	struct diag_dci_pkt_rsp_header_t pkt_rsp_header;
+	int header_len = sizeof(struct diag_dci_pkt_rsp_header_t);
 
 	if (!buf) {
 		pr_err("diag: Invalid pointer in %s\n", __func__);
@@ -1043,21 +1045,26 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	mutex_lock(&rsp_buf->data_mutex);
 	/*
 	 * Check if we can fit the data in the rsp buffer. The total length of
-	 * the rsp is the rsp length (write_len) + DCI_PKT_RSP_TYPE header (int)
-	 * + field for length (int) + delete_flag (uint8_t)
+	 * the rsp is the rsp length (write_len) + dci response packet header
+	 * length (sizeof(struct diag_dci_pkt_rsp_header_t))
 	 */
-	if ((rsp_buf->data_len + 9 + rsp_len) > rsp_buf->capacity) {
+	if (rsp_buf->data_len > rsp_buf->capacity) {
+		rsp_buf->capacity = rsp_buf->data_len;
+	}
+	if ((rsp_buf->data_len + header_len + rsp_len) > rsp_buf->capacity) {
 		pr_alert("diag: create capacity for pkt rsp\n");
-		rsp_buf->capacity += 9 + rsp_len;
-		temp_buf = krealloc(rsp_buf->data, rsp_buf->capacity,
-				    GFP_KERNEL);
+		temp_buf = vzalloc(rsp_buf->capacity + header_len + rsp_len);
 		if (!temp_buf) {
-			pr_err("diag: DCI realloc failed\n");
+			pr_err("diag: DCI vzalloc failed\n");
 			mutex_unlock(&rsp_buf->data_mutex);
 			mutex_unlock(&entry->buffers[data_source].buf_mutex);
 			mutex_unlock(&driver->dci_mutex);
 			return;
 		}
+		rsp_buf->capacity += header_len + rsp_len;
+		if (rsp_buf->capacity > rsp_buf->data_len)
+			memcpy(temp_buf, rsp_buf->data, rsp_buf->data_len);
+		vfree(rsp_buf->data);
 		rsp_buf->data = temp_buf;
 	}
 
@@ -1067,9 +1074,8 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	pkt_rsp_header.length = rsp_len + sizeof(int);
 	pkt_rsp_header.delete_flag = delete_flag;
 	pkt_rsp_header.uid = save_req_uid;
-	memcpy(rsp_buf->data + rsp_buf->data_len, &pkt_rsp_header,
-		sizeof(struct diag_dci_pkt_rsp_header_t));
-	rsp_buf->data_len += sizeof(struct diag_dci_pkt_rsp_header_t);
+	memcpy(rsp_buf->data + rsp_buf->data_len, &pkt_rsp_header, header_len);
+	rsp_buf->data_len += header_len;
 	memcpy(rsp_buf->data + rsp_buf->data_len, temp, rsp_len);
 	rsp_buf->data_len += rsp_len;
 	rsp_buf->data_source = data_source;

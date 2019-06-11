@@ -1,0 +1,6 @@
+Trusty virq simulation interface
+
+Trusty is running in secure mode on the same (arm) cpu(s) as the current os.
+
+Required properties:
+- compatible: "nbl,hee-irqs"

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -313,9 +314,6 @@ static int cam_cpas_util_axi_setup(struct cam_cpas *cpas_core,
 			goto mnoc_node_get_fail;
 		}
 		axi_port->axi_port_mnoc_node = axi_port_mnoc_node;
-		axi_port->ib_bw_voting_needed =
-			of_property_read_bool(axi_port_node,
-				"ib-bw-voting-needed");
 
 		rc = cam_cpas_util_register_bus_client(soc_info,
 			axi_port_mnoc_node, &axi_port->mnoc_bus);
@@ -665,19 +663,12 @@ static int cam_cpas_util_apply_client_axi_vote(
 		axi_port->camnoc_bus.src, axi_port->camnoc_bus.dst,
 		camnoc_bw, mnoc_bw);
 
-	if (axi_port->ib_bw_voting_needed)
-		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-			mnoc_bw, mnoc_bw, false);
-	else
-		rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
-			mnoc_bw, 0, false);
-
+	rc = cam_cpas_util_vote_bus_client_bw(&axi_port->mnoc_bus,
+		mnoc_bw, mnoc_bw, false);
 	if (rc) {
 		CAM_ERR(CAM_CPAS,
 			"Failed in mnoc vote ab[%llu] ib[%llu] rc=%d",
-			mnoc_bw,
-			(axi_port->ib_bw_voting_needed ? mnoc_bw : 0),
-			rc);
+			mnoc_bw, mnoc_bw, rc);
 		goto unlock_axi_port;
 	}
 

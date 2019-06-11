@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1185,8 +1186,7 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	 * batch size count of extra buffers added on output port
 	 */
 	if (is_output_buffer(inst, buffer_type)) {
-		if (inst->core->resources.decode_batching &&
-			is_decode_session(inst) &&
+		if (inst->decode_batching && is_decode_session(inst) &&
 			count < inst->batch.size)
 			count = inst->batch.size;
 	}

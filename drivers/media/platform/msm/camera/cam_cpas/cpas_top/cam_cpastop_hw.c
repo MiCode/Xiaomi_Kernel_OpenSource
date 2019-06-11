@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -504,6 +505,8 @@ done:
 static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
+
+	cam_cpastop_reset_irq(cpas_hw);
 
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {

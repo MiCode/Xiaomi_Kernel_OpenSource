@@ -2,6 +2,7 @@
  *  linux/mm/memory.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -1132,7 +1133,7 @@ again:
 	 * are still not flushed.
 	 */
 	if (IS_ENABLED(CONFIG_SPECULATIVE_PAGE_FAULT) &&
-	    is_cow_mapping(vma->vm_flags))
+			is_cow_mapping(vma->vm_flags))
 		flush_tlb_range(vma, orig_addr, end);
 
 	spin_unlock(src_ptl);
@@ -4516,6 +4517,9 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 		trace_spf_vma_changed(_RET_IP_, vmf.vma, address);
 		return VM_FAULT_RETRY;
 	}
+
+	if (flags & FAULT_FLAG_WRITE && !pte_write(vmf.orig_pte))
+		return VM_FAULT_RETRY;
 
 	mem_cgroup_oom_enable();
 	ret = handle_pte_fault(&vmf);

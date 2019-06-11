@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1375,9 +1376,9 @@ static void dfc_svc_init(struct work_struct *work)
 	qmi->dfc_pending[data->index] = NULL;
 	qmi->dfc_clients[data->index] = (void *)data;
 	trace_dfc_client_state_up(data->index,
-				  data->svc.instance,
-				  data->svc.ep_type,
-				  data->svc.iface_id);
+	data->svc.instance,
+	data->svc.ep_type,
+	data->svc.iface_id);
 
 	rtnl_unlock();
 

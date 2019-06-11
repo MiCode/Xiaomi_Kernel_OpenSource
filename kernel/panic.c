@@ -2,6 +2,7 @@
  *  linux/kernel/panic.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -140,6 +141,12 @@ void panic(const char *fmt, ...)
 	int state = 0;
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
+
+	if (!in_atomic())
+	{
+		pr_emerg("sys_sync:try sys_sync in panic\n");
+		exec_fs_sync_work();
+	}
 
 	trace_kernel_panic(0);
 

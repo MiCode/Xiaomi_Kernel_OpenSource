@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -317,6 +318,7 @@
 					pins = "gpio122";
 					drive-strength = <2>;
 					bias-pull-down;
+					input-enable;
 				};
 			};
 		};
@@ -330,7 +332,8 @@
 				config {
 					pins = "gpio54";
 					drive-strength = <2>;
-					bias-pull-down;
+					bias-disable;
+					output-low;
 				};
 			};
 		};
@@ -349,6 +352,7 @@
 				};
 			};
 
+			/*
 			pcie0_perst_default: pcie0_perst_default {
 				mux {
 					pins = "gpio35";
@@ -361,8 +365,9 @@
 					bias-pull-down;
 				};
 			};
+			*/
 
-			pcie0_wake_default: pcie0_wake_default {
+/*			pcie0_wake_default: pcie0_wake_default {
 				mux {
 					pins = "gpio37";
 					function = "gpio";
@@ -374,6 +379,7 @@
 					bias-pull-up;
 				};
 			};
+*/
 		};
 
 		pcie1 {
@@ -1083,12 +1089,12 @@
 				/* active state */
 				mux {
 					/* 41: NFC ENABLE 42:ESE Enable */
-					pins = "gpio41", "gpio42", "gpio48";
+					pins = "gpio41", "gpio48";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio41", "gpio42", "gpio48";
+					pins = "gpio41", "gpio48";
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-up;
 				};
@@ -1098,12 +1104,12 @@
 				/* sleep state */
 				mux {
 					/* 41: NFC ENABLE 42:ESE Enable */
-					pins = "gpio41", "gpio42", "gpio48";
+					pins = "gpio41", "gpio48";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio41", "gpio42", "gpio48";
+					pins = "gpio41", "gpio48";
 					drive-strength = <2>; /* 2 MA */
 					bias-disable;
 				};
@@ -2400,6 +2406,20 @@
 		};
 
 		tert_tdm {
+
+			cs35l41_int_default: cs35l41_int_default {
+				mux {
+					pins = "gpio10";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio10";
+					bias-pull-up;
+					drive-strength = <8>;
+					input-enable;
+				};
+			};
+
 			tert_tdm_sleep: tert_tdm_sleep {
 				mux {
 					pins = "gpio133", "gpio134";
@@ -3653,6 +3673,63 @@
 					pins = "gpio142", "gpio53";
 					drive-strength = <8>;
 					bias-disable;
+				};
+			};
+		};
+
+		/* USB C analog configuration */
+		wcd_usbc_analog_en1 {
+			wcd_usbc_analog_en1_idle: wcd_usbc_ana_en1_idle {
+				mux {
+					pins = "gpio35";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio35";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_usbc_analog_en1_active: wcd_usbc_ana_en1_active {
+				mux {
+					pins = "gpio35";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio35";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd_usbc_analog_en2 {
+			wcd_usbc_analog_en2_idle: wcd_usbc_ana_en2_idle {
+				mux {
+					pins = "gpio58";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio58";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_usbc_analog_en2_active: wcd_usbc_ana_en2_active {
+				mux {
+					pins = "gpio58";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio58";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
 				};
 			};
 		};

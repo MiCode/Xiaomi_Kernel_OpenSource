@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,10 +197,7 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 
 	for (i = 0; i < NUM_MASTERS; i++) {
 		new_cci_dev->cci_master_info[i].status = 0;
-		new_cci_dev->cci_master_info[i].is_first_req = true;
 		mutex_init(&new_cci_dev->cci_master_info[i].mutex);
-		sema_init(&new_cci_dev->cci_master_info[i].master_sem, 1);
-		spin_lock_init(&new_cci_dev->cci_master_info[i].freq_cnt);
 		init_completion(
 			&new_cci_dev->cci_master_info[i].reset_complete);
 		init_completion(

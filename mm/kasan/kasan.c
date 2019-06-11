@@ -2,6 +2,7 @@
  * This file contains shadow memory manipulation code.
  *
  * Copyright (c) 2014 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Andrey Ryabinin <ryabinin.a.a@gmail.com>
  *
  * Some code borrowed from https://github.com/xairy/kasan-prototype by
@@ -450,7 +451,7 @@ static inline depot_stack_handle_t save_stack(gfp_t flags)
 	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
 		trace.nr_entries--;
 
-	return depot_save_stack(&trace, flags);
+	return depot_save_stack(&trace, flags, 0);
 }
 
 static inline void set_track(struct kasan_track *track, gfp_t flags)

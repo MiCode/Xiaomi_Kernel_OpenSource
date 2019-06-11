@@ -48,6 +48,17 @@ config SMB1355_SLAVE_CHARGER
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
 
+config IDT_P9220
+	tristate "idtp9220 wireless Charger"
+	depends on I2C
+	help
+	  Say Y to include support for idtp9220 wireless Charger.
+	  idtp9220 is a wireless battery charger.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  The driver controls idtp9220 via I2C and
+	  supports device-tree interface.
+
 config QPNP_SMB2
 	tristate "SMB2 Battery Charger"
 	depends on MFD_SPMI_PMIC

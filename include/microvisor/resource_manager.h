@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018 Cog Systems Pty Ltd
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -67,8 +68,8 @@ struct boot_mgr_start_params {
 #define RES_MGR_SECURECAM_GET_HANDLE 0x00710001
 
 struct res_mgr_region {
-    uint64_t address_ipa;
-    uint64_t size;
+	uint64_t address_ipa;
+	uint64_t size;
 };
 
 struct res_mgr_sglist {

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,8 +123,6 @@ struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client {
 	uint32_t mode_cfg_0;
 	uint32_t mode_cfg_1;
 	uint32_t bw_limit;
-	uint32_t threshlod_lossy_0;
-	uint32_t threshlod_lossy_1;
 };
 
 
@@ -177,19 +176,6 @@ struct cam_vfe_bus_ver2_vfe_out_hw_info {
 };
 
 /*
- * struct cam_vfe_bus_ver2_reg_data:
- *
- * @Brief:        Holds the bus register data
- */
-
-struct cam_vfe_bus_ver2_reg_data {
-	uint32_t      ubwc_10bit_threshold_lossy_0;
-	uint32_t      ubwc_10bit_threshold_lossy_1;
-	uint32_t      ubwc_8bit_threshold_lossy_0;
-	uint32_t      ubwc_8bit_threshold_lossy_1;
-};
-
-/*
  * struct cam_vfe_bus_ver2_hw_info:
  *
  * @Brief:            HW register info for entire Bus
@@ -198,7 +184,6 @@ struct cam_vfe_bus_ver2_reg_data {
  * @bus_client_reg:   Bus client register info
  * @comp_reg_grp:     Composite group register info
  * @vfe_out_hw_info:  VFE output capability
- * @reg_data:         bus register data;
  */
 struct cam_vfe_bus_ver2_hw_info {
 	struct cam_vfe_bus_ver2_reg_offset_common common_reg;
@@ -210,7 +195,6 @@ struct cam_vfe_bus_ver2_hw_info {
 	uint32_t num_out;
 	struct cam_vfe_bus_ver2_vfe_out_hw_info
 		vfe_out_hw_info[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
-	struct cam_vfe_bus_ver2_reg_data  reg_data;
 };
 
 /*

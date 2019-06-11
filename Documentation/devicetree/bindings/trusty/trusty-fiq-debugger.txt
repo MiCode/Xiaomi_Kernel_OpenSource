@@ -1,0 +1,8 @@
+Trusty fiq debugger interface
+
+Provides a single fiq for the fiq debugger.
+
+Required properties:
+- compatible: compatible = "android,trusty-fiq-v1-*"; where * is a serial port.
+
+Must be a child of the node that provides fiq support ("android,trusty-fiq-v1").

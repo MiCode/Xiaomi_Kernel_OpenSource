@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -313,8 +314,12 @@ enum {
 #define USB_ENG_SSUPPLY_USB2_REG		(USBIN_BASE + 0xC0)
 #define ENG_SSUPPLY_12V_OV_OPT_BIT		BIT(1)
 
+#define TYPE_C_CFG_REG                         (USBIN_BASE + 0x58)
+#define APSD_START_ON_CC_BIT                   BIT(7)
+
 #define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
 #define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)
+
 /********************************
  *  DCIN Peripheral Registers   *
  ********************************/
@@ -324,6 +329,12 @@ enum {
 
 #define DCIN_CMD_IL_REG				(DCIN_BASE + 0x40)
 #define DCIN_SUSPEND_BIT			BIT(0)
+#define DCIN_EN_OVERRIDE_BIT		BIT(1)
+#define DCIN_EN_BIT					BIT(2)
+
+#define DCIN_CMD_PULLDOWN_REG		(DCIN_BASE + 0x45)
+#define DCIN_PULLDOWN_EN_BIT		BIT(0)
+#define DCIN_MID_PULLDOWN_BIT		BIT(1)
 
 #define DCIN_LOAD_CFG_REG			(DCIN_BASE + 0x65)
 #define INPUT_MISS_POLL_EN_BIT			BIT(5)
@@ -337,6 +348,9 @@ enum {
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)
 #define SNK_RP_SHORT_BIT			BIT(0)
+
+#define TYPE_C_SNK_DEBUG_ACC_STATUS_REG			(TYPEC_BASE + 0x07)
+#define SNK_DEBUG_ACC_RPSTD_PRSTD_BIT			BIT(0)
 
 #define TYPE_C_SRC_STATUS_REG			(TYPEC_BASE + 0x08)
 #define DETECTED_SNK_TYPE_MASK			GENMASK(4, 0)
@@ -388,6 +402,10 @@ enum {
 #define TYPEC_CCOUT_BUFFER_EN_BIT		BIT(2)
 #define TYPEC_CCOUT_VALUE_BIT			BIT(1)
 #define TYPEC_CCOUT_SRC_BIT			BIT(0)
+
+#define TYPE_C_DEBUG_ACC_SNK_CFG		(TYPEC_BASE + 0x4A)
+#define TYPEC_DEBUG_ACC_SNK_SEL_ICL		BIT(2)
+#define TYPEC_DEBUG_ACC_SNK_DIS_AICL		BIT(3)
 
 #define DEBUG_ACCESS_SRC_CFG_REG		(TYPEC_BASE + 0x4C)
 #define EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT	BIT(0)
@@ -492,6 +510,7 @@ enum {
 #define WATCHDOG_TRIGGER_AFP_EN_BIT		BIT(7)
 #define BARK_WDOG_INT_EN_BIT			BIT(6)
 #define WDOG_TIMER_EN_ON_PLUGIN_BIT		BIT(1)
+#define WDOG_TIMER_EN_BIT			BIT(0)
 
 #define SNARL_BARK_BITE_WD_CFG_REG		(MISC_BASE + 0x53)
 #define BITE_WDOG_DISABLE_CHARGING_CFG_BIT	BIT(7)

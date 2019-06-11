@@ -1,0 +1,9 @@
+/*
+this file is for attribution only of andromeda
+And public attribution of xiaomi platforms(like E5 5G and so and)
+*/
+
+#include "andromeda-sm8150-p1.dtsi"
+&dsi_samsung_fhd_ea8076_cmd {
+	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_external_supply>;
+};

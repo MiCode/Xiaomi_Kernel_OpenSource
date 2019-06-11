@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,6 +218,9 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	a_ctrl->bridge_intf.ops.apply_req =
 		cam_actuator_apply_request;
 	a_ctrl->last_flush_req = 0;
+
+	v4l2_set_subdevdata(&(a_ctrl->v4l2_dev_str.sd), a_ctrl);
+
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
 	return rc;
@@ -243,24 +247,19 @@ static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 		return 0;
 	}
 
-	CAM_INFO(CAM_ACTUATOR, "platform remove invoked");
-	mutex_lock(&(a_ctrl->actuator_mutex));
-	cam_actuator_shutdown(a_ctrl);
-	mutex_unlock(&(a_ctrl->actuator_mutex));
-	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
-
 	soc_private =
 		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
 	power_info = &soc_private->power_info;
 
 	kfree(a_ctrl->io_master_info.cci_client);
 	a_ctrl->io_master_info.cci_client = NULL;
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
 	kfree(a_ctrl->soc_info.soc_private);
-	a_ctrl->soc_info.soc_private = NULL;
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
-	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
-	platform_set_drvdata(pdev, NULL);
 	devm_kfree(&pdev->dev, a_ctrl);
 
 	return rc;
@@ -268,6 +267,7 @@ static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 
 static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 {
+	int32_t rc = 0;
 	struct cam_actuator_ctrl_t      *a_ctrl =
 		i2c_get_clientdata(client);
 	struct cam_actuator_soc_private *soc_private;
@@ -279,11 +279,6 @@ static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	CAM_INFO(CAM_ACTUATOR, "i2c remove invoked");
-	mutex_lock(&(a_ctrl->actuator_mutex));
-	cam_actuator_shutdown(a_ctrl);
-	mutex_unlock(&(a_ctrl->actuator_mutex));
-	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 	soc_private =
 		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
 	power_info = &soc_private->power_info;
@@ -291,11 +286,14 @@ static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 	/*Free Allocated Mem */
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
+	kfree(power_info->power_setting);
+	kfree(power_info->power_down_setting);
+	kfree(a_ctrl->soc_info.soc_private);
+	power_info->power_setting = NULL;
+	power_info->power_down_setting = NULL;
 	a_ctrl->soc_info.soc_private = NULL;
-	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(a_ctrl);
-
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id cam_actuator_driver_dt_match[] = {
@@ -380,6 +378,7 @@ static int32_t cam_actuator_driver_platform_probe(
 	a_ctrl->last_flush_req = 0;
 
 	platform_set_drvdata(pdev, a_ctrl);
+	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, a_ctrl);
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
 	return rc;

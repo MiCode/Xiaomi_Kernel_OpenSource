@@ -141,6 +141,7 @@ config ARM64
 	select SYSCTL_EXCEPTION_TRACE
 	select THREAD_INFO_IN_TASK
 	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+	select USER_STACKTRACE_SUPPORT
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -1360,6 +1361,13 @@ config BUILD_ARM64_UNCOMPRESSED_KERNEL
 	  compression and with
 	  concatenated dtb.
 endchoice
+
+config BOOT_INFO
+        bool "Boot information from bootloader"
+        default y
+        help
+         On embedded linux device, we try to collect more information from
+         bootloader to kernel. eg. powerup reason.
 
 config KRYO_PMU_WORKAROUND
 	bool "Workaround for PMU IRQ burst"

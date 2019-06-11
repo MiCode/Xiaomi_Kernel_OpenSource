@@ -1,4 +1,5 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +21,7 @@
 #define CAM_REQ_MGR_MAX_LINKED_DEV     16
 #define MAX_REQ_SLOTS                  48
 
-#define CAM_REQ_MGR_WATCHDOG_TIMEOUT   5000
+#define CAM_REQ_MGR_WATCHDOG_TIMEOUT   40000
 #define CAM_REQ_MGR_SCHED_REQ_TIMEOUT  1000
 #define CAM_REQ_MGR_SIMULATE_SCHED_REQ 30
 
@@ -314,9 +315,6 @@ struct cam_req_mgr_connected_device {
  *                         is assigned as master
  * @initial_skip         : Flag to determine if slave has started streaming in
  *                         master-slave sync
- * @in_msync_mode        : Flag to determine if a link is in master-slave mode
- * @initial_sync_req     : The initial req which is required to sync with the
- *                         other link
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;

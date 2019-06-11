@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +35,7 @@ enum esoc_boot_fail_action {
 	BOOT_FAIL_ACTION_NOP,
 };
 
-static unsigned int boot_fail_action = BOOT_FAIL_ACTION_PANIC;
+static unsigned int boot_fail_action = BOOT_FAIL_ACTION_COLD_RESET;
 module_param(boot_fail_action, uint, 0644);
 MODULE_PARM_DESC(boot_fail_action,
 "Actions: 0:Retry PON; 1:Cold reset; 2:Power-down; 3:APQ Panic; 4:No action");

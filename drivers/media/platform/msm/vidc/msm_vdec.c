@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -816,8 +817,24 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->prop.fps = DEFAULT_FPS;
 	inst->clk_data.operating_rate = 0;
-	if (core->resources.decode_batching)
+	if (core->resources.decode_batching) {
+		struct msm_vidc_inst *temp;
+
 		inst->batch.size = MAX_DEC_BATCH_SIZE;
+		inst->decode_batching = true;
+
+		mutex_lock(&core->lock);
+
+		list_for_each_entry(temp, &core->instances, list) {
+			if (temp != inst && temp->state != MSM_VIDC_CORE_INVALID &&
+				is_decode_session(temp) && !is_thumbnail_session(temp)) {
+				inst->decode_batching = false;
+				dprintk(VIDC_DBG, "decode-batching disabled in multiple sessions\n");
+				break;
+			}
+		}
+		mutex_unlock(&core->lock);
+	}
 
 	/* By default, initialize CAPTURE port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
