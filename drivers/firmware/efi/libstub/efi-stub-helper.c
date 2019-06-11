@@ -32,6 +32,13 @@
 
 static unsigned long __chunk_size = EFI_READ_CHUNK_SIZE;
 
+static int __section(.data) __nokaslr;
+
+int __pure nokaslr(void)
+{
+	return __nokaslr;
+}
+
 /*
  * Allow the platform to override the allocation granularity: this allows
  * systems that have the capability to run with a larger page size to deal
@@ -365,14 +372,6 @@ efi_status_t efi_parse_options(char const *cmdline)
 	str = strstr(cmdline, "nokaslr");
 	if (str == cmdline || (str && str > cmdline && *(str - 1) == ' '))
 		__nokaslr = 1;
-
-	/*
-	 * Currently, the only efi= option we look for is 'nochunk', which
-	 * is intended to work around known issues on certain x86 UEFI
-	 * versions. So ignore for now on other architectures.
-	 */
-	if (!IS_ENABLED(CONFIG_X86))
-		return EFI_SUCCESS;
 
 	/*
 	 * If no EFI parameters were specified on the cmdline we've got

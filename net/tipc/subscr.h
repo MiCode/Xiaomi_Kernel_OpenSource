@@ -75,7 +75,8 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub,
 void tipc_subscrp_convert_seq(struct tipc_name_seq *in, int swap,
 			      struct tipc_name_seq *out);
 u32 tipc_subscrp_convert_seq_type(u32 type, int swap);
-int tipc_topsrv_start(struct net *net);
-void tipc_topsrv_stop(struct net *net);
+
+int __net_init tipc_topsrv_init_net(struct net *net);
+void __net_exit tipc_topsrv_exit_net(struct net *net);
 
 #endif
