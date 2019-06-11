@@ -341,6 +341,8 @@ struct dwc3_msm {
 	struct notifier_block	dpdm_nb;
 	struct regulator	*dpdm_reg;
 
+	u64			dummy_gsi_db;
+	dma_addr_t		dummy_gsi_db_dma;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1002,6 +1004,10 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		ep->name, request->db_reg_phs_addr_lsb,
 		(unsigned long long)request->mapped_db_reg_phs_addr_lsb);
 
+	/*
+	 * Replace dummy doorbell address with real one as IPA connection
+	 * is setup now and GSI must be ready to handle doorbell updates.
+	 */
 	dwc3_msm_write_reg(mdwc->base,
 		GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
 		(u32)request->mapped_db_reg_phs_addr_lsb);
@@ -1263,8 +1269,17 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	struct dwc3_gadget_ep_cmd_params params;
 	const struct usb_endpoint_descriptor *desc = ep->desc;
 	const struct usb_ss_ep_comp_descriptor *comp_desc = ep->comp_desc;
+	int n = ep->ep_intr_num - 1;
 	u32 reg;
 	int ret;
+
+	/* setup dummy doorbell as IPA connection isn't setup yet */
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_DBL_ADDR_L(mdwc->gsi_reg[DBL_ADDR_L], (n)),
+			~0x0, (u32)mdwc->dummy_gsi_db_dma);
+	dev_dbg(mdwc->dev, "Dummy DB Addr %pK: %llx %llx (LSB)\n",
+		&mdwc->dummy_gsi_db, mdwc->dummy_gsi_db_dma,
+		(u32)mdwc->dummy_gsi_db_dma);
 
 	memset(&params, 0x00, sizeof(params));
 
@@ -1797,24 +1812,6 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 	return ret;
 }
 
-/* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
-static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
-{
-	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) < DWC3_REVISION_250A)
-		/* On older cores set XHCI_REV bit to specify revision 1.0 */
-		dwc3_msm_write_reg_field(mdwc->base, QSCRATCH_GENERAL_CFG,
-					 BIT(2), 1);
-
-	/*
-	 * Enable master clock for RAMs to allow BAM to access RAMs when
-	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise issues
-	 * are seen where RAM clocks get turned OFF in SS mode
-	 */
-	dwc3_msm_write_reg(mdwc->base, CGCTL_REG,
-		dwc3_msm_read_reg(mdwc->base, CGCTL_REG) | 0x18);
-
-}
-
 static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1822,6 +1819,55 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
+}
+
+static void dwc3_gsi_event_buf_alloc(struct dwc3 *dwc)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct dwc3_event_buffer *evt;
+	int i;
+
+	if (!mdwc->num_gsi_event_buffers)
+		return;
+
+	mdwc->gsi_ev_buff = devm_kzalloc(dwc->dev,
+		sizeof(*dwc->ev_buf) * mdwc->num_gsi_event_buffers,
+		GFP_KERNEL);
+	if (!mdwc->gsi_ev_buff) {
+		dev_err(dwc->dev, "can't allocate gsi_ev_buff\n");
+		return;
+	}
+
+	for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+
+		evt = devm_kzalloc(dwc->dev, sizeof(*evt), GFP_KERNEL);
+		if (!evt)
+			return;
+		evt->dwc	= dwc;
+		evt->length	= DWC3_EVENT_BUFFERS_SIZE;
+		evt->buf	= dma_alloc_coherent(dwc->sysdev,
+					DWC3_EVENT_BUFFERS_SIZE,
+					&evt->dma, GFP_KERNEL);
+		if (!evt->buf) {
+			dev_err(dwc->dev,
+				"can't allocate gsi_evt_buf(%d)\n", i);
+			return;
+		}
+		mdwc->gsi_ev_buff[i] = evt;
+	}
+	/*
+	 * Set-up dummy buffer to use as doorbell while IPA GSI
+	 * connection is in progress.
+	 */
+	mdwc->dummy_gsi_db_dma = dma_map_single(dwc->sysdev,
+					&mdwc->dummy_gsi_db,
+					sizeof(mdwc->dummy_gsi_db),
+					DMA_FROM_DEVICE);
+
+	if (dma_mapping_error(dwc->sysdev, mdwc->dummy_gsi_db_dma)) {
+		dev_err(dwc->dev, "failed to map dummy doorbell buffer\n");
+		mdwc->dummy_gsi_db_dma = (dma_addr_t)NULL;
+	}
 }
 
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
@@ -1848,11 +1894,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 
 		/* restart USB which performs full reset and reconnect */
 		schedule_work(&mdwc->restart_usb_work);
-		break;
-	case DWC3_CONTROLLER_RESET_EVENT:
-		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESET_EVENT received\n");
-		/* HS & SSPHYs get reset as part of core soft reset */
-		dwc3_msm_qscratch_reg_init(mdwc);
 		break;
 	case DWC3_CONTROLLER_POST_RESET_EVENT:
 		dev_dbg(mdwc->dev,
@@ -1909,7 +1950,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 			dwc->gadget.is_selfpowered = val.intval;
 		else
 			dwc->gadget.is_selfpowered = 0;
-
 		break;
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
@@ -1928,35 +1968,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_GSI_EVT_BUF_ALLOC:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_ALLOC\n");
-
-		if (!mdwc->num_gsi_event_buffers)
-			break;
-
-		mdwc->gsi_ev_buff = devm_kzalloc(dwc->dev,
-			sizeof(*dwc->ev_buf) * mdwc->num_gsi_event_buffers,
-			GFP_KERNEL);
-		if (!mdwc->gsi_ev_buff) {
-			dev_err(dwc->dev, "can't allocate gsi_ev_buff\n");
-			break;
-		}
-
-		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
-
-			evt = devm_kzalloc(dwc->dev, sizeof(*evt), GFP_KERNEL);
-			if (!evt)
-				break;
-			evt->dwc	= dwc;
-			evt->length	= DWC3_EVENT_BUFFERS_SIZE;
-			evt->buf	= dma_alloc_coherent(dwc->sysdev,
-						DWC3_EVENT_BUFFERS_SIZE,
-						&evt->dma, GFP_KERNEL);
-			if (!evt->buf) {
-				dev_err(dwc->dev,
-					"can't allocate gsi_evt_buf(%d)\n", i);
-				break;
-			}
-			mdwc->gsi_ev_buff[i] = evt;
-		}
+		dwc3_gsi_event_buf_alloc(dwc);
 		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
@@ -2020,6 +2032,12 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 			if (evt)
 				dma_free_coherent(dwc->sysdev, evt->length,
 							evt->buf, evt->dma);
+		}
+		if (mdwc->dummy_gsi_db_dma) {
+			dma_unmap_single(dwc->sysdev, mdwc->dummy_gsi_db_dma,
+					 sizeof(mdwc->dummy_gsi_db),
+					 DMA_FROM_DEVICE);
+			mdwc->dummy_gsi_db_dma = (dma_addr_t)NULL;
 		}
 		break;
 	case DWC3_GSI_EVT_BUF_CLEAR:
