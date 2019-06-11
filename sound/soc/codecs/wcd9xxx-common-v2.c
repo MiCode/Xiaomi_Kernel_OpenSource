@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -409,8 +409,16 @@ static void wcd_clsh_flyback_ctrl(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, WCD9XXX_FLYBACK_EN,
 					    0x10, 0x00);
 			wcd_clsh_set_flyback_mode(codec, mode);
+		} else if (!enable && (TASHA_IS_2_0(wcd9xxx->version))) {
+			snd_soc_update_bits(codec, WCD9XXX_HPH_L_EN,
+					    0xC0, 0x0);
+			snd_soc_update_bits(codec, WCD9XXX_HPH_R_EN,
+					    0xC0, 0x0);
+			snd_soc_update_bits(codec, WCD9XXX_RX_BIAS_FLYB_BUFF,
+					    0x0F, 0x0);
+			snd_soc_update_bits(codec, WCD9XXX_RX_BIAS_FLYB_BUFF,
+					    0xF0, 0x0);
 		}
-
 	}
 	dev_dbg(codec->dev, "%s: flyback_users %d, enable %d, mode: %s",
 		__func__, clsh_d->flyback_users, enable, mode_to_str(mode));
