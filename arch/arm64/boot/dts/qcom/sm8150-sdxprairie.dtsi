@@ -119,6 +119,8 @@
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
 		qcom,secure-debug-check-action = <0>;
+		qcom,scaling-exceptions = "USB DPL", "0", "600",
+			"1000", "ODL", "0", "600", "1000";
 	};
 
 	qcom,ipa_fws {
