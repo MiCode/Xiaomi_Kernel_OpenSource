@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -338,6 +338,20 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 
 	IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
 	IPADBG_LOW("Enter\n");
+
+	/*
+	 * During power collase if IPA HW is not idle, uC update
+	 * dma address with 0XBADBAD value and send the IPA interrupt.
+	 * for debugging further required ipa_reg_save so asserting
+	 * the device after adding dummy clock cnt.
+	 */
+	if (ipa3_ctx->uc_dma_addr.base &&
+		ipa3_ctx->ipa_hw_type == IPA_HW_v4_2 &&
+		(*((u32 *)ipa3_ctx->uc_dma_addr.base) == (u32)0xBADBAD)) {
+		atomic_set(&ipa3_ctx->ipa3_active_clients.cnt, 1);
+		ipa_assert();
+	}
+
 	/* defer interrupt handling in case IPA is not clocked on */
 	if (ipa3_inc_client_enable_clks_no_block(&log_info)) {
 		IPADBG("defer interrupt processing\n");
