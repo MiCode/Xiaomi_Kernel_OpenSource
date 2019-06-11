@@ -23,6 +23,7 @@
 #include <linux/errno.h>
 #include <linux/of_device.h>
 #include <linux/rtnetlink.h>
+#include <linux/kthread.h>
 #include <linux/mhi.h>
 
 #define MHI_NETDEV_DRIVER_NAME "mhi_netdev"
@@ -104,6 +105,14 @@ struct mhi_netdev {
 	bool chain_skb;
 	struct mhi_net_chain *chain;
 
+	struct task_struct *alloc_task;
+	wait_queue_head_t alloc_event;
+	int bg_pool_limit; /* minimum pool size */
+	int bg_pool_size; /* current size of the pool */
+	struct list_head *bg_pool;
+	spinlock_t bg_lock; /* lock to access list */
+
+
 	struct dentry *dentry;
 	enum MHI_DEBUG_LEVEL msg_lvl;
 	enum MHI_DEBUG_LEVEL ipc_log_lvl;
@@ -170,6 +179,10 @@ static struct mhi_netbuf *mhi_netdev_alloc(struct device *dev,
 	mhi_buf->page = page;
 	mhi_buf->buf = vaddr;
 	mhi_buf->len = (void *)netbuf - vaddr;
+
+	if (!dev)
+		return netbuf;
+
 	mhi_buf->dma_addr = dma_map_page(dev, page, 0, mhi_buf->len,
 					 DMA_FROM_DEVICE);
 	if (dma_mapping_error(dev, mhi_buf->dma_addr)) {
@@ -218,6 +231,56 @@ static int mhi_netdev_tmp_alloc(struct mhi_netdev *mhi_netdev,
 	}
 
 	return 0;
+}
+
+static int mhi_netdev_queue_bg_pool(struct mhi_netdev *mhi_netdev,
+				    struct mhi_device *mhi_dev,
+				    int nr_tre)
+{
+	struct device *dev = mhi_dev->dev.parent;
+	int i, ret;
+	LIST_HEAD(head);
+
+	spin_lock_bh(&mhi_netdev->bg_lock);
+	list_splice_init(mhi_netdev->bg_pool, &head);
+	spin_unlock_bh(&mhi_netdev->bg_lock);
+
+	for (i = 0; i < nr_tre; i++) {
+		struct mhi_buf *mhi_buf =
+			list_first_entry_or_null(&head, struct mhi_buf, node);
+		struct mhi_netbuf *netbuf = (struct mhi_netbuf *)mhi_buf;
+
+		if (!mhi_buf)
+			break;
+
+		mhi_buf->dma_addr = dma_map_page(dev, mhi_buf->page, 0,
+						 mhi_buf->len, DMA_FROM_DEVICE);
+		if (dma_mapping_error(dev, mhi_buf->dma_addr))
+			break;
+
+		netbuf->unmap = mhi_netdev_unmap_page;
+		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, mhi_buf,
+					 mhi_buf->len, MHI_EOT);
+		if (unlikely(ret)) {
+			MSG_ERR("Failed to queue transfer, ret:%d\n", ret);
+			mhi_netdev_unmap_page(dev, mhi_buf->dma_addr,
+					      mhi_buf->len, DMA_FROM_DEVICE);
+			break;
+		}
+		list_del(&mhi_buf->node);
+	}
+
+	/* add remaining buffers back to main pool */
+	spin_lock_bh(&mhi_netdev->bg_lock);
+	list_splice(&head, mhi_netdev->bg_pool);
+	mhi_netdev->bg_pool_size -= i;
+	spin_unlock_bh(&mhi_netdev->bg_lock);
+
+
+	/* wake up the bg thread to allocate more buffers */
+	wake_up_interruptible(&mhi_netdev->alloc_event);
+
+	return i;
 }
 
 static void mhi_netdev_queue(struct mhi_netdev *mhi_netdev,
@@ -277,6 +340,10 @@ static void mhi_netdev_queue(struct mhi_netdev *mhi_netdev,
 			return;
 		}
 	}
+
+	/* recycling did not work, buffers are still busy use bg pool */
+	if (i < nr_tre)
+		i += mhi_netdev_queue_bg_pool(mhi_netdev, mhi_dev, nr_tre - i);
 
 	/* recyling did not work, buffers are still busy allocate temp pkts */
 	if (i < nr_tre)
@@ -340,6 +407,65 @@ static void mhi_netdev_free_pool(struct mhi_netdev *mhi_netdev)
 	}
 
 	kfree(mhi_netdev->recycle_pool);
+
+	/* free the bg pool */
+	list_for_each_entry_safe(mhi_buf, tmp, mhi_netdev->bg_pool, node) {
+		list_del(&mhi_buf->node);
+		__free_pages(mhi_buf->page, mhi_netdev->order);
+		mhi_netdev->bg_pool_size--;
+	}
+}
+
+static int mhi_netdev_alloc_thread(void *data)
+{
+	struct mhi_netdev *mhi_netdev = data;
+	struct mhi_netbuf *netbuf;
+	struct mhi_buf *mhi_buf, *tmp_buf;
+	const u32 order = mhi_netdev->order;
+	LIST_HEAD(head);
+
+	while (!kthread_should_stop()) {
+		while (mhi_netdev->bg_pool_size <= mhi_netdev->bg_pool_limit) {
+			int buffers = 0, i;
+
+			/* do a bulk allocation */
+			for (i = 0; i < NAPI_POLL_WEIGHT; i++) {
+				if (kthread_should_stop())
+					goto exit_alloc;
+
+				netbuf = mhi_netdev_alloc(NULL, GFP_KERNEL,
+							  order);
+				if (!netbuf)
+					continue;
+
+				mhi_buf = (struct mhi_buf *)netbuf;
+				list_add(&mhi_buf->node, &head);
+				buffers++;
+			}
+
+			/* add the list to main pool */
+			spin_lock_bh(&mhi_netdev->bg_lock);
+			list_splice_init(&head, mhi_netdev->bg_pool);
+			mhi_netdev->bg_pool_size += buffers;
+			spin_unlock_bh(&mhi_netdev->bg_lock);
+		}
+
+		/* replenish the ring */
+		napi_schedule(mhi_netdev->napi);
+
+		/* wait for buffers to run low or thread to stop */
+		wait_event_interruptible(mhi_netdev->alloc_event,
+			kthread_should_stop() ||
+			mhi_netdev->bg_pool_size <= mhi_netdev->bg_pool_limit);
+	}
+
+exit_alloc:
+	list_for_each_entry_safe(mhi_buf, tmp_buf, &head, node) {
+		list_del(&mhi_buf->node);
+		__free_pages(mhi_buf->page, order);
+	}
+
+	return 0;
 }
 
 static int mhi_netdev_poll(struct napi_struct *napi, int budget)
@@ -765,6 +891,7 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 		return;
 	}
 
+	kthread_stop(mhi_netdev->alloc_task);
 	netif_stop_queue(mhi_netdev->ndev);
 	napi_disable(mhi_netdev->napi);
 	unregister_netdev(mhi_netdev->ndev);
@@ -793,6 +920,7 @@ static void mhi_netdev_clone_dev(struct mhi_netdev *mhi_netdev,
 	mhi_netdev->chain = parent->chain;
 	mhi_netdev->rsc_parent = parent;
 	mhi_netdev->recycle_pool = parent->recycle_pool;
+	mhi_netdev->bg_pool = parent->bg_pool;
 }
 
 static int mhi_netdev_probe(struct mhi_device *mhi_dev,
@@ -883,6 +1011,22 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 		ret = mhi_netdev_alloc_pool(mhi_netdev);
 		if (ret)
 			return -ENOMEM;
+
+		/* create a background task to allocate memory */
+		mhi_netdev->bg_pool = kmalloc(sizeof(*mhi_netdev->bg_pool),
+					      GFP_KERNEL);
+		if (!mhi_netdev->bg_pool)
+			return -ENOMEM;
+
+		init_waitqueue_head(&mhi_netdev->alloc_event);
+		INIT_LIST_HEAD(mhi_netdev->bg_pool);
+		spin_lock_init(&mhi_netdev->bg_lock);
+		mhi_netdev->bg_pool_limit = mhi_netdev->pool_size / 4;
+		mhi_netdev->alloc_task = kthread_run(mhi_netdev_alloc_thread,
+						     mhi_netdev,
+						     mhi_netdev->ndev->name);
+		if (IS_ERR(mhi_netdev->alloc_task))
+			return PTR_ERR(mhi_netdev->alloc_task);
 
 		/* create ipc log buffer */
 		snprintf(node_name, sizeof(node_name),
