@@ -29,6 +29,7 @@ enum mtk_icc_name {
 	MASTER_VPU_PORT_1,
 	MASTER_MDLASYS,
 	MASTER_MDLA_PORT_0,
+	MASTER_DEBUGSYS,
 };
 
 #define MAX_LINKS	6
@@ -85,12 +86,12 @@ DEFINE_MNODE(vpu_port_0, MASTER_VPU_PORT_0, 128, 0, 1, MASTER_VPUSYS);
 DEFINE_MNODE(vpu_port_1, MASTER_VPU_PORT_1, 128, 0, 1, MASTER_VPUSYS);
 DEFINE_MNODE(mdlasys, MASTER_MDLASYS, 256, 0, 1, SLAVE_DDR_EMI);
 DEFINE_MNODE(mdla_port_0, MASTER_MDLA_PORT_0, 256, 0, 1, MASTER_MDLASYS);
-
+DEFINE_MNODE(debugsys, MASTER_DEBUGSYS, 256, 0, 1, SLAVE_DDR_EMI);
 
 static struct mtk_icc_node *mt6779_icc_nodes[] = {
 	[MT6779_SLAVE_DDR_EMI] = &ddr_emi,
 	[MT6779_MASTER_MCUSYS] = &mcusys,
-	[MT6779_MASTER_GPU]	 = &gpu,
+	[MT6779_MASTER_GPUSYS]	 = &gpu,
 	[MT6779_MASTER_MMSYS]	 = &mmsys,
 	[MT6779_MASTER_MM_VPU] = &mm_vpu,
 	[MT6779_MASTER_MM_DISP] = &mm_disp,
@@ -104,6 +105,7 @@ static struct mtk_icc_node *mt6779_icc_nodes[] = {
 	[MT6779_MASTER_VPU_1]	= &vpu_port_1,
 	[MT6779_MASTER_MDLASYS] = &mdlasys,
 	[MT6779_MASTER_MDLA_0] = &mdla_port_0,
+	[MT6779_MASTER_DEBUGSYS] = &debugsys,
 };
 
 static struct mtk_icc_desc mt6779_icc = {
