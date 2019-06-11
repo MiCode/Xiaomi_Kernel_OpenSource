@@ -3231,7 +3231,7 @@ int ipa3_get_usb_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
 		return -EINVAL;
 	}
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	for (i = 0; i < MAX_CH_STATS_SUPPORTED; i++) {
+	for (i = 0; i < MAX_USB_CHANNELS; i++) {
 		stats->ring[i].ringFull = ioread32(
 			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
 			+ i * IPA3_UC_DEBUG_STATS_OFF +

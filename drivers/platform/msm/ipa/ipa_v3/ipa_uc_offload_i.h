@@ -30,6 +30,12 @@
 #define DIR_CONSUMER 0
 #define DIR_PRODUCER 1
 
+#define MAX_AQC_CHANNELS 2
+#define MAX_11AD_CHANNELS 5
+#define MAX_WDI2_CHANNELS 2
+#define MAX_WDI3_CHANNELS 2
+#define MAX_MHIP_CHANNELS 4
+#define MAX_USB_CHANNELS 2
 
 /**
  *  @brief   Enum value determined based on the feature it
