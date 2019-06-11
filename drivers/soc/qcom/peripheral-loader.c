@@ -56,7 +56,7 @@
 #define pil_memset_io(d, c, count) memset_io(d, c, count)
 #endif
 
-#define PIL_NUM_DESC		10
+#define PIL_NUM_DESC		16
 #define MAX_LEN 96
 #define NUM_OF_ENCRYPTED_KEY	3
 
