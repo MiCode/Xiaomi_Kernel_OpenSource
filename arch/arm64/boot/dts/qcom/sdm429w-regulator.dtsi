@@ -313,8 +313,8 @@
 			compatible = "qcom,spm-regulator";
 			reg = <0x1a00 0x100>;
 			regulator-name = "pm660_s3";
-			regulator-min-microvolt = <725000>;
-			regulator-max-microvolt = <736000>;
+			regulator-min-microvolt = <490000>;
+			regulator-max-microvolt = <980000>;
 		};
 	};
 };
