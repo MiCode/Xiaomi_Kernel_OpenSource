@@ -3884,6 +3884,7 @@ struct find_best_target_env {
 	int fastpath;
 	int start_cpu;
 	bool strict_max;
+	int skip_cpu;
 };
 
 static inline void adjust_cpus_for_packing(struct task_struct *p,
@@ -6358,6 +6359,12 @@ static inline bool task_skip_min_cpu(struct task_struct *p)
 	return sched_boost() != CONSERVATIVE_BOOST &&
 		get_rtg_status(p) && p->unfilter;
 }
+
+static inline bool is_many_wakeup(int sibling_count_hint)
+{
+	return sibling_count_hint >= sysctl_sched_many_wakeup_threshold;
+}
+
 #else
 static inline bool get_rtg_status(struct task_struct *p)
 {
@@ -6365,6 +6372,11 @@ static inline bool get_rtg_status(struct task_struct *p)
 }
 
 static inline bool task_skip_min_cpu(struct task_struct *p)
+{
+	return false;
+}
+
+static inline bool is_many_wakeup(int sibling_count_hint)
 {
 	return false;
 }
@@ -6505,6 +6517,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 				continue;
 
 			if (sched_cpu_high_irqload(i))
+				continue;
+
+			if (fbt_env->skip_cpu == i)
 				continue;
 
 			/*
@@ -6971,7 +6986,8 @@ static DEFINE_PER_CPU(cpumask_t, energy_cpus);
  * other use-cases too. So, until someone finds a better way to solve this,
  * let's keep things simple by re-using the existing slow path.
  */
-int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
+int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
+				     int sync, int sibling_count_hint)
 {
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
@@ -7046,6 +7062,8 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 		fbt_env.boosted = boosted;
 		fbt_env.strict_max = is_rtg &&
 			(task_boost == TASK_BOOST_STRICT_MAX);
+		fbt_env.skip_cpu = is_many_wakeup(sibling_count_hint) ?
+				   cpu : -1;
 
 		find_best_target(NULL, candidates, p, &fbt_env);
 
@@ -7234,7 +7252,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 
 	if (sched_energy_enabled()) {
 		rcu_read_lock();
-		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync);
+		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
+						    sibling_count_hint);
 		if (unlikely(new_cpu < 0))
 			new_cpu = prev_cpu;
 		rcu_read_unlock();
@@ -7245,7 +7264,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		record_wakee(p);
 
 		if (sched_energy_enabled()) {
-			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync);
+			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync,
+							    sibling_count_hint);
 			if (new_cpu >= 0)
 				return new_cpu;
 			new_cpu = prev_cpu;

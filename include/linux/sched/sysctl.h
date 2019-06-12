@@ -51,6 +51,7 @@ extern unsigned int __weak sysctl_sched_coloc_busy_hyst;
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_max_ms;
 extern unsigned int __weak sysctl_sched_window_stats_policy;
 extern unsigned int __weak sysctl_sched_ravg_window_nr_ticks;
+extern unsigned int __weak sysctl_sched_many_wakeup_threshold;
 
 extern int __weak
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
