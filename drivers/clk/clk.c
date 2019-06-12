@@ -606,7 +606,8 @@ static int clk_find_vdd_level(struct clk_core *clk, unsigned long rate)
 	 */
 	for (level = 0; level < clk->num_rate_max; level++)
 		if (DIV_ROUND_CLOSEST(rate, 1000) <=
-				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000))
+				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000) &&
+		    clk->rate_max[level] > 0)
 			break;
 
 	if (level == clk->num_rate_max) {
