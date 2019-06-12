@@ -1413,6 +1413,10 @@ int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl)
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	/* device already in rddm */
+	if (mhi_cntrl->ee == MHI_EE_RDDM)
+		return 0;
+
 	MHI_LOG("Triggering SYS_ERR to force rddm state\n");
 	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
 
