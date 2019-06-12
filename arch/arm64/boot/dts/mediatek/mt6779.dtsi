@@ -544,7 +544,7 @@
 			reg = <0 0x10228000 0 0x4000>;
 			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>;
 			#mbox-cells = <3>;
-			#event-cells = <1>;
+			#gce-event-cells = <1>;
 			#subsys-cells = <3>;
 			clocks = <&infracfg_ao CLK_INFRA_GCE>,
 				<&infracfg_ao CLK_INFRA_GCE_26M>;
@@ -779,8 +779,6 @@
 				<&gce 13 CMDQ_THR_PRIO_1 0>,
 				<&gce 14 CMDQ_THR_PRIO_1 0>,
 				<&gce 15 CMDQ_THR_PRIO_1 0>,
-				<&gce 16 CMDQ_THR_PRIO_1 0>,
-				<&gce 17 CMDQ_THR_PRIO_1 0>,
 				<&gce 18 CMDQ_THR_PRIO_1 0>,
 				<&gce 19 CMDQ_THR_PRIO_1 0>,
 				<&gce 20 CMDQ_THR_PRIO_1 0>,
@@ -1442,6 +1440,42 @@
 				 <0 0x17020000 0 0x10000>,/* VENC_BASE */
 				 <0 0x19002000 0 0x1000>;/* VENC_LT */
 			iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>;
+			mboxes = <&gce 16 CMDQ_THR_PRIO_1 0>,
+				<&gce 17 CMDQ_THR_PRIO_1 0>;
+
+			gce-event-names = "vdec_pic_start",
+				"vdec_decode_done",
+				"vdec_pause",
+				"vdec_dec_error",
+				"vdec_mc_busy_overflow_timeout",
+				"vdec_all_dram_req_done",
+				"vdec_ini_fetch_rdy",
+				"vdec_process_flag",
+				"vdec_search_start_code_done",
+				"vdec_ref_reorder_done",
+				"vdec_wp_tble_done",
+				"vdec_count_sram_clr_done",
+				"venc_eof",
+				"venc_cmdq_pause_done",
+				"venc_mb_done",
+				"venc_128B_cnt_done";
+
+			gce-events = <&gce CMDQ_EVENT_VDEC_EVENT_0>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_1>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_2>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_3>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_4>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_5>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_6>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_7>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_8>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_9>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_10>,
+				<&gce CMDQ_EVENT_VDEC_EVENT_11>,
+				<&gce CMDQ_EVENT_VENC_EOF>,
+				<&gce CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
+				<&gce CMDQ_EVENT_VENC_MB_DONE>,
+				<&gce CMDQ_EVENT_VENC_128BYTE_CNT_DONE>;
 		};
 
 		vcodec_dec: vcodec@16000000 {
