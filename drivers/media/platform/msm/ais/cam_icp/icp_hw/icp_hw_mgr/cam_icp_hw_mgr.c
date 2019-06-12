@@ -64,6 +64,37 @@ static struct cam_icp_hw_mgr icp_hw_mgr;
 
 static void cam_icp_mgr_process_dbg_buf(unsigned int debug_lvl);
 
+static int cam_icp_dump_io_cfg(struct cam_icp_hw_ctx_data *ctx_data,
+	int32_t buf_handle)
+{
+	uintptr_t vaddr_ptr;
+	uint32_t  *ptr;
+	size_t    len;
+	int       rc, i;
+	char      buf[512];
+	int       used = 0;
+
+	rc = cam_mem_get_cpu_buf(buf_handle, &vaddr_ptr, &len);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Unable to get io_cfg buf address for %d",
+			ctx_data->ctx_id);
+		return rc;
+	}
+
+	len = len / sizeof(uint32_t);
+	ptr = (uint32_t *)vaddr_ptr;
+	for (i = 0; i < len; i++) {
+		used += snprintf(buf + used,
+			sizeof(buf) - used, "0X%08X-", ptr[i]);
+		if (!(i % 8)) {
+			CAM_INFO(CAM_ICP, "%s: %s", __func__, buf);
+			used = 0;
+		}
+	}
+
+	return rc;
+}
+
 static int cam_icp_send_ubwc_cfg(struct cam_icp_hw_mgr *hw_mgr)
 {
 	struct cam_hw_intf *a5_dev_intf = NULL;
@@ -1262,6 +1293,44 @@ end:
 	return rc;
 }
 
+static int cam_icp_mgr_ipe_bps_get_gdsc_control(
+	struct cam_icp_hw_mgr *hw_mgr)
+{
+	int rc = 0;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+
+	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
+	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
+	bps_dev_intf = hw_mgr->bps_dev_intf;
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong");
+		return -EINVAL;
+	}
+
+	if (icp_hw_mgr.ipe_bps_pc_flag) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_POWER_COLLAPSE,
+			NULL, 0);
+
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
+			CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_POWER_COLLAPSE,
+				NULL, 0);
+		}
+	}
+
+	return rc;
+}
+
 static int cam_icp_set_dbg_default_clk(void *data, u64 val)
 {
 	icp_hw_mgr.icp_debug_clk = val;
@@ -1786,27 +1855,31 @@ static int cam_icp_ipebps_reset(struct cam_icp_hw_mgr *hw_mgr)
 	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
 	bps_dev_intf = hw_mgr->bps_dev_intf;
 
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "bps reset failed");
+	if (hw_mgr->bps_ctxt_cnt) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_RESET,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ICP, "bps reset failed");
+	}
 
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "ipe0 reset failed");
-
-	if (ipe1_dev_intf) {
-		rc = ipe1_dev_intf->hw_ops.process_cmd(
-			ipe1_dev_intf->hw_priv,
+	if (hw_mgr->ipe_ctxt_cnt) {
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
 			CAM_ICP_IPE_CMD_RESET,
 			NULL, 0);
 		if (rc)
-			CAM_ERR(CAM_ICP, "ipe1 reset failed");
+			CAM_ERR(CAM_ICP, "ipe0 reset failed");
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_RESET,
+				NULL, 0);
+			if (rc)
+				CAM_ERR(CAM_ICP, "ipe1 reset failed");
+		}
 	}
 
 	return 0;
@@ -1827,6 +1900,7 @@ static int cam_icp_mgr_trigger_recovery(struct cam_icp_hw_mgr *hw_mgr)
 	sfr_buffer = (struct sfr_buf *)icp_hw_mgr.hfi_mem.sfr_buf.kva;
 	CAM_WARN(CAM_ICP, "SFR:%s", sfr_buffer->msg);
 
+	cam_icp_mgr_ipe_bps_get_gdsc_control(hw_mgr);
 	cam_icp_ipebps_reset(hw_mgr);
 
 	atomic_set(&hw_mgr->recovery, 1);
@@ -3449,6 +3523,17 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 				goto rel_cmd_buf;
 			}
 			*fw_cmd_buf_iova_addr = addr;
+
+			if (cmd_desc[i].offset >= len ||
+				((len - cmd_desc[i].offset) <
+				cmd_desc[i].size)){
+				CAM_ERR(CAM_ICP,
+					"Invalid offset/length, i %d offset 0x%x len 0x%x size 0x%x",
+					i, cmd_desc[i].offset,
+					len, cmd_desc[i].size);
+				goto rel_cmd_buf;
+			}
+
 			*fw_cmd_buf_iova_addr =
 				(*fw_cmd_buf_iova_addr + cmd_desc[i].offset);
 			rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
@@ -4052,8 +4137,12 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	packet = prepare_args->packet;
 
-	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len))
+	if (cam_packet_util_validate_packet(packet, prepare_args->remain_len)) {
+		mutex_unlock(&ctx_data->ctx_mutex);
+		CAM_ERR(CAM_ICP, "ctx id: %u packet req id %lld validate fail",
+			ctx_data->ctx_id, packet->header.request_id);
 		return -EINVAL;
+	}
 
 	rc = cam_icp_mgr_pkt_validation(packet);
 	if (rc) {
@@ -4674,6 +4763,8 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	rc = cam_icp_mgr_send_config_io(ctx_data, io_buf_addr);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "IO Config command failed %d", rc);
+		cam_icp_dump_io_cfg(ctx_data,
+			icp_dev_acquire_info->io_config_cmd_handle);
 		goto ioconfig_failed;
 	}
 
