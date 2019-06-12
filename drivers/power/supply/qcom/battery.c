@@ -42,6 +42,7 @@
 #define ICL_LIMIT_VOTER			"ICL_LIMIT_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define FCC_VOTER			"FCC_VOTER"
+#define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -61,6 +62,7 @@ struct pl_data {
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*cp_ilim_votable;
 	struct votable		*cp_disable_votable;
+	struct votable		*fcc_main_votable;
 	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct work_struct	pl_taper_work;
@@ -557,7 +559,6 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 			int parallel_fcc_ua)
 {
 	union power_supply_propval pval = {0, };
-	int rc;
 
 	if (!chip->fcc_step_size_ua) {
 		pr_err("Invalid fcc stepper step size, value 0\n");
@@ -565,14 +566,7 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 	}
 
 	/* Read current FCC of main charger */
-	rc = power_supply_get_property(chip->main_psy,
-		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get main charger current fcc, rc=%d\n", rc);
-		return;
-	}
-	chip->main_fcc_ua = pval.intval;
-
+	chip->main_fcc_ua = get_effective_result(chip->fcc_main_votable);
 	chip->main_step_fcc_dir = (main_fcc_ua > pval.intval) ?
 				STEP_UP : STEP_DOWN;
 	chip->main_step_fcc_count = abs((main_fcc_ua - pval.intval) /
@@ -692,6 +686,31 @@ done:
 	vote(chip->pl_awake_votable, TAPER_END_VOTER, false, 0);
 }
 
+static bool is_main_available(struct pl_data *chip)
+{
+	if (chip->main_psy)
+		return true;
+
+	chip->main_psy = power_supply_get_by_name("main");
+
+	return !!chip->main_psy;
+}
+
+static int pl_fcc_main_vote_callback(struct votable *votable, void *data,
+			int fcc_main_ua, const char *client)
+{
+	struct pl_data *chip = data;
+	union power_supply_propval pval = {0,};
+
+	if (!is_main_available(chip))
+		return 0;
+
+	pval.intval = fcc_main_ua;
+	return  power_supply_set_property(chip->main_psy,
+			  POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+			  &pval);
+}
+
 static int pl_fcc_vote_callback(struct votable *votable, void *data,
 			int total_fcc_ua, const char *client)
 {
@@ -740,6 +759,13 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	}
 
 	rerun_election(chip->pl_disable_votable);
+	/* When FCC changes, trigger psy changed event for CC mode */
+	if (!chip->cp_master_psy)
+		chip->cp_master_psy =
+			power_supply_get_by_name("charge_pump_master");
+
+	if (chip->cp_master_psy)
+		power_supply_changed(chip->cp_master_psy);
 
 	return 0;
 }
@@ -796,14 +822,7 @@ static void fcc_stepper_work(struct work_struct *work)
 		}
 
 		main_fcc = get_effective_result_locked(chip->fcc_votable);
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
-
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 		goto stepper_exit;
 	}
 
@@ -864,22 +883,10 @@ static void fcc_stepper_work(struct work_struct *work)
 		}
 
 		/* Set main FCC */
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 	} else {
 		/* Set main FCC */
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 
 		/* Set parallel FCC */
 		if (chip->pl_psy) {
@@ -1065,16 +1072,6 @@ static void pl_awake_work(struct work_struct *work)
 	vote(chip->pl_awake_votable, PL_VOTER, false, 0);
 }
 
-static bool is_main_available(struct pl_data *chip)
-{
-	if (chip->main_psy)
-		return true;
-
-	chip->main_psy = power_supply_get_by_name("main");
-
-	return !!chip->main_psy;
-}
-
 static bool is_batt_available(struct pl_data *chip)
 {
 	if (!chip->batt_psy)
@@ -1186,16 +1183,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 			 *	Set slave ICL then main FCC.
 			 */
 			if (slave_fcc_ua > chip->slave_fcc_ua) {
-				pval.intval = master_fcc_ua;
-				rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-					&pval);
-				if (rc < 0) {
-					pr_err("Could not set main fcc, rc=%d\n",
-						rc);
-					return rc;
-				}
-
+				vote(chip->fcc_main_votable, MAIN_FCC_VOTER,
+							true, master_fcc_ua);
 				pval.intval = slave_fcc_ua;
 				rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
@@ -1219,16 +1208,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 				}
 
 				chip->slave_fcc_ua = slave_fcc_ua;
-
-				pval.intval = master_fcc_ua;
-				rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-					&pval);
-				if (rc < 0) {
-					pr_err("Could not set main fcc, rc=%d\n",
-						rc);
-					return rc;
-				}
+				vote(chip->fcc_main_votable, MAIN_FCC_VOTER,
+							true, master_fcc_ua);
 			}
 
 			/*
@@ -1290,15 +1271,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 			}
 
 			/* main psy gets all share */
-			pval.intval = total_fcc_ua;
-			rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-				&pval);
-			if (rc < 0) {
-				pr_err("Could not set main fcc, rc=%d\n", rc);
-				return rc;
-			}
-
+			vote(chip->fcc_main_votable, MAIN_FCC_VOTER, true,
+								total_fcc_ua);
 			cp_configure_ilim(chip, FCC_VOTER, total_fcc_ua / 2);
 
 			/* reset parallel FCC */
@@ -1743,13 +1717,22 @@ int qcom_batt_init(int smb_version)
 	if (!chip->pl_ws)
 		goto cleanup;
 
+	chip->fcc_main_votable = create_votable("FCC_MAIN", VOTE_MIN,
+					pl_fcc_main_vote_callback,
+					chip);
+	if (IS_ERR(chip->fcc_main_votable)) {
+		rc = PTR_ERR(chip->fcc_main_votable);
+		chip->fcc_main_votable = NULL;
+		goto release_wakeup_source;
+	}
+
 	chip->fcc_votable = create_votable("FCC", VOTE_MIN,
 					pl_fcc_vote_callback,
 					chip);
 	if (IS_ERR(chip->fcc_votable)) {
 		rc = PTR_ERR(chip->fcc_votable);
 		chip->fcc_votable = NULL;
-		goto release_wakeup_source;
+		goto destroy_votable;
 	}
 
 	chip->fv_votable = create_votable("FV", VOTE_MIN,
@@ -1845,6 +1828,7 @@ destroy_votable:
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
+	destroy_votable(chip->fcc_main_votable);
 	destroy_votable(chip->usb_icl_votable);
 release_wakeup_source:
 	wakeup_source_unregister(chip->pl_ws);
@@ -1872,6 +1856,7 @@ void qcom_batt_deinit(void)
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
+	destroy_votable(chip->fcc_main_votable);
 	wakeup_source_unregister(chip->pl_ws);
 	the_chip = NULL;
 	kfree(chip);
