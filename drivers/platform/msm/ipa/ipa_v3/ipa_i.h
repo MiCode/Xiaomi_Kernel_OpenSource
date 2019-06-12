@@ -115,6 +115,13 @@
 		} \
 	} while (0)
 
+#define IPALOG_VnP_ADDRS(ptr) \
+	do { \
+		phys_addr_t b = (phys_addr_t) virt_to_phys(ptr); \
+		IPAERR("%s: VIRT: %pK PHYS: %pa\n", \
+			   #ptr, ptr, &b); \
+	} while (0)
+
 /* round addresses for closes page per SMMU requirements */
 #define IPA_SMMU_ROUND_TO_PAGE(iova, pa, size, iova_p, pa_p, size_p) \
 	do { \
