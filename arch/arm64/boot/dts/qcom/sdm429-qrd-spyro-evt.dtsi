@@ -44,6 +44,29 @@
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
 };
 
+
+&soc {
+	/delete-node/ qcom,spm@b1d2000;
+	qcom,spm@b1d2000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xb1d2000 0x1000>;
+		qcom,name = "system-cci";
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x14>;
+		qcom,saw2-spm-dly= <0x3C102800>;
+		qcom,saw2-spm-ctl = <0xe>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,vctl-timeout-us = <500>;
+		qcom,vctl-port = <0x0>;
+		qcom,vctl-port-ub = <0x1>;
+		qcom,pfm-port = <0x2>;
+	};
+
+};
+
+
 &dsi_hx8399c_hd_vid {
 		qcom,mdss-dsi-on-command = [
 			39 01 00 00 00 00 04
