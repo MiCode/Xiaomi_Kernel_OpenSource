@@ -2,14 +2,10 @@
 /*
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/uaccess.h>
-#include <linux/ioctl.h>
-
-#include "kgsl.h"
-#include "kgsl_compat.h"
 
 #include "adreno.h"
 #include "adreno_compat.h"
+#include "kgsl_compat.h"
 
 int adreno_getproperty_compat(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)

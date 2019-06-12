@@ -1,13 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
-#include <linux/mailbox_client.h>
 #include "kgsl_gmu_core.h"
-#include <linux/firmware.h>
 #include "kgsl_hfi.h"
 
 #define MAX_GMUFW_SIZE	0x8000	/* in bytes */

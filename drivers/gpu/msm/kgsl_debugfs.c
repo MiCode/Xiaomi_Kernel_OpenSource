@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/module.h>
 #include <linux/debugfs.h>
 
-#include "kgsl.h"
+#include "kgsl_debugfs.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
-#include "kgsl_debugfs.h"
 
 /*default log levels is error for everything*/
 #define KGSL_LOG_LEVEL_MAX     7

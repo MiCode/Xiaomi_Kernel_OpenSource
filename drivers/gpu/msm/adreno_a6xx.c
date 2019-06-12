@@ -4,23 +4,15 @@
  */
 
 #include <linux/firmware.h>
+#include <linux/of.h>
 #include <soc/qcom/subsystem_restart.h>
-#include <linux/pm_opp.h>
-#include <linux/jiffies.h>
 
 #include "adreno.h"
-#include "a6xx_reg.h"
 #include "adreno_a6xx.h"
-#include "adreno_cp_parser.h"
-#include "adreno_trace.h"
-#include "adreno_pm4types.h"
-#include "adreno_perfcounter.h"
-#include "adreno_ringbuffer.h"
 #include "adreno_llc.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl.h"
+#include "adreno_pm4types.h"
+#include "adreno_trace.h"
 #include "kgsl_gmu.h"
-#include "kgsl_hfi.h"
 #include "kgsl_trace.h"
 
 #define MIN_HBB		13
@@ -752,13 +744,6 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = 0x00000000;
 	}
 
-	if (CP_INIT_MASK & CP_INIT_DRAWCALL_FILTER_RANGE) {
-		/* Start range */
-		*cmds++ = 0x00000000;
-		/* End range (inclusive) */
-		*cmds++ = 0x00000000;
-	}
-
 	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
 		*cmds++ = 0x00000000;
 
@@ -771,15 +756,6 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
 		*cmds++ =  0;
-
-	} else if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
-		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
-
-		*cmds++ = lower_32_bits(gpuaddr);
-		*cmds++ = upper_32_bits(gpuaddr);
-		/* Size is in dwords */
-		*cmds++ = (sizeof(a6xx_ifpc_pwrup_reglist) +
-			sizeof(a6xx_pwrup_reglist)) >> 2;
 	}
 
 	/* Pad rest of the cmds with 0's */

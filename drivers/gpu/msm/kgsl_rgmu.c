@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/device.h>
-#include <linux/io.h>
-#include <linux/of_platform.h>
-#include <linux/clk-provider.h>
 
+#include <linux/clk-provider.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/regulator/consumer.h>
+
+#include "adreno.h"
 #include "kgsl_device.h"
 #include "kgsl_rgmu.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_trace.h"
-#include "adreno.h"
 
 #define RGMU_CLK_FREQ 200000000
 

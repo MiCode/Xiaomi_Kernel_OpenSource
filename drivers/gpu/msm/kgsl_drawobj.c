@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -18,16 +18,14 @@
  * goes to zero indicating no more pending events.
  */
 
-#include <linux/uaccess.h>
-#include <linux/list.h>
-#include <linux/compat.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
+#include "adreno_drawctxt.h"
+#include "kgsl_compat.h"
 #include "kgsl_device.h"
 #include "kgsl_drawobj.h"
 #include "kgsl_sync.h"
 #include "kgsl_trace.h"
-#include "kgsl_compat.h"
 
 /*
  * Define an kmem cache for the memobj & sparseobj structures since we

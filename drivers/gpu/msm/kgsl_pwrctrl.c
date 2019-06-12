@@ -3,23 +3,18 @@
  * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/interrupt.h>
-#include <asm/page.h>
-#include <linux/pm_runtime.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <linux/ktime.h>
-#include <linux/delay.h>
-#include <linux/msm_adreno_devfreq.h>
+#include <linux/msm_kgsl.h>
 #include <linux/of_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 #include <linux/thermal.h>
 
-#include "kgsl.h"
-#include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
-#include "kgsl_gmu_core.h"
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1

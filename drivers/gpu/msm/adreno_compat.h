@@ -6,9 +6,9 @@
 #define __ADRENO_COMPAT_H
 
 #ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-#include "kgsl.h"
-#include "kgsl_device.h"
+
+struct kgsl_device;
+struct kgsl_device_private;
 
 int adreno_getproperty_compat(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
@@ -14,10 +14,11 @@
 #define TRACE_INCLUDE_FILE kgsl_trace
 
 #include <linux/tracepoint.h>
-#include "kgsl_device.h"
-#include "adreno_drawctxt.h"
 
-struct kgsl_device;
+#include "kgsl.h"
+#include "kgsl_drawobj.h"
+#include "kgsl_sharedmem.h"
+
 struct kgsl_ringbuffer_issueibcmds;
 struct kgsl_device_waittimestamp;
 

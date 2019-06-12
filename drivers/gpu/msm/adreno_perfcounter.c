@@ -2,14 +2,13 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/uaccess.h>
 
-#include "kgsl.h"
+#include <linux/slab.h>
+
+#include "a5xx_reg.h"
 #include "adreno.h"
 #include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
-#include "a5xx_reg.h"
 
 /* Bit flag for RBMM_PERFCTR_CTL */
 #define RBBM_PERFCTR_CTL_ENABLE		0x00000001
