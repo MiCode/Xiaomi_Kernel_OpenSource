@@ -99,7 +99,7 @@ static const struct mtk_pmic_regs mt6359_regs = {
 	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
 		MTK_PMIC_KEYS_REGS(INVALID_VALUE,
 		INVALID_VALUE, MT6359_PSC_TOP_INT_CON0, 0x2),
-	.release_irq = true
+	.release_irq = true,
 	.pmic_rst_reg = MT6359_TOP_RST_MISC,
 };
 
