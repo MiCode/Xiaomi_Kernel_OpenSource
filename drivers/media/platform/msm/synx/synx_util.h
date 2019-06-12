@@ -208,6 +208,16 @@ void *synx_from_handle(s32 synx_id);
 s32 synx_create_handle(void *pObj);
 
 /**
+ * @brief: Function to retrieve the bind ops for external sync
+ *
+ * @param type : External sync type
+ *
+ * @return Bind operations registered by external sync.
+ * NULL otherwise.
+ */
+struct bind_operations *synx_get_bind_ops(u32 type);
+
+/**
  * @brief: Function to generate a secure key for authentication
  *         Used to verify the requests generated on synx objects
  *         not owned by the process.
