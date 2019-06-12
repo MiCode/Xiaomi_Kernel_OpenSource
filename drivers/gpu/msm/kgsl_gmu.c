@@ -1316,18 +1316,8 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 	if (val == test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
 		return 0;
 
-	mutex_lock(&device->mutex);
-
-	/* Power down the GPU before enabling or disabling ACD */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (val)
-		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-	else
-		clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-	return 0;
+	return kgsl_change_flag(device, ADRENO_ACD_CTRL,
+			&adreno_dev->pwrctrl_flag);
 }
 
 /* Do not access any GMU registers in GMU probe function */
