@@ -117,7 +117,7 @@
 
 	quiet-therm-adc {
 		polling-delay-passive = <0>;
-		polling-delay = <0>;
+		polling-delay = <5000>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6125_adc_tm ADC_AMUX_THM2_PU2>;
 		wake-capable-sensor;
