@@ -111,10 +111,8 @@ static struct notifier_block nfcc_notifier = {
 unsigned int	disable_ctrl;
 
 #define MAX_I2C_DUMP_SIZE 512
-#define DUMP_TRANSCIEVING_BUF 0
 
-#if DUMP_TRANSCIEVING_BUF
-static void print_send_buffer(struct nqx_dev *nqx_dev, unsigned char* buf, int len)
+static void print_send_buffer(struct nqx_dev *nqx_dev, unsigned char *buf, int len)
 {
 	unsigned char output[MAX_I2C_DUMP_SIZE * 2 + 1];
 	int i;
@@ -128,7 +126,7 @@ static void print_send_buffer(struct nqx_dev *nqx_dev, unsigned char* buf, int l
 	dev_warn(&nqx_dev->client->dev, "%3d > %s\n", len, output);
 }
 
-static void print_recv_buffer(struct nqx_dev *nqx_dev, unsigned char* buf, int len)
+static void print_recv_buffer(struct nqx_dev *nqx_dev, unsigned char *buf, int len)
 {
 	unsigned char output[MAX_I2C_DUMP_SIZE * 2 + 1];
 	int i;
@@ -141,7 +139,6 @@ static void print_recv_buffer(struct nqx_dev *nqx_dev, unsigned char* buf, int l
 	}
 	dev_warn(&nqx_dev->client->dev, "%3d < %s\n", len, output);
 }
-#endif
 
 static void nqx_init_stat(struct nqx_dev *nqx_dev)
 {
@@ -274,9 +271,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 		dev_dbg(&nqx_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
 			__func__, tmp[0], tmp[1], tmp[2]);
 #endif
-#if DUMP_TRANSCIEVING_BUF
 	print_recv_buffer(nqx_dev, tmp, ret);
-#endif
 	if (copy_to_user(buf, tmp, ret)) {
 		dev_warn(&nqx_dev->client->dev,
 			"%s : failed to copy to user space\n", __func__);
@@ -331,9 +326,7 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 			__func__, iminor(file_inode(filp)),
 			tmp[0], tmp[1], tmp[2]);
 #endif
-#if DUMP_TRANSCIEVING_BUF
 	print_send_buffer(nqx_dev, tmp, count);
-#endif
 	usleep_range(1000, 1100);
 out_free:
 	kfree(tmp);
@@ -973,14 +966,18 @@ static int nqx_clock_select(struct nqx_dev *nqx_dev)
 
 	nqx_dev->s_clk = clk_get(&nqx_dev->client->dev, "ref_clk");
 
-	if (nqx_dev->s_clk == NULL)
+	if (nqx_dev->s_clk == NULL) {
+		dev_err(&nqx_dev->client->dev, "%s: ref_clk not provided\n", __func__);
 		goto err_clk;
+	}
 
 	if (nqx_dev->clk_run == false)
 		r = clk_prepare_enable(nqx_dev->s_clk);
 
-	if (r)
+	if (r) {
+		dev_err(&nqx_dev->client->dev, "%s: clk_prepare_enable failed\n", __func__);
 		goto err_clk;
+	}
 
 	nqx_dev->clk_run = true;
 
@@ -1005,6 +1002,7 @@ static int nqx_clock_deselect(struct nqx_dev *nqx_dev)
 		}
 		return 0;
 	}
+	dev_err(&nqx_dev->client->dev, "%s: ref_clk not provided\n", __func__);
 	return r;
 }
 
@@ -1036,9 +1034,10 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		pdata->ese_gpio = -EINVAL;
 	}
 
-	if (of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name))
+	if (of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name)) {
 		pdata->clk_pin_voting = false;
-	else
+		dev_warn(dev, "%s: clk-src not provided\n", __func__);
+	} else
 		pdata->clk_pin_voting = true;
 
 	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
@@ -1316,11 +1315,13 @@ static int nqx_probe(struct i2c_client *client,
 	}
 
 #ifdef NFC_KERNEL_BU
-	r = nqx_clock_select(nqx_dev);
-	if (r < 0) {
-		dev_err(&client->dev,
-			"%s: nqx_clock_select failed\n", __func__);
-		goto err_clock_en_failed;
+	if (nqx_dev->pdata->clk_pin_voting) {
+		r = nqx_clock_select(nqx_dev);
+		if (r < 0) {
+			dev_err(&client->dev,
+				"%s: nqx_clock_select failed\n", __func__);
+			goto err_clock_en_failed;
+		}
 	}
 	gpio_set_value(platform_data->en_gpio, 1);
 #endif

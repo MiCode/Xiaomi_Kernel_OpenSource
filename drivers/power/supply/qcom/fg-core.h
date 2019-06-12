@@ -94,7 +94,7 @@
 #define ESR_SOH_SOC			50
 #define EMPTY_SOC			0
 
-#define VBAT_RESTART_FG_EMPTY_UV		3700000
+#define VBAT_RESTART_FG_EMPTY_UV		3600000
 #define TEMP_THR_RESTART_FG		150
 #define RESTART_FG_START_WORK_MS		1000
 #define RESTART_FG_WORK_MS		2000
@@ -469,6 +469,7 @@ struct fg_dev {
 	bool			use_dma;
 	bool			qnovo_enable;
 	bool			empty_restart_fg;
+	bool			input_present;
 	enum fg_version		version;
 	struct completion	soc_update;
 	struct completion	soc_ready;

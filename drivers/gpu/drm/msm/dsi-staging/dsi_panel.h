@@ -149,6 +149,9 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+	int esd_err_irq_gpio;
+	int esd_err_irq;
+	int esd_err_irq_flags;
 };
 
 struct dsi_read_config {
@@ -215,7 +218,9 @@ struct dsi_panel {
 
 	bool fod_hbm_enabled; /* prevent set DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM in FOD HBM */
 	u32 doze_backlight_threshold;
+	u32 fod_off_dimming_delay;
 	ktime_t fod_hbm_off_time;
+	ktime_t fod_backlight_off_time;
 
 	u32 panel_p3_mode;
 	u32 close_crc;

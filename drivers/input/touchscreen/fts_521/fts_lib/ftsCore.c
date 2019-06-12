@@ -344,7 +344,7 @@ int setScanMode(u8 mode, u8 settings)
 		 tag, __func__, mode, settings);
 	if (mode == SCAN_MODE_LOW_POWER)
 		size = 2;
-	ret = fts_write(cmd, size);
+	ret = fts_write_dma_safe(cmd, size);
 	if (ret < OK) {
 		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
 			 __func__, ret);
@@ -381,7 +381,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
 		logError(0, "%02X ", settings[i]);
 	}
 	logError(0, "\n");
-	ret = fts_write(cmd, 2 + size);
+	ret = fts_write_dma_safe(cmd, 2 + size);
 	if (ret < OK) {
 		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
 			 __func__, ret);
@@ -405,8 +405,14 @@ int setFeatures(u8 feat, u8 *settings, int size)
 */
 int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 {
-	u8 cmd[2 + size];
+	u8 *cmd = NULL;
 	int ret;
+
+	cmd = (u8 *)kzalloc(sizeof(u8) * size + 2, GFP_KERNEL);
+	if (!cmd) {
+		ret = ERROR_ALLOC;
+		goto end;
+	}
 
 	cmd[0] = FTS_CMD_SYSTEM;
 	cmd[1] = sys_cmd;
@@ -426,7 +432,8 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 		} else {
 			logError(1, "%s %s: No setting argument! ERROR %08X\n",
 				 tag, __func__, ERROR_OP_NOT_ALLOW);
-			return ERROR_OP_NOT_ALLOW;
+			ret = ERROR_OP_NOT_ALLOW;
+			goto end;
 		}
 	}
 	if (ret < OK) {
@@ -434,8 +441,10 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 	} else
 		logError(0, "%s %s: FINISHED! \n", tag, __func__);
 
+end:
+	if (cmd)
+		kfree(cmd);
 	return ret;
-
 }
 
 /** @}*/
@@ -766,8 +775,8 @@ int fts_disableInterrupt(void)
 			logError(0, "%s Excecuting Disable... \n", tag);
 			disable_irq(getClient()->irq);
 			disable_irq_count++;
+			logError(1, "%s Interrupt Disabled!\n", tag);
 		}
-		logError(0, "%s Interrupt Disabled!\n", tag);
 		return OK;
 	} else {
 		logError(1, "%s %s: Impossible get client irq... ERROR %08X\n",
@@ -827,8 +836,8 @@ int fts_enableInterrupt(void)
 			logError(0, "%s Excecuting Enable... \n", tag);
 			enable_irq(getClient()->irq);
 			disable_irq_count--;
+			logError(1, "%s Interrupt Enabled!\n", tag);
 		}
-		logError(0, "%s Interrupt Enabled!\n", tag);
 		return OK;
 	} else {
 		logError(1, "%s %s: Impossible get client irq... ERROR %08X\n",
@@ -949,7 +958,7 @@ int requestSyncFrame(u8 type)
 
 		logError(0, "%s %s: Requesting frame %02X  attempt = %d \n",
 			 tag, __func__, type, retry2 + 1);
-		ret = fts_write(request, ARRAY_SIZE(request));
+		ret = fts_write_dma_safe(request, ARRAY_SIZE(request));
 		if (ret >= OK) {
 
 			logError(0, "%s %s: Polling for new count... \n", tag,
@@ -1122,7 +1131,7 @@ int writeLockDownInfo(u8 *data, int size, u8 lock_id)
 			continue;
 		}
 		mdelay(10);
-		ret = fts_write(lockdown_save, 3);
+		ret = fts_write_dma_safe(lockdown_save, 3);
 		mdelay(5);
 		ret = checkEcho(lockdown_save, 3);
 		if (ret < OK) {
@@ -1194,7 +1203,7 @@ int readLockDownInfo(u8 *lockData, u8 lock_id, int size)
 		}
 		loaded_cnt = (int)((temp[3] & 0xFF) << 8) + (temp[2] & 0xFF);
 		cmd_lockdown[2] = lock_id;
-		fts_write(cmd_lockdown, 3);
+		fts_write_dma_safe(cmd_lockdown, 3);
 		mdelay(10);
 		ret = checkEcho(cmd_lockdown, 3);
 		if (ret < OK) {
@@ -1297,7 +1306,7 @@ int fts_get_lockdown_info(u8 *lockData, struct fts_ts_info *info)
 		}
 		loaded_cnt = (int)((temp[3] & 0xFF) << 8) + (temp[2] & 0xFF);
 		cmd_lockdown[2] = lock_id;
-		fts_write(cmd_lockdown, 3);
+		fts_write_dma_safe(cmd_lockdown, 3);
 		mdelay(10);
 		ret = checkEcho(cmd_lockdown, 3);
 		if (ret < OK) {

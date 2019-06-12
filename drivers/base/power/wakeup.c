@@ -21,6 +21,7 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/irqdesc.h>
+#include <linux/wakeup_reason.h>
 #include "power.h"
 
 /*
@@ -875,6 +876,7 @@ EXPORT_SYMBOL_GPL(pm_print_active_wakeup_sources);
  * since the old value was stored.  Also return true if the current number of
  * wakeup events being processed is different from zero.
  */
+bool wakeup_irq_abort_suspend;
 bool pm_wakeup_pending(void)
 {
 	unsigned long flags;
@@ -901,6 +903,7 @@ bool pm_wakeup_pending(void)
 void pm_system_wakeup(void)
 {
 	atomic_inc(&pm_abort_suspend);
+	wakeup_irq_abort_suspend = true;
 	s2idle_wake();
 }
 EXPORT_SYMBOL_GPL(pm_system_wakeup);
@@ -913,6 +916,7 @@ void pm_system_cancel_wakeup(void)
 void pm_wakeup_clear(bool reset)
 {
 	pm_wakeup_irq = 0;
+	wakeup_irq_abort_suspend = false;
 	if (reset)
 		atomic_set(&pm_abort_suspend, 0);
 }
@@ -936,6 +940,7 @@ void pm_system_irq_wakeup(unsigned int irq_number)
 		}
 		pm_wakeup_irq = irq_number;
 		pm_system_wakeup();
+		log_wakeup_reason(irq_number);
 	}
 }
 

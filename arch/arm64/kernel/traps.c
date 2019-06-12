@@ -110,6 +110,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	if (!tsk)
 		tsk = current;
 
+	if (tsk->state == TASK_DEAD)
+		return;
+
 	if (!try_get_task_stack(tsk))
 		return;
 
@@ -130,6 +133,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	skip = !!regs;
 	printk("Call trace:\n");
 	do {
+		/* return if task has exited*/
+		if (tsk->state == TASK_DEAD)
+			break;
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(frame.pc);

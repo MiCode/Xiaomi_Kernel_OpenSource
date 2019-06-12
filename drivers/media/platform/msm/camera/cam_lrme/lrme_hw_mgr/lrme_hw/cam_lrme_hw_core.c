@@ -740,6 +740,11 @@ int cam_lrme_hw_process_irq(void *priv, void *data)
 
 	mutex_lock(&lrme_hw->hw_mutex);
 
+	if (lrme_hw->hw_state == CAM_HW_STATE_POWER_DOWN) {
+		CAM_DBG(CAM_LRME, "LRME HW is in off state");
+		goto end;
+	}
+
 	if (top_irq_status & (1 << 3)) {
 		CAM_DBG(CAM_LRME, "Error");
 		rc = cam_lrme_hw_util_process_err(lrme_hw);

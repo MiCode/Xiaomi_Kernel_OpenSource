@@ -161,8 +161,8 @@
 #define QPNP_POFF_REASON_UVLO			13
 
 #define FS_SYNC_INTERVAL_MS			500
-#define FS_SYNC_MAX_TIMERS 			8  //Final sync time FS_SYNC_INTERVAL_MS*FS_SYNC_MAX_TIMERS
-#define FS_SYNC_DEBOUNCE			2*1000*1000 //FS sync debounce
+#define FS_SYNC_MAX_TIMERS 			8
+#define FS_SYNC_DEBOUNCE			2*1000*1000
 
 enum qpnp_pon_version {
 	QPNP_PON_GEN1_V1,

@@ -101,18 +101,18 @@ static int set_input_boost_freq(const char *buf, const struct kernel_param *kp)
 		if (cpu >= num_possible_cpus())
 			return -EINVAL;
 
-                if (type == default_input_boost)
-                        per_cpu(sync_info, cpu).input_boost_freq = val;
-                else if (type == powerkey_input_boost)
-                        per_cpu(sync_info, cpu).powerkey_input_boost_freq = val;
+		if (type == default_input_boost)
+			per_cpu(sync_info, cpu).input_boost_freq = val;
+		else if (type == powerkey_input_boost)
+			per_cpu(sync_info, cpu).powerkey_input_boost_freq = val;
 		cp = strnchr(cp, PAGE_SIZE - (cp - buf), ' ');
 		cp++;
 	}
 
 check_enable:
 	for_each_possible_cpu(i) {
-                if (per_cpu(sync_info, i).input_boost_freq
-                        || per_cpu(sync_info, i).powerkey_input_boost_freq) {
+		if (per_cpu(sync_info, i).input_boost_freq
+			 || per_cpu(sync_info, i).powerkey_input_boost_freq) {
 			enabled = true;
 			break;
 		}
@@ -138,7 +138,7 @@ static int get_input_boost_freq(char *buf, const struct kernel_param *kp)
 		s = &per_cpu(sync_info, cpu);
 		if (type == default_input_boost)
 			boost_freq = s->input_boost_freq;
-		else if(type == powerkey_input_boost)
+		else if (type == powerkey_input_boost)
 			boost_freq = s->powerkey_input_boost_freq;
 		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
 				"%d:%u ", cpu, boost_freq);

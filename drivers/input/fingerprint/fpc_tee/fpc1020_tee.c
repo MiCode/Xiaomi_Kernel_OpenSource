@@ -54,6 +54,8 @@
 #define PWR_ON_SLEEP_MAX_US (PWR_ON_SLEEP_MIN_US + 900)
 
 #define NUM_PARAMS_REG_ENABLE_SET 2
+#define HWMON_CONPONENT_NAME "fingerprint"
+
 
 static const char * const pctl_names[] = {
 	"fpc1020_reset_reset",
@@ -247,11 +249,17 @@ static ssize_t regulator_enable_set(struct device *dev,
 		mutex_lock(&fpc1020->lock);
 		rc = vreg_setup(fpc1020, "fp_vdd_vreg", true);
 		mutex_unlock(&fpc1020->lock);
+#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
+		#update_hw_monitor_info(HWMON_CONPONENT_NAME, "fp_vdd_vreg", "on");
+#endif
 		dev_err(dev, "enable fp_vdd_vreg!, rc = %d\n", rc);
 	} else if (!strncmp(buf, "d", strlen("d"))) {
 		mutex_lock(&fpc1020->lock);
 		rc = vreg_setup(fpc1020, "fp_vdd_vreg", false);
 		mutex_unlock(&fpc1020->lock);
+#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
+		#update_hw_monitor_info(HWMON_CONPONENT_NAME, "fp_vdd_vreg", "off");
+#endif
 		dev_err(dev, "disable fp_vdd_vreg!, rc = %d\n", rc);
 	} else {
 		dev_err(dev, "operation disable!\n");
@@ -381,6 +389,7 @@ static int device_prepare(struct fpc1020_data *fpc1020, bool enable)
 			pr_err("fp_vdd_vreg config failed, rc = %d\n", rc);
 			goto free_irq_exit;
 		}
+		#update_hw_monitor_info(HWMON_CONPONENT_NAME, "fp_vdd_vreg", "on");
 		dev_err(dev, "fp_vdd_reg enabled success\n");
 #endif
 
@@ -521,6 +530,15 @@ static ssize_t fingerdown_wait_set(struct device *dev,
 }
 static DEVICE_ATTR(fingerdown_wait, S_IWUSR, NULL, fingerdown_wait_set);
 
+static ssize_t vendor_update(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int rc;
+	return rc ? rc : count;
+}
+static DEVICE_ATTR(vendor, S_IWUSR, NULL, vendor_update);
+
 static ssize_t irq_enable_set(struct device *dev,
 	struct device_attribute *attr,
 	const char *buf, size_t count)
@@ -555,6 +573,16 @@ static ssize_t screen_status_get(struct device *dev, struct device_attribute *at
 }
 static DEVICE_ATTR(screen_status, S_IRUSR | S_IRGRP, screen_status_get, NULL);
 
+static ssize_t vreg_op_cnt_set(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	char value[64] = {0};
+
+	snprintf(value, sizeof(value), "%s", buf);
+	return count;
+}
+static DEVICE_ATTR(vreg_op_cnt, S_IWUSR, NULL, vreg_op_cnt_set);
+
 static struct attribute *attributes[] = {
 	&dev_attr_pinctl_set.attr,
 	&dev_attr_device_prepare.attr,
@@ -566,6 +594,8 @@ static struct attribute *attributes[] = {
 	&dev_attr_irq.attr,
 	&dev_attr_screen_status.attr,
 	&dev_attr_fingerdown_wait.attr,
+	&dev_attr_vendor.attr,
+	&dev_attr_vreg_op_cnt.attr,
 	NULL
 };
 
@@ -687,6 +717,11 @@ static int fpc1020_probe(struct platform_device *pdev)
 
 	fpc1020->dev = dev;
 	platform_set_drvdata(pdev, fpc1020);
+#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
+	register_hw_monitor_info(HWMON_CONPONENT_NAME);
+	add_hw_monitor_info(HWMON_CONPONENT_NAME, "fp_vdd_vreg", "off");
+	add_hw_monitor_info(HWMON_CONPONENT_NAME, "vreg_op_cnt", "0");
+#endif
 
 	if (!np) {
 		dev_err(dev, "no of node found\n");
@@ -767,6 +802,9 @@ static int fpc1020_remove(struct platform_device *pdev)
 	wakeup_source_trash(&fpc1020->ttw_wl);
 	wakeup_source_trash(&fpc1020->screen_wl);
 	(void)vreg_setup(fpc1020, "vdd_ana", false);
+#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
+	unregister_hw_monitor_info(HWMON_CONPONENT_NAME);
+#endif
     /*
 	(void)vreg_setup(fpc1020, "vdd_io", false);
 	(void)vreg_setup(fpc1020, "vcc_spi", false);

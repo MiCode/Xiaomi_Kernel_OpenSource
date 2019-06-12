@@ -146,7 +146,7 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 	strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
 	pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
 
-	// If the NV protected file (critical_info) is destroyed, restart to recovery to inform user
+
 	if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
 		pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
 		schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));

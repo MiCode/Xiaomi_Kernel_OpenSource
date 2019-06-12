@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -245,6 +246,19 @@ static int cam_vfe_top_set_axi_bw_vote(
 		}
 	}
 	return rc;
+}
+
+static int cam_vfe_top_fs_update(
+	struct cam_vfe_top_ver2_priv *top_priv,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_vfe_fe_update_args *cmd_update = cmd_args;
+
+	if (cmd_update->node_res->process_cmd)
+		return cmd_update->node_res->process_cmd(cmd_update->node_res,
+			CAM_ISP_HW_CMD_FE_UPDATE_IN_RD, cmd_args, arg_size);
+
+	return 0;
 }
 
 static int cam_vfe_top_clock_update(
@@ -497,6 +511,14 @@ int cam_vfe_top_reserve(void *device_priv,
 					break;
 			}
 
+			if (acquire_args->res_id == CAM_ISP_HW_VFE_IN_RD) {
+				rc = cam_vfe_fe_ver1_acquire_resource(
+					&top_priv->mux_rsrc[i],
+					args);
+				if (rc)
+					break;
+			}
+
 			top_priv->mux_rsrc[i].cdm_ops = acquire_args->cdm_ops;
 			top_priv->mux_rsrc[i].tasklet_info = args->tasklet;
 			top_priv->mux_rsrc[i].res_state =
@@ -604,6 +626,7 @@ int cam_vfe_top_stop(void *device_priv,
 
 	if ((mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) ||
 		(mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF_LITE) ||
+		(mux_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
 		((mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0) &&
 		(mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3))) {
 		rc = mux_res->stop(mux_res);
@@ -662,6 +685,10 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 		break;
 	case CAM_ISP_HW_CMD_CLOCK_UPDATE:
 		rc = cam_vfe_top_clock_update(top_priv, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_FE_UPDATE_IN_RD:
+		rc = cam_vfe_top_fs_update(top_priv, cmd_args,
 			arg_size);
 		break;
 	case CAM_ISP_HW_CMD_BW_UPDATE:
@@ -780,6 +807,17 @@ int cam_vfe_top_ver2_init(
 				&top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
+		} else if (ver2_hw_info->mux_type[i] ==
+			CAM_VFE_IN_RD_VER_1_0) {
+			/* set the RD resource id */
+			top_priv->mux_rsrc[i].res_id =
+				CAM_ISP_HW_VFE_IN_RD;
+
+			rc = cam_vfe_fe_ver1_init(hw_intf, soc_info,
+				&ver2_hw_info->fe_hw_info,
+				&top_priv->mux_rsrc[i]);
+			if (rc)
+				goto deinit_resources;
 		} else {
 			CAM_WARN(CAM_ISP, "Invalid mux type: %u",
 				ver2_hw_info->mux_type[i]);
@@ -814,6 +852,12 @@ deinit_resources:
 			if (cam_vfe_camif_lite_ver2_deinit(
 				&top_priv->mux_rsrc[i]))
 				CAM_ERR(CAM_ISP, "Camif lite deinit failed");
+		} else if (ver2_hw_info->mux_type[i] ==
+			CAM_ISP_HW_VFE_IN_RDI0) {
+			if (cam_vfe_rdi_ver2_init(hw_intf, soc_info,
+				&ver2_hw_info->rdi_hw_info,
+				&top_priv->mux_rsrc[i]))
+				CAM_ERR(CAM_ISP, "RDI deinit failed");
 		} else {
 			if (cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]))
 				CAM_ERR(CAM_ISP, "RDI Deinit failed");
@@ -874,6 +918,12 @@ int cam_vfe_top_ver2_deinit(struct cam_vfe_top  **vfe_top_ptr)
 			rc = cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]);
 			if (rc)
 				CAM_ERR(CAM_ISP, "RDI deinit failed rc=%d", rc);
+		} else if (top_priv->mux_rsrc[i].res_type ==
+			CAM_VFE_IN_RD_VER_1_0) {
+			rc = cam_vfe_fe_ver1_deinit(&top_priv->mux_rsrc[i]);
+			if (rc)
+				CAM_ERR(CAM_ISP, "Camif deinit failed rc=%d",
+					rc);
 		}
 	}
 

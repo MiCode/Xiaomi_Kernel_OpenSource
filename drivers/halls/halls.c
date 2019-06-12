@@ -33,7 +33,7 @@
 #define DEF_HALL_GPIO_1 42
 #define DEF_HALL_GPIO_2 114
 
-//extern int elliptic_set_hall_state(int state);
+
 
 static int g_gpio_1_irq;
 static int g_gpio_2_irq;
@@ -83,7 +83,7 @@ static void hall_notify_work_func(struct work_struct *work)
 
 	HALLS_LOG(LOGTAG "hall_notify_work_func notify audio hall_status: %d!",
 		  g_st_halls->hall_status);
-	//elliptic_set_hall_state(g_st_halls->hall_status);
+
 	if (halls_status_notify_cb != NULL) {
 		halls_status_notify_cb(g_st_halls->hall_status);
 	}

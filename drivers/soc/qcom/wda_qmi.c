@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -32,7 +32,7 @@ static void wda_svc_config(struct work_struct *work);
 /* **************************************************** */
 #define WDA_SERVICE_ID_V01 0x1A
 #define WDA_SERVICE_VERS_V01 0x01
-#define WDA_TIMEOUT_MS  20
+#define WDA_TIMEOUT_JF  msecs_to_jiffies(1000)
 
 #define QMI_WDA_SET_POWERSAVE_CONFIG_REQ_V01 0x002D
 #define QMI_WDA_SET_POWERSAVE_CONFIG_RESP_V01 0x002D
@@ -242,7 +242,7 @@ static int wda_set_powersave_mode_req(void *wda_data, uint8_t enable)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);
@@ -299,7 +299,7 @@ static int wda_set_powersave_config_req(struct qmi_handle *wda_handle)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, WDA_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);

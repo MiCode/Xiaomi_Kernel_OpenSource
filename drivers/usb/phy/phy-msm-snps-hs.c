@@ -689,7 +689,7 @@ static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
 	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
 	debugfs_create_x8("pre_emphasis", 0644, phy->root, &phy->pre_emphasis);
 	debugfs_create_x8("txvref_tune0", 0644, phy->root, &phy->txvref_tune0);
-	
+
 	/*xiaomi: debug fs for param_override_x */
 	debugfs_create_x8("param_override_x0", 0644, phy->root,
 						&phy->param_override_x0);

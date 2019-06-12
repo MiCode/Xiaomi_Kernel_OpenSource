@@ -5141,8 +5141,6 @@ out:
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_cmd_log(hba);
-		if (hba->crash_on_err)
-			BUG_ON(1);
 	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
@@ -5267,8 +5265,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_ENTER);
 		dev_err(hba->dev, "%s: hibern8 enter failed. ret = %d\n",
 			__func__, ret);
-		if (hba->crash_on_err)
-			BUG_ON(1);
+		BUG_ON(1);
 
 		/*
 		 * If link recovery fails then return error code (-ENOLINK)

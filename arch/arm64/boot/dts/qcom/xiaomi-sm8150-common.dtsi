@@ -247,11 +247,11 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
-&dsi_ss_notch_fhd_ea8074_cmd {
+&dsi_samsung_fhd_ea8076_cmd {
 	qcom,panel-supply-entries = <&dsi_amoled_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <2>;
-	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-dsi-bl-max-level = <2047>;
 	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
 	//qcom,panel-mode-gpio = <&tlmm 7 0>;
 	qcom,platform-te-gpio = <&tlmm 8 0>;
@@ -302,17 +302,6 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
-&dsi_tianma_fhd_nt36672a_video {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <2>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
-	qcom,panel-mode-gpio = <&tlmm 7 0>;
-//	qcom,platform-te-gpio = <&tlmm 8 0>;
-	qcom,platform-reset-gpio = <&tlmm 6 0>;
-};
-
 &qupv3_se9_i2c {
 	status = "ok";
 	nq@28 {
@@ -342,6 +331,7 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm8150_l5>;
+	vdda-phy-always-on;
 	vdda-pll-supply = <&pm8150l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;

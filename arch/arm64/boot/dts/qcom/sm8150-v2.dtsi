@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -592,7 +593,7 @@
 		<26 512 0 7211000>,    // 10 bus=1804
 		<26 512 0 8363000>;    // 11 bus=2092
 
-	qcom,initial-pwrlevel = <4>;
+	qcom,initial-pwrlevel = <5>;
 
 	operating-points-v2 = <&gpu_opp_table_v2>;
 
@@ -604,7 +605,7 @@
 
 		qcom,gpu-pwrlevel@0 {
 			reg = <0>;
-			qcom,gpu-freq = <585000000>;
+			qcom,gpu-freq = <810000000>;
 			qcom,bus-freq = <11>;
 			qcom,bus-min = <11>;
 			qcom,bus-max = <11>;
@@ -612,44 +613,52 @@
 
 		qcom,gpu-pwrlevel@1 {
 			reg = <1>;
+			qcom,gpu-freq = <585000000>;
+			qcom,bus-freq = <11>;
+			qcom,bus-min = <11>;
+			qcom,bus-max = <11>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
 			qcom,gpu-freq = <499200000>;
 			qcom,bus-freq = <9>;
 			qcom,bus-min = <8>;
 			qcom,bus-max = <11>;
 		};
 
-		qcom,gpu-pwrlevel@2 {
-			reg = <2>;
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
 			qcom,gpu-freq = <427000000>;
 			qcom,bus-freq = <6>;
 			qcom,bus-min = <5>;
 			qcom,bus-max = <7>;
 		};
 
-		qcom,gpu-pwrlevel@3 {
-			reg = <3>;
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
 			qcom,gpu-freq = <345000000>;
 			qcom,bus-freq = <3>;
 			qcom,bus-min = <3>;
 			qcom,bus-max = <5>;
 		};
 
-		qcom,gpu-pwrlevel@4 {
-			reg = <4>;
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
 			qcom,gpu-freq = <257000000>;
 			qcom,bus-freq = <3>;
 			qcom,bus-min = <2>;
 			qcom,bus-max = <4>;
 		};
 
-		qcom,gpu-pwrlevel@5 {
-			reg = <5>;
+		qcom,gpu-pwrlevel@6 {
+			reg = <6>;
 			qcom,gpu-freq = <0>;
 			qcom,bus-freq = <0>;
 			qcom,bus-min = <0>;
 			qcom,bus-max = <0>;
 		};
-		/delete-node/ qcom,gpu-pwrlevel@6;
+		/delete-node/ qcom,gpu-pwrlevel@7;
 	};
 
 	qcom,l3-pwrlevels {

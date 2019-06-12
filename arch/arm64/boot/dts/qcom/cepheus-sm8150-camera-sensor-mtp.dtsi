@@ -23,7 +23,7 @@
 		status = "ok";
 	};
 
-	led_flash_rear_aux: qcom,camera-flash@1 {
+	led_flash_rear_aux1: qcom,camera-flash@1 {
 		cell-index = <1>;
 		reg = <0x01 0x00>;
 		compatible = "qcom,camera-flash";
@@ -44,13 +44,13 @@
 		status = "ok";
 	};
 
-	led_flash_iris: qcom,camera-flash@3 {
+	led_flash_rear_aux2: qcom,camera-flash@3 {
 		cell-index = <3>;
 		reg = <0x03 0x00>;
 		compatible = "qcom,camera-flash";
-		flash-source = <&pm8150l_flash1>;
-		torch-source = <&pm8150l_torch1>;
-		switch-source = <&pm8150l_switch0>;
+		flash-source = <&pm8150l_flash0 &pm8150l_flash1>;
+		torch-source = <&pm8150l_torch0 &pm8150l_torch1>;
+		switch-source = <&pm8150l_switch2>;
 		status = "ok";
 	};
 
@@ -65,7 +65,7 @@
 		gpio = <&tlmm 132 0>;
 		vin-supply = <&pm8150_s4>;
 	};
-	
+
 	actuator_rear_regulator: gpio-regulator@1 {
 		compatible = "regulator-fixed";
 		reg = <0x01 0x00>;
@@ -348,7 +348,7 @@
 		cam_vana-supply = <&pm8150_s5>;
 		cam_vdig-supply = <&pm8150_l17>;
 		cam_clk-supply = <&titan_top_gdsc>;
-		regulator-names = "cam_vio", "cam_vana", "cam_vdig", 
+		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
                       "cam_clk";
 		rgltr-cntrl-support;
 		pwm-switch;
@@ -390,7 +390,7 @@
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <180>;
 		actuator-src = <&actuator_rear_aux>;
-		led-flash-src = <&led_flash_rear_aux>;
+		led-flash-src = <&led_flash_rear_aux1>;
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vio-supply = <&camera_viodd_ldo>;
 		cam_vdig-supply = <&pm8150_l17>;
@@ -490,7 +490,7 @@ qcom,cam-sensor@3 {
 		sensor-position-yaw = <180>;
 		actuator-src = <&actuator_ultra_rear>;
 		eeprom-src = <&eeprom_rear_ultra>;
-		//led-flash-src = <&led_flash_iris>;
+		led-flash-src = <&led_flash_rear_aux2>;
 		cam_vio-supply = <&camera_viodd_ldo>;
 		//cam_bob-supply = <&pm8150l_bob>;
 		cam_vana-supply = <&pm8150l_bob>;

@@ -33,14 +33,14 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 
 	if (!gpio_is_valid(gf_dev->pwr_gpio)) {
 		pr_info("PWR GPIO is invalid.\n");
-		return -1;
+		return -EPERM;
 	}
 
 	rc = gpio_request(gf_dev->pwr_gpio, "goodix_pwr");
 
 	if (rc) {
 		dev_err(&gf_dev->spi->dev, "Failed to request PWR GPIO. rc = %d\n", rc);
-		return -1;
+		return -EPERM;
 	}
 
 #endif

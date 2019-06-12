@@ -43,7 +43,7 @@
 #define PRIVATE_FOD_TEST_CMD 0x8A
 #define PRIVATE_TX_HW_ID_CMD 0x8b
 
-/* used registers define */ 
+/* used registers define */
 #define REG_RX_SENT_CMD      0x0000
 #define REG_RX_SENT_DATA1    0x0001
 #define REG_RX_SENT_DATA2    0x0002
@@ -63,15 +63,15 @@
 #define REG_AP_RX_COMM       0x000C
 
 static struct rx1618_chg *g_chip;
-static int g_Delta = 0;
-static bool int_done_flag = false;
-static u8 g_light_screen_flag = 0;
-static u8 g_sar_done_flag = 0;
-static u8 g_fast_chg_flag = 0;
-static u8 g_id_done_flag = 0;
-static u8 g_cali_done_flag = 0;
-static u8 g_usb_type_flag = 0;
-static u8 g_fw_id = 0;
+static int g_Delta;
+static bool int_done_flag;
+static u8 g_light_screen_flag;
+static u8 g_sar_done_flag;
+static u8 g_fast_chg_flag;
+static u8 g_id_done_flag;
+static u8 g_cali_done_flag;
+static u8 g_usb_type_flag;
+static u8 g_fw_id;
 static u8 g_hw_id_h,g_hw_id_l;
 static u8 g_epp_or_bpp = BPP_MODE;
 
@@ -106,7 +106,7 @@ static int rx1618_read(struct rx1618_chg *chip, u8 *val, u16 addr)
 	rc = regmap_read(chip->regmap, addr, &temp);
 	if (rc >= 0) {
 		*val = (u8)temp;
-		//dev_err(chip->dev, "[rx1618] [%s] [0x%04x] = [0x%x] \n", __func__, addr, *val);
+
 	}
 
 	return rc;
@@ -120,7 +120,7 @@ static int rx1618_write(struct rx1618_chg *chip, u8 val, u16 addr)
 	rc = regmap_write(chip->regmap, addr, val);
 	if (rc >= 0)
 	{
-		//dev_err(chip->dev, "[rx1618] [%s] [0x%04x] = [0x%x] \n", __func__, addr, *val);
+
 	}
 
 	return rc;
@@ -132,8 +132,8 @@ unsigned int rx1618_get_rx_vrect(struct rx1618_chg *chip)
 	u8 data=0;
 	u16 vrect=0;
 
-	//if(!chip->online)
-	//    return -EINVAL;
+
+
 
 	rx1618_read(chip, &data, REG_RX_VRECT);
 	vrect = (22500*data) >> 8;
@@ -148,8 +148,8 @@ unsigned int rx1618_get_rx_irect(struct rx1618_chg *chip)
 	u8 data=0;
 	u16 irect=0;
 
-	//if(!chip->online)
-	//    return -EINVAL;
+
+
 
 	rx1618_read(chip, &data, REG_RX_IRECT);
 	irect = (2500*data) >> 8;
@@ -167,8 +167,8 @@ unsigned int rx1618_get_rx_vbuck(struct rx1618_chg *chip)
 	u8  data2 = 0;
 	u16 data = 0;
 
-	//   if(!chip->online)
-	//      return -EINVAL;
+
+
 
 	rx1618_read(chip, &data1, REG_RX_VBUCK_1);
 	rx1618_read(chip, &data2, REG_RX_VBUCK_2);
@@ -178,15 +178,15 @@ unsigned int rx1618_get_rx_vbuck(struct rx1618_chg *chip)
 
 	dev_err(chip->dev, "[rx1618] [%s] Vbuck: data=0x%x, vbuck=%d mV ,data1 = 0x%x, data2= 0x%x \n",__func__, data, vbuck, data1, data2);
 
-	return vbuck; 
+	return vbuck;
 }
 
 unsigned int rx1618_get_rx_ibuck(struct rx1618_chg *chip)
 {
 	u16 ibuck=0;
 
-	//if(!chip->online)
-	//    return -EINVAL;
+
+
 
 	ibuck = (rx1618_get_rx_vrect(chip) * rx1618_get_rx_irect(chip) * 95) / (rx1618_get_rx_vbuck(chip)*100);
 
@@ -205,7 +205,7 @@ bool rx1618_is_vbuck_on(struct rx1618_chg *chip)
 
 	dev_err(chip->dev, "[rx1618] [%s] Vbuck = %d \n",__func__, voltage);
 
-	if((voltage > MIN_VBUCK) && (voltage < MAX_VBUCK))//4V~11V
+	if ((voltage > MIN_VBUCK) && (voltage < MAX_VBUCK))
 	{
 		vbuck_status=true;
 	}
@@ -222,20 +222,20 @@ int rx1618_set_vbuck(struct rx1618_chg *chip, int volt)
 {
 	u8 data = 0;
 
-	if((volt < 5166) && (volt > 9609)) //V bus_set =5166000uV+21224uV*[Vbus_set(0:7)] DEC
+	if ((volt < 5166) && (volt > 9609))
 	{
 		data = 0;
 	}
 	else
 	{
-		data = (volt-5166)*1000/21224; 
+		data = (volt-5166)*1000/21224;
 	}
 
 	data = data + g_Delta;
 	dev_err(chip->dev, "[rx1618] [%s] data = 0x%x, g_Delta=%d \n",__func__, data, g_Delta);
 
-	rx1618_write(chip, PRIVATE_VBUCK_SET_CMD, REG_RX_SENT_CMD);  //sent set vbuck cmd
-	rx1618_write(chip, data, REG_RX_SENT_DATA1);  //sent data0
+	rx1618_write(chip, PRIVATE_VBUCK_SET_CMD, REG_RX_SENT_CMD);
+	rx1618_write(chip, data, REG_RX_SENT_DATA1);
 
 	rx1618_write(chip, AP_SENT_DATA_OK, REG_AP_RX_COMM);
 
@@ -255,10 +255,10 @@ bool rx1618_check_firmware(struct rx1618_chg *chip)
 
         dev_err(chip->dev, "[rx1618] [%s] enter \n",__func__);
 
-	for(i=0;i<(sizeof(fw_data)/4);i++)
+	for (i=0;i<(sizeof(fw_data)/4);i++)
 	{
-		rx1618_write(chip, ((0+i*4)/256), 0x0010);//address_H
-		rx1618_write(chip, ((0+i*4)%256), 0x0011);//address_L
+		rx1618_write(chip, ((0+i*4)/256), 0x0010);
+		rx1618_write(chip, ((0+i*4)%256), 0x0011);
 
 		rx1618_read(chip, (read_buffer+4*i+0), 0x0013);
 		rx1618_read(chip, (read_buffer+4*i+1), 0x0014);
@@ -270,11 +270,11 @@ bool rx1618_check_firmware(struct rx1618_chg *chip)
 	rx1618_write(chip, 0x00, 0x0017);
 	rx1618_write(chip, 0x55, 0x2017);
 
-	for(i=0;i<sizeof(fw_data);i++)
+	for (i=0;i<sizeof(fw_data);i++)
 	{
-		if(read_buffer[i] != ((~fw_data[i])&0xff))
+		if (read_buffer[i] != ((~fw_data[i])&0xff))
 		{
-			dev_err(chip->dev, "[rx1618] [%s] fw download Fail! read_buffer[i]=0x%x, ~fw_data[i]=0x%x, i=%d, sizeof(fw_data)=%ld\n",__func__,read_buffer[i], (~fw_data[i])&0xff,i,sizeof(fw_data));
+			dev_err(chip->dev, "[rx1618] [%s] fw download Fail! read_buffer[i]=0x%x, ~fw_data[i]=0x%x, i=%d, sizeof(fw_data)=%ld\n", __func__, read_buffer[i], (~fw_data[i])&0xff, i, sizeof(fw_data));
 
 			vfree(read_buffer);
 			return false;
@@ -283,7 +283,7 @@ bool rx1618_check_firmware(struct rx1618_chg *chip)
 
         dev_err(chip->dev, "[rx1618] [%s] i=%d, sizeof(fw_data)=%ld\n",__func__,i,sizeof(fw_data));
 
-	if(i == sizeof(fw_data))
+	if (i == sizeof(fw_data))
 	{
 		dev_err(chip->dev, "[rx1618] [%s] fw download Success! \n",__func__);
 		vfree(read_buffer);
@@ -371,11 +371,11 @@ bool rx1618_download_firmware(struct rx1618_chg *chip)
 	rx1618_write(chip, 0x00, 0x0011);
 
 	rx1618_write(chip, (~fw_data[0]), 0x0012);
-	rx1618_write(chip, 0x92, 0x0017);	
+	rx1618_write(chip, 0x92, 0x0017);
 	rx1618_write(chip, 0x93, 0x0017);
 	rx1618_write(chip, 0x69, 0x001A);
 
-	for(i=1;i<(sizeof(fw_data));i++)
+	for (i=1;i<(sizeof(fw_data));i++)
 	{
 		rx1618_write(chip, (~fw_data[i]), 0x0012);
 		udelay(20);
@@ -388,9 +388,9 @@ bool rx1618_download_firmware(struct rx1618_chg *chip)
 	rx1618_write(chip, 0x77, 0x001A);
 
 	mdelay(500);
-	check_status = rx1618_check_firmware(chip); 
+	check_status = rx1618_check_firmware(chip);
 
-	if(check_status)
+	if (check_status)
 	{
 		dev_err(chip->dev, "[rx1618] [%s] RX1618 download firmware and check firmware Success! \n",__func__);
 		return true;
@@ -405,16 +405,16 @@ bool rx1618_download_firmware(struct rx1618_chg *chip)
 static void determine_initial_status(struct rx1618_chg *chip)
 {
 	bool vbuck_on = false;
-	//union power_supply_propval prop = {0, };
+
 
 	vbuck_on = rx1618_is_vbuck_on(chip);
-	if(vbuck_on && !chip->online) {
+	if (vbuck_on && !chip->online) {
 		chip->online = 1;
-		//prop.intval = vbuck_on;
-		//power_supply_set_property(chip->batt_psy, POWER_SUPPLY_PROP_WIRELESS_ONLINE, &prop);
+
+
 	}
 
-	dev_err(chip->dev, "[rx1618] [%s] initial vbuck_on = %d, online = %d\n",__func__,vbuck_on,chip->online);
+	dev_err(chip->dev, "[rx1618] [%s] initial vbuck_on = %d, online = %d\n", __func__, vbuck_on, chip->online);
 }
 
 
@@ -445,38 +445,38 @@ void rx1618_dump_reg(void)
 	rx1618_read(g_chip, &data[14], 0x0023);
 	rx1618_read(g_chip, &data[15], 0x0024);
 
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0000=0x%x\n",__func__,data[0]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0001=0x%x\n",__func__,data[1]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0002=0x%x\n",__func__,data[2]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0003=0x%x\n",__func__,data[3]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0004=0x%x\n",__func__,data[4]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0005=0x%x\n",__func__,data[5]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0008=0x%x\n",__func__,data[6]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0009=0x%x\n",__func__,data[7]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000A=0x%x\n",__func__,data[8]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000B=0x%x\n",__func__,data[9]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000C=0x%x\n",__func__,data[10]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0020=0x%x\n",__func__,data[11]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0021=0x%x\n",__func__,data[12]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0022=0x%x\n",__func__,data[13]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0023=0x%x\n",__func__,data[14]);
-	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0024=0x%x\n",__func__,data[15]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0000=0x%x\n", __func__, data[0]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0001=0x%x\n", __func__, data[1]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0002=0x%x\n", __func__, data[2]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0003=0x%x\n", __func__, data[3]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0004=0x%x\n", __func__, data[4]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0005=0x%x\n", __func__, data[5]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0008=0x%x\n", __func__, data[6]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0009=0x%x\n", __func__, data[7]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000A=0x%x\n", __func__, data[8]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000B=0x%x\n", __func__, data[9]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x000C=0x%x\n", __func__, data[10]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0020=0x%x\n", __func__, data[11]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0021=0x%x\n", __func__, data[12]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0022=0x%x\n", __func__, data[13]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0023=0x%x\n", __func__, data[14]);
+	dev_err(g_chip->dev, "[rx1618] [%s] REG:0x0024=0x%x\n", __func__, data[15]);
 }
 
 #define  N   2
-//0x000b[0:3]  0000:no charger, 0001:SDP, 0010:CDP, 0011:DCP, 0101:QC2-other,
-//0110:QC3-other, 0111:PD, 1000:fail charger, 1001:QC3-27W, 1010:PD-27W
+
+
 #define EPP_MODE_CURRENT 300000*N
 #define DC_OTHER_CURRENT 400000*N
-#define DC_LOW_CURRENT 100000*N //200mA
+#define DC_LOW_CURRENT 100000*N
 #define DC_SDP_CURRENT 400000*N
 #define DC_DCP_CURRENT 400000*N
 #define DC_CDP_CURRENT 400000*N
 #define DC_QC2_CURRENT 500000*N
 #define DC_QC3_CURRENT 500000*N
-#define DC_QC3_20W_CURRENT 1000000*N //2A
+#define DC_QC3_20W_CURRENT 1000000*N
 #define DC_PD_CURRENT  500000*N
-#define DC_PD_20W_CURRENT  1000000*N //2A
+#define DC_PD_20W_CURRENT  1000000*N
 void rx1618_set_pmi_icl(struct rx1618_chg *chip, int mA)
 {
 	union power_supply_propval val = {0, };
@@ -484,13 +484,13 @@ void rx1618_set_pmi_icl(struct rx1618_chg *chip, int mA)
 	if (!chip->dc_psy) {
 		chip->dc_psy = power_supply_get_by_name("dc");
 		if (!chip->dc_psy) {
-			dev_err(chip->dev, "[rx1618] [%s] no dc_psy,return\n",__func__);
+			dev_err(chip->dev, "[rx1618] [%s] no dc_psy,return\n", __func__);
 			return;
 		}
 	}
 	val.intval = mA;
 	power_supply_set_property(chip->dc_psy, POWER_SUPPLY_PROP_CURRENT_MAX, &val);
-	dev_err(chip->dev, "[rx1618] [%s] [rx1618] set icl: %d\n",__func__,val.intval);
+	dev_err(chip->dev, "[rx1618] [%s] [rx1618] set icl: %d\n", __func__, val.intval);
 }
 
 
@@ -500,7 +500,7 @@ static void rx1618_wireless_work(struct work_struct *work)
 
 	mutex_lock(&chip->wireless_chg_lock);
 	schedule_delayed_work(&chip->wireless_work, msecs_to_jiffies(RX1618_DELAY_MS));
-	mutex_unlock(&chip->wireless_chg_lock);  
+	mutex_unlock(&chip->wireless_chg_lock);
 
 	dev_err(chip->dev, "[rx1618] [%s] enter \n",__func__);
 
@@ -511,11 +511,11 @@ static void rx1618_wireless_work(struct work_struct *work)
 static void rx1618_wireless_int_work(struct work_struct *work)
 {
 	int i = 0;
-	int uA = 0; 
+	int uA = 0;
 	u16 irect = 0;
 	u16 vrect = 0;
-	u8 data1,data2,data3,data4,privite_cmd,tx_cmd,usb_type;
-	u8 data_h,data_l,header,header_length;
+	u8 data1, data2, data3, data4, privite_cmd, tx_cmd, usb_type;
+	u8 data_h, data_l, header, header_length;
 	union power_supply_propval val = {0, };
 
 	struct rx1618_chg *chip = container_of(work, struct rx1618_chg, wireless_int_work.work);
@@ -526,16 +526,15 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 	}
 
 	mutex_lock(&chip->wireless_chg_int_lock);
-	dev_err(chip->dev, "[rx1618] [%s] enter \n",__func__);
+	dev_err(chip->dev, "[rx1618] [%s] enter \n", __func__);
 
-	//read data
 	rx1618_read(chip, &privite_cmd, REG_RX_REV_CMD);
 	rx1618_read(chip, &data1, REG_RX_REV_DATA1);
 	rx1618_read(chip, &data2, REG_RX_REV_DATA2);
 	rx1618_read(chip, &data3, REG_RX_REV_DATA3);
 	rx1618_read(chip, &data4, REG_RX_REV_DATA4);
 
-	dev_err(chip->dev, "[rx1618] [%s] privite_cmd,data=0x%x,0x%x,0x%x,0x%x,0x%x\n",__func__,privite_cmd, data1,data2,data3,data4);
+	dev_err(chip->dev, "[rx1618] [%s] privite_cmd,data=0x%x,0x%x,0x%x,0x%x,0x%x\n", __func__, privite_cmd, data1, data2, data3, data4);
 
 	switch (privite_cmd) {
 
@@ -646,7 +645,7 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 
 				switch (usb_type) {
 					case 0: //other charger
-						if((g_id_done_flag == 0) && (g_epp_or_bpp == BPP_MODE))//bpp and no id
+						if((g_id_done_flag == 0) && (g_epp_or_bpp == BPP_MODE))
 						{
 							rx1618_set_pmi_icl(chip, DC_OTHER_CURRENT);
 							dev_err(chip->dev, "[rx1618] [%s] bpp and no id---800mA \n",__func__);
@@ -773,7 +772,7 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 			rx1618_read(chip, &data2, REG_RX_REV_DATA2);
 			rx1618_read(chip, &data3, REG_RX_REV_DATA3);
 
-			dev_err(chip->dev, "[rx1618] [%s] tx hw id,data1-3=0x%x, 0x%x, 0x%x, 0x%x\n",__func__,data1,data2,data3,data4);
+			dev_err(chip->dev, "[rx1618] [%s] tx hw id,data1-3=0x%x, 0x%x, 0x%x, 0x%x\n", __func__, data1, data2, data3, data4);
 			break;
 
 		case 0x0D: //TX test request
@@ -783,7 +782,7 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 			rx1618_read(chip, &header, REG_RX_REV_DATA1);
 			header_length = ((header & 0xf0) >> 4);
 
-			dev_err(chip->dev, "[rx1618] [%s] product Test mode, header=0x%x, header_length=0x%x\n",__func__,header,header_length);
+			dev_err(chip->dev, "[rx1618] [%s] product Test mode, header=0x%x, header_length=0x%x\n",__func__, header, header_length);
 
 			switch (header_length) {
 				case 1: 
@@ -812,24 +811,24 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 					break;
 			}
 
-			dev_err(chip->dev, "[rx1618] [%s] tx_cmd,data=0x%x, 0x%x, 0x%x, 0x%x\n",__func__,tx_cmd,data1,data2,data3);
+			dev_err(chip->dev, "[rx1618] [%s] tx_cmd,data=0x%x, 0x%x, 0x%x, 0x%x\n",__func__, tx_cmd, data1, data2, data3);
 
 			if(tx_cmd==0x12) //irect
 			{
 				rx1618_write(chip, 0x38, REG_RX_SENT_DATA1);  //sent header
-				rx1618_write(chip, 0x12, REG_RX_SENT_DATA2);  //sent cmd
+				rx1618_write(chip, 0x12, REG_RX_SENT_DATA2);
 
 				irect = rx1618_get_rx_irect(chip);
 				data_h = (irect & 0xff00) >> 8;
 				rx1618_write(chip, data_h, 0x0003);
 				data_l = (irect & 0x00ff);
 				rx1618_write(chip, data_l, 0x0004);
-				dev_err(chip->dev, "[rx1618] [%s] product test--0x12--irect=%d \n",__func__,irect);
+				dev_err(chip->dev, "[rx1618] [%s] product test--0x12--irect=%d \n", __func__, irect);
 			}
 			else if(tx_cmd==0x13) //vrect
 			{
 				rx1618_write(chip, 0x38, REG_RX_SENT_DATA1);  //sent header
-				rx1618_write(chip, 0x13, REG_RX_SENT_DATA2);  //sent cmd
+				rx1618_write(chip, 0x13, REG_RX_SENT_DATA2);
 
 				vrect = rx1618_get_rx_vrect(chip);
 				data_h = (vrect & 0xff00) >> 8;
@@ -841,17 +840,17 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 			else if(tx_cmd==0x24) //fw id
 			{
 				rx1618_write(chip, 0x28, REG_RX_SENT_DATA1);  //sent header
-				rx1618_write(chip, 0x24, REG_RX_SENT_DATA2);  //sent cmd
+				rx1618_write(chip, 0x24, REG_RX_SENT_DATA2);
 				rx1618_write(chip, g_fw_id, 0x0003);
 				dev_err(chip->dev, "[rx1618] [%s] product test--0x24--g_fw_id=0x%x \n",__func__,g_fw_id);
 			}
 			else if(tx_cmd==0x25) //hw id
 			{
 				rx1618_write(chip, 0x38, REG_RX_SENT_DATA1);  //sent header
-				rx1618_write(chip, 0x25, REG_RX_SENT_DATA2);  //sent cmd
+				rx1618_write(chip, 0x25, REG_RX_SENT_DATA2);
 				rx1618_write(chip, g_hw_id_h, 0x0003);
 				rx1618_write(chip, g_hw_id_l, 0x0004);
-				dev_err(chip->dev, "[rx1618] [%s] product test--0x25--g_hw_id=0x%x, 0x%x \n",__func__,g_hw_id_h,g_hw_id_l);
+				dev_err(chip->dev, "[rx1618] [%s] product test--0x25--g_hw_id=0x%x, 0x%x \n", __func__, g_hw_id_h, g_hw_id_l);
 			}
 			else
 			{ 
@@ -859,7 +858,7 @@ static void rx1618_wireless_int_work(struct work_struct *work)
 				break;
 			}
 
-			dev_err(chip->dev, "[rx1618] [%s] header,tx_cmd,data=0x%x, 0x%x, 0x%x, 0x%x, 0x%x \n",__func__,header,tx_cmd,data1,data2,data3);
+			dev_err(chip->dev, "[rx1618] [%s] header,tx_cmd,data=0x%x, 0x%x, 0x%x, 0x%x, 0x%x \n",__func__, header, tx_cmd, data1, data2, data3);
 
 			rx1618_write(chip, PRIVATE_PRODUCT_TEST_CMD, REG_RX_SENT_CMD);   //sent test cmd
 			rx1618_write(chip, AP_SENT_DATA_OK, REG_AP_RX_COMM);
@@ -979,11 +978,11 @@ fail_irq_gpio:
 
 /*************FOD**************/
 //CMD : 0x8A
-//DATA0 : Power Level, (2W, 4W, 8W, 6W, 10W… 20W)
-//DATA1 : gain * 1024 hight 8bits
-//DATA2 : gain * 1024 low 8bits
-//DATA3: offset(mW) hight 8bits
-//DATA4: offset(mW) low 8bits
+
+
+
+
+
 /*************FOD**************/
 u8 g_power_level=0;
 u8 g_gain_h=0;
@@ -998,7 +997,7 @@ void FODturring(void)
 	rx1618_write(g_chip, g_offset_h, REG_RX_SENT_DATA4);
 	rx1618_write(g_chip, g_offset_l, REG_RX_SENT_DATA5);
 
-	dev_err(g_chip->dev, "[rx1618] [%s] FODturring:g_power_level,g_gain_h,g_gain_l,g_offset_h,g_offset_l %d,%d,%d,%d,%d\n",__func__,g_power_level,g_gain_h,g_gain_l,g_offset_h,g_offset_l);
+	dev_err(g_chip->dev, "[rx1618] [%s] FODturring:g_power_level,g_gain_h,g_gain_l,g_offset_h,g_offset_l %d,%d,%d,%d,%d\n",__func__, g_power_level, g_gain_h, g_gain_l, g_offset_h, g_offset_l);
 
 	msleep(5);
 
@@ -1015,7 +1014,7 @@ static ssize_t chip_fod_power_store(struct device *dev,
 	index = (int)simple_strtoul(buf, NULL, 10);
 
 	g_power_level = (index & 0xff);
-	dev_err(g_chip->dev, "[rx1618] [%s] g_power_level=0x%x \n",__func__,g_power_level);
+	dev_err(g_chip->dev, "[rx1618] [%s] g_power_level=0x%x \n", __func__, g_power_level);
 
 	return count;
 }
@@ -1031,7 +1030,7 @@ static ssize_t chip_fod_gain_store(struct device *dev,
 	g_gain_l = (index & 0x00ff);
 	g_gain_h = (index & 0xff00) >> 8;
 
-	dev_err(g_chip->dev, "[rx1618] [%s] g_gain_l=0x%x, g_gain_h=0x%x \n",__func__,g_gain_l,g_gain_h);
+	dev_err(g_chip->dev, "[rx1618] [%s] g_gain_l=0x%x, g_gain_h=0x%x \n", __func__, g_gain_l, g_gain_h);
 
 	return count;
 }
@@ -1047,7 +1046,7 @@ static ssize_t chip_fod_offset_store(struct device *dev,
 	g_offset_l = (index & 0x00ff);
 	g_offset_h = (index & 0xff00) >> 8;
 
-	dev_err(g_chip->dev, "[rx1618] [%s] g_offset_l=0x%x, g_offset_h=0x%x \n",__func__,g_offset_l,g_offset_h);
+	dev_err(g_chip->dev, "[rx1618] [%s] g_offset_l=0x%x, g_offset_h=0x%x \n", __func__, g_offset_l, g_offset_h);
 
 	FODturring();
 
@@ -1098,9 +1097,9 @@ static ssize_t chip_vbuck_store(struct device *dev,
 	int index;
 
 	index = (int)simple_strtoul(buf, NULL, 10);
-	dev_err(g_chip->dev, "[rx1618] [%s] --Store output_voltage = %d\n",__func__,index);
+	dev_err(g_chip->dev, "[rx1618] [%s] --Store output_voltage = %d\n", __func__, index);
 	if ((index < 5166) || (index > 9609)) {
-		dev_err(g_chip->dev, "[rx1618] [%s] Store Voltage %s is invalid\n",__func__,buf);
+		dev_err(g_chip->dev, "[rx1618] [%s] Store Voltage %s is invalid\n", __func__, buf);
 		rx1618_set_vbuck(g_chip, 0);
 		return count;
 	}
@@ -1126,8 +1125,6 @@ static ssize_t chip_ap_req_store(struct device *dev,
 		const char *buf,
 		size_t count)
 {
-	//int index;
-	//index = (int)simple_strtoul(buf, NULL, 10);
 	return count;
 }
 
@@ -1183,7 +1180,7 @@ static ssize_t chip_enable_store(struct device *dev,
 	//bool enable = strncmp(buf, "1", 1) ? false : true;
 
 	//rx1618_chip_enable(g_chip, enable);
-	//dev_err(g_chip->dev, "[rx1618] [%s] chip enable:%d\n",__func__,enable);
+
 
 	return count;
 }
@@ -1474,7 +1471,7 @@ static int rx1618_probe(struct i2c_client *client,const struct i2c_device_id *id
 	determine_initial_status(chip); 
 	rx1618_chip_init(chip);
 
-	rx1618_dump_reg(); 
+	rx1618_dump_reg();
 
 	dev_err(chip->dev, "[rx1618] [%s] success! \n",__func__);
 

@@ -101,12 +101,12 @@ struct idtp9220_device_info {
 	int last_icl;
 	int power_good_flag;
 
-        /*idt9220 charging info*/
-        int vout;
-        int iout;
-        int f;
-        int vrect;
-        int ss;
+	/*idt9220 charging info*/
+	int vout;
+	int iout;
+	int f;
+	int vrect;
+	int ss;
 	int is_vin_limit;
 	int is_epp_qc3;
 	/* bpp e5_tx info*/
@@ -145,16 +145,16 @@ static int idtp9220_get_property_names(struct idtp9220_device_info *di)
 		dev_err(di->dev, "[idt] no dc_psy,return\n");
 		return -EINVAL;
 	}
-        di->usb_psy = power_supply_get_by_name("usb");
-        if (!di->usb_psy) {
-                dev_err(di->dev, "[idt] no usb_psy,return\n");
-                return -EINVAL;
-        }
+	di->usb_psy = power_supply_get_by_name("usb");
+	if (!di->usb_psy) {
+		dev_err(di->dev, "[idt] no usb_psy,return\n");
+		return -EINVAL;
+	}
 	di->wireless_psy = power_supply_get_by_name("wireless");
-        if (!di->wireless_psy) {
-                dev_err(di->dev, "[idt] no wireless_psy,return\n");
-                return -EINVAL;
-        }
+	if (!di->wireless_psy) {
+		dev_err(di->dev, "[idt] no wireless_psy,return\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -229,8 +229,8 @@ void idtp922x_clrInt(struct idtp9220_device_info *di, u8 *buf, u32 size) {
 
 void idtp922x_sendPkt(struct idtp9220_device_info *di, ProPkt_Type *pkt) {
 	u32 size = ExtractPacketSize(pkt->header)+1;
-	di->bus.write_buf(di, REG_PROPPKT, (u8 *)pkt, size); // write data into proprietary packet buffer
-	di->bus.write(di, REG_SSCMND, SENDPROPP); // send proprietary packet
+	di->bus.write_buf(di, REG_PROPPKT, (u8 *)pkt, size);
+	di->bus.write(di, REG_SSCMND, SENDPROPP);
 
 	dev_info(di->dev, "pkt header: 0x%x and cmd: 0x%x\n",
 					pkt->header, pkt->cmd);
@@ -290,7 +290,7 @@ void idtp922x_request_uuid(struct idtp9220_device_info *di, int is_epp)
 {
 	ProPkt_Type pkt;
 	pkt.header = PROPRIETARY18;
-	if(is_epp)
+	if (is_epp)
 		pkt.cmd = BC_TX_HWID;
 	else
 		pkt.cmd = BC_TX_COMPATIBLE_HWID;
@@ -315,13 +315,21 @@ void idtp922x_retry_cmd(struct idtp9220_device_info *di)
 	idtp922x_sendPkt(di, &pkt);
 }
 
+static void idtp9220_int_enable(struct idtp9220_device_info *di)
+{
+	u8 int_val;
+	di->bus.read(di, REG_INTR_EN_L, &int_val);
+	di->bus.write(di, REG_INTR_EN_L, (int_val | OVER_EVENT_OCCUR));
+	dev_info(di->dev, "[idtp9220]: int enabled status 0x%x\n", (int_val | OVER_EVENT_OCCUR));
+}
+
 
 static int idtp9220_get_vout_regulator(struct idtp9220_device_info *di)
 {
 	u8 vout_l, vout_h;
 	u16 vout;
 
-	if(!di)
+	if (!di)
 		return 0;
 
 	di->bus.read(di, REG_REGULATOR_L, &vout_l);
@@ -357,7 +365,7 @@ static int idtp9220_set_vout_regulator(struct idtp9220_device_info *di, int mv)
 	u8 vout_l, vout_h;
 	u16 vout;
 
-	if(!di)
+	if (!di)
 		return 0;
 	vout_l = mv & 0xff;
 	vout_h = mv >> 8;
@@ -377,7 +385,7 @@ static int idtp9220_get_vbuck(struct idtp9220_device_info *di)
 	u8 vbuck_l, vbuck_h;
 	u16 vbuck_ret;
 
-	if(!di)
+	if (!di)
 		return 0;
 
 	di->bus.read(di, 0x08, &vbuck_l);
@@ -392,13 +400,13 @@ static int idtp9220_get_vout(struct idtp9220_device_info *di)
 {
 	u8 vout_l, vout_h;
 
-	if(!di)
+	if (!di)
 		return 0;
 
 	di->bus.read(di, REG_ADC_VOUT_L, &vout_l);
 	di->bus.read(di, REG_ADC_VOUT_H, &vout_h);
 	di->vout = vout_l | ((vout_h & 0xf)<< 8);
-	di->vout = di->vout * 10 * 21 * 1000 / 40950 + ADJUST_METE_MV; //vout = val/4095*10*2.1
+	di->vout = di->vout * 10 * 21 * 1000 / 40950 + ADJUST_METE_MV;
 
 	return di->vout;
 }
@@ -406,7 +414,7 @@ static int idtp9220_get_vout(struct idtp9220_device_info *di)
 static void idtp9220_set_vout(struct idtp9220_device_info *di, int mv)
 {
 	u8 val;
-	if(!di)
+	if (!di)
 		return;
 	val = (mv -3500)/100;
 	di->bus.write(di, REG_VOUT_SET, val);
@@ -415,7 +423,7 @@ static void idtp9220_set_vout(struct idtp9220_device_info *di, int mv)
 
 static void idtp9220_set_reset(struct idtp9220_device_info *di)
 {
-	if(!di)
+	if (!di)
 		return;
 	di->bus.write(di, REG_RX_RESET, 0x01);
 	dev_info(di->dev, "[idtp9220]: set RX reset\n");
@@ -440,7 +448,7 @@ static int idtp9220_get_iout(struct idtp9220_device_info *di)
 {
 	u8 cout_l, cout_h;
 
-	if(!di)
+	if (!di)
 		return 0;
 
 	di->bus.read(di, REG_RX_LOUT_L, &cout_l);
@@ -477,9 +485,9 @@ static int idtp9220_get_vrect(struct idtp9220_device_info *di)
 {
 	u8 data_list[2];
 
-        di->bus.read_buf(di, REG_ADC_VRECT, data_list, 2);
+	di->bus.read_buf(di, REG_ADC_VRECT, data_list, 2);
 	di->vrect = data_list[0] | ((data_list[1] & 0xf)<< 8);
-	di->vrect = di->vrect * 10 * 21 * 1000 / 40950;            //vrect = val/4095*10*2.1
+	di->vrect = di->vrect * 10 * 21 * 1000 / 40950;
 
 	return di->vrect;
 }
@@ -496,24 +504,6 @@ static int idtp9220_get_power_max(struct idtp9220_device_info *di)
 	return power_max;
 }
 
-/*
-static int idtp9220_get_signal_strength(struct idtp9220_device_info *di)
-{
-	u8 ss;
-
-	di->bus.read(di, REG_SIGNAL_STRENGTH, &ss);
-	if(ss >= 95)
-		idt_signal_range = 1;
-	else
-		idt_signal_range = 0;
-
-	dev_info(di->dev, "[idt] signal strength: %d\n", ss);
-	di->ss = idt_signal_range;
-
-	return ss;
-}
-*/
-
 static void idtp9220_send_device_auth(struct idtp9220_device_info *di)
 {
 	di->bus.write(di, REG_SSCMND, SEND_DEVICE_AUTH);
@@ -521,8 +511,8 @@ static void idtp9220_send_device_auth(struct idtp9220_device_info *di)
 
 
 static ssize_t chip_version_show(struct device *dev,
-                                 struct device_attribute *attr,
-                                 char *buf)
+				 struct device_attribute *attr,
+				 char *buf)
 {
 	u8 chip_id_l, chip_id_h, chip_rev, cust_id, status, vset;
 	u8 fw_otp_ver[4], fw_app_ver[4];
@@ -547,8 +537,8 @@ static ssize_t chip_version_show(struct device *dev,
 
 /* voltage limit attrs */
 static ssize_t chip_vout_show(struct device *dev,
-                              struct device_attribute *attr,
-                              char *buf)
+			 struct device_attribute *attr,
+			 char *buf)
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
@@ -560,9 +550,9 @@ static ssize_t chip_vout_show(struct device *dev,
 }
 
 static ssize_t chip_vout_store(struct device *dev,
-                               struct device_attribute *attr,
-                               const char *buf,
-                               size_t count)
+			  struct device_attribute *attr,
+			  const char *buf,
+			  size_t count)
 {
 	int index;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
@@ -582,8 +572,8 @@ static ssize_t chip_vout_store(struct device *dev,
 }
 
 static ssize_t vout_regulator_show(struct device *dev,
-                              struct device_attribute *attr,
-                              char *buf)
+			 struct device_attribute *attr,
+			 char *buf)
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
@@ -597,9 +587,9 @@ static ssize_t vout_regulator_show(struct device *dev,
 #define VOUT_MIN_4900_MV	4900
 #define VOUT_MAX_10000_MV	10000
 static ssize_t vout_regulator_store(struct device *dev,
-                               struct device_attribute *attr,
-                               const char *buf,
-                               size_t count)
+			  struct device_attribute *attr,
+			  const char *buf,
+			  size_t count)
 {
 	int vout;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
@@ -617,8 +607,8 @@ static ssize_t vout_regulator_store(struct device *dev,
 
 /* current attrs */
 static ssize_t chip_iout_show(struct device *dev,
-                              struct device_attribute *attr,
-                              char *buf)
+			 struct device_attribute *attr,
+			 char *buf)
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
@@ -630,9 +620,9 @@ static ssize_t chip_iout_show(struct device *dev,
 }
 
 static ssize_t chip_iout_store(struct device *dev,
-                               struct device_attribute *attr,
-                               const char *buf,
-                               size_t count)
+			  struct device_attribute *attr,
+			  const char *buf,
+			  size_t count)
 {
 	int index;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
@@ -651,8 +641,8 @@ static ssize_t chip_iout_store(struct device *dev,
 }
 
 static ssize_t chip_freq_show(struct device *dev,
-                              struct device_attribute *attr,
-                              char *buf)
+			 struct device_attribute *attr,
+			 char *buf)
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
@@ -676,13 +666,13 @@ static void idtp9220_charging_info(struct idtp9220_device_info *di)
 	vbuck_ret = idtp9220_get_vbuck(di);
 
 	dev_info(di->dev, "%s:Vout:%dmV,Iout:%dmA,Freq:%dKHz,Vrect:%dmV,SS:%d, Vbuck:%d\n", __func__,
-                        di->vout, di->iout, di->f, di->vrect, di->ss, vbuck_ret);
+			di->vout, di->iout, di->f, di->vrect, di->ss, vbuck_ret);
 }
 
 /* chip enable attrs */
 static ssize_t chip_enable_show(struct device *dev,
-                              struct device_attribute *attr,
-                              char *buf)
+			 struct device_attribute *attr,
+			 char *buf)
 {
 	int ret;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
@@ -784,7 +774,7 @@ static ssize_t chip_enable_store(struct device *dev,
 	ret = (int)simple_strtoul(buf, NULL, 10);
 	enable = !!ret;
 
-        idtp9220_set_enable_mode(di, enable);
+	idtp9220_set_enable_mode(di, enable);
 
 	return count;
 }
@@ -824,7 +814,7 @@ static int idtp9220_parse_dt(struct idtp9220_device_info *di)
 		return -EINVAL;
 
 	di->dt_props.enable_gpio = of_get_named_gpio(node, "idt,enable", 0);
-        if ((!gpio_is_valid(di->dt_props.enable_gpio)))
+	if ((!gpio_is_valid(di->dt_props.enable_gpio)))
 		return -EINVAL;
 
 	di->dt_props.wpc_det_gpio = of_get_named_gpio(node, "idt,wpc-det", 0);
@@ -896,8 +886,8 @@ static int idtp9220_gpio_init(struct idtp9220_device_info *di)
 err_wpc_irq:
 	gpio_free(di->dt_props.wpc_det_gpio);
 err_irq_gpio:
-    gpio_free(di->dt_props.irq_gpio);
-    return ret;
+	gpio_free(di->dt_props.irq_gpio);
+	return ret;
 }
 
 static bool need_irq_cleared(struct idtp9220_device_info *di)
@@ -950,7 +940,7 @@ static void idtp9220_monitor_work(struct work_struct *work)
 			container_of(work, struct idtp9220_device_info,
 			chg_monitor_work.work);
 
-        idtp9220_charging_info(di);
+			idtp9220_charging_info(di);
 
 	idtp9220_set_charging_param(di);
 
@@ -1043,21 +1033,20 @@ static void idtp9220_chg_detect_work(struct work_struct *work)
 	if(rc < 0)
 		return;
 
-        /*set idtp9220 into sleep mode when usbin*/
-
 	power_supply_get_property(di->usb_psy,
 			POWER_SUPPLY_PROP_ONLINE, &val);
-        if(val.intval) {
+	if(val.intval) {
 		dev_info(di->dev, "[idt] usb_online:%d set chip disable\n", val.intval);
-                idtp9220_set_enable_mode(di, false);
-                return;
-        }
+		idtp9220_set_enable_mode(di, false);
+		return;
+	}
 
 	if(di->dc_psy) {
 		power_supply_get_property(di->dc_psy,
 			POWER_SUPPLY_PROP_ONLINE, &val);
 		dev_info(di->dev, "[idt] dc_online %d\n", val.intval);
 		if(val.intval && di->wireless_psy) {
+			idtp9220_int_enable(di);
 			wk_val.intval = 1;
 			power_supply_set_property(di->wireless_psy,
 					POWER_SUPPLY_PROP_WIRELESS_WAKELOCK, &wk_val);
@@ -1443,15 +1432,9 @@ static void idtp9220_vout_regulator_work(struct work_struct *work)
 	} else if (!vinc && !di->epp) {
 		di->bpp_vout_rise = 0;
 		goto out;
-	} else if (!vinc && di->vbuck > 0 && !di->epp) {
-		di->bpp_vout_rise = 0;
-		idtp9220_set_vout_regulator(di, di->vbuck);
-		msleep(100);
-		idtp922x_set_pmi_icl(di, DC_BPP_CURRENT);
-		goto out;
 	}
 
-	if (di->epp && (vinc || di->is_epp_qc3 || di->is_vin_limit) && soc < 95) {
+	if(di->epp && (vinc || di->is_epp_qc3 || di->is_vin_limit) && soc < 95) {
 		ret = idtp9220_get_property_names(di);
 		if (di->wireless_psy) {
 			val.intval = 1;
@@ -1501,7 +1484,7 @@ static void idtp9220_set_charging_param(struct idtp9220_device_info *di)
 			}
 			break;
 		case ADAPTER_AUTH_FAILED:
-			if(di->epp) {
+			if (di->epp) {
 				di->vbuck = VBUCK_QC_VOL;
 				if (di->power_max <= 10000)
 					icl_curr = ((di->power_max - 1000) / (VBUCK_QC_VOL/1000)) * 1000;
@@ -1662,6 +1645,7 @@ static void idtp9220_wpc_det_work(struct work_struct *work)
 			schedule_delayed_work(&di->dc_check_work, msecs_to_jiffies(2500));
 			di->power_good_flag = 1;
 			val.intval = 1;
+			idtp9220_int_enable(di);
 		}
 		else {
 			cancel_delayed_work(&di->dc_check_work);
@@ -1719,6 +1703,12 @@ static void idtp9220_irq_work(struct work_struct *work)
 		u8 clr_buf[2] = {0xFF, 0xFF};
 		idtp922x_clrInt(di, clr_buf, 2);
 		msleep(5);
+	}
+	if ((int_val & INT_OV_CURR) || (int_val & INT_OV_TEMP)) {
+		dev_info(di->dev, "[idt] ocp or otp found \n");
+		schedule_delayed_work(&di->chg_monitor_work,
+						msecs_to_jiffies(0));
+		goto out;
 	}
 
 	if(int_val & INT_VOUT_ON) {
@@ -1831,7 +1821,7 @@ static void idtp9220_irq_work(struct work_struct *work)
 		case BC_TX_COMPATIBLE_HWID:
 			if (recive_data[1] == 0x12 && recive_data[2])
 				di->is_compatible_hwid = 1;
-			if (recive_data[1] == 0x16 && recive_data[2] == 0x11)
+			if(recive_data[1] == 0x16 && recive_data[2] == 0x11)
 				di->is_f1_tx = 1;
 			idtp922x_request_adapter(di);
 			break;
@@ -1897,12 +1887,12 @@ static irqreturn_t idtp9220_irq_handler(int irq, void *dev_id)
 
 static int idtp9220_irq_request(struct idtp9220_device_info *di)
 {
-    int ret = 0;
+	int ret = 0;
 
-    if (!di->irq) {
-        dev_err(di->dev, "%s: irq is wrong\n", __func__);
-        return -EINVAL;
-    }
+	if (!di->irq) {
+		dev_err(di->dev, "%s: irq is wrong\n", __func__);
+		return -EINVAL;
+	}
 
 	ret = request_irq(di->irq, idtp9220_irq_handler,
 			  IRQF_TRIGGER_FALLING, di->name, di);
@@ -1935,8 +1925,9 @@ static int idtp9220_irq_request(struct idtp9220_device_info *di)
 		return ret;
 	}
 
-    return 0;
+	return 0;
 }
+
 
 static struct regmap_config i2c_idtp9220_regmap_config = {
 	.reg_bits  = 16,
@@ -1958,7 +1949,7 @@ static int idtp9220_get_version(struct idtp9220_device_info *di)
 */
 
 static enum power_supply_property idtp9220_props[] = {
-        POWER_SUPPLY_PROP_PIN_ENABLED,
+	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_WIRELESS_VERSION,
 	POWER_SUPPLY_PROP_SIGNAL_STRENGTH,
@@ -2007,11 +1998,11 @@ static int idtp9220_set_prop(struct power_supply *psy,
 	int data;
 
 	switch (psp) {
-        case POWER_SUPPLY_PROP_PIN_ENABLED:
-                rc = idtp9220_set_enable_mode(di, val->intval);
+	case POWER_SUPPLY_PROP_PIN_ENABLED:
+		rc = idtp9220_set_enable_mode(di, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-                rc = idtp9220_set_present(di, val->intval);
+		rc = idtp9220_set_present(di, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_SIGNAL_STRENGTH:
 		di->ss = val->intval;
@@ -2037,7 +2028,7 @@ static int idtp9220_prop_is_writeable(struct power_supply *psy,
 	int rc;
 
 	switch (psp) {
-        case POWER_SUPPLY_PROP_PIN_ENABLED:
+	case POWER_SUPPLY_PROP_PIN_ENABLED:
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_SIGNAL_STRENGTH:
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
@@ -2051,32 +2042,32 @@ static int idtp9220_prop_is_writeable(struct power_supply *psy,
 }
 
 static const struct power_supply_desc idtp_psy_desc = {
-        .name = "idt",
-        .type = POWER_SUPPLY_TYPE_WIRELESS,
-        .properties = idtp9220_props,
-        .num_properties = ARRAY_SIZE(idtp9220_props),
-        .get_property = idtp9220_get_prop,
-        .set_property = idtp9220_set_prop,
-        .property_is_writeable = idtp9220_prop_is_writeable,
+	.name = "idt",
+	.type = POWER_SUPPLY_TYPE_WIRELESS,
+	.properties = idtp9220_props,
+	.num_properties = ARRAY_SIZE(idtp9220_props),
+	.get_property = idtp9220_get_prop,
+	.set_property = idtp9220_set_prop,
+	.property_is_writeable = idtp9220_prop_is_writeable,
 };
 
 static int idtp9220_probe(struct i2c_client *client,
-                          const struct i2c_device_id *id)
+			 const struct i2c_device_id *id)
 {
-    int ret = 0;
+	int ret = 0;
 	struct idtp9220_device_info *di;
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
-        struct power_supply_config idtp_cfg = {};
+	struct power_supply_config idtp_cfg = {};
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE)) {
-	    dev_err(&client->dev, "i2c check functionality failed!\n");
-	    return -EIO;
+		dev_err(&client->dev, "i2c check functionality failed!\n");
+		return -EIO;
 	}
 
 	di = devm_kzalloc(&client->dev, sizeof(*di), GFP_KERNEL);
 	if (!di) {
-	    dev_err(&client->dev, "i2c allocated device info data failed!\n");
-	    return -ENOMEM;
+		dev_err(&client->dev, "i2c allocated device info data failed!\n");
+		return -ENOMEM;
 	}
 
 	di->name = IDT_DRIVER_NAME;
@@ -2126,25 +2117,24 @@ static int idtp9220_probe(struct i2c_client *client,
 		ret = -EIO;
 		goto cleanup;
 	}
-        idtp_cfg.drv_data = di;
-        di->idtp_psy = power_supply_register(di->dev,
-                        &idtp_psy_desc,
-                        &idtp_cfg);
+	idtp_cfg.drv_data = di;
+	di->idtp_psy = power_supply_register(di->dev,
+			 &idtp_psy_desc,
+			 &idtp_cfg);
 
-	INIT_DELAYED_WORK(&di->chg_monitor_work,idtp9220_monitor_work);
-	INIT_DELAYED_WORK(&di->chg_detect_work,idtp9220_chg_detect_work);
-	INIT_DELAYED_WORK(&di->bpp_connect_load_work,idtp9220_bpp_connect_load_work);
-	INIT_DELAYED_WORK(&di->epp_connect_load_work,idtp9220_epp_connect_load_work);
-	INIT_DELAYED_WORK(&di->cmd_check_work,idtp9220_cmd_check_work);
-	INIT_DELAYED_WORK(&di->vout_regulator_work,idtp9220_vout_regulator_work);
-	INIT_DELAYED_WORK(&di->rx_vout_work,idtp9220_rx_vout_work);
-	INIT_DELAYED_WORK(&di->dc_check_work,idtp9220_dc_check_work);
-	INIT_DELAYED_WORK(&di->fast_operate_work,idtp9220_fast_operate_work);
+	INIT_DELAYED_WORK(&di->chg_monitor_work, idtp9220_monitor_work);
+	INIT_DELAYED_WORK(&di->chg_detect_work, idtp9220_chg_detect_work);
+	INIT_DELAYED_WORK(&di->bpp_connect_load_work, idtp9220_bpp_connect_load_work);
+	INIT_DELAYED_WORK(&di->epp_connect_load_work, idtp9220_epp_connect_load_work);
+	INIT_DELAYED_WORK(&di->cmd_check_work, idtp9220_cmd_check_work);
+	INIT_DELAYED_WORK(&di->vout_regulator_work, idtp9220_vout_regulator_work);
+	INIT_DELAYED_WORK(&di->rx_vout_work, idtp9220_rx_vout_work);
+	INIT_DELAYED_WORK(&di->dc_check_work, idtp9220_dc_check_work);
+	INIT_DELAYED_WORK(&di->fast_operate_work, idtp9220_fast_operate_work);
 	INIT_DELAYED_WORK(&di->mophie_tx_work, idtp9220_mophie_tx_work);
 	INIT_DELAYED_WORK(&di->bpp_e5_tx_work, idtp9220_bpp_e5_tx_work);
 	INIT_DELAYED_WORK(&di->qc2_f1_tx_work, idtp9220_qc2_f1_tx_work);
 	INIT_DELAYED_WORK(&di->qc3_epp_work, idtp9220_qc3_epp_work);
-
 
 	dev_info(di->dev, "[idt] success probe idtp922x driver\n");
 	schedule_delayed_work(&di->chg_detect_work, 3 * HZ);
@@ -2163,7 +2153,7 @@ static int idtp9220_remove(struct i2c_client *client)
 {
 	struct idtp9220_device_info *di = i2c_get_clientdata(client);
 
-        gpio_free(di->dt_props.enable_gpio);
+	gpio_free(di->dt_props.enable_gpio);
 	cancel_delayed_work_sync(&di->irq_work);
 	i2c_set_clientdata(client, NULL);
 

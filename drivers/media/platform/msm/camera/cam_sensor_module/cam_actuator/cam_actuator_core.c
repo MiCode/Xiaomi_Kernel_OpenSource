@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include "cam_trace.h"
 #include "cam_res_mgr_api.h"
 #include "cam_common_util.h"
+#include "cam_packet_util.h"
 
 int32_t cam_actuator_construct_default_power_setting(
 	struct cam_sensor_power_ctrl_t *power_info)
@@ -214,12 +216,12 @@ static int32_t cam_actuator_i2c_modes_util(
 }
 
 int32_t cam_actuator_slaveInfo_pkt_parser(struct cam_actuator_ctrl_t *a_ctrl,
-	uint32_t *cmd_buf)
+	uint32_t *cmd_buf, size_t len)
 {
 	int32_t rc = 0;
 	struct cam_cmd_i2c_info *i2c_info;
 
-	if (!a_ctrl || !cmd_buf) {
+	if (!a_ctrl || !cmd_buf || (len < sizeof(struct cam_cmd_i2c_info))) {
 		CAM_ERR(CAM_ACTUATOR, "Invalid Args");
 		return -EINVAL;
 	}
@@ -406,6 +408,204 @@ int32_t cam_actuator_publish_dev_info(struct cam_req_mgr_device_info *info)
 	return 0;
 }
 
+#ifdef CONFIG_VCM_AK7374
+/* ----------------------------------------------------
+* Anti-Actuator-Noise logic start,
+* Re-config actuator eeprom values
+------------------------------------------------------*/
+#define AAN_AK7374_MASK 0xE8
+#define AAN_AK7374_WRITE_NUM 25
+#define AAN_AK7374_READ_NUM 22
+
+unsigned int aan_already_write;
+
+unsigned int aan_ak7374_setting[AAN_AK7374_WRITE_NUM][2] = {
+	{0xAE, 0x3B}, {0x10, 0x36}, {0x11, 0x23}, {0x12, 0xDC},
+	{0x13, 0x78}, {0x14, 0x14}, {0x15, 0x1E}, {0x16, 0x1A},
+	{0x17, 0x5E}, {0x18, 0xDB}, {0x19, 0xC8}, {0x1A, 0x28},
+	{0x1C, 0x00}, {0x1D, 0x00}, {0x1E, 0x00}, {0x20, 0x6E},
+	{0x21, 0x01}, {0x22, 0x00}, {0x23, 0x1A}, {0x24, 0x00},
+	{0x25, 0x00}, {0x03, 0x01}, {0x03, 0x02}, {0x03, 0x04},
+	{0x03, 0x08}
+};
+
+ /*
+read-check: 0xE9,0x4B, 0x0
+write:0xE8,0xAE, 0x0
+power off
+power on
+wait 10ms
+ */
+unsigned int aan_ak7374_verify[AAN_AK7374_READ_NUM][2] = {
+	{0x0A, 0x89}, {0x0B, 0x84}, {0x10, 0x36}, {0x11, 0x23},
+	{0x12, 0xDC}, {0x13, 0x78}, {0x14, 0x14}, {0x15, 0x1E},
+	{0x16, 0x1A}, {0x17, 0x5E}, {0x18, 0xDB}, {0x19, 0xC8},
+	{0x1A, 0x28}, {0x1C, 0x00}, {0x1D, 0x00}, {0x1E, 0x00},
+	{0x20, 0x6E}, {0x21, 0x01}, {0x22, 0x00}, {0x23, 0x1A},
+	{0x24, 0x00}, {0x25, 0x00}
+};
+
+static void aan_i2c_read(struct camera_io_master *io_master_info, struct i2c_settings_list *i2c_list, unsigned short addr, unsigned short *data)
+{
+	int rc = 0;
+
+	i2c_list->i2c_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_list->i2c_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+
+	rc = camera_io_dev_read(
+					io_master_info,
+					addr,
+					(uint32_t *)(data),
+					i2c_list->i2c_settings.addr_type,
+					i2c_list->i2c_settings.data_type);
+
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR, "aan, aan_i2c_read failed: %d", rc);
+	} else {
+		CAM_DBG(CAM_ACTUATOR, "aan, aan_i2c_read, addr=0x%x, data=0x%x, data_addr=0x%x, sid=0x%x",
+			addr, *data, data, io_master_info->cci_client->sid);
+	}
+}
+
+static void aan_i2c_write(struct camera_io_master *io_master_info, struct i2c_settings_list *i2c_list, unsigned short addr, unsigned short data)
+{
+	int32_t rc = 0;
+
+	i2c_list->i2c_settings.reg_setting[0].reg_addr = addr;
+	i2c_list->i2c_settings.reg_setting[0].reg_data = data;
+	i2c_list->i2c_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_list->i2c_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+	i2c_list->op_code == CAM_SENSOR_I2C_WRITE_RANDOM;
+	i2c_list->i2c_settings.size = 1;
+
+	rc = camera_io_dev_write(io_master_info, &(i2c_list->i2c_settings));
+	if (rc < 0) {
+		CAM_ERR(CAM_ACTUATOR, "aan, aan_i2c_write failed: %d", rc);
+	} else {
+		CAM_DBG(CAM_ACTUATOR, "aan, aan_i2c_write, addr=0x%x, data=0x%x, sid=%d", addr, data, io_master_info->cci_client->sid);
+	}
+}
+
+static int32_t cam_actuator_anti_noise(struct cam_actuator_ctrl_t *a_ctrl, struct i2c_settings_array *i2c_set)
+{
+	unsigned int i = 0;
+	unsigned short dat = 0;
+	struct i2c_settings_list *i2c_list;
+	unsigned int ret = 0;
+	unsigned int sid_backup;
+
+	if (aan_already_write == 1) {
+		CAM_DBG(CAM_ACTUATOR, "aan, eeprom already set");
+		return 0;
+	} else {
+		CAM_DBG(CAM_ACTUATOR, "aan, in");
+	}
+
+	if (a_ctrl != NULL && a_ctrl->io_master_info.cci_client != NULL) {
+		sid_backup = a_ctrl->io_master_info.cci_client->sid;
+	} else {
+		CAM_ERR(CAM_ACTUATOR, "aan, invalid param,  a_ctrl or cci_client is NULL, a_ctrl=0x%p", a_ctrl);
+		return 0;
+	}
+	CAM_DBG(CAM_ACTUATOR, "aan, orig a_ctrl->io_master_info.cci_client->sid=%d", sid_backup);
+
+	if (a_ctrl == NULL || i2c_set == NULL) {
+		CAM_ERR(CAM_ACTUATOR, "aan, cam_actuator_anti_noise, Invalid Args");
+		ret = -EINVAL;
+		goto aan_out;
+	}
+
+	if (i2c_set->is_settings_valid != 1) {
+		CAM_ERR(CAM_ACTUATOR, "aan, cam_actuator_anti_noise, Invalid Args");
+		ret = -EINVAL;
+		goto aan_out;
+	}
+
+	list_for_each_entry(i2c_list, &(i2c_set->list_head), list) {
+		CAM_DBG(CAM_ACTUATOR, "aan, cam_actuator_anti_noise start. sid=%d, master_type=%d, i2c_set->request_id=%d",
+			a_ctrl->io_master_info.cci_client->sid, a_ctrl->io_master_info.master_type, i2c_set->request_id);
+
+
+		a_ctrl->io_master_info.cci_client->sid = AAN_AK7374_MASK>>1;
+		aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, 0x03, &dat);
+		if (dat == 0x0E) {
+
+			for (i = 0; i < AAN_AK7374_READ_NUM; i++) {
+				aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, aan_ak7374_verify[i][0], &dat);
+				if (dat != aan_ak7374_verify[i][1])	{
+					CAM_ERR(CAM_ACTUATOR, "aan, eeprom data not match, i=%d, addr=0x%x, expect=0x%x, real=0x%x",
+						i, aan_ak7374_verify[i][0], aan_ak7374_verify[i][1], dat);
+					break;
+				}
+			}
+			if (i == AAN_AK7374_READ_NUM) {
+				CAM_ERR(CAM_ACTUATOR, "aan, do not need update");
+				aan_already_write = 1;
+				goto aan_out;
+			}
+
+
+			for (i = 0; i < AAN_AK7374_WRITE_NUM; i++) {
+				aan_i2c_write(&(a_ctrl->io_master_info), i2c_list, aan_ak7374_setting[i][0], aan_ak7374_setting[i][1]);
+				if (0x03 == aan_ak7374_setting[i][0]) {
+					msleep(100);
+				}
+			}
+
+
+			aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, 0x4B, &dat);
+			if (dat != 0) {
+				for (i = AAN_AK7374_WRITE_NUM-4; i < AAN_AK7374_WRITE_NUM; i++) {
+					aan_i2c_write(&(a_ctrl->io_master_info), i2c_list, aan_ak7374_setting[i][0], aan_ak7374_setting[i][1]);
+				}
+				aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, 0x4B, &dat);
+				if (dat != 0) {
+					CAM_ERR(CAM_ACTUATOR, "aan, ak7374_write failed, 0x4B=0x%x", dat);
+					goto aan_out;
+				}
+			}
+
+
+			aan_i2c_write(&(a_ctrl->io_master_info), i2c_list, 0x03, 0x10);
+			msleep(100);
+			aan_i2c_write(&(a_ctrl->io_master_info), i2c_list, 0xAE, 0x0);
+			msleep(100);
+			aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, 0x0A, &dat);
+			if (dat != 0x89) {
+				CAM_ERR(CAM_ACTUATOR, "aan, ak7374 flag2 failed, 0x0A, expect=0x89, real=0x%x", dat);
+			}
+			CAM_DBG(CAM_ACTUATOR, "aan, ak7374_write done");
+
+
+			for (i = 0; i < AAN_AK7374_READ_NUM; i++) {
+				aan_i2c_read(&(a_ctrl->io_master_info), i2c_list, aan_ak7374_verify[i][0], &dat);
+				if (dat != aan_ak7374_verify[i][1]) {
+					CAM_ERR(CAM_ACTUATOR, "aan, ak7374_write failed, i=%d, addr=0x%x,, expect=0x%x, real=0x%x",
+						i, aan_ak7374_verify[i][0], aan_ak7374_verify[i][1], dat);
+					break;
+				}
+			}
+			if (i == AAN_AK7374_READ_NUM) {
+				CAM_DBG(CAM_ACTUATOR, "aan, ak7374_write success.");
+			} else {
+				CAM_ERR(CAM_ACTUATOR, "aan, ak7374_write failed.");
+			}
+			goto aan_out;
+		} else {
+			CAM_ERR(CAM_ACTUATOR, "aan, not ak7374, 0x03=0x%x", dat);
+		}
+	}
+aan_out:
+	a_ctrl->io_master_info.cci_client->sid = sid_backup;
+	aan_already_write = 1;
+	CAM_DBG(CAM_ACTUATOR, "aan, cam_actuator_anti_noise done");
+	return 0;
+}
+/* ----------------------------------------------------
+* Anti-Actuator-Noise logic end
+------------------------------------------------------*/
+#endif
+
 int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	void *arg)
 {
@@ -413,6 +613,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	int32_t  i = 0;
 	uint32_t total_cmd_buf_in_bytes = 0;
 	size_t   len_of_buff = 0;
+	size_t   remain_len = 0;
 	uint32_t *offset = NULL;
 	uint32_t *cmd_buf = NULL;
 	uintptr_t generic_ptr;
@@ -450,18 +651,29 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		return rc;
 	}
 
-	if (config.offset > len_of_buff) {
+	remain_len = len_of_buff;
+	if ((sizeof(struct cam_packet) > len_of_buff) ||
+		((size_t)config.offset >= len_of_buff -
+		sizeof(struct cam_packet))) {
 		CAM_ERR(CAM_ACTUATOR,
-			"offset is out of bounds: offset: %lld len: %zu",
-			config.offset, len_of_buff);
+			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
+			 sizeof(struct cam_packet), len_of_buff);
 		rc = -EINVAL;
 		goto rel_pkt_buf;
 	}
 
+	remain_len -= (size_t)config.offset;
 	csl_packet = (struct cam_packet *)
 			(generic_pkt_ptr + (uint32_t)config.offset);
-	CAM_DBG(CAM_ACTUATOR, "Pkt opcode: %d",
-			csl_packet->header.op_code);
+
+	if (cam_packet_util_validate_packet(csl_packet,
+		remain_len)) {
+		CAM_ERR(CAM_ACTUATOR, "Invalid packet params");
+		rc = -EINVAL;
+		goto rel_pkt_buf;
+	}
+
+	CAM_DBG(CAM_ACTUATOR, "Pkt opcode: %d",	csl_packet->header.op_code);
 
 	if ((csl_packet->header.op_code & 0xFFFFFF) !=
 		CAM_ACTUATOR_PACKET_OPCODE_INIT &&
@@ -470,7 +682,8 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 		CAM_DBG(CAM_ACTUATOR,
 			"reject request %lld, last request to flush %lld",
 			csl_packet->header.request_id, a_ctrl->last_flush_req);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto rel_pkt_buf;
 	}
 
 	if (csl_packet->header.request_id > a_ctrl->last_flush_req)
@@ -498,6 +711,15 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 				CAM_ERR(CAM_ACTUATOR, "invalid cmd buf");
 				goto rel_cmd_buf;
 			}
+			if ((len_of_buff < sizeof(struct common_header)) ||
+				(cmd_desc[i].offset > (len_of_buff -
+				sizeof(struct common_header)))) {
+				CAM_ERR(CAM_ACTUATOR,
+					"Invalid length for sensor cmd");
+				rc = -EINVAL;
+				goto rel_cmd_buf;
+			}
+			remain_len = len_of_buff - cmd_desc[i].offset;
 			cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 			cmm_hdr = (struct common_header *)cmd_buf;
 
@@ -506,7 +728,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 				CAM_DBG(CAM_ACTUATOR,
 					"Received slave info buffer");
 				rc = cam_actuator_slaveInfo_pkt_parser(
-					a_ctrl, cmd_buf);
+					a_ctrl, cmd_buf, remain_len);
 				if (rc < 0) {
 					CAM_ERR(CAM_ACTUATOR,
 					"Failed to parse slave info: %d", rc);
@@ -520,7 +742,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 				rc = cam_sensor_update_power_settings(
 					cmd_buf,
 					total_cmd_buf_in_bytes,
-					power_info);
+					power_info, remain_len);
 				if (rc) {
 					CAM_ERR(CAM_ACTUATOR,
 					"Failed:parse power settings: %d",
@@ -571,6 +793,10 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 			CAM_ERR(CAM_ACTUATOR, "Cannot apply Init settings");
 			goto rel_pkt_buf;
 		}
+
+#ifdef CONFIG_VCM_AK7374
+		cam_actuator_anti_noise(a_ctrl, &a_ctrl->i2c_data.init_settings);
+#endif
 
 		/* Delete the request even if the apply is failed */
 		rc = delete_request(&a_ctrl->i2c_data.init_settings);

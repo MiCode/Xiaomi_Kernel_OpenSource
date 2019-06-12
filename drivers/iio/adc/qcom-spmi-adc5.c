@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -670,9 +671,11 @@ static const struct adc_channels adc_chans_pmic5[ADC_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_PM5_SMB_TEMP)
 	[ADC_AMUX_THM3]			= ADC_CHAN_TEMP("amux_thm3", 1,
 					SCALE_HW_CALIB_PM5_SMB_TEMP)
-	[ADC_GPIO1_PU2]	= ADC_CHAN_TEMP("gpio1_pu2", 1,
-					SCALE_HW_CALIB_THERM_100K_PULLUP)
-	[ADC_GPIO4_PU2]	= ADC_CHAN_TEMP("gpio4_pu2", 1,
+	[ADC_GPIO1_PU2]			= ADC_CHAN_VOLT("gpio1_pu2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+	[ADC_GPIO2_PU2] 		= ADC_CHAN_VOLT("gpio2_pu2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+	[ADC_GPIO4_PU2]			= ADC_CHAN_TEMP("gpio4_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 };
 

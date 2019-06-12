@@ -1,5 +1,5 @@
 /*
-this file is for attribution only of cepheus 
+this file is for attribution only of cepheus
 And public attribution of xiaomi platforms(like F1 and so and)
 */
 #include "cepheus-pinctrl.dtsi"
@@ -46,7 +46,6 @@ And public attribution of xiaomi platforms(like F1 and so and)
 	qcom,auto-recharge-soc = <99>;
 	qcom,chg-term-src = <1>;
 	qcom,chg-term-current-ma = <(-220)>;
-	qcom,chg-term-base-current-ma = <(-180)>;
 	qcom,thermal-mitigation = <3000000 2800000 2600000 2400000 2200000 2100000 2000000
 				   1800000 1600000 1500000 1400000 1200000 1000000 900000
 				   800000 500000>;
@@ -121,6 +120,7 @@ And public attribution of xiaomi platforms(like F1 and so and)
 	qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,support-wireless;
+	qcom,dynamic-fv-enable;
 };
 
 &ext_5v_boost {

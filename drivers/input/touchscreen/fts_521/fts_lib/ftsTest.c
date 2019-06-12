@@ -3281,10 +3281,10 @@ int production_test_ss_hover_raw(char *path_limits, int stop_on_fail,
 	SelfSenseFrame ssHoverRawFrame;
 	int count_fail = 0;
 
-	ret = fts_write(hover_cnt, sizeof(hover_cnt));
+	ret = fts_write_dma_safe(hover_cnt, sizeof(hover_cnt));
 	if (ret != OK) {
 		logError(1,
-			 "%s hover clear count ERROR = %d\n",tag, ret);
+			 "%s hover clear count ERROR = %d\n", tag, ret);
 		goto ERROR_LIMITS;
 	}
 
@@ -3314,7 +3314,7 @@ int production_test_ss_hover_raw(char *path_limits, int stop_on_fail,
 			goto ERROR_LIMITS;
 		}
 
-		ret = checkLimitsMinMax(ssHoverRawFrame.force_data, rows,columns, thresholds[0],thresholds[1]);
+		ret = checkLimitsMinMax(ssHoverRawFrame.force_data, rows,columns, thresholds[0], thresholds[1]);
 		if (ret != OK) {
 			logError(1,
 				 "%s production_test_data: checkLimitsMinMax SS HOVER RAW FORCE failed... ERROR COUNT = %d\n",tag, ret);
@@ -3365,7 +3365,7 @@ int production_test_ss_hover_raw(char *path_limits, int stop_on_fail,
 			goto ERROR_LIMITS;
 		}
 
-		ret = checkLimitsMinMax(ssHoverRawFrame.sense_data, rows,columns, thresholds[0],thresholds[1]);
+		ret = checkLimitsMinMax(ssHoverRawFrame.sense_data, rows, columns, thresholds[0], thresholds[1]);
 		if (ret != OK) {
 			logError(1,
 				 "%s production_test_data: checkLimitsMinMax SS Hover RAW SENSE failed... ERROR COUNT = %d\n",
@@ -4014,7 +4014,7 @@ ERROR_LIMITS:
 	return ret;
 }
 
-int production_test_ss_hover_ix(char *path_limits, int stop_on_fail,TestToDo *todo){
+int production_test_ss_hover_ix(char *path_limits, int stop_on_fail, TestToDo *todo){
 	TotSelfSenseData ssHoverCompData;
 	int ret;
 	int trows, tcolumns;
@@ -4034,9 +4034,9 @@ int production_test_ss_hover_ix(char *path_limits, int stop_on_fail,TestToDo *to
 	logError(0, "%s SS Hover TOTAL IX FORCE TEST:\n", tag);
 	logError(0, "%s SS Hover TOTAL IX FORCE MIN MAX TEST:\n", tag);
 	if (todo->SelfHoverForceIxTotal == 1) {
-		ret = parseProductionTestLimits(path_limits,&limit_file,SS_HOVER_TOTAL_IX_FORCE_MAP_MIN,&thresholds_min,&trows, &tcolumns);
+		ret = parseProductionTestLimits(path_limits, &limit_file, SS_HOVER_TOTAL_IX_FORCE_MAP_MIN, &thresholds_min, &trows, &tcolumns);
 					/* load the min thresholds */
-		if (ret < 0 || (trows != ssHoverCompData.header.force_node ||tcolumns != 1)) {
+		if (ret < 0 || (trows != ssHoverCompData.header.force_node || tcolumns != 1)) {
 			logError(1,
 				 "%s production_test_data: parseProductionTestLimits SS_TOTAL_IX_FORCE_MAP_MIN failed... ERROR %08X\n",
 				 tag, ERROR_PROD_TEST_DATA);
@@ -4044,7 +4044,7 @@ int production_test_ss_hover_ix(char *path_limits, int stop_on_fail,TestToDo *to
 			goto ERROR_LIMITS;
 		}
 
-		ret = parseProductionTestLimits(path_limits,&limit_file,SS_TOTAL_IX_FORCE_MAP_MAX,&thresholds_max,&trows, &tcolumns);
+		ret = parseProductionTestLimits(path_limits, &limit_file,SS_TOTAL_IX_FORCE_MAP_MAX, &thresholds_max, &trows, &tcolumns);
 					/* load the max thresholds */
 		if (ret < 0 || (trows !=
 				ssHoverCompData.header.force_node ||

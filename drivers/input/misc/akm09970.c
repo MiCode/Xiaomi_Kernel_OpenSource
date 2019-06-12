@@ -1,6 +1,7 @@
 /* drivers/intput/misc/akm09970.c - akm09970 compass driver
  *
  * Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -13,7 +14,7 @@
  *
  */
 
-//#define DEBUG
+
 #define pr_fmt(fmt) "akm09970: %s: %d " fmt, __func__, __LINE__
 
 #include <linux/delay.h>
@@ -69,7 +70,7 @@ struct akm09970_soc_ctrl {
 	struct device_node *of_node;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_default;
-//	struct pinctrl_state *pinctrl_sleep;
+
 
 	struct regulator *vdd;
 	int gpio_rstn;
@@ -87,7 +88,7 @@ struct akm09970_soc_ctrl {
 	int irq;
 
 	uint8_t sense_info[AKM_SENSOR_INFO_SIZE];
-//	uint8_t sense_conf[AKM_SENSOR_CONF_SIZE];
+
 	uint8_t sense_data[AKM_SENSOR_DATA_SIZE];
 	int32_t magnet_data[3];
 	uint8_t layout;
@@ -300,7 +301,7 @@ static long akm09970_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	if (pctrl == NULL)
 		return -EFAULT;
 
-//	mutex_lock(&pctrl->soc_mutex);
+
 
 	switch (cmd) {
 	case AKM_IOC_SET_ACTIVE:
@@ -320,7 +321,7 @@ static long akm09970_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			break;
 		}
 		pctrl->measure_freq_hz = mode;
-		//rc = akm_set_mode(pctrl, mode);
+
 		break;
 	case AKM_IOC_SET_PRESS:
 		pr_debug("AKM_IOC_SET_PRESS.");
@@ -350,7 +351,7 @@ static long akm09970_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 		break;
 	}
 
-//	mutex_unlock(&pctrl->soc_mutex);
+
 	return rc;
 }
 
@@ -425,7 +426,7 @@ static int akm_report_data(struct akm09970_soc_ctrl *pctrl)
 	mag_y = MAKE_S16(pctrl->sense_data[4], pctrl->sense_data[5]);
 	mag_z = MAKE_S16(pctrl->sense_data[6], pctrl->sense_data[7]);
 
-	//pr_debug("mag_x:%d mag_y:%d mag_z:%d\n", mag_x, mag_y, mag_z);
+
 	pr_debug("raw data: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
 			pctrl->sense_data[0], pctrl->sense_data[1], pctrl->sense_data[2], pctrl->sense_data[3],
 			pctrl->sense_data[4], pctrl->sense_data[5], pctrl->sense_data[6], pctrl->sense_data[7]);
@@ -481,7 +482,7 @@ static int akm_report_data(struct akm09970_soc_ctrl *pctrl)
 
 	input_sync(pctrl->input);
 
-//	enable_irq(pctrl->client->irq);
+
 
 	return 0;
 }
@@ -502,7 +503,7 @@ static irqreturn_t akm_irq(int irq, void *handle)
 {
 	struct akm09970_soc_ctrl *pctrl = handle;
 
-//	disable_irq_nosync(pctrl->client->irq);
+
 	queue_work(pctrl->work_queue, &pctrl->report_work);
 
 	pr_debug("enter");
@@ -795,7 +796,7 @@ int akm09970_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	pr_debug("start parse dt.");
 	if (client->dev.of_node) {
 		rc = akm09970_parse_dt(&client->dev, pctrl);
-		if(rc < 0) {
+		if (rc < 0) {
 			pr_err("Unable to parse platfrom data rc=%d\n", rc);
 			goto exit2;
 		}
@@ -847,7 +848,7 @@ int akm09970_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	INIT_WORK(&pctrl->report_work, akm_dev_input_work);
 
 	if (pctrl->irq) {
-//		rc = request_irq(client->irq, akm_irq, IRQF_TRIGGER_FALLING, client->name, pctrl);
+
 		rc = request_threaded_irq(
 				client->irq,
 				NULL,

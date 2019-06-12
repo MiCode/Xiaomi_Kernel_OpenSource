@@ -34,7 +34,7 @@
  * Max handles supported by cam_req_mgr
  * It includes both session and device handles
  */
-#define CAM_REQ_MGR_MAX_HANDLES           64
+#define CAM_REQ_MGR_MAX_HANDLES           96
 #define MAX_LINKS_PER_SESSION             2
 
 /* V4L event type which user space will subscribe to */
@@ -383,10 +383,12 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_ERROR_TYPE_DEVICE: Device error message, fatal to session
  * @CAM_REQ_MGR_ERROR_TYPE_REQUEST: Error on a single request, not fatal
  * @CAM_REQ_MGR_ERROR_TYPE_BUFFER: Buffer was not filled, not fatal
+ * @CAM_REQ_MGR_ERROR_TYPE_RECOVERY: Fatal error, can be recovered
  */
 #define CAM_REQ_MGR_ERROR_TYPE_DEVICE           0
 #define CAM_REQ_MGR_ERROR_TYPE_REQUEST          1
 #define CAM_REQ_MGR_ERROR_TYPE_BUFFER           2
+#define CAM_REQ_MGR_ERROR_TYPE_RECOVERY         3
 
 /**
  * struct cam_req_mgr_error_msg

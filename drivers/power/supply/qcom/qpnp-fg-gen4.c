@@ -2754,23 +2754,50 @@ static irqreturn_t fg_delta_bsoc_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static bool fg_is_input_suspend(struct fg_dev *fg)
+{
+	int rc = 0;
+	union power_supply_propval prop = {0, };
+	int input_suspend = 0;
+
+	if (fg->batt_psy) {
+		rc = power_supply_get_property(fg->batt_psy,
+				POWER_SUPPLY_PROP_INPUT_SUSPEND,
+				&prop);
+		if (rc < 0) {
+			pr_err("Error in getting input suspend property, rc=%d\n", rc);
+			return false;
+		}
+		input_suspend = prop.intval;
+	}
+
+	if (input_suspend == 1)
+		return true;
+	else
+		return false;
+}
+
 static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp;
 	bool input_present = is_input_present(fg);
+	bool input_suspend = false;
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered\n", irq);
 
 	get_batt_psy_props(fg);
+
+	input_suspend = fg_is_input_suspend(fg);
 
 	rc = fg_get_sram_prop(fg, FG_SRAM_BATT_SOC, &batt_soc);
 	if (rc < 0)
 		pr_err("Failed to read battery soc rc: %d\n", rc);
 	else
 		cycle_count_update(chip->counter, (u32)batt_soc >> 24,
-			fg->charge_status, fg->charge_done, input_present);
+			fg->charge_status, fg->charge_done,
+				(input_present & (!input_suspend)));
 
 	rc = fg_gen4_get_battery_temp(fg, &batt_temp);
 	if (rc < 0) {
@@ -3110,6 +3137,7 @@ static void pl_current_en_work(struct work_struct *work)
 		return;
 
 	vote(chip->parallel_current_en_votable, FG_PARALLEL_EN_VOTER, en, 0);
+	/* qcom patch to fix pm8150b ADC EOC bit not set issue */
 	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 }
 
@@ -3140,6 +3168,7 @@ static void status_change_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp, msoc_raw;
 	bool input_present, qnovo_en;
+	bool input_suspend = false;
 
 	if (fg->battery_missing) {
 		pm_relax(fg->dev);
@@ -3187,9 +3216,12 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	input_present = is_input_present(fg);
+	fg->input_present = input_present;
+	input_suspend = fg_is_input_suspend(fg);
 	qnovo_en = is_qnovo_en(fg);
 	cycle_count_update(chip->counter, (u32)batt_soc >> 24,
-		fg->charge_status, fg->charge_done, input_present);
+		fg->charge_status, fg->charge_done,
+		(input_present & (!input_suspend)));
 
 	if (fg->charge_status != fg->prev_charge_status)
 		cap_learning_update(chip->cl, batt_temp, batt_soc,
@@ -3600,6 +3632,9 @@ static int fg_psy_set_property(struct power_supply *psy,
 				chip->first_profile_load = false;
 		}
 		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+		rc = fg_set_constant_chg_voltage(fg, pval->intval);
+		break;
 	default:
 		break;
 	}
@@ -3619,6 +3654,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		return 1;
 	default:
 		break;
@@ -3762,21 +3798,24 @@ static int fg_parallel_current_en_cb(struct votable *votable, void *data,
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc;
-	u8 val, mask;
+	/* u8 val, mask; */
 
 	/* Wait for MEM_ATTN interrupt */
 	rc = fg_wait_for_mem_attn(chip);
 	if (rc < 0)
 		return rc;
 
-	val = enable ? SMB_MEASURE_EN_BIT : 0;
+	/* qcom new patch to fix pm8150b ADC EOC bit not set issue */
+	/* val = enable ? SMB_MEASURE_EN_BIT : 0;
 	mask = SMB_MEASURE_EN_BIT;
 	rc = fg_masked_write(fg, BATT_INFO_FG_CNV_CHAR_CFG(fg), mask, val);
 	if (rc < 0)
 		pr_err("Error in writing to 0x%04x, rc=%d\n",
 			BATT_INFO_FG_CNV_CHAR_CFG(fg), rc);
 
-	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable);
+	fg_dbg(fg, FG_STATUS, "Parallel current summing: %d\n", enable); */
+
+	/* qcom patch to fix pm8150b ADC EOC bit not set issue */
 	/*vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);*/
 	return rc;
 }
@@ -4422,6 +4461,7 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 #define DEFAULT_CL_MIN_LIM_DECIPERC	0
 #define DEFAULT_CL_MAX_LIM_DECIPERC	0
 #define BTEMP_DELTA_LOW			0
+/* set BTEMP_DELTA_HIGH to 10 to avoid batt-temp-delta irq wakeup frequently */
 #define BTEMP_DELTA_HIGH		10
 #define DEFAULT_ESR_PULSE_THRESH_MA	47
 #define DEFAULT_ESR_MEAS_CURR_MA	120
@@ -4836,6 +4876,35 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	dev_set_drvdata(fg->dev, NULL);
 }
 
+#define IBAT_OLD_WORD		317
+#define IBAT_OLD_OFFSET		0
+#define BATT_CURRENT_NUMR		488281
+#define BATT_CURRENT_DENR		1000
+int fg_get_batt_isense(struct fg_dev *fg, int *val)
+{
+	int rc;
+	u8 buf[2];
+	int64_t temp = 0;
+
+	rc = fg_sram_read(fg, IBAT_OLD_WORD, IBAT_OLD_OFFSET, buf, 2,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in reading %04x[%d] rc=%d\n", IBAT_OLD_WORD,
+				IBAT_OLD_OFFSET, rc);
+		return rc;
+	}
+
+	temp = buf[0] | buf[1] << 8;
+
+	/* Sign bit is bit 15 */
+	temp = sign_extend32(temp, 15);
+	*val = div_s64((s64)temp * BATT_CURRENT_NUMR, BATT_CURRENT_DENR);
+	pr_info("read batt isense: %d[%d]%d\n",
+			(*val)/10, *val, (*val)/1000);
+
+	return 0;
+}
+
 static int fg_gen4_probe(struct platform_device *pdev)
 {
 	struct fg_gen4_chip *chip;
@@ -5113,6 +5182,10 @@ static int fg_gen4_resume(struct device *dev)
 {
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
+	int val = 0;
+
+	if (!fg->input_present)
+		fg_get_batt_isense(fg, &val);
 
 	schedule_delayed_work(
 			&fg->soc_work, msecs_to_jiffies(SOC_WORK_MS));

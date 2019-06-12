@@ -16,6 +16,8 @@
 #ifndef _DSI_PANEL_MI_H_
 #define _DSI_PANEL_MI_H_
 
+#define DEFAULT_FOD_OFF_DIMMING_DELAY	170
+
 enum bkl_dimming_state {
 	STATE_NONE,
 	STATE_DIM_BLOCK,

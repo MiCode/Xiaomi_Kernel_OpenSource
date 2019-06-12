@@ -332,7 +332,7 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 	u16 byteToRead = 0;
 	u32 fileSize = 0;
 	u8 *readData = NULL;
-	u8 cmd[count];
+	u8 *cmd = NULL;
 	u32 funcToTest[((count + 1) / 3)];
 	u64 addr = 0;
 	MutualSenseFrame frameMS;
@@ -355,6 +355,11 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 	mess.action = 0;
 	mess.msg_size = 0;
 
+	cmd = (u8 *)kzalloc(sizeof(u8) * count, GFP_KERNEL);
+	if (!cmd) {
+		res = ERROR_ALLOC;
+		goto END;
+	}
 	if (access_ok(VERIFY_READ, buf, count) < OK
 	    || copy_from_user(pbuf, buf, count) != 0) {
 		res = ERROR_ALLOC;
@@ -593,7 +598,7 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 				    (u8 *) kmalloc((byteToRead + mess.dummy) *
 						   sizeof(u8), GFP_KERNEL);
 				res =
-				    fts_writeRead(&cmd[1], temp, readData,
+				    fts_writeRead_dma_safe(&cmd[1], temp, readData,
 						  byteToRead + mess.dummy);
 				size += (byteToRead * sizeof(u8));
 
@@ -608,7 +613,7 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 		case CMD_WRITE_BYTE:
 			if (numberParam >= 2) {
 				temp = numberParam - 1;
-				res = fts_write(&cmd[1], temp);
+				res = fts_write_dma_safe(&cmd[1], temp);
 
 			} else {
 				logError(1, "%s Wrong number of parameters! \n",
@@ -631,7 +636,7 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 				    (u8 *) kmalloc((byteToRead + mess.dummy) *
 						   sizeof(u8), GFP_KERNEL);
 				res =
-				    fts_read(readData, byteToRead + mess.dummy);
+				    fts_read_dma_safe(readData, byteToRead + mess.dummy);
 				size += (byteToRead * sizeof(u8));
 
 			} else {
@@ -2380,7 +2385,8 @@ ERROR:
 	numberParam = 0;
 	if (readData != NULL)
 		kfree(readData);
-
+	if (cmd)
+		kfree(cmd);
 	return count;
 }
 

@@ -552,7 +552,6 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {
 	int rc = 0;
-	CAM_DBG(CAM_UTIL, "cam_soc_util_clk_enable E %s", clk_name);
 
 	if (!clk || !clk_name)
 		return -EINVAL;
@@ -567,20 +566,17 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 		return rc;
 	}
 
-	CAM_DBG(CAM_UTIL, "cam_soc_util_clk_enable X %s", clk_name);
 	return rc;
 }
 
 int cam_soc_util_clk_disable(struct clk *clk, const char *clk_name)
 {
-	CAM_DBG(CAM_UTIL, "cam_soc_util_clk_disable E %s", clk_name);
 	if (!clk || !clk_name)
 		return -EINVAL;
 
 	CAM_DBG(CAM_UTIL, "disable %s", clk_name);
 	clk_disable_unprepare(clk);
 
-	CAM_DBG(CAM_UTIL, "cam_soc_util_clk_disable X %s", clk_name);
 	return 0;
 }
 

@@ -904,7 +904,7 @@ static int dsi_display_write_panel(struct dsi_display *display,
 		if (cmds->last_command)
 			cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
 
-		len = ops->transfer(panel->host, &cmds->msg);//dsi_host_transfer,
+		len = ops->transfer(panel->host, &cmds->msg);
 		if (len < 0) {
 			rc = len;
 			pr_err("failed to set cmds, rc=%d\n", rc);
@@ -995,7 +995,7 @@ int dsi_display_read_panel(struct dsi_panel *panel, struct dsi_read_config *read
 		goto exit;
 	}
 
-	for (i = 0; i < read_config->cmds_rlen; i++) //debug
+	for (i = 0; i < read_config->cmds_rlen; i++)
 		pr_info("0x%x ", read_config->rbuf[i]);
 	pr_info("\n");
 
@@ -1211,13 +1211,13 @@ int dsi_display_set_power(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-        if (!connector || !connector->dev) {
-                pr_err("invalid connector/dev\n");
-                return -EINVAL;
-        } else {
-                dev = connector->dev;
-                event = dev->doze_state;
-        }
+	if (!connector || !connector->dev) {
+		pr_err("invalid connector/dev\n");
+		return -EINVAL;
+	} else {
+		dev = connector->dev;
+		event = dev->doze_state;
+	}
 
 	g_notify_data.data = &event;
 	pr_info("%s %d\n", __func__, event);
@@ -1234,7 +1234,7 @@ int dsi_display_set_power(struct drm_connector *connector,
 		break;
 	default:
 		if (dev->pre_state != SDE_MODE_DPMS_LP1 &&
-                                        dev->pre_state != SDE_MODE_DPMS_LP2)
+			 dev->pre_state != SDE_MODE_DPMS_LP2)
 			break;
 
 		drm_notifier_call_chain(DRM_EARLY_EVENT_BLANK, &g_notify_data);
@@ -6792,22 +6792,33 @@ int dsi_display_enable(struct dsi_display *display)
 			return -EINVAL;
 		}
 
+		dsi_panel_acquire_panel_lock(display->panel);
+
 		display->panel->panel_initialized = true;
 		pr_debug("cont splash enabled, display enable not required\n");
 
 		if (panel->elvss_dimming_check_enable) {
 			rc = dsi_display_write_panel(display, &panel->elvss_dimming_offset);
-			if (rc)
+			if (rc) {
+				dsi_panel_release_panel_lock(display->panel);
+				pr_err("Write elvss_dimming_offset cmds failed, rc=%d\n", rc);
 				return 0;
+			}
+
 			rc = dsi_display_read_panel(panel, &panel->elvss_dimming_cmds);
-			if (rc <= 0)
+			if (rc <= 0) {
+				dsi_panel_release_panel_lock(display->panel);
+				pr_err("Read elvss_dimming_cmds failed, rc=%d\n", rc);
 				return 0;
+			}
 			pr_info("elvss dimming read result %x\n", panel->elvss_dimming_cmds.rbuf[0]);
 			((u8 *)panel->hbm_fod_on.cmds[4].msg.tx_buf)[1] = (panel->elvss_dimming_cmds.rbuf[0]) & 0x7F;
 			pr_info("fod hbm on change to %x\n", ((u8 *)panel->hbm_fod_on.cmds[4].msg.tx_buf)[1]);
 			((u8 *)panel->hbm_fod_off.cmds[6].msg.tx_buf)[1] = panel->elvss_dimming_cmds.rbuf[0];
 			pr_info("fod hbm off change to %x\n", ((u8 *)panel->hbm_fod_off.cmds[6].msg.tx_buf)[1]);
 		}
+
+		dsi_panel_release_panel_lock(display->panel);
 		return 0;
 	}
 

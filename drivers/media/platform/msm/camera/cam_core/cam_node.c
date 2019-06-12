@@ -120,7 +120,7 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 		goto free_ctx;
 	}
 
-	CAM_INFO(CAM_CORE, "[%s] Acquire ctx_id %d",
+	CAM_DBG(CAM_CORE, "[%s] Acquire ctx_id %d",
 		node->name, ctx->ctx_id);
 
 	return 0;
@@ -163,7 +163,7 @@ static int __cam_node_handle_acquire_hw_v1(struct cam_node *node,
 		return rc;
 	}
 
-	CAM_INFO(CAM_CORE, "[%s] Acquire ctx_id %d",
+	CAM_DBG(CAM_CORE, "[%s] Acquire ctx_id %d",
 		node->name, ctx->ctx_id);
 
 	return 0;
@@ -349,7 +349,7 @@ destroy_dev_hdl:
 	else
 		ctx->dev_hdl = -1;
 
-	CAM_INFO(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
+	CAM_DBG(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
 		node->name, ctx->ctx_id,
 		atomic_read(&(ctx->refcount.refcount.refs)));
 
@@ -386,7 +386,7 @@ static int __cam_node_handle_release_hw_v1(struct cam_node *node,
 	if (rc)
 		CAM_ERR(CAM_CORE, "context release failed node %s", node->name);
 
-	CAM_INFO(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
+	CAM_DBG(CAM_CORE, "[%s] Release ctx_id=%d, refcount=%d",
 		node->name, ctx->ctx_id,
 		atomic_read(&(ctx->refcount.refcount.refs)));
 
@@ -510,7 +510,7 @@ int cam_node_shutdown(struct cam_node *node)
 
 	for (i = 0; i < node->ctx_size; i++) {
 		if (node->ctx_list[i].dev_hdl > 0) {
-			CAM_INFO(CAM_CORE,
+			CAM_DBG(CAM_CORE,
 				"Node [%s] invoking shutdown on context [%d]",
 				node->name, i);
 			rc = cam_context_shutdown(&(node->ctx_list[i]));

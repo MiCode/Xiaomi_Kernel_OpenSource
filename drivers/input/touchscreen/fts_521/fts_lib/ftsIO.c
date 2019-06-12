@@ -44,9 +44,11 @@ static void *client;
 #include "ftsHardware.h"
 #include "ftsIO.h"
 
+extern struct fts_ts_info *fts_info;
 static struct mutex rw_lock;
 static u8 *buf1;
 static u8 *buf2;
+
 
 /**
 * Initialize the static client variable of the fts_lib library in order to allow any i2c/spi transaction in the driver. (Must be called in the probe)
@@ -304,6 +306,158 @@ int fts_write(u8 *cmd, int cmdLength)
 	}
 	return OK;
 }
+#ifdef CONFIG_I2C_BY_DMA
+/**
+ * same as above but can be used when enable DMA.
+ */
+int fts_read_dma_safe(u8 *outBuf, int byteToRead)
+{
+
+	int ret;
+	struct fts_dma_buf *dma = fts_info->dma_buf;
+	u8 *malcBuf = dma->rdBuf;
+	u8 *tmpBuf = NULL;
+	u8 *finalBuf;
+
+	mutex_lock(&dma->dmaBufLock);
+	/*use malloc buf*/
+	if (byteToRead > 1) {
+		   /*extend malloc buf*/
+		if (unlikely(byteToRead > PAGE_SIZE)) {
+			tmpBuf = kzalloc(byteToRead, GFP_KERNEL);
+			if (!tmpBuf) {
+				logError(1, "%s %s:ERROR alloc mem failed!", tag, __func__);
+				mutex_unlock(&dma->dmaBufLock);
+				return ERROR_ALLOC;
+			}
+			finalBuf = tmpBuf;
+		} else {
+			finalBuf = malcBuf;
+		}
+	} else {
+		finalBuf = outBuf;
+	}
+
+	ret = fts_read(finalBuf, byteToRead);
+	if ((ret == OK) && (byteToRead > 1)) {
+		memcpy(outBuf, finalBuf, byteToRead);
+	}
+	if (unlikely(tmpBuf))
+		kfree(tmpBuf);
+	mutex_unlock(&dma->dmaBufLock);
+
+	return ret;
+}
+
+int fts_writeRead_dma_safe(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
+{
+	int ret;
+	struct fts_dma_buf *dma = fts_info->dma_buf;
+	u8 *malcRdBuf = dma->rdBuf;
+	u8 *malcWrBuf = dma->wrBuf;
+	u8 *rdBuf, *tmpRdBuf = NULL;
+	u8 *wrBuf, *tmpWrBuf = NULL;
+
+	mutex_lock(&dma->dmaBufLock);
+	if (cmdLength > 1) {
+		if (unlikely(cmdLength > PAGE_SIZE)) {
+			tmpWrBuf = kzalloc(cmdLength, GFP_KERNEL);
+			if (!tmpWrBuf) {
+				logError(1, "%s %s:ERROR alloc mem failed!", tag, __func__);
+				mutex_unlock(&dma->dmaBufLock);
+				return ERROR_ALLOC;
+			}
+			wrBuf = tmpWrBuf;
+		} else {
+			wrBuf = malcWrBuf;
+		}
+		memcpy(wrBuf, cmd, cmdLength);
+	} else {
+		wrBuf = cmd;
+	}
+
+	if (byteToRead > 1) {
+		if (unlikely(byteToRead > PAGE_SIZE)) {
+			tmpRdBuf = kzalloc(byteToRead, GFP_KERNEL);
+			if (!tmpRdBuf) {
+				logError(1, "%s %s:ERROR alloc mem failed!", tag, __func__);
+				if (tmpWrBuf)
+					kfree(tmpWrBuf);
+				mutex_unlock(&dma->dmaBufLock);
+				return ERROR_ALLOC;
+			}
+			rdBuf = tmpRdBuf;
+		} else {
+			rdBuf = malcRdBuf;
+		}
+	} else {
+		rdBuf = outBuf;
+	}
+
+	ret = fts_writeRead(wrBuf, cmdLength, rdBuf, byteToRead);
+	if ((ret == OK) && (byteToRead > 1))
+		memcpy(outBuf, rdBuf, byteToRead);
+
+	if (unlikely(tmpRdBuf))
+		kfree(tmpRdBuf);
+	if (unlikely(tmpWrBuf))
+		kfree(tmpWrBuf);
+	mutex_unlock(&dma->dmaBufLock);
+
+	return ret;
+}
+
+int fts_write_dma_safe(u8 *cmd, int cmdLength)
+{
+	int ret;
+	struct fts_dma_buf *dma = fts_info->dma_buf;
+	u8 *malcBuf = dma->wrBuf;
+	u8 *tmpBuf = NULL;
+	u8 *finalBuf;
+
+	mutex_lock(&dma->dmaBufLock);
+	/*use malloc buf*/
+	if (cmdLength > 1) {
+		/*extend malloc buf*/
+		if (unlikely(cmdLength > PAGE_SIZE)) {
+			tmpBuf = kzalloc(cmdLength, GFP_KERNEL);
+			if (!tmpBuf) {
+				logError(1, "%s %s:ERROR alloc mem failed!", tag, __func__);
+				mutex_unlock(&dma->dmaBufLock);
+				return ERROR_ALLOC;
+			}
+			finalBuf = tmpBuf;
+		} else {
+			finalBuf = malcBuf;
+		}
+		memcpy(finalBuf, cmd, cmdLength);
+	} else {
+		finalBuf = cmd;
+	}
+
+	ret = fts_write(finalBuf, cmdLength);
+
+	if (unlikely(tmpBuf))
+		kfree(tmpBuf);
+	mutex_unlock(&dma->dmaBufLock);
+
+
+	return ret;
+}
+#else
+int fts_read_dma_safe(u8 *outBuf, int byteToRead)
+{
+	return fts_read(outBuf, byteToRead);
+}
+int fts_writeRead_dma_safe(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
+{
+	return fts_writeRead(cmd, cmdLength, outBuf, byteToRead);
+}
+int fts_write_dma_safe(u8 *cmd, int cmdLength)
+{
+	return fts_write(cmd, cmdLength);
+}
+#endif
 
 /**
 * Write a FW command to the IC and check automatically the echo event
@@ -587,12 +741,18 @@ int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 			       AddrSize addrSize2, u64 address, u8 *data,
 			       int dataSize)
 {
-	u8 finalCmd1[10];
+	u8 *finalCmd1 = NULL;
 	u8 *finalCmd2 = buf1;
 	int remaining = dataSize;
-	int toWrite = 0, i = 0;
+	int toWrite = 0, i = 0, ret = OK;
 
 	mutex_lock(&rw_lock);
+	finalCmd1 = (u8 *)kzalloc(sizeof(u8) * 10, GFP_KERNEL);
+	if (!finalCmd1) {
+		ret =  ERROR_ALLOC;
+		goto end;
+	}
+
 	while (remaining > 0) {
 		if (remaining >= WRITE_CHUNK) {
 			toWrite = WRITE_CHUNK;
@@ -623,16 +783,16 @@ int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 		if (fts_write(finalCmd1, 1 + addrSize1) < OK) {
 			logError(1, "%s %s: first write error... ERROR %08X \n",
 				 tag, __func__, ERROR_BUS_W);
-			mutex_unlock(&rw_lock);
-			return ERROR_BUS_W;
+			ret = ERROR_BUS_W;
+			goto end;
 		}
 
 		if (fts_write(finalCmd2, 1 + addrSize2 + toWrite) < OK) {
 			logError(1,
 				 "%s %s: second write error... ERROR %08X \n",
 				 tag, __func__, ERROR_BUS_W);
-			mutex_unlock(&rw_lock);
-			return ERROR_BUS_W;
+			ret = ERROR_BUS_W;
+			goto end;
 		}
 
 		address += toWrite;
@@ -640,9 +800,12 @@ int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 		data += toWrite;
 	}
 
+end:
+	if (finalCmd1)
+		kfree(finalCmd1);
 	mutex_unlock(&rw_lock);
 
-	return OK;
+	return ret;
 }
 
 /**
@@ -661,13 +824,24 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 				   AddrSize addrSize2, u64 address, u8 *outBuf,
 				   int byteToRead, int hasDummyByte)
 {
-	u8 finalCmd1[10];
-	u8 finalCmd2[10];
+	u8 *finalCmd1 = NULL;
+	u8 *finalCmd2 = NULL;
 	u8 *buff = buf1;
 	int remaining = byteToRead;
-	int toRead = 0, i = 0;
+	int toRead = 0, i = 0, ret = OK;
 
 	mutex_lock(&rw_lock);
+	finalCmd1 = (u8 *)kzalloc(sizeof(u8) * 10, GFP_KERNEL);
+	if (!finalCmd1) {
+		ret =  ERROR_ALLOC;
+		goto end;
+	}
+	finalCmd2 = (u8 *)kzalloc(sizeof(u8) * 10, GFP_KERNEL);
+	if (!finalCmd2) {
+		ret =  ERROR_ALLOC;
+		goto end;
+	}
+
 	while (remaining > 0) {
 		if (remaining >= READ_CHUNK) {
 			toRead = READ_CHUNK;
@@ -696,8 +870,8 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 		if (fts_write(finalCmd1, 1 + addrSize1) < OK) {
 			logError(1, "%s %s: first write error... ERROR %08X \n",
 				 tag, __func__, ERROR_BUS_W);
-			mutex_unlock(&rw_lock);
-			return ERROR_BUS_W;
+			ret = ERROR_BUS_W;
+			goto end;
 		}
 
 		if (hasDummyByte == 1) {
@@ -706,8 +880,8 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 				logError(1,
 					 "%s %s: read error... ERROR %08X \n",
 					 tag, __func__, ERROR_BUS_WR);
-				mutex_unlock(&rw_lock);
-				return ERROR_BUS_WR;
+				ret = ERROR_BUS_WR;
+				goto end;
 			}
 			memcpy(outBuf, buff + 1, toRead);
 		} else {
@@ -716,8 +890,8 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 				logError(1,
 					 "%s %s: read error... ERROR %08X \n",
 					 tag, __func__, ERROR_BUS_WR);
-				mutex_unlock(&rw_lock);
-				return ERROR_BUS_WR;
+				ret = ERROR_BUS_WR;
+				goto end;
 			}
 			memcpy(outBuf, buff, toRead);
 		}
@@ -727,7 +901,11 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 		outBuf += toRead;
 	}
 
+end:
+	if (finalCmd1)
+		kfree(finalCmd1);
+	if (finalCmd2)
+		kfree(finalCmd2);
 	mutex_unlock(&rw_lock);
-
-	return OK;
+	return ret;
 }

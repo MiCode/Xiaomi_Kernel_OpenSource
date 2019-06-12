@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +66,8 @@
 
 #define ICNSS_QUIRKS_DEFAULT		BIT(FW_REJUVENATE_ENABLE)
 #define ICNSS_MAX_PROBE_CNT		2
+
+#define PROBE_TIMEOUT			5000
 
 static struct icnss_priv *penv;
 
@@ -604,6 +607,21 @@ bool icnss_is_fw_ready(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_ready);
 
+void icnss_block_shutdown(bool status)
+{
+	if (!penv)
+		return;
+
+	if (status) {
+		set_bit(ICNSS_BLOCK_SHUTDOWN, &penv->state);
+		reinit_completion(&penv->unblock_shutdown);
+	} else {
+		clear_bit(ICNSS_BLOCK_SHUTDOWN, &penv->state);
+		complete(&penv->unblock_shutdown);
+	}
+}
+EXPORT_SYMBOL(icnss_block_shutdown);
+
 bool icnss_is_fw_down(void)
 {
 	if (!penv)
@@ -883,6 +901,7 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
+	icnss_block_shutdown(true);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = priv->ops->probe(&priv->pdev->dev);
 		probe_cnt++;
@@ -892,9 +911,11 @@ static int icnss_call_driver_probe(struct icnss_priv *priv)
 	if (ret < 0) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, priv->state, probe_cnt);
+		icnss_block_shutdown(false);
 		goto out;
 	}
 
+	icnss_block_shutdown(false);
 	set_bit(ICNSS_DRIVER_PROBED, &priv->state);
 
 	return 0;
@@ -952,16 +973,20 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_hw_power_on(priv);
 
+	icnss_block_shutdown(true);
+
 	ret = priv->ops->reinit(&priv->pdev->dev);
 	if (ret < 0) {
 		icnss_fatal_err("Driver reinit failed: %d, state: 0x%lx\n",
 				ret, priv->state);
 		if (!priv->allow_recursive_recovery)
 			ICNSS_ASSERT(false);
+		icnss_block_shutdown(false);
 		goto out_power_off;
 	}
 
 out:
+	icnss_block_shutdown(false);
 	clear_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 	return 0;
 
@@ -1033,6 +1058,7 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret)
 		goto out;
 
+	icnss_block_shutdown(true);
 	while (probe_cnt < ICNSS_MAX_PROBE_CNT) {
 		ret = penv->ops->probe(&penv->pdev->dev);
 		probe_cnt++;
@@ -1042,9 +1068,11 @@ static int icnss_driver_event_register_driver(void *data)
 	if (ret) {
 		icnss_pr_err("Driver probe failed: %d, state: 0x%lx, probe_cnt: %d\n",
 			     ret, penv->state, probe_cnt);
+		icnss_block_shutdown(false);
 		goto power_off;
 	}
 
+	icnss_block_shutdown(false);
 	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
 
 	return 0;
@@ -1063,8 +1091,13 @@ static int icnss_driver_event_unregister_driver(void *data)
 	}
 
 	set_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
+
+	icnss_block_shutdown(true);
+
 	if (penv->ops)
 		penv->ops->remove(&penv->pdev->dev);
+
+	icnss_block_shutdown(false);
 
 	clear_bit(ICNSS_DRIVER_UNLOADING, &penv->state);
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
@@ -1268,6 +1301,13 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
+
+	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
+	    test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
+		if (!wait_for_completion_timeout(&priv->unblock_shutdown,
+						 PROBE_TIMEOUT))
+			icnss_pr_err("wlan driver probe timeout\n");
+	}
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {
 		ret = wlfw_send_modem_shutdown_msg(priv);
@@ -2579,6 +2619,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_MODE_ON:
 			seq_puts(s, "MODE ON DONE");
+			continue;
+		case ICNSS_BLOCK_SHUTDOWN:
+			seq_puts(s, "BLOCK SHUTDOWN");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -3202,6 +3245,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv = priv;
 
+	init_completion(&priv->unblock_shutdown);
+
 	icnss_pr_info("Platform driver probed successfully\n");
 
 	return 0;
@@ -3223,6 +3268,8 @@ static int icnss_remove(struct platform_device *pdev)
 	device_init_wakeup(&penv->pdev->dev, false);
 
 	icnss_debugfs_destroy(penv);
+
+	complete_all(&penv->unblock_shutdown);
 
 	icnss_modem_ssr_unregister_notifier(penv);
 

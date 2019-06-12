@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -71,7 +71,7 @@ static void dfc_svc_init(struct work_struct *work);
 /* **************************************************** */
 #define DFC_SERVICE_ID_V01 0x4E
 #define DFC_SERVICE_VERS_V01 0x01
-#define DFC_TIMEOUT_MS 10000
+#define DFC_TIMEOUT_JF msecs_to_jiffies(1000)
 
 #define QMI_DFC_BIND_CLIENT_REQ_V01 0x0020
 #define QMI_DFC_BIND_CLIENT_RESP_V01 0x0020
@@ -660,7 +660,7 @@ dfc_bind_client_req(struct qmi_handle *dfc_handle,
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);
@@ -716,7 +716,7 @@ dfc_indication_register_req(struct qmi_handle *dfc_handle,
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_MS);
+	ret = qmi_txn_wait(&txn, DFC_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);
@@ -770,7 +770,7 @@ dfc_get_flow_status_req(struct qmi_handle *dfc_handle,
 		goto out;
 	}
 
-	ret = qmi_txn_wait(txn, DFC_TIMEOUT_MS);
+	ret = qmi_txn_wait(txn, DFC_TIMEOUT_JF);
 	if (ret < 0) {
 		pr_err("%s() Response waiting failed, err: %d\n",
 			__func__, ret);

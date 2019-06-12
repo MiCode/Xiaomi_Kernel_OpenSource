@@ -207,7 +207,7 @@ struct smb5 {
 	struct smb_dt_props	dt;
 };
 
-static int __debug_mask = PR_MISC | PR_OEM | PR_WLS;
+static int __debug_mask = PR_MISC;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
@@ -249,7 +249,7 @@ static int smb5_get_prop_input_voltage_regulation(struct smb_charger *chg,
 		rc = power_supply_get_property(chg->wls_chip_psy,
 			POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION, val);
 
-	val->intval = 1000*val->intval;//IDT in mV
+	val->intval = 1000*val->intval;
 
 	return rc;
 }
@@ -370,6 +370,12 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->sw_jeita_enabled = of_property_read_bool(node,
 				"qcom,sw-jeita-enable");
 
+	chg->lpd_enabled = of_property_read_bool(node,
+				"qcom,lpd-enable");
+
+	chg->dynamic_fv_enabled = of_property_read_bool(node,
+				"qcom,dynamic-fv-enable");
+
 	chg->qc_class_ab = of_property_read_bool(node,
 				"qcom,distinguish-qc-class-ab");
 
@@ -422,6 +428,24 @@ static int smb5_parse_dt(struct smb5 *chip)
 		rc = of_property_read_u32(node, "qcom,chg-term-base-current-ma",
 				&chip->dt.term_current_thresh_lo_ma);
 
+	if (of_find_property(node, "qcom,lpd_hwversion", &byte_len)) {
+		chg->lpd_hwversion = devm_kzalloc(chg->dev, byte_len,
+			GFP_KERNEL);
+
+		if (chg->lpd_hwversion == NULL)
+			return -ENOMEM;
+
+		chg->lpd_levels = byte_len / sizeof(u32);
+		rc = of_property_read_u32_array(node,
+				"qcom,lpd_hwversion",
+				chg->lpd_hwversion,
+				byte_len / sizeof(u32));
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
+			return rc;
+		}
+	}
 #ifdef CONFIG_THERMAL
 	if (of_find_property(node, "qcom,thermal-mitigation-dcp", &byte_len)) {
 		chg->thermal_mitigation_dcp = devm_kzalloc(chg->dev, byte_len,
@@ -807,6 +831,14 @@ static int smb5_parse_dt(struct smb5 *chip)
 		return rc;
 
 	rc = smblib_get_iio_channel(chg, "smb_temp", &chg->iio.smb_temp_chan);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "hw_version_gpio5", &chg->iio.hw_version_gpio5);
+	if (rc < 0)
+		return rc;
+
+	rc = smblib_get_iio_channel(chg, "project_gpio6", &chg->iio.project_gpio6);
 	if (rc < 0)
 		return rc;
 
@@ -1730,6 +1762,7 @@ static int smb5_init_wireless_psy(struct smb5 *chip)
 static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_LIQUID_DETECTION,
+	POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -1831,7 +1864,6 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
-		/* we keep ibat to real value for 6485 or factory test */
 		/* if (!rc)
 			val->intval *= (-1); */
 		break;
@@ -1900,7 +1932,13 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = chg->fcc_stepper_enable;
 		break;
 	case POWER_SUPPLY_PROP_LIQUID_DETECTION:
-		rc = smblib_get_prop_liquid_status(chg, val);
+		if (chg->support_liquid == true)
+			rc = smblib_get_prop_liquid_status(chg, val);
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED:
+		val->intval = chg->dynamic_fv_enabled;
 		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
@@ -2007,6 +2045,9 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		chg->lpd_status = val->intval;
 		power_supply_changed(chg->batt_psy);
 		break;
+	case POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED:
+		chg->dynamic_fv_enabled = !!val->intval;
+		break;
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		chg->fcc_stepper_enable = val->intval;
 		break;
@@ -2033,6 +2074,7 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 	case POWER_SUPPLY_PROP_DC_THERMAL_LEVELS:
 	case POWER_SUPPLY_PROP_LIQUID_DETECTION:
+	case POWER_SUPPLY_PROP_DYNAMIC_FV_ENABLED:
 		return 1;
 	default:
 		break;
@@ -2311,15 +2353,22 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 						ADC_CHG_TERM_MASK) / 10000);
 		raw_hi_thresh = sign_extend32(raw_hi_thresh, 15);
 		buf = (u8 *)&raw_hi_thresh;
-		raw_hi_thresh = buf[1] | (buf[0] << 8);
-
-		rc = smblib_batch_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
-				(u8 *)&raw_hi_thresh, 2);
+		rc = smblib_write(chg, CHGR_ADC_ITERM_UP_THD_MSB_REG,
+					buf[1]);
 		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure ITERM threshold HIGH rc=%d\n",
-					rc);
+			dev_err(chg->dev, "Couldn't set term MSB rc=%d\n",
+				rc);
 			return rc;
 		}
+
+		rc = smblib_write(chg, CHGR_ADC_ITERM_UP_THD_LSB_REG,
+					buf[0]);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't set term LSB rc=%d\n",
+				rc);
+			return rc;
+		}
+
 	}
 
 	if (chip->dt.term_current_thresh_lo_ma) {
@@ -2825,6 +2874,13 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	}
 	chg->early_usb_attach = val.intval;
 
+	rc = smblib_get_prop_dc_present(chg, &val);
+	if (rc < 0) {
+		pr_err("Couldn't get usb present rc=%d\n", rc);
+		return rc;
+	}
+	chg->early_dc_attach = val.intval;
+
 	if (chg->bms_psy)
 		smblib_suspend_on_debug_battery(chg);
 
@@ -3176,6 +3232,11 @@ static int smb5_request_interrupts(struct smb5 *chip)
 	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
 		chg->usb_icl_change_irq_enabled = true;
 
+	/*enable batt_temp irq when plugin usb poweron charging*/
+	if (chg->irq_info[BAT_TEMP_IRQ].irq && (chg->early_usb_attach || chg->early_dc_attach)) {
+		enable_irq_wake(chg->irq_info[BAT_TEMP_IRQ].irq);
+		chg->batt_temp_irq_enabled = true;
+	}
 	/*
 	 * WDOG_SNARL_IRQ is required for SW Thermal Regulation WA only. In
 	 * case the WA is not required, disable the WDOG_SNARL_IRQ to prevent
@@ -3348,6 +3409,8 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->otg_present = false;
 	chg->main_fcc_max = -EINVAL;
 	chg->fake_dc_on = false;
+	chg->support_liquid = false;
+	chg->init_once = false;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
@@ -3504,6 +3567,7 @@ static int smb5_probe(struct platform_device *pdev)
 	schedule_delayed_work(&chg->reg_work, 30 * HZ);
 
 	pr_info("QPNP SMB5 probed successfully\n");
+	smblib_support_liquid_feature(chg);
 
 	return rc;
 

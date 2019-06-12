@@ -1,5 +1,4 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -617,9 +616,9 @@ static void cam_irq_controller_th_processing(
 			rc = irq_bh_api->get_bh_payload_func(
 				evt_handler->bottom_half, &bh_cmd);
 			if (rc || !bh_cmd) {
-				CAM_ERR(CAM_ISP,
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
 					"No payload, IRQ handling frozen");
-				BUG();
+				continue;
 			}
 		}
 

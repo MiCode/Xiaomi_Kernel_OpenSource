@@ -72,6 +72,7 @@
 #define LIMITS_ARRAY_NAME myArray2
 #endif
 
+
 /*#define USE_ONE_FILE_NODE*/
 
 #ifndef FW_UPDATE_ON_PROBE
@@ -210,6 +211,34 @@ extern char tag[8];
 typedef void (*event_dispatch_handler_t)
  (struct fts_ts_info *info, unsigned char *data);
 
+#ifdef CONFIG_SECURE_TOUCH
+struct fts_secure_delay {
+	bool palm_pending;
+	int palm_value;
+};
+
+struct fts_secure_info {
+	bool secure_inited;
+	atomic_t st_1st_complete;
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_irq_processed;
+	struct completion st_powerdown;
+	struct fts_secure_delay scr_delay;
+	struct mutex palm_lock;
+	void *fts_info;
+};
+#endif
+
+#ifdef CONFIG_I2C_BY_DMA
+struct fts_dma_buf {
+	struct mutex dmaBufLock;
+	u8 *rdBuf;
+	u8 *wrBuf;
+};
+#endif
+
+
 /**
  * FTS capacitive touch screen device information
  * - dev             Pointer to the structure device \n
@@ -247,7 +276,9 @@ struct fts_ts_info {
 	struct work_struct work;
 	struct work_struct suspend_work;
 	struct work_struct resume_work;
+	struct work_struct cmd_update_work;
 	struct workqueue_struct *event_wq;
+	struct workqueue_struct *touch_feature_wq;
 
 #ifndef FW_UPDATE_ON_PROBE
 	struct delayed_work fwu_work;
@@ -273,7 +304,9 @@ struct fts_ts_info {
 	int fwupdate_stat;
 
 	struct notifier_block notifier;
+	struct notifier_block bl_notifier;
 	bool sensor_sleep;
+	bool sensor_scan;
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
@@ -305,15 +338,29 @@ struct fts_ts_info {
 	struct device *fts_touch_dev;
 	char *current_clicknum_file;
 #endif
+#ifdef CONFIG_SECURE_TOUCH
+	struct fts_secure_info *secure_info;
+#endif
+#ifdef CONFIG_I2C_BY_DMA
+	struct fts_dma_buf *dma_buf;
+#endif
 	bool lockdown_is_ok;
 	bool irq_status;
 	wait_queue_head_t 	wait_queue;
 	struct completion tp_reset_completion;
 	atomic_t system_is_resetting;
 	unsigned int fod_status;
+	unsigned int fod_overlap;
+	unsigned long fod_id;
+	unsigned long fod_x;
+	unsigned long fod_y;
 	struct mutex fod_mutex;
+	struct mutex cmd_update_mutex;
+	bool fod_coordinate_update;
 	bool fod_status_set;
 	bool fod_pressed;
+	bool p_sensor_changed;
+	bool p_sensor_switch;
 	bool palm_sensor_changed;
 	bool palm_sensor_switch;
 };
@@ -334,6 +381,9 @@ extern int fts_proc_remove(void);
 #define CENTER_X 540
 #define CENTER_Y 2005
 #define CIRCLE_R 87
+#define FOD_LX 420
+#define FOD_LY 1885
+#define FOD_SIDE 242
 bool fts_is_infod(void);
 void fts_get_pointer(int *touch_flag, int *x, int *y);
 #endif
@@ -341,6 +391,7 @@ void fts_restore_regvalues(void);
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 int fts_palm_sensor_cmd(int input);
+int fts_p_sensor_cmd(int input);
 bool fts_touchmode_edgefilter(unsigned int touch_id, int x, int y);
 #endif
 #endif

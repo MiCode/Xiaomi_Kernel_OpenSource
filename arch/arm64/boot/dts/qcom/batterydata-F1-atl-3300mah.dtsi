@@ -28,6 +28,11 @@ qcom,scud {
 	qcom,step-chg-ranges = <3600000  4200000  3000000
 				4201000  4300000  3000000
 				4301000  4340000  2500000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+				101  200  4380000
+				201  300  4360000
+				301  400  4340000
+				401  500  4340000>;
 	qcom,max-voltage-uv = <4400000>;
 	qcom,fg-cc-cv-threshold-mv = <4390>;
 	qcom,nom-batt-capacity-mah = <3300>;

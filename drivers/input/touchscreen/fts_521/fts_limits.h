@@ -1,6 +1,6 @@
 /*!
 * \file fts_limits.h
-* \brief Contains the size and the byte array of the production test limit file which contains thresholds used to test data 
+* \brief Contains the size and the byte array of the production test limit file which contains thresholds used to test data
 */
 
 #ifndef FTS_LIMITS_H

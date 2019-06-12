@@ -1101,7 +1101,7 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	dmabuf = dma_buf_export(&exp_info);
 	if (IS_ERR(dmabuf)) {
 		_ion_buffer_destroy(buffer);
-		kfree(dmabuf->exp_name);
+		kfree(exp_info.exp_name);
 	}
 
 	return dmabuf;

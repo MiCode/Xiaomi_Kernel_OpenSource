@@ -85,12 +85,13 @@ enum print_reason {
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
 
-#define VOL_THR_FOR_QC_CLASS_AB		12250000
+#define VOL_THR_FOR_QC_CLASS_AB		12300000
 #define COMP_FOR_LOW_RESISTANCE_CABLE	100000
 #define QC_CLASS_A_CURRENT_UA		3600000
 #define HVDCP_CLASS_A_MAX_UA		2500000
 #define HVDCP_CLASS_A_FOR_CP_UA		2000000
 #define MAX_PULSE			38
+#define MAX_PLUSE_COUNT_ALLOWED		30
 #define HIGH_NUM_PULSE_THR		12
 
 /* thermal micros */
@@ -112,12 +113,10 @@ enum print_reason {
 /* defined for HVDCP2 */
 #define HVDCP2_CURRENT_UA		1500000
 
-/* defined for charger type recheck */
 #define CHARGER_RECHECK_DELAY_MS	30000
 #define TYPE_RECHECK_TIME_5S	5000
 #define TYPE_RECHECK_COUNT	3
 
-/* defined for un_compliant Type-C cable */
 #define CC_UN_COMPLIANT_START_DELAY_MS	700
 
 #define VBAT_TO_VRAW_ADC(v)		div_u64((u64)v * 1000000UL, 194637UL)
@@ -135,6 +134,9 @@ enum print_reason {
 #define RSBU_K_300K_UV	3000000
 
 #define RECHARGE_SOC_THR		99
+
+#define BARK_TIMER_LONG		128
+#define BARK_TIMER_NORMAL		16
 
 enum hvdcp3_type {
 	HVDCP3_NONE = 0,
@@ -382,6 +384,8 @@ struct smb_iio {
 	struct iio_channel	*die_temp_chan;
 	struct iio_channel	*skin_temp_chan;
 	struct iio_channel	*smb_temp_chan;
+	struct iio_channel	*hw_version_gpio5;
+	struct iio_channel	*project_gpio6;
 };
 
 struct smb_charger {
@@ -399,6 +403,9 @@ struct smb_charger {
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
 	bool			pd_not_supported;
+	bool			init_once;
+	bool			support_liquid;
+	bool			dynamic_fv_enabled;
 
 	/* locks */
 	struct mutex		smb_lock;
@@ -451,6 +458,7 @@ struct smb_charger {
 	struct work_struct	pl_update_work;
 	struct work_struct	jeita_update_work;
 	struct work_struct	moisture_protection_work;
+	struct work_struct	lpd_disable_chg_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -482,6 +490,8 @@ struct smb_charger {
 	bool			pd_hard_reset;
 	bool			pr_swap_in_progress;
 	bool			early_usb_attach;
+	bool			early_dc_attach;
+	bool			batt_temp_irq_enabled;
 	bool			ok_to_pd;
 	bool			typec_legacy;
 
@@ -490,6 +500,7 @@ struct smb_charger {
 	int			boost_threshold_ua;
 	int			system_temp_level;
 	int			thermal_levels;
+	int			lpd_levels;
 	int			dc_temp_level;
 	int			dc_thermal_levels;
 #ifdef CONFIG_THERMAL
@@ -502,6 +513,7 @@ struct smb_charger {
 	int 		*thermal_fcc_qc3_classb_cp;
 	int 		*thermal_fcc_pps_cp;
 	int 		*thermal_mitigation_dc;
+	int 		*lpd_hwversion;
 	int 		*thermal_mitigation_epp;
 	int 		*thermal_mitigation_bpp_qc3;
 	int 		*thermal_mitigation_bpp_qc2;
@@ -514,6 +526,7 @@ struct smb_charger {
 	int			fake_batt_status;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
+	bool			lpd_enabled;
 	bool			is_hdc;
 	bool			chg_done;
 	int			connector_type;
@@ -808,6 +821,9 @@ int smblib_set_wirless_power_good_enable(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_get_prop_liquid_status(struct smb_charger *chg,
 					union power_supply_propval *val);
+
+bool smblib_support_liquid_feature(struct smb_charger *chg);
+
 int smblib_toggle_smb_en(struct smb_charger *chg, int toggle);
 void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable);
 void smblib_apsd_enable(struct smb_charger *chg, bool enable);

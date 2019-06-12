@@ -35,7 +35,7 @@
 #define TIMEOUT_REQU_DATA							(100 * TIMEOUT_RESOLUTION)				/*timeout to request data in ms*/
 #define TIMEOUT_ITO_TEST_RESULT						(100 * TIMEOUT_RESOLUTION)				/*timeout to perform ito test in ms*/
 #define TIMEOUT_INITIALIZATION_TEST_RESULT			(5000 * TIMEOUT_RESOLUTION)				/*timeout to perform initialization test in ms*/
-#define TIMEOUT_ECHO								(500 * TIMEOUT_RESOLUTION)	/*timeout of the echo command, should be the max of all the possible commands (used in worst case)*/
+#define TIMEOUT_ECHO								TIMEOUT_INITIALIZATION_TEST_RESULT	/*timeout of the echo command, should be the max of all the possible commands (used in worst case)*/
 /** @}*/
 
 /**

@@ -5,6 +5,7 @@
  *	Implements an efficient asynchronous io interface.
  *
  *	Copyright 2000, 2001, 2002 Red Hat, Inc.  All Rights Reserved.
+ *	Copyright (C) 2019 XiaoMi, Inc.
  *
  *	See ../COPYING for licensing terms.
  */

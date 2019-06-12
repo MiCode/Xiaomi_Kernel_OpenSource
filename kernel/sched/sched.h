@@ -2528,6 +2528,7 @@ enum sched_boost_policy {
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2
 #define RESTRAINED_BOOST 3
+#define MI_BOOST         4
 
 /*
  * Returns the rq capacity of any rq in a group. This does not play

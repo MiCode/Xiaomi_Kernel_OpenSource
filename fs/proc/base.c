@@ -3,6 +3,7 @@
  *  linux/fs/proc/base.c
  *
  *  Copyright (C) 1991, 1992 Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  *  proc base directory handling functions
  *

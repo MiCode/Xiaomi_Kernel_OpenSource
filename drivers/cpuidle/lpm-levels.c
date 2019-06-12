@@ -1648,7 +1648,7 @@ static void lpm_suspend_wake(void)
 	suspend_in_progress = false;
 	lpm_stats_suspend_exit();
 }
-
+extern void gpio_debug_print(void);
 static int lpm_suspend_enter(suspend_state_t state)
 {
 	int cpu = raw_smp_processor_id();
@@ -1667,7 +1667,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	}
 	cpu_prepare(lpm_cpu, idx, false);
 	cluster_prepare(cluster, cpumask, idx, false, 0);
-
+	gpio_debug_print();
 	psci_enter_sleep(lpm_cpu, idx, false);
 
 	cluster_unprepare(cluster, cpumask, idx, false, 0);

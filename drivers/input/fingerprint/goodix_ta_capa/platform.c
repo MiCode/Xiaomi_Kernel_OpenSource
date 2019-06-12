@@ -24,17 +24,17 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 {
 #ifdef GF_PW_CTL
 	int rc = 0;
-       /*get pwr resource*/
-       gf_dev->pwr_gpio = of_get_named_gpio(gf_dev->spi->dev.of_node,"fp-gpio-pwr",0);
-       if (!gpio_is_valid(gf_dev->pwr_gpio)) {
-               pr_info("PWR GPIO is invalid.\n");
-               return -1;
-       }
-       rc = gpio_request(gf_dev->pwr_gpio, "goodix_pwr");
-       if (rc) {
-               dev_err(&gf_dev->spi->dev, "Failed to request PWR GPIO. rc = %d\n", rc);
-               return -1;
-       }
+	/*get pwr resource*/
+	gf_dev->pwr_gpio = of_get_named_gpio(gf_dev->spi->dev.of_node,"fp-gpio-pwr",0);
+	if (!gpio_is_valid(gf_dev->pwr_gpio)) {
+		pr_info("PWR GPIO is invalid.\n");
+		return -EPERM;
+	}
+	rc = gpio_request(gf_dev->pwr_gpio, "goodix_pwr");
+	if (rc) {
+		dev_err(&gf_dev->spi->dev, "Failed to request PWR GPIO. rc = %d\n", rc);
+		return -EPERM;
+	}
 #endif
 
 	/*get reset resource*/
@@ -53,7 +53,7 @@ int gf_parse_dts(struct gf_dev *gf_dev)
 	}
 
 #ifdef GF_PW_CTL
-	//power on
+
 	gpio_direction_output(gf_dev->pwr_gpio, 1);
 	pr_info("goodix output pwr_gpio 1.\n");
 #endif
@@ -72,10 +72,10 @@ void gf_cleanup(struct gf_dev *gf_dev)
 		pr_info("remove reset_gpio success\n");
 	}
 #ifdef GF_PW_CTL
-       if (gpio_is_valid(gf_dev->pwr_gpio)) {
-               gpio_free(gf_dev->pwr_gpio);
-               pr_info("remove pwr_gpio success\n");
-       }
+	if (gpio_is_valid(gf_dev->pwr_gpio)) {
+		gpio_free(gf_dev->pwr_gpio);
+		pr_info("remove pwr_gpio success\n");
+	}
 #endif
 }
 
@@ -83,9 +83,9 @@ int gf_power_on(struct gf_dev *gf_dev)
 {
 	int rc = 0;
 #ifdef GF_PW_CTL
-        if (gpio_is_valid(gf_dev->pwr_gpio)) {
-                gpio_set_value(gf_dev->pwr_gpio, 1);
-        }
+	if (gpio_is_valid(gf_dev->pwr_gpio)) {
+		gpio_set_value(gf_dev->pwr_gpio, 1);
+	}
 #endif
 	msleep(10);
 	pr_info("---- power on ok ----\n");
@@ -97,9 +97,9 @@ int gf_power_off(struct gf_dev *gf_dev)
 {
 	int rc = 0;
 #ifdef GF_PW_CTL
-        if (gpio_is_valid(gf_dev->pwr_gpio)) {
-                gpio_set_value(gf_dev->pwr_gpio, 1);
-        }
+	if (gpio_is_valid(gf_dev->pwr_gpio)) {
+		gpio_set_value(gf_dev->pwr_gpio, 1);
+	}
 #endif
 	pr_info("---- power off ----\n");
 	return rc;

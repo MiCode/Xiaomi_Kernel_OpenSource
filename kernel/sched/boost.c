@@ -24,6 +24,7 @@
  */
 
 unsigned int sysctl_sched_boost;
+unsigned int mi_sched_boost;
 static enum sched_boost_policy boost_policy;
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
@@ -107,16 +108,22 @@ enum sched_boost_policy sched_boost_policy(void)
 
 static bool verify_boost_params(int type)
 {
-	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
+	return type >= RESTRAINED_BOOST_DISABLE && type <= MI_BOOST;
 }
 
 static void _sched_set_boost(int type)
 {
+	if (MI_BOOST == type) {
+		type = FULL_THROTTLE_BOOST;
+		mi_sched_boost = MI_BOOST;
+	}
+
 	switch (type) {
 	case NO_BOOST: /* All boost clear */
 		if (boost_refcount[FULL_THROTTLE_BOOST] > 0) {
 			core_ctl_set_boost(false);
 			boost_refcount[FULL_THROTTLE_BOOST] = 0;
+			mi_sched_boost = NO_BOOST;
 		}
 		if (boost_refcount[CONSERVATIVE_BOOST] > 0) {
 			restore_cgroup_boost_settings();
@@ -160,6 +167,7 @@ static void _sched_set_boost(int type)
 			boost_refcount[FULL_THROTTLE_BOOST]--;
 			if (!boost_refcount[FULL_THROTTLE_BOOST]) {
 				core_ctl_set_boost(false);
+				mi_sched_boost = NO_BOOST;
 				if (boost_refcount[CONSERVATIVE_BOOST] >= 1)
 					update_cgroup_boost_settings();
 			}
@@ -261,3 +269,4 @@ int sched_boost(void)
 {
 	return sysctl_sched_boost;
 }
+

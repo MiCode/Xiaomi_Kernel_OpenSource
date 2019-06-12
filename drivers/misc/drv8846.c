@@ -1,6 +1,7 @@
 /* drivers/misc/drv8846.c - drv8846 step motor soc driver
  *
  * Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -173,7 +174,7 @@ static enum hrtimer_restart pwm_hrtimer_handler(struct hrtimer *timer)
 	}
 	schedule_work(&mctrl->pwm_apply_work);
 
-	if(mctrl->state == STILL)
+	if (mctrl->state == STILL)
 		return HRTIMER_NORESTART;
 	else
 		return HRTIMER_RESTART;
@@ -363,7 +364,7 @@ static int drv8846_gpio_config(struct drv8846_soc_ctrl *mctrl)
 	gpio_direction_output(mctrl->gpio_mode0, (mctrl->step_mode & 0x01));
 
 	rc = gpio_request_one(mctrl->gpio_mode1, GPIOF_OUT_INIT_HIGH, "motor-mode1");
-	if( rc < 0) {
+	if ( rc < 0) {
 		pr_err("Failed to request mode1 GPIO %d", mctrl->gpio_mode1);
 		goto fail1;
 	}

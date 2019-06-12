@@ -2,6 +2,7 @@
  * Persistent Storage - ramfs parts.
  *
  * Copyright (C) 2010 Intel Corporation <tony.luck@intel.com>
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -428,7 +429,6 @@ int pstore_mkfile(struct dentry *root, struct pstore_record *record)
 	}
 #endif
 
-	inode_unlock(d_inode(root));
 
 	return 0;
 

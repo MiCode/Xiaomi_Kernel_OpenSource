@@ -113,6 +113,8 @@ static void power_supply_remove_bat_triggers(struct power_supply *psy)
 
 static void power_supply_update_gen_leds(struct power_supply *psy)
 {
+	/* xiaomi project don't support this feature, return skip this feature*/
+	#if 0
 	union power_supply_propval online;
 
 	if (power_supply_get_property(psy, POWER_SUPPLY_PROP_ONLINE, &online))
@@ -124,6 +126,7 @@ static void power_supply_update_gen_leds(struct power_supply *psy)
 		led_trigger_event(psy->online_trig, LED_FULL);
 	else
 		led_trigger_event(psy->online_trig, LED_OFF);
+	#endif
 }
 
 static int power_supply_create_gen_triggers(struct power_supply *psy)

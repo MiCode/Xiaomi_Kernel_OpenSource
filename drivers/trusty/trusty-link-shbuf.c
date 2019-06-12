@@ -1,5 +1,6 @@
 /*
  * Copyright 2018 GoldenRiver Technologies Co., Ltd. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,8 +36,8 @@
 #define ENABLE_SHBUF_RAMCONSOLE (1)
 
 #if ENABLE_SHBUF_RAMCONSOLE
-#define RAMCONSOLE_SIZE   (64ul * 1024ul) // 64KB
-#define RAMCONSOLE_OFFSET (sizeof(uint64_t)) // 64B
+#define RAMCONSOLE_SIZE   (64ul * 1024ul)
+#define RAMCONSOLE_OFFSET (sizeof(uint64_t))
 #endif
 
 static struct link_shbuf_data *link_shbuf_dev[MAX_LINK_SHBUF_DEV];

@@ -1240,7 +1240,7 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 		return rc;
 	}
 
-	if ((val & 0x80) && (type == NCP))//NCP follow 0x71 LDO
+	if ((val & 0x80) && (type == NCP))
 	{
 		offset = LCDB_LDO_OUTPUT_VOLTAGE_REG;
 

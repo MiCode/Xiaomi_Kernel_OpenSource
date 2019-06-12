@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,8 +38,24 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 
 	do {
 		idx = find_first_zero_bit(sync_dev->bitmap, CAM_SYNC_MAX_OBJS);
-		if (idx >= CAM_SYNC_MAX_OBJS)
+		if (idx >= CAM_SYNC_MAX_OBJS) {
+
+			long i;
+			CAM_ERR(CAM_SYNC, "Error: no sync obj available, dump all sync obj ===>");
+
+			for (i = 1; i < CAM_SYNC_MAX_OBJS; i++) {
+				spin_lock_bh(&sync_dev->row_spinlocks[i]);
+				if (test_bit(i, sync_dev->bitmap)) {
+					struct sync_table_row *row;
+					row = sync_dev->sync_table + i;
+					CAM_ERR(CAM_SYNC, "row[%d] name=%s,stat=%d,ref=%d", i,
+						row->name, row->state, atomic_read(&row->ref_cnt));
+				}
+				spin_unlock_bh(&sync_dev->row_spinlocks[i]);
+			}
+
 			return -ENOMEM;
+		}
 		CAM_DBG(CAM_SYNC, "Index location available at idx: %ld", idx);
 		bit = test_and_set_bit(idx, sync_dev->bitmap);
 	} while (bit);
@@ -196,8 +213,8 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: Sync object already signaled sync_obj = %d",
-			sync_obj);
+			"Sync object already signaled sync_obj = %d state = %d",
+			sync_obj, row->state);
 		return -EALREADY;
 	}
 
@@ -323,8 +340,8 @@ int cam_sync_get_obj_ref(int32_t sync_obj)
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
 		spin_unlock(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj = %d",
-			sync_obj);
+			"accessing an uninitialized sync obj = %d state = %d",
+			sync_obj, row->state);
 		return -EINVAL;
 	}
 
@@ -433,6 +450,7 @@ static int cam_sync_handle_create(struct cam_private_ioctl_arg *k_ioctl)
 
 static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 {
+	int rc = 0;
 	struct cam_sync_signal sync_signal;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_signal))
@@ -447,7 +465,14 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 		return -EFAULT;
 
 	/* need to get ref for UMD signaled fences */
-	cam_sync_get_obj_ref(sync_signal.sync_obj);
+	rc = cam_sync_get_obj_ref(sync_signal.sync_obj);
+	if (rc) {
+		CAM_DBG(CAM_SYNC,
+			"Error: cannot signal an uninitialized sync obj = %d",
+			sync_signal.sync_obj);
+		return rc;
+	}
+
 	return cam_sync_signal(sync_signal.sync_obj,
 		sync_signal.sync_state);
 }
