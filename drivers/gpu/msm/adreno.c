@@ -30,8 +30,10 @@
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 
-#include "a3xx_reg.h"
-#include "a6xx_reg.h"
+#include "adreno_a3xx.h"
+#include "adreno_a5xx.h"
+#include "adreno_a6xx.h"
+
 #include "adreno_snapshot.h"
 
 /* Include the master list of GPU cores that are supported */
@@ -105,6 +107,16 @@ int adreno_wake_nice = -7;
 
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
+
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count)
+{
+	int i;
+
+	for (i = 0; list && i < count; i++)
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
+			list[i].offset, list[i].value);
+}
 
 /**
  * adreno_readreg64() - Read a 64bit register by getting its offset from the
@@ -684,11 +696,11 @@ static inline const struct adreno_gpu_core *_get_gpu_core(unsigned int chipid)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
-		if (core == adreno_gpulist[i].core &&
-		    _rev_match(major, adreno_gpulist[i].major) &&
-		    _rev_match(minor, adreno_gpulist[i].minor) &&
-		    _rev_match(patchid, adreno_gpulist[i].patchid))
-			return &adreno_gpulist[i];
+		if (core == adreno_gpulist[i]->core &&
+		    _rev_match(major, adreno_gpulist[i]->major) &&
+		    _rev_match(minor, adreno_gpulist[i]->minor) &&
+		    _rev_match(patchid, adreno_gpulist[i]->patchid))
+			return adreno_gpulist[i];
 	}
 
 	return NULL;
@@ -1629,23 +1641,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
-	/* Use shader offset and length defined in gpudev */
-	if (adreno_dev->gpucore->shader_offset &&
-					adreno_dev->gpucore->shader_size) {
-
-		if (device->shader_mem_phys || device->shader_mem_virt)
-			dev_err(device->dev,
-				     "Shader memory already specified in device tree\n");
-		else {
-			device->shader_mem_phys = device->reg_phys +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_virt = device->reg_virt +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_len =
-					adreno_dev->gpucore->shader_size;
-		}
-	}
-
 	/*
 	 * Allocate a small chunk of memory for precise drawobj profiling for
 	 * those targets that have the always on timer
@@ -2365,25 +2360,6 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
-static int adreno_prop_gpmu_version(struct kgsl_device *device,
-		struct kgsl_device_getproperty *param)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_gpmu_version gpmu = { 0 };
-
-	if (!adreno_dev->gpucore)
-		return -EINVAL;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return -EOPNOTSUPP;
-
-	gpmu.major = adreno_dev->gpucore->gpmu_major;
-	gpmu.minor = adreno_dev->gpucore->gpmu_minor;
-	gpmu.features = adreno_dev->gpucore->gpmu_features;
-
-	return copy_prop(param, &gpmu, sizeof(gpmu));
-}
-
 static int adreno_prop_u32(struct kgsl_device *device,
 		struct kgsl_device_getproperty *param)
 {
@@ -2421,7 +2397,6 @@ static const struct {
 	{ KGSL_PROP_INTERRUPT_WAITS, adreno_prop_s32 },
 	{ KGSL_PROP_UCHE_GMEM_VADDR, adreno_prop_uche_gmem_addr },
 	{ KGSL_PROP_UCODE_VERSION, adreno_prop_ucode_version },
-	{ KGSL_PROP_GPMU_VERSION, adreno_prop_gpmu_version },
 	{ KGSL_PROP_HIGHEST_BANK_BIT, adreno_prop_u32 },
 	{ KGSL_PROP_MIN_ACCESS_LENGTH, adreno_prop_u32 },
 	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
@@ -2440,6 +2415,20 @@ static int adreno_getproperty(struct kgsl_device *device,
 	}
 
 	return -ENODEV;
+}
+
+static int adreno_query_property_list(struct kgsl_device *device, u32 *list,
+		u32 count)
+{
+	int i;
+
+	if (!list)
+		return ARRAY_SIZE(adreno_property_funcs);
+
+	for (i = 0; i < count && i < ARRAY_SIZE(adreno_property_funcs); i++)
+		list[i] = adreno_property_funcs[i].type;
+
+	return i;
 }
 
 int adreno_set_constraint(struct kgsl_device *device,
@@ -3750,6 +3739,7 @@ static const struct kgsl_functable adreno_functable = {
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 	.dispatcher_halt = adreno_dispatcher_halt,
 	.dispatcher_unhalt = adreno_dispatcher_unhalt,
+	.query_property_list = adreno_query_property_list,
 };
 
 static struct platform_driver adreno_platform_driver = {

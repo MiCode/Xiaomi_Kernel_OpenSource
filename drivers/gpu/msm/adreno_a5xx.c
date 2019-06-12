@@ -31,27 +31,6 @@ static struct kgsl_memdesc crit_pkts_refbuf1;
 static struct kgsl_memdesc crit_pkts_refbuf2;
 static struct kgsl_memdesc crit_pkts_refbuf3;
 
-static const struct adreno_vbif_data a530_vbif[] = {
-	{A5XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003},
-	{0, 0},
-};
-
-static const struct adreno_vbif_data a540_vbif[] = {
-	{A5XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003},
-	{A5XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000009},
-	{0, 0},
-};
-
-static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
-	{ adreno_is_a540, a540_vbif },
-	{ adreno_is_a530, a530_vbif },
-	{ adreno_is_a512, a540_vbif },
-	{ adreno_is_a510, a530_vbif },
-	{ adreno_is_a508, a530_vbif },
-	{ adreno_is_a505, a530_vbif },
-	{ adreno_is_a506, a530_vbif },
-};
-
 static void a5xx_irq_storm_worker(struct work_struct *work);
 static int _read_fw2_block_header(struct kgsl_device *device,
 		uint32_t *header, uint32_t remain,
@@ -643,24 +622,29 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	uint32_t *data;
 	const struct firmware *fw = NULL;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	uint32_t *cmds, cmd_size;
 	int ret =  -EINVAL;
+	u32 gmu_major = 1;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
+
+	/* a530 used GMU major 1 and A540 used GMU major 3 */
+	if (adreno_is_a540(adreno_dev))
+		gmu_major = 3;
 
 	/* gpmu fw already saved and verified so do nothing new */
 	if (adreno_dev->gpmu_cmds_size != 0)
 		return 0;
 
-	if (gpucore->gpmufw_name == NULL)
+	if (a5xx_core->gpmufw_name == NULL)
 		return 0;
 
-	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
+	ret = request_firmware(&fw, a5xx_core->gpmufw_name, device->dev);
 	if (ret || fw == NULL) {
 		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
-				gpucore->gpmufw_name, ret);
+				a5xx_core->gpmufw_name, ret);
 		return ret;
 	}
 
@@ -672,10 +656,7 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (data[1] != GPMU_FIRMWARE_ID)
 		goto err;
 	ret = _read_fw2_block_header(device, &data[2],
-		data[0] - 2,
-		GPMU_FIRMWARE_ID,
-		adreno_dev->gpucore->gpmu_major,
-		adreno_dev->gpucore->gpmu_minor);
+		data[0] - 2, GPMU_FIRMWARE_ID, gmu_major, 0);
 	if (ret)
 		goto err;
 
@@ -797,399 +778,18 @@ static int a5xx_gpmu_start(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-struct kgsl_hwcg_reg {
-	unsigned int off;
-	unsigned int val;
-};
-
-static const struct kgsl_hwcg_reg a50x_hwcg_regs[] = {
-	{A5XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A5XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
-	{A5XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP0, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST3_TP0, 0x00007777},
-	{A5XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP0, 0x00001111},
-	{A5XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_HYST_UCHE, 0x00FFFFF4},
-	{A5XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
-	{A5XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
-	{A5XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A5XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A5XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
-	{A5XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
-	{A5XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A5XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
-	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
-};
-
-static const struct kgsl_hwcg_reg a510_hwcg_regs[] = {
-	{A5XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP1, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
-	{A5XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP1, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP1, 0x00000080},
-	{A5XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP0, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP1, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST3_TP0, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP1, 0x00007777},
-	{A5XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP0, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP1, 0x00001111},
-	{A5XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A5XX_RBBM_CLOCK_HYST_UCHE, 0x00444444},
-	{A5XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
-	{A5XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB1, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU1, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_1, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
-	{A5XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A5XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A5XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
-	{A5XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
-	{A5XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A5XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
-	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
-};
-
-static const struct kgsl_hwcg_reg a530_hwcg_regs[] = {
-	{A5XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP1, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP2, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP3, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP2, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP3, 0x02222220},
-	{A5XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP1, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP2, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP3, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP1, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP2, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP3, 0x00000080},
-	{A5XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP0, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP1, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP2, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP3, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP2, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP3, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP2, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP3, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST3_TP0, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP1, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP2, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP3, 0x00007777},
-	{A5XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP2, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP3, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP2, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP3, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP0, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP1, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP2, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP3, 0x00001111},
-	{A5XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A5XX_RBBM_CLOCK_HYST_UCHE, 0x00444444},
-	{A5XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
-	{A5XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB1, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB2, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB3, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU1, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU2, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU3, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU2, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU3, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_1, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_2, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_3, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
-	{A5XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A5XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A5XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
-	{A5XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
-	{A5XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A5XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
-	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
-};
-
-
-static const struct kgsl_hwcg_reg a540_hwcg_regs[] = {
-	{A5XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP1, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP2, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP3, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP2, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP3, 0x02222220},
-	{A5XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP1, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP2, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP3, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP1, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP2, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP3, 0x00000080},
-	{A5XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP0, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP1, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP2, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP3, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP2, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP3, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP2, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP3, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST3_TP0, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP1, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP2, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP3, 0x00007777},
-	{A5XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP2, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP3, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP2, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP3, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP0, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP1, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP2, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP3, 0x00001111},
-	{A5XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A5XX_RBBM_CLOCK_HYST_UCHE, 0x00444444},
-	{A5XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
-	{A5XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB2, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB3, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB1, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB2, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB3, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU1, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU2, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU3, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU2, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU3, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_1, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_2, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_3, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
-	{A5XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A5XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A5XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
-	{A5XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
-	{A5XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A5XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
-	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_GPMU, 0x00000222},
-	{A5XX_RBBM_CLOCK_DELAY_GPMU, 0x00000770},
-	{A5XX_RBBM_CLOCK_HYST_GPMU, 0x00000004}
-};
-
-static const struct kgsl_hwcg_reg a512_hwcg_regs[] = {
-	{A5XX_RBBM_CLOCK_CNTL_SP0, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL_SP1, 0x02222222},
-	{A5XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A5XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
-	{A5XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_HYST_SP1, 0x0000F3CF},
-	{A5XX_RBBM_CLOCK_DELAY_SP0, 0x00000080},
-	{A5XX_RBBM_CLOCK_DELAY_SP1, 0x00000080},
-	{A5XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP0, 0x00002222},
-	{A5XX_RBBM_CLOCK_CNTL3_TP1, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
-	{A5XX_RBBM_CLOCK_HYST3_TP0, 0x00007777},
-	{A5XX_RBBM_CLOCK_HYST3_TP1, 0x00007777},
-	{A5XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP0, 0x00001111},
-	{A5XX_RBBM_CLOCK_DELAY3_TP1, 0x00001111},
-	{A5XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
-	{A5XX_RBBM_CLOCK_HYST_UCHE, 0x00444444},
-	{A5XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
-	{A5XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB0, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL2_RB1, 0x00222222},
-	{A5XX_RBBM_CLOCK_CNTL_CCU0, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_CCU1, 0x00022220},
-	{A5XX_RBBM_CLOCK_CNTL_RAC, 0x05522222},
-	{A5XX_RBBM_CLOCK_CNTL2_RAC, 0x00505555},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU0, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RB_CCU1, 0x04040404},
-	{A5XX_RBBM_CLOCK_HYST_RAC, 0x07444044},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_0, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RB_CCU_L1_1, 0x00000002},
-	{A5XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
-	{A5XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
-	{A5XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
-	{A5XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
-	{A5XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
-	{A5XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
-	{A5XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
-	{A5XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
-	{A5XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
-	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
-};
-
-static const struct {
-	int (*devfunc)(struct adreno_device *adreno_dev);
-	const struct kgsl_hwcg_reg *regs;
-	unsigned int count;
-} a5xx_hwcg_registers[] = {
-	{ adreno_is_a540, a540_hwcg_regs, ARRAY_SIZE(a540_hwcg_regs) },
-	{ adreno_is_a530, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
-	{ adreno_is_a512, a512_hwcg_regs, ARRAY_SIZE(a512_hwcg_regs) },
-	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
-	{ adreno_is_a505, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
-	{ adreno_is_a506, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
-	{ adreno_is_a508, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
-};
-
 void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	const struct kgsl_hwcg_reg *regs;
-	int i, j;
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
+	int i;
 
 	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg_registers); i++) {
-		if (a5xx_hwcg_registers[i].devfunc(adreno_dev))
-			break;
-	}
-
-	if (i == ARRAY_SIZE(a5xx_hwcg_registers))
-		return;
-
-	regs = a5xx_hwcg_registers[i].regs;
-
-	for (j = 0; j < a5xx_hwcg_registers[i].count; j++)
-		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
+	for (i = 0; i < a5xx_core->hwcg_count; i++)
+		kgsl_regwrite(device, a5xx_core->hwcg[i].offset,
+			on ? a5xx_core->hwcg[i].value : 0);
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, on ? 0xAAA8AA00 : 0);
@@ -1272,21 +872,26 @@ static int _read_fw2_block_header(struct kgsl_device *device,
 static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	const struct firmware *fw;
 	uint64_t block_size = 0, block_total = 0;
 	uint32_t fw_size, *block;
 	int ret = -EINVAL;
+	u32 lm_major = 1;
 
-	if (!adreno_dev->gpucore->regfw_name)
+	if (!a5xx_core->regfw_name)
 		return;
 
-	ret = request_firmware(&fw, adreno_dev->gpucore->regfw_name,
-			device->dev);
+	ret = request_firmware(&fw, a5xx_core->regfw_name, device->dev);
 	if (ret) {
 		dev_err(device->dev, "request firmware failed %d, %s\n",
-				ret, adreno_dev->gpucore->regfw_name);
+				ret, a5xx_core->regfw_name);
 		return;
 	}
+
+	/* a530v2 lm_major was 3. a530v3 lm_major was 1 */
+	if (adreno_is_a530v2(adreno_dev))
+		lm_major = 3;
 
 	fw_size = fw->size / sizeof(uint32_t);
 	/* Min valid file of size 6, see file description */
@@ -1305,10 +910,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 		/* For now ignore blocks other than the LM sequence */
 		if (block[4] == LM_SEQUENCE_ID) {
 			ret = _read_fw2_block_header(device, &block[2],
-				block_size - 2,
-				GPMU_SEQUENCE_ID,
-				adreno_dev->gpucore->lm_major,
-				adreno_dev->gpucore->lm_minor);
+				block_size - 2, GPMU_SEQUENCE_ID,
+				lm_major, 0);
 			if (ret)
 				goto err;
 
@@ -1369,12 +972,13 @@ static uint32_t _write_voltage_table(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int i;
 	struct dev_pm_opp *opp;
 	int levels = pwr->num_pwrlevels - 1;
 	unsigned int mvolt = 0;
 
-	kgsl_regwrite(device, addr++, adreno_dev->gpucore->max_power);
+	kgsl_regwrite(device, addr++, a5xx_core->max_power);
 	kgsl_regwrite(device, addr++, levels);
 
 	/* Write voltage in mV and frequency in MHz */
@@ -1414,6 +1018,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 {
 	uint32_t length;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
@@ -1433,8 +1038,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 		return;
 	}
 
-	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_ID,
-			adreno_dev->gpucore->gpmu_tsens);
+	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_ID, a5xx_core->gpmu_tsens);
 	kgsl_regwrite(device, A5XX_GPMU_DELTA_TEMP_THRESHOLD, 0x1);
 	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, 0x1);
 
@@ -1805,6 +1409,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	unsigned int bit;
 	int ret;
 
@@ -1822,8 +1427,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	_setup_throttling_counters(adreno_dev);
 
-	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
-			ARRAY_SIZE(a5xx_vbif_platforms));
+	/* Set up VBIF registers from the GPU core definition */
+	adreno_reglist_write(adreno_dev, a5xx_core->vbif,
+		a5xx_core->vbif_count);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
@@ -2152,6 +1758,7 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	uint64_t gpuaddr;
 
 	gpuaddr = pm4_fw->memdesc.gpuaddr;
@@ -2197,8 +1804,8 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	}
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (a5xx_core->zap_name && !adreno_dev->zap_loaded) {
+		ptr = subsystem_get(a5xx_core->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(ptr))
@@ -2440,17 +2047,18 @@ static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 	int ret;
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
 	if (pm4_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pm4fw_name, pm4_fw);
+				 a5xx_core->pm4fw_name, pm4_fw);
 		if (ret)
 			return ret;
 	}
 
 	if (pfp_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pfpfw_name, pfp_fw);
+				 a5xx_core->pfpfw_name, pfp_fw);
 		if (ret)
 			return ret;
 	}

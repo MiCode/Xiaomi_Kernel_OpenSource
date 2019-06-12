@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/firmware.h>
 #include <linux/jiffies.h>
@@ -501,9 +501,9 @@ static int a6xx_rgmu_gpu_pwrctrl(struct kgsl_device *device,
 static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 {
 	const struct firmware *fw = NULL;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	int ret;
 
 	if (!gmu_core_isenabled(device))
@@ -513,10 +513,10 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	if (rgmu->fw_hostptr)
 		return 0;
 
-	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
+	ret = request_firmware(&fw, a6xx_core->gmufw_name, device->dev);
 	if (ret < 0) {
 		pr_err("request_firmware (%s) failed: %d\n",
-				gpucore->gpmufw_name, ret);
+				a6xx_core->gmufw_name, ret);
 		return ret;
 	}
 

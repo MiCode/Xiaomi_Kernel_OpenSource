@@ -337,6 +337,16 @@ struct adreno_device_private {
 };
 
 /**
+ * struct adreno_reglist - simple container for register offsets / values
+ */
+struct adreno_reglist {
+	/** @offset: Offset of the register */
+	u32 offset;
+	/** @value: Default value of the register to write */
+	u32 value;
+};
+
+/**
  * struct adreno_gpu_core - A specific GPU core definition
  * @gpurev: Unique GPU revision identifier
  * @core: Match for the core version of the GPU
@@ -344,53 +354,22 @@ struct adreno_device_private {
  * @minor: Match for the minor version of the GPU
  * @patchid: Match for the patch revision of the GPU
  * @features: Common adreno features supported by this core
- * @pm4fw_name: Filename for th PM4 firmware
- * @pfpfw_name: Filename for the PFP firmware
- * @zap_name: Filename for the Zap Shader ucode
  * @gpudev: Pointer to the GPU family specific functions for this core
  * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
- * @shader_offset: Offset of shader from gpu reg base
- * @shader_size: Shader size
  * @num_protected_regs: number of protected registers
- * @gpmufw_name: Filename for the GPMU firmware
- * @gpmu_major: Match for the GPMU & firmware, major revision
- * @gpmu_minor: Match for the GPMU & firmware, minor revision
- * @gpmu_features: Supported features for any given GPMU version
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
- * @lm_major: Limits Management register sequence, major revision
- * @lm_minor: LM register sequence, minor revision
- * @regfw_name: Filename for the register sequence firmware
- * @gpmu_tsens: ID for the temporature sensor used by the GPMU
- * @max_power: Max possible power draw of a core, units elephant tail hairs
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
 	unsigned int core, major, minor, patchid;
 	unsigned long features;
-	const char *pm4fw_name;
-	const char *pfpfw_name;
-	const char *sqefw_name;
-	const char *zap_name;
 	struct adreno_gpudev *gpudev;
 	unsigned long gmem_base;
 	size_t gmem_size;
-	unsigned long shader_offset;
-	unsigned int shader_size;
 	unsigned int num_protected_regs;
-	const char *gpmufw_name;
-	unsigned int gpmu_major;
-	unsigned int gpmu_minor;
-	unsigned int gpmu_features;
 	unsigned int busy_mask;
-	unsigned int lm_major, lm_minor;
-	const char *regfw_name;
-	unsigned int gpmu_tsens;
-	unsigned int max_power;
-	unsigned int prim_fifo_threshold;
-	unsigned int pdc_address_offset;
 };
-
 
 enum gpu_coresight_sources {
 	GPU_CORESIGHT_GX = 0,
@@ -761,27 +740,6 @@ struct adreno_reg_offsets {
 #define ADRENO_REG_SKIP	0xFFFFFFFE
 #define ADRENO_REG_DEFINE(_offset, _reg)[_offset] = _reg
 #define ADRENO_INT_DEFINE(_offset, _val) ADRENO_REG_DEFINE(_offset, _val)
-
-/*
- * struct adreno_vbif_data - Describes vbif register value pair
- * @reg: Offset to vbif register
- * @val: The value that should be programmed in the register at reg
- */
-struct adreno_vbif_data {
-	unsigned int reg;
-	unsigned int val;
-};
-
-/*
- * struct adreno_vbif_platform - Holds an array of vbif reg value pairs
- * for a particular core
- * @devfunc: Pointer to platform/core identification function
- * @vbif: Array of reg value pairs for vbif registers
- */
-struct adreno_vbif_platform {
-	int (*devfunc)(struct adreno_device *adreno_dev);
-	const struct adreno_vbif_data *vbif;
-};
 
 /*
  * struct adreno_vbif_snapshot_registers - Holds an array of vbif registers
@@ -1488,32 +1446,16 @@ static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
 }
 
 
-/*
- * adreno_vbif_start() - Program VBIF registers, called in device start
- * @adreno_dev: Pointer to device whose vbif data is to be programmed
- * @vbif_platforms: list register value pair of vbif for a family
- * of adreno cores
- * @num_platforms: Number of platforms contained in vbif_platforms
+/**
+ * adreno_reglist_write - Write each register in a reglist
+ * @adreno_dev: An Adreno GPU device handle
+ * @reglist: A list of &struct adreno_reglist items
+ * @count: Number of items in @reglist
+ *
+ * Write each register listed in @reglist.
  */
-static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
-			const struct adreno_vbif_platform *vbif_platforms,
-			int num_platforms)
-{
-	int i;
-	const struct adreno_vbif_data *vbif = NULL;
-
-	for (i = 0; i < num_platforms; i++) {
-		if (vbif_platforms[i].devfunc(adreno_dev)) {
-			vbif = vbif_platforms[i].vbif;
-			break;
-		}
-	}
-
-	while ((vbif != NULL) && (vbif->reg != 0)) {
-		kgsl_regwrite(KGSL_DEVICE(adreno_dev), vbif->reg, vbif->val);
-		vbif++;
-	}
-}
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count);
 
 /**
  * adreno_set_protected_registers() - Protect the specified range of registers

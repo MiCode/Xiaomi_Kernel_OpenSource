@@ -84,6 +84,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	struct resource *res_pdc, *res_cfg, *res_seq;
 	void __iomem *cfg = NULL, *seq = NULL, *rscc;
 	unsigned int cfg_offset, seq_offset;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	u32 vrm_resource_addr = cmd_db_read_addr("vrm.soc");
 
 	/* Offsets from the base PDC (if no PDC subsections in the DTSI) */
@@ -199,7 +200,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			adreno_dev->gpucore->pdc_address_offset);
+			a6xx_core->pdc_address_offset);
 
 	_regwrite(cfg, PDC_GPU_TCS1_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x0);
 
@@ -229,7 +230,7 @@ static int _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_MSGID + PDC_CMD_OFFSET * 2, 0x10108);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_ADDR + PDC_CMD_OFFSET * 2,
-			adreno_dev->gpucore->pdc_address_offset);
+			a6xx_core->pdc_address_offset);
 
 	_regwrite(cfg, PDC_GPU_TCS3_CMD0_DATA + PDC_CMD_OFFSET * 2, 0x3);
 
@@ -1068,9 +1069,9 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
  */
 static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 {
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	struct gmu_block_header *blk;
 	int ret, offset = 0;
 
@@ -1082,14 +1083,14 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 	if (gmu->fw_image)
 		return 0;
 
-	if (gpucore->gpmufw_name == NULL)
+	if (a6xx_core->gmufw_name == NULL)
 		return -EINVAL;
 
-	ret = request_firmware(&gmu->fw_image, gpucore->gpmufw_name,
+	ret = request_firmware(&gmu->fw_image, a6xx_core->gmufw_name,
 			device->dev);
 	if (ret) {
 		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
-				gpucore->gpmufw_name, ret);
+				a6xx_core->gmufw_name, ret);
 		return ret;
 	}
 
