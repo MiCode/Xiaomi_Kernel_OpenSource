@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.*/
 
-#include <asm/dma-iommu.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -13,7 +12,6 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
-#include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/ipc_logging.h>
 #include <linux/irq.h>
@@ -152,12 +150,6 @@
 
 #define RATE_CHANGE_19P2MHZ (19200000)
 #define RATE_CHANGE_100MHZ (100000000)
-
-#define MSM_PCIE_IOMMU_PRESENT BIT(0)
-#define MSM_PCIE_IOMMU_S1_BYPASS BIT(1)
-#define MSM_PCIE_IOMMU_FAST BIT(2)
-#define MSM_PCIE_IOMMU_ATOMIC BIT(3)
-#define MSM_PCIE_IOMMU_FORCE_COHERENT BIT(4)
 
 #define MSM_PCIE_LTSSM_MASK (0x3f)
 
@@ -771,9 +763,6 @@ struct msm_pcie_dev_t {
 struct msm_root_dev_t {
 	struct msm_pcie_dev_t *pcie_dev;
 	struct pci_dev *pci_dev;
-	uint32_t iommu_cfg;
-	dma_addr_t iommu_base;
-	size_t iommu_size;
 };
 
 /* debug mask sys interface */
@@ -6290,157 +6279,6 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 }
 EXPORT_SYMBOL(msm_pcie_set_link_bandwidth);
 
-static int msm_pci_iommu_parse_dt(struct msm_root_dev_t *root_dev)
-{
-	int ret;
-	struct msm_pcie_dev_t *pcie_dev = root_dev->pcie_dev;
-	struct pci_dev *pci_dev = root_dev->pci_dev;
-	struct device_node *pci_of_node = pci_dev->dev.of_node;
-
-	ret = of_property_read_u32(pci_of_node, "qcom,iommu-cfg",
-				&root_dev->iommu_cfg);
-	if (ret) {
-		PCIE_DBG(pcie_dev, "PCIe: RC%d: no iommu-cfg present in DT\n",
-			pcie_dev->rc_idx);
-		return 0;
-	}
-
-	if (root_dev->iommu_cfg & MSM_PCIE_IOMMU_S1_BYPASS) {
-		root_dev->iommu_base = 0;
-		root_dev->iommu_size = PAGE_SIZE;
-	} else {
-		u64 iommu_range[2];
-
-		ret = of_property_count_elems_of_size(pci_of_node,
-							"qcom,iommu-range",
-							sizeof(iommu_range));
-		if (ret != 1) {
-			PCIE_ERR(pcie_dev,
-				"invalid entry for iommu address: %d\n",
-				ret);
-			return ret;
-		}
-
-		ret = of_property_read_u64_array(pci_of_node,
-						"qcom,iommu-range",
-						iommu_range, 2);
-		if (ret) {
-			PCIE_ERR(pcie_dev,
-				"failed to get iommu address: %d\n", ret);
-			return ret;
-		}
-
-		root_dev->iommu_base = (dma_addr_t)iommu_range[0];
-		root_dev->iommu_size = (size_t)iommu_range[1];
-	}
-
-	PCIE_DBG(pcie_dev,
-		"iommu-cfg: 0x%x iommu-base: %pad iommu-size: 0x%zx\n",
-		root_dev->iommu_cfg, &root_dev->iommu_base,
-		root_dev->iommu_size);
-
-	return 0;
-}
-
-static int msm_pci_iommu_init(struct msm_root_dev_t *root_dev)
-{
-	int ret;
-	struct dma_iommu_mapping *mapping;
-	struct msm_pcie_dev_t *pcie_dev = root_dev->pcie_dev;
-	struct pci_dev *pci_dev = root_dev->pci_dev;
-
-	ret = msm_pci_iommu_parse_dt(root_dev);
-	if (ret)
-		return ret;
-
-	if (!(root_dev->iommu_cfg & MSM_PCIE_IOMMU_PRESENT))
-		return 0;
-
-	mapping = __depr_arm_iommu_create_mapping(&pci_bus_type,
-						root_dev->iommu_base,
-						root_dev->iommu_size);
-	if (IS_ERR_OR_NULL(mapping)) {
-		ret = PTR_ERR(mapping);
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: Failed to create IOMMU mapping (%d)\n",
-			pcie_dev->rc_idx, ret);
-		return ret;
-	}
-
-	if (root_dev->iommu_cfg & MSM_PCIE_IOMMU_S1_BYPASS) {
-		int iommu_s1_bypass = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					DOMAIN_ATTR_S1_BYPASS,
-					&iommu_s1_bypass);
-		if (ret) {
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to set attribute S1_BYPASS: %d\n",
-				pcie_dev->rc_idx, ret);
-			goto release_mapping;
-		}
-	}
-
-	if (root_dev->iommu_cfg & MSM_PCIE_IOMMU_FAST) {
-		int iommu_fast = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					DOMAIN_ATTR_FAST,
-					&iommu_fast);
-		if (ret) {
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to set attribute FAST: %d\n",
-				pcie_dev->rc_idx, ret);
-			goto release_mapping;
-		}
-	}
-
-	if (root_dev->iommu_cfg & MSM_PCIE_IOMMU_ATOMIC) {
-		int iommu_atomic = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-					DOMAIN_ATTR_ATOMIC,
-					&iommu_atomic);
-		if (ret) {
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to set attribute ATOMIC: %d\n",
-				pcie_dev->rc_idx, ret);
-			goto release_mapping;
-		}
-	}
-
-	if (root_dev->iommu_cfg & MSM_PCIE_IOMMU_FORCE_COHERENT) {
-		int iommu_force_coherent = 1;
-
-		ret = iommu_domain_set_attr(mapping->domain,
-				DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT,
-				&iommu_force_coherent);
-		if (ret) {
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to set attribute FORCE_COHERENT: %d\n",
-				pcie_dev->rc_idx, ret);
-			goto release_mapping;
-		}
-	}
-
-	ret = __depr_arm_iommu_attach_device(&pci_dev->dev, mapping);
-	if (ret) {
-		PCIE_ERR(pcie_dev,
-			"RC%d: failed to iommu attach device (%d)\n",
-			pcie_dev->rc_idx, ret);
-		goto release_mapping;
-	}
-
-	PCIE_DBG(pcie_dev, "PCIe: RC%d: successful iommu attach\n",
-		pcie_dev->rc_idx);
-	return 0;
-
-release_mapping:
-	__depr_arm_iommu_release_mapping(mapping);
-
-	return ret;
-}
-
 int msm_pci_probe(struct pci_dev *pci_dev,
 		  const struct pci_device_id *device_id)
 {
@@ -6460,10 +6298,6 @@ int msm_pci_probe(struct pci_dev *pci_dev,
 	root_dev->pcie_dev = pcie_dev;
 	root_dev->pci_dev = pci_dev;
 	dev_set_drvdata(&pci_dev->dev, root_dev);
-
-	ret = msm_pci_iommu_init(root_dev);
-	if (ret)
-		return ret;
 
 	ret = dma_set_mask_and_coherent(&pci_dev->dev, DMA_BIT_MASK(64));
 	if (ret) {
