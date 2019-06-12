@@ -34,19 +34,6 @@
 #define I2C_VIRTIO_WR		0x02
 #define I2C_VIRTIO_RDWR		0x03
 
-/**
- * struct virtio_i2c - virtio i2c device
- * @adapter: i2c adapter
- * @vdev: the virtio device
- * @vq: i2c virtqueue
- */
-struct virtio_i2c {
-	struct i2c_adapter adapter;
-	struct virtio_device *vdev;
-	struct virtqueue *vq;
-	wait_queue_head_t inq;
-};
-
 struct i2c_transfer_head {
 	u32 type; /* read or write from or to slave */
 	u32 addr; /* slave addr */
@@ -62,6 +49,21 @@ struct virtio_i2c_req {
 	struct i2c_transfer_head head;
 	char   *buf;
 	struct i2c_transfer_end  end;
+};
+
+/**
+ * struct virtio_i2c - virtio i2c device
+ * @adapter: i2c adapter
+ * @vdev: the virtio device
+ * @i2c_req: description of the fromat of transfer data
+ * @vq: i2c virtqueue
+ */
+struct virtio_i2c {
+	struct i2c_adapter adapter;
+	struct virtio_device *vdev;
+	struct virtio_i2c_req i2c_req;
+	struct virtqueue *vq;
+	wait_queue_head_t inq;
 };
 
 static int virti2c_transfer(struct virtio_i2c *vi2c,
@@ -117,49 +119,35 @@ req_exit:
 }
 
 /* prepare the transfer req */
-static struct virtio_i2c_req *virti2c_transfer_prepare(struct i2c_msg *msg_1,
-						struct i2c_msg *msg_2)
+static int virti2c_transfer_prepare(struct i2c_msg *msg_1,
+		struct i2c_msg *msg_2, struct virtio_i2c_req *i2c_req)
 {
-	char *ptr  = NULL;
-	int merge  = 0;
-	struct virtio_i2c_req *i2c_req;
+	if (IS_ERR_OR_NULL(msg_1) || !msg_1->len ||
+				IS_ERR_OR_NULL(msg_1->buf))
+		return -EINVAL;
 
-	if (msg_1 == NULL)
-		return NULL;
-
-	if (msg_2)
-		merge = 1;
-
-	i2c_req = kzalloc(sizeof(struct virtio_i2c_req), GFP_KERNEL);
-	if (i2c_req == NULL)
-		return NULL;
-
-	if (merge)
-		ptr = kzalloc((msg_1->len + msg_2->len), GFP_KERNEL);
-	else
-		ptr = msg_1->buf;
-	if (ptr == NULL)
-		goto err_mem;
-
-	/* prepare the head */
-	i2c_req->head.type = merge ?
-		I2C_VIRTIO_RDWR : ((msg_1->flags & I2C_M_RD) ?
-					I2C_VIRTIO_RD : I2C_VIRTIO_WR);
 	i2c_req->head.addr = msg_1->addr;
 	i2c_req->head.length = msg_1->len;
-	if (merge)
+
+	if (IS_ERR_OR_NULL(msg_2)) {
+		i2c_req->head.type = (msg_1->flags & I2C_M_RD) ?
+					I2C_VIRTIO_RD : I2C_VIRTIO_WR;
+		i2c_req->buf = msg_1->buf;
+	} else {
+		if (!msg_2->len || IS_ERR_OR_NULL(msg_2->buf))
+			return -EINVAL;
+
+		i2c_req->head.type = I2C_VIRTIO_RDWR;
 		i2c_req->head.total_length = msg_1->len + msg_2->len;
 
-	/* prepare the buf */
-	if (merge)
-		memcpy(ptr, msg_1->buf, msg_1->len);
-	i2c_req->buf = ptr;
+		i2c_req->buf = kzalloc((msg_1->len + msg_2->len), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(i2c_req->buf))
+			return -ENOMEM;
 
-	return i2c_req;
-err_mem:
-	kfree(i2c_req);
-	i2c_req = NULL;
-	return NULL;
+		memcpy(i2c_req->buf, msg_1->buf, msg_1->len);
+	}
+
+	return 0;
 }
 
 static void virti2c_transfer_end(struct virtio_i2c_req *req,
@@ -171,16 +159,15 @@ static void virti2c_transfer_end(struct virtio_i2c_req *req,
 		req->buf = NULL;
 	}
 
-	kfree(req);
-	req = NULL;
+	memset(req, 0, sizeof(struct virtio_i2c_req));
 }
 
 static int virtio_i2c_master_xfer(struct i2c_adapter *adap,
 				struct i2c_msg *msgs, int num)
 {
 	int i, ret;
-	struct virtio_i2c_req *i2c_req;
 	struct virtio_i2c *vi2c = i2c_get_adapdata(adap);
+	struct virtio_i2c_req *i2c_req = &vi2c->i2c_req;
 
 	if (num < 1) {
 		dev_err(&vi2c->vdev->dev,
@@ -197,24 +184,22 @@ static int virtio_i2c_master_xfer(struct i2c_adapter *adap,
 
 		if (msgs[i].flags & I2C_M_RD) {
 			/* read the data from slave to master*/
-			i2c_req = virti2c_transfer_prepare(&msgs[i], NULL);
+			ret = virti2c_transfer_prepare(&msgs[i], NULL, i2c_req);
 
 		} else if ((i + 1 < num) && (msgs[i + 1].flags & I2C_M_RD) &&
 				(msgs[i].addr == msgs[i + 1].addr)) {
 			/* write then read from same address*/
-			i2c_req = virti2c_transfer_prepare(&msgs[i],
-								&msgs[i+1]);
+			ret  = virti2c_transfer_prepare(&msgs[i],
+							&msgs[i+1], i2c_req);
 			i += 1;
 
 		} else {
 			/* write the data to slave */
-			i2c_req = virti2c_transfer_prepare(&msgs[i], NULL);
+			ret = virti2c_transfer_prepare(&msgs[i], NULL, i2c_req);
 		}
 
-		if (i2c_req == NULL) {
-			ret = -ENOMEM;
+		if (ret)
 			goto err;
-		}
 		ret = virti2c_transfer(vi2c, i2c_req);
 		virti2c_transfer_end(i2c_req, &msgs[i]);
 		if (ret)
