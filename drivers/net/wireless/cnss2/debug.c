@@ -601,6 +601,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case ENABLE_DAEMON_SUPPORT:
 			seq_puts(s, "DAEMON_SUPPORT");
 			continue;
+		case DISABLE_DRV:
+			seq_puts(s, "DISABLE_DRV");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
