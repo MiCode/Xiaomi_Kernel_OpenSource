@@ -39,6 +39,7 @@
 #include <linux/completion.h>
 #include <linux/spi/spi.h>
 #include <linux/err.h>
+#include <linux/mfd/spk-id.h>
 
 #include "wm_adsp.h"
 #include "cs35l41.h"
@@ -201,6 +202,20 @@ static int cs35l41_halo_booted_put(struct snd_kcontrol *kcontrol,
 	struct cs35l41_private *cs35l41 = snd_soc_codec_get_drvdata(codec);
 
 	cs35l41->halo_booted = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int vendor_id_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct cs35l41_private *cs35l41 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = VENDOR_ID_NONE;
+
+	if (cs35l41->pdata.spk_id_gpio_p)
+		ucontrol->value.integer.value[0] = spk_id_get(cs35l41->pdata.spk_id_gpio_p);
 
 	return 0;
 }
@@ -446,6 +461,11 @@ static SOC_VALUE_ENUM_SINGLE_DECL(cs35l41_dsprx2_enum,
 static const struct snd_kcontrol_new dsp_rx2_mux =
 	SOC_DAPM_ENUM("DSPRX2 SRC", cs35l41_dsprx2_enum);
 
+static const char *const vendor_id_text[] = {"None", "AAC", "SSI", "GOER", "Unknown"};
+static const struct soc_enum vendor_id[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(vendor_id_text), vendor_id_text),
+};
+
 static const struct snd_kcontrol_new cs35l41_aud_controls[] = {
 	SOC_SINGLE_SX_TLV("Digital PCM Volume", CS35L41_AMP_DIG_VOL_CTRL,
 		      3, 0x4CF, 0x391, dig_vol_tlv),
@@ -469,6 +489,7 @@ static const struct snd_kcontrol_new cs35l41_aud_controls[] = {
 	SOC_SINGLE_EXT("DSP Booted", SND_SOC_NOPM, 0, 1, 0,
 			cs35l41_halo_booted_get, cs35l41_halo_booted_put),
 	WM_ADSP2_PRELOAD_SWITCH("DSP1", 1),
+	SOC_ENUM_EXT("SPK ID", vendor_id, vendor_id_get, NULL),
 };
 
 static const struct cs35l41_otp_map_element_t *cs35l41_find_otp_map(u32 otp_id)
@@ -1625,7 +1646,33 @@ static struct snd_soc_codec_driver soc_codec_dev_cs35l41 = {
 	.idle_bias_off = true,
 };
 
+int spk_id_get(struct device_node *np)
+{
+	int id;
+	int state;
 
+	state = spk_id_get_pin_3state(np);
+	if (state < 0) {
+		pr_err("%s: Can not get id pin state, %d\n", __func__, state);
+		return VENDOR_ID_NONE;
+	}
+
+	switch (state) {
+	case PIN_PULL_DOWN:
+		id = VENDOR_ID_AAC;
+		break;
+	case PIN_PULL_UP:
+		id = VENDOR_ID_UNKNOWN;
+		break;
+	case PIN_FLOAT:
+		id = VENDOR_ID_GOER;
+		break;
+	default:
+		id = VENDOR_ID_UNKNOWN;
+		break;
+	}
+	return id;
+}
 
 static int cs35l41_handle_of_data(struct device *dev,
 				struct cs35l41_platform_data *pdata)
@@ -1687,6 +1734,17 @@ static int cs35l41_handle_of_data(struct device *dev,
 		pdata->ng_pcm_thld = val | CS35L41_VALID_PDATA;
 	if (of_property_read_u32(np, "cirrus,noise-gate-delay", &val) >= 0)
 		pdata->ng_delay = val | CS35L41_VALID_PDATA;
+
+	pdata->spk_id_gpio_p = of_parse_phandle(np,
+					"cirrus,spk-id-pin", 0);
+	if (!pdata->spk_id_gpio_p) {
+		dev_err(dev, "property %s not detected in node %s",
+		"cirrus,spk-id-pin", np->full_name);
+		pdata->mnSpkType = VENDOR_ID_NONE;
+	} else {
+		pdata->mnSpkType = spk_id_get(pdata->spk_id_gpio_p);
+	}
+	dev_info(dev, "spk is is %d", pdata->mnSpkType);
 
 	sub_node = of_get_child_by_name(np, "cirrus,classh-internal-algo");
 	classh_config->classh_algo_enable = sub_node ? true : false;

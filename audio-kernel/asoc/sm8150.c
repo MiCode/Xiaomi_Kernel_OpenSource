@@ -4039,6 +4039,8 @@ static int msm_adsp_power_up_config(struct snd_soc_codec *codec,
 	timeout = jiffies +
 		msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
 
+	/* sleep for 100ms before querying AVS up */
+	msleep(100);
 	do {
 		if (!snd_card_online) {
 			snd_card_online = snd_card_is_online_state(card);
@@ -4229,6 +4231,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
+        snd_soc_dapm_ignore_suspend(dapm, "WDMA3_OUT");
 
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
 		if (pdata->adc2_sel_gpio_p) {
@@ -5119,6 +5122,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 					__func__, ret_pinctrl);
 		}
 	}
+
+	snd_soc_codec_set_sysclk(rtd->codec_dai->codec, 0, 0,
+			mi2s_clk[index].clk_freq_in_hz,
+			SND_SOC_CLOCK_IN);
+
 clk_off:
 	if (ret < 0)
 		msm_mi2s_set_sclk(substream, false);

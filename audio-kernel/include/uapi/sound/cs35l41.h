@@ -46,6 +46,8 @@ struct cs35l41_platform_data {
 	struct irq_cfg irq_config1;
 	struct irq_cfg irq_config2;
 	struct classh_cfg classh_config;
+	int mnSpkType;
+	struct device_node *spk_id_gpio_p;
 };
 
 struct cs35l41_private {
@@ -77,5 +79,5 @@ struct cs35l41_private {
 
 int cs35l41_probe(struct cs35l41_private *cs35l41,
 				struct cs35l41_platform_data *pdata);
-
+int spk_id_get(struct device_node *np);
 #endif /* __CS35L41_H */

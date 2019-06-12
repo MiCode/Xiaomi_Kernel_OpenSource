@@ -68,6 +68,7 @@ struct wm_adsp {
 	int cal_status;
 	int cal_chksum;
 	int block_bypass;
+	int block_bypass_in_enh;
 	int base;
 	int base_sysinfo;
 	int sysclk_reg;
