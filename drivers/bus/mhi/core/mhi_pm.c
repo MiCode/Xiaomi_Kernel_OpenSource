@@ -529,9 +529,20 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		to_mhi_pm_state_str(transition_state));
 
 	/* We must notify MHI control driver so it can clean up first */
-	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS) {
+		/*
+		 * if controller support rddm, we do not process
+		 * sys error state, instead we will jump directly
+		 * to rddm state
+		 */
+		if (mhi_cntrl->rddm_image) {
+			MHI_LOG(
+				"Controller Support RDDM, skipping SYS_ERR_PROCESS\n");
+			return;
+		}
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 				     MHI_CB_SYS_ERROR);
+	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
