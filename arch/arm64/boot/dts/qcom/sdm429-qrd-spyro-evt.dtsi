@@ -15,6 +15,31 @@
 #include "sdm429w-pm660.dtsi"
 #include "sdm429w-camera-sensor-spyro.dtsi"
 
+&cdc_pdm_lines_act {
+	mux {
+		pins = "gpio68", "gpio73", "gpio74";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio68", "gpio73", "gpio74";
+		drive-strength = <16>;
+	};
+};
+
+&cdc_pdm_lines_sus {
+	mux {
+		pins = "gpio68", "gpio73", "gpio74";
+		function = "cdc_pdm0";
+	};
+
+	config {
+		pins = "gpio68", "gpio73", "gpio74";
+		drive-strength = <2>;
+		bias-disable;
+	};
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
 };
