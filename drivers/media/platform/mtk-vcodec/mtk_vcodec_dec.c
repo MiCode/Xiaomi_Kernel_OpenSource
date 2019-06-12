@@ -1180,6 +1180,11 @@ int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct mtk_q_data *q_data;
 	int i;
+	struct mtk_video_dec_buf *mtkbuf;
+	struct vb2_v4l2_buffer *vb2_v4l2;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+	unsigned int plane = 0;
 
 	mtk_v4l2_debug(3, "[%d] (%d) id=%d",
 			ctx->id, vb->vb2_queue->type, vb->index);
@@ -1194,6 +1199,70 @@ int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		}
 	}
 
+	// Check if need to proceed cache operations
+	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
+	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+	if (!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
+		!(ctx->dec_params.svp_mode)) {
+		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			struct mtk_vcodec_mem src_mem;
+
+			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
+
+			buf_att = dma_buf_attach(vb->planes[0].dbuf,
+				&ctx->dev->plat_dev->dev);
+			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+			dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
+				sgt->sgl,
+				sgt->orig_nents,
+				DMA_TO_DEVICE);
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+
+			src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+			src_mem.size = (size_t)vb->planes[0].bytesused;
+			dma_buf_detach(vb->planes[0].dbuf, buf_att);
+
+			mtk_v4l2_debug(4,
+			   "[%d] Cache sync- TD for %p sz=%d dev %p",
+			   ctx->id,
+			   (void *)src_mem.dma_addr,
+			   (unsigned int)src_mem.size,
+			   &ctx->dev->plat_dev->dev);
+		} else {
+			for (plane = 0; plane < vb->num_planes; plane++) {
+				struct vdec_fb dst_mem;
+
+				mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
+
+				buf_att = dma_buf_attach(vb->planes[plane].dbuf,
+					&ctx->dev->plat_dev->dev);
+				sgt = dma_buf_map_attachment(buf_att,
+					DMA_TO_DEVICE);
+				dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
+					sgt->sgl,
+					sgt->orig_nents,
+					DMA_TO_DEVICE);
+				dma_buf_unmap_attachment(buf_att,
+					sgt, DMA_TO_DEVICE);
+
+				dst_mem.fb_base[plane].dma_addr =
+					vb2_dma_contig_plane_dma_addr(vb,
+					plane);
+				dst_mem.fb_base[plane].size =
+					ctx->picinfo.fb_sz[plane];
+				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+
+				mtk_v4l2_debug(4,
+				  "[%d] Cache sync- TD for %p sz=%d dev %p",
+				  ctx->id,
+				  (void *)dst_mem.fb_base[plane].dma_addr,
+				  (unsigned int)dst_mem.fb_base[plane].size,
+				  &ctx->dev->plat_dev->dev);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -1203,6 +1272,8 @@ void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vb2_v4l2;
 	struct mtk_video_dec_buf *buf;
 	bool buf_error;
+	unsigned int plane = 0;
+	struct mtk_video_dec_buf *mtkbuf;
 
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
@@ -1217,6 +1288,44 @@ void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	if (buf_error) {
 		mtk_v4l2_err("Unrecoverable error on buffer.");
 		ctx->state = MTK_STATE_ABORT;
+	}
+
+	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		return;
+
+	// Check if need to proceed cache operations for Capture Queue
+	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
+	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE) &&
+		!(ctx->dec_params.svp_mode)) {
+		for (plane = 0; plane < buf->frame_buffer.num_planes; plane++) {
+			struct vdec_fb dst_mem;
+			struct dma_buf_attachment *buf_att;
+			struct sg_table *sgt;
+
+			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
+
+			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
+				&ctx->dev->plat_dev->dev);
+			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
+			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
+				sgt->orig_nents, DMA_FROM_DEVICE);
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);
+
+			dst_mem.fb_base[plane].dma_addr =
+				vb2_dma_contig_plane_dma_addr(vb, plane);
+			dst_mem.fb_base[plane].size = ctx->picinfo.fb_sz[plane];
+			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+
+			mtk_v4l2_debug(4,
+				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p",
+				ctx->id,
+				(void *)dst_mem.fb_base[plane].dma_addr,
+				(unsigned int)dst_mem.fb_base[plane].size,
+				&ctx->dev->plat_dev->dev,
+				&buf->frame_buffer);
+		}
 	}
 
 }
