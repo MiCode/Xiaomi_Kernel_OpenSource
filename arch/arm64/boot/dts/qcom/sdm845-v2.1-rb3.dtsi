@@ -101,3 +101,7 @@
 	};
 };
 
+&ssc_sensors {
+	status = "disabled";
+};
+
