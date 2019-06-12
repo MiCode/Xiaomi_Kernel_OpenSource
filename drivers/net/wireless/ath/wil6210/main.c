@@ -297,14 +297,15 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	/* crypto context */
 	memset(sta->tid_crypto_rx, 0, sizeof(sta->tid_crypto_rx));
 	memset(&sta->group_crypto_rx, 0, sizeof(sta->group_crypto_rx));
+
+	if (wil->ipa_handle)
+		wil_ipa_disconn_client(wil->ipa_handle, cid);
+
 	/* release vrings */
 	for (i = min_ring_id; i < ARRAY_SIZE(wil->ring_tx); i++) {
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
-
-	if (wil->ipa_handle)
-		wil_ipa_disconn_client(wil->ipa_handle, cid);
 
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
