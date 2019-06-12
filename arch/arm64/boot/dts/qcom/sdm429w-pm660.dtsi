@@ -182,6 +182,7 @@
 
 	qcom,pronto@a21b000 {
 		/delete-property/ vdd_pronto_pll-supply;
+		vdd_pronto_pll-supply = <&pm660_l12>;
 	};
 
 	qcom,wcnss-wlan@0a000000 {
@@ -193,6 +194,13 @@
 		/delete-property/ qcom,iris-vddpa-supply;
 		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
+		 qcom,pronto-vddmx-supply = <&pm660_s2_level_ao>;
+		 qcom,pronto-vddcx-supply = <&pm660_s1_level>;
+		 qcom,pronto-vddpx-supply = <&pm660_l13>;
+		 qcom,iris-vddxo-supply   = <&pm660_l12>;
+		 qcom,iris-vddrfa-supply  = <&pm660_l5>;
+		 qcom,iris-vdddig-supply  = <&pm660_l13>;
+		 qcom,wcnss-adc_tm = <&pm660_adc_tm>;
 	};
 
 	qcom,csid@1b30000 {
