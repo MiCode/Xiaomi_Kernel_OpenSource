@@ -93,9 +93,21 @@ struct bridge_info {
 	int min_alloc_order;
 	struct gen_pool *genpool;
 };
-static struct bridge_info default_bridge;
-static bool qtee_shmbridge_enabled;
 
+struct bridge_list {
+	struct list_head head;
+	struct mutex lock;
+};
+
+struct bridge_list_entry {
+	struct list_head list;
+	phys_addr_t paddr;
+	uint64_t handle;
+};
+
+static struct bridge_info default_bridge;
+static struct bridge_list bridge_list_head;
+static bool qtee_shmbridge_enabled;
 
 /* enable shared memory bridge mechanism in HYP */
 static int32_t qtee_shmbridge_enable(bool enable)
@@ -114,7 +126,7 @@ static int32_t qtee_shmbridge_enable(bool enable)
 	if (ret) {
 		pr_err("Failed to enable shmbridge, rsp = %lld, ret = %d\n",
 			desc.ret[0], ret);
-		return -EINVAL;
+		return ret;
 	}
 	qtee_shmbridge_enabled = true;
 	pr_warn("shmbridge is enabled\n");
@@ -127,6 +139,56 @@ bool qtee_shmbridge_is_enabled(void)
 	return qtee_shmbridge_enabled;
 }
 EXPORT_SYMBOL(qtee_shmbridge_is_enabled);
+
+int32_t qtee_shmbridge_list_add_nolock(phys_addr_t paddr, uint64_t handle)
+{
+	struct bridge_list_entry *entry;
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+	entry->handle = handle;
+	entry->paddr = paddr;
+	list_add_tail(&entry->list, &bridge_list_head.head);
+	return 0;
+}
+
+void qtee_shmbridge_list_del_nolock(uint64_t handle)
+{
+	struct bridge_list_entry *entry;
+
+	list_for_each_entry(entry, &bridge_list_head.head, list) {
+		if (entry->handle == handle) {
+			list_del(&entry->list);
+			kfree(entry);
+			break;
+		}
+	}
+}
+
+int32_t qtee_shmbridge_query_nolock(phys_addr_t paddr)
+{
+	struct bridge_list_entry *entry;
+
+	list_for_each_entry(entry, &bridge_list_head.head, list)
+		if (entry->paddr == paddr) {
+			pr_debug("A bridge on %llx exists\n", (uint64_t)paddr);
+			return -EEXIST;
+		}
+	return 0;
+}
+
+/* Check whether a bridge starting from paddr exists */
+int32_t qtee_shmbridge_query(phys_addr_t paddr)
+{
+	int32_t ret = 0;
+
+	mutex_lock(&bridge_list_head.lock);
+	ret = qtee_shmbridge_query_nolock(paddr);
+	mutex_unlock(&bridge_list_head.lock);
+	return ret;
+}
+EXPORT_SYMBOL(qtee_shmbridge_query);
 
 /* Register paddr & size as a bridge, return bridge handle */
 int32_t qtee_shmbridge_register(
@@ -145,11 +207,19 @@ int32_t qtee_shmbridge_register(
 	struct scm_desc desc = {0};
 	int i = 0;
 
+	if (!qtee_shmbridge_enabled)
+		return 0;
+
 	if (!handle || !ns_vmid_list || !ns_vm_perm_list ||
 				ns_vmid_num > MAXSHMVMS) {
 		pr_err("invalid input parameters\n");
 		return -EINVAL;
 	}
+
+	mutex_lock(&bridge_list_head.lock);
+	ret = qtee_shmbridge_query_nolock(paddr);
+	if (ret)
+		goto exit;
 
 	for (i = 0; i < ns_vmid_num; i++) {
 		ns_perms = UPDATE_NS_PERMS(ns_perms, ns_vm_perm_list[i]);
@@ -169,10 +239,15 @@ int32_t qtee_shmbridge_register(
 	if (ret || desc.ret[0]) {
 		pr_err("create shmbridge failed, ret = %d, status = %llx\n",
 				ret, desc.ret[0]);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	}
 	*handle = desc.ret[1];
-	return 0;
+
+	ret = qtee_shmbridge_list_add_nolock(paddr, *handle);
+exit:
+	mutex_unlock(&bridge_list_head.lock);
+	return ret;
 }
 EXPORT_SYMBOL(qtee_shmbridge_register);
 
@@ -182,14 +257,22 @@ int32_t qtee_shmbridge_deregister(uint64_t handle)
 	int32_t ret = 0;
 	struct scm_desc desc = {0};
 
+	if (!qtee_shmbridge_enabled)
+		return 0;
+
+	mutex_lock(&bridge_list_head.lock);
 	desc.arginfo = TZ_SHM_BRIDGE_DELETE_PARAM_ID;
 	desc.args[0] = handle;
 	ret = scm_call2(TZ_SHM_BRIDGE_DELETE, &desc);
 	if (ret) {
-		pr_err("scm_call to delete shmbridge failed, ret = %d\n", ret);
-		return ret;
+		pr_err("Failed to del bridge %lld, ret = %d\n", handle, ret);
+		goto exit;
 	}
-	return 0;
+	qtee_shmbridge_list_del_nolock(handle);
+
+exit:
+	mutex_unlock(&bridge_list_head.lock);
+	return ret;
 }
 EXPORT_SYMBOL(qtee_shmbridge_deregister);
 
@@ -238,7 +321,7 @@ EXPORT_SYMBOL(qtee_shmbridge_allocate_shm);
 /* Free buffer that is sub-allocated from default kernel bridge */
 void qtee_shmbridge_free_shm(struct qtee_shm *shm)
 {
-	if (IS_ERR_OR_NULL(shm))
+	if (IS_ERR_OR_NULL(shm) || !shm->vaddr)
 		return;
 	gen_pool_free(default_bridge.genpool, (unsigned long)shm->vaddr,
 		      shm->size);
@@ -257,22 +340,48 @@ static int __init qtee_shmbridge_init(void)
 
 	if (default_bridge.vaddr) {
 		pr_warn("qtee shmbridge is already initialized\n");
-		goto exit;
+		return 0;
 	}
-
-	/* do not enable shm bridge mechanism for now*/
-	ret = qtee_shmbridge_enable(false);
-	if (ret)
-		goto exit;
 
 	/* allocate a contiguous buffer */
 	default_bridge.size = DEFAULT_BRIDGE_SIZE;
 	default_bridge.vaddr = kzalloc(default_bridge.size, GFP_KERNEL);
-	if (!default_bridge.vaddr) {
+	if (!default_bridge.vaddr)
+		return -ENOMEM;
+	default_bridge.paddr = virt_to_phys(default_bridge.vaddr);
+
+	/* create a general mem pool */
+	default_bridge.min_alloc_order = 3; /* 8 byte aligned */
+	default_bridge.genpool = gen_pool_create(
+					default_bridge.min_alloc_order, -1);
+	if (!default_bridge.genpool) {
+		pr_err("gen_pool_add_virt() failed\n");
 		ret = -ENOMEM;
+		goto exit_freebuf;
+	}
+
+	gen_pool_set_algo(default_bridge.genpool, gen_pool_best_fit, NULL);
+	ret = gen_pool_add_virt(default_bridge.genpool,
+			(uintptr_t)default_bridge.vaddr,
+				default_bridge.paddr, default_bridge.size, -1);
+	if (ret) {
+		pr_err("gen_pool_add_virt() failed, ret = %d\n", ret);
+		goto exit_destroy_pool;
+	}
+
+	mutex_init(&bridge_list_head.lock);
+	INIT_LIST_HEAD(&bridge_list_head.head);
+
+	/* do not enable shm bridge mechanism for now*/
+	ret = qtee_shmbridge_enable(false);
+	if (ret) {
+		if (ret == -EIO) {
+			/* keep the mem pool even shmbridge isn't supported */
+			pr_warn("shmbridge feature is not supported\n");
+			ret = 0;
+		}
 		goto exit;
 	}
-	default_bridge.paddr = virt_to_phys(default_bridge.vaddr);
 
 	/*register default bridge*/
 	ret = qtee_shmbridge_register(default_bridge.paddr,
@@ -282,37 +391,16 @@ static int __init qtee_shmbridge_init(void)
 	if (ret) {
 		pr_err("Failed to register default bridge, size %zu\n",
 			default_bridge.size);
-		goto exit_freebuf;
+		goto exit;
 	}
 
-	/* create a general mem pool */
-	default_bridge.min_alloc_order = 3; /* 8 byte aligned */
-	default_bridge.genpool = gen_pool_create(
-					default_bridge.min_alloc_order, -1);
-	if (!default_bridge.genpool) {
-		pr_err("gen_pool_add_virt() failed\n");
-		ret = -ENOMEM;
-		goto exit_dereg;
-	}
-
-	gen_pool_set_algo(default_bridge.genpool, gen_pool_best_fit, NULL);
-	ret = gen_pool_add_virt(default_bridge.genpool,
-			(uintptr_t)default_bridge.vaddr,
-				default_bridge.paddr, default_bridge.size, -1);
-	if (ret) {
-		pr_err("gen_pool_add_virt() failed\n");
-		goto exit_destroy_pool;
-	}
-
-	pr_warn("qtee shmbridge registered default bridge with size %d bytes\n",
+	pr_debug("qtee shmbridge registered default bridge with size %d bytes\n",
 			DEFAULT_BRIDGE_SIZE);
 
 	return 0;
 
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
-exit_dereg:
-	qtee_shmbridge_deregister(default_bridge.handle);
 exit_freebuf:
 	kfree(default_bridge.vaddr);
 exit:
