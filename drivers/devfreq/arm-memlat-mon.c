@@ -49,6 +49,12 @@ struct event_data {
 	unsigned long		last_delta;
 };
 
+struct cpu_data {
+	struct event_data	common_evs[NUM_COMMON_EVS];
+	unsigned long		freq;
+	unsigned long		stall_pct;
+};
+
 /**
  * struct memlat_mon - A specific consumer of cpu_grp generic counters.
  *
@@ -85,8 +91,9 @@ struct memlat_mon {
  *
  * @cpus:			The CPUs this cpu_grp will read events from.
  * @common_ev_ids:		The event codes of the events all mons need.
- * @common_evs:			The event data of the events all mons need.
- *				Organized as a 2d array of [cpu][event].
+ * @cpus_data:			The cpus data array of length #cpus. Includes
+ *				event_data of all the events all mons need as
+ *				well as common computed cpu data like freq.
  * @last_update_ts:		Used to avoid redundant reads.
  * @last_ts_delta_us:		The time difference between the most recent
  *				update and the one before that. Used to compute
@@ -104,7 +111,7 @@ struct memlat_mon {
 struct memlat_cpu_grp {
 	cpumask_t		cpus;
 	unsigned int		common_ev_ids[NUM_COMMON_EVS];
-	struct event_data	**common_evs;
+	struct cpu_data		*cpus_data;
 	ktime_t			last_update_ts;
 	unsigned long		last_ts_delta_us;
 
@@ -122,8 +129,10 @@ struct memlat_mon_spec {
 	enum mon_type type;
 };
 
-#define to_common_cpustats(cpu_grp, cpu) \
-	(cpu_grp->common_evs[cpu - cpumask_first(&cpu_grp->cpus)])
+#define to_cpu_data(cpu_grp, cpu) \
+	(&cpu_grp->cpus_data[cpu - cpumask_first(&cpu_grp->cpus)])
+#define to_common_evs(cpu_grp, cpu) \
+	(cpu_grp->cpus_data[cpu - cpumask_first(&cpu_grp->cpus)].common_evs)
 #define to_devstats(mon, cpu) \
 	(&mon->hw.core_stats[cpu - cpumask_first(&mon->cpus)])
 #define to_mon(hwmon) container_of(hwmon, struct memlat_mon, hw)
@@ -156,15 +165,20 @@ static void update_counts(struct memlat_cpu_grp *cpu_grp)
 	cpu_grp->last_update_ts = now;
 
 	for_each_cpu(cpu, &cpu_grp->cpus) {
-		struct event_data *cpu_grp_stats =
-			to_common_cpustats(cpu_grp, cpu);
+		struct cpu_data *cpu_data = to_cpu_data(cpu_grp, cpu);
+		struct event_data *common_evs = cpu_data->common_evs;
 
 		for (i = 0; i < NUM_COMMON_EVS; i++)
-			read_event(&cpu_grp_stats[i]);
+			read_event(&common_evs[i]);
 
-		if (!cpu_grp_stats[STALL_IDX].pevent)
-			cpu_grp_stats[STALL_IDX].last_delta =
-				cpu_grp_stats[CYC_IDX].last_delta;
+		if (!common_evs[STALL_IDX].pevent)
+			common_evs[STALL_IDX].last_delta =
+				common_evs[CYC_IDX].last_delta;
+
+		cpu_data->freq = common_evs[CYC_IDX].last_delta / delta;
+		cpu_data->stall_pct = mult_frac(100,
+				common_evs[STALL_IDX].last_delta,
+				common_evs[CYC_IDX].last_delta);
 	}
 
 	for (i = 0; i < cpu_grp->num_mons; i++) {
@@ -188,18 +202,15 @@ static unsigned long get_cnt(struct memlat_hwmon *hw)
 	unsigned int cpu;
 
 	for_each_cpu(cpu, &mon->cpus) {
-		struct event_data *cpu_grp_stats =
-			to_common_cpustats(cpu_grp, cpu);
+		struct cpu_data *cpu_data = to_cpu_data(cpu_grp, cpu);
+		struct event_data *common_evs = cpu_data->common_evs;
 		unsigned int mon_idx =
 			cpu - cpumask_first(&mon->cpus);
 		struct dev_stats *devstats = to_devstats(mon, cpu);
 
-		devstats->freq = cpu_grp_stats[CYC_IDX].last_delta /
-			cpu_grp->last_ts_delta_us;
-		devstats->stall_pct =
-			mult_frac(100, cpu_grp_stats[STALL_IDX].last_delta,
-				  cpu_grp_stats[CYC_IDX].last_delta);
-		devstats->inst_count = cpu_grp_stats[INST_IDX].last_delta;
+		devstats->freq = cpu_data->freq;
+		devstats->stall_pct = cpu_data->stall_pct;
+		devstats->inst_count = common_evs[INST_IDX].last_delta;
 
 		if (mon->miss_ev)
 			devstats->mem_count =
@@ -263,10 +274,10 @@ static int init_common_evs(struct memlat_cpu_grp *cpu_grp,
 	int ret = 0;
 
 	for_each_cpu(cpu, &cpu_grp->cpus) {
-		struct event_data *cpustats = to_common_cpustats(cpu_grp, cpu);
+		struct event_data *common_evs = to_common_evs(cpu_grp, cpu);
 
 		for (i = 0; i < NUM_COMMON_EVS; i++) {
-			ret = set_event(&cpustats[i], cpu,
+			ret = set_event(&common_evs[i], cpu,
 					cpu_grp->common_ev_ids[i], attr);
 			if (ret < 0)
 				break;
@@ -281,10 +292,10 @@ static void free_common_evs(struct memlat_cpu_grp *cpu_grp)
 	unsigned int cpu, i;
 
 	for_each_cpu(cpu, &cpu_grp->cpus) {
-		struct event_data *cpustats = to_common_cpustats(cpu_grp, cpu);
+		struct event_data *common_evs = to_common_evs(cpu_grp, cpu);
 
 		for (i = 0; i < NUM_COMMON_EVS; i++)
-			delete_event(&cpustats[i]);
+			delete_event(&common_evs[i]);
 	}
 }
 
@@ -497,7 +508,7 @@ static int memlat_cpu_grp_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct memlat_cpu_grp *cpu_grp;
 	int ret = 0;
-	unsigned int i, event_id, num_cpus, num_mons;
+	unsigned int event_id, num_cpus, num_mons;
 
 	cpu_grp = devm_kzalloc(dev, sizeof(*cpu_grp), GFP_KERNEL);
 	if (!cpu_grp)
@@ -547,20 +558,11 @@ static int memlat_cpu_grp_probe(struct platform_device *pdev)
 		cpu_grp->common_ev_ids[STALL_IDX] = event_id;
 
 	num_cpus = cpumask_weight(&cpu_grp->cpus);
-	cpu_grp->common_evs =
-		devm_kzalloc(dev, num_cpus * sizeof(*cpu_grp->common_evs),
+	cpu_grp->cpus_data =
+		devm_kzalloc(dev, num_cpus * sizeof(*cpu_grp->cpus_data),
 			     GFP_KERNEL);
-	if (!cpu_grp->common_evs)
+	if (!cpu_grp->cpus_data)
 		return -ENOMEM;
-
-	for (i = 0; i < num_cpus; i++) {
-		cpu_grp->common_evs[i] =
-			devm_kzalloc(dev, NUM_COMMON_EVS *
-				     sizeof(*cpu_grp->common_evs[i]),
-				     GFP_KERNEL);
-		if (!cpu_grp->common_evs[i])
-			return -ENOMEM;
-	}
 
 	mutex_init(&cpu_grp->mons_lock);
 	cpu_grp->update_ms = DEFAULT_UPDATE_MS;
