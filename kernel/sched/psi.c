@@ -455,7 +455,7 @@ static void trace_event_helper(struct psi_group *group)
 	u64 memstall = group->total[PSI_POLL][PSI_MEM_SOME];
 
 	for_each_populated_zone(zone) {
-		wmark = zone->watermark[WMARK_HIGH];
+		wmark = high_wmark_pages(zone);
 		free = zone_page_state(zone, NR_FREE_PAGES);
 		cma = zone_page_state(zone, NR_FREE_CMA_PAGES);
 		file = zone_page_state(zone, NR_ZONE_ACTIVE_FILE) +

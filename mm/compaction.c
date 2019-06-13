@@ -66,7 +66,7 @@ static unsigned long release_freepages(struct list_head *freelist)
 	return high_pfn;
 }
 
-static void map_pages(struct list_head *list)
+static void split_map_pages(struct list_head *list)
 {
 	unsigned int i, order, nr_pages;
 	struct page *page, *next;
@@ -644,7 +644,7 @@ isolate_freepages_range(struct compact_control *cc,
 	}
 
 	/* __isolate_free_page() does not map the pages */
-	map_pages(&freelist);
+	split_map_pages(&freelist);
 
 	if (pfn < end_pfn) {
 		/* Loop terminated early, cleanup. */
@@ -886,15 +886,6 @@ isolate_success:
 		cc->nr_migratepages++;
 		nr_isolated++;
 
-		/*
-		 * Record where we could have freed pages by migration and not
-		 * yet flushed them to buddy allocator.
-		 * - this is the lowest page that was isolated and likely be
-		 * then freed by migration.
-		 */
-		if (!cc->last_migrated_pfn)
-			cc->last_migrated_pfn = low_pfn;
-
 		/* Avoid isolating too much */
 		if (cc->nr_migratepages == COMPACT_CLUSTER_MAX) {
 			++low_pfn;
@@ -918,7 +909,6 @@ isolate_fail:
 			}
 			putback_movable_pages(&cc->migratepages);
 			cc->nr_migratepages = 0;
-			cc->last_migrated_pfn = 0;
 			nr_isolated = 0;
 		}
 
@@ -1151,7 +1141,7 @@ static void isolate_freepages(struct compact_control *cc)
 	}
 
 	/* __isolate_free_page() does not map the pages */
-	map_pages(freelist);
+	split_map_pages(freelist);
 
 	/*
 	 * Record where the free scanner will restart next time. Either we
@@ -1310,8 +1300,7 @@ static inline bool is_via_compact_memory(int order)
 	return order == -1;
 }
 
-static enum compact_result __compact_finished(struct zone *zone,
-						struct compact_control *cc)
+static enum compact_result __compact_finished(struct compact_control *cc)
 {
 	unsigned int order;
 	const int migratetype = cc->migratetype;
@@ -1322,7 +1311,7 @@ static enum compact_result __compact_finished(struct zone *zone,
 	/* Compaction run completes if the migrate and free scanner meet */
 	if (compact_scanners_met(cc)) {
 		/* Let the next compaction start anew. */
-		reset_cached_positions(zone);
+		reset_cached_positions(cc->zone);
 
 		/*
 		 * Mark that the PG_migrate_skip information should be cleared
@@ -1331,7 +1320,7 @@ static enum compact_result __compact_finished(struct zone *zone,
 		 * based on an allocation request.
 		 */
 		if (cc->direct_compaction)
-			zone->compact_blockskip_flush = true;
+			cc->zone->compact_blockskip_flush = true;
 
 		if (cc->whole_zone)
 			return COMPACT_COMPLETE;
@@ -1355,7 +1344,7 @@ static enum compact_result __compact_finished(struct zone *zone,
 
 	/* Direct compactor: Is a suitable page free? */
 	for (order = cc->order; order < MAX_ORDER; order++) {
-		struct free_area *area = &zone->free_area[order];
+		struct free_area *area = &cc->zone->free_area[order];
 		bool can_steal;
 
 		/* Job done if page is free of the right migratetype */
@@ -1401,13 +1390,12 @@ static enum compact_result __compact_finished(struct zone *zone,
 	return COMPACT_NO_SUITABLE_PAGE;
 }
 
-static enum compact_result compact_finished(struct zone *zone,
-			struct compact_control *cc)
+static enum compact_result compact_finished(struct compact_control *cc)
 {
 	int ret;
 
-	ret = __compact_finished(zone, cc);
-	trace_mm_compaction_finished(zone, cc->order, ret);
+	ret = __compact_finished(cc);
+	trace_mm_compaction_finished(cc->zone, cc->order, ret);
 	if (ret == COMPACT_NO_SUITABLE_PAGE)
 		ret = COMPACT_CONTINUE;
 
@@ -1431,7 +1419,7 @@ static enum compact_result __compaction_suitable(struct zone *zone, int order,
 	if (is_via_compact_memory(order))
 		return COMPACT_CONTINUE;
 
-	watermark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
+	watermark = wmark_pages(zone, alloc_flags & ALLOC_WMARK_MASK);
 	/*
 	 * If watermarks for high-order allocation are already met, there
 	 * should be no need for compaction at all.
@@ -1534,15 +1522,16 @@ bool compaction_zonelist_suitable(struct alloc_context *ac, int order,
 	return false;
 }
 
-static enum compact_result compact_zone(struct zone *zone, struct compact_control *cc)
+static enum compact_result compact_zone(struct compact_control *cc)
 {
 	enum compact_result ret;
-	unsigned long start_pfn = zone->zone_start_pfn;
-	unsigned long end_pfn = zone_end_pfn(zone);
+	unsigned long start_pfn = cc->zone->zone_start_pfn;
+	unsigned long end_pfn = zone_end_pfn(cc->zone);
+	unsigned long last_migrated_pfn;
 	const bool sync = cc->mode != MIGRATE_ASYNC;
 
 	cc->migratetype = gfpflags_to_migratetype(cc->gfp_mask);
-	ret = compaction_suitable(zone, cc->order, cc->alloc_flags,
+	ret = compaction_suitable(cc->zone, cc->order, cc->alloc_flags,
 							cc->classzone_idx);
 	/* Compaction is likely to fail */
 	if (ret == COMPACT_SUCCESS || ret == COMPACT_SKIPPED)
@@ -1555,8 +1544,8 @@ static enum compact_result compact_zone(struct zone *zone, struct compact_contro
 	 * Clear pageblock skip if there were failures recently and compaction
 	 * is about to be retried after being deferred.
 	 */
-	if (compaction_restarting(zone, cc->order))
-		__reset_isolation_suitable(zone);
+	if (compaction_restarting(cc->zone, cc->order))
+		__reset_isolation_suitable(cc->zone);
 
 	/*
 	 * Setup to move all movable pages to the end of the zone. Used cached
@@ -1568,37 +1557,39 @@ static enum compact_result compact_zone(struct zone *zone, struct compact_contro
 		cc->migrate_pfn = start_pfn;
 		cc->free_pfn = pageblock_start_pfn(end_pfn - 1);
 	} else {
-		cc->migrate_pfn = zone->compact_cached_migrate_pfn[sync];
-		cc->free_pfn = zone->compact_cached_free_pfn;
+		cc->migrate_pfn = cc->zone->compact_cached_migrate_pfn[sync];
+		cc->free_pfn = cc->zone->compact_cached_free_pfn;
 		if (cc->free_pfn < start_pfn || cc->free_pfn >= end_pfn) {
 			cc->free_pfn = pageblock_start_pfn(end_pfn - 1);
-			zone->compact_cached_free_pfn = cc->free_pfn;
+			cc->zone->compact_cached_free_pfn = cc->free_pfn;
 		}
 		if (cc->migrate_pfn < start_pfn || cc->migrate_pfn >= end_pfn) {
 			cc->migrate_pfn = start_pfn;
-			zone->compact_cached_migrate_pfn[0] = cc->migrate_pfn;
-			zone->compact_cached_migrate_pfn[1] = cc->migrate_pfn;
+			cc->zone->compact_cached_migrate_pfn[0] = cc->migrate_pfn;
+			cc->zone->compact_cached_migrate_pfn[1] = cc->migrate_pfn;
 		}
 
 		if (cc->migrate_pfn == start_pfn)
 			cc->whole_zone = true;
 	}
 
-	cc->last_migrated_pfn = 0;
+	last_migrated_pfn = 0;
 
 	trace_mm_compaction_begin(start_pfn, cc->migrate_pfn,
 				cc->free_pfn, end_pfn, sync);
 
 	migrate_prep_local();
 
-	while ((ret = compact_finished(zone, cc)) == COMPACT_CONTINUE) {
+	while ((ret = compact_finished(cc)) == COMPACT_CONTINUE) {
 		int err;
+		unsigned long start_pfn = cc->migrate_pfn;
 
-		switch (isolate_migratepages(zone, cc)) {
+		switch (isolate_migratepages(cc->zone, cc)) {
 		case ISOLATE_ABORT:
 			ret = COMPACT_CONTENDED;
 			putback_movable_pages(&cc->migratepages);
 			cc->nr_migratepages = 0;
+			last_migrated_pfn = 0;
 			goto out;
 		case ISOLATE_NONE:
 			/*
@@ -1608,6 +1599,7 @@ static enum compact_result compact_zone(struct zone *zone, struct compact_contro
 			 */
 			goto check_drain;
 		case ISOLATE_SUCCESS:
+			last_migrated_pfn = start_pfn;
 			;
 		}
 
@@ -1639,8 +1631,7 @@ static enum compact_result compact_zone(struct zone *zone, struct compact_contro
 				cc->migrate_pfn = block_end_pfn(
 						cc->migrate_pfn - 1, cc->order);
 				/* Draining pcplists is useless in this case */
-				cc->last_migrated_pfn = 0;
-
+				last_migrated_pfn = 0;
 			}
 		}
 
@@ -1652,18 +1643,18 @@ check_drain:
 		 * compact_finished() can detect immediately if allocation
 		 * would succeed.
 		 */
-		if (cc->order > 0 && cc->last_migrated_pfn) {
+		if (cc->order > 0 && last_migrated_pfn) {
 			int cpu;
 			unsigned long current_block_start =
 				block_start_pfn(cc->migrate_pfn, cc->order);
 
-			if (cc->last_migrated_pfn < current_block_start) {
+			if (last_migrated_pfn < current_block_start) {
 				cpu = get_cpu();
 				lru_add_drain_cpu(cpu);
-				drain_local_pages(zone);
+				drain_local_pages(cc->zone);
 				put_cpu();
 				/* No more flushing until we migrate again */
-				cc->last_migrated_pfn = 0;
+				last_migrated_pfn = 0;
 			}
 		}
 
@@ -1685,8 +1676,8 @@ out:
 		 * Only go back, not forward. The cached pfn might have been
 		 * already reset to zone end in compact_finished()
 		 */
-		if (free_pfn > zone->compact_cached_free_pfn)
-			zone->compact_cached_free_pfn = free_pfn;
+		if (free_pfn > cc->zone->compact_cached_free_pfn)
+			cc->zone->compact_cached_free_pfn = free_pfn;
 	}
 
 	count_compact_events(COMPACTMIGRATE_SCANNED, cc->total_migrate_scanned);
@@ -1723,7 +1714,7 @@ static enum compact_result compact_zone_order(struct zone *zone, int order,
 	INIT_LIST_HEAD(&cc.freepages);
 	INIT_LIST_HEAD(&cc.migratepages);
 
-	ret = compact_zone(zone, &cc);
+	ret = compact_zone(&cc);
 
 	VM_BUG_ON(!list_empty(&cc.freepages));
 	VM_BUG_ON(!list_empty(&cc.migratepages));
@@ -1841,7 +1832,7 @@ static void compact_node(int nid)
 		INIT_LIST_HEAD(&cc.freepages);
 		INIT_LIST_HEAD(&cc.migratepages);
 
-		compact_zone(zone, &cc);
+		compact_zone(&cc);
 
 		VM_BUG_ON(!list_empty(&cc.freepages));
 		VM_BUG_ON(!list_empty(&cc.migratepages));
@@ -1983,7 +1974,7 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 
 		if (kthread_should_stop())
 			return;
-		status = compact_zone(zone, &cc);
+		status = compact_zone(&cc);
 
 		if (status == COMPACT_SUCCESS) {
 			compaction_defer_reset(zone, cc.order, false);
