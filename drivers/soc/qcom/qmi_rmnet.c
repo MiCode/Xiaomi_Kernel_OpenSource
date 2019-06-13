@@ -198,6 +198,21 @@ int qmi_rmnet_flow_control(struct net_device *dev, u32 tcm_handle, int enable)
 	return 0;
 }
 
+static void qmi_rmnet_reset_txq(struct net_device *dev, unsigned int txq)
+{
+	struct Qdisc *qdisc;
+
+	if (unlikely(txq >= dev->num_tx_queues))
+		return;
+
+	qdisc = rtnl_dereference(netdev_get_tx_queue(dev, txq)->qdisc);
+	if (qdisc) {
+		spin_lock_bh(qdisc_lock(qdisc));
+		qdisc_reset(qdisc);
+		spin_unlock_bh(qdisc_lock(qdisc));
+	}
+}
+
 static int qmi_rmnet_add_flow(struct net_device *dev, struct tcmsg *tcm,
 			      struct qmi_info *qmi)
 {
@@ -261,7 +276,8 @@ static int qmi_rmnet_add_flow(struct net_device *dev, struct tcmsg *tcm,
 				bearer->grant_size > 0 ? 1 : 0);
 
 		trace_dfc_qmi_tc(dev->name, itm->bearer_id, itm->flow_id,
-				 bearer->grant_size, 0, itm->tcm_handle, 1);
+				 bearer->grant_size, 0, itm->tcm_handle,
+				 bearer->grant_size > 0 ? 1 : 0);
 	}
 
 	spin_unlock_bh(&qos_info->qos_lock);
@@ -300,17 +316,21 @@ qmi_rmnet_del_flow(struct net_device *dev, struct tcmsg *tcm,
 				    itm->tcm_handle, 0);
 		list_del(&itm->list);
 
-		/* Enable flow to allow new call setup */
-		qmi_rmnet_flow_control(dev, itm->tcm_handle, 1);
-		trace_dfc_qmi_tc(dev->name, itm->bearer_id, itm->flow_id,
-				 0, 0, itm->tcm_handle, 1);
-
 		/*clear bearer map*/
 		bearer = qmi_rmnet_get_bearer_map(qos_info, new_map.bearer_id);
 		if (bearer && --bearer->flow_ref == 0) {
 			list_del(&bearer->list);
 			kfree(bearer);
+
+			/* Purge pending packets for dedicated flow */
+			if (itm->flow_id)
+				qmi_rmnet_reset_txq(dev, itm->tcm_handle);
 		}
+
+		/* Enable flow to allow new flow setup */
+		qmi_rmnet_flow_control(dev, itm->tcm_handle, 1);
+		trace_dfc_qmi_tc(dev->name, itm->bearer_id, itm->flow_id,
+				 0, 0, itm->tcm_handle, 1);
 
 		kfree(itm);
 	}
