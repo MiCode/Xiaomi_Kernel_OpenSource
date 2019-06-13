@@ -379,6 +379,9 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 	if (tmp)
 		call_rcu(&tmp->rcu, destroy_perf_domain_rcu);
 
+	/* Initializing perf order domain. */
+	init_perf_order_domains();
+
 	return !!pd;
 
 free:
