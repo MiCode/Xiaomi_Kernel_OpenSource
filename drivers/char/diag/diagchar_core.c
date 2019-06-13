@@ -463,15 +463,20 @@ static void diag_close_logging_process(const int pid)
 	session_info = diag_md_session_get_pid(pid);
 	if (!session_info) {
 		mutex_unlock(&driver->md_session_lock);
-		if (driver->pcie_transport_def == DIAG_ROUTE_TO_PCIE)
-			params.req_mode = PCIE_MODE;
-		else
-			params.req_mode = USB_MODE;
-		params.mode_param = 0;
-		params.pd_mask = 0;
-		params.peripheral_mask = DIAG_CON_ALL;
 		mutex_lock(&driver->diagchar_mutex);
-		diag_switch_logging(&params);
+		if (driver->pcie_switch_pid == pid) {
+			if (driver->pcie_transport_def ==
+				DIAG_ROUTE_TO_PCIE)
+				params.req_mode = PCIE_MODE;
+			else
+				params.req_mode = USB_MODE;
+			params.mode_param = 0;
+			params.pd_mask = 0;
+			params.device_mask = DIAG_MSM_MASK;
+			params.peripheral_mask = DIAG_CON_ALL;
+			diag_switch_logging(&params);
+			driver->pcie_switch_pid = 0;
+		}
 		mutex_unlock(&driver->diagchar_mutex);
 		return;
 	}
@@ -1935,6 +1940,19 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			}
 			driver->logging_mode[proc] = new_mode;
 			driver->logging_mask[proc] = peripheral_mask;
+			if (((curr_mode == DIAG_PCIE_MODE &&
+				new_mode == DIAG_USB_MODE) ||
+				(curr_mode == DIAG_USB_MODE &&
+				new_mode == DIAG_PCIE_MODE)) &&
+				!driver->pcie_switch_pid) {
+				/*
+				 * Store the pid of process affecting switch
+				 * from USB to PCIE or vice versa to help
+				 * close only this process while closing
+				 * logging process.
+				 */
+				driver->pcie_switch_pid = current->tgid;
+			}
 			if (new_mode == DIAG_PCIE_MODE) {
 				driver->transport_set = DIAG_ROUTE_TO_PCIE;
 				diagmem_setsize(POOL_TYPE_MUX_APPS,
@@ -4332,6 +4350,7 @@ static int __init diagchar_init(void)
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
+	driver->pcie_switch_pid = 0;
 	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, TYPE_CMD);
 	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	hdlc_data.len = 0;

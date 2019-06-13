@@ -289,6 +289,10 @@ do {						\
 #define DIAG_NUM_PROC	(1 + NUM_REMOTE_DEV)
 #endif
 
+#define DIAG_MSM_MASK (0x0001)   /* Bit mask for MSM */
+#define DIAG_MDM_MASK (0x0002)   /* Bit mask for first mdm device */
+#define DIAG_MDM2_MASK (0x0004) /* Bit mask for second mdm device */
+
 #define DIAG_WS_DCI		0
 #define DIAG_WS_MUX		1
 
@@ -685,6 +689,7 @@ struct diagchar_dev {
 	int usb_connected;
 #endif
 	int pcie_connected;
+	int pcie_switch_pid;
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_drain_work;
 	struct work_struct update_user_clients;
