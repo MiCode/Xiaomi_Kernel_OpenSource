@@ -8,6 +8,8 @@
 #include "kgsl_gmu_core.h"
 #include "kgsl_hfi.h"
 
+#define GMU_PWR_LEVELS  2
+#define GMU_FREQUENCY   200000000
 #define MAX_GMUFW_SIZE	0x8000	/* in bytes */
 
 #define BWMEM_SIZE	(12 + (4 * NUM_BW_LEVELS))	/*in bytes*/
@@ -152,9 +154,7 @@ struct kgsl_mailbox {
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
  * @hfi: HFI controller
- * @gmu_freqs: GMU frequency table with lowest freq at index 0
  * @gpu_freqs: GPU frequency table with lowest freq at index 0
- * @num_gmupwrlevels: number GMU frequencies in GMU freq table
  * @num_gpupwrlevels: number GPU frequencies in GPU freq table
  * @num_bwlevel: number of GPU BW levels
  * @num_cnocbwlevel: number CNOC BW levels
@@ -190,9 +190,7 @@ struct gmu_device {
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;
-	unsigned int gmu_freqs[MAX_CX_LEVELS];
 	unsigned int gpu_freqs[MAX_GX_LEVELS];
-	unsigned int num_gmupwrlevels;
 	unsigned int num_gpupwrlevels;
 	unsigned int num_bwlevels;
 	unsigned int num_cnocbwlevels;
