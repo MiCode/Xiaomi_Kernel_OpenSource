@@ -241,6 +241,7 @@ int cam_a5_init_hw(void *device_priv,
 	struct cam_hw_info *a5_dev = device_priv;
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_a5_device_core_info *core_info = NULL;
+	struct a5_soc_info *a5_soc_info;
 	struct cam_icp_cpas_vote cpas_vote;
 	int rc = 0;
 
@@ -257,6 +258,8 @@ int cam_a5_init_hw(void *device_priv,
 			soc_info, core_info);
 		return -EINVAL;
 	}
+
+	a5_soc_info = soc_info->soc_private;
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
@@ -291,6 +294,12 @@ int cam_a5_init_hw(void *device_priv,
 			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
+	} else {
+		CAM_DBG(CAM_ICP, "a5_qos %d", a5_soc_info->a5_qos_val);
+		if (a5_soc_info->a5_qos_val)
+			cam_io_w_mb(a5_soc_info->a5_qos_val,
+				soc_info->reg_map[A5_SIERRA_BASE].mem_base +
+				ICP_SIERRA_A5_CSR_ACCESS);
 	}
 
 error:
