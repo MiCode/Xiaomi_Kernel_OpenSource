@@ -18,7 +18,14 @@ enum ipa_usb_teth_prot {
 	IPA_USB_RMNET = 2,
 	IPA_USB_MBIM = 3,
 	IPA_USB_DIAG = 4,
+	IPA_USB_RMNET_CV2X = 5,
 	IPA_USB_MAX_TETH_PROT_SIZE
+};
+
+enum teth_bridge_params {
+	IPA_TETH_BRIDGE_1 = 0,
+	IPA_TETH_BRIDGE_2 = 1,
+	IPA_TETH_BRIDGE_MAX
 };
 
 /**

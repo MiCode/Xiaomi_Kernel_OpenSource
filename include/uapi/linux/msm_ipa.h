@@ -132,6 +132,7 @@
 #define IPA_IOCTL_APP_CLOCK_VOTE                79
 #define IPA_IOCTL_PDN_CONFIG                    80
 #define IPA_IOCTL_SET_MAC_FLT                   81
+#define IPA_IOCTL_GET_PHERIPHERAL_EP_INFO       82
 
 /**
  * max size of the header to be inserted
@@ -186,6 +187,12 @@
 #define IPA_FLT_RT_HW_COUNTER (120)
 #define IPA_FLT_RT_SW_COUNTER \
 	(IPA_MAX_FLT_RT_CNT_INDEX - IPA_FLT_RT_HW_COUNTER)
+
+/**
+ * New feature flag for CV2X config.
+ */
+
+#define IPA_CV2X_SUPPORT
 
 /**
  * the attributes of the rule (routing or filtering)
@@ -407,9 +414,15 @@ enum ipa_client_type {
 
 	IPA_CLIENT_MHI_LOW_LAT_PROD		= 110,
 	IPA_CLIENT_MHI_LOW_LAT_CONS		= 111,
+
+	IPA_CLIENT_MHI2_PROD	= 112,
+	IPA_CLIENT_MHI2_CONS	= 113,
+
+	IPA_CLIENT_Q6_CV2X_PROD	= 114,
+	IPA_CLIENT_Q6_CV2X_CONS	= 115,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_LOW_LAT_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_Q6_CV2X_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -479,6 +492,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_UL_NLO_DATA_CONS || \
 	(client) == IPA_CLIENT_Q6_UL_NLO_ACK_CONS || \
 	(client) == IPA_CLIENT_Q6_QBAP_STATUS_CONS || \
+	(client) == IPA_CLIENT_Q6_CV2X_CONS || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS)
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
@@ -488,6 +502,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_PROD || \
 	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD || \
+	(client) == IPA_CLIENT_Q6_CV2X_PROD || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD)
 
 #define IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client) \
@@ -498,6 +513,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_UL_NLO_DATA_CONS || \
 	(client) == IPA_CLIENT_Q6_UL_NLO_ACK_CONS || \
 	(client) == IPA_CLIENT_Q6_QBAP_STATUS_CONS || \
+	(client) == IPA_CLIENT_Q6_CV2X_CONS || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_CONS)
 
 #define IPA_CLIENT_IS_Q6_ZIP_CONS(client) \
@@ -509,6 +525,7 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DL_NLO_DATA_PROD || \
+	(client) == IPA_CLIENT_Q6_CV2X_PROD || \
 	(client) == IPA_CLIENT_Q6_AUDIO_DMA_MHI_PROD)
 
 #define IPA_CLIENT_IS_Q6_ZIP_PROD(client) \
@@ -523,17 +540,15 @@ enum ipa_client_type {
 	((client) == IPA_CLIENT_MEMCPY_DMA_SYNC_PROD || \
 	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD)
 
-#define IPA_CLIENT_IS_MHI_CONS(client) \
-	((client) == IPA_CLIENT_MHI_CONS || \
-	(client) == IPA_CLIENT_MHI_DPL_CONS || \
-	(client) == IPA_CLIENT_MHI_LOW_LAT_CONS)
-
 #define IPA_CLIENT_IS_MHI(client) \
 	((client) == IPA_CLIENT_MHI_CONS || \
 	(client) == IPA_CLIENT_MHI_PROD || \
+	(client) == IPA_CLIENT_MHI2_PROD || \
+	(client) == IPA_CLIENT_MHI2_CONS || \
 	(client) == IPA_CLIENT_MHI_DPL_CONS || \
 	(client) == IPA_CLIENT_MHI_LOW_LAT_CONS || \
-	(client) == IPA_CLIENT_MHI_LOW_LAT_PROD)
+	(client) == IPA_CLIENT_MHI_LOW_LAT_PROD || \
+	(client) == IPA_CLIENT_MHI_QDSS_CONS)
 
 #define IPA_CLIENT_IS_TEST_PROD(client) \
 	((client) == IPA_CLIENT_TEST_PROD || \
@@ -2334,6 +2349,48 @@ struct ipa_ioc_gsb_info {
 	char name[IPA_RESOURCE_NAME_MAX];
 };
 
+#define QUERY_MAX_EP_PAIRS	2
+
+#define IPA_USB0_EP_ID		11
+#define IPA_USB1_EP_ID		12
+
+#define IPA_PCIE0_EP_ID		21
+#define IPA_PCIE1_EP_ID		22
+
+enum ipa_peripheral_ep_type {
+	IPA_DATA_EP_TYP_RESERVED = 0,
+	IPA_DATA_EP_TYP_HSIC = 1,
+	IPA_DATA_EP_TYP_HSUSB = 2,
+	IPA_DATA_EP_TYP_PCIE = 3,
+	IPA_DATA_EP_TYP_EMBEDDED = 4,
+	IPA_DATA_EP_TYP_BAM_DMUX,
+};
+
+struct ipa_ep_pair_info {
+	__u32 consumer_pipe_num;
+	__u32 producer_pipe_num;
+	__u32 ep_id;
+	__u32 padding;
+};
+
+/**
+ * struct ipa_ioc_get_ep_info - query usb/pcie ep info
+ * @ep_type: type USB/PCIE - i/p param
+ * @max_ep_pairs: max number of ep_pairs (constant),
+		(QUERY_MAX_EP_PAIRS)
+ * @num_ep_pairs: number of ep_pairs - o/p param
+ * @ep_pair_size: sizeof(ipa_ep_pair_info) * max_ep_pairs
+ * @info: structure contains ep pair info
+ */
+struct ipa_ioc_get_ep_info {
+	enum ipa_peripheral_ep_type ep_type;
+	__u32 ep_pair_size;
+	__u8 max_ep_pairs;
+	__u8 num_ep_pairs;
+	__u16 padding;
+	__u64 info;
+};
+
 /**
  * struct ipa_ioc_wigig_fst_switch - switch between wigig and wlan
  * @netdev_name: wigig interface name
@@ -3003,6 +3060,10 @@ struct ipa_ioc_mac_client_list_type {
 #define IPA_IOC_SET_MAC_FLT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_SET_MAC_FLT, \
 				struct ipa_ioc_mac_client_list_type)
+
+#define IPA_IOC_GET_PHERIPHERAL_EP_INFO _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_PHERIPHERAL_EP_INFO, \
+				struct ipa_ioc_get_ep_info)
 
 /*
  * unique magic number of the Tethering bridge ioctls
