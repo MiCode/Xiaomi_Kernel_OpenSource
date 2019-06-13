@@ -1716,6 +1716,7 @@ struct ipa3_context {
 	int (*client_lock_unlock[IPA_MAX_CLNT])(bool is_lock);
 	bool fw_loaded;
 	bool (*get_teth_port_state[IPA_MAX_CLNT])(void);
+	atomic_t is_ssr;
 };
 
 struct ipa3_plat_drv_res {
@@ -2586,6 +2587,7 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 void ipa3_q6_pre_shutdown_cleanup(void);
 void ipa3_q6_post_shutdown_cleanup(void);
 void ipa3_q6_pre_powerup_cleanup(void);
+void ipa3_update_ssr_state(bool is_ssr);
 int ipa3_init_q6_smem(void);
 
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
