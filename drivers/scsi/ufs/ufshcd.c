@@ -42,6 +42,7 @@
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/bitfield.h>
+#include <linux/suspend.h>
 #include "ufshcd.h"
 #include "ufs_quirks.h"
 #include "unipro.h"
@@ -394,6 +395,20 @@ static bool ufshcd_is_card_present(struct ufs_hba *hba)
 	return true;
 }
 
+static int ufshcd_card_get_extcon_state(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!hba->extcon)
+		return -EINVAL;
+
+	ret = extcon_get_state(hba->extcon, EXTCON_MECHANICAL);
+	if (ret < 0)
+		dev_err(hba->dev, "%s: Failed to check card Extcon state, ret=%d\n",
+				 __func__, ret);
+	return ret;
+}
+
 static inline enum ufs_pm_level
 ufs_get_desired_pm_lvl_for_dev_link_state(enum ufs_dev_pwr_mode dev_state,
 					enum uic_link_state link_state)
@@ -495,6 +510,8 @@ static int ufshcd_config_vreg(struct device *dev,
 				struct ufs_vreg *vreg, bool on);
 static int ufshcd_enable_vreg(struct device *dev, struct ufs_vreg *vreg);
 static int ufshcd_disable_vreg(struct device *dev, struct ufs_vreg *vreg);
+static void ufshcd_register_pm_notifier(struct ufs_hba *hba);
+static void ufshcd_unregister_pm_notifier(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -10087,6 +10104,54 @@ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
 		ufshcd_setup_hba_vreg(hba, true);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int ufshcd_pm_notify(struct notifier_block *notify_block,
+			 unsigned long mode, void *unused)
+{
+	struct ufs_hba *hba = container_of(
+		notify_block, struct ufs_hba, pm_notify);
+	int ret = 0;
+
+	if (!hba->extcon)
+		return ret;
+
+	switch (mode) {
+	case PM_SUSPEND_PREPARE:
+		ret = ufshcd_extcon_unregister(hba);
+		if (ret)
+			break;
+		cancel_work_sync(&hba->card_detect_work);
+		break;
+	case PM_POST_SUSPEND:
+		ret = ufshcd_extcon_register(hba);
+		if (ret)
+			break;
+		extcon_sync(hba->extcon, EXTCON_MECHANICAL);
+	}
+
+	return ret;
+}
+
+static void ufshcd_register_pm_notifier(struct ufs_hba *hba)
+{
+	hba->pm_notify.notifier_call = ufshcd_pm_notify;
+	register_pm_notifier(&hba->pm_notify);
+}
+
+static void ufshcd_unregister_pm_notifier(struct ufs_hba *hba)
+{
+	unregister_pm_notifier(&hba->pm_notify);
+}
+#else
+static void ufshcd_register_pm_notifier(struct ufs_hba *hba)
+{
+}
+
+static void ufshcd_unregister_pm_notifier(struct ufs_hba *hba)
+{
+}
+#endif /* CONFIG_PM_SLEEP */
+
 /**
  * ufshcd_suspend - helper function for suspend operations
  * @hba: per adapter instance
@@ -10292,7 +10357,8 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (hba->extcon &&
 	    (ufshcd_is_card_offline(hba) ||
-	     (ufshcd_is_card_online(hba) && !hba->sdev_ufs_device)))
+	     (ufshcd_is_card_online(hba) && !hba->sdev_ufs_device) ||
+	     !ufshcd_card_get_extcon_state(hba)))
 		goto skip_dev_ops;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -10631,6 +10697,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	}
 	ufshcd_hba_exit(hba);
 	ufsdbg_remove_debugfs(hba);
+	ufshcd_unregister_pm_notifier(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
 
@@ -10908,6 +10975,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	ufs_sysfs_add_nodes(hba->dev);
 
+	ufshcd_register_pm_notifier(hba);
 	return 0;
 
 out_remove_scsi_host:
