@@ -375,6 +375,25 @@ static inline bool ufshcd_is_card_offline(struct ufs_hba *hba)
 	return (atomic_read(&hba->card_state) == UFS_CARD_STATE_OFFLINE);
 }
 
+static bool ufshcd_is_card_present(struct ufs_hba *hba)
+{
+	if (ufshcd_is_card_online(hba))
+		/*
+		 * TODO: need better way to ensure that this delay is
+		 * more than extcon's debounce-ms
+		 */
+		msleep(300);
+
+	/*
+	 * Check if card was online and offline/removed now or
+	 * card was already offline.
+	 */
+	if (ufshcd_is_card_offline(hba))
+		return false;
+
+	return true;
+}
+
 static inline enum ufs_pm_level
 ufs_get_desired_pm_lvl_for_dev_link_state(enum ufs_dev_pwr_mode dev_state,
 					enum uic_link_state link_state)
@@ -5126,7 +5145,9 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	ufshcd_dme_cmd_log(hba, "dme_cmpl_2", hba->active_uic_cmd->command);
 
 out:
-	if (ret && !(hba->extcon && ufshcd_is_card_offline(hba))) {
+	if (ret) {
+		if (hba->extcon && !ufshcd_is_card_present(hba))
+			goto skip_dump;
 		ufsdbg_set_err_state(hba);
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
@@ -5135,6 +5156,7 @@ out:
 		BUG_ON(hba->crash_on_err);
 	}
 
+skip_dump:
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
@@ -6951,33 +6973,18 @@ static void ufshcd_err_handler(struct work_struct *work)
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (hba->extcon) {
-		if (ufshcd_is_card_online(hba)) {
-			spin_unlock_irqrestore(hba->host->host_lock, flags);
-			/*
-			 * TODO: need better way to ensure that this delay is
-			 * more than extcon's debounce-ms
-			 */
-			msleep(300);
-			spin_lock_irqsave(hba->host->host_lock, flags);
-		}
-
-		/*
-		 * ignore error if card was online and offline/removed now or
-		 * card was already offline.
-		 */
-		if (ufshcd_is_card_offline(hba)) {
-			hba->saved_err = 0;
-			hba->saved_uic_err = 0;
-			hba->saved_ce_err = 0;
-			hba->auto_h8_err = false;
-			hba->force_host_reset = false;
-			hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
-			goto out;
-		}
+	if (hba->extcon && !ufshcd_is_card_present(hba)) {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->saved_err = 0;
+		hba->saved_uic_err = 0;
+		hba->saved_ce_err = 0;
+		hba->auto_h8_err = false;
+		hba->force_host_reset = false;
+		hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+		goto out;
 	}
 
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufsdbg_set_err_state(hba);
 
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET)
@@ -7165,6 +7172,10 @@ static void ufshcd_rls_handler(struct work_struct *work)
 	u32 mode;
 
 	hba = container_of(work, struct ufs_hba, rls_work);
+
+	if (hba->extcon && !ufshcd_is_card_present(hba))
+		return;
+
 	pm_runtime_get_sync(hba->dev);
 	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
