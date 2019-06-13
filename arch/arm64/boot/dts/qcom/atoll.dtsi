@@ -1751,5 +1751,6 @@
 #include "pm6150l.dtsi"
 #include "atoll-pinctrl.dtsi"
 #include "atoll-pm.dtsi"
+#include "atoll-coresight.dtsi"
 #include "atoll-stub-regulator.dtsi"
 #include "atoll-usb.dtsi"
