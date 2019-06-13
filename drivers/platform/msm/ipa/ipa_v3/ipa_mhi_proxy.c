@@ -655,7 +655,7 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 	 * executed from mhi context.
 	 */
 	if (vote) {
-		ret = mhi_device_get_sync(imp_ctx->md.mhi_dev);
+		ret = mhi_device_get_sync(imp_ctx->md.mhi_dev, MHI_VOTE_BUS);
 		if (ret) {
 			IMP_ERR("mhi_sync_get failed %d\n", ret);
 			resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
@@ -669,7 +669,7 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 			return resp;
 		}
 	} else {
-		mhi_device_put(imp_ctx->md.mhi_dev);
+		mhi_device_put(imp_ctx->md.mhi_dev, MHI_VOTE_BUS);
 	}
 
 	mutex_lock(&imp_ctx->mutex);
@@ -730,7 +730,7 @@ static void imp_mhi_shutdown(void)
 				false);
 		}
 		if (imp_ctx->lpm_disabled) {
-			mhi_device_put(imp_ctx->md.mhi_dev);
+			mhi_device_put(imp_ctx->md.mhi_dev, MHI_VOTE_BUS);
 			imp_ctx->lpm_disabled = false;
 		}
 

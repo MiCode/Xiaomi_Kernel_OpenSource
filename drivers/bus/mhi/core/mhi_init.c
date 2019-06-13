@@ -49,6 +49,7 @@ const char * const mhi_state_str[MHI_STATE_MAX] = {
 	[MHI_STATE_M1] = "M1",
 	[MHI_STATE_M2] = "M2",
 	[MHI_STATE_M3] = "M3",
+	[MHI_STATE_M3_FAST] = "M3_FAST",
 	[MHI_STATE_BHI] = "BHI",
 	[MHI_STATE_SYS_ERR] = "SYS_ERR",
 };
@@ -78,6 +79,95 @@ const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 		return "Invalid State";
 
 	return mhi_pm_state_str[index];
+}
+
+static ssize_t bus_vote_show(struct device *dev,
+			     struct device_attribute *attr,
+			     char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			atomic_read(&mhi_dev->bus_vote));
+}
+
+static ssize_t bus_vote_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf,
+			      size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	int ret = -EINVAL;
+
+	if (sysfs_streq(buf, "get")) {
+		ret = mhi_device_get_sync(mhi_dev, MHI_VOTE_BUS);
+	} else if (sysfs_streq(buf, "put")) {
+		mhi_device_put(mhi_dev, MHI_VOTE_BUS);
+		ret = 0;
+	}
+
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_RW(bus_vote);
+
+static ssize_t device_vote_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			atomic_read(&mhi_dev->dev_vote));
+}
+
+static ssize_t device_vote_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	int ret = -EINVAL;
+
+	if (sysfs_streq(buf, "get")) {
+		ret = mhi_device_get_sync(mhi_dev, MHI_VOTE_DEVICE);
+	} else if (sysfs_streq(buf, "put")) {
+		mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
+		ret = 0;
+	}
+
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_RW(device_vote);
+
+static struct attribute *mhi_vote_attrs[] = {
+	&dev_attr_bus_vote.attr,
+	&dev_attr_device_vote.attr,
+	NULL,
+};
+
+static const struct attribute_group mhi_vote_group = {
+	.attrs = mhi_vote_attrs,
+};
+
+int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl)
+{
+	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
+				  &mhi_vote_group);
+}
+
+void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
+
+	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_vote_group);
+
+	/* relinquish any pending votes for device */
+	while (atomic_read(&mhi_dev->dev_vote))
+		mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
+
+	/* remove pending votes for the bus */
+	while (atomic_read(&mhi_dev->bus_vote))
+		mhi_device_put(mhi_dev, MHI_VOTE_BUS);
 }
 
 /* MHI protocol require transfer ring to be aligned to ring length */
@@ -1425,7 +1515,7 @@ static int mhi_driver_probe(struct device *dev)
 	int ret;
 
 	/* bring device out of lpm */
-	ret = mhi_device_get_sync(mhi_dev);
+	ret = mhi_device_get_sync(mhi_dev, MHI_VOTE_DEVICE);
 	if (ret)
 		return ret;
 
@@ -1473,7 +1563,7 @@ static int mhi_driver_probe(struct device *dev)
 		mhi_prepare_for_transfer(mhi_dev);
 
 exit_probe:
-	mhi_device_put(mhi_dev);
+	mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
 
 	return ret;
 }
@@ -1548,11 +1638,13 @@ static int mhi_driver_remove(struct device *dev)
 	if (mhi_cntrl->tsync_dev == mhi_dev)
 		mhi_cntrl->tsync_dev = NULL;
 
-	/* relinquish any pending votes */
-	read_lock_bh(&mhi_cntrl->pm_lock);
-	while (atomic_read(&mhi_dev->dev_wake))
-		mhi_device_put(mhi_dev);
-	read_unlock_bh(&mhi_cntrl->pm_lock);
+	/* relinquish any pending votes for device */
+	while (atomic_read(&mhi_dev->dev_vote))
+		mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
+
+	/* remove pending votes for the bus */
+	while (atomic_read(&mhi_dev->bus_vote))
+		mhi_device_put(mhi_dev, MHI_VOTE_BUS);
 
 	return 0;
 }
@@ -1596,7 +1688,8 @@ struct mhi_device *mhi_alloc_device(struct mhi_controller *mhi_cntrl)
 	mhi_dev->bus = mhi_cntrl->bus;
 	mhi_dev->slot = mhi_cntrl->slot;
 	mhi_dev->mtu = MHI_MAX_MTU;
-	atomic_set(&mhi_dev->dev_wake, 0);
+	atomic_set(&mhi_dev->dev_vote, 0);
+	atomic_set(&mhi_dev->bus_vote, 0);
 
 	return mhi_dev;
 }
