@@ -2394,6 +2394,8 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	if (clk_core_rate_is_protected(core))
 		return -EBUSY;
 
+	set_rate_nesting_count++;
+
 	/* calculate new rates and get the topmost changed clock */
 	top = clk_calc_new_rates(core, req_rate);
 	if (!top) {
@@ -2417,7 +2419,6 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	}
 
 	/* change the rates */
-	set_rate_nesting_count++;
 	ret = clk_change_rate(top);
 	set_rate_nesting_count--;
 	if (ret) {
@@ -2445,6 +2446,7 @@ post_rate_change_err:
 	return ret;
 
 pre_rate_change_err:
+	set_rate_nesting_count--;
 	if (set_rate_nesting_count == 0) {
 		clk_unvote_new_rate_vdd();
 		clk_cleanup_vdd_votes();
