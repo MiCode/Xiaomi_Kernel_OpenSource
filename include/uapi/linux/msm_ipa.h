@@ -107,7 +107,7 @@
 #define IPA_IOCTL_DEL_BRIDGE_VLAN_MAPPING       60
 #define IPA_IOCTL_GSB_CONNECT                   61
 #define IPA_IOCTL_GSB_DISCONNECT                62
-
+#define IPA_IOCTL_GET_PHERIPHERAL_EP_INFO       63
 
 
 /**
@@ -1750,6 +1750,46 @@ struct ipa_ioc_gsb_info {
 	char name[IPA_RESOURCE_NAME_MAX];
 };
 
+#define QUERY_MAX_EP_PAIRS	2
+
+#define IPA_USB0_EP_ID		11
+#define IPA_USB1_EP_ID		12
+
+#define IPA_PCIE0_EP_ID		21
+#define IPA_PCIE1_EP_ID		22
+
+enum ipa_peripheral_ep_type {
+	IPA_DATA_EP_TYP_RESERVED = 0,
+	IPA_DATA_EP_TYP_HSIC = 1,
+	IPA_DATA_EP_TYP_HSUSB = 2,
+	IPA_DATA_EP_TYP_PCIE = 3,
+	IPA_DATA_EP_TYP_EMBEDDED = 4,
+	IPA_DATA_EP_TYP_BAM_DMUX,
+};
+
+struct ipa_ep_pair_info {
+	uint32_t consumer_pipe_num;
+	uint32_t producer_pipe_num;
+	uint32_t ep_id;
+};
+
+/**
+ * struct ipa_ioc_get_ep_info - flt/rt counter id query
+ * @ep_type: type USB/PCIE - i/p param
+ * @max_ep_pairs: max number of ep_pairs (constant),
+					(QUERY_MAX_EP_PAIRS)
+ * @num_ep_pairs: number of ep_pairs - o/p param
+ * @ep_pair_size: sizeof(ipa_ep_pair_info) * max_ep_pairs
+ * @info: structure contains ep pair info
+ */
+struct ipa_ioc_get_ep_info {
+	enum ipa_peripheral_ep_type ep_type;
+	uint8_t max_ep_pairs;
+	uint8_t num_ep_pairs;
+	uint32_t ep_pair_size;
+	uintptr_t info;
+};
+
 /**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
@@ -2190,6 +2230,10 @@ struct ipa_ioc_bridge_vlan_mapping_info {
 #define IPA_IOC_GSB_DISCONNECT _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GSB_DISCONNECT, \
 				struct ipa_ioc_gsb_info)
+
+#define IPA_IOC_GET_PHERIPHERAL_EP_INFO _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_PHERIPHERAL_EP_INFO, \
+				struct ipa_ioc_get_ep_info)
 
 /*
  * unique magic number of the Tethering bridge ioctls
