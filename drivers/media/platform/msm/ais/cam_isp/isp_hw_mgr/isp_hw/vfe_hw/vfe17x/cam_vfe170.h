@@ -246,6 +246,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		.debug_status_0               = 0x00002270,
 	},
 	.num_client = 20,
+	.is_lite = 0,
 	.bus_client_reg = {
 		/* BUS Client 0 */
 		{
