@@ -1600,7 +1600,8 @@ Example:
 * MSM8952 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msm8952-audio-codec"
+- compatible : "qcom,msm8952-audio-codec" for pmic codec,
+				"qcom,msm8952-dig-asoc-snd" for digital internal codec,
 - qcom,model : The user-visible name of this sound card.
 - reg : Offset and length of the register region(s) for MI2S/PCM MUX
 - reg-names : Register region name(s) referenced in reg above
