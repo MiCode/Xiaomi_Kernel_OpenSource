@@ -330,6 +330,12 @@ static long esoc_dev_ioctl(struct file *file, unsigned int cmd,
 		return err;
 	case ESOC_GET_LINK_ID:
 		return esoc_get_link_id(esoc_clink, arg);
+	case ESOC_SET_BOOT_FAIL_ACT:
+		get_user(esoc_cmd, (u32 __user *) arg);
+		return esoc_set_boot_fail_action(esoc_clink, esoc_cmd);
+	case ESOC_SET_N_PON_TRIES:
+		get_user(esoc_cmd, (u32 __user *) arg);
+		return esoc_set_n_pon_tries(esoc_clink, esoc_cmd);
 	default:
 		return -EINVAL;
 	};
