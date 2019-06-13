@@ -10,7 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxpoorwills-mtp.dtsi"
+#include "sdxpoorwills-ttp.dtsi"
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
 
 &qcom_seecom {
 	status = "okay";
@@ -30,4 +34,38 @@
 
 &mss_mem {
 	reg = <0x86400000 0x9300000>;
+};
+
+&i2c_4 {
+	asm330@6a {
+		reg = <0x6b>;
+	};
+};
+
+&wcd934x_cdc {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};
+
+&snd_934x {
+	status = "disabled";
+};
+
+&smb138x {
+	status = "disabled";
+};
+
+&smb138x_vbus {
+	status = "disabled";
+};
+
+&vreg_wlan {
+	gpio = <&tlmm 81 GPIO_ACTIVE_HIGH>;
 };
