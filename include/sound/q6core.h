@@ -185,13 +185,17 @@ struct avcs_cmd_get_version_result {
 #define AVCS_CMDRSP_Q6_ID_2_6	0x00040000
 #define AVCS_CMDRSP_Q6_ID_2_7	0x00040001
 #define AVCS_CMDRSP_Q6_ID_2_8   0x00040002
+#define AVCS_CMDRSP_Q6_ID_2_9   0x00040003
 
 enum q6_subsys_image {
 	Q6_SUBSYS_AVS2_6 = 1,
 	Q6_SUBSYS_AVS2_7,
 	Q6_SUBSYS_AVS2_8,
+	Q6_SUBSYS_AVS2_9,
 	Q6_SUBSYS_INVALID,
 };
+
 enum q6_subsys_image q6core_get_avs_version(void);
+
 int core_get_adsp_ver(void);
 #endif /* __Q6CORE_H__ */
