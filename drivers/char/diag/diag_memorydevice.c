@@ -288,19 +288,13 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 		if (!ch->md_info_inited)
 			continue;
 		for (j = 0; j < ch->num_tbl_entries && !err; j++) {
-			spin_lock_irqsave(&ch->lock, flags);
 			entry = &ch->tbl[j];
-			if (entry->len <= 0 || entry->buf == NULL) {
-				spin_unlock_irqrestore(&ch->lock, flags);
+			if (entry->len <= 0 || entry->buf == NULL)
 				continue;
-			}
 
 			peripheral = diag_md_get_peripheral(entry->ctx);
-			if (peripheral < 0) {
-				spin_unlock_irqrestore(&ch->lock, flags);
+			if (peripheral < 0)
 				goto drop_data;
-			}
-			spin_unlock_irqrestore(&ch->lock, flags);
 			session_info =
 			diag_md_session_get_peripheral(i, peripheral);
 			if (!session_info)
