@@ -5909,6 +5909,17 @@ static unsigned long capacity_spare_without(int cpu, struct task_struct *p)
 	return max_t(long, capacity_of(cpu) - cpu_util_without(cpu, p), 0);
 }
 
+#ifdef CONFIG_MTK_SCHED_INTEROP
+#define MT_RT_LOAD (2*1023*NICE_0_LOAD)
+static inline unsigned long mt_rt_load(int cpu)
+{
+	if (likely(!is_rt_throttle(cpu)))
+		return cpu_rq(cpu)->rt.rt_nr_running * MT_RT_LOAD;
+
+	return 0;
+}
+#endif
+
 /*
  * find_idlest_group finds and returns the least busy CPU group within the
  * domain.
@@ -5965,6 +5976,10 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 			runnable_load += load;
 
 			avg_load += cfs_rq_load_avg(&cpu_rq(i)->cfs);
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			avg_load += mt_rt_load(i);
+#endif
 
 			spare_cap = capacity_spare_without(i, p);
 
@@ -6098,6 +6113,9 @@ find_idlest_group_cpu(struct sched_group *group, struct task_struct *p, int this
 			}
 		} else if (shallowest_idle_cpu == -1) {
 			load = weighted_cpuload(cpu_rq(i));
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			load += mt_rt_load(i);
+#endif
 			if (load < min_load) {
 				min_load = load;
 				least_loaded_cpu = i;
@@ -6591,6 +6609,12 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			if (!cpu_online(i))
 				continue;
 
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			if (cpu_rq(i)->rt.rt_nr_running &&
+				likely(!is_rt_throttle(i)))
+				continue;
+#endif
+
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
 			 * so prev_cpu will receive a negative bias due to the double
@@ -6974,6 +6998,11 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 		for_each_cpu_and(cpu, perf_domain_span(pd), sched_domain_span(sd)) {
 			if (!cpumask_test_cpu(cpu, &p->cpus_allowed))
 				continue;
+#ifdef CONFIG_MTK_SCHED_INTEROP
+			if (cpu_rq(cpu)->rt.rt_nr_running &&
+				likely(!is_rt_throttle(cpu)))
+				continue;
+#endif
 
 			/* Skip CPUs that will be overutilized. */
 			util = cpu_util_next(cpu, p, cpu);
@@ -8471,6 +8500,12 @@ static unsigned long scale_rt_capacity(int cpu, unsigned long max)
 		return 1;
 
 	used = READ_ONCE(rq->avg_rt.util_avg);
+#ifdef CONFIG_MTK_SCHED_INTEROP
+	if (unlikely(is_rt_throttle(cpu)) || !(rq->rt.rt_nr_running)) {
+		/* mtk: don't reduce capacity when rt task throttle or sleep*/
+		used = 0;
+	}
+#endif
 	used += READ_ONCE(rq->avg_dl.util_avg);
 
 	if (unlikely(used >= max))
@@ -8787,6 +8822,9 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 			load = target_load(i, load_idx);
 		else
 			load = source_load(i, load_idx);
+#ifdef CONFIG_MTK_SCHED_INTEROP
+		load  += mt_rt_load(i);
+#endif
 
 		sgs->group_load += load;
 		sgs->group_util += cpu_util(i);
@@ -9449,6 +9487,10 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 			continue;
 
 		wl = weighted_cpuload(rq);
+
+#ifdef CONFIG_MTK_SCHED_INTEROP
+		wl += mt_rt_load(i);
+#endif
 
 		/*
 		 * When comparing with imbalance, use weighted_cpuload()
