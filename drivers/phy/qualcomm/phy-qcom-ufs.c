@@ -669,7 +669,8 @@ void ufs_qcom_phy_save_controller_version(struct phy *generic_phy,
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_save_controller_version);
 
-int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B)
+int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B,
+			       bool is_g4)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	int ret = 0;
@@ -680,7 +681,8 @@ int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B)
 		ret = -ENOTSUPP;
 	} else {
 		ret = ufs_qcom_phy->phy_spec_ops->calibrate_phy(ufs_qcom_phy,
-								is_rate_B);
+								is_rate_B,
+								is_g4);
 		if (ret)
 			dev_err(ufs_qcom_phy->dev, "%s: calibrate_phy() failed %d\n",
 				__func__, ret);

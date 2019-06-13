@@ -334,6 +334,14 @@ static void ufshcd_parse_cmd_timeout(struct ufs_hba *hba)
 		hba->scsi_cmd_timeout = 0;
 }
 
+static void ufshcd_parse_force_g4_flag(struct ufs_hba *hba)
+{
+	if (device_property_read_bool(hba->dev, "force-g4"))
+		hba->force_g4 = true;
+	else
+		hba->force_g4 = false;
+}
+
 static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
@@ -489,6 +497,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 	ufshcd_parse_pm_levels(hba);
 	ufshcd_parse_gear_limits(hba);
 	ufshcd_parse_cmd_timeout(hba);
+	ufshcd_parse_force_g4_flag(hba);
 	err = ufshcd_parse_extcon_info(hba);
 	if (err)
 		goto dealloc_host;

@@ -1068,6 +1068,9 @@ struct ufs_hba {
 	struct ufs_desc_size desc_size;
 	atomic_t scsi_block_reqs_cnt;
 	bool restore_needed;
+
+	bool phy_init_g4;
+	bool force_g4;
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
