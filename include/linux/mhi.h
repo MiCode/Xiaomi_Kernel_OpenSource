@@ -292,6 +292,7 @@ struct mhi_controller {
 			  struct mhi_buf_info *buf);
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
 			     struct mhi_buf_info *buf);
+	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;
@@ -303,6 +304,8 @@ struct mhi_controller {
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
 	struct mhi_device *tsync_dev;
+	u64 local_timer_freq;
+	u64 remote_timer_freq;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;

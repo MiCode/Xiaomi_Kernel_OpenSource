@@ -534,6 +534,8 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	     !mhi_cntrl->lpm_enable)
 		return -EINVAL;
 
+	mhi_cntrl->local_timer_freq = arch_timer_get_cntfrq();
+
 	/* register method supported */
 	mhi_tsync = kzalloc(sizeof(*mhi_tsync), GFP_KERNEL);
 	if (!mhi_tsync)
