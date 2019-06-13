@@ -115,7 +115,7 @@ int sspm_reserve_memory_init(void)
 	sspm_mem_base_virt = (phys_addr_t)(uintptr_t)
 			ioremap_wc(sspm_mem_base_phys, sspm_mem_size);
 
-	pr_info("[SSPM]reserve mem: virt:0x%p - 0x%p (0x%p)\n",
+	pr_info("[SSPM]reserve mem: virt:0x%lx - 0x%lx (0x%lx)\n",
 			(unsigned long long)sspm_mem_base_virt,
 			(unsigned long long)sspm_mem_base_virt +
 				(unsigned long long)sspm_mem_size,
