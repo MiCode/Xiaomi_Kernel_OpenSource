@@ -2786,13 +2786,15 @@ static int cam_cc_kona_probe(struct platform_device *pdev)
 
 	clk_lucid_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
-	clk_zonda_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
 	clk_lucid_pll_configure(&cam_cc_pll3, regmap, &cam_cc_pll3_config);
 	clk_lucid_pll_configure(&cam_cc_pll4, regmap, &cam_cc_pll4_config);
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				"qcom,camcc-kona-v2"))
 		cam_cc_kona_fixup_konav2(regmap);
+	else
+		clk_zonda_pll_configure(&cam_cc_pll2, regmap,
+					&cam_cc_pll2_config);
 
 	ret = qcom_cc_really_probe(pdev, &cam_cc_kona_desc, regmap);
 	if (ret) {
