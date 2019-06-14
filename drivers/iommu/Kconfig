@@ -391,6 +391,15 @@ config ARM_SMMU_SELFTEST
 
 	  If unsure, say N here.
 
+config ARM_SMMU_TESTBUS_DEBUGFS
+	bool "Expose testbus control debugfs nodes"
+	depends on ARM_SMMU && IOMMU_DEBUGFS
+	help
+	  Support for exposing debugfs nodes to set testbus select values
+	  for selecting a testbus to inspect for a particular TCU/TBU
+	  on an SMMU. This also exposes debugfs nodes to read testbus output
+	  after the output has been selected.
+
 config ARM_SMMU_V3
 	tristate "ARM Ltd. System MMU Version 3 (SMMUv3) Support"
 	depends on ARM64
@@ -413,6 +422,16 @@ config ARM_SMMU_V3_SVA
 
 	  Say Y here if your system supports SVA extensions such as PCIe PASID
 	  and PRI.
+
+config ARM_SMMU_TESTBUS_DUMP
+	bool "ARM SMMU testbus dump"
+	depends on ARM_SMMU
+	help
+	  Enables testbus dump collection on arm smmu right after TLB
+	  sync timeout failure.
+	  Note to use this only on debug builds.
+
+	  If unsure, say N here.
 
 config QCOM_LAZY_MAPPING
 	tristate "Reference counted iommu-mapping support"
