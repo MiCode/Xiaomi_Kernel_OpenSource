@@ -9,16 +9,19 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 include $(LOCAL_PATH)/kenv.mk
 
 ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
-# .config cannot be PHONY due to config_data.gz
+KERNEL_MAKE_DEPENDENCIES := $(shell find $(KERNEL_DIR) -name .git -prune -o -type f | sort)
+
+$(TARGET_KERNEL_CONFIG): PRIVATE_DIR := $(KERNEL_DIR)
 $(TARGET_KERNEL_CONFIG): $(KERNEL_CONFIG_FILE) $(LOCAL_PATH)/Android.mk
-$(TARGET_KERNEL_CONFIG): $(shell find $(KERNEL_DIR) -name "Kconfig*")
+$(TARGET_KERNEL_CONFIG): $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
-	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) $(KERNEL_DEFCONFIG)
+	$(PREBUILT_MAKE_PREFIX)$(MAKE) -C $(PRIVATE_DIR) $(KERNEL_MAKE_OPTION) $(KERNEL_DEFCONFIG)
 
 .KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
-$(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) FORCE
+$(KERNEL_ZIMAGE_OUT): PRIVATE_DIR := $(KERNEL_DIR)
+$(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
-	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION)
+	$(PREBUILT_MAKE_PREFIX)$(MAKE) -C $(PRIVATE_DIR) $(KERNEL_MAKE_OPTION)
 	$(hide) $(call fixup-kernel-cmd-file,$(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/compressed/.piggy.xzkern.cmd)
 	cat $(IMAGE_GZ_PATH) $(MTK_APPEND_DTB_PATH) > $(MTK_IMAGE_GZ_DTB_PATH)
 
@@ -33,7 +36,7 @@ endif #TARGET_PREBUILT_KERNEL is empty
 $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
 
-.PHONY: kernel save-kernel kernel-savedefconfig %config-kernel clean-kernel
+.PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel
 kernel: $(INSTALLED_KERNEL_TARGET)
 save-kernel: $(TARGET_PREBUILT_KERNEL)
 
@@ -44,7 +47,7 @@ kernel-menuconfig:
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) menuconfig
 
-%config-kernel:
+menuconfig-kernel savedefconfig-kernel:
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) $(patsubst %config-kernel,%config,$@)
 
