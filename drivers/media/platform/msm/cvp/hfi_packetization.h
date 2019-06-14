@@ -51,11 +51,11 @@ struct cvp_hfi_packetization_ops {
 	int (*session_cmd)(struct cvp_hal_session_cmd_pkt *pkt,
 		int pkt_type, struct cvp_hal_session *session);
 	int (*session_set_buffers)(
-		struct cvp_hfi_cmd_session_set_buffers_packet *pkt,
+		void *pkt,
 		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info);
 	int (*session_release_buffers)(
-		struct cvp_hfi_cmd_session_release_buffers_packet *pkt,
+		void *pkt,
 		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info);
 	int (*session_get_buf_req)(

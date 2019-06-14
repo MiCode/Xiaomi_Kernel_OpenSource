@@ -81,6 +81,7 @@ struct cam_vfe_bus_ver3_common_data {
 	uint32_t                                    addr_no_sync;
 	uint32_t                                    comp_done_shift;
 	bool                                        is_lite;
+	bool                                        hw_init;
 	cam_hw_mgr_event_cb_func                    event_cb;
 	int                        rup_irq_handle[CAM_VFE_BUS_VER3_SRC_GRP_MAX];
 };
@@ -195,6 +196,15 @@ static int cam_vfe_bus_ver3_get_evt_payload(
 	int rc;
 
 	spin_lock(&common_data->spin_lock);
+
+	if (!common_data->hw_init) {
+		*evt_payload = NULL;
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "VFE:%d Bus uninitialized",
+			common_data->core_index);
+		rc = -EPERM;
+		goto done;
+	}
+
 	if (list_empty(&common_data->free_payload_list)) {
 		*evt_payload = NULL;
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "No free BUS event payload");
@@ -221,14 +231,16 @@ static int cam_vfe_bus_ver3_put_evt_payload(
 		CAM_ERR(CAM_ISP, "Invalid param common_data NULL");
 		return -EINVAL;
 	}
+
 	if (*evt_payload == NULL) {
 		CAM_ERR(CAM_ISP, "No payload to put");
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&common_data->spin_lock, flags);
-	list_add_tail(&(*evt_payload)->list,
-		&common_data->free_payload_list);
+	if (common_data->hw_init)
+		list_add_tail(&(*evt_payload)->list,
+			&common_data->free_payload_list);
 	spin_unlock_irqrestore(&common_data->spin_lock, flags);
 
 	*evt_payload = NULL;
@@ -3522,6 +3534,9 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 		return -EINVAL;
 	}
 
+	if (bus_priv->common_data.hw_init)
+		return 0;
+
 	top_irq_reg_mask[0] = (1 << bus_priv->top_irq_shift);
 
 	bus_priv->irq_handle = cam_irq_controller_subscribe_irq(
@@ -3567,6 +3582,8 @@ static int cam_vfe_bus_ver3_init_hw(void *hw_priv,
 	cam_io_w_mb(0x0, bus_priv->common_data.mem_base +
 		bus_priv->common_data.common_reg->test_bus_ctrl);
 
+	bus_priv->common_data.hw_init = true;
+
 	return 0;
 }
 
@@ -3575,11 +3592,15 @@ static int cam_vfe_bus_ver3_deinit_hw(void *hw_priv,
 {
 	struct cam_vfe_bus_ver3_priv    *bus_priv = hw_priv;
 	int                              rc = 0, i;
+	unsigned long                    flags;
 
 	if (!bus_priv) {
 		CAM_ERR(CAM_ISP, "Error: Invalid args");
 		return -EINVAL;
 	}
+
+	if (!bus_priv->common_data.hw_init)
+		return 0;
 
 	if (bus_priv->error_irq_handle) {
 		rc = cam_irq_controller_unsubscribe_irq(
@@ -3595,12 +3616,15 @@ static int cam_vfe_bus_ver3_deinit_hw(void *hw_priv,
 		bus_priv->irq_handle = 0;
 	}
 
+	spin_lock_irqsave(&bus_priv->common_data.spin_lock, flags);
 	INIT_LIST_HEAD(&bus_priv->common_data.free_payload_list);
 	for (i = 0; i < CAM_VFE_BUS_VER3_PAYLOAD_MAX; i++) {
 		INIT_LIST_HEAD(&bus_priv->common_data.evt_payload[i].list);
 		list_add_tail(&bus_priv->common_data.evt_payload[i].list,
 			&bus_priv->common_data.free_payload_list);
 	}
+	bus_priv->common_data.hw_init = false;
+	spin_unlock_irqrestore(&bus_priv->common_data.spin_lock, flags);
 
 	return rc;
 }
@@ -3722,6 +3746,7 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->common_data.common_reg         = &ver3_hw_info->common_reg;
 	bus_priv->common_data.comp_done_shift    =
 		ver3_hw_info->comp_done_shift;
+	bus_priv->common_data.hw_init            = false;
 
 	bus_priv->common_data.is_lite = soc_private->is_ife_lite;
 
@@ -3830,6 +3855,7 @@ int cam_vfe_bus_ver3_deinit(
 	int i, rc = 0;
 	struct cam_vfe_bus_ver3_priv    *bus_priv = NULL;
 	struct cam_vfe_bus              *vfe_bus_local;
+	unsigned long                    flags;
 
 	if (!vfe_bus || !*vfe_bus) {
 		CAM_ERR(CAM_ISP, "Invalid input");
@@ -3844,9 +3870,12 @@ int cam_vfe_bus_ver3_deinit(
 		goto free_bus_local;
 	}
 
+	spin_lock_irqsave(&bus_priv->common_data.spin_lock, flags);
 	INIT_LIST_HEAD(&bus_priv->common_data.free_payload_list);
 	for (i = 0; i < CAM_VFE_BUS_VER3_PAYLOAD_MAX; i++)
 		INIT_LIST_HEAD(&bus_priv->common_data.evt_payload[i].list);
+	bus_priv->common_data.hw_init = false;
+	spin_unlock_irqrestore(&bus_priv->common_data.spin_lock, flags);
 
 	for (i = 0; i < bus_priv->num_client; i++) {
 		rc = cam_vfe_bus_ver3_deinit_wm_resource(

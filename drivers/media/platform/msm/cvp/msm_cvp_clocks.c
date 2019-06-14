@@ -49,7 +49,6 @@ int msm_cvp_comm_vote_bus(struct msm_cvp_core *core)
 	}
 
 	if (!core->resources.bus_devfreq_on)
-		dprintk(CVP_WARN, "%s is not enabled for CVP!\n", __func__);
 		return 0;
 
 	return 0;
@@ -330,10 +329,8 @@ int msm_cvp_comm_scale_clocks(struct msm_cvp_inst *inst)
 		return -EINVAL;
 	}
 
-	if (!inst->core->resources.bus_devfreq_on) {
-		dprintk(CVP_WARN, "%s is not enabled for CVP!\n", __func__);
+	if (!inst->core->resources.bus_devfreq_on)
 		return 0;
-	}
 
 	if (!filled_len || !device_addr) {
 		dprintk(CVP_DBG, "%s no input for session %x\n",

@@ -1128,6 +1128,11 @@ static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
 		!(hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8));
 }
 
+static inline bool ufshcd_is_auto_hibern8_enabled(struct ufs_hba *hba)
+{
+	return ufshcd_is_auto_hibern8_supported(hba) && !!hba->ahit;
+}
+
 static inline bool ufshcd_is_crypto_supported(struct ufs_hba *hba)
 {
 	return !!(hba->capabilities & MASK_CRYPTO_SUPPORT);

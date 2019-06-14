@@ -212,4 +212,13 @@ config CORESIGHT_TGU
 	  used to monitor a data stream to detect protocol violations and to
 	  provide a trigger point for centering data around a specific event
 	  within the trace data buffer.
+
+config CORESIGHT_LINK_LATE_DISABLE
+	bool "Disable CoreSight link after sink is disabled"
+	depends on CORESIGHT_LINKS_AND_SINKS
+	help
+	  CoreSight link won't be disabled until the sink of trace path is
+	  disabled. Otherwise, link is disabled when it's not active. Enable
+	  this when some CoreSight source holds trace data after disabled.
+	  This data will be flushed out when CoreSight sink is disabled.
 endif

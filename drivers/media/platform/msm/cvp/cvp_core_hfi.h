@@ -247,6 +247,7 @@ struct iris_hfi_vpu_ops {
 struct iris_hfi_device {
 	struct list_head list;
 	struct list_head sess_head;
+	u32 version;
 	u32 intr_status;
 	u32 device_id;
 	u32 clk_freq;

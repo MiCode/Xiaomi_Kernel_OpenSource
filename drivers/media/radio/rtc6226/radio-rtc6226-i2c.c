@@ -530,11 +530,9 @@ int rtc6226_fops_open(struct file *file)
 		FMDERR("%s fail to open v4l2\n", __func__);
 		return retval;
 	}
-
-	if (radio->users == 0)
-		radio->users++;
-	else {
+	if (atomic_inc_return(&radio->users) != 1) {
 		FMDERR("Device already in use. Try again later\n");
+		atomic_dec(&radio->users);
 		return -EBUSY;
 	}
 
@@ -556,15 +554,13 @@ int rtc6226_fops_open(struct file *file)
 		FMDERR("%s:enable irq failed\n", __func__);
 		goto open_err_req_irq;
 	}
-
-	if (retval)
-		v4l2_fh_release(file);
 	return retval;
 
 open_err_req_irq:
 	rtc6226_fm_power_cfg(radio, TURNING_OFF);
 open_err_setup:
-	radio->users--;
+	atomic_dec(&radio->users);
+	v4l2_fh_release(file);
 	return retval;
 }
 
@@ -584,7 +580,7 @@ int rtc6226_fops_release(struct file *file)
 		}
 	}
 	rtc6226_disable_irq(radio);
-	radio->users--;
+	atomic_dec(&radio->users);
 	retval = rtc6226_fm_power_cfg(radio, TURNING_OFF);
 	if (retval < 0)
 		FMDERR("%s: failed to apply voltage\n", __func__);
@@ -751,7 +747,8 @@ static int rtc6226_i2c_probe(struct i2c_client *client,
 	FMDBG("v4l2_device_register successfully\n");
 	hdl = &radio->ctrl_handler;
 
-	radio->users = 0;
+	/* initialize the device count */
+	atomic_set(&radio->users, 0);
 	radio->client = client;
 	mutex_init(&radio->lock);
 	init_completion(&radio->completion);

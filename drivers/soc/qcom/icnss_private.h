@@ -8,6 +8,7 @@
 
 #include <linux/adc-tm-clients.h>
 #include <linux/iio/consumer.h>
+#include <asm/dma-iommu.h>
 
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
@@ -153,6 +154,7 @@ enum icnss_driver_state {
 	ICNSS_REJUVENATE,
 	ICNSS_MODE_ON,
 	ICNSS_BLOCK_SHUTDOWN,
+	ICNSS_PDR,
 };
 
 struct ce_irq_list {
@@ -301,9 +303,8 @@ struct icnss_priv {
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
-	struct dma_iommu_mapping *smmu_mapping;
-	dma_addr_t smmu_iova_start;
-	size_t smmu_iova_len;
+	struct dma_iommu_mapping smmu_mapping;
+	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;
 	struct qmi_handle qmi;
@@ -343,7 +344,6 @@ struct icnss_priv {
 	uint8_t *diag_reg_read_buf;
 	atomic_t pm_count;
 	struct ramdump_device *msa0_dump_dev;
-	bool bypass_s1_smmu;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
 	bool early_crash_ind;
@@ -361,6 +361,7 @@ struct icnss_priv {
 	uint64_t vph_pwr;
 	bool vbatt_supported;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
+	bool is_ssr;
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,

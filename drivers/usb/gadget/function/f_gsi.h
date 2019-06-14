@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _F_GSI_H
@@ -68,8 +68,8 @@
 #define EVT_NONE			0
 #define EVT_UNINITIALIZED		1
 #define EVT_INITIALIZED			2
-#define EVT_CONNECT_IN_PROGRESS		3
-#define EVT_CONNECTED			4
+#define EVT_SET_ALT		3
+#define EVT_IPA_READY			4
 #define EVT_HOST_NRDY			5
 #define EVT_HOST_READY			6
 #define EVT_DISCONNECTED		7
@@ -102,8 +102,9 @@
 enum connection_state {
 	STATE_UNINITIALIZED,
 	STATE_INITIALIZED,
-	STATE_CONNECT_IN_PROGRESS,
+	STATE_WAIT_FOR_IPA_RDY,
 	STATE_CONNECTED,
+	STATE_HOST_NRDY,
 	STATE_DISCONNECTED,
 	STATE_SUSPEND_IN_PROGRESS,
 	STATE_SUSPENDED
@@ -223,6 +224,7 @@ struct gsi_data_port {
 	struct usb_gsi_request in_request;
 	struct usb_gsi_request out_request;
 	struct usb_gadget *gadget;
+	struct usb_composite_dev *cdev;
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *driver_data);
 	struct ipa_usb_teth_params ipa_init_params;
 	int in_channel_handle;
@@ -240,7 +242,7 @@ struct gsi_data_port {
 
 	spinlock_t lock;
 
-	struct work_struct usb_ipa_w;
+	struct delayed_work usb_ipa_w;
 	struct workqueue_struct *ipa_usb_wq;
 	enum connection_state sm_state;
 	struct event_queue evt_q;

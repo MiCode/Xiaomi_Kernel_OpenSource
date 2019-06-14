@@ -2870,6 +2870,14 @@ void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 		sdhci_msm_readl_relaxed(host,
 			msm_host_offset->CORE_PWRCTL_CTL), irq_flags);
 
+	mmc_log_string(host->mmc,
+		"Sts: 0x%08x | Mask: 0x%08x | Ctrl: 0x%08x, pwr isr state=0x%x\n",
+		sdhci_msm_readb_relaxed(host,
+			msm_host_offset->CORE_PWRCTL_STATUS),
+		sdhci_msm_readb_relaxed(host,
+			msm_host_offset->CORE_PWRCTL_MASK),
+		sdhci_msm_readb_relaxed(host,
+			msm_host_offset->CORE_PWRCTL_CTL), irq_flags);
 }
 
 static int sdhci_msm_clear_pwrctl_status(struct sdhci_host *host, u8 value)
@@ -3162,6 +3170,9 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 				msecs_to_jiffies(MSM_PWR_IRQ_TIMEOUT_MS))) {
 		__WARN_printf("%s: request(%d) timed out waiting for pwr_irq\n",
 					mmc_hostname(host->mmc), req_type);
+		mmc_log_string(host->mmc,
+			"request(%d) timed out waiting for pwr_irq\n",
+			req_type);
 		sdhci_msm_dump_pwr_ctrl_regs(host);
 	}
 	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
@@ -3922,6 +3933,11 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	sdhci_msm_cache_debug_data(host);
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
 
+	mmc_log_string(host->mmc, "Data cnt: 0x%08x | Fifo cnt: 0x%08x\n",
+		sdhci_msm_readl_relaxed(host,
+			msm_host_offset->CORE_MCI_DATA_CNT),
+		sdhci_msm_readl_relaxed(host,
+			msm_host_offset->CORE_MCI_FIFO_CNT));
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		sdhci_msm_readl_relaxed(host,
 			msm_host_offset->CORE_MCI_DATA_CNT),

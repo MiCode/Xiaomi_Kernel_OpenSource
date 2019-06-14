@@ -40,6 +40,7 @@ struct cam_vfe_camif_lite_ver3_reg_data {
 	uint32_t     error_irq_mask2;
 	uint32_t     subscribe_irq_mask1;
 	uint32_t     enable_diagnostic_hw;
+	uint32_t     top_debug_cfg_en;
 };
 
 struct cam_vfe_camif_lite_ver3_hw_info {

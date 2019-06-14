@@ -787,6 +787,8 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	}
 
 	/* setup general irq */
+	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
+		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
 	reg_val = npu_cc_reg_read(npu_dev,
 		NPU_CC_NPU_MASTERn_GENERAL_IRQ_OWNER(0));
 	reg_val |= RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE;
@@ -797,8 +799,6 @@ int npu_enable_irq(struct npu_device *npu_dev)
 	reg_val |= RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE;
 	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_ENABLE(0),
 		reg_val);
-	npu_cc_reg_write(npu_dev, NPU_CC_NPU_MASTERn_GENERAL_IRQ_CLEAR(0),
-		RSC_SHUTDOWN_REQ_IRQ_ENABLE | RSC_BRINGUP_REQ_IRQ_ENABLE);
 	for (i = 0; i < NPU_MAX_IRQ; i++) {
 		if (npu_dev->irq[i].irq != 0) {
 			enable_irq(npu_dev->irq[i].irq);

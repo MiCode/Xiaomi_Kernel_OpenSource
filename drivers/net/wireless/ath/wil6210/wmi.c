@@ -33,6 +33,7 @@ MODULE_PARM_DESC(led_id,
 #define WIL_WAIT_FOR_SUSPEND_RESUME_COMP 200
 #define WIL_WMI_CALL_GENERAL_TO_MS 100
 #define WIL_WMI_PCP_STOP_TO_MS 5000
+#define WIL_WMI_SPI_SLAVE_RESET_TO_MS 500
 
 /**
  * WMI event receiving - theory of operations
@@ -477,6 +478,8 @@ static const char *cmdid2name(u16 cmdid)
 		return "WMI_UPDATE_FT_IES_CMD";
 	case WMI_SET_VR_PROFILE_CMDID:
 		return "WMI_SET_VR_PROFILE_CMD";
+	case WMI_RESET_SPI_SLAVE_CMDID:
+		return "WMI_RESET_SPI_SLAVE_CMD";
 	default:
 		return "Untracked CMD";
 	}
@@ -623,6 +626,8 @@ static const char *eventid2name(u16 eventid)
 		return "WMI_FT_REASSOC_STATUS_EVENT";
 	case WMI_SET_VR_PROFILE_EVENTID:
 		return "WMI_SET_VR_PROFILE_EVENT";
+	case WMI_RESET_SPI_SLAVE_EVENTID:
+		return "WMI_RESET_SPI_SLAVE_EVENT";
 	default:
 		return "Untracked EVENT";
 	}
@@ -2060,8 +2065,9 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
 		    n - num_immed_reply, num_immed_reply);
 }
 
-int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
-	     u16 reply_id, void *reply, u16 reply_size, int to_msec)
+static int __wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf,
+		      u16 len, u16 reply_id, void *reply, u16 reply_size,
+		      int to_msec, bool force_send)
 {
 	int rc;
 	unsigned long remain;
@@ -2077,7 +2083,7 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
 	reinit_completion(&wil->wmi_call);
 	spin_unlock_irqrestore(&wil->wmi_ev_lock, flags);
 
-	rc = __wmi_send(wil, cmdid, mid, buf, len, false);
+	rc = __wmi_send(wil, cmdid, mid, buf, len, force_send);
 	if (rc)
 		goto out;
 
@@ -2105,6 +2111,13 @@ out:
 	mutex_unlock(&wil->wmi_mutex);
 
 	return rc;
+}
+
+int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
+	     u16 reply_id, void *reply, u16 reply_size, int to_msec)
+{
+	return __wmi_call(wil, cmdid, mid, buf, len, reply_id, reply,
+			  reply_size, to_msec, false);
 }
 
 int wmi_echo(struct wil6210_priv *wil)
@@ -4146,6 +4159,40 @@ int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile)
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "set vr profile failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_reset_spi_slave(struct wil6210_priv *wil)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	struct wmi_reset_spi_slave_cmd cmd = { {0} };
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_reset_spi_slave_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+	int rc;
+
+	if (!(ndev->flags & IFF_UP))
+		return 0;
+
+	/* Force sending SPI slave reset to guarantee safe SPI reset */
+	rc = __wmi_call(wil, WMI_RESET_SPI_SLAVE_CMDID, vif->mid, &cmd,
+			sizeof(cmd), WMI_RESET_SPI_SLAVE_EVENTID, &reply,
+			sizeof(reply), WIL_WMI_SPI_SLAVE_RESET_TO_MS, true);
+	if (rc) {
+		wil_err(wil, "WMI_RESET_SPI_SLAVE_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "spi slave reset failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}

@@ -2486,11 +2486,13 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 			continue;
 
 		/* disable statuses for all modem controlled prod pipes */
-		if (IPA_CLIENT_IS_Q6_PROD(client_idx) ||
-			(ipa3_ctx->ep[ep_idx].valid &&
+		if (!IPA_CLIENT_IS_TEST(client_idx) &&
+			(IPA_CLIENT_IS_Q6_PROD(client_idx) ||
+			(IPA_CLIENT_IS_PROD(client_idx) &&
+			ipa3_ctx->ep[ep_idx].valid &&
 			ipa3_ctx->ep[ep_idx].skip_ep_cfg) ||
 			(ipa3_ctx->ep[ep_idx].client == IPA_CLIENT_APPS_WAN_PROD
-			&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
+			&& ipa3_ctx->modem_cfg_emb_pipe_flt))) {
 			ipa_assert_on(num_descs >= ipa3_ctx->ipa_num_pipes);
 
 			ipa3_ctx->ep[ep_idx].status.status_en = false;
@@ -5438,7 +5440,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				ipa3_ctx->ctrl->msm_bus_data_ptr);
 		if (!ipa3_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
-			result = -ENODEV;
+			ipa3_ctx->ctrl->msm_bus_data_ptr = NULL;
+			result = -EPROBE_DEFER;
 			goto fail_bus_reg;
 		}
 	}
@@ -6439,7 +6442,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
@@ -6634,7 +6637,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
@@ -6651,38 +6654,40 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("ipa q6 smem size = %u\n", ipa_smem_size);
 	}
 
-	/* map SMEM memory for IPA table accesses */
-	ret = qcom_smem_alloc(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		ipa_smem_size);
+	if (ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ) {
+		/* map SMEM memory for IPA table accesses */
+		ret = qcom_smem_alloc(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			ipa_smem_size);
 
-	if (ret < 0 && ret != -EEXIST) {
-		IPAERR("unable to allocate smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
-	}
-	smem_addr = qcom_smem_get(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		&smem_size);
-	if (IS_ERR(smem_addr)) {
-		IPAERR("unable to acquire smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
-	}
-	if (smem_size != ipa_smem_size)
-		IPAERR("unexpected read q6 smem size %zu %u\n",
-			smem_size, ipa_smem_size);
+		if (ret < 0 && ret != -EEXIST) {
+			IPAERR("unable to allocate smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		smem_addr = qcom_smem_get(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			&smem_size);
+		if (IS_ERR(smem_addr)) {
+			IPAERR("unable to acquire smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		if (smem_size != ipa_smem_size)
+			IPAERR("unexpected read q6 smem size %zu %u\n",
+				smem_size, ipa_smem_size);
 
-	iova = qcom_smem_virt_to_phys(smem_addr);
-	pa = iova;
+		iova = qcom_smem_virt_to_phys(smem_addr);
+		pa = iova;
 
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->iommu_domain,
+		ipa3_iommu_map(cb->iommu_domain,
 				iova_p, pa_p, size_p,
 				IOMMU_READ | IOMMU_WRITE);
+	}
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 
@@ -6848,6 +6853,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_AP] = true;
@@ -6856,6 +6865,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
@@ -6864,6 +6877,10 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb")) {
+		if (ipa3_ctx == NULL) {
+			IPAERR("ipa3_ctx was not initialized\n");
+			return -EPROBE_DEFER;
+		}
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;
@@ -7081,8 +7098,8 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 
-	IPADBG("domain =0x%pK iova 0x%lx\n", domain, iova);
-	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
+	IPADBG_LOW("domain =0x%pK iova 0x%lx\n", domain, iova);
+	IPADBG_LOW("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
 
 	/* make sure no overlapping */
 	if (domain == ipa3_get_smmu_domain()) {

@@ -299,6 +299,13 @@ extern int coresight_timeout(void __iomem *addr, u32 offset,
 extern void coresight_abort(void);
 extern void coresight_disable_reg_clk(struct coresight_device *csdev);
 extern int coresight_enable_reg_clk(struct coresight_device *csdev);
+static inline bool coresight_link_late_disable(void)
+{
+	if (IS_ENABLED(CONFIG_CORESIGHT_LINK_LATE_DISABLE))
+		return true;
+	else
+		return false;
+}
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -313,7 +320,7 @@ static inline void coresight_disable_reg_clk(struct coresight_device *csdev) {}
 static inline int coresight_enable_reg_clk(struct coresight_device *csdev) {}
 #endif
 
-#ifdef CONFIG_OF
+#if defined(CONFIG_OF) && defined(CONFIG_CORESIGHT)
 extern int of_coresight_get_cpu(const struct device_node *node);
 extern struct coresight_platform_data *
 of_get_coresight_platform_data(struct device *dev,
@@ -330,7 +337,7 @@ static inline struct coresight_platform_data *of_get_coresight_platform_data(
 	struct device *dev, const struct device_node *node) { return NULL; }
 static inline int of_get_coresight_csr_name(struct device_node *node,
 		const char **csr_name){ return -EINVAL; }
-static inlint struct coresight_cti_data *of_get_coresight_cti_data(
+static inline struct coresight_cti_data *of_get_coresight_cti_data(
 		struct device *dev, struct device_node *node) { return NULL; }
 #endif
 

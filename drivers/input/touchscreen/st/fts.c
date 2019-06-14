@@ -3272,58 +3272,6 @@ static void fts_event_handler(struct work_struct *work)
 	fts_interrupt_enable(info);
 }
 
-static int cx_crc_check(void)
-{
-	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0,
-				ADDR_CRC_BYTE1};
-	unsigned char val[2] = {0};
-	unsigned char crc_status;
-	int res;
-	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
-	int event_to_search[2] = {(int)EVENTID_ERROR_EVENT,
-			(int)EVENT_TYPE_CHECKSUM_ERROR};
-	u8 readData[FIFO_EVENT_SIZE] = {0};
-
-	/* read 2 bytes because the first one is a dummy byte! */
-	res = fts_readCmd(regAdd1, sizeof(regAdd1), val, 2);
-	if (res < OK) {
-		logError(1, "%s %s Cannot read crc status ERROR %08X\n",
-			tag, __func__, res);
-		return res;
-	}
-
-	crc_status = val[1] & CRC_MASK;
-	if (crc_status != OK) {
-		logError(1, "%s %s CRC ERROR = %X\n",
-			tag, __func__, crc_status);
-		return crc_status;
-	}
-
-	logError(0, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
-	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
-	res = fts_writeCmd(cmd, 4);
-	if (res < OK) {
-		logError(1, "%s %s Cannot send system resest command:%08X\n",
-			tag, __func__, res);
-		return res;
-	}
-	setSystemResettedDown(1);
-	setSystemResettedUp(1);
-	res = pollForEvent(event_to_search, 2, readData, GENERAL_TIMEOUT);
-	if (res < OK) {
-		logError(0, "%s %s: No Config CRC Found!\n", tag, __func__);
-	} else {
-		if (readData[2] == CRC_CONFIG_SIGNATURE ||
-				readData[2] == CRC_CONFIG) {
-			logError(1, "%s:%s: CRC Error for config found! %02X\n",
-				tag, __func__, readData[2]);
-			return readData[2];
-		}
-	}
-
-	return OK;
-}
-
 static void fts_fw_update_auto(struct work_struct *work)
 {
 	u8 cmd[4] = { FTS_CMD_HW_REG_W, 0x00, 0x00, SYSTEM_RESET_VALUE };
@@ -3343,19 +3291,10 @@ static void fts_fw_update_auto(struct work_struct *work)
 	info = container_of(fwu_work, struct fts_ts_info, fwu_work);
 	logError(0, "%s Fw Auto Update is starting...\n", tag);
 
-	/* check CRC status */
-	ret = cx_crc_check();
-	if (ret > OK && ftsInfo.u16_fwVer == 0x0000) {
-		logError(1, "%s %s: CRC Error or NO FW!\n", tag, __func__);
-		crc_status = 1;
-	} else {
-		crc_status = 0;
-		logError(0, "%s %s:NO Error or can't read CRC register!\n",
-			tag, __func__);
-	}
-
+	fts_chip_powercycle(info);
 	retval = flashProcedure(PATH_FILE_FW, crc_status, 1);
-	if ((retval & ERROR_MEMH_READ) || (retval & ERROR_FW_NO_UPDATE)) {
+	if ((retval & ERROR_FILE_NOT_FOUND) == ERROR_FILE_NOT_FOUND ||
+		retval == (ERROR_FW_NO_UPDATE | ERROR_FLASH_BURN_FAILED)) {
 		logError(1, "%s %s: no firmware file or no newer firmware!\n",
 			tag, __func__);
 		goto NO_FIRMWARE_UPDATE;
@@ -3373,8 +3312,6 @@ static void fts_fw_update_auto(struct work_struct *work)
 		}
 	}
 
-	logError(0, "%s %s: Verifying if CX CRC Error...\n",
-		tag, __func__, ret);
 	u16ToU8_be(SYSTEM_RESET_ADDRESS, &cmd[1]);
 	ret = fts_writeCmd(cmd, 4);
 	if (ret < OK) {
@@ -4062,6 +3999,85 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	return res;
 }
 
+static int fts_chip_power_switch(struct fts_ts_info *info, bool on)
+{
+	int error = -1;
+
+	if (info->bdata->pwr_on_suspend) {
+		if (!info->ts_pinctrl)
+			return 0;
+
+		if (on) {
+			error = pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_active);
+			if (error < 0)
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_ACTIVE);
+		} else {
+			error = pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_suspend);
+			if (error < 0)
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_SUSPEND);
+		}
+
+		return 0;
+	}
+
+	if (on) {
+		if (info->pwr_reg) {
+			error = regulator_enable(info->bus_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to enable AVDD\n",
+					tag, __func__);
+		}
+
+		if (info->bus_reg) {
+			error = regulator_enable(info->pwr_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to enable DVDD\n",
+					tag, __func__);
+		}
+
+		if (info->ts_pinctrl) {
+			if (pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_active) < 0) {
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_ACTIVE);
+			}
+		}
+	} else {
+		if (info->bdata->reset_gpio != GPIO_NOT_DEFINED)
+			gpio_set_value(info->bdata->reset_gpio, 0);
+		else
+			msleep(300);
+
+		if (info->ts_pinctrl) {
+			if (pinctrl_select_state(info->ts_pinctrl,
+				info->pinctrl_state_suspend) < 0) {
+				logError(1, "%s: Failed to select %s\n",
+					__func__, PINCTRL_STATE_SUSPEND);
+			}
+		}
+
+		if (info->pwr_reg) {
+			error = regulator_disable(info->pwr_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to disable DVDD\n",
+					tag, __func__);
+		}
+
+		if (info->bus_reg) {
+			error = regulator_disable(info->bus_reg);
+			if (error < 0)
+				logError(1, "%s %s: Failed to disable AVDD\n",
+					tag, __func__);
+		}
+	}
+	return error;
+}
+
+
 static void fts_resume_work(struct work_struct *work)
 {
 	struct fts_ts_info *info;
@@ -4070,18 +4086,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	__pm_wakeup_event(&info->wakeup_source, HZ);
 
-	if (info->ts_pinctrl) {
-		/*
-		 * Pinctrl handle is optional. If pinctrl handle is found
-		 * let pins to be configured in active state. If not
-		 * found continue further without error.
-		 */
-		if (pinctrl_select_state(info->ts_pinctrl,
-					info->pinctrl_state_active) < 0) {
-			logError(1, "%s: Failed to select %s pinstate\n",
-				__func__, PINCTRL_STATE_ACTIVE);
-		}
-	}
+	fts_chip_power_switch(info, true);
 
 	info->resume_bit = 1;
 
@@ -4119,19 +4124,7 @@ static void fts_suspend_work(struct work_struct *work)
 	release_all_touches(info);
 	info->sensor_sleep = true;
 
-	if (info->ts_pinctrl) {
-		/*
-		 * Pinctrl handle is optional. If pinctrl handle is found
-		 * let pins to be configured in suspend state. If not
-		 * found continue further without error.
-		 */
-		if (pinctrl_select_state(info->ts_pinctrl,
-					info->pinctrl_state_suspend) < 0) {
-			logError(1, "%s: Failed to select %s pinstate\n",
-				__func__, PINCTRL_STATE_SUSPEND);
-		}
-	}
-
+	fts_chip_power_switch(info, false);
 }
 
 #if defined(CONFIG_FB_MSM)
@@ -4458,6 +4451,9 @@ static int parse_dt(struct device *dev,
 		"st,irq-gpio", 0, NULL);
 
 	logError(0, "%s irq_gpio = %d\n", tag, bdata->irq_gpio);
+
+	bdata->pwr_on_suspend =
+		of_property_read_bool(np, "st,power_on_suspend");
 
 	retval = of_property_read_string(np, "st,regulator_dvdd", &name);
 	if (retval == -EINVAL)
@@ -4810,8 +4806,6 @@ static int fts_probe(struct i2c_client *client,
 	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
 			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 	logError(1, "%s Probe Finished!\n", tag);
-
-	info->event_mask = 0;
 
 	return OK;
 

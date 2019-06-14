@@ -15,6 +15,7 @@
 #include <linux/device-mapper.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
+#include <soc/qcom/qtee_shmbridge.h>
 #include <crypto/ice.h>
 #include "pfk_ice.h"
 
@@ -52,8 +53,6 @@
 
 #define ICE_BUFFER_SIZE 64
 
-static uint8_t ice_buffer[ICE_BUFFER_SIZE];
-
 enum {
 	ICE_CIPHER_MODE_XTS_128 = 0,
 	ICE_CIPHER_MODE_CBC_128 = 1,
@@ -67,22 +66,26 @@ static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 	struct scm_desc desc = {0};
 	int ret = 0;
 	uint32_t smc_id = 0;
-	char *tzbuf = (char *)ice_buffer;
-	uint32_t size = ICE_BUFFER_SIZE / 2;
-
-	memset(tzbuf, 0, ICE_BUFFER_SIZE);
-
-	memcpy(ice_buffer, key, size);
-	memcpy(ice_buffer+size, salt, size);
-
-	dmac_flush_range(tzbuf, tzbuf + ICE_BUFFER_SIZE);
+	char *tzbuf = NULL;
+	uint32_t key_size = ICE_BUFFER_SIZE / 2;
+	struct qtee_shm shm;
 
 	smc_id = TZ_ES_CONFIG_SET_ICE_KEY_ID;
 
+	ret = qtee_shmbridge_allocate_shm(ICE_BUFFER_SIZE, &shm);
+	if (ret)
+		return -ENOMEM;
+
+	tzbuf = shm.vaddr;
+
+	memcpy(tzbuf, key, key_size);
+	memcpy(tzbuf+key_size, salt, key_size);
+	dmac_flush_range(tzbuf, tzbuf + ICE_BUFFER_SIZE);
+
 	desc.arginfo = TZ_ES_CONFIG_SET_ICE_KEY_PARAM_ID;
 	desc.args[0] = index;
-	desc.args[1] = virt_to_phys(tzbuf);
-	desc.args[2] = ICE_BUFFER_SIZE;
+	desc.args[1] = shm.paddr;
+	desc.args[2] = shm.size;
 	desc.args[3] = ICE_CIPHER_MODE_XTS_256;
 	desc.args[4] = data_unit;
 
@@ -90,6 +93,7 @@ static int set_key(uint32_t index, const uint8_t *key, const uint8_t *salt,
 	if (ret)
 		pr_err("%s:SCM call Error: 0x%x\n", __func__, ret);
 
+	qtee_shmbridge_free_shm(&shm);
 	return ret;
 }
 

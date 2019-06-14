@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017,2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -143,27 +143,14 @@ static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
 static size_t a3xx_snapshot_debugbus_block(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
 	struct kgsl_snapshot_debugbus *header
 		= (struct kgsl_snapshot_debugbus *)buf;
 	struct adreno_debugbus_block *block = priv;
 	int i;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	unsigned int dwords;
 	size_t size;
 
-	/*
-	 * For A305 and A320 all debug bus regions are the same size (0x40). For
-	 * A330, they can be different sizes - most are still 0x40, but some
-	 * like CP are larger
-	 */
-
-	dwords = (adreno_is_a330(adreno_dev) ||
-		adreno_is_a305b(adreno_dev)) ?
-		block->dwords : 0x40;
-
-	size = (dwords * sizeof(unsigned int)) + sizeof(*header);
+	size = (0x40 * sizeof(unsigned int)) + sizeof(*header);
 
 	if (remain < size) {
 		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
@@ -171,9 +158,9 @@ static size_t a3xx_snapshot_debugbus_block(struct kgsl_device *device,
 	}
 
 	header->id = block->block_id;
-	header->count = dwords;
+	header->count = 0x40;
 
-	for (i = 0; i < dwords; i++)
+	for (i = 0; i < 0x40; i++)
 		_rbbm_debug_bus_read(device, block->block_id, i, &data[i]);
 
 	return size;
@@ -225,7 +212,7 @@ static void a3xx_snapshot_debugbus(struct kgsl_device *device,
 static void _snapshot_hlsq_regs(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int next_pif = 0;
 
 	/*
 	 * Trying to read HLSQ registers when the HLSQ block is busy
@@ -236,43 +223,25 @@ static void _snapshot_hlsq_regs(struct kgsl_device *device,
 	 * dump the registers, otherwise dump the HLSQ registers.
 	 */
 
-	if (adreno_is_a330(adreno_dev)) {
-		/*
-		 * stall_ctxt_full status bit: RBBM_BLOCK_ID_HLSQ index 49 [27]
-		 *
-		 * if (!stall_context_full)
-		 * then dump HLSQ registers
-		 */
-		unsigned int stall_context_full = 0;
+	/*
+	 * tpif status bits: RBBM_BLOCK_ID_HLSQ index 4 [4:0]
+	 * spif status bits: RBBM_BLOCK_ID_HLSQ index 7 [5:0]
+	 *
+	 * if ((tpif == 0, 1, 28) && (spif == 0, 1, 10))
+	 * then dump HLSQ registers
+	 */
 
-		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 49,
-				&stall_context_full);
-		stall_context_full &= 0x08000000;
+	/* check tpif */
+	_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 4, &next_pif);
+	next_pif &= 0x1f;
+	if (next_pif != 0 && next_pif != 1 && next_pif != 28)
+		return;
 
-		if (stall_context_full)
-			return;
-	} else {
-		/*
-		 * tpif status bits: RBBM_BLOCK_ID_HLSQ index 4 [4:0]
-		 * spif status bits: RBBM_BLOCK_ID_HLSQ index 7 [5:0]
-		 *
-		 * if ((tpif == 0, 1, 28) && (spif == 0, 1, 10))
-		 * then dump HLSQ registers
-		 */
-		unsigned int next_pif = 0;
-
-		/* check tpif */
-		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 4, &next_pif);
-		next_pif &= 0x1f;
-		if (next_pif != 0 && next_pif != 1 && next_pif != 28)
-			return;
-
-		/* check spif */
-		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 7, &next_pif);
-		next_pif &= 0x3f;
-		if (next_pif != 0 && next_pif != 1 && next_pif != 10)
-			return;
-	}
+	/* check spif */
+	_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 7, &next_pif);
+	next_pif &= 0x3f;
+	if (next_pif != 0 && next_pif != 1 && next_pif != 10)
+		return;
 
 	SNAPSHOT_REGISTERS(device, snapshot, a3xx_hlsq_registers);
 }
@@ -300,9 +269,6 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	SNAPSHOT_REGISTERS(device, snapshot, a3xx_registers);
 
 	_snapshot_hlsq_regs(device, snapshot);
-
-	if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
-		SNAPSHOT_REGISTERS(device, snapshot, a330_registers);
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A3XX_CP_STATE_DEBUG_INDEX, A3XX_CP_STATE_DEBUG_DATA,

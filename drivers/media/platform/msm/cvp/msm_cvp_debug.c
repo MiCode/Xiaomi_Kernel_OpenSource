@@ -253,27 +253,7 @@ static int inst_info_open(struct inode *inode, struct file *file)
 static int publish_unreleased_reference(struct msm_cvp_inst *inst,
 		char **dbuf, char *end)
 {
-	struct msm_cvp_internal_buffer *temp = NULL;
-	char *cur = *dbuf;
-
-	if (!inst) {
-		dprintk(CVP_ERR, "%s: invalid param\n", __func__);
-		return -EINVAL;
-	}
-
-	cur += write_str(cur, end - cur, "Pending buffer references\n");
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-		cur += write_str(cur, end - cur,
-		"\tbuffer: %#x fd[0] = %d size %d\n",
-		temp->smem.device_addr,
-		temp->smem.fd,
-		temp->smem.size);
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
-
-	*dbuf = cur;
+	dprintk(CVP_DBG, "%s deprecated function\n", __func__);
 	return 0;
 }
 

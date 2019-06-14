@@ -129,11 +129,9 @@ static int __maybe_unused two = 2;
 static int __maybe_unused three = 3;
 static int __maybe_unused four = 4;
 static unsigned long one_ul = 1;
+static unsigned long long_max = LONG_MAX;
 static int one_hundred = 100;
 static int one_thousand = 1000;
-#ifdef CONFIG_SCHED_WALT
-static int two_million = 2000000;
-#endif
 #ifdef CONFIG_PRINTK
 static int ten_thousand = 10000;
 #endif
@@ -357,7 +355,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_group_upmigrate_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= walt_proc_update_handler,
+		.proc_handler	= walt_proc_group_thresholds_handler,
 		.extra1		= &sysctl_sched_group_downmigrate_pct,
 	},
 	{
@@ -365,7 +363,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_sched_group_downmigrate_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= walt_proc_update_handler,
+		.proc_handler	= walt_proc_group_thresholds_handler,
 		.extra1		= &zero,
 		.extra2		= &sysctl_sched_group_upmigrate_pct,
 	},
@@ -406,16 +404,6 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
-		.procname	= "sched_little_cluster_coloc_fmin_khz",
-		.data		= &sysctl_sched_little_cluster_coloc_fmin_khz,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= sched_little_cluster_coloc_fmin_khz_handler,
-		.extra1		= &zero,
-		.extra2		= &two_million,
-	},
-
-	{
 		.procname       = "sched_asym_cap_sibling_freq_match_pct",
 		.data           = &sysctl_sched_asym_cap_sibling_freq_match_pct,
 		.maxlen         = sizeof(unsigned int),
@@ -424,6 +412,14 @@ static struct ctl_table kern_table[] = {
 		.extra1         = &one,
 		.extra2         = &one_hundred,
 	},
+	{
+		.procname	= "sched_coloc_downmigrate_ns",
+		.data		= &sysctl_sched_coloc_downmigrate_ns,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_douintvec_minmax,
+	},
+
 #endif
 #ifdef CONFIG_SMP
 	{
@@ -442,10 +438,12 @@ static struct ctl_table kern_table[] = {
 	},
 	{
 		.procname	= "sched_busy_hysteresis_enable_cpus",
-		.data		= &sched_busy_hysteresis_cpubits,
-		.maxlen		= NR_CPUS,
+		.data		= &sysctl_sched_busy_hysteresis_enable_cpus,
+		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= proc_do_large_bitmap,
+		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &two_hundred_fifty_five,
 	},
 #endif
 #ifdef CONFIG_SCHED_DEBUG
@@ -615,15 +613,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= LIB_PATH_LENGTH,
 		.mode		= 0644,
 		.proc_handler	= proc_dostring,
-	},
-	{
-		.procname	= "sched_lib_mask_check",
-		.data		= &sched_lib_mask_check,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_douintvec_minmax,
-		.extra1		= &zero,
-		.extra2		= &two_hundred_fifty_five,
 	},
 	{
 		.procname	= "sched_lib_mask_force",
@@ -1920,6 +1909,8 @@ static struct ctl_table fs_table[] = {
 		.maxlen		= sizeof(files_stat.max_files),
 		.mode		= 0644,
 		.proc_handler	= proc_doulongvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &long_max,
 	},
 	{
 		.procname	= "nr_open",

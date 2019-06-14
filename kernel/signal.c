@@ -1370,8 +1370,10 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 
 	if (!ret && sig) {
 		ret = do_send_sig_info(sig, info, p, type);
-		if (capable(CAP_KILL) && sig == SIGKILL)
+		if (capable(CAP_KILL) && sig == SIGKILL) {
 			add_to_oom_reaper(p);
+			ulmk_update_last_kill();
+		}
 	}
 
 	return ret;

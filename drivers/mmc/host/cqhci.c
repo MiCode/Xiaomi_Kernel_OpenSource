@@ -103,6 +103,15 @@ static void cqhci_dumpregs(struct cqhci_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
 
+	mmc_log_string(mmc,
+	"CQHCI_CTL=0x%08x CQHCI_IS=0x%08x CQHCI_ISTE=0x%08x CQHCI_ISGE=0x%08x CQHCI_TDBR=0x%08x CQHCI_TCN=0x%08x CQHCI_DQS=0x%08x CQHCI_DPT=0x%08x CQHCI_TERRI=0x%08x CQHCI_CRI=0x%08x CQHCI_CRA=0x%08x CQHCI_CRDCT=0x%08x\n",
+	cqhci_readl(cq_host, CQHCI_CTL), cqhci_readl(cq_host, CQHCI_IS),
+	cqhci_readl(cq_host, CQHCI_ISTE), cqhci_readl(cq_host, CQHCI_ISGE),
+	cqhci_readl(cq_host, CQHCI_TDBR), cqhci_readl(cq_host, CQHCI_TCN),
+	cqhci_readl(cq_host, CQHCI_DQS), cqhci_readl(cq_host, CQHCI_DPT),
+	cqhci_readl(cq_host, CQHCI_TERRI), cqhci_readl(cq_host, CQHCI_CRI),
+	cqhci_readl(cq_host, CQHCI_CRA), cqhci_readl(cq_host, CQHCI_CRDCT));
+
 	CQHCI_DUMP("============ CQHCI REGISTER DUMP ===========\n");
 
 	CQHCI_DUMP("Caps:      0x%08x | Version:  0x%08x\n",
@@ -297,6 +306,7 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	cqhci_set_irqs(cq_host, CQHCI_IS_MASK);
 
 	cq_host->activated = true;
+	mmc_log_string(mmc, "CQ enabled\n");
 }
 
 static void __cqhci_disable(struct cqhci_host *cq_host)
@@ -310,6 +320,7 @@ static void __cqhci_disable(struct cqhci_host *cq_host)
 	cq_host->mmc->cqe_on = false;
 
 	cq_host->activated = false;
+	mmc_log_string(cq_host->mmc, "CQ disabled\n");
 }
 
 int cqhci_suspend(struct mmc_host *mmc)
@@ -684,6 +695,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	cq_host->qcnt += 1;
 
+	mmc_log_string(mmc, "tag: %d\n", tag);
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
 	if (!(cqhci_readl(cq_host, CQHCI_TDBR) & (1 << tag)))
 		pr_debug("%s: cqhci: doorbell not set for tag %d\n",
@@ -844,6 +856,8 @@ irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 	cqhci_writel(cq_host, status, CQHCI_IS);
 
 	pr_debug("%s: cqhci: IRQ status: 0x%08x\n", mmc_hostname(mmc), status);
+	mmc_log_string(mmc, "CQIS: 0x%x cmd_error : %d data_err: %d\n",
+		status, cmd_error, data_error);
 
 	if ((status & CQHCI_IS_RED) || cmd_error || data_error)
 		cqhci_error_irq(mmc, status, cmd_error, data_error);
@@ -861,6 +875,7 @@ irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 			/* complete the corresponding mrq */
 			pr_debug("%s: cqhci: completing tag %lu\n",
 				 mmc_hostname(mmc), tag);
+			mmc_log_string(mmc, "completing tag -> %lu\n", tag);
 			cqhci_finish_mrq(mmc, tag);
 		}
 
@@ -994,6 +1009,7 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
 	if (!ret)
 		pr_debug("%s: cqhci: Failed to halt\n", mmc_hostname(mmc));
 
+	mmc_log_string(mmc, "halt done with ret %d\n", ret);
 	return ret;
 }
 
@@ -1132,6 +1148,7 @@ static void cqhci_recovery_finish(struct mmc_host *mmc)
 	cqhci_set_irqs(cq_host, CQHCI_IS_MASK);
 
 	pr_debug("%s: cqhci: recovery done\n", mmc_hostname(mmc));
+	mmc_log_string(mmc, "recovery done\n");
 }
 
 static const struct mmc_cqe_ops cqhci_cqe_ops = {

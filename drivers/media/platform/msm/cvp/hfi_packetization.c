@@ -344,48 +344,90 @@ static u32 get_hfi_buffer(int hal_buffer)
 }
 
 int cvp_create_pkt_cmd_session_set_buffers(
-		struct cvp_hfi_cmd_session_set_buffers_packet *pkt,
+		void *cmd,
 		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
+	unsigned int ver;
 
-	if (!pkt || !session)
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (!cmd || !session)
 		return -EINVAL;
 
-	pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
-	pkt->session_id = hash32_ptr(session);
-	pkt->buffer_addr = buffer_info->align_device_addr;
-	pkt->buffer_size = buffer_info->buffer_size;
-	pkt->size = sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
+	if (ver < 1) {
+		struct cvp_hfi_cmd_session_set_buffers_packet_d *pkt;
+
+		pkt = (struct cvp_hfi_cmd_session_set_buffers_packet_d *)cmd;
+		pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
+		pkt->session_id = hash32_ptr(session);
+		pkt->buffer_addr = buffer_info->align_device_addr;
+		pkt->buffer_size = buffer_info->buffer_size;
+		pkt->size =
+			sizeof(struct cvp_hfi_cmd_session_set_buffers_packet_d);
+	} else {
+		struct cvp_hfi_cmd_session_set_buffers_packet *pkt;
+
+		pkt = (struct cvp_hfi_cmd_session_set_buffers_packet *)cmd;
+		pkt->packet_type = HFI_CMD_SESSION_CVP_SET_BUFFERS;
+		pkt->session_id = hash32_ptr(session);
+		pkt->buf_type.fd = buffer_info->align_device_addr;
+		pkt->buf_type.size = buffer_info->buffer_size;
+		pkt->size =
+			sizeof(struct cvp_hfi_cmd_session_set_buffers_packet);
+	}
 
 	return rc;
 }
 
 int cvp_create_pkt_cmd_session_release_buffers(
-		struct cvp_hfi_cmd_session_release_buffers_packet *pkt,
+		void *cmd,
 		struct cvp_hal_session *session,
 		struct cvp_buffer_addr_info *buffer_info)
 {
-	if (!pkt || !session)
+	unsigned int ver;
+
+	ver = get_hfi_version();
+	ver = (ver & HFI_VERSION_MINOR_MASK) >> HFI_VERSION_MINOR_SHIFT;
+
+	if (!cmd || !session)
 		return -EINVAL;
 
-	pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
-	pkt->session_id = hash32_ptr(session);
-	pkt->num_buffers = buffer_info->num_buffers;
+	if (ver < 1) {
+		struct cvp_session_release_buffers_packet_d *pkt;
+
+		pkt = (struct cvp_session_release_buffers_packet_d *)cmd;
+		pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
+		pkt->session_id = hash32_ptr(session);
+		pkt->num_buffers = buffer_info->num_buffers;
+		pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
+		if (!pkt->buffer_type)
+			return -EINVAL;
+		pkt->size =
+			sizeof(struct cvp_session_release_buffers_packet_d) +
+			((buffer_info->num_buffers - 1) * sizeof(u32));
+	} else {
+		struct cvp_session_release_buffers_packet *pkt;
+
+		pkt = (struct cvp_session_release_buffers_packet *)cmd;
+		pkt->packet_type = HFI_CMD_SESSION_CVP_RELEASE_BUFFERS;
+		pkt->session_id = hash32_ptr(session);
+		pkt->num_buffers = buffer_info->num_buffers;
+		pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
+		if (!pkt->buffer_type)
+			return -EINVAL;
+		pkt->size =
+			sizeof(struct cvp_session_release_buffers_packet) +
+			((buffer_info->num_buffers - 1) * sizeof(u32));
+	}
 
 	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
 		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
 		dprintk(CVP_ERR, "%s: deprecated buffer_type\n", __func__);
 		return -EINVAL;
 	}
-
-	pkt->size = sizeof(struct cvp_hfi_cmd_session_release_buffers_packet) +
-		((buffer_info->num_buffers - 1) * sizeof(u32));
-
-	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
-	if (!pkt->buffer_type)
-		return -EINVAL;
 
 	return 0;
 }
@@ -430,9 +472,6 @@ int cvp_create_pkt_cmd_session_send(
 		goto error_hfi_packet;
 
 	if (cvp_hfi_defs[def_idx].type != ptr->packet_type)
-		goto error_hfi_packet;
-
-	if ((cvp_hfi_defs[def_idx].size*sizeof(unsigned int)) != ptr->size)
 		goto error_hfi_packet;
 
 	if (ptr->session_id != hash32_ptr(session))

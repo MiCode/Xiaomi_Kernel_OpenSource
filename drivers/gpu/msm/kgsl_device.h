@@ -122,11 +122,9 @@ struct kgsl_functable {
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
 	int (*getproperty)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*getproperty_compat)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*waittimestamp)(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
 		unsigned int msecs);
@@ -232,8 +230,6 @@ struct kgsl_sparseobj_node {
 struct kgsl_device {
 	struct device *dev;
 	const char *name;
-	unsigned int ver_major;
-	unsigned int ver_minor;
 	uint32_t flags;
 	u32 id;
 
@@ -336,9 +332,7 @@ struct kgsl_device {
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
-	.state = KGSL_STATE_NONE,\
-	.ver_major = DRIVER_VERSION_MAJOR,\
-	.ver_minor = DRIVER_VERSION_MINOR
+	.state = KGSL_STATE_NONE
 
 
 /**

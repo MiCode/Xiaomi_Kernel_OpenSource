@@ -642,8 +642,9 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	struct mhi_dev *mhi_dev;
 	struct device_node *of_node = pci_dev->dev.of_node;
 	const struct firmware_info *firmware_info;
-	bool use_bb;
-	u64 addr_win[2];
+	bool use_s1;
+	u32 addr_win[2];
+	const char *iommu_dma_type;
 	int ret, i;
 
 	if (!of_node)
@@ -659,48 +660,45 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->dev_id = pci_dev->device;
 	mhi_cntrl->bus = pci_dev->bus->number;
 	mhi_cntrl->slot = PCI_SLOT(pci_dev->devfn);
-
-	ret = of_property_read_u32(of_node, "qcom,smmu-cfg",
-				   &mhi_dev->smmu_cfg);
-	if (ret)
-		goto error_register;
-
-	use_bb = of_property_read_bool(of_node, "mhi,use-bb");
-
-	/*
-	 * if s1 translation enabled or using bounce buffer pull iova addr
-	 * from dt
-	 */
-	if (use_bb || (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
-		       !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))) {
-		ret = of_property_count_elems_of_size(of_node, "qcom,addr-win",
-						      sizeof(addr_win));
-		if (ret != 1)
-			goto error_register;
-		ret = of_property_read_u64_array(of_node, "qcom,addr-win",
-						 addr_win, 2);
-		if (ret)
-			goto error_register;
-	} else {
-		addr_win[0] = memblock_start_of_DRAM();
-		addr_win[1] = memblock_end_of_DRAM();
-	}
-
-	mhi_dev->iova_start = addr_win[0];
-	mhi_dev->iova_stop = addr_win[1];
-
-	/*
-	 * If S1 is enabled, set MHI_CTRL start address to 0 so we can use low
-	 * level mapping api to map buffers outside of smmu domain
-	 */
-	if (mhi_dev->smmu_cfg & MHI_SMMU_ATTACH &&
-	    !(mhi_dev->smmu_cfg & MHI_SMMU_S1_BYPASS))
-		mhi_cntrl->iova_start = 0;
-	else
-		mhi_cntrl->iova_start = addr_win[0];
-
-	mhi_cntrl->iova_stop = mhi_dev->iova_stop;
 	mhi_cntrl->of_node = of_node;
+
+	mhi_cntrl->iova_start = memblock_start_of_DRAM();
+	mhi_cntrl->iova_stop = memblock_end_of_DRAM();
+
+	of_node = of_parse_phandle(mhi_cntrl->of_node, "qcom,iommu-group", 0);
+	if (of_node) {
+		use_s1 = true;
+
+		/*
+		 * s1 translation can be in bypass or fastmap mode
+		 * if "qcom,iommu-dma" property is missing, we assume s1 is
+		 * enabled and in default (no fastmap/atomic) mode
+		 */
+		ret = of_property_read_string(of_node, "qcom,iommu-dma",
+					      &iommu_dma_type);
+		if (!ret && !strcmp("bypass", iommu_dma_type))
+			use_s1 = false;
+
+		/*
+		 * if s1 translation enabled pull iova addr from dt using
+		 * iommu-dma-addr-pool property specified addresses
+		 */
+		if (use_s1) {
+			ret = of_property_read_u32_array(of_node,
+						"qcom,iommu-dma-addr-pool",
+						addr_win, 2);
+			if (ret)
+				return ERR_PTR(-EINVAL);
+
+			/*
+			 * If S1 is enabled, set MHI_CTRL start address to 0
+			 * so we can use low level mapping api to map buffers
+			 * outside of smmu domain
+			 */
+			mhi_cntrl->iova_start = 0;
+			mhi_cntrl->iova_stop = addr_win[0] + addr_win[1];
+		}
+	}
 
 	mhi_dev->pci_dev = pci_dev;
 	spin_lock_init(&mhi_dev->lpm_lock);
@@ -767,13 +765,15 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 	if (ret)
 		return ret;
 
-	ret = mhi_arch_iommu_init(mhi_cntrl);
+	mhi_cntrl->dev = &mhi_dev->pci_dev->dev;
+
+	ret = dma_set_mask_and_coherent(mhi_cntrl->dev, DMA_BIT_MASK(64));
 	if (ret)
-		goto error_iommu_init;
+		goto error_pci_probe;
 
 	ret = mhi_init_pci_dev(mhi_cntrl);
 	if (ret)
-		goto error_init_pci;
+		goto error_pci_probe;
 
 	/* start power up sequence */
 	if (!debug_mode) {
@@ -791,10 +791,7 @@ int mhi_pci_probe(struct pci_dev *pci_dev,
 error_power_up:
 	mhi_deinit_pci_dev(mhi_cntrl);
 
-error_init_pci:
-	mhi_arch_iommu_deinit(mhi_cntrl);
-
-error_iommu_init:
+error_pci_probe:
 	mhi_arch_pcie_deinit(mhi_cntrl);
 
 	return ret;

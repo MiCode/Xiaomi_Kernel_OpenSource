@@ -25,6 +25,7 @@
 #include <media/videobuf2-v4l2.h>
 #include "msm_cvp_core.h"
 #include <media/msm_media_info.h>
+#include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
 
 #define MSM_CVP_DRV_NAME "msm_cvp_driver"
@@ -334,6 +335,7 @@ struct msm_cvp_core {
 	struct work_struct ssr_work;
 	enum hal_ssr_trigger_type ssr_type;
 	bool smmu_fault_handled;
+	u32 last_fault_addr;
 	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
@@ -350,7 +352,6 @@ struct msm_cvp_inst {
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list registeredbufs;
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
 	struct cvp_buffer_requirements buff_req;
@@ -363,6 +364,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_capability capability;
 	struct kref kref;
 	unsigned long deprecate_bitmask;
+	struct cvp_kmd_request_power power;
 };
 
 extern struct msm_cvp_drv *cvp_driver;

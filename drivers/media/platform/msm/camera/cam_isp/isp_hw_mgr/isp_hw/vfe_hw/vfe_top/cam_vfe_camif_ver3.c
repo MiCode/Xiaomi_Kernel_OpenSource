@@ -141,9 +141,8 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 	evt_payload->irq_reg_val[i] = cam_io_r(camif_priv->mem_base +
 		camif_priv->common_reg->violation_status);
 
-	if (error_flag)
-		CAM_INFO(CAM_ISP, "Violation status = 0x%X",
-			evt_payload->irq_reg_val[i]);
+	evt_payload->irq_reg_val[++i] = cam_io_r(camif_priv->mem_base +
+		camif_priv->common_reg->bus_overflow_status);
 
 	th_payload->evt_payload_priv = evt_payload;
 
@@ -373,6 +372,10 @@ static int cam_vfe_camif_ver3_resource_start(
 		CAM_ERR(CAM_ISP, "Error, soc_private NULL");
 		return -ENODEV;
 	}
+
+	/* config debug status registers */
+	cam_io_w_mb(rsrc_data->reg_data->top_debug_cfg_en, rsrc_data->mem_base +
+		rsrc_data->common_reg->top_debug_cfg);
 
 	/*config vfe core*/
 	val = (rsrc_data->pix_pattern <<
@@ -733,8 +736,76 @@ static int cam_vfe_camif_ver3_process_cmd(
 	return rc;
 }
 
+
+static void cam_vfe_camif_ver3_overflow_debug_info(uint32_t *status,
+	struct cam_vfe_mux_camif_ver3_data *camif_priv)
+{
+	struct cam_vfe_soc_private *soc_private;
+	uint32_t bus_overflow_status;
+	uint32_t val0, val1, val2, val3;
+
+	bus_overflow_status = status[CAM_IFE_IRQ_BUS_OVERFLOW_STATUS];
+	soc_private = camif_priv->soc_info->soc_private;
+
+	if (bus_overflow_status) {
+		cam_cpas_reg_read(soc_private->cpas_handle,
+			CAM_CPAS_REG_CAMNOC, 0xA20, true, &val0);
+		cam_cpas_reg_read(soc_private->cpas_handle,
+			CAM_CPAS_REG_CAMNOC, 0x1420, true, &val1);
+		cam_cpas_reg_read(soc_private->cpas_handle,
+			CAM_CPAS_REG_CAMNOC, 0x1A20, true, &val2);
+		CAM_INFO(CAM_ISP,
+			"CAMNOC REG ife_linear: 0x%X ife_rdi_wr: 0x%X ife_ubwc_stats: 0x%X",
+			val0, val1, val2);
+	} else {
+		val0 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_0);
+		val1 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_1);
+		val2 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_2);
+		val3 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_3);
+		CAM_INFO(CAM_ISP,
+			"status_0: 0x%X status_1: 0x%X status_2: 0x%X status_3: 0x%X",
+			val0, val1, val2, val3);
+
+		val0 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_4);
+		val1 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_5);
+		val2 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_6);
+		val3 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_7);
+		CAM_INFO(CAM_ISP,
+			"status_4: 0x%X status_5: 0x%X status_6: 0x%X status_7: 0x%X",
+			val0, val1, val2, val3);
+
+		val0 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_8);
+		val1 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_9);
+		val2 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_10);
+		val3 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_11);
+		CAM_INFO(CAM_ISP,
+			"status_8: 0x%X status_9: 0x%X status_10: 0x%X status_11: 0x%X",
+			val0, val1, val2, val3);
+
+		val0 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_12);
+		val1 = cam_io_r(camif_priv->mem_base +
+			camif_priv->common_reg->top_debug_13);
+		CAM_INFO(CAM_ISP, "status_12: 0x%X status_13: 0x%X",
+			val0, val1);
+	}
+
+}
+
 static void cam_vfe_camif_ver3_print_status(uint32_t *status,
-	int err_type)
+	int err_type, struct cam_vfe_mux_camif_ver3_data *camif_priv)
 {
 	uint32_t violation_mask = 0x3F, module_id = 0;
 	uint32_t bus_overflow_status = 0, status_0 = 0, status_2 = 0;
@@ -744,7 +815,7 @@ static void cam_vfe_camif_ver3_print_status(uint32_t *status,
 		return;
 	}
 
-	bus_overflow_status = status[CAM_IFE_IRQ_REGISTERS_MAX];
+	bus_overflow_status = status[CAM_IFE_IRQ_BUS_OVERFLOW_STATUS];
 	status_0 = status[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
 	status_2 = status[CAM_IFE_IRQ_CAMIF_REG_STATUS2];
 
@@ -829,6 +900,7 @@ static void cam_vfe_camif_ver3_print_status(uint32_t *status,
 	if (err_type == CAM_VFE_IRQ_STATUS_OVERFLOW && !bus_overflow_status) {
 		CAM_INFO(CAM_ISP, "PIXEL PIPE Module hang");
 		/* print debug registers */
+		cam_vfe_camif_ver3_overflow_debug_info(status, camif_priv);
 		return;
 	}
 
@@ -1100,7 +1172,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 	struct cam_vfe_mux_camif_ver3_data *camif_priv;
 	struct cam_vfe_top_irq_evt_payload *payload;
 	struct cam_isp_hw_event_info evt_info;
-	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX + 1] = {0};
+	uint32_t irq_status[CAM_IFE_IRQ_REGISTERS_MAX] = {0};
 	int i = 0;
 
 	if (!handler_priv || !evt_payload_priv) {
@@ -1177,13 +1249,9 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_ERROR, (void *)&evt_info);
 
-		irq_status[CAM_IFE_IRQ_REGISTERS_MAX] =
-			cam_io_r(camif_priv->mem_base +
-			camif_priv->common_reg->bus_overflow_status);
-
 		ret = CAM_VFE_IRQ_STATUS_OVERFLOW;
 
-		cam_vfe_camif_ver3_print_status(irq_status, ret);
+		cam_vfe_camif_ver3_print_status(irq_status, ret, camif_priv);
 
 		if (camif_priv->camif_debug & CAMIF_DEBUG_ENABLE_REG_DUMP)
 			cam_vfe_camif_ver3_reg_dump(camif_node);
@@ -1198,7 +1266,7 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 
 		ret = CAM_VFE_IRQ_STATUS_VIOLATION;
 
-		cam_vfe_camif_ver3_print_status(irq_status, ret);
+		cam_vfe_camif_ver3_print_status(irq_status, ret, camif_priv);
 
 		if (camif_priv->camif_debug & CAMIF_DEBUG_ENABLE_REG_DUMP)
 			cam_vfe_camif_ver3_reg_dump(camif_node);

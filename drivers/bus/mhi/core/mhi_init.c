@@ -540,6 +540,7 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 		return -ENOMEM;
 
 	spin_lock_init(&mhi_tsync->lock);
+	mutex_init(&mhi_tsync->lpm_mutex);
 	INIT_LIST_HEAD(&mhi_tsync->head);
 	init_completion(&mhi_tsync->completion);
 
@@ -749,7 +750,7 @@ void mhi_deinit_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
 			  tre_ring->pre_aligned, tre_ring->dma_handle);
-	kfree(buf_ring->base);
+	vfree(buf_ring->base);
 
 	buf_ring->base = tre_ring->base = NULL;
 	chan_ctxt->rbase = 0;
@@ -774,7 +775,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	buf_ring->el_size = sizeof(struct mhi_buf_info);
 	buf_ring->len = buf_ring->el_size * buf_ring->elements;
-	buf_ring->base = kzalloc(buf_ring->len, GFP_KERNEL);
+	buf_ring->base = vzalloc(buf_ring->len);
 
 	if (!buf_ring->base) {
 		mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
@@ -988,8 +989,8 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	if (!of_node)
 		return -EINVAL;
 
-	mhi_cntrl->mhi_chan = kcalloc(mhi_cntrl->max_chan,
-				      sizeof(*mhi_cntrl->mhi_chan), GFP_KERNEL);
+	mhi_cntrl->mhi_chan = vzalloc(mhi_cntrl->max_chan *
+				      sizeof(*mhi_cntrl->mhi_chan));
 	if (!mhi_cntrl->mhi_chan)
 		return -ENOMEM;
 
@@ -1136,7 +1137,7 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	return 0;
 
 error_chan_cfg:
-	kfree(mhi_cntrl->mhi_chan);
+	vfree(mhi_cntrl->mhi_chan);
 
 	return -EINVAL;
 }
@@ -1188,6 +1189,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1251,6 +1253,27 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	} else {
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
+	}
+
+	/* read the device info if possible */
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto error_alloc_dev;
+
+		mhi_cntrl->family_number =
+			(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+			SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+			(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+			SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+			(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+			SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+			(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+			SOC_HW_VERSION_MINOR_VER_SHFT;
 	}
 
 	/* register controller with mhi_bus */

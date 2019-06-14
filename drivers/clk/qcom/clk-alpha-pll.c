@@ -1076,7 +1076,13 @@ static void clk_zonda_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 		{"PLL_ALPHA_VAL", 0x8},
 		{"PLL_USER_CTL", 0xC},
 		{"PLL_CONFIG_CTL", 0x10},
+		{"PLL_CONFIG_CTL_U", 0x14},
+		{"PLL_CONFIG_CTL_U1", 0x18},
+		{"PLL_TEST_CTL", 0x1C},
+		{"PLL_TEST_CTL_U", 0x20},
+		{"PLL_TEST_CTL_U1", 0x24},
 		{"PLL_OPMODE", 0x28},
+		{"PLL_STATUS", 0x38},
 	};
 
 	static struct clk_register_data pll_vote_reg = {
