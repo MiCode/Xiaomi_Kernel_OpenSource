@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/device.h>
 #include <linux/of.h>
 #include <linux/devfreq.h>
 #include "governor.h"
@@ -419,14 +420,18 @@ static struct devfreq_governor devfreq_gov_compute = {
 
 #define NUM_COLS	2
 static struct core_dev_map *init_core_dev_map(struct device *dev,
-		char *prop_name)
+					struct device_node *of_node,
+					char *prop_name)
 {
 	int len, nf, i, j;
 	u32 data;
 	struct core_dev_map *tbl;
 	int ret;
 
-	if (!of_find_property(dev->of_node, prop_name, &len))
+	if (!of_node)
+		of_node = dev->of_node;
+
+	if (!of_find_property(of_node, prop_name, &len))
 		return NULL;
 	len /= sizeof(data);
 
@@ -440,13 +445,13 @@ static struct core_dev_map *init_core_dev_map(struct device *dev,
 		return NULL;
 
 	for (i = 0, j = 0; i < nf; i++, j += 2) {
-		ret = of_property_read_u32_index(dev->of_node, prop_name, j,
+		ret = of_property_read_u32_index(of_node, prop_name, j,
 				&data);
 		if (ret)
 			return NULL;
 		tbl[i].core_mhz = data / 1000;
 
-		ret = of_property_read_u32_index(dev->of_node, prop_name, j + 1,
+		ret = of_property_read_u32_index(of_node, prop_name, j + 1,
 				&data);
 		if (ret)
 			return NULL;
@@ -463,6 +468,7 @@ static struct memlat_node *register_common(struct device *dev,
 					   struct memlat_hwmon *hw)
 {
 	struct memlat_node *node;
+	struct device_node *of_child;
 
 	if (!hw->dev && !hw->of_node)
 		return ERR_PTR(-EINVAL);
@@ -474,7 +480,14 @@ static struct memlat_node *register_common(struct device *dev,
 	node->ratio_ceil = 10;
 	node->hw = hw;
 
-	hw->freq_map = init_core_dev_map(dev, "qcom,core-dev-table");
+	if (hw->get_child_of_node) {
+		of_child = hw->get_child_of_node(dev);
+		hw->freq_map = init_core_dev_map(dev, of_child,
+					"qcom,core-dev-table");
+	} else {
+		hw->freq_map = init_core_dev_map(dev, NULL,
+					"qcom,core-dev-table");
+	}
 	if (!hw->freq_map) {
 		dev_err(dev, "Couldn't find the core-dev freq table!\n");
 		return ERR_PTR(-EINVAL);
