@@ -61,7 +61,18 @@ static int cvp_close(struct inode *inode, struct file *filp)
 
 static unsigned int cvp_poll(struct file *filp, struct poll_table_struct *p)
 {
-	return 0;
+	int rc = 0;
+	struct msm_cvp_inst *inst = filp->private_data;
+	unsigned long flags = 0;
+
+	poll_wait(filp, &inst->event_handler.wq, p);
+
+	spin_lock_irqsave(&inst->event_handler.lock, flags);
+	if (inst->event_handler.event == CVP_SSR_EVENT)
+		rc |= POLLPRI;
+	spin_unlock_irqrestore(&inst->event_handler.lock, flags);
+
+	return rc;
 }
 
 static const struct file_operations cvp_fops = {

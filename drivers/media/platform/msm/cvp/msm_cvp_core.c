@@ -70,8 +70,9 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 	cvp_voting->clock_cycles_a = cvp_cycles * cvp_desc->fps;
 	cvp_voting->clock_cycles_b = 0;
 	cvp_voting->reserved[0] = NUM_CYCLESFW_FRAME * cvp_desc->fps;
-	cvp_voting->reserved[1] = cvp_desc->fps;
-	cvp_voting->reserved[2] = cvp_desc->op_rate;
+	cvp_voting->reserved[1] = cvp_cycles * cvp_desc->op_rate;
+	cvp_voting->reserved[2] = 0;
+	cvp_voting->reserved[3] = NUM_CYCLESFW_FRAME*cvp_desc->op_rate;
 
 	if (cvp_desc->is_downscale) {
 		if (cvp_desc->fullres_width <= 1920) {
@@ -141,6 +142,7 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 		+ hcd_stats_write + dme_pixel_read + ncc_pixel_read;
 
 	cvp_voting->ddr_bw = cvp_bw * cvp_desc->fps;
+	cvp_voting->reserved[4] = cvp_bw * cvp_desc->op_rate;
 
 	dprintk(CVP_DBG, "%s Voting cycles_a, b, bw: %d %d %d\n", __func__,
 		cvp_voting->clock_cycles_a, cvp_voting->clock_cycles_b,
@@ -269,11 +271,13 @@ void *msm_cvp_open(int core_id, int session_type)
 		"info", inst, session_type);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
+	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->freqs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
+	init_waitqueue_head(&inst->event_handler.wq);
 
 	kref_init(&inst->kref);
 
@@ -362,7 +366,7 @@ err_invalid_core:
 }
 EXPORT_SYMBOL(msm_cvp_open);
 
-static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
+void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
 	struct msm_cvp_internal_buffer *cbuf, *dummy;
@@ -469,6 +473,10 @@ int msm_cvp_close(void *instance)
 		return -EINVAL;
 	}
 
+	inst = cvp_get_inst_validate(inst->core, inst);
+	if (!inst)
+		return 0;
+
 	msm_cvp_cleanup_instance(inst);
 	msm_cvp_session_deinit(inst);
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
@@ -480,6 +488,7 @@ int msm_cvp_close(void *instance)
 
 	msm_cvp_comm_session_clean(inst);
 
+	cvp_put_inst(inst);
 	kref_put(&inst->kref, close_helper);
 	return 0;
 }
