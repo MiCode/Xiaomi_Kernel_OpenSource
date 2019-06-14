@@ -228,6 +228,19 @@ static int scsi_bus_restore(struct device *dev)
 #define scsi_bus_poweroff		NULL
 #define scsi_bus_restore		NULL
 
+static inline int
+scsi_dev_type_suspend(struct device *dev,
+		      int (*cb)(struct device *, const struct dev_pm_ops *))
+{
+	return 0;
+}
+
+static inline int
+scsi_dev_type_resume(struct device *dev,
+		     int (*cb)(struct device *, const struct dev_pm_ops *))
+{
+	return 0;
+}
 #endif /* CONFIG_PM_SLEEP */
 
 static int do_scsi_runtime_suspend(struct device *dev,
