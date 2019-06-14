@@ -81,15 +81,16 @@ enum mhi_device_type {
  * @MHI_EE_EDL - device in emergency download mode
  */
 enum mhi_ee {
-	MHI_EE_PBL = 0x0,
-	MHI_EE_SBL = 0x1,
-	MHI_EE_AMSS = 0x2,
-	MHI_EE_RDDM = 0x3,
-	MHI_EE_WFW = 0x4,
-	MHI_EE_PTHRU = 0x5,
-	MHI_EE_EDL = 0x6,
+	MHI_EE_PBL,
+	MHI_EE_SBL,
+	MHI_EE_AMSS,
+	MHI_EE_RDDM,
+	MHI_EE_WFW,
+	MHI_EE_PTHRU,
+	MHI_EE_EDL,
 	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,
 	MHI_EE_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
+	MHI_EE_NOT_SUPPORTED,
 	MHI_EE_MAX,
 };
 
@@ -254,6 +255,7 @@ struct mhi_controller {
 	u32 saved_pm_state; /* saved state during fast suspend */
 	u32 db_access; /* db access only on these states */
 	enum mhi_ee ee;
+	u32 ee_table[MHI_EE_MAX]; /* ee conversion from dev to host */
 	enum mhi_dev_state dev_state;
 	enum mhi_dev_state saved_dev_state;
 	bool wake_set;
