@@ -66,6 +66,9 @@
 #include <asm/dma-iommu.h>
 #include "io-pgtable.h"
 #include "arm-smmu-regs.h"
+#include "arm-smmu-debug.h"
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 /*
  * Apparently, some Qualcomm arm64 platforms which appear to expose their SMMU
@@ -344,6 +347,16 @@ struct arm_smmu_cfg {
 #define ARM_SMMU_CB_ASID(smmu, cfg)		((cfg)->asid)
 #define ARM_SMMU_CB_VMID(smmu, cfg) ((u16)(smmu)->cavium_id_base + \
 							(cfg)->cbndx + 1)
+
+#define TCU_TESTBUS_SEL_ALL 0x3
+#define TBU_TESTBUS_SEL_ALL 0xf
+
+static int tbu_testbus_sel = TBU_TESTBUS_SEL_ALL;
+static int tcu_testbus_sel = TCU_TESTBUS_SEL_ALL;
+static struct dentry *debugfs_testbus_dir;
+
+module_param_named(tcu_testbus_sel, tcu_testbus_sel, int, 0644);
+module_param_named(tbu_testbus_sel, tbu_testbus_sel, int, 0644);
 
 enum arm_smmu_domain_stage {
 	ARM_SMMU_DOMAIN_S1 = 0,
@@ -5571,6 +5584,288 @@ static int qsmmuv500_read_actlr_tbl(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static ssize_t arm_smmu_debug_testbus_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *offset,
+		enum testbus_sel tbu, enum testbus_ops ops)
+
+{
+	char buf[100];
+	ssize_t retval;
+	size_t buflen;
+	int buf_len = sizeof(buf);
+
+	if (*offset)
+		return 0;
+
+	memset(buf, 0, buf_len);
+
+	if (tbu == SEL_TBU) {
+		struct qsmmuv500_tbu_device *tbu = file->private_data;
+		void __iomem *tbu_base = tbu->base;
+		long val;
+
+		arm_smmu_power_on(tbu->pwr);
+		if (ops == TESTBUS_SELECT)
+			val = arm_smmu_debug_tbu_testbus_select(tbu_base,
+							READ, 0);
+		else
+			val = arm_smmu_debug_tbu_testbus_output(tbu_base);
+		arm_smmu_power_off(tbu->pwr);
+
+		snprintf(buf, buf_len, "0x%0x\n", val);
+	} else {
+
+		struct arm_smmu_device *smmu = file->private_data;
+		struct qsmmuv500_archdata *data = smmu->archdata;
+		void __iomem *base = ARM_SMMU_GR0(smmu);
+		void __iomem *tcu_base = data->tcu_base;
+
+		arm_smmu_power_on(smmu->pwr);
+
+		if (ops == TESTBUS_SELECT) {
+			snprintf(buf, buf_len, "TCU clk testbus sel: 0x%0x\n",
+				arm_smmu_debug_tcu_testbus_select(base,
+					tcu_base, CLK_TESTBUS, READ, 0));
+			snprintf(buf + strlen(buf), buf_len - strlen(buf),
+				 "TCU testbus sel : 0x%0x\n",
+				 arm_smmu_debug_tcu_testbus_select(base,
+					 tcu_base, PTW_AND_CACHE_TESTBUS,
+					 READ, 0));
+		} else {
+			snprintf(buf, buf_len, "0x%0x\n",
+				 arm_smmu_debug_tcu_testbus_output(base));
+		}
+
+		arm_smmu_power_off(smmu->pwr);
+	}
+	buflen = min(count, strlen(buf));
+	if (copy_to_user(ubuf, buf, buflen)) {
+		pr_err_ratelimited("Couldn't copy_to_user\n");
+		retval = -EFAULT;
+	} else {
+		*offset = 1;
+		retval = buflen;
+	}
+
+	return retval;
+}
+static ssize_t arm_smmu_debug_tcu_testbus_sel_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *offset)
+{
+	struct arm_smmu_device *smmu = file->private_data;
+	struct qsmmuv500_archdata *data = smmu->archdata;
+	void __iomem *tcu_base = data->tcu_base;
+	void __iomem *base = ARM_SMMU_GR0(smmu);
+	char *comma;
+	char buf[100];
+	u64 sel, val;
+
+	if (count >= 100) {
+		pr_err_ratelimited("Value too large\n");
+		return -EINVAL;
+	}
+
+	memset(buf, 0, 100);
+
+	if (copy_from_user(buf, ubuf, count)) {
+		pr_err_ratelimited("Couldn't copy from user\n");
+		return -EFAULT;
+	}
+
+	comma = strnchr(buf, count, ',');
+	if (!comma)
+		goto invalid_format;
+
+	/* split up the words */
+	*comma = '\0';
+
+	if (kstrtou64(buf, 0, &sel))
+		goto invalid_format;
+
+	if (kstrtou64(comma + 1, 0, &val))
+		goto invalid_format;
+
+	arm_smmu_power_on(smmu->pwr);
+
+	if (sel == 1)
+		arm_smmu_debug_tcu_testbus_select(base,
+				tcu_base, CLK_TESTBUS, WRITE, val);
+	else if (sel == 2)
+		arm_smmu_debug_tcu_testbus_select(base,
+				tcu_base, PTW_AND_CACHE_TESTBUS, WRITE, val);
+	else
+		goto invalid_format;
+
+	arm_smmu_power_off(smmu->pwr);
+
+	return count;
+
+invalid_format:
+	pr_err_ratelimited("Invalid format. Expected: <1, testbus select> for tcu CLK testbus (or) <2, testbus select> for tcu PTW/CACHE testbuses\n");
+	return -EINVAL;
+}
+
+static ssize_t arm_smmu_debug_tcu_testbus_sel_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *offset)
+{
+	return arm_smmu_debug_testbus_read(file, ubuf,
+			count, offset, SEL_TCU, TESTBUS_SELECT);
+}
+
+static const struct file_operations arm_smmu_debug_tcu_testbus_sel_fops = {
+	.open	= simple_open,
+	.write	= arm_smmu_debug_tcu_testbus_sel_write,
+	.read	= arm_smmu_debug_tcu_testbus_sel_read,
+};
+
+static ssize_t arm_smmu_debug_tcu_testbus_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *offset)
+{
+	return arm_smmu_debug_testbus_read(file, ubuf,
+			count, offset, SEL_TCU, TESTBUS_OUTPUT);
+}
+
+static const struct file_operations arm_smmu_debug_tcu_testbus_fops = {
+	.open	= simple_open,
+	.read	= arm_smmu_debug_tcu_testbus_read,
+};
+
+static int qsmmuv500_tcu_testbus_init(struct arm_smmu_device *smmu)
+{
+	struct dentry *testbus_dir;
+
+	if (!iommu_debugfs_top)
+		return 0;
+
+	if (!debugfs_testbus_dir) {
+		debugfs_testbus_dir = debugfs_create_dir("testbus",
+						       iommu_debugfs_top);
+		if (!debugfs_testbus_dir) {
+			pr_err_ratelimited("Couldn't create iommu/testbus debugfs directory\n");
+			return -ENODEV;
+		}
+	}
+
+	testbus_dir = debugfs_create_dir(dev_name(smmu->dev),
+				debugfs_testbus_dir);
+
+	if (!testbus_dir) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s debugfs directory\n",
+		       dev_name(smmu->dev));
+		goto err;
+	}
+
+	if (!debugfs_create_file("tcu_testbus_sel", 0400, testbus_dir, smmu,
+			&arm_smmu_debug_tcu_testbus_sel_fops)) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tcu_testbus_sel debugfs file\n",
+		       dev_name(smmu->dev));
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("tcu_testbus_output", 0400, testbus_dir, smmu,
+			&arm_smmu_debug_tcu_testbus_fops)) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tcu_testbus_output debugfs file\n",
+		       dev_name(smmu->dev));
+		goto err_rmdir;
+	}
+
+	return 0;
+err_rmdir:
+	debugfs_remove_recursive(testbus_dir);
+err:
+	return 0;
+}
+
+static ssize_t arm_smmu_debug_tbu_testbus_sel_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *offset)
+{
+	struct qsmmuv500_tbu_device *tbu = file->private_data;
+	void __iomem *tbu_base = tbu->base;
+	u64 val;
+
+	if (kstrtoull_from_user(ubuf, count, 0, &val)) {
+		pr_err_ratelimited("Invalid format for tbu testbus select\n");
+		return -EINVAL;
+	}
+
+	arm_smmu_power_on(tbu->pwr);
+	arm_smmu_debug_tbu_testbus_select(tbu_base, WRITE, val);
+	arm_smmu_power_off(tbu->pwr);
+
+	return count;
+}
+
+static ssize_t arm_smmu_debug_tbu_testbus_sel_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *offset)
+{
+	return arm_smmu_debug_testbus_read(file, ubuf,
+			count, offset, SEL_TBU, TESTBUS_SELECT);
+}
+
+static const struct file_operations arm_smmu_debug_tbu_testbus_sel_fops = {
+	.open	= simple_open,
+	.write	= arm_smmu_debug_tbu_testbus_sel_write,
+	.read	= arm_smmu_debug_tbu_testbus_sel_read,
+};
+
+static ssize_t arm_smmu_debug_tbu_testbus_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *offset)
+{
+	return arm_smmu_debug_testbus_read(file, ubuf,
+			count, offset, SEL_TBU, TESTBUS_OUTPUT);
+}
+
+static const struct file_operations arm_smmu_debug_tbu_testbus_fops = {
+	.open	= simple_open,
+	.read	= arm_smmu_debug_tbu_testbus_read,
+};
+
+static int qsmmuv500_tbu_testbus_init(struct qsmmuv500_tbu_device *tbu)
+{
+	struct dentry *testbus_dir;
+
+	if (!iommu_debugfs_top)
+		return 0;
+
+	if (!debugfs_testbus_dir) {
+		debugfs_testbus_dir = debugfs_create_dir("testbus",
+						       iommu_debugfs_top);
+		if (!debugfs_testbus_dir) {
+			pr_err_ratelimited("Couldn't create iommu/testbus debugfs directory\n");
+			return -ENODEV;
+		}
+	}
+
+	testbus_dir = debugfs_create_dir(dev_name(tbu->dev),
+				debugfs_testbus_dir);
+
+	if (!testbus_dir) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s debugfs directory\n",
+		       dev_name(tbu->dev));
+		goto err;
+	}
+
+	if (!debugfs_create_file("tbu_testbus_sel", 0400, testbus_dir, tbu,
+			&arm_smmu_debug_tbu_testbus_sel_fops)) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tbu_testbus_sel debugfs file\n",
+		       dev_name(tbu->dev));
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("tbu_testbus_output", 0400, testbus_dir, tbu,
+			&arm_smmu_debug_tbu_testbus_fops)) {
+		pr_err_ratelimited("Couldn't create iommu/testbus/%s/tbu_testbus_output debugfs file\n",
+		       dev_name(tbu->dev));
+		goto err_rmdir;
+	}
+
+	return 0;
+err_rmdir:
+	debugfs_remove_recursive(testbus_dir);
+err:
+	return 0;
+}
+
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
 	struct resource *res;
@@ -5599,6 +5894,8 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
+
+	qsmmuv500_tcu_testbus_init(smmu);
 
 	if (arm_smmu_is_static_cb(smmu))
 		return 0;
@@ -5681,6 +5978,8 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 		return PTR_ERR(tbu->pwr);
 
 	dev_set_drvdata(dev, tbu);
+	qsmmuv500_tbu_testbus_init(tbu);
+
 	return 0;
 }
 
