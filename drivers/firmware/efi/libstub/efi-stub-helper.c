@@ -48,13 +48,6 @@ int __pure nokaslr(void)
 #define EFI_ALLOC_ALIGN		EFI_PAGE_SIZE
 #endif
 
-static int __section(.data) __nokaslr;
-
-int __pure nokaslr(void)
-{
-	return __nokaslr;
-}
-
 #define EFI_MMAP_NR_SLACK_SLOTS	8
 
 struct file_info {
