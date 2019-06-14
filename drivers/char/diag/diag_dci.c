@@ -1951,7 +1951,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (!buf)
 		return -EIO;
 
-	if (len <= (sizeof(struct dci_pkt_req_t) +
+	if (len < (sizeof(struct dci_pkt_req_t) +
 		sizeof(struct diag_pkt_header_t)) ||
 		len > DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: Invalid length %d len in %s", len, __func__);
@@ -1964,7 +1964,6 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	req_len -= sizeof(struct dci_pkt_req_t);
 	req_buf = temp; /* Start of the Request */
 	header = (struct diag_pkt_header_t *)temp;
-	temp += sizeof(struct diag_pkt_header_t);
 	read_len += sizeof(struct diag_pkt_header_t);
 	if (read_len >= DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: In %s, invalid read_len: %d\n", __func__,
