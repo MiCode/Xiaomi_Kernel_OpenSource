@@ -2792,9 +2792,15 @@ int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	}
 
 	if (host->ops->platform_execute_tuning) {
+		/*
+		 * Make sure re-tuning won't get triggered for the CRC errors
+		 * occurred while executing tuning
+		 */
+		mmc_retune_disable(mmc);
 		err = host->ops->platform_execute_tuning(host, opcode);
-			goto out;
-		}
+		mmc_retune_enable(mmc);
+		goto out;
+	}
 
 	host->mmc->retune_period = tuning_count;
 
@@ -3332,13 +3338,6 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		 * above in sdhci_cmd_irq().
 		 */
 		if (data_cmd && (data_cmd->flags & MMC_RSP_BUSY)) {
-			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
-				host->data_cmd = NULL;
-				data_cmd->error = -ETIMEDOUT;
-				host->mmc->err_stats[MMC_ERR_CMD_TIMEOUT]++;
-				sdhci_finish_mrq(host, data_cmd->mrq);
-				return;
-			}
 			if (intmask & SDHCI_INT_DATA_END) {
 				host->data_cmd = NULL;
 				/*
