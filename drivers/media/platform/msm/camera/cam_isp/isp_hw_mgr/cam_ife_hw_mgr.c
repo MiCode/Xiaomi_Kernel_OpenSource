@@ -1568,6 +1568,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.out_port = in_port->data;
 		csid_acquire.node_res = NULL;
 		csid_acquire.crop_enable = crop_enable;
+		csid_acquire.drop_enable = false;
 
 		hw_intf = cid_res->hw_res[i]->hw_intf;
 
@@ -1696,6 +1697,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 		csid_acquire.node_res = NULL;
+
+		/*
+		 * Enable RDI pixel drop by default. CSID will enable only for
+		 * ver 480 HW to allow userspace to control pixel drop pattern.
+		 */
+		csid_acquire.drop_enable = true;
 
 		/* Enable RDI crop for single ife use case only */
 		if (in_port->usage_type)

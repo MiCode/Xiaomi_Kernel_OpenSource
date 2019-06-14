@@ -303,6 +303,8 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t plain_fmt_shit_val;
 	uint32_t crop_v_en_shift_val;
 	uint32_t crop_h_en_shift_val;
+	uint32_t drop_v_en_shift_val;
+	uint32_t drop_h_en_shift_val;
 	uint32_t crop_shift;
 	uint32_t ipp_irq_mask_all;
 	uint32_t rdi_irq_mask_all;
@@ -410,6 +412,7 @@ struct cam_ife_csid_cid_data {
  * @out_format:     output format
  * @crop_enable:    crop is enable or disabled, if enabled
  *                  then remaining parameters are valid.
+ * @drop_enable:    flag to indicate pixel drop enable or disable
  * @start_pixel:    start pixel
  * @end_pixel:      end_pixel
  * @width:          width
@@ -435,6 +438,7 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        in_format;
 	uint32_t                        out_format;
 	bool                            crop_enable;
+	bool                            drop_enable;
 	uint32_t                        start_pixel;
 	uint32_t                        end_pixel;
 	uint32_t                        width;
