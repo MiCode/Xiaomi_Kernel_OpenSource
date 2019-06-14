@@ -14,6 +14,9 @@
 #include <linux/device.h>
 #include <linux/version.h>
 #include <linux/dma-buf.h>
+#ifdef CONFIG_DMA_SHARED_BUFFER
+#include <ion.h>
+#endif
 
 #ifdef CONFIG_XEN
 /* To get the MFN */
@@ -605,6 +608,18 @@ void tee_mmu_buffer(struct tee_mmu *mmu, struct mcp_buffer_map *map)
 	map->nr_pages = mmu->nr_pages;
 	map->flags = mmu->flags;
 	map->type = WSM_L1;
+#ifdef CONFIG_DMA_SHARED_BUFFER
+	if (mmu->dma_buf) {
+		/* ION */
+		if (!(((struct ion_buffer *)mmu->dma_buf->priv)->flags
+		   & ION_FLAG_CACHED)) {
+			map->type |= WSM_UNCACHED;
+			mc_dev_devel("ION buffer Non cacheable");
+		} else {
+			mc_dev_devel("ION buffer cacheable");
+		}
+	}
+#endif
 	map->mmu = mmu;
 }
 
