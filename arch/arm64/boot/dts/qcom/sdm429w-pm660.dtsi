@@ -240,12 +240,11 @@
 };
 
 &pil_mss {
-	/delete-property/ vdd_mss-supply;
-	/delete-property/ vdd_cx-supply;
-	/delete-property/ vdd_cx-voltage;
-	/delete-property/ vdd_mx-supply;
-	/delete-property/ vdd_mx-uV;
-	/delete-property/ vdd_pll-supply;
+	vdd_mss-supply = <&S6A>;
+	vdd_cx-supply = <&pm660_s1_level_ao>;
+	vdd_mx-supply = <&pm660_s2_level_ao>;
+	vdd_pll-supply = <&L12A>;
+	qcom,vdd_pll = <1800000>;
 };
 
 &cci {
