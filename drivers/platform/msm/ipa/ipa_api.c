@@ -934,6 +934,25 @@ int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 EXPORT_SYMBOL(ipa_add_rt_rule);
 
 /**
+ * ipa_add_rt_rule_v2() - Add the specified routing rules to SW
+ * and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_rt_rule_v2(struct ipa_ioc_add_rt_rule_v2 *rules)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_rt_rule_v2, rules);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_rt_rule_v2);
+
+/**
  * ipa_add_rt_rule_usr() - Add the specified routing rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of routing rules to add
@@ -952,6 +971,26 @@ int ipa_add_rt_rule_usr(struct ipa_ioc_add_rt_rule *rules, bool user_only)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_rt_rule_usr);
+
+/**
+ * ipa_add_rt_rule_usr_v2() - Add the specified routing rules to
+ * SW and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_rt_rule_usr_v2(struct ipa_ioc_add_rt_rule_v2 *rules, bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_rt_rule_usr_v2, rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_rt_rule_usr_v2);
 
 /**
  * ipa_del_rt_rule() - Remove the specified routing rules to SW and optionally
@@ -1086,6 +1125,24 @@ int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 EXPORT_SYMBOL(ipa_mdfy_rt_rule);
 
 /**
+ * ipa_mdfy_rt_rule_v2() - Modify the specified routing rules in
+ * SW and optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_rt_rule_v2(struct ipa_ioc_mdfy_rt_rule_v2 *hdls)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mdfy_rt_rule_v2, hdls);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mdfy_rt_rule_v2);
+
+/**
  * ipa_add_flt_rule() - Add the specified filtering rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of filtering rules to add
@@ -1103,6 +1160,25 @@ int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_flt_rule);
+
+/**
+ * ipa_add_flt_rule_v2() - Add the specified filtering rules to
+ * SW and optionally commit to IPA HW
+ * @rules:	[inout] set of filtering rules to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_flt_rule_v2(struct ipa_ioc_add_flt_rule_v2 *rules)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_flt_rule_v2, rules);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_flt_rule_v2);
 
 /**
  * ipa_add_flt_rule_usr() - Add the specified filtering rules to
@@ -1123,6 +1199,28 @@ int ipa_add_flt_rule_usr(struct ipa_ioc_add_flt_rule *rules, bool user_only)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_add_flt_rule_usr);
+
+/**
+ * ipa_add_flt_rule_usr_v2() - Add the specified filtering rules
+ * to SW and optionally commit to IPA HW
+ * @rules:		[inout] set of filtering rules to add
+ * @user_only:	[in] indicate rules installed by userspace
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_add_flt_rule_usr_v2(struct ipa_ioc_add_flt_rule_v2 *rules,
+	bool user_only)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_add_flt_rule_usr_v2,
+		rules, user_only);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_add_flt_rule_usr_v2);
 
 /**
  * ipa_del_flt_rule() - Remove the specified filtering rules from SW and
@@ -1159,6 +1257,24 @@ int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_mdfy_flt_rule);
+
+/**
+ * ipa_mdfy_flt_rule_v2() - Modify the specified filtering rules
+ * in SW and optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_flt_rule_v2(struct ipa_ioc_mdfy_flt_rule_v2 *hdls)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mdfy_flt_rule_v2, hdls);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_mdfy_flt_rule_v2);
 
 /**
  * ipa_commit_flt() - Commit the current SW filtering table of specified type to

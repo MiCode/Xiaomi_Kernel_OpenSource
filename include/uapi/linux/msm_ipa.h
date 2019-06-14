@@ -116,7 +116,16 @@
 #define IPA_IOCTL_GSB_CONNECT                   64
 #define IPA_IOCTL_GSB_DISCONNECT                65
 #define IPA_IOCTL_WIGIG_FST_SWITCH              66
-
+#define IPA_IOCTL_ADD_RT_RULE_V2                67
+#define IPA_IOCTL_ADD_RT_RULE_EXT_V2            68
+#define IPA_IOCTL_ADD_RT_RULE_AFTER_V2          69
+#define IPA_IOCTL_MDFY_RT_RULE_V2               70
+#define IPA_IOCTL_ADD_FLT_RULE_V2               71
+#define IPA_IOCTL_ADD_FLT_RULE_AFTER_V2         72
+#define IPA_IOCTL_MDFY_FLT_RULE_V2              73
+#define IPA_IOCTL_FNR_COUNTER_ALLOC             74
+#define IPA_IOCTL_FNR_COUNTER_DEALLOC           75
+#define IPA_IOCTL_FNR_COUNTER_QUERY             76
 
 /**
  * max size of the header to be inserted
@@ -158,6 +167,14 @@
  * max number of destination pipes possible for a client.
  */
 #define QMI_IPA_MAX_CLIENT_DST_PIPES 4
+
+/**
+ * MAX number of the FLT_RT stats counter supported.
+ */
+#define IPA_MAX_FLT_RT_CNT_INDEX (128)
+#define IPA_FLT_RT_HW_COUNTER (120)
+#define IPA_FLT_RT_SW_COUNTER \
+	(IPA_MAX_FLT_RT_CNT_INDEX - IPA_FLT_RT_HW_COUNTER)
 
 /**
  * the attributes of the rule (routing or filtering)
@@ -966,6 +983,55 @@ struct ipa_flt_rule {
 };
 
 /**
+ * struct ipa_flt_rule_v2 - attributes of a filtering rule
+ * @retain_hdr: bool switch to instruct IPA core to add back to the packet
+ *  the header removed as part of header removal
+ * @to_uc: bool switch to pass packet to micro-controller
+ * @action: action field
+ * @rt_tbl_hdl: handle of table from "get"
+ * @attrib: attributes of the rule
+ * @eq_attrib: attributes of the rule in equation form (valid when
+ * eq_attrib_type is true)
+ * @rt_tbl_idx: index of RT table referred to by filter rule (valid when
+ * eq_attrib_type is true and non-exception action)
+ * @eq_attrib_type: true if equation level form used to specify attributes
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may have
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
+ * @rule_id: rule_id to be assigned to the filter rule. In case client specifies
+ *  rule_id as 0 the driver will assign a new rule_id
+ * @set_metadata: bool switch. should metadata replacement at the NAT block
+ *  take place?
+ * @pdn_idx: if action is "pass to source\destination NAT" then a comparison
+ * against the PDN index in the matching PDN entry will take place as an
+ * additional condition for NAT hit.
+ * @enable_stats: is true when we want to enable stats for this
+ * flt rule.
+ * @cnt_idx: if 0 means disable, otherwise use for index.
+ * will be assigned by ipa driver.
+ */
+struct ipa_flt_rule_v2 {
+	uint8_t retain_hdr;
+	uint8_t to_uc;
+	enum ipa_flt_action action;
+	uint32_t rt_tbl_hdl;
+	struct ipa_rule_attrib attrib;
+	struct ipa_ipfltri_rule_eq eq_attrib;
+	uint32_t rt_tbl_idx;
+	uint8_t eq_attrib_type;
+	uint8_t max_prio;
+	uint8_t hashable;
+	uint16_t rule_id;
+	uint8_t set_metadata;
+	uint8_t pdn_idx;
+	uint8_t enable_stats;
+	uint8_t cnt_idx;
+};
+
+/**
  * enum ipa_hdr_l2_type - L2 header type
  * IPA_HDR_L2_NONE: L2 header which isn't Ethernet II and isn't 802_3
  * IPA_HDR_L2_ETHERNET_II: L2 header of type Ethernet II
@@ -1030,6 +1096,41 @@ struct ipa_rt_rule {
 	uint8_t coalesce;
 };
 #define IPA_RT_SUPPORT_COAL
+
+/**
+ * struct ipa_rt_rule_v2 - attributes of a routing rule
+ * @dst: dst "client"
+ * @hdr_hdl: handle to the dynamic header
+	it is not an index or an offset
+ * @hdr_proc_ctx_hdl: handle to header processing context. if it is provided
+	hdr_hdl shall be 0
+ * @attrib: attributes of the rule
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may have
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
+ * @retain_hdr: bool switch to instruct IPA core to add back to the packet
+ *  the header removed as part of header removal
+ * @coalesce: bool to decide whether packets should be coalesced or not
+ * @enable_stats: is true when we want to enable stats for this
+ * rt rule.
+ * @cnt_idx: if enable_stats is 1 and cnt_idx is 0, then cnt_idx
+ * will be assigned by ipa driver.
+ */
+struct ipa_rt_rule_v2 {
+	enum ipa_client_type dst;
+	uint32_t hdr_hdl;
+	uint32_t hdr_proc_ctx_hdl;
+	struct ipa_rule_attrib attrib;
+	uint8_t max_prio;
+	uint8_t hashable;
+	uint8_t retain_hdr;
+	uint8_t coalesce;
+	uint8_t enable_stats;
+	uint8_t cnt_idx;
+};
 
 /**
  * struct ipa_hdr_add - header descriptor includes in and out
@@ -1266,6 +1367,25 @@ struct ipa_rt_rule_add {
 };
 
 /**
+ * struct ipa_rt_rule_add_v2 - routing rule descriptor includes
+ * in and out parameters
+ * @rule: actual rule to be added
+ * @at_rear:	add at back of routing table, it is NOT possible to add rules at
+ *		the rear of the "default" routing tables
+ * @rt_rule_hdl: output parameter, handle to rule, valid when status is 0
+ * @status:	output parameter, status of routing rule add operation,
+ *		0 for success,
+ *		-1 for failure
+ */
+struct ipa_rt_rule_add_v2 {
+	uint8_t at_rear;
+	uint32_t rt_rule_hdl;
+	int status;
+	struct ipa_rt_rule_v2 rule;
+};
+
+
+/**
  * struct ipa_ioc_add_rt_rule - routing rule addition parameters (supports
  * multiple rules and commit);
  *
@@ -1282,6 +1402,31 @@ struct ipa_ioc_add_rt_rule {
 	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
 	uint8_t num_rules;
 	struct ipa_rt_rule_add rules[0];
+};
+
+/**
+ * struct ipa_ioc_add_rt_rule_v2 - routing rule addition
+ * parameters (supports multiple rules and commit);
+ *
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @rt_tbl_name: name of routing table resource
+ * @num_rules: number of routing rules that follow
+ * @rule_add_size: sizeof(struct ipa_rt_rule_add_v2)
+ * @reserved1: reserved bits for alignment
+ * @reserved2: reserved bits for alignment
+ * @ipa_rt_rule_add rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_add_rt_rule_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_rules;
+	uint32_t rule_add_size;
+	uint32_t reserved1;
+	uint8_t reserved2;
+	uint64_t rules;
 };
 
 /**
@@ -1307,6 +1452,33 @@ struct ipa_ioc_add_rt_rule_after {
 };
 
 /**
+ * struct ipa_ioc_add_rt_rule_after_v2 - routing rule addition
+ * after a specific rule parameters(supports multiple rules and
+ * commit);
+ *
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @rt_tbl_name: name of routing table resource
+ * @num_rules: number of routing rules that follow
+ * @add_after_hdl: the rules will be added after this specific rule
+ * @rule_add_size: sizeof(struct ipa_rt_rule_add_v2)
+ * @reserved: reserved bits for alignment
+ * @ipa_rt_rule_add rules: all rules need to go back to back here, no pointers
+ *			   at_rear field will be ignored when using this IOCTL
+ */
+struct ipa_ioc_add_rt_rule_after_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_rules;
+	uint32_t add_after_hdl;
+	uint32_t rule_add_size;
+	uint8_t reserved;
+	uint64_t rules;
+};
+
+/**
  * struct ipa_rt_rule_mdfy - routing rule descriptor includes
  * in and out parameters
  * @rule: actual rule to be added
@@ -1323,6 +1495,22 @@ struct ipa_rt_rule_mdfy {
 };
 
 /**
+ * struct ipa_rt_rule_mdfy_v2 - routing rule descriptor includes
+ * in and out parameters
+ * @rule: actual rule to be added
+ * @rt_rule_hdl: handle to rule which supposed to modify
+ * @status:	output parameter, status of routing rule modify  operation,
+ *		0 for success,
+ *		-1 for failure
+ *
+ */
+struct ipa_rt_rule_mdfy_v2 {
+	uint32_t rt_rule_hdl;
+	int status;
+	struct ipa_rt_rule_v2 rule;
+};
+
+/**
  * struct ipa_ioc_mdfy_rt_rule - routing rule modify parameters (supports
  * multiple rules and commit)
  * @commit: should rules be written to IPA HW also?
@@ -1335,6 +1523,25 @@ struct ipa_ioc_mdfy_rt_rule {
 	enum ipa_ip_type ip;
 	uint8_t num_rules;
 	struct ipa_rt_rule_mdfy rules[0];
+};
+
+/**
+ * struct ipa_ioc_mdfy_rt_rule_v2 - routing rule modify
+ * parameters (supports multiple rules and commit)
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @num_rules: number of routing rules that follow
+ * @rule_mdfy_size: sizeof(struct ipa_rt_rule_mdfy_v2)
+ * @reserved: reserved bits for alignment
+ * @rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_mdfy_rt_rule_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	uint8_t num_rules;
+	uint32_t rule_mdfy_size;
+	uint8_t reserved;
+	uint64_t rules;
 };
 
 /**
@@ -1372,8 +1579,29 @@ struct ipa_rt_rule_add_ext {
 };
 
 /**
- * struct ipa_ioc_add_rt_rule - routing rule addition parameters (supports
- * multiple rules and commit with rule_id);
+ * struct ipa_rt_rule_add_ext_v2 - routing rule descriptor
+ * includes in and out parameters
+ * @rule: actual rule to be added
+ * @at_rear:	add at back of routing table, it is NOT possible to add rules at
+ *		the rear of the "default" routing tables
+ * @rt_rule_hdl: output parameter, handle to rule, valid when status is 0
+ * @status:	output parameter, status of routing rule add operation,
+ * @rule_id: rule_id to be assigned to the routing rule. In case client
+ *  specifies rule_id as 0 the driver will assign a new rule_id
+ *		0 for success,
+ *		-1 for failure
+ */
+struct ipa_rt_rule_add_ext_v2 {
+	uint8_t at_rear;
+	uint32_t rt_rule_hdl;
+	int status;
+	uint16_t rule_id;
+	struct ipa_rt_rule_v2 rule;
+};
+
+/**
+ * struct ipa_ioc_add_rt_rule_ext - routing rule addition
+ * parameters (supports multiple rules and commit with rule_id);
  *
  * all rules MUST be added to same table
  * @commit: should rules be written to IPA HW also?
@@ -1389,6 +1617,32 @@ struct ipa_ioc_add_rt_rule_ext {
 	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
 	uint8_t num_rules;
 	struct ipa_rt_rule_add_ext rules[0];
+};
+
+/**
+ * struct ipa_ioc_add_rt_rule_ext_v2 - routing rule addition
+ * parameters (supports multiple rules and commit with rule_id);
+ *
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @rt_tbl_name: name of routing table resource
+ * @num_rules: number of routing rules that follow
+ * @rule_add_ext_size: sizeof(struct ipa_rt_rule_add_ext_v2)
+ * @reserved1: reserved bits for alignment
+ * @reserved2: reserved bits for alignment
+ * @ipa_rt_rule_add_ext rules: all rules need to go back to back here,
+ *  no pointers
+ */
+struct ipa_ioc_add_rt_rule_ext_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_rules;
+	uint32_t rule_add_ext_size;
+	uint32_t reserved1;
+	uint8_t reserved2;
+	uint64_t rules;
 };
 
 
@@ -1439,6 +1693,24 @@ struct ipa_flt_rule_add {
 };
 
 /**
+ * struct ipa_flt_rule_add_v2 - filtering rule descriptor
+ * includes in and out parameters
+ * @rule: actual rule to be added
+ * @at_rear: add at back of filtering table?
+ * @flt_rule_hdl: out parameter, handle to rule, valid when status is 0
+ * @status:	output parameter, status of filtering rule add   operation,
+ *		0 for success,
+ *		-1 for failure
+ *
+ */
+struct ipa_flt_rule_add_v2 {
+	uint8_t at_rear;
+	uint32_t flt_rule_hdl;
+	int status;
+	struct ipa_flt_rule_v2 rule;
+};
+
+/**
  * struct ipa_ioc_add_flt_rule - filtering rule addition parameters (supports
  * multiple rules and commit)
  * all rules MUST be added to same table
@@ -1458,6 +1730,36 @@ struct ipa_ioc_add_flt_rule {
 	uint8_t num_rules;
 	struct ipa_flt_rule_add rules[0];
 };
+
+/**
+ * struct ipa_ioc_add_flt_rule_v2 - filtering rule addition
+ * parameters (supports multiple rules and commit)
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @ep:	which "clients" pipe does this rule apply to?
+ *	valid only when global is 0
+ * @global: does this apply to global filter table of specific IP family
+ * @num_rules: number of filtering rules that follow
+ * @flt_rule_size: sizeof(struct ipa_flt_rule_add_v2)
+ * @reserved1: reserved bits for alignment
+ * @reserved2: reserved bits for alignment
+ * @reserved3: reserved bits for alignment
+ * @rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_add_flt_rule_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	enum ipa_client_type ep;
+	uint8_t global;
+	uint8_t num_rules;
+	uint32_t flt_rule_size;
+	uint32_t reserved1;
+	uint16_t reserved2;
+	uint8_t reserved3;
+	uint64_t rules;
+};
+
 
 /**
  * struct ipa_ioc_add_flt_rule_after - filtering rule addition after specific
@@ -1481,6 +1783,31 @@ struct ipa_ioc_add_flt_rule_after {
 };
 
 /**
+ * struct ipa_ioc_add_flt_rule_after_v2 - filtering rule
+ * addition after specific rule parameters (supports multiple
+ * rules and commit) all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @ep:	which "clients" pipe does this rule apply to?
+ * @num_rules: number of filtering rules that follow
+ * @add_after_hdl: rules will be added after the rule with this handle
+ * @flt_rule_size: sizeof(struct ipa_flt_rule_add_v2)
+ * @reserved: reserved bits for alignment
+ * @rules: all rules need to go back to back here, no pointers. at rear field
+ *	   is ignored when using this IOCTL
+ */
+struct ipa_ioc_add_flt_rule_after_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	enum ipa_client_type ep;
+	uint8_t num_rules;
+	uint32_t add_after_hdl;
+	uint32_t flt_rule_size;
+	uint32_t reserved;
+	uint64_t rules;
+};
+
+/**
  * struct ipa_flt_rule_mdfy - filtering rule descriptor includes
  * in and out parameters
  * @rule: actual rule to be added
@@ -1497,6 +1824,22 @@ struct ipa_flt_rule_mdfy {
 };
 
 /**
+ * struct ipa_flt_rule_mdfy_v2 - filtering rule descriptor
+ * includes in and out parameters
+ * @rule: actual rule to be added
+ * @flt_rule_hdl: handle to rule
+ * @status:	output parameter, status of filtering rule modify  operation,
+ *		0 for success,
+ *		-1 for failure
+ *
+ */
+struct ipa_flt_rule_mdfy_v2 {
+	uint32_t rule_hdl;
+	int status;
+	struct ipa_flt_rule_v2 rule;
+};
+
+/**
  * struct ipa_ioc_mdfy_flt_rule - filtering rule modify parameters (supports
  * multiple rules and commit)
  * @commit: should rules be written to IPA HW also?
@@ -1509,6 +1852,25 @@ struct ipa_ioc_mdfy_flt_rule {
 	enum ipa_ip_type ip;
 	uint8_t num_rules;
 	struct ipa_flt_rule_mdfy rules[0];
+};
+
+/**
+ * struct ipa_ioc_mdfy_flt_rule_v2 - filtering rule modify
+ * parameters (supports multiple rules and commit)
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @num_rules: number of filtering rules that follow
+ * @rule_mdfy_size: sizeof(struct ipa_flt_rule_mdfy_v2)
+ * @reserved: reserved bits for alignment
+ * @rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_mdfy_flt_rule_v2 {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	uint8_t num_rules;
+	uint32_t rule_mdfy_size;
+	uint8_t reserved;
+	uint64_t rules;
 };
 
 /**
@@ -1982,6 +2344,62 @@ struct ipa_ioc_write_qmapid {
 	uint8_t qmap_id;
 };
 
+/**
+ * struct ipa_flt_rt_counter_alloc - flt/rt counter id allocation
+ * @num_counters: input param, num of counters need to be allocated
+ * @allow_less: input param, if true, success even few counter than request
+ * @start_id: output param, allocated start_id, 0 when allocation fails
+ * @end_id: output param, allocated start_id, 0 when allocation fails
+ */
+struct ipa_flt_rt_counter_alloc {
+	uint8_t num_counters;
+	uint8_t allow_less;
+	uint8_t start_id;
+	uint8_t end_id;
+};
+
+/**
+ * struct ipa_ioc_flt_rt_counter_alloc - flt/rt counter id allocation ioctl
+ * @hdl: output param, hdl used for deallocation, negative if allocation fails
+ * @hw_counter: HW counters for HW process
+ * @sw_counter: SW counters for uC / non-HW process
+ */
+struct ipa_ioc_flt_rt_counter_alloc {
+	int hdl;
+	struct ipa_flt_rt_counter_alloc hw_counter;
+	struct ipa_flt_rt_counter_alloc sw_counter;
+};
+
+/**
+ * struct ipa_flt_rt_stats - flt/rt stats info
+ * @num_pkts: number of packets
+ * @num_pkts_hash: number of packets in hash entry
+ * @num_bytes: number of bytes
+ */
+struct ipa_flt_rt_stats {
+	uint32_t num_pkts;
+	uint32_t num_pkts_hash;
+	uint64_t num_bytes;
+};
+
+/**
+ * struct ipa_ioc_flt_rt_query - flt/rt counter id query
+ * @start_id: start counter id for query
+ * @end_id: end counter id for query
+ * @reset: this query need hw counter to be reset or not
+ * @stats_size: sizeof(ipa_flt_rt_stats)
+ * @reserved: reserved bits for alignment
+ * @stats: structure contains the query result
+ */
+struct ipa_ioc_flt_rt_query {
+	uint8_t start_id;
+	uint8_t end_id;
+	uint8_t reset;
+	uint32_t stats_size;
+	uint8_t reserved;
+	uint64_t stats;
+};
+
 enum ipacm_client_enum {
 	IPACM_CLIENT_USB = 1,
 	IPACM_CLIENT_WLAN,
@@ -2108,21 +2526,36 @@ struct ipa_odl_modem_config {
 #define IPA_IOC_ADD_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE, \
 					struct ipa_ioc_add_rt_rule *)
+#define IPA_IOC_ADD_RT_RULE_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE_V2, \
+					struct ipa_ioc_add_rt_rule_v2 *)
 #define IPA_IOC_ADD_RT_RULE_EXT _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE_EXT, \
 					struct ipa_ioc_add_rt_rule_ext *)
+#define IPA_IOC_ADD_RT_RULE_EXT_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE_EXT_V2, \
+					struct ipa_ioc_add_rt_rule_ext_v2 *)
 #define IPA_IOC_ADD_RT_RULE_AFTER _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE_AFTER, \
 					struct ipa_ioc_add_rt_rule_after *)
+#define IPA_IOC_ADD_RT_RULE_AFTER_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE_AFTER_V2, \
+					struct ipa_ioc_add_rt_rule_after_v2 *)
 #define IPA_IOC_DEL_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_DEL_RT_RULE, \
 					struct ipa_ioc_del_rt_rule *)
 #define IPA_IOC_ADD_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_FLT_RULE, \
 					struct ipa_ioc_add_flt_rule *)
+#define IPA_IOC_ADD_FLT_RULE_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_FLT_RULE_V2, \
+					struct ipa_ioc_add_flt_rule_v2 *)
 #define IPA_IOC_ADD_FLT_RULE_AFTER _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_FLT_RULE_AFTER, \
 					struct ipa_ioc_add_flt_rule_after *)
+#define IPA_IOC_ADD_FLT_RULE_AFTER_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_FLT_RULE_AFTER_V2, \
+					struct ipa_ioc_add_flt_rule_after_v2 *)
 #define IPA_IOC_DEL_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_DEL_FLT_RULE, \
 					struct ipa_ioc_del_flt_rule *)
@@ -2234,9 +2667,15 @@ struct ipa_odl_modem_config {
 #define IPA_IOC_MDFY_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_MDFY_FLT_RULE, \
 					struct ipa_ioc_mdfy_flt_rule *)
+#define IPA_IOC_MDFY_FLT_RULE_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_MDFY_FLT_RULE_V2, \
+					struct ipa_ioc_mdfy_flt_rule_v2 *)
 #define IPA_IOC_MDFY_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_MDFY_RT_RULE, \
 					struct ipa_ioc_mdfy_rt_rule *)
+#define IPA_IOC_MDFY_RT_RULE_V2 _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_MDFY_RT_RULE_V2, \
+					struct ipa_ioc_mdfy_rt_rule_v2 *)
 
 #define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \
@@ -2311,6 +2750,18 @@ struct ipa_odl_modem_config {
 #define IPA_IOC_WIGIG_FST_SWITCH _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_WIGIG_FST_SWITCH, \
 				struct ipa_ioc_wigig_fst_switch)
+
+#define IPA_IOC_FNR_COUNTER_ALLOC _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_FNR_COUNTER_ALLOC, \
+				struct ipa_ioc_flt_rt_counter_alloc)
+
+#define IPA_IOC_FNR_COUNTER_DEALLOC _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_FNR_COUNTER_DEALLOC, \
+				int)
+
+#define IPA_IOC_FNR_COUNTER_QUERY _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_FNR_COUNTER_QUERY, \
+				struct ipa_ioc_flt_rt_query)
 
 /*
  * unique magic number of the Tethering bridge ioctls
