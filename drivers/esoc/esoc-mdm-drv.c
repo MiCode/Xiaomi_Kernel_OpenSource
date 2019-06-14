@@ -177,7 +177,6 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 			esoc_mdm_log("Modem not up. Ignoring.\n");
 		if (mdm_drv->mode == CRASH || mdm_drv->mode != RUN)
 			return;
-		mdm_drv->mode = CRASH;
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
 		break;
 	case ESOC_REQ_ENG_ON:
@@ -199,7 +198,9 @@ static void mdm_ssr_fn(struct work_struct *work)
 
 	mdm_wait_for_status_low(mdm, false);
 
-	esoc_mdm_log("Starting SSR work\n");
+	esoc_mdm_log("Starting SSR work and setting crash state\n");
+	mdm_drv->mode = CRASH;
+
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
 	 */
