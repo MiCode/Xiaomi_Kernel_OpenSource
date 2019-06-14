@@ -308,7 +308,8 @@ static DECLARE_WAIT_QUEUE_HEAD(cpuset_attach_wq);
 static inline bool is_in_v2_mode(void)
 {
 	return cgroup_subsys_on_dfl(cpuset_cgrp_subsys) ||
-	      (cpuset_cgrp_subsys.root->flags & CGRP_ROOT_CPUSET_V2_MODE);
+	      (cpuset_cgrp_subsys.root->flags & CGRP_ROOT_CPUSET_V2_MODE) ||
+		true;
 }
 
 /*
