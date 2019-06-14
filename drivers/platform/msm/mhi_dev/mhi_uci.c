@@ -87,6 +87,8 @@ struct chan_attr {
 	bool wr_cmpl;
 	/* Uevent broadcast of channel state */
 	bool state_bcast;
+	/* Skip node creation if not needed */
+	bool skip_node;
 	/* Number of write request structs to allocate */
 	u32 num_wr_reqs;
 
@@ -220,6 +222,29 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		true
 	},
 	{
+		MHI_CLIENT_DCI_OUT,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_OUT,
+		NULL,
+		NULL,
+		NULL,
+		false,
+		true
+	},
+	{
+		MHI_CLIENT_DCI_IN,
+		TRB_MAX_DATA_SIZE,
+		MAX_NR_TRBS_PER_CHAN,
+		MHI_DIR_IN,
+		NULL,
+		NULL,
+		NULL,
+		false,
+		false,
+		true
+	},
+	{
 		MHI_CLIENT_DUN_OUT,
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
@@ -235,6 +260,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		NULL,
 		NULL,
 		NULL,
+		false,
 		false,
 		false,
 		50
@@ -1835,7 +1861,8 @@ int mhi_uci_init(void)
 		 * this client's channels is called by the MHI driver,
 		 * if one is registered.
 		 */
-		if (mhi_client->in_chan_attr->chan_state_cb)
+		if (mhi_client->in_chan_attr->chan_state_cb ||
+				mhi_client->in_chan_attr->skip_node)
 			continue;
 		ret_val = uci_device_create(mhi_client);
 		if (ret_val)
