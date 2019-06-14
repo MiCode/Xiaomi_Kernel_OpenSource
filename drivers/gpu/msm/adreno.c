@@ -834,7 +834,10 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	 */
 
 	adreno_dev->gmem_size = adreno_dev->gpucore->gmem_size;
-	adreno_dev->uche_gmem_base = ALIGN(adreno_dev->gmem_size, SZ_4K);
+
+	/* UCHE to GMEM base address requires 1MB alignment */
+	adreno_dev->uche_gmem_base = ALIGN(adreno_dev->gmem_size, SZ_1M);
+
 	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
 	 * Make all offsets that are not initialized to ADRENO_REG_UNUSED
@@ -1378,6 +1381,13 @@ static int adreno_probe(struct platform_device *pdev)
 
 	/* Default to 4K alignment (in other words, no additional padding) */
 	device->mmu.va_padding = PAGE_SIZE;
+
+	/*
+	 * SVM start va can be calculated based on UCHE GMEM size.
+	 * UCHE_GMEM_MAX < (SP LOCAL & PRIVATE) < MMU SVA
+	 */
+	device->mmu.svm_base32 = KGSL_IOMMU_SVM_BASE32 +
+		((ALIGN(adreno_dev->gmem_size, SZ_1M) - SZ_1M) << 1);
 
 	if (adreno_dev->gpucore->va_padding) {
 		device->mmu.features |= KGSL_MMU_PAD_VA;
