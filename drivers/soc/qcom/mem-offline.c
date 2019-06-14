@@ -56,6 +56,8 @@ enum memory_states {
 	MAX_STATE,
 };
 
+static enum memory_states *mem_hw_state;
+
 static struct mem_offline_mailbox {
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
@@ -184,6 +186,29 @@ static int send_msg(struct memory_notify *mn, bool online)
 		return aop_send_msg(__pfn_to_phys(start), online);
 }
 
+static int mem_change_refresh_state(struct memory_notify *mn,
+				    enum memory_states state)
+{
+	int start = SECTION_ALIGN_DOWN(mn->start_pfn);
+	unsigned long sec_nr = pfn_to_section_nr(start);
+	bool online = (state == MEMORY_ONLINE) ? true : false;
+	unsigned long idx = (sec_nr - start_section_nr) / sections_per_block;
+	int ret;
+
+	if (mem_hw_state[idx] == state) {
+		/* we shouldn't be getting this request */
+		pr_warn("mem-offline: hardware state of mem%d block already in %s state. Ignoring refresh state change request\n",
+				sec_nr, online ? "online" : "offline");
+		return 0;
+	}
+	ret = send_msg(mn, online);
+	if (ret)
+		return -EINVAL;
+	mem_hw_state[idx] = state;
+
+	return 0;
+}
+
 static int mem_event_callback(struct notifier_block *self,
 				unsigned long action, void *arg)
 {
@@ -223,10 +248,12 @@ static int mem_event_callback(struct notifier_block *self,
 			   idx) / sections_per_block].fail_count;
 		cur = ktime_get();
 
-		if (send_msg(mn, true))
+		if (mem_change_refresh_state(mn, MEMORY_ONLINE)) {
 			pr_err("PASR: %s online request addr:0x%llx failed\n",
 			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
+			return NOTIFY_BAD;
+		}
 		if (!debug_pagealloc_enabled()) {
 			/* Create kernel page-tables */
 			create_pgtable_mapping(start_addr, end_addr);
@@ -252,10 +279,15 @@ static int mem_event_callback(struct notifier_block *self,
 			/* Clear kernel page-tables */
 			clear_pgtable_mapping(start_addr, end_addr);
 		}
-		if (send_msg(mn, false))
+		if (mem_change_refresh_state(mn, MEMORY_OFFLINE)) {
 			pr_err("PASR: %s offline request addr:0x%llx failed\n",
 			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
+			/*
+			 * Notifying that something went bad at this stage won't
+			 * help since this is the last stage of memory hotplug.
+			 */
+		}
 
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
@@ -266,7 +298,7 @@ static int mem_event_callback(struct notifier_block *self,
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%lx end = 0x%lx",
 				start_addr, end_addr);
-		if (send_msg(mn, false))
+		if (mem_change_refresh_state(mn, MEMORY_OFFLINE))
 			pr_err("PASR: %s online request addr:0x%llx failed\n",
 			       is_rpm_controller ? "RPM" : "AOP",
 			       __pfn_to_phys(start));
@@ -401,9 +433,6 @@ static struct attribute_group mem_attr_group = {
 
 static int mem_sysfs_init(void)
 {
-	unsigned int total_blks = (end_section_nr - start_section_nr + 1) /
-							sections_per_block;
-
 	if (start_section_nr == end_section_nr)
 		return -EINVAL;
 
@@ -413,11 +442,6 @@ static int mem_sysfs_init(void)
 
 	if (sysfs_create_group(kobj, &mem_attr_group))
 		kobject_put(kobj);
-
-	mem_info = kzalloc(sizeof(*mem_info) * total_blks * MAX_STATE,
-								GFP_KERNEL);
-	if (!mem_info)
-		return -ENOMEM;
 
 	return 0;
 }
@@ -470,7 +494,8 @@ static struct notifier_block hotplug_memory_callback_nb = {
 
 static int mem_offline_driver_probe(struct platform_device *pdev)
 {
-	int ret;
+	unsigned int total_blks;
+	int ret, i;
 
 	if (mem_parse_dt(pdev))
 		return -ENODEV;
@@ -482,16 +507,46 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 	if (ret > 0)
 		pr_err("mem-offline: !!ERROR!! Auto onlining some memory blocks failed. System could run with less RAM\n");
 
-	if (mem_sysfs_init())
-		return -ENODEV;
+	total_blks = (end_section_nr - start_section_nr + 1) /
+			sections_per_block;
+	mem_info = kcalloc(total_blks * MAX_STATE, sizeof(*mem_info),
+			   GFP_KERNEL);
+	if (!mem_info)
+		return -ENOMEM;
+
+	mem_hw_state = kcalloc(total_blks, sizeof(*mem_hw_state), GFP_KERNEL);
+	if (!mem_hw_state) {
+		ret = -ENOMEM;
+		goto err_free_mem_info;
+	}
+
+	/* we assume that hardware state of mem blocks are online after boot */
+	for (i = 0; i < total_blks; i++)
+		mem_hw_state[i] = MEMORY_ONLINE;
+
+	if (mem_sysfs_init()) {
+		ret = -ENODEV;
+		goto err_free_mem_hw_state;
+	}
 
 	if (register_hotmemory_notifier(&hotplug_memory_callback_nb)) {
 		pr_err("mem-offline: Registering memory hotplug notifier failed\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_sysfs_remove_group;
 	}
 	pr_info("mem-offline: Added memory blocks ranging from mem%lu - mem%lu\n",
 			start_section_nr, end_section_nr);
+
 	return 0;
+
+err_sysfs_remove_group:
+	sysfs_remove_group(kobj, &mem_attr_group);
+	kobject_put(kobj);
+err_free_mem_hw_state:
+	kfree(mem_hw_state);
+err_free_mem_info:
+	kfree(mem_info);
+	return ret;
 }
 
 static const struct of_device_id mem_offline_match_table[] = {
