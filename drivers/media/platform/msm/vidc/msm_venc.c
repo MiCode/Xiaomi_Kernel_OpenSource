@@ -1607,6 +1607,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL,
 				temp_ctrl->val);
 		pdata = &profile_level;
+		inst->profile = profile_level.profile;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE);
