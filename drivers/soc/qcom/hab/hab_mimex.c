@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,15 +31,14 @@ static int hab_export_ack_find(struct uhab_context *ctx,
 	struct hab_export_ack *expect_ack, struct virtual_channel *vchan)
 {
 	int ret = 0;
-	struct hab_export_ack_recvd *ack_recvd, *tmp;
+	struct hab_export_ack_recvd *ack_recvd = NULL, *tmp = NULL;
 
 	spin_lock_bh(&ctx->expq_lock);
 
 	list_for_each_entry_safe(ack_recvd, tmp, &ctx->exp_rxq, node) {
-		if ((ack_recvd->ack.export_id == expect_ack->export_id &&
+		if (ack_recvd->ack.export_id == expect_ack->export_id &&
 			ack_recvd->ack.vcid_local == expect_ack->vcid_local &&
-			ack_recvd->ack.vcid_remote == expect_ack->vcid_remote)
-			|| vchan->otherend_closed) {
+			ack_recvd->ack.vcid_remote == expect_ack->vcid_remote) {
 			list_del(&ack_recvd->node);
 			kfree(ack_recvd);
 			ret = 1;
@@ -52,6 +51,12 @@ static int hab_export_ack_find(struct uhab_context *ctx,
 		}
 	}
 
+	if (!ret && vchan->otherend_closed) {
+		pr_info("no expected ack, but vchan %x is remotely closed\n",
+			vchan->id);
+		ret = 1;
+	}
+
 	spin_unlock_bh(&ctx->expq_lock);
 
 	return ret;
@@ -60,7 +65,7 @@ static int hab_export_ack_find(struct uhab_context *ctx,
 static int hab_export_ack_wait(struct uhab_context *ctx,
 	struct hab_export_ack *expect_ack, struct virtual_channel *vchan)
 {
-	int ret;
+	int ret = 0;
 
 	ret = wait_event_interruptible_timeout(ctx->exp_wq,
 		hab_export_ack_find(ctx, expect_ack, vchan),
@@ -83,8 +88,8 @@ static struct export_desc *habmem_add_export(struct virtual_channel *vchan,
 		int sizebytes,
 		uint32_t flags)
 {
-	struct uhab_context *ctx;
-	struct export_desc *exp;
+	struct uhab_context *ctx = NULL;
+	struct export_desc *exp = NULL;
 
 	if (!vchan || !sizebytes)
 		return NULL;
@@ -112,7 +117,7 @@ static struct export_desc *habmem_add_export(struct virtual_channel *vchan,
 	ctx = vchan->ctx;
 	write_lock(&ctx->exp_lock);
 	ctx->export_total++;
-	list_add_tail(&exp->node, &ctx->exp_whse);
+	list_add_tail((struct list_head *)&exp->node, &ctx->exp_whse);
 	write_unlock(&ctx->exp_lock);
 
 	return exp;
@@ -120,8 +125,8 @@ static struct export_desc *habmem_add_export(struct virtual_channel *vchan,
 
 void habmem_remove_export(struct export_desc *exp)
 {
-	struct physical_channel *pchan;
-	struct uhab_context *ctx;
+	struct physical_channel *pchan = NULL;
+	struct uhab_context *ctx = NULL;
 
 	if (!exp || !exp->ctx || !exp->pchan) {
 		if (exp)
@@ -146,7 +151,7 @@ void habmem_remove_export(struct export_desc *exp)
 
 static int compress_pfns(void **pfns, int npages, unsigned int *data_size)
 {
-	int i, j = 0;
+	int i = 0, j = 0;
 	struct grantable *item = (struct grantable *)*pfns;
 	int region_size = 1;
 	struct compressed_pfns *new_table =
@@ -162,8 +167,8 @@ static int compress_pfns(void **pfns, int npages, unsigned int *data_size)
 			region_size++; /* continuous pfn */
 		} else {
 			new_table->region[j].size  = region_size;
-			new_table->region[j].space = item[i].pfn -
-							item[i-1].pfn - 1;
+			new_table->region[j].space = (int)(item[i].pfn -
+							item[i-1].pfn - 1);
 			j++;
 			region_size = 1;
 		}
@@ -173,8 +178,8 @@ static int compress_pfns(void **pfns, int npages, unsigned int *data_size)
 	new_table->nregions = j+1;
 	vfree(*pfns);
 
-	*data_size = sizeof(struct compressed_pfns) +
-		sizeof(struct region)*new_table->nregions;
+	*data_size = (int)(sizeof(struct compressed_pfns) +
+		sizeof(struct region)*new_table->nregions);
 	*pfns = new_table;
 	return 0;
 }
@@ -191,9 +196,9 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 		int nunits,
 		uint32_t flags,
 		uint32_t *export_id) {
-	int ret;
-	struct export_desc *exp;
-	uint32_t sizebytes = sizeof(*exp) + payload_size;
+	int ret = 0;
+	struct export_desc *exp = NULL;
+	uint32_t sizebytes = (uint32_t)(sizeof(*exp) + payload_size);
 	struct hab_export_ack expected_ack = {0};
 	struct hab_header header = HAB_HEADER_INITIALIZER;
 
@@ -239,8 +244,8 @@ int hab_mem_export(struct uhab_context *ctx,
 	void *pdata_exp = NULL;
 	unsigned int pdata_size = 0;
 	uint32_t export_id = 0;
-	struct virtual_channel *vchan;
-	int page_count;
+	struct virtual_channel *vchan = NULL;
+	int page_count = 0;
 	int compressed = 0;
 
 	if (!ctx || !param || !param->buffer)
@@ -266,7 +271,7 @@ int hab_mem_export(struct uhab_context *ctx,
 			vchan->pchan->dom_id,
 			pdata_exp,
 			&compressed,
-			&pdata_size);
+			(int *)&pdata_size);
 	} else {
 		ret = habmem_hyp_grant_user((unsigned long)param->buffer,
 			page_count,
@@ -274,7 +279,7 @@ int hab_mem_export(struct uhab_context *ctx,
 			vchan->pchan->dom_id,
 			pdata_exp,
 			&compressed,
-			&pdata_size);
+			(int *)&pdata_size);
 	}
 	if (ret < 0) {
 		pr_err("habmem_hyp_grant vc %x failed size=%d ret=%d\n",
@@ -306,9 +311,10 @@ int hab_mem_unexport(struct uhab_context *ctx,
 		int kernel)
 {
 	int ret = 0, found = 0;
-	struct export_desc *exp, *tmp;
-	struct virtual_channel *vchan;
+	struct export_desc *exp = NULL, *tmp = NULL;
+	struct virtual_channel *vchan = NULL;
 
+	(void)kernel;
 	if (!ctx || !param)
 		return -EINVAL;
 
@@ -322,8 +328,9 @@ int hab_mem_unexport(struct uhab_context *ctx,
 	write_lock(&ctx->exp_lock);
 	list_for_each_entry_safe(exp, tmp, &ctx->exp_whse, node) {
 		if (param->exportid == exp->export_id &&
-			vchan->pchan == exp->pchan) {
-			list_del(&exp->node);
+			vchan->pchan == exp->pchan &&
+			param->vcid == exp->vcid_local) {
+			list_del((struct list_head *)&exp->node);
 			found = 1;
 			break;
 		}
@@ -355,7 +362,7 @@ int hab_mem_import(struct uhab_context *ctx,
 {
 	int ret = 0, found = 0;
 	struct export_desc *exp = NULL;
-	struct virtual_channel *vchan;
+	struct virtual_channel *vchan = NULL;
 
 	if (!ctx || !param)
 		return -EINVAL;
@@ -368,8 +375,9 @@ int hab_mem_import(struct uhab_context *ctx,
 
 	spin_lock_bh(&ctx->imp_lock);
 	list_for_each_entry(exp, &ctx->imp_whse, node) {
-		if ((exp->export_id == param->exportid) &&
-			(exp->pchan == vchan->pchan)) {
+		if (exp->export_id == param->exportid &&
+			exp->pchan == vchan->pchan &&
+			param->vcid == exp->vcid_local) {
 			found = 1;
 			break;
 		}
@@ -414,8 +422,8 @@ int hab_mem_unimport(struct uhab_context *ctx,
 		int kernel)
 {
 	int ret = 0, found = 0;
-	struct export_desc *exp = NULL, *exp_tmp;
-	struct virtual_channel *vchan;
+	struct export_desc *exp = NULL, *exp_tmp = NULL;
+	struct virtual_channel *vchan = NULL;
 
 	if (!ctx || !param)
 		return -EINVAL;
@@ -430,9 +438,10 @@ int hab_mem_unimport(struct uhab_context *ctx,
 	spin_lock_bh(&ctx->imp_lock);
 	list_for_each_entry_safe(exp, exp_tmp, &ctx->imp_whse, node) {
 		if (exp->export_id == param->exportid &&
-			exp->pchan == vchan->pchan) {
+			exp->pchan == vchan->pchan &&
+			param->vcid == exp->vcid_local) {
 			/* same pchan is expected here */
-			list_del(&exp->node);
+			list_del((struct list_head *)&exp->node);
 			ctx->import_total--;
 			found = 1;
 			break;

@@ -20,19 +20,28 @@ int physical_channel_read(struct physical_channel *pchan,
 {
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
 
+	if (!payload || !dev->read_data) {
+		pr_err("invalid parameters %pK %pK offset %d read %zd\n",
+			payload, dev->read_data, dev->read_offset, read_size);
+		return 0;
+	}
+
 	/* size in header is only for payload excluding the header itself */
-	if (dev->read_size < read_size + sizeof(struct hab_header)) {
-		pr_warn("read %zd is less than requested %zd plus header %zd\n",
-			dev->read_size, read_size, sizeof(struct hab_header));
-		read_size = dev->read_size;
+	if (dev->read_size < read_size + sizeof(struct hab_header) +
+		dev->read_offset) {
+		pr_warn("read %zd is less than requested %zd header %zd offset %d\n",
+				dev->read_size, read_size,
+				sizeof(struct hab_header), dev->read_offset);
+		read_size = dev->read_size - dev->read_offset -
+					sizeof(struct hab_header);
 	}
 
 	/* always skip the header */
 	memcpy(payload, (unsigned char *)dev->read_data +
 		sizeof(struct hab_header) + dev->read_offset, read_size);
-	dev->read_offset += read_size;
+	dev->read_offset += (int)read_size;
 
-	return read_size;
+	return (int)read_size;
 }
 
 int physical_channel_send(struct physical_channel *pchan,
@@ -41,8 +50,8 @@ int physical_channel_send(struct physical_channel *pchan,
 {
 	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
-	GIPC_Result result;
-	uint8_t *msg;
+	GIPC_Result result = GIPC_Success;
+	uint8_t *msg = NULL;
 
 	spin_lock_bh(&dev->io_lock);
 
@@ -61,7 +70,7 @@ int physical_channel_send(struct physical_channel *pchan,
 	}
 
 	if (HAB_HEADER_GET_TYPE(*header) == HAB_PAYLOAD_TYPE_PROFILE) {
-		struct timeval tv;
+		struct timeval tv = {0};
 		struct habmm_xing_vm_stat *pstat =
 					(struct habmm_xing_vm_stat *)payload;
 
@@ -90,11 +99,11 @@ int physical_channel_send(struct physical_channel *pchan,
 
 void physical_channel_rx_dispatch(unsigned long physical_channel)
 {
-	struct hab_header header;
+	struct hab_header header = {0};
 	struct physical_channel *pchan =
 		(struct physical_channel *)physical_channel;
 	struct ghs_vdev *dev = (struct ghs_vdev *)pchan->hyp_data;
-	GIPC_Result result;
+	GIPC_Result result = GIPC_Success;
 
 	uint32_t events;
 	unsigned long flags;
@@ -119,7 +128,7 @@ void physical_channel_rx_dispatch(unsigned long physical_channel)
 					dev->read_data,
 					GIPC_RECV_BUFF_SIZE_BYTES,
 					&dev->read_size,
-					&header.id_type_size);
+					(uint32_t *)&header.id_type_size);
 
 			if (result == GIPC_Success || dev->read_size > 0) {
 				 /* handle corrupted msg? */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/delay.h>
+#include <linux/version.h>
 #include <soc/qcom/boot_stats.h>
 
 enum hab_payload_type {
@@ -161,13 +162,13 @@ struct hab_header {
 
 #define HAB_HEADER_SET_SIZE(header, size) \
 	((header).id_type_size = ((header).id_type_size & \
-			(~HAB_HEADER_SIZE_MASK)) | \
+			(uint32_t)(~HAB_HEADER_SIZE_MASK)) |	\
 			(((size) << HAB_HEADER_SIZE_SHIFT) & \
 			HAB_HEADER_SIZE_MASK))
 
 #define HAB_HEADER_SET_TYPE(header, type) \
 	((header).id_type_size = ((header).id_type_size & \
-			(~HAB_HEADER_TYPE_MASK)) | \
+			(uint32_t)(~HAB_HEADER_TYPE_MASK)) | \
 			(((type) << HAB_HEADER_TYPE_SHIFT) & \
 			HAB_HEADER_TYPE_MASK))
 
@@ -192,6 +193,7 @@ struct hab_header {
 #define HAB_HEADER_GET_SESSION_ID(header) ((header).session_id)
 
 #define HAB_HS_TIMEOUT (10*1000*1000)
+#define HAB_HS_INIT_DONE_TIMEOUT (3*1000)
 
 struct physical_channel {
 	struct list_head node;
@@ -265,6 +267,11 @@ struct hab_message {
 	uint32_t data[];
 };
 
+struct hab_forbidden_node {
+	struct list_head node;
+	uint32_t mmid;
+};
+
 /* for all the pchans of same kind */
 struct hab_device {
 	char name[MAX_VMID_NAME_SIZE];
@@ -301,6 +308,9 @@ struct uhab_context {
 
 	struct list_head pending_open; /* sent to remote */
 	int pending_cnt;
+
+	struct list_head forbidden_chans;
+	spinlock_t forbidden_lock;
 
 	rwlock_t ctx_lock;
 	int closing;
@@ -403,6 +413,9 @@ struct export_desc {
 	unsigned char       payload[1];
 } __packed;
 
+int hab_is_forbidden(struct uhab_context *ctx,
+		struct hab_device *dev,
+		uint32_t sub_id);
 int hab_vchan_open(struct uhab_context *ctx,
 		unsigned int mmid, int32_t *vcid,
 		int32_t timeout, uint32_t flags);
@@ -521,7 +534,7 @@ static inline void hab_ctx_get(struct uhab_context *ctx)
 static inline void hab_ctx_put(struct uhab_context *ctx)
 {
 	if (ctx)
-		kref_put(&ctx->refcount, hab_ctx_free);
+		kref_put(&ctx->refcount, &hab_ctx_free);
 }
 
 void hab_send_close_msg(struct virtual_channel *vchan);

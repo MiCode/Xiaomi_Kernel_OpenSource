@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,8 @@ struct virtual_channel *
 hab_vchan_alloc(struct uhab_context *ctx, struct physical_channel *pchan,
 				int openid)
 {
-	int id;
-	struct virtual_channel *vchan;
+	int id = 0;
+	struct virtual_channel *vchan = NULL;
 
 	if (!pchan || !ctx)
 		return NULL;
@@ -73,10 +73,10 @@ hab_vchan_free(struct kref *ref)
 {
 	struct virtual_channel *vchan =
 		container_of(ref, struct virtual_channel, refcount);
-	struct hab_message *message, *msg_tmp;
+	struct hab_message *message = NULL, *msg_tmp = NULL;
 	struct physical_channel *pchan = vchan->pchan;
 	struct uhab_context *ctx = vchan->ctx;
-	struct virtual_channel *vc, *vc_tmp;
+	struct virtual_channel *vc = NULL, *vc_tmp = NULL;
 
 	spin_lock_bh(&vchan->rx_lock);
 	list_for_each_entry_safe(message, msg_tmp, &vchan->rx_list, node) {
@@ -117,7 +117,7 @@ hab_vchan_free(struct kref *ref)
 struct virtual_channel*
 hab_vchan_get(struct physical_channel *pchan, struct hab_header *header)
 {
-	struct virtual_channel *vchan;
+	struct virtual_channel *vchan = NULL;
 	uint32_t vchan_id = HAB_HEADER_GET_ID(*header);
 	uint32_t session_id = HAB_HEADER_GET_SESSION_ID(*header);
 	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
@@ -182,7 +182,7 @@ void hab_vchan_stop(struct virtual_channel *vchan)
 
 void hab_vchans_stop(struct physical_channel *pchan)
 {
-	struct virtual_channel *vchan, *tmp;
+	struct virtual_channel *vchan = NULL, *tmp = NULL;
 
 	read_lock(&pchan->vchans_lock);
 	list_for_each_entry_safe(vchan, tmp, &pchan->vchannels, pnode) {
@@ -200,12 +200,12 @@ void hab_vchan_stop_notify(struct virtual_channel *vchan)
 
 static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
 {
-	int empty;
+	int empty = 0;
 
 	read_lock(&pchan->vchans_lock);
 	empty = list_empty(&pchan->vchannels);
 	if (!empty) {
-		struct virtual_channel *vchan;
+		struct virtual_channel *vchan = NULL;
 		int vcnt = pchan->vcnt;
 
 		list_for_each_entry(vchan, &pchan->vchannels, pnode) {
@@ -230,9 +230,9 @@ static int hab_vchans_per_pchan_empty(struct physical_channel *pchan)
 
 static int hab_vchans_empty(int vmid)
 {
-	int i, empty = 1;
-	struct physical_channel *pchan;
-	struct hab_device *hab_dev;
+	int i = 0, empty = 1;
+	struct physical_channel *pchan = NULL;
+	struct hab_device *hab_dev = NULL;
 
 	for (i = 0; i < hab_driver.ndevices; i++) {
 		hab_dev = &hab_driver.devp[i];
@@ -277,13 +277,15 @@ int hab_vchan_find_domid(struct virtual_channel *vchan)
 void hab_vchan_put(struct virtual_channel *vchan)
 {
 	if (vchan)
-		kref_put(&vchan->refcount, hab_vchan_free);
+		kref_put(&vchan->refcount, &hab_vchan_free);
 }
 
 int hab_vchan_query(struct uhab_context *ctx, int32_t vcid, uint64_t *ids,
 			   char *names, size_t name_size, uint32_t flags)
 {
-	struct virtual_channel *vchan;
+	struct virtual_channel *vchan = NULL;
+
+	(void)flags;
 
 	vchan = hab_get_vchan_fromvcid(vcid, ctx, 1);
 	if (!vchan)

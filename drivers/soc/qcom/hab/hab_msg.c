@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 
 static int hab_rx_queue_empty(struct virtual_channel *vchan)
 {
-	int ret;
+	int ret = 0;
 
 	spin_lock_bh(&vchan->rx_lock);
 	ret = list_empty(&vchan->rx_list);
@@ -25,11 +25,11 @@ static int hab_rx_queue_empty(struct virtual_channel *vchan)
 static struct hab_message*
 hab_msg_alloc(struct physical_channel *pchan, size_t sizebytes)
 {
-	struct hab_message *message;
+	struct hab_message *message = NULL;
 
 	if (sizebytes > HAB_HEADER_SIZE_MASK) {
-		pr_err("pchan %s send size too large %zd\n",
-			pchan->name, sizebytes);
+		pr_err("pchan %s send size too large %zd header %zd\n",
+			pchan->name, sizebytes, sizeof(*message));
 		return NULL;
 	}
 
@@ -81,16 +81,16 @@ hab_msg_dequeue(struct virtual_channel *vchan, struct hab_message **msg,
 		message = list_first_entry(&vchan->rx_list,
 				struct hab_message, node);
 		if (message) {
-			if (*rsize >= message->sizebytes) {
+			if (*rsize >= (int)message->sizebytes) {
 				/* msg can be safely retrieved in full */
 				list_del(&message->node);
 				ret = 0;
-				*rsize = message->sizebytes;
+				*rsize = (int)message->sizebytes;
 			} else {
 				pr_err("vcid %x rcv buf too small %d < %zd\n",
 					   vchan->id, *rsize,
 					   message->sizebytes);
-				*rsize = message->sizebytes;
+				*rsize = (int)message->sizebytes;
 				message = NULL;
 				ret = -EOVERFLOW; /* come back again */
 			}
@@ -121,7 +121,7 @@ static int hab_export_enqueue(struct virtual_channel *vchan,
 	struct uhab_context *ctx = vchan->ctx;
 
 	spin_lock_bh(&ctx->imp_lock);
-	list_add_tail(&exp->node, &ctx->imp_whse);
+	list_add_tail((struct list_head *)&exp->node, &ctx->imp_whse);
 	ctx->import_total++;
 	spin_unlock_bh(&ctx->imp_lock);
 
@@ -139,7 +139,7 @@ static int hab_send_export_ack(struct virtual_channel *vchan,
 	};
 	struct hab_header header = HAB_HEADER_INITIALIZER;
 
-	HAB_HEADER_SET_SIZE(header, sizeof(exp_ack));
+	HAB_HEADER_SET_SIZE(header, (uint32_t)sizeof(exp_ack));
 	HAB_HEADER_SET_TYPE(header, HAB_PAYLOAD_TYPE_EXPORT_ACK);
 	HAB_HEADER_SET_ID(header, exp->vcid_local);
 	HAB_HEADER_SET_SESSION_ID(header, vchan->session_id);
@@ -159,9 +159,9 @@ static int hab_receive_create_export_ack(struct physical_channel *pchan,
 		pr_err("exp ack size %zu is not as arrived %zu\n",
 				  sizeof(ack_recvd->ack), sizebytes);
 
-	if (sizebytes > HAB_HEADER_SIZE_MASK) {
-		pr_err("pchan %s read size too large %zd\n",
-			pchan->name, sizebytes);
+	if (sizebytes > sizeof(ack_recvd->ack)) {
+		pr_err("pchan %s read size too large %zd %zd\n",
+			pchan->name, sizebytes, sizeof(ack_recvd->ack));
 		return -EINVAL;
 	}
 
@@ -197,16 +197,16 @@ int hab_msg_recv(struct physical_channel *pchan,
 		struct hab_header *header)
 {
 	int ret = 0;
-	struct hab_message *message;
+	struct hab_message *message = NULL;
 	struct hab_device *dev = pchan->habdev;
 	size_t sizebytes = HAB_HEADER_GET_SIZE(*header);
 	uint32_t payload_type = HAB_HEADER_GET_TYPE(*header);
 	uint32_t vchan_id = HAB_HEADER_GET_ID(*header);
 	uint32_t session_id = HAB_HEADER_GET_SESSION_ID(*header);
 	struct virtual_channel *vchan = NULL;
-	struct export_desc *exp_desc;
-	struct timeval tv;
-	unsigned long long rx_mpm_tv;
+	struct export_desc *exp_desc = NULL, exp_ack = {0};
+	struct timeval tv = {0};
+	unsigned long long rx_mpm_tv = 0;
 
 	/* get the local virtual channel if it isn't an open message */
 	if (payload_type != HAB_PAYLOAD_TYPE_INIT &&
@@ -296,8 +296,8 @@ int hab_msg_recv(struct physical_channel *pchan,
 
 	case HAB_PAYLOAD_TYPE_EXPORT:
 		if (sizebytes > HAB_HEADER_SIZE_MASK) {
-			pr_err("%s exp size too large %zd\n",
-					pchan->name, sizebytes);
+			pr_err("%s exp size too large %zd header %zd\n",
+				pchan->name, sizebytes, sizeof(*exp_desc));
 			break;
 		}
 
@@ -322,9 +322,12 @@ int hab_msg_recv(struct physical_channel *pchan,
 		exp_desc->domid_remote = pchan->vmid_remote;
 		exp_desc->domid_local = pchan->vmid_local;
 		exp_desc->pchan = pchan;
+		exp_ack = *exp_desc; /* preserve exporter's info for ack */
+		exp_desc->vcid_remote = exp_desc->vcid_local;
+		exp_desc->vcid_local = vchan->id;
 
-		hab_export_enqueue(vchan, exp_desc);
-		hab_send_export_ack(vchan, pchan, exp_desc);
+		hab_export_enqueue(vchan, exp_desc); /* for local use */
+		hab_send_export_ack(vchan, pchan, &exp_ack); /* ack exporter */
 		break;
 
 	case HAB_PAYLOAD_TYPE_EXPORT_ACK:
