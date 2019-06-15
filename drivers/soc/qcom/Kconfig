@@ -713,6 +713,15 @@ config QTI_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a sysfs node.
 
+config QTI_DDR_STATS_LOG
+	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
+	depends on QCOM_RPMH
+	help
+	  This option enables a driver which reads DDR statistical information
+	  from AOP shared memory location such as DDR low power modes and DDR
+	  frequency residency and counts. The driver outputs information using
+	  sysfs.
+
 config MSM_JTAGV8
 	bool "Debug and ETM trace support across power collapse for ARMv8"
 	default y if CORESIGHT_SOURCE_ETM4X
