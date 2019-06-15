@@ -13,7 +13,6 @@
 
 #include "sdm439-qrd.dtsi"
 #include "sdm429w-pm660.dtsi"
-#include "sdm429w-camera-sensor-spyro.dtsi"
 
 &gpio_key_active {
 	mux {
@@ -66,9 +65,125 @@
 	};
 };
 
+&cam_sensor_rear_standby {
+	/* STANDBY */
+	mux {
+		/delete-property/ pins;
+		pins = "gpio92";
+		function = "gpio";
+	};
+
+	config {
+		/delete-property/ pins;
+		pins = "gpio92";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_standby_sleep {
+	/* STANDBY */
+	mux {
+		/delete-property/ pins;
+		pins = "gpio92";
+		function = "gpio";
+	};
+
+	config {
+		/delete-property/ pins;
+		pins = "gpio92";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_vana {
+	/* VANA */
+	mux {
+		/delete-property/ pins;
+		pins = "gpio58";
+		function = "gpio";
+	};
+
+	config {
+		/delete-property/ pins;
+		pins = "gpio58";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
+
+&cam_sensor_rear_vana_sleep {
+	/* VANA */
+	mux {
+		/delete-property/ pins;
+		pins = "gpio58";
+		function = "gpio";
+	};
+
+	config {
+		/delete-property/ pins;
+		pins = "gpio58";
+		bias-disable; /* No PULL */
+		drive-strength = <2>; /* 2 MA */
+	};
+};
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
 };
+&soc {
+	/delete-node/ qcom,cci@1b0c000;
+	cci: qcom,cci@1b0c000 {
+		status = "ok";
+		cell-index = <0>;
+		compatible = "qcom,cci";
+		reg = <0x1b0c000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "cci";
+		interrupts = <0 50 0>;
+		interrupt-names = "cci";
+		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
+			<&clock_gcc clk_cci_clk_src>,
+			<&clock_gcc clk_gcc_camss_cci_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_cci_clk>,
+			<&clock_gcc clk_gcc_camss_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_top_ahb_clk>;
+		clock-names = "ispif_ahb_clk", "cci_src_clk",
+			"cci_ahb_clk", "camss_cci_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk";
+		qcom,clock-rates = <61540000 19200000 0 0 0 0>,
+				<61540000 37500000 0 0 0 0>;
+		pinctrl-names = "cci_default", "cci_suspend";
+			pinctrl-0 = <&cci0_active &cci1_active>;
+			pinctrl-1 = <&cci0_suspend &cci1_suspend>;
+		gpios = <&tlmm 29 0>,
+			<&tlmm 30 0>,
+			<&tlmm 31 0>,
+			<&tlmm 32 0>;
+		qcom,gpio-tbl-num = <0 1 2 3>;
+		qcom,gpio-tbl-flags = <1 1 1 1>;
+		qcom,gpio-tbl-label = "CCI_I2C_DATA0",
+						"CCI_I2C_CLK0",
+						"CCI_I2C_DATA1",
+						"CCI_I2C_CLK1";
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			status = "disabled";
+		};
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			status = "disabled";
+		};
+
+		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
+			status = "disabled";
+		};
+	};
+};
+
+#include "sdm429w-camera-sensor-spyro.dtsi"
 
 &i2c_5 {
 	status = "disabled";
