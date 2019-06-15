@@ -802,8 +802,8 @@ void process_diagid_v2_feature_mask(uint32_t diag_id,
 		uint32_t pd_feature_mask)
 {
 	int i = 0;
-	uint32_t diagid_mask_bit = 0;
-	uint32_t feature_id_mask = 0;
+	uint32_t diagid_mask_bit = 0, feature_id_mask = 0;
+	uint8_t hw_accel_type = 0, hw_accel_ver = 0;
 
 	if (!pd_feature_mask)
 		return;
@@ -814,6 +814,10 @@ void process_diagid_v2_feature_mask(uint32_t diag_id,
 		if (feature_id_mask)
 			driver->diagid_v2_feature[i] |= diagid_mask_bit;
 		feature_id_mask = 0;
+
+		diag_map_index_to_hw_accel(i, &hw_accel_type, &hw_accel_ver);
+		if (hw_accel_type && hw_accel_ver)
+			driver->diag_hw_accel[i] = 1;
 	}
 	mutex_unlock(&driver->diagid_v2_mutex);
 }
@@ -838,7 +842,7 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		return;
 
 	diagid_v2_feature_mask =
-		driver->feature[peripheral].diagid_v2_feature_mask;
+		P_FMASK_DIAGID_V2(peripheral);
 
 	if (len < sizeof(struct diag_ctrl_diagid_header)) {
 		pr_err("diag: Invalid control pkt len(%d) from peripheral: %d to parse packet header\n",
@@ -1497,6 +1501,66 @@ fail:
 	return err;
 }
 
+void diag_send_hw_accel_status(uint8_t peripheral)
+{
+	struct diag_hw_accel_cmd_req_t req_params;
+	struct diagfwd_info *fwd_info = NULL;
+	struct diag_id_info *diagid_struct = NULL;
+	uint32_t diagid_mask_bit = 0;
+	uint8_t hw_accel_type = 0, hw_accel_ver = 0;
+	int feature = 0, pd = 0;
+
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"Send HW Acceleration Enabled status to peripheral: %d\n",
+		peripheral);
+
+	fwd_info = &peripheral_info[TYPE_CNTL][peripheral];
+	if (!fwd_info) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"Error return for peripheral: %d\n", peripheral);
+		return;
+	}
+
+	for (feature = 0; feature < DIAGID_V2_FEATURE_COUNT - 1; feature++) {
+		for (pd = 0; pd <= MAX_PERIPHERAL_UPD; pd++) {
+			if (!pd) {
+				diagid_struct = &fwd_info->root_diag_id;
+				diagid_mask_bit =
+					1 << (diagid_struct->diagid_val - 1);
+			}
+			if (!diagid_mask_bit)
+				continue;
+			if (driver->diagid_v2_feature[feature] &
+				driver->diagid_v2_status[feature] &
+				diagid_mask_bit) {
+				diag_map_index_to_hw_accel(feature,
+					&hw_accel_type, &hw_accel_ver);
+				req_params.header.cmd_code =
+					DIAG_CMD_DIAG_SUBSYS;
+				req_params.header.subsys_id =
+					DIAG_SS_DIAG;
+				req_params.header.subsys_cmd_code =
+					DIAG_HW_ACCEL_CMD;
+				req_params.version = 1;
+				req_params.reserved = 0;
+				req_params.operation = DIAG_HW_ACCEL_OP_ENABLE;
+				req_params.op_req.hw_accel_type = hw_accel_type;
+				req_params.op_req.hw_accel_ver = hw_accel_ver;
+				req_params.op_req.diagid_mask = diagid_mask_bit;
+				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+					"Sending passthru packet for diag_id: %d\n",
+					diagid_struct->diagid_val);
+				if (P_FMASK_DIAGID_V2(peripheral))
+					diag_send_passthru_ctrl_pkt(
+						&req_params);
+			}
+			diagid_struct = &fwd_info->upd_diag_id[pd];
+			diagid_mask_bit = 0;
+			diagid_mask_bit = 1 << (diagid_struct->diagid_val - 1);
+		}
+	}
+}
+
 int diag_send_stm_state(uint8_t peripheral, uint8_t stm_control_data)
 {
 	struct diag_ctrl_msg_stm stm_msg;
@@ -1747,7 +1811,7 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 	return err;
 }
 
-int diag_send_passtru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
+int diag_send_passthru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
 {
 	struct diag_ctrl_passthru ctrl_pkt;
 	int f_index = -1, err = 0;
@@ -1805,6 +1869,8 @@ int diag_send_passtru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
 		sizeof(ctrl_pkt.diagid_mask) + sizeof(ctrl_pkt.hw_accel_type) +
 		sizeof(ctrl_pkt.hw_accel_ver) + sizeof(ctrl_pkt.control_data);
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
+		if (!P_FMASK_DIAGID_V2(i))
+			continue;
 		err = diagfwd_write(i, TYPE_CNTL, &ctrl_pkt, sizeof(ctrl_pkt));
 		if (err && err != -ENODEV) {
 			pr_err("diag: Unable to send PASSTHRU ctrl packet to peripheral %d, err: %d\n",

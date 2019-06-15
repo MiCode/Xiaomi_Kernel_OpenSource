@@ -1043,6 +1043,7 @@ static void diag_init_apps_feature(void)
 	driver->apps_feature = 0;
 
 	SET_APPS_FEATURE(driver, F_DIAG_EVENT_REPORT);
+	SET_APPS_FEATURE(driver, F_DIAG_HW_ACCELERATION);
 }
 
 void diag_send_error_rsp(unsigned char *buf, int len,

@@ -396,6 +396,7 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 int diag_send_real_time_update(uint8_t peripheral, int real_time);
 void diag_map_pd_to_diagid(uint8_t pd, uint8_t *diag_id, int *peripheral);
 int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params);
+void diag_send_hw_accel_status(uint8_t peripheral);
 void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);
 void diag_real_time_work_fn(struct work_struct *work);
@@ -406,5 +407,5 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 		    uint8_t diag_id, struct diag_buffering_mode_t *params);
 int diag_send_buffering_wm_values(uint8_t peripheral,
 		    uint8_t diag_id, struct diag_buffering_mode_t *params);
-int diag_send_passtru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params);
+int diag_send_passthru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params);
 #endif
