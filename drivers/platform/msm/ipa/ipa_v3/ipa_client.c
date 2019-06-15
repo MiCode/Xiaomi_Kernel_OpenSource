@@ -1534,6 +1534,8 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
+	enum ipa_client_type client_type;
+	struct IpaHwOffloadStatsAllocCmdData_t *gsi_info;
 
 	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes  ||
@@ -1543,9 +1545,9 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
-
+	client_type = ipa3_get_client_mapping(clnt_hdl);
 	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	gsi_res = gsi_start_channel(ep->gsi_chan_hdl);
 	if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -1553,8 +1555,53 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 		goto start_chan_fail;
 	}
 
+	/* start uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		switch (client_type) {
+		case IPA_CLIENT_MHI_PRIME_TETH_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[0].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_TETH_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[1].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[1].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[2].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[2].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_MHI_PRIME_RMNET_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_MHIP];
+			gsi_info->ch_id_info[3].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[3].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_PROD:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[0].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[0].dir = DIR_PRODUCER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		case IPA_CLIENT_USB_CONS:
+			gsi_info = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_USB];
+			gsi_info->ch_id_info[0].ch_id = ep->gsi_chan_hdl;
+			gsi_info->ch_id_info[0].dir = DIR_CONSUMER;
+			ipa3_uc_debug_stats_alloc(*gsi_info);
+			break;
+		default:
+			IPADBG("client_type %d not supported\n",
+				client_type);
+		}
+	}
+
 	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+		IPA_ACTIVE_CLIENTS_DEC_EP(client_type);
 
 	IPADBG("exit\n");
 	return 0;
