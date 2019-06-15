@@ -166,6 +166,9 @@ static int mem_event_callback(struct notifier_block *self,
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
 				start_addr, end_addr);
+		if (aop_send_msg(__pfn_to_phys(start), false))
+			pr_err("PASR: AOP online request addr:0x%llx failed\n",
+			       __pfn_to_phys(start));
 		break;
 	default:
 		break;
