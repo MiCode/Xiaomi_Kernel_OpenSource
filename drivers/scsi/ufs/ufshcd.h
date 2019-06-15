@@ -766,8 +766,13 @@ enum ufshcd_card_state {
  * @card_detect_nb: card detector notifier registered with @extcon
  * @card_detect_work: work to exectute the card detect function
  * @card_state: card state event, enum ufshcd_card_state defines possible states
- * @card_removal_in_progress: to track card removal progress
+ * @card_removal_in_prog: flag to track card removal progress
  * @pm_notify: used to register for PM events
+ * @sdev_sema: semaphore to protect scsi devices from being removed
+ * @card_mutex: mutex to serialize ON/OFF sequences of hba vregs and clocks
+ * @card_rpm_paired: indicates whether runtime PM events are paired after card
+ *  detection is finished
+ * @card_detect_disabled: to enable/disable card detect
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -1003,10 +1008,14 @@ struct ufs_hba {
 
 	struct extcon_dev *extcon;
 	struct notifier_block card_detect_nb;
-	struct work_struct card_detect_work;
+	struct delayed_work card_detect_work;
 	atomic_t card_state;
-	int card_removal_in_progress;
+	unsigned long card_removal_in_prog;
 	struct notifier_block pm_notify;
+	struct semaphore sdev_sema;
+	struct mutex card_mutex;
+	bool card_rpm_paired;
+	bool card_detect_disabled;
 
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
@@ -1074,6 +1083,21 @@ struct ufs_hba {
 	bool phy_init_g4;
 	bool force_g4;
 };
+
+static inline void ufshcd_set_card_removal_ongoing(struct ufs_hba *hba)
+{
+	set_bit(0, &hba->card_removal_in_prog);
+}
+
+static inline void ufshcd_clear_card_removal_ongoing(struct ufs_hba *hba)
+{
+	clear_bit(0, &hba->card_removal_in_prog);
+}
+
+static inline bool ufshcd_is_card_removal_ongoing(struct ufs_hba *hba)
+{
+	return !!(test_bit(0, &hba->card_removal_in_prog));
+}
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)
 {
