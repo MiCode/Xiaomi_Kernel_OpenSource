@@ -4377,6 +4377,18 @@ void msm_vidc_batch_handler(struct work_struct *work)
 	struct msm_vidc_inst *inst;
 
 	inst = container_of(work, struct msm_vidc_inst, batch_work);
+
+	inst = get_inst(get_vidc_core(MSM_VIDC_CORE_VENUS), inst);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "%s: invalid state\n", __func__);
+		goto exit;
+	}
+
 	rc = msm_comm_scale_clocks_and_bus(inst);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
@@ -4389,6 +4401,9 @@ void msm_vidc_batch_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "%s: Failed batch-qbuf to hfi: %d\n",
 			__func__, rc);
 	}
+
+exit:
+	put_inst(inst);
 }
 
 static int msm_comm_qbuf_in_rbr(struct msm_vidc_inst *inst,

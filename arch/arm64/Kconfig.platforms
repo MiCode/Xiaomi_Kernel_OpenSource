@@ -171,6 +171,7 @@ config ARCH_ATOLL
 	bool "Enable Support for Qualcomm Technologies, Inc. ATOLL"
 	depends on ARCH_QCOM
 	select COMMON_CLK_QCOM
+	select QTI_PDC_ATOLL
 	help
 	  This enables support for the ATOLL chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.

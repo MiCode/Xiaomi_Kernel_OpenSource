@@ -87,6 +87,8 @@ struct bus_vectors {
  * @num_usecases:	One usecase to vote for both QUPv3 clock and DDR paths.
  * @pdata:		To register our client handle with the ICB driver.
  * @update:		Usecase index for icb voting.
+ * @vote_for_bw:	To check if we have to vote for BW or BCM threashold
+			in ab/ib ICB voting.
  */
 struct geni_se_device {
 	struct device *dev;
@@ -122,6 +124,7 @@ struct geni_se_device {
 	int num_usecases;
 	struct msm_bus_scale_pdata *pdata;
 	int update;
+	bool vote_for_bw;
 };
 
 /* Offset of QUPV3 Hardware Version Register */
@@ -741,9 +744,11 @@ static int geni_se_rmv_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[new_update].vectors[0].ab  =
-			CONV_TO_BW(geni_se_dev->cur_ab);
+			geni_se_dev->vote_for_bw ?
+			CONV_TO_BW(geni_se_dev->cur_ab) : geni_se_dev->cur_ab;
 		geni_se_dev->pdata->usecase[new_update].vectors[0].ib  =
-			CONV_TO_BW(geni_se_dev->cur_ib);
+			geni_se_dev->vote_for_bw ?
+			CONV_TO_BW(geni_se_dev->cur_ib) : geni_se_dev->cur_ib;
 	}
 
 	if (bus_bw_update && geni_se_dev->num_paths != 2)
@@ -892,9 +897,11 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 
 	if (geni_se_dev->num_paths == 2) {
 		geni_se_dev->pdata->usecase[new_update].vectors[0].ab  =
-			CONV_TO_BW(geni_se_dev->cur_ab);
+			geni_se_dev->vote_for_bw ?
+			CONV_TO_BW(geni_se_dev->cur_ab) : geni_se_dev->cur_ab;
 		geni_se_dev->pdata->usecase[new_update].vectors[0].ib  =
-			CONV_TO_BW(geni_se_dev->cur_ib);
+			geni_se_dev->vote_for_bw ?
+			CONV_TO_BW(geni_se_dev->cur_ib) : geni_se_dev->cur_ib;
 	}
 
 	if (bus_bw_update && geni_se_dev->num_paths != 2)
@@ -1799,6 +1806,8 @@ static int geni_se_probe(struct platform_device *pdev)
 		}
 	}
 
+	geni_se_dev->vote_for_bw = of_property_read_bool(dev->of_node,
+							"qcom,vote-for-bw");
 	geni_se_dev->iommu_s1_bypass = of_property_read_bool(dev->of_node,
 							"qcom,iommu-s1-bypass");
 	geni_se_dev->bus_bw_set = default_bus_bw_set;

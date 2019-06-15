@@ -656,3 +656,21 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	rb->drawctxt_active = drawctxt;
 	return 0;
 }
+
+bool adreno_drawctxt_has_secure(struct kgsl_device *device)
+{
+	struct kgsl_context *context;
+	int id;
+
+	read_lock(&device->context_lock);
+	idr_for_each_entry(&device->context_idr, context, id) {
+		if (context->flags & KGSL_CONTEXT_SECURE) {
+			read_unlock(&device->context_lock);
+			return true;
+		}
+	}
+	read_unlock(&device->context_lock);
+
+	return false;
+}
+

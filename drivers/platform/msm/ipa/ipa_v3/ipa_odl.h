@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@ struct ipa_odl_context {
 	struct odl_state_bit_mask odl_state;
 	bool odl_ctl_msg_wq_flag;
 	struct ipa3_odlstats stats;
+	u32 odl_pm_hdl;
 };
 
 struct ipa3_push_msg_odl {

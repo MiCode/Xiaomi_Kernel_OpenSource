@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,6 +248,8 @@
 #define GCC_USB30_SEC_BCR					27
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				28
 #define GCC_VIDEO_AXIC_CLK_BCR					29
+#define GCC_VIDEO_AXI0_CLK_BCR					30
+#define GCC_VIDEO_AXI1_CLK_BCR					31
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0

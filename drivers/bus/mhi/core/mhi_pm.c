@@ -814,8 +814,8 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->bhi = mhi_cntrl->regs + val;
 
-	/* setup bhie offset */
-	if (mhi_cntrl->fbc_download) {
+	/* setup bhie offset if not set */
+	if (mhi_cntrl->fbc_download && !mhi_cntrl->bhie) {
 		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF, &val);
 		if (ret) {
 			write_unlock_irq(&mhi_cntrl->pm_lock);

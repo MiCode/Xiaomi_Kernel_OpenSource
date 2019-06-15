@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,9 @@
 #include <dt-bindings/clock/qcom,camcc-sm8150.h>
 
 &soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	led_flash_rear: qcom,camera-flash@0 {
 		cell-index = <0>;
 		reg = <0x00 0x00>;
@@ -46,6 +49,9 @@
 };
 
 &cam_cci0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	qcom,cam-res-mgr {
 		compatible = "qcom,cam-res-mgr";
 		status = "ok";
@@ -312,6 +318,8 @@
 };
 
 &cam_cci1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	overlay_actuator_front: qcom,actuator@2 {
 		cell-index = <2>;
 		reg = <0x2>;

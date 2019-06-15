@@ -78,6 +78,7 @@ struct npu_host_ctx {
 	struct npu_device *npu_dev;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
+	int32_t npu_init_cnt;
 	int32_t power_vote_num;
 	struct work_struct irq_work;
 	struct delayed_work fw_deinit_work;

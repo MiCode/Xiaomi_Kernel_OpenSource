@@ -184,17 +184,77 @@ static int qusb_phy_config_vdd(struct qusb_phy *qphy, int high)
 	return ret;
 }
 
-static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
+static int qusb_phy_disable_power(struct qusb_phy *qphy)
 {
 	int ret = 0;
 
 	mutex_lock(&qphy->lock);
 
-	dev_dbg(qphy->phy.dev, "%s:req to turn %s regulators\n",
-			__func__, on ? "on" : "off");
+	dev_dbg(qphy->phy.dev, "%s:req to turn off regulators\n",
+			__func__);
 
-	if (!on)
-		goto disable_vdda33;
+	ret = regulator_disable(qphy->vdda33);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable vdda33:%d\n", ret);
+
+	if (!regulator_is_enabled(qphy->vdda33)) {
+		ret = regulator_set_voltage(qphy->vdda33, 0,
+					QUSB2PHY_3P3_VOL_MAX);
+		if (ret)
+			dev_err(qphy->phy.dev,
+				"Unable to set (0) voltage for vdda33:%d\n",
+					ret);
+
+		ret = regulator_set_load(qphy->vdda33, 0);
+		if (ret < 0)
+			dev_err(qphy->phy.dev,
+					"Unable to set (0) HPM of vdda33\n");
+
+	}
+
+	ret = regulator_disable(qphy->vdda18);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable vdda18:%d\n", ret);
+
+	if (!regulator_is_enabled(qphy->vdda18)) {
+		ret = regulator_set_voltage(qphy->vdda18, 0,
+					QUSB2PHY_1P8_VOL_MAX);
+		if (ret)
+			dev_err(qphy->phy.dev,
+			   "Unable to set (0) voltage for vdda18:%d\n", ret);
+
+		ret = regulator_set_load(qphy->vdda18, 0);
+		if (ret < 0)
+			dev_err(qphy->phy.dev,
+					"Unable to set LPM of vdda18\n");
+	}
+
+	ret = regulator_disable(qphy->vdd);
+	if (ret)
+		dev_err(qphy->phy.dev, "Unable to disable vdd:%d\n", ret);
+
+	if (!regulator_is_enabled(qphy->vdd)) {
+		ret = qusb_phy_config_vdd(qphy, false);
+		if (ret)
+			dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
+						ret);
+	}
+
+	pr_debug("%s(): QUSB PHY's regulators are turned OFF.\n", __func__);
+
+	mutex_unlock(&qphy->lock);
+
+	return ret;
+}
+
+static int qusb_phy_enable_power(struct qusb_phy *qphy)
+{
+	int ret = 0;
+
+	mutex_lock(&qphy->lock);
+
+	dev_dbg(qphy->phy.dev, "%s:req to turn on regulators\n",
+			__func__);
 
 	ret = qusb_phy_config_vdd(qphy, true);
 	if (ret) {
@@ -252,12 +312,8 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 
 	mutex_unlock(&qphy->lock);
-	return ret;
 
-disable_vdda33:
-	ret = regulator_disable(qphy->vdda33);
-	if (ret)
-		dev_err(qphy->phy.dev, "Unable to disable vdda33:%d\n", ret);
+	return ret;
 
 unset_vdd33:
 	ret = regulator_set_voltage(qphy->vdda33, 0, QUSB2PHY_3P3_VOL_MAX);
@@ -298,8 +354,6 @@ unconfig_vdd:
 		dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
 							ret);
 err_vdd:
-	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
-
 	mutex_unlock(&qphy->lock);
 
 	return ret;
@@ -543,7 +597,7 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	qusb_phy_enable_power(qphy, false);
+	qusb_phy_disable_power(qphy);
 
 }
 
@@ -626,7 +680,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + qphy->phy_reg[INTR_CTRL]);
 			qusb_phy_reset(qphy);
 			qusb_phy_enable_clocks(qphy, false);
-			qusb_phy_enable_power(qphy, false);
+			qusb_phy_disable_power(qphy);
 		}
 		qphy->suspended = true;
 	} else {
@@ -658,6 +712,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				wmb();
 			}
 		} else { /* Cable connect case */
+			qusb_phy_enable_power(qphy);
 			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
@@ -699,7 +754,7 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 				__func__, qphy->dpdm_enable);
 
 	if (!qphy->dpdm_enable) {
-		ret = qusb_phy_enable_power(qphy, true);
+		ret = qusb_phy_enable_power(qphy);
 		if (ret < 0) {
 			dev_dbg(qphy->phy.dev,
 				"dpdm regulator enable failed:%d\n", ret);
@@ -721,7 +776,7 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 				__func__, qphy->dpdm_enable);
 
 	if (qphy->dpdm_enable) {
-		ret = qusb_phy_enable_power(qphy, false);
+		ret = qusb_phy_disable_power(qphy);
 		if (ret < 0) {
 			dev_dbg(qphy->phy.dev,
 				"dpdm regulator disable failed:%d\n", ret);
