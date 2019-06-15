@@ -303,7 +303,6 @@ struct icnss_priv {
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
-	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
 	dma_addr_t smmu_iova_ipa_start;
 	size_t smmu_iova_ipa_len;

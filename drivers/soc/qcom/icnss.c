@@ -2156,20 +2156,6 @@ int icnss_get_irq(struct device *dev, int ce_id)
 }
 EXPORT_SYMBOL(icnss_get_irq);
 
-struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev)
-{
-	struct icnss_priv *priv = dev_get_drvdata(dev);
-
-	if (!priv) {
-		icnss_pr_err("Invalid drvdata: dev %pK, data %pK\n",
-			     dev, priv);
-		return NULL;
-	}
-
-	return &priv->smmu_mapping;
-}
-EXPORT_SYMBOL(icnss_smmu_get_mapping);
-
 struct iommu_domain *icnss_smmu_get_domain(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
@@ -3300,7 +3286,6 @@ static int icnss_probe(struct platform_device *pdev)
 	} else {
 		priv->iommu_domain =
 			iommu_get_domain_for_dev(&pdev->dev);
-		priv->smmu_mapping.domain = priv->iommu_domain;
 
 		res = platform_get_resource_byname(pdev,
 						   IORESOURCE_MEM,
@@ -3357,7 +3342,6 @@ out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
 	priv->iommu_domain = NULL;
-	priv->smmu_mapping.domain = NULL;
 out:
 	dev_set_drvdata(dev, NULL);
 
@@ -3385,7 +3369,6 @@ static int icnss_remove(struct platform_device *pdev)
 		destroy_workqueue(penv->event_wq);
 
 	penv->iommu_domain = NULL;
-	penv->smmu_mapping.domain = NULL;
 
 	icnss_hw_power_off(penv);
 
