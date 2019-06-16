@@ -31,7 +31,6 @@ MODULE_PARM_DESC(led_id,
 		 " 60G device led enablement. Set the led ID (0-2) to enable");
 
 #define WIL_WAIT_FOR_SUSPEND_RESUME_COMP 200
-#define WIL_WMI_CALL_GENERAL_TO_MS 100
 #define WIL_WMI_PCP_STOP_TO_MS 5000
 #define WIL_WMI_SPI_SLAVE_RESET_TO_MS 500
 
@@ -2136,7 +2135,8 @@ int wmi_echo(struct wil6210_priv *wil)
 	};
 
 	return wmi_call(wil, WMI_ECHO_CMDID, vif->mid, &cmd, sizeof(cmd),
-			WMI_ECHO_RSP_EVENTID, NULL, 0, 50);
+			WMI_ECHO_RSP_EVENTID, NULL, 0,
+			WIL_WMI_CALL_GENERAL_TO_MS);
 }
 
 int wmi_set_mac_address(struct wil6210_priv *wil, void *addr)
@@ -2195,7 +2195,7 @@ int wmi_led_cfg(struct wil6210_priv *wil, bool enable)
 
 	rc = wmi_call(wil, WMI_LED_CFG_CMDID, vif->mid, &cmd, sizeof(cmd),
 		      WMI_LED_CFG_DONE_EVENTID, &reply, sizeof(reply),
-		      100);
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		goto out;
 
@@ -2357,7 +2357,8 @@ int wmi_get_ssid(struct wil6210_vif *vif, u8 *ssid_len, void *ssid)
 	memset(&reply, 0, sizeof(reply));
 
 	rc = wmi_call(wil, WMI_GET_SSID_CMDID, vif->mid, NULL, 0,
-		      WMI_GET_SSID_EVENTID, &reply, sizeof(reply), 20);
+		      WMI_GET_SSID_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -2394,7 +2395,8 @@ int wmi_get_channel(struct wil6210_priv *wil, int *channel)
 	memset(&reply, 0, sizeof(reply));
 
 	rc = wmi_call(wil, WMI_GET_PCP_CHANNEL_CMDID, vif->mid, NULL, 0,
-		      WMI_GET_PCP_CHANNEL_EVENTID, &reply, sizeof(reply), 20);
+		      WMI_GET_PCP_CHANNEL_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -2490,7 +2492,8 @@ int wmi_stop_discovery(struct wil6210_vif *vif)
 	wil_dbg_wmi(wil, "sending WMI_DISCOVERY_STOP_CMDID\n");
 
 	rc = wmi_call(wil, WMI_DISCOVERY_STOP_CMDID, vif->mid, NULL, 0,
-		      WMI_DISCOVERY_STOPPED_EVENTID, NULL, 0, 100);
+		      WMI_DISCOVERY_STOPPED_EVENTID, NULL, 0,
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 
 	if (rc)
 		wil_err(wil, "Failed to stop discovery\n");
@@ -2636,12 +2639,14 @@ int wmi_rxon(struct wil6210_priv *wil, bool on)
 	if (on) {
 		rc = wmi_call(wil, WMI_START_LISTEN_CMDID, vif->mid, NULL, 0,
 			      WMI_LISTEN_STARTED_EVENTID,
-			      &reply, sizeof(reply), 100);
+			      &reply, sizeof(reply),
+			      WIL_WMI_CALL_GENERAL_TO_MS);
 		if ((rc == 0) && (reply.evt.status != WMI_FW_STATUS_SUCCESS))
 			rc = -EINVAL;
 	} else {
 		rc = wmi_call(wil, WMI_DISCOVERY_STOP_CMDID, vif->mid, NULL, 0,
-			      WMI_DISCOVERY_STOPPED_EVENTID, NULL, 0, 20);
+			      WMI_DISCOVERY_STOPPED_EVENTID, NULL, 0,
+			      WIL_WMI_CALL_GENERAL_TO_MS);
 	}
 
 	return rc;
@@ -2730,7 +2735,8 @@ int wmi_get_temperature(struct wil6210_priv *wil, u32 *t_bb, u32 *t_rf)
 	memset(&reply, 0, sizeof(reply));
 
 	rc = wmi_call(wil, WMI_TEMP_SENSE_CMDID, vif->mid, &cmd, sizeof(cmd),
-		      WMI_TEMP_SENSE_DONE_EVENTID, &reply, sizeof(reply), 100);
+		      WMI_TEMP_SENSE_DONE_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -2912,7 +2918,7 @@ int wmi_addba_rx_resp(struct wil6210_priv *wil,
 
 	rc = wmi_call(wil, WMI_RCP_ADDBA_RESP_CMDID, mid, &cmd, sizeof(cmd),
 		      WMI_RCP_ADDBA_RESP_SENT_EVENTID, &reply, sizeof(reply),
-		      100);
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -2994,7 +3000,7 @@ int wmi_ps_dev_profile_cfg(struct wil6210_priv *wil,
 	rc = wmi_call(wil, WMI_PS_DEV_PROFILE_CFG_CMDID, vif->mid,
 		      &cmd, sizeof(cmd),
 		      WMI_PS_DEV_PROFILE_CFG_EVENTID, &reply, sizeof(reply),
-		      100);
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -3031,7 +3037,7 @@ int wmi_set_mgmt_retry(struct wil6210_priv *wil, u8 retry_short)
 	rc = wmi_call(wil, WMI_SET_MGMT_RETRY_LIMIT_CMDID, vif->mid,
 		      &cmd, sizeof(cmd),
 		      WMI_SET_MGMT_RETRY_LIMIT_EVENTID, &reply, sizeof(reply),
-		      100);
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
@@ -3061,7 +3067,7 @@ int wmi_get_mgmt_retry(struct wil6210_priv *wil, u8 *retry_short)
 	memset(&reply, 0, sizeof(reply));
 	rc = wmi_call(wil, WMI_GET_MGMT_RETRY_LIMIT_CMDID, vif->mid, NULL, 0,
 		      WMI_GET_MGMT_RETRY_LIMIT_EVENTID, &reply, sizeof(reply),
-		      100);
+		      WIL_WMI_CALL_GENERAL_TO_MS);
 	if (rc)
 		return rc;
 
