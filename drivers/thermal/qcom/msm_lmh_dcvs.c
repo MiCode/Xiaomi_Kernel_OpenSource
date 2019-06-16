@@ -618,8 +618,14 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 			affinity);
 	tzdev = thermal_zone_of_sensor_register(&pdev->dev, 0, hw,
 			&limits_sensor_ops);
-	if (IS_ERR_OR_NULL(tzdev))
-		return PTR_ERR(tzdev);
+	if (IS_ERR_OR_NULL(tzdev)) {
+		/*
+		 * Ignore error in case if thermal zone devicetree node is not
+		 * defined for this lmh hardware.
+		 */
+		if (!tzdev || PTR_ERR(tzdev) != -ENODEV)
+			return PTR_ERR(tzdev);
+	}
 
 	hw->min_freq_reg = devm_ioremap(&pdev->dev, min_reg, 0x4);
 	if (!hw->min_freq_reg) {
@@ -650,7 +656,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	hw->is_irq_enabled = true;
 	ret = devm_request_threaded_irq(&pdev->dev, hw->irq_num, NULL,
 		lmh_dcvs_handle_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT
-		| IRQF_NO_SUSPEND, hw->sensor_name, hw);
+		| IRQF_NO_SUSPEND | IRQF_SHARED, hw->sensor_name, hw);
 	if (ret) {
 		pr_err("Error registering for irq. err:%d\n", ret);
 		ret = 0;
