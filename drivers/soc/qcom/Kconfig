@@ -240,6 +240,16 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_BOOT_TIME_MARKER
+        bool "Use MSM boot time marker reporting"
+        depends on MSM_BOOT_STATS
+        help
+         Use this to mark msm boot kpi for measurement.
+         An instrumentation for boot time measurement.
+         To create an entry, call "place_marker" function.
+         At userspace, write marker name to "/sys/kernel/debug/bootkpi/kpi_values"
+         If unsure, say N
+
 config MSM_CORE_HANG_DETECT
        tristate "MSM Core Hang Detection Support"
        help
@@ -552,6 +562,16 @@ config MSM_IPC_ROUTER_MHI_XPRT
 	  MHI Transport Layer that enables off-chip communication of
 	  IPC Router. When the MHI endpoint becomes available, this layer
 	  registers the transport with IPC Router and enable message
+	  exchange.
+
+config MSM_IPC_ROUTER_MHI_DEV_XPRT
+	depends on MSM_MHI_DEV
+	depends on IPC_ROUTER
+	bool "MSM MHI_DEV XPRT Layer"
+	help
+	  MHI_DEV Transport Layer that enables off-chip communication of
+	  IPC Router. When the MHI endpoint becomes available, this layer
+	  registers the transport with IPC Router and enables message
 	  exchange.
 
 config MSM_IPC_ROUTER_GLINK_XPRT

@@ -1,0 +1,88 @@
+* Cypress cyttsp5 touchscreen controller
+
+Required properties:
+ - compatible		: must be "cy,cyttsp5_i2c_adapter"
+ - reg			: Device I2C address or SPI chip select number
+ - interrupt-parent	: the phandle for the gpio controller
+			  (see interrupt binding[0]).
+ - interrupts		: (gpio) interrupt to which the chip is connected
+			  (see interrupt binding[0]).
+ - vcc_i2c-supply	: power supply
+ - vdd-supply		: power supply
+ - cy,mt		: multi-touch
+
+Optional properties:
+ - cy,btn		: button
+
+[0]: Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+[1]: Documentation/devicetree/bindings/gpio/gpio.txt
+
+Example:
+	&i2c1 {
+		/* ... */
+		tsc@24 {
+			compatible = "cy,cyttsp5_i2c_adapter";
+			reg = <0x24>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			cy,adapter_id = "cyttsp5_i2c_adapter";
+			vcc_i2c-supply = <&pm8916_l6>;
+			vdd-supply = <&pm8916_l17>;
+
+			cy,core {
+				cy,name = "cyttsp5_core";
+				cy,irq_gpio = <13>;
+				cy,rst_gpio = <12>;
+				cy,hid_desc_register = <1>;
+				cy,flags = <4>;
+				cy,easy_wakeup_gesture = <1>;
+				cy,btn_keys = <172 139 158 217 114 115 212 116>;
+				cy,btn_keys-tag = <0>;
+
+				cy,mt {
+					cy,name = "cyttsp5_mt";
+					cy,inp_dev_name = "cyttsp5_mt";
+					cy,flags = <0x28>;
+					cy,abs =
+						<0x35 0 320 0 0
+						0x36 0 360 0 0
+						0x3a 0 255 0 0
+						0xffff 0 255 0 0
+						0x39 0 15 0 0
+						0x30 0 255 0 0
+						0x31 0 255 0 0
+						0x34 0xffffff81 127 0 0
+						0x37 0 1 0 0
+						0x3b 0 255 0 0>;
+
+					cy,vkeys_x = <320>;
+					cy,vkeys_y = <360>;
+
+					cy,virtual_keys =
+						/* KEY_BACK */
+						<158 1360 90 160 180
+						/* KEY_MENU */
+						139 1360 270 160 180
+						/* KEY_HOMEPAGE */
+						172 1360 450 160 180
+						/* KEY SEARCH */
+						217 1360 630 160 180>;
+				};
+
+				cy,btn {
+					cy,name = "cyttsp5_btn";
+
+					cy,inp_dev_name = "cyttsp5_btn";
+				};
+
+				cy,proximity {
+					cy,name = "cyttsp5_proximity";
+
+					cy,inp_dev_name = "cyttsp5_proximity";
+					cy,abs = <0x19 0 1 0 0>;
+				};
+			};
+		};
+
+		/* ... */
+	};
