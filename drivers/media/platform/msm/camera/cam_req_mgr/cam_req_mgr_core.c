@@ -3057,14 +3057,12 @@ int cam_req_mgr_flush_requests(
 
 	if (!flush_info) {
 		CAM_ERR(CAM_CRM, "flush req is NULL");
-		rc = -EFAULT;
-		goto end;
+		return -EFAULT;
 	}
 	if (flush_info->flush_type >= CAM_REQ_MGR_FLUSH_TYPE_MAX) {
 		CAM_ERR(CAM_CRM, "incorrect flush type %x",
 			flush_info->flush_type);
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	mutex_lock(&g_crm_core_dev->crm_lock);
