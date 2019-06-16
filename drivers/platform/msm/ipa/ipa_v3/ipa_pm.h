@@ -19,7 +19,7 @@
 #define IPA_PM_MAX_CLIENTS 32 /* actual max is value -1 since we start from 1*/
 #define IPA_PM_MAX_EX_CL 64
 #define IPA_PM_THRESHOLD_MAX 5
-#define IPA_PM_EXCEPTION_MAX 2
+#define IPA_PM_EXCEPTION_MAX 5
 #define IPA_PM_DEFERRED_TIMEOUT 10
 
 /*

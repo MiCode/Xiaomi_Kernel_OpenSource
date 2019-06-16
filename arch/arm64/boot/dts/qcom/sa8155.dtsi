@@ -798,8 +798,13 @@
 			qcom,wlan-ramdump-dynamic = <0x300000>;
 			mhi,max-channels = <30>;
 			mhi,timeout = <10000>;
+			mhi,ee = <0x3>, <0x4>;
+			mhi,ee-names = "SBL", "RDDM";
+			mhi,bhie-offset = <0x0324>;
 
 			mhi_channels {
+				#address-cells = <1>;
+				#size-cells = <0>;
 				mhi_chan@0 {
 					reg = <0>;
 					label = "LOOPBACK";

@@ -423,7 +423,7 @@
 					compatble = "android,vendor";
 					dev = "/dev/block/platform/soc/4804000.ufshc/by-name/vendor";
 					type = "ext4";
-					mnt_flags = "ro.barrier=1,discard";
+					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
 				};
@@ -2807,6 +2807,8 @@
 			compatible = "qcom,adc-tm5-iio";
 			reg = <0x3400 0x100>;
 			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			io-channels = <&pm6125_vadc ADC_GPIO1_PU2>,
 					<&pm6125_vadc ADC_GPIO3_PU2>;
 
@@ -3106,13 +3108,11 @@
 };
 
 &L1P {
-	regulator-min-microvolt = <1200000>;
 	regulator-max-microvolt = <1200000>;
 	qcom,min-dropout-voltage = <100000>;
 };
 
 &L2P {
-	regulator-min-microvolt = <1104000>;
 	regulator-max-microvolt = <1104000>;
 	qcom,min-dropout-voltage = <100000>;
 };

@@ -89,6 +89,9 @@
 };
 
 &qupv3_se17_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 
 	st_fts@49 {
@@ -109,6 +112,9 @@
 };
 
 &qupv3_se9_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 	nq@28 {
 		compatible = "qcom,nq-nci";
@@ -192,6 +198,9 @@
 };
 
 &qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 	redriver@19 {
 		compatible = "onnn,redriver";

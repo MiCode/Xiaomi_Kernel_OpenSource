@@ -95,14 +95,18 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
-	clock_virt: qcom,virt-gcc {
-		compatible = "qcom,virt-clk-sm8150-gcc";
+	clock_virt: qcom,virtio-gcc {
+		compatible = "virtio,mmio";
+		reg = <0x1c200000 0x1000>;
+		interrupts = <0 100 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
 
-	clock_virt_scc: qcom,virt-scc {
-		compatible = "qcom,virt-clk-sm8150-scc";
+	clock_virt_scc: qcom,virtio-scc {
+		compatible = "virtio,mmio";
+		reg = <0x1c300000 0x1000>;
+		interrupts = <0 101 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -476,7 +480,12 @@
 		compatible = "qca,qca6174";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_active>;
-		qca,bt-reset-gpio = <&tlmm 172 0>; /* BT_EN */
+		/* BT_EN */
+		qca,bt-reset-gpio = <&tlmm 172 0>;
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
 		status = "ok";
 	};
 

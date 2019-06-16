@@ -469,6 +469,7 @@ static void qmi_handle_net_reset(struct qmi_handle *qmi)
 	/* Already qmi_handle_release() started */
 	if (!qmi->sock) {
 		sock_release(sock);
+		mutex_unlock(&qmi->sock_lock);
 		return;
 	}
 	sock_release(qmi->sock);

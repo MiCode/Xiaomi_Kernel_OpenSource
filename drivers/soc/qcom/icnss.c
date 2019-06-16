@@ -74,6 +74,7 @@
 #define SUBSYS_EXTERNAL_MODEM_NAME	"esoc0"
 
 #define PROBE_TIMEOUT			5000
+#define FW_READY_TIMEOUT		50000
 
 static struct icnss_priv *penv;
 
@@ -1183,6 +1184,12 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 
 	set_bit(ICNSS_FW_READY, &penv->state);
 	clear_bit(ICNSS_MODE_ON, &penv->state);
+	if (penv->clk_monitor_enable)
+		/*
+		 * Safe to release ESOC as WLAN FW
+		 * stage-2 recover is finished.
+		 */
+		complete(&penv->notif_complete);
 
 	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
@@ -1192,6 +1199,19 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 		icnss_pr_err("Device is not ready\n");
 		ret = -ENODEV;
 		goto out;
+	}
+
+	if (penv->clk_monitor_enable) {
+		/* Wait for clock up notification if ESOC is off */
+		if (test_bit(ICNSS_ESOC_OFF, &penv->state) ||
+		    !test_bit(ICNSS_CLK_UP, &penv->state)) {
+			reinit_completion(&penv->clk_complete);
+			icnss_pr_dbg("Waiting for ESOC recovery 0x%lx\n",
+				     penv->state);
+			wait_for_completion(&penv->clk_complete);
+			clear_bit(ICNSS_ESOC_OFF, &penv->state);
+			set_bit(ICNSS_CLK_UP, &penv->state);
+		}
 	}
 
 	if (test_bit(ICNSS_PD_RESTART, &penv->state))
@@ -1576,10 +1596,11 @@ static int icnss_ext_modem_notifier_nb(struct notifier_block *nb,
 {
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       ext_modem_ssr_nb);
-	icnss_pr_vdbg("EXT-Modem-Notify: event %lu\n", code);
+	icnss_pr_dbg("EXT-Modem-Notify: event %lu\n", code);
 
 
 	if (code == SUBSYS_AFTER_POWERUP) {
+		clear_bit(ICNSS_ESOC_OFF, &priv->state);
 		set_bit(ICNSS_CLK_UP, &priv->state);
 		complete(&priv->clk_complete);
 	}
@@ -1628,6 +1649,97 @@ static int icnss_ext_modem_ssr_unregister_notifier(struct icnss_priv *priv)
 			     ret);
 
 	priv->ext_modem_notify_handler = NULL;
+
+	return 0;
+}
+
+static void icnss_esoc_ops_power_off(void *data, unsigned int flags)
+{
+	int ret = 0;
+	struct icnss_priv *priv = data;
+
+	icnss_pr_dbg("ESOC_POWER_OFF notify: %u\n", flags);
+
+	if (!(flags & ESOC_HOOK_MDM_DOWN))
+		return;
+
+	set_bit(ICNSS_ESOC_OFF, &priv->state);
+	if (test_bit(ICNSS_CLK_UP, &priv->state)) {
+		if (test_bit(ICNSS_PD_RESTART, &priv->state))
+			goto out;
+
+		ret = icnss_trigger_recovery(&priv->pdev->dev);
+		if (ret < 0) {
+			icnss_fatal_err("Fail to trigger PDR: ret: %d, state: 0x%lx\n",
+					ret, priv->state);
+			goto out;
+		}
+
+		reinit_completion(&priv->notif_complete);
+		ret = wait_for_completion_timeout
+			(&priv->notif_complete,
+			 msecs_to_jiffies(FW_READY_TIMEOUT));
+		if (!ret) {
+			icnss_fatal_err("Timeout waiting for FW ready notification\n");
+			goto out;
+		}
+	}
+
+out:
+	clear_bit(ICNSS_CLK_UP, &priv->state);
+}
+
+static int icnss_register_esoc_client(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct esoc_client_hook *esoc_ops = NULL;
+
+	priv->esoc_client =
+		devm_register_esoc_client(&priv->pdev->dev, "mdm");
+
+	if (IS_ERR_OR_NULL(priv->esoc_client)) {
+		ret = PTR_ERR(priv->esoc_client);
+		icnss_pr_err("Failed to register esoc client: %d\n", ret);
+		if (ret == 0)
+			ret = -EPROBE_DEFER;
+		return ret;
+	}
+
+	esoc_ops = &priv->esoc_ops;
+	esoc_ops->priv = priv;
+	esoc_ops->prio = ESOC_CNSS_HOOK;
+	esoc_ops->esoc_link_power_off =
+		icnss_esoc_ops_power_off;
+
+	ret = esoc_register_client_hook(priv->esoc_client,
+					esoc_ops);
+	if (ret) {
+		icnss_pr_err("Failed to register esoc ops: %d\n", ret);
+		goto unregister_esoc_client;
+	}
+
+	init_completion(&priv->notif_complete);
+
+	return ret;
+
+unregister_esoc_client:
+	devm_unregister_esoc_client(&priv->pdev->dev,
+				    priv->esoc_client);
+	return ret;
+}
+
+static int icnss_unregister_esoc_client(struct icnss_priv *priv)
+{
+	if (!priv->esoc_client)
+		return 0;
+
+	complete_all(&priv->notif_complete);
+
+	esoc_unregister_client_hook(priv->esoc_client,
+				    &priv->esoc_ops);
+	devm_unregister_esoc_client(&priv->pdev->dev,
+				    priv->esoc_client);
+	priv->esoc_client = NULL;
 
 	return 0;
 }
@@ -2903,6 +3015,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_CLK_UP:
 			seq_puts(s, "CLK UP");
 			continue;
+		case ICNSS_ESOC_OFF:
+			seq_puts(s, "ESOC_OFF");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -3580,6 +3695,9 @@ static int icnss_probe(struct platform_device *pdev)
 		if (ret)
 			goto out_smmu_deinit;
 
+		ret = icnss_register_esoc_client(priv);
+		if (ret)
+			goto out_unregister_ext_modem;
 	}
 
 	spin_lock_init(&priv->event_lock);
@@ -3590,7 +3708,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!priv->event_wq) {
 		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
-		goto out_unregister_ext_modem;
+		goto out_unregister_esoc_client;
 	}
 
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
@@ -3623,6 +3741,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
+out_unregister_esoc_client:
+	icnss_unregister_esoc_client(priv);
 out_unregister_ext_modem:
 	icnss_ext_modem_ssr_unregister_notifier(priv);
 out_smmu_deinit:
@@ -3654,6 +3774,8 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_unregister_fw_service(penv);
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
+
+	icnss_unregister_esoc_client(penv);
 
 	icnss_ext_modem_ssr_unregister_notifier(penv);
 

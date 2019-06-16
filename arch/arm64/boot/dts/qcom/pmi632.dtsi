@@ -403,6 +403,7 @@
 						"bcl-vbat-lvl0",
 						"bcl-vbat-lvl1",
 						"bcl-vbat-lvl2";
+			qcom,ibat-use-qg-adc-5a;
 			#thermal-sensor-cells = <1>;
 		};
 

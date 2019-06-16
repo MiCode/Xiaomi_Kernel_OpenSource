@@ -1,0 +1,62 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/msm-bus-ids.h>
+
+&soc {
+
+	/* QUPv3 North instances */
+	qupv3_0: qcom,qupv3_0_geni_se@0x8c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x8c0000 0x2000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x043 0x0>;
+		};
+	};
+
+	/* QUPv3 South Instances */
+	qupv3_1: qcom,qupv3_1_geni_se@0xac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x2000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x4c3 0x0>;
+		};
+	};
+
+	/* Debug UART Instance for CDP/MTP/RUMI platform: QUPV3_1_SE2 */
+	qupv3_se8_2uart: qcom,qup_uart@0xa88000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0xa88000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP1_S2_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se8_2uart_active>;
+		pinctrl-1 = <&qupv3_se8_2uart_sleep>;
+		interrupts = <GIC_SPI 355 0>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+};
+

@@ -344,6 +344,7 @@ struct ep_pcie_dev_t {
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;
 	bool                         pcie_edma;
+	bool                         tcsr_not_supported;
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;

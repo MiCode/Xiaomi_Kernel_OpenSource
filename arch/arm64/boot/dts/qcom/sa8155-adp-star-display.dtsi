@@ -62,6 +62,9 @@
 };
 
 &qupv3_se15_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	status = "ok";
 
 	pinctrl-0 = <&qupv3_se15_i2c_active
@@ -119,9 +122,9 @@
 		#size-cells = <0>;
 
 		i2c@0 {
+			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0>;
 
 			anx_7625_1: anx7625@2c {
 				compatible = "analogix,anx7625";
@@ -135,9 +138,9 @@
 		};
 
 		i2c@1 {
+			reg = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <1>;
 
 			anx_7625_2: anx7625@2c {
 				compatible = "analogix,anx7625";
@@ -192,6 +195,9 @@
 };
 
 &soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	dsi_anx_7625_1: qcom,dsi-display@17 {
 		label = "dsi_anx_7625_1";
 		qcom,dsi-display-active;

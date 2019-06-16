@@ -140,6 +140,7 @@ struct anx7625 {
 	bool enabled;
 	int connected;
 	bool hpd_status;
+	bool skip_enable;
 	u8 sys_sta_bak;
 
 	unsigned char last_read_DevAddr;
@@ -149,7 +150,7 @@ static void Reg_Access_Conflict_Workaround(struct anx7625 *anx7625,
 		unsigned char DevAddr)
 {
 	unsigned char RegAddr;
-	int ret = 0, i;
+	int ret = 0;
 
 	if (DevAddr != anx7625->last_read_DevAddr) {
 		switch (DevAddr) {
@@ -181,15 +182,11 @@ static void Reg_Access_Conflict_Workaround(struct anx7625 *anx7625,
 		}
 
 		anx7625->client->addr = (DevAddr >> 1);
-		for (i = 0; i < 5; i++) {
-			ret = i2c_smbus_write_byte_data(anx7625->client,
-				RegAddr, 0x00);
-			if (ret >= 0)
-				break;
-			pr_err("failed to write i2c addr=%x:%x, retry %d...\n",
-				DevAddr, RegAddr, i);
-			usleep_range(1000, 1100);
-		}
+		ret = i2c_smbus_write_byte_data(anx7625->client,
+			RegAddr, 0x00);
+		if (ret < 0)
+			pr_err("failed to write i2c addr=%x:%x...\n",
+				DevAddr, RegAddr);
 		anx7625->last_read_DevAddr = DevAddr;
 	}
 }
@@ -197,77 +194,62 @@ static void Reg_Access_Conflict_Workaround(struct anx7625 *anx7625,
 static int reg_read(struct anx7625 *anx7625,
 		int addr, int offset, unsigned int *buf)
 {
-	int ret, i;
+	int ret;
 
 	Reg_Access_Conflict_Workaround(anx7625, addr);
 	anx7625->client->addr = (addr >> 1);
-	for (i = 0; i < 5; i++) {
-		ret = i2c_smbus_read_byte_data(
-			anx7625->client, offset);
-		if (ret >= 0)
-			break;
-		pr_err("failed to read anx7625 %x:%x, retry %d...\n",
-			addr, offset, i);
-		usleep_range(1000, 1100);
-	}
+	ret = i2c_smbus_read_byte_data(
+		anx7625->client, offset);
+	if (ret < 0)
+		pr_err("failed to read anx7625 %x:%x\n",
+			addr, offset);
+
 	*buf = ret;
-	return 0;
+	return (ret < 0);
 }
 
 static int reg_write(struct anx7625 *anx7625,
 		int addr, int offset, unsigned int val)
 {
-	int ret, i;
+	int ret;
 
 	Reg_Access_Conflict_Workaround(anx7625, addr);
 	anx7625->client->addr = (addr >> 1);
-	for (i = 0; i < 5; i++) {
-		ret = i2c_smbus_write_byte_data(
-			anx7625->client, offset, val);
-		if (ret >= 0)
-			break;
-		pr_err("failed to write anx7625 %x:%x, retry %d...\n",
-			addr, offset, i);
-		usleep_range(1000, 1100);
-	}
+	ret = i2c_smbus_write_byte_data(
+		anx7625->client, offset, val);
+	if (ret < 0)
+		pr_err("failed to write anx7625 %x:%x\n",
+			addr, offset);
 	return 0;
 }
 
 static int reg_read_block(struct anx7625 *anx7625,
 		int addr, int offset, u8 *buf, int len)
 {
-	int ret, i;
+	int ret;
 
 	Reg_Access_Conflict_Workaround(anx7625, addr);
 	anx7625->client->addr = (addr >> 1);
-	for (i = 0; i < 5; i++) {
-		ret = i2c_smbus_read_i2c_block_data(
-			anx7625->client, offset, len, buf);
-		if (ret >= 0)
-			break;
-		pr_err("failed to read anx7625 %x:%x, retry %d...\n",
-			addr, offset, i);
-		usleep_range(1000, 1100);
-	}
+	ret = i2c_smbus_read_i2c_block_data(
+		anx7625->client, offset, len, buf);
+	if (ret < 0)
+		pr_err("failed to read anx7625 %x:%x\n",
+			addr, offset);
 	return 0;
 }
 
 static int reg_write_block(struct anx7625 *anx7625,
 		int addr, int offset, u8 *buf, int len)
 {
-	int ret, i;
+	int ret;
 
 	Reg_Access_Conflict_Workaround(anx7625, addr);
 	anx7625->client->addr = (addr >> 1);
-	for (i = 0; i < 5; i++) {
-		ret = i2c_smbus_write_i2c_block_data(
-			anx7625->client, offset, len, buf);
-		if (ret >= 0)
-			break;
-		pr_err("failed to write anx7625 %x:%x, retry %d...\n",
-			addr, offset, i);
-		usleep_range(1000, 1100);
-	}
+	ret = i2c_smbus_write_i2c_block_data(
+		anx7625->client, offset, len, buf);
+	if (ret < 0)
+		pr_err("failed to write anx7625 %x:%x\n",
+			addr, offset);
 	return 0;
 }
 
@@ -1153,6 +1135,10 @@ static int anx7625_init_pdata(struct anx7625 *anx7625)
 {
 	struct anx7625_platform_data *pdata = &anx7625->pdata;
 	struct device *dev = &anx7625->client->dev;
+	int gpio_state = GPIOD_OUT_LOW;
+
+	if (anx7625->skip_enable)
+		gpio_state = GPIOD_OUT_HIGH;
 
 	/* GPIO for HPD */
 	pdata->gpiod_cdet = devm_gpiod_get(dev, "cbl_det", GPIOD_IN);
@@ -1160,12 +1146,12 @@ static int anx7625_init_pdata(struct anx7625 *anx7625)
 		return PTR_ERR(pdata->gpiod_cdet);
 
 	/* GPIO for chip power enable */
-	pdata->gpiod_p_on = devm_gpiod_get(dev, "power_en", GPIOD_OUT_LOW);
+	pdata->gpiod_p_on = devm_gpiod_get(dev, "power_en", gpio_state);
 	if (IS_ERR(pdata->gpiod_p_on))
 		return PTR_ERR(pdata->gpiod_p_on);
 
 	/* GPIO for chip reset */
-	pdata->gpiod_reset = devm_gpiod_get(dev, "reset_n", GPIOD_OUT_LOW);
+	pdata->gpiod_reset = devm_gpiod_get(dev, "reset_n", gpio_state);
 
 	return PTR_ERR_OR_ZERO(pdata->gpiod_reset);
 }
@@ -1297,6 +1283,11 @@ static void anx7625_bridge_enable(struct drm_bridge *bridge)
 	if (!anx7625->powered)
 		goto out;
 
+	if (anx7625->skip_enable) {
+		anx7625->skip_enable = false;
+		goto out;
+	}
+
 	if (!anx7625->connected)
 		DRM_ERROR("cable is not connected\n");
 
@@ -1388,6 +1379,17 @@ static int anx7625_i2c_probe(struct i2c_client *client,
 	anx7625->client = client;
 	i2c_set_clientdata(client, anx7625);
 
+	/* Check if Bridge Already Powered On */
+	err = Read_Reg(TCPC_INTERFACE, PRODUCT_ID_L, &idl);
+	if (err) {
+		anx7625->skip_enable = false;
+		DRM_ERROR("ANX7625 Bridge Not powered in Bootloader");
+	} else {
+		/* Match software state */
+		anx7625->powered = true;
+		anx7625->skip_enable = true;
+	}
+
 	err = anx7625_init_pdata(anx7625);
 	if (err) {
 		DRM_ERROR("Failed to initialize pdata: %d\n", err);
@@ -1406,10 +1408,12 @@ static int anx7625_i2c_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	/* Power on chip */
-	err = anx7625_poweron(anx7625);
-	if (err)
-		goto err_poweroff;
+	if (!anx7625->skip_enable) {
+		/* Power on chip */
+		err = anx7625_poweron(anx7625);
+		if (err)
+			goto err_poweroff;
+	}
 
 	/* Look for supported chip ID */
 	err = Read_Reg(TCPC_INTERFACE, PRODUCT_ID_L, &idl);

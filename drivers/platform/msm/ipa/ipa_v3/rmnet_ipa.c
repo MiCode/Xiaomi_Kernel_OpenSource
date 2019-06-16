@@ -2221,13 +2221,15 @@ int ipa3_wwan_set_modem_perf_profile(int throughput)
 	int ret;
 	int tether_bridge_handle = 0;
 
+	IPAWANDBG("throughput: %d\n", throughput);
+
 	if (ipa3_ctx->use_ipa_pm) {
 		/* query rmnet-tethering handle */
 		tether_bridge_handle = ipa3_teth_bridge_get_pm_hdl();
 		if (tether_bridge_handle > 0) {
 			/* only update with valid handle*/
 			ret = ipa_pm_set_throughput(tether_bridge_handle,
-				throughput);
+			throughput);
 		}
 		/* for TETH MODEM on softap/rndis */
 		ret = ipa_pm_set_throughput(rmnet_ipa3_ctx->q6_teth_pm_hdl,
@@ -3625,7 +3627,7 @@ static int rmnet_ipa3_query_tethering_stats_modem(
 static int rmnet_ipa3_query_tethering_stats_hw(
 	struct wan_ioctl_query_tether_stats *data, bool reset)
 {
-	int rc = 0;
+	int rc = 0, index = 0;
 	struct ipa_quota_stats_all *con_stats;
 	struct ipa_quota_stats  *client;
 
@@ -3643,11 +3645,23 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		IPAWANERR("no memory\n");
 		return -ENOMEM;
 	}
-	rc = ipa_query_teth_stats(IPA_CLIENT_Q6_WAN_PROD, con_stats, reset);
-	if (rc) {
-		IPAERR("IPA_CLIENT_Q6_WAN_PROD query failed %d,\n", rc);
-		kfree(con_stats);
-		return rc;
+
+	if (rmnet_ipa3_ctx->ipa_config_is_apq) {
+		rc = ipa_query_teth_stats(IPA_CLIENT_MHI_PRIME_TETH_PROD,
+			con_stats, reset);
+		if (rc) {
+			IPAERR("MHI_PRIME_TETH_PROD query failed %d,\n", rc);
+			kfree(con_stats);
+			return rc;
+		}
+	} else {
+		rc = ipa_query_teth_stats(IPA_CLIENT_Q6_WAN_PROD,
+			con_stats, reset);
+		if (rc) {
+			IPAERR("IPA_CLIENT_Q6_WAN_PROD query failed %d,\n", rc);
+			kfree(con_stats);
+			return rc;
+		}
 	}
 	IPAWANDBG("wlan: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
 	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_pkts,
@@ -3690,21 +3704,26 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		return rc;
 	}
 
+	if (rmnet_ipa3_ctx->ipa_config_is_apq)
+		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+	else
+		index = IPA_CLIENT_Q6_WAN_CONS;
+
 	IPAWANDBG("usb: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes);
+	con_stats->client[index].num_ipv4_pkts,
+	con_stats->client[index].num_ipv4_bytes,
+	con_stats->client[index].num_ipv6_pkts,
+	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the USB UL stats */
 	data->ipv4_tx_packets =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts;
+		con_stats->client[index].num_ipv4_pkts;
 	data->ipv6_tx_packets =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts;
+		con_stats->client[index].num_ipv6_pkts;
 	data->ipv4_tx_bytes =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes;
+		con_stats->client[index].num_ipv4_bytes;
 	data->ipv6_tx_bytes =
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
+		con_stats->client[index].num_ipv6_bytes;
 
 	/* usb UL stats on cv2 */
 	client = &con_stats->client[IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS];
@@ -3733,21 +3752,26 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		return rc;
 	}
 
+	if (rmnet_ipa3_ctx->ipa_config_is_apq)
+		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
+	else
+		index = IPA_CLIENT_Q6_WAN_CONS;
+
 	IPAWANDBG("wlan: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes);
+	con_stats->client[index].num_ipv4_pkts,
+	con_stats->client[index].num_ipv4_bytes,
+	con_stats->client[index].num_ipv6_pkts,
+	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the wlan UL stats */
-	data->ipv4_tx_packets +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_pkts;
-	data->ipv6_tx_packets +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_pkts;
-	data->ipv4_tx_bytes +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv4_bytes;
-	data->ipv6_tx_bytes +=
-		con_stats->client[IPA_CLIENT_Q6_WAN_CONS].num_ipv6_bytes;
+	data->ipv4_tx_packets =
+		con_stats->client[index].num_ipv4_pkts;
+	data->ipv6_tx_packets =
+		con_stats->client[index].num_ipv6_pkts;
+	data->ipv4_tx_bytes =
+		con_stats->client[index].num_ipv4_bytes;
+	data->ipv6_tx_bytes =
+		con_stats->client[index].num_ipv6_bytes;
 
 	/* wlan UL stats on cv2 */
 	IPAWANDBG("wlan (cv2): v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",

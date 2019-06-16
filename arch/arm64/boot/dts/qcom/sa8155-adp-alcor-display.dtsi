@@ -61,6 +61,9 @@
 };
 
 &soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	refgen: refgen-regulator@88e7000 {
 		compatible = "qcom,refgen-regulator";
 		reg = <0x88e7000 0x60>;

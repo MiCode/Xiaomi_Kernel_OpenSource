@@ -444,6 +444,7 @@ enum gpu_coresight_sources {
  * @chipid: Chip ID specific to the GPU
  * @gmem_base: Base physical address of GMEM
  * @gmem_size: GMEM size
+ * @uche_gmem_base: Base physical address of UCHE GMEM
  * @qdss_gfx_base: Base physical address of QDSS_GFX_DBG registers for Coresight
  * @qdss_gfx_len: QDSS_GFX_DBG register size
  * @qdss_gfx_virt: Pointer to virtual address of QDSS_GFX_DBG regiter
@@ -527,6 +528,7 @@ struct adreno_device {
 	unsigned int chipid;
 	unsigned long gmem_base;
 	unsigned long gmem_size;
+	unsigned long uche_gmem_base;
 	unsigned long qdss_gfx_base;
 	unsigned long qdss_gfx_len;
 	void __iomem *qdss_gfx_virt;
@@ -598,7 +600,7 @@ struct adreno_device {
 	bool gpu_llc_slice_enable;
 	void *gpuhtw_llc_slice;
 	bool gpuhtw_llc_slice_enable;
-	unsigned int zap_loaded;
+	void *zap_handle_ptr;
 	unsigned int soc_hw_rev;
 	bool gaming_bin;
 };
@@ -1036,6 +1038,9 @@ struct adreno_gpudev {
 				bool update_reg);
 	size_t (*snapshot_preemption)(struct kgsl_device *, u8 *,
 				 size_t, void *);
+	void (*zap_shader_unload)(struct adreno_device *);
+	int (*secure_pt_hibernate)(struct adreno_device *);
+	int (*secure_pt_restore)(struct adreno_device *);
 };
 
 /**

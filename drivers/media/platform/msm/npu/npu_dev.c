@@ -438,22 +438,19 @@ static ssize_t npu_store_fw_state(struct device *dev,
 					  const char *buf, size_t count)
 {
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_client client;
 	bool enable = false;
 	int rc;
 
 	if (strtobool(buf, &enable) < 0)
 		return -EINVAL;
 
-	if (enable) {
-		pr_debug("%s: fw init\n", __func__);
-		rc = fw_init(npu_dev);
-		if (rc) {
-			pr_err("fw init failed\n");
-			return rc;
-		}
-	} else {
-		pr_debug("%s: fw deinit\n", __func__);
-		fw_deinit(npu_dev, false, true);
+	client.npu_dev = npu_dev;
+	rc = npu_set_fw_state(&client, enable ? 1 : 0);
+
+	if (rc) {
+		pr_err("%s fw failed\n", enable ? "enable" : "disable");
+		return rc;
 	}
 
 	return count;
@@ -1615,16 +1612,35 @@ static int npu_receive_event(struct npu_client *client,
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 {
 	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int rc = 0;
 
+	if (host_ctx->network_num > 0) {
+		pr_err("Need to unload network first\n");
+		mutex_unlock(&npu_dev->dev_lock);
+		return -EINVAL;
+	}
+
 	if (enable) {
-		pr_debug("%s: enable fw\n", __func__);
+		pr_debug("enable fw\n");
 		rc = fw_init(npu_dev);
-		if (rc)
+		if (rc) {
 			pr_err("enable fw failed\n");
-	} else {
-		pr_debug("%s: disable fw\n", __func__);
+		} else {
+			host_ctx->npu_init_cnt++;
+			pr_debug("npu_init_cnt %d\n",
+				host_ctx->npu_init_cnt);
+			/* set npu to lowest power level */
+			if (npu_set_uc_power_level(npu_dev, 1))
+				pr_warn("Failed to set uc power level");
+		}
+	} else if (host_ctx->npu_init_cnt > 0) {
+		pr_debug("disable fw\n");
 		fw_deinit(npu_dev, false, true);
+		host_ctx->npu_init_cnt--;
+		pr_debug("npu_init_cnt %d\n", host_ctx->npu_init_cnt);
+	} else {
+		pr_err("can't disable fw %d\n", host_ctx->npu_init_cnt);
 	}
 
 	return rc;
@@ -1691,6 +1707,9 @@ static int npu_get_property(struct npu_client *client,
 		break;
 	case MSM_NPU_PROP_ID_DRV_VERSION:
 		prop.prop_param[0] = 0;
+		break;
+	case MSM_NPU_PROP_ID_HARDWARE_VERSION:
+		prop.prop_param[0] = npu_dev->hw_version;
 		break;
 	default:
 		ret = npu_host_get_fw_property(client->npu_dev, &prop);
@@ -2091,6 +2110,23 @@ static void npu_mbox_deinit(struct npu_device *npu_dev)
 	}
 }
 
+static int npu_hw_info_init(struct npu_device *npu_dev)
+{
+	int rc = 0;
+
+	rc = npu_enable_core_power(npu_dev);
+	if (rc) {
+		pr_err("Failed to enable power\n");
+		return rc;
+	}
+
+	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
+	pr_debug("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
+	npu_disable_core_power(npu_dev);
+
+	return rc;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -2186,6 +2222,10 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 
 	rc = npu_parse_dt_clock(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
+	rc = npu_hw_info_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
 

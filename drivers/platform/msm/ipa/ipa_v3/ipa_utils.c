@@ -2259,7 +2259,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 2, 7, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 8 } },
+			{ 2, 7, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 7 } },
 	[IPA_4_5][IPA_CLIENT_APPS_CMD_PROD]	  = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
@@ -2271,13 +2271,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 10, 13, 8, 19, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+			{ 3, 5, 8, 16, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5][IPA_CLIENT_ETHERNET_PROD]	  = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
-			{ 12, 0, 8, 16, IPA_EE_UC, GSI_SMART_PRE_FETCH, 4 } },
+			{ 12, 0, 8, 16, IPA_EE_UC, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5][IPA_CLIENT_Q6_WAN_PROD]         = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			true,
@@ -2339,7 +2339,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5][IPA_CLIENT_USB_CONS]            = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
@@ -2369,7 +2369,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 13, 4, 8, 11, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 13, 4, 8, 11, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5][IPA_CLIENT_APPS_WAN_CONS]       = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
@@ -2381,7 +2381,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
-			{ 23, 8, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
+			{ 30, 6, 9, 9, IPA_EE_AP, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5][IPA_CLIENT_ETHERNET_CONS]	  = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
@@ -2494,13 +2494,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
-			{ 4, 8, 8, 16, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 4 } },
+			{ 4, 8, 8, 16, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 3 } },
 	[IPA_4_5_MHI][IPA_CLIENT_MHI_PROD]		= {
 			true, IPA_v4_5_MHI_GROUP_PCIE,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_PCIE,
-			{ 1, 0, 16, 20, IPA_EE_AP, GSI_SMART_PRE_FETCH, 8 } },
+			{ 1, 0, 16, 20, IPA_EE_AP, GSI_SMART_PRE_FETCH, 7 } },
 	[IPA_4_5_MHI][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]	= {
 			true, IPA_v4_5_MHI_GROUP_DMA,
 			false,
@@ -2567,7 +2567,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true, IPA_v4_5_MHI_GROUP_DMA,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
-			QMB_MASTER_SELECT_DDR,
+			QMB_MASTER_SELECT_PCIE,
 			{ 29, 9, 9, 9, IPA_EE_Q6, GSI_SMART_PRE_FETCH, 4 } },
 	[IPA_4_5_MHI][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]	= {
 			true, IPA_v4_5_MHI_GROUP_DMA,
@@ -4884,6 +4884,11 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
 		ep_holb);
+
+	/* IPA4.5 issue requires HOLB_EN to be written twice */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+			clnt_hdl, ep_holb);
 
 	/* Configure timer */
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
@@ -7286,6 +7291,49 @@ void ipa3_suspend_apps_pipes(bool suspend)
 				res = gsi_start_channel(ep->gsi_chan_hdl);
 				if (res) {
 					IPAERR("failed to start WAN channel\n");
+					ipa_assert();
+				}
+			}
+		} else {
+			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		}
+		if (suspend)
+			ipa3_gsi_poll_after_suspend(ep);
+	}
+
+	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_ODL_DPL_CONS);
+	/* Considering the case for SSR. */
+	if (ipa_ep_idx == -1) {
+		IPADBG("Invalid mapping for IPA_CLIENT_ODL_DPL_CONS\n");
+		return;
+	}
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (ep->valid) {
+		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
+			ipa_ep_idx);
+		/*
+		 * move the channel to callback mode.
+		 * This needs to happen before starting the channel to make
+		 * sure we don't loose any interrupt
+		 */
+		if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+			GSI_CHAN_MODE_CALLBACK);
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+			if (suspend) {
+				res = __ipa3_stop_gsi_channel(ipa_ep_idx);
+				if (res) {
+					IPAERR("failed to stop ODL channel\n");
+					ipa_assert();
+				}
+			} else if (!atomic_read(&ipa3_ctx->is_ssr)) {
+				/* If SSR was alreday started not required to
+				 * start WAN channel,Because in SSR will stop
+				 * channel and reset the channel.
+				 */
+				res = gsi_start_channel(ep->gsi_chan_hdl);
+				if (res) {
+					IPAERR("failed to start ODL channel\n");
 					ipa_assert();
 				}
 			}

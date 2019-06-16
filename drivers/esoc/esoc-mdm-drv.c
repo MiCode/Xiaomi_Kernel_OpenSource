@@ -32,6 +32,7 @@ enum esoc_boot_fail_action {
 	BOOT_FAIL_ACTION_SHUTDOWN,
 	BOOT_FAIL_ACTION_PANIC,
 	BOOT_FAIL_ACTION_NOP,
+	BOOT_FAIL_ACTION_S3_RESET,
 };
 
 static unsigned int boot_fail_action = BOOT_FAIL_ACTION_PANIC;
@@ -71,6 +72,8 @@ struct mdm_drv {
 	struct mutex poff_lock;
 };
 #define to_mdm_drv(d)	container_of(d, struct mdm_drv, cmd_eng)
+
+#define S3_RESET_DELAY_MS	2100
 
 static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 							unsigned int flags);
@@ -342,6 +345,14 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 		esoc_mdm_log("Doing cold reset by power-down and warm reset\n");
 		(*pon_trial)++;
 		mdm_power_down(mdm);
+		break;
+	case BOOT_FAIL_ACTION_S3_RESET:
+		mdm_subsys_retry_powerup_cleanup(esoc_clink,
+							ESOC_HOOK_MDM_DOWN);
+		esoc_mdm_log("Doing an S3 reset\n");
+		(*pon_trial)++;
+		mdm_power_down(mdm);
+		msleep(S3_RESET_DELAY_MS);
 		break;
 	case BOOT_FAIL_ACTION_PANIC:
 		esoc_mdm_log("Calling panic!!\n");

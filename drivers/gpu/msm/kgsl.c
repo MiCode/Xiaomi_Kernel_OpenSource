@@ -341,6 +341,8 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 {
 	if (meta != NULL) {
 		remove_dmabuf_list(meta);
+		dma_buf_unmap_attachment(meta->attach, meta->table,
+			DMA_FROM_DEVICE);
 		dma_buf_detach(meta->dmabuf, meta->attach);
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
@@ -835,23 +837,30 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 
 	mutex_lock(&device->mutex);
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	if (status == 0 && device->state == KGSL_STATE_SUSPEND)
-		device->ftbl->dispatcher_halt(device);
+	if (!status)
+		status = device->ftbl->suspend_device(device, state);
 	mutex_unlock(&device->mutex);
 
 	KGSL_PWR_WARN(device, "suspend end\n");
 	return status;
 }
 
-static int kgsl_resume_device(struct kgsl_device *device)
+static int kgsl_resume_device(struct kgsl_device *device, pm_message_t state)
 {
+	int ret;
+
 	if (!device)
 		return -EINVAL;
 
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
+	ret = device->ftbl->resume_device(device, state);
+	if (ret) {
+		mutex_unlock(&device->mutex);
+		return ret;
+	}
+
 	if (device->state == KGSL_STATE_SUSPEND) {
-		device->ftbl->dispatcher_unhalt(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*
@@ -874,18 +883,44 @@ static int kgsl_resume_device(struct kgsl_device *device)
 
 static int kgsl_suspend(struct device *dev)
 {
-
-	pm_message_t arg = {0};
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
-	return kgsl_suspend_device(device, arg);
+	return kgsl_suspend_device(device, PMSG_SUSPEND);
+}
+
+static int kgsl_freeze(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return kgsl_suspend_device(device, PMSG_FREEZE);
+}
+
+static int kgsl_poweroff(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return kgsl_suspend_device(device, PMSG_HIBERNATE);
 }
 
 static int kgsl_resume(struct device *dev)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
-	return kgsl_resume_device(device);
+	return kgsl_resume_device(device, PMSG_RESUME);
+}
+
+static int kgsl_thaw(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return kgsl_resume_device(device, PMSG_THAW);
+}
+
+static int kgsl_restore(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return kgsl_resume_device(device, PMSG_RESTORE);
 }
 
 static int kgsl_runtime_suspend(struct device *dev)
@@ -901,6 +936,10 @@ static int kgsl_runtime_resume(struct device *dev)
 const struct dev_pm_ops kgsl_pm_ops = {
 	.suspend = kgsl_suspend,
 	.resume = kgsl_resume,
+	.freeze = kgsl_freeze,
+	.thaw = kgsl_thaw,
+	.poweroff = kgsl_poweroff,
+	.restore = kgsl_restore,
 	.runtime_suspend = kgsl_runtime_suspend,
 	.runtime_resume = kgsl_runtime_resume,
 };
@@ -919,7 +958,7 @@ int kgsl_resume_driver(struct platform_device *pdev)
 {
 	struct kgsl_device *device = dev_get_drvdata(&pdev->dev);
 
-	return kgsl_resume_device(device);
+	return kgsl_resume_device(device, PMSG_RESUME);
 }
 EXPORT_SYMBOL(kgsl_resume_driver);
 
@@ -2766,8 +2805,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		ret = PTR_ERR(sg_table);
 		goto out;
 	}
-
-	dma_buf_unmap_attachment(attach, sg_table, DMA_FROM_DEVICE);
 
 	meta->table = sg_table;
 	entry->priv_data = meta;

@@ -325,6 +325,30 @@ int ipa_setup_odl_pipe(void)
 
 }
 
+/**
+ * ipa3_odl_register_pm - Register odl client for PM
+ *
+ * This function will register 1 client with IPA PM to represent odl
+ * in clock scaling calculation:
+ *	- "ODL" - this client will be activated when pipe connected
+ */
+static int ipa3_odl_register_pm(void)
+{
+	int result = 0;
+	struct ipa_pm_register_params pm_reg;
+
+	memset(&pm_reg, 0, sizeof(pm_reg));
+	pm_reg.name = "ODL";
+	pm_reg.group = IPA_PM_GROUP_DEFAULT;
+	pm_reg.skip_clk_vote = true;
+	result = ipa_pm_register(&pm_reg, &ipa3_odl_ctx->odl_pm_hdl);
+	if (result) {
+		IPAERR("failed to create IPA PM client %d\n", result);
+		return result;
+	}
+	return result;
+}
+
 int ipa3_odl_pipe_open(void)
 {
 	int ret = 0;
@@ -374,6 +398,10 @@ static int ipa_adpl_open(struct inode *inode, struct file *filp)
 	IPADBG("Called the function :\n");
 	if (ipa3_odl_ctx->odl_state.odl_init &&
 				!ipa3_odl_ctx->odl_state.adpl_open) {
+		/* Activate ipa_pm*/
+		ret = ipa_pm_activate_sync(ipa3_odl_ctx->odl_pm_hdl);
+		if (ret)
+			IPAERR("failed to activate pm\n");
 		ipa3_odl_ctx->odl_state.adpl_open = true;
 		ret = ipa3_odl_pipe_open();
 	} else {
@@ -387,8 +415,13 @@ static int ipa_adpl_open(struct inode *inode, struct file *filp)
 
 static int ipa_adpl_release(struct inode *inode, struct file *filp)
 {
+	int ret = 0;
+	/* Deactivate ipa_pm */
+	ret = ipa_pm_deactivate_sync(ipa3_odl_ctx->odl_pm_hdl);
+	if (ret)
+		IPAERR("failed to activate pm\n");
 	ipa3_odl_pipe_cleanup(false);
-	return 0;
+	return ret;
 }
 
 void ipa3_odl_pipe_cleanup(bool is_ssr)
@@ -675,6 +708,14 @@ int ipa_odl_init(void)
 	}
 
 	ipa3_odl_ctx->odl_state.odl_init = true;
+
+	/* register ipa_pm */
+	result = ipa3_odl_register_pm();
+	if (result) {
+		IPAWANERR("ipa3_odl_register_pm failed, ret: %d\n",
+				result);
+		goto cdev1_add_fail;
+	}
 	return 0;
 cdev1_add_fail:
 	device_destroy(odl_cdev[1].class, odl_cdev[1].dev_num);
