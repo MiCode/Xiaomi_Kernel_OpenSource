@@ -250,13 +250,16 @@
 				&cam_sensor_front_sleep>;
 		gpios = <&tlmm 27 0>,
 			<&tlmm 33 0>,
+			<&tlmm 66 0>,
 			<&tlmm 38 0>;
 		qcom,gpio-vana= <1>;
-		qcom,gpio-reset = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-vdig= <2>;
+		qcom,gpio-reset = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
 			"CAM_AVDD1",
+			"CAM_DVDD1",
 			"CAM_RESET1";
 		qcom,sensor-position = <0x1>;
 		qcom,sensor-mode = <0>;
