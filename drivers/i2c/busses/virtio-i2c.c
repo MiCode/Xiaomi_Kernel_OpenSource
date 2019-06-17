@@ -130,19 +130,27 @@ static int virti2c_transfer_prepare(struct i2c_msg *msg_1,
 	i2c_req->head.length = msg_1->len;
 
 	if (IS_ERR_OR_NULL(msg_2)) {
-		i2c_req->head.type = (msg_1->flags & I2C_M_RD) ?
-					I2C_VIRTIO_RD : I2C_VIRTIO_WR;
-		i2c_req->buf = msg_1->buf;
+		i2c_req->buf = kzalloc(msg_1->len, GFP_KERNEL);
+		if (!i2c_req->buf)
+			return -ENOMEM;
+
+		if (msg_1->flags & I2C_M_RD) {
+			i2c_req->head.type = I2C_VIRTIO_RD;
+		} else {
+			i2c_req->head.type = I2C_VIRTIO_WR;
+			memcpy(i2c_req->buf, msg_1->buf, msg_1->len);
+		}
+
 	} else {
 		if (!msg_2->len || IS_ERR_OR_NULL(msg_2->buf))
 			return -EINVAL;
 
+		i2c_req->buf = kzalloc((msg_1->len + msg_2->len), GFP_KERNEL);
+		if (!i2c_req->buf)
+			return -ENOMEM;
+
 		i2c_req->head.type = I2C_VIRTIO_RDWR;
 		i2c_req->head.total_length = msg_1->len + msg_2->len;
-
-		i2c_req->buf = kzalloc((msg_1->len + msg_2->len), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(i2c_req->buf))
-			return -ENOMEM;
 
 		memcpy(i2c_req->buf, msg_1->buf, msg_1->len);
 	}
@@ -153,13 +161,12 @@ static int virti2c_transfer_prepare(struct i2c_msg *msg_1,
 static void virti2c_transfer_end(struct virtio_i2c_req *req,
 						struct i2c_msg *msg)
 {
-	if (req->head.type == I2C_VIRTIO_RDWR) {
+	if (req->head.type == I2C_VIRTIO_RDWR)
 		memcpy(msg->buf, req->buf + req->head.length, msg->len);
-		kfree(req->buf);
-		req->buf = NULL;
-	}
-
-	memset(req, 0, sizeof(struct virtio_i2c_req));
+	else if (req->head.type == I2C_VIRTIO_RD)
+		memcpy(msg->buf, req->buf, msg->len);
+	kfree(req->buf);
+	req->buf = NULL;
 }
 
 static int virtio_i2c_master_xfer(struct i2c_adapter *adap,
