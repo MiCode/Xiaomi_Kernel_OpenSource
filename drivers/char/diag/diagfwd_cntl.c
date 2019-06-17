@@ -1522,6 +1522,8 @@ void diag_send_hw_accel_status(uint8_t peripheral)
 	}
 
 	for (feature = 0; feature < DIAGID_V2_FEATURE_COUNT - 1; feature++) {
+		if (!driver->diag_hw_accel[feature])
+			continue;
 		for (pd = 0; pd <= MAX_PERIPHERAL_UPD; pd++) {
 			if (!pd) {
 				diagid_struct = &fwd_info->root_diag_id;
@@ -1847,10 +1849,17 @@ int diag_send_passthru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
 	diagid_mask = req_params->op_req.diagid_mask;
 	diagid_status = (DIAGIDV2_FEATURE(f_index) & diagid_mask);
 
-	if (req_params->operation == DIAG_HW_ACCEL_OP_DISABLE)
+	if (req_params->operation == DIAG_HW_ACCEL_OP_DISABLE) {
 		DIAGIDV2_STATUS(f_index) &= ~diagid_status;
-	else
+	} else {
 		DIAGIDV2_STATUS(f_index) |= diagid_status;
+		for (i = 0; i < DIAGID_V2_FEATURE_COUNT; i++) {
+			if (i == f_index || !driver->diag_hw_accel[i])
+				continue;
+			DIAGIDV2_STATUS(i) &=
+				~(DIAGIDV2_FEATURE(i) & diagid_mask);
+		}
+	}
 
 	req_params->op_req.diagid_mask = DIAGIDV2_STATUS(f_index);
 
