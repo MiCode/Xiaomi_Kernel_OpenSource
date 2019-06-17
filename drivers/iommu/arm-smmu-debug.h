@@ -17,6 +17,7 @@
 #define ARM_SMMU_TESTBUS_SEL_HLOS1_NS		0x8
 #define DEBUG_TESTBUS_SEL_TBU			0x50
 #define DEBUG_TESTBUS_TBU			0x58
+#define CLIENT_DEBUG_SR_HALT_ACK		0x24
 
 #define TCU_PTW_TESTBUS				(0x1 << 8)
 #define TCU_CACHE_TESTBUS			~TCU_PTW_TESTBUS
@@ -57,23 +58,28 @@ enum testbus_ops {
 #ifdef CONFIG_ARM_SMMU
 
 u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
-					bool write, u32 val);
-u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base);
+		void __iomem *tcu_base, u32 testbus_version,
+		bool write, u32 reg);
+u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base,
+					u32 testbus_version);
 u32 arm_smmu_debug_tcu_testbus_select(void __iomem *base,
 		void __iomem *tcu_base, enum tcu_testbus testbus,
 		bool write, u32 val);
 u32 arm_smmu_debug_tcu_testbus_output(void __iomem *base);
 void arm_smmu_debug_dump_tbu_testbus(struct device *dev, void __iomem *tbu_base,
-			int tbu_testbus_sel);
+		void __iomem *tcu_base, int tbu_testbus_sel,
+		u32 testbus_version);
 void arm_smmu_debug_dump_tcu_testbus(struct device *dev, void __iomem *base,
 			void __iomem *tcu_base, int tcu_testbus_sel);
 
 #else
 static inline u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
-				bool write, u32 val)
+		void __iomem *tcu_base,	u32 testbus_version, bool write,
+		u32 val)
 {
 }
-static inline u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base)
+static inline u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base,
+						u32 testbus_version)
 {
 }
 u32 arm_smmu_debug_tcu_testbus_select(void __iomem *base,
@@ -85,7 +91,8 @@ static inline u32 arm_smmu_debug_tcu_testbus_output(void __iomem *base)
 {
 }
 static inline void arm_smmu_debug_dump_tbu_testbus(struct device *dev,
-			void __iomem *tbu_base, int tbu_testbus_sel)
+			void __iomem *tbu_base, void __iomem *tcu_base,
+			int tbu_testbus_sel, u32 testbus_version)
 {
 }
 static inline void arm_smmu_debug_dump_tcu_testbus(struct device *dev,
@@ -94,4 +101,3 @@ static inline void arm_smmu_debug_dump_tcu_testbus(struct device *dev,
 {
 }
 #endif
-
