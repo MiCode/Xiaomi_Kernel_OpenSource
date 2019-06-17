@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,12 @@
 #define GMU_DEV_OP_VALID(_devops, _field) \
 	(((_devops) != NULL) && \
 	 ((_devops)->_field != NULL))
+
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VER_STEP(ver) (((ver) >> 0) & 0xFFFF)
+#define GMU_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
 
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
