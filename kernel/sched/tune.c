@@ -679,6 +679,22 @@ schedtune_init_cgroups(void)
 	schedtune_initialized = true;
 }
 
+#ifdef CONFIG_MTK_FPSGO_V3
+int prefer_idle_for_perf_idx(int idx, int prefer_idle)
+{
+	struct schedtune *ct = allocated_group[idx];
+
+	if (!ct)
+		return -EINVAL;
+
+	rcu_read_lock();
+	ct->prefer_idle = prefer_idle;
+	rcu_read_unlock();
+	return 0;
+}
+EXPORT_SYMBOL(prefer_idle_for_perf_idx);
+#endif
+
 /*
  * Initialize the cgroup structures
  */
