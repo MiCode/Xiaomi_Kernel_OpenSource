@@ -27,6 +27,7 @@
 
 #define NORTH	0x900000 /* dummy tile info */
 #define SOUTH	0xD00000
+#define SOUTH1	0xD1E000 /* dummy tile info */
 #define WEST	0x100000
 #define EAST	0x500000
 #define DUMMY	0x0
@@ -2212,27 +2213,27 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[175] = PINGROUP(175, SOUTH, pci_e2, NA, NA, NA, NA, NA, NA, NA, NA),
 	[176] = PINGROUP(176, SOUTH, pci_e2, cci_async, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[177] = PINGROUP(177, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[178] = PINGROUP(178, SOUTH, pci_e3, cci_timer4, NA, NA, NA, NA, NA,
+	[177] = PINGROUP(177, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[178] = PINGROUP(178, SOUTH1, pci_e3, cci_timer4, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[179] = PINGROUP(179, SOUTH, pci_e3, cam_mclk, NA, NA, NA, NA, NA, NA,
+	[179] = PINGROUP(179, SOUTH1, pci_e3, cam_mclk, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[180] = PINGROUP(180, SOUTH, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA),
-	[181] = PINGROUP(181, SOUTH, qup19, cam_mclk, NA, NA, NA, NA, NA, NA,
+	[180] = PINGROUP(180, SOUTH1, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA),
+	[181] = PINGROUP(181, SOUTH1, qup19, cam_mclk, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[182] = PINGROUP(182, SOUTH, qup19, cci_timer5, gcc_gp4, NA, NA, NA,
+	[182] = PINGROUP(182, SOUTH1, qup19, cci_timer5, gcc_gp4, NA, NA, NA,
 			 NA, NA, NA),
-	[183] = PINGROUP(183, SOUTH, qup19, cci_timer6, gcc_gp5, NA, NA, NA,
+	[183] = PINGROUP(183, SOUTH1, qup19, cci_timer6, gcc_gp5, NA, NA, NA,
 			 NA, NA, NA),
-	[184] = PINGROUP(184, SOUTH, qup19, cci_timer7, NA, NA, NA, NA, NA, NA,
+	[184] = PINGROUP(184, SOUTH1, qup19, cci_timer7, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[185] = PINGROUP(185, SOUTH, cci_timer8, cci_async, NA, NA, NA, NA, NA,
+	[185] = PINGROUP(185, SOUTH1, cci_timer8, cci_async, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[186] = PINGROUP(186, SOUTH, cci_timer9, cci_async, NA, NA, NA, NA, NA,
+	[186] = PINGROUP(186, SOUTH1, cci_timer9, cci_async, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[187] = PINGROUP(187, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[188] = PINGROUP(188, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[189] = PINGROUP(189, SOUTH, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
+	[187] = PINGROUP(187, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[188] = PINGROUP(188, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[189] = PINGROUP(189, SOUTH1, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
 	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
 	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
 	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
