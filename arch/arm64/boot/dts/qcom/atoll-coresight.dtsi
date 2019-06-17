@@ -2250,9 +2250,8 @@
 			<0x6064000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
 
-		qcom,smmu-s1-bypass;
-		iommus = <&apps_smmu 0x04a0 0>,
-				<&apps_smmu 0x0480 0>;
+		iommus = <&apps_smmu 0x04a0 0x20>,
+				<&apps_smmu 0x0480 0x20>;
 
 		coresight-ctis = <&cti0 &cti0>;
 		coresight-csr = <&csr>;
