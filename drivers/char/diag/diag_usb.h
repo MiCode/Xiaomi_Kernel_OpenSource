@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef DIAGUSB_H
@@ -73,6 +73,8 @@ int diag_usb_queue_read(int id);
 int diag_usb_write(int id, unsigned char *buf, int len, int ctxt);
 void diag_usb_connect_all(void);
 void diag_usb_disconnect_all(void);
+void diag_usb_connect_device(int id);
+void diag_usb_disconnect_device(int id);
 void diag_usb_exit(int id);
 #else
 int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
@@ -91,6 +93,12 @@ void diag_usb_connect_all(void)
 {
 }
 void diag_usb_disconnect_all(void)
+{
+}
+void diag_usb_connect_device(int id)
+{
+}
+void diag_usb_disconnect_device(int id)
 {
 }
 void diag_usb_exit(int id)
