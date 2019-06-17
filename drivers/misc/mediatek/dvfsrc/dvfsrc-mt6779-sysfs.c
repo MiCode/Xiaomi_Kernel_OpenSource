@@ -63,7 +63,7 @@ static ssize_t dvfsrc_req_performance_store(struct device *dev,
 	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	if (val < dvfsrc->num_perf)
+	if ((val >= 0) && (val < dvfsrc->num_perf))
 		dev_pm_genpd_set_performance_state(dev, dvfsrc->perfs[val]);
 	else
 		dev_pm_genpd_set_performance_state(dev, 0);
@@ -114,14 +114,22 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 	char *p = buf;
 	char *buff_end = p + PAGE_SIZE;
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
-	int dram_type = dvfsrc->dram_type;
+	p += snprintf(p, buff_end - p,
+		"NUM_VCORE_OPP : %d\n",
+		dvfsrc->opp_desc->num_vcore_opp);
+	p += snprintf(p, buff_end - p,
+		"NUM_DDR_OPP : %d\n",
+		dvfsrc->opp_desc->num_dram_opp);
+	p += snprintf(p, buff_end - p,
+		"NUM_DVFSRC_OPP : %d\n\n",
+		dvfsrc->opp_desc->num_opp);
 
-	for (i = 0; i < dvfsrc->dvd->num_opp; i++) {
+	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
 		p += snprintf(p, buff_end - p,
 			"[OPP%-2d]: %-8u uv %-8u khz\n",
 			i,
-			dvfsrc->dvd->opps[dram_type][i].vcore_uv,
-			dvfsrc->dvd->opps[dram_type][i].dram_khz);
+			dvfsrc->opp_desc->opps[i].vcore_uv,
+			dvfsrc->opp_desc->opps[i].dram_khz);
 	}
 
 	return p - buf;
