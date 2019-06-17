@@ -47,12 +47,14 @@ struct mhi_dev {
 	bool powered_on;
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
-	bool lpm_disabled;
 	enum mhi_suspend_mode suspend_mode;
 
 	/* if set, soc support dynamic bw scaling */
 	void (*bw_scale)(struct mhi_controller *mhi_cntrl,
 			 struct mhi_dev *mhi_dev);
+	unsigned int lpm_disable_depth;
+	/* lock to toggle low power modes */
+	spinlock_t lpm_lock;
 };
 
 void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl);

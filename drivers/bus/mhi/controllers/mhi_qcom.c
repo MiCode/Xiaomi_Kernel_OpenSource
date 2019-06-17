@@ -79,6 +79,10 @@ void mhi_deinit_pci_dev(struct mhi_controller *mhi_cntrl)
 	pm_runtime_mark_last_busy(&pci_dev->dev);
 	pm_runtime_dont_use_autosuspend(&pci_dev->dev);
 	pm_runtime_disable(&pci_dev->dev);
+
+	/* reset counter for lpm state changes */
+	mhi_dev->lpm_disable_depth = 0;
+
 	pci_free_irq_vectors(pci_dev);
 	kfree(mhi_cntrl->irq);
 	mhi_cntrl->irq = NULL;
@@ -391,26 +395,38 @@ static int mhi_lpm_disable(struct mhi_controller *mhi_cntrl, void *priv)
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
 	u8 val;
-	int ret;
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&mhi_dev->lpm_lock, flags);
+
+	/* L1 is already disabled */
+	if (mhi_dev->lpm_disable_depth) {
+		mhi_dev->lpm_disable_depth++;
+		goto lpm_disable_exit;
+	}
 
 	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
 	if (ret) {
 		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
-		return ret;
+		goto lpm_disable_exit;
 	}
 
-	/* L1 is not supported or already disabled */
-	if (!(val & PCI_EXP_LNKCTL_ASPM_L1))
-		return 0;
+	/* L1 is not supported, do not increment lpm_disable_depth */
+	if (unlikely(!(val & PCI_EXP_LNKCTL_ASPM_L1)))
+		goto lpm_disable_exit;
 
 	val &= ~PCI_EXP_LNKCTL_ASPM_L1;
 	ret = pci_write_config_byte(pci_dev, lnkctl, val);
 	if (ret) {
 		MHI_ERR("Error writing LNKCTL to disable LPM, ret:%d\n", ret);
-		return ret;
+		goto lpm_disable_exit;
 	}
 
-	mhi_dev->lpm_disabled = true;
+	mhi_dev->lpm_disable_depth++;
+
+lpm_disable_exit:
+	spin_unlock_irqrestore(&mhi_dev->lpm_lock, flags);
 
 	return ret;
 }
@@ -422,26 +438,40 @@ static int mhi_lpm_enable(struct mhi_controller *mhi_cntrl, void *priv)
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 	int lnkctl = pci_dev->pcie_cap + PCI_EXP_LNKCTL;
 	u8 val;
-	int ret;
+	unsigned long flags;
+	int ret = 0;
 
-	/* L1 is not supported or already disabled */
-	if (!mhi_dev->lpm_disabled)
-		return 0;
+	spin_lock_irqsave(&mhi_dev->lpm_lock, flags);
+
+	/*
+	 * Exit if L1 is not supported or is already disabled or
+	 * decrementing lpm_disable_depth still keeps it above 0
+	 */
+	if (!mhi_dev->lpm_disable_depth)
+		goto lpm_enable_exit;
+
+	if (mhi_dev->lpm_disable_depth > 1) {
+		mhi_dev->lpm_disable_depth--;
+		goto lpm_enable_exit;
+	}
 
 	ret = pci_read_config_byte(pci_dev, lnkctl, &val);
 	if (ret) {
 		MHI_ERR("Error reading LNKCTL, ret:%d\n", ret);
-		return ret;
+		goto lpm_enable_exit;
 	}
 
 	val |= PCI_EXP_LNKCTL_ASPM_L1;
 	ret = pci_write_config_byte(pci_dev, lnkctl, val);
 	if (ret) {
 		MHI_ERR("Error writing LNKCTL to enable LPM, ret:%d\n", ret);
-		return ret;
+		goto lpm_enable_exit;
 	}
 
-	mhi_dev->lpm_disabled = false;
+	mhi_dev->lpm_disable_depth = 0;
+
+lpm_enable_exit:
+	spin_unlock_irqrestore(&mhi_dev->lpm_lock, flags);
 
 	return ret;
 }
@@ -659,6 +689,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->of_node = of_node;
 
 	mhi_dev->pci_dev = pci_dev;
+	spin_lock_init(&mhi_dev->lpm_lock);
 
 	/* setup power management apis */
 	mhi_cntrl->status_cb = mhi_status_cb;
