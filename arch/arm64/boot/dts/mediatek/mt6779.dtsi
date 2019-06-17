@@ -229,7 +229,7 @@
 		};
 
 		pio: pinctrl@10005000 {
-			compatible = "mediatek,mt6779-pinctrl";
+			compatible = "mediatek,mt6779-pinctrl", "syscon";
 			reg = <0 0x10005000 0 0x1000>,
 			      <0 0x11c20000 0 0x1000>,
 			      <0 0x11d10000 0 0x1000>,
@@ -461,7 +461,7 @@
 
 		pwrap: pwrap@1000d000 {
 			compatible = "mediatek,mt6779-pwrap",
-				     "mediatek,pwrap_mpu";
+				     "mediatek,pwrap_mpu", "syscon";
 			reg = <0 0x1000d000 0 0x1000>;
 			reg-names = "pwrap";
 			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
@@ -1937,6 +1937,20 @@
 		compatible = "goodix,touch";
 	};
 
+	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <7>;
+		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+		mediatek,clkbuf-output-impedance = <6 4 6 4 0 0 6>;
+		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+
+		pwrap-dcxo-en = <0x190 0 0x190 1 0x190 0>;
+		pwrap-dcxo-cfg = <0x194 0x1A4>;
+		gpio-nfc-mode = <0x330 4>;
+
+		pwrap = <&pwrap>;
+		gpio = <&pio 0 0>;
+	};
 };
 
 #include "cust_mt6779_msdc.dtsi"
