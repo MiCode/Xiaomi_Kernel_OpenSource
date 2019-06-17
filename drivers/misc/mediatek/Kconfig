@@ -35,6 +35,7 @@ endmenu # CONN
 
 menu "Security"
 
+source "drivers/misc/mediatek/tkcore/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"
