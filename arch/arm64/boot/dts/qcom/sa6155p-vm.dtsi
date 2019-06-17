@@ -14,12 +14,17 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
 #include <dt-bindings/clock/qcom,scc-sm6150.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SA6155P Virtual Machine";
 	qcom,msm-name = "SA6155P";
 	qcom,msm-id = <377 0x0>;
+
+	aliases {
+		pci-domain0 = &pcie0; /* PCIe0 domain */
+	};
 
 	psci {
 		compatible = "arm,psci-1.0";
@@ -114,6 +119,11 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_rpmh: qcom,rpmh {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
 	};
 
 	qcom,ion {
@@ -347,6 +357,54 @@
 			qcom,no-clock-support;
 			qcom,qsee-reentrancy-support = <2>;
 	};
+
+	pm6155_1_l10: regulator-pm6155-1-l10 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6155_1_l10";
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <3312000>;
+			status = "ok";
+	};
+
+	pm6155_1_l2: regulator-pm6155-1-l2 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6155_1_l2";
+			regulator-min-microvolt = <1650000>;
+			regulator-max-microvolt = <3100000>;
+			status = "ok";
+	};
+
+	pm6155_1_l12: regulator-pm6155-1-l12 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6155_1_l12";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1890000>;
+			status = "ok";
+	};
+
+	pm6155_1_l5: regulator-pm6155-1-l5 {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6155_1_l5";
+			regulator-min-microvolt = <875000>;
+			regulator-max-microvolt = <975000>;
+			status = "ok";
+	};
+
+	VDD_CX_LEVEL: VDD_MX_LEVEL: S2A_LEVEL:
+			pm6155_1_s2_level: regulator-pm6155-1-s2-level {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pm6155_1_s2_level";
+			regulator-min-microvolt
+				= <RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt
+				= <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pcie_0_gdsc: pcie_0_gdsc {
+			compatible = "qcom,stub-regulator";
+			regulator-name = "pcie_0_gdsc";
+			status = "okay";
+	};
 };
 
 #include "sa6155p-vm-pinctrl.dtsi"
@@ -354,3 +412,4 @@
 #include "sa6155p-vm-qupv3.dtsi"
 #include "sa6155p-vm-usb.dtsi"
 #include "sa8155-vm-audio.dtsi"
+#include "sa6155p-vm-pcie.dtsi"
