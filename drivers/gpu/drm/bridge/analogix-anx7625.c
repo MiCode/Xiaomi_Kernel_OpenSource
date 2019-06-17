@@ -35,6 +35,7 @@
 #include <drm/drm_edid.h>
 
 #include "analogix-anx7625.h"
+#include <soc/qcom/boot_stats.h>
 
 #define TX_P0			0x70
 #define TX_P1			0x7A
@@ -1554,6 +1555,7 @@ static int anx7625_restore(struct device *dev)
 		usleep_range(10000, 11000);
 
 		anx7625_start(anx7625);
+		place_marker("Hiber: Display up");
 	}
 
 	mutex_unlock(&anx7625->lock);
