@@ -2448,7 +2448,15 @@ void cpuset_cpus_allowed(struct task_struct *tsk, struct cpumask *pmask)
 void cpuset_cpus_allowed_fallback(struct task_struct *tsk)
 {
 	rcu_read_lock();
-	do_set_cpus_allowed(tsk, task_cs(tsk)->effective_cpus);
+	/*
+	 * mtk: if task affinity of root group not intersects with online cpu,
+	 * set task affinity of root group to all cores.
+	 */
+	if (task_cs(tsk) == &top_cpuset)
+		do_set_cpus_allowed(tsk, task_cs(tsk)->cpus_requested);
+	else
+		do_set_cpus_allowed(tsk, task_cs(tsk)->effective_cpus);
+
 	rcu_read_unlock();
 
 	/*
