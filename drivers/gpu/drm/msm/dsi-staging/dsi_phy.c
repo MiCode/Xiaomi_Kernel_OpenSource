@@ -1238,6 +1238,26 @@ void dsi_phy_dynamic_refresh_clear(struct msm_dsi_phy *phy)
 	mutex_unlock(&phy->phy_lock);
 }
 
+/**
+ * dsi_phy_set_continuous_clk() - set/unset force clock lane HS request
+ * @phy:	DSI PHY handle
+ * @enable:	variable to control continuous clock
+ */
+void dsi_phy_set_continuous_clk(struct msm_dsi_phy *phy, bool enable)
+{
+	if (!phy)
+		return;
+
+	mutex_lock(&phy->phy_lock);
+
+	if (phy->hw.ops.set_continuous_clk)
+		phy->hw.ops.set_continuous_clk(&phy->hw, enable);
+	else
+		pr_warn("set_continuous_clk ops not present\n");
+
+	mutex_unlock(&phy->phy_lock);
+}
+
 void dsi_phy_drv_register(void)
 {
 	platform_driver_register(&dsi_phy_platform_driver);

@@ -32,6 +32,7 @@ Optional properties:
   - qcom,smmu-s1-bypass: Boolean context flag to set SMMU to S1 bypass
   - qcom,wlan-msa-fixed-region: phandle, specifier pairs to children of /reserved-memory
   - qcom,hyp_disabled: Boolean context flag to disable hyperviser
+  - qcom,clk-monitor-enable: Boolean context flag to enable monitoring external clock
 
 WLAN SMP2P sub nodes
 

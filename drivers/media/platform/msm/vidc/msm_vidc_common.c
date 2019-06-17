@@ -1577,6 +1577,8 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("rc_modes", &inst->capability.rc_modes);
 	print_cap("blur_width", &inst->capability.blur_width);
 	print_cap("blur_height", &inst->capability.blur_height);
+	print_cap("rotation", &inst->capability.rotation);
+	print_cap("color_space_caps", &inst->capability.color_space_caps);
 	print_cap("slice_delivery_mode", &inst->capability.slice_delivery_mode);
 	print_cap("slice_bytes", &inst->capability.slice_bytes);
 	print_cap("slice_mbs", &inst->capability.slice_mbs);
@@ -4375,6 +4377,18 @@ void msm_vidc_batch_handler(struct work_struct *work)
 	struct msm_vidc_inst *inst;
 
 	inst = container_of(work, struct msm_vidc_inst, batch_work);
+
+	inst = get_inst(get_vidc_core(MSM_VIDC_CORE_VENUS), inst);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "%s: invalid state\n", __func__);
+		goto exit;
+	}
+
 	rc = msm_comm_scale_clocks_and_bus(inst);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
@@ -4387,6 +4401,9 @@ void msm_vidc_batch_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "%s: Failed batch-qbuf to hfi: %d\n",
 			__func__, rc);
 	}
+
+exit:
+	put_inst(inst);
 }
 
 static int msm_comm_qbuf_in_rbr(struct msm_vidc_inst *inst,
@@ -5272,6 +5289,14 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				"Invalid params, inst %pK\n", inst);
 		return -EINVAL;
 	}
+
+	if (inst->state < MSM_VIDC_OPEN_DONE) {
+		dprintk(VIDC_ERR,
+			"Invalid state to call flush, inst %pK, state %#x\n",
+			inst, inst->state);
+		return -EINVAL;
+	}
+
 	core = inst->core;
 	hdev = core->device;
 

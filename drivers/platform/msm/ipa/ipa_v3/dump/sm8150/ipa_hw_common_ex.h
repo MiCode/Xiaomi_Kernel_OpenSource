@@ -105,8 +105,8 @@
 #define IPA_HW_DDR_SRC_RSRP_GRP                      IPA_HW_RSRP_GRP_1
 #define IPA_HW_DDR_DEST_RSRP_GRP                     IPA_HW_RSRP_GRP_1
 
-#define IPA_HW_SRC_RSRP_TYPE_MAX                     0x4
-#define IPA_HW_DST_RSRP_TYPE_MAX                     0x3
+#define IPA_HW_SRC_RSRP_TYPE_MAX                     0x5
+#define IPA_HW_DST_RSRP_TYPE_MAX                     0x2
 
 #define GSI_HW_QSB_LOG_MISC_MAX 0x4
 

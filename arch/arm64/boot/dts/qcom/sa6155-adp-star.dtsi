@@ -33,10 +33,6 @@
 		status = "ok";
 	};
 
-	audio_apr: qcom,msm-audio-apr {
-		status = "ok";
-	};
-
 	qcom,glink {
 		modem {
 			status = "disabled";

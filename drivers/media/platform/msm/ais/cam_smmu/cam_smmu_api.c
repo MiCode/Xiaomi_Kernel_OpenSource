@@ -24,6 +24,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <uapi/media/cam_req_mgr.h>
+#include <linux/debugfs.h>
 #include "cam_smmu_api.h"
 #include "cam_debug_util.h"
 
@@ -186,6 +187,10 @@ static const char *qdss_region_name = "qdss";
 
 static struct cam_iommu_cb_set iommu_cb_set;
 
+static struct dentry *smmu_dentry;
+
+static bool smmu_fatal_flag;
+
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
 
@@ -293,6 +298,30 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 		}
 	}
 	kfree(payload);
+}
+
+static int cam_smmu_create_debugfs_entry(void)
+{
+	int rc = 0;
+
+	smmu_dentry = debugfs_create_dir("camera_smmu", NULL);
+	if (!smmu_dentry)
+		return -ENOMEM;
+
+	if (!debugfs_create_bool("cam_smmu_fatal",
+		0644,
+		smmu_dentry,
+		&smmu_fatal_flag)) {
+		CAM_ERR(CAM_SMMU, "failed to create cam_smmu_fatal entry");
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	return rc;
+err:
+	debugfs_remove_recursive(smmu_dentry);
+	smmu_dentry = NULL;
+	return rc;
 }
 
 static void cam_smmu_print_user_list(int idx)
@@ -680,11 +709,6 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 		if (!strcmp(iommu_cb_set.cb_info[i].name, name)) {
 			mutex_lock(&iommu_cb_set.cb_info[i].lock);
 			if (iommu_cb_set.cb_info[i].handle != HANDLE_INIT) {
-				CAM_ERR(CAM_SMMU,
-					"Error: %s already got handle 0x%x",
-					name,
-					iommu_cb_set.cb_info[i].handle);
-
 				if (iommu_cb_set.cb_info[i].is_secure)
 					iommu_cb_set.cb_info[i].secure_count++;
 
@@ -693,6 +717,11 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 					*hdl = iommu_cb_set.cb_info[i].handle;
 					return 0;
 				}
+
+				CAM_ERR(CAM_SMMU,
+					"Error: %s already got handle 0x%x",
+					name, iommu_cb_set.cb_info[i].handle);
+
 				return -EINVAL;
 			}
 
@@ -3225,7 +3254,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 			goto end;
 		}
 
-		iommu_cb_set.non_fatal_fault = 1;
+		iommu_cb_set.non_fatal_fault = smmu_fatal_flag;
 		if (iommu_domain_set_attr(cb->mapping->domain,
 			DOMAIN_ATTR_NON_FATAL_FAULTS,
 			&iommu_cb_set.non_fatal_fault) < 0) {
@@ -3576,6 +3605,7 @@ static struct platform_driver cam_smmu_driver = {
 
 static int __init cam_smmu_init_module(void)
 {
+	cam_smmu_create_debugfs_entry();
 	return platform_driver_register(&cam_smmu_driver);
 }
 

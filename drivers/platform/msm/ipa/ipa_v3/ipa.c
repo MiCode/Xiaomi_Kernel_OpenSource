@@ -212,6 +212,10 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 	cnt += scnprintf(buf + cnt, size - cnt,
 			"\nTotal active clients count: %d\n",
 			atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
+
+	if (ipa3_is_mhip_offload_enabled())
+		cnt += ipa_mpm_panic_handler(buf + cnt, size - cnt);
+
 	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
 		flags);
 
@@ -6139,7 +6143,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		struct platform_device *ipa_pdev)
 {
 	int result = 0;
-	int i;
+	int i, j;
 	struct ipa3_rt_tbl_set *rset;
 	struct ipa_active_client_logging_info log_info;
 	struct cdev *cdev;
@@ -6160,6 +6164,15 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->master_pdev = ipa_pdev;
 	for (i = 0; i < IPA_SMMU_CB_MAX; i++)
 		ipa3_ctx->s1_bypass_arr[i] = true;
+
+	/* initialize the gsi protocol info for uC debug stats */
+	for (i = 0; i < IPA_HW_PROTOCOL_MAX; i++) {
+		ipa3_ctx->gsi_info[i].protocol = i;
+		/* initialize all to be not started */
+		for (j = 0; j < MAX_CH_STATS_SUPPORTED; j++)
+			ipa3_ctx->gsi_info[i].ch_id_info[j].ch_id =
+				0xFF;
+	}
 
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
@@ -6789,7 +6802,7 @@ static int get_ipa_dts_pm_info(struct platform_device *pdev,
 
 		result = of_property_read_string_index(pdev->dev.of_node,
 			"qcom,scaling-exceptions",
-			i * ipa_drv_res->pm_init.threshold_size,
+			i * (ipa_drv_res->pm_init.threshold_size + 1),
 			&ex[i].usecase);
 		if (result) {
 			IPAERR("failed to read qcom,scaling-exceptions");
@@ -6802,7 +6815,8 @@ static int get_ipa_dts_pm_info(struct platform_device *pdev,
 			result = of_property_read_string_index(
 				pdev->dev.of_node,
 				"qcom,scaling-exceptions",
-				i * ipa_drv_res->pm_init.threshold_size + j + 1,
+				i * (ipa_drv_res->pm_init.threshold_size + 1)
+				+ j + 1,
 				&str);
 			if (result) {
 				IPAERR("failed to read qcom,scaling-exceptions"
@@ -7333,7 +7347,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->iommu,
 				iova_p, pa_p, size_p,
@@ -7462,7 +7476,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		iova_p, pa_p, size_p);
 
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1) {
-		IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+		IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 			iova_p, &pa_p, size_p);
 		ipa3_iommu_map(cb->mapping->domain,
 			iova_p, pa_p, size_p,
@@ -7609,7 +7623,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 			IPA_SMMU_ROUND_TO_PAGE(iova, pa, size,
 				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
+			IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
 				iova_p, &pa_p, size_p);
 			ipa3_iommu_map(cb->mapping->domain,
 				iova_p, pa_p, size_p,
@@ -7626,38 +7640,40 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("ipa q6 smem size = %u\n", ipa_smem_size);
 	}
 
-	/* map SMEM memory for IPA table accesses */
-	ret = qcom_smem_alloc(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		ipa_smem_size);
+	if (ipa3_ctx->platform_type != IPA_PLAT_TYPE_APQ) {
+		/* map SMEM memory for IPA table accesses */
+		ret = qcom_smem_alloc(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			ipa_smem_size);
 
-	if (ret < 0 && ret != -EEXIST) {
-		IPAERR("unable to allocate smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
+		if (ret < 0 && ret != -EEXIST) {
+			IPAERR("unable to allocate smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		smem_addr = qcom_smem_get(SMEM_MODEM,
+			SMEM_IPA_FILTER_TABLE,
+			&smem_size);
+		if (IS_ERR(smem_addr)) {
+			IPAERR("unable to acquire smem MODEM entry\n");
+			cb->valid = false;
+			return -EFAULT;
+		}
+		if (smem_size != ipa_smem_size)
+			IPAERR("unexpected read q6 smem size %zu %u\n",
+				smem_size, ipa_smem_size);
+
+		iova = qcom_smem_virt_to_phys(smem_addr);
+		pa = iova;
+
+		IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
+					iova_p, pa_p, size_p);
+				IPADBG_LOW("mapping 0x%lx to 0x%pa size %d\n",
+					iova_p, &pa_p, size_p);
+				ipa3_iommu_map(cb->mapping->domain,
+					iova_p, pa_p, size_p,
+					IOMMU_READ | IOMMU_WRITE);
 	}
-	smem_addr = qcom_smem_get(SMEM_MODEM,
-		SMEM_IPA_FILTER_TABLE,
-		&smem_size);
-	if (IS_ERR(smem_addr)) {
-		IPAERR("unable to acquire smem MODEM entry\n");
-		cb->valid = false;
-		return -EFAULT;
-	}
-	if (smem_size != ipa_smem_size)
-		IPAERR("unexpected read q6 smem size %zu %u\n",
-			smem_size, ipa_smem_size);
-
-	iova = qcom_smem_virt_to_phys(smem_addr);
-	pa = iova;
-
-	IPA_SMMU_ROUND_TO_PAGE(iova, pa, ipa_smem_size,
-				iova_p, pa_p, size_p);
-			IPADBG("mapping 0x%lx to 0x%pa size %d\n",
-				iova_p, &pa_p, size_p);
-			ipa3_iommu_map(cb->mapping->domain,
-				iova_p, pa_p, size_p,
-				IOMMU_READ | IOMMU_WRITE);
 
 	smmu_info.present[IPA_SMMU_CB_AP] = true;
 	ipa3_ctx->pdev = dev;
@@ -8014,8 +8030,8 @@ int ipa3_iommu_map(struct iommu_domain *domain,
 	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 
-	IPADBG("domain =0x%pK iova 0x%lx\n", domain, iova);
-	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
+	IPADBG_LOW("domain =0x%pK iova 0x%lx\n", domain, iova);
+	IPADBG_LOW("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
 
 	/* make sure no overlapping */
 	if (domain == ipa3_get_smmu_domain()) {
@@ -8092,20 +8108,22 @@ void ipa_pc_qmp_enable(void)
 	char buf[MAX_LEN] = "{class: bcm, res: ipa_pc, val: 1}";
 	struct qmp_pkt pkt;
 	int ret = 0;
+	struct ipa3_pc_mbox_data *mbox_data = &ipa3_ctx->pc_mbox;
+
+	IPADBG("Enter\n");
 
 	/* prepare the mailbox struct */
-	ipa3_ctx->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
-	ipa3_ctx->mbox_client.tx_block = true;
-	ipa3_ctx->mbox_client.tx_tout = MBOX_TOUT_MS;
-	ipa3_ctx->mbox_client.knows_txdone = false;
+	mbox_data->mbox_client.dev = &ipa3_ctx->master_pdev->dev;
+	mbox_data->mbox_client.tx_block = true;
+	mbox_data->mbox_client.tx_tout = MBOX_TOUT_MS;
+	mbox_data->mbox_client.knows_txdone = false;
 
-	ipa3_ctx->mbox = mbox_request_channel(&ipa3_ctx->mbox_client, 0);
-	if (IS_ERR(ipa3_ctx->mbox)) {
-		ret = PTR_ERR(ipa3_ctx->mbox);
+	mbox_data->mbox = mbox_request_channel(&mbox_data->mbox_client, 0);
+	if (IS_ERR(mbox_data->mbox)) {
+		ret = PTR_ERR(mbox_data->mbox);
 		if (ret != -EPROBE_DEFER)
 			IPAERR("mailbox channel request failed, ret=%d\n", ret);
 
-		ipa3_ctx->mbox = NULL;
 		return;
 	}
 
@@ -8114,16 +8132,13 @@ void ipa_pc_qmp_enable(void)
 	pkt.data = buf;
 
 	/* send the QMP packet to AOP */
-	ret = mbox_send_message(ipa3_ctx->mbox, &pkt);
-	if (ret < 0) {
+	ret = mbox_send_message(mbox_data->mbox, &pkt);
+	if (ret < 0)
 		IPAERR("qmp message send failed, ret=%d\n", ret);
-		goto cleanup;
-	}
 
-cleanup:
-	if (ipa3_ctx->mbox) {
-		mbox_free_channel(ipa3_ctx->mbox);
-		ipa3_ctx->mbox = NULL;
+	if (mbox_data->mbox) {
+		mbox_free_channel(mbox_data->mbox);
+		mbox_data->mbox = NULL;
 	}
 }
 

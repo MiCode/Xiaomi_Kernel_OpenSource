@@ -32,6 +32,7 @@ const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PTHRU] = "PASS THRU",
 	[MHI_EE_EDL] = "EDL",
 	[MHI_EE_DISABLE_TRANSITION] = "DISABLE",
+	[MHI_EE_NOT_SUPPORTED] = "NOT SUPPORTED",
 };
 
 const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX] = {
@@ -278,6 +279,7 @@ int mhi_init_dev_ctxt(struct mhi_controller *mhi_cntrl)
 
 	atomic_set(&mhi_cntrl->dev_wake, 0);
 	atomic_set(&mhi_cntrl->alloc_size, 0);
+	atomic_set(&mhi_cntrl->pending_pkts, 0);
 
 	mhi_ctxt = kzalloc(sizeof(*mhi_ctxt), GFP_KERNEL);
 	if (!mhi_ctxt)
@@ -1061,6 +1063,9 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		       struct device_node *of_node)
 {
 	int ret;
+	enum mhi_ee i;
+	u32 *ee;
+	u32 bhie_offset;
 
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
@@ -1083,6 +1088,28 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		mhi_cntrl->buffer_len = MHI_MAX_MTU;
 
+	/* by default host allowed to ring DB both M0 and M2 state */
+	mhi_cntrl->db_access = MHI_PM_M0 | MHI_PM_M2;
+	if (of_property_read_bool(of_node, "mhi,m2-no-db-access"))
+		mhi_cntrl->db_access &= ~MHI_PM_M2;
+
+	/* parse the device ee table */
+	for (i = MHI_EE_PBL, ee = mhi_cntrl->ee_table; i < MHI_EE_MAX;
+	     i++, ee++) {
+		/* setup the default ee before checking for override */
+		*ee = i;
+		ret = of_property_match_string(of_node, "mhi,ee-names",
+					       mhi_ee_str[i]);
+		if (ret < 0)
+			continue;
+
+		of_property_read_u32_index(of_node, "mhi,ee", ret, ee);
+	}
+
+	ret = of_property_read_u32(of_node, "mhi,bhie-offset", &bhie_offset);
+	if (!ret)
+		mhi_cntrl->bhie = mhi_cntrl->regs + bhie_offset;
+
 	return 0;
 
 error_ev_cfg:
@@ -1099,6 +1126,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1162,6 +1190,27 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	} else {
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
+	}
+
+	/* read the device info if possible */
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto error_alloc_dev;
+
+		mhi_cntrl->family_number =
+			(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+			SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+			(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+			SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+			(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+			SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+			(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+			SOC_HW_VERSION_MINOR_VER_SHFT;
 	}
 
 	/* register controller with mhi_bus */
@@ -1261,12 +1310,6 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		goto error_dev_ctxt;
 	}
 
-	ret = mhi_init_irq_setup(mhi_cntrl);
-	if (ret) {
-		MHI_ERR("Error setting up irq\n");
-		goto error_setup_irq;
-	}
-
 	/*
 	 * allocate rddm table if specified, this table is for debug purpose
 	 * so we'll ignore erros
@@ -1279,16 +1322,19 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		 * This controller supports rddm, we need to manually clear
 		 * BHIE RX registers since por values are undefined.
 		 */
-		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
-				   &bhie_off);
-		if (ret) {
-			MHI_ERR("Error getting bhie offset\n");
-			goto bhie_error;
+		if (!mhi_cntrl->bhie) {
+			ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
+					   &bhie_off);
+			if (ret) {
+				MHI_ERR("Error getting bhie offset\n");
+				goto bhie_error;
+			}
+
+			mhi_cntrl->bhie = mhi_cntrl->regs + bhie_off;
 		}
 
-		memset_io(mhi_cntrl->regs + bhie_off + BHIE_RXVECADDR_LOW_OFFS,
-			  0, BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS +
-			  4);
+		memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS, 0,
+			  BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS + 4);
 	}
 
 	mhi_cntrl->pre_init = true;
@@ -1302,10 +1348,6 @@ bhie_error:
 		mhi_free_bhie_table(mhi_cntrl, mhi_cntrl->rddm_image);
 		mhi_cntrl->rddm_image = NULL;
 	}
-	mhi_deinit_free_irq(mhi_cntrl);
-
-error_setup_irq:
-	mhi_deinit_dev_ctxt(mhi_cntrl);
 
 error_dev_ctxt:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
@@ -1326,7 +1368,6 @@ void mhi_unprepare_after_power_down(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->rddm_image = NULL;
 	}
 
-	mhi_deinit_free_irq(mhi_cntrl);
 	mhi_deinit_dev_ctxt(mhi_cntrl);
 	mhi_cntrl->pre_init = false;
 }

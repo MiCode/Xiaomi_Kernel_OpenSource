@@ -189,6 +189,7 @@ struct cam_vfe_bw_update_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           camnoc_bw_bytes;
 	uint64_t                           external_bw_bytes;
+	uint64_t                           external_bw_bytes_ab;
 };
 
 /*

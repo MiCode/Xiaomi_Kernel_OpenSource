@@ -47,8 +47,8 @@
 			linux,cma-default;
 		};
 
-		pmem_shared: pmem_shared_region@a0000000 {
-			reg = <0x0 0xa0000000 0x0 0x20000000>;
+		pmem_shared: pmem_shared_region@a1600000 {
+			reg = <0x0 0xa1600000 0x0 0x20000000>;
 			label = "pmem_shared_mem";
 		};
 	};
@@ -312,3 +312,4 @@
 #include "sm6150-slpi-pinctrl.dtsi"
 #include "sa6155p-vm-qupv3.dtsi"
 #include "sa6155p-vm-usb.dtsi"
+#include "sa8155-vm-audio.dtsi"

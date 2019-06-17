@@ -28,6 +28,7 @@
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
 #define CNSS_RDDM_TIMEOUT_MS		20000
+#define RECOVERY_TIMEOUT		60000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -171,6 +172,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 	CNSS_DRIVER_EVENT_POWER_UP,
 	CNSS_DRIVER_EVENT_POWER_DOWN,
+	CNSS_DRIVER_EVENT_IDLE_RESTART,
+	CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
@@ -186,6 +189,8 @@ enum cnss_driver_state {
 	CNSS_COLD_BOOT_CAL,
 	CNSS_DRIVER_LOADING,
 	CNSS_DRIVER_UNLOADING,
+	CNSS_DRIVER_IDLE_RESTART,
+	CNSS_DRIVER_IDLE_SHUTDOWN,
 	CNSS_DRIVER_PROBED,
 	CNSS_DRIVER_RECOVERY,
 	CNSS_FW_BOOT_RECOVERY,
@@ -272,6 +277,7 @@ struct cnss_plat_data {
 	struct notifier_block modem_nb;
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
+	struct cnss_device_version device_version;
 	unsigned long device_id;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;

@@ -105,8 +105,8 @@
 &soc {
 	ext_dsi_bridge_display: qcom,dsi-display@50 {
 		label = "ext_dsi_bridge_display hdmi 1080p";
-		qcom,dsi-display-active;
 		qcom,display-type = "primary";
+		qcom,dsi-display-active;
 
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
@@ -117,6 +117,8 @@
 };
 
 &sde_dsi {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 	qcom,dsi-display-list = <&ext_dsi_bridge_display
 				  &dsi_dual_nt36850_truly_cmd_display>;
 

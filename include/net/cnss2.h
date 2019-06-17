@@ -79,6 +79,9 @@ struct cnss_wlan_driver {
 	char *name;
 	int  (*probe)(struct pci_dev *pdev, const struct pci_device_id *id);
 	void (*remove)(struct pci_dev *pdev);
+	int (*idle_restart)(struct pci_dev *pdev,
+			    const struct pci_device_id *id);
+	int  (*idle_shutdown)(struct pci_dev *pdev);
 	int  (*reinit)(struct pci_dev *pdev, const struct pci_device_id *id);
 	void (*shutdown)(struct pci_dev *pdev);
 	void (*crash_shutdown)(struct pci_dev *pdev);
@@ -200,6 +203,8 @@ extern int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info);
 extern int cnss_request_bus_bandwidth(struct device *dev, int bandwidth);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
+extern int cnss_idle_restart(struct device *dev);
+extern int cnss_idle_shutdown(struct device *dev);
 extern void cnss_request_pm_qos(struct device *dev, u32 qos_val);
 extern void cnss_remove_pm_qos(struct device *dev);
 extern void cnss_lock_pm_sem(struct device *dev);

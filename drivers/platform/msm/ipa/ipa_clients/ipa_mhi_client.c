@@ -1578,6 +1578,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
+	mutex_lock(&mhi_client_general_mutex);
 	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI) {
 		struct ipa_mhi_connect_params_internal internal;
 
@@ -1608,7 +1609,6 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 				&channel->cached_gsi_evt_ring_hdl;
 		internal.start.gsi.evchid = channel->index;
 
-		mutex_lock(&mhi_client_general_mutex);
 		res = ipa_connect_mhi_pipe(&internal, clnt_hdl);
 		if (res) {
 			IPA_MHI_ERR("ipa_connect_mhi_pipe failed %d\n", res);
@@ -1643,11 +1643,6 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 			goto fail_connect_pipe;
 		}
 		channel->state = IPA_HW_MHI_CHANNEL_STATE_RUN;
-	}
-
-	if (IPA_CLIENT_IS_PROD(in->sys.client)) {
-		ipa_register_client_callback(&ipa_mhi_set_lock_unlock,
-			NULL, *clnt_hdl);
 	}
 	mutex_unlock(&mhi_client_general_mutex);
 
@@ -1721,10 +1716,6 @@ int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
 				, clnt_hdl, res);
 		goto fail_disconnect_pipe;
 	}
-
-	if (IPA_CLIENT_IS_PROD(client))
-		ipa_deregister_client_callback(clnt_hdl);
-
 	mutex_unlock(&mhi_client_general_mutex);
 
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa_get_client_mapping(clnt_hdl));
@@ -2559,6 +2550,9 @@ void ipa_mhi_destroy(void)
 		IPA_MHI_DBG("IPA MHI was not initialized, already destroyed\n");
 		return;
 	}
+
+	ipa_deregister_client_callback(IPA_CLIENT_MHI_PROD);
+
 	/* reset all UL and DL acc channels and its accociated event rings */
 	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI) {
 		res = ipa_mhi_destroy_all_channels();
@@ -2811,11 +2805,18 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_rm;
 	}
 
-	/* Initialize uC interface */
-	ipa_uc_mhi_init(ipa_mhi_uc_ready_cb,
-		ipa_mhi_uc_wakeup_request_cb);
-	if (ipa_uc_state_check() == 0)
+	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI) {
 		ipa_mhi_set_state(IPA_MHI_STATE_READY);
+	} else {
+		/* Initialize uC interface */
+		ipa_uc_mhi_init(ipa_mhi_uc_ready_cb,
+			ipa_mhi_uc_wakeup_request_cb);
+		if (ipa_uc_state_check() == 0)
+			ipa_mhi_set_state(IPA_MHI_STATE_READY);
+	}
+
+	ipa_register_client_callback(&ipa_mhi_set_lock_unlock, NULL,
+					IPA_CLIENT_MHI_PROD);
 
 	/* Initialize debugfs */
 	ipa_mhi_debugfs_init();

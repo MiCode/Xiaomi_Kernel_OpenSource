@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_req_mgr_interface.h"
 
-#define CAM_NODE_NAME_LENGTH_MAX        256
 
 #define CAM_NODE_STATE_UNINIT           0
 #define CAM_NODE_STATE_INIT             1
@@ -38,7 +37,7 @@
  *
  */
 struct cam_node {
-	char                         name[CAM_NODE_NAME_LENGTH_MAX];
+	char                         name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	uint32_t                     state;
 
 	/* context pool */

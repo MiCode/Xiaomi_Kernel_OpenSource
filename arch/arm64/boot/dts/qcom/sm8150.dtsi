@@ -1368,6 +1368,12 @@
 		mbox-name = "restart-ddr-mbox";
 	};
 
+	qcom,aop-ddrss-cmds {
+		compatible = "qcom,aop-ddrss-cmds";
+		mboxes = <&qmp_aop 0>;
+		mbox-name = "ddrss-cmds-mbox";
+	};
+
 	qcom,mpm2-sleep-counter@0xc221000 {
 		compatible = "qcom,mpm2-sleep-counter";
 		reg = <0xc221000 0x1000>;

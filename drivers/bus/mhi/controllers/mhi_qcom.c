@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,7 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 	int ret;
-	resource_size_t start, len;
+	resource_size_t len;
 	int i;
 
 	mhi_dev->resn = MHI_PCI_BAR_NUM;
@@ -118,9 +118,9 @@ static int mhi_init_pci_dev(struct mhi_controller *mhi_cntrl)
 
 	pci_set_master(pci_dev);
 
-	start = pci_resource_start(pci_dev, mhi_dev->resn);
+	mhi_cntrl->base_addr = pci_resource_start(pci_dev, mhi_dev->resn);
 	len = pci_resource_len(pci_dev, mhi_dev->resn);
-	mhi_cntrl->regs = ioremap_nocache(start, len);
+	mhi_cntrl->regs = ioremap_nocache(mhi_cntrl->base_addr, len);
 	if (!mhi_cntrl->regs) {
 		MHI_ERR("Error ioremap region\n");
 		goto error_ioremap;
@@ -195,35 +195,7 @@ error_enable_device:
 
 static int mhi_runtime_suspend(struct device *dev)
 {
-	int ret = 0;
-	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
-	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
-
-	MHI_LOG("Enter\n");
-
-	mutex_lock(&mhi_cntrl->pm_mutex);
-
-	if (!mhi_dev->powered_on) {
-		MHI_LOG("Not fully powered, return success\n");
-		mutex_unlock(&mhi_cntrl->pm_mutex);
-		return 0;
-	}
-
-	ret = mhi_pm_suspend(mhi_cntrl);
-	if (ret) {
-		MHI_LOG("Abort due to ret:%d\n", ret);
-		goto exit_runtime_suspend;
-	}
-
-	ret = mhi_arch_link_off(mhi_cntrl, true);
-	if (ret)
-		MHI_ERR("Failed to Turn off link ret:%d\n", ret);
-
-exit_runtime_suspend:
-	mutex_unlock(&mhi_cntrl->pm_mutex);
-	MHI_LOG("Exited with ret:%d\n", ret);
-
-	return ret;
+	return -EBUSY;
 }
 
 static int mhi_runtime_idle(struct device *dev)
@@ -417,6 +389,13 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 		if (dev_state == MHI_STATE_SYS_ERR)
 			return -EIO;
 	}
+
+	/* when coming out of SSR, initial ee state is not valid */
+	mhi_cntrl->ee = 0;
+
+	ret = mhi_arch_power_up(mhi_cntrl);
+	if (ret)
+		return ret;
 
 	ret = mhi_async_power_up(mhi_cntrl);
 

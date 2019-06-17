@@ -494,8 +494,12 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 		ret = -EINVAL;
 		goto err_req_fw;
 	}
-
-	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
+	if (bdf_type == CNSS_BDF_REGDB)
+		ret = request_firmware_direct(&fw_entry, filename,
+					      &plat_priv->plat_dev->dev);
+	else
+		ret = request_firmware(&fw_entry, filename,
+				       &plat_priv->plat_dev->dev);
 	if (ret) {
 		cnss_pr_err("Failed to load BDF: %s\n", filename);
 		goto err_req_fw;

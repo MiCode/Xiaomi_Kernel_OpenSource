@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,11 +27,13 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/syscore_ops.h>
 #include "pdc.h"
 #define CREATE_TRACE_POINTS
 #include "trace/events/pdc.h"
 
 #define MAX_IRQS 126
+#define MAX_ENABLE_REGS ((MAX_IRQS/32) + 1)
 #define CLEAR_INTR(reg, intr) (reg & ~(1 << intr))
 #define ENABLE_INTR(reg, intr) (reg | (1 << intr))
 
@@ -39,6 +41,13 @@ enum pdc_register_offsets {
 	IRQ_ENABLE_BANK = 0x10,
 	IRQ_i_CFG = 0x110,
 };
+
+struct pdc_type_info {
+	u32 type;
+	bool set;
+};
+static struct pdc_type_info pdc_type_config[MAX_IRQS];
+static u32 pdc_enabled[MAX_ENABLE_REGS];
 
 static DEFINE_SPINLOCK(pdc_lock);
 static void __iomem *pdc_base;
@@ -189,6 +198,9 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 	writel_relaxed(pdc_type, pdc_base + IRQ_i_CFG +
 			(pin_out * sizeof(uint32_t)));
 
+	pdc_type_config[pin_out].type = pdc_type;
+	pdc_type_config[pin_out].set = true;
+
 	do {
 		config = readl_relaxed(pdc_base + IRQ_i_CFG +
 				(pin_out * sizeof(uint32_t)));
@@ -275,6 +287,54 @@ static const struct irq_domain_ops qcom_pdc_ops = {
 	.alloc		= qcom_pdc_alloc,
 	.free		= irq_domain_free_irqs_common,
 };
+
+static int pdc_suspend(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_ENABLE_REGS; i++)
+		pdc_enabled[i] = readl_relaxed(pdc_base + IRQ_ENABLE_BANK
+						+ (i * sizeof(uint32_t)));
+
+	return 0;
+}
+
+static void pdc_resume(void)
+{
+	int i;
+	u32 config;
+
+	for (i = 0; i < MAX_IRQS; i++) {
+		if (pdc_type_config[i].set) {
+			writel_relaxed(pdc_type_config[i].type, pdc_base +
+					IRQ_i_CFG + (i * sizeof(uint32_t)));
+
+			do {
+				config = readl_relaxed(pdc_base + IRQ_i_CFG +
+					(i * sizeof(uint32_t)));
+				if (config == pdc_type_config[i].type)
+					break;
+				udelay(5);
+			} while (1);
+		}
+	}
+
+	for (i = 0; i < MAX_ENABLE_REGS; i++)
+		writel_relaxed(pdc_enabled[i], pdc_base + IRQ_ENABLE_BANK
+					+ (i * sizeof(uint32_t)));
+}
+
+static struct syscore_ops pdc_syscore_ops = {
+	.suspend = pdc_suspend,
+	.resume = pdc_resume,
+};
+
+static int __init pdc_init_syscore(void)
+{
+	register_syscore_ops(&pdc_syscore_ops);
+	return 0;
+}
+arch_initcall(pdc_init_syscore);
 
 int qcom_pdc_init(struct device_node *node,
 		struct device_node *parent, void *data)

@@ -16,9 +16,11 @@
 #include "msm_isp_stats_util.h"
 #include "msm_isp_axi_util.h"
 #include "msm_isp48.h"
+#include "trace/events/msm_cam.h"
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 #define ISP_SOF_DEBUG_COUNT 0
+#define OTHER_VFE(vfe_id) (vfe_id == ISP_VFE0 ? ISP_VFE1 : ISP_VFE0)
 
 #ifdef CONFIG_MSM_AVTIMER
 static struct avtimer_fptr_t avtimer_func;
@@ -1092,6 +1094,9 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		ISP_DBG("%s: vfe %d frame_src %d frameid %d\n", __func__,
 			vfe_dev->pdev->id, frame_src,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		trace_msm_cam_isp_status_dump("SOFNOTIFY:", vfe_dev->pdev->id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			0, 0, 0);
 
 		/*
 		 * Cannot support dual_cam and framedrop same time in union.
@@ -3710,7 +3715,8 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 
 	/* As MCT is still processing it, need to drop the additional requests*/
-	if (vfe_dev->isp_page->drop_reconfig) {
+	if (vfe_dev->isp_page->drop_reconfig &&
+		frame_src == VFE_PIX_0) {
 		pr_err("%s: MCT has not yet delayed %d drop request %d\n",
 			__func__, vfe_dev->isp_page->drop_reconfig, frame_id);
 		goto error;
@@ -4392,6 +4398,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct timeval *time_stamp;
 	uint32_t frame_id, buf_index = -1;
 	int vfe_idx;
+	struct vfe_device *temp_dev;
+	int other_vfe_id;
 
 	if (!ts) {
 		pr_err("%s: Error! Invalid argument\n", __func__);
@@ -4519,6 +4527,17 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 				stream_info->bufq_handle[
 				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
 			vfe_dev->error_info.framedrop_flag = 1;
+			if (vfe_dev->is_split) {
+				other_vfe_id = OTHER_VFE(vfe_dev->pdev->id);
+				temp_dev =
+				vfe_dev->common_data->dual_vfe_res->vfe_dev[
+					other_vfe_id];
+				temp_dev->error_info.stream_framedrop_count[
+				stream_info->bufq_handle[
+				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
+				temp_dev->error_info.framedrop_flag = 1;
+			}
+
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		return;

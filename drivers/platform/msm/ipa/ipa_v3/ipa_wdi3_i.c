@@ -12,9 +12,6 @@
 #include "ipa_i.h"
 #include <linux/ipa_wdi3.h>
 
-#define IPA_WDI3_TX_DIR 1
-#define IPA_WDI3_RX_DIR 2
-
 #define UPDATE_RP_MODERATION_CONFIG 1
 #define UPDATE_RP_MODERATION_THRESHOLD 8
 
@@ -135,8 +132,8 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 		&ep->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("fail to alloc RX event ring\n");
-		/* TODO: release the gsi_smmu_mapping here if smmu enabled */
-		return -EFAULT;
+		result = -EFAULT;
+		goto fail_smmu_mapping;
 	}
 
 	ep->gsi_mem_info.evt_ring_len = gsi_evt_ring_props.ring_len;
@@ -204,7 +201,6 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 	result = gsi_alloc_channel(&gsi_channel_props, ipa3_ctx->gsi_dev_hdl,
 		&ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
-		/* TODO: release the gsi_smmu_mapping here if smmu enabled */
 		goto fail_get_gsi_ep_info;
 	}
 
@@ -371,10 +367,6 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 				result = -EFAULT;
 				goto fail_write_scratch;
 			}
-			/*
-			 * TODO: for all access over PCIe for MDM,
-			 * there is no SMMU
-			 */
 			ch_scratch.wdi3.wifi_rp_address_low = (u32)va;
 			ch_scratch.wdi3.wifi_rp_address_high =
 				(u32)((u64)va >> 32);
@@ -436,6 +428,8 @@ fail_write_scratch:
 fail_get_gsi_ep_info:
 	gsi_dealloc_evt_ring(ep->gsi_evt_ring_hdl);
 	ep->gsi_evt_ring_hdl = ~0;
+fail_smmu_mapping:
+	ipa3_release_wdi3_gsi_smmu_mappings(dir);
 	return result;
 }
 
@@ -666,21 +660,22 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	ep_tx = &ipa3_ctx->ep[ipa_ep_idx_tx];
 	ep_rx = &ipa3_ctx->ep[ipa_ep_idx_rx];
 
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
 	/* tear down tx pipe */
 	result = ipa3_reset_gsi_channel(ipa_ep_idx_tx);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset gsi channel: %d.\n", result);
-		return result;
+		goto exit;
 	}
 	result = gsi_reset_evt_ring(ep_tx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
-		return result;
+		goto exit;
 	}
 	result = ipa3_release_gsi_channel(ipa_ep_idx_tx);
 	if (result) {
 		IPAERR("failed to release gsi channel: %d\n", result);
-		return result;
+		goto exit;
 	}
 
 	memset(ep_tx, 0, sizeof(struct ipa3_ep_context));
@@ -690,23 +685,27 @@ int ipa3_disconn_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	result = ipa3_reset_gsi_channel(ipa_ep_idx_rx);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset gsi channel: %d.\n", result);
-		return result;
+		goto exit;
 	}
 	result = gsi_reset_evt_ring(ep_rx->gsi_evt_ring_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to reset evt ring: %d.\n", result);
-		return result;
+		goto exit;
 	}
 	result = ipa3_release_gsi_channel(ipa_ep_idx_rx);
 	if (result) {
 		IPAERR("failed to release gsi channel: %d\n", result);
-		return result;
+		goto exit;
 	}
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI3);
 	ipa3_delete_dflt_flt_rules(ipa_ep_idx_rx);
 	memset(ep_rx, 0, sizeof(struct ipa3_ep_context));
 	IPADBG("rx client (ep: %d) disconnected\n", ipa_ep_idx_rx);
 
+exit:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_by_pipe(ipa_ep_idx_tx));
 	return result;
 }
 
@@ -728,28 +727,43 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 	ep_tx = &ipa3_ctx->ep[ipa_ep_idx_tx];
 	ep_rx = &ipa3_ctx->ep[ipa_ep_idx_rx];
 
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
+
 	/* start gsi tx channel */
 	result = gsi_start_channel(ep_tx->gsi_chan_hdl);
 	if (result) {
 		IPAERR("failed to start gsi tx channel\n");
-		return -EFAULT;
+		result = -EFAULT;
+		goto exit;
 	}
 
 	/* start gsi rx channel */
 	result = gsi_start_channel(ep_rx->gsi_chan_hdl);
 	if (result) {
 		IPAERR("failed to start gsi rx channel\n");
-		return -EFAULT;
+		result = -EFAULT;
+		goto exit;
 	}
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
+	/* start uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].ch_id
+			= ep_rx->gsi_chan_hdl;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].dir
+			= DIR_PRODUCER;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].ch_id
+			= ep_tx->gsi_chan_hdl;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].dir
+			= DIR_CONSUMER;
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3]);
+	}
 	/* enable data path */
 	result = ipa3_enable_data_path(ipa_ep_idx_rx);
 	if (result) {
 		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
 			ipa_ep_idx_rx);
 		result = -EFAULT;
-		goto fail;
+		goto exit;
 	}
 
 	result = ipa3_enable_data_path(ipa_ep_idx_tx);
@@ -757,11 +771,11 @@ int ipa3_enable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
 			ipa_ep_idx_tx);
 		result = -EFAULT;
-		goto fail;
+		goto exit;
 	}
 
-fail:
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+exit:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(ipa_ep_idx_tx));
 	return result;
 }
 
@@ -837,7 +851,19 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 		result = -EFAULT;
 		goto fail;
 	}
-
+	/* stop uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].ch_id
+			= 0xff;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[0].dir
+			= DIR_PRODUCER;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].ch_id
+			= 0xff;
+		ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3].ch_id_info[1].dir
+			= DIR_CONSUMER;
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI3]);
+	}
 	if (disable_force_clear)
 		ipa3_disable_force_clear(ipa_ep_idx_rx);
 
@@ -865,13 +891,13 @@ int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id)
 
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to read channel scratch %d\n", result);
-		return result;
+		goto exit;
 	}
 	result = gsi_stop_channel(ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS && result != -GSI_STATUS_AGAIN &&
 		result != -GSI_STATUS_TIMED_OUT) {
 		IPAERR("failed to stop gsi channel %d\n", result);
-		return result;
+		goto exit;
 	}
 
 	ch_scratch.wdi3.qmap_id = qmap_id;
@@ -879,14 +905,64 @@ int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id)
 			ch_scratch);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to write channel scratch %d\n", result);
-		return result;
+		goto exit;
 	}
 
 	result =  gsi_start_channel(ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("failed to start gsi channel %d\n", result);
-		return result;
+		goto exit;
 	}
+
+exit:
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	return result;
+}
+
+/**
+ * ipa3_get_wdi3_gsi_stats() - Query WDI3 gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_wdi3_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i, num_chs;
+
+	if (!ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad NULL parms for wdi3_gsi_stats\n");
+		return -EINVAL;
+	}
+
+	num_chs = ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_size
+		/ sizeof(struct IpaHwRingStats_t);
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < num_chs; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }

@@ -14,6 +14,8 @@ platforms.
 		    "qcom,sm8150-spcs-global",
 		    "qcom,sdxprairie-apcs-gcc"
 		    "qcom,trinket-apcs-hmss-global"
+		    "qcom,atoll-apcs-hmss-global"
+		    "qcom,atoll-apcs-hmss-ipc2"
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>

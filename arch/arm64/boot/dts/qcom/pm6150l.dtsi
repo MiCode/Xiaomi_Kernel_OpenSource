@@ -143,6 +143,15 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pm6150l_pwm_1: qcom,pwms@bc00 {
+			status = "disabled";
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x100>;
+			reg-names = "lpg-base";
+			qcom,num-lpg-channels = <1>;
+			#pwm-cells = <2>;
+		};
+
 		pm6150l_lcdb: qcom,lcdb@ec00 {
 			compatible = "qcom,qpnp-lcdb-regulator";
 			#address-cells = <1>;

@@ -1751,7 +1751,7 @@ static struct clk_branch gcc_boot_rom_ahb_clk = {
 
 static struct clk_branch gcc_camera_ahb_clk = {
 	.halt_reg = 0x17008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17008,
 	.hwcg_bit = 1,
 	.clkr = {

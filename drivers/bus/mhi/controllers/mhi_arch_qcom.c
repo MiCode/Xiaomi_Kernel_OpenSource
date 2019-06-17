@@ -37,12 +37,9 @@ struct arch_info {
 	struct pci_saved_state *pcie_state;
 	struct pci_saved_state *ref_pcie_state;
 	struct dma_iommu_mapping *mapping;
-};
-
-struct mhi_bl_info {
-	struct mhi_device *mhi_device;
 	async_cookie_t cookie;
-	void *ipc_log;
+	void *boot_ipc_log;
+	struct mhi_device *boot_dev;
 };
 
 /* ipc log markings */
@@ -94,7 +91,7 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 	}
 }
 
-static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
+static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -134,10 +131,12 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
-void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
+static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	bool mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
+	struct arch_info *arch_info = mhi_dev->arch_info;
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
 
@@ -156,20 +155,26 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	/* turn the link off */
 	mhi_deinit_pci_dev(mhi_cntrl);
 	mhi_arch_link_off(mhi_cntrl, false);
+
+	/* wait for boot monitor to exit */
+	async_synchronize_cookie(arch_info->cookie + 1);
+
 	mhi_arch_iommu_deinit(mhi_cntrl);
 	mhi_arch_pcie_deinit(mhi_cntrl);
 }
 
-static void mhi_bl_dl_cb(struct mhi_device *mhi_dev,
+static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 			 struct mhi_result *mhi_result)
 {
-	struct mhi_bl_info *mhi_bl_info = mhi_device_get_devdata(mhi_dev);
+	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
 	char *buf = mhi_result->buf_addr;
 
 	/* force a null at last character */
 	buf[mhi_result->bytes_xferd - 1] = 0;
 
-	ipc_log_string(mhi_bl_info->ipc_log, "%s %s", DLOG, buf);
+	ipc_log_string(arch_info->boot_ipc_log, "%s %s", DLOG, buf);
 }
 
 static void mhi_bl_dummy_cb(struct mhi_device *mhi_dev,
@@ -177,21 +182,23 @@ static void mhi_bl_dummy_cb(struct mhi_device *mhi_dev,
 {
 }
 
-static void mhi_bl_remove(struct mhi_device *mhi_dev)
+static void mhi_bl_remove(struct mhi_device *mhi_device)
 {
-	struct mhi_bl_info *mhi_bl_info = mhi_device_get_devdata(mhi_dev);
+	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
 
-	ipc_log_string(mhi_bl_info->ipc_log, HLOG "Received Remove notif.\n");
-
-	/* wait for boot monitor to exit */
-	async_synchronize_cookie(mhi_bl_info->cookie + 1);
+	arch_info->boot_dev = NULL;
+	ipc_log_string(arch_info->boot_ipc_log,
+		       HLOG "Received Remove notif.\n");
 }
 
-static void mhi_bl_boot_monitor(void *data, async_cookie_t cookie)
+static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 {
-	struct mhi_bl_info *mhi_bl_info = data;
-	struct mhi_device *mhi_device = mhi_bl_info->mhi_device;
-	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_controller *mhi_cntrl = data;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct mhi_device *boot_dev;
 	/* 15 sec timeout for booting device */
 	const u32 timeout = msecs_to_jiffies(15000);
 
@@ -200,46 +207,43 @@ static void mhi_bl_boot_monitor(void *data, async_cookie_t cookie)
 			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION,
 			   timeout);
 
-	if (mhi_cntrl->ee == MHI_EE_AMSS) {
-		ipc_log_string(mhi_bl_info->ipc_log, HLOG
-			       "Device successfully booted to mission mode\n");
+	ipc_log_string(arch_info->boot_ipc_log, HLOG "Device current ee = %s\n",
+		       TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
-		mhi_unprepare_from_transfer(mhi_device);
-	} else {
-		ipc_log_string(mhi_bl_info->ipc_log, HLOG
-			       "Device failed to boot to mission mode, ee = %s\n",
-			       TO_MHI_EXEC_STR(mhi_cntrl->ee));
-	}
+	/* if we successfully booted to amss disable boot log channel */
+	boot_dev = arch_info->boot_dev;
+	if (boot_dev && mhi_cntrl->ee == MHI_EE_AMSS)
+		mhi_unprepare_from_transfer(boot_dev);
 }
 
-static int mhi_bl_probe(struct mhi_device *mhi_dev,
+int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+
+	/* start a boot monitor */
+	arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
+
+	return 0;
+}
+
+static int mhi_bl_probe(struct mhi_device *mhi_device,
 			const struct mhi_device_id *id)
 {
 	char node_name[32];
-	struct mhi_bl_info *mhi_bl_info;
-
-	mhi_bl_info = devm_kzalloc(&mhi_dev->dev, sizeof(*mhi_bl_info),
-				   GFP_KERNEL);
-	if (!mhi_bl_info)
-		return -ENOMEM;
+	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
 
 	snprintf(node_name, sizeof(node_name), "mhi_bl_%04x_%02u.%02u.%02u",
-		 mhi_dev->dev_id, mhi_dev->domain, mhi_dev->bus, mhi_dev->slot);
+		 mhi_device->dev_id, mhi_device->domain, mhi_device->bus,
+		 mhi_device->slot);
 
-	mhi_bl_info->ipc_log = ipc_log_context_create(MHI_IPC_LOG_PAGES,
-						      node_name, 0);
-	if (!mhi_bl_info->ipc_log)
-		return -EINVAL;
-
-	mhi_bl_info->mhi_device = mhi_dev;
-	mhi_device_set_devdata(mhi_dev, mhi_bl_info);
-
-	ipc_log_string(mhi_bl_info->ipc_log, HLOG
-		       "Entered SBL, Session ID:0x%x\n",
-		       mhi_dev->mhi_cntrl->session_id);
-
-	/* start a thread to monitor entering mission mode */
-	mhi_bl_info->cookie = async_schedule(mhi_bl_boot_monitor, mhi_bl_info);
+	arch_info->boot_dev = mhi_device;
+	arch_info->boot_ipc_log = ipc_log_context_create(MHI_IPC_LOG_PAGES,
+							 node_name, 0);
+	ipc_log_string(arch_info->boot_ipc_log, HLOG
+		       "Entered SBL, Session ID:0x%x\n", mhi_cntrl->session_id);
 
 	return 0;
 }

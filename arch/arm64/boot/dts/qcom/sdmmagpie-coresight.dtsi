@@ -1975,6 +1975,7 @@
 		clock-names = "apb_pclk", "gpu_apb_clk";
 		qcom,proxy-clks = "gpu_apb_clk";
 
+		status = "disabled";
 		/* GDSC regulator names */
 		regulator-names = "vddcx", "vdd";
 		/* GDSC oxili regulators */
@@ -2018,6 +2019,7 @@
 		clock-names = "apb_pclk", "gpu_apb_clk";
 		qcom,tpdm-clks = "gpu_apb_clk";
 
+		status = "disabled";
 		/* GDSC regulator names */
 		regulator-names = "vddcx", "vdd";
 		/* GDSC oxili regulators */

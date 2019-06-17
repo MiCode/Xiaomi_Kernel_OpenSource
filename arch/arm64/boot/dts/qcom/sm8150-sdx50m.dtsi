@@ -15,6 +15,10 @@
 	qcom,mdm-link-info = "0305_01.01.00";
 };
 
+&pil_modem {
+	qcom,poff-depends-on = "esoc0";
+};
+
 &wil6210 {
 	status = "disabled";
 };
@@ -560,23 +564,6 @@
 				temperature = <125000>;
 				hysteresis = <1000>;
 				type = "passive";
-			};
-		};
-	};
-
-	soc {
-		trips {
-			soc_trip1: soc-trip1 {
-				temperature = <20>;
-				hysteresis = <0>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
-			soc_modem {
-				trip = <&soc_trip1>;
-				cooling-device =
-					<&modem1_proc 3 3>;
 			};
 		};
 	};

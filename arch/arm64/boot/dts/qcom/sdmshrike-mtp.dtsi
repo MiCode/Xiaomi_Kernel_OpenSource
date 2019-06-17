@@ -16,6 +16,7 @@
 
 #include "sdmshrike-pmic-overlay.dtsi"
 #include "sdmshrike-audio-overlay.dtsi"
+#include "sdmshrike-thermal-overlay.dtsi"
 
 &soc {
 	gpio_keys {

@@ -1375,10 +1375,13 @@ free_probe_cmd:
 
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
+
+			s_ctrl->i2c_data.init_settings.request_id = -1;
+
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
-					"cannot apply init settings [%d]",
-					s_ctrl->id);
+					"cannot apply init settings");
+				delete_request(&s_ctrl->i2c_data.init_settings);
 				goto release_mutex;
 			}
 			rc = delete_request(&s_ctrl->i2c_data.init_settings);
@@ -1387,16 +1390,20 @@ free_probe_cmd:
 					"Fail in deleting the Init settings");
 				goto release_mutex;
 			}
-			s_ctrl->i2c_data.init_settings.request_id = -1;
 		}
 
 		if (s_ctrl->i2c_data.config_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.config_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
+
+			s_ctrl->i2c_data.config_settings.request_id = -1;
+
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
 					"cannot apply config settings");
+				delete_request(
+					&s_ctrl->i2c_data.config_settings);
 				goto release_mutex;
 			}
 			rc = delete_request(&s_ctrl->i2c_data.config_settings);
@@ -1406,7 +1413,6 @@ free_probe_cmd:
 				goto release_mutex;
 			}
 			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
-			s_ctrl->i2c_data.config_settings.request_id = -1;
 		}
 
 		CAM_INFO(CAM_SENSOR,

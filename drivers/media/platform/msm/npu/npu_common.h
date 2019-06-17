@@ -51,7 +51,7 @@
 #define NPU_MAX_STATS_BUF_SIZE 16384
 #define NPU_MAX_PATCH_NUM		160
 
-#define DCVS_MODE_MAX 100
+#define PERF_MODE_DEFAULT 0
 
 enum npu_power_level {
 	NPU_PWRLEVEL_MINSVS = 0,
@@ -243,6 +243,8 @@ struct npu_device {
 	struct llcc_slice_desc *sys_cache;
 	uint32_t execute_v2_flag;
 	bool cxlimit_registered;
+
+	uint32_t hw_version;
 };
 
 struct npu_kevent {

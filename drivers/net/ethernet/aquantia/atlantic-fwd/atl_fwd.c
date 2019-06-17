@@ -41,7 +41,7 @@ static int atl_fwd_get_frag(struct atl_fwd_ring *ring, int idx)
 
 	if (ops->alloc_buf) {
 		void *buf = ops->alloc_buf(dev, bufs->frag_size,
-			&daddr, GFP_KERNEL);
+			&daddr, GFP_KERNEL, ops);
 
 		if (!IS_ERR_OR_NULL(buf)) {
 			frag->buf = buf;
@@ -89,7 +89,7 @@ static void atl_fwd_free_bufs(struct atl_fwd_ring *ring)
 		dma_free_coherent(dev, ring_size * sizeof(dma_addr_t),
 			bufs->daddr_vec, bufs->daddr_vec_base);
 
-	if (bufs->vaddr_vec)
+	if (ring->flags & ATL_FWR_WANT_VIRT_BUF_VEC)
 		kfree(bufs->vaddr_vec);
 
 	for (i = 0; i < bufs->num_pages; i++) {
@@ -98,7 +98,7 @@ static void atl_fwd_free_bufs(struct atl_fwd_ring *ring)
 		if (ops->free_buf) {
 			if (frag->buf)
 				ops->free_buf(frag->buf, dev, frag_size,
-					frag->daddr);
+					frag->daddr, ops);
 			continue;
 		}
 
@@ -141,6 +141,7 @@ static int atl_fwd_alloc_bufs(struct atl_fwd_ring *ring, int order)
 		num_pages = 1;
 	} else {
 		int bufs_per_page;
+
 		frag_size = PAGE_SIZE << order;
 		bufs_per_page = frag_size / buf_size;
 		num_pages = ring_size / bufs_per_page +
@@ -305,7 +306,8 @@ void atl_fwd_release_ring(struct atl_fwd_ring *ring)
 	atl_fwd_free_bufs(ring);
 	if (ops->free_descs)
 		ops->free_descs(hwring->descs, dev,
-			hwring->size * sizeof(*hwring->descs), hwring->daddr);
+			hwring->size * sizeof(*hwring->descs), hwring->daddr,
+			ops);
 	else
 		atl_free_descs(nic, &ring->hw);
 	kfree(ring);
@@ -397,7 +399,8 @@ struct atl_fwd_ring *atl_fwd_request_ring(struct net_device *ndev,
 		dma_addr_t daddr;
 
 		descs = ops->alloc_descs(dev,
-			ring_size * sizeof(*hwring->descs), &daddr, GFP_KERNEL);
+			ring_size * sizeof(*hwring->descs), &daddr, GFP_KERNEL,
+			ops);
 		if (!IS_ERR_OR_NULL(descs)) {
 			hwring->descs = descs;
 			hwring->daddr = daddr;
@@ -435,7 +438,8 @@ struct atl_fwd_ring *atl_fwd_request_ring(struct net_device *ndev,
 free_descs:
 	if (ops->free_descs)
 		ops->free_descs(hwring->descs, dev,
-			hwring->size * sizeof(*hwring->descs), hwring->daddr);
+			hwring->size * sizeof(*hwring->descs), hwring->daddr,
+			ops);
 	else
 		atl_free_descs(nic, hwring);
 
@@ -447,6 +451,7 @@ EXPORT_SYMBOL(atl_fwd_request_ring);
 
 int atl_fwd_set_ring_intr_mod(struct atl_fwd_ring *ring, int min, int max)
 {
+	struct atl_nic *nic = ring->nic;
 	if (atl_fwd_ring_tx(ring) && ring->evt &&
 		ring->evt->flags & ATL_FWD_EVT_TXWB) {
 		struct atl_nic *nic = ring->nic;
@@ -456,11 +461,23 @@ int atl_fwd_set_ring_intr_mod(struct atl_fwd_ring *ring, int min, int max)
 		return -EINVAL;
 	}
 
-	if (min >= 0)
+	if (min >= 0) {
+		if (min > 511) {
+			atl_nic_err("%s: min delay out of range (0..511): %d\n",
+				__func__, min);
+			return -EINVAL;
+		}
 		ring->intr_mod_min = min;
+	}
 
-	if (max >= 0)
+	if (max >= 0) {
+		if (max > 1023) {
+			atl_nic_err("%s: max delay out of range (0..1023): %d\n",
+				__func__, max);
+			return -EINVAL;
+		}
 		ring->intr_mod_max = max;
+	}
 
 	atl_fwd_update_im(ring);
 	return 0;

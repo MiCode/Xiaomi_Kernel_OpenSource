@@ -753,7 +753,7 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 		(void *)packet, (void *)cmd_desc,
 		sizeof(struct cam_cmd_buf_desc));
 
-	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1);
+	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl, -1, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "Patch processing failed %d", rc);
 		return rc;

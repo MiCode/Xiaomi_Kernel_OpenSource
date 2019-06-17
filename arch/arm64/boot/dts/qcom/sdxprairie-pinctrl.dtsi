@@ -633,7 +633,7 @@
 			sec_ws_active_master: sec_ws_active_master {
 				mux {
 					pins = "gpio16";
-					function = "sec_mi2s_ws_a";
+					function = "sec_mi2s";
 				};
 
 				config {
@@ -647,7 +647,7 @@
 			sec_sck_active_master: sec_sck_active_master {
 				mux {
 					pins = "gpio19";
-					function = "sec_mi2s_sck_a";
+					function = "sec_mi2s";
 				};
 
 				config {
@@ -661,7 +661,7 @@
 			sec_ws_active_slave: sec_ws_active_slave {
 				mux {
 					pins = "gpio16";
-					function = "sec_mi2s_ws_a";
+					function = "sec_mi2s";
 				};
 
 				config {
@@ -674,7 +674,7 @@
 			sec_sck_active_slave: sec_sck_active_slave {
 				mux {
 					pins = "gpio19";
-					function = "sec_mi2s_sck_a";
+					function = "sec_mi2s";
 				};
 
 				config {
@@ -687,7 +687,7 @@
 			sec_dout_active: sec_dout_active {
 				mux {
 					pins = "gpio18";
-					function = "sec_mi2s_data1_a";
+					function = "sec_mi2s";
 				};
 
 				config {
@@ -716,7 +716,7 @@
 			sec_din_active: sec_din_active {
 				mux {
 					pins = "gpio17";
-					function = "sec_mi2s_data0_a";
+					function = "sec_mi2s";
 				};
 
 				config {

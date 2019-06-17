@@ -818,10 +818,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	/* Program the GMEM VA range for the UCHE path */
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_LO,
-				ADRENO_UCHE_GMEM_BASE);
+				adreno_dev->uche_gmem_base);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_LO,
-				ADRENO_UCHE_GMEM_BASE +
+				adreno_dev->uche_gmem_base +
 				adreno_dev->gmem_size - 1);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 
@@ -970,7 +970,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
-	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -987,20 +986,28 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 		return 0;
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_handle_ptr) {
+		adreno_dev->zap_handle_ptr =
+				subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
+		if (IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+			ret = (adreno_dev->zap_handle_ptr == NULL) ?
+				-ENODEV : PTR_ERR(adreno_dev->zap_handle_ptr);
+			adreno_dev->zap_handle_ptr = NULL;
+		}
 	}
 
 	return ret;
 }
 
+static void a6xx_zap_shader_unload(struct adreno_device *adreno_dev)
+{
+	if (!IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+		subsystem_put(adreno_dev->zap_handle_ptr);
+		adreno_dev->zap_handle_ptr = NULL;
+	}
+}
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -2908,7 +2915,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/* Calculate SP local and private mem addresses */
-	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
+	addr = ALIGN(adreno_dev->uche_gmem_base + adreno_dev->gmem_size,
+					SZ_64K);
 	adreno_dev->sp_local_gpuaddr = addr;
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 
@@ -3225,6 +3233,72 @@ static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+/*
+ * Secure buffers cannot be preserved during hibernation.
+ * Issue hyp_assign call to assign non-used internal secure
+ * buffers to kernel.
+ * This function will fail if there is an active secure context
+ * since we cannot remove the content from user secure buffer.
+ */
+static int a6xx_secure_pt_hibernate(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i = 0;
+	int ret;
+
+	if (adreno_drawctxt_has_secure(device)) {
+		KGSL_DRV_ERR(device,
+		    "Secure context is active, cannot hibernate secure PT\n");
+		goto fail;
+	}
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_unlock_sgt(rb->secure_preemption_desc.sgt);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_unlock_sgt failed ret %d\n", ret);
+				goto fail;
+			}
+		}
+	}
+
+	return 0;
+
+fail:
+	while (i > 0) {
+		rb = &(adreno_dev->ringbuffers[i - 1]);
+		if (rb->secure_preemption_desc.sgt)
+			kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+		i--;
+	}
+	return -EBUSY;
+}
+
+static int a6xx_secure_pt_restore(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i;
+	int ret;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_lock_sgt failed ret %d\n", ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3265,4 +3339,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 	.clk_set_options = a6xx_clk_set_options,
 	.snapshot_preemption = a6xx_snapshot_preemption,
+	.zap_shader_unload = a6xx_zap_shader_unload,
+	.secure_pt_hibernate = a6xx_secure_pt_hibernate,
+	.secure_pt_restore = a6xx_secure_pt_restore,
 };

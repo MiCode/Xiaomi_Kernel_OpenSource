@@ -94,6 +94,8 @@ int diag_pcie_queue_read(int id);
 int diag_pcie_write(int id, unsigned char *buf, int len, int ctxt);
 void diag_pcie_connect_all(void);
 void diag_pcie_disconnect_all(void);
+void diag_pcie_connect_device(int id);
+void diag_pcie_disconnect_device(int id);
 void diag_pcie_exit(int id);
 void diag_pcie_write_complete_cb(void *req);
 void diag_pcie_read_work_fn(struct work_struct *work);

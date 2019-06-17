@@ -86,6 +86,11 @@ void rmnet_set_skb_proto(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(rmnet_set_skb_proto);
 
+/* Perf hook handler */
+void (*rmnet_perf_skb_entry)(struct sk_buff *skb,
+			     struct rmnet_port *port) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_perf_skb_entry);
+
 /* Shs hook handler */
 int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
 			   struct rmnet_port *port) __rcu __read_mostly;
@@ -101,6 +106,8 @@ EXPORT_SYMBOL(rmnet_shs_skb_entry_wq);
 void
 rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
+	void (*rmnet_perf_ingress)(struct sk_buff *skb,
+				   struct rmnet_port *port);
 	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
@@ -113,11 +120,21 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	skb->pkt_type = PACKET_HOST;
 	skb_set_mac_header(skb, 0);
 
+	rcu_read_lock();
+	rmnet_perf_ingress = rcu_dereference(rmnet_perf_skb_entry);
+	if (rmnet_perf_ingress) {
+		rmnet_perf_ingress(skb, port);
+		rcu_read_unlock();
+		return;
+	}
+
 	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
 	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
 		if (!rmnet_check_skb_can_gro(skb) &&
@@ -158,12 +175,15 @@ rmnet_deliver_skb_wq(struct sk_buff *skb, struct rmnet_port *port,
 	/* packets coming from work queue context due to packet flush timer
 	 * must go through the special workqueue path in SHS driver
 	 */
+	rcu_read_lock();
 	rmnet_shs_stamp = (!ctx) ? rcu_dereference(rmnet_shs_skb_entry) :
 				   rcu_dereference(rmnet_shs_skb_entry_wq);
 	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	if (ctx == RMNET_NET_RX_CTX) {
 		if (port->data_format & RMNET_INGRESS_FORMAT_DL_MARKER) {
@@ -282,6 +302,10 @@ int (*rmnet_perf_deag_entry)(struct sk_buff *skb,
 			     struct rmnet_port *port) __rcu __read_mostly;
 EXPORT_SYMBOL(rmnet_perf_deag_entry);
 
+/* Notify perf at the end of SKB chain */
+void (*rmnet_perf_chain_end)(void) __rcu __read_mostly;
+EXPORT_SYMBOL(rmnet_perf_chain_end);
+
 static void
 rmnet_map_ingress_handler(struct sk_buff *skb,
 			  struct rmnet_port *port)
@@ -289,6 +313,7 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	struct sk_buff *skbn;
 	int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
 					   struct rmnet_port *port);
+	void (*rmnet_perf_opt_chain_end)(void);
 
 	if (skb->dev->type == ARPHRD_ETHER) {
 		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_KERNEL)) {
@@ -306,11 +331,14 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	}
 
 	/* Pass off handling to rmnet_perf module, if present */
+	rcu_read_lock();
 	rmnet_perf_core_deaggregate = rcu_dereference(rmnet_perf_deag_entry);
 	if (rmnet_perf_core_deaggregate) {
 		rmnet_perf_core_deaggregate(skb, port);
+		rcu_read_unlock();
 		return;
 	}
+	rcu_read_unlock();
 
 	/* Deaggregation and freeing of HW originating
 	 * buffers is done within here
@@ -330,6 +358,12 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 next_skb:
 		skb = skb_frag;
 	}
+
+	rcu_read_lock();
+	rmnet_perf_opt_chain_end = rcu_dereference(rmnet_perf_chain_end);
+	if (rmnet_perf_opt_chain_end)
+		rmnet_perf_opt_chain_end();
+	rcu_read_unlock();
 }
 
 static int rmnet_map_egress_handler(struct sk_buff *skb,
@@ -361,7 +395,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	if (csum_type)
 		rmnet_map_checksum_uplink_packet(skb, orig_dev, csum_type);
 
-	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0);
+	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0,
+					      port);
 	if (!map_header)
 		return -ENOMEM;
 

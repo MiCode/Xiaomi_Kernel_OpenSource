@@ -976,11 +976,20 @@ static void gsi_store_ringbase_dbl_info(struct usb_ep *ep,
 		GSI_RING_BASE_ADDR_L(mdwc->gsi_reg[RING_BASE_ADDR_L], (n)),
 		dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
 
+	if (request->mapped_db_reg_phs_addr_lsb &&
+			dwc->sysdev != request->dev) {
+		dma_unmap_resource(request->dev,
+			request->mapped_db_reg_phs_addr_lsb,
+			PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+		request->mapped_db_reg_phs_addr_lsb = 0;
+	}
+
 	if (!request->mapped_db_reg_phs_addr_lsb) {
 		request->mapped_db_reg_phs_addr_lsb =
 			dma_map_resource(dwc->sysdev,
 				(phys_addr_t)request->db_reg_phs_addr_lsb,
 				PAGE_SIZE, DMA_BIDIRECTIONAL, 0);
+		request->dev = dwc->sysdev;
 		if (dma_mapping_error(dwc->sysdev,
 				request->mapped_db_reg_phs_addr_lsb))
 			dev_err(mdwc->dev, "mapping error for db_reg_phs_addr_lsb\n");
@@ -2540,6 +2549,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	struct usb_irq *uirq;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
+
+	/*
+	 * If h/w exited LPM without any events, ensure
+	 * h/w is reset before processing any new events.
+	 */
+	if (!mdwc->vbus_active && mdwc->id_state)
+		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
 
 	mutex_lock(&mdwc->suspend_resume_mutex);
 	if (!atomic_read(&dwc->in_lpm)) {

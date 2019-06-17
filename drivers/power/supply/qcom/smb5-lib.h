@@ -211,6 +211,7 @@ enum smb_irq_index {
 	FLASH_STATE_CHANGE_IRQ,
 	TORCH_REQ_IRQ,
 	FLASH_EN_IRQ,
+	SDAM_STS_IRQ,
 	/* END */
 	SMB_IRQ_MAX,
 };
@@ -375,6 +376,7 @@ struct smb_charger {
 	struct mutex		smb_lock;
 	struct mutex		ps_change_lock;
 	struct mutex		dr_lock;
+	struct mutex		irq_status_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -520,6 +522,7 @@ struct smb_charger {
 	bool			aicl_max_reached;
 	int			charge_full_cc;
 	int			cc_soc_ref;
+	int			last_cc_soc;
 	int			dr_mode;
 	int			usbin_forced_max_uv;
 	int			init_thermal_ua;
@@ -550,6 +553,7 @@ struct smb_charger {
 	u32			headroom_mode;
 	bool			flash_init_done;
 	bool			flash_active;
+	u32			irq_status;
 
 	/* wireless */
 	int			wireless_vout;
@@ -592,6 +596,7 @@ int smblib_vconn_regulator_disable(struct regulator_dev *rdev);
 int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 
 irqreturn_t default_irq_handler(int irq, void *data);
+irqreturn_t smb_en_irq_handler(int irq, void *data);
 irqreturn_t chg_state_change_irq_handler(int irq, void *data);
 irqreturn_t batt_temp_changed_irq_handler(int irq, void *data);
 irqreturn_t batt_psy_changed_irq_handler(int irq, void *data);
@@ -609,7 +614,7 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data);
 irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
 irqreturn_t temp_change_irq_handler(int irq, void *data);
 irqreturn_t usbin_ov_irq_handler(int irq, void *data);
-
+irqreturn_t sdam_sts_change_irq_handler(int irq, void *data);
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
@@ -750,6 +755,8 @@ void smblib_hvdcp_detect_enable(struct smb_charger *chg, bool enable);
 void smblib_hvdcp_exit_config(struct smb_charger *chg);
 void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
+int smblib_get_irq_status(struct smb_charger *chg,
+				union power_supply_propval *val);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

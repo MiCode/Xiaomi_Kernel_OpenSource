@@ -119,6 +119,14 @@
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
 		qcom,smmu-s1-enable;
 	};
+	qfprom: qfprom@780130 {
+		compatible = "qcom,qfprom";
+		reg = <0x00780130 0x4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		read-only;
+		ranges;
+	};
 };
 
 &thermal_zones {

@@ -21,6 +21,7 @@
 
 &emac_hw {
 	emac-core-version = <4>;
+	early-ethernet-en;
 };
 
 &ufsphy_mem {

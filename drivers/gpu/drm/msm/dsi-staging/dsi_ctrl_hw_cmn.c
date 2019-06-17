@@ -1577,6 +1577,19 @@ int dsi_ctrl_hw_cmn_wait_for_cmd_mode_mdp_idle(struct dsi_ctrl_hw *ctrl)
 	return rc;
 }
 
+void dsi_ctrl_hw_cmn_hs_req_sel(struct dsi_ctrl_hw *ctrl, bool sel_phy)
+{
+	u32 reg = 0;
+
+	reg = DSI_R32(ctrl, DSI_LANE_CTRL);
+	if (sel_phy)
+		reg &= ~BIT(24);
+	else
+		reg |= BIT(24);
+	DSI_W32(ctrl, DSI_LANE_CTRL, reg);
+	wmb(); /* make sure request is set */
+}
+
 void dsi_ctrl_hw_cmn_set_continuous_clk(struct dsi_ctrl_hw *ctrl, bool enable)
 {
 	u32 reg = 0;

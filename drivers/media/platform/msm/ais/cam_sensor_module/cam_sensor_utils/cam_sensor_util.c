@@ -37,8 +37,7 @@ static struct i2c_settings_list*
 		return NULL;
 
 	tmp->i2c_settings.reg_setting = (struct cam_sensor_i2c_reg_array *)
-		kcalloc(size, sizeof(struct cam_sensor_i2c_reg_array),
-			GFP_KERNEL);
+		vzalloc(size * sizeof(struct cam_sensor_i2c_reg_array));
 	if (tmp->i2c_settings.reg_setting == NULL) {
 		list_del(&(tmp->list));
 		kfree(tmp);
@@ -61,7 +60,7 @@ int32_t delete_request(struct i2c_settings_array *i2c_array)
 
 	list_for_each_entry_safe(i2c_list, i2c_next,
 		&(i2c_array->list_head), list) {
-		kfree(i2c_list->i2c_settings.reg_setting);
+		vfree(i2c_list->i2c_settings.reg_setting);
 		list_del(&(i2c_list->list));
 		kfree(i2c_list);
 	}
@@ -326,6 +325,7 @@ int cam_sensor_i2c_command_parser(
 		cmd_buf = (uint32_t *)generic_ptr;
 		cmd_buf += cmd_desc[i].offset / sizeof(uint32_t);
 
+		remain_len -= cmd_desc[i].offset;
 		if (remain_len < cmd_desc[i].length) {
 			CAM_ERR(CAM_SENSOR, "buffer provided too small");
 			return -EINVAL;

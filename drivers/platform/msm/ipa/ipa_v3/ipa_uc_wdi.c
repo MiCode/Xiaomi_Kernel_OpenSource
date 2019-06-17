@@ -417,6 +417,54 @@ static void ipa3_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
 }
 
 /**
+ * ipa3_get_wdi_gsi_stats() - Query WDI gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_wdi_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i, num_chs;
+
+	if (!ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad NULL parms for wdi_gsi_stats\n");
+		return -EINVAL;
+	}
+	num_chs = ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_size
+		/ sizeof(struct IpaHwRingStats_t);
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < num_chs; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
+}
+
+/**
  * ipa3_get_wdi_stats() - Query WDI statistics from uc
  * @stats:	[inout] stats blob from client populated by driver
  *
@@ -867,6 +915,36 @@ int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	return 0;
+}
+
+void ipa3_release_wdi3_gsi_smmu_mappings(u8 dir)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
+	int i, j, start, end;
+
+	if (dir == IPA_WDI3_TX_DIR) {
+		start = IPA_WDI_TX_RING_RES;
+		end = IPA_WDI_TX_DB_RES;
+	} else {
+		start = IPA_WDI_RX_RING_RES;
+		end = IPA_WDI_RX_COMP_RING_WP_RES;
+	}
+
+	for (i = start; i <= end; i++) {
+		if (wdi_res[i].valid) {
+			for (j = 0; j < wdi_res[i].nents; j++) {
+				iommu_unmap(cb->mapping->domain,
+					wdi_res[i].res[j].iova,
+					wdi_res[i].res[j].size);
+				ipa3_ctx->wdi_map_cnt--;
+			}
+			kfree(wdi_res[i].res);
+			wdi_res[i].valid = false;
+		}
+	}
+
+	if (ipa3_ctx->wdi_map_cnt == 0)
+		cb->next_addr = cb->va_end;
 }
 
 int ipa_create_gsi_smmu_mapping(int res_idx, bool wlan_smmu_en,
@@ -2021,7 +2099,8 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 		ipa3_ctx->uc_wdi_ctx.stats_notify = NULL;
 	else
 		IPADBG("uc_wdi_ctx.stats_notify already null\n");
-
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI);
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
 fail_dealloc_channel:
@@ -2375,6 +2454,7 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	struct gsi_chan_info chan_info;
 	union __packed gsi_channel_scratch gsi_scratch;
+	struct IpaHwOffloadStatsAllocCmdData_t *pcmd_t = NULL;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 	ep = &ipa3_ctx->ep[clnt_hdl];
@@ -2397,6 +2477,23 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("gsi_start_channel failed %d\n", result);
 		ipa_assert();
+	}
+	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
+	/* start uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		if (IPA_CLIENT_IS_PROD(ep->client)) {
+			pcmd_t->ch_id_info[0].ch_id
+				= ep->gsi_chan_hdl;
+			pcmd_t->ch_id_info[0].dir
+				= DIR_PRODUCER;
+		} else {
+			pcmd_t->ch_id_info[1].ch_id
+				= ep->gsi_chan_hdl;
+			pcmd_t->ch_id_info[1].dir
+				= DIR_CONSUMER;
+		}
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI]);
 	}
 	gsi_query_channel_info(ep->gsi_chan_hdl, &chan_info);
 	gsi_read_channel_scratch(ep->gsi_chan_hdl, &gsi_scratch);
@@ -2492,6 +2589,7 @@ int ipa3_suspend_gsi_wdi_pipe(u32 clnt_hdl)
 	int retry_cnt = 0;
 	struct gsi_chan_info chan_info;
 	union __packed gsi_channel_scratch gsi_scratch;
+	struct IpaHwOffloadStatsAllocCmdData_t *pcmd_t = NULL;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(ipa3_get_client_mapping(clnt_hdl));
 	if (ipa_ep_idx < 0) {
@@ -2556,7 +2654,23 @@ retry_gsi_stop:
 				gsi_scratch.data.word3);
 		IPADBG("Scratch 3 = %x\n", gsi_scratch.data.word4);
 	}
-
+	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
+	/* stop uC gsi dbg stats monitor */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		if (IPA_CLIENT_IS_PROD(ep->client)) {
+			pcmd_t->ch_id_info[0].ch_id
+				= 0xff;
+			pcmd_t->ch_id_info[0].dir
+				= DIR_PRODUCER;
+		} else {
+			pcmd_t->ch_id_info[1].ch_id
+				= 0xff;
+			pcmd_t->ch_id_info[1].dir
+				= DIR_CONSUMER;
+		}
+		ipa3_uc_debug_stats_alloc(
+			ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI]);
+	}
 	if (disable_force_clear)
 		ipa3_disable_force_clear(clnt_hdl);
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));

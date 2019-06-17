@@ -75,13 +75,15 @@ static long ipa3_wan_ioctl(struct file *filp,
 		unsigned int cmd,
 		unsigned long arg)
 {
-	int retval = 0, rc = 0;
+	int retval = 0, rc = 0, rmv_offload_req__msg_size = 0;
 	u32 pyld_sz;
 	u8 *param = NULL;
 
 	IPAWANDBG("device %s got ioctl events :>>>\n",
 		DRIVER_NAME);
 
+	rmv_offload_req__msg_size =
+		sizeof(struct ipa_remove_offload_connection_req_msg_v01);
 	if (!ipa3_process_ioctl) {
 
 		if ((cmd == WAN_IOC_SET_LAN_CLIENT_INFO) ||
@@ -142,6 +144,59 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case WAN_IOC_ADD_OFFLOAD_CONNECTION:
+		IPAWANDBG("device %s got WAN_IOC_ADD_OFFLOAD_CONNECTION :>>>\n",
+		DRIVER_NAME);
+		pyld_sz = sizeof(struct ipa_add_offload_connection_req_msg_v01);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (void __user *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_qmi_add_offload_request_send(
+			(struct ipa_add_offload_connection_req_msg_v01 *)
+			param)) {
+			IPAWANDBG("IPACM->Q6 add offload connection failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((void __user *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case WAN_IOC_RMV_OFFLOAD_CONNECTION:
+		IPAWANDBG("device %s got WAN_IOC_RMV_OFFLOAD_CONNECTION :>>>\n",
+		DRIVER_NAME);
+		pyld_sz =
+			rmv_offload_req__msg_size;
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (void __user *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_qmi_rmv_offload_request_send(
+			(struct ipa_remove_offload_connection_req_msg_v01 *)
+				param)) {
+			IPAWANDBG("IPACM->Q6 add offload connection failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((void __user *)arg, param, pyld_sz)) {
 			retval = -EFAULT;
 			break;
 		}

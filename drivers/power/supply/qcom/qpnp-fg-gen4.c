@@ -269,6 +269,7 @@ struct fg_gen4_chip {
 	struct work_struct	pl_current_en_work;
 	struct completion	mem_attn;
 	struct mutex		soc_scale_lock;
+	ktime_t			last_restart_time;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
 	int			ki_coeff_full_soc[2];
@@ -330,6 +331,7 @@ static bool fg_sram_dump;
 static bool fg_esr_fast_cal_en;
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip);
+static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en);
 
 static struct fg_sram_param pm8150b_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
@@ -897,6 +899,11 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 	return 0;
 }
 
+static int fg_gen4_get_prop_real_capacity(struct fg_dev *fg, int *val)
+{
+	return fg_get_msoc(fg, val);
+}
+
 static int fg_gen4_get_prop_capacity_raw(struct fg_gen4_chip *chip, int *val)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -1079,7 +1086,7 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 		if (is_qnovo_en(fg))
 			*val = TTF_MODE_QNOVO;
 		else if (chip->ttf->step_chg_cfg_valid)
-			*val = TTF_MODE_V_STEP_CHG;
+			*val = TTF_MODE_VBAT_STEP_CHG;
 		else if (chip->ttf->ocv_step_chg_cfg_valid)
 			*val = TTF_MODE_OCV_STEP_CHG;
 		else
@@ -2071,6 +2078,7 @@ static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
 	}
 
 	if (normal_profile_load) {
+		chip->last_restart_time = ktime_get();
 		rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 		if (rc < 0) {
 			pr_err("Error in restarting FG, rc=%d\n", rc);
@@ -2266,6 +2274,12 @@ done:
 	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
+	if (!chip->esr_fast_calib || is_debug_batt_id(fg)) {
+		/* If it is debug battery, then disable ESR fast calibration */
+		chip->esr_fast_calib = false;
+		fg_gen4_esr_fast_calib_config(chip, false);
+	}
+
 	if (chip->dt.multi_profile_load && rc < 0)
 		chip->batt_age_level = chip->last_batt_age_level;
 	fg->soc_reporting_ready = true;
@@ -2900,6 +2914,13 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 		return rc;
 	}
 
+	/*
+	 * esr_fast_cal_timer won't be initialized if esr_fast_calib is
+	 * not enabled. Hence don't start/cancel the timer.
+	 */
+	if (!chip->esr_fast_calib)
+		goto out;
+
 	if (en) {
 		/* Set ESR fast calibration timer to 50 seconds as default */
 		esr_fast_cal_ms = 50000;
@@ -2914,6 +2935,7 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 		alarm_cancel(&chip->esr_fast_cal_timer);
 	}
 
+out:
 	fg_dbg(fg, FG_STATUS, "%sabling ESR fast calibration\n",
 		en ? "En" : "Dis");
 	return 0;
@@ -3174,6 +3196,7 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, vbatt_mv, msoc_raw;
+	s64 time_us;
 
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
@@ -3186,6 +3209,20 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
 		vbatt_mv, msoc_raw);
+
+	if (!fg->soc_reporting_ready) {
+		fg_dbg(fg, FG_IRQ, "SOC reporting is not ready\n");
+		return IRQ_HANDLED;
+	}
+
+	if (chip->last_restart_time) {
+		time_us = ktime_us_delta(ktime_get(), chip->last_restart_time);
+		if (time_us < 10000000) {
+			fg_dbg(fg, FG_IRQ, "FG restarted before %lld us\n",
+				time_us);
+			return IRQ_HANDLED;
+		}
+	}
 
 	if (vbatt_mv < chip->dt.cutoff_volt_mv) {
 		if (chip->dt.rapid_soc_dec_en) {
@@ -3877,14 +3914,19 @@ static void sram_dump_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work, struct fg_dev,
 				    sram_dump_work.work);
-	u8 buf[FG_SRAM_LEN];
+	u8 *buf;
 	int rc;
 	s64 timestamp_ms, quotient;
 	s32 remainder;
 
+	buf = kcalloc(FG_SRAM_LEN, sizeof(u8), GFP_KERNEL);
+	if (!buf)
+		goto resched;
+
 	rc = fg_sram_read(fg, 0, 0, buf, FG_SRAM_LEN, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in reading FG SRAM, rc:%d\n", rc);
+		kfree(buf);
 		goto resched;
 	}
 
@@ -3893,6 +3935,7 @@ static void sram_dump_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "SRAM Dump Started at %lld.%d\n",
 		quotient, remainder);
 	dump_sram(fg, buf, 0, FG_SRAM_LEN);
+	kfree(buf);
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
 	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
 	fg_dbg(fg, FG_STATUS, "SRAM Dump done at %lld.%d\n",
@@ -4053,6 +4096,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_gen4_get_prop_capacity(fg, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_REAL_CAPACITY:
+		rc = fg_gen4_get_prop_real_capacity(fg, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
 		rc = fg_gen4_get_prop_capacity_raw(chip, &pval->intval);
@@ -4297,6 +4343,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_REAL_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_TEMP,

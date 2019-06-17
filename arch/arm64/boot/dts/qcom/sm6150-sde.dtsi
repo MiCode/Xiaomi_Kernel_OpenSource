@@ -527,7 +527,7 @@
 		qcom,logical2physical-lane-map = [03 02 00 01];
 
 		qcom,max-lclk-frequency-khz = <540000>;
-		qcom,max-pclk-frequency-khz = <200000>;
+		qcom,max-pclk-frequency-khz = <195000>;
 
 		qcom,ext-disp = <&ext_disp>;
 		qcom,dp-aux-switch = <&fsa4480>;

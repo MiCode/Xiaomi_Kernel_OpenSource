@@ -413,8 +413,7 @@ static int atl_set_pauseparam(struct net_device *ndev,
 	if (pause->autoneg && !lstate->autoneg)
 		return -EINVAL;
 
-	fc->req = pause->autoneg ? atl_fc_full :
-		(!!pause->rx_pause << atl_fc_rx_shift) |
+	fc->req = (!!pause->rx_pause << atl_fc_rx_shift) |
 		(!!pause->tx_pause << atl_fc_tx_shift);
 
 	hw->mcp.ops->set_link(hw, false);
@@ -2016,8 +2015,8 @@ static void atl_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	wol->supported = WAKE_MAGIC;
-	wol->wolopts = nic->flags & ATL_FL_WOL ? WAKE_MAGIC : 0;
+	wol->supported = ATL_WAKE_SUPPORTED;
+	wol->wolopts = nic->hw.wol_mode;
 }
 
 static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
@@ -2025,22 +2024,27 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	int ret;
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	if (wol->wolopts & ~WAKE_MAGIC) {
+	if (wol->wolopts & ~ATL_WAKE_SUPPORTED) {
 		atl_nic_err("%s: unsupported WoL mode %x\n", __func__,
 			wol->wolopts);
 		return -EINVAL;
 	}
 
-	if (wol->wolopts & WAKE_MAGIC)
+	if (wol->wolopts)
 		nic->flags |= ATL_FL_WOL;
 	else
 		nic->flags &= ~ATL_FL_WOL;
 
+	nic->hw.wol_mode = wol->wolopts;
+
 	ret = device_set_wakeup_enable(&nic->hw.pdev->dev,
 		!!(nic->flags & ATL_FL_WOL));
 
-	if (ret)
+	if (ret) {
 		atl_nic_err("device_set_wakeup_enable failed: %d\n", -ret);
+		nic->flags &= ~ATL_FL_WOL;
+		nic->hw.wol_mode = 0;
+	}
 
 	return ret;
 }

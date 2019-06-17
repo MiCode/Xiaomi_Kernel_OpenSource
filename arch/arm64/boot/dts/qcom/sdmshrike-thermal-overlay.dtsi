@@ -1,0 +1,166 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/thermal/thermal.h>
+
+&thermal_zones {
+	pm8150_tz {
+		cooling-maps {
+			trip0_cpu0 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu1 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU1 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu2 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU2 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu3 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU3 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu4 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU4 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu5 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU5 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu6 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU6 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip0_cpu7 {
+				trip = <&pm8150_trip0>;
+				cooling-device =
+					<&CPU7 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+			trip1_cpu1 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu2 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu3 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu4 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu5 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu6 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			trip1_cpu7 {
+				trip = <&pm8150_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8150l-vph-lvl0 {
+		cooling-maps {
+			vph_cpu4 {
+				trip = <&vph_lvl0>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vph_cpu5 {
+				trip = <&vph_lvl0>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vph_gpu0 {
+				trip = <&vph_lvl0>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm8150l-vph-lvl1 {
+		cooling-maps {
+			vph_cpu6 {
+				trip = <&vph_lvl1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vph_cpu7 {
+				trip = <&vph_lvl1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+			vph_gpu1 {
+				trip = <&vph_lvl1>;
+				cooling-device = <&msm_gpu 4 4>;
+			};
+		};
+	};
+
+	pm8150l-vph-lvl2 {
+		cooling-maps {
+			vph_gpu2 {
+				trip = <&vph_lvl2>;
+				cooling-device = <&msm_gpu THERMAL_MAX_LIMIT
+							THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
+};

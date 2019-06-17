@@ -36,6 +36,8 @@
 #include <linux/memcontrol.h>
 #include <linux/cleancache.h>
 #include <linux/rmap.h>
+#include <linux/delayacct.h>
+#include <linux/psi.h>
 #include "internal.h"
 
 #define CREATE_TRACE_POINTS
@@ -819,12 +821,9 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 		 * data from the working set, only to cache data that will
 		 * get overwritten with something else, is a waste of memory.
 		 */
-		if (!(gfp_mask & __GFP_WRITE) &&
-		    shadow && workingset_refault(shadow)) {
-			SetPageActive(page);
-			workingset_activation(page);
-		} else
-			ClearPageActive(page);
+		WARN_ON_ONCE(PageActive(page));
+		if (!(gfp_mask & __GFP_WRITE) && shadow)
+			workingset_refault(page, shadow);
 		lru_cache_add(page);
 	}
 	return ret;
@@ -980,7 +979,17 @@ static inline int wait_on_page_bit_common(wait_queue_head_t *q,
 {
 	struct wait_page_queue wait_page;
 	wait_queue_entry_t *wait = &wait_page.wait;
+	bool thrashing = false;
+	unsigned long pflags;
 	int ret = 0;
+
+	if (bit_nr == PG_locked &&
+	    !PageUptodate(page) && PageWorkingset(page)) {
+		if (!PageSwapBacked(page))
+			delayacct_thrashing_start();
+		psi_memstall_enter(&pflags);
+		thrashing = true;
+	}
 
 	init_wait(wait);
 	wait->flags = lock ? WQ_FLAG_EXCLUSIVE : 0;
@@ -1019,6 +1028,12 @@ static inline int wait_on_page_bit_common(wait_queue_head_t *q,
 	}
 
 	finish_wait(q, wait);
+
+	if (thrashing) {
+		if (!PageSwapBacked(page))
+			delayacct_thrashing_end();
+		psi_memstall_leave(&pflags);
+	}
 
 	/*
 	 * A signal could leave PageWaiters set. Clearing it here if
@@ -1428,7 +1443,7 @@ EXPORT_SYMBOL(find_lock_entry);
  * - FGP_CREAT: If page is not present then a new page is allocated using
  *   @gfp_mask and added to the page cache and the VM's LRU
  *   list. The page is returned locked and with an increased
- *   refcount. Otherwise, NULL is returned.
+ *   refcount.
  * - FGP_FOR_MMAP: Similar to FGP_CREAT, only we want to allow the caller to do
  *   its own locking dance if the page is already in cache, or unlock the page
  *   before returning if we had to add the page to pagecache.
@@ -1500,10 +1515,10 @@ no_page:
 		}
 
 		/*
-		 * add_to_page_cache_lru lock's the page, and for mmap we expect
-		 * a unlocked page.
+		 * add_to_page_cache_lru locks the page, and for mmap we expect
+		 * an unlocked page.
 		 */
-		if (fgp_flags & FGP_FOR_MMAP)
+		if (page && (fgp_flags & FGP_FOR_MMAP))
 			unlock_page(page);
 	}
 
@@ -2286,6 +2301,7 @@ static struct file *maybe_unlock_mmap_for_io(struct vm_fault *vmf,
 					     struct file *fpin)
 {
 	int flags = vmf->flags;
+
 	if (fpin)
 		return fpin;
 
@@ -2319,6 +2335,11 @@ static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 	if (trylock_page(page))
 		return 1;
 
+	/*
+	 * NOTE! This will make us return with VM_FAULT_RETRY, but with
+	 * the mmap_sem still held. That's how FAULT_FLAG_RETRY_NOWAIT
+	 * is supposed to work. We have way too many special cases..
+	 */
 	if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT)
 		return 0;
 

@@ -40,6 +40,8 @@
 #include <linux/platform_device.h>
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
+#define TCSR_PERST_SEPARATION_ENABLE		0x270
+
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
 static int ep_pcie_debug_keep_resource;
@@ -1012,6 +1014,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	char prop_name[MAX_PROP_SIZE];
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
+	bool map;
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -1228,6 +1231,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 
 	for (i = 0; i < EP_PCIE_MAX_RES; i++) {
 		res_info = &dev->res[i];
+		map = false;
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							res_info->name);
@@ -1235,23 +1239,30 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 		if (!res) {
 			EP_PCIE_ERR(dev,
 				"PCIe V%d: can't get resource for %s\n",
-				dev->rev, res_info->name);
-			ret = -ENOMEM;
-			goto out;
+					dev->rev, res_info->name);
+			if (!strcmp(res_info->name, "tcsr_pcie_perst_en")) {
+				if (!dev->tcsr_not_supported) {
+					ret = -ENOMEM;
+					goto out;
+				}
+			}
 		} else {
 			EP_PCIE_DBG(dev, "start addr for %s is %pa\n",
 				res_info->name,	&res->start);
+			map = true;
 		}
 
-		res_info->base = devm_ioremap(&pdev->dev,
-						res->start, resource_size(res));
-		if (!res_info->base) {
-			EP_PCIE_ERR(dev, "PCIe V%d: can't remap %s\n",
-				dev->rev, res_info->name);
-			ret = -ENOMEM;
-			goto out;
+		if (map) {
+			res_info->base = devm_ioremap(&pdev->dev,
+					res->start, resource_size(res));
+			if (!res_info->base) {
+				EP_PCIE_ERR(dev, "PCIe V%d: can't remap %s\n",
+					dev->rev, res_info->name);
+				ret = -ENOMEM;
+				goto out;
+			}
+			res_info->resource = res;
 		}
-		res_info->resource = res;
 	}
 
 	for (i = 0; i < EP_PCIE_MAX_IRQ; i++) {
@@ -1401,19 +1412,28 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 		dev->power_on = true;
 
-		 EP_PCIE_DBG(dev,
-			 "TCSR PERST_EN value before configure:0x%x\n",
-			 readl_relaxed(dev->tcsr_perst_en + 0x258));
+		if (!dev->tcsr_not_supported) {
+			EP_PCIE_DBG(dev,
+				"TCSR PERST_EN value before configure:0x%x\n",
+				readl_relaxed(dev->tcsr_perst_en + 0x258));
 
-		 /*
-		  * Delatch PERST_EN with TCSR to avoid device reset
-		  * during host reboot case.
-		  */
-		 writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+			/*
+			 * Delatch PERST_EN with TCSR to avoid device reset
+			 * during host reboot case.
+			 */
+			writel_relaxed(0, dev->tcsr_perst_en + 0x258);
 
-		 EP_PCIE_DBG(dev,
-			 "TCSR PERST_EN value after configure:0x%x\n",
-			 readl_relaxed(dev->tcsr_perst_en));
+			EP_PCIE_DBG(dev,
+				"TCSR PERST_EN value after configure:0x%x\n",
+				readl_relaxed(dev->tcsr_perst_en + 0x258));
+
+			/*
+			 * Delatch PERST_SEPARATION_ENABLE with TCSR to avoid
+			 * device reset during host reboot and hibernate case.
+			 */
+			writel_relaxed(0, dev->tcsr_perst_en +
+						TCSR_PERST_SEPARATION_ENABLE);
+		}
 
 		 /* check link status during initial bootup */
 		if (!dev->enumerated) {
@@ -1467,19 +1487,21 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
 
-	EP_PCIE_DBG(dev,
-		"TCSR PERST_EN value before configure:0x%x\n",
-		readl_relaxed(dev->tcsr_perst_en + 0x258));
+	if (!dev->tcsr_not_supported) {
+		EP_PCIE_DBG(dev,
+			"TCSR PERST_EN value before configure:0x%x\n",
+			readl_relaxed(dev->tcsr_perst_en + 0x258));
 
-	/*
-	 * Delatch PERST_EN with TCSR to avoid device reset
-	 * during host reboot case.
-	 */
-	writel_relaxed(0, dev->tcsr_perst_en + 0x258);
+		/*
+		 * Delatch PERST_EN with TCSR to avoid device reset
+		 * during host reboot case.
+		 */
+		writel_relaxed(0, dev->tcsr_perst_en + 0x258);
 
-	EP_PCIE_DBG(dev,
-		"TCSR PERST_EN value after configure:0x%x\n",
-		readl_relaxed(dev->tcsr_perst_en));
+		EP_PCIE_DBG(dev,
+			"TCSR PERST_EN value after configure:0x%x\n",
+			readl_relaxed(dev->tcsr_perst_en));
+	}
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */
@@ -1532,9 +1554,6 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	ret = ep_pcie_reset_init(dev);
-	if (ret)
-		goto link_fail;
 	/* init PCIe PHY */
 	ep_pcie_phy_init(dev);
 
@@ -2741,6 +2760,13 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: enum by PERST is %s enabled\n",
 		ep_pcie_dev.rev, ep_pcie_dev.perst_enum ? "" : "not");
+
+	ep_pcie_dev.tcsr_not_supported = of_property_read_bool
+		((&pdev->dev)->of_node,
+				"qcom,tcsr-not-supported");
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: tcsr pcie perst is %s supported\n",
+		ep_pcie_dev.rev, ep_pcie_dev.tcsr_not_supported ? "not" : "");
 
 	ep_pcie_dev.rev = 1711211;
 	ep_pcie_dev.pdev = pdev;

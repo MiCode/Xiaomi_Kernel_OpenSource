@@ -24,7 +24,6 @@
 #include "cam_req_mgr_dev.h"
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
-static struct cam_req_mgr_core_link g_links[MAXIMUM_LINKS_PER_SESSION];
 
 void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 {
@@ -680,6 +679,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 	struct cam_req_mgr_slot      *sync_slot = NULL;
 	int sync_slot_idx = 0, prev_idx, next_idx, rd_idx, sync_rd_idx, rc = 0;
 	int64_t req_id = 0, sync_req_id = 0;
+	int32_t sync_num_slots = 0;
 
 	if (!link->sync_link) {
 		CAM_ERR(CAM_CRM, "Sync link null");
@@ -688,6 +688,7 @@ static int __cam_req_mgr_check_sync_for_mslave(
 
 	sync_link = link->sync_link;
 	req_id = slot->req_id;
+	sync_num_slots = sync_link->req.in_q->num_slots;
 	sync_rd_idx = sync_link->req.in_q->rd_idx;
 
 	CAM_DBG(CAM_CRM,
@@ -765,7 +766,8 @@ static int __cam_req_mgr_check_sync_for_mslave(
 
 			if ((sync_link->req.in_q->slot[sync_slot_idx].status !=
 				CRM_SLOT_STATUS_REQ_APPLIED) &&
-				((sync_slot_idx - rd_idx) >= 1) &&
+				(((sync_slot_idx - rd_idx + sync_num_slots) %
+				sync_num_slots) >= 1) &&
 				(sync_link->req.in_q->slot[rd_idx].status !=
 				CRM_SLOT_STATUS_REQ_APPLIED)) {
 				CAM_DBG(CAM_CRM,
@@ -831,7 +833,8 @@ static int __cam_req_mgr_check_sync_for_mslave(
 
 			if ((sync_link->req.in_q->slot[sync_slot_idx].status !=
 				CRM_SLOT_STATUS_REQ_APPLIED) &&
-				((sync_slot_idx - rd_idx) >= 1) &&
+				(((sync_slot_idx - rd_idx + sync_num_slots) %
+				sync_num_slots) >= 1) &&
 				(sync_link->req.in_q->slot[rd_idx].status !=
 				CRM_SLOT_STATUS_REQ_APPLIED)) {
 				CAM_DBG(CAM_CRM,
@@ -888,6 +891,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	struct cam_req_mgr_core_link *sync_link = NULL;
 	int64_t req_id = 0;
 	int sync_slot_idx = 0, sync_rd_idx = 0, rc = 0;
+	int32_t sync_num_slots = 0;
 
 	if (!link->sync_link) {
 		CAM_ERR(CAM_CRM, "Sync link null");
@@ -896,6 +900,7 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 
 	sync_link = link->sync_link;
 	req_id = slot->req_id;
+	sync_num_slots = sync_link->req.in_q->num_slots;
 
 	CAM_DBG(CAM_REQ,
 		"link_hdl %x req %lld frame_skip_flag %d ",
@@ -940,7 +945,8 @@ static int __cam_req_mgr_check_sync_req_is_ready(
 	sync_rd_idx = sync_link->req.in_q->rd_idx;
 	if ((sync_link->req.in_q->slot[sync_slot_idx].status !=
 		CRM_SLOT_STATUS_REQ_APPLIED) &&
-		((sync_slot_idx - sync_rd_idx) >= 1) &&
+		(((sync_slot_idx - sync_rd_idx + sync_num_slots) %
+		sync_num_slots) >= 1) &&
 		(sync_link->req.in_q->slot[sync_rd_idx].status !=
 		CRM_SLOT_STATUS_REQ_APPLIED)) {
 		CAM_DBG(CAM_CRM,
@@ -1520,8 +1526,8 @@ static struct cam_req_mgr_core_link *__cam_req_mgr_reserve_link(
 		return NULL;
 	}
 	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		if (!atomic_cmpxchg(&g_links[i].is_used, 0, 1)) {
-			link = &g_links[i];
+		if (!atomic_cmpxchg(&session->links_init[i].is_used, 0, 1)) {
+			link = &session->links_init[i];
 			CAM_DBG(CAM_CRM, "alloc link index %d", i);
 			cam_req_mgr_core_link_reset(link);
 			break;
@@ -1588,12 +1594,8 @@ error:
  */
 static void __cam_req_mgr_free_link(struct cam_req_mgr_core_link *link)
 {
-	ptrdiff_t i;
 	kfree(link->req.in_q);
 	link->req.in_q = NULL;
-	i = link - g_links;
-	CAM_DBG(CAM_CRM, "free link index %d", i);
-	atomic_set(&g_links[i].is_used, 0);
 }
 
 /**
@@ -1625,8 +1627,10 @@ static void __cam_req_mgr_unreserve_link(
 	}
 
 	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		if (session->links[i] == link)
+		if (session->links[i] == link) {
+			atomic_set(&session->links_init[i].is_used, 0);
 			session->links[i] = NULL;
+		}
 
 		if (link->sync_link) {
 			if (link->sync_link == session->links[i])
@@ -1886,7 +1890,9 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	mutex_lock(&link->req.lock);
 	idx = __cam_req_mgr_find_slot_for_req(link->req.in_q, add_req->req_id);
 	if (idx < 0) {
-		CAM_ERR(CAM_CRM, "req %lld not found in in_q", add_req->req_id);
+		CAM_ERR(CAM_CRM,
+			"req %lld not found in in_q for dev %s on link 0x%x",
+			add_req->req_id, device->dev_info.name, link->link_hdl);
 		rc = -EBADSLT;
 		mutex_unlock(&link->req.lock);
 		goto end;
@@ -1906,8 +1912,10 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 
 	if (slot->state != CRM_REQ_STATE_PENDING &&
 		slot->state != CRM_REQ_STATE_EMPTY) {
-		CAM_WARN(CAM_CRM, "Unexpected state %d for slot %d map %x",
-			slot->state, idx, slot->req_ready_map);
+		CAM_WARN(CAM_CRM,
+			"Unexpected state %d for slot %d map %x for dev %s on link 0x%x",
+			slot->state, idx, slot->req_ready_map,
+			device->dev_info.name, link->link_hdl);
 	}
 
 	slot->state = CRM_REQ_STATE_PENDING;
@@ -2482,6 +2490,7 @@ int cam_req_mgr_create_session(
 	struct cam_req_mgr_session_info *ses_info)
 {
 	int                              rc = 0;
+	int                              i = 0;
 	int32_t                          session_hdl;
 	struct cam_req_mgr_core_session *cam_session = NULL;
 
@@ -2515,6 +2524,15 @@ int cam_req_mgr_create_session(
 	cam_session->num_links = 0;
 	cam_session->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
 	list_add(&cam_session->entry, &g_crm_core_dev->session_head);
+
+	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
+		mutex_init(&cam_session->links_init[i].lock);
+		spin_lock_init(
+			&cam_session->links_init[i].link_state_spin_lock);
+		atomic_set(&cam_session->links_init[i].is_used, 0);
+		cam_req_mgr_core_link_reset(&cam_session->links_init[i]);
+	}
+
 	mutex_unlock(&cam_session->lock);
 end:
 	mutex_unlock(&g_crm_core_dev->crm_lock);
@@ -2801,7 +2819,7 @@ int cam_req_mgr_schedule_request(
 
 	if (sched_req->req_id <= link->last_flush_id) {
 		CAM_INFO(CAM_CRM,
-			"request %lld is flushed, last_flush_id to flush %lld",
+			"request %lld is flushed, last_flush_id to flush %u",
 			sched_req->req_id, link->last_flush_id);
 		rc = -EINVAL;
 		goto end;
@@ -3111,7 +3129,7 @@ end:
 
 int cam_req_mgr_core_device_init(void)
 {
-	int i;
+
 	CAM_DBG(CAM_CRM, "Enter g_crm_core_dev %pK", g_crm_core_dev);
 
 	if (g_crm_core_dev) {
@@ -3128,12 +3146,6 @@ int cam_req_mgr_core_device_init(void)
 	mutex_init(&g_crm_core_dev->crm_lock);
 	cam_req_mgr_debug_register(g_crm_core_dev);
 
-	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
-		mutex_init(&g_links[i].lock);
-		spin_lock_init(&g_links[i].link_state_spin_lock);
-		atomic_set(&g_links[i].is_used, 0);
-		cam_req_mgr_core_link_reset(&g_links[i]);
-	}
 	return 0;
 }
 

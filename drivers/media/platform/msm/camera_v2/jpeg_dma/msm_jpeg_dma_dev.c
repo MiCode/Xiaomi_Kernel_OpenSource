@@ -892,8 +892,12 @@ static int msm_jpegdma_dqbuf(struct file *file,
 	void *fh, struct v4l2_buffer *buf)
 {
 	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
+	int ret;
 
-	return v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
+	mutex_lock(&ctx->lock);
+	ret = v4l2_m2m_dqbuf(file, ctx->m2m_ctx, buf);
+	mutex_unlock(&ctx->lock);
+	return ret;
 }
 
 /*
@@ -908,13 +912,15 @@ static int msm_jpegdma_streamon(struct file *file,
 	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
 	int ret;
 
-	if (!msm_jpegdma_config_ok(ctx))
+	mutex_lock(&ctx->lock);
+	if (!msm_jpegdma_config_ok(ctx)) {
+		mutex_unlock(&ctx->lock);
 		return -EINVAL;
-
+	}
 	ret = v4l2_m2m_streamon(file, ctx->m2m_ctx, buf_type);
 	if (ret < 0)
 		dev_err(ctx->jdma_device->dev, "Stream on fail\n");
-
+	mutex_unlock(&ctx->lock);
 	return ret;
 }
 

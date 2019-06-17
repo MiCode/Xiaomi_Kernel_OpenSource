@@ -1073,6 +1073,7 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 	POWER_SUPPLY_PROP_TOGGLE_STAT,
 	POWER_SUPPLY_PROP_MAIN_FCC_MAX,
+	POWER_SUPPLY_PROP_IRQ_STATUS,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1117,6 +1118,9 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MAIN_FCC_MAX:
 		val->intval = chg->main_fcc_max;
+		break;
+	case POWER_SUPPLY_PROP_IRQ_STATUS:
+		rc = smblib_get_irq_status(chg, val);
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -3029,6 +3033,7 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[SMB_EN_IRQ] = {
 		.name		= "smb-en",
+		.handler	= smb_en_irq_handler,
 	},
 	[IMP_TRIGGER_IRQ] = {
 		.name		= "imp-trigger",
@@ -3071,6 +3076,11 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[FLASH_EN_IRQ] = {
 		.name		= "flash-en",
+	},
+	/* SDAM */
+	[SDAM_STS_IRQ] = {
+		.name		= "sdam-sts",
+		.handler	= sdam_sts_change_irq_handler,
 	},
 };
 

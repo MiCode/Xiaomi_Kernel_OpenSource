@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,6 +132,9 @@ struct kgsl_mailbox {
  * @gmu_interrupt_num: GMU interrupt number
  * @fw_image: GMU FW image
  * @hfi_mem: pointer to HFI shared memory
+ * @icache_mem: pointer to GMU icache memory
+ * @dcache_mem: pointer to GMU dcache memory
+ * @persist_mem: pointer to GMU persistent memory
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
  * @hfi: HFI controller
@@ -167,6 +170,9 @@ struct gmu_device {
 	unsigned int gmu_interrupt_num;
 	const struct firmware *fw_image;
 	struct gmu_memdesc *hfi_mem;
+	struct gmu_memdesc *icache_mem;
+	struct gmu_memdesc *dcache_mem;
+	struct gmu_memdesc *persist_mem;
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;
@@ -193,5 +199,7 @@ struct gmu_device {
 };
 
 struct gmu_memdesc *gmu_get_memdesc(unsigned int addr, unsigned int size);
+unsigned int gmu_get_memtype_base(struct gmu_device *gmu,
+		enum gmu_mem_type type);
 
 #endif /* __KGSL_GMU_H */

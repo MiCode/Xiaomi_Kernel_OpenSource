@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char jpeg_dev_name[] = "jpeg";
+static const char jpeg_dev_name[] = "cam-jpeg";
 
 static int cam_jpeg_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)

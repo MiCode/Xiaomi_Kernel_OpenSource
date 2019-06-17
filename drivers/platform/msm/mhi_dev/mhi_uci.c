@@ -34,7 +34,7 @@
 #define MHI_UCI_IPC_LOG_PAGES		(100)
 
 /* Max number of MHI write request structures (used in async writes) */
-#define MAX_UCI_WR_REQ			10
+#define MHI_UCI_NUM_WR_REQ_DEFAULT	10
 #define MAX_NR_TRBS_PER_CHAN		9
 #define MHI_QTI_IFACE_ID		4
 #define MHI_ADPL_IFACE_ID		5
@@ -44,6 +44,7 @@
 #define MHI_UCI_ASYNC_READ_TIMEOUT	msecs_to_jiffies(100)
 #define MHI_UCI_ASYNC_WRITE_TIMEOUT	msecs_to_jiffies(100)
 #define MHI_UCI_AT_CTRL_READ_TIMEOUT	msecs_to_jiffies(1000)
+#define MHI_UCI_WRITE_REQ_AVAIL_TIMEOUT msecs_to_jiffies(1000)
 
 enum uci_dbg_level {
 	UCI_DBG_VERBOSE = 0x0,
@@ -86,6 +87,8 @@ struct chan_attr {
 	bool wr_cmpl;
 	/* Uevent broadcast of channel state */
 	bool state_bcast;
+	/* Number of write request structs to allocate */
+	u32 num_wr_reqs;
 
 };
 
@@ -230,7 +233,11 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		false,
+		false,
+		50
 	},
 	{
 		MHI_CLIENT_ADB_OUT,
@@ -429,6 +436,9 @@ static void mhi_uci_write_completion_cb(void *req)
 
 	if (uci_handle->write_done)
 		complete(uci_handle->write_done);
+
+	/* Write queue may be waiting for write request structs */
+	wake_up(&uci_handle->write_wq);
 }
 
 static void mhi_uci_read_completion_cb(void *req)
@@ -473,7 +483,7 @@ static int mhi_uci_send_async(struct uci_client *uci_handle,
 	if (list_empty(&uci_handle->wr_req_list)) {
 		uci_log(UCI_DBG_ERROR, "Write request pool empty\n");
 		spin_unlock_irq(&uci_handle->wr_req_lock);
-		return -ENOMEM;
+		return -EBUSY;
 	}
 	ureq = container_of(uci_handle->wr_req_list.next,
 						struct mhi_req, list);
@@ -512,13 +522,6 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 	mutex_lock(&uci_handle->out_chan_lock);
 	do {
 		ret_val = uci_handle->send(uci_handle, data_loc, size);
-		if (ret_val < 0) {
-			uci_log(UCI_DBG_ERROR,
-				"Err sending data: chan %d, buf %pK, size %d\n",
-				uci_handle->out_chan, data_loc, size);
-			ret_val = -EIO;
-			break;
-		}
 		if (!ret_val) {
 			uci_log(UCI_DBG_VERBOSE,
 				"No descriptors available, did we poll, chan %d?\n",
@@ -535,6 +538,48 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 				return ret_val;
 			}
 			mutex_lock(&uci_handle->out_chan_lock);
+		} else if (ret_val == -EBUSY) {
+			/*
+			 * All write requests structs have been exhausted.
+			 * Wait till pending writes complete or a timeout.
+			 */
+			uci_log(UCI_DBG_VERBOSE,
+				"Write req list empty for chan %d\n",
+				uci_handle->out_chan);
+			mutex_unlock(&uci_handle->out_chan_lock);
+			if (uci_handle->f_flags & (O_NONBLOCK | O_NDELAY))
+				return -EAGAIN;
+			ret_val = wait_event_interruptible_timeout(
+					uci_handle->write_wq,
+					!list_empty(&uci_handle->wr_req_list),
+					MHI_UCI_WRITE_REQ_AVAIL_TIMEOUT);
+			if (ret_val > 0) {
+				/*
+				 * Write request struct became available,
+				 * retry the write.
+				 */
+				uci_log(UCI_DBG_VERBOSE,
+				"Write req struct available for chan %d\n",
+					uci_handle->out_chan);
+				mutex_lock(&uci_handle->out_chan_lock);
+				ret_val = 0;
+				continue;
+			} else if (!ret_val) {
+				uci_log(UCI_DBG_ERROR,
+				"Timed out waiting for write req, chan %d\n",
+					uci_handle->out_chan);
+				return -EIO;
+			} else if (-ERESTARTSYS == ret_val) {
+				uci_log(UCI_DBG_WARNING,
+					"Waitqueue cancelled by system\n");
+				return ret_val;
+			}
+		} else if (ret_val < 0) {
+			uci_log(UCI_DBG_ERROR,
+				"Err sending data: chan %d, buf %pK, size %d\n",
+				uci_handle->out_chan, data_loc, size);
+			ret_val = -EIO;
+			break;
 		}
 	} while (!ret_val);
 	mutex_unlock(&uci_handle->out_chan_lock);
@@ -601,8 +646,13 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 static int mhi_uci_alloc_write_reqs(struct uci_client *client)
 {
 	int i;
+	u32 num_wr_reqs;
 
-	client->wreqs = kcalloc(MAX_UCI_WR_REQ,
+	num_wr_reqs = client->in_chan_attr->num_wr_reqs;
+	if (!num_wr_reqs)
+		num_wr_reqs = MHI_UCI_NUM_WR_REQ_DEFAULT;
+
+	client->wreqs = kcalloc(num_wr_reqs,
 				sizeof(struct mhi_req),
 				GFP_KERNEL);
 	if (!client->wreqs) {
@@ -611,11 +661,12 @@ static int mhi_uci_alloc_write_reqs(struct uci_client *client)
 	}
 
 	INIT_LIST_HEAD(&client->wr_req_list);
-	for (i = 0; i < MAX_UCI_WR_REQ; ++i)
+	for (i = 0; i < num_wr_reqs; ++i)
 		list_add_tail(&client->wreqs[i].list, &client->wr_req_list);
 
 	uci_log(UCI_DBG_INFO,
-		"UCI write reqs allocation successful\n");
+		"Allocated %d write reqs for chan %d\n",
+		num_wr_reqs, client->out_chan);
 	return 0;
 }
 

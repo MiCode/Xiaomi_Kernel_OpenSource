@@ -1707,6 +1707,9 @@ static void adreno_fault_header(struct kgsl_device *device,
 		struct adreno_context *drawctxt =
 			ADRENO_CONTEXT(drawobj->context);
 
+		drawctxt->base.total_fault_count++;
+		drawctxt->base.last_faulted_cmd_ts = drawobj->timestamp;
+
 		trace_adreno_gpu_fault(drawobj->context->id,
 			drawobj->timestamp,
 			status, rptr, wptr, ib1base, ib1sz,
@@ -2251,14 +2254,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	}
 
 	atomic_add(halt, &adreno_dev->halt);
-
-	/*
-	 * At this point it is safe to assume that we recovered. Setting
-	 * this field allows us to take a new snapshot for the next failure
-	 * if we are prioritizing the first unrecoverable snapshot.
-	 */
-	if (device->snapshot)
-		device->snapshot->recovered = true;
 
 	return 1;
 }

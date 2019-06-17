@@ -1,0 +1,344 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sm8150.h>
+#include <dt-bindings/clock/qcom,scc-sm8150.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195 Virtual Machine";
+	qcom,msm-name = "SA8195P";
+	qcom,msm-id = <405 0x20000>;
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	chosen {
+		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
+	};
+
+	soc: soc { };
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x2000000>;
+			linux,cma-default;
+		};
+
+		pmem_shared: pmem_shared_region@a0000000 {
+			reg = <0x0 0xa0000000 0x0 0x20000000>;
+			label = "pmem_shared_mem";
+		};
+	};
+
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo";
+			};
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait";
+					status = "ok";
+				};
+			};
+		};
+	};
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	clock_virt: qcom,virt-gcc {
+		compatible = "qcom,virt-clk-sm8150-gcc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_virt_scc: qcom,virt-scc {
+		compatible = "qcom,virt-clk-sm8150-scc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+	};
+
+	qcom,hab {
+		compatible = "qcom,hab";
+		vmid = <2>;
+
+		mmidgrp100: mmidgrp100 {
+			grp-start-id = <100>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp200: mmidgrp200 {
+			grp-start-id = <200>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp300: mmidgrp300 {
+			grp-start-id = <300>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp400: mmidgrp400 {
+			grp-start-id = <400>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp500: mmidgrp500 {
+			grp-start-id = <500>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp600: mmidgrp600 {
+			grp-start-id = <600>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp700: mmidgrp700 {
+			grp-start-id = <700>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp800: mmidgrp800 {
+			grp-start-id = <800>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp900: mmidgrp900 {
+			grp-start-id = <900>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+
+		mmidgrp1000: mmidgrp1000 {
+			grp-start-id = <1000>;
+			role = "fe";
+			remote-vmids = <0>;
+		};
+	};
+
+	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {
+		compatible = "qcom,sde-kms-hyp";
+		qcom,client-id = "7815";
+	};
+
+	apps_smmu: apps-smmu@0x15000000 {
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x15000000 0x100000>,
+			<0x15182000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,skip-init;
+		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
+		#global-interrupts = <1>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts =	<GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 316 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 405 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 406 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 409 IRQ_TYPE_LEVEL_HIGH>;
+
+		status = "disabled";
+	};
+
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+		status = "disabled";
+	};
+
+	pm8150_l2: regulator-pm8150-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_l2";
+		regulator-min-microvolt = <3072000>;
+		regulator-max-microvolt = <3072000>;
+		qcom,init-voltage = <3072000>;
+		status = "okay";
+	};
+
+	pm8150_l5: regulator-pm8150-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_l5";
+		regulator-min-microvolt = <880000>;
+		regulator-max-microvolt = <880000>;
+		qcom,proxy-consumer-enable;
+		qcom,proxy-consumer-current = <23800>;
+		qcom,init-voltage = <880000>;
+		status = "okay";
+	};
+
+	pm8150_l12: regulator-pm8150-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_l12";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,init-voltage = <1800000>;
+		status = "okay";
+	};
+
+	pm8150l_l3: regulator-pm8150l-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150l_l3";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		qcom,proxy-consumer-enable;
+		qcom,proxy-consumer-current = <51800>;
+		qcom,init-voltage = <1200000>;
+		status = "okay";
+	};
+
+	usb30_prim_gdsc: usb30_prim_gdsc {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "usb30_prim_gdsc";
+		status = "okay";
+	};
+
+	usb30_sec_gdsc: usb30_sec_gdsc {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "usb30_sec_gdsc";
+		status = "okay";
+	};
+};
+
+#include "sdmshrike-pinctrl.dtsi"
+#include "sm8150-slpi-pinctrl.dtsi"
+#include "sa8155-vm-qupv3.dtsi"
+#include "sa8155-vm-usb.dtsi"
+#include "sa8155-vm-audio.dtsi"

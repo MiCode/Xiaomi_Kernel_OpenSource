@@ -294,12 +294,11 @@ static void atl_fw2_set_link(struct atl_hw *hw, bool force)
 		hi_bits ^= atl_fw2_asym_pause;
 
 	bits = atl_set_fw_bits(hw, 1);
+	hi_bits |= bits >> 32;
 
 	/* If no modes are advertized, put PHY into low-power */
 	if (!bits)
-		hi_bits |= atl_fw2_link_drop;
-
-	hi_bits |= bits >> 32;
+		hi_bits = atl_fw2_link_drop;
 
 	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), bits);
 	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), hi_bits);
@@ -341,26 +340,34 @@ static int atl_fw2_enable_wol(struct atl_hw *hw)
 {
 	int ret;
 	struct offloadInfo *info;
-	struct drvIface *msg;
-	uint32_t val, wol_bits = atl_fw2_nic_proxy | atl_fw2_wol;
-
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
-	if (!msg)
-		return -ENOMEM;
-
-	info = &msg->fw2xOffloads;
-	info->version = 0;
-	info->len = sizeof(*info);
-	memcpy(info->macAddr, hw->mac_addr, ETH_ALEN);
+	struct drvIface *msg = NULL;
+	uint32_t val, wol_bits = 0;
 
 	atl_lock_fw(hw);
 
-	ret = atl_write_mcp_mem(hw, 0, msg,
-		(info->len + offsetof(struct drvIface, fw2xOffloads) + 3) & ~3,
-		MCP_AREA_CONFIG);
-	if (ret) {
-		atl_dev_err("Failed to upload sleep proxy info to FW\n");
-		goto free;
+	if (hw->wol_mode & WAKE_PHY)
+		wol_bits |= atl_fw2_wake_on_link;
+
+	if (hw->wol_mode & WAKE_MAGIC) {
+		wol_bits |= atl_fw2_nic_proxy | atl_fw2_wol;
+
+		ret = -ENOMEM;
+		msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+		if (!msg)
+			goto unlock_free;
+
+		info = &msg->fw2xOffloads;
+		info->version = 0;
+		info->len = sizeof(*info);
+		memcpy(info->macAddr, hw->mac_addr, ETH_ALEN);
+
+		ret = atl_write_mcp_mem(hw, 0, msg,
+			(info->len + offsetof(struct drvIface, fw2xOffloads)
+				+ 3) & ~3, MCP_AREA_CONFIG);
+		if (ret) {
+			atl_dev_err("Failed to upload sleep proxy info to FW\n");
+			goto unlock_free;
+		}
 	}
 
 	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_LOW), 0);
@@ -373,7 +380,7 @@ static int atl_fw2_enable_wol(struct atl_hw *hw)
 	if (ret)
 		atl_dev_err("Timeout waiting for WoL enable\n");
 
-free:
+unlock_free:
 	atl_unlock_fw(hw);
 	kfree(msg);
 	return ret;

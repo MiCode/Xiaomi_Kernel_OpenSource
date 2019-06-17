@@ -2139,6 +2139,9 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 		return;
 	}
 	atomic_add(1, &vfe_dev->irq_cnt);
+	trace_msm_cam_isp_status_dump("VFE_IRQ:", vfe_dev->pdev->id,
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+		irq_status0, irq_status1, dual_irq_status);
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
 	queue_cmd->vfe_pingpong_status = ping_pong_status;
@@ -2276,6 +2279,9 @@ void msm_isp_do_tasklet(unsigned long data)
 		atomic_sub(1, &vfe_dev->irq_cnt);
 		msm_isp_prepare_tasklet_debug_info(vfe_dev,
 			irq_status0, irq_status1, ts);
+		trace_msm_cam_isp_status_dump("VFE_TASKLET:", vfe_dev->pdev->id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			irq_status0, irq_status1, dual_irq_status);
 		irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
@@ -2298,8 +2304,14 @@ void msm_isp_do_tasklet(unsigned long data)
 		if (vfe_dev->dual_vfe_sync_mode) {
 			irq_ops->process_camif_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
+			/*
+			 * process the reg_update for pix from dual_irq_status
+			 * and RDI redupdate from individual VFEs
+			 */
 			irq_ops->process_reg_update(vfe_dev,
-				dual_irq_status, irq_status1, &ts);
+				((irq_status0 & 0xE0) |
+				dual_irq_status),
+				irq_status1, &ts);
 			irq_ops->process_epoch_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
 		} else {

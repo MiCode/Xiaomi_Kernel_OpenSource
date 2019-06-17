@@ -55,6 +55,7 @@ static struct bt_power_vreg_data bt_power_vreg_info[] = {
 	{NULL, "qca,bt-vdd-vl", 1055000, 1055000, 0, false, false},
 	{NULL, "qca,bt-vdd-vm", 1350000, 1350000, 0, false, false},
 	{NULL, "qca,bt-vdd-5c", 2040000, 2040000, 0, false, false},
+	{NULL, "qca,bt-vdd-5a", 2040000, 2040000, 0, false, false},
 	{NULL, "qca,bt-vdd-vh", 1900000, 1900000, 0, false, false},
 	{NULL, "qca,bt-vdd-io", 1700000, 1900000, 0, false, false},
 	{NULL, "qca,bt-vdd-xtal", 1700000, 1900000, 0, false, false},

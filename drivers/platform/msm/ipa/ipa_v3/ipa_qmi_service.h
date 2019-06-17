@@ -27,6 +27,7 @@
 #define IPA_DFLT_WAN_RT_TBL_NAME "ipa_dflt_wan_rt"
 #define MAX_NUM_Q6_RULE 35
 #define MAX_NUM_QMI_RULE_CACHE 10
+#define MAX_NUM_QMI_MPM_AGGR_CACHE 3
 #define DEV_NAME "ipa-wan"
 #define SUBSYS_LOCAL_MODEM "modem"
 #define SUBSYS_REMOTE_MODEM "esoc0"
@@ -83,6 +84,13 @@
 
 extern struct ipa3_qmi_context *ipa3_qmi_ctx;
 
+struct ipa_offload_connection_val {
+	enum ipa_ip_type_enum_v01 ip_type;
+	bool valid;
+	uint32_t rule_id;
+	uint32_t  rule_hdl;
+};
+
 struct ipa3_qmi_context {
 	struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
 	u32 q6_ul_filter_rule_hdl[MAX_NUM_Q6_RULE];
@@ -99,9 +107,15 @@ struct ipa3_qmi_context {
 	struct ipa_configure_ul_firewall_rules_req_msg_v01
 		ipa_configure_ul_firewall_rules_req_msg_cache
 			[MAX_NUM_QMI_RULE_CACHE];
+	struct ipa_mhi_prime_aggr_info_req_msg_v01
+		ipa_mhi_prime_aggr_info_req_msg_cache
+			[MAX_NUM_QMI_MPM_AGGR_CACHE];
 	bool modem_cfg_emb_pipe_flt;
 	struct sockaddr_qrtr client_sq;
 	struct sockaddr_qrtr server_sq;
+	int num_ipa_offload_connection;
+	struct ipa_offload_connection_val
+		ipa_offload_cache[QMI_IPA_MAX_FILTERS_V01];
 };
 
 struct ipa3_rmnet_mux_val {
@@ -196,6 +210,14 @@ extern struct qmi_elem_info ipa_mhi_clk_vote_resp_msg_v01_ei[];
 extern struct qmi_elem_info ipa_mhi_cleanup_req_msg_v01_ei[];
 extern struct qmi_elem_info ipa_mhi_cleanup_resp_msg_v01_ei[];
 
+extern struct qmi_elem_info ipa_endp_desc_indication_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_prime_aggr_info_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_mhi_prime_aggr_info_resp_msg_v01_ei[];
+extern struct qmi_elem_info ipa_add_offload_connection_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_add_offload_connection_resp_msg_v01_ei[];
+extern struct qmi_elem_info ipa_remove_offload_connection_req_msg_v01_ei[];
+extern struct qmi_elem_info ipa_remove_offload_connection_resp_msg_v01_ei[];
+
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
  * @ipa_rmnet_ssr: support modem SSR
@@ -222,6 +244,12 @@ int ipa3_qmi_filter_request_send(
 
 int ipa3_qmi_filter_request_ex_send(
 	struct ipa_install_fltr_rule_req_ex_msg_v01 *req);
+
+int ipa3_qmi_add_offload_request_send(
+	struct ipa_add_offload_connection_req_msg_v01 *req);
+
+int ipa3_qmi_rmv_offload_request_send(
+	struct ipa_remove_offload_connection_req_msg_v01 *req);
 
 int ipa3_qmi_ul_filter_request_send(
 	struct ipa_configure_ul_firewall_rules_req_msg_v01 *req);
@@ -294,6 +322,9 @@ int ipa3_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 
 int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 
+int ipa3_qmi_set_aggr_info(
+	enum ipa_aggr_enum_type_v01 aggr_enum_type);
+
 int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
@@ -330,6 +361,18 @@ static inline void ipa3_qmi_service_exit(void) { }
 /* sending filter-install-request to modem*/
 static inline int ipa3_qmi_filter_request_send(
 	struct ipa_install_fltr_rule_req_msg_v01 *req)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_add_offload_request_send(
+	struct ipa_add_offload_connection_req_msg_v01 *req)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_rmv_offload_request_send(
+	struct ipa_rmv_offload_connection_req_msg_v01 *req)
 {
 	return -EPERM;
 }
@@ -463,6 +506,12 @@ static inline int ipa3_qmi_enable_per_client_stats(
 static inline int ipa3_qmi_get_per_client_packet_stats(
 	struct ipa_get_stats_per_client_req_msg_v01 *req,
 	struct ipa_get_stats_per_client_resp_msg_v01 *resp)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_set_aggr_info(
+	enum ipa_aggr_enum_type_v01 aggr_enum_type)
 {
 	return -EPERM;
 }

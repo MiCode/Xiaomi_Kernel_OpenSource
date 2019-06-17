@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,15 +87,16 @@ enum mhi_device_type {
  * @MHI_EE_EDL - device in emergency download mode
  */
 enum mhi_ee {
-	MHI_EE_PBL = 0x0,
-	MHI_EE_SBL = 0x1,
-	MHI_EE_AMSS = 0x2,
-	MHI_EE_RDDM = 0x3,
-	MHI_EE_WFW = 0x4,
-	MHI_EE_PTHRU = 0x5,
-	MHI_EE_EDL = 0x6,
+	MHI_EE_PBL,
+	MHI_EE_SBL,
+	MHI_EE_AMSS,
+	MHI_EE_RDDM,
+	MHI_EE_WFW,
+	MHI_EE_PTHRU,
+	MHI_EE_EDL,
 	MHI_EE_MAX_SUPPORTED = MHI_EE_EDL,
 	MHI_EE_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
+	MHI_EE_NOT_SUPPORTED,
 	MHI_EE_MAX,
 };
 
@@ -181,6 +182,7 @@ struct mhi_controller {
 	struct device_node *of_node;
 
 	/* mmio base */
+	phys_addr_t base_addr;
 	void __iomem *regs;
 	void __iomem *bhi;
 	void __iomem *bhie;
@@ -191,6 +193,10 @@ struct mhi_controller {
 	u32 domain;
 	u32 bus;
 	u32 slot;
+	u32 family_number;
+	u32 device_number;
+	u32 major_version;
+	u32 minor_version;
 
 	/* addressing window */
 	dma_addr_t iova_start;
@@ -237,11 +243,14 @@ struct mhi_controller {
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;
+	u32 db_access; /* db access only on these states */
 	enum mhi_ee ee;
+	u32 ee_table[MHI_EE_MAX]; /* ee conversion from dev to host */
 	enum mhi_dev_state dev_state;
 	bool wake_set;
 	atomic_t dev_wake;
 	atomic_t alloc_size;
+	atomic_t pending_pkts;
 	struct list_head transition_list;
 	spinlock_t transition_lock;
 	spinlock_t wlock;
@@ -260,6 +269,7 @@ struct mhi_controller {
 	int (*link_status)(struct mhi_controller *, void *);
 	void (*wake_get)(struct mhi_controller *, bool);
 	void (*wake_put)(struct mhi_controller *, bool);
+	void (*wake_toggle)(struct mhi_controller *mhi_cntrl);
 	int (*runtime_get)(struct mhi_controller *, void *);
 	void (*runtime_put)(struct mhi_controller *, void *);
 	u64 (*time_get)(struct mhi_controller *mhi_cntrl, void *priv);

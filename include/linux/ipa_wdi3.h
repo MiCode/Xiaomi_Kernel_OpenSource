@@ -32,6 +32,9 @@ enum ipa_wdi_version {
 	IPA_WDI_3
 };
 
+#define IPA_WDI3_TX_DIR 1
+#define IPA_WDI3_RX_DIR 2
+
 /**
  * struct ipa_wdi_init_in_params - wdi init input parameters
  *

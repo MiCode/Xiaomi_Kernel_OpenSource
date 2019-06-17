@@ -40,7 +40,6 @@
 #define DDR_MAPPED_START_ADDR   0x80000000
 #define DDR_MAPPED_SIZE         0x60000000
 
-#define PERF_MODE_DEFAULT 0
 #define MBOX_OP_TIMEOUTMS 1000
 
 /* -------------------------------------------------------------------------
@@ -116,6 +115,8 @@ static int npu_receive_event(struct npu_client *client,
 	unsigned long arg);
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable);
 static int npu_set_property(struct npu_client *client,
+	unsigned long arg);
+static int npu_get_property(struct npu_client *client,
 	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
@@ -318,6 +319,7 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t count)
 {
+	struct npu_client client;
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
 	uint32_t val;
 	int rc;
@@ -331,7 +333,9 @@ static ssize_t npu_store_perf_mode_override(struct device *dev,
 	val = min(val, npu_dev->pwrctrl.num_pwrlevels);
 	npu_dev->pwrctrl.perf_mode_override = val;
 	pr_info("setting uc_pwrlevel_override to %d\n", val);
-	npu_set_power_level(npu_dev, true);
+
+	client.npu_dev = npu_dev;
+	npu_host_set_perf_mode(&client, 0, val);
 
 	return count;
 }
@@ -361,7 +365,7 @@ static ssize_t npu_store_dcvs_mode(struct device *dev,
 		return -EINVAL;
 	}
 
-	val = min(val, (uint32_t)DCVS_MODE_MAX);
+	val = min(val, (uint32_t)(npu_dev->pwrctrl.num_pwrlevels - 1));
 	pr_debug("sysfs: setting dcvs_mode to %d\n", val);
 
 	prop.prop_id = MSM_NPU_PROP_ID_DCVS_MODE;
@@ -434,22 +438,19 @@ static ssize_t npu_store_fw_state(struct device *dev,
 					  const char *buf, size_t count)
 {
 	struct npu_device *npu_dev = dev_get_drvdata(dev);
+	struct npu_client client;
 	bool enable = false;
 	int rc;
 
 	if (strtobool(buf, &enable) < 0)
 		return -EINVAL;
 
-	if (enable) {
-		pr_debug("%s: fw init\n", __func__);
-		rc = fw_init(npu_dev);
-		if (rc) {
-			pr_err("fw init failed\n");
-			return rc;
-		}
-	} else {
-		pr_debug("%s: fw deinit\n", __func__);
-		fw_deinit(npu_dev, false, true);
+	client.npu_dev = npu_dev;
+	rc = npu_set_fw_state(&client, enable ? 1 : 0);
+
+	if (rc) {
+		pr_err("%s fw failed\n", enable ? "enable" : "disable");
+		return rc;
 	}
 
 	return count;
@@ -638,7 +639,6 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 			pwr->pwr_vote_num = 0;
 			return ret;
 		}
-		pwr->cur_dcvs_activity = DCVS_MODE_MAX;
 		npu_resume_devbw(npu_dev);
 	}
 	pwr->pwr_vote_num++;
@@ -665,7 +665,7 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
-		pwr->cur_dcvs_activity = 0;
+		pwr->cur_dcvs_activity = pwr->num_pwrlevels;
 		pr_debug("setting back to power level=%d\n",
 			pwr->active_pwrlevel);
 	}
@@ -724,14 +724,6 @@ static uint32_t npu_calc_power_level(struct npu_device *npu_dev)
 	uint32_t therm_pwr_level = npu_dev->thermalctrl.pwr_level;
 	uint32_t active_pwr_level = npu_dev->pwrctrl.active_pwrlevel;
 	uint32_t uc_pwr_level = npu_dev->pwrctrl.uc_pwrlevel;
-
-	/*
-	 * if perf_mode_override is not 0, use it to override
-	 * uc_pwrlevel
-	 */
-	if (npu_dev->pwrctrl.perf_mode_override > 0)
-		uc_pwr_level = npu_power_level_from_index(npu_dev,
-			npu_dev->pwrctrl.perf_mode_override - 1);
 
 	/*
 	 * pick the lowese power level between thermal power and usecase power
@@ -821,11 +813,8 @@ int npu_set_uc_power_level(struct npu_device *npu_dev,
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	uint32_t uc_pwrlevel_to_set;
 
-	if (perf_mode == PERF_MODE_DEFAULT)
-		uc_pwrlevel_to_set = pwr->default_pwrlevel;
-	else
-		uc_pwrlevel_to_set = npu_power_level_from_index(npu_dev,
-			perf_mode - 1);
+	uc_pwrlevel_to_set = npu_power_level_from_index(npu_dev,
+		perf_mode - 1);
 
 	if (uc_pwrlevel_to_set > pwr->max_pwrlevel)
 		uc_pwrlevel_to_set = pwr->max_pwrlevel;
@@ -1623,16 +1612,35 @@ static int npu_receive_event(struct npu_client *client,
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 {
 	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int rc = 0;
 
+	if (host_ctx->network_num > 0) {
+		pr_err("Need to unload network first\n");
+		mutex_unlock(&npu_dev->dev_lock);
+		return -EINVAL;
+	}
+
 	if (enable) {
-		pr_debug("%s: enable fw\n", __func__);
+		pr_debug("enable fw\n");
 		rc = fw_init(npu_dev);
-		if (rc)
+		if (rc) {
 			pr_err("enable fw failed\n");
-	} else {
-		pr_debug("%s: disable fw\n", __func__);
+		} else {
+			host_ctx->npu_init_cnt++;
+			pr_debug("npu_init_cnt %d\n",
+				host_ctx->npu_init_cnt);
+			/* set npu to lowest power level */
+			if (npu_set_uc_power_level(npu_dev, 1))
+				pr_warn("Failed to set uc power level");
+		}
+	} else if (host_ctx->npu_init_cnt > 0) {
+		pr_debug("disable fw\n");
 		fw_deinit(npu_dev, false, true);
+		host_ctx->npu_init_cnt--;
+		pr_debug("npu_init_cnt %d\n", host_ctx->npu_init_cnt);
+	} else {
+		pr_err("can't disable fw %d\n", host_ctx->npu_init_cnt);
 	}
 
 	return rc;
@@ -1666,6 +1674,56 @@ static int npu_set_property(struct npu_client *client,
 		if (ret)
 			pr_err("npu_host_set_fw_property failed\n");
 		break;
+	}
+
+	return ret;
+}
+
+static int npu_get_property(struct npu_client *client,
+	unsigned long arg)
+{
+	struct msm_npu_property prop;
+	void __user *argp = (void __user *)arg;
+	int ret = -EINVAL;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	ret = copy_from_user(&prop, argp, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (prop.prop_id) {
+	case MSM_NPU_PROP_ID_FW_STATE:
+		prop.prop_param[0] = host_ctx->fw_state;
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE:
+		prop.prop_param[0] = npu_host_get_perf_mode(client,
+			(uint32_t)prop.network_hdl);
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE_MAX:
+		prop.prop_param[0] = npu_dev->pwrctrl.num_pwrlevels;
+		break;
+	case MSM_NPU_PROP_ID_DRV_VERSION:
+		prop.prop_param[0] = 0;
+		break;
+	case MSM_NPU_PROP_ID_HARDWARE_VERSION:
+		prop.prop_param[0] = npu_dev->hw_version;
+		break;
+	default:
+		ret = npu_host_get_fw_property(client->npu_dev, &prop);
+		if (ret) {
+			pr_err("npu_host_set_fw_property failed\n");
+			return ret;
+		}
+		break;
+	}
+
+	ret = copy_to_user(argp, &prop, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy to user\n");
+		return -EFAULT;
 	}
 
 	return ret;
@@ -1707,6 +1765,9 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case MSM_NPU_SET_PROP:
 		ret = npu_set_property(client, arg);
+		break;
+	case MSM_NPU_GET_PROP:
+		ret = npu_get_property(client, arg);
 		break;
 	default:
 		pr_err("unexpected IOCTL %x\n", cmd);
@@ -1926,6 +1987,7 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 	pwr->uc_pwrlevel = pwr->max_pwrlevel;
 	pwr->perf_mode_override = 0;
 	pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
+	pwr->cur_dcvs_activity = pwr->num_pwrlevels;
 
 	return 0;
 }
@@ -2048,6 +2110,23 @@ static void npu_mbox_deinit(struct npu_device *npu_dev)
 	}
 }
 
+static int npu_hw_info_init(struct npu_device *npu_dev)
+{
+	int rc = 0;
+
+	rc = npu_enable_core_power(npu_dev);
+	if (rc) {
+		pr_err("Failed to enable power\n");
+		return rc;
+	}
+
+	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
+	pr_debug("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
+	npu_disable_core_power(npu_dev);
+
+	return rc;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -2143,6 +2222,10 @@ static int npu_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 
 	rc = npu_parse_dt_clock(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
+	rc = npu_hw_info_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
 

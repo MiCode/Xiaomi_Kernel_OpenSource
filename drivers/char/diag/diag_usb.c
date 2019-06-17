@@ -604,6 +604,16 @@ void diag_usb_connect_all(void)
 		usb_connect(usb_info);
 	}
 }
+void diag_usb_connect_device(int id)
+{
+	struct diag_usb_info *usb_info = NULL;
+
+	usb_info = &diag_usb[id];
+	if (!usb_info->enabled)
+		return;
+	atomic_set(&usb_info->diag_state, 1);
+	usb_connect(usb_info);
+}
 
 /*
  * This functions performs USB disconnect operations wrt Diag synchronously.
@@ -624,6 +634,16 @@ void diag_usb_disconnect_all(void)
 	}
 }
 
+void diag_usb_disconnect_device(int id)
+{
+	struct diag_usb_info *usb_info = NULL;
+
+	usb_info = &diag_usb[id];
+	if (!usb_info->enabled)
+		return;
+	atomic_set(&usb_info->diag_state, 0);
+	usb_disconnect(usb_info);
+}
 int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 {
 	struct diag_usb_info *ch = NULL;

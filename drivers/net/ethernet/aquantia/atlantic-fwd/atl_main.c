@@ -321,8 +321,6 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_pci_reg;
 	}
 
-	pci_set_master(pdev);
-
 	ndev = alloc_etherdev_mq(sizeof(struct atl_nic), atl_max_queues);
 	if (!ndev) {
 		ret = -ENOMEM;
@@ -349,6 +347,8 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = atl_hwinit(nic, id->driver_data);
 	if (ret)
 		goto err_hwinit;
+
+	pci_set_master(pdev);
 
 	eth_platform_get_mac_address(&hw->pdev->dev, hw->mac_addr);
 	if (!is_valid_ether_addr(hw->mac_addr)) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,9 @@ int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				uint64_t size);
 
 void kgsl_free_secure_page(struct page *page);
+
+int kgsl_lock_sgt(struct sg_table *sgt, uint64_t size);
+int kgsl_unlock_sgt(struct sg_table *sgt);
 
 struct page *kgsl_alloc_secure_page(void);
 
