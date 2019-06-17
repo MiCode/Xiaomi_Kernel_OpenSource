@@ -939,7 +939,7 @@ static const struct adreno_reglist a650_gbif_regs[] = {
 
 static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.base = {
-		DEFINE_ADRENO_REV(ADRENO_REV_A618, 6, 2, 0, 0),
+		DEFINE_ADRENO_REV(ADRENO_REV_A620, 6, 2, 0, 0),
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC,
