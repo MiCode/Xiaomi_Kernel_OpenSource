@@ -3528,7 +3528,7 @@ static void ipa_cfg_qtime(void)
 	memset(&gran_cfg, 0, sizeof(gran_cfg));
 	gran_cfg.gran_0 = IPA_TIMERS_TIME_GRAN_100_USEC;
 	gran_cfg.gran_1 = IPA_TIMERS_TIME_GRAN_1_MSEC;
-	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_10_USEC;
+	gran_cfg.gran_2 = IPA_TIMERS_TIME_GRAN_1_MSEC;
 	val = ipahal_read_reg(IPA_TIMERS_PULSE_GRAN_CFG);
 	IPADBG("timer pulse granularity before cfg: 0x%x\n", val);
 	ipahal_write_reg_fields(IPA_TIMERS_PULSE_GRAN_CFG, &gran_cfg);
