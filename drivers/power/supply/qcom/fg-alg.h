@@ -117,6 +117,7 @@ struct ttf {
 	struct range_data	*step_chg_cfg;
 	bool			step_chg_cfg_valid;
 	bool			ocv_step_chg_cfg_valid;
+	bool			clear_ibatt;
 	int			step_chg_num_params;
 	int			mode;
 	int			last_ttf;

@@ -982,7 +982,10 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 
 	/* at least 10 samples are required to produce a stable IBATT */
 	if (ttf->ibatt.size < MAX_TTF_SAMPLES) {
-		*val = -1;
+		if (ttf->clear_ibatt)
+			*val = ttf->last_ttf;
+		else
+			*val = -1;
 		return 0;
 	}
 
@@ -998,6 +1001,7 @@ static int get_time_to_full_locked(struct ttf *ttf, int *val)
 		return rc;
 	}
 
+	ttf->clear_ibatt = false;
 	ibatt_avg = -ibatt_avg / MILLI_UNIT;
 	vbatt_avg /= MILLI_UNIT;
 
@@ -1303,6 +1307,7 @@ static void ttf_work(struct work_struct *work)
 			pr_debug("Clear Ibatt buffer, Ibatt_avg=%d Ibatt_now=%d\n",
 					ibatt_avg, ibatt_now);
 			ttf_circ_buf_clr(&ttf->ibatt);
+			ttf->clear_ibatt = true;
 		}
 
 		rc = get_time_to_full_locked(ttf, &ttf_now);
@@ -1312,7 +1317,7 @@ static void ttf_work(struct work_struct *work)
 		}
 
 		/* keep the wake lock and prime the IBATT and VBATT buffers */
-		if (ttf_now < 0) {
+		if (ttf_now < 0 || ttf->clear_ibatt) {
 			/* delay for one FG cycle */
 			schedule_delayed_work(&ttf->ttf_work,
 					msecs_to_jiffies(1000));
