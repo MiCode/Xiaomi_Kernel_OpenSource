@@ -2421,6 +2421,30 @@ out:
 	return err;
 }
 
+static int _mmc_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	if (!mmc_card_suspended(host->card)) {
+		mmc_release_host(host);
+		goto out;
+	}
+
+	mmc_log_string(host, "Enter\n");
+	mmc_power_up(host, host->card->ocr);
+	err = mmc_init_card(host, host->card->ocr, host->card);
+	mmc_card_clr_suspended(host->card);
+
+	mmc_log_string(host, "Exit err %d\n", err);
+
+	err = mmc_resume_clk_scaling(host);
+	if (err)
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, err);
+out:
+	return err;
+}
+
 /*
  * Shutdown callback
  */
@@ -2457,9 +2481,33 @@ static int mmc_shutdown(struct mmc_host *host)
  */
 static int mmc_resume(struct mmc_host *host)
 {
+	int err = 0;
+
+	err = _mmc_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
 	pm_runtime_enable(&host->card->dev);
+
 	mmc_log_string(host, "Done\n");
-	return 0;
+
+	return err;
+}
+
+/*
+ * Callback for deferred resume.
+ */
+static int mmc_deferred_resume(struct mmc_host *host)
+{
+	int err = 0;
+
+	err = _mmc_deferred_resume(host);
+	pm_runtime_set_active(&host->card->dev);
+	pm_runtime_mark_last_busy(&host->card->dev);
+	pm_runtime_enable(&host->card->dev);
+
+	mmc_log_string(host, "Done\n");
+
+	return err;
 }
 
 /*
@@ -2544,6 +2592,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.detect = mmc_detect,
 	.suspend = mmc_suspend,
 	.resume = mmc_resume,
+	.deferred_resume = mmc_deferred_resume,
 	.runtime_suspend = mmc_runtime_suspend,
 	.runtime_resume = mmc_runtime_resume,
 	.alive = mmc_alive,
