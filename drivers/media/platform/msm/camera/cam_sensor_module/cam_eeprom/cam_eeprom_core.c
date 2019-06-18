@@ -70,7 +70,6 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 					rc);
 				return rc;
 			}
-			memptr = block->mapdata + emap[j].mem.valid_size;
 		}
 
 		if (emap[j].pageen.valid_size) {
