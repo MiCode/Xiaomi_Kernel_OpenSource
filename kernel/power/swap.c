@@ -43,6 +43,7 @@
  */
 static bool clean_pages_on_read;
 static bool clean_pages_on_decompress;
+static bool noswap_randomize;
 
 /*
  *	The swap map is a data structure used for keeping track of each page
@@ -1620,3 +1621,11 @@ static int swsusp_header_init(void)
 }
 
 core_initcall(swsusp_header_init);
+
+static int __init noswap_randomize_setup(char *str)
+{
+	noswap_randomize = true;
+	return 1;
+}
+
+__setup("noswap_randomize", noswap_randomize_setup);
