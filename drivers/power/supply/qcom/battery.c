@@ -1691,6 +1691,9 @@ static void pl_config_init(struct pl_data *chip, int smb_version)
 		break;
 	case PMI632_SUBTYPE:
 		break;
+	case PM7250B_SUBTYPE:
+		chip->fcc_step_delay_ms = 100;
+		break;
 	default:
 		break;
 	}
