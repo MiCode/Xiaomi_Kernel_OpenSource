@@ -5762,7 +5762,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 {
 	struct fg_gen4_chip *chip;
 	struct fg_dev *fg;
-	struct power_supply_config fg_psy_cfg;
+	struct power_supply_config fg_psy_cfg = {};
 	int rc, msoc, volt_uv, batt_temp;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
@@ -5899,9 +5899,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	/* Register the power supply */
 	fg_psy_cfg.drv_data = fg;
-	fg_psy_cfg.of_node = NULL;
-	fg_psy_cfg.supplied_to = NULL;
-	fg_psy_cfg.num_supplicants = 0;
+	fg_psy_cfg.of_node = fg->dev->of_node;
 	fg->fg_psy = devm_power_supply_register(fg->dev, &fg_psy_desc,
 			&fg_psy_cfg);
 	if (IS_ERR(fg->fg_psy)) {

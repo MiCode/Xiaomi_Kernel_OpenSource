@@ -2348,13 +2348,11 @@ static int qg_notifier_cb(struct notifier_block *nb,
 
 static int qg_init_psy(struct qpnp_qg *chip)
 {
-	struct power_supply_config qg_psy_cfg;
+	struct power_supply_config qg_psy_cfg = {};
 	int rc;
 
 	qg_psy_cfg.drv_data = chip;
-	qg_psy_cfg.of_node = NULL;
-	qg_psy_cfg.supplied_to = NULL;
-	qg_psy_cfg.num_supplicants = 0;
+	qg_psy_cfg.of_node = chip->dev->of_node;
 	chip->qg_psy = devm_power_supply_register(chip->dev,
 				&qg_psy_desc, &qg_psy_cfg);
 	if (IS_ERR_OR_NULL(chip->qg_psy)) {
