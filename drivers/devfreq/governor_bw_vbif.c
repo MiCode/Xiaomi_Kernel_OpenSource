@@ -5,9 +5,12 @@
 
 #include <linux/devfreq.h>
 #include <linux/module.h>
+#include <linux/msm_adreno_devfreq.h>
+
 #include "governor.h"
 
-unsigned long (*extern_get_bw)(void) = NULL;
+static getbw_func extern_get_bw;
+static void *extern_get_bw_data;
 unsigned long *dev_ab;
 static unsigned long dev_ib;
 
@@ -22,12 +25,12 @@ static struct devfreq *df;
 static int devfreq_vbif_get_freq(struct devfreq *df,
 				unsigned long *freq)
 {
-	/* If the IB isn't set yet, check if it should be non-zero. */
-	if (!dev_ib && extern_get_bw) {
-		dev_ib = extern_get_bw();
-		if (dev_ab)
-			*dev_ab = dev_ib / 4;
-	}
+	unsigned long ab, ib;
+
+	extern_get_bw(&ib, &ab, extern_get_bw_data);
+
+	dev_ib = ib;
+	*dev_ab = ab;
 
 	*freq = dev_ib;
 	return 0;
@@ -38,9 +41,10 @@ static int devfreq_vbif_get_freq(struct devfreq *df,
  * value from legacy vbif based bus bandwidth governor.
  * This function is called by KGSL driver.
  */
-void devfreq_vbif_register_callback(void *p)
+void devfreq_vbif_register_callback(getbw_func func, void *data)
 {
-	extern_get_bw = p;
+	extern_get_bw = func;
+	extern_get_bw_data = data;
 }
 
 int devfreq_vbif_update_bw(unsigned long ib, unsigned long ab)

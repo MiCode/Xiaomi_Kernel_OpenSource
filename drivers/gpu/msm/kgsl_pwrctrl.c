@@ -116,9 +116,10 @@ static void _record_pwrevent(struct kgsl_device *device,
 /**
  * kgsl_get_bw() - Return latest msm bus IB vote
  */
-static unsigned long kgsl_get_bw(void)
+static void kgsl_get_bw(unsigned long *ib, unsigned long *ab, void *data)
 {
-	return ib_votes[last_vote_buslevel];
+	*ib = ib_votes[last_vote_buslevel];
+	*ab = 0;
 }
 #endif
 
@@ -1770,15 +1771,13 @@ static void kgsl_thermal_timer(struct timer_list *t)
 }
 
 #ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static int kgsl_pwrctrl_vbif_init(void)
+static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
 {
-	devfreq_vbif_register_callback(kgsl_get_bw);
-	return 0;
+	devfreq_vbif_register_callback(kgsl_get_bw, device);
 }
 #else
-static int kgsl_pwrctrl_vbif_init(void)
+static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
 {
-	return 0;
 }
 #endif
 
@@ -2183,7 +2182,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	spin_lock_init(&pwr->limits_lock);
 	pwr->sysfs_pwr_limit = kgsl_pwr_limits_add(KGSL_DEVICE_3D0);
 
-	kgsl_pwrctrl_vbif_init();
+	kgsl_pwrctrl_vbif_init(device);
 
 	/* temperature sensor name */
 	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
