@@ -1534,6 +1534,9 @@ int swsusp_check(void)
 					    FMODE_READ, NULL);
 	if (!IS_ERR(hib_resume_bdev)) {
 		set_blocksize(hib_resume_bdev, PAGE_SIZE);
+		if (noswap_randomize)
+			hib_resume_bdev->bd_disk->flags |=
+					GENHD_FL_NO_RANDOMIZE;
 		clear_page(swsusp_header);
 		error = hib_submit_io(REQ_OP_READ, 0,
 					swsusp_resume_block,
