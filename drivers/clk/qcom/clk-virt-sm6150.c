@@ -281,6 +281,20 @@ static struct clk_virt gcc_pcie_phy_aux_clk = {
 	},
 };
 
+static struct clk_virt gcc_sdcc2_ahb_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_sdcc2_ahb_clk",
+	},
+};
+
+static struct clk_virt gcc_sdcc2_apps_clk = {
+	.hw.init = &(struct clk_init_data) {
+		.ops = &clk_virt_ops,
+		.name = "gcc_sdcc2_apps_clk",
+	},
+};
+
 static struct clk_hw *sm6150_gcc_virt_clocks[] = {
 	[GCC_QUPV3_WRAP0_S0_CLK] = &gcc_qupv3_wrap0_s0_clk.hw,
 	[GCC_QUPV3_WRAP0_S1_CLK] = &gcc_qupv3_wrap0_s1_clk.hw,
@@ -318,6 +332,8 @@ static struct clk_hw *sm6150_gcc_virt_clocks[] = {
 	[GCC_PCIE_0_SLV_Q2A_AXI_CLK] = &gcc_pcie_0_slv_q2a_axi_clk.hw,
 	[GCC_PCIE0_PHY_REFGEN_CLK] = &gcc_pcie0_phy_refgen_clk.hw,
 	[GCC_PCIE_PHY_AUX_CLK] = &gcc_pcie_phy_aux_clk.hw,
+	[GCC_SDCC2_AHB_CLK] = &gcc_sdcc2_ahb_clk.hw,
+	[GCC_SDCC2_APPS_CLK] = &gcc_sdcc2_apps_clk.hw,
 };
 
 const struct clk_virt_desc clk_virt_sm6150_gcc = {
