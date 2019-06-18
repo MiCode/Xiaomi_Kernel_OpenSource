@@ -29,6 +29,8 @@
 #include <linux/log2.h>
 #include <linux/sizes.h>
 #include <linux/clk.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include "governor_bw_hwmon.h"
 
 #define GLB_INT_STATUS(m)	((m)->global_base + 0x100)
@@ -100,6 +102,8 @@ struct bwmon {
 	void __iomem *global_base;
 	unsigned int mport;
 	int irq;
+	struct msm_bus_client_handle *bus_client;
+	const char *bus_name;
 	int nr_clks;
 	struct clk **clks;
 	const struct bwmon_spec *spec;
@@ -786,10 +790,19 @@ void mon_set_byte_count_filter(struct bwmon *m, enum mon_reg_type type)
 	}
 }
 
-static __always_inline int mon_clk_enable(struct bwmon *m)
+static __always_inline int mon_setup_enable(struct bwmon *m)
 {
 	int ret;
 	int i;
+
+	if (m->bus_client) {
+		ret = msm_bus_scale_update_bw(m->bus_client, 0, 1);
+		if (ret) {
+			dev_err(m->dev, "Failed voting bus %s with error %d\n",
+						m->bus_name, ret);
+			return ret;
+		}
+	}
 
 	for (i = 0; i < m->nr_clks; i++) {
 		ret = clk_prepare_enable(m->clks[i]);
@@ -804,6 +817,12 @@ err:
 	for (i--; i >= 0; i--)
 		clk_disable_unprepare(m->clks[i]);
 
+	if (m->bus_client) {
+		ret = msm_bus_scale_update_bw(m->bus_client, 0, 0);
+		if (ret)
+			dev_err(m->dev, "Failed unvoting bus %s with error %d\n",
+						m->bus_name, ret);
+	}
 	return ret;
 }
 
@@ -815,7 +834,7 @@ static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
 	int ret;
 	irq_handler_t handler;
 
-	ret = mon_clk_enable(m);
+	ret = mon_setup_enable(m);
 	if (ret) {
 		dev_err(m->dev, "Unable to turn on bwmon clks! (%d)\n", ret);
 		return ret;
@@ -887,25 +906,36 @@ static int start_bw_hwmon3(struct bw_hwmon *hw, unsigned long mbps)
 	return __start_bw_hwmon(hw, mbps, MON3);
 }
 
-static __always_inline void mon_clk_disable(struct bwmon *m)
+static __always_inline int mon_setup_disable(struct bwmon *m)
 {
-	int i;
+	int i, ret = 0;
 
 	for (i = m->nr_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(m->clks[i]);
+
+	if (m->bus_client) {
+		ret = msm_bus_scale_update_bw(m->bus_client, 0, 0);
+		if (ret)
+			dev_err(m->dev, "Failed unvoting bus %s with error %d\n",
+						m->bus_name, ret);
+	}
+	return ret;
 }
 
 static __always_inline
 void __stop_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
+	int ret = 0;
 
 	mon_irq_disable(m, type);
 	free_irq(m->irq, m);
 	mon_disable(m, type);
 	mon_clear(m, true, type);
 	mon_irq_clear(m, type);
-	mon_clk_disable(m);
+	ret = mon_setup_disable(m);
+	if (ret)
+		dev_err(m->dev, "Unable to stop the BWMON Clocks %d\n", ret);
 }
 
 static void stop_bw_hwmon(struct bw_hwmon *hw)
@@ -927,13 +957,17 @@ static __always_inline
 int __suspend_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
+	int ret = 0;
 
 	mon_irq_disable(m, type);
 	free_irq(m->irq, m);
 	mon_disable(m, type);
 	mon_irq_clear(m, type);
+	ret = mon_setup_disable(m);
+	if (ret)
+		dev_err(m->dev, "Unable to turn off bwmon clks! (%d)\n", ret);
 
-	return 0;
+	return ret;
 }
 
 static int suspend_bw_hwmon(struct bw_hwmon *hw)
@@ -958,7 +992,7 @@ int __resume_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 	int ret;
 	irq_handler_t handler;
 
-	ret = mon_clk_enable(m);
+	ret = mon_setup_enable(m);
 	if (ret) {
 		dev_err(m->dev, "Unable to turn on bwmon clks! (%d)\n", ret);
 		return ret;
@@ -1066,7 +1100,7 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct bwmon *m;
 	int ret;
-	u32 data, count_unit;
+	u32 data, count_unit, ports[2];
 	unsigned int len, i;
 
 	m = devm_kzalloc(dev, sizeof(*m), GFP_KERNEL);
@@ -1115,7 +1149,7 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 
 	if (of_find_property(dev->of_node, "qcom,bwmon_clks", &len)) {
 		m->nr_clks = of_property_count_strings(dev->of_node,
-							"qcom,bwmon_clks");
+						"qcom,bwmon_clks");
 		if (!m->nr_clks) {
 			dev_err(dev, "Failed to get clock names\n");
 			return -EINVAL;
@@ -1156,9 +1190,10 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 	}
 
 	m->hw.of_node = of_parse_phandle(dev->of_node, "qcom,target-dev", 0);
-	if (!m->hw.of_node)
+	if (!m->hw.of_node) {
+		dev_err(dev, "target dev not available\n");
 		return -EINVAL;
-
+	}
 	if (m->spec->hw_sampling) {
 		ret = of_property_read_u32(dev->of_node, "qcom,hw-timer-hz",
 					   &m->hw_timer_hz);
@@ -1172,6 +1207,31 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 		count_unit = SZ_1M;
 	m->count_shift = order_base_2(count_unit);
 	m->thres_lim = THRES_LIM(m->count_shift);
+
+	if (of_find_property(dev->of_node, "qcom,msm_bus", &len)) {
+		len /= sizeof(ports[0]);
+		if (len % 2 || len > ARRAY_SIZE(ports)) {
+			dev_err(dev, "Unexpected number of ports\n");
+			return -EINVAL;
+		}
+		ret = of_property_read_u32_array(dev->of_node, "qcom,msm_bus",
+						 ports, len);
+		if (ret) {
+			dev_err(dev, "error reading the src and dst for the bus\n");
+			return ret;
+		}
+		ret = of_property_read_string(dev->of_node,
+					"qcom,msm_bus_name", &m->bus_name);
+		m->bus_client = msm_bus_scale_register(ports[0], ports[1],
+						(char *)m->bus_name, false);
+		if (IS_ERR_OR_NULL(m->bus_client)) {
+			ret = PTR_ERR(m->bus_client) ?: -EBADHANDLE;
+			dev_err(dev, "Failed to register bus %s: %d\n",
+							m->bus_name, ret);
+			m->bus_client = NULL;
+			return ret;
+		}
+	}
 
 	switch (m->spec->reg_type) {
 	case MON3:
@@ -1213,10 +1273,16 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 	ret = register_bw_hwmon(dev, &m->hw);
 	if (ret) {
 		dev_err(dev, "Dev BW hwmon registration failed\n");
-		return ret;
+		goto err_out;
 	}
 
 	return 0;
+err_out:
+	if (m->bus_client) {
+		msm_bus_scale_unregister(m->bus_client);
+		m->bus_client = NULL;
+	}
+	return ret;
 }
 
 static struct platform_driver bimc_bwmon_driver = {
