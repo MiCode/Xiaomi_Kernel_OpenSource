@@ -95,6 +95,16 @@ for config_del in $configs_to_remove; do
 	sed -i "/$config_del/d" ${FRAG_CONFIG}
 done
 
+# CONFIGs that are unset in base defconfig (# CONFIG_X is not set), but enabled in fragments,
+# the diff is shown as: -# CONFIG_X is not set. Hence, explicitly set them in the config fragments.
+configs_to_set=`diff -u defconfig_base defconfig | grep "^-# CONFIG_" | awk '{print $2}'`
+for config_to_set in $configs_to_set; do
+	# The CONFIG could be set as 'm' in the previous steps. Ignore setting them to 'y'
+	if ! grep -q "$config_to_set" ${FRAG_CONFIG}; then
+		echo $config_to_set=y >> ${FRAG_CONFIG}
+	fi
+done
+
 # CONFIGs that are set in base defconfig (or lower fragment), but wanted it to be disabled in FRAG_CONFIG
 diff -u .config_base .config | grep "^+# CONFIG_" | sed 's/^.//' >> ${FRAG_CONFIG}
 
