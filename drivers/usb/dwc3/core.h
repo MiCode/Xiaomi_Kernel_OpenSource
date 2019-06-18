@@ -1175,6 +1175,7 @@ struct dwc3 {
 	bool			create_reg_debugfs;
 	u32			xhci_imod_value;
 	int			core_id;
+	int			retries_on_error;
 };
 
 /* -------------------------------------------------------------------------- */
