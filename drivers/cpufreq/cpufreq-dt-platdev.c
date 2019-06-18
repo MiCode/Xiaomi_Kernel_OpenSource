@@ -108,6 +108,7 @@ static const struct of_device_id blacklist[] __initconst = {
 
 	{ .compatible = "mediatek,mt2701", },
 	{ .compatible = "mediatek,mt2712", },
+	{ .compatible = "mediatek,mt6779", },
 	{ .compatible = "mediatek,mt7622", },
 	{ .compatible = "mediatek,mt7623", },
 	{ .compatible = "mediatek,mt817x", },

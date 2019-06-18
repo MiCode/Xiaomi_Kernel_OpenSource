@@ -105,6 +105,16 @@ config ARM_MEDIATEK_CPUFREQ
 	help
 	  This adds the CPUFreq driver support for MediaTek SoCs.
 
+config ARM_SSPM_CPUFREQ
+	tristate "Mediatek SSPM CPUFreq support"
+	depends on ARCH_MEDIATEK
+	select PM_OPP
+	help
+	  This adds the CPUFreq driver support for Mediatek MT67xx Series SoC.
+	  This driver require dt-based operating-points-v2 tables with
+	  voltage and frequency.
+	  If in doubt, say N.
+
 config ARM_OMAP2PLUS_CPUFREQ
 	bool "TI OMAP2+"
 	depends on ARCH_OMAP2PLUS
