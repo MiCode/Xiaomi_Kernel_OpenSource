@@ -1895,20 +1895,37 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 	struct msm_vfe_axi_shared_data *axi_data =
 		&vfe_dev->axi_data;
 	uint32_t total_image_size = 0;
-	uint8_t num_used_wms = 0;
+	uint8_t pix_num_used_wms = 0;
+	uint8_t rdi_num_used_wms = 0;
 	uint32_t prop_size = 0;
 	uint32_t wm_ub_size;
+	uint32_t min_ub;
 	uint64_t delta;
+	uint32_t vfe_ub_size = 0;
 
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i]) {
-			num_used_wms++;
+		/* separate wm for each interface as min_ub is different for
+		 * both pix and rdi
+		 */
+			if (VFE_PIX_0 == SRC_TO_INTF(
+					HANDLE_TO_IDX(axi_data->free_wm[i])))
+				pix_num_used_wms++;
+			else
+				rdi_num_used_wms++;
 			total_image_size +=
 				axi_data->wm_image_size[i];
 		}
 	}
-	prop_size = vfe_dev->hw_info->vfe_ops.axi_ops.get_ub_size(
-		vfe_dev) - axi_data->hw_info->min_wm_ub * num_used_wms;
+	/* get ub for each vfe */
+	vfe_ub_size = vfe_dev->hw_info->vfe_ops.axi_ops.get_ub_size(vfe_dev);
+	/* calculate min_ub needed for both pix and rdi wm
+	 * for pix min_ub 96 and rdi 192 as per hw
+	 */
+	min_ub = (axi_data->hw_info->min_wm_ub * pix_num_used_wms) +
+			(axi_data->hw_info->min_wm_ub * 2 * rdi_num_used_wms);
+	/* calculate propotional ub for all wm */
+	prop_size = vfe_ub_size - min_ub;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (!axi_data->free_wm[i]) {
 			msm_camera_io_w(0,
@@ -1917,20 +1934,22 @@ void msm_vfe47_cfg_axi_ub_equal_default(
 						vfe_dev, i));
 			continue;
 		}
-
-		if (frame_src != SRC_TO_INTF(
-			HANDLE_TO_IDX(axi_data->free_wm[i])))
-			continue;
-
+		/* calcualte delta by considering
+		 * wm_image_size + total imagesize
+		 */
 		delta = (uint64_t)axi_data->wm_image_size[i] *
 			(uint64_t)prop_size;
 			do_div(delta, total_image_size);
-		if (frame_src != VFE_PIX_0) {
-			if (delta <= axi_data->hw_info->min_wm_ub)
-				delta = axi_data->hw_info->min_wm_ub;
-		}
-		wm_ub_size = axi_data->hw_info->min_wm_ub +
-				(uint32_t)delta;
+		/* to meet hw constraint add min_ub of 192
+		 * for RDI and 96 for pix
+		 */
+		if (VFE_PIX_0 != SRC_TO_INTF(
+			HANDLE_TO_IDX(axi_data->free_wm[i])))
+			wm_ub_size = (axi_data->hw_info->min_wm_ub * 2) +
+					(uint32_t)delta;
+		else
+			wm_ub_size = axi_data->hw_info->min_wm_ub +
+					(uint32_t)delta;
 		msm_camera_io_w(ub_offset << 16 | (wm_ub_size - 1),
 			vfe_dev->vfe_base +
 			vfe_dev->hw_info->vfe_ops.axi_ops.ub_reg_offset(
