@@ -419,4 +419,7 @@ static inline void tcp_saved_syn_free(struct tcp_sock *tp)
 	tp->saved_syn = NULL;
 }
 
+int tcp_skb_shift(struct sk_buff *to, struct sk_buff *from, int pcount,
+		  int shiftlen);
+
 #endif	/* _LINUX_TCP_H */
