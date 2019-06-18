@@ -201,11 +201,14 @@ static const struct mfd_cell mt6359_devs[] = {
 		.resources = mt6359_rtc_resources,
 		.of_compatible = "mediatek,mt6359-rtc",
 	}, {
+		.name = "mtk-clock-buffer",
+		.of_compatible = "mediatek,clock_buffer",
+	}, {
 		.name = "mtk-pmic-keys",
 		.num_resources = ARRAY_SIZE(mt6359_keys_resources),
 		.resources = mt6359_keys_resources,
 		.of_compatible = "mediatek,mt6359-keys"
-	}
+	},
 };
 
 static const struct mfd_cell mt6397_devs[] = {

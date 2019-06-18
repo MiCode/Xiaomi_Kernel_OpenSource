@@ -19,7 +19,9 @@ ifeq ($(CONFIG_MTK_CLK_BUFFER),y)
 
     obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf.o
 
-    clkbuf-y += mtk-clkbuf-bridge.o
+    clkbuf-y += mtk-clkbuf-bridge.o \
+		src/mtk-clkbuf-ctl.o \
+		src/mtk-clkbuf-hw.o
 else
     ccflags-y += -I$(srctree)/include/ \
 	     -I$(PLAT_TOP)/
