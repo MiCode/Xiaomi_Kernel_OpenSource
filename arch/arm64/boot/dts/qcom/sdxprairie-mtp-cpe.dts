@@ -21,4 +21,35 @@
 	qcom,board-id = <0x7010008 0x0>;
 };
 
+/* delete pm8150b nodes */
+&soc {
+	/delete-node/ thermal-zones;
+};
+
+&usb {
+	extcon = <&vbus_detect>;
+};
+
+&spmi_bus {
+	/delete-node/ qpnp,fg;
+	/delete-node/ bcl@1d00;
+	/delete-node/ qcom,usb-pdphy@1700;
+	/delete-node/ qcom,qpnp-smb5;
+	/delete-node/ adc_tm@3500;
+	/delete-node/ vadc@3100;
+	/delete-node/ qcom,pm8150b@2;
+	/delete-node/ qcom,pm8150b@3;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
+
+&vbus_detect {
+	status = "okay";
+};
 
