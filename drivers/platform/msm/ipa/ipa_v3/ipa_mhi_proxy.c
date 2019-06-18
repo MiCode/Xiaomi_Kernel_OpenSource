@@ -613,7 +613,7 @@ struct ipa_mhi_clk_vote_resp_msg_v01
 	IMP_DBG_LOW("vote %d\n", vote);
 	memset(resp, 0, sizeof(struct ipa_mhi_clk_vote_resp_msg_v01));
 	resp->resp.result = IPA_QMI_RESULT_FAILURE_V01;
-	resp->resp.error = IPA_QMI_ERR_INTERNAL_V01;
+	resp->resp.error = IPA_QMI_ERR_INCOMPATIBLE_STATE_V01;
 
 	mutex_lock(&imp_ctx->mutex);
 	if (imp_ctx->state != IMP_STARTED) {
