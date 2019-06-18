@@ -11,6 +11,51 @@ bool is_intra_domain(int prev, int target)
 			arch_cpu_cluster_id(target);
 }
 
+static int idle_pull_cpu_stop(void *data)
+{
+	int ret;
+	struct task_struct *p = ((struct rq *)data)->migrate_task;
+
+	ret = active_load_balance_cpu_stop(data);
+	put_task_struct(p);
+	return ret;
+}
+
+int
+migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
+{
+	unsigned long flags;
+	unsigned int force = 0;
+
+	/* now we have a candidate */
+	raw_spin_lock_irqsave(&src_rq->lock, flags);
+	if (!src_rq->active_balance &&
+			(task_rq(p) == src_rq) && p->state != TASK_DEAD) {
+		get_task_struct(p);
+		src_rq->push_cpu = dst_cpu;
+		src_rq->migrate_task = p;
+		trace_sched_migrate(p, cpu_of(src_rq), src_rq->push_cpu,
+				MIGR_IDLE_RUNNING);
+		src_rq->active_balance = MIGR_IDLE_RUNNING; /* idle pull */
+		force = 1;
+	}
+	raw_spin_unlock_irqrestore(&src_rq->lock, flags);
+	if (force) {
+		if (!stop_one_cpu_nowait(cpu_of(src_rq),
+					idle_pull_cpu_stop,
+					src_rq, &src_rq->active_balance_work)) {
+			put_task_struct(p); /* out of rq->lock */
+			raw_spin_lock_irqsave(&src_rq->lock, flags);
+			src_rq->active_balance = 0;
+			src_rq->migrate_task = NULL;
+			force = 0;
+			raw_spin_unlock_irqrestore(&src_rq->lock, flags);
+		}
+	}
+
+	return force;
+}
+
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 /*
  * The cpu types are distinguished using a list of perf_order_domains
@@ -755,51 +800,6 @@ out_unlock:
 	return moved;
 }
 
-static int idle_pull_cpu_stop(void *data)
-{
-	int ret;
-	struct task_struct *p = ((struct rq *)data)->migrate_task;
-
-	ret = active_load_balance_cpu_stop(data);
-	put_task_struct(p);
-	return ret;
-}
-
-int
-migrate_running_task(int dst_cpu, struct task_struct *p, struct rq *src_rq)
-{
-	unsigned long flags;
-	unsigned int force = 0;
-
-	/* now we have a candidate */
-	raw_spin_lock_irqsave(&src_rq->lock, flags);
-	if (!src_rq->active_balance &&
-			(task_rq(p) == src_rq) && p->state != TASK_DEAD) {
-		get_task_struct(p);
-		src_rq->push_cpu = dst_cpu;
-		src_rq->migrate_task = p;
-		trace_sched_migrate(p, cpu_of(src_rq), src_rq->push_cpu,
-				MIGR_IDLE_RUNNING);
-		src_rq->active_balance = MIGR_IDLE_RUNNING; /* idle pull */
-		force = 1;
-	}
-	raw_spin_unlock_irqrestore(&src_rq->lock, flags);
-	if (force) {
-		if (!stop_one_cpu_nowait(cpu_of(src_rq),
-					idle_pull_cpu_stop,
-					src_rq, &src_rq->active_balance_work)) {
-			put_task_struct(p); /* out of rq->lock */
-			raw_spin_lock_irqsave(&src_rq->lock, flags);
-			src_rq->active_balance = 0;
-			src_rq->migrate_task = NULL;
-			force = 0;
-			raw_spin_unlock_irqrestore(&src_rq->lock, flags);
-		}
-	}
-
-	return force;
-}
-
 static DEFINE_SPINLOCK(force_migration);
 
 unsigned int aggressive_idle_pull(int this_cpu)
@@ -849,3 +849,33 @@ done:
 
 #endif
 
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
+bool big_task_rotation_enable;
+
+static void task_rotate_work_func(struct work_struct *work)
+{
+	struct task_rotate_work *wr = container_of(work,
+				struct task_rotate_work, w);
+
+	migrate_swap(wr->src_task, wr->dst_task,
+			task_cpu(wr->dst_task), task_cpu(wr->src_task));
+
+	put_task_struct(wr->src_task);
+	put_task_struct(wr->dst_task);
+
+	clear_reserved(wr->src_cpu);
+	clear_reserved(wr->dst_cpu);
+}
+
+void task_rotate_work_init(void)
+{
+	int i;
+
+	for_each_possible_cpu(i) {
+		struct task_rotate_work *wr = &per_cpu(task_rotate_works, i);
+
+		INIT_WORK(&wr->w, task_rotate_work_func);
+	}
+}
+#endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */

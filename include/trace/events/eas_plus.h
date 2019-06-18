@@ -3,6 +3,8 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+
 TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
@@ -118,3 +120,59 @@ TRACE_EVENT(sched_set_cpuprefer,
 );
 #endif
 
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+/*
+ * Tracepoint for big task migration
+ */
+TRACE_EVENT(sched_big_task_migration,
+
+	TP_PROTO(int pid, int src_cpu, int dst_cpu),
+
+	TP_ARGS(pid, src_cpu, dst_cpu),
+
+	TP_STRUCT__entry(
+		__field(int, pid)
+		__field(int, src_cpu)
+		__field(int, dst_cpu)
+	),
+
+	TP_fast_assign(
+		__entry->pid		= pid;
+		__entry->src_cpu	= src_cpu;
+		__entry->dst_cpu	= dst_cpu;
+	),
+
+	TP_printk("p->pid=%d src_cpu=%d dst_cpu=%d",
+		__entry->pid, __entry->src_cpu, __entry->dst_cpu)
+);
+
+/*
+ * Tracepoint for big task rotation
+ */
+TRACE_EVENT(sched_big_task_rotation,
+
+	TP_PROTO(int src_cpu, int dst_cpu, int src_pid, int dst_pid),
+
+	TP_ARGS(src_cpu, dst_cpu, src_pid, dst_pid),
+
+	TP_STRUCT__entry(
+		__field(int, src_cpu)
+		__field(int, dst_cpu)
+		__field(int, src_pid)
+		__field(int, dst_pid)
+	),
+
+	TP_fast_assign(
+		__entry->src_cpu	= src_cpu;
+		__entry->dst_cpu	= dst_cpu;
+		__entry->src_pid	= src_pid;
+		__entry->dst_pid	= dst_pid;
+	),
+
+	TP_printk("src_cpu=%d dst_cpu=%d src_pid=%d dst_pid=%d",
+		__entry->src_cpu, __entry->dst_cpu,
+		__entry->src_pid, __entry->dst_pid)
+);
+#endif
+
+#endif /* CONFIG_MTK_SCHED_EXTENSION */

@@ -25,6 +25,16 @@
 
 #ifdef CONFIG_MTK_SCHED_EXTENSION
 
+#define MIGR_IDLE_BALANCE      1
+#define MIGR_IDLE_RUNNING      2
+
+struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+				struct task_struct *p, int dest_cpu);
+int active_load_balance_cpu_stop(void *data);
+unsigned int aggressive_idle_pull(int this_cpu);
+int migrate_running_task(int this_cpu, struct task_struct *p,
+				struct rq *target);
+
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 struct perf_order_domain {
 	struct cpumask cpus;
@@ -64,7 +74,6 @@ int active_load_balance_cpu_stop(void *data);
 unsigned int aggressive_idle_pull(int this_cpu);
 #endif
 
-
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
 #define SCHED_PREFER_NONE   0
 #define SCHED_PREFER_BIG    1
@@ -74,6 +83,51 @@ unsigned int aggressive_idle_pull(int this_cpu);
 int task_prefer_fit(struct task_struct *p, int cpu);
 int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
 void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
+#endif
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+#define CPU_RESERVED 1
+#define TASK_ROTATION_THRESHOLD_NS      6000000
+#define HEAVY_TASK_NUM  4
+
+struct task_rotate_work {
+	struct work_struct w;
+	struct task_struct *src_task;
+	struct task_struct *dst_task;
+	int src_cpu;
+	int dst_cpu;
+};
+
+DECLARE_PER_CPU(struct task_rotate_work, task_rotate_works);
+extern bool big_task_rotation_enable;
+extern void task_rotate_work_init(void);
+extern void check_for_migration(struct task_struct *p);
+
+static inline int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline int mark_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_and_set_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline void clear_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	clear_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline bool is_max_capacity_cpu(int cpu)
+{
+	return capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE;
+}
 #endif
 
 #endif /* CONFIG_MTK_SCHED_EXTENSION */

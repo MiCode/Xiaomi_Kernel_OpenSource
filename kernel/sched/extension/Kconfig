@@ -56,5 +56,16 @@ config MTK_SCHED_CPU_PREFER
 	   put on the task on the idle CPU.
 	   If there are no IDLE CPU on preferred type CPU,
 	   the task placement will follow original policy.
+
+config MTK_SCHED_BIG_TASK_MIGRATE
+	bool "mtk scheduling big task migrate"
+	depends on MTK_SCHED_EXTENSION && SMP
+	help
+	   Migrate misfit task more efficient in scheduler tick.
+	   1. Big task migration: migrate misfit task in scheduler tick
+	      To reduce boosted task push to big core latency.
+	      Migrate current task to big core if it is misfit.
+	   2. Big task rotation: swap two misfit task between big cores and
+	      little core, equally distributed runtime for each misfit task.
 endmenu
 

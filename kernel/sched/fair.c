@@ -6687,6 +6687,10 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (!cpu_online(i))
 				continue;
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+			if (is_reserved(i))
+				continue;
+#endif
 
 #ifdef CONFIG_MTK_SCHED_INTEROP
 			if (cpu_rq(i)->rt.rt_nr_running &&
@@ -7400,9 +7404,11 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag,
 #endif
 	cpu = (result & LB_CPU_MASK);
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	trace_sched_select_task_rq(p, result, prev_cpu, cpu,
 		task_util(p), boosted_task_util(p),
 		(schedtune_prefer_idle(p) > 0), wake_flags);
+#endif
 	return cpu;
 }
 
@@ -8214,7 +8220,7 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 
 	list_for_each_entry_reverse(p,
 			&env->src_rq->cfs_tasks, se.group_node) {
-#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 		if (env->src_rq->migrate_task) {
 			struct task_struct *pm;
 
@@ -9768,7 +9774,7 @@ static int need_active_balance(struct lb_env *env)
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
 
-#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+#ifndef CONFIG_MTK_SCHED_EXTENSION
 static int active_load_balance_cpu_stop(void *data);
 #else
 int active_load_balance_cpu_stop(void *data);
@@ -10118,7 +10124,7 @@ update_next_balance(struct sched_domain *sd, unsigned long *next_balance)
 		*next_balance = next;
 }
 
-#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+#ifndef CONFIG_MTK_SCHED_EXTENSION
 /*
  * active_load_balance_cpu_stop is run by the CPU stopper. It pushes
  * running tasks off the busiest CPU onto idle CPUs. It requires at
@@ -10205,8 +10211,12 @@ out_unlock:
 	busiest_rq->active_balance = 0;
 	rq_unlock(busiest_rq, &rf);
 
-	if (p)
+	if (p) {
 		attach_one_task(target_rq, p);
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+		clear_reserved(target_cpu);
+#endif
+	}
 
 	local_irq_enable();
 
@@ -10943,6 +10953,163 @@ static void rq_offline_fair(struct rq *rq)
 	/* Ensure any throttled groups are reachable by pick_next_task */
 	unthrottle_offline_cfs_rqs(rq);
 }
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+void task_check_for_rotation(struct rq *src_rq)
+{
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
+	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
+	int i, src_cpu = cpu_of(src_rq);
+	struct rq *dst_rq;
+	struct task_rotate_work *wr = NULL;
+	int heavy_task = 0;
+
+	if (!big_task_rotation_enable)
+		return;
+
+	if (is_max_capacity_cpu(src_cpu))
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+		struct task_struct *curr_task = rq->curr;
+
+		if (curr_task &&
+			!task_fits_capacity(curr_task, capacity_of(i)))
+			heavy_task += 1;
+	}
+
+	if (heavy_task < HEAVY_TASK_NUM)
+		return;
+
+	wc = ktime_get_ns();
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (is_max_capacity_cpu(i))
+			break;
+
+		if (is_reserved(i))
+			continue;
+
+		if (!rq->misfit_task_load || rq->curr->sched_class !=
+						&fair_sched_class)
+			continue;
+
+		wait = wc - rq->curr->last_enqueued_ts;
+		if (wait > max_wait) {
+			max_wait = wait;
+			deserved_cpu = i;
+		}
+	}
+
+	if (deserved_cpu != src_cpu)
+		return;
+
+	for_each_possible_cpu(i) {
+		struct rq *rq = cpu_rq(i);
+
+		if (!is_max_capacity_cpu(i))
+			continue;
+
+		if (is_reserved(i))
+			continue;
+
+		if (rq->curr->sched_class != &fair_sched_class)
+			continue;
+
+		if (rq->nr_running > 1)
+			continue;
+
+		run = wc - rq->curr->last_enqueued_ts;
+
+		if (run < TASK_ROTATION_THRESHOLD_NS)
+			continue;
+
+		if (run > max_run) {
+			max_run = run;
+			dst_cpu = i;
+		}
+	}
+
+	if (dst_cpu == nr_cpu_ids)
+		return;
+
+	dst_rq = cpu_rq(dst_cpu);
+
+	double_rq_lock(src_rq, dst_rq);
+	if (dst_rq->curr->sched_class == &fair_sched_class) {
+		get_task_struct(src_rq->curr);
+		get_task_struct(dst_rq->curr);
+
+		mark_reserved(src_cpu);
+		mark_reserved(dst_cpu);
+		wr = &per_cpu(task_rotate_works, src_cpu);
+
+		wr->src_task = src_rq->curr;
+		wr->dst_task = dst_rq->curr;
+
+		wr->src_cpu = src_cpu;
+		wr->dst_cpu = dst_cpu;
+	}
+	double_rq_unlock(src_rq, dst_rq);
+
+	if (wr) {
+		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
+		trace_sched_big_task_rotation(src_cpu, dst_cpu,
+					src_rq->curr->pid, dst_rq->curr->pid);
+	}
+}
+
+static DEFINE_RAW_SPINLOCK(migration_lock);
+static bool big_task_migration_enable = true;
+void check_for_migration(struct task_struct *p)
+{
+	int new_cpu;
+	int cpu = task_cpu(p);
+	struct rq *rq = cpu_rq(cpu);
+
+	if (rq->misfit_task_load) {
+		if (rq->curr->state != TASK_RUNNING ||
+			rq->curr->nr_cpus_allowed == 1)
+			return;
+
+		raw_spin_lock(&migration_lock);
+		rcu_read_lock();
+		new_cpu = select_task_rq_fair(p, cpu, SD_BALANCE_WAKE, 0, 1);
+		rcu_read_unlock();
+
+		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
+			if (!big_task_migration_enable) {
+				raw_spin_unlock(&migration_lock);
+				return;
+			}
+
+			/*
+			 * If p make new CPU overutil,
+			 * we should not migrate p to new CPU.
+			 */
+			if ((capacity_of(new_cpu) * 1024) <
+				((cpu_util(new_cpu) + boosted_task_util(p))
+					* capacity_margin)) {
+				raw_spin_unlock(&migration_lock);
+				return;
+			}
+
+			mark_reserved(new_cpu);
+			raw_spin_unlock(&migration_lock);
+			get_task_struct(p);
+			migrate_running_task(new_cpu, p, rq);
+			put_task_struct(p);
+			trace_sched_big_task_migration(p->pid, cpu, new_cpu);
+			return;
+		}
+
+		task_check_for_rotation(rq);
+		raw_spin_unlock(&migration_lock);
+	}
+}
+#endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
 
 #endif /* CONFIG_SMP */
 

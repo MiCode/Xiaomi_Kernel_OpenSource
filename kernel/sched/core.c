@@ -1496,6 +1496,11 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 	uclamp_cpu_get(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+	/* update last_enqueued_ts for big task rotation */
+	p->last_enqueued_ts = ktime_get_ns();
+#endif
 }
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -1714,7 +1719,7 @@ struct migration_arg {
  * So we race with normal scheduler movements, but that's OK, as long
  * as the task is no longer on this CPU.
  */
-#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+#ifndef CONFIG_MTK_SCHED_EXTENSION
 static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				 struct task_struct *p, int dest_cpu)
 #else
@@ -1955,7 +1960,7 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 	__set_task_cpu(p, new_cpu);
 }
 
-#ifdef CONFIG_NUMA_BALANCING
+#if defined(CONFIG_NUMA_BALANCING) || defined(CONFIG_MTK_SCHED_BIG_TASK_MIGRATE)
 static void __migrate_swap_task(struct task_struct *p, int cpu)
 {
 	if (task_on_rq_queued(p)) {
@@ -2072,7 +2077,7 @@ int migrate_swap(struct task_struct *cur, struct task_struct *p,
 out:
 	return ret;
 }
-#endif /* CONFIG_NUMA_BALANCING */
+#endif /* CONFIG_NUMA_BALANCING || CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
 
 /*
  * wait_task_inactive - wait for a thread to unschedule.
@@ -3204,6 +3209,9 @@ void wake_up_new_task(struct task_struct *p)
 	update_rq_clock(rq);
 	post_init_entity_util_avg(&p->se);
 
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+	p->last_enqueued_ts = ktime_get_ns();
+#endif
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p);
@@ -3851,6 +3859,11 @@ void scheduler_tick(void)
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq);
+#endif
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+	if (curr->sched_class == &fair_sched_class)
+		check_for_migration(curr);
 #endif
 }
 
@@ -6844,6 +6857,9 @@ void __init sched_init(void)
 #endif /* CONFIG_SMP */
 		hrtick_rq_init(rq);
 		atomic_set(&rq->nr_iowait, 0);
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+		rq->rotate_flags = 0;
+#endif
 	}
 
 	set_load_weight(&init_task, false);
@@ -6876,6 +6892,10 @@ void __init sched_init(void)
 	init_uclamp();
 
 	scheduler_running = 1;
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+	task_rotate_work_init();
+#endif
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP

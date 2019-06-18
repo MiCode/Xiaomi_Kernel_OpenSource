@@ -173,3 +173,11 @@ EXPORT_SYMBOL(sched_set_cpuprefer);
 #endif
 
 #endif
+
+#ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
+void set_sched_rotation_enable(bool enable)
+{
+	big_task_rotation_enable = enable;
+}
+EXPORT_SYMBOL(set_sched_rotation_enable);
+#endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
