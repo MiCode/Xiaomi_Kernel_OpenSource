@@ -35,6 +35,7 @@
 #include "mtk_vcodec_mem.h"
 #include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
+#define UNUSED_PARAM(X) {X = X; }
 
 /*
  * #undef pr_debug
@@ -552,6 +553,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
 
+	UNUSED_PARAM(pkt_ptr);
 	buff = (struct gce_callback_data *)
 		kmalloc(sizeof(struct gce_callback_data), GFP_KERNEL);
 	if (!buff)
@@ -607,13 +609,13 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 			cmdq_pkt_clear_event(pkt_ptr,
 				vcu->gce_codec_eid[i]);
 	}
-#endif
+
 	if (cmds->cmd_cnt >= VCODEC_CMDQ_CMD_MAX) {
 		pr_info("[VCU] cmd_cnt (%d) overflow!!\n", cmds->cmd_cnt);
 		cmds->cmd_cnt = VCODEC_CMDQ_CMD_MAX;
 		ret = -EINVAL;
 	}
-#ifdef CONFIG_MTK_CMDQ
+
 	for (i = 0; i < cmds->cmd_cnt; i++) {
 		vcu_set_gce_cmd(pkt_ptr, vcu, cmds->cmd[i],
 			cmds->addr[i], cmds->data[i],
@@ -623,11 +625,12 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)buff);
-#endif
+
 	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
 		__func__, buff, buff->cmdq_buff.codec_type,
 		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
 		buff->cmdq_buff.gce_handle);
+#endif
 
 	return ret;
 }
@@ -1091,6 +1094,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	struct mtk_vcu_queue *vcu_queue =
 		(struct mtk_vcu_queue *)file->private_data;
 
+	UNUSED_PARAM(temp_pa);
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	dev = vcu_dev->dev;
 	switch (cmd) {
