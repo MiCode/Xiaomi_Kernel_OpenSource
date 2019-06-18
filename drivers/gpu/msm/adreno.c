@@ -59,8 +59,7 @@ static struct adreno_device device_3d0 = {
 	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
 		adreno_input_work),
 	.pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
-		BIT(ADRENO_LM_CTRL) | BIT(ADRENO_HWCG_CTRL) |
-		BIT(ADRENO_THROTTLING_CTRL),
+		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL),
 	.profile.enabled = false,
 	.active_list = LIST_HEAD_INIT(device_3d0.active_list),
 	.active_list_lock = __SPIN_LOCK_UNLOCKED(device_3d0.active_list_lock),
@@ -986,6 +985,25 @@ static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 	pwr->default_pwrlevel = init_level;
 }
 
+static void adreno_of_get_limits(struct adreno_device *adreno_dev,
+		struct device_node *node)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwrctrl = &device->pwrctrl;
+	unsigned int throttle_level;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) || of_property_read_u32(node,
+				"qcom,throttle-pwrlevel", &throttle_level))
+		return;
+
+	throttle_level = min(throttle_level, pwrctrl->num_pwrlevels - 1);
+
+	pwrctrl->throttle_mask = GENMASK(pwrctrl->num_pwrlevels - 1,
+			pwrctrl->num_pwrlevels - 1 - throttle_level);
+
+	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *parent)
 {
@@ -1001,9 +1019,14 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 	}
 
 	ret = adreno_of_parse_pwrlevels(adreno_dev, node);
-	if (ret == 0)
-		adreno_of_get_initial_pwrlevel(adreno_dev, parent);
-	return ret;
+	if (ret)
+		return ret;
+
+	adreno_of_get_initial_pwrlevel(adreno_dev, parent);
+
+	adreno_of_get_limits(adreno_dev, parent);
+
+	return 0;
 }
 
 static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
@@ -1025,10 +1048,19 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 			int ret;
 
 			ret = adreno_of_parse_pwrlevels(adreno_dev, child);
-			if (ret == 0)
-				adreno_of_get_initial_pwrlevel(adreno_dev,
-								child);
-			return ret;
+			if (ret)
+				return ret;
+
+			adreno_of_get_initial_pwrlevel(adreno_dev, child);
+
+			/*
+			 * Check for global throttle-pwrlevel first and override
+			 * with speedbin specific one if found.
+			 */
+			adreno_of_get_limits(adreno_dev, parent);
+			adreno_of_get_limits(adreno_dev, child);
+
+			return 0;
 		}
 	}
 
@@ -1080,7 +1112,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	unsigned int timeout;
-	unsigned int throt = 4;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
 		dev_err(device->dev, "Unable to read 'label'\n");
@@ -1109,14 +1140,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
-
-	/* Get throttle power level */
-	of_property_read_u32(node, "qcom,throttle-pwrlevel", &throt);
-
-	if (throt < device->pwrctrl.num_pwrlevels)
-		device->pwrctrl.throttle_mask =
-			GENMASK(device->pwrctrl.num_pwrlevels - 1,
-				device->pwrctrl.num_pwrlevels - 1 - throt);
 
 	/* Get context aware DCVS properties */
 	adreno_of_get_ca_aware_properties(adreno_dev, node);
