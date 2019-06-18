@@ -12,7 +12,7 @@
  */
 
 &soc {
-	qcom,msm-dai-tdm-pri-rx {
+	tdm_pri_rx: qcom,msm-dai-tdm-pri-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37120>;
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
@@ -50,7 +50,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-pri-tx {
+	tdm_pri_tx: qcom,msm-dai-tdm-pri-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37121>;
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
@@ -88,7 +88,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-sec-rx {
+	tdm_sec_rx: qcom,msm-dai-tdm-sec-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37136>;
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
@@ -102,8 +102,10 @@
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&sec_tdm_active &sec_tdm_dout_active>;
-		pinctrl-1 = <&sec_tdm_sleep &sec_tdm_dout_sleep>;
+		pinctrl-0 = <&sec_tdm_active &sec_tdm_din_active
+			     &sec_tdm_dout_active>;
+		pinctrl-1 = <&sec_tdm_sleep &sec_tdm_din_sleep
+			     &sec_tdm_dout_sleep>;
 		dai_sec_tdm_rx_0: qcom,msm-dai-q6-tdm-sec-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36880>;
@@ -135,7 +137,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-sec-tx {
+	tdm_sec_tx: qcom,msm-dai-tdm-sec-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37137>;
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
@@ -147,9 +149,6 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&sec_tdm_din_active>;
-		pinctrl-1 = <&sec_tdm_din_sleep>;
 		dai_sec_tdm_tx_0: qcom,msm-dai-q6-tdm-sec-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36881>;
@@ -175,7 +174,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-tert-rx {
+	tdm_tert_rx: qcom,msm-dai-tdm-tert-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37152>;
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
@@ -189,8 +188,10 @@
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&tert_tdm_active &tert_tdm_dout_active>;
-		pinctrl-1 = <&tert_tdm_sleep &tert_tdm_dout_sleep>;
+		pinctrl-0 = <&tert_tdm_active &tert_tdm_din_active
+			     &tert_tdm_dout_active>;
+		pinctrl-1 = <&tert_tdm_sleep &tert_tdm_din_sleep
+			     &tert_tdm_dout_sleep>;
 		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36896>;
@@ -222,7 +223,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-tert-tx {
+	tdm_tert_tx: qcom,msm-dai-tdm-tert-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37153>;
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
@@ -235,9 +236,6 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&tert_tdm_din_active>;
-		pinctrl-1 = <&tert_tdm_din_sleep>;
 		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36897>;
@@ -269,7 +267,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quat-rx {
+	tdm_quat_rx: qcom,msm-dai-tdm-quat-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37168>;
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
@@ -284,8 +282,10 @@
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&quat_tdm_active &quat_tdm_dout_active>;
-		pinctrl-1 = <&quat_tdm_sleep &quat_tdm_dout_sleep>;
+		pinctrl-0 = <&quat_tdm_active &quat_tdm_din_active
+			     &quat_tdm_dout_active>;
+		pinctrl-1 = <&quat_tdm_sleep &quat_tdm_din_sleep
+			     &quat_tdm_dout_sleep>;
 		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36912>;
@@ -316,7 +316,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quat-tx {
+	tdm_quat_tx: qcom,msm-dai-tdm-quat-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37169>;
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
@@ -330,9 +330,6 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&quat_tdm_din_active>;
-		pinctrl-1 = <&quat_tdm_din_sleep>;
 		dai_quat_tdm_tx_0: qcom,msm-dai-q6-tdm-quat-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36913>;
@@ -364,7 +361,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quin-rx {
+	tdm_quin_rx: qcom,msm-dai-tdm-quin-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37184>;
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
@@ -377,8 +374,10 @@
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&quin_tdm_active &quin_tdm_dout_active>;
-		pinctrl-1 = <&quin_tdm_sleep &quin_tdm_dout_sleep>;
+		pinctrl-0 = <&quin_tdm_active &quin_tdm_din_active
+			     &quin_tdm_dout_active>;
+		pinctrl-1 = <&quin_tdm_sleep &quin_tdm_din_sleep
+			     &quin_tdm_dout_sleep>;
 		dai_quin_tdm_rx_0: qcom,msm-dai-q6-tdm-quin-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36928>;
@@ -404,7 +403,7 @@
 		};
 	};
 
-	qcom,msm-dai-tdm-quin-tx {
+	tdm_quin_tx: qcom,msm-dai-tdm-quin-tx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37185>;
 		qcom,msm-cpudai-tdm-group-num-ports = <4>;
@@ -416,9 +415,6 @@
 		qcom,msm-cpudai-tdm-data-out = <0>;
 		qcom,msm-cpudai-tdm-invert-sync = <0>;
 		qcom,msm-cpudai-tdm-data-delay = <0>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&quin_tdm_din_active>;
-		pinctrl-1 = <&quin_tdm_din_sleep>;
 		dai_quin_tdm_tx_0: qcom,msm-dai-q6-tdm-quin-tx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36929>;
@@ -474,6 +470,11 @@
 		qcom,mi2s-audio-intf;
 		qcom,auxpcm-audio-intf;
 		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+
+		qcom,sec-tdm-gpios = <&tdm_sec_rx>;
+		qcom,tert-tdm-gpios = <&tdm_tert_rx>;
+		qcom,quat-tdm-gpios = <&tdm_quat_rx>;
+		qcom,quin-tdm-gpios = <&tdm_quin_rx>;
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
