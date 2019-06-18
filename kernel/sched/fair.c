@@ -5156,10 +5156,81 @@ static inline bool cpu_overutilized(int cpu)
 static inline void update_overutilized_status(struct rq *rq)
 {
 	if (!READ_ONCE(rq->rd->overutilized) && cpu_overutilized(rq->cpu)) {
-		WRITE_ONCE(rq->rd->overutilized, SG_OVERUTILIZED);
-		trace_sched_overutilized(1);
+		if (!sched_feat(SCHED_MTK_EAS) || (sched_feat(SCHED_MTK_EAS)
+			&& capacity_orig_of(cpu_of(rq)) <
+				rq->rd->max_cpu_capacity.val)) {
+			WRITE_ONCE(rq->rd->overutilized, SG_OVERUTILIZED);
+			trace_sched_overutilized(1);
+		}
 	}
 }
+
+static
+void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
+{
+	unsigned long group_util;
+	bool intra_overutil = false;
+	unsigned long max_capacity;
+	struct sched_group *group = sd->groups;
+	struct root_domain *rd;
+	int this_cpu;
+	bool overutilized = READ_ONCE(rd->overutilized);
+	int i;
+
+	if (!sched_feat(SCHED_MTK_EAS))
+		return;
+
+	if (arch_nr_clusters() == 1)
+		return;
+
+	this_cpu = smp_processor_id();
+	rd = cpu_rq(this_cpu)->rd;
+	max_capacity = rd->max_cpu_capacity.val;
+
+	do {
+
+		group_util = 0;
+
+		for_each_cpu_and(i, sched_group_span(group), cpus) {
+
+			group_util += cpu_util(i);
+			if (cpu_overutilized(i)) {
+				if (capacity_orig_of(i) < max_capacity) {
+					intra_overutil = true;
+					break;
+				}
+			}
+		}
+
+		/*
+		 * A capacity base hint for over-utilization.
+		 * Not to trigger system overutiled if heavy tasks
+		 * in Big.cluster, so
+		 * add the free room(20%) of Big.cluster is impacted which means
+		 * system-wide over-utilization,
+		 * that considers whole cluster not single cpu
+		 */
+		if (group->group_weight > 1 && (group->sgc->capacity * 1024 <
+						group_util * 1280))  {
+			intra_overutil = true;
+			break;
+		}
+
+		group = group->next;
+
+	} while (group != sd->groups && !intra_overutil);
+
+	if (overutilized != intra_overutil) {
+		if (intra_overutil == true) {
+			WRITE_ONCE(rd->overutilized, SG_OVERUTILIZED);
+			trace_sched_overutilized(1);
+		} else {
+			WRITE_ONCE(rd->overutilized, 0);
+			trace_sched_overutilized(1);
+		}
+	}
+}
+
 #else
 static inline void update_overutilized_status(struct rq *rq) { }
 #endif
@@ -9075,11 +9146,19 @@ next_group:
 		WRITE_ONCE(rd->overload, sg_status & SG_OVERLOAD);
 
 		/* Update over-utilization (tipping point, U >= 0) indicator */
-		WRITE_ONCE(rd->overutilized, sg_status & SG_OVERUTILIZED);
-		trace_sched_overutilized(!!(sg_status & SG_OVERUTILIZED));
+		if (!sched_feat(SCHED_MTK_EAS)) {
+			int overutil = sg_status & SG_OVERUTILIZED;
+
+			WRITE_ONCE(rd->overutilized, overutil);
+			trace_sched_overutilized(!!(overutil));
+		}
 	} else if (sg_status & SG_OVERUTILIZED) {
-		WRITE_ONCE(env->dst_rq->rd->overutilized, SG_OVERUTILIZED);
-		trace_sched_overutilized(1);
+		if (!sched_feat(SCHED_MTK_EAS)) {
+			struct root_domain *rd = env->dst_rq->rd;
+
+			WRITE_ONCE(rd->overutilized, SG_OVERUTILIZED);
+			trace_sched_overutilized(1);
+		}
 	}
 
 }
@@ -9332,6 +9411,8 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	 * this level.
 	 */
 	update_sd_lb_stats(env, &sds);
+
+	update_system_overutilized(env->sd, env->cpus);
 
 	if (static_branch_unlikely(&sched_energy_present)) {
 		struct root_domain *rd = env->dst_rq->rd;
