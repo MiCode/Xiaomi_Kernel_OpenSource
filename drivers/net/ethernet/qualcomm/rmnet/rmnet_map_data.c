@@ -720,7 +720,7 @@ __rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		alloc_len = coal_meta->ip_len + coal_meta->trans_len;
 	else
 		alloc_len = coal_meta->ip_len + coal_meta->trans_len +
-			    coal_meta->data_len;
+			    (coal_meta->data_len * coal_meta->pkt_count);
 
 	skbn = alloc_skb(alloc_len, GFP_ATOMIC);
 	if (!skbn)
