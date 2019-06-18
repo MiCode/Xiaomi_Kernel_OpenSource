@@ -7236,6 +7236,32 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	for_each_cpu(cpu, candidates) {
 		if (cpu == prev_cpu)
 			continue;
+
+		if (sched_feat(SCHED_MTK_EAS) &&
+				is_intra_domain(prev_cpu, cpu)) {
+			int best_cpu = cpu;
+
+			if (idle_cpu(prev_cpu) && idle_cpu(cpu)) {
+				struct rq *prev_rq, *target_rq;
+				int prev_idle_idx;
+				int target_idle_idx;
+
+				prev_rq = cpu_rq(prev_cpu);
+				target_rq = cpu_rq(cpu);
+
+				prev_idle_idx = idle_get_state_idx(prev_rq);
+				target_idle_idx = idle_get_state_idx(target_rq);
+
+				/* favoring shallowest idle states */
+				if ((prev_idle_idx <= target_idle_idx) ||
+					target_idle_idx == -1)
+					best_cpu = prev_cpu;
+			}
+
+			best_energy_cpu = best_cpu;
+			continue;
+		}
+
 		cur_energy = compute_energy(p, cpu, pd);
 		if (cur_energy < best_energy) {
 			best_energy = cur_energy;
@@ -9441,9 +9467,17 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 
 	if (static_branch_unlikely(&sched_energy_present)) {
 		struct root_domain *rd = env->dst_rq->rd;
+		int local_cpu, busiest_cpu, intra = 0;
+
+		local_cpu = env->dst_cpu;
+		busiest_cpu = group_first_cpu(sds.busiest);
+
+		intra = is_intra_domain(local_cpu, busiest_cpu);
 
 		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized))
-			goto out_balanced;
+			if (!sched_feat(SCHED_MTK_EAS) ||
+				(sched_feat(SCHED_MTK_EAS) && !intra))
+				goto out_balanced;
 	}
 
 	local = &sds.local_stat;

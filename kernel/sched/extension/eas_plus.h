@@ -15,3 +15,5 @@
 #ifdef CONFIG_MTK_SCHED_INTEROP
 extern bool is_rt_throttle(int cpu);
 #endif
+
+bool is_intra_domain(int prev, int target);
