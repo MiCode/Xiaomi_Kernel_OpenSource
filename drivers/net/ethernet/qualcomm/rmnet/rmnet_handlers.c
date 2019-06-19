@@ -17,6 +17,7 @@
 #include "rmnet_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_handlers.h"
+#include "rmnet_descriptor.h"
 
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
@@ -78,11 +79,6 @@ void rmnet_set_skb_proto(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(rmnet_set_skb_proto);
 
-/* Perf hook handler */
-void (*rmnet_perf_skb_entry)(struct sk_buff *skb,
-			     struct rmnet_port *port) __rcu __read_mostly;
-EXPORT_SYMBOL(rmnet_perf_skb_entry);
-
 /* Shs hook handler */
 
 int (*rmnet_shs_skb_entry)(struct sk_buff *skb,
@@ -99,8 +95,6 @@ EXPORT_SYMBOL(rmnet_shs_skb_entry_wq);
 void
 rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 {
-	void (*rmnet_perf_ingress)(struct sk_buff *skb,
-				   struct rmnet_port *port);
 	int (*rmnet_shs_stamp)(struct sk_buff *skb, struct rmnet_port *port);
 	struct rmnet_priv *priv = netdev_priv(skb->dev);
 
@@ -114,13 +108,6 @@ rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_port *port)
 	skb_set_mac_header(skb, 0);
 
 	rcu_read_lock();
-	rmnet_perf_ingress = rcu_dereference(rmnet_perf_skb_entry);
-	if (rmnet_perf_ingress) {
-		rmnet_perf_ingress(skb, port);
-		rcu_read_unlock();
-		return;
-	}
-
 	rmnet_shs_stamp = rcu_dereference(rmnet_shs_skb_entry);
 	if (rmnet_shs_stamp) {
 		rmnet_shs_stamp(skb, port);
@@ -297,10 +284,6 @@ int (*rmnet_perf_deag_entry)(struct sk_buff *skb,
 			     struct rmnet_port *port) __rcu __read_mostly;
 EXPORT_SYMBOL(rmnet_perf_deag_entry);
 
-/* Notify perf at the end of SKB chain */
-void (*rmnet_perf_chain_end)(void)__rcu __read_mostly;
-EXPORT_SYMBOL(rmnet_perf_chain_end);
-
 static void
 rmnet_map_ingress_handler(struct sk_buff *skb,
 			  struct rmnet_port *port)
@@ -308,7 +291,6 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 	struct sk_buff *skbn;
 	int (*rmnet_perf_core_deaggregate)(struct sk_buff *skb,
 					   struct rmnet_port *port);
-	void (*rmnet_perf_opt_chain_end)(void);
 
 	if (skb->dev->type == ARPHRD_ETHER) {
 		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_ATOMIC)) {
@@ -317,6 +299,14 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 		}
 
 		skb_push(skb, ETH_HLEN);
+	}
+
+	if (port->data_format & (RMNET_FLAGS_INGRESS_COALESCE |
+				 RMNET_FLAGS_INGRESS_MAP_CKSUMV5)) {
+		if (skb_is_nonlinear(skb)) {
+			rmnet_frag_ingress_handler(skb, port);
+			return;
+		}
 	}
 
 	/* No aggregation. Pass the frame on as is */
@@ -353,12 +343,6 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 next_skb:
 		skb = skb_frag;
 	}
-
-	rcu_read_lock();
-	rmnet_perf_opt_chain_end = rcu_dereference(rmnet_perf_chain_end);
-	if (rmnet_perf_opt_chain_end)
-		rmnet_perf_opt_chain_end();
-	rcu_read_unlock();
 }
 
 static int rmnet_map_egress_handler(struct sk_buff *skb,
