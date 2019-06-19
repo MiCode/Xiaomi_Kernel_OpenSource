@@ -1178,7 +1178,7 @@ send:
 		dev_kfree_skb_any(skb);
 		dev->stats.tx_dropped++;
 		spin_unlock_irqrestore(&wwan_ptr->lock, flags);
-		return -EFAULT;
+		return NETDEV_TX_OK;
 	}
 	/* IPA_RM checking end */
 
@@ -1188,6 +1188,14 @@ send:
 	 */
 	ret = ipa3_tx_dp(IPA_CLIENT_APPS_WAN_PROD, skb, NULL);
 	if (ret) {
+		if (ret == -EPIPE) {
+			IPAWANERR_RL("[%s] fatal: pipe is not valid\n",
+				dev->name);
+			dev_kfree_skb_any(skb);
+			dev->stats.tx_dropped++;
+			spin_unlock_irqrestore(&wwan_ptr->lock, flags);
+			return NETDEV_TX_OK;
+		}
 		ret = NETDEV_TX_BUSY;
 		goto out;
 	}
@@ -2649,6 +2657,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	if (ipa3_rmnet_res.ipa_napi_enable)
 		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
+	IPAWANINFO("rmnet_ipa unregister_netdev\n");
 	unregister_netdev(IPA_NETDEV());
 	if (ipa3_ctx->use_ipa_pm)
 		ipa3_wwan_deregister_netdev_pm_client();
