@@ -47,15 +47,13 @@ void devfreq_vbif_register_callback(getbw_func func, void *data)
 	extern_get_bw_data = data;
 }
 
-int devfreq_vbif_update_bw(unsigned long ib, unsigned long ab)
+int devfreq_vbif_update_bw(void)
 {
 	int ret = 0;
 
 	mutex_lock(&df_lock);
 	if (df) {
 		mutex_lock(&df->lock);
-		dev_ib = ib;
-		*dev_ab = ab;
 		ret = update_devfreq(df);
 		mutex_unlock(&df->lock);
 	}
@@ -82,7 +80,10 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 
 		mutex_unlock(&df_lock);
 
-		ret = devfreq_vbif_update_bw(0, 0);
+		dev_ib = 0;
+		*dev_ab = 0;
+
+		ret = devfreq_vbif_update_bw();
 		if (ret) {
 			pr_err("Unable to update BW! Gov start failed!\n");
 			return ret;

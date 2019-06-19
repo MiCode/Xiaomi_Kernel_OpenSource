@@ -55,6 +55,7 @@ static const char * const clocks[] = {
 static unsigned long ib_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
 static int max_vote_buslevel;
+static unsigned long last_ab;
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
@@ -118,8 +119,14 @@ static void _record_pwrevent(struct kgsl_device *device,
  */
 static void kgsl_get_bw(unsigned long *ib, unsigned long *ab, void *data)
 {
-	*ib = ib_votes[last_vote_buslevel];
-	*ab = 0;
+	struct kgsl_device *device = (struct kgsl_device *)data;
+
+	if (gmu_core_scales_bandwidth(device))
+		*ib = 0;
+	else
+		*ib = ib_votes[last_vote_buslevel];
+
+	*ab = last_ab;
 }
 #endif
 
@@ -198,13 +205,13 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 }
 
 #ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+static void kgsl_pwrctrl_vbif_update(void)
 {
 	/* ask a governor to vote on behalf of us */
-	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
+	devfreq_vbif_update_bw();
 }
 #else
-static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+static void kgsl_pwrctrl_vbif_update(void)
 {
 }
 #endif
@@ -296,9 +303,11 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	/* buslevel is the IB vote, update the AB */
 	_ab_buslevel_update(pwr, &ab);
 
+	last_ab = ab;
+
 	kgsl_bus_scale_request(device, buslevel);
 
-	kgsl_pwrctrl_vbif_update(ab);
+	kgsl_pwrctrl_vbif_update();
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
