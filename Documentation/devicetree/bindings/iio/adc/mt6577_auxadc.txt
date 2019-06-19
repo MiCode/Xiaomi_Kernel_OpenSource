@@ -14,18 +14,33 @@ Required properties:
     - "mediatek,mt2701-auxadc": For MT2701 family of SoCs
     - "mediatek,mt2712-auxadc": For MT2712 family of SoCs
     - "mediatek,mt7622-auxadc": For MT7622 family of SoCs
+    - "mediatek,mt6765-auxadc": For MT6765 family of SoCs
     - "mediatek,mt8173-auxadc": For MT8173 family of SoCs
   - reg: Address range of the AUXADC unit.
   - clocks: Should contain a clock specifier for each entry in clock-names
   - clock-names: Should contain "main".
   - #io-channel-cells: Should be 1, see ../iio-bindings.txt
 
+Optional properties:
+  - mediatek,cali-en-bit: auxadc cali on/off bit shift
+  - mediatek,cali-ge-bit: auxadc cali ge bits shift
+  - mediatek,cali-oe-bit: auxadc cali oe bits shift
+  - mediatek,cali-efuse-reg-offset: auxadc cali efuse register offset
+  - nvmem: Phandle of nvmem provider which contains efuse address
+  - nvmem-names: Should be "mtk_efuse"
+
 Example:
 
 auxadc: adc@11001000 {
-	compatible = "mediatek,mt2701-auxadc";
+	compatible = "mediatek,mt6765-auxadc";
 	reg = <0 0x11001000 0 0x1000>;
 	clocks = <&pericfg CLK_PERI_AUXADC>;
 	clock-names = "main";
 	#io-channel-cells = <1>;
+	mediatek,cali-en-bit = <20>;
+	mediatek,cali-ge-bit = <10>;
+	mediatek,cali-oe-bit = <0>;
+	mediatek,cali-efuse-reg-offset = <0x1B4>;
+	nvmem = <&efuse>;
+	nvmem-names = "mtk_efuse";
 };
