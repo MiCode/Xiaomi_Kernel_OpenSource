@@ -3800,6 +3800,17 @@
 				(that will set all pages holding image data
 				during restoration read-only).
 
+	noswap_randomize
+			Kernel uses random disk offsets to help with wear-levelling
+			of SSD devices, while saving the hibernation snapshot image to
+			disk. Use this parameter to disable this feature for SSD
+			devices in scenarios when, such randomization is addressed at
+			the firmware level and hibenration image is not re-generated
+			frequently.
+			(Useful for improving hibernation resume time as snapshot pages
+			are available in disk serially and can be read in bigger chunks
+			without seeking)
+
 	retain_initrd	[RAM] Keep initrd memory after extraction
 
 	rfkill.default_state=
