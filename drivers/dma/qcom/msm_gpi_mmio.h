@@ -216,7 +216,3 @@ enum CNTXT_OFFS {
 #define GPI_GPII_n_CH_k_SCRATCH_3_OFFS(n, k) \
 	(0x2006C + (0x4000 * (n)) + (0x80 * (k)))
 
-/* Variabe EE register offset */
-#define QUP0_NUM_GPII_KONA 15
-#define QUP0_VAR_OFFSET_KONA (0x1000)
-#define QUP1_VAR_OFFSET_KONA (0x6000)
