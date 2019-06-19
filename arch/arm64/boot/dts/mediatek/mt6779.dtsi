@@ -1535,6 +1535,7 @@
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_RD_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>;
+			operating-points-v2 = <&opp_table_vdec>;
 			clocks =
 				<&mmsys CLK_MM_SMI_COMMON>,
 				<&mmsys CLK_MM_GALS_COMM0>,
