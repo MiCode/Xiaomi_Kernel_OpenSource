@@ -4,8 +4,8 @@
  * Author Wy Chuang<wy.chuang@mediatek.com>
  */
 
-#ifndef __MTK_BATTERY_INTF_H__
-#define __MTK_BATTERY_INTF_H__
+#ifndef __MTK_GAUGE_INTF_H__
+#define __MTK_GAUGE_INTF_H__
 
 #include <linux/alarmtimer.h>
 #include <linux/hrtimer.h>
@@ -158,4 +158,4 @@ struct mtk_gauge_sysfs_field_info {
 		struct mtk_gauge_sysfs_field_info *attr, int *val);
 };
 
-#endif /* __MTK_BATTERY_INTF_H__ */
+#endif /* __MTK_GAUGE_INTF_H__ */

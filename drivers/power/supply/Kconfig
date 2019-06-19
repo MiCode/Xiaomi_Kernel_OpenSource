@@ -645,6 +645,16 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
+config MTK_BATTERY
+	bool "MTK BATTERY framework and algorithm"
+	depends on MFD_MT6397
+	default n
+	help
+	  Say Y to enable support for MTK battery Algorithm.
+	  It is fuel gauge algorithm , The driver get various
+	  battery information from hardware to calculate
+	  Battery percentage.
+
 config BATTERY_MT6359
 	bool "MT6359 fuel gauge support"
 	depends on MFD_MT6397
