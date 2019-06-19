@@ -70,6 +70,19 @@ void kgsl_snapshot_push_object(struct kgsl_process_private *process,
 	for (index = 0; index < objbufptr; index++) {
 		if (objbuf[index].gpuaddr == gpuaddr &&
 			objbuf[index].entry->priv == process) {
+			/*
+			 * Check if newly requested size is within the
+			 * allocated range or not, otherwise continue
+			 * with previous size.
+			 */
+			if (!kgsl_gpuaddr_in_memdesc(
+				&objbuf[index].entry->memdesc,
+				gpuaddr, dwords << 2)) {
+				KGSL_CORE_ERR(
+					"snapshot: IB 0x%016llx size is not within the memdesc range\n",
+					gpuaddr);
+				return;
+			}
 
 			objbuf[index].size = max_t(uint64_t,
 						objbuf[index].size,
