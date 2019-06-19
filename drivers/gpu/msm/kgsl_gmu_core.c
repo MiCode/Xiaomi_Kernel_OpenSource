@@ -243,6 +243,22 @@ void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 	__raw_writel(value, reg);
 }
 
+void gmu_core_blkwrite(struct kgsl_device *device, unsigned int offsetwords,
+		const void *buffer, size_t size)
+{
+	void __iomem *base;
+
+	if (!gmu_core_is_register_offset(device, offsetwords)) {
+		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
+		return;
+	}
+
+	offsetwords -= device->gmu_core.gmu2gpu_offset;
+	base = device->gmu_core.reg_virt + (offsetwords << 2);
+
+	memcpy_toio(base, buffer, size);
+}
+
 void gmu_core_regrmw(struct kgsl_device *device,
 		unsigned int offsetwords,
 		unsigned int mask, unsigned int bits)
