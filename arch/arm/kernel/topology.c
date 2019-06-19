@@ -323,3 +323,20 @@ void __init init_cpu_topology(void)
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
 }
+
+int topology_nr_clusters(void)
+{
+	int cpu;
+	int nr_clusters = 0;
+	int cluster_id, prev_cluster_id = -1;
+
+	for_each_possible_cpu(cpu) {
+		cluster_id = topology_physical_package_id(cpu);
+		if (cluster_id != prev_cluster_id) {
+			nr_clusters++;
+			prev_cluster_id = cluster_id;
+		}
+	}
+	return nr_clusters;
+}
+
