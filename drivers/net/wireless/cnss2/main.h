@@ -51,6 +51,19 @@ enum cnss_vreg_type {
 	CNSS_VREG_PRIM,
 };
 
+struct cnss_clk_cfg {
+	const char *name;
+	u32 freq;
+	u32 required;
+};
+
+struct cnss_clk_info {
+	struct list_head list;
+	struct clk *clk;
+	struct cnss_clk_cfg cfg;
+	u32 enabled;
+};
+
 struct cnss_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *bootstrap_active;
@@ -269,6 +282,7 @@ struct cnss_plat_data {
 	void *bus_priv;
 	enum cnss_dev_bus_type bus_type;
 	struct list_head vreg_list;
+	struct list_head clk_list;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
@@ -355,6 +369,8 @@ int cnss_vreg_on_type(struct cnss_plat_data *plat_priv,
 		      enum cnss_vreg_type type);
 int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type);
+int cnss_get_clk(struct cnss_plat_data *plat_priv);
+void cnss_put_clk(struct cnss_plat_data *plat_priv);
 int cnss_get_pinctrl(struct cnss_plat_data *plat_priv);
 int cnss_power_on_device(struct cnss_plat_data *plat_priv);
 void cnss_power_off_device(struct cnss_plat_data *plat_priv);

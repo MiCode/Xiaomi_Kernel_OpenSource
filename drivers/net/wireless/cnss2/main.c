@@ -722,19 +722,32 @@ static int cnss_get_resources(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
+	ret = cnss_get_clk(plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to get clocks, err = %d\n", ret);
+		goto put_vreg;
+	}
+
 	ret = cnss_get_pinctrl(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to get pinctrl, err = %d\n", ret);
-		goto out;
+		goto put_clk;
 	}
 
 	return 0;
+
+put_clk:
+	cnss_put_clk(plat_priv);
+put_vreg:
+	cnss_put_vreg_type(plat_priv, CNSS_VREG_PRIM);
 out:
 	return ret;
 }
 
 static void cnss_put_resources(struct cnss_plat_data *plat_priv)
 {
+	cnss_put_clk(plat_priv);
+	cnss_put_vreg_type(plat_priv, CNSS_VREG_PRIM);
 }
 
 static int cnss_modem_notifier_nb(struct notifier_block *nb,
@@ -1929,6 +1942,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
+	INIT_LIST_HEAD(&plat_priv->clk_list);
 
 	cnss_get_cpr_info(plat_priv);
 	cnss_init_control_params(plat_priv);
