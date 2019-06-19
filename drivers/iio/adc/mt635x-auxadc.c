@@ -41,6 +41,7 @@ struct mt635x_auxadc_device {
 	const struct auxadc_info *info;
 	int imp_vbat;
 	struct completion imp_done;
+	int imix_r;
 };
 
 /*
@@ -50,8 +51,11 @@ struct mt635x_auxadc_device {
  * @r_ratio:	resistance ratio, represented by r_ratio[0] / r_ratio[1]
  * @avg_num:	sampling times of AUXADC measurments then average it
  * @regs:	request and data output registers for this channel
+ * @has_regs:	determine if this channel has request and data output registers
  */
 struct auxadc_channels {
+	enum iio_chan_type type;
+	long info_mask;
 	/* AUXADC channel attribute */
 	const char *ch_name;
 	unsigned char ch_num;
@@ -59,36 +63,47 @@ struct auxadc_channels {
 	unsigned char r_ratio[2];
 	unsigned short avg_num;
 	const struct auxadc_regs *regs;
+	bool has_regs;
 };
 
-#define MT635x_AUXADC_CHANNEL(_ch_name, _ch_num, _res)	\
-	[AUXADC_##_ch_name] = {						\
-		.ch_name = __stringify(_ch_name),			\
-		.ch_num = _ch_num,					\
-		.res = _res,						\
-	}								\
+#define MT635x_AUXADC_CHANNEL(_ch_name, _ch_num, _res, _has_regs)	\
+	[AUXADC_##_ch_name] = {				\
+		.type = IIO_VOLTAGE,			\
+		.info_mask = BIT(IIO_CHAN_INFO_RAW) |		\
+			     BIT(IIO_CHAN_INFO_PROCESSED),	\
+		.ch_name = __stringify(_ch_name),	\
+		.ch_num = _ch_num,			\
+		.res = _res,				\
+		.has_regs = _has_regs,			\
+	}
 
 /*
  * The array represents all possible AUXADC channels found
  * in the supported PMICs.
  */
 static struct auxadc_channels auxadc_chans[] = {
-	MT635x_AUXADC_CHANNEL(BATADC, 0, 15),
-	MT635x_AUXADC_CHANNEL(ISENSE, 0, 15),
-	MT635x_AUXADC_CHANNEL(VCDT, 2, 12),
-	MT635x_AUXADC_CHANNEL(BAT_TEMP, 3, 12),
-	MT635x_AUXADC_CHANNEL(BATID, 3, 12),
-	MT635x_AUXADC_CHANNEL(CHIP_TEMP, 4, 12),
-	MT635x_AUXADC_CHANNEL(VCORE_TEMP, 4, 12),
-	MT635x_AUXADC_CHANNEL(VPROC_TEMP, 4, 12),
-	MT635x_AUXADC_CHANNEL(VGPU_TEMP, 4, 12),
-	MT635x_AUXADC_CHANNEL(ACCDET, 5, 12),
-	MT635x_AUXADC_CHANNEL(VDCXO, 6, 12),
-	MT635x_AUXADC_CHANNEL(TSX_TEMP, 7, 15),
-	MT635x_AUXADC_CHANNEL(HPOFS_CAL, 9, 15),
-	MT635x_AUXADC_CHANNEL(DCXO_TEMP, 10, 15),
-	MT635x_AUXADC_CHANNEL(VBIF, 11, 12),
-	MT635x_AUXADC_CHANNEL(IMP, 0, 15),
+	MT635x_AUXADC_CHANNEL(BATADC, 0, 15, true),
+	MT635x_AUXADC_CHANNEL(ISENSE, 0, 15, true),
+	MT635x_AUXADC_CHANNEL(VCDT, 2, 12, true),
+	MT635x_AUXADC_CHANNEL(BAT_TEMP, 3, 12, true),
+	MT635x_AUXADC_CHANNEL(BATID, 3, 12, true),
+	MT635x_AUXADC_CHANNEL(CHIP_TEMP, 4, 12, true),
+	MT635x_AUXADC_CHANNEL(VCORE_TEMP, 4, 12, true),
+	MT635x_AUXADC_CHANNEL(VPROC_TEMP, 4, 12, true),
+	MT635x_AUXADC_CHANNEL(VGPU_TEMP, 4, 12, true),
+	MT635x_AUXADC_CHANNEL(ACCDET, 5, 12, true),
+	MT635x_AUXADC_CHANNEL(VDCXO, 6, 12, true),
+	MT635x_AUXADC_CHANNEL(TSX_TEMP, 7, 15, true),
+	MT635x_AUXADC_CHANNEL(HPOFS_CAL, 9, 15, true),
+	MT635x_AUXADC_CHANNEL(DCXO_TEMP, 10, 15, true),
+	MT635x_AUXADC_CHANNEL(VBIF, 11, 12, true),
+	MT635x_AUXADC_CHANNEL(IMP, 0, 15, false),
+	[AUXADC_IMIX_R] = {
+		.type = IIO_RESISTANCE,
+		.info_mask = BIT(IIO_CHAN_INFO_RAW),
+		.ch_name = "IMIX_R",
+		.has_regs = false,
+	},
 };
 
 struct auxadc_regs {
@@ -285,18 +300,15 @@ static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
 }
 
 /*
- * @adc_dev:	pointer to the struct mt635x_auxadc_device
- * @channel:	channel number, refer to the auxadc_chans index
-		pass from struct iio_chan_spec.channel
- * @val:	pointer to output value
+ * @adc_dev:	 pointer to the struct mt635x_auxadc_device
+ * @auxadc_chan: pointer to the struct auxadc_channels, it represents specific
+		 auxadc channel
+ * @val:	 pointer to output value
  */
 static int get_auxadc_out(struct mt635x_auxadc_device *adc_dev,
-			  int channel, int *val)
+			  const struct auxadc_channels *auxadc_chan, int *val)
 {
 	int ret;
-	const struct auxadc_channels *auxadc_chan;
-
-	auxadc_chan = &auxadc_chans[channel];
 
 	regmap_write(adc_dev->regmap,
 		     auxadc_chan->regs->rqst_reg,
@@ -331,17 +343,33 @@ static int mt635x_auxadc_read_raw(struct iio_dev *indio_dev,
 	mutex_lock(&adc_dev->lock);
 	pm_stay_awake(adc_dev->dev);
 
-	if (chan->channel == AUXADC_IMP && adc_dev->info->imp_conv)
-		ret = adc_dev->info->imp_conv(adc_dev, &auxadc_out, val2);
-	else
-		ret = get_auxadc_out(adc_dev, chan->channel, &auxadc_out);
+	auxadc_chan = &auxadc_chans[chan->channel];
+	switch (chan->channel) {
+	case AUXADC_IMP:
+		if (adc_dev->info->imp_conv)
+			ret = adc_dev->info->imp_conv(adc_dev,
+						      &auxadc_out, val2);
+		else
+			ret = -EINVAL;
+		break;
+	case AUXADC_IMIX_R:
+		auxadc_out = adc_dev->imix_r;
+		ret = 0;
+		break;
+	default:
+		if (auxadc_chan->regs)
+			ret = get_auxadc_out(adc_dev, auxadc_chan,
+					     &auxadc_out);
+		else
+			ret = -EINVAL;
+		break;
+	}
 
 	pm_relax(adc_dev->dev);
 	mutex_unlock(&adc_dev->lock);
 	if (ret != -ETIMEDOUT && ret < 0)
 		goto err;
 
-	auxadc_chan = &auxadc_chans[chan->channel];
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
 		*val = auxadc_out * auxadc_chan->r_ratio[0] * VOLT_FULL;
@@ -379,6 +407,20 @@ static const struct iio_info mt635x_auxadc_info = {
 	.of_xlate = &mt635x_auxadc_of_xlate,
 };
 
+static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev)
+{
+	unsigned char val = 0;
+	int ret;
+
+	if (adc_dev->imix_r)
+		return 0;
+	ret = of_property_read_u8(of_chosen, "atag,imix_r1", &val);
+	if (ret)
+		dev_notice(adc_dev->dev, "no imix_r, ret=%d\n", ret);
+	adc_dev->imix_r = (int)val;
+	return 0;
+}
+
 static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 				   unsigned int *channel,
 				   struct device_node *node)
@@ -399,6 +441,8 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 			*channel, node->name);
 		return ret;
 	}
+	if (*channel == AUXADC_IMIX_R)
+		return auxadc_init_imix_r(adc_dev);
 	auxadc_chan = &auxadc_chans[*channel];
 
 	ret = of_property_read_u32_array(node, "resistance-ratio", val_arr, 2);
@@ -443,14 +487,16 @@ static int auxadc_parse_dt(struct mt635x_auxadc_device *adc_dev,
 			of_node_put(child);
 			return ret;
 		}
-		auxadc_chans[channel].regs = &adc_dev->info->regs_tbl[channel];
+		if (auxadc_chans[channel].has_regs) {
+			auxadc_chans[channel].regs =
+				&adc_dev->info->regs_tbl[channel];
+		}
 
 		iio_chan->channel = channel;
 		iio_chan->datasheet_name = auxadc_chans[channel].ch_name;
 		iio_chan->extend_name = auxadc_chans[channel].ch_name;
-		iio_chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-					       BIT(IIO_CHAN_INFO_PROCESSED);
-		iio_chan->type = IIO_VOLTAGE;
+		iio_chan->info_mask_separate = auxadc_chans[channel].info_mask;
+		iio_chan->type = auxadc_chans[channel].type;
 		iio_chan->indexed = 1;
 		iio_chan->address = index++;
 
