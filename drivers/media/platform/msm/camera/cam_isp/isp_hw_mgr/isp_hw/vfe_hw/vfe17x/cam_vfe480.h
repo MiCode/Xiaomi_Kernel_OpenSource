@@ -304,6 +304,7 @@ static struct cam_vfe_top_ver3_hw_info vfe480_top_hw_info = {
 		.camif_lite_reg = &vfe480_camif_lcr,
 		.reg_data       = &vfe480_camif_lcr_reg_data,
 		},
+	.num_mux = 6,
 	.mux_type = {
 		CAM_VFE_CAMIF_VER_3_0,
 		CAM_VFE_RDI_VER_1_0,
