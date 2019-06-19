@@ -93,6 +93,9 @@
 				resistance-ratio = <7 2>;
 				avg-num = <128>;
 			};
+			imix_r {
+				channel = <AUXADC_IMIX_R>;
+			};
 		};
 
 		pmic_efuse: pmic_efuse {
