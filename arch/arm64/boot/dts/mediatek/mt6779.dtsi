@@ -2078,6 +2078,39 @@
 				"clk_univpll_d2_d2";
 		};
 
+		mmdvfs_wrapper_mm {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "mm";
+		};
+		mmdvfs_wrapper_cam {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "cam";
+		};
+		mmdvfs_wrapper_img {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "img";
+		};
+		mmdvfs_wrapper_venc {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "venc";
+		};
+		mmdvfs_wrapper_vdec {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "vdec";
+		};
+		mmdvfs_wrapper_ipe {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "ipe";
+		};
+		mmdvfs_wrapper_dpe {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "dpe";
+		};
+		mmdvfs_wrapper_ccu {
+			compatible = "mediatek,mt6779-mmdvfs-wrapper";
+			mediatek,name = "ccu";
+		};
+
 		mmsys: clock-controller@14000000 {
 			compatible = "mediatek,mt6779-mmsys", "syscon";
 			reg = <0 0x14000000 0 0x1000>;
