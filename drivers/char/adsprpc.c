@@ -3670,8 +3670,6 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 
 	err = fastrpc_check_pd_status(fl,
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	err |= fastrpc_check_pd_status(fl,
-			SENSORS_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	if (err)
 		goto bail;
 
