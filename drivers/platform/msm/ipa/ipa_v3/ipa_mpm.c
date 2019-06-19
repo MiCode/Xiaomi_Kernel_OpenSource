@@ -106,11 +106,6 @@ enum ipa_mpm_mhip_client_type {
 	IPA_MPM_MHIP_NONE,
 };
 
-enum ipa_mpm_start_stop_type {
-	STOP,
-	START,
-};
-
 enum ipa_mpm_clk_vote_type {
 	CLK_ON,
 	CLK_OFF,
@@ -1275,7 +1270,7 @@ static void ipa_mpm_mhip_shutdown(int mhip_idx)
 
 	if (mhip_idx != IPA_MPM_MHIP_CH_ID_2) {
 		/* For DPL, stop only DL channel */
-		ipa_mpm_start_stop_ul_mhip_data_path(mhip_idx, STOP);
+		ipa_mpm_start_stop_ul_mhip_data_path(mhip_idx, MPM_MHIP_STOP);
 		ipa_mpm_clean_mhip_chan(mhip_idx, ul_prod_chan);
 	}
 
@@ -1449,7 +1444,7 @@ static enum mhip_status_type ipa_mpm_start_stop_mhip_chan(
 		}
 	}
 
-	is_start = (start_stop == START) ? true : false;
+	is_start = (start_stop == MPM_MHIP_START) ? true : false;
 
 	if (is_start) {
 		if (mhip_chan == IPA_MPM_MHIP_CHAN_UL) {
@@ -1573,12 +1568,13 @@ int ipa_mpm_notify_wan_state(void)
 	}
 
 	status = ipa_mpm_start_stop_mhip_chan(
-				IPA_MPM_MHIP_CHAN_UL, probe_id, START);
+				IPA_MPM_MHIP_CHAN_UL, probe_id, MPM_MHIP_START);
 	switch (status) {
 	case MHIP_STATUS_SUCCESS:
 	case MHIP_STATUS_NO_OP:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
-		ret = ipa_mpm_start_stop_ul_mhip_data_path(probe_id, START);
+		ret = ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
+							MPM_MHIP_START);
 
 		if (ret) {
 			IPA_MPM_ERR("Couldnt start UL GSI channel");
@@ -2087,10 +2083,10 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		if (ul_prod != IPA_CLIENT_MAX) {
 			/* No teth started yet, disable UL channel */
 			ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
-						probe_id, STOP);
+						probe_id, MPM_MHIP_STOP);
 			/* Disable data path */
 			if (ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
-				STOP)) {
+				MPM_MHIP_STOP)) {
 				IPA_MPM_ERR("MHIP Enable data path failed\n");
 				goto fail_start_channel;
 			}
@@ -2105,7 +2101,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 		/* Enable data path */
 		if (ul_prod != IPA_CLIENT_MAX) {
 			if (ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
-				START)) {
+				MPM_MHIP_START)) {
 				IPA_MPM_ERR("MHIP Enable data path failed\n");
 				goto fail_start_channel;
 			}
@@ -2238,7 +2234,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 		if (!ipa_mpm_ctx->md[mhip_idx].in_lpm) {
 			status = ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_MHIP_CHAN_DL,
-				mhip_idx, STOP);
+				mhip_idx, MPM_MHIP_STOP);
 			IPA_MPM_DBG("status = %d\n", status);
 			ipa_mpm_vote_unvote_ipa_clk(CLK_OFF, mhip_idx);
 			ipa_mpm_ctx->md[mhip_idx].in_lpm = true;
@@ -2251,7 +2247,7 @@ static void ipa_mpm_mhi_status_cb(struct mhi_device *mhi_dev,
 			ipa_mpm_vote_unvote_ipa_clk(CLK_ON, mhip_idx);
 			status = ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_MHIP_CHAN_DL,
-				mhip_idx, START);
+				mhip_idx, MPM_MHIP_START);
 			IPA_MPM_DBG("status = %d\n", status);
 			ipa_mpm_ctx->md[mhip_idx].in_lpm = false;
 		} else {
@@ -2389,12 +2385,14 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	if (mhip_client != IPA_MPM_MHIP_USB_DPL)
 		/* Start UL MHIP channel for offloading teth connection */
 		status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
-							probe_id, START);
+							probe_id,
+							MPM_MHIP_START);
 	switch (status) {
 	case MHIP_STATUS_SUCCESS:
 	case MHIP_STATUS_NO_OP:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
-		ipa_mpm_start_stop_ul_mhip_data_path(probe_id, START);
+		ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
+						MPM_MHIP_START);
 
 		pipe_idx = ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD);
 
@@ -2426,7 +2424,8 @@ int ipa_mpm_mhip_xdci_pipe_enable(enum ipa_usb_teth_prot xdci_teth_prot)
 	return ret;
 }
 
-int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot)
+int ipa_mpm_mhip_ul_start_stop_data(enum ipa_mpm_start_stop_type start_stop,
+	enum ipa_usb_teth_prot xdci_teth_prot)
 {
 	int probe_id = IPA_MPM_MHIP_CH_ID_MAX;
 	int i;
@@ -2455,10 +2454,17 @@ int ipa_mpm_mhip_ul_data_stop(enum ipa_usb_teth_prot xdci_teth_prot)
 	IPA_MPM_DBG("Map xdci prot %d to mhip_client = %d probe_id = %d\n",
 		xdci_teth_prot, mhip_client, probe_id);
 
-	ret = ipa_mpm_start_stop_ul_mhip_data_path(probe_id, STOP);
-
-	if (ret)
-		IPA_MPM_ERR("Error stopping UL path, err = %d\n", ret);
+	if (start_stop == MPM_MHIP_STOP) {
+		ret = ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
+							MPM_MHIP_STOP);
+		if (ret)
+			IPA_MPM_ERR("Error stopping UL path, err = %d\n", ret);
+	} else if (start_stop == MPM_MHIP_START) {
+		ret = ipa_mpm_start_stop_ul_mhip_data_path(probe_id,
+							MPM_MHIP_START);
+		if (ret)
+			IPA_MPM_ERR("Error starting UL path, err = %d\n", ret);
+	}
 
 	return ret;
 }
@@ -2495,6 +2501,13 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 
 	switch (mhip_client) {
 	case IPA_MPM_MHIP_USB_RMNET:
+		ret = ipa_mpm_reset_dma_mode(IPA_CLIENT_USB_PROD,
+			IPA_CLIENT_MHI_PRIME_RMNET_CONS);
+		if (ret) {
+			IPA_MPM_ERR("failed to reset dma mode\n");
+			return ret;
+		}
+		break;
 	case IPA_MPM_MHIP_TETH:
 		IPA_MPM_DBG("Teth Disconnecting for prot %d\n", mhip_client);
 		break;
@@ -2513,14 +2526,14 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	}
 
 	status = ipa_mpm_start_stop_mhip_chan(IPA_MPM_MHIP_CHAN_UL,
-		probe_id, STOP);
+		probe_id, MPM_MHIP_STOP);
 
 	switch (status) {
 	case MHIP_STATUS_SUCCESS:
 	case MHIP_STATUS_NO_OP:
 	case MHIP_STATUS_EP_NOT_READY:
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_INIT);
-		ipa_mpm_start_stop_ul_mhip_data_path(probe_id, STOP);
+		ipa_mpm_start_stop_ul_mhip_data_path(probe_id, MPM_MHIP_STOP);
 		break;
 	case MHIP_STATUS_FAIL:
 	case MHIP_STATUS_BAD_STATE:
