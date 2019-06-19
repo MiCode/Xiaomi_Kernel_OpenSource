@@ -8,6 +8,7 @@
 #include <dt-bindings/clock/qcom,scc-sm8150.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "quin-vm-common.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA8155 Virtual Machine";
@@ -18,83 +19,16 @@
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
 
-	psci {
-		compatible = "arm,psci-1.0";
-		method = "smc";
-	};
-
-	chosen {
-		bootargs = "rcupdate.rcu_expedited=1 rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
-	};
-
-	soc: soc { };
-
 	reserved_memory: reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		/* global autoconfigured region for contiguous allocations */
-		linux,cma {
-			compatible = "shared-dma-pool";
-			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
-			reusable;
-			alignment = <0x0 0x400000>;
-			size = <0x0 0x2000000>;
-			linux,cma-default;
-		};
 
 		pmem_shared: pmem_shared_region@a0000000 {
 			reg = <0x0 0xa0000000 0x0 0x20000000>;
 			label = "pmem_shared_mem";
 		};
-
-		qseecom_mem: qseecom_region@0x9e400000 {
-			compatible = "shared-dma-pool";
-			alloc-ranges = <0 0x00000000 0 0xffffffff>;
-			reusable;
-			alignment = <0 0x400000>;
-			size = <0 0x1400000>;
-		};
-
-		qseecom_ta_mem: qseecom_ta_region {
-			compatible = "shared-dma-pool";
-			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
-			reusable;
-			alignment = <0x0 0x400000>;
-			size = <0x0 0x1000000>;
-		};
-	};
-
-	firmware: firmware {
-		android {
-			compatible = "android,firmware";
-			vbmeta {
-				compatible = "android,vbmeta";
-				parts = "vbmeta,boot,system,vendor,dtbo";
-			};
-			fstab {
-				compatible = "android,fstab";
-				vendor {
-					compatible = "android,vendor";
-					dev="/dev/block/platform/vdevs/1c0f0000.virtio_blk/vdc";
-					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
-					status = "ok";
-				};
-			};
-		};
 	};
 };
 
 &soc {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	virtual-interrupt-parent = "gic";
-	ranges = <0 0 0 0xffffffff>;
-	compatible = "simple-bus";
-
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
@@ -109,111 +43,6 @@
 		interrupts = <0 101 0>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
-	};
-
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
-	clock_rpmh: qcom,rpmh {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
-	qcom,ion {
-		compatible = "qcom,msm-ion";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		system_heap: qcom,ion-heap@25 {
-			reg = <25>;
-			qcom,ion-heap-type = "SYSTEM";
-		};
-
-		qcom,ion-heap@27 { /* QSEECOM HEAP */
-			reg = <27>;
-			memory-region = <&qseecom_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
-
-		qcom,ion-heap@19 { /* QSEECOM TA HEAP */
-			reg = <19>;
-			memory-region = <&qseecom_ta_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
-
-	};
-
-	hab: qcom,hab {
-		compatible = "qcom,hab";
-		vmid = <2>;
-
-		mmidgrp100: mmidgrp100 {
-			grp-start-id = <100>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp200: mmidgrp200 {
-			grp-start-id = <200>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp300: mmidgrp300 {
-			grp-start-id = <300>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp400: mmidgrp400 {
-			grp-start-id = <400>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp500: mmidgrp500 {
-			grp-start-id = <500>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp600: mmidgrp600 {
-			grp-start-id = <600>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp700: mmidgrp700 {
-			grp-start-id = <700>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp800: mmidgrp800 {
-			grp-start-id = <800>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp900: mmidgrp900 {
-			grp-start-id = <900>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-
-		mmidgrp1000: mmidgrp1000 {
-			grp-start-id = <1000>;
-			role = "fe";
-			remote-vmids = <0>;
-		};
-	};
-
-	sde_kms_hyp: qcom,sde_kms_hyp@ae00000 {
-		compatible = "qcom,sde-kms-hyp";
-		qcom,client-id = "7815";
 	};
 
 	apps_smmu: apps-smmu@0x15000000 {
@@ -486,67 +315,6 @@
 		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
 		/* PWR_CTR2_VDD_1P8 */
 		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
-		status = "ok";
-	};
-
-	wdog: qcom,wdt@17c10000{
-		compatible = "qcom,msm-watchdog";
-		reg = <0x17c10000 0x1000>;
-		reg-names = "wdt-base";
-		interrupts = <0 0 0>, <0 1 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <9360>;
-		qcom,ipi-ping;
-		qcom,wakeup-enable;
-		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
-		0x18100 0x18100 0x18100 0x18100>;
-	};
-
-	qcom,msm-imem@14680000 {
-		compatible = "qcom,msm-imem";
-		reg = <0x14680000 0x1000>;
-		ranges = <0x0 0x14680000 0x1000>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		mem_dump_table@10 {
-			compatible = "qcom,msm-imem-mem_dump_table";
-			reg = <0x10 8>;
-		};
-
-		restart_reason@65c {
-			compatible = "qcom,msm-imem-restart_reason";
-			reg = <0x65c 4>;
-		};
-
-		dload_type@1c {
-			compatible = "qcom,msm-imem-dload-type";
-			reg = <0x1c 0x4>;
-		};
-
-		boot_stats@6b0 {
-			compatible = "qcom,msm-imem-boot_stats";
-			reg = <0x6b0 32>;
-		};
-
-		kaslr_offset@6d0 {
-			compatible = "qcom,msm-imem-kaslr_offset";
-			reg = <0x6d0 12>;
-		};
-
-		pil@94c {
-			compatible = "qcom,msm-imem-pil";
-			reg = <0x94c 200>;
-		};
-
-		diag_dload@c8 {
-			compatible = "qcom,msm-imem-diag-dload";
-			reg = <0xc8 200>;
-		};
-	};
-
-	vm_restart: restart {
-		compatible = "qcom,vm-restart";
 		status = "ok";
 	};
 
