@@ -2390,8 +2390,8 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 
 /* -------------------------------------------------------------------------- */
 
-#define NUM_GSI_OUT_EPS	1
-#define NUM_GSI_IN_EPS	2
+#define NUM_GSI_OUT_EPS(dwc)	(dwc->normal_eps_in_gsi_mode ? 2 : 1)
+#define NUM_GSI_IN_EPS(dwc)	(dwc->normal_eps_in_gsi_mode ? 3 : 2)
 
 static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		u8 num, u32 direction)
@@ -2399,13 +2399,13 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 	struct dwc3_ep			*dep;
 	u8				i, gsi_ep_count, gsi_ep_index = 0;
 
-	gsi_ep_count = NUM_GSI_OUT_EPS + NUM_GSI_IN_EPS;
+	gsi_ep_count = NUM_GSI_OUT_EPS(dwc) + NUM_GSI_IN_EPS(dwc);
 	/* OUT GSI EPs based on direction field */
 	if (gsi_ep_count && !direction)
-		gsi_ep_count = NUM_GSI_OUT_EPS;
+		gsi_ep_count = NUM_GSI_OUT_EPS(dwc);
 	/* IN GSI EPs */
 	else if (gsi_ep_count && direction)
-		gsi_ep_count = NUM_GSI_IN_EPS;
+		gsi_ep_count = NUM_GSI_IN_EPS(dwc);
 
 	for (i = 0; i < num; i++) {
 		u8 epnum = (i << 1) | (direction ? 1 : 0);

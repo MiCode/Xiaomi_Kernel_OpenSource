@@ -991,6 +991,8 @@ struct dwc3_scratchpad_array {
  * @create_reg_debugfs: create debugfs entry to allow dwc3 register dump
  * @xhci_imod_value: imod value to use with xhci
  * @core_id: usb core id to differentiate different controller
+ * @normal_eps_in_gsi_mode: if true, two normal EPS (1 In, 1 Out) can be used in
+ *			    GSI mode
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1193,6 +1195,7 @@ struct dwc3 {
 	u32			xhci_imod_value;
 	int			core_id;
 	int			retries_on_error;
+	bool			normal_eps_in_gsi_mode;
 };
 
 /* -------------------------------------------------------------------------- */

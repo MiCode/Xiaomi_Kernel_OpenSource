@@ -1284,6 +1284,8 @@ static int dwc3_probe(struct platform_device *pdev)
 					"snps,usb3-u1u2-disable");
 	dwc->usb2_l1_disable = device_property_read_bool(dev,
 					"snps,usb2-l1-disable");
+	dwc->normal_eps_in_gsi_mode = device_property_read_bool(dev,
+					"normal-eps-in-gsi-mode");
 	if (dwc->enable_bus_suspend) {
 		pm_runtime_set_autosuspend_delay(dev, 500);
 		pm_runtime_use_autosuspend(dev);
