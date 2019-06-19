@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -258,3 +258,14 @@ void gmu_core_regrmw(struct kgsl_device *device,
 	val &= ~mask;
 	gmu_core_regwrite(device, offsetwords, val | bits);
 }
+
+bool gmu_core_is_initialized(struct kgsl_device *device)
+{
+	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+
+	if (gmu_core_ops && gmu_core_ops->is_initialized)
+		return gmu_core_ops->is_initialized(device);
+
+	return false;
+}
+

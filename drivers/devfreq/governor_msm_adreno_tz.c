@@ -519,6 +519,37 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 	return result;
 }
 
+int msm_adreno_devfreq_init_tz(struct devfreq *devfreq)
+{
+	struct devfreq_msm_adreno_tz_data *priv;
+	unsigned int tz_pwrlevels[MSM_ADRENO_MAX_PWRLEVELS + 1];
+	int i, out = 1, ret;
+	unsigned int version;
+
+	if (!devfreq)
+		return -EINVAL;
+
+	priv = devfreq->data;
+
+	if (devfreq->profile->max_state < MSM_ADRENO_MAX_PWRLEVELS) {
+		for (i = 0; i < devfreq->profile->max_state; i++)
+			tz_pwrlevels[out++] = devfreq->profile->freq_table[i];
+		tz_pwrlevels[0] = i;
+	} else {
+		pr_err(TAG "tz_pwrlevels[] is too short\n");
+		return -EINVAL;
+	}
+
+	ret = tz_init(priv, tz_pwrlevels, sizeof(tz_pwrlevels), &version,
+				sizeof(version));
+	if (ret != 0 || version > MAX_TZ_VERSION) {
+		pr_err(TAG "tz_init failed\n");
+		return ret ? ret : -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_adreno_devfreq_init_tz);
 
 static struct devfreq_governor msm_adreno_tz = {
 	.name = "msm-adreno-tz",

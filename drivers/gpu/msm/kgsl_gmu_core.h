@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +134,7 @@ struct gmu_core_ops {
 	bool (*regulator_isenabled)(struct kgsl_device *device);
 	int (*suspend)(struct kgsl_device *device);
 	int (*acd_set)(struct kgsl_device *device, unsigned int val);
+	bool (*is_initialized)(struct kgsl_device *device);
 };
 
 struct gmu_dev_ops {
@@ -159,6 +160,7 @@ struct gmu_dev_ops {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct adreno_device *adreno_dev);
+	bool (*is_initialized)(struct adreno_device *adreno_dev);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
@@ -212,4 +214,5 @@ void gmu_core_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 const char *gmu_core_oob_type_str(enum oob_request req);
+bool gmu_core_is_initialized(struct kgsl_device *device);
 #endif /* __KGSL_GMU_CORE_H */
