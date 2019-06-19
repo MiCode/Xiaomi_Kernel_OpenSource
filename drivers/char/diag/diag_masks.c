@@ -1683,7 +1683,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 	int rsp_header_len = 0;
 	uint32_t mask_size = 0, equip_id;
 	struct diag_log_mask_t *log_item = NULL;
-	struct diag_log_config_req_t *req;
+	struct diag_log_config_get_req_t *req;
 	struct diag_log_config_rsp_t rsp;
 	struct diag_log_config_rsp_sub_t *req_sub;
 	struct diag_log_config_rsp_sub_t rsp_sub;
@@ -1696,7 +1696,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 
 	mask_info = (!info) ? &log_mask : info->log_mask;
 	if (!src_buf || !dest_buf || dest_len <= 0 || !mask_info ||
-		src_len < sizeof(struct diag_log_config_req_t)) {
+		src_len < sizeof(struct diag_log_config_get_req_t)) {
 		pr_err("diag: Invalid input in %s, src_buf: %pK, src_len: %d, dest_buf: %pK, dest_len: %d, mask_info: %pK\n",
 		       __func__, src_buf, src_len, dest_buf, dest_len,
 		       mask_info);
@@ -1710,9 +1710,9 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 
 	if (!cmd_ver) {
 		log_item = (struct diag_log_mask_t *)mask_info->ptr;
-		if (src_len < sizeof(struct diag_log_config_req_t))
+		if (src_len < sizeof(struct diag_log_config_get_req_t))
 			goto err;
-		req = (struct diag_log_config_req_t *)src_buf;
+		req = (struct diag_log_config_get_req_t *)src_buf;
 		rsp.cmd_code = DIAG_CMD_LOG_CONFIG;
 		rsp.padding[0] = 0;
 		rsp.padding[1] = 0;
