@@ -847,11 +847,11 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 					(void *)size);
 
 			ctx->state = MTK_STATE_INIT;
-			if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-				vdec_if_set_param(ctx, SET_PARAM_FB_NUM_PLANES,
-					(void *) &q_data->fmt->num_planes);
 		}
 	}
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		vdec_if_set_param(ctx, SET_PARAM_FB_NUM_PLANES,
+			(void *) &q_data->fmt->num_planes);
 
 	/* Tolerate both OUTPUT and CAPTURE queues for compatibility reasons */
 	if (dec_pdata->uses_stateless_api) {

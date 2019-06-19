@@ -436,7 +436,7 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	mtk_v4l2_debug(0, "decoder registered as /dev/video%d",
 		vfd_dec->num);
 
-	mtk_prepare_vdec_dvfs();
+	mtk_prepare_vdec_dvfs(dev);
 	mtk_prepare_vdec_emi_bw();
 	pm_notifier(mtk_vcodec_dec_suspend_notifier, 0);
 	dev->is_codec_suspending = 0;

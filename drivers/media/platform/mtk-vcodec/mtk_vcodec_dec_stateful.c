@@ -244,8 +244,8 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 		"[%d] length=%zu size=%zu queue idx=%d",
 		ctx->id, free_bs_buffer->length, free_bs_buffer->size,
 		srcbuf->vb.vb2_buf.index);
-
-	v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+	if (srcbuf->vb.vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
 	return &srcbuf->vb.vb2_buf;
 }
 
@@ -582,7 +582,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		 */
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_DONE);
-		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
+		clean_free_bs_buffer(ctx,  NULL);
 	} else {    /* res_chg == true || need_more_output == true*/
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		mtk_v4l2_debug(1, "Need more capture buffer  r:%d n:%d\n",

@@ -11,6 +11,7 @@ mtk-vcodec-dec-y := mtk_vcodec_dec_drv.o \
 		mtk_vcodec_dec_stateless.o \
 		mtk_vcodec_dec_pm.o \
 		mtk_vcodec_fw.o \
+		vcodec_dvfs.o \
 
 ifdef CONFIG_VIDEO_MEDIATEK_VCU
 	mtk-vcodec-dec-y += vdec/vdec_common_if.o \

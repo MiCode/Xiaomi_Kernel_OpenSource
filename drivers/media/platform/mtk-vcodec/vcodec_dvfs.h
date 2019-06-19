@@ -50,7 +50,8 @@ int update_hist(struct codec_job *job, struct codec_history **head,
 
 /* Estimate required freq from job queue and previous history */
 int est_freq(void *handle, struct codec_job **job, struct codec_history *head);
-u64 match_freq(int target_mhz, u64 *freq_list, u32 freq_cnt);
+unsigned long match_freq(int target_mhz,
+	unsigned long *freq_list, u32 freq_cnt);
 
 /* Free unused/all history */
 int free_hist(struct codec_history **head, int only_unused);
