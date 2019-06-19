@@ -2782,6 +2782,66 @@
 			};
 		};
 
+		tsif0_signals_active: tsif0_signals_active {
+			tsif1_clk {
+				pins = "gpio88"; /* TSIF0 CLK */
+				function = "tsif1_clk";
+			};
+			tsif1_en {
+				pins = "gpio89"; /* TSIF0 Enable */
+				function = "tsif1_en";
+			};
+			tsif1_data {
+				pins = "gpio90"; /* TSIF0 DATA */
+				function = "tsif1_data";
+			};
+			signals_cfg {
+				pins = "gpio88", "gpio89", "gpio90";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		/* sync signal is only used if configured to mode-2 */
+		tsif0_sync_active: tsif0_sync_active {
+			tsif1_sync {
+				pins = "gpio91";	/* TSIF0 SYNC */
+				function = "tsif1_sync";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		tsif1_signals_active: tsif1_signals_active {
+			tsif2_clk {
+				pins = "gpio92"; /* TSIF1 CLK */
+				function = "tsif2_clk";
+			};
+			tsif2_en {
+				pins = "gpio93"; /* TSIF1 Enable */
+				function = "tsif2_en";
+			};
+			tsif2_data {
+				pins = "gpio94"; /* TSIF1 DATA */
+				function = "tsif2_data";
+			};
+			signals_cfg {
+				pins = "gpio92", "gpio93", "gpio94";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		/* sync signal is only used if configured to mode-2 */
+		tsif1_sync_active: tsif1_sync_active {
+			tsif2_sync {
+				pins = "gpio95";	/* TSIF1 SYNC */
+				function = "tsif2_sync";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
 		/* SE0 pin mappings */
 		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
 			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
