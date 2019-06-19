@@ -367,6 +367,9 @@
 	qcom,mdss-dsi-panel-status-value = <0x9d 0x9d 0x9d 0x9d>;
 	qcom,mdss-dsi-panel-on-check-value = <0x9d 0x9d 0x9d 0x9d>;
 	qcom,mdss-dsi-panel-status-read-length = <4>;
+	qcom,dsi-dyn-clk-enable;
+	qcom,dsi-dyn-clk-list =
+		<924736320 909324048 913177120 917030184 920883256 928589392>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings =

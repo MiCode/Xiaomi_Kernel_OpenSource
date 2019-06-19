@@ -645,7 +645,7 @@
 		};
 
 		dfps_data_memory: dfps_data_region@9e300000 {
-			reg = <0x0 0x9e300000 0x0 0x0100000>;
+			reg = <0x0 0x9cf00000 0x0 0x0100000>;
 			label = "dfps_data_region";
 		};
 
