@@ -201,6 +201,7 @@ static struct cam_vfe_top_ver2_hw_info vfe175_top_hw_info = {
 			NULL,
 			},
 		},
+	.num_mux = 5,
 	.mux_type = {
 		CAM_VFE_CAMIF_VER_2_0,
 		CAM_VFE_RDI_VER_1_0,

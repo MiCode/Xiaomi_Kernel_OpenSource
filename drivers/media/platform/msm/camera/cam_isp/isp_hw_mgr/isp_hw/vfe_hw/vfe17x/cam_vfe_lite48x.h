@@ -199,6 +199,7 @@ static struct cam_vfe_top_ver3_hw_info vfe48x_top_hw_info = {
 	.rdi_hw_info[1] = &vfe48x_rdi_hw_info[1],
 	.rdi_hw_info[2] = &vfe48x_rdi_hw_info[2],
 	.rdi_hw_info[3] = &vfe48x_rdi_hw_info[3],
+	.num_mux = 4,
 	.mux_type = {
 		CAM_VFE_RDI_VER_1_0,
 		CAM_VFE_RDI_VER_1_0,
