@@ -2530,17 +2530,6 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		if (orig_state != IPA_USB_SUSPENDED) {
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
-
-			/* Stop UL MHIP channel */
-			if (ipa3_is_mhip_offload_enabled()) {
-				result = ipa_mpm_mhip_ul_start_stop_data(
-						MPM_MHIP_STOP, teth_prot);
-				if (result) {
-					IPA_USB_ERR("fail UL MHIP Data stop\n");
-					goto bad_params;
-				}
-			}
-
 			/* Stop UL channel */
 			result = ipa3_xdci_disconnect(ul_clnt_hdl,
 				true,
@@ -2745,21 +2734,12 @@ static int ipa3_usb_suspend_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-		/* Stop UL MHIP channel - enable HOLB */
-		if (ipa3_is_mhip_offload_enabled()) {
-			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
-								teth_prot);
-			if (result) {
-				IPA_USB_ERR("fail UL MHIP Data stop\n");
-				goto start_dl;
-			}
-		}
 		/* Stop UL channel */
 		result = ipa3_xdci_disconnect(ul_clnt_hdl, true,
 			ipa3_usb_ctx->qmi_req_id);
 		if (result) {
 			IPA_USB_ERR("failed disconnect UL channel\n");
-			goto start_mhip;
+			goto start_dl;
 		}
 		ipa3_usb_ctx->qmi_req_id++;
 	}
@@ -2803,10 +2783,6 @@ enable_mhip:
 start_ul:
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype))
 		(void)ipa3_xdci_connect(ul_clnt_hdl);
-start_mhip:
-	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
-		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
-							teth_prot);
 start_dl:
 	(void)ipa3_xdci_connect(dl_clnt_hdl);
 fail_exit:
@@ -2969,19 +2945,10 @@ static int ipa3_usb_resume_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 	/* Start MHIP channel */
 	if (ipa3_is_mhip_offload_enabled()) {
-		if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
-			/* Start UL MHIP channel */
-			result = ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_START,
-								teth_prot);
-			if (result) {
-				IPA_USB_ERR("fail UL MHIP Data Start\n");
-				goto stop_dl;
-			}
-		}
 		result = ipa_mpm_mhip_xdci_pipe_enable(teth_prot);
 		if (result) {
 			IPA_USB_ERR("failed to enable MHIP pipe\n");
-			goto stop_mhip_data;
+			goto stop_dl;
 		}
 	}
 	/* Change state to CONNECTED */
@@ -2995,11 +2962,6 @@ static int ipa3_usb_resume_no_remote_wakeup(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 stop_mhip:
 	if (ipa3_is_mhip_offload_enabled())
 		(void)ipa_mpm_mhip_xdci_pipe_disable(teth_prot);
-stop_mhip_data:
-	/* Stop UL MHIP data */
-	if (ipa3_is_mhip_offload_enabled() && !IPA3_USB_IS_TTYPE_DPL(ttype))
-		(void)ipa_mpm_mhip_ul_start_stop_data(MPM_MHIP_STOP,
-							teth_prot);
 stop_dl:
 	(void)ipa3_xdci_disconnect(dl_clnt_hdl, false, -1);
 stop_ul:
