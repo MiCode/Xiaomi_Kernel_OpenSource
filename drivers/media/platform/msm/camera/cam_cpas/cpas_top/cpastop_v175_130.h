@@ -387,7 +387,7 @@ static struct cam_camnoc_specific
 			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.offset = 0x3248, /* SPECIFIC_IFE1_SAFELUT_LOW */
-			.value = 0xF,
+			.value = 0xFFFFFFFF,
 		},
 		.ubwc_ctl = {
 			/*
