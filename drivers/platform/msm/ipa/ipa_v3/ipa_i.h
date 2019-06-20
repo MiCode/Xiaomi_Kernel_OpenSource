@@ -1904,6 +1904,7 @@ struct ipa3_context {
 	bool fw_loaded;
 	struct IpaHwOffloadStatsAllocCmdData_t
 		gsi_info[IPA_HW_PROTOCOL_MAX];
+	bool ipa_mhi_proxy;
 };
 
 struct ipa3_plat_drv_res {
@@ -1949,6 +1950,7 @@ struct ipa3_plat_drv_res {
 	bool do_non_tn_collection_on_crash;
 	bool ipa_endp_delay_wa;
 	u32 secure_debug_check_action;
+	bool ipa_mhi_proxy;
 };
 
 /**
