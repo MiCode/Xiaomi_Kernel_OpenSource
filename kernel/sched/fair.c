@@ -7669,6 +7669,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	if (static_branch_unlikely(&sched_energy_present)) {
 		rcu_read_lock();
 		new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync);
+		if (unlikely(new_cpu < 0))
+			new_cpu = prev_cpu;
 		rcu_read_unlock();
 		return new_cpu;
 	}
