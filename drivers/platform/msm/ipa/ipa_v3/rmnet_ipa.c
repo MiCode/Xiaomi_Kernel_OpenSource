@@ -3773,13 +3773,13 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	con_stats->client[index].num_ipv6_bytes);
 
 	/* update the wlan UL stats */
-	data->ipv4_tx_packets =
+	data->ipv4_tx_packets +=
 		con_stats->client[index].num_ipv4_pkts;
-	data->ipv6_tx_packets =
+	data->ipv6_tx_packets +=
 		con_stats->client[index].num_ipv6_pkts;
-	data->ipv4_tx_bytes =
+	data->ipv4_tx_bytes +=
 		con_stats->client[index].num_ipv4_bytes;
-	data->ipv6_tx_bytes =
+	data->ipv6_tx_bytes +=
 		con_stats->client[index].num_ipv6_bytes;
 
 	/* wlan UL stats on cv2 */
