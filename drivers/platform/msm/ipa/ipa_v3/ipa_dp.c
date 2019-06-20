@@ -3473,16 +3473,12 @@ static void ipa3_set_aggr_limit(struct ipa_sys_connect_params *in,
 	sys->ep->status.status_en = false;
 	sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(adjusted_sz);
 
-	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
-		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
-			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(sys->rx_buff_sz) :
-			IPA_ADJUST_AGGR_BYTE_HARD_LIMIT(*aggr_byte_limit);
+	if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		in->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
-	} else {
-		*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
-			IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
-			IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
-	}
+
+	*aggr_byte_limit = sys->rx_buff_sz < *aggr_byte_limit ?
+		IPA_ADJUST_AGGR_BYTE_LIMIT(sys->rx_buff_sz) :
+		IPA_ADJUST_AGGR_BYTE_LIMIT(*aggr_byte_limit);
 
 	IPADBG("set aggr_limit %lu\n", (unsigned long int) *aggr_byte_limit);
 }
