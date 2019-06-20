@@ -5,38 +5,20 @@ config DRM_MSM
 	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
 	depends on OF && COMMON_CLK
 	depends on MMU
+	select QCOM_MDT_LOADER if ARCH_QCOM
+	select REGULATOR
 	select DRM_KMS_HELPER
 	select DRM_PANEL
 	select SHMEM
+	select TMPFS
+	select QCOM_SCM
 	select WANT_DEV_COREDUMP
 	select SND_SOC_HDMI_CODEC if SND_SOC
 	select SYNC_FILE
-	select MSM_EXT_DISPLAY
 	select PM_OPP
 	default y
 	help
 	  DRM/KMS driver for MSM/snapdragon.
-
-config DRM_MSM_SDE
-	bool "SDE in Display Driver"
-	depends on DRM_MSM
-	default y
-	help
-	  Enable this option to support display driver
-	  compilation. Choosing this option will compile
-	  SDE folder specifically. Display Port and
-	  DSI-Staging compilation are also dependent on
-	  this option.
-
-config DRM_MSM_DP
-	bool "Enable Display Port"
-	depends on DRM_MSM_SDE && USB_PD
-	default n
-	help
-	  This option enables compilation of Display Port
-	  (DP) folders. In order to compile Display Port
-	  files, DRM_MSM_SDE option also needs to be
-	  enabled.
 
 config DRM_MSM_REGISTER_LOGGING
 	bool "MSM DRM register logging"
@@ -63,54 +45,19 @@ config DRM_MSM_GPU_SUDO
 config DRM_MSM_HDMI_HDCP
 	bool "Enable HDMI HDCP support in MSM DRM driver"
 	depends on DRM_MSM && QCOM_SCM
-	default n
+	default y
 	help
-	  Compile in support for logging register reads/writes ina  format
-	  that can be parsed by envy tools demsm tool.  If enabled, register
-	  logging can be switched on via msm.reglog=y module param.
-
-config DRM_MSM_HDMI
-	bool "Enable HDMI support in MSM DRM driver"
-	depends on DRM_MSM
-	depends on COMMON_CLK
-	default n
-	help
-	  Compile in support for HDMI driver in msm drm
-	  driver. HDMI external display support is enabled
-	  through this config option. It can be primary or
-	  secondary display on device.
+	  Choose this option to enable HDCP state machine
 
 config DRM_MSM_DSI
 	bool "Enable DSI support in MSM DRM driver"
 	depends on DRM_MSM
 	select DRM_PANEL
 	select DRM_MIPI_DSI
-	default n
+	default y
 	help
 	  Choose this option if you have a need for MIPI DSI connector
 	  support.
-
-config DRM_MSM_DSI_STAGING
-	bool "Enable new DSI driver support in MSM DRM driver"
-	depends on DRM_MSM && DRM_MSM_SDE
-	select DRM_PANEL
-	select DRM_MIPI_DSI
-	default y
-	help
-	  Choose this option if you need MIPI DSI connector support on MSM
-	  which conforms to DRM. MIPI stands for Mobile Industry Processor
-	  Interface and DSI stands for Display Serial Interface which powers
-	  the primary display of your mobile device.
-
-config DSI_PARSER
-	bool "Enable DSI panel configuration parser"
-	depends on DYNAMIC_DEBUG && DRM_MSM_DSI_STAGING
-	default y
-	help
-	  Choose this option if you need text parser for a DSI panel
-	  configurations which can parse a given text file and get the
-	  panel configurations. Also, this module provides a set of APIs
-	  which can be used to get the parsed data.
 
 config DRM_MSM_DSI_PLL
 	bool "Enable DSI PLL driver in MSM DRM"
@@ -119,16 +66,6 @@ config DRM_MSM_DSI_PLL
 	help
 	  Choose this option to enable DSI PLL driver which provides DSI
 	  source clocks under common clock framework.
-
-config DRM_SDE_WB
-	bool "Enable Writeback support in SDE DRM"
-	depends on DRM_MSM && DRM_MSM_SDE
-	default y
-	help
-	  Choose this option for writeback connector support.
-	  This option enables a virtual writeback connector where
-	  the output image is written back to memory in the format
-	  selected by the connector's mode and property settings.
 
 config DRM_MSM_DSI_28NM_PHY
 	bool "Enable DSI 28nm PHY driver in MSM DRM"
@@ -165,54 +102,3 @@ config DRM_MSM_DSI_10NM_PHY
 	default y
 	help
 	  Choose this option if DSI PHY on SDM845 is used on the platform.
-
-config DRM_MSM_MDP5
-	tristate "MSM MDP5 DRM driver"
-	depends on DRM_MSM
-	default n
-	help
-	  Choose this option if MSM MDP5 revision support is
-	  needed in DRM/KMS. This is not required if sde/mdp4
-	  only target enabled. MDP5 supports DSI and HDMI
-	  displays.
-
-config DRM_MSM_MDP4
-	tristate "MSM MDP4 DRM driver"
-	depends on DRM_MSM
-	default n
-	help
-	  Choose this option if MSM MDP4 revision support is needed in DRM/KMS.
-	  MSM MDP4 DRM driver should be disabled for other MDP revisions to
-	  avoid possible conflicts.  Only select this option if the target
-	  MSM platform is MDP4 based.
-
-config DRM_MSM_HDCP
-	tristate "HDCP for MSM DRM"
-	depends on DRM_MSM
-	default n
-	help
-	  Choose this option if High-bandwidth Digital Content Protection (HDCP)
-	  support is needed in the MSM DRM/KMS driver.  Enabling this config
-	  will allow HDCP encrypted (copy protected) media to be displayed.
-	  This should only be enabled if required for platforms supporting HDCP
-	  over the desired interface.
-
-config DRM_SDE_WB
-	bool "Enable Writeback support in SDE DRM"
-	depends on DRM_MSM && DRM_MSM_SDE
-	default y
-	help
-	  Choose this option for writeback connector support.
-	  This option enables a virtual writeback connector where
-	  the output image is written back to memory in the format
-	  selected by the connector's mode and property settings.
-
-config DRM_SDE_RSC
-	bool "Enable sde resource state coordinator(rsc) driver"
-	depends on DRM_MSM && DRM_MSM_SDE
-	help
-	  The SDE DRM RSC provides display Resource State Coordinator support
-	  to vote the ab/ib bandwidth for primary display. Each rsc client
-	  can vote their active state. Any active request from any client
-	  avoids the display core power collapse. A client can also register
-	  for display core power collapse events on rsc.
