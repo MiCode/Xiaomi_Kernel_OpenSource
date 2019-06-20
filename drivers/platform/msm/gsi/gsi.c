@@ -3339,8 +3339,8 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 	 * idx is not completed yet and it is getting reused by a new TRE.
 	 */
 	ctx->stats.userdata_in_use++;
+	end = ctx->ring.max_num_elem + 1;
 	for (i = 0; i < GSI_VEID_MAX; i++) {
-		end = ctx->ring.max_num_elem + 1;
 		if (!ctx->user_data[end + i].valid) {
 			ctx->user_data[end + i].valid = true;
 			return end + i;
@@ -3349,7 +3349,7 @@ int __gsi_get_gci_cookie(struct gsi_chan_ctx *ctx, uint16_t idx)
 
 	/* TODO: Increase escape buffer size if we hit this */
 	GSIERR("user_data is full\n");
-	return -EPERM;
+	return 0xFFFF;
 }
 
 int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
@@ -3380,7 +3380,7 @@ int __gsi_populate_gci_tre(struct gsi_chan_ctx *ctx,
 	gci_tre.buf_len = xfer->len;
 	gci_tre.re_type = GSI_RE_COAL;
 	gci_tre.cookie = __gsi_get_gci_cookie(ctx, idx);
-	if (gci_tre.cookie < 0)
+	if (gci_tre.cookie > (ctx->ring.max_num_elem + GSI_VEID_MAX))
 		return -EPERM;
 
 	/* write the TRE to ring */
