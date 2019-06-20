@@ -615,6 +615,46 @@ void reg_dmav1_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg)
 		GAMUT_SCALE_OFF_LEN);
 }
 
+void reg_dmav1_setup_dspp_3d_gamutv42(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_3d_gamut *payload = NULL;
+	uint32_t i, j, tmp;
+	uint32_t scale_off[GAMUT_3D_SCALE_OFF_TBL_NUM][GAMUT_3D_SCALE_OFF_SZ];
+	int rc;
+
+	rc = reg_dma_dspp_check(ctx, cfg, GAMUT);
+	if (rc)
+		return;
+	if (hw_cfg->payload && hw_cfg->len != sizeof(struct drm_msm_3d_gamut)) {
+		DRM_ERROR("invalid payload len actual %d expected %zd",
+				hw_cfg->len, sizeof(struct drm_msm_3d_gamut));
+		return;
+	}
+
+	payload = hw_cfg->payload;
+	if (payload && (payload->flags & GAMUT_3D_MAP_EN)) {
+		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
+			for (j = 0; j < GAMUT_3D_SCALE_OFF_SZ; j++) {
+				scale_off[i][j] = payload->scale_off[i][j];
+				tmp = payload->scale_off[i][j] & 0x1ffff000;
+				payload->scale_off[i][j] &= 0xfff;
+				tmp = tmp << 3;
+				payload->scale_off[i][j] =
+					tmp | payload->scale_off[i][j];
+			}
+		}
+	}
+	reg_dmav1_setup_dspp_3d_gamutv4_common(ctx, cfg, GAMUT_SCALE_OFF_LEN,
+		GAMUT_SCALE_OFF_LEN);
+	if (payload && (payload->flags & GAMUT_3D_MAP_EN)) {
+		for (i = 0; i < GAMUT_3D_SCALE_OFF_TBL_NUM; i++) {
+			for (j = 0; j < GAMUT_3D_SCALE_OFF_SZ; j++)
+				payload->scale_off[i][j] = scale_off[i][j];
+		}
+	}
+}
+
 void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct drm_msm_pgc_lut *lut_cfg;
