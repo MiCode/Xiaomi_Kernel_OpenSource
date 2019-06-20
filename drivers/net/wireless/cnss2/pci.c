@@ -422,8 +422,10 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		cnss_pr_err("Failed to %s PCI link with default option, err = %d\n",
 			    link_up ? "resume" : "suspend", ret);
 
-	if ((link_up || (!link_up && ret)) && pci_priv->drv_connected_last)
-		cnss_set_pci_link_status(pci_priv, PCI_DEF);
+	if (pci_priv->drv_connected_last) {
+		if ((link_up && !ret) || (!link_up && ret))
+			cnss_set_pci_link_status(pci_priv, PCI_DEF);
+	}
 
 	return ret;
 }
