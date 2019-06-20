@@ -146,7 +146,7 @@
 
 	};
 
-	qcom,hab {
+	hab: qcom,hab {
 		compatible = "qcom,hab";
 		vmid = <2>;
 
