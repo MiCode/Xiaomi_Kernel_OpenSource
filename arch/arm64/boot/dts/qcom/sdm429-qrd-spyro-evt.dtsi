@@ -15,6 +15,32 @@
 #include "sdm429w-pm660.dtsi"
 #include "sdm429w-camera-sensor-spyro.dtsi"
 
+&gpio_key_active {
+	mux {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio91", "gpio127", "gpio128", "gpio35", "gpio126";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
 &cdc_pdm_lines_act {
 	mux {
 		pins = "gpio68", "gpio73", "gpio74";
@@ -44,6 +70,35 @@
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
 };
 
+&i2c_5 {
+	status = "disabled";
+};
+
+&vol_up {
+	gpios = <&tlmm 35 0x1>;
+};
+
+&gpio_keys {
+	function_1: function_1 {
+		label = "function_1";
+		gpios = <&tlmm 127 0x1>;
+		linux,input-type = <1>;
+		linux,code = <116>;
+		debounce-interval = <15>;
+		linux,can-disable;
+		gpio-key,wakeup;
+	};
+
+	function_2: function_2 {
+		label = "function_2";
+		gpios = <&tlmm 126 0x1>;
+		linux,input-type = <1>;
+		linux,code = <117>;
+		debounce-interval = <15>;
+		linux,can-disable;
+		gpio-key,wakeup;
+	};
+};
 
 &soc {
 	/delete-node/ qcom,spm@b1d2000;

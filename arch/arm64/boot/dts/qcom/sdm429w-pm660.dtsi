@@ -177,7 +177,7 @@
 	};
 
 	qcom,lpass@c200000 {
-		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm660_s2_level>;
 	};
 
 	qcom,pronto@a21b000 {
