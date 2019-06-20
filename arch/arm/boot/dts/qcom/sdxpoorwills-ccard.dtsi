@@ -11,6 +11,7 @@
  */
 
 #include "sdxpoorwills-ttp.dtsi"
+#include "sdxpoorwills-v2.dtsi"
 
 &blsp1_uart2b_hs {
 	status = "okay";
