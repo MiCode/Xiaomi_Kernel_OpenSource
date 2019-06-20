@@ -264,7 +264,7 @@ char sram_printk_buf[256];
 
 void aee_sram_printk(const char *fmt, ...)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	unsigned long long t;
 	unsigned long nanosec_rem;
 	va_list args;
@@ -281,7 +281,7 @@ void aee_sram_printk(const char *fmt, ...)
 	r = vscnprintf(sram_printk_buf + tlen, sizeof(sram_printk_buf) - tlen,
 			fmt, args);
 
-	ram_console_write(NULL, sram_printk_buf, r + tlen);
+	mboot_params_write(NULL, sram_printk_buf, r + tlen);
 	preempt_enable();
 	va_end(args);
 #endif

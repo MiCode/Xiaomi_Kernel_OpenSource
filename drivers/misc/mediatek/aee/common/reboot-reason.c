@@ -17,8 +17,8 @@
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
 #endif
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include <mt-plat/mboot_params.h>
 #endif
 #include <mt-plat/aee.h>
 #include "aee-common.h"
@@ -52,7 +52,7 @@ char boot_reason[][REBOOT_REASON_LEN] = { "keypad", "usb_chg", "rtc", "wdt",
 
 int __weak aee_rr_reboot_reason_show(struct seq_file *m, void *v)
 {
-	seq_puts(m, "mtk_ram_console not enabled.");
+	seq_puts(m, "mboot_params not enabled.");
 	return 0;
 }
 
@@ -103,7 +103,7 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 					br_ptr_e - br_ptr - 23);
 			boot_reason[br_ptr_e - br_ptr - 23] = '\0';
 		}
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 		if (aee_rr_last_fiq_step())
 			strncpy(boot_reason, "kpanic", 7);
 #endif

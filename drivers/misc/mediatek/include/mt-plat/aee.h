@@ -106,7 +106,7 @@ struct aee_user_thread_maps {
 extern int printk_disable_uart;
 #endif
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_hang_detect_timeout_count(unsigned int timeout);
 #endif
 
@@ -172,14 +172,13 @@ struct aee_kernel_api {
 };
 
 void aee_sram_printk(const char *fmt, ...);
-int aee_nested_printf(const char *fmt, ...);
 void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp);
 struct aee_oops *aee_oops_create(enum AE_DEFECT_ATTR attr,
 		enum AE_EXP_CLASS clazz, const char *module);
 void aee_oops_set_backtrace(struct aee_oops *oops, const char *backtrace);
 void aee_oops_set_process_path(struct aee_oops *oops, const char *process_path);
 void aee_oops_free(struct aee_oops *oops);
-#define AEE_MTK_CPU_NUMS	NR_CPUS
+#define AEE_MTK_CPU_NUMS	16
 /* powerkey press,modules use bits */
 #define AE_WDT_Powerkey_DEVICE_PATH		"/dev/kick_powerkey"
 #define WDT_SETBY_DEFAULT		(0)
@@ -277,29 +276,15 @@ void aed_common_exception_api(const char *assert_type, const int *log, int
 			log_size, const int *phy, int phy_size, const char
 			*detail, const int db_opt);
 
-void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
-			int cpu);
-
 /* QHQ RT Monitor */
 void aee_kernel_RT_Monitor_api(int lParam);
 /* QHQ RT Monitor    end */
 void mt_fiq_printf(const char *fmt, ...);
 void aee_register_api(struct aee_kernel_api *aee_api);
-int aee_in_nested_panic(void);
-void aee_save_excp_regs(struct pt_regs *regs);
-void aee_stop_nested_panic(struct pt_regs *regs);
 void aee_wdt_dump_info(void);
 void aee_wdt_printf(const char *fmt, ...);
 
 void aee_fiq_ipi_cpu_stop(void *arg, void *regs, void *svc_sp);
-
-#if defined(CONFIG_MTK_AEE_DRAM_CONSOLE)
-void aee_dram_console_reserve_memory(void);
-#else
-static inline void aee_dram_console_reserve_memory(void)
-{
-}
-#endif
 
 #ifdef CONFIG_MACH_MT6763
 extern void msdc_hang_detect_dump(u32 id);
@@ -307,6 +292,4 @@ extern void mtk_wdt_mode_config(bool dual_mode_en,
 		bool irq, bool ext_en, bool ext_pol, bool wdt_en);
 #endif
 
-/* To store latest exception, in case of stack corruption */
-extern void *aee_excp_regs;
 #endif				/* __AEE_H__ */

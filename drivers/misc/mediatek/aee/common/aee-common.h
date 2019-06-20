@@ -7,8 +7,8 @@
 #define AEE_COMMON_H
 #include <linux/console.h>
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
-extern void ram_console_write(struct console *console, const char *s,
+#ifdef CONFIG_MTK_AEE_IPANIC
+extern void mboot_params_write(struct console *console, const char *s,
 				unsigned int count);
 #endif
 

@@ -28,4 +28,5 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 
 obj-y	+= common/
 obj-y	+= aed/
-# obj-y	+= mrdump/
+obj-y	+= mboot_params/
+obj-y	+= mrdump/

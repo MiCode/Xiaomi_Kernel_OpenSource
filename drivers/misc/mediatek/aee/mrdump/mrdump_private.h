@@ -11,8 +11,8 @@
 #include <asm/smp_plat.h>
 #include <asm/cputype.h>
 #include <asm-generic/sections.h>
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include <mt-plat/mboot_params.h>
 #endif
 
 extern int kernel_addr_valid(unsigned long addr);
@@ -65,7 +65,7 @@ static inline void show_kaslr(void)
 	pr_notice("Kernel Offset: 0x%llx from 0x%lx\n",
 			kaslr_offset, KIMAGE_VADDR);
 	pr_notice("PHYS_OFFSET: 0x%llx\n", PHYS_OFFSET);
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_kaslr_offset(kaslr_offset);
 #endif
 }
@@ -73,7 +73,7 @@ static inline void show_kaslr(void)
 static inline void show_kaslr(void)
 {
 	pr_notice("Kernel Offset: disabled\n");
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_kaslr_offset(0);
 #endif
 }

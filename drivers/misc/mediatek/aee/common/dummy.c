@@ -138,25 +138,6 @@ __weak void aee_disable_api(void)
 
 #endif
 
-#ifndef CONFIG_MTK_AEE_IPANIC
-
-void *aee_excp_regs;
-
-__weak void ipanic_recursive_ke(struct pt_regs *regs,
-		struct pt_regs *excp_regs, int cpu)
-{
-}
-
-__weak void aee_save_excp_regs(struct pt_regs *regs)
-{
-}
-
-__weak void aee_stop_nested_panic(struct pt_regs *regs)
-{
-}
-
-#endif
-
 __weak int mtk_rgu_status_is_sysrst(void)
 {
 	return 0;
