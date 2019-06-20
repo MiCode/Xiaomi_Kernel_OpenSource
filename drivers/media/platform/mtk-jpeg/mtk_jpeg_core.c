@@ -1193,7 +1193,7 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
 	int ret;
 
-	ret = pm_runtime_get_sync(jpeg->larb);
+	ret = pm_runtime_get_sync(jpeg->dev);
 	if (ret < 0)
 		v4l2_err(&jpeg->v4l2_dev, "Failed to on pm_runtime_get_sync (%d)\n",
 			ret);
@@ -1206,7 +1206,7 @@ static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 {
 	int ret;
 
-	ret = pm_runtime_get_sync(jpeg->larb);
+	ret = pm_runtime_get_sync(jpeg->dev);
 	if (ret < 0)
 		v4l2_err(&jpeg->v4l2_dev, "Failed to off pm_runtime_get_sync (%d)\n",
 			ret);
@@ -1414,19 +1414,7 @@ static const struct v4l2_file_operations mtk_jpeg_fops = {
 
 static int mtk_jpeg_clk_init(struct mtk_jpeg_dev *jpeg)
 {
-	struct device_node *node;
-	struct platform_device *pdev;
 
-	node = of_parse_phandle(jpeg->dev->of_node, "mediatek,larb", 0);
-	if (!node)
-		return -EINVAL;
-	pdev = of_find_device_by_node(node);
-	if (WARN_ON(!pdev)) {
-		of_node_put(node);
-		return -EINVAL;
-	}
-	of_node_put(node);
-	jpeg->larb = &pdev->dev;
 	if (jpeg->mode == MTK_JPEG_ENC) {
 		jpeg->clk_jpeg = devm_clk_get(jpeg->dev, "jpgenc");
 		return PTR_ERR_OR_ZERO(jpeg->clk_jpeg);

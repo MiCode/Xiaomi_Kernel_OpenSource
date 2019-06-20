@@ -108,7 +108,6 @@ struct mtk_jpeg_dev {
 	void __iomem		*reg_base;
 	struct clk		*clk_jpeg;
 	struct clk		*clk_jpeg_smi;
-	struct device		*larb;
 	enum mtk_jpeg_mode  mode;
 };
 
