@@ -174,8 +174,7 @@ static struct mtk_video_fmt *mtk_venc_find_format(struct v4l2_format *f,
 	unsigned int k;
 
 	mtk_v4l2_debug(3, "fourcc %d", f->fmt.pix_mp.pixelformat);
-	for (k = 0; k < MTK_MAX_ENC_CODECS_SUPPORT &&
-	     mtk_video_formats[k].fourcc != 0; k++) {
+	for (k = 0; k < MTK_MAX_ENC_CODECS_SUPPORT; k++) {
 		fmt = &mtk_video_formats[k];
 		if (fmt->fourcc == f->fmt.pix.pixelformat && fmt->type == t)
 			return fmt;
@@ -256,8 +255,11 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_H264_PROFILE val = %d",
 			       ctrl->val);
 		if (!vidioc_venc_check_supported_profile_level(
-				V4L2_PIX_FMT_H264, ctrl->val, 1))
+				V4L2_PIX_FMT_H264, ctrl->val, 1)) {
+			mtk_v4l2_err("ERROR H264_PROFILE check Error! val:%d",
+				ctrl->val);
 			return -EINVAL;
+		}
 		p->profile = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
@@ -280,8 +282,10 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_H264_LEVEL val = %d",
 			       ctrl->val);
 		if (!vidioc_venc_check_supported_profile_level(
-				V4L2_PIX_FMT_H264, ctrl->val, 0))
+				V4L2_PIX_FMT_H264, ctrl->val, 0)) {
+			mtk_v4l2_err("ERROR H264_PROFILE check Error!");
 			return -EINVAL;
+		}
 		p->level = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL:
@@ -1053,14 +1057,15 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 				buf->length, vb, vb->timestamp);
 		} else {
 			mtkbuf->lastframe = NON_EOS;
-			mtk_v4l2_debug(1, "[%d] id=%d getdata FB(%d,%d) vb=%p pts=%llu",
+			mtk_v4l2_debug(1, "[%d] id=%d getdata FB(%d,%d) vb=%p pts=%llu type:%d",
 				ctx->id, buf->index,
 				buf->m.planes[0].bytesused,
-				buf->length, mtkbuf, vb->timestamp);
+				buf->length, mtkbuf, vb->timestamp,
+				buf->type);
 		}
 	} else
-		mtk_v4l2_debug(1, "[%d] id=%d BS (%d) vb=%p",
-				ctx->id, buf->index,
+		mtk_v4l2_debug(1, "[%d] index=%d type:%d BS (%d) vb=%p",
+				ctx->id, buf->index, buf->type,
 				buf->length, mtkbuf);
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {

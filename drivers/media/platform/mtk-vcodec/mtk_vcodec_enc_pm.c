@@ -22,7 +22,6 @@
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 {
-	struct device_node *node;
 	struct platform_device *pdev;
 	struct mtk_vcodec_pm *pm;
 	struct mtk_vcodec_clk *enc_clk;
@@ -70,11 +69,13 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 		}
 	}
 
+	pm_runtime_enable(&pdev->dev);
 	return ret;
 }
 
-void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
+void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *dev)
 {
+	pm_runtime_disable(dev->pm.dev);
 }
 
 
@@ -82,6 +83,10 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
 {
 	struct mtk_vcodec_clk *enc_clk = &pm->venc_clk;
 	int ret, i = 0;
+
+	ret = pm_runtime_get_sync(pm->dev);
+	if (ret)
+		mtk_v4l2_err("pm_runtime_get_sync fail %d", ret);
 
 	for (i = 0; i < enc_clk->clk_num; i++) {
 		ret = clk_prepare_enable(enc_clk->clk_info[i].vcodec_clk);
@@ -92,29 +97,22 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
 		}
 	}
 
-	ret = pm_runtime_get_sync(pm->dev);
-	if (ret) {
-		mtk_v4l2_err("venc pm_runtime_get_sync fail %d", ret);
-		goto larberr;
-	}
 	return;
 clkerr:
 	for (i -= 1; i >= 0; i--)
 		clk_disable_unprepare(enc_clk->clk_info[i].vcodec_clk);
 	return;
-larberr:
-	for (i -= 1; i >= 0; i--)
-		pm_runtime_put_sync(pm->dev);
-	for (i = enc_clk->clk_num - 1; i >= 0; i--)
-		clk_disable_unprepare(enc_clk->clk_info[i].vcodec_clk);
 }
 
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm)
 {
 	struct mtk_vcodec_clk *enc_clk = &pm->venc_clk;
-	int i = 0;
+	int ret, i = 0;
 
-	pm_runtime_put_sync(pm->dev);
+	ret = pm_runtime_put_sync(pm->dev);
+	if (ret)
+		mtk_v4l2_err("pm_runtime_put_sync fail %d", ret);
+
 	for (i = enc_clk->clk_num - 1; i >= 0; i--)
 		clk_disable_unprepare(enc_clk->clk_info[i].vcodec_clk);
 }
