@@ -577,17 +577,21 @@ static void __rmnet_frag_segment_data(struct rmnet_frag_descriptor *coal_desc,
 	struct rmnet_priv *priv = netdev_priv(coal_desc->dev);
 	struct rmnet_frag_descriptor *new_frag;
 	u8 *hdr_start = rmnet_frag_data_ptr(coal_desc);
+	u32 offset;
 
 	new_frag = rmnet_get_frag_descriptor(port);
 	if (!new_frag)
 		return;
 
+	/* Account for header lengths to access the data start */
+	offset = coal_desc->frag.page_offset + coal_desc->ip_len +
+		 coal_desc->trans_len + coal_desc->data_offset;
+
 	/* Header information and most metadata is the same as the original */
 	memcpy(new_frag, coal_desc, sizeof(*coal_desc));
 	INIT_LIST_HEAD(&new_frag->list);
 	INIT_LIST_HEAD(&new_frag->sub_frags);
-	rmnet_frag_fill(new_frag, skb_frag_page(&coal_desc->frag),
-			coal_desc->frag.page_offset + coal_desc->data_offset,
+	rmnet_frag_fill(new_frag, skb_frag_page(&coal_desc->frag), offset,
 			coal_desc->gso_size * coal_desc->gso_segs);
 
 	if (coal_desc->trans_proto == IPPROTO_TCP) {
