@@ -1098,10 +1098,6 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		atomic_set(&ep->sys->repl->pending, 0);
 		ep->sys->repl->capacity = ep->sys->rx_pool_sz + 1;
 
-		/*double for wan_coal since it will be shared between 2 pipes */
-		if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
-			ep->sys->repl->capacity *= 2;
-
 		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
 				sizeof(void *), GFP_KERNEL);
 		if (!ep->sys->repl->cache) {
@@ -1217,6 +1213,7 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	struct ipa3_ep_context *ep;
 	int result = -EINVAL;
 	int ipa_ep_idx, i;
+	char buff[IPA_RESOURCE_NAME_MAX];
 
 	ipa_ep_idx = ipa3_get_ep_mapping(sys_in->client);
 
@@ -1239,13 +1236,34 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 			IPAERR("failed to sys ctx for client %d\n",
 				IPA_CLIENT_APPS_WAN_CONS);
 			result = -ENOMEM;
-			goto fail_wq;
+			goto fail_gen;
 		}
 
 		ep->sys->ep = ep;
-		ep->sys->wq = ep_coalescing->sys->wq;
-		ep->sys->repl_wq = ep_coalescing->sys->repl_wq;
+		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
+				sys_in->client);
+		ep->sys->wq = alloc_workqueue(buff,
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
 
+		if (!ep->sys->wq) {
+			IPAERR("failed to create wq for client %d\n",
+					sys_in->client);
+			result = -EFAULT;
+			goto fail_wq;
+		}
+
+		snprintf(buff, IPA_RESOURCE_NAME_MAX, "iparepwq%d",
+				sys_in->client);
+		ep->sys->repl_wq = alloc_workqueue(buff,
+				WQ_MEM_RECLAIM | WQ_UNBOUND | WQ_SYSFS, 1);
+		if (!ep->sys->repl_wq) {
+			IPAERR("failed to create rep wq for client %d\n",
+					sys_in->client);
+			result = -EFAULT;
+			goto fail_wq2;
+		}
+
+		INIT_LIST_HEAD(&ep->sys->rcycl_list);
 		spin_lock_init(&ep->sys->spinlock);
 		hrtimer_init(&ep->sys->db_timer, CLOCK_MONOTONIC,
 			HRTIMER_MODE_REL);
@@ -1260,7 +1278,7 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 		IPAERR("failed to sys ctx for client %d\n",
 			IPA_CLIENT_APPS_WAN_CONS);
 		result = -ENOMEM;
-		goto fail_wq;
+		goto fail_gen2;
 	}
 
 	ep->valid = 1;
@@ -1274,17 +1292,17 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	if (!ep->skip_ep_cfg) {
 		if (ipa3_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 
 		if (ep->status.status_en) {
 			IPAERR("status should be disabled for this EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 
 		if (ipa3_cfg_ep_status(ipa_ep_idx, &ep->status)) {
 			IPAERR("fail to configure status of EP.\n");
-			goto fail_wq;
+			goto fail_gen2;
 		}
 		IPADBG("ep %d configuration successful\n", ipa_ep_idx);
 	} else {
@@ -1294,10 +1312,33 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	result = ipa_gsi_setup_coal_def_channel(sys_in, ep, ep_coalescing);
 	if (result) {
 		IPAERR("Failed to setup default coal GSI channel\n");
-		goto fail_wq;
+		goto fail_gen2;
 	}
 
-	ep->sys->repl = ep_coalescing->sys->repl;
+	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
+		ep->sys->repl = kzalloc(sizeof(*ep->sys->repl), GFP_KERNEL);
+		if (!ep->sys->repl) {
+			IPAERR("failed to alloc repl for client %d\n",
+					sys_in->client);
+			result = -ENOMEM;
+			goto fail_gen2;
+		}
+		atomic_set(&ep->sys->repl->pending, 0);
+		ep->sys->repl->capacity = ep->sys->rx_pool_sz + 1;
+
+		ep->sys->repl->cache = kcalloc(ep->sys->repl->capacity,
+				sizeof(void *), GFP_KERNEL);
+		if (!ep->sys->repl->cache) {
+			IPAERR("ep=%d fail to alloc repl cache\n", ipa_ep_idx);
+			ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
+			ep->sys->repl->capacity = 0;
+		} else {
+			atomic_set(&ep->sys->repl->head_idx, 0);
+			atomic_set(&ep->sys->repl->tail_idx, 0);
+			ipa3_wq_repl_rx(&ep->sys->repl_work);
+		}
+	}
+
 	ipa3_replenish_rx_cache(ep->sys);
 
 	for (i = 0; i < GSI_VEID_MAX; i++)
@@ -1309,7 +1350,7 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 	if (result) {
 		IPAERR("enable data path failed res=%d ep=%d.\n", result,
 			ipa_ep_idx);
-		goto fail_wq;
+		goto fail_repl;
 	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
@@ -1324,6 +1365,14 @@ static int ipa_setup_coal_def_pipe(struct ipa_sys_connect_params *sys_in,
 /* the rest of the fails are handled by ipa3_setup_sys_pipe */
 fail_start_channel:
 	ipa3_disable_data_path(ipa_ep_idx);
+fail_repl:
+	ep->sys->repl_hdlr = ipa3_replenish_rx_cache;
+	ep->sys->repl->capacity = 0;
+	kfree(ep->sys->repl);
+fail_gen2:
+	destroy_workqueue(ep->sys->repl_wq);
+fail_wq2:
+	destroy_workqueue(ep->sys->wq);
 fail_wq:
 	kfree(ep->sys);
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
@@ -1526,6 +1575,17 @@ static int ipa3_teardown_coal_def_pipe(u32 clnt_hdl)
 		ipa_assert();
 		return result;
 	}
+
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+
+	flush_workqueue(ep->sys->wq);
+
+	if (ep->sys->repl_wq)
+		flush_workqueue(ep->sys->repl_wq);
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		ipa3_cleanup_rx(ep->sys);
+
 	ep->valid = 0;
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
