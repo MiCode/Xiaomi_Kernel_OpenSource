@@ -251,8 +251,8 @@
 	asoc-wsa-codec-prefixes;
 	qcom,audio-routing =
 		"CDC_CONN", "MCLK",
-		"QUAT_MI2S_RX", "DIGIT_REGULATOR",
-		"TX_I2S_CLK", "DIGIT_REGULATOR",
+		"QUAT_MI2S_RX", "DIGITAL_REGULATOR",
+		"TX_I2S_CLK", "DIGITAL_REGULATOR",
 		"DMIC1", "Digital Mic1",
 		"DMIC2", "Digital Mic2";
 	qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
@@ -289,6 +289,10 @@
 		compatible = "qcom,msm-digital-codec";
 		reg = <0xc0f0000 0x0>;
 		qcom,no-analog-codec;
+		cdc-vdd-digital-supply = <&pm660_l9>;
+		qcom,cdc-vdd-digital-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-digital-current = <10000>;
+		qcom,cdc-on-demand-supplies = "cdc-vdd-digital";
 	};
 
 	cdc_dmic_gpios: cdc_dmic_pinctrl {
