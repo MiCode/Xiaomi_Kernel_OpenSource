@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -131,20 +131,20 @@ static void cyttsp5_debug_formated(struct device *dev, u8 *pr_buf,
 	if (report_size > max_print_length) {
 		pr_info("xy_data[0..%d]:\n", report_size);
 		for (i = 0; i < report_size - max_print_length;
-				i += max_print_length) {
+				i += max_print_length)
 			cyttsp5_debug_print(dev, pr_buf, si->xy_data + i,
 					max_print_length, " ");
-		}
+
 		if (report_size - i)
 			cyttsp5_debug_print(dev, pr_buf, si->xy_data + i,
 					report_size - i, " ");
-	} else {
+	} else
 		cyttsp5_debug_print(dev, pr_buf, si->xy_data, report_size,
 				"xy_data");
-	}
+
 
 	/* touches */
-	if (report_id == si->desc.tch_report_id) {
+	if (report_id == si->desc.tch_report_id)
 		for (i = 0; i < num_cur_tch; i++) {
 			scnprintf(data_name, sizeof(data_name) - 1,
 					"touch[%u]", i);
@@ -152,7 +152,6 @@ static void cyttsp5_debug_formated(struct device *dev, u8 *pr_buf,
 				si->xy_data + (i * si->desc.tch_record_size),
 				si->desc.tch_record_size, data_name);
 		}
-	}
 
 	/* buttons */
 	if (report_id == si->desc.btn_report_id)
@@ -231,7 +230,7 @@ static ssize_t cyttsp5_interrupt_count_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(int_count, S_IRUSR | S_IWUSR,
+static DEVICE_ATTR(int_count, 0600,
 	cyttsp5_interrupt_count_show, cyttsp5_interrupt_count_store);
 
 static ssize_t cyttsp5_formated_output_show(struct device *dev,
@@ -273,7 +272,7 @@ static ssize_t cyttsp5_formated_output_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(formated_output, S_IRUSR | S_IWUSR,
+static DEVICE_ATTR(formated_output, 0600,
 	cyttsp5_formated_output_show, cyttsp5_formated_output_store);
 
 static int cyttsp5_debug_probe(struct device *dev, void **data)
@@ -371,13 +370,12 @@ static int __init cyttsp5_debug_init(void)
 
 	rc = cyttsp5_register_module(&debug_module);
 	if (rc < 0) {
-		pr_err("%s: Error, failed registering module\n",
-			__func__);
-			return rc;
+		pr_err("%s: Error, failed registering module\n", __func__);
+		return rc;
 	}
 
 	pr_info("%s: Parade TTSP Debug Driver (Built %s) rc=%d\n",
-		 __func__, CY_DRIVER_VERSION, rc);
+		__func__, CY_DRIVER_VERSION, rc);
 	return 0;
 }
 module_init(cyttsp5_debug_init);

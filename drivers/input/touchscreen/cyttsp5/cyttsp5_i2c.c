@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -26,10 +26,9 @@
  *
  */
 
-#include "cyttsp5_regs.h"
-
 #include <linux/i2c.h>
 #include <linux/version.h>
+#include "cyttsp5_regs.h"
 
 #define CY_I2C_DATA_SIZE  (2 * 256)
 
@@ -149,13 +148,14 @@ static int cyttsp5_i2c_probe(struct i2c_client *client,
 #endif
 
 	rc = cyttsp5_probe(&cyttsp5_i2c_bus_ops, &client->dev, client->irq,
-			  CY_I2C_DATA_SIZE);
+			CY_I2C_DATA_SIZE);
 
 #ifdef CONFIG_TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICETREE_SUPPORT
 	if (rc && match)
 		cyttsp5_devtree_clean_pdata(dev);
 #endif
 
+	dev_info(dev, "cyttsp5_core_probe finish\n");
 	return rc;
 }
 
@@ -198,25 +198,7 @@ static struct i2c_driver cyttsp5_i2c_driver = {
 	.id_table = cyttsp5_i2c_id,
 };
 
-#if (KERNEL_VERSION(3, 3, 0) <= LINUX_VERSION_CODE)
 module_i2c_driver(cyttsp5_i2c_driver);
-#else
-static int __init cyttsp5_i2c_init(void)
-{
-	int rc = i2c_add_driver(&cyttsp5_i2c_driver);
-
-	pr_info("%s: Parade TTSP I2C Driver (Built %s) rc=%d\n",
-			__func__, CY_DRIVER_VERSION, rc);
-	return rc;
-}
-module_init(cyttsp5_i2c_init);
-
-static void __exit cyttsp5_i2c_exit(void)
-{
-	i2c_del_driver(&cyttsp5_i2c_driver);
-}
-module_exit(cyttsp5_i2c_exit);
-#endif
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Parade TrueTouch(R) Standard Product I2C driver");

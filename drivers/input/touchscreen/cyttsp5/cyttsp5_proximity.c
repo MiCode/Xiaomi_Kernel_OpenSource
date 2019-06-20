@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2013-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -31,7 +31,7 @@
 #define CYTTSP5_PROXIMITY_NAME "cyttsp5_proximity"
 
 /* Timeout value in ms. */
-#define CYTTSP5_PROXIMITY_REQUEST_EXCLUSIVE_TIMEOUT		1000
+#define CYTTSP5_PROXIMITY_REQUEST_EXCLUSIVE_TIMEOUT 1000
 
 #define CYTTSP5_PROXIMITY_ON 0
 #define CYTTSP5_PROXIMITY_OFF 1
@@ -60,9 +60,11 @@ static void cyttsp5_get_touch_axis(struct cyttsp5_proximity_data *pd,
 
 	for (nbyte = 0, *axis = 0, next = 0; nbyte < size; nbyte++) {
 		parade_debug(pd->dev, DEBUG_LEVEL_2,
-			"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%p xy_data[%d]=%02X(%d) bofs=%d\n",
-			__func__, *axis, *axis, size, max, xy_data, next,
-			xy_data[next], xy_data[next], bofs);
+			"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%pK",
+			__func__, *axis, *axis, size, max, xy_data);
+		parade_debug(pd->dev, DEBUG_LEVEL_2,
+			" xy_data[%d]=%02X(%d) bofs=%d\n",
+			next, xy_data[next], xy_data[next], bofs);
 		*axis = *axis + ((xy_data[next] >> bofs) << (nbyte * 8));
 		next++;
 	}
@@ -70,9 +72,11 @@ static void cyttsp5_get_touch_axis(struct cyttsp5_proximity_data *pd,
 	*axis &= max - 1;
 
 	parade_debug(pd->dev, DEBUG_LEVEL_2,
-		"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%p xy_data[%d]=%02X(%d)\n",
-		__func__, *axis, *axis, size, max, xy_data, next,
-		xy_data[next], xy_data[next]);
+		"%s: *axis=%02X(%d) size=%d max=%08X xy_data=%pK\n",
+		__func__, *axis, *axis, size, max, xy_data);
+	parade_debug(pd->dev, DEBUG_LEVEL_2,
+		" xy_data[%d]=%02X(%d)\n",
+		next, xy_data[next], xy_data[next]);
 }
 
 static void cyttsp5_get_touch_hdr(struct cyttsp5_proximity_data *pd,
@@ -277,8 +281,9 @@ static int _cyttsp5_proximity_enable(struct cyttsp5_proximity_data *pd)
 
 	rc = _cyttsp5_set_proximity(pd, true);
 	if (rc < 0) {
-		dev_err(dev, "%s: Error on request enable proximity scantype r=%d\n",
-				__func__, rc);
+		dev_err(dev,
+			"%s: Error on request enable proximity scantype r=%d\n",
+			__func__, rc);
 		goto exit_release;
 	}
 
@@ -314,8 +319,9 @@ static int _cyttsp5_proximity_disable(struct cyttsp5_proximity_data *pd,
 
 	rc = _cyttsp5_set_proximity(pd, false);
 	if (rc < 0) {
-		dev_err(dev, "%s: Error on request disable proximity scan r=%d\n",
-				__func__, rc);
+		dev_err(dev,
+			"%s: Error on request disable proximity scan r=%d\n",
+			__func__, rc);
 		goto exit_release;
 	}
 
@@ -366,7 +372,8 @@ static ssize_t cyttsp5_proximity_enable_store(struct device *dev,
 	mutex_lock(&pd->sysfs_lock);
 	if (value) {
 		if (pd->enable_count++) {
-			parade_debug(dev, DEBUG_LEVEL_2, "%s: '%s' already enabled\n",
+			parade_debug(dev,
+				DEBUG_LEVEL_2, "%s: '%s' already enabled\n",
 				__func__, pd->input->name);
 		} else {
 			rc = _cyttsp5_proximity_enable(pd);
@@ -394,7 +401,7 @@ static ssize_t cyttsp5_proximity_enable_store(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(prox_enable, S_IRUSR | S_IWUSR,
+static DEVICE_ATTR(prox_enable, 0600,
 		cyttsp5_proximity_enable_show,
 		cyttsp5_proximity_enable_store);
 
@@ -420,13 +427,13 @@ static int cyttsp5_setup_input_device_and_sysfs(struct device *dev)
 	/* set event signal capabilities */
 	for (i = 0; i < NUM_SIGNALS(pd->pdata->frmwrk); i++) {
 		signal = PARAM_SIGNAL(pd->pdata->frmwrk, i);
-		if (signal != CY_IGNORE_VALUE) {
+		if (signal != CY_IGNORE_VALUE)
 			input_set_abs_params(pd->input, signal,
 				PARAM_MIN(pd->pdata->frmwrk, i),
 				PARAM_MAX(pd->pdata->frmwrk, i),
 				PARAM_FUZZ(pd->pdata->frmwrk, i),
 				PARAM_FLAT(pd->pdata->frmwrk, i));
-		}
+
 	}
 
 	rc = input_register_device(pd->input);
@@ -472,7 +479,7 @@ int cyttsp5_proximity_probe(struct device *dev)
 	struct cyttsp5_proximity_platform_data *prox_pdata;
 	int rc = 0;
 
-	if (!pdata ||  !pdata->prox_pdata) {
+	if (!pdata || !pdata->prox_pdata) {
 		dev_err(dev, "%s: Missing platform data\n", __func__);
 		rc = -ENODEV;
 		goto error_no_pdata;
@@ -515,7 +522,7 @@ int cyttsp5_proximity_probe(struct device *dev)
 
 		rc = _cyttsp5_set_proximity(pd, false);
 	} else {
-		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%p\n",
+		dev_err(dev, "%s: Fail get sysinfo pointer from core p=%pK\n",
 			__func__, pd->si);
 		_cyttsp5_subscribe_attention(dev, CY_ATTEN_STARTUP,
 			CYTTSP5_PROXIMITY_NAME, cyttsp5_setup_input_attention,
