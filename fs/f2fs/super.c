@@ -2220,7 +2220,7 @@ static int read_raw_super_block(struct f2fs_sb_info *sbi,
 			f2fs_msg(sb, KERN_ERR,
 				"Can't find valid F2FS filesystem in %dth superblock",
 				block + 1);
-			err = -EINVAL;
+			err = -EFSCORRUPTED;
 			brelse(bh);
 			continue;
 		}
