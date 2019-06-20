@@ -179,17 +179,24 @@ void msm_vfe47_config_irq(struct vfe_device *vfe_dev,
 		vfe_dev->irq1_mask &= ~irq1_mask;
 		break;
 	case MSM_ISP_IRQ_SET:
-		vfe_dev->irq0_mask = irq0_mask;
-		vfe_dev->irq1_mask = irq1_mask;
+		/* clear the IRQ */
 		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x64);
 		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x58);
+		/* set the HW mask */
+		msm_camera_io_w_mb(irq0_mask, vfe_dev->vfe_base + 0x5C);
+		msm_camera_io_w_mb(irq1_mask, vfe_dev->vfe_base + 0x60);
+		/* update the software Mask */
+		vfe_dev->irq0_mask = irq0_mask;
+		vfe_dev->irq1_mask = irq1_mask;
 		break;
 	}
-	msm_camera_io_w_mb(vfe_dev->irq0_mask,
+	if (oper != MSM_ISP_IRQ_SET) {
+		msm_camera_io_w_mb(vfe_dev->irq0_mask,
 				vfe_dev->vfe_base + 0x5C);
-	msm_camera_io_w_mb(vfe_dev->irq1_mask,
+		msm_camera_io_w_mb(vfe_dev->irq1_mask,
 				vfe_dev->vfe_base + 0x60);
+	}
 }
 
 static int32_t msm_vfe47_init_dt_parms(struct vfe_device *vfe_dev,
