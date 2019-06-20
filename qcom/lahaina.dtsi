@@ -1,5 +1,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include "lahaina-regulators.dtsi"
+
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina";
 	compatible = "qcom,lahaina";
