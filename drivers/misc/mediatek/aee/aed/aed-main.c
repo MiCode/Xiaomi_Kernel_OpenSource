@@ -31,7 +31,9 @@
 #include <mt-plat/aee.h>
 #include <linux/seq_file.h>
 #include <linux/completion.h>
+#ifdef CONFIG_RTC_LIB
 #include <linux/rtc.h>
+#endif
 #include "aed.h"
 
 struct aee_req_queue {
@@ -1606,6 +1608,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static void aed_get_traces(char *msg)
 {
+#ifdef CONFIG_STACKTRACE
 	struct stack_trace trace;
 	unsigned long stacks[32];
 	int i;
@@ -1623,6 +1626,9 @@ static void aed_get_traces(char *msg)
 				"[<%p>] %pS\n", (void *)trace.entries[i],
 				(void *)trace.entries[i]);
 	}
+#else
+	pr_info("kernel config of STACKTRACE is disabled\n");
+#endif
 }
 
 void Log2Buffer(struct aee_oops *oops, const char *fmt, ...)
@@ -1806,8 +1812,10 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 {
 	struct aee_oops *oops;
 	int n = 0;
+#ifdef CONFIG_RTC_LIB
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
+#endif
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
 		AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
@@ -1815,14 +1823,16 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 		return;
 	oops = aee_oops_create(attr, AE_KERNEL_PROBLEM_REPORT, module);
 	if (oops) {
+		n += snprintf(oops->backtrace, AEE_BACKTRACE_LENGTH, msg);
+#ifdef CONFIG_RTC_LIB
 		do_gettimeofday(&tv);
 		rtc_time_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
-		n += snprintf(oops->backtrace, AEE_BACKTRACE_LENGTH, msg);
 		n += snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
 			"\nTrigger time:[%d-%02d-%02d %02d:%02d:%02d.%03d]\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec,
 			(unsigned int)tv.tv_usec);
+#endif
 		snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
 				"\nBacktrace:\n");
 		aed_get_traces(oops->backtrace);
@@ -1869,9 +1879,11 @@ static void external_exception(const char *assert_type, const int *log,
 {
 	int *ee_log;
 	struct aed_eerec *eerec;
+#ifdef CONFIG_RTC_LIB
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
 	char trigger_time[60];
+#endif
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER) &&
 		(aee_force_exp == AEE_FORCE_EXP_NOT_SET))
@@ -1899,6 +1911,11 @@ static void external_exception(const char *assert_type, const int *log,
 		return;
 	}
 
+	memset(eerec->assert_type, 0, sizeof(eerec->assert_type));
+	strncpy(eerec->assert_type, assert_type,
+			sizeof(eerec->assert_type) - 1);
+	memset(eerec->exp_filename, 0, sizeof(eerec->exp_filename));
+#ifdef CONFIG_RTC_LIB
 	do_gettimeofday(&tv);
 	rtc_time_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
 	snprintf(trigger_time, sizeof(trigger_time),
@@ -1906,14 +1923,13 @@ static void external_exception(const char *assert_type, const int *log,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec,
 			(unsigned int)tv.tv_usec);
-	memset(eerec->assert_type, 0, sizeof(eerec->assert_type));
-	strncpy(eerec->assert_type, assert_type,
-			sizeof(eerec->assert_type) - 1);
-	memset(eerec->exp_filename, 0, sizeof(eerec->exp_filename));
 	strncpy(eerec->exp_filename, trigger_time,
 			sizeof(eerec->exp_filename) - 1);
 	strncat(eerec->exp_filename, detail,
 			sizeof(eerec->exp_filename) - 1 - strlen(trigger_time));
+#else
+	strncpy(eerec->exp_filename, detail, sizeof(eerec->exp_filename) - 1);
+#endif
 	pr_debug("EE %s\n", eerec->assert_type);
 
 	eerec->exp_linenum = 0;
