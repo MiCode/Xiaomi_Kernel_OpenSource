@@ -359,6 +359,7 @@ struct msm_cvp_inst {
 	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
 	struct kmem_cache *fence_data_cache;
+	u32 cur_cmd_type;
 	struct kmem_cache *frame_cache;
 	struct kmem_cache *frame_buf_cache;
 	struct kmem_cache *internal_buf_cache;

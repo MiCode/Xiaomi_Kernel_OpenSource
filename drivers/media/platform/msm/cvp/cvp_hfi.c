@@ -2674,7 +2674,6 @@ static int venus_hfi_session_abort(void *sess)
 
 	mutex_lock(&device->lock);
 
-	__flush_debug_queue(device, NULL);
 	rc = __send_session_cmd(session, HFI_CMD_SYS_SESSION_ABORT);
 
 	mutex_unlock(&device->lock);

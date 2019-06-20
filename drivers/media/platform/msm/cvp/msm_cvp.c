@@ -84,9 +84,11 @@ static int msm_cvp_get_session_info(struct msm_cvp_inst *inst,
 	if (!s)
 		return -ECONNRESET;
 
+	s->cur_cmd_type = CVP_KMD_GET_SESSION_INFO;
 	session->session_id = hash32_ptr(inst->session);
 	dprintk(CVP_DBG, "%s: id 0x%x\n", __func__, session->session_id);
 
+	s->cur_cmd_type = 0;
 	cvp_put_inst(s);
 	return rc;
 }
@@ -539,8 +541,7 @@ static bool _cvp_msg_pending(struct msm_cvp_inst *inst,
 	bool result = false;
 
 	spin_lock(&sq->lock);
-	if (!kref_read(&inst->kref) ||
-		sq->state != QUEUE_ACTIVE) {
+	if (sq->state != QUEUE_ACTIVE) {
 		/* The session is being deleted */
 		spin_unlock(&sq->lock);
 		*msg = NULL;
@@ -579,6 +580,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	if (!s)
 		return -ECONNRESET;
 
+	s->cur_cmd_type = CVP_KMD_RECEIVE_MSG_PKT;
 	sq = &inst->session_queue;
 	sc = (struct cvp_kmd_session_control *)out_pkt;
 
@@ -586,7 +588,8 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 
 	if (wait_event_timeout(sq->wq,
 		_cvp_msg_pending(inst, sq, &msg), wait_time) == 0) {
-		dprintk(CVP_DBG, "session queue wait timeout\n");
+		dprintk(CVP_WARN, "session queue wait timeout\n");
+		msm_cvp_comm_kill_session(inst);
 		rc = -ETIMEDOUT;
 		goto exit;
 	}
@@ -595,19 +598,17 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 				>> HFI_VERSION_MINOR_SHIFT;
 
 	if (msg == NULL) {
-		dprintk(CVP_DBG,
+		dprintk(CVP_WARN,
 			"%s: session deleted, queue state %d, msg cnt %d\n",
 			__func__, inst->session_queue.state,
 			inst->session_queue.msg_count);
 
-		spin_lock(&sq->lock);
-		if (sq->msg_count) {
-			sc->ctrl_data[0] = sq->msg_count;
-			rc = -EUCLEAN;
-		} else {
-			rc = -ENOLINK;
+		if (inst->state >= MSM_CVP_CLOSE_DONE) {
+			rc = -ECONNRESET;
+			goto exit;
 		}
-		spin_unlock(&sq->lock);
+
+		msm_cvp_comm_kill_session(inst);
 	} else {
 		if (version >= 1) {
 			u64 ktid;
@@ -625,6 +626,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 	}
 
 exit:
+	s->cur_cmd_type = 0;
 	cvp_put_inst(inst);
 	return rc;
 }
@@ -770,6 +772,7 @@ static int msm_cvp_session_process_hfi(
 	if (!s)
 		return -ECONNRESET;
 
+	inst->cur_cmd_type = CVP_KMD_SEND_CMD_PKT;
 	sq = &inst->session_queue;
 	spin_lock(&sq->lock);
 	if (sq->state != QUEUE_ACTIVE) {
@@ -826,10 +829,12 @@ static int msm_cvp_session_process_hfi(
 
 	}
 exit:
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(inst);
 	return rc;
 }
 
+#define CVP_FENCE_RUN	0x100
 static int msm_cvp_thread_fence_run(void *data)
 {
 	int i, rc = 0;
@@ -851,13 +856,13 @@ static int msm_cvp_thread_fence_run(void *data)
 	}
 
 	fence_thread_data = data;
-	inst = cvp_get_inst(get_cvp_core(fence_thread_data->device_id),
-				(void *)fence_thread_data->inst);
+	inst = fence_thread_data->inst;
 	if (!inst) {
 		dprintk(CVP_ERR, "%s Wrong inst %pK\n", __func__, inst);
 		rc = -EINVAL;
 		return rc;
 	}
+	inst->cur_cmd_type = CVP_FENCE_RUN;
 	in_fence_pkt = (struct cvp_kmd_hfi_fence_packet *)
 					&fence_thread_data->in_fence_pkt;
 	in_pkt = (struct cvp_kmd_hfi_packet *)(in_fence_pkt);
@@ -1066,6 +1071,7 @@ static int msm_cvp_thread_fence_run(void *data)
 
 exit:
 	kmem_cache_free(inst->fence_data_cache, fence_thread_data);
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(inst);
 	do_exit(rc);
 }
@@ -1095,12 +1101,14 @@ static int msm_cvp_session_process_hfi_fence(
 	if (!s)
 		return -ECONNRESET;
 
-	fence_thread_data = kmem_cache_zalloc(inst->fence_data_cache,
+	inst->cur_cmd_type = CVP_KMD_SEND_FENCE_CMD_PKT;
+	fence_thread_data = kmem_cache_alloc(inst->fence_data_cache,
 			GFP_KERNEL);
 	if (!fence_thread_data) {
 		dprintk(CVP_ERR, "%s: fence_thread_data alloc failed\n",
 				__func__);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto exit;
 	}
 
 	in_offset = arg->buf_offset;
@@ -1139,10 +1147,17 @@ static int msm_cvp_session_process_hfi_fence(
 				"thread_fence_%d", thread_num);
 	thread = kthread_run(msm_cvp_thread_fence_run,
 			fence_thread_data, thread_fence_name);
-	if (!thread)
+	if (!thread) {
 		kmem_cache_free(inst->fence_data_cache, fence_thread_data);
+		dprintk(CVP_ERR, "%s fail to create kthread\n", __func__);
+		rc = -ECHILD;
+		goto exit;
+	}
+
+	return 0;
 
 exit:
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
 	return rc;
 }
@@ -1312,6 +1327,7 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 	if (!s)
 		return -ECONNRESET;
 
+	inst->cur_cmd_type = CVP_KMD_REQUEST_POWER;
 	core = inst->core;
 
 	mutex_lock(&core->lock);
@@ -1332,6 +1348,7 @@ static int msm_cvp_request_power(struct msm_cvp_inst *inst,
 		dprintk(CVP_ERR, "Instance %pK power request out of range\n");
 
 	mutex_unlock(&core->lock);
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
 
 	return rc;
@@ -1357,6 +1374,7 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 	if (!s)
 		return -ECONNRESET;
 
+	inst->cur_cmd_type = CVP_KMD_REGISTER_BUFFER;
 	session = (struct cvp_hal_session *)inst->session;
 	if (!session) {
 		dprintk(CVP_ERR, "%s: invalid session\n", __func__);
@@ -1368,6 +1386,7 @@ static int msm_cvp_register_buffer(struct msm_cvp_inst *inst,
 
 	rc = msm_cvp_map_buf_dsp(inst, buf);
 exit:
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
 	return rc;
 }
@@ -1391,9 +1410,11 @@ static int msm_cvp_unregister_buffer(struct msm_cvp_inst *inst,
 	if (!s)
 		return -ECONNRESET;
 
+	inst->cur_cmd_type = CVP_KMD_UNREGISTER_BUFFER;
 	print_client_buffer(CVP_DBG, "unregister", inst, buf);
 
 	rc = msm_cvp_unmap_buf_dsp(inst, buf);
+	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
 	return rc;
 }
@@ -1405,16 +1426,21 @@ static int msm_cvp_session_create(struct msm_cvp_inst *inst)
 	if (!inst || !inst->core)
 		return -EINVAL;
 
+	if (inst->state >= MSM_CVP_CLOSE_DONE)
+		return -ECONNRESET;
+
 	if (inst->state != MSM_CVP_CORE_INIT_DONE ||
 		inst->state > MSM_CVP_OPEN_DONE) {
-		dprintk(CVP_ERR, "not ready create instance %d\n", inst->state);
+		dprintk(CVP_ERR,
+			"%s Incorrect CVP state %d to create session\n",
+			__func__, inst->state);
 		return -EINVAL;
 	}
 
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_OPEN_DONE);
 	if (rc) {
 		dprintk(CVP_ERR,
-				"Failed to move instance to open done state\n");
+			"Failed to move instance to open done state\n");
 		goto fail_init;
 	}
 
@@ -1607,8 +1633,9 @@ int msm_cvp_handle_syscall(struct msm_cvp_inst *inst, struct cvp_kmd_arg *arg)
 
 		rc = session_state_check_init(inst);
 		if (rc) {
-			dprintk(CVP_ERR, "session not ready for commands %d",
-					arg->type);
+			dprintk(CVP_ERR,
+				"Incorrect session state %d for command %d",
+				inst->state, arg->type);
 			return rc;
 		}
 	}

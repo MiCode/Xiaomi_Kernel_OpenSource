@@ -158,7 +158,7 @@ static int hfi_process_session_error(u32 device_id,
 		dprintk(CVP_ERR,
 			"%s: session %x data1 %#x, data2 %#x\n", __func__,
 			pkt->session_id, pkt->event_data1, pkt->event_data2);
-		info->response_type = HAL_SESSION_ERROR;
+		info->response_type = HAL_RESPONSE_UNUSED;
 		break;
 	}
 
