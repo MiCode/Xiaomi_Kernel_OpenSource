@@ -453,7 +453,7 @@ void diag_clear_masks(int pid)
 static void diag_close_logging_process(const int pid)
 {
 	int i, j;
-	int session_mask;
+	int session_mask = 0;
 	int device_mask = 0;
 	uint32_t p_mask;
 	struct diag_md_session_t *session_info = NULL;
@@ -492,8 +492,9 @@ static void diag_close_logging_process(const int pid)
 		diag_clear_masks(pid);
 
 	mutex_lock(&driver->diagchar_mutex);
-	p_mask =
-	diag_translate_kernel_to_user_mask(session_mask);
+	if (session_mask)
+		p_mask =
+		diag_translate_kernel_to_user_mask(session_mask);
 
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
 		if (MD_PERIPHERAL_MASK(i) & session_mask)
