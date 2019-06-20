@@ -748,6 +748,11 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 	plat_priv->powered_on = false;
 }
 
+bool cnss_is_device_powered_on(struct cnss_plat_data *plat_priv)
+{
+	return plat_priv->powered_on;
+}
+
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv)
 {
 	unsigned long pin_status = 0;
