@@ -354,6 +354,8 @@ static struct cam_ife_csid_common_reg_offset
 	.plain_fmt_shit_val                           = 10,
 	.crop_v_en_shift_val                          = 6,
 	.crop_h_en_shift_val                          = 5,
+	.drop_v_en_shift_val                          = 4,
+	.drop_h_en_shift_val                          = 3,
 	.crop_shift                                   = 16,
 	.ipp_irq_mask_all                             = 0x7FFF,
 	.rdi_irq_mask_all                             = 0x7FFF,

@@ -2161,7 +2161,7 @@ static inline bool is_idle(struct f2fs_sb_info *sbi, int type)
 		get_pages(sbi, F2FS_DIO_WRITE))
 		return false;
 
-	if (SM_I(sbi) && SM_I(sbi)->dcc_info &&
+	if (type != DISCARD_TIME && SM_I(sbi) && SM_I(sbi)->dcc_info &&
 			atomic_read(&SM_I(sbi)->dcc_info->queued_discard))
 		return false;
 
@@ -3516,7 +3516,8 @@ static inline void f2fs_set_encrypted_inode(struct inode *inode)
  */
 static inline bool f2fs_post_read_required(struct inode *inode)
 {
-	return f2fs_encrypted_file(inode);
+	return (f2fs_encrypted_file(inode)
+			&& !fscrypt_using_hardware_encryption(inode));
 }
 
 #define F2FS_FEATURE_FUNCS(name, flagname) \
@@ -3618,10 +3619,6 @@ static inline bool f2fs_force_buffered_io(struct inode *inode,
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	int rw = iov_iter_rw(iter);
-
-	if ((f2fs_encrypted_file(inode)) &&
-		!fscrypt_using_hardware_encryption(inode))
-		return true;
 
 	if (f2fs_post_read_required(inode))
 		return true;

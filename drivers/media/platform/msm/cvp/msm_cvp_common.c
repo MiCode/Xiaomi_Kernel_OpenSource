@@ -118,6 +118,18 @@ static void put_inst_helper(struct kref *kref)
 {
 	struct msm_cvp_inst *inst = container_of(kref,
 			struct msm_cvp_inst, kref);
+	int rc;
+
+	msm_cvp_cleanup_instance(inst);
+	msm_cvp_session_deinit(inst);
+	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
+	if (rc) {
+		dprintk(CVP_ERR,
+			"Failed to move inst %pK to uninit state\n", inst);
+		rc = msm_cvp_comm_force_cleanup(inst);
+	}
+
+	msm_cvp_comm_session_clean(inst);
 
 	msm_cvp_destroy(inst);
 }
@@ -167,6 +179,30 @@ struct msm_cvp_inst *cvp_get_inst(struct msm_cvp_core *core,
 	mutex_unlock(&core->lock);
 
 	return inst;
+}
+
+struct msm_cvp_inst *cvp_get_inst_validate(struct msm_cvp_core *core,
+		void *session_id)
+{
+	int rc = 0;
+	struct cvp_hfi_device *hdev;
+	struct msm_cvp_inst *s;
+
+	s = cvp_get_inst(core, session_id);
+	if (!s) {
+		dprintk(CVP_ERR, "%s session doesn't exit\n",
+			__builtin_return_address(0));
+		return NULL;
+	}
+
+	hdev = s->core->device;
+	rc = call_hfi_op(hdev, validate_session, s->session, __func__);
+	if (rc) {
+		cvp_put_inst(s);
+		s = NULL;
+	}
+
+	return s;
 }
 
 static void cvp_handle_session_cmd_done(enum hal_command_response cmd,
@@ -561,6 +597,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	struct cvp_hfi_device *hdev = NULL;
 	struct msm_cvp_inst *inst = NULL;
 	int rc = 0;
+	unsigned long flags = 0;
 
 	subsystem_crashed("cvpss");
 	if (!response) {
@@ -587,13 +624,18 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	}
 
 	dprintk(CVP_WARN, "SYS_ERROR received for core %pK\n", core);
-	/* msm_cvp_noc_error_info(core) is disabled as of now */
+	msm_cvp_noc_error_info(core);
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(CVP_WARN,
-			"%s: Send sys error for inst %pK\n", __func__, inst);
+			"%s: Send sys error for inst %#x\n", __func__, inst);
 		change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
-		msm_cvp_queue_v4l2_event(inst, V4L2_EVENT_MSM_CVP_SYS_ERROR);
+
+		spin_lock_irqsave(&inst->event_handler.lock, flags);
+		inst->event_handler.event = CVP_SSR_EVENT;
+		spin_unlock_irqrestore(&inst->event_handler.lock, flags);
+		wake_up_all(&inst->event_handler.wq);
+
 		if (!core->trigger_ssr)
 			msm_cvp_comm_print_inst_info(inst);
 	}
@@ -733,6 +775,8 @@ void cvp_handle_cmd_response(enum hal_command_response cmd, void *data)
 	case HAL_SESSION_DCM_CONFIG_CMD_DONE:
 	case HAL_SESSION_DC_CONFIG_CMD_DONE:
 	case HAL_SESSION_PYS_HCD_CONFIG_CMD_DONE:
+	case HAL_SESSION_FD_CONFIG_CMD_DONE:
+	case HAL_SESSION_MODEL_BUF_CMD_DONE:
 	case HAL_SESSION_ICA_FRAME_CMD_DONE:
 		cvp_handle_session_cmd_done(cmd, data);
 		break;
@@ -1509,6 +1553,13 @@ void msm_cvp_fw_unload_handler(struct work_struct *work)
 	mutex_unlock(&core->lock);
 }
 
+void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
+		struct msm_cvp_internal_buffer *cbuf)
+{
+	dprintk(tag, "%s addr: %x size %u\n", str,
+		cbuf->smem.device_addr, cbuf->smem.size);
+}
+
 void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 {
 	struct msm_cvp_internal_buffer *cbuf;
@@ -1525,11 +1576,17 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 	dprintk(CVP_ERR,
 			"---Buffer details for inst: %pK of type: %d---\n",
 			inst, inst->session_type);
-	mutex_lock(&inst->registeredbufs.lock);
-	dprintk(CVP_ERR, "registered buffer list:\n");
-	list_for_each_entry(cbuf, &inst->registeredbufs.list, list)
-		print_cvp_buffer(CVP_ERR, "buf", inst, cbuf);
-	mutex_unlock(&inst->registeredbufs.lock);
+	mutex_lock(&inst->cvpcpubufs.lock);
+	dprintk(CVP_ERR, "cpu buffer list:\n");
+	list_for_each_entry(cbuf, &inst->cvpcpubufs.list, list)
+		print_cvp_buffer(CVP_ERR, "bufdump", inst, cbuf);
+	mutex_unlock(&inst->cvpcpubufs.lock);
+
+	mutex_lock(&inst->cvpdspbufs.lock);
+	dprintk(CVP_ERR, "dsp buffer list:\n");
+	list_for_each_entry(cbuf, &inst->cvpdspbufs.list, list)
+		print_cvp_buffer(CVP_ERR, "bufdump", inst, cbuf);
+	mutex_unlock(&inst->cvpdspbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
 	dprintk(CVP_ERR, "persist buffer list:\n");
@@ -1538,11 +1595,6 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 				buf->buffer_type, buf->smem.device_addr,
 				buf->smem.size);
 	mutex_unlock(&inst->persistbufs.lock);
-}
-
-void print_cvp_buffer(u32 tag, const char *str, struct msm_cvp_inst *inst,
-		struct msm_cvp_internal_buffer *cbuf)
-{
 }
 
 int msm_cvp_comm_unmap_cvp_buffer(struct msm_cvp_inst *inst,

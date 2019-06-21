@@ -80,6 +80,7 @@ static struct cam_vfe_camif_ver3_reg_data vfe_480_camif_reg_data = {
 	.enable_diagnostic_hw            = 0x1,
 	.pp_camif_cfg_en_shift           = 0,
 	.pp_camif_cfg_ife_out_en_shift   = 8,
+	.top_debug_cfg_en                = 1,
 };
 
 static struct cam_vfe_top_ver3_reg_offset_common vfe480_top_common_reg = {
@@ -106,6 +107,21 @@ static struct cam_vfe_top_ver3_reg_offset_common vfe480_top_common_reg = {
 	.diag_sensor_status_0     = 0x00000068,
 	.diag_sensor_status_1     = 0x00000098,
 	.bus_overflow_status      = 0x0000AA68,
+	.top_debug_cfg            = 0x000000DC,
+	.top_debug_0              = 0x00000080,
+	.top_debug_1              = 0x00000084,
+	.top_debug_2              = 0x00000088,
+	.top_debug_3              = 0x0000008C,
+	.top_debug_4              = 0x0000009C,
+	.top_debug_5              = 0x000000A0,
+	.top_debug_6              = 0x000000A4,
+	.top_debug_7              = 0x000000A8,
+	.top_debug_8              = 0x000000AC,
+	.top_debug_9              = 0x000000B0,
+	.top_debug_10             = 0x000000B4,
+	.top_debug_11             = 0x000000B8,
+	.top_debug_12             = 0x000000BC,
+	.top_debug_13             = 0x000000C0,
 };
 
 static struct cam_vfe_camif_lite_ver3_reg vfe480_camif_rdi[3] = {

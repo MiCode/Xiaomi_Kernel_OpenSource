@@ -14,7 +14,7 @@
 #include "cam_debug_util.h"
 #include "cam_packet_util.h"
 
-static const char jpeg_dev_name[] = "jpeg";
+static const char jpeg_dev_name[] = "cam-jpeg";
 
 static int cam_jpeg_context_dump_active_request(void *data, unsigned long iova,
 	uint32_t buf_info)

@@ -140,6 +140,7 @@
 #define DIAG_GET_TIME_API	0x21B
 #define DIAG_SET_TIME_API	0x21C
 #define DIAG_GET_DIAG_ID	0x222
+#define DIAG_HW_ACCEL_CMD	0x224
 #define DIAG_FEATURE_QUERY	0x225
 #define DIAG_SWITCH_COMMAND	0x081B
 #define DIAG_BUFFERING_MODE	0x080C
@@ -262,6 +263,9 @@ do {						\
 #define DIAGIDV2_STATUS(f_index)	\
 	driver->diagid_v2_status[f_index]
 
+#define P_FMASK_DIAGID_V2(peripheral)	\
+	driver->feature[peripheral].diagid_v2_feature_mask
+
 /*
  * Number of stm processors includes all the peripherals and
  * apps.Added 1 below to indicate apps
@@ -327,12 +331,59 @@ do {						\
 
 #define DIAGID_V2_FEATURE_COUNT 3
 
+/*
+ * HW Acceleration operation definition
+ */
+#define DIAG_HW_ACCEL_OP_DISABLE	0
+#define DIAG_HW_ACCEL_OP_ENABLE	1
+#define DIAG_HW_ACCEL_OP_QUERY	2
+
+/*
+ * HW Acceleration TYPE definition
+ */
+#define DIAG_HW_ACCEL_TYPE_ALL	0
+#define DIAG_HW_ACCEL_TYPE_STM	1
+#define DIAG_HW_ACCEL_TYPE_ATB	2
+#define DIAG_HW_ACCEL_TYPE_MAX	2
+
+#define DIAG_HW_ACCEL_VER_MIN 1
+#define DIAG_HW_ACCEL_VER_MAX 1
+
+/*
+ * HW Acceleration CMD Error codes
+ */
+#define DIAG_HW_ACCEL_STATUS_SUCCESS	0
+#define DIAG_HW_ACCEL_FAIL	1
+#define DIAG_HW_ACCEL_INVALID_TYPE	2
+#define DIAG_HW_ACCEL_INVALID_VER	3
+
+/*
+ * HW Acceleration Transport types
+ */
+#define DIAG_TRANSPORT_UNKNOWN 0
+#define DIAG_TRANSPORT_UART    1
+#define DIAG_TRANSPORT_USB     2
+#define DIAG_TRANSPORT_PCIE    3
+
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
 	MDM2 = 2,
 	QSC = 5,
 };
+#define DIAG_MD_LOCAL		0
+#define DIAG_MD_LOCAL_LAST	1
+#define DIAG_MD_BRIDGE_BASE	DIAG_MD_LOCAL_LAST
+#define DIAG_MD_MDM		(DIAG_MD_BRIDGE_BASE)
+#define DIAG_MD_MDM2		(DIAG_MD_BRIDGE_BASE + 1)
+#define DIAG_MD_SMUX		(DIAG_MD_BRIDGE_BASE + 2)
+#define DIAG_MD_BRIDGE_LAST	(DIAG_MD_BRIDGE_BASE + 3)
+
+#ifndef CONFIG_DIAGFWD_BRIDGE_CODE
+#define NUM_DIAG_MD_DEV		DIAG_MD_LOCAL_LAST
+#else
+#define NUM_DIAG_MD_DEV		DIAG_MD_BRIDGE_LAST
+#endif
 
 struct diag_pkt_header_t {
 	uint8_t cmd_code;
@@ -348,6 +399,86 @@ struct diag_cmd_ext_mobile_rsp_t {
 	uint32_t chip_id;
 } __packed;
 
+/*
+ * hw acceleration command request payload structure
+ */
+struct diag_hw_accel_op_t {
+	uint8_t hw_accel_type;
+	uint8_t hw_accel_ver;
+	uint32_t diagid_mask;
+} __packed;
+
+/*
+ * hw acceleration command request structure
+ */
+
+struct diag_hw_accel_cmd_req_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t operation;
+	uint16_t reserved;
+	struct diag_hw_accel_op_t op_req;
+} __packed;
+
+/*
+ * hw acceleration command response payload structure
+ */
+
+struct diag_hw_accel_op_resp_payload_t {
+	uint8_t status;
+	uint8_t hw_accel_type;
+	uint8_t hw_accel_ver;
+	uint32_t diagid_status;
+} __packed;
+
+/*
+ * hw acceleration command op response structure
+ */
+
+struct diag_hw_accel_cmd_op_resp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t operation;
+	uint16_t reserved;
+	struct diag_hw_accel_op_resp_payload_t op_rsp;
+} __packed;
+
+/*
+ * hw acceleration query response sub payload
+ * in mulitples of the num_accel_rsp
+ */
+
+struct diag_hw_accel_query_sub_payload_rsp_t {
+	uint8_t hw_accel_type;
+	uint8_t hw_accel_ver;
+	uint32_t diagid_mask_supported;
+	uint32_t diagid_mask_enabled;
+} __packed;
+
+/*
+ * hw acceleration query operation response payload structure
+ */
+
+struct diag_hw_accel_query_rsp_payload_t {
+	uint8_t status;
+	uint8_t diag_transport;
+	uint8_t num_accel_rsp;
+	struct diag_hw_accel_query_sub_payload_rsp_t
+		sub_query_rsp[DIAG_HW_ACCEL_TYPE_MAX][DIAG_HW_ACCEL_VER_MAX];
+} __packed;
+
+/*
+ * hw acceleration command query response structure
+ */
+
+struct diag_hw_accel_cmd_query_resp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t operation;
+	uint16_t reserved;
+	struct diag_hw_accel_query_rsp_payload_t query_rsp;
+} __packed;
+
 struct diag_cmd_diag_id_query_req_t {
 	struct diag_pkt_header_t header;
 	uint8_t version;
@@ -361,6 +492,7 @@ struct diag_id_tbl_t {
 	uint8_t pd_feature_mask;
 	char *process_name;
 } __packed;
+
 struct diag_id_t {
 	uint8_t diag_id;
 	uint8_t len;
@@ -515,12 +647,14 @@ struct diag_logging_mode_param_t {
 	uint8_t pd_val;
 	uint8_t reserved;
 	int peripheral;
+	int device_mask;
 } __packed;
 
 struct diag_query_pid_t {
 	uint32_t peripheral_mask;
 	uint32_t pd_mask;
 	int pid;
+	int device_mask;
 };
 
 struct diag_con_all_param_t {
@@ -531,7 +665,7 @@ struct diag_con_all_param_t {
 
 struct diag_md_session_t {
 	int pid;
-	int peripheral_mask;
+	int peripheral_mask[NUM_DIAG_MD_DEV];
 	uint8_t hdlc_disabled;
 	uint8_t msg_mask_tbl_count;
 	struct timer_list hdlc_reset_timer;
@@ -644,7 +778,7 @@ struct diagchar_dev {
 	int dci_tag;
 	int dci_client_id[MAX_DCI_CLIENTS];
 	struct mutex dci_mutex;
-	struct mutex rpmsginfo_mutex[NUM_PERIPHERALS];
+	spinlock_t rpmsginfo_lock[NUM_PERIPHERALS];
 	int num_dci_client;
 	unsigned char *apps_dci_buf;
 	int dci_state;
@@ -721,16 +855,17 @@ struct diagchar_dev {
 	uint8_t *dci_pkt_buf; /* For Apps DCI packets */
 	uint32_t dci_pkt_length;
 	int in_busy_dcipktdata;
-	int logging_mode;
-	int logging_mask;
+	int logging_mode[NUM_DIAG_MD_DEV];
+	int logging_mask[NUM_DIAG_MD_DEV];
 	int pd_logging_mode[NUM_UPD];
 	int pd_session_clear[NUM_UPD];
 	int num_pd_session;
 	int diag_id_sent[NUM_PERIPHERALS];
 	int mask_check;
-	uint32_t md_session_mask;
-	uint8_t md_session_mode;
-	struct diag_md_session_t *md_session_map[NUM_MD_SESSIONS];
+	uint32_t md_session_mask[NUM_DIAG_MD_DEV];
+	uint8_t md_session_mode[NUM_DIAG_MD_DEV];
+	struct diag_md_session_t *md_session_map[NUM_DIAG_MD_DEV]
+					[NUM_MD_SESSIONS];
 	struct mutex md_session_lock;
 	/* Power related variables */
 	struct diag_ws_ref_t dci_ws;
@@ -760,6 +895,7 @@ struct diagchar_dev {
 	uint8_t uses_time_api;
 	uint32_t diagid_v2_feature[DIAGID_V2_FEATURE_COUNT];
 	uint32_t diagid_v2_status[DIAGID_V2_FEATURE_COUNT];
+	uint32_t diag_hw_accel[DIAGID_V2_FEATURE_COUNT];
 };
 
 extern struct diagchar_dev *driver;
@@ -799,7 +935,12 @@ uint8_t diag_search_diagid_by_pd(uint8_t pd_val,
 void diag_record_stats(int type, int flag);
 
 struct diag_md_session_t *diag_md_session_get_pid(int pid);
-struct diag_md_session_t *diag_md_session_get_peripheral(uint8_t peripheral);
-int diag_md_session_match_pid_peripheral(int pid, uint8_t peripheral);
+struct diag_md_session_t *diag_md_session_get_peripheral(int dev_id,
+							uint8_t peripheral);
+int diag_md_session_match_pid_peripheral(int proc, int pid,
+					uint8_t peripheral);
+int diag_map_hw_accel_type_ver(uint8_t hw_accel_type, uint8_t hw_accel_ver);
+void diag_map_index_to_hw_accel(uint8_t index, uint8_t *hw_accel_type,
+			uint8_t *hw_accel_ver);
 
 #endif

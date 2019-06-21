@@ -12,6 +12,25 @@
 
 #include "ion.h"
 
+/* do a simple check to see if we are in any low memory situation */
+static bool pool_refill_ok(struct ion_page_pool *pool)
+{
+	struct zonelist *zonelist;
+	struct zoneref *z;
+	struct zone *zone;
+	int mark;
+	int classzone_idx = (int)gfp_zone(pool->gfp_mask);
+
+	zonelist = node_zonelist(numa_node_id(), pool->gfp_mask);
+	for_each_zone_zonelist(zone, z, zonelist, classzone_idx) {
+		mark = high_wmark_pages(zone);
+		if (!zone_watermark_ok_safe(zone, 0, mark, classzone_idx))
+			return false;
+	}
+
+	return true;
+}
+
 static inline struct page *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
 	return alloc_pages(pool->gfp_mask, pool->order);
@@ -34,9 +53,28 @@ static void ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 		pool->low_count++;
 	}
 
+	atomic_inc(&pool->count);
 	mod_node_page_state(page_pgdat(page), NR_INDIRECTLY_RECLAIMABLE_BYTES,
 			    (1 << (PAGE_SHIFT + pool->order)));
 	mutex_unlock(&pool->mutex);
+}
+
+void ion_page_pool_refill(struct ion_page_pool *pool)
+{
+	struct page *page;
+	gfp_t gfp_refill = (pool->gfp_mask | __GFP_RECLAIM) & ~__GFP_NORETRY;
+	struct device *dev = pool->heap.priv;
+
+	while (!pool_fillmark_reached(pool) && pool_refill_ok(pool)) {
+		page = alloc_pages(gfp_refill, pool->order);
+		if (!page)
+			break;
+		if (!pool->cached)
+			ion_pages_sync_for_device(dev, page,
+						  PAGE_SIZE << pool->order,
+						  DMA_BIDIRECTIONAL);
+		ion_page_pool_add(pool, page);
+	}
 }
 
 static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
@@ -53,6 +91,7 @@ static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 		pool->low_count--;
 	}
 
+	atomic_dec(&pool->count);
 	list_del(&page->lru);
 	mod_node_page_state(page_pgdat(page), NR_INDIRECTLY_RECLAIMABLE_BYTES,
 			    -(1 << (PAGE_SHIFT + pool->order)));
@@ -165,12 +204,10 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order,
 					   bool cached)
 {
-	struct ion_page_pool *pool = kmalloc(sizeof(*pool), GFP_KERNEL);
+	struct ion_page_pool *pool = kzalloc(sizeof(*pool), GFP_KERNEL);
 
 	if (!pool)
 		return NULL;
-	pool->high_count = 0;
-	pool->low_count = 0;
 	INIT_LIST_HEAD(&pool->low_items);
 	INIT_LIST_HEAD(&pool->high_items);
 	pool->gfp_mask = gfp_mask;

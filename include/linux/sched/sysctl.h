@@ -40,11 +40,10 @@ extern unsigned int sysctl_sched_group_downmigrate_pct;
 extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 extern unsigned int sysctl_sched_min_task_util_for_boost;
 extern unsigned int sysctl_sched_min_task_util_for_colocation;
-extern unsigned int sysctl_sched_little_cluster_coloc_fmin_khz;
 extern unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct;
-
+extern unsigned int sysctl_sched_coloc_downmigrate_ns;
 extern int
-walt_proc_update_handler(struct ctl_table *table, int write,
+walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp,
 			 loff_t *ppos);
 
@@ -120,17 +119,10 @@ extern int sysctl_numa_balancing(struct ctl_table *table, int write,
 extern int sysctl_schedstats(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,
 				 loff_t *ppos);
-
-#ifdef CONFIG_SCHED_WALT
-extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
-					int write, void __user *buffer,
-					size_t *lenp, loff_t *ppos);
-#endif
-
 #define LIB_PATH_LENGTH 512
 extern char sched_lib_name[LIB_PATH_LENGTH];
-extern unsigned int sched_lib_mask_check;
 extern unsigned int sched_lib_mask_force;
-extern unsigned long *sched_busy_hysteresis_cpubits;
+extern bool is_sched_lib_based_app(pid_t pid);
+extern unsigned int sysctl_sched_busy_hysteresis_enable_cpus;
 
 #endif /* _LINUX_SCHED_SYSCTL_H */

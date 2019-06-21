@@ -120,6 +120,8 @@ config MMC_SDHCI_ACPI
 config MMC_SDHCI_PLTFM
 	tristate "SDHCI platform and OF driver helper"
 	depends on MMC_SDHCI
+	select EXTCON
+	select EXTCON_GPIO
 	help
 	  This selects the common helper functions support for Secure Digital
 	  Host Controller Interface based platform and OF drivers.

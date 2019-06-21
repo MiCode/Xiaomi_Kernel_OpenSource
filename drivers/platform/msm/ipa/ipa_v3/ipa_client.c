@@ -388,14 +388,13 @@ static enum ipa_client_cb_type ipa_get_client_cb_type(
 	return client_cb;
 }
 void ipa3_register_client_callback(int (*client_cb)(bool is_lock),
-				bool (*teth_port_state)(void), u32 ipa_ep_idx)
+				bool (*teth_port_state)(void),
+				enum ipa_client_type client_type)
 {
 	enum ipa_client_cb_type client;
-	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
 	client = ipa_get_client_cb_type(client_type);
 	if (client == IPA_MAX_CLNT)
 		return;
@@ -412,14 +411,12 @@ void ipa3_register_client_callback(int (*client_cb)(bool is_lock),
 	IPADBG("exit\n");
 }
 
-void ipa3_deregister_client_callback(u32 ipa_ep_idx)
+void ipa3_deregister_client_callback(enum ipa_client_type client_type)
 {
 	enum ipa_client_cb_type client_cb;
-	enum ipa_client_type client_type;
 
 	IPADBG("entry\n");
 
-	client_type = ipa3_get_client_by_pipe(ipa_ep_idx);
 	client_cb = ipa_get_client_cb_type(client_type);
 	if (client_cb == IPA_MAX_CLNT)
 		return;
@@ -1233,6 +1230,12 @@ int ipa3_set_reset_client_cons_pipe_sus_holb(bool set_reset,
 		ipahal_write_reg_n_fields(
 			IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			pipe_idx, &ep_holb);
+
+		/* IPA4.5 issue requires HOLB_EN to be written twice */
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+				pipe_idx, &ep_holb);
 	}
 	client_lock_unlock_cb(client, false);
 	return 0;

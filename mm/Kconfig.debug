@@ -41,6 +41,14 @@ config SLUB_DEBUG_PANIC_ON
 	  investigating the root cause which may be rooted within cache
 	  or memory.
 
+config DEBUG_PANIC_ON_OOM
+	bool "Enable to Panic on OOM detection"
+	help
+	  Android primarily uses an alternative mechanism to detect low
+	  memory situations and kill processes as required. The kernel
+	  oom-killer can mask problems with this feature, which may be
+	  undesireable in a debug environment.
+
 config DEBUG_PAGEALLOC_ENABLE_DEFAULT
 	bool "Enable debug page memory allocations by default?"
 	default n

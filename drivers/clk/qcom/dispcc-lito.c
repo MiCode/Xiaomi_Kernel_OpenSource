@@ -144,9 +144,9 @@ static struct pll_vco lucid_vco[] = {
 };
 
 static const struct alpha_pll_config disp_cc_pll0_config = {
-	.l = 0x16,
+	.l = 0x47,
 	.cal_l = 0x44,
-	.alpha = 0x6555,
+	.alpha = 0xE000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x029A699C,
@@ -527,6 +527,7 @@ static struct clk_rcg2 disp_cc_mdss_rot_clk_src = {
 		.parent_names = disp_cc_parent_names_3,
 		.num_parents = 5,
 		.ops = &clk_rcg2_ops,
+		.flags = CLK_SET_RATE_PARENT,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {

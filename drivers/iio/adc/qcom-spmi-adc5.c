@@ -1003,7 +1003,7 @@ static int adc_probe(struct platform_device *pdev)
 	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
 	if (revid_dev_node) {
 		pmic_rev_id = get_revid_data(revid_dev_node);
-		if (!(IS_ERR(pmic_rev_id)))
+		if (!(IS_ERR_OR_NULL(pmic_rev_id)))
 			skip_usb_wa = skip_usb_in_wa(pmic_rev_id);
 		else {
 			pr_err("Unable to get revid\n");

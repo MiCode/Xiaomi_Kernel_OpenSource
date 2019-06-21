@@ -51,7 +51,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/oom.h>
 
-int sysctl_panic_on_oom;
+int sysctl_panic_on_oom =
+IS_ENABLED(CONFIG_DEBUG_PANIC_ON_OOM) ? 2 : 0;
 int sysctl_oom_kill_allocating_task;
 int sysctl_oom_dump_tasks = 1;
 int sysctl_reap_mem_on_sigkill;
@@ -65,6 +66,28 @@ int sysctl_reap_mem_on_sigkill;
  * and mark_oom_victim
  */
 DEFINE_MUTEX(oom_lock);
+
+/*
+ * If ULMK has killed a process recently,
+ * we are making progress.
+ */
+
+#ifdef CONFIG_HAVE_USERSPACE_LOW_MEMORY_KILLER
+static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
+
+
+bool should_ulmk_retry(void)
+{
+	unsigned long j = atomic64_read(&ulmk_kill_jiffies);
+
+	return time_before(jiffies, j + 2 * HZ);
+}
+
+void ulmk_update_last_kill(void)
+{
+	atomic64_set(&ulmk_kill_jiffies, jiffies);
+}
+#endif
 
 #ifdef CONFIG_NUMA
 /**
@@ -934,7 +957,8 @@ static void __oom_kill_process(struct task_struct *victim)
  */
 static int oom_kill_memcg_member(struct task_struct *task, void *unused)
 {
-	if (task->signal->oom_score_adj != OOM_SCORE_ADJ_MIN) {
+	if (task->signal->oom_score_adj != OOM_SCORE_ADJ_MIN &&
+	    !is_global_init(task)) {
 		get_task_struct(task);
 		__oom_kill_process(task);
 	}

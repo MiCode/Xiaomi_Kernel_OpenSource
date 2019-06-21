@@ -51,9 +51,12 @@ static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
+	vfe_soc_private->is_ife_lite = false;
 	if (strnstr(soc_info->compatible, "lite",
-		strlen(soc_info->compatible)) != NULL)
+		strlen(soc_info->compatible)) != NULL) {
+		vfe_soc_private->is_ife_lite = true;
 		goto end;
+	}
 
 	switch (soc_info->hw_version) {
 	case CAM_CPAS_TITAN_480_V100:

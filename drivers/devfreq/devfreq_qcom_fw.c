@@ -23,9 +23,9 @@
 #define FTBL_MAX_ENTRIES		40U
 #define FTBL_ROW_SIZE			4
 
-#define SRC_MASK	GENMASK(31, 30)
-#define SRC_SHIFT	30
-#define MULT_MASK	GENMASK(7, 0)
+#define SRC_MASK			GENMASK(31, 30)
+#define SRC_SHIFT			30
+#define MULT_MASK			GENMASK(7, 0)
 
 struct devfreq_qcom_fw {
 	void __iomem *perf_base;
@@ -36,6 +36,7 @@ struct devfreq_qcom_fw {
 };
 
 static DEFINE_SPINLOCK(voter_lock);
+static unsigned int ftbl_row_size = FTBL_ROW_SIZE;
 
 static int devfreq_qcom_fw_target(struct device *dev, unsigned long *freq,
 				  u32 flags)
@@ -118,8 +119,11 @@ static int devfreq_qcom_populate_opp(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	of_property_read_u32(pdev->dev.of_node, "qcom,ftbl-row-size",
+						     &ftbl_row_size);
+
 	for (i = 0; i < FTBL_MAX_ENTRIES; i++) {
-		data = readl_relaxed(ftbl_base + i * FTBL_ROW_SIZE);
+		data = readl_relaxed(ftbl_base + i * ftbl_row_size);
 		src = ((data & SRC_MASK) >> SRC_SHIFT);
 		mult = (data & MULT_MASK);
 		freq = src ? XO_HZ * mult : INIT_HZ;

@@ -39,6 +39,7 @@
 #define DIAG_CTRL_MSG_PD_STATUS			30
 #define DIAG_CTRL_MSG_TIME_SYNC_PKT		31
 #define DIAG_CTRL_MSG_DIAGID	33
+#define DIAG_CTRL_MSG_PASSTHRU	35
 /*
  * Feature Mask Definitions: Feature mask is used to specify Diag features
  * supported by the Apps processor
@@ -364,7 +365,7 @@ struct diag_ctrl_diagid_header {
 struct diag_ctrl_diagid {
 	struct diag_ctrl_diagid_header header;
 	uint32_t diag_id;
-	char process_name[30];
+	char process_name[MAX_DIAGID_STR_LEN];
 } __packed;
 
 struct diag_ctrl_diagid_v2 {
@@ -372,7 +373,15 @@ struct diag_ctrl_diagid_v2 {
 	uint32_t diag_id;
 	uint32_t feature_len;
 	uint32_t pd_feature_mask;
-	char process_name[30];
+	char process_name[MAX_DIAGID_STR_LEN];
+} __packed;
+
+struct diag_ctrl_passthru {
+	struct diag_ctrl_diagid_header header;
+	uint32_t diagid_mask;
+	uint8_t hw_accel_type;
+	uint8_t hw_accel_ver;
+	uint8_t control_data;
 } __packed;
 
 int diagfwd_cntl_init(void);
@@ -387,6 +396,7 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 int diag_send_real_time_update(uint8_t peripheral, int real_time);
 void diag_map_pd_to_diagid(uint8_t pd, uint8_t *diag_id, int *peripheral);
 int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params);
+void diag_send_hw_accel_status(uint8_t peripheral);
 void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);
 void diag_real_time_work_fn(struct work_struct *work);
@@ -397,4 +407,5 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 		    uint8_t diag_id, struct diag_buffering_mode_t *params);
 int diag_send_buffering_wm_values(uint8_t peripheral,
 		    uint8_t diag_id, struct diag_buffering_mode_t *params);
+int diag_send_passthru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params);
 #endif

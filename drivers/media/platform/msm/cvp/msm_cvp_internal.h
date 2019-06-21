@@ -25,6 +25,7 @@
 #include <media/videobuf2-v4l2.h>
 #include "msm_cvp_core.h"
 #include <media/msm_media_info.h>
+#include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
 
 #define MSM_CVP_DRV_NAME "msm_cvp_driver"
@@ -313,6 +314,18 @@ struct cvp_session_queue {
 	struct kmem_cache *msg_cache;
 };
 
+enum cvp_event_t {
+	CVP_NO_EVENT,
+	CVP_SSR_EVENT = 1,
+	CVP_INVALID_EVENT,
+};
+
+struct cvp_session_event {
+	spinlock_t lock;
+	enum cvp_event_t event;
+	wait_queue_head_t wq;
+};
+
 struct msm_cvp_core {
 	struct list_head list;
 	struct mutex lock;
@@ -334,6 +347,7 @@ struct msm_cvp_core {
 	struct work_struct ssr_work;
 	enum hal_ssr_trigger_type ssr_type;
 	bool smmu_fault_handled;
+	u32 last_fault_addr;
 	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
@@ -346,11 +360,11 @@ struct msm_cvp_inst {
 	struct msm_cvp_core *core;
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
+	struct cvp_session_event event_handler;
 	void *session;
 	enum instance_state state;
 	struct msm_cvp_list freqs;
 	struct msm_cvp_list persistbufs;
-	struct msm_cvp_list registeredbufs;
 	struct msm_cvp_list cvpcpubufs;
 	struct msm_cvp_list cvpdspbufs;
 	struct cvp_buffer_requirements buff_req;
@@ -363,6 +377,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_capability capability;
 	struct kref kref;
 	unsigned long deprecate_bitmask;
+	struct cvp_kmd_request_power power;
 };
 
 extern struct msm_cvp_drv *cvp_driver;

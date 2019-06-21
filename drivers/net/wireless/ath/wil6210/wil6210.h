@@ -52,6 +52,8 @@ union wil_tx_desc;
 
 #define WIL_DEFAULT_BUS_REQUEST_KBPS 128000 /* ~1Gbps */
 #define WIL_MAX_BUS_REQUEST_KBPS 800000 /* ~6.1Gbps */
+#define WIL_11AD_BUS_REQUEST_KBPS 600000 /* ~4.6Gbps */
+#define WIL_11AY_BUS_REQUEST_KBPS 1300000 /* ~10.1Gbps */
 
 #define WIL_NUM_LATENCY_BINS 200
 
@@ -1485,5 +1487,6 @@ int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u16 agg_wsize, u16 timeout);
 
 void update_supported_bands(struct wil6210_priv *wil);
+int wmi_reset_spi_slave(struct wil6210_priv *wil);
 
 #endif /* __WIL6210_H__ */

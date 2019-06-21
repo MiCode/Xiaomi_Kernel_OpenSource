@@ -450,8 +450,8 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	evt_props.exclusive = true;
 	evt_props.err_cb = ipa_gsi_evt_ring_err_cb;
 	evt_props.user_data = NULL;
-	evt_props.int_modc = 1;
-	evt_props.int_modt = 1;
+	evt_props.int_modc = 200;
+	evt_props.int_modt = 15;
 	evt_props.ring_base_vaddr = NULL;
 
 	if (smmu_en) {
@@ -480,7 +480,7 @@ static int ipa3_wigig_config_gsi(bool Rx,
 		union __packed gsi_evt_scratch evt_scratch;
 
 		memset(&evt_scratch, 0, sizeof(evt_scratch));
-		evt_scratch.w11ad.update_status_hwtail_mod_threshold = 1;
+		evt_scratch.w11ad.update_status_hwtail_mod_threshold = 200;
 		gsi_res = gsi_write_evt_ring_scratch(ep->gsi_evt_ring_hdl,
 			evt_scratch);
 		if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -626,7 +626,7 @@ static int ipa3_wigig_config_gsi(bool Rx,
 			gsi_scratch.tx_11ad.fixed_data_buffer_size_pow_2 =
 				ilog2(tx_dbuff->data_buffer_size);
 		}
-		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold = 1;
+		gsi_scratch.tx_11ad.update_status_hwtail_mod_threshold = 200;
 		IPADBG("tx scratch: status_ring_hwtail_address_lsb 0x%X\n",
 			gsi_scratch.tx_11ad.status_ring_hwtail_address_lsb);
 		IPADBG("tx scratch: status_ring_hwhead_address_lsb 0x%X\n",
@@ -829,12 +829,12 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 		ep->priv = input_smmu->priv;
 
 		IPADBG(
-		"desc_ring_base_iova %lld desc_ring_size %d status_ring_base_iova %lld status_ring_size %d",
+		"desc_ring_base_iova 0x%llX desc_ring_size %d status_ring_base_iova 0x%llX status_ring_size %d",
 		(unsigned long long)input_smmu->pipe_smmu.desc_ring_base_iova,
 		input_smmu->pipe_smmu.desc_ring_size,
 		(unsigned long long)input_smmu->pipe_smmu.status_ring_base_iova,
 		input_smmu->pipe_smmu.status_ring_size);
-		IPADBG("data_buffer_base_iova %lld data_buffer_size %d",
+		IPADBG("data_buffer_base_iova 0x%llX data_buffer_size %d",
 			(unsigned long long)dbuff_smmu->data_buffer_base_iova,
 			input_smmu->dbuff_smmu.data_buffer_size);
 
@@ -842,7 +842,7 @@ int ipa3_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out)
 			dbuff_smmu->data_buffer_base_iova) &
 			0xFFFFFF00) {
 			IPAERR(
-			"data_buffers_base_address_msb is over the 8 bit limit (%lld)\n",
+			"data_buffers_base_address_msb is over the 8 bit limit (0x%llX)\n",
 			(unsigned long long)dbuff_smmu->data_buffer_base_iova);
 			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return -EFAULT;
@@ -989,7 +989,7 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 		input_smmu = (struct ipa_wigig_conn_tx_in_params_smmu *)in;
 
 		IPADBG(
-		"desc_ring_base_iova %lld desc_ring_size %d status_ring_base_iova %lld status_ring_size %d",
+		"desc_ring_base_iova 0x%llX desc_ring_size %d status_ring_base_iova 0x%llX status_ring_size %d",
 		(unsigned long long)input_smmu->pipe_smmu.desc_ring_base_iova,
 		input_smmu->pipe_smmu.desc_ring_size,
 		(unsigned long long)input_smmu->pipe_smmu.status_ring_base_iova,

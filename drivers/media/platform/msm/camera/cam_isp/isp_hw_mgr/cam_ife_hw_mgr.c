@@ -876,6 +876,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 			out_port->res_type == CAM_ISP_IFE_OUT_RES_LCR))
 			continue;
 
+		if ((out_port->res_type == CAM_ISP_IFE_OUT_RES_2PD &&
+			ife_src_res->res_id != CAM_ISP_HW_VFE_IN_PDLIB) ||
+			(ife_src_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB &&
+			out_port->res_type != CAM_ISP_IFE_OUT_RES_2PD))
+			continue;
+
 		CAM_DBG(CAM_ISP, "res_type 0x%x", out_port->res_type);
 
 		ife_out_res = &ife_ctx->res_list_ife_out[k];
@@ -1503,7 +1509,8 @@ end:
 static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
-	bool                                is_ipp)
+	bool                                 is_ipp,
+	bool                                 crop_enable)
 {
 	int rc = -1;
 	int i;
@@ -1560,6 +1567,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.in_port = in_port;
 		csid_acquire.out_port = in_port->data;
 		csid_acquire.node_res = NULL;
+		csid_acquire.crop_enable = crop_enable;
+		csid_acquire.drop_enable = false;
 
 		hw_intf = cid_res->hw_res[i]->hw_intf;
 
@@ -1688,6 +1697,18 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 		csid_acquire.node_res = NULL;
+
+		/*
+		 * Enable RDI pixel drop by default. CSID will enable only for
+		 * ver 480 HW to allow userspace to control pixel drop pattern.
+		 */
+		csid_acquire.drop_enable = true;
+
+		/* Enable RDI crop for single ife use case only */
+		if (in_port->usage_type)
+			csid_acquire.crop_enable = false;
+		else
+			csid_acquire.crop_enable = true;
 
 		hw_intf = cid_res->hw_res[0]->hw_intf;
 		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
@@ -1935,6 +1956,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	int ppp_count                             = 0;
 	int ife_rd_count                          = 0;
 	int lcr_count                             = 0;
+	bool crop_enable                          = true;
 
 	is_dual_vfe = in_port->usage_type;
 
@@ -1958,7 +1980,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	if (ipp_count || lcr_count) {
 		/* get ife csid IPP resource */
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_pxl(ife_ctx,
-			in_port, true);
+			in_port, true, crop_enable);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID IPP/LCR resource Failed");
@@ -1967,7 +1989,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	}
 
 	if (rdi_count) {
-		/* get ife csid rdi resource */
+		/* get ife csid RDI resource */
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -1978,8 +2000,16 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 
 	if (ppp_count) {
 		/* get ife csid PPP resource */
+
+		/* If both IPP and PPP paths are requested with the same vc dt
+		 * it is implied that the sensor is a type 3 PD sensor. Crop
+		 * must be enabled for this sensor on PPP path as well.
+		 */
+		if (!ipp_count)
+			crop_enable = false;
+
 		rc = cam_ife_hw_mgr_acquire_res_ife_csid_pxl(ife_ctx,
-			in_port, false);
+			in_port, false, crop_enable);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID PPP resource Failed");
@@ -2161,7 +2191,7 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 
 	in_port_length = sizeof(struct cam_isp_in_port_info_v2) +
 		(in->num_out_res - 1) *
-		sizeof(struct cam_isp_out_port_info);
+		sizeof(struct cam_isp_out_port_info_v2);
 
 	*input_size += in_port_length;
 
@@ -2692,7 +2722,8 @@ static int cam_isp_classify_vote_info(
 
 	if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
 		|| (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
-		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)) {
+		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB) ||
+		(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_LCR)) {
 		if (split_idx == CAM_ISP_HW_SPLIT_LEFT) {
 			if (*camif_l_bw_updated)
 				return rc;
@@ -2867,8 +2898,11 @@ static int cam_isp_blob_bw_update(
 			if (!hw_mgr_res->hw_res[i])
 				continue;
 
-			if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
-			|| (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD))
+			if ((hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) ||
+				(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_RD) ||
+				(hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_PDLIB)
+				|| (hw_mgr_res->res_id ==
+				CAM_ISP_HW_VFE_IN_LCR))
 				if (i == CAM_ISP_HW_SPLIT_LEFT) {
 					if (camif_l_bw_updated)
 						continue;
@@ -2902,32 +2936,8 @@ static int cam_isp_blob_bw_update(
 					bw_config->rdi_vote[idx].cam_bw_bps;
 				ext_bw_bps =
 					bw_config->rdi_vote[idx].ext_bw_bps;
-			} else if (hw_mgr_res->res_id ==
-				CAM_ISP_HW_VFE_IN_PDLIB) {
-				if (i == CAM_ISP_HW_SPLIT_LEFT) {
-					if (camif_l_bw_updated)
-						continue;
-
-					cam_bw_bps =
-					bw_config->left_pix_vote.cam_bw_bps;
-					ext_bw_bps =
-					bw_config->left_pix_vote.ext_bw_bps;
-
-					camif_l_bw_updated = true;
-				} else {
-					if (camif_r_bw_updated)
-						continue;
-
-					cam_bw_bps =
-					bw_config->right_pix_vote.cam_bw_bps;
-					ext_bw_bps =
-					bw_config->right_pix_vote.ext_bw_bps;
-
-					camif_r_bw_updated = true;
-				}
 			} else {
-				if (hw_mgr_res->res_id != CAM_ISP_HW_VFE_IN_LCR
-					&& hw_mgr_res->hw_res[i]) {
+				if (hw_mgr_res->hw_res[i]) {
 					CAM_ERR(CAM_ISP, "Invalid res_id %u",
 						hw_mgr_res->res_id);
 					rc = -EINVAL;
@@ -4602,7 +4612,8 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		struct cam_isp_bw_config    *bw_config;
 		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
-		CAM_WARN(CAM_ISP, "Deprecated Blob TYPE_BW_CONFIG");
+		CAM_WARN_RATE_LIMIT_CUSTOM(CAM_ISP, 300, 1,
+			"Deprecated Blob TYPE_BW_CONFIG");
 		if (blob_size < sizeof(struct cam_isp_bw_config)) {
 			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
 			return -EINVAL;
@@ -5654,7 +5665,7 @@ static int cam_ife_hw_mgr_handle_hw_rup(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "RUP done for VFE source %d",
+	CAM_DBG(CAM_ISP, "RUP done for VFE:%d source %d", event_info->hw_idx,
 		event_info->res_id);
 
 	return 0;
@@ -5753,7 +5764,8 @@ static int cam_ife_hw_mgr_handle_hw_epoch(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "Epoch for VFE source %d", event_info->res_id);
+	CAM_DBG(CAM_ISP, "Epoch for VFE:%d source %d", event_info->hw_idx,
+		event_info->res_id);
 
 	return 0;
 }
@@ -5815,7 +5827,8 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "SOF for VFE source %d", event_info->res_id);
+	CAM_DBG(CAM_ISP, "SOF for VFE:%d source %d", event_info->hw_idx,
+		event_info->res_id);
 
 	return 0;
 }
@@ -5860,7 +5873,7 @@ static int cam_ife_hw_mgr_handle_hw_eof(
 		break;
 	}
 
-	CAM_DBG(CAM_ISP, "EOF for out_res->res_id: 0x%x",
+	CAM_DBG(CAM_ISP, "EOF for VFE:%d source %d", event_info->hw_idx,
 		event_info->res_id);
 
 	return 0;
@@ -5890,8 +5903,8 @@ static int cam_ife_hw_mgr_handle_hw_buf_done(
 			CAM_ISP_HW_EVENT_DONE, &buf_done_event_data);
 	}
 
-	CAM_DBG(CAM_ISP, "Buf done for out_res->res_id: 0x%x",
-		event_info->res_id);
+	CAM_DBG(CAM_ISP, "Buf done for VFE:%d out_res->res_id: 0x%x",
+		event_info->hw_idx, event_info->res_id);
 
 	return 0;
 }

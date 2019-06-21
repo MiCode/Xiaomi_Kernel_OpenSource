@@ -3,15 +3,11 @@
  * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/kernel.h>
-#include <linux/hrtimer.h>
 #include <linux/devfreq_cooling.h>
-#include <linux/pm_opp.h>
+#include <linux/slab.h>
 
-#include "kgsl.h"
-#include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
+#include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
 
 /*

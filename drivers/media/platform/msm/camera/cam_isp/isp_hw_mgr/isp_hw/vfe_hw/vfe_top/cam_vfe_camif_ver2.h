@@ -9,13 +9,6 @@
 #include "cam_isp_hw.h"
 #include "cam_vfe_top.h"
 
-/*
- * Debug values for camif module
- */
-#define CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS      BIT(0)
-
-#define CAM_VFE_CAMIF_EVT_MAX                      256
-
 struct cam_vfe_camif_ver2_reg {
 	uint32_t     camif_cmd;
 	uint32_t     camif_config;

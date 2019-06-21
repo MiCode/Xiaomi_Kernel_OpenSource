@@ -196,6 +196,7 @@ struct fts_i2c_platform_data {
 	int reset_gpio;
 	const char *pwr_reg_name;
 	const char *bus_reg_name;
+	bool pwr_on_suspend;
 };
 
 /*

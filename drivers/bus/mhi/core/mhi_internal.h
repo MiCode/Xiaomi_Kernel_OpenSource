@@ -215,8 +215,21 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
 
-/* convert ticks to micro seconds by dividing by 19.2 */
-#define TIME_TICKS_TO_US(x) (div_u64((x) * 10, 192))
+#define SOC_HW_VERSION_OFFS (0x224)
+#define SOC_HW_VERSION_FAM_NUM_BMSK (0xF0000000)
+#define SOC_HW_VERSION_FAM_NUM_SHFT (28)
+#define SOC_HW_VERSION_DEV_NUM_BMSK (0x0FFF0000)
+#define SOC_HW_VERSION_DEV_NUM_SHFT (16)
+#define SOC_HW_VERSION_MAJOR_VER_BMSK (0x0000FF00)
+#define SOC_HW_VERSION_MAJOR_VER_SHFT (8)
+#define SOC_HW_VERSION_MINOR_VER_BMSK (0x000000FF)
+#define SOC_HW_VERSION_MINOR_VER_SHFT (0)
+
+/* timesync time calculations */
+#define LOCAL_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+				(mhi_cntrl->local_timer_freq / 10000ULL)))
+#define REMOTE_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+				(mhi_cntrl->remote_timer_freq / 10000ULL)))
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
@@ -744,6 +757,16 @@ int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl);
+
+/* timesync log support */
+static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+
+	if (mhi_tsync && mhi_cntrl->tsync_log)
+		mhi_cntrl->tsync_log(mhi_cntrl,
+				     readq_no_log(mhi_tsync->time_reg));
+}
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,

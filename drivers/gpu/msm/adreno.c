@@ -2,44 +2,29 @@
 /*
  * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/sched.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_fdt.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_fdt.h>
+#include <linux/module.h>
+#include <linux/msm_kgsl.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/scm.h>
 
-#include <linux/msm-bus-board.h>
-#include <linux/msm-bus.h>
-
-#include "kgsl.h"
-#include "kgsl_gmu_core.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_iommu.h"
-#include "kgsl_trace.h"
-#include "adreno_llc.h"
-
 #include "adreno.h"
-#include "adreno_iommu.h"
+#include "adreno_a3xx.h"
+#include "adreno_a5xx.h"
+#include "adreno_a6xx.h"
 #include "adreno_compat.h"
-#include "adreno_pm4types.h"
+#include "adreno_iommu.h"
+#include "adreno_llc.h"
 #include "adreno_trace.h"
-
-#include "a3xx_reg.h"
-#include "a6xx_reg.h"
-#include "adreno_snapshot.h"
+#include "kgsl_trace.h"
 
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
-#include "adreno_dispatch.h"
-
-#define DRIVER_VERSION_MAJOR   3
-#define DRIVER_VERSION_MINOR   1
 
 static void adreno_input_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,
@@ -108,6 +93,16 @@ int adreno_wake_nice = -7;
 
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
+
+void adreno_reglist_write(struct adreno_device *adreno_dev,
+		const struct adreno_reglist *list, u32 count)
+{
+	int i;
+
+	for (i = 0; list && i < count; i++)
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
+			list[i].offset, list[i].value);
+}
 
 /**
  * adreno_readreg64() - Read a 64bit register by getting its offset from the
@@ -687,11 +682,11 @@ static inline const struct adreno_gpu_core *_get_gpu_core(unsigned int chipid)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(adreno_gpulist); i++) {
-		if (core == adreno_gpulist[i].core &&
-		    _rev_match(major, adreno_gpulist[i].major) &&
-		    _rev_match(minor, adreno_gpulist[i].minor) &&
-		    _rev_match(patchid, adreno_gpulist[i].patchid))
-			return &adreno_gpulist[i];
+		if (core == adreno_gpulist[i]->core &&
+		    _rev_match(major, adreno_gpulist[i]->major) &&
+		    _rev_match(minor, adreno_gpulist[i]->minor) &&
+		    _rev_match(patchid, adreno_gpulist[i]->patchid))
+			return adreno_gpulist[i];
 	}
 
 	return NULL;
@@ -1632,23 +1627,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
-	/* Use shader offset and length defined in gpudev */
-	if (adreno_dev->gpucore->shader_offset &&
-					adreno_dev->gpucore->shader_size) {
-
-		if (device->shader_mem_phys || device->shader_mem_virt)
-			dev_err(device->dev,
-				     "Shader memory already specified in device tree\n");
-		else {
-			device->shader_mem_phys = device->reg_phys +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_virt = device->reg_virt +
-					adreno_dev->gpucore->shader_offset;
-			device->shader_mem_len =
-					adreno_dev->gpucore->shader_size;
-		}
-	}
-
 	/*
 	 * Allocate a small chunk of memory for precise drawobj profiling for
 	 * those targets that have the always on timer
@@ -2257,19 +2235,20 @@ int adreno_reset(struct kgsl_device *device, int fault)
 	return ret;
 }
 
-static int copy_prop(void __user *dst, size_t count, void *src, size_t size)
+static int copy_prop(struct kgsl_device_getproperty *param,
+		void *src, size_t size)
 {
-	if (count != size)
+	if (param->sizebytes != size)
 		return -EINVAL;
 
-	if (copy_to_user(dst, src, count))
+	if (copy_to_user(param->value, src, param->sizebytes))
 		return -EFAULT;
 
 	return 0;
 }
 
 static int adreno_prop_device_info(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_devinfo devinfo = {
@@ -2280,11 +2259,11 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
 
-	return copy_prop(value, count, &devinfo, sizeof(devinfo));
+	return copy_prop(param, &devinfo, sizeof(devinfo));
 }
 
 static int adreno_prop_device_shadow(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct kgsl_shadowprop shadowprop = { 0 };
 
@@ -2301,11 +2280,11 @@ static int adreno_prop_device_shadow(struct kgsl_device *device,
 			KGSL_FLAGS_PER_CONTEXT_TIMESTAMPS;
 	}
 
-	return copy_prop(value, count, &shadowprop, sizeof(shadowprop));
+	return copy_prop(param, &shadowprop, sizeof(shadowprop));
 }
 
 static int adreno_prop_device_qdss_stm(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct kgsl_qdss_stm_prop qdssprop = {0};
 	struct kgsl_memdesc *qdss_desc = kgsl_mmu_get_qdss_global_entry(device);
@@ -2315,11 +2294,11 @@ static int adreno_prop_device_qdss_stm(struct kgsl_device *device,
 		qdssprop.size = qdss_desc->size;
 	}
 
-	return copy_prop(value, count, &qdssprop, sizeof(qdssprop));
+	return copy_prop(param, &qdssprop, sizeof(qdssprop));
 }
 
 static int adreno_prop_device_qtimer(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct kgsl_qtimer_prop qtimerprop = {0};
 	struct kgsl_memdesc *qtimer_desc =
@@ -2330,33 +2309,33 @@ static int adreno_prop_device_qtimer(struct kgsl_device *device,
 		qtimerprop.size = qtimer_desc->size;
 	}
 
-	return copy_prop(value, count, &qtimerprop, sizeof(qtimerprop));
+	return copy_prop(param, &qtimerprop, sizeof(qtimerprop));
 }
 
 static int adreno_prop_s32(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	int val = 0;
 
-	if (type == KGSL_PROP_MMU_ENABLE)
+	if (param->type == KGSL_PROP_MMU_ENABLE)
 		val = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED);
-	else if (type == KGSL_PROP_INTERRUPT_WAITS)
+	else if (param->type == KGSL_PROP_INTERRUPT_WAITS)
 		val = 1;
 
-	return copy_prop(value, count, &val, sizeof(val));
+	return copy_prop(param, &val, sizeof(val));
 }
 
 static int adreno_prop_uche_gmem_addr(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u64 vaddr = adreno_dev->gpucore->gmem_base;
 
-	return copy_prop(value, count, &vaddr, sizeof(vaddr));
+	return copy_prop(param, &vaddr, sizeof(vaddr));
 }
 
 static int adreno_prop_ucode_version(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_ucode_version ucode = {
@@ -2364,83 +2343,78 @@ static int adreno_prop_ucode_version(struct kgsl_device *device,
 		.pm4 = adreno_dev->fw[ADRENO_FW_PM4].version,
 	};
 
-	return copy_prop(value, count, &ucode, sizeof(ucode));
-}
-
-static int adreno_prop_gpmu_version(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_gpmu_version gpmu = { 0 };
-
-	if (!adreno_dev->gpucore)
-		return -EINVAL;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return -EOPNOTSUPP;
-
-	gpmu.major = adreno_dev->gpucore->gpmu_major;
-	gpmu.minor = adreno_dev->gpucore->gpmu_minor;
-	gpmu.features = adreno_dev->gpucore->gpmu_features;
-
-	return copy_prop(value, count, &gpmu, sizeof(gpmu));
+	return copy_prop(param, &ucode, sizeof(ucode));
 }
 
 static int adreno_prop_u32(struct kgsl_device *device,
-		u32 type, void __user *value, size_t count)
+		struct kgsl_device_getproperty *param)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u32 val = 0;
 
-	if (type == KGSL_PROP_HIGHEST_BANK_BIT) {
+	if (param->type == KGSL_PROP_HIGHEST_BANK_BIT) {
 		if (of_property_read_u32(device->pdev->dev.of_node,
 			"qcom,highest-bank-bit", &val))
 			return -EINVAL;
-	} else if (type == KGSL_PROP_MIN_ACCESS_LENGTH)
+	} else if (param->type == KGSL_PROP_MIN_ACCESS_LENGTH)
 		of_property_read_u32(device->pdev->dev.of_node,
 			"qcom,min-access-length", &val);
-	else if (type == KGSL_PROP_UBWC_MODE)
+	else if (param->type == KGSL_PROP_UBWC_MODE)
 		of_property_read_u32(device->pdev->dev.of_node,
 			"qcom,ubwc-mode", &val);
-	else if (type == KGSL_PROP_DEVICE_BITNESS)
+	else if (param->type == KGSL_PROP_DEVICE_BITNESS)
 		val = adreno_support_64bit(adreno_dev) ? 48 : 32;
-
-	else if (type == KGSL_PROP_SPEED_BIN)
+	else if (param->type == KGSL_PROP_SPEED_BIN)
 		val = adreno_dev->speed_bin;
 
-	return copy_prop(value, count, &val, sizeof(val));
+	return copy_prop(param, &val, sizeof(val));
 }
 
-static struct {
-	int (*func)(struct kgsl_device *device, u32 type, void __user *value,
-		size_t count);
+static const struct {
+	int type;
+	int (*func)(struct kgsl_device *device,
+		struct kgsl_device_getproperty *param);
 } adreno_property_funcs[] = {
-	[KGSL_PROP_DEVICE_INFO] = { .func = adreno_prop_device_info },
-	[KGSL_PROP_DEVICE_SHADOW] = { .func = adreno_prop_device_shadow },
-	[KGSL_PROP_DEVICE_QDSS_STM] = { .func = adreno_prop_device_qdss_stm },
-	[KGSL_PROP_DEVICE_QTIMER] = { .func = adreno_prop_device_qtimer },
-	[KGSL_PROP_MMU_ENABLE] = { .func = adreno_prop_s32 },
-	[KGSL_PROP_INTERRUPT_WAITS] = { .func = adreno_prop_s32 },
-	[KGSL_PROP_UCHE_GMEM_VADDR] = { .func = adreno_prop_uche_gmem_addr },
-	[KGSL_PROP_UCODE_VERSION] = { .func = adreno_prop_ucode_version },
-	[KGSL_PROP_GPMU_VERSION] = { .func = adreno_prop_gpmu_version },
-	[KGSL_PROP_HIGHEST_BANK_BIT] = { .func = adreno_prop_u32 },
-	[KGSL_PROP_MIN_ACCESS_LENGTH] = { .func = adreno_prop_u32 },
-	[KGSL_PROP_UBWC_MODE] = { .func = adreno_prop_u32 },
-	[KGSL_PROP_DEVICE_BITNESS] = { .func = adreno_prop_u32 },
-	[KGSL_PROP_SPEED_BIN] = { .func = adreno_prop_u32 },
+	{ KGSL_PROP_DEVICE_INFO, adreno_prop_device_info },
+	{ KGSL_PROP_DEVICE_SHADOW, adreno_prop_device_shadow },
+	{ KGSL_PROP_DEVICE_QDSS_STM, adreno_prop_device_qdss_stm },
+	{ KGSL_PROP_DEVICE_QTIMER, adreno_prop_device_qtimer },
+	{ KGSL_PROP_MMU_ENABLE, adreno_prop_s32 },
+	{ KGSL_PROP_INTERRUPT_WAITS, adreno_prop_s32 },
+	{ KGSL_PROP_UCHE_GMEM_VADDR, adreno_prop_uche_gmem_addr },
+	{ KGSL_PROP_UCODE_VERSION, adreno_prop_ucode_version },
+	{ KGSL_PROP_HIGHEST_BANK_BIT, adreno_prop_u32 },
+	{ KGSL_PROP_MIN_ACCESS_LENGTH, adreno_prop_u32 },
+	{ KGSL_PROP_UBWC_MODE, adreno_prop_u32 },
+	{ KGSL_PROP_DEVICE_BITNESS, adreno_prop_u32 },
+	{ KGSL_PROP_SPEED_BIN, adreno_prop_u32 },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
-				unsigned int type,
-				void __user *value,
-				size_t sizebytes)
+		struct kgsl_device_getproperty *param)
 {
-	if (type >= ARRAY_SIZE(adreno_property_funcs) ||
-		!adreno_property_funcs[type].func)
-		return -EINVAL;
+	int i;
 
-	return adreno_property_funcs[type].func(device, type, value, sizebytes);
+	for (i = 0; i < ARRAY_SIZE(adreno_property_funcs); i++) {
+		if (param->type == adreno_property_funcs[i].type)
+			return adreno_property_funcs[i].func(device, param);
+	}
+
+	return -ENODEV;
+}
+
+static int adreno_query_property_list(struct kgsl_device *device, u32 *list,
+		u32 count)
+{
+	int i;
+
+	if (!list)
+		return ARRAY_SIZE(adreno_property_funcs);
+
+	for (i = 0; i < count && i < ARRAY_SIZE(adreno_property_funcs); i++)
+		list[i] = adreno_property_funcs[i].type;
+
+	return i;
 }
 
 int adreno_set_constraint(struct kgsl_device *device,
@@ -2605,6 +2579,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 		}
 		break;
 	default:
+		status = -ENODEV;
 		break;
 	}
 
@@ -3750,6 +3725,7 @@ static const struct kgsl_functable adreno_functable = {
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
 	.dispatcher_halt = adreno_dispatcher_halt,
 	.dispatcher_unhalt = adreno_dispatcher_unhalt,
+	.query_property_list = adreno_query_property_list,
 };
 
 static struct platform_driver adreno_platform_driver = {

@@ -25,6 +25,13 @@
 #define CAM_VFE_LCR_VER_1_0 0x100
 #define CAM_VFE_PDLIB_VER_1_0 0x10000
 
+/*
+ * Debug values for camif module
+ */
+#define CAMIF_DEBUG_ENABLE_SENSOR_DIAG_STATUS      BIT(0)
+#define CAMIF_DEBUG_ENABLE_REG_DUMP                BIT(1)
+#define CAM_VFE_CAMIF_EVT_MAX                      256
+
 struct cam_vfe_top {
 	void                   *top_priv;
 	struct cam_hw_ops       hw_ops;

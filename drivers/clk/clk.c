@@ -606,7 +606,8 @@ static int clk_find_vdd_level(struct clk_core *clk, unsigned long rate)
 	 */
 	for (level = 0; level < clk->num_rate_max; level++)
 		if (DIV_ROUND_CLOSEST(rate, 1000) <=
-				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000))
+				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000) &&
+		    clk->rate_max[level] > 0)
 			break;
 
 	if (level == clk->num_rate_max) {
@@ -646,8 +647,7 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 	for (i = 0; i < vdd_class->num_regulators; i++) {
 		pr_debug("Set Voltage level Min %d, Max %d\n", uv[new_base + i],
 				uv[max_lvl + i]);
-		rc = regulator_set_voltage(r[i], uv[new_base + i],
-			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+		rc = regulator_set_voltage(r[i], uv[new_base + i], INT_MAX);
 		if (rc)
 			goto set_voltage_fail;
 
@@ -668,13 +668,11 @@ static int clk_update_vdd(struct clk_vdd_class *vdd_class)
 	return rc;
 
 enable_disable_fail:
-	regulator_set_voltage(r[i], uv[cur_base + i],
-			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+	regulator_set_voltage(r[i], uv[cur_base + i], INT_MAX);
 
 set_voltage_fail:
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], uv[cur_base + i],
-		       vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i], INT_MAX);
 		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
 			regulator_disable(r[i]);
 		else if (level == 0)
@@ -2396,6 +2394,8 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	if (clk_core_rate_is_protected(core))
 		return -EBUSY;
 
+	set_rate_nesting_count++;
+
 	/* calculate new rates and get the topmost changed clock */
 	top = clk_calc_new_rates(core, req_rate);
 	if (!top) {
@@ -2419,7 +2419,6 @@ static int clk_core_set_rate_nolock(struct clk_core *core,
 	}
 
 	/* change the rates */
-	set_rate_nesting_count++;
 	ret = clk_change_rate(top);
 	set_rate_nesting_count--;
 	if (ret) {
@@ -2447,6 +2446,7 @@ post_rate_change_err:
 	return ret;
 
 pre_rate_change_err:
+	set_rate_nesting_count--;
 	if (set_rate_nesting_count == 0) {
 		clk_unvote_new_rate_vdd();
 		clk_cleanup_vdd_votes();

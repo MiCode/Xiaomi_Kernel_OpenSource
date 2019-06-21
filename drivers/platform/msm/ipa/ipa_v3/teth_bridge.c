@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/completion.h>
@@ -105,6 +105,28 @@ int ipa3_teth_bridge_init(struct teth_bridge_init_params *params)
 
 	TETH_DBG_FUNC_EXIT();
 	return 0;
+}
+
+/**
+ * ipa3_teth_bridge_get_pm_hdl() - Get the Tethering bridge Driver pm hdl
+ *
+ *
+ * Return codes: handle
+ *		-EINVAL - Bad parameter
+ */
+int ipa3_teth_bridge_get_pm_hdl(void)
+{
+	TETH_DBG_FUNC_ENTRY();
+
+	if (ipa3_teth_ctx->modem_pm_hdl == ~0) {
+		TETH_ERR("Bad parameter\n");
+		TETH_DBG_FUNC_EXIT();
+		return -EINVAL;
+	}
+
+	TETH_DBG("Return rm-handle %d\n", ipa3_teth_ctx->modem_pm_hdl);
+	TETH_DBG_FUNC_EXIT();
+	return ipa3_teth_ctx->modem_pm_hdl;
 }
 
 /**

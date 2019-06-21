@@ -60,6 +60,7 @@ enum cam_vfe_hw_irq_regs {
 	CAM_IFE_IRQ_CAMIF_REG_STATUS1           = 1,
 	CAM_IFE_IRQ_CAMIF_REG_STATUS2           = 2,
 	CAM_IFE_IRQ_VIOLATION_STATUS            = 3,
+	CAM_IFE_IRQ_BUS_OVERFLOW_STATUS         = 4,
 	CAM_IFE_IRQ_REGISTERS_MAX,
 };
 

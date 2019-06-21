@@ -295,6 +295,10 @@ static int clk_debug_read_period(void *data, u64 *val)
 	ret = clk_find_and_set_parent(measure, hw);
 	if (!ret) {
 		parent = clk_hw_get_parent(measure);
+		if (!parent) {
+			mutex_unlock(&clk_debug_lock);
+			return -EINVAL;
+		}
 		mux = to_clk_measure(parent);
 		regmap_read(mux->regmap, mux->period_offset, &regval);
 		if (!regval) {
@@ -339,6 +343,8 @@ void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry)
 	}
 
 	parent = clk_hw_get_parent(measure);
+	if (!parent)
+		return;
 	meas_parent = to_clk_measure(parent);
 
 	if (parent->init->flags & CLK_IS_MEASURE && !meas_parent->mux_sels) {

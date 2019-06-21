@@ -66,10 +66,16 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	int32_t                            rc = -EINVAL;
 	struct cam_hw_info                *vfe_hw;
 	struct cam_hw_soc_info            *soc_info = NULL;
+	struct cam_vfe_soc_private        *soc_private = NULL;
 	void __iomem                      *mem_base;
 
 	vfe_hw = th_payload->handler_priv;
 	soc_info = &vfe_hw->soc_info;
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Invalid soc_private");
+		return -ENODEV;
+	}
 
 	CAM_DBG(CAM_ISP, "Enter");
 
@@ -84,8 +90,7 @@ int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 
 	switch (soc_info->hw_version) {
 	case CAM_CPAS_TITAN_480_V100:
-		if (strnstr(soc_info->compatible, "lite",
-			strlen(soc_info->compatible)) == NULL) {
+		if (!soc_private->is_ife_lite) {
 			if (th_payload->evt_status_arr[0] & 0x1) {
 				cam_io_w(0xFFFFFFFF, mem_base +
 					CAM_VFE_48X_CLEAR_0_REG_OFFSET);
@@ -301,6 +306,7 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 {
 	struct cam_hw_info *vfe_hw  = hw_priv;
 	struct cam_hw_soc_info *soc_info = NULL;
+	struct cam_vfe_soc_private *soc_private = NULL;
 	struct cam_vfe_hw_core_info *core_info = NULL;
 	uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX];
 	int rc;
@@ -313,14 +319,18 @@ int cam_vfe_reset(void *hw_priv, void *reset_core_args, uint32_t arg_size)
 	}
 
 	soc_info = &vfe_hw->soc_info;
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Invalid soc_private");
+		return -ENODEV;
+	}
 	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
 
 	memset(top_reset_irq_reg_mask, 0, sizeof(top_reset_irq_reg_mask));
 
 	switch (soc_info->hw_version) {
 	case CAM_CPAS_TITAN_480_V100:
-		if (strnstr(soc_info->compatible, "lite",
-			strlen(soc_info->compatible)) == NULL)
+		if (!soc_private->is_ife_lite)
 			top_reset_irq_reg_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0]
 				= CAM_VFE_48X_TOP_RESET_MASK;
 		else
@@ -647,8 +657,15 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 	struct cam_vfe_hw_info                     *vfe_hw_info)
 {
 	int rc = -EINVAL;
+	struct cam_vfe_soc_private *soc_private = NULL;
 
 	CAM_DBG(CAM_ISP, "Enter");
+
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Invalid soc_private");
+		return -ENODEV;
+	}
 
 	rc = cam_irq_controller_init(drv_name,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX),
@@ -676,8 +693,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 	}
 
 	/* Read Bus is not valid for vfe-lite */
-	if (strnstr(soc_info->compatible, "lite",
-		strlen(soc_info->compatible)) == NULL) {
+	if (!soc_private->is_ife_lite) {
 		rc = cam_vfe_bus_init(vfe_hw_info->bus_rd_version, BUS_TYPE_RD,
 			soc_info, hw_intf, vfe_hw_info->bus_rd_hw_info,
 			core_info->vfe_irq_controller, &core_info->vfe_rd_bus);

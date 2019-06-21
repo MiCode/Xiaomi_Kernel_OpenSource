@@ -313,7 +313,6 @@ struct regulator;
  * @level_votes: array of votes for each level
  * @num_levels: specifies the size of level_votes array
  * @skip_handoff: do not vote for the max possible voltage during init
- * @use_max_uV: use INT_MAX for max_uV when calling regulator_set_voltage
  * @cur_level: the currently set voltage level
  * @lock: lock to protect this struct
  */
@@ -326,7 +325,6 @@ struct clk_vdd_class {
 	int *level_votes;
 	int num_levels;
 	bool skip_handoff;
-	bool use_max_uV;
 	unsigned long cur_level;
 	struct mutex lock;
 };
@@ -877,6 +875,9 @@ unsigned int __clk_get_enable_count(struct clk *clk);
 unsigned long clk_hw_get_rate(const struct clk_hw *hw);
 unsigned long __clk_get_flags(struct clk *clk);
 unsigned long clk_hw_get_flags(const struct clk_hw *hw);
+#define clk_hw_can_set_rate_parent(hw) \
+	(clk_hw_get_flags((hw)) & CLK_SET_RATE_PARENT)
+
 bool clk_hw_is_prepared(const struct clk_hw *hw);
 bool clk_hw_rate_is_protected(const struct clk_hw *hw);
 bool clk_hw_is_enabled(const struct clk_hw *hw);

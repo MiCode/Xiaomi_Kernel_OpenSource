@@ -129,6 +129,7 @@ extern int icnss_get_irq(struct device *dev, int ce_id);
 extern int icnss_power_on(struct device *dev);
 extern int icnss_power_off(struct device *dev);
 extern struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev);
+extern struct iommu_domain *icnss_smmu_get_domain(struct device *dev);
 extern int icnss_smmu_map(struct device *dev, phys_addr_t paddr,
 			  uint32_t *iova_addr, size_t size);
 extern unsigned int icnss_socinfo_get_serial_number(struct device *dev);
@@ -138,4 +139,5 @@ extern bool icnss_is_fw_down(void);
 extern bool icnss_is_rejuvenate(void);
 extern int icnss_trigger_recovery(struct device *dev);
 extern void icnss_block_shutdown(bool status);
+extern bool icnss_is_pdr(void);
 #endif /* _ICNSS_WLAN_H_ */

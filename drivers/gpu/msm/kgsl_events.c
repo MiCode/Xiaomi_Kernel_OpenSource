@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/slab.h>
-#include <linux/list.h>
-#include <linux/workqueue.h>
 #include <linux/debugfs.h>
 
-#include "kgsl_device.h"
 #include "kgsl_debugfs.h"
+#include "kgsl_device.h"
 #include "kgsl_trace.h"
 
 /*

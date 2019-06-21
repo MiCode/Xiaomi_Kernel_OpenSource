@@ -70,8 +70,8 @@ static int get_vmid(unsigned long flags)
 	return vmid;
 }
 
-static int populate_vm_list(unsigned long flags, unsigned int *vm_list,
-			    int nelems)
+int ion_populate_vm_list(unsigned long flags, unsigned int *vm_list,
+			 int nelems)
 {
 	unsigned int itr = 0;
 	int vmid;
@@ -148,14 +148,8 @@ int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 		goto out;
 	}
 
-	for (i = 0; i < dest_nelems; i++) {
-		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY)
-			dest_perms[i] = PERM_READ;
-		else if (dest_vm_list[i] == VMID_CP_CDSP)
-			dest_perms[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
-		else
-			dest_perms[i] = PERM_READ | PERM_WRITE;
-	}
+	for (i = 0; i < dest_nelems; i++)
+		dest_perms[i] = msm_secure_get_vmid_perms(dest_vm_list[i]);
 
 	ret = hyp_assign_table(sgt, &source_vmid, 1,
 			       dest_vm_list, dest_perms, dest_nelems);
@@ -187,7 +181,7 @@ int ion_hyp_unassign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 				 GFP_KERNEL);
 	if (!source_vm_list)
 		return -ENOMEM;
-	ret = populate_vm_list(flags, source_vm_list, source_nelems);
+	ret = ion_populate_vm_list(flags, source_vm_list, source_nelems);
 	if (ret) {
 		pr_err("%s: Failed to get secure vmids\n", __func__);
 		goto out_free_source;
@@ -215,7 +209,7 @@ int ion_hyp_assign_sg_from_flags(struct sg_table *sgt, unsigned long flags,
 		goto out;
 	}
 
-	ret = populate_vm_list(flags, dest_vm_list, dest_nelems);
+	ret = ion_populate_vm_list(flags, dest_vm_list, dest_nelems);
 	if (ret) {
 		pr_err("%s: Failed to get secure vmid(s)\n", __func__);
 		goto out_free_dest_vm;
@@ -263,19 +257,14 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 	}
 
 	if ((flags & ~ION_FLAGS_CP_MASK) ||
-	    populate_vm_list(flags, vmids, nr)) {
+	    ion_populate_vm_list(flags, vmids, nr)) {
 		pr_err("%s: Failed to parse secure flags 0x%lx\n", __func__,
 		       flags);
 		goto out;
 	}
 
 	for (i = 0; i < nr; i++)
-		if (vmids[i] == VMID_CP_SEC_DISPLAY)
-			modes[i] = PERM_READ;
-		else if (vmids[i] == VMID_CP_CDSP)
-			modes[i] = PERM_READ | PERM_WRITE | PERM_EXEC;
-		else
-			modes[i] = PERM_READ | PERM_WRITE;
+		modes[i] = msm_secure_get_vmid_perms(vmids[i]);
 
 	ret = hyp_assign_phys(base, size, &src_vm, 1, vmids, modes, nr);
 	if (ret)

@@ -23,6 +23,7 @@ const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PTHRU] = "PASS THRU",
 	[MHI_EE_EDL] = "EDL",
 	[MHI_EE_DISABLE_TRANSITION] = "DISABLE",
+	[MHI_EE_NOT_SUPPORTED] = "NOT SUPPORTED",
 };
 
 const char * const mhi_state_tran_str[MHI_ST_TRANSITION_MAX] = {
@@ -534,12 +535,15 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	     !mhi_cntrl->lpm_enable)
 		return -EINVAL;
 
+	mhi_cntrl->local_timer_freq = arch_timer_get_cntfrq();
+
 	/* register method supported */
 	mhi_tsync = kzalloc(sizeof(*mhi_tsync), GFP_KERNEL);
 	if (!mhi_tsync)
 		return -ENOMEM;
 
 	spin_lock_init(&mhi_tsync->lock);
+	mutex_init(&mhi_tsync->lpm_mutex);
 	INIT_LIST_HEAD(&mhi_tsync->head);
 	init_completion(&mhi_tsync->completion);
 
@@ -749,7 +753,7 @@ void mhi_deinit_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
 			  tre_ring->pre_aligned, tre_ring->dma_handle);
-	kfree(buf_ring->base);
+	vfree(buf_ring->base);
 
 	buf_ring->base = tre_ring->base = NULL;
 	chan_ctxt->rbase = 0;
@@ -774,7 +778,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	buf_ring->el_size = sizeof(struct mhi_buf_info);
 	buf_ring->len = buf_ring->el_size * buf_ring->elements;
-	buf_ring->base = kzalloc(buf_ring->len, GFP_KERNEL);
+	buf_ring->base = vzalloc(buf_ring->len);
 
 	if (!buf_ring->base) {
 		mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
@@ -988,8 +992,8 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	if (!of_node)
 		return -EINVAL;
 
-	mhi_cntrl->mhi_chan = kcalloc(mhi_cntrl->max_chan,
-				      sizeof(*mhi_cntrl->mhi_chan), GFP_KERNEL);
+	mhi_cntrl->mhi_chan = vzalloc(mhi_cntrl->max_chan *
+				      sizeof(*mhi_cntrl->mhi_chan));
 	if (!mhi_cntrl->mhi_chan)
 		return -ENOMEM;
 
@@ -1136,7 +1140,7 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	return 0;
 
 error_chan_cfg:
-	kfree(mhi_cntrl->mhi_chan);
+	vfree(mhi_cntrl->mhi_chan);
 
 	return -EINVAL;
 }
@@ -1145,6 +1149,9 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 		       struct device_node *of_node)
 {
 	int ret;
+	enum mhi_ee i;
+	u32 *ee;
+	u32 bhie_offset;
 
 	/* parse MHI channel configuration */
 	ret = of_parse_ch_cfg(mhi_cntrl, of_node);
@@ -1172,6 +1179,23 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (of_property_read_bool(of_node, "mhi,m2-no-db-access"))
 		mhi_cntrl->db_access &= ~MHI_PM_M2;
 
+	/* parse the device ee table */
+	for (i = MHI_EE_PBL, ee = mhi_cntrl->ee_table; i < MHI_EE_MAX;
+	     i++, ee++) {
+		/* setup the default ee before checking for override */
+		*ee = i;
+		ret = of_property_match_string(of_node, "mhi,ee-names",
+					       mhi_ee_str[i]);
+		if (ret < 0)
+			continue;
+
+		of_property_read_u32_index(of_node, "mhi,ee", ret, ee);
+	}
+
+	ret = of_property_read_u32(of_node, "mhi,bhie-offset", &bhie_offset);
+	if (!ret)
+		mhi_cntrl->bhie = mhi_cntrl->regs + bhie_offset;
+
 	return 0;
 
 error_ev_cfg:
@@ -1188,6 +1212,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
 		return -EINVAL;
@@ -1251,6 +1276,27 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	} else {
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
+	}
+
+	/* read the device info if possible */
+	if (mhi_cntrl->regs) {
+		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+				   SOC_HW_VERSION_OFFS, &soc_info);
+		if (ret)
+			goto error_alloc_dev;
+
+		mhi_cntrl->family_number =
+			(soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+			SOC_HW_VERSION_FAM_NUM_SHFT;
+		mhi_cntrl->device_number =
+			(soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+			SOC_HW_VERSION_DEV_NUM_SHFT;
+		mhi_cntrl->major_version =
+			(soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+			SOC_HW_VERSION_MAJOR_VER_SHFT;
+		mhi_cntrl->minor_version =
+			(soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+			SOC_HW_VERSION_MINOR_VER_SHFT;
 	}
 
 	/* register controller with mhi_bus */
@@ -1364,16 +1410,19 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 		 * This controller supports rddm, we need to manually clear
 		 * BHIE RX registers since por values are undefined.
 		 */
-		ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
-				   &bhie_off);
-		if (ret) {
-			MHI_ERR("Error getting bhie offset\n");
-			goto bhie_error;
+		if (!mhi_cntrl->bhie) {
+			ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs, BHIEOFF,
+					   &bhie_off);
+			if (ret) {
+				MHI_ERR("Error getting bhie offset\n");
+				goto bhie_error;
+			}
+
+			mhi_cntrl->bhie = mhi_cntrl->regs + bhie_off;
 		}
 
-		memset_io(mhi_cntrl->regs + bhie_off + BHIE_RXVECADDR_LOW_OFFS,
-			  0, BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS +
-			  4);
+		memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS, 0,
+			  BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS + 4);
 	}
 
 	mhi_cntrl->pre_init = true;

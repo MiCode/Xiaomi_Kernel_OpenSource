@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2019, The Linux Foundation. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -167,9 +167,10 @@ TRACE_EVENT(bus_bke_params,
 TRACE_EVENT(bus_client_status,
 
 	TP_PROTO(const char *name, int src, int dest,
-		unsigned long long ab, unsigned long long ib, int active_only),
+		unsigned long long ab, unsigned long long ib,
+		int active_only, int vote_count),
 
-	TP_ARGS(name, src, dest, ab, ib, active_only),
+	TP_ARGS(name, src, dest, ab, ib, active_only, vote_count),
 
 	TP_STRUCT__entry(
 		__string(name, name)
@@ -178,6 +179,7 @@ TRACE_EVENT(bus_client_status,
 		__field(u64, ab)
 		__field(u64, ib)
 		__field(int, active_only)
+		__field(int, vote_count)
 	),
 
 	TP_fast_assign(
@@ -187,15 +189,17 @@ TRACE_EVENT(bus_client_status,
 		__entry->ab = ab;
 		__entry->ib = ib;
 		__entry->active_only = active_only;
+		__entry->vote_count = vote_count;
 	),
 
-	TP_printk("name=%s src=%d dest=%d ab=%llu ib=%llu active_only=%d",
+	TP_printk("name=%s src=%d dest=%d ab=%llu ib=%llu active_only=%d vote_count=%d",
 		__get_str(name),
 		__entry->src,
 		__entry->dest,
 		(unsigned long long)__entry->ab,
 		(unsigned long long)__entry->ib,
-		__entry->active_only)
+		__entry->active_only,
+		__entry->vote_count)
 );
 
 TRACE_EVENT(bus_agg_bw,

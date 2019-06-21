@@ -33,7 +33,7 @@ static int _get_pkt_hdr_from_user(struct cvp_kmd_arg __user *up,
 	return 0;
 
 set_default_pkt_hdr:
-	pkt_hdr->size = sizeof(struct cvp_hfi_msg_session_hdr);
+	pkt_hdr->size = get_msg_size();
 	return 0;
 }
 
@@ -94,6 +94,28 @@ static int _copy_fence_pkt_from_user(struct cvp_kmd_arg *kp,
 	return 0;
 }
 
+static int _copy_sysprop_from_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up)
+{
+	struct cvp_kmd_sys_properties *k, *u;
+
+	k = &kp->data.sys_properties;
+	u = &up->data.sys_properties;
+
+	if (get_user(k->prop_num, &u->prop_num))
+		return -EFAULT;
+
+	if (k->prop_num != 1) {
+		dprintk(CVP_ERR, "Only one prop allowed\n");
+		return -EFAULT;
+	}
+
+	if (get_user(k->prop_data.prop_type, &u->prop_data.prop_type))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int _copy_pkt_to_user(struct cvp_kmd_arg *kp,
 		struct cvp_kmd_arg __user *up,
 		unsigned int size)
@@ -128,6 +150,21 @@ static int _copy_fence_pkt_to_user(struct cvp_kmd_arg *kp,
 			return -EFAULT;
 	}
 	return 0;
+}
+
+static int _copy_sysprop_to_user(struct cvp_kmd_arg *kp,
+		struct cvp_kmd_arg __user *up)
+{
+	struct cvp_kmd_sys_properties *k, *u;
+
+	k = &kp->data.sys_properties;
+	u = &up->data.sys_properties;
+
+	if (put_user(k->prop_data.data, &u->prop_data.data))
+		return -EFAULT;
+
+	return 0;
+
 }
 
 static void _set_deprecate_bitmask(struct cvp_kmd_arg *kp,
@@ -364,7 +401,14 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 		u = &up->data.session_ctrl;
 
 		rc = _get_session_ctrl_from_user(k, u);
-
+		break;
+	}
+	case CVP_KMD_GET_SYS_PROPERTY:
+	{
+		if (_copy_sysprop_from_user(kp, up)) {
+			dprintk(CVP_ERR, "Failed to get sysprop from user\n");
+			return -EFAULT;
+		}
 		break;
 	}
 	default:
@@ -380,7 +424,7 @@ static int convert_from_user(struct cvp_kmd_arg *kp,
 static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 {
 	int rc = 0;
-	int i, size = sizeof(struct cvp_hfi_msg_session_hdr) >> 2;
+	int i, size = get_msg_size() >> 2;
 	struct cvp_kmd_arg __user *up = (struct cvp_kmd_arg *)arg;
 	struct cvp_hal_session_cmd_pkt pkt_hdr;
 
@@ -527,6 +571,14 @@ static int convert_to_user(struct cvp_kmd_arg *kp, unsigned long arg)
 		rc = _copy_session_ctrl_to_user(k, u);
 		break;
 	}
+	case CVP_KMD_GET_SYS_PROPERTY:
+	{
+		if (_copy_sysprop_to_user(kp, up)) {
+			dprintk(CVP_ERR, "Fail to copy sysprop to user\n");
+			return -EFAULT;
+		}
+		break;
+	}
 	default:
 		dprintk(CVP_ERR, "%s: unknown cmd type 0x%x\n",
 			__func__, kp->type);
@@ -562,8 +614,8 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 
 	rc = msm_cvp_private((void *)inst, cmd, &karg);
 	if (rc) {
-		dprintk(CVP_ERR, "%s: failed cmd type %x\n",
-			__func__, karg.type);
+		dprintk(CVP_ERR, "%s: failed cmd type %x %d\n",
+			__func__, karg.type, rc);
 		return rc;
 	}
 

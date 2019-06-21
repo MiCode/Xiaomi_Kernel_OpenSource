@@ -23,6 +23,7 @@
 #include <cam_subdev.h>
 #include <media/cam_sensor.h>
 #include "cam_soc_util.h"
+#include "cam_context.h"
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
@@ -153,6 +154,7 @@ struct eebin_info {
 
 /**
  * struct cam_eeprom_ctrl_t - EEPROM control structure
+ * @device_name         :   Device name
  * @pdev                :   platform device
  * @spi                 :   spi device
  * @eeprom_mutex        :   eeprom mutex
@@ -171,6 +173,7 @@ struct eebin_info {
  * @eebin_info          :   EEBIN address, size info
  */
 struct cam_eeprom_ctrl_t {
+	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
 	struct spi_device *spi;
 	struct mutex eeprom_mutex;
@@ -185,7 +188,6 @@ struct cam_eeprom_ctrl_t {
 	enum cam_eeprom_state cam_eeprom_state;
 	bool userspace_probe;
 	struct cam_eeprom_memory_block_t cal_data;
-	char device_name[20];
 	uint16_t is_multimodule_mode;
 	struct i2c_settings_array wr_settings;
 	struct eebin_info eebin_info;

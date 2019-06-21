@@ -3,18 +3,14 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/export.h>
-#include <linux/time.h>
-#include <linux/sysfs.h>
+#include <linux/of.h>
+#include <linux/slab.h>
 #include <linux/utsname.h>
-#include <linux/sched.h>
-#include <linux/idr.h>
 
-#include "kgsl.h"
+#include "adreno_cp_parser.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
-#include "adreno_cp_parser.h"
 
 static void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 

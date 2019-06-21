@@ -67,3 +67,22 @@ config ION_DEFER_FREE_NO_SCHED_IDLE
 	  Choose this option to remove the SCHED_IDLE flag in case of defer
 	  free thereby increasing the priority of defer free thread.
 	  if you're not sure say Y here.
+
+config ION_POOL_AUTO_REFILL
+	bool "Refill the ION heap pools automatically"
+	depends on ION
+	help
+	  Choose this option to refill the ION system heap pools (non-secure)
+	  automatically when the pool pages count becomes lower than a set low mark.
+	  This refilling is done by worker thread which is invoked asynchronously
+	  when the pool count reaches below low mark.
+	  if you're not sure say Y here.
+
+config ION_POOL_FILL_MARK
+	int "ion pool fillmark size in MB"
+	depends on ION_POOL_AUTO_REFILL
+	range 16 256
+	default 100
+	help
+	  Set the fillmark of the pool in terms of mega bytes and the lowmark is
+	  ION_POOL_LOW_MARK_PERCENT of fillmark value.

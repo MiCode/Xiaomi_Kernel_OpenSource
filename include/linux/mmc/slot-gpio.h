@@ -35,5 +35,7 @@ int mmc_gpio_set_cd_wake(struct mmc_host *host, bool on);
 void mmc_gpiod_request_cd_irq(struct mmc_host *host);
 bool mmc_can_gpio_cd(struct mmc_host *host);
 bool mmc_can_gpio_ro(struct mmc_host *host);
+void mmc_register_extcon(struct mmc_host *host);
+void mmc_unregister_extcon(struct mmc_host *host);
 
 #endif

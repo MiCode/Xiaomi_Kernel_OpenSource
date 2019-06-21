@@ -359,6 +359,8 @@ static int cam_vfe_camif_lite_process_cmd(
 		rc = cam_vfe_camif_lite_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;
+	case CAM_ISP_HW_CMD_SET_CAMIF_DEBUG:
+		break;
 	default:
 		CAM_ERR(CAM_ISP,
 			"unsupported process command:%d", cmd_type);
@@ -410,7 +412,7 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 	int                                   ret = CAM_VFE_IRQ_STATUS_MAX;
 	struct cam_isp_resource_node         *camif_lite_node;
 	struct cam_vfe_mux_camif_lite_data   *camif_lite_priv;
-	struct cam_vfe_top_irq_evt_payload *payload;
+	struct cam_vfe_top_irq_evt_payload   *payload;
 	struct cam_isp_hw_event_info          evt_info;
 	uint32_t                              irq_status0;
 	uint32_t                              irq_status1;
@@ -434,28 +436,33 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		irq_status0, irq_status1);
 
 	if (irq_status0 & camif_lite_priv->reg_data->lite_sof_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received SOF");
+		CAM_DBG(CAM_ISP, "VFE:%d CAMIF Lite Received SOF",
+			evt_info.hw_idx);
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
 	if (irq_status0 & camif_lite_priv->reg_data->lite_epoch0_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EPOCH");
+		CAM_DBG(CAM_ISP, "VFE:%d CAMIF Lite Received EPOCH",
+			evt_info.hw_idx);
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
 	if (irq_status0 & camif_lite_priv->reg_data->dual_pd_reg_upd_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
+		CAM_DBG(CAM_ISP, "VFE:%d CAMIF Lite hReceived REG_UPDATE_ACK",
+			evt_info.hw_idx);
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
 	if (irq_status0 & camif_lite_priv->reg_data->lite_eof_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EOF\n");
+		CAM_DBG(CAM_ISP, "VF:%d CAMIF Lite Received EOF",
+			evt_info.hw_idx);
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
 	if ((irq_status0 & camif_lite_priv->reg_data->lite_err_irq_mask0) ||
 		(irq_status1 & camif_lite_priv->reg_data->lite_err_irq_mask1)) {
-		CAM_DBG(CAM_ISP, "Received ERROR\n");
+		CAM_DBG(CAM_ISP, "VFE:%d CAMIF LITE Received ERROR",
+			evt_info.hw_idx);
 
 		if (camif_lite_priv->event_cb)
 			camif_lite_priv->event_cb(camif_lite_priv->priv,

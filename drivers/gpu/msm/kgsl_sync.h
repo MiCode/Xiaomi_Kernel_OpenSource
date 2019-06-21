@@ -1,12 +1,11 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2014, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014,2018-2019 The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_SYNC_H
 #define __KGSL_SYNC_H
 
-#include <linux/sync_file.h>
-#include "kgsl_device.h"
+#include <linux/dma-fence.h>
 
 /**
  * struct kgsl_sync_timeline - A sync timeline associated with a kgsl context
@@ -68,6 +67,10 @@ struct kgsl_sync_fence_cb {
 	bool (*func)(void *priv);
 };
 
+struct kgsl_device_private;
+struct kgsl_drawobj_sync_event;
+struct event_fence_info;
+struct kgsl_process_private;
 struct kgsl_syncsource;
 
 #if defined(CONFIG_SYNC_FILE)

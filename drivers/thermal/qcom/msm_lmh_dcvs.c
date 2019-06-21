@@ -543,16 +543,22 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		of_node_put(lmh_node);
 	}
 
-	/*
-	 * We return error if none of the CPUs have
-	 * reference to our LMH node
-	 */
-	if (cpumask_empty(&mask))
-		return -EINVAL;
-
 	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
 		return -ENOMEM;
+	/*
+	 * We just init regulator if none of the CPUs have
+	 * reference to our LMH node
+	 */
+	if (cpumask_empty(&mask)) {
+		limits_isens_vref_ldo_init(pdev, hw);
+		mutex_lock(&lmh_dcvs_list_access);
+		INIT_LIST_HEAD(&hw->list);
+		list_add_tail(&hw->list, &lmh_dcvs_hw_list);
+		mutex_unlock(&lmh_dcvs_list_access);
+		return 0;
+	}
+
 	hw->cdev_data = devm_kcalloc(&pdev->dev, cpumask_weight(&mask),
 				   sizeof(*hw->cdev_data),
 				   GFP_KERNEL);
@@ -612,8 +618,14 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 			affinity);
 	tzdev = thermal_zone_of_sensor_register(&pdev->dev, 0, hw,
 			&limits_sensor_ops);
-	if (IS_ERR_OR_NULL(tzdev))
-		return PTR_ERR(tzdev);
+	if (IS_ERR_OR_NULL(tzdev)) {
+		/*
+		 * Ignore error in case if thermal zone devicetree node is not
+		 * defined for this lmh hardware.
+		 */
+		if (!tzdev || PTR_ERR(tzdev) != -ENODEV)
+			return PTR_ERR(tzdev);
+	}
 
 	hw->min_freq_reg = devm_ioremap(&pdev->dev, min_reg, 0x4);
 	if (!hw->min_freq_reg) {
@@ -644,7 +656,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	hw->is_irq_enabled = true;
 	ret = devm_request_threaded_irq(&pdev->dev, hw->irq_num, NULL,
 		lmh_dcvs_handle_isr, IRQF_TRIGGER_HIGH | IRQF_ONESHOT
-		| IRQF_NO_SUSPEND, hw->sensor_name, hw);
+		| IRQF_NO_SUSPEND | IRQF_SHARED, hw->sensor_name, hw);
 	if (ret) {
 		pr_err("Error registering for irq. err:%d\n", ret);
 		ret = 0;

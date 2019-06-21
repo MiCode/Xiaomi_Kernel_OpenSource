@@ -459,9 +459,6 @@ static int cam_vfe_fe_process_cmd(struct cam_isp_resource_node *rsrc_node,
 		rc = cam_vfe_fe_get_reg_update(rsrc_node, cmd_args,
 			arg_size);
 		break;
-	case CAM_ISP_HW_CMD_GET_REG_DUMP:
-		rc = cam_vfe_fe_reg_dump(rsrc_node);
-		break;
 	case CAM_ISP_HW_CMD_SOF_IRQ_DEBUG:
 		rc = cam_vfe_fe_sof_irq_debug(rsrc_node, cmd_args);
 		break;
@@ -541,12 +538,12 @@ static int cam_vfe_fe_handle_irq_bottom_half(void *handler_priv,
 	}
 
 	if (irq_status0 & fe_priv->reg_data->eof_irq_mask) {
-		CAM_DBG(CAM_ISP, "Received EOF\n");
+		CAM_DBG(CAM_ISP, "Received EOF");
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
 
 	if (irq_status1 & fe_priv->reg_data->error_irq_mask1) {
-		CAM_DBG(CAM_ISP, "Received ERROR\n");
+		CAM_DBG(CAM_ISP, "Received ERROR");
 		ret = CAM_ISP_HW_ERROR_OVERFLOW;
 		evt_info.err_type = CAM_VFE_IRQ_STATUS_OVERFLOW;
 		cam_vfe_fe_reg_dump(fe_node);

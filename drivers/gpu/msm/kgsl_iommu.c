@@ -2,29 +2,21 @@
 /*
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
-#include <linux/types.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/spinlock.h>
-#include <linux/genalloc.h>
-#include <linux/slab.h>
+
+#include <linux/compat.h>
 #include <linux/iommu.h>
-#include <linux/msm_kgsl.h>
-#include <linux/ratelimit.h>
 #include <linux/of_platform.h>
+#include <linux/seq_file.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/compat.h>
 
-#include "kgsl.h"
-#include "kgsl_device.h"
-#include "kgsl_mmu.h"
-#include "kgsl_sharedmem.h"
-#include "kgsl_iommu.h"
-#include "adreno_pm4types.h"
 #include "adreno.h"
-#include "kgsl_trace.h"
+#include "kgsl_device.h"
+#include "kgsl_iommu.h"
+#include "kgsl_mmu.h"
 #include "kgsl_pwrctrl.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 #define _IOMMU_PRIV(_mmu) (&((_mmu)->priv.iommu))
 
@@ -259,7 +251,7 @@ static void kgsl_setup_qdss_desc(struct kgsl_device *device)
 	gpu_qdss_desc.ops = NULL;
 	gpu_qdss_desc.hostptr = NULL;
 
-	result = memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
+	result = kgsl_memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
 			gpu_qdss_desc.size);
 	if (result) {
 		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
@@ -303,7 +295,7 @@ static void kgsl_setup_qtimer_desc(struct kgsl_device *device)
 	gpu_qtimer_desc.ops = NULL;
 	gpu_qtimer_desc.hostptr = NULL;
 
-	result = memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
+	result = kgsl_memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
 			gpu_qtimer_desc.size);
 	if (result) {
 		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
@@ -1176,7 +1168,7 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		return;
 
 	/* Domain attribute to enable system cache for GPU pagetable walks */
-	if (adreno_is_a650(adreno_dev) || adreno_is_a640(adreno_dev) ||
+	if (adreno_is_a650_family(adreno_dev) || adreno_is_a640(adreno_dev) ||
 		adreno_is_a612(adreno_dev))
 		ret = iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);

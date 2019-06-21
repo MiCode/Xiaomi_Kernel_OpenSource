@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -438,3 +438,14 @@ bool msm_secure_v2_is_supported(void)
 	return (scm_get_feat_version(FEATURE_ID_CP) >=
 			MAKE_CP_VERSION(1, 1, 0));
 }
+
+u32 msm_secure_get_vmid_perms(u32 vmid)
+{
+	if (vmid == VMID_CP_SEC_DISPLAY)
+		return PERM_READ;
+	else if (vmid == VMID_CP_CDSP)
+		return PERM_READ | PERM_WRITE | PERM_EXEC;
+	else
+		return PERM_READ | PERM_WRITE;
+}
+EXPORT_SYMBOL(msm_secure_get_vmid_perms);

@@ -17,6 +17,140 @@
 #include <linux/dma-buf.h>
 
 #define MAX_EVENTS 30
+#define NUM_CYCLES16X16_HCD_FRAME 95
+#define NUM_CYCLES16X16_DME_FRAME 600
+#define NUM_CYCLES16X16_NCC_FRAME 400
+#define NUM_CYCLES16X16_DS_FRAME  80
+#define NUM_CYCLESFW_FRAME  1680000
+#define NUM_DME_MAX_FEATURE_POINTS 500
+#define CYCLES_MARGIN_IN_POWEROF2 3
+
+int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
+		struct cvp_kmd_request_power *cvp_voting)
+{
+	unsigned int cvp_cycles = 0;
+	unsigned int hcd_cycles = 0;
+	unsigned int dme_cycles = 0;
+	unsigned int ds_cycles = 0;
+	unsigned int ncc_cycles = 0;
+	unsigned int num_16x16_blocks = 0;
+
+	unsigned int cvp_bw = 0;
+	unsigned int ds_pixel_read = 0;
+	unsigned int ds_pixel_write = 0;
+	unsigned int hcd_pixel_read = 0;
+	unsigned int hcd_stats_write = 0;
+	unsigned int dme_pixel_read = 0;
+	unsigned int ncc_pixel_read = 0;
+
+	if (!cvp_desc || !cvp_voting) {
+		dprintk(CVP_ERR, "%s: invalid args\n", __func__);
+		return -EINVAL;
+	}
+
+	if (cvp_desc->is_downscale) {
+		num_16x16_blocks = (cvp_desc->fullres_width>>4)
+			* (cvp_desc->fullres_height>>4);
+		ds_cycles = NUM_CYCLES16X16_DS_FRAME * num_16x16_blocks;
+		num_16x16_blocks = (cvp_desc->downscale_width>>4)
+			* (cvp_desc->downscale_height>>4);
+		hcd_cycles = NUM_CYCLES16X16_HCD_FRAME * num_16x16_blocks;
+	} else {
+		num_16x16_blocks = (cvp_desc->fullres_width>>4)
+			* (cvp_desc->fullres_height>>4);
+		hcd_cycles = NUM_CYCLES16X16_HCD_FRAME * num_16x16_blocks;
+	}
+
+	dme_cycles = NUM_CYCLES16X16_DME_FRAME * NUM_DME_MAX_FEATURE_POINTS;
+	ncc_cycles = NUM_CYCLES16X16_NCC_FRAME * NUM_DME_MAX_FEATURE_POINTS;
+
+	cvp_cycles = dme_cycles + ds_cycles + hcd_cycles + ncc_cycles;
+	cvp_cycles = cvp_cycles + (cvp_cycles>>CYCLES_MARGIN_IN_POWEROF2);
+
+	cvp_voting->clock_cycles_a = cvp_cycles * cvp_desc->fps;
+	cvp_voting->clock_cycles_b = 0;
+	cvp_voting->reserved[0] = NUM_CYCLESFW_FRAME * cvp_desc->fps;
+	cvp_voting->reserved[1] = cvp_cycles * cvp_desc->op_rate;
+	cvp_voting->reserved[2] = 0;
+	cvp_voting->reserved[3] = NUM_CYCLESFW_FRAME*cvp_desc->op_rate;
+
+	if (cvp_desc->is_downscale) {
+		if (cvp_desc->fullres_width <= 1920) {
+			/*
+			 *w*h*1.33(10bpc)*1.5/1.58=
+			 *w*h*(4/3)*(3/2)*(5/8)=w*h*(5/4)
+			 */
+			ds_pixel_read = ((cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 5)>>2);
+			/*w*h/1.58=w*h*(5/8)*/
+			ds_pixel_write = ((cvp_desc->downscale_width
+				* cvp_desc->downscale_height * 5)>>3);
+			/*w*h*1.5/1.58=w*h*(3/2)*(5/8)*/
+			hcd_pixel_read = ((cvp_desc->downscale_width
+				* cvp_desc->downscale_height * 15)>>4);
+			/*num_16x16_blocks*8*4*/
+			hcd_stats_write = (num_16x16_blocks<<5);
+			/*NUM_DME_MAX_FEATURE_POINTS*96*48/1.58*/
+			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 2880;
+			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/1.58*/
+			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1040;
+		} else {
+			/*
+			 *w*h*1.33(10bpc)*1.5/2.38=
+			 *w*h*(4/3)*(3/2)*(54/128)=w*h*(54/64)
+			 */
+			ds_pixel_read = ((cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 54)>>6);
+			/*w*h/2.38=w*h*(54/128)*/
+			ds_pixel_write = ((cvp_desc->downscale_width
+				* cvp_desc->downscale_height * 54)>>7);
+			/*w*h*1.5/2.38=w*h*(3/2)*(54/128)*/
+			hcd_pixel_read = ((cvp_desc->downscale_width
+				* cvp_desc->downscale_height * 81)>>7);
+			/*num_16x16_blocks*8*4*/
+			hcd_stats_write = (num_16x16_blocks<<5);
+			/*NUM_DME_MAX_FEATURE_POINTS*96*48/2.38*/
+			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1944;
+			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/2.38*/
+			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 702;
+		}
+	} else {
+		if (cvp_desc->fullres_width <= 1920) {
+			/*w*h*1.5/1.58=w*h*(3/2)*(5/8)*/
+			hcd_pixel_read = ((cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 15)>>4);
+			/*num_16x16_blocks*8*4*/
+			hcd_stats_write = (num_16x16_blocks<<5);
+			/*NUM_DME_MAX_FEATURE_POINTS*96*48/1.58*/
+			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 2880;
+			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/1.58*/
+			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1040;
+		} else {
+			/*w*h*1.5/2.38=w*h*(3/2)*(54/128)*/
+			hcd_pixel_read = ((cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 81)>>7);
+			/*num_16x16_blocks*8*4*/
+			hcd_stats_write = (num_16x16_blocks<<5);
+			/*NUM_DME_MAX_FEATURE_POINTS*96*48/2.38*/
+			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1944;
+			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/2.38*/
+			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 702;
+		}
+	}
+
+	cvp_bw = ds_pixel_read + ds_pixel_write + hcd_pixel_read
+		+ hcd_stats_write + dme_pixel_read + ncc_pixel_read;
+
+	cvp_voting->ddr_bw = cvp_bw * cvp_desc->fps;
+	cvp_voting->reserved[4] = cvp_bw * cvp_desc->op_rate;
+
+	dprintk(CVP_DBG, "%s Voting cycles_a, b, bw: %d %d %d\n", __func__,
+		cvp_voting->clock_cycles_a, cvp_voting->clock_cycles_b,
+		cvp_voting->ddr_bw);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_cvp_est_cycles);
 
 int msm_cvp_poll(void *instance, struct file *filp,
 		struct poll_table_struct *wait)
@@ -137,12 +271,13 @@ void *msm_cvp_open(int core_id, int session_type)
 		"info", inst, session_type);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
+	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->freqs);
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
-	INIT_MSM_CVP_LIST(&inst->registeredbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
+	init_waitqueue_head(&inst->event_handler.wq);
 
 	kref_init(&inst->kref);
 
@@ -222,7 +357,6 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
 	kfree(inst);
@@ -232,7 +366,7 @@ err_invalid_core:
 }
 EXPORT_SYMBOL(msm_cvp_open);
 
-static void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
+void msm_cvp_cleanup_instance(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
 	struct msm_cvp_internal_buffer *cbuf, *dummy;
@@ -307,7 +441,6 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
-	DEINIT_MSM_CVP_LIST(&inst->registeredbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
 
 	mutex_destroy(&inst->sync_lock);
@@ -340,6 +473,10 @@ int msm_cvp_close(void *instance)
 		return -EINVAL;
 	}
 
+	inst = cvp_get_inst_validate(inst->core, inst);
+	if (!inst)
+		return 0;
+
 	msm_cvp_cleanup_instance(inst);
 	msm_cvp_session_deinit(inst);
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
@@ -351,6 +488,7 @@ int msm_cvp_close(void *instance)
 
 	msm_cvp_comm_session_clean(inst);
 
+	cvp_put_inst(inst);
 	kref_put(&inst->kref, close_helper);
 	return 0;
 }

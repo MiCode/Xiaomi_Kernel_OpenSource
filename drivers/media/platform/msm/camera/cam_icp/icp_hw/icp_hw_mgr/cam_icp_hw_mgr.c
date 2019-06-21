@@ -1643,6 +1643,44 @@ end:
 	return rc;
 }
 
+static int cam_icp_mgr_ipe_bps_get_gdsc_control(
+	struct cam_icp_hw_mgr *hw_mgr)
+{
+	int rc = 0;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+
+	ipe0_dev_intf = hw_mgr->ipe0_dev_intf;
+	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
+	bps_dev_intf = hw_mgr->bps_dev_intf;
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong");
+		return -EINVAL;
+	}
+
+	if (icp_hw_mgr.ipe_bps_pc_flag) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_POWER_COLLAPSE,
+			NULL, 0);
+
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
+			CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_POWER_COLLAPSE,
+				NULL, 0);
+		}
+	}
+
+	return rc;
+}
+
 static int cam_icp_set_dbg_default_clk(void *data, u64 val)
 {
 	icp_hw_mgr.icp_debug_clk = val;
@@ -2167,27 +2205,31 @@ static int cam_icp_ipebps_reset(struct cam_icp_hw_mgr *hw_mgr)
 	ipe1_dev_intf = hw_mgr->ipe1_dev_intf;
 	bps_dev_intf = hw_mgr->bps_dev_intf;
 
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "bps reset failed");
+	if (hw_mgr->bps_ctxt_cnt) {
+		rc = bps_dev_intf->hw_ops.process_cmd(
+			bps_dev_intf->hw_priv,
+			CAM_ICP_BPS_CMD_RESET,
+			NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_ICP, "bps reset failed");
+	}
 
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_RESET,
-		NULL, 0);
-	if (rc)
-		CAM_ERR(CAM_ICP, "ipe0 reset failed");
-
-	if (ipe1_dev_intf) {
-		rc = ipe1_dev_intf->hw_ops.process_cmd(
-			ipe1_dev_intf->hw_priv,
+	if (hw_mgr->ipe_ctxt_cnt) {
+		rc = ipe0_dev_intf->hw_ops.process_cmd(
+			ipe0_dev_intf->hw_priv,
 			CAM_ICP_IPE_CMD_RESET,
 			NULL, 0);
 		if (rc)
-			CAM_ERR(CAM_ICP, "ipe1 reset failed");
+			CAM_ERR(CAM_ICP, "ipe0 reset failed");
+
+		if (ipe1_dev_intf) {
+			rc = ipe1_dev_intf->hw_ops.process_cmd(
+				ipe1_dev_intf->hw_priv,
+				CAM_ICP_IPE_CMD_RESET,
+				NULL, 0);
+			if (rc)
+				CAM_ERR(CAM_ICP, "ipe1 reset failed");
+		}
 	}
 
 	return 0;
@@ -2208,6 +2250,7 @@ static int cam_icp_mgr_trigger_recovery(struct cam_icp_hw_mgr *hw_mgr)
 	sfr_buffer = (struct sfr_buf *)icp_hw_mgr.hfi_mem.sfr_buf.kva;
 	CAM_WARN(CAM_ICP, "SFR:%s", sfr_buffer->msg);
 
+	cam_icp_mgr_ipe_bps_get_gdsc_control(hw_mgr);
 	cam_icp_ipebps_reset(hw_mgr);
 
 	atomic_set(&hw_mgr->recovery, 1);
@@ -3781,16 +3824,12 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	uint32_t *fw_cmd_buf_iova_addr)
 {
 	int rc = 0;
-	int i, j, k;
+	int i;
 	int num_cmd_buf = 0;
 	uint64_t addr;
 	size_t len;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	uintptr_t cpu_addr = 0;
-	struct ipe_frame_process_data *frame_process_data = NULL;
-	struct bps_frame_process_data *bps_frame_process_data = NULL;
-	struct frame_set *ipe_set = NULL;
-	struct frame_buffer *bps_bufs = NULL;
 
 	cmd_desc = (struct cam_cmd_buf_desc *)
 		((uint32_t *) &packet->payload + packet->cmd_buf_offset/4);
@@ -3836,49 +3875,6 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	if (!cpu_addr) {
 		CAM_ERR(CAM_ICP, "invalid number of cmd buf");
 		return -EINVAL;
-	}
-
-	if (ctx_data->icp_dev_acquire_info->dev_type !=
-		CAM_ICP_RES_TYPE_BPS) {
-		CAM_DBG(CAM_ICP, "cpu addr = %zx", cpu_addr);
-		frame_process_data = (struct ipe_frame_process_data *)cpu_addr;
-		CAM_DBG(CAM_ICP, "%u %u %u", frame_process_data->max_num_cores,
-			frame_process_data->target_time,
-			frame_process_data->frames_in_batch);
-		frame_process_data->strip_lib_out_addr = 0;
-		frame_process_data->iq_settings_addr = 0;
-		frame_process_data->scratch_buffer_addr = 0;
-		frame_process_data->ubwc_stats_buffer_addr = 0;
-		frame_process_data->cdm_buffer_addr = 0;
-		frame_process_data->cdm_prog_base = 0;
-		for (i = 0; i < frame_process_data->frames_in_batch; i++) {
-			ipe_set = &frame_process_data->framesets[i];
-			for (j = 0; j < IPE_IO_IMAGES_MAX; j++) {
-				for (k = 0; k < MAX_NUM_OF_IMAGE_PLANES; k++) {
-					ipe_set->buffers[j].buf_ptr[k] = 0;
-					ipe_set->buffers[j].meta_buf_ptr[k] = 0;
-				}
-			}
-		}
-	} else {
-		CAM_DBG(CAM_ICP, "cpu addr = %zx", cpu_addr);
-		bps_frame_process_data =
-			(struct bps_frame_process_data *)cpu_addr;
-		CAM_DBG(CAM_ICP, "%u %u",
-			bps_frame_process_data->max_num_cores,
-			bps_frame_process_data->target_time);
-		bps_frame_process_data->ubwc_stats_buffer_addr = 0;
-		bps_frame_process_data->cdm_buffer_addr = 0;
-		bps_frame_process_data->iq_settings_addr = 0;
-		bps_frame_process_data->strip_lib_out_addr = 0;
-		bps_frame_process_data->cdm_prog_addr = 0;
-		for (i = 0; i < BPS_IO_IMAGES_MAX; i++) {
-			bps_bufs = &bps_frame_process_data->buffers[i];
-			for (j = 0; j < MAX_NUM_OF_IMAGE_PLANES; j++) {
-				bps_bufs->buf_ptr[j] = 0;
-				bps_bufs->meta_buf_ptr[j] = 0;
-			}
-		}
 	}
 
 	return rc;
@@ -4075,7 +4071,7 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 
 	switch (blob_type) {
 	case CAM_ICP_CMD_GENERIC_BLOB_CLK:
-		CAM_WARN(CAM_ICP,
+		CAM_WARN_RATE_LIMIT_CUSTOM(CAM_ICP, 300, 1,
 			"Using deprecated blob type GENERIC_BLOB_CLK");
 		if (blob_size != sizeof(struct cam_icp_clk_bw_request)) {
 			CAM_ERR(CAM_ICP, "Mismatch blob size %d expected %lu",

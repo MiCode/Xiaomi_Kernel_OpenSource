@@ -5,19 +5,9 @@
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
 
-#include <linux/slab.h>
-#include <linux/idr.h>
-#include <linux/pm_qos.h>
-#include <linux/sched.h>
-
 #include "kgsl.h"
-#include "kgsl_mmu.h"
-#include "kgsl_pwrctrl.h"
-#include "kgsl_pwrscale.h"
-#include "kgsl_snapshot.h"
-#include "kgsl_sharedmem.h"
 #include "kgsl_drawobj.h"
-#include "kgsl_gmu_core.h"
+#include "kgsl_mmu.h"
 
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
@@ -122,11 +112,9 @@ struct kgsl_functable {
 	int (*start)(struct kgsl_device *device, int priority);
 	int (*stop)(struct kgsl_device *device);
 	int (*getproperty)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*getproperty_compat)(struct kgsl_device *device,
-		unsigned int type, void __user *value,
-		size_t sizebytes);
+		struct kgsl_device_getproperty *param);
 	int (*waittimestamp)(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
 		unsigned int msecs);
@@ -182,6 +170,14 @@ struct kgsl_functable {
 	void (*stop_fault_timer)(struct kgsl_device *device);
 	void (*dispatcher_halt)(struct kgsl_device *device);
 	void (*dispatcher_unhalt)(struct kgsl_device *device);
+	/**
+	 * @query_property_list: query the list of properties
+	 * supported by the device. If 'list' is NULL just return the total
+	 * number of properties available otherwise copy up to 'count' items
+	 * into the list and return the total number of items copied.
+	 */
+	int (*query_property_list)(struct kgsl_device *device, u32 *list,
+		u32 count);
 };
 
 struct kgsl_ioctl {
@@ -232,8 +228,6 @@ struct kgsl_sparseobj_node {
 struct kgsl_device {
 	struct device *dev;
 	const char *name;
-	unsigned int ver_major;
-	unsigned int ver_minor;
 	uint32_t flags;
 	u32 id;
 
@@ -336,9 +330,7 @@ struct kgsl_device {
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
-	.state = KGSL_STATE_NONE,\
-	.ver_major = DRIVER_VERSION_MAJOR,\
-	.ver_minor = DRIVER_VERSION_MINOR
+	.state = KGSL_STATE_NONE
 
 
 /**
@@ -894,6 +886,21 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
 	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
+
+/**
+ * kgsl_query_property_list - Get a list of valid properties
+ * @device: A KGSL device handle
+ * @list: Pointer to a list of u32s
+ * @count: Number of items in @list
+ *
+ * Populate a list with the IDs for supported properties. If @list is NULL,
+ * just return the number of properties available, otherwise fill up to @count
+ * items in the list with property identifiers.
+ *
+ * Returns the number of total properties if @list is NULL or the number of
+ * properties copied to @list.
+ */
+int kgsl_query_property_list(struct kgsl_device *device, u32 *list, u32 count);
 
 /**
  * kgsl_get_bus_scale_table() - Get the bus scaling table from devicetree
