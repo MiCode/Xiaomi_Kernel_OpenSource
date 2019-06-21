@@ -92,8 +92,7 @@ static void debug_packet(char *name, u8 *ptr, int len)
 int spi_loopback_check(struct spi_device *spi,
 	struct spi_transfer *trans, int is2spis)
 {
-	int i, j, value, err = 0;
-	struct mtk_chip_config *chip_config = spi->controller_data;
+	int i, value, err = 0;
 
 	if (is2spis)
 		i = 1;
