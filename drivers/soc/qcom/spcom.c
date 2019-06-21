@@ -631,7 +631,7 @@ static int spcom_handle_restart_sp_command(void *cmd_buf, int cmd_size)
 		}
 
 		pr_debug("restart - Name: %s FW name: %s Depends on: %s\n",
-			desc_p->name, desc_p->fw_name, desc_p->depends_on);
+			desc_p->name, desc_p->fw_name, desc_p->pon_depends_on);
 		desc_powerup = desc_p->powerup;
 		/**
 		 * Overwrite the subsys PIL powerup function with an spcom
