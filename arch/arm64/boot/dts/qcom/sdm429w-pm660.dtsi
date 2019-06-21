@@ -715,6 +715,7 @@
 	/* device communication power supply */
 	vdd-io-supply = <&L13A>;
 	qcom,vdd-io-current-level = <0 60000>;
+	qcom,dll-hsr-list = <0x00076400 0x0 0x0 0x0 0x00040868>;
 };
 
 &sdhc_2 {
@@ -725,4 +726,5 @@
 	/* device communication power supply */
 	vdd-io-supply = <&vreg_sd_pad>;
 	qcom,vdd-io-current-level = <0 10000>;
+	qcom,dll-hsr-list = <0x00076400 0x0 0x0 0x0 0x00040868>;
 };
