@@ -402,14 +402,11 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_blk_count = PAGE_SIZE / 512;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	host->align_size = 4;
-
 	for (i = 0; i < EMMC_MAX_QUEUE_DEPTH; i++)
 		host->areq_que[i] = NULL;
 	atomic_set(&host->areq_cnt, 0);
 	host->areq_cur = NULL;
 	host->done_mrq = NULL;
-	host->state = 0;
 
 	INIT_LIST_HEAD(&host->cmd_que);
 	INIT_LIST_HEAD(&host->dat_que);

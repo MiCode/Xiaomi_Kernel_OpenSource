@@ -31,6 +31,12 @@ ifeq ($(CONFIG_MTK_PLATFORM), "mt6771")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
 endif
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6768")
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6358
+ccflags-y += -I$(srctree)/drivers/devfreq
+endif
+
+
 ccflags-y += -Wno-error=unused-function
 
 obj-$(CONFIG_MMC_MTK_PRO) += msdc.o

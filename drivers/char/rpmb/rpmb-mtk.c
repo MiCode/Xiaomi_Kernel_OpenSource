@@ -302,8 +302,8 @@ int emmc_rpmb_switch(struct mmc_card *card, struct emmc_rpmb_blk_data *md)
 	if (main_md->part_curr == md->part_type)
 		return 0;
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (card->ext_csd.cmdq_en) {
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
+	if (mmc_card_cmdq(card)) {
 		ret = mmc_cmdq_disable(card);
 		if (ret) {
 			MSG(ERR, "CQ disabled failed!!!(%x)\n", ret);
@@ -327,9 +327,9 @@ int emmc_rpmb_switch(struct mmc_card *card, struct emmc_rpmb_blk_data *md)
 		card->ext_csd.part_config = part_config;
 	}
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
 	/* enable cmdq at user partition */
-	if ((!card->ext_csd.cmdq_en)
+	if (!mmc_card_cmdq(card)
 	&& (md->part_type <= 0)) {
 		ret = mmc_cmdq_enable(card);
 		if (ret)
@@ -338,6 +338,9 @@ int emmc_rpmb_switch(struct mmc_card *card, struct emmc_rpmb_blk_data *md)
 	}
 #endif
 
+#if defined(CONFIG_MTK_EMMC_HW_CQ)
+	card->part_curr = md->part_type;
+#endif
 	main_md->part_curr = md->part_type;
 	return 0;
 }

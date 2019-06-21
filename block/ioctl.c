@@ -438,7 +438,7 @@ static int blkdev_roset(struct block_device *bdev, fmode_t mode,
 	int ret, n;
 
 	ret = __blkdev_driver_ioctl(bdev, mode, cmd, arg);
-	if (!is_unrecognized_ioctl(ret))
+	if (ret && !is_unrecognized_ioctl(ret))
 		return ret;
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
