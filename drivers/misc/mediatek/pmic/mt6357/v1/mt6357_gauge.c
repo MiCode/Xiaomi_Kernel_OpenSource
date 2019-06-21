@@ -924,7 +924,7 @@ int fgauge_set_coulomb_interrupt1_ht(
 
 	bm_trace("%s car=%d\n", __func__, car_value);
 	if (car == 0) {
-		pmic_enable_interrupt(FG_BAT1_INT_H_NO, 0, "GM30");
+		gauge_enable_interrupt(FG_BAT1_INT_H_NO, 0);
 		return 0;
 	}
 /*
@@ -1033,13 +1033,13 @@ int fgauge_set_coulomb_interrupt1_ht(
 		"[%s]final upper 0x%x 0x%x 0x%x car=0x%llx\n",
 		__func__, upperbound, upperbound_31_16, upperbound_15_00, car);
 
-	pmic_enable_interrupt(FG_BAT1_INT_H_NO, 0, "GM30");
+	gauge_enable_interrupt(FG_BAT1_INT_H_NO, 0);
 
 	pmic_set_register_value(PMIC_FG_BAT0_HTH_15_00, upperbound_15_00);
 	pmic_set_register_value(PMIC_FG_BAT0_HTH_31_16, upperbound_31_16);
 	mdelay(1);
 
-	pmic_enable_interrupt(FG_BAT1_INT_H_NO, 1, "GM30");
+	gauge_enable_interrupt(FG_BAT1_INT_H_NO, 1);
 
 	bm_debug(
 		"[%s] high:0x%x 0x%x car_value:%d car:%d\r\n",
@@ -1065,7 +1065,7 @@ int fgauge_set_coulomb_interrupt1_lt(
 
 	bm_trace("%s car=%d\n", __func__, car_value);
 	if (car == 0) {
-		pmic_enable_interrupt(FG_BAT1_INT_L_NO, 0, "GM30");
+		gauge_enable_interrupt(FG_BAT1_INT_L_NO, 0);
 		return 0;
 	}
 /*
@@ -1174,12 +1174,12 @@ int fgauge_set_coulomb_interrupt1_lt(
 		"[%s]final low 0x%x 0x%x 0x%x car=0x%llx\n",
 		__func__, lowbound, lowbound_31_16, lowbound_15_00, car);
 
-	pmic_enable_interrupt(FG_BAT1_INT_L_NO, 0, "GM30");
+	gauge_enable_interrupt(FG_BAT1_INT_L_NO, 0);
 	pmic_set_register_value(PMIC_FG_BAT0_LTH_15_00, lowbound_15_00);
 	pmic_set_register_value(PMIC_FG_BAT0_LTH_31_16, lowbound_31_16);
 	mdelay(1);
 
-	pmic_enable_interrupt(FG_BAT1_INT_L_NO, 1, "GM30");
+	gauge_enable_interrupt(FG_BAT1_INT_L_NO, 1);
 
 	bm_debug(
 		"[%s] low:0x%x 0x%x car_value:%d car:%d\r\n",
@@ -1421,7 +1421,7 @@ static int fgauge_enable_nag_interrupt(struct gauge_device *gauge_dev, int en)
 {
 	if (en != 0)
 		en = 1;
-	pmic_enable_interrupt(FG_RG_INT_EN_NAG_C_DLTV, en, "GM30");
+	gauge_enable_interrupt(FG_RG_INT_EN_NAG_C_DLTV, en);
 	pmic_set_register_value(PMIC_AUXADC_NAG_IRQ_EN, en);
 	pmic_set_register_value(PMIC_AUXADC_NAG_EN, en);
 
@@ -1563,7 +1563,8 @@ static void fgauge_set_zcv_intr_internal(
 static int fgauge_enable_zcv_interrupt(struct gauge_device *gauge_dev, int en)
 {
 	pmic_set_register_value(PMIC_FG_ZCV_DET_EN, en);
-	pmic_enable_interrupt(FG_ZCV_NO, en, "GM30");
+	gauge_enable_interrupt(FG_ZCV_NO, en);
+	mdelay(3);
 	return 0;
 }
 
@@ -2111,7 +2112,7 @@ int fgauge_set_reset_status(struct gauge_device *gauge_dev, int reset)
 
 }
 
-static int fgauge_dump(struct gauge_device *gauge_dev, struct seq_file *m)
+static void fgauge_dump_type0(struct seq_file *m)
 {
 	if (m != NULL) {
 		seq_puts(m, "fgauge dump\n");
@@ -2193,12 +2194,30 @@ static int fgauge_dump(struct gauge_device *gauge_dev, struct seq_file *m)
 		charger_zcv, pmic_rdy,
 		pmic_zcv, pmic_in_zcv,
 		swocv, zcv_from, zcv_tmp);
+}
+
+static int fgauge_dump(
+	struct gauge_device *gauge_dev, struct seq_file *m, int type)
+{
+
+	if (type == 0)
+		fgauge_dump_type0(m);
+	else if (type == 1)
+		battery_dump_nag();
+
 	return 0;
 }
 
 static int fgauge_get_hw_version(struct gauge_device *gauge_dev)
 {
 	return GAUGE_HW_V1000;
+}
+
+int fgauge_notify_event(
+	struct gauge_device *gauge_dev,
+	enum gauge_event evt, int value)
+{
+	return 0;
 }
 
 static struct gauge_ops mt6357_gauge_ops = {
@@ -2251,6 +2270,7 @@ static struct gauge_ops mt6357_gauge_ops = {
 	.gauge_get_hw_version = fgauge_get_hw_version,
 	.gauge_set_info = fgauge_set_info,
 	.gauge_get_info = fgauge_get_info,
+	.gauge_notify_event = fgauge_notify_event,
 };
 
 static int mt6357_parse_dt(struct mt6357_gauge *info, struct device *dev)

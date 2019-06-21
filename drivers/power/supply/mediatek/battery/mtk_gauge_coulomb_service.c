@@ -485,7 +485,7 @@ void gauge_coulomb_int_handler(void)
 
 static int gauge_coulomb_thread(void *arg)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 	struct timespec start, end, duraction;
 
 	while (1) {
@@ -519,6 +519,8 @@ static int gauge_coulomb_thread(void *arg)
 void gauge_coulomb_service_init(void)
 {
 	ft_trace("gauge coulomb_service_init\n");
+	INIT_LIST_HEAD(&coulomb_head_minus);
+	INIT_LIST_HEAD(&coulomb_head_plus);
 	mutex_init(&coulomb_lock);
 	mutex_init(&hw_coulomb_lock);
 	spin_lock_init(&slock);
@@ -532,4 +534,11 @@ void gauge_coulomb_service_init(void)
 		FG_BAT1_INT_H_NO, wake_up_gauge_coulomb);
 	pre_coulomb = gauge_get_coulomb();
 	init = true;
+
+#ifdef _DEA_MODIFY_
+	wait_que.function = gauge_coulomb_int_handler;
+	INIT_LIST_HEAD(&wait_que.list);
+	wait_que.name = "gauge coulomb service";
+#endif
+
 }
