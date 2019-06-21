@@ -505,6 +505,7 @@ struct smb_charger {
 	bool			aicl_max_reached;
 	int			charge_full_cc;
 	int			cc_soc_ref;
+	int			last_cc_soc;
 	int			usbin_forced_max_uv;
 	int			init_thermal_ua;
 
