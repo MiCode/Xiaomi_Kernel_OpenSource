@@ -1537,7 +1537,8 @@ static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(&ramdump_info->dump_data);
 
-	return msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	return msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 }
 
 static int cnss_register_ramdump_v1(struct cnss_plat_data *plat_priv)
@@ -1644,7 +1645,8 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(dump_data);
 
-	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	ret = msm_dump_data_register_nominidump(MSM_DUMP_TABLE_APPS,
+						&dump_entry);
 	if (ret) {
 		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
 		goto free_ramdump;
