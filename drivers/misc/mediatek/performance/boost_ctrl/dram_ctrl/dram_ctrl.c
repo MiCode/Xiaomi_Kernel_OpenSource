@@ -20,7 +20,6 @@
 /* config: MTK_QOS_SUPPORT or VCORE_DVFS_OPP_SUPPORT */
 /* define in Makefile */
 /*#endif # PM_DEVFREQ*/
-#define API_READY 1
 
 #if defined(MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
@@ -188,16 +187,17 @@ int dram_ctrl_init(struct proc_dir_entry *parent)
 	ddr_now = -1;
 	if (!pm_qos_request_active(&emi_request)) {
 		pr_debug("hh: emi pm_qos_add_request\n");
-#if API_READY
+#if defined(MTK_QOS_EMI_OPP)
+		pm_qos_add_request(&emi_request, PM_QOS_EMI_OPP,
+				PM_QOS_EMI_OPP_DEFAULT_VALUE);
+#else
 		pm_qos_add_request(&emi_request, PM_QOS_DDR_OPP,
 				PM_QOS_DDR_OPP_DEFAULT_VALUE);
 #endif
 	} else {
 		pr_debug("hh: emi pm_qos already request\n");
 	}
-#if API_READY
 	emi_opp = DDR_OPP_NUM - 1;
-#endif
 #endif
 
 #ifdef VCORE_DVFS_OPP_SUPPORT
