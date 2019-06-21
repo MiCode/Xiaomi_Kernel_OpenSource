@@ -953,7 +953,7 @@ int step_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 		err = sensor_input_event(step_c_context_obj->mdev.minor,
 			&event);
 	}
-	return 0;
+	return err;
 }
 int step_c_data_report(uint32_t new_counter, int status)
 {
@@ -976,7 +976,7 @@ int floor_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 		err = sensor_input_event(step_c_context_obj->mdev.minor,
 			&event);
 	}
-	return 0;
+	return err;
 }
 int floor_c_data_report(uint32_t new_counter, int status)
 {
