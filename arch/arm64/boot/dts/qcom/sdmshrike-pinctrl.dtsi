@@ -2842,6 +2842,32 @@
 			};
 		};
 
+		conn_power_1p8_active: conn_power_1p8_active {
+			mux {
+				pins = "gpio173";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio173";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		conn_power_pa_active: conn_power_pa_active {
+			mux {
+				pins = "gpio174";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio174";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 		/* SE0 pin mappings */
 		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
 			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
