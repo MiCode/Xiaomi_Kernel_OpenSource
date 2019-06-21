@@ -8744,6 +8744,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ktime_t start = ktime_get();
 
 reinit:
+	if (hba->extcon && (ufshcd_card_get_extcon_state(hba) <= 0)) {
+		ret = -ENOLINK;
+		goto out;
+	}
+
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
