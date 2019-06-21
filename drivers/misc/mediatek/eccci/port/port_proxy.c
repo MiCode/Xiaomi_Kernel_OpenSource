@@ -1388,6 +1388,7 @@ static inline void user_broadcast_wrapper(int md_id, unsigned int state)
 
 	switch (state) {
 	case GATED:
+		mapped_event = MD_STA_EV_STOP;
 		break;
 	case BOOT_WAITING_FOR_HS1:
 		break;
@@ -1424,6 +1425,7 @@ void ccci_port_md_status_notify(int md_id, unsigned int state)
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dispatch_md_status(proxy_p, (unsigned int)state);
+	user_broadcast_wrapper(md_id, state);
 }
 
 
