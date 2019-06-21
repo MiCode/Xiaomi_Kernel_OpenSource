@@ -656,6 +656,7 @@ struct diagchar_dev {
 	int usb_connected;
 #endif
 	int pcie_connected;
+	int pcie_switch_pid;
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_drain_work;
 	struct work_struct update_user_clients;
