@@ -120,30 +120,7 @@ static void unmask_infra_module_irq(uint32_t module)
 	writel(readl(reg) & (~(1 << apc_bit_index)), reg);
 }
 
-static void clear_infra_vio_status(uint32_t module)
-{
-	int sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
-	int vio_max_idx = mtk_devapc_ctx->soc->vio_info->vio_max_idx;
-	uint32_t apc_bit_index;
-	uint32_t apc_index;
-	void __iomem *reg;
-
-	if (module > vio_max_idx) {
-		pr_err(PFX "%s:%d module overflow!\n", __func__, __LINE__);
-		return;
-	}
-
-	if (module == sramrom_vio_idx)
-		handle_sramrom_vio();
-
-	apc_index = module / (MOD_NO_IN_1_DEVAPC * 2);
-	apc_bit_index = module % (MOD_NO_IN_1_DEVAPC * 2);
-
-	reg = mtk_devapc_pd_get(VIO_STA, apc_index);
-	writel((0x1 << apc_bit_index), reg);
-}
-
-static int check_infra_vio_status(uint32_t module)
+static int32_t check_infra_vio_status(uint32_t module)
 {
 	int vio_max_idx = mtk_devapc_ctx->soc->vio_info->vio_max_idx;
 	uint32_t apc_bit_index;
@@ -162,6 +139,34 @@ static int check_infra_vio_status(uint32_t module)
 
 	if (readl(reg) & (0x1 << apc_bit_index))
 		return VIOLATION_TRIGGERED;
+
+	return 0;
+}
+
+static int32_t clear_infra_vio_status(uint32_t module)
+{
+	int sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
+	int vio_max_idx = mtk_devapc_ctx->soc->vio_info->vio_max_idx;
+	uint32_t apc_bit_index;
+	uint32_t apc_index;
+	void __iomem *reg;
+
+	if (module > vio_max_idx) {
+		pr_err(PFX "%s:%d module overflow!\n", __func__, __LINE__);
+		return -EOVERFLOW;
+	}
+
+	if (module == sramrom_vio_idx)
+		handle_sramrom_vio();
+
+	apc_index = module / (MOD_NO_IN_1_DEVAPC * 2);
+	apc_bit_index = module % (MOD_NO_IN_1_DEVAPC * 2);
+
+	reg = mtk_devapc_pd_get(VIO_STA, apc_index);
+	writel((0x1 << apc_bit_index), reg);
+
+	if (check_infra_vio_status(module))
+		return -EIO;
 
 	return 0;
 }
@@ -210,18 +215,19 @@ static void start_devapc(void)
 
 	vio_shift_sta = readl(pd_vio_shift_sta_reg);
 	if (vio_shift_sta) {
-		pr_info(PFX "(Pre) clear VIO_SHIFT_STA = 0x%x\n",
-				vio_shift_sta);
 		writel(vio_shift_sta, pd_vio_shift_sta_reg);
-		pr_info(PFX "(Post) clear VIO_SHIFT_STA = 0x%x\n",
+		pr_info(PFX "clear VIO_SHIFT_STA: 0x%x to 0x%x\n",
+				vio_shift_sta,
 				readl(pd_vio_shift_sta_reg));
 
-	} else
-		pr_info(PFX "No violation happened before booting kernel\n");
+	}
 
 	for (i = 0; i < mtk_devapc_ctx->soc->ndevices; i++) {
 		if (device_info[i].enable_vio_irq) {
-			clear_infra_vio_status(i);
+			if (check_infra_vio_status(i) == VIOLATION_TRIGGERED &&
+					clear_infra_vio_status(i))
+				pr_warn(PFX "clear vio status failed\n");
+
 			unmask_infra_module_irq(i);
 		}
 	}
@@ -441,7 +447,9 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		if (device_info[i].enable_vio_irq == true &&
 			check_infra_vio_status(i) == VIOLATION_TRIGGERED) {
 
-			clear_infra_vio_status(i);
+			if (clear_infra_vio_status(i))
+				pr_warn(PFX "clear vio status failed\n");
+
 			perm = get_permission(i, vio_info->domain_id);
 			vio_master = mtk_devapc_ctx->soc->master_get(
 					vio_info->master_id,

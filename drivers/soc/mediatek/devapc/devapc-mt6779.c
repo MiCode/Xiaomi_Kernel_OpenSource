@@ -717,7 +717,7 @@ static const char *topaxi_mi0_trans(int bus_id)
 			}
 		}
 		if (j == TOPAXI_MI0_BIT_LENGTH) {
-			pr_info(PFX "%s %s %s %s\n",
+			pr_debug(PFX "%s %s %s %s\n",
 				"[DEVAPC]",
 				"catch it from TOPAXI_MI0.",
 				"Master is:",
@@ -753,7 +753,7 @@ static const char *paxi_int_mi_trans(int bus_id)
 			}
 		}
 		if (j == PERIAXI_INT_MI_BIT_LENGTH) {
-			pr_info(PFX "%s %s %s %s\n",
+			pr_debug(PFX "%s %s %s %s\n",
 				"[DEVAPC]",
 				"catch it from PERIAXI_INT_MI.",
 				"Master is:",
