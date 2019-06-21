@@ -11,7 +11,20 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _GZ_TRUSTY_NOP_H_
-#define _GZ_TRUSTY_NOP_H_
-extern int trusty_call_nop_std32(uint32_t type, uint64_t value);
-#endif
+/*
+ * Mediatek GenieZone v1.2.0127
+ * Header files for KREE memory related functions.
+ */
+
+#ifndef __SDSP_M4U_MVA_H__
+#define __SDSP_M4U_MVA_H__
+
+/*
+ *total (vpu0 elf + vpu1 elf) max 16M
+ *in each vpu elf's final 64K as log buf mva
+ */
+#define SDSP_VPU0_ELF_MVA		0x82600000
+#define SDSP_VPU0_DTA_MVA		0x83600000	//max 48M
+
+
+#endif				/* __SDSP_M4U_MVA_H__ */

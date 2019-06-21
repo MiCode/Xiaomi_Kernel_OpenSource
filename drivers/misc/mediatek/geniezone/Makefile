@@ -22,8 +22,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
 
 obj-y += mtee-kree/
 
-ifeq ($(GZ_SEC_STORAGE_UT),y)
 obj-y += gz_sec_storage_ut.o
-ccflags-y += -DGZ_SEC_STORAGE_UT
-endif
 obj-y += gz_chmem_ut.o
+obj-y += gz_shmem_ut.o
+
+obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += gz-trusty/

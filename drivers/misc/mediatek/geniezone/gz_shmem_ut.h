@@ -10,13 +10,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef __GZ_UT_H__
-#define __GZ_UT_H__
 
-int dma_test(void *args);
-int gz_tipc_test(void *args);
-int gz_test(void *arg);
-int gz_abort_test(void *args);
+#ifndef __GZ_SHMEM_UT_H__
+#define __GZ_SHMEM_UT_H__
+
+int gz_test_shm(void *arg);
+int stress_test_main(void *argv);
+int stress_test_main_infinite(void *args);
+int test_MD_appendSecureChmem(void *args);
 
 #endif
 
