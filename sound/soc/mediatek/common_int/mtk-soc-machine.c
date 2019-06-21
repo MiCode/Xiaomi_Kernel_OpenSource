@@ -604,7 +604,7 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.codec_name = MT_SOC_CODEC_NAME,
 		.playback_only = true,
 	},
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	{
 		.name = "DL1SCPSPKOUTPUT",
 		.stream_name = MT_SOC_DL1SCPSPK_STREAM_NAME,

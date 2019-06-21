@@ -65,7 +65,7 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_virt = 0x0,
 		.size = 0x200000,/*2MB*/
 	},
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	{
 		.num = SPK_PROTECT_MEM_ID,
 		.start_phys = 0x0,
