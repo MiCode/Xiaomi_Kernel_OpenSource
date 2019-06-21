@@ -830,8 +830,10 @@ static int mtu3d_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	{
-		if (!of_property_read_u32(np, "fgpa_i2c_physical_base", (u32 *) &i2c_physical_base))
-			os_printk(K_WARNIN, "%s, i2c_physical_base:%x from dtsi\n",  __func__, i2c_physical_base);
+		if (!of_property_read_u32(np, "fpga_i2c_physical_base",
+				(u32 *) &i2c_physical_base))
+			os_printk(K_WARNIN, "%s, i2c_physical_base:%x (dtsi)\n"
+				,  __func__, i2c_physical_base);
 
 	}
 #endif

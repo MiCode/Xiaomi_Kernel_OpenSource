@@ -44,7 +44,7 @@
 #include <linux/usb/musb.h>
 #include <linux/pm_wakeup.h>
 #include <linux/workqueue.h>
-#ifndef CONFIG_MTK_GAUGE_VERSION
+#if !defined(CONFIG_MTK_GAUGE_VERSION) || defined(CONFIG_FPGA_EARLY_PORTING)
 enum charger_type {
 	CHARGER_UNKNOWN = 0,
 	STANDARD_HOST,		/* USB : 450mA */
