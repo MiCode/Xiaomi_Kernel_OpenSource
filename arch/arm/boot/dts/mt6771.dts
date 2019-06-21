@@ -1774,29 +1774,52 @@
 		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	usb0:usb3@11200000 {
-		 compatible = "mediatek,usb3";
-		 reg = <0 0x11200000 0 0x10000>,
-			 <0 0x11203E00 0 0x100>,
-			 <0 0x11F40000 0 0x10000>;
-		 reg-names = "ssusb_base",
-			 "ssusb_ippc",
-			 "ssusb_sif2";
-		 interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_LOW>,
-					<GIC_SPI 73 IRQ_TYPE_LEVEL_LOW>;
-		 interrupt-names = "musb-hdrc",
-			 "xhci";
-		 debug_level = <6>;
-		 fgpa_i2c_physical_base = <0x11009000>;
+	usb0: usb3@11200000 {
+		compatible = "mediatek,mt6771-mtu3";
+		reg = <0 0x11201000 0 0x3000>,
+		      <0 0x11203e00 0 0x100>;
+		reg-names = "mac", "ippc";
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "ssusb_mac";
+		clocks = <&infracfg_ao INFRACFG_AO_USB_CG>,
+			   <&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>;
+		clock-names = "sys_ck", "rel_clk";
+		phy-cells = <1>;
+		phys = <&usb0phy 0>;
+		phy-names = "port0_phy";
+		extcon = <&extcon_usb>;
+		dr_mode = "otg";
+		/* vusb33-supply = <&mt_pmic_vusb33_ldo_reg>; */
+		/* vusb10-supply = <&mt_pmic_va10_ldo_reg>; */
 	};
 
-	xhci0:usb3_xhci@11200000 {
+	xhci0: usb3_xhci@11200000 {
 		compatible = "mediatek,mt67xx-xhci";
-		reg = <0 0x11200000 0 0x10000>,
-		      <0 0x11203E00 0 0x100>;
-		reg-names = "ssusb_base", "ssusb_ippc";
+		reg = <0 0x11200000 0 0x1000>;
+		reg-names = "mac";
 		interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "xhci";
+		clocks = <&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>;
+		clock-names = "sys_ck";
+		phys = <&usb0phy 0>;
+		phy-names = "port0_phy";
+	};
+
+	usb0phy: usb0phy@11f40000 {
+		compatible = "mediatek,mt6771-phy";
+		reg = <0 0x11f40000 0 0x10000>,
+			  <0 0x11203e00 0 0x100>;
+		reg-names = "sif_base", "ippc";
+		#phy-cells = <1>;
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+	};
+
+	usb_boost_manager {
+		compatible = "mediatek,usb_boost";
+		boost_period = <30>;
 	};
 
 	audio: audio@11220000 {
@@ -3803,16 +3826,6 @@
 	c2ksys@38000000 {
 		compatible = "mediatek,c2ksys";
 		reg = <0 0x38000000 0 0x1000>;
-	};
-
-	usbphy0:usbphy {
-			compatible = "usb-nop-xceiv";
-	};
-
-	usb3_phy {
-		 compatible = "mediatek,usb3_phy";
-		 clocks = <&infracfg_ao INFRACFG_AO_USB_CG>, <&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>;
-		 clock-names = "ssusb_clk", "sys_ck";
 	};
 
 	mt_soc_deep_buffer_dl_pcm {
