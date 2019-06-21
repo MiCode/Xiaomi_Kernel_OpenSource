@@ -1069,7 +1069,10 @@ static int SCP_sensorHub_report_alt_data(struct data_unit_t *data_t)
 	alt = READ_ONCE(mSensorState[sensor_type].alt);
 	alt_id = alt - ID_OFFSET;
 
-	if (!alt || (obj->dispatch_data_cb[alt_id] == NULL)) {
+	if (alt == 0)
+		return 0;
+
+	if (obj->dispatch_data_cb[alt_id] == NULL) {
 		pr_err("alt:%d don't support this flow?\n", alt_id);
 		return 0;
 	}
