@@ -575,13 +575,13 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	unsigned int bincode = 0;
 	unsigned int turbocode = 0;
 	unsigned int a_code = 0;
-#if 0
+
 	temp = get_devinfo_with_index(CPUFREQ_EFUSE_IDX_0);
 	segcode = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 5) & 0x1;
 	bincode = (get_devinfo_with_index(CPUFREQ_BIN_CODE_IDX_0) >> 4) & 0x7;
 	turbocode = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 3) & 0x1;
 	a_code = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 1) & 0x1;
-#endif
+
 	if (temp > 0x40) {
 		if (segcode == 1)
 			lv = CPU_LEVEL_5;	/* V6 */
