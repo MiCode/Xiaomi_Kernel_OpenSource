@@ -23,4 +23,5 @@ extern struct port_ops poller_port_ops;
 extern struct port_ops ctl_port_ops;
 extern struct port_ops ipc_port_ops;
 extern struct port_ops smem_port_ops;
+extern struct port_ops ccci_udc_port_ops;
 #endif /* __PORT_CFG_H__ */
