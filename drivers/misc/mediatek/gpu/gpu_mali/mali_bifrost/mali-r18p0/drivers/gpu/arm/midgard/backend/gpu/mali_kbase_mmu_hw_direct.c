@@ -167,9 +167,8 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		as_no = ffs(bf_bits | pf_bits) - 1;
 
 		/* MTK add for build error */
-		if (0 > as_no) {
+		if (as_no < 0)
 			return;
-		}
 
 		as = &kbdev->as[as_no];
 
