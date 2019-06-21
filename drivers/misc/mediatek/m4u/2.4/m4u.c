@@ -1698,12 +1698,16 @@ static int __m4u_sec_init(void)
 	unsigned long pt_pa_nonsec;
 	unsigned int size;
 	struct m4u_sec_context *ctx;
+	unsigned int i;
 
 	ctx = m4u_sec_ctx_get(CMD_M4UTL_INIT);
 	if (!ctx)
 		return -EFAULT;
 
 	m4u_get_pgd(NULL, 0, &pgd_va, (void *)&pt_pa_nonsec, &size);
+
+	for (i = 0; i < SMI_LARB_NR; i++)
+		larb_clock_on(i, 1);
 
 	ctx->m4u_msg->cmd = CMD_M4UTL_INIT;
 	ctx->m4u_msg->init_param.nonsec_pt_pa = pt_pa_nonsec;
@@ -1722,6 +1726,9 @@ static int __m4u_sec_init(void)
 
 	ret = ctx->m4u_msg->rsp;
 out:
+	for (i = 0; i < SMI_LARB_NR; i++)
+		larb_clock_off(i, 1);
+
 	m4u_sec_ctx_put(ctx);
 	return ret;
 }
