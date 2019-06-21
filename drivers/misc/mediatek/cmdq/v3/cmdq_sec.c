@@ -1006,10 +1006,10 @@ static void cmdq_sec_irq_notify_start(void)
 	}
 
 	cmdq_pkt_cl_create(&cmdq_sec_irq_pkt, clt);
-	cmdq_pkt_wfe(cmdq_sec_irq_pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_pkt_wfe(cmdq_sec_irq_pkt, CMDQ_SYNC_SECURE_THR_EOF);
 	cmdq_pkt_finalize_loop(cmdq_sec_irq_pkt);
 
-	cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdqCoreClearEvent(CMDQ_SYNC_SECURE_THR_EOF);
 
 	err = cmdq_pkt_flush_async(clt, cmdq_sec_irq_pkt,
 		cmdq_sec_irq_notify_callback, (void *)g_cmdq);
@@ -1235,7 +1235,7 @@ s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 	/* trigger notify thread so that normal world start handling
 	 * with new backup cookie
 	 */
-	cmdq_pkt_set_event(task->pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_pkt_set_event(task->pkt, CMDQ_SYNC_SECURE_THR_EOF);
 
 	return 0;
 }
