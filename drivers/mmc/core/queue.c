@@ -256,7 +256,7 @@ fetch_done:
 			 * Dispatch queue is empty so set flags for
 			 * mmc_request_fn() to wake us up.
 			 */
-			if (mq->qcnt)
+			if (atomic_read(&mq->qcnt))
 				cntx->is_waiting_last_req = true;
 			else
 				mq->asleep = true;
@@ -264,7 +264,7 @@ fetch_done:
 
 		spin_unlock_irq(q->queue_lock);
 
-		if (req || (!part_cmdq_en && mq->qcnt)) {
+		if (req || (!part_cmdq_en && atomic_read(&mq->qcnt))) {
 			set_current_state(TASK_RUNNING);
 			mmc_blk_issue_rq(mq, req);
 			cond_resched();
@@ -557,7 +557,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	mq->queue->cmd_size = sizeof(struct mmc_queue_req);
 	mq->queue->queuedata = mq;
-	mq->qcnt = 0;
+	atomic_set(&mq->qcnt, 0);
 	ret = blk_init_allocated_queue(mq->queue);
 	if (ret) {
 		blk_cleanup_queue(mq->queue);

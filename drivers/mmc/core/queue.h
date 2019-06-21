@@ -104,7 +104,7 @@ struct mmc_queue {
 	 * letting the block core keep track of requests and per-request
 	 * associated mmc_queue_req data.
 	 */
-	int			qcnt;
+	atomic_t		qcnt;
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	struct mmc_queue_req	*mqrq_cmdq;
 	struct work_struct	cmdq_err_work;
