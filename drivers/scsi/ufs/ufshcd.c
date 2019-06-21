@@ -2645,7 +2645,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		set_host_byte(cmd, DID_IMM_RETRY);
 		cmd->scsi_done(cmd);
 
-		goto out;
+		return 0;
 	}
 
 	tag = cmd->request->tag;
