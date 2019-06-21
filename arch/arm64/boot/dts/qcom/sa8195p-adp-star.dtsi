@@ -12,6 +12,25 @@
 
 #include "sdmshrike-v2.dtsi"
 
+&qupv3_se0_spi {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <38 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
 &qupv3_se12_2uart {
 	status = "ok";
 };
