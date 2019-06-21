@@ -651,7 +651,8 @@ static void ipa_work_handler(struct work_struct *w)
 			/* Configure EPs for GSI */
 			ret = gsi_ep_enable(gsi);
 			if (ret) {
-				log_event_err("%s:ep enable err %d", __func__);
+				log_event_err("%s:ep enable err %d", __func__,
+					ret);
 				usb_composite_setup_continue(gsi->d_port.cdev);
 				usb_gadget_autopm_put_async(d_port->gadget);
 				break;
@@ -2962,6 +2963,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_gsi *gsi = func_to_gsi(f);
 
+	log_event_dbg("%s:id:%d: dwq start", __func__, gsi->prot_id);
 	/*
 	 * Use drain_workqueue to accomplish below conditions:
 	 * 1. Make sure that any running work completed
@@ -2971,6 +2973,8 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	 * with ipa driver shall not fail due to unexpected state.
 	 */
 	drain_workqueue(gsi->d_port.ipa_usb_wq);
+	log_event_dbg("%s:id:%d: dwq end", __func__, gsi->prot_id);
+
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
@@ -3041,8 +3045,6 @@ static int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 
-	INIT_DELAYED_WORK(&gsi->d_port.usb_ipa_w, ipa_work_handler);
-
 	return status;
 }
 
@@ -3066,6 +3068,8 @@ static struct f_gsi *gsi_function_init(enum ipa_usb_teth_prot prot_id)
 	spin_lock_init(&gsi->d_port.lock);
 
 	init_waitqueue_head(&gsi->d_port.wait_for_ipa_ready);
+
+	INIT_DELAYED_WORK(&gsi->d_port.usb_ipa_w, ipa_work_handler);
 
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
