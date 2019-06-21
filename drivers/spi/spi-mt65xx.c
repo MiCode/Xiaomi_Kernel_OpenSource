@@ -179,6 +179,7 @@ static const struct mtk_chip_config mtk_default_chip_info = {
 	.tx_mlsb = 1,
 	.cs_pol = 0,
 	.sample_sel = 0,
+	.deassert_mode = 0,
 };
 
 static const struct of_device_id mtk_spi_of_match[] = {
@@ -377,7 +378,10 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 	reg_val &= ~(SPI_CMD_TX_DMA | SPI_CMD_RX_DMA);
 
 	/* disable deassert mode */
-	reg_val &= ~SPI_CMD_DEASSERT;
+	if (chip_config->deassert_mode == 1)
+		reg_val |= SPI_CMD_DEASSERT;
+	else
+		reg_val &= ~SPI_CMD_DEASSERT;
 
 	writel(reg_val, mdata->base + SPI_CMD_REG);
 
