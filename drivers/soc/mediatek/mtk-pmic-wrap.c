@@ -20,6 +20,8 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <mt-plat/aee.h>
+#include <linux/sched/clock.h>
 
 #define PWRAP_MT8135_BRIDGE_IORD_ARB_EN		0x4
 #define PWRAP_MT8135_BRIDGE_WACS3_EN		0x10
@@ -1172,16 +1174,57 @@ static bool pwrap_is_fsm_idle_and_sync_idle(struct pmic_wrapper *wrp)
 		(val & PWRAP_STATE_SYNC_IDLE0);
 }
 
+static int pwrap_timeout_ns(unsigned long long start_time_ns,
+		unsigned long long timeout_time_ns)
+{
+	unsigned long long cur_time = 0;
+	unsigned long long elapse_time = 0;
+
+	/* get current tick */
+	cur_time = sched_clock();  /* ns */
+
+	/* avoid timer over flow exiting in FPGA env */
+	if (cur_time < start_time_ns)
+		start_time_ns = cur_time;
+
+	elapse_time = cur_time - start_time_ns;
+
+	/* check if timeout */
+	if (timeout_time_ns <= elapse_time) {
+		dev_notice(wrp->dev,
+			"[PWRAP] Timeout start time: %lld\n", start_time_ns);
+		dev_notice(wrp->dev,
+			"[PWRAP] Timeout cur time: %lld\n", cur_time);
+		dev_notice(wrp->dev,
+			"[PWRAP] Timeout elapse time: %lld\n", elapse_time);
+		dev_notice(wrp->dev,
+			"[PWRAP] Timeout set timeout: %lld\n", timeout_time_ns);
+		return 1;
+	}
+	return 0;
+}
+
 static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 		bool (*fp)(struct pmic_wrapper *))
 {
-	unsigned long timeout;
+	unsigned long long start_time_ns, timeout_ns;
 
-	timeout = jiffies + usecs_to_jiffies(10000);
+	start_time_ns = sched_clock();
+	timeout_ns = 10000 * 1000;  /* 10000us */
 
 	do {
-		if (time_after(jiffies, timeout))
-			return fp(wrp) ? 0 : -ETIMEDOUT;
+		if (pwrap_timeout_ns(start_time_ns, timeout_ns)) {
+			if (fp(wrp))
+				return 0;
+			else if (fp(wrp) == 0) {
+				dev_notice(wrp->dev, "[PWRAP] FSM Timeout\n");
+				pwrap_logging_at_isr();
+				pwrap_dump_ap_register();
+				aee_kernel_warning("PWRAP:FSM Timeout",
+						   "PWRAP");
+				return -ETIMEDOUT;
+			}
+		}
 		if (fp(wrp))
 			return 0;
 	} while (1);
