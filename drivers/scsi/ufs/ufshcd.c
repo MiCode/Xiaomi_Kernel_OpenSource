@@ -8279,10 +8279,8 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	buff_len = max_t(size_t, hba->desc_size.dev_desc,
 			 QUERY_DESC_MAX_SIZE + 1);
 	desc_buf = kmalloc(buff_len, GFP_KERNEL);
-	if (!desc_buf) {
-		err = -ENOMEM;
-		goto out;
-	}
+	if (!desc_buf)
+		return -ENOMEM;
 
 	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
 	if (err) {
@@ -8685,15 +8683,14 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	if (hba->desc_size.dev_desc) {
 		desc_buf = kmalloc(hba->desc_size.dev_desc, GFP_KERNEL);
 		if (!desc_buf) {
-			err = -ENOMEM;
 			dev_err(hba->dev,
 				"%s: Failed to allocate desc_buf\n", __func__);
-			return err;
+			return -ENOMEM;
 		}
 	}
 	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
 	if (err)
-		return err;
+		goto out;
 
 	/*
 	 * getting vendor (manufacturerID) and Bank Index in big endian
@@ -8708,8 +8705,9 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	hba->dev_info.w_spec_version =
 		desc_buf[DEVICE_DESC_PARAM_SPEC_VER] << 8 |
 		desc_buf[DEVICE_DESC_PARAM_SPEC_VER + 1];
-
-	return 0;
+out:
+	kfree(desc_buf);
+	return err;
 }
 
 static inline bool ufshcd_needs_reinit(struct ufs_hba *hba)
