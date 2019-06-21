@@ -250,6 +250,16 @@ unsigned long schedutil_freq_util(int cpu, unsigned long util,
 		return max;
 
 	/*
+	 * CFS utilization can be boosted or capped, depending on
+	 * utilization clamp constraints requested by currently
+	 * RUNNABLE tasks.  When there are no CFS RUNNABLE tasks,
+	 * clamps are released and OPPs will be gracefully reduced
+	 * with the utilization decay.
+	 */
+	if (type == FREQUENCY_UTIL)
+		util = uclamp_util(rq, util);
+
+	/*
 	 * The function is called with @util defined as the aggregation (the
 	 * sum) of RT and CFS signals, hence leaving the special case of DL
 	 * to be delt with. The exact way of doing things depend on the calling
@@ -359,6 +369,7 @@ static void sugov_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
 			       unsigned int flags)
 {
 	bool set_iowait_boost = flags & SCHED_CPUFREQ_IOWAIT;
+	unsigned int max_boost;
 
 	/* Reset boost if the CPU appears to have been idle enough */
 	if (sg_cpu->iowait_boost &&
@@ -374,10 +385,22 @@ static void sugov_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
 		return;
 	sg_cpu->iowait_boost_pending = true;
 
+	/*
+	 * Boost FAIR tasks only up to the CPU clamped utilization.
+	 *
+	 * Since DL tasks have a much more advanced bandwidth control, it's
+	 * safe to assume that IO boost does not apply to those tasks.
+	 * Instead, since RT tasks are not utiliation clamped, we don't want
+	 * to apply clamping on IO boost while there is blocked RT
+	 * utilization.
+	 */
+	max_boost = uclamp_util(cpu_rq(sg_cpu->cpu), SCHED_CAPACITY_SCALE);
+
 	/* Double the boost at each request */
 	if (sg_cpu->iowait_boost) {
 		sg_cpu->iowait_boost =
-			min_t(unsigned int, sg_cpu->iowait_boost << 1, SCHED_CAPACITY_SCALE);
+			min_t(unsigned int, sg_cpu->iowait_boost << 1,
+					max_boost);
 		return;
 	}
 

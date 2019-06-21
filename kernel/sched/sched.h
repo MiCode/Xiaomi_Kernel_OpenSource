@@ -397,6 +397,11 @@ struct task_group {
 #endif
 
 	struct cfs_bandwidth	cfs_bandwidth;
+
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+	struct			uclamp_se uclamp[UCLAMP_CNT];
+#endif
+
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -803,6 +808,61 @@ extern void rto_push_irq_work_func(struct irq_work *work);
 #endif
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_UCLAMP_TASK
+/**
+ * struct uclamp_group - Utilization clamp Group
+ * @value: utilization clamp value for tasks on this clamp group
+ * @tasks: number of RUNNABLE tasks on this clamp group
+ *
+ * Keep track of how many tasks are RUNNABLE for a given utilization
+ * clamp value.
+ */
+struct uclamp_group {
+	unsigned long value : SCHED_CAPACITY_SHIFT + 1;
+	unsigned long tasks : BITS_PER_LONG - SCHED_CAPACITY_SHIFT - 1;
+};
+
+/**
+ * struct uclamp_cpu - CPU's utilization clamp
+ * @value: currently active clamp values for a CPU
+ * @group: utilization clamp groups affecting a CPU
+ *
+ * Keep track of RUNNABLE tasks on a CPUs to aggregate their clamp values.
+ * A clamp value is affecting a CPU where there is at least one task RUNNABLE
+ * (or actually running) with that value.
+ *
+ * We have up to UCLAMP_CNT possible different clamp value, which are
+ * currently only two: minmum utilization and maximum utilization.
+ *
+ * All utilization clamping values are MAX aggregated, since:
+ * - for util_min: we want to run the CPU at least at the max of the minimum
+ *   utilization required by its currently RUNNABLE tasks.
+ * - for util_max: we want to allow the CPU to run up to the max of the
+ *   maximum utilization allowed by its currently RUNNABLE tasks.
+ *
+ * Since on each system we expect only a limited number of different
+ * utilization clamp values (CONFIG_UCLAMP_GROUPS_COUNT), we use a simple
+ * array to track the metrics required to compute all the per-CPU utilization
+ * clamp values. The additional slot is used to track the default clamp
+ * values, i.e. no min/max clamping at all.
+ */
+struct uclamp_cpu {
+	struct uclamp_group group[UCLAMP_CNT][UCLAMP_GROUPS];
+	int value[UCLAMP_CNT];
+/*
+ * Idle clamp holding
+ * Whenever a CPU is idle, we enforce the util_max clamp value of the last
+ * task running on that CPU. This bit is used to flag a clamp holding
+ * currently active for a CPU. This flag is:
+ * - set when we update the clamp value of a CPU at the time of dequeuing the
+ *   last before entering idle
+ * - reset when we enqueue the first task after a CPU wakeup from IDLE
+ */
+#define UCLAMP_FLAG_IDLE 0x01
+	int flags;
+};
+#endif /* CONFIG_UCLAMP_TASK */
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -840,6 +900,11 @@ struct rq {
 	struct load_weight	load;
 	unsigned long		nr_load_updates;
 	u64			nr_switches;
+
+#ifdef CONFIG_UCLAMP_TASK
+	/* Utilization clamp values based on CPU's RUNNABLE tasks */
+	struct uclamp_cpu	uclamp ____cacheline_aligned;
+#endif
 
 	struct cfs_rq		cfs;
 	struct rt_rq		rt;
@@ -1656,10 +1721,12 @@ extern const u32		sched_prio_to_wmult[40];
 struct sched_class {
 	const struct sched_class *next;
 
+#ifdef CONFIG_UCLAMP_TASK
+	int uclamp_enabled;
+#endif
+
 	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags);
 	void (*dequeue_task) (struct rq *rq, struct task_struct *p, int flags);
-	void (*yield_task)   (struct rq *rq);
-	bool (*yield_to_task)(struct rq *rq, struct task_struct *p, bool preempt);
 
 	void (*check_preempt_curr)(struct rq *rq, struct task_struct *p, int flags);
 
@@ -1693,7 +1760,6 @@ struct sched_class {
 	void (*set_curr_task)(struct rq *rq);
 	void (*task_tick)(struct rq *rq, struct task_struct *p, int queued);
 	void (*task_fork)(struct task_struct *p);
-	void (*task_dead)(struct task_struct *p);
 
 	/*
 	 * The switched_from() call is allowed to drop rq->lock, therefore we
@@ -1710,12 +1776,18 @@ struct sched_class {
 
 	void (*update_curr)(struct rq *rq);
 
+	void (*yield_task)(struct rq *rq);
+	bool (*yield_to_task)(struct rq *rq, struct task_struct *p,
+				bool preempt);
+
 #define TASK_SET_GROUP		0
 #define TASK_MOVE_GROUP		1
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group)(struct task_struct *p, int type);
 #endif
+
+	void (*task_dead)(struct task_struct *p);
 };
 
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
@@ -2259,6 +2331,50 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #endif /* CONFIG_CPU_FREQ */
 
+/**
+ * uclamp_none: default value for a clamp
+ *
+ * This returns the default value for each clamp
+ * - 0 for a min utilization clamp
+ * - SCHED_CAPACITY_SCALE for a max utilization clamp
+ *
+ * Return: the default value for a given utilization clamp
+ */
+static inline unsigned int uclamp_none(int clamp_id)
+{
+	if (clamp_id == UCLAMP_MIN)
+		return 0;
+	return SCHED_CAPACITY_SCALE;
+}
+
+#ifdef CONFIG_UCLAMP_TASK
+/**
+ * clamp_util: clamp a utilization value for a specified CPU
+ * @rq: the CPU's RQ to get the clamp values from
+ * @util: the utilization signal to clamp
+ *
+ * Each CPU tracks util_{min,max} clamp values depending on the set of its
+ * currently RUNNABLE tasks. Given a utilization signal, i.e a signal in
+ * the [0..SCHED_CAPACITY_SCALE] range, this function returns a clamped
+ * utilization signal considering the current clamp values for the
+ * specified CPU.
+ *
+ * Return: a clamped utilization signal for a given CPU.
+ */
+static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+{
+	unsigned int min_util = rq->uclamp.value[UCLAMP_MIN];
+	unsigned int max_util = rq->uclamp.value[UCLAMP_MAX];
+
+	return clamp(util, min_util, max_util);
+}
+#else /* CONFIG_UCLAMP_TASK */
+static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+{
+	return util;
+}
+#endif /* CONFIG_UCLAMP_TASK */
+
 #ifdef arch_scale_freq_capacity
 # ifndef arch_scale_freq_invariant
 #  define arch_scale_freq_invariant()	true
@@ -2371,6 +2487,12 @@ unsigned long scale_irq_capacity(unsigned long util, unsigned long irq, unsigned
 
 #ifdef CONFIG_SMP
 extern struct static_key_false sched_energy_present;
+#endif
+
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+extern void schedtune_init_uclamp(void);
+extern struct uclamp_se *schedtune_uclamp(struct task_struct *p,
+		unsigned int clamp_id);
 #endif
 
 #include "extension/eas_plus.h"

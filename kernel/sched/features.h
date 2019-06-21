@@ -92,6 +92,11 @@ SCHED_FEAT(WA_BIAS, true)
 SCHED_FEAT(UTIL_EST, true)
 
 /*
+ * Utilization clamping lazy update.
+ */
+SCHED_FEAT(UCLAMP_LAZY_UPDATE, false)
+
+/*
  * Fast pre-selection of CPU candidates for EAS.
  */
 SCHED_FEAT(FIND_BEST_TARGET, false)
