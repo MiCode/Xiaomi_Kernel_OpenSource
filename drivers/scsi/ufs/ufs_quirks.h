@@ -138,7 +138,7 @@ struct ufs_dev_fix {
  * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
  * device would apply this 2 steps gear switch workaround.
  */
-#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH (1 << 8)
+#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH	(1 << 9)
 
 /*
  * Some UFS devices need more delay after device reference clk is turned on

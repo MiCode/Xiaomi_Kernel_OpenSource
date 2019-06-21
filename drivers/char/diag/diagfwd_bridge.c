@@ -200,6 +200,7 @@ int diag_remote_dev_open(int id)
 
 void diag_remote_dev_close(int id)
 {
+
 }
 
 int diag_remote_dev_read_done(int id, unsigned char *buf, int len)

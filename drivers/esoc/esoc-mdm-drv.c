@@ -64,7 +64,8 @@ struct mdm_drv {
 #define S3_RESET_DELAY_MS	2000
 
 static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
-							bool mdm_crashed);
+							unsigned int flags);
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink);
 
 int esoc_set_boot_fail_action(struct esoc_clink *esoc_clink, u32 action)
 {
@@ -126,7 +127,7 @@ static int esoc_msm_restart_handler(struct notifier_block *nb,
 			mutex_unlock(&mdm_drv->poff_lock);
 			return NOTIFY_OK;
 		}
-		esoc_client_link_power_off(esoc_clink, false);
+		esoc_client_link_power_off(esoc_clink, ESOC_HOOK_MDM_DOWN);
 		esoc_mdm_log(
 			"Reboot notifier: Notifying esoc of cold reboot\n");
 		dev_dbg(&esoc_clink->dev, "Notifying esoc of cold reboot\n");
@@ -201,10 +202,11 @@ static void mdm_ssr_fn(struct work_struct *work)
 	struct mdm_drv *mdm_drv = container_of(work, struct mdm_drv, ssr_work);
 	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
 
+	esoc_client_link_mdm_crash(mdm_drv->esoc_clink);
+
 	mdm_wait_for_status_low(mdm, false);
 
 	esoc_mdm_log("Starting SSR work\n");
-
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
 	 */
@@ -212,39 +214,54 @@ static void mdm_ssr_fn(struct work_struct *work)
 }
 
 static void esoc_client_link_power_on(struct esoc_clink *esoc_clink,
-							bool mdm_crashed)
+						unsigned int flags)
 {
 	int i;
 	struct esoc_client_hook *client_hook;
 
 	dev_dbg(&esoc_clink->dev, "Calling power_on hooks\n");
 	esoc_mdm_log(
-	"Calling power_on hooks with crash state: %d\n", mdm_crashed);
+	"Calling power_on hooks with flags: 0x%x\n", flags);
 
 	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
 		client_hook = esoc_clink->client_hook[i];
 		if (client_hook && client_hook->esoc_link_power_on)
 			client_hook->esoc_link_power_on(client_hook->priv,
-							mdm_crashed);
+							flags);
 	}
 }
 
 static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
-							bool mdm_crashed)
+						unsigned int flags)
 {
 	int i;
 	struct esoc_client_hook *client_hook;
 
 	dev_dbg(&esoc_clink->dev, "Calling power_off hooks\n");
 	esoc_mdm_log(
-	"Calling power_off hooks with crash state: %d\n", mdm_crashed);
+	"Calling power_off hooks with flags: 0x%x\n", flags);
 
 	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
 		client_hook = esoc_clink->client_hook[i];
 		if (client_hook && client_hook->esoc_link_power_off) {
 			client_hook->esoc_link_power_off(client_hook->priv,
-							mdm_crashed);
+							flags);
 		}
+	}
+}
+
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink)
+{
+	int i;
+	struct esoc_client_hook *client_hook;
+
+	dev_dbg(&esoc_clink->dev, "Calling mdm_crash hooks\n");
+	esoc_mdm_log("Calling mdm_crash hooks\n");
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		client_hook = esoc_clink->client_hook[i];
+		if (client_hook && client_hook->esoc_link_mdm_crash)
+			client_hook->esoc_link_mdm_crash(client_hook->priv);
 	}
 }
 
@@ -284,7 +301,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			return 0;
 
 		esoc_clink_queue_request(ESOC_REQ_CRASH_SHUTDOWN, esoc_clink);
-		esoc_client_link_power_off(esoc_clink, true);
+		esoc_client_link_power_off(esoc_clink, ESOC_HOOK_MDM_CRASH);
 
 		esoc_mdm_log("Executing the ESOC_PREPARE_DEBUG command\n");
 		ret = clink_ops->cmd_exe(ESOC_PREPARE_DEBUG,
@@ -328,7 +345,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			mutex_unlock(&mdm_drv->poff_lock);
 			return ret;
 		}
-		esoc_client_link_power_off(esoc_clink, false);
+		esoc_client_link_power_off(esoc_clink, ESOC_HOOK_MDM_DOWN);
 		/* Pull the reset line low to turn off the device */
 		clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF, esoc_clink);
 		mdm_drv->mode = PWR_OFF;
@@ -338,14 +355,15 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 	return 0;
 }
 
-static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink)
+static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink,
+							unsigned int poff_flags)
 {
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 
 	esoc_mdm_log("Doing cleanup\n");
 
-	esoc_client_link_power_off(esoc_clink, false);
+	esoc_client_link_power_off(esoc_clink, poff_flags);
 	mdm_disable_irqs(mdm);
 	mdm_drv->pon_state = PON_INIT;
 	reinit_completion(&mdm_drv->pon_done);
@@ -366,7 +384,7 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 
 	switch (atomic_read(&mdm_drv->boot_fail_action)) {
 	case BOOT_FAIL_ACTION_RETRY:
-		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		mdm_subsys_retry_powerup_cleanup(esoc_clink, 0);
 		esoc_mdm_log("Request to retry a warm reset\n");
 		(*pon_trial)++;
 		break;
@@ -376,13 +394,15 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 	 * issuing a cold reset & a warm reset back to back.
 	 */
 	case BOOT_FAIL_ACTION_COLD_RESET:
-		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		mdm_subsys_retry_powerup_cleanup(esoc_clink,
+							ESOC_HOOK_MDM_DOWN);
 		esoc_mdm_log("Doing cold reset by power-down and warm reset\n");
 		(*pon_trial)++;
 		mdm_power_down(mdm);
 		break;
 	case BOOT_FAIL_ACTION_S3_RESET:
-		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		mdm_subsys_retry_powerup_cleanup(esoc_clink,
+							ESOC_HOOK_MDM_DOWN);
 		esoc_mdm_log("Doing an S3 reset\n");
 		(*pon_trial)++;
 		mdm_power_down(mdm);
@@ -397,7 +417,8 @@ static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 		return -EIO;
 	case BOOT_FAIL_ACTION_SHUTDOWN:
 	default:
-		mdm_subsys_retry_powerup_cleanup(esoc_clink);
+		mdm_subsys_retry_powerup_cleanup(esoc_clink,
+							ESOC_HOOK_MDM_DOWN);
 		esoc_mdm_log("Shutdown the modem and quit\n");
 		mdm_power_down(mdm);
 		return -EIO;
@@ -440,7 +461,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 				dev_err(&esoc_clink->dev, "pwr on fail\n");
 				return ret;
 			}
-			esoc_client_link_power_on(esoc_clink, false);
+			esoc_client_link_power_on(esoc_clink, 0);
 		} else if (mdm_drv->mode == IN_DEBUG) {
 			esoc_mdm_log("In SSR power-on mode\n");
 			esoc_mdm_log("Executing the ESOC_EXIT_DEBUG command\n");
@@ -459,7 +480,8 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 				dev_err(&esoc_clink->dev, "pwr on fail\n");
 				return ret;
 			}
-			esoc_client_link_power_on(esoc_clink, true);
+			esoc_client_link_power_on(esoc_clink,
+							ESOC_HOOK_MDM_CRASH);
 		}
 
 		/*
@@ -484,7 +506,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 			esoc_mdm_log(
 			"Boot failed. Doing cleanup and attempting to retry\n");
 			pon_trial++;
-			mdm_subsys_retry_powerup_cleanup(esoc_clink);
+			mdm_subsys_retry_powerup_cleanup(esoc_clink, 0);
 		} else if (mdm_drv->pon_state == PON_SUCCESS) {
 			break;
 		}

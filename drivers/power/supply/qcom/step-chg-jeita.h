@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,8 +23,8 @@ struct step_chg_jeita_param {
 };
 
 struct range_data {
-	u32 low_threshold;
-	u32 high_threshold;
+	int low_threshold;
+	int high_threshold;
 	u32 value;
 };
 
@@ -33,5 +33,5 @@ int qcom_step_chg_init(struct device *dev,
 void qcom_step_chg_deinit(void);
 int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
-		u32 max_threshold, u32 max_value);
+		int max_threshold, u32 max_value);
 #endif /* __STEP_CHG_H__ */

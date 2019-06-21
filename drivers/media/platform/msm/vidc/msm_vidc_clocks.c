@@ -633,6 +633,7 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 	u32 filled_len)
 {
 	unsigned long freq = 0;
+	unsigned long sw_overhead = 0;
 	unsigned long vpp_cycles = 0, vsp_cycles = 0;
 	unsigned long fw_cycles = 0, fw_vpp_cycles = 0;
 	u32 vpp_cycles_per_mb;
@@ -668,9 +669,6 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 
 		vpp_cycles = mbs_per_second * vpp_cycles_per_mb /
 				inst->clk_data.work_route;
-		/* 21 / 20 is minimum overhead factor */
-		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
-
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* bitrate is based on fps, scale it using operating rate */
@@ -682,16 +680,35 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
 				vsp_factor_den;
 
+		/* sw overhead factor */
+		sw_overhead = ((u64)vsp_cycles * fw_vpp_cycles) / vpp_cycles;
+		vsp_cycles += max(vsp_cycles/20, sw_overhead);
+
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
+
+		if (inst->clk_data.work_route > 1)
+			vpp_cycles += (vpp_cycles * 14 / 1000);
+
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		vpp_cycles = mbs_per_second * inst->clk_data.entry->vpp_cycles /
 				inst->clk_data.work_route;
-		/* 21 / 20 is minimum overhead factor */
-		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* vsp perf is about 0.5 bits/cycle */
 		vsp_cycles += ((fps * filled_len * 8) * 10) / 5;
+
+		/* sw overhead factor */
+		sw_overhead = ((u64)vsp_cycles * fw_vpp_cycles) / vpp_cycles;
+		vsp_cycles += max(vsp_cycles/20, sw_overhead);
+
+		/* 21 / 20 is minimum overhead factor */
+		vpp_cycles += max(vpp_cycles / 20, fw_vpp_cycles);
+
+		/* 1.059 pipeline overhead factor */
+		if (inst->clk_data.work_route > 1)
+			vpp_cycles += vpp_cycles/17;
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
