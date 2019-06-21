@@ -1,0 +1,158 @@
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+qcom,alium_860_89032_0000_3600mah_averaged_masterslave_sep24th2018 {
+	/* #Alium_860_89032_0000_3600mAh_averaged_MasterSlave_Sept24th2018*/
+	qcom,max-voltage-uv = <4450000>;
+	qcom,fastchg-current-ma = <3700>;
+	qcom,jeita-fcc-ranges = <0  50  370000
+				51  100  1110000
+				101 150  1850000
+				151 450  3700000
+				451 580  1850000>;
+	qcom,jeita-fv-ranges = <0   50  4450000
+				51  100  4450000
+				101 150  4450000
+				151 450  4450000
+				451 580  4100000>;
+	qcom,nom-batt-capacity-mah = <3800>;
+	qcom,batt-id-kohm = <100>;
+	/* COLD = 0 DegC, HOT = 45 DegC */
+	/* qcom,jeita-hard-thresholds = <0x58cd 0x20b8>; */
+	/* COOL = 10 DegC, WARM = 40 DegC */
+	/* qcom,jeita-soft-thresholds = <0x4ccc 0x25e3>; */
+	/* COLD hys = 13 DegC, WARM hys = 37 DegC */
+	/*qcom,jeita-soft-hys-thresholds = <0x48d4 0x2943>;
+	qcom,jeita-soft-fcc-ua = <2500000 2500000>;
+	qcom,jeita-soft-fv-uv = <4250000 4250000>;*/
+	qcom,ocv-based-step-chg;
+	qcom,battery-beta = <4250>;
+	qcom,therm-room-temp = <100000>;
+	qcom,fg-cc-cv-threshold-mv = <4440>;
+	qcom,battery-type = "itech_3700mah";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,therm-pull-up = <100>;
+	qcom,rslow-normal-coeffs = <0xdf 0x02 0x77 0x1a>;
+	qcom,rslow-low-coeffs = <0x51 0x04 0xd0 0x13>;
+	qcom,checksum = <0x1538>;
+	qcom,gui-version = "PM855GUI - 1.0.0.10";
+	qcom,fg-profile-data = [
+		09 00 C7 EA
+		C4 DC 8E E2
+		3A DD 00 00
+		15 BC A5 8A
+		02 80 D1 92
+		AB 9D 47 80
+		10 00 DF 02
+		77 1A 85 EC
+		E1 FD CE 07
+		32 00 75 EB
+		AA ED F3 CD
+		0C 0A 7A E4
+		ED C5 40 1B
+		D0 02 1F CA
+		FF 00 52 00
+		4D 00 4A 00
+		3C 00 35 00
+		38 00 39 00
+		48 00 43 00
+		3F 00 FF 00
+		38 00 40 00
+		46 00 50 00
+		45 00 5C 00
+		7E 64 60 00
+		50 08 50 10
+		FF 00 6A 00
+		5F 00 63 00
+		6E 00 60 00
+		7D 20 96 40
+		75 50 6B 13
+		63 00 D8 00
+		14 22 7E 0D
+		21 02 AA 04
+		ED 1C D4 09
+		64 0C D3 23
+		A4 18 D3 42
+		B5 55 91 02
+		90 12 2A 1F
+		02 06 1F 0A
+		A3 06 AE 1C
+		8D 02 96 04
+		D2 03 D1 17
+		51 23 3F 45
+		28 53 69 14
+		93 20 8E EC
+		18 CB C8 C5
+		DB 1C 7B C9
+		7C 05 E6 C2
+		B9 17 2C 93
+		87 85 A2 92
+		91 A8 09 80
+		92 F2 1A 0D
+		F4 FC 5E EB
+		00 F8 FB ED
+		15 E2 F6 0F
+		75 02 72 05
+		49 01 10 00
+		FA E5 E2 03
+		8D 05 85 02
+		CE 07 32 00
+		23 03 46 02
+		9C 04 03 02
+		48 07 0A 00
+		BA 03 97 02
+		65 05 50 00
+		3A 00 41 00
+		43 64 45 00
+		45 10 45 18
+		46 08 44 00
+		47 00 3A 08
+		4B 08 37 00
+		47 20 4E 40
+		54 58 60 10
+		57 00 5F 00
+		57 08 55 00
+		4B 00 50 00
+		3E 08 52 08
+		52 00 5C 20
+		6F 40 7D 58
+		67 10 63 00
+		69 08 4F 10
+		D8 00 8C 2A
+		DB 04 28 02
+		AD 04 0B 1D
+		50 22 A7 45
+		0D 52 A2 18
+		74 03 AD 04
+		35 02 AE 13
+		3F 0A 5A 20
+		DD 04 F1 02
+		D8 05 C7 1C
+		DD 02 3D 04
+		EB 03 97 18
+		52 03 D5 04
+		19 02 72 00
+		14 22 7E 05
+		21 02 AA 04
+		ED 1C D4 01
+		64 04 D3 03
+		A4 18 D3 02
+		B5 05 91 02
+		90 00 7C 01
+		C0 00 FA 00
+		04 0E 00 00
+	];
+};

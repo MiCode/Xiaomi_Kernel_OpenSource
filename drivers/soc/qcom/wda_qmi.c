@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -337,8 +338,8 @@ static void wda_svc_config(struct work_struct *work)
 	qmi->wda_pending = NULL;
 	qmi->wda_client = (void *)data;
 	trace_wda_client_state_up(data->svc.instance,
-				  data->svc.ep_type,
-				  data->svc.iface_id);
+	data->svc.ep_type,
+	data->svc.iface_id);
 
 	rtnl_unlock();
 

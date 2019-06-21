@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018 Cog Systems Pty Ltd
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,9 +25,9 @@
 /* msg_payload: struct boot_mgr_start_params */
 
 struct boot_mgr_start_params {
-    uint64_t entry_addr; /* Physical load address / entry point of Linux */
-    uint64_t dtb_addr; /* Physical address of DTB */
-    bool is_64bit; /* True to reset VM to AArch64 mode, false for AArch32 */
+	uint64_t entry_addr; /* Physical load address / entry point of Linux */
+	uint64_t dtb_addr; /* Physical address of DTB */
+	bool is_64bit; /* True to reset VM to AArch64 mode, false for AArch32 */
 };
 
 /* start_client_reply: Response to BOOT_MGR_START_CLIENT */
@@ -67,13 +68,13 @@ struct boot_mgr_start_params {
 #define RES_MGR_SECURECAM_GET_HANDLE 0x00710001
 
 struct res_mgr_region {
-    uint64_t address_ipa;
-    uint64_t size;
+	uint64_t address_ipa;
+	uint64_t size;
 };
 
 struct res_mgr_sglist {
-    uint32_t region_count;
-    struct res_mgr_region regions[];
+	uint32_t region_count;
+	struct res_mgr_region regions[];
 };
 
 /*
@@ -205,15 +206,15 @@ struct res_mgr_sglist {
  * Top-level message structure
  */
 struct res_mgr_msg {
-    uint32_t msg_id;
-    union {
-        bool success;
-        struct {
-            struct boot_mgr_start_params start_params;
-        } boot_mgr;
-        struct {
-            uint32_t handle;
-            struct res_mgr_sglist sglist;
-        } securecam;
-    };
+	uint32_t msg_id;
+	union {
+		bool success;
+		struct {
+			struct boot_mgr_start_params start_params;
+		} boot_mgr;
+		struct {
+			uint32_t handle;
+			struct res_mgr_sglist sglist;
+		} securecam;
+	};
 };

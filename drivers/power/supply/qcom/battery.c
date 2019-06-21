@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -601,25 +602,6 @@ static void pl_taper_work(struct work_struct *work)
 			goto done;
 		}
 
-		/*
-		 * Due to reduction of float voltage in JEITA condition taper
-		 * charging can be initiated at a lower FV. On removal of JEITA
-		 * condition, FV readjusts itself. However, once taper charging
-		 * is initiated, it doesn't exits until parallel chaging is
-		 * disabled due to which FCC doesn't scale back to its original
-		 * value, leading to slow charging thereafter.
-		 * Check if FV increases in comparison to FV at which taper
-		 * charging was initiated, and if yes, exit taper charging.
-		 */
-		if (get_effective_result(chip->fv_votable) >
-						chip->taper_entry_fv) {
-			pl_dbg(chip, PR_PARALLEL, "Float voltage increased. Exiting taper\n");
-			goto done;
-		} else {
-			chip->taper_entry_fv =
-					get_effective_result(chip->fv_votable);
-		}
-
 		rc = power_supply_get_property(chip->batt_psy,
 				       POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 		if (rc < 0) {
@@ -645,9 +627,26 @@ static void pl_taper_work(struct work_struct *work)
 			vote(chip->fcc_votable, TAPER_STEPPER_VOTER,
 					true, eff_fcc_ua);
 		} else {
-			pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+			/*
+			 * Due to reduction of float voltage in JEITA condition
+			 * taper charging can be initiated at a lower FV. On
+			 * removal of JEITA condition, FV readjusts itself.
+			 * However, once taper charging is initiated, it doesn't
+			 * exits until parallel chaging is disabled due to which
+			 * FCC doesn't scale back to its original value, leading
+			 * to slow charging thereafter.
+			 * Check if FV increases in comparison to FV at which
+			 * taper charging was initiated, and if yes, exit taper
+			 * charging.
+			 */
+			if (get_effective_result(chip->fv_votable) >
+						chip->taper_entry_fv) {
+				pl_dbg(chip, PR_PARALLEL, "Float voltage increased. Exiting taper\n");
+				goto done;
+			} else {
+				pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+			}
 		}
-
 		/* wait for the charger state to deglitch after FCC change */
 		msleep(PL_TAPER_WORK_DELAY_MS);
 	}
@@ -987,8 +986,26 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
-	if (chip->cp_ilim_votable)
-		vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+	if (!chip->usb_psy) {
+		pr_err("Couldn't get usb psy\n");
+		return -ENODEV;
+	}
+
+	rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_SMB_EN_REASON, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get cp reason rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->cp_ilim_votable) {
+		if (pval.intval != POWER_SUPPLY_CP_WIRELESS)
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, true, icl_ua);
+		else
+			vote(chip->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
+	}
 
 	return 0;
 }

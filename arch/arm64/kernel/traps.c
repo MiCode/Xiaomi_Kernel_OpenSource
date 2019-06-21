@@ -50,6 +50,7 @@
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
 #include <trace/events/exception.h>
+#include <linux/workqueue.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -59,6 +60,7 @@ static const char *handler[]= {
 };
 
 int show_unhandled_signals = 0;
+
 
 static void dump_backtrace_entry(unsigned long where)
 {
@@ -102,6 +104,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 {
 	struct stackframe frame;
 	int skip;
+	long cur_state = 0;
+	unsigned long cur_sp = 0;
+	unsigned long cur_fp = 0;
 
 	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
 
@@ -120,6 +125,9 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 		 */
 		frame.fp = thread_saved_fp(tsk);
 		frame.pc = thread_saved_pc(tsk);
+		cur_state = tsk->state;
+		cur_sp = thread_saved_sp(tsk);
+		cur_fp = frame.fp;
 	}
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	frame.graph = tsk->curr_ret_stack;
@@ -128,6 +136,22 @@ void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	skip = !!regs;
 	printk("Call trace:\n");
 	do {
+		if (tsk != current && (cur_state != tsk->state
+                               || cur_sp != thread_saved_sp(tsk)
+                               || cur_fp != thread_saved_fp(tsk))){
+		/*
+		* We would not be printing backtrace for the task
+		* that has changed state from uninterruptible to
+		* running before hitting the do-while loop but after
+		* saving the current state. If task is in running
+		* state before saving the state, then we may print
+		* wrong call trace or end up in infinite while loop
+		* if *(fp) and *(fp+8) are same. While the situation
+		* will stop print when that task schedule out.
+		*/
+			printk("The task:%s had been rescheduled!\n", tsk->comm);
+			break;
+		}
 		/* skip until specified stack frame */
 		if (!skip) {
 			dump_backtrace_entry(frame.pc);
@@ -190,6 +214,26 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
+#define FS_SYNC_TIMEOUT_MS 2000
+static struct work_struct fs_sync_work;
+static DECLARE_COMPLETION(sync_compl);
+static void fs_sync_work_func(struct work_struct *work)
+{
+	pr_emerg("sys_sync:syncing fs\n");
+	sys_sync();
+	complete(&sync_compl);
+}
+
+void exec_fs_sync_work(void)
+{
+	INIT_WORK(&fs_sync_work, fs_sync_work_func);
+	reinit_completion(&sync_compl);
+	schedule_work(&fs_sync_work);
+	if (wait_for_completion_timeout(&sync_compl, msecs_to_jiffies(FS_SYNC_TIMEOUT_MS)) == 0)
+		pr_emerg("sys_sync:wait complete timeout\n");
+}
+EXPORT_SYMBOL(exec_fs_sync_work);
+
 /*
  * This function is protected against re-entrancy.
  */
@@ -198,6 +242,11 @@ void die(const char *str, struct pt_regs *regs, int err)
 	int ret;
 	unsigned long flags;
 
+	if (!in_atomic())
+	{
+		pr_emerg("sys_sync:try sys sync in die\n");
+		exec_fs_sync_work();
+	}
 	raw_spin_lock_irqsave(&die_lock, flags);
 
 	oops_enter();

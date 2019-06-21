@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +41,6 @@
 #define BATT_THERM_PULL_UP_100K			2
 #define BATT_THERM_PULL_UP_400K			3
 #define BATT_THERM_PULL_UP_MASK			GENMASK(1, 0)
-
-#define ADC_RR_BATT_THERM_FREQ(chip)		(chip->rradc_base + 0x82)
 
 #define ADC_RR_BATT_TEMP_LSB(chip)		(chip->rradc_base + 0x88)
 #define ADC_RR_BATT_TEMP_MSB(chip)		(chip->rradc_base + 0x89)

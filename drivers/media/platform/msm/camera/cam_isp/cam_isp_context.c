@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,8 +399,8 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 {
 	int rc = 0;
 	int i, j;
-	struct cam_ctx_request  *req;
-	struct cam_isp_ctx_req  *req_isp;
+	struct cam_ctx_request  *req, *next_req;
+	struct cam_isp_ctx_req  *req_isp, *next_req_isp;
 	struct cam_context *ctx = ctx_isp->base;
 
 	if (list_empty(&ctx->active_req_list)) {
@@ -517,6 +518,30 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 			 req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 	}
 
+	if (ctx_isp->active_req_cnt > 0) {
+		if (list_empty(&ctx->active_req_list)) {
+			CAM_DBG(CAM_ISP, "Buf done with no active request!");
+			goto end;
+		}
+		next_req = list_first_entry(&ctx->active_req_list, struct cam_ctx_request, list);
+		CAM_DBG(CAM_REQ, "next_req:%p, active_reqcnt:%d", next_req, ctx_isp->active_req_cnt);
+
+		next_req_isp = (struct cam_isp_ctx_req *) next_req->req_priv;
+
+		CAM_DBG(CAM_REQ, "next_req_isp:bubble_detected:%d,bubble_report:%d",
+			next_req_isp->bubble_detected, next_req_isp->bubble_report);
+		if (next_req_isp->bubble_detected && next_req_isp->bubble_report) {
+			next_req_isp->num_acked = 0;
+			next_req_isp->bubble_detected = false;
+			list_del_init(&next_req->list);
+			list_add(&next_req->list, &ctx->pending_req_list);
+			atomic_set(&ctx_isp->process_bubble, 0);
+			ctx_isp->active_req_cnt--;
+			CAM_DBG(CAM_REQ,
+				"Move active request %lld to pending list(cnt = %d) [bubble recovery], ctx %u",
+				next_req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+		}
+	}
 end:
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_DONE,
@@ -2744,6 +2769,7 @@ free_req:
 	list_add_tail(&req->list, &ctx->free_req_list);
 	spin_unlock_bh(&ctx->lock);
 
+	atomic_set(&ctx_isp->process_bubble, 0);
 	return rc;
 }
 

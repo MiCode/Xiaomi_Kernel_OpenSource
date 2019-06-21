@@ -5,6 +5,7 @@
  *	Implements an efficient asynchronous io interface.
  *
  *	Copyright 2000, 2001, 2002 Red Hat, Inc.  All Rights Reserved.
+ *	Copyright (C) 2019 XiaoMi, Inc.
  *
  *	See ../COPYING for licensing terms.
  */
@@ -1050,6 +1051,7 @@ static inline struct aio_kiocb *aio_get_req(struct kioctx *ctx)
 
 	percpu_ref_get(&ctx->reqs);
 	INIT_LIST_HEAD(&req->ki_list);
+
 	req->ki_ctx = ctx;
 	return req;
 out_put:

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3778,6 +3779,11 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->tcsr = NULL;
 	dev->dev_mem_res = NULL;
 	dev->dev_io_res = NULL;
+	if (dev->bus_scale_table) {
+		if (dev->bus_client)
+			msm_bus_scale_unregister_client(dev->bus_client);
+		msm_bus_cl_clear_pdata(dev->bus_scale_table);
+	}
 }
 
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)

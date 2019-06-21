@@ -1,0 +1,39 @@
+/*
+this file is for attribution only of andromeda
+And public attribution of xiaomi platforms(like E5 5G and so and)
+*/
+
+#include "andromeda-sm8150.dtsi"
+&soc {
+	gpio_keys {
+		pinctrl-0 = <&ai_key_active_default>;
+		ai_key {
+			label = "ai_key";
+			gpios = <&tlmm 41 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_AI>;
+			gpio-key,wakeup;
+			debounce-interval = <39>;
+		};
+	};
+};
+&qupv3_se9_i2c {
+	status = "ok";
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 47 0x00>;
+		qcom,nq-ven = <&tlmm 36 0x00>;
+		qcom,nq-firm = <&tlmm 48 0x00>;
+		qcom,nq-clkreq = <&tlmm 113 0x00>;
+		//qcom,nq-esepwr = <&tlmm 42 0x00>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <47 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active
+					&nfc_clk_req_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
+					&nfc_clk_req_suspend>;
+	};
+};

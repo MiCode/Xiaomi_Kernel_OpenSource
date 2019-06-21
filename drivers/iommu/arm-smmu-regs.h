@@ -15,6 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1187,6 +1188,13 @@ static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
 	memcpy(base + offset, hdr, hdr_len);
 }
 
+/* Header address update logic. */
+#define IPAHAL_CP_PROC_CTX_HEADER_UPDATE(hdr_lsb, hdr_msb, addr) \
+	do { \
+		hdr_lsb = lower_32_bits(addr); \
+		hdr_msb = upper_32_bits(addr); \
+	} while (0)
+
 /*
  * ipahal_cp_proc_ctx_to_hw_buff_v3() - copy processing context to
  * base address and offset given.
@@ -1200,26 +1208,31 @@ static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
  * @hdr_base_addr: base address in table
  * @offset_entry: offset from hdr_base_addr in table
  * @l2tp_params: l2tp parameters
+ * @is_64: Indicates whether header base address/dma base address is 64 bit.
  */
 static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset,
 		u32 hdr_len, bool is_hdr_proc_ctx,
 		dma_addr_t phys_base, u64 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
-		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params)
+		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params, bool is_64)
 {
+	u64 hdr_addr;
+
 	if (type == IPA_HDR_PROC_NONE) {
 		struct ipa_hw_hdr_proc_ctx_add_hdr_seq *ctx;
 
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_seq *)
 			(base + offset);
 		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.length = is_64 ? 2 : 1;
 		ctx->hdr_add.tlv.value = hdr_len;
-		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+		hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%llx\n",
-			ctx->hdr_add.hdr_addr);
+			hdr_addr);
+		IPAHAL_CP_PROC_CTX_HEADER_UPDATE(ctx->hdr_add.hdr_addr,
+			ctx->hdr_add.hdr_addr_hi, hdr_addr);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
 		ctx->end.value = 0;
@@ -1229,12 +1242,14 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq *)
 			(base + offset);
 		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.length = is_64 ? 2 : 1;
 		ctx->hdr_add.tlv.value = hdr_len;
-		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+		hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%llx\n",
-			ctx->hdr_add.hdr_addr);
+			hdr_addr);
+		IPAHAL_CP_PROC_CTX_HEADER_UPDATE(ctx->hdr_add.hdr_addr,
+			ctx->hdr_add.hdr_addr_hi, hdr_addr);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
 		ctx->l2tp_params.tlv.value =
@@ -1256,12 +1271,14 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx = (struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq *)
 			(base + offset);
 		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.length = is_64 ? 2 : 1;
 		ctx->hdr_add.tlv.value = hdr_len;
-		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+		hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%llx length %d\n",
-			ctx->hdr_add.hdr_addr, ctx->hdr_add.tlv.value);
+			hdr_addr, ctx->hdr_add.tlv.value);
+		IPAHAL_CP_PROC_CTX_HEADER_UPDATE(ctx->hdr_add.hdr_addr,
+			ctx->hdr_add.hdr_addr_hi, hdr_addr);
 		ctx->l2tp_params.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->l2tp_params.tlv.length = 1;
 		ctx->l2tp_params.tlv.value =
@@ -1292,12 +1309,14 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq *)
 			(base + offset);
 		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.length = is_64 ? 2 : 1;
 		ctx->hdr_add.tlv.value = hdr_len;
-		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+		hdr_addr = is_hdr_proc_ctx ? phys_base :
 			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%llx\n",
-			ctx->hdr_add.hdr_addr);
+			hdr_addr);
+		IPAHAL_CP_PROC_CTX_HEADER_UPDATE(ctx->hdr_add.hdr_addr,
+			ctx->hdr_add.hdr_addr_hi, hdr_addr);
 		ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
 		ctx->cmd.length = 0;
 		switch (type) {
@@ -1355,7 +1374,8 @@ struct ipahal_hdr_funcs {
 			bool is_hdr_proc_ctx, dma_addr_t phys_base,
 			u64 hdr_base_addr,
 			struct ipa_hdr_offset_entry *offset_entry,
-			struct ipa_l2tp_hdr_proc_ctx_params l2tp_params);
+			struct ipa_l2tp_hdr_proc_ctx_params l2tp_params,
+			bool is_64);
 
 	int (*ipahal_get_proc_ctx_needed_len)(enum ipa_hdr_proc_type type);
 };
@@ -1421,17 +1441,18 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *const hdr,
  * @hdr_base_addr: base address in table
  * @offset_entry: offset from hdr_base_addr in table
  * @l2tp_params: l2tp parameters
+ * @is_64: Indicates whether header base address/dma base address is 64 bit.
  */
 int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
 		u64 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry,
-		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params)
+		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params, bool is_64)
 {
 	IPAHAL_DBG(
-		"type %d, base %pK, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %llu, offset_entry %pK\n"
+		"type %d, base %pK, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %llu, offset_entry %pK, bool %d\n"
 			, type, base, offset, hdr_len, is_hdr_proc_ctx,
-			hdr_base_addr, offset_entry);
+			hdr_base_addr, offset_entry, is_64);
 
 	if (!base ||
 		!hdr_len ||
@@ -1447,7 +1468,7 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 
 	return hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff(type, base, offset,
 			hdr_len, is_hdr_proc_ctx, phys_base,
-			hdr_base_addr, offset_entry, l2tp_params);
+			hdr_base_addr, offset_entry, l2tp_params, is_64);
 }
 
 /*
