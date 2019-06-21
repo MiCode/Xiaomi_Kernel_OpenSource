@@ -80,6 +80,7 @@ extern unsigned long device_file_cnt;
 extern struct semaphore api_lock;
 extern struct semaphore fp_api_lock;
 extern struct semaphore keymaster_api_lock;
+extern struct semaphore capi_mutex;
 extern struct workqueue_struct *secure_wq;
 extern struct workqueue_struct *bdrv_wq;
 extern unsigned long fdrv_message_buff;
