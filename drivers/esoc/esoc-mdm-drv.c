@@ -276,7 +276,7 @@ static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
 static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 							bool force_stop)
 {
-	int ret;
+	int ret = 0;
 	struct esoc_clink *esoc_clink =
 	 container_of(crashed_subsys, struct esoc_clink, subsys);
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
@@ -284,14 +284,16 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 
 	esoc_mdm_log("Shutdown request from SSR\n");
 
+	mutex_lock(&mdm_drv->poff_lock);
 	if (mdm_drv->mode == CRASH || mdm_drv->mode == PEER_CRASH) {
 		esoc_mdm_log("Shutdown in crash mode\n");
-		if (mdm_dbg_stall_cmd(ESOC_PREPARE_DEBUG))
+		if (mdm_dbg_stall_cmd(ESOC_PREPARE_DEBUG)) {
 			/* We want to mask debug command.
 			 * In this case return success
 			 * to move to next stage
 			 */
-			return 0;
+			goto unlock;
+		}
 
 		esoc_clink_queue_request(ESOC_REQ_CRASH_SHUTDOWN, esoc_clink);
 		esoc_client_link_power_off(esoc_clink, ESOC_HOOK_MDM_CRASH);
@@ -302,16 +304,14 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 		if (ret) {
 			esoc_mdm_log("ESOC_PREPARE_DEBUG command failed\n");
 			dev_err(&esoc_clink->dev, "failed to enter debug\n");
-			return ret;
+			goto unlock;
 		}
 		mdm_drv->mode = IN_DEBUG;
 	} else if (!force_stop) {
 		esoc_mdm_log("Graceful shutdown mode\n");
-		mutex_lock(&mdm_drv->poff_lock);
 		if (mdm_drv->mode == PWR_OFF) {
-			mutex_unlock(&mdm_drv->poff_lock);
 			esoc_mdm_log("mdm already powered-off\n");
-			return 0;
+			goto unlock;
 		}
 		if (esoc_clink->subsys.sysmon_shutdown_ret) {
 			esoc_mdm_log(
@@ -324,8 +324,7 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 				 * we return success, and leave the state
 				 * of the command engine as is.
 				 */
-				mutex_unlock(&mdm_drv->poff_lock);
-				return 0;
+				goto unlock;
 			}
 			dev_dbg(&esoc_clink->dev, "Sending sysmon-shutdown\n");
 			esoc_mdm_log("Executing the ESOC_PWR_OFF command\n");
@@ -335,17 +334,18 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			esoc_mdm_log(
 			"Executing the ESOC_PWR_OFF command failed\n");
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
-			mutex_unlock(&mdm_drv->poff_lock);
-			return ret;
+			goto unlock;
 		}
 		esoc_client_link_power_off(esoc_clink, ESOC_HOOK_MDM_DOWN);
 		/* Pull the reset line low to turn off the device */
 		clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF, esoc_clink);
 		mdm_drv->mode = PWR_OFF;
-		mutex_unlock(&mdm_drv->poff_lock);
 	}
 	esoc_mdm_log("Shutdown completed\n");
-	return 0;
+
+unlock:
+	mutex_unlock(&mdm_drv->poff_lock);
+	return ret;
 }
 
 static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink,
