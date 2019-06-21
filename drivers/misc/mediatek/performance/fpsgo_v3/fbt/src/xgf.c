@@ -37,8 +37,8 @@
 #include "xgf.h"
 #include "fpsgo_base.h"
 
-FPSFO_DECLARE_SYSTRACE(x, irq_entry)
-FPSFO_DECLARE_SYSTRACE(x, irq_exit)
+FPSFO_DECLARE_SYSTRACE(x, irq_handler_entry)
+FPSFO_DECLARE_SYSTRACE(x, irq_handler_exit)
 FPSFO_DECLARE_SYSTRACE(x, softirq_entry)
 FPSFO_DECLARE_SYSTRACE(x, softirq_exit)
 FPSFO_DECLARE_SYSTRACE(x, ipi_raise)
