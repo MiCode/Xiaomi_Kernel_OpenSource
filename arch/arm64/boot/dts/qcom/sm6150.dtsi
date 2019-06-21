@@ -822,6 +822,13 @@
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		vdd_cx_ao-supply = <&VDD_CX_LEVEL_AO>;
+		protected-clocks = <GCC_SDR_CORE_CLK>,
+				<GCC_SDR_WR0_MEM_CLK>,
+				<GCC_SDR_WR1_MEM_CLK>,
+				<GCC_SDR_WR2_MEM_CLK>,
+				<GCC_SDR_CSR_HCLK>,
+				<GCC_SDR_PRI_MI2S_CLK>,
+				<GCC_SDR_SEC_MI2S_CLK>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
