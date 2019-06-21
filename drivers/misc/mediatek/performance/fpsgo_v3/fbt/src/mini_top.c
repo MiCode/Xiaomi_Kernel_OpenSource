@@ -371,7 +371,7 @@ static int __minitop_has_heavy(struct minitop_rec *mr, int *heavy)
 			keep |= 1;
 		else
 			minitop_trace(" %5d %3d%% end debnc FBT",
-				      mr->tid, mr->ratio_inst);
+				      mr->tid, (int)mr->ratio_inst);
 	}
 
 	if ((mr->source & MINITOP_SCHED) == 0)
@@ -402,7 +402,7 @@ end_sched_nomi:
 	ret = keep ? 0 : -EAGAIN;
 	if (mr->ever)
 		minitop_trace(" %5d %3d%% end debnc heavy",
-			      mr->tid, mr->ratio);
+			      mr->tid, (int)mr->ratio);
 
 err_cleanup:
 	*heavy = 0;
