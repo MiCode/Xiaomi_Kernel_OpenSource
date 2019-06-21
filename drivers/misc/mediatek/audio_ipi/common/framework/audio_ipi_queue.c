@@ -506,7 +506,7 @@ static int process_message_in_queue(
 
 	uint32_t try_cnt = 0;
 	const uint32_t k_wait_ms = 10; /* 10 ms */
-	const uint32_t k_max_try_cnt = 300; /* retry 3 sec for -ERESTARTSYS */
+	const uint32_t k_max_try_cnt = 100; /* retry 1 sec for -ERESTARTSYS */
 	const uint32_t k_restart_sleep_min_us = k_wait_ms * 1000;
 	const uint32_t k_restart_sleep_max_us = (k_restart_sleep_min_us + 200);
 
