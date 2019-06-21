@@ -600,7 +600,7 @@ struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid,
 }
 
 int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
-		unsigned long long *buffer_id, int *queue_SF)
+		unsigned long long *buffer_id, int *queue_SF, int enqueue)
 {
 	struct BQ_id *pair;
 
@@ -611,6 +611,8 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 	if (pair) {
 		*buffer_id = pair->buffer_id;
 		*queue_SF = pair->queue_SF;
+		if (enqueue)
+			pair->queue_pid = pid;
 		return 1;
 	}
 
