@@ -312,6 +312,7 @@ cyttsp5_get_mt_touches_pr_tch:
 static int cyttsp5_xy_worker(struct cyttsp5_mt_data *md)
 {
 	struct device *dev = md->dev;
+	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 	struct cyttsp5_sysinfo *si = md->si;
 	int max_tch = si->sensing_conf_data.max_tch;
 	struct cyttsp5_touch tch;
@@ -332,6 +333,19 @@ static int cyttsp5_xy_worker(struct cyttsp5_mt_data *md)
 			__func__);
 		if (md->pdata->flags & CY_MT_FLAG_NO_TOUCH_ON_LO)
 			num_cur_tch = 0;
+
+		if (tch.hdr[CY_TCH_LO] && cd->large_power_state != 1) {
+			dev_info(dev,
+				"%s: Large area detected forbitobject:%d\n",
+				__func__, cd->forbit_bigobject);
+			if (cd->forbit_bigobject != 1) {
+				input_report_key(md->input, KEY_POWER, 1);
+				input_sync(md->input);
+				input_report_key(md->input, KEY_POWER, 0);
+				input_sync(md->input);
+				cd->large_power_state = 1;
+			}
+		}
 	}
 
 	if (num_cur_tch == 0 && md->num_prv_rec == 0)
@@ -359,7 +373,7 @@ static void cyttsp5_mt_send_dummy_event(struct cyttsp5_core_data *cd,
 
 	u8 key_value = 0;
 
-	dev_err(cd->dev, "%s report_id:%X\n", __func__, cd->input_buf[2]);
+	dev_dbg(cd->dev, "%s report_id:%X\n", __func__, cd->input_buf[2]);
 
 	switch (cd->input_buf[3]) {
 	case GESTURE_DOUBLE_TAP:
