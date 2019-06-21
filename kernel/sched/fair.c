@@ -5174,7 +5174,7 @@ void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
 	struct sched_group *group = sd->groups;
 	struct root_domain *rd;
 	int this_cpu;
-	bool overutilized = READ_ONCE(rd->overutilized);
+	bool overutilized;
 	int i;
 
 	if (!sched_feat(SCHED_MTK_EAS))
@@ -5185,6 +5185,7 @@ void update_system_overutilized(struct sched_domain *sd, struct cpumask *cpus)
 
 	this_cpu = smp_processor_id();
 	rd = cpu_rq(this_cpu)->rd;
+	overutilized = READ_ONCE(rd->overutilized);
 	max_capacity = rd->max_cpu_capacity.val;
 
 	do {

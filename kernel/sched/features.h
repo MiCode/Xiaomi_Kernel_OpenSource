@@ -104,7 +104,11 @@ SCHED_FEAT(FIND_BEST_TARGET, false)
  *   those tasks through the mainline slow path.
  */
 SCHED_FEAT(EAS_PREFER_IDLE, true)
+#ifdef CONFIG_MTK_EAS_PLUS
 SCHED_FEAT(SCHED_MTK_EAS, true)
+#else
+SCHED_FEAT(SCHED_MTK_EAS, false)
+#endif
 
 /*
  * Request max frequency from schedutil whenever a RT task is running.

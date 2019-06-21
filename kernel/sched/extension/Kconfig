@@ -7,4 +7,14 @@ config MTK_SCHED_INTEROP
 	   and let would result in unload balance.
 	   that is, one CPU has more than 2 tasks, however, one CPU is IDLE
 	   We make RT & CFS to check each other and make load more balance.
+
+config MTK_EAS_PLUS
+	bool "mtk energy aware scheduling enhancement"
+	default n
+	help
+	   mtk energy aware scheduling enhancement for
+	   system overutilization,
+	   intra-cluster load balance,
+	   and so on.
+
 endmenu
