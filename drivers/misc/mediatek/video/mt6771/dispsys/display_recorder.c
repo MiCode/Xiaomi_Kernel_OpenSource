@@ -1423,7 +1423,7 @@ char *debug_buffer;
 
 int debug_buffer_size(void)
 {
-#if defined(CONFIG_MT_ENG_BUILD) || !defined(CONFIG_MTK_GMO_RAM_OPTIMIZE)
+#if defined(CONFIG_MTK_ENG_BUILD) || !defined(CONFIG_MTK_GMO_RAM_OPTIMIZE)
 	static int size;
 
 	if (size == 0) {
