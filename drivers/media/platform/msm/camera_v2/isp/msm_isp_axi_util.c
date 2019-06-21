@@ -31,6 +31,13 @@ static void __msm_isp_axi_stream_update(
 			struct msm_vfe_axi_stream *stream_info,
 			struct msm_isp_timestamp *ts);
 
+static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
+	struct timeval *time_stamp, uint32_t frame_id);
+static void msm_isp_free_pending_buffer(
+	struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info,
+	struct msm_isp_timestamp *ts);
 static int msm_isp_update_stream_bandwidth(
 		struct msm_vfe_axi_stream *stream_info, int enable);
 
@@ -622,7 +629,8 @@ static void msm_isp_update_framedrop_reg(struct msm_vfe_axi_stream *stream_info,
 		drop_reconfig != 1)
 		stream_info->current_framedrop_period =
 			MSM_VFE_STREAM_STOP_PERIOD;
-
+	if (stream_info->controllable_output && drop_reconfig == 1)
+		stream_info->current_framedrop_period = 1;
 	/*
 	 * re-configure the period pattern, only if it's not already
 	 * set to what we want
@@ -670,13 +678,28 @@ void msm_isp_process_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 		case MSM_ISP_COMP_IRQ_REG_UPD:
 			stream_info->activated_framedrop_period =
 				stream_info->requested_framedrop_period;
+			/* Free Pending Buffers which are backed-up due to
+			 * delay in RUP from userspace to Avoid pageFault
+			 */
+			msm_isp_free_pending_buffer(vfe_dev, stream_info, ts);
 			__msm_isp_axi_stream_update(stream_info, ts);
 			break;
 		case MSM_ISP_COMP_IRQ_EPOCH:
 			if (stream_info->state == ACTIVE) {
+				struct vfe_device *temp = NULL;
+				struct msm_vfe_common_dev_data *c_data;
+				uint32_t drop_reconfig =
+					vfe_dev->isp_page->drop_reconfig;
+				if (stream_info->num_isp > 1 &&
+					vfe_dev->pdev->id == ISP_VFE0) {
+					c_data = vfe_dev->common_data;
+					temp = c_data->dual_vfe_res->vfe_dev[
+						ISP_VFE1];
+					drop_reconfig =
+						temp->isp_page->drop_reconfig;
+				}
 				msm_isp_update_framedrop_reg(stream_info,
-					vfe_dev->common_data->drop_reconfig);
-				vfe_dev->common_data->drop_reconfig = 0;
+					drop_reconfig);
 			}
 			break;
 		default:
@@ -1570,6 +1593,40 @@ static void msm_isp_axi_stream_enable_cfg(
 	}
 }
 
+static void msm_isp_free_pending_buffer(
+			struct vfe_device *vfe_dev,
+			struct msm_vfe_axi_stream *stream_info,
+			struct msm_isp_timestamp *ts)
+{
+	struct timeval *time_stamp;
+	struct msm_isp_buffer *done_buf = NULL;
+	uint32_t frame_id;
+	int rc;
+
+	if (!stream_info->controllable_output ||
+		!stream_info->pending_buf_info.is_buf_done_pending)	{
+		return;
+	}
+
+	if (vfe_dev->vt_enable) {
+		msm_isp_get_avtimer_ts(ts);
+		time_stamp = &ts->vt_time;
+	} else {
+		time_stamp = &ts->buf_time;
+	}
+
+	done_buf = stream_info->pending_buf_info.buf;
+	frame_id = stream_info->pending_buf_info.frame_id;
+	if (done_buf) {
+		rc = msm_isp_process_done_buf(vfe_dev, stream_info,
+			done_buf, time_stamp, frame_id);
+		if (rc == 0) {
+			stream_info->pending_buf_info.buf = NULL;
+			stream_info->pending_buf_info.is_buf_done_pending = 0;
+		}
+	}
+}
+
 static void __msm_isp_axi_stream_update(
 			struct msm_vfe_axi_stream *stream_info,
 			struct msm_isp_timestamp *ts)
@@ -2121,7 +2178,6 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t buf_src;
 	uint8_t drop_frame = 0;
 	struct msm_isp_bufq *bufq = NULL;
-
 	memset(&buf_event, 0, sizeof(buf_event));
 
 	if (stream_idx >= VFE_AXI_SRC_MAX) {
@@ -2451,6 +2507,7 @@ static void msm_isp_input_enable(struct vfe_device *vfe_dev,
 			continue;
 		/* activate the input since it is deactivated */
 		axi_data->src_info[i].frame_id = 0;
+		vfe_dev->irq_sof_id = 0;
 		if (axi_data->src_info[i].input_mux != EXTERNAL_READ)
 			axi_data->src_info[i].active = 1;
 		if (i >= VFE_RAW_0 && sync_frame_id_src) {
@@ -3068,7 +3125,12 @@ static void __msm_isp_stop_axi_streams(struct vfe_device *vfe_dev,
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info, VFE_PONG_FLAG);
 		stream_info->undelivered_request_cnt = 0;
-		vfe_dev->irq_sof_id = 0;
+		if (stream_info->controllable_output &&
+			stream_info->pending_buf_info.is_buf_done_pending) {
+			msm_isp_free_pending_buffer(vfe_dev, stream_info,
+				&timestamp);
+			stream_info->pending_buf_info.is_buf_done_pending = 0;
+		}
 		for (k = 0; k < stream_info->num_isp; k++) {
 			vfe_dev = stream_info->vfe_dev[k];
 			if (stream_info->num_planes > 1)
@@ -3584,10 +3646,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		pr_debug("%s:%d invalid time to request frame %d\n",
 			__func__, __LINE__, frame_id);
 		vfe_dev->isp_page->drop_reconfig = 1;
-		/*keep it in vfe_dev variable also to avoid skip pattern
-		 * programming the variable in page can be overwritten by MCT
-		 */
-		vfe_dev->common_data->drop_reconfig = 1;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active) &&
 			((frame_id ==
 			vfe_dev->axi_data.src_info[frame_src].frame_id) ||
@@ -3595,7 +3653,6 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			(stream_info->undelivered_request_cnt <=
 				MAX_BUFFERS_IN_HW)) {
 		vfe_dev->isp_page->drop_reconfig = 1;
-		vfe_dev->common_data->drop_reconfig = 1;
 		pr_debug("%s: vfe_%d request_frame %d cur frame id %d pix %d\n",
 			__func__, vfe_dev->pdev->id, frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
@@ -4346,9 +4403,9 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		if (vfe_dev->irq_sof_id < frame_id)
 			vfe_dev->irq_sof_id = frame_id;
 
-		frame_id_diff  =  vfe_dev->irq_sof_id - frame_id;
+		frame_id_diff = vfe_dev->irq_sof_id - frame_id;
 		if (stream_info->controllable_output && frame_id_diff > 1) {
-			/*scheduling problem need to do recovery*/
+			/* scheduling problem need to do recovery */
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 			msm_isp_halt_send_error(vfe_dev,
 				ISP_EVENT_PING_PONG_MISMATCH);
@@ -4416,15 +4473,27 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	 */
 		done_buf->is_drop_reconfig = 0;
 		if (!stream_info->buf[pingpong_bit]) {
-			/*samebuffer is not re-programeed so program scratch*/
+			/* samebuffer is not re-programeed so write scratch */
 			msm_isp_cfg_stream_scratch(stream_info,
 				pingpong_status);
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	} else {
+		/* If there is no regupdate from userspace then dont
+		 * free buffer immediately, delegate it to RegUpdateAck
+		 */
+		if (stream_info->controllable_output &&
+			!(vfe_dev->reg_update_requested &
+				BIT((uint32_t)VFE_PIX_0))) {
+			stream_info->pending_buf_info.is_buf_done_pending = 1;
+			stream_info->pending_buf_info.buf = done_buf;
+			stream_info->pending_buf_info.frame_id = frame_id;
+		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		msm_isp_process_done_buf(vfe_dev, stream_info,
-			done_buf, time_stamp, frame_id);
+		if (stream_info->pending_buf_info.is_buf_done_pending != 1) {
+			msm_isp_process_done_buf(vfe_dev, stream_info,
+				done_buf, time_stamp, frame_id);
+		}
 	}
 }
 
