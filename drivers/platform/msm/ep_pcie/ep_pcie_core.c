@@ -41,6 +41,7 @@
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
 #define TCSR_PERST_SEPARATION_ENABLE		0x270
+#define PCIE_ISSUE_WAKE				1
 
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
@@ -2576,9 +2577,36 @@ int ep_pcie_core_trigger_msi(u32 idx)
 	return EP_PCIE_ERROR;
 }
 
-int ep_pcie_core_wakeup_host(void)
+static void ep_pcie_core_issue_inband_pme(void)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+	unsigned long irqsave_flags;
+	u32 pm_ctrl = 0;
+
+	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: request to assert inband wake\n",
+		dev->rev);
+
+	pm_ctrl = readl_relaxed(dev->parf + PCIE20_PARF_PM_CTRL);
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_PM_CTRL,
+						(pm_ctrl | BIT(4)));
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_PM_CTRL, pm_ctrl);
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: completed assert for inband wake\n",
+		dev->rev);
+
+	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
+}
+
+static int ep_pcie_core_wakeup_host(enum ep_pcie_event event)
+{
+	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+
+	if (event == EP_PCIE_EVENT_PM_D3_HOT)
+		ep_pcie_core_issue_inband_pme();
 
 	if (dev->perst_deast && !dev->l23_ready) {
 		EP_PCIE_ERR(dev,
