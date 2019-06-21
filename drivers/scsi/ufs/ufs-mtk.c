@@ -1128,7 +1128,8 @@ void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba)
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
 	unsigned long flags;
-	u32 ah_ms, ahit;
+	u32 ahit;
+	u32 ah_ms = 0;
 
 	if (np) {
 		if (of_property_read_u32(np, "mediatek,auto-hibern8-timer",
