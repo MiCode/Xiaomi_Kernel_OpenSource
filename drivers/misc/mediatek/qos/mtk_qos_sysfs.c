@@ -26,8 +26,7 @@ static ssize_t qos_bound_enable_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_RW(qos_bound_enable, 0644,
-		qos_bound_enable_show, qos_bound_enable_store);
+static DEVICE_ATTR_RW(qos_bound_enable);
 
 static ssize_t qos_bound_stress_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -46,8 +45,7 @@ static ssize_t qos_bound_stress_enable_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_RW(qos_bound_stress_enable, 0644,
-		qos_bound_stress_enable_show, qos_bound_stress_enable_store);
+static DEVICE_ATTR_RW(qos_bound_stress_enable);
 
 static ssize_t qos_bound_log_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -66,8 +64,7 @@ static ssize_t qos_bound_log_enable_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_RW(qos_bound_log_enable, 0644,
-		qos_bound_log_enable_show, qos_bound_log_enable_store);
+static DEVICE_ATTR_RW(qos_bound_log_enable);
 
 static ssize_t qos_bound_status_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -79,8 +76,7 @@ static ssize_t qos_bound_status_show(struct device *dev,
 			qos_bound_count, qos_bound_buf[0],
 			qos_bound_buf[1], qos_bound_buf[2]);
 }
-static DEVICE_ATTR_RO(qos_bound_status, 0444,
-		qos_bound_status_show, NULL);
+static DEVICE_ATTR_RO(qos_bound_status);
 
 static struct attribute *qos_attrs[] = {
 	&dev_attr_qos_bound_enable.attr,
