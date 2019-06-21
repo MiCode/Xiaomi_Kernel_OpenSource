@@ -452,20 +452,6 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
 }
 
 /**
- * ufs_mtk_deepidle_resource_req - Deepidle & SODI resource request.
- * @hba: per-adapter instance
- * @resource: DRAM/26M clk/MainPLL resources to be claimed. New claim will
- * substitute old claim.
- */
-void ufs_mtk_pltfrm_deepidle_resource_req(struct ufs_hba *hba,
-	unsigned int resource)
-{
-#ifdef SPM_READY
-	spm_resource_req(SPM_RESOURCE_USER_UFS, resource);
-#endif
-}
-
-/**
  * ufs_mtk_pltfrm_deepidle_lock - Deepidle & SODI lock.
  * @hba: per-adapter instance
  * @lock: lock or unlock deepidle & SODI entrance.
@@ -642,39 +628,6 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 	}
 
 	return err;
-}
-
-int ufs_mtk_pltfrm_res_req(struct ufs_hba *hba, u32 option)
-{
-#ifdef SPM_READY
-	if (option == UFS_MTK_RESREQ_DMA_OP) {
-
-		/*
-		 * request resource for DMA operations, e.g., DRAM
-		 * SPM_RESOURCE_MAINPLL | SPM_RESOURCE_DRAM |
-		 * SPM_RESOURCE_CK_26M
-		 */
-		/*
-		 * Request SPM_RESOURCE_ALL anyway to avoid
-		 * entering low-power state, e.g., MCUSYS on/off,
-		 * because latency of leaving low-power state
-		 * may impact I/O performance
-		 */
-		ufshcd_vops_deepidle_resource_req(hba,
-			SPM_RESOURCE_ALL);
-
-	} else if (option == UFS_MTK_RESREQ_MPHY_NON_H8) {
-
-		/*
-		 * request resource for mphy not in H8, e.g.,
-		 * main PLL, 26 mhz clock
-		 */
-		ufshcd_vops_deepidle_resource_req(hba,
-		  SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M);
-	}
-#endif
-
-	return 0;
 }
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)

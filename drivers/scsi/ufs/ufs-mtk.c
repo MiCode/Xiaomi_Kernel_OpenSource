@@ -44,6 +44,8 @@
 #include <linux/crc16.h>
 #endif
 
+#include "mtk_spm_resource_req.h"
+
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
 
@@ -2103,6 +2105,31 @@ void ufs_mtk_dbg_dump_scsi_cmd(struct ufs_hba *hba,
 #endif
 }
 
+#ifdef SPM_READY
+void ufs_mtk_res_ctrl(struct ufs_hba *hba, unsigned int op)
+{
+	int res_type = 0;
+
+	if (!hba->outstanding_tasks && !hba->outstanding_reqs) {
+		if (op == UFS_RESCTL_CMD_SEND) {
+			if (hba->active_uic_cmd)
+				res_type = 1;
+			else
+				res_type = 2;
+		} else if (op == UFS_RESCTL_CMD_COMP)
+			res_type = 1;
+	}
+
+	if (res_type == 1)
+		spm_resource_req(SPM_RESOURCE_USER_UFS,
+				 SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M);
+	else if (res_type == 2)
+		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_ALL);
+}
+#else
+#define ufs_mtk_res_ctrl	NULL
+#endif
+
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -2129,7 +2156,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_dbg_register_dump,    /* dbg_register_dump */
 	NULL,			 /* phy_initialization */
 	ufs_mtk_auto_hibern8,         /* auto_hibern8 */
-	ufs_mtk_pltfrm_deepidle_resource_req, /* deepidle_resource_req */
+	ufs_mtk_res_ctrl, /* resource contorl */
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */
 	ufs_mtk_scsi_dev_cfg          /* scsi_dev_cfg */
 };
