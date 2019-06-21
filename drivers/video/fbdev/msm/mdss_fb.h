@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +58,10 @@
 #define MDP_PP_AD_BL_LINEAR	0x0
 #define MDP_PP_AD_BL_LINEAR_INV	0x1
 
+extern struct mdss_dsi_ctrl_pdata *change_par_ctrl;
+extern int change_par_buf;
+extern int LCM_effect[3];
+extern int change_par_buf;
 /**
  * enum mdp_notify_event - Different frame events to indicate frame update state
  *

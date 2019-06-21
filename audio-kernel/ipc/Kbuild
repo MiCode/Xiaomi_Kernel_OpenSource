@@ -1,0 +1,228 @@
+# We can build either as part of a standalone Kernel build or as
+# an external module.  Determine which mechanism is being used
+ifeq ($(MODNAME),)
+	KERNEL_BUILD := 1
+else
+	KERNEL_BUILD := 0
+endif
+
+TARGET_KERNEL_VERSION := 4.9
+
+# These are configurable via Kconfig for kernel-based builds
+# Need to explicitly configure for Android-based builds
+ifeq ($(CONFIG_ARCH_SDM845), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+ifeq ($(CONFIG_ARCH_SDM670), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+ifeq ($(CONFIG_ARCH_SDM450), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+ifeq ($(CONFIG_ARCH_SDM439), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+ifeq ($(CONFIG_ARCH_MSM8909), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+
+ifeq ($(CONFIG_ARCH_MSM8917), y)
+	TARGET_KERNEL_VERSION := 4.9
+endif
+KDIR := $(TOP)/kernel/msm-$(TARGET_KERNEL_VERSION)
+
+ifeq ($(KERNEL_BUILD), 1)
+	AUDIO_ROOT := $(KDIR)/techpack/audio
+endif
+
+ifeq ($(KERNEL_BUILD), 0)
+	ifeq ($(CONFIG_ARCH_SDM845), y)
+		include $(AUDIO_ROOT)/config/sdm845auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm845autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM670), y)
+		include $(AUDIO_ROOT)/config/sdm710auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm710autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM450), y)
+		include $(AUDIO_ROOT)/config/sdm450auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm450autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_SDM439), y)
+		include $(AUDIO_ROOT)/config/sdm450auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm450autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_MSM8909), y)
+		include $(AUDIO_ROOT)/config/msm8909auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/msm8909autoconf.h
+	endif
+	ifeq ($(CONFIG_ARCH_MSM8917), y)
+		include $(AUDIO_ROOT)/config/sdm450auto.conf
+		export
+		INCS    +=  -include $(AUDIO_ROOT)/config/sdm450autoconf.h
+	endif
+endif
+
+# As per target team, build is done as follows:
+# Defconfig : build with default flags
+# Slub      : defconfig  + CONFIG_SLUB_DEBUG := y +
+#	      CONFIG_SLUB_DEBUG_ON := y + CONFIG_PAGE_POISONING := y
+# Perf      : Using appropriate msmXXXX-perf_defconfig
+#
+# Shipment builds (user variants) should not have any debug feature
+# enabled. This is identified using 'TARGET_BUILD_VARIANT'. Slub builds
+# are identified using the CONFIG_SLUB_DEBUG_ON configuration. Since
+# there is no other way to identify defconfig builds, QTI internal
+# representation of perf builds (identified using the string 'perf'),
+# is used to identify if the build is a slub or defconfig one. This
+# way no critical debug feature will be enabled for perf and shipment
+# builds. Other OEMs are also protected using the TARGET_BUILD_VARIANT
+# config.
+
+############ UAPI ############
+UAPI_DIR :=	uapi
+UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
+
+############ COMMON ############
+COMMON_DIR :=	include
+COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
+
+############ IPC ############
+ifdef CONFIG_MSM_QDSP6_APRV2
+APRV_GLINK += apr.o
+APRV_GLINK += apr_v2.o
+APRV_GLINK += apr_tal.o
+APRV_GLINK += apr_dummy.o
+endif
+
+ifdef CONFIG_MSM_QDSP6_APRV3
+APRV_GLINK += apr.o
+APRV_GLINK += apr_v3.o
+APRV_GLINK += apr_tal.o
+APRV_GLINK += apr_dummy.o
+endif
+
+ifdef CONFIG_MSM_QDSP6_APRV2_GLINK
+APRV_GLINK += apr.o
+APRV_GLINK += apr_v2.o
+APRV_GLINK += apr_tal_glink.o
+APRV_GLINK += apr_dummy.o
+endif
+
+ifdef CONFIG_MSM_QDSP6_APRV3_GLINK
+APRV_GLINK += apr.o
+APRV_GLINK += apr_v3.o
+APRV_GLINK += apr_tal_glink.o
+APRV_GLINK += apr_dummy.o
+endif
+
+ifeq ($(CONFIG_ARCH_MSM8909), $(CONFIG_MSM_BGCOM))
+	ifdef CONFIG_MSM_BG_GLINK
+	BG_GLINK += bg_glink.o
+	endif
+endif
+
+ifdef CONFIG_WCD_DSP_GLINK
+WDSP_GLINK += wcd-dsp-glink.o
+endif
+
+LINUX_INC +=	-Iinclude/linux
+
+INCS +=		$(COMMON_INC) \
+		$(UAPI_INC)
+
+EXTRA_CFLAGS += $(INCS)
+
+
+CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
+		-DANI_LITTLE_BIT_ENDIAN \
+		-DDOT11F_LITTLE_ENDIAN_HOST \
+		-DANI_COMPILER_TYPE_GCC \
+		-DANI_OS_TYPE_ANDROID=6 \
+		-DPTT_SOCK_SVC_ENABLE \
+		-Wall\
+		-Werror\
+		-D__linux__
+
+KBUILD_CPPFLAGS += $(CDEFINES)
+
+ifeq ($(KERNEL_BUILD), 0)
+
+HEADER_INSTALL_DIR := $(TOP)/kernel/msm-$(TARGET_KERNEL_VERSION)/scripts
+UAPI_OUT := $(OUT)/obj/vendor/qcom/opensource/audio-kernel/include
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ avtimer.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_aac.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_ac3.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_alac.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_amrnb.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_amrwb.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_amrwbplus.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_ape.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_calibration.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_g711_dec.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_g711.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_mvs.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_qcp.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_sbc.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_voicememo.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_wma.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/linux/ $(AUDIO_ROOT)/include/uapi/linux/ msm_audio_wmapro.h;)
+
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ audio_effects.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ audio_slimslave.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ devdep_params.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ lsm_params.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ msmcal-hwdep.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ voice_params.h;)
+$(shell $(HEADER_INSTALL_DIR)/headers_install.sh $(UAPI_OUT)/sound/ $(AUDIO_ROOT)/include/uapi/sound/ wcd-dsp-glink.h;)
+
+KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/audio-kernel/dsp/Module.symvers
+
+endif
+
+# Currently, for versions of gcc which support it, the kernel Makefile
+# is disabling the maybe-uninitialized warning.  Re-enable it for the
+# AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
+# will override the kernel settings.
+ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+EXTRA_CFLAGS += -Wmaybe-uninitialized
+endif
+#EXTRA_CFLAGS += -Wmissing-prototypes
+
+ifeq ($(call cc-option-yn, -Wheader-guard),y)
+EXTRA_CFLAGS += -Wheader-guard
+endif
+# If the module name is not "wlan", then the define MULTI_IF_NAME to be the
+# same a the QCA CHIP name. The host driver will then append MULTI_IF_NAME to
+# any string that must be unique for all instances of the driver on the system.
+# This allows multiple instances of the driver with different module names.
+# If the module name is wlan, leave MULTI_IF_NAME undefined and the code will
+# treat the driver as the primary driver.
+ifneq ($(MODNAME), qdsp6v2)
+CHIP_NAME ?= $(MODNAME)
+CDEFINES += -DMULTI_IF_NAME=\"$(CHIP_NAME)\"
+endif
+
+# Module information used by KBuild framework
+obj-$(CONFIG_MSM_QDSP6_APRV2) += apr_dlkm.o
+obj-$(CONFIG_MSM_QDSP6_APRV3) += apr_dlkm.o
+obj-$(CONFIG_MSM_QDSP6_APRV2_GLINK) += apr_dlkm.o
+obj-$(CONFIG_MSM_QDSP6_APRV3_GLINK) += apr_dlkm.o
+apr_dlkm-y := $(APRV_GLINK)
+
+ifeq ($(CONFIG_ARCH_MSM8909), $(CONFIG_MSM_BGCOM))
+	obj-$(CONFIG_MSM_BG_GLINK) += bg_glink_dlkm.o
+	bg_glink_dlkm-y := $(BG_GLINK)
+endif
+
+obj-$(CONFIG_WCD_DSP_GLINK) += wglink_dlkm.o
+wglink_dlkm-y := $(WDSP_GLINK)
+
+# inject some build related information
+CDEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

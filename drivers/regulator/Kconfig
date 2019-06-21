@@ -301,6 +301,11 @@ config REGULATOR_ISL6271A
 	help
 	  This driver supports ISL6271A voltage regulator chip.
 
+config MFD_TI_LMU
+	tristate "MFD TI LMU"
+	help
+	 Say Y here to support MFD TI LMU chip
+
 config REGULATOR_LM363X
 	tristate "TI LM363X voltage regulators"
 	depends on MFD_TI_LMU

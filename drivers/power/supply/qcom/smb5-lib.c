@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +47,9 @@
 	((typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM	\
 	|| typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)	\
 	&& !chg->typec_legacy)
+
+int quiet_ther_ibus[] = {2500000, 2000000, 2000000, 1000000,
+					1000000, 500000};
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
 {
@@ -1402,7 +1406,7 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	union power_supply_propval pval = {0, };
 	bool usb_online, dc_online;
 	u8 stat;
-	int rc, suspend = 0;
+	int rc, suspend, health = 0;
 
 	if (chg->dbc_usbov) {
 		rc = smblib_get_prop_usb_present(chg, &pval);
@@ -1445,6 +1449,14 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	}
 	dc_online = (bool)pval.intval;
 
+	rc = smblib_get_prop_batt_health(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get dc online property rc=%d\n",
+			rc);
+		return rc;
+	}
+	health = pval.intval;
+
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
@@ -1457,7 +1469,10 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		switch (stat) {
 		case TERMINATE_CHARGE:
 		case INHIBIT_CHARGE:
-			val->intval = POWER_SUPPLY_STATUS_FULL;
+			if (health != POWER_SUPPLY_HEALTH_WARM)
+				val->intval = POWER_SUPPLY_STATUS_FULL;
+			else
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
 			break;
 		default:
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -1475,7 +1490,12 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		break;
 	case TERMINATE_CHARGE:
 	case INHIBIT_CHARGE:
-		val->intval = POWER_SUPPLY_STATUS_FULL;
+		if (health != POWER_SUPPLY_HEALTH_WARM)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+		else {
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			return 0;
+		}
 		break;
 	case DISABLE_CHARGE:
 	case PAUSE_CHARGE:
@@ -1492,7 +1512,10 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	 */
 	if (is_client_vote_enabled(chg->usb_icl_votable,
 						CHG_TERMINATION_VOTER)) {
-		val->intval = POWER_SUPPLY_STATUS_FULL;
+		if (health != POWER_SUPPLY_HEALTH_WARM)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+		else
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		return 0;
 	}
 
@@ -1501,7 +1524,10 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 
 	if (!usb_online && dc_online
 		&& chg->fake_batt_status == POWER_SUPPLY_STATUS_FULL) {
-		val->intval = POWER_SUPPLY_STATUS_FULL;
+		if (health != POWER_SUPPLY_HEALTH_WARM)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+		else
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		return 0;
 	}
 
@@ -1734,8 +1760,12 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	if (chg->system_temp_level == 0)
 		return vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, false, 0);
 
-	vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, true,
-			chg->thermal_mitigation[chg->system_temp_level]);
+	vote(chg->usb_icl_votable, THERMAL_DAEMON_VOTER, true,
+			quiet_ther_ibus[chg->system_temp_level]);
+
+	smblib_err(chg, "system_temp_level = %d, ibus =%d\n",
+		chg->system_temp_level,
+		quiet_ther_ibus[chg->system_temp_level]);
 	return 0;
 }
 
@@ -4332,6 +4362,61 @@ out:
 	chg->jeita_configured = true;
 }
 
+static void smbchg_cool_limit_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+			cool_limit_work.work);
+
+	int rc;
+	static int icl;
+	union power_supply_propval temp = {0,};
+
+	smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, &temp);
+
+	if (temp.intval > COOL_0_TEMPERATURE
+		&& temp.intval <= COOL_5_TEMPERATURE && icl != COOL_ICL_400MA) {
+		mutex_lock(&chg->cool_current);
+		rc = smblib_write(chg, JEITA_CCCOMP_CFG_COLD_REG, COOL_ICL_400MA);
+		if (rc < 0) {
+			smblib_err(chg,
+				"Couldn't configure JEITA_FVCOMP_CFG_HOT_REG rc=%d\n",
+				rc);
+		} else {
+			icl = COOL_ICL_400MA;
+			smblib_err(chg,
+				"bat temp between 0-5,set ibus 400ma\n");
+		}
+		mutex_unlock(&chg->cool_current);
+	} else if (temp.intval  > COOL_5_TEMPERATURE
+		&& temp.intval  <= COOL_10_TEMPERATURE && icl != COOL_ICL_1200MA) {
+		mutex_lock(&chg->cool_current);
+		rc = smblib_write(chg, JEITA_CCCOMP_CFG_COLD_REG, COOL_ICL_1200MA);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure JEITA_FVCOMP_CFG_HOT_REG rc=%d\n",
+				rc);
+		} else {
+			icl = COOL_ICL_1200MA;
+			smblib_err(chg,
+				"bat temp between 5-10,set ibus 1200ma\n");
+		}
+		mutex_unlock(&chg->cool_current);
+	} else if (temp.intval  > COOL_10_TEMPERATURE
+		&& temp.intval  < COOL_15_TEMPERATURE && icl != COOL_ICL_1950MA) {
+		mutex_lock(&chg->cool_current);
+		rc = smblib_write(chg, JEITA_CCCOMP_CFG_COLD_REG, COOL_ICL_1950MA);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't configure JEITA_FVCOMP_CFG_HOT_REG rc=%d\n",
+				rc);
+		} else {
+			icl = COOL_ICL_1950MA;
+			smblib_err(chg,
+				"bat temp between 10-15,set ibus 1950ma\n");
+		}
+		mutex_unlock(&chg->cool_current);
+	}
+	schedule_delayed_work(&chg->cool_limit_work, msecs_to_jiffies(SMBCHG_UPDATE_MS));
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -4442,6 +4527,11 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->bb_removal_work, smblib_bb_removal_work);
 	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
 
+	if (!chg->sw_jeita_enabled) {
+		INIT_DELAYED_WORK(&chg->cool_limit_work, smbchg_cool_limit_work);
+		schedule_delayed_work(&chg->cool_limit_work, msecs_to_jiffies(SMBCHG_UPDATE_MS));
+	}
+
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
 					smblib_chg_termination_work);
@@ -4548,6 +4638,8 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->uusb_otg_work);
 		cancel_delayed_work_sync(&chg->bb_removal_work);
 		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		if (!chg->sw_jeita_enabled)
+			cancel_delayed_work_sync(&chg->cool_limit_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_step_chg_deinit();

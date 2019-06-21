@@ -700,6 +700,11 @@ config QCOM_SMCINVOKE
           and high level operating system. It exposes APIs for both
           userspace and kernel clients.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	Provide a interface for reading CPU serial number
+
 config MSM_EVENT_TIMER
 	bool "Event timer"
         help

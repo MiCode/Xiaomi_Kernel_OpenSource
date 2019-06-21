@@ -854,6 +854,7 @@ MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
 MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
+MMC_DEV_ATTR(hq_fw_version, "0x%08x\n", card->ext_csd.fw_version);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 		card->ext_csd.enhanced_rpmb_supported);
@@ -893,6 +894,7 @@ static ssize_t mmc_dsr_show(struct device *dev,
 static DEVICE_ATTR(dsr, S_IRUGO, mmc_dsr_show, NULL);
 
 static struct attribute *mmc_std_attrs[] = {
+	&dev_attr_hq_fw_version.attr,
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
 	&dev_attr_date.attr,
@@ -1904,6 +1906,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+#ifdef EXPORT_HR_INIT
+	char ext_csd[512] = {};
+	u32 i = 0;
+#endif
+
 	/* Set correct bus mode for MMC before attempting init */
 	if (!mmc_host_is_spi(host))
 		mmc_set_bus_mode(host, MMC_BUSMODE_OPENDRAIN);
@@ -2067,6 +2074,29 @@ reinit:
 
 		if (card->ext_csd.sectors && (rocr & MMC_CARD_SECTOR_ADDR))
 			mmc_card_set_blockaddr(card);
+
+#ifdef EXPORT_HR_INIT
+		if (card->cid.manfid == CID_MANFID_HYNIX) {
+		err = mmc_send_vc_cmd(card, 60, 0x534D4900);
+		if (err) {
+			pr_err("%s: %s: vc cmd () fails %d\n", mmc_hostname(host), __func__, err);
+		}
+		err = mmc_send_vc_cmd(card, 60, 0x48525054);
+		if (err) {
+			pr_err("%s: %s: vc cmd () fails %d\n", mmc_hostname(host), __func__, err);
+		}
+		err = mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD, ext_csd, 512);
+		if (err) {
+			pr_err("%s: %s: ext csd fail %d\n", mmc_hostname(host), __func__, err);
+		}
+		for (i = 0; i < 512; i += 8) {
+			pr_err("[%d~%d]: %02x %02x %02x %02x %02x %02x %02x %02x\n", i, i+7
+				, ext_csd[i], ext_csd[i+1], ext_csd[i+2], ext_csd[i+3], ext_csd[i+4]
+				, ext_csd[i+5], ext_csd[i+6], ext_csd[i+7]);
+		}
+	}
+#endif
+
 	}
 
 	/*

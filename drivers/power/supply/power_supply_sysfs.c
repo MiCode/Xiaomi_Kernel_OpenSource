@@ -107,6 +107,9 @@ static ssize_t power_supply_show_property(struct device *dev,
 	if (off == POWER_SUPPLY_PROP_STATUS)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				status_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_BATTERY_ID)
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
 	else if (off == POWER_SUPPLY_PROP_CHARGE_TYPE)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				charge_type[value.intval]);
@@ -350,6 +353,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(serial_number),
 	POWER_SUPPLY_ATTR(battery_type),
 	POWER_SUPPLY_ATTR(cycle_counts),
+	POWER_SUPPLY_ATTR(battery_id),
 };
 
 static struct attribute *

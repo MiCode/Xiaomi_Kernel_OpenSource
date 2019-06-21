@@ -2,6 +2,7 @@
  * Header for MultiMediaCard (MMC)
  *
  * Copyright 2002 Hewlett-Packard Company
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Use consistent with the GNU GPL is permitted,
  * provided that this copyright notice is

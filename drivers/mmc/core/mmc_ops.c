@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/core/mmc_ops.h
  *
  *  Copyright 2006-2007 Pierre Ossman
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -251,6 +252,27 @@ int mmc_set_relative_addr(struct mmc_card *card)
 	return mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 }
 
+int
+mmc_send_vc_cmd(struct mmc_card *card, u32 opcode, u32 arg) {
+	int err;
+	struct mmc_command cmd = {0};
+
+	BUG_ON(!card);
+	BUG_ON(!card->host);
+
+	cmd.opcode = opcode;
+	cmd.arg = arg;
+
+	cmd.flags =  MMC_RSP_SPI_R1B|MMC_RSP_R1B | MMC_CMD_AC;
+	cmd.busy_timeout = card->host->max_busy_timeout;
+
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	return 0;
+}
+
 static int
 mmc_send_cxd_native(struct mmc_host *host, u32 arg, u32 *cxd, int opcode)
 {
@@ -273,11 +295,59 @@ mmc_send_cxd_native(struct mmc_host *host, u32 arg, u32 *cxd, int opcode)
 	return 0;
 }
 
+int
+mmc_send_cxd_witharg_data(struct mmc_card *card
+	, struct mmc_host *host,	u32 opcode, u32 arg, void *buf, unsigned len) {
+	struct mmc_request mrq = {NULL};
+	struct mmc_command cmd = {0};
+	struct mmc_data data = {0};
+	struct scatterlist sg;
+	mrq.cmd = &cmd;
+	mrq.data = &data;
+
+	cmd.opcode = opcode;
+	cmd.arg = arg;
+
+	/* NOTE HACK:  the MMC_RSP_SPI_R1 is always correct here, but we
+	* rely on callers to never use this with "native" calls for reading
+	* CSD or CID.  Native versions of those commands use the R2 type,
+	* not R1 plus a data block.
+	*/
+	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
+
+	data.blksz = len;
+	data.blocks = 1;
+	data.flags = MMC_DATA_READ;
+	data.sg = &sg;
+	data.sg_len = 1;
+
+	sg_init_one(&sg, buf, len);
+
+	if (opcode == MMC_SEND_CSD || opcode == MMC_SEND_CID) {
+		/*
+		* The spec states that CSR and CID accesses have a timeout
+		* of 64 clock cycles.
+		*/
+		data.timeout_ns = 0;
+		data.timeout_clks = 64;
+	} else
+		mmc_set_data_timeout(&data, card);
+
+	mmc_wait_for_req(host, &mrq);
+
+	if (cmd.error)
+		return cmd.error;
+	if (data.error)
+		return data.error;
+
+	return 0;
+}
+
 /*
  * NOTE: void *buf, caller for the buf is required to use DMA-capable
  * buffer or on-stack buffer (with some overhead in callee).
  */
-static int
+ int
 mmc_send_cxd_data(struct mmc_card *card, struct mmc_host *host,
 		u32 opcode, void *buf, unsigned len)
 {

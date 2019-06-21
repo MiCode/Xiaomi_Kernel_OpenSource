@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +124,7 @@
 				config {
 					pins = "gpio18", "gpio19";
 					drive-strength = <2>;
-					bias-disable;
+					bias-disable; /* No PULL */
 				};
 			};
 
@@ -137,7 +138,8 @@
 				config {
 					pins = "gpio18", "gpio19";
 					drive-strength = <2>;
-					bias-disable;
+					input-enable;
+					bias-disable; /* No PULL */
 				};
 			};
 		};
@@ -1258,6 +1260,34 @@
 			};
 		};
 
+		fm_pin {
+			fm_on: gpio_on {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			fm_off: gpio_off {
+				mux {
+					pins = "gpio87";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio87";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		pmx_sdc1_clk {
 			sdc1_clk_on: sdc1_clk_on {
 				config {
@@ -1468,7 +1498,7 @@
 			config {
 				pins = "gpio26";
 				bias-disable; /* No PULL */
-				drive-strength = <2>; /* 2 MA */
+				drive-strength = <4>; /* 4 MA */
 			};
 		};
 
@@ -1483,7 +1513,7 @@
 			config {
 				pins = "gpio26";
 				bias-pull-down; /* PULL DOWN */
-				drive-strength = <2>; /* 2 MA */
+				drive-strength = <4>; /* 4 MA */
 			};
 		};
 
@@ -1668,7 +1698,7 @@
 			config {
 				pins = "gpio28";
 				bias-disable; /* No PULL */
-				drive-strength = <2>; /* 2 MA */
+				drive-strength = <4>; /* 4 MA */
 			};
 		};
 
@@ -1683,7 +1713,7 @@
 			config {
 				pins = "gpio28";
 				bias-pull-down; /* PULL DOWN */
-				drive-strength = <2>; /* 2 MA */
+				drive-strength = <4>; /* 4 MA */
 			};
 		};
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,6 +183,7 @@ static inline bool is_gdsc_disabled(struct mdss_pll_resources *pll_res)
 	return ((readl_relaxed(pll_res->gdsc_base + 0x4) & BIT(31)) &&
 		(!(readl_relaxed(pll_res->gdsc_base) & BIT(0)))) ? false : true;
 }
+extern char *saved_command_line;
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable);
 int mdss_pll_util_resource_init(struct platform_device *pdev,

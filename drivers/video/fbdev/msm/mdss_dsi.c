@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +36,7 @@
 #include "mdss_debug.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
+#include <linux/hqsysfs.h>
 
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
@@ -382,7 +384,7 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
 	}
-
+	msleep_interruptible(2);
 	if (gpio_is_valid(ctrl_pdata->vdd_ext_gpio)) {
 		ret = gpio_direction_output(
 			ctrl_pdata->vdd_ext_gpio, 0);
@@ -2926,6 +2928,14 @@ static struct device_node *mdss_dsi_pref_prim_panel(
  *
  * returns pointer to panel node on success, NULL on error.
  */
+
+#ifdef CONFIG_WPONIT_ADJUST_FUN
+u32 white_point_num_x;
+u32 white_point_num_y;
+u32 white_point_num_r;
+u32 white_point_num_g;
+u32 white_point_num_b;
+#endif
 static struct device_node *mdss_dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
 {
@@ -2935,6 +2945,11 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 	char ctrl_id_stream[3] =  "0:";
 	char *str1 = NULL, *str2 = NULL, *override_cfg = NULL;
 	char cfg_np_name[MDSS_MAX_PANEL_LEN] = "";
+
+#ifdef CONFIG_WPONIT_ADJUST_FUN
+	char *wponit_str;
+#endif
+
 	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	struct mdss_panel_info *pinfo = &ctrl_pdata->panel_data.panel_info;
@@ -2947,6 +2962,18 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 			 __func__, __LINE__);
 		goto end;
 	} else {
+#ifdef CONFIG_WPONIT_ADJUST_FUN
+		wponit_str = strnstr(panel_cfg, ":wpoint=", len);
+		if (!wponit_str) {
+			pr_err("%s:[white point calibration] white point is not present in %s\n",
+					__func__, panel_cfg);
+		} else {
+			white_point_num_x = ((*(wponit_str +  8)) - '0') * 100 + ((*(wponit_str +  9) - '0'))*10 + (*(wponit_str +  10) - '0');
+			white_point_num_y = ((*(wponit_str +  11)) - '0') * 100 + ((*(wponit_str +  12) - '0'))*10 + (*(wponit_str +  13) - '0');
+			pr_err("[white point calibration] white_point_num_x = %d,white_point_num_y = %d\n", white_point_num_x, white_point_num_y);
+		}
+#endif
+
 		/* check if any override parameters are set */
 		pinfo->sim_panel_mode = 0;
 		override_cfg = strnstr(panel_cfg, "#" OVERRIDE_CFG, len);
@@ -2994,7 +3021,27 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 			__func__, panel_cfg, panel_name);
 		if (!strcmp(panel_name, NONE_PANEL))
 			goto exit;
-
+		if (!strcmp(panel_name, "qcom,mdss_dsi_ili9881c_hdplus_video")) {
+			hq_regiser_hw_info(HWID_LCM, "oncell,vendor:ebbg,IC:ili9881c(ilitek)");
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili9881c_hdplus_video_c3e")) {
+			hq_regiser_hw_info(HWID_LCM, "oncell,vendor:ebbg,IC:ili9881c(ilitek)");
+#ifdef CONFIG_WPONIT_ADJUST_FUN
+			white_point_num_r = 625329;
+			white_point_num_g = 307618;
+			white_point_num_b = 169047;
+#endif
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_ili9881d_hdplus_video_c3e")) {
+			hq_regiser_hw_info(HWID_LCM, "oncell,vendor:ebbg,IC:ili9881d(ilitek)");
+#ifdef CONFIG_WPONIT_ADJUST_FUN
+			white_point_num_r = 627328;
+			white_point_num_g = 302614;
+			white_point_num_b = 163052;
+#endif
+		} else if (!strcmp(panel_name, "qcom,mdss_dsi_jd9365z_hdplus_video_c3e")) {
+			hq_regiser_hw_info(HWID_LCM, "oncell,vendor:holitech,IC:jd9365z(fitipower)");
+		} else {
+			hq_regiser_hw_info(HWID_LCM, "UNKNOWN PANEL");
+		}
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
 			"qcom,mdss-mdp", 0);
 		if (!mdss_node) {

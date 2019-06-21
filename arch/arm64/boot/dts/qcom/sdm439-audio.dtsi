@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,15 +16,12 @@
 	int_codec: sound {
 		qcom,model = "sdm439-snd-card-mtp";
 		qcom,msm-hs-micbias-type = "internal";
-		qcom,msm-micbias2-ext-cap;
 
 		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
 				<&pmic_analog_codec>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
 					"analog-codec";
-		msm-vdd-wsa-switch-supply = <&pm8953_l5>;
-		qcom,msm-vdd-wsa-switch-voltage = <1800000>;
-		qcom,msm-vdd-wsa-switch-current = <10000>;
+		qcom,wsa-disabled;
 	};
 
 	clock_audio_native: audio_ext_clk_native {

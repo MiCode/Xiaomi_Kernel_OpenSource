@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,7 @@
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
 #include "msm_sensor_driver.h"
+#include <linux/hqsysfs.h>
 
 /* Logging macro */
 #undef CDBG
@@ -1184,6 +1186,48 @@ CSID_TG:
 	s_ctrl->sensordata->cam_slave_info = slave_info;
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
+
+
+	if (0 == s_ctrl->id) {
+		if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_ov13855_qtech",
+			strlen("pine_ov13855_qtech")) == 0) {
+			hq_regiser_hw_info(HWID_MAIN_CAM, "omnivision_13855_i");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_ov13855_ofilm",
+			strlen("pine_ov13855_ofilm")) == 0) {
+			hq_regiser_hw_info(HWID_MAIN_CAM, "omnivision_13855_ii");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_imx486_qtech",
+			strlen("pine_imx486_qtech")) == 0) {
+			hq_regiser_hw_info(HWID_MAIN_CAM, "sony_imx486_i");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_imx486_holitech",
+			strlen("pine_imx486_holitech")) == 0) {
+			hq_regiser_hw_info(HWID_MAIN_CAM, "sony_imx486_holitech_ii");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_imx486_ofilm",
+			strlen("pine_imx486_ofilm")) == 0) {
+			hq_regiser_hw_info(HWID_MAIN_CAM, "sony_imx486_ofilm_ii");
+		}
+
+	} else if (1 == s_ctrl->id) {
+		if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_gc5035_qtech",
+			strlen("pine_gc5035_qtech")) == 0) {
+			hq_regiser_hw_info(HWID_SUB_CAM, "galaxycore_5035_i");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_gc5035_ofilm",
+			strlen("pine_gc5035_ofilm")) == 0) {
+			hq_regiser_hw_info(HWID_SUB_CAM, "galaxycore_5035_ii");
+		} else if (strncmp((char *)(s_ctrl->sensordata->eeprom_name),
+			"pine_gc5035_holitech",
+			strlen("pine_gc5035_holitech")) == 0) {
+			hq_regiser_hw_info(HWID_SUB_CAM, "galaxycore_5035_iii");
+		}
+
+	}
+
 
 	/*
 	 * Set probe succeeded flag to 1 so that no other camera shall

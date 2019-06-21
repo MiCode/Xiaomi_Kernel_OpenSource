@@ -2,6 +2,7 @@
  * Debugfs support for hosts and cards
  *
  * Copyright (C) 2008 Atmel Corporation
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -574,7 +575,6 @@ DEFINE_SIMPLE_ATTRIBUTE(mmc_dbg_card_status_fops, mmc_dbg_card_status_get,
 		NULL, "%08llx\n");
 
 #define EXT_CSD_STR_LEN 1025
-
 static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 {
 	struct mmc_card *card = inode->i_private;
@@ -651,6 +651,133 @@ static const struct file_operations mmc_dbg_ext_csd_fops = {
 	.open		= mmc_ext_csd_open,
 	.read		= mmc_ext_csd_read,
 	.release	= mmc_ext_csd_release,
+	.llseek		= default_llseek,
+};
+
+extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
+static int
+mmc_hr_open(struct inode *inode, struct file *filp) {
+	struct mmc_card *card = inode->i_private;
+	u8 *buf;
+	ssize_t n = 0;
+	u8 *ext_csd;
+	int err = 0, i;
+
+	buf = kzalloc(EXT_CSD_STR_LEN/2 + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	if (card->cid.manfid != CID_MANFID_HYNIX && card->cid.manfid != CID_MANFID_MICRON) {
+		snprintf(buf, EXT_CSD_STR_LEN + 1, "NOT SUPPORTED\n");
+		filp->private_data = buf;
+		return 0;
+	}
+
+	mmc_get_card(card);
+	if (mmc_card_cmdq(card)) {
+		err = mmc_cmdq_halt_on_empty_queue(card->host, 0);
+		if (err) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+				mmc_hostname(card->host), __func__, err);
+			mmc_put_card(card);
+			goto out_free_halt;
+		}
+	}
+
+	if (card->cid.manfid == CID_MANFID_HYNIX) {
+		if (!strncmp(card->cid.prod_name, "hDEaP3", strlen("hDEaP3")) ||
+			!strncmp(card->cid.prod_name, "hC8aP>", strlen("hC8aP>")) ||
+			!strncmp(card->cid.prod_name, "hB8aP>", strlen("hB8aP>")) ||
+			!strncmp(card->cid.prod_name, " hB8aP?>", strlen(" hB8aP?>"))) {
+					err = mmc_send_cxd_witharg_data(card, card->host
+						, MMC_SEND_EXT_CSD, 0x53454852, buf, 512);
+			if (err) {
+				pr_err("%s: mmc_send_cxd_witharg_data fail %d\n"
+						, __func__, err);
+				goto out_free;
+			}
+		} else {
+			err = mmc_send_vc_cmd(card, 60, 0x534D4900);
+			if (err) {
+				pr_err("%s: vc 1st cmd failed %d\n", __func__, err);
+				goto out_free;
+			} else {
+				pr_err("%s: vc 1st cmd succeed\n", __func__);
+			}
+
+			err = mmc_send_vc_cmd(card, 60, 0x48525054);
+			if (err) {
+				pr_err("%s: vc  2nd cmd  failed %d\n", __func__, err);
+				goto out_free;
+			} else {
+				pr_err("%s: vc 2nd cmd succeed\n", __func__);
+			}
+
+			err = mmc_send_cxd_data(card, card->host, MMC_SEND_EXT_CSD, buf, 512);
+			if (err)
+				goto out_free;
+		}
+	} else if (card->cid.manfid == CID_MANFID_MICRON) {
+		err = mmc_send_cxd_witharg_data(card, card->host
+					, MMC_SEND_EXT_CSD, 0x0d, buf, 512);
+		if (err) {
+			pr_err("%s: mmc_send_cxd_witharg_data fail %d\n"
+					, __func__, err);
+			goto out_free;
+		}
+	}
+
+	ext_csd = kzalloc(EXT_CSD_STR_LEN + 1, GFP_KERNEL);
+	if (!ext_csd)
+		goto out_free;
+
+	for (i = 0; i < 512; i++)
+		n += snprintf(ext_csd + n, EXT_CSD_STR_LEN + 1 - n
+					, "%02x", buf[i]);
+	n += snprintf(ext_csd + n, EXT_CSD_STR_LEN + 1 - n, "\n");
+	BUG_ON(n != EXT_CSD_STR_LEN);
+
+	filp->private_data = ext_csd;
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n"
+					, mmc_hostname(card->host), __func__);
+	}
+
+	mmc_put_card(card);
+	kfree(buf);
+	return 0;
+
+out_free:
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n"
+				, mmc_hostname(card->host), __func__);
+	}
+	mmc_put_card(card);
+
+out_free_halt:
+	kfree(buf);
+	return err;
+}
+
+static ssize_t mmc_hr_read(struct file *filp, char __user *ubuf
+							, size_t cnt, loff_t *ppos) {
+	char *buf = filp->private_data;
+
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, EXT_CSD_STR_LEN);
+}
+
+static int mmc_hr_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+	return 0;
+}
+
+static const struct file_operations mmc_dbg_hr_fops = {
+	.open		= mmc_hr_open,
+	.read		= mmc_hr_read,
+	.release		= mmc_hr_release,
 	.llseek		= default_llseek,
 };
 
@@ -972,8 +1099,13 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 			goto err;
 
 	if (mmc_card_mmc(card))
-		if (!debugfs_create_file("ext_csd", S_IRUSR, root, card,
+		if (!debugfs_create_file("ext_csd", S_IRUGO, root, card,
 					&mmc_dbg_ext_csd_fops))
+			goto err;
+
+	if (mmc_card_mmc(card))
+		if (!debugfs_create_file("hr", S_IRUGO, root, card,
+					&mmc_dbg_hr_fops))
 			goto err;
 
 	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 6) &&

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,17 @@
 #define PERPH_SUBTYPE_OFFSET	0x05
 #define SUBTYPE_MASK		GENMASK(7, 0)
 #define INT_RT_STS_OFFSET	0x10
+
+#define COOL_0_TEMPERATURE 0
+#define COOL_5_TEMPERATURE 50
+#define COOL_10_TEMPERATURE 100
+#define COOL_15_TEMPERATURE 150
+#define COOL_ICL_400MA 0x20		/*JEITA_CCCOMP_COLD=(2000-400)/50*/
+#define COOL_ICL_1200MA 0x10		/*JEITA_CCCOMP_COLD=(2000-1200)/50*/
+#define COOL_ICL_1950MA 0x01		/*JEITA_CCCOMP_COLD=(2000-1900)/50*/
+#define HOT_ICL_1000MA 0x14		/*JEITA_CCCOMP_HOT=(2000-1000)/50*/
+#define HOT_FV_4100MV 0x1D		/*JEITA_FVCOMP_HOT=(4390-4100)/10*/
+#define COOL_FV_4400MV 0		/*JEITA_FVCOMP_COLD=(4390-4390)/10*/
 
 /********************************
  *  CHGR Peripheral Registers  *
@@ -102,6 +114,9 @@ enum {
 #define JEITA_EN_COLD_SL_FCV_BIT		BIT(2)
 #define JEITA_EN_HOT_SL_CCC_BIT			BIT(1)
 #define JEITA_EN_COLD_SL_CCC_BIT		BIT(0)
+
+#define JEITA_FVCOMP_CFG_COLD_REG	(CHGR_BASE + 0x86)
+#define JEITA_FVCOMP_CFG_HOT_REG		(CHGR_BASE + 0x91)
 
 #define JEITA_CCCOMP_CFG_HOT_REG		(CHGR_BASE + 0x92)
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
@@ -260,6 +275,8 @@ enum {
 
 #define USBIN_AICL_OPTIONS_CFG_REG		(USBIN_BASE + 0x80)
 #define USBIN_AICL_ADC_EN_BIT			BIT(3)
+#define USBIN_AICL_START_AT_MAX_BIT			BIT(5)
+#define SUSPEND_ON_COLLAPSE_USBIN_BIT			BIT(7)
 
 #define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
 #define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)

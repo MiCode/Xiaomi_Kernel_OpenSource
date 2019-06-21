@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,9 +227,9 @@
 				qcom,cal-val = <0>;
 			};
 
-			chan@53 {
+			chan@13 {
 				label = "quiet_therm";
-				reg = <0x53>;
+				reg = <0x13>;
 				qcom,decimation = <2>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -266,9 +267,9 @@
 			qcom,fast-avg-setup = <0>;
 			#thermal-sensor-cells = <1>;
 
-			chan@53 {
+			chan@13 {
 				label = "quiet_therm";
-				reg = <0x53>;
+				reg = <0x13>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <2>;
@@ -311,13 +312,15 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#cooling-cells = <2>;
+			qcom,chg-term-src = <1>;
+			qcom,chg-term-current-ma = <(-200)>;
 
 			qcom,pmic-revid = <&pmi632_revid>;
 			dpdm-supply = <&qusb_phy>;
 			qcom,auto-recharge-soc = <98>;
 			qcom,chg-vadc = <&pmi632_vadc>;
 			qcom,flash-disable-soc = <10>;
-			qcom,sw-jeita-enable;
+			//qcom,sw-jeita-enable;
 			qcom,step-charging-enable;
 			qcom,hw-die-temp-mitigation;
 			qcom,hw-connector-mitigation;
@@ -483,12 +486,22 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,qg-iterm-ma = <100>;
+			qcom,qg-iterm-ma = <280>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
 			qcom,qg-vadc = <&pmi632_vadc>;
 			qcom,pmic-revid = <&pmi632_revid>;
-
+			qcom,cl-feedback-on;
+			qcom,cl-max-start-soc = <10>;
+			qcom,cl-min-start-soc = <5>;
+			qcom,cl-min-temp = <150>;
+			qcom,cl-max-temp = <500>;
+			qcom,cl-max-increment = <5>;
+			qcom,cl-max-decrement = <100>;
+			qcom,cl-min-limit = <500>;
+			qcom,cl-max-limit = <100>;
+			qcom,s3-entry-ibat-ua = <18000>;
+			qcom,s3-exit-ibat-ua = <38000>;
 			qcom,qgauge@4800 {
 				status = "okay";
 				reg = <0x4800 0x100>;
@@ -625,7 +638,7 @@
 			interrupt-names = "sc-irq";
 
 			qcom,pmic-revid = <&pmi632_revid>;
-			qcom,voltage-step-ramp;
+			//qcom,voltage-step-ramp;
 
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
@@ -671,7 +684,7 @@
 			pmi632_flash0: qcom,flash_0 {
 				label = "flash";
 				qcom,led-name = "led:flash_0";
-				qcom,max-current = <1500>;
+				qcom,max-current = <1000>;
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
 				qcom,current-ma = <1000>;
@@ -700,7 +713,7 @@
 				qcom,max-current = <500>;
 				qcom,default-led-trigger = "torch0_trigger";
 				qcom,id = <0>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <120>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -712,7 +725,7 @@
 				qcom,max-current = <500>;
 				qcom,default-led-trigger = "torch1_trigger";
 				qcom,id = <1>;
-				qcom,current-ma = <300>;
+				qcom,current-ma = <120>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <400>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
@@ -741,8 +754,8 @@
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi632_flash0 &pmi632_flash1>;
-		qcom,torch-source = <&pmi632_torch0 &pmi632_torch1>;
+		qcom,flash-source = <&pmi632_flash0>;
+		qcom,torch-source = <&pmi632_torch0>;
 		qcom,switch-source = <&pmi632_switch0>;
 	};
 };
