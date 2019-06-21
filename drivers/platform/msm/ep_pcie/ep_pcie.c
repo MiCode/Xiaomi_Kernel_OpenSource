@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,12 +154,13 @@ int ep_pcie_trigger_msi(struct ep_pcie_hw *phandle, u32 idx)
 }
 EXPORT_SYMBOL(ep_pcie_trigger_msi);
 
-int ep_pcie_wakeup_host(struct ep_pcie_hw *phandle)
+int ep_pcie_wakeup_host(struct ep_pcie_hw *phandle,
+			enum ep_pcie_event event)
 {
 	if (WARN_ON(!phandle))
 		return -EINVAL;
 
-	return phandle->wakeup_host();
+	return phandle->wakeup_host(event);
 }
 EXPORT_SYMBOL(ep_pcie_wakeup_host);
 
