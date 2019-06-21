@@ -354,6 +354,7 @@ struct adreno_reglist {
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @num_protected_regs: number of protected registers
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
+ * @bus_width: Bytes transferred in 1 cycle
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -364,6 +365,7 @@ struct adreno_gpu_core {
 	size_t gmem_size;
 	unsigned int num_protected_regs;
 	unsigned int busy_mask;
+	u32 bus_width;
 };
 
 enum gpu_coresight_sources {
