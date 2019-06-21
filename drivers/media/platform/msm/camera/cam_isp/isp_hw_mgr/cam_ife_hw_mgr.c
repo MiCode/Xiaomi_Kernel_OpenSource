@@ -3575,6 +3575,38 @@ void fill_res_bitmap(uint32_t resource_type, unsigned long *res_bitmap)
 	}
 }
 
+static int cam_isp_blob_init_frame_drop(
+	struct cam_isp_init_frame_drop_config  *frame_drop_cfg,
+	struct cam_hw_prepare_update_args      *prepare)
+{
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	struct cam_hw_intf                    *hw_intf;
+	uint32_t hw_idx = UINT_MAX;
+	uint32_t  i;
+	int rc = 0;
+
+	ctx = prepare->ctxt_to_hw_map;
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf->hw_idx == hw_idx)
+				continue;
+
+			rc = hw_intf->hw_ops.process_cmd(hw_intf->hw_priv,
+				CAM_IFE_CSID_SET_INIT_FRAME_DROP,
+				frame_drop_cfg,
+				sizeof(
+				struct cam_isp_init_frame_drop_config *));
+			hw_idx = hw_intf->hw_idx;
+		}
+	}
+	return rc;
+}
+
 static int cam_isp_packet_generic_blob_handler(void *user_data,
 	uint32_t blob_type, uint32_t blob_size, uint8_t *blob_data)
 {
@@ -3709,10 +3741,33 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 	}
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2: {
-		struct cam_isp_bw_config_ab    *bw_config_ab =
-			(struct cam_isp_bw_config_ab *)blob_data;
+		struct cam_isp_bw_config_ab    *bw_config_ab;
+
 		struct cam_isp_prepare_hw_update_data   *prepare_hw_data;
 
+		if (blob_size < sizeof(struct cam_isp_bw_config_ab)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u", blob_size);
+			return -EINVAL;
+		}
+
+		bw_config_ab = (struct cam_isp_bw_config_ab *)blob_data;
+
+		if (bw_config_ab->num_rdi > CAM_IFE_RDI_NUM_MAX) {
+			CAM_ERR(CAM_ISP, "Invalid num_rdi %u in bw config ab",
+				bw_config_ab->num_rdi);
+			return -EINVAL;
+		}
+
+		if (blob_size < (sizeof(uint32_t) * 2
+			+ (bw_config_ab->num_rdi + 2)
+			* sizeof(struct cam_isp_bw_vote))) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %u",
+				blob_size,
+				sizeof(uint32_t) * 2
+				+ (bw_config_ab->num_rdi + 2)
+				* sizeof(struct cam_isp_bw_vote));
+			return -EINVAL;
+		}
 		CAM_DBG(CAM_ISP, "AB L:%lld R:%lld usage_type %d",
 			bw_config_ab->left_pix_vote_ab,
 			bw_config_ab->right_pix_vote_ab,
@@ -3797,7 +3852,22 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 			CAM_ERR(CAM_ISP, "FS Update Failed rc: %d", rc);
 	}
 		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_INIT_FRAME_DROP: {
+		struct cam_isp_init_frame_drop_config  *frame_drop_cfg =
+			(struct cam_isp_init_frame_drop_config *)blob_data;
 
+		if (blob_size < sizeof(struct cam_isp_init_frame_drop_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %u",
+				blob_size,
+				sizeof(struct cam_isp_init_frame_drop_config));
+			return -EINVAL;
+		}
+
+		rc = cam_isp_blob_init_frame_drop(frame_drop_cfg, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Init Frame drop Update Failed");
+	}
+		break;
 	default:
 		CAM_WARN(CAM_ISP, "Invalid blob type %d", blob_type);
 		break;
