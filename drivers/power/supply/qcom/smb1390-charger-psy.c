@@ -98,6 +98,7 @@
 #define SOC_LEVEL_VOTER		"SOC_LEVEL_VOTER"
 #define HW_DISABLE_VOTER	"HW_DISABLE_VOTER"
 #define CC_MODE_VOTER		"CC_MODE_VOTER"
+#define MAIN_DISABLE_VOTER	"MAIN_DISABLE_VOTER"
 
 #define CP_MASTER		0
 #define CP_SLAVE		1
@@ -174,6 +175,7 @@ struct smb1390 {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*cp_awake_votable;
+	struct votable		*slave_disable_votable;
 
 	/* power supplies */
 	struct power_supply	*cps_psy;
@@ -833,15 +835,16 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 {
 	struct smb1390 *chip = data;
 	int rc = 0;
-	u8 mask, val;
 
 	if (!is_psy_voter_available(chip) || chip->suspended)
 		return -EAGAIN;
 
-	mask = CMD_EN_SWITCHER_BIT | CMD_EN_SL_BIT;
-	val = is_cps_available(chip) ? mask : CMD_EN_SWITCHER_BIT;
-	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG, mask,
-				  disable ? 0 : val);
+	if (is_cps_available(chip))
+		vote(chip->slave_disable_votable, MAIN_DISABLE_VOTER,
+					disable ? true : false, 0);
+
+	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG, CMD_EN_SWITCHER_BIT,
+				  disable ? 0 : CMD_EN_SWITCHER_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't write CORE_CONTROL1_REG, rc=%d\n", rc);
 		return rc;
@@ -852,6 +855,21 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		power_supply_changed(chip->cp_master_psy);
 
 	chip->disabled = disable;
+	return rc;
+}
+
+static int smb1390_slave_disable_vote_cb(struct votable *votable, void *data,
+			      int disable, const char *client)
+{
+	struct smb1390 *chip = data;
+	int rc;
+
+	rc = smb1390_masked_write(chip, CORE_CONTROL1_REG, CMD_EN_SL_BIT,
+					disable ? 0 : CMD_EN_SL_BIT);
+	if (rc < 0)
+		pr_err("Couldn't %s slave rc=%d\n",
+				disable ? "disable" : "enable", rc);
+
 	return rc;
 }
 
@@ -1075,6 +1093,8 @@ static void smb1390_status_change_work(struct work_struct *work)
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
 		vote(chip->disable_votable, SOC_LEVEL_VOTER, true, 0);
 		vote_override(chip->ilim_votable, CC_MODE_VOTER, false, 0);
+		vote(chip->slave_disable_votable, TAPER_END_VOTER, false, 0);
+		vote(chip->slave_disable_votable, MAIN_DISABLE_VOTER, true, 0);
 	}
 
 out:
@@ -1085,18 +1105,14 @@ out:
 static int smb1390_validate_slave_chg_taper(struct smb1390 *chip, int fcc_uA)
 {
 	int rc = 0;
-	u8 mask;
 
 	/*
 	 * In Collapse mode, while in Taper, Disable the slave SMB1390
 	 * when FCC drops below a specified threshold.
 	 */
 	if (fcc_uA < (chip->cp_slave_thr_taper_ua) && is_cps_available(chip)) {
-		mask = CMD_EN_SWITCHER_BIT | CMD_EN_SL_BIT;
-		rc = smb1390_masked_write(chip, CORE_CONTROL1_REG,
-						  mask, CMD_EN_SWITCHER_BIT);
-		if (rc < 0)
-			return rc;
+		vote(chip->slave_disable_votable, TAPER_END_VOTER,
+					true, 0);
 		/*
 		 * Set ILIM of master CP to Max value = 3.2A once slave is
 		 * disabled to prevent ILIM irq storm.
@@ -1431,6 +1447,11 @@ static int smb1390_create_votables(struct smb1390 *chip)
 			VOTE_MIN, smb1390_ilim_vote_cb, chip);
 	if (IS_ERR(chip->ilim_votable))
 		return PTR_ERR(chip->ilim_votable);
+
+	chip->slave_disable_votable = create_votable("CP_SLAVE_DISABLE",
+			VOTE_SET_ANY, smb1390_slave_disable_vote_cb, chip);
+	if (IS_ERR(chip->slave_disable_votable))
+		return PTR_ERR(chip->slave_disable_votable);
 
 	/*
 	 * charge pump is initially disabled; this indirectly votes to allow
