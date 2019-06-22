@@ -425,14 +425,14 @@
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			ldo3 {
+			mt_pmic_vmc_ldo_reg: ldo3 {
 				regulator-compatible = "LDO3";
 				regulator-name = "mt6360,ldo3";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			ldo5 {
+			mt_pmic_vmch_ldo_reg: ldo5 {
 				regulator-compatible = "LDO5";
 				regulator-name = "mt6360,ldo5";
 				regulator-min-microvolt = <2700000>;
