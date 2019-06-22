@@ -198,6 +198,13 @@ static const struct usb_irq usb_irq_info[USB_MAX_IRQ] = {
 	{"ss_phy_irq", 0},
 };
 
+static const char * const gsi_op_strings[] = {
+	"EP_CONFIG", "START_XFER", "STORE_DBL_INFO",
+	"ENABLE_GSI", "UPDATE_XFER", "RING_DB",
+	"END_XFER", "GET_CH_INFO", "GET_XFER_IDX", "PREPARE_TRBS",
+	"FREE_TRBS", "SET_CLR_BLOCK_DBL", "CHECK_FOR_SUSP",
+	"EP_DISABLE" };
+
 /* Input bits to state machine (mdwc->inputs) */
 
 #define ID			0
@@ -394,34 +401,9 @@ static inline void dwc3_msm_write_reg_field(void __iomem *base, u32 offset,
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
 	iowrite32(val, base + offset);
-}
 
-/**
- * Write register and read back masked value to confirm it is written
- *
- * @base - DWC3 base virtual address.
- * @offset - register offset.
- * @mask - register bitmask specifying what should be updated
- * @val - value to write.
- *
- */
-static inline void dwc3_msm_write_readback(void __iomem *base, u32 offset,
-					    const u32 mask, u32 val)
-{
-	u32 write_val, tmp = ioread32(base + offset);
-
-	tmp &= ~mask;		/* retain other bits */
-	write_val = tmp | val;
-
-	iowrite32(write_val, base + offset);
-
-	/* Read back to see if val was written */
-	tmp = ioread32(base + offset);
-	tmp &= mask;		/* clear other bits */
-
-	if (tmp != val)
-		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
-			__func__, val, offset);
+	/* Read back to make sure that previous write goes through */
+	ioread32(base + offset);
 }
 
 static bool dwc3_msm_is_ss_rhport_connected(struct dwc3_msm *mdwc)
@@ -1032,8 +1014,13 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 		&offset, gsi_dbl_address_lsb, request->db_reg_phs_addr_lsb,
 		ep->name);
 
+	dbg_log_string("ep:%s link TRB addr:%pa db:%x\n",
+		ep->name, &offset, request->db_reg_phs_addr_lsb);
+
 	writel_relaxed(offset, gsi_dbl_address_lsb);
+	readl_relaxed(gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
+	readl_relaxed(gsi_dbl_address_msb);
 }
 
 /*
@@ -1393,6 +1380,13 @@ static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 	return true;
 }
 
+static inline const char *gsi_op_to_string(unsigned int op)
+{
+	if (op < ARRAY_SIZE(gsi_op_strings))
+		return gsi_op_strings[op];
+
+	return "Invalid";
+}
 
 /**
 * Performs GSI operations or GSI EP related operations.
@@ -1416,41 +1410,36 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	bool block_db, f_suspend;
 	unsigned long flags;
 
+	dbg_log_string("%s(%d):%s", ep->name, ep->ep_num, gsi_op_to_string(op));
+
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_PREPARE_TRBS for %s\n", ep->name);
 		ret = gsi_prepare_trbs(ep, request);
 		break;
 	case GSI_EP_OP_FREE_TRBS:
-		dev_dbg(mdwc->dev, "EP_OP_FREE_TRBS for %s\n", ep->name);
 		request = (struct usb_gsi_request *)op_data;
 		gsi_free_trbs(ep, request);
 		break;
 	case GSI_EP_OP_CONFIG:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_CONFIG for %s\n", ep->name);
 		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_configure_ep(ep, request);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_STARTXFER:
-		dev_dbg(mdwc->dev, "EP_OP_STARTXFER for %s\n", ep->name);
 		spin_lock_irqsave(&dwc->lock, flags);
 		ret = gsi_startxfer_for_ep(ep);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_GET_XFER_IDX:
-		dev_dbg(mdwc->dev, "EP_OP_GET_XFER_IDX for %s\n", ep->name);
 		ret = gsi_get_xfer_index(ep);
 		break;
 	case GSI_EP_OP_STORE_DBL_INFO:
-		dev_dbg(mdwc->dev, "EP_OP_STORE_DBL_INFO\n");
 		request = (struct usb_gsi_request *)op_data;
 		gsi_store_ringbase_dbl_info(ep, request);
 		break;
 	case GSI_EP_OP_ENABLE_GSI:
-		dev_dbg(mdwc->dev, "EP_OP_ENABLE_GSI\n");
 		gsi_enable(ep);
 		break;
 	case GSI_EP_OP_GET_CH_INFO:
@@ -1459,36 +1448,29 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_RING_DB:
 		request = (struct usb_gsi_request *)op_data;
-		dbg_print(0xFF, "RING_DB", 0, ep->name);
 		gsi_ring_db(ep, request);
 		break;
 	case GSI_EP_OP_UPDATEXFER:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_UPDATEXFER\n");
 		spin_lock_irqsave(&dwc->lock, flags);
 		ret = gsi_updatexfer_for_ep(ep, request);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_ENDXFER:
 		request = (struct usb_gsi_request *)op_data;
-		dev_dbg(mdwc->dev, "EP_OP_ENDXFER for %s\n", ep->name);
 		spin_lock_irqsave(&dwc->lock, flags);
 		gsi_endxfer_for_ep(ep);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
 		block_db = *((bool *)op_data);
-		dev_dbg(mdwc->dev, "EP_OP_SET_CLR_BLOCK_DBL %d\n",
-						block_db);
 		gsi_set_clear_dbell(ep, block_db);
 		break;
 	case GSI_EP_OP_CHECK_FOR_SUSPEND:
-		dev_dbg(mdwc->dev, "EP_OP_CHECK_FOR_SUSPEND\n");
 		f_suspend = *((bool *)op_data);
 		ret = gsi_check_ready_to_suspend(ep, f_suspend);
 		break;
 	case GSI_EP_OP_DISABLE:
-		dev_dbg(mdwc->dev, "EP_OP_DISABLE\n");
 		ret = ep->ops->disable(ep);
 		break;
 	default:
@@ -4156,17 +4138,14 @@ static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	/* Update OTG VBUS Valid from HSPHY to controller */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
-		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL :
-		UTMI_OTG_VBUS_VALID,
-		vbus_present ? UTMI_OTG_VBUS_VALID | SW_SESSVLD_SEL : 0);
+	dwc3_msm_write_reg_field(mdwc->base, HS_PHY_CTRL_REG,
+			UTMI_OTG_VBUS_VALID, !!vbus_present);
 
 	/* Update only if Super Speed is supported */
 	if (dwc->maximum_speed == USB_SPEED_SUPER) {
 		/* Update VBUS Valid from SSPHY to controller */
-		dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG,
-			LANE0_PWR_PRESENT,
-			vbus_present ? LANE0_PWR_PRESENT : 0);
+		dwc3_msm_write_reg_field(mdwc->base, SS_PHY_CTRL_REG,
+			LANE0_PWR_PRESENT, !!vbus_present);
 	}
 }
 
