@@ -422,8 +422,10 @@ static int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 		cnss_pr_err("Failed to %s PCI link with default option, err = %d\n",
 			    link_up ? "resume" : "suspend", ret);
 
-	if ((link_up || (!link_up && ret)) && pci_priv->drv_connected_last)
-		cnss_set_pci_link_status(pci_priv, PCI_DEF);
+	if (pci_priv->drv_connected_last) {
+		if ((link_up && !ret) || (!link_up && ret))
+			cnss_set_pci_link_status(pci_priv, PCI_DEF);
+	}
 
 	return ret;
 }
@@ -1469,6 +1471,9 @@ static int cnss_pci_suspend(struct device *dev)
 	if (!plat_priv)
 		goto out;
 
+	if (!cnss_is_device_powered_on(plat_priv))
+		goto out;
+
 	if (!test_bit(DISABLE_DRV, &plat_priv->ctrl_params.quirks))
 		pci_priv->drv_connected_last =
 			cnss_pci_get_drv_connected(pci_priv);
@@ -1539,6 +1544,9 @@ static int cnss_pci_resume(struct device *dev)
 		goto out;
 
 	if (pci_priv->pci_link_down_ind)
+		goto out;
+
+	if (!cnss_is_device_powered_on(pci_priv->plat_priv))
 		goto out;
 
 	if (pci_priv->pci_link_state == PCI_LINK_DOWN &&
@@ -1636,6 +1644,9 @@ static int cnss_pci_runtime_suspend(struct device *dev)
 	if (!plat_priv)
 		return -EAGAIN;
 
+	if (!cnss_is_device_powered_on(pci_priv->plat_priv))
+		return -EAGAIN;
+
 	if (pci_priv->pci_link_down_ind) {
 		cnss_pr_dbg("PCI link down recovery is in progress!\n");
 		return -EAGAIN;
@@ -1670,6 +1681,9 @@ static int cnss_pci_runtime_resume(struct device *dev)
 	struct cnss_wlan_driver *driver_ops;
 
 	if (!pci_priv)
+		return -EAGAIN;
+
+	if (!cnss_is_device_powered_on(pci_priv->plat_priv))
 		return -EAGAIN;
 
 	if (pci_priv->pci_link_down_ind) {
