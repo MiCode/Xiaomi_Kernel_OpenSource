@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -371,12 +371,12 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 				/* Request to enable LPM */
 				MSG_VERB("Enable MHI LPM");
 				mhi_netdev->wake--;
-				mhi_device_put(mhi_dev);
+				mhi_device_put(mhi_dev, 0);
 			} else if (!ext_cmd.u.data && !mhi_netdev->wake) {
 				/* Request to disable LPM */
 				MSG_VERB("Disable MHI LPM");
 				mhi_netdev->wake++;
-				mhi_device_get(mhi_dev);
+				mhi_device_get(mhi_dev, 0);
 			}
 		} else {
 			MSG_ERR("Cannot set LPM value, MHI is not up.\n");
