@@ -6,6 +6,11 @@ ifeq ($(KERNEL_TARGET),)
 INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
 endif
 
+ifneq ($(TARGET_KERNEL_APPEND_DTB), true)
+$(info Using DTB Image)
+INSTALLED_DTBIMAGE_TARGET := $(PRODUCT_OUT)/dtb.img
+endif
+
 TARGET_KERNEL_MAKE_ENV := $(strip $(TARGET_KERNEL_MAKE_ENV))
 ifeq ($(TARGET_KERNEL_MAKE_ENV),)
 KERNEL_MAKE_ENV :=
@@ -183,6 +188,10 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) oldconfig; fi
+
+# Creating a dtb.img once the kernel is compiled if TARGET_KERNEL_APPEND_DTB is set to be false
+$(INSTALLED_DTBIMAGE_TARGET): $(TARGET_PREBUILT_INT_KERNEL)
+	cat $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/dts/vendor/qcom/*.dtb > $@
 
 .PHONY: kerneltags
 kerneltags: $(KERNEL_OUT) $(KERNEL_CONFIG)
