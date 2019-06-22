@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -1063,8 +1063,7 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 	 * crtc. Check LM and dspp counts based on whether feature is a
 	 * dspp/lm feature.
 	 */
-	if (!sde_crtc->num_mixers ||
-	    sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
+	if (sde_crtc->num_mixers > ARRAY_SIZE(sde_crtc->mixers)) {
 		DRM_INFO("Invalid mixer config act cnt %d max cnt %ld\n",
 			sde_crtc->num_mixers,
 				(long int)ARRAY_SIZE(sde_crtc->mixers));

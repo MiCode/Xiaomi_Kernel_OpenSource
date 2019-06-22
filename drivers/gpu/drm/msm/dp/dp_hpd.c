@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,21 +54,21 @@ struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
 
 	if (parser->no_aux_switch && parser->lphw_hpd) {
 		dp_hpd = dp_lphw_hpd_get(dev, parser, catalog, cb);
-		if (!dp_hpd) {
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get lphw hpd\n");
 			return dp_hpd;
 		}
 		dp_hpd->type = DP_HPD_LPHW;
 	} else if (parser->no_aux_switch) {
 		dp_hpd = dp_gpio_hpd_get(dev, cb);
-		if (!dp_hpd) {
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get gpio hpd\n");
 			goto out;
 		}
 		dp_hpd->type = DP_HPD_GPIO;
 	} else {
 		dp_hpd = dp_usbpd_get(dev, cb);
-		if (!dp_hpd) {
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get usbpd\n");
 			goto out;
 		}
