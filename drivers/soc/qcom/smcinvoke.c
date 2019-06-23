@@ -1232,6 +1232,9 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 	int32_t tzhandles_to_release[OBJECT_COUNTS_MAX_OO] = {0};
 	struct smcinvoke_tzcb_req *tzcb_req = cb_txn->cb_req;
 	union smcinvoke_tz_args *tz_args = tzcb_req->args;
+	put_pending_cbobj_locked(
+			TZHANDLE_GET_SERVER(cb_txn->cb_req->hdr.tzhandle),
+			TZHANDLE_GET_OBJID(cb_txn->cb_req->hdr.tzhandle));
 
 	tzcb_req->result = user_req->result;
 	FOR_ARGS(i, tzcb_req->hdr.counts, BO) {
@@ -1267,6 +1270,13 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 		if (ret)
 			goto out;
 		tzhandles_to_release[i] = tz_args[i].handle;
+	}
+	FOR_ARGS(i, tzcb_req->hdr.counts, OI) {
+		if (TZHANDLE_IS_CB_OBJ(tz_args[i].handle)) {
+			put_pending_cbobj_locked(
+				TZHANDLE_GET_SERVER(tz_args[i].handle),
+				TZHANDLE_GET_OBJID(tz_args[i].handle));
+		}
 	}
 	ret = 0;
 out:
@@ -1694,6 +1704,8 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 
 	ret = prepare_send_scm_msg(in_buf, SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles);
+
+	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
 	kfree(filp->private_data);
 	free_page((long)in_buf);
