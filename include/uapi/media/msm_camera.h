@@ -1367,6 +1367,7 @@ struct msm_camera_csid_params {
 	uint8_t lane_cnt;
 	uint16_t lane_assign;
 	uint8_t phy_sel;
+	uint32_t topology;
 	struct msm_camera_csid_lut_params lut_params;
 };
 
@@ -1411,6 +1412,8 @@ struct csic_cfg_data {
 enum csid_cfg_type_t {
 	CSID_INIT,
 	CSID_CFG,
+	CSID_SECCAM_TOPOLOGY,
+	CSID_SECCAM_RESET,
 };
 
 struct csid_cfg_data {
