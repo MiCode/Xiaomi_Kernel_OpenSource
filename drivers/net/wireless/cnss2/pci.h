@@ -71,7 +71,6 @@ struct cnss_pci_data {
 	u16 def_link_speed;
 	u16 def_link_width;
 	u8 monitor_wake_intr;
-	struct dma_iommu_mapping smmu_mapping;
 	struct iommu_domain *iommu_domain;
 	u8 smmu_s1_enable;
 	dma_addr_t smmu_iova_start;

@@ -2255,7 +2255,6 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 	cnss_pr_dbg("Initializing SMMU\n");
 
 	pci_priv->iommu_domain = iommu_get_domain_for_dev(&pci_dev->dev);
-	pci_priv->smmu_mapping.domain = pci_priv->iommu_domain;
 	ret = of_property_read_string(of_node, "qcom,iommu-dma",
 				      &iommu_dma_type);
 	if (!ret && !strcmp("fastmap", iommu_dma_type)) {
@@ -2297,19 +2296,7 @@ static int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 static void cnss_pci_deinit_smmu(struct cnss_pci_data *pci_priv)
 {
 	pci_priv->iommu_domain = NULL;
-	pci_priv->smmu_mapping.domain = NULL;
 }
-
-struct dma_iommu_mapping *cnss_smmu_get_mapping(struct device *dev)
-{
-	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(to_pci_dev(dev));
-
-	if (!pci_priv)
-		return NULL;
-
-	return &pci_priv->smmu_mapping;
-}
-EXPORT_SYMBOL(cnss_smmu_get_mapping);
 
 struct iommu_domain *cnss_smmu_get_domain(struct device *dev)
 {
