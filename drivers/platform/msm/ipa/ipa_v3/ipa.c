@@ -5340,6 +5340,7 @@ static int ipa3_panic_notifier(struct notifier_block *this,
 	if (atomic_read(&ipa3_ctx->ipa_clk_vote)) {
 		ipahal_print_all_regs(false);
 		ipa_save_registers();
+		ipa_wigig_save_regs();
 	}
 
 	return NOTIFY_DONE;
