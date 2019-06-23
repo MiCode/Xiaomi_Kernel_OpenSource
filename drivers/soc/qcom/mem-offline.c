@@ -16,6 +16,8 @@
 #include <linux/of.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
+#include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
 
 #define AOP_MSG_ADDR_MASK		0xffffffff
 #define AOP_MSG_ADDR_HIGH_SHIFT		32
@@ -50,6 +52,43 @@ static struct mem_offline_mailbox {
 
 static struct section_stat *mem_info;
 
+static void clear_pgtable_mapping(phys_addr_t start, phys_addr_t end)
+{
+	unsigned long size = end - start;
+	unsigned long virt = (unsigned long)phys_to_virt(start);
+	unsigned long addr_end = virt + size;
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+
+	pgd = pgd_offset_k(virt);
+
+	while (virt < addr_end) {
+
+		/* Check if we have PUD section mapping */
+		pud = pud_offset(pgd, virt);
+		if (pud_sect(*pud)) {
+			pud_clear(pud);
+			virt += PUD_SIZE;
+			continue;
+		}
+
+		/* Check if we have PMD section mapping */
+		pmd = pmd_offset(pud, virt);
+		if (pmd_sect(*pmd)) {
+			pmd_clear(pmd);
+			virt += PMD_SIZE;
+			continue;
+		}
+
+		/* Clear mapping for page entry */
+		set_memory_valid(virt, 1, (int)false);
+		virt += PAGE_SIZE;
+	}
+
+	virt = (unsigned long)phys_to_virt(start);
+	flush_tlb_kernel_range(virt, addr_end);
+}
 void record_stat(unsigned long sec, ktime_t delay, int mode)
 {
 	unsigned int total_sec = end_section_nr - start_section_nr + 1;
@@ -137,13 +176,18 @@ static int mem_event_callback(struct notifier_block *self,
 		if (aop_send_msg(__pfn_to_phys(start), true))
 			pr_err("PASR: AOP online request addr:0x%llx failed\n",
 			       __pfn_to_phys(start));
+		if (!debug_pagealloc_enabled()) {
+			/* Create kernel page-tables */
+			create_pgtable_mapping(start_addr, end_addr);
+		}
 
 		break;
 	case MEM_ONLINE:
-		pr_info("mem-offline: Onlined memory block mem%lu\n", sec_nr);
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_ONLINE);
 		cur = 0;
+		pr_info("mem-offline: Onlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_GOING_OFFLINE:
 		pr_debug("mem-offline: MEM_GOING_OFFLINE : start = 0x%llx end = 0x%llx\n",
@@ -153,8 +197,10 @@ static int mem_event_callback(struct notifier_block *self,
 		cur = ktime_get();
 		break;
 	case MEM_OFFLINE:
-		pr_info("mem-offline: Offlined memory block mem%lu\n", sec_nr);
-
+		if (!debug_pagealloc_enabled()) {
+			/* Clear kernel page-tables */
+			clear_pgtable_mapping(start_addr, end_addr);
+		}
 		if (aop_send_msg(__pfn_to_phys(start), false))
 			pr_err("PASR: AOP offline request addr:0x%llx failed\n",
 			       __pfn_to_phys(start));
@@ -162,10 +208,15 @@ static int mem_event_callback(struct notifier_block *self,
 		delay = ktime_ms_delta(ktime_get(), cur);
 		record_stat(sec_nr, delay, MEMORY_OFFLINE);
 		cur = 0;
+		pr_info("mem-offline: Offlined memory block mem%pK\n",
+			(void *)sec_nr);
 		break;
 	case MEM_CANCEL_ONLINE:
 		pr_info("mem-offline: MEM_CANCEL_ONLINE: start = 0x%llx end = 0x%llx\n",
 				start_addr, end_addr);
+		if (aop_send_msg(__pfn_to_phys(start), false))
+			pr_err("PASR: AOP online request addr:0x%llx failed\n",
+			       __pfn_to_phys(start));
 		break;
 	default:
 		break;
