@@ -2849,7 +2849,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	context_notify_user(me->ctxtable[index], rsp->retval);
 bail:
 	if (err)
-		pr_err("adsprpc: invalid response or context\n");
+		pr_debug("adsprpc: invalid response or context\n");
 	return err;
 }
 
