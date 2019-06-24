@@ -514,6 +514,7 @@
 	/delete-property/ qcom,split-a2dp;
 	asoc-wsa-codec-names;
 	asoc-wsa-codec-prefixes;
+	ext_pa_aw8896;
 	qcom,audio-routing =
 		"CDC_CONN", "MCLK",
 		"QUAT_MI2S_RX", "DIGITAL_REGULATOR",
@@ -581,4 +582,25 @@
 
 &wsa881x_i2c_45 {
 	status = "disabled";
+};
+
+&wsa881x_analog_vi_gpio {
+	status = "disabled";
+};
+
+&wsa881x_analog_clk_gpio {
+	status = "disabled";
+};
+
+&wsa881x_analog_reset_gpio {
+	status = "disabled";
+};
+
+&i2c_2 {
+	aw8896_smartpa@34 {
+		compatible = "awinic,aw8896_smartpa";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 68 0>;
+		status = "okay";
+	};
 };
