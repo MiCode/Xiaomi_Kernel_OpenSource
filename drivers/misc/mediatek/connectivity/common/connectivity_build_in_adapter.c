@@ -22,9 +22,9 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/trace_events.h>
 
 #include <linux/interrupt.h>
-#include <pinctrl-mtk-common-v2_debug.h>
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
 #include <mtk_6306_gpio.h>
 #endif
@@ -33,15 +33,11 @@
 #include <mtk_clkbuf_ctl.h>
 #endif
 
-/* PMIC */
-#include <upmu_common.h>
-
 /* MMC */
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <sdio_ops.h>
 
-#include "mtk_spm_resource_req.h"
 
 #ifdef CONFIG_ARCH_MT6570
 #define CPU_BOOST y
@@ -111,7 +107,9 @@ EXPORT_SYMBOL(connectivity_export_show_stack);
 
 void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 {
+#ifdef CONFIG_TRACING
 	tracing_record_cmdline(tsk);
+#endif
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
 
@@ -186,41 +184,6 @@ void connectivity_export_mt6306_set_gpio_dir(unsigned long pin,
 EXPORT_SYMBOL(connectivity_export_mt6306_set_gpio_dir);
 #endif
 
-/*******************************************************************************
- * PMIC
- ******************************************************************************/
-void connectivity_export_pmic_config_interface(unsigned int RegNum,
-		unsigned int val, unsigned int MASK, unsigned int SHIFT)
-{
-	pmic_config_interface(RegNum, val, MASK, SHIFT);
-}
-EXPORT_SYMBOL(connectivity_export_pmic_config_interface);
-
-void connectivity_export_pmic_read_interface(unsigned int RegNum,
-		unsigned int *val, unsigned int MASK, unsigned int SHIFT)
-{
-	pmic_read_interface(RegNum, val, MASK, SHIFT);
-}
-EXPORT_SYMBOL(connectivity_export_pmic_read_interface);
-
-void connectivity_export_pmic_set_register_value(int flagname, unsigned int val)
-{
-	pmic_set_register_value(flagname, val);
-}
-EXPORT_SYMBOL(connectivity_export_pmic_set_register_value);
-
-unsigned short connectivity_export_pmic_get_register_value(int flagname)
-{
-	return pmic_get_register_value(flagname);
-}
-EXPORT_SYMBOL(connectivity_export_pmic_get_register_value);
-
-void connectivity_export_upmu_set_reg_value(unsigned int reg,
-		unsigned int reg_val)
-{
-	upmu_set_reg_value(reg, reg_val);
-}
-EXPORT_SYMBOL(connectivity_export_upmu_set_reg_value);
 /*******************************************************************************
  * MMC
  ******************************************************************************/
@@ -313,6 +276,6 @@ EXPORT_SYMBOL(connectivity_export_dump_thread_state);
 
 int connectivity_export_gpio_get_tristate_input(unsigned int pin)
 {
-	return gpio_get_tristate_input(pin);
+	return 0;
 }
 EXPORT_SYMBOL(connectivity_export_gpio_get_tristate_input);
