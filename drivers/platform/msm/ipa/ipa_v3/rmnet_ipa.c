@@ -1473,6 +1473,26 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	}
 }
 
+/* Send RSC endpoint info to modem using QMI indication message */
+
+static int ipa_send_rsc_pipe_ind_to_modem(void)
+{
+	struct ipa_endp_desc_indication_msg_v01 req;
+	struct ipa_ep_id_type_v01 *ep_info;
+
+	memset(&req, 0, sizeof(struct ipa_endp_desc_indication_msg_v01));
+	req.ep_info_len = 1;
+	req.ep_info_valid = true;
+	req.num_eps_valid = true;
+	req.num_eps = 1;
+	ep_info = &req.ep_info[req.ep_info_len - 1];
+	ep_info->ep_id = rmnet_ipa3_ctx->ipa3_to_apps_hdl;
+	ep_info->ic_type = DATA_IC_TYPE_AP_V01;
+	ep_info->ep_type = DATA_EP_DESC_TYPE_RSC_PROD_V01;
+	ep_info->ep_status = DATA_EP_STATUS_CONNECTED_V01;
+	return ipa3_qmi_send_rsc_pipe_indication(&req);
+}
+
 static int handle3_ingress_format(struct net_device *dev,
 			struct rmnet_ioctl_extended_s *in)
 {
@@ -1574,6 +1594,9 @@ static int handle3_ingress_format(struct net_device *dev,
 	if (ret)
 		ipa3_del_a7_qmap_hdr();
 
+	/* Sending QMI indication message share RSC pipe details*/
+	if (dev->features & NETIF_F_GRO_HW)
+		ipa_send_rsc_pipe_ind_to_modem();
 end:
 	if (ret)
 		IPAWANERR("failed to configure ingress\n");
