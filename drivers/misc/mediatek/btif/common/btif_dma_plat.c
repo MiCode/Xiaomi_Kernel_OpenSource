@@ -4,7 +4,6 @@
  */
 
 #include <linux/kernel.h>
-#include <mtk_lpae.h>
 
 #ifdef DFT_TAG
 #undef DFT_TAG
@@ -108,8 +107,6 @@ static int hal_tx_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 			       enum _ENUM_BTIF_REG_ID_ flag);
 static int is_tx_dma_irq_finish_done(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 static int _btif_dma_dump_dbg_reg(void);
-static void hal_btif_tx_dma_vff_set_for_4g(void);
-static void hal_btif_rx_dma_vff_set_for_4g(void);
 
 /*****************************************************************************
  * FUNCTION
@@ -417,13 +414,10 @@ int hal_btif_dma_hw_init(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 		} while (0x01 & dat);
 		/*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, RX_DMA_VFF_ADDR(base));
-		if (enable_4G())
-			hal_btif_rx_dma_vff_set_for_4g();
-		else {
-			addr_h = p_vfifo->phy_addr >> 16;
-			addr_h = addr_h >> 16;
-			btif_reg_sync_writel(addr_h, RX_DMA_VFF_ADDR_H(base));
-		}
+		addr_h = p_vfifo->phy_addr >> 16;
+		addr_h = addr_h >> 16;
+		btif_reg_sync_writel(addr_h, RX_DMA_VFF_ADDR_H(base));
+
 		/*write vfifo length to VFF_LEN*/
 		btif_reg_sync_writel(p_vfifo->vfifo_size, RX_DMA_VFF_LEN(base));
 		/*write wpt to VFF_WPT*/
@@ -450,13 +444,10 @@ int hal_btif_dma_hw_init(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 		} while (0x01 & dat);
 /*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, TX_DMA_VFF_ADDR(base));
-		if (enable_4G())
-			hal_btif_tx_dma_vff_set_for_4g();
-		else {
-			addr_h = p_vfifo->phy_addr >> 16;
-			addr_h = addr_h >> 16;
-			btif_reg_sync_writel(addr_h, TX_DMA_VFF_ADDR_H(base));
-		}
+		addr_h = p_vfifo->phy_addr >> 16;
+		addr_h = addr_h >> 16;
+		btif_reg_sync_writel(addr_h, TX_DMA_VFF_ADDR_H(base));
+
 /*write vfifo length to VFF_LEN*/
 		btif_reg_sync_writel(p_vfifo->vfifo_size, TX_DMA_VFF_LEN(base));
 /*write wpt to VFF_WPT*/
@@ -1287,7 +1278,6 @@ int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 {
 	unsigned int i_ret = -1;
 
-	mt_irq_dump_status(p_dma_info->p_irq->irq_id);
 	if (p_dma_info->dir == DMA_DIR_TX)
 		i_ret = hal_tx_dma_dump_reg(p_dma_info, flag);
 	else if (p_dma_info->dir == DMA_DIR_RX)
@@ -1419,25 +1409,6 @@ int hal_dma_receive_data(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 int _btif_dma_dump_dbg_reg(void)
 {
 	return 0;
-}
-
-static void hal_btif_tx_dma_vff_set_for_4g(void)
-{
-	BTIF_DBG_FUNC("Set btif tx_vff_addr bit29\n");
-	BTIF_SET_BIT(TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base),
-			DMA_VFF_BIT29_OFFSET);
-	BTIF_DBG_FUNC("Dump value of bit29 0x%lx:(0x%x)\n",
-			TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base),
-			BTIF_READ32(TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base)));
-}
-static void hal_btif_rx_dma_vff_set_for_4g(void)
-{
-	BTIF_DBG_FUNC("Set btif rx_vff_addr bit29\n");
-	BTIF_SET_BIT(RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base),
-			DMA_VFF_BIT29_OFFSET);
-	BTIF_DBG_FUNC("Dump value of bit29 0x%lx:(0x%x)\n",
-			RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base),
-			BTIF_READ32(RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base)));
 }
 
 /*****************************************************************************

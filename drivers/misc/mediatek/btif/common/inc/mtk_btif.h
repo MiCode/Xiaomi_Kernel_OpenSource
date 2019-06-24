@@ -25,7 +25,6 @@
 #include <linux/string.h>
 #include <linux/time.h>		/* gettimeofday */
 #include <asm-generic/bug.h>
-#include <linux/irqchip/mtk-gic-extend.h> /* for mt_irq_dump_status() */
 
 #include "btif_pub.h"
 #include "btif_dma_pub.h"
