@@ -156,6 +156,22 @@ struct synx_registered_ops {
 };
 
 /**
+ * struct synx_import_data - Import metadata for sharing synx handles
+ * with processes
+ *
+ * @key      : Import key for sharing synx handle
+ * @synx_obj : Synx handle being exported
+ * @row      : Pointer to synx object
+ * @list     : List member used to append the node to import list
+ */
+struct synx_import_data {
+	u32 key;
+	s32 synx_obj;
+	struct synx_table_row *row;
+	struct list_head list;
+};
+
+/**
  * struct synx_device - Internal struct to book keep synx driver details
  *
  * @cdev          : Character device
@@ -175,6 +191,7 @@ struct synx_registered_ops {
  * debugfs_root   : Root directory for debugfs
  * synx_node_head : list head for synx nodes
  * synx_node_list_lock : Spinlock for synx nodes
+ * import_list    : List to validate synx import requests
  */
 struct synx_device {
 	struct cdev cdev;
@@ -194,6 +211,7 @@ struct synx_device {
 	struct dentry *debugfs_root;
 	struct list_head synx_debug_head;
 	spinlock_t synx_node_list_lock;
+	struct list_head import_list;
 };
 
 /**
