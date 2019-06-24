@@ -202,11 +202,16 @@ static int qcn_send_meta_info(u8 event, u32 data)
 	value =	META_INFO(event, data);
 
 	sdio_claim_host(sdio_ctxt->func);
-	for (i = 0; i < 4; i++) {
-		temp = (u8)((value >> (i * 8)) & 0x000000FF);
-		sdio_writeb(sdio_ctxt->func, temp, (SDIO_QCN_HRQ_PUSH + i),
-									&ret);
+	if (sdio_ctxt->curr_sw_mode < QCN_SDIO_SW_SBL) {
+		for (i = 0; i < 4; i++) {
+			temp = (u8)((value >> (i * 8)) & 0x000000FF);
+			sdio_writeb(sdio_ctxt->func, temp,
+						(SDIO_QCN_HRQ_PUSH + i), &ret);
+		}
+	} else {
+		sdio_writel(sdio_ctxt->func, value, SDIO_QCN_HRQ_PUSH, &ret);
 	}
+
 	sdio_release_host(sdio_ctxt->func);
 
 	return ret;
@@ -224,12 +229,17 @@ static int qcn_read_crq_info(void)
 	struct sdio_al_channel_handle *ch_handle = NULL;
 
 	sdio_claim_host(sdio_ctxt->func);
-	for (i = 0; i < 4; i++) {
-		temp = sdio_readb(sdio_ctxt->func, (SDIO_QCN_CRQ_PULL + i),
-				  &ret);
-		temp = temp << (i * 8);
-		data |= temp;
+	if (sdio_ctxt->curr_sw_mode < QCN_SDIO_SW_SBL) {
+		for (i = 0; i < 4; i++) {
+			temp = sdio_readb(sdio_ctxt->func,
+						(SDIO_QCN_CRQ_PULL + i), &ret);
+			temp = temp << (i * 8);
+			data |= temp;
+		}
+	} else {
+		data = sdio_readl(sdio_ctxt->func, SDIO_QCN_CRQ_PULL, &ret);
 	}
+
 	sdio_release_host(sdio_ctxt->func);
 	if (ret)
 		return ret;
@@ -434,11 +444,15 @@ static int qcn_read_meta_info(void)
 
 	sdio_claim_host(sdio_ctxt->func);
 
-	for (i = 0; i < 4; i++) {
-		temp = sdio_readb(sdio_ctxt->func, (SDIO_QCN_LOCAL_INFO + i),
-									&ret);
-		temp = temp << (i * 8);
-		data |= temp;
+	if (sdio_ctxt->curr_sw_mode < QCN_SDIO_SW_SBL) {
+		for (i = 0; i < 4; i++) {
+			temp = sdio_readb(sdio_ctxt->func,
+					(SDIO_QCN_LOCAL_INFO + i), &ret);
+			temp = temp << (i * 8);
+			data |= temp;
+		}
+	} else {
+		data = sdio_readl(sdio_ctxt->func, SDIO_QCN_LOCAL_INFO,	&ret);
 	}
 
 	sdio_writeb(sdio_ctxt->func, (u8)SDIO_QCN_IRQ_CLR_LOCAL_MASK,
