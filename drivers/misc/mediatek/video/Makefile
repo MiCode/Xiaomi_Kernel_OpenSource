@@ -10,7 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-
+subdir-ccflags-y += -Wno-error
 ################################################################################
 # FrameBuffer Driver for Display
 #

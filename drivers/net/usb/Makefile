@@ -9,6 +9,7 @@ obj-$(CONFIG_USB_PEGASUS)	+= pegasus.o
 obj-$(CONFIG_USB_RTL8150)	+= rtl8150.o
 obj-$(CONFIG_USB_RTL8152)	+= r8152.o
 obj-$(CONFIG_USB_HSO)		+= hso.o
+CFLAGS_lan78xx.o = -Wno-self-assign
 obj-$(CONFIG_USB_LAN78XX)	+= lan78xx.o
 obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
 asix-y := asix_devices.o asix_common.o ax88172a.o
