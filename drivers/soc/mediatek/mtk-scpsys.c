@@ -145,6 +145,8 @@ struct scp_domain_data {
 	u32 sram_pdn_bits;
 	u32 sram_pdn_ack_bits;
 	u32 bus_prot_mask;
+	int extb_iso_offs;
+	u32 extb_iso_bits;
 	enum clk_id clk_id[MAX_CLKS];
 	const char *basic_clk_name[MAX_CLKS];
 	const char *subsys_clk_prefix;
@@ -368,6 +370,36 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd)
 	return ret;
 }
 
+static void scpsys_extb_iso_down(struct scp_domain *scpd)
+{
+	u32 val;
+	struct scp *scp;
+	void __iomem *ctl_addr;
+
+	if (!scpd->data->extb_iso_offs)
+		return;
+
+	scp = scpd->scp;
+	ctl_addr = scp->base + scpd->data->extb_iso_offs;
+	val = readl(ctl_addr) & ~scpd->data->extb_iso_bits;
+	writel(val, ctl_addr);
+}
+
+static void scpsys_extb_iso_up(struct scp_domain *scpd)
+{
+	u32 val;
+	struct scp *scp;
+	void __iomem *ctl_addr;
+
+	if (!scpd->data->extb_iso_offs)
+		return;
+
+	scp = scpd->scp;
+	ctl_addr = scp->base + scpd->data->extb_iso_offs;
+	val = readl(ctl_addr) | scpd->data->extb_iso_bits;
+	writel(val, ctl_addr);
+}
+
 static int scpsys_power_on(struct generic_pm_domain *genpd)
 {
 	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
@@ -379,6 +411,8 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
 		return ret;
+
+	scpsys_extb_iso_down(scpd);
 
 	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
 	if (ret)
@@ -444,6 +478,7 @@ err_sram:
 err_pwr_ack:
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 err_clk:
+	scpsys_extb_iso_up(scpd);
 	scpsys_regulator_disable(scpd);
 
 	dev_err(scp->dev, "Failed to power on domain %s\n", genpd->name);
@@ -492,6 +527,8 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 		goto out;
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+
+	scpsys_extb_iso_up(scpd);
 
 	ret = scpsys_regulator_disable(scpd);
 	if (ret < 0)
