@@ -7386,6 +7386,9 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag,
 
 	result = SELECT_TASK_RQ_FAIR(p, prev_cpu, sd_flag, wake_flags,
 		sibling_count_hint);
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	select_task_prefer_cpu_fair(p, &result);
+#endif
 	cpu = (result & LB_CPU_MASK);
 
 	trace_sched_select_task_rq(p, result, prev_cpu, cpu,
@@ -9954,6 +9957,15 @@ more_balance:
 				env.flags |= LBF_ALL_PINNED;
 				goto out_one_pinned;
 			}
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+			if (task_prefer_fit(busiest->curr, cpu_of(busiest))) {
+				raw_spin_unlock_irqrestore(&busiest->lock,
+							    flags);
+				env.flags |= LBF_ALL_PINNED;
+				goto out_one_pinned;
+			}
+#endif
 
 			/*
 			 * ->active_balance synchronizes accesses to

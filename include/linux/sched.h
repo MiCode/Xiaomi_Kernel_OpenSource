@@ -699,6 +699,9 @@ struct task_struct {
 	int				wake_cpu;
 #endif
 	int				on_rq;
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	int				cpu_prefer;
+#endif
 
 	int				prio;
 	int				static_prio;

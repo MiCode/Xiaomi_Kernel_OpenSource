@@ -1455,6 +1455,9 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 	rcu_read_unlock();
 
 out:
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	cpu = select_task_prefer_cpu(p, cpu);
+#endif
 	return cpu;
 }
 

@@ -37,3 +37,17 @@ config MTK_SCHED_TRACERS
 	  Say Y to enable mtk scheduling trace.If unsure, say N
 
 endmenu
+
+menu "MTK Heterogenous MultiProcessor Scheduler"
+config MTK_SCHED_CPU_PREFER
+	bool "mtk scheduling boost enhancement"
+	depends on ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
+	help
+	   task level to prefer to put the task
+	   on big core or little core.
+	   If the preferred type CPU has IDLE CPU,
+	   put on the task on the idle CPU.
+	   If there are no IDLE CPU on preferred type CPU,
+	   the task placement will follow original policy.
+endmenu
+

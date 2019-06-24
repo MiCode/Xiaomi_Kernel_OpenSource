@@ -174,6 +174,184 @@ inline unsigned int cpu_is_slowest(int cpu)
 }
 EXPORT_SYMBOL(cpu_is_slowest);
 #endif
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+/*
+ * check if the task or the whole system to prefer to put on big core
+ *
+ */
+int cpu_prefer(struct task_struct *p)
+{
+	return p->cpu_prefer;
+}
+
+int task_prefer_little(struct task_struct *p)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_LITTLE)
+		return 1;
+
+	return 0;
+}
+
+int task_prefer_big(struct task_struct *p)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_BIG)
+		return 1;
+
+	return 0;
+}
+
+int task_prefer_match(struct task_struct *p, int cpu)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 1;
+
+	if (task_prefer_little(p) && cpu_is_slowest(cpu))
+		return 1;
+
+	if (task_prefer_big(p) && cpu_is_fastest(cpu))
+		return 1;
+
+	return 0;
+}
+
+inline int hinted_cpu_prefer(int task_prefer)
+{
+	if (task_prefer <= SCHED_PREFER_NONE || task_prefer >= SCHED_PREFER_END)
+		return 0;
+
+	return 1;
+}
+
+int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
+{
+	int task_prefer;
+	struct perf_order_domain *domain;
+	struct perf_order_domain *tmp_domain[5] = {0, 0, 0, 0, 0};
+	int i, iter_domain, domain_cnt = 0;
+	int iter_cpu;
+	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+
+	task_prefer = cpu_prefer(p);
+
+	if (!hinted_cpu_prefer(task_prefer))
+		return new_cpu;
+
+	for_each_perf_domain_ascending(domain) {
+		tmp_domain[domain_cnt] = domain;
+		domain_cnt++;
+	}
+
+	for (i = 0; i < domain_cnt; i++) {
+		iter_domain = (task_prefer == SCHED_PREFER_BIG) ?
+				domain_cnt-i-1 : i;
+		domain = tmp_domain[iter_domain];
+
+		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus))
+			return new_cpu;
+
+		for_each_cpu(iter_cpu, &domain->possible_cpus) {
+
+			/* tsk with prefer idle to find bigger idle cpu */
+			if (!cpu_online(iter_cpu) ||
+				!cpumask_test_cpu(iter_cpu, tsk_cpus_allow))
+				continue;
+
+			/* favoring tasks that prefer idle cpus
+			 * to improve latency.
+			 */
+			if (idle_cpu(iter_cpu))
+				return iter_cpu;
+
+		}
+	}
+
+	return new_cpu;
+}
+
+void select_task_prefer_cpu_fair(struct task_struct *p, int *result)
+{
+	int task_prefer;
+	int cpu, new_cpu;
+
+	task_prefer = cpu_prefer(p);
+
+	cpu = (*result & LB_CPU_MASK);
+
+	if (task_prefer_match(p, cpu))
+		return;
+
+	new_cpu = select_task_prefer_cpu(p, cpu);
+
+	if ((new_cpu >= 0)  && (new_cpu != cpu))
+		*result = new_cpu | LB_CPU_PREFER;
+}
+
+int task_prefer_fit(struct task_struct *p, int cpu)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 0;
+
+	if (task_prefer_little(p) && cpu_is_slowest(cpu))
+		return 1;
+
+	if (task_prefer_big(p) && cpu_is_fastest(cpu))
+		return 1;
+
+	return 0;
+}
+
+int
+task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu)
+{
+	/* No need to migrate*/
+	if (is_intra_domain(src_cpu, target_cpu))
+		return 1;
+
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 1;
+
+	if (task_prefer_little(p) && cpu_is_slowest(src_cpu))
+		return 1;
+
+	if (task_prefer_big(p) && cpu_is_fastest(src_cpu))
+		return 1;
+
+	return 0;
+}
+
+inline int valid_cpu_prefer(int task_prefer)
+{
+	if (task_prefer < SCHED_PREFER_NONE || task_prefer >= SCHED_PREFER_END)
+		return 0;
+
+	return 1;
+}
+
+int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
+{
+	struct task_struct *p;
+	unsigned long flags;
+	int retval = 0;
+
+	if (!valid_cpu_prefer(prefer_type) || pid < 0)
+		return -EINVAL;
+
+	rcu_read_lock();
+	retval = -ESRCH;
+	p = find_task_by_vpid(pid);
+	if (p != NULL) {
+		raw_spin_lock_irqsave(&p->pi_lock, flags);
+		p->cpu_prefer = prefer_type;
+		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+		trace_sched_set_cpuprefer(p);
+	}
+	rcu_read_unlock();
+
+	return retval;
+}
+#endif
+
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 static inline struct task_struct *task_of(struct sched_entity *se)
 {

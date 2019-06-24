@@ -19,6 +19,9 @@
 #define LB_WAKE_AFFINE   (0x2  << LB_POLICY_SHIFT)
 #define LB_IDLEST        (0x4  << LB_POLICY_SHIFT)
 #define LB_IDLE_SIBLING  (0x8  << LB_POLICY_SHIFT)
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+#define LB_CPU_PREFER   (0x10  << LB_POLICY_SHIFT)
+#endif
 
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 struct perf_order_domain {
@@ -58,3 +61,15 @@ int active_load_balance_cpu_stop(void *data);
 #endif
 
 #endif
+
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+#define SCHED_PREFER_NONE   0
+#define SCHED_PREFER_BIG    1
+#define SCHED_PREFER_LITTLE 2
+#define SCHED_PREFER_END    3
+
+int task_prefer_fit(struct task_struct *p, int cpu);
+int select_task_prefer_cpu(struct task_struct *p, int new_cpu);
+void select_task_prefer_cpu_fair(struct task_struct *p, int *result);
+#endif
+
