@@ -466,6 +466,8 @@ int ipa_wigig_send_msg(int msg_type,
 	const char *netdev_name, u8 *mac,
 	enum ipa_client_type client, bool to_wigig);
 
+int ipa_wigig_save_regs(void);
+
 void ipa_register_client_callback(int (*client_cb)(bool is_lock),
 			bool (*teth_port_state)(void), u32 ipa_ep_idx);
 
