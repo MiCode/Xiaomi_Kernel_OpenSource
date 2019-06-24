@@ -1,0 +1,10 @@
+config MTK_IOMMU_MISC
+	bool "misc iommu driver for secondary feature"
+	depends on MTK_IOMMU_V2
+	help
+	  Choose this option to enable mediatek misc iommu driver.
+	  For common kernel, misc iommu includes the secondary feature
+	  about m4u hardware. For example, it can implement m4u secure
+	  driver for SVP or debug feature. Secure m4u driver can map
+	  non-physical continuous secure memory to continuous modified
+	  virtual address.

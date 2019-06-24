@@ -68,5 +68,9 @@
 #define MTK_SIP_KERNEL_AMMS_GET_SEQ_ID \
 	(0x82000258 | MTK_SIP_SMC_AARCH_BIT)
 
+/*  M4U related SMC call */
+#define MTK_M4U_DEBUG_DUMP \
+		(0x820003E0 | MTK_SIP_SMC_AARCH_BIT)
+
 #endif				/* _MTK_SECURE_API_H_ */
 
