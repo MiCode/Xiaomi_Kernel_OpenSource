@@ -52,6 +52,8 @@ struct qcn_sdio {
 	struct qcn_sdio_rw_info rw_req_info[QCN_SDIO_RW_REQ_MAX];
 	struct list_head rw_free_q;
 	struct list_head rw_wait_q;
+	atomic_t free_list_count;
+	atomic_t wait_list_count;
 	struct workqueue_struct *qcn_sdio_wq;
 	struct work_struct sdio_rw_w;
 };
@@ -122,6 +124,7 @@ static void qcn_sdio_free_rw_req(struct qcn_sdio_rw_info *rw_req)
 {
 	spin_lock(&sdio_ctxt->lock_free_q);
 	list_add_tail(&rw_req->list, &sdio_ctxt->rw_free_q);
+	atomic_inc(&sdio_ctxt->free_list_count);
 	spin_unlock(&sdio_ctxt->lock_free_q);
 }
 
@@ -144,6 +147,7 @@ static struct qcn_sdio_rw_info *qcn_sdio_alloc_rw_req(void)
 	rw_req = list_first_entry(&sdio_ctxt->rw_free_q,
 						struct qcn_sdio_rw_info, list);
 	list_del(&rw_req->list);
+	atomic_dec(&sdio_ctxt->free_list_count);
 	spin_unlock(&sdio_ctxt->lock_free_q);
 
 	return rw_req;
@@ -153,6 +157,7 @@ static void qcn_sdio_add_rw_req(struct qcn_sdio_rw_info *rw_req)
 {
 	spin_lock(&sdio_ctxt->lock_wait_q);
 	list_add_tail(&rw_req->list, &sdio_ctxt->rw_wait_q);
+	atomic_inc(&sdio_ctxt->wait_list_count);
 	spin_unlock(&sdio_ctxt->lock_wait_q);
 }
 
@@ -626,6 +631,7 @@ static void qcn_sdio_rw_work(struct work_struct *work)
 					ch_handle, result, rw_req->ctxt);
 		atomic_set(&sdio_ctxt->ch_status[rw_req->cid], 0);
 		qcn_sdio_free_rw_req(rw_req);
+		atomic_dec(&sdio_ctxt->wait_list_count);
 	}
 }
 
@@ -1027,6 +1033,9 @@ int sdio_al_queue_transfer_async(struct sdio_al_channel_handle *handle,
 	if (!(cid < QCN_SDIO_CH_MAX) &&
 				(atomic_read(&sdio_ctxt->ch_status[cid]) < 0))
 		return -EINVAL;
+
+	if (dir == SDIO_AL_TX && atomic_read(&sdio_ctxt->free_list_count) <= 8)
+		return -ENOMEM;
 
 	rw_req = qcn_sdio_alloc_rw_req();
 	if (!rw_req)
