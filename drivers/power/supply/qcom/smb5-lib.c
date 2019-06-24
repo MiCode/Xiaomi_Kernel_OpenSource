@@ -5584,6 +5584,9 @@ static void typec_src_removal(struct smb_charger *chg)
 	chg->voltage_max_uv = MICRO_5V;
 	chg->usbin_forced_max_uv = 0;
 
+	/* Reset CC mode Votes */
+	vote(chg->fcc_main_votable, MAIN_FCC_VOTER, false, 0);
+
 	/* write back the default FLOAT charger configuration */
 	rc = smblib_masked_write(chg, USBIN_OPTIONS_2_CFG_REG,
 				(u8)FLOAT_OPTIONS_MASK, chg->float_cfg);
@@ -6790,6 +6793,13 @@ static int smblib_create_votables(struct smb_charger *chg)
 	if (chg->fcc_votable == NULL) {
 		rc = -EINVAL;
 		smblib_err(chg, "Couldn't find FCC votable rc=%d\n", rc);
+		return rc;
+	}
+
+	chg->fcc_main_votable = find_votable("FCC_MAIN");
+	if (chg->fcc_main_votable == NULL) {
+		rc = -EINVAL;
+		smblib_err(chg, "Couldn't find FCC Main votable rc=%d\n", rc);
 		return rc;
 	}
 

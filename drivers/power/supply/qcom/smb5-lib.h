@@ -71,6 +71,7 @@ enum print_reason {
 #define CHARGER_TYPE_VOTER		"CHARGER_TYPE_VOTER"
 #define HDC_IRQ_VOTER			"HDC_IRQ_VOTER"
 #define DETACH_DETECT_VOTER		"DETACH_DETECT_VOTER"
+#define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -391,6 +392,7 @@ struct smb_charger {
 	/* votables */
 	struct votable		*dc_suspend_votable;
 	struct votable		*fcc_votable;
+	struct votable		*fcc_main_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
 	struct votable		*awake_votable;
