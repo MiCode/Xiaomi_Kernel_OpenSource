@@ -63,6 +63,7 @@ struct completion client_probe_complete;
 static struct mutex lock;
 static struct list_head cinfo_head;
 static atomic_t status;
+static spinlock_t async_lock;
 
 #if (QCN_SDIO_META_VER_0)
 #define	META_INFO(event, data)						  \
@@ -660,6 +661,7 @@ int qcn_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 
 	spin_lock_init(&sdio_ctxt->lock_free_q);
 	spin_lock_init(&sdio_ctxt->lock_wait_q);
+	spin_lock_init(&async_lock);
 	INIT_WORK(&sdio_ctxt->sdio_rw_w, qcn_sdio_rw_work);
 	INIT_LIST_HEAD(&sdio_ctxt->rw_free_q);
 	INIT_LIST_HEAD(&sdio_ctxt->rw_wait_q);
@@ -984,38 +986,6 @@ void sdio_al_deregister_channel(struct sdio_al_channel_handle *ch_handle)
 }
 EXPORT_SYMBOL(sdio_al_deregister_channel);
 
-int sdio_al_queue_transfer(struct sdio_al_channel_handle *ch_handle,
-		enum sdio_al_dma_direction dir,
-		void *buf, size_t len, int priority)
-{
-	int ret = 0;
-	u32 cid = QCN_SDIO_CH_MAX;
-
-	if (!ch_handle) {
-		pr_err("%s: SDIO: Invalid Param\n", __func__);
-		return -EINVAL;
-	}
-
-	cid = ch_handle->channel_id;
-
-	if (!(cid < QCN_SDIO_CH_MAX))
-		return -EINVAL;
-
-	if (dir == SDIO_AL_RX) {
-		ret = qcn_sdio_recv_buff(cid, buf, len);
-		if (rx_dump)
-			HEX_DUMP("SYNC_RECV: ", buf, len);
-	} else if (dir == SDIO_AL_TX) {
-		ret = qcn_sdio_send_buff(cid, buf, len);
-		if (tx_dump)
-			HEX_DUMP("SYNC_SEND: ", buf, len);
-	} else
-		ret = -EINVAL;
-
-	return ret;
-}
-EXPORT_SYMBOL(sdio_al_queue_transfer);
-
 int sdio_al_queue_transfer_async(struct sdio_al_channel_handle *handle,
 		enum sdio_al_dma_direction dir,
 		void *buf, size_t len, int priority, void *ctxt)
@@ -1046,12 +1016,67 @@ int sdio_al_queue_transfer_async(struct sdio_al_channel_handle *handle,
 	rw_req->buf = buf;
 	rw_req->len = len;
 	rw_req->ctxt = ctxt;
+
+	if (dir == SDIO_AL_RX)
+		spin_lock(&async_lock);
+
 	qcn_sdio_add_rw_req(rw_req);
 	queue_work(sdio_ctxt->qcn_sdio_wq, &sdio_ctxt->sdio_rw_w);
+
+	if (dir == SDIO_AL_RX)
+		spin_unlock(&async_lock);
 
 	return 0;
 }
 EXPORT_SYMBOL(sdio_al_queue_transfer_async);
+
+int sdio_al_queue_transfer(struct sdio_al_channel_handle *ch_handle,
+		enum sdio_al_dma_direction dir,
+		void *buf, size_t len, int priority)
+{
+	int ret = 0;
+	u32 cid = QCN_SDIO_CH_MAX;
+
+	if (!ch_handle) {
+		pr_err("%s: SDIO: Invalid Param\n", __func__);
+		return -EINVAL;
+	}
+
+	if (dir == SDIO_AL_RX && !list_empty(&sdio_ctxt->rw_wait_q) &&
+				!atomic_read(&sdio_ctxt->wait_list_count)) {
+		sdio_al_queue_transfer_async(ch_handle, dir, buf, len, true,
+							(void *)(uintptr_t)len);
+		pr_info("%s: switching to async\n", __func__);
+		ret = 1;
+	} else {
+		cid = ch_handle->channel_id;
+
+		if (!(cid < QCN_SDIO_CH_MAX))
+			return -EINVAL;
+
+		if (dir == SDIO_AL_RX) {
+			if (!atomic_read(&sdio_ctxt->wait_list_count))
+				ret = qcn_sdio_recv_buff(cid, buf, len);
+			else {
+				sdio_al_queue_transfer_async(ch_handle, dir,
+					buf, len, true, (void *)(uintptr_t)len);
+				pr_info("%s switching to async\n", __func__);
+				ret = 1;
+			}
+
+			if (rx_dump)
+				HEX_DUMP("SYNC_RECV: ", buf, len);
+		} else if (dir == SDIO_AL_TX) {
+			ret = qcn_sdio_send_buff(cid, buf, len);
+			if (tx_dump)
+				HEX_DUMP("SYNC_SEND: ", buf, len);
+		} else
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(sdio_al_queue_transfer);
 
 int sdio_al_meta_transfer(struct sdio_al_channel_handle *handle,
 					unsigned int data, unsigned int trans)
