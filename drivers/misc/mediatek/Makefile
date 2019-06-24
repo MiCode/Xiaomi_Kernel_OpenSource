@@ -21,3 +21,5 @@ obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
 obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
+obj-$(CONFIG_MTK_SMI) += smi/
+
