@@ -332,7 +332,7 @@ static uint32_t get_permission(int vio_index, int domain)
 		return DEAD;
 	}
 
-	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET,
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_DUMP,
 			slave_type, domain, config_idx, 0, 0, 0, 0, &res);
 	ret = res.a0;
 
@@ -670,7 +670,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		pr_info(PFX "domain id = %lu\n", domain);
 		pr_info(PFX "slave config_idx = %lu\n", index);
 
-		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET,
+		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_DUMP,
 				slave_type, domain, index, 0, 0, 0, 0, &res);
 		ret = res.a0;
 
