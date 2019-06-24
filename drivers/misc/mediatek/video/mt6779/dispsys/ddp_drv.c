@@ -233,6 +233,11 @@ static void disp_clk_init(struct platform_device *pdev)
 	DDPMSG("DT disp clk parse end\n");
 }
 
+static void disp_power_init(struct platform_device *pdev)
+{
+	ddp_power_set_handle(&pdev->dev);
+}
+
 #ifdef CONFIG_MTK_IOMMU_V2
 static struct disp_iommu_device disp_iommu;
 
@@ -511,8 +516,10 @@ static int disp_probe(struct platform_device *pdev)
 
 	disp_helper_option_init();
 
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		disp_power_init(pdev);
 		disp_clk_init(pdev);
+	}
 
 	disp_probe_cnt++;
 
