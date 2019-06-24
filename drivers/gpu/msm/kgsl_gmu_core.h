@@ -21,6 +21,12 @@
 	(((_devops) != NULL) && \
 	 ((_devops)->_field != NULL))
 
+#define GMU_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define GMU_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define GMU_VER_STEP(ver) (((ver) >> 0) & 0xFFFF)
+#define GMU_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
+
 #define NUM_BW_LEVELS		100
 #define MAX_GX_LEVELS		16
 #define MAX_CX_LEVELS		4

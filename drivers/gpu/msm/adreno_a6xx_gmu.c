@@ -1329,7 +1329,7 @@ static uint32_t lm_limit(struct adreno_device *adreno_dev)
 }
 
 static int a640_throttling_counters[ADRENO_GPMU_THROTTLE_COUNTERS] = {
-	0x11, 0x15, 0x19
+	0x11, 0x15, 0x19,
 };
 
 static void _setup_throttling_counters(struct adreno_device *adreno_dev)
@@ -1337,6 +1337,10 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	int i, ret;
+
+	/* Select counter for 5% throttling instead of 15% */
+	if (GMU_VER_STEP(gmu->ver) > 0x104)
+		a640_throttling_counters[0] = 0x10;
 
 	for (i = 0; i < ARRAY_SIZE(a640_throttling_counters); i++) {
 		adreno_dev->busy_data.throttle_cycles[i] = 0;
