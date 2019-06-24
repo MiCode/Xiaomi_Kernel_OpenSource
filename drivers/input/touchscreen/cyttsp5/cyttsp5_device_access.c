@@ -4885,7 +4885,7 @@ static void cyttsp5_cmcp_parse_threshold_file(const struct firmware *fw,
 		cyttsp5_get_device_access_data(dev);
 
 	if (!fw) {
-		dev_info(dev, "%s: No builtin cmcp threshold file\n", __func__);
+		dev_dbg(dev, "%s: No builtin cmcp threshold file\n", __func__);
 		goto exit;
 	}
 
