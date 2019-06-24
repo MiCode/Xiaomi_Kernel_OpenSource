@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -920,6 +920,11 @@ static int gsi_startxfer_for_ep(struct usb_ep *ep)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3	*dwc = dep->dwc;
 
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		dbg_log_string("ep:%s disabled\n", ep->name);
+		return -ESHUTDOWN;
+	}
+
 	memset(&params, 0, sizeof(params));
 	params.param0 = GSI_TRB_ADDR_BIT_53_MASK | GSI_TRB_ADDR_BIT_55_MASK;
 	params.param0 |= (ep->ep_intr_num << 16);
@@ -1090,6 +1095,11 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 					: (req->num_bufs + 2);
 	struct scatterlist *sg;
 	struct sg_table *sgt;
+
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		dbg_log_string("ep:%s disabled\n", ep->name);
+		return -ESHUTDOWN;
+	}
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
@@ -2021,6 +2031,15 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 					DWC3_GEVNTSIZ_INTMASK |
 					DWC3_GEVNTSIZ_SIZE((i+1)));
 			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), 0);
+		}
+		break;
+	case DWC3_GSI_EVT_BUF_CLEAR:
+		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_CLEAR\n");
+		for (i = 0; i < mdwc->num_gsi_event_buffers; i++) {
+			reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT((i+1)));
+			reg &= DWC3_GEVNTCOUNT_MASK;
+			dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT((i+1)), reg);
+			dbg_log_string("remaining EVNTCOUNT(%d)=%d", i+1, reg);
 		}
 		break;
 	case DWC3_GSI_EVT_BUF_FREE:

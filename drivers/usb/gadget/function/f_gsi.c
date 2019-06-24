@@ -213,6 +213,8 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 		return -ENODEV;
 	}
 
+	gsi->rwake_inprogress = true;
+
 	/*
 	 * In Super-Speed mode, remote wakeup is not allowed for suspended
 	 * functions which have been disallowed by the host to issue Function
@@ -234,6 +236,9 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 		log_event_dbg("RW delayed due to LPM exit.");
 	else if (ret)
 		log_event_err("wakeup failed. ret=%d.", ret);
+
+	if (ret)
+		gsi->rwake_inprogress = false;
 
 	return ret;
 }
@@ -512,7 +517,8 @@ int ipa_usb_notify_cb(enum ipa_usb_notify_event event,
 		break;
 
 	case IPA_USB_REMOTE_WAKEUP:
-		gsi_wakeup_host(gsi);
+		if (!gsi->rwake_inprogress)
+			gsi_wakeup_host(gsi);
 		break;
 
 	case IPA_USB_SUSPEND_COMPLETED:
@@ -541,10 +547,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
 
 	log_event_dbg("%s: USB GSI IN OPS", __func__);
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 		GSI_EP_OP_PREPARE_TRBS);
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 			GSI_EP_OP_STARTXFER);
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+				__func__, ret);
+		return ret;
+	}
+
 	d_port->in_xfer_rsc_index = usb_gsi_ep_op(d_port->in_ep, NULL,
 			GSI_EP_OP_GET_XFER_IDX);
 
@@ -585,10 +603,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 
 	if (d_port->out_ep) {
 		log_event_dbg("%s: USB GSI OUT OPS", __func__);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 			GSI_EP_OP_PREPARE_TRBS);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+					__func__, ret);
+			return ret;
+		}
+
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 				GSI_EP_OP_STARTXFER);
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+					__func__, ret);
+			return ret;
+		}
+
 		d_port->out_xfer_rsc_index =
 			usb_gsi_ep_op(d_port->out_ep,
 				NULL, GSI_EP_OP_GET_XFER_IDX);
@@ -1137,8 +1167,9 @@ static void gsi_ctrl_clear_cpkt_queues(struct f_gsi *gsi, bool skip_req_q)
 {
 	struct gsi_ctrl_pkt *cpkt = NULL;
 	struct list_head *act, *tmp;
+	unsigned long flags;
 
-	spin_lock(&gsi->c_port.lock);
+	spin_lock_irqsave(&gsi->c_port.lock, flags);
 	if (skip_req_q)
 		goto clean_resp_q;
 
@@ -1153,7 +1184,7 @@ clean_resp_q:
 		list_del(&cpkt->list);
 		gsi_ctrl_pkt_free(cpkt);
 	}
-	spin_unlock(&gsi->c_port.lock);
+	spin_unlock_irqrestore(&gsi->c_port.lock, flags);
 }
 
 static int gsi_ctrl_send_cpkt_tomodem(struct f_gsi *gsi, void *buf, size_t len)
@@ -1402,7 +1433,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 						ctrl_device);
 	struct f_gsi *gsi;
 	struct gsi_ctrl_pkt *cpkt;
-	struct ep_info info = { {0} };
+	struct ep_info info = { {0}, {0} };
 	int val, ret = 0;
 	unsigned long flags;
 
@@ -2621,6 +2652,8 @@ static void gsi_resume(struct usb_function *f)
 			!usb_gsi_remote_wakeup_allowed(f) &&
 			gsi->host_supports_flow_control)
 		rndis_flow_control(gsi->params, false);
+
+	gsi->rwake_inprogress = false;
 
 	post_event(&gsi->d_port, EVT_RESUMED);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
