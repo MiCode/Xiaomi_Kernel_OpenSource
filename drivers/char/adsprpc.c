@@ -48,6 +48,7 @@
 #define ADSP_MMAP_HEAP_ADDR 4
 #define ADSP_MMAP_REMOTE_HEAP_ADDR 8
 #define ADSP_MMAP_ADD_PAGES 0x1000
+#define ADSP_MMAP_ADD_PAGES_LLC  0x3000
 #define FASTRPC_DMAHANDLE_NOMAP (16)
 
 #define FASTRPC_ENOSUCH 39
@@ -2789,7 +2790,8 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 
 	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(rbuf, n, &fl->remote_bufs, hn_rem) {
-		if (rbuf->raddr && (rbuf->flags == ADSP_MMAP_ADD_PAGES)) {
+		if (rbuf->raddr && ((rbuf->flags == ADSP_MMAP_ADD_PAGES) ||
+				    (rbuf->flags == ADSP_MMAP_ADD_PAGES_LLC))) {
 			if ((rbuf->raddr == ud->vaddrout) &&
 				(rbuf->size == ud->size)) {
 				free = rbuf;
@@ -2881,7 +2883,8 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		goto bail;
 	}
 	mutex_lock(&fl->internal_map_mutex);
-	if (ud->flags == ADSP_MMAP_ADD_PAGES) {
+	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
+	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) {
 		if (ud->vaddrin) {
 			err = -EINVAL;
 			pr_err("adsprpc: %s: %s: ERROR: adding user allocated pages is not supported\n",
@@ -2892,6 +2895,8 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 					DMA_ATTR_DELAYED_UNMAP |
 					DMA_ATTR_NO_KERNEL_MAPPING |
 					DMA_ATTR_FORCE_NON_COHERENT;
+		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
+			dma_attr |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
 								1, &rbuf);
 		if (err)
