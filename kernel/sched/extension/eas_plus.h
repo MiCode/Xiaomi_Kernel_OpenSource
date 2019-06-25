@@ -24,6 +24,7 @@ struct perf_order_domain {
 };
 
 extern void init_perf_order_domains(void);
+extern struct list_head perf_order_domains;
 #define perf_order_cpu_domain(cpu) (per_cpu(perf_order_cpu_domain, (cpu)))
 #define for_each_perf_domain(pod) for_each_perf_domain_descending(pod)
 #define for_each_perf_domain_descending(pod) \
