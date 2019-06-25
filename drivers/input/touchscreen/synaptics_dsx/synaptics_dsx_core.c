@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -1013,9 +1013,11 @@ static int synaptics_rmi4_f12_wg(struct synaptics_rmi4_data *rmi4_data,
 	}
 
 	if (enable)
-		reporting_control[rmi4_data->set_wakeup_gesture] = F12_WAKEUP_GESTURE_MODE;
+		reporting_control[rmi4_data->set_wakeup_gesture] =
+					F12_WAKEUP_GESTURE_MODE;
 	else
-		reporting_control[rmi4_data->set_wakeup_gesture] = F12_CONTINUOUS_MODE;
+		reporting_control[rmi4_data->set_wakeup_gesture] =
+					F12_CONTINUOUS_MODE;
 
 	retval = synaptics_rmi4_reg_write(rmi4_data,
 			fhandler->full_addr.ctrl_base + offset,
@@ -4360,10 +4362,11 @@ static void synaptics_rmi4_defer_probe(struct work_struct *work)
 	retval = synaptics_dsx_pinctrl_init(rmi4_data);
 		if (!retval && rmi4_data->ts_pinctrl) {
 			/*
-			* Pinctrl handle is optional. If pinctrl handle is found
-			* let pins to be configured in active state. If not
-			* found continue further without error.
-			*/
+			 * Pinctrl handle is optional.
+			 * If pinctrl handle is found let pins to be
+			 * configured in active state. If not found continue
+			 * further without error.
+			 */
 			retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
 					rmi4_data->pinctrl_state_active);
 			if (retval < 0) {
@@ -4537,8 +4540,6 @@ err_drm_init_wait:
 	cancel_work_sync(&rmi4_data->rmi4_probe_work);
 	destroy_workqueue(rmi4_data->rmi4_probe_wq);
 	kfree(rmi4_data);
-
-	return;
 }
 
 static int synaptics_rmi4_remove(struct platform_device *pdev)

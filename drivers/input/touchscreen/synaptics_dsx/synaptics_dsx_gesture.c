@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -906,9 +906,8 @@ static ssize_t udg_sysfs_trace_data_show(struct file *data_file,
 				"%s: Failed to read trace X data\n",
 				__func__);
 		return retval;
-	} else {
-		index += udg->trace_size * 2;
 	}
+	index += udg->trace_size * 2;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			udg->addr.trace_y,
@@ -919,9 +918,8 @@ static ssize_t udg_sysfs_trace_data_show(struct file *data_file,
 				"%s: Failed to read trace Y data\n",
 				__func__);
 		return retval;
-	} else {
-		index += udg->trace_size * 2;
 	}
+	index += udg->trace_size * 2;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			udg->addr.trace_segment,
@@ -2185,8 +2183,6 @@ static void synaptics_rmi4_udg_remove(struct synaptics_rmi4_data *rmi4_data)
 
 exit:
 	complete(&udg_remove_complete);
-
-	return;
 }
 
 static void synaptics_rmi4_udg_reset(struct synaptics_rmi4_data *rmi4_data)
@@ -2202,8 +2198,6 @@ static void synaptics_rmi4_udg_reset(struct synaptics_rmi4_data *rmi4_data)
 	udg_write_template_data();
 	udg_write_valid_data();
 #endif
-
-	return;
 }
 
 static void synaptics_rmi4_udg_reinit(struct synaptics_rmi4_data *rmi4_data)
@@ -2216,8 +2210,6 @@ static void synaptics_rmi4_udg_reinit(struct synaptics_rmi4_data *rmi4_data)
 	udg_write_template_data();
 	udg_write_valid_data();
 #endif
-
-	return;
 }
 
 static void synaptics_rmi4_udg_e_suspend(struct synaptics_rmi4_data *rmi4_data)
@@ -2231,8 +2223,6 @@ static void synaptics_rmi4_udg_e_suspend(struct synaptics_rmi4_data *rmi4_data)
 
 	udg_engine_enable(true);
 	udg_detection_enable(true);
-
-	return;
 }
 
 static void synaptics_rmi4_udg_suspend(struct synaptics_rmi4_data *rmi4_data)
@@ -2246,8 +2236,6 @@ static void synaptics_rmi4_udg_suspend(struct synaptics_rmi4_data *rmi4_data)
 
 	udg_engine_enable(true);
 	udg_detection_enable(true);
-
-	return;
 }
 
 static void synaptics_rmi4_udg_resume(struct synaptics_rmi4_data *rmi4_data)
@@ -2257,8 +2245,6 @@ static void synaptics_rmi4_udg_resume(struct synaptics_rmi4_data *rmi4_data)
 
 	disable_irq_wake(rmi4_data->irq);
 	udg_detection_enable(false);
-
-	return;
 }
 
 static void synaptics_rmi4_udg_l_resume(struct synaptics_rmi4_data *rmi4_data)
@@ -2268,8 +2254,6 @@ static void synaptics_rmi4_udg_l_resume(struct synaptics_rmi4_data *rmi4_data)
 
 	disable_irq_wake(rmi4_data->irq);
 	udg_detection_enable(false);
-
-	return;
 }
 
 static struct synaptics_rmi4_exp_fn gesture_module = {
@@ -2297,8 +2281,6 @@ static void __exit rmi4_gesture_module_exit(void)
 	synaptics_rmi4_new_function(&gesture_module, false);
 
 	wait_for_completion(&udg_remove_complete);
-
-	return;
 }
 
 module_init(rmi4_gesture_module_init);

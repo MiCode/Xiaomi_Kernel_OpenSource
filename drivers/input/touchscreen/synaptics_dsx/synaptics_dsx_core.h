@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2012-2016 Synaptics Incorporated. All rights reserved.
  *
- * Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
  *
@@ -62,15 +62,7 @@
 #else
 #define sstrtoul(...) strict_strtoul(__VA_ARGS__)
 #endif
-/*
-*#define F51_DISCRETE_FORCE
-*#ifdef F51_DISCRETE_FORCE
-*#define FORCE_LEVEL_ADDR 0x0419
-*#define FORCE_LEVEL_MAX 255
-*#define CAL_DATA_SIZE 144
-*#endif
-*#define SYNA_TDDI
-*/
+
 #define PDT_PROPS (0X00EF)
 #define PDT_START (0x00E9)
 #define PDT_END (0x00D0)
