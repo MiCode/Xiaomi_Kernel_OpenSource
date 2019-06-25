@@ -86,4 +86,5 @@ obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
 obj-$(CONFIG_BATTERY_MT6359)	+= mt6359-gauge.o
+obj-$(CONFIG_CHARGER_MT6360)	+= mt6360_charger.o
 obj-$(CONFIG_MTK_BATTERY) += mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_core.o mtk_battery_algo.o
