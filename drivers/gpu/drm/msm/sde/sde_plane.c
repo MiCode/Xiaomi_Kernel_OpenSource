@@ -68,8 +68,7 @@ enum {
 	R_MAX
 };
 
-#define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
-#define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
+#define SDE_QSEED_DEFAULT_DYN_EXP 0x0
 
 #define DEFAULT_REFRESH_RATE	60
 
@@ -1170,12 +1169,15 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 			scale_cfg->src_width[i] /= chroma_subsmpl_h;
 			scale_cfg->src_height[i] /= chroma_subsmpl_v;
 		}
-		scale_cfg->preload_x[i] = SDE_QSEED3_DEFAULT_PRELOAD_H;
-		scale_cfg->preload_y[i] = SDE_QSEED3_DEFAULT_PRELOAD_V;
+
+		scale_cfg->preload_x[i] = psde->pipe_sblk->scaler_blk.h_preload;
+		scale_cfg->preload_y[i] = psde->pipe_sblk->scaler_blk.v_preload;
+
 		pstate->pixel_ext.num_ext_pxls_top[i] =
 			scale_cfg->src_height[i];
 		pstate->pixel_ext.num_ext_pxls_left[i] =
 			scale_cfg->src_width[i];
+
 	}
 
 	if ((!(SDE_FORMAT_IS_YUV(fmt)) && (src_h == dst_h)
@@ -1196,6 +1198,7 @@ static void _sde_plane_setup_scaler3(struct sde_plane *psde,
 	scale_cfg->lut_flag = 0;
 	scale_cfg->blend_cfg = 1;
 	scale_cfg->enable = 1;
+	scale_cfg->dyn_exp_disabled = SDE_QSEED_DEFAULT_DYN_EXP;
 }
 
 /**
