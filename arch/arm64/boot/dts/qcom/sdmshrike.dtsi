@@ -1154,7 +1154,7 @@
 						0x4400 2>;
 			};
 
-			apr_tal_rpmsg {
+			qcom,apr_tal_rpmsg {
 				qcom,glink-channels = "apr_audio_svc";
 				qcom,intents = <0x200 20>;
 			};
@@ -1489,7 +1489,7 @@
 		qcom,client-id = <0x00000001>;
 	};
 
-	qcom,lpass@17300000 {
+	pil_lpass: qcom,lpass@17300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x17300000 0x00100>;
 
@@ -1573,7 +1573,7 @@
 		mbox-names = "slpi-pil";
 	};
 
-	qcom,spss@1880000 {
+	pil_spss: qcom,spss@1880000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x188101c 0x4>,
 		      <0x1881024 0x4>,
@@ -1606,7 +1606,7 @@
 		mbox-names = "spss-pil";
 	};
 
-	qcom,npu@0x9800000 {
+	pil_npu: qcom,npu@0x9800000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9800000 0x800000>;
 
@@ -1617,7 +1617,7 @@
 		memory-region = <&pil_npu_mem>;
 	};
 
-	qcom,turing@8300000 {
+	pil_turing: qcom,turing@8300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x8300000 0x100000>;
 
@@ -1666,7 +1666,7 @@
 		mbox-names = "cdsp-pil";
 	};
 
-	qcom,venus@aae0000 {
+	pil_venus: qcom,venus@aae0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xaae0000 0x4000>;
 
@@ -1693,6 +1693,12 @@
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&pil_video_mem>;
+	};
+
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		qcom,firmware-name = "slpi";
+		status = "disabled";
 	};
 
 	wdog: qcom,wdt@17c10000 {
