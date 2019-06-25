@@ -613,7 +613,7 @@ static int smb5_parse_dt_adc_channels(struct smb_charger *chg)
 
 static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 {
-	int rc = 0;
+	int rc = 0, tmp;
 	struct smb_charger *chg = &chip->chg;
 
 	rc = of_property_read_u32(node,
@@ -644,6 +644,12 @@ static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 
 	rc = of_property_read_u32(node, "qcom,chg-term-current-ma",
 			&chip->dt.term_current_thresh_hi_ma);
+
+	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
+	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
+			&tmp);
+	if (!rc && tmp < DCIN_ICL_MAX_UA)
+		chg->wls_icl_ua = tmp;
 
 	return 0;
 }
