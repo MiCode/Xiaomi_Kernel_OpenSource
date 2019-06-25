@@ -1372,7 +1372,7 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,gcc-sdmshrike";
+		compatible = "qcom,gcc-sdmshrike", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -1415,7 +1415,7 @@
 	};
 
 	clock_camcc: qcom,camcc@ad00000 {
-		compatible = "qcom,camcc-sdmshrike";
+		compatible = "qcom,camcc-sdmshrike", "syscon";
 		reg = <0xad00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mx-supply = <&pm8150c_s3_level>;
@@ -1437,7 +1437,7 @@
 	};
 
 	clock_gpucc: qcom,gpucc@2c90000 {
-		compatible = "qcom,gpucc-sdmshrike";
+		compatible = "qcom,gpucc-sdmshrike", "syscon";
 		reg = <0x2c90000 0x9000>;
 		reg-names = "cc_base";
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
@@ -1451,6 +1451,11 @@
 		reg = <0x2b10000 0x30000>;
 		#clock-cells = <1>;
 		status = "disabled";
+	};
+
+	cpucc_debug: syscon@182a0018 {
+		compatible = "syscon";
+		reg = <0x182a0018 0x4>;
 	};
 
 	tsens0: tsens@c222000 {
