@@ -231,7 +231,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_q6ss_pll_config = {
+static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0xD,
 	.cal_l = 0x44,
 	.alpha = 0x555,
@@ -248,6 +248,7 @@ static struct clk_alpha_pll npu_q6ss_pll = {
 	.vco_table = lucid_vco,
 	.num_vco = ARRAY_SIZE(lucid_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
+	.config = &npu_q6ss_pll_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_q6ss_pll",
