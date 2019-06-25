@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,28 +100,40 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
 			    sequence_id);
 
-	MHI_LOG("Trigger device into RDDM mode\n");
-	mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
-
-	MHI_LOG("Waiting for device to enter RDDM\n");
-	while (rddm_retry--) {
-		ee = mhi_get_exec_env(mhi_cntrl);
-		if (ee == MHI_EE_RDDM)
-			break;
-
-		udelay(delayus);
-	}
-
-	if (rddm_retry <= 0) {
-		/* This is a hardware reset, will force device to enter rddm */
-		MHI_LOG(
-			"Did not enter RDDM triggering host req. reset to force rddm\n");
-		mhi_write_reg(mhi_cntrl, mhi_cntrl->regs,
-			      MHI_SOC_RESET_REQ_OFFSET, MHI_SOC_RESET_REQ);
-		udelay(delayus);
-	}
-
+	/*
+	 * Make sure device is not already in RDDM.
+	 * In case device asserts and a kernel panic follows, device will
+	 * already be in RDDM. Do not trigger SYS ERR again and proceed with
+	 * waiting for image download completion.
+	 */
 	ee = mhi_get_exec_env(mhi_cntrl);
+	if (ee != MHI_EE_RDDM) {
+
+		MHI_LOG("Trigger device into RDDM mode using SYSERR\n");
+		mhi_set_mhi_state(mhi_cntrl, MHI_STATE_SYS_ERR);
+
+		MHI_LOG("Waiting for device to enter RDDM\n");
+		while (rddm_retry--) {
+			ee = mhi_get_exec_env(mhi_cntrl);
+			if (ee == MHI_EE_RDDM)
+				break;
+
+			udelay(delayus);
+		}
+
+		if (rddm_retry <= 0) {
+			/* Hardware reset; force device to enter rddm */
+			MHI_LOG(
+				"Did not enter RDDM, do a host req. reset\n");
+			mhi_write_reg(mhi_cntrl, mhi_cntrl->regs,
+				      MHI_SOC_RESET_REQ_OFFSET,
+				      MHI_SOC_RESET_REQ);
+			udelay(delayus);
+		}
+
+		ee = mhi_get_exec_env(mhi_cntrl);
+	}
+
 	MHI_LOG("Waiting for image download completion, current EE:%s\n",
 		TO_MHI_EXEC_STR(ee));
 	while (retry--) {
