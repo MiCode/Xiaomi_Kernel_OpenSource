@@ -449,4 +449,13 @@ config QTI_DDR_STATS_LOG
 	  frequency residency and counts. The driver outputs information using
 	  sysfs.
 
+config QCOM_SOC_SLEEP_STATS
+	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
+	depends on QGKI
+	help
+	  Qualcomm Technologies Inc (QTI) SoC sleep stats driver to read
+	  the shared memory exported by the remote processor related to
+	  various SoC level low power modes statistics and export to sysfs
+	  interface.
+
 endmenu
