@@ -956,6 +956,21 @@
 			clock-names = "main", "mm";
 		};
 
+		pwm_leds {
+			compatible = "mediatek,pwm-leds";
+
+			backlight {
+				label = "lcd-backlight";
+				pwms = <&disp_pwm 0 39385>;
+				pwm-names = "lcd-backlight";
+				max-brightness = <255>;
+				active-low = <0>;
+				led-bits = <8>;
+				default-trigger = "timer";
+				default-state = "open";
+			};
+		};
+
 		i2c3: i2c@1100f000 {
 			compatible = "mediatek,mt6779-i2c",
 				     "mediatek,mt8183-i2c";
