@@ -677,7 +677,7 @@ static void _msm_gpio_irq_mask(struct irq_data *d)
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
 }
 
-static void _msm_gpio_irq_unmask(struct irq_data *d)
+static void _msm_gpio_irq_unmask(struct irq_data *d, bool status_clear)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
@@ -688,6 +688,17 @@ static void _msm_gpio_irq_unmask(struct irq_data *d)
 	g = &pctrl->soc->groups[d->hwirq];
 
 	raw_spin_lock_irqsave(&pctrl->lock, flags);
+
+	if (status_clear) {
+		/*
+		 * clear the interrupt status bit before unmask to avoid
+		 * any erroneous interrupts that would have got latched
+		 * when the interrupt is not in use.
+		 */
+		val = readl(pctrl->regs + g->intr_status_reg);
+		val &= ~BIT(g->intr_status_bit);
+		writel(val, pctrl->regs + g->intr_status_reg);
+	}
 
 	val = readl(pctrl->regs + g->intr_cfg_reg);
 	val |= BIT(g->intr_raw_status_bit);
@@ -724,7 +735,7 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
 		return;
 
-	_msm_gpio_irq_unmask(d);
+	_msm_gpio_irq_unmask(d, false);
 }
 
 static void msm_gpio_irq_disable(struct irq_data *d)
@@ -763,7 +774,7 @@ static void msm_gpio_irq_enable(struct irq_data *d)
 	if (test_bit(d->hwirq, pctrl->wakeup_masked_irqs))
 		return;
 
-	_msm_gpio_irq_unmask(d);
+	_msm_gpio_irq_unmask(d, true);
 }
 
 static void msm_gpio_irq_ack(struct irq_data *d)
