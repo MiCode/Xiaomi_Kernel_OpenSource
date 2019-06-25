@@ -67,7 +67,9 @@ static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 
 #define QSEED3_DEFAULT_PRELOAD_V 0x3
 #define QSEED3_DEFAULT_PRELOAD_H 0x4
-#define QSEED4_DEFAULT_PRELOAD_H 0x5
+
+#define QSEED4_DEFAULT_PRELOAD_V 0x2
+#define QSEED4_DEFAULT_PRELOAD_H 0x4
 
 typedef void (*scaler_lut_type)(struct sde_hw_blk_reg_map *,
 		struct sde_hw_scaler3_cfg *, u32);
@@ -100,10 +102,12 @@ void sde_init_scaler_blk(struct sde_scaler_blk *blk, u32 version)
 		return;
 
 	blk->version = version;
-	blk->v_preload = QSEED3_DEFAULT_PRELOAD_V;
+	blk->v_preload = QSEED4_DEFAULT_PRELOAD_V;
 	blk->h_preload = QSEED4_DEFAULT_PRELOAD_H;
-	if (version < QSEED4_SCALER_VERSION)
+	if (version < QSEED4_SCALER_VERSION) {
+		blk->v_preload = QSEED3_DEFAULT_PRELOAD_V;
 		blk->h_preload = QSEED3_DEFAULT_PRELOAD_H;
+	}
 }
 void sde_set_scaler_v2(struct sde_hw_scaler3_cfg *cfg,
 		const struct sde_drm_scaler_v2 *scale_v2)
