@@ -81,6 +81,10 @@ void ion_page_pool_refill(struct ion_page_pool *pool)
 	gfp_t gfp_refill = (pool->gfp_mask | __GFP_RECLAIM) & ~__GFP_NORETRY;
 	struct device *dev = pool->heap.priv;
 
+	/* skip refilling order 0 pools */
+	if (!pool->order)
+		return;
+
 	while (!pool_fillmark_reached(pool) && pool_refill_ok(pool)) {
 		page = alloc_pages(gfp_refill, pool->order);
 		if (!page)
