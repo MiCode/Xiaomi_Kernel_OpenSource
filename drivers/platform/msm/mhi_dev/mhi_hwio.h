@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +65,8 @@
 #define MHIVER_MHIVER_SHIFT				0x0
 
 #define MHICFG						(0x0110)
-#define MHICFG_RESERVED_BITS31_24_MASK			0xff000000
-#define MHICFG_RESERVED_BITS31_24_SHIFT			0x18
+#define MHICFG_NHWER_MASK			0xff000000
+#define MHICFG_NHWER_SHIFT			0x18
 #define MHICFG_NER_MASK					0xff0000
 #define MHICFG_NER_SHIFT				0x10
 #define MHICFG_RESERVED_BITS15_8_MASK			0xff00
