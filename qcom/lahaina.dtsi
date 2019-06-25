@@ -688,6 +688,18 @@
 		memory-region = <&smem_mem>;
 		hwlocks = <&tcsr_mutex 3>;
 	};
+
+	pdc: interrupt-controller@b220000 {
+		compatible = "qcom,lahaina-pdc";
+		reg = <0xb220000 0x30000>, <0x17c000f0 0x60>;
+		qcom,pdc-ranges = <0 480 40>, <40 140 14>, <54 263 1>, <55 306 4>,
+				  <59 312 3>, <62 374 2>, <64 434 2>, <66 438 3>,
+				  <69 86 1>, <70 520 54>, <124 609 31>, <155 63 1>,
+				  <156 716 12>;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&intc>;
+		interrupt-controller;
+	};
 };
 
 #include "lahaina-pinctrl.dtsi"
