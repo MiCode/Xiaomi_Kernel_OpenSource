@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015-2019 Parade Technologies
+ * Copyright (C) 2015 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -437,6 +437,6 @@ exit:
 }
 module_exit(cyttsp5_test_device_access_api_exit);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Parade TrueTouch(R) Device Access Driver API Tester");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Parade TrueTouch(R) Standard Product Device Access Driver API Tester");
 MODULE_AUTHOR("Parade Technologies <ttdrivers@paradetech.com>");
