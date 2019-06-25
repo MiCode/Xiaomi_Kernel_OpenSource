@@ -375,6 +375,16 @@
 		interrupt-controller;
 		interrupt-parent = <&pio>;
 		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "IRQB";
+		mt6360_chg: chg {
+			compatible = "mediatek,mt6360_chg";
+			usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+			};
+		};
 		pmic {
 			compatible = "mediatek,mt6360_pmic";
 			buck1 {
