@@ -19,13 +19,29 @@ static bool pool_refill_ok(struct ion_page_pool *pool)
 	struct zoneref *z;
 	struct zone *zone;
 	int mark;
-	int classzone_idx = (int)gfp_zone(pool->gfp_mask);
+	enum zone_type classzone_idx = gfp_zone(pool->gfp_mask);
+	s64 delta;
+
+	/* check if we are within the refill defer window */
+	delta = ktime_ms_delta(ktime_get(), pool->last_low_watermark_ktime);
+	if (delta < ION_POOL_REFILL_DEFER_WINDOW_MS)
+		return false;
 
 	zonelist = node_zonelist(numa_node_id(), pool->gfp_mask);
+	/*
+	 * make sure that if we allocate a pool->order page from buddy,
+	 * we don't put the zone watermarks go below the high threshold.
+	 * This makes sure there's no unwanted repetitive refilling and
+	 * reclaiming of buddy pages on the pool.
+	 */
 	for_each_zone_zonelist(zone, z, zonelist, classzone_idx) {
 		mark = high_wmark_pages(zone);
-		if (!zone_watermark_ok_safe(zone, 0, mark, classzone_idx))
+		mark += 1 << pool->order;
+		if (!zone_watermark_ok_safe(zone, pool->order, mark,
+					    classzone_idx)) {
+			pool->last_low_watermark_ktime = ktime_get();
 			return false;
+		}
 	}
 
 	return true;
