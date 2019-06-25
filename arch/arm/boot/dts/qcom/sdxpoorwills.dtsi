@@ -510,7 +510,7 @@
 		status = "disabled";
 	};
 
-	qcom,ipc_router_mhi_dev_xprt {
+	ipc_router_mhi_dev_xprt: qcom,ipc_router_mhi_dev_xprt {
 		compatible = "qcom,ipc-router-mhi-dev-xprt";
 		qcom,out-chan-id = <20>;
 		qcom,in-chan-id = <21>;
