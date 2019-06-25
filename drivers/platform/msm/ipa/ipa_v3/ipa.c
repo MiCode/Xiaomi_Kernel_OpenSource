@@ -6216,6 +6216,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ipa_endp_delay_wa = resource_p->ipa_endp_delay_wa;
 	ipa3_ctx->secure_debug_check_action =
 	    resource_p->secure_debug_check_action;
+	ipa3_ctx->ipa_mhi_proxy = resource_p->ipa_mhi_proxy;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -7011,6 +7012,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		"qcom,tethered-flow-control");
 	IPADBG(": Use apps based flow control = %s\n",
 		ipa_drv_res->tethered_flow_control
+		? "True" : "False");
+
+	ipa_drv_res->ipa_mhi_proxy =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,ipa-mhi-proxy");
+	IPADBG(": Use mhi proxy = %s\n",
+		ipa_drv_res->ipa_mhi_proxy
 		? "True" : "False");
 
 	/* Get IPA wrapper address */

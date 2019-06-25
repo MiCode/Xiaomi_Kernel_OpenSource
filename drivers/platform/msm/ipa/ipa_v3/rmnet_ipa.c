@@ -3023,7 +3023,8 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 		ipa_stop_polling_stats();
 		if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
 			platform_driver_unregister(&rmnet_ipa_driver);
-		imp_handle_modem_shutdown();
+		if (ipa3_ctx->ipa_mhi_proxy)
+			imp_handle_modem_shutdown();
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr) &&
 			ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 			ipa3_q6_post_shutdown_cleanup();
@@ -4050,8 +4051,8 @@ void ipa3_q6_handshake_complete(bool ssr_bootup)
 		 */
 		rmnet_ipa_get_network_stats_and_update();
 	}
-
-	imp_handle_modem_ready();
+	if (ipa3_ctx->ipa_mhi_proxy)
+		imp_handle_modem_ready();
 }
 
 static inline bool rmnet_ipa3_check_any_client_inited
