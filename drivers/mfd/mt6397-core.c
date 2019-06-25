@@ -157,6 +157,13 @@ static const struct resource mt6359_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VUFS_OC, "VUFS"),
 };
 
+static const struct resource mt6359_gauge_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_BAT_H, "COULOMB_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_BAT_L, "COULOMB_L"),
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT2_H, "VBAT_H"),
+	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT2_L, "VBAT_L"),
+};
+
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-regulator",
@@ -219,6 +226,11 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_keys_resources),
 		.resources = mt6359_keys_resources,
 		.of_compatible = "mediatek,mt6359-keys"
+	}, {
+		.name = "mt6359-gauge",
+		.num_resources = ARRAY_SIZE(mt6359_gauge_resources),
+		.resources = mt6359_gauge_resources,
+		.of_compatible = "mediatek,mt6359-gauge",
 	},
 };
 
