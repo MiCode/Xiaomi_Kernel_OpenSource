@@ -494,7 +494,7 @@ int qti_client_write(int id, char *buf, size_t count)
 	unsigned int mdata = 0;
 	unsigned int event = 0;
 	struct qti_sdio_bridge *qsb = NULL;
-	struct completion tx_complete;
+	DECLARE_COMPLETION_ONSTACK(tx_complete);
 
 	switch (id) {
 	case QCN_SDIO_CLI_ID_TTY:
@@ -575,7 +575,7 @@ int qti_client_write(int id, char *buf, size_t count)
 		wait_event(qsb->wait_q, qsb->tx_ready);
 
 		if (qsb->mode) {
-			init_completion(&tx_complete);
+			reinit_completion(&tx_complete);
 			ret = sdio_al_queue_transfer_async(qsb->channel_handle,
 							SDIO_AL_TX, buffer,
 							padded_len, 0,
@@ -586,6 +586,9 @@ int qti_client_write(int id, char *buf, size_t count)
 								qsb->name, ret);
 				return ret;
 			}
+
+			if (qsb->mode)
+				wait_for_completion(&tx_complete);
 		} else {
 
 			ret = sdio_al_queue_transfer(qsb->channel_handle,
@@ -605,9 +608,6 @@ int qti_client_write(int id, char *buf, size_t count)
 		qsb->ops->write_complete_cb((void *)(uintptr_t)0, buf, count,
 				count);
 	}
-
-	if (qsb->mode)
-		wait_for_completion(&tx_complete);
 
 	return count;
 }
