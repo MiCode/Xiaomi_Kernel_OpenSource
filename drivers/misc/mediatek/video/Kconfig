@@ -78,7 +78,6 @@ config MTK_FB_SUPPORT_ASSERTION_LAYER
 	depends on MTK_FB
 	select FONT_SUPPORT
 	select FONT_8x16
-	default y
 	help
 	  This enable support for AEE assertion layer.
 	  It define in xxx_defconfig.mk.

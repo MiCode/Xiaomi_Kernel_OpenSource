@@ -48,6 +48,10 @@ obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 #obj-y += mtkfb_dummy.o
 #endif
 
+#ifneq ($(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER), y)
+obj-y += font_8x16.o
+#endif
+
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/mtdummy/pq_dummy/
 ifneq ($(CONFIG_MTK_ION), y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/mtdummy/ion_mtk_dummy/
