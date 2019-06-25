@@ -110,8 +110,6 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 
 bool rsc_hw_is_amc_mode(struct sde_rsc_priv *rsc);
 
-int rsc_hw_timer_update(struct sde_rsc_priv *rsc);
-
 void rsc_hw_debug_dump(struct sde_rsc_priv *rsc, u32 mux_sel);
 
 int sde_rsc_debug_show(struct seq_file *s, struct sde_rsc_priv *rsc);

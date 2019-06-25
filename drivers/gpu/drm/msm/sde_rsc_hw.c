@@ -301,7 +301,7 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	return 0;
 }
 
-int rsc_hw_timer_update(struct sde_rsc_priv *rsc)
+static int rsc_hw_timer_update(struct sde_rsc_priv *rsc)
 {
 	if (!rsc) {
 		pr_debug("invalid input param\n");

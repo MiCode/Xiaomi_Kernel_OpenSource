@@ -213,7 +213,8 @@ static int _rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE1,
 					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE1,
-			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
+			rsc->timer_config.rsc_backoff_time_ns * 2,
+			rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE1,
 			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
 
@@ -550,6 +551,49 @@ static int rsc_hw_bwi_status_v3(struct sde_rsc_priv *rsc, bool bw_indication)
 	return rc;
 }
 
+static int rsc_hw_timer_update_v3(struct sde_rsc_priv *rsc)
+{
+	if (!rsc) {
+		pr_debug("invalid input param\n");
+		return -EINVAL;
+	}
+
+	pr_debug("rsc hw timer update\n");
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0,
+		rsc->timer_config.rsc_time_slot_0_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
+		rsc->timer_config.rsc_time_slot_1_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_3_DRV0,
+		rsc->timer_config.rsc_time_slot_2_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE0,
+			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE0,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE1,
+			rsc->timer_config.rsc_backoff_time_ns * 2,
+			rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE1,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE2,
+			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_STATIC_WAKEUP_0,
+		rsc->timer_config.static_wakeup_time_ns, rsc->debug_mode);
+
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_RSCC_MODE_THRESHOLD,
+		rsc->timer_config.rsc_mode_threshold_time_ns, rsc->debug_mode);
+
+	/* make sure that hw timers are updated */
+	wmb();
+
+	return 0;
+}
+
 int sde_rsc_hw_register_v3(struct sde_rsc_priv *rsc)
 {
 	pr_debug("rsc hardware register v3\n");
@@ -557,10 +601,10 @@ int sde_rsc_hw_register_v3(struct sde_rsc_priv *rsc)
 	rsc->hw_ops.init = rsc_hw_init_v3;
 	rsc->hw_ops.state_update = sde_rsc_state_update_v3;
 	rsc->hw_ops.bwi_status = rsc_hw_bwi_status_v3;
+	rsc->hw_ops.timer_update = rsc_hw_timer_update_v3;
 
 	rsc->hw_ops.tcs_wait = rsc_hw_tcs_wait;
 	rsc->hw_ops.tcs_use_ok = rsc_hw_tcs_use_ok;
-	rsc->hw_ops.timer_update = rsc_hw_timer_update;
 	rsc->hw_ops.is_amc_mode = rsc_hw_is_amc_mode;
 	rsc->hw_ops.hw_vsync = rsc_hw_vsync;
 	rsc->hw_ops.debug_show = sde_rsc_debug_show;
