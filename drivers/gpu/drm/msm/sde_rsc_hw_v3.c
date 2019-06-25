@@ -335,7 +335,15 @@ static int sde_rsc_mode2_entry_v3(struct sde_rsc_priv *rsc)
 	if (rsc->power_collapse_block)
 		return -EINVAL;
 
-	dss_reg_w(&rsc->wrapper_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
+	if (rsc->sw_fs_enabled) {
+		rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+		if (rc) {
+			pr_err("vdd reg fast mode set failed rc:%d\n", rc);
+			return rc;
+		}
+	}
+
+	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0,
 						0x7, rsc->debug_mode);
 
 	for (i = 0; i <= MAX_MODE2_ENTRY_TRY; i++) {
@@ -415,10 +423,15 @@ static int sde_rsc_state_update_v3(struct sde_rsc_priv *rsc,
 	case SDE_RSC_VID_STATE:
 		pr_debug("video mode handling\n");
 
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+							0x0, rsc->debug_mode);
+		wmb(); /* disable double buffer config before vsync select */
+
 		ctrl2_config = (rsc->vsync_source & 0x7) << 4;
 		ctrl2_config |= (BIT(0) | BIT(1) | BIT(3));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL2,
 				ctrl2_config, rsc->debug_mode);
+		wmb(); /* select vsync before double buffer config enabled */
 
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 						0x1, rsc->debug_mode);
@@ -519,7 +532,7 @@ static int rsc_hw_bwi_status_v3(struct sde_rsc_priv *rsc, bool bw_indication)
 						0x1, rsc->debug_mode);
 
 	bw_ack = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_CTRL2,
-			rsc->debug_mode) & BIT(13);
+			rsc->debug_mode) & BIT(14);
 
 	/* check for sequence running status before exiting */
 	for (count = MAX_CHECK_LOOPS; count > 0 && !bw_ack; count--) {
@@ -528,7 +541,7 @@ static int rsc_hw_bwi_status_v3(struct sde_rsc_priv *rsc, bool bw_indication)
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_BW_INDICATION,
 						bw_indication, rsc->debug_mode);
 		bw_ack = dss_reg_r(&rsc->wrapper_io,
-		       SDE_RSCC_WRAPPER_DEBUG_CTRL2, rsc->debug_mode) & BIT(13);
+		       SDE_RSCC_WRAPPER_DEBUG_CTRL2, rsc->debug_mode) & BIT(14);
 	}
 
 	if (!bw_ack)
