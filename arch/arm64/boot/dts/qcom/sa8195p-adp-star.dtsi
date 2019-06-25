@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "sdmshrike-v2.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 &qupv3_se0_spi {
 	status = "ok";

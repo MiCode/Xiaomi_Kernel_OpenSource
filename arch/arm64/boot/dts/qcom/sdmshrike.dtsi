@@ -21,9 +21,12 @@
 #include <dt-bindings/clock/qcom,videocc-sm8150.h>
 #include <dt-bindings/clock/qcom,camcc-sdmshrike.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
+#include <dt-bindings/soc/qcom,dcc_v2.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/spmi/spmi.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
 #define BW_OPP_ENTRY(mhz, w) opp-mhz {opp-hz = /bits/ 64 <MHZ_TO_MBPS(mhz, w)>;}
@@ -2171,6 +2174,7 @@
 #include "sdmshrike-usb.dtsi"
 #include "sdmshrike-qupv3.dtsi"
 #include "sm8150-audio.dtsi"
+#include "sm8150-vidc.dtsi"
 #include "sm8150-pm.dtsi"
 #include "sdmshrike-gpu.dtsi"
 #include "sdmshrike-thermal.dtsi"
