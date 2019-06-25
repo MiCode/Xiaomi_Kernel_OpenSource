@@ -27,6 +27,7 @@ struct mmc_bus_ops {
 	int (*pre_suspend)(struct mmc_host *);
 	int (*suspend)(struct mmc_host *);
 	int (*resume)(struct mmc_host *);
+	int (*deferred_resume)(struct mmc_host *host);
 	int (*runtime_suspend)(struct mmc_host *);
 	int (*runtime_resume)(struct mmc_host *);
 	int (*alive)(struct mmc_host *);

@@ -232,7 +232,8 @@ static inline bool rmnet_map_get_csum_valid(struct sk_buff *skb)
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_port *port);
 struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
-						  int hdrlen, int pad);
+						  int hdrlen, int pad,
+						  struct rmnet_port *port);
 void rmnet_map_command(struct sk_buff *skb, struct rmnet_port *port);
 int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
@@ -245,6 +246,10 @@ int rmnet_map_tx_agg_skip(struct sk_buff *skb, int offset);
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port);
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port);
 void rmnet_map_tx_aggregate_exit(struct rmnet_port *port);
+void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_hdr *dl_hdr);
+void rmnet_map_dl_trl_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_trl *dltrl);
 int rmnet_map_flow_command(struct sk_buff *skb,
 			   struct rmnet_port *port,
 			   bool rmnet_perf);

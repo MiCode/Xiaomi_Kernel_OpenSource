@@ -960,9 +960,14 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	uint32_t gmu_log_info;
 	int ret;
 	unsigned int chipid = 0;
+
+	/* Vote veto for FAL10 feature if supported*/
+	if (a6xx_core->veto_fal10)
+		gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:

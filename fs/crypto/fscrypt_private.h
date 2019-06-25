@@ -12,9 +12,6 @@
 #ifndef _FSCRYPT_PRIVATE_H
 #define _FSCRYPT_PRIVATE_H
 
-#ifndef __FS_HAS_ENCRYPTION
-#define __FS_HAS_ENCRYPTION 1
-#endif
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
 #include <linux/pfk.h>

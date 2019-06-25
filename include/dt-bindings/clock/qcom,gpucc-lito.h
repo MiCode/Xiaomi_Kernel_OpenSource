@@ -19,5 +19,6 @@
 #define GPU_CC_RBCPR_CLK					11
 #define GPU_CC_RBCPR_CLK_SRC					12
 #define GPU_CC_SLEEP_CLK					13
+#define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK				14
 
 #endif

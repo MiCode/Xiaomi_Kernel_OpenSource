@@ -879,36 +879,40 @@ void ipa_save_registers(void)
 		if (!ipa_reg_save.gsi.ch_cntxt.a7[
 				i].gsi_map_ee_n_ch_k_vp_table.valid)
 			continue;
+
 		ipa_reg_save.gsi.ch_cntxt.a7[
 			i].mcs_channel_scratch.scratch4.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH4);
+
 		ipa_reg_save.gsi.ch_cntxt.a7[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH5);
 	}
 
 	for (i = 0; i < IPA_HW_REG_SAVE_GSI_NUM_CH_CNTXT_UC; i++) {
 		u32 phys_ch_idx = ipa_reg_save.gsi.ch_cntxt.uc[
 			i].gsi_map_ee_n_ch_k_vp_table.phy_ch;
-		u32 n = phys_ch_idx*IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
+		u32 n = phys_ch_idx * IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM;
 
 		if (!ipa_reg_save.gsi.ch_cntxt.uc[
 				i].gsi_map_ee_n_ch_k_vp_table.valid)
 			continue;
+
 		ipa_reg_save.gsi.ch_cntxt.uc[
 			i].mcs_channel_scratch.scratch4.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 2);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH4);
+
 		ipa_reg_save.gsi.ch_cntxt.uc[
 			i].mcs_channel_scratch.scratch5.shram =
 			IPA_READ_1xVECTOR_REG(
 				GSI_SHRAM_n,
-				n + IPA_REG_SAVE_BYTES_PER_CHNL_SHRAM - 1);
+				n + IPA_GSI_OFFSET_WORDS_SCRATCH5);
 	}
 
 	/*

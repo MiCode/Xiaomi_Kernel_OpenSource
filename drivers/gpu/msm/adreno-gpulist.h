@@ -939,7 +939,7 @@ static const struct adreno_reglist a650_gbif_regs[] = {
 
 static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.base = {
-		DEFINE_ADRENO_REV(ADRENO_REV_A618, 6, 2, 0, 0),
+		DEFINE_ADRENO_REV(ADRENO_REV_A620, 6, 2, 0, 0),
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC,
@@ -960,6 +960,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.hwcg_count = ARRAY_SIZE(a620_hwcg_regs),
 	.vbif = a650_gbif_regs,
 	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.veto_fal10 = true,
 };
 
 static const struct adreno_reglist a640_hwcg_regs[] = {
@@ -1121,6 +1122,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a650 = {
 	.zap_name = "a650_zap",
 	.vbif = a650_gbif_regs,
 	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.veto_fal10 = true,
 };
 
 static const struct adreno_a6xx_core adreno_gpu_core_a680 = {

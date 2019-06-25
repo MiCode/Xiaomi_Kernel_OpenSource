@@ -279,10 +279,10 @@ rmnet_map_ipv6_ul_csum_header(void *ip6hdr,
  * initialized to 0.
  */
 struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
-						  int hdrlen, int pad)
+						  int hdrlen, int pad,
+						  struct rmnet_port *port)
 {
 	struct rmnet_map_header *map_header;
-	struct rmnet_port *port = rmnet_get_port(skb->dev);
 	u32 padding, map_datalen;
 	u8 *padbytes;
 
@@ -659,7 +659,7 @@ static void rmnet_map_gso_stamp(struct sk_buff *skb,
 	}
 
 	skb->ip_summed = CHECKSUM_PARTIAL;
-	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_start = skb->data + coal_meta->ip_len - skb->head;
 	shinfo->gso_size = coal_meta->data_len;
 	shinfo->gso_segs = coal_meta->pkt_count;
 }

@@ -15,6 +15,7 @@
 #include <linux/msm_pcie.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/mhi.h>
 #include "mhi_qcom.h"
 
@@ -32,6 +33,8 @@ struct arch_info {
 	struct mhi_link_info current_link_info;
 	struct work_struct bw_scale_work;
 	bool drv_connected;
+	struct notifier_block pm_notifier;
+	struct completion pm_completion;
 };
 
 /* ipc log markings */
@@ -49,6 +52,25 @@ enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_VERBOSE;
 enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_ERROR;
 
 #endif
+
+static int mhi_arch_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	struct arch_info *arch_info =
+		container_of(nb, struct arch_info, pm_notifier);
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		reinit_completion(&arch_info->pm_completion);
+		break;
+
+	case PM_POST_SUSPEND:
+		complete_all(&arch_info->pm_completion);
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
 
 static int mhi_arch_set_bus_request(struct mhi_controller *mhi_cntrl, int index)
 {
@@ -95,12 +117,11 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 
 		arch_info->drv_connected = true;
 
-		pm_runtime_allow(&pci_dev->dev);
-
 		mutex_lock(&mhi_cntrl->pm_mutex);
 
 		/* if we're in amss attempt a suspend */
 		if (mhi_dev->powered_on && mhi_cntrl->ee == MHI_EE_AMSS) {
+			pm_runtime_allow(&pci_dev->dev);
 			pm_runtime_mark_last_busy(&pci_dev->dev);
 			pm_request_autosuspend(&pci_dev->dev);
 		}
@@ -180,12 +201,33 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
+
+	/*
+	 * Abort system suspend if system is preparing to go to suspend
+	 * by grabbing wake source.
+	 * If system is suspended, wait for pm notifier callback to notify
+	 * that resume has occurred with PM_POST_SUSPEND event.
+	 */
+	pm_stay_awake(&mhi_cntrl->mhi_dev->dev);
+	wait_for_completion(&arch_info->pm_completion);
+
+	/* if link is in drv suspend, wake it up */
+	pm_runtime_get_sync(&pci_dev->dev);
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
 	if (!mhi_dev->powered_on) {
 		MHI_LOG("Not in active state\n");
+		mutex_unlock(&mhi_cntrl->pm_mutex);
+		pm_runtime_put_noidle(&pci_dev->dev);
 		return;
 	}
+	mhi_dev->powered_on = false;
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+	pm_runtime_put_noidle(&pci_dev->dev);
 
 	MHI_LOG("Triggering shutdown process\n");
 	mhi_power_down(mhi_cntrl, !mdm_state);
@@ -199,7 +241,8 @@ void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
 
 	mhi_arch_pcie_deinit(mhi_cntrl);
 	mhi_cntrl->dev = NULL;
-	mhi_dev->powered_on = false;
+
+	pm_relax(&mhi_cntrl->mhi_dev->dev);
 }
 
 static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
@@ -254,9 +297,6 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 		boot_dev = arch_info->boot_dev;
 		if (boot_dev)
 			mhi_unprepare_from_transfer(boot_dev);
-
-		/* enable link inactivity timer to start auto suspend */
-		msm_pcie_l1ss_timeout_enable(mhi_dev->pci_dev);
 
 		if (!mhi_dev->drv_supported || arch_info->drv_connected)
 			pm_runtime_allow(&mhi_dev->pci_dev->dev);
@@ -445,6 +485,18 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		ret = msm_pcie_register_event(reg_event);
 		if (ret)
 			MHI_LOG("Failed to reg. for link up notification\n");
+
+		init_completion(&arch_info->pm_completion);
+
+		/* register PM notifier to get post resume events */
+		arch_info->pm_notifier.notifier_call = mhi_arch_pm_notifier;
+		register_pm_notifier(&arch_info->pm_notifier);
+
+		/*
+		 * Mark as completed at initial boot-up to allow ESOC power on
+		 * callback to proceed if system has not gone to suspend
+		 */
+		complete_all(&arch_info->pm_completion);
 
 		arch_info->esoc_client = devm_register_esoc_client(
 						&mhi_dev->pci_dev->dev, "mdm");

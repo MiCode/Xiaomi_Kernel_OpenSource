@@ -38,6 +38,7 @@ enum mhi_ch {
 
 struct qdss_bridge_drvdata {
 	int alias;
+	int nr_trbs;
 	enum open_status opened;
 	struct completion completion;
 	size_t mtu;

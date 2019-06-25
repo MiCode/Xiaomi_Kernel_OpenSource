@@ -195,8 +195,7 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
-
-static atomic_t uart_line_id = ATOMIC_INIT(0);
+static int uart_line_id;
 
 #define GET_DEV_PORT(uport) \
 	container_of(uport, struct msm_geni_serial_port, uport)
@@ -2447,19 +2446,21 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	if (pdev->dev.of_node) {
-		if (drv->cons)
+		if (drv->cons) {
 			line = of_alias_get_id(pdev->dev.of_node, "serial");
-		else
+			if (line < 0)
+				line = 0;
+		} else {
 			line = of_alias_get_id(pdev->dev.of_node, "hsuart");
+			if (line < 0)
+				line = uart_line_id++;
+			else
+				uart_line_id++;
+		}
 	} else {
 		line = pdev->id;
 	}
 
-	if (line < 0)
-		line = atomic_inc_return(&uart_line_id) - 1;
-
-	if ((line < 0) || (line >= GENI_UART_NR_PORTS))
-		return -ENXIO;
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
 	if (IS_ERR_OR_NULL(dev_port)) {

@@ -87,8 +87,8 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	netif_tx_unlock(dev);
 }
 
-static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
-				     struct rmnet_map_dl_ind_hdr *dlhdr)
+void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_hdr *dlhdr)
 {
 	struct rmnet_map_dl_ind *tmp;
 
@@ -98,8 +98,8 @@ static  void rmnet_map_dl_hdr_notify(struct rmnet_port *port,
 		tmp->dl_hdr_handler(dlhdr);
 }
 
-static  void rmnet_map_dl_trl_notify(struct rmnet_port *port,
-				     struct rmnet_map_dl_ind_trl *dltrl)
+void rmnet_map_dl_trl_notify(struct rmnet_port *port,
+			     struct rmnet_map_dl_ind_trl *dltrl)
 {
 	struct rmnet_map_dl_ind *tmp;
 	struct napi_struct *napi;

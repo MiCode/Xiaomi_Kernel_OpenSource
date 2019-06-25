@@ -111,8 +111,8 @@ static int msm_dump_data_add_minidump(struct msm_dump_entry *entry)
 	return msm_minidump_add_region(&md_entry);
 }
 
-int msm_dump_data_register(enum msm_dump_table_ids id,
-			   struct msm_dump_entry *entry)
+static int register_dump_table_entry(enum msm_dump_table_ids id,
+					struct msm_dump_entry *entry)
 {
 	struct msm_dump_entry *e;
 	struct msm_dump_table *table;
@@ -131,12 +131,41 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	table->num_entries++;
 
 	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
-	if (msm_dump_data_add_minidump(entry))
-		pr_err("Failed to add entry in Minidump table\n");
-
 	return 0;
 }
+
+/**
+ * msm_dump_data_register - register to dump data and minidump framework
+ * @id: ID of the dump table.
+ * @entry: dump entry to be registered
+ * This api will register the entry passed to dump table and minidump table
+ */
+int msm_dump_data_register(enum msm_dump_table_ids id,
+			   struct msm_dump_entry *entry)
+{
+	int ret;
+
+	ret = register_dump_table_entry(id, entry);
+	if (!ret)
+		if (msm_dump_data_add_minidump(entry))
+			pr_err("Failed to add entry in Minidump table\n");
+
+	return ret;
+}
 EXPORT_SYMBOL(msm_dump_data_register);
+
+/**
+ * msm_dump_data_register_nominidump - register to dump data framework
+ * @id: ID of the dump table.
+ * @entry: dump entry to be registered
+ * This api will register the entry passed to dump table only
+ */
+int msm_dump_data_register_nominidump(enum msm_dump_table_ids id,
+			   struct msm_dump_entry *entry)
+{
+	return register_dump_table_entry(id, entry);
+}
+EXPORT_SYMBOL(msm_dump_data_register_nominidump);
 
 static int __init init_memory_dump(void)
 {

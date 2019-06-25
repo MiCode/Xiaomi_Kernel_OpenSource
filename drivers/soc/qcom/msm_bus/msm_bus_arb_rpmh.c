@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -59,6 +59,8 @@ static void copy_remaining_nodes(struct list_head *edge_list, struct list_head
 		return;
 
 	search_node = kzalloc(sizeof(struct bus_search_type), GFP_KERNEL);
+	if (!search_node)
+		return;
 	INIT_LIST_HEAD(&search_node->node_list);
 	list_splice_init(edge_list, traverse_list);
 	list_splice_init(traverse_list, &search_node->node_list);
@@ -450,6 +452,8 @@ static int getpath(struct device *src_dev, int dest, const char *cl_name)
 		/* Keep tabs of the previous search list */
 		search_node = kzalloc(sizeof(struct bus_search_type),
 				 GFP_KERNEL);
+		if (!search_node)
+			return -ENOMEM;
 		INIT_LIST_HEAD(&search_node->node_list);
 		list_splice_init(&traverse_list,
 				 &search_node->node_list);
