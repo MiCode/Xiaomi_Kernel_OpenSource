@@ -82,6 +82,7 @@ int *disp_aosp_ion_alloc(unsigned int heap_id_mask,
 				  unsigned int size);
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 		     unsigned int *mva, int port);
+inline int disp_aosp_set_dev(struct device *dev);
 int disp_aosp_ion_get_iova(struct device *dev, int fd,
 		     dma_addr_t *iova);
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd);
@@ -99,6 +100,12 @@ int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 		      unsigned int size, unsigned int prot, unsigned int flags,
 		      unsigned int *pMva);
 #endif
+inline int disp_aosp_set_dev(struct device *dev);
+int disp_aosp_release_reserved_area(phys_addr_t pa_start,
+		     phys_addr_t pa_end);
+int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
+		     phys_addr_t pa_end,
+		     dma_addr_t *iova);
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva);
 #endif

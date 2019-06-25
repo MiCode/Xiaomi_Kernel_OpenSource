@@ -45,6 +45,8 @@ static struct module_to_m4u_port_t module_to_m4u_port_mapping[] = {
 	{DISP_MODULE_OVL0_2L, 1, DISP_M4U_PORT_DISP_OVL0_2L_HDR},
 };
 
+static struct device *ddp_m4u_dev;
+
 #if defined(CONFIG_MTK_M4U)
 int module_to_m4u_port(enum DISP_MODULE_ENUM module)
 {
@@ -431,10 +433,81 @@ int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 }
 #endif
 
+inline int disp_aosp_set_dev(struct device *dev)
+{
+	ddp_m4u_dev = dev;
+}
+
+int disp_aosp_release_reserved_area(phys_addr_t pa_start,
+		     phys_addr_t pa_end)
+{
+	unsigned long pages;
+	size_t size = pa_end - pa_start + 1;
+	void *va_start, *va_end;
+
+	if ((!pa_start) || (!pa_end)) {
+		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%p,0x%p)\n",
+				__func__, __LINE__, pa_start, pa_end);
+		return -1;
+	}
+
+	va_start = __va(pa_start);
+	va_end = __va(pa_end);
+	pages = free_reserved_area(va_start, va_end, 0xFF, "DDP_M4U");
+	if (!pages) {
+		DISP_PR_ERR("%s:%d release fail! va_s:0x%p, va_e:%d\n",
+				__func__, __LINE__, va_start, va_end);
+		return -1;
+	}
+
+	DDPDBG("release area done. pages=%ld\n", pages);
+	return 0;
+}
+
+int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
+		     phys_addr_t pa_end,
+		     dma_addr_t *iova)
+{
+	void *cookie;
+	size_t size = pa_end - pa_start + 1;
+
+	if (!dev) {
+		DISP_PR_ERR("%s:%d cannot support NULL dev\n",
+				__func__, __LINE__);
+		return -1;
+	}
+	if ((!pa_start) || (!pa_end)) {
+		DISP_PR_ERR("%s:%d cannot support NULL PA(0x%p,0x%p)\n",
+				__func__, __LINE__, pa_start, pa_end);
+		return -1;
+	}
+	if (!iova) {
+		DISP_PR_ERR("%s:%d cannot support NULL iova\n",
+				__func__, __LINE__);
+		return -1;
+	}
+
+	cookie = dma_alloc_attrs(dev, size, iova,
+			GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
+	if (!cookie) {
+		DISP_PR_ERR("%s:%d alloc dma_buf fail! ",
+				__func__, __LINE__);
+		DISP_PR_ERR("dev:0x%p, size:%d, iova:0x%p\n",
+				dev, size, iova);
+		return -1;
+	}
+
+	DDPDBG("alloc iova=0x%08x\n", (unsigned long)iova);
+	return 0;
+}
+
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva)
 {
 	int ret = 0;
+#ifndef MTKFB_M4U_SUPPORT
+	dma_addr_t iova;
+#endif
 
 	*va = (unsigned long)ioremap_nocache(pa_start, pa_end - pa_start + 1);
 	pr_debug("%s: pa_start=0x%pa, pa_end=0x%pa, va=0x%lx\n",
@@ -467,7 +540,8 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 		*mva = pa_start & 0xffffffffULL;
 	}
 #else
-	*mva = pa_start & 0xffffffffULL;
+	disp_aosp_alloc_iova(ddp_m4u_dev, pa_start, pa_end, &iova);
+	*mva = iova & 0xffffffffULL;
 #endif
 
 	return 0;

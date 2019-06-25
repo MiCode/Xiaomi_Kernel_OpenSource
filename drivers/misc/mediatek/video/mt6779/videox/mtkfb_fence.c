@@ -1303,6 +1303,7 @@ int disp_sync_put_cached_layer_info_v2(unsigned int session_id,
 	return 0;
 }
 
+/*
 static void enable_mva(void)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -1318,6 +1319,7 @@ static void enable_mva(void)
 	}
 #endif
 }
+*/
 
 static int prepare_ion_buf(struct device *dev,
 			   struct disp_buffer_info *disp_buf,
@@ -1351,7 +1353,7 @@ static int prepare_ion_buf(struct device *dev,
 		DISP_PR_ERR("can't import ion handle for fd:%d\n",
 			    disp_buf->ion_fd);
 
-	enable_mva();
+	/* enable_mva(); */
 #endif
 
 	fence_buf->hnd = (void *)handle;

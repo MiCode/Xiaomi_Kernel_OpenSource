@@ -3799,7 +3799,6 @@ static int update_primary_intferface_module(void)
 	return 0;
 }
 
-/*
 static void replace_fb_addr_to_mva(void)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -3821,7 +3820,6 @@ static void replace_fb_addr_to_mva(void)
 			   DISPSYS_SMI_LARB1_BASE + 0x388, 0x1);
 #endif
 }
-*/
 
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			 int is_lcm_inited)
@@ -4111,7 +4109,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	io_gs.is_decouple_mode = 0;
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 			 DDP_OVL_GOLDEN_SETTING, &io_gs);
-	/* replace_fb_addr_to_mva(); */
+	replace_fb_addr_to_mva();
 
 	if (is_lcm_inited) {
 		/* ??? why need */

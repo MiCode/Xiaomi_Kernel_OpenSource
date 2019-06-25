@@ -42,14 +42,11 @@ obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			layering_rule.o		\
 			frame_queue.o		\
 			disp_pm_qos.o		\
-			disp_cust.o
+			disp_cust.o		\
+			font_8x16.o
 
 #ifneq ($(CONFIG_MTK_FB), y) # already in video/common/
 #obj-y += mtkfb_dummy.o
-#endif
-
-#ifneq ($(CONFIG_MTK_FB_SUPPORT_ASSERTION_LAYER), y)
-obj-y += font_8x16.o
 #endif
 
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/mtdummy/pq_dummy/
