@@ -759,7 +759,7 @@ void mhi_deinit_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
 			  tre_ring->pre_aligned, tre_ring->dma_handle);
-	kfree(buf_ring->base);
+	vfree(buf_ring->base);
 
 	buf_ring->base = tre_ring->base = NULL;
 	chan_ctxt->rbase = 0;
@@ -784,7 +784,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	buf_ring->el_size = sizeof(struct mhi_buf_info);
 	buf_ring->len = buf_ring->el_size * buf_ring->elements;
-	buf_ring->base = kzalloc(buf_ring->len, GFP_KERNEL);
+	buf_ring->base = vzalloc(buf_ring->len);
 
 	if (!buf_ring->base) {
 		mhi_free_coherent(mhi_cntrl, tre_ring->alloc_size,
@@ -998,8 +998,8 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	if (!of_node)
 		return -EINVAL;
 
-	mhi_cntrl->mhi_chan = kcalloc(mhi_cntrl->max_chan,
-				      sizeof(*mhi_cntrl->mhi_chan), GFP_KERNEL);
+	mhi_cntrl->mhi_chan = vzalloc(mhi_cntrl->max_chan *
+				      sizeof(*mhi_cntrl->mhi_chan));
 	if (!mhi_cntrl->mhi_chan)
 		return -ENOMEM;
 
@@ -1146,7 +1146,7 @@ static int of_parse_ch_cfg(struct mhi_controller *mhi_cntrl,
 	return 0;
 
 error_chan_cfg:
-	kfree(mhi_cntrl->mhi_chan);
+	vfree(mhi_cntrl->mhi_chan);
 
 	return -EINVAL;
 }
