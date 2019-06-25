@@ -205,11 +205,19 @@ static void sde_encoder_phys_wb_set_qos(struct sde_encoder_phys *phys_enc)
 	qos_cfg.danger_safe_en = true;
 	qos_cfg.danger_lut =
 		catalog->perf.danger_lut_tbl[SDE_QOS_LUT_USAGE_NRT];
-	qos_cfg.safe_lut =
-		(u32) _sde_encoder_phys_wb_get_qos_lut(
+
+	if (phys_enc->in_clone_mode)
+		qos_cfg.safe_lut = (u32) _sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.sfe_lut_tbl[SDE_QOS_LUT_USAGE_CWB], 0);
+	else
+		qos_cfg.safe_lut = (u32) _sde_encoder_phys_wb_get_qos_lut(
 			&catalog->perf.sfe_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
-	qos_cfg.creq_lut =
-		_sde_encoder_phys_wb_get_qos_lut(
+
+	if (phys_enc->in_clone_mode)
+		qos_cfg.creq_lut = _sde_encoder_phys_wb_get_qos_lut(
+			&catalog->perf.qos_lut_tbl[SDE_QOS_LUT_USAGE_CWB], 0);
+	else
+		qos_cfg.creq_lut = _sde_encoder_phys_wb_get_qos_lut(
 			&catalog->perf.qos_lut_tbl[SDE_QOS_LUT_USAGE_NRT], 0);
 
 	if (hw_wb->ops.setup_danger_safe_lut)
