@@ -3611,6 +3611,7 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 {
 	int rc = 0, index = 0;
 	struct ipa_quota_stats_all *con_stats;
+	enum ipa_client_type wlan_client;
 
 	/* qet HW-stats */
 	rc = ipa_get_teth_stats();
@@ -3644,11 +3645,18 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 			return rc;
 		}
 	}
-	IPAWANDBG("wlan: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_pkts,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_bytes,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_pkts,
-	con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_bytes);
+
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		wlan_client = IPA_CLIENT_WLAN2_CONS;
+	else
+		wlan_client = IPA_CLIENT_WLAN1_CONS;
+
+	IPAWANDBG("wlan: v4_rx_p-b(%d,%lld) v6_rx_p-b(%d,%lld),client(%d)\n",
+	con_stats->client[wlan_client].num_ipv4_pkts,
+	con_stats->client[wlan_client].num_ipv4_bytes,
+	con_stats->client[wlan_client].num_ipv6_pkts,
+	con_stats->client[wlan_client].num_ipv6_bytes,
+	wlan_client);
 
 	IPAWANDBG("usb: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
 	con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts,
@@ -3658,20 +3666,16 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 
 	/* update the DL stats */
 	data->ipv4_rx_packets =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_pkts +
-		con_stats->client[IPA_CLIENT_WLAN2_CONS].num_ipv4_pkts +
+		con_stats->client[wlan_client].num_ipv4_pkts +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts;
 	data->ipv6_rx_packets =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_pkts +
-		con_stats->client[IPA_CLIENT_WLAN2_CONS].num_ipv6_pkts +
+		con_stats->client[wlan_client].num_ipv6_pkts +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_pkts;
 	data->ipv4_rx_bytes =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv4_bytes +
-		con_stats->client[IPA_CLIENT_WLAN2_CONS].num_ipv4_bytes +
+		con_stats->client[wlan_client].num_ipv4_bytes +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_bytes;
 	data->ipv6_rx_bytes =
-		con_stats->client[IPA_CLIENT_WLAN1_CONS].num_ipv6_bytes +
-		con_stats->client[IPA_CLIENT_WLAN2_CONS].num_ipv6_bytes +
+		con_stats->client[wlan_client].num_ipv6_bytes +
 			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes;
 
 	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
@@ -3712,9 +3716,16 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 
 	/* query WLAN UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
-	rc = ipa_query_teth_stats(IPA_CLIENT_WLAN1_PROD, con_stats, reset);
+
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN2_PROD,
+			con_stats, reset);
+	else
+		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN1_PROD,
+			con_stats, reset);
+
 	if (rc) {
-		IPAERR("IPA_CLIENT_WLAN1_PROD query failed %d\n", rc);
+		IPAERR("IPA_CLIENT_WLAN_PROD query failed %d\n", rc);
 		kfree(con_stats);
 		return rc;
 	}
@@ -3725,36 +3736,6 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		index = IPA_CLIENT_Q6_WAN_CONS;
 
 	IPAWANDBG("wlan1: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
-	con_stats->client[index].num_ipv4_pkts,
-	con_stats->client[index].num_ipv4_bytes,
-	con_stats->client[index].num_ipv6_pkts,
-	con_stats->client[index].num_ipv6_bytes);
-
-	/* update the wlan UL stats */
-	data->ipv4_tx_packets +=
-		con_stats->client[index].num_ipv4_pkts;
-	data->ipv6_tx_packets +=
-		con_stats->client[index].num_ipv6_pkts;
-	data->ipv4_tx_bytes +=
-		con_stats->client[index].num_ipv4_bytes;
-	data->ipv6_tx_bytes +=
-		con_stats->client[index].num_ipv6_bytes;
-
-	/* query WLAN2 UL stats */
-	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
-	rc = ipa_query_teth_stats(IPA_CLIENT_WLAN2_PROD, con_stats, reset);
-	if (rc) {
-		IPAERR("IPA_CLIENT_WLAN2_PROD query failed %d\n", rc);
-		kfree(con_stats);
-		return rc;
-	}
-
-	if (rmnet_ipa3_ctx->ipa_config_is_apq)
-		index = IPA_CLIENT_MHI_PRIME_TETH_CONS;
-	else
-		index = IPA_CLIENT_Q6_WAN_CONS;
-
-	IPAWANDBG("wlan2: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
 	con_stats->client[index].num_ipv4_pkts,
 	con_stats->client[index].num_ipv4_bytes,
 	con_stats->client[index].num_ipv6_pkts,
