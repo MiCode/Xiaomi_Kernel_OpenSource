@@ -369,10 +369,12 @@ enum {
 	VBIF_DEFAULT_OT_WR_LIMIT,
 	VBIF_DYNAMIC_OT_RD_LIMIT,
 	VBIF_DYNAMIC_OT_WR_LIMIT,
-	VBIF_QOS_RT_REMAP,
-	VBIF_QOS_NRT_REMAP,
 	VBIF_MEMTYPE_0,
 	VBIF_MEMTYPE_1,
+	VBIF_QOS_RT_REMAP,
+	VBIF_QOS_NRT_REMAP,
+	VBIF_QOS_CWB_REMAP,
+	VBIF_QOS_LUTDMA_REMAP,
 	VBIF_PROP_MAX,
 };
 
@@ -380,6 +382,8 @@ enum {
 	REG_DMA_OFF,
 	REG_DMA_VERSION,
 	REG_DMA_TRIGGER_OFF,
+	REG_DMA_XIN_ID,
+	REG_DMA_CLK_CTRL,
 	REG_DMA_PROP_MAX
 };
 
@@ -688,12 +692,16 @@ static struct sde_prop_type vbif_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_DYNAMIC_OT_WR_LIMIT, "qcom,sde-vbif-dynamic-ot-wr-limit", false,
 		PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
 	{VBIF_QOS_RT_REMAP, "qcom,sde-vbif-qos-rt-remap", false,
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_QOS_NRT_REMAP, "qcom,sde-vbif-qos-nrt-remap", false,
 		PROP_TYPE_U32_ARRAY},
-	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
-	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_CWB_REMAP, "qcom,sde-vbif-qos-cwb-remap", false,
+		PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_LUTDMA_REMAP, "qcom,sde-vbif-qos-lutdma-remap", false,
+		PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
@@ -704,6 +712,10 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
 	[REG_DMA_TRIGGER_OFF] = {REG_DMA_TRIGGER_OFF,
 		"qcom,sde-reg-dma-trigger-off", false,
 		PROP_TYPE_U32},
+	[REG_DMA_XIN_ID] = {REG_DMA_XIN_ID,
+		"qcom,sde-reg-dma-xin-id", false, PROP_TYPE_U32},
+	[REG_DMA_CLK_CTRL] = {REG_DMA_XIN_ID,
+		"qcom,sde-reg-dma-clk-ctrl", false, PROP_TYPE_BIT_OFFSET_ARRAY},
 };
 
 static struct sde_prop_type merge_3d_prop[] = {
@@ -2592,6 +2604,7 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	bool prop_exists[VBIF_PROP_MAX];
 	u32 off_count, vbif_len;
 	struct sde_vbif_cfg *vbif;
+	int prop_index = VBIF_QOS_RT_REMAP;
 
 	if (!sde_cfg) {
 		SDE_ERROR("invalid argument\n");
@@ -2621,6 +2634,16 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_0], 1,
+			&prop_count[VBIF_MEMTYPE_0], NULL);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_1], 1,
+			&prop_count[VBIF_MEMTYPE_1], NULL);
+	if (rc)
+		goto end;
+
 	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_RT_REMAP], 1,
 			&prop_count[VBIF_QOS_RT_REMAP], NULL);
 	if (rc)
@@ -2631,13 +2654,13 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
-	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_0], 1,
-			&prop_count[VBIF_MEMTYPE_0], NULL);
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_CWB_REMAP], 1,
+			&prop_count[VBIF_QOS_CWB_REMAP], NULL);
 	if (rc)
 		goto end;
 
-	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_1], 1,
-			&prop_count[VBIF_MEMTYPE_1], NULL);
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_LUTDMA_REMAP], 1,
+			&prop_count[VBIF_QOS_LUTDMA_REMAP], NULL);
 	if (rc)
 		goto end;
 
@@ -2733,62 +2756,40 @@ static int sde_vbif_parse_dt(struct device_node *np,
 				vbif->dynamic_ot_wr_tbl.count)
 			set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
 
-		vbif->qos_rt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_RT_REMAP];
-		SDE_DEBUG("qos_rt_tbl.npriority_lvl=%u\n",
-				vbif->qos_rt_tbl.npriority_lvl);
-		if (vbif->qos_rt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_rt_tbl.priority_lvl = kcalloc(
-				vbif->qos_rt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_rt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
+		for (k = VBIF_RT_CLIENT;
+			((k < VBIF_MAX_CLIENT) && (prop_index < VBIF_PROP_MAX));
+				k++, prop_index++) {
+			vbif->qos_tbl[k].npriority_lvl = prop_count[prop_index];
+			SDE_DEBUG("qos_tbl[%d].npriority_lvl=%u\n",
+				k, vbif->qos_tbl[k].npriority_lvl);
+
+			if (vbif->qos_tbl[k].npriority_lvl ==
+					sde_cfg->vbif_qos_nlvl) {
+				vbif->qos_tbl[k].priority_lvl = kcalloc(
+					vbif->qos_tbl[k].npriority_lvl,
+					sizeof(u32), GFP_KERNEL);
+				if (!vbif->qos_tbl[k].priority_lvl) {
+					rc = -ENOMEM;
+					goto end;
+				}
+			} else if (vbif->qos_tbl[k].npriority_lvl) {
+				vbif->qos_tbl[k].npriority_lvl = 0;
+				vbif->qos_tbl[k].priority_lvl = NULL;
+				SDE_ERROR("invalid qos rt table\n");
 			}
-		} else if (vbif->qos_rt_tbl.npriority_lvl) {
-			vbif->qos_rt_tbl.npriority_lvl = 0;
-			vbif->qos_rt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos rt table\n");
-		}
 
-		for (j = 0; j < vbif->qos_rt_tbl.npriority_lvl; j++) {
-			vbif->qos_rt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_RT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_rt_tbl.priority_lvl[j]);
-		}
-
-		vbif->qos_nrt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_NRT_REMAP];
-		SDE_DEBUG("qos_nrt_tbl.npriority_lvl=%u\n",
-				vbif->qos_nrt_tbl.npriority_lvl);
-
-		if (vbif->qos_nrt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_nrt_tbl.priority_lvl = kcalloc(
-				vbif->qos_nrt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_nrt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
+			for (j = 0; j < vbif->qos_tbl[k].npriority_lvl; j++) {
+				vbif->qos_tbl[k].priority_lvl[j] =
+					PROP_VALUE_ACCESS(prop_value,
+							prop_index, j);
+				SDE_DEBUG("client:%d, prop:%d, lvl[%d]=%u\n",
+					k, prop_index, j,
+					vbif->qos_tbl[k].priority_lvl[j]);
 			}
-		} else if (vbif->qos_nrt_tbl.npriority_lvl) {
-			vbif->qos_nrt_tbl.npriority_lvl = 0;
-			vbif->qos_nrt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos nrt table\n");
-		}
 
-		for (j = 0; j < vbif->qos_nrt_tbl.npriority_lvl; j++) {
-			vbif->qos_nrt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_NRT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_nrt_tbl.priority_lvl[j]);
+			if (vbif->qos_tbl[k].npriority_lvl)
+				set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
 		}
-
-		if (vbif->qos_rt_tbl.npriority_lvl ||
-				vbif->qos_nrt_tbl.npriority_lvl)
-			set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
 
 		vbif->memtype_count = prop_count[VBIF_MEMTYPE_0] +
 					prop_count[VBIF_MEMTYPE_1];
@@ -3082,32 +3083,50 @@ end:
 static int sde_parse_reg_dma_dt(struct device_node *np,
 		struct sde_mdss_cfg *sde_cfg)
 {
-	u32 val;
-	int rc = 0;
-	int i = 0;
+	int rc = 0, i, prop_count[REG_DMA_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	u32 off_count;
+	bool prop_exists[REG_DMA_PROP_MAX];
 
-	sde_cfg->reg_dma_count = 0;
-	for (i = 0; i < REG_DMA_PROP_MAX; i++) {
-		rc = of_property_read_u32(np, reg_dma_prop[i].prop_name,
-				&val);
-		if (rc)
-			break;
-		switch (i) {
-		case REG_DMA_OFF:
-			sde_cfg->dma_cfg.base = val;
-			break;
-		case REG_DMA_VERSION:
-			sde_cfg->dma_cfg.version = val;
-			break;
-		case REG_DMA_TRIGGER_OFF:
-			sde_cfg->dma_cfg.trigger_sel_off = val;
-			break;
-		default:
-			break;
-		}
+	prop_value = kcalloc(REG_DMA_PROP_MAX,
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
 	}
-	if (!rc && i == REG_DMA_PROP_MAX)
-		sde_cfg->reg_dma_count = 1;
+
+	rc = _validate_dt_entry(np, reg_dma_prop, ARRAY_SIZE(reg_dma_prop),
+			prop_count, &off_count);
+	if (rc || !off_count)
+		goto end;
+
+	rc = _read_dt_entry(np, reg_dma_prop, ARRAY_SIZE(reg_dma_prop),
+			prop_count, prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	sde_cfg->reg_dma_count = off_count;
+	sde_cfg->dma_cfg.base = PROP_VALUE_ACCESS(prop_value, REG_DMA_OFF, 0);
+	sde_cfg->dma_cfg.version = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_VERSION, 0);
+	sde_cfg->dma_cfg.trigger_sel_off = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_TRIGGER_OFF, 0);
+	sde_cfg->dma_cfg.xin_id = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_XIN_ID, 0);
+	sde_cfg->dma_cfg.clk_ctrl = SDE_CLK_CTRL_LUTDMA;
+	sde_cfg->dma_cfg.vbif_idx = VBIF_RT;
+
+	for (i = 0; i < sde_cfg->mdp_count; i++) {
+		sde_cfg->mdp[i].clk_ctrls[sde_cfg->dma_cfg.clk_ctrl].reg_off =
+			PROP_BITVALUE_ACCESS(prop_value,
+					REG_DMA_CLK_CTRL, 0, 0);
+		sde_cfg->mdp[i].clk_ctrls[sde_cfg->dma_cfg.clk_ctrl].bit_off =
+			PROP_BITVALUE_ACCESS(prop_value,
+					REG_DMA_CLK_CTRL, 0, 1);
+	}
+
+end:
+	kfree(prop_value);
 	/* reg dma is optional feature hence return 0 */
 	return 0;
 }
@@ -3804,7 +3823,7 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 
 void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 {
-	int i;
+	int i, j;
 
 	if (!sde_cfg)
 		return;
@@ -3830,8 +3849,9 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 	for (i = 0; i < sde_cfg->vbif_count; i++) {
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
-		kfree(sde_cfg->vbif[i].qos_rt_tbl.priority_lvl);
-		kfree(sde_cfg->vbif[i].qos_nrt_tbl.priority_lvl);
+
+		for (j = VBIF_RT_CLIENT; j < VBIF_MAX_CLIENT; j++)
+			kfree(sde_cfg->vbif[i].qos_tbl[j].priority_lvl);
 	}
 
 	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++)

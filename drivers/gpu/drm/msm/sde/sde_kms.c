@@ -3062,6 +3062,25 @@ static void sde_kms_init_shared_hw(struct sde_kms *sde_kms)
 		sde_hw_sid_rotator_set(sde_kms->hw_sid);
 }
 
+static void _sde_kms_set_lutdma_vbif_remap(struct sde_kms *sde_kms)
+{
+	struct sde_vbif_set_qos_params qos_params;
+	struct sde_mdss_cfg *catalog;
+
+	if (!sde_kms->catalog)
+		return;
+
+	catalog = sde_kms->catalog;
+
+	memset(&qos_params, 0, sizeof(qos_params));
+	qos_params.vbif_idx = catalog->dma_cfg.vbif_idx;
+	qos_params.xin_id = catalog->dma_cfg.xin_id;
+	qos_params.clk_ctrl = catalog->dma_cfg.clk_ctrl;
+	qos_params.client_type = VBIF_LUTDMA_CLIENT;
+
+	sde_vbif_set_qos_remap(sde_kms, &qos_params);
+}
+
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -3078,6 +3097,7 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
 		sde_kms_init_shared_hw(sde_kms);
+		_sde_kms_set_lutdma_vbif_remap(sde_kms);
 		sde_kms->first_kickoff = true;
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -614,6 +614,7 @@ enum sde_clk_ctrl_type {
 	SDE_CLK_CTRL_WB2,
 	SDE_CLK_CTRL_INLINE_ROT0_SSPP,
 	SDE_CLK_CTRL_INLINE_ROT0_WB,
+	SDE_CLK_CTRL_LUTDMA,
 	SDE_CLK_CTRL_MAX,
 };
 
@@ -917,6 +918,22 @@ struct sde_vbif_qos_tbl {
 };
 
 /**
+ * enum sde_vbif_client_type
+ * @VBIF_RT_CLIENT: real time client
+ * @VBIF_NRT_CLIENT: non-realtime clients like writeback
+ * @VBIF_CWB_CLIENT: concurrent writeback client
+ * @VBIF_LUTDMA_CLIENT: LUTDMA client
+ * @VBIF_MAX_CLIENT: max number of clients
+ */
+enum sde_vbif_client_type {
+	VBIF_RT_CLIENT,
+	VBIF_NRT_CLIENT,
+	VBIF_CWB_CLIENT,
+	VBIF_LUTDMA_CLIENT,
+	VBIF_MAX_CLIENT
+};
+
+/**
  * struct sde_vbif_cfg - information of VBIF blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -926,8 +943,7 @@ struct sde_vbif_qos_tbl {
  * @xin_halt_timeout   maximum time (in usec) for xin to halt
  * @dynamic_ot_rd_tbl  dynamic OT read configuration table
  * @dynamic_ot_wr_tbl  dynamic OT write configuration table
- * @qos_rt_tbl         real-time QoS priority table
- * @qos_nrt_tbl        non-real-time QoS priority table
+ * @qos_tbl            Array of QoS priority table
  * @memtype_count      number of defined memtypes
  * @memtype            array of xin memtype definitions
  */
@@ -938,8 +954,7 @@ struct sde_vbif_cfg {
 	u32 xin_halt_timeout;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_rd_tbl;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
-	struct sde_vbif_qos_tbl qos_rt_tbl;
-	struct sde_vbif_qos_tbl qos_nrt_tbl;
+	struct sde_vbif_qos_tbl qos_tbl[VBIF_MAX_CLIENT];
 	u32 memtype_count;
 	u32 memtype[MAX_XIN_COUNT];
 };
@@ -950,11 +965,17 @@ struct sde_vbif_cfg {
  * @features           bit mask identifying sub-blocks/features
  * @version            version of lutdma hw block
  * @trigger_sel_off    offset to trigger select registers of lutdma
+ * @xin_id             VBIF xin client-id for LUTDMA
+ * @vbif_idx           VBIF id (RT/NRT)
+ * @clk_ctrl           VBIF xin client clk-ctrl
  */
 struct sde_reg_dma_cfg {
 	SDE_HW_BLK_INFO;
 	u32 version;
 	u32 trigger_sel_off;
+	u32 xin_id;
+	u32 vbif_idx;
+	enum sde_clk_ctrl_type clk_ctrl;
 };
 
 /**

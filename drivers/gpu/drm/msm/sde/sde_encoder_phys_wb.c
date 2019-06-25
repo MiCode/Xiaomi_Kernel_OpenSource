@@ -147,12 +147,13 @@ static void sde_encoder_phys_wb_set_qos_remap(
 	qos_params.xin_id = hw_wb->caps->xin_id;
 	qos_params.clk_ctrl = hw_wb->caps->clk_ctrl;
 	qos_params.num = hw_wb->idx - WB_0;
-	qos_params.is_rt = sde_crtc_get_client_type(crtc) != NRT_CLIENT;
+	qos_params.client_type = phys_enc->in_clone_mode ?
+					VBIF_CWB_CLIENT : VBIF_NRT_CLIENT;
 
-	SDE_DEBUG("[qos_remap] wb:%d vbif:%d xin:%d rt:%d\n",
+	SDE_DEBUG("[qos_remap] wb:%d vbif:%d xin:%d rt:%d clone:%d\n",
 			qos_params.num,
 			qos_params.vbif_idx,
-			qos_params.xin_id, qos_params.is_rt);
+			qos_params.xin_id, qos_params.client_type);
 
 	sde_vbif_set_qos_remap(phys_enc->sde_kms, &qos_params);
 }
