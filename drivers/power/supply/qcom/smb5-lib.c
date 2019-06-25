@@ -5995,14 +5995,13 @@ increment:
 	if (rc < 0)
 		goto unlock;
 
-	if (icl == DCIN_ICL_MAX_UA) {
+	if (icl == chg->wls_icl_ua) {
 		/* Upper limit reached; do nothing */
 		smblib_dbg(chg, PR_WLS, "hit max ICL: stop\n");
 		goto unlock;
 	}
 
-	icl += DCIN_ICL_STEP_UA;
-
+	icl = min(chg->wls_icl_ua, icl + DCIN_ICL_STEP_UA);
 	icl_save = icl;
 
 	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, icl);
