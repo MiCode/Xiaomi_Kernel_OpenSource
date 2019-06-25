@@ -2303,6 +2303,128 @@
 		required-opps = <&dvfsrc_freq_opp0>;
 	};
 
+	afe: mt6779-afe-pcm@11210000  {
+		compatible = "mediatek,mt6779-sound";
+		reg = <0 0x11210000 0 0x1000>;
+		interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_LOW>;
+		topckgen = <&topckgen>;
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_AUDIO>;
+		clocks = <&audio CLK_AUD_AFE>,
+			 <&audio CLK_AUD_DAC>,
+			 <&audio CLK_AUD_DAC_PREDIS>,
+			 <&audio CLK_AUD_ADC>,
+			 <&audio CLK_AUD_PDN_ADDA6_ADC>,
+			 <&audio CLK_AUD_22M>,
+			 <&audio CLK_AUD_24M>,
+			 <&audio CLK_AUD_APLL_TUNER>,
+			 <&audio CLK_AUD_APLL2_TUNER>,
+			 <&audio CLK_AUD_TDM>,
+			 <&audio CLK_AUD_TML>,
+			 <&audio CLK_AUD_NLE>,
+			 <&audio CLK_AUD_DAC_HIRES>,
+			 <&audio CLK_AUD_ADC_HIRES>,
+			 <&audio CLK_AUD_ADC_HIRES_TML>,
+			 <&audio CLK_AUD_ADDA6_ADC_HIRES>,
+			 <&audio CLK_AUD_3RD_DAC>,
+			 <&audio CLK_AUD_3RD_DAC_PREDIS>,
+			 <&audio CLK_AUD_3RD_DAC_TML>,
+			 <&audio CLK_AUD_3RD_DAC_HIRES>,
+			 <&infracfg_ao CLK_INFRA_AUD>,
+			 <&infracfg_ao CLK_INFRA_AUD_26M_BCLK_CK>,
+			 <&topckgen CLK_TOP_AUD>,
+			 <&topckgen CLK_TOP_AUD_INTBUS>,
+			 <&topckgen CLK_TOP_MAINPLL_D2_D4>,
+			 <&topckgen CLK_TOP_AUD_1>,
+			 <&topckgen CLK_TOP_APLL1_CK>,
+			 <&topckgen CLK_TOP_AUD_2>,
+			 <&topckgen CLK_TOP_APLL2_CK>,
+			 <&topckgen CLK_TOP_AUD_ENG1>,
+			 <&topckgen CLK_TOP_APLL1_D8>,
+			 <&topckgen CLK_TOP_AUD_ENG2>,
+			 <&topckgen CLK_TOP_APLL2_D8>,
+			 <&topckgen CLK_TOP_I2S0_M_SEL>,
+			 <&topckgen CLK_TOP_I2S1_M_SEL>,
+			 <&topckgen CLK_TOP_I2S2_M_SEL>,
+			 <&topckgen CLK_TOP_I2S3_M_SEL>,
+			 <&topckgen CLK_TOP_I2S4_M_SEL>,
+			 <&topckgen CLK_TOP_I2S5_M_SEL>,
+			 <&topckgen CLK_TOP_APLL12_DIV0>,
+			 <&topckgen CLK_TOP_APLL12_DIV1>,
+			 <&topckgen CLK_TOP_APLL12_DIV2>,
+			 <&topckgen CLK_TOP_APLL12_DIV3>,
+			 <&topckgen CLK_TOP_APLL12_DIV4>,
+			 <&topckgen CLK_TOP_APLL12_DIVB>,
+			 <&topckgen CLK_TOP_APLL12_DIV5>,
+			 <&topckgen CLK_TOP_AUD_H>,
+			 <&clk26m>;
+		clock-names = "aud_afe_clk",
+			      "aud_dac_clk",
+			      "aud_dac_predis_clk",
+			      "aud_adc_clk",
+			      "aud_adda6_adc_clk",
+			      "aud_apll22m_clk",
+			      "aud_apll24m_clk",
+			      "aud_apll1_tuner_clk",
+			      "aud_apll2_tuner_clk",
+			      "aud_tdm_clk",
+			      "aud_tml_clk",
+			      "aud_nle",
+			      "aud_dac_hires_clk",
+			      "aud_adc_hires_clk",
+			      "aud_adc_hires_tml",
+			      "aud_adda6_adc_hires_clk",
+			      "aud_3rd_dac_clk",
+			      "aud_3rd_dac_predis_clk",
+			      "aud_3rd_dac_tml",
+			      "aud_3rd_dac_hires_clk",
+			      "aud_infra_clk",
+			      "mtkaif_26m_clk",
+			      "top_mux_audio",
+			      "top_mux_audio_int",
+			      "top_mainpll_d2_d4",
+			      "top_mux_aud_1",
+			      "top_apll1_ck",
+			      "top_mux_aud_2",
+			      "top_apll2_ck",
+			      "top_mux_aud_eng1",
+			      "top_apll1_d8",
+			      "top_mux_aud_eng2",
+			      "top_apll2_d8",
+			      "top_i2s0_m_sel",
+			      "top_i2s1_m_sel",
+			      "top_i2s2_m_sel",
+			      "top_i2s3_m_sel",
+			      "top_i2s4_m_sel",
+			      "top_i2s5_m_sel",
+			      "top_apll12_div0",
+			      "top_apll12_div1",
+			      "top_apll12_div2",
+			      "top_apll12_div3",
+			      "top_apll12_div4",
+			      "top_apll12_divb",
+			      "top_apll12_div5",
+			      "top_mux_audio_h",
+			      "top_clk26m_clk";
+	};
+
+	sound: sound {
+		compatible = "mediatek,mt6779-mt6359-sound";
+		mediatek,audio-codec = <&mt6359_snd>;
+		mediatek,speaker-codec = <&mt6660>;
+		mediatek,platform = <&afe>;
+	};
+
+	audio_sram@11211000 {
+		compatible = "mediatek,audio_sram";
+		reg = <0 0x11211000 0 0x18000>;
+		prefer_mode = <1>;
+		mode_size = <0x12000 0x18000>;
+		block_size = <0x1000>;
+	};
+
+	smart_pa: smart_pa {
+	};
+
 	atf_logger {
 		compatible = "mediatek,atf_logger";
 	};

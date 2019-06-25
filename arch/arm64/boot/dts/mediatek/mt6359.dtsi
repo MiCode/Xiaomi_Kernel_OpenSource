@@ -464,5 +464,9 @@
 			auxout-bblpm-en = <0x7b2 0>;
 			auxout-bblpm-o = <0x7b2 15>;
 		};
+
+		mt6359_snd: mt6359_snd {
+			compatible = "mediatek,mt6359-sound";
+		};
 	};
 };
