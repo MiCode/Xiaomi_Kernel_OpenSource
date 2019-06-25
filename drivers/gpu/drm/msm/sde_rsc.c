@@ -38,7 +38,14 @@
 
 #define RSC_MODE_INSTRUCTION_TIME	100
 #define RSC_MODE_THRESHOLD_OVERHEAD	2700
-#define MIN_THRESHOLD_TIME		0
+
+/**
+ * rsc_min_threshold will be set to MIN_THRESHOLD_OVERHEAD_TIME which
+ * takes into account back off time + overhead from RSC/RSC_WRAPPER. The
+ * overhead buffer time is required to be greater than 14. For measure,
+ * this value assumes 18.
+ */
+#define MIN_THRESHOLD_OVERHEAD_TIME	18
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER_NUMERATOR	2
@@ -446,7 +453,7 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	/* mode 2 is infinite */
 	rsc->timer_config.rsc_time_slot_2_ns = 0xFFFFFFFF;
 
-	rsc->timer_config.min_threshold_time_ns = 0;
+	rsc->timer_config.min_threshold_time_ns = MIN_THRESHOLD_OVERHEAD_TIME;
 	rsc->timer_config.bwi_threshold_time_ns =
 		rsc->timer_config.rsc_time_slot_0_ns;
 
