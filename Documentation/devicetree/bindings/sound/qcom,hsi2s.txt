@@ -1,0 +1,81 @@
+Qualcomm Technologies, Inc. High Speed I2S Interface
+
+* HS-I2S generic node
+
+Required properties:
+
+ - compatible : Should be "qcom,hsi2s"
+ - number-of-interfaces : Denotes the number of HS-I2S interfaces
+ - reg : Specifies the base physical address and the size of the HS-I2S
+	 register space
+ - reg-names : "lpa_if" - string to identify the HS-I2S base register
+ - interrupts : Interrupt number used by this interface
+ - clocks : Core clocks used by this interface
+ - clock-names : Clock names for each core clock
+
+* HS-I2S interface nodes
+
+Required properties:
+
+ - compatible : Should be "qcom,hsi2s-interface"
+ - minor-number : Minor number of the character device interface
+		  Should be 0 for HS0 interface
+		  Should be 1 for HS1 interface
+ - clocks : Interface clock used by this interface
+ - clock-names : Clock name for the interface clock
+ - pinctrl-names : Pinctrl state names for each pin group configuration
+ - pinctrl-x : Defines pinctrl state for each pin group
+ - iommus: The phandle and stream IDs for the SMMU used by this root
+ - qcom,iova-mapping: Specifies the start address and size of iova space
+
+Optional properties:
+
+ - qcom,smmu-s1-bypass: Boolean, if present S1 bypass is enabled
+
+Example:
+
+hsi2s: qcom,hsi2s {
+	compatible = "qcom,hsi2s";
+	number-of-interfaces = <2>;
+	reg = <0x1B40000 0x28000>;
+	reg-names = "lpa_if";
+	interrupts = <GIC_SPI 267 0>;
+	clocks = <&clock_gcc GCC_SDR_CORE_CLK>,
+		 <&clock_gcc GCC_SDR_WR0_MEM_CLK>,
+		 <&clock_gcc GCC_SDR_WR1_MEM_CLK>,
+		 <&clock_gcc GCC_SDR_WR2_MEM_CLK>,
+		 <&clock_gcc GCC_SDR_CSR_HCLK>;
+	clock-names = "core_clk", "wr0_mem_clk",
+		      "wr1_mem_clk", "wr2_mem_clk",
+		      "csr_hclk";
+
+	sdr0: qcom,hs0_i2s {
+		compatible = "qcom,hsi2s-interface";
+		minor-number = <0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&hs0_i2s_sck_active &hs0_i2s_data0_active
+			     &hs0_i2s_data1_active>;
+		pinctrl-1 = <&hs0_i2s_sck_sleep &hs0_i2s_data0_sleep
+			     &hs0_i2s_data1_sleep>;
+		clocks = <&clock_gcc GCC_SDR_PRI_MI2S_CLK>;
+		clock-names = "pri_mi2s_clk";
+		iommus = <&apps_smmu 0x035C 0x0>;
+		qcom,smmu-s1-bypass;
+		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+	};
+
+	sdr1: qcom,hs1_i2s {
+		compatible = "qcom,hsi2s-interface";
+		minor-number = <1>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&hs1_i2s_sck_active &hs1_i2s_data0_active
+			     &hs1_i2s_data1_active>;
+		pinctrl-1 = <&hs1_i2s_sck_sleep &hs1_i2s_data0_sleep
+			     &hs1_i2s_data1_sleep>;
+		clocks = <&clock_gcc GCC_SDR_SEC_MI2S_CLK>;
+		clock-names = "sec_mi2s_clk";
+		iommus = <&apps_smmu 0x035D 0x0>;
+		qcom,smmu-s1-bypass;
+		qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+	};
+};
