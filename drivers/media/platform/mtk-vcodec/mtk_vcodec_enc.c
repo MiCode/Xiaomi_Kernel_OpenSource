@@ -258,7 +258,6 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 				V4L2_PIX_FMT_H264, ctrl->val, 1)) {
 			mtk_v4l2_err("ERROR H264_PROFILE check Error! val:%d",
 				ctrl->val);
-			return -EINVAL;
 		}
 		p->profile = ctrl->val;
 		break;
@@ -283,8 +282,8 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			       ctrl->val);
 		if (!vidioc_venc_check_supported_profile_level(
 				V4L2_PIX_FMT_H264, ctrl->val, 0)) {
-			mtk_v4l2_err("ERROR H264_PROFILE check Error!");
-			return -EINVAL;
+			mtk_v4l2_err("ERROR H264_LEVEL check Error! val:%d",
+				ctrl->val);
 		}
 		p->level = ctrl->val;
 		break;

@@ -78,7 +78,7 @@ static void vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 
 	vcu_get_task(&task, &f);
 	if (!msg || !task || task->tgid != current->tgid ||
-	   (struct venc_vcu_inst *)msg->venc_inst != NULL) {
+	   (struct venc_vcu_inst *)msg->venc_inst == NULL) {
 		pr_info("%s:%d %p, %p,(%d,%d), %p\n", __func__, __LINE__,
 			msg, task, task->tgid,
 			current->tgid, (struct venc_vcu_inst *)msg->venc_inst);
