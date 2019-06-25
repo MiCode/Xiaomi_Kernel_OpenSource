@@ -9468,12 +9468,15 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 
 	if (static_branch_unlikely(&sched_energy_present)) {
 		struct root_domain *rd = env->dst_rq->rd;
-		int local_cpu, busiest_cpu, intra = 0;
+		int intra = 0;
 
-		local_cpu = env->dst_cpu;
-		busiest_cpu = group_first_cpu(sds.busiest);
+		if (sds.busiest) {
+			int local_cpu, busiest_cpu;
 
-		intra = is_intra_domain(local_cpu, busiest_cpu);
+			local_cpu = env->dst_cpu;
+			busiest_cpu = group_first_cpu(sds.busiest);
+			intra = is_intra_domain(local_cpu, busiest_cpu);
+		}
 
 		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized))
 			if (!sched_feat(SCHED_MTK_EAS) ||
