@@ -210,7 +210,12 @@ static int mtk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 postdiv;
 
 	mtk_pll_calc_values(pll, &pcw, &postdiv, rate, parent_rate);
+#if defined(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING)
+	if (!mtk_fh_set_rate(pll->data->id, pcw, postdiv))
+		mtk_pll_set_rate_regs(pll, pcw, postdiv);
+#else
 	mtk_pll_set_rate_regs(pll, pcw, postdiv);
+#endif
 
 	return 0;
 }

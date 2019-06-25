@@ -45,8 +45,16 @@ obj-$(CONFIG_COMMON_CLK_MT7629_ETHSYS) += clk-mt7629-eth.o
 obj-$(CONFIG_COMMON_CLK_MT7629_HIFSYS) += clk-mt7629-hif.o
 obj-$(CONFIG_COMMON_CLK_MT8135) += clk-mt8135.o
 obj-$(CONFIG_COMMON_CLK_MT8173) += clk-mt8173.o
-
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clkdbg.o
 obj-$(CONFIG_COMMON_CLK_MT2712) += clkdbg-mt2712.o
 endif
+obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
+fhctl-y += clk-fhctl.o
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_DEBUG) += clk-fhctl-debug.o
+ifneq ($(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS),y)
+fhctl-y += clk-fhctl-ap.o
+else
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_SSPM) += clk-fhctl-sspm.o
+endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/

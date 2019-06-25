@@ -344,4 +344,39 @@ config COMMON_CLK_MT8173
 	default ARCH_MEDIATEK
 	---help---
 	  This driver supports MediaTek MT8173 clocks.
+
+config COMMON_CLK_MTK_FREQ_HOPPING
+	tristate "MediaTek FREQHOPPING driver"
+	help
+	  FREQHOPPING driver support for MediaTek SOC
+	  If you want to use MediaTek FREQHOPPING driver,
+	  say Y or M here.
+	  If unsure, say N.
+
+config COMMON_CLK_MTK_FREQ_HOPPING_DEBUG
+	bool "Mediate Freq Hopping debug fs"
+	depends on DEBUG_FS && COMMON_CLK_MTK_FREQ_HOPPING
+	help
+	  This option is for debugging purpose
+	  say Y to use debugfs interface to control
+	  Freqhopping.
+	  Otherwise, say N
+
+config COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	bool
+	depends on COMMON_CLK_MTK_FREQ_HOPPING_SSPM
+	help
+	  If FREQHOPPING HW is controlled by other processor,
+	  such as SSPM, this should be set.
+
+config COMMON_CLK_MTK_FREQ_HOPPING_SSPM
+	bool "Mediatek FREQHOPPING controlled by SSPM"
+	depends on COMMON_CLK_MTK_FREQ_HOPPING && MTK_TINYSYS_SSPM_SUPPORT
+	select COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+	help
+	  If FREQHOPPING HW is controlled by SSPM,
+	  say Y here.
+	  Otherwise, say N.
+	  Enabling this config will auto set COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
+
 endmenu
