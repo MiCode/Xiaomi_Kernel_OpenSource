@@ -1871,6 +1871,14 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 		sde_power_client_destroy(&priv->phandle, sde_kms->core_client);
 	sde_kms->core_client = NULL;
 
+	if (sde_kms->sid)
+		msm_iounmap(pdev, sde_kms->sid);
+	sde_kms->sid = NULL;
+
+	if (sde_kms->reg_dma)
+		msm_iounmap(pdev, sde_kms->reg_dma);
+	sde_kms->reg_dma = NULL;
+
 	if (sde_kms->vbif[VBIF_NRT])
 		msm_iounmap(pdev, sde_kms->vbif[VBIF_NRT]);
 	sde_kms->vbif[VBIF_NRT] = NULL;
@@ -3049,6 +3057,9 @@ static void sde_kms_init_shared_hw(struct sde_kms *sde_kms)
 	if (sde_kms->hw_mdp->ops.reset_ubwc)
 		sde_kms->hw_mdp->ops.reset_ubwc(sde_kms->hw_mdp,
 						sde_kms->catalog);
+
+	if (sde_kms->hw_sid)
+		sde_hw_sid_rotator_set(sde_kms->hw_sid);
 }
 
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
@@ -3300,6 +3311,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					rc);
 	}
 
+	sde_kms->sid = msm_ioremap(platformdev, "sid_phys",
+							"sid_phys");
+	if (IS_ERR(sde_kms->sid)) {
+		sde_kms->sid = NULL;
+		SDE_DEBUG("SID_PHYS is not defined\n");
+	} else {
+		sde_kms->sid_len = msm_iomap_size(platformdev, "sid_phys");
+		rc =  sde_dbg_reg_register_base("sid", sde_kms->sid,
+				sde_kms->sid_len);
+		if (rc)
+			SDE_ERROR("dbg base register sid failed: %d\n", rc);
+	}
+
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
@@ -3447,6 +3471,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 			sde_kms->hw_vbif[vbif_idx] = NULL;
 			goto power_error;
 		}
+	}
+
+	sde_kms->hw_sid = sde_hw_sid_init(sde_kms->sid,
+				sde_kms->sid_len, sde_kms->catalog);
+	if (IS_ERR(sde_kms->hw_sid)) {
+		SDE_ERROR("failed to init sid %d\n", PTR_ERR(sde_kms->hw_sid));
+		sde_kms->hw_sid = NULL;
+		goto power_error;
 	}
 
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,

@@ -220,6 +220,26 @@ struct sde_hw_mdp {
 	struct sde_hw_mdp_ops ops;
 };
 
+struct sde_hw_sid {
+	/* rotator base */
+	struct sde_hw_blk_reg_map hw;
+};
+
+/**
+ * sde_hw_sid_rotator_set - initialize the sid blk reg map
+ * @addr: Mapped register io address
+ * @sid_len: Length of block
+ * @m: Pointer to mdss catalog data
+ */
+struct sde_hw_sid *sde_hw_sid_init(void __iomem *addr,
+		u32 sid_len, const struct sde_mdss_cfg *m);
+
+/**
+ * sde_hw_sid_rotator_set - set sid values for rotator
+ * sid: sde_hw_sid passed from kms
+ */
+void sde_hw_sid_rotator_set(struct sde_hw_sid *sid);
+
 /**
  * to_sde_hw_mdp - convert base object sde_hw_base to container
  * @hw: Pointer to base hardware block
