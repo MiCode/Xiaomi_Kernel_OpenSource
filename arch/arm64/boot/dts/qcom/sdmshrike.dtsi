@@ -1909,6 +1909,141 @@
 		status = "disabled";
 	};
 
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	msm_fastrpc: qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-compute";
+		qcom,fastrpc-adsp-audio-pdr;
+		qcom,rpc-latency-us = <235>;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1401 0x2040>,
+				 <&apps_smmu 0x1421 0x0>,
+				 <&apps_smmu 0x2001 0x420>,
+				 <&apps_smmu 0x2041 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x4 0x3440>,
+				 <&apps_smmu 0x24 0x3400>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x5 0x3440>,
+				 <&apps_smmu 0x25 0x3400>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x6 0x3460>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x7 0x3460>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x8 0x3460>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x2 0x3440>,
+				 <&apps_smmu 0x22 0x3400>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x3 0x3440>,
+				 <&apps_smmu 0x1423 0x0>,
+				 <&apps_smmu 0x2023 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x9 0x3460>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1b23 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1b24 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1b25 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb13 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a1 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb14 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a2 0x0>;
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb15 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "sdsprpc-smd";
+			iommus = <&apps_smmu 0x5a3 0x0>;
+			shared-cb = <4>;
+			dma-coherent;
+		};
+	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+	};
 	mem_dump {
 		compatible = "qcom,mem-dump";
 		memory-region = <&dump_mem>;
