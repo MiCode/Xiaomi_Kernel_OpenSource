@@ -231,7 +231,10 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_gauge_resources),
 		.resources = mt6359_gauge_resources,
 		.of_compatible = "mediatek,mt6359-gauge",
-	},
+	}, {
+		.name = "mt6359-sound",
+		.of_compatible = "mediatek,mt6359-sound"
+	}
 };
 
 static const struct mfd_cell mt6397_devs[] = {
