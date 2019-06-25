@@ -30,6 +30,7 @@ struct mhi_buf_info;
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
+ * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
  */
 enum MHI_CB {
 	MHI_CB_IDLE,
@@ -39,6 +40,7 @@ enum MHI_CB {
 	MHI_CB_EE_RDDM,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
+	MHI_CB_BW_REQ,
 };
 
 /**
@@ -116,6 +118,16 @@ enum mhi_dev_state {
 };
 
 /**
+ * struct mhi_link_info - bw requirement
+ * target_link_speed - as defined by TLS bits in LinkControl reg
+ * target_link_width - as defined by NLW bits in LinkStatus reg
+ */
+struct mhi_link_info {
+	unsigned int target_link_speed;
+	unsigned int target_link_width;
+};
+
+/**
  * struct image_info - firmware and rddm table table
  * @mhi_buf - Contain device firmware and rddm table
  * @entries - # of entries in table
@@ -164,6 +176,7 @@ struct image_info {
  * @pm_state: Power management state
  * @ee: MHI device execution environment
  * @dev_state: MHI STATE
+ * @mhi_link_info: requested link bandwidth by device
  * @status_cb: CB function to notify various power states to but master
  * @link_status: Query link status in case of abnormal value read from device
  * @runtime_get: Async runtime resume function
@@ -254,6 +267,9 @@ struct mhi_controller {
 	struct list_head transition_list;
 	spinlock_t transition_lock;
 	spinlock_t wlock;
+
+	/* target bandwidth info */
+	struct mhi_link_info mhi_link_info;
 
 	/* debug counters */
 	u32 M0, M2, M3;
