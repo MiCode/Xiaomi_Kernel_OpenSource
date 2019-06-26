@@ -322,15 +322,6 @@
 	regulator-max-microvolt = <2912000>;
 };
 
-&dsi_hx83112a_truly_video {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,platform-te-gpio = <&tlmm 90 0>;
-	qcom,platform-reset-gpio = <&tlmm 91 0>;
-};
-
 &qupv3_se1_i2c {
 	status = "ok";
 	lt9611: lt,lt9611@3b {
