@@ -105,3 +105,19 @@ config SND_SOC_MT8173_RT5650_RT5676
 	  with the RT5650 and RT5676 codecs.
 	  Select Y if you have such device.
 	  If unsure select "N".
+
+config SND_SOC_MTK_SMART_PHONE
+	tristate "Mediatek Smart Phone PCM Operation"
+	help
+	  Mediatek PCM operation which is specific for
+	  smart phone product.
+	  Select Y if product is smart phone.
+	  If unsure select "N".
+
+config SND_SOC_MTK_SRAM
+	tristate "Mediatek Audio SRAM Management"
+	help
+	  Mediatek Audio SRAM management for
+	  normal mode and compact mode.
+	  Select Y if you use this SRAM management.
+	  If unsure select "N".

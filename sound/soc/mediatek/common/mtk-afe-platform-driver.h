@@ -24,5 +24,6 @@ void mtk_afe_pcm_free(struct snd_pcm *pcm);
 
 int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe);
 int mtk_afe_add_sub_dai_control(struct snd_soc_component *component);
+unsigned int word_size_align(unsigned int in_size);
 #endif
 
