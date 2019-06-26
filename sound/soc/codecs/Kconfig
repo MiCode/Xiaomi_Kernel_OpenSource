@@ -107,6 +107,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_MC13783 if MFD_MC13XXX
 	select SND_SOC_ML26124 if I2C
 	select SND_SOC_MT6351 if MTK_PMIC_WRAP
+	select SND_SOC_MT6359
 	select SND_SOC_MT6660 if I2C
 	select SND_SOC_NAU8540 if I2C
 	select SND_SOC_NAU8810 if I2C
@@ -1291,6 +1292,14 @@ config SND_SOC_ML26124
 
 config SND_SOC_MT6351
 	tristate "MediaTek MT6351 Codec"
+
+config SND_SOC_MT6359
+	tristate "MediaTek MT6359 Codec driver"
+	help
+	  MediaTek MT6359 is a codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
 
 config SND_SOC_MT6359_ACCDET
 	tristate "MediaTek MT6359 ACCDET driver"
