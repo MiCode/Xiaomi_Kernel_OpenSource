@@ -65,6 +65,12 @@
 };
 
 &qusb_phy0 {
+	reg = <0x88e2000 0x180>,
+		<0x007801f8 0x4>,
+		<0x01fcb3e4 0x4>;
+	reg-names = "qusb_phy_base",
+		"tune2_efuse_addr",
+		"tcsr_conn_box_spare_0";
 	vdd-supply = <&L5A>;
 	vdda18-supply = <&L12A>;
 	vdda33-supply = <&L13A>;
