@@ -946,6 +946,27 @@
 			clock-div = <1>;
 		};
 
+		btif@1100c000 {
+			compatible = "mediatek,btif";
+				/*btif base*/
+			reg = <0 0x1100c000 0 0x1000>,
+				/*btif tx dma base*/
+				<0 0x11000b80 0 0x80>,
+				/*btif rx dma base*/
+				<0 0x11000c00 0 0x80>;
+				/*btif irq, IRQS_Sync ID, btif_irq_b*/
+			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_LOW>,
+				/*btif tx dma irq*/
+				<GIC_SPI 155 IRQ_TYPE_LEVEL_LOW>,
+				/*btif rx dma irq*/
+				<GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&infracfg_ao CLK_INFRA_BTIF>,
+				/*btif clock*/
+				<&infracfg_ao CLK_INFRA_AP_DMA>;
+				/*ap dma clock*/
+			clock-names = "btifc","apdmac";
+		};
+
 		disp_pwm: disp_pwm0@1100e000 {
 			compatible = "mediatek,mt6779-disp-pwm";
 			reg = <0 0x1100e000 0 0x1000>;
