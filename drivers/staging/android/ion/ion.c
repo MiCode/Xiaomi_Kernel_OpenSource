@@ -190,6 +190,31 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 	return new_table;
 }
 
+static struct sg_table *dup_sec_sg_table(struct sg_table *table)
+{
+	struct sg_table *new_table;
+	int ret, i;
+	struct scatterlist *sg, *new_sg;
+
+	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
+	if (!new_table)
+		return ERR_PTR(-ENOMEM);
+
+	ret = sg_alloc_table(new_table, table->nents, GFP_KERNEL);
+	if (ret) {
+		kfree(new_table);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	new_sg = new_table->sgl;
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		memcpy(new_sg, sg, sizeof(*sg));
+		new_sg = sg_next(new_sg);
+	}
+
+	return new_table;
+}
+
 static void free_duped_table(struct sg_table *table)
 {
 	sg_free_table(table);
@@ -213,7 +238,10 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
 	if (!a)
 		return -ENOMEM;
 
-	table = dup_sg_table(buffer->sg_table);
+	if (buffer->heap->type == ION_HEAP_TYPE_CUSTOM)
+		table = dup_sec_sg_table(buffer->sg_table);
+	else
+		table = dup_sg_table(buffer->sg_table);
 	if (IS_ERR(table)) {
 		kfree(a);
 		return -ENOMEM;
@@ -251,6 +279,11 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
+	struct ion_buffer *buffer =
+		(struct ion_buffer *)attachment->dmabuf->priv;
+
+	if (buffer->heap->type == ION_HEAP_TYPE_CUSTOM)
+		return buffer->sg_table;
 
 	table = a->table;
 
@@ -265,6 +298,12 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      struct sg_table *table,
 			      enum dma_data_direction direction)
 {
+	struct ion_buffer *buffer =
+		(struct ion_buffer *)attachment->dmabuf->priv;
+
+	if (buffer->heap->type == ION_HEAP_TYPE_CUSTOM)
+		return;
+
 	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
 }
 
@@ -493,7 +532,6 @@ int ion_query_heaps(struct ion_heap_query *query)
 		hdata.name[sizeof(hdata.name) - 1] = '\0';
 		hdata.type = heap->type;
 		hdata.heap_id = heap->id;
-
 		if (copy_to_user(&buffer[cnt], &hdata, sizeof(hdata))) {
 			ret = -EFAULT;
 			goto out;
