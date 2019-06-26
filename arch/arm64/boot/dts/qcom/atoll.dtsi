@@ -1912,6 +1912,11 @@
 #include "atoll-ion.dtsi"
 #include "msm-arm-smmu-sdmatoll.dtsi"
 #include "atoll-qupv3.dtsi"
+#include "sdmmagpie-gpu.dtsi"
+
+&msm_gpu {
+	/delete-property/qcom,gpu-speed-bin;
+};
 
 &ufs_phy_gdsc {
 	status = "ok";
