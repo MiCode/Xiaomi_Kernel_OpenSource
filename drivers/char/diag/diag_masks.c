@@ -69,7 +69,8 @@ static int diag_check_update(int md_peripheral, int pid)
 	mutex_lock(&driver->md_session_lock);
 	info = diag_md_session_get_pid(pid);
 	ret = (!info || (info &&
-		(info->peripheral_mask & MD_PERIPHERAL_MASK(md_peripheral))));
+		(info->peripheral_mask[DIAG_LOCAL_PROC] &
+		MD_PERIPHERAL_MASK(md_peripheral))));
 	mutex_unlock(&driver->md_session_lock);
 
 	return ret;
@@ -106,6 +107,7 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 	struct diag_mask_info *mask_info = NULL;
 	struct diag_log_mask_t *mask = NULL;
 	struct diagfwd_info *fwd_info = NULL;
+	int proc = DIAG_LOCAL_PROC;
 
 	if (peripheral >= NUM_PERIPHERALS)
 		return;
@@ -119,16 +121,18 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 
 	MD_PERIPHERAL_PD_MASK(TYPE_CNTL, peripheral, pd_mask);
 
-	if (driver->md_session_mask != 0) {
-		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
-			if (driver->md_session_map[peripheral])
+	if (driver->md_session_mask[proc] != 0) {
+		if (driver->md_session_mask[proc] &
+			MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[proc][peripheral])
 				mask_info =
-				driver->md_session_map[peripheral]->log_mask;
-		} else if (driver->md_session_mask & pd_mask) {
-			upd = diag_mask_to_pd_value(driver->md_session_mask);
-			if (upd && driver->md_session_map[upd])
+			driver->md_session_map[proc][peripheral]->log_mask;
+		} else if (driver->md_session_mask[proc] & pd_mask) {
+			upd =
+			diag_mask_to_pd_value(driver->md_session_mask[proc]);
+			if (upd && driver->md_session_map[proc][upd])
 				mask_info =
-				driver->md_session_map[upd]->log_mask;
+				driver->md_session_map[proc][upd]->log_mask;
 		} else {
 			DIAG_LOG(DIAG_DEBUG_MASKS,
 			"asking for mask update with unknown session mask\n");
@@ -233,6 +237,7 @@ static void diag_send_event_mask_update(uint8_t peripheral)
 	struct diag_ctrl_event_mask header;
 	struct diag_mask_info *mask_info = NULL;
 	struct diagfwd_info *fwd_info = NULL;
+	int proc = DIAG_LOCAL_PROC;
 
 	if (num_bytes <= 0 || num_bytes > driver->event_mask_size) {
 		pr_debug("diag: In %s, invalid event mask length %d\n",
@@ -252,16 +257,18 @@ static void diag_send_event_mask_update(uint8_t peripheral)
 
 	MD_PERIPHERAL_PD_MASK(TYPE_CNTL, peripheral, pd_mask);
 
-	if (driver->md_session_mask != 0) {
-		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
-			if (driver->md_session_map[peripheral])
+	if (driver->md_session_mask[proc] != 0) {
+		if (driver->md_session_mask[proc] &
+			MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[proc][peripheral])
 				mask_info =
-				driver->md_session_map[peripheral]->event_mask;
-		} else if (driver->md_session_mask & pd_mask) {
-			upd = diag_mask_to_pd_value(driver->md_session_mask);
-			if (upd && driver->md_session_map[upd])
+			driver->md_session_map[proc][peripheral]->event_mask;
+		} else if (driver->md_session_mask[proc] & pd_mask) {
+			upd =
+			diag_mask_to_pd_value(driver->md_session_mask[proc]);
+			if (upd && driver->md_session_map[proc][upd])
 				mask_info =
-				driver->md_session_map[upd]->event_mask;
+				driver->md_session_map[proc][upd]->event_mask;
 		} else {
 			DIAG_LOG(DIAG_DEBUG_MASKS,
 			"asking for mask update with unknown session mask\n");
@@ -343,6 +350,7 @@ static void diag_send_msg_mask_update(uint8_t peripheral, int first, int last)
 	struct diag_ctrl_msg_mask header;
 	struct diagfwd_info *fwd_info = NULL;
 	struct diag_md_session_t *md_session_info = NULL;
+	int proc = DIAG_LOCAL_PROC;
 
 	if (peripheral >= NUM_PERIPHERALS)
 		return;
@@ -356,20 +364,23 @@ static void diag_send_msg_mask_update(uint8_t peripheral, int first, int last)
 
 	MD_PERIPHERAL_PD_MASK(TYPE_CNTL, peripheral, pd_mask);
 
-	if (driver->md_session_mask != 0) {
-		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
-			if (driver->md_session_map[peripheral]) {
+	if (driver->md_session_mask[proc] != 0) {
+		if (driver->md_session_mask[proc] &
+			MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[proc][peripheral]) {
 				mask_info =
-				driver->md_session_map[peripheral]->msg_mask;
+			driver->md_session_map[proc][peripheral]->msg_mask;
 				md_session_info =
-					driver->md_session_map[peripheral];
+				driver->md_session_map[proc][peripheral];
 			}
-		} else if (driver->md_session_mask & pd_mask) {
-			upd = diag_mask_to_pd_value(driver->md_session_mask);
-			if (upd && driver->md_session_map[upd]) {
+		} else if (driver->md_session_mask[proc] & pd_mask) {
+			upd =
+			diag_mask_to_pd_value(driver->md_session_mask[proc]);
+			if (upd && driver->md_session_map[proc][upd]) {
 				mask_info =
-				driver->md_session_map[upd]->msg_mask;
-				md_session_info = driver->md_session_map[upd];
+				driver->md_session_map[proc][upd]->msg_mask;
+				md_session_info =
+				driver->md_session_map[proc][upd];
 			}
 		} else {
 			DIAG_LOG(DIAG_DEBUG_MASKS,

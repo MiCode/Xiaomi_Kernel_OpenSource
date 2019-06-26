@@ -13,6 +13,8 @@
 #ifndef __ICNSS_PRIVATE_H__
 #define __ICNSS_PRIVATE_H__
 
+#include <linux/kobject.h>
+
 #define icnss_ipc_log_string(_x...) do {				\
 	if (icnss_ipc_log_context)					\
 		ipc_log_string(icnss_ipc_log_context, _x);		\
@@ -359,6 +361,8 @@ struct icnss_priv {
 	struct completion unblock_shutdown;
 	char function_name[WLFW_FUNCTION_NAME_LEN + 1];
 	bool is_ssr;
+	struct kobject *icnss_kobject;
+	atomic_t is_shutdown;
 };
 
 int icnss_call_driver_uevent(struct icnss_priv *priv,

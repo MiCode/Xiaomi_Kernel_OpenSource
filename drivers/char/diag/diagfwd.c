@@ -182,39 +182,45 @@ void chk_logging_wakeup(void)
 	int i;
 	int j;
 	int pid = 0;
+	int proc;
 
-	for (j = 0; j < NUM_MD_SESSIONS; j++) {
-		if (!driver->md_session_map[j])
-			continue;
-		pid = driver->md_session_map[j]->pid;
+	for (proc = 0; proc < NUM_DIAG_MD_DEV; proc++) {
+		for (j = 0; j < NUM_MD_SESSIONS; j++) {
+			if (!driver->md_session_map[proc][j])
+				continue;
+			pid = driver->md_session_map[proc][j]->pid;
 
-		/* Find the index of the logging process */
-		for (i = 0; i < driver->num_clients; i++) {
-			if (driver->client_map[i].pid != pid)
-				continue;
-			if (driver->data_ready[i] & USER_SPACE_DATA_TYPE)
-				continue;
+			/* Find the index of the logging process */
+			for (i = 0; i < driver->num_clients; i++) {
+				if (driver->client_map[i].pid != pid)
+					continue;
+				if (driver->data_ready[i] &
+					USER_SPACE_DATA_TYPE)
+					continue;
+				/*
+				 * At very high logging rates a race condition
+				 * can occur where the buffers containing the
+				 * data from a channel are all in use, but the
+				 * data_ready flag is cleared. In this case,
+				 * the buffers never have their data
+				 * read/logged. Detect and remedy this
+				 * situation.
+				 */
+				driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
+				atomic_inc(&driver->data_ready_notif[i]);
+				pr_debug("diag: Force wakeup of logging process\n");
+				wake_up_interruptible(&driver->wait_q);
+				break;
+			}
 			/*
-			 * At very high logging rates a race condition can
-			 * occur where the buffers containing the data from
-			 * a channel are all in use, but the data_ready flag
-			 * is cleared. In this case, the buffers never have
-			 * their data read/logged. Detect and remedy this
-			 * situation.
+			 * Diag Memory Device is in normal. Check only for the
+			 * first index as all the indices point to the same
+			 * session structure.
 			 */
-			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
-			atomic_inc(&driver->data_ready_notif[i]);
-			pr_debug("diag: Force wakeup of logging process\n");
-			wake_up_interruptible(&driver->wait_q);
-			break;
+			if ((driver->md_session_mask[proc] == DIAG_CON_ALL) &&
+				(j == 0))
+				break;
 		}
-		/*
-		 * Diag Memory Device is in normal. Check only for the first
-		 * index as all the indices point to the same session
-		 * structure.
-		 */
-		if ((driver->md_session_mask == DIAG_CON_ALL) && (j == 0))
-			break;
 	}
 }
 
@@ -241,16 +247,16 @@ static void pack_rsp_and_send(unsigned char *buf, int len,
 	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_pid(pid);
 	info = (session_info) ? session_info :
-				diag_md_session_get_peripheral(APPS_DATA);
+		diag_md_session_get_peripheral(DIAG_LOCAL_PROC, APPS_DATA);
 
 	/*
 	 * Explicitly check for the Peripheral Modem here
 	 * is necessary till a way to identify a peripheral
 	 * if its supporting qshrink4 feature.
 	 */
-	if (info && info->peripheral_mask) {
+	if (info && info->peripheral_mask[DIAG_LOCAL_PROC]) {
 		for (i = 0; i < NUM_MD_SESSIONS; i++) {
-			if (info->peripheral_mask & (1 << i))
+			if (info->peripheral_mask[DIAG_LOCAL_PROC] & (1 << i))
 				break;
 		}
 		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, TYPE_CMD);
@@ -279,8 +285,10 @@ static void pack_rsp_and_send(unsigned char *buf, int len,
 		 * for responses. Make sure we don't miss previous wakeups for
 		 * draining responses when we are in Memory Device Mode.
 		 */
-		if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
-				driver->logging_mode == DIAG_MULTI_MODE) {
+		if (driver->logging_mode[DIAG_LOCAL_PROC] ==
+				DIAG_MEMORY_DEVICE_MODE ||
+			driver->logging_mode[DIAG_LOCAL_PROC] ==
+				DIAG_MULTI_MODE) {
 			mutex_lock(&driver->md_session_lock);
 			chk_logging_wakeup();
 			mutex_unlock(&driver->md_session_lock);
@@ -334,16 +342,16 @@ static void encode_rsp_and_send(unsigned char *buf, int len,
 	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_pid(pid);
 	info = (session_info) ? session_info :
-				diag_md_session_get_peripheral(APPS_DATA);
+		diag_md_session_get_peripheral(DIAG_LOCAL_PROC, APPS_DATA);
 
 	/*
 	 * Explicitly check for the Peripheral Modem here
 	 * is necessary till a way to identify a peripheral
 	 * if its supporting qshrink4 feature.
 	 */
-	if (info && info->peripheral_mask) {
+	if (info && info->peripheral_mask[DIAG_LOCAL_PROC]) {
 		for (i = 0; i < NUM_MD_SESSIONS; i++) {
-			if (info->peripheral_mask & (1 << i))
+			if (info->peripheral_mask[DIAG_LOCAL_PROC] & (1 << i))
 				break;
 		}
 		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, TYPE_CMD);
@@ -371,8 +379,10 @@ static void encode_rsp_and_send(unsigned char *buf, int len,
 		 * for responses. Make sure we don't miss previous wakeups for
 		 * draining responses when we are in Memory Device Mode.
 		 */
-		if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE ||
-				driver->logging_mode == DIAG_MULTI_MODE) {
+		if (driver->logging_mode[DIAG_LOCAL_PROC] ==
+			DIAG_MEMORY_DEVICE_MODE ||
+			driver->logging_mode[DIAG_LOCAL_PROC] ==
+				DIAG_MULTI_MODE) {
 			mutex_lock(&driver->md_session_lock);
 			chk_logging_wakeup();
 			mutex_unlock(&driver->md_session_lock);
@@ -416,7 +426,8 @@ static void diag_send_rsp(unsigned char *buf, int len,
 	mutex_lock(&driver->md_session_lock);
 	info = diag_md_session_get_pid(pid);
 	session_info = (info) ? info :
-				diag_md_session_get_peripheral(APPS_DATA);
+			diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
+							APPS_DATA);
 	if (session_info)
 		hdlc_disabled = session_info->hdlc_disabled;
 	else
@@ -487,19 +498,16 @@ void diag_update_userspace_clients(unsigned int type)
 	wake_up_interruptible(&driver->wait_q);
 	mutex_unlock(&driver->diagchar_mutex);
 }
-
-void diag_update_md_clients(unsigned int type)
+void diag_update_md_clients_proc(unsigned int proc, unsigned int type)
 {
 	int i, j;
 
-	mutex_lock(&driver->diagchar_mutex);
-	mutex_lock(&driver->md_session_lock);
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
-		if (driver->md_session_map[i] != NULL)
+		if (driver->md_session_map[proc][i]) {
 			for (j = 0; j < driver->num_clients; j++) {
 				if (driver->client_map[j].pid != 0 &&
 					driver->client_map[j].pid ==
-					driver->md_session_map[i]->pid) {
+					driver->md_session_map[proc][i]->pid) {
 					if (!(driver->data_ready[j] & type)) {
 						driver->data_ready[j] |= type;
 						atomic_inc(
@@ -508,7 +516,19 @@ void diag_update_md_clients(unsigned int type)
 					break;
 				}
 			}
+		}
 	}
+}
+void diag_update_md_clients(unsigned int type)
+{
+	int proc;
+
+	mutex_lock(&driver->diagchar_mutex);
+	mutex_lock(&driver->md_session_lock);
+
+	for (proc = 0; proc < NUM_DIAG_MD_DEV; proc++)
+		diag_update_md_clients_proc(proc, type);
+
 	mutex_unlock(&driver->md_session_lock);
 	wake_up_interruptible(&driver->wait_q);
 	mutex_unlock(&driver->diagchar_mutex);
@@ -1049,7 +1069,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		mutex_lock(&driver->md_session_lock);
 		info = diag_md_session_get_pid(pid);
 		if (info) {
-			p_mask = info->peripheral_mask;
+			p_mask = info->peripheral_mask[DIAG_LOCAL_PROC];
 			mutex_unlock(&driver->md_session_lock);
 			MD_PERIPHERAL_PD_MASK(TYPE_CMD, reg_item->proc,
 				pd_mask);
@@ -1059,7 +1079,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		} else {
 			mutex_unlock(&driver->md_session_lock);
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
-				driver->logging_mask) {
+				driver->logging_mask[DIAG_LOCAL_PROC]) {
 				mutex_unlock(&driver->cmd_reg_mutex);
 				diag_send_error_rsp(buf, len, pid);
 				return write_len;
@@ -1253,17 +1273,20 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		else
 			driver->hdlc_disabled = 1;
 		peripheral =
-			diag_md_session_match_pid_peripheral(pid, 0);
+			diag_md_session_match_pid_peripheral(DIAG_LOCAL_PROC,
+								pid, 0);
 		for (i = 0; i < NUM_MD_SESSIONS; i++) {
 			if (peripheral > 0 && info) {
 				if (peripheral & (1 << i))
 					driver->p_hdlc_disabled[i] =
 					info->hdlc_disabled;
-				else if (!diag_md_session_get_peripheral(i))
+				else if (!diag_md_session_get_peripheral(
+						DIAG_LOCAL_PROC, i))
 					driver->p_hdlc_disabled[i] =
 					driver->hdlc_disabled;
 			} else {
-				if (!diag_md_session_get_peripheral(i))
+				if (!diag_md_session_get_peripheral(
+						DIAG_LOCAL_PROC, i))
 					driver->p_hdlc_disabled[i] =
 					driver->hdlc_disabled;
 			}
@@ -1413,9 +1436,10 @@ static int diagfwd_mux_close(int id, int mode)
 		return -EINVAL;
 	}
 
-	if ((driver->logging_mode == DIAG_MULTI_MODE &&
-		driver->md_session_mode == DIAG_MD_NONE) ||
-		(driver->md_session_mode == DIAG_MD_PERIPHERAL)) {
+	if ((driver->logging_mode[DIAG_LOCAL_PROC] == DIAG_MULTI_MODE &&
+		driver->md_session_mode[DIAG_LOCAL_PROC] == DIAG_MD_NONE) ||
+		(driver->md_session_mode[DIAG_LOCAL_PROC] ==
+			DIAG_MD_PERIPHERAL)) {
 		/*
 		 * This case indicates that the USB is removed
 		 * but there is a client running in background
@@ -1443,7 +1467,7 @@ static int diagfwd_mux_close(int id, int mode)
 		pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);
 		mutex_lock(&driver->hdlc_disable_mutex);
-		if (driver->md_session_mode == DIAG_MD_NONE) {
+		if (driver->md_session_mode[DIAG_LOCAL_PROC] == DIAG_MD_NONE) {
 			driver->hdlc_disabled = 0;
 			/*
 			 * HDLC encoding is re-enabled when
@@ -1500,7 +1524,8 @@ static void diag_timer_work_fn(struct work_struct *work)
 	driver->hdlc_disabled = 0;
 	mutex_lock(&driver->md_session_lock);
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
-		session_info = diag_md_session_get_peripheral(i);
+		session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
+								i);
 		if (!session_info)
 			driver->p_hdlc_disabled[i] =
 			driver->hdlc_disabled;
@@ -1533,7 +1558,8 @@ static void diag_md_timer_work_fn(struct work_struct *work)
 	if (session_info)
 		session_info->hdlc_disabled = 0;
 	peripheral =
-		diag_md_session_match_pid_peripheral(hdlc_work->pid, 0);
+		diag_md_session_match_pid_peripheral(DIAG_LOCAL_PROC,
+							hdlc_work->pid, 0);
 	if (peripheral > 0 && session_info) {
 		for (i = 0; i < NUM_MD_SESSIONS; i++) {
 			if (peripheral & (1 << i))
@@ -1618,18 +1644,23 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len,
 				driver->hdlc_disabled = 0;
 
 			peripheral =
-				diag_md_session_match_pid_peripheral(pid, 0);
+				diag_md_session_match_pid_peripheral(
+								DIAG_LOCAL_PROC,
+								pid, 0);
 			for (i = 0; i < NUM_MD_SESSIONS; i++) {
 				if (peripheral > 0 && info) {
 					if (peripheral & (1 << i))
 						driver->p_hdlc_disabled[i] =
 						info->hdlc_disabled;
 					else if (
-					!diag_md_session_get_peripheral(i))
+					!diag_md_session_get_peripheral(
+							DIAG_LOCAL_PROC, i))
 						driver->p_hdlc_disabled[i] =
 						driver->hdlc_disabled;
 				} else {
-					if (!diag_md_session_get_peripheral(i))
+					if (
+					!diag_md_session_get_peripheral(
+							DIAG_LOCAL_PROC, i))
 						driver->p_hdlc_disabled[i] =
 						driver->hdlc_disabled;
 				}

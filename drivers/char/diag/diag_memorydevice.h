@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,20 +12,7 @@
 
 #ifndef DIAG_MEMORYDEVICE_H
 #define DIAG_MEMORYDEVICE_H
-
-#define DIAG_MD_LOCAL		0
-#define DIAG_MD_LOCAL_LAST	1
-#define DIAG_MD_BRIDGE_BASE	DIAG_MD_LOCAL_LAST
-#define DIAG_MD_MDM		(DIAG_MD_BRIDGE_BASE)
-#define DIAG_MD_MDM2		(DIAG_MD_BRIDGE_BASE + 1)
-#define DIAG_MD_SMUX		(DIAG_MD_BRIDGE_BASE + 2)
-#define DIAG_MD_BRIDGE_LAST	(DIAG_MD_BRIDGE_BASE + 3)
-
-#ifndef CONFIG_DIAGFWD_BRIDGE_CODE
-#define NUM_DIAG_MD_DEV		DIAG_MD_LOCAL_LAST
-#else
-#define NUM_DIAG_MD_DEV		DIAG_MD_BRIDGE_LAST
-#endif
+#include "diagchar.h"
 
 struct diag_buf_tbl_t {
 	unsigned char *buf;
@@ -52,6 +39,8 @@ void diag_md_exit(void);
 void diag_md_mdm_exit(void);
 void diag_md_open_all(void);
 void diag_md_close_all(void);
+void diag_md_open_device(int id);
+void diag_md_close_device(int id);
 int diag_md_register(int id, int ctx, struct diag_mux_ops *ops);
 int diag_md_close_peripheral(int id, uint8_t peripheral);
 int diag_md_write(int id, unsigned char *buf, int len, int ctx);

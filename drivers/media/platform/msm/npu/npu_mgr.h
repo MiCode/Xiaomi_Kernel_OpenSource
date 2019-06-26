@@ -78,6 +78,7 @@ struct npu_host_ctx {
 	struct npu_device *npu_dev;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
+	int32_t npu_init_cnt;
 	int32_t power_vote_num;
 	struct work_struct irq_work;
 	struct delayed_work fw_deinit_work;
@@ -85,7 +86,8 @@ struct npu_host_ctx {
 	struct workqueue_struct *wq;
 	struct completion loopback_done;
 	struct completion fw_deinit_done;
-	struct completion property_set_done;
+	struct completion property_done;
+	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
@@ -94,6 +96,7 @@ struct npu_host_ctx {
 	uint32_t fw_unload_delay_ms;
 	atomic_t ipc_trans_id;
 	atomic_t network_execute_cnt;
+	int cmd_ret_status;
 
 	uint32_t err_irq_sts;
 	uint32_t wdg_irq_sts;
@@ -139,9 +142,12 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
 int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 			struct msm_npu_property *property);
+int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
+			struct msm_npu_property *property);
 void npu_host_cleanup_networks(struct npu_client *client);
 int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
 	uint32_t perf_mode);
+int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl);
 void npu_dump_debug_timeout_stats(struct npu_device *npu_dev);
 
 #endif /* _NPU_MGR_H */

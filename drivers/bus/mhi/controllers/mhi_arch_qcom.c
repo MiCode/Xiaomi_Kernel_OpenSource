@@ -115,7 +115,7 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 	}
 }
 
-static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
+static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
@@ -155,11 +155,12 @@ static int mhi_arch_esoc_ops_power_on(void *priv, bool mdm_state)
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
-void mhi_arch_esoc_ops_power_off(void *priv, bool mdm_state)
+static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 {
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
+	bool mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 
 	MHI_LOG("Enter: mdm_crashed:%d\n", mdm_state);
 
@@ -371,6 +372,21 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 		/* save reference state for pcie config space */
 		arch_info->ref_pcie_state = pci_store_saved_state(
 							mhi_dev->pci_dev);
+
+		/*
+		 * MHI host driver has full autonomy to manage power state.
+		 * Disable all automatic power collapse features
+		 */
+		msm_pcie_pm_control(MSM_PCIE_DISABLE_PC, mhi_cntrl->bus,
+				    mhi_dev->pci_dev, NULL, 0);
+
+		/*
+		 * PCIe framework attempts to restore config space when link is
+		 * off. Bypass framework attempts which may cause unncessary
+		 * delays and instead have MHI controller restore config space
+		 * after PCIe link is accessible.
+		 */
+		mhi_dev->pci_dev->no_d3hot = true;
 
 		mhi_driver_register(&mhi_bl_driver);
 	}

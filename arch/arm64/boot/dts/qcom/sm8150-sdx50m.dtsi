@@ -15,6 +15,10 @@
 	qcom,mdm-link-info = "0305_01.01.00";
 };
 
+&pil_modem {
+	qcom,poff-depends-on = "esoc0";
+};
+
 &wil6210 {
 	status = "disabled";
 };

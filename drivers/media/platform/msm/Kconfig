@@ -13,16 +13,6 @@ menuconfig SPECTRA_CAMERA
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
-menuconfig MSM_AIS
-    bool "Qualcomm Technologies, Inc. Automotive Imaging System"
-    depends on ARCH_QCOM && VIDEO_V4L2 && I2C
-    ---help---
-      Say Y here to enable selecting the video adapters for
-      Qualcomm Technologies, Inc. Aotomitive Imaging System.
-      Enabling this adds support for the camera driver stack including sensor,
-      IFE and postprocessing drivers.
-
-
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
 source "drivers/media/platform/msm/npu/Kconfig"
