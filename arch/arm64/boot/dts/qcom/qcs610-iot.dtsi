@@ -322,6 +322,18 @@
 	regulator-max-microvolt = <2912000>;
 };
 
+&sde_dp {
+	status="disabled";
+};
+
+&mdss_dp_pll {
+	status="disabled";
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &sde_dsi>;
+};
+
 &qupv3_se1_i2c {
 	status = "ok";
 	lt9611: lt,lt9611@3b {
