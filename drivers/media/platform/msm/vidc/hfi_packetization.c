@@ -544,6 +544,7 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_ASPECT_RATIO:
 	case HAL_EXTRADATA_OUTPUT_CROP:
+	case HAL_EXTRADATA_INPUT_CROP:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
@@ -603,6 +604,9 @@ static int get_hfi_extradata_id(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_OUTPUT_CROP:
 		ret = MSM_VIDC_EXTRADATA_OUTPUT_CROP;
+		break;
+	case HAL_EXTRADATA_INPUT_CROP:
+		ret = MSM_VIDC_EXTRADATA_INPUT_CROP;
 		break;
 	default:
 		ret = get_hfi_extradata_index(index);
