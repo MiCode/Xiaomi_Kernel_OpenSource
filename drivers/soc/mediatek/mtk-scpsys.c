@@ -1335,7 +1335,6 @@ static const struct scp_domain_data scp_domain_data_mt6779[] = {
 		},
 	},
 
-
 	[MT6779_POWER_DOMAIN_ISP] = {
 		.name = "isp",
 		.sta_mask = BIT(5),
@@ -1401,7 +1400,6 @@ static const struct scp_domain_data scp_domain_data_mt6779[] = {
 		.caps = MTK_SCPD_STRICT_BUSP,
 	},
 
-
 	[MT6779_POWER_DOMAIN_MFG1] = {
 		.name = "mfg1",
 		.sta_mask = BIT(7),
@@ -1429,7 +1427,6 @@ static const struct scp_domain_data scp_domain_data_mt6779[] = {
 		.caps = MTK_SCPD_STRICT_BUSP,
 	},
 
-
 	[MT6779_POWER_DOMAIN_MFG3] = {
 		.name = "mfg3",
 		.sta_mask = BIT(22),
@@ -1438,7 +1435,6 @@ static const struct scp_domain_data scp_domain_data_mt6779[] = {
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.caps = MTK_SCPD_STRICT_BUSP,
 	},
-
 
 	[MT6779_POWER_DOMAIN_CONN] = {
 		.name = "conn",
@@ -1473,6 +1469,13 @@ static const struct scp_domain_data scp_domain_data_mt6779[] = {
 			BUS_PROT(IFR_TYPE, MT6779_IFR1_SET, MT6779_IFR1_CLR, 0,
 				 MT6779_IFR1_STA1, BIT(6), BIT(6), 0),
 		},
+	},
+
+	[MT6779_POWER_DOMAIN_INFRA] = {	/* pseudo infra power domain */
+		.name = "infra",
+		.sta_mask = BIT(6),
+		.ctl_offs = 0x3C4,
+		.caps = MTK_SCPD_STRICT_BUSP | MTK_SCPD_ALWAYS_ON,
 	},
 };
 
