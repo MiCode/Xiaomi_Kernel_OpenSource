@@ -444,6 +444,7 @@ enum gpu_coresight_sources {
  * @chipid: Chip ID specific to the GPU
  * @gmem_base: Base physical address of GMEM
  * @gmem_size: GMEM size
+ * @uche_gmem_base: Base physical address of UCHE GMEM
  * @qdss_gfx_base: Base physical address of QDSS_GFX_DBG registers for Coresight
  * @qdss_gfx_len: QDSS_GFX_DBG register size
  * @qdss_gfx_virt: Pointer to virtual address of QDSS_GFX_DBG regiter
@@ -527,6 +528,7 @@ struct adreno_device {
 	unsigned int chipid;
 	unsigned long gmem_base;
 	unsigned long gmem_size;
+	unsigned long uche_gmem_base;
 	unsigned long qdss_gfx_base;
 	unsigned long qdss_gfx_len;
 	void __iomem *qdss_gfx_virt;
