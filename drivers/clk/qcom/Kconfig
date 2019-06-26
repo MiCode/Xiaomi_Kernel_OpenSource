@@ -613,3 +613,11 @@ config SM_NPUCC_ATOLL
 	  Support for the NPU clock controller on Qualcomm Technologies, Inc
 	  ATOLL devices.
 	  Say Y if you want to enable use of the Network Processing Unit.
+
+config SM_DEBUGCC_ATOLL
+	tristate "ATOLL Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support the clock measurement functionality.
