@@ -6,6 +6,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,videocc-lahaina.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interconnect/qcom,lahaina.h>
 
 #include "lahaina-regulators.dtsi"
 
@@ -480,6 +481,56 @@
 
 	qcom_scm {
 		compatible = "qcom,secure-chan-manager";
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,lahaina-aggre1_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,lahaina-aggre2_noc";
+		#interconnect-cells = <1>;
+	};
+
+	config_noc: interconnect@1500000 {
+		compatible = "qcom,lahaina-config_noc";
+		#interconnect-cells = <1>;
+	};
+
+	dc_noc: interconnect@14e0000 {
+		compatible = "qcom,lahaina-dc_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@1380000 {
+		compatible = "qcom,lahaina-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@1480000 {
+		compatible = "qcom,lahaina-lpass_ag_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1580000 {
+		compatible = "qcom,lahaina-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,lahaina-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@1750000 {
+		compatible = "qcom,lahaina-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1620000 {
+		compatible = "qcom,lahaina-system_noc";
+		#interconnect-cells = <1>;
 	};
 };
 
