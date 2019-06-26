@@ -140,6 +140,12 @@
 		#size-cells = <2>;
 		ranges;
 
+		memory-ssmr {
+			compatible = "mediatek,memory_ssmr";
+			size = <0 0x28000000>;
+			alignment = <0 0x1000000>;
+		};
+
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
 			no-map;
@@ -2609,6 +2615,20 @@
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
+	};
+
+	memory_ssmr_features: memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+		svp-size = <0 0x10000000>;
+		iris-recognition-size = <0 0x10000000>;
+		2d_fr-size = <0 0x8000000>;
+		tui-size = <0 0x4000000>;
+		wfd-size = <0 0x4000000>;
+		prot-sharedmem-size = <0 0x8000000>;
+		ta-elf-size = <0 0x1000000>;
+		ta-stack-heap-size = <0 0x6000000>;
+		sdsp-tee-sharedmem-size = <0 0x1000000>;
+		sdsp-firmware-size = <0 0x1000000>;
 	};
 
 	touch: touch {
