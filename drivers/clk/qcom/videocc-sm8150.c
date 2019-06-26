@@ -374,7 +374,6 @@ static int video_cc_sm8150_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
-	vdd_mm.use_max_uV = true;
 
 	videocc_bus_id =
 		msm_bus_scale_register_client(&clk_debugfs_scale_table);
