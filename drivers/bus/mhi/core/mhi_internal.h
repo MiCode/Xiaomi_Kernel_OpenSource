@@ -227,9 +227,9 @@ extern struct bus_type mhi_bus_type;
 
 /* timesync time calculations */
 #define LOCAL_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
-				(mhi_cntrl->local_timer_freq / 10000ULL)))
+				div_u64(mhi_cntrl->local_timer_freq, 10000ULL)))
 #define REMOTE_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
-				(mhi_cntrl->remote_timer_freq / 10000ULL)))
+			       div_u64(mhi_cntrl->remote_timer_freq, 10000ULL)))
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
