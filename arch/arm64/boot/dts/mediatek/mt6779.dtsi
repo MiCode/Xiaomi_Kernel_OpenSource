@@ -881,8 +881,9 @@
 			reg-names = "dvfsrc";
 			clocks = <&infracfg_ao CLK_INFRA_DVFSRC>;
 			clock-names = "dvfsrc";
+			#address-cells = <2>;
+			#size-cells = <2>;
 			ranges;
-
 
 			ddr_emi: interconnect {
 				compatible = "mediatek,mt6779-emi";
@@ -912,6 +913,13 @@
 				interconnect-names = "icc-bw-port";
 				rc-vcore-supply = <&dvfsrc_vcore>;
 				rc-vscp-supply = <&dvfsrc_vscp>;
+				power-domains = <&scpsys MT6779_POWER_DOMAIN_INFRA>;
+				required-opps = <&dvfsrc_freq_opp0>,
+						<&dvfsrc_freq_opp1>,
+						<&dvfsrc_freq_opp2>,
+						<&dvfsrc_freq_opp3>,
+						<&dvfsrc_freq_opp4>,
+						<&dvfsrc_freq_opp5>;
 			};
 
 			qos@0011bb80 {
@@ -2263,6 +2271,12 @@
 				status = "okay";
 			};
 		};
+	};
+
+	boot_dramboost {
+		compatible = "mediatek,dvfsrc-boost";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_INFRA>;
+		required-opps = <&dvfsrc_freq_opp0>;
 	};
 
 	atf_logger {
