@@ -55,6 +55,9 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == EAST) ? base + 0xcc000 : \
+			((base == WEST) ? base + 0xcc000 : \
+			((base == NORTH) ? EAST + 0xcc000 : base + 0xcd000)), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
@@ -69,6 +72,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -2240,6 +2244,17 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[193] = UFS_RESET(ufs_reset, 0xdb6004),
 };
 
+static struct msm_dir_conn sdmshrike_dir_conn[] = {
+	{-1, 216},
+	{-1, 215},
+	{-1, 214},
+	{-1, 213},
+	{-1, 212},
+	{-1, 211},
+	{-1, 210},
+	{-1, 209},
+};
+
 static const struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.pins = sdmshrike_pins,
 	.npins = ARRAY_SIZE(sdmshrike_pins),
@@ -2248,6 +2263,9 @@ static const struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.groups = sdmshrike_groups,
 	.ngroups = ARRAY_SIZE(sdmshrike_groups),
 	.ngpios = 190,
+	.dir_conn = sdmshrike_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdmshrike_dir_conn),
+	.dir_conn_irq_base = 216,
 };
 
 static int sdmshrike_pinctrl_probe(struct platform_device *pdev)
