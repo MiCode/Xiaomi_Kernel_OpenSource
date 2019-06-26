@@ -17,4 +17,12 @@ config MTK_EAS_PLUS
 	   intra-cluster load balance,
 	   and so on.
 
+config MTK_SCHED_TRACERS
+	bool "mtk scheduling trace, output mtk schedule trace into FTRACE"
+	help
+	  Mediatek scheduling trace, output mtk schedule trace into FTRACE,
+	  Mediatek enhancements to vanilla linux kernel. Export scheduling
+	  trace in sched_switch events.
+	  Say Y to enable mtk scheduling trace.If unsure, say N
+
 endmenu
