@@ -32,6 +32,28 @@ config SND_SOC_MT2701_WM8960
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT6779
+        tristate "ASoC support for Mediatek MT6779 chip"
+        depends on ARCH_MEDIATEK
+        select SND_SOC_MEDIATEK
+        select SND_SOC_MTK_SRAM
+        select SND_SOC_MTK_SMART_PHONE
+        help
+          This adds ASoC driver for Mediatek MT6779 boards
+          that can be used with other codecs.
+          Select Y if you have such device.
+          If unsure select "N".
+
+config SND_SOC_MT6779_MT6359
+        tristate "ASoc Audio driver for MT6779 with MT6359 codec"
+        depends on SND_SOC_MT6779 && MTK_PMIC_WRAP
+        select SND_SOC_MT6359
+        help
+          This adds ASoC driver for Mediatek MT6779 boards
+          with the MT6359 codecs.
+          Select Y if you have such device.
+          If unsure select "N".
+
 config SND_SOC_MT6797
 	tristate "ASoC support for Mediatek MT6797 chip"
 	depends on ARCH_MEDIATEK
