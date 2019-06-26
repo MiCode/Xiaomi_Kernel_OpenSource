@@ -23,6 +23,7 @@
 		#iommu-cells = <2>;
 		qcom,dynamic;
 		qcom,skip-init;
+		qcom,testbus-version = <1>;
 		qcom,no-dynamic-asid;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
