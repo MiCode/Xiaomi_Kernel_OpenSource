@@ -418,6 +418,7 @@ struct qsmmuv500_tbu_device {
 	/* Protects halt count */
 	spinlock_t			halt_lock;
 	u32				halt_count;
+	unsigned int			*irqs;
 };
 
 struct arm_smmu_master_cfg {
