@@ -474,8 +474,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	unsigned int m4uid = data->plat_data->iommu_id;
 
 	if (!data->base || IS_ERR(data->base)) {
-		pr_notice("%s, %d, invalid base addr%d\n",
-			__func__, __LINE__, data->base);
+		pr_notice("%s, invalid base\n", __func__);
 		return 0;
 	}
 	/* Read error info from registers */
@@ -1021,11 +1020,10 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 				mtk_domain_array[dom->id].max_iova;
 	dom->domain.geometry.force_aperture = true;
 
-	pr_notice("%s, %d, dev:%s allocated the %d group:%p, domain:%p start:0x%x, end:0x%x\n",
-		    __func__, __LINE__, dev_name(dev),
-		    dom->id, group, &dom->domain,
-		    dom->domain.geometry.aperture_start,
-		    dom->domain.geometry.aperture_end);
+	pr_notice("%s, dev:%s allocated the %u start:0x%x, end:0x%x\n",
+		    __func__, dev_name(dev), dom->id,
+		    (unsigned int)dom->domain.geometry.aperture_start,
+		    (unsigned int)dom->domain.geometry.aperture_end);
 
 	return group;
 
@@ -1166,8 +1164,7 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data)
 	u32 regval;
 
 	if (!data->base || IS_ERR(data->base)) {
-		pr_notice("%s, %d, invalid base addr%d\n",
-			__func__, __LINE__, data->base);
+		pr_notice("%s, invalid base addr\n", __func__);
 		return -1;
 	}
 
@@ -1250,8 +1247,9 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		pr_notice("mtk_iommu base is null\n");
 		return PTR_ERR(data->base);
 	}
-	pr_notice("%s, %d, base=0x%lx, protect_base=0x%lx\n",
-		__func__, __LINE__, data->base, data->protect_base);
+	pr_notice("%s, base=0x%lx, protect_base=0x%pa\n",
+		__func__, (unsigned long)data->base,
+		&data->protect_base);
 	ioaddr = res->start;
 
 	data->irq = platform_get_irq(pdev, 0);
@@ -1362,8 +1360,7 @@ static int mtk_iommu_suspend(struct device *dev)
 	void __iomem *base = data->base;
 
 	if (!data->base || IS_ERR(data->base)) {
-		pr_notice("%s, %d, invalid base addr%d\n",
-			__func__, __LINE__, data->base);
+		pr_notice("%s, invalid base addr\n", __func__);
 		return -1;
 	}
 	reg->standard_axi_mode = readl_relaxed(base +
@@ -1384,8 +1381,7 @@ static int mtk_iommu_resume(struct device *dev)
 	unsigned int pgd_pa_reg = 0;
 
 	if (!data->base  || IS_ERR(data->base)) {
-		pr_notice("%s, %d, invalid base addr%d\n",
-			__func__, __LINE__, data->base);
+		pr_notice("%s, invalid base addr\n", __func__);
 		return -1;
 	}
 	if (__mtk_iommu_get_pgtable_base_addr(data->pgtable, &pgd_pa_reg))
