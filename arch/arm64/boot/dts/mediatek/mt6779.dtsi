@@ -2104,7 +2104,8 @@
 				   <GIC_SPI 78 IRQ_TYPE_LEVEL_LOW>,
 				/*conn2ap_sw_irq_b*/
 				   <GIC_SPI 318 IRQ_TYPE_EDGE_RISING>;
-			clock-names = "conn", "ccif";
+			clocks = <&infracfg_ao CLK_INFRA_CCIF4_AP>;
+			clock-names = "ccif";
 			power-domains = <&scpsys MT6779_POWER_DOMAIN_CONN>;
 		};
 
