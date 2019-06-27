@@ -183,14 +183,14 @@ static int kpd_gpio_init(struct device *dev)
 	if (IS_ERR(keypad_pinctrl)) {
 		pr_debug("Cannot find keypad_pinctrl!\n");
 
-		return PTR_ERR(keypad_pinctrl);
+		return (int)PTR_ERR(keypad_pinctrl);
 	}
 
 	kpd_default = pinctrl_lookup_state(keypad_pinctrl, "default");
 	if (IS_ERR(kpd_default)) {
 		pr_debug("Cannot find ecall_state!\n");
 
-		return PTR_ERR(kpd_default);
+		return (int)PTR_ERR(kpd_default);
 	}
 
 	return pinctrl_select_state(keypad_pinctrl,
@@ -210,8 +210,8 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	keypad->clk = devm_clk_get(&pdev->dev, "kpd");
 	if (IS_ERR(keypad->clk)) {
-		pr_notice("get kpd-clk fail: %d\n", PTR_ERR(keypad->clk));
-		return PTR_ERR(keypad->clk);
+		pr_notice("get kpd-clk fail: %d\n", (int)PTR_ERR(keypad->clk));
+		return (int)PTR_ERR(keypad->clk);
 	}
 
 	err = clk_prepare_enable(keypad->clk);
