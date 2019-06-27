@@ -158,7 +158,7 @@ static void ubsan_prologue(struct source_location *location,
 
 static void ubsan_epilogue(unsigned long *flags)
 {
-	dump_stack();
+	WARN_ON(1);
 	pr_err("========================================"
 		"========================================\n");
 	spin_unlock_irqrestore(&report_lock, *flags);
