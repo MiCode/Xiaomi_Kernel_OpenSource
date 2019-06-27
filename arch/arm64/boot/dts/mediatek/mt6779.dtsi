@@ -798,6 +798,37 @@
 			spm_twam_last_sta3 = <0x17c>;
 		};
 
+		srclken: srclken@10006500 {
+			compatible = "mediatek,srclken";
+			reg = <0 0x10006500 0 0x1000>,
+				<0 0x105c4000 0 0x1000>,
+				<0 0x10005000 0 0x1000>;
+			reg-names = "srclken", "scpdvfs", "gpio";
+			srclken-mode = "full-set";
+
+			srclken-rst-cfg = <0x0>;
+			srclken-central-cfg = <0x4 0x8 0x1C>;
+			srclken-cmd-cfg = <0xC>;
+			srclken-pmic-cfg = <0x10 0x14>;
+			srclken-dcxo-fpm-cfg = <0x18>;
+			srclken-subsys-cfg = <0x20>;
+			srclken-misc-cfg = <0xB4>;
+			srclken-spm-cfg = <0xB8>;
+			srclken-subsys-if-cfg = <0xBC>;
+			srclken-fsm-sta = <0x60>;
+			srclken-cmd-sta = <0x64 0x68>;
+			srclken-spi-sta = <0x6C>;
+			srclken-pipo-sta = <0x70>;
+			srclken-subsys-sta = <0x80>;
+			srclken-dbg-trace-sta = <0xC0 0xC4>;
+
+			scp-vreq-cfg = <0x54>;
+			scp-rc-vreq-bit = <27 28>;
+			gpio-dir-cfg = <0x0>;
+			gpio-dout-cfg = <0x100>;
+			gpio-pull-bit = <6>;
+		};
+
 		toprgu: toprgu@10007000 {
 			compatible = "mediatek,mt6779-wdt",
 				     "mediatek,mt6589-wdt",
