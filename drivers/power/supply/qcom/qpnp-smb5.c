@@ -153,7 +153,7 @@ static struct smb_params smb5_pm8150b_params = {
 		.name   = "DC input current limit",
 		.reg    = DCDC_CFG_REF_MAX_PSNS_REG,
 		.min_u  = 0,
-		.max_u  = 1500000,
+		.max_u  = DCIN_ICL_MAX_UA,
 		.step_u = 50000,
 	},
 	.jeita_cc_comp_hot	= {
@@ -2238,8 +2238,8 @@ static int smb5_init_dc_peripheral(struct smb_charger *chg)
 	if (chg->smb_version == PMI632_SUBTYPE)
 		return 0;
 
-	/* set DC icl_max 1A */
-	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
+	/* Set DCIN ICL to 100 mA */
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, DCIN_ICL_MIN_UA);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't set dc_icl rc=%d\n", rc);
 		return rc;
@@ -2902,7 +2902,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
-		.handler	= default_irq_handler,
+		.handler	= dcin_uv_irq_handler,
+		.wake		= true,
 	},
 	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
