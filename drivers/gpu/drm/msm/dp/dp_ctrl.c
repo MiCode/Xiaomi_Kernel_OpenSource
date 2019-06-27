@@ -105,7 +105,7 @@ static void dp_ctrl_video_ready(struct dp_ctrl_private *ctrl)
 	complete(&ctrl->video_comp);
 }
 
-static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl)
+static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl, bool reset)
 {
 	struct dp_ctrl_private *ctrl;
 
@@ -116,7 +116,7 @@ static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	atomic_set(&ctrl->aborted, 1);
+	atomic_set(&ctrl->aborted, !reset);
 }
 
 static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
@@ -408,7 +408,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	}
 	ctrl->catalog->set_pattern(ctrl->catalog, pattern);
 	ret = dp_ctrl_train_pattern_set(ctrl,
-		pattern | DP_RECOVERED_CLOCK_OUT_EN);
+		pattern | DP_LINK_SCRAMBLING_DISABLE);
 	if (ret <= 0) {
 		ret = -EINVAL;
 		goto end;
