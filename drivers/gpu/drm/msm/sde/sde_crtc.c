@@ -5683,6 +5683,14 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	if (catalog->qseed_type == SDE_SSPP_SCALER_QSEED3LITE)
 		sde_kms_info_add_keystr(info, "qseed_type", "qseed3lite");
 
+	sde_kms_info_add_keyint(info, "UBWC version", catalog->ubwc_version);
+	sde_kms_info_add_keyint(info, "UBWC macrotile_mode",
+				catalog->macrotile_mode);
+	sde_kms_info_add_keyint(info, "UBWC highest banking bit",
+				catalog->mdp[0].highest_bank_bit);
+	sde_kms_info_add_keyint(info, "UBWC swizzle",
+				catalog->mdp[0].ubwc_swizzle);
+
 	if (sde_is_custom_client()) {
 		/* No support for SMART_DMA_V1 yet */
 		if (catalog->smart_dma_rev == SDE_SSPP_SMART_DMA_V2)
