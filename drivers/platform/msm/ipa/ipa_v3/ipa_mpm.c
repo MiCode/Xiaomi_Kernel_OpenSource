@@ -1839,7 +1839,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 
 	if (ipa_mpm_ctx->md[probe_id].init_complete) {
 		IPA_MPM_ERR("Probe initialization already done, returning\n");
-		return -EPERM;
+		return 0;
 	}
 
 	IPA_MPM_DBG("Received probe for id=%d\n", probe_id);
@@ -1996,7 +1996,17 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	ret = mhi_prepare_for_transfer(ipa_mpm_ctx->md[probe_id].mhi_dev);
 	if (ret) {
 		IPA_MPM_ERR("mhi_prepare_for_transfer failed %d\n", ret);
-		goto fail_smmu;
+		WARN_ON(1);
+		/*
+		 * WA to handle prepare_for_tx failures.
+		 * Though prepare for transfer fails, indicate success
+		 * to MHI driver. remove_cb will be called eventually when
+		 * Device side comes from where pending cleanup happens.
+		 */
+		atomic_inc(&ipa_mpm_ctx->probe_cnt);
+		ipa_mpm_ctx->md[probe_id].init_complete = true;
+		IPA_MPM_FUNC_EXIT();
+		return 0;
 	}
 
 	/*
