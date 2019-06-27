@@ -1,0 +1,65 @@
+Altek al6100 depth chip driver(spi/I2c)
+
+Description:
+
+The al6100 is a mini isp chip which is to process
+the dual IR raw images from IR camera sensor to be
+depth data. It has own firmware. It can connect to
+two IR camera sensors via internal mipi port(Rx0/Rx1).
+The input of this chip is the IR raw image from
+the two IR camera sensors. The Tx0/Tx1 on chip can
+connect to AP side and output depth data and IR images
+to AP.
+
+Required properties:
+ - compatible: Should be "altek,isp"(with spi)/
+   "altek,i2c_slave"(with i2c)/"altek,i2c_top"(with i2c)
+   for al6100 depth chip driver
+ - irq-gpios: a gpio for spi/I2c interrupt
+
+Optional properties:
+ - vcc1-gpios: If present, specifies a gpio for power on
+   al6100 depth chip
+ - wp-gpios: If present, specifies a gpio for control
+   eeprom write protected pin
+ - reset-gpios: If present, specifies a gpio for reset
+   al6100 depth chip
+
+Example:
+	(spi)
+	&spi_8 {
+		mini_isp@0 {
+			compatible = "altek,isp";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+			spi-cpol;
+			spi-cpha;
+			vcc-supply = <&pm8953_s3>;
+			reset-gpios = <&tlmm 33 0x00>;
+			irq-gpios = <&tlmm 35 0x00>;
+			vcc1-gpios = <&tlmm 38 0x00>;
+			wp-gpios = <&tlmm 52 0x00>;
+			vcc2-gpios = <&tlmm 63 0x00>;
+			status = "ok";
+		};
+	};
+
+	(I2c)
+	i2c_slave@11 {
+		compatible = "altek,i2c_slave";
+		reg = <0x4b>;	/* for Pure Bypass */
+		reg = <0x11>;
+		status = "disabled";	/* use SPI instead */
+	};
+
+	i2c_top@77 {
+		compatible = "altek,i2c_top";
+		reg = <0x77>;
+		vcc-supply = <&pm8953_s3>;
+		reset-gpios = <&tlmm 33 0x00>;
+		irq-gpios = <&tlmm 35 0x00>;
+		vcc1-gpios = <&tlmm 38 0x00>;
+		wp-gpios = <&tlmm 52 0x00>;
+		vcc2-gpios = <&tlmm 63 0x00>;
+		status = "disabled";	/* use SPI instead */
+	};
