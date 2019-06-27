@@ -2508,21 +2508,18 @@ void update_best_cluster(struct related_thread_group *grp,
 				   u64 demand, bool boost)
 {
 	if (boost) {
-		grp->preferred_cluster = sched_cluster[1];
 		grp->skip_min = true;
 		return;
 	}
 
-	if (grp->preferred_cluster == sched_cluster[0]) {
+	if (!grp->skip_min) {
 		if (demand >= sched_group_upmigrate) {
-			grp->preferred_cluster = sched_cluster[1];
 			grp->skip_min = true;
 		}
 		return;
 	}
 	if (demand < sched_group_downmigrate) {
 		if (!sysctl_sched_coloc_downmigrate_ns) {
-			grp->preferred_cluster = sched_cluster[0];
 			grp->skip_min = false;
 			return;
 		}
@@ -2532,7 +2529,6 @@ void update_best_cluster(struct related_thread_group *grp,
 		}
 		if (grp->last_update - grp->downmigrate_ts >
 				sysctl_sched_coloc_downmigrate_ns) {
-			grp->preferred_cluster = sched_cluster[0];
 			grp->downmigrate_ts = 0;
 			grp->skip_min = false;
 		}
@@ -2549,7 +2545,7 @@ int preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 
 	grp = task_related_thread_group(p);
 	if (grp)
-		rc = ((grp->preferred_cluster == cluster) ||
+		rc = (sched_cluster[(int)grp->skip_min] == cluster ||
 		      cpumask_subset(&cluster->cpus, &asym_cap_sibling_cpus));
 
 	rcu_read_unlock();
@@ -2567,7 +2563,6 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		return;
 
 	if (!hmp_capable()) {
-		grp->preferred_cluster = sched_cluster[0];
 		grp->skip_min = false;
 		return;
 	}
@@ -3062,11 +3057,7 @@ static bool is_rtgb_active(void)
 		return false;
 
 	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
-	if (!grp || !grp->preferred_cluster ||
-			is_min_capacity_cluster(grp->preferred_cluster))
-		return false;
-
-	return true;
+	return grp && grp->skip_min;
 }
 
 /*

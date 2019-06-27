@@ -364,23 +364,19 @@ TRACE_EVENT(sched_set_preferred_cluster,
 
 	TP_STRUCT__entry(
 		__field(int,		id)
-		__field(u64,		demand)
-		__field(int,		cluster_first_cpu)
-		__array(char,		comm, TASK_COMM_LEN)
-		__field(pid_t,		pid)
-		__field(unsigned int,	task_demand)
+		__field(u64,		total_demand)
+		__field(bool,		skip_min)
 	),
 
 	TP_fast_assign(
 		__entry->id			= grp->id;
-		__entry->demand			= total_demand;
-		__entry->cluster_first_cpu	= grp->preferred_cluster ?
-			cluster_first_cpu(grp->preferred_cluster) : -1;
+		__entry->total_demand		= total_demand;
+		__entry->skip_min		= grp->skip_min;
 	),
 
-	TP_printk("group_id %d total_demand %llu preferred_cluster_first_cpu %d",
-			__entry->id, __entry->demand,
-			__entry->cluster_first_cpu)
+	TP_printk("group_id %d total_demand %llu skip_min %d",
+			__entry->id, __entry->total_demand,
+			__entry->skip_min)
 );
 
 TRACE_EVENT(sched_migration_update_sum,
