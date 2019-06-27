@@ -189,6 +189,18 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 	pm_relax(&mhi_cntrl->mhi_dev->dev);
 }
 
+static void mhi_arch_esoc_ops_mdm_error(void *priv)
+{
+	struct mhi_controller *mhi_cntrl = priv;
+
+	MHI_LOG("Enter: mdm asserted\n");
+
+	/* transition MHI state into error state */
+	mhi_control_error(mhi_cntrl);
+
+	MHI_LOG("Exit\n");
+}
+
 static void mhi_bl_dl_cb(struct mhi_device *mhi_dev,
 			 struct mhi_result *mhi_result)
 {
@@ -362,6 +374,8 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 				mhi_arch_esoc_ops_power_on;
 			esoc_ops->esoc_link_power_off =
 				mhi_arch_esoc_ops_power_off;
+			esoc_ops->esoc_link_mdm_crash =
+				mhi_arch_esoc_ops_mdm_error;
 
 			ret = esoc_register_client_hook(arch_info->esoc_client,
 							esoc_ops);

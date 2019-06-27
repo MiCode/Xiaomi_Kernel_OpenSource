@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -724,6 +724,7 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
+int mhi_early_notify_device(struct device *dev, void *data);
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,
