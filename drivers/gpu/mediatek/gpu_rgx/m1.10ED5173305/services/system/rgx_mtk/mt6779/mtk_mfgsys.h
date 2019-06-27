@@ -25,6 +25,7 @@
 #define MTCMOS_CONTROL 1
 #else
 #define MTK_PM_SUPPORT 0
+#endif
 
 struct g_clk_info {
 	struct clk *clk_mux;/* main clock for mfg setting*/
@@ -39,9 +40,6 @@ enum g_clock_source_enum  {
 	CLOCK_MAIN = 0,
 	CLOCK_SUB,
 };
-
-#endif
-
 
 
 PVRSRV_ERROR MTKMFGSystemInit(void);

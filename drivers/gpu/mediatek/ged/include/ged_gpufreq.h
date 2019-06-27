@@ -41,6 +41,7 @@ typedef void (*gpufreq_power_limit_notify)(unsigned int); /* legacy */
 extern unsigned int mt_gpufreq_get_cur_freq_index(void);
 extern unsigned int mt_gpufreq_get_cur_freq(void);
 extern unsigned int mt_gpufreq_get_cur_volt(void);
+extern unsigned int mt_gpufreq_get_cur_vsram(void);
 extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
 extern unsigned int mt_gpufreq_target(unsigned int idx);
 extern unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable);
