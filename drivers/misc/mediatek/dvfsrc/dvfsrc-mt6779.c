@@ -496,22 +496,22 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 	dvfsrc->vcore_power = regulator_get(&pdev->dev, "vcore");
 	if (IS_ERR(dvfsrc->vcore_power)) {
-		dev_info(dev, "regulator_get vcore failed = %d\n",
-			dvfsrc->vcore_power);
+		dev_info(dev, "regulator_get vcore failed = %ld\n",
+			PTR_ERR(dvfsrc->vcore_power));
 		dvfsrc->vcore_power = NULL;
 	}
 
 	dvfsrc->dvfsrc_vcore_power = regulator_get(&pdev->dev, "rc-vcore");
 	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
-		dev_info(dev, "mtk_dvfsrc dvfsrc vcore failed = %d\n",
-			dvfsrc->dvfsrc_vcore_power);
+		dev_info(dev, "mtk_dvfsrc dvfsrc vcore failed = %ld\n",
+			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
 		dvfsrc->dvfsrc_vcore_power = NULL;
 	}
 
 	dvfsrc->dvfsrc_vscp_power = regulator_get(&pdev->dev, "rc-vscp");
 	if (IS_ERR(dvfsrc->dvfsrc_vscp_power)) {
-		dev_info(dev, "regulator_get dvfsrc vscp failed = %d\n",
-			dvfsrc->dvfsrc_vscp_power);
+		dev_info(dev, "regulator_get dvfsrc vscp failed = %ld\n",
+			PTR_ERR(dvfsrc->dvfsrc_vscp_power));
 		dvfsrc->dvfsrc_vscp_power = NULL;
 	}
 
