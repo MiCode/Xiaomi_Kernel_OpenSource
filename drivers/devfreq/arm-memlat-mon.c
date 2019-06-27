@@ -649,28 +649,27 @@ static int memlat_mon_probe(struct platform_device *pdev, bool is_compute)
 	if (is_compute) {
 		mon->miss_ev_id = 0;
 		ret = register_compute(dev, hw);
-		goto unlock_out;
-	}
+	} else {
+		mon->miss_ev =
+			devm_kzalloc(dev, num_cpus * sizeof(*mon->miss_ev),
+				     GFP_KERNEL);
+		if (!mon->miss_ev) {
+			ret = -ENOMEM;
+			goto unlock_out;
+		}
 
-	mon->miss_ev =
-		devm_kzalloc(dev, num_cpus * sizeof(*mon->miss_ev),
-			     GFP_KERNEL);
-	if (!mon->miss_ev) {
-		ret = -ENOMEM;
-		goto unlock_out;
-	}
+		ret = of_property_read_u32(dev->of_node, "qcom,cachemiss-ev",
+						&event_id);
+		if (ret) {
+			dev_err(dev, "Cache miss event missing for mon: %d\n",
+					ret);
+			ret = -EINVAL;
+			goto unlock_out;
+		}
+		mon->miss_ev_id = event_id;
 
-	ret = of_property_read_u32(dev->of_node, "qcom,cachemiss-ev",
-					&event_id);
-	if (ret) {
-		dev_err(dev, "Cache miss event missing for this mon: %d\n",
-				ret);
-		ret = -EINVAL;
-		goto unlock_out;
+		ret = register_memlat(dev, hw);
 	}
-	mon->miss_ev_id = event_id;
-
-	ret = register_memlat(dev, hw);
 
 	if (!ret)
 		cpu_grp->num_inited_mons++;
