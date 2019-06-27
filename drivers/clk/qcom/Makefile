@@ -78,6 +78,7 @@ obj-$(CONFIG_SM_DISPCC_TRINKET) += dispcc-trinket.o
 obj-$(CONFIG_SM_GCC_ATOLL) += gcc-atoll.o
 obj-$(CONFIG_SM_GCC_TRINKET) += gcc-trinket.o
 obj-$(CONFIG_SM_GPUCC_TRINKET) += gpucc-trinket.o
+obj-$(CONFIG_SM_VIDEOCC_ATOLL) += videocc-atoll.o
 obj-$(CONFIG_SM_VIDEOCC_TRINKET) += videocc-trinket.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_VIRTIO_CLK) += virtio_clk.o virtio_clk_sm8150.o virtio_clk_sm6150.o virtio_clk_sa8195p.o
