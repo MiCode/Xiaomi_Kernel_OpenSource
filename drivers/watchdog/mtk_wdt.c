@@ -21,6 +21,7 @@
 #include <linux/watchdog.h>
 #include <linux/delay.h>
 #include <linux/of_platform.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 #define WDT_MAX_TIMEOUT		31
 #define WDT_MIN_TIMEOUT		1
@@ -45,6 +46,9 @@
 #define WDT_SWRST		0x14
 #define WDT_SWRST_KEY		0x1209
 
+#define WDT_NONRST2		0x24
+#define WDT_BYPASS_PWR_KEY	(1 << 13)
+
 #define DRV_NAME		"mtk-wdt"
 #define DRV_VERSION		"1.0"
 
@@ -57,12 +61,29 @@ struct mtk_wdt_dev {
 };
 
 static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
-			   unsigned long action, void *data)
+			   unsigned long action, void *cmd)
 {
 	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
 	void __iomem *wdt_base;
 
 	wdt_base = mtk_wdt->wdt_base;
+
+	if (cmd && !strcmp(cmd, "charger"))
+		writel(BOOT_CHARGER, wdt_base + WDT_NONRST2);
+	else if (cmd && !strcmp(cmd, "recovery"))
+		writel(BOOT_RECOVERY, wdt_base + WDT_NONRST2);
+	else if (cmd && !strcmp(cmd, "bootloader"))
+		writel(BOOT_BOOTLOADER, wdt_base + WDT_NONRST2);
+	else if (cmd && !strcmp(cmd, "dm-verity device corrupted"))
+		writel(BOOT_DM_VERITY | WDT_BYPASS_PWR_KEY,
+			wdt_base + WDT_NONRST2);
+	else if (cmd && !strcmp(cmd, "kpoc"))
+		writel(BOOT_KPOC, wdt_base + WDT_NONRST2);
+	else if (cmd && !strcmp(cmd, "ddr-reserve"))
+		writel(BOOT_DDR_RSVD, wdt_base + WDT_NONRST2);
+	else
+		writel(BOOT_DM_VERITY | WDT_BYPASS_PWR_KEY,
+			wdt_base + WDT_NONRST2);
 
 	while (1) {
 		writel(WDT_SWRST_KEY, wdt_base + WDT_SWRST);
