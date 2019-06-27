@@ -333,7 +333,7 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 
 	if (ret) {
 		dev_warn(dvfsrc->dev,
-			"[%s][%d] wait idle, level: %d, last: %d -> %d\n",
+			"[%s][%d] wait idle, level: %llu, last: %d -> %d\n",
 			__func__, cmd, data,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
@@ -347,7 +347,6 @@ int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data)
 {
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 
-	dev_dbg(dvfsrc->dev, "cmd: %d, data: %llu\n", cmd, data);
 	switch (cmd) {
 	case MTK_DVFSRC_CMD_VCORE_QUERY:
 		*data = dvfsrc->dvd->get_vcore_level(dvfsrc);
