@@ -48,10 +48,12 @@ static int __init sspm_reserve_mem_of_init(struct reserved_mem *rmem)
 	sspm_mem_base_phys = rmem->base;
 	sspm_mem_size      = rmem->size;
 
+#ifdef DEBUG
 	pr_debug("[SSPM] phys:0x%pa - 0x%pa (0x%pa)\n",
 		(unsigned long long)rmem->base,
 		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
 		(unsigned long long)rmem->size);
+#endif
 
 	return 0;
 }
@@ -115,11 +117,12 @@ int sspm_reserve_memory_init(void)
 	sspm_mem_base_virt = (phys_addr_t)(uintptr_t)
 			ioremap_wc(sspm_mem_base_phys, sspm_mem_size);
 
-	pr_info("[SSPM]reserve mem: virt:0x%lx - 0x%lx (0x%lx)\n",
-			(unsigned long long)sspm_mem_base_virt,
-			(unsigned long long)sspm_mem_base_virt +
-				(unsigned long long)sspm_mem_size,
-			(unsigned long long)sspm_mem_size);
+#ifdef DEBUG
+	pr_info("[SSPM]reserve mem: virt:0x%p - 0x%p (0x%p)\n",
+			sspm_mem_base_virt,
+			sspm_mem_base_virt + sspm_mem_size,
+			sspm_mem_size);
+#endif
 
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		sspm_reserve_mblock[id].start_virt = sspm_mem_base_virt +

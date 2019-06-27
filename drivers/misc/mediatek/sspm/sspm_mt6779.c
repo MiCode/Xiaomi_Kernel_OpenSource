@@ -154,7 +154,7 @@ static int mt6779_sspm_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	pr_info("[SSPM] mt6779-sspm irq=%d, cfgreg=0x%x\n",
+	pr_info("[SSPM] mt6779-sspm irq=%d, cfgreg=0x%p\n",
 			sspmreg.irq, sspmreg.cfg);
 
 	sspm_26m = devm_clk_get(dev, "sspm_26m");
