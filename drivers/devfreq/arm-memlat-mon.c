@@ -338,11 +338,14 @@ unlock_out:
 static int start_hwmon(struct memlat_hwmon *hw)
 {
 	int ret = 0;
-	struct perf_event_attr *attr = alloc_attr();
 	unsigned int cpu;
 	struct memlat_mon *mon = to_mon(hw);
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;
 	bool should_init_cpu_grp;
+	struct perf_event_attr *attr = alloc_attr();
+
+	if (!attr)
+		return -ENOMEM;
 
 	mutex_lock(&cpu_grp->mons_lock);
 	should_init_cpu_grp = !(cpu_grp->num_active_mons++);
