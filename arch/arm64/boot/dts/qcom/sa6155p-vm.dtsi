@@ -27,6 +27,10 @@
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 	};
 
+	aliases {
+		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+	};
+
 	reserved_memory: reserved-memory {
 
 		pmem_shared: pmem_shared_region@a1600000 {
@@ -267,6 +271,75 @@
 				<45 512 98572 655360>, <1 512 98572 1600000>,
 				/* Upto 800 Mbps */
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
+	};
+
+	sdhc_2: sdhci@8804000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x8804000 0x1000>;
+		reg-names = "hc_mem";
+		interrupts = <0 204 0>, <0 222 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+		qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 202000000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+		qcom,devfreq,freq-table = <50000000 202000000>;
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			/* No vote */
+			<81 512 0 0>, <1 608 0 0>,
+			/* 400 KB/s*/
+			<81 512 1046 1600>,
+			<1 608 1600 1600>,
+			/* 20 MB/s */
+			<81 512 52286 80000>,
+			<1 608 80000 80000>,
+			/* 25 MB/s */
+			<81 512 65360 100000>,
+			<1 608 100000 100000>,
+			/* 50 MB/s */
+			<81 512 130718 200000>,
+			<1 608 133320 133320>,
+			/* 100 MB/s */
+			<81 512 261438 200000>,
+			<1 608 150000 150000>,
+			/* 200 MB/s */
+			<81 512 261438 400000>,
+			<1 608 300000 300000>,
+			/* Max. bandwidth */
+			<81 512 1338562 4096000>,
+			<1 608 1338562 4096000>;
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100750000 200000000 4294967295>;
+		/* PM QoS */
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <67 67>;
+		qcom,pm-qos-cpu-groups = <0x3f 0xc0>;
+		qcom,pm-qos-legacy-latency-us = <67 67>, <67 67>;
+		clocks = <&clock_virt GCC_SDCC2_AHB_CLK>,
+			<&clock_virt GCC_SDCC2_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642C 0x0 0x0 0x00010800 0x80040868>;
+
+		vdd-supply = <&pm6155_1_l10>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <0 800000>;
+		vdd-io-supply = <&pm6155_1_l2>;
+		qcom,vdd-io-voltage-level = <1800000 3100000>;
+		qcom,vdd-io-current-level = <0 22000>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc2_clk_on
+			&sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+		pinctrl-1 = <&sdc2_clk_off
+			&sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+		cd-gpios = <&tlmm 99 1>;
+
+		status = "disabled";
 	};
 };
 

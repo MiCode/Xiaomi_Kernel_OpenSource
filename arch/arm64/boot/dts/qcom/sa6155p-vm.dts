@@ -45,3 +45,8 @@
 &pcie0 {
 	status = "ok";
 };
+
+&sdhc_2 {
+	status = "ok";
+};
+
