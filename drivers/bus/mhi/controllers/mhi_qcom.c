@@ -533,6 +533,19 @@ lpm_enable_exit:
 	return ret;
 }
 
+void mhi_qcom_store_hwinfo(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	int i;
+
+	mhi_dev->serial_num = readl_relaxed(mhi_cntrl->bhi +
+			MHI_BHI_SERIAL_NUM_OFFS);
+
+	for (i = 0; i < ARRAY_SIZE(mhi_dev->oem_pk_hash); i++)
+		mhi_dev->oem_pk_hash[i] = readl_relaxed(mhi_cntrl->bhi +
+			MHI_BHI_OEMPKHASH(i));
+}
+
 static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 {
 	enum mhi_dev_state dev_state = mhi_get_mhi_state(mhi_cntrl);
@@ -568,6 +581,10 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 		return ret;
 
 	ret = mhi_async_power_up(mhi_cntrl);
+
+	/* Update modem serial Info */
+	if (!ret)
+		mhi_qcom_store_hwinfo(mhi_cntrl);
 
 	/* power up create the dentry */
 	if (mhi_cntrl->dentry) {
@@ -678,9 +695,45 @@ static ssize_t power_up_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(power_up);
 
+static ssize_t serial_info_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct mhi_device *mhi_device = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	int n;
+
+	n = scnprintf(buf, PAGE_SIZE, "Serial Number:%u\n",
+		      mhi_dev->serial_num);
+
+	return n;
+}
+static DEVICE_ATTR_RO(serial_info);
+
+static ssize_t oempkhash_info_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct mhi_device *mhi_device = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_device->mhi_cntrl;
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	int i, n = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mhi_dev->oem_pk_hash); i++)
+		n += scnprintf(buf + n, PAGE_SIZE - n, "OEMPKHASH[%d]:%u\n",
+		      i, mhi_dev->oem_pk_hash[i]);
+
+	return n;
+}
+static DEVICE_ATTR_RO(oempkhash_info);
+
+
 static struct attribute *mhi_qcom_attrs[] = {
 	&dev_attr_timeout_ms.attr,
 	&dev_attr_power_up.attr,
+	&dev_attr_serial_info.attr,
+	&dev_attr_oempkhash_info.attr,
 	NULL
 };
 
