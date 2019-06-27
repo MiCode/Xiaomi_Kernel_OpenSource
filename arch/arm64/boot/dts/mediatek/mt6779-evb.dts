@@ -185,9 +185,9 @@
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO59__FUNC_KPCOL0>,
 				<PINMUX_GPIO60__FUNC_KPCOL1>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_01>;
-			output-low;
-			input-schmitt-enable;
+			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			pull-up;
+			input-enable;
 		};
 	};
 };
