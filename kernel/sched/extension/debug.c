@@ -22,7 +22,7 @@ int show_cpu_info(char *buf, int buf_size)
 
 	for_each_possible_cpu(cpu) {
 		len += snprintf(buf+len, buf_size-len,
-			"cpu=%d max=%4luMHz curr=%4luMHz ",
+			"cpu=%d max=%4uMHz curr=%4uMHz ",
 			cpu,
 
 			/* Max frequency (limited by ceiling) */
