@@ -15,7 +15,7 @@
 
 static const struct mtk_node_desc node_descs_mt6779[] = {
 	DEFINE_MNODE(common0,
-		SLAVE_COMMON(0), 0, MT6779_MASTER_MMSYS),
+		SLAVE_COMMON(0), 0, MMQOS_NO_LINK),
 	DEFINE_MNODE(common0_port0,
 		MASTER_COMMON_PORT(0, 0), 0, SLAVE_COMMON(0)),
 	DEFINE_MNODE(common0_port1,
@@ -349,10 +349,13 @@ static const struct mtk_node_desc node_descs_mt6779[] = {
 
 static const char * const comm_muxes_mt6779[] = { "mm" };
 
+static const char * const comm_icc_path_names_mt6779[] = { "mmsys_path" };
+
 static const struct mtk_mmqos_desc mmqos_desc_mt6779 = {
 	.nodes = node_descs_mt6779,
 	.num_nodes = ARRAY_SIZE(node_descs_mt6779),
 	.comm_muxes = comm_muxes_mt6779,
+	.comm_icc_path_names = comm_icc_path_names_mt6779,
 };
 
 

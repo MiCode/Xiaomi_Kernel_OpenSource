@@ -7,6 +7,7 @@
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <linux/clk.h>
 #include <linux/interconnect-provider.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -24,7 +25,7 @@ static void mmqos_update_comm_bw(struct device *dev,
 	u32 comm_bw = 0;
 	u32 value;
 
-	if (!freq)
+	if (!freq || !dev)
 		return;
 
 	if (mix_bw)
@@ -66,13 +67,29 @@ static int update_mm_clk(struct notifier_block *nb,
 	return 0;
 }
 
+static void set_comm_icc_bw_handler(struct work_struct *work)
+{
+	struct common_node *comm_node = container_of(
+				work, struct common_node, work);
+	struct icc_node *icc_node = comm_node->base->icc_node;
+
+	icc_set_bw(comm_node->icc_path, icc_node->avg_bw, icc_node->peak_bw);
+}
+
 static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 {
 	struct larb_node *larb_node;
 	struct larb_port_node *larb_port_node;
 	struct common_port_node *comm_port_node;
+	struct common_node *comm_node;
+	struct mtk_mmqos *mmqos = container_of(dst->provider,
+					struct mtk_mmqos, prov);
 
 	switch (dst->id >> 16) {
+	case MTK_MMQOS_NODE_COMMON:
+		comm_node = (struct common_node *)dst->data;
+		queue_work(mmqos->wq, &comm_node->work);
+		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		comm_port_node = (struct common_port_node *)dst->data;
 		mutex_lock(&comm_port_node->bw_lock);
@@ -103,12 +120,13 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	u32 avg_bw, u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
 {
 	struct mmqos_base_node *base_node = NULL;
+	u32 mix_bw = peak_bw;
 
 	switch (node->id >> 16) {
 	case MTK_MMQOS_NODE_LARB_PORT:
 		base_node = ((struct larb_node *)node->data)->base;
 		if (peak_bw)
-			peak_bw = SHIFT_ROUND(peak_bw * 3, 1);
+			mix_bw = SHIFT_ROUND(peak_bw * 3, 1);
 		break;
 	case MTK_MMQOS_NODE_COMMON_PORT:
 		base_node = ((struct common_port_node *)node->data)->base;
@@ -120,7 +138,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	if (base_node) {
 		if (*agg_avg == 0 && *agg_peak == 0)
 			base_node->mix_bw = 0;
-		base_node->mix_bw += peak_bw ? peak_bw : avg_bw;
+		base_node->mix_bw += peak_bw ? mix_bw : avg_bw;
 	}
 
 	*agg_avg += avg_bw;
@@ -157,6 +175,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	int i, id, num_larbs = 0, ret;
 	const struct mtk_mmqos_desc *mmqos_desc;
 	const struct mtk_node_desc *node_desc;
+	struct device *larb_dev;
 
 	mmqos = devm_kzalloc(&pdev->dev, sizeof(*mmqos), GFP_KERNEL);
 	if (!mmqos)
@@ -249,6 +268,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				ret = -ENOMEM;
 				goto err;
 			}
+			INIT_WORK(&comm_node->work, set_comm_icc_bw_handler);
 			comm_node->clk = devm_clk_get(&pdev->dev,
 				mmqos_desc->comm_muxes[node->id & 0xff]);
 			if (IS_ERR(comm_node->clk)) {
@@ -261,6 +281,9 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			comm_node->freq = clk_get_rate(comm_node->clk)/1000000;
 			INIT_LIST_HEAD(&comm_node->list);
 			list_add_tail(&comm_node->list, &mmqos->comm_list);
+			comm_node->icc_path = of_icc_get(&pdev->dev,
+				mmqos_desc->comm_icc_path_names[
+						node->id & 0xff]);
 			comm_node->base = base_node;
 			node->data = (void *)comm_node;
 			break;
@@ -287,9 +310,12 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				goto err;
 			}
 			comm_port_node = node->links[0]->data;
-			comm_port_node->larb_dev =
-				smi_imu.larb_imu[node->id & 0xf].dev;
-			larb_node->larb_dev = comm_port_node->larb_dev;
+			larb_dev = smi_imu.larb_imu[node->id &
+					(MTK_LARB_NR_MAX-1)].dev;
+			if (larb_dev) {
+				comm_port_node->larb_dev = larb_dev;
+				larb_node->larb_dev = larb_dev;
+			}
 			larb_node->base = base_node;
 			node->data = (void *)larb_node;
 			break;
@@ -315,6 +341,13 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	data->num_nodes = mmqos_desc->num_nodes;
 	mmqos->prov.data = data;
+
+	mmqos->wq = create_singlethread_workqueue("mmqos_work_queue");
+	if (!mmqos->wq) {
+		dev_notice(&pdev->dev, "work queue create fail\n");
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	mmqos->nb.notifier_call = update_mm_clk;
 	register_mmdvfs_notifier(&mmqos->nb);
@@ -343,5 +376,6 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	}
 	icc_provider_del(&mmqos->prov);
 	unregister_mmdvfs_notifier(&mmqos->nb);
+	destroy_workqueue(mmqos->wq);
 	return 0;
 }

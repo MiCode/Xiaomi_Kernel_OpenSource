@@ -7,6 +7,7 @@
 #define MMQOS_MTK_H
 
 #include <linux/interconnect-provider.h>
+#include <linux/workqueue.h>
 
 #define MMQOS_NO_LINK	(0xffffffff)
 
@@ -21,6 +22,8 @@ struct common_node {
 	struct clk *clk;
 	u64 freq;
 	struct list_head list;
+	struct icc_path *icc_path;
+	struct work_struct work;
 };
 
 struct common_port_node {
@@ -49,6 +52,7 @@ struct mtk_mmqos {
 	struct notifier_block nb;
 	struct list_head comm_list;
 	struct list_head comm_port_list;
+	struct workqueue_struct *wq;
 };
 
 struct mtk_node_desc {
@@ -62,6 +66,7 @@ struct mtk_mmqos_desc {
 	const struct mtk_node_desc *nodes;
 	const size_t num_nodes;
 	const char * const *comm_muxes;
+	const char * const *comm_icc_path_names;
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\
