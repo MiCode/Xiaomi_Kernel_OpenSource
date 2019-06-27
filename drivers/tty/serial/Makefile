@@ -39,6 +39,7 @@ obj-$(CONFIG_SERIAL_PMACZILOG) += pmac_zilog.o
 obj-$(CONFIG_SERIAL_HS_LPC32XX) += lpc32xx_hs.o
 obj-$(CONFIG_SERIAL_DZ) += dz.o
 obj-$(CONFIG_SERIAL_ZS) += zs.o
+CFLAGS_sh-sci.o = -Wno-uninitialized
 obj-$(CONFIG_SERIAL_SH_SCI) += sh-sci.o
 obj-$(CONFIG_SERIAL_SGI_L1_CONSOLE) += sn_console.o
 obj-$(CONFIG_SERIAL_CPM) += cpm_uart/

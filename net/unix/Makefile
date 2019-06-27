@@ -5,6 +5,7 @@
 
 obj-$(CONFIG_UNIX)	+= unix.o
 
+CFLAGS_af_unix.o = -Wno-uninitialized
 unix-y			:= af_unix.o garbage.o
 unix-$(CONFIG_SYSCTL)	+= sysctl_net_unix.o
 
