@@ -71,7 +71,8 @@ static const struct mtk_auxadc_compatible mt6765_compat = {
 		.type = IIO_VOLTAGE,				    \
 		.indexed = 1,					    \
 		.channel = (idx),				    \
-		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED), \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |	    \
+				      BIT(IIO_CHAN_INFO_PROCESSED), \
 }
 
 static const struct iio_chan_spec mt6577_auxadc_iio_channels[] = {
@@ -92,6 +93,10 @@ static const struct iio_chan_spec mt6577_auxadc_iio_channels[] = {
 	MT6577_AUXADC_CHANNEL(14),
 	MT6577_AUXADC_CHANNEL(15),
 };
+
+/* For Voltage calculation */
+#define VOLTAGE_FULL_RANGE  1500	/* VA voltage */
+#define AUXADC_PRECISE      4096	/* 12 bits */
 
 /* For calibration */
 #define ADC_GE_OE_MASK          0x000003ff
@@ -187,8 +192,8 @@ static int mt_auxadc_get_cali_data(int rawdata, bool enable_cali)
 	 * = 4096 * (1 + cali_ge / 4096) = 4096 + cali_ge)
 	 */
 	if (enable_cali)
-		data = (4096 * (rawdata - adc_cali.cali_oe)) /
-			(4096 + adc_cali.cali_ge);
+		data = (AUXADC_PRECISE * (rawdata - adc_cali.cali_oe)) /
+			(AUXADC_PRECISE + adc_cali.cali_ge);
 	else
 		data = rawdata;
 
@@ -287,9 +292,21 @@ static int mt6577_auxadc_read_raw(struct iio_dev *indio_dev,
 				  long info)
 {
 	struct mt6577_auxadc_device *adc_dev = iio_priv(indio_dev);
-	int raw_val;
 
 	switch (info) {
+	case IIO_CHAN_INFO_RAW:
+		*val = mt6577_auxadc_read(indio_dev, chan);
+		if (*val < 0) {
+			dev_err(indio_dev->dev.parent,
+				"failed to sample data on channel[%d]\n",
+				chan->channel);
+			return *val;
+		}
+		if (adc_dev->dev_comp->sample_data_cali)
+			*val = mt_auxadc_get_cali_data(*val, true);
+
+		return IIO_VAL_INT;
+
 	case IIO_CHAN_INFO_PROCESSED:
 		*val = mt6577_auxadc_read(indio_dev, chan);
 		if (*val < 0) {
@@ -298,9 +315,11 @@ static int mt6577_auxadc_read_raw(struct iio_dev *indio_dev,
 				chan->channel);
 			return *val;
 		}
-		raw_val = *val;
 		if (adc_dev->dev_comp->sample_data_cali)
 			*val = mt_auxadc_get_cali_data(*val, true);
+
+		/* Convert adc raw data to voltage: 0 - 1500 mV */
+		*val = *val * VOLTAGE_FULL_RANGE / AUXADC_PRECISE;
 
 		return IIO_VAL_INT;
 
