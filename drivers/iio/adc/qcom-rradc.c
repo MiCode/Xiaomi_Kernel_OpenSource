@@ -199,6 +199,8 @@
 #define FG_RR_TP_REV_VERSION2		29
 #define FG_RR_TP_REV_VERSION3		32
 
+#define BATT_ID_SETTLE_DELAY_80_MS		0xE0
+
 /*
  * The channel number is not a physical index in hardware,
  * rather it's a list of supported channels and an index to
@@ -859,6 +861,13 @@ static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 	if (rc < 0) {
 		pr_err("Enabling BATT ID channel failed:%d\n", rc);
 		return rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CFG,
+			BATT_ID_SETTLE_DELAY_80_MS, BATT_ID_SETTLE_DELAY_80_MS);
+	if (rc < 0) {
+		pr_err("BATT_ID settling time config failed:%d\n", rc);
+		ret = rc;
 	}
 
 	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
