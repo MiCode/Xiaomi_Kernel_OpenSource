@@ -1607,6 +1607,39 @@
 			clock-names = "GCE", "GCE_TIMER";
 		};
 
+		dramc@10230000 {
+			compatible = "mediatek,mt6779-dramc",
+				     "mediatek,common-dramc";
+			reg = <0 0x10230000 0 0x2000>, /* DRAMC AO CHA */
+				<0 0x10240000 0 0x2000>, /* DRAMC AO CHB */
+				<0 0x10234000 0 0x1000>, /* DRAMC NAO CHA */
+				<0 0x10244000 0 0x1000>, /* DRAMC NAO CHB */
+				<0 0x10238000 0 0x2000>, /* DDRPHY AO CHA */
+				<0 0x10248000 0 0x2000>, /* DDRPHY AO CHB */
+				<0 0x10236000 0 0x1000>, /* DDRPHY NAO CHA */
+				<0 0x10246000 0 0x1000>, /* DDRPHY NAO CHB */
+				<0 0x10006000 0 0x1000>; /* SLEEP BASE */
+			mr4_version = <1>;
+			mr4_rg = <0x0090 0x0000ffff 0>;
+			fmeter_version = <1>;
+			crystal_freq = <52>;
+			pll_id = <0x0510 0x80000000 31>;
+			shu_lv = <0x00e4 0x00000006 1>;
+			shu_of = <0x500>;
+			sdmpcw = <0x0d9c 0xffff0000 16>,
+				 <0x0d94 0xffff0000 16>;
+			prediv = <0x0da8 0x000c0000 18>,
+				 <0x0da0 0x000c0000 18>;
+			posdiv = <0x0da8 0x00000007 0>,
+				 <0x0da0 0x00000007 0>;
+			ckdiv4 = <0x0d18 0x08000000 27>,
+				 <0x0d18 0x08000000 27>;
+			pll_md = <0x0d84 0x00000100 8>,
+				 <0x0d84 0x00000100 8>;
+			cldiv2 = <0x0c38 0x80000000 31>,
+				 <0x0c38 0x80000000 31>;
+		};
+
 		md_ccif4@1024d000 {
 			compatible = "mediatek,md_ccif4";
 			reg = <0 0x1024d000 0 0x1000>;
