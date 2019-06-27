@@ -2224,7 +2224,6 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			queue_work(gsi->c_port.uevent_wq,
 					&gsi->c_port.uevent_work);
 
-		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 		value = 0;
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
@@ -2601,7 +2600,10 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 	if (gsi->prot_id == USB_PROT_DIAG_IPA ||
 				gsi->prot_id == USB_PROT_DPL_ETHER ||
 				gsi->prot_id == USB_PROT_GPS_CTRL ||
-				gsi->prot_id == USB_PROT_MBIM_IPA)
+				gsi->prot_id == USB_PROT_MBIM_IPA ||
+				gsi->prot_id == USB_PROT_RMNET_IPA ||
+				gsi->prot_id == USB_PROT_RMNET_V2X_IPA ||
+				gsi->prot_id == USB_PROT_RMNET_ETHER)
 		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
 
 	if (gsi->c_port.uevent_wq)
