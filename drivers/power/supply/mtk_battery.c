@@ -179,7 +179,7 @@ void battery_service_data_init(struct mtk_battery *gm)
 
 	bs_data = &gm->bs_data;
 	bs_data->psd.name = "battery",
-	bs_data->psd.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	bs_data->psd.type = POWER_SUPPLY_TYPE_BATTERY;
 	bs_data->psd.properties = battery_props,
 	bs_data->psd.num_properties = ARRAY_SIZE(battery_props),
 	bs_data->psd.get_property = battery_psy_get_property,
@@ -471,6 +471,24 @@ int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state)
 	return wakeup_fg_algo_cmd(gm, flow_state, 0, 0);
 }
 
+static int mtk_battery_notifier(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct battery_data *bs_data =
+		container_of(nb, struct battery_data, battery_nb);
+
+	pr_notice("%s: %ld\n", __func__, event);
+
+	if (event)
+		bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
+	else
+		bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+
+	power_supply_changed(bs_data->psy);
+
+	return NOTIFY_DONE;
+}
+
 static int __init battery_probe(struct platform_device *pdev)
 {
 	struct power_supply *psy;
@@ -515,11 +533,38 @@ static int __init battery_probe(struct platform_device *pdev)
 		ret = PTR_ERR(gm->bs_data.psy);
 		return ret;
 	}
+
+	gm->bs_data.edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
+	if (IS_ERR(gm->bs_data.edev)) {
+		pr_notice("couldn't get extcon device: %d\n",
+			PTR_ERR(gm->bs_data.edev));
+		ret = PTR_ERR(gm->bs_data.edev);
+		goto err_power_supply;
+	}
+
+	gm->bs_data.battery_nb.notifier_call = mtk_battery_notifier;
+	ret = devm_extcon_register_notifier(&pdev->dev, gm->bs_data.edev,
+				EXTCON_USB, &gm->bs_data.battery_nb);
+	if (ret < 0) {
+		pr_notice("failed to register notifier for EXTCON_USB\n");
+		goto err_power_supply;
+	}
+
+	if (extcon_get_state(gm->bs_data.edev, EXTCON_USB)) {
+		gm->bs_data.bat_status = POWER_SUPPLY_STATUS_CHARGING;
+		power_supply_changed(gm->bs_data.psy);
+	}
+
 	pr_notice("[BAT_probe] power_supply_register Battery Success !!\n");
 	gm->is_probe_done = true;
 	mtk_battery_core_init(pdev);
 	pr_notice("[%s]: DONE\n", __func__);
 	return 0;
+
+err_power_supply:
+	power_supply_unregister(gm->bs_data.psy);
+
+	return ret;
 }
 
 #ifdef CONFIG_OF
