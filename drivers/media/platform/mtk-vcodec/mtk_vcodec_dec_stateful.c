@@ -15,7 +15,6 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
-
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_intr.h"
@@ -214,15 +213,24 @@ static struct vb2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 }
 
 static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
-	struct mtk_vcodec_mem *current_bs)
+	struct mtk_vcodec_mem *current_bs,
+	struct mtk_vcodec_mem *current_bs2)
 {
+	int ret = 0;
 	struct mtk_vcodec_mem *free_bs_buffer;
 	struct mtk_video_dec_buf  *srcbuf;
-
-	if (vdec_if_get_param(ctx, GET_PARAM_FREE_BITSTREAM_BUFFER,
-						  &free_bs_buffer) != 0) {
-		mtk_v4l2_err("[%d] Cannot get param : GET_PARAM_FREE_BITSTREAM_BUFFER",
-					 ctx->id);
+	ret = vdec_if_get_param(ctx, GET_PARAM_FREE_BITSTREAM_BUFFER,
+			&free_bs_buffer);
+	if (ret != 0) {
+		if (ret == -EINVAL && current_bs2 != NULL) {
+			srcbuf = container_of(current_bs2,
+				struct mtk_video_dec_buf, bs_buffer);
+			v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+			mtk_v4l2_debug(3, "GET_PARAM_FREE_BITSTREAM_BUFFER");
+		} else {
+			mtk_v4l2_err("[%d] Cannot get param : GET_PARAM_FREE_BITSTREAM_BUFFER",
+				ctx->id);
+		}
 		return NULL;
 	}
 
@@ -244,18 +252,18 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 		"[%d] length=%zu size=%zu queue idx=%d",
 		ctx->id, free_bs_buffer->length, free_bs_buffer->size,
 		srcbuf->vb.vb2_buf.index);
-	if (srcbuf->vb.vb2_buf.state == VB2_BUF_STATE_ACTIVE)
-		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
 	return &srcbuf->vb.vb2_buf;
 }
 
 static void clean_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
-	struct mtk_vcodec_mem *current_bs)
+	struct mtk_vcodec_mem *current_bs,
+	struct mtk_vcodec_mem *current_bs2)
 {
 	struct vb2_buffer *framptr;
 
 	do {
-		framptr = get_free_bs_buffer(ctx, current_bs);
+		framptr = get_free_bs_buffer(ctx, current_bs, current_bs2);
 	} while (framptr);
 }
 
@@ -317,7 +325,7 @@ static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 	if (ret)
 		mtk_v4l2_err("DecodeFinal failed, ret=%d", ret);
 
-	clean_free_bs_buffer(ctx, NULL);
+	clean_free_bs_buffer(ctx, NULL, NULL);
 	clean_display_buffer(ctx, 0);
 	clean_free_buffer(ctx);
 
@@ -466,7 +474,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		mutex_unlock(&ctx->lock);
 
 		vdec_if_decode(ctx, NULL, NULL, &src_chg);
-		clean_free_bs_buffer(ctx, NULL);
+		clean_free_bs_buffer(ctx, NULL, NULL);
 		clean_display_buffer(ctx,
 			src_buf->vb2_buf.planes[0].bytesused != 0U);
 		if (src_buf->vb2_buf.planes[0].bytesused == 0U) {
@@ -541,7 +549,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			src_buf_info->error = true;
 			mutex_unlock(&ctx->lock);
 		}
-		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
+		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer, NULL);
 		if (mtk_vcodec_unsupport) {
 			/*
 			 * If cncounter the src unsupport (fatal) during play,
@@ -568,7 +576,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			ctx->id, src_buf->planes[0].bytesused);
 		src_buf->flags |= V4L2_BUF_FLAG_LAST;
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		clean_free_bs_buffer(ctx, NULL);
+		clean_free_bs_buffer(ctx, NULL, NULL);
 		mtk_buf = (struct mtk_video_dec_buf *)ctx->empty_flush_buf;
 		mtk_buf->lastframe = EOS;
 		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->empty_flush_buf->vb);
@@ -581,10 +589,12 @@ static void mtk_vdec_worker(struct work_struct *work)
 		 * change except rv30/rv40.
 		 */
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_DONE);
-		clean_free_bs_buffer(ctx,  NULL);
+		src_buf_info = container_of(src_buf,
+				struct mtk_video_dec_buf, vb);
+		//v4l2_m2m_buf_done(&src_buf_info->vb, VB2_BUF_STATE_DONE);
+		clean_free_bs_buffer(ctx,  NULL, &src_buf_info->bs_buffer);
 	} else {    /* res_chg == true || need_more_output == true*/
-		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
+		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer, NULL);
 		mtk_v4l2_debug(1, "Need more capture buffer  r:%d n:%d\n",
 			res_chg, need_more_output);
 	}
