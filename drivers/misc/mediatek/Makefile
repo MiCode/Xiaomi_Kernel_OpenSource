@@ -17,3 +17,5 @@ obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
 obj-$(CONFIG_MTK_BASE_POWER) += base/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
+obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
+
