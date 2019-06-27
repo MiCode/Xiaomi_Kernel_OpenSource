@@ -592,8 +592,8 @@
 	/delete-property/qcom,cdc-us-eu-gpios;
 
 
-	asoc-codec = <&stub_codec>, <&msm_dig_codec>;
-	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec";
+	asoc-codec = <&stub_codec>, <&msm_dig_codec>, <&ext_smart_pa>;
+	asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec", "ext-smart-pa";
 };
 
 &soc {
@@ -655,7 +655,7 @@
 };
 
 &i2c_2 {
-	aw8896_smartpa@34 {
+	ext_smart_pa: aw8896_smartpa@34 {
 		compatible = "awinic,aw8896_smartpa";
 		reg = <0x34>;
 		reset-gpio = <&tlmm 68 0>;
