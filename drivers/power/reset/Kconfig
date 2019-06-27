@@ -248,6 +248,7 @@ config POWER_RESET_SC27XX
 config MTK_REBOOT_MODE
 	tristate "Mediatek SoCs reset driver"
 	depends on OF
+	depends on REGMAP
 	select REBOOT_MODE
 	help
 	  Say y here will enable reboot mode driver. This will
