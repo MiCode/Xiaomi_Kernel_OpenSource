@@ -1,0 +1,11 @@
+MediaTek Low Power Manager (MTK-LPM)
+
+
+MediaTek SoC low power manager, which is control the communication
+between platform and resource mcu and also the suitable power stage.
+
+The devicetree representation of mtk-lpm should be -
+Required properties:
+
+- compatible: Must be "mediatek,mtk-lpm"
+
