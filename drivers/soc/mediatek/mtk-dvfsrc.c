@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <dt-bindings/power/mt6779-power.h>
 #include "mtk-scpsys.h"
 
 #define DVFSRC_IDLE		0x00
@@ -300,7 +301,10 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		dvfsrc->dvd->set_vcore_level(dvfsrc, data);
 		break;
 	case MTK_DVFSRC_CMD_HRTBW_REQUEST:
-		dvfsrc->dvd->set_dram_hrtbw(dvfsrc, data);
+		if (dvfsrc->dvd->set_dram_hrtbw)
+			dvfsrc->dvd->set_dram_hrtbw(dvfsrc, data);
+		else
+			goto out;
 		break;
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
 		dvfsrc->dvd->set_vscp_level(dvfsrc, data);
@@ -379,7 +383,7 @@ static int dvfsrc_set_performance(struct notifier_block *b,
 
 	d = dvfsrc->dvd->domains;
 
-	if (l >= dvfsrc->dvd->num_opp) {
+	if (l > dvfsrc->dvd->num_opp) {
 		dev_err(dvfsrc->dev, "pstate out of range = %ld\n", l);
 		goto out;
 	}
@@ -523,10 +527,16 @@ static const struct dvfsrc_opp *dvfsrc_opp_mt6779[] = {
 	[0] = dvfsrc_opp_mt6779_lp4,
 };
 
+static struct dvfsrc_domain dvfsrc_domains_mt6779[] = {
+	{ MT6779_POWER_DOMAIN_INFRA, 0 },
+};
+
 static const struct dvfsrc_soc_data mt6779_data = {
 	.opps = dvfsrc_opp_mt6779,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
 	.regs = mt6779_regs,
+	.domains = dvfsrc_domains_mt6779,
+	.num_domains = ARRAY_SIZE(dvfsrc_domains_mt6779),
 	.get_target_level = mt6779_get_target_level,
 	.get_current_level = mt6779_get_current_level,
 	.get_vcore_level = mt6779_get_vcore_level,
