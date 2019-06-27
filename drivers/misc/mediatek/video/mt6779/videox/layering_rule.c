@@ -16,9 +16,6 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 
-#if defined(CONFIG_MTK_DRAMC)
-#include "mtk_dramc.h"
-#endif
 #include "layering_rule.h"
 #include "disp_drv_log.h"
 #include "ddp_rsz.h"

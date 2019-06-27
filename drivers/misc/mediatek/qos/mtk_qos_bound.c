@@ -12,11 +12,7 @@
 #include <sspm_define.h>
 #include <sspm_reservedmem.h>
 
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
-#else
 __weak int dram_steps_freq(unsigned int step) { return 0; }
-#endif
 
 static int qos_bound_enabled;
 static int qos_bound_stress_enabled;
