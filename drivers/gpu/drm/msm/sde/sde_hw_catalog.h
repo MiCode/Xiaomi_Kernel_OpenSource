@@ -503,6 +503,8 @@ struct sde_qos_lut_tbl {
  * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
  * @smart_dma_priority: hw priority of rect1 of multirect pipe
  * @max_per_pipe_bw: maximum allowable bandwidth of this pipe in kBps
+ * @max_per_pipe_bw_high: maximum allowable bandwidth of this pipe in kBps
+ *                           in case of no VFE
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
@@ -530,6 +532,7 @@ struct sde_sspp_sub_blks {
 	u32 maxvdeciexp; /* max decimation is 2^value */
 	u32 smart_dma_priority;
 	u32 max_per_pipe_bw;
+	u32 max_per_pipe_bw_high;
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;

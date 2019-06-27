@@ -225,6 +225,7 @@ enum {
 	SSPP_EXCL_RECT,
 	SSPP_SMART_DMA,
 	SSPP_MAX_PER_PIPE_BW,
+	SSPP_MAX_PER_PIPE_BW_HIGH,
 	SSPP_PROP_MAX,
 };
 
@@ -537,6 +538,8 @@ static struct sde_prop_type sspp_prop[] = {
 	{SSPP_SMART_DMA, "qcom,sde-sspp-smart-dma-priority", false,
 		PROP_TYPE_U32_ARRAY},
 	{SSPP_MAX_PER_PIPE_BW, "qcom,sde-max-per-pipe-bw-kbps", false,
+		PROP_TYPE_U32_ARRAY},
+	{SSPP_MAX_PER_PIPE_BW_HIGH, "qcom,sde-max-per-pipe-bw-high-kbps", false,
 		PROP_TYPE_U32_ARRAY},
 };
 
@@ -1487,6 +1490,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 					SSPP_MAX_PER_PIPE_BW, i);
 		else
 			sblk->max_per_pipe_bw = DEFAULT_MAX_PER_PIPE_BW;
+
+		if (prop_exists[SSPP_MAX_PER_PIPE_BW_HIGH])
+			sblk->max_per_pipe_bw_high =
+				PROP_VALUE_ACCESS(prop_value,
+				SSPP_MAX_PER_PIPE_BW_HIGH, i);
+		else
+			sblk->max_per_pipe_bw_high = sblk->max_per_pipe_bw;
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].reg_off =
