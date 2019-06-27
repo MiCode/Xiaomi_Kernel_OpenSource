@@ -15,6 +15,7 @@
 #include "cvp_hfi_api.h"
 #include "msm_cvp_clocks.h"
 #include <linux/dma-buf.h>
+#include <uapi/media/msm_media_info.h>
 
 #define MAX_EVENTS 30
 #define NUM_CYCLES16X16_HCD_FRAME 95
@@ -42,6 +43,8 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 	unsigned int hcd_stats_write = 0;
 	unsigned int dme_pixel_read = 0;
 	unsigned int ncc_pixel_read = 0;
+	unsigned int process_width = 0;
+	unsigned int process_height = 0;
 
 	if (!cvp_desc || !cvp_voting) {
 		dprintk(CVP_ERR, "%s: invalid args\n", __func__);
@@ -52,12 +55,72 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 		num_16x16_blocks = (cvp_desc->fullres_width>>4)
 			* (cvp_desc->fullres_height>>4);
 		ds_cycles = NUM_CYCLES16X16_DS_FRAME * num_16x16_blocks;
-		num_16x16_blocks = (cvp_desc->downscale_width>>4)
-			* (cvp_desc->downscale_height>>4);
+		process_width = cvp_desc->downscale_width;
+		process_height = cvp_desc->downscale_height;
+		num_16x16_blocks = (process_width>>4)*(process_height>>4);
 		hcd_cycles = NUM_CYCLES16X16_HCD_FRAME * num_16x16_blocks;
+		/*Estimate downscale output (always UBWC) BW stats*/
+		if (cvp_desc->fullres_width <= 1920) {
+			/*w*h/1.58=w*h*(81/128)*/
+			ds_pixel_write = ((process_width*process_height*81)>>7);
+		} else {
+			/*w*h/2.38=w*h*(54/128)*/
+			ds_pixel_write = ((process_width*process_height*54)>>7);
+		}
+		/*Estimate downscale input BW stats based on colorfmt*/
+		switch (cvp_desc->colorfmt) {
+		case COLOR_FMT_NV12:
+		{
+			/*w*h*1.5*/
+			ds_pixel_read = ((cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 3)>>1);
+			break;
+		}
+		case COLOR_FMT_P010:
+		{
+			/*w*h*2*1.5*/
+			ds_pixel_read = cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 3;
+			break;
+		}
+		case COLOR_FMT_NV12_UBWC:
+		{
+			/*w*h*1.5/factor(factor=width>1920?2.38:1.58)*/
+			if (cvp_desc->fullres_width <= 1920) {
+				/*w*h*1.5/1.58 = w*h*121/128*/
+				ds_pixel_read = ((cvp_desc->fullres_width
+					* cvp_desc->fullres_height * 121)>>7);
+			} else {
+				/*w*h*1.5/2.38 = w*h*81/128*/
+				ds_pixel_read = ((cvp_desc->fullres_width
+					* cvp_desc->fullres_height * 81)>>7);
+			}
+			break;
+		}
+		case COLOR_FMT_NV12_BPP10_UBWC:
+		{
+			/*w*h*1.33*1.5/factor(factor=width>1920?2.38:1.58)*/
+			if (cvp_desc->fullres_width <= 1920) {
+				/*w*h*1.33*1.5/1.58 = w*h*5/4*/
+				ds_pixel_read = ((cvp_desc->fullres_width
+					* cvp_desc->fullres_height * 5)>>2);
+			} else {
+				/*w*h*1.33*1.5/2.38 = w*h*54/64*/
+				ds_pixel_read = ((cvp_desc->fullres_width
+					* cvp_desc->fullres_height * 54)>>6);
+			}
+			break;
+		}
+		default:
+			dprintk(CVP_ERR, "Defaulting to linear P010\n");
+			/*w*h*1.5*2 COLOR_FMT_P010*/
+			ds_pixel_read = (cvp_desc->fullres_width
+				* cvp_desc->fullres_height * 3);
+		}
 	} else {
-		num_16x16_blocks = (cvp_desc->fullres_width>>4)
-			* (cvp_desc->fullres_height>>4);
+		process_width = cvp_desc->fullres_width;
+		process_height = cvp_desc->fullres_height;
+		num_16x16_blocks = (process_width>>4)*(process_height>>4);
 		hcd_cycles = NUM_CYCLES16X16_HCD_FRAME * num_16x16_blocks;
 	}
 
@@ -74,68 +137,24 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 	cvp_voting->reserved[2] = 0;
 	cvp_voting->reserved[3] = NUM_CYCLESFW_FRAME*cvp_desc->op_rate;
 
-	if (cvp_desc->is_downscale) {
-		if (cvp_desc->fullres_width <= 1920) {
-			/*
-			 *w*h*1.33(10bpc)*1.5/1.58=
-			 *w*h*(4/3)*(3/2)*(5/8)=w*h*(5/4)
-			 */
-			ds_pixel_read = ((cvp_desc->fullres_width
-				* cvp_desc->fullres_height * 5)>>2);
-			/*w*h/1.58=w*h*(5/8)*/
-			ds_pixel_write = ((cvp_desc->downscale_width
-				* cvp_desc->downscale_height * 5)>>3);
-			/*w*h*1.5/1.58=w*h*(3/2)*(5/8)*/
-			hcd_pixel_read = ((cvp_desc->downscale_width
-				* cvp_desc->downscale_height * 15)>>4);
-			/*num_16x16_blocks*8*4*/
-			hcd_stats_write = (num_16x16_blocks<<5);
-			/*NUM_DME_MAX_FEATURE_POINTS*96*48/1.58*/
-			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 2880;
-			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/1.58*/
-			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1040;
-		} else {
-			/*
-			 *w*h*1.33(10bpc)*1.5/2.38=
-			 *w*h*(4/3)*(3/2)*(54/128)=w*h*(54/64)
-			 */
-			ds_pixel_read = ((cvp_desc->fullres_width
-				* cvp_desc->fullres_height * 54)>>6);
-			/*w*h/2.38=w*h*(54/128)*/
-			ds_pixel_write = ((cvp_desc->downscale_width
-				* cvp_desc->downscale_height * 54)>>7);
-			/*w*h*1.5/2.38=w*h*(3/2)*(54/128)*/
-			hcd_pixel_read = ((cvp_desc->downscale_width
-				* cvp_desc->downscale_height * 81)>>7);
-			/*num_16x16_blocks*8*4*/
-			hcd_stats_write = (num_16x16_blocks<<5);
-			/*NUM_DME_MAX_FEATURE_POINTS*96*48/2.38*/
-			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1944;
-			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/2.38*/
-			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 702;
-		}
+	if (process_width <= 1920) {
+		/*w*h*1.5(for filter fetch overhead)/1.58=w*h*(3/2)*(5/8)*/
+		hcd_pixel_read = ((process_width * process_height * 15)>>4);
+		/*num_16x16_blocks*8*4*/
+		hcd_stats_write = (num_16x16_blocks<<5);
+		/*NUM_DME_MAX_FEATURE_POINTS*96*48/1.58*/
+		dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 2880;
+		/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/1.58*/
+		ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1040;
 	} else {
-		if (cvp_desc->fullres_width <= 1920) {
-			/*w*h*1.5/1.58=w*h*(3/2)*(5/8)*/
-			hcd_pixel_read = ((cvp_desc->fullres_width
-				* cvp_desc->fullres_height * 15)>>4);
-			/*num_16x16_blocks*8*4*/
-			hcd_stats_write = (num_16x16_blocks<<5);
-			/*NUM_DME_MAX_FEATURE_POINTS*96*48/1.58*/
-			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 2880;
-			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/1.58*/
-			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1040;
-		} else {
-			/*w*h*1.5/2.38=w*h*(3/2)*(54/128)*/
-			hcd_pixel_read = ((cvp_desc->fullres_width
-				* cvp_desc->fullres_height * 81)>>7);
-			/*num_16x16_blocks*8*4*/
-			hcd_stats_write = (num_16x16_blocks<<5);
-			/*NUM_DME_MAX_FEATURE_POINTS*96*48/2.38*/
-			dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1944;
-			/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/2.38*/
-			ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 702;
-		}
+		/*w*h*1.5(for filter fetch overhead)/2.38=w*h*(3/2)*(54/128)*/
+		hcd_pixel_read = ((process_width * process_height * 81)>>7);
+		/*num_16x16_blocks*8*4*/
+		hcd_stats_write = (num_16x16_blocks<<5);
+		/*NUM_DME_MAX_FEATURE_POINTS*96*48/2.38*/
+		dme_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 1944;
+		/*NUM_DME_MAX_FEATURE_POINTS*(18/8+1)*32*8*2/2.38*/
+		ncc_pixel_read = NUM_DME_MAX_FEATURE_POINTS * 702;
 	}
 
 	cvp_bw = ds_pixel_read + ds_pixel_write + hcd_pixel_read

@@ -19,6 +19,8 @@
  * @is_downscale:   is downscaling enabled in pipeline
  * @fps:   frame rate
  * @op_rate:   stream operation rate
+ * @colorfmt:   format based on msm_media_info.h
+ * @reserved[16]: for future use
  */
 struct cvp_kmd_usecase_desc {
 	unsigned int fullres_width;
@@ -28,6 +30,8 @@ struct cvp_kmd_usecase_desc {
 	unsigned int is_downscale;
 	unsigned int fps;
 	unsigned int op_rate;
+	unsigned int colorfmt;
+	int reserved[16];
 };
 
 #ifdef CONFIG_MSM_CVP_V4L2

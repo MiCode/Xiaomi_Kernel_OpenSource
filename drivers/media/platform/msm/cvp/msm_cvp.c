@@ -996,10 +996,12 @@ static int adjust_bw_freqs(void)
 			if (core_sum <= tbl[i].clock_rate)
 				break;
 
-		if (i == tbl_size)
-			rc = -ENOSR;
-		else
-			core_sum = tbl[i].clock_rate;
+		if (i == tbl_size) {
+			dprintk(CVP_WARN, "%s out of range %llx\n",
+					__func__, core_sum);
+			return -ENOTSUPP;
+		}
+		core_sum = tbl[i].clock_rate;
 	}
 
 	if (bw_sum > max_bw)
