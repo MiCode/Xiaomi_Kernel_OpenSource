@@ -875,6 +875,22 @@ static const struct file_operations debugfs_stats = {
 	.read = seq_read,
 };
 
+static int mhi_netdev_debugfs_chain(void *data, u64 val)
+{
+	struct mhi_netdev *mhi_netdev = data;
+	struct mhi_netdev *rsc_dev = mhi_netdev->rsc_dev;
+
+	mhi_netdev->chain = NULL;
+
+	if (rsc_dev)
+		rsc_dev->chain = NULL;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(debugfs_chain, NULL,
+			 mhi_netdev_debugfs_chain, "%llu\n");
+
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
 	char node_name[32];
@@ -894,6 +910,8 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 
 	debugfs_create_file_unsafe("stats", 0444, mhi_netdev->dentry,
 				   mhi_netdev, &debugfs_stats);
+	debugfs_create_file_unsafe("chain", 0444, mhi_netdev->dentry,
+				   mhi_netdev, &debugfs_chain);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)
