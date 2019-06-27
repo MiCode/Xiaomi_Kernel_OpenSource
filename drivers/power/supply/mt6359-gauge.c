@@ -226,63 +226,6 @@ static int MV_to_REG_12_value(struct mtk_gauge *gauge,
 	return ret;
 }
 
-static int MV_to_REG_12_temp_value(struct mtk_gauge *gauge,
-	signed int _reg)
-{
-	int ret = (_reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_2);
-
-	dev_info(&gauge->pdev->dev,
-		"[%s] %d => %d\n", __func__, _reg, ret);
-	return ret;
-}
-
-static signed int REG_to_MV_value(struct mtk_gauge *gauge,
-	signed int _reg)
-{
-	long long _reg64 = _reg;
-	int ret;
-
-#if defined(__LP64__) || defined(_LP64)
-	_reg64 = (_reg64 * VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3) / ADC_PRECISE;
-#else
-	_reg64 = div_s64(_reg64 * VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3, ADC_PRECISE);
-#endif
-	ret = _reg64;
-
-	dev_info(&gauge->pdev->dev,
-		"[%s] %lld => %d\n", __func__, _reg64, ret);
-	return ret;
-}
-
-static signed int MV_to_REG_value(struct mtk_gauge *gauge,
-	signed int _mv)
-{
-	int ret;
-	long long _reg64 = _mv;
-#if defined(__LP64__) || defined(_LP64)
-	_reg64 = (_reg64 * ADC_PRECISE) / (VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3);
-#else
-	_reg64 = div_s64((_reg64 * ADC_PRECISE), (VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3));
-#endif
-	ret = _reg64;
-
-	if (ret <= 0) {
-		dev_notice(&gauge->pdev->dev,
-			"[fg_bat_nafg][%s] mv=%d,%lld => %d,\n",
-			__func__, _mv, _reg64, ret);
-		return ret;
-	}
-
-	dev_info(&gauge->pdev->dev,
-		"[%s] mv=%d,%lld => %d,\n", __func__, _mv, _reg64, ret);
-	return ret;
-}
-
-
 static int reg_to_current(struct mtk_gauge *gauge,
 	unsigned int regval)
 {
