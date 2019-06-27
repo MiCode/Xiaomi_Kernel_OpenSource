@@ -1,0 +1,69 @@
+MediaTek Idle States for cpuidle driver
+
+ARM provides idle-state node to define the cpuidle states, as defined in [1].
+cpuidle-mediatek is the cpuidle driver for MediaTek SoCs and uses these idle
+states. Idle states have different enter/exit latency and residency values.
+
+A cpu can power down and warmboot if there is a sufficient time between the
+time it enters idle and the next known wake up. MediaTek idle-state is used
+to indicate a core entering a power down state without consulting any other
+cpu or the system resources. A core distinguishes itself in that the cpu
+acknowledges and permits the SoC to enter deeper sleep modes. The MediaTek
+Soc support suspend to idle state. This idle state will work efficiency when
+platform will enter suspend. Supend to idle will have the same conservation
+with system suspend in MediaTek SoC solution.
+
+
+The idle-state for MediaTek SoCs are distinguished by the compatible property
+of the idle-states device node.
+
+The devicetree representation of the idle state should be -
+Required properties:
+
+- compatible: Must be one of -
+	      "mediatek,idle-state",
+
+Other required and optional properties are specified in [1].
+
+Example:
+	idle-states {
+		entry-method = "arm,psci";
+
+		cpuoff: cpuoff {
+			compatible = "mediatek,idle-state";
+			arm,psci-suspend-param = <0x00010001>;
+			local-timer-stop;
+			entry-latency-us = <50>;
+			exit-latency-us = <100>;
+			min-residency-us = <1400>;
+		};
+
+		clusteroff: clusteroff {
+			compatible = "mediatek,idle-state";
+			arm,psci-suspend-param = <0x01010001>;
+			local-timer-stop;
+			entry-latency-us = <50>;
+			exit-latency-us = <100>;
+			min-residency-us = <1400>;
+		};
+
+		mcusys: mcusys {
+			compatible = "mediatek,idle-state";
+			arm,psci-suspend-param = <0x01010002>;
+			local-timer-stop;
+			entry-latency-us = <150>;
+			exit-latency-us = <200>;
+			min-residency-us = <2000>;
+		};
+
+		s2idle: s2idle {
+			compatible = "mediatek,idle-state";
+			arm,psci-suspend-param = <0x01010100>;
+			local-timer-stop;
+			entry-latency-us = <0xffffffff>;
+			exit-latency-us = <0xffffffff>;
+			min-residency-us = <0xffffffff>;
+		};
+	};
+
+[1]. Documentation/devicetree/bindings/arm/idle-states.txt
