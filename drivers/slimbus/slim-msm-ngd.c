@@ -1796,6 +1796,12 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		goto err_nobulk;
 	}
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(&pdev->dev, "could not set 32 bit DMA mask\n");
+		goto err_nobulk;
+	}
+
 	/* typical txn numbers and size used in bulk operation */
 	dev->bulk.buf_sz = SLIM_MAX_TXNS * 8;
 	dev->bulk.base = kzalloc(dev->bulk.buf_sz, GFP_KERNEL | GFP_DMA);
