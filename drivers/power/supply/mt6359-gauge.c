@@ -216,7 +216,7 @@ static void post_gauge_update(struct mtk_gauge *gauge)
 #define UNIT_FGCAR				(174080)
 /* CHARGE_LSB 0.085 * 2^11 */
 
-static int MV_to_REG_12_value(struct mtk_gauge *gauge,
+static int mv_to_reg_12_value(struct mtk_gauge *gauge,
 	signed int _reg)
 {
 	int ret = (_reg * 4096) / (VOLTAGE_FULL_RANGES * R_VAL_TEMP_3);
@@ -231,30 +231,30 @@ static int reg_to_current(struct mtk_gauge *gauge,
 {
 	unsigned short uvalue16;
 	int dvalue, retval;
-	long long Temp_Value = 0;
+	long long temp_value = 0;
 	bool is_charging = true;
 
 	uvalue16 = (unsigned short) regval;
 
 	dvalue = (unsigned int) uvalue16;
 	if (dvalue == 0) {
-		Temp_Value = (long long) dvalue;
+		temp_value = (long long) dvalue;
 	} else if (dvalue > 32767) {
 		/* > 0x8000 */
-		Temp_Value = (long long) (dvalue - 65535);
-		Temp_Value = Temp_Value - (Temp_Value * 2);
+		temp_value = (long long) (dvalue - 65535);
+		temp_value = temp_value - (temp_value * 2);
 		is_charging = false;
 	} else {
-		Temp_Value = (long long) dvalue;
+		temp_value = (long long) dvalue;
 	}
 
-	Temp_Value = Temp_Value * UNIT_FGCURRENT;
+	temp_value = temp_value * UNIT_FGCURRENT;
 #if defined(__LP64__) || defined(_LP64)
-	do_div(Temp_Value, 100000);
+	do_div(temp_value, 100000);
 #else
-	Temp_Value = div_s64(Temp_Value, 100000);
+	temp_value = div_s64(temp_value, 100000);
 #endif
-	retval = (unsigned int) Temp_Value;
+	retval = (unsigned int) temp_value;
 
 	dev_info(&gauge->pdev->dev,
 		"[%s] 0x%x 0x%x 0x%x 0x%x 0x%x %d\n",
@@ -262,7 +262,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 		regval,
 		uvalue16,
 		dvalue,
-		(int)Temp_Value,
+		(int)temp_value,
 		retval,
 		is_charging);
 
@@ -705,12 +705,12 @@ static int rtc_ui_soc_set(struct mtk_gauge *gauge,
 static int coulomb_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
-	unsigned int uvalue32_CAR = 0;
-	unsigned int uvalue32_CAR_MSB = 0;
-	unsigned int temp_CAR_15_0 = 0;
-	unsigned int temp_CAR_31_16 = 0;
+	unsigned int uvalue32_car = 0;
+	unsigned int uvalue32_car_msb = 0;
+	unsigned int temp_car_15_0 = 0;
+	unsigned int temp_car_31_16 = 0;
 	signed int dvalue_CAR = 0;
-	long long Temp_Value = 0;
+	long long temp_value = 0;
 	int r_fg_value;
 	int car_tune_value;
 
@@ -718,68 +718,68 @@ static int coulomb_get(struct mtk_gauge *gauge,
 	car_tune_value = gauge->hw_status.car_tune_value;
 	pre_gauge_update(gauge);
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_CAR_15_0);
-	temp_CAR_15_0 =	(temp_CAR_15_0 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_car_15_0);
+	temp_car_15_0 =	(temp_car_15_0 &
 		(PMIC_FG_CAR_15_00_MASK << PMIC_FG_CAR_15_00_SHIFT))
 		>> PMIC_FG_CAR_15_00_SHIFT;
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_CAR_31_16);
-	temp_CAR_31_16 = (temp_CAR_31_16 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_car_31_16);
+	temp_car_31_16 = (temp_car_31_16 &
 		(PMIC_FG_CAR_31_16_MASK << PMIC_FG_CAR_31_16_SHIFT))
 		>> PMIC_FG_CAR_31_16_SHIFT;
 
 	post_gauge_update(gauge);
 
-	uvalue32_CAR = temp_CAR_15_0 & 0xffff;
-	uvalue32_CAR |= (temp_CAR_31_16 & 0x7fff) << 16;
+	uvalue32_car = temp_car_15_0 & 0xffff;
+	uvalue32_car |= (temp_car_31_16 & 0x7fff) << 16;
 
-	uvalue32_CAR_MSB = (temp_CAR_31_16 & 0x8000) >> 15;
+	uvalue32_car_msb = (temp_car_31_16 & 0x8000) >> 15;
 
 	/*calculate the real world data    */
-	dvalue_CAR = (signed int) uvalue32_CAR;
+	dvalue_CAR = (signed int) uvalue32_car;
 
-	if (uvalue32_CAR == 0) {
-		Temp_Value = 0;
-	} else if (uvalue32_CAR_MSB == 0x1) {
+	if (uvalue32_car == 0) {
+		temp_value = 0;
+	} else if (uvalue32_car_msb == 0x1) {
 		/* dis-charging */
-		Temp_Value = (long long) (dvalue_CAR - 0x7fffffff);
+		temp_value = (long long) (dvalue_CAR - 0x7fffffff);
 		/* keep negative value */
-		Temp_Value = Temp_Value - (Temp_Value * 2);
+		temp_value = temp_value - (temp_value * 2);
 	} else {
 		/*charging */
-		Temp_Value = (long long) dvalue_CAR;
+		temp_value = (long long) dvalue_CAR;
 	}
 
 #if defined(__LP64__) || defined(_LP64)
-	Temp_Value = Temp_Value * UNIT_CHARGE / 1000;
+	temp_value = temp_value * UNIT_CHARGE / 1000;
 #else
-	Temp_Value = div_s64(Temp_Value * UNIT_CHARGE, 1000);
+	temp_value = div_s64(temp_value * UNIT_CHARGE, 1000);
 #endif
 
 
 #if defined(__LP64__) || defined(_LP64)
-	do_div(Temp_Value, 10);
-	Temp_Value = Temp_Value + 5;
-	do_div(Temp_Value, 10);
+	do_div(temp_value, 10);
+	temp_value = temp_value + 5;
+	do_div(temp_value, 10);
 #else
-	Temp_Value = div_s64(Temp_Value, 10);
-	Temp_Value = Temp_Value + 5;
-	Temp_Value = div_s64(Temp_Value, 10);
+	temp_value = div_s64(temp_value, 10);
+	temp_value = temp_value + 5;
+	temp_value = div_s64(temp_value, 10);
 #endif
 
 
-	if (uvalue32_CAR_MSB == 0x1)
-		dvalue_CAR = (signed int) (Temp_Value - (Temp_Value * 2));
+	if (uvalue32_car_msb == 0x1)
+		dvalue_CAR = (signed int) (temp_value - (temp_value * 2));
 		/* keep negative value */
 	else
-		dvalue_CAR = (signed int) Temp_Value;
+		dvalue_CAR = (signed int) temp_value;
 
 
 	dev_notice(&gauge->pdev->dev,
 		"[%s]l:0x%x h:0x%x val:%d msb:%d car:%d\n",
 		__func__,
-		temp_CAR_15_0, temp_CAR_31_16,
-		uvalue32_CAR, uvalue32_CAR_MSB,
+		temp_car_15_0, temp_car_31_16,
+		uvalue32_car, uvalue32_car_msb,
 		dvalue_CAR);
 
 /*Auto adjust value*/
@@ -929,12 +929,12 @@ static int ptim_battery_voltage_get(struct mtk_gauge *gauge,
 static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
-	unsigned int temp_CAR_15_0 = 0;
-	unsigned int temp_CAR_31_16 = 0;
-	unsigned int uvalue32_CAR_MSB = 0;
+	unsigned int temp_car_15_0 = 0;
+	unsigned int temp_car_31_16 = 0;
+	unsigned int uvalue32_car_msb = 0;
 	signed int upperbound = 0;
 	signed int upperbound_31_16 = 0, upperbound_15_00 = 0;
-	signed int value32_CAR;
+	signed int value32_car;
 	long long car = val;
 	int r_fg_value;
 	int car_tune_value;
@@ -950,29 +950,29 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 
 	pre_gauge_update(gauge);
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_CAR_15_0);
-	temp_CAR_15_0 =
-		(temp_CAR_15_0 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_car_15_0);
+	temp_car_15_0 =
+		(temp_car_15_0 &
 		(PMIC_FG_CAR_15_00_MASK << PMIC_FG_CAR_15_00_SHIFT))
 		>> PMIC_FG_CAR_15_00_SHIFT;
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_CAR_31_16);
-	temp_CAR_31_16 =
-		(temp_CAR_31_16 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_car_31_16);
+	temp_car_31_16 =
+		(temp_car_31_16 &
 		(PMIC_FG_CAR_31_16_MASK << PMIC_FG_CAR_31_16_SHIFT))
 		>> PMIC_FG_CAR_31_16_SHIFT;
 
 	post_gauge_update(gauge);
 
-	uvalue32_CAR_MSB = (temp_CAR_31_16 & 0x8000) >> 15;
-	value32_CAR = temp_CAR_15_0 & 0xffff;
-	value32_CAR |= (temp_CAR_31_16 & 0xffff) << 16;
+	uvalue32_car_msb = (temp_car_31_16 & 0x8000) >> 15;
+	value32_car = temp_car_15_0 & 0xffff;
+	value32_car |= (temp_car_31_16 & 0xffff) << 16;
 
 	dev_notice(&gauge->pdev->dev,
-		"[%s] FG_CAR = 0x%x:%d uvalue32_CAR_MSB:0x%x 0x%x 0x%x\r\n",
-		__func__, value32_CAR, value32_CAR, uvalue32_CAR_MSB,
-		temp_CAR_15_0,
-		temp_CAR_31_16);
+		"[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
+		__func__, value32_car, value32_car, uvalue32_car_msb,
+		temp_car_15_0,
+		temp_car_31_16);
 
 #if defined(__LP64__) || defined(_LP64)
 	car = car * 100000 / UNIT_CHARGE;
@@ -996,7 +996,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	car = div_s64((car * 1000), car_tune_value);
 #endif
 
-	upperbound = value32_CAR;
+	upperbound = value32_car;
 
 	dev_info(&gauge->pdev->dev,
 		"[%s] upper = 0x%x:%d diff_car=0x%llx:%lld\r\n",
@@ -1037,7 +1037,7 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 		__func__,
 		upperbound_15_00,
 		upperbound_31_16,
-		val, value32_CAR,
+		val, value32_car,
 		gauge->coulomb_h_irq);
 
 	return 0;
@@ -1046,12 +1046,12 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 	 struct mtk_gauge_sysfs_field_info *attr, int val)
 {
-	unsigned int temp_CAR_15_0 = 0;
-	unsigned int temp_CAR_31_16 = 0;
-	unsigned int uvalue32_CAR_MSB = 0;
+	unsigned int temp_car_15_0 = 0;
+	unsigned int temp_car_31_16 = 0;
+	unsigned int uvalue32_car_msb = 0;
 	signed int lowbound = 0;
 	signed int lowbound_31_16 = 0, lowbound_15_00 = 0;
-	signed int value32_CAR;
+	signed int value32_car;
 	long long car = val;
 	int r_fg_value;
 	int car_tune_value;
@@ -1067,33 +1067,33 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 
 	pre_gauge_update(gauge);
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_CAR_15_0);
-	temp_CAR_15_0 =
-		(temp_CAR_15_0 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_15_00_ADDR, &temp_car_15_0);
+	temp_car_15_0 =
+		(temp_car_15_0 &
 		(PMIC_FG_CAR_15_00_MASK << PMIC_FG_CAR_15_00_SHIFT))
 		>> PMIC_FG_CAR_15_00_SHIFT;
 
-	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_CAR_31_16);
-	temp_CAR_31_16 =
-		(temp_CAR_31_16 &
+	regmap_read(gauge->regmap, PMIC_FG_CAR_31_16_ADDR, &temp_car_31_16);
+	temp_car_31_16 =
+		(temp_car_31_16 &
 		(PMIC_FG_CAR_31_16_MASK << PMIC_FG_CAR_31_16_SHIFT))
 		>> PMIC_FG_CAR_31_16_SHIFT;
 
 	post_gauge_update(gauge);
 
-	uvalue32_CAR_MSB =
-		(temp_CAR_31_16 & 0x8000) >> 15;
-	value32_CAR = temp_CAR_15_0 & 0xffff;
-	value32_CAR |= (temp_CAR_31_16 & 0xffff) << 16;
+	uvalue32_car_msb =
+		(temp_car_31_16 & 0x8000) >> 15;
+	value32_car = temp_car_15_0 & 0xffff;
+	value32_car |= (temp_car_31_16 & 0xffff) << 16;
 
 
 
 	dev_info(&gauge->pdev->dev,
-		"[%s] FG_CAR = 0x%x:%d uvalue32_CAR_MSB:0x%x 0x%x 0x%x\r\n",
+		"[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
 		__func__,
-		value32_CAR, value32_CAR, uvalue32_CAR_MSB,
-		temp_CAR_15_0,
-		temp_CAR_31_16);
+		value32_car, value32_car, uvalue32_car_msb,
+		temp_car_15_0,
+		temp_car_31_16);
 
 	/* gap to register-base */
 #if defined(__LP64__) || defined(_LP64)
@@ -1118,7 +1118,7 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 	car = div_s64((car * 1000), car_tune_value);
 #endif
 
-	lowbound = value32_CAR;
+	lowbound = value32_car;
 
 	dev_info(&gauge->pdev->dev,
 		"[%s]low=0x%x:%d diff_car=0x%llx:%lld\r\n",
@@ -1154,7 +1154,7 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 		"[%s] low:0x%x 0x%x car_value:%d car:%d irq:%d\r\n",
 		__func__, lowbound_15_00,
 		lowbound_31_16,
-		val, value32_CAR,
+		val, value32_car,
 		gauge->coulomb_l_irq);
 
 	return 0;
@@ -1260,7 +1260,7 @@ static int vbat_ht_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int threshold)
 {
 	int vbat2_h_th_mv =  threshold;
-	int vbat2_h_th_reg = MV_to_REG_12_value(gauge, vbat2_h_th_mv);
+	int vbat2_h_th_reg = mv_to_reg_12_value(gauge, vbat2_h_th_mv);
 	int vbat2_det_counter = 0;
 	int vbat2_det_time = 0;
 
@@ -1304,7 +1304,7 @@ static int vbat_lt_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int threshold)
 {
 	int vbat2_l_th_mv =  threshold;
-	int vbat2_l_th_reg = MV_to_REG_12_value(gauge, vbat2_l_th_mv);
+	int vbat2_l_th_reg = mv_to_reg_12_value(gauge, vbat2_l_th_mv);
 	int vbat2_det_counter = 0;
 	int vbat2_det_time = 0;
 
