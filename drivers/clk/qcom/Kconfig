@@ -578,3 +578,12 @@ config SM_GCC_ATOLL
 	  ATOLL devices.
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, UFS, SD/eMMC, PCIe, etc.
+
+config SM_CAMCC_ATOLL
+	tristate "ATOLL Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
