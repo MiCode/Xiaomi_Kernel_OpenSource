@@ -1449,6 +1449,9 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 
+	if (!gmu_core_isenabled(device))
+		return 0;
+
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
 			counts[i] = 0;
