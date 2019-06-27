@@ -87,7 +87,7 @@ static struct page *alloc_largest_available(struct ion_system_heap *heap,
 
 		page = alloc_buffer_page(heap, buffer, orders[i]);
 		if (!page) {
-			pr_warn("[ion_dbg] alloc_pages order=%lu\n", orders[i]);
+			pr_warn("[ion_dbg] alloc_pages order=%u\n", orders[i]);
 			continue;
 		}
 		return page;
