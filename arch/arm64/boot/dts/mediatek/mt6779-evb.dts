@@ -8,6 +8,7 @@
 /dts-v1/;
 #include "mt6779.dtsi"
 #include "mt6359.dtsi"
+#include "bat_setting/mt6779_battery_prop.dtsi"
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 
 / {
@@ -705,3 +706,6 @@
 };
 /* CONSYS end */
 
+&bat_gm30 {
+	extcon = <&mt6360_chg>;
+};
