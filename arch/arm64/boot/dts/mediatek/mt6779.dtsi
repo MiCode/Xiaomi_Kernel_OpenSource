@@ -974,7 +974,7 @@
 		};
 
 		iommu0: iommu@10220000 {
-			compatible = "mediatek,mt6779-m4u-mm";
+			compatible = "mediatek,mt6779-m4u";
 			reg = <0 0x10220000 0 0x1000>;
 			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
 			mediatek,larbs = <&larb0 &larb1 &larb2
@@ -1233,7 +1233,7 @@
 		};
 
 		iommu1: iommu@1024f000 {
-			compatible = "mediatek,mt6779-m4u-vpu";
+			compatible = "mediatek,mt6779-m4u";
 			reg = <0 0x1024f000 0 0x1000>;
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
 			mediatek,larbs = <&larb6 &larb11>;
