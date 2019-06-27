@@ -2096,8 +2096,10 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = fastrpc_buf_alloc(fl, memlen, imem_dma_attr, 0, 0, &imem);
 		if (err)
 			goto bail;
-		fl->init_mem = imem;
+		if (fl->init_mem)
+			fastrpc_buf_free(fl->init_mem, 0);
 
+		fl->init_mem = imem;
 		inbuf.pageslen = 1;
 		ra[0].buf.pv = (void *)&inbuf;
 		ra[0].buf.len = sizeof(inbuf);
@@ -2254,6 +2256,12 @@ bail:
 		mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_free(mem, 0);
 		mutex_unlock(&fl->map_mutex);
+	}
+	if (err) {
+		if (!IS_ERR_OR_NULL(fl->init_mem)) {
+			fastrpc_buf_free(fl->init_mem, 0);
+			fl->init_mem = NULL;
+		}
 	}
 	if (file) {
 		mutex_lock(&fl->map_mutex);
