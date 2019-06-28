@@ -1,0 +1,78 @@
+Mediatek MMQoS Network-On-Chip interconnect driver binding
+=========================================
+
+= MMQoS interconnect providers =
+
+The Mediatek MMQoS(Multimedia Quality of Service) interconnect provider will
+collect bandwidth requests from MM users, such as display, camera, mdp and
+video codec. The collected bandwidth information is used to configure SMI
+settings dynamically and pass the bandwidth information to dvfsrc.
+
+About the SMI architecture, please refer to the following documents.
+Documentation/devicetree/bindings/memory-controllers/mediatek,smi-common.txt
+Documentation/devicetree/bindings/memory-controllers/mediatek,smi-larb.txt
+
+About dvfsrc, please refer to
+Documentation/devicetree/bindings/soc/mediatek/dvfsrc.txt.
+
+Required properties:
+- compatible: must contain only one of the following:
+		"mediatek,mt6779-mmqos"
+- #interconnect-cells: must be 1
+- mediatek,larbs: contains a list of phandles of smi larbs
+- clock, clock-names: clocks according to the common clock bindings.
+		      These are clocks for smi common hardwares and they
+		      should be in order of the index of smi common. For
+		      example, the first element should be the clock
+		      of SLAVE_COMMON(0) defined in the MMQoS driver, and the
+		      second element should be the clock of SLAVE_COMMON(1).
+- interconnects: contains interconnect paths to pass bandwidth to dvfsrc.
+		  interconnect node id definition for dvfsrc is defined in:
+		  include/dt-bindings/interconnect/mtk,mt6779-emi.h
+- interconnect-names: path names in interconnects property.
+
+
+Example:
+
+	mmqos: interconnect {
+		compatible = "mediatek,mt6779-mmqos";
+		#interconnect-cells = <1>;
+		mediatek,larbs = <&larb0 &larb1 &larb2 &larb3
+				  &larb5 &larb7 &larb8 &larb9
+				  &larb10 &larb11>;
+		clocks = <&topckgen CLK_TOP_MM>;
+		clock-names = "mm_sel";
+		interconnects = <&ddr_emi MT6779_MASTER_MMSYS
+				 &ddr_emi MT6779_SLAVE_DDR_EMI>;
+		interconnect-names = "mmsys_path";
+	};
+
+
+= MMQoS interconnect consumers =
+
+Required properties:
+interconnects: contains interconnect paths to report bandwidth information
+		Use some macros to define interconnet node ID and these macros
+		are defined in:
+			include/dt-bindings/interconnect/mtk,mmqos.h
+		Source port:
+			Use M4U port definition in:
+				include/dt-bindings/memory/mt6779-larb-port.h
+			Use MASTER_LARB_PORT macro to translate M4U port ID to
+			interconnect node ID
+		Destination port:
+			mt6779: must be SLAVE_COMMON(0)
+interconnect-names: path names for interconnects property
+
+
+Example:
+
+	vcodec_dec: vcodec@16000000 {
+		...
+		interconnects = <&mmqos MASTER_LARB_PORT(M4U_PORT_HW_VDEC_MC_EXT)
+				 &mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_HW_VDEC_UFO_EXT)
+				 &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "vdec_mc_ext", "vdec_ufo_ext";
+	};
+
