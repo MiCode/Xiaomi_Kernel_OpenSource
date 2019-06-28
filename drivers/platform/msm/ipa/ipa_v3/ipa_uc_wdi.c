@@ -2113,7 +2113,8 @@ int ipa3_disconnect_gsi_wdi_pipe(u32 clnt_hdl)
 		ipa3_ctx->uc_wdi_ctx.stats_notify = NULL;
 	else
 		IPADBG("uc_wdi_ctx.stats_notify already null\n");
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->ipa_hw_type != IPA_HW_v4_7)
 		ipa3_uc_debug_stats_dealloc(IPA_HW_PROTOCOL_WDI);
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
@@ -2494,7 +2495,8 @@ int ipa3_resume_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* start uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->ipa_hw_type != IPA_HW_v4_7) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
 			pcmd_t->ch_id_info[0].ch_id
 				= ep->gsi_chan_hdl;
@@ -2670,7 +2672,8 @@ retry_gsi_stop:
 	}
 	pcmd_t = &ipa3_ctx->gsi_info[IPA_HW_PROTOCOL_WDI];
 	/* stop uC gsi dbg stats monitor */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->ipa_hw_type != IPA_HW_v4_7) {
 		if (IPA_CLIENT_IS_PROD(ep->client)) {
 			pcmd_t->ch_id_info[0].ch_id
 				= 0xff;
