@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -3908,7 +3908,8 @@ static void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) || !hba->ahit)
+	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) || !hba->ahit
+	    || (hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8))
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -6741,6 +6742,10 @@ void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba, struct clk *refclk)
 	unsigned long freq;
 
 	freq = clk_get_rate(refclk);
+	if (freq == 0) {
+		dev_warn(hba->dev, " (%s) clk_get_rate - %d\n", __func__, freq);
+		freq = clk_round_rate(refclk, 19200000);
+	}
 
 	hba->dev_ref_clk_freq =
 		ufs_get_bref_clk_from_hz(freq);
