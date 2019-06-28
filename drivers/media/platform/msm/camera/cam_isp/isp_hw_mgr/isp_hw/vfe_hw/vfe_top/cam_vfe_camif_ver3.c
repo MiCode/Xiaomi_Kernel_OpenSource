@@ -49,6 +49,8 @@ struct cam_vfe_mux_camif_ver3_data {
 	bool                               enable_sof_irq_debug;
 	uint32_t                           irq_debug_cnt;
 	uint32_t                           camif_debug;
+	uint32_t                           horizontal_bin;
+	uint32_t                           qcfa_bin;
 };
 
 static int cam_vfe_camif_ver3_get_evt_payload(
@@ -250,6 +252,9 @@ int cam_vfe_camif_ver3_acquire_resource(
 	camif_data->last_pixel  = acquire_data->vfe_in.in_port->left_stop;
 	camif_data->first_line  = acquire_data->vfe_in.in_port->line_start;
 	camif_data->last_line   = acquire_data->vfe_in.in_port->line_stop;
+	camif_data->horizontal_bin =
+		acquire_data->vfe_in.in_port->horizontal_bin;
+	camif_data->qcfa_bin    = acquire_data->vfe_in.in_port->qcfa_bin;
 	camif_data->event_cb    = acquire_data->event_cb;
 	camif_data->priv        = acquire_data->priv;
 
@@ -441,6 +446,9 @@ static int cam_vfe_camif_ver3_resource_start(
 	 * frame width. We use '/ 4' instead of '/ 2'
 	 * cause it is multipixel path
 	 */
+		if (rsrc_data->horizontal_bin || rsrc_data->qcfa_bin)
+			epoch0_line_cfg >>= 1;
+
 		epoch1_line_cfg = rsrc_data->reg_data->epoch_line_cfg &
 			0xFFFF;
 		computed_epoch_line_cfg = (epoch1_line_cfg << 16) |

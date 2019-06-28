@@ -2147,6 +2147,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 	port_info->dsp_mode        =  in->dsp_mode;
 	port_info->hbi_cnt         =  in->hbi_cnt;
 	port_info->cust_node       =  0;
+	port_info->horizontal_bin  =  0;
+	port_info->qcfa_bin        =  0;
 	port_info->num_out_res     =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,
@@ -2246,6 +2248,8 @@ static int cam_ife_mgr_acquire_get_unified_structure_v2(
 	port_info->dsp_mode       =  in->dsp_mode;
 	port_info->hbi_cnt        =  in->hbi_cnt;
 	port_info->cust_node      =  in->cust_node;
+	port_info->horizontal_bin =  in->horizontal_bin;
+	port_info->qcfa_bin       =  in->qcfa_bin;
 	port_info->num_out_res    =  in->num_out_res;
 
 	port_info->data = kcalloc(in->num_out_res,
