@@ -1101,6 +1101,7 @@ struct sde_perf_cfg {
  * @delay_prg_fetch_start indicates if throttling the fetch start is required
  * @has_qsync	       Supports qsync feature
  * @has_3d_merge_reset Supports 3D merge reset
+ * @has_qos_fl_nocalc  flag to indicate QoS fill level needs no calculation
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1110,6 +1111,7 @@ struct sde_perf_cfg {
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
+ * @has_sui_blendstage  flag to indicate secure-ui has a blendstage restriction
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1148,6 +1150,7 @@ struct sde_mdss_cfg {
 	bool has_qsync;
 	bool has_3d_merge_reset;
 	bool has_line_insertion;
+	bool has_qos_fl_nocalc;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;
@@ -1156,6 +1159,7 @@ struct sde_mdss_cfg {
 	u32 sec_sid_mask[MAX_BLOCKS];
 	u32 sui_ns_allowed;
 	u32 sui_supported_blendstage;
+	bool has_sui_blendstage;
 
 	bool has_hdr;
 	u32 mdss_count;
