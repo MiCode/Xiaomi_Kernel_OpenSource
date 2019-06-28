@@ -67,7 +67,7 @@ config MTK_SCPSYS_BRINGUP
 config MTK_MMDVFS
 	tristate "MediaTek MMDVFS Support"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	select REGULATOR_MTK_DVFSRC
+	depends on REGULATOR_MTK_DVFSRC
 	help
 	  Say yes here to add support for the MediaTek Multimedia DVFS (MMDVFS)
 	  driver. The MMDVFS is used to set clk for Mediatek multimedia hardwares
