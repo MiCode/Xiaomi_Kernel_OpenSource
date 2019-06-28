@@ -25,6 +25,7 @@ struct mhi_buf_info;
  * enum MHI_CB - MHI callback
  * @MHI_CB_IDLE: MHI entered idle state
  * @MHI_CB_PENDING_DATA: New data available for client to process
+ * @MHI_CB_DTR_SIGNAL: DTR signaling update
  * @MHI_CB_LPM_ENTER: MHI host entered low power mode
  * @MHI_CB_LPM_EXIT: MHI host about to exit low power mode
  * @MHI_CB_EE_RDDM: MHI device entered RDDM execution enviornment
@@ -35,6 +36,7 @@ struct mhi_buf_info;
 enum MHI_CB {
 	MHI_CB_IDLE,
 	MHI_CB_PENDING_DATA,
+	MHI_CB_DTR_SIGNAL,
 	MHI_CB_LPM_ENTER,
 	MHI_CB_LPM_EXIT,
 	MHI_CB_EE_RDDM,
