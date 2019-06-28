@@ -2255,6 +2255,9 @@
 					  &larb10 &larb11>;
 			clocks = <&topckgen CLK_TOP_MM>;
 			clock-names = "mm";
+			interconnects = <&ddr_emi MT6779_MASTER_MMSYS
+					 &ddr_emi MT6779_SLAVE_DDR_EMI>;
+			interconnect-names = "mmsys_path";
 		};
 
 		disp_rsz0@1401a000 {
