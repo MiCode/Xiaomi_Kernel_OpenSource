@@ -37,6 +37,16 @@
 			OFFLOAD_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
+#define IPA_WIGIG_ERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited_ipa( \
+		OFFLOAD_DRV_NAME " %s:%d " fmt, __func__,\
+		__LINE__, ## args);\
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			OFFLOAD_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+
 #define IPA_WIGIG_TX_PIPE_NUM	4
 
 enum ipa_wigig_pipes_idx {
@@ -587,7 +597,13 @@ static void ipa_wigig_pm_cb(void *p, enum ipa_pm_cb_event event)
 static int ipa_wigig_store_pipe_info(struct ipa_wigig_pipe_setup_info *pipe,
 	unsigned int idx)
 {
-	IPA_WIGIG_DBG("\n");
+	IPA_WIGIG_DBG(
+		"idx %d: desc_ring HWHEAD_pa %pa, HWTAIL_pa %pa, status_ring HWHEAD_pa %pa, HWTAIL_pa %pa\n",
+		idx,
+		&pipe->desc_ring_HWHEAD_pa,
+		&pipe->desc_ring_HWTAIL_pa,
+		&pipe->status_ring_HWHEAD_pa,
+		&pipe->status_ring_HWTAIL_pa);
 
 	/* store regs */
 	ipa_wigig_ctx->pipes.flat[idx].desc_ring_HWHEAD_pa =
@@ -798,7 +814,15 @@ static int ipa_wigig_store_pipe_smmu_info
 {
 	int ret;
 
-	IPA_WIGIG_DBG("\n");
+	IPA_WIGIG_DBG(
+		"idx %d: desc_ring HWHEAD_pa %pa, HWTAIL_pa %pa, status_ring HWHEAD_pa %pa, HWTAIL_pa %pa, desc_ring_base 0x%llx, status_ring_base 0x%llx\n",
+		idx,
+		&pipe_smmu->desc_ring_HWHEAD_pa,
+		&pipe_smmu->desc_ring_HWTAIL_pa,
+		&pipe_smmu->status_ring_HWHEAD_pa,
+		&pipe_smmu->status_ring_HWTAIL_pa,
+		(unsigned long long)pipe_smmu->desc_ring_base_iova,
+		(unsigned long long)pipe_smmu->status_ring_base_iova);
 
 	/* store regs */
 	ipa_wigig_ctx->pipes.smmu[idx].desc_ring_HWHEAD_pa =
@@ -1690,7 +1714,7 @@ static inline int ipa_wigig_validate_client_type(enum ipa_client_type client)
 	case IPA_CLIENT_WIGIG4_CONS:
 		break;
 	default:
-		IPA_WIGIG_ERR("invalid client type %d\n", client);
+		IPA_WIGIG_ERR_RL("invalid client type %d\n", client);
 		return -EINVAL;
 	}
 
