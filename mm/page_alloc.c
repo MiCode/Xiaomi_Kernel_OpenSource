@@ -4363,6 +4363,12 @@ static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
 	ac->nodemask = nodemask;
 	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
 
+#ifdef CONFIG_CMA
+	/* No fast allocation gets into ZONE_MOVABLE */
+	if (ac->high_zoneidx == ZONE_MOVABLE)
+		ac->high_zoneidx -= 1;
+#endif
+
 	if (cpusets_enabled()) {
 		*alloc_mask |= __GFP_HARDWALL;
 		if (!ac->nodemask)
@@ -4448,6 +4454,11 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	 */
 	if (unlikely(ac.nodemask != nodemask))
 		ac.nodemask = nodemask;
+
+#ifdef CONFIG_CMA
+	/* Before entering slowpath, recalculate the high_zoneidx */
+	ac.high_zoneidx = gfp_zone(gfp_mask);
+#endif
 
 	page = __alloc_pages_slowpath(alloc_mask, order, &ac);
 
