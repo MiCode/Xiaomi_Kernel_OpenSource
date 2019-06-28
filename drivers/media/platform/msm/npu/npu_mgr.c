@@ -34,6 +34,8 @@
  */
 static void npu_ipc_irq_work(struct work_struct *work);
 static void npu_wdg_err_irq_work(struct work_struct *work);
+static void npu_bridge_mbox_work(struct work_struct *work);
+static void npu_disable_fw_work(struct work_struct *work);
 static void turn_off_fw_logging(struct npu_device *npu_dev);
 static int wait_for_status_ready(struct npu_device *npu_dev,
 	uint32_t status_reg, uint32_t status_bits);
@@ -193,19 +195,16 @@ int unload_fw(struct npu_device *npu_dev)
 	return 0;
 }
 
-int enable_fw(struct npu_device *npu_dev)
+static int enable_fw_nolock(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
-
-	mutex_lock(&host_ctx->lock);
 
 	if (host_ctx->fw_state == FW_UNLOADED) {
 		ret = load_fw_nolock(npu_dev,
 			host_ctx->auto_pil_disable ? true : false);
 		if (ret) {
 			NPU_ERR("load fw failed\n");
-			mutex_unlock(&host_ctx->lock);
 			return ret;
 		}
 
@@ -220,7 +219,6 @@ int enable_fw(struct npu_device *npu_dev)
 	if (host_ctx->fw_state == FW_ENABLED) {
 		host_ctx->fw_ref_cnt++;
 		NPU_DBG("fw_ref_cnt %d\n", host_ctx->fw_ref_cnt);
-		mutex_unlock(&host_ctx->lock);
 		return 0;
 	}
 
@@ -275,7 +273,7 @@ int enable_fw(struct npu_device *npu_dev)
 
 	host_ctx->fw_error = false;
 	host_ctx->fw_ref_cnt++;
-	mutex_unlock(&host_ctx->lock);
+
 
 enable_log:
 	/* Set logging state */
@@ -294,7 +292,18 @@ enable_irq_fail:
 enable_sys_cache_fail:
 	npu_disable_core_power(npu_dev);
 enable_pw_fail:
+	return ret;
+}
+
+int enable_fw(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int ret;
+
+	mutex_lock(&host_ctx->lock);
+	ret = enable_fw_nolock(npu_dev);
 	mutex_unlock(&host_ctx->lock);
+
 	return ret;
 }
 
@@ -449,7 +458,7 @@ static int npu_notifier_cb(struct notifier_block *this, unsigned long code,
 			break;
 		}
 
-		npu_cc_reg_write(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL, 0);
+		npu_cc_reg_write(npu_dev, NPU_CC_NPU_CPC_RSC_CTRL, 3);
 
 		/* Clear control/status registers */
 		REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
@@ -516,6 +525,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	init_completion(&host_ctx->fw_bringup_done);
 	init_completion(&host_ctx->fw_shutdown_done);
 	mutex_init(&host_ctx->lock);
+	spin_lock_init(&host_ctx->bridge_mbox_lock);
 	atomic_set(&host_ctx->ipc_trans_id, 1);
 
 	host_ctx->npu_dev = npu_dev;
@@ -534,6 +544,9 @@ int npu_host_init(struct npu_device *npu_dev)
 	} else {
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
+		INIT_WORK(&host_ctx->bridge_mbox_work, npu_bridge_mbox_work);
+		INIT_DELAYED_WORK(&host_ctx->disable_fw_work,
+			npu_disable_fw_work);
 	}
 
 	if (npu_dev->hw_version != 0x20000000)
@@ -768,6 +781,79 @@ static void npu_wdg_err_irq_work(struct work_struct *work)
 	host_error_hdlr(npu_dev, false);
 }
 
+static void npu_disable_fw_work(struct work_struct *work)
+{
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
+
+	NPU_DBG("Enter disable fw work\n");
+	host_ctx = container_of(work, struct npu_host_ctx,
+		disable_fw_work.work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
+	mutex_lock(&host_ctx->lock);
+	disable_fw_nolock(npu_dev);
+	host_ctx->bridge_mbox_pwr_on = false;
+	mutex_unlock(&host_ctx->lock);
+	NPU_DBG("Exit disable fw work\n");
+}
+
+static int npu_bridge_mbox_send_data(struct npu_host_ctx *host_ctx,
+	struct npu_mbox *mbox, void *data)
+{
+	NPU_DBG("Generating IRQ for client_id: %u; signal_id: %u\n",
+		mbox->client_id, mbox->signal_id);
+	mbox_send_message(mbox->chan, NULL);
+	mbox_client_txdone(mbox->chan, 0);
+	mbox->send_data_pending = false;
+
+	return 0;
+}
+
+static void npu_bridge_mbox_work(struct work_struct *work)
+{
+	int i, ret;
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
+	unsigned long flags;
+
+	NPU_DBG("Enter bridge mbox work\n");
+	host_ctx = container_of(work, struct npu_host_ctx, bridge_mbox_work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
+	/* queue or modify delayed work to disable fw */
+	mod_delayed_work(host_ctx->wq, &host_ctx->disable_fw_work,
+		NPU_MBOX_IDLE_TIMEOUT);
+
+	mutex_lock(&host_ctx->lock);
+	if (host_ctx->fw_state == FW_UNLOADED) {
+		NPU_WARN("NPU fw is not loaded\n");
+		mutex_unlock(&host_ctx->lock);
+		return;
+	}
+
+	if (!host_ctx->bridge_mbox_pwr_on) {
+		ret = enable_fw_nolock(npu_dev);
+		if (ret) {
+			mutex_unlock(&host_ctx->lock);
+			NPU_ERR("Enable fw failed\n");
+			return;
+		}
+		host_ctx->bridge_mbox_pwr_on = true;
+		NPU_DBG("Fw is enabled by mbox\n");
+	}
+
+	spin_lock_irqsave(&host_ctx->bridge_mbox_lock, flags);
+	for (i = 0; i < NPU_MAX_MBOX_NUM; i++)
+		if (npu_dev->mbox[i].send_data_pending)
+			npu_bridge_mbox_send_data(host_ctx,
+				&npu_dev->mbox[i], NULL);
+
+	spin_unlock_irqrestore(&host_ctx->bridge_mbox_lock, flags);
+	mutex_unlock(&host_ctx->lock);
+	NPU_DBG("Exit bridge mbox work\n");
+}
+
 static void turn_off_fw_logging(struct npu_device *npu_dev)
 {
 	struct ipc_cmd_log_state_pkt log_packet;
@@ -828,7 +914,7 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on)
 	struct qmp_pkt pkt;
 	int buf_size, rc = 0;
 
-	if (!npu_dev->mbox_aop.chan) {
+	if (!npu_dev->mbox_aop || !npu_dev->mbox_aop->chan) {
 		NPU_WARN("aop mailbox channel is not available\n");
 		return 0;
 	}
@@ -845,7 +931,7 @@ static int npu_notify_aop(struct npu_device *npu_dev, bool on)
 	pkt.size = (buf_size + 3) & ~0x3;
 	pkt.data = buf;
 
-	rc = mbox_send_message(npu_dev->mbox_aop.chan, &pkt);
+	rc = mbox_send_message(npu_dev->mbox_aop->chan, &pkt);
 	if (rc < 0)
 		NPU_ERR("qmp message send failed, ret=%d\n", rc);
 
