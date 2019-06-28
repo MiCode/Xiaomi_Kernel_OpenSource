@@ -110,6 +110,8 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_empty_queues(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx);
 int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx);
+void mtk_vdec_update_fmt(struct mtk_vcodec_ctx *ctx,
+		unsigned int pixelformat);
 struct mtk_video_fmt *mtk_find_fmt_by_pixel(unsigned int pixelformat);
 
 int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl);

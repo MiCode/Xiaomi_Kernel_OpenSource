@@ -332,27 +332,6 @@ static int mtk_vdec_flush_decoder(struct mtk_vcodec_ctx *ctx)
 	return 0;
 }
 
-static void mtk_vdec_update_fmt(struct mtk_vcodec_ctx *ctx,
-				unsigned int pixelformat)
-{
-	const struct mtk_video_fmt *fmt;
-	struct mtk_q_data *dst_q_data;
-	unsigned int k;
-
-	dst_q_data = &ctx->q_data[MTK_Q_DATA_DST];
-	for (k = 0; k < NUM_FORMATS; k++) {
-		fmt = &mtk_video_formats[k];
-		if (fmt->fourcc == pixelformat) {
-			mtk_v4l2_debug(1, "Update cap fourcc(%d -> %d)",
-				dst_q_data->fmt->fourcc, pixelformat);
-			dst_q_data->fmt = fmt;
-			return;
-		}
-	}
-
-	mtk_v4l2_err("Cannot get fourcc(%d), using init value", pixelformat);
-}
-
 static int mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int dpbsize = 0;
