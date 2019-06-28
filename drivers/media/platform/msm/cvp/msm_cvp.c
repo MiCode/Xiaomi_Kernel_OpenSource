@@ -987,6 +987,8 @@ static int adjust_bw_freqs(void)
 
 	core_sum = max_3(core_sum, ctlr_sum, fw_sum);
 	op_core_max = max_3(op_core_max, op_ctlr_max, op_fw_max);
+	op_core_max = (op_core_max > tbl[tbl_size - 1].clock_rate) ?
+				tbl[tbl_size - 1].clock_rate : op_core_max;
 	core_sum = (core_sum >= op_core_max) ? core_sum : op_core_max;
 
 	if (core_sum < tbl[0].clock_rate) {

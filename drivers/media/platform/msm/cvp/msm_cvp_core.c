@@ -91,9 +91,9 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 				ds_pixel_read = ((cvp_desc->fullres_width
 					* cvp_desc->fullres_height * 121)>>7);
 			} else {
-				/*w*h*1.5/2.38 = w*h*81/128*/
+				/*w*h*1.5/1.61 = w*h*119/128*/
 				ds_pixel_read = ((cvp_desc->fullres_width
-					* cvp_desc->fullres_height * 81)>>7);
+					* cvp_desc->fullres_height * 119)>>7);
 			}
 			break;
 		}
@@ -105,9 +105,9 @@ int msm_cvp_est_cycles(struct cvp_kmd_usecase_desc *cvp_desc,
 				ds_pixel_read = ((cvp_desc->fullres_width
 					* cvp_desc->fullres_height * 5)>>2);
 			} else {
-				/*w*h*1.33*1.5/2.38 = w*h*54/64*/
+				/*w*h*1.33*1.5/1.61 = w*h*79/64*/
 				ds_pixel_read = ((cvp_desc->fullres_width
-					* cvp_desc->fullres_height * 54)>>6);
+					* cvp_desc->fullres_height * 79)>>6);
 			}
 			break;
 		}
