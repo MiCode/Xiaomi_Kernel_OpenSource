@@ -3198,6 +3198,54 @@ static int cam_isp_blob_fe_update(
 	return rc;
 }
 
+static int cam_isp_blob_fps_config(
+	uint32_t                               blob_type,
+	struct cam_isp_generic_blob_info      *blob_info,
+	struct cam_fps_config                 *fps_config,
+	struct cam_hw_prepare_update_args     *prepare)
+{
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_ife_hw_mgr_res             *hw_mgr_res;
+	struct cam_hw_intf                    *hw_intf;
+	struct cam_vfe_fps_config_args         fps_config_args;
+	int                                    rc = -EINVAL;
+	uint32_t                               i;
+
+	ctx = prepare->ctxt_to_hw_map;
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_src, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+
+			if (hw_mgr_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+				hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+				if (hw_intf && hw_intf->hw_ops.process_cmd) {
+					fps_config_args.fps =
+						fps_config->fps;
+					fps_config_args.node_res =
+						hw_mgr_res->hw_res[i];
+
+					rc = hw_intf->hw_ops.process_cmd(
+						hw_intf->hw_priv,
+						CAM_ISP_HW_CMD_FPS_CONFIG,
+						&fps_config_args,
+						sizeof(
+						struct cam_vfe_fps_config_args)
+						);
+					if (rc)
+						CAM_ERR(CAM_ISP,
+							"Failed fps config:%d",
+							fps_config->fps);
+				} else
+					CAM_WARN(CAM_ISP, "NULL hw_intf!");
+			}
+		}
+	}
+
+	return rc;
+}
+
 static int cam_isp_blob_ubwc_update(
 	uint32_t                               blob_type,
 	struct cam_isp_generic_blob_info      *blob_info,
@@ -3742,7 +3790,6 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "FS2: BLOB Type: %d", blob_type);
 	switch (blob_type) {
 	case CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG: {
 		struct cam_isp_resource_hfr_config    *hfr_config;
@@ -3995,6 +4042,24 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		if (rc)
 			CAM_ERR(CAM_ISP,
 				"Sensor Dimension Update Failed rc: %d", rc);
+	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_FPS_CONFIG: {
+		struct cam_fps_config *fps_config;
+
+		if (blob_size < sizeof(struct cam_fps_config)) {
+			CAM_ERR(CAM_ISP, "Invalid fps blob size %u expected %u",
+				blob_size, sizeof(struct cam_fps_config));
+			return -EINVAL;
+		}
+
+		fps_config = (struct cam_fps_config *)blob_data;
+
+		rc = cam_isp_blob_fps_config(blob_type, blob_info,
+			fps_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "FPS Update Failed rc: %d", rc);
+
 	}
 		break;
 	default:

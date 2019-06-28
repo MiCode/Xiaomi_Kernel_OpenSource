@@ -20,6 +20,8 @@
 #include "cam_irq_controller.h"
 #include <uapi/media/cam_isp.h>
 
+#define CAM_ISP_FPS_60                           60
+
 /*
  * struct cam_isp_timestamp:
  *
@@ -105,6 +107,7 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_FE_UPDATE_IN_RD,
 	CAM_ISP_HW_CMD_FE_UPDATE_BUS_RD,
 	CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP,
+	CAM_ISP_HW_CMD_FPS_CONFIG,
 	CAM_ISP_HW_CMD_MAX,
 };
 
