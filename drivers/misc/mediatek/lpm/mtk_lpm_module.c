@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-
+#include <linux/console.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/syscore_ops.h>
@@ -25,6 +25,7 @@ static struct syscore_ops mtk_lpm_suspend = {
 static int __init mtk_lpm_init(void)
 {
 	register_syscore_ops(&mtk_lpm_suspend);
+	console_suspend_enabled = false;
 
 	return 0;
 }
