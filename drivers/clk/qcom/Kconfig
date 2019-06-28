@@ -596,3 +596,12 @@ config SM_VIDEOCC_ATOLL
 	  ATOLL devices.
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
+
+config SM_DISPCC_ATOLL
+	tristate "ATOLL Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
