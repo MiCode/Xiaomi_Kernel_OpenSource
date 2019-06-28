@@ -605,3 +605,11 @@ config SM_DISPCC_ATOLL
 	  ATOLL devices.
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
+
+config SM_NPUCC_ATOLL
+	tristate "ATOLL NPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the NPU clock controller on Qualcomm Technologies, Inc
+	  ATOLL devices.
+	  Say Y if you want to enable use of the Network Processing Unit.
