@@ -6,6 +6,7 @@
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/cpumask.h>
+#include <linux/energy_model.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -202,6 +203,7 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	struct mtk_cpu_dvfs_info *info;
 	struct cdvfs_data cdvfs_d;
 	struct cpufreq_frequency_table *freq_table;
+	struct em_data_callback em_cb = EM_DATA_CB(of_dev_pm_opp_get_cpu_power);
 	int ret;
 
 	info = mtk_cpu_dvfs_info_lookup(policy->cpu);
@@ -216,7 +218,14 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	if (ret)
 		goto out_free_cpufreq_table;
 
+	ret = dev_pm_opp_get_opp_count(info->cpu_dev);
+	if (ret <= 0) {
+		ret = -EINVAL;
+		goto out_free_opp;
+	}
+
 	cpumask_copy(policy->cpus, &info->cpus);
+	em_register_perf_domain(policy->cpus, ret, &em_cb);
 	policy->driver_data = info;
 	policy->clk = info->cpu_clk;
 	policy->freq_table = freq_table;
@@ -228,6 +237,8 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 
 	return 0;
 
+out_free_opp:
+	dev_pm_opp_of_cpumask_remove_table(policy->cpus);
 out_free_cpufreq_table:
 	dev_pm_opp_free_cpufreq_table(info->cpu_dev, &freq_table);
 	return ret;
