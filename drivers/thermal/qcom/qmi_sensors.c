@@ -43,6 +43,19 @@ enum qmi_ts_sensor {
 	QMI_TS_MODEM_SKIN,
 	QMI_TS_QFE_PA_MDM,
 	QMI_TS_QFE_PA_WTR,
+	QMI_TS_STREAMER_0,
+	QMI_TS_MOD_MMW_0,
+	QMI_TS_MOD_MMW_1,
+	QMI_TS_MOD_MMW_2,
+	QMI_TS_MOD_MMW_3,
+	QMI_TS_RET_PA_0,
+	QMI_TS_WTR_PA_0,
+	QMI_TS_WTR_PA_1,
+	QMI_TS_WTR_PA_2,
+	QMI_TS_WTR_PA_3,
+	QMI_SYS_THERM1,
+	QMI_SYS_THERM2,
+	QMI_TS_TSENS_1,
 	QMI_TS_MAX_NR
 };
 
@@ -87,6 +100,19 @@ static char sensor_clients[QMI_TS_MAX_NR][QMI_CLIENT_NAME_LENGTH] = {
 	{"xo_therm"},
 	{"qfe_pa_mdm"},
 	{"qfe_pa_wtr"},
+	{"qfe_mmw_streamer0"},
+	{"qfe_mmw0_mod"},
+	{"qfe_mmw1_mod"},
+	{"qfe_mmw2_mod"},
+	{"qfe_mmw3_mod"},
+	{"qfe_ret_pa0"},
+	{"qfe_wtr_pa0"},
+	{"qfe_wtr_pa1"},
+	{"qfe_wtr_pa2"},
+	{"qfe_wtr_pa3"},
+	{"sys_therm1"},
+	{"sys_therm2"},
+	{"modem_tsens1"},
 };
 
 static int32_t encode_qmi(int32_t val)
