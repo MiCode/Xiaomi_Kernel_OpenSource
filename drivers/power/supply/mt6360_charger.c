@@ -17,8 +17,8 @@
 #include <linux/mfd/mt6360-private.h>
 
 /* 0x11 */
-#define MT6360_MASK_HIZ		BIT(1)
-#define MT6360_SHFT_HIZ		(1)
+#define MT6360_MASK_HIZ		BIT(2)
+#define MT6360_SHFT_HIZ		(2)
 #define MT6360_MASK_OPA_MODE	BIT(0)
 #define MT6360_SHFT_OPA_MODE	(0)
 /* 0x12 */
@@ -996,6 +996,7 @@ static int mt6360_charger_probe(struct platform_device *pdev)
 	/* otg regulator */
 	config.dev = &pdev->dev;
 	config.driver_data = mci;
+	config.regmap = mci->regmap;
 	mci->otg_rdev = devm_regulator_register(&pdev->dev, &mt6360_otg_rdesc,
 						&config);
 	if (IS_ERR(mci->otg_rdev))
