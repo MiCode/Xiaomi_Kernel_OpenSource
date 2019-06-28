@@ -1319,6 +1319,71 @@ static int npu_receive_event(struct npu_client *client,
 	return ret;
 }
 
+static int npu_set_property(struct npu_client *client,
+	unsigned long arg)
+{
+	struct msm_npu_property prop;
+	void __user *argp = (void __user *)arg;
+	int ret = -EINVAL;
+
+	ret = copy_from_user(&prop, argp, sizeof(prop));
+	if (ret) {
+		NPU_ERR("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (prop.prop_id) {
+	default:
+		NPU_ERR("Not supported property %d\n", prop.prop_id);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+static int npu_get_property(struct npu_client *client,
+	unsigned long arg)
+{
+	struct msm_npu_property prop;
+	void __user *argp = (void __user *)arg;
+	int ret = -EINVAL;
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	ret = copy_from_user(&prop, argp, sizeof(prop));
+	if (ret) {
+		NPU_ERR("fail to copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (prop.prop_id) {
+	case MSM_NPU_PROP_ID_FW_STATE:
+		prop.prop_param[0] = host_ctx->fw_state;
+		break;
+	case MSM_NPU_PROP_ID_PERF_MODE_MAX:
+		prop.prop_param[0] = npu_dev->pwrctrl.num_pwrlevels;
+		break;
+	case MSM_NPU_PROP_ID_DRV_VERSION:
+		prop.prop_param[0] = 0;
+		break;
+	case MSM_NPU_PROP_ID_HARDWARE_VERSION:
+		prop.prop_param[0] = npu_dev->hw_version;
+		break;
+	default:
+		NPU_ERR("Not supported property %d\n", prop.prop_id);
+		return -EINVAL;
+	}
+
+	ret = copy_to_user(argp, &prop, sizeof(prop));
+	if (ret) {
+		pr_err("fail to copy to user\n");
+		return -EFAULT;
+	}
+
+	return ret;
+}
+
 static long npu_ioctl(struct file *file, unsigned int cmd,
 						 unsigned long arg)
 {
@@ -1352,6 +1417,12 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case MSM_NPU_RECEIVE_EVENT:
 		ret = npu_receive_event(client, arg);
+		break;
+	case MSM_NPU_SET_PROP:
+		ret = npu_set_property(client, arg);
+		break;
+	case MSM_NPU_GET_PROP:
+		ret = npu_get_property(client, arg);
 		break;
 	default:
 		NPU_ERR("unexpected IOCTL %x\n", cmd);
