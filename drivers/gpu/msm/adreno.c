@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/msm_kgsl.h>
 #include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
 #include <soc/qcom/scm.h>
 
 #include "adreno.h"
@@ -1283,6 +1284,30 @@ static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 			pte_row0_msb[1] ? true : false;
 }
 
+static int adreno_read_speed_bin(struct platform_device *pdev,
+		struct adreno_device *adreno_dev)
+{
+	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "speed_bin");
+	int ret = PTR_ERR_OR_ZERO(cell);
+
+	if (ret) {
+		/*
+		 * If the cell isn't defined enabled, then revert to
+		 * using the default bin
+		 */
+		if (ret == -ENOENT)
+			return 0;
+
+		return ret;
+	}
+
+	adreno_dev->speed_bin = *((unsigned int *) nvmem_cell_read(cell, NULL));
+
+	nvmem_cell_put(cell);
+
+	return 0;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
@@ -1302,6 +1327,10 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_efuse_read_soc_hw_rev(adreno_dev);
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
+
+	status = adreno_read_speed_bin(pdev, adreno_dev);
+	if (status)
+		return status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	if (adreno_identify_gpu(adreno_dev))
