@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -232,6 +232,11 @@ struct ufs_qcom_host {
 	struct ufs_qcom_testbus testbus;
 
 	struct reset_controller_dev rcdev;
+	int limit_tx_hs_gear;
+	int limit_rx_hs_gear;
+	int limit_tx_pwm_gear;
+	int limit_rx_pwm_gear;
+	bool disable_lpm;
 };
 
 static inline u32

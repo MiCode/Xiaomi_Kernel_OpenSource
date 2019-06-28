@@ -40,6 +40,8 @@ static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_cycles);
+static void ufs_qcom_parse_gear_limits(struct ufs_qcom_host *host);
+static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host);
 
 static struct ufs_qcom_host *rcdev_to_ufs_host(struct reset_controller_dev *rcd)
 {
@@ -809,12 +811,14 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		ufs_qcom_cap.hs_rx_gear = host->limit_rx_hs_gear;
+		ufs_qcom_cap.hs_tx_gear = host->limit_tx_hs_gear;
+		ufs_qcom_cap.pwm_tx_gear = host->limit_tx_pwm_gear;
+		ufs_qcom_cap.pwm_rx_gear = host->limit_rx_pwm_gear;
+
 		ufs_qcom_cap.tx_lanes = UFS_QCOM_LIMIT_NUM_LANES_TX;
 		ufs_qcom_cap.rx_lanes = UFS_QCOM_LIMIT_NUM_LANES_RX;
-		ufs_qcom_cap.hs_rx_gear = UFS_QCOM_LIMIT_HSGEAR_RX;
-		ufs_qcom_cap.hs_tx_gear = UFS_QCOM_LIMIT_HSGEAR_TX;
-		ufs_qcom_cap.pwm_rx_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
-		ufs_qcom_cap.pwm_tx_gear = UFS_QCOM_LIMIT_PWMGEAR_TX;
+
 		ufs_qcom_cap.rx_pwr_pwm = UFS_QCOM_LIMIT_RX_PWR_PWM;
 		ufs_qcom_cap.tx_pwr_pwm = UFS_QCOM_LIMIT_TX_PWR_PWM;
 		ufs_qcom_cap.rx_pwr_hs = UFS_QCOM_LIMIT_RX_PWR_HS;
@@ -956,15 +960,20 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 				| UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE
 				| UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP);
 	}
+
+	if (host->disable_lpm)
+		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
-	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
-	hba->caps |= UFSHCD_CAP_CLK_SCALING;
-	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+	if (!host->disable_lpm) {
+		hba->caps |= UFSHCD_CAP_CLK_GATING |
+			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
+			UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+	}
 
 	if (host->hw_ver.major >= 0x2) {
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
@@ -1166,6 +1175,11 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	err = ufs_qcom_init_lane_clks(host);
 	if (err)
 		goto out_variant_clear;
+
+	ufs_qcom_parse_gear_limits(host);
+	ufs_qcom_parse_lpm(host);
+	if (host->disable_lpm)
+		pm_runtime_forbid(host->hba->dev);
 
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
@@ -1535,6 +1549,40 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	usleep_range(1000, 1100);
 	ufs_qcom_print_unipro_testbus(hba);
 	usleep_range(1000, 1100);
+}
+
+/*
+ * ufs_qcom_parse_gear_limits - read from DTS if gears should be limited
+ */
+static void ufs_qcom_parse_gear_limits(struct ufs_qcom_host *host)
+{
+	struct device_node *np = host->hba->dev->of_node;
+
+	if (!np)
+		return;
+
+	host->limit_tx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_TX;
+	host->limit_rx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_RX;
+	host->limit_tx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_TX;
+	host->limit_rx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
+
+	of_property_read_u32(np, "limit-tx-hs-gear", &host->limit_tx_hs_gear);
+	of_property_read_u32(np, "limit-rx-hs-gear", &host->limit_rx_hs_gear);
+	of_property_read_u32(np, "limit-tx-pwm-gear", &host->limit_tx_pwm_gear);
+	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
+}
+
+/*
+ * ufs_qcom_parse_lpm - read from DTS whether LPM modes should be disabled.
+ */
+static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
+{
+	struct device_node *node = host->hba->dev->of_node;
+
+	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
+	if (host->disable_lpm)
+		dev_info(host->hba->dev, "(%s) All LPM is disabled\n",
+			 __func__);
 }
 
 /**
