@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,15 +13,15 @@
 
 /dts-v1/;
 
-#include "qcs403.dtsi"
-#include "qcs405-audio-overlay.dtsi"
+#include "qcs407.dtsi"
+#include "qcs405-csra1-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403 RCM IOT";
-	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
-	qcom,board-id = <0x010015 0x0>;
-
+	model = "Qualcomm Technologies, Inc. QCS407 EVB1 4000 CSRA1 IOT";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
+	qcom,board-id = <0x040020 0x1>;
 };
 
 #include "qcs405-mdss-panels.dtsi"
@@ -51,19 +51,13 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&usb3 {
-	status = "disabled";
-};
-
-&usb_ss_phy {
-	status = "ok";
-	qcom,keep-powerdown;
-};
-
-&usb2_phy1 {
-	status = "disabled";
-};
-
-&qnand_1 {
-	status = "ok";
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
 };

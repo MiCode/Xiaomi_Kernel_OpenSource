@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,21 +13,17 @@
 
 /dts-v1/;
 
-#include "qcs403.dtsi"
+#include "qcs404.dtsi"
 #include "qcs405-audio-overlay.dtsi"
 #include "qcs405-circular-pca9956.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. QCS403 EVB2 1000 IOT";
-	compatible = "qcom,qcs403-iot", "qcom,qcs403", "qcom,iot";
-	qcom,board-id = <0x010020 0x3>;
+	model = "Qualcomm Technologies, Inc. QCS404 QCS404 1 CSRA";
+	compatible = "qcom,qcs404-iot", "qcom,qcs404", "qcom,iot";
+	qcom,board-id = <0x020020 0x4>;
 
 };
 
 &qnand_1 {
 	status = "ok";
-};
-
-&qseecom_mem {
-	size = <0 0x400000>;
 };
