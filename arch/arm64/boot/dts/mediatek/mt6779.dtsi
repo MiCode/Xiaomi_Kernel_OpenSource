@@ -590,6 +590,30 @@
 			#clock-cells = <1>;
 		};
 
+		dcm: dcm@10001000 {
+			compatible = "mediatek,mt6779-dcm";
+			reg = <0 0x10001000 0 0x1000>,
+			      <0 0x10002000 0 0x1000>,
+			      <0 0x0c538000 0 0x5000>,
+			      <0 0x0c53a800 0 0x1000>,
+			      <0 0x10230000 0 0x1000>,
+			      <0 0x10240000 0 0x1000>,
+			      <0 0x10238000 0 0x1000>,
+			      <0 0x10248000 0 0x1000>,
+			      <0 0x10219000 0 0x1000>,
+			      <0 0x10235000 0 0x1000>;
+			reg-names = "infra_ao",
+				"infra_ao_mem",
+				"mcucfg",
+				"cpc",
+				"dramc0",
+				"dramc1",
+				"dramc4",
+				"dramc5",
+				"emi0",
+				"emi2";
+		};
+
 		gpio: gpio@10005000 {
 			compatible = "mediatek,gpio";
 			reg = <0 0x10005000 0 0x1000>;
