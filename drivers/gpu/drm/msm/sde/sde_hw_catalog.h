@@ -1102,6 +1102,7 @@ struct sde_perf_cfg {
  * @has_qsync	       Supports qsync feature
  * @has_3d_merge_reset Supports 3D merge reset
  * @has_qos_fl_nocalc  flag to indicate QoS fill level needs no calculation
+ * @has_decimation     Supports decimation
  * @sui_misr_supported  indicate if secure-ui-misr is supported
  * @sui_block_xin_mask  mask of all the xin-clients to be blocked during
  *                         secure-ui when secure-ui-misr feature is supported
@@ -1151,6 +1152,7 @@ struct sde_mdss_cfg {
 	bool has_3d_merge_reset;
 	bool has_line_insertion;
 	bool has_qos_fl_nocalc;
+	bool has_decimation;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;

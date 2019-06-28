@@ -1467,8 +1467,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			goto end;
 		}
 
-		sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
-		sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		if (sde_cfg->has_decimation) {
+			sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
+			sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		} else {
+			sblk->maxhdeciexp = 0;
+			sblk->maxvdeciexp = 0;
+		}
 
 		sspp->xin_id = PROP_VALUE_ACCESS(prop_value, SSPP_XIN, i);
 		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
@@ -3678,11 +3683,13 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 
 	if (IS_MSM8996_TARGET(hw_rev)) {
 		sde_cfg->perf.min_prefill_lines = 21;
+		sde_cfg->has_decimation = true;
 	} else if (IS_MSM8998_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM845_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_cwb_support = true;
@@ -3691,11 +3698,13 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x3F71;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM670_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3711,6 +3720,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_3d_merge_reset = true;
 		sde_cfg->has_sui_blendstage = true;
 		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMSHRIKE_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
@@ -3718,6 +3728,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3732,6 +3743,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_3d_merge_reset = true;
 		sde_cfg->has_sui_blendstage = true;
 		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMMAGPIE_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3747,6 +3759,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_3d_merge_reset = true;
 		sde_cfg->has_sui_blendstage = true;
 		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMTRINKET_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3760,6 +3773,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_block_xin_mask = 0xC61;
 		sde_cfg->has_sui_blendstage = true;
 		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
