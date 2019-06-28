@@ -81,7 +81,8 @@ struct rmnet_port {
 	struct rmnet_port_priv_stats stats;
 	int dl_marker_flush;
 
-	struct rmnet_descriptor *rmnet_desc;
+	/* Descriptor pool */
+	spinlock_t desc_pool_lock;
 	struct rmnet_frag_descriptor_pool *frag_desc_pool;
 };
 

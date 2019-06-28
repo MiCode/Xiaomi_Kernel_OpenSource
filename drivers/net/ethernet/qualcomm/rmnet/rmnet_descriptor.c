@@ -43,6 +43,7 @@ rmnet_get_frag_descriptor(struct rmnet_port *port)
 	struct rmnet_frag_descriptor_pool *pool = port->frag_desc_pool;
 	struct rmnet_frag_descriptor *frag_desc;
 
+	spin_lock(&port->desc_pool_lock);
 	if (!list_empty(&pool->free_list)) {
 		frag_desc = list_first_entry(&pool->free_list,
 					     struct rmnet_frag_descriptor,
@@ -51,13 +52,15 @@ rmnet_get_frag_descriptor(struct rmnet_port *port)
 	} else {
 		frag_desc = kzalloc(sizeof(*frag_desc), GFP_ATOMIC);
 		if (!frag_desc)
-			return NULL;
+			goto out;
 
 		INIT_LIST_HEAD(&frag_desc->list);
 		INIT_LIST_HEAD(&frag_desc->sub_frags);
 		pool->pool_size++;
 	}
 
+out:
+	spin_unlock(&port->desc_pool_lock);
 	return frag_desc;
 }
 EXPORT_SYMBOL(rmnet_get_frag_descriptor);
@@ -73,12 +76,14 @@ void rmnet_recycle_frag_descriptor(struct rmnet_frag_descriptor *frag_desc,
 	memset(frag_desc, 0, sizeof(*frag_desc));
 	INIT_LIST_HEAD(&frag_desc->list);
 	INIT_LIST_HEAD(&frag_desc->sub_frags);
+	spin_lock(&port->desc_pool_lock);
 	list_add_tail(&frag_desc->list, &pool->free_list);
+	spin_unlock(&port->desc_pool_lock);
 }
 EXPORT_SYMBOL(rmnet_recycle_frag_descriptor);
 
-void rmnet_descriptor_add_frag(struct rmnet_port *port, struct page *p,
-			       u32 page_offset, u32 len)
+void rmnet_descriptor_add_frag(struct rmnet_port *port, struct list_head *list,
+			       struct page *p, u32 page_offset, u32 len)
 {
 	struct rmnet_frag_descriptor *frag_desc;
 
@@ -87,8 +92,7 @@ void rmnet_descriptor_add_frag(struct rmnet_port *port, struct page *p,
 		return;
 
 	rmnet_frag_fill(frag_desc, p, page_offset, len);
-	list_add_tail(&frag_desc->list, &port->rmnet_desc->frags);
-	port->rmnet_desc->nr_frags++;
+	list_add_tail(&frag_desc->list, list);
 }
 EXPORT_SYMBOL(rmnet_descriptor_add_frag);
 
@@ -318,7 +322,8 @@ int rmnet_frag_flow_command(struct rmnet_map_header *qmap,
 }
 EXPORT_SYMBOL(rmnet_frag_flow_command);
 
-void rmnet_frag_deaggregate(skb_frag_t *frag, struct rmnet_port *port)
+void rmnet_frag_deaggregate(skb_frag_t *frag, struct rmnet_port *port,
+			    struct list_head *list)
 {
 	struct rmnet_map_header *maph;
 	u8 *data = skb_frag_address(frag);
@@ -360,7 +365,7 @@ void rmnet_frag_deaggregate(skb_frag_t *frag, struct rmnet_port *port)
 		if ((int)skb_frag_size(frag) - (int)packet_len < 0)
 			return;
 
-		rmnet_descriptor_add_frag(port, skb_frag_page(frag),
+		rmnet_descriptor_add_frag(port, list, skb_frag_page(frag),
 					  frag->page_offset + offset,
 					  packet_len);
 
@@ -1004,6 +1009,7 @@ void rmnet_frag_ingress_handler(struct sk_buff *skb,
 				struct rmnet_port *port)
 {
 	rmnet_perf_chain_hook_t rmnet_perf_opt_chain_end;
+	LIST_HEAD(desc_list);
 
 	/* Deaggregation and freeing of HW originating
 	 * buffers is done within here
@@ -1011,19 +1017,18 @@ void rmnet_frag_ingress_handler(struct sk_buff *skb,
 	while (skb) {
 		struct sk_buff *skb_frag;
 
-		rmnet_frag_deaggregate(skb_shinfo(skb)->frags, port);
-		if (port->rmnet_desc->nr_frags) {
+		rmnet_frag_deaggregate(skb_shinfo(skb)->frags, port,
+				       &desc_list);
+		if (!list_empty(&desc_list)) {
 			struct rmnet_frag_descriptor *frag_desc, *tmp;
 
-			list_for_each_entry_safe(frag_desc, tmp,
-						 &port->rmnet_desc->frags,
+			list_for_each_entry_safe(frag_desc, tmp, &desc_list,
 						 list) {
 				list_del_init(&frag_desc->list);
 				__rmnet_frag_ingress_handler(frag_desc, port);
 			}
 		}
 
-		port->rmnet_desc->nr_frags = 0;
 		skb_frag = skb_shinfo(skb)->frag_list;
 		skb_shinfo(skb)->frag_list = NULL;
 		consume_skb(skb);
@@ -1050,22 +1055,14 @@ void rmnet_descriptor_deinit(struct rmnet_port *port)
 	}
 
 	kfree(pool);
-	kfree(port->rmnet_desc);
 }
 
 int rmnet_descriptor_init(struct rmnet_port *port)
 {
-	struct rmnet_descriptor *rmnet_desc;
 	struct rmnet_frag_descriptor_pool *pool;
 	int i;
 
-	rmnet_desc = kzalloc(sizeof(*rmnet_desc), GFP_ATOMIC);
-	if (!rmnet_desc)
-		return -ENOMEM;
-
-	INIT_LIST_HEAD(&rmnet_desc->frags);
-	port->rmnet_desc = rmnet_desc;
-
+	spin_lock_init(&port->desc_pool_lock);
 	pool = kzalloc(sizeof(*pool), GFP_ATOMIC);
 	if (!pool)
 		return -ENOMEM;
