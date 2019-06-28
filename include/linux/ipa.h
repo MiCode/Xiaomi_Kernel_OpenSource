@@ -13,6 +13,8 @@
 #include "linux/msm_gsi.h"
 
 #define IPA_APPS_MAX_BW_IN_MBPS 700
+#define IPA_BW_THRESHOLD_MAX 3
+
 /**
  * enum ipa_transport_type
  * transport type: either GSI or SPS
@@ -501,10 +503,13 @@ typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
  *			use ipa_get_wdi_sap_stats structure
  * @IPA_SET_WIFI_QUOTA: set quota limit on STA -
  *			use ipa_set_wifi_quota structure
+ * @IPA_SET_WLAN_BW: set wlan BW -
+ *			use ipa_set_wlan_bw structure
  */
 enum ipa_wdi_meter_evt_type {
 	IPA_GET_WDI_SAP_STATS,
 	IPA_SET_WIFI_QUOTA,
+	IPA_INFORM_WLAN_BW,
 };
 
 struct ipa_get_wdi_sap_stats {
@@ -538,6 +543,19 @@ struct ipa_set_wifi_quota {
 	uint8_t  set_quota;
 	/* indicate valid quota set from wlan-fw */
 	uint8_t set_valid;
+};
+
+/**
+ * struct ipa_inform_wlan_bw - structure used for
+ *                                   IPA_INFORM_WLAN_BW.
+ *
+ * @index:       Indicate which bw-index hit
+ * @throughput:  throughput usage
+ *
+ */
+struct ipa_inform_wlan_bw {
+	uint8_t  index;
+	uint64_t throughput;
 };
 
 typedef void (*ipa_wdi_meter_notifier_cb)(enum ipa_wdi_meter_evt_type evt,
@@ -1154,6 +1172,32 @@ struct ipa_wdi_buffer_info {
 };
 
 /**
+ * struct  ipa_wdi_bw_info - address info of a WLAN allocated buffer
+ * @threshold: throughput wants to be monitored
+ * @num: number of threshold entries
+ * @stop: true to stop monitoring
+ *
+ * IPA driver will create/release IOMMU mapping in IPA SMMU from iova->pa
+ */
+struct ipa_wdi_bw_info {
+	uint64_t threshold[IPA_BW_THRESHOLD_MAX];
+	int num;
+	bool stop;
+};
+
+/**
+ * struct  ipa_wdi_tx_info - sw tx info from WLAN
+ * @sta_tx: sw tx stats on sta interface
+ * @ap_tx: sw tx stats on ap interface
+ *
+ * IPA driver will create/release IOMMU mapping in IPA SMMU from iova->pa
+ */
+struct ipa_wdi_tx_info {
+	uint64_t sta_tx;
+	uint64_t ap_tx;
+};
+
+/**
  * struct ipa_gsi_ep_config - IPA GSI endpoint configurations
  *
  * @ipa_ep_num: IPA EP pipe number
@@ -1421,6 +1465,8 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
+int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info);
+int ipa_set_wlan_tx_info(struct ipa_wdi_tx_info *info);
 u16 ipa_get_smem_restr_bytes(void);
 int ipa_broadcast_wdi_quota_reach_ind(uint32_t fid,
 		uint64_t num_bytes);
@@ -2353,6 +2399,16 @@ static inline void ipa_bam_reg_dump(void)
 }
 
 static inline int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
+{
+	return -EPERM;
+}
+
+static inline int ipa_uc_bw_monitor(struct ipa_wdi_bw_info *info)
+{
+	return -EPERM;
+}
+
+static inline int ipa_set_wlan_tx_info(struct ipa_wdi_tx_info *info)
 {
 	return -EPERM;
 }

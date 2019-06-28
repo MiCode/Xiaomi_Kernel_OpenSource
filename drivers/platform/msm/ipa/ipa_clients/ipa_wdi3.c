@@ -760,3 +760,15 @@ int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	return ipa_get_wdi_stats(stats);
 }
 EXPORT_SYMBOL(ipa_wdi_get_stats);
+
+int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info)
+{
+	return ipa_uc_bw_monitor(info);
+}
+EXPORT_SYMBOL(ipa_wdi_bw_monitor);
+
+int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info)
+{
+	return ipa_set_wlan_tx_info(info);
+}
+EXPORT_SYMBOL(ipa_wdi_sw_stats);
