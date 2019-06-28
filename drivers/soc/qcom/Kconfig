@@ -104,6 +104,102 @@ config QCOM_PM
 	  modes. It interface with various system drivers to put the cores in
 	  low power modes.
 
+config MSM_PIL
+	tristate "Peripheral image loader"
+	select FW_LOADER
+	help
+	  Some peripherals' firmware need to be loaded into memory before
+	  they can be brought out of reset. The Peripheral Image Loader (PIL)
+	  framework is used to achive this. The driver relays the lower-level
+	  functionalities such as, authenticating the images, performing the
+	  reset of the peripheral, and so on to the drivers that are registered
+	  with it.
+
+	  Say 'y' or 'm' to support these devices.
+
+config MSM_SUBSYSTEM_RESTART
+	tristate "MSM Subsystem Restart"
+	depends on MSM_PIL
+	select QCOM_QMI_HELPERS
+	help
+	  This option enables the MSM subsystem restart framework.
+
+	  The MSM subsystem restart framework provides support to boot,
+	  shutdown, and restart subsystems with a reference counted API.
+	  It also extends the APIs to add support for MSM System Monitor
+	  using the QMI layer. These APIs may be used for sending events
+	  or passing commands.
+	  Moreover, the framework also notifies userspace of transitions
+	  between these states via sysfs.
+
+config SETUP_SSR_NOTIF_TIMEOUTS
+	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
+	help
+	  Setup timers prior to initiating communication between
+	  subsystems through sysmon, and prior to sending notifications
+	  to drivers in the kernel that have registered callbacks with the
+	  subsystem notifier framework for a particular subsystem. This
+	  is a debugging feature.
+
+config SSR_SYSMON_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Sysmon notifications timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of sysmon SSR notifications, before a warning
+	  is emitted.
+
+config SSR_SUBSYS_NOTIF_TIMEOUT
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	int "SSR Subsystem notifier timeout in ms"
+	default 10000
+	help
+	  The amount of time, in milliseconds, that should elapse between
+	  the start and end of SSR notifications through the subsystem
+	  notifier, before a warning is emitted.
+
+config PANIC_ON_SSR_NOTIF_TIMEOUT
+	bool "Trigger kernel panic when notification timeout expires"
+	depends on SETUP_SSR_NOTIF_TIMEOUTS
+	help
+	  This is a debug feature where a kernel panic is triggered when
+	  communication between subsystems through sysmon is taking too
+	  long. This scneario can happen if the peripheral has died and
+	  is no longer responsive.
+	  Also trigger a kernel panic if invoking the callbacks registered
+	  with a particular subsystem's notifications by the subsystem
+	  notifier framework is taking too long.
+
+config MSM_PIL_SSR_GENERIC
+	tristate "MSM Subsystem Boot Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down MSM Subsystem processors.
+	  This driver also monitors the SMSM status bits and the watchdog
+	  interrupt for the subsystem and restarts it on a watchdog bite
+	  or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
+	  BCSS.
+
+config MSM_SERVICE_LOCATOR
+	tristate "Service Locator"
+	select QCOM_QMI_HELPERS
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
+config MSM_SERVICE_NOTIFIER
+	tristate "Service Notifier"
+	depends on MSM_SERVICE_LOCATOR && MSM_SUBSYSTEM_RESTART
+	help
+	  The Service Notifier provides a library for a kernel client to
+	  register for state change notifications regarding a remote service.
+	  A remote service here refers to a process providing certain services
+	  like audio, the identifier for which is provided by the service
+	  locator.
+
 config QCOM_QMI_HELPERS
 	tristate
 	depends on ARCH_QCOM || COMPILE_TEST
