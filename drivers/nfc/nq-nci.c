@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +53,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define CLASS_NAME	"nqx"
 #define MAX_BUFFER_SIZE			(320)
 #define WAKEUP_SRC_TIMEOUT		(2000)
-#define MAX_RETRY_COUNT			3
+#define MAX_RETRY_COUNT			6
 #define NCI_RESET_CMD_LEN		4
 #define NCI_INIT_CMD_LEN		3
 #define NCI_RESET_RSP_LEN		6
@@ -107,6 +108,39 @@ static struct notifier_block nfcc_notifier = {
 };
 
 unsigned int	disable_ctrl;
+
+#define MAX_I2C_DUMP_SIZE 512
+#define DUMP_TRANSCIEVING_BUF 0
+
+#if DUMP_TRANSCIEVING_BUF
+static void print_send_buffer(struct nqx_dev *nqx_dev, unsigned char *buf, int len)
+{
+	unsigned char output[MAX_I2C_DUMP_SIZE * 2 + 1];
+	int i;
+
+	if (len > MAX_I2C_DUMP_SIZE)
+		len = MAX_I2C_DUMP_SIZE - 1;
+
+	for (i = 0; i < len; i++) {
+		snprintf(output + i * 2, 3, "%02x ", buf[i]);
+	}
+	dev_warn(&nqx_dev->client->dev, "%3d > %s\n", len, output);
+}
+
+static void print_recv_buffer(struct nqx_dev *nqx_dev, unsigned char *buf, int len)
+{
+	unsigned char output[MAX_I2C_DUMP_SIZE * 2 + 1];
+	int i;
+
+	if (len > MAX_I2C_DUMP_SIZE)
+		len = MAX_I2C_DUMP_SIZE - 1;
+
+	for (i = 0; i < len; i++) {
+		snprintf(output + i * 2, 3, "%02x ", buf[i]);
+	}
+	dev_warn(&nqx_dev->client->dev, "%3d < %s\n", len, output);
+}
+#endif
 
 static void nqx_init_stat(struct nqx_dev *nqx_dev)
 {
@@ -239,6 +273,9 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 		dev_dbg(&nqx_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
 			__func__, tmp[0], tmp[1], tmp[2]);
 #endif
+#if DUMP_TRANSCIEVING_BUF
+	print_recv_buffer(nqx_dev, tmp, ret);
+#endif
 	if (copy_to_user(buf, tmp, ret)) {
 		dev_warn(&nqx_dev->client->dev,
 			"%s : failed to copy to user space\n", __func__);
@@ -293,6 +330,9 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 			__func__, iminor(file_inode(filp)),
 			tmp[0], tmp[1], tmp[2]);
 #endif
+#if DUMP_TRANSCIEVING_BUF
+	print_send_buffer(nqx_dev, tmp, count);
+#endif
 	usleep_range(1000, 1100);
 out_free:
 	kfree(tmp);
@@ -339,6 +379,7 @@ static int sn100_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
 {
 	int r = -1;
 
+	dev_warn(&nqx_dev->client->dev, "% : %d enter,pwr arg=%d\n", __func__, __LINE__, arg);
 	if (arg == 0) {
 		/**
 		 * Let's store the NFC VEN pin state
@@ -386,6 +427,8 @@ static int nqx_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
 	int r = -1;
 	const unsigned char svdd_off_cmd_warn[] =  {0x2F, 0x31, 0x01, 0x01};
 	const unsigned char svdd_off_cmd_done[] =  {0x2F, 0x31, 0x01, 0x00};
+
+	dev_warn(&nqx_dev->client->dev, "% : %d enter,pwr arg=%d\n", __func__, __LINE__, arg);
 
 	if (!gpio_is_valid(nqx_dev->ese_gpio)) {
 		dev_err(&nqx_dev->client->dev,
@@ -518,6 +561,8 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 {
 	int r = 0;
 	struct nqx_dev *nqx_dev = filp->private_data;
+
+	dev_warn(&nqx_dev->client->dev, "% : %d enter,nfc power arg=%d\n", __func__, __LINE__, arg);
 
 	if (arg == 0) {
 		/*
@@ -750,6 +795,7 @@ static const struct file_operations nfc_dev_fops = {
 #endif
 };
 
+#if 1
 /* Check for availability of NQ_ NFC controller hardware */
 static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
@@ -764,6 +810,8 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	char *nci_reset_rsp = NULL;
 	char *nci_get_version_cmd = NULL;
 	char *nci_get_version_rsp = NULL;
+
+	dev_err(&client->dev, "%s : Enter\n ", __func__);
 
 	nci_reset_cmd = kzalloc(NCI_RESET_CMD_LEN + 1, GFP_DMA | GFP_KERNEL);
 	if (!nci_reset_cmd) {
@@ -871,7 +919,7 @@ reset_enable_gpio:
 		goto err_nfcc_reset_failed;
 	}
 	/* hardware dependent delay */
-	msleep(30);
+	msleep(60);
 
 	/* Read Response of RESET command */
 	ret = i2c_master_recv(client, nci_reset_rsp, NCI_RESET_RSP_LEN);
@@ -918,32 +966,36 @@ reset_enable_gpio:
 		nci_reset_rsp[1], nci_reset_rsp[2]);
 
 err_nfcc_reset_failed:
-	dev_dbg(&nqx_dev->client->dev, "NQ NFCC chip_type = %x\n",
+	dev_err(&nqx_dev->client->dev, "NQ NFCC chip_type = %x\n",
 		nqx_dev->nqx_info.info.chip_type);
-	dev_dbg(&nqx_dev->client->dev, "NQ fw version = %x.%x.%x\n",
+	dev_err(&nqx_dev->client->dev, "NQ fw version = %x.%x.%x\n",
 		nqx_dev->nqx_info.info.rom_version,
 		nqx_dev->nqx_info.info.fw_major,
 		nqx_dev->nqx_info.info.fw_minor);
 
 	switch (nqx_dev->nqx_info.info.chip_type) {
 	case NFCC_NQ_210:
-		dev_dbg(&client->dev,
+		dev_warn(&client->dev,
 		"%s: ## NFCC == NQ210 ##\n", __func__);
 		break;
 	case NFCC_NQ_220:
-		dev_dbg(&client->dev,
+		dev_warn(&client->dev,
 		"%s: ## NFCC == NQ220 ##\n", __func__);
 		break;
 	case NFCC_NQ_310:
-		dev_dbg(&client->dev,
+		dev_warn(&client->dev,
 		"%s: ## NFCC == NQ310 ##\n", __func__);
 		break;
 	case NFCC_NQ_330:
-		dev_dbg(&client->dev,
+		dev_warn(&client->dev,
 		"%s: ## NFCC == NQ330 ##\n", __func__);
 		break;
+	case NFCC_SN100_B:
+		dev_warn(&client->dev,
+		"%s: ## NFCC == NFCC_SN100_B ##\n", __func__);
+		break;
 	case NFCC_PN66T:
-		dev_dbg(&client->dev,
+		dev_warn(&client->dev,
 		"%s: ## NFCC == PN66T ##\n", __func__);
 		break;
 	default:
@@ -951,6 +1003,8 @@ err_nfcc_reset_failed:
 		"%s: - NFCC HW not Supported\n", __func__);
 		break;
 	}
+
+	dev_warn(&client->dev, "%s : hw check scuessfully\n", __func__);
 
 	/*Disable NFC by default to save power on boot*/
 	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
@@ -978,6 +1032,7 @@ done:
 
 	return ret;
 }
+#endif
 
 /*
  * Routine to enable clock.
@@ -1030,6 +1085,8 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 	int r = 0;
 	struct device_node *np = dev->of_node;
 
+	dev_err(dev, "%s : Enter\n ", __func__);
+
 	pdata->en_gpio = of_get_named_gpio(np, "qcom,nq-ven", 0);
 	if ((!gpio_is_valid(pdata->en_gpio)))
 		return -EINVAL;
@@ -1059,6 +1116,9 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		pdata->clk_pin_voting = true;
 
 	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
+
+	dev_err(dev, "%s: irq : %d, ven : %d, firm : %d, clkreq_gpio: %d\n",
+		__func__, pdata->irq_gpio, pdata->en_gpio, pdata->firm_gpio, pdata->clkreq_gpio);
 
 	return r;
 }
@@ -1296,7 +1356,7 @@ static int nqx_probe(struct i2c_client *client,
 	/* NFC_INT IRQ */
 	nqx_dev->irq_enabled = true;
 	r = request_irq(client->irq, nqx_dev_irq_handler,
-			  IRQF_TRIGGER_HIGH, client->name, nqx_dev);
+			  IRQF_TRIGGER_RISING, client->name, nqx_dev);
 	if (r) {
 		dev_err(&client->dev, "%s: request_irq failed\n", __func__);
 		goto err_request_irq_failed;
@@ -1308,6 +1368,10 @@ static int nqx_probe(struct i2c_client *client,
 	 * present before attempting further hardware initialisation.
 	 *
 	 */
+/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 1
+
+	dev_err(&client->dev, "%s : call nfcc_hw_check\n", __func__);
 	r = nfcc_hw_check(client, nqx_dev);
 	if (r) {
 		/* make sure NFCC is not enabled */
@@ -1315,6 +1379,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);

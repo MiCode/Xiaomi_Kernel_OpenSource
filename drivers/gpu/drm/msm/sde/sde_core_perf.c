@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,8 +217,8 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	}
 
 	/* we only need bandwidth check on real-time clients (interfaces) */
-	if (sde_crtc_get_client_type(crtc) == NRT_CLIENT)
-		return 0;
+	//if (sde_crtc_get_client_type(crtc) == NRT_CLIENT)
+	//	return 0;
 
 	sde_cstate = to_sde_crtc_state(state);
 

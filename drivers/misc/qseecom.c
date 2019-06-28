@@ -2,6 +2,7 @@
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -203,7 +204,7 @@ struct qseecom_registered_listener_list {
 	phys_addr_t                sb_phys;
 	size_t                     sb_length;
 	wait_queue_head_t          rcv_req_wq;
-	/* rcv_req_flag: 0: ready and empty; 1: received req */
+	/* rcv_req_flag: -1 not ready; 0 ready and empty; 1 received req */
 	int                        rcv_req_flag;
 	int                        send_resp_flag;
 	bool                       listener_in_use;
@@ -343,6 +344,7 @@ struct qseecom_client_handle {
 	char app_name[MAX_APP_NAME_SIZE];
 	u32  app_arch;
 	struct qseecom_sec_buf_fd_info sec_buf_fd[MAX_ION_FD];
+	bool from_smcinvoke;
 };
 
 struct qseecom_listener_handle {
@@ -427,6 +429,8 @@ static int get_qseecom_keymaster_status(char *str)
 	return 1;
 }
 __setup("androidboot.keymaster=", get_qseecom_keymaster_status);
+
+extern void read_qseelog_wakeup(void);
 
 
 #define QSEECOM_SCM_EBUSY_WAIT_MS 30
@@ -1108,6 +1112,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		svc_id, tz_cmd_id, qseos_cmd_id, smc_id, desc.arginfo);
 	pr_debug("scm_resp->result = 0x%x, scm_resp->resp_type = 0x%x, scm_resp->data = 0x%x\n",
 		scm_resp->result, scm_resp->resp_type, scm_resp->data);
+	read_qseelog_wakeup();
 	return ret;
 }
 
@@ -1377,7 +1382,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 			pr_debug("register %d has to wait\n",
 				rcvd_lstnr.listener_id);
 			mutex_unlock(&listener_access_lock);
-			ret = wait_event_freezable(
+			ret = wait_event_interruptible(
 				qseecom.register_lsnr_pending_wq,
 				list_empty(
 				&qseecom.unregister_lsnr_pending_list_head));
@@ -1394,7 +1399,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	if (!new_entry)
 		return -ENOMEM;
 	memcpy(&new_entry->svc, &rcvd_lstnr, sizeof(rcvd_lstnr));
-	new_entry->rcv_req_flag = 0;
+	new_entry->rcv_req_flag = -1;
 
 	new_entry->svc.listener_id = rcvd_lstnr.listener_id;
 	new_entry->sb_length = rcvd_lstnr.sb_size;
@@ -1451,7 +1456,7 @@ static int __qseecom_unregister_listener(struct qseecom_dev_handle *data,
 	}
 
 	while (atomic_read(&data->ioctl_count) > 1) {
-		if (wait_event_freezable(data->abort_wq,
+		if (wait_event_interruptible(data->abort_wq,
 				atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
 			ret = -ERESTARTSYS;
@@ -1467,7 +1472,7 @@ exit:
 	kzfree(ptr_svc);
 
 	data->released = true;
-	pr_debug("Service %d is unregistered\n", data->listener.id);
+	pr_warn("Service %d is unregistered\n", data->listener.id);
 	return ret;
 }
 
@@ -1501,7 +1506,7 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 	list_add_tail(&entry->list,
 		&qseecom.unregister_lsnr_pending_list_head);
 	ptr_svc->unregister_pending = true;
-	pr_debug("unregister %d pending\n", data->listener.id);
+	pr_warn("unregister %d pending\n", data->listener.id);
 	return 0;
 }
 
@@ -1556,7 +1561,7 @@ static void __wakeup_unregister_listener_kthread(void)
 static int __qseecom_unregister_listener_kthread_func(void *data)
 {
 	while (!kthread_should_stop()) {
-		wait_event_freezable(
+		wait_event_interruptible(
 			qseecom.unregister_lsnr_kthread_wq,
 			atomic_read(&qseecom.unregister_lsnr_kthread_state)
 				== LSNR_UNREG_KT_WAKEUP);
@@ -1923,9 +1928,12 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
-				ptr_svc->listener_in_use = true;
-				ptr_svc->rcv_req_flag = 1;
-				wake_up_interruptible(&ptr_svc->rcv_req_wq);
+				if (ptr_svc->rcv_req_flag != -1) {
+					ptr_svc->listener_in_use = true;
+					ptr_svc->rcv_req_flag = 1;
+					wake_up_interruptible(
+							&ptr_svc->rcv_req_wq);
+				}
 				break;
 			}
 		}
@@ -1961,6 +1969,12 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			goto err_resp;
 		}
 
+		if (ptr_svc->rcv_req_flag == -1) {
+			pr_warn("Service %d is not available\n", lstnr);
+			rc = -ENODEV;
+			status = QSEOS_RESULT_FAILURE;
+			goto err_resp;
+		}
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
 
 		/* initialize the new signal mask with all signals*/
@@ -1976,14 +1990,14 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			 * send_resp_flag.
 			 */
 			if (!qseecom.qsee_reentrancy_support &&
-				!wait_event_freezable(qseecom.send_resp_wq,
+				!wait_event_interruptible(qseecom.send_resp_wq,
 				__qseecom_listener_has_sent_rsp(
 						data, ptr_svc))) {
 				break;
 			}
 
 			if (qseecom.qsee_reentrancy_support &&
-				!wait_event_freezable(qseecom.send_resp_wq,
+				!wait_event_interruptible(qseecom.send_resp_wq,
 				__qseecom_reentrancy_listener_has_sent_rsp(
 						data, ptr_svc))) {
 				break;
@@ -2111,6 +2125,7 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 	sigset_t old_sigset;
 	unsigned long flags;
 	bool found_app = false;
+	struct qseecom_registered_app_list dummy_app_entry = { {NULL} };
 
 	if (!resp || !data) {
 		pr_err("invalid resp or data pointer\n");
@@ -2119,25 +2134,32 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 	}
 
 	/* find app_id & img_name from list */
-	if (!ptr_app && data->client.app_arch != ELFCLASSNONE) {
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
-		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
-							list) {
-			if ((ptr_app->app_id == data->client.app_id) &&
-				(!strcmp(ptr_app->app_name,
+	if (!ptr_app) {
+		if (data->client.from_smcinvoke) {
+			pr_debug("This request is from smcinvoke\n");
+			ptr_app = &dummy_app_entry;
+			ptr_app->app_id = data->client.app_id;
+		} else {
+			spin_lock_irqsave(&qseecom.registered_app_list_lock,
+						flags);
+			list_for_each_entry(ptr_app,
+				&qseecom.registered_app_list_head, list) {
+				if ((ptr_app->app_id == data->client.app_id) &&
+					(!strcmp(ptr_app->app_name,
 						data->client.app_name))) {
-				found_app = true;
-				break;
+					found_app = true;
+					break;
+				}
 			}
-		}
-		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
-					flags);
-		if (!found_app) {
-			pr_err("app_id %d (%s) is not found\n",
-				data->client.app_id,
-				(char *)data->client.app_name);
-			ret = -ENOENT;
-			goto exit;
+			spin_unlock_irqrestore(
+				&qseecom.registered_app_list_lock, flags);
+			if (!found_app) {
+				pr_err("app_id %d (%s) is not found\n",
+					data->client.app_id,
+					(char *)data->client.app_name);
+				ret = -ENOENT;
+				goto exit;
+			}
 		}
 	}
 
@@ -2166,7 +2188,7 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 			ptr_app->app_blocked = true;
 			mutex_unlock(&listener_access_lock);
 			mutex_unlock(&app_access_lock);
-			wait_event_freezable(
+			wait_event_interruptible(
 				list_ptr->listener_block_app_wq,
 				!list_ptr->listener_in_use);
 			mutex_lock(&app_access_lock);
@@ -2249,9 +2271,12 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		list_for_each_entry(ptr_svc,
 				&qseecom.registered_listener_list_head, list) {
 			if (ptr_svc->svc.listener_id == lstnr) {
-				ptr_svc->listener_in_use = true;
-				ptr_svc->rcv_req_flag = 1;
-				wake_up_interruptible(&ptr_svc->rcv_req_wq);
+				if (ptr_svc->rcv_req_flag != -1) {
+					ptr_svc->listener_in_use = true;
+					ptr_svc->rcv_req_flag = 1;
+					wake_up_interruptible(
+							&ptr_svc->rcv_req_wq);
+				}
 				break;
 			}
 		}
@@ -2287,6 +2312,12 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			goto err_resp;
 		}
 
+		if (ptr_svc->rcv_req_flag == -1) {
+			pr_warn("Service %d is not available\n", lstnr);
+			rc = -ENODEV;
+			status = QSEOS_RESULT_FAILURE;
+			goto err_resp;
+		}
 		pr_debug("waking up rcv_req_wq and waiting for send_resp_wq\n");
 
 		/* initialize the new signal mask with all signals*/
@@ -2299,7 +2330,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		mutex_unlock(&listener_access_lock);
 		mutex_unlock(&app_access_lock);
 		do {
-			if (!wait_event_freezable(qseecom.send_resp_wq,
+			if (!wait_event_interruptible(qseecom.send_resp_wq,
 				__qseecom_reentrancy_listener_has_sent_rsp(
 						data, ptr_svc))) {
 				break;
@@ -2454,7 +2485,8 @@ static void __qseecom_reentrancy_check_if_no_app_blocked(uint32_t smc_id)
 			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
 			do {
-				if (!wait_event_freezable(qseecom.app_block_wq,
+				if (!wait_event_interruptible(
+					qseecom.app_block_wq,
 					(qseecom.app_block_ref_cnt == 0)))
 					break;
 			} while (1);
@@ -2482,7 +2514,8 @@ static void __qseecom_reentrancy_check_if_this_app_blocked(
 			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
 			do {
-				if (!wait_event_freezable(qseecom.app_block_wq,
+				if (!wait_event_interruptible(
+					qseecom.app_block_wq,
 					(!ptr_app->app_blocked &&
 					qseecom.app_block_ref_cnt <= 1)))
 					break;
@@ -2821,7 +2854,7 @@ static int __qseecom_cleanup_app(struct qseecom_dev_handle *data)
 	if (qseecom.qsee_reentrancy_support)
 		mutex_unlock(&app_access_lock);
 	while (atomic_read(&data->ioctl_count) > 1) {
-		if (wait_event_freezable(data->abort_wq,
+		if (wait_event_interruptible(data->abort_wq,
 					atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
 			ret = -ERESTARTSYS;
@@ -2844,6 +2877,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 	bool unload = false;
 	bool found_app = false;
 	bool found_dead_app = false;
+	bool scm_called = false;
 
 	if (!data) {
 		pr_err("Invalid/uninitialized device handle\n");
@@ -2902,11 +2936,12 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &req,
 				sizeof(struct qseecom_unload_app_ireq),
 				&resp, sizeof(resp));
+		scm_called = true;
 		if (ret) {
 			pr_err("scm_call to unload app (id = %d) failed\n",
 								req.app_id);
 			ret = -EFAULT;
-			goto unload_exit;
+			goto scm_exit;
 		} else {
 			pr_warn("App id %d now unloaded\n", req.app_id);
 		}
@@ -2914,7 +2949,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			pr_err("app (%d) unload_failed!!\n",
 					data->client.app_id);
 			ret = -EFAULT;
-			goto unload_exit;
+			goto scm_exit;
 		}
 		if (resp.result == QSEOS_RESULT_SUCCESS)
 			pr_debug("App (%d) is unloaded!!\n",
@@ -2924,11 +2959,35 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			if (ret) {
 				pr_err("process_incomplete_cmd fail err: %d\n",
 									ret);
-				goto unload_exit;
+				goto scm_exit;
 			}
 		}
 	}
 
+scm_exit:
+	if (scm_called) {
+		/* double check if this app_entry still exists */
+		bool doublecheck = false;
+
+		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
+		list_for_each_entry(ptr_app,
+			&qseecom.registered_app_list_head, list) {
+			if ((ptr_app->app_id == data->client.app_id) &&
+				(!strcmp((void *)ptr_app->app_name,
+				(void *)data->client.app_name))) {
+				doublecheck = true;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
+								flags1);
+		if (!doublecheck) {
+			pr_warn("app %d(%s) entry is already removed\n",
+				data->client.app_id,
+				(char *)data->client.app_name);
+			found_app = false;
+		}
+	}
 unload_exit:
 	if (found_app) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
@@ -4102,15 +4161,20 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 		mutex_unlock(&listener_access_lock);
 		return -ENODATA;
 	}
+	if (this_lstnr->rcv_req_flag == -1)
+		this_lstnr->rcv_req_flag = 0;
 	mutex_unlock(&listener_access_lock);
 
 	while (1) {
-		if (wait_event_freezable(this_lstnr->rcv_req_wq,
+		if (wait_event_interruptible(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,
 				this_lstnr))) {
-			pr_debug("Interrupted: exiting Listener Service = %d\n",
+			pr_warn("Interrupted: exiting Listener Service = %d\n",
 						(uint32_t)data->listener.id);
 			/* woken up for different reason */
+			mutex_lock(&listener_access_lock);
+			this_lstnr->rcv_req_flag = -1;
+			mutex_unlock(&listener_access_lock);
 			return -ERESTARTSYS;
 		}
 
@@ -4998,6 +5062,7 @@ int qseecom_process_listener_from_smcinvoke(struct scm_desc *desc)
 	resp.data = desc->ret[2];	/*listener_id*/
 
 	dummy_private_data.client.app_id = desc->ret[1];
+	dummy_private_data.client.from_smcinvoke = true;
 	dummy_app_entry.app_id = desc->ret[1];
 
 	mutex_lock(&app_access_lock);
@@ -7943,7 +8008,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			data->type, data->mode, data);
 		switch (data->type) {
 		case QSEECOM_LISTENER_SERVICE:
-			pr_debug("release lsnr svc %d\n", data->listener.id);
+			pr_warn("release lsnr svc %d\n", data->listener.id);
 			free_private_data = false;
 			mutex_lock(&listener_access_lock);
 			ret = qseecom_unregister_listener(data);

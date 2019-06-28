@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014 Samsung Electronics Co., Ltd
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -356,6 +357,29 @@ void drm_bridge_pre_enable(struct drm_bridge *bridge)
 		bridge->funcs->pre_enable(bridge);
 }
 EXPORT_SYMBOL(drm_bridge_pre_enable);
+
+void drm_bridge_disp_param_set(struct drm_bridge *bridge, int cmd)
+{
+	if (!bridge)
+		return;
+
+	drm_bridge_disp_param_set(bridge->next, cmd);
+
+	if (bridge->funcs->disp_param_set)
+		bridge->funcs->disp_param_set(bridge, cmd);
+}
+int drm_get_panel_info(struct drm_bridge *bridge, char *buf)
+{
+	int rc = 0;
+	if (!bridge)
+		return rc;
+
+	if (bridge->funcs->disp_get_panel_info)
+		return bridge->funcs->disp_get_panel_info(bridge, buf);
+
+	return rc;
+}
+EXPORT_SYMBOL(drm_get_panel_info);
 
 /**
  * drm_bridge_enable - enables all bridges in the encoder chain

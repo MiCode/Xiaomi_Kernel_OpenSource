@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundataion. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +99,13 @@ const char *cam_get_module_name(unsigned int module_id)
 	case CAM_REQ:
 		name = "CAM-REQ";
 		break;
+
+	/* Added by qudao1@xiaomi.com */
+	case CAM_XIAOMI:
+		name = "CAM-XIAOMI";
+		break;
+	/* End of Added by qudao1@xiaomi.com */
+
 	default:
 		name = "CAM";
 		break;

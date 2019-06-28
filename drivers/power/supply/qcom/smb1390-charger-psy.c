@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -704,6 +705,7 @@ static enum power_supply_property smb1390_charge_pump_props[] = {
 	POWER_SUPPLY_PROP_CP_TOGGLE_SWITCHER,
 	POWER_SUPPLY_PROP_CP_IRQ_STATUS,
 	POWER_SUPPLY_PROP_CP_ILIM,
+	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_CHIP_VERSION,
 };
 
@@ -725,6 +727,13 @@ static int smb1390_get_prop(struct power_supply *psy,
 		rc = smb1390_read(chip, CORE_STATUS2_REG, &status);
 		if (!rc)
 			val->intval = status;
+		break;
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		rc = smb1390_read(chip, CORE_STATUS1_REG, &status);
+		if (rc < 0)
+			val->strval = "unknown";
+		else
+			val->strval = "smb1390";
 		break;
 	case POWER_SUPPLY_PROP_CP_ENABLE:
 		rc = smb1390_get_cp_en_status(chip, SMB_PIN_EN, &enable);

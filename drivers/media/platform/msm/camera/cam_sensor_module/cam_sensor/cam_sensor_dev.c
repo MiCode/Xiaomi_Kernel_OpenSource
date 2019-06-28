@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +107,55 @@ static struct v4l2_subdev_ops cam_sensor_subdev_ops = {
 static const struct v4l2_subdev_internal_ops cam_sensor_internal_ops = {
 	.close = cam_sensor_subdev_close,
 };
+
+#ifdef XIAOMI_CAM_DBG
+static ssize_t xiaomi_cam_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t xiaomi_cam_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+
+	struct cam_sensor_ctrl_t *s_ctrl = NULL;
+	int rc = -1;
+	int onoff = -1;
+
+	s_ctrl = dev_get_drvdata(dev);
+	if (IS_ERR_OR_NULL(s_ctrl)) {
+		CAM_ERR(CAM_SENSOR, "err! s_ctrl %p", s_ctrl);
+		return -EINVAL;
+	}
+
+	CAM_INFO(CAM_SENSOR, "got s_ctrl %p, id %d", s_ctrl, s_ctrl->id);
+
+	rc = sscanf(buf, "%d", &onoff);
+	if (1 != rc) {
+		CAM_ERR(CAM_SENSOR, "invalid input %s\n", buf);
+		return -EINVAL;
+	} else {
+		CAM_INFO(CAM_SENSOR, "get cmd onoff %d\n", onoff);
+	}
+
+	if (onoff > 0) {
+		CAM_INFO(CAM_SENSOR, "power up slot %d\n", s_ctrl->id);
+		rc = cam_sensor_power_up(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
+		}
+	} else {
+		CAM_INFO(CAM_SENSOR, "power down slot %d\n", s_ctrl->id);
+		rc = cam_sensor_power_down(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
+		}
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(xm_cam, 0664, xiaomi_cam_show, xiaomi_cam_store);
+#endif
 
 static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -336,6 +386,14 @@ static int32_t cam_sensor_driver_platform_probe(
 
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
+	v4l2_set_subdevdata(&(s_ctrl->v4l2_dev_str.sd), s_ctrl);
+
+#ifdef XIAOMI_CAM_DBG
+	CAM_ERR(CAM_SENSOR, "create for s_ctrl %p, id %d",
+		s_ctrl, s_ctrl->id);
+	device_create_file(&pdev->dev, &dev_attr_xm_cam);
+#endif
+
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 
 	return rc;

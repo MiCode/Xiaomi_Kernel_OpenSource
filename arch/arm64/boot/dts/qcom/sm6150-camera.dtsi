@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,8 +185,8 @@
 		};
 
 		i2c_freq_400Khz: qcom,i2c_fast_mode {
-			hw-thigh = <38>;
-			hw-tlow = <56>;
+			hw-thigh = <48>;
+			hw-tlow = <46>;
 			hw-tsu-sto = <40>;
 			hw-tsu-sta = <40>;
 			hw-thd-dat = <22>;

@@ -10,7 +10,9 @@ menuconfig INPUT_TOUCHSCREEN
 	  If unsure, say Y.
 
 if INPUT_TOUCHSCREEN
-
+source "drivers/input/touchscreen/goodix_driver_gt9886/Kconfig"
+source "drivers/input/touchscreen/fts_521/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1275,6 +1277,16 @@ config TOUCHSCREEN_SYNAPTICS_DSX
           Say Y here if you have a Synaptics Touchscreen.
 
           If unsure, say N.
+
+config TOUCHSCREEN_NT36XXX
+	bool "Novatech Touchscreen Driver"
+	depends on I2C
+	help
+	  Say Y here if you have a STMicroelectronics Touchscreen.
+
+	  If unsure, say N.
+
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 

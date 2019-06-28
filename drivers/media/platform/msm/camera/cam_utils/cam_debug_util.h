@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +48,12 @@
 #define CAM_PERF       (1 << 25)
 
 #define CAM_HYP        (1 << 26)
+
+/* Added by qudao1@xiaomi.com */
+#define CAM_XIAOMI       (1 << 31)
+/* End of Added by qudao1@xiaomi.com */
+
+
 #define STR_BUFFER_MAX_LENGTH  1024
 
 /*

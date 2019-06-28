@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,8 +42,6 @@ int cam_io_w(uint32_t data, void __iomem *addr);
  * @return:             Success or Failure
  */
 int cam_io_w_mb(uint32_t data, void __iomem *addr);
-int cam_io_w_csid_mb(uint32_t data, void __iomem *addr);
-int cam_io_w_vfe_mb(uint32_t data, void __iomem *addr);
 
 /**
  * cam_io_r()
