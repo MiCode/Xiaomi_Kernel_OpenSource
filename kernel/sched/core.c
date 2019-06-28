@@ -1714,8 +1714,13 @@ struct migration_arg {
  * So we race with normal scheduler movements, but that's OK, as long
  * as the task is no longer on this CPU.
  */
+#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				 struct task_struct *p, int dest_cpu)
+#else
+struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+				 struct task_struct *p, int dest_cpu)
+#endif
 {
 	/* Affinity changed (again). */
 	if (!is_cpu_allowed(p, dest_cpu))

@@ -9716,7 +9716,11 @@ static int need_active_balance(struct lb_env *env)
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
 
+#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 static int active_load_balance_cpu_stop(void *data);
+#else
+int active_load_balance_cpu_stop(void *data);
+#endif
 
 static int should_we_balance(struct lb_env *env)
 {
@@ -10053,6 +10057,7 @@ update_next_balance(struct sched_domain *sd, unsigned long *next_balance)
 		*next_balance = next;
 }
 
+#ifndef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 /*
  * active_load_balance_cpu_stop is run by the CPU stopper. It pushes
  * running tasks off the busiest CPU onto idle CPUs. It requires at
@@ -10060,6 +10065,9 @@ update_next_balance(struct sched_domain *sd, unsigned long *next_balance)
  * avoids physical / logical imbalances.
  */
 static int active_load_balance_cpu_stop(void *data)
+#else
+int active_load_balance_cpu_stop(void *data)
+#endif
 {
 	struct rq *busiest_rq = data;
 	int busiest_cpu = cpu_of(busiest_rq);
@@ -10782,6 +10790,10 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 			break;
 	}
 	rcu_read_unlock();
+
+	/* We could not pull task to this_cpu when this_rq offline */
+	if (this_rq->online && !pulled_task)
+		pulled_task = aggressive_idle_pull(this_cpu);
 
 	raw_spin_lock(&this_rq->lock);
 

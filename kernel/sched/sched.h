@@ -1024,6 +1024,11 @@ struct rq {
 	struct cpuidle_state	*idle_state;
 	int			idle_state_idx;
 #endif
+
+#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+	struct task_struct *migrate_task;
+#endif
+
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

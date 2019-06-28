@@ -59,3 +59,31 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->wake_flags)
 
 );
+
+/*
+ * Tracepoint for task migrations.
+ */
+TRACE_EVENT(sched_migrate,
+
+	TP_PROTO(struct task_struct *tsk, int dest, int force),
+
+	TP_ARGS(tsk, dest, force),
+
+	TP_STRUCT__entry(
+		__array(char, comm, TASK_COMM_LEN)
+		__field(pid_t, pid)
+		__field(int,  dest)
+		__field(int,  force)
+		),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+		__entry->pid   = tsk->pid;
+		__entry->dest  = dest;
+		__entry->force = force;
+		),
+
+	TP_printk("comm=%s pid=%d dest=%d force=%d",
+		__entry->comm, __entry->pid,
+		__entry->dest, __entry->force)
+);

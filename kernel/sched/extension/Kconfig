@@ -1,4 +1,15 @@
 menu "MTK load balance and schedule enhancement"
+
+config MTK_IDLE_BALANCE_ENHANCEMENT
+	bool "mtk load balance enhancement"
+	depends on SMP && ENERGY_MODEL && CPU_FREQ_GOV_SCHEDUTIL
+	help
+	  Mediatek aggressive idle balance, include
+	  1. for runnable tasks with idle prefer attributes
+	  2. for runnable and running tasks with min_cap(dynamic floor)
+	  3. migrate runnable task directly and
+		use stop machine to migrate running task
+
 config MTK_SCHED_INTEROP
 	bool "mtk scheduling interopation enhancement"
 	default n

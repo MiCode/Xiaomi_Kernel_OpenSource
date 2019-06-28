@@ -47,4 +47,14 @@ extern bool is_rt_throttle(int cpu);
 
 bool is_intra_domain(int prev, int target);
 
+unsigned int aggressive_idle_pull(int this_cpu);
+
+#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+#define MIGR_IDLE_RUNNING      1
+
+struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+					struct task_struct *p, int dest_cpu);
+int active_load_balance_cpu_stop(void *data);
+#endif
+
 #endif
