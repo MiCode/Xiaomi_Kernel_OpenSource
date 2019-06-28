@@ -3600,6 +3600,7 @@ static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 {
 	struct usb_hub		*hub = usb_get_intfdata(intf);
 	struct usb_device	*hdev = hub->hdev;
+	struct usb_hcd		*hcd = bus_to_hcd(hdev->bus);
 	unsigned		port1;
 	int			status;
 
@@ -3633,6 +3634,9 @@ static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 	}
 
 	if (hub_is_superspeed(hdev) && hdev->do_remote_wakeup) {
+		if (!hdev->parent && hcd->primary_hcd)
+			usb_phy_powerup(hcd->primary_hcd->usb3_phy);
+
 		/* Enable hub to send remote wakeup for all ports. */
 		for (port1 = 1; port1 <= hdev->maxchild; port1++) {
 			status = set_port_feature(hdev,
@@ -3642,6 +3646,9 @@ static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 					USB_PORT_FEAT_REMOTE_WAKE_OVER_CURRENT,
 					USB_PORT_FEAT_REMOTE_WAKE_MASK);
 		}
+
+		if (!hdev->parent && hcd->primary_hcd)
+			usb_phy_powerdown(hcd->primary_hcd->usb3_phy);
 	}
 
 	dev_dbg(&intf->dev, "%s\n", __func__);
