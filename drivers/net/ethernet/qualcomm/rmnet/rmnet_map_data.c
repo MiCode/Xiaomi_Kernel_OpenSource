@@ -1097,13 +1097,45 @@ enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
 	return HRTIMER_NORESTART;
 }
 
+static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
+{
+	unsigned int linear = src->len - src->data_len, target = src->len;
+	unsigned char *src_buf;
+	struct sk_buff *skb;
+
+	src_buf = src->data;
+	skb_put_data(dst, src_buf, linear);
+	target -= linear;
+
+	skb = src;
+
+	while (target) {
+		unsigned int i = 0, non_linear = 0;
+
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			non_linear = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+			src_buf = skb_frag_address(&skb_shinfo(skb)->frags[i]);
+
+			skb_put_data(dst, src_buf, non_linear);
+			target -= non_linear;
+		}
+
+		if (skb_shinfo(skb)->frag_list) {
+			skb = skb_shinfo(skb)->frag_list;
+			continue;
+		}
+
+		if (skb->next)
+			skb = skb->next;
+	}
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
 	int size, agg_count = 0;
 	struct sk_buff *agg_skb;
 	unsigned long flags;
-	u8 *dest_buff;
 
 new_packet:
 	spin_lock_irqsave(&port->agg_lock, flags);
@@ -1125,7 +1157,8 @@ new_packet:
 			return;
 		}
 
-		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
+		port->agg_skb = alloc_skb(port->egress_agg_params.agg_size,
+					  GFP_ATOMIC);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
 			port->agg_count = 0;
@@ -1135,6 +1168,8 @@ new_packet:
 			dev_queue_xmit(skb);
 			return;
 		}
+		rmnet_map_linearize_copy(port->agg_skb, skb);
+		port->agg_skb->dev = skb->dev;
 		port->agg_skb->protocol = htons(ETH_P_MAP);
 		port->agg_count = 1;
 		getnstimeofday(&port->agg_time);
@@ -1159,8 +1194,7 @@ new_packet:
 		goto new_packet;
 	}
 
-	dest_buff = skb_put(port->agg_skb, skb->len);
-	memcpy(dest_buff, skb->data, skb->len);
+	rmnet_map_linearize_copy(port->agg_skb, skb);
 	port->agg_count++;
 	dev_kfree_skb_any(skb);
 
