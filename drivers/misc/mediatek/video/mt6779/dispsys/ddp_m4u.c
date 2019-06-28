@@ -5,6 +5,7 @@
 
 #include <linux/types.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-iommu.h>
 #include "ddp_m4u.h"
 #include "ddp_dump.h"
 #include "ddp_hal.h"
@@ -466,9 +467,10 @@ int disp_aosp_release_reserved_area(phys_addr_t pa_start,
 
 int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		     phys_addr_t pa_end,
+		     unsigned long *va,
 		     dma_addr_t *iova)
 {
-	void *cookie;
+	int ret;
 	size_t size = pa_end - pa_start + 1;
 
 	if (!dev) {
@@ -487,9 +489,9 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		return -1;
 	}
 
-	cookie = dma_alloc_attrs(dev, size, iova,
+	*va = (unsigned long)dma_alloc_attrs(dev, size, iova,
 			GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
-	if (!cookie) {
+	if (!(*va)) {
 		DISP_PR_ERR("%s:%d alloc dma_buf fail! ",
 				__func__, __LINE__);
 		DISP_PR_ERR("dev:0x%p, size:%d, iova:0x%p\n",
@@ -497,7 +499,6 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		return -1;
 	}
 
-	DDPDBG("alloc iova=0x%08x\n", (unsigned long)iova);
 	return 0;
 }
 
@@ -508,10 +509,6 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 #ifndef MTKFB_M4U_SUPPORT
 	dma_addr_t iova;
 #endif
-
-	*va = (unsigned long)ioremap_nocache(pa_start, pa_end - pa_start + 1);
-	pr_debug("%s: pa_start=0x%pa, pa_end=0x%pa, va=0x%lx\n",
-		 __func__, &pa_start, &pa_end, *va);
 
 #ifdef MTKFB_M4U_SUPPORT
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
@@ -540,9 +537,12 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 		*mva = pa_start & 0xffffffffULL;
 	}
 #else
-	disp_aosp_alloc_iova(ddp_m4u_dev, pa_start, pa_end, &iova);
+	disp_aosp_alloc_iova(ddp_m4u_dev, pa_start, pa_end, va, &iova);
 	*mva = iova & 0xffffffffULL;
 #endif
+
+	pr_debug("%s:%d, pa=(0x%pa,0x%pa), va=0x%lx\n",
+		 __func__, __LINE__, &pa_start, &pa_end, *va);
 
 	return 0;
 }

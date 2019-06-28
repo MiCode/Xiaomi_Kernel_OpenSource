@@ -105,6 +105,7 @@ int disp_aosp_release_reserved_area(phys_addr_t pa_start,
 		     phys_addr_t pa_end);
 int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		     phys_addr_t pa_end,
+		     unsigned long *va,
 		     dma_addr_t *iova);
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva);
