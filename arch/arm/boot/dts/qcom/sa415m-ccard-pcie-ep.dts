@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-ccard.dtsi"
+#include "sa415m-ccard.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA415M CCARD PCIE-EP";
-	compatible = "qcom,sdxpoorwills-ccard",
+	compatible = "qcom,sa415m-ccard",
 		"qcom,sdxpoorwills", "qcom,ccard";
 	qcom,board-id = <25 1>, <25 0x101>;
 };
