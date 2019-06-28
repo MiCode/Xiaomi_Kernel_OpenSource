@@ -212,6 +212,10 @@ struct ipa_api_controller {
 
 	int (*ipa_get_wdi_stats)(struct IpaHwStatsWDIInfoData_t *stats);
 
+	int (*ipa_uc_bw_monitor)(struct ipa_wdi_bw_info *info);
+
+	int (*ipa_set_wlan_tx_info)(struct ipa_wdi_tx_info *info);
+
 	u16 (*ipa_get_smem_restr_bytes)(void);
 
 	int (*ipa_broadcast_wdi_quota_reach_ind)(uint32_t fid,

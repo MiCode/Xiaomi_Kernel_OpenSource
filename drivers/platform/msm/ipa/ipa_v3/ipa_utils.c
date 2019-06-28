@@ -4115,7 +4115,8 @@ u8 ipa3_get_qmb_master_sel(enum ipa_client_type client)
 		[client].qmb_master_sel;
 }
 
-/* ipa3_set_client() - provide client mapping
+/**
+ * ipa3_set_client() - provide client mapping
  * @client: client type
  *
  * Return value: none
@@ -4132,8 +4133,8 @@ void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink)
 		ipa3_ctx->ipacm_client[index].uplink = uplink;
 	}
 }
-
-/* ipa3_get_wlan_stats() - get ipa wifi stats
+/**
+ * ipa3_get_wlan_stats() - get ipa wifi stats
  *
  * Return value: success or failure
  */
@@ -4149,11 +4150,34 @@ int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats)
 	return 0;
 }
 
+/**
+ * ipa3_set_wlan_quota() - set ipa wifi quota
+ * @wdi_quota: quota requirement
+ *
+ * Return value: success or failure
+ */
 int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota)
 {
 	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
 		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_SET_WIFI_QUOTA,
 			wdi_quota);
+	} else {
+		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+/**
+ * ipa3_inform_wlan_bw() - inform wlan bw-index
+ *
+ * Return value: success or failure
+ */
+int ipa3_inform_wlan_bw(struct ipa_inform_wlan_bw *wdi_bw)
+{
+	if (ipa3_ctx->uc_wdi_ctx.stats_notify) {
+		ipa3_ctx->uc_wdi_ctx.stats_notify(IPA_INFORM_WLAN_BW,
+			wdi_bw);
 	} else {
 		IPAERR("uc_wdi_ctx.stats_notify NULL\n");
 		return -EFAULT;
@@ -6878,6 +6902,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_resume_wdi_pipe = ipa3_resume_wdi_pipe;
 	api_ctrl->ipa_suspend_wdi_pipe = ipa3_suspend_wdi_pipe;
 	api_ctrl->ipa_get_wdi_stats = ipa3_get_wdi_stats;
+	api_ctrl->ipa_uc_bw_monitor = ipa3_uc_bw_monitor;
+	api_ctrl->ipa_set_wlan_tx_info = ipa3_set_wlan_tx_info;
 	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
 	api_ctrl->ipa_broadcast_wdi_quota_reach_ind =
 			ipa3_broadcast_wdi_quota_reach_ind;
@@ -8279,6 +8305,30 @@ bool ipa3_is_apq(void)
 		return true;
 	else
 		return false;
+}
+
+/**
+ * ipa_get_fnr_info() - get fnr_info
+ *
+ * Return value: true if set, false if not set
+ *
+ */
+bool ipa_get_fnr_info(struct ipacm_fnr_info *fnr_info)
+{
+	bool res = false;
+
+	if (ipa3_ctx->fnr_info.valid) {
+		fnr_info->valid = ipa3_ctx->fnr_info.valid;
+		fnr_info->hw_counter_offset =
+			ipa3_ctx->fnr_info.hw_counter_offset;
+		fnr_info->sw_counter_offset =
+			ipa3_ctx->fnr_info.sw_counter_offset;
+		res = true;
+	} else {
+		IPAERR("fnr_info not valid!\n");
+		res = false;
+	}
+	return res;
 }
 
 /**

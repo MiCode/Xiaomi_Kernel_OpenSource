@@ -3104,10 +3104,15 @@ static int rmnet_ipa3_set_data_quota_wifi(struct wan_ioctl_set_data_quota *data)
 	IPAWANERR("iface name %s, quota %lu\n",
 		  data->interface_name, (unsigned long) data->quota_mbytes);
 
-	rc = ipa3_set_wlan_quota(&wifi_quota);
-	/* check if wlan-fw takes this quota-set */
-	if (!wifi_quota.set_valid)
-		rc = -EFAULT;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		IPADBG("use ipa-uc for quota\n");
+		rc = ipa3_uc_quota_monitor(data->set_quota);
+	} else {
+		rc = ipa3_set_wlan_quota(&wifi_quota);
+		/* check if wlan-fw takes this quota-set */
+		if (!wifi_quota.set_valid)
+			rc = -EFAULT;
+	}
 	return rc;
 }
 
@@ -3628,6 +3633,144 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	return rc;
 }
 
+static int rmnet_ipa3_query_tethering_stats_fnr(
+	struct wan_ioctl_query_tether_stats_all *data)
+{
+	int rc = 0;
+	int num_counters;
+	struct ipa_ioc_flt_rt_query fnr_stats, fnr_stats_sw;
+	struct ipacm_fnr_info fnr_info;
+
+	memset(&fnr_stats, 0, sizeof(struct ipa_ioc_flt_rt_query));
+	memset(&fnr_stats_sw, 0, sizeof(struct ipa_ioc_flt_rt_query));
+	memset(&fnr_info, 0, sizeof(struct ipacm_fnr_info));
+
+	if (!ipa_get_fnr_info(&fnr_info)) {
+		IPAERR("FNR counter haven't configured\n");
+		return -EINVAL;
+	}
+
+	fnr_stats.start_id = fnr_info.hw_counter_offset + UL_HW;
+	fnr_stats.end_id = fnr_info.hw_counter_offset + DL_HW;
+	fnr_stats.reset = data->reset_stats;
+	num_counters = fnr_stats.end_id - fnr_stats.start_id + 1;
+
+	if (num_counters != 2) {
+		IPAWANERR("Only query 2 counters\n");
+		return -EINVAL;
+	}
+
+	fnr_stats.stats = (uint64_t)kcalloc(
+		num_counters,
+		sizeof(struct ipa_flt_rt_stats),
+		GFP_KERNEL);
+	if (!fnr_stats.stats) {
+		IPAERR("Failed to allocate memory for query hw-stats\n");
+		return -ENOMEM;
+	}
+
+	if (ipa_get_flt_rt_stats(&fnr_stats)) {
+		IPAERR("Failed to request stats from h/w\n");
+		rc = -EINVAL;
+		goto free_stats;
+	}
+
+	IPAWANDBG("ul: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_pkts_hash);
+	IPAWANDBG("dl: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_pkts_hash);
+
+	data->tx_bytes =
+		((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_bytes;
+	data->rx_bytes =
+		((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_bytes;
+
+	/* get the sw stats */
+	fnr_stats_sw.start_id = fnr_info.sw_counter_offset + UL_HW_CACHE;
+	fnr_stats_sw.end_id = fnr_info.sw_counter_offset + DL_HW_CACHE;
+	fnr_stats_sw.reset = data->reset_stats;
+	num_counters = fnr_stats_sw.end_id - fnr_stats_sw.start_id + 1;
+
+	if (num_counters != 2) {
+		IPAWANERR("Only query 2 counters\n");
+		return -EINVAL;
+	}
+
+	fnr_stats_sw.stats = (uint64_t)kcalloc(
+		num_counters,
+		sizeof(struct ipa_flt_rt_stats),
+		GFP_KERNEL);
+	if (!fnr_stats_sw.stats) {
+		IPAERR("Failed to allocate memory for query sw-stats\n");
+		return -ENOMEM;
+	}
+
+	if (ipa_get_flt_rt_stats(&fnr_stats_sw)) {
+		IPAERR("Failed to request stats from h/w\n");
+		rc = -EINVAL;
+		goto free_stats2;
+	}
+
+	IPAWANDBG("ul sw: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts_hash);
+	IPAWANDBG("dl sw: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts_hash);
+
+	/* update the sw-cache */
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_bytes +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_bytes;
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_pkts;
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts_hash +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[0].num_pkts_hash;
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_bytes +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_bytes;
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_pkts;
+	((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts_hash +=
+	((struct ipa_flt_rt_stats *)fnr_stats.stats)[1].num_pkts_hash;
+
+	IPAWANDBG("ul sw: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0].num_pkts_hash);
+	IPAWANDBG("dl sw: bytes = %llu, pkts = %u, pkts_hash = %u\n",
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_bytes,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts,
+	  ((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1].num_pkts_hash);
+	/* write to the sw cache */
+	if (ipa_set_flt_rt_stats(fnr_info.sw_counter_offset +
+		UL_HW_CACHE,
+		((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[0])) {
+		IPAERR("Failed to set stats to sw-cache %d\n",
+			fnr_info.sw_counter_offset + UL_HW_CACHE);
+		rc = -EINVAL;
+		goto free_stats2;
+	}
+
+	if (ipa_set_flt_rt_stats(fnr_info.sw_counter_offset +
+		DL_HW_CACHE,
+		((struct ipa_flt_rt_stats *)fnr_stats_sw.stats)[1])) {
+		IPAERR("Failed to set stats to sw-cache %d\n",
+			fnr_info.sw_counter_offset + DL_HW_CACHE);
+		rc = -EINVAL;
+		goto free_stats2;
+	}
+
+free_stats2:
+	kfree((void *)fnr_stats_sw.stats);
+free_stats:
+	kfree((void *)fnr_stats.stats);
+	return rc;
+}
 
 int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset)
@@ -3685,17 +3828,30 @@ int rmnet_ipa3_query_tethering_stats_all(
 			data->upstreamIface);
 	} else if (upstream_type == IPA_UPSTEAM_WLAN) {
 		IPAWANDBG_LOW(" query wifi-backhaul stats\n");
-		rc = rmnet_ipa3_query_tethering_stats_wifi(
-			&tether_stats, data->reset_stats);
-		if (rc) {
-			IPAWANERR_RL(
-				"wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
-			return rc;
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5 ||
+			!ipa3_ctx->hw_stats.enabled) {
+			IPAWANDBG("hw version %d,hw_stats.enabled %d\n",
+				ipa3_ctx->ipa_hw_type,
+				ipa3_ctx->hw_stats.enabled);
+			rc = rmnet_ipa3_query_tethering_stats_wifi(
+				&tether_stats, data->reset_stats);
+			if (rc) {
+				IPAWANERR_RL(
+					"wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
+				return rc;
+			}
+			data->tx_bytes = tether_stats.ipv4_tx_bytes
+				+ tether_stats.ipv6_tx_bytes;
+			data->rx_bytes = tether_stats.ipv4_rx_bytes
+				+ tether_stats.ipv6_rx_bytes;
+		} else {
+			rc = rmnet_ipa3_query_tethering_stats_fnr(data);
+			if (rc) {
+				IPAWANERR_RL(
+					"wlan WAN_IOC_QUERY_TETHER_STATS failed\n");
+				return rc;
+			}
 		}
-		data->tx_bytes = tether_stats.ipv4_tx_bytes
-			+ tether_stats.ipv6_tx_bytes;
-		data->rx_bytes = tether_stats.ipv4_rx_bytes
-			+ tether_stats.ipv6_rx_bytes;
 	} else {
 		IPAWANDBG_LOW(" query modem-backhaul stats\n");
 		tether_stats.ipa_client = data->ipa_client;

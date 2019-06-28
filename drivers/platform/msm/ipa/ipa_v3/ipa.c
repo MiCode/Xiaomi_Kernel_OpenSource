@@ -132,6 +132,7 @@ static int ipa3_ioctl_add_flt_rule_after_v2(unsigned long arg);
 static int ipa3_ioctl_mdfy_flt_rule_v2(unsigned long arg);
 static int ipa3_ioctl_fnr_counter_alloc(unsigned long arg);
 static int ipa3_ioctl_fnr_counter_query(unsigned long arg);
+static int ipa3_ioctl_fnr_counter_set(unsigned long arg);
 
 static struct ipa3_plat_drv_res ipa3_res = {0, };
 
@@ -1480,6 +1481,43 @@ free_param_kptr:
 	return retval;
 }
 
+static int ipa3_ioctl_fnr_counter_set(unsigned long arg)
+{
+	u8 header[128] = { 0 };
+	uint8_t value;
+
+	if (copy_from_user(header, (const void __user *)arg,
+		sizeof(struct ipa_ioc_fnr_index_info))) {
+		IPAERR_RL("copy_from_user fails\n");
+		return -EFAULT;
+	}
+
+	value = ((struct ipa_ioc_fnr_index_info *)
+		header)->hw_counter_offset;
+	if (value <= 0 || value > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("hw_counter_offset failed: num %d\n",
+			value);
+		return -EPERM;
+	}
+
+	ipa3_ctx->fnr_info.hw_counter_offset = value;
+
+	value = ((struct ipa_ioc_fnr_index_info *)
+		header)->sw_counter_offset;
+	if (value <= 0 || value > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("sw_counter_offset failed: num %d\n",
+			value);
+		return -EPERM;
+	}
+	ipa3_ctx->fnr_info.sw_counter_offset = value;
+	/* reset when ipacm-cleanup */
+	ipa3_ctx->fnr_info.valid = true;
+	IPADBG("fnr_info hw=%d, hw=%d\n",
+		ipa3_ctx->fnr_info.hw_counter_offset,
+		ipa3_ctx->fnr_info.sw_counter_offset);
+	return 0;
+}
+
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -2646,6 +2684,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
 		retval = ipa3_ioctl_fnr_counter_query(arg);
+		break;
+
+	case IPA_IOC_SET_FNR_COUNTER_INFO:
+		retval = ipa3_ioctl_fnr_counter_set(arg);
 		break;
 
 	case IPA_IOC_WIGIG_FST_SWITCH:
