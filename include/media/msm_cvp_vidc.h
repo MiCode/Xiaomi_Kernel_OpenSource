@@ -34,6 +34,9 @@ struct cvp_kmd_usecase_desc {
 	int reserved[16];
 };
 
+#define VIDEO_NONREALTIME 1
+#define VIDEO_REALTIME 5
+
 #ifdef CONFIG_MSM_CVP_V4L2
 void *msm_cvp_open(int core_id, int session_type);
 int msm_cvp_close(void *instance);
