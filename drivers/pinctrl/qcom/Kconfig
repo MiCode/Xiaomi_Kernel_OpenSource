@@ -41,7 +41,7 @@ config PINCTRL_IPQ8064
 
 config PINCTRL_QCS405
 	tristate "QTI QCS405 pin controller driver"
-	depends on GPIOLIB && OF && (ARCH_QCS405 || COMPILE_TEST)
+	depends on GPIOLIB && OF && (ARCH_QCS405 || COMPILE_TEST || ARCH_QCS403)
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
