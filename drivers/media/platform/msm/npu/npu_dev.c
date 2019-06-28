@@ -91,6 +91,7 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 static unsigned int npu_poll(struct file *filp, struct poll_table_struct *p);
 static int npu_parse_dt_clock(struct npu_device *npu_dev);
 static int npu_parse_dt_regulator(struct npu_device *npu_dev);
+static int npu_parse_dt_bw(struct npu_device *npu_dev);
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		struct device_node *node);
 static int npu_pwrctrl_init(struct npu_device *npu_dev);
@@ -1460,6 +1461,91 @@ regulator_err:
 	return rc;
 }
 
+static int npu_parse_dt_bw(struct npu_device *npu_dev)
+{
+	int ret, len;
+	uint32_t ports[2];
+	struct platform_device *pdev = npu_dev->pdev;
+	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
+
+	if (of_find_property(pdev->dev.of_node, "qcom,src-dst-ports", &len)) {
+		len /= sizeof(ports[0]);
+		if (len != 2) {
+			NPU_ERR("Unexpected number of ports\n");
+			return -EINVAL;
+		}
+
+		ret = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,src-dst-ports", ports, len);
+		if (ret) {
+			NPU_ERR("Failed to read bw property\n");
+			return ret;
+		}
+	} else {
+		NPU_ERR("can't find bw property\n");
+		return -EINVAL;
+	}
+
+	bwctrl->bw_levels[0].vectors = &bwctrl->vectors[0];
+	bwctrl->bw_levels[1].vectors = &bwctrl->vectors[MAX_PATHS];
+	bwctrl->bw_data.usecase = bwctrl->bw_levels;
+	bwctrl->bw_data.num_usecases = ARRAY_SIZE(bwctrl->bw_levels);
+	bwctrl->bw_data.name = dev_name(&pdev->dev);
+	bwctrl->bw_data.active_only = false;
+
+	bwctrl->bw_levels[0].vectors[0].src = ports[0];
+	bwctrl->bw_levels[0].vectors[0].dst = ports[1];
+	bwctrl->bw_levels[1].vectors[0].src = ports[0];
+	bwctrl->bw_levels[1].vectors[0].dst = ports[1];
+	bwctrl->bw_levels[0].num_paths = 1;
+	bwctrl->bw_levels[1].num_paths = 1;
+	bwctrl->num_paths = 1;
+
+	bwctrl->bus_client = msm_bus_scale_register_client(&bwctrl->bw_data);
+	if (!bwctrl->bus_client) {
+		NPU_ERR("Unable to register bus client\n");
+		return -ENODEV;
+	}
+
+	NPU_INFO("NPU BW client sets up successfully\n");
+
+	return 0;
+}
+
+int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
+{
+	int i, ret;
+	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
+
+	if (!bwctrl->bus_client) {
+		NPU_DBG("bus client doesn't exist\n");
+		return 0;
+	}
+
+	if (bwctrl->cur_ib == new_ib && bwctrl->cur_ab == new_ab)
+		return 0;
+
+	i = (bwctrl->cur_idx + 1) % DBL_BUF;
+
+	bwctrl->bw_levels[i].vectors[0].ib = new_ib * MBYTE;
+	bwctrl->bw_levels[i].vectors[0].ab = new_ab / bwctrl->num_paths * MBYTE;
+	bwctrl->bw_levels[i].vectors[1].ib = new_ib * MBYTE;
+	bwctrl->bw_levels[i].vectors[1].ab = new_ab / bwctrl->num_paths * MBYTE;
+
+	NPU_INFO("BW MBps: AB: %d IB: %d\n", new_ab, new_ib);
+
+	ret = msm_bus_scale_client_update_request(bwctrl->bus_client, i);
+	if (ret) {
+		NPU_ERR("bandwidth request failed (%d)\n", ret);
+	} else {
+		bwctrl->cur_idx = i;
+		bwctrl->cur_ib = new_ib;
+		bwctrl->cur_ab = new_ab;
+	}
+
+	return ret;
+}
+
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		struct device_node *node)
 {
@@ -1670,6 +1756,25 @@ static void npu_mbox_deinit(struct npu_device *npu_dev)
 	}
 }
 
+static int npu_hw_info_init(struct npu_device *npu_dev)
+{
+	int rc = 0;
+
+	npu_set_bw(npu_dev, 100, 100);
+	rc = npu_enable_core_power(npu_dev);
+	if (rc) {
+		NPU_ERR("Failed to enable power\n");
+		return rc;
+	}
+
+	npu_dev->hw_version = REGR(npu_dev, NPU_HW_VERSION);
+	NPU_DBG("NPU_HW_VERSION 0x%x\n", npu_dev->hw_version);
+	npu_disable_core_power(npu_dev);
+	npu_set_bw(npu_dev, 0, 0);
+
+	return rc;
+}
+
 /* -------------------------------------------------------------------------
  * Probe/Remove
  * -------------------------------------------------------------------------
@@ -1810,6 +1915,14 @@ static int npu_probe(struct platform_device *pdev)
 	if (rc)
 		goto error_get_dev_num;
 
+	rc = npu_parse_dt_bw(npu_dev);
+	if (rc)
+		NPU_WARN("Parse bw info failed\n");
+
+	rc = npu_hw_info_init(npu_dev);
+	if (rc)
+		goto error_get_dev_num;
+
 	rc = npu_pwrctrl_init(npu_dev);
 	if (rc)
 		goto error_get_dev_num;
@@ -1926,6 +2039,7 @@ static int npu_remove(struct platform_device *pdev)
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	platform_set_drvdata(pdev, NULL);
 	npu_mbox_deinit(npu_dev);
+	msm_bus_scale_unregister_client(npu_dev->bwctrl.bus_client);
 
 	g_npu_dev = NULL;
 

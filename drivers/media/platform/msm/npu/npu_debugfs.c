@@ -436,6 +436,12 @@ int npu_debugfs_init(struct npu_device *npu_dev)
 		goto err;
 	}
 
+	if (!debugfs_create_bool("auto_pil_disable", 0644,
+		debugfs->root, &(host_ctx->auto_pil_disable))) {
+		NPU_ERR("debugfs_creat_bool fail for auto pil\n");
+		goto err;
+	}
+
 	if (!debugfs_create_u32("fw_dbg_mode", 0644,
 		debugfs->root, &(host_ctx->fw_dbg_mode))) {
 		NPU_ERR("debugfs_create_u32 fail for fw_dbg_mode\n");

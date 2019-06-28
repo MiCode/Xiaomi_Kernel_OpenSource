@@ -22,6 +22,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/mailbox/qmp.h>
+#include <linux/msm-bus.h>
 
 #include "npu_mgr.h"
 
@@ -201,6 +202,21 @@ struct npu_io_data {
 	void __iomem *base;
 };
 
+#define MAX_PATHS	2
+#define DBL_BUF	2
+#define MBYTE (1ULL << 20)
+
+struct npu_bwctrl {
+	struct msm_bus_vectors vectors[MAX_PATHS * DBL_BUF];
+	struct msm_bus_paths bw_levels[DBL_BUF];
+	struct msm_bus_scale_pdata bw_data;
+	uint32_t bus_client;
+	int cur_ab;
+	int cur_ib;
+	int cur_idx;
+	uint32_t num_paths;
+};
+
 struct npu_device {
 	struct mutex dev_lock;
 
@@ -238,10 +254,13 @@ struct npu_device {
 	struct thermal_cooling_device *tcdev;
 	struct npu_pwrctrl pwrctrl;
 	struct npu_thermalctrl thermalctrl;
+	struct npu_bwctrl bwctrl;
 
 	struct llcc_slice_desc *sys_cache;
 	uint32_t execute_v2_flag;
 	bool cxlimit_registered;
+
+	uint32_t hw_version;
 };
 
 struct npu_kevent {
@@ -283,5 +302,6 @@ int enable_fw(struct npu_device *npu_dev);
 void disable_fw(struct npu_device *npu_dev);
 int load_fw(struct npu_device *npu_dev);
 int unload_fw(struct npu_device *npu_dev);
+int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab);
 
 #endif /* _NPU_COMMON_H */
