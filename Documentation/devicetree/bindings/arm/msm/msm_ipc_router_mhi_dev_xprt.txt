@@ -1,0 +1,21 @@
+Qualcomm Technologies, Inc. IPC Router MHI_DEV Transport
+
+Required properties:
+-compatible:		should be "qcom,ipc-router-mhi-dev-xprt".
+-qcom,out-chan-id:	MHI Channel ID for the transmit path.
+-qcom,in-chan-id:	MHI Channel ID for the receive path.
+-qcom,xprt-remote:	string that defines the edge of the transport.
+-qcom,xprt-linkid:	unique integer to identify the tier to which the link
+			belongs to in the network and is used to avoid the
+			routing loops while forwarding the broadcast messages.
+-qcom,xprt-version:	unique version ID used by MHI transport header.
+
+Example:
+	qcom,ipc_router_external_ap_xprt {
+		compatible = "qcom,ipc-router-mhi-dev-xprt";
+	        qcom,out-chan-id = <34>;
+		qcom,in-chan-id = <35>;
+		qcom,xprt-remote = "external-ap";
+		qcom,xprt-linkid = <2>;
+		qcom,xprt-version = <1>;
+	};

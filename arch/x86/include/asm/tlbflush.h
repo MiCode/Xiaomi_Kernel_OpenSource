@@ -68,8 +68,12 @@ static inline void invpcid_flush_all_nonglobals(void)
 struct tlb_state {
 	struct mm_struct *active_mm;
 	int state;
-	/* last user mm's ctx id */
-	u64 last_ctx_id;
+
+	/* Last user mm for optimizing IBPB */
+	union {
+		struct mm_struct	*last_user_mm;
+		unsigned long		last_user_mm_ibpb;
+	};
 
 	/*
 	 * Access to this CR4 shadow and to H/W CR4 is protected by

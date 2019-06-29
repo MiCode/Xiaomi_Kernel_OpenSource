@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,6 +106,36 @@
 
 				config {
 					pins = "gpio10", "gpio11";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		i2c_4 {
+			i2c_4_active: i2c_4_active {
+				/* active state */
+				mux {
+					pins = "gpio14", "gpio15";
+					function = "blsp_i2c4";
+				};
+
+				config {
+					pins = "gpio14", "gpio15";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c_4_sleep: i2c_4_sleep {
+				/* suspended state */
+				mux {
+					pins = "gpio14", "gpio15";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio14", "gpio15";
 					drive-strength = <2>;
 					bias-disable;
 				};
@@ -477,6 +507,58 @@
 					       "gpio80";
 					drive-strength = <6>; /* 6 MA */
 					bias-pull-up; /* PULL UP */
+				};
+			};
+		};
+		pmx_quat_mi2s {
+			label = "quat_mi2s";
+			quat_mi2s_active: quat_mi2s_active {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio94", "gpio95";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;           /* No PULL */
+				};
+			};
+			quat_mi2s_sleep: quat_mi2s_sleep {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio94", "gpio95";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_quat_mi2s_din {
+			label = "quat_mi2s_din";
+			quat_mi2s_din_active: quat_mi2s_din_active {
+				mux {
+					pins = "gpio12", "gpio13";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio12", "gpio13";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;	        /* No PULL */
+					output-high;
+				};
+			};
+			quat_mi2s_din_sleep: quat_mi2s_din_sleep {
+				mux {
+					pins = "gpio12", "gpio13";
+					function = "sec_mi2s";
+				};
+				configs {
+					pins = "gpio12", "gpio13";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
 				};
 			};
 		};
@@ -1455,7 +1537,59 @@
 				};
 			};
 		};
+		cdc-dmic-lines {
+			cdc_dmic0_clk_act: dmic0_clk_on {
+				mux {
+					pins = "gpio89";
+					function = "dmic0_clk";
+				};
 
+				config {
+					pins = "gpio89";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_clk_sus: dmic0_clk_off {
+				mux {
+					pins = "gpio89";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			cdc_dmic0_data_act: dmic0_data_on {
+				mux {
+					pins = "gpio90";
+					function = "dmic0_data";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <8>;
+					bias-pull-none;
+				};
+			};
+
+			cdc_dmic0_data_sus: dmic0_data_off {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
 		/*sensors */
 		cam_sensor_mclk0_default: cam_sensor_mclk0_default {
 			/* MCLK0 */

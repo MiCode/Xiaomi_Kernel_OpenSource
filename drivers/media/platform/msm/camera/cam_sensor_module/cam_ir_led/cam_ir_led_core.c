@@ -47,7 +47,7 @@ static int cam_ir_cut_off(struct cam_ir_led_ctrl *ictrl)
 static int cam_ir_led_set_intensity(struct cam_ir_led_ctrl *ictrl,
 			uint32_t ir_led_intensity)
 {
-	CAM_INFO(CAM_IR_LED, "ir_led_intensity=%d", ir_led_intensity);
+	CAM_DBG(CAM_IR_LED, "ir_led_intensity=%d", ir_led_intensity);
 	switch (ir_led_intensity) {
 	case IRLED_INTENSITY_OFF:
 		gpio_direction_output(
@@ -165,17 +165,17 @@ int cam_ir_led_parser(struct cam_ir_led_ctrl *ictrl, void *arg)
 
 	switch (csl_packet->header.op_code & 0xFFFFFF) {
 	case CAM_IR_LED_PACKET_OPCODE_ON:
-		CAM_INFO(CAM_IR_LED, ":CAM_IR_LED_PACKET_OPCODE_ON");
+		CAM_DBG(CAM_IR_LED, ":CAM_IR_LED_PACKET_OPCODE_ON");
 		cam_ir_cut_on(ictrl);
 		cam_ir_led_set_intensity(ictrl,
 				cam_ir_led_info->ir_led_intensity);
 		break;
 	case CAM_IR_LED_PACKET_OPCODE_OFF:
-		CAM_INFO(CAM_IR_LED, "CAM_IR_LED_PACKET_OPCODE_OFF");
+		CAM_DBG(CAM_IR_LED, "CAM_IR_LED_PACKET_OPCODE_OFF");
 		cam_ir_cut_off(ictrl);
 		break;
 	case CAM_PKT_NOP_OPCODE:
-		CAM_INFO(CAM_IR_LED, "CAM_IR_LED: CAM_PKT_NOP_OPCODE");
+		CAM_DBG(CAM_IR_LED, "CAM_IR_LED: CAM_PKT_NOP_OPCODE");
 		break;
 	default:
 		CAM_ERR(CAM_IR_LED, "Wrong Opcode : %d",

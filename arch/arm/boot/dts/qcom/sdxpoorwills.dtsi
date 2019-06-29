@@ -510,6 +510,16 @@
 		status = "disabled";
 	};
 
+	qcom,ipc_router_mhi_dev_xprt {
+		compatible = "qcom,ipc-router-mhi-dev-xprt";
+		qcom,out-chan-id = <20>;
+		qcom,in-chan-id = <21>;
+		qcom,xprt-remote = "external-ap";
+		qcom,xprt-linkid = <2>;
+		qcom,xprt-version = <1>;
+		status = "disabled";
+	};
+
 	gdsc_emac: qcom,gdsc@147004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_emac";

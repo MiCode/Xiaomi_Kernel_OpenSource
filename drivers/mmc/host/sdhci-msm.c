@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm Technologies, Inc. MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,12 +155,12 @@
 #define CORE_FLL_CYCLE_CNT	(1 << 18)
 #define CORE_DLL_CLOCK_DISABLE	(1 << 21)
 
-#define DDR_CONFIG_POR_VAL		0x80040853
-#define DDR_CONFIG_PRG_RCLK_DLY_MASK	0x1FF
-#define DDR_CONFIG_PRG_RCLK_DLY		115
-#define DDR_CONFIG_2_POR_VAL		0x80040873
+#define DDR_CONFIG_POR_VAL		0x80040873
 #define DLL_USR_CTL_POR_VAL		0x10800
 #define ENABLE_DLL_LOCK_STATUS		(1 << 26)
+#define FINE_TUNE_MODE_EN		(1 << 27)
+#define BIAS_OK_SIGNAL			(1 << 29)
+#define DLL_CONFIG_3_POR_VAL		0x10
 
 /* 512 descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
@@ -203,8 +203,9 @@ struct sdhci_msm_offset {
 	u32 CORE_DDR_200_CFG;
 	u32 CORE_VENDOR_SPEC3;
 	u32 CORE_DLL_CONFIG_2;
+	u32 CORE_DLL_CONFIG_3;
 	u32 CORE_DDR_CONFIG;
-	u32 CORE_DDR_CONFIG_2;
+	u32 CORE_DDR_CONFIG_OLD; /* Applcable to sddcc minor ver < 0x49 only */
 	u32 CORE_DLL_USR_CTL; /* Present on SDCC5.1 onwards */
 };
 
@@ -233,8 +234,8 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_removed = {
 	.CORE_DDR_200_CFG = 0x224,
 	.CORE_VENDOR_SPEC3 = 0x250,
 	.CORE_DLL_CONFIG_2 = 0x254,
-	.CORE_DDR_CONFIG = 0x258,
-	.CORE_DDR_CONFIG_2 = 0x25C,
+	.CORE_DLL_CONFIG_3 = 0x258,
+	.CORE_DDR_CONFIG = 0x25C,
 	.CORE_DLL_USR_CTL = 0x388,
 };
 
@@ -263,8 +264,9 @@ struct sdhci_msm_offset sdhci_msm_offset_mci_present = {
 	.CORE_DDR_200_CFG = 0x184,
 	.CORE_VENDOR_SPEC3 = 0x1B0,
 	.CORE_DLL_CONFIG_2 = 0x1B4,
-	.CORE_DDR_CONFIG = 0x1B8,
-	.CORE_DDR_CONFIG_2 = 0x1BC,
+	.CORE_DLL_CONFIG_3 = 0x1B8,
+	.CORE_DDR_CONFIG_OLD = 0x1B8, /* Applicable to sdcc minor ver < 0x49 */
+	.CORE_DDR_CONFIG = 0x1BC,
 };
 
 u8 sdhci_msm_readb_relaxed(struct sdhci_host *host, u32 offset)
@@ -365,6 +367,14 @@ enum vdd_io_level {
 	 */
 	VDD_IO_SET_LEVEL,
 };
+
+enum dll_init_context {
+	DLL_INIT_NORMAL = 0,
+	DLL_INIT_FROM_CX_COLLAPSE_EXIT,
+};
+
+static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
+						u32 req_clk);
 
 /* MSM platform specific tuning */
 static inline int msm_dll_poll_ck_out_en(struct sdhci_host *host,
@@ -530,11 +540,13 @@ static int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase)
 	 * Write the selected DLL clock output phase (0 ... 15)
 	 * to CDR_SELEXT bit field of DLL_CONFIG register.
 	 */
-	writel_relaxed(((readl_relaxed(host->ioaddr +
+	if (msm_host->dll_hsr->dll_config & (0xF << 20)) {
+		writel_relaxed(((readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_DLL_CONFIG)
 			& ~(0xF << 20))
 			| (grey_coded_phase_table[phase] << 20)),
 			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
+	}
 
 	/* Set CK_OUT_EN bit of DLL_CONFIG register to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr +
@@ -710,7 +722,8 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 }
 
 /* Initialize the DLL (Programmable Delay Line ) */
-static int msm_init_cm_dll(struct sdhci_host *host)
+static int msm_init_cm_dll(struct sdhci_host *host,
+				enum dll_init_context init_context)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
@@ -763,22 +776,44 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 	writel_relaxed((readl_relaxed(host->ioaddr +
 		msm_host_offset->CORE_DLL_CONFIG) | CORE_DLL_PDN),
 		host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
-	msm_cm_dll_set_freq(host);
 
 	if (msm_host->use_updated_dll_reset) {
 		u32 mclk_freq = 0;
+		u32 actual_clk = sdhci_msm_get_sup_clk_rate(host, host->clock);
 
-		if ((readl_relaxed(host->ioaddr +
-					msm_host_offset->CORE_DLL_CONFIG_2)
-					& CORE_FLL_CYCLE_CNT))
-			mclk_freq = (u32) ((host->clock / TCXO_FREQ) * 8);
-		else
-			mclk_freq = (u32) ((host->clock / TCXO_FREQ) * 4);
+		/*
+		 * Only configure the mclk_freq in normal DLL init
+		 * context. If the DLL init is coming from
+		 * CX Collapse Exit context, the host->clock may be zero.
+		 * The DLL_CONFIG_2 register has already been restored to
+		 * proper value prior to getting here.
+		 */
+		if (init_context == DLL_INIT_NORMAL) {
+			switch (actual_clk) {
+			case 202000000:
+			case 201500000:
+			case 200000000:
+				mclk_freq = 42;
+				break;
+			case 192000000:
+				mclk_freq = 40;
+				break;
+			default:
+				mclk_freq = (u32)((actual_clk / TCXO_FREQ) * 4);
+				pr_info_once("%s: %s: Non standard clk freq =%u\n",
+				mmc_hostname(mmc), __func__, actual_clk);
+			}
 
-		writel_relaxed(((readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_DLL_CONFIG_2)
-			& ~(0xFF << 10)) | (mclk_freq << 10)),
-			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG_2);
+			if ((readl_relaxed(host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_2)
+				& CORE_FLL_CYCLE_CNT))
+				mclk_freq *= 2;
+
+			writel_relaxed(((readl_relaxed(host->ioaddr +
+			   msm_host_offset->CORE_DLL_CONFIG_2)
+			   & ~(0xFF << 10)) | (mclk_freq << 10)),
+			   host->ioaddr + msm_host_offset->CORE_DLL_CONFIG_2);
+		}
 		/* wait for 5us before enabling DLL clock */
 		udelay(5);
 	}
@@ -794,7 +829,6 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
 
 	if (msm_host->use_updated_dll_reset) {
-		msm_cm_dll_set_freq(host);
 		/* Enable the DLL clock */
 		writel_relaxed((readl_relaxed(host->ioaddr +
 				msm_host_offset->CORE_DLL_CONFIG_2)
@@ -804,11 +838,39 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 
 	/*
 	 * Configure DLL user control register to enable DLL status
-	 * This setting is applicable to SDCC v5.1 onwards only
+	 * This setting is applicable to SDCC v5.1 onwards only.
+	 *
+	 * Configure Tassadar DLL (Only applicable for 7FF projects)
+	 *
 	 */
 	if (msm_host->need_dll_user_ctl) {
-		writel_relaxed(DLL_USR_CTL_POR_VAL | ENABLE_DLL_LOCK_STATUS,
-			host->ioaddr + msm_host_offset->CORE_DLL_USR_CTL);
+		if (msm_host->dll_hsr) {
+			writel_relaxed(msm_host->dll_hsr->dll_usr_ctl,
+					host->ioaddr +
+					msm_host_offset->CORE_DLL_USR_CTL);
+			writel_relaxed(msm_host->dll_hsr->dll_config_3,
+					host->ioaddr +
+					msm_host_offset->CORE_DLL_CONFIG_3);
+		} else {
+			writel_relaxed(DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
+					ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL,
+					host->ioaddr +
+					msm_host_offset->CORE_DLL_USR_CTL);
+
+			writel_relaxed(DLL_CONFIG_3_POR_VAL, host->ioaddr +
+				msm_host_offset->CORE_DLL_CONFIG_3);
+		}
+	}
+
+	/*
+	 * Update the lower byte of DLL_CONFIG only with HSR values.
+	 * Since these are the static settings.
+	 */
+	if (msm_host->dll_hsr) {
+		writel_relaxed(((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG) & (~0xff)) |
+			(msm_host->dll_hsr->dll_config & 0xff)),
+			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
 	}
 
 	/* Set DLL_EN bit to 1. */
@@ -976,7 +1038,7 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	const struct sdhci_msm_offset *msm_host_offset =
 					msm_host->offset;
-	u32 dll_status, ddr_config;
+	u32 dll_status;
 	int ret = 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
@@ -987,16 +1049,16 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 */
 	if (msm_host->pdata->rclk_wa) {
 		writel_relaxed(msm_host->pdata->ddr_config, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
-	} else if (msm_host->rclk_delay_fix) {
-		writel_relaxed(DDR_CONFIG_2_POR_VAL, host->ioaddr +
-			msm_host_offset->CORE_DDR_CONFIG_2);
-	} else {
-		ddr_config = DDR_CONFIG_POR_VAL &
-				~DDR_CONFIG_PRG_RCLK_DLY_MASK;
-		ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
-		writel_relaxed(ddr_config, host->ioaddr +
 			msm_host_offset->CORE_DDR_CONFIG);
+	} else if (msm_host->dll_hsr && msm_host->dll_hsr->ddr_config) {
+		writel_relaxed(msm_host->dll_hsr->ddr_config, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG);
+	} else if (msm_host->rclk_delay_fix) {
+		writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG);
+	} else {
+		writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr +
+			msm_host_offset->CORE_DDR_CONFIG_OLD);
 	}
 
 	if (msm_host->enhanced_strobe && mmc_card_strobe(msm_host->mmc->card))
@@ -1065,7 +1127,7 @@ static int sdhci_msm_enhanced_strobe(struct sdhci_host *host)
 	/*
 	 * Reset the tuning block.
 	 */
-	ret = msm_init_cm_dll(host);
+	ret = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (ret)
 		goto out;
 
@@ -1092,7 +1154,7 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 	 * Retuning in HS400 (DDR mode) will fail, just reset the
 	 * tuning block and restore the saved tuning phase.
 	 */
-	ret = msm_init_cm_dll(host);
+	ret = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (ret)
 		goto out;
 
@@ -1100,12 +1162,13 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 	ret = msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
 	if (ret)
 		goto out;
-
-	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
-	writel_relaxed((readl_relaxed(host->ioaddr +
+	if (msm_host->dll_hsr->dll_config & CORE_CMD_DAT_TRACK_SEL) {
+		/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
+		writel_relaxed((readl_relaxed(host->ioaddr +
 				msm_host_offset->CORE_DLL_CONFIG)
 				| CORE_CMD_DAT_TRACK_SEL), host->ioaddr +
 				msm_host_offset->CORE_DLL_CONFIG);
+	}
 
 	if (msm_host->use_cdclp533)
 		/* Calibrate CDCLP533 DLL HW */
@@ -1215,7 +1278,7 @@ retry:
 	tuned_phase_cnt = 0;
 
 	/* first of all reset the tuning block */
-	rc = msm_init_cm_dll(host);
+	rc = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (rc)
 		goto kfree;
 
@@ -1965,6 +2028,32 @@ static int sdhci_msm_get_socrev(struct device *dev,
 }
 #endif
 
+static int sdhci_msm_dt_parse_hsr_info(struct device *dev,
+		struct sdhci_msm_host *msm_host)
+
+{
+	u32 *dll_hsr_table = NULL;
+	int dll_hsr_table_len, dll_hsr_reg_count;
+	int ret = 0;
+
+	if (sdhci_msm_dt_get_array(dev, "qcom,dll-hsr-list",
+			&dll_hsr_table, &dll_hsr_table_len, 0))
+		goto skip_hsr;
+
+	dll_hsr_reg_count = sizeof(struct sdhci_msm_dll_hsr) / sizeof(u32);
+	if (dll_hsr_table_len != dll_hsr_reg_count) {
+		dev_err(dev, "Number of HSR entries are not matching\n");
+		ret = -EINVAL;
+	} else {
+		msm_host->dll_hsr = (struct sdhci_msm_dll_hsr *)dll_hsr_table;
+	}
+
+skip_hsr:
+	if (!msm_host->dll_hsr)
+		dev_info(dev, "Failed to get dll hsr settings from dt\n");
+	return ret;
+}
+
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -2141,6 +2230,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	if (!of_property_read_u32(np, "qcom,ddr-config", &pdata->ddr_config))
 		pdata->rclk_wa = true;
+
+	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
+		goto out;
 
 	/*
 	 * rclk_wa is not required if soc version is mentioned and
@@ -2426,7 +2518,7 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 						  *vreg, int uA_load)
 {
 	int ret = 0;
-	
+
 	/*
 	 * regulators that do not support regulator_set_voltage also
 	 * do not support regulator_set_optimum_mode
@@ -3140,6 +3232,19 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_CAPABILITIES_1);
 	msm_host->regs_restore.testbus_config = readl_relaxed(host->ioaddr +
 		msm_host_offset->CORE_TESTBUS_CONFIG);
+	msm_host->regs_restore.dll_config = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG);
+	msm_host->regs_restore.dll_config2 = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG_2);
+	msm_host->regs_restore.dll_config = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG);
+	msm_host->regs_restore.dll_config2 = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG_2);
+	msm_host->regs_restore.dll_config3 = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG_3);
+	msm_host->regs_restore.dll_usr_ctl = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_USR_CTL);
+
 	msm_host->regs_restore.is_valid = true;
 
 	pr_debug("%s: %s: registers saved. PWRCTL_MASK = 0x%x\n",
@@ -3155,6 +3260,7 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 	u8 irq_status;
 	const struct sdhci_msm_offset *msm_host_offset =
 					msm_host->offset;
+	struct mmc_ios ios = host->mmc->ios;
 
 	if (!msm_host->regs_restore.is_supported ||
 		!msm_host->regs_restore.is_valid)
@@ -3205,6 +3311,24 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 			host->ioaddr + msm_host_offset->CORE_PWRCTL_CTL);
 	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
 			host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
+
+	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
+			(ios.timing == MMC_TIMING_MMC_HS200) ||
+			(ios.timing == MMC_TIMING_UHS_SDR104))
+			&& (ios.clock > CORE_FREQ_100MHZ)) {
+		writel_relaxed(msm_host->regs_restore.dll_config2,
+			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG_2);
+		writel_relaxed(msm_host->regs_restore.dll_config3,
+			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG_3);
+		writel_relaxed(msm_host->regs_restore.dll_usr_ctl,
+			host->ioaddr + msm_host_offset->CORE_DLL_USR_CTL);
+		writel_relaxed(msm_host->regs_restore.dll_config &
+			~(CORE_DLL_RST | CORE_DLL_PDN),
+			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
+
+		msm_init_cm_dll(host, DLL_INIT_FROM_CX_COLLAPSE_EXIT);
+		msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
+	}
 
 	pr_debug("%s: %s: registers restored. PWRCTL_MASK = 0x%x\n",
 		mmc_hostname(host->mmc), __func__,
@@ -3512,9 +3636,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			 * DLL input clock
 			 */
 			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG))
+				msm_host_offset->CORE_DLL_CONFIG_3))
 				| RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG);
+				msm_host_offset->CORE_DLL_CONFIG_3);
 			/* ensure above write as toggling same bit quickly */
 			wmb();
 			udelay(2);
@@ -3523,9 +3647,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			 * DLL input clock
 			 */
 			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG))
+				msm_host_offset->CORE_DLL_CONFIG_3))
 				& ~RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DDR_CONFIG);
+				msm_host_offset->CORE_DLL_CONFIG_3);
 		}
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*
@@ -3768,24 +3892,34 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 			msm_host_offset->CORE_MCI_FIFO_CNT),
 		sdhci_msm_readl_relaxed(host,
 			msm_host_offset->CORE_MCI_STATUS));
-	pr_info("DLL cfg:  0x%08x | DLL sts:  0x%08x | SDCC ver: 0x%08x\n",
-		readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_DLL_CONFIG),
+	pr_info("DLL sts: 0x%08x | DLL cfg:  0x%08x | DLL cfg2: 0x%08x\n",
 		readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_DLL_STATUS),
-		sdhci_msm_readl_relaxed(host,
-			msm_host_offset->CORE_MCI_VERSION));
-	pr_info("Vndr func: 0x%08x | Vndr adma err : addr0: 0x%08x addr1: 0x%08x\n",
 		readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_VENDOR_SPEC),
+			msm_host_offset->CORE_DLL_CONFIG),
+		sdhci_msm_readl_relaxed(host,
+			msm_host_offset->CORE_DLL_CONFIG_2));
+	pr_info("DLL cfg3: 0x%08x | DLL usr ctl:  0x%08x | DDR cfg: 0x%08x\n",
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_USR_CTL),
+		sdhci_msm_readl_relaxed(host,
+			msm_host_offset->CORE_DDR_CONFIG));
+	pr_info("SDCC ver: 0x%08x | Vndr adma err : addr0: 0x%08x addr1: 0x%08x\n",
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_MCI_VERSION),
 		readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC_ADMA_ERR_ADDR0),
 		readl_relaxed(host->ioaddr +
 			msm_host_offset->CORE_VENDOR_SPEC_ADMA_ERR_ADDR1));
-	pr_info("Vndr func2: 0x%08x\n",
+	pr_info("Vndr func: 0x%08x | Vndr func2 : 0x%08x Vndr func3: 0x%08x\n",
 		readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_VENDOR_SPEC_FUNC2));
-
+			msm_host_offset->CORE_VENDOR_SPEC),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC_FUNC2),
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC3));
 	/*
 	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
 	 * of CORE_TESTBUS_CONFIG register.
@@ -4577,7 +4711,7 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	 * starts coming.
 	 */
 	if ((major == 1) && ((minor == 0x42) || (minor == 0x46) ||
-				(minor == 0x49) || (minor >= 0x6b)))
+			(minor == 0x49) || (minor == 0x4D) || (minor >= 0x6b)))
 		msm_host->use_14lpp_dll = true;
 
 	/* Fake 3.0V support for SDIO devices which requires such voltage */
@@ -4951,7 +5085,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	sdhci_set_default_hw_caps(msm_host, host);
 
 	/*
-	 * Set the PAD_PWR_SWTICH_EN bit so that the PAD_PWR_SWITCH bit can
+	 * Set the PAD_PWR_SWITCH_EN bit so that the PAD_PWR_SWITCH bit can
 	 * be used as required later on.
 	 */
 	writel_relaxed((readl_relaxed(host->ioaddr +

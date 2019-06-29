@@ -28,3 +28,4 @@ obj-$(CONFIG_CGROUP_CPUACCT) += cpuacct.o
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 obj-$(CONFIG_CPU_FREQ_GOV_SCHEDUTIL) += cpufreq_schedutil.o
 obj-$(CONFIG_SCHED_CORE_CTL) += core_ctl.o
+obj-$(CONFIG_PSI) += psi.o
