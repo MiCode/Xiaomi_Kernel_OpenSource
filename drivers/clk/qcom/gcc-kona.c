@@ -25,6 +25,7 @@
 #include "clk-rcg.h"
 #include "clk-regmap.h"
 #include "clk-regmap-divider.h"
+#include "clk-regmap-mux.h"
 #include "common.h"
 #include "reset.h"
 #include "vdd-level.h"
@@ -45,6 +46,8 @@ enum {
 	P_GPLL4_OUT_MAIN,
 	P_GPLL9_OUT_MAIN,
 	P_SLEEP_CLK,
+	P_USB3_PHY_WRAPPER_GCC_USB30_PIPE_CLK,
+	P_USB3_UNI_PHY_SEC_GCC_USB30_PIPE_CLK,
 };
 
 static const struct parent_map gcc_parent_map_0[] = {
@@ -137,6 +140,30 @@ static const char * const gcc_parent_names_5[] = {
 	"aud_ref_clk",
 	"gpll0_out_even",
 	"core_bi_pll_test_se",
+};
+
+static const struct parent_map gcc_parent_map_6[] = {
+	{ P_USB3_PHY_WRAPPER_GCC_USB30_PIPE_CLK, 0 },
+	{ P_CORE_BI_PLL_TEST_SE, 1 },
+	{ P_BI_TCXO, 2 },
+};
+
+static const char * const gcc_parent_names_6[] = {
+	"usb3_phy_wrapper_gcc_usb30_pipe_clk",
+	"core_bi_pll_test_se",
+	"bi_tcxo",
+};
+
+static const struct parent_map gcc_parent_map_7[] = {
+	{ P_USB3_UNI_PHY_SEC_GCC_USB30_PIPE_CLK, 0 },
+	{ P_CORE_BI_PLL_TEST_SE, 1 },
+	{ P_BI_TCXO, 2 },
+};
+
+static const char * const gcc_parent_names_7[] = {
+	"usb3_uni_phy_sec_gcc_usb30_pipe_clk",
+	"core_bi_pll_test_se",
+	"bi_tcxo",
 };
 
 static struct pll_vco lucid_vco[] = {
@@ -1405,6 +1432,61 @@ static struct clk_rcg2 gcc_usb3_sec_phy_aux_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 19200000},
+	},
+};
+
+static struct clk_regmap_mux gcc_usb3_prim_phy_pipe_clk_src = {
+	.reg = 0xf060,
+	.shift = 0,
+	.width = 2,
+	.parent_map = gcc_parent_map_6,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb3_prim_phy_pipe_clk_src",
+			.parent_names = gcc_parent_names_6,
+			.num_parents = 3,
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_dummy usb3_phy_wrapper_gcc_usb30_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "usb3_phy_wrapper_gcc_usb30_pipe_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+
+static struct clk_dummy core_bi_pll_test_se = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "core_bi_pll_test_se",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_regmap_mux gcc_usb3_sec_phy_pipe_clk_src = {
+	.reg = 0x10060,
+	.shift = 0,
+	.width = 2,
+	.parent_map = gcc_parent_map_7,
+	.clkr = {
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_usb3_sec_phy_pipe_clk_src",
+			.parent_names = gcc_parent_names_7,
+			.num_parents = 3,
+			.ops = &clk_regmap_mux_closest_ops,
+		},
+	},
+};
+
+static struct clk_dummy usb3_uni_phy_sec_gcc_usb30_pipe_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "usb3_uni_phy_sec_gcc_usb30_pipe_clk",
+		.ops = &clk_dummy_ops,
 	},
 };
 
@@ -3751,6 +3833,11 @@ static struct clk_branch gcc_usb3_prim_phy_pipe_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_prim_phy_pipe_clk",
+			.parent_names = (const char *[]){
+				"gcc_usb3_prim_phy_pipe_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3813,6 +3900,11 @@ static struct clk_branch gcc_usb3_sec_phy_pipe_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_sec_phy_pipe_clk",
+			.parent_names = (const char *[]){
+				"gcc_usb3_sec_phy_pipe_clk_src",
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4083,11 +4175,13 @@ static struct clk_regmap *gcc_kona_clocks[] = {
 	[GCC_USB3_PRIM_PHY_AUX_CLK_SRC] = &gcc_usb3_prim_phy_aux_clk_src.clkr,
 	[GCC_USB3_PRIM_PHY_COM_AUX_CLK] = &gcc_usb3_prim_phy_com_aux_clk.clkr,
 	[GCC_USB3_PRIM_PHY_PIPE_CLK] = &gcc_usb3_prim_phy_pipe_clk.clkr,
+	[GCC_USB3_PRIM_PHY_PIPE_CLK_SRC] = &gcc_usb3_prim_phy_pipe_clk_src.clkr,
 	[GCC_USB3_SEC_CLKREF_EN] = &gcc_usb3_sec_clkref_en.clkr,
 	[GCC_USB3_SEC_PHY_AUX_CLK] = &gcc_usb3_sec_phy_aux_clk.clkr,
 	[GCC_USB3_SEC_PHY_AUX_CLK_SRC] = &gcc_usb3_sec_phy_aux_clk_src.clkr,
 	[GCC_USB3_SEC_PHY_COM_AUX_CLK] = &gcc_usb3_sec_phy_com_aux_clk.clkr,
 	[GCC_USB3_SEC_PHY_PIPE_CLK] = &gcc_usb3_sec_phy_pipe_clk.clkr,
+	[GCC_USB3_SEC_PHY_PIPE_CLK_SRC] = &gcc_usb3_sec_phy_pipe_clk_src.clkr,
 	[GCC_VIDEO_AHB_CLK] = &gcc_video_ahb_clk.clkr,
 	[GCC_VIDEO_AXI0_CLK] = &gcc_video_axi0_clk.clkr,
 	[GCC_VIDEO_AXI1_CLK] = &gcc_video_axi1_clk.clkr,
@@ -4145,6 +4239,14 @@ static const struct qcom_reset_map gcc_kona_resets[] = {
 	[GCC_VIDEO_AXI1_CLK_ARES] = { 0xb028, 2 },
 };
 
+struct clk_hw *gcc_kona_hws[] = {
+	[CORE_BI_PLL_TEST_SE] = &core_bi_pll_test_se.hw,
+	[USB3_PHY_WRAPPER_GCC_USB30_PIPE_CLK] =
+		&usb3_phy_wrapper_gcc_usb30_pipe_clk.hw,
+	[USB3_UNI_PHY_SEC_GCC_USB30_PIPE_CLK] =
+		&usb3_uni_phy_sec_gcc_usb30_pipe_clk.hw,
+};
+
 static const struct clk_rcg_dfs_data gcc_dfs_clocks[] = {
 	DEFINE_RCG_DFS(gcc_qupv3_wrap0_s0_clk_src),
 	DEFINE_RCG_DFS(gcc_qupv3_wrap0_s1_clk_src),
@@ -4182,6 +4284,8 @@ static const struct qcom_cc_desc gcc_kona_desc = {
 	.num_clks = ARRAY_SIZE(gcc_kona_clocks),
 	.resets = gcc_kona_resets,
 	.num_resets = ARRAY_SIZE(gcc_kona_resets),
+	.hwclks = gcc_kona_hws,
+	.num_hwclks = ARRAY_SIZE(gcc_kona_hws),
 };
 
 static const struct of_device_id gcc_kona_match_table[] = {
