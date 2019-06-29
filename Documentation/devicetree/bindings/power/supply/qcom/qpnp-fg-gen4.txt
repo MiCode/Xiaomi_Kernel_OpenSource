@@ -29,6 +29,12 @@ First Level Node - FG Gen4 device
 	Definition: Should specify the phandle of PMIC revid module. This is
 		    used to identify the PMIC subtype.
 
+- qcom,pmic-pbs
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC PBS module. This is
+		    used to trigger PBS for certain configurations.
+
 - #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
 
 - nvmem-names:
