@@ -114,6 +114,9 @@ enum mhi_dev_state {
 	MHI_STATE_MAX,
 };
 
+#define MHI_VOTE_BUS BIT(0) /* do not disable the bus */
+#define MHI_VOTE_DEVICE BIT(1) /* prevent mhi device from entering lpm */
+
 /**
  * struct image_info - firmware and rddm table table
  * @mhi_buf - Contain device firmware and rddm table
