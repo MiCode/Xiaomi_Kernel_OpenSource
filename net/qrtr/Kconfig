@@ -40,4 +40,13 @@ config QRTR_FIFO
 	Say Y here to support FIFO based ipcrouter channels. FIFO Transport
 	Layer enables IPC Router communication between two virtual machines.
 
+config QRTR_MHI_DEV
+	tristate "MHI Device IPC Router channels"
+	depends on MSM_MHI_DEV || (COMPILE_TEST && MSM_MHI_DEV=n)
+	---help---
+	  Say Y here to support MHI base ipcrouter channels for device
+	  endpoint mode.  MHI is the transport used for external modem
+	  connections.  This driver enables QRTR to run on the modem device
+	  side.
+
 endif # QRTR
