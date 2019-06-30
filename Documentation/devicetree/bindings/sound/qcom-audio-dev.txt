@@ -8,6 +8,15 @@ Required properties:
 
  - qcom,msm-pcm-dsp-id : device node id
 
+   Optional properties
+
+      - qcom,avs-version:
+	This property can be used to specify the ADSP version/name.
+	Based on ADSP version, we decide if we have to use older
+	ADSP APIs or newer. Right now we are using "AVS 2.7" for
+	8996 purpose.If the ADSP version is anything other than this
+	we use new ADSP APIs.
+
 * msm-pcm-low-latency
 
 Required properties:
@@ -27,6 +36,13 @@ Required properties:
                             regular : regular low latency stream
                             ultra : ultra low latency stream
                             ull-pp : ultra low latency stream with post-processing capability
+
+      - qcom,avs-version:
+	This property can be used to specify the ADSP version/name.
+	Based on ADSP version, we decide if we have to use older
+	ADSP APIs or newer. Right now we are using "AVS 2.7" for
+	8996 purpose.If the ADSP version is anything other than this
+	we use new ADSP APIs.
 
 * msm-pcm-dsp-noirq
 
@@ -73,6 +89,13 @@ Optional properties
 	Based on ADSP version, we decide if we have to use older
 	ADSP APIs or newer. Right now we are adding "MDSP 1.2" for
 	8909 purpose.If the ADSP version is anything other than this
+	we use new ADSP APIs.
+
+ - qcom,avs-version:
+	This property can be used to specify the ADSP version/name.
+	Based on ADSP version, we decide if we have to use older
+	ADSP APIs or newer. Right now we are using "AVS 2.7" for
+	8996 purpose.If the ADSP version is anything other than this
 	we use new ADSP APIs.
 
 * msm-voip-dsp

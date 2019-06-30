@@ -1,4 +1,5 @@
 #include "util.h"
+#include <linux/compiler.h>
 #include "linux/string.h"
 
 #define K 1024LL
