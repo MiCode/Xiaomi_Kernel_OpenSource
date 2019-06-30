@@ -81,5 +81,5 @@ endmenu # CCU
 
 menu "Performance"
 source "drivers/misc/mediatek/performance/Kconfig"
+source "drivers/misc/mediatek/perf_common/Kconfig"
 endmenu # Performance
-

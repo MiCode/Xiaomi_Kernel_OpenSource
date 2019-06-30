@@ -41,7 +41,7 @@
 
 #include <platform/mtk_mfg_counter.h>
 #ifdef CONFIG_MTK_PERF_TRACKER
-#include <perf_tracker_internal.h>
+#include <perf_tracker.h>
 #endif
 #if defined(CONFIG_MTK_SWPM)
 #include <mtk_swpm_interface.h>
