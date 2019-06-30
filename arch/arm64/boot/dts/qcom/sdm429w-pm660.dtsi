@@ -310,32 +310,6 @@
 	};
 };
 
-&mdss_dsi {
-	/delete-property/ vdda-supply;
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
-	/delete-property/ bklight_en-supply;
-	/delete-property/ lab-supply;
-	/delete-property/ ibb-supply;
-};
-
-&mdss_dsi1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi0_pll {
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi1_pll {
-	/delete-property/ vddio-supply;
-};
-
 &i2c_2 {
 	/delete-node/ qcom,smb1355@8;
 	/delete-node/ qcom,smb1355@c;
@@ -737,3 +711,55 @@
 	qcom,vdd-io-current-level = <0 10000>;
 	qcom,dll-hsr-list = <0x00076400 0x0 0x0 0x0 0x00040868>;
 };
+
+&mdss_dsi {
+	/delete-property/ vdda-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ bklight_en-supply;
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+	vdda-supply = <&L6A>; /* 0.8v */
+	vddio-supply = <&L13A>; /* 1.8v */
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ bklight_en-supply;
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+	vdd-supply = <&L15A>;/* 2.8v */
+	vddio-supply = <&L13A>; /* 1.8v */
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi0_pll {
+	/delete-property/ vddio-supply;
+	vddio-supply = <&L13A>;/* 1.8v */
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ vddio-supply;
+	vddio-supply = <&L13A>;
+};
+
