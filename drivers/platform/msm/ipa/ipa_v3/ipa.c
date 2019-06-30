@@ -2636,6 +2636,9 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 	ipa3_q6_pipe_delay(false);
 	ipa3_set_reset_client_prod_pipe_delay(true,
 		IPA_CLIENT_USB_PROD);
+	if (ipa3_ctx->ipa_config_is_auto)
+		ipa3_set_reset_client_prod_pipe_delay(true,
+		IPA_CLIENT_USB2_PROD);
 	if (ipa3_ctx->ipa_config_is_mhi)
 		ipa3_set_reset_client_prod_pipe_delay(true,
 		IPA_CLIENT_MHI_PROD);
