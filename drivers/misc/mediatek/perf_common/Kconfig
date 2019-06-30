@@ -1,0 +1,17 @@
+config MTK_PERF_COMMON
+	tristate "MTK system performance common feature"
+	help
+	  CONFIG_MTK_PERF_COMMON provides common entrypoint to support
+	  multiple the system performance features and it can easily
+	  extend. The trigger period is aligned to sched-tick. If you are
+	  not sure about whether to enable it or not, please set n.
+
+
+config MTK_PERF_TRACKER
+	bool "MTK system performance index support"
+	depends on MTK_PERF_COMMON
+	help
+	  CONFIG_PERF_TRACKER define if system performance index should
+	  be built-in or not. It supports system related performance index
+	  via trace. If you are not sure about whether to enable it or not,
+	  please set n.

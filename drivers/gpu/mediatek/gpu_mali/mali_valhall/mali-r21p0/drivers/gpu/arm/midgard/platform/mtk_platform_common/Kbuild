@@ -18,6 +18,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
 endif
 
-#ifdef CONFIG_MTK_PERF_TRACKER
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf/
-#endif
+ccflags-$(CONFIG_MTK_PERF_TRACKER) += -I$(srctree)/drivers/misc/mediatek/perf_common/

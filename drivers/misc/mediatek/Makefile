@@ -44,3 +44,4 @@ obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 obj-$(CONFIG_MTK_CCU) += ccu/src/
 obj-$(CONFIG_EXTCON_MTK_USB) += extcon/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
+obj-$(CONFIG_MTK_PERF_COMMON) += perf_common/
