@@ -122,6 +122,10 @@ menu "Memory"
 
 endmenu # Memory
 
+menu "Performance, Power, and Thermal"
+source "drivers/misc/mediatek/perf_common/Kconfig"
+endmenu # PPT
+
 menu "TinySys"
 source "drivers/misc/mediatek/sspm/Kconfig"
 endmenu # TinySys
