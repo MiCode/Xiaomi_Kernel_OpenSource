@@ -1836,10 +1836,6 @@
 		};
 
 		mfg_lorne: mfg_lorne@13000000 {
-			compatible = "mediatek,lorne";
-			reg = <0 0x13000000 0 0x80000>;
-			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
-			interrupt-names = "RGX";
 			clock-frequency = <100000000>;
 			clocks = <&mfgcfg CLK_MFGCFG_BG3D>,
 				<&topckgen CLK_TOP_MFG>,
@@ -1849,6 +1845,11 @@
 				"clk_mux",
 				"clk_main_parent",
 				"clk_sub_parent";
+			compatible = "mediatek,lorne";
+			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "RGX";
+			power-domains = <&scpsys MT6779_POWER_DOMAIN_MFG3>;
+			reg = <0 0x13000000 0 0x80000>;
 		};
 
 		mfgcfg: clock-controller@13fbf000 {
