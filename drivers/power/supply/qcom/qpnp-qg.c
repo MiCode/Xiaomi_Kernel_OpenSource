@@ -1579,6 +1579,54 @@ static int qg_get_charge_counter(struct qpnp_qg *chip, int *charge_counter)
 	return 0;
 }
 
+static int qg_get_power(struct qpnp_qg *chip, int *val, bool average)
+{
+	int rc, v_min, v_ocv, rbatt = 0, esr = 0;
+	s64 power;
+
+	if (is_debug_batt_id(chip)) {
+		*val = -EINVAL;
+		return 0;
+	}
+
+	v_min = chip->dt.sys_min_volt_mv * 1000;
+
+	rc = qg_sdam_read(SDAM_OCV_UV, &v_ocv);
+	if (rc < 0) {
+		pr_err("Failed to read OCV rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qg_sdam_read(SDAM_RBAT_MOHM, &rbatt);
+	if (rc < 0) {
+		pr_err("Failed to read T_RBAT rc=%d\n", rc);
+		return rc;
+	}
+
+	rbatt *= 1000;	/* uohms */
+	esr = chip->esr_last * 1000;
+
+	if (rbatt <= 0 || esr <= 0) {
+		pr_debug("Invalid rbatt/esr rbatt=%d esr=%d\n", rbatt, esr);
+		*val = -EINVAL;
+		return 0;
+	}
+
+	power = (s64)v_min * (v_ocv - v_min);
+
+	if (average)
+		power = div_s64(power, rbatt);
+	else
+		power = div_s64(power, esr);
+
+	*val = power;
+
+	qg_dbg(chip, QG_DEBUG_STATUS, "v_min=%d v_ocv=%d rbatt=%d esr=%d power=%lld\n",
+			v_min, v_ocv, rbatt, esr, power);
+
+	return 0;
+}
+
 static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 {
 	union power_supply_propval prop = {0, };
@@ -1909,6 +1957,12 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		rc = qg_get_vbat_avg(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_POWER_NOW:
+		rc = qg_get_power(chip, &pval->intval, false);
+		break;
+	case POWER_SUPPLY_PROP_POWER_AVG:
+		rc = qg_get_power(chip, &pval->intval, true);
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -1964,6 +2018,8 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_FG_RESET,
 	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
+	POWER_SUPPLY_PROP_POWER_AVG,
+	POWER_SUPPLY_PROP_POWER_NOW,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -3361,6 +3417,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define DEFAULT_ESR_DISABLE_SOC		1000
 #define ESR_CHG_MIN_IBAT_UA		(-450000)
 #define DEFAULT_SLEEP_TIME_SECS		1800 /* 30 mins */
+#define DEFAULT_SYS_MIN_VOLT_MV		2800
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -3596,6 +3653,12 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 		chip->dt.shutdown_soc_threshold = -EINVAL;
 	else
 		chip->dt.shutdown_soc_threshold = temp;
+
+	rc = of_property_read_u32(node, "qcom,qg-sys-min-voltage", &temp);
+	if (rc < 0)
+		chip->dt.sys_min_volt_mv = DEFAULT_SYS_MIN_VOLT_MV;
+	else
+		chip->dt.sys_min_volt_mv = temp;
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
 
