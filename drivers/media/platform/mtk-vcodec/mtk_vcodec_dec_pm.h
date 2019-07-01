@@ -27,7 +27,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm);
 
 void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_dvfs(void);
-void mtk_prepare_vdec_emi_bw(void);
+void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_emi_bw(void);
 
 void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx);

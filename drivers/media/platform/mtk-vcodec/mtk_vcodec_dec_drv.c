@@ -437,7 +437,7 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 		vfd_dec->num);
 
 	mtk_prepare_vdec_dvfs(dev);
-	mtk_prepare_vdec_emi_bw();
+	mtk_prepare_vdec_emi_bw(dev);
 	pm_notifier(mtk_vcodec_dec_suspend_notifier, 0);
 	dev->is_codec_suspending = 0;
 	vdec_dev = dev;

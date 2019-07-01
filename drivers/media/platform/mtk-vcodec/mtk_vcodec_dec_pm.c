@@ -19,11 +19,11 @@
 
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_util.h"
+
 #ifdef CONFIG_MEDIATEK_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 312
 static struct regulator *reg;
 static unsigned long vdec_freq;
 static u32 vdec_freq_step_size;
@@ -31,30 +31,29 @@ static unsigned long *vdec_freq_steps;
 static u32 vdec_high_volt;
 static struct codec_history *vdec_hists;
 static struct codec_job *vdec_jobs;
-
 #endif
 
 #ifdef CONFIG_MEDIATEK_EMI_BW
-#include <mtk_smi.h>
+#include <linux/interconnect-provider.h>
+#define STD_VDEC_FREQ 312
 static unsigned int h264_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int h265_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int vp9_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int vp8_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int mp24_frm_scale[5] = {16, 20, 32, 50, 16};
 
-static struct plist_head vdec_rlist;
-static struct mm_qos_request vdec_mc;
-static struct mm_qos_request vdec_ufo;
-static struct mm_qos_request vdec_pp;
-static struct mm_qos_request vdec_pred_rd;
-static struct mm_qos_request vdec_pred_wr;
-static struct mm_qos_request vdec_ppwrap;
-static struct mm_qos_request vdec_tile;
-static struct mm_qos_request vdec_vld;
-static struct mm_qos_request vdec_vld2;
-static struct mm_qos_request vdec_avc_mv;
-static struct mm_qos_request vdec_ufo_enc;
-static struct mm_qos_request vdec_rg_ctrl_dma;
+static struct icc_path *vdec_mc;
+static struct icc_path *vdec_ufo;
+static struct icc_path *vdec_pp;
+static struct icc_path *vdec_pred_rd;
+static struct icc_path *vdec_pred_wr;
+static struct icc_path *vdec_ppwrap;
+static struct icc_path *vdec_tile;
+static struct icc_path *vdec_vld;
+static struct icc_path *vdec_vld2;
+static struct icc_path *vdec_avc_mv;
+static struct icc_path *vdec_ufo_enc;
+static struct icc_path *vdec_rg_ctrl_dma;
 #endif
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -204,31 +203,29 @@ void mtk_unprepare_vdec_dvfs(void)
 	kfree(vdec_freq_steps);
 #endif
 }
-void mtk_prepare_vdec_emi_bw(void)
+void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *mtkdev)
 {
 #ifdef CONFIG_MEDIATEK_EMI_BW
-	plist_head_init(&vdec_rlist);
-	mm_qos_add_request(&vdec_rlist, &vdec_mc, SMI_PORT_VDEC_MC);
-	mm_qos_add_request(&vdec_rlist, &vdec_ufo, SMI_PORT_VDEC_UFO);
-	mm_qos_add_request(&vdec_rlist, &vdec_pp, SMI_PORT_VDEC_PP);
-	mm_qos_add_request(&vdec_rlist, &vdec_pred_rd, SMI_PORT_VDEC_PRED_RD);
-	mm_qos_add_request(&vdec_rlist, &vdec_pred_wr, SMI_PORT_VDEC_PRED_WR);
-	mm_qos_add_request(&vdec_rlist, &vdec_ppwrap, SMI_PORT_VDEC_PPWRAP);
-	mm_qos_add_request(&vdec_rlist, &vdec_tile, SMI_PORT_VDEC_TILE);
-	mm_qos_add_request(&vdec_rlist, &vdec_vld, SMI_PORT_VDEC_VLD);
-	mm_qos_add_request(&vdec_rlist, &vdec_vld2, SMI_PORT_VDEC_VLD2);
-	mm_qos_add_request(&vdec_rlist, &vdec_avc_mv, SMI_PORT_VDEC_AVC_MV);
-	mm_qos_add_request(&vdec_rlist, &vdec_ufo_enc, SMI_PORT_VDEC_UFO_ENC);
-	mm_qos_add_request(&vdec_rlist, &vdec_rg_ctrl_dma,
-				SMI_PORT_VDEC_RG_CTRL_DMA);
+	struct platform_device *pdev;
+
+	pdev = mtkdev->plat_dev;
+	vdec_mc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_MC");
+	vdec_ufo = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO");
+	vdec_pp = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PP");
+	vdec_pred_rd = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_RD");
+	vdec_pred_wr = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PRED_WR");
+	vdec_ppwrap = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_PPWRAP");
+	vdec_tile = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_TILE");
+	vdec_vld = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD");
+	vdec_vld2 = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_VLD2");
+	vdec_avc_mv = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_AVC_MV");
+	vdec_ufo_enc = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_UFO_ENC");
+	vdec_rg_ctrl_dma = of_icc_get(&pdev->dev, "MT_MM_M4U_VDEC_RG_CTRL_DMA");
 #endif
 }
 
 void mtk_unprepare_vdec_emi_bw(void)
 {
-#ifdef CONFIG_MEDIATEK_EMI_BW_CONTIG
-	mm_qos_remove_all_request(&vdec_rlist);
-#endif
 }
 
 void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
@@ -370,42 +367,33 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	if (emi_bw < 0)
 		emi_bw = 0;
 
-	if (0) {    /* UFO */
-		mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_DEFAULT);
-		mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
-					BW_COMP_DEFAULT);
-	} else {
-		mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
-		mm_qos_set_request(&vdec_pp, emi_bw_output, 0, BW_COMP_NONE);
-	}
-	mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_vld, emi_bw_input, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_avc_mv, emi_bw_input * 2, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
-	mm_qos_update_all_request(&vdec_rlist);
+	icc_set_bw(vdec_mc, MBps_to_icc(emi_bw), 0);
+	icc_set_bw(vdec_pp, MBps_to_icc(emi_bw_output), 0);
+	icc_set_bw(vdec_pred_rd, MBps_to_icc(1), 0);
+	icc_set_bw(vdec_pred_wr, MBps_to_icc(1), 0);
+	icc_set_bw(vdec_ppwrap, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_tile, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_vld, MBps_to_icc(emi_bw_input), 0);
+	icc_set_bw(vdec_vld2, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_avc_mv, MBps_to_icc(emi_bw_input * 2), 0);
+	icc_set_bw(vdec_rg_ctrl_dma, MBps_to_icc(0), 0);
 #endif
 }
 static void mtk_vdec_emi_bw_end(void)
 {
 #ifdef CONFIG_MEDIATEK_EMI_BW
-bbb
-	mm_qos_set_request(&vdec_mc, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_ufo, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_pp, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_pred_rd, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_pred_wr, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_vld, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_avc_mv, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_ufo_enc, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
-	mm_qos_update_all_request(&vdec_rlist);
+	icc_set_bw(vdec_ufo, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_ufo_enc, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_mc, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_pp, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_pred_rd, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_pred_wr, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_ppwrap, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_tile, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_vld, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_vld2, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_avc_mv, MBps_to_icc(0), 0);
+	icc_set_bw(vdec_rg_ctrl_dma, MBps_to_icc(0), 0);
 #endif
 }
 void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
