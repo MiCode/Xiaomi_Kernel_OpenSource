@@ -22,9 +22,10 @@
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
-#define MAX_BDF_FILE_NAME		11
-#define DEFAULT_BDF_FILE_NAME		"bdwlan.elf"
-#define BDF_FILE_NAME_PREFIX		"bdwlan.e"
+#define MAX_BDF_FILE_NAME		32
+#define BDF_FILE_NAME_PREFIX		"bdwlan"
+#define DEFAULT_ELF_BDF_FILE_NAME	"bdwlan.elf"
+#define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define DEFAULT_BIN_BDF_FILE_NAME       "bdwlan.bin"
 
@@ -799,22 +800,33 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	    plat_priv->device_id == QCN7605_VER20_COMPOSITE_DEVICE_ID)
 		bdf_type = CNSS_BDF_BIN;
 
-	if (plat_priv->board_info.board_id == 0xFF)
+	if (plat_priv->board_info.board_id == 0xFF) {
 		if (bdf_type == CNSS_BDF_BIN)
 			snprintf(filename, sizeof(filename),
 				 DEFAULT_BIN_BDF_FILE_NAME);
 		else
 			snprintf(filename, sizeof(filename),
-				 DEFAULT_BDF_FILE_NAME);
-	else {
+				 DEFAULT_ELF_BDF_FILE_NAME);
+	} else if (plat_priv->board_info.board_id < 0xFF) {
 		if (bdf_type == CNSS_BDF_BIN)
 			snprintf(filename, sizeof(filename),
 				 BIN_BDF_FILE_NAME_PREFIX "%02x",
 				 plat_priv->board_info.board_id);
 		else
 			snprintf(filename, sizeof(filename),
-				 BDF_FILE_NAME_PREFIX "%02x",
+				 ELF_BDF_FILE_NAME_PREFIX "%02x",
 				 plat_priv->board_info.board_id);
+	} else {
+		if (bdf_type == CNSS_BDF_BIN)
+			snprintf(filename, sizeof(filename),
+				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
+		else
+			snprintf(filename, sizeof(filename),
+				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
+				 plat_priv->board_info.board_id >> 8 & 0xFF,
+				 plat_priv->board_info.board_id & 0xFF);
 	}
 
 	if (bdf_bypass) {
