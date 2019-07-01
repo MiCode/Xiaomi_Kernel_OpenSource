@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2013-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -198,11 +198,10 @@ int cyttsp5_init(struct cyttsp5_core_platform_data *pdata,
 			gpio_free(rst_gpio);
 			rc = gpio_request(rst_gpio, NULL);
 		}
-		if (rc < 0) {
-			dev_err(dev,
-				"%s: Fail request gpio=%d\n", __func__,
-				rst_gpio);
-		} else {
+		if (rc < 0)
+			dev_err(dev, "%s: Fail request gpio=%d\n",
+				__func__, rst_gpio);
+		else {
 			rc = gpio_direction_output(rst_gpio, 1);
 			if (rc < 0) {
 				pr_err("%s: Fail set output gpio=%d\n",
@@ -212,17 +211,16 @@ int cyttsp5_init(struct cyttsp5_core_platform_data *pdata,
 				rc = gpio_request(irq_gpio, NULL);
 				if (rc < 0) {
 					gpio_free(irq_gpio);
-					rc = gpio_request(irq_gpio,
-						NULL);
+					rc = gpio_request(irq_gpio, NULL);
 				}
 				if (rc < 0) {
 					dev_err(dev,
 						"%s: Fail request gpio=%d\n",
 						__func__, irq_gpio);
 					gpio_free(rst_gpio);
-				} else {
+				} else
 					gpio_direction_input(irq_gpio);
-				}
+
 			}
 		}
 	} else {
@@ -280,8 +278,8 @@ int cyttsp5_detect(struct cyttsp5_core_platform_data *pdata,
 		if (!rc)
 			return 0;
 
-		parade_debug(dev, DEBUG_LEVEL_2, "%s: Read unsuccessful, try=%d\n",
-			__func__, 3 - retry);
+		parade_debug(dev, DEBUG_LEVEL_2,
+			"%s: Read unsuccessful, try=%d\n", __func__, 3 - retry);
 	}
 
 	return rc;

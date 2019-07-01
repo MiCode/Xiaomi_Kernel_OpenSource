@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2013-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@
 
 #define ENABLE_VIRTUAL_KEYS
 
-#define MAX_NAME_LENGTH		64
+#define MAX_NAME_LENGTH 64
 
 enum cyttsp5_device_type {
 	DEVICE_MT,
@@ -155,7 +155,8 @@ static void free_touch_framework(struct touch_framework *frmwrk)
 }
 
 #ifdef ENABLE_VIRTUAL_KEYS
-#define VIRTUAL_KEY_ELEMENT_SIZE	5
+#define VIRTUAL_KEY_ELEMENT_SIZE 5
+
 static ssize_t virtual_keys_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -221,7 +222,7 @@ static int setup_virtual_keys(struct device_node *dev_node,
 	/* Initialize dynamic SysFs attribute */
 	sysfs_attr_init(&vkeys->kobj_attr.attr);
 	vkeys->kobj_attr.attr.name = name;
-	vkeys->kobj_attr.attr.mode = S_IRUGO;
+	vkeys->kobj_attr.attr.mode = 0444;
 	vkeys->kobj_attr.show = virtual_keys_show;
 
 	rc = sysfs_create_file(board_properties_kobj, &vkeys->kobj_attr.attr);
@@ -303,11 +304,14 @@ static void *create_and_get_mt_pdata(struct device_node *dev_node)
 			&ext_pdata->vkeys);
 	if (rc) {
 		pr_err("%s: Cannot setup virtual keys!\n", __func__);
-		goto fail_free_pdata;
+		goto fail_free_all;
 	}
 #endif
 	return pdata;
 
+fail_free_all:
+	kfree(ext_pdata->vkeys.kobj_attr.attr.name);
+	kfree(pdata->frmwrk);
 fail_free_pdata:
 	kfree(ext_pdata);
 fail:
@@ -606,12 +610,14 @@ static struct cyttsp5_core_platform_data *create_and_get_core_pdata(
 				touch_setting_names[i]);
 	}
 
-	pr_debug("%s: irq_gpio:%d rst_gpio:%d\n"
-		"hid_desc_register:%d level_irq_udelay:%d vendor_id:%d product_id:%d\n"
-		"flags:%d easy_wakeup_gesture:%d\n", __func__,
-		pdata->irq_gpio, pdata->rst_gpio,
+	pr_debug("%s: irq_gpio:%d rst_gpio:%d\n",
+		__func__, pdata->irq_gpio, pdata->rst_gpio);
+
+	pr_debug("hid_desc_register:%d irq_udelay:%d vid:%d pid:%d\n",
 		pdata->hid_desc_register,
-		pdata->level_irq_udelay, pdata->vendor_id, pdata->product_id,
+		pdata->level_irq_udelay, pdata->vendor_id, pdata->product_id);
+
+	pr_debug("flags:%d easy_wakeup_gesture:%d\n",
 		pdata->flags, pdata->easy_wakeup_gesture);
 
 	pdata->xres = cyttsp5_xres;

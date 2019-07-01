@@ -9,7 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
- * Copyright (C) 2015 Parade Technologies
+ * Copyright (C) 2015-2019 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor
  *
  * This program is free software; you can redistribute it and/or

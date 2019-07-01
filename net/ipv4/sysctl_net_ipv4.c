@@ -45,6 +45,7 @@ static int tcp_delack_seg_min = TCP_DELACK_MIN;
 static int tcp_delack_seg_max = 60;
 static int tcp_use_userconfig_min;
 static int tcp_use_userconfig_max = 1;
+static int one_day_secs = 24 * 3600;
 
 /* Update system visible IP port range */
 static void set_local_port_range(struct net *net, int range[2])
@@ -479,7 +480,9 @@ static struct ctl_table ipv4_table[] = {
 		.data		= &sysctl_tcp_min_rtt_wlen,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one_day_secs
 	},
 	{
 		.procname	= "tcp_low_latency",

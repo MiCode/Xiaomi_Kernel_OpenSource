@@ -1413,7 +1413,7 @@ static void intel_pstate_update_util(struct update_util_data *data, u64 time,
 static const struct x86_cpu_id intel_pstate_cpu_ids[] = {
 	ICPU(INTEL_FAM6_SANDYBRIDGE, 		core_params),
 	ICPU(INTEL_FAM6_SANDYBRIDGE_X,		core_params),
-	ICPU(INTEL_FAM6_ATOM_SILVERMONT1,	silvermont_params),
+	ICPU(INTEL_FAM6_ATOM_SILVERMONT,	silvermont_params),
 	ICPU(INTEL_FAM6_IVYBRIDGE,		core_params),
 	ICPU(INTEL_FAM6_HASWELL_CORE,		core_params),
 	ICPU(INTEL_FAM6_BROADWELL_CORE,		core_params),
