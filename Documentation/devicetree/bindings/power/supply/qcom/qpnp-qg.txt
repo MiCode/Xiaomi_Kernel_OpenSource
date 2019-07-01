@@ -342,6 +342,12 @@ First Level Node - QGAUGE device
 	Value type: <bool>
 	Definition: Boolean property to use S7 for PON OCV.
 
+- qcom,min-sleep-time-secs
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum sleep time in secs to allow a SOC
+		    jump if there has been a GOOD_OCV.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================
