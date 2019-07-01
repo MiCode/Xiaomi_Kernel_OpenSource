@@ -101,7 +101,7 @@ static void handle_sramrom_vio(void)
 		dbg1);
 }
 
-static void unmask_infra_module_irq(uint32_t module)
+static void mask_infra_module_irq(uint32_t module, bool mask)
 {
 	int vio_max_idx = mtk_devapc_ctx->soc->vio_info->vio_max_idx;
 	uint32_t apc_bit_index;
@@ -117,7 +117,11 @@ static void unmask_infra_module_irq(uint32_t module)
 	apc_bit_index = module % (MOD_NO_IN_1_DEVAPC * 2);
 
 	reg = mtk_devapc_pd_get(VIO_MASK, apc_index);
-	writel(readl(reg) & (~(1 << apc_bit_index)), reg);
+
+	if (mask)
+		writel(readl(reg) | (1 << apc_bit_index), reg);
+	else
+		writel(readl(reg) & (~(1 << apc_bit_index)), reg);
 }
 
 static int32_t check_infra_vio_status(uint32_t module)
@@ -228,7 +232,7 @@ static void start_devapc(void)
 					clear_infra_vio_status(i))
 				pr_warn(PFX "clear vio status failed\n");
 
-			unmask_infra_module_irq(i);
+			mask_infra_module_irq(i, false);
 		}
 	}
 
@@ -295,7 +299,7 @@ static const char * const perm_to_str[] = {
 	"NO_PERM_CTRL"
 };
 
-static const char *perm_to_string(uint32_t perm)
+static const char *perm_to_string(uint8_t perm)
 {
 	if (perm < 4)
 		return perm_to_str[perm];
@@ -308,7 +312,7 @@ static const char *perm_to_string(uint32_t perm)
  *
  * Returns the value of access permission
  */
-static uint32_t get_permission(int vio_index, int domain)
+static uint8_t get_permission(int vio_index, int domain)
 {
 	const struct mtk_device_info *device_info;
 	struct arm_smccc_res res;
@@ -322,30 +326,23 @@ static uint32_t get_permission(int vio_index, int domain)
 	slave_type = device_info[vio_index].slave_type;
 	config_idx = device_info[vio_index].config_index;
 
-	pr_debug(PFX "%s, slave type = 0x%x, config_idx = 0x%x\n",
-			__func__,
-			slave_type,
-			config_idx);
-
 	if (slave_type >= E_DAPC_OTHERS_SLAVE || config_idx == -1) {
 		pr_err(PFX "%s, cannot get APC\n", __func__);
-		return DEAD;
+		return 0xFF;
 	}
 
 	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_DUMP,
 			slave_type, domain, config_idx, 0, 0, 0, 0, &res);
 	ret = res.a0;
 
-	if (ret == DEAD) {
-		pr_err(PFX "%s, param is overflow\n", __func__);
-		return ret;
+	if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
+		pr_err(PFX "%s, SMC call failed, ret: 0x%x\n",
+				__func__, ret);
+		return 0xFF;
 	}
 
 	apc_set_idx = config_idx % MOD_NO_IN_1_DEVAPC;
 	ret = (ret & (0x3 << (apc_set_idx * 2))) >> (apc_set_idx * 2);
-
-	pr_debug(PFX "%s, after shipping, dump perm = 0x%x\n",
-			__func__, (ret & 0x3));
 
 	return (ret & 0x3);
 }
@@ -431,7 +428,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	const char *vio_master;
 	unsigned long flags;
 	int i, device_count;
-	uint32_t perm;
+	uint8_t perm;
+	int32_t ret;
 
 	spin_lock_irqsave(&devapc_lock, flags);
 	device_info = mtk_devapc_ctx->soc->device_info;
@@ -447,8 +445,12 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		if (device_info[i].enable_vio_irq == true &&
 			check_infra_vio_status(i) == VIOLATION_TRIGGERED) {
 
-			if (clear_infra_vio_status(i))
-				pr_warn(PFX "clear vio status failed\n");
+			mask_infra_module_irq(i, true);
+			ret = clear_infra_vio_status(i);
+			if (ret)
+				pr_warn(PFX "Warning: %s, ret: 0x%x\n",
+						"clear vio status failed",
+						ret);
 
 			perm = get_permission(i, vio_info->domain_id);
 			vio_master = mtk_devapc_ctx->soc->master_get(
@@ -473,6 +475,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 						device_info[i].device);
 			}
 
+			mask_infra_module_irq(i, false);
 			break;
 		}
 	}
@@ -674,9 +677,10 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 				slave_type, domain, index, 0, 0, 0, 0, &res);
 		ret = res.a0;
 
-		if (ret == DEAD) {
-			pr_err(PFX "%s, param is overflow\n", __func__);
-			return -EOVERFLOW;
+		if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
+			pr_err(PFX "%s, SMC call failed, ret: 0x%x\n",
+					__func__, ret);
+			return -EINVAL;
 		}
 
 		apc_set_idx = index % MOD_NO_IN_1_DEVAPC;
