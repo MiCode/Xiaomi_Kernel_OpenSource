@@ -3256,6 +3256,17 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 				phys->ops.disable(phys);
 		}
 	} else {
+
+		if ((intf_mode == INTF_MODE_WB_BLOCK ||
+			intf_mode == INTF_MODE_WB_LINE)
+			&& sde_enc->crtc && sde_enc->crtc->state &&
+			sde_enc->crtc->state->enable &&
+			sde_enc->crtc->state->mode_changed) {
+			sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_KICKOFF);
+			SDE_EVT32(intf_mode, sde_enc->crtc->state->enable);
+		}
+
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
