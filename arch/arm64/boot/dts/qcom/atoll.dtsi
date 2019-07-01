@@ -2134,6 +2134,7 @@
 #include "atoll-coresight.dtsi"
 #include "atoll-stub-regulator.dtsi"
 #include "atoll-usb.dtsi"
+#include "atoll-vidc.dtsi"
 
 &pm6150_vadc {
 	pinctrl-names = "default";
