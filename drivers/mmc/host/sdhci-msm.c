@@ -540,13 +540,11 @@ static int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase)
 	 * Write the selected DLL clock output phase (0 ... 15)
 	 * to CDR_SELEXT bit field of DLL_CONFIG register.
 	 */
-	if (msm_host->dll_hsr->dll_config & (0xF << 20)) {
-		writel_relaxed(((readl_relaxed(host->ioaddr +
-			msm_host_offset->CORE_DLL_CONFIG)
-			& ~(0xF << 20))
-			| (grey_coded_phase_table[phase] << 20)),
-			host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
-	}
+	writel_relaxed(((readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_DLL_CONFIG)
+		& ~(0xF << 20))
+		| (grey_coded_phase_table[phase] << 20)),
+		host->ioaddr + msm_host_offset->CORE_DLL_CONFIG);
 
 	/* Set CK_OUT_EN bit of DLL_CONFIG register to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr +
@@ -1162,13 +1160,11 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 	ret = msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
 	if (ret)
 		goto out;
-	if (msm_host->dll_hsr->dll_config & CORE_CMD_DAT_TRACK_SEL) {
-		/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
-		writel_relaxed((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG)
-				| CORE_CMD_DAT_TRACK_SEL), host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG);
-	}
+	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
+	writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG)
+			| CORE_CMD_DAT_TRACK_SEL), host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG);
 
 	if (msm_host->use_cdclp533)
 		/* Calibrate CDCLP533 DLL HW */
