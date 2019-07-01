@@ -2387,6 +2387,57 @@
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>;
 			operating-points-v2 = <&opp_table_vdec>;
+			interconnects =
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_MC_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_UFO_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PP_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PRED_RD_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PRED_WR_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PPWRAP_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_TILE_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_VLD_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_VLD2_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_AVC_MV_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_UFO_ENC_EXT)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos
+				MASTER_LARB_PORT(
+				M4U_PORT_HW_VDEC_RG_CTRL_DMA_EXT)
+				&mmqos SLAVE_COMMON(0)>;
+			interconnect-names =
+				 "MT_MM_M4U_VDEC_MC",
+				 "MT_MM_M4U_VDEC_UFO",
+				 "MT_MM_M4U_VDEC_PP",
+				 "MT_MM_M4U_VDEC_PRED_RD",
+				 "MT_MM_M4U_VDEC_PRED_WR",
+				 "MT_MM_M4U_VDEC_PPWRAP",
+				 "MT_MM_M4U_VDEC_TILE",
+				 "MT_MM_M4U_VDEC_VLD",
+				 "MT_MM_M4U_VDEC_VLD2",
+				 "MT_MM_M4U_VDEC_AVC_MV",
+				 "MT_MM_M4U_VDEC_UFO_ENC",
+				 "MT_MM_M4U_VDEC_RG_CTRL_DMA";
 			clocks =
 				<&mmsys CLK_MM_SMI_COMMON>,
 				<&mmsys CLK_MM_GALS_COMM0>,
