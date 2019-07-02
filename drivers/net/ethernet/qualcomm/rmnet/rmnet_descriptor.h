@@ -52,18 +52,13 @@ struct rmnet_frag_descriptor {
 	   reserved:3;
 };
 
-struct rmnet_descriptor {
-	struct list_head frags;
-	u8 nr_frags;
-};
-
 /* Descriptor management */
 struct rmnet_frag_descriptor *
 rmnet_get_frag_descriptor(struct rmnet_port *port);
 void rmnet_recycle_frag_descriptor(struct rmnet_frag_descriptor *frag_desc,
 				   struct rmnet_port *port);
-void rmnet_descriptor_add_frag(struct rmnet_port *port, struct page *p,
-			       u32 page_offset, u32 len);
+void rmnet_descriptor_add_frag(struct rmnet_port *port, struct list_head *list,
+			       struct page *p, u32 page_offset, u32 len);
 int rmnet_frag_ipv6_skip_exthdr(struct rmnet_frag_descriptor *frag_desc,
 				int start, u8 *nexthdrp, __be16 *fragp);
 
@@ -73,7 +68,8 @@ int rmnet_frag_flow_command(struct rmnet_map_header *qmap,
 			    struct rmnet_port *port, u16 pkt_len);
 
 /* Ingress data handlers */
-void rmnet_frag_deaggregate(skb_frag_t *frag, struct rmnet_port *port);
+void rmnet_frag_deaggregate(skb_frag_t *frag, struct rmnet_port *port,
+			    struct list_head *list);
 void rmnet_frag_deliver(struct rmnet_frag_descriptor *frag_desc,
 			struct rmnet_port *port);
 int rmnet_frag_process_next_hdr_packet(struct rmnet_frag_descriptor *frag_desc,
