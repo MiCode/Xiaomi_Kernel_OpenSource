@@ -21,6 +21,12 @@ bool is_intra_domain(int prev, int target)
 /* Perf order domain common utils */
 LIST_HEAD(perf_order_domains);
 DEFINE_PER_CPU(struct perf_order_domain *, perf_order_cpu_domain);
+static bool pod_ready;
+
+bool pod_is_ready(void)
+{
+	return pod_ready;
+}
 
 /* Initialize perf_order_cpu_domains */
 void perf_order_cpu_mask_setup(void)
@@ -89,16 +95,16 @@ int perf_domain_compare(void *priv, struct list_head *a, struct list_head *b)
 	return (ca.cpu_perf > cb.cpu_perf) ? -1 : 1;
 }
 
-void init_perf_order_domains(void)
+void init_perf_order_domains(struct perf_domain *pd)
 {
 	struct perf_order_domain *domain;
-	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-	struct perf_domain *pd;
-
-	rcu_read_lock();
-	pd = rcu_dereference(rd->pd);
 
 	pr_info("Initializing perf order domain:\n");
+
+	if (!pd) {
+		pr_info("Perf domain is not ready!\n");
+		return;
+	}
 
 	for (; pd; pd = pd->next) {
 		domain = (struct perf_order_domain *)
@@ -112,7 +118,6 @@ void init_perf_order_domains(void)
 					&perf_order_domains);
 		}
 	}
-	rcu_read_unlock();
 
 	if (list_empty(&perf_order_domains)) {
 		pr_info("Perf order domain list is empty!\n");
@@ -132,6 +137,8 @@ void init_perf_order_domains(void)
 	/* Initialize perf_order_cpu_domains */
 	perf_order_cpu_mask_setup();
 
+	pod_ready = true;
+
 	pr_info("Initializing perf order domain done\n");
 }
 EXPORT_SYMBOL(init_perf_order_domains);
@@ -141,9 +148,9 @@ inline unsigned int cpu_is_fastest(int cpu)
 {
 	struct list_head *pos;
 
-	if (list_empty(&perf_order_domains)) {
-		pr_info("Perf order domain list is empty!\n");
-		return 0;
+	if (!pod_is_ready()) {
+		pr_info("Perf order domain is not ready!\n");
+		return -1;
 	}
 
 	pos = &perf_order_cpu_domain(cpu)->perf_order_domains;
@@ -156,9 +163,9 @@ inline unsigned int cpu_is_slowest(int cpu)
 {
 	struct list_head *pos;
 
-	if (list_empty(&perf_order_domains)) {
-		pr_info("Perf order domain list is empty!\n");
-		return 0;
+	if (!pod_is_ready()) {
+		pr_info("Perf order domain is not ready!\n");
+		return -1;
 	}
 
 	pos = &perf_order_cpu_domain(cpu)->perf_order_domains;

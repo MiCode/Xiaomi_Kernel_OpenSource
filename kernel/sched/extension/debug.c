@@ -76,9 +76,9 @@ int show_perf_order_domain_info(char *buf, int buf_size)
 		"Sort perf_domains from little to big:\n"
 		);
 
-	if (list_empty(&perf_order_domains)) {
+	if (!pod_is_ready()) {
 		len += snprintf(buf+len, buf_size-len,
-		"Perf order domain list is empty!\n"
+		"Perf order domain is not ready!\n"
 		);
 		return len;
 	}

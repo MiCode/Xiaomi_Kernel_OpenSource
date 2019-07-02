@@ -373,14 +373,15 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 
 	perf_domain_debug(cpu_map, pd);
 
+	/* Initializing perf order domain. */
+	if (!pod_is_ready())
+		init_perf_order_domains(pd);
+
 	/* Attach the new list of performance domains to the root domain. */
 	tmp = rd->pd;
 	rcu_assign_pointer(rd->pd, pd);
 	if (tmp)
 		call_rcu(&tmp->rcu, destroy_perf_domain_rcu);
-
-	/* Initializing perf order domain. */
-	init_perf_order_domains();
 
 	return !!pd;
 
