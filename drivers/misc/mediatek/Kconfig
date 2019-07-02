@@ -6,6 +6,25 @@ endmenu # Storage
 
 menu "Power, PMIC, Battery & Low Power"
 
+config MTK_CLK_BUFFER
+	tristate "MediaTek Clock Buffer Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  driver, which support interface for  PMIC 26Mhz output to
+	  other HW component such as BB_MD/WCN/NFC/RF/UFS.
+	  It could also control FPM/LPM mode switch state.
+
+config MTK_CLKBUF_BBLPM
+	bool "MediaTek Clock Buffer BBLPM Mode Support"
+	select REGMAP
+	help
+	  Say yes here to add support for the MediaTek Clock Buffer
+	  BBLPM, which support PMIC 26Mhz output transfer to low
+	  power mode, less accurate with power consumption.
+	  But with restrict condition for some of  XO_BUFFER need to
+	  be disabled.
+
 config MTK_DCM_COMMON
 	bool "Mediatek DCM COMMON"
 	depends on ARCH_MEDIATEK && OF
@@ -35,14 +54,6 @@ config MTK_QOS_FRAMEWORK
 	  will be enabled and set EMI hardware.
 	  If unsure, say N.
 
-config MTK_BASE_POWER
-	bool "MediaTek power management"
-	help
-	  For MediaTek power management features, such as CPU idle,
-	  CPU suspend, CPU DVFS, GPU DVFS,
-	  Select if you want to enable MediaTek power
-	  management feature.
-
 config MTK_SRCLKEN_RC
 	tristate "MediaTek SRCLKEN RC Support"
 	select REGMAP
@@ -64,7 +75,6 @@ config MTK_LOW_POWER_MODULE
 	  Select "y" if you want to enable low power features.
 	  Select "n" if unsure.
 
-source "drivers/misc/mediatek/base/power/Kconfig"
 source "drivers/misc/mediatek/lpm/Kconfig"
 endmenu # Power
 

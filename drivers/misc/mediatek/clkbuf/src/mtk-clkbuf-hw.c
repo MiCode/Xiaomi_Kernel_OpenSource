@@ -813,6 +813,8 @@ static int _clk_buf_debug_internal(char *cmd, enum clk_buf_id id, bool onoff)
 		ret = _clk_buf_ctrl_internal(id, CLK_BUF_SIG);
 	else if (!strcmp(cmd, "CO_BUFFER"))
 		ret = _clk_buf_ctrl_internal(id, CLK_BUF_COBUF);
+	else if (!strcmp(cmd, "INIT"))
+		ret = _clk_buf_ctrl_internal(id, CLK_BUF_INIT_SETTING);
 	else if (!strcmp(cmd, "TEST"))
 		ret = _clk_buf_ctrl(id, onoff);
 	else
