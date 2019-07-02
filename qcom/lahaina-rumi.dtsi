@@ -30,3 +30,53 @@
 
 	status = "ok";
 };
+
+&soc {
+	usb_emu_phy_0: usb_emu_phy@a720000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a720000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+
+	usb_emu_phy_1: usb_emu_phy@a920000 {
+		compatible = "qcom,usb-emu-phy";
+		reg = <0x0a920000 0x9500>;
+
+		qcom,emu-init-seq = <0xffff 0x4
+				     0xfff0 0x4
+				     0x100000 0x20
+				     0x0 0x20
+				     0x101f0 0x20
+				     0x100000 0x3c
+				     0x0 0x3c
+				     0x10060 0x3c
+				     0x0 0x4>;
+	};
+};
+
+&usb0 {
+	/delete-property/ extcon;
+	dwc3@a600000 {
+		usb-phy = <&usb_emu_phy_0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};
+
+&usb1 {
+	/delete-property/ extcon;
+	dwc3@a800000 {
+		usb-phy = <&usb_emu_phy_1>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+	};
+};

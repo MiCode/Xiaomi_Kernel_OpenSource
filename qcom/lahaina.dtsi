@@ -671,3 +671,4 @@
 
 #include "lahaina-pinctrl.dtsi"
 #include "msm-arm-smmu-lahaina.dtsi"
+#include "lahaina-usb.dtsi"
