@@ -1906,6 +1906,28 @@
 	};
 
 	thermal_zones: thermal-zones {};
+
+	tsens0: tsens@c222000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0xc222000 0x8>,
+		      <0xc263000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 506 0>, <0 508 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
+	};
+
+	tsens1: tsens@c223000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0xc223000 0x8>,
+		      <0xc265000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 507 0>, <0 509 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
+	};
 };
 
 #include "atoll-gdsc.dtsi"
