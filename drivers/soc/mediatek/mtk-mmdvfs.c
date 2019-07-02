@@ -105,7 +105,7 @@ static void set_all_muxes(struct mmdvfs_drv_data *drv_data, u32 voltage)
 static int regulator_event_notify(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
-	int uV;
+	unsigned long uV;
 	struct mmdvfs_drv_data *drv_data;
 	struct pre_voltage_change_data *pvc_data;
 
@@ -121,7 +121,7 @@ static int regulator_event_notify(struct notifier_block *nb,
 		} else if (uV > pvc_data->old_uV) {
 			drv_data->need_change_voltage = true;
 		}
-		pr_debug("regulator event=PRE_VOLTAGE_CHANGE old=%d new=%d\n",
+		pr_debug("regulator event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
 			pvc_data->old_uV, pvc_data->min_uV);
 	} else if (event == REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		uV = (unsigned long)data;
@@ -130,7 +130,7 @@ static int regulator_event_notify(struct notifier_block *nb,
 			drv_data->need_change_voltage = false;
 			drv_data->request_voltage = uV;
 		}
-		pr_debug("regulator event=VOLTAGE_CHANGE voltage=%d\n", uV);
+		pr_debug("regulator event=VOLTAGE_CHANGE voltage=%lu\n", uV);
 	} else if (event == REGULATOR_EVENT_ABORT_VOLTAGE_CHANGE) {
 		uV = (unsigned long) data;
 		/* If clk was changed, restore to previous setting */
@@ -139,7 +139,7 @@ static int regulator_event_notify(struct notifier_block *nb,
 			drv_data->need_change_voltage = false;
 			drv_data->request_voltage = uV;
 		}
-		pr_info("regulator event=ABORT_VOLTAGE_CHANGE voltage=%d\n",
+		pr_info("regulator event=ABORT_VOLTAGE_CHANGE voltage=%lu\n",
 			uV);
 	}
 	return 0;
