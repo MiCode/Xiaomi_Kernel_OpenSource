@@ -71,9 +71,20 @@ static void set_comm_icc_bw_handler(struct work_struct *work)
 {
 	struct common_node *comm_node = container_of(
 				work, struct common_node, work);
-	struct icc_node *icc_node = comm_node->base->icc_node;
+	struct mtk_mmqos *mmqos = container_of(
+				comm_node->base->icc_node->provider,
+				struct mtk_mmqos, prov);
+	struct common_port_node *comm_port_node;
+	u32 avg_bw = 0, peak_bw = 0;
 
-	icc_set_bw(comm_node->icc_path, icc_node->avg_bw, icc_node->peak_bw);
+	list_for_each_entry(comm_port_node, &mmqos->comm_port_list, list) {
+		mutex_lock(&comm_port_node->bw_lock);
+		avg_bw += comm_port_node->latest_avg_bw;
+		if (comm_port_node->hrt)
+			peak_bw += comm_port_node->latest_peak_bw;
+		mutex_unlock(&comm_port_node->bw_lock);
+	}
+	icc_set_bw(comm_node->icc_path, avg_bw, peak_bw);
 }
 
 static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
@@ -95,6 +106,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 		mutex_lock(&comm_port_node->bw_lock);
 		comm_port_node->latest_mix_bw = comm_port_node->base->mix_bw;
 		comm_port_node->latest_peak_bw = dst->peak_bw;
+		comm_port_node->latest_avg_bw = dst->avg_bw;
 		mmqos_update_comm_bw(comm_port_node->larb_dev,
 			dst->id & 0xff, comm_port_node->common->freq,
 			icc_to_MBps(comm_port_node->latest_mix_bw),
@@ -132,7 +144,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 		base_node = ((struct common_port_node *)node->data)->base;
 		break;
 	default:
-		break;
+		return 0;
 	}
 
 	if (base_node) {
@@ -294,6 +306,8 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				ret = -ENOMEM;
 				goto err;
 			}
+			comm_port_node->hrt = mmqos_desc->hrt_comm_ports[
+					node->id >> 8 & 0xff][node->id & 0xff];
 			mutex_init(&comm_port_node->bw_lock);
 			comm_port_node->common = node->links[0]->data;
 			INIT_LIST_HEAD(&comm_port_node->list);

@@ -10,6 +10,7 @@
 #include <linux/workqueue.h>
 
 #define MMQOS_NO_LINK	(0xffffffff)
+#define MMQOS_MAX_COMM_PORT_NUM	(15)
 
 struct mmqos_base_node {
 	struct icc_node *icc_node;
@@ -33,7 +34,9 @@ struct common_port_node {
 	struct mutex bw_lock;
 	u32 latest_mix_bw;
 	u32 latest_peak_bw;
+	u32 latest_avg_bw;
 	struct list_head list;
+	bool hrt;
 };
 
 struct larb_node {
@@ -67,6 +70,7 @@ struct mtk_mmqos_desc {
 	const size_t num_nodes;
 	const char * const *comm_muxes;
 	const char * const *comm_icc_path_names;
+	const bool (*hrt_comm_ports)[MMQOS_MAX_COMM_PORT_NUM];
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\

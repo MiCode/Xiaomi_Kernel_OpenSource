@@ -32,6 +32,8 @@ static const struct mtk_node_desc node_descs_mt6779[] = {
 		MASTER_COMMON_PORT(0, 6), 0, SLAVE_COMMON(0)),
 	DEFINE_MNODE(common0_port7,
 		MASTER_COMMON_PORT(0, 7), 0, SLAVE_COMMON(0)),
+	DEFINE_MNODE(common0_port8,
+		MASTER_COMMON_PORT(0, 8), 0, SLAVE_COMMON(0)),
 	DEFINE_MNODE(larb0, SLAVE_LARB(0), 0, MASTER_COMMON_PORT(0, 0)),
 	DEFINE_MNODE(larb1, SLAVE_LARB(1), 0, MASTER_COMMON_PORT(0, 1)),
 	DEFINE_MNODE(larb2, SLAVE_LARB(2), 0, MASTER_COMMON_PORT(0, 2)),
@@ -40,6 +42,7 @@ static const struct mtk_node_desc node_descs_mt6779[] = {
 	DEFINE_MNODE(larb8, SLAVE_LARB(8), 0, MASTER_COMMON_PORT(0, 5)),
 	DEFINE_MNODE(larb9, SLAVE_LARB(9), 0, MASTER_COMMON_PORT(0, 7)),
 	DEFINE_MNODE(larb10, SLAVE_LARB(10), 0, MASTER_COMMON_PORT(0, 6)),
+	DEFINE_MNODE(larb12, SLAVE_LARB(12), 0, MASTER_COMMON_PORT(0, 6)),
 	DEFINE_MNODE(disp_postmask0,
 		MASTER_LARB_PORT(M4U_PORT_DISP_POSTMASK0), 7, SLAVE_LARB(0)),
 	DEFINE_MNODE(disp_ovl0_hdr,
@@ -351,11 +354,16 @@ static const char * const comm_muxes_mt6779[] = { "mm" };
 
 static const char * const comm_icc_path_names_mt6779[] = { "mmsys_path" };
 
+static const bool hrt_comm_ports_mt6779[][MMQOS_MAX_COMM_PORT_NUM] = {
+	{ false, false, false, false, false, false, true, true, true },
+};
+
 static const struct mtk_mmqos_desc mmqos_desc_mt6779 = {
 	.nodes = node_descs_mt6779,
 	.num_nodes = ARRAY_SIZE(node_descs_mt6779),
 	.comm_muxes = comm_muxes_mt6779,
 	.comm_icc_path_names = comm_icc_path_names_mt6779,
+	.hrt_comm_ports = hrt_comm_ports_mt6779,
 };
 
 
