@@ -31,6 +31,8 @@
 
 &ipa_hw {
 	qcom,use-ipa-in-mhi-mode;
+	qcom,ipa-config-is-auto;
+	qcom,mhi-event-ring-id-limits = <9 13>; /* start and end */
 };
 
 &cnss_pcie {
