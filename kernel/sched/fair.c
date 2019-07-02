@@ -7322,10 +7322,8 @@ SELECT_TASK_RQ_FAIR(struct task_struct *p, int prev_cpu, int sd_flag,
 				goto sd_loop;
 
 			new_cpu = find_energy_efficient_cpu(p, prev_cpu, sync);
-			if (new_cpu >= 0) {
-				select_reason = LB_EAS;
-				return new_cpu;
-			}
+			if (new_cpu >= 0)
+				return LB_EAS | new_cpu;
 
 			new_cpu = prev_cpu;
 		}
