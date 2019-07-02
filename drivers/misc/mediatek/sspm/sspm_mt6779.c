@@ -40,6 +40,7 @@
 
 #include "sspm_ipi_define_mt6779.h"
 #include "sspm_reservedmem_define_mt6779.h"
+#include "sspm_timesync.h"
 
 #define SEM_TIMEOUT		5000
 #define SSPM_INIT_FLAG	0x1
@@ -123,6 +124,13 @@ static int mt6779_sspm_module_init(void)
 	pr_info("SSPM platform service is ready\n");
 #endif
 
+#if SSPM_TIMESYNC_SUPPORT
+	if (sspm_timesync_init()) {
+		pr_err("SSPM timesync init fail\n");
+		return -1;
+	}
+#endif
+
 	sspm_lock_emi_mpu();
 
 	return 0;
@@ -202,6 +210,25 @@ static int mt6779_sspm_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int mt6779_sspm_suspend(struct device *dev)
+{
+	sspm_timesync_suspend();
+	return 0;
+}
+
+static int mt6779_sspm_resume(struct device *dev)
+{
+	sspm_timesync_resume();
+	return 0;
+}
+
+static const struct dev_pm_ops mt6779_sspm_dev_pm_ops = {
+	.suspend = mt6779_sspm_suspend,
+	.resume  = mt6779_sspm_resume,
+};
+#endif
+
 static const struct of_device_id mt6779_sspm_of_match[] = {
 	{ .compatible = "mediatek,mt6779-sspm", },
 	{},
@@ -222,6 +249,9 @@ static struct platform_driver mtk_mt6779_sspm_driver = {
 		.name = "mt6779-sspm",
 		.owner = THIS_MODULE,
 		.of_match_table = mt6779_sspm_of_match,
+#ifdef CONFIG_PM
+		.pm = &mt6779_sspm_dev_pm_ops,
+#endif
 	},
 	.id_table = mt6779_sspm_id_table,
 };

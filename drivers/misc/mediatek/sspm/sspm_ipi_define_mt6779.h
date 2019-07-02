@@ -62,14 +62,6 @@
 #error "MBOX2 cannot hold all pin definitions"
 #endif
 
-#define SHAREMBOX_NO_MCDI            3
-#define SHAREMBOX_OFFSET_MCDI        0
-#define SHAREMBOX_SIZE_MCDI          20
-#define SHAREMBOX_OFFSET_TIMESTAMP   (SHAREMBOX_OFFSET_MCDI + \
-				SHAREMBOX_SIZE_MCDI)
-#define SHAREMBOX_SIZE_TIMESTAMP     6
-
-
 /* mutex_send, sema_ack, mbox, slot, size,
  * shared, retdata, lock, share_grp, polling, unused
  */
