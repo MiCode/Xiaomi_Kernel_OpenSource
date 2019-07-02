@@ -140,7 +140,7 @@ EXPORT_SYMBOL_GPL(mmdvfs_wrapper_get_freq_steps);
 u64 mmdvfs_qos_get_freq(u32 clk_id)
 {
 	struct regulator *reg;
-	int voltage, i;
+	int voltage = 0, i;
 
 	if (clk_id >= CLK_MAX_NUM)
 		return 0;
@@ -264,10 +264,11 @@ int get_test_freq(char *buf, const struct kernel_param *kp)
 
 			if (i == step_size - 1)
 				length += snprintf(buf + length,
-					PAGE_SIZE - length, "%d)\n", steps[i]);
+					PAGE_SIZE - length, "%llu)\n",
+					steps[i]);
 			else
 				length += snprintf(buf + length,
-					PAGE_SIZE - length, "%d,", steps[i]);
+					PAGE_SIZE - length, "%llu,", steps[i]);
 		}
 	}
 
