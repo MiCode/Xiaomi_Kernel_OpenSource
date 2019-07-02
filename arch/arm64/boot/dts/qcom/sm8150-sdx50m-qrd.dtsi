@@ -615,3 +615,119 @@
 		<0x49 0x70
 		 0x28 0x74>;
 };
+
+&thermal_zones {
+	modem1-pa1-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&qmi_sensor 101>;
+		trips {
+			pa1_lvl0: active-config0 {
+				temperature = <40000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+			pa1_lvl1: active-config1 {
+				temperature = <45000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			pa1_lvl2: active-config2 {
+				temperature = <52000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			pa1_skin_lvl0 {
+				trip = <&pa1_lvl0>;
+				cooling-device = <&modem1_skin0 1 1>;
+			};
+			pa1_skin_lvl1 {
+				trip = <&pa1_lvl1>;
+				cooling-device = <&modem1_skin0 2 2>;
+			};
+			pa1_skin_lvl2 {
+				trip = <&pa1_lvl2>;
+				cooling-device = <&modem1_skin0 3 3>;
+			};
+		};
+	};
+
+	pa-therm2-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM3_PU2>;
+		trips {
+			pa2_lvl0: active-config0 {
+				temperature = <40000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+			pa2_lvl1: active-config1 {
+				temperature = <45000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			pa2_lvl2: active-config2 {
+				temperature = <52000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			pa2_skin_lvl0 {
+				trip = <&pa2_lvl0>;
+				cooling-device = <&modem1_skin1 1 1>;
+			};
+			pa2_skin_lvl1 {
+				trip = <&pa2_lvl1>;
+				cooling-device = <&modem1_skin1 2 2>;
+			};
+			pa2_skin_lvl2 {
+				trip = <&pa2_lvl2>;
+				cooling-device = <&modem1_skin1 3 3>;
+			};
+		};
+	};
+
+	camera-ftherm-step {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8150l_adc_tm ADC_AMUX_THM1_PU2>;
+		trips {
+			cam_lvl0: active-config0 {
+				temperature = <34000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+			cam_lvl1: active-config1 {
+				temperature = <43000>;
+				hysteresis = <3000>;
+				type = "passive";
+			};
+			cam_lvl2: active-config2 {
+				temperature = <52000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			cam_skin_lvl0 {
+				trip = <&cam_lvl0>;
+				cooling-device = <&modem1_skin2 1 1>;
+			};
+			cam_skin_lvl1 {
+				trip = <&cam_lvl1>;
+				cooling-device = <&modem1_skin2 2 2>;
+			};
+			cam_skin_lvl2 {
+				trip = <&cam_lvl2>;
+				cooling-device = <&modem1_skin2 3 3>;
+			};
+		};
+	};
+};

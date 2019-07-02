@@ -127,9 +127,6 @@ struct geni_se_device {
 	bool vote_for_bw;
 };
 
-/* Offset of QUPV3 Hardware Version Register */
-#define QUPV3_HW_VER (0x4)
-
 #define HW_VER_MAJOR_MASK GENMASK(31, 28)
 #define HW_VER_MAJOR_SHFT 28
 #define HW_VER_MINOR_MASK GENMASK(27, 16)

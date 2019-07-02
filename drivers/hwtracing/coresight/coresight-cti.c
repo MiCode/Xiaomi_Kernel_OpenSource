@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -382,20 +382,27 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 		ret = pm_runtime_get_sync(drvdata->dev);
 		if (ret)
 			goto err1;
+		ret = coresight_enable_reg_clk(drvdata->csdev);
+		if (ret)
+			goto err2;
 	}
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	__cti_map_trigin(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err2:
+err3:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	if (drvdata->refcnt == 0)
+		coresight_disable_reg_clk(drvdata->csdev);
+err2:
 	/*
 	 * We come here before refcnt is potentially modified in
 	 * __cti_map_trigin so it is safe to check it against 0 without
@@ -466,20 +473,27 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 		ret = pm_runtime_get_sync(drvdata->dev);
 		if (ret)
 			goto err1;
+		ret = coresight_enable_reg_clk(drvdata->csdev);
+		if (ret)
+			goto err2;
 	}
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	__cti_map_trigout(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err2:
+err3:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	if (drvdata->refcnt == 0)
+		coresight_disable_reg_clk(drvdata->csdev);
+err2:
 	/*
 	 * We come here before refcnt is potentially incremented in
 	 * __cti_map_trigout so it is safe to check it against 0.
@@ -562,8 +576,10 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 	 * refcnt can be used here since in all cases its value is modified only
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
-	if (drvdata->refcnt == 0)
+	if (drvdata->refcnt == 0) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 
 	if (drvdata->gpio_trigin->trig == trig)
 		cti_trigin_gpio_disable(drvdata);
@@ -631,8 +647,10 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 	 * refcnt can be used here since in all cases its value is modified only
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
-	if (drvdata->refcnt == 0)
+	if (drvdata->refcnt == 0) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 
 	if (drvdata->gpio_trigout->trig == trig)
 		cti_trigout_gpio_disable(drvdata);
@@ -694,8 +712,10 @@ void coresight_cti_reset(struct coresight_cti *cti)
 			cti_trigout_gpio_disable(drvdata);
 	}
 
-	if (refcnt)
+	if (refcnt) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 	mutex_unlock(&drvdata->mutex);
 	return;
 err:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,12 @@
 #define CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK                            0x10
 #define CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK                          0x18000EE6
 #define CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK                          0x60EE6000
+#define CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK                     0x18000000
+#define CCI_IRQ_STATUS_0_I2C_M1_NACK_ERROR_BMSK                     0x60000000
+#define CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_ERROR_BMSK                          0xEE0
+#define CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_ERROR_BMSK                       0xEE0000
+#define CCI_IRQ_STATUS_0_I2C_M0_RD_ERROR_BMSK                              0x6
+#define CCI_IRQ_STATUS_0_I2C_M1_RD_ERROR_BMSK                           0x6000
 #define CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK                               0x1
 #define CCI_IRQ_STATUS_1_I2C_M0_RD_THRESHOLD                           0x10000
 #define CCI_IRQ_STATUS_1_I2C_M0_RD_PAUSE                               0x20000

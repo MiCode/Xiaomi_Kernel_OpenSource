@@ -244,7 +244,9 @@ static void __ipa_eth_refresh_device(struct work_struct *work)
 
 	if (initable(eth_dev)) {
 		if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED) {
+			IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 			(void) ipa_eth_init_device(eth_dev);
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 			if (eth_dev->of_state != IPA_ETH_OF_ST_INITED) {
 				ipa_eth_dev_err(eth_dev,
@@ -255,7 +257,9 @@ static void __ipa_eth_refresh_device(struct work_struct *work)
 	}
 
 	if (startable(eth_dev)) {
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 		(void) ipa_eth_start_device(eth_dev);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 		if (eth_dev->of_state != IPA_ETH_OF_ST_STARTED) {
 			ipa_eth_dev_err(eth_dev, "Failed to start device");
@@ -269,7 +273,9 @@ static void __ipa_eth_refresh_device(struct work_struct *work)
 		ipa_eth_dev_log(eth_dev, "Start is disallowed for the device");
 
 		if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED) {
+			IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 			ipa_eth_stop_device(eth_dev);
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 			if (eth_dev->of_state != IPA_ETH_OF_ST_INITED) {
 				ipa_eth_dev_err(eth_dev,
@@ -282,7 +288,9 @@ static void __ipa_eth_refresh_device(struct work_struct *work)
 	if (!initable(eth_dev)) {
 		ipa_eth_dev_log(eth_dev, "Init is disallowed for the device");
 
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 		ipa_eth_deinit_device(eth_dev);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 		if (eth_dev->of_state != IPA_ETH_OF_ST_DEINITED) {
 			ipa_eth_dev_err(eth_dev, "Failed to deinit device");
@@ -380,18 +388,6 @@ static void ipa_eth_ipa_ready_cb(void *data)
 	set_bit(IPA_ETH_ST_IPA_READY, &ipa_eth_state);
 
 	ipa_eth_refresh_devices();
-}
-
-struct ipa_eth_device *ipa_eth_find_device(struct device *dev)
-{
-	struct ipa_eth_device *eth_dev;
-
-	list_for_each_entry(eth_dev, &ipa_eth_devices, device_list) {
-		if (eth_dev->dev == dev)
-			return eth_dev;
-	}
-
-	return NULL;
 }
 
 static ssize_t ipa_eth_dev_write_init(struct file *file,
@@ -626,6 +622,8 @@ static void ipa_eth_unpair_devices(struct ipa_eth_offload_driver *od)
 
 int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 {
+	int rc;
+
 	if (!eth_dev->dev) {
 		ipa_eth_dev_err(eth_dev, "Device is NULL");
 		return -EINVAL;
@@ -640,7 +638,22 @@ int ipa_eth_register_device(struct ipa_eth_device *eth_dev)
 	eth_dev->pm_handle = IPA_PM_MAX_CLIENTS;
 	INIT_WORK(&eth_dev->refresh, __ipa_eth_refresh_device);
 
+	INIT_LIST_HEAD(&eth_dev->rx_channels);
+	INIT_LIST_HEAD(&eth_dev->tx_channels);
+
 	eth_dev->init = eth_dev->start = !ipa_eth_noauto;
+
+	rc = ipa_eth_net_open_device(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to open network device");
+		return rc;
+	}
+
+	if (!eth_dev->net_dev) {
+		ipa_eth_dev_err(eth_dev, "Netdev info is missing");
+		ipa_eth_net_close_device(eth_dev);
+		return -EFAULT;
+	}
 
 	mutex_lock(&ipa_eth_devices_lock);
 
@@ -661,10 +674,11 @@ void ipa_eth_unregister_device(struct ipa_eth_device *eth_dev)
 
 	__ipa_eth_unpair_device(eth_dev);
 	list_del(&eth_dev->device_list);
-
-	ipa_eth_dev_log(eth_dev, "Unregistered device");
+	ipa_eth_net_close_device(eth_dev);
 
 	mutex_unlock(&ipa_eth_devices_lock);
+
+	ipa_eth_dev_log(eth_dev, "Unregistered device");
 }
 
 static phys_addr_t ipa_eth_vmalloc_to_pa(void *vaddr)
@@ -979,7 +993,7 @@ void *ipa_eth_get_ipc_logbuf_dbg(void)
 }
 EXPORT_SYMBOL(ipa_eth_get_ipc_logbuf_dbg);
 
-#define IPA_ETH_IPC_LOG_PAGES 50
+#define IPA_ETH_IPC_LOG_PAGES 128
 
 static int ipa_eth_ipc_log_init(void)
 {

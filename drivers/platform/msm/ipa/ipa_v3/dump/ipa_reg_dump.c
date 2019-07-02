@@ -667,7 +667,7 @@ static struct reg_access_funcs_s *get_access_funcs(u32 addr)
 
 	for (i = 0; i < ARRAY_SIZE(mem_access_map); i++) {
 		if (addr >= mem_access_map[i].addr_range_begin &&
-		    addr <= mem_access_map[i].addr_range_end) {
+		    addr <  mem_access_map[i].addr_range_end) {
 			return mem_access_map[i].access[asub];
 		}
 	}

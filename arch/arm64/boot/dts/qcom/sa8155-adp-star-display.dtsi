@@ -186,6 +186,8 @@
 #include "dsi-panel-ext-bridge-1080p.dtsi"
 
 &dsi_ext_bridge_1080p {
+	qcom,mdss-dsi-ext-bridge = <0>;
+
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1E 08 07 24 22

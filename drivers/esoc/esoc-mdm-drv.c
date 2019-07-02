@@ -65,6 +65,7 @@ struct mdm_drv {
 
 static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 							unsigned int flags);
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink);
 
 int esoc_set_boot_fail_action(struct esoc_clink *esoc_clink, u32 action)
 {
@@ -201,10 +202,11 @@ static void mdm_ssr_fn(struct work_struct *work)
 	struct mdm_drv *mdm_drv = container_of(work, struct mdm_drv, ssr_work);
 	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
 
+	esoc_client_link_mdm_crash(mdm_drv->esoc_clink);
+
 	mdm_wait_for_status_low(mdm, false);
 
 	esoc_mdm_log("Starting SSR work\n");
-
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
 	 */
@@ -245,6 +247,21 @@ static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 			client_hook->esoc_link_power_off(client_hook->priv,
 							flags);
 		}
+	}
+}
+
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink)
+{
+	int i;
+	struct esoc_client_hook *client_hook;
+
+	dev_dbg(&esoc_clink->dev, "Calling mdm_crash hooks\n");
+	esoc_mdm_log("Calling mdm_crash hooks\n");
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		client_hook = esoc_clink->client_hook[i];
+		if (client_hook && client_hook->esoc_link_mdm_crash)
+			client_hook->esoc_link_mdm_crash(client_hook->priv);
 	}
 }
 

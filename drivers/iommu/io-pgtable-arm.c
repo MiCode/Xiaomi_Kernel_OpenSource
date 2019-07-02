@@ -694,6 +694,12 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 			ms.num_pte * sizeof(*ms.pte_start),
 			DMA_TO_DEVICE);
 
+	/*
+	 * Synchronise all PTE updates for the new mapping before there's
+	 * a chance for anything to kick off a table walk for the new iova.
+	 */
+	wmb();
+
 	return mapped;
 
 out_err:

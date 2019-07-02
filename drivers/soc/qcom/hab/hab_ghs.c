@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,6 +169,7 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 						mmid_device->name,
 						mmid_device->id,
 						dt_name_idx);
+				of_node_put(gvh_dn);
 				ret = -ENOENT;
 				goto err;
 			}
@@ -176,9 +177,13 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 			ret = of_property_read_string(gvh_dn,
 				ghs_vmm_plugin_info.dt_name[dt_name_idx],
 				&ep_path);
-			if (ret)
+			if (ret) {
 				pr_err("failed to read endpoint str ret %d\n",
 					ret);
+				of_node_put(gvh_dn);
+				ret = -ENOENT;
+				goto err;
+			}
 			of_node_put(gvh_dn);
 
 			ep_dn = of_find_node_by_path(ep_path);
