@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,9 @@ static ssize_t debugfs_dump_info_read(struct file *file,
 	len += snprintf(buf + len, (SZ_4K - len),
 			"\tClock master = %s\n",
 			display->ctrl[display->clk_master_idx].ctrl->name);
+
+	if (len > count)
+		len = count;
 
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
