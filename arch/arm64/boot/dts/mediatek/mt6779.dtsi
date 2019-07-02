@@ -2789,6 +2789,11 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	amms_control {
+		compatible = "mediatek,amms";
+		interrupts = <GIC_SPI 334 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	mtk_scpsys_bringup_disp {
 		compatible = "mediatek,scpsys-bringup-mt6779";
 		power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
