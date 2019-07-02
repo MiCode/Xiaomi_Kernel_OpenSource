@@ -4,6 +4,7 @@
  */
 
 #include <linux/console.h>
+#include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/syscore_ops.h>
@@ -22,10 +23,14 @@ static struct syscore_ops mtk_lpm_suspend = {
 	.resume = mtk_lpm_suspend_leave,
 };
 
+static struct wakeup_source mtk_suspend_lock;
+
 static int __init mtk_lpm_init(void)
 {
 	register_syscore_ops(&mtk_lpm_suspend);
 	console_suspend_enabled = false;
+	wakeup_source_init(&mtk_suspend_lock, "mtk_suspend_wakelock");
+	__pm_stay_awake(&mtk_suspend_lock);
 
 	return 0;
 }
