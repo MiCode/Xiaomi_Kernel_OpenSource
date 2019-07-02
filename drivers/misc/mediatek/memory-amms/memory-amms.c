@@ -230,6 +230,7 @@ static int amms_task_process(void *p)
 static int __init amms_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct sched_param param = {.sched_priority = 98 };
 
 	amms_irq_num = platform_get_irq(pdev, 0);
 	if (amms_irq_num < 0) {
@@ -246,15 +247,24 @@ static int __init amms_probe(struct platform_device *pdev)
 	}
 
 	amms_dev = &pdev->dev;
-	pr_info("amms_dev->dma_ops=0x%pS\n", amms_dev->dma_ops);
+	pr_info("amms_dev->dma_ops=%pS\n", amms_dev->dma_ops);
 	pr_info("amms irq num %d\n", amms_irq_num);
+
+	amms_task = kthread_create(amms_task_process,
+			NULL, "amms_task");
+	if (!amms_task)
+		pr_info("amms_task thread create failed\n");
+
+	sched_setscheduler(amms_task, SCHED_FIFO, &param);
 
 	if (request_irq(amms_irq_num, (irq_handler_t)amms_irq_handler,
 		IRQF_TRIGGER_NONE, "amms_irq", NULL) != 0) {
 		pr_info("Fail to request amms_irq interrupt!\n");
 		return -EBUSY;
 	}
-
+#if CONFIG_SYSFS
+	amms_sysfs_init();
+#endif
 	return 0;
 }
 
@@ -283,21 +293,10 @@ static struct platform_driver amms_driver_probe = {
 static int __init amms_init(void)
 {
 	int ret = 0;
-	struct sched_param param = {.sched_priority = 98 };
-
-	amms_task = kthread_create(amms_task_process,
-			NULL, "amms_task");
-	if (!amms_task)
-		pr_info("amms_task thread create failed\n");
-
-	sched_setscheduler(amms_task, SCHED_FIFO, &param);
 	ret = platform_driver_register(&amms_driver_probe);
 	if (ret)
 		pr_info("amms init FAIL, ret 0x%x!!!\n", ret);
 
-#if CONFIG_SYSFS
-	amms_sysfs_init();
-#endif
 	return ret;
 }
 
@@ -336,7 +335,7 @@ void *vmap_reserved_mem(phys_addr_t start, phys_addr_t size, pgprot_t prot)
 }
 EXPORT_SYMBOL(vmap_reserved_mem);
 
-arch_initcall(amms_init);
+device_initcall(amms_init);
 
 MODULE_DESCRIPTION("MEDIATEK Module AMMS Driver");
 MODULE_AUTHOR("<johnson.lin@mediatek.com>");
