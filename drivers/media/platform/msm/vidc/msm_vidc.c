@@ -1613,6 +1613,12 @@ int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 	int rc = 0;
 	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)vidc_inst;
 
+	if (cmd != VIDIOC_VIDEO_CMD) {
+		dprintk(VIDC_ERR,
+			"%s: invalid private cmd %#x\n", __func__, cmd);
+		return -ENOIOCTLCMD;
+	}
+
 	if (!inst || !arg) {
 		dprintk(VIDC_ERR, "%s: invalid args\n", __func__);
 		return -EINVAL;

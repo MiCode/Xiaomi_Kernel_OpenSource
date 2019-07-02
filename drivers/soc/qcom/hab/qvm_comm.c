@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,16 +43,17 @@ int physical_channel_send(struct physical_channel *pchan,
 	int sizebytes = HAB_HEADER_GET_SIZE(*header);
 	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
 	int total_size = sizeof(*header) + sizebytes;
+	int irqs_disabled = irqs_disabled();
 
 	if (total_size > dev->pipe_ep->tx_info.sh_buf->size)
 		return -EINVAL; /* too much data for ring */
 
-	spin_lock_bh(&dev->io_lock);
+	hab_spin_lock(&dev->io_lock, irqs_disabled);
 
 	if ((dev->pipe_ep->tx_info.sh_buf->size -
 		(dev->pipe_ep->tx_info.wr_count -
 		dev->pipe_ep->tx_info.sh_buf->rd_count)) < total_size) {
-		spin_unlock_bh(&dev->io_lock);
+		hab_spin_unlock(&dev->io_lock, irqs_disabled);
 		return -EAGAIN; /* not enough free space */
 	}
 
@@ -62,7 +63,7 @@ int physical_channel_send(struct physical_channel *pchan,
 	if (hab_pipe_write(dev->pipe_ep,
 		(unsigned char *)header,
 		sizeof(*header)) != sizeof(*header)) {
-		spin_unlock_bh(&dev->io_lock);
+		hab_spin_unlock(&dev->io_lock, irqs_disabled);
 		return -EIO;
 	}
 
@@ -76,7 +77,7 @@ int physical_channel_send(struct physical_channel *pchan,
 			pstat->tx_sec = tv.tv_sec;
 			pstat->tx_usec = tv.tv_usec;
 		} else {
-			spin_unlock_bh(&dev->io_lock);
+			hab_spin_unlock(&dev->io_lock, irqs_disabled);
 			return -EINVAL;
 		}
 	}
@@ -85,13 +86,14 @@ int physical_channel_send(struct physical_channel *pchan,
 		if (hab_pipe_write(dev->pipe_ep,
 			(unsigned char *)payload,
 			sizebytes) != sizebytes) {
-			spin_unlock_bh(&dev->io_lock);
+			hab_spin_unlock(&dev->io_lock, irqs_disabled);
 			return -EIO;
 		}
 	}
 
 	hab_pipe_write_commit(dev->pipe_ep);
-	spin_unlock_bh(&dev->io_lock);
+	hab_spin_unlock(&dev->io_lock, irqs_disabled);
+
 	habhyp_notify(dev);
 	++pchan->sequence_tx;
 	return 0;
@@ -102,8 +104,9 @@ void physical_channel_rx_dispatch(unsigned long data)
 	struct hab_header header;
 	struct physical_channel *pchan = (struct physical_channel *)data;
 	struct qvm_channel *dev = (struct qvm_channel *)pchan->hyp_data;
+	int irqs_disabled = irqs_disabled();
 
-	spin_lock_bh(&pchan->rxbuf_lock);
+	hab_spin_lock(&pchan->rxbuf_lock, irqs_disabled);
 	while (1) {
 		if (hab_pipe_read(dev->pipe_ep,
 			(unsigned char *)&header,
@@ -122,5 +125,5 @@ void physical_channel_rx_dispatch(unsigned long data)
 
 		hab_msg_recv(pchan, &header);
 	}
-	spin_unlock_bh(&pchan->rxbuf_lock);
+	hab_spin_unlock(&pchan->rxbuf_lock, irqs_disabled);
 }

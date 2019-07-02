@@ -1124,6 +1124,25 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			local_rp->ptr, local_rp->dword[0], local_rp->dword[1]);
 
 		switch (type) {
+		case MHI_PKT_TYPE_BW_REQ_EVENT:
+		{
+			struct mhi_link_info *link_info;
+
+			link_info = &mhi_cntrl->mhi_link_info;
+			write_lock_irq(&mhi_cntrl->pm_lock);
+			link_info->target_link_speed =
+				MHI_TRE_GET_EV_LINKSPEED(local_rp);
+			link_info->target_link_width =
+				MHI_TRE_GET_EV_LINKWIDTH(local_rp);
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			MHI_VERB(
+				 "Received BW_REQ with link speed:0x%x width:0x%x\n",
+				 link_info->target_link_speed,
+				 link_info->target_link_width);
+			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
+					     MHI_CB_BW_REQ);
+			break;
+		}
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
 		{
 			enum mhi_dev_state new_state;
@@ -1383,8 +1402,16 @@ void mhi_ctrl_ev_task(unsigned long data)
 	 * pm_state can change from reg access valid to no access while this
 	 * therad being executed.
 	 */
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
+		/*
+		 * we may have a pending event but not allowed to
+		 * process it since we probably in a suspended state,
+		 * trigger a resume.
+		 */
+		mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+		mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 		return;
+	}
 
 	/* process ctrl events events */
 	ret = mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
@@ -1842,12 +1869,12 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 	struct mhi_controller *mhi_cntrl = m->private;
 
 	seq_printf(m,
-		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
 		   mhi_cntrl->M0, mhi_cntrl->M2, mhi_cntrl->M3,
-		   mhi_cntrl->wake_set,
+		   mhi_cntrl->M3_FAST, mhi_cntrl->wake_set,
 		   atomic_read(&mhi_cntrl->dev_wake),
 		   atomic_read(&mhi_cntrl->alloc_size),
 		   atomic_read(&mhi_cntrl->pending_pkts));

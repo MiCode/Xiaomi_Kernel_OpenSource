@@ -20,25 +20,11 @@
 #include "mdm-dbg.h"
 
 /* Default number of powerup trial requests per session */
-#define ESOC_DEF_PON_REQ	2
-static unsigned int n_pon_tries = ESOC_DEF_PON_REQ;
-module_param(n_pon_tries, uint, 0644);
-MODULE_PARM_DESC(n_pon_tries,
-"Number of power-on retrials allowed upon boot failure");
+#define ESOC_DEF_PON_REQ	3
 
-enum esoc_boot_fail_action {
-	BOOT_FAIL_ACTION_RETRY,
-	BOOT_FAIL_ACTION_COLD_RESET,
-	BOOT_FAIL_ACTION_SHUTDOWN,
-	BOOT_FAIL_ACTION_PANIC,
-	BOOT_FAIL_ACTION_NOP,
-	BOOT_FAIL_ACTION_S3_RESET,
-};
+#define ESOC_MAX_PON_TRIES	5
 
-static unsigned int boot_fail_action = BOOT_FAIL_ACTION_PANIC;
-module_param(boot_fail_action, uint, 0644);
-MODULE_PARM_DESC(boot_fail_action,
-"Actions: 0:Retry PON; 1:Cold reset; 2:Power-down; 3:APQ Panic; 4:No action");
+#define BOOT_FAIL_ACTION_DEF BOOT_FAIL_ACTION_PANIC
 
 enum esoc_pon_state {
 	PON_INIT,
@@ -70,13 +56,58 @@ struct mdm_drv {
 	struct work_struct ssr_work;
 	struct notifier_block esoc_restart;
 	struct mutex poff_lock;
+	atomic_t boot_fail_action;
+	atomic_t n_pon_tries;
 };
 #define to_mdm_drv(d)	container_of(d, struct mdm_drv, cmd_eng)
 
-#define S3_RESET_DELAY_MS	2100
+#define S3_RESET_DELAY_MS	2000
 
 static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 							unsigned int flags);
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink);
+
+int esoc_set_boot_fail_action(struct esoc_clink *esoc_clink, u32 action)
+{
+	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
+
+	if (action >= BOOT_FAIL_ACTION_LAST) {
+		esoc_mdm_log("Unknown boot fail action requested: %u\n",
+				action);
+		return -EINVAL;
+	}
+
+	if (!mdm_drv) {
+		esoc_mdm_log("esoc-mdm driver not present\n");
+		return -EAGAIN;
+	}
+
+	atomic_set(&mdm_drv->boot_fail_action, action);
+	esoc_mdm_log("Boot fail action configured to %u\n", action);
+
+	return 0;
+}
+
+int esoc_set_n_pon_tries(struct esoc_clink *esoc_clink, u32 n_tries)
+{
+	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
+
+	if (n_tries > ESOC_MAX_PON_TRIES) {
+		esoc_mdm_log(
+			"Num PON tries requested (%u) is over the limit: %u\n",
+			n_tries, ESOC_MAX_PON_TRIES);
+	}
+
+	if (!mdm_drv) {
+		esoc_mdm_log("esoc-mdm driver not present\n");
+		return -EAGAIN;
+	}
+
+	atomic_set(&mdm_drv->n_pon_tries, n_tries);
+	esoc_mdm_log("Num PON tries configured to %u\n", n_tries);
+
+	return 0;
+}
 
 static int esoc_msm_restart_handler(struct notifier_block *nb,
 		unsigned long action, void *data)
@@ -171,10 +202,11 @@ static void mdm_ssr_fn(struct work_struct *work)
 	struct mdm_drv *mdm_drv = container_of(work, struct mdm_drv, ssr_work);
 	struct mdm_ctrl *mdm = get_esoc_clink_data(mdm_drv->esoc_clink);
 
+	esoc_client_link_mdm_crash(mdm_drv->esoc_clink);
+
 	mdm_wait_for_status_low(mdm, false);
 
 	esoc_mdm_log("Starting SSR work\n");
-
 	/*
 	 * If restarting esoc fails, the SSR framework triggers a kernel panic
 	 */
@@ -215,6 +247,21 @@ static void esoc_client_link_power_off(struct esoc_clink *esoc_clink,
 			client_hook->esoc_link_power_off(client_hook->priv,
 							flags);
 		}
+	}
+}
+
+static void esoc_client_link_mdm_crash(struct esoc_clink *esoc_clink)
+{
+	int i;
+	struct esoc_client_hook *client_hook;
+
+	dev_dbg(&esoc_clink->dev, "Calling mdm_crash hooks\n");
+	esoc_mdm_log("Calling mdm_crash hooks\n");
+
+	for (i = 0; i < ESOC_MAX_HOOKS; i++) {
+		client_hook = esoc_clink->client_hook[i];
+		if (client_hook && client_hook->esoc_link_mdm_crash)
+			client_hook->esoc_link_mdm_crash(client_hook->priv);
 	}
 }
 
@@ -327,8 +374,15 @@ static void mdm_subsys_retry_powerup_cleanup(struct esoc_clink *esoc_clink,
 static int mdm_handle_boot_fail(struct esoc_clink *esoc_clink, u8 *pon_trial)
 {
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc_clink);
+	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 
-	switch (boot_fail_action) {
+	if (*pon_trial == atomic_read(&mdm_drv->n_pon_tries)) {
+		esoc_mdm_log("Reached max. number of boot trials\n");
+		atomic_set(&mdm_drv->boot_fail_action,
+					BOOT_FAIL_ACTION_PANIC);
+	}
+
+	switch (atomic_read(&mdm_drv->boot_fail_action)) {
 	case BOOT_FAIL_ACTION_RETRY:
 		mdm_subsys_retry_powerup_cleanup(esoc_clink, 0);
 		esoc_mdm_log("Request to retry a warm reset\n");
@@ -382,7 +436,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops * const clink_ops = esoc_clink->clink_ops;
 	int timeout = INT_MAX;
-	u8 pon_trial = 1;
+	u8 pon_trial = 0;
 
 	esoc_mdm_log("Powerup request from SSR\n");
 
@@ -456,7 +510,7 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 		} else if (mdm_drv->pon_state == PON_SUCCESS) {
 			break;
 		}
-	} while (pon_trial <= n_pon_tries);
+	} while (pon_trial <= atomic_read(&mdm_drv->n_pon_tries));
 
 	return 0;
 }
@@ -528,6 +582,8 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	mdm_drv->esoc_clink = esoc_clink;
 	mdm_drv->mode = PWR_OFF;
 	mdm_drv->pon_state = PON_INIT;
+	atomic_set(&mdm_drv->boot_fail_action, BOOT_FAIL_ACTION_DEF);
+	atomic_set(&mdm_drv->n_pon_tries, ESOC_DEF_PON_REQ);
 	mdm_drv->esoc_restart.notifier_call = esoc_msm_restart_handler;
 	ret = register_reboot_notifier(&mdm_drv->esoc_restart);
 	if (ret)

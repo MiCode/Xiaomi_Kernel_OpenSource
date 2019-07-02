@@ -35,11 +35,12 @@ struct arch_info {
 	u32 bus_client;
 	struct msm_pcie_register_event pcie_reg_event;
 	struct pci_saved_state *pcie_state;
-	struct pci_saved_state *ref_pcie_state;
 	struct dma_iommu_mapping *mapping;
 	async_cookie_t cookie;
 	void *boot_ipc_log;
 	struct mhi_device *boot_dev;
+	struct mhi_link_info current_link_info;
+	struct work_struct bw_scale_work;
 };
 
 /* ipc log markings */
@@ -80,7 +81,8 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
 
-	if (notify->event == MSM_PCIE_EVENT_WAKEUP) {
+	switch (notify->event) {
+	case MSM_PCIE_EVENT_WAKEUP:
 		MHI_LOG("Received MSM_PCIE_EVENT_WAKE signal\n");
 
 		/* bring link out of d3cold */
@@ -88,6 +90,15 @@ static void mhi_arch_pci_link_state_cb(struct msm_pcie_notify *notify)
 			pm_runtime_get(&pci_dev->dev);
 			pm_runtime_put_noidle(&pci_dev->dev);
 		}
+		break;
+	case MSM_PCIE_EVENT_L1SS_TIMEOUT:
+		MHI_VERB("Received MSM_PCIE_EVENT_L1SS_TIMEOUT signal\n");
+
+		pm_runtime_mark_last_busy(&pci_dev->dev);
+		pm_request_autosuspend(&pci_dev->dev);
+		break;
+	default:
+		MHI_ERR("Unhandled event 0x%x\n", notify->event);
 	}
 }
 
@@ -96,7 +107,6 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 	struct mhi_controller *mhi_cntrl = priv;
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
-	struct arch_info *arch_info = mhi_dev->arch_info;
 	int ret;
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
@@ -126,9 +136,24 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 		MHI_ERR("Failed to resume pcie bus ret %d\n", ret);
 		return ret;
 	}
-	pci_load_saved_state(pci_dev, arch_info->ref_pcie_state);
 
 	return mhi_pci_probe(pci_dev, NULL);
+}
+
+static void mhi_arch_link_off(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+
+	MHI_LOG("Entered\n");
+
+	pci_set_power_state(pci_dev, PCI_D3hot);
+
+	/* release the resources */
+	msm_pcie_pm_control(MSM_PCIE_SUSPEND, mhi_cntrl->bus, pci_dev, NULL, 0);
+	mhi_arch_set_bus_request(mhi_cntrl, 0);
+
+	MHI_LOG("Exited\n");
 }
 
 static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
@@ -154,7 +179,7 @@ static void mhi_arch_esoc_ops_power_off(void *priv, unsigned int flags)
 
 	/* turn the link off */
 	mhi_deinit_pci_dev(mhi_cntrl);
-	mhi_arch_link_off(mhi_cntrl, false);
+	mhi_arch_link_off(mhi_cntrl);
 
 	/* wait for boot monitor to exit */
 	async_synchronize_cookie(arch_info->cookie + 1);
@@ -211,9 +236,16 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 		       TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
 	/* if we successfully booted to amss disable boot log channel */
-	boot_dev = arch_info->boot_dev;
-	if (boot_dev && mhi_cntrl->ee == MHI_EE_AMSS)
-		mhi_unprepare_from_transfer(boot_dev);
+	if (mhi_cntrl->ee == MHI_EE_AMSS) {
+		boot_dev = arch_info->boot_dev;
+		if (boot_dev)
+			mhi_unprepare_from_transfer(boot_dev);
+
+		/* enable link inactivity timer to start auto suspend */
+		msm_pcie_l1ss_timeout_enable(mhi_dev->pci_dev);
+
+		pm_runtime_allow(&mhi_dev->pci_dev->dev);
+	}
 }
 
 int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
@@ -225,6 +257,76 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 	arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
 
 	return 0;
+}
+
+static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
+				   struct pci_dev *pci_dev,
+				   struct mhi_link_info *link_info)
+{
+	int ret, scale;
+
+	mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
+	ret = msm_pcie_set_link_bandwidth(pci_dev, link_info->target_link_speed,
+					  link_info->target_link_width);
+	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
+
+	if (ret)
+		return ret;
+
+	/* if we switch to low bw release bus scale voting */
+	scale = !(link_info->target_link_speed == PCI_EXP_LNKSTA_CLS_2_5GB);
+	mhi_arch_set_bus_request(mhi_cntrl, scale);
+
+	MHI_VERB("bw changed to speed:0x%x width:0x%x bus_scale:%d\n",
+		 link_info->target_link_speed, link_info->target_link_width,
+		 scale);
+
+	return 0;
+}
+
+static void mhi_arch_pcie_bw_scale_work(struct work_struct *work)
+{
+	struct arch_info *arch_info = container_of(work,
+						   struct arch_info,
+						   bw_scale_work);
+	struct mhi_dev *mhi_dev = arch_info->mhi_dev;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct device *dev = &pci_dev->dev;
+	struct mhi_controller *mhi_cntrl = dev_get_drvdata(dev);
+	struct mhi_link_info mhi_link_info;
+	struct mhi_link_info *cur_info = &arch_info->current_link_info;
+	int ret;
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
+	if (!mhi_dev->powered_on || MHI_IS_SUSPENDED(mhi_dev->suspend_mode))
+		goto exit_work;
+
+	/* copy the latest speed change */
+	write_lock_irq(&mhi_cntrl->pm_lock);
+	mhi_link_info = mhi_cntrl->mhi_link_info;
+	write_unlock_irq(&mhi_cntrl->pm_lock);
+
+	/* link is already set to current settings */
+	if (cur_info->target_link_speed == mhi_link_info.target_link_speed &&
+	    cur_info->target_link_width == mhi_link_info.target_link_width)
+		goto exit_work;
+
+	ret = mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, &mhi_link_info);
+	if (ret)
+		goto exit_work;
+
+	*cur_info = mhi_link_info;
+
+exit_work:
+	mutex_unlock(&mhi_cntrl->pm_mutex);
+}
+
+static void mhi_arch_pcie_bw_scale_cb(struct mhi_controller *mhi_cntrl,
+				      struct mhi_dev *mhi_dev)
+{
+	struct arch_info *arch_info = mhi_dev->arch_info;
+
+	schedule_work(&arch_info->bw_scale_work);
 }
 
 static int mhi_bl_probe(struct mhi_device *mhi_device,
@@ -271,9 +373,11 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	char node[32];
 	int ret;
+	u16 linkstat;
 
 	if (!arch_info) {
 		struct msm_pcie_register_event *reg_event;
+		struct mhi_link_info *cur_link_info;
 
 		arch_info = devm_kzalloc(&mhi_dev->pci_dev->dev,
 					 sizeof(*arch_info), GFP_KERNEL);
@@ -281,6 +385,7 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 			return -ENOMEM;
 
 		mhi_dev->arch_info = arch_info;
+		arch_info->mhi_dev = mhi_dev;
 
 		snprintf(node, sizeof(node), "mhi_%04x_%02u.%02u.%02u",
 			 mhi_cntrl->dev_id, mhi_cntrl->domain, mhi_cntrl->bus,
@@ -302,7 +407,9 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 
 		/* register with pcie rc for WAKE# events */
 		reg_event = &arch_info->pcie_reg_event;
-		reg_event->events = MSM_PCIE_EVENT_WAKEUP;
+		reg_event->events =
+			MSM_PCIE_EVENT_WAKEUP | MSM_PCIE_EVENT_L1SS_TIMEOUT;
+
 		reg_event->user = mhi_dev->pci_dev;
 		reg_event->callback = mhi_arch_pci_link_state_cb;
 		reg_event->notify.data = mhi_cntrl;
@@ -332,9 +439,31 @@ int mhi_arch_pcie_init(struct mhi_controller *mhi_cntrl)
 				MHI_ERR("Failed to register esoc ops\n");
 		}
 
-		/* save reference state for pcie config space */
-		arch_info->ref_pcie_state = pci_store_saved_state(
-							mhi_dev->pci_dev);
+		/*
+		 * MHI host driver has full autonomy to manage power state.
+		 * Disable all automatic power collapse features
+		 */
+		msm_pcie_pm_control(MSM_PCIE_DISABLE_PC, mhi_cntrl->bus,
+				    mhi_dev->pci_dev, NULL, 0);
+		mhi_dev->pci_dev->no_d3hot = true;
+
+		INIT_WORK(&arch_info->bw_scale_work,
+			  mhi_arch_pcie_bw_scale_work);
+		mhi_dev->bw_scale = mhi_arch_pcie_bw_scale_cb;
+
+		/* store the current bw info */
+		ret = pcie_capability_read_word(mhi_dev->pci_dev,
+						PCI_EXP_LNKSTA, &linkstat);
+		if (ret)
+			return ret;
+
+		cur_link_info = &arch_info->current_link_info;
+		cur_link_info->target_link_speed =
+			linkstat & PCI_EXP_LNKSTA_CLS;
+		cur_link_info->target_link_width =
+			(linkstat & PCI_EXP_LNKSTA_NLW) >>
+			PCI_EXP_LNKSTA_NLW_SHIFT;
+		mhi_cntrl->mhi_link_info = *cur_link_info;
 
 		mhi_driver_register(&mhi_bl_driver);
 	}
@@ -476,56 +605,68 @@ void mhi_arch_iommu_deinit(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->dev = NULL;
 }
 
-int mhi_arch_link_off(struct mhi_controller *mhi_cntrl, bool graceful)
+int mhi_arch_link_suspend(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
-	int ret;
+	int ret = 0;
 
 	MHI_LOG("Entered\n");
 
-	if (graceful) {
+	/* disable inactivity timer */
+	msm_pcie_l1ss_timeout_disable(pci_dev);
+
+	switch (mhi_dev->suspend_mode) {
+	case MHI_DEFAULT_SUSPEND:
 		pci_clear_master(pci_dev);
 		ret = pci_save_state(mhi_dev->pci_dev);
 		if (ret) {
 			MHI_ERR("Failed with pci_save_state, ret:%d\n", ret);
-			return ret;
+			goto exit_suspend;
 		}
 
 		arch_info->pcie_state = pci_store_saved_state(pci_dev);
 		pci_disable_device(pci_dev);
+
+		pci_set_power_state(pci_dev, PCI_D3hot);
+
+		/* release the resources */
+		msm_pcie_pm_control(MSM_PCIE_SUSPEND, mhi_cntrl->bus, pci_dev,
+				    NULL, 0);
+		mhi_arch_set_bus_request(mhi_cntrl, 0);
+		break;
+	case MHI_FAST_LINK_OFF:
+	case MHI_ACTIVE_STATE:
+	case MHI_FAST_LINK_ON:/* keeping link on do nothing */
+		break;
 	}
 
-	/*
-	 * We will always attempt to put link into D3hot, however
-	 * link down may have happened due to error fatal, so
-	 * ignoring the return code
-	 */
-	pci_set_power_state(pci_dev, PCI_D3hot);
+exit_suspend:
+	if (ret)
+		msm_pcie_l1ss_timeout_enable(pci_dev);
 
-	/* release the resources */
-	msm_pcie_pm_control(MSM_PCIE_SUSPEND, mhi_cntrl->bus, pci_dev, NULL, 0);
-	mhi_arch_set_bus_request(mhi_cntrl, 0);
+	MHI_LOG("Exited with ret:%d\n", ret);
 
-	MHI_LOG("Exited\n");
-
-	return 0;
+	return ret;
 }
 
-int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
+static int __mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct mhi_link_info *cur_info = &arch_info->current_link_info;
 	int ret;
 
 	MHI_LOG("Entered\n");
 
-	/* request resources and establish link trainning */
-	ret = mhi_arch_set_bus_request(mhi_cntrl, 1);
-	if (ret)
-		MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
+	/* request bus scale voting if we're on Gen 2 or higher speed */
+	if (cur_info->target_link_speed != PCI_EXP_LNKSTA_CLS_2_5GB) {
+		ret = mhi_arch_set_bus_request(mhi_cntrl, 1);
+		if (ret)
+			MHI_LOG("Could not set bus frequency, ret:%d\n", ret);
+	}
 
 	ret = msm_pcie_pm_control(MSM_PCIE_RESUME, mhi_cntrl->bus, pci_dev,
 				  NULL, 0);
@@ -552,6 +693,45 @@ int mhi_arch_link_on(struct mhi_controller *mhi_cntrl)
 
 	pci_restore_state(pci_dev);
 	pci_set_master(pci_dev);
+
+	return 0;
+}
+
+int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct arch_info *arch_info = mhi_dev->arch_info;
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct mhi_link_info *cur_info = &arch_info->current_link_info;
+	struct mhi_link_info *updated_info = &mhi_cntrl->mhi_link_info;
+	int ret = 0;
+
+	MHI_LOG("Entered\n");
+
+	switch (mhi_dev->suspend_mode) {
+	case MHI_DEFAULT_SUSPEND:
+		ret = __mhi_arch_link_resume(mhi_cntrl);
+		break;
+	case MHI_FAST_LINK_OFF:
+	case MHI_ACTIVE_STATE:
+	case MHI_FAST_LINK_ON:
+		break;
+	}
+
+	if (ret) {
+		MHI_ERR("Link training failed, ret:%d\n", ret);
+		return ret;
+	}
+
+	/* BW request from device doesn't match current link speed */
+	if (cur_info->target_link_speed != updated_info->target_link_speed ||
+	    cur_info->target_link_width != updated_info->target_link_width) {
+		ret = mhi_arch_pcie_scale_bw(mhi_cntrl, pci_dev, updated_info);
+		if (!ret)
+			*cur_info = *updated_info;
+	}
+
+	msm_pcie_l1ss_timeout_enable(pci_dev);
 
 	MHI_LOG("Exited\n");
 

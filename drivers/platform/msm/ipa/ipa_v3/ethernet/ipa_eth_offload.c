@@ -112,7 +112,7 @@ int ipa_eth_offload_stop(struct ipa_eth_device *eth_dev)
 static int __try_pair_device(struct ipa_eth_device *eth_dev,
 			   struct ipa_eth_offload_driver *od)
 {
-	int rc = od->bus_ops->probe(eth_dev);
+	int rc = od->ops->pair(eth_dev);
 
 	if (rc) {
 		ipa_eth_dev_dbg(eth_dev,
@@ -122,18 +122,8 @@ static int __try_pair_device(struct ipa_eth_device *eth_dev,
 	}
 
 	ipa_eth_dev_log(eth_dev,
-		"Offload driver %s successfully probed device from %s",
+		"Offload driver %s is paired with device from %s",
 		od->name, eth_dev->nd->name);
-
-	if (!eth_dev->net_dev) {
-		ipa_eth_dev_err(eth_dev,
-			"Offload driver %s did not fill net_dev field",
-			od->name);
-
-		od->bus_ops->remove(eth_dev);
-
-		return -EFAULT;
-	}
 
 	eth_dev->od = od;
 
@@ -182,12 +172,7 @@ void ipa_eth_offload_unpair_device(struct ipa_eth_device *eth_dev)
 
 	eth_dev->od = NULL;
 
-	if (od->bus_ops->remove)
-		od->bus_ops->remove(eth_dev);
-	else
-		ipa_eth_dev_dbg(eth_dev,
-			"Bus remove is unsupported by the offload driver %s",
-			od->name);
+	od->ops->unpair(eth_dev);
 }
 
 int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
@@ -197,8 +182,8 @@ int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
 		return -EINVAL;
 	}
 
-	if (!od->bus_ops || !od->bus_ops->probe || !od->bus_ops->remove) {
-		ipa_eth_err("Bus ops missing for offload driver %s", od->name);
+	if (!od->ops || !od->ops->pair  || !od->ops->unpair) {
+		ipa_eth_err("Pair ops missing for offload driver %s", od->name);
 		return -EINVAL;
 	}
 

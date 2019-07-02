@@ -1401,9 +1401,11 @@ static bool drm_wait_vblank_is_query(union drm_wait_vblank *vblwait)
 int drm_wait_vblank_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *file_priv)
 {
+	struct drm_crtc *crtc;
 	struct drm_vblank_crtc *vblank;
 	union drm_wait_vblank *vblwait = data;
 	int ret;
+	unsigned int pipe_index;
 	unsigned int flags, seq, pipe, high_pipe;
 
 	if (!dev->irq_enabled)
@@ -1425,9 +1427,25 @@ int drm_wait_vblank_ioctl(struct drm_device *dev, void *data,
 	flags = vblwait->request.type & _DRM_VBLANK_FLAGS_MASK;
 	high_pipe = (vblwait->request.type & _DRM_VBLANK_HIGH_CRTC_MASK);
 	if (high_pipe)
-		pipe = high_pipe >> _DRM_VBLANK_HIGH_CRTC_SHIFT;
+		pipe_index = high_pipe >> _DRM_VBLANK_HIGH_CRTC_SHIFT;
 	else
-		pipe = flags & _DRM_VBLANK_SECONDARY ? 1 : 0;
+		pipe_index = flags & _DRM_VBLANK_SECONDARY ? 1 : 0;
+
+	/* Convert lease-relative crtc index into global crtc index */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		pipe = 0;
+		drm_for_each_crtc(crtc, dev) {
+			if (drm_lease_held(file_priv, crtc->base.id)) {
+				if (pipe_index == 0)
+					break;
+				pipe_index--;
+			}
+			pipe++;
+		}
+	} else {
+		pipe = pipe_index;
+	}
+
 	if (pipe >= dev->num_crtcs)
 		return -EINVAL;
 

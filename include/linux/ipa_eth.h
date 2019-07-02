@@ -26,7 +26,21 @@
 #include <linux/msm_ipa.h>
 #include <linux/msm_gsi.h>
 
-#define IPA_ETH_API_VER 1
+/**
+ * API Version    Changes
+ * ---------------------------------------------------------------------------
+ *           1    - Initial version
+ *           2    - API separation for use by network and offload drivers
+ *                - New ipa_eth_net_*() APIs offer safer interface for offload
+ *                  drivers to call into ipa_eth_net_ops
+ *                - ipa_eth_net_ops.request_channel() to accept additional
+ *                  memory allocation params, including custom memory allocator
+ *                  defined via struct ipa_eth_dma_allocator interface
+ *                - probe() and remove() offload bus ops are replaced by pair()
+ *                  and unpair() callbacks respectively
+ */
+
+#define IPA_ETH_API_VER 2
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -147,22 +161,216 @@ struct ipa_eth_resource {
 	void *vaddr;
 	dma_addr_t daddr;
 	phys_addr_t paddr;
+};
 
+/**
+ * ipa_eth_mem_it_t() - Callback used by the ipa_eth_dma_allocator.walk() as it
+ *                      iterates through each contiguous chunk of memory
+ * @eth_dev: Device to which the memory belong
+ * @cmem: Contigous mapping. If cmem->paddr is NULL, it could be determined from
+ *        ipa_eth_dma_allocator.paddr(cmem->vaddr)
+ * @arg: Private argument passed to ipa_eth_dma_allocator.walk() that can hold
+ *       necessary context required by the iterator
+ *
+ * See &struct ipa_eth_dma_allocator for more details.
+ */
+typedef int (*ipa_eth_mem_it_t)(struct ipa_eth_device *eth_dev,
+		const struct ipa_eth_resource *cmem, void *arg);
+
+/**
+ * struct ipa_eth_dma_allocator - Custom DMA memory allocator interface
+ * @name: Name of the allocator
+ */
+struct ipa_eth_dma_allocator {
+	const char *name;
+
+	/**
+	 * .paddr() - Convert a virtual address previously allocated by this
+	 *            ipa_eth_dma_allocator, to physical address
+	 * @eth_dev: Device which owns the memory
+	 * @vaddr: Kernel mapped address of the resource
+	 *
+	 * Return: Physical address of @vaddr
+	 */
+	phys_addr_t (*paddr)(struct ipa_eth_device *eth_dev,
+		const void *vaddr);
+
+	/**
+	 * .alloc() - Allocates DMA memory for a given device
+	 * @eth_dev: Device which will own the memory. Note that @eth_dev->dev
+	 *           should be a valid struct device pointer.
+	 * @size: Minimum number of bytes to allocate
+	 * @gfp: Kernel GFP_* flags to use, if the allocator supports it
+	 * @mem: Memory info if the allocation was successful. @mem->paddr may
+	 *       be NUll or not valid, use ipa_eth_dma_allocator.paddr() to get
+	 *       the correct physical address for a page of virtual address.
+	 *
+	 * This API callback is typically called by the network driver to
+	 * allocate memory for descriptor rings, buffers, etc. Any memory
+	 * allocated by this callback should be traversable by the .remap()
+	 * API callback implementation.
+	 *
+	 * Return: 0 on success, non-zero otherwise
+	 */
+	int (*alloc)(struct ipa_eth_device *eth_dev, size_t size, gfp_t gfp,
+		struct ipa_eth_resource *mem);
+
+	/**
+	 * .free() - Free a memory previously allocated using .alloc() API
+	 * @eth_dev: Device which owns the memory
+	 * @mem: Memory info
+	 *
+	 * This API callback is typically called by the network driver to free
+	 * memory resources associated with descriptor rings, buffers, etc. once
+	 * their associated hardware queues are stopped.
+	 */
+	void (*free)(struct ipa_eth_device *eth_dev,
+		struct ipa_eth_resource *mem);
+
+	/**
+	 * .walk() - Iterates over memory previously allocated by .alloc()
+	 * @eth_dev: Device which owns the memory
+	 * @mem: Allocated memory that need to be iterated over
+	 * @it: Iterator that is invoked for each chunk (typically PAGE_SIZE)
+	 *      of memory
+	 * @arg: Private argument passed to @it for each invocation
+	 *
+	 * This API is expected to iterate over pieces of an allocated memory
+	 * for typical purposes remapping to additional peripherals, and later
+	 * unmapping from them. .walk() is responsible to invoke the iterator
+	 * @it for each mappable region within an allocated space, which is
+	 * typically page sized.
+	 *
+	 * Iteration is expected to stop either when the page walk completes or
+	 * when any of the @it() invocations return failure. Iterator can add
+	 * additional checks for memory alignments, addressability, etc. that
+	 * can also fail. In any case, the API is expected to return the number
+	 * of bytes (<= mem->size) from the given memory that was successfully
+	 * iterated. Although the API may re-align memory regions while invoking
+	 * the iterator, it should still return only the number of bytes of the
+	 * original memory that was successfully iterated.
+	 *
+	 * .walk() API could be used for any purpose of iteration, not limited
+	 * to memory mapping and unmapping. Implementation of the API should be
+	 * flexible for generalized use-cases. Caller of this API should always
+	 * check for the return value against @mem->size to make sure if the
+	 * intended operation was successful, and explicitly revert any partial
+	 * operation. Ex,
+	 *
+	 *   mapped_bytes = alctr->walk(dev, mem_region, iommu_mapper, map_ctx);
+	 *   if (mapped_bytes != mem_region->size) {
+	 *     struct ipa_eth_resource unmap_region = *mem_region;
+	 *     unmap_region.size = mapped_bytes;
+	 *     alctr->walk(dev, unmap_region, smmu_map, ctx);
+	 *     return -ENOMEM;
+	 *   }
+	 *
+	 * Return: the number of bytes in @mem that were successfully iterated
+	 */
+	size_t (*walk)(struct ipa_eth_device *eth_dev,
+		const struct ipa_eth_resource *mem,
+		ipa_eth_mem_it_t it, void *arg);
+};
+
+/**
+ * enum ipa_eth_hw_type - Types of hardware used in an offload path
+ * @IPA_ETH_HW_UC: IPA uC
+ * @IPA_ETH_HW_GSI: GSI
+ * @IPA_ETH_HW_IPA: IPA hardware/endpoint
+ */
+enum ipa_eth_hw_type {
+	IPA_ETH_HW_UC,
+	IPA_ETH_HW_GSI,
+	IPA_ETH_HW_IPA,
+	IPA_ETH_HW_MAX,
+};
+
+/**
+ * struct ipa_eth_hw_map_param - Params for mapping memory to IPA hardware
+ * @map: If true, perform mapping of memory to the given hardware
+ * @sym: If true, performs symmetric mapping where IO virtual address (IOVA)
+ *        used is the same as the one used on original device.
+ * @read: Memory should be readable by hardware
+ * @write: Memory should be writable by hardware
+ */
+struct ipa_eth_hw_map_param {
+	bool map;
+	bool sym;
+	bool read;
+	bool write;
+};
+
+/**
+ * struct ipa_eth_desc_params - Params for allocating descriptor memory
+ * @size: Size of each descriptor. This field is usually filled in by the
+ *         network driver.
+ * @count: Number of descriptors to be allocated
+ * @allocator: DMA allocator to be used for IO memory allocation and mapping
+ * @hw_map_params: Info on memory mapping requirements to IPA CBs
+ */
+struct ipa_eth_desc_params {
+	size_t size;
+	size_t count;
+	struct ipa_eth_dma_allocator *allocator;
+	struct ipa_eth_hw_map_param hw_map_params[IPA_ETH_HW_MAX];
+};
+
+/**
+ * struct ipa_eth_buff_params - Params for allocating buffer memory
+ * @size: Size of data buffer associated with a descriptor
+ * @count: Number of buffers. This ield is usually filled in by the network
+ *          driver and is typically the same value as descriptor count.
+ * @allocator:  DMA allocator to be used for IO memory allocation and mapping
+ * @maps: Info on memory mapping requirements to IPA CBs
+ */
+struct ipa_eth_buff_params {
+	size_t size;
+	size_t count;
+	struct ipa_eth_dma_allocator *allocator;
+	struct ipa_eth_hw_map_param hw_map_params[IPA_ETH_HW_MAX];
+};
+
+/**
+ * struct ipa_eth_channel_mem_params - Params for various channel memory
+ * @desc: Descriptor memory parameters
+ * @buff: Buffer memory parameters
+ */
+struct ipa_eth_channel_mem_params {
+	struct ipa_eth_desc_params desc;
+	struct ipa_eth_buff_params buff;
+};
+
+/**
+ * struct ipa_eth_channel_mem - Represents a piece of memory used by the
+ *       network device channel for descriptrors, buffers, etc.
+ * @mem_list_entry: list entry in either of ipa_eth_channel.desc_mem or
+ *                   ipa_eth_channel.buff_mem
+ * @mem: Memory mapping info as used by the network device/driver
+ * @cb_mem: Memory mapping info as used by each of IPA context banks. When a
+ *          mapping is present, cb_mem[cb_type].size would be non-zero.
+ */
+struct ipa_eth_channel_mem {
+	struct list_head mem_list_entry;
+
+	struct ipa_eth_resource mem;
+
+/* private: for internal use by offload sub-system */
+	struct ipa_eth_resource *cb_mem;
 };
 
 /**
  * struct ipa_eth_channel - Represents a network device channel
+ * @channel_list: list entry in either of ipa_eth_device.rx_channels or
+ *                ipa_eth_device.tx_channels
  * @nd_priv: Private field for use by network driver
  * @events: Events supported by the channel
  * @features: Features enabled in the channel
  * @direction: Channel direction
+ * @mem_params: Channel memory params filled in collectively by Offload driver,
+ *              Network driver and Offload sub-system
  * @queue: Network device queue/ring number
- * @desc_size: Size of each descriptor
- * @desc_count: Number of descriptors in the ring
- * @desc_mem: Descriptor ring memory base
- * @buff_size: Size of each data buffer
- * @buff_count: Number of data buffers
- * @buff_mem: Data buffer memory base
+ * @desc_mem: Descriptor ring memory list
+ * @buff_mem: Data buffer memory list
  * @od_priv: Private field for use by offload driver
  * @eth_dev: Associated ipa_eth_device
  * @ipa_client: IPA client type enum to be used for the channel
@@ -176,22 +384,19 @@ struct ipa_eth_resource {
  *                      into IPA
  */
 struct ipa_eth_channel {
+	struct list_head channel_list;
+
 	/* fields managed by network driver */
 	void *nd_priv;
 
 	unsigned long events;
 	unsigned long features;
 	enum ipa_eth_channel_dir direction;
+	struct ipa_eth_channel_mem_params mem_params;
 
 	int queue;
-
-	u16 desc_size;
-	u32 desc_count;
-	struct ipa_eth_resource desc_mem;
-
-	u16 buff_size;
-	u32 buff_count;
-	struct ipa_eth_resource buff_mem;
+	struct list_head desc_mem;
+	struct list_head buff_mem;
 
 	/* fields managed by offload driver */
 	void *od_priv;
@@ -215,13 +420,13 @@ struct ipa_eth_channel {
 
 /**
  * struct ipa_eth_device - Represents an ethernet device
- * @net_dev: Netdev registered by the network driver
- * @nd_priv: Private field for use by network driver
- * @ch_rx: Rx channel allocated for the offload path
- * @ch_tx: Tx channel allocated for the offload path
- * @od_priv: Private field for use by offload driver
  * @device_list: Entry in the global offload device list
  * @bus_device_list: Entry in the per-bus offload device list
+ * @net_dev: Netdev registered by the network driver
+ * @nd_priv: Private field for use by network driver
+ * @od_priv: Private field for use by offload driver
+ * @rx_channels: Rx channels allocated for the offload path
+ * @tx_channels: Tx channels allocated for the offload path
  * @of_state: Offload state of the device
  * @dev: Pointer to struct device
  * @nd: IPA offload net driver associated with the device
@@ -238,18 +443,19 @@ struct ipa_eth_channel {
  * @refresh: Work struct used to perform device refresh
  */
 struct ipa_eth_device {
+	struct list_head device_list;
+	struct list_head bus_device_list;
+
 	/* fields managed by the network driver */
 	struct net_device *net_dev;
 	void *nd_priv;
 
 	/* fields managed by offload driver */
-	struct ipa_eth_channel *ch_rx;
-	struct ipa_eth_channel *ch_tx;
 	void *od_priv;
 
 	/* fields managed by offload subsystem */
-	struct list_head device_list;
-	struct list_head bus_device_list;
+	struct list_head rx_channels;
+	struct list_head tx_channels;
 
 	enum ipa_eth_offload_state of_state;
 
@@ -272,16 +478,27 @@ struct ipa_eth_device {
 	struct work_struct refresh;
 };
 
+#ifdef IPA_ETH_NET_DRIVER
+
 /**
  * struct ipa_eth_net_ops - Network device operations required for IPA offload
  */
 struct ipa_eth_net_ops {
 	/**
-	 * .open_device() - Initialize the network device if needed before
-	 *                  channels and events are configured.
+	 * .open_device() - Initialize the network device if needed and fill in
+	 *                  @eth_dev->net_dev field
 	 * @eth_dev: Device to initialize
 	 *
-	 * Typically this is API is functionally equivalent to .ndo_open()
+	 * Some network perform complete device initialization only in driver
+	 * .ndo_open(). Offload sub-system may try to use the network hardware
+	 * for offload path even before .ndo_open() is called. .open_device() is
+	 * expected to perform all device initialization that may be required
+	 * to make the hardware functional for offload path, irrespective of
+	 * whether .ndo_open() gets called.
+	 *
+	 * Once the device is initialized, .open_device() should initialize the
+	 * @eth_dev->net_dev field with the driver struct net_device pointer
+	 * before returning.
 	 *
 	 * Return: 0 on success, negative errno otherwise
 	 */
@@ -302,7 +519,7 @@ struct ipa_eth_net_ops {
 	void (*close_device)(struct ipa_eth_device *eth_dev);
 
 	/**
-	 * .request_channel() - Allocate a channel/ring for IPA offload data
+	 * .request_channel() - Request a channel/ring for IPA offload data
 	 *                      path to use
 	 * @eth_dev: Device from which to allocate channel
 	 * @dir: Requested channel direction
@@ -310,6 +527,11 @@ struct ipa_eth_net_ops {
 	 *            more IPA_ETH_DEV_EV_* flags.
 	 * @features: Device featured requested for the channel. Value is zero
 	 *            or more IPA_ETH_DEV_F_* feature flags.
+	 * @mem_params: Channel memory parameters. Values to be passed in is
+	 *              specific to the network driver. This info is typically
+	 *              passed on to ipa_eth_net_alloc_channel() which will
+	 *              memcpy() the contents to mem_params inside the
+	 *              ipa_eth_channel that is returned back.
 	 *
 	 * Arguments @dir, @features and @events are used to inform the network
 	 * driver about the capabilities of the offload subsystem/driver. The
@@ -319,14 +541,17 @@ struct ipa_eth_net_ops {
 	 * allocated capability set is acceptable for data path operation.
 	 *
 	 * The allocated channel is expected to be in disabled state with no
-	 * events allocated or enabled.
+	 * events allocated or enabled. It is recommended to use the offload
+	 * sub-system API ipa_eth_net_alloc_channel() for allocating the
+	 * ipa_eth_channel object.
 	 *
 	 * Return: Channel object pointer, or NULL if the channel allocation
 	 *         failed
 	 */
 	struct ipa_eth_channel * (*request_channel)(
 		struct ipa_eth_device *eth_dev, enum ipa_eth_channel_dir dir,
-		unsigned long events, unsigned long features);
+		unsigned long events, unsigned long features,
+		const struct ipa_eth_channel_mem_params *mem_params);
 
 	/**
 	 * .release_channel() - Free a channel/ring previously allocated using
@@ -498,51 +723,15 @@ struct ipa_eth_net_driver {
 int ipa_eth_register_net_driver(struct ipa_eth_net_driver *nd);
 void ipa_eth_unregister_net_driver(struct ipa_eth_net_driver *nd);
 
-/**
- * struct ipa_eth_bus_ops - Offload driver callbacks for bus operations
- *
- * These APIS are implemented by the offload driver for receiving bus level
- * notifications like probe, remove, suspend, resume, etc.
- */
-struct ipa_eth_bus_ops {
-	/**
-	 * .probe() - Probe new device for offload ability
-	 * @eth_dev: Device being probed
-	 *
-	 * This API is implemented by the offload driver and called immediately
-	 * after the network driver (PCI/plaform) probe. Offload driver is
-	 * expected to check if the device is compatible with the driver and
-	 * that the driver has enough offload resources for offloading the
-	 * device to IPA.
-	 *
-	 * The API implementation can expect the eth_dev->dev and eth_dev->nd
-	 * to have been already initialized by the offload subsystem. The API
-	 * is expected to perform at least the following:
-	 *
-	 * 1. Ensure the device is compatible with the offload driver. For
-	 *    plaform drivers, the .compatible DT property could be used while
-	 *    PCI IDs could be used for matching with a PCI device.
-	 * 2. If multiple network devices of the same type can be managed by the
-	 *    offload driver, it may attempt to pair @eth_dev with an available
-	 *    resource set for a single instance.
-	 * 3. Initialize the network device, typically by calling open_device()
-	 *    callback provided by the network driver.
-	 *
-	 * Return: 0 on success, negative errno otherwise
-	 */
-	int (*probe)(struct ipa_eth_device *eth_dev);
+struct ipa_eth_channel *ipa_eth_net_alloc_channel(
+	struct ipa_eth_device *eth_dev, enum ipa_eth_channel_dir dir,
+	unsigned long events, unsigned long features,
+	const struct ipa_eth_channel_mem_params *mem_params);
+void ipa_eth_net_free_channel(struct ipa_eth_channel *channel);
 
-	/**
-	 * .remove() - Handle device removal
-	 * @eth_dev: Device being removed
-	 *
-	 * The API implementation should assume the device to be no more
-	 * physically connected.
-	 */
-	void (*remove)(struct ipa_eth_device *eth_dev);
+#endif /* IPA_ETH_NET_DRIVER */
 
-	/* dev_pm_ops go here */
-};
+#ifdef IPA_ETH_OFFLOAD_DRIVER
 
 /**
  * struct ipa_eth_offload_link_stats - Stats for each link within an
@@ -578,6 +767,46 @@ struct ipa_eth_offload_stats {
  * struct ipa_eth_offload_ops - Offload operations provided by an offload driver
  */
 struct ipa_eth_offload_ops {
+	/**
+	 * .pair() - Pair a new device, if compatible, with the offload driver
+	 * @eth_dev: Device to pair with the offload driver
+	 *
+	 * This API is called by offload sub-system in order to pair an ethernet
+	 * device with the offload driver. Typically this API is called soon
+	 * after the device probe is completed and registered with the offload
+	 * sub-system. When the API is called, offload driver is expected to
+	 * check if the device is compatible with the driver and that the driver
+	 * has enough offload resources for offloading the device to IPA.
+	 *
+	 * The API implementation can expect the eth_dev->dev to have been
+	 * already initialized by the offload subsystem, from which a bus
+	 * specific device pointer (pci_dev, platform_device, etc.) can be
+	 * derived. The API is expected to perform at least the following:
+	 *
+	 * 1. Ensure the device is compatible with the offload driver. For
+	 *    plaform drivers, the .compatible DT property could be used while
+	 *    PCI IDs could be used for matching with a PCI device.
+	 * 2. If multiple network devices of the same type can be managed by the
+	 *    offload driver, it may attempt to pair @eth_dev with an available
+	 *    resource set for a single instance.
+	 *
+	 * Return: 0 on success, negative errno otherwise
+	 */
+	int (*pair)(struct ipa_eth_device *eth_dev);
+
+	/**
+	 * .unpair() - Unpair a device from the offload driver
+	 * @eth_dev: Device to unpair
+	 *
+	 * Unpairing the device from offload driver should make sure that all
+	 * resources allocated for the device are freed and the data path is
+	 * stopped and deinitialized, and device is readied for removal. The
+	 * implementation should be able to handle plug-n-play devices by not
+	 * assuming the device to be connected anymore to the bus/system when
+	 * this API is called.
+	 */
+	void (*unpair)(struct ipa_eth_device *eth_dev);
+
 	/**
 	 * .init_tx() - Initialize offload path in Tx direction
 	 *
@@ -667,13 +896,39 @@ struct ipa_eth_offload_driver {
 	struct bus_type *bus;
 
 	struct ipa_eth_offload_ops *ops;
-	struct ipa_eth_bus_ops *bus_ops;
 
 	struct dentry *debugfs;
 };
 
 int ipa_eth_register_offload_driver(struct ipa_eth_offload_driver *od);
 void ipa_eth_unregister_offload_driver(struct ipa_eth_offload_driver *od);
+
+struct ipa_eth_channel *ipa_eth_net_request_channel(
+	struct ipa_eth_device *eth_dev, enum ipa_client_type ipa_client,
+	unsigned long events, unsigned long features,
+	const struct ipa_eth_channel_mem_params *mem_params);
+void ipa_eth_net_release_channel(struct ipa_eth_channel *ch);
+int ipa_eth_net_enable_channel(struct ipa_eth_channel *ch);
+int ipa_eth_net_disable_channel(struct ipa_eth_channel *ch);
+
+int ipa_eth_net_request_event(struct ipa_eth_channel *ch, unsigned long event,
+	phys_addr_t addr, u64 data);
+void ipa_eth_net_release_event(struct ipa_eth_channel *ch, unsigned long event);
+int ipa_eth_net_enable_event(struct ipa_eth_channel *ch, unsigned long event);
+int ipa_eth_net_disable_event(struct ipa_eth_channel *ch, unsigned long event);
+int ipa_eth_net_moderate_event(struct ipa_eth_channel *ch, unsigned long event,
+	u64 min_count, u64 max_count,
+	u64 min_usecs, u64 max_usecs);
+
+int ipa_eth_net_receive_skb(struct ipa_eth_device *eth_dev,
+	struct sk_buff *skb);
+int ipa_eth_net_transmit_skb(struct ipa_eth_device *eth_dev,
+	struct sk_buff *skb);
+
+struct ipa_eth_resource *ipa_eth_net_ch_to_cb_mem(
+	struct ipa_eth_channel *ch,
+	struct ipa_eth_channel_mem *ch_mem,
+	enum ipa_eth_hw_type hw_type);
 
 int ipa_eth_ep_init(struct ipa_eth_channel *ch);
 int ipa_eth_ep_start(struct ipa_eth_channel *ch);
@@ -735,6 +990,8 @@ int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
 int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
 	size_t size, int prot, bool split);
 int ipa_eth_uc_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
+
+#endif /* IPA_ETH_OFFLOAD_DRIVER */
 
 /* IPC logging interface */
 

@@ -20,16 +20,6 @@
 #include "ipa_pkt_cntxt.h"
 #include "ipa_hw_common_ex.h"
 
-/*
- * The following macros are used to peek and poke register values and
- * are required by some of the macros and include files that follow...
- */
-#define my_in_dword(addr) \
-	(readl(addr))
-
-#define my_out_dword(addr, val) \
-	({ __iowmb(); writel_relaxed((val), (addr)); })
-
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
 #include "ipa_hwio.h"
@@ -93,6 +83,8 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2 (0x35)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3 (0x36)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR     (0x3A)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0  (0x3C)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1  (0x3D)
 
 #define IPA_DEBUG_TESTBUS_DEF_EXTERNAL           50
 #define IPA_DEBUG_TESTBUS_DEF_INTERNAL           6
@@ -947,6 +939,8 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1,
 };
 
 /*
@@ -1253,7 +1247,7 @@ struct regs_save_hierarchy_s {
 static inline u32
 act_read(void __iomem *addr)
 {
-	u32 val = my_in_dword(addr);
+	u32 val = ioread32(addr);
 
 	return val;
 }
@@ -1264,7 +1258,7 @@ act_read(void __iomem *addr)
 static inline void
 act_write(void __iomem *addr, u32 val)
 {
-	my_out_dword(addr, val);
+	iowrite32(val, addr);
 }
 
 /*

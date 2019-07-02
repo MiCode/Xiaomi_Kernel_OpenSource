@@ -154,6 +154,10 @@
 	};
 };
 
+&dsi_ext_bridge_1080p {
+	qcom,mdss-dsi-ext-bridge = <0>;
+};
+
 &soc {
 	dsi_anx_7625_1: qcom,dsi-display@17 {
 		label = "dsi_anx_7625_1";

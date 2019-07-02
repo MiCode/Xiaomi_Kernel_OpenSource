@@ -34,6 +34,11 @@
 	mhi_channels {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		mhi_chan@9 {
+			mhi,num-elements = <128>;
+		};
+
 		mhi_chan@25 {
 			status = "disabled";
 		};

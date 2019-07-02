@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -576,6 +576,38 @@ int hab_stat_show_expimp(struct hab_driver *drv, int pid, char *buf, int sz);
 
 int hab_stat_init_sub(struct hab_driver *drv);
 int hab_stat_deinit_sub(struct hab_driver *drv);
+
+static inline void hab_spin_lock(spinlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		spin_lock(lock);
+	else
+		spin_lock_bh(lock);
+}
+
+static inline void hab_spin_unlock(spinlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		spin_unlock(lock);
+	else
+		spin_unlock_bh(lock);
+}
+
+static inline void hab_write_lock(rwlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		write_lock(lock);
+	else
+		write_lock_bh(lock);
+}
+
+static inline void hab_write_unlock(rwlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		write_unlock(lock);
+	else
+		write_unlock_bh(lock);
+}
 
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;

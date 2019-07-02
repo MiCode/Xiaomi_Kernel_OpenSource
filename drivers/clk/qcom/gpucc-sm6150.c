@@ -296,14 +296,14 @@ static struct clk_branch gpu_cc_cx_apb_clk = {
 
 static struct clk_branch gpu_cc_cx_gfx3d_clk = {
 	.halt_reg = 0x10a4,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x10a4,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_gfx3d_clk",
 			.parent_names = (const char *[]){
-				"gpu_cc_gx_gfx3d_clk_src",
+				"gpu_cc_gx_gfx3d_clk",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,

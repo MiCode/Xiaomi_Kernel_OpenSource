@@ -43,6 +43,7 @@
  */
 static bool clean_pages_on_read;
 static bool clean_pages_on_decompress;
+static bool noswap_randomize;
 
 /*
  *	The swap map is a data structure used for keeping track of each page
@@ -1533,6 +1534,9 @@ int swsusp_check(void)
 					    FMODE_READ, NULL);
 	if (!IS_ERR(hib_resume_bdev)) {
 		set_blocksize(hib_resume_bdev, PAGE_SIZE);
+		if (noswap_randomize)
+			hib_resume_bdev->bd_disk->flags |=
+					GENHD_FL_NO_RANDOMIZE;
 		clear_page(swsusp_header);
 		error = hib_submit_io(REQ_OP_READ, 0,
 					swsusp_resume_block,
@@ -1620,3 +1624,11 @@ static int swsusp_header_init(void)
 }
 
 core_initcall(swsusp_header_init);
+
+static int __init noswap_randomize_setup(char *str)
+{
+	noswap_randomize = true;
+	return 1;
+}
+
+__setup("noswap_randomize", noswap_randomize_setup);

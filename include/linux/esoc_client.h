@@ -38,6 +38,7 @@ struct esoc_client_hook {
 	int (*esoc_link_power_on)(void *priv, unsigned int flags);
 	void (*esoc_link_power_off)(void *priv, unsigned int flags);
 	u64 (*esoc_link_get_id)(void *priv);
+	void (*esoc_link_mdm_crash)(void *priv);
 };
 
 /*

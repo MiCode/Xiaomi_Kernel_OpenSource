@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,19 +43,20 @@ int physical_channel_send(struct physical_channel *pchan,
 	struct ghs_vdev *dev  = (struct ghs_vdev *)pchan->hyp_data;
 	GIPC_Result result;
 	uint8_t *msg;
+	int irqs_disabled = irqs_disabled();
 
-	spin_lock_bh(&dev->io_lock);
+	hab_spin_lock(&dev->io_lock, irqs_disabled);
 
 	result = GIPC_PrepareMessage(dev->endpoint, sizebytes+sizeof(*header),
 		(void **)&msg);
 	if (result == GIPC_Full) {
-		spin_unlock_bh(&dev->io_lock);
+		hab_spin_unlock(&dev->io_lock, irqs_disabled);
 		/* need to wait for space! */
 		pr_err("failed to reserve send msg for %zd bytes\n",
 			sizebytes+sizeof(*header));
 		return -EBUSY;
 	} else if (result != GIPC_Success) {
-		spin_unlock_bh(&dev->io_lock);
+		hab_spin_unlock(&dev->io_lock, irqs_disabled);
 		pr_err("failed to send due to error %d\n", result);
 		return -ENOMEM;
 	}
@@ -77,7 +78,7 @@ int physical_channel_send(struct physical_channel *pchan,
 
 	result = GIPC_IssueMessage(dev->endpoint, sizebytes+sizeof(*header),
 		header->id_type_size);
-	spin_unlock_bh(&dev->io_lock);
+	hab_spin_unlock(&dev->io_lock, irqs_disabled);
 	if (result != GIPC_Success) {
 		pr_err("send error %d, sz %zd, prot %x\n",
 			result, sizebytes+sizeof(*header),
@@ -98,6 +99,7 @@ void physical_channel_rx_dispatch(unsigned long physical_channel)
 
 	uint32_t events;
 	unsigned long flags;
+	int irqs_disabled = irqs_disabled();
 
 	spin_lock_irqsave(&pchan->rxbuf_lock, flags);
 	events = kgipc_dequeue_events(dev->endpoint);
@@ -111,7 +113,7 @@ void physical_channel_rx_dispatch(unsigned long physical_channel)
 				dev->name, pchan->vmid_remote);
 
 	if (events & (GIPC_EVENT_RECEIVEREADY)) {
-		spin_lock_bh(&pchan->rxbuf_lock);
+		hab_spin_lock(&pchan->rxbuf_lock, irqs_disabled);
 		while (1) {
 			dev->read_size = 0;
 			dev->read_offset = 0;
@@ -133,7 +135,7 @@ void physical_channel_rx_dispatch(unsigned long physical_channel)
 				result, dev->read_size);
 			break;
 		}
-		spin_unlock_bh(&pchan->rxbuf_lock);
+		hab_spin_unlock(&pchan->rxbuf_lock, irqs_disabled);
 	}
 
 	if (events & (GIPC_EVENT_SENDREADY))

@@ -427,17 +427,15 @@ static void ipa3_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
  */
 int ipa3_get_wdi_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
 {
-	int i, num_chs;
+	int i;
 
 	if (!ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio) {
 		IPAERR("bad NULL parms for wdi_gsi_stats\n");
 		return -EINVAL;
 	}
-	num_chs = ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_size
-		/ sizeof(struct IpaHwRingStats_t);
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	for (i = 0; i < num_chs; i++) {
+	for (i = 0; i < MAX_WDI2_CHANNELS; i++) {
 		stats->ring[i].ringFull = ioread32(
 			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio
 			+ i * IPA3_UC_DEBUG_STATS_OFF +
