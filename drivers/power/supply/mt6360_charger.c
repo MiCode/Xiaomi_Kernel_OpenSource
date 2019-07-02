@@ -24,11 +24,14 @@
 /* 0x12 */
 #define MT6360_MASK_TE		BIT(4)
 #define MT6360_SHFT_TE		(4)
+#define MT6360_MASK_IINLMTSEL	(0x0C)
+#define MT6360_SHFT_IINLMTSEL	(2)
 #define MT6360_MASK_CHG_EN	BIT(0)
 #define MT6360_SHFT_CHG_EN	(0)
 /* 0x13 */
 #define MT6360_MASK_IAICR	(0xFC)
 #define MT6360_SHFT_IAICR	(2)
+#define MT6360_MASK_ILIM_EN	BIT(0)
 /* 0x14 */
 #define MT6360_MASK_VOREG	(0xFE)
 #define MT6360_SHFT_VOREG	(1)
@@ -68,13 +71,13 @@
 #define MT6360_MASK_USBCHGEN	BIT(7)
 #define MT6360_SHFT_USBCHGEN	(7)
 /* 0x27 */
+#define MT6360_MASK_USB_STATUS	(0x70)
+#define MT6360_SHFT_USB_STATUS	(4)
+/* 0x2C */
 #define MT6360_MASK_BAT_COMP	(0x38)
 #define MT6360_SHFT_BAT_COMP	(3)
 #define MT6360_MASK_VCLAMP	(0x07)
 #define MT6360_SHFT_VCLAMP	(0)
-/* 0x2C */
-#define MT6360_MASK_USB_STATUS	(0x70)
-#define MT6360_SHFT_USB_STATUS	(4)
 /* 0x4A */
 #define MT6360_MASK_CHG_STAT	(0xC0)
 #define MT6360_SHFT_CHG_STAT	(6)
@@ -104,8 +107,13 @@
 #define MT6360_IEOC_MAX		850000
 #define MT6360_IEOC_STEP	50000
 
+struct mt6360_chg_platform_data {
+	u32 vinovp;
+};
+
 struct mt6360_chg_info {
 	struct device *dev;
+	struct mt6360_chg_platform_data *pdata;
 	struct regmap *regmap;
 	struct extcon_dev *edev;
 	struct power_supply_desc psy_desc;
@@ -117,6 +125,17 @@ struct mt6360_chg_info {
 	bool bc12_en;
 	int psy_usb_type;
 	struct work_struct chrdet_work;
+};
+
+static struct mt6360_chg_platform_data def_platform_data = {
+	.vinovp = 6500000,
+};
+
+enum mt6360_iinlmtsel {
+	MT6360_IINLMTSEL_AICR_3250 = 0,
+	MT6360_IINLMTSEL_CHG_TYPE,
+	MT6360_IINLMTSEL_AICR,
+	MT6360_IINLMTSEL_LOWER_LEVEL,
 };
 
 enum mt6360_pmu_chg_type {
@@ -333,7 +352,7 @@ static int mt6360_charger_get_ieoc(struct mt6360_chg_info *mci,
 	int ret;
 	unsigned int regval;
 
-	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL8, &regval);
+	ret = regmap_read(mci->regmap, MT6360_PMU_CHG_CTRL9, &regval);
 	if (ret < 0)
 		return ret;
 	regval = (regval & MT6360_MASK_IEOC) >> MT6360_SHFT_IEOC;
@@ -410,7 +429,6 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_get_online(mci, val);
-		val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6360_charger_get_status(mci, val);
@@ -706,7 +724,6 @@ static irqreturn_t mt6360_pmu_attach_i_handler(int irq, void *data)
 		goto out;
 	}
 
-
 	dev_info(mci->dev, "%s: chg_type = %d\n", __func__, chg_type);
 	if (chg_type == EXTCON_CHG_USB_SDP || chg_type == EXTCON_CHG_USB_CDP) {
 		extcon_set_state_sync(mci->edev, EXTCON_USB_HOST, false);
@@ -929,21 +946,80 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 	/* Disable bc12 */
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_DEVICE_TYPE,
 				 MT6360_MASK_USBCHGEN, 0);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(mci->dev, "%s: disable bc12 fail\n", __func__);
+		goto out;
+	}
+	/* Set input current limit select by AICR */
+	ret = regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL2,
+				 MT6360_MASK_IINLMTSEL,
+				 MT6360_IINLMTSEL_AICR <<
+					MT6360_SHFT_IINLMTSEL);
+	if (ret < 0) {
+		dev_err(mci->dev,
+			"%s: switch iinlmtsel to aicr fail\n", __func__);
+		goto out;
+	}
+	usleep_range(5000, 6000);
+	/* Disable ilim */
+	ret = regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL3,
+				 MT6360_MASK_ILIM_EN, 0);
+	if (ret < 0) {
+		dev_err(mci->dev,
+			"%s: switch iinlmtsel to aicr fail\n", __func__);
+		goto out;
+	}
+out:
 	return ret;
 }
 
+u32 mt6360_vinovp_trans_to_sel(u32 val)
+{
+	u32 vinovp_tbl[] = { 5500000, 6500000, 11000000, 14500000 };
+	int i;
+
+	/* Select the smaller and equal supported value */
+	for (i = 0; i < ARRAY_SIZE(vinovp_tbl)-1; i++) {
+		if (val < vinovp_tbl[i+1])
+			break;
+	}
+	return i;
+}
+
+static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
+	MT6360_PDATA_VALPROP(vinovp, struct mt6360_chg_platform_data,
+			     MT6360_PMU_CHG_CTRL19, 5, 0x60,
+			     mt6360_vinovp_trans_to_sel, 0),
+};
+
+static const struct mt6360_val_prop mt6360_val_props[] = {
+	MT6360_DT_VALPROP(vinovp, struct mt6360_chg_platform_data),
+};
+
 static int mt6360_charger_probe(struct platform_device *pdev)
 {
+	struct mt6360_chg_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct mt6360_chg_info *mci;
 	struct power_supply_config charger_cfg = {};
 	struct regulator_config config = { };
+	struct device_node *np = pdev->dev.of_node;
 	int ret;
 
 	mci = devm_kzalloc(&pdev->dev, sizeof(*mci), GFP_KERNEL);
 	if (!mci)
 		return -ENOMEM;
+	if (np) {
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+		memcpy(pdata, &def_platform_data, sizeof(*pdata));
+		mt6360_dt_parser_helper(np, (void *)pdata, mt6360_val_props,
+					ARRAY_SIZE(mt6360_val_props));
+	}
+	if (!pdata) {
+		dev_err(&pdev->dev, "no platform data specified\n");
+		return -EINVAL;
+	}
 	mci->dev = &pdev->dev;
 	mutex_init(&mci->chgdet_lock);
 	platform_set_drvdata(pdev, mci);
@@ -954,6 +1030,13 @@ static int mt6360_charger_probe(struct platform_device *pdev)
 	if (!mci->regmap) {
 		dev_err(&pdev->dev, "Fail to get parent regmap\n");
 		return -ENODEV;
+	}
+	/* apply platform data */
+	ret = mt6360_pdata_apply_helper(mci->regmap, pdata, mt6360_pdata_props,
+					ARRAY_SIZE(mt6360_pdata_props));
+	if (ret < 0) {
+		dev_err(&pdev->dev, "apply pdata fail\n");
+		return ret;
 	}
 	/* extcon */
 	mci->edev = devm_extcon_dev_allocate(&pdev->dev, mt6360_extcon_cable);
@@ -995,7 +1078,6 @@ static int mt6360_charger_probe(struct platform_device *pdev)
 	}
 	/* otg regulator */
 	config.dev = &pdev->dev;
-	config.driver_data = mci;
 	config.regmap = mci->regmap;
 	mci->otg_rdev = devm_regulator_register(&pdev->dev, &mt6360_otg_rdesc,
 						&config);
