@@ -618,6 +618,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI))
 		kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 
+	/* Set the bit vccCacheSkipDis=1 to get rid of TSEskip logic */
+	kgsl_regrmw(device, A6XX_PC_DBG_ECO_CNTL, 0, (1 << 9));
+
 	/* Enable the GMEM save/restore feature for preemption */
 	if (adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE,
