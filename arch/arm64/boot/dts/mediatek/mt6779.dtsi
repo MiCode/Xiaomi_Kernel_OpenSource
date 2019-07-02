@@ -3166,4 +3166,97 @@
 	};
 };
 
+&i2c5 {
+	status = "okay";
+	clock-frequency = <3400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pmu: mt6360_pmu@34 {
+		status = "ok";
+		compatible = "mediatek,mt6360_pmu";
+		reg = <0x34>;
+		wakeup-source;
+		interrupt-controller;
+		interrupt-parent = <&pio>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "IRQB";
+		mt6360_chg: chg {
+			compatible = "mediatek,mt6360_chg";
+			vinovp = <14500000>;
+			usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+			};
+		};
+		pmic {
+			compatible = "mediatek,mt6360_pmic";
+			buck1 {
+				regulator-compatible = "BUCK1";
+				regulator-name = "mt6360,buck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-allowed-modes = <0 2 3>;
+			};
+			buck2 {
+				regulator-compatible = "BUCK2";
+				regulator-name = "mt6360,buck2";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1300000>;
+				regulator-allowed-modes = <0 2 3>;
+				regulator-always-on;
+			};
+			ldo6 {
+				regulator-compatible = "LDO6";
+				regulator-name = "mt6360,ldo6";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
+			};
+			ldo7 {
+				regulator-compatible = "LDO7";
+				regulator-name = "mt6360,ldo7";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <2100000>;
+				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
+			};
+		};
+		ldo {
+			compatible = "mediatek,mt6360_ldo";
+			ldo1 {
+				regulator-compatible = "LDO1";
+				regulator-name = "mt6360,ldo1";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			ldo2 {
+				regulator-compatible = "LDO2";
+				regulator-name = "vtp";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt_pmic_vmc_ldo_reg: ldo3 {
+				regulator-compatible = "LDO3";
+				regulator-name = "mt6360,ldo3";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+			mt_pmic_vmch_ldo_reg: ldo5 {
+				regulator-compatible = "LDO5";
+				regulator-name = "mt6360,ldo5";
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-allowed-modes = <0 2>;
+			};
+		};
+	};
+};
+
 #include "cust_mt6779_msdc.dtsi"
