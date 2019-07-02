@@ -122,6 +122,15 @@ config MTK_ATF_LOGGER
 	  The logger provide a /proc interface for reading from
 	  user space.
 
+config MTK_AMMS
+	bool "Support Mediatek AP and Modem Sharing Memory techonology"
+	help
+	  Mediatek Memory sharing techonology
+	  It tries to free Modem memory once not
+	  used. Modem should support this as well
+	  or it won't work. If you are not sure
+	  Please select "N"
+
 config MTK_ICE_DEBUG
 	bool "ICE_DEBUG"
 	default y if ARCH_MEDIATEK
