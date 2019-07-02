@@ -252,7 +252,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 			cm_mgr_perfs[i] =
 				of_get_required_opp_performance_state(node, i);
 		}
-		cm_mgr_num_array = cm_mgr_num_perf - 1;
+		cm_mgr_num_array = cm_mgr_num_perf - 2;
 	} else
 		cm_mgr_num_perf = 0;
 
