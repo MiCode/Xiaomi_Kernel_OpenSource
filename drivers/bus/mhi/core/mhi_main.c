@@ -717,7 +717,8 @@ static ssize_t time_us_show(struct device *dev,
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "local: %llu remote: %llu (us)\n",
-			 TIME_TICKS_TO_US(t_host), TIME_TICKS_TO_US(t_device));
+			 LOCAL_TICKS_TO_US(t_host),
+			 REMOTE_TICKS_TO_US(t_device));
 }
 static DEVICE_ATTR_RO(time_us);
 

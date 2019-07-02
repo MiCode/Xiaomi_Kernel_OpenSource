@@ -312,6 +312,8 @@ struct mhi_controller {
 	/* supports time sync feature */
 	struct mhi_timesync *mhi_tsync;
 	struct mhi_device *tsync_dev;
+	u64 local_timer_freq;
+	u64 remote_timer_freq;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;

@@ -234,8 +234,11 @@ extern struct bus_type mhi_bus_type;
 #define SOC_HW_VERSION_MINOR_VER_BMSK (0x000000FF)
 #define SOC_HW_VERSION_MINOR_VER_SHFT (0)
 
-/* convert ticks to micro seconds by dividing by 19.2 */
-#define TIME_TICKS_TO_US(x) (div_u64((x) * 10, 192))
+/* timesync time calculations */
+#define LOCAL_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+				div_u64(mhi_cntrl->local_timer_freq, 10000ULL)))
+#define REMOTE_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+			       div_u64(mhi_cntrl->remote_timer_freq, 10000ULL)))
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
