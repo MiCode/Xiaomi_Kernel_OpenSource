@@ -72,6 +72,8 @@ module_param(lock_stat, int, 0644);
 #define lock_stat 0
 #endif
 
+static void lockdep_aee(void);
+
 /*
  * lockdep_lock: protects the lockdep graph, the hashes and the
  *               class/list/hash allocators.
@@ -418,6 +420,7 @@ static int save_trace(struct stack_trace *trace)
 
 		print_lockdep_off("BUG: MAX_STACK_TRACE_ENTRIES too low!");
 		dump_stack();
+		lockdep_aee();
 
 		return 0;
 	}
@@ -660,6 +663,7 @@ look_up_lock_class(const struct lockdep_map *lock, unsigned int subclass)
 		printk(KERN_ERR
 			"turning off the locking correctness validator.\n");
 		dump_stack();
+		lockdep_aee();
 		return NULL;
 	}
 
@@ -848,6 +852,8 @@ static struct lock_list *alloc_list_entry(void)
 
 		print_lockdep_off("BUG: MAX_LOCKDEP_ENTRIES too low!");
 		dump_stack();
+		lockdep_aee();
+
 		return NULL;
 	}
 	return list_entries + nr_list_entries++;
@@ -1173,6 +1179,7 @@ print_circular_bug_header(struct lock_list *entry, unsigned int depth,
 	pr_warn("\nthe existing dependency chain (in reverse order) is:\n");
 
 	print_circular_bug_entry(entry, depth);
+	lockdep_aee();
 
 	return 0;
 }
@@ -1566,6 +1573,7 @@ print_bad_irq_dependency(struct task_struct *curr,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -1757,6 +1765,7 @@ print_deadlock_bug(struct task_struct *curr, struct held_lock *prev,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -2538,6 +2547,7 @@ print_usage_bug(struct task_struct *curr, struct held_lock *this,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -2619,6 +2629,7 @@ print_irq_inversion_bug(struct task_struct *curr,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -3192,6 +3203,7 @@ static void __lockdep_init_map(struct lockdep_map *lock, const char *name,
 		 * What it says above ^^^^^, I suggest you read it.
 		 */
 		DEBUG_LOCKS_WARN_ON(1);
+		lockdep_aee();
 		return;
 	}
 	lock->key = key;
@@ -3253,6 +3265,7 @@ print_lock_nested_lock_not_held(struct task_struct *curr,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -3462,6 +3475,7 @@ print_unlock_imbalance_bug(struct task_struct *curr, struct lockdep_map *lock,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -4023,6 +4037,7 @@ print_lock_contention_bug(struct task_struct *curr, struct lockdep_map *lock,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 
 	return 0;
 }
@@ -4361,6 +4376,7 @@ print_freed_lock_bug(struct task_struct *curr, const void *mem_from,
 
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 }
 
 static inline int not_in_range(const void* mem_from, unsigned long mem_len,
@@ -4416,6 +4432,7 @@ static void print_held_locks_bug(void)
 	lockdep_print_held_locks(current);
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 }
 
 void debug_check_no_locks_held(void)
@@ -4481,6 +4498,7 @@ asmlinkage __visible void lockdep_sys_exit(void)
 		pr_warn("%s/%d is leaving the kernel with locks still held!\n",
 				curr->comm, curr->pid);
 		lockdep_print_held_locks(curr);
+		lockdep_aee();
 	}
 
 	/*
@@ -4534,5 +4552,101 @@ void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 	lockdep_print_held_locks(curr);
 	pr_warn("\nstack backtrace:\n");
 	dump_stack();
+	lockdep_aee();
 }
 EXPORT_SYMBOL_GPL(lockdep_rcu_suspicious);
+
+#ifdef CONFIG_MTK_LOCKING_AEE
+#define MAX_LOCK_NAME 128
+static const char * const critical_lock_list[] = {
+	/* workqueue */
+	"&(&pool->lock)->rlock",
+	/* kmalloc */
+	"&(&n->list_lock)->rlock",
+	/* stacktrace */
+	"depot_lock"
+};
+
+static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
+{
+	char str[KSYM_NAME_LEN];
+	const char *lock_name;
+	char name_version[8] = { 0 };
+	char subclass[8] = { 0 };
+
+	lock_name = class->name;
+	if (!lock_name) {
+		lock_name = __get_key_name(class->key, str);
+		snprintf(name, MAX_LOCK_NAME, "%s", lock_name);
+	} else {
+		if (class->name_version > 1)
+			snprintf(name_version, 8, "#%d", class->name_version);
+		if (class->subclass)
+			snprintf(subclass, 8, "/%d", class->subclass);
+		snprintf(name, MAX_LOCK_NAME, "%s%s%s",
+			lock_name, name_version, subclass);
+	}
+}
+
+bool is_critical_lock_held(void)
+{
+	int cpu;
+	int i, j;
+	struct rq *rq;
+	struct held_lock *hlock;
+	struct lock_class *class;
+	char name[MAX_LOCK_NAME];
+	unsigned int class_idx;
+
+	/* check if current rq->lock is held by someone */
+	cpu = raw_smp_processor_id();
+	rq = cpu_rq(cpu);
+
+	if (raw_spin_is_locked(&rq->lock))
+		return true;
+
+	/* check locks held by current task */
+	if (!current->lockdep_depth)
+		return false;
+
+	for (i = 0; i < current->lockdep_depth; i++) {
+
+		hlock = current->held_locks + i;
+		class_idx = hlock->class_idx;
+
+		/* Don't re-read hlock->class_idx */
+		barrier();
+
+		if (!class_idx || (class_idx - 1) >= MAX_LOCKDEP_KEYS)
+			continue;
+
+		class = lock_classes + class_idx - 1;
+		get_lock_name(class, name);
+
+		/* check if critical locks are held */
+		for (j = 0; j < ARRAY_SIZE(critical_lock_list); j++) {
+			if (!strcmp(name, critical_lock_list[j]))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static void lockdep_aee(void)
+{
+	char aee_str[64];
+
+	if (!is_critical_lock_held()) {
+		snprintf(aee_str, sizeof(aee_str),
+			"[%s]LockProve Warning", current->comm);
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "LockProve Debug\n");
+	}
+}
+#else
+static void lockdep_aee(void)
+{
+}
+#endif

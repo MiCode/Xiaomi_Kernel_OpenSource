@@ -1242,6 +1242,17 @@ config WW_MUTEX_SELFTEST
 	  Say M if you want these self tests to build as a module.
 	  Say N if you are unsure.
 
+config MTK_LOCKING_AEE
+	bool "AEE warning for locking"
+	depends on MTK_AEE_FEATURE
+	help
+	  This feature will trigger kernel API dump when lock warnings
+	  occur in runtime lock operations. For some specific cases,
+	  it will trigger kernel exception to catch full ram dump for
+	  analysis of memory corruption or bit-flip.
+
+	  Say N if you are unsure.
+
 endmenu # lock debugging
 
 config TRACE_IRQFLAGS

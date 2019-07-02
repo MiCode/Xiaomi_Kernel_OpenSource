@@ -185,3 +185,16 @@ DECLARE_PER_CPU(struct lockdep_stats, lockdep_stats);
 # define debug_atomic_dec(ptr)		do { } while (0)
 # define debug_atomic_read(ptr)		0
 #endif
+
+#ifdef CONFIG_MTK_LOCKING_AEE
+#include <mt-plat/aee.h>
+#include <kernel/sched/sched.h>
+#ifdef CONFIG_LOCKDEP
+extern bool is_critical_lock_held(void);
+#else
+static bool is_critical_lock_held(void)
+{
+	return false;
+}
+#endif
+#endif

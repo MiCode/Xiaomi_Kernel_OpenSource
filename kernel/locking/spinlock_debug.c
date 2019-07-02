@@ -13,6 +13,9 @@
 #include <linux/delay.h>
 #include <linux/export.h>
 
+#include "lockdep_internals.h"
+static void spin_aee(const char *msg);
+
 void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 			  struct lock_class_key *key)
 {
@@ -73,6 +76,7 @@ static void spin_bug(raw_spinlock_t *lock, const char *msg)
 		return;
 
 	spin_dump(lock, msg);
+	spin_aee(msg);
 }
 
 #define SPIN_BUG_ON(cond, lock, msg) if (unlikely(cond)) spin_bug(lock, msg)
@@ -223,4 +227,25 @@ void do_raw_write_unlock(rwlock_t *lock)
 {
 	debug_write_unlock(lock);
 	arch_write_unlock(&lock->raw_lock);
+}
+
+static void spin_aee(const char *msg)
+{
+#ifdef CONFIG_MTK_LOCKING_AEE
+	if (!strcmp(msg, "bad magic") ||
+		!strcmp(msg, "wrong CPU") ||
+		!strcmp(msg, "wrong owner") ||
+		!strcmp(msg, "already unlocked"))
+		BUG_ON(1);
+
+	if (!is_critical_lock_held()) {
+		char aee_str[64];
+
+		snprintf(aee_str, sizeof(aee_str),
+			"%s: [%s]\n", current->comm, msg);
+		aee_kernel_warning_api(__FILE__, __LINE__,
+			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+			aee_str, "spinlock debugger\n");
+	}
+#endif
 }
