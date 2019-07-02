@@ -785,6 +785,7 @@ static int __init mboot_params_early_init(void)
 			pr_info("mboot_params: unknown def type:%d\n",
 					sram.def_type);
 			mboot_params_fatal("unknown def type");
+			return -ENODEV;
 		}
 		/* unsigned long conversion:
 		 * make size equals to pointer size

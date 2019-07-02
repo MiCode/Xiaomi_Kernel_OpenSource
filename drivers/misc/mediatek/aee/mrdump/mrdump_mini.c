@@ -407,7 +407,7 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 		struct task_struct *tsk, int stack)
 {
-	struct thread_info *ti;
+	struct thread_info *ti = NULL;
 	unsigned long *bottom;
 	unsigned long *top;
 	unsigned long *p;
@@ -433,6 +433,8 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 	mrdump_mini_add_entry((unsigned long)tsk, MRDUMP_MINI_SECTION_SIZE);
 	pr_notice("mrdump: cpu[%d] tsk:%p ti:%p\n", cpu, tsk, ti);
 	if (!stack)
+		return;
+	if (ti == NULL)
 		return;
 #ifdef __aarch64__
 	if (on_irq_stack((unsigned long)bottom, NULL))

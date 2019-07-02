@@ -343,7 +343,7 @@ module_init(mrdump_sysfs_init);
 static int param_set_mrdump_lbaooo(const char *val,
 		const struct kernel_param *kp)
 {
-	int retval;
+	int retval = 0;
 
 	if (mrdump_cblock) {
 		retval = param_set_ulong(val, kp);
