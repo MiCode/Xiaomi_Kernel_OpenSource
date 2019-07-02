@@ -1856,6 +1856,10 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
 
+		/* 16 bytes if cluster sel exists */
+		if (cluster->sel)
+			script_size += 16;
+
 		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
 
 			/* 16 bytes for programming the aperture */
