@@ -118,14 +118,15 @@ static const u32 crc_reg_val[] = {
 
 static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x14,
-	.cal_l = 0x44,
+	.cal_l = 0x49,
 	.alpha = 0xD555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x2A9A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 	.custom_reg_offset = crc_reg_offset,
 	.custom_reg_val = crc_reg_val,
 	.num_custom_reg = ARRAY_SIZE(crc_reg_offset),
@@ -181,10 +182,11 @@ static struct alpha_pll_config npu_cc_pll1_config = {
 	.alpha = 0xA000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll npu_cc_pll1 = {
@@ -237,10 +239,11 @@ static struct alpha_pll_config npu_q6ss_pll_config = {
 	.alpha = 0x555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll npu_q6ss_pll = {

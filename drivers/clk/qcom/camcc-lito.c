@@ -197,10 +197,11 @@ static const struct alpha_pll_config cam_cc_pll0_config = {
 	.alpha = 0x8000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000007,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll cam_cc_pll0 = {
@@ -273,10 +274,11 @@ static const struct alpha_pll_config cam_cc_pll1_config = {
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000007,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll cam_cc_pll1 = {
@@ -327,9 +329,9 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.cal_l = 0x32,
 	.alpha = 0x0,
 	.config_ctl_val = 0x08200920,
-	.config_ctl_hi_val = 0x05008011,
+	.config_ctl_hi_val = 0x15008001,
 	.config_ctl_hi1_val = 0x00000000,
-	.user_ctl_val = 0x0000010F,
+	.user_ctl_val = 0xE0000101,
 	.test_ctl_val = 0x00010000,
 	.test_ctl_hi_val = 0x00000000,
 	.test_ctl_hi1_val = 0x00000000,
@@ -405,10 +407,11 @@ static const struct alpha_pll_config cam_cc_pll3_config = {
 	.alpha = 0x9555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000007,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll cam_cc_pll3 = {
@@ -460,10 +463,11 @@ static const struct alpha_pll_config cam_cc_pll4_config = {
 	.alpha = 0x9555,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
-	.user_ctl_val = 0x00000007,
+	.config_ctl_hi1_val = 0x329A699C,
+	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll cam_cc_pll4 = {
