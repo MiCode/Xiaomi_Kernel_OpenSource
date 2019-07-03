@@ -7327,6 +7327,14 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_deregister_client_callback =
 		ipa3_deregister_client_callback;
 	api_ctrl->ipa_get_lan_rx_napi = ipa3_get_lan_rx_napi;
+	api_ctrl->ipa_uc_debug_stats_alloc =
+		ipa3_uc_debug_stats_alloc;
+	api_ctrl->ipa_uc_debug_stats_dealloc =
+		ipa3_uc_debug_stats_dealloc;
+	api_ctrl->ipa_get_gsi_stats =
+		ipa3_get_gsi_stats;
+	api_ctrl->ipa_get_prot_id =
+		ipa3_get_prot_id;
 	return 0;
 }
 
@@ -8915,6 +8923,47 @@ int ipa3_ctx_get_type(enum ipa_type_mode type)
 }
 
 /**
+ * ipa3_get_gsi_stats() - Query gsi stats from uc
+ * @prot_id: IPA_HW_FEATURE_OFFLOAD protocol id
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+void ipa3_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats)
+{
+	switch (prot_id) {
+	case IPA_HW_PROTOCOL_AQC:
+		stats->num_ch = MAX_AQC_CHANNELS;
+		ipa3_get_aqc_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_11ad:
+		break;
+	case IPA_HW_PROTOCOL_WDI:
+		stats->num_ch = MAX_WDI2_CHANNELS;
+		ipa3_get_wdi_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_WDI3:
+		stats->num_ch = MAX_WDI3_CHANNELS;
+		ipa3_get_wdi3_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_ETH:
+		break;
+	case IPA_HW_PROTOCOL_MHIP:
+		stats->num_ch = MAX_MHIP_CHANNELS;
+		ipa3_get_mhip_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_USB:
+		stats->num_ch = MAX_USB_CHANNELS;
+		ipa3_get_usb_gsi_stats(stats);
+		break;
+	default:
+		IPAERR("unsupported HW feature %d\n", prot_id);
+	}
+}
+
+/**
  * ipa3_ctx_get_flag() - to read some ipa3_ctx_flags
  *
  * Return value: true/false based on read value
@@ -8947,3 +8996,57 @@ u32 ipa3_ctx_get_num_pipes(void)
 {
 	return ipa3_ctx->ipa_num_pipes;
 }
+
+/*
+ * ipa3_get_prot_id() - Query gsi protocol id
+ * @client: ipa_client_type
+ *
+ * return the prot_id based on the client type,
+ * return -EINVAL when no such mapping exists.
+ */
+int ipa3_get_prot_id(enum ipa_client_type client)
+{
+	int prot_id = -EINVAL;
+
+	switch (client) {
+	case IPA_CLIENT_AQC_ETHERNET_CONS:
+	case IPA_CLIENT_AQC_ETHERNET_PROD:
+		prot_id = IPA_HW_PROTOCOL_AQC;
+		break;
+	case IPA_CLIENT_MHI_PRIME_TETH_PROD:
+	case IPA_CLIENT_MHI_PRIME_TETH_CONS:
+	case IPA_CLIENT_MHI_PRIME_RMNET_PROD:
+	case IPA_CLIENT_MHI_PRIME_RMNET_CONS:
+		prot_id = IPA_HW_PROTOCOL_MHIP;
+		break;
+	case IPA_CLIENT_WLAN1_PROD:
+	case IPA_CLIENT_WLAN1_CONS:
+		prot_id = IPA_HW_PROTOCOL_WDI;
+		break;
+	case IPA_CLIENT_WLAN2_PROD:
+	case IPA_CLIENT_WLAN2_CONS:
+		prot_id = IPA_HW_PROTOCOL_WDI3;
+		break;
+	case IPA_CLIENT_USB_PROD:
+	case IPA_CLIENT_USB_CONS:
+		prot_id = IPA_HW_PROTOCOL_USB;
+		break;
+	case IPA_CLIENT_ETHERNET_PROD:
+	case IPA_CLIENT_ETHERNET_CONS:
+		prot_id = IPA_HW_PROTOCOL_ETH;
+		break;
+	case IPA_CLIENT_WIGIG_PROD:
+	case IPA_CLIENT_WIGIG1_CONS:
+	case IPA_CLIENT_WIGIG2_CONS:
+	case IPA_CLIENT_WIGIG3_CONS:
+	case IPA_CLIENT_WIGIG4_CONS:
+		prot_id = IPA_HW_PROTOCOL_11ad;
+		break;
+	default:
+		IPAERR("unknown prot_id for client %d\n",
+			client);
+	}
+
+	return prot_id;
+}
+
