@@ -2739,7 +2739,7 @@ struct related_thread_group {
 	raw_spinlock_t lock;
 	struct list_head tasks;
 	struct list_head list;
-	struct sched_cluster *preferred_cluster;
+	bool skip_min;
 	struct rcu_head rcu;
 	u64 last_update;
 	u64 downmigrate_ts;
