@@ -4262,7 +4262,6 @@ static int gcc_sm8150_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
-	vdd_mm.use_max_uV = true;
 
 	/* register hardware clocks */
 	for (i = 0; i < ARRAY_SIZE(gcc_sm8150_hws); i++) {
