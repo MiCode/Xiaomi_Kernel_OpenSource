@@ -193,6 +193,9 @@ static int mmdvfs_wrapper_probe(struct platform_device *pdev)
 			&pdev->dev, mmdvfs_wrapper->reg_name);
 	}
 
+	/* Todo: Remove it when clk/vcore's initial opp is lowest */
+	mmdvfs_wrapper_set_freq(CLK_MM, 0);
+
 	return 0;
 }
 
