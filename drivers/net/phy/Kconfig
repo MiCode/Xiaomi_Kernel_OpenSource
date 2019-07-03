@@ -446,6 +446,7 @@ config XILINX_GMII2RGMII
 	  the Reduced Gigabit Media Independent Interface(RGMII) between
 	  Ethernet physical media devices and the Gigabit Ethernet controller.
 
+source "drivers/net/phy/mtk/mt753x/Kconfig"
 endif # PHYLIB
 
 config MICREL_KS8995MA
