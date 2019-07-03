@@ -1,2 +1,2 @@
-obj-y += spmtwam.o
-obj-y += spmtwam_debugfs.o
+obj-$(CONFIG_MTK_SPMTWAM) += spmtwam.o
+obj-$(CONFIG_MTK_SPMTWAM) += spmtwam_debugfs.o
