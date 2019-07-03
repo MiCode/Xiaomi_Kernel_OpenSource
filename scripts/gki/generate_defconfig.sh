@@ -63,8 +63,5 @@ ${KERN_SRC}/scripts/kconfig/merge_config.sh $FINAL_DEFCONFIG_BLEND
 make savedefconfig
 mv defconfig $CONFIGS_DIR/$REQUIRED_DEFCONFIG
 
-# Cleanup the allyes config fragment that was generated
-rm -f $QCOM_GKI_ALLYES_FRAG
-
-# Cleanup the kernel source
-make mrproper
+# Cleanup the allyes config fragment and other generated files
+rm -rf $QCOM_GKI_ALLYES_FRAG .config include/config/ include/generated/ arch/$ARCH/include/generated/
