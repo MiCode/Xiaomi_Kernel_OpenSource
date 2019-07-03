@@ -7525,6 +7525,10 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	if (trace_sched_task_util_enabled())
 		start_t = sched_clock();
 
+	/* Pre-select a set of candidate CPUs. */
+	candidates = this_cpu_ptr(&energy_cpus);
+	cpumask_clear(candidates);
+
 	if (need_idle)
 		sync = 0;
 
@@ -7553,10 +7557,6 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 	sync_entity_load_avg(&p->se);
 	if (!task_util_est(p))
 		goto unlock;
-
-	/* Pre-select a set of candidate CPUs. */
-	candidates = this_cpu_ptr(&energy_cpus);
-	cpumask_clear(candidates);
 
 	if (sched_feat(FIND_BEST_TARGET)) {
 		fbt_env.is_rtg = is_rtg;
@@ -7619,22 +7619,21 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 unlock:
 	rcu_read_unlock();
 
-sync_wakeup:
-	trace_sched_task_util(p, best_energy_cpu, sync,
-			need_idle, fbt_env.fastpath, placement_boost, start_t,
-			boosted, is_rtg, get_rtg_status(p), start_cpu);
-
 	/*
-	 * Pick the best CPU if prev_cpu cannot be used, or if it saves at
-	 * least 6% of the energy used by prev_cpu.
+	 * Pick the prev CPU, if best energy CPU can't saves at least 6% of
+	 * the energy used by prev_cpu.
 	 */
-	if (prev_energy == ULONG_MAX)
-		return best_energy_cpu;
+	if ((prev_energy != ULONG_MAX) && (best_energy_cpu != prev_cpu)  &&
+	    ((prev_energy - best_energy) <= prev_energy >> 4))
+		best_energy_cpu = prev_cpu;
 
-	if ((prev_energy - best_energy) > (prev_energy >> 4))
-		return best_energy_cpu;
+sync_wakeup:
 
-	return prev_cpu;
+	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
+			sync, need_idle, fbt_env.fastpath, placement_boost,
+			start_t, boosted, is_rtg, get_rtg_status(p), start_cpu);
+
+	return best_energy_cpu;
 
 fail:
 	rcu_read_unlock();
