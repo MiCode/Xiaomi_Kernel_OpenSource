@@ -1014,10 +1014,40 @@ static void ipa_eth_ipc_log_cleanup(void)
 	}
 }
 
+static int ipa_eth_panic_save_device(struct ipa_eth_device *eth_dev)
+{
+	ipa_eth_net_save_regs(eth_dev);
+	ipa_eth_offload_save_regs(eth_dev);
+
+	return 0;
+}
+
+static int ipa_eth_panic_notifier(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct ipa_eth_device *eth_dev;
+
+	mutex_lock(&ipa_eth_devices_lock);
+
+	list_for_each_entry(eth_dev, &ipa_eth_devices, device_list)
+		ipa_eth_panic_save_device(eth_dev);
+
+	mutex_unlock(&ipa_eth_devices_lock);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa_eth_panic_nb = {
+	.notifier_call  = ipa_eth_panic_notifier,
+};
+
 int ipa_eth_init(void)
 {
 	int rc;
 	unsigned int wq_flags = WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_FREEZABLE;
+
+	(void) atomic_notifier_chain_register(
+			&panic_notifier_list, &ipa_eth_panic_nb);
 
 	rc = ipa_eth_ipc_log_init();
 	if (rc) {
@@ -1087,6 +1117,8 @@ err_wq:
 err_dbgfs:
 	ipa_eth_ipc_log_cleanup();
 err_ipclog:
+	(void) atomic_notifier_chain_unregister(
+			&panic_notifier_list, &ipa_eth_panic_nb);
 	return rc;
 }
 
@@ -1107,4 +1139,7 @@ void ipa_eth_exit(void)
 
 	ipa_eth_debugfs_cleanup();
 	ipa_eth_ipc_log_cleanup();
+
+	(void) atomic_notifier_chain_unregister(
+			&panic_notifier_list, &ipa_eth_panic_nb);
 }
