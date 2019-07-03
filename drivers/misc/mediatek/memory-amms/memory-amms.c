@@ -252,8 +252,10 @@ static int __init amms_probe(struct platform_device *pdev)
 
 	amms_task = kthread_create(amms_task_process,
 			NULL, "amms_task");
-	if (!amms_task)
+	if (!amms_task) {
 		pr_info("amms_task thread create failed\n");
+		return -EBUSY;
+	}
 
 	sched_setscheduler(amms_task, SCHED_FIFO, &param);
 
