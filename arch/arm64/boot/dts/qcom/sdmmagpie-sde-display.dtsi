@@ -26,6 +26,7 @@
 #include "dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
+#include "dsi-panel-sharp-qsync-wqhd-cmd.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -299,6 +300,17 @@
 		qcom,dsi-panel = <&dsi_rm69299_visionox_amoled_video>;
 	};
 
+	dsi_sharp_qsync_wqhd_cmd_display: qcom,dsi-display@18 {
+		label = "dsi_sharp_qsync_wqhd_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0 1>;
+		qcom,dsi-phy-num = <0 1>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_sharp_qsync_wqhd_cmd>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -347,7 +359,8 @@
 			&dsi_rm69298_truly_amoled_cmd_display
 			&dsi_nt35695b_truly_fhd_video_display
 			&dsi_nt35695b_truly_fhd_cmd_display
-			&dsi_rm69299_visionox_amoled_vid_display>;
+			&dsi_rm69299_visionox_amoled_vid_display
+			&dsi_sharp_qsync_wqhd_cmd_display>;
 
 	};
 
@@ -733,6 +746,25 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 20 08 08 24 23 08
 				08 05 02 04 00];
 			qcom,display-topology = <1 0 1>;
+		};
+	};
+};
+
+&dsi_sharp_qsync_wqhd_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x09>;
+	qcom,mdss-dsi-t-clk-pre = <0x12>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 0A 01 02 1B 1B 02
+				02 00 02 04 00];
+			qcom,display-topology = <2 2 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1{
+			qcom,mdss-dsi-panel-phy-timings = [00 0D 03 03 1D 1D 03
+				03 01 02 04 00];
+			qcom,mdss-mdp-transfer-time-us = <5800>;
+			qcom,display-topology = <2 2 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
