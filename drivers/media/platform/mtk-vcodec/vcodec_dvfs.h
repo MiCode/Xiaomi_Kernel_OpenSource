@@ -12,6 +12,7 @@
 #define MAX_SUBMIT_GAP (1000*1000)	/* 1 second */
 #define FREE_HIST_DELAY (5000*1000)	/* Free history delay */
 #define DEFAULT_MHZ 99999
+#define ONE_MHZ (1000*1000) /*1MHZ*/
 
 struct codec_history {
 	void *handle;

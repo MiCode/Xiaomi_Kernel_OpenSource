@@ -192,6 +192,9 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *mtkdev)
 	opp = dev_pm_opp_find_freq_ceil(&pdev->dev, &freq);
 	vdec_high_volt = dev_pm_opp_get_voltage(opp);
 	dev_pm_opp_put(opp);
+	/*convert to MHZ from HZ*/
+	for (i = 0; i < vdec_freq_step_size; i++)
+		vdec_freq_steps[i] = vdec_freq_steps[i]/ONE_MHZ;
 	mtk_v4l2_debug(1, "%s, vdec_freq_step_size:%d, high_volt:%d\n",
 	    __func__, vdec_freq_step_size, vdec_high_volt);
 #endif
@@ -232,6 +235,7 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 {
 #ifdef CONFIG_MEDIATEK_DVFS
 	int freq = 0;
+	int target_freq_mhz = 0;
 	int low_volt = 0;
 	unsigned long target_freq = 0;
 	struct codec_job *vdec_cur_job = 0;
@@ -248,13 +252,15 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 		vdec_cur_job->start = get_time_us();
 		freq = est_freq(vdec_cur_job->handle, &vdec_jobs,
 					vdec_hists);
-		target_freq = match_freq(freq, vdec_freq_steps,
+		target_freq_mhz = match_freq(freq, vdec_freq_steps,
 					vdec_freq_step_size);
+		target_freq = target_freq_mhz * ONE_MHZ;
+
 		if (freq > 0) {
 			vdec_freq = freq;
-			if (vdec_freq > target_freq)
-				vdec_freq = target_freq;
-			vdec_cur_job->mhz = (int)target_freq;
+			if (vdec_freq > target_freq_mhz)
+				vdec_freq = target_freq_mhz;
+			vdec_cur_job->mhz = (int)target_freq_mhz;
 			opp = dev_pm_opp_find_freq_ceil(&pdev->dev,
 				&target_freq);
 			if (!IS_ERR(opp))
@@ -270,8 +276,9 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 			regulator_set_voltage(reg, low_volt, vdec_high_volt);
 		}
 	} else {
-		target_freq = match_freq(DEFAULT_MHZ, vdec_freq_steps,
+		target_freq_mhz = match_freq(DEFAULT_MHZ, vdec_freq_steps,
 						vdec_freq_step_size);
+		target_freq = target_freq_mhz * ONE_MHZ;
 		opp = dev_pm_opp_find_freq_ceil(&pdev->dev, &target_freq);
 		if (!IS_ERR(opp))
 			opp = dev_pm_opp_find_freq_floor(&pdev->dev,
