@@ -1,0 +1,19 @@
+IPC Router SDIO Transport
+
+Required properties:
+-compatible:		should be "qcom,ipc_router_sdio_xprt"
+-qcom,ch-name:		the SDIO channel name used by the SDIO transport
+-qcom,xprt-remote:	string that defines the edge of the transport (PIL Name)
+-qcom,xprt-linkid:	unique integer to identify the tier to which the link
+			belongs to in the network and is used to avoid the
+			routing loops while forwarding the broadcast messages
+-qcom,xprt-version:	unique version ID used by SDIO transport header
+
+Example:
+	qcom,ipc_router_external_modem_xprt {
+		compatible = "qcom,ipc_router_sdio_xprt";
+	        qcom,ch-name = "ipc_bridge_sdio";
+		qcom,xprt-remote = "external-modem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <3>;
+	};
