@@ -61,9 +61,11 @@ void rmnet_recycle_frag_descriptor(struct rmnet_frag_descriptor *frag_desc,
 				   struct rmnet_port *port)
 {
 	struct rmnet_frag_descriptor_pool *pool = port->frag_desc_pool;
+	struct page *page = skb_frag_page(&frag_desc->frag);
 
 	list_del(&frag_desc->list);
-	put_page(skb_frag_page(&frag_desc->frag));
+	if (page)
+		put_page(page);
 
 	memset(frag_desc, 0, sizeof(*frag_desc));
 	INIT_LIST_HEAD(&frag_desc->list);
@@ -449,8 +451,12 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 		/* If the headers we added are the start of the page,
 		 * we don't want to add them twice
 		 */
-		if (frag_desc->hdr_ptr == rmnet_frag_data_ptr(frag_desc))
-			rmnet_frag_pull(frag_desc, port, hdr_len);
+		if (frag_desc->hdr_ptr == rmnet_frag_data_ptr(frag_desc)) {
+			if (!rmnet_frag_pull(frag_desc, port, hdr_len)) {
+				kfree_skb(head_skb);
+				return NULL;
+			}
+		}
 	} else {
 		/* Allocate enough space to avoid penalties in the stack
 		 * from __pskb_pull_tail()
@@ -637,10 +643,13 @@ rmnet_frag_segment_coal_data(struct rmnet_frag_descriptor *coal_desc,
 	bool gro = coal_desc->dev->features & NETIF_F_GRO_HW;
 
 	/* Pull off the headers we no longer need */
-	rmnet_frag_pull(coal_desc, port, sizeof(struct rmnet_map_header));
+	if (!rmnet_frag_pull(coal_desc, port, sizeof(struct rmnet_map_header)))
+		return;
+
 	coal_hdr = (struct rmnet_map_v5_coal_header *)
 		   rmnet_frag_data_ptr(coal_desc);
-	rmnet_frag_pull(coal_desc, port, sizeof(*coal_hdr));
+	if (!rmnet_frag_pull(coal_desc, port, sizeof(*coal_hdr)))
+		return;
 
 	iph = (struct iphdr *)rmnet_frag_data_ptr(coal_desc);
 
@@ -893,15 +902,23 @@ int rmnet_frag_process_next_hdr_packet(struct rmnet_frag_descriptor *frag_desc,
 			priv->stats.csum_valid_unset++;
 		}
 
-		rmnet_frag_pull(frag_desc, port,
-				sizeof(struct rmnet_map_header) +
-				sizeof(struct rmnet_map_v5_csum_header));
+		if (!rmnet_frag_pull(frag_desc, port,
+				     sizeof(struct rmnet_map_header) +
+				     sizeof(struct rmnet_map_v5_csum_header))) {
+			rc = -EINVAL;
+			break;
+		}
+
 		frag_desc->hdr_ptr = rmnet_frag_data_ptr(frag_desc);
 
 		/* Remove padding only for csum offload packets.
 		 * Coalesced packets should never have padding.
 		 */
-		rmnet_frag_trim(frag_desc, port, len);
+		if (!rmnet_frag_trim(frag_desc, port, len)) {
+			rc = -EINVAL;
+			break;
+		}
+
 		list_del_init(&frag_desc->list);
 		list_add_tail(&frag_desc->list, list);
 		break;
@@ -965,10 +982,14 @@ __rmnet_frag_ingress_handler(struct rmnet_frag_descriptor *frag_desc,
 			goto recycle;
 	} else {
 		/* We only have the main QMAP header to worry about */
-		rmnet_frag_pull(frag_desc, port, sizeof(*qmap));
+		if (!rmnet_frag_pull(frag_desc, port, sizeof(*qmap)))
+			return;
+
 		frag_desc->hdr_ptr = rmnet_frag_data_ptr(frag_desc);
 
-		rmnet_frag_trim(frag_desc, port, len);
+		if (!rmnet_frag_trim(frag_desc, port, len))
+			return;
+
 		list_add_tail(&frag_desc->list, &segs);
 	}
 
