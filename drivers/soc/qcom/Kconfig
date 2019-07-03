@@ -647,6 +647,7 @@ config QCOM_GLINK_PKT
 	  some glink packets channel.
 
 source "drivers/soc/qcom/hab/Kconfig"
+source "drivers/soc/qcom/hgsl/Kconfig"
 
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"
