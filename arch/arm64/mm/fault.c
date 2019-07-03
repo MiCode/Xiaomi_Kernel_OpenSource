@@ -32,6 +32,7 @@
 #include <linux/perf_event.h>
 #include <linux/preempt.h>
 #include <linux/hugetlb.h>
+#include <linux/kasan.h>
 
 #include <asm/bug.h>
 #include <asm/cmpxchg.h>
@@ -133,6 +134,8 @@ void show_pte(unsigned long addr)
 	struct mm_struct *mm;
 	pgd_t *pgdp;
 	pgd_t pgd;
+
+	addr = (unsigned long)kasan_reset_tag((void *)addr);
 
 	if (addr < TASK_SIZE) {
 		/* TTBR0 */
