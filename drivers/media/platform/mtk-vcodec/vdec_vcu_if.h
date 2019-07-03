@@ -86,7 +86,7 @@ int vcu_dec_reset(struct vdec_vcu_inst *vcu);
  * @len : length of ipi message
  * @priv: callback private data which is passed by decoder when register.
  */
-void vcu_dec_ipi_handler(void *data, unsigned int len, void *priv);
+int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv);
 int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out);
 int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id,
 					  void *param, unsigned int size);

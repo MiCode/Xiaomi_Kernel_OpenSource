@@ -66,7 +66,7 @@ static void handle_enc_waitisr_msg(struct venc_vcu_inst *vcu,
 	msg->timeout = timeout;
 }
 
-static void vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
+static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct venc_vcu_ipi_msg_common *msg = data;
 	struct venc_vcu_inst *vcu;
@@ -83,7 +83,7 @@ static void vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 			msg, task, task->tgid,
 			current->tgid, (struct venc_vcu_inst *)msg->venc_inst);
 		ret = -EINVAL;
-		return;
+		return ret;
 	}
 
 	vcu = (struct venc_vcu_inst *)(unsigned long)msg->venc_inst;
@@ -91,13 +91,13 @@ static void vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 					 msg->msg_id, vcu, msg->status);
 
 	if (vcu->abort)
-		return;
+		return -EINVAL;
 
 	ctx = vcu->ctx;
 	if (sizeof(msg) > SHARE_BUF_SIZE) {
 		mtk_vcodec_err(vcu, "venc_ap_ipi_msg_deint cannot be large than %d",
 					   SHARE_BUF_SIZE);
-		return;
+		return -EINVAL;
 	}
 
 	switch (msg->msg_id) {
@@ -161,6 +161,7 @@ static void vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	mtk_vcodec_debug_leave(vcu);
+	return ret;
 }
 
 static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,

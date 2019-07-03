@@ -808,7 +808,7 @@ EXPORT_SYMBOL_GPL(vcu_get_task);
 static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 {
 	struct vcu_ipi_desc *ipi_desc = vcu->ipi_desc;
-	//int non_ack = 0;
+	int non_ack = 0;
 	int ret = -1;
 	int i = 0;
 
@@ -816,10 +816,10 @@ static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 
 	if (rcv_obj->id < (int)IPI_MAX &&
 	    ipi_desc[rcv_obj->id].handler != NULL) {
-		ipi_desc[rcv_obj->id].handler(rcv_obj->share_buf,
+		non_ack = ipi_desc[rcv_obj->id].handler(rcv_obj->share_buf,
 				rcv_obj->len,
 				ipi_desc[rcv_obj->id].priv);
-		if (rcv_obj->id > (int)IPI_VCU_INIT) {
+		if (rcv_obj->id > (int)IPI_VCU_INIT && non_ack == 0) {
 			vcu->ipi_id_ack[rcv_obj->id] = true;
 			wake_up(&vcu->ack_wq[i]);
 		}
@@ -841,7 +841,7 @@ static int vcu_ipi_init(struct mtk_vcu *vcu)
 	return 0;
 }
 
-static void vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
+static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct mtk_vcu *vcu = (struct mtk_vcu *)priv;
 	struct vcu_run *run = (struct vcu_run *)data;
@@ -874,7 +874,7 @@ static void vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 		}
 		dev_info(vcu->dev, "[VCU] vpud killed\n");
 
-		return;
+		return 0;
 	}
 
 	vcu->run.signaled = run->signaled;
@@ -885,6 +885,7 @@ static void vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 	dev_dbg(vcu->dev, "[VCU] fw ver: %s\n", vcu->run.fw_ver);
 	dev_dbg(vcu->dev, "[VCU] dec cap: %x\n", vcu->run.dec_capability);
 	dev_dbg(vcu->dev, "[VCU] enc cap: %x\n", vcu->run.enc_capability);
+	return 0;
 }
 
 static int mtk_vcu_open(struct inode *inode, struct file *file)

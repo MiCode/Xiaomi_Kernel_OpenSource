@@ -23,7 +23,7 @@
  * VPU interfaces with other blocks by share memory and interrupt.
  **/
 
-typedef void (*ipi_handler_t) (void *data,
+typedef int (*ipi_handler_t) (void *data,
 			       unsigned int len,
 			       void *priv);
 

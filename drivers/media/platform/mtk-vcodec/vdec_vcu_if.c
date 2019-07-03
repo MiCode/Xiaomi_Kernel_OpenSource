@@ -118,7 +118,7 @@ inline void close_mapped_fd(unsigned int target_fd)
  * This function runs in interrupt context and it means there's a IPI MSG
  * from VCU.
  */
-void vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
+int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct vdec_vpu_ipi_ack *msg = data;
 	struct vdec_vcu_inst *vcu = NULL;
@@ -132,17 +132,15 @@ void vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	   task->tgid != current->tgid ||
 	   (struct vdec_vcu_inst *)msg->ap_inst_addr == NULL) {
 		ret = -EINVAL;
-		return;
+		return ret;
 	}
 
 	vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
 
-	if (vcu->abort) {
-		ret = -EINVAL;
-		return;
-	}
+	if (vcu->abort)
+		return -EINVAL;
 
 	if (msg->status == 0) {
 		switch (msg->msg_id) {
@@ -165,7 +163,6 @@ void vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 				MTK_INST_IRQ_RECEIVED,
 				WAIT_INTR_TIMEOUT_MS);
 			do_gettimeofday(&t_e);
-
 			ret = 1;
 			break;
 		case VPU_IPIMSG_DEC_CLOCK_ON:
@@ -204,6 +201,7 @@ void vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		vcu->signaled = 1;
 		vcu->failure = msg->status;
 	}
+	return ret;
 }
 
 static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)

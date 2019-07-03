@@ -227,8 +227,10 @@ static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 		inst->num_nalu, fb_dma[0], fb_dma[1], fb, num_planes);
 
 	/* bs NULL means flush decoder */
-	if (bs == NULL)
+	if (bs == NULL) {
+		mtk_vcodec_err(inst, "BS is NULL !!");
 		return vcu_dec_reset(vcu);
+	}
 
 	mtk_vcodec_debug(inst, "+ BS dma=0x%llx dmabuf=%p format=%c%c%c%c",
 		(uint64_t)bs->dma_addr, bs->dmabuf, bs_fourcc & 0xFF,
