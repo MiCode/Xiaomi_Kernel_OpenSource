@@ -52,6 +52,7 @@
 #include <linux/nmi.h>
 
 #include <asm/sections.h>
+#include <asm/stacktrace.h>
 
 #include "lockdep_internals.h"
 
@@ -71,6 +72,8 @@ module_param(lock_stat, int, 0644);
 #else
 #define lock_stat 0
 #endif
+
+#define MAX_ITR 20
 
 /*
  * lockdep_lock: protects the lockdep graph, the hashes and the
@@ -3259,6 +3262,33 @@ print_lock_nested_lock_not_held(struct task_struct *curr,
 
 static int __lock_is_held(const struct lockdep_map *lock, int read);
 
+static unsigned long lockdep_walk_stack(unsigned long addr)
+{
+	int ret;
+	struct stackframe frame;
+	struct task_struct *tsk = current;
+	bool end_search = false;
+	int counter = 0;
+
+	frame.fp = (unsigned long)__builtin_frame_address(0);
+	frame.pc = (unsigned long)lockdep_walk_stack;
+
+	while (counter < MAX_ITR) {
+		counter++;
+		if (frame.pc == addr)
+			end_search = true;
+
+		ret = unwind_frame(tsk, &frame);
+		if ((ret < 0) || end_search)
+			break;
+	}
+
+	if (unlikely(ret < 0) || unlikely(counter == MAX_ITR))
+		return 0;
+	else
+		return frame.pc;
+}
+
 /*
  * This gets called for every mutex_lock*()/spin_lock*() operation.
  * We maintain the dependency maps and validate the locking attempt:
@@ -3266,7 +3296,8 @@ static int __lock_is_held(const struct lockdep_map *lock, int read);
 static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 			  int trylock, int read, int check, int hardirqs_off,
 			  struct lockdep_map *nest_lock, unsigned long ip,
-			  int references, int pin_count)
+			  int references, int pin_count,
+			  unsigned long ip_caller)
 {
 	struct task_struct *curr = current;
 	struct lock_class *class = NULL;
@@ -3364,6 +3395,10 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	hlock->holdtime_stamp = lockstat_clock();
 #endif
 	hlock->pin_count = pin_count;
+	if (!ip_caller)
+		hlock->acquire_ip_caller = lockdep_walk_stack(ip);
+	else
+		hlock->acquire_ip_caller = ip_caller;
 
 	if (check && !mark_irqflags(curr, hlock))
 		return 0;
@@ -3550,7 +3585,8 @@ static int reacquire_held_locks(struct task_struct *curr, unsigned int depth,
 				    hlock->read, hlock->check,
 				    hlock->hardirqs_off,
 				    hlock->nest_lock, hlock->acquire_ip,
-				    hlock->references, hlock->pin_count))
+				    hlock->references, hlock->pin_count,
+				    hlock->acquire_ip_caller))
 			return 1;
 	}
 	return 0;
@@ -3626,6 +3662,7 @@ static int __lock_downgrade(struct lockdep_map *lock, unsigned long ip)
 	WARN(hlock->read, "downgrading a read lock");
 	hlock->read = 1;
 	hlock->acquire_ip = ip;
+	hlock->acquire_ip_caller = lockdep_walk_stack(ip);
 
 	if (reacquire_held_locks(curr, depth, i))
 		return 0;
@@ -3901,7 +3938,7 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	current->lockdep_recursion = 1;
 	trace_lock_acquire(lock, subclass, trylock, read, check, nest_lock, ip);
 	__lock_acquire(lock, subclass, trylock, read, check,
-		       irqs_disabled_flags(flags), nest_lock, ip, 0, 0);
+		       irqs_disabled_flags(flags), nest_lock, ip, 0, 0, 0);
 	current->lockdep_recursion = 0;
 	raw_local_irq_restore(flags);
 }
@@ -4119,6 +4156,7 @@ __lock_acquired(struct lockdep_map *lock, unsigned long ip)
 
 	lock->cpu = cpu;
 	lock->ip = ip;
+	lock->ip_caller = lockdep_walk_stack(ip);
 }
 
 void lock_contended(struct lockdep_map *lock, unsigned long ip)
