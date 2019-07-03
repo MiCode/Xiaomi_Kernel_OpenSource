@@ -3097,6 +3097,22 @@
 	bat_gm30: battery {
 		compatible = "mediatek,bat_gm30";
 	};
+
+	secure_m4u {
+		compatible = "mediatek,secure_m4u";
+		mediatek,mm_m4u = <&iommu0>;
+		interrupts = <GIC_SPI 191 IRQ_TYPE_LEVEL_LOW>, /* sec mm m4u */
+			     <GIC_SPI 196 IRQ_TYPE_LEVEL_LOW>; /* sec vpu m4u */
+		iommus = <&iommu0 M4U_PORT_DISP_POSTMASK0>,
+			 <&iommu0 M4U_PORT_DISP_OVL0_2L_HDR>,
+			 <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>,
+			 <&iommu0 M4U_PORT_VENC_RCPU>,
+			 <&iommu0 M4U_PORT_IMGI_D1>,
+			 <&iommu0 M4U_PORT_DVS_RDMA>,
+			 <&iommu0 M4U_PORT_FDVT_RDA>,
+			 <&iommu0 M4U_PORT_CAM_IMGO_R1_C>,
+			 <&iommu0 M4U_PORT_CAM_IMGO_R1_A>;
+	};
 };
 
 #include "cust_mt6779_msdc.dtsi"
