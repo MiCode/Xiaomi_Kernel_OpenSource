@@ -267,7 +267,10 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-mtp-aqc.dtb \
 	sdxprairie-dsda-mtp.dtb \
 	sdxprairie-v2-cdp.dtb \
-	sdxprairie-v2-mtp.dtb
+	sdxprairie-v2-mtp.dtb \
+	sa515m-ccard.dtb \
+	sa515m-ccard-pcie-ep.dtb \
+	sa515m-ccard-usb-ep.dtb
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)
