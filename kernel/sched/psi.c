@@ -445,6 +445,9 @@ static void psi_avgs_work(struct work_struct *work)
 }
 
 #ifdef CONFIG_PSI_FTRACE
+
+#define TOKB(x) ((x) * (PAGE_SIZE / 1024))
+
 static void trace_event_helper(struct psi_group *group)
 {
 	struct zone *zone;
@@ -452,17 +455,22 @@ static void trace_event_helper(struct psi_group *group)
 	unsigned long free;
 	unsigned long cma;
 	unsigned long file;
-	u64 memstall = group->total[PSI_POLL][PSI_MEM_SOME];
+
+	u64 mem_some_delta = group->total[PSI_POLL][PSI_MEM_SOME] -
+			group->polling_total[PSI_MEM_SOME];
+	u64 mem_full_delta = group->total[PSI_POLL][PSI_MEM_FULL] -
+			group->polling_total[PSI_MEM_FULL];
 
 	for_each_populated_zone(zone) {
-		wmark = high_wmark_pages(zone);
-		free = zone_page_state(zone, NR_FREE_PAGES);
-		cma = zone_page_state(zone, NR_FREE_CMA_PAGES);
-		file = zone_page_state(zone, NR_ZONE_ACTIVE_FILE) +
-			zone_page_state(zone, NR_ZONE_INACTIVE_FILE);
+		wmark = TOKB(high_wmark_pages(zone));
+		free = TOKB(zone_page_state(zone, NR_FREE_PAGES));
+		cma = TOKB(zone_page_state(zone, NR_FREE_CMA_PAGES));
+		file = TOKB(zone_page_state(zone, NR_ZONE_ACTIVE_FILE) +
+			zone_page_state(zone, NR_ZONE_INACTIVE_FILE));
 
 		trace_psi_window_vmstat(
-			memstall, zone->name, wmark, free, cma, file);
+			mem_some_delta, mem_full_delta, zone->name, wmark,
+			free, cma, file);
 	}
 }
 #else
@@ -571,6 +579,7 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 		t->last_event_time = now;
 	}
 
+	trace_event_helper(group);
 	if (new_stall)
 		memcpy(group->polling_total, total,
 				sizeof(group->polling_total));
@@ -637,7 +646,6 @@ static void psi_poll_work(struct kthread_work *work)
 		 */
 		group->polling_until = now +
 			group->poll_min_period * UPDATES_PER_WINDOW;
-		trace_event_helper(group);
 	}
 
 	if (now > group->polling_until) {
