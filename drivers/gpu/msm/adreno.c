@@ -1310,11 +1310,17 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 
 static int adreno_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
 	int status;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
 
 	device->pdev = pdev;
 
@@ -1473,11 +1479,18 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-	struct adreno_device *adreno_dev = (struct adreno_device *) of_id->data;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	const struct of_device_id *of_id;
+	struct adreno_device *adreno_dev;
+	struct kgsl_device *device;
+	struct adreno_gpudev *gpudev;
+
+	of_id = of_match_device(adreno_match_table, &pdev->dev);
+	if (!of_id)
+		return -EINVAL;
+
+	adreno_dev = (struct adreno_device *) of_id->data;
+	device = KGSL_DEVICE(adreno_dev);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);
