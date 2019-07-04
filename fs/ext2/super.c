@@ -867,6 +867,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_flags = (sb->s_flags & ~MS_POSIXACL) |
 		((EXT2_SB(sb)->s_mount_opt & EXT2_MOUNT_POSIX_ACL) ?
 		 MS_POSIXACL : 0);
+	sb->s_iflags |= SB_I_CGROUPWB;
 
 	ext2_xip_verify_sb(sb); /* see if bdev supports xip, unset
 				    EXT2_MOUNT_XIP if not */
