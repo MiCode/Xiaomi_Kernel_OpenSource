@@ -12,9 +12,11 @@
 #include <media/v4l2-subdev.h>
 #include <media/cam_cpas.h>
 #include <media/cam_req_mgr.h>
+#include <dt-bindings/msm/msm-camera.h>
 
 #include "cam_subdev.h"
 #include "cam_cpas_hw_intf.h"
+#include "cam_cpas_soc.h"
 
 #define CAM_CPAS_DEV_NAME    "cam-cpas"
 #define CAM_CPAS_INTF_INITIALIZED() (g_cpas_intf && g_cpas_intf->probe_done)
@@ -103,6 +105,31 @@ const char *cam_cpas_axi_util_trans_type_to_string(
 	}
 }
 EXPORT_SYMBOL(cam_cpas_axi_util_trans_type_to_string);
+
+int cam_cpas_is_feature_supported(uint32_t flag)
+{
+	struct cam_hw_info *cpas_hw = NULL;
+	struct cam_cpas_private_soc *soc_private = NULL;
+	uint32_t feature_mask;
+
+	if (!CAM_CPAS_INTF_INITIALIZED()) {
+		CAM_ERR(CAM_CPAS, "cpas intf not initialized");
+		return -ENODEV;
+	}
+
+	cpas_hw = (struct cam_hw_info *) g_cpas_intf->hw_intf->hw_priv;
+	soc_private =
+		(struct cam_cpas_private_soc *)cpas_hw->soc_info.soc_private;
+	feature_mask = soc_private->feature_mask;
+
+	if (flag >= CAM_CPAS_FUSE_FEATURE_MAX) {
+		CAM_ERR(CAM_CPAS, "Unknown feature flag %x", flag);
+		return -EINVAL;
+	}
+
+	return feature_mask & flag ? 1 : 0;
+}
+EXPORT_SYMBOL(cam_cpas_is_feature_supported);
 
 int cam_cpas_get_cpas_hw_version(uint32_t *hw_version)
 {
