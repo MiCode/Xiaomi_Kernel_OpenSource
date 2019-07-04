@@ -5996,7 +5996,9 @@ static int fb_notifier_callback(struct notifier_block *self,
 		goto exit;
 
 	blank = evdata->data;
-	if (*blank == FB_BLANK_UNBLANK) {
+
+	switch (*blank) {
+	case FB_BLANK_UNBLANK:
 		dev_dbg(cd->dev, "%s: UNBLANK!\n", __func__);
 		if (cd->fb_state != FB_ON) {
 			#ifdef USE_FB_SUSPEND_RESUME
@@ -6006,7 +6008,12 @@ static int fb_notifier_callback(struct notifier_block *self,
 			call_atten_cb(cd, CY_ATTEN_RESUME, 0);
 			cd->fb_state = FB_ON;
 		}
-	} else if (*blank == FB_BLANK_POWERDOWN) {
+		break;
+
+	case FB_BLANK_POWERDOWN:
+	case FB_BLANK_HSYNC_SUSPEND:
+	case FB_BLANK_VSYNC_SUSPEND:
+	case FB_BLANK_NORMAL:
 		dev_dbg(cd->dev, "%s: POWERDOWN!\n", __func__);
 		if (cd->fb_state != FB_OFF) {
 			#ifdef USE_FB_SUSPEND_RESUME
@@ -6015,6 +6022,9 @@ static int fb_notifier_callback(struct notifier_block *self,
 			call_atten_cb(cd, CY_ATTEN_SUSPEND, 0);
 			cd->fb_state = FB_OFF;
 		}
+		break;
+	default:
+		break;
 	}
 
 exit:
