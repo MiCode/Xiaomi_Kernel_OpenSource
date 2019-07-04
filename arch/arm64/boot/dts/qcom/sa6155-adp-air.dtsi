@@ -43,6 +43,13 @@
 		};
 	};
 
+	ss5_pwr_ctrl0 {
+		compatible = "gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 87 1>;
+		ssVonoff-gpio = <&tlmm 18 1>;
+	};
+
 	hsi2s: qcom,hsi2s {
 		compatible = "qcom,hsi2s";
 		number-of-interfaces = <2>;
@@ -248,6 +255,10 @@
 };
 
 &qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se4_2uart {
 	status = "ok";
 };
 

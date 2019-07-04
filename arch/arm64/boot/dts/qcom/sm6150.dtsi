@@ -46,6 +46,7 @@
 		i2c1 = &qupv3_se1_i2c;
 		i2c2 = &qupv3_se3_i2c;
 		hsuart0 = &qupv3_se7_4uart;
+		hsuart1 = &qupv3_se4_2uart;
 		swr0 = &swr0;
 		swr1 = &swr1;
 		swr2 = &swr2;
