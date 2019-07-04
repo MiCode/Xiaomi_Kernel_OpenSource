@@ -64,7 +64,7 @@ static const char * const cam_cc_parent_names_0[] = {
 };
 
 static const struct parent_map cam_cc_parent_map_1[] = {
-	{ P_BI_TCXO_MX, 0 },
+	{ P_BI_TCXO, 0 },
 	{ P_CAM_CC_PLL2_OUT_AUX, 5 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
@@ -588,6 +588,7 @@ static struct clk_rcg2 cam_cc_cci_0_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_cci_0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_cci_0_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -607,6 +608,7 @@ static struct clk_rcg2 cam_cc_cci_1_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_cci_0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_cci_1_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -634,6 +636,7 @@ static struct clk_rcg2 cam_cc_cphy_rx_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_2,
 	.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_cphy_rx_clk_src",
 		.parent_names = cam_cc_parent_names_2,
@@ -661,6 +664,7 @@ static struct clk_rcg2 cam_cc_csi0phytimer_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_csi0phytimer_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_csi0phytimer_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -680,6 +684,7 @@ static struct clk_rcg2 cam_cc_csi1phytimer_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_csi0phytimer_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_csi1phytimer_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -699,6 +704,7 @@ static struct clk_rcg2 cam_cc_csi2phytimer_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_csi0phytimer_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_csi2phytimer_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -718,6 +724,7 @@ static struct clk_rcg2 cam_cc_csi3phytimer_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_csi0phytimer_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_csi3phytimer_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -747,6 +754,7 @@ static struct clk_rcg2 cam_cc_fast_ahb_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_fast_ahb_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_fast_ahb_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -955,6 +963,7 @@ static struct clk_rcg2 cam_cc_ife_lite_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_0,
 	.freq_tbl = ftbl_cam_cc_ife_lite_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_ife_lite_clk_src",
 		.parent_names = cam_cc_parent_names_0,
@@ -1082,7 +1091,7 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
-	F(19200000, P_BI_TCXO_MX, 1, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_CAM_CC_PLL2_OUT_AUX, 1, 1, 20),
 	F(34285714, P_CAM_CC_PLL2_OUT_AUX, 14, 0, 0),
 	{ }
@@ -1094,6 +1103,7 @@ static struct clk_rcg2 cam_cc_mclk0_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
 	.freq_tbl = ftbl_cam_cc_mclk0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_mclk0_clk_src",
 		.parent_names = cam_cc_parent_names_1,
@@ -1113,6 +1123,7 @@ static struct clk_rcg2 cam_cc_mclk1_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
 	.freq_tbl = ftbl_cam_cc_mclk0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_mclk1_clk_src",
 		.parent_names = cam_cc_parent_names_1,
@@ -1132,6 +1143,7 @@ static struct clk_rcg2 cam_cc_mclk2_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
 	.freq_tbl = ftbl_cam_cc_mclk0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_mclk2_clk_src",
 		.parent_names = cam_cc_parent_names_1,
@@ -1151,6 +1163,7 @@ static struct clk_rcg2 cam_cc_mclk3_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
 	.freq_tbl = ftbl_cam_cc_mclk0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_mclk3_clk_src",
 		.parent_names = cam_cc_parent_names_1,
@@ -1170,6 +1183,7 @@ static struct clk_rcg2 cam_cc_mclk4_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
 	.freq_tbl = ftbl_cam_cc_mclk0_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_mclk4_clk_src",
 		.parent_names = cam_cc_parent_names_1,
@@ -1220,6 +1234,7 @@ static struct clk_rcg2 cam_cc_slow_ahb_clk_src = {
 	.parent_map = cam_cc_parent_map_8,
 	.enable_safe_config = true,
 	.freq_tbl = ftbl_cam_cc_slow_ahb_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_slow_ahb_clk_src",
 		.parent_names = cam_cc_parent_names_8,
