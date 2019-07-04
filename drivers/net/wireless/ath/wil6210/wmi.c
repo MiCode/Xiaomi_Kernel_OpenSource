@@ -4085,6 +4085,7 @@ int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id,
 			.ring_size = cpu_to_le16(ring->size),
 			.ring_id = ring_id,
 		},
+		.max_msdu_size = cpu_to_le16(wil_mtu2macbuf(mtu_max)),
 		.status_ring_id = sring_id,
 		.encap_trans_type = WMI_VRING_ENC_TYPE_802_3,
 	};
