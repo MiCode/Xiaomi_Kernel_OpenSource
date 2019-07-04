@@ -1461,7 +1461,7 @@
 				0x0007c 0x4e        /* PORT0_STATUS */
 				0x00094 0x4e        /* PORT6_STATUS */
 			>;
-			qcom,link-intr-gpio = <84>;
+			qcom,link-intr-gpio = <90>;
 			qcom,switch-cpu-bmp = <0x01>;    /* cpu port bitmap */
 			qcom,switch-lan-bmp = <0x3e>;    /* lan port bitmap */
 			qcom,switch-wan-bmp = <0x0>;     /* wan port bitmap */
