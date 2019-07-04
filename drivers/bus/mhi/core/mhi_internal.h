@@ -761,6 +761,7 @@ int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl);
+int mhi_early_notify_device(struct device *dev, void *data);
 
 /* timesync log support */
 static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
