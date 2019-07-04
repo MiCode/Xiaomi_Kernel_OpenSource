@@ -111,7 +111,7 @@
 
 		audio_mem: audio_region@0 {
 			compatible = "shared-dma-pool";
-			reusable;
+			no-map;
 			size = <0x400000>;
 		};
 
