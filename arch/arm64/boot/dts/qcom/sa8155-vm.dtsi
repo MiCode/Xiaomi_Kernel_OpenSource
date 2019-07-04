@@ -491,6 +491,10 @@
 #include "sa8155-vm-pcie.dtsi"
 #include "sa8155-vm-mhi.dtsi"
 
+&tlmm {
+	dirconn-list = <37 216 1>;
+};
+
 &qupv3_se13_4uart {
 	status = "ok";
 };
