@@ -520,6 +520,12 @@
 		status = "disabled";
 	};
 
+	mhi_net_device: qcom,mhi_net_dev {
+		compatible = "qcom,msm-mhi-dev-net";
+		qcom,mhi-ethernet-interface;
+		status = "disabled";
+	};
+
 	gdsc_emac: qcom,gdsc@147004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_emac";
