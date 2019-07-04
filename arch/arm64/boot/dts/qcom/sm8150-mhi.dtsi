@@ -13,6 +13,8 @@
 
 &pcie_rc1 {
 	reg = <0 0 0 0 0>;
+	#address-cells = <3>;
+	#size-cells = <2>;
 
 	mhi_0: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
@@ -399,6 +401,9 @@
 		};
 
 		mhi_events {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
 			mhi_event@0 {
 				mhi,num-elements = <32>;
 				mhi,intmod = <1>;
@@ -547,6 +552,8 @@
 
 &pcie_rc0 {
 	reg = <0 0 0 0 0>;
+	#address-cells = <3>;
+	#size-cells = <2>;
 
 	mhi_1: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
@@ -940,6 +947,9 @@
 		};
 
 		mhi_events {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
 				mhi_event@0 {
 				mhi,num-elements = <32>;
 				mhi,intmod = <1>;
