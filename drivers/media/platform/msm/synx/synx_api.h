@@ -11,7 +11,64 @@
 
 typedef void (*synx_callback)(s32 sync_obj, int status, void *data);
 
+/**
+ * struct bind_operations - Function pointers that need to be defined
+ *    to achieve bind functionality for external fence with synx obj
+ *
+ * @register_callback   : Function to register with external sync object
+ * @deregister_callback : Function to deregister with external sync object
+ * @enable_signaling    : Function to enable the signaling on the external
+ *                        sync object (optional)
+ * @signal              : Function to signal the external sync object
+ */
+struct bind_operations {
+	int (*register_callback)(synx_callback cb_func,
+		void *userdata, s32 sync_obj);
+	int (*deregister_callback)(synx_callback cb_func,
+		void *userdata, s32 sync_obj);
+	int (*enable_signaling)(s32 sync_obj);
+	int (*signal)(s32 sync_obj, u32 status);
+};
+
+/**
+ * struct synx_register_params - External registration parameters
+ *
+ * @ops  : Pointer to bind operations struct
+ * @name : Client name
+ *         Only first 32 bytes are accepted, rest will be ignored
+ * @type : Synx external client type
+ */
+struct synx_register_params {
+	struct bind_operations ops;
+	char *name;
+	u32 type;
+};
+
 /* Kernel APIs */
+
+/* @brief: Register operations for external synchronization
+ *
+ * Register with synx for enabling external synchronization through bind
+ *
+ * @param params : Pointer to register params
+ *
+ * @return Status of operation. Zero in case of success.
+ * -EINVAL will be returned if params are invalid.
+ * -ENOMEM will be returned if client cannot be registered due to not
+ * enough memory.
+ * -EALREADY will be returned if client name is already in use
+ */
+int synx_register_ops(const struct synx_register_params *params);
+
+/**
+ * @brief: De-register external synchronization operations
+ *
+ * @param params : Pointer to register params
+ *
+ * @return Status of operation. Zero in case of success.
+ * -EINVAL will be returned if client not found.
+ */
+int synx_deregister_ops(const struct synx_register_params *params);
 
 /**
  * @brief: Creates a synx object
