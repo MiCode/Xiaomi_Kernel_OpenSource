@@ -90,6 +90,8 @@ struct ipa_wigig_context {
 	phys_addr_t int_gen_tx_pa;
 	phys_addr_t int_gen_rx_pa;
 	phys_addr_t dma_ep_misc_pa;
+	ipa_notify_cb tx_notify;
+	void *priv;
 	union pipes {
 		struct ipa_wigig_pipe_setup_info flat[IPA_WIGIG_MAX_PIPES];
 		struct ipa_wigig_pipe_setup_info_smmu
@@ -711,6 +713,9 @@ int ipa_wigig_conn_rx_pipe(struct ipa_wigig_conn_rx_in_params *in,
 		ret = -EFAULT;
 		goto fail_connect_pipe;
 	}
+
+	ipa_wigig_ctx->tx_notify = in->notify;
+	ipa_wigig_ctx->priv = in->priv;
 
 	ipa_wigig_store_pipe_info(ipa_wigig_ctx->pipes.flat,
 		IPA_CLIENT_WIGIG_PROD_IDX);
@@ -1460,6 +1465,9 @@ int ipa_wigig_conn_rx_pipe_smmu(
 		goto fail_smmu_store;
 	}
 
+	ipa_wigig_ctx->tx_notify = in->notify;
+	ipa_wigig_ctx->priv = in->priv;
+
 	ipa_wigig_ctx->conn_pipes |=
 		ipa_wigig_pipe_to_bit_val(IPA_CLIENT_WIGIG_PROD);
 
@@ -1579,7 +1587,8 @@ int ipa_wigig_conn_client(struct ipa_wigig_conn_tx_in_params *in,
 		return -EFAULT;
 	}
 
-	if (ipa_conn_wigig_client_i(in, out)) {
+	if (ipa_conn_wigig_client_i(in, out, ipa_wigig_ctx->tx_notify,
+		ipa_wigig_ctx->priv)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
 		, in->client_mac[0], in->client_mac[1], in->client_mac[2]
@@ -1661,7 +1670,8 @@ int ipa_wigig_conn_client_smmu(
 		return -EFAULT;
 	}
 
-	if (ipa_conn_wigig_client_i(in, out)) {
+	if (ipa_conn_wigig_client_i(in, out, ipa_wigig_ctx->tx_notify,
+		ipa_wigig_ctx->priv)) {
 		IPA_WIGIG_ERR(
 			"fail to connect client. MAC [%X][%X][%X][%X][%X][%X]\n"
 			, in->client_mac[0], in->client_mac[1]

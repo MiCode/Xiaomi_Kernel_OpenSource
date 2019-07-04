@@ -1131,7 +1131,10 @@ fail:
 	return result;
 }
 
-int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa3_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -1273,8 +1276,8 @@ int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
 		goto fail;
 	}
 
-	ep->client_notify = NULL;
-	ep->priv = NULL;
+	ep->client_notify = tx_notify;
+	ep->priv = priv;
 
 	memset(&ep_cfg, 0, sizeof(ep_cfg));
 	ep_cfg.nat.nat_en = IPA_DST_NAT;
