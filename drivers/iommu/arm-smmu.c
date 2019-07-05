@@ -430,6 +430,8 @@ static int arm_smmu_setup_default_domain(struct device *dev,
 				struct iommu_domain *domain);
 static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
+static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -2866,6 +2868,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
+	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
@@ -2893,6 +2896,11 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
+
+	ret = arm_smmu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	if (s1_bypass)
+		domain->type = IOMMU_DOMAIN_UNMANAGED;
 
 	/* Do not modify the SIDs, HW is still running */
 	if (is_dynamic_domain(domain)) {
