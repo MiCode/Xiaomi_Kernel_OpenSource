@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ struct lpm_cpu {
 	uint32_t ref_premature_cnt;
 	uint32_t tmr_add;
 	bool lpm_prediction;
+	uint64_t bias;
 	struct cpuidle_driver *drv;
 	struct lpm_cluster *parent;
 };
