@@ -1992,6 +1992,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 		goto destroy_debugfs;
 
 	cnss_register_coex_service(plat_priv);
+	cnss_register_ims_service(plat_priv);
 
 	ret = cnss_genl_init();
 	if (ret < 0)
@@ -2033,6 +2034,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	cnss_genl_exit();
+	cnss_unregister_ims_service(plat_priv);
 	cnss_unregister_coex_service(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
