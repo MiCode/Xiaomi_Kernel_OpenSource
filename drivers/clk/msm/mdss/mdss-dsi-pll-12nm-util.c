@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -262,6 +262,12 @@ static int dsi_pll_relock(struct mdss_pll_resources *pll)
 	data |= 0x1; /* set ONPLL_OVN to 0x1 */
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_POWERUP_CTRL, data);
 	ndelay(500); /* h/w recommended delay */
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SYS_CTRL, 0x49);
+	wmb(); /* make sure register committed before enabling branch clocks */
+	udelay(5); /* h/w recommended delay */
+	MDSS_PLL_REG_W(pll_base, DSIPHY_SYS_CTRL, 0xc9);
+	wmb(); /* make sure register committed before enabling branch clocks */
+	udelay(50); /* h/w recommended delay */
 
 	if (!pll_is_pll_locked_12nm(pll, false)) {
 		pr_err("DSI PLL ndx=%d lock failed!\n",
