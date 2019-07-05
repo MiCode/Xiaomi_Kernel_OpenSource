@@ -568,7 +568,7 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 		struct cam_cpas_axi_port *curr_axi_port = NULL;
 		struct cam_cpas_axi_port *temp_axi_port = NULL;
 		uint64_t required_camnoc_bw = 0;
-		int32_t clk_rate = 0;
+		int64_t clk_rate = 0;
 
 		list_for_each_entry_safe(curr_axi_port, temp_axi_port,
 			&cpas_core->axi_ports_list_head, sibling_port) {
@@ -596,13 +596,13 @@ static int cam_cpas_util_set_camnoc_axi_clk_rate(
 
 		clk_rate = required_camnoc_bw / soc_private->camnoc_bus_width;
 
-		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %d",
+		CAM_DBG(CAM_CPAS, "Setting camnoc axi clk rate : %llu %lld",
 			required_camnoc_bw, clk_rate);
 
 		rc = cam_soc_util_set_src_clk_rate(soc_info, clk_rate);
 		if (rc)
 			CAM_ERR(CAM_CPAS,
-				"Failed in setting camnoc axi clk %llu %d %d",
+				"Failed in setting camnoc axi clk %llu %lld %d",
 				required_camnoc_bw, clk_rate, rc);
 	}
 

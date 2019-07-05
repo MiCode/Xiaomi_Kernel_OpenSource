@@ -36,6 +36,9 @@
 
 #define MAXIMUM_LINKS_PER_SESSION  4
 
+#define VERSION_1  1
+#define VERSION_2  2
+
 /**
  * enum crm_workq_task_type
  * @codes: to identify which type of task is present
@@ -233,12 +236,14 @@ struct cam_req_mgr_slot {
  * @slot        : request slot holding incoming request id and bubble info.
  * @rd_idx      : indicates slot index currently in process.
  * @wr_idx      : indicates slot index to hold new upcoming req.
+ * @last_applied_idx : indicates slot index last applied successfully.
  */
 struct cam_req_mgr_req_queue {
 	int32_t                     num_slots;
 	struct cam_req_mgr_slot     slot[MAX_REQ_SLOTS];
 	int32_t                     rd_idx;
 	int32_t                     wr_idx;
+	int32_t                     last_applied_idx;
 };
 
 /**
@@ -411,7 +416,9 @@ int cam_req_mgr_destroy_session(struct cam_req_mgr_session_info *ses_info);
  * a unique link handle for the link and is specific to a
  * session. Returns link handle
  */
-int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info);
+int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info);
+int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info);
+
 
 /**
  * cam_req_mgr_unlink()

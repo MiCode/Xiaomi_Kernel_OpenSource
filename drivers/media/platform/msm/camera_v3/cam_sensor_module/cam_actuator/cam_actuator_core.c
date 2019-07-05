@@ -786,7 +786,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 		bridge_params.v4l2_sub_dev_flag = 0;
 		bridge_params.media_entity_flag = 0;
 		bridge_params.priv = a_ctrl;
-
+		bridge_params.dev_id = CAM_ACTUATOR;
 		actuator_acq_dev.device_handle =
 			cam_create_device_hdl(&bridge_params);
 		a_ctrl->bridge_intf.device_hdl = actuator_acq_dev.device_handle;
