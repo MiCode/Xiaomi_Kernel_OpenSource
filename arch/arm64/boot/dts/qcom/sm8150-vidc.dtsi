@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018 - 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,8 +45,11 @@
 			"core_clk", "vcodec_clk", "cvp_clk";
 
 		resets = <&clock_gcc GCC_VIDEO_AXIC_CLK_BCR>,
-			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK_BCR>;
-		reset-names = "video_axi_reset", "video_core_reset";
+			<&clock_videocc VIDEO_CC_MVSC_CORE_CLK_BCR>,
+			<&clock_gcc GCC_VIDEO_AXI0_CLK_BCR>,
+			<&clock_gcc GCC_VIDEO_AXI1_CLK_BCR>;
+		reset-names = "video_axi_reset", "video_core_reset",
+				"video_axi0_reset", "video_axi1_reset";
 
 		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x1 0x1>;
 		qcom,allowed-clock-rates = <225000000 300000000
