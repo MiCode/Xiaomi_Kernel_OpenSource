@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -617,6 +617,29 @@ static void hab_mem_dma_buf_kunmap(struct dma_buf *dmabuf,
 {
 }
 
+static void *hab_mem_dma_buf_vmap(struct dma_buf *dmabuf)
+{
+	struct pages_list *pglist = dmabuf->priv;
+
+	if (!pglist->kva)
+		pglist->kva = vmap(pglist->pages,
+			    pglist->npages,
+			    VM_IOREMAP,
+			    pgprot_writecombine(PAGE_KERNEL));
+
+	return pglist->kva;
+}
+
+static void hab_mem_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+{
+	struct pages_list *pglist = dmabuf->priv;
+
+	if (pglist->kva) {
+		vunmap(pglist->kva);
+		pglist->kva = NULL;
+	}
+}
+
 static struct dma_buf_ops dma_buf_ops = {
 	.map_dma_buf = hab_mem_map_dma_buf,
 	.unmap_dma_buf = hab_mem_unmap_dma_buf,
@@ -626,6 +649,8 @@ static struct dma_buf_ops dma_buf_ops = {
 	.unmap_atomic = hab_mem_dma_buf_kunmap,
 	.map = hab_mem_dma_buf_kmap,
 	.unmap = hab_mem_dma_buf_kunmap,
+	.vmap = hab_mem_dma_buf_vmap,
+	.vunmap = hab_mem_dma_buf_vunmap,
 };
 
 static int habmem_imp_hyp_map_fd(void *imp_ctx,
