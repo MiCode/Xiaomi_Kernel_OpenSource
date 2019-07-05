@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
+#include <linux/phy/phy-qcom-ufs.h>
 
 #define UFS_QCOM_PHY_CAL_ENTRY(reg, val)	\
 	{				\
@@ -104,6 +105,8 @@ struct ufs_qcom_phy {
  * @set_tx_lane_enable: pointer to a function that enable tx lanes
  * @power_control: pointer to a function that controls analog rail of phy
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
+ * @ctrl_rx_linecfg: pointer to a function that controls the enable/disable of
+ * Rx line config
  */
 struct ufs_qcom_phy_specific_ops {
 	int (*calibrate)(struct ufs_qcom_phy *ufs_qcom_phy, bool is_rate_B);
@@ -111,6 +114,7 @@ struct ufs_qcom_phy_specific_ops {
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
+	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
