@@ -2101,11 +2101,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	/* Bus width in bytes, set it to zero if not found */
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
-		&pwr->bus_width))
-		pwr->bus_width = 0;
-
 	/* Check if gpu bandwidth vote device is defined in dts */
 	if (pwr->bus_control)
 		/* Check if gpu bandwidth vote device is defined in dts */
