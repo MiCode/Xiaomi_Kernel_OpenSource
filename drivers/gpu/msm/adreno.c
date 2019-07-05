@@ -3761,6 +3761,13 @@ static void adreno_gpu_model(struct kgsl_device *device, char *str,
 			 ADRENO_CHIPID_PATCH(adreno_dev->chipid) + 1);
 }
 
+static bool adreno_is_hwcg_on(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3805,6 +3812,7 @@ static const struct kgsl_functable adreno_functable = {
 	.dispatcher_halt = adreno_dispatcher_halt,
 	.dispatcher_unhalt = adreno_dispatcher_unhalt,
 	.query_property_list = adreno_query_property_list,
+	.is_hwcg_on = adreno_is_hwcg_on,
 };
 
 static struct platform_driver adreno_platform_driver = {
