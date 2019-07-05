@@ -414,7 +414,7 @@ static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev)
 
 	if (adc_dev->imix_r)
 		return 0;
-	ret = of_property_read_u8(of_chosen, "atag,imix_r1", &val);
+	ret = of_property_read_u8(of_chosen, "atag,imix_r", &val);
 	if (ret)
 		dev_notice(adc_dev->dev, "no imix_r, ret=%d\n", ret);
 	adc_dev->imix_r = (int)val;
