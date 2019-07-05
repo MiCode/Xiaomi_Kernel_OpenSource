@@ -1191,7 +1191,7 @@ static struct mbox_chan *cmdq_xlate(struct mbox_controller *mbox,
 		return ERR_PTR(-EINVAL);
 
 	thread = mbox->chans[ind].con_priv;
-	thread->priority = sp->args[2];
+	thread->priority = sp->args[1];
 	thread->atomic_exec = (sp->args[2] != 0);
 	thread->chan = &mbox->chans[ind];
 
