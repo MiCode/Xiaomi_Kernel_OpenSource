@@ -207,6 +207,10 @@ Optional Properties:
 				Specify the name of GPU temperature sensor. This name will be used
 				to get the temperature from the thermal driver API.
 
+- tzone-names:
+				Specify the names of GPU thermal zones. These will be used
+				to get the temperature from the thermal driver API.
+
 - qcom,enable-midframe-timer:
 				Boolean. Enables the use of midframe sampling timer. This timer
 				samples the GPU powerstats if the cmdbatch expiry takes longer than

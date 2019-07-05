@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1498,28 +1498,24 @@ static ssize_t kgsl_pwrctrl_temp_show(struct device *dev,
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
 	struct thermal_zone_device *thermal_dev;
-	int ret, temperature = 0;
+	int i, max_temp = 0;
 
 	if (device == NULL)
-		goto done;
+		return 0;
 
 	pwr = &device->pwrctrl;
 
-	if (!pwr->tzone_name)
-		goto done;
+	for (i = 0; i < KGSL_MAX_TZONE_NAMES; i++) {
+		int temp = 0;
 
-	thermal_dev = thermal_zone_get_zone_by_name((char *)pwr->tzone_name);
-	if (thermal_dev == NULL)
-		goto done;
+		thermal_dev = thermal_zone_get_zone_by_name(
+				pwr->tzone_names[i]);
+		if (!(thermal_zone_get_temp(thermal_dev, &temp)))
+			max_temp = max_t(int, temp, max_temp);
 
-	ret = thermal_zone_get_temp(thermal_dev, &temperature);
-	if (ret)
-		goto done;
+	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			temperature);
-done:
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", max_temp);
 }
 
 static ssize_t kgsl_pwrctrl_pwrscale_store(struct device *dev,
@@ -2458,9 +2454,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	kgsl_pwrctrl_vbif_init();
 
 	/* temperature sensor name */
-	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
-		&pwr->tzone_name);
 
+	of_property_read_string_array(pdev->dev.of_node, "tzone-names",
+		pwr->tzone_names, KGSL_MAX_TZONE_NAMES);
 	/*
 	 * Cx ipeak client support, default value of Cx Ipeak GPU freq
 	 * is used if defined in GPU list and it is overridden by

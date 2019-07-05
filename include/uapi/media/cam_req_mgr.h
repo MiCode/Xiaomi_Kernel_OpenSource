@@ -35,6 +35,7 @@
  * It includes both session and device handles
  */
 #define CAM_REQ_MGR_MAX_HANDLES           64
+#define CAM_REQ_MGR_MAX_HANDLES_V2        128
 #define MAX_LINKS_PER_SESSION             2
 
 /* V4L event type which user space will subscribe to */
@@ -121,6 +122,20 @@ struct cam_req_mgr_link_info {
 	int32_t link_hdl;
 };
 
+struct cam_req_mgr_link_info_v2 {
+	int32_t session_hdl;
+	uint32_t num_devices;
+	int32_t dev_hdls[CAM_REQ_MGR_MAX_HANDLES_V2];
+	int32_t link_hdl;
+};
+
+struct cam_req_mgr_ver_info {
+	uint32_t version;
+	union {
+		struct cam_req_mgr_link_info link_info_v1;
+		struct cam_req_mgr_link_info_v2 link_info_v2;
+	} u;
+};
 /**
  * struct cam_req_mgr_unlink_info
  * @session_hdl: input param - session handle
@@ -230,6 +245,7 @@ struct cam_req_mgr_link_control {
 #define CAM_REQ_MGR_RELEASE_BUF                 (CAM_COMMON_OPCODE_MAX + 11)
 #define CAM_REQ_MGR_CACHE_OPS                   (CAM_COMMON_OPCODE_MAX + 12)
 #define CAM_REQ_MGR_LINK_CONTROL                (CAM_COMMON_OPCODE_MAX + 13)
+#define CAM_REQ_MGR_LINK_V2                     (CAM_COMMON_OPCODE_MAX + 14)
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)

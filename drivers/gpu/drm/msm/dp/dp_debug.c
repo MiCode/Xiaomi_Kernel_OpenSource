@@ -1464,8 +1464,8 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 		debug->aux->set_sim_mode(debug->aux, true,
 			debug->edid, debug->dpcd);
 	} else {
-		debug->aux->abort(debug->aux);
-		debug->ctrl->abort(debug->ctrl);
+		debug->aux->abort(debug->aux, false);
+		debug->ctrl->abort(debug->ctrl, false);
 
 		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
 		debug->power->sim_mode = false;

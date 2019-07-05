@@ -91,12 +91,14 @@
 
 		qcom,ubwc-mode = <3>;
 
-		qcom,snapshot-size = <1310720>; //bytes
+		qcom,snapshot-size = <0x200000>; //bytes
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; // base addr, size
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 		#cooling-cells = <2>;
+
+		tzone-names = "gpuss-0-usr", "gpuss-1-usr";
 
 		qcom,pm-qos-active-latency = <44>;
 
@@ -148,6 +150,36 @@
 		/* GPU related llc slices */
 		cache-slice-names = "gpu", "gpuhtw";
 		cache-slices = <&llcc 12>, <&llcc 11>;
+
+
+		qcom,gpu-coresights {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-coresight";
+
+			qcom,gpu-coresight@0 {
+				reg = <0>;
+				coresight-name = "coresight-gfx";
+				coresight-atid = <50>;
+				port {
+					gfx_out_funnel_gfx: endpoint {
+						remote-endpoint =
+						  <&funnel_gfx_in_gfx>;
+					};
+				};
+			};
+			qcom,gpu-coresight@1 {
+				reg = <1>;
+				coresight-name = "coresight-gfx-cx";
+				coresight-atid = <51>;
+				port {
+					gfx_cx_out_funnel_gfx: endpoint {
+						remote-endpoint =
+						  <&funnel_gfx_in_gfx_cx>;
+					};
+				};
+			};
+		};
 
 		qcom,l3-pwrlevels {
 			#address-cells = <1>;

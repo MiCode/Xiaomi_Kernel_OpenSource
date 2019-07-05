@@ -91,6 +91,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
 #define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        6
+#define CAM_ISP_GENERIC_BLOB_TYPE_INIT_FRAME_DROP     10
 
 /* Per Path Usage Data */
 #define CAM_ISP_USAGE_INVALID     0
@@ -499,5 +500,15 @@ struct cam_isp_acquire_hw_info {
 #define CAM_ISP_ACQUIRE_OUT_VER0            0x3000
 
 #define CAM_ISP_ACQUIRE_OUT_SIZE_VER0       sizeof(struct cam_isp_out_port_info)
+
+/**
+ * struct cam_isp_init_frame_drop_config - init frame drop configuration
+ *
+ * @init_frame_drop:            Initial number of frames needs to drop
+ */
+
+struct cam_isp_init_frame_drop_config {
+	uint32_t                       init_frame_drop;
+} __attribute__((packed));
 
 #endif /* __UAPI_CAM_ISP_H__ */
