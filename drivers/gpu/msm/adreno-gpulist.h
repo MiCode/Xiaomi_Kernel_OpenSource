@@ -1042,7 +1042,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
-			ADRENO_APRIV,
+			ADRENO_APRIV | ADRENO_LM,
 		.gpudev = &adreno_a6xx_gpudev,
 		.gmem_size = SZ_512K,
 		.busy_mask = 0xfffffffe,
