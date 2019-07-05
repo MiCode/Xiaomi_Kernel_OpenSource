@@ -523,7 +523,7 @@ static ssize_t profile_assignments_read(struct file *filep,
 		return 0;
 	}
 
-	buf = kmalloc(max_size, GFP_KERNEL);
+	buf = kzalloc(max_size, GFP_KERNEL);
 	if (!buf) {
 		mutex_unlock(&device->mutex);
 		return -ENOMEM;
