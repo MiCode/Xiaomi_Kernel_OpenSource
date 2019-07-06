@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
 &soc {
 };
 
@@ -90,7 +92,7 @@
 
 	tof-therm {
 		polling-delay-passive = <0>;
-		polling-delay = <5000>;
+		polling-delay = <0>;
 		thermal-governor = "user_space";
 		thermal-sensors = <&pm6150l_adc_tm_iio ADC_GPIO3_PU2>;
 		wake-capable-sensor;

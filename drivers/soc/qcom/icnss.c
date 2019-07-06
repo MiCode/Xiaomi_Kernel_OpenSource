@@ -73,7 +73,7 @@
 #define SUBSYS_INTERNAL_MODEM_NAME	"modem"
 #define SUBSYS_EXTERNAL_MODEM_NAME	"esoc0"
 
-#define PROBE_TIMEOUT			5000
+#define PROBE_TIMEOUT			15000
 #define FW_READY_TIMEOUT		50000
 
 static struct icnss_priv *penv;
@@ -1534,8 +1534,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed &&
 	    test_bit(ICNSS_BLOCK_SHUTDOWN, &priv->state)) {
 		if (!wait_for_completion_timeout(&priv->unblock_shutdown,
-						 PROBE_TIMEOUT))
-			icnss_pr_err("wlan driver probe timeout\n");
+				msecs_to_jiffies(PROBE_TIMEOUT)))
+			icnss_pr_err("modem block shutdown timeout\n");
 	}
 
 	if (code == SUBSYS_BEFORE_SHUTDOWN && !notif->crashed) {

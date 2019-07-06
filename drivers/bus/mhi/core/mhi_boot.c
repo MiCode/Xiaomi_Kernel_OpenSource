@@ -27,12 +27,14 @@
 #include "mhi_internal.h"
 
 
-/* setup rddm vector table for rddm transfer */
-static void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
+/* setup rddm vector table for rddm transfer and program rxvec */
+void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 			     struct image_info *img_info)
 {
 	struct mhi_buf *mhi_buf = img_info->mhi_buf;
 	struct bhi_vec_entry *bhi_vec = img_info->bhi_vec;
+	void __iomem *base = mhi_cntrl->bhie;
+	u32 sequence_id;
 	int i = 0;
 
 	for (i = 0; i < img_info->entries - 1; i++, mhi_buf++, bhi_vec++) {
@@ -41,17 +43,35 @@ static void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		bhi_vec->dma_addr = mhi_buf->dma_addr;
 		bhi_vec->size = mhi_buf->len;
 	}
+
+	MHI_LOG("BHIe programming for RDDM\n");
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
+		      upper_32_bits(mhi_buf->dma_addr));
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
+		      lower_32_bits(mhi_buf->dma_addr));
+
+	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS, mhi_buf->len);
+	sequence_id = prandom_u32() & BHIE_RXVECSTATUS_SEQNUM_BMSK;
+
+	if (unlikely(!sequence_id))
+		sequence_id = 1;
+
+	mhi_write_reg_field(mhi_cntrl, base, BHIE_RXVECDB_OFFS,
+			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
+			    sequence_id);
+
+	MHI_LOG("address:%pad len:0x%lx sequence:%u\n",
+		&mhi_buf->dma_addr, mhi_buf->len, sequence_id);
 }
 
 /* collect rddm during kernel panic */
 static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	struct mhi_buf *mhi_buf;
-	u32 sequence_id;
 	u32 rx_status;
 	enum mhi_ee ee;
-	struct image_info *rddm_image = mhi_cntrl->rddm_image;
 	const u32 delayus = 2000;
 	u32 retry = (mhi_cntrl->timeout_ms * 1000) / delayus;
 	const u32 rddm_timeout_us = 200000;
@@ -76,29 +96,6 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 	mhi_cntrl->pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
 	/* update should take the effect immediately */
 	smp_wmb();
-
-	/* setup the RX vector table */
-	mhi_rddm_prepare(mhi_cntrl, rddm_image);
-	mhi_buf = &rddm_image->mhi_buf[rddm_image->entries - 1];
-
-	MHI_LOG("Starting BHIe programming for RDDM\n");
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
-		      upper_32_bits(mhi_buf->dma_addr));
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
-		      lower_32_bits(mhi_buf->dma_addr));
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS, mhi_buf->len);
-	sequence_id = prandom_u32() & BHIE_RXVECSTATUS_SEQNUM_BMSK;
-
-	if (unlikely(!sequence_id))
-		sequence_id = 1;
-
-
-	mhi_write_reg_field(mhi_cntrl, base, BHIE_RXVECDB_OFFS,
-			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
-			    sequence_id);
 
 	/*
 	 * Make sure device is not already in RDDM.
@@ -166,79 +163,21 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic)
 {
 	void __iomem *base = mhi_cntrl->bhie;
-	rwlock_t *pm_lock = &mhi_cntrl->pm_lock;
-	struct image_info *rddm_image = mhi_cntrl->rddm_image;
-	struct mhi_buf *mhi_buf;
-	int ret;
 	u32 rx_status;
-	u32 sequence_id;
-
-	if (!rddm_image)
-		return -ENOMEM;
 
 	if (in_panic)
 		return __mhi_download_rddm_in_panic(mhi_cntrl);
 
-	MHI_LOG("Waiting for device to enter RDDM state from EE:%s\n",
-		TO_MHI_EXEC_STR(mhi_cntrl->ee));
-
-	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 mhi_cntrl->ee == MHI_EE_RDDM ||
-				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
-				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
-		MHI_ERR("MHI is not in valid state, pm_state:%s ee:%s\n",
-			to_mhi_pm_state_str(mhi_cntrl->pm_state),
-			TO_MHI_EXEC_STR(mhi_cntrl->ee));
-		return -EIO;
-	}
-
-	mhi_rddm_prepare(mhi_cntrl, mhi_cntrl->rddm_image);
-
-	/* vector table is the last entry */
-	mhi_buf = &rddm_image->mhi_buf[rddm_image->entries - 1];
-
-	read_lock_bh(pm_lock);
-	if (!MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state)) {
-		read_unlock_bh(pm_lock);
-		return -EIO;
-	}
-
-	MHI_LOG("Starting BHIe Programming for RDDM\n");
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
-		      upper_32_bits(mhi_buf->dma_addr));
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
-		      lower_32_bits(mhi_buf->dma_addr));
-
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS, mhi_buf->len);
-
-	sequence_id = prandom_u32() & BHIE_RXVECSTATUS_SEQNUM_BMSK;
-	mhi_write_reg_field(mhi_cntrl, base, BHIE_RXVECDB_OFFS,
-			    BHIE_RXVECDB_SEQNUM_BMSK, BHIE_RXVECDB_SEQNUM_SHFT,
-			    sequence_id);
-	read_unlock_bh(pm_lock);
-
-	MHI_LOG("Upper:0x%x Lower:0x%x len:0x%lx sequence:%u\n",
-		upper_32_bits(mhi_buf->dma_addr),
-		lower_32_bits(mhi_buf->dma_addr),
-		mhi_buf->len, sequence_id);
 	MHI_LOG("Waiting for image download completion\n");
 
 	/* waiting for image download completion */
 	wait_event_timeout(mhi_cntrl->state_event,
-			   MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state) ||
 			   mhi_read_reg_field(mhi_cntrl, base,
 					      BHIE_RXVECSTATUS_OFFS,
 					      BHIE_RXVECSTATUS_STATUS_BMSK,
 					      BHIE_RXVECSTATUS_STATUS_SHFT,
 					      &rx_status) || rx_status,
 			   msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
-		return -EIO;
 
 	return (rx_status == BHIE_RXVECSTATUS_STATUS_XFER_COMPL) ? 0 : -EIO;
 }
