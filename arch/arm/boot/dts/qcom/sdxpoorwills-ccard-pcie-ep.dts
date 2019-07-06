@@ -48,3 +48,7 @@
 &restart_pshold {
 	qcom,force-warm-reboot;
 };
+
+&ipc_router_mhi_dev_xprt {
+	status = "okay";
+};
