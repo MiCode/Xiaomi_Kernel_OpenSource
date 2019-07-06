@@ -26,6 +26,183 @@
 #define MAX_DESC 16
 
 static bool enable_euclean;
+static bool enable_perfstats;
+
+static ssize_t msm_nand_attr_perf_stats_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf);
+static ssize_t msm_nand_attr_perf_stats_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t count);
+
+static struct device_attribute dev_msm_nand_perf_stats =
+	__ATTR(perf_stats, 0644,
+		msm_nand_attr_perf_stats_show, msm_nand_attr_perf_stats_store);
+
+#define print_sysfs(fmt, ...) \
+{ \
+	count += scnprintf(buf + count, PAGE_SIZE - count, \
+			fmt, ##__VA_ARGS__); \
+}
+
+static ssize_t msm_nand_attr_perf_stats_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	ssize_t count = 0;
+	struct msm_nand_info *info = dev_get_drvdata(dev);
+
+	if (!enable_perfstats) {
+		print_sysfs("Performance stats is disabled\n");
+		return count;
+	}
+
+	spin_lock(&info->perf.lock);
+	print_sysfs("total_read_size = %llu\n", info->perf.total_read_size);
+	print_sysfs("total_write_size = %llu\n", info->perf.total_write_size);
+	print_sysfs("total_erase_blks = %llu\n\n", info->perf.total_erase_blks);
+
+	print_sysfs("total_read_time_us = %lld\n",
+			ktime_to_us(info->perf.total_read_time));
+	print_sysfs("total_write_time_us = %lld\n",
+			ktime_to_us(info->perf.total_write_time));
+	print_sysfs("total_erase_time_us = %lld\n\n",
+			ktime_to_us(info->perf.total_erase_time));
+
+	print_sysfs("min_read_time_us = %lld\n",
+			ktime_to_us(info->perf.min_read_time));
+	print_sysfs("min_write_time_us = %lld\n",
+			ktime_to_us(info->perf.min_write_time));
+	print_sysfs("min_erase_time_us = %lld\n\n",
+			ktime_to_us(info->perf.min_erase_time));
+
+	print_sysfs("max_read_time_us = %lld\n",
+			ktime_to_us(info->perf.max_read_time));
+	print_sysfs("max_write_time_us = %lld\n",
+			ktime_to_us(info->perf.max_write_time));
+	print_sysfs("max_erase_time_us = %lld\n\n",
+			ktime_to_us(info->perf.max_erase_time));
+
+	spin_unlock(&info->perf.lock);
+	return count;
+}
+
+static ssize_t msm_nand_attr_perf_stats_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t count)
+{
+	struct msm_nand_info *info = dev_get_drvdata(dev);
+
+	if (!enable_perfstats) {
+		pr_err("couldn't write as perf stats is disabled\n");
+		return -EPERM;
+	}
+
+	if (count > 1 || (count == 1 && *buf != '\n')) {
+		pr_err("write not permitted\n");
+		return -EPERM;
+	}
+
+	spin_lock(&info->perf.lock);
+	info->perf.min_read_time = ktime_set(KTIME_MAX, 0);
+	info->perf.min_write_time = ktime_set(KTIME_MAX, 0);
+	info->perf.min_erase_time = ktime_set(KTIME_MAX, 0);
+
+	info->perf.max_read_time = ktime_set(0, 0);
+	info->perf.max_write_time = ktime_set(0, 0);
+	info->perf.max_erase_time = ktime_set(0, 0);
+
+	info->perf.total_read_time = ktime_set(0, 0);
+	info->perf.total_write_time = ktime_set(0, 0);
+	info->perf.total_erase_time = ktime_set(0, 0);
+
+	info->perf.total_read_size = 0;
+	info->perf.total_write_size = 0;
+	info->perf.total_erase_blks = 0;
+	spin_unlock(&info->perf.lock);
+
+	return count;
+}
+
+static void msm_nand_init_perf_stats(struct msm_nand_info *info)
+{
+	spin_lock_init(&info->perf.lock);
+	info->perf.min_read_time = ktime_set(KTIME_MAX, 0);
+	info->perf.min_write_time = ktime_set(KTIME_MAX, 0);
+	info->perf.min_erase_time = ktime_set(KTIME_MAX, 0);
+}
+
+static void msm_nand_init_sysfs(struct device *dev)
+{
+	sysfs_attr_init(&dev_msm_nand_perf_stats);
+	if (device_create_file(dev, &dev_msm_nand_perf_stats))
+		pr_err("Sysfs entry create failed");
+}
+
+static void msm_nand_cleanup_sysfs(struct device *dev)
+{
+	device_remove_file(dev, &dev_msm_nand_perf_stats);
+}
+
+static void msm_nand_update_read_perf_stats(struct msm_nand_info *info,
+					    ktime_t start, u32 size)
+{
+	ktime_t time_delta;
+
+	time_delta = ktime_sub(ktime_get(), start);
+
+	spin_lock(&info->perf.lock);
+	info->perf.total_read_size += size;
+	info->perf.total_read_time = ktime_add(info->perf.total_read_time,
+						time_delta);
+	if (ktime_after(time_delta, info->perf.max_read_time))
+		info->perf.max_read_time = time_delta;
+
+	if (ktime_before(time_delta, info->perf.min_read_time))
+		info->perf.min_read_time = time_delta;
+
+	spin_unlock(&info->perf.lock);
+}
+
+static void msm_nand_update_write_perf_stats(struct msm_nand_info *info,
+					     ktime_t start, u32 size)
+{
+	ktime_t time_delta;
+
+	time_delta = ktime_sub(ktime_get(), start);
+
+	spin_lock(&info->perf.lock);
+	info->perf.total_write_size += size;
+	info->perf.total_write_time = ktime_add(info->perf.total_write_time,
+						time_delta);
+	if (ktime_after(time_delta, info->perf.max_write_time))
+		info->perf.max_write_time = time_delta;
+
+	if (ktime_before(time_delta, info->perf.min_write_time))
+		info->perf.min_write_time = time_delta;
+
+	spin_unlock(&info->perf.lock);
+}
+
+static void msm_nand_update_erase_perf_stats(struct msm_nand_info *info,
+					     ktime_t start, u32 count)
+{
+	ktime_t time_delta;
+
+	time_delta = ktime_sub(ktime_get(), start);
+
+	spin_lock(&info->perf.lock);
+	info->perf.total_erase_blks += count;
+	info->perf.total_erase_time = ktime_add(info->perf.total_erase_time,
+						time_delta);
+	if (ktime_after(time_delta, info->perf.max_erase_time))
+		info->perf.max_erase_time = time_delta;
+
+	if (ktime_before(time_delta, info->perf.min_erase_time))
+		info->perf.min_erase_time = time_delta;
+
+	spin_unlock(&info->perf.lock);
+}
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
@@ -1610,6 +1787,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	struct sps_iovec iovec_temp;
 	bool erased_page;
 	uint64_t fix_data_in_pages = 0;
+	ktime_t start;
 
 	/*
 	 * The following 6 commands will be sent only once for the first
@@ -1633,6 +1811,9 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 		} result[MAX_CW_PER_PAGE];
 	} *dma_buffer;
 	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
+
+	if (unlikely(enable_perfstats))
+		start = ktime_get();
 
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, true, from, ops, &rw_params);
@@ -1941,6 +2122,8 @@ validate_mtd_params_failed:
 			err, ops->retlen, ops->oobretlen);
 
 	pr_debug("========================================================\n");
+	if (unlikely(enable_perfstats) && likely(!err))
+		msm_nand_update_read_perf_stats(info, start, ops->retlen);
 	return err;
 }
 
@@ -2161,6 +2344,8 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	struct msm_nand_rw_reg_data data;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
+	ktime_t start;
+
 	/*
 	 * The following 7 commands will be sent only once :
 	 * For first codeword (CW) - addr0, addr1, dev0_cfg0, dev0_cfg1,
@@ -2183,6 +2368,9 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 		} data[MAX_CW_PER_PAGE];
 	} *dma_buffer;
 	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
+
+	if (unlikely(enable_perfstats))
+		start = ktime_get();
 
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, false, to, ops, &rw_params);
@@ -2359,6 +2547,8 @@ validate_mtd_params_failed:
 			err, ops->retlen, ops->oobretlen);
 
 	pr_debug("================================================\n");
+	if (unlikely(enable_perfstats) && likely(!err))
+		msm_nand_update_write_perf_stats(info, start, ops->retlen);
 	return err;
 }
 
@@ -2456,6 +2646,8 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 	struct msm_nand_erase_reg_data data;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
+	ktime_t start;
+
 	/*
 	 * The following 9 commands are required to erase a page -
 	 * flash, addr0, addr1, cfg0, cfg1, exec, flash_status(read),
@@ -2467,6 +2659,9 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 		struct msm_nand_sps_cmd cmd[ERASE_CMDS];
 		uint32_t flash_status;
 	} *dma_buffer;
+
+	if (unlikely(enable_perfstats))
+		start = ktime_get();
 
 	if (mtd->writesize == PAGE_SIZE_2K)
 		page = instr->addr >> 11;
@@ -2582,6 +2777,8 @@ unlock_mutex:
 	mutex_unlock(&info->lock);
 	msm_nand_release_dma_buffer(chip, dma_buffer, sizeof(*dma_buffer));
 out:
+	if (unlikely(enable_perfstats) && likely(!err))
+		msm_nand_update_erase_perf_stats(info, start, 1);
 	return err;
 }
 
@@ -3536,6 +3733,8 @@ static int msm_nand_probe(struct platform_device *pdev)
 			info->nand_phys, info->bam_phys, info->bam_irq);
 	pr_info("Allocated DMA buffer at virt_addr 0x%pK, phys_addr 0x%x\n",
 		info->nand_chip.dma_virt_addr, info->nand_chip.dma_phys_addr);
+	msm_nand_init_sysfs(dev);
+	msm_nand_init_perf_stats(info);
 	goto out;
 free_bam:
 	msm_nand_bam_free(info);
@@ -3557,6 +3756,7 @@ static int msm_nand_remove(struct platform_device *pdev)
 {
 	struct msm_nand_info *info = dev_get_drvdata(&pdev->dev);
 
+	msm_nand_cleanup_sysfs(&pdev->dev);
 	if (pm_runtime_suspended(&(pdev)->dev))
 		pm_runtime_resume(&(pdev)->dev);
 
@@ -3600,6 +3800,9 @@ static struct platform_driver msm_nand_driver = {
 
 module_param(enable_euclean, bool, 0644);
 MODULE_PARM_DESC(enable_euclean, "Set this parameter to enable reporting EUCLEAN to upper layer when the correctable bitflips are equal to the max correctable limit.");
+
+module_param(enable_perfstats, bool, 0644);
+MODULE_PARM_DESC(enable_perfstats, "Set this parameter to enable collection and reporting of performance data.");
 
 module_platform_driver(msm_nand_driver);
 
