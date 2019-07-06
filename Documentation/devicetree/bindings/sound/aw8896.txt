@@ -6,7 +6,13 @@ Required properties:
 
   - reg : I2C address of the device
 
-  - reset-gpio: gpio used for HW reset
+  - reset-gpio : gpio used for HW reset
+
+  - dvdd-supply : Power supply for PA's dvdd
+
+  - dvdd-voltage : Minimum and maximum voltage in uV to set for power supply
+
+  - dvdd-current : dvdd's max current in uA
 
 Optional properties:
 
@@ -18,4 +24,7 @@ Examples:
 		compatible = "awinic,i2c_smartpa";
 		reg = <0x34>;
 		reset-gpio = <&tlmm 68 0>;
+		dvdd-supply = <&pm660_l9>;
+		dvdd-voltage = <1800000 1800000>;
+		dvdd-current = <15000>;
 	};
