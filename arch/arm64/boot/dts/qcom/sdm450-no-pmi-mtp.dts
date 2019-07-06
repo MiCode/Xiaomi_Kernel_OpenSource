@@ -18,6 +18,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 + NO PMI MTP S3";
 	compatible = "qcom,sdm450-mtp", "qcom,sdm450", "qcom,mtp";
+	qcom,board-id = <8 3>;
 	qcom,pmic-id = <0x010016 0x0 0x0 0x0>;
 };
 
