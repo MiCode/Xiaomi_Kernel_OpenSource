@@ -54,6 +54,15 @@
 					05 01 00 00 14 00 02 4F 01];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-idle-on-command = [
+			15 01 00 00 00 00 02 FE 00
+			05 01 00 00 00 00 01 39   /* Idle-Mode On */
+			];
+		qcom,mdss-dsi-idle-off-command = [
+			05 01 00 00 00 00 01 38   /* Idle-Mode Off */
+			];
+		qcom,mdss-dsi-idle-on-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-idle-off-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-h-sync-pulse = <1>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
