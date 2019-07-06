@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #define BGCOM_SOFT_RESET  6
 #define BGCOM_MODEM_DOWN2_BG  7
 #define BGCOM_TWM_EXIT  8
+#define BGCOM_BG_APP_RUNNING 9
 #define EXCHANGE_CODE  'V'
 
 struct bg_ui_data {
@@ -60,6 +61,9 @@ enum bg_event_type {
 	struct bg_ui_data)
 #define BG_TWM_EXIT \
 	_IOWR(EXCHANGE_CODE, BGCOM_TWM_EXIT, \
+	struct bg_ui_data)
+#define BG_APP_RUNNING \
+	_IOWR(EXCHANGE_CODE, BGCOM_BG_APP_RUNNING, \
 	struct bg_ui_data)
 #define BG_MODEM_DOWN2_BG_DONE \
 	_IOWR(EXCHANGE_CODE, BGCOM_MODEM_DOWN2_BG, \
