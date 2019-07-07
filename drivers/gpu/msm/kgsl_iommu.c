@@ -736,7 +736,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_mmu *mmu = pt->mmu;
 	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context *ctx;
-	u64 ptbase;
+	u64 ptbase, proc_ptbase;
 	u32 contextidr;
 	pid_t pid = 0;
 	pid_t ptname;
@@ -848,6 +848,17 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			"GPU PAGE FAULT: addr = %lX pid= %d name=%s\n", addr,
 			ptname,
 			context != NULL ? context->proc_priv->comm : "unknown");
+
+		if (context != NULL) {
+			proc_ptbase = kgsl_mmu_pagetable_get_ttbr0(
+					context->proc_priv->pagetable);
+
+			if (ptbase != proc_ptbase)
+				dev_crit(ctx->kgsldev->dev,
+				"Pagetable address mismatch: HW address is 0x%llx but SW expected 0x%llx\n",
+				ptbase, proc_ptbase);
+		}
+
 		dev_crit(ctx->kgsldev->dev,
 			"context=%s ctx_type=%s TTBR0=0x%llx CIDR=0x%x (%s %s fault)\n",
 			ctx->name, api_str, ptbase, contextidr,
