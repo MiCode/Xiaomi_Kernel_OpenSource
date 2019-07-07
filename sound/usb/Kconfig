@@ -160,6 +160,15 @@ config SND_BCD2000
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-bcd2000.
 
+config MTK_UAC_POWER_SAVING
+	tristate "MediaTek USB audio power saving mechanism support"
+	default n
+	help
+	  Say Y here if your system support using Mediatek usb audio.
+
+	  To select the MediaTek USB driver using sram and enter power
+	  saving mode when cpu is idle.
+
 source "sound/usb/line6/Kconfig"
 
 endif	# SND_USB
