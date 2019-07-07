@@ -261,7 +261,7 @@ int kh_get_hint(struct kh_dev *dev, const char *key, int *need_update)
 	return j;
 }
 
-int kh_reset(struct kh_dev *dev)
+static int kh_reset(struct kh_dev *dev)
 {
 	if (unlikely(!dev->kh))
 		return -ENODEV;
