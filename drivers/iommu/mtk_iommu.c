@@ -108,6 +108,10 @@
 
 #define MTK_PROTECT_PA_ALIGN			128
 
+/* reserve iova region for VPU */
+#define IOVPU_RANGE_START		0x7DA00000
+#define IOVPU_RANGE_LEN			0x04C00000
+
 /*
  * Get the local arbiter ID and the portid within the larb arbiter
  * from mtk_m4u_id which is defined by MTK_M4U_ID.
@@ -262,9 +266,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			       write ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ)) {
 		dev_err_ratelimited(
 			data->dev,
-			"fault type=0x%x iova=0x%x pa=0x%x larb=%d port=%d layer=%d %s\n",
-			int_state, fault_iova, fault_pa, fault_larb, fault_port,
-			layer, write ? "write" : "read");
+			"fault type=0x%x iova=0x%x pa=0x%x(0x%x) larb=%d port=%d layer=%d %s\n",
+			int_state, fault_iova, fault_pa,
+			iommu_iova_to_phys(&(dom->domain),
+				(fault_iova & 0xfffff000)),
+			fault_larb, fault_port, layer,
+			(write) ? "write" : "read");
 	}
 
 	/* Interrupt clear */
@@ -370,6 +377,20 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
+#ifndef CONFIG_ARM64
+static int mtk_iommu_reserve_region(struct mtk_iommu_data *data)
+{
+	if (arm_dma_reserve(data->dev->archdata.iommu,
+			IOVPU_RANGE_START, IOVPU_RANGE_LEN)) {
+		dev_err(data->dev, "reserve iova region 0x%x(+0x%x) failed\n",
+			IOVPU_RANGE_START, IOVPU_RANGE_LEN);
+		return -1;
+	}
+
+	return 0;
+}
+#endif
+
 static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
@@ -384,6 +405,9 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		data->m4u_dom = dom;
 		writel(dom->cfg.arm_v7s_cfg.ttbr[0] & MMU_PT_ADDR_MASK,
 		       data->base + REG_MMU_PT_BASE_ADDR);
+	#ifndef CONFIG_ARM64
+		mtk_iommu_reserve_region(data);
+	#endif
 	}
 
 	mtk_iommu_config(data, dev, true);
