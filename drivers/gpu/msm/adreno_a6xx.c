@@ -460,9 +460,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		adreno_dev->lm_threshold_count = A6XX_GMU_GENERAL_1;
-
 	/* Set up VBIF registers from the GPU core definition */
 	adreno_reglist_write(adreno_dev, a6xx_core->vbif,
 		a6xx_core->vbif_count);
@@ -1105,12 +1102,18 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+/* Number of throttling counters for A6xx */
+#define A6XX_GMU_THROTTLE_COUNTERS 3
+
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	int i;
 	int64_t adj = -1;
-	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
+	uint32_t counts[A6XX_GMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
@@ -1134,18 +1137,6 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
 	return adj;
-}
-
-static void a6xx_count_throttles(struct adreno_device *adreno_dev,
-	uint64_t adj)
-{
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		return;
-
-	gmu_core_regread(KGSL_DEVICE(adreno_dev),
-		adreno_dev->lm_threshold_count,
-		&adreno_dev->lm_threshold_cross);
 }
 
 /**
@@ -2670,7 +2661,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
 	.read_throttling_counters = a6xx_read_throttling_counters,
-	.count_throttles = a6xx_count_throttles,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,

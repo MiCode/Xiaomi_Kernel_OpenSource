@@ -1351,99 +1351,51 @@ static int a6xx_gmu_rpmh_gpu_pwrctrl(struct kgsl_device *device,
 	return ret;
 }
 
-#define LM_DEFAULT_LIMIT	6000
-#define GPU_LIMIT_THRESHOLD_ENABLE	BIT(31)
-
-static uint32_t lm_limit(struct adreno_device *adreno_dev)
+static int _setup_throttling_counter(struct adreno_device *adreno_dev,
+						int countable, u32 *offset)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	if (*offset)
+		return 0;
 
-	if (adreno_dev->lm_limit)
-		return adreno_dev->lm_limit;
-
-	if (of_property_read_u32(device->pdev->dev.of_node, "qcom,lm-limit",
-		&adreno_dev->lm_limit))
-		adreno_dev->lm_limit = LM_DEFAULT_LIMIT;
-
-	return adreno_dev->lm_limit;
+	return adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
+			countable, offset, NULL,
+			PERFCOUNTER_FLAG_KERNEL);
 }
-
-static int a640_throttling_counters[ADRENO_GPMU_THROTTLE_COUNTERS] = {
-	0x11, 0x15, 0x19
-};
 
 static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < ARRAY_SIZE(a640_throttling_counters); i++) {
-		adreno_dev->busy_data.throttle_cycles[i] = 0;
+	ret = _setup_throttling_counter(adreno_dev, 0x10,
+				&adreno_dev->gpmu_throttle_counters[0]);
+	ret |= _setup_throttling_counter(adreno_dev, 0x15,
+				&adreno_dev->gpmu_throttle_counters[1]);
+	ret |= _setup_throttling_counter(adreno_dev, 0x19,
+				&adreno_dev->gpmu_throttle_counters[2]);
 
-		if (!a640_throttling_counters[i])
-			continue;
-		if (adreno_dev->gpmu_throttle_counters[i])
-			continue;
+	if (ret)
+		dev_err_once(&gmu->pdev->dev,
+			"Could not get all the throttling counters for LM\n");
 
-		ret = adreno_perfcounter_get(adreno_dev,
-				KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
-				a640_throttling_counters[i],
-				&adreno_dev->gpmu_throttle_counters[i],
-				NULL,
-				PERFCOUNTER_FLAG_KERNEL);
-		if (ret)
-			dev_err_once(&gmu->pdev->dev,
-				"Unable to get counter for LM: GPMU_PWR %d\n",
-				a640_throttling_counters[i]);
-	}
 }
-
-#define LIMITS_CONFIG(t, s, c, i, a) ( \
-		(t & 0xF) | \
-		((s & 0xF) << 4) | \
-		((c & 0xF) << 8) | \
-		((i & 0xF) << 12) | \
-		((a & 0xF) << 16))
 
 void a6xx_gmu_enable_lm(struct kgsl_device *device)
 {
-	int result;
-	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct device *dev = &gmu->pdev->dev;
-	struct hfi_lmconfig_cmd cmd;
+
+	memset(adreno_dev->busy_data.throttle_cycles, 0,
+		sizeof(adreno_dev->busy_data.throttle_cycles));
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
 			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	/* a640 only needs to set up throttling counters for DCVS */
-	if (adreno_is_a640(adreno_dev)) {
-		_setup_throttling_counters(adreno_dev);
-		return;
-	}
+	_setup_throttling_counters(adreno_dev);
 
-	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
-		GPU_LIMIT_THRESHOLD_ENABLE | lm_limit(adreno_dev));
 	gmu_core_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
-	gmu_core_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
-
-	gmu->lm_config = LIMITS_CONFIG(1, 1, 1, 0, 0);
-	gmu->bcl_config = 0;
-	gmu->lm_dcvs_level = 0;
-
-	cmd.limit_conf = gmu->lm_config;
-	cmd.bcl_conf = gmu->bcl_config;
-	cmd.lm_enable_bitmask = 0;
-
-	if (gmu->lm_dcvs_level <= MAX_GX_LEVELS)
-		cmd.lm_enable_bitmask =
-			(1 << (gmu->lm_dcvs_level + 1)) - 1;
-
-	result = hfi_send_req(gmu, H2F_MSG_LM_CFG, &cmd);
-	if (result)
-		dev_err(dev, "Failure enabling limits management:%d\n", result);
 }
 
 static int a6xx_gmu_ifpc_store(struct kgsl_device *device,
