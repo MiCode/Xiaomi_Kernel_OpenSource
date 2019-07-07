@@ -31,8 +31,7 @@
 #include "ion_profile.h"
 #include "ion_drv_priv.h"
 #include "mtk/ion_drv.h"
-#include <mmprofile.h>
-
+#include "mtk_ion.h"
 #include <linux/delay.h>
 #include <linux/time.h>
 
@@ -232,11 +231,16 @@ static int history_rec_open(struct inode *inode, struct file *file)
 
 	res = seq_open(file, &seq_op);
 	if (res) {
-		IONMSG("%s fail\n", __func__);
+		IONMSG("%s fail of open file\n", __func__);
 		return res;
 	}
 
 	seq_priv = kzalloc(sizeof(*seq_priv), GFP_KERNEL);
+	if (!seq_priv) {
+		IONMSG("%s fail of allocation\n", __func__);
+		return -ENOMEM;
+	}
+
 	seq_priv->history_record = history_record;
 	((struct seq_file *)file->private_data)->private = seq_priv;
 
@@ -590,6 +594,7 @@ static int ion_history_record(void *data)
 	struct rb_node *n;
 	size_t old_total_size = 0;
 	size_t total_size = 0;
+	int heap_id = 0;
 
 	while (1) {
 		if (kthread_should_stop()) {
@@ -614,6 +619,12 @@ static int ion_history_record(void *data)
 			for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 				struct ion_buffer
 				*buffer = rb_entry(n, struct ion_buffer, node);
+				heap_id = buffer->heap->id;
+				if (heap_id ==
+					ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
+					heap_id ==
+					ION_HEAP_TYPE_MULTIMEDIA_PA2MVA)
+					continue;
 				total_size += buffer->size;
 				if (!buffer->handle_count)
 					total_orphaned_size += buffer->size;
@@ -624,8 +635,12 @@ static int ion_history_record(void *data)
 				continue;
 
 			if (g_client_history) {
+				int ret = -1;
 				/* record page pool info */
-				ion_mm_heap_for_each_pool(write_mm_page_pool);
+				ret = ion_mm_heap_for_each_pool(
+					write_mm_page_pool);
+				if (ret < 0)
+					continue;
 
 				if (total_orphaned_size)
 					ion_client_write_record
@@ -670,7 +685,10 @@ static int ion_history_record(void *data)
 
 					ion_client_write_record
 					    (g_client_history, task_comm,
-					     client->dbg_name, size, client);
+					     (*client->dbg_name) ?
+						 client->dbg_name :
+						 client->name,
+					     size, client);
 				} else {
 					ion_client_write_record
 					    (g_client_history, client->name,

@@ -23,7 +23,6 @@
 #include "ion_priv.h"
 #include <linux/slab.h>
 #include <linux/mutex.h>
-#include <mmprofile.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <uapi/linux/sched/types.h>
@@ -63,8 +62,7 @@ static int ion_comm_cache_pool(void *data)
 		req_cache_size = atomic_read(&ion_comm_event);
 		cache_buffer = atomic_read(&ion_comm_cache_event);
 		atomic_set(&ion_comm_event, 0);
-		if (PAGE_ALIGN(req_cache_size) == 0 ||
-		    req_cache_size >= (1024 * 1024 * 1024)) {
+		if (req_cache_size >= (1024 * 1024 * 1024)) {
 			IONMSG("%s, invalid buffer size %u\n",
 			       __func__, req_cache_size);
 			continue;
@@ -84,7 +82,7 @@ static int ion_comm_cache_pool(void *data)
 			continue;
 		}
 
-		IONMSG("%s alloc start, req %u, cached %u\n", __func__,
+		IONMSG("%s alloc start, req %d, cached %d\n", __func__,
 		       req_cache_size, cached_size);
 
 		buffer->heap = ion_cam_heap;

@@ -12,6 +12,7 @@
  */
 #include <linux/uaccess.h>
 #include <linux/err.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
@@ -30,10 +31,17 @@
 #include "ion_drv_priv.h"
 #include "mtk/mtk_ion.h"
 #include "mtk/ion_drv.h"
+#ifdef CONFIG_MTK_M4U
+#include "m4u_v2_ext.h"
+#endif
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/pseudo_m4u.h>
+#endif
 #ifdef CONFIG_PM
 #include <linux/fb.h>
 #endif
-#include <mmprofile.h>
+#include <aee.h>
+
 #define ION_FUNC_ENTER
 #define ION_FUNC_LEAVE
 
@@ -397,8 +405,7 @@ void ion_cache_flush_all(void)
 {
 	mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_FLUSH_ALL],
 			 MMPROFILE_FLAG_START, 1, 1);
-	/* IONMSG("[ion_cache_flush_all]: ION cache flush all.\n"); */
-	smp_inner_dcache_flush_all();
+	//IONMSG("[disabled]: ION cache flush all.\n");
 	/* outer_clean_all(); */
 	mmprofile_log_ex(ion_mmp_events[PROFILE_DMA_FLUSH_ALL],
 			 MMPROFILE_FLAG_END, 1, 1);
@@ -424,6 +431,7 @@ static long ion_sys_dma_op(struct ion_client *client,
 				      param->dma_dir);
 		break;
 	case ION_DMA_CACHE_FLUSH_ALL:
+		//IONMSG("error: flush all\n");
 		ion_cache_flush_all();
 		break;
 	case ION_DMA_FLUSH_BY_RANGE_USE_VA:
@@ -492,9 +500,6 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 			param.get_phys_param.phy_addr = (unsigned int)phy_addr;
 			ion_drv_put_kernel_handle(kernel_handle);
 		}
-		break;
-	case ION_SYS_GET_CLIENT:
-		param.get_client_param.client = (unsigned long)client;
 		break;
 	case ION_SYS_SET_CLIENT_NAME:
 		ion_sys_copy_client_name(param.client_name_param.name,
@@ -733,13 +738,28 @@ static const struct file_operations debug_client_fops = {
 	.release = single_release,
 };
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+struct device *g_iommu_device;
+#endif
 static int ion_drv_probe(struct platform_device *pdev)
 {
 	int i;
-	struct ion_platform_data *pdata = pdev->dev.platform_data;
-	unsigned int num_heaps = pdata->nr;
+	struct ion_platform_data *pdata;
+	unsigned int num_heaps;
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	struct device *dev = &pdev->dev;
 
-	IONMSG("%s() heap_nr=%d\n", __func__, pdata->nr);
+	if (!iommu_get_domain_for_dev(dev)) {
+		IONMSG("%s, iommu is not ready, waiting\n", __func__);
+		return -EPROBE_DEFER;
+	}
+	pdata = (struct ion_platform_data *)of_device_get_match_data(dev);
+#else
+
+	pdata = pdev->dev.platform_data;
+#endif
+
+	num_heaps = pdata->nr;
 	g_ion_device = ion_device_create(ion_custom_ioctl);
 	if (IS_ERR_OR_NULL(g_ion_device)) {
 		IONMSG("ion_device_create() error! device=%p\n", g_ion_device);
@@ -766,6 +786,9 @@ static int ion_drv_probe(struct platform_device *pdev)
 		ion_device_add_heap(g_ion_device, heap);
 	}
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	g_iommu_device = dev;
+#endif
 	platform_set_drvdata(pdev, g_ion_device);
 	#ifdef CONFIG_XEN
 	g_ion_device->dev.this_device->archdata.dev_dma_ops = NULL;
@@ -826,15 +849,6 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA_SEC,
 	 .id = ION_HEAP_TYPE_MULTIMEDIA_SEC,
 	 .name = "ion_sec_heap",
-	 .base = 0,
-	 .size = 0,
-	 .align = 0,
-	 .priv = NULL,
-	 },
-	{
-	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
-	 .id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA,
-	 .name = "ion_mm_heap_for_va2mva",
 	 .base = 0,
 	 .size = 0,
 	 .align = 0,
@@ -905,6 +919,15 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	 },
 	{
 	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
+	 .id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA,
+	 .name = "ion_mm_heap_for_va2mva",
+	 .base = 0,
+	 .size = 0,
+	 .align = 0,
+	 .priv = NULL,
+	 },
+	{
+	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
 	 .id = ION_HEAP_TYPE_MULTIMEDIA_PA2MVA,
 	 .name = "ion_mm_heap_for_pa2mva",
 	 .base = 0,
@@ -928,14 +951,24 @@ struct ion_platform_data ion_drv_platform_data = {
 	.heaps = ion_drv_platform_heaps,
 };
 
+#ifdef CONFIG_MTK_PSEUDO_M4U
+static const struct of_device_id mtk_ion_match_table[] = {
+	{.compatible = "mediatek,ion", .data = &ion_drv_platform_data},
+	{},
+};
+#endif
 static struct platform_driver ion_driver = {
-		.probe = ion_drv_probe,
-		.remove = ion_drv_remove,
-		.driver = {
-				.name = "ion-drv"
-		}
+	.probe = ion_drv_probe,
+	.remove = ion_drv_remove,
+	.driver = {
+		.name = "ion-drv",
+#ifdef CONFIG_MTK_PSEUDO_M4U
+		.of_match_table = mtk_ion_match_table,
+#endif
+	}
 };
 
+#ifndef CONFIG_MTK_PSEUDO_M4U
 static struct platform_device ion_device = {
 	.name = "ion-drv",
 	.id = 0,
@@ -944,16 +977,46 @@ static struct platform_device ion_device = {
 		},
 
 };
+#endif
+#include <linux/of_reserved_mem.h>
+static int __init ion_reserve_memory_to_camera(
+	struct reserved_mem *mem)
+{
+	int i;
+
+	for (i = 0; i < ion_drv_platform_data.nr; i++) {
+		if (ion_drv_platform_data.heaps[i].id ==
+		    ION_HEAP_TYPE_CARVEOUT) {
+			ion_drv_platform_data.heaps[i].base =
+				mem->base;
+			ion_drv_platform_data.heaps[i].size =
+				mem->size;
+		}
+	}
+	pr_info("%s: name:%s,base:%llx,size:0x%llx\n",
+		__func__, mem->name,
+		(unsigned long long)mem->base,
+		(unsigned long long)mem->size);
+	return 0;
+}
+
+RESERVEDMEM_OF_DECLARE(ion_camera_reserve,
+		       "mediatek,ion-carveout-heap",
+		       ion_reserve_memory_to_camera);
 
 static int __init ion_init(void)
 {
 	IONMSG("%s()\n", __func__);
+#ifndef CONFIG_MTK_PSEUDO_M4U
 	if (platform_device_register(&ion_device)) {
 		IONMSG("%s platform device register failed.\n", __func__);
 		return -ENODEV;
 	}
+#endif
 	if (platform_driver_register(&ion_driver)) {
+#ifndef CONFIG_MTK_PSEUDO_M4U
 		platform_device_unregister(&ion_device);
+#endif
 		IONMSG("%s platform driver register failed.\n", __func__);
 		return -ENODEV;
 	}
@@ -969,7 +1032,9 @@ static void __exit ion_exit(void)
 {
 	IONMSG("%s()\n", __func__);
 	platform_driver_unregister(&ion_driver);
+#ifndef CONFIG_MTK_PSEUDO_M4U
 	platform_device_unregister(&ion_device);
+#endif
 }
 
 fs_initcall(ion_init);
