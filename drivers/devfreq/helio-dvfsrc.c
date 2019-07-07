@@ -267,7 +267,7 @@ int is_dvfsrc_opp_fixed(void)
 	if (!is_qos_can_work())
 		return 1;
 
-	if (spm_dvfs_flag_init()|
+	if (spm_dvfs_flag_init()&
 		(SPM_FLAG_DIS_VCORE_DVS|SPM_FLAG_DIS_VCORE_DFS) != 0)
 		return 1;
 
