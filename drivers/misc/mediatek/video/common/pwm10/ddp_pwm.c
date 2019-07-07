@@ -920,7 +920,8 @@ static int pwm_simple_strtoul(char *ptr, unsigned long *res)
 		strncpy(buffer, ptr, end);
 		buffer[end] = '\0';
 		ret = kstrtoul(buffer, 0, res);
-
+		if (!ret)
+			PWM_ERR("kstrtoul err=%d\n", ret);
 	}
 	return end;
 }
