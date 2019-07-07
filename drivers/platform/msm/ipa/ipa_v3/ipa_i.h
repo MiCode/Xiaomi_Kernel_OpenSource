@@ -1866,7 +1866,6 @@ struct ipa3_context {
 	struct ipa_cne_evt ipa_cne_evt_req_cache[IPA_MAX_NUM_REQ_CACHE];
 	int num_ipa_cne_evt_req;
 	struct mutex ipa_cne_evt_lock;
-	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
 	u32 entire_ipa_block_size;
@@ -1925,7 +1924,6 @@ struct ipa3_plat_drv_res {
 	bool ipa_mhi_dynamic_config;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
-	bool use_ipa_pm;
 	struct ipa_pm_init_params pm_init;
 	bool wdi_over_pcie;
 	u32 entire_ipa_block_size;
@@ -2638,8 +2636,6 @@ enum ipa_client_type ipa3_get_client_by_pipe(int pipe_idx);
 void ipa_init_ep_flt_bitmap(void);
 
 bool ipa_is_ep_support_flt(int pipe_idx);
-
-enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx);
 
 bool ipa3_get_modem_cfg_emb_pipe_flt(void);
 
