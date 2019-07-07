@@ -570,11 +570,13 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
+	unsigned int buf = CPU_LEVEL_0;
 	unsigned int temp = 0;
 	unsigned int segcode = 0;
 	unsigned int bincode = 0;
 	unsigned int turbocode = 0;
 	unsigned int a_code = 0;
+	int len;
 
 	temp = get_devinfo_with_index(CPUFREQ_EFUSE_IDX_0);
 	segcode = (get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 5) & 0x1;
@@ -606,8 +608,39 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	if (a_code == 1)
 		lv = CPU_LEVEL_7;	/* V5_4 */
 
+	buf = lv;
 	if (turbocode == 1)
 		lv = CPU_LEVEL_6;	/* V5_T */
+
+#if defined(CONFIG_ARM64)
+	/* k71v1_bsp_2g */
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(
+	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    "k71v1_bsp_2g", 12) == 0) {
+		lv = buf;
+	}
+	/* k71v1_bsp_2g_ducam */
+	if (strncmp(
+	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    "k71v1_bsp_2g_ducam", 18) == 0) {
+		lv = buf;
+	}
+#else
+	/* k71v1_bsp_2g */
+	len = sizeof(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(
+	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    "k71v1_bsp_2g", 12) == 0) {
+		lv = buf;
+	}
+	/* k71v1_bsp_2g_ducam */
+	if (strncmp(
+	    &CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+	    "k71v1_bsp_2g_ducam", 18) == 0) {
+		lv = buf;
+	}
+#endif
 
 	turbo_flag = 0;
 
