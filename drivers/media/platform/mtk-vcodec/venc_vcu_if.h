@@ -25,7 +25,6 @@
  * @wq_hd: wait queue used for vcu cmd trigger then wait vcu interrupt done
  * @signaled: flag used for checking vcu interrupt done
  * @failure: flag to show vcu cmd succeeds or not
- * @state: enum venc_ipi_msg_enc_state
  * @bs_size: bitstream size for skip frame case usage
  * @is_key_frm: key frame flag
  * @inst_addr: VCU instance addr
@@ -34,12 +33,12 @@
  * @id: the id of inter-processor interrupt
  * @ctx: context for v4l2 layer integration
  * @dev: device for v4l2 layer integration
+ * @abort: abort when vpud crashed stop this instance ipi_msg
  */
 struct venc_vcu_inst {
 	wait_queue_head_t wq_hd;
 	int signaled;
 	int failure;
-	int state;
 	int bs_size;
 	int is_key_frm;
 	unsigned int inst_addr;
@@ -47,6 +46,7 @@ struct venc_vcu_inst {
 	enum ipi_id id;
 	struct mtk_vcodec_ctx *ctx;
 	struct platform_device *dev;
+	bool abort;
 };
 
 int vcu_enc_init(struct venc_vcu_inst *vcu);
@@ -59,5 +59,6 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				   struct mtk_vcodec_mem *bs_buf,
 				   unsigned int *bs_size);
 int vcu_enc_deinit(struct venc_vcu_inst *vcu);
+int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu);
 
 #endif

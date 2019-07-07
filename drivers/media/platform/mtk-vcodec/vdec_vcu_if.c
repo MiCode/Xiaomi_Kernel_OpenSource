@@ -12,22 +12,30 @@
  * GNU General Public License for more details.
  */
 
-#include "vdec_vcu_if.h"
+#include <linux/fdtable.h>
+#include <linux/interrupt.h>
+#include <linux/uaccess.h>
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
 #include "vdec_ipi_msg.h"
-#include <linux/fdtable.h>
-#include <linux/interrupt.h>
+#include "vdec_vcu_if.h"
+
+// ALWAYS disable IOMMU_V2 before IT done
+#ifdef CONFIG_MTK_IOMMU_V2
+#undef CONFIG_MTK_IOMMU_V2
+#endif
 
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
 {
-	struct vdec_vcu_inst *vcu =
-		(struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
+	struct vdec_vcu_inst *vcu = (struct vdec_vcu_inst *)
+		(unsigned long)msg->ap_inst_addr;
 
+	if (vcu == NULL)
+		return;
 	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx",
-			 (uintptr_t)msg->ap_inst_addr);
+		(uintptr_t)msg->ap_inst_addr);
 
 	/* mapping VCU address to kernel virtual address */
 	/* the content in vsi is initialized to 0 in VCU */
@@ -42,8 +50,9 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	void *data;
 	int size = 0;
 
-	mtk_vcodec_debug(
-		vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%x, id = %d",
+	if (vcu == NULL)
+		return;
+	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%x, id = %d",
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
 	data = vcu_mapping_dm_addr(vcu->dev, msg->vcu_data_addr);
@@ -51,12 +60,12 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
 		memcpy((void *)msg->ap_data_addr, data,
-		       size * MTK_MAX_DEC_CODECS_SUPPORT);
+			 size * MTK_MAX_DEC_CODECS_SUPPORT);
 		break;
 	case GET_PARAM_CAPABILITY_FRAME_SIZES:
 		size = sizeof(struct mtk_codec_framesizes);
 		memcpy((void *)msg->ap_data_addr, data,
-		       size * MTK_MAX_DEC_CODECS_SUPPORT);
+			size * MTK_MAX_DEC_CODECS_SUPPORT);
 		break;
 	default:
 		break;
@@ -91,17 +100,13 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	}
 
 	spin_lock(&f->file_lock);
-	if (probe_kernel_address(files_fdtable(f), fdt)) {
+	if ((!lock_task_sighand(task, &irqs)) ||
+		probe_kernel_address(files_fdtable(f), fdt)) {
 		spin_unlock(&f->file_lock);
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
 	spin_unlock(&f->file_lock);
-
-	if (!lock_task_sighand(task, &irqs)) {
-		vcu_put_file_lock();
-		return -EMFILE;
-	}
 
 	rlim_cur = task_rlimit(task, RLIMIT_NOFILE);
 	unlock_task_sighand(task, &irqs);
@@ -119,6 +124,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 
 	vcu_put_file_lock();
 
+	/* pr_info("get_mapped_fd: %d", target_fd); */
 #endif
 	return target_fd;
 }
@@ -128,8 +134,9 @@ inline void close_mapped_fd(unsigned int target_fd)
 #ifndef CONFIG_MTK_IOMMU_V2
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
-
-	vcu_get_task(&task, &f);
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
 	if (task == NULL || f == NULL)
 		return;
 
@@ -147,17 +154,25 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	struct vdec_vcu_inst *vcu = NULL;
 	int ret = 0;
 	struct timeval t_s, t_e;
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
 
-	if (msg == NULL || (struct vdec_vcu_inst *)msg->ap_inst_addr == NULL) {
-		ret = -1;
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
+	if (msg == NULL || task == NULL ||
+	   task->tgid != current->tgid ||
+	   (struct vdec_vcu_inst *)msg->ap_inst_addr == NULL) {
+		ret = -EINVAL;
 		return ret;
 	}
 
 	vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
-	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n", msg->msg_id,
-			 msg->status);
+	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
+		msg->msg_id, msg->status);
 
-	vcu->failure = msg->status;
+	if (vcu->abort)
+		return -EINVAL;
 
 	if (msg->status == 0) {
 		switch (msg->msg_id) {
@@ -177,12 +192,12 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			/* wait decoder done interrupt */
 			do_gettimeofday(&t_s);
 			mtk_vcodec_wait_for_done_ctx(vcu->ctx,
-						     MTK_INST_IRQ_RECEIVED,
-						     WAIT_INTR_TIMEOUT_MS);
+				MTK_INST_IRQ_RECEIVED,
+				WAIT_INTR_TIMEOUT_MS);
 			do_gettimeofday(&t_e);
-			mtk_vcodec_perf_log(
-				"irq:%ld", (t_e.tv_sec - t_s.tv_sec) * 1000000 +
-						   (t_e.tv_usec - t_s.tv_usec));
+			mtk_vcodec_perf_log("irq:%ld",
+				(t_e.tv_sec - t_s.tv_sec) * 1000000 +
+				(t_e.tv_usec - t_s.tv_usec));
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_CLOCK_ON:
@@ -213,7 +228,14 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	mtk_vcodec_debug(vcu, "- id=%X", msg->msg_id);
-	vcu->signaled = 1;
+
+	/* deinit ack timeout case handling do not touch vdec_vcu_inst
+	 * or memory used after freed
+	 */
+	if (msg->msg_id != VCU_IPIMSG_DEC_DEINIT_ACK) {
+		vcu->signaled = 1;
+		vcu->failure = msg->status;
+	}
 
 	return ret;
 }
@@ -223,6 +245,8 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	int err;
 
 	mtk_vcodec_debug(vcu, "id=%X", *(uint32_t *)msg);
+	if (vcu->abort)
+		return -EIO;
 
 	vcu->failure = 0;
 	vcu->signaled = 0;
@@ -230,7 +254,9 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	err = vcu_ipi_send(vcu->dev, vcu->id, msg, len);
 	if (err) {
 		mtk_vcodec_err(vcu, "send fail vcu_id=%d msg_id=%X status=%d",
-			       vcu->id, *(uint32_t *)msg, err);
+					   vcu->id, *(uint32_t *)msg, err);
+		if (err == -EIO)
+			vcu->abort = 1;
 		return err;
 	}
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
@@ -285,7 +311,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 }
 
 int vcu_dec_start(struct vdec_vcu_inst *vcu, unsigned int *data,
-		  unsigned int len)
+				  unsigned int len)
 {
 	struct vdec_ap_ipi_dec_start msg;
 	int i;
@@ -348,7 +374,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 }
 
 int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
-		      unsigned int size)
+					  unsigned int size)
 {
 	struct vdec_ap_ipi_set_param msg;
 	uint64_t *param_ptr = (uint64_t *)param;
@@ -363,8 +389,8 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 	msg.vcu_inst_addr = vcu->inst_addr;
 	for (i = 0; i < size; i++) {
 		msg.data[i] = (__u32)(*(param_ptr + i));
-		mtk_vcodec_debug(vcu, "msg.id = 0x%X, msg.data[%d]=%d", msg.id,
-				 i, msg.data[i]);
+		mtk_vcodec_debug(vcu, "msg.id = 0x%X, msg.data[%d]=%d",
+			msg.id, i, msg.data[i]);
 	}
 
 	err = vcodec_vcu_send_msg(vcu, &msg, sizeof(msg));
@@ -372,3 +398,14 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 
 	return err;
 }
+
+int vcu_dec_set_ctx_for_gce(struct vdec_vcu_inst *vcu)
+{
+	int err = 0;
+
+	vcu_set_codec_ctx(vcu->dev,
+		(void *)vcu->ctx, VCU_VDEC);
+
+	return err;
+}
+

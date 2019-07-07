@@ -1,8 +1,9 @@
-# SPDX-License-Identifier: GPL-2.0
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o \
 				       mtk-vcodec-enc.o \
 				       mtk-vcodec-common.o \
+				       $(MTK_PLATFORM)/vcodec_dvfs.o \
+				       $(MTK_PLATFORM)/vcodec_bw.o
 
 mtk-vcodec-dec-y := mtk_vcodec_dec_drv.o \
 		vdec_drv_if.o \
@@ -52,3 +53,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/variant
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/arch/arm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs

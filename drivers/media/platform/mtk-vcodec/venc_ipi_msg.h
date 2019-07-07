@@ -20,11 +20,12 @@
 
 #include <linux/videodev2.h>
 
-#define MTK_MAX_ENC_CODECS_SUPPORT (32)
+#define MTK_MAX_ENC_CODECS_SUPPORT       (32)
 #define AP_IPIMSG_VENC_BASE 0xC000
 #define VCU_IPIMSG_VENC_BASE 0xD000
-#define VENC_MAX_FB_NUM VIDEO_MAX_FRAME
-#define VENC_MAX_BS_NUM VIDEO_MAX_FRAME
+#define VENC_MAX_FB_NUM              VIDEO_MAX_FRAME
+#define VENC_MAX_BS_NUM              VIDEO_MAX_FRAME
+
 
 /**
  * enum venc_ipi_msg_id - message id between AP and VCU
@@ -59,7 +60,8 @@ enum venc_ipi_msg_id {
 enum venc_get_param_type {
 	GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
 	GET_PARAM_CAPABILITY_FRAME_SIZES,
-	GET_PARAM_FREE_BUFFERS
+	GET_PARAM_FREE_BUFFERS,
+	GET_PARAM_ROI_RC_QP,
 };
 
 /*
@@ -95,7 +97,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_PREPEND_SPSPPS_TO_IDR,
 	VENC_SET_PARAM_OPERATION_RATE,
 	VENC_SET_PARAM_BITRATE_MODE,
-	VENC_SET_PARAM_SEC_MODE,
+	VENC_SET_PARAM_ROI_ON,
 };
 
 /**
@@ -378,6 +380,8 @@ struct venc_vcu_config {
 	__u32 scenario;
 	__u32 prependheader;
 	__u32 bitratemode;
+	__u32 roi_rc_qp;
+	__u32 roion;
 };
 
 /**
@@ -412,6 +416,8 @@ struct venc_info {
 	__u64 venc_fb_va;
 	__u32 fb_num_planes;
 	__u32 index;
+	__u64 timestamp;
+	__u32 roimap;
 };
 
 /**
@@ -449,9 +455,9 @@ struct ring_input_list {
  */
 struct venc_vsi {
 	struct venc_vcu_config config;
-	__u32 sizeimage[VIDEO_MAX_PLANES];
+	__u32  sizeimage[VIDEO_MAX_PLANES];
 	struct ring_input_list list_free;
-	struct venc_info venc;
+	struct venc_info       venc;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */
