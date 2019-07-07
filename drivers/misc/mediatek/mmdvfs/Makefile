@@ -28,18 +28,31 @@ ccflags-y += -DDYNAMIC_DISP_HRT
 SUPPORT_USE_DDR_TYPE := true
 SUPPORT_MMP := true
 FORCE_STEP0 := false
+BUILD_MMDVFS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
 ccflags-y += -DSMI_TAL
 SUPPORT_MMP := true
 FORCE_STEP0 := false
+BUILD_MMDVFS := true
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
+BUILD_MMDVFS := true
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+BUILD_MMDVFS := true
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+SUPPORT_MMP := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+FORCE_STEP0 := false
+ccflags-y += -DCHECK_VOLTAGE
 endif
 
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
 platformdir_exists=$(shell if [ -d $(MMDVFS_PLATFORM_DIR) ]; then echo "y"; else echo "n"; fi;)
 
-
+ifeq (true, $(BUILD_MMDVFS))
 obj-y += mmdvfs_pmqos.o
-
+endif
 ifeq (true, $(FORCE_STEP0))
 ccflags-y += -DMMDVFS_FORCE_STEP0
 endif
