@@ -1493,9 +1493,18 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 {
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_buffer *src_buf, *dst_buf;
+	struct venc_done_result enc_result;
 	int ret;
 
 	mtk_v4l2_debug(2, "[%d]-> type=%d", ctx->id, q->type);
+
+	ret = venc_if_encode(ctx,
+		VENC_START_OPT_ENCODE_FRAME_FINAL,
+		NULL, NULL, &enc_result);
+	return_free_buffers(ctx);
+
+	if (ret)
+		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
@@ -1519,11 +1528,6 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 			       vb2_is_streaming(&ctx->m2m_ctx->cap_q_ctx.q));
 		return;
 	}
-
-	/* Release the encoder if both streams are stopped. */
-	ret = venc_if_deinit(ctx);
-	if (ret)
-		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
 
 	ctx->state = MTK_STATE_FREE;
 }
@@ -1870,15 +1874,19 @@ static void mtk_venc_worker(struct work_struct *work)
 		} else {
 			ret = venc_if_encode(ctx,
 					VENC_START_OPT_ENCODE_FRAME_FINAL,
-					NULL, pbs_buf, &enc_result);
+					NULL, NULL, &enc_result);
 			dst_vb2_v4l2->vb2_buf.timestamp =
 				src_vb2_v4l2->vb2_buf.timestamp;
 			dst_vb2_v4l2->timecode = src_vb2_v4l2->timecode;
+
+			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			dst_buf->planes[0].bytesused = 0;
+			v4l2_m2m_buf_done(dst_vb2_v4l2,
+				VB2_BUF_STATE_DONE);
+
 			if (ret) {
 				mtk_v4l2_err("last venc_if_encode failed=%d",
 									ret);
-				v4l2_m2m_buf_done(dst_vb2_v4l2,
-							VB2_BUF_STATE_ERROR);
 				if (ret == -EIO) {
 					ctx->state = MTK_STATE_ABORT;
 					mtk_venc_queue_error_event(ctx);
