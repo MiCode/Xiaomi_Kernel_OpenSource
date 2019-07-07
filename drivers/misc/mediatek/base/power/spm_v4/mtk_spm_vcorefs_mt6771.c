@@ -755,18 +755,13 @@ void dvfsrc_set_scp_vcore_request(unsigned int level)
 
 void dvfsrc_set_power_model_ddr_request(unsigned int level)
 {
-	unsigned long flags;
 	unsigned int val;
 
 	if (is_force_opp_enable())
 		return;
 
-	spin_lock_irqsave(&__spm_lock, flags);
-
 	val = (spm_read(DVFSRC_SW_REQ2) & ~(0x3)) | level;
 	spm_write(DVFSRC_SW_REQ2, val);
-
-	spin_unlock_irqrestore(&__spm_lock, flags);
 }
 
 static void dvfsrc_init(void)
