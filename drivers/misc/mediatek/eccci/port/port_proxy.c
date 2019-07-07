@@ -79,8 +79,11 @@ int port_dev_open(struct inode *inode, struct file *file)
 	struct port_t *port;
 
 	port = port_get_by_node(major, minor);
-	if (port->rx_ch != CCCI_CCB_CTRL && atomic_read(&port->usage_cnt))
+	if (port->rx_ch != CCCI_CCB_CTRL && atomic_read(&port->usage_cnt)) {
+		CCCI_ERROR_LOG(port->md_id, CHAR,
+			"port %s open fail with EBUSY\n", port->name);
 		return -EBUSY;
+	}
 	md_id = port->md_id;
 	CCCI_NORMAL_LOG(md_id, CHAR,
 		"port %s open with flag %X by %s\n", port->name, file->f_flags,
@@ -617,6 +620,7 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 			port->skb_handler(port, skb);
 		else
 			__skb_queue_tail(&port->rx_skb_list, skb);
+
 		port->rx_pkg_cnt++;
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		__pm_wakeup_event(&port->rx_wakelock, jiffies_to_msecs(HZ/2));

@@ -40,7 +40,9 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	int md_img_len = 0;
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
+#if defined(CONFIG_MTK_AEE_FEATURE)
 	char buf_fail[] = "Fail alloc mem for exception\n";
+#endif
 	char *img_inf;
 	struct mdee_dumper_v2 *dumper = mdee->dumper_obj;
 	int md_id = mdee->md_id;

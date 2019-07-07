@@ -25,6 +25,46 @@
 #include "ccci_swtp.h"
 #define MAX_QUEUE_LENGTH 16
 
+struct md_rf_notify_struct {
+	unsigned int bit;
+	void (*notify_func)(unsigned int para0, unsigned int para1);
+	const char *module_name;
+};
+
+#define MD_RF_NOTIFY(bit, func, name) \
+	__weak void func(unsigned int para0, unsigned int para1) \
+	{ \
+		pr_debug("[ccci1/SYS]weak %s", __func__); \
+	}
+#include "mdrf_notify_list.h"
+
+#undef MD_RF_NOTIFY
+#define MD_RF_NOTIFY(bit, func, name) \
+	{bit, func, name},
+
+static struct md_rf_notify_struct notify_members[] = {
+	#include "mdrf_notify_list.h"
+};
+
+#define NOTIFY_LIST_ITM_NUM  ARRAY_SIZE(notify_members)
+
+static void sys_msg_MD_RF_Notify(int md_id, unsigned int bit_value,
+	unsigned int data_1)
+{
+	int i;
+	unsigned int data_send;
+
+	for (i = 0; i < NOTIFY_LIST_ITM_NUM; i++) {
+		data_send = (bit_value&(1<<notify_members[i].bit))
+			>> notify_members[i].bit;
+
+		CCCI_NORMAL_LOG(md_id, SYS, "0x121: notify to (%s)\n",
+			notify_members[i].module_name);
+
+		notify_members[i].notify_func(data_send, data_1);
+	}
+}
+
 #ifndef TEST_MESSAGE_FOR_BRINGUP
 #define TEST_MESSAGE_FOR_BRINGUP
 #endif
@@ -193,6 +233,9 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		break;
 	case MD_GET_BATTERY_INFO:
 		sys_msg_send_battery(port);
+		break;
+	case MD_RF_HOPPING_NOTIFY:
+		sys_msg_MD_RF_Notify(md_id, ccci_h->reserved, ccci_h->data[0]);
 		break;
 	};
 	ccci_free_skb(skb);

@@ -24,7 +24,11 @@
 #include "ccci_modem.h"
 #include "ccci_hif_internal.h"
 
+#if (MD_GENERATION >= 6295)
+#define QUEUE_NUM   16
+#else
 #define QUEUE_NUM   8
+#endif
 
 /*#define FLOW_CTRL_ENABLE*/
 #define FLOW_CTRL_HEAD		0x464C4F57	/*FLOW*/

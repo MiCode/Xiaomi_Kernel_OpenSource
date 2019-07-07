@@ -154,6 +154,31 @@ static int rx_queue_buffer_size[QUEUE_NUM] = { 10 * 1024, 100 * 1024,
 static int tx_queue_buffer_size[QUEUE_NUM] = { 10 * 1024, 100 * 1024,
 	50 * 1024, 50 * 1024, 50 * 1024, 10 * 1024, 10 * 1024, 10 * 1024,
 };
+#endif
+
+#if (MD_GENERATION >= 6295)
+static int rx_queue_buffer_size[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
+	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
+	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
+
+static int tx_queue_buffer_size[QUEUE_NUM] = { 128 * 1024, 40 * 1024,
+	8 * 1024, 40 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
+	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
+static int rx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
+	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
+
+static int tx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
+	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
+	0 * 1024, 0 * 1024,
+};
 #else
 static int rx_queue_buffer_size[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
 	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
@@ -1103,11 +1128,12 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 
 	if (ccci_h->channel == CCCI_C2K_LB_DL)
 		qno = atomic_read(&lb_dl_q);
-
+#if (MD_GENERATION < 6295)
 	if (qno > 7) {
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG, "qno error (%d)\n", qno);
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
 	}
+#endif
 	queue = &md_ctrl->txq[qno];
  retry:
 	/* we use irqsave as network require a lock in softirq,
