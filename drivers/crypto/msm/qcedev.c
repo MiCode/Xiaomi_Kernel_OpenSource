@@ -278,6 +278,10 @@ static int qcedev_release(struct inode *inode, struct file *file)
 		pr_err("%s: invalid handle %pK\n",
 					__func__, podev);
 	}
+
+	if (qcedev_unmap_all_buffers(handle))
+		pr_err("%s: failed to unmap all ion buffers\n", __func__);
+
 	kzfree(handle);
 	file->private_data = NULL;
 	if (podev != NULL && podev->platform_support.bus_scale_table != NULL)

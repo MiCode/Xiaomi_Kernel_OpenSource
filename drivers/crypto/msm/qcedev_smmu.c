@@ -407,3 +407,39 @@ int qcedev_check_and_unmap_buffer(void *handle, int fd)
 
 	return 0;
 }
+
+int qcedev_unmap_all_buffers(void *handle)
+{
+	struct qcedev_reg_buf_info *binfo = NULL;
+	struct qcedev_mem_client *mem_client = NULL;
+	struct qcedev_handle *qce_hndl = handle;
+	struct list_head *pos;
+
+	if (!handle) {
+		pr_err("%s: err: invalid input arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!qce_hndl->cntl || !qce_hndl->cntl->mem_client) {
+		pr_err("%s: err: invalid qcedev handle\n", __func__);
+		return -EINVAL;
+	}
+	mem_client = qce_hndl->cntl->mem_client;
+
+	if (mem_client->mtype != MEM_ION)
+		return -EPERM;
+
+	mutex_lock(&qce_hndl->registeredbufs.lock);
+	while (!list_empty(&qce_hndl->registeredbufs.list)) {
+		pos = qce_hndl->registeredbufs.list.next;
+		binfo = list_entry(pos, struct qcedev_reg_buf_info, list);
+		if (binfo)
+			qcedev_unmap_buffer(qce_hndl, mem_client, binfo);
+		list_del(pos);
+		kfree(binfo);
+	}
+	mutex_unlock(&qce_hndl->registeredbufs.lock);
+
+	return 0;
+}
+
