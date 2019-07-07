@@ -107,6 +107,7 @@ struct SCP_sensorHub_data {
 };
 static struct SensorState mSensorState[SENSOR_TYPE_MAX_NUM_PLUS_ONE];
 static DEFINE_MUTEX(mSensorState_mtx);
+static DEFINE_MUTEX(flush_mtx);
 static atomic_t power_status = ATOMIC_INIT(SENSOR_POWER_DOWN);
 static DECLARE_WAIT_QUEUE_HEAD(chre_kthread_wait);
 static DECLARE_WAIT_QUEUE_HEAD(power_reset_wait);
@@ -984,16 +985,29 @@ static int SCP_sensorHub_flush(int handle)
 	uint8_t sensor_type = handle + ID_OFFSET;
 	struct ConfigCmd cmd;
 	int ret = 0;
+	atomic_t *p_flush_count = NULL;
 
 	if (mSensorState[sensor_type].sensorType) {
-		atomic_inc(&mSensorState[sensor_type].flushCnt);
 		init_sensor_config_cmd(&cmd, sensor_type);
 		cmd.cmd = CONFIG_CMD_FLUSH;
+		/*
+		 * add count must before flush, if we add count after
+		 * flush right return and flush callback directly report
+		 * flush will lose flush complete
+		 */
+		p_flush_count = &mSensorState[sensor_type].flushCnt;
+		mutex_lock(&flush_mtx);
+		atomic_inc(p_flush_count);
+		mutex_unlock(&flush_mtx);
 		if (atomic_read(&power_status) == SENSOR_POWER_UP) {
 			ret = nanohub_external_write((const uint8_t *)&cmd,
 				sizeof(struct ConfigCmd));
 			if (ret < 0) {
 				pr_err("failed flush handle:%d\n", handle);
+				mutex_lock(&flush_mtx);
+				if (atomic_read(p_flush_count) > 0)
+					atomic_dec(p_flush_count);
+				mutex_unlock(&flush_mtx);
 				return -1;
 			}
 		}
@@ -1035,16 +1049,18 @@ static int SCP_sensorHub_report_raw_data(struct data_unit_t *data_t)
 			pr_info("ac:%d, e:%lld, d:%lld\n", data_t->flush_action,
 				raw_enable_time, data_t->time_stamp);
 	} else if (data_t->flush_action == FLUSH_ACTION) {
+		mutex_lock(&flush_mtx);
 		p_flush_count = &mSensorState[sensor_type].flushCnt;
 		if (atomic_read(p_flush_count) > 0) {
 			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
 			if (!err)
 				atomic_dec(p_flush_count);
 		}
+		mutex_unlock(&flush_mtx);
 	} else if (data_t->flush_action == BIAS_ACTION ||
-		data_t->flush_action == CALI_ACTION ||
-		data_t->flush_action == TEMP_ACTION ||
-		data_t->flush_action == TEST_ACTION)
+			data_t->flush_action == CALI_ACTION ||
+			data_t->flush_action == TEMP_ACTION ||
+			data_t->flush_action == TEST_ACTION)
 		err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
 	return err;
 }
@@ -1087,12 +1103,14 @@ static int SCP_sensorHub_report_alt_data(struct data_unit_t *data_t)
 			pr_info("ac:%d, e:%lld, d:%lld\n", data_t->flush_action,
 				alt_enable_time, data_t->time_stamp);
 	} else if (data_t->flush_action == FLUSH_ACTION) {
+		mutex_lock(&flush_mtx);
 		p_flush_count = &mSensorState[alt].flushCnt;
 		if (atomic_read(p_flush_count) > 0) {
 			err = obj->dispatch_data_cb[alt_id](data_t, NULL);
 			if (!err)
 				atomic_dec(p_flush_count);
 		}
+		mutex_unlock(&flush_mtx);
 	}
 
 	return err;
@@ -1270,7 +1288,40 @@ static int sensor_send_timestamp_to_hub(void)
 	__pm_relax(&obj->ws);
 	return err;
 }
+static void sensor_disable_report_flush(uint8_t handle)
+{
+	struct SCP_sensorHub_data *obj = obj_data;
+	uint8_t sensor_type = handle + ID_OFFSET;
+	struct data_unit_t data_t;
+	atomic_t *p_flush_count = NULL;
+	SCP_sensorHub_handler func;
+	int ret = 0, retry = 0;
 
+	func = obj->dispatch_data_cb[handle];
+	if (!func)
+		return;
+
+	/*
+	 * disable sensor only check func return err 5 times
+	 */
+	mutex_lock(&flush_mtx);
+	p_flush_count = &mSensorState[sensor_type].flushCnt;
+	while (atomic_read(p_flush_count) > 0) {
+		atomic_dec(p_flush_count);
+		memset(&data_t, 0, sizeof(struct data_unit_t));
+		data_t.sensor_type = handle;
+		data_t.flush_action = FLUSH_ACTION;
+		do {
+			ret = func(&data_t, NULL);
+			if (ret < 0)
+				usleep_range(2000, 4000);
+		} while (ret < 0 && retry++ < 5);
+		if (ret < 0)
+			pr_err("%d flush complete err when disable\n",
+				handle);
+	}
+	mutex_unlock(&flush_mtx);
+}
 int sensor_enable_to_hub(uint8_t handle, int enabledisable)
 {
 	uint8_t sensor_type = handle + ID_OFFSET;
@@ -1288,7 +1339,7 @@ int sensor_enable_to_hub(uint8_t handle, int enabledisable)
 	}
 	if (mSensorState[sensor_type].sensorType) {
 		mSensorState[sensor_type].enable = enabledisable;
-		if (enabledisable == 1)
+		if (enabledisable)
 			atomic64_set(&mSensorState[sensor_type].enableTime,
 							ktime_get_boot_ns());
 		init_sensor_config_cmd(&cmd, sensor_type);
@@ -1300,11 +1351,8 @@ int sensor_enable_to_hub(uint8_t handle, int enabledisable)
 				    ("fail registerlistener handle:%d,cmd:%d\n",
 				     handle, cmd.cmd);
 		}
-		if ((!enabledisable) &&
-			(atomic_read(&mSensorState[sensor_type].flushCnt))) {
-			pr_err("handle=%d flush count not 0 when disable\n",
-				handle);
-		}
+		if (!enabledisable)
+			sensor_disable_report_flush(handle);
 	} else {
 		pr_err("unhandle handle=%d, is inited?\n", handle);
 		mutex_unlock(&mSensorState_mtx);
@@ -2097,7 +2145,7 @@ static void restoring_enable_sensorHub_sensor(int handle)
 {
 	uint8_t sensor_type = handle + ID_OFFSET;
 	int ret = 0;
-	int flush_cnt = 0;
+	int i = 0, flush_cnt = 0;
 	struct ConfigCmd cmd;
 
 	if (mSensorState[sensor_type].sensorType &&
@@ -2114,14 +2162,15 @@ static void restoring_enable_sensorHub_sensor(int handle)
 				handle, cmd.cmd);
 
 		cmd.cmd = CONFIG_CMD_FLUSH;
-		for (flush_cnt = 0; flush_cnt <
-			atomic_read(&mSensorState[sensor_type].flushCnt);
-			flush_cnt++) {
+		mutex_lock(&flush_mtx);
+		flush_cnt = atomic_read(&mSensorState[sensor_type].flushCnt);
+		for (i = 0; i < flush_cnt; i++) {
 			ret = nanohub_external_write((const uint8_t *)&cmd,
 				sizeof(struct ConfigCmd));
 			if (ret < 0)
 				pr_notice("failed flush handle:%d\n", handle);
 		}
+		mutex_unlock(&flush_mtx);
 	}
 
 }
