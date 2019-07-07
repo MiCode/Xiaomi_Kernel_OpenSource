@@ -558,8 +558,6 @@ out:
 static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 			int parallel_fcc_ua)
 {
-	union power_supply_propval pval = {0, };
-
 	if (!chip->fcc_step_size_ua) {
 		pr_err("Invalid fcc stepper step size, value 0\n");
 		return;
@@ -567,19 +565,19 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 
 	/* Read current FCC of main charger */
 	chip->main_fcc_ua = get_effective_result(chip->fcc_main_votable);
-	chip->main_step_fcc_dir = (main_fcc_ua > pval.intval) ?
+	chip->main_step_fcc_dir = (main_fcc_ua > chip->main_fcc_ua) ?
 				STEP_UP : STEP_DOWN;
-	chip->main_step_fcc_count = abs((main_fcc_ua - pval.intval) /
+	chip->main_step_fcc_count = abs((main_fcc_ua - chip->main_fcc_ua) /
 				chip->fcc_step_size_ua);
-	chip->main_step_fcc_residual = (main_fcc_ua - pval.intval) %
-				chip->fcc_step_size_ua;
+	chip->main_step_fcc_residual = abs((main_fcc_ua - chip->main_fcc_ua) %
+				chip->fcc_step_size_ua);
 
 	chip->parallel_step_fcc_dir = (parallel_fcc_ua > chip->slave_fcc_ua) ?
 				STEP_UP : STEP_DOWN;
 	chip->parallel_step_fcc_count = abs((parallel_fcc_ua -
 				chip->slave_fcc_ua) / chip->fcc_step_size_ua);
-	chip->parallel_step_fcc_residual = (parallel_fcc_ua -
-				chip->slave_fcc_ua) % chip->fcc_step_size_ua;
+	chip->parallel_step_fcc_residual = abs((parallel_fcc_ua -
+				chip->slave_fcc_ua) % chip->fcc_step_size_ua);
 
 	if (chip->parallel_step_fcc_count || chip->parallel_step_fcc_residual
 		|| chip->main_step_fcc_count || chip->main_step_fcc_residual)
