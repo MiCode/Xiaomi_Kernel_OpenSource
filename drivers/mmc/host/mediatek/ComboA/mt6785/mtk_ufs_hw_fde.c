@@ -33,6 +33,7 @@ enum {
 	BIT_0 = 4,
 };
 
+#if defined(CONFIG_MTK_HW_FDE)
 static inline bool check_fde_mode(struct request *req,
 	unsigned int *key_idx)
 {
@@ -44,7 +45,15 @@ static inline bool check_fde_mode(struct request *req,
 
 	return false;
 }
+#else
+static inline bool check_fde_mode(struct request *req,
+	unsigned int *key_idx)
+{
+	return false;
+}
+#endif
 
+#if defined(CONFIG_HIE)
 static inline bool check_fbe_mode(struct request *req)
 {
 	if (hie_request_crypted(req))
@@ -52,6 +61,12 @@ static inline bool check_fbe_mode(struct request *req)
 
 	return false;
 }
+#else
+static inline bool check_fbe_mode(struct request *req)
+{
+	return false;
+}
+#endif
 static void msdc_enable_crypto(struct msdc_host *host)
 {
 	void __iomem *base = host->base;
@@ -343,9 +358,7 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 dir = DMA_FROM_DEVICE;
 	u32 blk_addr = 0;
 	u32 is_fde = 0, is_fbe = 0;
-#if defined(CONFIG_MTK_HW_FDE)
 	unsigned int key_idx;
-#endif
 #ifdef CONFIG_HIE
 	int err;
 #endif
@@ -393,10 +406,8 @@ check_hw_crypto:
 
 	if (check_fde_mode(req, &key_idx))
 		is_fde = 1;
-#ifdef CONFIG_HIE
 	else if (check_fbe_mode(req))
 		is_fbe = 1;
-#endif
 
 	if (is_fde || is_fbe) {
 		if (is_fde &&
