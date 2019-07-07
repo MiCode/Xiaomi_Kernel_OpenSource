@@ -28,6 +28,40 @@
 #define MAX_IP_BASE                     10
 #define MTK_PINCTRL_NOT_SUPPORT	(0xffff)
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+#define MTK_PUPD_BIT_PD             (1 << 0)
+#define MTK_PUPD_BIT_PU             (1 << 1)
+#define MTK_PUPD_R1R0_BIT_PUPD      (1 << 0)
+#define MTK_PUPD_R1R0_BIT_R0        (1 << 1)
+#define MTK_PUPD_R1R0_BIT_R1        (1 << 2)
+#define MTK_PUPD_R1R0_BIT_SUPPORT   (1 << 3)
+#define MTK_PUPD_R1R0_GET_PUPD(val)     (val & MTK_PUPD_R1R0_BIT_PUPD)
+#define MTK_PUPD_R1R0_GET_PULLEN(val)	\
+		((val & (MTK_PUPD_R1R0_BIT_R0 | MTK_PUPD_R1R0_BIT_R1)) >> 1)
+#define MTK_PUPD_R1R0_GET_SUPPORT(val)	\
+		(val & MTK_PUPD_R1R0_BIT_SUPPORT)
+
+enum {
+	GPIO_PULL_UNSUPPORTED = -1,
+	GPIO_PULL_DOWN = 0,
+	GPIO_PULL_UP = 1,
+	GPIO_NO_PULL = 2,
+};
+
+enum {
+	GPIO_PULL_EN_UNSUPPORTED = -1,
+	GPIO_NOPULLUP           = -4,
+	GPIO_NOPULLDOWN         = -5,
+	GPIO_PULL_DISABLE = 0,
+	GPIO_PULL_ENABLE  = 1,
+	GPIO_PULL_ENABLE_R0 = 2,
+	GPIO_PULL_ENABLE_R1 = 3,
+	GPIO_PULL_ENABLE_R0R1 = 4,
+	GPIO_PULL_EN_MAX,
+	GPIO_PULL_EN_DEFAULT = GPIO_PULL_ENABLE,
+};
+#endif
+
 struct mtk_desc_function {
 	const char *name;
 	unsigned char muxval;
@@ -243,6 +277,9 @@ struct mtk_pinctrl {
 	u32 *cur_mask;
 	int		*eint_sw_debounce_en;
 	u32		*eint_sw_debounce;
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	int		dbg_start;
+#endif
 };
 
 /**
@@ -315,6 +352,22 @@ struct mtk_pinctrl_devdata {
 	unsigned int	                n_pin_pullsel;
 	const struct mtk_pin_info	*pin_pupd_r1r0_grps;
 	unsigned int	                n_pin_pupd_r1r0;
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	const struct mtk_pin_info		*pin_pu_grps;
+	unsigned int			n_pin_pu;
+	const struct mtk_pin_info		*pin_pd_grps;
+	unsigned int			n_pin_pd;
+	const struct mtk_pin_info		*pin_pupd_grps;
+	unsigned int			n_pin_pupd;
+	const struct mtk_pin_info		*pin_r0_grps;
+	unsigned int			n_pin_r0;
+	const struct mtk_pin_info		*pin_r1_grps;
+	unsigned int			n_pin_r1;
+	const struct mtk_pin_info		*pin_drve4_grps;
+	unsigned int			n_pin_drve4;
+	const struct mtk_pin_info		*pin_drve8_grps;
+	unsigned int			n_pin_drve8;
+#endif
 	int (*spec_pull_set)(struct mtk_pinctrl *pctl,
 			struct regmap *reg, unsigned int pin,
 			unsigned char align, bool isup, unsigned int arg);
@@ -327,6 +380,20 @@ struct mtk_pinctrl_devdata {
 	int (*spec_dir_get)(struct mtk_pinctrl *pctl, unsigned int *reg_addr,
 			unsigned int pin, unsigned int *reg_val);
 	unsigned int (*spec_debounce_select)(unsigned int debounce);
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	int (*spec_pull_get)(struct regmap *reg, unsigned int pin);
+	int (*spec_ies_get)(struct regmap *reg, unsigned int pin);
+	int (*spec_smt_get)(struct regmap *reg, unsigned int pin);
+	int (*mtk_pctl_set_pull_sel)(struct mtk_pinctrl *pctl,
+		unsigned int pin, bool enable, bool isup, unsigned int arg);
+	int (*mtk_pctl_get_pull_sel)(struct mtk_pinctrl *pctl,
+		unsigned int pin);
+	int (*mtk_pctl_set_gpio_drv)(struct mtk_pinctrl *pctl,
+		unsigned int pin, unsigned char drv);
+	int (*mtk_pctl_get_gpio_drv)(struct mtk_pinctrl *pctl,
+		unsigned int pin);
+	int (*mtk_pctl_get_pull_en)(struct mtk_pinctrl *pctl, unsigned int pin);
+#endif
 	unsigned int dir_offset;
 	unsigned int ies_offset;
 	unsigned int smt_offset;
@@ -361,6 +428,10 @@ int mtk_pctrl_spec_pull_set_samereg(struct mtk_pinctrl *pctl,
 		unsigned int info_num, unsigned int pin,
 		unsigned char align, bool isup, unsigned int r1r0);
 
+int mtk_spec_pull_get_samereg(struct regmap *regmap,
+		const struct mtk_pin_spec_pupd_set_samereg *pupd_infos,
+		unsigned int info_num, unsigned int pin);
+
 int mtk_pconf_spec_set_ies_smt_range(struct regmap *regmap,
 		const struct mtk_pin_ies_smt_set *ies_smt_infos, unsigned int info_num,
 		unsigned int pin, unsigned char align, int value);
@@ -373,6 +444,12 @@ int mtk_pinctrl_update_gpio_value(struct mtk_pinctrl *pctl, int pin,
 
 int mtk_pinctrl_set_gpio_value(struct mtk_pinctrl *pctl, int pin,
 	bool value, int size, const struct mtk_pin_info pin_info[]);
+
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+int mtk_pctrl_get_gpio_chip_base(void);
+
+extern struct mtk_pinctrl *pctl_alt;
+#endif
 
 unsigned int mtk_gpio_debounce_select(const unsigned int *dbnc_infos,
 	int dbnc_infos_num, unsigned int debounce);

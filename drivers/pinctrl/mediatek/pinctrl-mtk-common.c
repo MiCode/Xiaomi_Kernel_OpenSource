@@ -173,6 +173,11 @@ static int mtk_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	unsigned int bit;
 	struct mtk_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->pin_dir_grps)/* because input is true */
+		return mtk_pinctrl_set_gpio_direction(pctl, offset, !input);
+#endif
+
 	reg_addr = mtk_get_port(pctl, offset) + pctl->devdata->dir_offset;
 	bit = BIT(offset & pctl->devdata->port_mask);
 
@@ -195,6 +200,13 @@ static void mtk_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	unsigned int bit;
 	struct mtk_pinctrl *pctl = gpiochip_get_data(chip);
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->pin_dout_grps) {
+		/* Just Used by smartphone projects */
+		mtk_pinctrl_set_gpio_output(pctl, offset, value);
+		return;
+	}
+#endif
 	reg_addr = mtk_get_port(pctl, offset) + pctl->devdata->dout_offset;
 	bit = BIT(offset & pctl->devdata->port_mask);
 
@@ -211,6 +223,18 @@ static int mtk_pconf_set_ies_smt(struct mtk_pinctrl *pctl, unsigned pin,
 {
 	unsigned int reg_addr, offset;
 	unsigned int bit;
+
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->pin_ies_grps ||
+		pctl->devdata->pin_smt_grps) {
+		if (arg == PIN_CONFIG_INPUT_ENABLE)
+			return mtk_pinctrl_set_gpio_ies(pctl,
+				pin, value);
+		else if (arg == PIN_CONFIG_INPUT_SCHMITT_ENABLE)
+			return mtk_pinctrl_set_gpio_smt(pctl,
+				pin, value);
+	}
+#endif
 
 	/**
 	 * Due to some soc are not support ies/smt config, add this special
@@ -314,6 +338,12 @@ static int mtk_pconf_set_driving(struct mtk_pinctrl *pctl,
 			pin, driving);
 	}
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->mtk_pctl_set_gpio_drv)
+		return pctl->devdata->mtk_pctl_set_gpio_drv(pctl,
+			pin, driving);
+#endif
+
 	if (pin >= pctl->devdata->npins)
 		return -EINVAL;
 
@@ -400,6 +430,37 @@ int mtk_pctrl_spec_pull_set_samereg(struct mtk_pinctrl *pctl,
 	return 0;
 }
 
+int mtk_spec_pull_get_samereg(struct regmap *regmap,
+		const struct mtk_pin_spec_pupd_set_samereg *pupd_infos,
+		unsigned int info_num, unsigned int pin)
+{
+	unsigned int i;
+	unsigned int reg_pupd;
+	unsigned int val = 0, bit_pupd, bit_r0, bit_r1;
+	const struct mtk_pin_spec_pupd_set_samereg *spec_pupd_pin;
+	bool find = false;
+
+	for (i = 0; i < info_num; i++) {
+		if (pin == pupd_infos[i].pin) {
+			find = true;
+			break;
+		}
+	}
+
+	if (!find)
+		return -1;
+
+	spec_pupd_pin = pupd_infos + i;
+	reg_pupd = spec_pupd_pin->offset;
+
+	regmap_read(regmap, reg_pupd, &val);
+	bit_pupd = !(val & BIT(spec_pupd_pin->pupd_bit));
+	bit_r0 = !!(val & BIT(spec_pupd_pin->r0_bit));
+	bit_r1 = !!(val & BIT(spec_pupd_pin->r1_bit));
+
+	return (bit_pupd)|(bit_r0<<1)|(bit_r1<<2)|(1<<3);
+}
+
 static int mtk_pconf_set_pull_select(struct mtk_pinctrl *pctl,
 		unsigned int pin, bool enable, bool isup, unsigned int arg)
 {
@@ -411,6 +472,12 @@ static int mtk_pconf_set_pull_select(struct mtk_pinctrl *pctl,
 	 * they have separate pull up/down bit, R0 and R1
 	 * resistor bit, so we need this special handle.
 	 */
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->mtk_pctl_set_pull_sel)
+		return pctl->devdata->mtk_pctl_set_pull_sel(pctl, pin,
+			enable, isup, arg);
+#endif
+
 	if (pctl->devdata->spec_pull_set) {
 		/* For special pins, bias-disable is set by R1R0,
 		 * the parameter should be "MTK_PUPD_SET_R1R0_00".
@@ -432,13 +499,6 @@ static int mtk_pconf_set_pull_select(struct mtk_pinctrl *pctl,
 			pctl->devdata->n_pin_pullsel,
 			pctl->devdata->pin_pullsel_grps);
 		return 0;
-	}
-
-	/* For generic pull config, default arg value should be 0 or 1. */
-	if (arg != 0 && arg != 1) {
-		dev_err(pctl->dev, "invalid pull-up argument %d on pin %d .\n",
-			arg, pin);
-		return -EINVAL;
 	}
 
 	bit = BIT(pin & pctl->devdata->port_mask);
@@ -812,6 +872,11 @@ static int mtk_pmx_set_mode(struct pinctrl_dev *pctldev,
 	unsigned int mask = (1L << GPIO_MODE_BITS) - 1;
 	struct mtk_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->pin_mode_grps)
+		return mtk_pinctrl_set_gpio_mode(pctl, pin, mode);
+#endif
+
 	if (pctl->devdata->spec_pinmux_set) {
 		pctl->devdata->spec_pinmux_set(mtk_get_regmap(pctl, pin),
 					pin, mode);
@@ -932,6 +997,20 @@ static int mtk_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
 
 	struct mtk_pinctrl *pctl = gpiochip_get_data(chip);
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	const struct mtk_pin_info *spec_pin_info;
+
+	if (pctl->devdata->pin_dir_grps) {
+		spec_pin_info = mtk_pinctrl_get_gpio_array(offset,
+			pctl->devdata->n_pin_dir, pctl->devdata->pin_dir_grps);
+		if (spec_pin_info == NULL)
+			return 1;/* for virtual GPIO that return 1 */
+		/* need reverse the direction for gpiolib */
+		return !mtk_pinctrl_get_gpio_direction(pctl, offset);
+	}
+	pr_info("pinctrl direction array is NULL of phone\n");
+#endif
+
 	reg_addr =  mtk_get_port(pctl, offset) + pctl->devdata->dir_offset;
 	bit = BIT(offset & 0xf);
 
@@ -948,6 +1027,11 @@ static int mtk_gpio_get(struct gpio_chip *chip, unsigned offset)
 	unsigned int bit;
 	unsigned int read_val = 0;
 	struct mtk_pinctrl *pctl = gpiochip_get_data(chip);
+
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (pctl->devdata->pin_din_grps)
+		return mtk_pinctrl_get_gpio_input(pctl, offset);
+#endif
 
 	reg_addr = mtk_get_port(pctl, offset) +
 		pctl->devdata->din_offset;
@@ -1714,6 +1798,10 @@ static int mtk_pctrl_build_state(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+#include "pinctrl-mtk-common_debug.c"
+#endif
+
 int mtk_pctrl_init(struct platform_device *pdev,
 		const struct mtk_pinctrl_devdata *data,
 		struct regmap *regmap)
@@ -1825,8 +1913,13 @@ int mtk_pctrl_init(struct platform_device *pdev,
 		goto chip_error;
 	}
 
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+	if (mtk_gpio_create_attr(&pdev->dev))
+		pr_debug("[pinctrl]mtk_gpio create attribute error\n");
+#endif
+
 	if (!of_property_read_bool(np, "interrupt-controller")) {
-		pr_warn("[pinctrl]init:interrupt-controller node no found\n");
+		pr_debug("[pinctrl]init:interrupt-controller node no found\n");
 		return 0;
 	}
 
