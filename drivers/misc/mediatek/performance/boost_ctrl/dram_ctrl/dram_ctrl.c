@@ -126,8 +126,10 @@ static ssize_t perfmgr_vcore_proc_write(struct file *filp, const char *ubuf,
 		return -1;
 	}
 
-	vcorefs_request_dvfs_opp(KIR_PERF, val);
-	vcore_now = val;
+	ret = vcorefs_request_dvfs_opp(KIR_PERF, val);
+
+	if (ret == 0)
+		vcore_now = val;
 
 	return cnt;
 }
