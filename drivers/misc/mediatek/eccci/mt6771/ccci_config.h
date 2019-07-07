@@ -53,7 +53,7 @@
 #define FEATURE_SCP_CCCI_SUPPORT
 /*#define ENABLE_EMI_PROTECTION*/
 #define ENABLE_32K_CLK_LESS
-/* #define FEATURE_CLK_BUF */
+#define FEATURE_CLK_BUF
 /*#define CCCI_LOG_LEVEL     1*/
 
 #endif
