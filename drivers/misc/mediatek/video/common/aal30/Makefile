@@ -72,4 +72,6 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))
     ccflags-y += -DAAL_HAS_DRE3
 endif
 
+ifneq ($(CONFIG_MACH_MT8167),y)
 ccflags-y += -DAAL_SUPPORT_KERNEL_API
+endif
