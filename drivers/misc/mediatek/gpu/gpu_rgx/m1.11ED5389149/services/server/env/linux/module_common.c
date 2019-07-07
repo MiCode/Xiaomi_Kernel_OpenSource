@@ -148,6 +148,13 @@ struct file *LinuxFileFromConnection(CONNECTION_DATA *psConnection)
 	return psEnvConnection->psFile;
 }
 
+#if defined(CONFIG_MACH_MT8167)
+void MTKCommonDisablePowerDomain(void)
+{
+	MTKDisablePowerDomain();
+}
+#endif
+
 /**************************************************************************/ /*!
 @Function     PVRSRVCommonDriverInit
 @Description  Common one time driver initialisation
