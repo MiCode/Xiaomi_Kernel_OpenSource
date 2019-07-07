@@ -21,6 +21,7 @@
 #define MMSYS_CG_CON0		(0x100)
 #define MMSYS_CG_CON1		(0x110)
 #define MMSYS_HW_DCM_1ST_DIS0	(0x120)
+#define MMSYS_HW_DCM_1ST_DIS_SET0	(0x124)
 #define MMSYS_HW_DCM_2ND_DIS0	(0x130)
 #define MMSYS_SW0_RST_B		(0x140)
 #define MMSYS_GALS_DBG(x)	(0x914 + ((x) << 2))

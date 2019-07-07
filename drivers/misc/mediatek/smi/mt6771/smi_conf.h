@@ -61,22 +61,27 @@ struct mtk_smi_pair smi_larb0_conf_pair[SMI_LARB0_CONF_NUM] = {
 	{SMI_LARB_WRR_PORT(4), 0x7}
 };
 
-#define SMI_LARB1_CONF_NUM	1
+#define SMI_LARB1_CONF_NUM	2
 struct mtk_smi_pair smi_larb1_conf_pair[SMI_LARB1_CONF_NUM] = {
+	{SMI_LARB_CMD_THRT_CON, 0x300246}, {SMI_LARB_SW_FLAG, 0x1}
+};
+
+#define SMI_LARB3_CONF_NUM	1
+struct mtk_smi_pair smi_larb3_conf_pair[SMI_LARB3_CONF_NUM] = {
 	{SMI_LARB_SW_FLAG, 0x1}
 };
 
 u32 smi_conf_pair_num[SMI_LARB_NUM + 1] = {
 	SMI_LARB0_CONF_NUM, SMI_LARB1_CONF_NUM, SMI_LARB1_CONF_NUM,
-	SMI_LARB1_CONF_NUM, SMI_LARB1_CONF_NUM, SMI_LARB1_CONF_NUM,
-	SMI_LARB1_CONF_NUM,
+	SMI_LARB3_CONF_NUM, SMI_LARB1_CONF_NUM, SMI_LARB1_CONF_NUM,
+	SMI_LARB3_CONF_NUM,
 	SMI_COMM_CONF_NUM
 };
 
 struct mtk_smi_pair *smi_conf_pair[SMI_LARB_NUM + 1] = {
 	smi_larb0_conf_pair, smi_larb1_conf_pair, smi_larb1_conf_pair,
-	smi_larb1_conf_pair, smi_larb1_conf_pair, smi_larb1_conf_pair,
-	smi_larb1_conf_pair,
+	smi_larb3_conf_pair, smi_larb1_conf_pair, smi_larb1_conf_pair,
+	smi_larb3_conf_pair,
 	smi_comm_conf_pair
 };
 
