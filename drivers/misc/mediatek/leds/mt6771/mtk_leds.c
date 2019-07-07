@@ -153,10 +153,10 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	int pwm_config[5] = { 0 };
 
 	if (pled_dtsi) {
-		pr_info("[LED] %s pled_dtsi not null\n", __func__);
 		goto out;
 	}
 
+	pr_info("[LED] %s pled_dtsi is null, load dts file\n", __func__);
 	pled_dtsi = kmalloc(TYPE_TOTAL * sizeof(struct cust_mt65xx_led),
 			GFP_KERNEL);
 	if (pled_dtsi == NULL) {
