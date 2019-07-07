@@ -18,7 +18,7 @@
 
 #include "sda845-v2.1.dtsi"
 #include "sdm845-sde-display.dtsi"
-#include "sdm845-mtp.dtsi"
+#include "sdm845-rb3.dtsi"
 #include "sdm845-audio-overlay.dtsi"
 
 &labibb {
@@ -105,3 +105,91 @@
 	status = "disabled";
 };
 
+&tlmm {
+	cam_sensor_tof_active: cam_sensor_tof_active {
+		/* RESET*/
+		mux {
+			pins = "gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio8";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	cam_sensor_tof_suspend: cam_sensor_tof_suspend {
+		/* RESET*/
+		mux {
+			pins = "gpio8";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio8";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	cam_sensor_tracking_active: cam_sensor_tracking_active {
+		/* RESET */
+		mux {
+			pins = "gpio21";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio21";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	cam_sensor_tracking_suspend: cam_sensor_tracking_suspend {
+		/* RESET */
+		mux {
+			pins = "gpio21";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio21";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+
+	cam_sensor_rear4_active: cam_sensor_rear4_active {
+		/* RESET */
+		mux {
+			pins = "gpio12","gpio69";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12","gpio69";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+
+	cam_sensor_rear4_suspend: cam_sensor_rear4_suspend {
+		/* RESET */
+		mux {
+			pins = "gpio12","gpio69";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12","gpio69";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+};

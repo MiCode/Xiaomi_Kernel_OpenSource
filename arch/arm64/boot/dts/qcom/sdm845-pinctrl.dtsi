@@ -3407,7 +3407,6 @@
 			};
 		};
 
-
 		trigout_a: trigout_a {
 			mux {
 				pins = "gpio90";
