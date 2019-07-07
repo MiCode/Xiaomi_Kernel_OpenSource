@@ -200,14 +200,14 @@ int g_temperature[MAX_TABLE] = {
 #define BAT_NTC_47 0
 
 #if (BAT_NTC_10 == 1)
-#define RBAT_PULL_UP_R             16900
+#define RBAT_PULL_UP_R             24000
 #endif
 
 #if (BAT_NTC_47 == 1)
 #define RBAT_PULL_UP_R             61900
 #endif
 
-#define RBAT_PULL_UP_VOLT          1800
+#define RBAT_PULL_UP_VOLT          2800
 
 #define BIF_NTC_R 16000
 
