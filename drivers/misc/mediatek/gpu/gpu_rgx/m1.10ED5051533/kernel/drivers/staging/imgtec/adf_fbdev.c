@@ -194,12 +194,12 @@ adf_fbdev_alloc_buffer(struct adf_fbdev_interface *interface)
 		sg_set_page(sg, page, PAGE_SIZE, 0);
 		offset += PAGE_SIZE;
 
-		/* Shadow what ion is doing currently to ensure sg_dma_address()
+		/* Shadow what ion is doing currently to ensure sg_phys()
 		 * is valid. This is not strictly correct as the dma address
 		 * should only be valid after mapping (ownership changed), and
 		 * we haven't mapped the scatter list yet.
 		 */
-		sg_dma_address(sg) = sg_phys(sg);
+		sg_phys(sg) = sg_phys(sg);
 	}
 
 	fbdev_dmabuf->alloc_mask = &interface->alloc_mask;

@@ -2206,6 +2206,11 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, u64 size)
 	if (!mapping->domain)
 		goto err4;
 
+#ifdef IOMMU_DEBUG_ENABLED
+	pr_notice("%s, %d, base=0x%x, extensions=0x%x, bitmap_size=0x%x\n",
+		    __func__, __LINE__, mapping->base,
+		    mapping->extensions, mapping->bitmap_size);
+#endif
 	kref_init(&mapping->kref);
 	return mapping;
 err4:
@@ -2230,6 +2235,9 @@ static void release_iommu_mapping(struct kref *kref)
 		kfree(mapping->bitmaps[i]);
 	kfree(mapping->bitmaps);
 	kfree(mapping);
+#ifdef IOMMU_DEBUG_ENABLED
+	pr_notice("%s, %d, release mapping\n", __func__, __LINE__);
+#endif
 }
 
 static int extend_iommu_mapping(struct dma_iommu_mapping *mapping)

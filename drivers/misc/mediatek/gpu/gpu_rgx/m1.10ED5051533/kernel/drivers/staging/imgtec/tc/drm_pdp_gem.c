@@ -241,7 +241,7 @@ pdp_gem_prime_map_dma_buf(struct dma_buf_attachment *attach,
 	if (sg_alloc_table(sgt, 1, GFP_KERNEL))
 		goto err_free_sgt;
 
-	sg_dma_address(sgt->sgl) = pdp_obj->dev_addr;
+	sg_phys(sgt->sgl) = pdp_obj->dev_addr;
 	sg_dma_len(sgt->sgl) = obj->size;
 
 	return sgt;
@@ -430,7 +430,7 @@ pdp_gem_prime_import_sg_table(struct drm_device *dev,
 		goto err_obj_unref;
 	}
 
-	pdp_obj->dev_addr = sg_dma_address(pdp_obj->sgt->sgl);
+	pdp_obj->dev_addr = sg_phys(pdp_obj->sgt->sgl);
 	pdp_obj->cpu_addr = pdata->memory_base + pdp_obj->dev_addr;
 	pdp_obj->resv = attach->dmabuf->resv;
 
