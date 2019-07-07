@@ -1289,6 +1289,8 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 {
 	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "speed_bin");
 	int ret = PTR_ERR_OR_ZERO(cell);
+	void *buf;
+	size_t len;
 
 	if (ret) {
 		/*
@@ -1301,7 +1303,12 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 		return ret;
 	}
 
-	adreno_dev->speed_bin = *((unsigned int *) nvmem_cell_read(cell, NULL));
+	buf = nvmem_cell_read(cell, &len);
+	if (!IS_ERR(buf)) {
+		memcpy(&adreno_dev->speed_bin, buf,
+				min(len, sizeof(adreno_dev->speed_bin)));
+		kfree(buf);
+	}
 
 	nvmem_cell_put(cell);
 
