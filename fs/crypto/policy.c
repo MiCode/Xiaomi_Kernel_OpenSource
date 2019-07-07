@@ -348,7 +348,7 @@ int fscrypt_key_payload(struct bio_crypt_ctx *ctx,
 	return ctx->bc_key_size;
 }
 
-int fscrypt_is_hw_encrypt(struct inode *inode)
+int fscrypt_is_hw_encrypt(const struct inode *inode)
 {
 	struct fscrypt_info *ci = inode->i_crypt_info;
 
@@ -356,7 +356,7 @@ int fscrypt_is_hw_encrypt(struct inode *inode)
 		ci->ci_data_mode == FS_ENCRYPTION_MODE_PRIVATE;
 }
 
-int fscrypt_is_sw_encrypt(struct inode *inode)
+int fscrypt_is_sw_encrypt(const struct inode *inode)
 {
 	struct fscrypt_info *ci = inode->i_crypt_info;
 
