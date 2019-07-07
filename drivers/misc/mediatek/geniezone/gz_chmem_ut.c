@@ -133,8 +133,10 @@ struct _ssmr_chmem_regions {
 };
 
 struct _ssmr_chmem_regions _ssmr_CM_ary[] = {
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, MTEE_MCHUNKS_PROT},
+#endif
 #if ssmr_ready_for_mcm
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 	/*HA ELF */
@@ -157,8 +159,10 @@ struct _ssmr_chmem_regions _ssmr_CM_ary[] = {
 #endif
 #endif
 #else
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, 0}
+#endif
 #endif
 };
 #endif				//end of #if test_data
