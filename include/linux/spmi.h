@@ -43,11 +43,13 @@
  * @dev:	Driver model representation of the device.
  * @ctrl:	SPMI controller managing the bus hosting this device.
  * @usid:	This devices' Unique Slave IDentifier.
+ * @gsid:	This devices' Global Slave IDentifier.
  */
 struct spmi_device {
 	struct device		dev;
 	struct spmi_controller	*ctrl;
 	u8			usid;
+	u8			gsid;
 };
 
 static inline struct spmi_device *to_spmi_device(struct device *d)
