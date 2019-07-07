@@ -73,6 +73,7 @@ obj-y += memory-amms/
 obj-$(CONFIG_MTK_AUXADC)	+= auxadc/
 obj-$(CONFIG_MTK_GPT_SCHEME_SUPPORT)	+= partition/
 obj-$(CONFIG_MTK_PWM)	    += pwm/
+obj-$(CONFIG_MTK_IRTX_PWM_SUPPORT)	    += irtx/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 obj-$(CONFIG_MTK_HIFIXDSP_SUPPORT) += hifi_dsp/
 obj-$(CONFIG_MTK_HIFIXDSP_SUPPORT) += hifidsp_audio_ipi/
