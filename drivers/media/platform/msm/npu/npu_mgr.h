@@ -77,6 +77,7 @@ struct npu_host_ctx {
 	struct work_struct ipc_irq_work;
 	struct work_struct wdg_err_irq_work;
 	struct work_struct bridge_mbox_work;
+	struct work_struct load_fw_work;
 	struct delayed_work disable_fw_work;
 	struct workqueue_struct *wq;
 	struct completion misc_cmd_done;
