@@ -211,7 +211,7 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 
 unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 {
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if SENINF_CLK_CONTROL
 	/* workaround */
 	mt_get_ckgen_freq(1);
 
