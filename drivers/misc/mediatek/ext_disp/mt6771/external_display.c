@@ -280,7 +280,7 @@ static long int get_current_time_us(void)
 static int _build_path_direct_link(void)
 {
 	int ret = 0;
-	struct M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort = { 0 };
 
 	EXT_DISP_FUNC();
 	pgc->mode = EXTD_DIRECT_LINK_MODE;
@@ -293,7 +293,7 @@ static int _build_path_direct_link(void)
 	}
 	EXT_DISP_LOG("dpmgr create path SUCCESS(%p)\n", pgc->dpmgr_handle);
 
-	/* sPort.ePortID = M4U_PORT_DISP_2L_OVL0_LARB1; */
+	sPort.ePortID = M4U_PORT_DISP_2L_OVL1_LARB0;
 	sPort.Virtuality = ext_disp_use_m4u;
 	sPort.Security = 0;
 	sPort.Distance = 1;
@@ -332,7 +332,7 @@ static int _build_path_single_layer(void)
 static int _build_path_rdma_dpi(void)
 {
 	int ret = 0;
-	struct M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort = { 0 };
 
 	enum DISP_MODULE_ENUM dst_module = 0;
 
@@ -851,7 +851,7 @@ int ext_disp_init(char *lcm_name, unsigned int session)
 
 	pconfig = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 	if (pconfig) {
-		memset((void *)pconfig, 0, sizeof(pconfig));
+		memset((void *)pconfig, 0, sizeof(*pconfig));
 		memcpy(&(pconfig->dispif_config), &extd_lcm_params,
 		       sizeof(struct LCM_PARAMS));
 
@@ -1227,7 +1227,7 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	int ret = 0;
 	int i = 0;
 	int layer_cnt = 0;
-	struct M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort = { 0 };
 	struct disp_ddp_path_config *pconfig;
 	unsigned int input_source;
 	struct ddp_io_golden_setting_arg gset_arg;
@@ -1275,7 +1275,7 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		if (ext_disp_get_ovl_req_status(session) ==
 		    EXTD_OVL_INSERT_REQ) {
 			EXT_DISP_LOG("config M4U Port DISP_MODULE_OVL1_2L\n");
-			/* sPort.ePortID = M4U_PORT_DISP_2L_OVL0_LARB1; */
+			sPort.ePortID = M4U_PORT_DISP_2L_OVL1_LARB0;
 			sPort.Virtuality = 1;
 			sPort.Security = 0;
 			sPort.Distance = 1;
