@@ -39,7 +39,10 @@
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
 #include "pinctrl-mtk-common.h"
-
+#if defined(CONFIG_PINCTRL_MTK_ALTERNATIVE)
+#include "pinctrl-mtk-common_debug.h"
+struct mtk_pinctrl *pctl_alt;
+#endif
 #define MAX_GPIO_MODE_PER_REG 5
 #define GPIO_MODE_BITS        3
 #define GPIO_MODE_PREFIX "GPIO"
