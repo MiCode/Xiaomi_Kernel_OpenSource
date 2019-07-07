@@ -790,6 +790,16 @@ config MFD_MT6397
 	  accessing the device; additional drivers must be enabled in order
 	  to use the functionality of the device.
 
+config MT6397_MISC
+	tristate "MediaTek MT6397 MISC FUNCTIONS Support"
+	depends on MFD_MT6397
+	help
+	  Say yes here to add support for MediaTek MT6323/MT6397/MT6392 misc
+	  functions support. And this driver only provides some additional
+	  functions and depends on PMIC rtc module. it can be provide some
+	  APIs to other modules and store some misc information to rtc
+	  registers.
+
 config MFD_MENF21BMC
 	tristate "MEN 14F021P00 Board Management Controller Support"
 	depends on I2C
