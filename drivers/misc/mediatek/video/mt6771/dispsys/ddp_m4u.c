@@ -18,6 +18,7 @@
 #include "ddp_log.h"
 #include "disp_helper.h"
 #include "disp_drv_platform.h"
+#include <ion_priv.h>
 #include "primary_display.h"
 
 #ifdef CONFIG_MTK_IOMMU
@@ -228,7 +229,8 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 {
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_mm_data mm_data;
-	unsigned int mva_size;
+	size_t mva_size;
+	ion_phys_addr_t phy_addr = 0;
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.config_buffer_param.module_id = port;
@@ -242,7 +244,8 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 		return -1;
 	}
 
-	ion_phys(client, handle, (unsigned long int *)mva, (size_t *)&mva_size);
+	ion_phys(client, handle, &phy_addr, &mva_size);
+	*mva = (unsigned int)phy_addr;
 	DDPDBG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 	       handle, (unsigned int)*mva);
 #endif
@@ -315,16 +318,26 @@ void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 {
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_sys_data sys_data;
+	void *buffer_va;
 
 	if (!client || !handle)
 		return;
 
+	if (sync_type == ION_CACHE_FLUSH_ALL)
+		return;
+
 	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
 	sys_data.cache_sync_param.kernel_handle = handle;
-	sys_data.cache_sync_param.sync_type = sync_type;
+	sys_data.cache_sync_param.sync_type = ION_CACHE_FLUSH_BY_RANGE;
+
+	buffer_va = ion_map_kernel(client, handle);
+	sys_data.cache_sync_param.va = buffer_va;
+	sys_data.cache_sync_param.size = handle->buffer->size;
 
 	if (ion_kernel_ioctl(client, ION_CMD_SYSTEM, (unsigned long)&sys_data))
 		DDPPR_ERR("ion cache flush failed!\n");
+
+	ion_unmap_kernel(client, handle);
 #endif
 }
 
