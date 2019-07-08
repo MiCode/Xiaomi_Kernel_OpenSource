@@ -1158,6 +1158,15 @@ static const struct mtk_iommu_resv_iova_region mt2712_iommu_rsv_list[] = {
 };
 
 static const struct mtk_iommu_resv_iova_region mt6779_iommu_rsv_list[] = {
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	{
+		.dom_id = 0,			/* Secure Region */
+		.iova_base = 0x0,
+		.iova_size = 0x13000000,
+		.type = IOMMU_RESV_RESERVED,
+	},
+#endif
 	{
 		.dom_id = 0,
 		.iova_base = 0x40000000,	/* CCU */
