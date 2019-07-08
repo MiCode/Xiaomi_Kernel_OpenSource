@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,12 +201,14 @@ enum cam_req_mgr_link_evt_type {
  * @frame_id : frame id for internal tracking
  * @trigger  : trigger point of this notification, CRM will send apply
  * only to the devices which subscribe to this point.
+ * @sof_timestamp_val: Captured time stamp value at sof hw event
  */
 struct cam_req_mgr_trigger_notify {
 	int32_t  link_hdl;
 	int32_t  dev_hdl;
 	int64_t  frame_id;
 	uint32_t trigger;
+	uint64_t sof_timestamp_val;
 };
 
 /**
