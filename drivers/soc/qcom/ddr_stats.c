@@ -58,9 +58,7 @@ static inline u64 get_time_in_msec(u64 counter)
 static ssize_t ddr_stats_append_data_to_buf(char *buf, int length, int *count,
 		struct stats_entry *data, u64 accumulated_duration)
 {
-	u32 cp_idx = 0;
-	u32 name;
-	u32 duration;
+	u32 cp_idx = 0, name, duration = 0;
 
 	if (accumulated_duration)
 		duration = (data->duration * 100) / accumulated_duration;
