@@ -927,9 +927,6 @@ static int aw8896_probe(struct snd_soc_codec *codec)
 	aw8896->codec = codec;
 	aw8896_add_codec_controls(aw8896);
 
-	if (codec->dev->of_node)
-		dev_set_name(codec->dev, "%s", "aw8896_smartpa");
-
 	return ret;
 }
 
@@ -1403,12 +1400,6 @@ static int aw8896_i2c_probe(struct i2c_client *i2c,
 				   __func__, ret);
 		goto err_id;
 	}
-
-	if (i2c->dev.of_node)
-		dev_set_name(&i2c->dev, "%s", "aw8896_smartpa");
-	else
-		dev_err(&i2c->dev, "%s failed to set device name: %d\n",
-			__func__, ret);
 
 	/* register codec */
 	dai = devm_kzalloc(&i2c->dev, sizeof(aw8896_dai), GFP_KERNEL);

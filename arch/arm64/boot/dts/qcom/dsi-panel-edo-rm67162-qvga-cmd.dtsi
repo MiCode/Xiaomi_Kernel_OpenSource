@@ -44,7 +44,7 @@
 					29 01 00 00 00 00 02 05 00
 					29 01 00 00 00 00 02 FE 00
 					29 01 00 00 00 00 02 35 00
-					29 01 00 00 00 00 02 51 00
+					29 01 00 00 00 00 02 51 80
 					29 01 00 00 00 00 02 53 20
 					29 01 00 00 78 00 02 11 00
 					29 01 00 00 05 00 02 29 00];
@@ -67,7 +67,7 @@
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33 22 27
 			1e 03 04 00];
-		qcom,mdss-dsi-t-clk-post = <0x20>;
+		qcom,mdss-dsi-t-clk-post = <0x09>;
 		qcom,mdss-dsi-t-clk-pre = <0x2c>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <255>;
