@@ -6,6 +6,7 @@ obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MMPROFILE) += mmp/
 obj-$(CONFIG_TRUSTKERNEL_TEE_SUPPORT) += tkcore/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
+obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += geniezone/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
 obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/

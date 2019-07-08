@@ -1,0 +1,18 @@
+menu "GZ Kree"
+
+config MTK_ENABLE_GENIEZONE
+	tristate "MTK GenieZone enable"
+	help
+	  This is used for Trusty to support MTK Geniezone
+	  Irq will be masked in trusty irq handler
+	  for irq routing to GenieZone.
+	  Irq work will be put to global queue when cpu dead.
+	  We move the GZ TIPC driver from drivers/trusty to
+	  drivers/misc/mediatek/geniezone/gz-trusty. Use
+	  MTK_ENABLE_GENIEZONE instead of TRUSTY to enable it.
+
+source "drivers/misc/mediatek/geniezone/gz-trusty/Kconfig"
+
+endmenu
+
+# GZ Kree

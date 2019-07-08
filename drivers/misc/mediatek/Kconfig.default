@@ -403,6 +403,12 @@ config MTK_ANDROID_DEFAULT_SETTING
 	select XFRM_ALGO
 	select XFRM_IPCOMP
 	select XFRM_SUB_POLICY
+	select TRUSTY_LOG
+	select TRUSTY_VIRTIO
+	select TRUSTY_VIRTIO_IPC
+	select TRUSTY_INTERRUPT_MAP
+	select TRUSTY_INTERRUPT_FIQ_ONLY
+	select TRUSTY_WDT_FIQ_ARMV7_SUPPORT
 	help
 	  This adds some MTK specific config by default which is
 	  not defined in ANDROID_DEFAULT_SETTING.

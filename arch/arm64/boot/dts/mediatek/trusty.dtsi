@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+/ {
+	trusty {
+		compatible = "android,trusty-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		tee_id = <0>;
+
+		mtee {
+			compatible = "mediatek,trusty-mtee-v1";
+		};
+
+		gz_main {
+			compatible = "mediatek,trusty-gz";
+		};
+
+		irq {
+			compatible = "android,trusty-irq-v1";
+			ppi-interrupt-parent = <&gic>;
+		};
+
+		trusty-virtio {
+			compatible = "android,trusty-virtio-v1";
+			tee_id = <0>;
+		};
+
+		gz_log {
+			compatible = "android,trusty-gz-log-v1";
+		};
+	};
+};
