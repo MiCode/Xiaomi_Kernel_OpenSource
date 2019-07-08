@@ -358,13 +358,6 @@ static int qcom_pdc_gpio_alloc(struct irq_domain *domain, unsigned int virq,
 
 	qcom_fwspec->mask = true;
 
-	/* Additionally, configure GPIO PDC in the f/w */
-	if (domain->host_data) {
-		ret = spi_configure_type(parent_hwirq, type);
-		if (ret)
-			return ret;
-	}
-
 	if (type & IRQ_TYPE_EDGE_BOTH)
 		type = IRQ_TYPE_EDGE_RISING;
 
