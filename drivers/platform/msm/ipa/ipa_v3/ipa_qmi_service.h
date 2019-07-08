@@ -116,6 +116,9 @@ struct ipa3_qmi_context {
 	int num_ipa_offload_connection;
 	struct ipa_offload_connection_val
 		ipa_offload_cache[QMI_IPA_MAX_FILTERS_V01];
+	uint8_t ul_firewall_indices_list_valid;
+	uint32_t ul_firewall_indices_list_len;
+	uint32_t ul_firewall_indices_list[QMI_IPA_MAX_FILTERS_V01];
 };
 
 struct ipa3_rmnet_mux_val {
