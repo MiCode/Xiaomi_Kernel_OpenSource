@@ -1,0 +1,121 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdxprairie.dtsi"
+#include "sdxprairie-mtp.dtsi"
+
+&soc {
+	/delete-node/ qcom,battery-data;
+
+	codec_vreg: regulator-codec-tlv320aic3x {
+		compatible = "regulator-fixed";
+		regulator-name = "codec_vreg";
+		startup-delay-us = <100>;
+		gpio = <&tlmm 23 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+/* delete pm8150b nodes */
+&thermal_zones {
+	/delete-node/ pm8150b-wp-therm;
+	/delete-node/ pm8150b_tz;
+	/delete-node/ pm8150b-ibat-lvl0;
+	/delete-node/ pm8150b-ibat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl0;
+	/delete-node/ pm8150b-vbat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl2;
+	/delete-node/ soc;
+};
+
+&usb {
+	extcon = <&vbus_detect>;
+};
+
+&spmi_bus {
+	/delete-node/ qpnp,fg;
+	/delete-node/ bcl@1d00;
+	/delete-node/ qcom,usb-pdphy@1700;
+	/delete-node/ qcom,qpnp-smb5;
+	/delete-node/ adc_tm@3500;
+	/delete-node/ vadc@3100;
+	/delete-node/ qcom,pm8150b@2;
+	/delete-node/ qcom,pm8150b@3;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
+
+&blsp1_uart4a_hs {
+	status = "okay";
+};
+
+&vbus_detect {
+	status = "okay";
+};
+
+&snd_934x {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&clock_audio_up {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};
+
+
+&wcd934x_cdc {
+	status = "disabled";
+};
+
+&spi_2 {
+	status = "okay";
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <88 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <1>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
+&i2c_3 {
+	tlv320aic3x_codec: tlv320aic3x@18 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		gpio-reset = <&tlmm 92 0>;
+		reset-inverted;
+		AVDD-supply = <&codec_vreg>;
+		IOVDD-supply = <&codec_vreg>;
+	};
+};
+
+&i2c_4 {
+	status = "okay";
+};

@@ -1427,6 +1427,9 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
 
 		memset_io(mhi_cntrl->bhie + BHIE_RXVECADDR_LOW_OFFS, 0,
 			  BHIE_RXVECSTATUS_OFFS - BHIE_RXVECADDR_LOW_OFFS + 4);
+
+		if (mhi_cntrl->rddm_image)
+			mhi_rddm_prepare(mhi_cntrl, mhi_cntrl->rddm_image);
 	}
 
 	mhi_cntrl->pre_init = true;

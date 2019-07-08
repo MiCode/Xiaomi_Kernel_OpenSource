@@ -262,6 +262,18 @@ void arm64_notify_die(const char *str, struct pt_regs *regs,
 	}
 }
 
+void arm64_skip_faulting_instruction(struct pt_regs *regs, unsigned long size)
+{
+	regs->pc += size;
+
+	/*
+	 * If we were single stepping, we want to get the step exception after
+	 * we return from the trap.
+	 */
+	if (user_mode(regs))
+		user_fastforward_single_step(current);
+}
+
 static LIST_HEAD(undef_hook);
 static DEFINE_RAW_SPINLOCK(undef_lock);
 
@@ -453,7 +465,7 @@ static void user_cache_maint_handler(unsigned int esr, struct pt_regs *regs)
 	if (ret)
 		arm64_notify_segfault(regs, address);
 	else
-		regs->pc += 4;
+		arm64_skip_faulting_instruction(regs, AARCH64_INSN_SIZE);
 }
 
 static void ctr_read_handler(unsigned int esr, struct pt_regs *regs)
@@ -463,7 +475,7 @@ static void ctr_read_handler(unsigned int esr, struct pt_regs *regs)
 
 	pt_regs_write_reg(regs, rt, val);
 
-	regs->pc += 4;
+	arm64_skip_faulting_instruction(regs, AARCH64_INSN_SIZE);
 }
 
 static void cntvct_read_handler(unsigned int esr, struct pt_regs *regs)
@@ -472,7 +484,7 @@ static void cntvct_read_handler(unsigned int esr, struct pt_regs *regs)
 
 	isb();
 	pt_regs_write_reg(regs, rt, arch_counter_get_cntvct());
-	regs->pc += 4;
+	arm64_skip_faulting_instruction(regs, AARCH64_INSN_SIZE);
 }
 
 static void cntfrq_read_handler(unsigned int esr, struct pt_regs *regs)
@@ -480,7 +492,7 @@ static void cntfrq_read_handler(unsigned int esr, struct pt_regs *regs)
 	int rt = (esr & ESR_ELx_SYS64_ISS_RT_MASK) >> ESR_ELx_SYS64_ISS_RT_SHIFT;
 
 	pt_regs_write_reg(regs, rt, arch_timer_get_rate());
-	regs->pc += 4;
+	arm64_skip_faulting_instruction(regs, AARCH64_INSN_SIZE);
 }
 
 struct sys64_hook {
@@ -845,7 +857,7 @@ static int bug_handler(struct pt_regs *regs, unsigned int esr)
 	}
 
 	/* If thread survives, skip over the BUG instruction and continue: */
-	regs->pc += AARCH64_INSN_SIZE;	/* skip BRK and resume */
+	arm64_skip_faulting_instruction(regs, AARCH64_INSN_SIZE);
 	return DBG_HOOK_HANDLED;
 }
 

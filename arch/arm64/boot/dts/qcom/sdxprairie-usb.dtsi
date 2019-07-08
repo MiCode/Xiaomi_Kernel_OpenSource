@@ -77,6 +77,7 @@
 			<MSM_BUS_MASTER_USB3 MSM_BUS_SLAVE_IPA_CFG 0 2400>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_USB3 0 40000>;
 
+		qcom,default-bus-vote = <2>; /* use svs bus voting */
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0x0a600000 0xcd00>;

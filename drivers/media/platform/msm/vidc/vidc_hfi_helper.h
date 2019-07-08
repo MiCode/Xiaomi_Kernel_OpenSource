@@ -917,6 +917,11 @@ struct vidc_hal_session_cmd_pkt {
 	u32 session_id;
 };
 
+struct hfi_packet_header {
+	u32 size;
+	u32 packet_type;
+};
+
 struct hfi_cmd_sys_init_packet {
 	u32 size;
 	u32 packet_type;

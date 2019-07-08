@@ -153,6 +153,7 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 
 	uint32_t             en_cfg;
 	uint32_t             is_dual;
+	uint32_t             is_lite;
 };
 
 struct cam_vfe_bus_ver2_comp_grp_data {
@@ -918,13 +919,14 @@ static int cam_vfe_bus_acquire_wm(
 	rsrc_data->width = out_port_info->width;
 	rsrc_data->height = out_port_info->height;
 	rsrc_data->is_dual = is_dual;
+	rsrc_data->is_lite = ver2_bus_priv->is_lite;
 	/* Set WM offset value to default */
 	rsrc_data->offset  = 0;
 	CAM_DBG(CAM_ISP, "WM %d width %d height %d", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
 
 	if (rsrc_data->index < 3 ||
-		(ver2_bus_priv->is_lite && rsrc_data->index == 3)) {
+		(rsrc_data->is_lite && rsrc_data->index == 3)) {
 		/* Write master 0-2 refers to RDI 0/ RDI 1/RDI 2 */
 		if ((out_port_info->reserved >> 8) & 0x01) {
 			/* frame based mode as default */
@@ -1161,7 +1163,8 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
 
 	/* Configure stride for RDIs */
-	if (rsrc_data->index < 3)
+	if (rsrc_data->index < 3 ||
+		(rsrc_data->is_lite && rsrc_data->index == 3))
 		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
 			rsrc_data->hw_regs->stride));
 
