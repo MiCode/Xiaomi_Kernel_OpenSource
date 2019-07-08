@@ -238,6 +238,14 @@ config ARM_QCOM_DEVFREQ_QOSLAT
 	  driver votes on this interface to request a particular
 	  memory latency QoS level.
 
+config DEVFREQ_GOV_STATICMAP
+	tristate "Device driver for static voting of DDR freq based on a clock rate change"
+	depends on ARCH_QCOM
+	help
+	  Clock notifier based governor for device to DDR Bandwidth voting.
+	  This governor votes for the DDR BW based on the device's clock rate
+	  change.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
