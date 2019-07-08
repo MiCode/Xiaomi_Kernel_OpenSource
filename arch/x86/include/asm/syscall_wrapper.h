@@ -44,6 +44,18 @@
 		return __se_sys##name(SC_IA32_REGS_TO_ARGS(x,__VA_ARGS__));\
 	}
 
+/*
+ * To keep the naming coherent, re-define SYSCALL_DEFINE0 to create an alias
+ * named __ia32_sys_*()
+ */
+
+#define SYSCALL_DEFINE0(sname)						\
+	SYSCALL_METADATA(_##sname, 0);					\
+	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused);\
+	ALLOW_ERROR_INJECTION(__x64_sys_##sname, ERRNO);		\
+	SYSCALL_ALIAS(__ia32_sys_##sname, __x64_sys_##sname);		\
+	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused)
+
 #define COND_SYSCALL(name)						\
 	cond_syscall(sys_##name);					\
 	cond_syscall(__ia32_sys_##name)
@@ -167,6 +179,30 @@
 		return ret;						\
 	}								\
 	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+
+/*
+ * As the generic SYSCALL_DEFINE0() macro does not decode any parameters for
+ * obvious reasons, and passing struct pt_regs *regs to it in %rdi does not
+ * hurt, we only need to re-define it here to keep the naming congruent to
+ * SYSCALL_DEFINEx() -- which is essential for the COND_SYSCALL() and SYS_NI()
+ * macros to work correctly.
+ */
+#ifndef SYSCALL_DEFINE0
+#define SYSCALL_DEFINE0(sname)					\
+	SYSCALL_METADATA(_##sname, 0);				\
+	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused);\
+	ALLOW_ERROR_INJECTION(__x64_sys_##sname, ERRNO);	\
+	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused)
+#endif
+
+#ifndef COND_SYSCALL
+#define COND_SYSCALL(name) cond_syscall(__x64_sys_##name)
+#endif
+
+#ifndef SYS_NI
+#define SYS_NI(name) SYSCALL_ALIAS(__x64_sys_##name, sys_ni_posix_timers);
+#endif
+
 
 /*
  * For VSYSCALLS, we need to declare these three syscalls with the new
