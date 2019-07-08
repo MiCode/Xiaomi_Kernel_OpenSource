@@ -1,5 +1,8 @@
 
 obj-$(CONFIG_MTK_MET) += met_drv/
+obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
+obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
+obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MMPROFILE) += mmp/
 obj-$(CONFIG_TRUSTKERNEL_TEE_SUPPORT) += tkcore/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
