@@ -668,11 +668,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	return ret;
 
 end_xfer_ep_out:
-	usb_gsi_ep_op(d_port->out_ep, NULL,
-		GSI_EP_OP_ENDXFER);
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, NULL,
+			GSI_EP_OP_ENDXFER);
 free_trb_ep_out:
-	usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
-		GSI_EP_OP_FREE_TRBS);
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+			GSI_EP_OP_FREE_TRBS);
 end_xfer_ep_in:
 	usb_gsi_ep_op(d_port->in_ep, NULL,
 		GSI_EP_OP_ENDXFER);
