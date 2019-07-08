@@ -1077,6 +1077,15 @@ int ipa3_qmi_rmv_offload_request_send(
 	req_desc.msg_id = QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01;
 	req_desc.ei_array = ipa_remove_offload_connection_req_msg_v01_ei;
 
+	/* clean the Dl rules  in the cache if flag is set */
+	if (req->clean_all_rules) {
+		for (i = 0; i < QMI_IPA_MAX_FILTERS_V01; i++)
+			if (ipa3_qmi_ctx->ipa_offload_cache[i].valid)
+				ipa3_qmi_ctx->ipa_offload_cache[i].valid =
+				false;
+	}
+
+
 	memset(&resp, 0, sizeof(struct
 		ipa_remove_offload_connection_resp_msg_v01));
 	resp_desc.max_msg_len =
