@@ -296,7 +296,9 @@ static int qg_config_s2_state(struct qpnp_qg *chip,
 		chip->s2_state_mask &= ~requested_state;
 
 	/* define the priority of the states */
-	if (chip->s2_state_mask & S2_LOW_VBAT)
+	if (chip->s2_state_mask & S2_FAST_CHARGING)
+		state = S2_FAST_CHARGING;
+	else if (chip->s2_state_mask & S2_LOW_VBAT)
 		state = S2_LOW_VBAT;
 	else if (chip->s2_state_mask & S2_SLEEP)
 		state = S2_SLEEP;
@@ -307,6 +309,11 @@ static int qg_config_s2_state(struct qpnp_qg *chip,
 		return 0;
 
 	switch (state) {
+	case S2_FAST_CHARGING:
+		fifo_length = chip->dt.fast_chg_s2_fifo_length;
+		acc_interval = chip->dt.s2_acc_intvl_ms;
+		acc_length = chip->dt.s2_acc_length;
+		break;
 	case S2_LOW_VBAT:
 		fifo_length = chip->dt.s2_vbat_low_fifo_length;
 		acc_interval = chip->dt.s2_acc_intvl_ms;
@@ -727,6 +734,22 @@ config_vbat_low:
 	qg_dbg(chip, QG_DEBUG_STATUS,
 		"VBAT LOW threshold updated to %dmV temp=%d\n",
 						vbat_mv, temp);
+
+	return rc;
+}
+
+static int qg_fast_charge_config(struct qpnp_qg *chip)
+{
+	int rc = 0;
+
+	if (!chip->dt.qg_fast_chg_cfg)
+		return 0;
+
+	rc = qg_config_s2_state(chip, S2_FAST_CHARGING,
+			(chip->charge_status == POWER_SUPPLY_STATUS_CHARGING)
+			? true : false, false);
+	if (rc < 0)
+		pr_err("Failed to exit S2_SLEEP rc=%d\n", rc);
 
 	return rc;
 }
@@ -1193,6 +1216,10 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 	rc = qg_vbat_thresholds_config(chip);
 	if (rc < 0)
 		pr_err("Failed to apply VBAT EMPTY config rc=%d\n", rc);
+
+	rc = qg_fast_charge_config(chip);
+	if (rc < 0)
+		pr_err("Failed to apply fast-charge config rc=%d\n", rc);
 
 	rc = qg_vbat_low_wa(chip);
 	if (rc < 0) {
@@ -3525,6 +3552,7 @@ static int qg_alg_init(struct qpnp_qg *chip)
 #define ESR_CHG_MIN_IBAT_UA		(-450000)
 #define DEFAULT_SLEEP_TIME_SECS		1800 /* 30 mins */
 #define DEFAULT_SYS_MIN_VOLT_MV		2800
+#define DEFAULT_FAST_CHG_S2_FIFO_LENGTH	1
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -3794,6 +3822,19 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 					DEFAULT_SLEEP_S2_ACC_INTVL_MS;
 		else
 			chip->dt.sleep_s2_acc_intvl_ms = temp;
+	}
+
+	if (of_property_read_bool(node, "qcom,qg-fast-chg-config")) {
+
+		chip->dt.qg_fast_chg_cfg = true;
+
+		rc = of_property_read_u32(node,
+				"qcom,fast-chg-s2-fifo-length", &temp);
+		if (rc < 0)
+			chip->dt.fast_chg_s2_fifo_length =
+					DEFAULT_FAST_CHG_S2_FIFO_LENGTH;
+		else
+			chip->dt.fast_chg_s2_fifo_length = temp;
 	}
 
 	chip->dt.qg_ext_sense = of_property_read_bool(node, "qcom,qg-ext-sns");
