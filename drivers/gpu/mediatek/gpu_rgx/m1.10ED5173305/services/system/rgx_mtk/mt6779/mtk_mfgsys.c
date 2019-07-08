@@ -16,7 +16,7 @@
 #include <linux/sched.h>
 #include "mtk_mfgsys.h"
 #ifndef MTK_BRINGUP
-#include "ged_gpufreq.h"
+#include "mtk_gpufreq.h"
 #endif
 
 #include "pvr_gputrace.h"
@@ -228,93 +228,6 @@ static void MTKWriteBackFreqToRGX(PVRSRV_DEVICE_NODE *psDevNode,
 #define MTKCLK_set_parent(clkC, clkP)
 #endif
 
-static struct g_clk_info *g_clk;
-
-static void mtgpufreq_clk_init(void)
-{
-	g_clk = kzalloc(sizeof(struct g_clk_info), GFP_KERNEL);
-
-	if (g_clk == NULL)
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: failed: %d", __func__, -ENOMEM));
-
-	if (gpsPVRCfgDev == NULL)
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: failed: %d", __func__, -ENODEV));
-
-	g_clk->clk_mux = devm_clk_get(&gpsPVRCfgDev->dev, "clk_mux");
-	if (IS_ERR(g_clk->clk_mux)) {
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: cannot get clk_mux",
-			__func__));
-	}
-
-	g_clk->clk_main_parent
-		= devm_clk_get(&gpsPVRCfgDev->dev, "clk_main_parent");
-	if (IS_ERR(g_clk->clk_main_parent)) {
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: cannot get clk_main_parent",
-			__func__));
-	}
-
-	g_clk->clk_sub_parent
-		= devm_clk_get(&gpsPVRCfgDev->dev, "clk_sub_parent");
-	if (IS_ERR(g_clk->clk_sub_parent)) {
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: cannot get clk_sub_parent",
-			__func__));
-	}
-
-	g_clk->cg_bg3d = devm_clk_get(&gpsPVRCfgDev->dev, "cg_bg3d");
-	if (IS_ERR(g_clk->cg_bg3d)) {
-		PVR_DPF((PVR_DBG_ERROR,
-			"%s: cannot get cg_bg3d",
-			__func__));
-	}
-
-	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
-		__func__, g_clk->clk_mux);
-	pr_info("clk_sub_parent is at 0x%p, ", g_clk->clk_sub_parent);
-	pr_info("clk_main_parent is at 0x%p, ", g_clk->clk_main_parent);
-}
-
-static void mtgpufreq_force_clk(enum g_clock_source_enum clksrc)
-{
-	int ret;
-
-	ret = clk_prepare_enable(g_clk->clk_mux);
-	if (ret)
-		PVR_DPF((PVR_DBG_ERROR,
-			"enable clk_mux(TOP_MUX_MFG) failed, ret = %d",
-			__func__, ret));
-
-	if (clksrc == CLOCK_MAIN) {
-		clk_set_parent(g_clk->clk_mux, g_clk->clk_main_parent);
-		/* Enable CG when set to GPUPLL*/
-		clk_prepare_enable(g_clk->cg_bg3d);
-		pr_info("@%s: switch to main clock source done\n",
-			__func__);
-	} else if (clksrc == CLOCK_SUB) {
-		clk_set_parent(g_clk->clk_mux, g_clk->clk_sub_parent);
-		pr_info("@%s: switch to sub clock source done\n",
-			__func__);
-	} else {
-		pr_debug(
-			"@%s: clock source index is not valid, clksrc = %d\n",
-			__func__, clksrc);
-	}
-
-
-	/* TBD: currently not disable clk
-	 * clk_disable_unprepare(g_clk->clk_mux);
-	 */
-}
-
-
-void MTKDisablePowerDomain(void)
-{
-}
-
 
 #ifdef MTK_MFGMTCMOS_AO
 static bool isPowerOn;
@@ -359,7 +272,6 @@ static void MTKDisableMfgMtcmos0(void)
 static void MTKEnableMfgClock(IMG_BOOL bForce)
 {
 	IMG_UINT64 ui64CC_val;
-	int i32Ret;
 #ifdef MTK_GPU_DVFS
 	mt_gpufreq_voltage_enable_set(BUCK_ON);
 #endif
@@ -370,16 +282,6 @@ static void MTKEnableMfgClock(IMG_BOOL bForce)
 #else
 	mt_gpufreq_enable_MTCMOS(true);
 #endif
-	if (g_pdev) {
-		i32Ret = pm_runtime_get_sync(g_pdev);
-		if (i32Ret < 0) {
-			PVR_DPF((PVR_DBG_ERROR,
-			"%s: pm_runtime_get failed (%d)", __func__, i32Ret));
-		}
-	} else
-		PVR_DPF((PVR_DBG_ERROR, "g_pdev is NULL"));
-
-	mtgpufreq_force_clk(CLOCK_MAIN);
 #endif
 
 	ui64CC_val = OSReadHWReg64(g_gpu_base, 0xA520);
@@ -416,7 +318,6 @@ static void MTKEnableMfgClock(IMG_BOOL bForce)
 static void MTKDisableMfgClock(IMG_BOOL bForce)
 {
 	int buck_state;
-	int i32Ret;
 	mtk_notify_gpu_power_change(0);
 	ged_dvfs_gpu_clock_switch_notify(0);
 
@@ -426,14 +327,6 @@ static void MTKDisableMfgClock(IMG_BOOL bForce)
 #else
 	mt_gpufreq_disable_MTCMOS(true);
 #endif
-	if (g_pdev) {
-		i32Ret = pm_runtime_put_sync(g_pdev);
-		if (i32Ret < 0) {
-			PVR_DPF((PVR_DBG_ERROR,
-			"%s: pm_runtime_put failed (%d)", __func__, i32Ret));
-		}
-	} else
-		PVR_DPF((PVR_DBG_ERROR, "g_pdev is NULL"));
 #endif
 
 #ifdef MTK_GPU_DVFS
@@ -1579,26 +1472,14 @@ int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 	g_pdev = psDevConfig->pvOSDevice;
 	g_pdev->coherent_dma_mask = DMA_BIT_MASK(64);
 
-	if (!g_pdev) {
-		PVR_DPF((PVR_DBG_ERROR,
-		"g_pdev is NULL, something wrong ?"));
-		return PVRSRV_ERROR_NOT_INITIALISED;
-	}
-
-	pm_runtime_enable(g_pdev);
-
 #ifndef MTK_GPU_DVFS
 	/* Only Enable buck to get cg & mtcmos */
 	/* To-Do: mt_gpufreq_voltage_enable_set(BUCK_ON); */
 #endif
 
-	mtgpufreq_clk_init();
 #ifndef MTK_BRINGUP
 	/* Enable CG & mtcmos */
 	MTKEnableMfgClock(IMG_TRUE);
-#else
-	/* Force Clock On */
-	mtgpufreq_force_clk(CLOCK_MAIN);
 #endif
 
 
@@ -1627,15 +1508,6 @@ int MTKRGXDeviceInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 
 int MTKRGXDeviceDeInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
-	if (!g_pdev)
-		PVR_DPF((PVR_DBG_ERROR,
-		"g_pdev is NULL, No Harm"));
-	else
-		pm_runtime_disable(g_pdev);
-
-#ifdef MTK_BRINGUP
-	kfree(g_clk);
-#endif
 	return 0;
 }
 

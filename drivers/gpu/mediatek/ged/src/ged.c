@@ -50,6 +50,9 @@ unsigned int ged_get_cur_fps(void)
 }
 
 #ifndef MTK_GPU_DVFS
+/*
+ * Below code segment are fake gpufreq API set
+ */
 #include "ged_gpufreq.h"
 /****************************
  * MTK GPUFREQ API

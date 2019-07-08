@@ -249,8 +249,9 @@ ccflags-y += \
 	-I$(srctree)/drivers/staging/android/ion \
 	-I$(srctree)/drivers/staging/android/ion/mtk \
 	-I$(srctree)/drivers/gpu/mediatek/ged/include \
-	-I$(srctree)/drivers/gpu/mediatek
-#	-I$(srctree)/drivers/misc/mediatek/include/mt-plat 
+	-I$(srctree)/drivers/gpu/mediatek \
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include
+#	-I$(srctree)/drivers/misc/mediatek/include/mt-plat
 #	-I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm \
 #	-I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 

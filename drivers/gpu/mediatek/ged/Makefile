@@ -73,7 +73,7 @@ endif
 endif
 endif
 
-ccflags-y += -DMET_USER_EVENT_SUPPORT
+ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
 
 ccflags-y += \
 	     -I$(srctree)/include/ \
@@ -86,7 +86,8 @@ ccflags-y += \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
-	     -I$(srctree)/drivers/misc/mediatek/dfrc/
+	     -I$(srctree)/drivers/misc/mediatek/dfrc/ \
+	     -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
