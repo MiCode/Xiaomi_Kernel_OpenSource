@@ -12,21 +12,21 @@
 #include "debug.h"
 
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
-	{"vdd-wlan-core", 1300000, 1300000, 0, 0},
-	{"vdd-wlan-io", 1800000, 1800000, 0, 0},
-	{"vdd-wlan-xtal-aon", 0, 0, 0, 0},
-	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2},
-	{"vdd-wlan", 0, 0, 0, 0},
-	{"vdd-wlan-ctrl1", 0, 0, 0, 0},
-	{"vdd-wlan-ctrl2", 0, 0, 0, 0},
-	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0},
-	{"wlan-ant-switch", 1800000, 1800000, 0, 0},
-	{"wlan-soc-swreg", 1200000, 1200000, 0, 0},
-	{"vdd-wlan-aon", 950000, 950000, 0, 0},
-	{"vdd-wlan-dig", 950000, 952000, 0, 0},
-	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0},
-	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0},
-	{"vdd-wlan-en", 0, 0, 0, 10},
+	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
+	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
+	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0},
+	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0},
+	{"vdd-wlan", 0, 0, 0, 0, 0},
+	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0},
+	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0},
+	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0},
+	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0},
+	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0},
+	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0},
+	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0},
+	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0},
+	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0},
+	{"vdd-wlan-en", 0, 0, 0, 10, 0},
 };
 
 static struct cnss_clk_cfg cnss_clk_list[] = {
@@ -80,11 +80,11 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 
 	vreg->reg = reg;
 
-	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-info",
+	snprintf(prop_name, MAX_PROP_SIZE, "qcom,%s-config",
 		 vreg->cfg.name);
 
 	prop = of_get_property(dev->of_node, prop_name, &len);
-	if (!prop || len != (4 * sizeof(__be32))) {
+	if (!prop || len != (5 * sizeof(__be32))) {
 		cnss_pr_dbg("Property %s %s, use default\n", prop_name,
 			    prop ? "invalid format" : "doesn't exist");
 	} else {
@@ -92,12 +92,13 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 		vreg->cfg.max_uv = be32_to_cpup(&prop[1]);
 		vreg->cfg.load_ua = be32_to_cpup(&prop[2]);
 		vreg->cfg.delay_us = be32_to_cpup(&prop[3]);
+		vreg->cfg.need_unvote = be32_to_cpup(&prop[4]);
 	}
 
-	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u\n",
+	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u, need_unvote: %u\n",
 		    vreg->cfg.name, vreg->cfg.min_uv,
 		    vreg->cfg.max_uv, vreg->cfg.load_ua,
-		    vreg->cfg.delay_us);
+		    vreg->cfg.delay_us, vreg->cfg.need_unvote);
 
 	return 0;
 }
@@ -161,6 +162,36 @@ static int cnss_vreg_on_single(struct cnss_vreg_info *vreg)
 	vreg->enabled = true;
 
 out:
+	return ret;
+}
+
+static int cnss_vreg_unvote_single(struct cnss_vreg_info *vreg)
+{
+	int ret = 0;
+
+	if (!vreg->enabled) {
+		cnss_pr_dbg("Regulator %s is already disabled\n",
+			    vreg->cfg.name);
+		return 0;
+	}
+
+	cnss_pr_dbg("Removing vote for Regulator %s\n", vreg->cfg.name);
+
+	if (vreg->cfg.load_ua) {
+		ret = regulator_set_load(vreg->reg, 0);
+		if (ret < 0)
+			cnss_pr_err("Failed to set load for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+
+	if (vreg->cfg.min_uv != 0 && vreg->cfg.max_uv != 0) {
+		ret = regulator_set_voltage(vreg->reg, 0,
+					    vreg->cfg.max_uv);
+		if (ret)
+			cnss_pr_err("Failed to set voltage for regulator %s, err = %d\n",
+				    vreg->cfg.name, ret);
+	}
+
 	return ret;
 }
 
@@ -310,6 +341,22 @@ static int cnss_vreg_off(struct cnss_plat_data *plat_priv,
 	return 0;
 }
 
+static int cnss_vreg_unvote(struct cnss_plat_data *plat_priv,
+			    struct list_head *vreg_list)
+{
+	struct cnss_vreg_info *vreg;
+
+	list_for_each_entry_reverse(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+
+		if (vreg->cfg.need_unvote)
+			cnss_vreg_unvote_single(vreg);
+	}
+
+	return 0;
+}
+
 int cnss_get_vreg_type(struct cnss_plat_data *plat_priv,
 		       enum cnss_vreg_type type)
 {
@@ -371,6 +418,23 @@ int cnss_vreg_off_type(struct cnss_plat_data *plat_priv,
 	switch (type) {
 	case CNSS_VREG_PRIM:
 		ret = cnss_vreg_off(plat_priv, &plat_priv->vreg_list);
+		break;
+	default:
+		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+int cnss_vreg_unvote_type(struct cnss_plat_data *plat_priv,
+			  enum cnss_vreg_type type)
+{
+	int ret = 0;
+
+	switch (type) {
+	case CNSS_VREG_PRIM:
+		ret = cnss_vreg_unvote(plat_priv, &plat_priv->vreg_list);
 		break;
 	default:
 		cnss_pr_err("Unsupported vreg type 0x%x\n", type);
