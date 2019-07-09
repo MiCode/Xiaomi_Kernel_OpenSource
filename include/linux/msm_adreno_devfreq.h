@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  */
 
 #ifndef MSM_ADRENO_DEVFREQ_H
@@ -52,8 +52,8 @@ struct devfreq_msm_adreno_tz_data {
 		u32 width;
 		u32 *up;
 		u32 *down;
-		u32 *p_up;
-		u32 *p_down;
+		s32 *p_up;
+		s32 *p_down;
 		unsigned int *index;
 		uint64_t *ib;
 	} bus;
