@@ -354,6 +354,7 @@ struct arm_smmu_cfg {
 static int tbu_testbus_sel = TBU_TESTBUS_SEL_ALL;
 static int tcu_testbus_sel = TCU_TESTBUS_SEL_ALL;
 static struct dentry *debugfs_testbus_dir;
+static DEFINE_SPINLOCK(testbus_lock);
 
 module_param_named(tcu_testbus_sel, tcu_testbus_sel, int, 0644);
 module_param_named(tbu_testbus_sel, tbu_testbus_sel, int, 0644);
@@ -397,6 +398,39 @@ struct arm_smmu_domain {
 struct arm_smmu_option_prop {
 	u32 opt;
 	const char *prop;
+};
+
+struct actlr_setting {
+	struct arm_smmu_smr smr;
+	u32 actlr;
+};
+
+struct qsmmuv500_archdata {
+	struct list_head		tbus;
+	void __iomem			*tcu_base;
+	u32				version;
+	struct actlr_setting		*actlrs;
+	u32				actlr_tbl_size;
+	u32				testbus_version;
+};
+
+#define get_qsmmuv500_archdata(smmu)				\
+	((struct qsmmuv500_archdata *)(smmu->archdata))
+
+struct qsmmuv500_tbu_device {
+	struct list_head		list;
+	struct device			*dev;
+	struct arm_smmu_device		*smmu;
+	void __iomem			*base;
+	void __iomem			*status_reg;
+
+	struct arm_smmu_power_resources *pwr;
+	u32				sid_start;
+	u32				num_sids;
+
+	/* Protects halt count */
+	spinlock_t			halt_lock;
+	u32				halt_count;
 };
 
 static atomic_t cavium_smmu_context_count = ATOMIC_INIT(0);
@@ -1117,9 +1151,24 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 	arm_smmu_power_off(smmu->pwr);
 }
 
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
+	struct arm_smmu_device *smmu, u32 sid)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (tbu->sid_start <= sid &&
+		    sid < tbu->sid_start + tbu->num_sids)
+			return tbu;
+	}
+	return NULL;
+}
+
 /* Wait for any pending TLB invalidations to complete */
 static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
-				void __iomem *sync, void __iomem *status)
+			void __iomem *sync, void __iomem *status,
+			struct arm_smmu_domain *smmu_domain)
 {
 	unsigned int spin_cnt, delay;
 	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
@@ -1143,6 +1192,45 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked ack 0x%x pwr 0x%x sync and invalidation progress 0x%x\n",
 			    sync_inv_ack, tbu_pwr_status, sync_inv_progress);
+
+	if (smmu->model == QCOM_SMMUV500 &&
+			IS_ENABLED(CONFIG_ARM_SMMU_TESTBUS_DUMP)) {
+
+		struct qsmmuv500_archdata *data;
+
+		spin_lock(&testbus_lock);
+		data = smmu->archdata;
+
+		if (smmu_domain) {
+			struct qsmmuv500_tbu_device *tbu;
+			int i, idx;
+			u16 sid = U16_MAX;
+			struct device *dev = smmu->dev;
+			struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+			struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+			struct arm_smmu_smr *smrs = smmu->smrs;
+
+			mutex_lock(&smmu->stream_map_mutex);
+			for_each_cfg_sme(fwspec, i, idx) {
+				if (smmu->s2crs[idx].cbndx == cfg->cbndx) {
+					sid = smrs[idx].id;
+					break;
+				}
+			}
+			mutex_unlock(&smmu->stream_map_mutex);
+
+			tbu = qsmmuv500_find_tbu(smmu, sid);
+			if (tbu)
+				arm_smmu_debug_dump_tbu_testbus(tbu->dev,
+						tbu->base, data->tcu_base,
+						tbu_testbus_sel,
+						data->testbus_version);
+		}
+		arm_smmu_debug_dump_tcu_testbus(smmu->dev, ARM_SMMU_GR0(smmu),
+				data->tcu_base, tcu_testbus_sel);
+		spin_unlock(&testbus_lock);
+	}
+
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 	return -EINVAL;
 }
@@ -1154,7 +1242,7 @@ static void arm_smmu_tlb_sync_global(struct arm_smmu_device *smmu)
 
 	spin_lock_irqsave(&smmu->global_sync_lock, flags);
 	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_GR0_sTLBGSYNC,
-					base + ARM_SMMU_GR0_sTLBGSTATUS))
+				base + ARM_SMMU_GR0_sTLBGSTATUS, NULL))
 		dev_err_ratelimited(smmu->dev,
 				    "TLB global sync failed!\n");
 	spin_unlock_irqrestore(&smmu->global_sync_lock, flags);
@@ -1169,7 +1257,7 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
 	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
-					base + ARM_SMMU_CB_TLBSTATUS))
+				base + ARM_SMMU_CB_TLBSTATUS, smmu_domain))
 		dev_err_ratelimited(smmu->dev,
 				"TLB sync on cb%d failed for device %s\n",
 				smmu_domain->cfg.cbndx,
@@ -5069,38 +5157,6 @@ module_exit(arm_smmu_exit);
 
 #define TBU_DBG_TIMEOUT_US		100
 
-struct actlr_setting {
-	struct arm_smmu_smr smr;
-	u32 actlr;
-};
-
-struct qsmmuv500_archdata {
-	struct list_head		tbus;
-	void __iomem			*tcu_base;
-	u32				version;
-	struct actlr_setting		*actlrs;
-	u32				actlr_tbl_size;
-	u32				testbus_version;
-};
-#define get_qsmmuv500_archdata(smmu)				\
-	((struct qsmmuv500_archdata *)(smmu->archdata))
-
-struct qsmmuv500_tbu_device {
-	struct list_head		list;
-	struct device			*dev;
-	struct arm_smmu_device		*smmu;
-	void __iomem			*base;
-	void __iomem			*status_reg;
-
-	struct arm_smmu_power_resources *pwr;
-	u32				sid_start;
-	u32				num_sids;
-
-	/* Protects halt count */
-	spinlock_t			halt_lock;
-	u32				halt_count;
-};
-
 struct qsmmuv500_group_iommudata {
 	bool has_actlr;
 	u32 actlr;
@@ -5221,19 +5277,6 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
 
-static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
-	struct arm_smmu_device *smmu, u32 sid)
-{
-	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		if (tbu->sid_start <= sid &&
-		    sid < tbu->sid_start + tbu->num_sids)
-			return tbu;
-	}
-	return NULL;
-}
 
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 				struct qsmmuv500_tbu_device *tbu,
