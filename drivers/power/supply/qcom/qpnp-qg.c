@@ -91,6 +91,7 @@ static struct attribute *qg_attrs[] = {
 ATTRIBUTE_GROUPS(qg);
 
 static int qg_process_rt_fifo(struct qpnp_qg *chip);
+static int qg_load_battery_profile(struct qpnp_qg *chip);
 
 static bool is_battery_present(struct qpnp_qg *chip)
 {
@@ -1570,6 +1571,47 @@ static int qg_store_learned_capacity(void *data, int64_t learned_cap_uah)
 	return 0;
 }
 
+static int qg_get_batt_age_level(void *data, u32 *batt_age_level)
+{
+	struct qpnp_qg *chip = data;
+	int rc;
+
+	if (!chip)
+		return -ENODEV;
+
+	if (chip->battery_missing || is_debug_batt_id(chip))
+		return -ENODEV;
+
+	*batt_age_level = 0;
+	rc = qg_sdam_read(SDAM_BATT_AGE_LEVEL, batt_age_level);
+	if (rc < 0) {
+		pr_err("Error in reading batt_age_level, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int qg_store_batt_age_level(void *data, u32 batt_age_level)
+{
+	struct qpnp_qg *chip = data;
+	int rc;
+
+	if (!chip)
+		return -ENODEV;
+
+	if (chip->battery_missing)
+		return -ENODEV;
+
+	rc = qg_sdam_write(SDAM_BATT_AGE_LEVEL, batt_age_level);
+	if (rc < 0) {
+		pr_err("Error in writing batt_age_level, rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int qg_get_cc_soc(void *data, int *cc_soc)
 {
 	struct qpnp_qg *chip = data;
@@ -1940,6 +1982,40 @@ done:
 	return rc;
 }
 
+static int qg_setprop_batt_age_level(struct qpnp_qg *chip, int batt_age_level)
+{
+	int rc = 0;
+
+	if (!chip->dt.multi_profile_load)
+		return 0;
+
+	if (batt_age_level < 0) {
+		pr_err("Invalid age-level %d\n", batt_age_level);
+		return -EINVAL;
+	}
+
+	if (chip->batt_age_level == batt_age_level) {
+		qg_dbg(chip, QG_DEBUG_PROFILE, "Same age-level %d\n",
+						chip->batt_age_level);
+		return 0;
+	}
+
+	chip->batt_age_level = batt_age_level;
+	rc = qg_load_battery_profile(chip);
+	if (rc < 0) {
+		pr_err("failed to load profile\n");
+	} else {
+		rc = qg_store_batt_age_level(chip, batt_age_level);
+		if (rc < 0)
+			pr_err("error in storing batt_age_level rc =%d\n", rc);
+	}
+
+	qg_dbg(chip, QG_DEBUG_PROFILE, "Profile with batt_age_level = %d loaded\n",
+						chip->batt_age_level);
+
+	return rc;
+}
+
 static int qg_psy_set_property(struct power_supply *psy,
 			       enum power_supply_property psp,
 			       const union power_supply_propval *pval)
@@ -1971,6 +2047,8 @@ static int qg_psy_set_property(struct power_supply *psy,
 		chip->soh = pval->intval;
 		qg_dbg(chip, QG_DEBUG_STATUS, "SOH update: SOH=%d esr_actual=%d esr_nominal=%d\n",
 				chip->soh, chip->esr_actual, chip->esr_nominal);
+		if (chip->sp)
+			soh_profile_update(chip->sp, chip->soh);
 		break;
 	case POWER_SUPPLY_PROP_ESR_ACTUAL:
 		chip->esr_actual = pval->intval;
@@ -1980,6 +2058,9 @@ static int qg_psy_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FG_RESET:
 		qg_reset(chip);
+		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		rc = qg_setprop_batt_age_level(chip, pval->intval);
 		break;
 	default:
 		break;
@@ -2110,6 +2191,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCALE_MODE_EN:
 		pval->intval = chip->fvss_active;
 		break;
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+		pval->intval = chip->batt_age_level;
+		break;
 	default:
 		pr_debug("Unsupported property %d\n", psp);
 		break;
@@ -2127,6 +2211,7 @@ static int qg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ESR_NOMINAL:
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_FG_RESET:
+	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
 		return 1;
 	default:
 		break;
@@ -2169,6 +2254,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_SCALE_MODE_EN,
+	POWER_SUPPLY_PROP_BATT_AGE_LEVEL,
 };
 
 static const struct power_supply_desc qg_psy_desc = {
@@ -2807,17 +2893,39 @@ static int get_batt_id_ohm(struct qpnp_qg *chip, u32 *batt_id_ohm)
 static int qg_load_battery_profile(struct qpnp_qg *chip)
 {
 	struct device_node *node = chip->dev->of_node;
-	struct device_node *batt_node, *profile_node;
-	int rc, tuple_len, len, i;
+	struct device_node *profile_node;
+	int rc, tuple_len, len, i, avail_age_level = 0;
 
-	batt_node = of_find_node_by_name(node, "qcom,battery-data");
-	if (!batt_node) {
+	chip->batt_node = of_find_node_by_name(node, "qcom,battery-data");
+	if (!chip->batt_node) {
 		pr_err("Batterydata not available\n");
 		return -ENXIO;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node,
+	if (chip->dt.multi_profile_load) {
+		if (chip->batt_age_level == -EINVAL) {
+			rc = qg_get_batt_age_level(chip, &chip->batt_age_level);
+			if (rc < 0) {
+				pr_err("error in retrieving batt age level rc=%d\n",
+									rc);
+				return rc;
+			}
+		}
+		profile_node = of_batterydata_get_best_aged_profile(
+					chip->batt_node,
+					chip->batt_id_ohm / 1000,
+					chip->batt_age_level,
+					&avail_age_level);
+		if (chip->batt_age_level != avail_age_level) {
+			qg_dbg(chip, QG_DEBUG_PROFILE, "Batt_age_level %d doesn't exist, using %d\n",
+					chip->batt_age_level, avail_age_level);
+			chip->batt_age_level = avail_age_level;
+		}
+	} else {
+		profile_node = of_batterydata_get_best_profile(chip->batt_node,
 				chip->batt_id_ohm / 1000, NULL);
+	}
+
 	if (IS_ERR(profile_node)) {
 		rc = PTR_ERR(profile_node);
 		pr_err("Failed to detect valid QG battery profile %d\n", rc);
@@ -3434,9 +3542,44 @@ done_fifo:
 	return 0;
 }
 
+static int qg_soh_batt_profile_init(struct qpnp_qg *chip)
+{
+	int rc = 0;
+
+	if (!chip->dt.multi_profile_load)
+		return 0;
+
+	if (is_debug_batt_id(chip) || chip->battery_missing)
+		return 0;
+
+	if (!chip->sp)
+		chip->sp = devm_kzalloc(chip->dev, sizeof(*chip->sp),
+					GFP_KERNEL);
+	if (!chip->sp)
+		return -ENOMEM;
+
+	if (!chip->sp->initialized) {
+		chip->sp->batt_id_kohms = chip->batt_id_ohm / 1000;
+		chip->sp->bp_node = chip->batt_node;
+		chip->sp->last_batt_age_level = chip->batt_age_level;
+		chip->sp->bms_psy = chip->qg_psy;
+		rc = soh_profile_init(chip->dev, chip->sp);
+		if (rc < 0) {
+			devm_kfree(chip->dev, chip->sp);
+			chip->sp = NULL;
+		} else {
+			qg_dbg(chip, QG_DEBUG_PROFILE, "SOH profile count: %d\n",
+				chip->sp->profile_count);
+		}
+	}
+
+	return rc;
+}
+
 static int qg_post_init(struct qpnp_qg *chip)
 {
 	u8 status = 0;
+	int rc = 0;
 
 	/* disable all IRQs if profile is not loaded */
 	if (!chip->profile_loaded) {
@@ -3454,6 +3597,14 @@ static int qg_post_init(struct qpnp_qg *chip)
 
 	/* read STATUS2 register to clear its last state */
 	qg_read(chip, chip->qg_base + QG_STATUS2_REG, &status, 1);
+
+	/*soh based multi profile init */
+	rc = qg_soh_batt_profile_init(chip);
+	if (rc < 0) {
+		pr_err("Failed to initialize battery based on soh rc=%d\n",
+								rc);
+		return rc;
+	}
 
 	return 0;
 }
@@ -4072,6 +4223,9 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 			chip->dt.fvss_vbat_mv = temp;
 	}
 
+	chip->dt.multi_profile_load = of_property_read_bool(node,
+					"qcom,multi-profile-load");
+
 	qg_dbg(chip, QG_DEBUG_PON, "DT: vbatt_empty_mv=%dmV vbatt_low_mv=%dmV delta_soc=%d ext-sns=%d\n",
 			chip->dt.vbatt_empty_mv, chip->dt.vbatt_low_mv,
 			chip->dt.delta_soc, chip->dt.qg_ext_sense);
@@ -4374,6 +4528,7 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	chip->soh = -EINVAL;
 	chip->esr_actual = -EINVAL;
 	chip->esr_nominal = -EINVAL;
+	chip->batt_age_level = -EINVAL;
 
 	qg_create_debugfs(chip);
 
@@ -4395,6 +4550,12 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = qg_sdam_init(chip->dev);
+	if (rc < 0) {
+		pr_err("Failed to initialize QG SDAM, rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = qg_setup_battery(chip);
 	if (rc < 0) {
 		pr_err("Failed to setup battery, rc=%d\n", rc);
@@ -4404,12 +4565,6 @@ static int qpnp_qg_probe(struct platform_device *pdev)
 	rc = qg_register_device(chip);
 	if (rc < 0) {
 		pr_err("Failed to register QG char device, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = qg_sdam_init(chip->dev);
-	if (rc < 0) {
-		pr_err("Failed to initialize QG SDAM, rc=%d\n", rc);
 		return rc;
 	}
 
