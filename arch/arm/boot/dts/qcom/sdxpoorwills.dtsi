@@ -588,6 +588,9 @@
 
 		qcom,restore-after-cx-collapse;
 
+		/* DLL HSR settings. Refer go/hsr - <Target> DLL settings */
+		qcom,dll-hsr-list = <0x0007642c 0x0 0x10 0x2c010800 0x80040868>;
+
 		status = "disabled";
 	};
 
