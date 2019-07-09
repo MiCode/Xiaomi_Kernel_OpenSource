@@ -276,6 +276,17 @@ int cam_vfe_top_reserve(void *device_priv,
 					break;
 			}
 
+			if ((acquire_args->res_id >=
+				CAM_ISP_HW_VFE_IN_RDI0) &&
+				(acquire_args->res_id <=
+				CAM_ISP_HW_VFE_IN_RDI3)) {
+				rc = cam_vfe_rdi_ver2_acquire_resource(
+					&top_priv->top_common.mux_rsrc[i],
+					args);
+				if (rc)
+					break;
+			}
+
 			if (acquire_args->res_id == CAM_ISP_HW_VFE_IN_RD) {
 				rc = cam_vfe_fe_ver1_acquire_resource(
 					&top_priv->top_common.mux_rsrc[i],
