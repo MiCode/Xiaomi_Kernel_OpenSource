@@ -22,11 +22,16 @@ extern "C" {
 #endif
 
 #define M4U_DEVNAME				"m4u"
-#define MAX_SEC_M4U_NUM				2
 #define REG_MMU_PT_BASE_ADDR			0x0
 #define MMU_PT_ADDR_MASK			GENMASK(31, 7)
 #define F_PGD_REG_BIT32				BIT(0)
 #define F_PGD_REG_BIT33				BIT(1)
+
+enum m4u_secure_bank {
+	MM_SECURE_BANK,
+	VPU_SECURE_BANK,
+	SECURE_BANK_NUM
+};
 
 struct m4u_device {
 	/*struct miscdevice dev;*/

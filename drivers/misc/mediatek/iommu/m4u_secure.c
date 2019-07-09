@@ -29,7 +29,7 @@
 
 struct m4u_device *m4u_dev;
 static unsigned long m4u_mm_base;
-static unsigned int m4u_dev_irq[MAX_SEC_M4U_NUM];
+static unsigned int m4u_dev_irq[SECURE_BANK_NUM];
 
 int M4U_L2_ENABLE = 1;
 static unsigned long mtk_m4u_get_pt(void);
@@ -604,7 +604,8 @@ static const struct file_operations m4u_fops = {
 static int m4u_probe(struct platform_device *pdev)
 {
 	struct device           *dev = &pdev->dev;
-	int i, sec_m4u_nr, ret;
+	struct device_node *node = pdev->dev.of_node;
+	int i, ret;
 	struct device_node *mm_m4unode = NULL;
 	struct platform_device *plarbdev;
 
@@ -629,6 +630,7 @@ static int m4u_probe(struct platform_device *pdev)
 							 &m4u_fops);
 	if (!m4u_dev->m4u_dev_proc_entry) {
 		pr_err("proc m4u create error\n");
+		kfree(m4u_dev);
 		return -ENODEV;
 	}
 
@@ -636,41 +638,16 @@ static int m4u_probe(struct platform_device *pdev)
 
 	dev_info(m4u_dev->dev, "mm m4u base:0x%lx\n", m4u_mm_base);
 
-	sec_m4u_nr = of_count_phandle_with_args(dev->of_node,
-					     "mediatek,sec_m4us", NULL);
-
-	if (sec_m4u_nr < 0) {
-		pr_err("sec m4u nr is error\n");
-		proc_remove(m4u_dev->m4u_dev_proc_entry);
-		kfree(m4u_dev);
-		return sec_m4u_nr;
-	}
-
-	for (i = 0; i < sec_m4u_nr; i++) {
-		struct device_node *m4unode;
-		int err, id;
-
-		m4unode = of_parse_phandle(dev->of_node,
-					   "mediatek,sec_m4us", i);
-
-		if (!m4unode) {
-			pr_err("not find m4u dts\n");
-			return -EINVAL;
-		}
-
-		err = of_property_read_u32(m4unode, "cell-index", &id);
-		if (err)
-			pr_err("get m4u platform_device id fail!!\n");
-
-		m4u_dev_irq[id] = irq_of_parse_and_map(m4unode, 0);
+	for (i = MM_SECURE_BANK; i < SECURE_BANK_NUM; i++) {
+		m4u_dev_irq[i] = irq_of_parse_and_map(node, i);
 
 		dev_info(m4u_dev->dev, "secure irq:%u, id:%d\n",
-			 m4u_dev_irq[id], id);
+			 m4u_dev_irq[i], i);
 
-		if (request_irq(m4u_dev_irq[id], mtk_m4u_isr_sec,
+		if (request_irq(m4u_dev_irq[i], mtk_m4u_isr_sec,
 				IRQF_TRIGGER_NONE, "secure_m4u", NULL)) {
 			pr_err("request secure m4u%d IRQ line failed\n",
-				id);
+				i);
 			return -ENODEV;
 		}
 	}
