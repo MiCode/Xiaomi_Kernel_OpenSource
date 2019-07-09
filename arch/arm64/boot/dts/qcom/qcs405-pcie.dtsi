@@ -65,10 +65,9 @@
 				0x0044 0x00  0x0>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-0 = <&pcie0_perst_default>;
 
 		perst-gpio = <&tlmm 43 0>;
-		wake-gpio = <&tlmm 21 0>;
 
 		vreg-1.8-supply = <&pms405_l5>;
 		vreg-0.9-supply = <&pms405_l3>;
