@@ -1179,8 +1179,7 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		return;
 
 	/* Domain attribute to enable system cache for GPU pagetable walks */
-	if (adreno_is_a650_family(adreno_dev) || adreno_is_a640(adreno_dev) ||
-		adreno_is_a612(adreno_dev))
+	if (mmu->subtype == KGSL_IOMMU_SMMU_V500)
 		ret = iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_USE_LLC_NWA, &gpuhtw_llc_enable);
 	else
@@ -2639,7 +2638,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	u32 reg_val[2];
 	int i = 0;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-	struct device_node *child;
+	struct device_node *child, *iommu_node = NULL;
 	struct platform_device *pdev = of_find_device_by_node(node);
 
 	memset(iommu, 0, sizeof(*iommu));
@@ -2699,7 +2698,14 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 		ret = _kgsl_iommu_cb_probe(device, iommu, child);
 		if (ret)
 			return ret;
+
+		if (!iommu_node)
+			iommu_node = of_parse_phandle(child, "iommus", 0);
 	}
+
+	if (iommu_node &&
+		of_device_is_compatible(iommu_node, "qcom,qsmmu-v500"))
+		device->mmu.subtype = KGSL_IOMMU_SMMU_V500;
 
 	return 0;
 }

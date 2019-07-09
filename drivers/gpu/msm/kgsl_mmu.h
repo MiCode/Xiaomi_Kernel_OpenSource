@@ -30,6 +30,8 @@ enum kgsl_mmutype {
 	KGSL_MMU_TYPE_NONE
 };
 
+#define KGSL_IOMMU_SMMU_V500 1
+
 struct kgsl_pagetable {
 	spinlock_t lock;
 	struct kref refcount;
@@ -140,6 +142,7 @@ struct kgsl_mmu_pt_ops {
  * struct kgsl_mmu - Master definition for KGSL MMU devices
  * @flags: MMU device flags
  * @type: Type of MMU that is attached
+ * @subtype: Sub Type of MMU that is attached
  * @defaultpagetable: Default pagetable object for the MMU
  * @securepagetable: Default secure pagetable object for the MMU
  * @mmu_ops: Function pointers for the MMU sub-type
@@ -151,6 +154,7 @@ struct kgsl_mmu_pt_ops {
 struct kgsl_mmu {
 	unsigned long flags;
 	enum kgsl_mmutype type;
+	u32 subtype;
 	struct kgsl_pagetable *defaultpagetable;
 	struct kgsl_pagetable *securepagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
