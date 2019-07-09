@@ -1084,9 +1084,10 @@ end:
 static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 {
 	int rc = 0;
-	const struct cam_ife_csid_reg_offset      *csid_reg;
-	struct cam_hw_soc_info              *soc_info;
-	uint32_t i, val, clk_lvl;
+	const struct cam_ife_csid_reg_offset   *csid_reg;
+	struct cam_hw_soc_info                 *soc_info;
+	uint32_t                               i, val;
+	int                                    clk_lvl;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1108,8 +1109,15 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	CAM_DBG(CAM_ISP, "CSID:%d init CSID HW",
 		csid_hw->hw_intf->hw_idx);
 
-	clk_lvl = cam_soc_util_get_vote_level(soc_info, csid_hw->clk_rate);
-	CAM_DBG(CAM_ISP, "CSID clock lvl %u", clk_lvl);
+	rc = cam_soc_util_get_clk_level(soc_info, csid_hw->clk_rate,
+		soc_info->src_clk_idx, &clk_lvl);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Failed to get clk level for rate %d",
+			csid_hw->clk_rate);
+		goto err;
+	}
+
+	CAM_DBG(CAM_ISP, "CSID clock lvl %d", clk_lvl);
 
 	rc = cam_ife_csid_enable_soc_resources(soc_info, clk_lvl);
 	if (rc) {

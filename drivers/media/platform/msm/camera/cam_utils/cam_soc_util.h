@@ -152,6 +152,8 @@ struct cam_soc_gpio_data {
  * @prev_clk_level          Last vote level
  * @src_clk_idx:            Source clock index that is rate-controllable
  * @clk_level_valid:        Indicates whether corresponding level is valid
+ * @scl_clk_count:          Number of scalable clocks present
+ * @scl_clk_idx:            Index of scalable clocks
  * @gpio_data:              Pointer to gpio info
  * @pinctrl_info:           Pointer to pinctrl info
  * @dentry:                 Debugfs entry
@@ -198,6 +200,8 @@ struct cam_hw_soc_info {
 	int32_t                         prev_clk_level;
 	int32_t                         src_clk_idx;
 	bool                            clk_level_valid[CAM_MAX_VOTE];
+	int32_t                         scl_clk_count;
+	int32_t                         scl_clk_idx[CAM_SOC_MAX_CLK];
 
 	struct cam_soc_gpio_data       *gpio_data;
 	struct cam_soc_pinctrl_info     pinctrl_info;
@@ -632,7 +636,7 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info);
 int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	enum cam_vote_level clk_level);
 
-uint32_t cam_soc_util_get_vote_level(struct cam_hw_soc_info *soc_info,
-	uint64_t clock_rate);
+int cam_soc_util_get_clk_level(struct cam_hw_soc_info *soc_info,
+	int32_t clk_rate, int clk_idx, int32_t *clk_lvl);
 
 #endif /* _CAM_SOC_UTIL_H_ */
