@@ -62,6 +62,7 @@ obj-$(CONFIG_DM_ERA)		+= dm-era.o
 obj-$(CONFIG_DM_LOG_WRITES)	+= dm-log-writes.o
 obj-$(CONFIG_DM_REQ_CRYPT)	+= dm-req-crypt.o
 obj-$(CONFIG_DM_ANDROID_VERITY) += dm-android-verity.o
+obj-$(CONFIG_DM_BOW)		+= dm-bow.o
 
 ifeq ($(CONFIG_DM_UEVENT),y)
 dm-mod-objs			+= dm-uevent.o

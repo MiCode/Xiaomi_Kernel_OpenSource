@@ -1,0 +1,21 @@
+AW8896 SmartpA
+
+Required properties:
+
+  - compatible : "awinic,aw8896_smartpa"
+
+  - reg : I2C address of the device
+
+  - reset-gpio: gpio used for HW reset
+
+Optional properties:
+
+  - irq-gpio: gpio used for irq indicator
+
+Examples:
+
+	i2c_smartpa@34 {
+		compatible = "awinic,i2c_smartpa";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 68 0>;
+	};

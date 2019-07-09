@@ -238,6 +238,137 @@ config TOUCHSCREEN_CYTTSP4_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called cyttsp4_spi.
 
+config TOUCHSCREEN_CYPRESS_CYTTSP5
+	tristate "Parade TrueTouch Gen5 Touchscreen Driver"
+	default y
+	help
+	  Core driver for Parade TrueTouch(tm) Standard Product
+	  Geneartion5 touchscreen controllers.
+
+	  Say Y here if you have a Parade Gen5 touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cyttsp5.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICETREE_SUPPORT
+	bool "Enable Device Tree support"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5 && OF
+	default y
+	help
+	  Devicetree parsor for Parade TrueTouch(tm) Standard Product
+	  Geneartion5 touchscreen controllers. Say Y here to enable
+	  support for device tree.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_I2C
+	tristate "Parade TrueTouch Gen5 I2C"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	select I2C
+	default y
+	help
+	  Say Y here to enable I2C bus interface to Parade
+	  TrueTouch(tm) Standard Product Generation5 touchscreen
+	  controller.
+
+	  If unsure, say Y.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cyttsp5_i2c.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_SPI
+	tristate "Parade TrueTouch Gen5 SPI"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	select SPI
+	help
+	  Say Y here to enable SPI bus interface to Parade
+	  TrueTouch(tm) Standard Product Generation5 touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cyttsp5_spi.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_MT_A
+	bool "Parade TrueTouch Gen5 MultiTouch Protocol A"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	help
+	  This option controls which MultiTouch protocol will be
+	  used to report the touch events. This depends on your
+	  usage.
+
+	  Select to enable MultiTouch touch reporting using protocol A
+	  on Parade TrueTouch(tm) Standard Product Generation4 touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_MT_B
+	bool "Parade TrueTouch Gen5 MultiTouch Protocol B"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	default y
+	help
+	  This option controls which MultiTouch protocol will be
+	  used to report the touch events. This depends on your
+	  usage.
+
+	  Select to enable MultiTouch touch reporting using protocol B
+	  on Parade TrueTouch(tm) Standard Product Generation4 touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_BUTTON
+	bool "Parade TrueTouch Gen5 MultiTouch CapSense Button"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	default y
+	help
+	  Say Y here to enable CapSense reporting on Parade
+	  TrueTouch(tm) Standard Product Generation5 touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_PROXIMITY
+	bool "Parade TrueTouch Gen5 Proximity"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	default y
+	help
+	  Say Y here to enable proximity reporting on Parade
+	  TrueTouch(tm) Standard Product Generation5 touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICE_ACCESS
+	tristate "Parade TrueTouch Gen5 MultiTouch Device Access"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+	default y
+	help
+	  Say Y here to enable Parade TrueTouch(tm) Standard Product
+	  Generation5 touchscreen controller device access module.
+
+	  This modules adds an interface to access touchscreen
+	  controller using driver sysfs nodes.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cyttsp5_device_access.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICE_ACCESS_API
+	bool "Enable Device Access kernel API"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICE_ACCESS
+	help
+	  Say Y here to enable Device access kernel API which provides
+	  access to Parade TrueTouch(tm) Standard Product Generation5
+	  touchscreen controller for other modules.
+
+	  If unsure, say N.
+
 config TOUCHSCREEN_DA9034
 	tristate "Touchscreen support for Dialog Semiconductor DA9034"
 	depends on PMIC_DA903X

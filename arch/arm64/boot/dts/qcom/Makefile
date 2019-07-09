@@ -634,8 +634,7 @@ dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
 	sdm429-cdp.dtb \
 	sdm429-qrd.dtb \
 	sda429-mtp.dtb \
-	sda429-cdp.dtb \
-	sdm429-qrd-spyro-evt.dtb
+	sda429-cdp.dtb
 
 endif
 

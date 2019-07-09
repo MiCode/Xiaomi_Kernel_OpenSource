@@ -10,24 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxpoorwills-mtp.dtsi"
+/dts-v1/;
 
-&qcom_seecom {
-	status = "okay";
-};
+#include "sdxpoorwills-ccard.dtsi"
 
-&qseecom_mem {
-	status = "okay";
-};
-
-&qseecom_ta_mem {
-	status = "okay";
-};
-
-&blsp1_uart2b_hs {
-	status = "okay";
-};
-
-&mss_mem {
-	reg = <0x86400000 0x9300000>;
+/ {
+	model = "Qualcomm Technologies, Inc. SA415M CCARD USB-EP";
+	compatible = "qcom,sdxpoorwills-ccard",
+		"qcom,sdxpoorwills", "qcom,ccard";
+	qcom,board-id = <25 2>, <25 0x102>;
 };

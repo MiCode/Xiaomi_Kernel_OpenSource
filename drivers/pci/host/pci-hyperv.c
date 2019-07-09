@@ -1620,6 +1620,7 @@ static void hv_eject_device_work(struct work_struct *work)
 	spin_unlock_irqrestore(&hpdev->hbus->device_list_lock, flags);
 
 	put_pcichild(hpdev, hv_pcidev_ref_childlist);
+	put_pcichild(hpdev, hv_pcidev_ref_initial);
 	put_pcichild(hpdev, hv_pcidev_ref_pnp);
 	put_hvpcibus(hpdev->hbus);
 }

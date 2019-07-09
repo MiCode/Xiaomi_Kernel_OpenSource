@@ -320,3 +320,5 @@ zii	Zodiac Inflight Innovations
 zte	ZTE Corp.
 zyxel	ZyXEL Communications Corp.
 inven   InvenSense, Inc.
+cy      Parade.
+awinic  Shanghai Awinic Technology Co., Ltd.

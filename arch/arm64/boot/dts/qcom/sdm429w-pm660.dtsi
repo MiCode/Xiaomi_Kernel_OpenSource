@@ -163,26 +163,26 @@
 		/delete-property/ vdd-apc-supply;
 	};
 
-	qcom,cpu-clock-8939@b111050 {
-		/delete-property/ vdd-c0-supply;
-		/delete-property/ vdd-c1-supply;
-		/delete-property/ vdd-cci-supply;
-	};
-
 	qcom,gcc@1800000 {
 		/delete-property/ vdd_dig-supply;
 		/delete-property/ vdd_sr2_dig-supply;
 		/delete-property/ vdd_sr2_pll-supply;
 		/delete-property/ vdd_hf_dig-supply;
 		/delete-property/ vdd_hf_pll-supply;
+		vdd_dig-supply = <&VDD_CX_LEVEL>;
+		vdd_sr2_dig-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_sr2_pll-supply = <&L12A_AO>;
+		vdd_hf_dig-supply = <&VDD_CX_LEVEL_AO>;
+		vdd_hf_pll-supply = <&L12A_AO>;
 	};
 
 	qcom,lpass@c200000 {
-		/delete-property/ vdd_cx-supply;
+		vdd_cx-supply = <&pm660_s2_level>;
 	};
 
 	qcom,pronto@a21b000 {
 		/delete-property/ vdd_pronto_pll-supply;
+		vdd_pronto_pll-supply = <&pm660_l12>;
 	};
 
 	qcom,wcnss-wlan@0a000000 {
@@ -194,18 +194,34 @@
 		/delete-property/ qcom,iris-vddpa-supply;
 		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
+		 qcom,pronto-vddmx-supply = <&pm660_s2_level_ao>;
+		 qcom,pronto-vddcx-supply = <&pm660_s1_level>;
+		 qcom,pronto-vddpx-supply = <&pm660_l13>;
+		 qcom,iris-vddxo-supply   = <&pm660_l12>;
+		 qcom,iris-vddrfa-supply  = <&pm660_l5>;
+		 qcom,iris-vdddig-supply  = <&pm660_l13>;
+		 qcom,wcnss-adc_tm = <&pm660_adc_tm>;
 	};
 
 	qcom,csid@1b30000 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
+		/delete-property/ qcom,csi-vdd-voltage;
+		qcom,csi-vdd-voltage = <928000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
 	qcom,csid@1b30400 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
+		/delete-property/ qcom,csi-vdd-voltage;
+		qcom,csi-vdd-voltage = <928000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
 	qcom,csid@1b30800 {
 		/delete-property/ qcom,mipi-csi-vdd-supply;
+		/delete-property/ qcom,csi-vdd-voltage;
+		qcom,csi-vdd-voltage = <928000>;
+		qcom,mipi-csi-vdd-supply = <&pm660_l6>;
 	};
 
 	sound {
@@ -241,12 +257,11 @@
 };
 
 &pil_mss {
-	/delete-property/ vdd_mss-supply;
-	/delete-property/ vdd_cx-supply;
-	/delete-property/ vdd_cx-voltage;
-	/delete-property/ vdd_mx-supply;
-	/delete-property/ vdd_mx-uV;
-	/delete-property/ vdd_pll-supply;
+	vdd_mss-supply = <&S6A>;
+	vdd_cx-supply = <&pm660_s1_level_ao>;
+	vdd_mx-supply = <&pm660_s2_level_ao>;
+	vdd_pll-supply = <&L12A>;
+	qcom,vdd_pll = <1800000>;
 };
 
 &cci {
@@ -293,32 +308,6 @@
 		/delete-property/ cam_vio-supply;
 		/delete-property/ cam_vaf-supply;
 	};
-};
-
-&mdss_dsi {
-	/delete-property/ vdda-supply;
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi0 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
-	/delete-property/ bklight_en-supply;
-	/delete-property/ lab-supply;
-	/delete-property/ ibb-supply;
-};
-
-&mdss_dsi1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi0_pll {
-	/delete-property/ vddio-supply;
-};
-
-&mdss_dsi1_pll {
-	/delete-property/ vddio-supply;
 };
 
 &i2c_2 {
@@ -692,4 +681,85 @@
 
 &usb_otg {
 	extcon = <&pm660_charger>;
+	hsusb_vdd_dig-supply = <&L6A>;
+	HSUSB_1p8-supply = <&L12A>;
+	HSUSB_3p3-supply = <&L16A>;
+	qcom,vdd-voltage-level = <0 928000 928000>;
+	vbus_otg-supply = <&smb2_vbus>;
+	status = "okay";
 };
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&L19A>;
+	qcom,vdd-voltage-level = <2900000 3200000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&L13A>;
+	qcom,vdd-io-current-level = <0 60000>;
+	qcom,dll-hsr-list = <0x00076400 0x0 0x0 0x0 0x00040868>;
+};
+
+&sdhc_2 {
+       /* device core power supply */
+	vdd-supply = <&vreg_sd_vdd>;
+	qcom,vdd-current-level = <0 800000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&vreg_sd_pad>;
+	qcom,vdd-io-current-level = <0 10000>;
+	qcom,dll-hsr-list = <0x00076400 0x0 0x0 0x0 0x00040868>;
+};
+
+&mdss_dsi {
+	/delete-property/ vdda-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ bklight_en-supply;
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+	vdda-supply = <&L6A>; /* 0.8v */
+	vddio-supply = <&L13A>; /* 1.8v */
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <930000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+};
+
+&mdss_dsi0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ bklight_en-supply;
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+	vdd-supply = <&L15A>;/* 2.8v */
+	vddio-supply = <&L13A>; /* 1.8v */
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+};
+
+&mdss_dsi0_pll {
+	/delete-property/ vddio-supply;
+	vddio-supply = <&L13A>;/* 1.8v */
+};
+
+&mdss_dsi1_pll {
+	/delete-property/ vddio-supply;
+	vddio-supply = <&L13A>;
+};
+

@@ -984,6 +984,8 @@ int comedi_dio_insn_config(struct comedi_device *, struct comedi_subdevice *,
 			   unsigned int mask);
 unsigned int comedi_dio_update_state(struct comedi_subdevice *,
 				     unsigned int *data);
+unsigned int comedi_bytes_per_scan_cmd(struct comedi_subdevice *s,
+				       struct comedi_cmd *cmd);
 unsigned int comedi_bytes_per_scan(struct comedi_subdevice *s);
 unsigned int comedi_nscans_left(struct comedi_subdevice *s,
 				unsigned int nscans);

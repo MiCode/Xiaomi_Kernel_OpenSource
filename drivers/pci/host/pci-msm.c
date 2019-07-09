@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -633,6 +633,7 @@ struct msm_pcie_dev_t {
 	bool				use_pinctrl;
 	struct pinctrl			*pinctrl;
 	struct pinctrl_state		*pins_default;
+	struct pinctrl_state            *pins_power_on;
 	struct pinctrl_state		*pins_sleep;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
@@ -6012,6 +6013,16 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			msm_pcie_dev[rc_idx].pins_default = NULL;
 		}
 
+		msm_pcie_dev[rc_idx].pins_power_on =
+		pinctrl_lookup_state(msm_pcie_dev[rc_idx].pinctrl,
+				"slot_power_on");
+		if (IS_ERR(msm_pcie_dev[rc_idx].pins_power_on)) {
+			PCIE_ERR(&msm_pcie_dev[rc_idx],
+				"PCIe: RC%d could not get pinctrl power_on state\n",
+				rc_idx);
+			msm_pcie_dev[rc_idx].pins_power_on = NULL;
+		}
+
 		msm_pcie_dev[rc_idx].pins_sleep =
 			pinctrl_lookup_state(msm_pcie_dev[rc_idx].pinctrl,
 						"sleep");
@@ -6039,6 +6050,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_sysfs_init(&msm_pcie_dev[rc_idx]);
 
 	msm_pcie_dev[rc_idx].drv_ready = true;
+	if (msm_pcie_dev[rc_idx].use_pinctrl &&
+		msm_pcie_dev[rc_idx].pins_power_on) {
+		pinctrl_select_state(msm_pcie_dev[rc_idx].pinctrl,
+			msm_pcie_dev[rc_idx].pins_power_on);
+	}
 
 	if (msm_pcie_dev[rc_idx].boot_option &
 			MSM_PCIE_NO_PROBE_ENUMERATION) {

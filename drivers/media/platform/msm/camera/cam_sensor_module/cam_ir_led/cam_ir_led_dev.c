@@ -22,7 +22,6 @@ static int32_t cam_ir_led_driver_cmd(struct cam_ir_led_ctrl *ictrl,
 	int rc = 0;
 	struct cam_control *cmd = (struct cam_control *)arg;
 
-		CAM_ERR(CAM_IR_LED, "%s, IN", __func__);
 	if (!ictrl || !arg) {
 		CAM_ERR(CAM_IR_LED, "ictrl/arg is NULL with arg:%pK ictrl%pK",
 			ictrl, arg);

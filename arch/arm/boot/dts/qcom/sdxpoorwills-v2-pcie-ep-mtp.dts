@@ -12,13 +12,14 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-adp.dtsi"
+#include "sdxpoorwills-pcie-ep-mtp.dtsi"
+#include "sdxpoorwills-v2.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDXPOORWILLS USB-EP ADP";
-	compatible = "qcom,sdxpoorwills-adp",
-		"qcom,sdxpoorwills", "qcom,adp";
-	qcom,board-id = <25 1>, <25 0x101>;
+	model = "Qualcomm Technologies, Inc. SDXPOORWILLS V2 PCIE-EP MTP";
+	compatible = "qcom,sdxpoorwills-mtp",
+		"qcom,sdxpoorwills", "qcom,mtp";
+	qcom,board-id = <8 0x105>;
 };
 
 &blsp1_uart2b_hs {

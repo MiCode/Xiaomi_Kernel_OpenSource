@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define CSI_3PHASE_HW                               1
+#define CSI_3PHASE_HW_12                          0x12
 #define CSIPHY_VERSION_V35                        0x35
 #define CSIPHY_VERSION_V10                        0x10
 #define CSIPHY_VERSION_V11                        0x11

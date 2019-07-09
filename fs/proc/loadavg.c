@@ -3,12 +3,10 @@
 #include <linux/pid_namespace.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
+#include <linux/sched/loadavg.h>
 #include <linux/seq_file.h>
 #include <linux/seqlock.h>
 #include <linux/time.h>
-
-#define LOAD_INT(x) ((x) >> FSHIFT)
-#define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
 static int loadavg_proc_show(struct seq_file *m, void *v)
 {

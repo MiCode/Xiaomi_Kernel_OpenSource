@@ -20,5 +20,5 @@
 	model = "Qualcomm Technologies, Inc. SDM429 QRD Spyro";
 	compatible = "qcom,sdm429-qrd", "qcom,sdm429", "qcom,qrd";
 	qcom,board-id = <0xb 6>;
-	qcom,pmic-id = <0x010016 0x25 0x0 0x0>;
+	qcom,pmic-id = <0x0002001b 0x0 0x0 0x0>;
 };

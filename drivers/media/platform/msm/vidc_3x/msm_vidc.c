@@ -1084,7 +1084,7 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 		q->ops = msm_venc_get_vb2q_ops();
 	q->mem_ops = &msm_vidc_vb2_mem_ops;
 	q->drv_priv = inst;
-	q->allow_zero_bytesused = !V4L2_TYPE_IS_OUTPUT(type);
+	q->allow_zero_bytesused = 1;
 	return vb2_queue_init(q);
 }
 

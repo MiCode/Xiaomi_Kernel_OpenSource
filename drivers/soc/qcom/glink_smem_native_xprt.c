@@ -1001,6 +1001,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 			SMEM_IPC_LOG(einfo, "kthread", cmd.id, cmd.param1,
 								cmd.param2);
 		} else {
+			memset(&cmd, 0, sizeof(cmd));
 			fifo_read(einfo, &cmd, sizeof(cmd));
 			SMEM_IPC_LOG(einfo, "IRQ", cmd.id, cmd.param1,
 								cmd.param2);
@@ -1105,6 +1106,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 								cmd_data)->size;
 					kfree(cmd_data);
 				} else {
+					memset(&intent, 0, sizeof(intent));
 					fifo_read(einfo, &intent,
 								sizeof(intent));
 				}

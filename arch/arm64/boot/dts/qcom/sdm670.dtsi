@@ -463,6 +463,7 @@
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
+					status = "ok";
 				};
 			};
 		};
@@ -2614,6 +2615,7 @@
 		qcom,gpio-force-fatal-error = <&smp2pgpio_wlan_1_in 0 0>;
 		qcom,gpio-early-crash-ind = <&smp2pgpio_wlan_1_in 1 0>;
 		qcom,smmu-s1-bypass;
+		#cooling-cells = <2>;
 	};
 
 	cpubw: qcom,cpubw {
