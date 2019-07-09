@@ -150,20 +150,36 @@ load_fw_fail:
 	return ret;
 }
 
-int load_fw(struct npu_device *npu_dev)
+static void npu_load_fw_work(struct work_struct *work)
 {
-	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-	int ret = 0;
+	int ret;
+	struct npu_host_ctx *host_ctx;
+	struct npu_device *npu_dev;
 
-	if (host_ctx->auto_pil_disable) {
-		NPU_WARN("auto pil is disabled\n");
-		return ret;
-	}
+	host_ctx = container_of(work, struct npu_host_ctx, load_fw_work);
+	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
+
 	mutex_lock(&host_ctx->lock);
 	ret = load_fw_nolock(npu_dev, false);
 	mutex_unlock(&host_ctx->lock);
 
-	return ret;
+	if (ret)
+		NPU_ERR("load fw failed %d\n", ret);
+}
+
+int load_fw(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	if (host_ctx->auto_pil_disable) {
+		NPU_WARN("auto pil is disabled\n");
+		return -EINVAL;
+	}
+
+	if (host_ctx->wq)
+		queue_work(host_ctx->wq, &host_ctx->load_fw_work);
+
+	return 0;
 }
 
 int unload_fw(struct npu_device *npu_dev)
@@ -545,6 +561,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
 		INIT_WORK(&host_ctx->wdg_err_irq_work, npu_wdg_err_irq_work);
 		INIT_WORK(&host_ctx->bridge_mbox_work, npu_bridge_mbox_work);
+		INIT_WORK(&host_ctx->load_fw_work, npu_load_fw_work);
 		INIT_DELAYED_WORK(&host_ctx->disable_fw_work,
 			npu_disable_fw_work);
 	}
@@ -821,16 +838,16 @@ static void npu_bridge_mbox_work(struct work_struct *work)
 	host_ctx = container_of(work, struct npu_host_ctx, bridge_mbox_work);
 	npu_dev = container_of(host_ctx, struct npu_device, host_ctx);
 
-	/* queue or modify delayed work to disable fw */
-	mod_delayed_work(host_ctx->wq, &host_ctx->disable_fw_work,
-		NPU_MBOX_IDLE_TIMEOUT);
-
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state == FW_UNLOADED) {
 		NPU_WARN("NPU fw is not loaded\n");
 		mutex_unlock(&host_ctx->lock);
 		return;
 	}
+
+	/* queue or modify delayed work to disable fw */
+	mod_delayed_work(host_ctx->wq, &host_ctx->disable_fw_work,
+		NPU_MBOX_IDLE_TIMEOUT);
 
 	if (!host_ctx->bridge_mbox_pwr_on) {
 		ret = enable_fw_nolock(npu_dev);

@@ -320,7 +320,7 @@ static ssize_t boot_store(struct device *dev,
 			return rc;
 		}
 	} else {
-		NPU_INFO("%s: unload fw\n", __func__);
+		NPU_DBG("%s: unload fw\n", __func__);
 		unload_fw(npu_dev);
 	}
 
