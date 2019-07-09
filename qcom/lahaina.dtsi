@@ -7,6 +7,7 @@
 #include <dt-bindings/clock/qcom,videocc-lahaina.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interconnect/qcom,lahaina.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 #include "lahaina-regulators.dtsi"
 
@@ -399,6 +400,15 @@
 			reg = <0x17c2d000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	ipcc_mproc: qcom,ipcc@408000 {
+		compatible = "qcom,ipcc";
+		reg = <0x408000 0x1000>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
 	};
 
 	clocks {
