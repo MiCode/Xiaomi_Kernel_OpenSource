@@ -223,7 +223,9 @@ static int mt6779_qos_ipi_recv_handler(void *arg)
 		sspm_ipi_recv_wait(IPI_ID_QOS);
 
 		if (qos_ipi_d.cmd == mt6779_qos_ipi_pin[QOS_IPI_QOS_BOUND].id)
-			;
+			qos_notifier_call_chain(
+					qos_ipi_d.u.qos_bound.state,
+					get_qos_bound());
 		else
 			pr_info("mtkqos: %s wrong QoS IPI command: %d\n",
 				__func__, qos_ipi_d.cmd);
