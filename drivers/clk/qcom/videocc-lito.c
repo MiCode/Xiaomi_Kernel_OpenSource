@@ -89,10 +89,11 @@ static struct alpha_pll_config video_pll0_config = {
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000001,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
+	.test_ctl_hi1_val = 0x01800000,
 };
 
 static struct clk_alpha_pll video_pll0 = {
@@ -482,7 +483,7 @@ static int video_cc_lito_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_fabia_pll_configure(&video_pll0, regmap, &video_pll0_config);
+	clk_lucid_pll_configure(&video_pll0, regmap, &video_pll0_config);
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_lito_desc, regmap);
 	if (ret) {
