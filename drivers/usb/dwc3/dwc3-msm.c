@@ -1121,7 +1121,7 @@ static void gsi_endxfer_for_ep(struct usb_ep *ep)
 }
 
 /**
- * Allocates and configures TRBs for GSI EPs.
+ * Allocates Buffers and TRBs. Configures TRBs for GSI EPs.
  *
  * @usb_ep - pointer to usb_ep instance.
  * @request - pointer to GSI request.
@@ -1131,7 +1131,8 @@ static void gsi_endxfer_for_ep(struct usb_ep *ep)
 static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 {
 	int i = 0;
-	dma_addr_t buffer_addr = req->dma;
+	size_t len;
+	dma_addr_t buffer_addr;
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3		*dwc = dep->dwc;
 	struct dwc3_trb *trb;
@@ -1145,6 +1146,24 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		return -ESHUTDOWN;
 	}
 
+	/* Allocate TRB buffers */
+
+	len = req->buf_len * req->num_bufs;
+	req->buf_base_addr = dma_zalloc_coherent(dwc->sysdev, len, &req->dma,
+					GFP_KERNEL);
+	if (!req->buf_base_addr) {
+		dev_err(dwc->dev, "%s: buf_base_addr allocate failed %s\n",
+				dep->name);
+		return -ENOMEM;
+	}
+
+	dma_get_sgtable(dwc->sysdev, &req->sgt_data_buff, req->buf_base_addr,
+			req->dma, len);
+
+	buffer_addr = req->dma;
+
+	/* Allocate and configgure TRBs */
+
 	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 				num_trbs * sizeof(struct dwc3_trb),
 				&dep->trb_pool_dma, GFP_KERNEL);
@@ -1152,7 +1171,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
 				dep->name);
-		return -ENOMEM;
+		goto free_trb_buffer;
 	}
 
 	dep->num_trbs = num_trbs;
@@ -1249,10 +1268,16 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	}
 
 	return 0;
+
+free_trb_buffer:
+	dma_free_coherent(dwc->sysdev, len, req->buf_base_addr, req->dma);
+	req->buf_base_addr = NULL;
+	sg_free_table(&req->sgt_data_buff);
+	return -ENOMEM;
 }
 
 /**
- * Frees TRBs for GSI EPs.
+ * Frees TRBs and buffers for GSI EPs.
  *
  * @usb_ep - pointer to usb_ep instance.
  *
@@ -1275,6 +1300,12 @@ static void gsi_free_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 		dep->trb_pool_dma = 0;
 	}
 	sg_free_table(&req->sgt_trb_xfer_ring);
+
+	/* free TRB buffers */
+	dma_free_coherent(dwc->sysdev, req->buf_len * req->num_bufs,
+		req->buf_base_addr, req->dma);
+	req->buf_base_addr = NULL;
+	sg_free_table(&req->sgt_data_buff);
 }
 /**
  * Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
