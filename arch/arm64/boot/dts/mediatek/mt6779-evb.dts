@@ -921,3 +921,41 @@
 &bat_gm30 {
 	extcon = <&mt6360_chg>;
 };
+
+/* MD SIM GPIO */
+&gpio_usage_mapping {
+	compatible = "mediatek,gpio_usage_mapping";
+	GPIO_FDD_BAND_SUPPORT_DETECT_1ST_PIN = <&pio 5 0>;
+	GPIO_SIM1_SIO = <&pio 128 0>;
+	GPIO_SIM1_SRST = <&pio 129 0>;
+	GPIO_SIM1_SCLK = <&pio 130 0>;
+	GPIO_SIM2_SCLK = <&pio 131 0>;
+	GPIO_SIM2_SRST = <&pio 132 0>;
+	GPIO_SIM2_SIO = <&pio 133 0>;
+	GPIO_SIM1_HOT_PLUG = <&pio 140 0>;
+	GPIO_SIM2_HOT_PLUG = <&pio 141 0>;
+};
+
+&md1_sim1_hot_plug_eint {
+	compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
+	interrupts = <0 4>;
+	debounce = <0 50000>;
+	dedicated = <0 0>;
+	src_pin = <0 1>;
+	sockettype = <0 0>;
+	status = "okay";
+};
+
+&md1_sim2_hot_plug_eint {
+	compatible = "mediatek,md1_sim2_hot_plug_eint-eint";
+	interrupts = <1 4>;
+	debounce = <1 50000>;
+	dedicated = <1 0>;
+	src_pin = <1 2>;
+	sockettype = <1 0>;
+	status = "okay";
+};
+
+&md_auxadc {
+	io-channels = <&auxadc 2>;
+};
