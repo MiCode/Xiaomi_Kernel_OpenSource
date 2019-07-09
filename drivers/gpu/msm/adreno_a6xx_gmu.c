@@ -645,7 +645,12 @@ static int a6xx_gmu_hfi_start_msg(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct hfi_start_cmd req;
 
-	if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+	/*
+	 * This HFI was not supported in legacy firmware and this quirk
+	 * serves as a better means to identify targets that depend on
+	 * legacy firmware.
+	 */
+	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		return hfi_send_req(KGSL_GMU_DEVICE(device),
 					 H2F_MSG_START, &req);
 
