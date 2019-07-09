@@ -143,7 +143,7 @@ int ion_sys_heap_debug_show(struct seq_file *s, void *unused)
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
 	unsigned long long current_ts;
-	size_t total_size = 0;
+	size_t total_size = 0, system_heap_size = 0, custom_heap_size = 0;
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
@@ -174,11 +174,13 @@ int ion_sys_heap_debug_show(struct seq_file *s, void *unused)
 		struct ion_buffer
 		*buffer = rb_entry(n, struct ion_buffer, node);
 
-		if (buffer->heap->type != heap->type)
-			continue;
-
 		seq_printf(s, "0x%p %8zu %s\n",
 			   buffer, buffer->size, buffer->heap->name);
+
+		if (buffer->heap->type == ION_HEAP_TYPE_SYSTEM)
+			system_heap_size += buffer->size;
+		else if (buffer->heap->type == ION_HEAP_TYPE_CUSTOM)
+			custom_heap_size += buffer->size;
 
 		total_size += buffer->size;
 	}
@@ -186,8 +188,10 @@ int ion_sys_heap_debug_show(struct seq_file *s, void *unused)
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	seq_printf(s, "\nstep 3 current time %lld ms, total(use): %16zu!!\n",
-		   current_ts, total_size);
+	seq_printf(s, "\nstep 3 current time %lld ms\n", current_ts);
+	seq_printf(s, "%16.s %16zu\n", "total size", total_size);
+	seq_printf(s, "%16.s %16zu\n", "system_heap", system_heap_size);
+	seq_printf(s, "%16.s %16zu\n", "custom_heap", custom_heap_size);
 
 	seq_puts(s, "----------------------------------------------------\n");
 

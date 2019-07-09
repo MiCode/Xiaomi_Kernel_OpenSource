@@ -163,6 +163,9 @@ static int ion_sec_heap_create(void)
 	int i, ssmr_id, heap_total;
 
 	heap_total = ssmr_query_total_sec_heap_count();
+	if (!heap_total)
+		pr_warn("[ION] ssmr is not ready for secure heap\n");
+
 	for (i = 0; i < heap_total; i++) {
 		ssmr_id = ssmr_query_heap_info(i, heap_name[i]);
 		heap = __ion_sec_heap_create(ssmr_id);
