@@ -1191,12 +1191,6 @@ static int mtk_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 
 static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 {
-	int ret;
-
-	ret = pm_runtime_get_sync(jpeg->dev);
-	if (ret < 0)
-		v4l2_err(&jpeg->v4l2_dev, "Failed to on pm_runtime_get_sync (%d)\n",
-			ret);
 	if (jpeg->mode == MTK_JPEG_DEC)
 		clk_prepare_enable(jpeg->clk_jpeg_smi);
 	clk_prepare_enable(jpeg->clk_jpeg);
@@ -1206,13 +1200,10 @@ static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 {
 	int ret;
 
-	ret = pm_runtime_get_sync(jpeg->dev);
-	if (ret < 0)
-		v4l2_err(&jpeg->v4l2_dev, "Failed to off pm_runtime_get_sync (%d)\n",
-			ret);
 	clk_disable_unprepare(jpeg->clk_jpeg);
 	if (jpeg->mode == MTK_JPEG_DEC)
 		clk_disable_unprepare(jpeg->clk_jpeg_smi);
+
 }
 
 static irqreturn_t mtk_jpeg_irq(int irq, void *priv)
@@ -1414,6 +1405,7 @@ static const struct v4l2_file_operations mtk_jpeg_fops = {
 
 static int mtk_jpeg_clk_init(struct mtk_jpeg_dev *jpeg)
 {
+	struct platform_device *pdev;
 
 	if (jpeg->mode == MTK_JPEG_ENC) {
 		jpeg->clk_jpeg = devm_clk_get(jpeg->dev, "jpgenc");
