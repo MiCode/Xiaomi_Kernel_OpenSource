@@ -752,7 +752,7 @@ CLOCKSOURCE_OF_DECLARE(armv8_arch_timer, "arm,armv8-timer", arch_timer_of_init);
 static void __init arch_timer_mem_init(struct device_node *np)
 {
 	struct device_node *frame, *best_frame = NULL;
-	void __iomem *cntctlbase, *base;
+	void __iomem *cntctlbase, *base = NULL;
 	unsigned int irq;
 	u32 cnttidr;
 
@@ -790,7 +790,8 @@ static void __init arch_timer_mem_init(struct device_node *np)
 		best_frame = of_node_get(frame);
 	}
 
-	base = arch_counter_base = of_iomap(best_frame, 0);
+	if (best_frame)
+		base = arch_counter_base = of_iomap(best_frame, 0);
 	if (!base) {
 		pr_err("arch_timer: Can't map frame's registers\n");
 		of_node_put(best_frame);
