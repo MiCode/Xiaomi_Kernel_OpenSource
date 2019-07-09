@@ -9,6 +9,7 @@
  * CYTT21XXX
  * CYTT31XXX
  *
+ * Copyright (c) 2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Parade Technologies
  * Copyright (C) 2012-2015 Cypress Semiconductor, Inc.
  *
