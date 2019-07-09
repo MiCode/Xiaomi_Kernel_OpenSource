@@ -343,11 +343,10 @@ void tmc_sg_table_sync_table(struct tmc_sg_table *sg_table)
 ssize_t tmc_sg_table_get_data(struct tmc_sg_table *sg_table,
 			      u64 offset, size_t len, char **bufpp)
 {
-	size_t size, tmp_len;
+	size_t size;
 	int pg_idx = offset >> PAGE_SHIFT;
 	int pg_offset = offset & (PAGE_SIZE - 1);
 	struct tmc_pages *data_pages = &sg_table->data_pages;
-	int i;
 
 	size = tmc_sg_table_buf_size(sg_table);
 	if (offset >= size)
@@ -356,24 +355,10 @@ ssize_t tmc_sg_table_get_data(struct tmc_sg_table *sg_table,
 	/* Make sure we don't go beyond the end */
 	len = (len < (size - offset)) ? len : size - offset;
 	/* Respect the page boundaries */
-	if (len > (PAGE_SIZE - pg_offset)) {
-		tmp_len = PAGE_SIZE - pg_offset;
-		for (i = 0; i < (data_pages->nr_pages - pg_idx); i++) {
-			if (i < (data_pages->nr_pages - pg_idx - 1)
-			&& (page_address(data_pages->pages[pg_idx + i + 1])
-			- page_address(data_pages->pages[pg_idx + i]))
-					== PAGE_SIZE) {
-				if ((len - tmp_len) < PAGE_SIZE)
-					break;
-				tmp_len += PAGE_SIZE;
-			} else {
-				len = tmp_len;
-				break;
-			}
-		}
-	}
+	len = (len < (PAGE_SIZE - pg_offset)) ? len : (PAGE_SIZE - pg_offset);
 	if (len > 0)
 		*bufpp = page_address(data_pages->pages[pg_idx]) + pg_offset;
+
 	return len;
 }
 
