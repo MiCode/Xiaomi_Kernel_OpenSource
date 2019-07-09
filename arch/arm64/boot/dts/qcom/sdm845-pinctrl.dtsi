@@ -3620,6 +3620,15 @@
 		};
 	};
 
+	camera_rear_avdd_en {
+		camera_rear_avdd_en_default: camera_rear_avdd_en_default {
+			pins = "gpio10";
+			function = "normal";
+			power-source = <0>;
+			output-low;
+		};
+	};
+
 	camera_rear_dvdd_en {
 		camera_rear_dvdd_en_default: camera_rear_dvdd_en_default {
 			pins = "gpio12";
