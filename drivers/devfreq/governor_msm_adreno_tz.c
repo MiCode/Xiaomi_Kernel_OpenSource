@@ -361,42 +361,42 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 {
 	int result = 0;
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
-	struct devfreq_dev_status stats;
+	struct devfreq_dev_status *stats = &devfreq->last_status;
 	int val, level = 0;
 	unsigned int scm_data[4];
 	int context_count = 0;
 
 	/* keeps stats.private_data == NULL   */
-	result = devfreq->profile->get_dev_status(devfreq->dev.parent, &stats);
+	result = devfreq_update_stats(devfreq);
 	if (result) {
 		pr_err(TAG "get_status failed %d\n", result);
 		return result;
 	}
 
-	*freq = stats.current_frequency;
-	priv->bin.total_time += stats.total_time;
-	priv->bin.busy_time += stats.busy_time;
+	*freq = stats->current_frequency;
+	priv->bin.total_time += stats->total_time;
+	priv->bin.busy_time += stats->busy_time;
 
-	if (stats.private_data)
-		context_count =  *((int *)stats.private_data);
+	if (stats->private_data)
+		context_count =  *((int *)stats->private_data);
 
 	/* Update the GPU load statistics */
-	compute_work_load(&stats, priv, devfreq);
+	compute_work_load(stats, priv, devfreq);
 	/*
 	 * Do not waste CPU cycles running this algorithm if
 	 * the GPU just started, or if less than FLOOR time
 	 * has passed since the last run or the gpu hasn't been
 	 * busier than MIN_BUSY.
 	 */
-	if ((stats.total_time == 0) ||
+	if ((stats->total_time == 0) ||
 		(priv->bin.total_time < FLOOR) ||
 		(unsigned int) priv->bin.busy_time < MIN_BUSY) {
 		return 0;
 	}
 
-	level = devfreq_get_freq_level(devfreq, stats.current_frequency);
+	level = devfreq_get_freq_level(devfreq, stats->current_frequency);
 	if (level < 0) {
-		pr_err(TAG "bad freq %ld\n", stats.current_frequency);
+		pr_err(TAG "bad freq %ld\n", stats->current_frequency);
 		return level;
 	}
 

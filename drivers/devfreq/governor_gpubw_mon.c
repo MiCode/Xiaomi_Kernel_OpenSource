@@ -53,7 +53,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 					(df->profile),
 					struct msm_busmon_extended_profile,
 					profile);
-	struct devfreq_dev_status stats;
+	struct devfreq_dev_status *stats = &df->last_status;
 	struct xstats b;
 	int result;
 	int level = 0;
@@ -73,18 +73,18 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	if (priv == NULL)
 		return 0;
 
-	stats.private_data = &b;
+	stats->private_data = &b;
 
-	result = df->profile->get_dev_status(df->dev.parent, &stats);
+	result = devfreq_update_stats(df);
 
-	*freq = stats.current_frequency;
+	*freq = stats->current_frequency;
 
-	priv->bus.total_time += stats.total_time;
-	priv->bus.gpu_time += stats.busy_time;
+	priv->bus.total_time += stats->total_time;
+	priv->bus.gpu_time += stats->busy_time;
 	priv->bus.ram_time += b.ram_time;
 	priv->bus.ram_wait += b.ram_wait;
 
-	level = devfreq_get_freq_level(df, stats.current_frequency);
+	level = devfreq_get_freq_level(df, stats->current_frequency);
 
 	if (priv->bus.total_time < LONG_FLOOR)
 		return result;
