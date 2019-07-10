@@ -548,12 +548,18 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chg->hw_skin_temp_mitigation = of_property_read_bool(node,
 					"qcom,hw-skin-temp-mitigation");
 
+	chg->en_skin_therm_mitigation = of_property_read_bool(node,
+					"qcom,en-skin-therm-mitigation");
+
 	chg->connector_pull_up = -EINVAL;
 	of_property_read_u32(node, "qcom,connector-internal-pull-kohm",
 					&chg->connector_pull_up);
 
 	chip->dt.disable_suspend_on_collapse = of_property_read_bool(node,
 					"qcom,disable-suspend-on-collapse");
+	chg->smb_pull_up = -EINVAL;
+	of_property_read_u32(node, "qcom,smb-internal-pull-kohm",
+					&chg->smb_pull_up);
 
 	chip->dt.adc_based_aicl = of_property_read_bool(node,
 					"qcom,adc-based-aicl");
@@ -777,6 +783,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_QC_OPTI_DISABLE,
 	POWER_SUPPLY_PROP_VOLTAGE_VPH,
 	POWER_SUPPLY_PROP_THERM_ICL_LIMIT,
+	POWER_SUPPLY_PROP_SKIN_HEALTH,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -916,6 +923,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ADAPTER_CC_MODE:
 		val->intval = chg->adapter_cc_mode;
+		break;
+	case POWER_SUPPLY_PROP_SKIN_HEALTH:
+		val->intval = smblib_get_skin_temp_status(chg);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -1178,6 +1188,7 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FORCE_MAIN_FCC,
 	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
 	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
+	POWER_SUPPLY_PROP_HEALTH,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1236,6 +1247,10 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		val->intval = chg->comp_clamp_level;
+		break;
+	/* Use this property to report SMB health */
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = smblib_get_prop_smb_health(chg);
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -2704,6 +2719,17 @@ static int smb5_init_hw(struct smb5 *chip)
 		if (rc < 0) {
 			dev_err(chg->dev,
 				"Couldn't configure CONN_THERM pull-up rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chg->smb_pull_up != -EINVAL) {
+		rc = smb5_configure_internal_pull(chg, SMB_THERM,
+				get_valid_pullup(chg->smb_pull_up));
+		if (rc < 0) {
+			dev_err(chg->dev,
+				"Couldn't configure SMB pull-up rc=%d\n",
 				rc);
 			return rc;
 		}
