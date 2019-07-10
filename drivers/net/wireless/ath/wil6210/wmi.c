@@ -1358,6 +1358,12 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 		cid = evt->cid;
 		tid = evt->tid;
 	}
+
+	if (!wil_cid_valid(cid)) {
+		wil_err(wil, "DELBA: Invalid CID %d\n", cid);
+		return;
+	}
+
 	wil_dbg_wmi(wil, "DELBA MID %d CID %d TID %d from %s reason %d\n",
 		    vif->mid, cid, tid,
 		    evt->from_initiator ? "originator" : "recipient",

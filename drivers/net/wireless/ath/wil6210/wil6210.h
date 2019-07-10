@@ -461,7 +461,7 @@ static inline void parse_cidxtid(u8 cidxtid, u8 *cid, u8 *tid)
  * wil_cid_valid - check cid is valid
  * @cid: CID value
  */
-static inline bool wil_cid_valid(u8 cid)
+static inline bool wil_cid_valid(int cid)
 {
 	return (cid >= 0 && cid < max_assoc_sta);
 }
