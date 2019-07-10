@@ -2177,7 +2177,6 @@
 		phy_type= "utmi";
 		qcom,phy-clk-scheme = "cmos";
 		qcom,major-rev = <1>;
-		qcom,enable-dpdm-pulsing;
 
 		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_ln_bb_clk>;
