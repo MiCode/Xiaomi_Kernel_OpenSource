@@ -3528,6 +3528,75 @@ static int cam_isp_blob_clock_update(
 	return rc;
 }
 
+static int cam_isp_blob_sensor_config(
+	uint32_t                               blob_type,
+	struct cam_isp_generic_blob_info      *blob_info,
+	struct cam_isp_sensor_config          *dim_config,
+	struct cam_hw_prepare_update_args     *prepare)
+{
+	struct cam_ife_hw_mgr_ctx                   *ctx = NULL;
+	struct cam_ife_hw_mgr_res                   *hw_mgr_res;
+	struct cam_hw_intf                          *hw_intf;
+	struct cam_ife_sensor_dimension_update_args  update_args;
+	int                                          rc = -EINVAL, found = 0;
+	uint32_t                                     i, j;
+	struct cam_isp_sensor_dimension             *path_config;
+
+	ctx = prepare->ctxt_to_hw_map;
+
+	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
+			found = 1;
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf && hw_intf->hw_ops.process_cmd) {
+				path_config = &(dim_config->ipp_path);
+				update_args.ipp_path.width =
+					path_config->width;
+				update_args.ipp_path.height =
+					path_config->height;
+				update_args.ipp_path.measure_enabled =
+					path_config->measure_enabled;
+				path_config = &(dim_config->ppp_path);
+				update_args.ppp_path.width =
+					path_config->width;
+				update_args.ppp_path.height =
+					path_config->height;
+				update_args.ppp_path.measure_enabled =
+					path_config->measure_enabled;
+				for (j = 0; j < CAM_IFE_RDI_NUM_MAX; j++) {
+					path_config =
+						&(dim_config->rdi_path[j]);
+					update_args.rdi_path[j].width =
+						path_config->width;
+					update_args.rdi_path[j].height =
+						path_config->height;
+				update_args.rdi_path[j].measure_enabled =
+						path_config->measure_enabled;
+				}
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_IFE_CSID_SET_SENSOR_DIMENSION_CFG,
+					&update_args,
+					sizeof(
+					struct
+					cam_ife_sensor_dimension_update_args)
+					);
+				if (rc)
+					CAM_ERR(CAM_ISP,
+						"Dimension Update failed");
+			} else
+				CAM_ERR(CAM_ISP, "hw_intf is NULL");
+		}
+		if (found)
+			break;
+	}
+
+	return rc;
+}
+
+
 void fill_res_bitmap(uint32_t resource_type, unsigned long *res_bitmap)
 {
 
@@ -3618,12 +3687,6 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		CAM_ERR(CAM_ISP, "Invalid args data %pK size %d info %pK",
 			blob_data, blob_size, blob_info);
 		return -EINVAL;
-	}
-
-	if (blob_type >= CAM_ISP_GENERIC_BLOB_TYPE_MAX) {
-		CAM_WARN(CAM_ISP, "Invalid Blob Type %d Max %d", blob_type,
-			CAM_ISP_GENERIC_BLOB_TYPE_MAX);
-		return 0;
 	}
 
 	prepare = blob_info->prepare;
@@ -3866,6 +3929,26 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		rc = cam_isp_blob_init_frame_drop(frame_drop_cfg, prepare);
 		if (rc)
 			CAM_ERR(CAM_ISP, "Init Frame drop Update Failed");
+	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_SENSOR_DIMENSION_CONFIG: {
+		struct cam_isp_sensor_config *csid_dim_config;
+
+		if (blob_size < sizeof(struct cam_isp_sensor_config)) {
+			CAM_ERR(CAM_ISP, "Invalid blob size %u expected %u",
+				blob_size,
+				sizeof(struct cam_isp_sensor_config));
+			return -EINVAL;
+		}
+
+		csid_dim_config =
+			(struct cam_isp_sensor_config *)blob_data;
+
+		rc = cam_isp_blob_sensor_config(blob_type, blob_info,
+			csid_dim_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP,
+				"Sensor Dimension Update Failed rc: %d", rc);
 	}
 		break;
 	default:
