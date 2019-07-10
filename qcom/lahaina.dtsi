@@ -477,6 +477,10 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
+
+	qcom_scm {
+		compatible = "qcom,secure-chan-manager";
+	};
 };
 
 #include "lahaina-pinctrl.dtsi"
