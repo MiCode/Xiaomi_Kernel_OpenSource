@@ -15,11 +15,7 @@
 #include "hab.h"
 #include "hab_pipe.h"
 
-#include <linux/guest_shm.h>
-#include <linux/stddef.h>
-
-#define PULSE_CODE_NOTIFY 0
-#define PULSE_CODE_INPUT 1
+#include "hab_qvm_os.h"
 
 struct qvm_channel {
 	int be;
@@ -27,14 +23,13 @@ struct qvm_channel {
 	struct hab_pipe *pipe;
 	struct hab_pipe_endpoint *pipe_ep;
 	spinlock_t io_lock;
-	struct tasklet_struct task;
+
+	/* common but only for guest */
 	struct guest_shm_factory *guest_factory;
 	struct guest_shm_control *guest_ctrl;
+
 	/* cached guest ctrl idx value to prevent trap when accessed */
 	uint32_t idx;
-
-	int channel;
-	int coid;
 
 	/* Guest VM */
 	unsigned int guest_intr;
@@ -42,12 +37,33 @@ struct qvm_channel {
 	unsigned int factory_addr;
 	unsigned int irq;
 
+	/* os-specific part */
+	struct qvm_channel_os *os_data;
 };
+
+/* This is common but only for guest in HQX */
+struct shmem_irq_config {
+	unsigned long factory_addr; /* from gvm settings when provided */
+	int irq; /* from gvm settings when provided */
+};
+
+struct qvm_plugin_info {
+	struct shmem_irq_config *pchan_settings;
+	int setting_size;
+	int curr;
+	int probe_cnt;
+};
+
+extern struct qvm_plugin_info qvm_priv_info;
 
 /* Shared mem size in each direction for communication pipe */
 #define PIPE_SHMEM_SIZE (128 * 1024)
 
-void *qnx_hyp_rx_dispatch(void *data);
 void hab_pipe_reset(struct physical_channel *pchan);
 void habhyp_notify(void *commdev);
+unsigned long hab_shmem_factory_va(unsigned long factory_addr);
+char *hab_shmem_attach(struct qvm_channel *dev, const char *name,
+	uint32_t pages);
+uint64_t get_guest_ctrl_paddr(struct qvm_channel *dev,
+	unsigned long factory_addr, int irq, const char *name, uint32_t pages);
 #endif /* __HAB_QNX_H */

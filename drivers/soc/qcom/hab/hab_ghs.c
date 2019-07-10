@@ -15,34 +15,9 @@
 #include "hab_ghs.h"
 
 #define GIPC_VM_SET_CNT    22
-static const char * const dt_gipc_path_name[] = {
-	"testgipc1",
-	"testgipc2",
-	"testgipc3",
-	"testgipc4",
-	"testgipc5",
-	"testgipc6",
-	"testgipc7",
-	"testgipc8",
-	"testgipc9",
-	"testgipc10",
-	"testgipc11",
-	"testgipc12",
-	"testgipc13",
-	"testgipc14",
-	"testgipc15",
-	"testgipc16",
-	"testgipc17",
-	"testgipc18",
-	"testgipc19",
-	"testgipc20",
-	"testgipc21",
-	"testgipc22",
-};
-
 
 /* same vmid assignment for all the vms. it should matches dt_gipc_path_name */
-int mmid_order[GIPC_VM_SET_CNT] = {
+static int mmid_order[GIPC_VM_SET_CNT] = {
 	MM_AUD_1,
 	MM_AUD_2,
 	MM_AUD_3,
@@ -67,29 +42,14 @@ int mmid_order[GIPC_VM_SET_CNT] = {
 	MM_BUFFERQ_1,
 };
 
-static struct ghs_vmm_plugin_info_s {
-	const char * const *dt_name;
-	int *mmid_dt_mapping;
-	int curr;
-	int probe_cnt;
-} ghs_vmm_plugin_info = {
+struct ghs_vmm_plugin_info_s ghs_vmm_plugin_info = {
 	dt_gipc_path_name,
 	mmid_order,
 	0,
-	ARRAY_SIZE(dt_gipc_path_name),
+	0,
 };
 
-static void ghs_irq_handler(void *cookie)
-{
-	struct physical_channel *pchan = cookie;
-	struct ghs_vdev *dev =
-		(struct ghs_vdev *) (pchan ? pchan->hyp_data : NULL);
-
-	if (dev)
-		tasklet_schedule(&dev->task);
-}
-
-static int get_dt_name_idx(int vmid_base, int mmid,
+int get_dt_name_idx(int vmid_base, int mmid,
 				struct ghs_vmm_plugin_info_s *plugin_info)
 {
 	int idx = -1;
@@ -121,10 +81,10 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 		struct hab_device *mmid_device)
 {
 	struct ghs_vdev *dev = NULL;
+	struct ghs_vdev_os *dev_os = NULL;
 	struct physical_channel *pchan = NULL;
 	struct physical_channel **ppchan = (struct physical_channel **)commdev;
 	int ret = 0;
-	int dt_name_idx = 0;
 
 	if (ghs_vmm_plugin_info.curr > ghs_vmm_plugin_info.probe_cnt) {
 		pr_err("too many commdev alloc %d, supported is %d\n",
@@ -134,6 +94,7 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 		goto err;
 	}
 
+	/* common part for hyp_data */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
 		ret = -ENOMEM;
@@ -143,76 +104,29 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 	}
 
 	memset(dev, 0, sizeof(*dev));
+
+	/* os specific part for hyp_data */
+	dev_os = kzalloc(sizeof(*dev_os), GFP_KERNEL);
+	if (!dev_os) {
+		ret = -ENOMEM;
+		pr_err("allocate ghs_vdev_os failed %zu bytes on pchan %s\n",
+			sizeof(*dev_os), name);
+		goto err;
+	}
+
+	dev->os_data = dev_os;
+
 	spin_lock_init(&dev->io_lock);
 
 	/*
 	 * TODO: ExtractEndpoint is in ghs_comm.c because it blocks.
 	 *	Extrace and Request should be in roughly the same spot
 	 */
-	if (is_be) {
-		/* role is backend */
-		dev->be = 1;
-	} else {
-		/* role is FE */
-		struct device_node *gvh_dn;
+	ret = hab_gipc_ep_attach(is_be, name, vmid_remote, mmid_device, dev);
 
-		gvh_dn = of_find_node_by_path("/aliases");
-		if (gvh_dn) {
-			const char *ep_path = NULL;
-			struct device_node *ep_dn = NULL;
+	if (ret)
+		goto err;
 
-			dt_name_idx = get_dt_name_idx(vmid_remote,
-							mmid_device->id,
-							&ghs_vmm_plugin_info);
-			if (dt_name_idx < 0) {
-				pr_err("failed to find %s for vmid %d ret %d\n",
-						mmid_device->name,
-						mmid_device->id,
-						dt_name_idx);
-				of_node_put(gvh_dn);
-				ret = -ENOENT;
-				goto err;
-			}
-
-			ret = of_property_read_string(gvh_dn,
-				ghs_vmm_plugin_info.dt_name[dt_name_idx],
-				&ep_path);
-			if (ret) {
-				pr_err("failed to read endpoint str ret %d\n",
-					ret);
-				of_node_put(gvh_dn);
-				ret = -ENOENT;
-				goto err;
-			}
-			of_node_put(gvh_dn);
-
-			ep_dn = of_find_node_by_path(ep_path);
-			if (ep_dn) {
-				dev->endpoint = kgipc_endpoint_alloc(ep_dn);
-				of_node_put(ep_dn);
-				if (IS_ERR(dev->endpoint)) {
-					ret = PTR_ERR(dev->endpoint);
-					pr_err("alloc failed %d %s ret %d\n",
-						dt_name_idx, mmid_device->name,
-						ret);
-					goto err;
-				} else {
-					pr_debug("gipc ep found for %d %s\n",
-						dt_name_idx, mmid_device->name);
-				}
-			} else {
-				pr_err("of_parse_phandle failed id %d %s\n",
-					   dt_name_idx, mmid_device->name);
-				ret = -ENOENT;
-				goto err;
-			}
-		} else {
-			pr_err("of_find_compatible_node failed id %d %s\n",
-				   dt_name_idx, mmid_device->name);
-			ret = -ENOENT;
-			goto err;
-		}
-	}
 	/* add pchan into the mmid_device list */
 	pchan = hab_pchan_alloc(mmid_device, vmid_remote);
 	if (!pchan) {
@@ -233,25 +147,17 @@ int habhyp_commdev_alloc(void **commdev, int is_be, char *name, int vmid_remote,
 		goto err;
 	}
 
-	tasklet_init(&dev->task, physical_channel_rx_dispatch,
-		(unsigned long) pchan);
-
-	ret = kgipc_endpoint_start_with_irq_callback(dev->endpoint,
-		ghs_irq_handler,
-		pchan);
-	if (ret) {
-		pr_err("irq alloc failed id: %d %s, ret: %d\n",
-				ghs_vmm_plugin_info.curr, name, ret);
+	ret = habhyp_commdev_create_dispatcher(pchan);
+	if (ret)
 		goto err;
-	} else
-		pr_debug("ep irq handler started for %d %s, ret %d\n",
-				ghs_vmm_plugin_info.curr, name, ret);
+
 	/* this value could be more than devp total */
 	ghs_vmm_plugin_info.curr++;
 	return 0;
 err:
 	hab_pchan_put(pchan);
 	kfree(dev);
+	kfree(dev_os);
 	return ret;
 }
 
@@ -260,8 +166,11 @@ int habhyp_commdev_dealloc(void *commdev)
 	struct physical_channel *pchan = (struct physical_channel *)commdev;
 	struct ghs_vdev *dev = pchan->hyp_data;
 
-	kgipc_endpoint_free(dev->endpoint);
+	/* os specific deallocation for this commdev */
+	habhyp_commdev_dealloc_os(commdev);
+
 	kfree(dev->read_data);
+	kfree(dev->os_data);
 	kfree(dev);
 
 	if (get_refcnt(pchan->refcount) > 1) {
@@ -285,7 +194,8 @@ int hab_hypervisor_register(void)
 {
 	int ret = 0;
 
-	hab_driver.b_server_dom = 0;
+	/* os-specific registration work */
+	ret = hab_hypervisor_register_os();
 
 	return ret;
 }

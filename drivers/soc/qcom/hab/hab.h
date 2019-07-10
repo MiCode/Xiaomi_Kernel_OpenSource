@@ -13,39 +13,7 @@
 #ifndef __HAB_H
 #define __HAB_H
 
-#ifdef pr_fmt
-#undef pr_fmt
-#endif
-#define pr_fmt(fmt) "hab:%s:%d " fmt, __func__, __LINE__
-
-#include <linux/types.h>
-
-#include <linux/habmm.h>
-#include <linux/hab_ioctl.h>
-
-#include <linux/kernel.h>
-#include <linux/interrupt.h>
-#include <linux/device.h>
-#include <linux/fs.h>
-#include <linux/mm.h>
-#include <linux/vmalloc.h>
-#include <linux/slab.h>
-#include <linux/kthread.h>
-#include <linux/sched.h>
-#include <linux/cdev.h>
-#include <linux/list.h>
-#include <linux/spinlock.h>
-#include <linux/rbtree.h>
-#include <linux/idr.h>
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/dma-direction.h>
-#include <linux/dma-mapping.h>
-#include <linux/jiffies.h>
-#include <linux/reboot.h>
-#include <linux/kobject.h>
-#include <linux/sysfs.h>
-#include <linux/delay.h>
+#include "hab_os.h"	/* OS-specific part in the core header file */
 
 enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_MSG = 0x0,
@@ -520,12 +488,16 @@ static inline void hab_ctx_put(struct uhab_context *ctx)
 }
 
 void hab_send_close_msg(struct virtual_channel *vchan);
+
 int hab_hypervisor_register(void);
+int hab_hypervisor_register_os(void);
 void hab_hypervisor_unregister(void);
 void hab_hypervisor_unregister_common(void);
 int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 		int vmid_remote, struct hab_device *mmid_device);
 int habhyp_commdev_dealloc(void *commdev);
+void habhyp_commdev_dealloc_os(void *commdev);
+int habhyp_commdev_create_dispatcher(struct physical_channel *pchan);
 
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,
@@ -536,6 +508,7 @@ int physical_channel_send(struct physical_channel *pchan,
 		void *payload);
 
 void physical_channel_rx_dispatch(unsigned long physical_channel);
+void physical_channel_rx_dispatch_common(unsigned long physical_channel);
 
 int loopback_pchan_create(struct hab_device *dev, char *pchan_name);
 
