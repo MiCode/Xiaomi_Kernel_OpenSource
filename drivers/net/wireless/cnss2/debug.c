@@ -555,6 +555,8 @@ static ssize_t cnss_control_params_debug_write(struct file *fp,
 		plat_priv->ctrl_params.qmi_timeout = val;
 	else if (strcmp(cmd, "bdf_type") == 0)
 		plat_priv->ctrl_params.bdf_type = val;
+	else if (strcmp(cmd, "time_sync_period") == 0)
+		plat_priv->ctrl_params.time_sync_period = val;
 	else
 		return -EINVAL;
 
@@ -625,12 +627,15 @@ static int cnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "mhi_timeout: Timeout for MHI operation in milliseconds\n");
 	seq_puts(s, "qmi_timeout: Timeout for QMI message in milliseconds\n");
 	seq_puts(s, "bdf_type: Type of board data file to be downloaded\n");
+	seq_puts(s, "time_sync_period: Time period to do time sync with device in milliseconds\n");
 
 	seq_puts(s, "\nCurrent value:\n");
 	cnss_show_quirks_state(s, cnss_priv);
 	seq_printf(s, "mhi_timeout: %u\n", cnss_priv->ctrl_params.mhi_timeout);
 	seq_printf(s, "qmi_timeout: %u\n", cnss_priv->ctrl_params.qmi_timeout);
 	seq_printf(s, "bdf_type: %u\n", cnss_priv->ctrl_params.bdf_type);
+	seq_printf(s, "time_sync_period: %u\n",
+		   cnss_priv->ctrl_params.time_sync_period);
 
 	return 0;
 }
