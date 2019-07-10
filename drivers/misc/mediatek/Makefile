@@ -29,6 +29,7 @@ obj-$(CONFIG_MTK_CONN_MD) += conn_md/
 obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
+obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs/
 obj-$(CONFIG_MTK_IOMMU_MISC) += iommu/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/

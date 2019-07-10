@@ -123,6 +123,16 @@ menu "Memory"
 endmenu # Memory
 
 menu "Performance, Power, and Thermal"
+
+config MTK_PERFORMANCE_MODULE
+	bool "MediaTek Performance Module"
+	depends on ARCH_MEDIATEK
+	help
+	  For MediaTek Performance Module, such as Boost controller
+	  and FPSGO.
+	  Select "y" if you want to enable performance features.
+	  Select "n" if unsure.
+
 source "drivers/misc/mediatek/perf_common/Kconfig"
 endmenu # PPT
 

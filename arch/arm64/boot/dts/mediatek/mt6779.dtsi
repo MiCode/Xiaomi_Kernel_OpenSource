@@ -2982,6 +2982,13 @@
 	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
 	};
 
+	dram_ctrl {
+		compatible = "mediatek,dram-ctrl";
+		power-domains = <&scpsys MT6779_POWER_DOMAIN_INFRA>;
+		required-opps = <&dvfsrc_freq_opp0>,
+				<&dvfsrc_freq_opp1>;
+	};
+
 	mtk_scpsys_bringup_disp {
 		compatible = "mediatek,scpsys-bringup-mt6779";
 		power-domains = <&scpsys MT6779_POWER_DOMAIN_MM>;
