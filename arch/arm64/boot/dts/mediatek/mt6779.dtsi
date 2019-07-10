@@ -2284,6 +2284,10 @@
 			interconnect-names = "mmsys_path";
 		};
 
+		mmqos_wrapper {
+			compatible = "mediatek,mt6779-mmqos-wrapper";
+		};
+
 		disp_rsz0@1401a000 {
 			compatible = "mediatek,mt6779-disp_rsz0";
 			reg = <0 0x1401a000 0 0x1000>;
