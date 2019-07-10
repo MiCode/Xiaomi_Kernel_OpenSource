@@ -1317,6 +1317,7 @@ struct dwc3 {
 
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
+	void			*dwc_dma_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
 	int			tx_fifo_size;
 	int			last_fifo_depth;
