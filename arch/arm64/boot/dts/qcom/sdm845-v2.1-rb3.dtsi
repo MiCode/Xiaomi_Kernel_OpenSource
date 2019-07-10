@@ -21,6 +21,18 @@
 #include "sdm845-rb3.dtsi"
 #include "sdm845-audio-overlay.dtsi"
 
+&usb1 {
+	status = "ok";
+};
+
+&qusb_phy1 {
+	status = "ok";
+};
+
+&usb_qmp_phy {
+	status = "ok";
+};
+
 &qupv3_se3_i2c {
 	status = "disabled";
 };
@@ -56,6 +68,18 @@
 	config {
 		pins = "gpio31","gpio77","gpio32";
 	};
+};
+
+&pcie0 {
+	pinctrl-names = "default", "slot_power_on";
+	pinctrl-1 = <&pcie0_3v3_on &pcie0_1v5_on>;
+	3v3_gpio = <&tlmm 90 0>;
+	1v5_gpio = <&tlmm 90 0>;
+	status = "ok";
+};
+
+&pcie1 {
+	/delete-property/ wake-gpio;
 };
 
 &max_rst_suspend {
