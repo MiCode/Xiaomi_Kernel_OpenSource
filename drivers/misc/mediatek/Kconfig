@@ -105,6 +105,7 @@ source "drivers/misc/mediatek/ccmni/Kconfig"
 source "drivers/misc/mediatek/eccci/Kconfig"
 source "drivers/misc/mediatek/btif/Kconfig"
 source "drivers/misc/mediatek/connectivity/Kconfig"
+source "drivers/misc/mediatek/conn_md/Kconfig"
 endmenu # CONN
 
 menu "Security"
