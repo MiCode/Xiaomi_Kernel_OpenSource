@@ -21,14 +21,6 @@
 #include "sdm845-rb3.dtsi"
 #include "sdm845-audio-overlay.dtsi"
 
-&labibb {
-	status = "disabled";
-};
-
-&pmi8998_wled {
-	status = "disabled";
-};
-
 &qupv3_se3_i2c {
 	status = "disabled";
 };
@@ -39,10 +31,6 @@
 
 &pmi8998_pwm_2 {
 	status = "ok";
-};
-
-&ext_5v_boost {
-	status = "disabled";
 };
 
 &wil6210 {
@@ -81,14 +69,6 @@
 
 &camera_dvdd_en_default {
 	pins = "gpio11";
-};
-
-&sde_dp {
-	status = "disabled";
-};
-
-&mdss_mdp {
-	status = "disabled";
 };
 
 &soc {
