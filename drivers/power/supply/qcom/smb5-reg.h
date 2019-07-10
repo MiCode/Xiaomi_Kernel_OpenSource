@@ -493,6 +493,12 @@ enum {
 #define CONNECTOR_TEMP_UB_BIT			BIT(1)
 #define CONNECTOR_TEMP_LB_BIT			BIT(0)
 
+#define SMB_TEMP_STATUS_REG			(MISC_BASE + 0x0A)
+#define SMB_TEMP_SHDN_BIT			BIT(3)
+#define SMB_TEMP_RST_BIT			BIT(2)
+#define SMB_TEMP_UB_BIT				BIT(1)
+#define SMB_TEMP_LB_BIT				BIT(0)
+
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
 
