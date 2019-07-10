@@ -535,6 +535,22 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev);
 void mhi_unprepare_from_transfer(struct mhi_device *mhi_dev);
 
 /**
+ * mhi_pause_transfer - Pause the current transfe
+ * Moves both UL and DL channels to STOP state to halt
+ * pending transfers.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_pause_transfer(struct mhi_device *mhi_dev);
+
+/**
+ * mhi_resume_transfer - resume current transfer
+ * Moves both UL and DL channels to START state to
+ * resume transfer.
+ * @mhi_dev: Device associated with the channels
+ */
+int mhi_resume_transfer(struct mhi_device *mhi_dev);
+
+/**
  * mhi_get_no_free_descriptors - Get transfer ring length
  * Get # of TD available to queue buffers
  * @mhi_dev: Device associated with the channels

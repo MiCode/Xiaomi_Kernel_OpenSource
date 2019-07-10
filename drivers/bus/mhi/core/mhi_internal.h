@@ -350,6 +350,7 @@ enum mhi_cmd_type {
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
+	MHI_CMD_STOP_CHAN,
 	MHI_CMD_TIMSYNC_CFG,
 };
 
