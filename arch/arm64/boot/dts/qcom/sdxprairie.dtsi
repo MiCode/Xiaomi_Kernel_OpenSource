@@ -40,6 +40,13 @@
 		#size-cells = <1>;
 		ranges;
 
+		mpss_adsp_mem: mpss_adsp_region@90c00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x90c00000 0xd400000>;
+			label = "mpss_adsp_mem";
+		};
+
 		tz_apps_mem: tz_apps_region@0x90000000 {
 			no-map;
 			reg = <0x90000000 0xc00000>;
@@ -86,13 +93,6 @@
 			no-map;
 			reg = <0x8ef00000 0x800000>;
 			label = "mpss_debug_mem";
-		};
-
-		mpss_adsp_mem: mpss_adsp_region@82300000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x82300000 0xcc00000>;
-			label = "mpss_adsp_mem";
 		};
 
 		qseecom_mem: qseecom_region@0 {
