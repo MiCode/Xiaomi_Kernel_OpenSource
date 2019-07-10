@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -484,14 +484,16 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Make sure above write completed with PHY */
 		wmb();
 
-		clk_disable_unprepare(phy->cfg_ahb_clk);
-		clk_disable_unprepare(phy->aux_clk);
-		clk_disable_unprepare(phy->pipe_clk);
-		if (phy->ref_clk)
-			clk_disable_unprepare(phy->ref_clk);
-		if (phy->ref_clk_src)
-			clk_disable_unprepare(phy->ref_clk_src);
-		phy->clk_enabled = false;
+		if (phy->clk_enabled) {
+			clk_disable_unprepare(phy->cfg_ahb_clk);
+			clk_disable_unprepare(phy->aux_clk);
+			clk_disable_unprepare(phy->pipe_clk);
+			if (phy->ref_clk)
+				clk_disable_unprepare(phy->ref_clk);
+			if (phy->ref_clk_src)
+				clk_disable_unprepare(phy->ref_clk_src);
+			phy->clk_enabled = false;
+		}
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
