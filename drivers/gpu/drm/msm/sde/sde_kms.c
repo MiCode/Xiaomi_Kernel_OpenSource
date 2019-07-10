@@ -2750,7 +2750,8 @@ retry:
 		uint64_t lp;
 
 		if (!conn->state || !conn->state->crtc ||
-				conn->dpms != DRM_MODE_DPMS_ON)
+				conn->dpms != DRM_MODE_DPMS_ON ||
+				sde_encoder_in_clone_mode(conn->encoder))
 			continue;
 
 		lp = sde_connector_get_lp(conn);
@@ -2806,6 +2807,9 @@ retry:
 
 		lp = sde_connector_get_lp(conn);
 		if (lp != SDE_MODE_DPMS_LP2)
+			continue;
+
+		if (sde_encoder_in_clone_mode(conn->encoder))
 			continue;
 
 		ret = sde_encoder_wait_for_event(conn->encoder,
