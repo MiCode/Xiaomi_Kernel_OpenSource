@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2887,6 +2887,15 @@ int rmnet_ipa_query_tethering_stats_modem(
 	struct ipa_get_data_stats_resp_msg_v01 *resp;
 	int pipe_len, rc;
 
+	if (data != NULL) {
+		/* prevent string buffer overflows */
+		data->upstreamIface[IFNAMSIZ-1] = '\0';
+		data->tetherIface[IFNAMSIZ-1] = '\0';
+	} else if (reset != false) {
+		/* Data can be NULL for reset stats, checking reset != False */
+		return -EINVAL;
+	}
+
 	req = kzalloc(sizeof(struct ipa_get_data_stats_req_msg_v01),
 			GFP_KERNEL);
 	if (!req) {
@@ -2910,7 +2919,13 @@ int rmnet_ipa_query_tethering_stats_modem(
 		IPAWANDBG("reset the pipe stats\n");
 	} else {
 		/* print tethered-client enum */
-		IPAWANDBG("Tethered-client enum(%d)\n", data->ipa_client);
+		if (data == NULL) {
+			kfree(req);
+			kfree(resp);
+			return -EINVAL;
+		}
+		IPAWANDBG_LOW("Tethered-client enum(%d)\n",
+				data->ipa_client);
 	}
 
 	rc = ipa_qmi_get_data_stats(req, resp);
