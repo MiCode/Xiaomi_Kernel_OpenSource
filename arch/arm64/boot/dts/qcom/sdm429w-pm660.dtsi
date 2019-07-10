@@ -571,6 +571,7 @@
 		qcom,fg-cutoff-current = <50>;
 		qcom,fg-sync-sleep-threshold-ma = <30>;
 		qcom,battery-data = <&mtp_batterydata>;
+		qcom,fg-bmd-en-delay-ms = <300>;
 		qcom,fg-force-load-profile;
 		qcom,fg-jeita-thresholds = <0 20 45 60>;
 		status = "okay";
