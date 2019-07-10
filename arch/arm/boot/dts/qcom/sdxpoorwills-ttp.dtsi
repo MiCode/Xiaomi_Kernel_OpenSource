@@ -16,6 +16,10 @@
 	status = "okay";
 };
 
+&qcom_seecom {
+	status = "okay";
+};
+
 &usb {
 	status = "okay";
 	qcom,connector-type-uAB;
