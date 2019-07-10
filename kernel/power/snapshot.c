@@ -1257,6 +1257,33 @@ static inline void *saveable_highmem_page(struct zone *z, unsigned long p)
 }
 #endif /* CONFIG_HIGHMEM */
 
+static bool kernel_pte_present(struct page *page)
+{
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	unsigned long addr = (unsigned long)page_address(page);
+
+	pgd = pgd_offset_k(addr);
+	if (pgd_none(*pgd))
+		return false;
+
+	pud = pud_offset(pgd, addr);
+	if (pud_none(*pud))
+		return false;
+	if (pud_sect(*pud))
+		return true;
+
+	pmd = pmd_offset(pud, addr);
+	if (pmd_none(*pmd))
+		return false;
+	if (pmd_sect(*pmd))
+		return true;
+
+	pte = pte_offset_kernel(pmd, addr);
+	return pte_valid(*pte);
+}
 /**
  * saveable_page - Check if the given page is saveable.
  *
@@ -1285,6 +1312,14 @@ static struct page *saveable_page(struct zone *zone, unsigned long pfn)
 
 	if (PageReserved(page)
 	    && (!kernel_page_present(page) || pfn_is_nosave(pfn)))
+		return NULL;
+
+	/*
+	 * Even if page is not reserved and if it's not present in kernel PTE;
+	 * don't snapshot it ! This happens to the pages allocated using
+	 * __dma_alloc_coherent with DMA_ATTR_NO_KERNEL_MAPPING flag set.
+	 */
+	if (!kernel_pte_present(page))
 		return NULL;
 
 	if (page_is_guard(page))
