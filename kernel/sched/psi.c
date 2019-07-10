@@ -587,6 +587,31 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 	return now + group->poll_min_period;
 }
 
+void psi_emergency_trigger(void)
+{
+	struct psi_group *group = &psi_system;
+	struct psi_trigger *t;
+
+	if (static_branch_likely(&psi_disabled))
+		return;
+
+	/*
+	 * In unlikely case that OOM was triggered while adding/
+	 * removing triggers.
+	 */
+	if (!mutex_trylock(&group->trigger_lock))
+		return;
+
+	list_for_each_entry(t, &group->triggers, node) {
+		trace_psi_event(t->state, t->threshold);
+
+		/* Generate an event */
+		if (cmpxchg(&t->event, 0, 1) == 0)
+			wake_up_interruptible(&t->event_wait);
+	}
+	mutex_unlock(&group->trigger_lock);
+}
+
 /*
  * Schedule polling if it's not already scheduled. It's safe to call even from
  * hotpath because even though kthread_queue_delayed_work takes worker->lock
