@@ -514,6 +514,10 @@
 	qcom,check-for-float;
 };
 
+&qusb_phy0 {
+	qcom,enable-dpdm-pulsing;
+};
+
 &i2c_7 {
 	smb1351-charger@1d {
 		compatible = "qcom,smb1351-charger";
