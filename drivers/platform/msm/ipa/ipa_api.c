@@ -3562,11 +3562,15 @@ EXPORT_SYMBOL(ipa_conn_wigig_rx_pipe_i);
 /**
  * ipa_conn_wigig_client_i() - connect a wigig client
  */
-int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out)
+int ipa_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out);
+	IPA_API_DISPATCH_RETURN(ipa_conn_wigig_client_i, in, out,
+		tx_notify, priv);
 
 	return ret;
 }

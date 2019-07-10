@@ -2492,7 +2492,10 @@ int ipa3_disable_wdi3_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx);
 int ipa3_conn_wigig_rx_pipe_i(void *in,
 	struct ipa_wigig_conn_out_params *out);
 
-int ipa3_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out);
+int ipa3_conn_wigig_client_i(void *in,
+	struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv);
 
 int ipa3_wigig_uc_msi_init(bool init,
 	phys_addr_t periph_baddr_pa,

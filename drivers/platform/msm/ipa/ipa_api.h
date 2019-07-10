@@ -441,7 +441,9 @@ struct ipa_api_controller {
 		struct ipa_wigig_conn_out_params *out);
 
 	int (*ipa_conn_wigig_client_i)(void *in,
-		struct ipa_wigig_conn_out_params *out);
+		struct ipa_wigig_conn_out_params *out,
+		ipa_notify_cb tx_notify,
+		void *priv);
 
 	int (*ipa_disconn_wigig_pipe_i)(enum ipa_client_type client,
 		struct ipa_wigig_pipe_setup_info_smmu *pipe_smmu,

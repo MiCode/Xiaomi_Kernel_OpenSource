@@ -442,7 +442,9 @@ int ipa_wigig_uc_init(
 
 int ipa_conn_wigig_rx_pipe_i(void *in, struct ipa_wigig_conn_out_params *out);
 
-int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out);
+int ipa_conn_wigig_client_i(void *in, struct ipa_wigig_conn_out_params *out,
+	ipa_notify_cb tx_notify,
+	void *priv);
 
 int ipa_wigig_uc_msi_init(
 	bool init,
