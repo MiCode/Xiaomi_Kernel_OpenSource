@@ -420,7 +420,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			pre_fg_r_value = fg_r_value;
 			pre_bat_temperature_val2 = bat_temperature_val;
 			pre_time = ctime;
-			dev_notice(gm->dev, "[force_get_tbat] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
+			dev_notice(gm->dev, "[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
 				__func__,
 				bat_temperature_volt_temp, bat_temperature_volt,
 				fg_current_state, fg_current_temp,
@@ -489,7 +489,7 @@ static int mtk_battery_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static int __init battery_probe(struct platform_device *pdev)
+static int battery_probe(struct platform_device *pdev)
 {
 	struct power_supply *psy;
 	struct mtk_battery *gm;
@@ -536,7 +536,7 @@ static int __init battery_probe(struct platform_device *pdev)
 
 	gm->bs_data.edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
 	if (IS_ERR(gm->bs_data.edev)) {
-		pr_notice("couldn't get extcon device: %d\n",
+		pr_notice("couldn't get extcon device: %ld\n",
 			PTR_ERR(gm->bs_data.edev));
 		ret = PTR_ERR(gm->bs_data.edev);
 		goto err_power_supply;
@@ -621,4 +621,3 @@ module_exit(battery_exit);
 MODULE_AUTHOR("wy.chuang <wy.chuang@mediatek.com>");
 MODULE_DESCRIPTION("Battery Device Driver");
 MODULE_LICENSE("GPL");
-
