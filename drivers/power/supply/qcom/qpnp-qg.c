@@ -1961,6 +1961,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = qg_get_battery_capacity(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		pval->intval = chip->sys_soc;
+		break;
 	case POWER_SUPPLY_PROP_REAL_CAPACITY:
 		rc = qg_get_battery_capacity_real(chip, &pval->intval);
 		break;
@@ -2090,6 +2093,7 @@ static int qg_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_REAL_CAPACITY,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
@@ -2920,7 +2924,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	bool use_pon_ocv = true;
 	unsigned long rtc_sec = 0;
 	u32 ocv_uv = 0, soc = 0, pon_soc = 0, full_soc = 0, cutoff_soc = 0;
-	u32 shutdown[SDAM_MAX] = {0};
+	u32 shutdown[SDAM_MAX] = {0}, soc_raw = 0;
 	char ocv_type[20] = "NONE";
 
 	if (!chip->profile_loaded) {
@@ -2999,6 +3003,7 @@ static int qg_determine_pon_soc(struct qpnp_qg *chip)
 	use_pon_ocv = false;
 	ocv_uv = shutdown[SDAM_OCV_UV];
 	soc = shutdown[SDAM_SOC];
+	soc_raw = shutdown[SDAM_SOC] * 100;
 	strlcpy(ocv_type, "SHUTDOWN_SOC", 20);
 	qg_dbg(chip, QG_DEBUG_PON, "Using SHUTDOWN_SOC @ PON\n");
 
@@ -3066,7 +3071,9 @@ use_pon_ocv:
 			soc = DIV_ROUND_UP(((pon_soc - cutoff_soc) * 100),
 						(full_soc - cutoff_soc));
 			soc = CAP(0, 100, soc);
+			soc_raw = soc * 100;
 		} else {
+			soc_raw = pon_soc * 100;
 			soc = pon_soc;
 		}
 
@@ -3080,6 +3087,7 @@ done:
 		return rc;
 	}
 
+	chip->cc_soc = chip->sys_soc = soc_raw;
 	chip->last_adj_ssoc = chip->catch_up_soc = chip->msoc = soc;
 	chip->kdata.param[QG_PON_OCV_UV].data = ocv_uv;
 	chip->kdata.param[QG_PON_OCV_UV].valid = true;
