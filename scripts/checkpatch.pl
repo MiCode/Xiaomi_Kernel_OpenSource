@@ -5713,13 +5713,6 @@ sub process {
 			      $herecurr);
 		}
 
-# dsb is too ARMish, and should usually be mb.
-		if ($line =~ /\bdsb\b/) {
-			WARN("ARM_BARRIER",
-			     "Use of dsb is discouranged: prefer mb.\n" .
-			     $herecurr);
-		}
-
 # unbounded string functions are overflow risks
 		my %str_fns = (
 			"sprintf" => "snprintf",
