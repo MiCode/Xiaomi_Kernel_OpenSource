@@ -2155,6 +2155,8 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 {
 	int ret = 0;
 	struct drm_dp_mst_branch *mstb = NULL;
+	u8 buf;
+	u32 offset = DP_DPCD_REV;
 
 	mutex_lock(&mgr->lock);
 	if (mst_state == mgr->mst_state)
@@ -2165,8 +2167,21 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 	if (mst_state) {
 		WARN_ON(mgr->mst_primary);
 
+		ret = drm_dp_dpcd_read(mgr->aux, DP_TRAINING_AUX_RD_INTERVAL,
+				&buf, 1);
+		if (ret != 1) {
+			DRM_DEBUG_KMS("failed to read aux rd interval\n");
+			ret = -EINVAL;
+			goto out_unlock;
+		}
+
+		/* check for EXTENDED_RECEIVER_CAPABILITY_FIELD_PRESENT */
+		if (buf & BIT(7))
+			offset = 0x2200;
+
 		/* get dpcd info */
-		ret = drm_dp_dpcd_read(mgr->aux, DP_DPCD_REV, mgr->dpcd, DP_RECEIVER_CAP_SIZE);
+		ret = drm_dp_dpcd_read(mgr->aux, offset, mgr->dpcd,
+				DP_RECEIVER_CAP_SIZE);
 		if (ret != DP_RECEIVER_CAP_SIZE) {
 			DRM_DEBUG_KMS("failed to read DPCD\n");
 			goto out_unlock;
