@@ -1,0 +1,7 @@
+config MTK_PLAT_SRAM_FLAG
+	bool "MediaTek PLATFORM SRAM FLAG"
+	help
+	  PLAT_SRAM_FLAG provides APIs to access debugging flags.
+	  Which are kept after exception occurs, and we can dump
+	  these flags as hints or inputs to post-processing scripts
+	  for further analyze.
