@@ -749,7 +749,10 @@ static void sde_hdcp_2x_msg_recvd(struct sde_hdcp_2x_ctrl *hdcp)
 		goto exit;
 	}
 
-	out_msg = (u32)hdcp->app_data.response.data[0];
+	if (hdcp->app_data.response.length == 0)
+		out_msg = INVALID_MESSAGE;
+	else
+		out_msg = (u32)hdcp->app_data.response.data[0];
 
 	pr_debug("message received from TZ: %s\n",
 			sde_hdcp_2x_message_name(out_msg));
