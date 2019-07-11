@@ -67,7 +67,7 @@ config MTK_SRCLKEN_RC
 
 config MTK_LOW_POWER_MODULE
 	bool "Meditaek Low Power Module"
-	depends on ARCH_MEDIATEK
+	depends on ARCH_MEDIATEK && MTK_LPM
 	default n
 	help
 	  For MediaTek Low Power Module, such as CPU idle,
