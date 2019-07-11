@@ -232,7 +232,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	pr_info("[CM_MGR] mt6779-cm_mgr cm_mgr_base=0x%x\n",
+	pr_info("[CM_MGR] mt6779-cm_mgr cm_mgr_base=%p\n",
 			cm_mgr_base);
 
 	cm_mgr_num_perf = of_count_phandle_with_args(node,
