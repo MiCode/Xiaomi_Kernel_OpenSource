@@ -13,6 +13,7 @@ Required properties:
         - "qcom,trinket-vidc" : Invokes driver specific data for trinket.
         - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
         - "qcom,sdm670-vidc" : Invokes driver specific data for SDM670.
+        - "qcom,atoll-vidc" : Invokes driver specific data for atoll.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
