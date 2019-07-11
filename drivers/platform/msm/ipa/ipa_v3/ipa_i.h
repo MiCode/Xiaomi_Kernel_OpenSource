@@ -1933,6 +1933,7 @@ struct ipa3_plat_drv_res {
 	bool do_ram_collection_on_crash;
 	u32 secure_debug_check_action;
 	bool ipa_endp_delay_wa;
+	bool skip_ieob_mask_wa;
 };
 
 /**
