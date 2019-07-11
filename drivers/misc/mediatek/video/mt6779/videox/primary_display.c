@@ -78,10 +78,7 @@
 #endif
 
 /* #include "mmdvfs_mgr.h" */ /* TODO: */
-#include "mmdvfs_pmqos.h"
 #include "disp_pm_qos.h"
-#include "mtk_vcorefs_governor.h"
-#include "mtk_vcorefs_manager.h"
 #endif /* MTK_FB_MMDVFS_SUPPORT */
 
 #include "disp_lowpower.h"
@@ -1789,12 +1786,8 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	}
 	cmdqRecReset(cmdq_wait_handle);
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
-		prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-			DDP_SCENARIO_PRIMARY_ALL, __func__);
-	else
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			HRT_LEVEL_NUM - 1);
+	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
+		DDP_SCENARIO_PRIMARY_ALL, __func__);
 #endif
 	/* configure config thread */
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -2049,12 +2042,8 @@ static int _DL_switch_to_DC_fast(int block)
 
 	/* switch to lower gear */
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
-		prim_disp_request_hrt_bw(2,
-			DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP, __func__);
-	else
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			 HRT_LEVEL_LEVEL0);
+	prim_disp_request_hrt_bw(2,
+		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP, __func__);
 #endif
 	/* ddp_mmp_rdma_layer(&rdma_config, 0, 20, 20); */
 
@@ -2219,12 +2208,8 @@ static int _DC_switch_to_DL_fast(int block)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* switch back to last request gear */
-	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
-		prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-				DDP_SCENARIO_PRIMARY_DISP, __func__);
-	else
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-			dvfs_last_ovl_req);
+	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -3376,12 +3361,8 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if ((real_hrt_level >= dvfs_last_ovl_req) &&
 			(!primary_display_is_decouple_mode())) {
-		if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
-			prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-				DDP_SCENARIO_PRIMARY_DISP, __func__);
-		else
-			primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-							  dvfs_last_ovl_req);
+		prim_disp_request_hrt_bw(dvfs_last_ovl_req,
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 	}
 #endif
 	_primary_path_unlock(__func__);
@@ -4887,12 +4868,8 @@ done:
 	 * Set MMDVFS to default, do not prevent it from stepping into ULPM.
 	 * Request DVFS before slept state in case of invalid request
 	 */
-	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
-		prim_disp_request_hrt_bw(HRT_BW_UNREQ,
-				DDP_SCENARIO_PRIMARY_DISP, __func__);
-	else
-		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-				HRT_LEVEL_DEFAULT);
+	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 	primary_set_state(DISP_SLEPT);
 
@@ -6597,53 +6574,18 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	pconfig->overlap_layer_num = hrt_level;
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1) {
-		if (primary_display_is_decouple_mode())
-			prim_disp_request_hrt_bw(2,
-				DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-				__func__);
-		else {
-			if ((overlap_num - dvfs_last_ovl_req) > 0)
-				prim_disp_request_hrt_bw(overlap_num,
-					DDP_SCENARIO_PRIMARY_DISP, __func__);
-			dvfs_last_ovl_req = overlap_num;
-		}
-
-		hrt_level = overlap_num;
-	} else {
-		if (primary_display_is_decouple_mode() &&
-		    primary_display_is_mirror_mode()) {
-			/*
-			 * if DCMirror mode(WFD/ScreenRecord),
-			 * forced set dvfs to opp0
-			 */
-			primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-							  HRT_LEVEL_LEVEL3);
-			dvfs_last_ovl_req = HRT_LEVEL_LEVEL3;
-		} else if (hrt_level > HRT_LEVEL_LEVEL2 &&
-			   primary_display_is_directlink_mode()) {
-			/* Be carefull, request Ultra-High-Low-Power-Mode! */
-			primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-							  HRT_LEVEL_LEVEL3);
-			dvfs_last_ovl_req = HRT_LEVEL_LEVEL3;
-		} else if (hrt_level > HRT_LEVEL_LEVEL1 &&
-			   primary_display_is_directlink_mode()) {
-			primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-							  HRT_LEVEL_LEVEL2);
-			dvfs_last_ovl_req = HRT_LEVEL_LEVEL2;
-		} else if (hrt_level > HRT_LEVEL_LEVEL0) {
-			dvfs_last_ovl_req = HRT_LEVEL_LEVEL1;
-		} else {
-			dvfs_last_ovl_req = HRT_LEVEL_LEVEL0;
-		}
-
-		if (disp_helper_get_option(DISP_OPT_SHOW_VISUAL_DEBUG_INFO)) {
-			char msg[10];
-
-			snprintf(msg, sizeof(msg), "HRT=%d,", hrt_level);
-			screen_logger_add_message("HRT", MESSAGE_REPLACE, msg);
-		}
+	if (primary_display_is_decouple_mode())
+		prim_disp_request_hrt_bw(2,
+			DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
+			__func__);
+	else {
+		if ((overlap_num - dvfs_last_ovl_req) > 0)
+			prim_disp_request_hrt_bw(overlap_num,
+				DDP_SCENARIO_PRIMARY_DISP, __func__);
+		dvfs_last_ovl_req = overlap_num;
 	}
+
+	hrt_level = overlap_num;
 #endif
 
 

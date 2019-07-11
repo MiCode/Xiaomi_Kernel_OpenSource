@@ -26,8 +26,7 @@
 #include "lcm_drv.h"
 #include "ddp_ovl_wcg.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmdvfs_mgr.h"
-#include "mmdvfs_pmqos.h"
+#include "mmqos_wrapper.h"
 #endif
 
 static struct layering_rule_ops l_rule_ops;

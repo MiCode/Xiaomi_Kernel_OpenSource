@@ -13,8 +13,7 @@
 #include "disp_drv_log.h"
 #include "disp_drv_platform.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "helio-dvfsrc-opp-mt6779.h"
-#include "mmdvfs_pmqos.h"
+#include "mmqos_wrapper.h"
 #endif
 #if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
@@ -35,9 +34,6 @@ static struct mm_qos_request ovl0_2l_fbdc_request;
 static struct mm_qos_request rdma0_request;
 static struct mm_qos_request wdma0_request;
 
-static struct pm_qos_request ddr_opp_request;
-static struct pm_qos_request mm_freq_request;
-
 static struct plist_head hrt_request_list;
 static struct mm_qos_request ovl0_hrt_request;
 static struct mm_qos_request ovl0_2l_hrt_request;
@@ -48,36 +44,6 @@ static struct mm_qos_request hrt_bw_request;
 
 cmdqBackupSlotHandle dispsys_slot;
 
-
-#ifdef MTK_FB_MMDVFS_SUPPORT
-static enum ddr_opp __remap_to_opp(enum HRT_LEVEL hrt)
-{
-	enum ddr_opp opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-
-	switch (hrt) {
-	case HRT_LEVEL_LEVEL0:
-		opp = DDR_OPP_4; /* LP4-1200 */
-		break;
-	case HRT_LEVEL_LEVEL1:
-		opp = DDR_OPP_2; /* LP4-2100 */
-		break;
-	case HRT_LEVEL_LEVEL2:
-		opp = DDR_OPP_1; /* LP4-2800 */
-		break;
-	case HRT_LEVEL_LEVEL3:
-		opp = DDR_OPP_0; /* LP4-3200 */
-		break;
-	case HRT_LEVEL_DEFAULT:
-		opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-		break;
-	default:
-		DISP_PR_ERR("%s:unknown hrt level:%d\n", __func__, hrt);
-		break;
-	}
-
-	return opp;
-}
-#endif
 
 static int __init_cmdq_slots(cmdqBackupSlotHandle *pSlot,
 	int count, int init_val)
@@ -129,10 +95,6 @@ void disp_pm_qos_init(void)
 			   SMI_PORT_DISP_RDMA0);
 	mm_qos_add_request(&bw_request_list, &wdma0_request,
 			   SMI_PORT_DISP_WDMA0);
-	pm_qos_add_request(&ddr_opp_request, PM_QOS_DDR_OPP,
-			   PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
-			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
 	plist_head_init(&hrt_request_list);
 
@@ -157,24 +119,7 @@ void disp_pm_qos_deinit(void)
 {
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mm_qos_remove_all_request(&bw_request_list);
-	pm_qos_remove_request(&ddr_opp_request);
-	pm_qos_remove_request(&mm_freq_request);
 #endif
-}
-
-int disp_pm_qos_request_dvfs(enum HRT_LEVEL hrt)
-{
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	enum ddr_opp opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
-
-	opp = __remap_to_opp(hrt);
-	mmprofile_log_ex(ddp_mmp_get_events()->dvfs, MMPROFILE_FLAG_START,
-			 hrt, opp);
-	pm_qos_update_request(&ddr_opp_request, opp);
-	mmprofile_log_ex(ddp_mmp_get_events()->dvfs, MMPROFILE_FLAG_END, 0, 0);
-#endif
-
-	return 0;
 }
 
 static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
@@ -202,7 +147,7 @@ static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
 		return -1;
 	}
 
-	mm_qos_set_hrt_request(request, bandwidth);
+	mm_qos_set_hrt_request(request, MTK_MMQOS_MAX_BW);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_hrt_bw,
 			MMPROFILE_FLAG_PULSE,
