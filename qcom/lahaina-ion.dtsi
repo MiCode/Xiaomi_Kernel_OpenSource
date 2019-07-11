@@ -1,0 +1,27 @@
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		system_heap: qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		system_secure_heap: qcom,ion-heap@9 {
+			reg = <9>;
+			qcom,ion-heap-type = "SYSTEM_SECURE";
+		};
+
+		qcom,ion-heap@14 { /* SECURE CARVEOUT HEAP */
+			status = "disabled";
+			reg = <14>;
+			qcom,ion-heap-type = "SECURE_CARVEOUT";
+			cdsp {
+				memory-region = <&cdsp_secure_heap>;
+				token = <0x20000000>;
+			};
+		};
+	};
+};
