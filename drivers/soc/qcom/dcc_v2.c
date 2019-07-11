@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1063,8 +1063,6 @@ static ssize_t dcc_store_config(struct device *dev,
 		apb_bus = 1;
 	}
 
-	if (len == 0)
-		len = 1;
 
 	if (base == 0) {
 		dev_err(drvdata->dev, "DCC: Invalid  Address\n");
