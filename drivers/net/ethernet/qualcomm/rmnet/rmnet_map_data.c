@@ -550,6 +550,29 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 	}
 }
 
+bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr)
+{
+	/* Only applies to frames with a single packet */
+	if (coal_hdr->num_nlos != 1 || coal_hdr->nl_pairs[0].num_packets != 1)
+		return false;
+
+	/* TCP header has FIN or PUSH set */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_COAL)
+		return true;
+
+	/* Hit packet limit, byte limit, or time limit/EOF on DMA */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_HW) {
+		switch (coal_hdr->close_value) {
+		case RMNET_MAP_COAL_CLOSE_HW_PKT:
+		case RMNET_MAP_COAL_CLOSE_HW_BYTE:
+		case RMNET_MAP_COAL_CLOSE_HW_TIME:
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static void rmnet_map_move_headers(struct sk_buff *skb)
 {
 	struct iphdr *iph;
@@ -742,6 +765,34 @@ __rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 	coal_meta->pkt_count = 0;
 }
 
+static bool rmnet_map_validate_csum(struct sk_buff *skb,
+				    struct rmnet_map_coal_metadata *meta)
+{
+	u8 *data = rmnet_map_data_ptr(skb);
+	unsigned int datagram_len;
+	__wsum csum;
+	__sum16 pseudo;
+
+	datagram_len = skb->len - meta->ip_len;
+	if (meta->ip_proto == 4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
+		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+					    datagram_len,
+					    meta->trans_proto, 0);
+	} else {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
+
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+					  datagram_len, meta->trans_proto,
+					  0);
+	}
+
+	csum = skb_checksum(skb, meta->ip_len, datagram_len,
+			    csum_unfold(pseudo));
+	return !csum_fold(csum);
+}
+
 /* Converts the coalesced SKB into a list of SKBs.
  * NLOs containing csum erros will not be included.
  * The original coalesced SKB should be treated as invalid and
@@ -825,6 +876,17 @@ static void rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
 		return;
 	}
 
+	if (rmnet_map_v5_csum_buggy(coal_hdr)) {
+		rmnet_map_move_headers(coal_skb);
+		/* Mark as valid if it checks out */
+		if (rmnet_map_validate_csum(coal_skb, &coal_meta))
+			coal_skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+		__skb_queue_tail(list, coal_skb);
+		return;
+	}
+
+	/* Segment the coalesced SKB into new packets */
 	for (nlo = 0; nlo < coal_hdr->num_nlos; nlo++) {
 		pkt_len = ntohs(coal_hdr->nl_pairs[nlo].pkt_len);
 		pkt_len -= coal_meta.ip_len + coal_meta.trans_len;
