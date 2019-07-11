@@ -146,6 +146,7 @@
 
 		resets = <&clock_gcc GCC_QUSB2PHY_BCR>;
 		reset-names = "phy_reset";
+		qcom,param-override-seq = <0x43 0x70>;
 		qcom,no-rext-present;
 	};
 
