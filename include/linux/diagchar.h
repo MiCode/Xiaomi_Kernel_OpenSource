@@ -145,7 +145,7 @@ the appropriate macros. */
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
 #define MSG_MASK_TBL_CNT		26
-#define APPS_EVENT_LAST_ID		0xCA7
+#define APPS_EVENT_LAST_ID		0xCAA
 
 #define MSG_SSID_0			0
 #define MSG_SSID_0_LAST			130
@@ -180,7 +180,7 @@ the appropriate macros. */
 #define MSG_SSID_15			8000
 #define MSG_SSID_15_LAST		8000
 #define MSG_SSID_16			8500
-#define MSG_SSID_16_LAST		8531
+#define MSG_SSID_16_LAST		8532
 #define MSG_SSID_17			9000
 #define MSG_SSID_17_LAST		9008
 #define MSG_SSID_18			9500
@@ -770,7 +770,8 @@ static const uint32_t msg_bld_masks_16[] = {
 	MSG_LVL_LOW | MSG_LVL_MED | MSG_LVL_HIGH | MSG_LVL_ERROR |
 		MSG_LVL_FATAL,
 	MSG_LVL_MED,
-	MSG_LVL_MED
+	MSG_LVL_MED,
+	MSG_LVL_LOW
 };
 
 static const uint32_t msg_bld_masks_17[] =  {
@@ -910,7 +911,7 @@ static const uint32_t msg_bld_masks_25[] = {
 /* LOG CODES */
 static const uint32_t log_code_last_tbl[] = {
 	0x0,	/* EQUIP ID 0 */
-	0x1C94,	/* EQUIP ID 1 */
+	0x1C9A,	/* EQUIP ID 1 */
 	0x0,	/* EQUIP ID 2 */
 	0x0,	/* EQUIP ID 3 */
 	0x4910,	/* EQUIP ID 4 */
