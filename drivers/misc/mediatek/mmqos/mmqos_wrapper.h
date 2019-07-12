@@ -6,10 +6,9 @@
 #ifndef __MMDVFS_PMQOS_H__
 #define __MMDVFS_PMQOS_H__
 
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <linux/interconnect.h>
 #include "smi_master_port.h"
-
-#define MAX_FREQ_STEP 6
 
 enum {
 	BW_THROTTLE_START = 1,

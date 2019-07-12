@@ -70,7 +70,8 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 		return -EINVAL;
 	}
 
-	if (bw_value > max_bw_bound || hrt_value > max_bw_bound) {
+	if (bw_value != MTK_MMQOS_MAX_BW && hrt_value != MTK_MMQOS_MAX_BW &&
+		(bw_value > max_bw_bound || hrt_value > max_bw_bound)) {
 		pr_notice("mm_set(0x%08x) invalid bw=%d hrt=%d bw_bound=%d\n",
 			req->master_id, bw_value,
 			hrt_value, max_bw_bound);
@@ -134,7 +135,10 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			continue;
 		comp_bw = get_comp_value(req->bw_value, req->comp_type);
 		icc_set_bw(req->icc_path,
-			MBps_to_icc(comp_bw), MBps_to_icc(req->hrt_value));
+			(req->bw_value == MTK_MMQOS_MAX_BW)
+			? MTK_MMQOS_MAX_BW : MBps_to_icc(comp_bw),
+			(req->hrt_value == MTK_MMQOS_MAX_BW)
+			? MTK_MMQOS_MAX_BW : MBps_to_icc(req->hrt_value));
 		req->updated = false;
 	}
 	mutex_unlock(&bw_mutex);
