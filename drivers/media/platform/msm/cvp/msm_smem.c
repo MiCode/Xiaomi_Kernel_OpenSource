@@ -17,10 +17,9 @@
 #include "msm_cvp_resources.h"
 
 
-static int msm_dma_get_device_address(struct dma_buf *dbuf, unsigned long align,
-	dma_addr_t *iova, unsigned long *buffer_size,
-	unsigned long flags, enum hal_buffer buffer_type,
-	unsigned long session_type, struct msm_cvp_platform_resources *res,
+static int msm_dma_get_device_address(struct dma_buf *dbuf, u32 align,
+	dma_addr_t *iova, u32 *buffer_size, u32 flags, unsigned long ion_flags,
+	u32 session_type, struct msm_cvp_platform_resources *res,
 	struct cvp_dma_mapping_info *mapping_info)
 {
 	int rc = 0;
@@ -37,7 +36,7 @@ static int msm_dma_get_device_address(struct dma_buf *dbuf, unsigned long align,
 	if (is_iommu_present(res)) {
 		cb = msm_cvp_smem_get_context_bank(
 				session_type, (flags & SMEM_SECURE),
-				res, buffer_type);
+				res, ion_flags);
 		if (!cb) {
 			dprintk(CVP_ERR,
 				"%s: Failed to get context bank device\n",
@@ -126,8 +125,7 @@ mem_map_failed:
 }
 
 static int msm_dma_put_device_address(u32 flags,
-	struct cvp_dma_mapping_info *mapping_info,
-	enum hal_buffer buffer_type)
+	struct cvp_dma_mapping_info *mapping_info)
 {
 	int rc = 0;
 
@@ -191,8 +189,8 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 
 	dma_addr_t iova = 0;
 	u32 temp = 0;
-	unsigned long buffer_size = 0;
-	unsigned long align = SZ_4K;
+	u32 buffer_size = 0;
+	u32 align = SZ_4K;
 	struct dma_buf *dbuf;
 	unsigned long ion_flags = 0;
 
@@ -231,7 +229,7 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 
 	/* Ignore the buffer_type from user space. Only use ion flags */
 	rc = msm_dma_get_device_address(dbuf, align, &iova, &buffer_size,
-			smem->flags, smem->buffer_type, inst->session_type,
+			smem->flags, ion_flags, inst->session_type,
 			&(inst->core->resources), &smem->mapping_info);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to get device address: %d\n", rc);
@@ -274,8 +272,7 @@ int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,
 	if (smem->refcount)
 		goto exit;
 
-	rc = msm_dma_put_device_address(smem->flags, &smem->mapping_info,
-		smem->buffer_type);
+	rc = msm_dma_put_device_address(smem->flags, &smem->mapping_info);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to put device address: %d\n", rc);
 		goto exit;
@@ -290,48 +287,12 @@ exit:
 	return rc;
 }
 
-static int get_secure_flag_for_buffer_type(
-	u32 session_type, enum hal_buffer buffer_type)
-{
-	switch (buffer_type) {
-	case HAL_BUFFER_INPUT:
-		if (session_type == MSM_CVP_ENCODER)
-			return ION_FLAG_CP_PIXEL;
-		else
-			return ION_FLAG_CP_BITSTREAM;
-	case HAL_BUFFER_OUTPUT:
-	case HAL_BUFFER_OUTPUT2:
-		if (session_type == MSM_CVP_ENCODER)
-			return ION_FLAG_CP_BITSTREAM;
-		else
-			return ION_FLAG_CP_PIXEL;
-	case HAL_BUFFER_INTERNAL_SCRATCH:
-		return ION_FLAG_CP_BITSTREAM;
-	case HAL_BUFFER_INTERNAL_SCRATCH_1:
-		return ION_FLAG_CP_NON_PIXEL;
-	case HAL_BUFFER_INTERNAL_SCRATCH_2:
-		return ION_FLAG_CP_PIXEL;
-	case HAL_BUFFER_INTERNAL_PERSIST:
-		if (session_type == MSM_CVP_ENCODER)
-			return ION_FLAG_CP_NON_PIXEL;
-		else
-			return ION_FLAG_CP_BITSTREAM;
-	case HAL_BUFFER_INTERNAL_PERSIST_1:
-		return ION_FLAG_CP_NON_PIXEL;
-	default:
-		WARN(1, "No matching secure flag for buffer type : %x\n",
-				buffer_type);
-		return -EINVAL;
-	}
-}
-
-static int alloc_dma_mem(size_t size, u32 align, u32 flags,
-	enum hal_buffer buffer_type, int map_kernel,
+static int alloc_dma_mem(size_t size, u32 align, u32 flags, int map_kernel,
 	struct msm_cvp_platform_resources *res, u32 session_type,
 	struct msm_cvp_smem *mem)
 {
 	dma_addr_t iova = 0;
-	unsigned long buffer_size = 0;
+	u32 buffer_size = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;
 	int ion_flags = 0;
@@ -354,37 +315,23 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 		}
 	} else {
 		dprintk(CVP_DBG,
-			"allocate shared memory from adsp heap size %zx align %d\n",
-			size, align);
+		"allocate shared memory from adsp heap size %zx align %d\n",
+		size, align);
 		heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
 	}
 
 	if (flags & SMEM_CACHED)
 		ion_flags |= ION_FLAG_CACHED;
 
-	if ((flags & SMEM_SECURE) ||
-		(buffer_type == HAL_BUFFER_INTERNAL_PERSIST &&
-		 session_type == MSM_CVP_ENCODER)) {
-		int secure_flag =
-			get_secure_flag_for_buffer_type(
-				session_type, buffer_type);
-		if (secure_flag < 0) {
-			rc = secure_flag;
-			goto fail_shared_mem_alloc;
-		}
+	if (flags & SMEM_NON_PIXEL)
+		ion_flags |= ION_FLAG_CP_NON_PIXEL;
 
-		ion_flags |= ION_FLAG_SECURE | secure_flag;
+	if (flags & SMEM_SECURE) {
+		ion_flags |= ION_FLAG_SECURE;
 		heap_mask = ION_HEAP(ION_SECURE_HEAP_ID);
-
-		if (res->slave_side_cp) {
-			heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
-			size = ALIGN(size, SZ_1M);
-			align = ALIGN(size, SZ_1M);
-		}
-		flags |= SMEM_SECURE;
 	}
 
-	trace_msm_cvp_smem_buffer_dma_op_start("ALLOC", (u32)buffer_type,
+	trace_msm_cvp_smem_buffer_dma_op_start("ALLOC", (u32)ion_flags,
 		heap_mask, size, align, flags, map_kernel);
 	dbuf = ion_alloc(size, heap_mask, ion_flags);
 	if (IS_ERR_OR_NULL(dbuf)) {
@@ -394,19 +341,18 @@ static int alloc_dma_mem(size_t size, u32 align, u32 flags,
 		rc = -ENOMEM;
 		goto fail_shared_mem_alloc;
 	}
-	trace_msm_cvp_smem_buffer_dma_op_end("ALLOC", (u32)buffer_type,
+	trace_msm_cvp_smem_buffer_dma_op_end("ALLOC", (u32)ion_flags,
 		heap_mask, size, align, flags, map_kernel);
 
 	mem->flags = flags;
-	mem->buffer_type = buffer_type;
+	mem->buffer_type = ion_flags;
 	mem->offset = 0;
 	mem->size = size;
 	mem->dma_buf = dbuf;
 	mem->kvaddr = NULL;
 
-	rc = msm_dma_get_device_address(dbuf, align, &iova,
-			&buffer_size, flags, buffer_type,
-			session_type, res, &mem->mapping_info);
+	rc = msm_dma_get_device_address(dbuf, align, &iova, &buffer_size, flags,
+			ion_flags, session_type, res, &mem->mapping_info);
 	if (rc) {
 		dprintk(CVP_ERR, "Failed to get device address: %d\n",
 			rc);
@@ -453,8 +399,7 @@ static int free_dma_mem(struct msm_cvp_smem *mem)
 		mem->kvaddr, mem->buffer_type);
 
 	if (mem->device_addr) {
-		msm_dma_put_device_address(mem->flags,
-			&mem->mapping_info, mem->buffer_type);
+		msm_dma_put_device_address(mem->flags, &mem->mapping_info);
 		mem->device_addr = 0x0;
 	}
 
@@ -478,8 +423,7 @@ static int free_dma_mem(struct msm_cvp_smem *mem)
 	return 0;
 }
 
-int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
-	enum hal_buffer buffer_type, int map_kernel,
+int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags, int map_kernel,
 	void *res, u32 session_type, struct msm_cvp_smem *smem)
 {
 	int rc = 0;
@@ -490,7 +434,7 @@ int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
 		return -EINVAL;
 	}
 
-	rc = alloc_dma_mem(size, align, flags, buffer_type, map_kernel,
+	rc = alloc_dma_mem(size, align, flags, map_kernel,
 				(struct msm_cvp_platform_resources *)res,
 				session_type, smem);
 
@@ -561,23 +505,33 @@ int msm_cvp_smem_cache_operations(struct dma_buf *dbuf,
 
 struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_cvp_platform_resources *res,
-	enum hal_buffer buffer_type)
+	unsigned long ion_flags)
 {
 	struct context_bank_info *cb = NULL, *match = NULL;
+	char *search_str;
+	char *non_secure_cb = "cvp_hlos";
+	char *secure_nonpixel_cb = "cvp_sec_nonpixel";
+	char *secure_pixel_cb = "cvp_sec_pixel";
 
-	(void)session_type;
+	if (ion_flags & ION_FLAG_CP_PIXEL)
+		search_str = secure_pixel_cb;
+	else if (ion_flags & ION_FLAG_CP_NON_PIXEL)
+		search_str = secure_nonpixel_cb;
+	else
+		search_str = non_secure_cb;
 
 	list_for_each_entry(cb, &res->context_banks, list) {
 		if (cb->is_secure == is_secure &&
-				cb->buffer_type & buffer_type) {
+			!strcmp(search_str, cb->name)) {
 			match = cb;
 			break;
 		}
 	}
+
 	if (!match)
 		dprintk(CVP_ERR,
 			"%s: cb not found for buffer_type %x, is_secure %d\n",
-			__func__, buffer_type, is_secure);
+			__func__, ion_flags, is_secure);
 
 	return match;
 }

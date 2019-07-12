@@ -919,9 +919,8 @@ static int __read_queue(struct cvp_iface_q_info *qinfo, u8 *packet,
 	return rc;
 }
 
-static int __smem_alloc(struct iris_hfi_device *dev,
-			struct cvp_mem_addr *mem, u32 size, u32 align,
-			u32 flags, u32 usage)
+static int __smem_alloc(struct iris_hfi_device *dev, struct cvp_mem_addr *mem,
+			u32 size, u32 align, u32 flags)
 {
 	struct msm_cvp_smem *alloc = &mem->mem_data;
 	int rc = 0;
@@ -933,7 +932,7 @@ static int __smem_alloc(struct iris_hfi_device *dev,
 
 	dprintk(CVP_INFO, "start to alloc size: %d, flags: %d\n", size, flags);
 	rc = msm_cvp_smem_alloc(
-		size, align, flags, usage, 1, (void *)dev->res,
+		size, align, flags, 1, (void *)dev->res,
 		MSM_CVP_UNKNOWN, alloc);
 	if (rc) {
 		dprintk(CVP_ERR, "Alloc failed\n");
@@ -1722,8 +1721,7 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 		dprintk(CVP_ERR, "%s: failed dma allocation\n", __func__);
 		goto fail_dma_alloc;
 	}
-	cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN, 0,
-			dev->res, HAL_BUFFER_INTERNAL_CMD_QUEUE);
+	cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN, 0, dev->res, 0);
 	if (!cb) {
 		dprintk(CVP_ERR,
 			"%s: failed to get context bank\n", __func__);
@@ -1744,7 +1742,7 @@ static int __interface_dsp_queues_init(struct iris_hfi_device *dev)
 	mem_data->device_addr = iova;
 	mem_data->dma_handle = dma_handle;
 	mem_data->size = q_size;
-	mem_data->buffer_type = HAL_BUFFER_INTERNAL_CMD_QUEUE;
+	mem_data->buffer_type = 0;
 	mem_data->mapping_info.cb_info = cb;
 
 	if (!is_iommu_present(dev->res))
@@ -1833,7 +1831,7 @@ static void __interface_queues_release(struct iris_hfi_device *device)
 
 		mem_map = (struct cvp_hfi_mem_map *)(qdss + 1);
 		cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN,
-			false, device->res, HAL_BUFFER_INTERNAL_CMD_QUEUE);
+			false, device->res, 0);
 
 		for (i = 0; cb && i < num_entries; i++) {
 			iommu_unmap(cb->mapping->domain,
@@ -1961,8 +1959,7 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 	mem_addr = &dev->mem_addr;
 	if (!is_iommu_present(dev->res))
 		fw_bias = dev->cvp_hal_data->firmware_base;
-	rc = __smem_alloc(dev, mem_addr, q_size, 1, SMEM_UNCACHED,
-			HAL_BUFFER_INTERNAL_CMD_QUEUE);
+	rc = __smem_alloc(dev, mem_addr, q_size, 1, SMEM_UNCACHED);
 	if (rc) {
 		dprintk(CVP_ERR, "iface_q_table_alloc_fail\n");
 		goto fail_alloc_queue;
@@ -1990,9 +1987,8 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 	}
 
 	if ((msm_cvp_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
-		rc = __smem_alloc(dev, mem_addr,
-				ALIGNED_QDSS_SIZE, 1, SMEM_UNCACHED,
-				HAL_BUFFER_INTERNAL_CMD_QUEUE);
+		rc = __smem_alloc(dev, mem_addr, ALIGNED_QDSS_SIZE, 1,
+				SMEM_UNCACHED);
 		if (rc) {
 			dprintk(CVP_WARN,
 				"qdss_alloc_fail: QDSS messages logging will not work\n");
@@ -2007,9 +2003,7 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 		}
 	}
 
-	rc = __smem_alloc(dev, mem_addr,
-			ALIGNED_SFR_SIZE, 1, SMEM_UNCACHED,
-			HAL_BUFFER_INTERNAL_CMD_QUEUE);
+	rc = __smem_alloc(dev, mem_addr, ALIGNED_SFR_SIZE, 1, SMEM_UNCACHED);
 	if (rc) {
 		dprintk(CVP_WARN, "sfr_alloc_fail: SFR not will work\n");
 		dev->sfr.align_device_addr = 0;
@@ -2063,7 +2057,7 @@ static int __interface_queues_init(struct iris_hfi_device *dev)
 
 		mem_map = (struct cvp_hfi_mem_map *)(qdss + 1);
 		cb = msm_cvp_smem_get_context_bank(MSM_CVP_UNKNOWN, false,
-			dev->res, HAL_BUFFER_INTERNAL_CMD_QUEUE);
+			dev->res, 0);
 		if (!cb) {
 			dprintk(CVP_ERR,
 				"%s: failed to get context bank\n", __func__);
@@ -2736,11 +2730,6 @@ static int venus_hfi_session_release_buffers(void *sess,
 
 	if (!__is_session_valid(device, session, __func__)) {
 		rc = -ECONNRESET;
-		goto err_create_pkt;
-	}
-	if (buffer_info->buffer_type != HAL_BUFFER_INTERNAL_PERSIST_1) {
-		dprintk(CVP_ERR, "INTERNAL_PERSIST_1 expected\n");
-		rc = -EINVAL;
 		goto err_create_pkt;
 	}
 

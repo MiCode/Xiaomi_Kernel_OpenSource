@@ -1531,32 +1531,6 @@ int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 	return rc;
 }
 
-int msm_cvp_comm_smem_alloc(struct msm_cvp_inst *inst,
-		size_t size, u32 align, u32 flags, enum hal_buffer buffer_type,
-		int map_kernel, struct msm_cvp_smem *smem)
-{
-	int rc = 0;
-
-	if (!inst || !inst->core) {
-		dprintk(CVP_ERR, "%s: invalid inst: %pK\n", __func__, inst);
-		return -EINVAL;
-	}
-	rc = msm_cvp_smem_alloc(size, align, flags, buffer_type, map_kernel,
-				&(inst->core->resources), inst->session_type,
-				smem);
-	return rc;
-}
-
-void msm_cvp_comm_smem_free(struct msm_cvp_inst *inst, struct msm_cvp_smem *mem)
-{
-	if (!inst || !inst->core || !mem) {
-		dprintk(CVP_ERR,
-			"%s: invalid params: %pK %pK\n", __func__, inst, mem);
-		return;
-	}
-	msm_cvp_smem_free(mem);
-}
-
 void msm_cvp_fw_unload_handler(struct work_struct *work)
 {
 	struct msm_cvp_core *core = NULL;
@@ -1660,7 +1634,6 @@ int msm_cvp_comm_unmap_cvp_buffer(struct msm_cvp_inst *inst,
 }
 
 static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
-				enum hal_buffer buffer_type,
 				struct msm_cvp_smem *handle, bool reuse)
 {
 	struct cvp_buffer_addr_info buffer_info;
@@ -1675,7 +1648,7 @@ static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
 	hdev = inst->core->device;
 
 	buffer_info.buffer_size = handle->size;
-	buffer_info.buffer_type = buffer_type;
+	buffer_info.buffer_type = 0;
 	buffer_info.num_buffers = 1;
 	buffer_info.align_device_addr = handle->device_addr;
 	dprintk(CVP_DBG, "%s %s buffer : %x\n",
@@ -1693,23 +1666,22 @@ static int set_internal_buf_on_fw(struct msm_cvp_inst *inst,
 }
 
 static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
-			struct cvp_hal_buffer_requirements *internal_bufreq,
-			struct msm_cvp_list *buf_list)
+			u32 buffer_size, struct msm_cvp_list *buf_list)
 {
 	struct cvp_internal_buf *binfo;
 	u32 smem_flags = SMEM_UNCACHED;
 	int rc = 0;
 
-	if (!inst || !internal_bufreq || !buf_list) {
+	if (!inst || !buf_list) {
 		dprintk(CVP_ERR, "%s Invalid input\n", __func__);
 		return -EINVAL;
 	}
 
-	if (!internal_bufreq->buffer_size)
+	if (!buffer_size)
 		return 0;
 
 	/* PERSIST buffer requires secure mapping */
-	smem_flags |= SMEM_SECURE;
+	smem_flags |= SMEM_SECURE | SMEM_NON_PIXEL;
 
 	binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 	if (!binfo) {
@@ -1718,8 +1690,7 @@ static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
 		goto fail_kzalloc;
 	}
 
-	rc = msm_cvp_smem_alloc(internal_bufreq->buffer_size, 1, smem_flags,
-			internal_bufreq->buffer_type, 0,
+	rc = msm_cvp_smem_alloc(buffer_size, 1, smem_flags, 0,
 			&(inst->core->resources), inst->session_type,
 			&binfo->smem);
 	if (rc) {
@@ -1727,10 +1698,9 @@ static int allocate_and_set_internal_bufs(struct msm_cvp_inst *inst,
 		goto err_no_mem;
 	}
 
-	binfo->buffer_type = internal_bufreq->buffer_type;
+	binfo->buffer_type = 0;
 
-	rc = set_internal_buf_on_fw(inst, internal_bufreq->buffer_type,
-			&binfo->smem, false);
+	rc = set_internal_buf_on_fw(inst, &binfo->smem, false);
 	if (rc)
 		goto fail_set_buffers;
 
@@ -1751,21 +1721,15 @@ fail_kzalloc:
 /* Set ARP buffer for CVP firmware to handle concurrency */
 int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst)
 {
-	int rc = 0, idx = 0;
-	struct cvp_hal_buffer_requirements *cvp_internal_buf = NULL;
-	struct msm_cvp_list *buf_list = &inst->persistbufs;
+	int rc = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(CVP_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
-	idx = ffs(HAL_BUFFER_INTERNAL_PERSIST_1);
-	cvp_internal_buf = &inst->buff_req.buffer[idx];
-	cvp_internal_buf->buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
-	cvp_internal_buf->buffer_size = ARP_BUF_SIZE;
-
-	rc = allocate_and_set_internal_bufs(inst, cvp_internal_buf, buf_list);
+	rc = allocate_and_set_internal_bufs(inst, ARP_BUF_SIZE,
+						&inst->persistbufs);
 	if (rc)
 		goto error;
 

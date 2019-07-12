@@ -404,14 +404,13 @@ struct msm_cvp_frame {
 };
 
 void msm_cvp_comm_handle_thermal_event(void);
-int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags,
-	enum hal_buffer buffer_type, int map_kernel,
+int msm_cvp_smem_alloc(size_t size, u32 align, u32 flags, int map_kernel,
 	void  *res, u32 session_type, struct msm_cvp_smem *smem);
 int msm_cvp_smem_free(struct msm_cvp_smem *smem);
 
 struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 	bool is_secure, struct msm_cvp_platform_resources *res,
-	enum hal_buffer buffer_type);
+	unsigned long ion_flags);
 int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 				struct msm_cvp_smem *smem);
 int msm_cvp_smem_unmap_dma_buf(struct msm_cvp_inst *inst,

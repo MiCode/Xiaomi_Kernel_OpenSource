@@ -418,8 +418,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	cbuf->buf.flags = in_buf->flags;
 	cbuf->buf.type = CVP_KMD_BUFTYPE_INPUT | CVP_KMD_BUFTYPE_OUTPUT;
 
-	/* HFI doesn't have buffer type, set it as HAL_BUFFER_INPUT */
-	cbuf->smem.buffer_type = HAL_BUFFER_INPUT;
+	cbuf->smem.buffer_type = in_buf->flags;
 	cbuf->smem.fd = cbuf->buf.fd;
 	cbuf->smem.size = cbuf->buf.size;
 	cbuf->smem.flags = 0;
