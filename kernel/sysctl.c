@@ -345,6 +345,15 @@ static struct ctl_table kern_table[] = {
 #endif
 #ifdef CONFIG_SCHED_WALT
 	{
+		.procname	= "sched_user_hint",
+		.data           = &sysctl_sched_user_hint,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= walt_proc_user_hint_handler,
+		.extra1		= &zero,
+		.extra2		= &one_thousand,
+	},
+	{
 		.procname       = "sched_cpu_high_irqload",
 		.data           = &sysctl_sched_cpu_high_irqload,
 		.maxlen         = sizeof(unsigned int),

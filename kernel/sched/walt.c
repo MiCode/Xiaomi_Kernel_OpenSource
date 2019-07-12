@@ -475,6 +475,18 @@ static u32  top_task_load(struct rq *rq)
 	}
 }
 
+unsigned int sysctl_sched_user_hint;
+static bool is_cluster_hosting_top_app(struct sched_cluster *cluster);
+
+static inline bool should_apply_suh_freq_boost(struct sched_cluster *cluster)
+{
+	if (sched_freq_aggr_en || !sysctl_sched_user_hint ||
+				  !cluster->aggr_grp_load)
+		return false;
+
+	return is_cluster_hosting_top_app(cluster);
+}
+
 static inline u64 freq_policy_load(struct rq *rq)
 {
 	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
@@ -510,9 +522,13 @@ static inline u64 freq_policy_load(struct rq *rq)
 		break;
 	}
 
+	if (should_apply_suh_freq_boost(cluster))
+		load = div64_u64(load * sysctl_sched_user_hint, (u64)100);
+
 done:
 	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, sched_freq_aggr_en,
-				load, reporting_policy, walt_rotation_enabled);
+				load, reporting_policy, walt_rotation_enabled,
+				sysctl_sched_user_hint);
 	return load;
 }
 
@@ -2963,6 +2979,23 @@ int sync_cgroup_colocation(struct task_struct *p, bool insert)
 }
 #endif
 
+static bool is_cluster_hosting_top_app(struct sched_cluster *cluster)
+{
+	struct related_thread_group *grp;
+	bool grp_on_min;
+
+	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
+
+	if (!grp)
+		return false;
+
+	grp_on_min = !grp->skip_min &&
+		     (sched_boost_policy() != SCHED_BOOST_ON_BIG);
+
+	return (is_min_capacity_cluster(cluster) == grp_on_min);
+}
+
+
 static unsigned long max_cap[NR_CPUS];
 static unsigned long thermal_cap_cpu[NR_CPUS];
 
@@ -3434,4 +3467,26 @@ void walt_sched_init_rq(struct rq *rq)
 	}
 	rq->cum_window_demand_scaled = 0;
 	rq->notif_pending = false;
+}
+
+int walt_proc_user_hint_handler(struct ctl_table *table,
+				int write, void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret;
+	unsigned int old_value;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+
+	old_value = sysctl_sched_user_hint;
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write || (old_value == sysctl_sched_user_hint))
+		goto unlock;
+
+	irq_work_queue(&walt_migration_irq_work);
+
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
 }
