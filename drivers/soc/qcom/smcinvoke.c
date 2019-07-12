@@ -21,6 +21,7 @@
 #include <soc/qcom/scm.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
+#include <soc/qcom/qtee_shmbridge.h>
 
 #include "smcinvoke_object.h"
 #include "../../misc/qseecom_kernel.h"
@@ -970,8 +971,10 @@ static bool is_inbound_req(int val)
 		val == QSEOS_RESULT_BLOCKED_ON_LISTENER);
 }
 
-static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
-				uint8_t *out_buf, size_t out_buf_len,
+static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
+				size_t in_buf_len,
+				uint8_t *out_buf, phys_addr_t out_paddr,
+				size_t out_buf_len,
 				struct smcinvoke_cmd_req *req,
 				union smcinvoke_arg *args_buf,
 				bool *tz_acked)
@@ -986,9 +989,9 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		return -EINVAL;
 
 	desc.arginfo = SMCINVOKE_INVOKE_PARAM_ID;
-	desc.args[0] = (uint64_t)virt_to_phys(in_buf);
+	desc.args[0] = (uint64_t)in_paddr;
 	desc.args[1] = in_buf_len;
-	desc.args[2] = (uint64_t)virt_to_phys(out_buf);
+	desc.args[2] = (uint64_t)out_paddr;
 	desc.args[3] = out_buf_len;
 	cmd = SMCINVOKE_INVOKE_CMD;
 	dmac_flush_range(in_buf, in_buf + in_buf_len);
@@ -1507,6 +1510,7 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	size_t inmsg_size = 0, outmsg_size = SMCINVOKE_TZ_MIN_BUF_SIZE;
 	union  smcinvoke_arg *args_buf = NULL;
 	struct smcinvoke_file_data *tzobj = filp->private_data;
+	static struct qtee_shm in_shm = {0}, out_shm = {0};
 	/*
 	 * Hold reference to remote object until invoke op is not
 	 * completed. Release once invoke is done.
@@ -1558,31 +1562,30 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	}
 
 	inmsg_size = compute_in_msg_size(&req, args_buf);
-	in_msg = (void *)__get_free_pages(GFP_KERNEL|__GFP_COMP,
-						get_order(inmsg_size));
-	if (!in_msg) {
+	ret = qtee_shmbridge_allocate_shm(inmsg_size, &in_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
-	memset(in_msg, 0, inmsg_size);
+	in_msg = in_shm.vaddr;
 
 	mutex_lock(&g_smcinvoke_lock);
 	outmsg_size = PAGE_ALIGN(g_max_cb_buf_size);
 	mutex_unlock(&g_smcinvoke_lock);
-	out_msg = (void *)__get_free_pages(GFP_KERNEL | __GFP_COMP,
-						get_order(outmsg_size));
-	if (!out_msg) {
+	ret = qtee_shmbridge_allocate_shm(outmsg_size, &out_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
-	memset(out_msg, 0, outmsg_size);
+	out_msg = out_shm.vaddr;
 
 	ret = marshal_in_invoke_req(&req, args_buf, tzobj->tzhandle, in_msg,
 			inmsg_size, filp_to_release, tzhandles_to_release);
 	if (ret)
 		goto out;
 
-	ret = prepare_send_scm_msg(in_msg, inmsg_size, out_msg, outmsg_size,
+	ret = prepare_send_scm_msg(in_msg, in_shm.paddr, inmsg_size,
+					out_msg, out_shm.paddr, outmsg_size,
 					&req, args_buf, &tz_acked);
 
 	/*
@@ -1618,8 +1621,8 @@ out:
 	release_filp(filp_to_release, OBJECT_COUNTS_MAX_OO);
 	if (ret)
 		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
-	free_pages((long)out_msg, get_order(outmsg_size));
-	free_pages((long)in_msg, get_order(inmsg_size));
+	qtee_shmbridge_free_shm(&in_shm);
+	qtee_shmbridge_free_shm(&out_shm);
 	kfree(args_buf);
 	return ret;
 }
@@ -1698,6 +1701,7 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	struct smcinvoke_file_data *file_data = filp->private_data;
 	struct smcinvoke_cmd_req req = {0};
 	uint32_t tzhandle = 0;
+	struct qtee_shm in_shm = {0}, out_shm = {0};
 
 	if (file_data->context_type == SMCINVOKE_OBJ_TYPE_SERVER) {
 		ret = destroy_cb_server(file_data->server_id);
@@ -1709,28 +1713,34 @@ static int smcinvoke_release(struct inode *nodp, struct file *filp)
 	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ)
 		goto out;
 
-	in_buf = (uint8_t *)__get_free_page(GFP_KERNEL | __GFP_COMP);
-	out_buf = (uint8_t *)__get_free_page(GFP_KERNEL | __GFP_COMP);
-	if (!in_buf || !out_buf) {
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &in_shm);
+	if (ret) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	memset(in_buf, 0, PAGE_SIZE);
-	memset(out_buf, 0, PAGE_SIZE);
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &out_shm);
+	if (ret) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	in_buf = in_shm.vaddr;
+	out_buf = out_shm.vaddr;
 	hdr.tzhandle = tzhandle;
 	hdr.op = OBJECT_OP_RELEASE;
 	hdr.counts = 0;
 	*(struct smcinvoke_msg_hdr *)in_buf = hdr;
 
-	ret = prepare_send_scm_msg(in_buf, SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf,
+	ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
+		SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
 		SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL, &release_handles);
 
 	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
 out:
 	kfree(filp->private_data);
-	free_page((long)in_buf);
-	free_page((long)out_buf);
+	qtee_shmbridge_free_shm(&in_shm);
+	qtee_shmbridge_free_shm(&out_shm);
 
 	return ret;
 }
