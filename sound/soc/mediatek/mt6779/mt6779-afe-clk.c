@@ -416,7 +416,7 @@ int mt6779_afe_dram_request(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	/* struct arm_smccc_res res; */
+	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
@@ -424,10 +424,9 @@ int mt6779_afe_dram_request(struct device *dev)
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter++;
 
-	/* Todo: use arm_smccc_smc to notify SPM
-	 * arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_SMC_OP_DRAM_REQUEST,
-	 * 0, 0, 0, 0, 0, 0, &res);
-	 */
+	/* use arm_smccc_smc to notify SPM */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+		      0, 0, 0, 0, 0, 0, &res);
 
 	mutex_unlock(&mutex_request_dram);
 	return 0;
@@ -437,7 +436,7 @@ int mt6779_afe_dram_release(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	/* struct arm_smccc_res res; */
+	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
@@ -445,10 +444,9 @@ int mt6779_afe_dram_release(struct device *dev)
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
 
-	/* Todo: use arm_smccc_smc to notify SPM
-	 * arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_SMC_OP_DRAM_RELEASE,
-	 * 0, 0, 0, 0, 0, 0, &res);
-	 */
+	/* use arm_smccc_smc to notify SPM */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+		      0, 0, 0, 0, 0, 0, &res);
 
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",

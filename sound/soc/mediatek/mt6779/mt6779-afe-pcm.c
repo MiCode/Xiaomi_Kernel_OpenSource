@@ -23,6 +23,8 @@
 #include "mt6779-afe-gpio.h"
 #include "mt6779-interconnection.h"
 
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
 
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
@@ -4723,6 +4725,7 @@ static int mt6779_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct mt6779_afe_private *afe_priv;
 	struct resource *res;
 	struct device *dev;
+	struct arm_smccc_res smccc_res;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	if (ret)
@@ -4828,6 +4831,10 @@ static int mt6779_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_err(dev, "could not request_irq for Afe_ISR_Handle\n");
 		return ret;
 	}
+
+	/* init arm_smccc_smc call */
+	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
+		      0, 0, 0, 0, 0, 0, &smccc_res);
 
 	/* init sub_dais */
 	INIT_LIST_HEAD(&afe->sub_dais);

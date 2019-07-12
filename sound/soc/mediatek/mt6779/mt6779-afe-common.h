@@ -160,10 +160,15 @@ enum mtk_spk_i2s_type {
 };
 
 /* SMC CALL Operations */
-enum mtk_smc_call_op {
-	MTK_SMC_OP_DRAM_REQUEST = 0,
-	MTK_SMC_OP_DRAM_RELEASE,
-	MTK_SMC_OP_NUM
+enum mtk_audio_smc_call_op {
+	MTK_AUDIO_SMC_OP_INIT = 0,
+	MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+	MTK_AUDIO_SMC_OP_FM_REQUEST,
+	MTK_AUDIO_SMC_OP_FM_RELEASE,
+	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+	MTK_AUDIO_SMC_OP_NUM
 };
 
 struct snd_pcm_substream;
