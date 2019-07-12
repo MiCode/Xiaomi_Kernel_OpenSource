@@ -674,14 +674,6 @@ static struct msm_vidc_ubwc_config trinket_ubwc_data[] = {
 	UBWC_CONFIG(0, 1, 0, 0, 0, 64, 0, 0),
 };
 
-static struct msm_vidc_image_capability default_heic_image_capability = {
-	{512, 8192}, {512, 8192}
-};
-
-static struct msm_vidc_image_capability default_hevc_image_capability = {
-	{512, 512}, {512, 512}
-};
-
 static struct msm_vidc_platform_data default_data = {
 	.codec_data = default_codec_data,
 	.codec_data_length =  ARRAY_SIZE(default_codec_data),
@@ -694,8 +686,6 @@ static struct msm_vidc_platform_data default_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
-	.heic_image_capability = &default_heic_image_capability,
-	.hevc_image_capability = &default_hevc_image_capability,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_5,
 };
@@ -712,8 +702,6 @@ static struct msm_vidc_platform_data sm6150_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
-	.heic_image_capability = NULL,
-	.hevc_image_capability = NULL,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_4,
 };
@@ -730,8 +718,6 @@ static struct msm_vidc_platform_data trinket_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
-	.heic_image_capability = &default_heic_image_capability,
-	.hevc_image_capability = &default_hevc_image_capability,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_4,
 };
@@ -748,8 +734,6 @@ static struct msm_vidc_platform_data sm8150_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
-	.heic_image_capability = &default_heic_image_capability,
-	.hevc_image_capability = &default_hevc_image_capability,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_5,
 };
@@ -766,8 +750,6 @@ static struct msm_vidc_platform_data sdmmagpie_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = sdmmagpie_efuse_data,
 	.efuse_data_length = ARRAY_SIZE(sdmmagpie_efuse_data),
-	.heic_image_capability = &default_heic_image_capability,
-	.hevc_image_capability = &default_hevc_image_capability,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_5,
 };
@@ -784,8 +766,6 @@ static struct msm_vidc_platform_data sdm845_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = NULL,
 	.efuse_data_length = 0,
-	.heic_image_capability = NULL,
-	.hevc_image_capability = NULL,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_4,
 };
@@ -802,8 +782,6 @@ static struct msm_vidc_platform_data sdm670_data = {
 	.csc_data.vpe_csc_custom_limit_coeff = vpe_csc_custom_limit_coeff,
 	.efuse_data = sdm670_efuse_data,
 	.efuse_data_length = ARRAY_SIZE(sdm670_efuse_data),
-	.heic_image_capability = NULL,
-	.hevc_image_capability = NULL,
 	.sku_version = 0,
 	.vpu_ver = VPU_VERSION_4,
 };
