@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1543,6 +1543,35 @@ int create_pkt_cmd_session_set_property(
 			break;
 		}
 		pkt->size += sizeof(struct hfi_vpe_rotation_type);
+		break;
+	}
+	case HAL_CONFIG_VPE_FLIP:
+	{
+		u32 hfi_flip = HFI_FLIP_NONE;
+		enum hal_flip flip = *(enum hal_flip *)pdata;
+
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VPE_FLIP;
+
+		switch (flip) {
+		case HAL_FLIP_NONE:
+			hfi_flip = HFI_FLIP_NONE;
+			break;
+		case HAL_FLIP_HORIZONTAL:
+			hfi_flip = HFI_FLIP_HORIZONTAL;
+			break;
+		case HAL_FLIP_VERTICAL:
+			hfi_flip = HFI_FLIP_VERTICAL;
+			break;
+		case HAL_FLIP_BOTH:
+			hfi_flip = HFI_FLIP_HORIZONTAL | HFI_FLIP_VERTICAL;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Invalid flip: %#x\n", flip);
+			rc = -EINVAL;
+			break;
+		}
+		pkt->rg_property_data[1] = hfi_flip;
+		pkt->size += sizeof(u32);
 		break;
 	}
 	case HAL_PARAM_VENC_INTRA_REFRESH:
