@@ -18,6 +18,8 @@
 
 #include "dvfsrc-mt6779.h"
 #include "dvfsrc-opp.h"
+#include <memory/mediatek/dramc.h>
+
 
 #define MTK_SIP_VCOREFS_DRAM_TYPE 2
 #define MTK_SIP_VCOREFS_VCORE_UV 4
@@ -204,6 +206,10 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 
 	p += snprintf(p, buff_end - p, "%-10s: %-8u uv\n",
 			"Vcore", vcore_uv);
+#if IS_ENABLED(CONFIG_MEDIATEK_DRAMC)
+	p += snprintf(p, buff_end - p, "%-10s: %-8u khz\n",
+			"DDR", mtk_dramc_get_data_rate() * 1000);
+#endif
 	p += snprintf(p, buff_end - p, "\n");
 
 	return p;
