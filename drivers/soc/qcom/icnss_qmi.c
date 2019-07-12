@@ -307,14 +307,23 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 
 	priv->stats.ind_register_resp++;
 
+	if (resp->fw_status_valid &&
+	   (resp->fw_status & QMI_WLFW_ALREADY_REGISTERED_V01)) {
+		ret = -EALREADY;
+		icnss_pr_dbg("WLFW already registered\n");
+		goto qmi_registered;
+	}
+
 	kfree(resp);
 	kfree(req);
+
 	return 0;
 
 out:
+	priv->stats.ind_register_err++;
+qmi_registered:
 	kfree(resp);
 	kfree(req);
-	priv->stats.ind_register_err++;
 	return ret;
 }
 
