@@ -233,8 +233,6 @@ extern struct dentry *iommu_debugfs_top;
  * @of_xlate: add OF master IDs to iommu grouping
  * @pgsize_bitmap: bitmap of all possible supported page sizes
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
- * @reg_read: read an IOMMU register
- * @reg_write: write an IOMMU register
  * @tlbi_domain: Invalidate all TLBs covering an iommu domain
  * @enable_config_clocks: Enable all config clocks for this domain's IOMMU
  * @disable_config_clocks: Disable all config clocks for this domain's IOMMU
@@ -285,10 +283,6 @@ struct iommu_ops {
 	/* Get the number of windows per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
 	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
-	unsigned long (*reg_read)(struct iommu_domain *domain,
-				  unsigned long offset);
-	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
-			  unsigned long offset);
 	void (*tlbi_domain)(struct iommu_domain *domain);
 	int (*enable_config_clocks)(struct iommu_domain *domain);
 	void (*disable_config_clocks)(struct iommu_domain *domain);
