@@ -1056,38 +1056,20 @@ iommu_init_mapping(struct device *dev, struct dma_iommu_mapping *mapping)
 static int arm_iommu_get_dma_cookie(struct device *dev,
 				    struct dma_iommu_mapping *mapping)
 {
-	int s1_bypass = 0, is_fast = 0;
+	int is_fast = 0;
 	int err = 0;
 
 	mutex_lock(&iommu_dma_init_mutex);
 
-	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 
-	if (s1_bypass)
-		mapping->ops = &arm64_swiotlb_dma_ops;
-	else if (is_fast)
+	if (is_fast)
 		err = fast_smmu_init_mapping(dev, mapping);
 	else
 		err = iommu_init_mapping(dev, mapping);
 
 	mutex_unlock(&iommu_dma_init_mutex);
 	return err;
-}
-
-void arm_iommu_put_dma_cookie(struct iommu_domain *domain)
-{
-	int s1_bypass = 0, is_fast = 0;
-
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
-					&s1_bypass);
-	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
-
-	if (is_fast)
-		fast_smmu_put_dma_cookie(domain);
-	else if (!s1_bypass)
-		iommu_put_dma_cookie(domain);
 }
 
 /*
@@ -1135,16 +1117,21 @@ static void arm_iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size)
 	struct iommu_domain *domain;
 	struct iommu_group *group;
 	struct dma_iommu_mapping mapping = {0};
+	int s1_bypass;
 
 	group = dev->iommu_group;
 	if (!group)
 		return;
 
-	arm_iommu_get_dma_window(dev, &dma_base, &size);
-
 	domain = iommu_get_domain_for_dev(dev);
 	if (!domain)
 		return;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (s1_bypass)
+		return;
+
+	arm_iommu_get_dma_window(dev, &dma_base, &size);
 
 	/* Allow iommu-debug to call arch_setup_dma_ops to reconfigure itself */
 	if (domain->type != IOMMU_DOMAIN_DMA &&

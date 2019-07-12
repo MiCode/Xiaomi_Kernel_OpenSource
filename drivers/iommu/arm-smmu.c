@@ -2252,6 +2252,20 @@ static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 	return &smmu_domain->domain;
 }
 
+static void arm_smmu_put_dma_cookie(struct iommu_domain *domain)
+{
+	int s1_bypass = 0, is_fast = 0;
+
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_S1_BYPASS,
+					&s1_bypass);
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &is_fast);
+
+	if (is_fast)
+		fast_smmu_put_dma_cookie(domain);
+	else if (!s1_bypass)
+		iommu_put_dma_cookie(domain);
+}
+
 static void arm_smmu_domain_free(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -2260,7 +2274,7 @@ static void arm_smmu_domain_free(struct iommu_domain *domain)
 	 * Free the domain resources. We assume that all devices have
 	 * already been detached.
 	 */
-	arm_iommu_put_dma_cookie(domain);
+	arm_smmu_put_dma_cookie(domain);
 	arm_smmu_destroy_domain_context(domain);
 	kfree(smmu_domain);
 }
