@@ -23,6 +23,7 @@
 
 static int csiphy_dump;
 module_param(csiphy_dump, int, 0644);
+int *fuse;
 
 static int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 	bool protect, int32_t offset)
@@ -914,6 +915,17 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (csiphy_dev->csiphy_info.secure_mode[offset] == 1) {
+			if (!fuse) {
+				fuse = ioremap(0x00780210, 4);
+				CAM_ERR(CAM_CSIPHY, "sec_cam: fuse val %X", *fuse);
+			}
+			if (!(*fuse & BIT(18))) {
+				CAM_ERR(CAM_CSIPHY, "sec_cam: camera fuse bit not set", *fuse);
+				rc = -1;
+				cam_cpas_stop(csiphy_dev->cpas_handle);
+				goto release_mutex;
+			}
+			CAM_ERR(CAM_CSIPHY, "sec_cam: camera fuse bit set", *fuse);
 			rc = cam_csiphy_notify_secure_mode(
 				csiphy_dev,
 				CAM_SECURE_MODE_SECURE, offset);
