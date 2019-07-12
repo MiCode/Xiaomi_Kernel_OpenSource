@@ -28,16 +28,18 @@ enum {
 	APU_CLK,
 	APU_BW_NORD,
 	DVFSRC_TIMESTAMP_OFFSET,
-	CM_STALL_RATIO_OFFSET,
-	CM_GPU_ONOFF,
-	CM_GPU_OPP,
-	CM_RESERVE_2,
-	CM_RESERVE_3,
+	CM_STALL_RATIO_ID_0,
+	CM_STALL_RATIO_ID_1,
+	CM_STALL_RATIO_ID_2,
+	CM_STALL_RATIO_ID_3,
+	CM_STALL_RATIO_ID_4,
+	CM_STALL_RATIO_ID_5,
+	CM_STALL_RATIO_ID_6,
+	CM_STALL_RATIO_ID_7,
 };
 
 
 extern u32 qos_sram_read(u32 id);
 extern void qos_sram_write(u32 id, u32 val);
 extern void qos_sram_init(void __iomem *regs, unsigned int bound);
-
 #endif

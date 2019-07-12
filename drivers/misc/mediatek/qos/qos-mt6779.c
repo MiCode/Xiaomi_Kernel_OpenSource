@@ -144,23 +144,35 @@ static const struct qos_sram_addr mt6779_qos_sram_pin[] = {
 			.offset = 0x50,
 			.valid = true,
 		},
-	[CM_STALL_RATIO_OFFSET] = {
+	[CM_STALL_RATIO_ID_0] = {
 			.offset = 0x60,
 			.valid = true,
 		},
-	[CM_GPU_ONOFF] = {
+	[CM_STALL_RATIO_ID_1] = {
+			.offset = 0x64,
+			.valid = true,
+		},
+	[CM_STALL_RATIO_ID_2] = {
+			.offset = 0x68,
+			.valid = true,
+		},
+	[CM_STALL_RATIO_ID_3] = {
+			.offset = 0x6C,
+			.valid = true,
+		},
+	[CM_STALL_RATIO_ID_4] = {
 			.offset = 0x70,
 			.valid = true,
 		},
-	[CM_GPU_OPP] = {
+	[CM_STALL_RATIO_ID_5] = {
 			.offset = 0x74,
 			.valid = true,
 		},
-	[CM_RESERVE_2] = {
+	[CM_STALL_RATIO_ID_6] = {
 			.offset = 0x78,
 			.valid = true,
 		},
-	[CM_RESERVE_3] = {
+	[CM_STALL_RATIO_ID_7] = {
 			.offset = 0x7C,
 			.valid = true,
 		},
