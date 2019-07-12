@@ -67,18 +67,19 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x3BA0, /* SPECIFIC_IFE02_ENCERREN_LOW */
+			.offset = 0x3BA0, /* SPECIFIC_IFE0_MAIN_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x3B90, /* SPECIFIC_IFE02_ENCERRSTATUS_LOW */
+			/* SPECIFIC_IFE0_MAIN_ENCERRSTATUS_LOW */
+			.offset = 0x3B90,
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x3B98, /* SPECIFIC_IFE02_ENCERRCLR_LOW */
+			.offset = 0x3B98, /* SPECIFIC_IFE0_MAIN_ENCERRCLR_LOW */
 			.value = 1,
 		},
 	},
@@ -89,18 +90,19 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x55a0, /* SPECIFIC_IFE13_ENCERREN_LOW */
+			.offset = 0x55A0, /* SPECIFIC_IFE1_WR_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
 			.enable = true,
-			.offset = 0x5590, /* SPECIFIC_IFE13_ENCERRSTATUS_LOW */
+			/* SPECIFIC_IFE1_WR_ENCERRSTATUS_LOW */
+			.offset = 0x5590,
 		},
 		.err_clear = {
 			.access_type = CAM_REG_TYPE_WRITE,
 			.enable = true,
-			.offset = 0x5598, /* SPECIFIC_IFE13_ENCERRCLR_LOW */
+			.offset = 0x5598, /* SPECIFIC_IFE1_WR_ENCERRCLR_LOW */
 			.value = 1,
 		},
 	},
@@ -133,7 +135,7 @@ static struct cam_camnoc_irq_err
 		.err_enable = {
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
-			.offset = 0x2Ba0, /* SPECIFIC_IBL_WR_ENCERREN_LOW */
+			.offset = 0x2BA0, /* SPECIFIC_IBL_WR_ENCERREN_LOW */
 			.value = 1,
 		},
 		.err_status = {
