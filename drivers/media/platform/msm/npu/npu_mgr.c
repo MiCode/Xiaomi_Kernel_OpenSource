@@ -1608,7 +1608,7 @@ int32_t npu_host_load_network(struct npu_client *client,
 	load_packet.header.size = sizeof(struct ipc_cmd_load_pkt);
 	load_packet.header.trans_id =
 		atomic_add_return(1, &host_ctx->ipc_trans_id);
-	load_packet.header.flags = 0;
+	load_packet.header.flags = load_ioctl->flags;
 
 	/* ACO Buffer. Use the npu mapped aco address */
 	load_packet.buf_pkt.address = (uint64_t)network->phy_add;
@@ -1732,7 +1732,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	load_packet->header.size = pkt_size;
 	load_packet->header.trans_id =
 		atomic_add_return(1, &host_ctx->ipc_trans_id);
-	load_packet->header.flags = 0;
+	load_packet->header.flags = load_ioctl->flags;
 
 	/* ACO Buffer. Use the npu mapped aco address */
 	load_packet->buf_pkt.address = (uint32_t)network->phy_add;
