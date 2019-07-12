@@ -15,12 +15,34 @@
 #include "msm_cvp_debug.h"
 #include "msm_cvp_clocks.h"
 #include "msm_cvp.h"
+#include "cvp_core_hfi.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) (\
 	(__p >= __d)\
 )
 
 static void handle_session_error(enum hal_command_response cmd, void *data);
+
+static void dump_hfi_queue_info(struct iris_hfi_device *device)
+{
+	struct cvp_hfi_queue_header *queue;
+	struct cvp_iface_q_info *qinfo;
+	int i;
+
+	dprintk(CVP_ERR, "HFI queues in order of cmd(rd, wr), msg and dbg:\n");
+
+	/*
+	 * mb() to ensure driver reads the updated header values from
+	 * main memory.
+	 */
+	mb();
+	for (i = 0; i <= CVP_IFACEQ_DBGQ_IDX; i++) {
+		qinfo = &device->iface_queues[i];
+		queue = (struct cvp_hfi_queue_header *)qinfo->q_hdr;
+		dprintk(CVP_ERR, "queue details: %d %d\n",
+				queue->qhdr_read_idx, queue->qhdr_write_idx);
+	}
+}
 
 int msm_cvp_comm_get_inst_load(struct msm_cvp_inst *inst,
 		enum load_calc_quirks quirks)
@@ -296,9 +318,6 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 	}
 	mutex_unlock(&inst->persistbufs.lock);
 
-	if (!buf_found)
-		dprintk(CVP_WARN, "invalid buffer %#x from firmware\n",
-				address);
 	if (IS_HAL_SESSION_CMD(cmd))
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	else
@@ -621,7 +640,9 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 	list_for_each_entry(inst, &core->instances, list) {
 		dprintk(CVP_WARN,
-			"%s: Send sys error for inst %#x\n", __func__, inst);
+			"%s: sys error for inst %#x kref %x, cmd %x\n",
+				__func__, inst, kref_read(&inst->kref),
+				inst->cur_cmd_type);
 		change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
 
 		spin_lock_irqsave(&inst->event_handler.lock, flags);
@@ -868,6 +889,8 @@ static int msm_comm_session_abort(struct msm_cvp_inst *inst)
 	if (!rc) {
 		dprintk(CVP_ERR, "%s: inst %pK session %x abort timed out\n",
 				__func__, inst, hash32_ptr(inst->session));
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dump_hfi_queue_info(hdev->hfi_device_data);
 		msm_cvp_comm_generate_sys_error(inst);
 		rc = -EBUSY;
 	} else {
@@ -1036,7 +1059,7 @@ fail_cap_alloc:
 	return rc;
 }
 
-static int msm_cvp_deinit_core(struct msm_cvp_inst *inst)
+int msm_cvp_deinit_core(struct msm_cvp_inst *inst)
 {
 	struct msm_cvp_core *core;
 	struct cvp_hfi_device *hdev;
@@ -1083,12 +1106,6 @@ core_already_uninited:
 	change_cvp_inst_state(inst, MSM_CVP_CORE_UNINIT);
 	mutex_unlock(&core->lock);
 	return 0;
-}
-
-int msm_cvp_comm_force_cleanup(struct msm_cvp_inst *inst)
-{
-	msm_cvp_comm_kill_session(inst);
-	return msm_cvp_deinit_core(inst);
 }
 
 static int msm_comm_session_init_done(int flipped_state,
@@ -1267,8 +1284,8 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 
 	flipped_state = get_flipped_state(inst->state, state);
 	dprintk(CVP_DBG,
-		"inst: %pK (%#x) flipped_state = %#x\n",
-		inst, hash32_ptr(inst->session), flipped_state);
+		"inst: %pK (%#x) flipped_state = %#x %x\n",
+		inst, hash32_ptr(inst->session), flipped_state, state);
 	switch (flipped_state) {
 	case MSM_CVP_CORE_UNINIT_DONE:
 	case MSM_CVP_CORE_INIT:
@@ -1302,12 +1319,13 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 	case MSM_CVP_RELEASE_RESOURCES:
 		dprintk(CVP_WARN, "Deprecated state RELEASE_SOURCES\n");
 	case MSM_CVP_RELEASE_RESOURCES_DONE:
-		dprintk(CVP_WARN, "Deprecated state RELEASE_RESOURCES_DONE\n");
 	case MSM_CVP_CLOSE:
+		dprintk(CVP_INFO, "to CVP_CLOSE state\n");
 		rc = msm_comm_session_close(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_CVP_CLOSE_DONE:
+		dprintk(CVP_INFO, "to CVP_CLOSE_DONE state\n");
 		rc = wait_for_state(inst, flipped_state, MSM_CVP_CLOSE_DONE,
 				HAL_SESSION_END_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
@@ -1315,7 +1333,7 @@ int msm_cvp_comm_try_state(struct msm_cvp_inst *inst, int state)
 		msm_cvp_comm_session_clean(inst);
 	case MSM_CVP_CORE_UNINIT:
 	case MSM_CVP_CORE_INVALID:
-		dprintk(CVP_DBG, "Sending core uninit\n");
+		dprintk(CVP_INFO, "Sending core uninit\n");
 		rc = msm_cvp_deinit_core(inst);
 		if (rc || state == get_flipped_state(inst->state, state))
 			break;
@@ -1387,6 +1405,32 @@ void msm_cvp_ssr_handler(struct work_struct *work)
 	}
 	hdev = core->device;
 
+	if (core->ssr_type == SSR_SESSION_ABORT) {
+		struct msm_cvp_inst *inst = NULL, *s;
+
+		dprintk(CVP_ERR, "Session abort triggered\n");
+		list_for_each_entry(inst, &core->instances, list) {
+			dprintk(CVP_WARN,
+				"Session to abort: inst %#x cmd %x ref %x\n",
+				inst, inst->cur_cmd_type,
+				kref_read(&inst->kref));
+			break;
+		}
+
+		if (inst != NULL) {
+			s = cvp_get_inst_validate(inst->core, inst);
+			if (!s)
+				return;
+
+			msm_cvp_comm_kill_session(inst);
+			cvp_put_inst(s);
+		} else {
+			dprintk(CVP_WARN, "No active CVP session to abort\n");
+		}
+
+		return;
+	}
+
 	mutex_lock(&core->lock);
 	if (core->state == CVP_CORE_INIT_DONE) {
 		dprintk(CVP_WARN, "%s: ssr type %d\n", __func__,
@@ -1447,6 +1491,7 @@ void msm_cvp_comm_generate_sys_error(struct msm_cvp_inst *inst)
 int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 {
 	int rc = 0;
+	unsigned long flags = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(CVP_ERR, "%s: invalid input parameters\n", __func__);
@@ -1456,7 +1501,6 @@ int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 			__func__, inst);
 		return 0;
 	}
-
 	dprintk(CVP_WARN, "%s: inst %pK, session %x state %d\n", __func__,
 		inst, hash32_ptr(inst->session), inst->state);
 	/*
@@ -1464,23 +1508,26 @@ int msm_cvp_comm_kill_session(struct msm_cvp_inst *inst)
 	 * the session send session_abort to firmware to clean up and release
 	 * the session, else just kill the session inside the driver.
 	 */
-	if ((inst->state >= MSM_CVP_OPEN_DONE &&
-			inst->state < MSM_CVP_CLOSE_DONE) ||
-			inst->state == MSM_CVP_CORE_INVALID) {
+	if (inst->state >= MSM_CVP_OPEN_DONE &&
+			inst->state < MSM_CVP_CLOSE_DONE) {
 		rc = msm_comm_session_abort(inst);
 		if (rc) {
 			dprintk(CVP_ERR,
 				"%s: inst %pK session %x abort failed\n",
 				__func__, inst, hash32_ptr(inst->session));
 			change_cvp_inst_state(inst, MSM_CVP_CORE_INVALID);
+		} else {
+			change_cvp_inst_state(inst, MSM_CVP_CORE_UNINIT);
 		}
 	}
 
-	change_cvp_inst_state(inst, MSM_CVP_CLOSE_DONE);
-	msm_cvp_comm_session_clean(inst);
+	if (inst->state == MSM_CVP_CORE_UNINIT) {
+		spin_lock_irqsave(&inst->event_handler.lock, flags);
+		inst->event_handler.event = CVP_SSR_EVENT;
+		spin_unlock_irqrestore(&inst->event_handler.lock, flags);
+		wake_up_all(&inst->event_handler.wq);
+	}
 
-	dprintk(CVP_WARN, "%s: inst %pK session %x handled\n", __func__,
-		inst, hash32_ptr(inst->session));
 	return rc;
 }
 
@@ -1566,6 +1613,7 @@ void msm_cvp_comm_print_inst_info(struct msm_cvp_inst *inst)
 		return;
 	}
 
+	dprintk(CVP_ERR, "active session cmd %d\n", inst->cur_cmd_type);
 	is_secure = inst->flags & CVP_SECURE;
 	dprintk(CVP_ERR,
 			"---Buffer details for inst: %pK of type: %d---\n",

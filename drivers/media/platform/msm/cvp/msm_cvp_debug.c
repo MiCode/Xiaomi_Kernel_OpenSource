@@ -8,7 +8,7 @@
 #include "msm_cvp_debug.h"
 #include "cvp_hfi_api.h"
 
-int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW;
+int msm_cvp_debug = CVP_ERR | CVP_WARN;
 EXPORT_SYMBOL(msm_cvp_debug);
 
 int msm_cvp_debug_out = CVP_OUT_PRINTK;

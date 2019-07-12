@@ -229,6 +229,7 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 
 	buffer_size = smem->size;
 
+	/* Ignore the buffer_type from user space. Only use ion flags */
 	rc = msm_dma_get_device_address(dbuf, align, &iova, &buffer_size,
 			smem->flags, smem->buffer_type, inst->session_type,
 			&(inst->core->resources), &smem->mapping_info);
@@ -564,21 +565,7 @@ struct context_bank_info *msm_cvp_smem_get_context_bank(u32 session_type,
 {
 	struct context_bank_info *cb = NULL, *match = NULL;
 
-	/*
-	 * HAL_BUFFER_INPUT is directly mapped to bitstream CB in DT
-	 * as the buffer type structure was initially designed
-	 * just for decoder. For Encoder, input should be mapped to
-	 * yuvpixel CB. Persist is mapped to nonpixel CB.
-	 * So swap the buffer types just in this local scope.
-	 */
-	if (is_secure && session_type == MSM_CVP_ENCODER) {
-		if (buffer_type == HAL_BUFFER_INPUT)
-			buffer_type = HAL_BUFFER_OUTPUT;
-		else if (buffer_type == HAL_BUFFER_OUTPUT)
-			buffer_type = HAL_BUFFER_INPUT;
-		else if (buffer_type == HAL_BUFFER_INTERNAL_PERSIST)
-			buffer_type = HAL_BUFFER_INTERNAL_PERSIST_1;
-	}
+	(void)session_type;
 
 	list_for_each_entry(cb, &res->context_banks, list) {
 		if (cb->is_secure == is_secure &&

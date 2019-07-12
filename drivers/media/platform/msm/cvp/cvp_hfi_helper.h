@@ -573,8 +573,8 @@ struct cvp_hfi_client {
 	u32 transaction_id;
 	u32 data1;
 	u32 data2;
-	u32 data3;
-	u32 data4;
+	u32 kdata1;
+	u32 kdata2;
 	u32 reserved1;
 	u32 reserved2;
 };
@@ -635,6 +635,14 @@ struct cvp_session_release_buffers_packet_d {
 	u32 buffer_type;
 	u32 num_buffers;
 	u32 buffer_idx;
+};
+
+struct cvp_hfi_cmd_session_hdr {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	struct cvp_hfi_client client_data;
+	u32 stream_idx;
 };
 
 struct cvp_hfi_msg_session_hdr {

@@ -252,6 +252,7 @@ static void _deinit_session_queue(struct msm_cvp_inst *inst)
 		kmem_cache_free(inst->session_queue.msg_cache, msg);
 	}
 	inst->session_queue.msg_count = 0;
+	inst->session_queue.state = QUEUE_STOP;
 	spin_unlock(&inst->session_queue.lock);
 
 	wake_up_all(&inst->session_queue.wq);
@@ -286,8 +287,7 @@ void *msm_cvp_open(int core_id, int session_type)
 		goto err_invalid_core;
 	}
 
-	pr_info(CVP_DBG_TAG "Opening CVP instance: %pK, %d\n",
-		"info", inst, session_type);
+	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "info", inst);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
 	spin_lock_init(&inst->event_handler.lock);
@@ -296,6 +296,8 @@ void *msm_cvp_open(int core_id, int session_type)
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
 	INIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	INIT_MSM_CVP_LIST(&inst->cvpdspbufs);
+	INIT_MSM_CVP_LIST(&inst->frames);
+
 	init_waitqueue_head(&inst->event_handler.wq);
 
 	kref_init(&inst->kref);
@@ -311,6 +313,9 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.core_id = CVP_CORE_ID_DEFAULT;
 	inst->deprecate_bitmask = 0;
 	inst->fence_data_cache = KMEM_CACHE(msm_cvp_fence_thread_data, 0);
+	inst->frame_cache = KMEM_CACHE(msm_cvp_frame, 0);
+	inst->frame_buf_cache = KMEM_CACHE(msm_cvp_frame_buf, 0);
+	inst->internal_buf_cache = KMEM_CACHE(msm_cvp_internal_buffer, 0);
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -339,8 +344,14 @@ void *msm_cvp_open(int core_id, int session_type)
 	msm_cvp_dcvs_try_enable(inst);
 	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
 	if (msm_cvp_check_for_inst_overload(core)) {
-		dprintk(CVP_ERR,
-			"Instance count reached Max limit, rejecting session");
+		dprintk(CVP_ERR, "Instance num reached Max, rejecting session");
+		mutex_lock(&core->lock);
+		list_for_each_entry(inst, &core->instances, list)
+			dprintk(CVP_ERR, "inst %pK, cmd %d id %d\n",
+				inst, inst->cur_cmd_type,
+				hash32_ptr(inst->session));
+		mutex_unlock(&core->lock);
+
 		goto fail_init;
 	}
 
@@ -362,7 +373,13 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
+	DEINIT_MSM_CVP_LIST(&inst->frames);
+
 	kmem_cache_destroy(inst->fence_data_cache);
+	kmem_cache_destroy(inst->frame_cache);
+	kmem_cache_destroy(inst->frame_buf_cache);
+	kmem_cache_destroy(inst->internal_buf_cache);
+
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
@@ -405,7 +422,12 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->freqs);
+	DEINIT_MSM_CVP_LIST(&inst->frames);
+
 	kmem_cache_destroy(inst->fence_data_cache);
+	kmem_cache_destroy(inst->frame_cache);
+	kmem_cache_destroy(inst->frame_buf_cache);
+	kmem_cache_destroy(inst->internal_buf_cache);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
@@ -413,8 +435,11 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);
 
-	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK\n",
-			"info", inst);
+	pr_info(CVP_DBG_TAG "Closed cvp instance: %pK session_id = %d\n",
+		"info", inst, hash32_ptr(inst->session));
+	if (inst->cur_cmd_type)
+		dprintk(CVP_ERR, "deleted instance has pending cmd %d\n",
+				inst->cur_cmd_type);
 	inst->session = (void *)0xdeadbeef;
 	kfree(inst);
 	return 0;
@@ -438,22 +463,17 @@ int msm_cvp_close(void *instance)
 		return -EINVAL;
 	}
 
-	inst = cvp_get_inst_validate(inst->core, inst);
-	if (!inst)
-		return 0;
-
 	msm_cvp_cleanup_instance(inst);
 	msm_cvp_session_deinit(inst);
 	rc = msm_cvp_comm_try_state(inst, MSM_CVP_CORE_UNINIT);
 	if (rc) {
 		dprintk(CVP_ERR,
 			"Failed to move inst %pK to uninit state\n", inst);
-		rc = msm_cvp_comm_force_cleanup(inst);
+		rc = msm_cvp_deinit_core(inst);
 	}
 
 	msm_cvp_comm_session_clean(inst);
 
-	cvp_put_inst(inst);
 	kref_put(&inst->kref, close_helper);
 	return 0;
 }

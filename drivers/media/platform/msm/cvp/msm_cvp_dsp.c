@@ -34,7 +34,11 @@ struct cvp_dsp_cmd_msg {
 	uint32_t buff_size;
 	uint32_t session_id;
 	int32_t ddr_type;
-	uint32_t reserved[CVP_DSP_MAX_RESERVED];
+	uint32_t buff_fd;
+	uint32_t buff_offset;
+	uint32_t reserved0;
+	uint32_t reserved1;
+	uint32_t reserved2;
 };
 
 struct cvp_dsp_rsp_msg {
@@ -58,6 +62,7 @@ struct cvp_dsp_apps {
 	struct completion reg_buffer_work;
 	struct completion dereg_buffer_work;
 	struct completion shutdown_work;
+	struct completion cmdqueue_send_work;
 };
 
 
@@ -70,7 +75,7 @@ static struct cvp_dsp_rsp_msg cmd_msg_rsp;
 static int cvp_dsp_send_cmd(void *msg, uint32_t len)
 {
 	struct cvp_dsp_apps *me = &gfa_cv;
-	int err;
+	int err = 0;
 
 	if (IS_ERR_OR_NULL(me->chan)) {
 		err = -EINVAL;
@@ -170,6 +175,13 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 	case CVP_DSP_SHUTDOWN:
 		complete(&me->shutdown_work);
 		break;
+	case CVP_DSP_SUSPEND:
+		break;
+	case CVP_DSP_RESUME:
+		break;
+	case CVP_DSP_SEND_HFI_CMD_QUEUE:
+		complete(&me->cmdqueue_send_work);
+		break;
 	default:
 		dprintk(CVP_ERR,
 		"%s: Invalid cmd_msg_type received from dsp: %d\n",
@@ -182,7 +194,8 @@ static int cvp_dsp_rpmsg_callback(struct rpmsg_device *rpdev,
 int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 	uint32_t size_in_bytes)
 {
-	int err;
+	int err, timeout;
+	struct msm_cvp_core *core;
 	struct cvp_dsp_cmd_msg local_cmd_msg;
 	struct cvp_dsp_apps *me = &gfa_cv;
 	int srcVM[SRC_VM_NUM] = {VMID_HLOS};
@@ -226,6 +239,17 @@ int cvp_dsp_send_cmd_hfi_queue(phys_addr_t *phys_addr,
 			"%s: cvp_dsp_send_cmd failed with err=%d\n",
 			__func__, err);
 	else {
+		core = list_first_entry(&cvp_driver->cores,
+				struct msm_cvp_core, list);
+		timeout = msecs_to_jiffies(
+				core->resources.msm_cvp_dsp_rsp_timeout);
+		err = wait_for_completion_timeout(
+				&me->cmdqueue_send_work, timeout);
+		if (!err) {
+			dprintk(CVP_ERR, "failed to send cmdqueue\n");
+			return -ETIMEDOUT;
+		}
+
 		mutex_lock(&me->smd_mutex);
 		me->cvp_shutdown = STATUS_OK;
 		me->cdsp_state = STATUS_OK;
@@ -336,19 +360,22 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 	return err;
 }
 
-int cvp_dsp_register_buffer(uint32_t iova_buff_addr,
-	uint32_t buff_index, uint32_t buff_size,
-	uint32_t session_id)
+int cvp_dsp_register_buffer(uint32_t session_id, uint32_t buff_fd,
+			uint32_t buff_size, uint32_t buff_offset,
+			uint32_t buff_index, uint32_t iova_buff_addr)
 {
 	struct cvp_dsp_cmd_msg local_cmd_msg;
 	int err;
 	struct cvp_dsp_apps *me = &gfa_cv;
 
 	local_cmd_msg.cmd_msg_type = CVP_DSP_REGISTER_BUFFER;
-	local_cmd_msg.iova_buff_addr = iova_buff_addr;
-	local_cmd_msg.buff_index = buff_index;
-	local_cmd_msg.buff_size = buff_size;
 	local_cmd_msg.session_id = session_id;
+	local_cmd_msg.buff_fd = buff_fd;
+	local_cmd_msg.buff_size = buff_size;
+	local_cmd_msg.buff_offset = buff_offset;
+	local_cmd_msg.buff_index = buff_index;
+	local_cmd_msg.iova_buff_addr = iova_buff_addr;
+
 	dprintk(CVP_DBG,
 		"%s: cmd_msg_type=0x%x, iova_buff_addr=0x%x buff_index=0x%x\n",
 		__func__, local_cmd_msg.cmd_msg_type, iova_buff_addr,
@@ -448,6 +475,7 @@ static int __init cvp_dsp_device_init(void)
 	init_completion(&me->shutdown_work);
 	init_completion(&me->reg_buffer_work);
 	init_completion(&me->dereg_buffer_work);
+	init_completion(&me->cmdqueue_send_work);
 	me->cvp_shutdown = STATUS_INIT;
 	me->cdsp_state = STATUS_INIT;
 	err = register_rpmsg_driver(&cvp_dsp_rpmsg_client);
