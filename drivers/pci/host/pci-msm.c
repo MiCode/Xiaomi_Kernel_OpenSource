@@ -582,6 +582,12 @@ struct msm_pcie_irq_info_t {
 	uint32_t	    num;
 };
 
+/* bandwidth info structure */
+struct msm_pcie_bw_scale_info_t {
+	u32 cx_vreg_min;
+	u32 rate_change_freq;
+};
+
 /* phy info structure */
 struct msm_pcie_phy_info_t {
 	u32	offset;
@@ -647,6 +653,8 @@ struct msm_pcie_dev_t {
 
 	struct msm_pcie_vreg_info_t *cx_vreg;
 	struct msm_pcie_clk_info_t *rate_change_clk;
+	struct msm_pcie_bw_scale_info_t *bw_scale;
+	u32 bw_gen_max;
 
 	bool				 cfg_access;
 	spinlock_t			 cfg_lock;
@@ -3638,6 +3646,23 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		ret = 0;
 	}
 
+	of_get_property(pdev->dev.of_node, "qcom,bw-scale", &size);
+	if (size) {
+		dev->bw_scale = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+		if (!dev->bw_scale) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		of_property_read_u32_array(pdev->dev.of_node, "qcom,bw-scale",
+				(u32 *)dev->bw_scale, size / sizeof(u32));
+
+		dev->bw_gen_max = size / sizeof(u32);
+	} else {
+		PCIE_DBG(dev, "RC%d: bandwidth scaling is not supported\n",
+			dev->rc_idx);
+	}
+
 	of_get_property(pdev->dev.of_node, "qcom,phy-sequence", &size);
 	if (size) {
 		dev->phy_sequence = (struct msm_pcie_phy_info_t *)
@@ -6107,12 +6132,26 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	u16 current_link_speed;
 	u16 current_link_width;
 	int ret;
+	u32 index = target_link_speed - PCI_EXP_LNKCTL2_TLS_2_5GT;
+	struct msm_pcie_bw_scale_info_t *bw_scale;
 
 	if (!pci_dev)
 		return -EINVAL;
 
 	root_pci_dev = pci_find_pcie_root_port(pci_dev);
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
+
+	if (!pcie_dev->bw_scale)
+		return -EINVAL;
+
+	if (index >= pcie_dev->bw_gen_max) {
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: invalid target link speed: %d\n",
+			pcie_dev->rc_idx, target_link_speed);
+		return -EINVAL;
+	}
+
+	bw_scale = &pcie_dev->bw_scale[index];
 
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
 
@@ -6143,7 +6182,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	if (target_link_speed == PCI_EXP_LNKCTL2_TLS_8_0GT) {
 		if (pcie_dev->cx_vreg)
 			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
-						RPMH_REGULATOR_LEVEL_NOM,
+						bw_scale->cx_vreg_min,
 						pcie_dev->cx_vreg->max_v);
 
 		if (pcie_dev->rate_change_clk) {
@@ -6166,7 +6205,7 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	if ((link_status & PCI_EXP_LNKSTA_CLS) == PCI_EXP_LNKCTL2_TLS_2_5GT) {
 		if (pcie_dev->cx_vreg)
 			regulator_set_voltage(pcie_dev->cx_vreg->hdl,
-						RPMH_REGULATOR_LEVEL_LOW_SVS,
+						bw_scale->cx_vreg_min,
 						pcie_dev->cx_vreg->max_v);
 
 		if (pcie_dev->rate_change_clk) {
