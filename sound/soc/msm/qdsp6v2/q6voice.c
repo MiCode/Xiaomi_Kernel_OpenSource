@@ -1,4 +1,5 @@
 /*  Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6415,7 +6416,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		data->payload_size, data->opcode);
 
 	if (data->opcode == RESET_EVENTS) {
-		pr_debug("%s: Reset event received in Voice service\n",
+		pr_err("%s: Reset event received in Voice service\n",
 				__func__);
 
 		if (common.mvs_info.ssr_cb) {

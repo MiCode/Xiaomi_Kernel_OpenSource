@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,7 +159,7 @@
 #define PP_DEFER_PROGRAM_MASK	(PP_PROGRAM_IGC | PP_PROGRAM_PGC | \
 				PP_PROGRAM_ARGC | PP_PROGRAM_GAMUT | \
 				PP_PROGRAM_PA | PP_PROGRAM_DITHER | \
-						PP_PROGRAM_PA_DITHER)
+				PP_PROGRAM_PA_DITHER)
 #define PP_PROGRAM_ALL	(PP_NORMAL_PROGRAM_MASK | PP_DEFER_PROGRAM_MASK)
 
 enum mdss_mdp_perf_state_type {

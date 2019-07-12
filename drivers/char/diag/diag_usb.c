@@ -1,4 +1,5 @@
-/* Copyright (c) 2014-2016, 2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,11 +309,13 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	if (!ch || !req)
 		return;
 
+	spin_lock_irqsave(&ch->write_lock, flags);
 	ch->write_cnt++;
 	entry = diag_usb_buf_tbl_get(ch, req->context);
 	if (!entry) {
 		pr_err_ratelimited("diag: In %s, unable to find entry %pK in the table\n",
 				   __func__, req->context);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
 	if (atomic_read(&entry->ref_count) != 0) {
@@ -320,11 +323,11 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 			 atomic_read(&entry->ref_count));
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
 		diagmem_free(driver, req, ch->mempool);
+		spin_unlock_irqrestore(&ch->write_lock, flags);
 		return;
 	}
 	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
 		 ctxt);
-	spin_lock_irqsave(&ch->write_lock, flags);
 	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
@@ -337,8 +340,8 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	buf = NULL;
 	len = 0;
 	ctxt = 0;
-	spin_unlock_irqrestore(&ch->write_lock, flags);
 	diagmem_free(driver, req, ch->mempool);
+	spin_unlock_irqrestore(&ch->write_lock, flags);
 }
 
 static void diag_usb_notifier(void *priv, unsigned event,

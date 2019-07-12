@@ -2,6 +2,7 @@
  * Inode based directory notification for Linux
  *
  * Copyright (C) 2005 John McCutchan
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 
 #ifndef _UAPI_LINUX_INOTIFY_H
@@ -49,6 +50,7 @@ struct inotify_event {
 #define IN_MOVE			(IN_MOVED_FROM | IN_MOVED_TO) /* moves */
 
 /* special flags */
+#define IN_MIUI_FLAG		0x00001000
 #define IN_ONLYDIR		0x01000000	/* only watch the path if it is a directory */
 #define IN_DONT_FOLLOW		0x02000000	/* don't follow a sym link */
 #define IN_EXCL_UNLINK		0x04000000	/* exclude events on unlinked objects */
@@ -64,7 +66,7 @@ struct inotify_event {
 #define IN_ALL_EVENTS	(IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
 			 IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
 			 IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
-			 IN_MOVE_SELF)
+			 IN_MOVE_SELF | IN_MIUI_FLAG)
 
 /* Flags for sys_inotify_init1.  */
 #define IN_CLOEXEC O_CLOEXEC

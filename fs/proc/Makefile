@@ -23,6 +23,7 @@ proc-y	+= version.o
 proc-y	+= softirqs.o
 proc-y	+= namespaces.o
 proc-y	+= self.o
+proc-y	+= hwinfo.o
 proc-y	+= thread_self.o
 proc-$(CONFIG_PROC_UID)  += uid.o
 proc-$(CONFIG_PROC_SYSCTL)	+= proc_sysctl.o

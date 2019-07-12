@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1729,7 +1730,8 @@ error_regulators_get:
 void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma)
 {
 	mutex_lock(&dma->lock);
-	BUG_ON(dma->ref_count == 0);
+	if (WARN_ON(!dma->ref_count))
+		goto err;
 
 	if (--dma->ref_count == 0) {
 		msm_jpegdma_hw_halt(dma);
@@ -1747,6 +1749,7 @@ void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma)
 	}
 	/* Reset clock rate, need to be updated on next processing */
 	dma->active_clock_rate = -1;
+err:
 	mutex_unlock(&dma->lock);
 }
 

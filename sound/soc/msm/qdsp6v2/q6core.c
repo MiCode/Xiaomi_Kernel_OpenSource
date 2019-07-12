@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,7 +207,7 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	}
 
 	case RESET_EVENTS:{
-		pr_debug("%s: Reset event received in Core service\n",
+		pr_err("%s: Reset event received in Core service\n",
 			__func__);
 		apr_reset(q6core_lcl.core_handle_q);
 		q6core_lcl.core_handle_q = NULL;

@@ -2,6 +2,7 @@
  * Inode based directory notification for Linux
  *
  * Copyright (C) 2005 John McCutchan
+ * Copyright (C) 2019 XiaoMi, Inc.
  */
 #ifndef _LINUX_INOTIFY_H
 #define _LINUX_INOTIFY_H
@@ -17,6 +18,6 @@ extern struct ctl_table inotify_table[]; /* for sysctl */
 			  IN_DELETE_SELF | IN_MOVE_SELF | IN_UNMOUNT | \
 			  IN_Q_OVERFLOW | IN_IGNORED | IN_ONLYDIR | \
 			  IN_DONT_FOLLOW | IN_EXCL_UNLINK | IN_MASK_ADD | \
-			  IN_ISDIR | IN_ONESHOT)
+			  IN_ISDIR | IN_ONESHOT | IN_MIUI_FLAG)
 
 #endif	/* _LINUX_INOTIFY_H */

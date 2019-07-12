@@ -216,6 +216,12 @@ struct sensorb_cfg_data32 {
 	} cfg;
 };
 
+struct sensorb_info_fusion_id32 {
+	char sensor_type;
+	compat_uptr_t data_buffer;
+	char data_nums;
+};
+
 struct msm_ois_params_t32 {
 	uint16_t data_size;
 	uint16_t setting_size;
@@ -288,6 +294,9 @@ struct msm_flash_cfg_data_t32 {
 
 #define VIDIOC_MSM_LASER_LED_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct msm_laser_led_cfg_data_t32)
+
+#define VIDIOC_MSM_READ_FUSION_ID32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct sensorb_info_fusion_id32)
 
 #endif
 

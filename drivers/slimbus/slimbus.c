@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2041,6 +2042,8 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 	int i, ret = 0;
 
 	if (!ctrl || !chanh || !prop || !nchan)
+		return -EINVAL;
+	if (prop->ratem == 0)
 		return -EINVAL;
 	mutex_lock(&ctrl->sched.m_reconf);
 	for (i = 0; i < nchan; i++) {

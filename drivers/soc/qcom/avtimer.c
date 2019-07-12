@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
 
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +106,7 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	}
 
 	case RESET_EVENTS:{
-		pr_debug("%s: Reset event received in AV timer\n", __func__);
+		pr_err("%s: Reset event received in AV timer\n", __func__);
 		apr_reset(avtimer.core_handle_q);
 		avtimer.core_handle_q = NULL;
 		avtimer.avtimer_open_cnt = 0;

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +86,7 @@ struct pl_data *the_chip;
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
+	PR_OEM          = BIT(1),
 };
 
 static int debug_mask;
@@ -241,7 +243,12 @@ static ssize_t slave_pct_store(struct class *c, struct class_attribute *attr,
 	if (kstrtoul(ubuf, 10, &val))
 		return -EINVAL;
 
-	chip->slave_pct = val;
+	pl_dbg(chip, PR_OEM, "Parallel CT %ld\n", val);
+	if (val >= 50 && val <= 100)
+		chip->slave_pct = 50;
+	else
+		chip->slave_pct = val;
+
 	rerun_election(chip->fcc_votable);
 	rerun_election(chip->fv_votable);
 	split_settled(chip);
@@ -603,7 +610,7 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		}
 	}
 
-	pl_dbg(chip, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
+	pl_dbg(chip, PR_OEM, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
 		   master_fcc_ua, slave_fcc_ua,
 		   (master_fcc_ua * 100) / total_fcc_ua,
 		   (slave_fcc_ua * 100) / total_fcc_ua);
@@ -848,6 +855,8 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 
 	if (client == NULL)
 		icl_ua = INT_MAX;
+
+	pr_info("%s: set icl %d\n", __func__, icl_ua);
 
 	/*
 	 * Disable parallel for new ICL vote - the call to split_settled will

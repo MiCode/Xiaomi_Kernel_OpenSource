@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,7 +140,7 @@
 #define	FLASH_LED_IRES_BASE			3
 #define	FLASH_LED_IRES_DIVISOR			2500
 #define	FLASH_LED_IRES_MIN_UA			5000
-#define	FLASH_LED_IRES_DEFAULT_UA		12500
+#define	FLASH_LED_IRES_DEFAULT_UA		13000
 #define	FLASH_LED_IRES_DEFAULT_VAL		0x00
 #define	FLASH_LED_HDRM_VOL_SHIFT		4
 #define	FLASH_LED_HDRM_VOL_DEFAULT_MV		0x80

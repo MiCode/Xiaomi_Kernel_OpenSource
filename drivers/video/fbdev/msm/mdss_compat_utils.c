@@ -129,8 +129,9 @@ static void  __copy_atomic_commit_struct(struct mdp_layer_commit  *commit,
 	commit->commit_v1.left_roi = commit32->commit_v1.left_roi;
 	commit->commit_v1.right_roi = commit32->commit_v1.right_roi;
 	commit->commit_v1.bl_level = commit32->commit_v1.bl_level;
+
 	memcpy(&commit->commit_v1.reserved, &commit32->commit_v1.reserved,
-		count);
+					count);
 }
 
 static struct mdp_input_layer32 *__create_layer_list32(

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -185,6 +186,7 @@
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
 #define QPNP_WLED_SINK_TEST5_HVG_PULL_STR_BIT	BIT(3)
 
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE	0x0F
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
 
@@ -572,11 +574,11 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
 	int i, rc;
 	u8 reg;
-	u16 low_limit = WLED_MAX_LEVEL_4095 * 4 / 1000;
+
 
 	/* WLED's lower limit of operation is 0.4% */
-	if (level > 0 && level < low_limit)
-		level = low_limit;
+
+
 
 	/* set brightness registers */
 	for (i = 0; i < wled->max_strings; i++) {
@@ -1517,7 +1519,7 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &fault_sts);
 	if (rc < 0) {
 		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
 	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
@@ -1551,6 +1553,9 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 		}
 	}
 
+end:
+	disable_irq_nosync(wled->ovp_irq);
+	wled->ovp_irq_disabled = true;
 	return IRQ_HANDLED;
 }
 
@@ -1960,6 +1965,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == 1600)
 		reg = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	else if (wled->switch_freq_khz == 600)
+		reg = QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE;
 	else
 		reg = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 
@@ -2244,6 +2251,39 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	return 0;
 }
+
+int qpnp_wled_cabc(struct led_classdev *led_cdev, bool enable)
+{
+	struct qpnp_wled *wled;
+	int rc = 0, i;
+	u8 reg = 0;
+
+	wled = container_of(led_cdev, struct qpnp_wled, cdev);
+	if (wled == NULL) {
+		pr_err("wled is null\n");
+		return -EPERM;
+	}
+	wled->en_cabc = enable;
+	for (i = 0; i < wled->num_strings; i++) {
+		/* CABC */
+		rc = qpnp_wled_read_reg(wled,
+				QPNP_WLED_CABC_REG(wled->sink_base,
+					wled->strings[i]), &reg);
+		if (rc < 0)
+			return rc;
+		reg &= ~QPNP_WLED_CABC_MASK;
+		reg |= (wled->en_cabc << QPNP_WLED_CABC_SHIFT);
+		rc = qpnp_wled_write_reg(wled,
+				QPNP_WLED_CABC_REG(wled->sink_base,
+					wled->strings[i]), reg);
+		if (rc)
+			return rc;
+		pr_debug("%d en_cabc %d\n", i, wled->en_cabc);
+	}
+	return rc;
+}
+
+EXPORT_SYMBOL_GPL(qpnp_wled_cabc);
 
 /* parse wled dtsi parameters */
 static int qpnp_wled_parse_dt(struct qpnp_wled *wled)

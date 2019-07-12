@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +107,7 @@ static int32_t qdsp_apr_callback(struct apr_client_data *data, void *priv)
 
 	if (data->opcode == RESET_EVENTS) {
 		if (data->reset_proc == APR_DEST_QDSP6) {
-			pr_debug("%s: Received ADSP reset event\n", __func__);
+			pr_err("%s: Received ADSP reset event\n", __func__);
 
 			if (prtd->apr_q6_mvm != NULL) {
 				apr_reset(prtd->apr_q6_mvm);

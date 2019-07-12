@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1775,6 +1776,17 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	}
 
 	of_property_read_u32(node, "qcom,system-load", &reg->system_load);
+	if (regulator_type == RPM_REGULATOR_TYPE_BOB) {
+		of_property_read_u32(node, "qcom,bob-pwm-threshold-current",
+					&reg->hpm_threshold_current);
+		pr_info("%s: hpm current was %d\n", __func__, reg->hpm_threshold_current);
+		if (reg->hpm_threshold_current > 0)
+			init_data->constraints.valid_modes_mask
+				= REGULATOR_MODE_FAST;
+		else
+			init_data->constraints.valid_modes_mask
+				= REGULATOR_MODE_NORMAL;
+	}
 
 	rc = rpm_vreg_configure_pin_control_enable(reg, node);
 	if (rc) {
@@ -1806,6 +1818,28 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 		pr_err("regulator_register failed: %s, rc=%d\n",
 			reg->rdesc.name, rc);
 		goto fail_remove_from_list;
+	}
+
+	if (regulator_type == RPM_REGULATOR_TYPE_BOB) {
+		of_property_read_u32(node, "qcom,bob-pwm-threshold-current",
+					&reg->hpm_threshold_current);
+		if (reg->hpm_threshold_current > 0) {
+			RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PWM);
+			rc = rpm_vreg_aggregate_requests(reg);
+			if (rc) {
+				vreg_err(reg, "set BoB mode failed, rc=%d\n", rc);
+				RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_AUTO);
+			} else
+				vreg_err(reg, "%s: set BoB PWM mode\n", __func__);
+		} else {
+			RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_AUTO);
+			rc = rpm_vreg_aggregate_requests(reg);
+			if (rc) {
+				vreg_err(reg, "set BoB AUTO mode failed, rc=%d\n", rc);
+				RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_AUTO);
+			} else
+				vreg_err(reg, "maxin1: %s: set BoB auto mode\n", __func__);
+		}
 	}
 
 	platform_set_drvdata(pdev, reg);

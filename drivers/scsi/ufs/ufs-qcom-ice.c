@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,8 @@
 #define UFS_QCOM_ICE_COMPLETION_TIMEOUT_MS 500
 
 #define UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN	0
+
+static struct workqueue_struct *ice_workqueue;
 
 static void ufs_qcom_ice_dump_regs(struct ufs_qcom_host *qcom_host, int offset,
 					int len, char *prefix)
@@ -224,6 +227,8 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 	}
 
 	qcom_host->dbg_print_en |= UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN;
+	ice_workqueue = alloc_workqueue("ice-set-key",
+			WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	INIT_WORK(&qcom_host->ice_cfg_work, ufs_qcom_ice_cfg_work);
 
 out:
@@ -284,7 +289,7 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 				if (!qcom_host->work_pending) {
 					qcom_host->req_pending = cmd->request;
 
-					if (!schedule_work(
+					if (!queue_work(ice_workqueue,
 						&qcom_host->ice_cfg_work)) {
 						qcom_host->req_pending = NULL;
 
@@ -404,7 +409,7 @@ int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
 				if (!qcom_host->work_pending) {
 
 					qcom_host->req_pending = cmd->request;
-					if (!schedule_work(
+					if (!queue_work(ice_workqueue,
 						&qcom_host->ice_cfg_work)) {
 						qcom_host->req_pending = NULL;
 

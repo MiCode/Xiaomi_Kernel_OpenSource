@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -1898,6 +1899,31 @@ struct afe_rtac_user_data_get_v3 {
 	struct param_hdr_v3 param_hdr;
 } __packed;
 #define AFE_PORT_CMD_SET_PARAM_V2	0x000100EF
+
+struct afe_port_param_data_v2 {
+	u32 module_id;
+/* ID of the module to be configured.
+ * Supported values: Valid module ID
+ */
+
+u32 param_id;
+/* ID of the parameter corresponding to the supported parameters
+ * for the module ID.
+ * Supported values: Valid parameter ID
+ */
+
+u16 param_size;
+/* Actual size of the data for the
+ * module_id/param_id pair. The size is a
+ * multiple of four bytes.
+ * Supported values: > 0
+ */
+
+u16 reserved;
+/* This field must be set to zero.
+ */
+} __packed;
+
 struct afe_port_cmd_set_param_v2 {
 	/* APR Header */
 	struct apr_hdr apr_hdr;

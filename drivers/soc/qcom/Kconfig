@@ -993,4 +993,9 @@ config EXT_ANC
 	 This option enables support for anti-noise cnacellation
 	 on Sensor DSP.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	 Provide a interface for reading CPU serial number
+
 source "drivers/soc/qcom/memshare/Kconfig"

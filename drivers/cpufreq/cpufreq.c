@@ -2,6 +2,7 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ *  Copyright (C) 2019 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
  *            (C) 2013 Viresh Kumar <viresh.kumar@linaro.org>
  *
@@ -925,7 +926,10 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
-	ssize_t ret;
+	ssize_t ret = -EINVAL;
+
+	if (!cpu_maps_update_trybegin())
+		return ret;
 
 	down_read(&policy->rwsem);
 
@@ -935,6 +939,7 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 		ret = -EIO;
 
 	up_read(&policy->rwsem);
+	cpu_maps_update_done();
 
 	return ret;
 }
@@ -945,6 +950,9 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
 	ssize_t ret = -EINVAL;
+
+	if (!cpu_maps_update_trybegin())
+		return ret;
 
 	get_online_cpus();
 
@@ -961,6 +969,7 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
 	up_write(&policy->rwsem);
 unlock:
 	put_online_cpus();
+	cpu_maps_update_done();
 
 	return ret;
 }

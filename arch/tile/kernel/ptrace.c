@@ -1,5 +1,6 @@
 /*
  * Copyright 2010 Tilera Corporation. All Rights Reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  *   This program is free software; you can redistribute it and/or
  *   modify it under the terms of the GNU General Public License
@@ -262,7 +263,7 @@ int do_syscall_trace_enter(struct pt_regs *regs)
 	if (work & _TIF_NOHZ)
 		user_exit();
 
-	if (secure_computing() == -1)
+	if (secure_computing(NULL) == -1)
 		return -1;
 
 	if (work & _TIF_SYSCALL_TRACE) {

@@ -30,7 +30,8 @@
 #include <linux/slab.h> /* kmem_* */
 #include <linux/types.h>
 #include <linux/sched.h>
-
+#include <linux/rtc.h>
+#include <linux/printk.h>
 #include "inotify.h"
 
 /*
@@ -75,6 +76,13 @@ int inotify_handle_event(struct fsnotify_group *group,
 	int ret;
 	int len = 0;
 	int alloc_len = sizeof(struct inotify_event_info);
+	const char *pname = NULL;
+	const char *gname = NULL;
+	char tgid[10] = "\0";
+	char time_info[30] = "\0";
+	int tgid_len = 0, pname_len = 0, gname_len = 0, time_len = 0;
+	struct timeval now;
+	struct rtc_time tm;
 
 	BUG_ON(vfsmount_mark);
 
@@ -88,6 +96,24 @@ int inotify_handle_event(struct fsnotify_group *group,
 	if (file_name) {
 		len = strlen(file_name);
 		alloc_len += len + 1;
+		if (current != NULL && (inode_mark->mask & IN_MIUI_FLAG)) {
+			pname = current->comm;
+			pname_len = strlen(pname) + 1;
+			tgid_len = 10;
+			snprintf(tgid, 10, "%d", current->tgid);
+			if (current->group_leader != NULL) {
+				gname = current->group_leader->comm;
+				gname_len = strlen(gname) + 1;
+			}
+			do_gettimeofday(&now);
+			rtc_time_to_tm(now.tv_sec, &tm);
+			time_len = 30;
+			snprintf(time_info, 30, "%04d-%02d-%02d %02d:%02d:%02d", tm.tm_year+1900
+					, tm.tm_mon+1, tm.tm_mday
+					, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+			alloc_len += pname_len + tgid_len + gname_len + time_len;
+		}
 	}
 
 	pr_debug("%s: group=%p inode=%p mask=%x\n", __func__, group, inode,
@@ -105,8 +131,22 @@ int inotify_handle_event(struct fsnotify_group *group,
 	event->wd = i_mark->wd;
 	event->sync_cookie = cookie;
 	event->name_len = len;
-	if (len)
+	if (len) {
 		strcpy(event->name, file_name);
+		if (pname_len != 0 && (inode_mark->mask & IN_MIUI_FLAG)) {
+			event->name_len += pname_len + tgid_len + gname_len + time_len;
+			strlcat(event->name, "//", event->name_len);
+			strlcat(event->name, tgid, event->name_len);
+			if (gname_len != 0) {
+				strlcat(event->name, "_", event->name_len);
+				strlcat(event->name, gname, event->name_len);
+			}
+			strlcat(event->name, "_", event->name_len);
+			strlcat(event->name, pname, event->name_len);
+			strlcat(event->name, "_", event->name_len);
+			strlcat(event->name, time_info, event->name_len);
+		}
+	}
 
 	ret = fsnotify_add_event(group, fsn_event, inotify_merge);
 	if (ret) {

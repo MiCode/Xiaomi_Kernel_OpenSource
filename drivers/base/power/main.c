@@ -1021,7 +1021,7 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 	pm_callback_t callback = NULL;
 	char *info = NULL;
 	int error = 0;
-
+	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
 	TRACE_DEVICE(dev);
 	TRACE_SUSPEND(0);
 
@@ -1032,6 +1032,8 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 
 	if (pm_wakeup_pending()) {
 		async_error = -EBUSY;
+		pm_get_active_wakeup_sources(suspend_abort, MAX_SUSPEND_ABORT_LEN);
+		log_suspend_abort_reason(suspend_abort);
 		goto Complete;
 	}
 
@@ -1166,7 +1168,7 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 	pm_callback_t callback = NULL;
 	char *info = NULL;
 	int error = 0;
-
+	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
 	TRACE_DEVICE(dev);
 	TRACE_SUSPEND(0);
 
@@ -1179,6 +1181,8 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 
 	if (pm_wakeup_pending()) {
 		async_error = -EBUSY;
+		pm_get_active_wakeup_sources(suspend_abort, MAX_SUSPEND_ABORT_LEN);
+		log_suspend_abort_reason(suspend_abort);
 		goto Complete;
 	}
 

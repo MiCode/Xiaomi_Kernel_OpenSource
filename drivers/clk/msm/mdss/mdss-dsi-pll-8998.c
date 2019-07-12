@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +192,7 @@ static void dsi_pll_config_slave(struct mdss_pll_resources *rsc)
 	rsc->slave = NULL;
 
 	if (!orsc) {
-		pr_warn("slave PLL unavilable, assuming standalone config\n");
+		pr_debug("slave PLL unavilable, assuming standalone config\n");
 		return;
 	}
 

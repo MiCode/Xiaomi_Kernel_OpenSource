@@ -99,6 +99,12 @@ config ANDROID_VSOC
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
 
+config MULTIPLE_LMK
+       bool "Multiple lowmemorykiller"
+       default n
+       ---help---
+        Provide multiple kill in LMK routine
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"

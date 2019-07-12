@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -409,6 +410,13 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	if (strcmp(votable->name, "FG_WS") != 0) {
+		pr_info("%s: current vote is now %d voted by %s,%d,previous voted %d\n",
+					votable->name, effective_result,
+					get_client_str(votable, effective_id),
+					effective_id, votable->effective_result);
 	}
 
 	/*
