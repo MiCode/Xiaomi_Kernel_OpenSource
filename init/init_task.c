@@ -94,6 +94,9 @@ struct task_struct init_task
 #ifdef CONFIG_CGROUP_SCHED
 	.sched_task_group = &root_task_group,
 #endif
+#ifdef CONFIG_SCHED_TUNE
+	.stune_idx	= 0,
+#endif
 	.ptraced	= LIST_HEAD_INIT(init_task.ptraced),
 	.ptrace_entry	= LIST_HEAD_INIT(init_task.ptrace_entry),
 	.real_parent	= &init_task,
