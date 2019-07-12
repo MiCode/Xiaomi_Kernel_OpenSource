@@ -354,16 +354,12 @@ static const char * const comm_muxes_mt6779[] = { "mm" };
 
 static const char * const comm_icc_path_names_mt6779[] = { "mmsys_path" };
 
-static const bool hrt_comm_ports_mt6779[][MMQOS_MAX_COMM_PORT_NUM] = {
-	{ false, false, false, false, false, false, true, true, true },
-};
-
 static const struct mtk_mmqos_desc mmqos_desc_mt6779 = {
 	.nodes = node_descs_mt6779,
 	.num_nodes = ARRAY_SIZE(node_descs_mt6779),
 	.comm_muxes = comm_muxes_mt6779,
 	.comm_icc_path_names = comm_icc_path_names_mt6779,
-	.hrt_comm_ports = hrt_comm_ports_mt6779,
+	.max_ratio = 40,
 };
 
 

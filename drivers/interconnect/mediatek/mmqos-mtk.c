@@ -32,7 +32,8 @@ static void mmqos_update_comm_bw(struct device *dev,
 		comm_bw = (mix_bw << 8) / freq;
 
 	if (comm_bw)
-		value = (comm_bw & 0xfff) | (bw_peak > 0) ? 0x1000 : 0x3000;
+		value = ((comm_bw > 0xfff) ? 0xfff : comm_bw) |
+				((bw_peak > 0) ? 0x1000 : 0x3000);
 	else
 		value = 0x1200;
 
@@ -80,8 +81,8 @@ static void set_comm_icc_bw_handler(struct work_struct *work)
 	list_for_each_entry(comm_port_node, &mmqos->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
-		if (comm_port_node->hrt)
-			peak_bw += comm_port_node->latest_peak_bw;
+		peak_bw += (comm_port_node->latest_peak_bw
+				& ~(MTK_MMQOS_MAX_BW));
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
 	icc_set_bw(comm_node->icc_path, avg_bw, peak_bw);
@@ -95,6 +96,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	struct common_node *comm_node;
 	struct mtk_mmqos *mmqos = container_of(dst->provider,
 					struct mtk_mmqos, prov);
+	u32 value;
 
 	switch (dst->id >> 16) {
 	case MTK_MMQOS_NODE_COMMON:
@@ -116,11 +118,14 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	case MTK_MMQOS_NODE_LARB:
 		larb_port_node = (struct larb_port_node *)src->data;
 		larb_node = (struct larb_node *)dst->data;
+		value = SHIFT_ROUND(
+			icc_to_MBps(larb_port_node->base->mix_bw),
+			larb_port_node->bw_ratio);
+		if (value > mmqos->max_ratio)
+			value = mmqos->max_ratio;
 		mtk_smi_larb_bw_set(
 			larb_node->larb_dev,
-			src->id & 0xff, SHIFT_ROUND(
-			icc_to_MBps(larb_port_node->base->mix_bw),
-			larb_port_node->bw_ratio));
+			src->id & 0xff, value);
 		break;
 	default:
 		break;
@@ -154,7 +159,10 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	}
 
 	*agg_avg += avg_bw;
-	*agg_peak += peak_bw;
+	if (peak_bw == MTK_MMQOS_MAX_BW)
+		*agg_peak |= MTK_MMQOS_MAX_BW;
+	else
+		*agg_peak += peak_bw;
 	return 0;
 }
 
@@ -306,8 +314,6 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 				ret = -ENOMEM;
 				goto err;
 			}
-			comm_port_node->hrt = mmqos_desc->hrt_comm_ports[
-					node->id >> 8 & 0xff][node->id & 0xff];
 			mutex_init(&comm_port_node->bw_lock);
 			comm_port_node->common = node->links[0]->data;
 			INIT_LIST_HEAD(&comm_port_node->list);
@@ -355,6 +361,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	data->num_nodes = mmqos_desc->num_nodes;
 	mmqos->prov.data = data;
+	mmqos->max_ratio = mmqos_desc->max_ratio;
 
 	mmqos->wq = create_singlethread_workqueue("mmqos_work_queue");
 	if (!mmqos->wq) {

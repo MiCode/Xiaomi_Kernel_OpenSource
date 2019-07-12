@@ -36,7 +36,6 @@ struct common_port_node {
 	u32 latest_peak_bw;
 	u32 latest_avg_bw;
 	struct list_head list;
-	bool hrt;
 };
 
 struct larb_node {
@@ -56,6 +55,7 @@ struct mtk_mmqos {
 	struct list_head comm_list;
 	struct list_head comm_port_list;
 	struct workqueue_struct *wq;
+	u32 max_ratio;
 };
 
 struct mtk_node_desc {
@@ -70,7 +70,7 @@ struct mtk_mmqos_desc {
 	const size_t num_nodes;
 	const char * const *comm_muxes;
 	const char * const *comm_icc_path_names;
-	const bool (*hrt_comm_ports)[MMQOS_MAX_COMM_PORT_NUM];
+	const u32 max_ratio;
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _link) {	\
