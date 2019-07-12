@@ -140,6 +140,7 @@ int synx_activate(struct synx_table_row *row)
 int synx_deinit_object(struct synx_table_row *row)
 {
 	s32 synx_obj;
+	struct synx_client *client;
 	struct synx_callback_info *synx_cb, *temp_cb;
 	struct synx_cb_data  *upayload_info, *temp_upayload;
 
@@ -163,21 +164,45 @@ int synx_deinit_object(struct synx_table_row *row)
 	 * dma fence array will release all the allocated mem
 	 * in its registered release function.
 	 */
-	if (!is_merged_synx(row))
+	if (!is_merged_synx(row)) {
 		kfree(row->fence);
 
-	list_for_each_entry_safe(upayload_info, temp_upayload,
-			&row->user_payload_list, list) {
-		pr_err("pending user callback payload\n");
-		list_del_init(&upayload_info->list);
-		kfree(upayload_info);
-	}
+		/*
+		 * invoke remaining userspace and kernel callbacks on
+		 * synx obj destroyed, not signaled, with cancellation
+		 * event.
+		 */
+		list_for_each_entry_safe(upayload_info, temp_upayload,
+				&row->user_payload_list, list) {
+			upayload_info->data.status =
+				SYNX_CALLBACK_RESULT_CANCELED;
+			memcpy(&upayload_info->data.payload_data[2],
+				&upayload_info->data.payload_data[0],
+				sizeof(u64));
+			client = upayload_info->client;
+			if (!client) {
+				pr_err("invalid client member in cb list\n");
+				continue;
+			}
+			spin_lock_bh(&client->eventq_lock);
+			list_move_tail(&upayload_info->list, &client->eventq);
+			spin_unlock_bh(&client->eventq_lock);
+			/*
+			 * since cb can be registered by multiple clients,
+			 * wake the process right away
+			 */
+			wake_up_all(&client->wq);
+			pr_debug("dispatched user cb\n");
+		}
 
-	list_for_each_entry_safe(synx_cb, temp_cb,
-			&row->callback_list, list) {
-		pr_err("pending kernel callback payload\n");
-		list_del_init(&synx_cb->list);
-		kfree(synx_cb);
+		list_for_each_entry_safe(synx_cb, temp_cb,
+				&row->callback_list, list) {
+			synx_cb->status = SYNX_CALLBACK_RESULT_CANCELED;
+			list_del_init(&synx_cb->list);
+			queue_work(synx_dev->work_queue,
+				&synx_cb->cb_dispatch_work);
+			pr_debug("dispatched kernel cb\n");
+		}
 	}
 
 	clear_bit(row->index, synx_dev->bitmap);

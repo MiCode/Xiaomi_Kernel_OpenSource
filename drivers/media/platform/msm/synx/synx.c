@@ -453,13 +453,6 @@ int synx_release(s32 synx_obj)
 	fence = row->fence;
 	idx = row->index;
 	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
-	if (synx_status_locked(row) == SYNX_STATE_ACTIVE) {
-		pr_err("need to signal before release synx = 0x%x\n",
-			synx_obj);
-		spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
-		return -EINVAL;
-	}
-
 	/*
 	 * we need to clear the metadata for merged synx obj upon synx_release
 	 * itself as it does not invoke the synx_fence_release function.
