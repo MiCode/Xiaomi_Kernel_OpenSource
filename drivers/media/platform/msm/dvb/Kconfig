@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DVB_MPQ
+	tristate "Qualcomm Technologies Inc Multimedia Processor DVB Adapter"
+	depends on ARCH_QCOM && DVB_CORE
+	default n
+
+	help
+	Support for Qualcomm Technologies Inc MPQ based DVB adapter.
+	DVB Adapter implements Digital Video Broadcasting devices according
+	to LinuxTV (http://www.linuxtv.org) defined API and infrastructure.
+	Implemented devices are dvb/demux devices, dvb/dvr devices and
+	dvb/video devices.
+	Say Y or M if you own such a device and want to use it.
+
+source "drivers/media/platform/msm/dvb/demux/Kconfig"
