@@ -109,3 +109,126 @@ int ipa_eth_uc_send_cmd(enum ipa_eth_uc_op op, u32 protocol,
 	return rc;
 }
 EXPORT_SYMBOL(ipa_eth_uc_send_cmd);
+
+/* Define IPA hardware constants not available from IPA header files */
+
+#define IPA_HW_DIR_PRODUCER 0
+#define IPA_HW_DIR_CONSUMER 1
+
+#define IPA_HW_CH_ID_INVALID 0xFF
+#define IPA_HW_PROTOCOL_INVALID 0xFFFFFFFF
+
+static u32 find_uc_protocol(struct ipa_eth_device *eth_dev)
+{
+	int protocol;
+	struct ipa_eth_channel *ch;
+
+	list_for_each_entry(ch, &eth_dev->rx_channels, channel_list) {
+		protocol = ipa_get_prot_id(ch->ipa_client);
+		if (protocol >= 0)
+			return lower_32_bits(protocol);
+	}
+
+	list_for_each_entry(ch, &eth_dev->tx_channels, channel_list) {
+		protocol = ipa_get_prot_id(ch->ipa_client);
+		if (protocol >= 0)
+			return lower_32_bits(protocol);
+	}
+
+	return IPA_HW_PROTOCOL_INVALID;
+}
+
+static int find_client_channel(enum ipa_client_type client)
+{
+	const struct ipa_gsi_ep_config *gsi_ep_cfg;
+
+	gsi_ep_cfg = ipa3_get_gsi_ep_info(client);
+	if (!gsi_ep_cfg)
+		return -EFAULT;
+
+	return gsi_ep_cfg->ipa_gsi_chan_num;
+}
+
+int ipa_eth_uc_stats_init(struct ipa_eth_device *eth_dev)
+{
+	return 0;
+}
+
+int ipa_eth_uc_stats_deinit(struct ipa_eth_device *eth_dev)
+{
+	u32 protocol = find_uc_protocol(eth_dev);
+
+	if (protocol == IPA_HW_PROTOCOL_INVALID)
+		return -EFAULT;
+
+	return ipa_uc_debug_stats_dealloc(protocol);
+}
+
+static void __fill_stats_info(
+	struct ipa_eth_channel *ch,
+	struct IpaOffloadStatschannel_info *ch_info,
+	bool start)
+{
+	ch_info->dir = IPA_ETH_CH_IS_RX(ch) ?
+			IPA_HW_DIR_CONSUMER : IPA_HW_DIR_PRODUCER;
+
+	if (start) {
+		int gsi_ch = find_client_channel(ch->ipa_client);
+
+		if (gsi_ch < 0) {
+			ipa_eth_dev_err(ch->eth_dev,
+				"Failed to determine GSI channel for client %d",
+				ch->ipa_client);
+			gsi_ch = IPA_HW_CH_ID_INVALID;
+		}
+
+		ch_info->ch_id = (u8) gsi_ch;
+	} else {
+		ch_info->ch_id = IPA_HW_CH_ID_INVALID;
+	}
+}
+
+static int ipa_eth_uc_stats_control(struct ipa_eth_device *eth_dev, bool start)
+{
+	int stats_idx = 0;
+	struct ipa_eth_channel *ch;
+	u32 protocol = find_uc_protocol(eth_dev);
+	struct IpaHwOffloadStatsAllocCmdData_t stats_info;
+
+	if (protocol == IPA_HW_PROTOCOL_INVALID) {
+		ipa_eth_dev_err(eth_dev, "Failed find to uC protocol");
+		return -EFAULT;
+	}
+
+	memset(&stats_info, 0, sizeof(stats_info));
+
+	stats_info.protocol = protocol;
+
+	list_for_each_entry(ch, &eth_dev->rx_channels, channel_list) {
+		if (stats_idx == IPA_MAX_CH_STATS_SUPPORTED)
+			break;
+
+		__fill_stats_info(ch,
+			&stats_info.ch_id_info[stats_idx++], start);
+	}
+
+	list_for_each_entry(ch, &eth_dev->tx_channels, channel_list) {
+		if (stats_idx == IPA_MAX_CH_STATS_SUPPORTED)
+			break;
+
+		__fill_stats_info(ch,
+			&stats_info.ch_id_info[stats_idx++], start);
+	}
+
+	return ipa_uc_debug_stats_alloc(stats_info);
+}
+
+int ipa_eth_uc_stats_start(struct ipa_eth_device *eth_dev)
+{
+	return ipa_eth_uc_stats_control(eth_dev, true);
+}
+
+int ipa_eth_uc_stats_stop(struct ipa_eth_device *eth_dev)
+{
+	return ipa_eth_uc_stats_control(eth_dev, false);
+}
