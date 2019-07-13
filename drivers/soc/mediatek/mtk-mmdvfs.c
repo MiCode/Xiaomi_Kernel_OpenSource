@@ -14,6 +14,7 @@
 
 static struct dentry *mmdvfs_debugfs_dir;
 
+#define MMDVFS_DBG
 
 #define MAX_OPP_NUM (6)
 #define MAX_MUX_NUM (10)
@@ -192,10 +193,53 @@ static const struct file_operations mmdvfs_setting_fops = {
 	.release = single_release,
 };
 
+#ifdef MMDVFS_DBG
+struct mmdvfs_dbg_data {
+	struct mmdvfs_drv_data *drv_data;
+	struct regulator *reg;
+	u32 max_voltage;
+};
+static int force_clk_set(void *data, u64 val)
+{
+	struct mmdvfs_dbg_data *dbg_data = (struct mmdvfs_dbg_data *)data;
+	struct mmdvfs_drv_data *drv_data = dbg_data->drv_data;
+	s32 ret;
+
+	if (val == 0) {
+		set_all_muxes(drv_data, drv_data->request_voltage);
+		ret = devm_regulator_register_notifier(
+				dbg_data->reg, &drv_data->nb);
+		if (ret)
+			pr_notice("Failed to register notifier: %d\n", ret);
+		regulator_set_voltage(dbg_data->reg, 0, dbg_data->max_voltage);
+	} else {
+		devm_regulator_unregister_notifier(
+				dbg_data->reg, &drv_data->nb);
+		if (val > drv_data->request_voltage) {
+			regulator_set_voltage(
+				dbg_data->reg, val, dbg_data->max_voltage);
+			set_all_muxes(drv_data, val);
+		} else {
+			set_all_muxes(drv_data, val);
+			regulator_set_voltage(
+				dbg_data->reg, val, dbg_data->max_voltage);
+		}
+	}
+
+	pr_notice("%s: val=%llu\n", __func__, val);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(force_clk_ops, NULL, force_clk_set, "%llu\n");
+#endif /* MMDVFS_DBG */
+
 static int mmdvfs_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mmdvfs_drv_data *drv_data;
+#ifdef MMDVFS_DBG
+	struct mmdvfs_dbg_data *dbg_data;
+#endif
 	struct regulator *reg;
 	u32 num_mux = 0;
 	u32 num_clksrc, index;
@@ -210,10 +254,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
 		return -ENOMEM;
-	dentry = debugfs_create_file("setting", 0444,
-			    mmdvfs_debugfs_dir, drv_data, &mmdvfs_setting_fops);
-	if (IS_ERR(dentry))
-		return PTR_ERR(dentry);
 
 	of_property_for_each_string(
 		dev->of_node, "mediatek,support_mux", mux_prop, mux_name) {
@@ -246,6 +286,30 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	reg = devm_regulator_get(dev, "dvfsrc-vcore");
 	if (IS_ERR(reg))
 		return PTR_ERR(reg);
+
+	mmdvfs_debugfs_dir = debugfs_create_dir("mmdvfs", NULL);
+	if (IS_ERR(mmdvfs_debugfs_dir))
+		pr_notice("Failed to create debugfs dir mmdvfs: %d\n",
+			PTR_ERR(mmdvfs_debugfs_dir));
+	dentry = debugfs_create_file("setting", 0444,
+			mmdvfs_debugfs_dir, drv_data, &mmdvfs_setting_fops);
+	if (IS_ERR(dentry))
+		pr_notice("Failed to create debugfs setting: %d\n",
+			PTR_ERR(dentry));
+#ifdef MMDVFS_DBG
+	dbg_data = devm_kzalloc(dev, sizeof(*dbg_data), GFP_KERNEL);
+	if (!dbg_data)
+		return -ENOMEM;
+	dbg_data->drv_data = drv_data;
+	dbg_data->reg = reg;
+	dbg_data->max_voltage = drv_data->voltages[index-1];
+	dentry = debugfs_create_file("force_clk", 0200,
+			mmdvfs_debugfs_dir, dbg_data, &force_clk_ops);
+	if (IS_ERR(dentry))
+		pr_notice("Failed to create debugfs force_clk: %d\n",
+			PTR_ERR(dentry));
+#endif
+
 	drv_data->nb.notifier_call = regulator_event_notify;
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
 	if (ret)
@@ -266,10 +330,6 @@ static struct platform_driver mmdvfs_drv = {
 static int __init mtk_mmdvfs_init(void)
 {
 	s32 status;
-
-	mmdvfs_debugfs_dir = debugfs_create_dir("mmdvfs", NULL);
-	if (IS_ERR(mmdvfs_debugfs_dir))
-		return PTR_ERR(mmdvfs_debugfs_dir);
 
 	status = platform_driver_register(&mmdvfs_drv);
 	if (status) {
