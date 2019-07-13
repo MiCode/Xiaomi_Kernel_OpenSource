@@ -173,6 +173,7 @@ int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
 	case CNSS_BUS_WIDTH_LOW:
 	case CNSS_BUS_WIDTH_MEDIUM:
 	case CNSS_BUS_WIDTH_HIGH:
+	case CNSS_BUS_WIDTH_VERY_HIGH:
 		ret = msm_bus_scale_client_update_request
 			(bus_bw_info->bus_client, bandwidth);
 		if (!ret)
