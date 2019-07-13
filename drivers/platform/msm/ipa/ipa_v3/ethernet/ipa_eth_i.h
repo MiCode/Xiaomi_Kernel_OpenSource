@@ -194,6 +194,11 @@ int ipa_eth_pm_deactivate(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_pm_vote_bw(struct ipa_eth_device *eth_dev);
 
+int ipa_eth_uc_stats_init(struct ipa_eth_device *eth_dev);
+int ipa_eth_uc_stats_deinit(struct ipa_eth_device *eth_dev);
+int ipa_eth_uc_stats_start(struct ipa_eth_device *eth_dev);
+int ipa_eth_uc_stats_stop(struct ipa_eth_device *eth_dev);
+
 /* ipa_eth_utils.c APIs */
 
 const char *ipa_eth_device_event_name(enum ipa_eth_device_event event);
